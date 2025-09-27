@@ -3,78 +3,66 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hygiene VR — ห้องฝึกอนามัยส่วนบุคคล</title>
+  <title>Energy Runner VR — Prototype</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
-    .hud2d { position: fixed; right: 12px; top: 12px; z-index: 10; font-family: system-ui, Arial; background: rgba(0,0,0,.45); color:#fff; padding:10px 14px; border-radius:12px; min-width:260px }
-    .hud2d b { font-size: 18px }
-    .ui2d { position: fixed; left: 12px; bottom: 12px; z-index: 10; font-family: system-ui, Arial; display:flex; gap:8px; flex-wrap:wrap }
-    .ui2d button { padding:10px 12px; border-radius:12px; border:none; font-weight:700; background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2) }
+    body { margin:0; font-family:system-ui,Arial }
+    .hud {position:fixed;right:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:10px 14px;border-radius:12px;min-width:260px}
+    .hud h1{margin:0 0 6px 0;font-size:18px}
+    .ui {position:fixed;left:12px;bottom:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap}
+    .ui button{padding:10px 12px;border-radius:12px;border:none;font-weight:700;background:#79a8ff;color:#001;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer}
+    .help {position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:8px 12px;border-radius:12px;max-width:420px;font-size:14px}
+    .help kbd{padding:2px 6px;border-radius:6px;background:#111}
   </style>
 </head>
 <body>
-  <div class="ui2d">
-    <button id="btnReset">รีเซ็ตสถานีทั้งหมด</button>
-  </div>
-  <div class="hud2d">
-    <div><b>Hygiene VR</b></div>
-    <div id="status">เดินไปยังสถานีต่าง ๆ แล้วทำภารกิจให้สำเร็จ</div>
-    <div>⭐ สถานีที่สำเร็จ: <span id="doneCount">0</span>/4</div>
+  <div class="help">
+    <b>Energy Runner VR — Controls</b><br>
+    Desktop: <kbd>Space</kbd>=Jump, <kbd>Ctrl</kbd>=Duck, <kbd>A/D</kbd>=Lean L/R, <kbd>W/S</kbd>=Speed ±, <kbd>R</kbd>=Reset<br>
+    VR: ใช้คอนโทรลเลอร์ — <b>Trigger ขวา</b>=Jump, <b>Trigger ซ้าย</b>=Duck, โยกสติ๊กซ้าย/ขวาเพื่อ Lean<br>
+    โหมด: Practice = ไม่มีจับเวลา, Challenge = จับเวลา 60 วิ + มีคะแนน
   </div>
 
-  <a-scene renderer="antialias:true; colorManagement:true" background="color:#0e1726">
-    <!-- Rig / Controllers -->
-    <a-entity id="rig" position="0 1.6 3">
-      <a-entity id="camera" camera look-controls wasd-controls="acceleration: 20"></a-entity>
-      <a-entity id="ctrlR" laser-controls="hand: right" raycaster="objects: .clickable" line="color: #79a8ff"></a-entity>
-      <a-entity id="ctrlL" laser-controls="hand: left" raycaster="objects: .clickable" line="color: #79a8ff"></a-entity>
-      <a-entity id="cursor" cursor="fuse:false" raycaster="objects: .clickable" position="0 0 -0.1">
-        <a-ring radius-inner="0.004" radius-outer="0.006" color="#fff"></a-ring>
-      </a-entity>
+  <div class="hud">
+    <h1>Energy Runner VR</h1>
+    <div>โหมด: <span id="modeText">Practice</span></div>
+    <div>เวลา: <span id="timeText">—</span></div>
+    <div>คะแนน: <span id="scoreText">0</span></div>
+    <div>ระยะทาง: <span id="distText">0 m</span></div>
+    <div>พลังงาน (Orbs): <span id="orbText">0</span></div>
+    <div>ชีวิต: <span id="lifeText">❤❤❤</span></div>
+    <div id="status">กด Start เพื่อเริ่ม</div>
+  </div>
+
+  <div class="ui">
+    <button id="btnPractice">Practice</button>
+    <button id="btnChallenge">Challenge</button>
+    <button id="btnStart">Start</button>
+    <button id="btnReset">Reset</button>
+  </div>
+
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0e1726">
+    <!-- Rig -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity id="cam" camera look-controls></a-entity>
+      <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
+      <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
     </a-entity>
 
-    <!-- Lights / Room -->
-    <a-entity light="type: ambient; color: #BBD1FF; intensity: 0.6"></a-entity>
+    <!-- Lights -->
+    <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
     <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
-    <a-plane rotation="-90 0 0" width="30" height="20" color="#0b1220" position="0 0 0"></a-plane>
-    <a-box color="#14213d" position="0 1.2 -3" depth="0.2" height="2.4" width="8"></a-box>
 
-    <!-- Signage -->
-    <a-entity position="0 2.2 -2.9" text="value: ห้องฝึกอนามัยส่วนบุคคล — เดินไปยังสถานี 1–4; align:center; color:#CFE8FF; width:8"></a-entity>
+    <!-- Ground -->
+    <a-plane rotation="-90 0 0" width="30" height="300" color="#0b1220" position="0 0 -60"></a-plane>
 
-    <!-- Station 1: Handwashing (7 steps) -->
-    <a-entity id="station1" position="-6 0 -6">
-      <a-box color="#22395e" position="0 0.75 0" depth="1.2" height="0.05" width="2.6"></a-box>
-      <a-entity position="0 1.4 0" text="value: สถานี 1 — ล้างมือ 7 ขั้นตอน; align:center; color:#fff; width:4"></a-entity>
-      <a-entity id="handPanel" position="0 1 0"></a-entity>
-    </a-entity>
+    <!-- Track root -->
+    <a-entity id="track"></a-entity>
 
-    <!-- Station 2: Toothbrushing (zones + timer) -->
-    <a-entity id="station2" position="-2 0 -6">
-      <a-box color="#22395e" position="0 0.75 0" depth="1.2" height="0.05" width="2.6"></a-box>
-      <a-entity position="0 1.4 0" text="value: สถานี 2 — แปรงฟัน 2 นาที (ทำให้ครบทุกโซน); align:center; color:#fff; width:4"></a-entity>
-      <a-entity id="toothPanel" position="0 1 0"></a-entity>
-    </a-entity>
-
-    <!-- Station 3: Mask wearing -->
-    <a-entity id="station3" position="2 0 -6">
-      <a-box color="#22395e" position="0 0.75 0" depth="1.2" height="0.05" width="2.6"></a-box>
-      <a-entity position="0 1.4 0" text="value: สถานี 3 — สวมหน้ากากให้ถูก; align:center; color:#fff; width:4"></a-entity>
-      <a-entity id="maskPanel" position="0 1 0"></a-entity>
-    </a-entity>
-
-    <!-- Station 4: Cough etiquette -->
-    <a-entity id="station4" position="6 0 -6">
-      <a-box color="#22395e" position="0 0.75 0" depth="1.2" height="0.05" width="2.6"></a-box>
-      <a-entity position="0 1.4 0" text="value: สถานี 4 — ไอจามถูกวิธี; align:center; color:#fff; width:4"></a-entity>
-      <a-entity id="coughPanel" position="0 1 0"></a-entity>
-    </a-entity>
-
-    <!-- Assets -->
     <a-assets>
+      <audio id="beep" src="assets/beep.wav"></audio>
       <audio id="pickup" src="assets/pickup.wav"></audio>
-      <audio id="place" src="assets/place.wav"></audio>
-      <audio id="error" src="assets/error.wav"></audio>
+      <audio id="hit" src="assets/hit.wav"></audio>
       <audio id="win" src="assets/win.wav"></audio>
     </a-assets>
 
