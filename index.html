@@ -1,274 +1,101 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-<title>Health Hub — Mobile Ready (Full)</title>
-<link rel="stylesheet" href="./assets/css/style.css"/>
-<script src="./assets/js/config.js"></script>
-<script src="./assets/js/helpers.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-</head><body>
-<div class="container">
-  <h1>Health Game Hub — Mobile Ready (Full)</h1>
-  <p class="small">รองรับมือถือ (Android/iOS) • ปุ่มอนุญาตเซนเซอร์ • ฟอลแบ็ก • Export Excel • Leaderboard (Sheets)</p>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>เกมอนามัยส่วนบุคคล — Hygiene Heroes</title>
+  <link rel="preload" as="audio" href="assets/click.wav">
+  <style>
+    :root{
+      --bg:#0f172a; --panel:#0b1220; --card:#12223c; --text:#e6eefc; --muted:#9fb3d9;
+      --ok:#28c76f; --warn:#ffd166; --bad:#ff6b6b; --accent:#79a8ff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,Arial;background:var(--bg);color:var(--text)}
+    header{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--panel);position:sticky;top:0;z-index:5}
+    header h1{font-size:18px;margin:0}
+    header select, header button{padding:10px 12px;border-radius:12px;border:0;background:#1b2a41;color:var(--text);font-weight:700}
+    #wrap{display:grid;grid-template-columns: 320px 1fr 320px;gap:12px;padding:12px}
+    .box{background:var(--panel);border-radius:14px;padding:12px}
+    .catalog{display:grid;grid-template-columns: repeat(2, minmax(0, 1fr)); gap:8px; max-height:68vh; overflow:auto}
+    .item{background:var(--card); border-radius:12px; padding:8px; cursor:pointer; display:flex; gap:8px; align-items:center}
+    .item img{width:44px;height:44px;border-radius:10px}
+    .item h4{margin:0 0 2px 0; font-size:14px}
+    .item small{color:var(--muted)}
+    /* Play area */
+    #play{min-height:420px; border:2px dashed #2d4164; border-radius:14px; padding:12px; display:flex; flex-direction:column; gap:8px; align-items:center; justify-content:center}
+    canvas{background:#0f1a2e; border-radius:12px; max-width:100%}
+    .btn{background:var(--accent); color:#001; border:0; border-radius:12px; padding:10px 12px; font-weight:700; cursor:pointer}
+    .btn.secondary{background:#1b2a41;color:var(--text)}
+    .row{display:flex; gap:8px; align-items:center; justify-content:space-between}
+    .stat{background:var(--card); border-radius:12px; padding:10px}
+    .stat b{display:block; font-size:12px; color:var(--muted)}
+    .pill{padding:2px 8px; border-radius:999px; font-size:12px}
+    .good{background:rgba(40,199,111,.15); color:var(--ok)}
+    .warn{background:rgba(255,209,102,.15); color:var(--warn)}
+    .bad{background:rgba(255,107,107,.15); color:var(--bad)}
+    #guide{font-size:14px;color:var(--muted)}
+    @media (max-width: 980px){ #wrap{grid-template-columns: 1fr; } .catalog{max-height:unset} }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🧑‍⚕️ เกมอนามัยส่วนบุคคล — Hygiene Heroes</h1>
+    <label>เลือกมินิเกม:
+      <select id="mode">
+        <option value="handwash">ล้างมือ 7 ขั้นตอน</option>
+        <option value="toothbrush">แปรงฟัน 2 นาที</option>
+        <option value="mask">สวมหน้ากากให้ถูก</option>
+        <option value="cough">ไอจามถูกวิธี</option>
+      </select>
+    </label>
+    <button id="btnStart">เริ่ม</button>
+    <button id="btnReset">เริ่มใหม่</button>
+  </header>
 
-  <div class="card hide-on-desktop">
-    <h2>📱 ตั้งค่ามือถือ</h2>
-    <p class="small">แตะปุ่มเพื่ออนุญาต Motion/Orientation (iOS)</p>
-    <button id="enableMotion" class="btn">อนุญาตเซนเซอร์ (iOS)</button>
+  <div id="wrap">
+    <section class="box">
+      <h3>มินิเกม</h3>
+      <div class="catalog">
+        <div class="item" data-mode="handwash"><img src="assets/icons/handwash.png"><div><h4>ล้างมือ 7 ขั้นตอน</h4><small>แตะตามลำดับให้ถูกต้อง</small></div></div>
+        <div class="item" data-mode="toothbrush"><img src="assets/icons/toothbrush.png"><div><h4>แปรงฟัน 2 นาที</h4><small>ปัดแปรงครอบคลุมทุกโซน</small></div></div>
+        <div class="item" data-mode="mask"><img src="assets/icons/mask.png"><div><h4>สวมหน้ากากให้ถูก</h4><small>ลากหน้ากาก + จิ้มจุดผิดพลาด</small></div></div>
+        <div class="item" data-mode="cough"><img src="assets/icons/cough.png"><div><h4>ไอจามถูกวิธี</h4><small>ปัดศอกบังปาก + ทิ้งกระดาษ</small></div></div>
+      </div>
+    </section>
+
+    <section class="box">
+      <h3>พื้นที่เล่น</h3>
+      <div id="play">
+        <canvas id="game" width="720" height="420"></canvas>
+        <div class="row">
+          <button class="btn" id="btnAction">คำแนะนำ</button>
+          <button class="btn secondary" id="btnHint">ใบ้</button>
+        </div>
+        <div id="guide">กด "เริ่ม" แล้วทำตามคำสั่งบนจอ</div>
+      </div>
+    </section>
+
+    <section class="box">
+      <h3>สถิติ/การเรียนรู้</h3>
+      <div class="stat"><b>ความคืบหน้า</b><span id="progressText" class="pill good">0%</span></div>
+      <div class="stat"><b>เวลา</b><span id="timeText">00:00</span></div>
+      <div class="stat"><b>ผลลัพธ์</b><div id="result" style="font-weight:700;margin-top:6px"></div></div>
+      <hr style="border-color:#203556; margin:12px 0">
+      <div class="stat"><b>สาระน่ารู้</b><div id="facts" style="font-size:14px;color:var(--muted)">
+        • ล้างมืออย่างน้อย 20 วินาที<br>
+        • แปรงฟัน 2 นาที เช้า-ก่อนนอน<br>
+        • หน้ากากปิดจมูกและปากเสมอ<br>
+        • ไอจามให้ใช้ศอกปิดปาก/จมูก
+      </div></div>
+    </section>
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <h2>👤 ผู้เรียน & เกม</h2>
-      <div class="row">
-        <div><div class="label">Student ID</div><input id="studentId" placeholder="STD001"/></div>
-        <div><div class="label">ชื่อ–สกุล</div><input id="studentName" placeholder="เด็กชาย A"/></div>
-        <div><div class="label">ห้อง/ชั้น</div><input id="classId" placeholder="P5-A"/></div>
-        <div><div class="label">โรงเรียน</div><input id="school" placeholder="BKK School"/></div>
-      </div>
-      <div class="controls">
-        <button id="setStudent" class="btn">ตั้งเป็นผู้เรียนปัจจุบัน</button>
-        <button id="goProfile" class="btn secondary">เปิดหน้าโปรไฟล์</button>
-        <span id="activeStudentLabel" class="small">ยังไม่ตั้งผู้เรียน</span>
-      </div>
-      <div class="row" style="grid-template-columns:2fr 1fr">
-        <div>
-          <div class="label">เลือกเกม</div>
-          <select id="gameSelect">
-            <option value="handwash">🧼 Handwash Quest</option>
-            <option value="nutrition">🥗 Nutrition Shop</option>
-            <option value="dance">💃 Move & Dance</option>
-            <option value="toothbrush">🪥 Toothbrush Dash</option>
-            <option value="hydration">💧 Hydration Hero</option>
-            <option value="balance">🧘 Balance Ninja</option>
-            <option value="germdefender">🦠 Germ Defender</option>
-            <option value="foodrush">🍎 Healthy Food Rush</option>
-          </select>
-        </div>
-        <div style="display:flex;align-items:end;gap:8px">
-          <button id="openBtn" class="btn">เปิดเกม</button>
-          <button id="resetAll" class="btn danger">รีเซ็ตสถิติ</button>
-        </div>
-      </div>
-      <div class="note">หากเปิดใน Spatial.io ให้ใช้ URL ของไฟล์ <b>embed.html</b> ของแต่ละเกม</div>
-      <iframe id="stage" title="Stage"></iframe>
-    </div>
+  <audio id="click" src="assets/click.wav" preload="auto"></audio>
+  <audio id="success" src="assets/success.wav" preload="auto"></audio>
+  <audio id="error" src="assets/error.wav" preload="auto"></audio>
+  <audio id="win" src="assets/win.wav" preload="auto"></audio>
 
-    <div class="card">
-      <h2>🏆 Leaderboard & Export</h2>
-      <div class="controls">
-        <button id="syncSend" class="btn">ส่งข้อมูลขึ้น Sheets</button>
-        <button id="syncFetchClass" class="btn secondary">ดึงอันดับ — ห้อง</button>
-        <button id="syncFetchSchool" class="btn secondary">ดึงอันดับ — โรงเรียน</button>
-        <button id="syncFetchDistrict" class="btn secondary">ดึงอันดับ — เขต</button>
-      </div>
-      <div class="controls">
-        <div>
-          <div class="label">ช่วงเวลา</div>
-          <select id="period">
-            <option value="week">สัปดาห์นี้</option>
-            <option value="month">เดือนนี้</option>
-          </select>
-        </div>
-        <button id="exportExcel" class="btn">Export Excel</button>
-        <a href="./dashboard_class.html" class="btn secondary" target="_blank">Class Dashboard</a>
-        <a href="./dashboard_school.html" class="btn secondary" target="_blank">School Dashboard</a>
-      </div>
-      <div class="kpi">
-        <div class="item"><h3>คะแนนสะสม</h3><div class="val" id="k_totalPoints">0</div></div>
-        <div class="item"><h3>เกมที่จบ</h3><div class="val" id="k_totalComps">0</div></div>
-        <div class="item"><h3>Badge ได้แล้ว</h3><div class="val" id="k_badgesCount">0</div></div>
-        <div class="item"><h3>โบนัสจาก Badge</h3><div class="val" id="k_badgeBonus">0</div></div>
-      </div>
-      <h2 style="margin-top:10px">อันดับระดับห้อง</h2>
-      <table class="table" id="tblClass"><thead><tr><th>อันดับ</th><th>SID</th><th>ชื่อ</th><th>คะแนน</th><th>เกมจบ</th></tr></thead><tbody></tbody></table>
-      <h2 style="margin-top:10px">อันดับระดับโรงเรียน</h2>
-      <table class="table" id="tblSchool"><thead><tr><th>อันดับ</th><th>SID</th><th>ชื่อ</th><th>ห้อง</th><th>คะแนน</th><th>เกมจบ</th></tr></thead><tbody></tbody></table>
-      <h2 style="margin-top:10px">อันดับระดับเขตการศึกษา</h2>
-      <table class="table" id="tblDistrict"><thead><tr><th>อันดับ</th><th>SID</th><th>ชื่อ</th><th>โรงเรียน</th><th>ห้อง</th><th>คะแนน</th></tr></thead><tbody></tbody></table>
-    </div>
-  </div>
-
-  <div class="footer">© Health Game WebXR Suite — Mobile Ready (Full)</div>
-</div>
-
-<script>
-MobileReady.enableMotionIfNeeded('enableMotion');
-
-const games = {
-  handwash:     {name:'Handwash Quest', url:'./handwash/embed.html', code:'HWQ'},
-  nutrition:    {name:'Nutrition Shop', url:'./nutrition/embed.html', code:'NUT'},
-  dance:        {name:'Move & Dance',   url:'./dance/embed.html',     code:'DANCE'},
-  toothbrush:   {name:'Toothbrush Dash',url:'./toothbrush/embed.html',code:'TOOTH'},
-  hydration:    {name:'Hydration Hero', url:'./hydration/embed.html', code:'HYDR'},
-  balance:      {name:'Balance Ninja',  url:'./balance/embed.html',   code:'BAL'},
-  germdefender: {name:'Germ Defender',  url:'./germdefender/embed.html', code:'GERM'},
-  foodrush:     {name:'Healthy Food Rush', url:'./foodrush/embed.html',  code:'FOOD'}
-};
-const LSKEY='healthCloud_badges_mobile_full_v4';
-function load(){ try{return JSON.parse(localStorage.getItem(LSKEY))||{students:{}};}catch(e){return {students:{}};} }
-function save(d){ localStorage.setItem(LSKEY, JSON.stringify(d)); }
-function ensureStudent(d, sid){
-  if(!d.students[sid]) d.students[sid]={ name:'', classId:'', school:'', days:{}, streak:0, totals:{points:0, comps:0, badgeBonus:0}, games:{}, badges:{}, playLog:[] };
-  for(const k in games){ if(!d.students[sid].games[k]) d.students[sid].games[k]={ sessions:0, completions:0, totalSeconds:0, bestScore:0, bestTime:null }; }
-}
-function $(q){ return document.querySelector(q); }
-function today(){ return new Date().toISOString().slice(0,10); }
-function weekStart(d){ const dt=new Date(d); const day=(dt.getDay()+6)%7; dt.setDate(dt.getDate()-day); dt.setHours(0,0,0,0); return dt; }
-function monthStart(d){ const dt=new Date(d); dt.setDate(1); dt.setHours(0,0,0,0); return dt; }
-function inTimeWindow(ts,start,end){
-  const t = new Date(ts); const hh = t.getHours()*60 + t.getMinutes();
-  const [sH,sM]=start.split(':').map(Number); const [eH,eM]=end.split(':').map(Number);
-  const a = sH*60+sM, b=eH*60+eM;
-  return hh>=a && hh<=b;
-}
-
-let ACTIVE=null;
-$('#setStudent').addEventListener('click', ()=>{
-  const sid=$('#studentId').value.trim();
-  const name=$('#studentName').value.trim();
-  const classId=$('#classId').value.trim();
-  const school=$('#school').value.trim();
-  if(!sid) return alert('กรุณากรอก Student ID');
-  const d=load(); ensureStudent(d,sid);
-  d.students[sid].name=name; d.students[sid].classId=classId; d.students[sid].school=school;
-  save(d); ACTIVE=sid; $('#activeStudentLabel').textContent=`ผู้เรียนปัจจุบัน: ${sid} (${name||'-'}) • ห้อง ${classId||'-'} • ${school||''}`;
-  render();
-});
-$('#goProfile').addEventListener('click', ()=>{ if(!ACTIVE){alert('ตั้งผู้เรียนก่อน');return;} window.open('./profile.html?sid='+encodeURIComponent(ACTIVE),'_blank'); });
-$('#resetAll').addEventListener('click', ()=>{ if(confirm('ล้างข้อมูลทุกคนในเครื่องนี้?')){ localStorage.removeItem(LSKEY); ACTIVE=null; render(); } });
-$('#openBtn').addEventListener('click', ()=>{
-  if(!ACTIVE) return alert('ตั้งผู้เรียนก่อน');
-  const key=$('#gameSelect').value; $('#stage').src=games[key].url;
-  const d=load(); ensureStudent(d,ACTIVE);
-  const stu=d.students[ACTIVE]; const day=today(); stu.days[day]=true;
-  const days=Object.keys(stu.days).sort(); let streak=0,last=null;
-  for(let i=days.length-1;i>=0;i--){
-    const dd=days[i]; if(!last){streak=1; last=dd; continue;}
-    const diff=(new Date(last)-new Date(dd))/86400000; if(diff===1){ streak++; last=dd;} else break;
-  }
-  stu.streak=streak; stu.games[key].sessions+=1; save(d);
-});
-
-function awardBadgesIfAny(stu){
-  const cfg=(window.HealthSuiteConfig && window.HealthSuiteConfig.badges)||[];
-  const newly=[]; const now = new Date(); const wStart = weekStart(now); const mStart = monthStart(now);
-  function allGamesCompletedOnce(){ for(const k in games){ if((stu.games[k].completions||0)<1) return false; } return true; }
-  function totalCompletions(){ let s=0; for(const k in games){ s+=stu.games[k].completions||0; } return s; }
-  function gameScoreAtLeast(key, score){ return (stu.games[key].bestScore||0) >= score; }
-  function anyBestTimeLTE(sec){ for(const k in games){ const bt=stu.games[k].bestTime; if(bt!=null && bt<=sec) return true; } return false; }
-  function weeklyGameCountAtLeast(key, n){ return (stu.playLog||[]).filter(x=> x.game===key && new Date(x.ts)>=wStart ).length >= n; }
-  function weeklyGameCountOnWeekdays(key, n){
-    const cnt=(stu.playLog||[]).filter(x=>{ const t=new Date(x.ts); const dow=t.getDay(); return x.game===key && t>=wStart && dow>=1 && dow<=5; }).length;
-    return cnt>=n;
-  }
-  function monthlyGameCountAtLeast(key, n){ return (stu.playLog||[]).filter(x=> x.game===key && new Date(x.ts)>=mStart ).length >= n; }
-  function monthlyTimeWindowCountAtLeast(start,end,n){
-    const cnt=(stu.playLog||[]).filter(x=> new Date(x.ts)>=mStart && (function(ts){ const t=new Date(ts); const hh=t.getHours()*60+t.getMinutes(); const [sH,sM]=start.split(':').map(Number); const [eH,eM]=end.split(':').map(Number); const a=sH*60+sM, b=eH*60+eM; return hh>=a && hh<=b; })(x.ts)).length;
-    return cnt>=n;
-  }
-  for(const b of cfg){
-    let ok=false;
-    if(b.rule==='allGamesCompletedOnce') ok=allGamesCompletedOnce();
-    if(b.rule==='totalCompletionsAtLeast') ok=totalCompletions() >= (b.n||0);
-    if(b.rule==='streakAtLeast') ok=(stu.streak||0) >= (b.days||3);
-    if(b.rule==='anyBestTimeLTE') ok=anyBestTimeLTE(b.seconds||30);
-    if(b.rule==='gameScoreAtLeast') ok=gameScoreAtLeast(b.game, b.score||0);
-    if(b.rule==='weeklyGameCountAtLeast') ok=weeklyGameCountAtLeast(b.game, b.n||0);
-    if(b.rule==='weeklyGameCountOnWeekdays') ok=weeklyGameCountOnWeekdays(b.game, b.n||0);
-    if(b.rule==='monthlyGameCountAtLeast') ok=monthlyGameCountAtLeast(b.game, b.n||0);
-    if(b.rule==='monthlyTimeWindowCountAtLeast') ok=monthlyTimeWindowCountAtLeast(b.start||'06:00', b.end||'08:00', b.n||0);
-    if(ok && !stu.badges[b.id]){ stu.badges[b.id]={ label:b.label, bonus:b.bonus||0, at:new Date().toISOString() }; stu.totals.badgeBonus += (b.bonus||0); stu.totals.points += (b.bonus||0); newly.push(b); }
-  }
-  return newly;
-}
-
-window.addEventListener('message', (e)=>{
-  const m=e.data||{}; if(!m.type || !ACTIVE) return;
-  const code=m.type.split('_')[0]; const action=m.type.split('_')[1];
-  let key=null; for(const k in games){ if(games[k].code===code) key=k; }
-  if(!key || action!=='COMPLETE') return;
-  const score = (typeof m.score==='number')? m.score : 0;
-  const seconds = (typeof m.seconds==='number')? m.seconds : 0;
-  const weight = (window.HealthSuiteConfig.points && window.HealthSuiteConfig.points[code]) || 1.0;
-  const earned = Math.max(0, Math.round(score * weight));
-  const ts = new Date().toISOString();
-  const d=load(); ensureStudent(d, ACTIVE);
-  const stu=d.students[ACTIVE];
-  const g=stu.games[key];
-  g.completions += 1; g.totalSeconds += seconds;
-  if(score > (g.bestScore||0)) g.bestScore=score;
-  if(g.bestTime==null || seconds<g.bestTime) g.bestTime = seconds;
-  stu.totals.points += earned; stu.totals.comps += 1;
-  stu.playLog.push({ts, game:key, score, seconds});
-  const newly=awardBadgesIfAny(stu);
-  save(d); render();
-  if(newly.length){ alert('ได้ Badge ใหม่: '+newly.map(b=>b.label+' (+'+b.bonus+')').join(', ')); }
-});
-
-async function sendToSheets(){
-  const url=(window.HealthSuiteConfig.sheets && window.HealthSuiteConfig.sheets.writeUrl)||'';
-  if(!url) return alert('ยังไม่ได้ตั้งค่า writeUrl ใน assets/js/config.js');
-  if(!ACTIVE) return alert('ตั้งผู้เรียนก่อน');
-  const d=load(); const s=d.students[ACTIVE];
-  const payload={ ts:new Date().toISOString(), sid:ACTIVE, name:s.name, classId:s.classId, school:s.school, totals:s.totals, games:s.games, badges:s.badges };
-  try{ await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); alert('ส่งข้อมูลขึ้น Sheets แล้ว'); }
-  catch(err){ alert('ส่งไม่สำเร็จ: '+err.message); }
-}
-document.getElementById('syncSend').addEventListener('click', sendToSheets);
-
-async function fetchLeaderboard(params){
-  const base=(window.HealthSuiteConfig.sheets && window.HealthSuiteConfig.sheets.readUrl)||'';
-  if(!base) return alert('ยังไม่ได้ตั้งค่า readUrl ใน assets/js/config.js');
-  const q = Object.entries(params).map(([k,v])=>`${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-  const url = base + (base.includes('?')? '&':'?') + q;
-  try{ const res=await fetch(url); return await res.json(); } catch(err){ alert('ดึงข้อมูลไม่ได้: '+err.message); return null; }
-}
-function fillTable(id, rows, cols){ const tb=document.querySelector('#'+id+' tbody'); tb.innerHTML=''; rows.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML = cols.map(c=> c==='rank'? (i+1) : (r[c]??'') ).map(x=>`<td>${x}</td>`).join(''); tb.appendChild(tr); }); }
-document.getElementById('syncFetchClass').addEventListener('click', async ()=>{
-  if(!ACTIVE) return alert('ตั้งผู้เรียนก่อน'); const d=load(); const s=d.students[ACTIVE];
-  const js=await fetchLeaderboard({scope:'class', classId:s.classId, school:s.school}); if(!js) return;
-  fillTable('tblClass', js.rows, ['rank','sid','name','points','comps']);
-});
-document.getElementById('syncFetchSchool').addEventListener('click', async ()=>{
-  if(!ACTIVE) return alert('ตั้งผู้เรียนก่อน'); const d=load(); const s=d.students[ACTIVE];
-  const js=await fetchLeaderboard({scope:'school', school:s.school}); if(!js) return;
-  fillTable('tblSchool', js.rows, ['rank','sid','name','classId','points','comps']);
-});
-document.getElementById('syncFetchDistrict').addEventListener('click', async ()=>{
-  const js=await fetchLeaderboard({scope:'district'}); if(!js) return;
-  fillTable('tblDistrict', js.rows, ['rank','sid','name','school','classId','points']);
-});
-
-function weekStartJS(){ return weekStart(new Date()); }
-function monthStartJS(){ return monthStart(new Date()); }
-function exportExcel(){
-  if(!ACTIVE) return alert('ตั้งผู้เรียนก่อน');
-  const d=load(); const s=d.students[ACTIVE]; const per=document.getElementById('period').value;
-  const start = (per==='week')? weekStartJS() : monthStartJS();
-  const log=(s.playLog||[]).filter(x=> new Date(x.ts)>=start).map(x=>({Timestamp:x.ts, Game:x.game, Score:x.score, Seconds:x.seconds}));
-  const perGame=Object.keys(s.games||{}).map(k=>({Game:k, Sessions:s.games[k].sessions||0, Completions:s.games[k].completions||0, BestScore:s.games[k].bestScore||0, BestTime:s.games[k].bestTime??''}));
-  const badges=Object.keys(s.badges||{}).map(id=>({Badge:id, Label:s.badges[id].label, Bonus:s.badges[id].bonus||0, At:s.badges[id].at}));
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(log), per==='week'?'WeeklyLog':'MonthlyLog');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(perGame), 'PerGame');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(badges), 'Badges');
-  XLSX.writeFile(wb, `HealthReport_${ACTIVE}_${per}.xlsx`);
-}
-document.getElementById('exportExcel').addEventListener('click', exportExcel);
-
-function render(){
-  const d=load();
-  if(ACTIVE && d.students[ACTIVE]){
-    const s=d.students[ACTIVE];
-    document.getElementById('k_totalPoints').textContent = s.totals.points||0;
-    document.getElementById('k_totalComps').textContent  = s.totals.comps||0;
-    document.getElementById('k_badgesCount').textContent = Object.keys(s.badges||{}).length;
-    document.getElementById('k_badgeBonus').textContent  = s.totals.badgeBonus||0;
-  }else{
-    ['k_totalPoints','k_totalComps','k_badgesCount','k_badgeBonus'].forEach(id=>document.getElementById(id).textContent='0');
-  }
-}
-render();
-</script>
-</body></html>
+  <script src="game.js"></script>
+</body>
+</html>
