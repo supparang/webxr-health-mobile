@@ -3,45 +3,41 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Nutrition Heroes VR — Prototype</title>
+  <title>Personal Hygiene VR — Prototype</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     body{margin:0;font-family:system-ui,Arial}
-    .hud{position:fixed;right:12px;top:12px;z-index:10;background:rgba(0,0,0,.5);color:#fff;padding:10px 14px;border-radius:12px;min-width:310px}
+    .hud{position:fixed;right:12px;top:12px;z-index:10;background:rgba(0,0,0,.5);color:#fff;padding:10px 14px;border-radius:12px;min-width:320px}
     .hud h1{margin:0 0 6px 0;font-size:18px}
     .row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
     .pill{padding:3px 8px;border-radius:999px;background:#111;color:#fff}
     .ok{color:#28c76f} .warn{color:#ffcc00} .bad{color:#ff6b6b}
     .ui{position:fixed;left:12px;bottom:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap;max-width:96vw}
     .ui .group{background:rgba(0,0,0,.5);padding:8px 10px;border-radius:12px;display:flex;gap:8px;align-items:center;color:#fff}
-    .ui button,.ui select,.ui input{padding:8px 10px;border-radius:12px;border:none;font-weight:700;background:#79a8ff;color:#001;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer}
+    .ui button,.ui select{padding:8px 10px;border-radius:12px;border:none;font-weight:700;background:#79a8ff;color:#001;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer}
     .ui button.gray{background:#e5e7eb;color:#111}
-    .help{position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.5);color:#fff;padding:8px 12px;border-radius:12px;max-width:680px;font-size:14px;line-height:1.45}
+    .help{position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.5);color:#fff;padding:8px 12px;border-radius:12px;max-width:740px;font-size:14px;line-height:1.45}
     .help kbd{padding:2px 6px;border-radius:6px;background:#111}
-    .list{font-size:12px;line-height:1.3;max-height:120px;overflow:auto;background:rgba(255,255,255,.06);padding:6px;border-radius:8px}
-    input[type="file"]{background:#111 !important;color:#fff}
+    .quiz{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;background:rgba(0,0,0,.85);color:#fff;padding:16px 18px;border-radius:14px;max-width:520px;display:none}
+    .quiz h3{margin:0 0 8px 0}
+    .quiz button{margin:6px 6px 0 0;padding:8px 10px;border-radius:10px;border:none;background:#79a8ff;color:#001;font-weight:700;cursor:pointer}
+    .hidden{display:none}
   </style>
 </head>
 <body>
   <div class="help">
-    <b>Nutrition Heroes VR — วิธีเล่น</b><br>
-    เดสก์ท็อป: ใช้เมาส์คลิกอาหารบนชั้นวาง → จะย้ายลง “จาน” และอัปเดตโภชนาการ<br>
-    VR: ใช้คอนโทรลเลอร์ (laser) ชี้แล้วคลิกอาหารเพื่อใส่จาน<br>
-    โหมด <span class="pill">Practice</span> ไม่มีจับเวลา / <span class="pill">Challenge</span> มีเป้าหมายพลังงานต่อ “มื้อ”
+    <b>Personal Hygiene VR — วิธีเล่น</b><br>
+    เดสก์ท็อป/VR: ชี้เลเซอร์หรือคลิกที่ **ชิ้นส่วนที่เรืองแสง** ตามลำดับที่ระบบแนะนำในแต่ละสถานี<br>
+    โหมด <span class="pill">Practice</span> ไม่มีจับเวลา / <span class="pill">Challenge</span> มีจับเวลาและสุ่มภารกิจ
   </div>
 
   <div class="hud">
-    <h1>Nutrition Heroes VR</h1>
-    <div class="row">
-      โหมด: <span id="modeText" class="pill">Practice</span>
-      มื้อ: <span id="mealText" class="pill">เช้า</span>
-      เป้าหมาย: <span id="goalText">400–500 kcal</span>
-    </div>
-    <div>kcal: <span id="kcalText">0</span> | โปรตีน: <span id="proText">0 g</span></div>
-    <div>น้ำตาล: <span id="sugarText">0 g</span> | โซเดียม: <span id="sodText">0 mg</span></div>
-    <div>5 หมู่: <span id="groupsText">—</span></div>
-    <div id="status">คลิกอาหารเพื่อเพิ่มลงจาน • กด Finish เพื่อสรุป</div>
-    <div class="list" id="pickedList"></div>
+    <h1>Personal Hygiene VR</h1>
+    <div class="row">โหมด: <span id="modeText" class="pill">Practice</span> | ระดับ: <span id="diffText" class="pill">Normal</span></div>
+    <div>สถานี: <span id="stationText">ล้างมือ</span> | เป้า: <span id="goalText">สำเร็จทีละขั้น</span></div>
+    <div>เวลา: <span id="timeText">—</span> | คะแนน: <span id="scoreText">0</span></div>
+    <div>ความคืบหน้า: <span id="progressText">0 / 0</span></div>
+    <div id="status">กด Start เพื่อเริ่ม</div>
   </div>
 
   <div class="ui">
@@ -50,46 +46,45 @@
       <button id="btnPractice">Practice</button>
       <button id="btnChallenge">Challenge</button>
     </div>
-
     <div class="group">
-      <span>Meal</span>
-      <select id="selMeal">
-        <option value="breakfast">เช้า (400–500 kcal)</option>
-        <option value="lunch">กลางวัน (550–700 kcal)</option>
-        <option value="dinner">เย็น (450–600 kcal)</option>
+      <span>Difficulty</span>
+      <select id="selDiff">
+        <option>Easy</option>
+        <option selected>Normal</option>
+        <option>Hard</option>
       </select>
     </div>
-
     <div class="group">
-      <span>Import Foods</span>
-      <input id="foodFile" type="file" accept="application/json" />
-      <button id="btnImport">Import JSON</button>
-    </div>
-
-    <div class="group">
-      <button id="btnFinish">Finish</button>
-      <button id="btnExport">Export JSON</button>
-      <button id="btnUndo" class="gray">Undo</button>
-      <button id="btnClear" class="gray">Clear</button>
+      <button id="btnStart">Start</button>
+      <button id="btnNext">Next Station</button>
       <button id="btnReset" class="gray">Reset</button>
+      <button id="btnExport">Export JSON</button>
+    </div>
+  </div>
+
+  <div id="quiz" class="quiz">
+    <h3 id="quizQ">คำถาม</h3>
+    <div id="quizA"></div>
+    <div style="margin-top:10px">
+      <button id="quizClose">ปิด</button>
     </div>
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#0e1726">
+    <!-- Rig -->
     <a-entity id="rig" position="0 1.6 3">
       <a-entity id="cam" camera look-controls></a-entity>
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
     </a-entity>
 
+    <!-- Lights -->
     <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
     <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
 
-    <a-cylinder position="0 0 -1" color="#324a6d" radius="1.2" height="0.2"></a-cylinder>
-    <a-cylinder id="plate" position="0 0.3 -1" color="#e5e7eb" radius="0.6" height="0.05"></a-cylinder>
-    <a-entity position="0 0.55 -1" text="value: จานสุขภาพ; align:center; color:#111; width:3"></a-entity>
+    <!-- Stage boards -->
+    <a-entity id="stage"></a-entity>
 
-    <a-entity id="shelves"></a-entity>
     <a-entity id="game"></a-entity>
   </a-scene>
 
