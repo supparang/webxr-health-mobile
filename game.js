@@ -1,4 +1,4 @@
-// Nutrition Heroes VR — Import Foods JSON (URL/Base64 icons supported), no external libs
+// Nutrition Heroes VR — Import + Export Plate JSON
 
 // ---------- SFX ----------
 const SFX = (() => {
@@ -63,6 +63,7 @@ const HUD = {
   btnChallenge: document.getElementById('btnChallenge'),
   selMeal: document.getElementById('selMeal'),
   btnFinish: document.getElementById('btnFinish'),
+  btnExport: document.getElementById('btnExport'),
   btnUndo: document.getElementById('btnUndo'),
   btnClear: document.getElementById('btnClear'),
   btnReset: document.getElementById('btnReset'),
@@ -97,6 +98,7 @@ AFRAME.registerComponent('nutrition-game', {
     };
 
     HUD.btnFinish.onclick = finishPlate;
+    HUD.btnExport.onclick = exportPlate;
     HUD.btnUndo.onclick = undoPick;
     HUD.btnClear.onclick = clearPlate;
     HUD.btnReset.onclick = resetAll;
@@ -223,16 +225,20 @@ function updateHUD(){
     return `${i+1}. ${f.name} (${GROUP_LABEL[f.group]}) +${f.kcal} kcal`;
   }).join('<br>');
 }
-function finishPlate(){
+
+function buildSummary(){
   const meal = MEALS[MEAL_KEY];
   const inRange = totals.kcal >= meal.min && totals.kcal <= meal.max;
   const have5 = ['carb','protein','veg','fruit','dairy'].every(g=> totals.groups.has(g));
   const sugarWarn = totals.sugar > 24;
   const sodiumWarn = totals.sodium > 1500;
-
   let stars = 1;
   if (have5 && inRange) stars = 3; else if (have5 || inRange) stars = 2;
+  return { inRange, have5, sugarWarn, sodiumWarn, stars };
+}
 
+function finishPlate(){
+  const { inRange, have5, sugarWarn, sodiumWarn, stars } = buildSummary();
   let msg = `สรุปผล: ⭐ x${stars} — `;
   msg += have5 ? 'ครบ 5 หมู่, ' : 'ยังไม่ครบ 5 หมู่, ';
   msg += inRange ? 'พลังงานอยู่ในช่วงเป้าหมาย' : 'พลังงานนอกช่วงเป้าหมาย';
@@ -245,13 +251,59 @@ function finishPlate(){
   if (stars>=3 && !sugarWarn && !sodiumWarn) SFX.ok(); else SFX.bad();
 }
 
+// ---------- Export JSON ----------
+function exportPlate(){
+  // เตรียมอ็อบเจกต์ข้อมูลจาน
+  const meal = MEALS[MEAL_KEY];
+  const { inRange, have5, sugarWarn, sodiumWarn, stars } = buildSummary();
+  const items = picked.map(id=>{
+    const f = FOODS.find(x=>x.id===id);
+    return {
+      id: f.id, name: f.name, group: f.group,
+      kcal: f.kcal, protein: f.protein, sugar: f.sugar, sodium: f.sodium
+    };
+  });
+  const payload = {
+    version: "1.0",
+    timestamp: new Date().toISOString(),
+    mode: MODE,
+    mealKey: MEAL_KEY,
+    mealLabel: meal.label,
+    target: { min: meal.min, max: meal.max },
+    items,
+    totals: {
+      kcal: totals.kcal|0,
+      protein: totals.protein|0,
+      sugar: totals.sugar|0,
+      sodium: totals.sodium|0,
+      groups: Array.from(totals.groups)
+    },
+    summary: { stars, inRange, have5, warnings: { sugarHigh: sugarWarn, sodiumHigh: sodiumWarn } }
+  };
+
+  // ดาวน์โหลดเป็นไฟล์ .json
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type: "application/json"});
+  const y = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const filename = `plate_${MEAL_KEY}_${y.getFullYear()}${pad(y.getMonth()+1)}${pad(y.getDate())}_${pad(y.getHours())}${pad(y.getMinutes())}${pad(y.getSeconds())}.json`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+
+  HUD.status.textContent = `Export แล้ว: ${filename}`;
+  SFX.ok();
+}
+
 // ---------- Reset ----------
 function resetAll(){
   MODE = 'Practice'; HUD.mode.textContent = 'Practice';
   MEAL_KEY = 'breakfast'; HUD.selMeal.value = 'breakfast';
   const m = MEALS[MEAL_KEY]; HUD.meal.textContent = m.label; HUD.goal.textContent = `${m.min}–${m.max} kcal`;
   clearPlate();
-  HUD.status.textContent = 'คลิกอาหารเพื่อเพิ่มลงจาน • กด Finish เพื่อสรุป';
+  HUD.status.textContent = 'คลิกอาหารเพื่อเพิ่มลงจาน • กด Finish หรือ Export เพื่อบันทึก';
 }
 
 // ---------- Import JSON ----------
@@ -264,12 +316,9 @@ async function importFoodsFromJSON(){
     const valid = validateFoodsJSON(data);
     if (!valid.ok){ HUD.status.textContent = 'รูปแบบ JSON ไม่ถูกต้อง: ' + valid.error; SFX.bad(); return; }
 
-    // map to FOODS
     FOODS = data.foods.map(normalizeFood);
-    // prepare icons (dataURL fallback)
     FOODS.forEach(f=>{ if(!f.img) f.imgData = makeIconPNG(f.emoji || '🍽️', f.color || '#1f2937'); });
 
-    // rebuild UI/scene
     clearPlate();
     buildShelves();
     updateHUD();
@@ -281,8 +330,6 @@ async function importFoodsFromJSON(){
   }
 }
 function validateFoodsJSON(j){
-  // expected:
-  // { "foods":[ {id, name, group, kcal, protein, sugar, sodium, color?, emoji?, img?}, ... ] }
   if (!j || typeof j !== 'object') return {ok:false, error:'ไม่พบอ็อบเจกต์ JSON'};
   if (!Array.isArray(j.foods)) return {ok:false, error:'ต้องมีฟิลด์ "foods" เป็นอาเรย์'};
   for (const f of j.foods){
@@ -304,7 +351,7 @@ function normalizeFood(f){
     sodium: Number(f.sodium)||0,
     color: f.color || '#64748b',
     emoji: f.emoji || '🍽️',
-    img: f.img || '' // URL หรือ data:image/png;base64,…
+    img: f.img || ''
   };
 }
 
