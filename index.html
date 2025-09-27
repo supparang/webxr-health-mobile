@@ -3,16 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Energy Runner VR — Prototype</title>
+  <title>Energy Runner VR — Prototype (Difficulty + Beat Map)</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
-    body { margin:0; font-family:system-ui,Arial }
-    .hud {position:fixed;right:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:10px 14px;border-radius:12px;min-width:260px}
+    body{margin:0;font-family:system-ui,Arial}
+    .hud{position:fixed;right:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:10px 14px;border-radius:12px;min-width:280px}
     .hud h1{margin:0 0 6px 0;font-size:18px}
-    .ui {position:fixed;left:12px;bottom:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap}
-    .ui button{padding:10px 12px;border-radius:12px;border:none;font-weight:700;background:#79a8ff;color:#001;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer}
-    .help {position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:8px 12px;border-radius:12px;max-width:420px;font-size:14px}
+    .ui{position:fixed;left:12px;bottom:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap;max-width:96vw}
+    .ui button,.ui select,.ui input{padding:8px 10px;border-radius:12px;border:none;font-weight:700;background:#79a8ff;color:#001;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer}
+    .ui input[type="number"]{width:84px;text-align:center}
+    .ui .group{background:rgba(0,0,0,.45);padding:8px 10px;border-radius:12px;display:flex;gap:8px;align-items:center;color:#fff}
+    .help{position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:8px 12px;border-radius:12px;max-width:680px;font-size:14px;line-height:1.4}
     .help kbd{padding:2px 6px;border-radius:6px;background:#111}
+    .pill{padding:3px 8px;border-radius:999px;background:#111;color:#fff;font-weight:700}
+    .label{opacity:.9}
+    @media (max-width: 900px){ .help{max-width:92vw} }
   </style>
 </head>
 <body>
@@ -20,25 +25,50 @@
     <b>Energy Runner VR — Controls</b><br>
     Desktop: <kbd>Space</kbd>=Jump, <kbd>Ctrl</kbd>=Duck, <kbd>A/D</kbd>=Lean L/R, <kbd>W/S</kbd>=Speed ±, <kbd>R</kbd>=Reset<br>
     VR: ใช้คอนโทรลเลอร์ — <b>Trigger ขวา</b>=Jump, <b>Trigger ซ้าย</b>=Duck, โยกสติ๊กซ้าย/ขวาเพื่อ Lean<br>
-    โหมด: Practice = ไม่มีจับเวลา, Challenge = จับเวลา 60 วิ + มีคะแนน
+    โหมด: <span class="pill">Practice</span> = ไม่มีจับเวลา, <span class="pill">Challenge</span> = จับเวลา + คะแนน<br>
+    Beat Map: กำหนด <b>BPM</b>, จำนวน <b>Bars</b> (บาร์ละ 4 จังหวะ), กด <b>Metronome</b> ลองฟัง แล้ว <b>Start</b> เพื่อเล่นซิงค์กับเพลง/จังหวะ
   </div>
 
   <div class="hud">
     <h1>Energy Runner VR</h1>
-    <div>โหมด: <span id="modeText">Practice</span></div>
+    <div>โหมด: <span id="modeText">Practice</span> | ระดับ: <span id="diffText">Normal</span></div>
     <div>เวลา: <span id="timeText">—</span></div>
     <div>คะแนน: <span id="scoreText">0</span></div>
     <div>ระยะทาง: <span id="distText">0 m</span></div>
     <div>พลังงาน (Orbs): <span id="orbText">0</span></div>
     <div>ชีวิต: <span id="lifeText">❤❤❤</span></div>
-    <div id="status">กด Start เพื่อเริ่ม</div>
+    <div>Beat: <span id="beatText">—</span></div>
+    <div id="status">ตั้งค่าโหมด/ความยาก/BPM แล้วกด Start</div>
   </div>
 
   <div class="ui">
-    <button id="btnPractice">Practice</button>
-    <button id="btnChallenge">Challenge</button>
-    <button id="btnStart">Start</button>
-    <button id="btnReset">Reset</button>
+    <div class="group">
+      <span class="label">Mode</span>
+      <button id="btnPractice">Practice</button>
+      <button id="btnChallenge">Challenge</button>
+    </div>
+
+    <div class="group">
+      <span class="label">Difficulty</span>
+      <select id="selDiff">
+        <option>Easy</option>
+        <option selected>Normal</option>
+        <option>Hard</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <span class="label">Beat Map</span>
+      <label class="label">BPM <input id="inpBPM" type="number" value="120" min="60" max="200"/></label>
+      <label class="label">Bars <input id="inpBars" type="number" value="16" min="1" max="256"/></label>
+      <button id="btnMetro">Metronome</button>
+      <input id="musicFile" type="file" accept="audio/*" title="เลือกเพลง" />
+    </div>
+
+    <div class="group">
+      <button id="btnStart">Start</button>
+      <button id="btnReset">Reset</button>
+    </div>
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#0e1726">
@@ -58,13 +88,6 @@
 
     <!-- Track root -->
     <a-entity id="track"></a-entity>
-
-    <a-assets>
-      <audio id="beep" src="assets/beep.wav"></audio>
-      <audio id="pickup" src="assets/pickup.wav"></audio>
-      <audio id="hit" src="assets/hit.wav"></audio>
-      <audio id="win" src="assets/win.wav"></audio>
-    </a-assets>
 
     <a-entity id="game"></a-entity>
   </a-scene>
