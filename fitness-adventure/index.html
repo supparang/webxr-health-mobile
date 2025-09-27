@@ -1,86 +1,115 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fitness Adventure VR — Multi-song + BPM Sync</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Fitness Adventure VR</title>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Plausible Analytics (โดเมนของคุณ) -->
+  <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
+
   <style>
-    .ui { position: fixed; left: 12px; bottom: 12px; z-index: 10; font-family: system-ui, Arial; display:flex; gap:6px; flex-wrap:wrap }
-    .ui button, .ui select, .ui input{ padding:10px 12px; border-radius:12px; border: none; font-weight:600; box-shadow: 0 2px 8px rgba(0,0,0,.15) }
-    .hud { position: fixed; right: 12px; top: 12px; z-index: 10; font-family: system-ui, Arial; background: rgba(0,0,0,.45); color:#fff; padding:10px 14px; border-radius:12px; min-width:200px }
-    .hud b { font-size: 18px }
+    :root { --glass: rgba(0,0,0,.55); }
+    body { margin:0; font-family:system-ui, Arial; background:#0e1726; color:#fff; }
+    .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
+           padding:10px 14px; border-radius:12px; min-width:320px; }
+    .hud h1 { margin:0 0 6px 0; font-size:18px }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 }
+    .pill { padding:2px 8px; border-radius:999px; background:#111; color:#fff }
+    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px; flex-wrap:wrap; }
+    .group { background:var(--glass); padding:8px 10px; border-radius:12px; display:flex; gap:8px; align-items:center }
+    .ui button, .ui select, .ui input[type="checkbox"] { padding:8px 10px; border-radius:12px; border:none; font-weight:700;
+      background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2); cursor:pointer }
+    .ui select { background:#e0e7ff }
+    .ui input[type="checkbox"] { width:20px; height:20px; background:#fff; cursor:pointer }
+    .ui label { font-size:14px; }
+    .ui button.gray { background:#e5e7eb; color:#111 }
+    .help { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
+      padding:8px 12px; border-radius:12px; max-width:780px; font-size:14px; line-height:1.45 }
+    .meter { height:8px; background:#172554; border-radius:999px; overflow:hidden }
+    .meter > span { display:block; height:100%; background:#60a5fa; width:0% }
+    .mini { font-size:12px; opacity:.9 }
   </style>
 </head>
 <body>
+  <div class="help">
+    <b>Fitness Adventure VR</b> — รองรับ <span class="pill">Hand-Tracking + Pinch</span> •
+    เปิด <b>Beat Sync</b> เพื่อสปาวน์เป้าตาม <b>BPM</b> • กด <b>Enter VR</b> มุมขวาล่างเพื่อเล่นในแว่น
+  </div>
+
+  <div class="hud">
+    <h1>Fitness Adventure VR</h1>
+    <div class="row">โหมด: <span id="modeText" class="pill">Practice</span> | ระดับ: <span id="diffText" class="pill">Normal</span></div>
+    <div>ด่าน: <span id="stageText">Warmup</span> | เป้า: <span id="goalText">ทำภารกิจตามลำดับ</span></div>
+    <div>เวลา: <span id="timeText">—</span> | คะแนน: <span id="scoreText">0</span></div>
+    <div class="mini">ความคืบหน้า: <span id="progressText">0 / 0</span></div>
+    <div class="meter" style="margin-top:6px"><span id="meterBar"></span></div>
+    <div id="status" style="margin-top:6px">กด Start เพื่อเริ่ม</div>
+  </div>
+
   <div class="ui">
-    <select id="selectBeat">
-      <option value="assets/beatmap_easy.json">Easy</option>
-      <option value="assets/beatmap_normal.json">Normal</option>
-      <option value="assets/beatmap_hard.json">Hard</option>
-    </select>
-    <select id="selectSong">
-      <option value="assets/song_easy.wav" data-bpm="120">Song: Easy (120 BPM)</option>
-      <option value="assets/song_normal.wav" data-bpm="128">Song: Normal (128 BPM)</option>
-      <option value="assets/song_hard.wav" data-bpm="140">Song: Hard (140 BPM)</option>
-    </select>
-    <label>Custom song <input type="file" id="fileSong" accept="audio/*"></label>
-    <button id="btnStart">Start</button>
-    <button id="btnHow">How to Play</button>
-    <button id="btnPreview">Metronome Preview</button>
-  </div>
-  <div class="hud" id="hud" hidden>
-    <div><b>Fitness Adventure</b></div>
-    <div>Time: <span id="hudTime">60</span>s</div>
-    <div>Score: <span id="hudScore">0</span></div>
-    <div>Combo: <span id="hudCombo">0</span></div>
-    <div>Diff: <span id="hudDiff">0</span>%</div>
+    <div class="group">
+      <span>Mode</span>
+      <button id="btnPractice">Practice</button>
+      <button id="btnChallenge">Challenge</button>
+    </div>
+    <div class="group">
+      <span>Difficulty</span>
+      <select id="selDiff">
+        <option>Easy</option>
+        <option selected>Normal</option>
+        <option>Hard</option>
+      </select>
+    </div>
+    <div class="group">
+      <span>Beat</span>
+      <label style="display:flex;gap:6px;align-items:center;">
+        <input id="chkBeat" type="checkbox" />
+        <span>Beat Sync</span>
+      </label>
+      <select id="selBpm" title="BPM">
+        <option value="90">90 BPM</option>
+        <option value="100" selected>100 BPM</option>
+        <option value="120">120 BPM</option>
+        <option value="140">140 BPM</option>
+      </select>
+    </div>
+    <div class="group">
+      <button id="btnStart">Start</button>
+      <button id="btnNext">Next Stage</button>
+      <button id="btnReset" class="gray">Reset</button>
+      <button id="btnExport">Export JSON</button>
+    </div>
   </div>
 
-  <a-scene renderer="antialias: true; colorManagement: true" background="color: #1e2a38">
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020">
     <a-entity id="rig" position="0 1.6 3">
-      <a-entity id="camera" camera look-controls wasd-controls="enabled:false"></a-entity>
-      <a-entity id="cursor" cursor="fuse:false" raycaster="objects: .clickable" position="0 0 -0.1">
-        <a-ring radius-inner="0.005" radius-outer="0.008" color="#fff"></a-ring>
-      </a-entity>
-      <a-sphere id="leftHand" radius="0.05" color="#66ccff" position="-0.25 1.2 -0.2" opacity="0.5"></a-sphere>
-      <a-sphere id="rightHand" radius="0.05" color="#ff99cc" position="0.25 1.2 -0.2" opacity="0.5"></a-sphere>
+      <a-entity id="cam" camera look-controls></a-entity>
+
+      <!-- Controllers (fallback) -->
+      <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
+      <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
+
+      <!-- Hand tracking -->
+      <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
+      <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
+
+      <!-- Finger cursor -->
+      <a-sphere id="fingerCursor" radius="0.012" color="#ffffaa" position="0 0 -1" visible="false"></a-sphere>
     </a-entity>
 
-    <a-plane rotation="-90 0 0" width="20" height="120" color="#2b3b4d" position="0 0 0"></a-plane>
-    <a-plane rotation="-90 0 0" width="2" height="120" color="#2f4f6f" position="0 0 0"></a-plane>
+    <!-- Lights -->
+    <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
+    <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
 
-    <a-entity light="type: ambient; color: #BBD1FF; intensity: 0.6"></a-entity>
-    <a-entity light="type: directional; color: #FFF; intensity: 0.8" position="1 2 0"></a-entity>
-
-    <a-entity id="titleBoard" position="0 1.6 -1.8">
-      <a-plane width="1.8" height="1" color="#0e1726" opacity="0.95" material="shader: standard; emissive: #0e1726; emissiveIntensity: .4"></a-plane>
-      <a-entity text="value: FITNESS ADVENTURE VR; align: center; color: #FFFFFF; width: 2.2"></a-entity>
-      <a-entity position="0 -0.33 0" text="value: Select song + beat map → Start. Raise hands, punch, duck; align:center; color:#CFE8FF; width: 2.1"></a-entity>
-    </a-entity>
-
-    <a-entity id="world"></a-entity>
-
-    <a-entity id="fxTemplate" position="0 2 -2" visible="false">
-      <a-entity id="fxText" text="value: PERFECT; align:center; color:#7CFC00; width: 3"></a-entity>
-    </a-entity>
-
-    <a-entity id="summaryPanel" visible="false" position="0 1.6 -2">
-      <a-plane width="1.8" height="1.1" color="#0e1726" opacity="0.95" material="shader: standard; emissive: #0e1726; emissiveIntensity: .3"></a-plane>
-      <a-entity id="sumTitle" position="0 0.3 0" text="value: SUMMARY; align:center; color: #FFFFFF; width: 2.2"></a-entity>
-      <a-entity id="sumStars" position="0 0.05 0" text="value: ★☆☆; align:center; color:#FFD166; width: 2"></a-entity>
-      <a-entity id="sumStats" position="0 -0.22 0" text="value: Score: 0 | Time: 60s; align:center; color:#CFE8FF; width: 2"></a-entity>
-    </a-entity>
-
-    <a-assets>
-      <audio id="sfxPerfect" src="assets/metronome.wav"></audio>
-      <audio id="sfxGood" src="assets/metronome.wav"></audio>
-      <audio id="sfxMiss" src="assets/metronome.wav"></audio>
-      <audio id="bgm" src="assets/song_easy.wav"></audio>
-      <audio id="metronome" src="assets/metronome.wav"></audio>
-    </a-assets>
+    <!-- Stage root -->
+    <a-entity id="arena"></a-entity>
+    <a-entity id="game"></a-entity>
   </a-scene>
 
-  <script src="player.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
