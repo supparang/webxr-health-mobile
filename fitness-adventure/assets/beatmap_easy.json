@@ -1,0 +1,23 @@
+{
+  "title": "Easy Run",
+  "duration": 60,
+  "bpm": 120,
+  "events": [
+    {
+      "t": 2.0,
+      "type": "punchL"
+    },
+    {
+      "t": 2.6,
+      "type": "punchR"
+    },
+    {
+      "t": 3.4,
+      "type": "duck"
+    },
+    {
+      "t": 4.2,
+      "type": "handsUp"
+    }
+  ]
+}
