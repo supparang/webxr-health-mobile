@@ -1,316 +1,407 @@
-// Nutrition VR P.5 — icons + mini-quiz
-function speakTH(text){
-  try{
-    const u = new SpeechSynthesisUtterance(text);
-    const voices = speechSynthesis.getVoices();
-    const th = voices.find(v=>/th|thai/i.test(v.lang||'th'));
-    if (th) u.voice = th;
-    u.lang = 'th-TH'; u.rate = 1.05;
-    window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
-  }catch(e){}
+// Nutrition VR — A-Frame minimal game
+// - Hand-tracking pinch (events + fallback) for pick/place
+// - Import food list from JSON
+// - Tally nutrients and Export plate JSON
+// - Plausible Analytics: GAME_ID="Nutrition"
+
+//////////////////////
+// Analytics Helper //
+//////////////////////
+const GAME_ID = "Nutrition";
+function track(eventName, props={}) {
+  try { if (window.plausible) window.plausible(eventName, { props: { game: GAME_ID, ...props } }); } catch(e){}
 }
 
-AFRAME.registerComponent('nutrient', {
-  schema: {
-    id:{type:'string'}, name:{type:'string'}, emoji:{type:'string'}, img:{type:'string'},
-    kcal:{type:'number'}, carb:{type:'number'}, protein:{type:'number'}, fiber:{type:'number'},
-    sugar:{type:'number'}, sodium:{type:'number'}, group:{type:'string'}
-  }
-});
+//////////////////////
+// Simple WebAudio  //
+//////////////////////
+const SFX = (() => {
+  let ctx;
+  const ensure = () => { if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); return ctx; };
+  const tone = (f=880,d=0.12,t='sine',v=0.22)=>{
+    const ac=ensure(), o=ac.createOscillator(), g=ac.createGain();
+    o.type=t; o.frequency.value=f;
+    const now=ac.currentTime;
+    g.gain.setValueAtTime(0,now);
+    g.gain.linearRampToValueAtTime(v,now+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,now+d);
+    o.connect(g).connect(ac.destination); o.start(now); o.stop(now+d+0.02);
+  };
+  return { ui:()=>tone(1000,0.08,'square',0.2), ok:()=>tone(1200,0.1,'square',0.2), bad:()=>tone(240,0.2,'sawtooth',0.25) };
+})();
 
-AFRAME.registerComponent('grabbable-lite', {
-  init(){
-    this.grabbed=false;
-    this.el.classList.add('clickable');
-    this.onDown = ()=>{
-      this.grabbed=true;
-      this.el.setAttribute('material','opacity:0.85; transparent:true');
-      const a = document.getElementById('pickup'); a.currentTime=0; a.play().catch(()=>{});
-    };
-    this.onUp = ()=>{
-      this.grabbed=false;
-      this.el.setAttribute('material','opacity:1; transparent:false');
-      const plate = document.getElementById('plate');
-      const p = new THREE.Vector3(); this.el.object3D.getWorldPosition(p);
-      const c = plate.object3D.getWorldPosition(new THREE.Vector3());
-      const d = p.distanceTo(c);
-      if (d<0.45){
-        this.el.object3D.position.set(c.x+(Math.random()-0.5)*0.32, 0.8, c.z+(Math.random()-0.5)*0.32);
-        const s = document.getElementById('place'); s.currentTime=0; s.play().catch(()=>{});
-        window.NUTVR && window.NUTVR.onPlaced(this.el);
-      }
-    };
-    this.el.addEventListener('mousedown', this.onDown);
-    this.el.addEventListener('mouseup', this.onUp);
-  },
-  remove(){
-    this.el.removeEventListener('mousedown', this.onDown);
-    this.el.removeEventListener('mouseup', this.onUp);
-  }
-});
-
-AFRAME.registerComponent('drag-follow', {
-  tick(){
-    const g = this.el.components['grabbable-lite'];
-    if (!g || !g.grabbed) return;
-    const cam = document.getElementById('camera');
-    const dir = new THREE.Vector3(0,0,-1); dir.applyQuaternion(cam.object3D.quaternion);
-    const pos = cam.object3D.position.clone().add(dir.multiplyScalar(0.6));
-    this.el.object3D.position.lerp(pos, 0.65);
-  }
-});
-
-const DB = [
-  { id:'rice_brown', name:'ข้าวกล้อง', emoji:'🍚', img:'#img_rice_brown', color:'#28c76f', kcal:160, carb:35, protein:3, fiber:2, sugar:1, sodium:2, group:'คาร์บเชิงซ้อน' },
-  { id:'rice_white', name:'ข้าวขาว', emoji:'🍚', img:'#img_rice_white', color:'#3ec1d3', kcal:180, carb:40, protein:3, fiber:0.5, sugar:1, sodium:2, group:'คาร์บ' },
-  { id:'bread_egg', name:'ข้าวผัดไข่', emoji:'🍳', img:'#img_bread_egg', color:'#27ae60', kcal:250, carb:34, protein:10, fiber:2, sugar:2, sodium:450, group:'คาร์บ' },
-  { id:'padthai', name:'ผัดไทย', emoji:'🍜', img:'#img_padthai', color:'#1abc9c', kcal:410, carb:55, protein:12, fiber:3, sugar:8, sodium:900, group:'คาร์บ' },
-  { id:'egg', name:'ไข่ต้ม', emoji:'🥚', img:'#img_egg', color:'#ffd166', kcal:75, carb:0.6, protein:6, fiber:0, sugar:0, sodium:65, group:'โปรตีน' },
-  { id:'chicken', name:'อกไก่', emoji:'🍗', img:'#img_chicken', color:'#f39c12', kcal:150, carb:0, protein:26, fiber:0, sugar:0, sodium:80, group:'โปรตีน' },
-  { id:'tofu', name:'เต้าหู้', emoji:'🧈', img:'#img_tofu', color:'#f9e79f', kcal:95, carb:2, protein:10, fiber:1, sugar:0, sodium:10, group:'โปรตีนพืช' },
-  { id:'somtam', name:'ส้มตำ (ไม่หวาน)', emoji:'🥗', img:'#img_somtam', color:'#2ecc71', kcal:90, carb:12, protein:3, fiber:3, sugar:5, sodium:400, group:'ผัก' },
-  { id:'veg_mix', name:'ผักรวม', emoji:'🥦', img:'#img_veg_mix', color:'#58d68d', kcal:60, carb:10, protein:4, fiber:5, sugar:3, sodium:40, group:'ผัก' },
-  { id:'mango', name:'มะม่วง', emoji:'🥭', img:'#img_mango', color:'#f5b041', kcal:60, carb:15, protein:0.8, fiber:1.6, sugar:13, sodium:1, group:'ผลไม้' },
-  { id:'watermelon', name:'แตงโม', emoji:'🍉', img:'#img_watermelon', color:'#e74c3c', kcal:46, carb:12, protein:0.9, fiber:0.6, sugar:9, sodium:2, group:'ผลไม้' },
-  { id:'fried_chicken', name:'ไก่ทอด', emoji:'🍗', img:'#img_fried_chicken', color:'#e74c3c', kcal:250, carb:12, protein:20, fiber:0, sugar:0, sodium:500, group:'ของทอด' },
-  { id:'sausage', name:'ไส้กรอก', emoji:'🌭', img:'#img_sausage', color:'#e67e22', kcal:220, carb:2, protein:8, fiber:0, sugar:1, sodium:700, group:'ปรุงสำเร็จ' },
-  { id:'softdrink', name:'น้ำอัดลม', emoji:'🥤', img:'#img_softdrink', color:'#e74c3c', kcal:140, carb:35, protein:0, fiber:0, sugar:35, sodium:45, group:'หวาน' }
-];
-
-const LEVELS = {
-  1: { title:'เช้า 400–500 kcal', kcal:[400,500], limits:{sugar:30,sodium:1000}, minGroups:{'คาร์บเชิงซ้อน':1,'โปรตีน':1,'ผัก':1} },
-  2: { title:'กลางวัน 550–700 kcal (ผัก ≥ 1)', kcal:[550,700], limits:{sugar:30,sodium:1500}, minGroups:{'โปรตีน':1,'ผัก':1} },
-  3: { title:'เย็น 450–600 kcal (หวาน≤20g เค็ม≤800mg)', kcal:[450,600], limits:{sugar:20,sodium:800}, minGroups:{'โปรตีน':1,'ผัก':1} }
-};
-
+//////////////////////
+// HUD Refs         //
+//////////////////////
 const HUD = {
-  modeSel: document.getElementById('modeSel'),
-  levelSel: document.getElementById('levelSel'),
-  startBtn: document.getElementById('btnStart'),
-  resetBtn: document.getElementById('btnReset'),
-  finishQuizBtn: document.getElementById('btnFinishQuiz'),
-  hudMode: document.getElementById('hudMode'),
-  hudTimer: document.getElementById('hudTimer'),
-  kcal: document.getElementById('kcal'), pro: document.getElementById('pro'), carb: document.getElementById('carb'),
-  fib: document.getElementById('fib'), sug: document.getElementById('sug'), sod: document.getElementById('sod'),
-  stars: document.getElementById('stars'),
-  mascot: document.getElementById('mascotText'),
-  quizModal: document.getElementById('quizModal'),
-  quizContainer: document.getElementById('quizContainer'),
-  quizCancel: document.getElementById('quizCancel'),
-  quizSubmit: document.getElementById('quizSubmit'),
-  quizResult: document.getElementById('quizResult')
+  catText: document.getElementById('catText'),
+  plateCount: document.getElementById('plateCount'),
+  kcal: document.getElementById('kcalText'),
+  carb: document.getElementById('carbText'),
+  prot: document.getElementById('protText'),
+  fat: document.getElementById('fatText'),
+  sugar: document.getElementById('sugarText'),
+  na: document.getElementById('naText'),
+  status: document.getElementById('status'),
+  selCat: document.getElementById('selCat'),
+  btnImport: document.getElementById('btnImport'),
+  fileFoods: document.getElementById('fileFoods'),
+  btnReset: document.getElementById('btnReset'),
+  btnExport: document.getElementById('btnExport'),
 };
 
-const Game = { running:false, timeLeft: Infinity, timerId:null, plate:[] };
+//////////////////////
+// Scene Roots      //
+//////////////////////
+const shelfRoot = document.getElementById('shelf');
+const plateRoot = document.getElementById('plate');
+const fingerCursor = document.getElementById('fingerCursor');
+const handR = document.getElementById('handR');
+const handL = document.getElementById('handL');
 
-function setModeUI(){
-  const mode = HUD.modeSel.value;
-  HUD.hudMode.textContent = mode==='practice' ? 'Practice' : 'Challenge';
-  if (mode==='practice'){ Game.timeLeft = Infinity; HUD.hudTimer.textContent = 'เวลา: ∞'; }
-  else { Game.timeLeft = 60; HUD.hudTimer.textContent = 'เวลา: 60s'; }
+//////////////////////
+// State / Data     //
+//////////////////////
+let foods = getDefaultFoods();     // รายการอาหาร (แก้/เพิ่มได้จาก Import)
+let currentCat = 'all';
+
+let picked = [];                  // สิ่งที่อยู่บน “จาน”
+let totals = { kcal:0, carb:0, protein:0, fat:0, sugar:0, sodium:0 };
+
+//////////////////////
+// Hand-Tracking    //
+//////////////////////
+let pinchUsingEvents=false, isPinching=false, wasPinching=false;
+function setPinching(v){ isPinching=v; fingerCursor.setAttribute('color', v?'#66ff88':'#ffffaa'); }
+['pinchstarted','pinchended'].forEach(ev=>{
+  handR.addEventListener(ev, ()=>{pinchUsingEvents=true; setPinching(ev==='pinchstarted');});
+  handL.addEventListener(ev, ()=>{pinchUsingEvents=true; setPinching(ev==='pinchstarted');});
+});
+const PINCH_ON=0.025, PINCH_OFF=0.035;
+function getJointWorldPos(handEnt, nameLike){
+  if (!handEnt) return null;
+  let node=null; handEnt.object3D.traverse(n=>{ if(n.name && n.name.toLowerCase().includes(nameLike)) node=n; });
+  if (!node) return null; const v=new THREE.Vector3(); node.getWorldPosition(v); return v;
+}
+function indexTipWorld(){
+  const ent = (handR && handR.object3D.children.length) ? handR :
+              (handL && handL.object3D.children.length) ? handL : null;
+  if (!ent) return null; return getJointWorldPos(ent,'index-finger-tip');
+}
+function pollPinchFallback(){
+  if (pinchUsingEvents) return;
+  const ent = (handR && handR.object3D.children.length) ? handR :
+              (handL && handL.object3D.children.length) ? handL : null;
+  if (!ent){ setPinching(false); return; }
+  const tip = getJointWorldPos(ent,'index-finger-tip');
+  const thb = getJointWorldPos(ent,'thumb-tip');
+  if (!tip || !thb){ setPinching(false); return; }
+  const d = tip.distanceTo(thb);
+  if (!isPinching && d < PINCH_ON) setPinching(true);
+  else if (isPinching && d > PINCH_OFF) setPinching(false);
+}
+function intersectsObj(worldPos, obj3D){
+  obj3D.updateWorldMatrix(true,true);
+  const box = new THREE.Box3().setFromObject(obj3D);
+  return box.containsPoint(worldPos);
 }
 
-function updateGoalBoard(){
-  const lv = HUD.levelSel.value; const L = LEVELS[lv];
-  const text = `เป้าหมาย — ${L.title}
-- พลังงานรวม ${L.kcal[0]}–${L.kcal[1]} kcal
-- กลุ่มอาหารขั้นต่ำ: ${Object.keys(L.minGroups).map(k=>k+' '+L.minGroups[k]+' ที่').join(', ')}
-- น้ำตาล ≤ ${L.limits.sugar} g, โซเดียม ≤ ${L.limits.sodium} mg`;
-  HUD.mascot.setAttribute('text', `value:${text}; align:center; color:#fff; width:3`);
-}
+//////////////////////
+// A-Frame Loop     //
+//////////////////////
+AFRAME.registerComponent('nutrition-game', {
+  init(){
+    this.last = performance.now()/1000;
 
-function spawnFoods(){
-  document.querySelectorAll('.food').forEach(e=> e.parentNode.removeChild(e));
-  const spawns = [document.getElementById('spawnL'), document.getElementById('spawnC'), document.getElementById('spawnR')];
-  const cols = [[],[],[]]; DB.forEach((it,i)=> cols[i%3].push(it));
-  cols.forEach((col,ci)=>{
-    col.forEach((it,ri)=>{
-      const box = document.createElement('a-box');
-      box.classList.add('food','clickable');
-      box.setAttribute('color', it.color);
-      box.setAttribute('depth','0.12'); box.setAttribute('height','0.08'); box.setAttribute('width','0.34');
-      const pos = spawns[ci].object3D.position.clone();
-      box.setAttribute('position', `${pos.x} ${pos.y - ri*0.14} ${pos.z}`);
-      box.setAttribute('nutrient', it);
-      box.setAttribute('grabbable-lite','');
-      box.setAttribute('drag-follow','');
-      // Image billboard
-      const img = document.createElement('a-image');
-      img.setAttribute('src', it.img);
-      img.setAttribute('width','0.30'); img.setAttribute('height','0.30');
-      img.setAttribute('position','0 0.18 0.07');
-      img.setAttribute('transparent','true');
-      box.appendChild(img);
-      // Caption
-      const label = document.createElement('a-entity');
-      label.setAttribute('text', `value:${it.name}; color:#001; align:center; width:3`);
-      label.setAttribute('position','0 0.06 0.07');
-      box.appendChild(label);
-      document.querySelector('a-scene').appendChild(box);
-    });
+    HUD.selCat.onchange = ()=>{ currentCat = HUD.selCat.value; HUD.catText.textContent = HUD.selCat.options[HUD.selCat.selectedIndex].text; buildShelf(); SFX.ui(); };
+    HUD.btnImport.onclick = ()=> HUD.fileFoods.click();
+    HUD.fileFoods.onchange = onImportFoodJSON;
+    HUD.btnReset.onclick = resetPlate;
+    HUD.btnExport.onclick = exportPlate;
+
+    buildShelf();
+    buildPlate();
+
+    track('GameStart');
+  },
+  tick(){
+    const t = performance.now()/1000, dt=t-this.last; this.last=t;
+    // finger follow
+    pollPinchFallback();
+    const tip = indexTipWorld();
+    if (tip){ fingerCursor.object3D.position.copy(tip); fingerCursor.setAttribute('visible', true); }
+    else    { fingerCursor.setAttribute('visible', false); }
+
+    // pinch edge → pick or remove
+    if (!wasPinching && isPinching){
+      // hit test foods (shelf)
+      const boxes = Array.from(shelfRoot.querySelectorAll('.food'));
+      let hit = boxes.find(el => tip && intersectsObj(tip, el.object3D));
+      if (hit){ addToPlate(hit.getAttribute('data-id')); wasPinching=isPinching; return; }
+
+      // hit test plate items (remove)
+      const items = Array.from(plateRoot.querySelectorAll('.pitem'));
+      hit = items.find(el => tip && intersectsObj(tip, el.object3D));
+      if (hit){ removeFromPlate(hit.getAttribute('data-instance-id')); }
+    }
+    wasPinching = isPinching;
+  }
+});
+document.getElementById('game').setAttribute('nutrition-game','');
+
+//////////////////////
+// Build Shelf      //
+//////////////////////
+function buildShelf(){
+  while(shelfRoot.firstChild) shelfRoot.removeChild(shelfRoot.firstChild);
+
+  // ชั้นวาง
+  const shelf = document.createElement('a-box');
+  shelf.setAttribute('color','#0f172a'); shelf.setAttribute('width','4.8'); shelf.setAttribute('height','2.2'); shelf.setAttribute('depth','0.2');
+  shelf.setAttribute('position','0 1.3 -2.2'); shelfRoot.appendChild(shelf);
+
+  const title=document.createElement('a-entity');
+  title.setAttribute('text',`value:เลือกอาหาร; align:center; color:#CFE8FF; width:6`);
+  title.setAttribute('position','0 2.2 -2.21'); shelfRoot.appendChild(title);
+
+  // กริดกล่องอาหาร
+  const list = foods.filter(f => currentCat==='all' || f.category===currentCat);
+  const cols=4;
+  list.forEach((f,i)=>{
+    const r=(i/cols|0), c=(i%cols);
+    const x=-1.8 + c*1.2, y=1.8 - r*0.75;
+
+    const box=document.createElement('a-box');
+    box.setAttribute('color','#1e293b'); box.setAttribute('width','1.0'); box.setAttribute('height','0.6'); box.setAttribute('depth','0.25');
+    box.setAttribute('position',`${x} ${y} -2.1`); box.setAttribute('opacity','0.9');
+    box.setAttribute('class','food'); box.setAttribute('data-id', f.id);
+    box.addEventListener('click', ()=>addToPlate(f.id));
+    shelfRoot.appendChild(box);
+
+    // ป้ายชื่อ
+    const label=document.createElement('a-entity');
+    label.setAttribute('text',`value:${f.name}; align:center; color:#fff; width:2.2`);
+    label.setAttribute('position','0 -0.18 0.14');
+    box.appendChild(label);
+
+    // ไอคอน (png url / data: / หรือทำจากอีโมจิ)
+    const icon=document.createElement('a-image');
+    icon.setAttribute('width','0.8'); icon.setAttribute('height','0.36'); icon.setAttribute('position','0 0.08 0.13');
+    icon.setAttribute('src', f.icon ? f.icon : makeIconPNG(f.emoji || '🍽️', '#0b1020'));
+    box.appendChild(icon);
+
+    // macro mini (kcal)
+    const kcal=document.createElement('a-entity');
+    kcal.setAttribute('text',`value:${f.kcal} kcal; align:center; color:#93c5fd; width:2`);
+    kcal.setAttribute('position','0 -0.38 0.14');
+    box.appendChild(kcal);
   });
 }
 
-function updateHUD(){
-  const s = Game.plate.reduce((a,b)=>({
-    kcal:a.kcal+b.kcal, carb:a.carb+b.carb, protein:a.protein+b.protein,
-    fiber:a.fiber+b.fiber, sugar:a.sugar+b.sugar, sodium:a.sodium+b.sodium
-  }), {kcal:0,carb:0,protein:0,fiber:0,sugar:0,sodium:0});
-  HUD.kcal.textContent = Math.round(s.kcal);
-  HUD.pro.textContent = Math.round(s.protein)+'g';
-  HUD.carb.textContent = Math.round(s.carb)+'g';
-  HUD.fib.textContent = Math.round(s.fiber)+'g';
-  HUD.sug.textContent = Math.round(s.sugar)+'g';
-  HUD.sod.textContent = Math.round(s.sodium)+'mg';
-  return s;
+//////////////////////
+// Build Plate      //
+//////////////////////
+let plateItems = []; // instances: { iid, foodId }
+
+function buildPlate(){
+  while(plateRoot.firstChild) plateRoot.removeChild(plateRoot.firstChild);
+
+  // โต๊ะ/จาน
+  const table = document.createElement('a-cylinder');
+  table.setAttribute('radius','0.7'); table.setAttribute('height','0.1'); table.setAttribute('color','#0f172a');
+  table.setAttribute('position','0 0.8 -1.1'); plateRoot.appendChild(table);
+
+  const plate = document.createElement('a-cylinder');
+  plate.setAttribute('radius','0.55'); plate.setAttribute('height','0.04'); plate.setAttribute('color','#e5e7eb');
+  plate.setAttribute('position','0 0.88 -1.1'); plateRoot.appendChild(plate);
+
+  // วงแบ่งจาน (แนว MyPlate: คาร์บ/โปรตีน/ผัก/ผลไม้) — แค่ไกด์สายตา
+  const guide = document.createElement('a-ring');
+  guide.setAttribute('radius-inner','0.25'); guide.setAttribute('radius-outer','0.54');
+  guide.setAttribute('color','#cbd5e1'); guide.setAttribute('opacity','0.35');
+  guide.setAttribute('position','0 0.89 -1.1'); guide.setAttribute('rotation','-90 0 0');
+  plateRoot.appendChild(guide);
 }
 
-function scoreStars(summary){
-  const lv = HUD.levelSel.value; const L = LEVELS[lv];
-  const counts = {};
-  Game.plate.forEach(it=>{
-    const g = it.group.includes('โปรตีน')?'โปรตีน':(it.group==='คาร์บเชิงซ้อน'?'คาร์บเชิงซ้อน':it.group);
-    counts[g]=(counts[g]||0)+1;
-    if (it.group==='ผลไม้') counts['ผัก']=(counts['ผัก']||0)+1;
+function layoutPlate(){
+  // จัดวางไอเท็มรอบ ๆ จาน (วงกลม)
+  const R = 0.43;
+  plateItems.forEach((it,idx)=>{
+    const angle = (idx/Math.max(1,plateItems.length)) * Math.PI*2;
+    const x = Math.cos(angle)*R, y = Math.sin(angle)*R;
+    const node = document.getElementById(it.iid);
+    if (node) node.setAttribute('position', `${x.toFixed(3)} ${ (0.95 + (idx%2)*0.02).toFixed(3)} -1.1`);
   });
-  let stars = 3;
-  if (summary.kcal < L.kcal[0] || summary.kcal > L.kcal[1]) stars--;
-  if (summary.sugar > L.limits.sugar) stars--;
-  if (summary.sodium > L.limits.sodium) stars--;
-  for (const k in L.minGroups){ if ((counts[k]||0) < L.minGroups[k]) { stars--; break; } }
-  stars = Math.max(1, Math.min(3, stars));
-  HUD.stars.textContent = '★'.repeat(stars) + '☆'.repeat(3-stars);
-  return stars;
 }
 
-function mascotHintOnPlace(item, summary){
-  if (item.group==='ผัก' || item.group==='ผลไม้'){
-    HUD.mascot.setAttribute('text', 'value: เก่งมาก! ผัก/ผลไม้ช่วยให้แข็งแรง 🥦🍎; align:center; color:#fff; width:3');
-    speakTH('เก่งมาก ผักผลไม้ช่วยให้แข็งแรง');
-  }else if (item.group==='ของทอด' || item.group==='ปรุงสำเร็จ' || item.group==='หวาน'){
-    HUD.mascot.setAttribute('text', 'value: ระวังหวาน/เค็มเกินไป ลองเพิ่มผักนะ; align:center; color:#fff; width:3');
-    speakTH('ระวังหวานหรือเค็มเกินไป ลองเพิ่มผักนะ');
-  }else if (item.group.includes('โปรตีน')){
-    HUD.mascot.setAttribute('text', 'value: ได้โปรตีนแล้ว! อย่าลืมคาร์บดี ๆ และผักด้วย; align:center; color:#fff; width:3');
-    speakTH('ได้โปรตีนแล้ว อย่าลืมคาร์บดีๆ และผักด้วย');
-  }
+function addToPlate(foodId){
+  const f = foods.find(x=>x.id===foodId);
+  if (!f) return;
+  const iid = `p_${foodId}_${Date.now()}_${Math.floor(Math.random()*999)}`;
+  plateItems.push({ iid, foodId });
+  picked.push(f);
+
+  // สร้างชิ้นอาหารบนจาน
+  const item = document.createElement('a-image');
+  item.setAttribute('id', iid);
+  item.setAttribute('width','0.32'); item.setAttribute('height','0.18');
+  item.setAttribute('class','pitem');
+  item.setAttribute('position',`0 0.95 -1.1`);
+  item.setAttribute('src', f.icon ? f.icon : makeIconPNG(f.emoji || '🍽️', '#e5e7eb'));
+  item.addEventListener('click', ()=>removeFromPlate(iid));
+  plateRoot.appendChild(item);
+
+  // ขอบ/เงาใต้ไอเท็ม (สวยงาม)
+  const shadow = document.createElement('a-ring');
+  shadow.setAttribute('radius-inner','0.09'); shadow.setAttribute('radius-outer','0.13'); shadow.setAttribute('opacity','0.25');
+  shadow.setAttribute('color','#000'); shadow.setAttribute('position',`0 0.90 -1.1`); shadow.setAttribute('rotation','-90 0 0');
+  item.appendChild(shadow);
+
+  SFX.ok();
+  layoutPlate();
+  recalcTotals();
 }
 
-function endGameAndMaybeQuiz(){
-  const stars = scoreStars(updateHUD());
-  HUD.mascot.setAttribute('text', `value: หมดเวลา! ได้ ${stars} ดาว — ทำแบบทดสอบสั้น ๆ กันต่อไหม?; align:center; color:#fff; width:3`);
-  const w=document.getElementById('win'); if (stars>=2){ w.currentTime=0; w.play().catch(()=>{}); }
-  openQuiz();
+function removeFromPlate(iid){
+  const idx = plateItems.findIndex(x=>x.iid===iid);
+  if (idx<0) return;
+  const foodId = plateItems[idx].foodId;
+  plateItems.splice(idx,1);
+
+  const pidx = picked.findIndex(f=>f.id===foodId);
+  if (pidx>=0) picked.splice(pidx,1);
+
+  const node = document.getElementById(iid);
+  if (node && node.parentNode) node.parentNode.removeChild(node);
+
+  SFX.ui();
+  layoutPlate();
+  recalcTotals();
 }
 
-// ----- Mini-Quiz -----
-const QUIZ_BANK = [
-  { q:'อาหารชนิดใดที่ควรกินเพิ่มเพื่อให้ได้ไฟเบอร์?', opts:['ข้าวขาว','ผักผลไม้','ไส้กรอก'], ans:1 },
-  { q:'เครื่องดื่มชนิดใดมีน้ำตาลสูง?', opts:['น้ำเปล่า','น้ำอัดลม','ชาไม่หวาน'], ans:1 },
-  { q:'ถ้ากินของทอดมากเกินไปจะเสี่ยงอะไร?', opts:['โซเดียมสูง','วิตามินซีต่ำ','ไอโอดีนสูง'], ans:0 },
-  { q:'ในจานสุขภาพควรมีอะไรบ้าง?', opts:['คาร์บดี + โปรตีน + ผักผลไม้','แต่ของหวานอย่างเดียว','โซเดียมเยอะ ๆ'], ans:0 }
-];
+function resetPlate(){
+  plateItems = []; picked = [];
+  buildPlate();
+  recalcTotals();
+  SFX.ui();
+}
 
-let currentQuiz = [];
-
-function openQuiz(){
-  // pick 3 random questions
-  const pool = QUIZ_BANK.slice();
-  currentQuiz = [];
-  for (let i=0;i<3;i++){
-    const idx = Math.floor(Math.random()*pool.length);
-    currentQuiz.push(pool.splice(idx,1)[0]);
-  }
-  HUD.quizContainer.innerHTML = '';
-  currentQuiz.forEach((item, qi)=>{
-    const div = document.createElement('div'); div.className='q';
-    const b = document.createElement('b'); b.textContent = `ข้อ ${qi+1}: ${item.q}`; div.appendChild(b);
-    item.opts.forEach((op, oi)=>{
-      const lab = document.createElement('label');
-      const id = `q${qi}_o${oi}`;
-      lab.innerHTML = `<input type="radio" name="q${qi}" value="${oi}" id="${id}"> ${op}`;
-      div.appendChild(lab);
-    });
-    HUD.quizContainer.appendChild(div);
+//////////////////////
+// Totals + HUD     //
+//////////////////////
+function recalcTotals(){
+  totals = { kcal:0, carb:0, protein:0, fat:0, sugar:0, sodium:0 };
+  picked.forEach(f=>{
+    totals.kcal   += f.kcal||0;
+    totals.carb   += f.carb||0;
+    totals.protein+= f.protein||0;
+    totals.fat    += f.fat||0;
+    totals.sugar  += f.sugar||0;
+    totals.sodium += f.sodium||0;
   });
-  HUD.quizResult.textContent = '';
-  HUD.quizModal.style.display = 'flex';
+  HUD.plateCount.textContent = String(picked.length);
+  HUD.kcal.textContent  = `${round(totals.kcal)} kcal`;
+  HUD.carb.textContent  = `${round(totals.carb)} g`;
+  HUD.prot.textContent  = `${round(totals.protein)} g`;
+  HUD.fat.textContent   = `${round(totals.fat)} g`;
+  HUD.sugar.textContent = `${round(totals.sugar)} g`;
+  HUD.na.textContent    = `${round(totals.sodium)} mg`;
+
+  // สถานะง่าย ๆ สำหรับ ป.5 (เตือนน้ำตาล/โซเดียม/พลังงาน)
+  const tips = [];
+  if (totals.sugar > 24) tips.push('น้ำตาลสูง');
+  if (totals.sodium > 1500) tips.push('โซเดียมสูง');
+  if (totals.kcal > 700) tips.push('พลังงานสูง');
+  HUD.status.innerHTML = tips.length ? `คำเตือน: <span class="bad">${tips.join(', ')}</span>` : 'ดีมาก! เลือกอาหารให้หลากหลายครบหมวด';
 }
 
-function closeQuiz(){ HUD.quizModal.style.display = 'none'; }
-
-function submitQuiz(){
-  let score = 0;
-  for (let qi=0; qi<currentQuiz.length; qi++){
-    const sel = document.querySelector(`input[name="q${qi}"]:checked`);
-    if (sel && parseInt(sel.value) === currentQuiz[qi].ans) score++;
-  }
-  HUD.quizResult.textContent = `ได้ ${score} / ${currentQuiz.length} ข้อ`;
-  if (score === currentQuiz.length){
-    speakTH('สุดยอด! ตอบถูกทั้งหมด');
-  } else if (score >= 2){
-    speakTH('เก่งมาก! ถูกเกินครึ่ง');
-  } else {
-    speakTH('ไม่เป็นไร ลองใหม่ได้');
-  }
+//////////////////////
+// Import / Export  //
+//////////////////////
+function onImportFoodJSON(e){
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const data = JSON.parse(reader.result);
+      if (!data || !Array.isArray(data.foods)) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง ต้องมี fields: { foods: [...] }');
+      foods = normalizeFoods(data.foods);
+      buildShelf();
+      SFX.ok();
+      HUD.status.textContent = `โหลดอาหาร ${foods.length} รายการแล้ว`;
+      track('ImportFoods', { count: foods.length });
+    }catch(err){
+      SFX.bad();
+      HUD.status.textContent = 'Import ไม่สำเร็จ: ' + err.message;
+    }finally{
+      HUD.fileFoods.value = '';
+    }
+  };
+  reader.readAsText(file);
 }
 
-const NUTVR = {
-  onPlaced(el){
-    if (!Game.running) return;
-    const n = el.getAttribute('nutrient');
-    Game.plate.push(n);
-    const summary = updateHUD();
-    scoreStars(summary);
-    mascotHintOnPlace(n, summary);
-  }
-};
-window.NUTVR = NUTVR;
+function exportPlate(){
+  const payload = {
+    version: '1.0',
+    game: GAME_ID,
+    exportedAt: new Date().toISOString(),
+    items: picked.map(f=>({ id:f.id, name:f.name, category:f.category, qty:1 })),
+    totals: {...totals}
+  };
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+  const now = new Date(); const pad=n=>String(n).padStart(2,'0');
+  const filename = `nutrition_plate_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
 
-function startGame(){
-  Game.running = true; Game.plate = [];
-  spawnFoods(); updateGoalBoard();
-  const summary = updateHUD(); scoreStars(summary);
-  const mode = HUD.modeSel.value;
-  setModeUI();
-  if (mode==='challenge'){
-    if (Game.timerId) clearInterval(Game.timerId);
-    Game.timeLeft = 60; HUD.hudTimer.textContent = 'เวลา: 60s';
-    Game.timerId = setInterval(()=>{
-      if (!Game.running) return;
-      Game.timeLeft -= 1;
-      HUD.hudTimer.textContent = 'เวลา: ' + Game.timeLeft + 's';
-      if (Game.timeLeft<=0){
-        clearInterval(Game.timerId); Game.running=false;
-        endGameAndMaybeQuiz();
-      }
-    }, 1000);
-  }else{
-    if (Game.timerId){ clearInterval(Game.timerId); Game.timerId=null; }
-    HUD.hudTimer.textContent = 'เวลา: ∞';
-  }
-  HUD.mascot.setAttribute('text', 'value: เลือกคาร์บดี + โปรตีน + ผัก แล้วค่อยทำแบบทดสอบท้ายเกมนะ 😊; align:center; color:#fff; width:3');
-  speakTH('เริ่มกันเลย เลือกคาร์บดี โปรตีน และผัก');
+  track('GameFinish', { items: picked.length, kcal: round(totals.kcal) });
 }
 
-function resetGame(){
-  Game.running=false;
-  if (Game.timerId){ clearInterval(Game.timerId); Game.timerId=null; }
-  Game.plate=[]; spawnFoods();
-  const summary = updateHUD(); scoreStars(summary);
-  updateGoalBoard(); setModeUI();
-  HUD.mascot.setAttribute('text', 'value: เริ่มใหม่อีกครั้ง เลือกอาหารที่มีประโยชน์นะ!; align:center; color:#fff; width:3');
+//////////////////////
+// Helpers          //
+//////////////////////
+function round(x){ return Math.round((+x||0)*10)/10; }
+function normalizeFoods(arr){
+  // รองรับ icon เป็น URL หรือ data:image/*; ถ้าไม่มีให้ใช้ emoji fallback
+  return arr.map((f,i)=>({
+    id: f.id || `f_${i}`,
+    name: f.name || `Food ${i+1}`,
+    category: f.category || 'main',
+    emoji: f.emoji || '🍽️',
+    icon: f.icon || null,
+    kcal: +f.kcal || 0,
+    carb: +f.carb || 0,
+    protein: +f.protein || 0,
+    fat: +f.fat || 0,
+    sugar: +f.sugar || 0,
+    sodium: +f.sodium || 0
+  }));
 }
 
-HUD.modeSel.addEventListener('change', setModeUI);
-HUD.levelSel.addEventListener('change', ()=>{ updateGoalBoard(); const s=updateHUD(); scoreStars(s); });
-HUD.startBtn.addEventListener('click', startGame);
-HUD.resetBtn.addEventListener('click', resetGame);
-HUD.finishQuizBtn.addEventListener('click', ()=>{ endGameAndMaybeQuiz(); });
-HUD.quizCancel.addEventListener('click', ()=>{ closeQuiz(); });
-HUD.quizSubmit.addEventListener('click', ()=>{ submitQuiz(); });
+function makeIconPNG(emoji='🍽️', bg='#111827'){
+  const size=256,c=document.createElement('canvas'); c.width=c.height=size; const g=c.getContext('2d');
+  g.fillStyle=bg; g.fillRect(0,0,size,size);
+  g.fillStyle='rgba(255,255,255,.08)'; g.beginPath(); g.arc(size/2,size/2,size*0.45,0,Math.PI*2); g.fill();
+  g.font=`${Math.floor(size*0.6)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui`; g.textAlign='center'; g.textBaseline='middle';
+  g.fillText(emoji,size/2,size/2+size*0.04);
+  return c.toDataURL('image/png');
+}
 
-// Init
-setModeUI(); spawnFoods(); updateGoalBoard(); const s0=updateHUD(); scoreStars(s0);
-HUD.mascot.setAttribute('text', 'value: สวัสดี! ฉันคือน้องโภชนา จะช่วยแนะนำอาหารที่ดีต่อสุขภาพนะ 😊; align:center; color:#fff; width:3');
+function getDefaultFoods(){
+  // ตัวอย่างรายการอาหารไทยพื้นฐาน (ต่อเสิร์ฟ)
+  return normalizeFoods([
+    {id:'rice',      name:'ข้าวสวย',        category:'main',   emoji:'🍚', kcal:160, carb:36, protein:3, fat:0.3, sugar:0, sodium:0},
+    {id:'friedrice', name:'ข้าวผัด',        category:'main',   emoji:'🍛', kcal:420, carb:55, protein:10, fat:16, sugar:4, sodium:900},
+    {id:'omelet',    name:'ไข่เจียว',       category:'protein',emoji:'🍳', kcal:220, carb:2,  protein:12, fat:18, sugar:1, sodium:300},
+    {id:'pork',      name:'หมูผัดผัก',      category:'protein',emoji:'🥘', kcal:250, carb:8,  protein:18, fat:14, sugar:4, sodium:650},
+    {id:'veg',       name:'ผักลวก',         category:'veg',    emoji:'🥦', kcal:60,  carb:8,  protein:3,  fat:1,  sugar:3, sodium:80},
+    {id:'somtum',    name:'ส้มตำ',          category:'veg',    emoji:'🥗', kcal:120, carb:20, protein:3,  fat:2,  sugar:8, sodium:700},
+    {id:'banana',    name:'กล้วย',          category:'fruit',  emoji:'🍌', kcal:105, carb:27, protein:1.3,fat:0.3,sugar:14,sodium:1},
+    {id:'watermelon',name:'แตงโม',          category:'fruit',  emoji:'🍉', kcal:50,  carb:12, protein:1,  fat:0.2,sugar:9, sodium:2},
+    {id:'milk',      name:'นมจืด',          category:'drink',  emoji:'🥛', kcal:110, carb:12, protein:8,  fat:4,  sugar:12,sodium:100},
+    {id:'tea',       name:'ชานมหวาน',       category:'drink',  emoji:'🧋', kcal:250, carb:38, protein:3,  fat:8,  sugar:36,sodium:120},
+    {id:'bread',     name:'ขนมปัง',         category:'snack',  emoji:'🍞', kcal:80,  carb:15, protein:3,  fat:1,  sugar:2, sodium:120},
+    {id:'snack',     name:'ขนมกรุบกรอบ',   category:'snack',  emoji:'🍘', kcal:150, carb:16, protein:2,  fat:9,  sugar:2, sodium:180}
+  ]);
+}
