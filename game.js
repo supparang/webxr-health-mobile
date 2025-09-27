@@ -1,200 +1,300 @@
-// Hygiene VR — 4 interactive stations using A-Frame
-const HUD = {
-  status: document.getElementById('status'),
-  doneCount: document.getElementById('doneCount'),
-  resetBtn: document.getElementById('btnReset')
-};
+// Energy Runner VR — Prototype (No WAV files; Web Audio API SFX)
+// Controls: Desktop => Space=Jump, Ctrl=Duck, A/D=Lean, W/S=Speed +/- , R=Reset
+// VR: Right trigger=Jump, Left trigger=Duck, thumbstick left/right=Lean
 
-const sfx = {
-  pickup: document.getElementById('pickup'),
-  place: document.getElementById('place'),
-  error: document.getElementById('error'),
-  win: document.getElementById('win')
-};
-
-function play(a){ try{ a.currentTime=0; a.play(); }catch(e){} }
-
-let completed = { s1:false, s2:false, s3:false, s4:false };
-function refreshDone(){
-  const n = Object.values(completed).filter(Boolean).length;
-  HUD.doneCount.textContent = n;
-  if (n===4){ HUD.status.textContent = 'เยี่ยมมาก! คุณผ่านทุกสถานีแล้ว 🎉'; play(sfx.win); }
-}
-
-HUD.resetBtn.addEventListener('click', ()=>{
-  completed = {s1:false,s2:false,s3:false,s4:false};
-  setupHandwash(); setupTooth(); setupMask(); setupCough();
-  HUD.status.textContent = 'รีเซ็ตเรียบร้อย ลองใหม่ได้เลย';
-  refreshDone();
-});
-
-// ---------- Station 1: Handwashing (7 steps) ----------
-function setupHandwash(){
-  const panel = document.getElementById('handPanel');
-  // Clear previous children
-  while(panel.firstChild) panel.removeChild(panel.firstChild);
-  const steps = ['ฝ่ามือถูฝ่ามือ','หลังมือ','ซอกนิ้ว','หลังนิ้ว','รอบนิ้วหัวแม่มือ','ปลายนิ้ว/เล็บ','รอบข้อมือ'];
-  const cols = 3;
-  steps.forEach((name,i)=>{
-    const x = (i%cols - 1)*0.7;
-    const y = Math.floor(i/cols)*-0.25;
-    const btn = document.createElement('a-box');
-    btn.setAttribute('class','clickable');
-    btn.setAttribute('position', `${x} ${y} 0.02`);
-    btn.setAttribute('color', '#23395b'); btn.setAttribute('width','0.6'); btn.setAttribute('height','0.18'); btn.setAttribute('depth','0.06');
-    const label = document.createElement('a-entity');
-    label.setAttribute('text', `value:${i+1}. ${name}; align:center; width:2; color:#e6eefc`);
-    label.setAttribute('position', '0 0 0.05');
-    btn.appendChild(label);
-    panel.appendChild(btn);
-  });
-  let done = 0;
-  panel.addEventListener('click', (e)=>{
-    const clicked = e.target.closest('a-box');
-    if (!clicked) return;
-    const boxes = panel.querySelectorAll('a-box');
-    const idx = Array.from(boxes).indexOf(clicked);
-    if (idx===done){ boxes[idx].setAttribute('color','#28c76f'); done++; play(sfx.place); }
-    else { play(sfx.error); }
-    if (done===7){ completed.s1 = true; refreshDone(); }
-  });
-}
-
-// ---------- Station 2: Toothbrushing (zones + timer) ----------
-function setupTooth(){
-  const panel = document.getElementById('toothPanel');
-  while(panel.firstChild) panel.removeChild(panel.firstChild);
-  // Mouth disk
-  const mouth = document.createElement('a-cylinder');
-  mouth.setAttribute('position','0 0 0.02');
-  mouth.setAttribute('radius','0.45'); mouth.setAttribute('height','0.02');
-  mouth.setAttribute('color','#23395b');
-  panel.appendChild(mouth);
-  // Zones (4 arcs + center)
-  const zones = [
-    {name:'บนซ้าย', pos:'-0.25 0.20 0.05'},
-    {name:'บนขวา', pos:'0.25 0.20 0.05'},
-    {name:'ล่างซ้าย', pos:'-0.25 -0.20 0.05'},
-    {name:'ล่างขวา', pos:'0.25 -0.20 0.05'},
-    {name:'บดเคี้ยว', pos:'0 0 0.06'}
-  ];
-  zones.forEach(z=>{
-    const p = document.createElement('a-sphere');
-    p.setAttribute('class','clickable');
-    p.setAttribute('position', z.pos);
-    p.setAttribute('radius','0.12');
-    p.setAttribute('color','#79a8ff');
-    p.setAttribute('opacity','0.6');
-    p.setAttribute('zname', z.name);
-    panel.appendChild(p);
-    const label = document.createElement('a-entity');
-    label.setAttribute('text', `value:${z.name}; align:center; width:2; color:#e6eefc`);
-    const [x,y,_z] = z.pos.split(' ').map(parseFloat);
-    label.setAttribute('position', `${x} ${y+0.16} 0.05`);
-    panel.appendChild(label);
-  });
-  let brushed = new Set();
-  panel.addEventListener('click', (e)=>{
-    const s = e.target.closest('a-sphere');
-    if (!s) return;
-    s.setAttribute('color','#28c76f'); play(sfx.place);
-    brushed.add(s.getAttribute('zname'));
-    if (brushed.size===zones.length){ completed.s2 = true; refreshDone(); }
-  });
-}
-
-// ---------- Station 3: Mask wearing ----------
-function setupMask(){
-  const panel = document.getElementById('maskPanel');
-  while(panel.firstChild) panel.removeChild(panel.firstChild);
-  // face rectangle
-  const face = document.createElement('a-box');
-  face.setAttribute('position','0 0 0');
-  face.setAttribute('width','0.9'); face.setAttribute('height','1.0'); face.setAttribute('depth','0.05');
-  face.setAttribute('color','#23395b');
-  panel.appendChild(face);
-  // mask object (draggable style via click to cycle positions for simplicity)
-  const mask = document.createElement('a-box');
-  mask.setAttribute('class','clickable');
-  mask.setAttribute('position','0 0.15 0.06');
-  mask.setAttribute('width','0.7'); mask.setAttribute('height','0.3'); mask.setAttribute('depth','0.06');
-  mask.setAttribute('color','#79a8ff');
-  panel.appendChild(mask);
-  const maskLabel = document.createElement('a-entity');
-  maskLabel.setAttribute('text', 'value:หน้ากาก; align:center; width:2; color:#001');
-  maskLabel.setAttribute('position','0 0.18 0.09');
-  panel.appendChild(maskLabel);
-  // target area
-  const target = {x:0, y:0.05, w:0.8, h:0.6};
-  function isOK(p){
-    const dx = Math.abs(p.x - target.x) <= target.w/2 - 0.1;
-    const dy = Math.abs(p.y - target.y) <= target.h/2 - 0.1;
-    return dx && dy;
-  }
-  panel.addEventListener('click', (e)=>{
-    if (e.target===mask){
-      // cycle through a few positions to simulate dragging using laser
-      const choices = [{x:0,y:0.35},{x:0.35,y:0.05},{x:0,y:0.05},{x:-0.35,y:0.05},{x:0,y:-0.1}];
-      const cur = mask.object3D.position;
-      let idx = choices.findIndex(c=> Math.abs(c.x-cur.x)<0.01 && Math.abs(c.y-cur.y)<0.01 );
-      idx = (idx+1)%choices.length;
-      mask.setAttribute('position', `${choices[idx].x} ${choices[idx].y} 0.06`);
-      if (isOK(mask.object3D.position)){ play(sfx.place); completed.s3 = true; refreshDone(); }
-      else { play(sfx.error); }
+// ---------- Simple WebAudio Synth ----------
+const AudioSynth = (() => {
+  let ctx = null;
+  const ensure = async () => {
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // resume on first user gesture (some browsers require)
+      const resume = () => { if (ctx.state === 'suspended') ctx.resume(); };
+      ['pointerdown','keydown','touchstart'].forEach(ev =>
+        window.addEventListener(ev, resume, { once:true })
+      );
     }
-  });
-  // label
-  const label = document.createElement('a-entity');
-  label.setAttribute('text','value: คลิกหน้ากากเพื่อปรับตำแหน่งให้ปิดจมูก-ปาก; align:center; width:3; color:#e6eefc');
-  label.setAttribute('position','0 -0.65 0.06'); panel.appendChild(label);
-}
+    return ctx;
+  };
+  const tone = async (freq=440, dur=0.12, type='sine', vol=0.25) => {
+    const ac = await ensure();
+    const now = ac.currentTime;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, now);
+    // attack/decay envelope
+    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+  };
+  const chord = async (freqs=[440,660], dur=0.25, type='sine', vol=0.18) => {
+    const ac = await ensure();
+    const now = ac.currentTime;
+    const group = freqs.map(f => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(vol, now + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      o.connect(g).connect(ac.destination);
+      o.start(now);
+      o.stop(now + dur + 0.05);
+      return {o,g};
+    });
+  };
+  return { tone, chord, ensure };
+})();
 
-// ---------- Station 4: Cough etiquette ----------
-function setupCough(){
-  const panel = document.getElementById('coughPanel');
-  while(panel.firstChild) panel.removeChild(panel.firstChild);
-  // body box + mouth
-  const body = document.createElement('a-box');
-  body.setAttribute('position','0 0 0'); body.setAttribute('width','0.9'); body.setAttribute('height','1.0'); body.setAttribute('depth','0.05'); body.setAttribute('color','#23395b');
-  panel.appendChild(body);
-  const mouth = document.createElement('a-sphere');
-  mouth.setAttribute('position','0 0.1 0.06'); mouth.setAttribute('radius','0.06'); mouth.setAttribute('color','#e6eefc'); panel.appendChild(mouth);
-  // elbow (click to move across positions)
-  const elbow = document.createElement('a-box');
-  elbow.setAttribute('class','clickable');
-  elbow.setAttribute('position','-0.35 -0.05 0.06'); elbow.setAttribute('width','0.4'); elbow.setAttribute('height','0.18'); elbow.setAttribute('depth','0.06'); elbow.setAttribute('color','#ffd166');
-  panel.appendChild(elbow);
-  const elbowLabel = document.createElement('a-entity');
-  elbowLabel.setAttribute('text','value:ศอก; align:center; width:2; color:#001'); elbowLabel.setAttribute('position','-0.35 0.04 0.09'); panel.appendChild(elbowLabel);
-  // tissue + trash
-  const tissue = document.createElement('a-box');
-  tissue.setAttribute('class','clickable');
-  tissue.setAttribute('position','0.35 0.35 0.06'); tissue.setAttribute('width','0.3'); tissue.setAttribute('height','0.16'); tissue.setAttribute('depth','0.06'); tissue.setAttribute('color','#e6eefc');
-  panel.appendChild(tissue);
-  const trash = document.createElement('a-box');
-  trash.setAttribute('position','0.35 -0.45 0.02'); trash.setAttribute('width','0.3'); trash.setAttribute('height','0.2'); trash.setAttribute('depth','0.06'); trash.setAttribute('color','#3b5b85');
-  panel.appendChild(trash);
-  const trashLabel = document.createElement('a-entity');
-  trashLabel.setAttribute('text','value:ถังขยะ; align:center; width:2; color:#e6eefc'); trashLabel.setAttribute('position','0.35 -0.35 0.09'); panel.appendChild(trashLabel);
+// Predefined SFX (no files)
+const SFX = {
+  beep: () => AudioSynth.tone(1100, 0.10, 'square', 0.15),
+  pickup: () => AudioSynth.tone(1400, 0.12, 'sine', 0.2),
+  hit: () => { AudioSynth.tone(220, 0.18, 'sawtooth', 0.25); },
+  win: () => { AudioSynth.chord([880,1320], 0.28, 'triangle', 0.18); }
+};
 
-  let covered = false, thrown = false;
-  panel.addEventListener('click',(e)=>{
-    if (e.target===elbow){
-      // move elbow to mouth in one click
-      if (!covered){
-        elbow.setAttribute('position','0 0.1 0.06'); elbow.setAttribute('color','#28c76f'); covered = true; play(sfx.place);
-      }else{
-        elbow.setAttribute('position','-0.35 -0.05 0.06'); elbow.setAttribute('color','#ffd166'); covered = false;
+// ---------- HUD / Buttons ----------
+const HUD = {
+  mode: document.getElementById('modeText'),
+  time: document.getElementById('timeText'),
+  score: document.getElementById('scoreText'),
+  dist: document.getElementById('distText'),
+  orb: document.getElementById('orbText'),
+  life: document.getElementById('lifeText'),
+  status: document.getElementById('status'),
+  btnPractice: document.getElementById('btnPractice'),
+  btnChallenge: document.getElementById('btnChallenge'),
+  btnStart: document.getElementById('btnStart'),
+  btnReset: document.getElementById('btnReset')
+};
+
+// ---------- Game State ----------
+let MODE = 'Practice'; // or 'Challenge'
+let running = false, startedAt = 0, elapsed = 0;
+let score = 0, distance = 0, orbs = 0, lives = 3;
+let speed = 6; // m/s world scroll
+let track, rig;
+let spawns = []; // {el, type, z}
+let spawnTimer = 0;
+let timeLimit = 60; // seconds (Challenge)
+
+// Player state
+let action = {jump:false, duck:false, lean:0}; // lean -1..1
+let vertical = 0; // jump y
+let vVel = 0;
+
+// ---------- A-Frame Component ----------
+AFRAME.registerComponent('runner-game',{
+  init(){
+    track = document.getElementById('track');
+    rig = document.getElementById('rig');
+
+    this.last = performance.now()/1000;
+    this.tick = this.tick.bind(this);
+    this.onKey = this.onKey.bind(this);
+
+    window.addEventListener('keydown', this.onKey);
+    window.addEventListener('keyup', this.onKey);
+
+    // VR controller bindings
+    const cr = document.getElementById('ctrlR');
+    const cl = document.getElementById('ctrlL');
+    if (cr && cl) {
+      cr.addEventListener('triggerdown', ()=>{ action.jump=true; });
+      cr.addEventListener('triggerup', ()=>{ action.jump=false; });
+      cl.addEventListener('triggerdown', ()=>{ action.duck=true; });
+      cl.addEventListener('triggerup', ()=>{ action.duck=false; });
+      // any thumbstick axis can update lean
+      const axisToLean = (e)=>{ action.lean = (e.detail.axis && e.detail.axis[0]) || 0; };
+      cr.addEventListener('axismove', axisToLean);
+      cl.addEventListener('axismove', axisToLean);
+    }
+
+    // Buttons
+    HUD.btnPractice.onclick = ()=>{ MODE='Practice'; HUD.mode.textContent='Practice'; HUD.status.textContent='โหมดฝึก: ไม่มีจับเวลา'; };
+    HUD.btnChallenge.onclick = ()=>{ MODE='Challenge'; HUD.mode.textContent='Challenge'; HUD.status.textContent='โหมดแข่ง: เวลา 60 วินาที'; };
+    HUD.btnStart.onclick = ()=> startGame();
+    HUD.btnReset.onclick = ()=> resetGame();
+
+    // Start idle
+    this.el.sceneEl.addEventListener('renderstart', ()=> resetGame());
+  },
+  remove(){ window.removeEventListener('keydown', this.onKey); window.removeEventListener('keyup', this.onKey); },
+  onKey(e){
+    if (e.type==='keydown'){
+      if (e.code==='Space'){ action.jump=true; }
+      if (e.ctrlKey){ action.duck=true; }
+      if (e.code==='KeyA'){ action.lean=-1; }
+      if (e.code==='KeyD'){ action.lean=1; }
+      if (e.code==='KeyW'){ speed = Math.min(12, speed+0.5); }
+      if (e.code==='KeyS'){ speed = Math.max(3, speed-0.5); }
+      if (e.code==='KeyR'){ resetGame(); }
+    } else {
+      if (e.code==='Space'){ action.jump=false; }
+      if (!e.ctrlKey){ action.duck=false; }
+      if (e.code==='KeyA' && action.lean<0) action.lean=0;
+      if (e.code==='KeyD' && action.lean>0) action.lean=0;
+    }
+  },
+  tick(){
+    const t = performance.now()/1000;
+    const dt = t - this.last; this.last = t;
+    if (!running) return;
+
+    // Timer / HUD
+    elapsed = t - startedAt;
+    if (MODE==='Challenge'){
+      const remain = Math.max(0, timeLimit - elapsed);
+      HUD.time.textContent = remain.toFixed(1)+'s';
+      if (remain<=0){ endGame(true); return; }
+    } else {
+      HUD.time.textContent = elapsed.toFixed(1)+'s';
+    }
+
+    // Player vertical (jump)
+    const g = 20; // gravity
+    if (action.jump && vertical<=0.001){ vVel = 6.5; SFX.beep(); }
+    vVel -= g*dt; vertical = Math.max(0, vertical + vVel*dt);
+
+    // Camera Y with duck blending
+    const baseY = 1.6 + vertical;
+    const targetY = action.duck ? (1.2 + vertical*0.5) : baseY;
+    rig.object3D.position.y += (targetY - rig.object3D.position.y) * 0.3;
+
+    // Lean (x axis)
+    const xTarget = THREE.MathUtils.clamp((action.lean||0)*0.8, -0.8, 0.8);
+    rig.object3D.position.x += (xTarget - rig.object3D.position.x) * 0.2;
+
+    // Distance / score gain
+    distance += speed*dt;
+    HUD.dist.textContent = (distance|0)+' m';
+
+    // Spawning
+    spawnTimer -= dt;
+    if (spawnTimer<=0){
+      spawnTimer = 1.2 + Math.random()*0.6;
+      spawnEntity();
+    }
+
+    // Move & collide
+    for (let i=spawns.length-1;i>=0;i--){
+      const s = spawns[i];
+      s.z += speed*dt;
+      s.el.object3D.position.z = -s.z;
+
+      // collision near z ~ 0.4
+      if (!s.hit && s.z>=0.4){
+        const px = rig.object3D.position.x;
+        const py = rig.object3D.position.y;
+
+        if (s.type==='orb'){
+          // collect if jumping / camera high
+          if (py>1.75 || vertical>0.05){
+            collectOrb(s,i); continue;
+          }
+        } else if (s.type==='wall_low'){ // jump over
+          if (py<1.75){ onHit(s,i); continue; } else { onPass(s,i); continue; }
+        } else if (s.type==='tunnel'){ // duck under
+          if (action.duck){ onPass(s,i); continue; } else { onHit(s,i); continue; }
+        } else if (s.type==='block_left'){ // lean right
+          if (px>-0.2){ onPass(s,i); continue; } else { onHit(s,i); continue; }
+        } else if (s.type==='block_right'){ // lean left
+          if (px<0.2){ onPass(s,i); continue; } else { onHit(s,i); continue; }
+        }
+      }
+      if (s.z>40){
+        if (s.el.parentNode) s.el.parentNode.removeChild(s.el);
+        spawns.splice(i,1);
       }
     }
-    if (e.target===tissue){
-      // toggle "thrown"
-      if (!thrown){ tissue.setAttribute('position','0.35 -0.35 0.06'); tissue.setAttribute('color','#28c76f'); thrown=true; play(sfx.place); }
-      else { tissue.setAttribute('position','0.35 0.35 0.06'); tissue.setAttribute('color','#e6eefc'); thrown=false; }
-    }
-    if (covered && thrown){ completed.s4 = true; refreshDone(); }
-  });
+  }
+});
+
+// ---------- Game lifecycle ----------
+function startGame(){
+  running = true; startedAt = performance.now()/1000;
+  score = 0; distance = 0; orbs = 0; lives = 3;
+  HUD.score.textContent = '0'; HUD.dist.textContent = '0 m'; HUD.orb.textContent = '0';
+  HUD.life.textContent = '❤❤❤'; HUD.status.textContent='วิ่งไปข้างหน้า หลบ/กระโดด/ก้ม และเก็บ Orbs';
+  clearTrack();
+}
+function resetGame(){
+  running = false; score = 0; distance = 0; orbs = 0; lives = 3;
+  HUD.score.textContent='0'; HUD.dist.textContent='0 m'; HUD.orb.textContent='0';
+  HUD.life.textContent='❤❤❤'; HUD.time.textContent='—'; HUD.status.textContent='กด Start เพื่อเริ่ม';
+  clearTrack();
+}
+function endGame(win=false){
+  running = false;
+  HUD.status.textContent = win ? ('จบเวลา! คะแนนรวม: '+score) : ('ชนสิ่งกีดขวาง หมดชีวิต! คะแนนรวม: '+score);
+  win ? SFX.win() : SFX.hit();
 }
 
-// Initialize all stations
-setupHandwash(); setupTooth(); setupMask(); setupCough(); refreshDone();
+// ---------- Track / Spawning ----------
+function clearTrack(){
+  spawns.forEach(s=> s.el.parentNode && s.el.parentNode.removeChild(s.el));
+  spawns = [];
+}
+function spawnEntity(){
+  const r = Math.random();
+  if (r<0.2){ spawnOrb(); return; }
+  if (r<0.45) spawnWallLow();
+  else if (r<0.7) spawnTunnel();
+  else if (r<0.85) spawnBlock('left');
+  else spawnBlock('right');
+}
+function makeBox(color,w,h,d,pos){
+  const el = document.createElement('a-box');
+  el.setAttribute('color', color);
+  el.setAttribute('width', w); el.setAttribute('height', h); el.setAttribute('depth', d);
+  el.setAttribute('position', pos);
+  document.getElementById('track').appendChild(el);
+  return el;
+}
+function spawnWallLow(){
+  const z = -35; const el = makeBox('#24415f', 1.6, 0.9, 0.6, `0 0.45 ${z}`);
+  spawns.push({el,type:'wall_low',z:Math.abs(z)});
+}
+function spawnTunnel(){
+  const z = -35; const el = makeBox('#20334f', 1.8, 0.7, 0.8, `0 1.7 ${z}`);
+  spawns.push({el,type:'tunnel',z:Math.abs(z)});
+}
+function spawnBlock(side){
+  const z = -35; const x = side==='left' ? -0.6 : 0.6;
+  const el = makeBox('#2a3f5e', 0.8, 1.2, 0.6, `${x} 0.9 ${z}`);
+  spawns.push({el,type:(side==='left'?'block_left':'block_right'),z:Math.abs(z)});
+}
+function spawnOrb(){
+  const z = -35; const y = 1.9;
+  const el = document.createElement('a-sphere');
+  el.setAttribute('color','#79a8ff'); el.setAttribute('radius','0.18');
+  el.setAttribute('emissive','#79a8ff'); el.setAttribute('position', `0 ${y} ${z}`);
+  document.getElementById('track').appendChild(el);
+  spawns.push({el,type:'orb',z:Math.abs(z)});
+}
+
+// ---------- Scoring / Collision responses ----------
+function onPass(s,i){
+  score += 20; HUD.score.textContent = score;
+  s.hit = true; s.el.setAttribute('color','#28c76f');
+}
+function onHit(s,i){
+  if (s.hit) return;
+  s.hit = true; lives -= 1; HUD.life.textContent = '❤'.repeat(Math.max(0,lives));
+  s.el.setAttribute('color','#ff6b6b'); SFX.hit();
+  if (lives<=0){ endGame(false); }
+}
+function collectOrb(s,i){
+  if (s.hit) return;
+  s.hit = true; orbs += 1; score += 50;
+  HUD.orb.textContent = orbs; HUD.score.textContent = score; SFX.pickup();
+  s.el.setAttribute('color','#28c76f');
+}
+
+// Attach component to scene root
+document.getElementById('game').setAttribute('runner-game','');
