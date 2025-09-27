@@ -3,77 +3,71 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Energy Runner VR — Prototype (Difficulty + Beat Map)</title>
+  <title>Nutrition Heroes VR — Prototype</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     body{margin:0;font-family:system-ui,Arial}
-    .hud{position:fixed;right:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:10px 14px;border-radius:12px;min-width:280px}
+    .hud{position:fixed;right:12px;top:12px;z-index:10;background:rgba(0,0,0,.5);color:#fff;padding:10px 14px;border-radius:12px;min-width:310px}
     .hud h1{margin:0 0 6px 0;font-size:18px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+    .pill{padding:3px 8px;border-radius:999px;background:#111;color:#fff}
+    .ok{color:#28c76f} .warn{color:#ffcc00} .bad{color:#ff6b6b}
     .ui{position:fixed;left:12px;bottom:12px;z-index:10;display:flex;gap:8px;flex-wrap:wrap;max-width:96vw}
-    .ui button,.ui select,.ui input{padding:8px 10px;border-radius:12px;border:none;font-weight:700;background:#79a8ff;color:#001;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer}
-    .ui input[type="number"]{width:84px;text-align:center}
-    .ui .group{background:rgba(0,0,0,.45);padding:8px 10px;border-radius:12px;display:flex;gap:8px;align-items:center;color:#fff}
-    .help{position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.45);color:#fff;padding:8px 12px;border-radius:12px;max-width:680px;font-size:14px;line-height:1.4}
+    .ui .group{background:rgba(0,0,0,.5);padding:8px 10px;border-radius:12px;display:flex;gap:8px;align-items:center;color:#fff}
+    .ui button,.ui select{padding:8px 10px;border-radius:12px;border:none;font-weight:700;background:#79a8ff;color:#001;box-shadow:0 2px 8px rgba(0,0,0,.2);cursor:pointer}
+    .ui button.gray{background:#e5e7eb;color:#111}
+    .help{position:fixed;left:12px;top:12px;z-index:10;background:rgba(0,0,0,.5);color:#fff;padding:8px 12px;border-radius:12px;max-width:680px;font-size:14px;line-height:1.45}
     .help kbd{padding:2px 6px;border-radius:6px;background:#111}
-    .pill{padding:3px 8px;border-radius:999px;background:#111;color:#fff;font-weight:700}
-    .label{opacity:.9}
-    @media (max-width: 900px){ .help{max-width:92vw} }
+    .list{font-size:12px;line-height:1.3;max-height:120px;overflow:auto;background:rgba(255,255,255,.06);padding:6px;border-radius:8px}
   </style>
 </head>
 <body>
   <div class="help">
-    <b>Energy Runner VR — Controls</b><br>
-    Desktop: <kbd>Space</kbd>=Jump, <kbd>Ctrl</kbd>=Duck, <kbd>A/D</kbd>=Lean L/R, <kbd>W/S</kbd>=Speed ±, <kbd>R</kbd>=Reset<br>
-    VR: ใช้คอนโทรลเลอร์ — <b>Trigger ขวา</b>=Jump, <b>Trigger ซ้าย</b>=Duck, โยกสติ๊กซ้าย/ขวาเพื่อ Lean<br>
-    โหมด: <span class="pill">Practice</span> = ไม่มีจับเวลา, <span class="pill">Challenge</span> = จับเวลา + คะแนน<br>
-    Beat Map: กำหนด <b>BPM</b>, จำนวน <b>Bars</b> (บาร์ละ 4 จังหวะ), กด <b>Metronome</b> ลองฟัง แล้ว <b>Start</b> เพื่อเล่นซิงค์กับเพลง/จังหวะ
+    <b>Nutrition Heroes VR — วิธีเล่น</b><br>
+    เดสก์ท็อป: ใช้เมาส์คลิกอาหารบนชั้นวาง → จะย้ายลง “จาน” และอัปเดตโภชนาการ<br>
+    VR: ใช้คอนโทรลเลอร์ (laser) ชี้แล้วคลิกอาหารเพื่อใส่จาน<br>
+    โหมด <span class="pill">Practice</span> ไม่มีจับเวลา / <span class="pill">Challenge</span> มีเป้าหมายพลังงานต่อ “มื้อ”
   </div>
 
   <div class="hud">
-    <h1>Energy Runner VR</h1>
-    <div>โหมด: <span id="modeText">Practice</span> | ระดับ: <span id="diffText">Normal</span></div>
-    <div>เวลา: <span id="timeText">—</span></div>
-    <div>คะแนน: <span id="scoreText">0</span></div>
-    <div>ระยะทาง: <span id="distText">0 m</span></div>
-    <div>พลังงาน (Orbs): <span id="orbText">0</span></div>
-    <div>ชีวิต: <span id="lifeText">❤❤❤</span></div>
-    <div>Beat: <span id="beatText">—</span></div>
-    <div id="status">ตั้งค่าโหมด/ความยาก/BPM แล้วกด Start</div>
+    <h1>Nutrition Heroes VR</h1>
+    <div class="row">
+      โหมด: <span id="modeText" class="pill">Practice</span>
+      มื้อ: <span id="mealText" class="pill">เช้า</span>
+      เป้าหมาย: <span id="goalText">400–500 kcal</span>
+    </div>
+    <div>kcal: <span id="kcalText">0</span> | โปรตีน: <span id="proText">0 g</span></div>
+    <div>น้ำตาล: <span id="sugarText">0 g</span> | โซเดียม: <span id="sodText">0 mg</span></div>
+    <div>5 หมู่: <span id="groupsText">—</span></div>
+    <div id="status">คลิกอาหารเพื่อเพิ่มลงจาน • กด Finish เพื่อสรุป</div>
+    <div class="list" id="pickedList"></div>
   </div>
 
   <div class="ui">
     <div class="group">
-      <span class="label">Mode</span>
+      <span>Mode</span>
       <button id="btnPractice">Practice</button>
       <button id="btnChallenge">Challenge</button>
     </div>
-
     <div class="group">
-      <span class="label">Difficulty</span>
-      <select id="selDiff">
-        <option>Easy</option>
-        <option selected>Normal</option>
-        <option>Hard</option>
+      <span>Meal</span>
+      <select id="selMeal">
+        <option value="breakfast">เช้า (400–500 kcal)</option>
+        <option value="lunch">กลางวัน (550–700 kcal)</option>
+        <option value="dinner">เย็น (450–600 kcal)</option>
       </select>
     </div>
-
     <div class="group">
-      <span class="label">Beat Map</span>
-      <label class="label">BPM <input id="inpBPM" type="number" value="120" min="60" max="200"/></label>
-      <label class="label">Bars <input id="inpBars" type="number" value="16" min="1" max="256"/></label>
-      <button id="btnMetro">Metronome</button>
-      <input id="musicFile" type="file" accept="audio/*" title="เลือกเพลง" />
-    </div>
-
-    <div class="group">
-      <button id="btnStart">Start</button>
-      <button id="btnReset">Reset</button>
+      <button id="btnFinish">Finish</button>
+      <button id="btnUndo" class="gray">Undo</button>
+      <button id="btnClear" class="gray">Clear</button>
+      <button id="btnReset" class="gray">Reset</button>
     </div>
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#0e1726">
     <!-- Rig -->
-    <a-entity id="rig" position="0 1.6 0">
+    <a-entity id="rig" position="0 1.6 3">
       <a-entity id="cam" camera look-controls></a-entity>
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
@@ -83,11 +77,13 @@
     <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
     <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
 
-    <!-- Ground -->
-    <a-plane rotation="-90 0 0" width="30" height="300" color="#0b1220" position="0 0 -60"></a-plane>
+    <!-- Table & Plate -->
+    <a-cylinder position="0 0 -1" rotation="0 0 0" color="#324a6d" radius="1.2" height="0.2"></a-cylinder>
+    <a-cylinder id="plate" position="0 0.3 -1" color="#e5e7eb" radius="0.6" height="0.05"></a-cylinder>
+    <a-entity position="0 0.55 -1" text="value: จานสุขภาพ; align:center; color:#111; width:3"></a-entity>
 
-    <!-- Track root -->
-    <a-entity id="track"></a-entity>
+    <!-- Shelves root -->
+    <a-entity id="shelves"></a-entity>
 
     <a-entity id="game"></a-entity>
   </a-scene>
