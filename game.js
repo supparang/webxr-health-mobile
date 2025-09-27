@@ -1,4 +1,6 @@
-// Nutrition Heroes VR — Prototype (Practice/Challenge, Thai foods, no external assets)
+// Nutrition Heroes VR — Prototype with Food PNG Icons
+// - รองรับ img: "assets/xxx.png" ถ้ามีไฟล์จริง
+// - ถ้าไม่มีไฟล์ โค้ดจะสร้าง PNG (Canvas → data:image/png) จากอีโมจิให้อัตโนมัติ
 
 // ---------- Simple WebAudio SFX ----------
 const SFX = (() => {
@@ -10,29 +12,45 @@ const SFX = (() => {
   return { ok:()=>tone(1200,0.10,'square',0.18), bad:()=>tone(240,0.2,'sawtooth',0.25), ui:()=>tone(900,0.08,'sine',0.16) };
 })();
 
+// ---------- Utility: สร้าง PNG dataURL ของไอคอน (emoji) ----------
+function makeIconPNG(emoji='🍽️', bg='#1f2937') {
+  const size = 256;
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d');
+  // พื้นหลังโค้งมน
+  g.fillStyle = bg; g.fillRect(0,0,size,size);
+  g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.arc(size*0.5, size*0.5, size*0.45, 0, Math.PI*2); g.fill();
+  // อีโมจิ
+  g.font = `${Math.floor(size*0.55)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(emoji, size/2, size/2 + size*0.04);
+  return c.toDataURL('image/png');
+}
+
 // ---------- Data: Thai foods (per serving ~ school context) ----------
+// ใส่ emoji สำหรับสร้าง PNG อัตโนมัติ และสามารถระบุ img (ไฟล์ PNG จริง) ได้ถ้ามี
 const FOODS = [
-  // หมู่ข้าว-แป้ง
-  { id:'rice', name:'ข้าวสวย', group:'carb', kcal:150, protein:3, sugar:0, sodium:0, color:'#fcd34d' },
-  { id:'brown', name:'ข้าวกล้อง', group:'carb', kcal:150, protein:3, sugar:0, sodium:0, color:'#f59e0b' },
+  // ข้าว-แป้ง
+  { id:'rice',   name:'ข้าวสวย',   group:'carb',   kcal:150, protein:3, sugar:0,  sodium:0,   color:'#fcd34d', emoji:'🍚', img:'' },
+  { id:'brown',  name:'ข้าวกล้อง', group:'carb',   kcal:150, protein:3, sugar:0,  sodium:0,   color:'#f59e0b', emoji:'🥣', img:'' },
   // โปรตีน
-  { id:'chicken', name:'ไก่อบ', group:'protein', kcal:180, protein:20, sugar:0, sodium:250, color:'#fca5a5' },
-  { id:'fish', name:'ปลาย่าง', group:'protein', kcal:160, protein:22, sugar:0, sodium:180, color:'#93c5fd' },
-  { id:'tofu', name:'เต้าหู้', group:'protein', kcal:110, protein:12, sugar:1, sodium:120, color:'#fde68a' },
+  { id:'chicken',name:'ไก่อบ',     group:'protein',kcal:180, protein:20,sugar:0,  sodium:250, color:'#fca5a5', emoji:'🍗', img:'' },
+  { id:'fish',   name:'ปลาย่าง',   group:'protein',kcal:160, protein:22,sugar:0,  sodium:180, color:'#93c5fd', emoji:'🐟', img:'' },
+  { id:'tofu',   name:'เต้าหู้',   group:'protein',kcal:110, protein:12,sugar:1,  sodium:120, color:'#fde68a', emoji:'🧈', img:'' },
   // ผัก
-  { id:'veg', name:'ผัดผักรวม', group:'veg', kcal:70, protein:2, sugar:3, sodium:180, color:'#86efac' },
-  { id:'salad', name:'สลัดผัก', group:'veg', kcal:60, protein:2, sugar:2, sodium:80, color:'#4ade80' },
+  { id:'veg',    name:'ผัดผักรวม', group:'veg',    kcal:70,  protein:2, sugar:3,  sodium:180, color:'#86efac', emoji:'🥦', img:'' },
+  { id:'salad',  name:'สลัดผัก',   group:'veg',    kcal:60,  protein:2, sugar:2,  sodium:80,  color:'#4ade80', emoji:'🥗', img:'' },
   // ผลไม้
-  { id:'banana', name:'กล้วยหอม', group:'fruit', kcal:90, protein:1, sugar:12, sodium:1, color:'#fde047' },
-  { id:'watermelon', name:'แตงโม', group:'fruit', kcal:50, protein:1, sugar:9, sodium:1, color:'#fda4af' },
-  { id:'papaya', name:'มะละกอ', group:'fruit', kcal:55, protein:1, sugar:8, sodium:3, color:'#fb923c' },
+  { id:'banana', name:'กล้วยหอม',  group:'fruit',  kcal:90,  protein:1, sugar:12, sodium:1,   color:'#fde047', emoji:'🍌', img:'' },
+  { id:'watermelon', name:'แตงโม',  group:'fruit',  kcal:50,  protein:1, sugar:9,  sodium:1,   color:'#fda4af', emoji:'🍉', img:'' },
+  { id:'papaya', name:'มะละกอ',    group:'fruit',  kcal:55,  protein:1, sugar:8,  sodium:3,   color:'#fb923c', emoji:'🥭', img:'' },
   // นม
-  { id:'milk', name:'นมจืด', group:'dairy', kcal:90, protein:6, sugar:9, sodium:70, color:'#bfdbfe' },
-  { id:'soy', name:'นมถั่วเหลืองไม่หวาน', group:'dairy', kcal:80, protein:7, sugar:3, sodium:90, color:'#bae6fd' },
-  // หวาน-มัน-เค็ม (เตือน)
-  { id:'soda', name:'น้ำอัดลม', group:'sugary', kcal:140, protein:0, sugar:35, sodium:25, color:'#60a5fa' },
-  { id:'fried', name:'ของทอด', group:'fatty', kcal:250, protein:4, sugar:0, sodium:350, color:'#f97316' },
-  { id:'instant', name:'บะหมี่กึ่งสำเร็จรูป', group:'salty', kcal:300, protein:6, sugar:2, sodium:1200, color:'#fb7185' },
+  { id:'milk',   name:'นมจืด',     group:'dairy',  kcal:90,  protein:6, sugar:9,  sodium:70,  color:'#bfdbfe', emoji:'🥛', img:'' },
+  { id:'soy',    name:'นมถั่วเหลืองไม่หวาน', group:'dairy', kcal:80, protein:7, sugar:3, sodium:90, color:'#bae6fd', emoji:'🫘', img:'' },
+  // หวาน-มัน-เค็ม
+  { id:'soda',   name:'น้ำอัดลม',  group:'sugary', kcal:140, protein:0, sugar:35, sodium:25, color:'#60a5fa', emoji:'🥤', img:'' },
+  { id:'fried',  name:'ของทอด',    group:'fatty',  kcal:250, protein:4, sugar:0,  sodium:350, color:'#f97316', emoji:'🍟', img:'' },
+  { id:'instant',name:'บะหมี่กึ่งสำเร็จรูป',group:'salty', kcal:300, protein:6, sugar:2, sodium:1200,color:'#fb7185', emoji:'🍜', img:'' },
 ];
 
 const GROUP_LABEL = {
@@ -70,7 +88,7 @@ const HUD = {
 // ---------- Game State ----------
 let MODE = 'Practice';
 let MEAL_KEY = 'breakfast';
-let picked = [];   // array of food ids
+let picked = [];
 let totals = { kcal:0, protein:0, sugar:0, sodium:0, groups:new Set() };
 
 // ---------- Scene & Spawn ----------
@@ -79,6 +97,11 @@ const plate = document.getElementById('plate');
 
 AFRAME.registerComponent('nutrition-game', {
   init(){
+    // สร้าง dataURL PNG อัตโนมัติให้ทุกรายการ (ถ้าไม่มี img จริง)
+    FOODS.forEach(f=>{
+      if (!f.img) f.imgData = makeIconPNG(f.emoji || '🍽️', f.color || '#1f2937');
+    });
+
     // Build shelves
     buildShelves();
 
@@ -102,30 +125,29 @@ AFRAME.registerComponent('nutrition-game', {
   }
 });
 
-// Build simple shelf rows and clickable food boxes
+// Build shelf rows and clickable food boxes with icon images
 function buildShelves(){
-  // Clear existing
   while(shelvesRoot.firstChild) shelvesRoot.removeChild(shelvesRoot.firstChild);
 
-  // 3 rows of shelves
   const rows = [
     { y:1.2, z:-2.5, filter:['carb','protein','dairy'] },
     { y:0.6, z:-2.5, filter:['veg','fruit'] },
     { y:0.0, z:-2.5, filter:['sugary','fatty','salty'] }
   ];
-  rows.forEach((row,ri)=>{
-    // shelf board
+
+  rows.forEach((row)=>{
     const board = document.createElement('a-box');
     board.setAttribute('color','#1f2937');
     board.setAttribute('width','4.5'); board.setAttribute('height','0.12'); board.setAttribute('depth','0.6');
     board.setAttribute('position', `0 ${row.y} ${row.z}`);
     shelvesRoot.appendChild(board);
 
-    // foods on this row
     const items = FOODS.filter(f=> row.filter.includes(f.group));
     const n = items.length;
+
     items.forEach((item, i)=>{
       const x = -2.0 + (i+0.5)*(4.0/n);
+      // กล่องอาหาร
       const el = document.createElement('a-box');
       el.setAttribute('color', item.color);
       el.setAttribute('width','0.5'); el.setAttribute('height','0.25'); el.setAttribute('depth','0.4');
@@ -133,9 +155,17 @@ function buildShelves(){
       el.setAttribute('class','food');
       el.setAttribute('nutrition-id', item.id);
 
+      // รูปไอคอน (PNG): ถ้ามี item.img ใช้นั้น; ไม่งั้นใช้ item.imgData (PNG dataURL)
+      const img = document.createElement('a-image');
+      img.setAttribute('src', item.img || item.imgData);
+      img.setAttribute('width','0.22'); img.setAttribute('height','0.22');
+      img.setAttribute('position','0 0.08 0.21'); // ด้านหน้ากล่องเล็กน้อย
+      el.appendChild(img);
+
+      // ชื่ออาหาร
       const label = document.createElement('a-entity');
-      label.setAttribute('text', `value:${item.name}; align:center; color:#fff; width:3`);
-      label.setAttribute('position', '0 0.2 0.25');
+      label.setAttribute('text', `value:${item.name}; align:center; color:#fff; width:2.5`);
+      label.setAttribute('position', '0 0.19 0.25');
       el.appendChild(label);
 
       el.addEventListener('click', ()=>onPickFood(item.id, el));
@@ -154,21 +184,28 @@ function onPickFood(id, el){
   totals.sodium += food.sodium;
   if (['carb','protein','veg','fruit','dairy'].includes(food.group)) totals.groups.add(food.group);
 
-  // Clone a token onto the plate
+  // Token บนจาน (มีรูป)
   const token = document.createElement('a-box');
   token.setAttribute('width','0.22'); token.setAttribute('height','0.1'); token.setAttribute('depth','0.2');
   token.setAttribute('color', food.color);
-  // scatter tokens on plate in circle
   const idx = picked.length-1;
   const angle = (idx % 10) * (Math.PI*2/10);
   const r = 0.35;
   const px = Math.cos(angle)*r;
   const pz = -1 + Math.sin(angle)*r;
   token.setAttribute('position', `${px} 0.37 ${pz}`);
+
+  const icon = document.createElement('a-image');
+  icon.setAttribute('src', food.img || food.imgData);
+  icon.setAttribute('width','0.16'); icon.setAttribute('height','0.16');
+  icon.setAttribute('position','0 0.06 0.11');
+  token.appendChild(icon);
+
   const lbl = document.createElement('a-entity');
   lbl.setAttribute('text', `value:${food.name}; align:center; color:#111; width:2`);
   lbl.setAttribute('position','0 0.08 0.11');
   token.appendChild(lbl);
+
   plate.parentNode.appendChild(token);
 
   updateHUD();
@@ -178,7 +215,7 @@ function onPickFood(id, el){
 function undoPick(){
   if (!picked.length) return;
   picked.pop();
-  // remove last token from scene (simple approach: remove last added box near plate height)
+  // ลบ token ล่าสุดบนจาน (หา a-image ไอคอนบนความสูงใกล้ 0.37)
   const nodes = Array.from(plate.parentNode.children).reverse();
   const lastToken = nodes.find(n => n.tagName==='A-BOX' && Math.abs(parseFloat((n.getAttribute('position')||'0 0 0').split(' ')[1]) - 0.37) < 0.05);
   if (lastToken) lastToken.parentNode.removeChild(lastToken);
@@ -189,7 +226,6 @@ function undoPick(){
 
 function clearPlate(){
   picked = [];
-  // remove tokens near plate
   Array.from(plate.parentNode.children).forEach(n=>{
     if (n.tagName==='A-BOX'){
       const y = parseFloat((n.getAttribute('position')||'0 0 0').split(' ')[1]);
@@ -228,18 +264,16 @@ function finishPlate(){
   const meal = MEALS[MEAL_KEY];
   const inRange = totals.kcal >= meal.min && totals.kcal <= meal.max;
   const have5 = ['carb','protein','veg','fruit','dairy'].every(g=> totals.groups.has(g));
-  const sugarWarn = totals.sugar > 24;     // ~เกณฑ์ต่อวันเด็ก (อิงแนวแนะนำทั่วไป)
-  const sodiumWarn = totals.sodium > 1500; // เตือนถ้าเกิน 1500 mg
+  const sugarWarn = totals.sugar > 24;
+  const sodiumWarn = totals.sodium > 1500;
 
   let stars = 1;
   if (have5 && inRange) stars = 3;
   else if (have5 || inRange) stars = 2;
 
-  // status message
   let msg = `สรุปผล: ⭐ x${stars} — `;
   msg += have5 ? 'ครบ 5 หมู่, ' : 'ยังไม่ครบ 5 หมู่, ';
   msg += inRange ? 'พลังงานอยู่ในช่วงเป้าหมาย' : 'พลังงานนอกช่วงเป้าหมาย';
-
   if (sugarWarn || sodiumWarn){
     msg += ' — ควรระวัง ';
     if (sugarWarn) msg += 'น้ำตาลสูง ';
