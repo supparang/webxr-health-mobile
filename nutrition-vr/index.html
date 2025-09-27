@@ -2,122 +2,104 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Nutrition VR — ป.5 + Icons + Mini-Quiz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <title>Nutrition VR</title>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Plausible Analytics -->
+  <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
+
   <style>
-    :root{ --bg:#0e1726; --panel:#0b1220; --accent:#79a8ff; --muted:#9fb3d9 }
-    body{ margin:0; font-family:system-ui, Arial; background:var(--bg); color:#fff }
-    .ui2d{ position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:6px; flex-wrap:wrap }
-    .ui2d select,.ui2d button{ padding:10px 12px; border-radius:12px; border:0; font-weight:700; box-shadow:0 2px 8px rgba(0,0,0,.2); background:#1b2a41; color:#e6eefc }
-    .ui2d .primary{ background:var(--accent); color:#001 }
-    .hud2d{ position:fixed; right:12px; top:12px; z-index:10; background:rgba(0,0,0,.5); padding:10px 14px; border-radius:12px; min-width:260px }
-    .hud2d b{ font-size:18px }
-    .tag{ padding:2px 8px; border-radius:999px; font-size:12px; background:rgba(255,255,255,.12) }
-    .row{ display:flex; justify-content:space-between; align-items:center; gap:8px }
-    /* Quiz Modal */
-    #quizModal{ position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:center; justify-content:center; z-index:20 }
-    #quizCard{ width:min(520px, 92vw); background:#0b1220; border-radius:16px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.4) }
-    #quizCard h2{ margin:0 0 8px 0 }
-    .q{ background:#12223c; border-radius:12px; padding:10px; margin:10px 0 }
-    .q b{ display:block; margin-bottom:6px }
-    .q label{ display:block; padding:6px 8px; border-radius:10px; cursor:pointer }
-    .q input{ margin-right:6px }
-    #quizActions{ display:flex; justify-content:flex-end; gap:8px; margin-top:8px }
-    .btn{ padding:10px 12px; border-radius:12px; border:0; font-weight:700; }
-    .btn.primary{ background:var(--accent); color:#001 }
-    .btn.secondary{ background:#1b2a41; color:#e6eefc }
+    :root { --glass: rgba(0,0,0,.55); }
+    body { margin:0; font-family:system-ui, Arial; background:#0e1726; color:#fff; }
+    .help { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
+      padding:8px 12px; border-radius:12px; max-width:820px; font-size:14px; line-height:1.45 }
+    .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
+      padding:10px 14px; border-radius:12px; min-width:340px }
+    .hud h1 { margin:0 0 6px 0; font-size:18px }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 }
+    .pill { padding:2px 8px; border-radius:999px; background:#111; color:#fff }
+    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px; flex-wrap:wrap }
+    .group { background:var(--glass); padding:8px 10px; border-radius:12px; display:flex; gap:8px; align-items:center }
+    .ui button, .ui select { padding:8px 10px; border-radius:12px; border:none; font-weight:700;
+      background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2); cursor:pointer }
+    .ui button.gray { background:#e5e7eb; color:#111 }
+    .mini { font-size:12px; opacity:.9 }
+    .nutri { display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:13px; margin-top:6px }
+    .nutri div { display:flex; justify-content:space-between }
+    .ok { color:#86efac } .warn { color:#fde68a } .bad { color:#fca5a5 }
+    input[type="file"]{ display:none; }
   </style>
 </head>
 <body>
-  <div class="ui2d">
-    <select id="modeSel">
-      <option value="practice">โหมดฝึก (ไม่จับเวลา)</option>
-      <option value="challenge">โหมดแข่งขัน 60 วินาที</option>
-    </select>
-    <select id="levelSel">
-      <option value="1">Level 1 — เช้า 400–500 kcal</option>
-      <option value="2">Level 2 — กลางวัน 550–700 kcal (ผัก ≥ 1)</option>
-      <option value="3">Level 3 — เย็น 450–600 kcal (น้ำตาล ≤ 20g, โซเดียม ≤ 800mg)</option>
-    </select>
-    <button id="btnStart" class="primary">เริ่ม</button>
-    <button id="btnReset">เริ่มใหม่</button>
-    <button id="btnFinishQuiz">จบเกม & ทำแบบทดสอบ</button>
-  </div>
-  <div class="hud2d" id="hud">
-    <div class="row"><b>Nutrition VR — ป.5</b> <span class="tag" id="hudMode">Practice</span></div>
-    <div id="hudTimer" class="tag" style="margin-top:6px; display:inline-block;">เวลา: ∞</div>
-    <div>kcal: <span id="kcal">0</span></div>
-    <div>โปรตีน: <span id="pro">0g</span> | คาร์บ: <span id="carb">0g</span></div>
-    <div>ไฟเบอร์: <span id="fib">0g</span></div>
-    <div>น้ำตาล: <span id="sug">0g</span> | โซเดียม: <span id="sod">0mg</span></div>
-    <div>⭐ <span id="stars">☆☆☆</span></div>
+  <div class="help">
+    <b>Nutrition VR</b> — เลือกอาหารลง “จาน” (พลังงาน/คาร์บ/โปรตีน/ไขมัน/น้ำตาล/โซเดียม จะรวมอัตโนมัติ) •
+    ปุ่ม <span class="pill">Import Foods</span> รองรับไฟล์ JSON ของโรงเรียน • <span class="pill">Export Plate</span> บันทึกเมนูที่เด็กเลือกเป็น JSON
   </div>
 
-  <!-- Quiz Modal -->
-  <div id="quizModal">
-    <div id="quizCard">
-      <h2>Mini-Quiz โภชนาการ (ป.5)</h2>
-      <div id="quizContainer"></div>
-      <div id="quizActions">
-        <button class="btn secondary" id="quizCancel">ยกเลิก</button>
-        <button class="btn primary" id="quizSubmit">ตรวจคำตอบ</button>
-      </div>
-      <div id="quizResult" style="margin-top:8px;font-weight:700"></div>
+  <div class="hud">
+    <h1>Nutrition VR</h1>
+    <div>หมวดหมู่: <span id="catText" class="pill">ทั้งหมด</span></div>
+    <div class="mini">จาน: <span id="plateCount">0</span> รายการ</div>
+    <div class="nutri">
+      <div><span>พลังงาน</span><span id="kcalText">0 kcal</span></div>
+      <div><span>คาร์บ</span><span id="carbText">0 g</span></div>
+      <div><span>โปรตีน</span><span id="protText">0 g</span></div>
+      <div><span>ไขมัน</span><span id="fatText">0 g</span></div>
+      <div><span>น้ำตาล</span><span id="sugarText">0 g</span></div>
+      <div><span>โซเดียม</span><span id="naText">0 mg</span></div>
+    </div>
+    <div id="status" style="margin-top:6px">คลิก/Pinch ที่อาหารเพื่อใส่จาน • คลิกที่จานเพื่อเอาออก</div>
+  </div>
+
+  <div class="ui">
+    <div class="group">
+      <span>Category</span>
+      <select id="selCat" title="Category">
+        <option value="all" selected>ทั้งหมด</option>
+        <option value="main">ข้าว/กับข้าว</option>
+        <option value="protein">โปรตีน</option>
+        <option value="veg">ผัก</option>
+        <option value="fruit">ผลไม้</option>
+        <option value="drink">เครื่องดื่ม</option>
+        <option value="snack">ของว่าง</option>
+      </select>
+    </div>
+    <div class="group">
+      <button id="btnImport">Import Foods</button>
+      <input id="fileFoods" type="file" accept="application/json" />
+      <button id="btnReset" class="gray">Reset Plate</button>
+      <button id="btnExport">Export Plate</button>
     </div>
   </div>
 
-  <a-scene renderer="antialias:true; colorManagement:true" background="color:#0e1726">
-    <a-entity id="rig" position="0 1.6 2">
-      <a-entity id="camera" camera look-controls wasd-controls="enabled:false"></a-entity>
-      <a-entity id="ctrlR" laser-controls="hand: right" raycaster="objects: .clickable" line="color: #79a8ff"></a-entity>
-      <a-entity id="ctrlL" laser-controls="hand: left" raycaster="objects: .clickable" line="color: #79a8ff"></a-entity>
-      <a-entity id="cursor" cursor="fuse:false" raycaster="objects: .clickable" position="0 0 -0.1">
-        <a-ring radius-inner="0.004" radius-outer="0.006" color="#fff"></a-ring>
-      </a-entity>
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020">
+    <a-entity id="rig" position="0 1.6 3">
+      <a-entity id="cam" camera look-controls></a-entity>
+
+      <!-- Controllers (fallback) -->
+      <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
+      <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
+
+      <!-- Hand tracking -->
+      <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
+      <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
+
+      <!-- Finger cursor -->
+      <a-sphere id="fingerCursor" radius="0.012" color="#ffffaa" position="0 0 -1" visible="false"></a-sphere>
     </a-entity>
 
-    <a-entity light="type: ambient; color: #BBD1FF; intensity: 0.6"></a-entity>
+    <!-- Lights -->
+    <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
     <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
-    <a-plane rotation="-90 0 0" width="20" height="20" color="#0b1220" position="0 0 0"></a-plane>
 
-    <a-box color="#14213d" position="0 0.75 -1.2" depth="1.6" height="0.05" width="2.8"></a-box>
-    <a-cylinder id="plate" color="#1b2a41" position="0 0.78 -1.2" radius="0.38" height="0.03"></a-cylinder>
-    <a-entity position="0 1.1 -1.2" text="value: วางอาหารลงจานนี้; color:#CFE8FF; align:center; width:2"></a-entity>
+    <!-- Food shelf + Plate table -->
+    <a-entity id="shelf"></a-entity>
+    <a-entity id="plate"></a-entity>
 
-    <a-plane id="mascotBoard" color="#0b1220" position="0 1.6 -1.9" width="2.4" height="1" material="shader: standard; emissive: #0b1220; emissiveIntensity: .4"></a-plane>
-    <a-entity id="mascotText" position="0 1.6 -1.88" text="value: สวัสดี! ฉันคือน้องโภชนา 😊; align:center; color:#fff; width:3"></a-entity>
-
-    <a-box color="#0b1220" position="-1.0 1.1 -1.2" depth="0.4" height="0.7" width="0.7"></a-box>
-    <a-box color="#0b1220" position="0.0 1.1 -1.2" depth="0.4" height="0.7" width="0.7"></a-box>
-    <a-box color="#0b1220" position="1.0 1.1 -1.2" depth="0.4" height="0.7" width="0.7"></a-box>
-
-    <a-entity id="spawnL" position="-1.0 1.35 -1.2"></a-entity>
-    <a-entity id="spawnC" position="0.0 1.35 -1.2"></a-entity>
-    <a-entity id="spawnR" position="1.0 1.35 -1.2"></a-entity>
-
-    <a-assets>
-      <audio id="pickup" src="assets/pickup.wav"></audio>
-      <audio id="place" src="assets/place.wav"></audio>
-      <audio id="error" src="assets/error.wav"></audio>
-      <audio id="win" src="assets/win.wav"></audio>
-      <!-- Food Images -->
-      <!-- (Loaded dynamically as <img> elements in assets/foods) -->
-      <img id="img_rice_brown" src="assets/foods/rice_brown.png">
-<img id="img_rice_white" src="assets/foods/rice_white.png">
-<img id="img_bread_egg" src="assets/foods/bread_egg.png">
-<img id="img_padthai" src="assets/foods/padthai.png">
-<img id="img_egg" src="assets/foods/egg.png">
-<img id="img_chicken" src="assets/foods/chicken.png">
-<img id="img_tofu" src="assets/foods/tofu.png">
-<img id="img_somtam" src="assets/foods/somtam.png">
-<img id="img_veg_mix" src="assets/foods/veg_mix.png">
-<img id="img_mango" src="assets/foods/mango.png">
-<img id="img_watermelon" src="assets/foods/watermelon.png">
-<img id="img_fried_chicken" src="assets/foods/fried_chicken.png">
-<img id="img_sausage" src="assets/foods/sausage.png">
-<img id="img_softdrink" src="assets/foods/softdrink.png">
-    </a-assets>
+    <a-entity id="game"></a-entity>
   </a-scene>
 
   <script src="game.js"></script>
