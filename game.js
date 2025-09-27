@@ -1,432 +1,263 @@
-// Energy Runner VR — Difficulty + Beat Map (no external WAV files)
-// Desktop: Space=Jump, Ctrl=Duck, A/D=Lean, W/S=Speed +/- , R=Reset
-// VR: Right trigger=Jump, Left trigger=Duck, thumbstick L/R=Lean
+// Nutrition Heroes VR — Prototype (Practice/Challenge, Thai foods, no external assets)
 
-// ---------- Simple WebAudio Synth (no files) ----------
-const AudioSynth = (() => {
-  let ctx = null;
-  const ensure = async () => {
-    if (!ctx) {
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const resume = () => { if (ctx.state === 'suspended') ctx.resume(); };
-      ['pointerdown','keydown','touchstart'].forEach(ev =>
-        window.addEventListener(ev, resume, { once:true })
-      );
-    }
-    return ctx;
-  };
-  const tone = async (freq=440, dur=0.12, type='sine', vol=0.25) => {
-    const ac = await ensure();
-    const now = ac.currentTime;
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.type = type;
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(vol, now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    osc.connect(gain).connect(ac.destination);
-    osc.start(now);
-    osc.stop(now + dur + 0.02);
-  };
-  const chord = async (freqs=[440,660], dur=0.25, type='sine', vol=0.18) => {
-    const ac = await ensure();
-    const now = ac.currentTime;
-    freqs.forEach(f => {
-      const o = ac.createOscillator();
-      const g = ac.createGain();
-      o.type = type; o.frequency.value = f;
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(vol, now + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-      o.connect(g).connect(ac.destination);
-      o.start(now);
-      o.stop(now + dur + 0.05);
-    });
-  };
-  return { tone, chord, ensure };
+// ---------- Simple WebAudio SFX ----------
+const SFX = (() => {
+  let ctx;
+  const ensure = () => { if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); return ctx; };
+  const tone = (f=880,d=0.12,t='sine',v=0.2)=>{ const ac=ensure(); const o=ac.createOscillator(), g=ac.createGain(); o.type=t; o.frequency.value=f;
+    const now=ac.currentTime; g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(v,now+0.01); g.gain.exponentialRampToValueAtTime(0.0001, now+d);
+    o.connect(g).connect(ac.destination); o.start(now); o.stop(now+d+0.02); };
+  return { ok:()=>tone(1200,0.10,'square',0.18), bad:()=>tone(240,0.2,'sawtooth',0.25), ui:()=>tone(900,0.08,'sine',0.16) };
 })();
-const SFX = {
-  tick: () => AudioSynth.tone(1000, 0.06, 'square', 0.18),  // metronome
-  tock: () => AudioSynth.tone(700, 0.06, 'square', 0.16),
-  beep: () => AudioSynth.tone(1100, 0.10, 'square', 0.15),   // jump
-  pickup: () => AudioSynth.tone(1400, 0.12, 'sine', 0.2),
-  hit: () => AudioSynth.tone(220, 0.2, 'sawtooth', 0.25),
-  win: () => AudioSynth.chord([880,1320], 0.28, 'triangle', 0.18)
+
+// ---------- Data: Thai foods (per serving ~ school context) ----------
+const FOODS = [
+  // หมู่ข้าว-แป้ง
+  { id:'rice', name:'ข้าวสวย', group:'carb', kcal:150, protein:3, sugar:0, sodium:0, color:'#fcd34d' },
+  { id:'brown', name:'ข้าวกล้อง', group:'carb', kcal:150, protein:3, sugar:0, sodium:0, color:'#f59e0b' },
+  // โปรตีน
+  { id:'chicken', name:'ไก่อบ', group:'protein', kcal:180, protein:20, sugar:0, sodium:250, color:'#fca5a5' },
+  { id:'fish', name:'ปลาย่าง', group:'protein', kcal:160, protein:22, sugar:0, sodium:180, color:'#93c5fd' },
+  { id:'tofu', name:'เต้าหู้', group:'protein', kcal:110, protein:12, sugar:1, sodium:120, color:'#fde68a' },
+  // ผัก
+  { id:'veg', name:'ผัดผักรวม', group:'veg', kcal:70, protein:2, sugar:3, sodium:180, color:'#86efac' },
+  { id:'salad', name:'สลัดผัก', group:'veg', kcal:60, protein:2, sugar:2, sodium:80, color:'#4ade80' },
+  // ผลไม้
+  { id:'banana', name:'กล้วยหอม', group:'fruit', kcal:90, protein:1, sugar:12, sodium:1, color:'#fde047' },
+  { id:'watermelon', name:'แตงโม', group:'fruit', kcal:50, protein:1, sugar:9, sodium:1, color:'#fda4af' },
+  { id:'papaya', name:'มะละกอ', group:'fruit', kcal:55, protein:1, sugar:8, sodium:3, color:'#fb923c' },
+  // นม
+  { id:'milk', name:'นมจืด', group:'dairy', kcal:90, protein:6, sugar:9, sodium:70, color:'#bfdbfe' },
+  { id:'soy', name:'นมถั่วเหลืองไม่หวาน', group:'dairy', kcal:80, protein:7, sugar:3, sodium:90, color:'#bae6fd' },
+  // หวาน-มัน-เค็ม (เตือน)
+  { id:'soda', name:'น้ำอัดลม', group:'sugary', kcal:140, protein:0, sugar:35, sodium:25, color:'#60a5fa' },
+  { id:'fried', name:'ของทอด', group:'fatty', kcal:250, protein:4, sugar:0, sodium:350, color:'#f97316' },
+  { id:'instant', name:'บะหมี่กึ่งสำเร็จรูป', group:'salty', kcal:300, protein:6, sugar:2, sodium:1200, color:'#fb7185' },
+];
+
+const GROUP_LABEL = {
+  carb:'ข้าว-แป้ง', protein:'โปรตีน', veg:'ผัก', fruit:'ผลไม้', dairy:'นม', sugary:'หวาน', fatty:'มัน', salty:'เค็ม'
 };
 
-// ---------- HUD / UI ----------
+// Meal targets (kcal range)
+const MEALS = {
+  breakfast: { label:'เช้า', min:400, max:500 },
+  lunch:     { label:'กลางวัน', min:550, max:700 },
+  dinner:    { label:'เย็น', min:450, max:600 }
+};
+
+// ---------- HUD Refs ----------
 const HUD = {
   mode: document.getElementById('modeText'),
-  diff: document.getElementById('diffText'),
-  time: document.getElementById('timeText'),
-  score: document.getElementById('scoreText'),
-  dist: document.getElementById('distText'),
-  orb: document.getElementById('orbText'),
-  life: document.getElementById('lifeText'),
-  beat: document.getElementById('beatText'),
-  status: document.getElementById('status'),
+  meal: document.getElementById('mealText'),
+  goal: document.getElementById('goalText'),
+  kcal: document.getElementById('kcalText'),
+  pro:  document.getElementById('proText'),
+  sugar:document.getElementById('sugarText'),
+  sodium:document.getElementById('sodText'),
+  groups:document.getElementById('groupsText'),
+  status:document.getElementById('status'),
+  list: document.getElementById('pickedList'),
   btnPractice: document.getElementById('btnPractice'),
   btnChallenge: document.getElementById('btnChallenge'),
-  btnStart: document.getElementById('btnStart'),
-  btnReset: document.getElementById('btnReset'),
-  selDiff: document.getElementById('selDiff'),
-  inpBPM: document.getElementById('inpBPM'),
-  inpBars: document.getElementById('inpBars'),
-  btnMetro: document.getElementById('btnMetro'),
-  musicFile: document.getElementById('musicFile')
+  selMeal: document.getElementById('selMeal'),
+  btnFinish: document.getElementById('btnFinish'),
+  btnUndo: document.getElementById('btnUndo'),
+  btnClear: document.getElementById('btnClear'),
+  btnReset: document.getElementById('btnReset')
 };
 
 // ---------- Game State ----------
-let MODE = 'Practice'; // or 'Challenge'
-let DIFFICULTY = 'Normal';
-let running = false, startedAt = 0, elapsed = 0;
-let score = 0, distance = 0, orbs = 0, lives = 3;
-let baseSpeed = 6; // modified by difficulty
-let speed = baseSpeed;
-let track, rig;
-let spawns = []; // {el, type, z}
-let spawnTimer = 0; // for random spawn (when NOT using beat)
-let timeLimit = 60; // Challenge
-// Player state
-let action = {jump:false, duck:false, lean:0}; // lean -1..1
-let vertical = 0; // jump y
-let vVel = 0;
+let MODE = 'Practice';
+let MEAL_KEY = 'breakfast';
+let picked = [];   // array of food ids
+let totals = { kcal:0, protein:0, sugar:0, sodium:0, groups:new Set() };
 
-// Beat Map
-let useBeat = true;
-let bpm = 120;
-let beatInterval = 0.5; // 60/bpm
-let beatsPerBar = 4;
-let totalBars = 16;
-let beatTime = 0;
-let curBeat = 0; // absolute beat index
-let metronomeOn = false;
-let music = null; // <audio> created dynamically
+// ---------- Scene & Spawn ----------
+const shelvesRoot = document.getElementById('shelves');
+const plate = document.getElementById('plate');
 
-// Difficulty config
-const DIFF_CFG = {
-  Easy:    { speed: 5, lives: 4, spawnBias: 0.2, time: 70 },
-  Normal:  { speed: 6.5, lives: 3, spawnBias: 0.3, time: 60 },
-  Hard:    { speed: 8, lives: 2, spawnBias: 0.45, time: 50 }
-};
-
-// ---------- A-Frame Component ----------
-AFRAME.registerComponent('runner-game',{
+AFRAME.registerComponent('nutrition-game', {
   init(){
-    track = document.getElementById('track');
-    rig = document.getElementById('rig');
-
-    this.last = performance.now()/1000;
-    this.tick = this.tick.bind(this);
-    this.onKey = this.onKey.bind(this);
-
-    window.addEventListener('keydown', this.onKey);
-    window.addEventListener('keyup', this.onKey);
-
-    // VR controller bindings
-    const cr = document.getElementById('ctrlR');
-    const cl = document.getElementById('ctrlL');
-    if (cr && cl) {
-      cr.addEventListener('triggerdown', ()=>{ action.jump=true; });
-      cr.addEventListener('triggerup', ()=>{ action.jump=false; });
-      cl.addEventListener('triggerdown', ()=>{ action.duck=true; });
-      cl.addEventListener('triggerup', ()=>{ action.duck=false; });
-      const axisToLean = (e)=>{ action.lean = (e.detail.axis && e.detail.axis[0]) || 0; };
-      cr.addEventListener('axismove', axisToLean);
-      cl.addEventListener('axismove', axisToLean);
-    }
+    // Build shelves
+    buildShelves();
 
     // Buttons
-    HUD.btnPractice.onclick = ()=>{ MODE='Practice'; HUD.mode.textContent='Practice'; HUD.status.textContent='โหมดฝึก: ไม่มีจับเวลา'; };
-    HUD.btnChallenge.onclick = ()=>{ MODE='Challenge'; HUD.mode.textContent='Challenge'; HUD.status.textContent='โหมดแข่ง: จับเวลา'; };
-
-    HUD.selDiff.onchange = ()=>{
-      DIFFICULTY = HUD.selDiff.value;
-      HUD.diff.textContent = DIFFICULTY;
-      const cfg = DIFF_CFG[DIFFICULTY];
-      baseSpeed = cfg.speed; timeLimit = cfg.time; lives = cfg.lives;
-      HUD.life.textContent = '❤'.repeat(lives);
-      HUD.status.textContent = `ตั้งค่า: ${DIFFICULTY} | speed≈${baseSpeed}`;
+    HUD.btnPractice.onclick = ()=>{ MODE='Practice'; HUD.mode.textContent='Practice'; SFX.ui(); };
+    HUD.btnChallenge.onclick = ()=>{ MODE='Challenge'; HUD.mode.textContent='Challenge'; SFX.ui(); };
+    HUD.selMeal.onchange = ()=>{
+      MEAL_KEY = HUD.selMeal.value;
+      const m = MEALS[MEAL_KEY];
+      HUD.meal.textContent = m.label;
+      HUD.goal.textContent = `${m.min}–${m.max} kcal`;
+      SFX.ui();
     };
 
-    HUD.inpBPM.onchange = HUD.inpBPM.oninput = ()=>{
-      bpm = (+HUD.inpBPM.value)||120;
-      beatInterval = 60 / bpm;
-      HUD.beat.textContent = `${bpm} BPM`;
-    };
-    HUD.inpBars.onchange = HUD.inpBars.oninput = ()=>{
-      totalBars = Math.max(1, (+HUD.inpBars.value||16));
-    };
+    HUD.btnFinish.onclick = finishPlate;
+    HUD.btnUndo.onclick = undoPick;
+    HUD.btnClear.onclick = clearPlate;
+    HUD.btnReset.onclick = resetAll;
 
-    HUD.btnMetro.onclick = ()=>{
-      metronomeOn = !metronomeOn;
-      HUD.btnMetro.textContent = metronomeOn ? 'Metronome: ON' : 'Metronome';
-      if (metronomeOn) SFX.tick();
-    };
-
-    HUD.musicFile.addEventListener('change', handleMusicFile);
-
-    HUD.btnStart.onclick = ()=> startGame();
-    HUD.btnReset.onclick = ()=> resetGame();
-
-    // defaults
-    bpm = (+HUD.inpBPM.value)||120; beatInterval = 60/bpm;
-    DIFFICULTY = HUD.selDiff.value; HUD.diff.textContent = DIFFICULTY;
-
-    this.el.sceneEl.addEventListener('renderstart', ()=> resetGame());
-  },
-  remove(){ window.removeEventListener('keydown', this.onKey); window.removeEventListener('keyup', this.onKey); },
-  onKey(e){
-    if (e.type==='keydown'){
-      if (e.code==='Space') action.jump=true;
-      if (e.ctrlKey) action.duck=true;
-      if (e.code==='KeyA') action.lean=-1;
-      if (e.code==='KeyD') action.lean=1;
-      if (e.code==='KeyW') speed = Math.min(12, speed+0.5);
-      if (e.code==='KeyS') speed = Math.max(3, speed-0.5);
-      if (e.code==='KeyR') resetGame();
-    } else {
-      if (e.code==='Space') action.jump=false;
-      if (!e.ctrlKey) action.duck=false;
-      if (e.code==='KeyA' && action.lean<0) action.lean=0;
-      if (e.code==='KeyD' && action.lean>0) action.lean=0;
-    }
-  },
-  tick(){
-    const t = performance.now()/1000;
-    const dt = t - this.last; this.last = t;
-    if (!running) return;
-
-    // Timer / HUD
-    elapsed = t - startedAt;
-    if (MODE==='Challenge'){
-      const remain = Math.max(0, timeLimit - elapsed);
-      HUD.time.textContent = remain.toFixed(1)+'s';
-      if (remain<=0){ endGame(true); return; }
-    } else {
-      HUD.time.textContent = elapsed.toFixed(1)+'s';
-    }
-
-    // Metronome (visual/audio only)
-    if (metronomeOn){
-      beatTime += dt;
-      if (beatTime >= beatInterval){
-        beatTime -= beatInterval;
-        const beatInBar = (curBeat % beatsPerBar);
-        if (beatInBar===0) SFX.tick(); else SFX.tock();
-        HUD.beat.textContent = `Beat ${curBeat+1} (bar ${Math.floor(curBeat/beatsPerBar)+1})`;
-        curBeat++;
-      }
-    }
-
-    // Player vertical (jump)
-    const g = 20;
-    if (action.jump && Math.abs(vertical)<=0.001){ vVel = 6.5; SFX.beep(); }
-    vVel -= g*dt; vertical = Math.max(0, vertical + vVel*dt);
-
-    // Camera Y with duck blending
-    const baseY = 1.6 + vertical;
-    const targetY = action.duck ? (1.2 + vertical*0.5) : baseY;
-    rig.object3D.position.y += (targetY - rig.object3D.position.y) * 0.3;
-
-    // Lean (x axis)
-    const xTarget = THREE.MathUtils.clamp((action.lean||0)*0.8, -0.8, 0.8);
-    rig.object3D.position.x += (xTarget - rig.object3D.position.x) * 0.2;
-
-    // Distance / score gain
-    distance += speed*dt;
-    HUD.dist.textContent = (distance|0)+' m';
-
-    // Spawning — two modes: beat-driven or random
-    if (useBeat){
-      // lock to beats; spawn exactly on the beat boundary
-      beatTime += dt;
-      while (beatTime >= beatInterval){
-        beatTime -= beatInterval;
-        const beatInBar = (curBeat % beatsPerBar);
-        spawnOnBeat(beatInBar);
-        curBeat++;
-        HUD.beat.textContent = `Beat ${curBeat} (bar ${Math.floor((curBeat-1)/beatsPerBar)+1})`;
-        // end after totalBars in Challenge
-        if (MODE==='Challenge' && Math.floor((curBeat-1)/beatsPerBar) >= totalBars){ endGame(true); return; }
-      }
-    } else {
-      spawnTimer -= dt;
-      if (spawnTimer<=0){
-        const cfg = DIFF_CFG[DIFFICULTY];
-        // spawn frequency depends on difficulty
-        spawnTimer = 1.2 - (cfg.spawnBias*0.6) + Math.random()*0.6;
-        spawnRandom();
-      }
-    }
-
-    // Move & collide
-    for (let i=spawns.length-1;i>=0;i--){
-      const s = spawns[i];
-      s.z += speed*dt;
-      s.el.object3D.position.z = -s.z;
-
-      // collision near z ~ 0.4
-      if (!s.hit && s.z>=0.4){
-        const px = rig.object3D.position.x;
-        const py = rig.object3D.position.y;
-
-        if (s.type==='orb'){
-          if (py>1.75 || vertical>0.05){
-            collectOrb(s,i); continue;
-          }
-        } else if (s.type==='wall_low'){ // jump over
-          if (py<1.75){ onHit(s,i); continue; } else { onPass(s,i); continue; }
-        } else if (s.type==='tunnel'){ // duck under
-          if (action.duck){ onPass(s,i); continue; } else { onHit(s,i); continue; }
-        } else if (s.type==='block_left'){ // lean right
-          if (px>-0.2){ onPass(s,i); continue; } else { onHit(s,i); continue; }
-        } else if (s.type==='block_right'){ // lean left
-          if (px<0.2){ onPass(s,i); continue; } else { onHit(s,i); continue; }
-        }
-      }
-      if (s.z>40){
-        if (s.el.parentNode) s.el.parentNode.removeChild(s.el);
-        spawns.splice(i,1);
-      }
-    }
+    resetAll();
   }
 });
 
-// ---------- Game lifecycle ----------
-function startGame(){
-  // difficulty apply
-  const cfg = DIFF_CFG[DIFFICULTY];
-  baseSpeed = cfg.speed; speed = baseSpeed; timeLimit = cfg.time; lives = cfg.lives;
-  HUD.life.textContent = '❤'.repeat(lives);
+// Build simple shelf rows and clickable food boxes
+function buildShelves(){
+  // Clear existing
+  while(shelvesRoot.firstChild) shelvesRoot.removeChild(shelvesRoot.firstChild);
 
-  // beat config
-  bpm = (+HUD.inpBPM.value)||120; beatInterval = 60 / bpm;
-  totalBars = Math.max(1,(+HUD.inpBars.value||16));
-  useBeat = true; // เปิดโหมด beat map ตามคำขอ
-  metronomeOn = false; HUD.btnMetro.textContent = 'Metronome';
+  // 3 rows of shelves
+  const rows = [
+    { y:1.2, z:-2.5, filter:['carb','protein','dairy'] },
+    { y:0.6, z:-2.5, filter:['veg','fruit'] },
+    { y:0.0, z:-2.5, filter:['sugary','fatty','salty'] }
+  ];
+  rows.forEach((row,ri)=>{
+    // shelf board
+    const board = document.createElement('a-box');
+    board.setAttribute('color','#1f2937');
+    board.setAttribute('width','4.5'); board.setAttribute('height','0.12'); board.setAttribute('depth','0.6');
+    board.setAttribute('position', `0 ${row.y} ${row.z}`);
+    shelvesRoot.appendChild(board);
 
-  running = true; startedAt = performance.now()/1000;
-  score = 0; distance = 0; orbs = 0; curBeat = 0; beatTime = 0;
-  HUD.score.textContent = '0'; HUD.dist.textContent = '0 m'; HUD.orb.textContent = '0';
-  HUD.status.textContent='เริ่มแล้ว! เล่นตามจังหวะ beat และหลบอุปสรรค + เก็บ Orbs';
-  clearTrack();
+    // foods on this row
+    const items = FOODS.filter(f=> row.filter.includes(f.group));
+    const n = items.length;
+    items.forEach((item, i)=>{
+      const x = -2.0 + (i+0.5)*(4.0/n);
+      const el = document.createElement('a-box');
+      el.setAttribute('color', item.color);
+      el.setAttribute('width','0.5'); el.setAttribute('height','0.25'); el.setAttribute('depth','0.4');
+      el.setAttribute('position', `${x} ${row.y+0.22} ${row.z}`);
+      el.setAttribute('class','food');
+      el.setAttribute('nutrition-id', item.id);
 
-  // play music if selected
-  if (music){ music.currentTime = 0; music.play().catch(()=>{}); }
-}
-function resetGame(){
-  running = false; score = 0; distance = 0; orbs = 0;
-  const cfg = DIFF_CFG[DIFFICULTY]; lives = cfg.lives;
-  HUD.score.textContent='0'; HUD.dist.textContent='0 m'; HUD.orb.textContent='0';
-  HUD.life.textContent='❤'.repeat(lives); HUD.time.textContent='—'; HUD.beat.textContent='—';
-  HUD.status.textContent='ตั้งค่าโหมด/ความยาก/BPM แล้วกด Start';
-  clearTrack();
-  // stop music
-  if (music){ try{ music.pause(); }catch(_){} }
-}
-function endGame(win=false){
-  running = false;
-  HUD.status.textContent = win ? ('เยี่ยม! จบเพลง/เวลาพอดี คะแนนรวม: '+score) : ('ชนสิ่งกีดขวาง หมดชีวิต! คะแนนรวม: '+score);
-  win ? SFX.win() : SFX.hit();
-  if (music){ try{ music.pause(); }catch(_){} }
-}
+      const label = document.createElement('a-entity');
+      label.setAttribute('text', `value:${item.name}; align:center; color:#fff; width:3`);
+      label.setAttribute('position', '0 0.2 0.25');
+      el.appendChild(label);
 
-// ---------- Music upload ----------
-function handleMusicFile(e){
-  const file = e.target.files && e.target.files[0];
-  if (!file) return;
-  if (music){ try{ music.pause(); }catch(_){} }
-  music = new Audio(URL.createObjectURL(file));
-  music.crossOrigin = 'anonymous';
+      el.addEventListener('click', ()=>onPickFood(item.id, el));
+      shelvesRoot.appendChild(el);
+    });
+  });
 }
 
-// ---------- Spawning helpers ----------
-function clearTrack(){
-  spawns.forEach(s=> s.el.parentNode && s.el.parentNode.removeChild(s.el));
-  spawns = [];
-}
-function makeBox(color,w,h,d,pos){
-  const el = document.createElement('a-box');
-  el.setAttribute('color', color);
-  el.setAttribute('width', w); el.setAttribute('height', h); el.setAttribute('depth', d);
-  el.setAttribute('position', pos);
-  document.getElementById('track').appendChild(el);
-  return el;
-}
-function spawnWallLow(){
-  const z = -35; const el = makeBox('#24415f', 1.6, 0.9, 0.6, `0 0.45 ${z}`);
-  spawns.push({el,type:'wall_low',z:Math.abs(z)});
-}
-function spawnTunnel(){
-  const z = -35; const el = makeBox('#20334f', 1.8, 0.7, 0.8, `0 1.7 ${z}`);
-  spawns.push({el,type:'tunnel',z:Math.abs(z)});
-}
-function spawnBlock(side){
-  const z = -35; const x = side==='left' ? -0.6 : 0.6;
-  const el = makeBox('#2a3f5e', 0.8, 1.2, 0.6, `${x} 0.9 ${z}`);
-  spawns.push({el,type:(side==='left'?'block_left':'block_right'),z:Math.abs(z)});
-}
-function spawnOrb(){
-  const z = -35; const y = 1.9;
-  const el = document.createElement('a-sphere');
-  el.setAttribute('color','#79a8ff'); el.setAttribute('radius','0.18');
-  el.setAttribute('emissive','#79a8ff'); el.setAttribute('position', `0 ${y} ${z}`);
-  document.getElementById('track').appendChild(el);
-  spawns.push({el,type:'orb',z:Math.abs(z)});
+// ---------- Picking / Plate ----------
+function onPickFood(id, el){
+  picked.push(id);
+  const food = FOODS.find(f=>f.id===id);
+  totals.kcal += food.kcal;
+  totals.protein += food.protein;
+  totals.sugar += food.sugar;
+  totals.sodium += food.sodium;
+  if (['carb','protein','veg','fruit','dairy'].includes(food.group)) totals.groups.add(food.group);
+
+  // Clone a token onto the plate
+  const token = document.createElement('a-box');
+  token.setAttribute('width','0.22'); token.setAttribute('height','0.1'); token.setAttribute('depth','0.2');
+  token.setAttribute('color', food.color);
+  // scatter tokens on plate in circle
+  const idx = picked.length-1;
+  const angle = (idx % 10) * (Math.PI*2/10);
+  const r = 0.35;
+  const px = Math.cos(angle)*r;
+  const pz = -1 + Math.sin(angle)*r;
+  token.setAttribute('position', `${px} 0.37 ${pz}`);
+  const lbl = document.createElement('a-entity');
+  lbl.setAttribute('text', `value:${food.name}; align:center; color:#111; width:2`);
+  lbl.setAttribute('position','0 0.08 0.11');
+  token.appendChild(lbl);
+  plate.parentNode.appendChild(token);
+
+  updateHUD();
+  SFX.ok();
 }
 
-// Random spawn (when not using beat)
-function spawnRandom(){
-  const r = Math.random();
-  if (r<0.2) return spawnOrb();
-  if (r<0.45) return spawnWallLow();
-  if (r<0.7)  return spawnTunnel();
-  if (r<0.85) return spawnBlock('left');
-  return spawnBlock('right');
+function undoPick(){
+  if (!picked.length) return;
+  picked.pop();
+  // remove last token from scene (simple approach: remove last added box near plate height)
+  const nodes = Array.from(plate.parentNode.children).reverse();
+  const lastToken = nodes.find(n => n.tagName==='A-BOX' && Math.abs(parseFloat((n.getAttribute('position')||'0 0 0').split(' ')[1]) - 0.37) < 0.05);
+  if (lastToken) lastToken.parentNode.removeChild(lastToken);
+  recalcTotals();
+  updateHUD();
+  SFX.ui();
 }
 
-// Beat-driven spawn pattern (4/4)
-function spawnOnBeat(beatInBar){
-  // สร้างแพตเทิร์นง่าย ๆ: beat 1 = obstacle เด่น, beat 3 = obstacle รอง, beat 2/4 = โอกาสเก็บ orb
-  const cfg = DIFF_CFG[DIFFICULTY];
-  const rand = Math.random();
-
-  if (beatInBar === 0){ // downbeat — obstacleหลัก
-    if (rand < 0.34) spawnWallLow();
-    else if (rand < 0.68) spawnTunnel();
-    else spawnBlock(Math.random()<0.5?'left':'right');
-  } else if (beatInBar === 2){ // beat3 — obstacleรองตามความยาก
-    if (rand < cfg.spawnBias){
-      if (rand < 0.5) spawnBlock(Math.random()<0.5?'left':'right');
-      else spawnWallLow();
+function clearPlate(){
+  picked = [];
+  // remove tokens near plate
+  Array.from(plate.parentNode.children).forEach(n=>{
+    if (n.tagName==='A-BOX'){
+      const y = parseFloat((n.getAttribute('position')||'0 0 0').split(' ')[1]);
+      if (Math.abs(y - 0.37) < 0.05) n.parentNode.removeChild(n);
     }
-  } else { // beat2 & beat4 — ของรางวัล
-    if (rand < 0.5) spawnOrb();
+  });
+  recalcTotals();
+  updateHUD();
+  SFX.ui();
+}
+
+function recalcTotals(){
+  totals = { kcal:0, protein:0, sugar:0, sodium:0, groups:new Set() };
+  picked.forEach(id=>{
+    const f = FOODS.find(x=>x.id===id);
+    totals.kcal += f.kcal; totals.protein += f.protein; totals.sugar += f.sugar; totals.sodium += f.sodium;
+    if (['carb','protein','veg','fruit','dairy'].includes(f.group)) totals.groups.add(f.group);
+  });
+}
+
+// ---------- HUD & Scoring ----------
+function updateHUD(){
+  HUD.kcal.textContent = totals.kcal|0;
+  HUD.pro.textContent = `${totals.protein|0} g`;
+  HUD.sugar.textContent = `${totals.sugar|0} g`;
+  HUD.sodium.textContent = `${totals.sodium|0} mg`;
+  const groupsArr = Array.from(totals.groups).map(g=>GROUP_LABEL[g]);
+  HUD.groups.textContent = groupsArr.length ? groupsArr.join(', ') : '—';
+  HUD.list.innerHTML = picked.map((id,i)=>{
+    const f = FOODS.find(x=>x.id===id);
+    return `${i+1}. ${f.name} (${GROUP_LABEL[f.group]}) +${f.kcal} kcal`;
+  }).join('<br>');
+}
+
+function finishPlate(){
+  const meal = MEALS[MEAL_KEY];
+  const inRange = totals.kcal >= meal.min && totals.kcal <= meal.max;
+  const have5 = ['carb','protein','veg','fruit','dairy'].every(g=> totals.groups.has(g));
+  const sugarWarn = totals.sugar > 24;     // ~เกณฑ์ต่อวันเด็ก (อิงแนวแนะนำทั่วไป)
+  const sodiumWarn = totals.sodium > 1500; // เตือนถ้าเกิน 1500 mg
+
+  let stars = 1;
+  if (have5 && inRange) stars = 3;
+  else if (have5 || inRange) stars = 2;
+
+  // status message
+  let msg = `สรุปผล: ⭐ x${stars} — `;
+  msg += have5 ? 'ครบ 5 หมู่, ' : 'ยังไม่ครบ 5 หมู่, ';
+  msg += inRange ? 'พลังงานอยู่ในช่วงเป้าหมาย' : 'พลังงานนอกช่วงเป้าหมาย';
+
+  if (sugarWarn || sodiumWarn){
+    msg += ' — ควรระวัง ';
+    if (sugarWarn) msg += 'น้ำตาลสูง ';
+    if (sodiumWarn) msg += 'โซเดียมสูง';
   }
 
-  // เพิ่ม score เล็กน้อยตามจังหวะเพื่อกระตุ้นการเล่นตาม beat
-  score += 2; HUD.score.textContent = score;
+  HUD.status.textContent = msg;
+  if (stars>=3 && !sugarWarn && !sodiumWarn) SFX.ok(); else SFX.bad();
 }
 
-// ---------- Scoring / Collision ----------
-function onPass(s,i){
-  score += 20; HUD.score.textContent = score;
-  s.hit = true; s.el.setAttribute('color','#28c76f');
-}
-function onHit(s,i){
-  if (s.hit) return;
-  s.hit = true; lives -= 1; HUD.life.textContent = '❤'.repeat(Math.max(0,lives));
-  s.el.setAttribute('color','#ff6b6b'); SFX.hit();
-  if (lives<=0){ endGame(false); }
-}
-function collectOrb(s,i){
-  if (s.hit) return;
-  s.hit = true; orbs += 1; score += 50;
-  HUD.orb.textContent = orbs; HUD.score.textContent = score; SFX.pickup();
-  s.el.setAttribute('color','#28c76f');
+// ---------- Reset ----------
+function resetAll(){
+  MODE = 'Practice'; HUD.mode.textContent = 'Practice';
+  MEAL_KEY = 'breakfast'; HUD.selMeal.value = 'breakfast';
+  const m = MEALS[MEAL_KEY]; HUD.meal.textContent = m.label; HUD.goal.textContent = `${m.min}–${m.max} kcal`;
+  clearPlate();
+  HUD.status.textContent = 'คลิกอาหารเพื่อเพิ่มลงจาน • กด Finish เพื่อสรุป';
 }
 
-// Attach component to scene root
-document.getElementById('game').setAttribute('runner-game','');
+// Attach component
+document.getElementById('game').setAttribute('nutrition-game','');
