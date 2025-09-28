@@ -297,4 +297,275 @@ AFRAME.registerComponent('fitness-game', {
     const t = performance.now()/1000, dt = t - this.last; this.last = t;
 
     // Hand-tracking follow + pinch
-    pollPinchFa
+    pollPinchFallback();
+    const tip = indexTipWorld();
+    if (tip){ fingerCursor.object3D.position.copy(tip); fingerCursor.setAttribute('visible', true); }
+    else    { fingerCursor.setAttribute('visible', false); }
+
+    // Pinch rising edge → hit if intersecting
+    if (!wasPinching && isPinching){
+      const hit = tip && currentTarget && intersectsObj(tip, currentTarget.object3D);
+      if (hit) hitTarget();
+    }
+    wasPinching = isPinching;
+
+    if (!running) return;
+
+    // Timer / HUD
+    elapsed = t - startedAt;
+    if (MODE==='Challenge'){
+      const remain = Math.max(0, timerLimit - elapsed);
+      HUD.time.textContent = remain.toFixed(1) + 's';
+      HUD.meter.style.width = `${(remain / timerLimit) * 100}%`;
+      if (remain <= 0){
+        SFX.bad();
+        HUD.status.textContent = 'หมดเวลา! กด Next Stage';
+        running = false;
+        pushStageLog();
+      }
+    } else {
+      HUD.time.textContent = elapsed.toFixed(1) + 's';
+      HUD.meter.style.width = '100%';
+    }
+
+    // Beat/QTE: spawn on beat
+    if (BEAT_ON){
+      if (t >= nextBeat){
+        SFX.tick();
+        nextBeat = t + beatIntSec;
+        if (!currentTarget){ spawnTarget(true); }
+      }
+    }
+  }
+});
+$('game').setAttribute('fitness-game','');
+
+//////////////////////
+// Stage Build      //
+//////////////////////
+function buildStage(i){
+  clearArena();
+  const st = stages[i];
+  HUD.stage.textContent = st.name;
+  HUD.goal.textContent  = BEAT_ON ? `ทำเป้าตามจังหวะ ${BPM} BPM` : 'ตี/แตะเป้าตามลำดับ';
+  taskIndex = 0;
+
+  const floor = document.createElement('a-circle');
+  floor.setAttribute('radius','3.2'); floor.setAttribute('color','#0b1220'); floor.setAttribute('position','0 0 -2.2');
+  floor.setAttribute('rotation','-90 0 0'); arena.appendChild(floor);
+
+  const title = document.createElement('a-entity');
+  title.setAttribute('text', `value:${st.name}; align:center; color:#CFE8FF; width:6`);
+  title.setAttribute('position', '0 2.2 -2.21'); arena.appendChild(title);
+
+  addStageMarkers(st);
+
+  if (!BEAT_ON) spawnTarget(false);
+  updateProgress();
+  HUD.status.textContent = BEAT_ON
+    ? `รอจังหวะแรก… (${BPM} BPM)`
+    : 'เล็ง crosshair ไปที่เป้าแล้วกด OK หรือจ้อง 1.2 วิ';
+}
+
+function addStageMarkers(st){
+  if (st.kind==='step' || st.kind==='squat' || st.kind==='combo'){
+    const ring = document.createElement('a-ring');
+    ring.setAttribute('radius-inner','0.35'); ring.setAttribute('radius-outer','0.45');
+    ring.setAttribute('position', `0 0 -2.0`); ring.setAttribute('rotation','-90 0 0');
+    ring.setAttribute('color', st.kind==='squat' ? '#34d399' : '#94a3b8');
+    ring.setAttribute('opacity','0.6');
+    arena.appendChild(ring);
+  }
+}
+
+function clearArena(){ while (arena.firstChild) arena.removeChild(arena.firstChild); }
+
+//////////////////////
+// Targets / QTE    //
+//////////////////////
+let currentTarget = null, targetTimer = null;
+
+function spawnTarget(fromBeat = false){
+  const st = stages[stageIndex];
+  if (taskIndex >= st.tasks.length){
+    SFX.ok(); HUD.status.textContent = `สำเร็จ: ${st.name} ✔ กด Next Stage`;
+    running = false; pushStageLog(); return;
+  }
+
+  const task = st.tasks[taskIndex];
+
+  currentTarget = document.createElement('a-sphere');
+  currentTarget.setAttribute('radius','0.15');
+  currentTarget.setAttribute('color', st.color);
+  currentTarget.setAttribute('position', `${task.x.toFixed(3)} ${task.y.toFixed(3)} -2.0`);
+  currentTarget.setAttribute('shader','flat');
+  currentTarget.classList.add('target', 'clickable');
+
+  // รองรับ OK click และ fuse (cursor จะยิง click ให้อัตโนมัติ)
+  currentTarget.addEventListener('click', hitTarget);
+  // เอฟเฟ็กต์โฟกัสระหว่างเล็ง
+  currentTarget.addEventListener('mouseenter', ()=> currentTarget.setAttribute('scale','1.2 1.2 1.2'));
+  currentTarget.addEventListener('mouseleave', ()=> currentTarget.setAttribute('scale','1 1 1'));
+
+  arena.appendChild(currentTarget);
+
+  // หน้าต่างเวลา QTE
+  clearTimeout(targetTimer);
+  let winSec = DIFF_CFG[DIFF].window;
+  if (fromBeat) winSec = Math.min(winSec, beatIntSec * 0.8);
+  if (MODE==='Challenge'){
+    targetTimer = setTimeout(()=>missTarget(), Math.max(500, winSec * 1000));
+  }
+}
+
+function hitTarget(){
+  const st = stages[stageIndex];
+  const task = st.tasks[taskIndex];
+  if (task.hit) return; // กันยิงซ้ำ
+  task.hit  = true;
+  task.time = +elapsed.toFixed(2);
+
+  score += DIFF_CFG[DIFF].bonus;
+  HUD.score.textContent = score;
+  SFX.ok();
+
+  if (currentTarget){
+    currentTarget.setAttribute('color','#ffffff');
+    setTimeout(()=>{ if (currentTarget && currentTarget.parentNode) currentTarget.parentNode.removeChild(currentTarget); }, 40);
+  }
+
+  taskIndex++; updateProgress();
+  if (BEAT_ON){
+    HUD.status.textContent = `ดีมาก! รอจังหวะต่อไป (${BPM} BPM)`;
+    currentTarget = null;
+  } else {
+    spawnTarget(false);
+  }
+}
+
+function missTarget(){
+  const st = stages[stageIndex];
+  const task = st.tasks[taskIndex];
+  task.hit  = false;
+  task.time = +elapsed.toFixed(2);
+
+  if (MODE==='Challenge'){
+    score = Math.max(0, score - DIFF_CFG[DIFF].penalty);
+    HUD.score.textContent = score;
+    SFX.bad();
+  }
+  if (currentTarget && currentTarget.parentNode) currentTarget.parentNode.removeChild(currentTarget);
+  currentTarget = null;
+
+  taskIndex++; updateProgress();
+  if (!BEAT_ON) spawnTarget(false);
+}
+
+function updateProgress(){
+  const st = stages[stageIndex];
+  HUD.prog.textContent = `${Math.min(taskIndex, st.tasks.length)} / ${st.tasks.length}`;
+  const p = Math.round((taskIndex / st.tasks.length) * 100);
+  HUD.meter.style.width = `${p}%`;
+}
+
+// fingertip vs object AABB check
+function intersectsObj(worldPos, obj3D){
+  obj3D.updateWorldMatrix(true,true);
+  const box = new THREE.Box3().setFromObject(obj3D);
+  return box.containsPoint(worldPos);
+}
+
+//////////////////////
+// Flow Control     //
+//////////////////////
+function startGame(){
+  sessionLog = { startedAt: new Date().toISOString(), mode: MODE, difficulty: DIFF, stages: [] };
+  startedAt   = performance.now()/1000;
+  elapsed     = 0;
+  score       = 0;
+  timerLimit  = DIFF_CFG[DIFF].time;
+  stageIndex  = 0;
+  taskIndex   = 0;
+  running     = true;
+
+  // Beat init
+  BEAT_ON    = !!UI.chkBeat.checked;
+  BPM        = parseInt(UI.selBpm.value,10) || 100;
+  beatIntSec = 60 / BPM;
+  nextBeat   = performance.now()/1000 + beatIntSec;
+
+  applyCursorStyleForDifficulty();
+  buildStage(stageIndex);
+
+  HUD.time.textContent  = (MODE==='Challenge') ? `${timerLimit.toFixed(0)}s` : '0.0s';
+  HUD.score.textContent = '0';
+  HUD.status.textContent= BEAT_ON ? `เริ่มแล้ว (Beat ${BPM} BPM)` : 'เริ่มแล้ว! เล็ง crosshair แล้วกด OK หรือจ้อง 1.2 วิ';
+
+  track('GameStart', { mode: MODE, difficulty: DIFF, beat: BEAT_ON ? BPM : null });
+}
+
+function nextStage(){
+  if (running && MODE==='Challenge'){ SFX.bad(); } // discourage skipping during timer
+  running     = true;
+  timerLimit  = DIFF_CFG[DIFF].time;
+  startedAt   = performance.now()/1000;
+  elapsed     = 0;
+
+  stageIndex  = (stageIndex + 1) % stages.length;
+  taskIndex   = 0;
+
+  nextBeat    = performance.now()/1000 + beatIntSec;
+
+  buildStage(stageIndex);
+  HUD.time.textContent  = (MODE==='Challenge') ? `${timerLimit.toFixed(0)}s` : '0.0s';
+}
+
+function resetGame(){
+  running=false; score=0; stageIndex=0; taskIndex=0; elapsed=0;
+  HUD.time.textContent='—'; HUD.score.textContent='0'; HUD.prog.textContent='0 / 0';
+  HUD.status.textContent='กด Start เพื่อเริ่ม';
+  HUD.meter.style.width='0%';
+  clearArena();
+  clearTimeout(targetTimer);
+  currentTarget=null;
+  resetFuseProgress();
+}
+
+//////////////////////
+// Logging & Export //
+//////////////////////
+function pushStageLog(){
+  const st = stages[stageIndex];
+  const summary = {
+    id: st.id,
+    name: st.name,
+    count: st.tasks.length,
+    hits: st.tasks.filter(t=>t.hit).length,
+    timeUsed: +elapsed.toFixed(2),
+    scoreAfter: score,
+    beat: BEAT_ON ? BPM : null
+  };
+  sessionLog.stages.push(summary);
+}
+
+function exportJSON(){
+  const payload = {
+    version: '1.3',
+    game: GAME_ID,
+    mode: MODE,
+    difficulty: DIFF,
+    startedAt: sessionLog.startedAt || new Date().toISOString(),
+    finishedAt: new Date().toISOString(),
+    totalScore: score,
+    stages: sessionLog.stages
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const now = new Date(); const pad = n => String(n).padStart(2,'0');
+  const filename = `fitness_session_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+
+  track('GameFinish', { score, stages: sessionLog.stages.length, mode: MODE, difficulty: DIFF, beat: BEAT_ON ? BPM : null });
+}
