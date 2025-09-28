@@ -3,55 +3,62 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Nutrition VR</title>
+  <title>Nutrition VR — Easy Mode (P.5)</title>
 
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Analytics (เบา ๆ) -->
   <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
 
   <style>
     :root { --glass: rgba(0,0,0,.55); }
     body { margin:0; font-family:system-ui, Arial; background:#0e1726; color:#fff; }
     .help { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
-      padding:10px 12px; border-radius:12px; max-width:860px; font-size:14px; line-height:1.45 }
+      padding:10px 12px; border-radius:12px; max-width:880px; font-size:14px; line-height:1.45 }
     .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
            padding:10px 14px; border-radius:12px; min-width:320px; }
     .hud h1 { margin:0 0 6px 0; font-size:18px }
+    .hud .big { font-size:18px; line-height:1.35; white-space:pre-line }
     .mini { font-size:12px; opacity:.9 }
     .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; flex-wrap:wrap; gap:8px }
     .group { background:var(--glass); padding:8px 10px; border-radius:12px; display:flex; gap:8px; align-items:center }
-    .ui button, .ui label.btn, .ui input[type="file"] { padding:8px 10px; border-radius:12px; border:none; font-weight:700;
+    .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700;
       background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2); cursor:pointer }
     .ui button.gray { background:#e5e7eb; color:#111 }
-    #fileInput { display:none; }
+    .badge { padding:2px 8px; border-radius:999px; background:#111; font-size:12px }
   </style>
 </head>
 <body>
   <div class="help">
-    <b>Nutrition VR</b> — เล็งวงแหวนให้ทับการ์ดแล้วกด <b>OK</b> หรือ <b>จ้องค้าง 1.2 วิ</b> เพื่อเลือกอาหาร<br/>
-    เวอร์ชันนี้ <b>ไม่ใช้ไฟล์รูป</b> แต่อาศัย <b>อีโมจิแทนไอคอน</b> อัตโนมัติ • Import/Export JSON ได้เหมือนเดิม
+    <b>Nutrition VR — Easy Mode (ป.5)</b><br/>
+    1) ใช้หัวเล็งให้วงแหวนทับการ์ดอาหาร → <b>จ้อง 1.2 วิ</b> เพื่อเลือก (หรือกดปุ่ม OK ก็ได้)<br/>
+    2) เลือกให้ครบ <b>4 อย่าง</b> (ข้าว/ธัญพืช, โปรตีน, ผัก/ผลไม้, นม/ทางเลือก หรือเมนูดีต่อสุขภาพ)<br/>
+    3) กด <b>Finish</b> เพื่อดูคะแนนแบบ <b>ดาว ⭐</b> และ <b>หน้ายิ้ม</b>
   </div>
 
   <div class="hud">
-    <h1>Nutrition VR</h1>
-    <div>รวมโภชนาการ: <span id="totalsText">0 kcal | P:0g C:0g F:0g</span></div>
-    <div class="mini" style="margin-top:6px;">หากเล็ง/กดไม่ได้ ให้ขยับศีรษะให้วงแหวนตรงการ์ดอาหารพอดี</div>
+    <h1>Nutrition VR — Easy</h1>
+    <div id="hudLine1" class="big">เลือกอาหาร 4 อย่างนะ!</div>
+    <div id="hudLine2" class="big">ยังไม่ได้เลือก</div>
+    <div class="mini" style="margin-top:6px;">โหมด: <span id="modeBadge" class="badge">Learning</span> | เป้าหมาย: <span id="goalBadge" class="badge">4 อย่าง</span></div>
   </div>
 
   <div class="ui">
     <div class="group">
       <button id="btnStart">Start</button>
-      <button id="btnReset" class="gray">Reset Plate</button>
-      <button id="btnExport">Export Plate JSON</button>
+      <button id="btnFinish">Finish</button>
+      <button id="btnReset" class="gray">Reset</button>
     </div>
     <div class="group">
-      <label for="fileInput" class="btn">Import Menu JSON</label>
-      <input id="fileInput" type="file" accept="application/json" />
-      <button id="btnSample" class="gray">Load Sample</button>
+      <button id="btnLearning" class="gray">Learning</button>
+      <button id="btnChallenge" class="gray">Challenge</button>
     </div>
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine:false">
     <a-entity id="rig" position="0 1.6 3">
+      <!-- กล้อง + crosshair: fuse 1200ms + OK -->
       <a-entity id="cam" camera look-controls>
         <a-entity id="centerCursor"
                   cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1200"
@@ -62,17 +69,19 @@
         </a-entity>
       </a-entity>
 
+      <!-- (อุปกรณ์ที่รองรับ) ตัวควบคุม/มือ -->
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
       <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
       <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
     </a-entity>
 
-    <!-- ขยับฉากให้ใกล้ตา + ชัดขึ้น -->
+    <!-- ฉากให้ใกล้ตา มองชัด -->
     <a-entity id="shelfRoot" position="0 1.5 -1.8"></a-entity>
     <a-entity id="plateRoot" position="0 1.0 -1.2"></a-entity>
 
-    <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
+    <!-- ไฟ -->
+    <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.75"></a-entity>
     <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
   </a-scene>
 
