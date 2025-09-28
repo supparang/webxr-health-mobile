@@ -1,15 +1,13 @@
-// Fitness Adventure VR — Full game.js (OK Click + Fuse 1200ms with Gradient Progress Ring + Wobble)
-// Features: Hand-tracking pinch, Beat/QTE, Extra Stages, Plausible Analytics
-// Place at: webxr-health-mobile/fitness-adventure/game.js
+// Fitness Adventure VR — game.js (OK Click + Fuse 1200ms with Gradient Progress Ring + Wobble)
+// Includes: Hand-tracking pinch, Beat/QTE, Extra Stages, Plausible Analytics
+// Bugfix: Safe target removal (no leftover spheres)
 
 //////////////////////
 // Analytics Helper //
 //////////////////////
 const GAME_ID = "Fitness";
 function track(eventName, props = {}) {
-  try {
-    if (window.plausible) window.plausible(eventName, { props: { game: GAME_ID, ...props } });
-  } catch (e) {}
+  try { if (window.plausible) window.plausible(eventName, { props: { game: GAME_ID, ...props } }); } catch(e){}
 }
 
 //////////////////////
@@ -17,15 +15,15 @@ function track(eventName, props = {}) {
 //////////////////////
 const SFX = (() => {
   let ctx;
-  const ensure = () => { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; };
-  const tone = (f = 880, d = 0.12, t = 'sine', v = 0.22) => {
-    const ac = ensure(), o = ac.createOscillator(), g = ac.createGain();
-    o.type = t; o.frequency.value = f;
-    const now = ac.currentTime;
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(v, now + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + d);
-    o.connect(g).connect(ac.destination); o.start(now); o.stop(now + d + 0.02);
+  const ensure = () => { if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); return ctx; };
+  const tone = (f=880,d=0.12,t='sine',v=0.22)=>{
+    const ac=ensure(), o=ac.createOscillator(), g=ac.createGain();
+    o.type=t; o.frequency.value=f;
+    const now=ac.currentTime;
+    g.gain.setValueAtTime(0,now);
+    g.gain.linearRampToValueAtTime(v,now+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001,now+d);
+    o.connect(g).connect(ac.destination); o.start(now); o.stop(now+d+0.02);
   };
   return { ui:()=>tone(1000,0.08,'square',0.2), ok:()=>tone(1200,0.10,'square',0.2), bad:()=>tone(240,0.20,'sawtooth',0.25), tick:()=>tone(900,0.05,'square',0.2) };
 })();
@@ -34,8 +32,8 @@ const SFX = (() => {
 // DOM / HUD Refs   //
 //////////////////////
 const $ = id => document.getElementById(id);
-const HUD = { mode: $('modeText'), diff: $('diffText'), stage: $('stageText'), goal: $('goalText'),
-  time: $('timeText'), score: $('scoreText'), prog: $('progressText'), meter: $('meterBar'), status: $('status') };
+const HUD = { mode:$('modeText'), diff:$('diffText'), stage:$('stageText'), goal:$('goalText'),
+  time:$('timeText'), score:$('scoreText'), prog:$('progressText'), meter:$('meterBar'), status:$('status') };
 const BTN = { practice:$('btnPractice'), challenge:$('btnChallenge'), start:$('btnStart'), next:$('btnNext'), reset:$('btnReset'), export:$('btnExport') };
 const UI  = { selDiff:$('selDiff'), chkBeat:$('chkBeat'), selBpm:$('selBpm') };
 
@@ -139,7 +137,7 @@ const fuseCtx = fuseCanvas.getContext('2d');
 // bind canvas to plane material
 fuseProgress.setAttribute('material', `shader: flat; src: #${fuseCanvas.id}; transparent: true; alphaTest: 0.01`);
 
-let ringInner = 0.023, ringOuter = 0.033; // normalized (0..1) → จะคูณเป็น px ตอนวาด
+let ringInner = 0.023, ringOuter = 0.033; // normalized
 let gradStart = '#22c55e', gradEnd = '#06b6d4';
 
 let fuseActive=false, fuseStartMs=0, fuseDurMs=1200;
@@ -164,9 +162,7 @@ function drawGradientDonut(ratio){
     const col = lerpColor(gradStart, gradEnd, midRatio);
     fuseCtx.strokeStyle = col;
     fuseCtx.lineWidth = 1.8;
-    fuseCtx.beginPath();
-    fuseCtx.arc(cx, cy, r, startAng, endAng, false);
-    fuseCtx.stroke();
+    fuseCtx.beginPath(); fuseCtx.arc(cx, cy, r, startAng, endAng, false); fuseCtx.stroke();
   }
   const mat = fuseProgress.getObject3D('mesh')?.material;
   if (mat && mat.map) mat.map.needsUpdate = true;
@@ -180,31 +176,22 @@ function applyCursorStyleForDifficulty(){
   const st = RING_STYLE[DIFF] || RING_STYLE.Normal;
   fuseDurMs = st.fuseMs;
   centerCursor.setAttribute('cursor', `rayOrigin: entity; fuse: true; fuseTimeout: ${fuseDurMs}`);
-
   ringInner = st.inner; ringOuter = st.outer;
   gradStart = st.colorStart; gradEnd = st.colorEnd;
-
   const baseColor = (DIFF==='Easy')? '#a7f3d0' : (DIFF==='Hard')? '#fecaca' : '#fde68a';
   centerCursor.setAttribute('material', `color: ${baseColor}; shader: flat; opacity: 0.95`);
-
   resetFuseProgress();
 }
-
 function updateFuseRing(){
   if (fuseActive){
     const now = performance.now();
     const ratio = Math.min(1, (now - fuseStartMs) / fuseDurMs);
     drawGradientDonut(ratio);
-
     if (ratio >= 0.85){
       const wobble = 1 + 0.05 * Math.sin(now * 0.02 * Math.PI); // สั่นเบา ๆ
       centerCursor.setAttribute('scale', `${wobble} ${wobble} ${wobble}`);
-    } else {
-      centerCursor.setAttribute('scale', '1 1 1');
-    }
-  } else {
-    centerCursor.setAttribute('scale', '1 1 1');
-  }
+    } else centerCursor.setAttribute('scale', '1 1 1');
+  } else centerCursor.setAttribute('scale', '1 1 1');
   requestAnimationFrame(updateFuseRing);
 }
 requestAnimationFrame(updateFuseRing);
@@ -227,7 +214,6 @@ AFRAME.registerComponent('fitness-game', {
     // UI events
     BTN.practice.onclick = ()=>{ MODE='Practice'; HUD.mode.textContent='Practice'; SFX.ui(); };
     BTN.challenge.onclick= ()=>{ MODE='Challenge'; HUD.mode.textContent='Challenge'; SFX.ui(); };
-
     UI.selDiff.onchange  = ()=>{ DIFF = UI.selDiff.value; HUD.diff.textContent = DIFF; applyCursorStyleForDifficulty(); SFX.ui(); };
     UI.chkBeat.onchange  = ()=>{ BEAT_ON = UI.chkBeat.checked; SFX.ui(); };
     UI.selBpm.onchange   = ()=>{ BPM = parseInt(UI.selBpm.value,10)||100; beatIntSec = 60/BPM; SFX.ui(); };
@@ -327,6 +313,13 @@ function clearArena(){ while(arena.firstChild) arena.removeChild(arena.firstChil
 let currentTarget = null, targetTimer = null;
 
 function spawnTarget(fromBeat=false){
+  // cleanup เศษเป้าเดิมก่อนเสมอ
+  if (currentTarget && currentTarget.parentNode) {
+    currentTarget.parentNode.removeChild(currentTarget);
+  }
+  currentTarget = null;
+  clearTimeout(targetTimer);
+
   const st = stages[stageIndex];
   if (taskIndex >= st.tasks.length){
     SFX.ok(); HUD.status.textContent = `สำเร็จ: ${st.name} ✔ กด Next Stage`;
@@ -334,66 +327,88 @@ function spawnTarget(fromBeat=false){
   }
   const task = st.tasks[taskIndex];
 
-  currentTarget = document.createElement('a-sphere');
-  currentTarget.setAttribute('radius','0.15');
-  currentTarget.setAttribute('color', st.color);
-  currentTarget.setAttribute('position', `${task.x.toFixed(3)} ${task.y.toFixed(3)} -2.0`);
-  currentTarget.setAttribute('shader','flat');
-  currentTarget.classList.add('target','clickable');
+  const sphere = document.createElement('a-sphere');
+  sphere.setAttribute('radius','0.15');
+  sphere.setAttribute('color', st.color);
+  sphere.setAttribute('position', `${task.x.toFixed(3)} ${task.y.toFixed(3)} -2.0`);
+  sphere.setAttribute('shader','flat');
+  sphere.classList.add('target','clickable');
 
-  currentTarget.addEventListener('click', hitTarget);
-  currentTarget.addEventListener('mouseenter', ()=> currentTarget.setAttribute('scale','1.2 1.2 1.2'));
-  currentTarget.addEventListener('mouseleave', ()=> currentTarget.setAttribute('scale','1 1 1'));
+  // รองรับ OK click & fuse
+  sphere.addEventListener('click', hitTarget);
+  sphere.addEventListener('mouseenter', ()=> sphere.setAttribute('scale','1.2 1.2 1.2'));
+  sphere.addEventListener('mouseleave', ()=> sphere.setAttribute('scale','1 1 1'));
 
-  arena.appendChild(currentTarget);
+  arena.appendChild(sphere);
+  currentTarget = sphere;
 
-  clearTimeout(targetTimer);
+  // หน้าต่าง QTE
   let winSec = DIFF_CFG[DIFF].window;
   if (fromBeat) winSec = Math.min(winSec, beatIntSec * 0.8);
   if (MODE==='Challenge'){
     targetTimer = setTimeout(()=>missTarget(), Math.max(500, winSec*1000));
   }
 }
+
 function hitTarget(){
   const st = stages[stageIndex];
   const task = st.tasks[taskIndex];
-  if (task.hit) return;
+  if (task.hit) return; // กันยิงซ้ำ
   task.hit = true; task.time = +elapsed.toFixed(2);
 
   score += DIFF_CFG[DIFF].bonus;
   HUD.score.textContent = score;
   SFX.ok();
 
+  // ลบเป้าอย่างปลอดภัย
+  clearTimeout(targetTimer);
   if (currentTarget){
-    currentTarget.setAttribute('color','#ffffff');
-    setTimeout(()=>{ if (currentTarget && currentTarget.parentNode) currentTarget.parentNode.removeChild(currentTarget); }, 40);
+    const toRemove = currentTarget; // เก็บอ้างอิงท้องถิ่น
+    toRemove.setAttribute('color','#ffffff');
+    toRemove.setAttribute('visible','false');   // ซ่อนทันทีกันค้าง
+    setTimeout(()=>{ if (toRemove.parentNode) toRemove.parentNode.removeChild(toRemove); }, 0);
   }
+  currentTarget = null;
 
   taskIndex++; updateProgress();
-  if (BEAT_ON){ HUD.status.textContent = `ดีมาก! รอจังหวะต่อไป (${BPM} BPM)`; currentTarget = null; }
-  else { spawnTarget(false); }
+  if (BEAT_ON){
+    HUD.status.textContent = `ดีมาก! รอจังหวะต่อไป (${BPM} BPM)`;
+  } else {
+    spawnTarget(false);
+  }
 }
+
 function missTarget(){
   const st = stages[stageIndex];
   const task = st.tasks[taskIndex];
-  task.hit = false; task.time = +elapsed.toFixed(2);
+  task.hit  = false; task.time = +elapsed.toFixed(2);
 
   if (MODE==='Challenge'){
     score = Math.max(0, score - DIFF_CFG[DIFF].penalty);
     HUD.score.textContent = score;
     SFX.bad();
   }
-  if (currentTarget && currentTarget.parentNode) currentTarget.parentNode.removeChild(currentTarget);
+
+  // ลบเป้าอย่างปลอดภัย
+  clearTimeout(targetTimer);
+  if (currentTarget){
+    const toRemove = currentTarget;
+    toRemove.setAttribute('visible','false');
+    setTimeout(()=>{ if (toRemove.parentNode) toRemove.parentNode.removeChild(toRemove); }, 0);
+  }
   currentTarget = null;
 
   taskIndex++; updateProgress();
   if (!BEAT_ON) spawnTarget(false);
 }
+
 function updateProgress(){
   const st = stages[stageIndex];
   HUD.prog.textContent = `${Math.min(taskIndex, st.tasks.length)} / ${st.tasks.length}`;
   HUD.meter.style.width = `${Math.round((taskIndex/st.tasks.length)*100)}%`;
 }
+
+// fingertip vs object AABB check
 function intersectsObj(worldPos, obj3D){
   obj3D.updateWorldMatrix(true,true);
   const box = new THREE.Box3().setFromObject(obj3D);
@@ -454,7 +469,7 @@ function pushStageLog(){
 }
 function exportJSON(){
   const payload = {
-    version: '1.4',
+    version: '1.5',
     game: GAME_ID, mode: MODE, difficulty: DIFF,
     startedAt: sessionLog.startedAt || new Date().toISOString(),
     finishedAt: new Date().toISOString(),
