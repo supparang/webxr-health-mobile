@@ -3,12 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Nutrition VR — Easy Mode (P.5)</title>
+  <title>Nutrition VR — Easy Mode P5</title>
 
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Analytics (เบา ๆ) -->
   <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
 
   <style>
@@ -31,17 +28,17 @@
 </head>
 <body>
   <div class="help">
-    <b>Nutrition VR — Easy Mode (ป.5)</b><br/>
-    1) ใช้หัวเล็งให้วงแหวนทับการ์ดอาหาร → <b>จ้อง 1.2 วิ</b> เพื่อเลือก (หรือกดปุ่ม OK ก็ได้)<br/>
-    2) เลือกให้ครบ <b>4 อย่าง</b> (ธัญพืช, โปรตีน, ผัก, ผลไม้) — เมนูเตือน (สีแดง) ควรเลือกน้อย ๆ<br/>
-    3) กด <b>Finish</b> เพื่อดูผลเป็น <b>ดาว ⭐</b> + <b>หน้ายิ้ม</b>
+    <b>Nutrition VR — Easy Mode P5</b><br/>
+    1) ใช้หัวเล็งให้วงแหวนทับการ์ดอาหาร แล้วจ้อง 1.2 วิ เพื่อเลือก หรือกดปุ่ม OK ก็ได้<br/>
+    2) เลือกให้ครบ 4 อย่าง ธัญพืช โปรตีน ผัก ผลไม้ เมนูเตือนสีแดงให้เลือกน้อย ๆ<br/>
+    3) กด Finish เพื่อดูผลเป็น ดาว และ หน้ายิ้ม
   </div>
 
   <div class="hud">
     <h1>Nutrition VR — Easy</h1>
-    <div id="hudLine1" class="big">เลือกอาหาร 4 อย่างนะ!</div>
+    <div id="hudLine1" class="big">เลือกอาหาร 4 อย่างนะ</div>
     <div id="hudLine2" class="big">ยังไม่ได้เลือก</div>
-    <div class="mini" style="margin-top:6px;">โหมด: <span id="modeBadge" class="badge">Learning</span> | เป้าหมาย: <span id="goalBadge" class="badge">4 อย่าง</span></div>
+    <div class="mini" style="margin-top:6px;">โหมด <span id="modeBadge" class="badge">Learning</span>  เป้าหมาย <span id="goalBadge" class="badge">4 อย่าง</span></div>
   </div>
 
   <div class="ui">
@@ -58,7 +55,6 @@
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine:false">
     <a-entity id="rig" position="0 1.6 3">
-      <!-- กล้อง + crosshair: fuse 1200ms + OK -->
       <a-entity id="cam" camera look-controls>
         <a-entity id="centerCursor"
                   cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1200"
@@ -68,19 +64,16 @@
                   material="color: #ffcc00; shader: flat; opacity: 0.95">
         </a-entity>
       </a-entity>
-
-      <!-- (อุปกรณ์ที่รองรับ) ตัวควบคุม/มือ -->
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
       <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
       <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
     </a-entity>
 
-    <!-- ฉากให้ใกล้ตา มองชัด -->
+    <!-- ใกล้ตา ชัดเจน -->
     <a-entity id="shelfRoot" position="0 1.5 -1.8"></a-entity>
     <a-entity id="plateRoot" position="0 1.0 -1.2"></a-entity>
 
-    <!-- ไฟ -->
     <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.75"></a-entity>
     <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
   </a-scene>
