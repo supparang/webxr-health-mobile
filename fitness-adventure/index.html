@@ -36,7 +36,7 @@
 </head>
 <body>
   <div class="help">
-    <b>Fitness Adventure VR</b> — เล่นได้ทั้ง <span class="pill">รีโมท Shinecon (กด OK)</span>, <span class="pill">Fuse (จ้อง 1 วิ)</span>,
+    <b>Fitness Adventure VR</b> — เล่นได้ทั้ง <span class="pill">รีโมท Shinecon (กด OK)</span>, <span class="pill">Fuse (จ้อง 1.2 วิ)</span>,
     และ <span class="pill">Hand-Tracking + Pinch</span> • เปิด <b>Beat Sync</b> เพื่อเล่นตาม BPM • กด <b>Enter VR</b> เพื่อเริ่ม
   </div>
 
@@ -85,36 +85,36 @@
     </div>
   </div>
 
-  <!-- โชว์เส้น ray ช่วยดีบัก ให้ comment ทิ้งได้ -->
-  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine: false">
+  <!-- เปิด raycaster line ตอนดีบักได้ด้วย raycaster="showLine:true" -->
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine:false">
     <a-entity id="rig" position="0 1.6 3">
-      <!-- กล้องหลัก + CROSSHAIR ที่รองรับ OK click + Fuse -->
-  <a-entity id="cam" camera look-controls>
-    <a-entity id="centerCursor"
-            cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1200"
-            raycaster="objects: .target, .clickable"
-            position="0 0 -1"
-            geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-            material="color: #ffcc00; shader: flat; opacity: 0.95">
+      <!-- กล้องหลัก + CROSSHAIR: รองรับ OK + Fuse(1200ms) + Progress Ring (plane overlay) -->
+      <a-entity id="cam" camera look-controls>
+        <a-entity id="centerCursor"
+                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1200"
+                  raycaster="objects: .target, .clickable"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                  material="color: #ffcc00; shader: flat; opacity: 0.95">
 
-  <!-- Progress ring: จะถูกสไตล์/ปรับขนาด/สีจาก game.js ตามระดับความยาก -->
-      <a-entity id="fuseProgress"
-              geometry="primitive: ring; radiusInner: 0.023; radiusOuter: 0.033; thetaStart: -90; thetaLength: 0"
-              material="color: #66ff88; shader: flat; opacity: 0.95">
+          <!-- Progress ring ด้วยแคนวาส (gradient + สั่นใกล้ครบวง) -->
+          <a-entity id="fuseProgress"
+                    geometry="primitive: plane; width: 0.08; height: 0.08"
+                    material="shader: flat; transparent: true; alphaTest: 0.01"
+                    position="0 0 0.001">
+          </a-entity>
+        </a-entity>
       </a-entity>
-    </a-entity>
-  </a-entity>
-
 
       <!-- Controllers (fallback) -->
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
 
-      <!-- Hand tracking -->
+      <!-- Hand-tracking -->
       <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
       <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
 
-      <!-- Finger cursor (สำหรับ pinch) -->
+      <!-- finger cursor (ปลายนิ้ว) -->
       <a-sphere id="fingerCursor" radius="0.012" color="#ffffaa" position="0 0 -1" visible="false"></a-sphere>
     </a-entity>
 
