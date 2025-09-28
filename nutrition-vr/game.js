@@ -1,284 +1,217 @@
-// Nutrition VR — Easy Mode (P5) — Precise Slot Centering
+// Nutrition Traffic Light VR — P5
+// กลไก: อาหารทีละชิ้น → เลือกถัง เขียว เหลือง แดง ด้วย gaze fuse หรือ OK
+// คะแนนง่าย ๆ ดาวและหน้ายิ้มตอนจบ ไม่ใช้ไฟล์ภาพ
 
-const GAME_ID = "Nutrition-Easy";
-function track(eventName, props = {}) {
-  try { if (window.plausible) window.plausible(eventName, { props: { game: GAME_ID, ...props } }); } catch(e){}
-}
+const GAME_ID = "Nutrition-Traffic";
+function track(name, props={}){ try{ if(window.plausible) plausible(name,{props:{game:GAME_ID,...props}}) }catch(e){} }
 
 const $ = id => document.getElementById(id);
-const shelfRoot = $('shelfRoot');
-const plateRoot = $('plateRoot');
-const hudLine1 = $('hudLine1');
-const hudLine2 = $('hudLine2');
-const modeBadge = $('modeBadge');
-const goalBadge = $('goalBadge');
+const hudText = $('hudText');
+const btn = { start: $('btnStart'), reset: $('btnReset') };
 
-const BTN = {
-  start: $('btnStart'),
-  finish: $('btnFinish'),
-  reset: $('btnReset'),
-  learning: $('btnLearning'),
-  challenge: $('btnChallenge')
-};
+const gameRoot = document.getElementById('gameRoot');
 
-let MODE = 'Learning';
-const GOAL_COUNT = 4;
+let running = false;
+let timeLeft = 60;
+let score = 0;
+let lives = 3;
+let totalItems = 0;
+let timerId = null;
 
-/* ---------- Layout Constants (ใช้ค่าคงที่ทั้งหมด) ---------- */
-const SLOT = {
-  shelf: { cols:3, rows:3, gapX:0.75, gapY:0.48, centerY:0.55, W:0.68, H:0.36 },
-  plate: { cols:2, rows:3, gapX:0.50, gapY:0.36, centerY:0.22, W:0.58, H:0.28 }
-};
-const Z = { backdrop:-0.020, shelfBase:0.000, slotFrame:0.004, card:0.010, inner:0.011, content:0.012, title:0.013 };
-const CARD_INNER = { W:0.64, H:0.32 };
-const EMOJI_X = -0.20;     // ขยับซ้ายคงที่ (หน่วยเมตรในฉาก)
-const LABEL_POS = { x:-0.02, y:0.10 };
-
-/* ---------- เมนู (อิโมจิแทนรูป) ---------- */
-const MENU = [
-  { id:'g01', name:'ข้าวสวย',       cat:'grain',   kcal:200, emoji:'🍚', color:'#60a5fa' },
-  { id:'p01', name:'ไก่ย่าง',       cat:'protein', kcal:165, emoji:'🍗', color:'#f59e0b' },
-  { id:'v01', name:'ผัดผักรวม',     cat:'veggie',  kcal:150, emoji:'🥗', color:'#22c55e' },
-  { id:'f01', name:'ผลไม้รวม',     cat:'fruit',   kcal:90,  emoji:'🍎', color:'#84cc16' },
-  { id:'d01', name:'นมจืด',        cat:'dairy',   kcal:130, emoji:'🥛', color:'#a78bfa' },
-  { id:'h01', name:'ซุปเต้าหู้ใส',  cat:'healthy', kcal:110, emoji:'🍲', color:'#2dd4bf' },
-  { id:'c01', name:'ของทอด',       cat:'caution', kcal:260, emoji:'🍟', color:'#ef4444' },
-  { id:'s01', name:'ขนมหวาน',      cat:'caution', kcal:240, emoji:'🍰', color:'#ef4444' }
+// ===== ชุดข้อมูลอาหารแบบไฟจราจร =====
+// tag: green ต้องการบ่อย, yellow พอเหมาะ, red น้อย ๆ
+const FOODS = [
+  {name:'ข้าวกล้อง', emoji:'🍚', tag:'green'},
+  {name:'ปลาอบ', emoji:'🐟', tag:'green'},
+  {name:'ผัดผัก', emoji:'🥗', tag:'green'},
+  {name:'ผลไม้', emoji:'🍎', tag:'green'},
+  {name:'นมจืด', emoji:'🥛', tag:'yellow'},
+  {name:'ไก่ย่าง', emoji:'🍗', tag:'yellow'},
+  {name:'แกงจืด', emoji:'🍲', tag:'yellow'},
+  {name:'ข้าวขาว', emoji:'🍚', tag:'yellow'},
+  {name:'ของทอด', emoji:'🍟', tag:'red'},
+  {name:'น้ำอัดลม', emoji:'🥤', tag:'red'},
+  {name:'ขนมหวาน', emoji:'🍰', tag:'red'},
+  {name:'มันฝรั่งทอดกรอบ', emoji:'🍿', tag:'red'}
 ];
 
-let selected = []; // [{id,name,cat,kcal,emoji,color,qty}]
+function randFood(){ return FOODS[Math.floor(Math.random()*FOODS.length)]; }
+function setHUD(line1, line2=""){ hudText.style.whiteSpace='pre-line'; hudText.textContent = line1 + (line2?`\n${line2}`:''); }
+function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild); }
 
-/* ---------- Utils ---------- */
-function clearEntity(root){ while(root.firstChild) root.removeChild(root.firstChild); }
-function speakHUD(line1, line2){ hudLine1.textContent = line1; hudLine2.textContent = line2; }
-function gridSlots({cols,rows,gapX,gapY,centerY}) {
-  const out = [];
-  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++) {
-    const x = (c - (cols-1)/2) * gapX;
-    const y = centerY - r * gapY;
-    // ปัดทศนิยมให้สวย (ลด jitter floating)
-    out.push({ x: parseFloat(x.toFixed(3)), y: parseFloat(y.toFixed(3)) });
-  }
-  return out;
+// billboard: ให้ป้ายหันหาเลนส์เสมอ
+AFRAME.registerComponent('billboard',{ tick(){ const cam=document.querySelector('[camera]'); if(!cam) return; const v=new THREE.Vector3(); cam.object3D.getWorldPosition(v); this.el.object3D.lookAt(v);} });
+
+// ===== สร้างเลย์เอาต์ฉาก: ป้ายถัง 3 สี + โซนไอเท็ม =====
+let bins = {}; // {green:entity, yellow:entity, red:entity}
+let itemNode = null;
+
+function buildScene(){
+  clearChildren(gameRoot);
+
+  // ช่องวางถัง: ซ้าย เขียว กลาง เหลือง ขวา แดง
+  const lane = document.createElement('a-entity');
+  lane.setAttribute('position','0 0 0');
+  gameRoot.appendChild(lane);
+
+  bins.green = makeBin('เขียว กินบ่อย', '#16a34a', -0.9);
+  bins.yellow= makeBin('เหลือง พอเหมาะ', '#f59e0b', 0.0);
+  bins.red   = makeBin('แดง กินน้อย', '#ef4444', 0.9);
+  lane.appendChild(bins.green);
+  lane.appendChild(bins.yellow);
+  lane.appendChild(bins.red);
+
+  // โหนดสำหรับอาหารปัจจุบันตรงกลางด้านบนเล็กน้อย
+  itemNode = document.createElement('a-entity');
+  itemNode.setAttribute('position','0 0.45 0');
+  gameRoot.appendChild(itemNode);
 }
-function drawSlotFrames(root, slots, W, H) {
-  slots.forEach(({x,y})=>{
-    const frame = document.createElement('a-entity');
-    frame.setAttribute('position', `${x} ${y} ${Z.slotFrame}`);
+function makeBin(label, color, x){
+  const bin = document.createElement('a-entity');
+  bin.setAttribute('position', `${x} -0.35 0`);
 
-    const back = document.createElement('a-plane');
-    back.setAttribute('width', String(W));
-    back.setAttribute('height', String(H));
-    back.setAttribute('color', '#0d1424');
-    back.setAttribute('opacity', '0.45');
-    back.setAttribute('material', 'shader: flat; transparent: true');
-    back.setAttribute('position', `0 0 0`);
-    frame.appendChild(back);
+  // พื้นป้าย
+  const panel = document.createElement('a-plane');
+  panel.classList.add('selectable');
+  panel.setAttribute('width','0.9'); panel.setAttribute('height','0.5');
+  panel.setAttribute('material', `color:${color}; opacity:0.35; shader:flat; transparent:true`);
+  panel.setAttribute('billboard','');
+  panel.setAttribute('position','0 0 0');
+  bin.appendChild(panel);
 
-    const rim = document.createElement('a-plane');
-    rim.setAttribute('width', String(W));
-    rim.setAttribute('height', String(H));
-    rim.setAttribute('color', '#1e293b');
-    rim.setAttribute('opacity', '0.65');
-    rim.setAttribute('material', 'shader: flat; wireframe: true; transparent: true');
-    rim.setAttribute('position', `0 0 0.0005`);
-    frame.appendChild(rim);
+  // เส้นขอบเข้ม
+  const inner = document.createElement('a-plane');
+  inner.setAttribute('width','0.86'); inner.setAttribute('height','0.46');
+  inner.setAttribute('material', 'color:#0f172a; shader:flat; transparent:true; opacity:0.98');
+  inner.setAttribute('position','0 0 0.01');
+  bin.appendChild(inner);
 
-    root.appendChild(frame);
-  });
-}
-function placeAtSlot(el, slot, z=Z.card){ el.setAttribute('position', `${slot.x} ${slot.y} ${z}`); }
+  // ข้อความใหญ่
+  const txt = document.createElement('a-entity');
+  txt.setAttribute('text', `value:${label}; width:3.2; align:center; color:#EAF2FF`);
+  txt.setAttribute('position','0 0 0.02');
+  bin.appendChild(txt);
 
-/* ---------- Shelf ---------- */
-function renderShelf(){
-  clearEntity(shelfRoot);
+  // คลิกที่ป้าย = เลือกถังนั้น
+  panel.addEventListener('click', ()=>{ if(running) gradeChoice(bin === bins.green ? 'green' : bin === bins.yellow ? 'yellow' : 'red'); });
 
-  // ฉากหลัง + แท่นชั้น
-  const backdrop = document.createElement('a-plane');
-  backdrop.setAttribute('width','2.6'); backdrop.setAttribute('height','1.6');
-  backdrop.setAttribute('color','#0a0f1a');
-  backdrop.setAttribute('position', `0 0 ${Z.backdrop}`);
-  backdrop.setAttribute('material','shader: flat; opacity: 0.95');
-  shelfRoot.appendChild(backdrop);
-
-  const shelf = document.createElement('a-box');
-  shelf.setAttribute('width','2.4'); shelf.setAttribute('height','0.06'); shelf.setAttribute('depth','0.45');
-  shelf.setAttribute('color','#0b1220'); shelf.setAttribute('position', `0 -0.2 ${Z.shelfBase}`);
-  shelfRoot.appendChild(shelf);
-
-  // สร้างสล็อตคงที่ + วาดกรอบ
-  const shelfSlots = gridSlots(SLOT.shelf);
-  drawSlotFrames(shelfRoot, shelfSlots, SLOT.shelf.W, SLOT.shelf.H);
-
-  // วางการ์ดแบบศูนย์กลางตรงสล็อต
-  MENU.forEach((m, i)=>{
-    const s = shelfSlots[i % shelfSlots.length];
-
-    const card = document.createElement('a-entity');
-    card.classList.add('clickable','food');
-    placeAtSlot(card, s, Z.card);
-
-    // กรอบหมวด (จาง)
-    const frame = document.createElement('a-plane');
-    frame.setAttribute('width', String(SLOT.shelf.W));
-    frame.setAttribute('height', String(SLOT.shelf.H));
-    frame.setAttribute('color', m.color);
-    frame.setAttribute('opacity', '0.25');
-    frame.setAttribute('material','shader: flat; transparent: true');
-    frame.setAttribute('position', `0 0 0`);
-    card.appendChild(frame);
-
-    // แผ่นใน (เข้ม) ให้อ่านชัด
-    const inner = document.createElement('a-plane');
-    inner.setAttribute('width', String(CARD_INNER.W));
-    inner.setAttribute('height', String(CARD_INNER.H));
-    inner.setAttribute('color', '#111827');
-    inner.setAttribute('opacity', '0.98');
-    inner.setAttribute('material','shader: flat; transparent: true');
-    inner.setAttribute('position', `0 0 ${Z.inner - Z.card}`);
-    card.appendChild(inner);
-
-    // อีโมจิ + ป้าย (จัดยึดแน่นด้วยค่าคงที่)
-    const emoji = document.createElement('a-entity');
-    emoji.setAttribute('text', `value:${m.emoji}; width:2.0; align:center; color:#fff`);
-    emoji.setAttribute('position', `${EMOJI_X} 0 ${Z.content - Z.card}`);
-    card.appendChild(emoji);
-
-    const label = document.createElement('a-entity');
-    label.setAttribute('text', `value:${m.name}\nประมาณ ${m.kcal} แคล; width:2.6; color:#F5F7FF; align:left; baseline:top`);
-    label.setAttribute('position', `${LABEL_POS.x} ${LABEL_POS.y} ${Z.content - Z.card}`);
-    card.appendChild(label);
-
-    // ไม่มี hover scale เพื่อไม่ให้เพี้ยนตำแหน่ง
-    card.addEventListener('click', ()=> addItem(m));
-
-    shelfRoot.appendChild(card);
-  });
-
-  const title = document.createElement('a-entity');
-  title.setAttribute('text', 'value:เลือกอาหาร 4 อย่าง; width:5.2; color:#E8F0FF; align:center');
-  title.setAttribute('position', `0 0.95 ${Z.title}`);
-  shelfRoot.appendChild(title);
+  return bin;
 }
 
-/* ---------- Plate ---------- */
-function renderPlate(){
-  clearEntity(plateRoot);
+// ===== แสดงอาหารชิ้นใหม่ =====
+let currentFood = null;
 
-  const base = document.createElement('a-circle');
-  base.setAttribute('radius','0.65'); base.setAttribute('color','#0b1220');
-  base.setAttribute('rotation','-90 0 0'); base.setAttribute('position', `0 -0.35 ${Z.shelfBase}`);
-  plateRoot.appendChild(base);
+function showNewFood(){
+  if(!itemNode) return;
+  clearChildren(itemNode);
+  currentFood = randFood();
+  totalItems += 1;
 
-  const head = document.createElement('a-entity');
-  head.setAttribute('text','value:จานของฉัน  แตะเพื่อลดจำนวนหรือเอาออก; width:5.5; color:#E8F0FF; align:center');
-  head.setAttribute('position', `0 0.55 ${Z.title}`);
-  plateRoot.appendChild(head);
+  const card = document.createElement('a-entity');
+  card.setAttribute('position','0 0 0');
 
-  const plateSlots = gridSlots(SLOT.plate);
-  drawSlotFrames(plateRoot, plateSlots, SLOT.plate.W, SLOT.plate.H);
+  const back = document.createElement('a-plane');
+  back.setAttribute('width','1.2'); back.setAttribute('height','0.6');
+  back.setAttribute('material','color:#111827; shader:flat; transparent:true; opacity:0.98');
+  back.setAttribute('position','0 0 0');
+  card.appendChild(back);
 
-  selected.forEach((p, i)=>{
-    const s = plateSlots[i % plateSlots.length];
+  const emoji = document.createElement('a-entity');
+  emoji.setAttribute('text', `value:${currentFood.emoji}; width:3.2; align:center; color:#fff`);
+  emoji.setAttribute('position','-0.35 0 0.01');
+  card.appendChild(emoji);
 
-    const item = document.createElement('a-entity');
-    item.classList.add('clickable','plate-item');
-    placeAtSlot(item, s, Z.card);
+  const label = document.createElement('a-entity');
+  label.setAttribute('text', `value:${currentFood.name}; width:3.2; align:left; color:#EAF2FF`);
+  label.setAttribute('position','-0.05 0.1 0.01');
+  card.appendChild(label);
 
-    const panel = document.createElement('a-plane');
-    panel.setAttribute('width', String(SLOT.plate.W));
-    panel.setAttribute('height', String(SLOT.plate.H));
-    panel.setAttribute('color','#0f172a'); panel.setAttribute('opacity','0.98');
-    panel.setAttribute('material','shader:flat; transparent:true');
-    panel.setAttribute('position', `0 0 0`);
-    item.appendChild(panel);
+  const guide = document.createElement('a-entity');
+  guide.setAttribute('text', `value:เลือกถังที่เหมาะสม; width:3.2; align:left; color:#9fb4ff`);
+  guide.setAttribute('position','-0.05 -0.12 0.01');
+  card.appendChild(guide);
 
-    const emoji = document.createElement('a-entity');
-    emoji.setAttribute('text', `value:${p.emoji}; width:2.0; align:center; color:#fff`);
-    emoji.setAttribute('position', `${EMOJI_X} 0 ${Z.content - Z.card}`);
-    item.appendChild(emoji);
-
-    const label = document.createElement('a-entity');
-    label.setAttribute('text', `value:${p.name}  ×${p.qty}; width:2.6; color:#DDE7FF; align:left; baseline:top`);
-    label.setAttribute('position', `${LABEL_POS.x} ${LABEL_POS.y} ${Z.content - Z.card}`);
-    item.appendChild(label);
-
-    item.addEventListener('click', ()=> removeItem(p.id));
-    plateRoot.appendChild(item);
-  });
+  itemNode.appendChild(card);
+  updateHUD();
 }
 
-/* ---------- Add / Remove ---------- */
-function addItem(m){
-  const totalCount = selected.reduce((a,b)=>a+b.qty,0);
-  if (totalCount >= 6) { speakHUD("เต็มแล้ว", "กด Finish เพื่อดูคะแนนนะ"); return; }
-  const f = selected.find(x=>x.id===m.id);
-  if (f){ if (f.qty >= 2) return; f.qty += 1; }
-  else { selected.push({ ...m, qty:1 }); }
-  renderPlate(); updateHUDProgress();
-}
-function removeItem(id){
-  const idx = selected.findIndex(x=>x.id===id);
-  if (idx>=0){
-    if (selected[idx].qty>1) selected[idx].qty -= 1;
-    else selected.splice(idx,1);
-    renderPlate(); updateHUDProgress();
-  }
+// ===== ตรวจคำตอบ =====
+function gradeChoice(choiceTag){
+  if(!currentFood) return;
+  const ok = currentFood.tag === choiceTag;
+  if(ok){ score += 2; flashBin(choiceTag, true); track('Answer',{ok:true, tag:choiceTag}); }
+  else { lives -= 1; flashBin(choiceTag, false); track('Answer',{ok:false, want:currentFood.tag, picked:choiceTag}); }
+
+  if(lives <= 0){ return finishGame(); }
+  if(totalItems >= 20){ return finishGame(); }
+  showNewFood();
 }
 
-/* ---------- HUD / Progress ---------- */
-function categoryHints(catSet){
-  const need = ['grain','protein','veggie','fruit'];
-  const mapLabel = {grain:'ธัญพืช', protein:'โปรตีน', veggie:'ผัก', fruit:'ผลไม้'};
-  return need.map(k => catSet.has(k) ? `ครบ  ${mapLabel[k]}` : `ยังขาด  ${mapLabel[k]}`).join('\n');
+function flashBin(tag, ok){
+  const bin = tag==='green'?bins.green:tag==='yellow'?bins.yellow:bins.red;
+  const panel = bin.children[0];
+  panel.setAttribute('animation__flash', `property: material.opacity; from: ${ok?0.35:0.35}; to: ${ok?0.8:0.15}; dur: 160; dir: alternate; easing: easeOutQuad`);
+  // แจ้งเตือนบน HUD สั้น ๆ
+  if(ok){ setHUDline2('ถูกต้อง เก่งมาก'); setTimeout(()=>setHUDline2(''), 400); }
+  else { setHUDline2('ยังไม่เหมาะ ลองคิดใหม่'); setTimeout(()=>setHUDline2(''), 600); }
 }
-function updateHUDProgress(){
-  const count = selected.reduce((a,b)=>a+b.qty,0);
-  const cats = new Set(); selected.forEach(s=>cats.add(s.cat));
-  const needed = Math.max(0, GOAL_COUNT - count);
-  const checks = categoryHints(cats);
-  speakHUD(
-    `เลือกแล้ว  ${count} ชิ้น\n${checks}`,
-    needed>0 ? `เหลืออีก  ${needed} ชิ้น` : `ครบแล้ว  กด Finish ได้เลย`
-  );
+function setHUDline2(suffix){
+  const lines = hudText.textContent.split('\n');
+  lines[1] = suffix || '';
+  hudText.textContent = lines.join('\n').trim();
 }
 
-/* ---------- Scoring ---------- */
-function scorePlate(){
-  const totalKcal = selected.reduce((a,b)=>a + b.kcal*b.qty, 0);
-  const counts = {grain:0,protein:0,veggie:0,fruit:0,dairy:0,healthy:0,caution:0};
-  selected.forEach(s=>{ counts[s.cat] = (counts[s.cat]||0) + s.qty; });
-
-  const has4 = ['grain','protein','veggie','fruit'].every(k=>counts[k]>0);
-  const has3 = ['grain','protein','veggie','fruit'].filter(k=>counts[k]>0).length >= 3;
-
-  let stars = 1, face='🙂', msg='พอใช้ได้ ลองลดของทอดและเพิ่มผักผลไม้';
-  if (has4 && totalKcal>=350 && totalKcal<=650 && counts.caution<=1){ stars=3; face='😊'; msg='เยี่ยมมาก จานสมดุลเลย'; }
-  else if (has3 && totalKcal>=300 && totalKcal<=800 && counts.caution<=1){ stars=2; face='😃'; msg='ดีมาก ใกล้สมดุลแล้ว'; }
-
-  return { stars, face, msg, totalKcal, counts };
-}
-function showResult(){
-  const {stars, face, msg, totalKcal, counts} = scorePlate();
-  const starStr = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
-  const needList = ['grain','protein','veggie','fruit'].filter(k=>!counts[k]);
-  const mapLabel = {grain:'ธัญพืช', protein:'โปรตีน', veggie:'ผัก', fruit:'ผลไม้'};
-  const hint = needList.length ? `ขาด  ${needList.map(k=>mapLabel[k]).join('  ')}` : 'ครบหมวดหลักแล้ว';
-  speakHUD(
-    `${face}  ${starStr}\n${msg}\nพลังงานรวม ประมาณ ${Math.round(totalKcal)} แคล`,
-    hint
-  );
+// ===== HUD =====
+function updateHUD(){
+  hudText.style.whiteSpace = 'pre-line';
+  const line1 = `เวลา  ${timeLeft} วินาที   คะแนน  ${score}   หัวใจ  ${'❤️'.repeat(lives)}${'🤍'.repeat(Math.max(0,3-lives))}`;
+  const line2 = `ชิ้นที่  ${totalItems}  จาก  20`;
+  setHUD(line1, line2);
 }
 
-/* ---------- Flow ---------- */
-function startGame(){ selected = []; renderShelf(); renderPlate(); speakHUD("เลือกอาหาร 4 อย่างนะ", "ยังไม่ได้เลือก"); track('GameStart', { mode: MODE }); }
-function finishGame(){ showResult(); track('GameFinish', { mode: MODE, count: selected.reduce((a,b)=>a+b.qty,0) }); }
-function resetGame(){ selected = []; renderPlate(); updateHUDProgress(); track('Reset', {}); }
+// ===== เวลาและโฟลว์ =====
+function startTimer(){
+  timeLeft = 60;
+  timerId = setInterval(()=>{
+    if(!running) return;
+    timeLeft -= 1; updateHUD();
+    if(timeLeft <= 0) finishGame();
+  }, 1000);
+}
 
-BTN.start.onclick = startGame;
-BTN.finish.onclick = finishGame;
-BTN.reset.onclick = resetGame;
-BTN.learning.onclick = ()=>{ MODE='Learning'; modeBadge.textContent='Learning'; };
-BTN.challenge.onclick= ()=>{ MODE='Challenge'; modeBadge.textContent='Challenge'; };
+function startGame(){
+  running = true; score = 0; lives = 3; totalItems = 0;
+  buildScene();
+  showNewFood();
+  startTimer();
+  btn.start.textContent = 'Finish';
+  track('GameStart',{});
+}
+function finishGame(){
+  running = false;
+  if(timerId){ clearInterval(timerId); timerId = null; }
+  btn.start.textContent = 'Start';
 
-startGame();
+  // ดาวง่าย ๆ: คะแนน ≥30 = 3 ดาว, ≥20 = 2 ดาว, อื่น ๆ = 1 ดาว
+  let stars = 1, face='🙂', msg='พยายามดี ลองฝึกใหม่อีกครั้ง';
+  if(score >= 30){ stars=3; face='😊'; msg='เยี่ยมมาก จำแนกอาหารได้ถูกต้อง'; }
+  else if(score >= 20){ stars=2; face='😃'; msg='ดีมาก ใกล้สมดุลแล้ว'; }
+
+  setHUD(`${face}  ${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}\n${msg}`, `คะแนนทั้งหมด  ${score}`);
+  track('GameFinish',{score, items: totalItems, timeLeft});
+}
+function resetGame(){
+  running = false;
+  if(timerId){ clearInterval(timerId); timerId = null; }
+  clearChildren(gameRoot);
+  setHUD('พร้อมเริ่ม','');
+  btn.start.textContent = 'Start';
+  track('Reset',{});
+}
+
+// ===== ปุ่ม UI =====
+btn.start.onclick = ()=>{ if(!running) startGame(); else finishGame(); };
+btn.reset.onclick = resetGame;
+
+// boot
+resetGame();
