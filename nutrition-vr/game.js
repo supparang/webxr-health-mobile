@@ -1,407 +1,277 @@
-// Nutrition VR — A-Frame minimal game
-// - Hand-tracking pinch (events + fallback) for pick/place
-// - Import food list from JSON
-// - Tally nutrients and Export plate JSON
-// - Plausible Analytics: GAME_ID="Nutrition"
+// Nutrition VR — game.js
+// เลือกเมนูจากชั้นวาง → ใส่จาน | Import รายการจาก JSON | Export จานที่จัดเสร็จเป็น JSON
+// พร้อม OK click + Fuse(1200ms), ศีรษะเล็ง, ไอคอน PNG
 
 //////////////////////
 // Analytics Helper //
 //////////////////////
 const GAME_ID = "Nutrition";
-function track(eventName, props={}) {
+function track(eventName, props = {}) {
   try { if (window.plausible) window.plausible(eventName, { props: { game: GAME_ID, ...props } }); } catch(e){}
 }
 
 //////////////////////
-// Simple WebAudio  //
+// DOM Refs & HUD   //
 //////////////////////
-const SFX = (() => {
-  let ctx;
-  const ensure = () => { if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); return ctx; };
-  const tone = (f=880,d=0.12,t='sine',v=0.22)=>{
-    const ac=ensure(), o=ac.createOscillator(), g=ac.createGain();
-    o.type=t; o.frequency.value=f;
-    const now=ac.currentTime;
-    g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(v,now+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001,now+d);
-    o.connect(g).connect(ac.destination); o.start(now); o.stop(now+d+0.02);
-  };
-  return { ui:()=>tone(1000,0.08,'square',0.2), ok:()=>tone(1200,0.1,'square',0.2), bad:()=>tone(240,0.2,'sawtooth',0.25) };
-})();
+const $ = id => document.getElementById(id);
+const shelfRoot = $('shelfRoot');
+const plateRoot = $('plateRoot');
+const totalsText = $('totalsText');
 
-//////////////////////
-// HUD Refs         //
-//////////////////////
-const HUD = {
-  catText: document.getElementById('catText'),
-  plateCount: document.getElementById('plateCount'),
-  kcal: document.getElementById('kcalText'),
-  carb: document.getElementById('carbText'),
-  prot: document.getElementById('protText'),
-  fat: document.getElementById('fatText'),
-  sugar: document.getElementById('sugarText'),
-  na: document.getElementById('naText'),
-  status: document.getElementById('status'),
-  selCat: document.getElementById('selCat'),
-  btnImport: document.getElementById('btnImport'),
-  fileFoods: document.getElementById('fileFoods'),
-  btnReset: document.getElementById('btnReset'),
-  btnExport: document.getElementById('btnExport'),
+const BTN = {
+  start: $('btnStart'),
+  reset: $('btnReset'),
+  export: $('btnExport'),
+  sample: $('btnSample'),
+  file: $('fileInput')
 };
 
-//////////////////////
-// Scene Roots      //
-//////////////////////
-const shelfRoot = document.getElementById('shelf');
-const plateRoot = document.getElementById('plate');
-const fingerCursor = document.getElementById('fingerCursor');
-const handR = document.getElementById('handR');
-const handL = document.getElementById('handL');
+let running = false;
 
 //////////////////////
-// State / Data     //
+// Data Structures  //
 //////////////////////
-let foods = getDefaultFoods();     // รายการอาหาร (แก้/เพิ่มได้จาก Import)
-let currentCat = 'all';
+// โครงรายการอาหาร (ค่าเริ่มต้น — สามารถแทนที่ด้วย Import JSON)
+let foods = [
+  { id:'f001', name:'ข้าวสวย',     kcal:200, protein:4,  carb:44, fat:0.4, icon:'assets/icons/rice.png' },
+  { id:'f002', name:'แกงจืดเต้าหู้', kcal:120, protein:8,  carb:6,  fat:6,   icon:'assets/icons/tofu-soup.png' },
+  { id:'f003', name:'ผัดผักรวม',   kcal:150, protein:3,  carb:18, fat:7,   icon:'assets/icons/veggies.png' },
+  { id:'f004', name:'ไก่ย่าง',     kcal:165, protein:25, carb:0,  fat:6,   icon:'assets/icons/chicken.png' },
+  { id:'f005', name:'ไข่ต้ม',     kcal:78,  protein:6,  carb:0.6,fat:5,   icon:'assets/icons/egg.png' },
+  { id:'f006', name:'ปลาย่าง',     kcal:160, protein:22, carb:0,  fat:7,   icon:'assets/icons/fish.png' },
+  { id:'f007', name:'ผลไม้รวม',   kcal:90,  protein:1,  carb:22, fat:0.2, icon:'assets/icons/fruit.png' },
+  { id:'f008', name:'นมจืด 1 กล่อง', kcal:130, protein:8, carb:12, fat:4.5, icon:'assets/icons/milk.png' }
+];
 
-let picked = [];                  // สิ่งที่อยู่บน “จาน”
-let totals = { kcal:0, carb:0, protein:0, fat:0, sugar:0, sodium:0 };
-
-//////////////////////
-// Hand-Tracking    //
-//////////////////////
-let pinchUsingEvents=false, isPinching=false, wasPinching=false;
-function setPinching(v){ isPinching=v; fingerCursor.setAttribute('color', v?'#66ff88':'#ffffaa'); }
-['pinchstarted','pinchended'].forEach(ev=>{
-  handR.addEventListener(ev, ()=>{pinchUsingEvents=true; setPinching(ev==='pinchstarted');});
-  handL.addEventListener(ev, ()=>{pinchUsingEvents=true; setPinching(ev==='pinchstarted');});
-});
-const PINCH_ON=0.025, PINCH_OFF=0.035;
-function getJointWorldPos(handEnt, nameLike){
-  if (!handEnt) return null;
-  let node=null; handEnt.object3D.traverse(n=>{ if(n.name && n.name.toLowerCase().includes(nameLike)) node=n; });
-  if (!node) return null; const v=new THREE.Vector3(); node.getWorldPosition(v); return v;
-}
-function indexTipWorld(){
-  const ent = (handR && handR.object3D.children.length) ? handR :
-              (handL && handL.object3D.children.length) ? handL : null;
-  if (!ent) return null; return getJointWorldPos(ent,'index-finger-tip');
-}
-function pollPinchFallback(){
-  if (pinchUsingEvents) return;
-  const ent = (handR && handR.object3D.children.length) ? handR :
-              (handL && handL.object3D.children.length) ? handL : null;
-  if (!ent){ setPinching(false); return; }
-  const tip = getJointWorldPos(ent,'index-finger-tip');
-  const thb = getJointWorldPos(ent,'thumb-tip');
-  if (!tip || !thb){ setPinching(false); return; }
-  const d = tip.distanceTo(thb);
-  if (!isPinching && d < PINCH_ON) setPinching(true);
-  else if (isPinching && d > PINCH_OFF) setPinching(false);
-}
-function intersectsObj(worldPos, obj3D){
-  obj3D.updateWorldMatrix(true,true);
-  const box = new THREE.Box3().setFromObject(obj3D);
-  return box.containsPoint(worldPos);
-}
+// จานที่เลือก
+let plate = []; // [{id,name,kcal,protein,carb,fat,icon,qty}]
 
 //////////////////////
-// A-Frame Loop     //
+// Helpers          //
 //////////////////////
-AFRAME.registerComponent('nutrition-game', {
-  init(){
-    this.last = performance.now()/1000;
-
-    HUD.selCat.onchange = ()=>{ currentCat = HUD.selCat.value; HUD.catText.textContent = HUD.selCat.options[HUD.selCat.selectedIndex].text; buildShelf(); SFX.ui(); };
-    HUD.btnImport.onclick = ()=> HUD.fileFoods.click();
-    HUD.fileFoods.onchange = onImportFoodJSON;
-    HUD.btnReset.onclick = resetPlate;
-    HUD.btnExport.onclick = exportPlate;
-
-    buildShelf();
-    buildPlate();
-
-    track('GameStart');
-  },
-  tick(){
-    const t = performance.now()/1000, dt=t-this.last; this.last=t;
-    // finger follow
-    pollPinchFallback();
-    const tip = indexTipWorld();
-    if (tip){ fingerCursor.object3D.position.copy(tip); fingerCursor.setAttribute('visible', true); }
-    else    { fingerCursor.setAttribute('visible', false); }
-
-    // pinch edge → pick or remove
-    if (!wasPinching && isPinching){
-      // hit test foods (shelf)
-      const boxes = Array.from(shelfRoot.querySelectorAll('.food'));
-      let hit = boxes.find(el => tip && intersectsObj(tip, el.object3D));
-      if (hit){ addToPlate(hit.getAttribute('data-id')); wasPinching=isPinching; return; }
-
-      // hit test plate items (remove)
-      const items = Array.from(plateRoot.querySelectorAll('.pitem'));
-      hit = items.find(el => tip && intersectsObj(tip, el.object3D));
-      if (hit){ removeFromPlate(hit.getAttribute('data-instance-id')); }
-    }
-    wasPinching = isPinching;
-  }
-});
-document.getElementById('game').setAttribute('nutrition-game','');
+function clearEntity(root){ while(root.firstChild) root.removeChild(root.firstChild); }
+function fmt(n){ return Math.round(n*10)/10; }
 
 //////////////////////
-// Build Shelf      //
+// Shelf Rendering  //
 //////////////////////
-function buildShelf(){
-  while(shelfRoot.firstChild) shelfRoot.removeChild(shelfRoot.firstChild);
+function renderShelf(){
+  clearEntity(shelfRoot);
 
-  // ชั้นวาง
+  // พื้นชั้นวาง
   const shelf = document.createElement('a-box');
-  shelf.setAttribute('color','#0f172a'); shelf.setAttribute('width','4.8'); shelf.setAttribute('height','2.2'); shelf.setAttribute('depth','0.2');
-  shelf.setAttribute('position','0 1.3 -2.2'); shelfRoot.appendChild(shelf);
+  shelf.setAttribute('width','2.4'); shelf.setAttribute('height','0.05'); shelf.setAttribute('depth','0.4');
+  shelf.setAttribute('color','#0b1220'); shelf.setAttribute('position','0 -0.1 0');
+  shelfRoot.appendChild(shelf);
 
-  const title=document.createElement('a-entity');
-  title.setAttribute('text',`value:เลือกอาหาร; align:center; color:#CFE8FF; width:6`);
-  title.setAttribute('position','0 2.2 -2.21'); shelfRoot.appendChild(title);
+  const cols = 4, gapX = 0.56, gapY = 0.42;
+  foods.forEach((f, i)=>{
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = (col - (cols-1)/2) * gapX;
+    const y = 0.45 - row * gapY;
 
-  // กริดกล่องอาหาร
-  const list = foods.filter(f => currentCat==='all' || f.category===currentCat);
-  const cols=4;
-  list.forEach((f,i)=>{
-    const r=(i/cols|0), c=(i%cols);
-    const x=-1.8 + c*1.2, y=1.8 - r*0.75;
+    const card = createFoodCard(f);
+    card.setAttribute('position', `${x} ${y} 0.02`); // อยู่เหนือชั้นเล็กน้อย
+    shelfRoot.appendChild(card);
+  });
 
-    const box=document.createElement('a-box');
-    box.setAttribute('color','#1e293b'); box.setAttribute('width','1.0'); box.setAttribute('height','0.6'); box.setAttribute('depth','0.25');
-    box.setAttribute('position',`${x} ${y} -2.1`); box.setAttribute('opacity','0.9');
-    box.setAttribute('class','food'); box.setAttribute('data-id', f.id);
-    box.addEventListener('click', ()=>addToPlate(f.id));
-    shelfRoot.appendChild(box);
+  // ป้ายหัวข้อ
+  const title = document.createElement('a-entity');
+  title.setAttribute('text', 'value:เลือกเมนูจากชั้นวาง; width:5; color:#CFE8FF; align:center');
+  title.setAttribute('position','0 0.9 0.02');
+  shelfRoot.appendChild(title);
+}
 
-    // ป้ายชื่อ
-    const label=document.createElement('a-entity');
-    label.setAttribute('text',`value:${f.name}; align:center; color:#fff; width:2.2`);
-    label.setAttribute('position','0 -0.18 0.14');
-    box.appendChild(label);
+function createFoodCard(food){
+  const card = document.createElement('a-entity');
+  card.classList.add('clickable','food');
+  card.setAttribute('geometry', 'primitive: plane; width: 0.46; height: 0.26');
+  card.setAttribute('material', 'color: #111827; opacity: 0.95; shader: flat; transparent:true');
 
-    // ไอคอน (png url / data: / หรือทำจากอีโมจิ)
-    const icon=document.createElement('a-image');
-    icon.setAttribute('width','0.8'); icon.setAttribute('height','0.36'); icon.setAttribute('position','0 0.08 0.13');
-    icon.setAttribute('src', f.icon ? f.icon : makeIconPNG(f.emoji || '🍽️', '#0b1020'));
-    box.appendChild(icon);
+  // ไอคอน (ถ้าไม่มีไฟล์ PNG ก็จะแสดงเป็นพื้นสีกล่องเฉย ๆ)
+  const icon = document.createElement('a-image');
+  if (food.icon) icon.setAttribute('src', food.icon);
+  icon.setAttribute('width','0.18'); icon.setAttribute('height','0.18');
+  icon.setAttribute('position','-0.12 0 0.001');
+  card.appendChild(icon);
 
-    // macro mini (kcal)
-    const kcal=document.createElement('a-entity');
-    kcal.setAttribute('text',`value:${f.kcal} kcal; align:center; color:#93c5fd; width:2`);
-    kcal.setAttribute('position','0 -0.38 0.14');
-    box.appendChild(kcal);
+  const txt = `${food.name}\n${fmt(food.kcal)} kcal`;
+  const label = document.createElement('a-entity');
+  label.setAttribute('text', `value:${txt}; width:1.8; color:#e5e7eb; align:left`);
+  label.setAttribute('position','0.02 0.03 0.001');
+  card.appendChild(label);
+
+  card.addEventListener('click', ()=> addToPlate(food));
+  card.addEventListener('mouseenter', ()=> card.setAttribute('scale','1.04 1.04 1'));
+  card.addEventListener('mouseleave', ()=> card.setAttribute('scale','1 1 1'));
+
+  return card;
+}
+
+//////////////////////
+// Plate Rendering  //
+//////////////////////
+function renderPlate(){
+  clearEntity(plateRoot);
+
+  // ฐานจาน
+  const base = document.createElement('a-circle');
+  base.setAttribute('radius','0.55'); base.setAttribute('color','#0b1220');
+  base.setAttribute('rotation','-90 0 0'); base.setAttribute('position','0 -0.35 0');
+  plateRoot.appendChild(base);
+
+  // ป้าย
+  const head = document.createElement('a-entity');
+  head.setAttribute('text','value:จานของฉัน (คลิกรายการเพื่อลดจำนวน/เอาออก); width:5; color:#CFE8FF; align:center');
+  head.setAttribute('position','0 0.45 0.02');
+  plateRoot.appendChild(head);
+
+  const cols = 3, gapX = 0.38, gapY = 0.30;
+  plate.forEach((p, i)=>{
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = (col - (cols-1)/2) * gapX;
+    const y = 0.18 - row * gapY;
+
+    const item = document.createElement('a-entity');
+    item.classList.add('clickable','plate-item');
+    item.setAttribute('geometry','primitive: plane; width: 0.34; height: 0.20');
+    item.setAttribute('material','color:#0f172a; opacity:0.96; shader:flat; transparent:true');
+    item.setAttribute('position', `${x} ${y} 0.02`);
+
+    const icon = document.createElement('a-image');
+    if (p.icon) icon.setAttribute('src', p.icon);
+    icon.setAttribute('width','0.14'); icon.setAttribute('height','0.14');
+    icon.setAttribute('position','-0.08 0 0.001');
+    item.appendChild(icon);
+
+    const txt = `${p.name} ×${p.qty}\n${fmt(p.kcal*p.qty)} kcal`;
+    const label = document.createElement('a-entity');
+    label.setAttribute('text', `value:${txt}; width:1.6; color:#cbd5e1; align:left`);
+    label.setAttribute('position','0.02 0.02 0.001');
+    item.appendChild(label);
+
+    // คลิกเพื่อลดจำนวน 1 (ถ้าเหลือ 1 จะลบออก)
+    item.addEventListener('click', ()=> removeFromPlate(p.id));
+
+    plateRoot.appendChild(item);
   });
 }
 
 //////////////////////
-// Build Plate      //
+// Plate Logic      //
 //////////////////////
-let plateItems = []; // instances: { iid, foodId }
+function addToPlate(food){
+  const f = plate.find(x=>x.id===food.id);
+  if (f) f.qty += 1;
+  else plate.push({ ...food, qty:1 });
 
-function buildPlate(){
-  while(plateRoot.firstChild) plateRoot.removeChild(plateRoot.firstChild);
-
-  // โต๊ะ/จาน
-  const table = document.createElement('a-cylinder');
-  table.setAttribute('radius','0.7'); table.setAttribute('height','0.1'); table.setAttribute('color','#0f172a');
-  table.setAttribute('position','0 0.8 -1.1'); plateRoot.appendChild(table);
-
-  const plate = document.createElement('a-cylinder');
-  plate.setAttribute('radius','0.55'); plate.setAttribute('height','0.04'); plate.setAttribute('color','#e5e7eb');
-  plate.setAttribute('position','0 0.88 -1.1'); plateRoot.appendChild(plate);
-
-  // วงแบ่งจาน (แนว MyPlate: คาร์บ/โปรตีน/ผัก/ผลไม้) — แค่ไกด์สายตา
-  const guide = document.createElement('a-ring');
-  guide.setAttribute('radius-inner','0.25'); guide.setAttribute('radius-outer','0.54');
-  guide.setAttribute('color','#cbd5e1'); guide.setAttribute('opacity','0.35');
-  guide.setAttribute('position','0 0.89 -1.1'); guide.setAttribute('rotation','-90 0 0');
-  plateRoot.appendChild(guide);
+  renderPlate();
+  updateTotalsHUD();
+  track('AddFood', { id: food.id, name: food.name });
 }
 
-function layoutPlate(){
-  // จัดวางไอเท็มรอบ ๆ จาน (วงกลม)
-  const R = 0.43;
-  plateItems.forEach((it,idx)=>{
-    const angle = (idx/Math.max(1,plateItems.length)) * Math.PI*2;
-    const x = Math.cos(angle)*R, y = Math.sin(angle)*R;
-    const node = document.getElementById(it.iid);
-    if (node) node.setAttribute('position', `${x.toFixed(3)} ${ (0.95 + (idx%2)*0.02).toFixed(3)} -1.1`);
-  });
+function removeFromPlate(foodId){
+  const idx = plate.findIndex(p=>p.id===foodId);
+  if (idx>=0){
+    if (plate[idx].qty>1) plate[idx].qty -= 1;
+    else plate.splice(idx,1);
+    renderPlate();
+    updateTotalsHUD();
+    track('RemoveFood', { id: foodId });
+  }
 }
 
-function addToPlate(foodId){
-  const f = foods.find(x=>x.id===foodId);
-  if (!f) return;
-  const iid = `p_${foodId}_${Date.now()}_${Math.floor(Math.random()*999)}`;
-  plateItems.push({ iid, foodId });
-  picked.push(f);
-
-  // สร้างชิ้นอาหารบนจาน
-  const item = document.createElement('a-image');
-  item.setAttribute('id', iid);
-  item.setAttribute('width','0.32'); item.setAttribute('height','0.18');
-  item.setAttribute('class','pitem');
-  item.setAttribute('position',`0 0.95 -1.1`);
-  item.setAttribute('src', f.icon ? f.icon : makeIconPNG(f.emoji || '🍽️', '#e5e7eb'));
-  item.addEventListener('click', ()=>removeFromPlate(iid));
-  plateRoot.appendChild(item);
-
-  // ขอบ/เงาใต้ไอเท็ม (สวยงาม)
-  const shadow = document.createElement('a-ring');
-  shadow.setAttribute('radius-inner','0.09'); shadow.setAttribute('radius-outer','0.13'); shadow.setAttribute('opacity','0.25');
-  shadow.setAttribute('color','#000'); shadow.setAttribute('position',`0 0.90 -1.1`); shadow.setAttribute('rotation','-90 0 0');
-  item.appendChild(shadow);
-
-  SFX.ok();
-  layoutPlate();
-  recalcTotals();
-}
-
-function removeFromPlate(iid){
-  const idx = plateItems.findIndex(x=>x.iid===iid);
-  if (idx<0) return;
-  const foodId = plateItems[idx].foodId;
-  plateItems.splice(idx,1);
-
-  const pidx = picked.findIndex(f=>f.id===foodId);
-  if (pidx>=0) picked.splice(pidx,1);
-
-  const node = document.getElementById(iid);
-  if (node && node.parentNode) node.parentNode.removeChild(node);
-
-  SFX.ui();
-  layoutPlate();
-  recalcTotals();
-}
-
-function resetPlate(){
-  plateItems = []; picked = [];
-  buildPlate();
-  recalcTotals();
-  SFX.ui();
-}
-
-//////////////////////
-// Totals + HUD     //
-//////////////////////
-function recalcTotals(){
-  totals = { kcal:0, carb:0, protein:0, fat:0, sugar:0, sodium:0 };
-  picked.forEach(f=>{
-    totals.kcal   += f.kcal||0;
-    totals.carb   += f.carb||0;
-    totals.protein+= f.protein||0;
-    totals.fat    += f.fat||0;
-    totals.sugar  += f.sugar||0;
-    totals.sodium += f.sodium||0;
-  });
-  HUD.plateCount.textContent = String(picked.length);
-  HUD.kcal.textContent  = `${round(totals.kcal)} kcal`;
-  HUD.carb.textContent  = `${round(totals.carb)} g`;
-  HUD.prot.textContent  = `${round(totals.protein)} g`;
-  HUD.fat.textContent   = `${round(totals.fat)} g`;
-  HUD.sugar.textContent = `${round(totals.sugar)} g`;
-  HUD.na.textContent    = `${round(totals.sodium)} mg`;
-
-  // สถานะง่าย ๆ สำหรับ ป.5 (เตือนน้ำตาล/โซเดียม/พลังงาน)
-  const tips = [];
-  if (totals.sugar > 24) tips.push('น้ำตาลสูง');
-  if (totals.sodium > 1500) tips.push('โซเดียมสูง');
-  if (totals.kcal > 700) tips.push('พลังงานสูง');
-  HUD.status.innerHTML = tips.length ? `คำเตือน: <span class="bad">${tips.join(', ')}</span>` : 'ดีมาก! เลือกอาหารให้หลากหลายครบหมวด';
+function updateTotalsHUD(){
+  const total = plate.reduce((a, p)=>{
+    a.kcal   += (p.kcal||0)   * p.qty;
+    a.protein+= (p.protein||0)* p.qty;
+    a.carb   += (p.carb||0)   * p.qty;
+    a.fat    += (p.fat||0)    * p.qty;
+    return a;
+  }, {kcal:0,protein:0,carb:0,fat:0});
+  totalsText.textContent = `${fmt(total.kcal)} kcal | P:${fmt(total.protein)}g C:${fmt(total.carb)}g F:${fmt(total.fat)}g`;
+  return total;
 }
 
 //////////////////////
 // Import / Export  //
 //////////////////////
-function onImportFoodJSON(e){
-  const file = e.target.files[0];
+BTN.file.addEventListener('change', async (e)=>{
+  const file = e.target.files?.[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try{
-      const data = JSON.parse(reader.result);
-      if (!data || !Array.isArray(data.foods)) throw new Error('รูปแบบไฟล์ไม่ถูกต้อง ต้องมี fields: { foods: [...] }');
-      foods = normalizeFoods(data.foods);
-      buildShelf();
-      SFX.ok();
-      HUD.status.textContent = `โหลดอาหาร ${foods.length} รายการแล้ว`;
-      track('ImportFoods', { count: foods.length });
-    }catch(err){
-      SFX.bad();
-      HUD.status.textContent = 'Import ไม่สำเร็จ: ' + err.message;
-    }finally{
-      HUD.fileFoods.value = '';
-    }
-  };
-  reader.readAsText(file);
-}
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) throw new Error('JSON ต้องเป็นอาเรย์ของอาหาร');
+    // คาดหวังโครง: {id,name,kcal,protein,carb,fat,icon}
+    foods = data.map(x=>({
+      id: String(x.id||crypto.randomUUID()),
+      name: String(x.name||'เมนู'),
+      kcal: +x.kcal||0, protein:+x.protein||0, carb:+x.carb||0, fat:+x.fat||0,
+      icon: x.icon ? String(x.icon) : ''
+    }));
+    renderShelf();
+    track('ImportMenu', { count: foods.length });
+    alert('อัปเดตเมนูเรียบร้อย');
+  }catch(err){
+    alert('นำเข้าเมนูไม่สำเร็จ: ' + err.message);
+  } finally {
+    e.target.value = ''; // clear input
+  }
+});
 
-function exportPlate(){
+BTN.sample.onclick = ()=>{
+  // ตัวอย่างโครง JSON ที่โรงเรียนสามารถใช้
+  const sample = [
+    { id:'r01', name:'ข้าวกล้อง', kcal:220, protein:5, carb:46, fat:1, icon:'assets/icons/brown-rice.png' },
+    { id:'c01', name:'ต้มจืดสาหร่าย', kcal:95, protein:6, carb:5, fat:4, icon:'assets/icons/seaweed-soup.png' },
+    { id:'m01', name:'หมูอบ', kcal:210, protein:20, carb:6, fat:12, icon:'assets/icons/pork.png' },
+    { id:'v01', name:'ยำวุ้นเส้น', kcal:160, protein:9, carb:24, fat:3, icon:'assets/icons/glass-noodle.png' },
+    { id:'f01', name:'กล้วย', kcal:89, protein:1.1, carb:23, fat:0.3, icon:'assets/icons/banana.png' }
+  ];
+  foods = sample;
+  renderShelf();
+  alert('โหลดเมนูตัวอย่างแล้ว');
+};
+
+BTN.export.onclick = ()=>{
+  const total = updateTotalsHUD();
   const payload = {
     version: '1.0',
     game: GAME_ID,
     exportedAt: new Date().toISOString(),
-    items: picked.map(f=>({ id:f.id, name:f.name, category:f.category, qty:1 })),
-    totals: {...totals}
+    items: plate.map(p=>({ id:p.id, name:p.name, qty:p.qty, kcal:p.kcal, protein:p.protein, carb:p.carb, fat:p.fat })),
+    total
   };
   const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
-  const now = new Date(); const pad=n=>String(n).padStart(2,'0');
-  const filename = `nutrition_plate_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
-  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
+  const now=new Date(); const pad=n=>String(n).padStart(2,'0');
+  const filename=`nutrition_plate_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
   document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
-
-  track('GameFinish', { items: picked.length, kcal: round(totals.kcal) });
-}
+  track('ExportPlate', { count: plate.length, kcal: total.kcal });
+};
 
 //////////////////////
-// Helpers          //
+// Start / Reset    //
 //////////////////////
-function round(x){ return Math.round((+x||0)*10)/10; }
-function normalizeFoods(arr){
-  // รองรับ icon เป็น URL หรือ data:image/*; ถ้าไม่มีให้ใช้ emoji fallback
-  return arr.map((f,i)=>({
-    id: f.id || `f_${i}`,
-    name: f.name || `Food ${i+1}`,
-    category: f.category || 'main',
-    emoji: f.emoji || '🍽️',
-    icon: f.icon || null,
-    kcal: +f.kcal || 0,
-    carb: +f.carb || 0,
-    protein: +f.protein || 0,
-    fat: +f.fat || 0,
-    sugar: +f.sugar || 0,
-    sodium: +f.sodium || 0
-  }));
-}
+BTN.start.onclick = ()=>{
+  running = true;
+  renderShelf();
+  renderPlate();
+  updateTotalsHUD();
+  track('GameStart', {});
+};
 
-function makeIconPNG(emoji='🍽️', bg='#111827'){
-  const size=256,c=document.createElement('canvas'); c.width=c.height=size; const g=c.getContext('2d');
-  g.fillStyle=bg; g.fillRect(0,0,size,size);
-  g.fillStyle='rgba(255,255,255,.08)'; g.beginPath(); g.arc(size/2,size/2,size*0.45,0,Math.PI*2); g.fill();
-  g.font=`${Math.floor(size*0.6)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui`; g.textAlign='center'; g.textBaseline='middle';
-  g.fillText(emoji,size/2,size/2+size*0.04);
-  return c.toDataURL('image/png');
-}
+BTN.reset.onclick = ()=>{
+  plate = [];
+  renderPlate();
+  updateTotalsHUD();
+  track('ResetPlate', {});
+};
 
-function getDefaultFoods(){
-  // ตัวอย่างรายการอาหารไทยพื้นฐาน (ต่อเสิร์ฟ)
-  return normalizeFoods([
-    {id:'rice',      name:'ข้าวสวย',        category:'main',   emoji:'🍚', kcal:160, carb:36, protein:3, fat:0.3, sugar:0, sodium:0},
-    {id:'friedrice', name:'ข้าวผัด',        category:'main',   emoji:'🍛', kcal:420, carb:55, protein:10, fat:16, sugar:4, sodium:900},
-    {id:'omelet',    name:'ไข่เจียว',       category:'protein',emoji:'🍳', kcal:220, carb:2,  protein:12, fat:18, sugar:1, sodium:300},
-    {id:'pork',      name:'หมูผัดผัก',      category:'protein',emoji:'🥘', kcal:250, carb:8,  protein:18, fat:14, sugar:4, sodium:650},
-    {id:'veg',       name:'ผักลวก',         category:'veg',    emoji:'🥦', kcal:60,  carb:8,  protein:3,  fat:1,  sugar:3, sodium:80},
-    {id:'somtum',    name:'ส้มตำ',          category:'veg',    emoji:'🥗', kcal:120, carb:20, protein:3,  fat:2,  sugar:8, sodium:700},
-    {id:'banana',    name:'กล้วย',          category:'fruit',  emoji:'🍌', kcal:105, carb:27, protein:1.3,fat:0.3,sugar:14,sodium:1},
-    {id:'watermelon',name:'แตงโม',          category:'fruit',  emoji:'🍉', kcal:50,  carb:12, protein:1,  fat:0.2,sugar:9, sodium:2},
-    {id:'milk',      name:'นมจืด',          category:'drink',  emoji:'🥛', kcal:110, carb:12, protein:8,  fat:4,  sugar:12,sodium:100},
-    {id:'tea',       name:'ชานมหวาน',       category:'drink',  emoji:'🧋', kcal:250, carb:38, protein:3,  fat:8,  sugar:36,sodium:120},
-    {id:'bread',     name:'ขนมปัง',         category:'snack',  emoji:'🍞', kcal:80,  carb:15, protein:3,  fat:1,  sugar:2, sodium:120},
-    {id:'snack',     name:'ขนมกรุบกรอบ',   category:'snack',  emoji:'🍘', kcal:150, carb:16, protein:2,  fat:9,  sugar:2, sodium:180}
-  ]);
-}
+// เริ่มต้นแสดงผล (ยังไม่จำเป็นต้องกด Start ก็เห็นชั้นวางได้)
+renderShelf();
+renderPlate();
+updateTotalsHUD();
