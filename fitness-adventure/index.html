@@ -36,7 +36,7 @@
 </head>
 <body>
   <div class="help">
-    <b>Fitness Adventure VR</b> — รองรับ <span class="pill">Hand-Tracking + Pinch</span> •
+    <b>Fitness Adventure VR</b> — รองรับ <span class="pill">Hand-Tracking + Pinch</span> และ <span class="pill">รีโมท Shinecon</span> (เล็งศีรษะ + ปุ่ม OK) •
     เปิด <b>Beat Sync</b> เพื่อสปาวน์เป้าตาม <b>BPM</b> • กด <b>Enter VR</b> มุมขวาล่างเพื่อเล่นในแว่น
   </div>
 
@@ -87,17 +87,31 @@
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020">
     <a-entity id="rig" position="0 1.6 3">
-      <a-entity id="cam" camera look-controls></a-entity>
+      <!-- กล้องหลัก + CROSSHAIR (cursor แบบตรึงกลางจอ) -->
+      <a-entity id="cam" camera look-controls>
+        <!--
+          ใช้ rayOrigin: entity → รังสีออกจาก entity นี้เสมอ (ไปด้านหน้า)
+          เหมาะกับ: มือถือ/รีโมท Shinecon (กดปุ่ม OK = click) และ Cardboard-style VR
+          raycaster จำกัดเฉพาะคลาส .target เพื่อลด overhead
+        -->
+        <a-entity id="centerCursor"
+                  cursor="fuse: false; rayOrigin: entity"
+                  raycaster="objects: .target"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                  material="color: #ffcc00; shader: flat; opacity: 0.95">
+        </a-entity>
+      </a-entity>
 
-      <!-- Controllers (fallback) -->
+      <!-- Controllers (fallback สำหรับ PCVR/อุปกรณ์ที่มีคอนโทรลเลอร์จริง) -->
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
 
-      <!-- Hand tracking -->
+      <!-- Hand tracking (สำหรับ Quest/อุปกรณ์ที่รองรับ) -->
       <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
       <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
 
-      <!-- Finger cursor -->
+      <!-- Finger cursor (แสดงตำแหน่งปลายนิ้วเมื่อใช้ hand-tracking) -->
       <a-sphere id="fingerCursor" radius="0.012" color="#ffffaa" position="0 0 -1" visible="false"></a-sphere>
     </a-entity>
 
@@ -110,6 +124,7 @@
     <a-entity id="game"></a-entity>
   </a-scene>
 
+  <!-- เกมเพลย์หลัก -->
   <script src="game.js"></script>
 </body>
 </html>
