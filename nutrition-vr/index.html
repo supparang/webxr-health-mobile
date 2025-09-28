@@ -8,98 +8,78 @@
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Plausible Analytics -->
+  <!-- Plausible Analytics (เปลี่ยนโดเมนตามของคุณได้) -->
   <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
 
   <style>
     :root { --glass: rgba(0,0,0,.55); }
     body { margin:0; font-family:system-ui, Arial; background:#0e1726; color:#fff; }
     .help { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
-      padding:8px 12px; border-radius:12px; max-width:820px; font-size:14px; line-height:1.45 }
+      padding:10px 12px; border-radius:12px; max-width:860px; font-size:14px; line-height:1.45 }
     .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
-      padding:10px 14px; border-radius:12px; min-width:340px }
+           padding:10px 14px; border-radius:12px; min-width:320px; }
     .hud h1 { margin:0 0 6px 0; font-size:18px }
-    .row { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 }
-    .pill { padding:2px 8px; border-radius:999px; background:#111; color:#fff }
-    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px; flex-wrap:wrap }
+    .mini { font-size:12px; opacity:.9 }
+    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; flex-wrap:wrap; gap:8px }
     .group { background:var(--glass); padding:8px 10px; border-radius:12px; display:flex; gap:8px; align-items:center }
-    .ui button, .ui select { padding:8px 10px; border-radius:12px; border:none; font-weight:700;
+    .ui button, .ui label.btn, .ui input[type="file"] { padding:8px 10px; border-radius:12px; border:none; font-weight:700;
       background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2); cursor:pointer }
     .ui button.gray { background:#e5e7eb; color:#111 }
-    .mini { font-size:12px; opacity:.9 }
-    .nutri { display:grid; grid-template-columns: 1fr 1fr; gap:6px; font-size:13px; margin-top:6px }
-    .nutri div { display:flex; justify-content:space-between }
-    .ok { color:#86efac } .warn { color:#fde68a } .bad { color:#fca5a5 }
-    input[type="file"]{ display:none; }
+    #fileInput { display:none; }
   </style>
 </head>
 <body>
   <div class="help">
-    <b>Nutrition VR</b> — เลือกอาหารลง “จาน” (พลังงาน/คาร์บ/โปรตีน/ไขมัน/น้ำตาล/โซเดียม จะรวมอัตโนมัติ) •
-    ปุ่ม <span class="pill">Import Foods</span> รองรับไฟล์ JSON ของโรงเรียน • <span class="pill">Export Plate</span> บันทึกเมนูที่เด็กเลือกเป็น JSON
+    <b>Nutrition VR</b> — เล็งด้วยศีรษะให้ <b>วงแหวน</b> ตรงอาหาร แล้วกดปุ่ม <b>OK</b> (รีโมท Shinecon) หรือ <b>จ้องค้าง 1.2 วิ</b> เพื่อเลือก<br/>
+    คลิกที่รายการบน “จาน” เพื่อ <b>ลดจำนวน/เอาออก</b> • ปุ่ม <b>Import JSON</b> ใช้อัปเดตเมนูของโรงเรียน • <b>Export JSON</b> บันทึกเมนูที่เด็กเลือก
   </div>
 
   <div class="hud">
     <h1>Nutrition VR</h1>
-    <div>หมวดหมู่: <span id="catText" class="pill">ทั้งหมด</span></div>
-    <div class="mini">จาน: <span id="plateCount">0</span> รายการ</div>
-    <div class="nutri">
-      <div><span>พลังงาน</span><span id="kcalText">0 kcal</span></div>
-      <div><span>คาร์บ</span><span id="carbText">0 g</span></div>
-      <div><span>โปรตีน</span><span id="protText">0 g</span></div>
-      <div><span>ไขมัน</span><span id="fatText">0 g</span></div>
-      <div><span>น้ำตาล</span><span id="sugarText">0 g</span></div>
-      <div><span>โซเดียม</span><span id="naText">0 mg</span></div>
-    </div>
-    <div id="status" style="margin-top:6px">คลิก/Pinch ที่อาหารเพื่อใส่จาน • คลิกที่จานเพื่อเอาออก</div>
+    <div>รวมโภชนาการ: <span id="totalsText">0 kcal | P:0g C:0g F:0g</span></div>
+    <div class="mini" style="margin-top:6px;">เคล็ดลับ: ถ้าเล็ง/กดไม่ได้ ให้ขยับศีรษะให้วงแหวนทับการ์ดอาหารพอดี</div>
   </div>
 
   <div class="ui">
     <div class="group">
-      <span>Category</span>
-      <select id="selCat" title="Category">
-        <option value="all" selected>ทั้งหมด</option>
-        <option value="main">ข้าว/กับข้าว</option>
-        <option value="protein">โปรตีน</option>
-        <option value="veg">ผัก</option>
-        <option value="fruit">ผลไม้</option>
-        <option value="drink">เครื่องดื่ม</option>
-        <option value="snack">ของว่าง</option>
-      </select>
+      <button id="btnStart">Start</button>
+      <button id="btnReset" class="gray">Reset Plate</button>
+      <button id="btnExport">Export Plate JSON</button>
     </div>
     <div class="group">
-      <button id="btnImport">Import Foods</button>
-      <input id="fileFoods" type="file" accept="application/json" />
-      <button id="btnReset" class="gray">Reset Plate</button>
-      <button id="btnExport">Export Plate</button>
+      <label for="fileInput" class="btn">Import Menu JSON</label>
+      <input id="fileInput" type="file" accept="application/json" />
+      <button id="btnSample" class="gray">Load Sample</button>
     </div>
   </div>
 
-  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020">
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine:false">
     <a-entity id="rig" position="0 1.6 3">
-      <a-entity id="cam" camera look-controls></a-entity>
+      <!-- กล้อง + crosshair รองรับ OK + Fuse(1200ms) -->
+      <a-entity id="cam" camera look-controls>
+        <a-entity id="centerCursor"
+                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1200"
+                  raycaster="objects: .clickable"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+                  material="color: #ffcc00; shader: flat; opacity: 0.95">
+        </a-entity>
+      </a-entity>
 
-      <!-- Controllers (fallback) -->
+      <!-- (ถ้ามีอุปกรณ์รองรับ) คอนโทรลเลอร์/แฮนด์ -->
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
-
-      <!-- Hand tracking -->
       <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
       <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
-
-      <!-- Finger cursor -->
-      <a-sphere id="fingerCursor" radius="0.012" color="#ffffaa" position="0 0 -1" visible="false"></a-sphere>
     </a-entity>
 
-    <!-- Lights -->
+    <!-- ชั้นวางอาหาร + จาน -->
+    <a-entity id="shelfRoot" position="0 1.3 -2.4"></a-entity>
+    <a-entity id="plateRoot" position="0 1.0 -1.6"></a-entity>
+
+    <!-- ไฟ -->
     <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
     <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
-
-    <!-- Food shelf + Plate table -->
-    <a-entity id="shelf"></a-entity>
-    <a-entity id="plate"></a-entity>
-
-    <a-entity id="game"></a-entity>
   </a-scene>
 
   <script src="game.js"></script>
