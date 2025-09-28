@@ -1,7 +1,8 @@
-// Nutrition VR — Easy Mode (P.5)
+// Nutrition VR — Easy Mode (P.5) + Fixed Grid Slots
 // - ไม่ใช้รูป ใช้อีโมจิ + สีหมวดอาหาร
-// - เลือก 4 อย่าง → กด Finish → ให้คะแนนดาว + หน้ายิ้ม + คำแนะนำง่าย ๆ
-// - เล่นง่าย: เล็งแล้วจ้อง (fuse 1200ms) หรือกด OK
+// - เลือก 4 อย่าง → Finish → ดาว + หน้ายิ้ม + ข้อความง่าย
+// - เล่นง่าย: เล็งหัว + จ้อง 1200ms (หรือกด OK)
+// - เมนู/จาน วางตรงช่อง (slot) ตายตัวเสมอ
 
 //////////////////////
 // Analytics (เบา) //
@@ -36,7 +37,7 @@ const BTN = {
 let MODE = 'Learning'; // Learning | Challenge
 const GOAL_COUNT = 4;
 
-// เมนูแบบย่อ (6–8 รายการ) ครอบคลุมหมวดหลัก
+// เมนูแบบย่อ ครอบคลุมหมวดหลัก
 // หมวด: grain, protein, veggie, fruit, dairy, healthy, caution
 const MENU = [
   { id:'g01', name:'ข้าวสวย',         cat:'grain',  kcal:200, emoji:'🍚', color:'#60a5fa' },
@@ -56,6 +57,34 @@ let selected = []; // [{id,name,cat,kcal,emoji,color,qty}]
 //////////////////////
 function clearEntity(root){ while(root.firstChild) root.removeChild(root.firstChild); }
 function fmt(n){ return Math.round(n*10)/10; }
+function speakHUD(line1, line2){ hudLine1.textContent = line1; hudLine2.textContent = line2; }
+
+///////////////////////////
+// Grid (fixed slots)   //
+///////////////////////////
+function gridSlots(cols, rows, gapX, gapY, centerY) {
+  const slots = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = (c - (cols - 1) / 2) * gapX;
+      const y = centerY - r * gapY;
+      slots.push({ x, y });
+    }
+  }
+  return slots;
+}
+function drawSlotFrames(root, slots, w = 0.68, h = 0.36, z = 0.005) {
+  slots.forEach(s => {
+    const frame = document.createElement('a-plane');
+    frame.setAttribute('width', String(w));
+    frame.setAttribute('height', String(h));
+    frame.setAttribute('position', `${s.x} ${s.y} ${z}`);
+    frame.setAttribute('color', '#0d1424');
+    frame.setAttribute('opacity', '0.5');
+    frame.setAttribute('material', 'shader: flat; transparent: true');
+    root.appendChild(frame);
+  });
+}
 
 //////////////////////
 // Render Shelf     //
@@ -63,7 +92,7 @@ function fmt(n){ return Math.round(n*10)/10; }
 function renderShelf(){
   clearEntity(shelfRoot);
 
-  // พื้นหลังเพิ่มคอนทราสต์
+  // พื้นหลัง + ชั้นวาง
   const backdrop = document.createElement('a-plane');
   backdrop.setAttribute('width','2.6');
   backdrop.setAttribute('height','1.6');
@@ -72,27 +101,29 @@ function renderShelf(){
   backdrop.setAttribute('material','shader: flat; opacity: 0.95');
   shelfRoot.appendChild(backdrop);
 
-  // ชั้นวาง
   const shelf = document.createElement('a-box');
   shelf.setAttribute('width','2.4'); shelf.setAttribute('height','0.06'); shelf.setAttribute('depth','0.45');
   shelf.setAttribute('color','#0b1220'); shelf.setAttribute('position','0 -0.2 0');
   shelfRoot.appendChild(shelf);
 
-  // การ์ดอาหาร (ใหญ่/ชัด, สีตามหมวด)
-  const cols = 3, gapX = 0.75, gapY = 0.48;
-  MENU.forEach((m, i)=>{
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const x = (col - (cols-1)/2) * gapX;
-    const y = 0.55 - row * gapY;
+  // สล็อตตายตัว
+  const COLS = 3, ROWS = 3;
+  const GAPX = 0.75, GAPY = 0.48;
+  const slots = gridSlots(COLS, ROWS, GAPX, GAPY, 0.55);
 
+  // วาดกรอบช่องวาง
+  drawSlotFrames(shelfRoot, slots, 0.68, 0.36, 0.006);
+
+  // วางการ์ดตามสล็อต
+  MENU.forEach((m, i)=>{
+    const s = slots[i % slots.length]; // ถ้าเมนูเกินจะวน (หรือเปลี่ยนเป็น slice เพื่อจำกัดได้)
     const card = document.createElement('a-entity');
     card.classList.add('clickable','food');
     card.setAttribute('geometry', 'primitive: plane; width: 0.68; height: 0.36');
     card.setAttribute('material', `color: ${m.color}; opacity: 0.25; shader: flat; transparent:true`);
-    card.setAttribute('position', `${x} ${y} 0.01`);
+    card.setAttribute('position', `${s.x} ${s.y} 0.01`);
 
-    // กรอบกลางเข้ม ให้ตัวหนังสืออ่านง่าย
+    // แผ่นใน (เข้ม) ให้ตัวหนังสือชัด
     const inner = document.createElement('a-plane');
     inner.setAttribute('width','0.64'); inner.setAttribute('height','0.32');
     inner.setAttribute('position','0 0 0.001');
@@ -110,15 +141,14 @@ function renderShelf(){
     label.setAttribute('position','-0.02 0.10 0.002');
     card.appendChild(label);
 
-    // คลิก/ฟิวส์ = เพิ่มลงจาน (สูงสุด 2 ชิ้นต่อเมนู เพื่อกันสแปม)
-    card.addEventListener('click', ()=> addItem(m));
-    card.addEventListener('mouseenter', ()=> card.setAttribute('scale','1.05 1.05 1'));
-    card.addEventListener('mouseleave', ()=> card.setAttribute('scale','1 1 1'));
+    // ไม่ขยายสเกลตอน hover เพื่อไม่ให้เบี้ยวจากช่อง
+    card.addEventListener('mouseenter', ()=> inner.setAttribute('color','#0f1a33'));
+    card.addEventListener('mouseleave', ()=> inner.setAttribute('color','#111827'));
 
+    card.addEventListener('click', ()=> addItem(m));
     shelfRoot.appendChild(card);
   });
 
-  // หัวข้อ
   const title = document.createElement('a-entity');
   title.setAttribute('text', 'value:เลือกอาหาร 4 อย่าง; width:5.2; color:#E8F0FF; align:center');
   title.setAttribute('position','0 0.95 0.01');
@@ -141,18 +171,22 @@ function renderPlate(){
   head.setAttribute('position','0 0.55 0.02');
   plateRoot.appendChild(head);
 
-  const cols = 2, gapX = 0.5, gapY = 0.36;
-  selected.forEach((p, i)=>{
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    const x = (col - (cols-1)/2) * gapX;
-    const y = 0.22 - row * gapY;
+  // สล็อตสำหรับจาน
+  const COLS = 2, ROWS = 3;
+  const GAPX = 0.5, GAPY = 0.36;
+  const slots = gridSlots(COLS, ROWS, GAPX, GAPY, 0.22);
 
+  // วาดช่องจาง ๆ
+  drawSlotFrames(plateRoot, slots, 0.58, 0.28, 0.006);
+
+  // วางไอเท็มตามสล็อต
+  selected.forEach((p, i)=>{
+    const s = slots[i % slots.length];
     const item = document.createElement('a-entity');
     item.classList.add('clickable','plate-item');
     item.setAttribute('geometry','primitive: plane; width: 0.58; height: 0.28');
     item.setAttribute('material','color:#0f172a; opacity:0.98; shader:flat; transparent:true');
-    item.setAttribute('position', `${x} ${y} 0.02`);
+    item.setAttribute('position', `${s.x} ${s.y} 0.02`);
 
     const emoji = document.createElement('a-entity');
     emoji.setAttribute('text', `value:${p.emoji}; width:2.2; align:center; color:#fff`);
@@ -165,9 +199,10 @@ function renderPlate(){
     label.setAttribute('position','-0.06 0.08 0.002');
     item.appendChild(label);
 
+    item.addEventListener('mouseenter', ()=> item.setAttribute('material','color:#12203a; opacity:0.98; shader:flat; transparent:true'));
+    item.addEventListener('mouseleave', ()=> item.setAttribute('material','color:#0f172a; opacity:0.98; shader:flat; transparent:true'));
     item.addEventListener('click', ()=> removeItem(p.id));
-    item.addEventListener('mouseenter', ()=> item.setAttribute('scale','1.03 1.03 1'));
-    item.addEventListener('mouseleave', ()=> item.setAttribute('scale','1 1 1'));
+
     plateRoot.appendChild(item);
   });
 }
@@ -176,9 +211,9 @@ function renderPlate(){
 // Add / Remove     //
 //////////////////////
 function addItem(m){
-  // จำกัดรายการรวมไม่เกิน 6 ชิ้น (แต่ HUD ชวนให้ 4 อย่าง)
+  // จำกัดรวมไม่เกิน 6 ชิ้น (HUD ชวนให้ 4 อย่าง)
   const totalCount = selected.reduce((a,b)=>a+b.qty,0);
-  if (totalCount >= 6) { speakHUD("เต็มแล้ว!", "ลองกด Finish เพื่อดูคะแนนนะ"); return; }
+  if (totalCount >= 6) { speakHUD("เต็มแล้ว!", "กด Finish เพื่อดูคะแนนนะ"); return; }
 
   const f = selected.find(x=>x.id===m.id);
   if (f){ if (f.qty >= 2) return; f.qty += 1; }
@@ -196,11 +231,12 @@ function removeItem(id){
 }
 
 //////////////////////
-// HUD Helpers      //
+// HUD & Progress   //
 //////////////////////
-function speakHUD(line1, line2){
-  hudLine1.textContent = line1;
-  hudLine2.textContent = line2;
+function categoryHints(catSet){
+  const need = ['grain','protein','veggie','fruit'];
+  const mapLabel = {grain:'ธัญพืช', protein:'โปรตีน', veggie:'ผัก', fruit:'ผลไม้'};
+  return need.map(k => catSet.has(k) ? `✅ ${mapLabel[k]}` : `⬜ ${mapLabel[k]}`).join('  ');
 }
 function updateHUDProgress(){
   const count = selected.reduce((a,b)=>a+b.qty,0);
@@ -208,24 +244,18 @@ function updateHUDProgress(){
   selected.forEach(s=>cats.add(s.cat));
   const needed = Math.max(0, GOAL_COUNT - count);
 
-  const checkIcons = categoryHints(cats);
+  const checks = categoryHints(cats);
   speakHUD(
-    `เลือกแล้ว: ${count} ชิ้น\n${checkIcons}`,
+    `เลือกแล้ว: ${count} ชิ้น\n${checks}`,
     needed>0 ? `เหลืออีก ${needed} ชิ้น` : `ครบแล้ว! กด Finish ได้เลย`
   );
-}
-function categoryHints(catSet){
-  // แสดงติ๊กถูก/ยังขาดของหมวดหลัก
-  const need = ['grain','protein','veggie','fruit'];
-  const mapLabel = {grain:'ธัญพืช', protein:'โปรตีน', veggie:'ผัก', fruit:'ผลไม้'};
-  return need.map(k => catSet.has(k) ? `✅ ${mapLabel[k]}` : `⬜ ${mapLabel[k]}`).join('  ');
 }
 
 //////////////////////
 // Scoring (Easy)   //
 //////////////////////
-// 3 ดาว: มีครบ 4 หมวดหลัก + แคลอรี่รวม ~350–650 + ไม่มี caution เกิน 1
-// 2 ดาว: มีครบอย่างน้อย 3 หมวด + แคลอรี่ 300–800 + caution ≤1
+// 3 ดาว: ครบ 4 หมวดหลัก + 350–650 kcal + caution ≤1
+// 2 ดาว: ครบ ≥3 หมวด + 300–800 kcal + caution ≤1
 // 1 ดาว: อย่างอื่น
 function scorePlate(){
   const totalKcal = selected.reduce((a,b)=>a + b.kcal*b.qty, 0);
@@ -235,14 +265,12 @@ function scorePlate(){
   const has4 = ['grain','protein','veggie','fruit'].every(k=>counts[k]>0);
   const has3 = ['grain','protein','veggie','fruit'].filter(k=>counts[k]>0).length >= 3;
 
-  let stars = 1, face='😐', msg='ดีแล้ว! ลองเพิ่มผัก/ผลไม้ดูนะ';
+  let stars = 1, face='😐', msg='พอใช้ได้ ลองลดของทอด/ขนมหวาน และเพิ่มผักผลไม้';
   if (has4 && totalKcal>=350 && totalKcal<=650 && counts.caution<=1){ stars=3; face='😊'; msg='สุดยอด! จานสมดุลมาก'; }
   else if (has3 && totalKcal>=300 && totalKcal<=800 && counts.caution<=1){ stars=2; face='🙂'; msg='ดีมาก! เกือบสมดุล ลองเติมส่วนที่ขาด'; }
-  else { stars=1; face='😐'; msg='พอใช้ได้ ลองลดของทอด/ขนมหวาน และเพิ่มผักผลไม้'; }
 
   return { stars, face, msg, totalKcal, counts };
 }
-
 function showResult(){
   const {stars, face, msg, totalKcal, counts} = scorePlate();
   const starStr = '⭐'.repeat(stars) + (stars<3 ? '☆'.repeat(3-stars) : '');
@@ -251,7 +279,6 @@ function showResult(){
     `${msg}\n` +
     `พลังงานรวม ≈ ${Math.round(totalKcal)} kcal`;
 
-  // คำใบ้ง่าย ๆ ว่าขาดอะไร
   const needList = ['grain','protein','veggie','fruit'].filter(k=>!counts[k]);
   const mapLabel = {grain:'ธัญพืช', protein:'โปรตีน', veggie:'ผัก', fruit:'ผลไม้'};
   const hint = needList.length ? `ขาด: ${needList.map(k=>mapLabel[k]).join(', ')}` : 'ครบหมวดหลักแล้ว';
