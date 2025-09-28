@@ -69,6 +69,64 @@ const fingerCursor = document.getElementById('fingerCursor');
 const handR = document.getElementById('handR');
 const handL = document.getElementById('handL');
 const centerCursor = document.getElementById('centerCursor');
+// ----- Fuse progress ring -----
+const fuseProgress = document.getElementById('fuseProgress');
+let fuseActive = false;
+let fuseStartMs = 0;
+let fuseDurMs = 1000; // จะอ่านจริงจาก cursor attribute ด้านล่าง
+
+function setFuseProgress(ratio){
+  // ratio: 0..1 → thetaLength: 0..360
+  const theta = Math.min(359.9, Math.max(0, ratio*360));
+  fuseProgress.setAttribute('geometry', `primitive: ring; radiusInner: 0.023; radiusOuter: 0.033; thetaStart: -90; thetaLength: ${theta}`);
+}
+
+function resetFuseProgress(){
+  fuseActive = false;
+  setFuseProgress(0);
+}
+
+// อ่าน timeout จริงจาก cursor
+AFRAME.scenes[0].addEventListener('loaded', () => {
+  try {
+    const data = centerCursor.getAttribute('cursor');
+    if (data && typeof data.fuseTimeout === 'number') fuseDurMs = data.fuseTimeout;
+  } catch(e){}
+});
+
+// วงจรอัปเดตทุกเฟรม
+function updateFuseRing(){
+  if (fuseActive){
+    const now = performance.now();
+    const ratio = (now - fuseStartMs) / fuseDurMs;
+    setFuseProgress(Math.min(1, ratio));
+  }
+  requestAnimationFrame(updateFuseRing);
+}
+requestAnimationFrame(updateFuseRing);
+
+// ผูกอีเวนต์ของ cursor: เริ่ม/หยุด/คลิก
+centerCursor.addEventListener('mouseenter', (e)=>{
+  // เริ่มนับเมื่อมี target ใต้ crosshair จริง ๆ
+  if (e && e.detail && e.detail.intersectedEl) {
+    fuseActive = true;
+    fuseStartMs = performance.now();
+  }
+});
+
+centerCursor.addEventListener('fusing', ()=>{
+  // ขณะกำลัง fuse จะถูกเรียกเรื่อย ๆ — เราอัปเดตใน rAF อยู่แล้ว
+});
+
+centerCursor.addEventListener('mouseleave', ()=>{
+  resetFuseProgress();
+});
+
+centerCursor.addEventListener('click', ()=>{
+  // คลิกสำเร็จ (ด้วย OK หรือ fuse ครบเวลา) → รีเซ็ตแถบ
+  resetFuseProgress();
+});
+
 
 // ----- session log -----
 let sessionLog = { startedAt:null, mode:MODE, difficulty:DIFF, stages:[] };
