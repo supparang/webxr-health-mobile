@@ -90,14 +90,20 @@
     <a-entity id="rig" position="0 1.6 3">
       <!-- กล้องหลัก + CROSSHAIR ที่รองรับทั้ง OK click และ Fuse -->
       <a-entity id="cam" camera look-controls>
-        <a-entity id="centerCursor"
-                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
-                  raycaster="objects: .target, .clickable"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-                  material="color: #ffcc00; shader: flat; opacity: 0.95">
-        </a-entity>
-      </a-entity>
+          <a-entity id="centerCursor"
+            cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
+            raycaster="objects: .target, .clickable"
+            position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+            material="color: #ffcc00; shader: flat; opacity: 0.95">
+
+    <!-- Progress ring: เริ่มจาก 0°, เติมจน 360° ตามเวลา fuse -->
+    <a-entity id="fuseProgress"
+              geometry="primitive: ring; radiusInner: 0.023; radiusOuter: 0.033; thetaStart: -90; thetaLength: 0"
+              material="color: #66ff88; shader: flat; opacity: 0.95">
+    </a-entity>
+  </a-entity>
+</a-entity>
 
       <!-- Controllers (fallback) -->
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
