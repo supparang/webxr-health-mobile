@@ -1,18 +1,11 @@
-// Nutrition VR — game.js
-// เลือกเมนูจากชั้นวาง → ใส่จาน | Import รายการจาก JSON | Export จานที่จัดเสร็จเป็น JSON
-// พร้อม OK click + Fuse(1200ms), ศีรษะเล็ง, ไอคอน PNG
+// Nutrition VR — No-Image Edition
+// ไม่อ้างอิงไฟล์ PNG ใด ๆ ทั้งหมด ใช้อีโมจิแทน + ข้อความใหญ่ชัด
 
-//////////////////////
-// Analytics Helper //
-//////////////////////
 const GAME_ID = "Nutrition";
 function track(eventName, props = {}) {
   try { if (window.plausible) window.plausible(eventName, { props: { game: GAME_ID, ...props } }); } catch(e){}
 }
 
-//////////////////////
-// DOM Refs & HUD   //
-//////////////////////
 const $ = id => document.getElementById(id);
 const shelfRoot = $('shelfRoot');
 const plateRoot = $('plateRoot');
@@ -28,161 +21,168 @@ const BTN = {
 
 let running = false;
 
-//////////////////////
-// Data Structures  //
-//////////////////////
-// โครงรายการอาหาร (ค่าเริ่มต้น — สามารถแทนที่ด้วย Import JSON)
+// ---------- อาหารเริ่มต้น (ไม่มี icon) ----------
 let foods = [
-  { id:'f001', name:'ข้าวสวย',     kcal:200, protein:4,  carb:44, fat:0.4, icon:'assets/icons/rice.png' },
-  { id:'f002', name:'แกงจืดเต้าหู้', kcal:120, protein:8,  carb:6,  fat:6,   icon:'assets/icons/tofu-soup.png' },
-  { id:'f003', name:'ผัดผักรวม',   kcal:150, protein:3,  carb:18, fat:7,   icon:'assets/icons/veggies.png' },
-  { id:'f004', name:'ไก่ย่าง',     kcal:165, protein:25, carb:0,  fat:6,   icon:'assets/icons/chicken.png' },
-  { id:'f005', name:'ไข่ต้ม',     kcal:78,  protein:6,  carb:0.6,fat:5,   icon:'assets/icons/egg.png' },
-  { id:'f006', name:'ปลาย่าง',     kcal:160, protein:22, carb:0,  fat:7,   icon:'assets/icons/fish.png' },
-  { id:'f007', name:'ผลไม้รวม',   kcal:90,  protein:1,  carb:22, fat:0.2, icon:'assets/icons/fruit.png' },
-  { id:'f008', name:'นมจืด 1 กล่อง', kcal:130, protein:8, carb:12, fat:4.5, icon:'assets/icons/milk.png' }
+  { id:'f001', name:'ข้าวสวย',       kcal:200, protein:4,  carb:44, fat:0.4 },
+  { id:'f002', name:'แกงจืดเต้าหู้',   kcal:120, protein:8,  carb:6,  fat:6   },
+  { id:'f003', name:'ผัดผักรวม',     kcal:150, protein:3,  carb:18, fat:7   },
+  { id:'f004', name:'ไก่ย่าง',       kcal:165, protein:25, carb:0,  fat:6   },
+  { id:'f005', name:'ไข่ต้ม',       kcal:78,  protein:6,  carb:0.6,fat:5   },
+  { id:'f006', name:'ปลาย่าง',       kcal:160, protein:22, carb:0,  fat:7   },
+  { id:'f007', name:'ผลไม้รวม',     kcal:90,  protein:1,  carb:22, fat:0.2 },
+  { id:'f008', name:'นมจืด 1 กล่อง', kcal:130, protein:8,  carb:12, fat:4.5 }
 ];
 
-// จานที่เลือก
-let plate = []; // [{id,name,kcal,protein,carb,fat,icon,qty}]
+let plate = []; // [{...food, qty}]
 
-//////////////////////
-// Helpers          //
-//////////////////////
 function clearEntity(root){ while(root.firstChild) root.removeChild(root.firstChild); }
 function fmt(n){ return Math.round(n*10)/10; }
 
-//////////////////////
-// Shelf Rendering  //
-//////////////////////
+// ---------- อีโมจิแทนไอคอน ----------
+function foodEmoji(name=''){
+  const n = name.toLowerCase();
+  if (n.includes('ข้าว')) return '🍚';
+  if (n.includes('ปลา')) return '🐟';
+  if (n.includes('ไก่')) return '🍗';
+  if (n.includes('หมู')) return '🥩';
+  if (n.includes('ผัก') || n.includes('สลัด')) return '🥗';
+  if (n.includes('เต้าหู้') || n.includes('ซุป')) return '🍲';
+  if (n.includes('ไข่')) return '🥚';
+  if (n.includes('ผลไม้') || n.includes('ผลไม้รวม') || n.includes('กล้วย') || n.includes('แอปเปิ้ล')) return '🍎';
+  if (n.includes('นม')) return '🥛';
+  return '🍽️';
+}
+
+// ---------- ชั้นวาง (ใหญ่/ชัด + แผงหลัง) ----------
 function renderShelf(){
   clearEntity(shelfRoot);
 
-  // พื้นชั้นวาง
+  const backdrop = document.createElement('a-plane');
+  backdrop.setAttribute('width','2.6');
+  backdrop.setAttribute('height','1.6');
+  backdrop.setAttribute('color','#0a0f1a');
+  backdrop.setAttribute('position','0 0 -0.02');
+  backdrop.setAttribute('material','shader: flat; opacity: 0.95');
+  shelfRoot.appendChild(backdrop);
+
   const shelf = document.createElement('a-box');
-  shelf.setAttribute('width','2.4'); shelf.setAttribute('height','0.05'); shelf.setAttribute('depth','0.4');
-  shelf.setAttribute('color','#0b1220'); shelf.setAttribute('position','0 -0.1 0');
+  shelf.setAttribute('width','2.4'); shelf.setAttribute('height','0.06'); shelf.setAttribute('depth','0.45');
+  shelf.setAttribute('color','#0b1220'); shelf.setAttribute('position','0 -0.2 0');
   shelfRoot.appendChild(shelf);
 
-  const cols = 4, gapX = 0.56, gapY = 0.42;
+  const cols = 3, gapX = 0.75, gapY = 0.48;
   foods.forEach((f, i)=>{
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x = (col - (cols-1)/2) * gapX;
-    const y = 0.45 - row * gapY;
+    const y = 0.55 - row * gapY;
 
     const card = createFoodCard(f);
-    card.setAttribute('position', `${x} ${y} 0.02`); // อยู่เหนือชั้นเล็กน้อย
+    card.setAttribute('position', `${x} ${y} 0.01`);
     shelfRoot.appendChild(card);
   });
 
-  // ป้ายหัวข้อ
   const title = document.createElement('a-entity');
-  title.setAttribute('text', 'value:เลือกเมนูจากชั้นวาง; width:5; color:#CFE8FF; align:center');
-  title.setAttribute('position','0 0.9 0.02');
+  title.setAttribute('text', 'value:เลือกเมนูจากชั้นวาง; width:5; color:#E8F0FF; align:center');
+  title.setAttribute('position','0 0.95 0.01');
   shelfRoot.appendChild(title);
 }
 
+// ---------- การ์ดอาหาร (ไม่มี <a-image> ใช้ emoji + ข้อความ) ----------
 function createFoodCard(food){
   const card = document.createElement('a-entity');
   card.classList.add('clickable','food');
-  card.setAttribute('geometry', 'primitive: plane; width: 0.46; height: 0.26');
-  card.setAttribute('material', 'color: #111827; opacity: 0.95; shader: flat; transparent:true');
 
-  // ไอคอน (ถ้าไม่มีไฟล์ PNG ก็จะแสดงเป็นพื้นสีกล่องเฉย ๆ)
-  const icon = document.createElement('a-image');
-  if (food.icon) icon.setAttribute('src', food.icon);
-  icon.setAttribute('width','0.18'); icon.setAttribute('height','0.18');
-  icon.setAttribute('position','-0.12 0 0.001');
-  card.appendChild(icon);
+  card.setAttribute('geometry', 'primitive: plane; width: 0.68; height: 0.36');
+  card.setAttribute('material', 'color: #111827; opacity: 0.98; shader: flat; transparent:true');
+
+  const shadow = document.createElement('a-plane');
+  shadow.setAttribute('width','0.72'); shadow.setAttribute('height','0.40');
+  shadow.setAttribute('position','0 0 -0.001');
+  shadow.setAttribute('color','#000'); shadow.setAttribute('opacity','0.25');
+  shadow.setAttribute('material','shader: flat');
+  card.appendChild(shadow);
+
+  // อีโมจิ “ไอคอน”
+  const emoji = document.createElement('a-entity');
+  emoji.setAttribute('text', `value:${foodEmoji(food.name)}; width:2.2; align:center; color:#fff`);
+  emoji.setAttribute('position','-0.20 0 0.002');
+  card.appendChild(emoji);
 
   const txt = `${food.name}\n${fmt(food.kcal)} kcal`;
   const label = document.createElement('a-entity');
-  label.setAttribute('text', `value:${txt}; width:1.8; color:#e5e7eb; align:left`);
-  label.setAttribute('position','0.02 0.03 0.001');
+  label.setAttribute('text', `value:${txt}; width:2.8; color:#F5F7FF; align:left; baseline:top`);
+  label.setAttribute('position','-0.02 0.10 0.002');
   card.appendChild(label);
 
   card.addEventListener('click', ()=> addToPlate(food));
-  card.addEventListener('mouseenter', ()=> card.setAttribute('scale','1.04 1.04 1'));
+  card.addEventListener('mouseenter', ()=> card.setAttribute('scale','1.05 1.05 1'));
   card.addEventListener('mouseleave', ()=> card.setAttribute('scale','1 1 1'));
 
   return card;
 }
 
-//////////////////////
-// Plate Rendering  //
-//////////////////////
+// ---------- จาน (ไม่มีรูป ใช้อีโมจิ + ตัวหนังสือใหญ่) ----------
 function renderPlate(){
   clearEntity(plateRoot);
 
-  // ฐานจาน
   const base = document.createElement('a-circle');
-  base.setAttribute('radius','0.55'); base.setAttribute('color','#0b1220');
+  base.setAttribute('radius','0.65'); base.setAttribute('color','#0b1220');
   base.setAttribute('rotation','-90 0 0'); base.setAttribute('position','0 -0.35 0');
   plateRoot.appendChild(base);
 
-  // ป้าย
   const head = document.createElement('a-entity');
-  head.setAttribute('text','value:จานของฉัน (คลิกรายการเพื่อลดจำนวน/เอาออก); width:5; color:#CFE8FF; align:center');
-  head.setAttribute('position','0 0.45 0.02');
+  head.setAttribute('text','value:จานของฉัน (คลิกรายการเพื่อลดจำนวน/เอาออก); width:5.5; color:#E8F0FF; align:center');
+  head.setAttribute('position','0 0.55 0.02');
   plateRoot.appendChild(head);
 
-  const cols = 3, gapX = 0.38, gapY = 0.30;
+  const cols = 2, gapX = 0.5, gapY = 0.36;
   plate.forEach((p, i)=>{
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x = (col - (cols-1)/2) * gapX;
-    const y = 0.18 - row * gapY;
+    const y = 0.22 - row * gapY;
 
     const item = document.createElement('a-entity');
     item.classList.add('clickable','plate-item');
-    item.setAttribute('geometry','primitive: plane; width: 0.34; height: 0.20');
-    item.setAttribute('material','color:#0f172a; opacity:0.96; shader:flat; transparent:true');
+    item.setAttribute('geometry','primitive: plane; width: 0.58; height: 0.28');
+    item.setAttribute('material','color:#0f172a; opacity:0.98; shader:flat; transparent:true');
     item.setAttribute('position', `${x} ${y} 0.02`);
 
-    const icon = document.createElement('a-image');
-    if (p.icon) icon.setAttribute('src', p.icon);
-    icon.setAttribute('width','0.14'); icon.setAttribute('height','0.14');
-    icon.setAttribute('position','-0.08 0 0.001');
-    item.appendChild(icon);
+    const emoji = document.createElement('a-entity');
+    emoji.setAttribute('text', `value:${foodEmoji(p.name)}; width:2.2; align:center; color:#fff`);
+    emoji.setAttribute('position','-0.20 0 0.002');
+    item.appendChild(emoji);
 
     const txt = `${p.name} ×${p.qty}\n${fmt(p.kcal*p.qty)} kcal`;
     const label = document.createElement('a-entity');
-    label.setAttribute('text', `value:${txt}; width:1.6; color:#cbd5e1; align:left`);
-    label.setAttribute('position','0.02 0.02 0.001');
+    label.setAttribute('text', `value:${txt}; width:2.6; color:#DDE7FF; align:left; baseline:top`);
+    label.setAttribute('position','-0.06 0.08 0.002');
     item.appendChild(label);
 
-    // คลิกเพื่อลดจำนวน 1 (ถ้าเหลือ 1 จะลบออก)
     item.addEventListener('click', ()=> removeFromPlate(p.id));
-
+    item.addEventListener('mouseenter', ()=> item.setAttribute('scale','1.03 1.03 1'));
+    item.addEventListener('mouseleave', ()=> item.setAttribute('scale','1 1 1'));
     plateRoot.appendChild(item);
   });
 }
 
-//////////////////////
-// Plate Logic      //
-//////////////////////
 function addToPlate(food){
   const f = plate.find(x=>x.id===food.id);
   if (f) f.qty += 1;
   else plate.push({ ...food, qty:1 });
-
-  renderPlate();
-  updateTotalsHUD();
+  renderPlate(); updateTotalsHUD();
   track('AddFood', { id: food.id, name: food.name });
 }
-
 function removeFromPlate(foodId){
   const idx = plate.findIndex(p=>p.id===foodId);
   if (idx>=0){
     if (plate[idx].qty>1) plate[idx].qty -= 1;
     else plate.splice(idx,1);
-    renderPlate();
-    updateTotalsHUD();
+    renderPlate(); updateTotalsHUD();
     track('RemoveFood', { id: foodId });
   }
 }
-
 function updateTotalsHUD(){
   const total = plate.reduce((a, p)=>{
     a.kcal   += (p.kcal||0)   * p.qty;
@@ -195,51 +195,42 @@ function updateTotalsHUD(){
   return total;
 }
 
-//////////////////////
-// Import / Export  //
-//////////////////////
+// ---------- Import / Export (ละเลย field icon ถ้ามี) ----------
 BTN.file.addEventListener('change', async (e)=>{
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const file = e.target.files?.[0]; if (!file) return;
   try{
     const text = await file.text();
     const data = JSON.parse(text);
     if (!Array.isArray(data)) throw new Error('JSON ต้องเป็นอาเรย์ของอาหาร');
-    // คาดหวังโครง: {id,name,kcal,protein,carb,fat,icon}
     foods = data.map(x=>({
-      id: String(x.id||crypto.randomUUID()),
-      name: String(x.name||'เมนู'),
-      kcal: +x.kcal||0, protein:+x.protein||0, carb:+x.carb||0, fat:+x.fat||0,
-      icon: x.icon ? String(x.icon) : ''
+      id: String(x.id || crypto.randomUUID()),
+      name: String(x.name || 'เมนู'),
+      kcal: +x.kcal||0, protein:+x.protein||0, carb:+x.carb||0, fat:+x.fat||0
+      // ไม่สนใจ x.icon แล้ว
     }));
     renderShelf();
     track('ImportMenu', { count: foods.length });
-    alert('อัปเดตเมนูเรียบร้อย');
+    alert('อัปเดตเมนูเรียบร้อย (ไม่ใช้รูป)');
   }catch(err){
     alert('นำเข้าเมนูไม่สำเร็จ: ' + err.message);
-  } finally {
-    e.target.value = ''; // clear input
-  }
+  } finally { e.target.value = ''; }
 });
 
 BTN.sample.onclick = ()=>{
-  // ตัวอย่างโครง JSON ที่โรงเรียนสามารถใช้
   const sample = [
-    { id:'r01', name:'ข้าวกล้อง', kcal:220, protein:5, carb:46, fat:1, icon:'assets/icons/brown-rice.png' },
-    { id:'c01', name:'ต้มจืดสาหร่าย', kcal:95, protein:6, carb:5, fat:4, icon:'assets/icons/seaweed-soup.png' },
-    { id:'m01', name:'หมูอบ', kcal:210, protein:20, carb:6, fat:12, icon:'assets/icons/pork.png' },
-    { id:'v01', name:'ยำวุ้นเส้น', kcal:160, protein:9, carb:24, fat:3, icon:'assets/icons/glass-noodle.png' },
-    { id:'f01', name:'กล้วย', kcal:89, protein:1.1, carb:23, fat:0.3, icon:'assets/icons/banana.png' }
+    { id:'r01', name:'ข้าวกล้อง', kcal:220, protein:5, carb:46, fat:1 },
+    { id:'c01', name:'ต้มจืดสาหร่าย', kcal:95, protein:6, carb:5, fat:4 },
+    { id:'m01', name:'หมูอบ', kcal:210, protein:20, carb:6, fat:12 },
+    { id:'v01', name:'ยำวุ้นเส้น', kcal:160, protein:9, carb:24, fat:3 },
+    { id:'f01', name:'กล้วย', kcal:89, protein:1.1, carb:23, fat:0.3 }
   ];
-  foods = sample;
-  renderShelf();
-  alert('โหลดเมนูตัวอย่างแล้ว');
+  foods = sample; renderShelf(); alert('โหลดเมนูตัวอย่างแล้ว (แบบไม่ใช้รูป)');
 };
 
 BTN.export.onclick = ()=>{
   const total = updateTotalsHUD();
   const payload = {
-    version: '1.0',
+    version: '1.1-noimg',
     game: GAME_ID,
     exportedAt: new Date().toISOString(),
     items: plate.map(p=>({ id:p.id, name:p.name, qty:p.qty, kcal:p.kcal, protein:p.protein, carb:p.carb, fat:p.fat })),
@@ -253,25 +244,9 @@ BTN.export.onclick = ()=>{
   track('ExportPlate', { count: plate.length, kcal: total.kcal });
 };
 
-//////////////////////
-// Start / Reset    //
-//////////////////////
-BTN.start.onclick = ()=>{
-  running = true;
-  renderShelf();
-  renderPlate();
-  updateTotalsHUD();
-  track('GameStart', {});
-};
+// ---------- Start / Reset ----------
+BTN.start.onclick = ()=>{ running=true; renderShelf(); renderPlate(); updateTotalsHUD(); track('GameStart', {}); };
+BTN.reset.onclick = ()=>{ plate=[]; renderPlate(); updateTotalsHUD(); track('ResetPlate', {}); };
 
-BTN.reset.onclick = ()=>{
-  plate = [];
-  renderPlate();
-  updateTotalsHUD();
-  track('ResetPlate', {});
-};
-
-// เริ่มต้นแสดงผล (ยังไม่จำเป็นต้องกด Start ก็เห็นชั้นวางได้)
-renderShelf();
-renderPlate();
-updateTotalsHUD();
+// boot
+renderShelf(); renderPlate(); updateTotalsHUD();
