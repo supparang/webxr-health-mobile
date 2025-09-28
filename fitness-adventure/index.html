@@ -8,7 +8,7 @@
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Plausible Analytics (โดเมนของคุณ) -->
+  <!-- Plausible Analytics -->
   <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
 
   <style>
@@ -36,8 +36,8 @@
 </head>
 <body>
   <div class="help">
-    <b>Fitness Adventure VR</b> — รองรับ <span class="pill">Hand-Tracking + Pinch</span> และ <span class="pill">รีโมท Shinecon</span> (เล็งศีรษะ + ปุ่ม OK) •
-    เปิด <b>Beat Sync</b> เพื่อสปาวน์เป้าตาม <b>BPM</b> • กด <b>Enter VR</b> มุมขวาล่างเพื่อเล่นในแว่น
+    <b>Fitness Adventure VR</b> — เล่นได้ทั้ง <span class="pill">รีโมท Shinecon (กด OK)</span>, <span class="pill">Fuse (จ้อง 1 วิ)</span>,
+    และ <span class="pill">Hand-Tracking + Pinch</span> • เปิด <b>Beat Sync</b> เพื่อเล่นตาม BPM • กด <b>Enter VR</b> เพื่อเริ่ม
   </div>
 
   <div class="hud">
@@ -85,33 +85,29 @@
     </div>
   </div>
 
-  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020">
+  <!-- โชว์เส้น ray ช่วยดีบัก ให้ comment ทิ้งได้ -->
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine: false">
     <a-entity id="rig" position="0 1.6 3">
-      <!-- กล้องหลัก + CROSSHAIR (cursor แบบตรึงกลางจอ) -->
+      <!-- กล้องหลัก + CROSSHAIR ที่รองรับทั้ง OK click และ Fuse -->
       <a-entity id="cam" camera look-controls>
-        <!--
-          ใช้ rayOrigin: entity → รังสีออกจาก entity นี้เสมอ (ไปด้านหน้า)
-          เหมาะกับ: มือถือ/รีโมท Shinecon (กดปุ่ม OK = click) และ Cardboard-style VR
-          raycaster จำกัดเฉพาะคลาส .target เพื่อลด overhead
-        -->
         <a-entity id="centerCursor"
-                  cursor="fuse: false; rayOrigin: entity"
-                  raycaster="objects: .target"
+                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
+                  raycaster="objects: .target, .clickable"
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
                   material="color: #ffcc00; shader: flat; opacity: 0.95">
         </a-entity>
       </a-entity>
 
-      <!-- Controllers (fallback สำหรับ PCVR/อุปกรณ์ที่มีคอนโทรลเลอร์จริง) -->
+      <!-- Controllers (fallback) -->
       <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
       <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
 
-      <!-- Hand tracking (สำหรับ Quest/อุปกรณ์ที่รองรับ) -->
+      <!-- Hand tracking -->
       <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
       <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
 
-      <!-- Finger cursor (แสดงตำแหน่งปลายนิ้วเมื่อใช้ hand-tracking) -->
+      <!-- Finger cursor (สำหรับ pinch) -->
       <a-sphere id="fingerCursor" radius="0.012" color="#ffffaa" position="0 0 -1" visible="false"></a-sphere>
     </a-entity>
 
@@ -124,7 +120,6 @@
     <a-entity id="game"></a-entity>
   </a-scene>
 
-  <!-- เกมเพลย์หลัก -->
   <script src="game.js"></script>
 </body>
 </html>
