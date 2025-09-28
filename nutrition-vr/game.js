@@ -1,5 +1,7 @@
-// Nutrition VR — No-Image Edition
-// ไม่อ้างอิงไฟล์ PNG ใด ๆ ทั้งหมด ใช้อีโมจิแทน + ข้อความใหญ่ชัด
+// Nutrition VR — No-Image Edition (Multiline HUD)
+// - ไม่อ้างอิงไฟล์รูป ใช้อีโมจิแทน
+// - HUD โภชนาการแยกเป็น 2 บรรทัด
+// - OK click + Fuse(1200ms), Import/Export JSON
 
 const GAME_ID = "Nutrition";
 function track(eventName, props = {}) {
@@ -48,7 +50,7 @@ function foodEmoji(name=''){
   if (n.includes('ผัก') || n.includes('สลัด')) return '🥗';
   if (n.includes('เต้าหู้') || n.includes('ซุป')) return '🍲';
   if (n.includes('ไข่')) return '🥚';
-  if (n.includes('ผลไม้') || n.includes('ผลไม้รวม') || n.includes('กล้วย') || n.includes('แอปเปิ้ล')) return '🍎';
+  if (n.includes('ผลไม้') || n.includes('กล้วย') || n.includes('แอปเปิ้ล')) return '🍎';
   if (n.includes('นม')) return '🥛';
   return '🍽️';
 }
@@ -103,7 +105,6 @@ function createFoodCard(food){
   shadow.setAttribute('material','shader: flat');
   card.appendChild(shadow);
 
-  // อีโมจิ “ไอคอน”
   const emoji = document.createElement('a-entity');
   emoji.setAttribute('text', `value:${foodEmoji(food.name)}; width:2.2; align:center; color:#fff`);
   emoji.setAttribute('position','-0.20 0 0.002');
@@ -122,7 +123,7 @@ function createFoodCard(food){
   return card;
 }
 
-// ---------- จาน (ไม่มีรูป ใช้อีโมจิ + ตัวหนังสือใหญ่) ----------
+// ---------- จาน (อีโมจิ + ตัวหนังสือใหญ่) ----------
 function renderPlate(){
   clearEntity(plateRoot);
 
@@ -167,6 +168,7 @@ function renderPlate(){
   });
 }
 
+// ---------- ตะกร้าใส่-เอาออก ----------
 function addToPlate(food){
   const f = plate.find(x=>x.id===food.id);
   if (f) f.qty += 1;
@@ -183,6 +185,8 @@ function removeFromPlate(foodId){
     track('RemoveFood', { id: foodId });
   }
 }
+
+// ---------- HUD รวมโภชนาการ (แยกบรรทัด) ----------
 function updateTotalsHUD(){
   const total = plate.reduce((a, p)=>{
     a.kcal   += (p.kcal||0)   * p.qty;
@@ -191,11 +195,17 @@ function updateTotalsHUD(){
     a.fat    += (p.fat||0)    * p.qty;
     return a;
   }, {kcal:0,protein:0,carb:0,fat:0});
-  totalsText.textContent = `${fmt(total.kcal)} kcal | P:${fmt(total.protein)}g C:${fmt(total.carb)}g F:${fmt(total.fat)}g`;
+
+  // ทำให้ขึ้นบรรทัดใหม่เสมอ
+  totalsText.style.whiteSpace = 'pre-line';
+  totalsText.textContent =
+    `${fmt(total.kcal)} kcal\n` +
+    `P:${fmt(total.protein)}g  C:${fmt(total.carb)}g  F:${fmt(total.fat)}g`;
+
   return total;
 }
 
-// ---------- Import / Export (ละเลย field icon ถ้ามี) ----------
+// ---------- Import / Export ----------
 BTN.file.addEventListener('change', async (e)=>{
   const file = e.target.files?.[0]; if (!file) return;
   try{
@@ -206,7 +216,6 @@ BTN.file.addEventListener('change', async (e)=>{
       id: String(x.id || crypto.randomUUID()),
       name: String(x.name || 'เมนู'),
       kcal: +x.kcal||0, protein:+x.protein||0, carb:+x.carb||0, fat:+x.fat||0
-      // ไม่สนใจ x.icon แล้ว
     }));
     renderShelf();
     track('ImportMenu', { count: foods.length });
@@ -230,7 +239,7 @@ BTN.sample.onclick = ()=>{
 BTN.export.onclick = ()=>{
   const total = updateTotalsHUD();
   const payload = {
-    version: '1.1-noimg',
+    version: '1.2-noimg-ml',
     game: GAME_ID,
     exportedAt: new Date().toISOString(),
     items: plate.map(p=>({ id:p.id, name:p.name, qty:p.qty, kcal:p.kcal, protein:p.protein, carb:p.carb, fat:p.fat })),
