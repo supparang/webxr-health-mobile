@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Nutrition Traffic Light VR (Images, Fixed Layers)</title>
+  <title>Nutrition Traffic Light VR (Images, Pastel BG, Low Bins)</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
@@ -13,11 +13,11 @@
 
   <style>
     :root { --glass: rgba(0,0,0,.55); }
-    body { margin:0; font-family:system-ui, Arial; background:#0b1020; color:#fff; }
+    body { margin:0; font-family:system-ui, Arial; background:#f0f4f8; color:#111; }
     .help { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
-      padding:10px 12px; border-radius:12px; max-width:960px; font-size:14px; line-height:1.45 }
+      padding:10px 12px; border-radius:12px; max-width:960px; font-size:14px; line-height:1.45; color:#fff }
     .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
-           padding:10px 14px; border-radius:12px; min-width:320px; white-space:pre-line }
+           padding:10px 14px; border-radius:12px; min-width:320px; white-space:pre-line; color:#fff }
     .hud h1 { margin:0 0 6px 0; font-size:18px }
     .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px; flex-wrap:wrap }
     .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700;
@@ -27,8 +27,8 @@
 </head>
 <body>
   <div class="help">
-    <b>Nutrition Traffic Light VR — เวอร์ชันมีภาพอาหารจริง (แก้ชั้นเลเยอร์แล้ว)</b><br/>
-    จ้องอาหารตรงกลาง แล้วเลือกถัง <b>เขียว</b> (กินบ่อย) <b>เหลือง</b> (พอเหมาะ) <b>แดง</b> (น้อย) โดยเล็งป้ายสีแล้วจ้อง 1 วิ หรือกด OK
+    <b>Nutrition Traffic Light VR — เวอร์ชันมีภาพอาหารจริง</b><br/>
+    จ้องอาหารตรงกลาง แล้วเลือกถัง <b>เขียว</b> (กินบ่อย) <b>เหลือง</b> (พอเหมาะ) <b>แดง</b> (น้อย) — เล็งป้ายแล้วจ้อง 1 วิ หรือกด OK
   </div>
 
   <div class="hud">
@@ -41,10 +41,9 @@
     <button id="btnReset" class="gray">Reset</button>
   </div>
 
-<a-scene renderer="antialias:true;colorManagement:true" background="color:#f0f4f8" raycaster="showLine:false">
-    ...
-    <a-sky color="#f0f4f8"></a-sky>
-    <!-- โหลดภาพ: วางไฟล์ลง assets/foods/ ตามชื่อด้านล่าง (ตัวพิมพ์เล็ก/ใหญ่ต้องตรง) -->
+  <a-scene renderer="antialias:true;colorManagement:true"
+           background="color:#f0f4f8" raycaster="showLine:false">
+    <!-- โหลดภาพ: วางไฟล์ลง assets/foods/ (ตัวพิมพ์เล็ก/ใหญ่ต้องตรง) -->
     <a-assets timeout="30000">
       <img id="img-rice-brown"    src="assets/foods/rice-brown.png">
       <img id="img-fish-bake"     src="assets/foods/fish-bake.png">
@@ -68,7 +67,7 @@
                   raycaster="objects: .selectable"
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.028"
-                  material="color: #ffcc00; shader: flat; opacity: 0.95">
+                  material="color: #ff7a00; shader: flat; opacity: 0.95">
         </a-entity>
       </a-entity>
       <a-entity laser-controls="hand: right"></a-entity>
@@ -77,12 +76,13 @@
       <a-entity hand-tracking-controls="hand: left" visible="true"></a-entity>
     </a-entity>
 
-    <!-- ย้ายทั้งฉากเกมไปที่ระยะ -2 เมตร (อ่านชัด) -->
+    <!-- ย้ายทั้งฉากเกมไปที่ระยะ -2 เมตร -->
     <a-entity id="gameRoot" position="0 1.6 -2"></a-entity>
 
-    <a-sky color="#0b1b33"></a-sky>
-    <a-entity light="type: ambient; color: #cfe8ff; intensity: 0.8"></a-entity>
-    <a-entity light="type: directional; color: #fff; intensity: 0.9" position="1 2 0"></a-entity>
+    <!-- พื้นหลังสว่างแบบพาสเทล -->
+    <a-sky color="#f0f4f8"></a-sky>
+    <a-entity light="type: ambient; color: #ffffff; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; color: #fff; intensity: 0.8" position="1 2 0"></a-entity>
   </a-scene>
 
   <script src="game.js"></script>
