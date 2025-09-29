@@ -1,5 +1,7 @@
-// Nutrition Traffic Light VR (Images, Fixed Z-Layers)
-// แก้ปัญหาภาพโดนบังด้วยลำดับ Z ภายในการ์ด: back < border < image < text
+// Nutrition Traffic Light VR (Images, Pastel BG, Low Bins)
+// - ป้ายถังเลื่อนลงล่าง (lane.y = -0.6)
+// - พื้นหลังพาสเทล #f0f4f8
+// - เลเยอร์ Z: back < border < image < text (กันโดนบัง)
 
 const GAME_ID = "Nutrition-Traffic-Images";
 function track(name, props={}){ try{ if(window.plausible) plausible(name,{props:{game:GAME_ID,...props}}) }catch(e){} }
@@ -16,10 +18,10 @@ let lives = 3;
 let totalItems = 0;
 let timerId = null;
 
-// ชั้นเลเยอร์ภายในการ์ด/ป้าย (ค่าคงที่ ป้องกัน z-fighting/ถูกปิดทับ)
+// ชั้นเลเยอร์ภายในการ์ด/ป้าย
 const ZL = { back: 0.000, border: 0.006, image: 0.010, text: 0.014 };
 
-// ข้อมูลอาหาร (imgId ต้องตรงกับ id ใน <a-assets>)
+// ข้อมูลอาหาร (imgId ต้องตรงกับ <a-assets>)
 const FOODS = [
   {name:'ข้าวกล้อง',        emoji:'🍚', tag:'green',  imgId:'#img-rice-brown'},
   {name:'ปลาอบ',            emoji:'🐟', tag:'green',  imgId:'#img-fish-bake'},
@@ -54,9 +56,9 @@ let itemNode = null;
 function buildScene(){
   clearChildren(gameRoot);
 
-  // แถวถังสามสี
+  // ย้ายป้ายลงล่างกว่าเดิม (เดิม -0.15 → ปรับเป็น -0.6)
   const lane = document.createElement('a-entity');
-  lane.setAttribute('position','0 -0.15 0');
+  lane.setAttribute('position','0 -0.6 0');
   gameRoot.appendChild(lane);
 
   bins.green = makeBin('เขียว กินบ่อย',  '#16a34a', -1.0);
@@ -66,9 +68,9 @@ function buildScene(){
   lane.appendChild(bins.yellow);
   lane.appendChild(bins.red);
 
-  // โหนดอาหารปัจจุบัน
+  // ขยับอาหารให้เด่นกลางจอ
   itemNode = document.createElement('a-entity');
-  itemNode.setAttribute('position','0 0.55 0');
+  itemNode.setAttribute('position','0 0.35 0'); // เดิม 0.55 → ลดลงเล็กน้อยให้บาลานซ์กับป้าย
   gameRoot.appendChild(itemNode);
 }
 
@@ -76,7 +78,7 @@ function makeBin(label, color, x){
   const bin = document.createElement('a-entity');
   bin.setAttribute('position', `${x} 0 0`);
 
-  // พื้นหลังป้าย (back)
+  // พื้นหลังป้าย
   const panel = document.createElement('a-plane');
   panel.classList.add('selectable');
   panel.setAttribute('width','1.2'); panel.setAttribute('height','0.62');
@@ -85,20 +87,19 @@ function makeBin(label, color, x){
   panel.setAttribute('position', `0 0 ${ZL.back}`);
   bin.appendChild(panel);
 
-  // กรอบด้านใน (border)
+  // กรอบป้าย
   const inner = document.createElement('a-plane');
   inner.setAttribute('width','1.14'); inner.setAttribute('height','0.56');
   inner.setAttribute('material', 'color:#0f172a; shader:flat; transparent:true; opacity:0.98; alphaTest:0.01');
   inner.setAttribute('position', `0 0 ${ZL.border}`);
   bin.appendChild(inner);
 
-  // ข้อความป้าย (text)
+  // ข้อความป้าย
   const txt = document.createElement('a-entity');
-  txt.setAttribute('text', `value:${label}; width: 5.2; align:center; color:#EAF2FF`);
+  txt.setAttribute('text', `value:${label}; width: 5.2; align:center; color:#0b1220`);
   txt.setAttribute('position', `0 0 ${ZL.text}`);
   bin.appendChild(txt);
 
-  // คลิก/ฟิวส์ เลือกถัง
   panel.addEventListener('click', ()=>{
     if(!running) return;
     gradeChoice(bin===bins.green?'green':bin===bins.yellow?'yellow':'red');
@@ -107,7 +108,7 @@ function makeBin(label, color, x){
   return bin;
 }
 
-// === แสดงอาหาร (ภาพจริง + fallback อีโมจิ ถ้าไฟล์หาย) ===
+// === แสดงอาหาร (ภาพจริง + fallback อีโมจิ) ===
 let currentFood = null;
 
 function imageExistsById(idSelector){
@@ -124,23 +125,22 @@ function showNewFood(){
   const card = document.createElement('a-entity');
   card.setAttribute('position','0 0 0');
 
-  // พื้นหลังการ์ด (back)
+  // พื้นหลังการ์ด
   const back = document.createElement('a-plane');
   back.setAttribute('width','1.8'); back.setAttribute('height','1.1');
-  back.setAttribute('material','color:#101826; shader:flat; transparent:true; opacity:0.98; alphaTest:0.01');
+  back.setAttribute('material','color:#ffffff; shader:flat; transparent:true; opacity:0.98; alphaTest:0.01');
   back.setAttribute('position', `0 0 ${ZL.back}`);
   card.appendChild(back);
 
-  // กรอบรูป (border)
+  // กรอบรูป
   const border = document.createElement('a-plane');
   border.setAttribute('width','1.44'); border.setAttribute('height','0.84');
-  border.setAttribute('material','color:#0d1424; shader:flat; transparent:true; opacity:0.6; alphaTest:0.01');
+  border.setAttribute('material','color:#dbe4ef; shader:flat; transparent:true; opacity:1; alphaTest:0.01');
   border.setAttribute('position', `0 0.10 ${ZL.border}`);
   card.appendChild(border);
 
   const hasImg = imageExistsById(currentFood.imgId);
   if(hasImg){
-    // รูปอาหาร (image)
     const pic = document.createElement('a-image');
     pic.setAttribute('src', currentFood.imgId);
     pic.setAttribute('width','1.4'); pic.setAttribute('height','0.8');
@@ -148,22 +148,21 @@ function showNewFood(){
     pic.setAttribute('material','shader:flat; transparent:true; alphaTest:0.01');
     card.appendChild(pic);
   }else{
-    // Fallback อีโมจิ (text) ถ้ารูปไม่เจอ
     const emoji = document.createElement('a-entity');
-    emoji.setAttribute('text', `value:${currentFood.emoji}; width: 6.4; align:center; color:#ffffff`);
+    emoji.setAttribute('text', `value:${currentFood.emoji}; width: 6.4; align:center; color:#111`);
     emoji.setAttribute('position', `0 0.10 ${ZL.text}`);
     card.appendChild(emoji);
   }
 
-  // ชื่ออาหาร (text)
+  // ชื่ออาหาร
   const label = document.createElement('a-entity');
-  label.setAttribute('text', `value:${currentFood.name}; width: 6.0; align:center; color:#EAF2FF`);
+  label.setAttribute('text', `value:${currentFood.name}; width: 6.0; align:center; color:#0b1220`);
   label.setAttribute('position', `0 -0.28 ${ZL.text}`);
   card.appendChild(label);
 
-  // คำแนะนำ (text)
+  // คำแนะนำ
   const guide = document.createElement('a-entity');
-  guide.setAttribute('text', `value:เลือกถังที่เหมาะสม; width: 5.8; align:center; color:#9fb4ff`);
+  guide.setAttribute('text', `value:เลือกถังที่เหมาะสม; width: 5.8; align:center; color:#334155`);
   guide.setAttribute('position', `0 -0.46 ${ZL.text}`);
   card.appendChild(guide);
 
