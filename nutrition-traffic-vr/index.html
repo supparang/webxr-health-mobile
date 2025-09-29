@@ -3,19 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Nutrition Traffic Light VR (P5)</title>
+  <title>Nutrition Traffic Light VR (Images)</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Analytics (ถ้าไม่ใช้ลบได้) -->
+  <!-- Analytics (ลบได้ถ้าไม่ใช้) -->
   <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
 
   <style>
     :root { --glass: rgba(0,0,0,.55); }
     body { margin:0; font-family:system-ui, Arial; background:#0b1020; color:#fff; }
     .help { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
-      padding:10px 12px; border-radius:12px; max-width:920px; font-size:14px; line-height:1.45 }
+      padding:10px 12px; border-radius:12px; max-width:960px; font-size:14px; line-height:1.45 }
     .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
            padding:10px 14px; border-radius:12px; min-width:320px; white-space:pre-line }
     .hud h1 { margin:0 0 6px 0; font-size:18px }
@@ -27,13 +27,13 @@
 </head>
 <body>
   <div class="help">
-    <b>Nutrition Traffic Light VR</b><br/>
-    จ้องอาหารตรงกลาง แล้วเลือกถังที่ถูกต้องด้วยการเล็งวงแหวนไปที่ป้าย <b>เขียว</b> / <b>เหลือง</b> / <b>แดง</b> แล้วจ้อง 1 วิ หรือกด OK<br/>
-    ตอบถูกได้คะแนน ผิดเสียหัวใจ เล่น 60 วินาที หรือครบ 20 ชิ้น
+    <b>Nutrition Traffic Light VR — เวอร์ชันมีภาพอาหารจริง</b><br/>
+    จ้องดูอาหารตรงกลาง แล้วเลือกถัง <b>เขียว</b> (กินบ่อย) <b>เหลือง</b> (พอเหมาะ) <b>แดง</b> (น้อย) ด้วยการเล็งวงแหวนไปที่ป้ายแล้วจ้อง 1 วิ หรือกด OK<br/>
+    หากยังไม่ใส่ภาพ ระบบจะแสดงอีโมจิเป็นสำรองให้อัตโนมัติ
   </div>
 
   <div class="hud">
-    <h1>Traffic Light VR</h1>
+    <h1>Traffic Light VR (Images)</h1>
     <div id="hudText">พร้อมเริ่ม</div>
   </div>
 
@@ -42,11 +42,27 @@
     <button id="btnReset" class="gray">Reset</button>
   </div>
 
+  <!-- โหลดรูปผ่าน a-assets (ใช้ id เพื่ออ้างใน a-image ได้เร็วและแคช) -->
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine:false">
-    <!-- วางฉากหลักห่างจากผู้เล่น ~2 เมตร เพื่ออ่านง่าย -->
+    <a-assets timeout="30000">
+      <!-- วางไฟล์ PNG ตามพาธนี้ ถ้าไฟล์หาย a-image จะว่าง แต่เรามี fallback อีโมจิ -->
+      <img id="img-rice-brown"   src="assets/foods/rice-brown.png">
+      <img id="img-fish-bake"    src="assets/foods/fish-bake.png">
+      <img id="img-veggies"      src="assets/foods/veggies.png">
+      <img id="img-fruit-mix"    src="assets/foods/fruit-mix.png">
+      <img id="img-chicken-grill"src="assets/foods/chicken-grill.png">
+      <img id="img-milk-plain"   src="assets/foods/milk-plain.png">
+      <img id="img-soup-clear"   src="assets/foods/soup-clear.png">
+      <img id="img-rice-white"   src="assets/foods/rice-white.png">
+      <img id="img-fried"        src="assets/foods/fried.png">
+      <img id="img-soda"         src="assets/foods/soda.png">
+      <img id="img-dessert"      src="assets/foods/dessert.png">
+      <img id="img-chips"        src="assets/foods/chips.png">
+    </a-assets>
+
+    <!-- กล้อง/เคอร์เซอร์ -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
-        <!-- cursor: รองรับจ้อง + OK -->
         <a-entity id="cursor"
                   cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
                   raycaster="objects: .selectable"
@@ -55,15 +71,13 @@
                   material="color: #ffcc00; shader: flat; opacity: 0.95">
         </a-entity>
       </a-entity>
-
-      <!-- ตัวเลือก (ถ้ามีคอนโทรลเลอร์/แฮนด์) -->
       <a-entity laser-controls="hand: right"></a-entity>
       <a-entity laser-controls="hand: left"></a-entity>
       <a-entity hand-tracking-controls="hand: right" visible="true"></a-entity>
       <a-entity hand-tracking-controls="hand: left" visible="true"></a-entity>
     </a-entity>
 
-    <!-- โซนเกม: ยกทั้งบล็อกไปอยู่ที่ระยะ -2 เมตร -->
+    <!-- ย้ายทั้งฉากเกมไปที่ระยะ -2 เมตร -->
     <a-entity id="gameRoot" position="0 1.6 -2"></a-entity>
 
     <a-sky color="#0b1b33"></a-sky>
