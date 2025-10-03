@@ -3,72 +3,67 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>Hygiene VR</title>
+  <title>Hygiene Rhythm Game (VR)</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     :root { --glass: rgba(0,0,0,.55); }
-    body { margin:0; font-family:system-ui, Arial; background:#eef6ff; color:#0b1220; }
-
-    /* ทำให้ปุ่ม/ HUD อยู่บนสุดและรับคลิกเสมอ */
-    .help, .hud, .ui {
-      position:fixed; z-index:9999; pointer-events:auto;
-      background:var(--glass); color:#fff; border-radius:12px;
-    }
-    .help { left:12px; top:12px; padding:10px 12px; max-width:960px; }
-    .hud  { right:12px; top:12px; padding:10px 14px; min-width:320px; white-space:pre-line; }
-    .ui   { left:12px; bottom:12px; padding:8px; display:flex; gap:8px; background:transparent; }
-    .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700;
-      background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2); cursor:pointer }
-    .ui button.gray { background:#e5e7eb; color:#111 }
-
-    /* กัน a-canvas ไปกินคลิกทับ overlay (ส่วนใหญ่พอแค่ z-index ปุ่มสูงก็พอแล้ว) */
-    canvas.a-canvas { z-index:0 !important; }
+    body { margin:0; font-family:system-ui, Arial; background:#eef5ff; color:#0b1220; }
+    .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
+           color:#fff; padding:10px 14px; border-radius:12px; min-width:320px; white-space:pre-line }
+    .hud h1 { margin:0 0 6px 0; font-size:18px }
+    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px; flex-wrap:wrap }
+    .ui select, .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700;
+           background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer }
+    .ui select { background:#e6f0ff; color:#0b1220; font-weight:600 }
+    .ui button.gray { background:#e5e7eb; color:#111; font-weight:600 }
+    .tip { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
+           color:#fff; padding:10px 12px; border-radius:12px; max-width:420px; font-size:14px; line-height:1.45 }
   </style>
 </head>
 <body>
-  <div class="help">
-    <b>Hygiene VR</b> — เลือกโหมด: <b>ล้างมือ (7 ขั้น)</b>, <b>แปรงฟัน (5 โซน/2 นาที)</b>, <b>ควิซ</b><br/>
-    เคอร์เซอร์: จ้อง 1 วิ หรือกดปุ่ม OK/คลิก — คีย์ลัด: <b>M</b>=Menu, <b>S</b>=Start/Finish, <b>R</b>=Reset
+  <div class="tip">
+    <b>Hygiene Rhythm Game</b><br/>
+    เล็งเคอร์เซอร์ไปที่ปุ่ม/เลน แล้ว <b>มองค้าง 1 วิ</b> (fuse) หรือกด OK เพื่อกดปุ่ม<br/>
+    3 เลน: 🧼 ล้างมือ | 🪥 แปรงฟัน | 🤧 ปิดปากเวลาไอ
   </div>
 
   <div class="hud">
-    <h1 style="margin:0 0 6px 0;font-size:18px">Hygiene VR</h1>
+    <h1>Rhythm HUD</h1>
     <div id="hudText">พร้อมเริ่ม</div>
+    <div id="feedback" style="margin-top:6px;font-size:18px;"></div>
   </div>
 
   <div class="ui">
-    <button id="btnMenu"  type="button">Menu</button>
-    <button id="btnStart" type="button">Start</button>
-    <button id="btnReset" type="button" class="gray">Reset</button>
+    <label>โหมด:
+      <select id="difficulty">
+        <option value="easy">Easy (BPM 80)</option>
+        <option value="normal" selected>Normal (BPM 100)</option>
+        <option value="hard">Hard (BPM 120)</option>
+      </select>
+    </label>
+    <button id="btnStart">Start</button>
+    <button id="btnReset" class="gray">Reset</button>
   </div>
 
-  <a-scene renderer="antialias:true;colorManagement:true" background="color:#eef6ff" raycaster="showLine:false">
-    <!-- Rig + Camera + Cursor -->
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#eef5ff" raycaster="showLine:false">
+    <!-- กล้อง + เคอร์เซอร์ (fuse 1 วิ) -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <a-entity id="cursor"
                   cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
                   raycaster="objects: .selectable"
                   position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.028"
-                  material="shader: flat; color: #ff7a00; opacity: 0.95">
+                  geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+                  material="color: #0ea5e9; shader: flat; opacity: 0.95">
         </a-entity>
       </a-entity>
-      <a-entity laser-controls="hand: right"></a-entity>
-      <a-entity laser-controls="hand: left"></a-entity>
-      <a-entity hand-tracking-controls="hand: right" visible="true"></a-entity>
-      <a-entity hand-tracking-controls="hand: left" visible="true"></a-entity>
     </a-entity>
 
-    <!-- Root ของเกม -->
-    <a-entity id="gameRoot" position="0 1.6 -2"></a-entity>
+    <!-- รากฉากเกม -->
+    <a-entity id="root" position="0 1.5 -3"></a-entity>
 
-    <!-- แถบปุ่มในฉาก (สำรอง) -->
-    <a-entity id="vrToolbar" position="0 0.6 -1.6">
-      <!-- จะใส่ปุ่มในเกมจาก game.js -->
-    </a-entity>
-
-    <a-sky color="#eef6ff"></a-sky>
+    <!-- ฉาก/แสง -->
+    <a-sky color="#eef5ff"></a-sky>
     <a-entity light="type: ambient; color: #ffffff; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; color: #fff; intensity: 0.8" position="1 2 0"></a-entity>
   </a-scene>
