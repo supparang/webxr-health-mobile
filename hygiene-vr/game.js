@@ -1,314 +1,260 @@
-/* Hygiene VR — ปรับให้ปุ่ม Menu/Start/Reset ใช้ได้ชัวร์
- * - ย้ำ z-index/pointer-events ของ DOM ปุ่ม
- * - เพิ่มปุ่มสำรองในฉาก (A-Frame) เผื่อเข้า VR (DOM overlay ใช้ไม่ได้)
- * - คีย์ลัด: M / S / R
- */
+/* Hygiene Rhythm Game (VR / A-Frame)
+   - 3 เลน: wash (🧼), brush (🪥), cover (🤧)
+   - เล่นด้วย gaze+fuse หรือคลิก
+   - ไม่มีเสียง: ใช้ BPM/BeatMap ขยับโน้ตตามเวลา
+*/
 
-const $ = id => document.getElementById(id);
-const hud = $('hudText');
-const btn = { menu: $('btnMenu'), start: $('btnStart'), reset: $('btnReset') };
-const gameRoot = document.getElementById('gameRoot');
-const vrToolbar = document.getElementById('vrToolbar');
+const $ = (id) => document.getElementById(id);
+const hud = $("hudText");
+const fb = $("feedback");
+const btnStart = $("btnStart");
+const btnReset = $("btnReset");
+const selectDiff = $("difficulty");
+const root = document.getElementById("root");
 
-const STATE = { MENU:'menu', HAND:'hand', BRUSH:'brush', QUIZ:'quiz', SUMMARY:'summary' };
-let state = STATE.MENU;
+let state = {
+  running: false,
+  startTime: 0,
+  elapsed: 0,
+  bpm: 100,
+  hitWindow: 0.35,  // วินาทีที่นับว่าโดน (±)
+  score: 0,
+  combo: 0,
+  maxCombo: 0,
+  notes: [],       // โหนดทั้งหมด
+  lanes: {},       // lane panels
+  feedbackTimer: null,
+  timerId: null,
+  duration: 60,    // ความยาวเพลง (วิ)
+};
 
-let score = 0, lives = 3;
-let timerId = null;
-let handStep = 0;      // 1..7
-let brushZone = 0;     // 1..5
-let brushTime = 120;   // seconds
-let quizIndex = 0;
-let quizScore = 0;
-
-// ----- Audio (metronome) -----
-const AudioCtx = window.AudioContext || window.webkitAudioContext;
-let actx = null;
-function ping(freq=820, dur=0.05, vol=0.15){
-  try{
-    if(!actx) actx = new AudioCtx();
-    const t = actx.currentTime;
-    const osc = actx.createOscillator();
-    const gain = actx.createGain();
-    osc.type='sine'; osc.frequency.setValueAtTime(freq, t);
-    gain.gain.setValueAtTime(vol, t);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t+dur);
-    osc.connect(gain).connect(actx.destination);
-    osc.start(t); osc.stop(t+dur);
-  }catch(e){}
-}
-
-// ----- Helpers -----
-function setHUD(text){ hud.style.whiteSpace='pre-line'; hud.textContent = text; }
-function clearNode(el){ while(el.firstChild) el.removeChild(el.firstChild); }
-function makePanel(w,h,color='#fff',z=0){ const p=document.createElement('a-plane'); p.setAttribute('width',w); p.setAttribute('height',h); p.setAttribute('color',color); p.setAttribute('position',`0 0 ${z}`); return p; }
-function makeText(txt, w=5, color='#0b1220', align='center', pos='0 0 0.02'){
-  const t=document.createElement('a-entity');
-  t.setAttribute('text',`value:${txt}; width:${w}; align:${align}; color:${color}`);
-  t.setAttribute('position',pos); return t;
-}
-function makeButton(label, x, y, color='#111827', tcolor='#eaf2ff', onClick){
-  const g=document.createElement('a-entity');
-  g.setAttribute('position',`${x} ${y} 0`);
-  const bg=document.createElement('a-plane');
-  bg.classList.add('selectable');
-  bg.setAttribute('width','0.9'); bg.setAttribute('height','0.32');
-  bg.setAttribute('material',`color:${color}; shader:flat; opacity:0.96`);
-  const tx=makeText(label, 3.2, tcolor, 'center', '0 0 0.02');
-  g.appendChild(bg); g.appendChild(tx);
-  bg.addEventListener('click', onClick);
-  return g;
-}
-function progressBar(width=1.8, val=0, max=1, color='#60a5fa'){
-  const wrap=document.createElement('a-entity');
-  const base=makePanel(width,0.10,'#c7d2fe',0.0);
-  base.setAttribute('material','shader:flat; opacity:0.5');
-  const fill=document.createElement('a-plane');
-  const fwidth=Math.max(0.001, width * (val/max));
-  fill.setAttribute('width',fwidth);
-  fill.setAttribute('height','0.10');
-  fill.setAttribute('color', color);
-  fill.setAttribute('position',`${-width/2 + fwidth/2} 0 0.01`);
-  wrap.appendChild(base); wrap.appendChild(fill);
-  wrap._fill = fill; wrap._width = width;
-  wrap._set = (v)=>{ const fw=Math.max(0.001, width*(v/max)); fill.setAttribute('width', fw); fill.setAttribute('position',`${-width/2 + fw/2} 0 0.01`); };
-  return wrap;
-}
-
-// ----- VR Toolbar (สำรองในฉาก) -----
-function drawVRToolbar(){
-  clearNode(vrToolbar);
-  const barBG = makePanel(2.2, 0.38, '#ffffff', 0);
-  vrToolbar.appendChild(barBG);
-  const bMenu  = makeButton('Menu',  -0.8, 0, '#4b5563','#fff', showMenu);
-  const bStart = makeButton(state===STATE.MENU?'Start':'Finish', 0, 0, '#0ea5e9','#fff', ()=>{
-    if(state===STATE.MENU) startHand(); else showMenu();
-  });
-  const bReset = makeButton('Reset',  0.8, 0, '#e5e7eb','#111', resetAll);
-  vrToolbar.appendChild(bMenu); vrToolbar.appendChild(bStart); vrToolbar.appendChild(bReset);
-}
-
-// ----- Screens -----
-function showMenu(){
-  state = STATE.MENU;
-  clearNode(gameRoot);
-  clearInterval(timerId); timerId=null;
-
-  const root=document.createElement('a-entity'); root.setAttribute('position','0 0 0'); gameRoot.appendChild(root);
-  const title=makeText('Hygiene VR',6,'#0b1220','center','0 0.7 0.02'); root.appendChild(title);
-  const card=makePanel(2.4,1.6,'#ffffff',0); root.appendChild(card);
-
-  const b1 = makeButton('🧼  ล้างมือ (7 ขั้น)', -0.8, 0.3, '#16a34a', '#fff', startHand);
-  const b2 = makeButton('🪥  แปรงฟัน (5 โซน/2 นาที)', 0.8, 0.3, '#0ea5e9', '#fff', startBrush);
-  const b3 = makeButton('❓  Mini-Quiz (3 ข้อ)', 0, -0.2, '#f59e0b', '#111', startQuiz);
-  root.appendChild(b1); root.appendChild(b2); root.appendChild(b3);
-
-  const how = makeText('วิธีเล่น: เล็งวงแหวนไปที่ปุ่มแล้วจ้อง 1 วิ หรือกด OK\nคีย์ลัด: M (Menu), S (Start/Finish), R (Reset)', 4.8, '#334155','center','0 -0.7 0.02');
-  root.appendChild(how);
-  setHUD('เมนูหลัก\nเลือกโหมดเพื่อเริ่มฝึกสุขนิสัย');
-
-  // sync ปุ่มในฉาก
-  drawVRToolbar();
-}
-
-function startHand(){
-  state = STATE.HAND;
-  clearNode(gameRoot);
-  score = 0; handStep = 1;
-
-  const board=document.createElement('a-entity'); board.setAttribute('position','0 0 0'); gameRoot.appendChild(board);
-  const bg=makePanel(2.2,1.3,'#ffffff',0); board.appendChild(bg);
-  const title = makeText('ล้างมือ 7 ขั้น (ทำท่าตามทีละขั้น)', 5.8, '#0b1220','center','0 0.6 0.02'); board.appendChild(title);
-
-  const stepText = makeText('', 5.4, '#111','center','0 0.25 0.02'); board.appendChild(stepText);
-  const bar = progressBar(1.8, 0, 7, '#16a34a'); bar.setAttribute('position','0 -0.05 0'); board.appendChild(bar);
-
-  const btnOK = makeButton('ทำท่าสำเร็จ ✓', 0, -0.50, '#16a34a', '#fff', ()=>{
-    score += 2; handStep++;
-    if(handStep>7){ finishHand(); } else updateStep();
-  });
-  board.appendChild(btnOK);
-
-  function updateStep(){
-    const map = {
-      1:'ขั้น 1: ถูฝ่ามือเข้าหากัน',
-      2:'ขั้น 2: ถูหลังมือ สลับซ้าย-ขวา',
-      3:'ขั้น 3: ถูซอกนิ้ว',
-      4:'ขั้น 4: ถูหลังนิ้ว',
-      5:'ขั้น 5: ถูรอบนิ้วโป้ง',
-      6:'ขั้น 6: ถูปลายนิ้วบนฝ่ามือ',
-      7:'ขั้น 7: ถูรอบข้อมือ'
-    };
-    stepText.setAttribute('text',`value:${map[handStep]}; width:5.2; align:center; color:#111`);
-    bar._set(handStep-1);
-    setHUD(`ล้างมือ: ขั้นที่ ${handStep}/7\nคะแนน: ${score}`);
+// ---------- Beat Map ----------
+/* ออกแบบให้เล่นได้ทันที: โครงสร้าง 3 เลน
+   time = วินาที (นับจากเริ่ม), lane = wash/brush/cover
+*/
+const BEATMAPS = {
+  easy: {
+    bpm: 80, duration: 40,
+    notes: makePattern(80, 40, {wash:0.0, brush:1.0, cover:2.0}, 1.2)
+  },
+  normal: {
+    bpm: 100, duration: 60,
+    notes: makePattern(100, 60, {wash:0.0, brush:1.0, cover:2.0}, 1.0)
+  },
+  hard: {
+    bpm: 120, duration: 60,
+    notes: makePattern(120, 60, {wash:0.0, brush:1.0, cover:2.0}, 0.75, true)
   }
-  updateStep();
-  drawVRToolbar();
-}
+};
 
-function finishHand(){
-  clearNode(gameRoot);
-  const root=document.createElement('a-entity'); root.setAttribute('position','0 0 0'); gameRoot.appendChild(root);
-  root.appendChild(makePanel(2.0,1.0,'#ffffff',0));
-  root.appendChild(makeText('เสร็จสิ้นล้างมือ! ✨',5,'#0b1220','center','0 0.35 0.02'));
-  root.appendChild(makeText(`คะแนนล้างมือ: ${score}`,4,'#111','center','0 -0.05 0.02'));
-  const next = makeButton('ไปแปรงฟัน ➜', 0.7, -0.35, '#0ea5e9', '#fff', startBrush);
-  const menu = makeButton('เมนูหลัก', -0.7, -0.35, '#111827', '#eaf2ff', showMenu);
-  root.appendChild(next); root.appendChild(menu);
-  setHUD(`ล้างมือสำเร็จ\nคะแนนรวม: ${score}`);
-  drawVRToolbar();
-}
-
-function startBrush(){
-  state = STATE.BRUSH;
-  clearNode(gameRoot);
-  brushZone = 1; brushTime = 120;
-
-  const root=document.createElement('a-entity'); root.setAttribute('position','0 0 0'); gameRoot.appendChild(root);
-  root.appendChild(makePanel(2.2,1.3,'#ffffff',0));
-  const title = makeText('แปรงฟัน 5 โซน (เวลา 2 นาที + เมโทรนอม)', 5.6, '#0b1220','center','0 0.6 0.02'); root.appendChild(title);
-
-  const zoneText = makeText('', 5.2, '#111','center','0 0.25 0.02'); root.appendChild(zoneText);
-  const barZone = progressBar(1.8, 0, 5, '#0ea5e9'); barZone.setAttribute('position','0 -0.05 0'); root.appendChild(barZone);
-  const barTime = progressBar(1.8, 0, 120, '#f59e0b'); barTime.setAttribute('position','0 -0.25 0'); root.appendChild(barTime);
-  const btnOK   = makeButton('โซนนี้เสร็จ ✓', 0, -0.55, '#0ea5e9', '#fff', ()=>{
-    score += 3; brushZone++;
-    if(brushZone>5) finishBrush(); else updateZone();
-  });
-  root.appendChild(btnOK);
-
-  // เมโทรนอม
-  let metroId = null, bpm = 60;
-  function startMetronome(){ stopMetronome(); metroId = setInterval(()=>ping(1000,0.03,0.12), Math.max(200, 60000/bpm)); }
-  function stopMetronome(){ if(metroId){ clearInterval(metroId); metroId=null; } }
-
-  if(timerId) clearInterval(timerId);
-  timerId = setInterval(()=>{
-    brushTime--; if(brushTime<0) brushTime=0;
-    barTime._set(120 - brushTime);
-    setHUD(`แปรงฟัน: โซน ${brushZone}/5\nเหลือเวลา: ${brushTime} วิ\nคะแนน: ${score}`);
-    if(brushTime<=0){ finishBrush(); }
-  },1000);
-
-  function updateZone(){
-    const names = {
-      1:'โซน 1: ฟันหน้า บน–ล่าง',
-      2:'โซน 2: ฟันกรามซ้าย',
-      3:'โซน 3: ฟันกรามขวา',
-      4:'โซน 4: ฟันกรามบนด้านใน',
-      5:'โซน 5: ฟันกรามล่างด้านใน'
-    };
-    zoneText.setAttribute('text',`value:${names[brushZone]}; width:5.2; align:center; color:#111`);
-    barZone._set(brushZone-1);
-    setHUD(`แปรงฟัน: ${names[brushZone]}\nเหลือเวลา: ${brushTime} วิ\nคะแนน: ${score}`);
+/* สร้างแพทเทิร์นโน้ตอย่างง่าย:
+   - ทุก 1 beat สุ่มหนึ่งเลน หรือสลับลำดับแบบ A-B-C
+   - spacingZ = ระยะเริ่มต้นของโน้ต (เมตร) เมื่อ time ยังไม่ถึง
+   - hardMode = เพิ่มโน้ตซ้อน (syncopation) บางจุด
+*/
+function makePattern(bpm, duration, laneOffsets, spacingZ=1.0, hardMode=false) {
+  const beatSec = 60/bpm;
+  const notes = [];
+  let order = ["wash","brush","cover"];
+  let i = 0;
+  for (let t=2*beatSec; t<duration; t+=beatSec) {
+    const lane = order[i % order.length];
+    notes.push({ time: t, lane, z0: -4.0, zHit: 0, z: -4.0, speed: (4.0)/(t) });
+    if (hardMode && (i%6===3)) { // ใส่โน้ตคั่นครึ่งบีท
+      notes.push({ time: t + beatSec/2, lane: order[(i+1)%3], z0: -4.0, zHit: 0, z: -4.0, speed: (4.0)/(t+beatSec/2) });
+    }
+    i++;
   }
-  updateZone(); startMetronome(); drawVRToolbar();
-
-  function finishBrush(){
-    clearInterval(timerId); timerId=null; stopMetronome();
-    clearNode(gameRoot);
-    const g=document.createElement('a-entity'); g.setAttribute('position','0 0 0'); gameRoot.appendChild(g);
-    g.appendChild(makePanel(2.0,1.0,'#ffffff',0));
-    g.appendChild(makeText('แปรงฟันเสร็จเรียบร้อย! ✨',5,'#0b1220','center','0 0.35 0.02'));
-    g.appendChild(makeText(`คะแนนรวม (รวมจากล้างมือถ้ามี): ${score}`,4,'#111','center','0 -0.05 0.02'));
-    const next = makeButton('ทำควิซ ➜', 0.7, -0.35, '#f59e0b', '#111', startQuiz);
-    const menu = makeButton('เมนูหลัก', -0.7, -0.35, '#111827', '#eaf2ff', showMenu);
-    g.appendChild(next); g.appendChild(menu);
-    setHUD(`แปรงฟันเสร็จ\nคะแนนรวม: ${score}`);
-    drawVRToolbar();
-  }
+  return notes;
 }
 
-const QUIZ = [
-  { q:'ล้างมือที่ถูกต้องมีกี่ขั้น?', choices:['5','7','10'], a:1 },
-  { q:'เวลาแปรงฟันอย่างน้อยกี่นาที?', choices:['1','2','3'], a:1 },
-  { q:'ข้อใด “ควรกินน้อย” เพื่อสุขภาพฟัน?', choices:['ผัก','ผลไม้','น้ำอัดลม'], a:2 },
-];
+// ---------- สร้างฉาก ----------
+function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild); }
 
-function startQuiz(){
-  state = STATE.QUIZ;
-  clearNode(gameRoot);
-  quizIndex = 0; quizScore = 0;
+function buildScene(){
+  clearChildren(root);
 
-  const root=document.createElement('a-entity'); root.setAttribute('position','0 0 0'); gameRoot.appendChild(root);
-  root.appendChild(makePanel(2.2,1.3,'#ffffff',0));
-  const title=makeText('Mini-Quiz (3 ข้อ)',5.2,'#0b1220','center','0 0.6 0.02'); root.appendChild(title);
+  // เส้น Hit line
+  const hitLine = document.createElement("a-plane");
+  hitLine.setAttribute("width","3.6");
+  hitLine.setAttribute("height","0.02");
+  hitLine.setAttribute("material","color:#0ea5e9; opacity:0.95; shader:flat");
+  hitLine.setAttribute("position","0 -0.25 0");
+  root.appendChild(hitLine);
 
-  const qText = makeText('',5.0,'#111','center','0 0.2 0.02'); root.appendChild(qText);
-  const slots = [
-    makeButton('',  -0.8, -0.20, '#111827', '#eaf2ff', ()=>pick(0)),
-    makeButton('',   0.0, -0.20, '#111827', '#eaf2ff', ()=>pick(1)),
-    makeButton('',   0.8, -0.20, '#111827', '#eaf2ff', ()=>pick(2)),
+  // 3 เลน: wash / brush / cover
+  const lanes = [
+    {key:"wash",  x:-1.2, color:"#16a34a", label:"🧼 ล้างมือ"},
+    {key:"brush", x: 0.0, color:"#eab308", label:"🪥 แปรงฟัน"},
+    {key:"cover", x: 1.2, color:"#ef4444", label:"🤧 ปิดปาก"}
   ];
-  slots.forEach(s=>root.appendChild(s));
 
-  const next = makeButton('ข้อต่อไป ➜', 0.7, -0.55, '#0ea5e9', '#fff', ()=>{
-    quizIndex++; if(quizIndex>=QUIZ.length){ finishQuiz(); } else render(); 
+  lanes.forEach(l=>{
+    const lane = document.createElement("a-entity");
+    lane.setAttribute("position", `${l.x} 0 0`);
+
+    // แผงเลือก (รับคลิก/fuse)
+    const panel = document.createElement("a-plane");
+    panel.classList.add("selectable");
+    panel.setAttribute("width","1.0");
+    panel.setAttribute("height","0.5");
+    panel.setAttribute("material", `color:${l.color}; opacity:0.85; shader:flat`);
+    panel.setAttribute("position", `0 -0.55 0`);
+    lane.appendChild(panel);
+
+    // ป้ายชื่อเลน
+    const txt = document.createElement("a-entity");
+    txt.setAttribute("text", `value:${l.label}; width:4.0; align:center; color:#0b1220`);
+    txt.setAttribute("position", `0 -0.55 0.02`);
+    lane.appendChild(txt);
+
+    // เมื่อกดที่เลน = พยายาม Hit
+    panel.addEventListener("click", ()=> tryHit(l.key));
+
+    root.appendChild(lane);
+    state.lanes[l.key] = lane;
   });
-  const skip = makeButton('เมนูหลัก', -0.7, -0.55, '#e5e7eb', '#111', showMenu);
-  root.appendChild(next); root.appendChild(skip);
+}
 
-  function render(){
-    const item = QUIZ[quizIndex];
-    qText.setAttribute('text',`value:ข้อ ${quizIndex+1}/3: ${item.q}; width:5.0; align:center; color:#111`);
-    for(let i=0;i<3;i++){
-      const label = item.choices[i];
-      slots[i].children[1].setAttribute('text',`value:${label}; width:2.4; align:center; color:#eaf2ff`);
-      slots[i].children[0].setAttribute('material','color:#111827; shader:flat; opacity:0.96');
+function spawnNotes(map){
+  // โน้ตเป็นทรงกระบอกกลม ๆ
+  map.notes.forEach(n=>{
+    const note = document.createElement("a-circle");
+    const color = n.lane==="wash" ? "#22c55e" : n.lane==="brush" ? "#f59e0b" : "#ef4444";
+    note.setAttribute("radius","0.13");
+    note.setAttribute("material", `color:${color}; opacity:0.95; shader:flat`);
+    const x = n.lane==="wash" ? -1.2 : n.lane==="brush" ? 0.0 : 1.2;
+    note.setAttribute("position", `${x} 0 ${n.z0}`);
+    note.dataset.time = n.time.toString();
+    note.dataset.lane = n.lane;
+    n.el = note;
+    root.appendChild(note);
+    state.notes.push(n);
+  });
+}
+
+// ---------- เกมเพลย์ ----------
+function startGame(){
+  const diff = selectDiff.value;
+  const map = BEATMAPS[diff];
+  state.bpm = map.bpm;
+  state.duration = map.duration;
+
+  state.running = true;
+  state.startTime = performance.now()/1000;
+  state.elapsed = 0;
+  state.score = 0;
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.notes = [];
+  fb.textContent = "";
+  hud.textContent = "เริ่มเพลง…";
+
+  buildScene();
+  spawnNotes(map);
+
+  if (state.timerId) { cancelAnimationFrame(state.timerId); }
+  tick();
+}
+
+function resetGame(){
+  state.running = false;
+  clearTimeout(state.feedbackTimer);
+  fb.textContent = "";
+  clearChildren(root);
+  hud.textContent = "พร้อมเริ่ม";
+}
+
+function finishGame(){
+  state.running = false;
+  clearTimeout(state.feedbackTimer);
+  const stars = state.score >= 400 ? "⭐⭐⭐" : state.score >= 250 ? "⭐⭐" : "⭐";
+  hud.textContent =
+    `จบเพลง\nคะแนน: ${state.score}\nคอมโบสูงสุด: ${state.maxCombo}\n${stars}`;
+}
+
+function tick(){
+  if (!state.running) return;
+  const now = performance.now()/1000;
+  state.elapsed = now - state.startTime;
+
+  // อัปเดต HUD เวลา
+  const remain = Math.max(0, Math.ceil(state.duration - state.elapsed));
+  hud.textContent = `เวลา: ${remain} วิ\nคะแนน: ${state.score}\nคอมโบ: x${state.combo}`;
+
+  // ขยับโน้ต: ให้ชนเส้น z=0 ตอนเวลา note.time
+  for (const n of state.notes) {
+    if (!n.el) continue;
+    const tToHit = n.time - state.elapsed; // ถ้าศูนย์ => อยู่ที่เส้น
+    const z = tToHit * 2.0; // scale ความเร็ว (เมตร/วิ) ให้พอดู
+    n.z = z;
+    // อัปเดตตำแหน่ง
+    const x = n.lane==="wash" ? -1.2 : n.lane==="brush" ? 0.0 : 1.2;
+    n.el.setAttribute("position", `${x} 0 ${z}`);
+
+    // เลยเส้นไปนานแล้ว = Miss อัตโนมัติ
+    if (tToHit < -state.hitWindow && !n.judged) {
+      judge(n, "miss");
     }
-    setHUD(`Quiz ข้อ ${quizIndex+1}/3\nคะแนนควิซ: ${quizScore} (รวม: ${score+quizScore})`);
   }
-  function pick(i){
-    const item = QUIZ[quizIndex];
-    const correct = (i === item.a);
-    if(correct){ quizScore += 5; ping(1200,0.05,0.15); }
-    else { ping(280,0.08,0.2); }
-    for(let k=0;k<3;k++){
-      const mat = (k===item.a)?'#16a34a':'#ef4444';
-      slots[k].children[0].setAttribute('material',`color:${mat}; shader:flat; opacity:0.96`);
-    }
-    setHUD(`ตอบ${correct?'ถูก ✅':'ผิด ❌'} | คะแนนควิซ: ${quizScore} (รวม: ${score+quizScore})`);
+
+  // หมดเวลาเพลง → จบเกม
+  if (state.elapsed >= state.duration) {
+    // ให้โน้ตที่ยังไม่ตัดสินเป็น miss
+    state.notes.forEach(n=>{ if(!n.judged) judge(n,"miss"); });
+    finishGame();
+    return;
   }
-  function finishQuiz(){ score += quizScore; showSummary(); }
 
-  render();
-  drawVRToolbar();
+  state.timerId = requestAnimationFrame(tick);
 }
 
-function showSummary(){
-  state = STATE.SUMMARY;
-  clearNode(gameRoot);
-  const root=document.createElement('a-entity'); root.setAttribute('position','0 0 0'); gameRoot.appendChild(root);
-  root.appendChild(makePanel(2.0,1.0,'#ffffff',0));
-  root.appendChild(makeText('สรุปผลการฝึก Hygiene VR',5,'#0b1220','center','0 0.35 0.02'));
-  root.appendChild(makeText(`คะแนนรวม: ${score}`,4,'#111','center','0 -0.05 0.02'));
+function tryHit(lane){
+  if (!state.running) return;
+  // หาโน้ตในเลนนั้นที่ใกล้เวลา (|Δt| ต่ำสุด และยังไม่ถูกตัดสิน)
+  let best = null, bestAbs = Infinity;
+  for (const n of state.notes) {
+    if (n.lane !== lane || n.judged) continue;
+    const dt = n.time - state.elapsed;
+    const abs = Math.abs(dt);
+    if (abs < bestAbs) { bestAbs = abs; best = n; }
+  }
+  if (!best) return;
 
-  let stars = 1; if(score>=35) stars=3; else if(score>=25) stars=2;
-  root.appendChild(makeText(`รางวัล: ${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}`,4,'#111','center','0 -0.25 0.02'));
-
-  const again = makeButton('เล่นอีกครั้ง', -0.7, -0.45, '#79a8ff', '#001', showMenu);
-  const exit  = makeButton('จบการฝึก', 0.7, -0.45, '#e5e7eb', '#111', showMenu);
-  root.appendChild(again); root.appendChild(exit);
-  setHUD(`สรุปผล\nคะแนนรวม: ${score}\nดาว: ${stars}/3`);
-  drawVRToolbar();
+  // ตัดสินตามหน้าต่างเวลา
+  if (bestAbs <= state.hitWindow*0.35) judge(best, "perfect");
+  else if (bestAbs <= state.hitWindow*0.65) judge(best, "great");
+  else if (bestAbs <= state.hitWindow) judge(best, "good");
+  else judge(best, "miss");
 }
 
-// ----- DOM Buttons + Shortcuts -----
-function resetAll(){
-  if(timerId){ clearInterval(timerId); timerId=null; }
-  score=0; lives=3; showMenu();
+function judge(note, type){
+  note.judged = true;
+  // เอฟเฟกต์หาย + ป๊อป
+  if (note.el) {
+    note.el.setAttribute("animation__pop","property: scale; to: 1.6 1.6 1; dur: 90; dir: alternate; easing: easeOutQuad");
+    note.el.setAttribute("animation__fade","property: material.opacity; to: 0; dur: 140; easing: easeOutQuad");
+    setTimeout(()=>{ if(note.el && note.el.parentNode){ note.el.parentNode.removeChild(note.el); } }, 160);
+  }
+
+  let add = 0, text = "", color = "";
+  switch(type){
+    case "perfect": add = 30; text="Perfect!"; color="#38bdf8"; state.combo++; break;
+    case "great":   add = 20; text="Great!";   color="#22c55e"; state.combo++; break;
+    case "good":    add = 10; text="Good";     color="#eab308"; state.combo=0; break;
+    default:        add = 0;  text="Miss";     color="#ef4444"; state.combo=0; break;
+  }
+  state.score += add + Math.max(0, state.combo-1)*2; // โบนัสคอมโบเล็กน้อย
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+  fb.innerHTML = `<span style="color:${color};font-weight:800;">${text}</span>`;
+  clearTimeout(state.feedbackTimer);
+  state.feedbackTimer = setTimeout(()=> fb.textContent="", 600);
 }
-btn.menu.addEventListener('click', showMenu);
-btn.start.addEventListener('click', ()=>{ if(state===STATE.MENU) startHand(); else showMenu(); });
-btn.reset.addEventListener('click', resetAll);
 
-// คีย์ลัด: M / S / R
-window.addEventListener('keydown', (e)=>{
-  if(e.key==='m' || e.key==='M') showMenu();
-  if(e.key==='s' || e.key==='S'){ if(state===STATE.MENU) startHand(); else showMenu(); }
-  if(e.key==='r' || e.key==='R') resetAll();
-});
+// ---------- ปุ่มควบคุม ----------
+btnStart.onclick = ()=> { if(!state.running) startGame(); else finishGame(); };
+btnReset.onclick = resetGame;
 
-// Boot
-showMenu();
+// เริ่มต้น
+resetGame();
