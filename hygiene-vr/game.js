@@ -1,7 +1,7 @@
-/* Hygiene Rhythm Game – Readable Notes + Emoji Burst
-   - เลน = 3 แบบ: wash(วงกลม🧼) / brush(สี่เหลี่ยม🪥) / cover(สามเหลี่ยม🤧)
-   - Legend อธิบายสัญลักษณ์, Countdown, เมโทรนอม (Hit-line กระพริบ)
-   - Emoji กลางโน้ตใหญ่ขึ้น + เอฟเฟกต์ Emoji Burst ตอนตัดสิน
+/* Hygiene Rhythm Game – Stable Build
+   - แยกรูปร่างชัด: wash=circle 🧼, brush=box 🪥, cover=triangle 🤧
+   - กันค้าง: ยิง animation เฉพาะ element ที่มี material / ใช้ text.opacity กับข้อความ
+   - เพิ่ม try-safe checks ก่อนลบ/อ่าน attribute ทุกครั้ง
 */
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +18,7 @@ let state = {
   elapsed: 0,
   bpm: 100,
   beatSec: 0.6,
-  hitWindow: 0.35,  // วินาทีที่นับว่าโดน (±)
+  hitWindow: 0.35,
   score: 0,
   combo: 0,
   maxCombo: 0,
@@ -39,15 +39,12 @@ const BEATMAPS = {
   hard:   { bpm: 120, duration: 60, notes: makePattern(120, 60, false, true) }
 };
 
-/* สร้างแพทเทิร์นอย่างง่าย:
-   every beat สลับเลน A→B→C; hard มีโน้ตคั่นครึ่งบีท
-*/
 function makePattern(bpm, duration, warmup=false, hard=false) {
   const beat = 60/bpm;
   const notes = [];
   const order = ["wash","brush","cover"];
   let i=0;
-  const start = warmup? beat*2 : beat; // เผื่อเวลานับถอยหลัง
+  const start = warmup? beat*2 : beat;
   for (let t=start; t<duration; t+=beat) {
     const lane = order[i%order.length];
     notes.push(makeNote(t, lane));
@@ -58,14 +55,14 @@ function makePattern(bpm, duration, warmup=false, hard=false) {
 }
 function makeNote(time, lane){ return { time, lane, z0:-4, z: -4, judged:false, el:null }; }
 
-// ---------- สร้างฉาก ----------
+// ---------- Scene ----------
 function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild); }
 
 function buildScene(){
   clearChildren(root);
   state.lanes = {};
 
-  // Legend กลางบน
+  // Legend
   const legend = document.createElement("a-entity");
   legend.setAttribute("position","0 0.8 0");
   const legendBg = document.createElement("a-entity");
@@ -79,7 +76,7 @@ function buildScene(){
   root.appendChild(legend);
   state.legend = legend;
 
-  // เส้น Hit line + เมโทรนอม
+  // Hit line
   const hit = document.createElement("a-entity");
   hit.setAttribute("geometry","primitive: plane; width: 3.6; height: 0.03");
   hit.setAttribute("material","color:#0ea5e9; opacity:0.95; shader:flat");
@@ -87,7 +84,7 @@ function buildScene(){
   root.appendChild(hit);
   state.hitLine = hit;
 
-  // 3 เลน: ป้ายไอคอนด้านบน + ปุ่มเลนด้านล่าง
+  // 3 lanes
   const lanes = [
     {key:"wash",  x:-1.2, color:"#22c55e", label:"🧼 ล้างมือ", icon:"🧼"},
     {key:"brush", x: 0.0, color:"#eab308", label:"🪥 แปรงฟัน", icon:"🪥"},
@@ -98,7 +95,6 @@ function buildScene(){
     const lane = document.createElement("a-entity");
     lane.setAttribute("position", `${l.x} 0 0`);
 
-    // ป้ายไอคอนบน
     const laneIconBg = document.createElement("a-entity");
     laneIconBg.setAttribute("geometry","primitive: plane; width: 0.9; height: 0.35");
     laneIconBg.setAttribute("material","color:#ffffff; opacity:0.95; shader:flat");
@@ -110,7 +106,6 @@ function buildScene(){
     laneIcon.setAttribute("position","0 0.45 0.02");
     lane.appendChild(laneIcon);
 
-    // แผงเลือก (รับคลิก/fuse) ด้านล่าง
     const panel = document.createElement("a-entity");
     panel.classList.add("selectable");
     panel.setAttribute("geometry","primitive: plane; width: 1.0; height: 0.5");
@@ -129,7 +124,7 @@ function buildScene(){
     state.lanes[l.key] = lane;
   });
 
-  // Countdown element
+  // Countdown
   const cd = document.createElement("a-entity");
   cd.setAttribute("position","0 0.3 0.01");
   cd.setAttribute("text","value: ; width:4.8; align:center; color:#0b1220");
@@ -139,56 +134,58 @@ function buildScene(){
 
 function spawnNotes(map){
   map.notes.forEach(n=>{
-    const note = makeNoteEntity(n.lane);
+    const group = makeNoteEntity(n.lane);
     const x = n.lane==="wash" ? -1.2 : n.lane==="brush" ? 0.0 : 1.2;
-    note.setAttribute("position", `${x} 0 ${n.z0}`);
-    n.el = note;
-    root.appendChild(note);
+    group.setAttribute("position", `${x} 0 ${n.z0}`);
+    n.el = group;
+    root.appendChild(group);
     state.notes.push(n);
   });
 }
 
-/* รูปร่างโน้ต (fixed shapes) + อีโมจิใหญ่กลางโน้ต */
+/* สร้างโน้ต + เก็บ parts ไว้ใน el.__parts เพื่อ animate อย่างปลอดภัย */
 function makeNoteEntity(lane){
   const node = document.createElement("a-entity");
-
-  // รูปทรงตามเลน
+  const parts = { shape: null, outline: null, badge: null, emoji: null };
   let geom = "", color = "";
+
   if (lane==="wash") { geom="primitive: circle; radius: 0.18; segments: 48"; color="#22c55e"; }
   else if (lane==="brush"){ geom="primitive: box; width: 0.34; height: 0.34; depth: 0.02"; color="#f59e0b"; }
   else { geom="primitive: triangle; vertexA: 0 0.22 0; vertexB: -0.22 -0.22 0; vertexC: 0.22 -0.22 0"; color="#ef4444"; }
 
-  // พื้นโน้ต
   const shape = document.createElement("a-entity");
   shape.setAttribute("geometry", geom);
   shape.setAttribute("material", `color:${color}; opacity:0.98; shader:flat`);
   node.appendChild(shape);
+  parts.shape = shape;
 
-  // เส้นขอบ
   const outline = document.createElement("a-entity");
   if (lane==="wash")      outline.setAttribute("geometry","primitive: ring; radiusInner: 0.18; radiusOuter: 0.205; segmentsTheta: 48");
   else if (lane==="brush")outline.setAttribute("geometry","primitive: box; width: 0.36; height: 0.36; depth: 0.005");
   else                    outline.setAttribute("geometry","primitive: triangle; vertexA: 0 0.235 0; vertexB: -0.235 -0.235 0; vertexC: 0.235 -0.235 0");
   outline.setAttribute("material","color:#0b1220; opacity:0.55; shader:flat");
   node.appendChild(outline);
+  parts.outline = outline;
 
-  // อีโมจิกลางโน้ต — ใหญ่ขึ้น + แผ่นรองบางๆ
-  const emoji = lane==="wash" ? "🧼" : lane==="brush" ? "🪥" : "🤧";
   const badge = document.createElement("a-entity");
   badge.setAttribute("geometry","primitive: circle; radius: 0.16; segments: 32");
   badge.setAttribute("material","color:#ffffff; opacity:0.35; shader:flat");
   badge.setAttribute("position","0 0 0.01");
   node.appendChild(badge);
+  parts.badge = badge;
 
-  const em = document.createElement("a-entity");
-  em.setAttribute("text", `value:${emoji}; width:3.2; align:center; color:#0b1220; negate:false`);
-  em.setAttribute("position","0 0 0.02");
-  node.appendChild(em);
+  const emoji = document.createElement("a-entity");
+  const symbol = lane==="wash" ? "🧼" : lane==="brush" ? "🪥" : "🤧";
+  emoji.setAttribute("text", `value:${symbol}; width:3.2; align:center; color:#0b1220; negate:false; opacity:1`);
+  emoji.setAttribute("position","0 0 0.02");
+  node.appendChild(emoji);
+  parts.emoji = emoji;
 
+  node.__parts = parts;
   return node;
 }
 
-// ---------- เกมเพลย์ ----------
+// ---------- Game ----------
 function startGame(){
   const diff = selectDiff.value;
   const map = BEATMAPS[diff];
@@ -210,7 +207,6 @@ function startGame(){
   buildScene();
   spawnNotes(map);
 
-  // นับถอยหลังก่อนเริ่มจริง
   runCountdown(3, ()=> {
     if (state.rafId) cancelAnimationFrame(state.rafId);
     tick();
@@ -222,12 +218,12 @@ function runCountdown(sec, onDone){
   const step = ()=>{
     if (!state.countdownEl) return;
     if (t>0) {
-      state.countdownEl.setAttribute("text", `value:${t}`);
+      safeSetText(state.countdownEl, String(t));
       t--;
       setTimeout(step, 700);
     } else {
-      state.countdownEl.setAttribute("text", "value:Go!");
-      setTimeout(()=> state.countdownEl.setAttribute("text","value: "), 400);
+      safeSetText(state.countdownEl, "Go!");
+      setTimeout(()=> safeSetText(state.countdownEl, " "), 400);
       if (onDone) onDone();
     }
   };
@@ -261,23 +257,22 @@ function tick(){
   const remain = Math.max(0, Math.ceil(state.duration - state.elapsed));
   hud.textContent = `เวลา: ${remain} วิ\nคะแนน: ${state.score}\nคอมโบ: x${state.combo}`;
 
-  // เมโทรนอม: ให้เส้น hit กระพริบทุก beat
+  // Metronome
   const beatPhase = (state.elapsed % state.beatSec)/state.beatSec;
   if (state.hitLine) {
     const op = 0.7 + 0.25*Math.cos(beatPhase*2*Math.PI);
     state.hitLine.setAttribute("material", `color:#0ea5e9; opacity:${op}; shader:flat`);
   }
 
-  // ขยับโน้ตให้ชนเส้น z=0 ตอนเวลา note.time
+  // Move notes
   for (const n of state.notes) {
-    if (!n.el) continue;
-    const dt = n.time - state.elapsed; // 0 = ถึงเส้น Hit
-    const z = dt * 2.2; // ปรับความเร็วให้อ่านง่าย
+    if (!n.el || n.judged) continue;
+    const dt = n.time - state.elapsed;
+    const z = dt * 2.2;
     n.z = z;
     const x = n.lane==="wash" ? -1.2 : n.lane==="brush" ? 0.0 : 1.2;
     n.el.setAttribute("position", `${x} 0 ${z}`);
 
-    // ผ่านเส้นเกินหน้าต่างเวลา → Miss อัตโนมัติ
     if (dt < -state.hitWindow && !n.judged) judge(n, "miss");
   }
 
@@ -292,10 +287,9 @@ function tick(){
 
 function tryHit(lane){
   if (!state.running) return;
-  // หาโน้ตที่ใกล้เวลาในเลนนั้น
   let best = null, bestAbs = Infinity;
   for (const n of state.notes) {
-    if (n.lane !== lane || n.judged) continue;
+    if (n.lane !== lane || n.judged || !n.el) continue;
     const abs = Math.abs(n.time - state.elapsed);
     if (abs < bestAbs) { bestAbs = abs; best = n; }
   }
@@ -309,31 +303,16 @@ function tryHit(lane){
 
 function judge(note, type){
   note.judged = true;
-
-  // เอฟเฟกต์ Pop & Fade โน้ต
-  if (note.el) {
-    note.el.setAttribute("animation__pop","property: scale; to: 1.6 1.6 1; dur: 110; dir: alternate; easing: easeOutQuad");
-    note.el.setAttribute("animation__fade","property: material.opacity; to: 0; dur: 180; easing: easeOutQuad");
-
-    // เพิ่มเอฟเฟกต์ Emoji Burst
-    const burst = document.createElement("a-entity");
-    const e = type==="perfect" ? (note.lane==="wash"?"🧼":note.lane==="brush"?"🪥":"🤧")
-              : type==="great" ? "✨" : type==="good" ? "👍" : "💨";
-    burst.setAttribute("text", `value:${e}; width: 3.0; align: center; color: #0b1220`);
-    const pos = note.el.getAttribute("position");
-    burst.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
-    root.appendChild(burst);
-    burst.setAttribute("animation__up","property: position; to: "+pos.x+" 0.25 "+pos.z+"; dur: 360; easing: easeOutQuad");
-    burst.setAttribute("animation__fade","property: material.opacity; to: 0; dur: 360; easing: easeOutQuad");
-    setTimeout(()=>{ if(burst.parentNode) burst.parentNode.removeChild(burst); }, 380);
-
-    setTimeout(()=>{ if(note.el && note.el.parentNode){ note.el.parentNode.removeChild(note.el); } }, 200);
+  const el = note.el;
+  if (el && el.parentNode) {
+    safePop(el);
+    safeFadeAndRemove(el, 200);  // ลบกลุ่มทั้งก้อนแบบปลอดภัย
   }
 
   let add = 0, text = "", color = "";
   switch(type){
     case "perfect": add = 30; text="Perfect!"; color="#38bdf8"; state.combo++; break;
-    case "great":   add = 20; text="Great!";   color="#22c55e"; state.combo++; break;
+    case "great":   add = 20; text="Great!";   color:"#22c55e"; state.combo++; break;
     case "good":    add = 10; text="Good";     color="#eab308"; state.combo=0; break;
     default:        add = 0;  text="Miss";     color="#ef4444"; state.combo=0; break;
   }
@@ -344,11 +323,62 @@ function judge(note, type){
   fb.innerHTML = `<span style="color:${color};font-weight:800;">${emFB} ${text}</span>`;
   clearTimeout(state.feedbackTimer);
   state.feedbackTimer = setTimeout(()=> fb.textContent="", 600);
+
+  // Emoji burst เบาๆ แบบปลอดภัย
+  if (el) emojiBurst(el, type, note.lane);
 }
 
-// ---------- ปุ่ม ----------
+/* ---------- Safe helpers ---------- */
+function safePop(group){
+  try {
+    group.setAttribute("animation__pop","property: scale; to: 1.5 1.5 1; dur: 90; dir: alternate; easing: easeOutQuad");
+  } catch(e){}
+}
+
+function safeFadeAndRemove(group, delay=180){
+  try {
+    const parts = group.__parts || {};
+    // เฟดเฉพาะ material
+    ["shape","outline","badge"].forEach(k=>{
+      const p = parts[k];
+      if (p && p.hasAttribute("material")) {
+        p.setAttribute("animation__fade_"+k, "property: material.opacity; to: 0; dur: "+delay+"; easing: easeOutQuad");
+      }
+    });
+    // เฟดข้อความด้วย text.opacity
+    if (parts.emoji) {
+      parts.emoji.setAttribute("animation__fade_text","property: text.opacity; to: 0; dur: "+delay+"; easing: easeOutQuad");
+    }
+    setTimeout(()=>{ if(group.parentNode){ group.parentNode.removeChild(group); } }, delay+40);
+  } catch(e){
+    // ถ้า animation ใช้ไม่ได้ ให้ลบทิ้งเลย
+    if (group && group.parentNode) group.parentNode.removeChild(group);
+  }
+}
+
+function emojiBurst(group, type, lane){
+  try{
+    const burst = document.createElement("a-entity");
+    const e = type==="perfect" ? (lane==="wash"?"🧼":lane==="brush"?"🪥":"🤧")
+              : type==="great" ? "✨" : type==="good" ? "👍" : "💨";
+    burst.setAttribute("text", `value:${e}; width: 3.0; align: center; color: #0b1220; opacity:1`);
+    const pos = group.getAttribute("position") || {x:0,y:0,z:0};
+    burst.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
+    root.appendChild(burst);
+    // ใช้ text.opacity เท่านั้น (ไม่มี material)
+    burst.setAttribute("animation__up","property: position; to: "+pos.x+" 0.25 "+pos.z+"; dur: 320; easing: easeOutQuad");
+    burst.setAttribute("animation__fade","property: text.opacity; to: 0; dur: 320; easing: easeOutQuad");
+    setTimeout(()=>{ if(burst.parentNode) burst.parentNode.removeChild(burst); }, 340);
+  }catch(e){}
+}
+
+function safeSetText(el, value){
+  try { el.setAttribute("text", `value:${value}; width:4.8; align:center; color:#0b1220`); } catch(e){}
+}
+
+// ---------- Controls ----------
 btnStart.onclick = ()=> { if(!state.running) startGame(); else finishGame(); };
 btnReset.onclick = resetGame;
 
-// เริ่มต้น
+// Init
 resetGame();
