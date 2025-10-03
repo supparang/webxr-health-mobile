@@ -1,6 +1,7 @@
-/* Hygiene Rhythm Game – Readable Notes Edition (FIXED SHAPES)
-   - ฟอร์ซรูปร่างโน้ตด้วย geometry component:
-     wash = circle, brush = box, cover = triangle
+/* Hygiene Rhythm Game – Readable Notes + Emoji Burst
+   - เลน = 3 แบบ: wash(วงกลม🧼) / brush(สี่เหลี่ยม🪥) / cover(สามเหลี่ยม🤧)
+   - Legend อธิบายสัญลักษณ์, Countdown, เมโทรนอม (Hit-line กระพริบ)
+   - Emoji กลางโน้ตใหญ่ขึ้น + เอฟเฟกต์ Emoji Burst ตอนตัดสิน
 */
 
 const $ = (id) => document.getElementById(id);
@@ -67,9 +68,8 @@ function buildScene(){
   // Legend กลางบน
   const legend = document.createElement("a-entity");
   legend.setAttribute("position","0 0.8 0");
-  const legendBg = document.createElement("a-plane");
-  legendBg.setAttribute("width","3.6");
-  legendBg.setAttribute("height","0.36");
+  const legendBg = document.createElement("a-entity");
+  legendBg.setAttribute("geometry","primitive: plane; width: 3.6; height: 0.36");
   legendBg.setAttribute("material","color:#ffffff; opacity:0.92; shader:flat");
   legend.appendChild(legendBg);
   const legendText = document.createElement("a-entity");
@@ -80,9 +80,8 @@ function buildScene(){
   state.legend = legend;
 
   // เส้น Hit line + เมโทรนอม
-  const hit = document.createElement("a-plane");
-  hit.setAttribute("width","3.6");
-  hit.setAttribute("height","0.03");
+  const hit = document.createElement("a-entity");
+  hit.setAttribute("geometry","primitive: plane; width: 3.6; height: 0.03");
   hit.setAttribute("material","color:#0ea5e9; opacity:0.95; shader:flat");
   hit.setAttribute("position","0 -0.25 0");
   root.appendChild(hit);
@@ -107,7 +106,7 @@ function buildScene(){
     lane.appendChild(laneIconBg);
 
     const laneIcon = document.createElement("a-entity");
-    laneIcon.setAttribute("text", `value:${l.icon}; width:3.0; align:center; color:#0b1220`);
+    laneIcon.setAttribute("text", `value:${l.icon}; width:3.2; align:center; color:#0b1220`);
     laneIcon.setAttribute("position","0 0.45 0.02");
     lane.appendChild(laneIcon);
 
@@ -120,7 +119,7 @@ function buildScene(){
     lane.appendChild(panel);
 
     const txt = document.createElement("a-entity");
-    txt.setAttribute("text", `value:${l.label}; width:4.0; align:center; color:#0b1220`);
+    txt.setAttribute("text", `value:${l.label}; width:4.2; align:center; color:#0b1220`);
     txt.setAttribute("position", `0 -0.55 0.02`);
     lane.appendChild(txt);
 
@@ -133,7 +132,7 @@ function buildScene(){
   // Countdown element
   const cd = document.createElement("a-entity");
   cd.setAttribute("position","0 0.3 0.01");
-  cd.setAttribute("text","value: ; width:4.5; align:center; color:#0b1220");
+  cd.setAttribute("text","value: ; width:4.8; align:center; color:#0b1220");
   root.appendChild(cd);
   state.countdownEl = cd;
 }
@@ -149,47 +148,40 @@ function spawnNotes(map){
   });
 }
 
-/* >>>>>>>>>>>>>>>>> FIXED SHAPES HERE <<<<<<<<<<<<<<<<< */
+/* รูปร่างโน้ต (fixed shapes) + อีโมจิใหญ่กลางโน้ต */
 function makeNoteEntity(lane){
   const node = document.createElement("a-entity");
-  let geom = "";
-  let color = "";
-  if (lane==="wash") {
-    // วงกลม
-    geom = "primitive: circle; radius: 0.18; segments: 48";
-    color = "#22c55e";
-  } else if (lane==="brush") {
-    // สี่เหลี่ยม
-    geom = "primitive: box; width: 0.34; height: 0.34; depth: 0.02";
-    color = "#f59e0b";
-  } else { // cover
-    // สามเหลี่ยม
-    geom = "primitive: triangle; vertexA: 0 0.22 0; vertexB: -0.22 -0.22 0; vertexC: 0.22 -0.22 0";
-    color = "#ef4444";
-  }
 
+  // รูปทรงตามเลน
+  let geom = "", color = "";
+  if (lane==="wash") { geom="primitive: circle; radius: 0.18; segments: 48"; color="#22c55e"; }
+  else if (lane==="brush"){ geom="primitive: box; width: 0.34; height: 0.34; depth: 0.02"; color="#f59e0b"; }
+  else { geom="primitive: triangle; vertexA: 0 0.22 0; vertexB: -0.22 -0.22 0; vertexC: 0.22 -0.22 0"; color="#ef4444"; }
+
+  // พื้นโน้ต
   const shape = document.createElement("a-entity");
   shape.setAttribute("geometry", geom);
-  shape.setAttribute("material", `color:${color}; opacity:0.96; shader:flat`);
+  shape.setAttribute("material", `color:${color}; opacity:0.98; shader:flat`);
   node.appendChild(shape);
 
-  // เส้นขอบบาง ๆ ให้ต่างรูปชัดขึ้น
+  // เส้นขอบ
   const outline = document.createElement("a-entity");
-  if (lane==="wash") {
-    outline.setAttribute("geometry","primitive: ring; radiusInner: 0.18; radiusOuter: 0.195; segmentsTheta: 48");
-  } else if (lane==="brush") {
-    outline.setAttribute("geometry","primitive: box; width: 0.36; height: 0.36; depth: 0.005");
-  } else {
-    // เส้นขอบสามเหลี่ยม = เอา triangle ใหญ่ขึ้นเล็กน้อย
-    outline.setAttribute("geometry","primitive: triangle; vertexA: 0 0.235 0; vertexB: -0.235 -0.235 0; vertexC: 0.235 -0.235 0");
-  }
+  if (lane==="wash")      outline.setAttribute("geometry","primitive: ring; radiusInner: 0.18; radiusOuter: 0.205; segmentsTheta: 48");
+  else if (lane==="brush")outline.setAttribute("geometry","primitive: box; width: 0.36; height: 0.36; depth: 0.005");
+  else                    outline.setAttribute("geometry","primitive: triangle; vertexA: 0 0.235 0; vertexB: -0.235 -0.235 0; vertexC: 0.235 -0.235 0");
   outline.setAttribute("material","color:#0b1220; opacity:0.55; shader:flat");
   node.appendChild(outline);
 
-  // Emoji กลางโน้ต (อธิบายความหมาย)
-  const em = document.createElement("a-entity");
+  // อีโมจิกลางโน้ต — ใหญ่ขึ้น + แผ่นรองบางๆ
   const emoji = lane==="wash" ? "🧼" : lane==="brush" ? "🪥" : "🤧";
-  em.setAttribute("text", `value:${emoji}; width:2.2; align:center; color:#0b1220`);
+  const badge = document.createElement("a-entity");
+  badge.setAttribute("geometry","primitive: circle; radius: 0.16; segments: 32");
+  badge.setAttribute("material","color:#ffffff; opacity:0.35; shader:flat");
+  badge.setAttribute("position","0 0 0.01");
+  node.appendChild(badge);
+
+  const em = document.createElement("a-entity");
+  em.setAttribute("text", `value:${emoji}; width:3.2; align:center; color:#0b1220; negate:false`);
   em.setAttribute("position","0 0 0.02");
   node.appendChild(em);
 
@@ -218,6 +210,7 @@ function startGame(){
   buildScene();
   spawnNotes(map);
 
+  // นับถอยหลังก่อนเริ่มจริง
   runCountdown(3, ()=> {
     if (state.rafId) cancelAnimationFrame(state.rafId);
     tick();
@@ -317,11 +310,23 @@ function tryHit(lane){
 function judge(note, type){
   note.judged = true;
 
-  // เอฟเฟกต์ Pop & Fade
+  // เอฟเฟกต์ Pop & Fade โน้ต
   if (note.el) {
     note.el.setAttribute("animation__pop","property: scale; to: 1.6 1.6 1; dur: 110; dir: alternate; easing: easeOutQuad");
-    // ใช้ material.opacity แบบตรง (กับ geometry component)
     note.el.setAttribute("animation__fade","property: material.opacity; to: 0; dur: 180; easing: easeOutQuad");
+
+    // เพิ่มเอฟเฟกต์ Emoji Burst
+    const burst = document.createElement("a-entity");
+    const e = type==="perfect" ? (note.lane==="wash"?"🧼":note.lane==="brush"?"🪥":"🤧")
+              : type==="great" ? "✨" : type==="good" ? "👍" : "💨";
+    burst.setAttribute("text", `value:${e}; width: 3.0; align: center; color: #0b1220`);
+    const pos = note.el.getAttribute("position");
+    burst.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
+    root.appendChild(burst);
+    burst.setAttribute("animation__up","property: position; to: "+pos.x+" 0.25 "+pos.z+"; dur: 360; easing: easeOutQuad");
+    burst.setAttribute("animation__fade","property: material.opacity; to: 0; dur: 360; easing: easeOutQuad");
+    setTimeout(()=>{ if(burst.parentNode) burst.parentNode.removeChild(burst); }, 380);
+
     setTimeout(()=>{ if(note.el && note.el.parentNode){ note.el.parentNode.removeChild(note.el); } }, 200);
   }
 
@@ -335,7 +340,8 @@ function judge(note, type){
   state.score += add + Math.max(0, state.combo-1)*2;
   state.maxCombo = Math.max(state.maxCombo, state.combo);
 
-  fb.innerHTML = `<span style="color:${color};font-weight:800;">${text}</span>`;
+  const emFB = type==="perfect"?"✨":type==="great"?"✅":type==="good"?"🙂":"❌";
+  fb.innerHTML = `<span style="color:${color};font-weight:800;">${emFB} ${text}</span>`;
   clearTimeout(state.feedbackTimer);
   state.feedbackTimer = setTimeout(()=> fb.textContent="", 600);
 }
