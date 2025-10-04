@@ -1,13 +1,14 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>Fitness Adventure VR — Storyboard Preview</title>
+  <title>Fitness Adventure VR — Game</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     :root { --glass: rgba(0,0,0,.6); }
     body { margin:0; font-family:system-ui, Arial, sans-serif; background:#eaf2ff; color:#0b1220; }
+
     /* UI overlays กดได้เสมอ */
     .hud, .ui, .tip { position:fixed; z-index:9999; pointer-events:auto; }
     .hud {
@@ -16,36 +17,50 @@
       padding:10px 14px; border-radius:12px; white-space:pre-line;
     }
     .hud h1 { margin:0 0 6px 0; font-size:18px; }
-    .ui { left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap; }
-    .ui button { padding:10px 14px; border-radius:12px; border:none; font-weight:700;
-      background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer; }
+    .ui {
+      left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap;
+    }
+    .ui select, .ui button {
+      padding:10px 14px; border-radius:12px; border:none; font-weight:700;
+      box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer;
+    }
+    .ui select { background:#e6f0ff; color:#0b1220; }
+    .ui button { background:#79a8ff; color:#001; }
     .ui button.gray { background:#e5e7eb; color:#111; }
     .tip {
       left:12px; top:12px; max-width:520px;
       background:var(--glass); color:#fff;
       padding:10px 12px; border-radius:12px; font-size:14px; line-height:1.45;
     }
-    /* กัน canvas บังปุ่มบนเดสก์ท็อป */
+
+    /* กัน canvas ของ A-Frame บังคลิก DOM บนเดสก์ท็อป */
     a-scene, a-scene canvas { pointer-events:none !important; }
     .a-enter-vr, .a-enter-ar { pointer-events:auto !important; z-index:10000; }
   </style>
 </head>
 <body>
   <div class="tip">
-    <b>Fitness Adventure VR — Storyboard Preview</b><br/>
-    ดูต้นแบบสตอรีบอร์ด 12 ฉากของเกม (Prototype ไม่ใช่เกมจริง)<br/>
-    วิธีควบคุม: ปุ่ม <b>Prev / Next</b>, คีย์ลัด <b>← / → / Space</b>, หรือเล็งป้ายในฉากแล้ว <b>มองค้าง</b> (fuse)
+    <b>Fitness Adventure VR — Game</b><br/>
+    เลือกเลนด้วยการมองค้างป้าย <b>ซ้าย / กลาง / ขวา</b> หรือคลิก เพื่อเก็บ Orb และหลบสิ่งกีดขวาง<br/>
+    จบสเตจ → จะมีปุ่ม <b>Next</b> ให้ไปต่อ
   </div>
 
   <div class="hud">
-    <h1 id="sceneTitle">Scene 1/12 — Splash</h1>
-    <div id="sceneDesc">โลโก้ + อินโทร</div>
+    <h1 id="hudTitle">Fitness Adventure</h1>
+    <div id="hudText">พร้อมเริ่ม</div>
+    <div id="hudLives" style="margin-top:6px;">❤️❤️❤️</div>
   </div>
 
   <div class="ui">
-    <button id="btnPrev" class="gray">← Prev</button>
-    <button id="btnNext">Next →</button>
-    <button id="btnReplay" class="gray" title="ไปฉากแรก">Replay</button>
+    <label>โหมด:
+      <select id="difficulty">
+        <option value="easy" selected>Easy</option>
+        <option value="normal">Normal</option>
+        <option value="hard">Hard</option>
+      </select>
+    </label>
+    <button id="btnStart">Start</button>
+    <button id="btnReset" class="gray">Reset</button>
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#eaf2ff" raycaster="showLine:false">
@@ -61,22 +76,34 @@
       </a-entity>
     </a-entity>
 
-    <!-- รากของฉากสตอรีบอร์ด -->
+    <!-- รากเกม -->
     <a-entity id="root" position="0 1.5 -3"></a-entity>
 
-    <!-- ป้ายในโลก 3D: Prev / Next แบบ gaze -->
-    <a-entity id="navPrev" class="selectable" position="-1.4 0.8 -2.2"
-              geometry="primitive: plane; width: 0.9; height: 0.28"
+    <!-- ป้ายเลือกเลนในฉาก -->
+    <a-entity id="laneL" class="selectable" position="-1.2 -0.8 -3"
+              geometry="primitive: plane; width: 1.0; height: 0.35"
               material="color:#ffffff; opacity:0.92; shader:flat">
-      <a-entity position="0 0 0.01" text="value:◀ Prev; width: 2.8; align:center; color:#0b1220"></a-entity>
+      <a-entity position="0 0 0.01" text="value:เลนซ้าย; width:3; align:center; color:#0b1220"></a-entity>
     </a-entity>
-    <a-entity id="navNext" class="selectable" position="1.4 0.8 -2.2"
-              geometry="primitive: plane; width: 0.9; height: 0.28"
+    <a-entity id="laneC" class="selectable" position="0 -0.8 -3"
+              geometry="primitive: plane; width: 1.0; height: 0.35"
               material="color:#ffffff; opacity:0.92; shader:flat">
-      <a-entity position="0 0 0.01" text="value:Next ▶; width: 2.8; align:center; color:#0b1220"></a-entity>
+      <a-entity position="0 0 0.01" text="value:เลนกลาง; width:3; align:center; color:#0b1220"></a-entity>
+    </a-entity>
+    <a-entity id="laneR" class="selectable" position="1.2 -0.8 -3"
+              geometry="primitive: plane; width: 1.0; height: 0.35"
+              material="color:#ffffff; opacity:0.92; shader:flat">
+      <a-entity position="0 0 0.01" text="value:เลนขวา; width:3; align:center; color:#0b1220"></a-entity>
     </a-entity>
 
-    <!-- แสง + ท้องฟ้า -->
+    <!-- เส้น Hit line -->
+    <a-entity id="hitLine" geometry="primitive: plane; width: 3.6; height: 0.03"
+              material="color:#0ea5e9; opacity:0.9; shader:flat"
+              position="0 -0.25 -3"
+              animation__pulse="property: material.opacity; dir: alternate; dur: 280; easing: easeInOutSine; from:0.55; to:0.95; loop:true">
+    </a-entity>
+
+    <!-- ท้องฟ้า/แสง -->
     <a-sky id="sky" color="#eaf2ff"></a-sky>
     <a-entity light="type: ambient; color: #ffffff; intensity: 0.95"></a-entity>
     <a-entity light="type: directional; color: #fff; intensity: 0.7" position="1 2 0"></a-entity>
