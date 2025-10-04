@@ -1,484 +1,407 @@
-// Fitness Adventure VR — game.js (OK Click + Fuse 1200ms with Gradient Progress Ring + Wobble)
-// Includes: Hand-tracking pinch, Beat/QTE, Extra Stages, Plausible Analytics
-// Bugfix: Safe target removal (no leftover spheres)
+/* Fitness Adventure VR — Storyboard Preview (A-Frame)
+   - 12 ฉากตามแนว Fitness Adventure 2.0
+   - ปุ่ม Next/Prev + ป้ายในฉาก (gaze fuse) + คีย์ลัด ← → Space
+   - พร็อพ low-poly เพื่อสื่อไอเดีย (โลโก้, เมนู, อุปสรรค, พลังงาน, บอส, ฯลฯ)
+*/
 
-//////////////////////
-// Analytics Helper //
-//////////////////////
-const GAME_ID = "Fitness";
-function track(eventName, props = {}) {
-  try { if (window.plausible) window.plausible(eventName, { props: { game: GAME_ID, ...props } }); } catch(e){}
-}
+const $ = (id)=>document.getElementById(id);
+const root = $("root");
+const sky = $("sky");
+const titleEl = $("sceneTitle");
+const descEl = $("sceneDesc");
 
-//////////////////////
-// Simple WebAudio  //
-//////////////////////
-const SFX = (() => {
-  let ctx;
-  const ensure = () => { if (!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)(); return ctx; };
-  const tone = (f=880,d=0.12,t='sine',v=0.22)=>{
-    const ac=ensure(), o=ac.createOscillator(), g=ac.createGain();
-    o.type=t; o.frequency.value=f;
-    const now=ac.currentTime;
-    g.gain.setValueAtTime(0,now);
-    g.gain.linearRampToValueAtTime(v,now+0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001,now+d);
-    o.connect(g).connect(ac.destination); o.start(now); o.stop(now+d+0.02);
-  };
-  return { ui:()=>tone(1000,0.08,'square',0.2), ok:()=>tone(1200,0.10,'square',0.2), bad:()=>tone(240,0.20,'sawtooth',0.25), tick:()=>tone(900,0.05,'square',0.2) };
-})();
+const btnPrev = $("btnPrev");
+const btnNext = $("btnNext");
+const btnReplay = $("btnReplay");
+const navPrev3D = $("navPrev");
+const navNext3D = $("navNext");
 
-//////////////////////
-// DOM / HUD Refs   //
-//////////////////////
-const $ = id => document.getElementById(id);
-const HUD = { mode:$('modeText'), diff:$('diffText'), stage:$('stageText'), goal:$('goalText'),
-  time:$('timeText'), score:$('scoreText'), prog:$('progressText'), meter:$('meterBar'), status:$('status') };
-const BTN = { practice:$('btnPractice'), challenge:$('btnChallenge'), start:$('btnStart'), next:$('btnNext'), reset:$('btnReset'), export:$('btnExport') };
-const UI  = { selDiff:$('selDiff'), chkBeat:$('chkBeat'), selBpm:$('selBpm') };
+let SCENE_INDEX = 0;
 
-//////////////////////
-// Scene References //
-//////////////////////
-const arena        = $('arena');
-const fingerCursor = $('fingerCursor');
-const handR        = $('handR');
-const handL        = $('handL');
-const centerCursor = $('centerCursor');
-const fuseProgress = $('fuseProgress');
-
-//////////////////////
-// Game State       //
-//////////////////////
-let MODE='Practice', DIFF='Normal';
-let running=false, startedAt=0, elapsed=0, score=0;
-let stageIndex=0, taskIndex=0, timerLimit=60;
-let BEAT_ON=false, BPM=100, beatIntSec=0.6, nextBeat=0;
-
-// Difficulty config
-const DIFF_CFG = {
-  Easy:   { time:70,  bonus:10, penalty:5,  window:1.3 },
-  Normal: { time:60,  bonus:15, penalty:8,  window:1.0 },
-  Hard:   { time:45,  bonus:20, penalty:12, window:0.8 }
-};
-
-// Progress Ring style per difficulty (gradient + thickness + speed)
-const RING_STYLE = {
-  Easy:   { colorStart:'#22c55e', colorEnd:'#06b6d4', inner:0.020, outer:0.036, fuseMs:1200 },
-  Normal: { colorStart:'#fde047', colorEnd:'#f59e0b', inner:0.023, outer:0.033, fuseMs:1200 },
-  Hard:   { colorStart:'#f472b6', colorEnd:'#ef4444', inner:0.025, outer:0.031, fuseMs:1200 }
-};
-
-//////////////////////
-// Stages / Tasks   //
-//////////////////////
-const stages = [
-  { id:'reach',    name:'Warmup — Reach',   color:'#22d3ee', kind:'reach',  tasks: buildTasks('REACH', 8)  },
-  { id:'step',     name:'Side Steps',       color:'#a78bfa', kind:'step',   tasks: buildTasks('STEP', 10)  },
-  { id:'squat',    name:'Squats',           color:'#34d399', kind:'squat',  tasks: buildTasks('SQUAT', 8)  },
-  { id:'punch',    name:'Punch Targets',    color:'#f97316', kind:'punch',  tasks: buildTasks('PUNCH', 12) },
-  { id:'endurance',name:'Endurance Run',    color:'#38bdf8', kind:'mixed',  tasks: buildTasks('MIX', 18)   },
-  { id:'combo',    name:'Combo Rush',       color:'#ef4444', kind:'combo',  tasks: buildTasks('COMBO', 16) }
-];
-function buildTasks(type, n){
-  const arr=[]; for(let i=0;i<n;i++){
-    const x = -1.0 + Math.random()*2.0; const y = 0.9 + Math.random()*1.0;
-    const sub = (type==='MIX'||type==='COMBO') ? ['REACH','STEP','SQUAT','PUNCH'][Math.floor(Math.random()*4)] : type;
-    arr.push({ type: sub, x, y, hit:false });
-  } return arr;
-}
-
-//////////////////////
-// Session Log      //
-//////////////////////
-let sessionLog = { startedAt:null, mode:MODE, difficulty:DIFF, stages:[] };
-
-//////////////////////
-// Hand Tracking    //
-//////////////////////
-let pinchUsingEvents=false, isPinching=false, wasPinching=false;
-function setPinching(v){ isPinching=v; if (fingerCursor) fingerCursor.setAttribute('color', v?'#66ff88':'#ffffaa'); }
-['pinchstarted','pinchended'].forEach(ev=>{
-  if (handR) handR.addEventListener(ev, ()=>{pinchUsingEvents=true; setPinching(ev==='pinchstarted');});
-  if (handL) handL.addEventListener(ev, ()=>{pinchUsingEvents=true; setPinching(ev==='pinchstarted');});
-});
-const PINCH_ON=0.025, PINCH_OFF=0.035;
-function getJointWorldPos(handEnt, nameLike){
-  if (!handEnt) return null;
-  let node=null; handEnt.object3D.traverse(n=>{ if(n.name && n.name.toLowerCase().includes(nameLike)) node=n; });
-  if (!node) return null; const v=new THREE.Vector3(); node.getWorldPosition(v); return v;
-}
-function indexTipWorld(){
-  const ent = (handR && handR.object3D.children.length) ? handR :
-              (handL && handL.object3D.children.length) ? handL : null;
-  if (!ent) return null; return getJointWorldPos(ent,'index-finger-tip');
-}
-function pollPinchFallback(){
-  if (pinchUsingEvents) return;
-  const ent = (handR && handR.object3D.children.length) ? handR :
-              (handL && handL.object3D.children.length) ? handL : null;
-  if (!ent){ setPinching(false); return; }
-  const tip = getJointWorldPos(ent,'index-finger-tip');
-  const thb = getJointWorldPos(ent,'thumb-tip');
-  if (!tip || !thb){ setPinching(false); return; }
-  const d = tip.distanceTo(thb);
-  if (!isPinching && d < PINCH_ON) setPinching(true);
-  else if (isPinching && d > PINCH_OFF) setPinching(false);
-}
-
-/////////////////////////////
-// Gradient Progress Ring  //
-/////////////////////////////
-const fuseCanvas = document.createElement('canvas');
-fuseCanvas.id = 'fuseCanvas';
-fuseCanvas.width = 256; fuseCanvas.height = 256; fuseCanvas.style.display='none';
-document.body.appendChild(fuseCanvas);
-const fuseCtx = fuseCanvas.getContext('2d');
-// bind canvas to plane material
-fuseProgress.setAttribute('material', `shader: flat; src: #${fuseCanvas.id}; transparent: true; alphaTest: 0.01`);
-
-let ringInner = 0.023, ringOuter = 0.033; // normalized
-let gradStart = '#22c55e', gradEnd = '#06b6d4';
-
-let fuseActive=false, fuseStartMs=0, fuseDurMs=1200;
-
-function lerpColor(a, b, t){
-  const ah = parseInt(a.replace('#',''), 16), ar=(ah>>16)&255, ag=(ah>>8)&255, ab=ah&255;
-  const bh = parseInt(b.replace('#',''), 16), br=(bh>>16)&255, bg=(bh>>8)&255, bb=bh&255;
-  const rr = Math.round(ar + (br-ar)*t), gg = Math.round(ag + (bg-ag)*t), bb2 = Math.round(ab + (bb-ab)*t);
-  return '#'+((1<<24) + (rr<<16) + (gg<<8) + bb2).toString(16).slice(1);
-}
-function drawGradientDonut(ratio){
-  const s = fuseCanvas.width, cx = s/2, cy = s/2;
-  const R = s * 0.45;
-  const thickPx = Math.max(1, Math.floor((ringOuter - ringInner) * s * 0.8));
-  const startAng = -Math.PI/2;
-  const endAng = startAng + (Math.max(0, Math.min(1, ratio)) * Math.PI*2);
-
-  fuseCtx.clearRect(0,0,s,s);
-  for (let t=0; t<thickPx; t++){
-    const r = R - t;
-    const midRatio = Math.min(1, Math.max(0, ratio*0.85 + (t/thickPx)*0.15));
-    const col = lerpColor(gradStart, gradEnd, midRatio);
-    fuseCtx.strokeStyle = col;
-    fuseCtx.lineWidth = 1.8;
-    fuseCtx.beginPath(); fuseCtx.arc(cx, cy, r, startAng, endAng, false); fuseCtx.stroke();
-  }
-  const mat = fuseProgress.getObject3D('mesh')?.material;
-  if (mat && mat.map) mat.map.needsUpdate = true;
-}
-function resetFuseProgress(){
-  fuseActive = false;
-  drawGradientDonut(0);
-  centerCursor.setAttribute('scale', '1 1 1');
-}
-function applyCursorStyleForDifficulty(){
-  const st = RING_STYLE[DIFF] || RING_STYLE.Normal;
-  fuseDurMs = st.fuseMs;
-  centerCursor.setAttribute('cursor', `rayOrigin: entity; fuse: true; fuseTimeout: ${fuseDurMs}`);
-  ringInner = st.inner; ringOuter = st.outer;
-  gradStart = st.colorStart; gradEnd = st.colorEnd;
-  const baseColor = (DIFF==='Easy')? '#a7f3d0' : (DIFF==='Hard')? '#fecaca' : '#fde68a';
-  centerCursor.setAttribute('material', `color: ${baseColor}; shader: flat; opacity: 0.95`);
-  resetFuseProgress();
-}
-function updateFuseRing(){
-  if (fuseActive){
-    const now = performance.now();
-    const ratio = Math.min(1, (now - fuseStartMs) / fuseDurMs);
-    drawGradientDonut(ratio);
-    if (ratio >= 0.85){
-      const wobble = 1 + 0.05 * Math.sin(now * 0.02 * Math.PI); // สั่นเบา ๆ
-      centerCursor.setAttribute('scale', `${wobble} ${wobble} ${wobble}`);
-    } else centerCursor.setAttribute('scale', '1 1 1');
-  } else centerCursor.setAttribute('scale', '1 1 1');
-  requestAnimationFrame(updateFuseRing);
-}
-requestAnimationFrame(updateFuseRing);
-
-// cursor events
-centerCursor.addEventListener('mouseenter', (e)=>{
-  if (e && e.detail && e.detail.intersectedEl) { fuseActive = true; fuseStartMs = performance.now(); }
-});
-centerCursor.addEventListener('mouseleave', resetFuseProgress);
-centerCursor.addEventListener('click', resetFuseProgress);
-centerCursor.addEventListener('fusing', ()=> centerCursor.setAttribute('material','opacity:1'));
-
-//////////////////////
-// A-Frame Component//
-//////////////////////
-AFRAME.registerComponent('fitness-game', {
-  init(){
-    this.last = performance.now()/1000;
-
-    // UI events
-    BTN.practice.onclick = ()=>{ MODE='Practice'; HUD.mode.textContent='Practice'; SFX.ui(); };
-    BTN.challenge.onclick= ()=>{ MODE='Challenge'; HUD.mode.textContent='Challenge'; SFX.ui(); };
-    UI.selDiff.onchange  = ()=>{ DIFF = UI.selDiff.value; HUD.diff.textContent = DIFF; applyCursorStyleForDifficulty(); SFX.ui(); };
-    UI.chkBeat.onchange  = ()=>{ BEAT_ON = UI.chkBeat.checked; SFX.ui(); };
-    UI.selBpm.onchange   = ()=>{ BPM = parseInt(UI.selBpm.value,10)||100; beatIntSec = 60/BPM; SFX.ui(); };
-
-    BTN.start.onclick    = startGame;
-    BTN.next.onclick     = nextStage;
-    BTN.reset.onclick    = resetGame;
-    BTN.export.onclick   = exportJSON;
-
-    // defaults
-    BPM = parseInt(UI.selBpm.value,10) || 100;
-    beatIntSec = 60 / BPM;
-
-    applyCursorStyleForDifficulty();
-    resetGame();
+// ---------- ข้อมูล 12 ฉาก ----------
+const STORY = [
+  {
+    name: "Splash / Logo",
+    desc: "โลโก้เกม + โลโก้โรงเรียน + เสียงอินโทร (จำลอง)",
+    sky: "#dbeafe",
+    build: () => {
+      addLogo("Fitness Adventure VR", "โรงเรียนสุขภาพดี");
+    }
   },
-
-  tick(){
-    const t = performance.now()/1000, dt = t - this.last; this.last = t;
-
-    // hand-tracking follow + pinch
-    pollPinchFallback();
-    const tip = indexTipWorld();
-    if (tip){ fingerCursor.object3D.position.copy(tip); fingerCursor.setAttribute('visible', true); }
-    else    { fingerCursor.setAttribute('visible', false); }
-
-    // pinch rising edge → hit if intersecting current target
-    if (!wasPinching && isPinching){
-      const hit = tip && currentTarget && intersectsObj(tip, currentTarget.object3D);
-      if (hit) hitTarget();
+  {
+    name: "Main Menu",
+    desc: "ปุ่ม Start / Options / Exit (จำลองเมนู)",
+    sky: "#e0f2fe",
+    build: () => {
+      addMenu(["Start", "Options", "Exit"]);
     }
-    wasPinching = isPinching;
-
-    if (!running) return;
-
-    // timer
-    elapsed = t - startedAt;
-    if (MODE==='Challenge'){
-      const remain = Math.max(0, timerLimit - elapsed);
-      HUD.time.textContent = remain.toFixed(1)+'s';
-      HUD.meter.style.width = `${(remain / timerLimit)*100}%`;
-      if (remain<=0){ SFX.bad(); HUD.status.textContent='หมดเวลา! กด Next Stage'; running=false; pushStageLog(); }
-    } else {
-      HUD.time.textContent = elapsed.toFixed(1)+'s';
-      HUD.meter.style.width = '100%';
+  },
+  {
+    name: "Select Mode",
+    desc: "เลือกความยาก Easy / Normal / Hard",
+    sky: "#e0fbf2",
+    build: () => {
+      addModeSelector(["Easy","Normal","Hard"]);
     }
-
-    // Beat/QTE spawn
-    if (BEAT_ON){
-      if (t >= nextBeat){
-        SFX.tick(); nextBeat = t + beatIntSec;
-        if (!currentTarget) spawnTarget(true);
-      }
+  },
+  {
+    name: "Tutorial",
+    desc: "สอนท่าพื้นฐาน: ย่อ – เหยียด – เอียงตัว",
+    sky: "#f1f5f9",
+    build: () => {
+      addTutorialAvatars();
+    }
+  },
+  {
+    name: "Mission Start",
+    desc: "นับถอยหลัง 3-2-1- Go! พร้อมเลนวิ่ง",
+    sky: "#fff7ed",
+    build: () => {
+      addCountdown();
+      addLane();
+    }
+  },
+  {
+    name: "Run Path 1",
+    desc: "เริ่มวิ่ง เก็บ Energy Orb ตามทาง",
+    sky: "#f0fdf4",
+    build: () => {
+      addLane();
+      addEnergyOrbs(5, {zStart:-3.5, spacing:0.8});
+    }
+  },
+  {
+    name: "Obstacle Zone",
+    desc: "เพิ่มสิ่งกีดขวาง ต้องย่อ/เอียงเพื่อหลบ",
+    sky: "#fef9c3",
+    build: () => {
+      addLane();
+      addObstacles([{x:-0.8,z:-2.8},{x:0,z:-1.8},{x:0.8,z:-0.8}]);
+    }
+  },
+  {
+    name: "Energy Boost",
+    desc: "เก็บลูกบอลพลังงานสีสว่างพร้อมแสงเรือง",
+    sky: "#fae8ff",
+    build: () => {
+      addLane();
+      addEnergyOrbs(6, {zStart:-3.5, spacing:0.6, glow:true});
+    }
+  },
+  {
+    name: "Run Path 2",
+    desc: "ทางวิ่งเร็วขึ้น + สิ่งกีดขวางมากขึ้น",
+    sky: "#eef2ff",
+    build: () => {
+      addLane();
+      addObstacles([{x:-0.8,z:-3.2},{x:0.8,z:-2.4},{x:0,z:-1.6},{x:-0.8,z:-0.8}]);
+      addEnergyOrbs(3, {zStart:-3, spacing:0.9});
+    }
+  },
+  {
+    name: "Boss Challenge",
+    desc: "ทำท่าออกแรง 5 ครั้ง (ยกแขน-ย่อ-หมุนไหล่) จำลองด้วยเป้า",
+    sky: "#fee2e2",
+    build: () => {
+      addBossTargets(5);
+    }
+  },
+  {
+    name: "Cool Down",
+    desc: "ผ่อนคลาย หายใจเข้า-ออก ยืดเหยียดเบา ๆ",
+    sky: "#ecfeff",
+    build: () => {
+      addCoolDownGuide();
+    }
+  },
+  {
+    name: "Result & Reward",
+    desc: "สรุปคะแนน ระยะทาง แคลอรี + ปลดล็อก Badge",
+    sky: "#f5f3ff",
+    build: () => {
+      addResultPanel();
+      addBadge();
     }
   }
-});
-$('game').setAttribute('fitness-game','');
+];
 
-//////////////////////
-// Stage Build      //
-//////////////////////
-function buildStage(i){
-  clearArena();
-  const st = stages[i];
-  HUD.stage.textContent = st.name;
-  HUD.goal.textContent  = BEAT_ON ? `ทำเป้าตามจังหวะ ${BPM} BPM` : 'ตี/แตะเป้าตามลำดับ';
-  taskIndex = 0;
+// ---------- Utilities ----------
+function clearRoot(){ while(root.firstChild) root.removeChild(root.firstChild); }
 
-  const floor = document.createElement('a-circle');
-  floor.setAttribute('radius','3.2'); floor.setAttribute('color','#0b1220'); floor.setAttribute('position','0 0 -2.2');
-  floor.setAttribute('rotation','-90 0 0'); arena.appendChild(floor);
-
-  const title = document.createElement('a-entity');
-  title.setAttribute('text', `value:${st.name}; align:center; color:#CFE8FF; width:6`);
-  title.setAttribute('position', '0 2.2 -2.21'); arena.appendChild(title);
-
-  addStageMarkers(st);
-  if (!BEAT_ON) spawnTarget(false);
-  updateProgress();
-  HUD.status.textContent = BEAT_ON ? `รอจังหวะแรก… (${BPM} BPM)` : 'เล็ง crosshair แล้วกด OK หรือจ้อง 1.2 วิ';
-}
-function addStageMarkers(st){
-  if (st.kind==='step' || st.kind==='squat' || st.kind==='combo'){
-    const ring=document.createElement('a-ring');
-    ring.setAttribute('radius-inner','0.35'); ring.setAttribute('radius-outer','0.45');
-    ring.setAttribute('position', `0 0 -2.0`); ring.setAttribute('rotation','-90 0 0');
-    ring.setAttribute('color', st.kind==='squat' ? '#34d399' : '#94a3b8');
-    ring.setAttribute('opacity','0.6');
-    arena.appendChild(ring);
-  }
-}
-function clearArena(){ while(arena.firstChild) arena.removeChild(arena.firstChild); }
-
-//////////////////////
-// Targets / QTE    //
-//////////////////////
-let currentTarget = null, targetTimer = null;
-
-function spawnTarget(fromBeat=false){
-  // cleanup เศษเป้าเดิมก่อนเสมอ
-  if (currentTarget && currentTarget.parentNode) {
-    currentTarget.parentNode.removeChild(currentTarget);
-  }
-  currentTarget = null;
-  clearTimeout(targetTimer);
-
-  const st = stages[stageIndex];
-  if (taskIndex >= st.tasks.length){
-    SFX.ok(); HUD.status.textContent = `สำเร็จ: ${st.name} ✔ กด Next Stage`;
-    running=false; pushStageLog(); return;
-  }
-  const task = st.tasks[taskIndex];
-
-  const sphere = document.createElement('a-sphere');
-  sphere.setAttribute('radius','0.15');
-  sphere.setAttribute('color', st.color);
-  sphere.setAttribute('position', `${task.x.toFixed(3)} ${task.y.toFixed(3)} -2.0`);
-  sphere.setAttribute('shader','flat');
-  sphere.classList.add('target','clickable');
-
-  // รองรับ OK click & fuse
-  sphere.addEventListener('click', hitTarget);
-  sphere.addEventListener('mouseenter', ()=> sphere.setAttribute('scale','1.2 1.2 1.2'));
-  sphere.addEventListener('mouseleave', ()=> sphere.setAttribute('scale','1 1 1'));
-
-  arena.appendChild(sphere);
-  currentTarget = sphere;
-
-  // หน้าต่าง QTE
-  let winSec = DIFF_CFG[DIFF].window;
-  if (fromBeat) winSec = Math.min(winSec, beatIntSec * 0.8);
-  if (MODE==='Challenge'){
-    targetTimer = setTimeout(()=>missTarget(), Math.max(500, winSec*1000));
-  }
+function setHUD(i){
+  const total = STORY.length;
+  titleEl.textContent = `Scene ${i+1}/${total} — ${STORY[i].name}`;
+  descEl.textContent = STORY[i].desc;
+  sky.setAttribute("color", STORY[i].sky || "#eaf2ff");
 }
 
-function hitTarget(){
-  const st = stages[stageIndex];
-  const task = st.tasks[taskIndex];
-  if (task.hit) return; // กันยิงซ้ำ
-  task.hit = true; task.time = +elapsed.toFixed(2);
+function renderScene(i){
+  SCENE_INDEX = (i + STORY.length) % STORY.length;
+  clearRoot();
+  setHUD(SCENE_INDEX);
 
-  score += DIFF_CFG[DIFF].bonus;
-  HUD.score.textContent = score;
-  SFX.ok();
+  // สร้างพื้นโปร่ง + เฟรมหน้าจอ (เหมือนบอร์ด)
+  const frame = document.createElement("a-entity");
+  frame.setAttribute("geometry","primitive: plane; width: 3.6; height: 2.0");
+  frame.setAttribute("material","color:#ffffff; opacity:0.9; shader:flat");
+  frame.setAttribute("position","0 0 -0.02");
+  root.appendChild(frame);
 
-  // ลบเป้าอย่างปลอดภัย
-  clearTimeout(targetTimer);
-  if (currentTarget){
-    const toRemove = currentTarget; // เก็บอ้างอิงท้องถิ่น
-    toRemove.setAttribute('color','#ffffff');
-    toRemove.setAttribute('visible','false');   // ซ่อนทันทีกันค้าง
-    setTimeout(()=>{ if (toRemove.parentNode) toRemove.parentNode.removeChild(toRemove); }, 0);
-  }
-  currentTarget = null;
+  // ป้ายชื่อซีนบนเฟรม
+  const label = document.createElement("a-entity");
+  label.setAttribute("text", `value:${STORY[SCENE_INDEX].name}; width:6; align:center; color:#0b1220`);
+  label.setAttribute("position","0 0.85 0.01");
+  root.appendChild(label);
 
-  taskIndex++; updateProgress();
-  if (BEAT_ON){
-    HUD.status.textContent = `ดีมาก! รอจังหวะต่อไป (${BPM} BPM)`;
-  } else {
-    spawnTarget(false);
-  }
-}
-
-function missTarget(){
-  const st = stages[stageIndex];
-  const task = st.tasks[taskIndex];
-  task.hit  = false; task.time = +elapsed.toFixed(2);
-
-  if (MODE==='Challenge'){
-    score = Math.max(0, score - DIFF_CFG[DIFF].penalty);
-    HUD.score.textContent = score;
-    SFX.bad();
+  // เนื้อหาซีน
+  if (typeof STORY[SCENE_INDEX].build === "function"){
+    STORY[SCENE_INDEX].build();
   }
 
-  // ลบเป้าอย่างปลอดภัย
-  clearTimeout(targetTimer);
-  if (currentTarget){
-    const toRemove = currentTarget;
-    toRemove.setAttribute('visible','false');
-    setTimeout(()=>{ if (toRemove.parentNode) toRemove.parentNode.removeChild(toRemove); }, 0);
+  // ปุ่มโค้ชในฉาก (อธิบาย)
+  const coach = document.createElement("a-entity");
+  coach.setAttribute("geometry","primitive: plane; width: 3.2; height: 0.36");
+  coach.setAttribute("material","color:#0ea5e9; opacity:0.1; shader:flat");
+  coach.setAttribute("position","0 -0.85 0");
+  const coachText = document.createElement("a-entity");
+  coachText.setAttribute("text", `value:${STORY[SCENE_INDEX].desc}; width:6.4; align:center; color:#0b1220`);
+  coachText.setAttribute("position","0 0 0.01");
+  coach.appendChild(coachText);
+  root.appendChild(coach);
+}
+
+// ---------- Builders (พร็อพอย่างง่าย) ----------
+function addLogo(title="Fitness Adventure VR", subtitle=""){
+  const t = document.createElement("a-entity");
+  t.setAttribute("text", `value:${title}; width:6; align:center; color:#111827`);
+  t.setAttribute("position","0 0.3 0.02");
+  root.appendChild(t);
+
+  if (subtitle){
+    const s = document.createElement("a-entity");
+    s.setAttribute("text", `value:${subtitle}; width:4.5; align:center; color:#334155`);
+    s.setAttribute("position","0 0.05 0.02");
+    root.appendChild(s);
   }
-  currentTarget = null;
 
-  taskIndex++; updateProgress();
-  if (!BEAT_ON) spawnTarget(false);
+  // โลโก้สัญลักษณ์ (วงกลม + สายฟ้า)
+  const circle = document.createElement("a-entity");
+  circle.setAttribute("geometry","primitive: circle; radius:0.35; segments:48");
+  circle.setAttribute("material","color:#22c55e; opacity:0.9; shader:flat");
+  circle.setAttribute("position","0 -0.35 0.02");
+  root.appendChild(circle);
+
+  const bolt = document.createElement("a-entity");
+  bolt.setAttribute("geometry","primitive: box; width:0.12; height:0.5; depth:0.02");
+  bolt.setAttribute("material","color:#111827; opacity:0.9; shader:flat");
+  bolt.setAttribute("rotation","0 0 30");
+  bolt.setAttribute("position","0 -0.35 0.03");
+  root.appendChild(bolt);
 }
 
-function updateProgress(){
-  const st = stages[stageIndex];
-  HUD.prog.textContent = `${Math.min(taskIndex, st.tasks.length)} / ${st.tasks.length}`;
-  HUD.meter.style.width = `${Math.round((taskIndex/st.tasks.length)*100)}%`;
-}
-
-// fingertip vs object AABB check
-function intersectsObj(worldPos, obj3D){
-  obj3D.updateWorldMatrix(true,true);
-  const box = new THREE.Box3().setFromObject(obj3D);
-  return box.containsPoint(worldPos);
-}
-
-//////////////////////
-// Flow Control     //
-//////////////////////
-function startGame(){
-  sessionLog = { startedAt:new Date().toISOString(), mode:MODE, difficulty:DIFF, stages:[] };
-  startedAt = performance.now()/1000; elapsed=0; score=0;
-  timerLimit = DIFF_CFG[DIFF].time;
-  stageIndex=0; taskIndex=0; running=true;
-
-  BEAT_ON = !!UI.chkBeat.checked;
-  BPM = parseInt(UI.selBpm.value,10)||100;
-  beatIntSec = 60/BPM; nextBeat = performance.now()/1000 + beatIntSec;
-
-  applyCursorStyleForDifficulty();
-  buildStage(stageIndex);
-
-  HUD.time.textContent = (MODE==='Challenge') ? `${timerLimit.toFixed(0)}s` : '0.0s';
-  HUD.score.textContent = '0';
-  HUD.status.textContent = BEAT_ON ? `เริ่มแล้ว (Beat ${BPM} BPM)` : 'เริ่มแล้ว! เล็ง crosshair แล้วกด OK หรือจ้อง 1.2 วิ';
-
-  track('GameStart', { mode: MODE, difficulty: DIFF, beat: BEAT_ON?BPM:null });
-}
-function nextStage(){
-  if (running && MODE==='Challenge'){ SFX.bad(); }
-  running=true; timerLimit = DIFF_CFG[DIFF].time;
-  startedAt = performance.now()/1000; elapsed=0;
-
-  stageIndex = (stageIndex + 1) % stages.length;
-  taskIndex  = 0; nextBeat = performance.now()/1000 + beatIntSec;
-
-  buildStage(stageIndex);
-  HUD.time.textContent = (MODE==='Challenge') ? `${timerLimit.toFixed(0)}s` : '0.0s';
-}
-function resetGame(){
-  running=false; score=0; stageIndex=0; taskIndex=0; elapsed=0;
-  HUD.time.textContent='—'; HUD.score.textContent='0'; HUD.prog.textContent='0 / 0';
-  HUD.status.textContent='กด Start เพื่อเริ่ม';
-  HUD.meter.style.width='0%';
-  clearArena(); clearTimeout(targetTimer); currentTarget=null; resetFuseProgress();
-}
-
-//////////////////////
-// Logging & Export //
-//////////////////////
-function pushStageLog(){
-  const st = stages[stageIndex];
-  sessionLog.stages.push({
-    id: st.id, name: st.name, count: st.tasks.length,
-    hits: st.tasks.filter(t=>t.hit).length, timeUsed: +elapsed.toFixed(2),
-    scoreAfter: score, beat: BEAT_ON ? BPM : null
+function addMenu(items=["Start","Options","Exit"]){
+  items.forEach((txt, i)=>{
+    const y = 0.4 - i*0.35;
+    const btn = document.createElement("a-entity");
+    btn.classList.add("selectable");
+    btn.setAttribute("geometry","primitive: plane; width: 1.8; height: 0.3");
+    btn.setAttribute("material","color:#ffffff; opacity:0.95; shader:flat");
+    btn.setAttribute("position",`0 ${y} 0.01`);
+    const t = document.createElement("a-entity");
+    t.setAttribute("text", `value:${txt}; width:4; align:center; color:#0b1220`);
+    t.setAttribute("position","0 0 0.01");
+    btn.appendChild(t);
+    root.appendChild(btn);
   });
 }
-function exportJSON(){
-  const payload = {
-    version: '1.5',
-    game: GAME_ID, mode: MODE, difficulty: DIFF,
-    startedAt: sessionLog.startedAt || new Date().toISOString(),
-    finishedAt: new Date().toISOString(),
-    totalScore: score, stages: sessionLog.stages
-  };
-  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
-  const now=new Date(); const pad=n=>String(n).padStart(2,'0');
-  const filename=`fitness_session_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename;
-  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },0);
-  track('GameFinish', { score, stages: sessionLog.stages.length, mode: MODE, difficulty: DIFF, beat: BEAT_ON?BPM:null });
+
+function addModeSelector(modes=["Easy","Normal","Hard"]){
+  modes.forEach((m, i)=>{
+    const x = -1.1 + i*1.1;
+    const card = document.createElement("a-entity");
+    card.classList.add("selectable");
+    card.setAttribute("geometry","primitive: plane; width: 1.0; height: 1.2");
+    const color = i===0?"#dcfce7": i===1?"#e0f2fe":"#fee2e2";
+    card.setAttribute("material",`color:${color}; opacity:0.95; shader:flat`);
+    card.setAttribute("position",`${x} 0 0.01`);
+    const t = document.createElement("a-entity");
+    t.setAttribute("text", `value:${m}; width:2.8; align:center; color:#0b1220`);
+    t.setAttribute("position","0 0.45 0.01");
+    card.appendChild(t);
+    root.appendChild(card);
+  });
 }
+
+function addTutorialAvatars(){
+  const poses = [
+    {name:"ย่อ",     rot:0,   pos:"-1 0 0.01", scale:"0.9 0.7 0.9"},
+    {name:"เหยียด",  rot:0,   pos:"0 0 0.01",  scale:"1.0 1.2 1.0"},
+    {name:"เอียง",   rot:20,  pos:"1 0 0.01",  scale:"1.0 1.0 1.0"},
+  ];
+  poses.forEach(p=>{
+    const body = document.createElement("a-entity");
+    body.setAttribute("geometry","primitive: box; width:0.6; height:1.0; depth:0.2");
+    body.setAttribute("material","color:#60a5fa; opacity:0.95; shader:flat");
+    body.setAttribute("position",p.pos);
+    body.setAttribute("rotation",`0 0 ${p.rot}`);
+    body.setAttribute("scale",p.scale);
+    root.appendChild(body);
+
+    const head = document.createElement("a-entity");
+    head.setAttribute("geometry","primitive: sphere; radius:0.2");
+    head.setAttribute("material","color:#fde68a; opacity:0.95; shader:flat");
+    head.setAttribute("position",`${parseFloat(p.pos.split(' ')[0])} 0.7 0.02`);
+    root.appendChild(head);
+
+    const label = document.createElement("a-entity");
+    label.setAttribute("text", `value:${p.name}; width:2.8; align:center; color:#0b1220`);
+    label.setAttribute("position",`${parseFloat(p.pos.split(' ')[0])} -0.8 0.01`);
+    root.appendChild(label);
+  });
+}
+
+function addCountdown(){
+  const plate = document.createElement("a-entity");
+  plate.setAttribute("geometry","primitive: circle; radius:0.32; segments:48");
+  plate.setAttribute("material","color:#0ea5e9; opacity:0.9; shader:flat");
+  plate.setAttribute("position","0 0.2 0.02");
+  root.appendChild(plate);
+
+  ["3","2","1","Go!"].forEach((txt,i)=>{
+    const t = document.createElement("a-entity");
+    t.setAttribute("text", `value:${txt}; width:4.5; align:center; color:#ffffff`);
+    t.setAttribute("position","0 0.2 0.03");
+    t.setAttribute("animation__fade",`property: text.opacity; delay:${i*450}; dur:350; from:0; to:1; dir:alternate; easing:easeOutQuad`);
+    root.appendChild(t);
+  });
+}
+
+function addLane(){
+  const lane = document.createElement("a-entity");
+  lane.setAttribute("geometry","primitive: plane; width: 3.6; height: 2.0");
+  lane.setAttribute("material","color:#94a3b8; opacity:0.12; shader:flat");
+  lane.setAttribute("position","0 0 0");
+  root.appendChild(lane);
+
+  // เสา/หลักบอกเลน
+  [-1.2, 0, 1.2].forEach(x=>{
+    const post = document.createElement("a-entity");
+    post.setAttribute("geometry","primitive: box; width:0.06; height:1.6; depth:0.02");
+    post.setAttribute("material","color:#94a3b8; opacity:0.4; shader:flat");
+    post.setAttribute("position",`${x} 0 0.02`);
+    root.appendChild(post);
+  });
+}
+
+function addEnergyOrbs(count=5, {zStart=-3, spacing=0.8, glow=false}={}){
+  for (let i=0;i<count;i++){
+    const orb = document.createElement("a-entity");
+    const x = [-1.2, 0, 1.2][i%3];
+    const z = zStart + i*spacing;
+    orb.setAttribute("geometry","primitive: sphere; radius:0.16; segmentsWidth:16; segmentsHeight:16");
+    orb.setAttribute("material",`color:${glow?'#22c55e':'#38bdf8'}; opacity:0.95; shader:flat`);
+    orb.setAttribute("position",`${x} 0 ${z}`);
+    if (glow){
+      orb.setAttribute("animation__pulse","property: scale; dir:alternate; dur:600; from:0.9 0.9 0.9; to:1.15 1.15 1.15; loop:true; easing:easeInOutSine");
+    }
+    root.appendChild(orb);
+  }
+}
+
+function addObstacles(list=[{x:0,z:-2}]){
+  list.forEach(({x,z})=>{
+    const box = document.createElement("a-entity");
+    box.setAttribute("geometry","primitive: box; width:0.7; height:0.5; depth:0.3");
+    box.setAttribute("material","color:#ef4444; opacity:0.9; shader:flat");
+    box.setAttribute("position",`${x} -0.25 ${z}`);
+    root.appendChild(box);
+  });
+}
+
+function addBossTargets(n=5){
+  for (let i=0;i<n;i++){
+    const x = -1.2 + (i%3)*1.2;
+    const y = i<3 ? 0.3 : -0.2;
+    const target = document.createElement("a-entity");
+    target.setAttribute("geometry","primitive: plane; width:0.6; height:0.6");
+    target.setAttribute("material","color:#fde047; opacity:0.95; shader:flat");
+    target.setAttribute("position",`${x} ${y} -1.2`);
+    target.setAttribute("animation__pop","property: scale; dir:alternate; dur:700; from:0.9 0.9 1; to:1.05 1.05 1; loop:true; easing:easeInOutSine");
+    const t = document.createElement("a-entity");
+    t.setAttribute("text","value:Hit!; width:2.5; align:center; color:#0b1220");
+    t.setAttribute("position","0 0 0.01");
+    target.appendChild(t);
+    root.appendChild(target);
+  }
+}
+
+function addCoolDownGuide(){
+  const panel = document.createElement("a-entity");
+  panel.setAttribute("geometry","primitive: plane; width: 2.8; height: 1.2");
+  panel.setAttribute("material","color:#ffffff; opacity:0.95; shader:flat");
+  panel.setAttribute("position","0 0 0.01");
+  const t = document.createElement("a-entity");
+  t.setAttribute("text","value:หายใจเข้า – ออก ช้า ๆ \\nยืดแขนเหนือศีรษะ 10 วินาที; width:5.2; align:center; color:#0b1220");
+  t.setAttribute("position","0 0 0.02");
+  panel.appendChild(t);
+  root.appendChild(panel);
+}
+
+function addResultPanel(){
+  const panel = document.createElement("a-entity");
+  panel.setAttribute("geometry","primitive: plane; width: 2.8; height: 1.4");
+  panel.setAttribute("material","color:#ffffff; opacity:0.95; shader:flat");
+  panel.setAttribute("position","0 0 0.01");
+  const text = [
+    "คะแนน: 1230",
+    "ระยะทาง: 1.2 km",
+    "พลังงานที่ใช้: ~45 kcal"
+  ].join("\\n");
+  const t = document.createElement("a-entity");
+  t.setAttribute("text",`value:${text}; width:5.2; align:center; color:#0b1220`);
+  t.setAttribute("position","0 0 0.02");
+  panel.appendChild(t);
+  root.appendChild(panel);
+}
+
+function addBadge(){
+  const ring = document.createElement("a-entity");
+  ring.setAttribute("geometry","primitive: ring; radiusInner:0.25; radiusOuter:0.32; segmentsTheta:48");
+  ring.setAttribute("material","color:#22c55e; opacity:0.95; shader:flat");
+  ring.setAttribute("position","0 0.65 0.02");
+  root.appendChild(ring);
+
+  const star = document.createElement("a-entity");
+  star.setAttribute("geometry","primitive: box; width:0.12; height:0.6; depth:0.02");
+  star.setAttribute("material","color:#22c55e; opacity:0.95; shader:flat");
+  star.setAttribute("rotation","0 0 45");
+  star.setAttribute("position","0 0.65 0.03");
+  root.appendChild(star);
+
+  const label = document.createElement("a-entity");
+  label.setAttribute("text","value:Badge Unlocked: Healthy Hero; width:4.8; align:center; color:#16a34a");
+  label.setAttribute("position","0 0.45 0.02");
+  root.appendChild(label);
+}
+
+// ---------- Navigation ----------
+function nextScene(){ renderScene(SCENE_INDEX+1); }
+function prevScene(){ renderScene(SCENE_INDEX-1); }
+
+btnNext.onclick = nextScene;
+btnPrev.onclick = prevScene;
+btnReplay.onclick = ()=> renderScene(0);
+
+// ป้ายในฉากสำหรับ gaze fuse
+navNext3D.addEventListener("click", nextScene);
+navPrev3D.addEventListener("click", prevScene);
+
+// คีย์ลัด
+window.addEventListener("keydown",(e)=>{
+  const k = e.key.toLowerCase();
+  if (k === 'arrowright' || k === ' ') { e.preventDefault(); nextScene(); }
+  if (k === 'arrowleft') { e.preventDefault(); prevScene(); }
+});
+
+// เริ่มต้นที่ฉาก 1
+renderScene(0);
