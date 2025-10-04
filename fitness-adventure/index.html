@@ -20,29 +20,37 @@
     .ui {
       left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap;
     }
-    .ui select, .ui button {
-      padding:10px 14px; border-radius:12px; border:none; font-weight:700;
-      box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer;
+    .ui select, .ui button, .ui label {
+      padding:10px 12px; border-radius:12px; border:none; font-weight:700;
+      box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer; background:#e6f0ff; color:#0b1220;
     }
-    .ui select { background:#e6f0ff; color:#0b1220; }
     .ui button { background:#79a8ff; color:#001; }
     .ui button.gray { background:#e5e7eb; color:#111; }
     .tip {
-      left:12px; top:12px; max-width:560px;
+      left:12px; top:12px; max-width:580px;
       background:var(--glass); color:#fff;
       padding:10px 12px; border-radius:12px; font-size:14px; line-height:1.45;
     }
 
-    /* กัน canvas ของ A-Frame บังคลิก DOM บนเดสก์ท็อป */
+    /* ค่าเริ่มต้น: กัน canvas บังปุ่ม HTML */
     a-scene, a-scene canvas { pointer-events:none !important; }
+    /* เมื่อเปิด Mouse Look ให้เปิด pointer-events คืน */
+    .mouse-look a-scene, .mouse-look a-scene canvas { pointer-events:auto !important; }
     .a-enter-vr, .a-enter-ar { pointer-events:auto !important; z-index:10000; }
+
+    /* แถบควบคุมเลนแบบ HTML */
+    .lane-bar { position:fixed; right:12px; bottom:12px; z-index:9999; display:flex; gap:8px; }
+    .lane-bar button{ padding:10px 14px; border:none; border-radius:12px; font-weight:800; cursor:pointer; }
+    .lane-bar .L{ background:#e2fbe2; }
+    .lane-bar .C{ background:#e6f0ff; }
+    .lane-bar .R{ background:#ffe7e7; }
   </style>
 </head>
 <body>
   <div class="tip">
     <b>Fitness Adventure VR — Game</b><br/>
-    เปลี่ยนเลนด้วยการมองค้างป้าย <b>ซ้าย/กลาง/ขวา</b> หรือคลิก | เก็บ Orb และหลบ Obstacle<br/>
-    มี <b>เพลง/เอฟเฟกต์เสียง</b>, <b>ธีมฉาก</b> (Jungle/City/Space), และ <b>ระบบเควส/แบดจ์/สถิติ</b>
+    เดสก์ท็อป: เปิด <b>Mouse Look</b> เพื่อหมุนกล้องด้วยเมาส์ หรือใช้ปุ่ม <b>Left / Center / Right</b> และคีย์ลัด <b>← ↑ →</b> / <b>A S D</b><br/>
+    มือถือ/VR: เล็งป้ายเลน (fuse) ได้ตามปกติ
   </div>
 
   <div class="hud">
@@ -74,8 +82,19 @@
         <option value="streak">หลบสิ่งกีดขวางต่อเนื่อง Y ชิ้น</option>
       </select>
     </label>
+    <label style="display:flex;align-items:center;gap:6px;background:#fff;">
+      <input type="checkbox" id="mouseLookToggle" style="transform:scale(1.2); accent-color:#2563eb; cursor:pointer;"/>
+      Mouse Look
+    </label>
     <button id="btnStart">Start</button>
     <button id="btnReset" class="gray">Reset</button>
+  </div>
+
+  <!-- ปุ่มควบคุมเลนแบบ HTML (ช่วยเดสก์ท็อป) -->
+  <div class="lane-bar">
+    <button id="btnL" class="L">Left</button>
+    <button id="btnC" class="C">Center</button>
+    <button id="btnR" class="R">Right</button>
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#eaf2ff" raycaster="showLine:false">
