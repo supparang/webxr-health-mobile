@@ -28,7 +28,7 @@
     .ui button { background:#79a8ff; color:#001; }
     .ui button.gray { background:#e5e7eb; color:#111; }
     .tip {
-      left:12px; top:12px; max-width:520px;
+      left:12px; top:12px; max-width:560px;
       background:var(--glass); color:#fff;
       padding:10px 12px; border-radius:12px; font-size:14px; line-height:1.45;
     }
@@ -41,14 +41,15 @@
 <body>
   <div class="tip">
     <b>Fitness Adventure VR — Game</b><br/>
-    เลือกเลนด้วยการมองค้างป้าย <b>ซ้าย / กลาง / ขวา</b> หรือคลิก เพื่อเก็บ Orb และหลบสิ่งกีดขวาง<br/>
-    จบสเตจ → จะมีปุ่ม <b>Next</b> ให้ไปต่อ
+    เปลี่ยนเลนด้วยการมองค้างป้าย <b>ซ้าย/กลาง/ขวา</b> หรือคลิก | เก็บ Orb และหลบ Obstacle<br/>
+    มี <b>เพลง/เอฟเฟกต์เสียง</b>, <b>ธีมฉาก</b> (Jungle/City/Space), และ <b>ระบบเควส/แบดจ์/สถิติ</b>
   </div>
 
   <div class="hud">
     <h1 id="hudTitle">Fitness Adventure</h1>
     <div id="hudText">พร้อมเริ่ม</div>
     <div id="hudLives" style="margin-top:6px;">❤️❤️❤️</div>
+    <div id="hudQuest" style="margin-top:6px;font-size:14px;opacity:.9"></div>
   </div>
 
   <div class="ui">
@@ -57,6 +58,20 @@
         <option value="easy" selected>Easy</option>
         <option value="normal">Normal</option>
         <option value="hard">Hard</option>
+      </select>
+    </label>
+    <label>ธีม:
+      <select id="theme">
+        <option value="jungle" selected>Jungle</option>
+        <option value="city">City</option>
+        <option value="space">Space</option>
+      </select>
+    </label>
+    <label>เควส:
+      <select id="quest">
+        <option value="collect" selected>เก็บ Orb X ลูก</option>
+        <option value="survive">เอาตัวรอดไม่เสียชีวิต</option>
+        <option value="streak">หลบสิ่งกีดขวางต่อเนื่อง Y ชิ้น</option>
       </select>
     </label>
     <button id="btnStart">Start</button>
