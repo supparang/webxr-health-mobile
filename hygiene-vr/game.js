@@ -1,9 +1,7 @@
-/* Hygiene Rhythm Game – Ultra-Lite Mobile Build
-   จุดเด่น:
-   - object pool สำหรับโน้ต (ลดการสร้าง/ลบ entity บ่อย)
-   - อัปเดตตำแหน่งด้วย object3D.position (เร็วกว่า setAttribute)
-   - เมโทรนอมใช้ animation loop ไม่อัปเดต material ทุกเฟรม
-   - Throttle HUD/Beat Counter บนมือถือ
+/* Hygiene Rhythm Game – Ultra-Lite Mobile + Training + Desktop Click Patch
+   - Object pool + object3D.position (เร็วบนมือถือ)
+   - Training: BPM ช้า + เคาน์เตอร์ 1-2-3-4
+   - ปุ่ม Start/Reset บนเดสก์ท็อปกดได้แน่นอน + คีย์ลัด Space / R
 */
 
 const $ = (id)=>document.getElementById(id);
@@ -32,7 +30,7 @@ let state = {
   lanes:{},               // lane roots
   pool:[],                // pooled note entities
   active:[],              // active notes (objects holding ref to pooled entity)
-  mapNotes:[],            // schedule notes (time,lane) — we pop into pool when time near
+  mapNotes:[],            // schedule notes (time,lane)
   nextSpawnIdx:0,
 
   countdownEl:null,
@@ -41,9 +39,8 @@ let state = {
 
   rafId:null,
 
-  // throttling HUD
   lastHudTs:0,
-  hudInterval: isMobile ? 250 : 120, // ms
+  hudInterval: isMobile ? 250 : 120, // ms (throttle HUD)
 };
 
 // ---------------- Beatmaps ----------------
@@ -74,32 +71,30 @@ function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild); 
 // สร้างรูปทรงโน้ตแบบเบาสุด
 function createNoteMesh(lane){
   const node = document.createElement("a-entity");
-  let child;
   if (lane==="wash"){ // วงกลม (เขียว)
-    child = document.createElement("a-entity");
-    child.setAttribute("geometry","primitive: circle; radius:0.18; segments:48");
-    child.setAttribute("material","color:#22c55e; opacity:0.98; shader:flat");
-    node.appendChild(child);
-    // ขอบ
+    const body = document.createElement("a-entity");
+    body.setAttribute("geometry","primitive: circle; radius:0.18; segments:48");
+    body.setAttribute("material","color:#22c55e; opacity:0.98; shader:flat");
+    node.appendChild(body);
     const border = document.createElement("a-entity");
     border.setAttribute("geometry","primitive: ring; radiusInner:0.18; radiusOuter:0.205; segmentsTheta:48");
     border.setAttribute("material","color:#0b1220; opacity:0.5; shader:flat");
     node.appendChild(border);
   } else if (lane==="brush"){ // สี่เหลี่ยม (เหลือง)
-    child = document.createElement("a-entity");
-    child.setAttribute("geometry","primitive: box; width:0.34; height:0.34; depth:0.02");
-    child.setAttribute("material","color:#eab308; opacity:0.98; shader:flat");
-    node.appendChild(child);
+    const body = document.createElement("a-entity");
+    body.setAttribute("geometry","primitive: box; width:0.34; height:0.34; depth:0.02");
+    body.setAttribute("material","color:#eab308; opacity:0.98; shader:flat");
+    node.appendChild(body);
     const border = document.createElement("a-entity");
     border.setAttribute("geometry","primitive: box; width:0.36; height:0.36; depth:0.005");
     border.setAttribute("material","color:#0b1220; opacity:0.5; shader:flat");
     node.appendChild(border);
-  } else { // เพชร (แดง) box หมุน 45°
-    child = document.createElement("a-entity");
-    child.setAttribute("geometry","primitive: box; width:0.3; height:0.3; depth:0.02");
-    child.setAttribute("material","color:#ef4444; opacity:0.98; shader:flat");
-    child.setAttribute("rotation","0 0 45");
-    node.appendChild(child);
+  } else { // เพชร (แดง) = box หมุน 45°
+    const body = document.createElement("a-entity");
+    body.setAttribute("geometry","primitive: box; width:0.3; height:0.3; depth:0.02");
+    body.setAttribute("material","color:#ef4444; opacity:0.98; shader:flat");
+    body.setAttribute("rotation","0 0 45");
+    node.appendChild(body);
     const border = document.createElement("a-entity");
     border.setAttribute("geometry","primitive: box; width:0.32; height:0.32; depth:0.005");
     border.setAttribute("material","color:#0b1220; opacity:0.5; shader:flat");
@@ -118,16 +113,13 @@ function buildPool(poolSize){
     const e = createNoteMesh(lane);
     e.object3D.position.set( (lane==="wash"?-1.2: lane==="brush"?0:1.2), 0, -10 );
     e.setAttribute("visible","false");
-    // เก็บประเภทเลนไว้
     e.dataset = { lane };
     root.appendChild(e);
     state.pool.push({el:e, inUse:false, lane});
   }
 }
 
-// ขอโน้ตจากพูล (ตามเลน)
 function acquireNote(lane){
-  // หาในพูลที่ lane เดียวกันและว่าง
   for (const p of state.pool){
     if (!p.inUse && p.lane===lane){
       p.inUse = true;
@@ -135,7 +127,7 @@ function acquireNote(lane){
       return p;
     }
   }
-  return null; // ถ้าหมด ก็ข้าม (จะไม่มีโน้ตเกินกำลัง)
+  return null;
 }
 function releaseNote(p){
   if (!p) return;
@@ -149,22 +141,21 @@ function buildScene(){
   clearChildren(root);
   state.lanes={};
 
-  // แผงกดเลน (รับคลิก/fuse)
-  const laneDefs = [
-    {key:"wash",  x:-1.2, color:"#22c55e", label:"ล้างมือ"},
-    {key:"brush", x: 0.0, color:"#eab308", label:"แปรงฟัน"},
-    {key:"cover", x: 1.2, color:"#ef4444", label:"ปิดปาก"}
-  ];
-  // เส้น Hit
+  // เส้น Hit + pulse animation (ไม่อัปเดตทุกเฟรม)
   const hit = document.createElement("a-entity");
   hit.setAttribute("geometry","primitive: plane; width:3.6; height:0.03");
   hit.setAttribute("material","color:#0ea5e9; opacity:0.9; shader:flat");
   hit.setAttribute("position","0 -0.25 0");
-  // เมโทรนอม: ให้กระพริบด้วย animation (ไม่ต้องอัปเดตทุกเฟรม)
   hit.setAttribute("animation__pulse","property: material.opacity; dir: alternate; dur: 250; easing: easeInOutSine; from:0.55; to:0.95; loop:true");
   root.appendChild(hit);
 
-  laneDefs.forEach(L=>{
+  // 3 lanes (ปุ่มกด)
+  const defs = [
+    {key:"wash",  x:-1.2, color:"#22c55e", label:"ล้างมือ"},
+    {key:"brush", x: 0.0, color:"#eab308", label:"แปรงฟัน"},
+    {key:"cover", x: 1.2, color:"#ef4444", label:"ปิดปาก"}
+  ];
+  defs.forEach(L=>{
     const lane = document.createElement("a-entity");
     lane.setAttribute("position", `${L.x} 0 0`);
 
@@ -223,12 +214,12 @@ function startGame(){
 
   buildScene();
 
-  // เตรียมพูล (มือถือ: เล็กลง)
+  // สร้างพูล (มือถือเล็กกว่า)
   const poolSize = isMobile ? 24 : 36;
   buildPool(poolSize);
 
-  // ตั้งตารางโน้ต
-  state.mapNotes = map.notes.slice(); // copy
+  // ตารางโน้ต
+  state.mapNotes = map.notes.slice();
   state.nextSpawnIdx = 0;
   state.active = [];
 
@@ -270,17 +261,14 @@ function tick(){
   const now = performance.now()/1000;
   state.elapsed = now - state.startTime;
 
-  // Spawn ตามเวลา (ล่วงหน้าก่อนถึงเส้น ~2.5s)
-  const lead = 2.2; // วินาทีที่ต้องใช้เดินทางจาก zStart = -lead*speedFactor ถึง 0
+  // Spawn ล่วงหน้า ~2.2 วิ
+  const lead = 2.2;
   while (state.nextSpawnIdx < state.mapNotes.length){
     const n = state.mapNotes[state.nextSpawnIdx];
     if (n.time - state.elapsed <= lead){
-      // ขอจากพูล
       const p = acquireNote(n.lane);
       if (p){
-        // ติดข้อมูล
         p.time = n.time;
-        // ตั้งตำแหน่งเริ่ม (ไกลขึ้นถ้าช้าลง)
         const zStart = -lead * state.speedFactor;
         p.el.object3D.position.set( (n.lane==="wash"?-1.2: n.lane==="brush"?0:1.2), 0, zStart );
         p.lane = n.lane;
@@ -288,20 +276,15 @@ function tick(){
         state.active.push(p);
       }
       state.nextSpawnIdx++;
-    }else break;
+    } else break;
   }
 
-  // อัปเดต active (ตำแหน่ง/ตัดสิน miss)
-  for (let i=0;i<state.active.length;i++){
-    const p = state.active[i];
+  // Move & miss
+  for (const p of state.active){
     if (!p || p.judged) continue;
-    const dt = p.time - state.elapsed; // 0 ที่เส้น hit
-    const z = dt * state.speedFactor;
-    p.el.object3D.position.z = z;
-
-    if (dt < -state.hitWindow && !p.judged){
-      judge(p, "miss");
-    }
+    const dt = p.time - state.elapsed;     // 0 ที่เส้น hit
+    p.el.object3D.position.z = dt * state.speedFactor;
+    if (dt < -state.hitWindow && !p.judged) judge(p, "miss");
   }
 
   // HUD throttle
@@ -312,7 +295,7 @@ function tick(){
     hud.textContent = `เวลา: ${remain} วิ\nคะแนน: ${state.score}\nคอมโบ: x${state.combo}`;
   }
 
-  // Beat counter เฉพาะ Training
+  // Beat counter (เฉพาะ Training)
   if (selectDiff.value === "training" && state.beatCounterEl){
     const idx = (Math.floor(state.elapsed / state.beatSec) % 4) + 1;
     if (idx !== state.lastBeatIndex){
@@ -323,7 +306,6 @@ function tick(){
 
   // End
   if (state.elapsed >= state.duration){
-    // คลียร์ที่ยังไม่ตัดสินให้ miss
     for (const p of state.active){ if (p && !p.judged) judge(p,"miss"); }
     finishGame();
     return;
@@ -335,7 +317,6 @@ function tick(){
 // ---------------- Input & Judgement ----------------
 function tryHit(lane){
   if (!state.running) return;
-  // หา active ในเลนนั้นที่ใกล้ที่สุด
   let best=null, bestAbs=Infinity;
   for (const p of state.active){
     if (!p || p.judged || p.lane!==lane) continue;
@@ -367,20 +348,23 @@ function judge(p, type){
   fb.innerHTML = `<span style="color:${color};font-weight:800;">${text}</span>`;
   setTimeout(()=> fb.textContent="", 350);
 
-  // เอฟเฟกต์เบาๆ: scale โหนดทั้งก้อน (ไม่มี fade ชิ้นส่วน เพื่อลดงาน)
+  // pop เบา ๆ แล้วคืนพูล
   try { p.el.setAttribute("animation__pop","property: scale; to: 1.25 1.25 1; dur: 80; dir: alternate; easing: easeOutQuad"); } catch(e){}
-
-  // คืนพูลหลังดีเลย์สั้น ๆ
-  setTimeout(()=>{
-    if (p && p.el && p.el.parentNode) {
-      releaseNote(p);
-    }
-  }, 120);
+  setTimeout(()=>{ releaseNote(p); }, 120);
 }
 
-// ---------------- Buttons ----------------
+// ---------------- Buttons & Shortcuts ----------------
+btnStart.style.pointerEvents = 'auto';
+btnReset.style.pointerEvents = 'auto';
 btnStart.onclick = ()=>{ if(!state.running) startGame(); else finishGame(); };
 btnReset.onclick = resetGame;
+
+// คีย์ลัดบนเดสก์ท็อป: Space = Start/Finish, R = Reset
+window.addEventListener('keydown', (e)=>{
+  const k = e.key.toLowerCase();
+  if (k === ' ') { e.preventDefault(); if (!state.running) startGame(); else finishGame(); }
+  if (k === 'r') { e.preventDefault(); resetGame(); }
+});
 
 // Init
 resetGame();
