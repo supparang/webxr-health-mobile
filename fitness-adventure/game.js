@@ -1,7 +1,7 @@
-/* Fitness Adventure VR — Storyboard Preview (A-Frame)
+/* Fitness Adventure VR — Storyboard Preview + In-Scene NEXT
    - 12 ฉากตามแนว Fitness Adventure 2.0
-   - ปุ่ม Next/Prev + ป้ายในฉาก (gaze fuse) + คีย์ลัด ← → Space
-   - พร็อพ low-poly เพื่อสื่อไอเดีย (โลโก้, เมนู, อุปสรรค, พลังงาน, บอส, ฯลฯ)
+   - ปุ่ม Next/Prev (UI) + ป้าย gaze (Prev/Next) + ปุ่ม Next 3D โผล่ตอน “จบด่าน/จบซีน”
+   - คีย์ลัด ← → Space
 */
 
 const $ = (id)=>document.getElementById(id);
@@ -20,109 +20,18 @@ let SCENE_INDEX = 0;
 
 // ---------- ข้อมูล 12 ฉาก ----------
 const STORY = [
-  {
-    name: "Splash / Logo",
-    desc: "โลโก้เกม + โลโก้โรงเรียน + เสียงอินโทร (จำลอง)",
-    sky: "#dbeafe",
-    build: () => {
-      addLogo("Fitness Adventure VR", "โรงเรียนสุขภาพดี");
-    }
-  },
-  {
-    name: "Main Menu",
-    desc: "ปุ่ม Start / Options / Exit (จำลองเมนู)",
-    sky: "#e0f2fe",
-    build: () => {
-      addMenu(["Start", "Options", "Exit"]);
-    }
-  },
-  {
-    name: "Select Mode",
-    desc: "เลือกความยาก Easy / Normal / Hard",
-    sky: "#e0fbf2",
-    build: () => {
-      addModeSelector(["Easy","Normal","Hard"]);
-    }
-  },
-  {
-    name: "Tutorial",
-    desc: "สอนท่าพื้นฐาน: ย่อ – เหยียด – เอียงตัว",
-    sky: "#f1f5f9",
-    build: () => {
-      addTutorialAvatars();
-    }
-  },
-  {
-    name: "Mission Start",
-    desc: "นับถอยหลัง 3-2-1- Go! พร้อมเลนวิ่ง",
-    sky: "#fff7ed",
-    build: () => {
-      addCountdown();
-      addLane();
-    }
-  },
-  {
-    name: "Run Path 1",
-    desc: "เริ่มวิ่ง เก็บ Energy Orb ตามทาง",
-    sky: "#f0fdf4",
-    build: () => {
-      addLane();
-      addEnergyOrbs(5, {zStart:-3.5, spacing:0.8});
-    }
-  },
-  {
-    name: "Obstacle Zone",
-    desc: "เพิ่มสิ่งกีดขวาง ต้องย่อ/เอียงเพื่อหลบ",
-    sky: "#fef9c3",
-    build: () => {
-      addLane();
-      addObstacles([{x:-0.8,z:-2.8},{x:0,z:-1.8},{x:0.8,z:-0.8}]);
-    }
-  },
-  {
-    name: "Energy Boost",
-    desc: "เก็บลูกบอลพลังงานสีสว่างพร้อมแสงเรือง",
-    sky: "#fae8ff",
-    build: () => {
-      addLane();
-      addEnergyOrbs(6, {zStart:-3.5, spacing:0.6, glow:true});
-    }
-  },
-  {
-    name: "Run Path 2",
-    desc: "ทางวิ่งเร็วขึ้น + สิ่งกีดขวางมากขึ้น",
-    sky: "#eef2ff",
-    build: () => {
-      addLane();
-      addObstacles([{x:-0.8,z:-3.2},{x:0.8,z:-2.4},{x:0,z:-1.6},{x:-0.8,z:-0.8}]);
-      addEnergyOrbs(3, {zStart:-3, spacing:0.9});
-    }
-  },
-  {
-    name: "Boss Challenge",
-    desc: "ทำท่าออกแรง 5 ครั้ง (ยกแขน-ย่อ-หมุนไหล่) จำลองด้วยเป้า",
-    sky: "#fee2e2",
-    build: () => {
-      addBossTargets(5);
-    }
-  },
-  {
-    name: "Cool Down",
-    desc: "ผ่อนคลาย หายใจเข้า-ออก ยืดเหยียดเบา ๆ",
-    sky: "#ecfeff",
-    build: () => {
-      addCoolDownGuide();
-    }
-  },
-  {
-    name: "Result & Reward",
-    desc: "สรุปคะแนน ระยะทาง แคลอรี + ปลดล็อก Badge",
-    sky: "#f5f3ff",
-    build: () => {
-      addResultPanel();
-      addBadge();
-    }
-  }
+  { name:"Splash / Logo", desc:"โลโก้เกม + โลโก้โรงเรียน + เสียงอินโทร (จำลอง)", sky:"#dbeafe", build:()=>{ addLogo("Fitness Adventure VR","โรงเรียนสุขภาพดี"); } },
+  { name:"Main Menu", desc:"ปุ่ม Start / Options / Exit (จำลองเมนู)", sky:"#e0f2fe", build:()=>{ addMenu(["Start","Options","Exit"]); } },
+  { name:"Select Mode", desc:"เลือกความยาก Easy / Normal / Hard", sky:"#e0fbf2", build:()=>{ addModeSelector(["Easy","Normal","Hard"]); } },
+  { name:"Tutorial", desc:"สอนท่าพื้นฐาน: ย่อ – เหยียด – เอียงตัว", sky:"#f1f5f9", build:()=>{ addTutorialAvatars(); } },
+  { name:"Mission Start", desc:"นับถอยหลัง 3-2-1- Go! พร้อมเลนวิ่ง", sky:"#fff7ed", build:()=>{ addCountdown(); addLane(); } },
+  { name:"Run Path 1", desc:"เริ่มวิ่ง เก็บ Energy Orb ตามทาง", sky:"#f0fdf4", build:()=>{ addLane(); addEnergyOrbs(5,{zStart:-3.5,spacing:0.8}); } },
+  { name:"Obstacle Zone", desc:"เพิ่มสิ่งกีดขวาง ต้องย่อ/เอียงเพื่อหลบ", sky:"#fef9c3", build:()=>{ addLane(); addObstacles([{x:-0.8,z:-2.8},{x:0,z:-1.8},{x:0.8,z:-0.8}]); } },
+  { name:"Energy Boost", desc:"เก็บลูกบอลพลังงานสีสว่างพร้อมแสงเรือง", sky:"#fae8ff", build:()=>{ addLane(); addEnergyOrbs(6,{zStart:-3.5,spacing:0.6,glow:true}); } },
+  { name:"Run Path 2", desc:"ทางวิ่งเร็วขึ้น + สิ่งกีดขวางมากขึ้น", sky:"#eef2ff", build:()=>{ addLane(); addObstacles([{x:-0.8,z:-3.2},{x:0.8,z:-2.4},{x:0,z:-1.6},{x:-0.8,z:-0.8}]); addEnergyOrbs(3,{zStart:-3,spacing:0.9}); } },
+  { name:"Boss Challenge", desc:"ทำท่าออกแรง 5 ครั้ง (จำลองด้วยเป้า)", sky:"#fee2e2", build:()=>{ addBossTargets(5); } },
+  { name:"Cool Down", desc:"ผ่อนคลาย หายใจเข้า-ออก ยืดเหยียดเบา ๆ", sky:"#ecfeff", build:()=>{ addCoolDownGuide(); } },
+  { name:"Result & Reward", desc:"สรุปคะแนน ระยะทาง แคลอรี + ปลดล็อก Badge", sky:"#f5f3ff", build:()=>{ addResultPanel(); addBadge(); } },
 ];
 
 // ---------- Utilities ----------
@@ -140,14 +49,14 @@ function renderScene(i){
   clearRoot();
   setHUD(SCENE_INDEX);
 
-  // สร้างพื้นโปร่ง + เฟรมหน้าจอ (เหมือนบอร์ด)
+  // เฟรมพื้นหลังซีน
   const frame = document.createElement("a-entity");
   frame.setAttribute("geometry","primitive: plane; width: 3.6; height: 2.0");
   frame.setAttribute("material","color:#ffffff; opacity:0.9; shader:flat");
   frame.setAttribute("position","0 0 -0.02");
   root.appendChild(frame);
 
-  // ป้ายชื่อซีนบนเฟรม
+  // ป้ายชื่อซีน
   const label = document.createElement("a-entity");
   label.setAttribute("text", `value:${STORY[SCENE_INDEX].name}; width:6; align:center; color:#0b1220`);
   label.setAttribute("position","0 0.85 0.01");
@@ -158,7 +67,7 @@ function renderScene(i){
     STORY[SCENE_INDEX].build();
   }
 
-  // ปุ่มโค้ชในฉาก (อธิบาย)
+  // แผงคำอธิบาย
   const coach = document.createElement("a-entity");
   coach.setAttribute("geometry","primitive: plane; width: 3.2; height: 0.36");
   coach.setAttribute("material","color:#0ea5e9; opacity:0.1; shader:flat");
@@ -168,6 +77,33 @@ function renderScene(i){
   coachText.setAttribute("position","0 0 0.01");
   coach.appendChild(coachText);
   root.appendChild(coach);
+
+  // ปุ่ม Next ภายในฉาก (แสดงเมื่อ “จบ stage/ซีน”) — หน่วงให้เห็นคอนเทนต์ก่อน
+  addNextStageButton({ delay: 1200 });
+}
+
+// ---------- ปุ่ม Next 3D ในฉาก ----------
+function addNextStageButton({delay=1200}={}){
+  const nextBtn = document.createElement("a-entity");
+  nextBtn.classList.add("selectable");
+  nextBtn.setAttribute("geometry","primitive: plane; width: 1.4; height: 0.4");
+  nextBtn.setAttribute("material","color:#ffffff; opacity:0.0; shader:flat");
+  nextBtn.setAttribute("position","0 -1.2 0.05");
+  nextBtn.setAttribute("visible","false");
+
+  const txt = document.createElement("a-entity");
+  txt.setAttribute("text","value:Next Stage ▶; width:3.6; align:center; color:#0b1220");
+  txt.setAttribute("position","0 0 0.01");
+  nextBtn.appendChild(txt);
+  root.appendChild(nextBtn);
+
+  setTimeout(()=>{
+    nextBtn.setAttribute("visible","true");
+    nextBtn.setAttribute("animation__fade","property: material.opacity; from:0; to:0.95; dur:450; easing:easeOutQuad");
+    nextBtn.setAttribute("animation__pulse","property: scale; dir: alternate; dur:700; easing:easeInOutSine; from:1 1 1; to:1.05 1.05 1; loop:true");
+  }, delay);
+
+  nextBtn.addEventListener("click", nextScene);
 }
 
 // ---------- Builders (พร็อพอย่างง่าย) ----------
@@ -184,7 +120,6 @@ function addLogo(title="Fitness Adventure VR", subtitle=""){
     root.appendChild(s);
   }
 
-  // โลโก้สัญลักษณ์ (วงกลม + สายฟ้า)
   const circle = document.createElement("a-entity");
   circle.setAttribute("geometry","primitive: circle; radius:0.35; segments:48");
   circle.setAttribute("material","color:#22c55e; opacity:0.9; shader:flat");
@@ -283,7 +218,6 @@ function addLane(){
   lane.setAttribute("position","0 0 0");
   root.appendChild(lane);
 
-  // เสา/หลักบอกเลน
   [-1.2, 0, 1.2].forEach(x=>{
     const post = document.createElement("a-entity");
     post.setAttribute("geometry","primitive: box; width:0.06; height:1.6; depth:0.02");
@@ -352,11 +286,7 @@ function addResultPanel(){
   panel.setAttribute("geometry","primitive: plane; width: 2.8; height: 1.4");
   panel.setAttribute("material","color:#ffffff; opacity:0.95; shader:flat");
   panel.setAttribute("position","0 0 0.01");
-  const text = [
-    "คะแนน: 1230",
-    "ระยะทาง: 1.2 km",
-    "พลังงานที่ใช้: ~45 kcal"
-  ].join("\\n");
+  const text = ["คะแนน: 1230","ระยะทาง: 1.2 km","พลังงานที่ใช้: ~45 kcal"].join("\\n");
   const t = document.createElement("a-entity");
   t.setAttribute("text",`value:${text}; width:5.2; align:center; color:#0b1220`);
   t.setAttribute("position","0 0 0.02");
