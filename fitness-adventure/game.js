@@ -1,8 +1,9 @@
-/* Fitness Adventure VR — Game v2 (Music + Themes + Quests/Badges/Stats)
+/* Fitness Adventure VR — Game v2 (All-in-One)
    - Runner 3 เลน: เลือกเลน (ซ้าย/กลาง/ขวา) เพื่อเก็บ Orb / หลบ Obstacle
    - เพลง/เอฟเฟกต์เสียง: Web Audio API (ไม่ต้องใช้ไฟล์เสียง)
    - ธีมฉาก Jungle/City/Space (พื้นหลัง/พร็อพ)
-   - ระบบเควส, ปล่อย Badge เมื่อทำได้, เก็บสถิติใน localStorage
+   - ระบบเควส, แบดจ์, สถิติสะสม (localStorage)
+   - Desktop Friendly: ปุ่มเลน HTML + คีย์ลัด + Mouse Look toggle
    - มือถือลื่น: object pool + object3D.position
 */
 
@@ -21,6 +22,11 @@ const selectQuest = $("quest");
 const laneL = $("laneL");
 const laneC = $("laneC");
 const laneR = $("laneR");
+const mouseLookToggle = $("mouseLookToggle");
+const btnL = $("btnL");
+const btnC = $("btnC");
+const btnR = $("btnR");
+
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 // --------- Audio (WebAudio no files) ----------
@@ -270,10 +276,19 @@ function updateLaneMarker(){
   const mk = document.getElementById("laneMarker");
   if (mk) mk.object3D.position.set(laneX(state.lane), 0, 0.05);
 }
+
+// ====== ฟังก์ชันย้ายเลนแบบแชร์ ======
+function setLane(idx, feedbackText=true){
+  state.lane = Math.max(0, Math.min(2, idx));
+  updateLaneMarker();
+  if (feedbackText) { SFX?.ok?.(); feedback(["เลนซ้าย","เลนกลาง","เลนขวา"][state.lane], "#38bdf8"); }
+}
+
+// ป้ายในฉาก
 function attachLaneButtons(){
-  laneL.addEventListener("click", ()=>{ state.lane = 0; updateLaneMarker(); SFX.ok(); feedback("เลนซ้าย","#38bdf8"); });
-  laneC.addEventListener("click", ()=>{ state.lane = 1; updateLaneMarker(); SFX.ok(); feedback("เลนกลาง","#38bdf8"); });
-  laneR.addEventListener("click", ()=>{ state.lane = 2; updateLaneMarker(); SFX.ok(); feedback("เลนขวา","#38bdf8"); });
+  laneL.addEventListener("click", ()=> setLane(0));
+  laneC.addEventListener("click", ()=> setLane(1));
+  laneR.addEventListener("click", ()=> setLane(2));
 }
 
 // ---------- Spawner ----------
@@ -296,9 +311,7 @@ function makeItems(pattern, duration, step){
 
 // ---------- Stats (localStorage) ----------
 const STAT_KEY = "fitnessAdventureStats_v2";
-function loadStats(){
-  try{ return JSON.parse(localStorage.getItem(STAT_KEY)||"{}"); }catch(e){ return {}; }
-}
+function loadStats(){ try{ return JSON.parse(localStorage.getItem(STAT_KEY)||"{}"); }catch(e){ return {}; } }
 function saveStats(s){ try{ localStorage.setItem(STAT_KEY, JSON.stringify(s)); }catch(e){} }
 
 // ---------- Quests & Badges ----------
@@ -306,7 +319,7 @@ function setupQuest(){
   state.questType = selectQuest.value;
   state.questProgress = 0; state.surviveOK = true; state.streak = 0; state.bestStreak = 0;
   const diff = DIFF[selectDiff.value||'easy'];
-  if (state.questType==='collect')      state.questTarget = Math.round(diff.duration/4); // ประมาณทุก 4 วิ 1 ลูก
+  if (state.questType==='collect')      state.questTarget = Math.round(diff.duration/4);
   else if (state.questType==='streak')  state.questTarget = Math.max(5, Math.round(8 * (diff.speed-1.6)));
   else                                  state.questTarget = 1;
   setQuestHUD();
@@ -533,7 +546,7 @@ function loop(){
     }
   }
 
-  // เควสสำเร็จล่วงหน้า → ให้โบนัสเล็กน้อยและโชว์สัญลักษณ์ครั้งเดียว
+  // เควสสำเร็จล่วงหน้า → โบนัสครั้งเดียว
   if (isQuestCleared() && !loop._questShown){
     loop._questShown = true;
     scoreAdd(100, "🎯 เควสสำเร็จ! +100", "#22c55e");
@@ -581,12 +594,31 @@ btnReset.onclick = ()=>{
 $("btnStart").style.pointerEvents='auto';
 $("btnReset").style.pointerEvents='auto';
 
+// ปุ่มเลน HTML
+btnL && (btnL.onclick = ()=> setLane(0));
+btnC && (btnC.onclick = ()=> setLane(1));
+btnR && (btnR.onclick = ()=> setLane(2));
+
+// ป้ายในฉาก (fuse/click)
 attachLaneButtons();
 
-// เดสก์ท็อป: A/S/D เปลี่ยนเลน
+// คีย์ลัดเดสก์ท็อป: A/S/D หรือ ← ↑ →
 window.addEventListener('keydown',(e)=>{
   const k = e.key.toLowerCase();
-  if (k==='a') { state.lane=0; updateLaneMarker(); SFX.ok(); feedback("เลนซ้าย","#38bdf8"); }
-  if (k==='s') { state.lane=1; updateLaneMarker(); SFX.ok(); feedback("เลนกลาง","#38bdf8"); }
-  if (k==='d') { state.lane=2; updateLaneMarker(); SFX.ok(); feedback("เลนขวา","#38bdf8"); }
+  if (k==='a' || k==='arrowleft')  setLane(0);
+  if (k==='s' || k==='arrowup')    setLane(1);
+  if (k==='d' || k==='arrowright') setLane(2);
 });
+
+// Mouse Look Toggle (เปิด/ปิด pointer-events ของ a-scene ผ่าน class บน body)
+mouseLookToggle && mouseLookToggle.addEventListener('change', ()=>{
+  if (mouseLookToggle.checked){
+    document.body.classList.add('mouse-look');
+  }else{
+    document.body.classList.remove('mouse-look');
+  }
+});
+
+// Init UI
+setHUD("พร้อมเริ่ม\nวิธีย้ายเลน: ปุ่ม Left/Center/Right • คีย์ ← ↑ → หรือ A/S/D • หรือเล็งป้ายในฉาก");
+setLivesUI(3);
