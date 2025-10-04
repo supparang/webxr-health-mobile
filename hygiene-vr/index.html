@@ -8,23 +8,28 @@
   <style>
     :root { --glass: rgba(0,0,0,.55); }
     body { margin:0; font-family:system-ui, Arial; background:#eef5ff; color:#0b1220; }
-    .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
-           color:#fff; padding:10px 14px; border-radius:12px; min-width:320px; white-space:pre-line }
+
+    /* UI overlays ต้องกดได้เสมอ */
+    .hud, .ui, .tip { position:fixed; z-index:9999; pointer-events:auto; }
+    .hud { right:12px; top:12px; background:var(--glass); color:#fff; padding:10px 14px; border-radius:12px; min-width:320px; white-space:pre-line }
     .hud h1 { margin:0 0 6px 0; font-size:18px }
-    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px; flex-wrap:wrap }
-    .ui select, .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700;
-           background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer }
+    .ui  { left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap }
+    .ui select, .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700; background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer }
     .ui select { background:#e6f0ff; color:#0b1220; font-weight:600 }
     .ui button.gray { background:#e5e7eb; color:#111; font-weight:600 }
-    .tip { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
-           color:#fff; padding:10px 12px; border-radius:12px; max-width:520px; font-size:14px; line-height:1.45 }
+    .tip { left:12px; top:12px; background:var(--glass); color:#fff; padding:10px 12px; border-radius:12px; max-width:520px; font-size:14px; line-height:1.45 }
+
+    /* กัน canvas ของ A-Frame บังคลิก DOM บนเดสก์ท็อป */
+    a-scene, a-scene canvas { pointer-events: none !important; }
+    /* ยกเว้นปุ่ม Enter VR/AR ให้กดได้ */
+    .a-enter-vr, .a-enter-ar { pointer-events:auto !important; z-index:10000; }
   </style>
 </head>
 <body>
   <div class="tip">
     <b>Hygiene Rhythm Game</b><br/>
     เล็งเคอร์เซอร์ไปที่เลนแล้ว <b>มองค้าง 1 วิ</b> (fuse) หรือกด OK เพื่อเก็บโน้ต<br/>
-    <b>สัญลักษณ์:</b> 🧼 วงกลม = ล้างมือ | 🪥 สี่เหลี่ยม = แปรงฟัน | 🤧 สามเหลี่ยม = ปิดปาก
+    โหมด <b>Training</b>: ปล่อยโน้ตช้า + ตัวเลขนับบีท 1-2-3-4
   </div>
 
   <div class="hud">
@@ -36,8 +41,9 @@
   <div class="ui">
     <label>โหมด:
       <select id="difficulty">
+        <option value="training" selected>Training (ช้า + นับบีท)</option>
         <option value="easy">Easy (BPM 80)</option>
-        <option value="normal" selected>Normal (BPM 100)</option>
+        <option value="normal">Normal (BPM 100)</option>
         <option value="hard">Hard (BPM 120)</option>
       </select>
     </label>
