@@ -49,7 +49,7 @@
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#eaf2ff" raycaster="showLine:false">
-    <!-- กล้อง + เคอร์เซอร์สำหรับ fuse (1 วิ) -->
+    <!-- กล้อง + เคอร์เซอร์ (fuse 1 วิ) -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <a-entity id="cursor"
@@ -61,10 +61,10 @@
       </a-entity>
     </a-entity>
 
-    <!-- รากของฉากสตอรีบอร์ด (จะถูก re-render ทุกซีน) -->
+    <!-- รากของฉากสตอรีบอร์ด -->
     <a-entity id="root" position="0 1.5 -3"></a-entity>
 
-    <!-- ป้ายในโลก 3D เพื่อ Next / Prev ด้วย gaze -->
+    <!-- ป้ายในโลก 3D: Prev / Next แบบ gaze -->
     <a-entity id="navPrev" class="selectable" position="-1.4 0.8 -2.2"
               geometry="primitive: plane; width: 0.9; height: 0.28"
               material="color:#ffffff; opacity:0.92; shader:flat">
