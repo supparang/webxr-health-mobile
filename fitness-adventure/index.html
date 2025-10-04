@@ -2,129 +2,84 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Fitness Adventure VR</title>
-
-  <!-- A-Frame -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+  <title>Fitness Adventure VR — Storyboard Preview</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- Plausible Analytics -->
-  <script defer data-domain="supparang.github.io" src="https://plausible.io/js/script.js"></script>
-
   <style>
-    :root { --glass: rgba(0,0,0,.55); }
-    body { margin:0; font-family:system-ui, Arial; background:#0e1726; color:#fff; }
-    .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
-           padding:10px 14px; border-radius:12px; min-width:320px; }
-    .hud h1 { margin:0 0 6px 0; font-size:18px }
-    .row { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 }
-    .pill { padding:2px 8px; border-radius:999px; background:#111; color:#fff }
-    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px; flex-wrap:wrap; }
-    .group { background:var(--glass); padding:8px 10px; border-radius:12px; display:flex; gap:8px; align-items:center }
-    .ui button, .ui select, .ui input[type="checkbox"] { padding:8px 10px; border-radius:12px; border:none; font-weight:700;
-      background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2); cursor:pointer }
-    .ui select { background:#e0e7ff }
-    .ui input[type="checkbox"] { width:20px; height:20px; background:#fff; cursor:pointer }
-    .ui label { font-size:14px; }
-    .ui button.gray { background:#e5e7eb; color:#111 }
-    .help { position:fixed; left:12px; top:12px; z-index:10; background:var(--glass);
-      padding:8px 12px; border-radius:12px; max-width:780px; font-size:14px; line-height:1.45 }
-    .meter { height:8px; background:#172554; border-radius:999px; overflow:hidden }
-    .meter > span { display:block; height:100%; background:#60a5fa; width:0% }
-    .mini { font-size:12px; opacity:.9 }
+    :root { --glass: rgba(0,0,0,.6); }
+    body { margin:0; font-family:system-ui, Arial, sans-serif; background:#eaf2ff; color:#0b1220; }
+    /* UI overlays กดได้เสมอ */
+    .hud, .ui, .tip { position:fixed; z-index:9999; pointer-events:auto; }
+    .hud {
+      right:12px; top:12px; min-width:320px;
+      background:var(--glass); color:#fff;
+      padding:10px 14px; border-radius:12px; white-space:pre-line;
+    }
+    .hud h1 { margin:0 0 6px 0; font-size:18px; }
+    .ui { left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap; }
+    .ui button { padding:10px 14px; border-radius:12px; border:none; font-weight:700;
+      background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer; }
+    .ui button.gray { background:#e5e7eb; color:#111; }
+    .tip {
+      left:12px; top:12px; max-width:520px;
+      background:var(--glass); color:#fff;
+      padding:10px 12px; border-radius:12px; font-size:14px; line-height:1.45;
+    }
+    /* กัน canvas บังปุ่มบนเดสก์ท็อป */
+    a-scene, a-scene canvas { pointer-events:none !important; }
+    .a-enter-vr, .a-enter-ar { pointer-events:auto !important; z-index:10000; }
   </style>
 </head>
 <body>
-  <div class="help">
-    <b>Fitness Adventure VR</b> — เล่นได้ทั้ง <span class="pill">รีโมท Shinecon (กด OK)</span>, <span class="pill">Fuse (จ้อง 1.2 วิ)</span>,
-    และ <span class="pill">Hand-Tracking + Pinch</span> • เปิด <b>Beat Sync</b> เพื่อเล่นตาม BPM • กด <b>Enter VR</b> เพื่อเริ่ม
+  <div class="tip">
+    <b>Fitness Adventure VR — Storyboard Preview</b><br/>
+    ดูต้นแบบสตอรีบอร์ด 12 ฉากของเกม (Prototype ไม่ใช่เกมจริง)<br/>
+    วิธีควบคุม: ปุ่ม <b>Prev / Next</b>, คีย์ลัด <b>← / → / Space</b>, หรือเล็งป้ายในฉากแล้ว <b>มองค้าง</b> (fuse)
   </div>
 
   <div class="hud">
-    <h1>Fitness Adventure VR</h1>
-    <div class="row">โหมด: <span id="modeText" class="pill">Practice</span> | ระดับ: <span id="diffText" class="pill">Normal</span></div>
-    <div>ด่าน: <span id="stageText">Warmup</span> | เป้า: <span id="goalText">ทำภารกิจตามลำดับ</span></div>
-    <div>เวลา: <span id="timeText">—</span> | คะแนน: <span id="scoreText">0</span></div>
-    <div class="mini">ความคืบหน้า: <span id="progressText">0 / 0</span></div>
-    <div class="meter" style="margin-top:6px"><span id="meterBar"></span></div>
-    <div id="status" style="margin-top:6px">กด Start เพื่อเริ่ม</div>
+    <h1 id="sceneTitle">Scene 1/12 — Splash</h1>
+    <div id="sceneDesc">โลโก้ + อินโทร</div>
   </div>
 
   <div class="ui">
-    <div class="group">
-      <span>Mode</span>
-      <button id="btnPractice">Practice</button>
-      <button id="btnChallenge">Challenge</button>
-    </div>
-    <div class="group">
-      <span>Difficulty</span>
-      <select id="selDiff">
-        <option>Easy</option>
-        <option selected>Normal</option>
-        <option>Hard</option>
-      </select>
-    </div>
-    <div class="group">
-      <span>Beat</span>
-      <label style="display:flex;gap:6px;align-items:center;">
-        <input id="chkBeat" type="checkbox" />
-        <span>Beat Sync</span>
-      </label>
-      <select id="selBpm" title="BPM">
-        <option value="90">90 BPM</option>
-        <option value="100" selected>100 BPM</option>
-        <option value="120">120 BPM</option>
-        <option value="140">140 BPM</option>
-      </select>
-    </div>
-    <div class="group">
-      <button id="btnStart">Start</button>
-      <button id="btnNext">Next Stage</button>
-      <button id="btnReset" class="gray">Reset</button>
-      <button id="btnExport">Export JSON</button>
-    </div>
+    <button id="btnPrev" class="gray">← Prev</button>
+    <button id="btnNext">Next →</button>
+    <button id="btnReplay" class="gray" title="ไปฉากแรก">Replay</button>
   </div>
 
-  <!-- เปิด raycaster line ตอนดีบักได้ด้วย raycaster="showLine:true" -->
-  <a-scene renderer="antialias:true;colorManagement:true" background="color:#0b1020" raycaster="showLine:false">
-    <a-entity id="rig" position="0 1.6 3">
-      <!-- กล้องหลัก + CROSSHAIR: รองรับ OK + Fuse(1200ms) + Progress Ring (plane overlay) -->
+  <a-scene renderer="antialias:true;colorManagement:true" background="color:#eaf2ff" raycaster="showLine:false">
+    <!-- กล้อง + เคอร์เซอร์สำหรับ fuse (1 วิ) -->
+    <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
-        <a-entity id="centerCursor"
-                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1200"
-                  raycaster="objects: .target, .clickable"
+        <a-entity id="cursor"
+                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
+                  raycaster="objects: .selectable"
                   position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
-                  material="color: #ffcc00; shader: flat; opacity: 0.95">
-
-          <!-- Progress ring ด้วยแคนวาส (gradient + สั่นใกล้ครบวง) -->
-          <a-entity id="fuseProgress"
-                    geometry="primitive: plane; width: 0.08; height: 0.08"
-                    material="shader: flat; transparent: true; alphaTest: 0.01"
-                    position="0 0 0.001">
-          </a-entity>
-        </a-entity>
+                  geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+                  material="color:#0ea5e9; shader:flat; opacity:0.95"></a-entity>
       </a-entity>
-
-      <!-- Controllers (fallback) -->
-      <a-entity id="ctrlR" laser-controls="hand: right"></a-entity>
-      <a-entity id="ctrlL" laser-controls="hand: left"></a-entity>
-
-      <!-- Hand-tracking -->
-      <a-entity id="handR" hand-tracking-controls="hand: right" visible="true"></a-entity>
-      <a-entity id="handL" hand-tracking-controls="hand: left" visible="true"></a-entity>
-
-      <!-- finger cursor (ปลายนิ้ว) -->
-      <a-sphere id="fingerCursor" radius="0.012" color="#ffffaa" position="0 0 -1" visible="false"></a-sphere>
     </a-entity>
 
-    <!-- Lights -->
-    <a-entity light="type: ambient; color: #CFE8FF; intensity: 0.7"></a-entity>
-    <a-entity light="type: directional; color: #FFF; intensity: 0.9" position="1 2 0"></a-entity>
+    <!-- รากของฉากสตอรีบอร์ด (จะถูก re-render ทุกซีน) -->
+    <a-entity id="root" position="0 1.5 -3"></a-entity>
 
-    <!-- Stage root -->
-    <a-entity id="arena"></a-entity>
-    <a-entity id="game"></a-entity>
+    <!-- ป้ายในโลก 3D เพื่อ Next / Prev ด้วย gaze -->
+    <a-entity id="navPrev" class="selectable" position="-1.4 0.8 -2.2"
+              geometry="primitive: plane; width: 0.9; height: 0.28"
+              material="color:#ffffff; opacity:0.92; shader:flat">
+      <a-entity position="0 0 0.01" text="value:◀ Prev; width: 2.8; align:center; color:#0b1220"></a-entity>
+    </a-entity>
+    <a-entity id="navNext" class="selectable" position="1.4 0.8 -2.2"
+              geometry="primitive: plane; width: 0.9; height: 0.28"
+              material="color:#ffffff; opacity:0.92; shader:flat">
+      <a-entity position="0 0 0.01" text="value:Next ▶; width: 2.8; align:center; color:#0b1220"></a-entity>
+    </a-entity>
+
+    <!-- แสง + ท้องฟ้า -->
+    <a-sky id="sky" color="#eaf2ff"></a-sky>
+    <a-entity light="type: ambient; color: #ffffff; intensity: 0.95"></a-entity>
+    <a-entity light="type: directional; color: #fff; intensity: 0.7" position="1 2 0"></a-entity>
   </a-scene>
 
   <script src="game.js"></script>
