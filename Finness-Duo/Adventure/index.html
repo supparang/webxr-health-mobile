@@ -1,86 +1,151 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fitness Adventure VR — Multi-song + BPM Sync</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+  <title>Fitness Duo VR — Menu</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
-    .ui { position: fixed; left: 12px; bottom: 12px; z-index: 10; font-family: system-ui, Arial; display:flex; gap:6px; flex-wrap:wrap }
-    .ui button, .ui select, .ui input{ padding:10px 12px; border-radius:12px; border: none; font-weight:600; box-shadow: 0 2px 8px rgba(0,0,0,.15) }
-    .hud { position: fixed; right: 12px; top: 12px; z-index: 10; font-family: system-ui, Arial; background: rgba(0,0,0,.45); color:#fff; padding:10px 14px; border-radius:12px; min-width:200px }
-    .hud b { font-size: 18px }
+    :root {
+      --glass: rgba(0,0,0,.55);
+      --card: rgba(255,255,255,.92);
+    }
+    html, body { margin:0; height:100%; background:#050914; font-family:system-ui, Arial, sans-serif; }
+    a-scene, a-scene canvas { position:fixed; inset:0; z-index:1; }
+
+    /* Top HUD */
+    .hud {
+      position:fixed; z-index:2147483001; right:12px; top:12px; min-width:320px;
+      background:var(--glass); color:#fff; padding:10px 14px; border-radius:12px; white-space:pre-line;
+    }
+    .hud h1 { margin:0 0 6px 0; font-size:18px; }
+
+    /* Main UI panel */
+    .ui {
+      position:fixed; z-index:2147483001; left:12px; bottom:12px; right:12px;
+      display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:stretch;
+    }
+    @media (max-width: 980px){
+      .ui { grid-template-columns: 1fr; }
+    }
+    .card {
+      background:var(--card); border-radius:16px; padding:14px; box-shadow:0 8px 28px rgba(0,0,0,.25);
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .card h2 { margin:0; font-size:18px; color:#0b1220; display:flex; align-items:center; gap:6px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .row > label { background:#fff; padding:10px 12px; border-radius:12px; display:flex; gap:8px; align-items:center; font-weight:700; color:#0b1220; }
+    select { border:none; font-weight:700; background:transparent; outline:none; }
+    .btn {
+      border:none; border-radius:12px; padding:12px 16px; font-weight:800; cursor:pointer;
+      box-shadow:0 6px 18px rgba(0,0,0,.22);
+    }
+    .btn.primary { background:#79a8ff; color:#001; }
+    .btn.green   { background:#7dfcc6; color:#052; }
+    .btn.gray    { background:#e5e7eb; color:#111; }
+    .foot { display:flex; gap:8px; flex-wrap:wrap; }
+
+    /* Tiny footer line */
+    .footer {
+      position:fixed; z-index:2147483001; left:12px; top:12px;
+      background:var(--glass); color:#fff; padding:8px 12px; border-radius:12px; font-size:13px;
+      max-width:560px;
+    }
   </style>
 </head>
 <body>
+  <!-- Left hint -->
+  <div class="footer">
+    <b>Fitness Duo VR</b><br/>
+    เลือกเกมที่ต้องการเล่น → ปรับโหมด/ธีม → กด Start เกมจะเปิดหน้า Adventure หรือ Rhythm พร้อมพารามิเตอร์
+  </div>
+
+  <!-- Right HUD -->
+  <div class="hud">
+    <h1 id="title">เมนูหลัก</h1>
+    <div id="stat">พร้อมเริ่ม • เลือกเกมด้านล่าง</div>
+  </div>
+
+  <!-- Cards -->
   <div class="ui">
-    <select id="selectBeat">
-      <option value="assets/beatmap_easy.json">Easy</option>
-      <option value="assets/beatmap_normal.json">Normal</option>
-      <option value="assets/beatmap_hard.json">Hard</option>
-    </select>
-    <select id="selectSong">
-      <option value="assets/song_easy.wav" data-bpm="120">Song: Easy (120 BPM)</option>
-      <option value="assets/song_normal.wav" data-bpm="128">Song: Normal (128 BPM)</option>
-      <option value="assets/song_hard.wav" data-bpm="140">Song: Hard (140 BPM)</option>
-    </select>
-    <label>Custom song <input type="file" id="fileSong" accept="audio/*"></label>
-    <button id="btnStart">Start</button>
-    <button id="btnHow">How to Play</button>
-    <button id="btnPreview">Metronome Preview</button>
+    <!-- Adventure card -->
+    <div class="card">
+      <h2>🏃‍♂️ Adventure Mode — วิ่งเก็บพลังงาน</h2>
+      <div class="row">
+        <label>โหมด:
+          <select id="advDiff">
+            <option value="easy" selected>Easy</option>
+            <option value="normal">Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label>ธีม:
+          <select id="advTheme">
+            <option value="jungle" selected>Jungle</option>
+            <option value="city">City</option>
+            <option value="space">Space</option>
+          </select>
+        </label>
+        <label>เควส:
+          <select id="advQuest">
+            <option value="collect" selected>เก็บ Orb</option>
+            <option value="survive">เอาตัวรอด</option>
+            <option value="streak">หลบต่อเนื่อง</option>
+          </select>
+        </label>
+      </div>
+      <div class="foot">
+        <button id="btnAdvStart" class="btn primary">▶ Start Adventure</button>
+        <button id="btnAdvHow" class="btn gray">How to Play</button>
+      </div>
+    </div>
+
+    <!-- Rhythm card -->
+    <div class="card">
+      <h2>🎵 Rhythm Stretch VR — ขยับตามจังหวะ</h2>
+      <div class="row">
+        <label>โหมด:
+          <select id="rymMode">
+            <option value="training" selected>Training</option>
+            <option value="challenge">Challenge</option>
+          </select>
+        </label>
+        <label>BPM:
+          <select id="rymBpm">
+            <option value="100" selected>100</option>
+            <option value="110">110</option>
+            <option value="120">120</option>
+            <option value="130">130</option>
+          </select>
+        </label>
+        <label>ธีม:
+          <select id="rymTheme">
+            <option value="beach" selected>Beach</option>
+            <option value="city">City</option>
+            <option value="galaxy">Galaxy</option>
+          </select>
+        </label>
+      </div>
+      <div class="foot">
+        <button id="btnRymStart" class="btn green">▶ Start Rhythm</button>
+        <button id="btnRymHow" class="btn gray">How to Play</button>
+      </div>
+    </div>
   </div>
-  <div class="hud" id="hud" hidden>
-    <div><b>Fitness Adventure</b></div>
-    <div>Time: <span id="hudTime">60</span>s</div>
-    <div>Score: <span id="hudScore">0</span></div>
-    <div>Combo: <span id="hudCombo">0</span></div>
-    <div>Diff: <span id="hudDiff">0</span>%</div>
-  </div>
 
-  <a-scene renderer="antialias: true; colorManagement: true" background="color: #1e2a38">
-    <a-entity id="rig" position="0 1.6 3">
-      <a-entity id="camera" camera look-controls wasd-controls="enabled:false"></a-entity>
-      <a-entity id="cursor" cursor="fuse:false" raycaster="objects: .clickable" position="0 0 -0.1">
-        <a-ring radius-inner="0.005" radius-outer="0.008" color="#fff"></a-ring>
-      </a-entity>
-      <a-sphere id="leftHand" radius="0.05" color="#66ccff" position="-0.25 1.2 -0.2" opacity="0.5"></a-sphere>
-      <a-sphere id="rightHand" radius="0.05" color="#ff99cc" position="0.25 1.2 -0.2" opacity="0.5"></a-sphere>
-    </a-entity>
-
-    <a-plane rotation="-90 0 0" width="20" height="120" color="#2b3b4d" position="0 0 0"></a-plane>
-    <a-plane rotation="-90 0 0" width="2" height="120" color="#2f4f6f" position="0 0 0"></a-plane>
-
-    <a-entity light="type: ambient; color: #BBD1FF; intensity: 0.6"></a-entity>
-    <a-entity light="type: directional; color: #FFF; intensity: 0.8" position="1 2 0"></a-entity>
-
-    <a-entity id="titleBoard" position="0 1.6 -1.8">
-      <a-plane width="1.8" height="1" color="#0e1726" opacity="0.95" material="shader: standard; emissive: #0e1726; emissiveIntensity: .4"></a-plane>
-      <a-entity text="value: FITNESS ADVENTURE VR; align: center; color: #FFFFFF; width: 2.2"></a-entity>
-      <a-entity position="0 -0.33 0" text="value: Select song + beat map → Start. Raise hands, punch, duck; align:center; color:#CFE8FF; width: 2.1"></a-entity>
-    </a-entity>
-
-    <a-entity id="world"></a-entity>
-
-    <a-entity id="fxTemplate" position="0 2 -2" visible="false">
-      <a-entity id="fxText" text="value: PERFECT; align:center; color:#7CFC00; width: 3"></a-entity>
-    </a-entity>
-
-    <a-entity id="summaryPanel" visible="false" position="0 1.6 -2">
-      <a-plane width="1.8" height="1.1" color="#0e1726" opacity="0.95" material="shader: standard; emissive: #0e1726; emissiveIntensity: .3"></a-plane>
-      <a-entity id="sumTitle" position="0 0.3 0" text="value: SUMMARY; align:center; color: #FFFFFF; width: 2.2"></a-entity>
-      <a-entity id="sumStars" position="0 0.05 0" text="value: ★☆☆; align:center; color:#FFD166; width: 2"></a-entity>
-      <a-entity id="sumStats" position="0 -0.22 0" text="value: Score: 0 | Time: 60s; align:center; color:#CFE8FF; width: 2"></a-entity>
-    </a-entity>
-
-    <a-assets>
-      <audio id="sfxPerfect" src="assets/metronome.wav"></audio>
-      <audio id="sfxGood" src="assets/metronome.wav"></audio>
-      <audio id="sfxMiss" src="assets/metronome.wav"></audio>
-      <audio id="bgm" src="assets/song_easy.wav"></audio>
-      <audio id="metronome" src="assets/metronome.wav"></audio>
+  <!-- 360° background preview (optional sky) -->
+  <a-scene background="color:#050914" renderer="antialias:true;colorManagement:true">
+    <a-assets timeout="30000">
+      <!-- ถ้ามีไฟล์ 360° ให้อ้างที่นี่ (ไม่จำเป็นต้องมี) -->
+      <!-- <img id="sky-city" src="assets/backgrounds/daysky013a_4k.jpg" crossorigin="anonymous"> -->
     </a-assets>
+
+    <a-sky id="sky" radius="24" color="#0b1220"></a-sky>
+
+    <!-- แสงเบา ๆ -->
+    <a-entity light="type: ambient; intensity: 1.0; color: #fff"></a-entity>
   </a-scene>
 
-  <script src="player.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
