@@ -9,7 +9,7 @@
     :root { --glass: rgba(0,0,0,.6); }
     html,body{margin:0;height:100%;background:#050914;font-family:system-ui,Arial,sans-serif;}
     a-scene, a-scene canvas { position:fixed; inset:0; z-index:1; }
-    .hud, .ui, .back {
+    .hud, .ui, .back, .debug {
       position:fixed; z-index:2147483000; pointer-events:auto;
     }
     .hud { right:12px; top:12px; min-width:320px; background:var(--glass); color:#fff;
@@ -23,10 +23,13 @@
     .ui button.primary{background:#79a8ff; color:#001;}
     .back { left:12px; top:12px; background:var(--glass); color:#fff; padding:8px 12px; border-radius:10px; }
     .back a{color:#fff; text-decoration:none; font-weight:700;}
+    .debug { left:12px; top:56px; background:rgba(255,0,0,.12); color:#fff; padding:6px 10px; border-radius:10px; font-size:12px; display:none; }
+    .debug.show { display:block; }
   </style>
 </head>
 <body>
   <div class="back">⬅ <a href="../index.html">กลับเมนูหลัก</a></div>
+  <div id="debug" class="debug"></div>
 
   <div class="hud">
     <h1 id="hudTitle">Adventure Mode</h1>
@@ -100,17 +103,27 @@
     <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
   </a-scene>
 
-  <!-- เกมหลัก (ไฟล์ของ Adventure ที่คุณมีอยู่แล้ว) -->
+  <!-- เกมหลักของ Adventure -->
   <script src="game.js"></script>
 
-  <!-- ตัวตั้งค่าจาก Query (ต้องโหลดหลัง game.js เพื่อเข้าถึง element id เดิม) -->
+  <!-- ตัวตั้งค่าจาก Query + Safety Net สำหรับ Start -->
   <script>
-    (function applyQueryToAdventure(){
+    (function boot(){
+      const $ = (id)=>document.getElementById(id);
+      const dbg = $("debug");
+      const hudText = $("hudText");
+
+      const log = (m, warn=false)=>{
+        console[warn?'warn':'log']("[ADV] "+m);
+        if (dbg){ dbg.classList.add('show'); dbg.textContent = m; }
+      };
+
+      // 1) อัปเดตจาก query
       const q = new URLSearchParams(location.search);
       const mapVal = (elId, key, allow=[])=>{
         const v = q.get(key);
         if (!v) return;
-        const el = document.getElementById(elId);
+        const el = $(elId);
         if (!el) return;
         if (allow.length===0 || allow.includes(v)) {
           el.value = v;
@@ -120,15 +133,60 @@
       mapVal('difficulty','diff',['easy','normal','hard']);
       mapVal('theme','theme',['jungle','city','space']);
       mapVal('quest','quest',['collect','survive','streak']);
-
-      // autostart=1 → คลิก Start ให้อัตโนมัติ (เฉพาะครั้งแรก)
-      if (q.get('autostart') === '1') {
-        const btn = document.getElementById('btnStart');
-        if (btn) setTimeout(()=>btn.click(), 200);
-      }
-      // อัปเดต HUD เริ่มต้น
-      const hudText = document.getElementById('hudText');
       if (hudText) hudText.textContent = 'พร้อมเริ่ม (ค่าถูกตั้งตามลิงก์แล้ว)';
+
+      // 2) ฟอลแบ็ก: ผูกปุ่ม Start หาก game.js ไม่ได้ผูก
+      const btnStart = $("btnStart");
+      const btnReset = $("btnReset");
+
+      function resumeAudioIfAny(){
+        // ถ้าเกมของคุณมี ensureAudio() อยู่ จะถูกเรียกใน startGame เอง
+        // ที่นี่ปลุก AudioContext แบบมาตรฐาน (หลายบราวเซอร์ต้องการ gesture)
+        try{
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC && !window.__audioCtx){
+            window.__audioCtx = new AC();
+            const osc = __audioCtx.createOscillator();
+            const gain = __audioCtx.createGain();
+            gain.gain.value = 0.0001; // เงียบ
+            osc.connect(gain).connect(__audioCtx.destination);
+            osc.start(); osc.stop(__audioCtx.currentTime + 0.02);
+          }
+        }catch(e){}
+      }
+
+      if (btnStart){
+        btnStart.addEventListener('click', ()=>{
+          resumeAudioIfAny();
+          if (typeof window.startGame === 'function'){
+            log("เรียก startGame() จาก game.js");
+            try{ window.startGame(); }catch(err){ log("startGame() error: "+err, true); alert("เกิดข้อผิดพลาดใน startGame() ดู Console"); }
+          }else{
+            log("ไม่พบฟังก์ชัน startGame() — ตรวจ path ของ game.js", true);
+            alert("ไม่พบฟังก์ชัน startGame()\nเป็นไปได้ว่าเกมไม่โหลด: ตรวจว่าไฟล์ adventure/game.js อยู่จริงและเส้นทาง <script src=\"game.js\"> ถูกต้อง");
+          }
+        });
+      }
+      if (btnReset){
+        btnReset.addEventListener('click', ()=>{
+          if (typeof window.stopMusic === 'function'){ try{ window.stopMusic(); }catch(e){} }
+          if (hudText) hudText.textContent = 'รีเซ็ตแล้ว • พร้อมเริ่ม';
+        });
+      }
+
+      // 3) autostart
+      if (q.get('autostart') === '1' && btnStart){
+        setTimeout(()=> btnStart.click(), 250);
+      }
+
+      // 4) รายงานสถานะโหลด game.js
+      setTimeout(()=>{
+        if (typeof window.startGame === 'function'){
+          log("game.js โหลดสำเร็จ • พร้อมเริ่ม");
+        }else{
+          log("game.js อาจไม่โหลด (เช็ค 404 ใน DevTools/Network)", true);
+        }
+      }, 150);
     })();
   </script>
 </body>
