@@ -1,3 +1,9 @@
+// ===== Glue for menu safety-net =====
+window.__ADVENTURE_LOADED__ = true;
+// เผื่อบางเวอร์ชันใช้ชื่อฟังก์ชันอื่น ให้ export ไว้ชื่อเดิมนี้ด้วย
+if (typeof startGame === 'function') { window.startGame = startGame; }
+
+
 /* เพิ่มเติม: swapSky(theme) + parallax animation */
 
 const $ = (id)=>document.getElementById(id);
