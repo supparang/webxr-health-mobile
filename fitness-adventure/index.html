@@ -7,15 +7,10 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     :root { --glass: rgba(0,0,0,.6); }
-    body { margin:0; font-family:system-ui, Arial, sans-serif; background:#0b1220; color:#0b1220; }
-
-    /* A-Frame scene stays at lower z-index */
+    body { margin:0; font-family:system-ui, Arial, sans-serif; background:#06111f; color:#0b1220; }
     a-scene, a-scene canvas { position:fixed; inset:0; z-index:1; pointer-events:auto; }
 
-    /* UI overlays always on top and clickable */
-    .hud, .ui, .tip, .lane-bar {
-      position:fixed; z-index:2147483000; pointer-events:auto;
-    }
+    .hud, .ui, .tip, .lane-bar { position:fixed; z-index:2147483000; pointer-events:auto; }
     .tip {
       left:12px; top:12px; max-width:620px;
       background:var(--glass); color:#fff; padding:10px 12px; border-radius:12px; font-size:14px; line-height:1.45;
@@ -26,8 +21,7 @@
     }
     .hud h1 { margin:0 0 6px 0; font-size:18px; }
     .ui {
-      left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap;
-      touch-action: manipulation;
+      left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap; touch-action: manipulation;
     }
     .ui select, .ui button, .ui label {
       padding:10px 12px; border-radius:12px; border:none; font-weight:700; cursor:pointer;
@@ -40,8 +34,6 @@
     .lane-bar .L{ background:#e2fbe2; }
     .lane-bar .C{ background:#e6f0ff; }
     .lane-bar .R{ background:#ffe7e7; }
-
-    /* Mobile: เพิ่ม hit-area ปุ่ม */
     @media (max-width: 820px){
       .ui select, .ui button, .lane-bar button { padding:14px 16px; font-size:16px; }
     }
@@ -50,8 +42,9 @@
 <body>
   <div class="tip">
     <b>Fitness Adventure VR — Game</b><br/>
-    เดสก์ท็อป: เมาส์หมุนมุมกล้องได้ทันที • ปุ่ม Left/Center/Right หรือคีย์ A/S/D, ← ↑ →<br/>
-    มือถือ/VR: ปุ่มด้านล่างคลิกได้ (ไม่โดนบัง), หรือเล็งป้ายเลนในฉากเพื่อเปลี่ยนเลน
+    เลือกธีม Jungle / City / Space — ท้องฟ้าและวิวฉากจะเปลี่ยนตามจริง<br/>
+    เดสก์ท็อป: หมุนกล้องด้วยเมาส์ได้ทันที • ปุ่ม Left/Center/Right หรือคีย์ A/S/D, ← ↑ →<br/>
+    มือถือ/VR: ปุ่มด้านล่างคลิกได้ (ไม่โดนบัง), หรือเล็งป้ายเลนในฉาก
   </div>
 
   <div class="hud">
@@ -94,7 +87,19 @@
   </div>
 
   <a-scene renderer="antialias:true;colorManagement:true" background="color:#06111f" raycaster="showLine:false">
-    <!-- กล้อง + เคอร์เซอร์ (fuse 1 วิ) -->
+    <!-- โหลดภาพวิว -->
+    <a-assets timeout="60000">
+      <!-- Sky -->
+      <img id="bg-jungle" src="assets/backgrounds/jungle.jpg" crossorigin="anonymous">
+      <img id="bg-city"   src="assets/backgrounds/city.jpg"   crossorigin="anonymous">
+      <img id="bg-space"  src="assets/backgrounds/space.jpg"  crossorigin="anonymous">
+      <!-- Parallax -->
+      <img id="px-jungle" src="assets/backgrounds/jungle_parallax.png" crossorigin="anonymous">
+      <img id="px-city"   src="assets/backgrounds/city_parallax.png"   crossorigin="anonymous">
+      <img id="px-space"  src="assets/backgrounds/space_parallax.png"  crossorigin="anonymous">
+    </a-assets>
+
+    <!-- กล้อง + เคอร์เซอร์ -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <a-entity id="cursor"
@@ -109,7 +114,7 @@
     <!-- รากเกม -->
     <a-entity id="root" position="0 1.5 -3"></a-entity>
 
-    <!-- ป้ายเลือกเลนในฉาก -->
+    <!-- ป้ายเลือกเลน -->
     <a-entity id="laneL" class="selectable" position="-1.2 -0.8 -3"
               geometry="primitive: plane; width: 1.0; height: 0.35"
               material="color:#ffffff; opacity:0.92; shader:flat">
@@ -133,8 +138,15 @@
               animation__pulse="property: material.opacity; dir: alternate; dur: 280; easing: easeInOutSine; from:0.55; to:0.95; loop:true">
     </a-entity>
 
-    <!-- ท้องฟ้า/แสง -->
-    <a-sky id="sky" color="#0b1220"></a-sky>
+    <!-- ท้องฟ้าเป็นรูปจริง -->
+    <a-sky id="sky" radius="24" src="#bg-jungle" rotation="0 -90 0"></a-sky>
+
+    <!-- ชั้น parallax (ภาพแนวยาวไกล ๆ เคลื่อนช้า ๆ) -->
+    <a-entity id="parallaxRoot" position="0 0 -5">
+      <a-plane id="parallax" width="16" height="6" material="shader:flat; transparent:true; src:#px-jungle; opacity:0.88"></a-plane>
+    </a-entity>
+
+    <!-- แสง -->
     <a-entity light="type: ambient; color: #ffffff; intensity: 0.95"></a-entity>
     <a-entity light="type: directional; color: #fff; intensity: 0.7" position="1 2 0"></a-entity>
   </a-scene>
