@@ -1,16 +1,16 @@
 // ===== Glue for menu safety-net =====
 window.__ADVENTURE_LOADED__ = true;
-// เผื่อบางเวอร์ชันใช้ชื่อฟังก์ชันอื่น ให้ export ไว้ชื่อเดิมนี้ด้วย
-if (typeof startGame === 'function') { window.startGame = startGame; }
 
-
-/* เพิ่มเติม: swapSky(theme) + parallax animation */
-
+// ----------------------------------------------------
+// Utilities: selectors (ปลอดภัยต่อ element ที่อาจไม่มี)
+// ----------------------------------------------------
 const $ = (id)=>document.getElementById(id);
+
+// Elements (อาจไม่มีในบางหน้า จึงต้อง null-guard)
 const root = $("root");
 const sky = $("sky");
-const parallaxRoot = $("parallaxRoot");
-const parallax = $("parallax");
+const parallaxRoot = $("parallaxRoot");   // อาจไม่มีใน adventure/index.html
+const parallax = $("parallax");           // อาจไม่มีใน adventure/index.html
 const hudText = $("hudText");
 const hudTitle = $("hudTitle");
 const hudLives = $("hudLives");
@@ -29,7 +29,9 @@ const btnR = $("btnR");
 
 const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-// ------------ Audio (คงของเดิม) ------------
+// ----------------------------------------------------
+// Audio (เดิม)
+// ----------------------------------------------------
 let audioCtx = null, musicGain = null, sfxGain = null, musicTimer = 0, musicRunning = false;
 function ensureAudio(){ if (audioCtx) return; audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   musicGain = audioCtx.createGain(); musicGain.gain.value = 0.08; musicGain.connect(audioCtx.destination);
@@ -60,7 +62,9 @@ function startMusic(theme){
 }
 function stopMusic(){ musicRunning=false; }
 
-// ------------ Game State / Config (คงของเดิม) ------------
+// ----------------------------------------------------
+// Game State / Config (เดิม)
+// ----------------------------------------------------
 let state = { running:false, stageIndex:0, score:0, lives:3, lane:1, elapsed:0, startTime:0,
   duration:45, speed:2.0, hitWindow:0.35, rafId:null, items:[], nextSpawnIdx:0, pool:[], active:[],
   lastHudTs:0, hudInterval:isMobile?250:120, nextButton:null, theme:'jungle',
@@ -79,39 +83,56 @@ const STAGES = [
   { name:"Run Path 2", pattern:"dense" }
 ];
 
-// ✅ กำหนดไฟล์รูปสำหรับ sky / parallax ของแต่ละธีม
+// สี fallback สำหรับธีม (กรณีไม่มีรูป)
 const THEME_VIS = {
-  jungle: { sky:'#bg-jungle', parallax:'#px-jungle', skyColor:'#0e2412' },
-  city:   { sky:'#bg-city',   parallax:'#px-city',   skyColor:'#0f141a' },
-  space:  { sky:'#bg-space',  parallax:'#px-space',  skyColor:'#050914' },
+  jungle: { skyColor:'#0e2412' },
+  city:   { skyColor:'#0f141a' },
+  space:  { skyColor:'#050914' },
 };
 
-// ------------ Helpers (คงของเดิม + ฟังก์ชันใหม่) ------------
-function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild); }
+// ----------------------------------------------------
+// Helpers
+// ----------------------------------------------------
+function clearChildren(el){ while(el && el.firstChild) el.removeChild(el.firstChild); }
 function laneX(i){ return [-1.2,0,1.2][i]; }
-function setLivesUI(n){ hudLives.textContent = "❤️".repeat(Math.max(0,n)); }
-function setTitle(){ hudTitle.textContent = `Stage ${state.stageIndex+1}/${STAGES.length} — ${STAGES[state.stageIndex].name}`; }
-function setHUD(m){ hudText.textContent = m; }
+function setLivesUI(n){ if(hudLives) hudLives.textContent = "❤️".repeat(Math.max(0,n)); }
+function setTitle(){ if(hudTitle) hudTitle.textContent = `Stage ${state.stageIndex+1}/${STAGES.length} — ${STAGES[state.stageIndex].name}`; }
+function setHUD(m){ if(hudText) hudText.textContent = m; }
 
-// 🔄 เปลี่ยนภาพวิวตามธีม
+// เปลี่ยนท้องฟ้า: ถ้ามีรูปจะใช้รูป, ถ้าไม่มีให้เปลี่ยนสีแทน (ไม่พัง)
 function swapSky(theme){
-  const vis = THEME_VIS[theme] || THEME_VIS.jungle;
-  if (vis.sky)  sky.setAttribute('material', `src: ${vis.sky}; color: #ffffff`);
-  if (vis.parallax) parallax.setAttribute('material', `shader:flat; transparent:true; src:${vis.parallax}; opacity:0.9`);
+  const v = THEME_VIS[theme] || THEME_VIS.jungle;
+  if (sky){
+    // ถ้าเคยตั้ง src เป็นรูป (เช่นจากเวอร์ชันอื่น) คงไว้ได้ แต่ถ้าไม่มี ให้ใช้สี
+    sky.removeAttribute('material'); // ล้าง material ที่อาจมีจากเวอร์ชันก่อน
+    if (v.sky) {
+      sky.setAttribute('material', `src: ${v.sky}; color: #ffffff`);
+    } else {
+      sky.setAttribute('color', v.skyColor || '#0b1220');
+    }
+  }
+  // parallax อาจไม่มี ให้เช็คก่อน
+  if (parallax){
+    if (v.parallax) parallax.setAttribute('material', `shader:flat; transparent:true; src:${v.parallax}; opacity:0.9`);
+    else parallax.setAttribute('visible','false');
+  }
 }
 
-// ------------ Pool / Spawner / Stats / Quests (เหมือนเดิม) ------------
+// ----------------------------------------------------
+// Pool / Spawner / Stats / Quests
+// ----------------------------------------------------
 function setQuestHUD(){
   const t = state.questType;
-  let txt=""; if(t==='collect') txt=`เควส: เก็บ Orb ให้ครบ ${state.questTarget} ลูก (ตอนนี้ ${state.questProgress})`;
+  let txt=""; 
+  if(t==='collect') txt=`เควส: เก็บ Orb ให้ครบ ${state.questTarget} ลูก (ตอนนี้ ${state.questProgress})`;
   else if(t==='survive') txt=`เควส: เอาตัวรอดโดยไม่เสียชีวิต (สถานะ: ${state.surviveOK?'✅':'❌'})`;
   else if(t==='streak') txt=`เควส: หลบสิ่งกีดขวางต่อเนื่อง ${state.questTarget} ครั้ง (สถิติ ${state.bestStreak})`;
-  hudQuest.textContent = txt;
+  if (hudQuest) hudQuest.textContent = txt;
 }
 function buildPool(size=44){
   state.pool=[]; for(let i=0;i<size;i++){
     const node=document.createElement('a-entity'); node.setAttribute('visible','false');
-    const body=document.createElement('a-entity'); node.appendChild(body); node.__body=body; root.appendChild(node);
+    const body=document.createElement('a-entity'); node.appendChild(body); node.__body=body; if(root) root.appendChild(node);
     state.pool.push({el:node, inUse:false, kind:null, lane:1, time:0, judged:false});
   }
 }
@@ -136,9 +157,12 @@ function makeItems(pattern,duration,step){
 const STAT_KEY="fitnessAdventureStats_v2"; function loadStats(){try{return JSON.parse(localStorage.getItem(STAT_KEY)||"{}");}catch(e){return{}}}
 function saveStats(s){try{localStorage.setItem(STAT_KEY,JSON.stringify(s));}catch(e){}}
 function setupQuest(){
-  state.questType=selectQuest.value; state.questProgress=0; state.surviveOK=true; state.streak=0; state.bestStreak=0;
-  const diff=DIFF[selectDiff.value||'easy']; if(state.questType==='collect') state.questTarget=Math.round(diff.duration/4);
-  else if(state.questType==='streak') state.questTarget=Math.max(5, Math.round(8*(diff.speed-1.6))); else state.questTarget=1; setQuestHUD();
+  state.questType=selectQuest ? selectQuest.value : 'collect';
+  state.questProgress=0; state.surviveOK=true; state.streak=0; state.bestStreak=0;
+  const diff=DIFF[(selectDiff && selectDiff.value) || 'easy'];
+  if(state.questType==='collect') state.questTarget=Math.round(diff.duration/4);
+  else if(state.questType==='streak') state.questTarget=Math.max(5, Math.round(8*(diff.speed-1.6))); else state.questTarget=1;
+  setQuestHUD();
 }
 function checkQuestOnEvent(evt){
   if(evt.type==='orb') state.questProgress++;
@@ -148,9 +172,11 @@ function checkQuestOnEvent(evt){
 }
 function isQuestCleared(){ if(state.questType==='collect') return state.questProgress>=state.questTarget; if(state.questType==='survive') return state.surviveOK; if(state.questType==='streak') return state.bestStreak>=state.questTarget; return false; }
 
-// ------------ Scene / UI (เพิ่ม parallax move) ------------
+// ----------------------------------------------------
+// Scene / UI
+// ----------------------------------------------------
 function buildScene(){
-  while(root.firstChild) root.removeChild(root.firstChild);
+  clearChildren(root);
 
   const lanePlane=document.createElement('a-entity');
   lanePlane.setAttribute('geometry','primitive: plane; width: 3.6; height: 2.0');
@@ -172,14 +198,20 @@ function buildScene(){
   marker.setAttribute('id','laneMarker');
   root.appendChild(marker);
 }
-function updateLaneMarker(){ const mk=document.getElementById('laneMarker'); if(mk) mk.object3D.position.set([ -1.2,0,1.2 ][state.lane],0,0.05); }
+function updateLaneMarker(){ const mk=$('laneMarker'); if(mk && mk.object3D) mk.object3D.position.set([ -1.2,0,1.2 ][state.lane],0,0.05); }
 function setLane(i, show=true){ state.lane=Math.max(0,Math.min(2,i)); updateLaneMarker(); if(show){ SFX.ok(); feedback(['เลนซ้าย','เลนกลาง','เลนขวา'][state.lane],'#38bdf8'); } }
-function attachLaneButtons(){ laneL.addEventListener('click',()=>setLane(0)); laneC.addEventListener('click',()=>setLane(1)); laneR.addEventListener('click',()=>setLane(2)); }
+function attachLaneButtons(){ if(laneL) laneL.addEventListener('click',()=>setLane(0)); if(laneC) laneC.addEventListener('click',()=>setLane(1)); if(laneR) laneR.addEventListener('click',()=>setLane(2)); }
 
-// ------------ Flow ------------
+// ----------------------------------------------------
+// Flow
+// ----------------------------------------------------
 function startGame(){
-  ensureAudio(); state.theme=selectTheme.value; startMusic(state.theme); swapSky(state.theme);
-  const diff=DIFF[selectDiff.value||'easy'];
+  ensureAudio();
+  state.theme = (selectTheme && selectTheme.value) || 'jungle';
+  startMusic(state.theme);
+  swapSky(state.theme);
+
+  const diff=DIFF[(selectDiff && selectDiff.value) || 'easy'];
   state.running=true; state.stageIndex=0; state.score=0; state.lives=3; state.lane=1; state.totalOrbs=0; state.totalObCleared=0; state.obHit=0;
 
   setLivesUI(state.lives); setTitle(); buildScene(); buildPool(isMobile?36:48); setupQuest(); initStage(diff);
@@ -190,12 +222,13 @@ function initStage(diff){
   const st=STAGES[state.stageIndex];
   state.duration=diff.duration; state.speed=diff.speed; state.hitWindow=diff.hit; state.elapsed=0; state.startTime=performance.now()/1000;
   state.items=makeItems(st.pattern,state.duration,diff.spawnStep); state.nextSpawnIdx=0; state.active=[];
-  swapSky(state.theme); // เผื่อผู้เล่นเปลี่ยนธีมก่อนเริ่มสเตจใหม่
+  swapSky(state.theme);
   setTitle(); setQuestHUD();
 }
 function endStage(){
   state.running=false; if(state.rafId) cancelAnimationFrame(state.rafId); stopMusic();
-  SFX.next(); setHUD(`จบสเตจ: ${STAGES[state.stageIndex].name}\nคะแนนรวม: ${state.score}`); evalBadgesAndShow();
+  SFX.next(); setHUD(`จบสเตจ: ${STAGES[state.stageIndex].name}\nคะแนนรวม: ${state.score}`);
+  evalBadgesAndShow(); // ป้องกันด้วย no-op ข้างล่าง
 }
 function gameOver(){
   state.running=false; if(state.rafId) cancelAnimationFrame(state.rafId); stopMusic();
@@ -208,15 +241,19 @@ function gameOver(){
   restart.appendChild(txt); root.appendChild(restart); restart.addEventListener('click',()=>{ SFX.next(); startGame(); });
 }
 
-// ------------ Loop (เพิ่ม parallax เคลื่อนช้า ๆ) ------------
+// ----------------------------------------------------
+// Loop (ป้องกัน parallaxRoot null)
+// ----------------------------------------------------
 function loop(){
   if(!state.running) return;
   const now=performance.now()/1000; state.elapsed=now-state.startTime;
 
-  // เคลื่อน parallax ช้า ๆ (เลื่อนแกน X ไปกลับ)
-  const t=performance.now()/1000;
-  const x = Math.sin(t*0.06)*0.8; // ช้า นุ่ม
-  parallaxRoot.object3D.position.x = x;
+  // เคลื่อน parallax ช้า ๆ (ถ้ามี)
+  if (parallaxRoot && parallaxRoot.object3D){
+    const t=performance.now()/1000;
+    const x = Math.sin(t*0.06)*0.8;
+    parallaxRoot.object3D.position.x = x;
+  }
 
   // HUD
   const ms=performance.now(); if(ms-state.lastHudTs>state.hudInterval){
@@ -259,7 +296,9 @@ function loop(){
   state.rafId=requestAnimationFrame(loop);
 }
 
-// ------------ Score/Life/Feedback/Controls (คงของเดิม) ------------
+// ----------------------------------------------------
+// Score/Life/Feedback/Controls
+// ----------------------------------------------------
 function scoreAdd(n,msg="",color="#38bdf8"){ state.score+=n; if(msg) feedback(msg,color); }
 function loseLife(){ state.lives-=1; setLivesUI(state.lives); feedback("ชนสิ่งกีดขวาง -1 ชีวิต","#ef4444"); if(state.lives<=0) gameOver(); }
 function feedback(text,color="#38bdf8"){ const el=document.createElement("a-entity");
@@ -269,18 +308,31 @@ function feedback(text,color="#38bdf8"){ const el=document.createElement("a-enti
   setTimeout(()=>{ if(el.parentNode) root.removeChild(el); },460);
 }
 
-btnStart.onclick=()=>{ if(!state.running) startGame(); };
-btnReset.onclick=()=>{ state.running=false; if(state.rafId) cancelAnimationFrame(state.rafId);
-  while(root.firstChild) root.removeChild(root.firstChild);
-  setHUD("พร้อมเริ่ม"); setLivesUI(3); hudQuest.textContent=""; stopMusic(); };
+// ปุ่ม UI
+if (btnStart) btnStart.onclick=()=>{ if(!state.running) startGame(); };
+if (btnReset) btnReset.onclick=()=>{ state.running=false; if(state.rafId) cancelAnimationFrame(state.rafId);
+  clearChildren(root);
+  setHUD("พร้อมเริ่ม"); setLivesUI(3); if(hudQuest) hudQuest.textContent=""; stopMusic(); };
+
+function attachLaneButtons(){ if(laneL) laneL.addEventListener('click',()=>setLane(0)); if(laneC) laneC.addEventListener('click',()=>setLane(1)); if(laneR) laneR.addEventListener('click',()=>setLane(2)); }
 attachLaneButtons();
+
 window.addEventListener('keydown',(e)=>{ const k=e.key.toLowerCase();
   if(k==='a'||k==='arrowleft') setLane(0);
   if(k==='s'||k==='arrowup')   setLane(1);
   if(k==='d'||k==='arrowright')setLane(2);
 });
 
-function setQuestHUD(){ /* already defined above */ }
-function setLivesUI(n){ hudLives.textContent = "❤️".repeat(Math.max(0,n)); }
-setHUD("พร้อมเริ่ม\nเลือกธีมเพื่อดูภาพวิวจริง • ปุ่ม Left/Center/Right • คีย์ ← ↑ → หรือ A/S/D");
+// เริ่มต้น HUD
+setHUD("พร้อมเริ่ม\nเลือกธีม • ปุ่ม Left/Center/Right • คีย์ ← ↑ → หรือ A/S/D");
 setLivesUI(3);
+
+// ----------------------------------------------------
+// ป้องกัน error: evalBadgesAndShow ไม่มีให้ใช้งานในหน้านี้
+// ----------------------------------------------------
+function evalBadgesAndShow(){ /* no-op for this build */ }
+
+// ----------------------------------------------------
+// Export startGame ให้เมนูเรียกได้แน่ ๆ
+// ----------------------------------------------------
+window.startGame = startGame;
