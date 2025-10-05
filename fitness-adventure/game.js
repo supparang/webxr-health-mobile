@@ -1,11 +1,4 @@
-/* Fitness Adventure VR — Game v2 (All-in-One, Fixed)
-   - Runner 3 เลน: เลือกเลน (ซ้าย/กลาง/ขวา) เพื่อเก็บ Orb / หลบ Obstacle
-   - เพลง/เอฟเฟกต์เสียง: Web Audio API (ไม่ต้องใช้ไฟล์เสียง)
-   - ธีมฉาก Jungle/City/Space (พื้นหลัง/พร็อพ)
-   - ระบบเควส, แบดจ์, สถิติสะสม (localStorage)
-   - Desktop Friendly: ปุ่มเลน HTML + คีย์ลัด + Mouse Look toggle
-   - มือถือลื่น: object pool + object3D.position
-*/
+/* Fitness Adventure VR — Game v2 (All-in-One, Layer-Fix & Spawn-Failsafe) */
 
 const $ = (id)=>document.getElementById(id);
 const root = $("root");
@@ -22,7 +15,6 @@ const selectQuest = $("quest");
 const laneL = $("laneL");
 const laneC = $("laneC");
 const laneR = $("laneR");
-const mouseLookToggle = $("mouseLookToggle");
 const btnL = $("btnL");
 const btnC = $("btnC");
 const btnR = $("btnR");
@@ -42,7 +34,6 @@ function tone(freq=440, dur=0.08, type='sine', gain=0.15){
   const o = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   o.type = type; o.frequency.value = freq;
-  g.gain.value = gain;
   o.connect(g); g.connect(sfxGain);
   const t = audioCtx.currentTime;
   g.gain.setValueAtTime(0, t);
@@ -56,11 +47,8 @@ const SFX = {
   ok:  ()=> tone(520, 0.07, 'sine', 0.16),
   next:()=> tone(740, 0.10, 'square', 0.18),
 };
-// mini music loop: simple arpeggio per theme
 function startMusic(theme){
-  ensureAudio();
-  stopMusic();
-  musicRunning = true;
+  ensureAudio(); stopMusic(); musicRunning = true;
   const scale = theme==='jungle' ? [220,277,330,392] : theme==='city' ? [240,300,360,420] : [200,252,300,400];
   const wave  = theme==='jungle' ? 'triangle' : theme==='city' ? 'sine' : 'square';
   const bpm = 96, beat = 60/bpm;
@@ -73,7 +61,6 @@ function startMusic(theme){
       o.type = wave;
       const f = scale[(i+musicTimer)%scale.length] * (theme==='space' && i%4===0 ? 0.5 : 1);
       o.frequency.value = f;
-      g.gain.value = 0.0;
       o.connect(g); g.connect(musicGain);
       const t = baseT + i*(beat/2);
       g.gain.setValueAtTime(0, t);
@@ -82,7 +69,7 @@ function startMusic(theme){
       o.start(t); o.stop(t+beat/2);
     }
     musicTimer++;
-    setTimeout(step, beat*1000*4); // schedule next chunk
+    setTimeout(step, beat*1000*4);
   }
   step();
 }
@@ -90,32 +77,12 @@ function stopMusic(){ musicRunning = false; }
 
 // ---------- Game State ----------
 let state = {
-  running:false,
-  stageIndex:0,
-  score:0,
-  lives:3,
-  lane:1,                   // 0=L, 1=C, 2=R
-  elapsed:0,
-  startTime:0,
-  duration:45,              // per stage
-  speed:2.0,                // z speed factor
-  hitWindow:0.35,           // sec
-  rafId:null,
-  items:[],                 // scheduled items {time, lane, kind:'orb'|'ob'}
-  nextSpawnIdx:0,
-  pool:[],                  // pooled entities
-  active:[],                // active pooled refs
-  lastHudTs:0,
-  hudInterval: isMobile? 250 : 120,
-  nextButton:null,
+  running:false, stageIndex:0, score:0, lives:3, lane:1,
+  elapsed:0, startTime:0, duration:45, speed:2.0, hitWindow:0.35,
+  rafId:null, items:[], nextSpawnIdx:0, pool:[], active:[],
+  lastHudTs:0, hudInterval: isMobile? 250 : 120, nextButton:null,
   theme:'jungle',
-  // quest & stats
-  questType:'collect',
-  questTarget:12,
-  questProgress:0,
-  surviveOK:true,
-  streak:0, bestStreak:0,
-  // run stat
+  questType:'collect', questTarget:12, questProgress:0, surviveOK:true, streak:0, bestStreak:0,
   totalOrbs:0, totalObCleared:0, obHit:0,
 };
 
@@ -125,25 +92,21 @@ const DIFF = {
   normal: { speed:2.2, hit:0.35, duration:50, spawnStep:1.0 },
   hard:   { speed:2.6, hit:0.30, duration:55, spawnStep:0.8 }
 };
-
 const STAGES = [
-  { name:"Run Path 1", pattern:"mixed"    },
-  { name:"Energy Boost", pattern:"orbs"   },
+  { name:"Run Path 1", pattern:"mixed" },
+  { name:"Energy Boost", pattern:"orbs" },
   { name:"Obstacle Zone", pattern:"obstacles"},
-  { name:"Run Path 2", pattern:"dense"    }
+  { name:"Run Path 2", pattern:"dense" }
 ];
-
 const THEME_PRESET = {
-  jungle: { sky:"#dffbe2", accent:"#22c55e", deco:(parent)=> {
-    [-1.4,1.4].forEach(x=> addPillar(parent, x, 0, "#166534"));
-    addDecoSphere(parent, 0.9, -1.2, "#22c55e");
+  jungle: { sky:"#0e2412", accent:"#22c55e", deco:(parent)=> {
+    [-1.4,1.4].forEach(x=> addPillar(parent, x, 0, "#166534")); addDecoSphere(parent, 0.9, -1.2, "#22c55e");
   }},
-  city:   { sky:"#e5e7eb", accent:"#60a5fa", deco:(parent)=> {
+  city:   { sky:"#0f141a", accent:"#60a5fa", deco:(parent)=> {
     [-1.2,0,1.2].forEach(x=> addBuilding(parent, x, -1.0, "#94a3b8"));
   }},
-  space:  { sky:"#0b1020", accent:"#a78bfa", deco:(parent)=> {
-    addStarField(parent);
-    addPlanet(parent, -0.9, -1.2, "#a78bfa");
+  space:  { sky:"#050914", accent:"#a78bfa", deco:(parent)=> {
+    addStarField(parent); addPlanet(parent, -0.9, -1.2, "#a78bfa");
   }},
 };
 
@@ -154,34 +117,31 @@ function setLivesUI(n){ hudLives.textContent = "❤️".repeat(Math.max(0,n)); }
 function setTitle(){ hudTitle.textContent = `Stage ${state.stageIndex+1}/${STAGES.length} — ${STAGES[state.stageIndex].name}`; }
 function setHUD(msg){ hudText.textContent = msg; }
 function setQuestHUD(){
-  const type = state.questType;
+  const t = state.questType;
   let txt = "";
-  if (type==='collect') txt = `เควส: เก็บ Orb ให้ครบ ${state.questTarget} ลูก (ตอนนี้ ${state.questProgress})`;
-  else if (type==='survive') txt = `เควส: เอาตัวรอดโดยไม่เสียชีวิต (สถานะ: ${state.surviveOK?'✅':'❌'})`;
-  else if (type==='streak') txt = `เควส: หลบสิ่งกีดขวางต่อเนื่อง ${state.questTarget} ครั้ง (สถิติ ${state.bestStreak})`;
+  if (t==='collect') txt = `เควส: เก็บ Orb ให้ครบ ${state.questTarget} ลูก (ตอนนี้ ${state.questProgress})`;
+  else if (t==='survive') txt = `เควส: เอาตัวรอดโดยไม่เสียชีวิต (สถานะ: ${state.surviveOK?'✅':'❌'})`;
+  else if (t==='streak') txt = `เควส: หลบสิ่งกีดขวางต่อเนื่อง ${state.questTarget} ครั้ง (สถิติ ${state.bestStreak})`;
   hudQuest.textContent = txt;
 }
 
 // ---------- Pool ----------
-function buildPool(size=40){
+function buildPool(size=44){
   state.pool = [];
   for (let i=0;i<size;i++){
     const node = document.createElement("a-entity");
     node.setAttribute("visible","false");
     const body = document.createElement("a-entity");
     node.appendChild(body);
-    // ผูก body ไว้บน element (ใช้ p.el.__body ภายหลัง)
-    node.__body = body;
+    node.__body = body; // <— ใช้ p.el.__body เสมอ
     root.appendChild(node);
     state.pool.push({el:node, inUse:false, kind:null, lane:1, time:0, judged:false});
   }
 }
-// ✅ เวอร์ชันแก้บั๊ก: ใช้ p.el.__body เสมอ
 function acquire(kind, lane){
   for (const p of state.pool){
     if (!p.inUse){
-      p.inUse = true;
-      p.kind = kind; p.lane = lane; p.judged = false;
+      p.inUse = true; p.kind = kind; p.lane = lane; p.judged = false;
       p.el.setAttribute("visible","true");
       const body = p.el.__body;
       if (kind === 'orb'){
@@ -280,14 +240,14 @@ function updateLaneMarker(){
   if (mk) mk.object3D.position.set(laneX(state.lane), 0, 0.05);
 }
 
-// ====== ฟังก์ชันย้ายเลนแบบแชร์ ======
+// ====== Shared lane setter ======
 function setLane(idx, feedbackText=true){
   state.lane = Math.max(0, Math.min(2, idx));
   updateLaneMarker();
-  if (feedbackText) { SFX?.ok?.(); feedback(["เลนซ้าย","เลนกลาง","เลนขวา"][state.lane], "#38bdf8"); }
+  if (feedbackText) { SFX.ok(); feedback(["เลนซ้าย","เลนกลาง","เลนขวา"][state.lane], "#38bdf8"); }
 }
 
-// ป้ายในฉาก
+// ป้ายในฉาก (gaze/click)
 function attachLaneButtons(){
   laneL.addEventListener("click", ()=> setLane(0));
   laneC.addEventListener("click", ()=> setLane(1));
@@ -297,22 +257,21 @@ function attachLaneButtons(){
 // ---------- Spawner ----------
 function makeItems(pattern, duration, step){
   const items = [];
-  let t = 1.2; // warmup
-  const lanes = [0,1,2];
+  let t = 1.2; const lanes = [0,1,2];
   while (t < duration){
     const lane = lanes[Math.floor(Math.random()*3)];
     let kind = 'orb';
     if (pattern === 'orbs') kind = 'orb';
     else if (pattern === 'obstacles') kind = 'ob';
     else if (pattern === 'dense') kind = Math.random()<0.45?'ob':'orb';
-    else /* mixed */ kind = Math.random()<0.65?'orb':'ob';
+    else kind = Math.random()<0.65?'orb':'ob';
     items.push({time:t, lane, kind});
     t += step + (Math.random()*0.2-0.1);
   }
   return items;
 }
 
-// ---------- Stats (localStorage) ----------
+// ---------- Stats ----------
 const STAT_KEY = "fitnessAdventureStats_v2";
 function loadStats(){ try{ return JSON.parse(localStorage.getItem(STAT_KEY)||"{}"); }catch(e){ return {}; } }
 function saveStats(s){ try{ localStorage.setItem(STAT_KEY, JSON.stringify(s)); }catch(e){} }
@@ -328,14 +287,9 @@ function setupQuest(){
   setQuestHUD();
 }
 function checkQuestOnEvent(evt){
-  // evt: {type:'orb'|'obClear'|'obHit'}
-  if (evt.type==='orb'){
-    state.questProgress++;
-  } else if (evt.type==='obClear'){
-    state.streak++; state.bestStreak = Math.max(state.bestStreak, state.streak);
-  } else if (evt.type==='obHit'){
-    state.surviveOK = false; state.streak = 0;
-  }
+  if (evt.type==='orb') state.questProgress++;
+  else if (evt.type==='obClear'){ state.streak++; state.bestStreak = Math.max(state.bestStreak, state.streak); }
+  else if (evt.type==='obHit'){ state.surviveOK = false; state.streak = 0; }
   setQuestHUD();
 }
 function isQuestCleared(){
@@ -362,7 +316,6 @@ function evalBadgesAndShow(){
   summary += `สถิติสะสม — เล่นทั้งหมด: ${stats.plays||0} ครั้ง | คะแนนสูงสุด: ${stats.bestScore||0} | รวม Orb: ${stats.totalOrbs||0}\n`;
   if (badges.length) summary += `\nปลดล็อกแบดจ์: ${badges.join("  ")}`;
 
-  // แผงผลลัพธ์ + ปุ่ม Next/Restart
   const panel = document.createElement("a-entity");
   panel.setAttribute("geometry","primitive: plane; width: 2.8; height: 1.6");
   panel.setAttribute("material","color:#ffffff; opacity:0.96; shader:flat");
@@ -416,13 +369,14 @@ function startGame(){
 
   sky.setAttribute("color", THEME_PRESET[state.theme].sky);
   setLivesUI(state.lives);
-  setHUD("เริ่มรอบใหม่!");
   setTitle();
-
   buildScene();
-  buildPool(isMobile? 34 : 46);
+  buildPool(isMobile? 36 : 48);
   setupQuest();
   initStage(diff);
+
+  // ✅ แสดงสถานะเริ่มเกมทันที (ช่วยยืนยันว่ากด Start แล้วจริง)
+  setHUD(`เริ่มเกมแล้ว • Stage ${state.stageIndex+1}: ${STAGES[state.stageIndex].name}\nกำลังสปอว์นไอเท็ม...`);
   loop();
 }
 
@@ -439,12 +393,7 @@ function initStage(diff){
   state.active = [];
 
   sky.setAttribute("color", THEME_PRESET[state.theme].sky);
-  setTitle();
-  setHUD(`สเตจ: ${st.name}\nคะแนน: ${state.score}\nเลน: ${["ซ้าย","กลาง","ขวา"][state.lane]}`);
   setQuestHUD();
-
-  if (state.nextButton && state.nextButton.parentNode) state.nextButton.parentNode.removeChild(state.nextButton);
-  state.nextButton = null;
 }
 
 function endStage(){
@@ -470,7 +419,6 @@ function gameOver(){
   stats.bestScore = Math.max(stats.bestScore||0, state.score);
   saveStats(stats);
 
-  // ปุ่ม Restart
   const restart = document.createElement("a-entity");
   restart.classList.add("selectable");
   restart.setAttribute("geometry","primitive: plane; width: 1.6; height: 0.44");
@@ -490,7 +438,7 @@ function loop(){
   const now = performance.now()/1000;
   state.elapsed = now - state.startTime;
 
-  // HUD throttle
+  // HUD tick
   const ms = performance.now();
   if (ms - state.lastHudTs > state.hudInterval){
     state.lastHudTs = ms;
@@ -515,7 +463,7 @@ function loop(){
   // Move & judge
   for (const p of state.active){
     if (!p || p.judged || !p.inUse) continue;
-    const dt = p.time - state.elapsed;   // 0 ณ เส้น hit
+    const dt = p.time - state.elapsed;
     p.el.object3D.position.z = dt * state.speed;
 
     if (Math.abs(dt) <= state.hitWindow){
@@ -523,33 +471,26 @@ function loop(){
         if (state.lane === p.lane) {
           state.totalOrbs++;
           scoreAdd(20, "เก็บพลังงาน +20", THEME_PRESET[state.theme].accent);
-          SFX.orb();
-          checkQuestOnEvent({type:'orb'});
+          SFX.orb(); checkQuestOnEvent({type:'orb'});
         } else {
           feedback("พลาด Orb", "#eab308");
         }
-      }else{ // obstacle
+      }else{
         if (state.lane === p.lane){
-          state.obHit++;
-          loseLife();
-          SFX.hit();
-          checkQuestOnEvent({type:'obHit'});
+          state.obHit++; loseLife(); SFX.hit(); checkQuestOnEvent({type:'obHit'});
         } else {
-          state.totalObCleared++;
-          feedback("หลบสิ่งกีดขวางสำเร็จ", "#38bdf8");
-          checkQuestOnEvent({type:'obClear'});
+          state.totalObCleared++; feedback("หลบสิ่งกีดขวางสำเร็จ", "#38bdf8"); checkQuestOnEvent({type:'obClear'});
         }
       }
       p.judged = true;
       try { p.el.setAttribute("animation__pop","property: scale; to: 1.25 1.25 1; dur: 80; dir: alternate; easing: easeOutQuad"); } catch(e){}
       setTimeout(()=> release(p), 100);
     } else if (dt < -state.hitWindow && !p.judged){
-      p.judged = true;
-      setTimeout(()=> release(p), 50);
+      p.judged = true; setTimeout(()=> release(p), 50);
     }
   }
 
-  // เควสสำเร็จล่วงหน้า → โบนัสครั้งเดียว
+  // เควสสำเร็จ (แสดงครั้งเดียว)
   if (isQuestCleared() && !loop._questShown){
     loop._questShown = true;
     scoreAdd(100, "🎯 เควสสำเร็จ! +100", "#22c55e");
@@ -559,8 +500,7 @@ function loop(){
 
   // End stage
   if (state.elapsed >= state.duration){
-    endStage();
-    return;
+    endStage(); return;
   }
 
   state.rafId = requestAnimationFrame(loop);
@@ -572,8 +512,7 @@ function scoreAdd(n, msg="", color="#38bdf8"){
   if (msg) feedback(msg, color);
 }
 function loseLife(){
-  state.lives -= 1;
-  setLivesUI(state.lives);
+  state.lives -= 1; setLivesUI(state.lives);
   feedback("ชนสิ่งกีดขวาง -1 ชีวิต", "#ef4444");
   if (state.lives <= 0) gameOver();
 }
@@ -605,21 +544,12 @@ btnR && (btnR.onclick = ()=> setLane(2));
 // ป้ายในฉาก (fuse/click)
 attachLaneButtons();
 
-// คีย์ลัดเดสก์ท็อป: A/S/D หรือ ← ↑ →
+// คีย์ลัดเดสก์ท็อป
 window.addEventListener('keydown',(e)=>{
   const k = e.key.toLowerCase();
   if (k==='a' || k==='arrowleft')  setLane(0);
   if (k==='s' || k==='arrowup')    setLane(1);
   if (k==='d' || k==='arrowright') setLane(2);
-});
-
-// Mouse Look Toggle (เปิด/ปิด pointer-events ของ a-scene ผ่าน class บน body)
-mouseLookToggle && mouseLookToggle.addEventListener('change', ()=>{
-  if (mouseLookToggle.checked){
-    document.body.classList.add('mouse-look');
-  }else{
-    document.body.classList.remove('mouse-look');
-  }
 });
 
 // Init UI
