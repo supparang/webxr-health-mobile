@@ -1,4 +1,4 @@
-/* Fitness Adventure VR — Game v2 (All-in-One)
+/* Fitness Adventure VR — Game v2 (All-in-One, Fixed)
    - Runner 3 เลน: เลือกเลน (ซ้าย/กลาง/ขวา) เพื่อเก็บ Orb / หลบ Obstacle
    - เพลง/เอฟเฟกต์เสียง: Web Audio API (ไม่ต้องใช้ไฟล์เสียง)
    - ธีมฉาก Jungle/City/Space (พื้นหลัง/พร็อพ)
@@ -170,23 +170,26 @@ function buildPool(size=40){
     node.setAttribute("visible","false");
     const body = document.createElement("a-entity");
     node.appendChild(body);
+    // ผูก body ไว้บน element (ใช้ p.el.__body ภายหลัง)
     node.__body = body;
     root.appendChild(node);
     state.pool.push({el:node, inUse:false, kind:null, lane:1, time:0, judged:false});
   }
 }
+// ✅ เวอร์ชันแก้บั๊ก: ใช้ p.el.__body เสมอ
 function acquire(kind, lane){
   for (const p of state.pool){
     if (!p.inUse){
       p.inUse = true;
       p.kind = kind; p.lane = lane; p.judged = false;
       p.el.setAttribute("visible","true");
+      const body = p.el.__body;
       if (kind === 'orb'){
-        p.__body.setAttribute("geometry","primitive: sphere; radius:0.16; segmentsWidth:16; segmentsHeight:16");
-        p.__body.setAttribute("material",`color:${THEME_PRESET[state.theme].accent}; opacity:0.98; shader:flat`);
+        body.setAttribute("geometry","primitive: sphere; radius:0.16; segmentsWidth:16; segmentsHeight:16");
+        body.setAttribute("material",`color:${THEME_PRESET[state.theme].accent}; opacity:0.98; shader:flat`);
       }else{
-        p.__body.setAttribute("geometry","primitive: box; width:0.7; height:0.5; depth:0.3");
-        p.__body.setAttribute("material","color:#ef4444; opacity:0.95; shader:flat");
+        body.setAttribute("geometry","primitive: box; width:0.7; height:0.5; depth:0.3");
+        body.setAttribute("material","color:#ef4444; opacity:0.95; shader:flat");
       }
       return p;
     }
