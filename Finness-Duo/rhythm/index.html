@@ -9,25 +9,21 @@
     :root { --glass: rgba(0,0,0,.6); }
     html,body{margin:0;height:100%;background:#070022;font-family:system-ui,Arial,sans-serif;}
     a-scene, a-scene canvas { position:fixed; inset:0; z-index:1; }
-    .hud, .ui, .back { position:fixed; z-index:2147483000; pointer-events:auto; }
-    .hud { right:12px; top:12px; min-width:320px; background:var(--glass); color:#fff;
-      padding:10px 14px; border-radius:12px; white-space:pre-line; }
-    .hud h1{margin:0 0 6px 0; font-size:18px;}
-    .ui { left:12px; bottom:12px; display:grid; gap:8px; grid-template-columns: 1fr; max-width:680px; }
-    .row { display:flex; gap:8px; flex-wrap:wrap; }
-    .ui label, .ui button, .chip {
-      background:#fff; color:#0b1220; border:none; border-radius:12px; padding:10px 12px; font-weight:700;
-      box-shadow:0 2px 10px rgba(0,0,0,.25); cursor:pointer;
-    }
-    .ui button.primary{background:#7dfcc6; color:#052;}
-    .back { left:12px; top:12px; background:var(--glass); color:#fff; padding:8px 12px; border-radius:10px; }
-    .back a{color:#fff; text-decoration:none; font-weight:700;}
-    .laneKeys { position:fixed; right:12px; bottom:12px; z-index:2147483000; display:flex; gap:8px; }
-    .laneKeys button{ padding:10px 14px; border:none; border-radius:12px; font-weight:800; cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,.25); }
+    .hud,.ui,.back{position:fixed;z-index:2147483000;pointer-events:auto}
+    .hud{right:12px;top:12px;min-width:320px;background:var(--glass);color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line}
+    .hud h1{margin:0 0 6px 0;font-size:18px}
+    .ui{left:12px;bottom:12px;display:grid;gap:8px;grid-template-columns:1fr;max-width:900px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .ui label,.ui button,.chip{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:10px 12px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer}
+    .ui .field{display:flex;gap:6px;align-items:center;background:#fff;border-radius:12px;padding:8px 10px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+    .ui input[type="number"], .ui input[type="text"], select{border:none;outline:none;font-weight:700;background:transparent}
+    .ui button.primary{background:#7dfcc6;color:#052}
+    .back{left:12px;top:12px;background:var(--glass);color:#fff;padding:8px 12px;border-radius:10px}
+    .back a{color:#fff;text-decoration:none;font-weight:700}
+    .laneKeys{position:fixed;right:12px;bottom:12px;z-index:2147483000;display:flex;gap:8px}
+    .laneKeys button{padding:10px 14px;border:none;border-radius:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25)}
     .U{background:#e6f0ff}.D{background:#ffe7e7}.L{background:#e2fbe2}.R{background:#fff1d6}
-    .chip{display:inline-flex; align-items:center; gap:8px;}
-    .chip input{transform:scale(1.2);}
-    small.hint{opacity:.8; font-weight:600;}
+    small.hint{opacity:.8;font-weight:600}
   </style>
 </head>
 <body>
@@ -66,44 +62,56 @@
       <button id="btnReset">Reset</button>
     </div>
 
-    <!-- Rhythm & Difficulty Tuning -->
+    <!-- Difficulty Tuning: Toggles -->
     <div class="row">
-      <span class="chip"><input type="checkbox" id="optMultiBpm"/><label for="optMultiBpm">Multi-BPM</label></span>
-      <span class="chip"><input type="checkbox" id="optSpeedCurve"/><label for="optSpeedCurve">Speed Curve</label></span>
-      <span class="chip"><input type="checkbox" id="optFever"/><label for="optFever">Fever Time</label></span>
-      <span class="chip"><input type="checkbox" id="optHidden"/><label for="optHidden">Hidden Notes</label></span>
+      <span class="field"><input type="checkbox" id="optMultiBpm"/><label for="optMultiBpm">Multi-BPM</label></span>
+      <span class="field"><label>รูปแบบ:
+        <select id="multiPattern">
+          <option value="rise" selected>ขึ้นช้า→เร็ว</option>
+          <option value="wave">ขึ้น-ลงเป็นคลื่น</option>
+        </select></label>
+      </span>
+      <span class="field"><label>จำนวนช่วง:
+        <input id="multiCount" type="number" min="1" max="8" value="3" style="width:70px"/>
+      </label></span>
+      <span class="field"><label>Δ BPM ต่อช่วง:
+        <input id="multiDeltas" type="text" value="0,20,30" style="width:180px"/>
+      </label></span>
     </div>
-    <div class="row" style="gap:12px;">
-      <span class="chip">
-        <label>รูปแบบ Multi-BPM:
-          <select id="multiPattern">
-            <option value="rise" selected>ขึ้นช้า→เร็ว (x3 ช่วง)</option>
-            <option value="wave">ขึ้น-ลงเป็นคลื่น</option>
-          </select>
-        </label>
+
+    <div class="row">
+      <span class="field"><input type="checkbox" id="optSpeedCurve"/><label for="optSpeedCurve">Speed Curve</label></span>
+      <span class="field"><label>ความชัน k:
+        <select id="curveK">
+          <option value="0.00">0.00</option>
+          <option value="0.01" selected>0.01</option>
+          <option value="0.02">0.02</option>
+          <option value="0.03">0.03</option>
+        </select></label>
       </span>
-      <span class="chip">
-        <label>ความชัน Speed Curve:
-          <select id="curveK">
-            <option value="0.00">ปิด</option>
-            <option value="0.01" selected>น้อย</option>
-            <option value="0.02">กลาง</option>
-            <option value="0.03">มาก</option>
-          </select>
-        </label>
+
+      <span class="field"><input type="checkbox" id="optFever"/><label for="optFever">Fever</label></span>
+      <span class="field"><label>Fever @ Combo:
+        <select id="feverNeed">
+          <option value="8" selected>8</option>
+          <option value="10">10</option>
+          <option value="12">12</option>
+        </select></label>
       </span>
-      <span class="chip">
-        <label>Fever @ Combo:
-          <select id="feverNeed">
-            <option value="8" selected>8</option>
-            <option value="10">10</option>
-            <option value="12">12</option>
-          </select>
-        </label>
-      </span>
-      <span class="chip">
-        <small class="hint">หมายเหตุ: สามารถส่งค่า query `multi=1&curve=0.02&fever=1&hidden=1` ได้</small>
-      </span>
+      <span class="field"><label>Fever Duration (beats):
+        <input id="feverBeats" type="number" min="4" max="32" value="8" style="width:80px"/>
+      </label></span>
+    </div>
+
+    <div class="row">
+      <span class="field"><input type="checkbox" id="optHidden"/><label for="optHidden">Hidden Notes</label></span>
+      <span class="field"><label>Good Window (ms):
+        <input id="goodMs" type="number" min="80" max="300" value="180" style="width:90px"/>
+      </label></span>
+      <span class="field"><label>Perfect Ratio:
+        <input id="perfectRatio" type="number" step="0.05" min="0.3" max="0.9" value="0.5" style="width:90px"/>
+      </label></span>
+      <span class="field"><small class="hint">ตัวอย่าง query: <b>?multi=1&mcount=4&mdel=0,10,20,10&fbeats=12&good=180&pr=0.45</b></small></span>
     </div>
   </div>
 
@@ -151,6 +159,7 @@
       const set=(id,key,allow)=>{ const v=q.get(key); if(!v) return; const el=document.getElementById(id);
         if(!el) return; if(!allow||allow.includes(v)){ el.value=v; el.dispatchEvent(new Event('change')); }};
       const setBool=(id,key)=>{ const v=q.get(key); if(v==='1'||v==='true'){ const el=document.getElementById(id); if(el){ el.checked=true; el.dispatchEvent(new Event('change')); }}};
+      const setVal=(id,key)=>{ const v=q.get(key); if(v!=null){ const el=document.getElementById(id); if(el){ el.value=v; el.dispatchEvent(new Event('input')); }}};
 
       set('mode','mode',['training','challenge']);
       set('bpm','bpm',['100','110','120','130']);
@@ -158,13 +167,22 @@
 
       setBool('optMultiBpm','multi');
       set('multiPattern','mpat',['rise','wave']);
+      setVal('multiCount','mcount');
+      setVal('multiDeltas','mdel');
+
+      setBool('optSpeedCurve','curveon');
       set('curveK','curve',['0.00','0.01','0.02','0.03']);
+
       setBool('optFever','fever');
       set('feverNeed','fneed',['8','10','12']);
+      setVal('feverBeats','fbeats');
+
       setBool('optHidden','hidden');
+      setVal('goodMs','good');
+      setVal('perfectRatio','pr');
 
       if(q.get('autostart')==='1'){ setTimeout(()=>document.getElementById('btnStart').click(),250); }
-      const hudText=document.getElementById('hudText'); if(hudText) hudText.textContent='พร้อมเริ่ม (ปรับแต่งความท้าทายได้ด้านล่าง)';
+      const hudText=document.getElementById('hudText'); if(hudText) hudText.textContent='พร้อมเริ่ม • ปรับสูตรความยากได้ตามใจ';
     })();
   </script>
 </body>
