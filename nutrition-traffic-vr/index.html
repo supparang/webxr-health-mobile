@@ -1,64 +1,101 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-  <title>Nutrition Traffic Light VR (Images, Updated Colors)</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <title>Nutrition Traffic VR</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
-    :root { --glass: rgba(0,0,0,.55); }
-    body { margin:0; font-family:system-ui, Arial; background:#f0f4f8; color:#111; }
-    .hud { position:fixed; right:12px; top:12px; z-index:10; background:var(--glass);
-           padding:10px 14px; border-radius:12px; min-width:320px; color:#fff }
-    .ui { position:fixed; left:12px; bottom:12px; z-index:10; display:flex; gap:8px }
-    .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700;
-      background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.2); cursor:pointer }
-    .ui button.gray { background:#e5e7eb; color:#111 }
+    html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
+    a-scene, a-scene canvas{position:fixed;inset:0}
+    .ui{position:fixed;left:12px;bottom:12px;z-index:2147483000;display:grid;gap:8px;max-width:760px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .card{background:rgba(0,0,0,.6);color:#fff;padding:10px 14px;border-radius:12px}
+    .btn,.sel,label{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:10px 12px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer}
+    .btn.primary{background:#7dfcc6;color:#052}
+    .meter{height:10px;background:#111;border-radius:999px;overflow:hidden}
+    .meter>span{display:block;height:100%;background:#7dfcc6;width:0%}
+    #hud{position:fixed;right:12px;top:12px;z-index:2147483000}
+    #hud .card{min-width:300px;white-space:pre-line}
+    input[type="file"]{display:none}
+    .bins{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;z-index:2;display:flex;gap:8px}
+    .bins .b{background:#fff;color:#000;border:none;border-radius:12px;padding:10px 12px;font-weight:900}
+    .b[data-g="grain"]{background:#fde68a}
+    .b[data-g="vegetable"]{background:#bbf7d0}
+    .b[data-g="fruit"]{background:#fecaca}
+    .b[data-g="protein"]{background:#c7d2fe}
+    .b[data-g="dairy"]{background:#e0e7ff}
   </style>
 </head>
 <body>
-  <div class="hud">
-    <h1>Traffic Light VR (Images)</h1>
-    <div id="hudText">พร้อมเริ่ม</div>
-  </div>
-  <div class="ui">
-    <button id="btnStart">Start</button>
-    <button id="btnReset" class="gray">Reset</button>
+  <div id="hud">
+    <div class="card" id="hudText">Nutrition Traffic VR\nพร้อมเริ่ม</div>
   </div>
 
-  <a-scene renderer="antialias:true;colorManagement:true"
-           background="color:#f0f4f8" raycaster="showLine:false">
-    <a-assets timeout="30000">
-      <img id="img-rice-brown" src="assets/foods/rice-brown.png">
-      <img id="img-fish-bake" src="assets/foods/fish-bake.png">
-      <img id="img-veggies" src="assets/foods/veggies.png">
-      <img id="img-fruit-mix" src="assets/foods/fruit-mix.png">
-      <img id="img-chicken-grill" src="assets/foods/chicken-grill.png">
-      <img id="img-milk-plain" src="assets/foods/milk-plain.png">
-      <img id="img-soup-clear" src="assets/foods/soup-clear.png">
-      <img id="img-rice-white" src="assets/foods/rice-white.png">
-      <img id="img-fried" src="assets/foods/fried.png">
-      <img id="img-soda" src="assets/foods/soda.png">
-      <img id="img-dessert" src="assets/foods/dessert.png">
-      <img id="img-chips" src="assets/foods/chips.png">
-    </a-assets>
+  <div class="ui">
+    <div class="row">
+      <button id="btnStart" class="btn primary">Start</button>
+      <button id="btnReset" class="btn">Reset</button>
+      <label class="sel">โหมด:
+        <select id="mode">
+          <option value="easy" selected>Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </label>
+      <label class="sel">คำใบ้ (Hint):
+        <select id="hints">
+          <option value="on" selected>On</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+      <label class="btn" for="importFoods">Import JSON เมนู</label>
+      <input id="importFoods" type="file" accept=".json"/>
+      <button id="btnExport" class="btn">Export ผลลัพธ์</button>
+    </div>
+    <div class="card">
+      คะแนน: <b id="score">0</b> | ถูกต้อง: <b id="ok">0</b> | พลาด: <b id="miss">0</b>
+      <div class="meter" style="margin-top:6px"><span id="timeBar"></span></div>
+    </div>
+  </div>
+
+  <!-- ปุ่มเลือกหมู่แบบ on-screen (เผื่อมือถือ) -->
+  <div class="bins">
+    <button class="b" data-g="grain">ธัญพืช/แป้ง</button>
+    <button class="b" data-g="vegetable">ผัก</button>
+    <button class="b" data-g="fruit">ผลไม้</button>
+    <button class="b" data-g="protein">โปรตีน</button>
+    <button class="b" data-g="dairy">นม/ผลิตภัณฑ์นม</button>
+  </div>
+
+  <a-scene background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+    <a-assets timeout="30000"></a-assets>
 
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <a-entity id="cursor"
-          cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
-          raycaster="objects: .selectable"
+          cursor="rayOrigin: entity; fuse: true; fuseTimeout: 900"
+          raycaster="objects: .selectable,.clickable"
           position="0 0 -1"
-          geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.028"
-          material="color: #ff7a00; shader: flat; opacity: 0.95">
-        </a-entity>
+          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+          material="color:#7dfcc6; shader:flat; opacity:0.95"></a-entity>
       </a-entity>
     </a-entity>
 
-    <a-entity id="gameRoot" position="0 1.6 -2"></a-entity>
-    <a-sky color="#f0f4f8"></a-sky>
-    <a-entity light="type: ambient; color: #ffffff; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; color: #fff; intensity: 0.8" position="1 2 0"></a-entity>
+    <!-- โซนเกมอยู่ข้างหน้าเล็กน้อย -->
+    <a-entity id="root" position="0 1.2 -3"></a-entity>
+
+    <!-- เส้นทางไอเท็ม (เหมือนสายพาน) -->
+    <a-entity geometry="primitive: plane; width: 2.6; height: 3.2"
+              material="color:#111827; opacity:0.9; shader:flat"
+              position="0 0 -1.4" rotation="-90 0 0"></a-entity>
+
+    <!-- เส้นเสริม -->
+    <a-entity geometry="primitive: plane; width: 2.6; height: 0.02" material="color:#334155; shader:flat" position="0 -0.6 0"></a-entity>
+
+    <!-- พื้นหลังแสง -->
+    <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
+    <a-sky radius="24" color="#0b1220"></a-sky>
   </a-scene>
 
   <script src="game.js"></script>
