@@ -1,8 +1,8 @@
-/* Rhythm Stretch VR — Difficulty Formula Controls
-   + Multi-BPM: กำหนดจำนวนช่วง + ΔBPM ต่อช่วง (rise/wave)
-   + Fever: ระยะเวลาเป็น beats (ปรับได้)
-   + Timing: Good window (ms) + Perfect ratio (0..1)
-   + มี Perfect/Good/Miss text feedback
+/* Rhythm Stretch VR — Sections + Shapes/Colors + Timing Calibration
+   - เลือก beats ต่อ section
+   - ปรับรูปร่าง/สีของโน้ตตาม section
+   - Timing calibration (ms): offset เมื่อเปรียบเทียบเวลา (ค่าบวก = เร่งตัดสิน)
+   - รวมฟีเจอร์ก่อนหน้า: Multi-BPM, Speed Curve, Fever, Hidden, Perfect/Good/Miss
 */
 
 const $ = id => document.getElementById(id);
@@ -11,37 +11,44 @@ const btnStart = $("btnStart"), btnReset = $("btnReset");
 const rings = { U: $("hitU"), D: $("hitD"), L: $("hitL"), R: $("hitR") };
 ["keyU","keyD","keyL","keyR"].forEach(id=>$(id)?.addEventListener('click',()=> manualHit(id.slice(-1).toUpperCase())));
 
-// Theme
 const THEME_COLOR = { beach:"#002034", city:"#0f141a", galaxy:"#070022" };
 function skyTheme(theme){ if(sky) sky.setAttribute('color', THEME_COLOR[theme]||"#0b1220"); }
 
-// State
 const state = {
   running:false, paused:false,
   bpm:120, secPerBeat:0.5,
   mode:"training", theme:"beach",
-  // sequence
+
   time0:0, now:0, raf:0, notes:[], idx:0,
   laneTimeAhead:4, scrollBase:2.8,
-  // curve
+
   useCurve:false, curveK:0.01,
-  // score
+
   score:0, combo:0, bestCombo:0,
   hitWindow:0.18, perfectWindowRatio:0.5,
   stat:{perfect:0,good:0,miss:0},
-  // metro
+
   nextBeatT:0, metronomeOn:true,
-  // multi-bpm
-  useMultiBpm:false, multiPattern:"rise", multiCount:3, multiDeltas:[0,20,30],
-  // fever
+
+  useMultiBpm:false, multiPattern:"rise",
+  multiCount:3, multiDeltas:[0,20,30],
+  beatsPerSection:16,
+
+  // รูปทรง/สี per-section (วนซ้ำถ้าน้อยกว่าจำนวน section)
+  secShapes:["sphere","box","sphere"],
+  secColors:["#94a3ff","#86f7a5","#ffd683"],
+
   useFever:false, feverNeed:8, feverBeats:8, feverActive:false, feverUntil:0,
-  // hidden
+
   useHidden:false, revealWindow:0.6,
-  // audio
+
+  // timing calibration (ms)
+  calibMs:0,
+
   actx:null, sfxGain:null, metroGain:null
 };
 
-// Audio
+// ------- Audio -------
 function ensureAudio(){
   if(state.actx) return;
   const AC = window.AudioContext||window.webkitAudioContext; if(!AC) return;
@@ -61,7 +68,7 @@ function beep(freq=880, dur=0.05, gain=0.12, out){
 let beatLoopCount=0;
 function metronomeTick(bc){ if(!state.metronomeOn) return; const f=(bc%4===0)?1200:880; beep(f,0.04, state.feverActive?0.12:0.08, state.metroGain); }
 
-// HUD
+// ------- HUD -------
 function setHUD(m){ if(hudText) hudText.textContent=m; }
 function setScore(){
   if(hudScore){
@@ -83,34 +90,40 @@ function feedbackText(l, text, color="#fff"){
   setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 420);
 }
 
-// Read options
+// ------- Read options -------
+function parseList(str, fallback){
+  const arr = (str||"").split(",").map(s=>s.trim()).filter(Boolean);
+  return arr.length? arr : fallback.slice();
+}
 function readOptions(){
   const modeSel=$("mode"), bpmSel=$("bpm"), themeSel=$("theme");
   state.mode = modeSel?.value || "training";
   state.bpm  = parseInt(bpmSel?.value||"120",10);
   state.secPerBeat = 60/state.bpm;
-  // timing windows
+
+  // timing windows + calibration
   const goodMs = parseInt(($("goodMs")?.value)||"180",10);
-  state.hitWindow = Math.max(0.08, Math.min(0.30, goodMs/1000)); // clamp 80..300ms
+  state.hitWindow = Math.max(0.08, Math.min(0.30, goodMs/1000));
   state.perfectWindowRatio = Math.max(0.3, Math.min(0.9, parseFloat(($("perfectRatio")?.value)||"0.5")));
-  // mode-specific ease
   if(state.mode==="training"){ state.perfectWindowRatio=Math.max(state.perfectWindowRatio, 0.5); }
+  state.calibMs = parseInt(($("calibMs")?.value)||"0",10) || 0;
 
   state.theme = themeSel?.value || "beach";
-  // toggles
+
+  // Multi-BPM + sections
   state.useMultiBpm = $("optMultiBpm")?.checked || false;
   state.multiPattern= $("multiPattern")?.value || "rise";
   state.multiCount  = Math.max(1, Math.min(8, parseInt(($("multiCount")?.value)||"3",10)));
-  // parse deltas list
-  const delStr = ($("multiDeltas")?.value||"").trim();
-  state.multiDeltas = delStr ? delStr.split(",").map(s=>parseInt(s.trim(),10)).filter(v=>!isNaN(v)) : [0,20,30];
-  if(state.multiDeltas.length < state.multiCount){
-    while(state.multiDeltas.length < state.multiCount) state.multiDeltas.push(state.multiDeltas[state.multiDeltas.length-1]||0);
-  }
-  if(state.multiDeltas.length > state.multiCount){
-    state.multiDeltas = state.multiDeltas.slice(0, state.multiCount);
-  }
+  state.multiDeltas = parseList($("multiDeltas")?.value, [0,20,30]).map(v=>parseInt(v,10)).map(v=>isNaN(v)?0:v);
+  if(state.multiDeltas.length < state.multiCount){ while(state.multiDeltas.length < state.multiCount) state.multiDeltas.push(state.multiDeltas[state.multiDeltas.length-1]||0); }
+  if(state.multiDeltas.length > state.multiCount){ state.multiDeltas = state.multiDeltas.slice(0, state.multiCount); }
+  state.beatsPerSection = Math.max(8, Math.min(64, parseInt(($("beatsPerSec")?.value)||"16",10)));
 
+  // per-section shape/color
+  state.secShapes = parseList($("secShapes")?.value, ["sphere","box","sphere"]);
+  state.secColors = parseList($("secColors")?.value, ["#94a3ff","#86f7a5","#ffd683"]);
+
+  // curve / fever / hidden
   state.useCurve = $("optSpeedCurve")?.checked || false;
   state.curveK   = parseFloat(($("curveK")?.value)||"0.00");
 
@@ -121,74 +134,76 @@ function readOptions(){
   state.useHidden = $("optHidden")?.checked || false;
 }
 
-// Build sections (Multi-BPM)
+// ------- Sections (Multi-BPM) -------
 function buildSections(){
   const base = state.bpm;
-  if(!state.useMultiBpm) return [{ bpm: base, beats: (state.mode==="training"? 32 : 48) }];
-  const count = state.multiCount;
-  const deltas = state.multiDeltas;
-  const sections=[];
-  if(state.multiPattern==="wave"){
-    for(let i=0;i<count;i++){
-      const d = deltas[i] || 0;
-      const sBpm = base + (i%2===0? d : Math.max(-d, -d)); // สลับขึ้น/ลงตาม delta
-      sections.push({ bpm: sBpm, beats: 16 });
-    }
-  }else{ // rise
-    for(let i=0;i<count;i++){
-      const d = deltas[i] || 0;
-      sections.push({ bpm: base + d, beats: 16 });
-    }
+  if(!state.useMultiBpm) return [{ bpm: base, beats: (state.mode==="training"? 32 : 48), secIdx:0 }];
+  const secs=[];
+  for(let i=0;i<state.multiCount;i++){
+    const d = state.multiDeltas[i]||0;
+    const sBpm = (state.multiPattern==="wave" && i%2===1) ? base - Math.abs(d) : base + d;
+    secs.push({ bpm: sBpm, beats: state.beatsPerSection, secIdx:i });
   }
-  return sections;
+  return secs;
 }
 
-// Make note
-function makeNote(lane, time, label=""){
-  const el=document.createElement('a-entity');
-  el.classList.add('note');
-  el.setAttribute('geometry','primitive: sphere; radius: 0.14; segmentsWidth: 16; segmentsHeight: 12');
-  const color = lane==='U'?'#94a3ff':lane==='D'?'#ff9ea0':lane==='L'?'#86f7a5':'#ffd683';
+// ------- Note geometry by shape keyword -------
+function applyShape(el, shape){
+  switch((shape||"sphere").toLowerCase()){
+    case "box":       el.setAttribute('geometry','primitive: box; width:0.28; height:0.28; depth:0.28'); break;
+    case "cone":      el.setAttribute('geometry','primitive: cone; radiusBottom:0.18; radiusTop:0.02; height:0.32; segmentsRadial:16'); break;
+    case "cylinder":  el.setAttribute('geometry','primitive: cylinder; radius:0.16; height:0.28; segmentsRadial:18'); break;
+    case "torus":     el.setAttribute('geometry','primitive: torus; radius:0.22; radiusTubular:0.04; segmentsRadial:16; segmentsTubular:24'); break;
+    case "dodeca":    el.setAttribute('geometry','primitive: dodecahedron; radius:0.18'); break;
+    default:          el.setAttribute('geometry','primitive: sphere; radius:0.14; segmentsWidth:16; segmentsHeight:12');
+  }
+}
+
+// ------- Make/Schedule notes -------
+function makeNote(lane, time, label, secIdx){
+  const el=document.createElement('a-entity'); el.classList.add('note');
+  applyShape(el, state.secShapes[secIdx % state.secShapes.length]);
+  const color = state.secColors[secIdx % state.secColors.length] || '#ffd683';
   const op = state.useHidden ? 0.12 : 0.98;
   el.setAttribute('material',`color:${color}; opacity:${op}; shader:flat`);
+
   const p = lane==='U' ? [0,  0.7, state.scrollBase] :
             lane==='D' ? [0, -0.7, state.scrollBase] :
             lane==='L' ? [-1.2, 0, state.scrollBase] : [1.2, 0, state.scrollBase];
   el.setAttribute('position', `${p[0]} ${p[1]} ${p[2]}`);
+
   if(state.mode==="training" && label){
     const t=document.createElement('a-entity'); t.setAttribute('text',`value:${label}; width:2; align:center; color:#001`); t.setAttribute('position','0 0 0.16'); el.appendChild(t);
   }
-  el.__lane=lane; el.__hitTime=time; el.__hit=false; el.__judged=false;
+  el.__lane=lane; el.__hitTime=time; el.__hit=false; el.__judged=false; el.__secIdx=secIdx;
   root.appendChild(el); return el;
 }
 
-// Schedule notes per sections
 function scheduleNotes(){
   state.notes=[]; state.idx=0;
   const secs = buildSections();
-  let t = state.time0 + 2.0; // 2s countdown
+  let t = state.time0 + 2.0;                    // 2s countdown
   const every = (state.mode==="training")? 2 : 1;
-  const order = ['U','D','L','R'];
-  let step=0;
+  const order = ['U','D','L','R']; let step=0;
+
   for(const sec of secs){
     const spb = 60/sec.bpm;
-    const beats = sec.beats;
-    for(let b=0; b<beats; b+=every){
+    for(let b=0; b<sec.beats; b+=every){
       const lane = order[(step++)%4];
       const label = (state.mode==="training") ? String((step-1)%4+1) : "";
       const hitT = t + b*spb;
-      state.notes.push({ lane, t: hitT, el:null, label });
+      state.notes.push({ lane, t: hitT, el:null, label, secIdx: sec.secIdx });
     }
-    t += beats*spb;
+    t += sec.beats * spb;
   }
 }
 
-// Fever
+// ------- Fever -------
 function maybeEnterFever(){
   if(!state.useFever || state.feverActive) return;
   if(state.combo >= state.feverNeed){
     state.feverActive = true;
-    const spb = state.secPerBeat; // ใช้ BPM ตั้งต้นเป็นเกณฑ์กลาง
+    const spb = state.secPerBeat;
     state.feverUntil = state.now + state.feverBeats * spb;
     try{ sky.setAttribute('animation__fev','property: color; to: #013a2c; dir: alternate; loop: true; dur: 240'); }catch(e){}
   }
@@ -200,7 +215,7 @@ function updateFever(){
   }
 }
 
-// Judge
+// ------- Judge -------
 function judgeCategory(dt){
   const perfectWin = state.hitWindow * state.perfectWindowRatio;
   if(dt <= perfectWin) return "perfect";
@@ -212,14 +227,15 @@ function flashRing(l, strength=0.8){
   try{ r.setAttribute("animation__flash",`property: material.opacity; from:0.95; to:${Math.min(1.0,0.95+0.25*strength)}; dur:90; dir:alternate`);}catch(e){}
 }
 function fadeOut(el){
-  try{ el.setAttribute("animation__fade","property: material.opacity; to:0; dur:120; easing:easeOutQuad");
-    setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 140);
-  }catch(e){ if(el.parentNode) el.parentNode.removeChild(el); }
+  try{ el.setAttribute("animation__fade","property: material.opacity; to:0; dur:120; easing:easeOutQuad"); setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, 140); }
+  catch(e){ if(el.parentNode) el.parentNode.removeChild(el); }
 }
 
 function judge(note, lane){
   if(note.__judged) return;
-  const dt = Math.abs(note.__hitTime - state.now);
+  // timing calibration: เปรียบเทียบกับ (now + calib)
+  const nowAdj = state.now + state.calibMs/1000;
+  const dt = Math.abs(note.__hitTime - nowAdj);
   const cat = judgeCategory(dt);
   if(cat==="miss") return;
 
@@ -245,19 +261,20 @@ function miss(note){
   fadeOut(note);
 }
 
-// Manual input
+// ------- Manual input -------
 function manualHit(l){
-  let best=null, bestDt=999, now=state.now;
+  const nowAdj = state.now + state.calibMs/1000;
+  let best=null, bestDt=999;
   for(const n of state.notes){
     if(n.el && !n.el.__judged && n.lane===l){
-      const dt = Math.abs(n.el.__hitTime - now);
+      const dt = Math.abs(n.el.__hitTime - nowAdj);
       if(dt<bestDt){ best=n.el; bestDt=dt; }
     }
   }
   if(best) judge(best, l);
 }
 
-// Loop
+// ------- Loop -------
 function tickMetronome(now){
   const spb=state.secPerBeat;
   while(now >= state.nextBeatT){ metronomeTick(beatLoopCount); beatLoopCount++; state.nextBeatT += spb; }
@@ -269,12 +286,10 @@ function loop(){
   tickMetronome(state.now);
   updateFever();
 
-  // spawn
   while(state.idx < state.notes.length && state.notes[state.idx].t - state.now <= state.laneTimeAhead){
-    const n=state.notes[state.idx]; if(!n.el) n.el = makeNote(n.lane, n.t, n.label); state.idx++;
+    const n=state.notes[state.idx]; if(!n.el) n.el = makeNote(n.lane, n.t, n.label, n.secIdx); state.idx++;
   }
 
-  // move (curve)
   const elapsed = state.now - state.time0;
   const curveFactor = state.useCurve ? Math.max(1, 1 + state.curveK * elapsed) : 1;
   const speed = (state.scrollBase / state.laneTimeAhead) * curveFactor;
@@ -284,14 +299,12 @@ function loop(){
     if(!el.__hitTime) continue;
     const remain = el.__hitTime - state.now;
 
-    // reveal hidden near time
     if(state.useHidden){
       const m = el.getAttribute('material');
       if(remain <= state.revealWindow && m && m.opacity < 0.98){
         try{ el.setAttribute('material', m.color ? `color:${m.color}; opacity:0.98; shader:flat` : 'opacity:0.98; shader:flat'); }catch(e){}
       }
     }
-
     const z = Math.max(0, remain*speed); const pos = el.getAttribute('position');
     el.setAttribute('position', `${pos.x} ${pos.y} ${z.toFixed(3)}`);
 
@@ -307,7 +320,7 @@ function loop(){
   state.raf = requestAnimationFrame(loop);
 }
 
-// Start/Reset
+// ------- Start/Reset -------
 function startGame(){
   ensureAudio(); state.running=true; state.paused=false;
   readOptions(); skyTheme(state.theme);
@@ -315,7 +328,7 @@ function startGame(){
   state.score=0; state.combo=0; state.bestCombo=0; state.stat={perfect:0,good:0,miss:0};
   clearNodes(); scheduleNotes();
   state.nextBeatT=state.time0; beatLoopCount=0;
-  setHUD(`เริ่ม! ${state.mode} • BPM ${state.bpm}${state.useMultiBpm?' (Multi-BPM)':''}${state.useCurve?' • SpeedCurve':''}${state.useHidden?' • Hidden':''}${state.useFever?' • Fever':''}`);
+  setHUD(`เริ่ม! ${state.mode} • BPM ${state.bpm}${state.useMultiBpm?' (Multi-BPM)':''} • beats/section ${state.beatsPerSection} • calib ${state.calibMs}ms`);
   setScore(); loop();
 }
 function resetGame(){
@@ -324,7 +337,7 @@ function resetGame(){
   clearNodes(); setHUD("พร้อมเริ่ม"); state.score=0; state.combo=0; state.stat={perfect:0,good:0,miss:0}; setScore();
 }
 
-// Controls
+// ------- Controls -------
 btnStart?.addEventListener('click',()=>{ if(!state.running) startGame(); });
 btnReset?.addEventListener('click',()=> resetGame());
 window.addEventListener('keydown',e=>{
@@ -337,10 +350,12 @@ window.addEventListener('keydown',e=>{
 document.addEventListener('visibilitychange', ()=>{ if(document.hidden){ state.paused=true; cancelAnimationFrame(state.raf); setHUD("หยุดชั่วคราว"); } else if(state.running){ state.paused=false; setHUD("เล่นต่อ"); loop(); }});
 Object.entries(rings).forEach(([l,el])=>{ el?.classList.add('btn'); el?.addEventListener('click',()=> manualHit(l)); });
 
-// init
+// ------- Init -------
 (function init(){
   const apply=()=>{ readOptions(); skyTheme(state.theme); setHUD(`พร้อมเริ่ม • โหมด: ${state.mode} @ ${state.bpm} BPM`); };
-  ["mode","bpm","theme","optMultiBpm","multiPattern","multiCount","multiDeltas","optSpeedCurve","curveK","optFever","feverNeed","feverBeats","optHidden","goodMs","perfectRatio"]
+  ["mode","bpm","theme","optMultiBpm","multiPattern","multiCount","multiDeltas","beatsPerSec",
+   "secShapes","secColors","optSpeedCurve","curveK","optFever","feverNeed","feverBeats","optHidden",
+   "goodMs","perfectRatio","calibMs"]
     .forEach(id=>$(id)?.addEventListener('input',apply));
   ["optMultiBpm","optSpeedCurve","optFever","optHidden"].forEach(id=>$(id)?.addEventListener('change',apply));
   apply(); setScore();
