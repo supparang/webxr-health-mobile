@@ -7,18 +7,21 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
-    a-scene, a-scene canvas{position:fixed;inset:0}
-    .ui{position:fixed;left:12px;bottom:12px;z-index:2147483000;display:grid;gap:8px;max-width:760px}
+    /* ให้ฉากอยู่ชั้นล่างชัดเจน */
+    a-scene, a-scene canvas{position:fixed;inset:0;z-index:0;pointer-events:auto}
+    /* UI อยู่บนสุด และรับอีเวนต์เสมอ */
+    .ui, #hud, .bins{position:fixed;z-index:10000;pointer-events:auto}
+    .ui{left:12px;bottom:12px;display:grid;gap:8px;max-width:760px}
     .row{display:flex;gap:8px;flex-wrap:wrap}
     .card{background:rgba(0,0,0,.6);color:#fff;padding:10px 14px;border-radius:12px}
     .btn,.sel,label{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:10px 12px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer}
     .btn.primary{background:#7dfcc6;color:#052}
     .meter{height:10px;background:#111;border-radius:999px;overflow:hidden}
     .meter>span{display:block;height:100%;background:#7dfcc6;width:0%}
-    #hud{position:fixed;right:12px;top:12px;z-index:2147483000}
+    #hud{right:12px;top:12px}
     #hud .card{min-width:300px;white-space:pre-line}
     input[type="file"]{display:none}
-    .bins{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;z-index:2;display:flex;gap:8px}
+    .bins{left:50%;transform:translateX(-50%);bottom:12px;display:flex;gap:8px}
     .bins .b{background:#fff;color:#000;border:none;border-radius:12px;padding:10px 12px;font-weight:900}
     .b[data-g="grain"]{background:#fde68a}
     .b[data-g="vegetable"]{background:#bbf7d0}
@@ -32,10 +35,10 @@
     <div class="card" id="hudText">Nutrition Traffic VR\nพร้อมเริ่ม</div>
   </div>
 
-  <div class="ui">
+  <div class="ui" id="uiRoot">
     <div class="row">
-      <button id="btnStart" class="btn primary">Start</button>
-      <button id="btnReset" class="btn">Reset</button>
+      <button id="btnStart" class="btn primary" type="button" tabindex="0">Start</button>
+      <button id="btnReset" class="btn" type="button" tabindex="0">Reset</button>
       <label class="sel">โหมด:
         <select id="mode">
           <option value="easy" selected>Easy</option>
@@ -49,9 +52,9 @@
           <option value="off">Off</option>
         </select>
       </label>
-      <label class="btn" for="importFoods">Import JSON เมนู</label>
+      <label class="btn" for="importFoods" tabindex="0">Import JSON เมนู</label>
       <input id="importFoods" type="file" accept=".json"/>
-      <button id="btnExport" class="btn">Export ผลลัพธ์</button>
+      <button id="btnExport" class="btn" type="button" tabindex="0">Export ผลลัพธ์</button>
     </div>
     <div class="card">
       คะแนน: <b id="score">0</b> | ถูกต้อง: <b id="ok">0</b> | พลาด: <b id="miss">0</b>
@@ -59,13 +62,13 @@
     </div>
   </div>
 
-  <!-- ปุ่มเลือกหมู่แบบ on-screen (เผื่อมือถือ) -->
-  <div class="bins">
-    <button class="b" data-g="grain">ธัญพืช/แป้ง</button>
-    <button class="b" data-g="vegetable">ผัก</button>
-    <button class="b" data-g="fruit">ผลไม้</button>
-    <button class="b" data-g="protein">โปรตีน</button>
-    <button class="b" data-g="dairy">นม/ผลิตภัณฑ์นม</button>
+  <!-- ปุ่มเลือกหมู่ (on-screen) -->
+  <div class="bins" id="bins">
+    <button class="b" data-g="grain" type="button">ธัญพืช/แป้ง</button>
+    <button class="b" data-g="vegetable" type="button">ผัก</button>
+    <button class="b" data-g="fruit" type="button">ผลไม้</button>
+    <button class="b" data-g="protein" type="button">โปรตีน</button>
+    <button class="b" data-g="dairy" type="button">นม/ผลิตภัณฑ์นม</button>
   </div>
 
   <a-scene background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
@@ -82,22 +85,19 @@
       </a-entity>
     </a-entity>
 
-    <!-- โซนเกมอยู่ข้างหน้าเล็กน้อย -->
     <a-entity id="root" position="0 1.2 -3"></a-entity>
 
-    <!-- เส้นทางไอเท็ม (เหมือนสายพาน) -->
     <a-entity geometry="primitive: plane; width: 2.6; height: 3.2"
               material="color:#111827; opacity:0.9; shader:flat"
               position="0 0 -1.4" rotation="-90 0 0"></a-entity>
 
-    <!-- เส้นเสริม -->
     <a-entity geometry="primitive: plane; width: 2.6; height: 0.02" material="color:#334155; shader:flat" position="0 -0.6 0"></a-entity>
 
-    <!-- พื้นหลังแสง -->
     <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
     <a-sky radius="24" color="#0b1220"></a-sky>
   </a-scene>
 
+  <!-- โหลดสคริปต์ท้าย body เพื่อให้ DOM ครบ -->
   <script src="game.js"></script>
 </body>
 </html>
