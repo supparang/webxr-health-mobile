@@ -13,8 +13,9 @@
     .hud { right:12px; top:12px; min-width:320px; background:var(--glass); color:#fff;
       padding:10px 14px; border-radius:12px; white-space:pre-line; }
     .hud h1{margin:0 0 6px 0; font-size:18px;}
-    .ui { left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap; }
-    .ui label, .ui button {
+    .ui { left:12px; bottom:12px; display:grid; gap:8px; grid-template-columns: 1fr; max-width:680px; }
+    .row { display:flex; gap:8px; flex-wrap:wrap; }
+    .ui label, .ui button, .chip {
       background:#fff; color:#0b1220; border:none; border-radius:12px; padding:10px 12px; font-weight:700;
       box-shadow:0 2px 10px rgba(0,0,0,.25); cursor:pointer;
     }
@@ -24,6 +25,9 @@
     .laneKeys { position:fixed; right:12px; bottom:12px; z-index:2147483000; display:flex; gap:8px; }
     .laneKeys button{ padding:10px 14px; border:none; border-radius:12px; font-weight:800; cursor:pointer; box-shadow:0 2px 10px rgba(0,0,0,.25); }
     .U{background:#e6f0ff}.D{background:#ffe7e7}.L{background:#e2fbe2}.R{background:#fff1d6}
+    .chip{display:inline-flex; align-items:center; gap:8px;}
+    .chip input{transform:scale(1.2);}
+    small.hint{opacity:.8; font-weight:600;}
   </style>
 </head>
 <body>
@@ -36,29 +40,71 @@
   </div>
 
   <div class="ui">
-    <label>โหมด:
-      <select id="mode">
-        <option value="training" selected>Training</option>
-        <option value="challenge">Challenge</option>
-      </select>
-    </label>
-    <label>BPM:
-      <select id="bpm">
-        <option value="100">100</option>
-        <option value="110">110</option>
-        <option value="120" selected>120</option>
-        <option value="130">130</option>
-      </select>
-    </label>
-    <label>ธีม:
-      <select id="theme">
-        <option value="beach" selected>Beach</option>
-        <option value="city">City</option>
-        <option value="galaxy">Galaxy</option>
-      </select>
-    </label>
-    <button id="btnStart" class="primary">Start</button>
-    <button id="btnReset">Reset</button>
+    <div class="row">
+      <label>โหมด:
+        <select id="mode">
+          <option value="training" selected>Training</option>
+          <option value="challenge">Challenge</option>
+        </select>
+      </label>
+      <label>BPM:
+        <select id="bpm">
+          <option value="100">100</option>
+          <option value="110">110</option>
+          <option value="120" selected>120</option>
+          <option value="130">130</option>
+        </select>
+      </label>
+      <label>ธีม:
+        <select id="theme">
+          <option value="beach" selected>Beach</option>
+          <option value="city">City</option>
+          <option value="galaxy">Galaxy</option>
+        </select>
+      </label>
+      <button id="btnStart" class="primary">Start</button>
+      <button id="btnReset">Reset</button>
+    </div>
+
+    <!-- Rhythm & Difficulty Tuning -->
+    <div class="row">
+      <span class="chip"><input type="checkbox" id="optMultiBpm"/><label for="optMultiBpm">Multi-BPM</label></span>
+      <span class="chip"><input type="checkbox" id="optSpeedCurve"/><label for="optSpeedCurve">Speed Curve</label></span>
+      <span class="chip"><input type="checkbox" id="optFever"/><label for="optFever">Fever Time</label></span>
+      <span class="chip"><input type="checkbox" id="optHidden"/><label for="optHidden">Hidden Notes</label></span>
+    </div>
+    <div class="row" style="gap:12px;">
+      <span class="chip">
+        <label>รูปแบบ Multi-BPM:
+          <select id="multiPattern">
+            <option value="rise" selected>ขึ้นช้า→เร็ว (x3 ช่วง)</option>
+            <option value="wave">ขึ้น-ลงเป็นคลื่น</option>
+          </select>
+        </label>
+      </span>
+      <span class="chip">
+        <label>ความชัน Speed Curve:
+          <select id="curveK">
+            <option value="0.00">ปิด</option>
+            <option value="0.01" selected>น้อย</option>
+            <option value="0.02">กลาง</option>
+            <option value="0.03">มาก</option>
+          </select>
+        </label>
+      </span>
+      <span class="chip">
+        <label>Fever @ Combo:
+          <select id="feverNeed">
+            <option value="8" selected>8</option>
+            <option value="10">10</option>
+            <option value="12">12</option>
+          </select>
+        </label>
+      </span>
+      <span class="chip">
+        <small class="hint">หมายเหตุ: สามารถส่งค่า query `multi=1&curve=0.02&fever=1&hidden=1` ได้</small>
+      </span>
+    </div>
   </div>
 
   <div class="laneKeys">
@@ -71,7 +117,6 @@
   <a-scene background="color:#070022" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
     <a-assets timeout="30000"></a-assets>
 
-    <!-- กล้อง + เคอร์เซอร์ fuse สำหรับ gaze select -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <a-entity id="cursor"
@@ -83,7 +128,6 @@
       </a-entity>
     </a-entity>
 
-    <!-- เวทีและวงแหวน hit -->
     <a-entity id="root" position="0 1.2 -3"></a-entity>
 
     <a-entity id="hitU" class="hit" geometry="primitive: ring; radiusInner:0.20; radiusOuter:0.27"
@@ -95,24 +139,32 @@
     <a-entity id="hitR" class="hit" geometry="primitive: ring; radiusInner:0.20; radiusOuter:0.27"
               material="color:#ffe6b0; opacity:0.95; shader:flat" position="1.2 0 0"></a-entity>
 
-    <!-- Sky สีตามธีม (ถ้าอยากใช้ภาพ 360° ใส่ src ได้) -->
     <a-sky id="sky" radius="24" color="#0b1220"></a-sky>
     <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
   </a-scene>
 
   <script src="game.js"></script>
 
-  <!-- Apply query params -->
   <script>
     (function applyQuery(){
       const q = new URLSearchParams(location.search);
       const set=(id,key,allow)=>{ const v=q.get(key); if(!v) return; const el=document.getElementById(id);
         if(!el) return; if(!allow||allow.includes(v)){ el.value=v; el.dispatchEvent(new Event('change')); }};
+      const setBool=(id,key)=>{ const v=q.get(key); if(v==='1'||v==='true'){ const el=document.getElementById(id); if(el){ el.checked=true; el.dispatchEvent(new Event('change')); }}};
+
       set('mode','mode',['training','challenge']);
       set('bpm','bpm',['100','110','120','130']);
       set('theme','theme',['beach','city','galaxy']);
+
+      setBool('optMultiBpm','multi');
+      set('multiPattern','mpat',['rise','wave']);
+      set('curveK','curve',['0.00','0.01','0.02','0.03']);
+      setBool('optFever','fever');
+      set('feverNeed','fneed',['8','10','12']);
+      setBool('optHidden','hidden');
+
       if(q.get('autostart')==='1'){ setTimeout(()=>document.getElementById('btnStart').click(),250); }
-      const hudText=document.getElementById('hudText'); if(hudText) hudText.textContent='พร้อมเริ่ม (ค่าถูกตั้งตามลิงก์แล้ว)';
+      const hudText=document.getElementById('hudText'); if(hudText) hudText.textContent='พร้อมเริ่ม (ปรับแต่งความท้าทายได้ด้านล่าง)';
     })();
   </script>
 </body>
