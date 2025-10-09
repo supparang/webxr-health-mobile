@@ -7,7 +7,7 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
-    a-scene, a-scene canvas{position:fixed;inset:0}
+    a-scene, a-scene canvas{position:fixed;inset:0;z-index:0}
     .ui,.hud{position:fixed;z-index:9999;pointer-events:auto}
     .ui{left:12px;bottom:12px;display:grid;gap:8px;max-width:820px}
     .row{display:flex;gap:8px;flex-wrap:wrap}
@@ -26,17 +26,17 @@
 
   <div class="ui">
     <div class="row">
-      <button id="btnStart" class="btn primary">Start</button>
-      <button id="btnReset" class="btn">Reset</button>
+      <button id="btnStart" class="btn primary" type="button">Start</button>
+      <button id="btnReset" class="btn" type="button">Reset</button>
       <label>โหมด:
         <select id="mode">
           <option value="easy" selected>Easy</option>
           <option value="normal">Normal</option>
         </select>
       </label>
-      <label class="btn" for="importFoods">Import เมนู (JSON)</label>
+      <label class="btn" for="importFoods" tabindex="0">Import เมนู (JSON)</label>
       <input id="importFoods" type="file" accept=".json"/>
-      <button id="btnExport" class="btn">Export ผลลัพธ์</button>
+      <button id="btnExport" class="btn" type="button">Export ผลลัพธ์</button>
     </div>
     <div class="card">
       เลือกอาหารจากเมนูซ้าย (5 หมู่) แล้ว “เพิ่มลงจาน”<br/>
@@ -44,23 +44,24 @@
     </div>
   </div>
 
-  <a-scene background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
     <a-assets timeout="30000"></a-assets>
 
-    <!-- กล้อง + เคอร์เซอร์ (gaze/fuse) -->
+    <!-- กล้อง + เคอร์เซอร์ -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-entity camera look-controls>
-        <a-entity id="cursor" cursor="rayOrigin: entity; fuse: true; fuseTimeout: 900"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-                  material="color:#7dfcc6; shader:flat; opacity:0.95"></a-entity>
+      <a-entity id="cam" camera look-controls>
+        <!-- วงแหวนจะแสดงเฉพาะตอนโหมด entity/gaze -->
+        <a-entity id="cursor"
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: .clickable; far: 12; interval: 0"
+          position="0 0 -1"
+          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+          material="color:#7dfcc6; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
       </a-entity>
     </a-entity>
 
-    <!-- โคนเทนต์ -->
     <a-entity id="root" position="0 1.2 -3"></a-entity>
 
-    <!-- พื้นหลัง/แสง -->
     <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
     <a-sky radius="24" color="#0b1220"></a-sky>
   </a-scene>
