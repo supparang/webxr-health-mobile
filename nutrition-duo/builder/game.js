@@ -1,4 +1,4 @@
-// Healthy Plate Builder VR — เมนูอยู่ด้านบนตรงหน้า + Toggle ได้ + กันถูกบัง
+// Healthy Plate Builder VR — เมนูด้านบน + Toggle + Desktop/VR cursor + ฟอนต์ไทย
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init); else init();
 
 function init(){
@@ -9,6 +9,9 @@ function init(){
   const scoreEl=$("#score"), okEl=$("#ok"), missEl=$("#miss");
   const btnStart=$("#btnStart"), btnReset=$("#btnReset"), btnExport=$("#btnExport"), modeSel=$("#mode"), importInput=$("#importFoods");
   const btnToggleMenu=$("#btnToggleMenu");
+
+  // ใช้ฟอนต์ไทยกับทุก a-entity text
+  const FONT = "font: #thaiFont;";
 
   // ---------- Cursor desktop/VR ----------
   function setCursorMode(mode){
@@ -75,7 +78,7 @@ function init(){
 
   function popToast(text){
     const el=document.createElement('a-entity');
-    el.setAttribute('text',`value:${text}; width:5; align:center; color:#fff`);
+    el.setAttribute('text',`value:${text}; ${FONT} width:5; align:center; color:#fff`);
     el.setAttribute('position','0 0.85 0.12');
     root.appendChild(el);
     try{
@@ -106,52 +109,52 @@ function init(){
       root.appendChild(seg);
 
       const t=document.createElement('a-entity');
-      t.setAttribute('text',`value:${GROUPS[g].th}: 0; width: 4.2; align:center; color:#fff`);
+      t.setAttribute('text',`value:${GROUPS[g].th}: 0; ${FONT} width: 4.2; align:center; color:#fff`);
       t.setAttribute('position',`0 ${0.9 - i*0.35} 0.05`);
       t.setAttribute('id',`txt-${g}`);
       root.appendChild(t);
     });
 
-    // ===== เมนูอาหาร (ย้ายมา "ด้านบน-ตรงกลาง") =====
+    // ===== เมนูอาหาร (ด้านบน-กลาง) =====
     menuPanel=document.createElement('a-entity');
-    // พาแนลพื้นหลัง (ไม่ให้ตัวอักษรถูกบัง)
+
     const bg=document.createElement('a-entity');
-    bg.setAttribute('geometry','primitive: plane; width: 2.6; height: 1.4');
+    bg.setAttribute('geometry','primitive: plane; width: 2.8; height: 1.48');
     bg.setAttribute('material','color:#0b1220; opacity:0.72; shader:flat');
     bg.setAttribute('position','0 0 0');
     menuPanel.appendChild(bg);
 
-    // หัวข้อ
     const title=document.createElement('a-entity');
-    title.setAttribute('text','value:เมนูอาหาร (กดปุ่มเพื่อเพิ่มลงจาน); width:6; align:center; color:#7dfcc6');
-    title.setAttribute('position','0 0.54 0.01');
+    title.setAttribute('text',`value:เมนูอาหาร (กดปุ่มเพื่อเพิ่มลงจาน); ${FONT} width:6; align:center; color:#7dfcc6`);
+    title.setAttribute('position','0 0.56 0.01');
     menuPanel.appendChild(title);
 
-    // ปุ่มอาหาร 2 แถว (กลางจอ)
+    const ICON = { grain:"🍚", vegetable:"🥬", fruit:"🍊", protein:"🍗", dairy:"🥛" };
+
     const groups=ORDER;
     let rowY=0.18;
-    groups.forEach((g,gidx)=>{
+    groups.forEach((g)=>{
       const gTitle=document.createElement('a-entity');
-      gTitle.setAttribute('text',`value:${GROUPS[g].th}; width:4; align:left; color:#e2e8f0`);
-      gTitle.setAttribute('position',`-1.2 ${rowY} 0.01`);
+      gTitle.setAttribute('text',`value:${ICON[g]||"•"} ${GROUPS[g].th}; ${FONT} width:4.6; align:left; color:#e2e8f0`);
+      gTitle.setAttribute('position',`-1.22 ${rowY} 0.01`);
       menuPanel.appendChild(gTitle);
 
       const foods=FOODS.filter(f=>f.group===g);
       if(!foods.length){
         const warn=document.createElement('a-entity');
-        warn.setAttribute('text','value:(ไม่มีรายการ — ตรวจ JSON); width:3.6; align:left; color:#fecaca');
+        warn.setAttribute('text',`value:(ไม่มีรายการ — ตรวจ JSON); ${FONT} width:3.6; align:left; color:#fecaca`);
         warn.setAttribute('position',`-0.2 ${rowY} 0.01`);
         menuPanel.appendChild(warn);
       }else{
         foods.slice(0,3).forEach((f,idx)=>{
-          const x=-0.2 + idx*0.8;
+          const x=-0.2 + idx*0.85;
           const btn=document.createElement('a-entity');
           btn.classList.add('clickable');
-          btn.setAttribute('geometry','primitive: plane; width: 0.72; height: 0.28');
+          btn.setAttribute('geometry','primitive: plane; width: 0.78; height: 0.3');
           btn.setAttribute('material','color:#111827; opacity:0.95; shader:flat');
           btn.setAttribute('position',`${x} ${rowY} 0.02`);
           const txt=document.createElement('a-entity');
-          txt.setAttribute('text',`value:+ ${f.name}; width:2.2; align:center; color:#7dfcc6`);
+          txt.setAttribute('text',`value:+ ${f.name}; ${FONT} width:2.4; align:center; color:#7dfcc6`);
           txt.setAttribute('position','0 0 0.01');
           btn.appendChild(txt);
           btn.addEventListener('click',()=>addFood(f));
@@ -161,8 +164,8 @@ function init(){
       rowY -= 0.36;
     });
 
-    // ตำแหน่งเมนู: ด้านบน ตรงกลาง และ "ขยับมาใกล้ผู้เล่น" เพื่อไม่ถูกบัง
-    menuPanel.setAttribute('position','0 0.75 0.12');
+    // ตำแหน่งเมนู: ด้านบน ตรงกลาง และขยับมาใกล้ผู้เล่น
+    menuPanel.setAttribute('position','0 0.78 0.12');
     root.appendChild(menuPanel);
 
     // ปุ่ม “ให้คะแนน”
@@ -172,14 +175,14 @@ function init(){
     finish.setAttribute('material','color:#7dfcc6; opacity:0.96; shader:flat');
     finish.setAttribute('position','1.8 -1.0 0.06');
     const ft=document.createElement('a-entity');
-    ft.setAttribute('text','value:ให้คะแนน; width:4; align:center; color:#053b2a');
+    ft.setAttribute('text',`value:ให้คะแนน; ${FONT} width:4; align:center; color:#053b2a`);
     ft.setAttribute('position','0 0 0.01');
     finish.appendChild(ft);
     finish.addEventListener('click', scoreNow);
     root.appendChild(finish);
 
     const hint=document.createElement('a-entity');
-    hint.setAttribute('text','value:เป้าหมาย: แป้ง1–2 | ผัก≥2 | ผลไม้≥1 | โปรตีน1 | นม1; width:5.5; align:center; color:#cbd5e1');
+    hint.setAttribute('text',`value:เป้าหมาย: แป้ง1–2 | ผัก≥2 | ผลไม้≥1 | โปรตีน1 | นม1; ${FONT} width:5.8; align:center; color:#cbd5e1`);
     hint.setAttribute('position','0 -1.1 0.06');
     root.appendChild(hint);
 
@@ -196,7 +199,7 @@ function init(){
   function updateTexts(){
     ["grain","vegetable","fruit","protein","dairy"].forEach(g=>{
       const el=document.getElementById(`txt-${g}`);
-      if(el) el.setAttribute('text',`value:${GROUPS[g].th}: ${state.count[g]||0}; width:4.2; align:center; color:#fff`);
+      if(el) el.setAttribute('text',`value:${GROUPS[g].th}: ${state.count[g]||0}; ${FONT} width:4.2; align:center; color:#fff`);
     });
   }
 
