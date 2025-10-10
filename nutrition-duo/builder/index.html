@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
   <title>Healthy Plate Builder VR</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- ใช้ troika text เพื่อรองรับฟอนต์ไทย -->
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
   <style>
     html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
     a-scene, a-scene canvas{position:fixed;inset:0;z-index:0}
@@ -47,12 +49,11 @@
 
   <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
     <a-assets timeout="30000">
-      <!-- ฟอนต์ไทยสำหรับ A-Frame text -->
-      <!-- ใช้ไฟล์ออนไลน์ หากต้องการออฟไลน์ ให้เปลี่ยน src ไปที่ ../assets/fonts/NotoSansThai-Regular.woff2 -->
+      <!-- ฟอนต์ไทย (ใช้ woff2) -->
       <a-asset-item id="thaiFont" src="https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf"></a-asset-item>
+      <!-- ถ้าต้องการออฟไลน์ ให้เปลี่ยน src เป็น ../assets/fonts/NotoSansThai-Regular.woff2 -->
     </a-assets>
 
-    <!-- กล้อง + เคอร์เซอร์ -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <!-- เดสก์ท็อปใช้เมาส์ / เข้า VR ใช้ gaze+fuse (จะสลับใน game.js) -->
@@ -65,7 +66,6 @@
       </a-entity>
     </a-entity>
 
-    <!-- รากคอนเทนต์ -->
     <a-entity id="root" position="0 1.2 -3"></a-entity>
 
     <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
