@@ -1,4 +1,4 @@
-// Healthy Plate Builder VR — เมนูด้านบน + Toggle + Desktop/VR cursor + ฟอนต์ไทย
+// Healthy Plate Builder VR — troika-text (รองรับไทย), เมนูด้านบน + Toggle + Desktop/VR cursor
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init); else init();
 
 function init(){
@@ -10,8 +10,37 @@ function init(){
   const btnStart=$("#btnStart"), btnReset=$("#btnReset"), btnExport=$("#btnExport"), modeSel=$("#mode"), importInput=$("#importFoods");
   const btnToggleMenu=$("#btnToggleMenu");
 
-  // ใช้ฟอนต์ไทยกับทุก a-entity text
-  const FONT = "font: #thaiFont;";
+  // ดึง URL ฟอนต์จาก <a-asset-item id="thaiFont">
+  const THAI_FONT_URL = (document.querySelector("#thaiFont")?.getAttribute("src")) ||
+                        "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf";
+
+  // helper สร้างข้อความไทยด้วย troika-text
+  function makeTextEntity(value, opts={}){
+    const e=document.createElement('a-entity');
+    const {
+      color="#ffffff",
+      align="center",
+      fontSize=0.14,     // หน่วยเมตร
+      maxWidth=4.0,
+      outlineWidth=0,    // เส้นขอบ (0 = ปิด)
+      anchorX="center",  // left|center|right
+      anchorY="middle",  // top|middle|bottom
+    } = opts;
+    e.setAttribute('troika-text', `
+      value: ${value};
+      font: ${THAI_FONT_URL};
+      color: ${color};
+      fontSize: ${fontSize};
+      maxWidth: ${maxWidth};
+      align: ${align};
+      anchorX: ${anchorX};
+      anchorY: ${anchorY};
+      outlineWidth: ${outlineWidth};
+    `.replace(/\s+/g,' '));
+    // เรนเดอร์ด้วย shader: standard เพื่อความคมชัด
+    e.setAttribute('material','shader: standard; metalness: 0; roughness: 1');
+    return e;
+  }
 
   // ---------- Cursor desktop/VR ----------
   function setCursorMode(mode){
@@ -77,8 +106,7 @@ function init(){
   }
 
   function popToast(text){
-    const el=document.createElement('a-entity');
-    el.setAttribute('text',`value:${text}; ${FONT} width:5; align:center; color:#fff`);
+    const el=makeTextEntity(text,{color:"#ffffff",fontSize:0.16,maxWidth:5,align:"center"});
     el.setAttribute('position','0 0.85 0.12');
     root.appendChild(el);
     try{
@@ -100,7 +128,7 @@ function init(){
     plate.setAttribute('position','0 0 0.02');
     root.appendChild(plate);
 
-    // โซน 5 ชั้น (ring)
+    // โซน 5 ชั้น (ring) + ตัวเลขสรุป
     ORDER.forEach((g,i)=>{
       const seg=document.createElement('a-entity');
       seg.setAttribute('geometry',`primitive: ring; radiusInner:${0.1+i*0.18}; radiusOuter:${0.18+i*0.18}; thetaStart:0; thetaLength:300`);
@@ -108,8 +136,7 @@ function init(){
       seg.setAttribute('position','0 0 0.03');
       root.appendChild(seg);
 
-      const t=document.createElement('a-entity');
-      t.setAttribute('text',`value:${GROUPS[g].th}: 0; ${FONT} width: 4.2; align:center; color:#fff`);
+      const t=makeTextEntity(`${GROUPS[g].th}: 0`,{color:"#ffffff",fontSize:0.16,maxWidth:4.2});
       t.setAttribute('position',`0 ${0.9 - i*0.35} 0.05`);
       t.setAttribute('id',`txt-${g}`);
       root.appendChild(t);
@@ -124,25 +151,21 @@ function init(){
     bg.setAttribute('position','0 0 0');
     menuPanel.appendChild(bg);
 
-    const title=document.createElement('a-entity');
-    title.setAttribute('text',`value:เมนูอาหาร (กดปุ่มเพื่อเพิ่มลงจาน); ${FONT} width:6; align:center; color:#7dfcc6`);
+    const title=makeTextEntity('เมนูอาหาร (กดปุ่มเพื่อเพิ่มลงจาน)',{color:"#7dfcc6",fontSize:0.18,maxWidth:6});
     title.setAttribute('position','0 0.56 0.01');
     menuPanel.appendChild(title);
 
     const ICON = { grain:"🍚", vegetable:"🥬", fruit:"🍊", protein:"🍗", dairy:"🥛" };
 
-    const groups=ORDER;
     let rowY=0.18;
-    groups.forEach((g)=>{
-      const gTitle=document.createElement('a-entity');
-      gTitle.setAttribute('text',`value:${ICON[g]||"•"} ${GROUPS[g].th}; ${FONT} width:4.6; align:left; color:#e2e8f0`);
+    for(const g of ORDER){
+      const gTitle=makeTextEntity(`${ICON[g]||"•"} ${GROUPS[g].th}`,{color:"#e2e8f0",align:"left",anchorX:"left",fontSize:0.16,maxWidth:4.6});
       gTitle.setAttribute('position',`-1.22 ${rowY} 0.01`);
       menuPanel.appendChild(gTitle);
 
       const foods=FOODS.filter(f=>f.group===g);
       if(!foods.length){
-        const warn=document.createElement('a-entity');
-        warn.setAttribute('text',`value:(ไม่มีรายการ — ตรวจ JSON); ${FONT} width:3.6; align:left; color:#fecaca`);
+        const warn=makeTextEntity('(ไม่มีรายการ — ตรวจ JSON)',{color:"#fecaca",align:"left",anchorX:"left",fontSize:0.14,maxWidth:3.6});
         warn.setAttribute('position',`-0.2 ${rowY} 0.01`);
         menuPanel.appendChild(warn);
       }else{
@@ -153,18 +176,19 @@ function init(){
           btn.setAttribute('geometry','primitive: plane; width: 0.78; height: 0.3');
           btn.setAttribute('material','color:#111827; opacity:0.95; shader:flat');
           btn.setAttribute('position',`${x} ${rowY} 0.02`);
-          const txt=document.createElement('a-entity');
-          txt.setAttribute('text',`value:+ ${f.name}; ${FONT} width:2.4; align:center; color:#7dfcc6`);
+
+          const txt=makeTextEntity(`+ ${f.name}`,{color:"#7dfcc6",fontSize:0.16,maxWidth:2.4});
           txt.setAttribute('position','0 0 0.01');
           btn.appendChild(txt);
+
           btn.addEventListener('click',()=>addFood(f));
           menuPanel.appendChild(btn);
         });
       }
       rowY -= 0.36;
-    });
+    }
 
-    // ตำแหน่งเมนู: ด้านบน ตรงกลาง และขยับมาใกล้ผู้เล่น
+    // ตำแหน่งเมนู
     menuPanel.setAttribute('position','0 0.78 0.12');
     root.appendChild(menuPanel);
 
@@ -174,15 +198,13 @@ function init(){
     finish.setAttribute('geometry','primitive: plane; width: 1.6; height: 0.38');
     finish.setAttribute('material','color:#7dfcc6; opacity:0.96; shader:flat');
     finish.setAttribute('position','1.8 -1.0 0.06');
-    const ft=document.createElement('a-entity');
-    ft.setAttribute('text',`value:ให้คะแนน; ${FONT} width:4; align:center; color:#053b2a`);
+    const ft=makeTextEntity('ให้คะแนน',{color:"#053b2a",fontSize:0.18,maxWidth:4});
     ft.setAttribute('position','0 0 0.01');
     finish.appendChild(ft);
     finish.addEventListener('click', scoreNow);
     root.appendChild(finish);
 
-    const hint=document.createElement('a-entity');
-    hint.setAttribute('text',`value:เป้าหมาย: แป้ง1–2 | ผัก≥2 | ผลไม้≥1 | โปรตีน1 | นม1; ${FONT} width:5.8; align:center; color:#cbd5e1`);
+    const hint=makeTextEntity('เป้าหมาย: แป้ง1–2 | ผัก≥2 | ผลไม้≥1 | โปรตีน1 | นม1',{color:"#cbd5e1",fontSize:0.16,maxWidth:5.8});
     hint.setAttribute('position','0 -1.1 0.06');
     root.appendChild(hint);
 
@@ -197,10 +219,15 @@ function init(){
   }
 
   function updateTexts(){
-    ["grain","vegetable","fruit","protein","dairy"].forEach(g=>{
+    for(const g of ["grain","vegetable","fruit","protein","dairy"]){
       const el=document.getElementById(`txt-${g}`);
-      if(el) el.setAttribute('text',`value:${GROUPS[g].th}: ${state.count[g]||0}; ${FONT} width:4.2; align:center; color:#fff`);
-    });
+      if(el){
+        el.setAttribute('troika-text', Object.entries({
+          value:`${GROUPS[g].th}: ${state.count[g]||0}`,
+          font:THAI_FONT_URL, color:"#ffffff", fontSize:0.16, maxWidth:4.2, align:"center"
+        }).map(([k,v])=>`${k}: ${v}`).join('; '));
+      }
+    }
   }
 
   // ---------- Game Flow ----------
@@ -266,8 +293,6 @@ function init(){
   bindClick(btnStart, ()=>{ if(!state.running) start(); });
   bindClick(btnReset, reset);
   bindClick(btnToggleMenu, toggleMenu);
-
-  // ปุ่มคีย์ลัด M
   window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='m') toggleMenu(); });
 
   // ---------- Boot ----------
