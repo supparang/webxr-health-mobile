@@ -37,9 +37,10 @@
       <label class="btn" for="importFoods" tabindex="0">Import เมนู (JSON)</label>
       <input id="importFoods" type="file" accept=".json"/>
       <button id="btnExport" class="btn" type="button">Export ผลลัพธ์</button>
+      <button id="btnToggleMenu" class="btn" type="button">แสดง/ซ่อน เมนู (M)</button>
     </div>
     <div class="card">
-      เลือกอาหารจากเมนูซ้าย (5 หมู่) แล้ว “เพิ่มลงจาน”<br/>
+      เลือกอาหารจากเมนูด้านบน แล้ว “เพิ่มลงจาน”<br/>
       คะแนน: <b id="score">0</b> | ครบหมู่: <b id="ok">0</b> | ขาด/เกิน: <b id="miss">0</b>
     </div>
   </div>
@@ -50,7 +51,7 @@
     <!-- กล้อง + เคอร์เซอร์ -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
-        <!-- วงแหวนจะแสดงเฉพาะตอนโหมด entity/gaze -->
+        <!-- เดสก์ท็อปใช้เมาส์ / เข้า VR ใช้ gaze+fuse (จะสลับใน game.js) -->
         <a-entity id="cursor"
           cursor="rayOrigin: mouse; fuse: false"
           raycaster="objects: .clickable; far: 12; interval: 0"
@@ -60,6 +61,7 @@
       </a-entity>
     </a-entity>
 
+    <!-- รากคอนเทนต์ -->
     <a-entity id="root" position="0 1.2 -3"></a-entity>
 
     <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
