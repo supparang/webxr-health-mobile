@@ -5,20 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
   <title>Nutrition Traffic VR</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- รองรับข้อความไทย -->
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
   <style>
     html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
     a-scene, a-scene canvas{position:fixed;inset:0}
-    .ui,.hud,.bins{position:fixed;z-index:9999;pointer-events:auto}
-    .ui{left:12px;bottom:12px;display:grid;gap:8px;max-width:760px}
+    .ui{position:fixed;left:12px;bottom:12px;z-index:9999;display:grid;gap:8px;max-width:760px}
     .row{display:flex;gap:8px;flex-wrap:wrap}
     .card{background:rgba(0,0,0,.6);color:#fff;padding:10px 14px;border-radius:12px}
     .btn,label,select{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:10px 12px;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25)}
     .btn.primary{background:#7dfcc6;color:#053}
-    #hud{right:12px;top:12px}
-    #hud .card{min-width:300px;white-space:pre-line}
     input[type="file"]{display:none}
-    .bins{left:50%;transform:translateX(-50%);bottom:12px;display:flex;gap:8px}
-    .bins .b{background:#fff;color:#000;border:none;border-radius:12px;padding:10px 12px;font-weight:900}
+    .bins{position:fixed;left:50%;transform:translateX(-50%);bottom:12px;display:flex;gap:8px;z-index:9999}
+    .b{background:#fff;border:none;border-radius:12px;padding:10px 12px;font-weight:900}
     .b[data-g="grain"]{background:#fde68a}
     .b[data-g="vegetable"]{background:#bbf7d0}
     .b[data-g="fruit"]{background:#fecaca}
@@ -27,14 +26,10 @@
   </style>
 </head>
 <body>
-  <div id="hud" class="hud">
-    <div class="card" id="hudText">Nutrition Traffic VR\nพร้อมเริ่ม</div>
-  </div>
-
   <div class="ui">
     <div class="row">
-      <button id="btnStart" class="btn primary">Start</button>
-      <button id="btnReset" class="btn">Reset</button>
+      <button id="btnStart" class="btn primary" type="button">Start</button>
+      <button id="btnReset" class="btn" type="button">Reset</button>
       <label>โหมด:
         <select id="mode">
           <option value="easy" selected>Easy</option>
@@ -42,15 +37,16 @@
           <option value="hard">Hard</option>
         </select>
       </label>
-      <label class="btn" for="importFoods">Import เมนู (JSON)</label>
+      <label class="btn" for="importFoods" tabindex="0">Import เมนู (JSON)</label>
       <input id="importFoods" type="file" accept=".json"/>
-      <button id="btnExport" class="btn">Export ผลลัพธ์</button>
+      <button id="btnExport" class="btn" type="button">Export ผลลัพธ์</button>
     </div>
     <div class="card">
       คะแนน: <b id="score">0</b> | ถูกต้อง: <b id="ok">0</b> | พลาด: <b id="miss">0</b>
     </div>
   </div>
 
+  <!-- ปุ่มเลือกหมวด (HTML) -->
   <div class="bins" id="bins">
     <button class="b" data-g="grain" type="button">ธัญพืช/แป้ง</button>
     <button class="b" data-g="vegetable" type="button">ผัก</button>
@@ -59,9 +55,12 @@
     <button class="b" data-g="dairy" type="button">นม</button>
   </div>
 
-  <a-scene background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
     <a-assets timeout="30000">
-      <!-- SVG fallback (เหมือนชุดก่อน) -->
+      <!-- ฟอนต์ไทย -->
+      <a-asset-item id="thaiFont" src="https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf"></a-asset-item>
+
+      <!-- SVG fallback รูปอาหาร -->
       <img id="img-rice"    src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220"><rect width="100%" height="100%" fill="%23fffbe6"/><ellipse cx="160" cy="140" rx="120" ry="60" fill="%23f3e8c0"/><text x="160" y="80" font-size="42" text-anchor="middle" fill="%23705d00">ข้าว</text></svg>'>
       <img id="img-noodle"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220"><rect width="100%" height="100%" fill="%23fffbe6"/><path d="M40,150 Q160,40 280,150" stroke="%23eab308" stroke-width="16" fill="none"/></svg>'>
       <img id="img-lettuce" src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220"><rect width="100%" height="100%" fill="%23f0fff4"/><circle cx="110" cy="120" r="60" fill="%2306c167"/><circle cx="170" cy="120" r="60" fill="%2309a66a"/></svg>'>
@@ -74,20 +73,25 @@
       <img id="img-yogurt"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="220"><rect width="100%" height="100%" fill="%23eef2ff"/><rect x="110" y="80" width="100" height="70" fill="%23fff"/></svg>'>
     </a-assets>
 
+    <!-- กล้อง + เคอร์เซอร์ -->
     <a-entity id="rig" position="0 1.6 0">
       <a-entity camera look-controls>
-        <a-entity id="cursor" cursor="rayOrigin: entity; fuse: true; fuseTimeout: 900"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-                  material="color:#7dfcc6; shader:flat; opacity:0.95"></a-entity>
+        <a-entity id="cursor"
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: .clickable; far: 12; interval: 0"
+          position="0 0 -1"
+          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+          material="color:#7dfcc6; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
       </a-entity>
     </a-entity>
 
-    <a-entity id="root" position="0 1.2 -3"></a-entity>
+    <!-- Root 3D -->
+    <a-entity id="root" position="0 1.25 -3"></a-entity>
 
-    <a-entity geometry="primitive: plane; width: 2.6; height: 3.2"
-              material="color:#111827; opacity:0.9; shader:flat"
-              position="0 0 -1.4" rotation="-90 0 0"></a-entity>
+    <!-- พื้นหลังนุ่ม ๆ -->
+    <a-entity geometry="primitive: plane; width: 3.2; height: 3.6"
+              material="color:#0f172a; opacity:0.85; shader:flat"
+              position="0 0 -1.2" rotation="-90 0 0"></a-entity>
 
     <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
     <a-sky radius="24" color="#0b1220"></a-sky>
