@@ -3,201 +3,45 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>Rhythm Stretch VR — Fitness Duo</title>
+  <title>Fitness Duo — Rhythm</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
   <style>
-    :root { --glass: rgba(0,0,0,.6); }
-    html,body{margin:0;height:100%;background:#070022;font-family:system-ui,Arial,sans-serif;}
-    a-scene, a-scene canvas { position:fixed; inset:0; z-index:1; }
-    .hud,.ui,.back{position:fixed;z-index:2147483000;pointer-events:auto}
-    .hud{right:12px;top:12px;min-width:320px;background:var(--glass);color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line}
-    .hud h1{margin:0 0 6px 0;font-size:18px}
-    .ui{left:12px;bottom:12px;display:grid;gap:8px;grid-template-columns:1fr;max-width:980px}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    .ui label,.ui button,.field{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:10px 12px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:pointer}
-    .field{display:flex;gap:8px;align-items:center}
-    .ui input[type="number"], .ui input[type="text"], select{border:none;outline:none;font-weight:700;background:transparent}
-    .ui button.primary{background:#7dfcc6;color:#052}
-    .back{left:12px;top:12px;background:var(--glass);color:#fff;padding:8px 12px;border-radius:10px}
-    .back a{color:#fff;text-decoration:none;font-weight:700}
-    .laneKeys{position:fixed;right:12px;bottom:12px;z-index:2147483000;display:flex;gap:8px}
-    .laneKeys button{padding:10px 14px;border:none;border-radius:12px;font-weight:800;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.25)}
-    .U{background:#e6f0ff}.D{background:#ffe7e7}.L{background:#e2fbe2}.R{background:#fff1d6}
-    small.hint{opacity:.85;font-weight:600}
+    html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
+    a-scene, a-scene canvas{position:fixed;inset:0}
+    .ui{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:9999;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+    .btn.primary{background:#93c5fd;color:#08223b}
+    .card{position:fixed;right:12px;top:12px;background:rgba(0,0,0,.55);color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;z-index:9999}
   </style>
 </head>
 <body>
-  <div class="back">⬅ <a href="../index.html">กลับเมนูหลัก</a></div>
-
-  <div class="hud">
-    <h1 id="hudTitle">Rhythm Stretch VR</h1>
-    <div id="hudText">กำลังโหลด…</div>
-    <div id="hudScore" style="margin-top:6px;">คะแนน: 0 • Combo: 0</div>
-  </div>
-
   <div class="ui">
-    <!-- พื้นฐาน -->
-    <div class="row">
-      <label>โหมด:
-        <select id="mode">
-          <option value="training" selected>Training</option>
-          <option value="challenge">Challenge</option>
-        </select>
-      </label>
-      <label>BPM:
-        <select id="bpm">
-          <option value="100">100</option>
-          <option value="110">110</option>
-          <option value="120" selected>120</option>
-          <option value="130">130</option>
-        </select>
-      </label>
-      <label>ธีม:
-        <select id="theme">
-          <option value="beach" selected>Beach</option>
-          <option value="city">City</option>
-          <option value="galaxy">Galaxy</option>
-        </select>
-      </label>
-      <button id="btnStart" class="primary">Start</button>
-      <button id="btnReset">Reset</button>
-    </div>
-
-    <!-- Multi-BPM & Section controls -->
-    <div class="row">
-      <span class="field"><input type="checkbox" id="optMultiBpm"/><label for="optMultiBpm">Multi-BPM</label></span>
-      <span class="field"><label>รูปแบบ:
-        <select id="multiPattern">
-          <option value="rise" selected>ขึ้นช้า→เร็ว</option>
-          <option value="wave">ขึ้น-ลงเป็นคลื่น</option>
-        </select></label>
-      </span>
-      <span class="field"><label>จำนวนช่วง:
-        <input id="multiCount" type="number" min="1" max="8" value="3" style="width:70px"/>
-      </label></span>
-      <span class="field"><label>Δ BPM ต่อช่วง:
-        <input id="multiDeltas" type="text" value="0,20,30" style="width:180px"/>
-      </label></span>
-      <span class="field"><label>Beats/Section:
-        <input id="beatsPerSec" type="number" min="8" max="64" value="16" style="width:80px"/>
-      </label></span>
-    </div>
-
-    <!-- รูปทรง/สีโน้ตต่อช่วง -->
-    <div class="row">
-      <span class="field"><label>Shapes/Section:
-        <input id="secShapes" type="text" value="sphere,box,sphere" style="width:220px"/>
-      </label></span>
-      <span class="field"><label>Colors/Section:
-        <input id="secColors" type="text" value="#94a3ff,#86f7a5,#ffd683" style="width:240px"/>
-      </label></span>
-      <span class="field"><small class="hint">รองรับ: sphere, box, cone, cylinder, torus, dodeca</small></span>
-    </div>
-
-    <!-- Speed curve / Fever / Hidden -->
-    <div class="row">
-      <span class="field"><input type="checkbox" id="optSpeedCurve"/><label for="optSpeedCurve">Speed Curve</label></span>
-      <span class="field"><label>k:
-        <select id="curveK">
-          <option value="0.00">0.00</option>
-          <option value="0.01" selected>0.01</option>
-          <option value="0.02">0.02</option>
-          <option value="0.03">0.03</option>
-        </select></label>
-      </span>
-      <span class="field"><input type="checkbox" id="optFever"/><label for="optFever">Fever</label></span>
-      <span class="field"><label>@Combo:
-        <select id="feverNeed">
-          <option value="8" selected>8</option>
-          <option value="10">10</option>
-          <option value="12">12</option>
-        </select></label>
-      </span>
-      <span class="field"><label>Fever Duration (beats):
-        <input id="feverBeats" type="number" min="4" max="32" value="8" style="width:80px"/>
-      </label></span>
-      <span class="field"><input type="checkbox" id="optHidden"/><label for="optHidden">Hidden Notes</label></span>
-    </div>
-
-    <!-- Timing calibration -->
-    <div class="row">
-      <span class="field"><label>Good Window (ms):
-        <input id="goodMs" type="number" min="80" max="300" value="180" style="width:90px"/>
-      </label></span>
-      <span class="field"><label>Perfect Ratio:
-        <input id="perfectRatio" type="number" step="0.05" min="0.3" max="0.9" value="0.5" style="width:90px"/>
-      </label></span>
-      <span class="field"><label>Timing Calibration (ms):
-        <input id="calibMs" type="number" min="-200" max="200" value="0" style="width:80px"/>
-      </label></span>
-      <span class="field"><small class="hint">ค่าบวก = คุณ “กดช้า” → เราตัดสินเร็วขึ้น (ขยับเวลาเปรียบเทียบให้ล่วงหน้า)</small></span>
-    </div>
+    <button id="btnStart" class="btn primary" type="button">Start</button>
+    <button id="btnReset" class="btn" type="button">Reset</button>
   </div>
+  <div class="card" id="hud">Rhythm — loading…</div>
 
-  <div class="laneKeys">
-    <button id="keyU" class="U">Up</button>
-    <button id="keyD" class="D">Down</button>
-    <button id="keyL" class="L">Left</button>
-    <button id="keyR" class="R">Right</button>
-  </div>
-
-  <a-scene background="color:#070022" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
     <a-assets timeout="30000"></a-assets>
 
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <a-entity id="cursor"
-          cursor="rayOrigin: entity; fuse: true; fuseTimeout: 800"
-          raycaster="objects: .hit, .btn"
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: .clickable; far: 15; interval: 0"
           position="0 0 -1"
           geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-          material="color:#7dfcc6; shader:flat; opacity:0.95"></a-entity>
+          material="color:#93c5fd; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
       </a-entity>
     </a-entity>
 
-    <a-entity id="root" position="0 1.2 -3"></a-entity>
+    <a-entity id="root" position="0 1.25 -3"></a-entity>
 
-    <a-entity id="hitU" class="hit" geometry="primitive: ring; radiusInner:0.20; radiusOuter:0.27"
-              material="color:#9db6ff; opacity:0.95; shader:flat" position="0 0.7 0"></a-entity>
-    <a-entity id="hitD" class="hit" geometry="primitive: ring; radiusInner:0.20; radiusOuter:0.27"
-              material="color:#ffc1c1; opacity:0.95; shader:flat" position="0 -0.7 0"></a-entity>
-    <a-entity id="hitL" class="hit" geometry="primitive: ring; radiusInner:0.20; radiusOuter:0.27"
-              material="color:#bff7c6; opacity:0.95; shader:flat" position="-1.2 0 0"></a-entity>
-    <a-entity id="hitR" class="hit" geometry="primitive: ring; radiusInner:0.20; radiusOuter:0.27"
-              material="color:#ffe6b0; opacity:0.95; shader:flat" position="1.2 0 0"></a-entity>
-
-    <a-sky id="sky" radius="24" color="#0b1220"></a-sky>
-    <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
+    <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
+    <a-sky radius="24" color="#0b1220"></a-sky>
   </a-scene>
 
   <script src="game.js"></script>
-
-  <script>
-    (function applyQuery(){
-      const q = new URLSearchParams(location.search);
-      const set=(id,key,allow)=>{ const v=q.get(key); if(!v) return; const el=document.getElementById(id);
-        if(!el) return; if(!allow||allow.includes(v)){ el.value=v; el.dispatchEvent(new Event('change')); }};
-      const setBool=(id,key)=>{ const v=q.get(key); if(v==='1'||v==='true'){ const el=document.getElementById(id); if(el){ el.checked=true; el.dispatchEvent(new Event('change')); }}};
-      const setVal=(id,key)=>{ const v=q.get(key); if(v!=null){ const el=document.getElementById(id); if(el){ el.value=v; el.dispatchEvent(new Event('input')); }}};
-
-      set('mode','mode',['training','challenge']);
-      set('bpm','bpm',['100','110','120','130']);
-      set('theme','theme',['beach','city','galaxy']);
-
-      setBool('optMultiBpm','multi'); set('multiPattern','mpat',['rise','wave']);
-      setVal('multiCount','mcount'); setVal('multiDeltas','mdel'); setVal('beatsPerSec','bps');
-
-      setVal('secShapes','shapes'); setVal('secColors','colors');
-
-      setBool('optSpeedCurve','curveon'); set('curveK','curve',['0.00','0.01','0.02','0.03']);
-
-      setBool('optFever','fever'); set('feverNeed','fneed',['8','10','12']); setVal('feverBeats','fbeats');
-
-      setBool('optHidden','hidden'); setVal('goodMs','good'); setVal('perfectRatio','pr'); setVal('calibMs','calib');
-
-      if(q.get('autostart')==='1'){ setTimeout(()=>document.getElementById('btnStart').click(),250); }
-      const hudText=document.getElementById('hudText'); if(hudText) hudText.textContent='พร้อมเริ่ม • ปรับสูตรต่อ section + ชดเชยเวลา (calibration)';
-    })();
-  </script>
 </body>
 </html>
