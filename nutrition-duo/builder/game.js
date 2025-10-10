@@ -1,15 +1,16 @@
-// Healthy Plate Builder VR — fixed: mouse/VR cursor, raycaster objects, robust events
+// Healthy Plate Builder VR — เมนูอยู่ด้านบนตรงหน้า + Toggle ได้ + กันถูกบัง
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init); else init();
 
 function init(){
   const $=sel=>document.querySelector(sel);
 
-  const scene=$("#scene"), cam=$("#cam"), cursor=$("#cursor");
+  const scene=$("#scene"), cursor=$("#cursor");
   const root=$("#root"), hud=$("#hudText");
   const scoreEl=$("#score"), okEl=$("#ok"), missEl=$("#miss");
   const btnStart=$("#btnStart"), btnReset=$("#btnReset"), btnExport=$("#btnExport"), modeSel=$("#mode"), importInput=$("#importFoods");
+  const btnToggleMenu=$("#btnToggleMenu");
 
-  // ---------- Cursor mode: desktop(mouse) <-> VR(entity+fuse) ----------
+  // ---------- Cursor desktop/VR ----------
   function setCursorMode(mode){
     if(!cursor) return;
     if(mode==="vr"){
@@ -53,7 +54,8 @@ function init(){
     running:false,
     picks:[],
     count:{grain:0,vegetable:0,fruit:0,protein:0,dairy:0},
-    score:0, ok:0, miss:0
+    score:0, ok:0, miss:0,
+    menuVisible:true
   };
 
   // ---------- Utils ----------
@@ -74,16 +76,17 @@ function init(){
   function popToast(text){
     const el=document.createElement('a-entity');
     el.setAttribute('text',`value:${text}; width:5; align:center; color:#fff`);
-    el.setAttribute('position','0 0.85 0.08');
+    el.setAttribute('position','0 0.85 0.12');
     root.appendChild(el);
     try{
-      el.setAttribute('animation__up','property: position; to: 0 1.05 0.08; dur: 420; easing:easeOutCubic');
+      el.setAttribute('animation__up','property: position; to: 0 1.05 0.12; dur: 420; easing:easeOutCubic');
       el.setAttribute('animation__fade','property: opacity; to: 0; dur: 420; delay:140');
     }catch(e){}
     setTimeout(()=>el.parentNode&&el.parentNode.removeChild(el), 520);
   }
 
   // ---------- Build Scene ----------
+  let menuPanel=null; // ใช้ toggle
   function buildScene(){
     while(root.firstChild) root.removeChild(root.firstChild);
 
@@ -103,38 +106,64 @@ function init(){
       root.appendChild(seg);
 
       const t=document.createElement('a-entity');
-      t.setAttribute('text',`value:${GROUPS[g].th}: 0; width: 4; align:center; color:#fff`);
+      t.setAttribute('text',`value:${GROUPS[g].th}: 0; width: 4.2; align:center; color:#fff`);
       t.setAttribute('position',`0 ${0.9 - i*0.35} 0.05`);
       t.setAttribute('id',`txt-${g}`);
       root.appendChild(t);
     });
 
-    // เมนูซ้าย (ปุ่ม a-entity ที่คลิกได้)
-    const menu=document.createElement('a-entity');
-    menu.setAttribute('position','-1.8 0 0');
-    root.appendChild(menu);
+    // ===== เมนูอาหาร (ย้ายมา "ด้านบน-ตรงกลาง") =====
+    menuPanel=document.createElement('a-entity');
+    // พาแนลพื้นหลัง (ไม่ให้ตัวอักษรถูกบัง)
+    const bg=document.createElement('a-entity');
+    bg.setAttribute('geometry','primitive: plane; width: 2.6; height: 1.4');
+    bg.setAttribute('material','color:#0b1220; opacity:0.72; shader:flat');
+    bg.setAttribute('position','0 0 0');
+    menuPanel.appendChild(bg);
 
-    const rows = ORDER.map((g,ix)=>({g, y: 0.8 - ix*0.4}));
-    rows.forEach(({g,y})=>{
-      const title=document.createElement('a-entity');
-      title.setAttribute('text',`value:${GROUPS[g].th}; width:4; color:#e2e8f0; align:left`);
-      title.setAttribute('position',`0 ${y+0.18} 0.05`);
-      menu.appendChild(title);
+    // หัวข้อ
+    const title=document.createElement('a-entity');
+    title.setAttribute('text','value:เมนูอาหาร (กดปุ่มเพื่อเพิ่มลงจาน); width:6; align:center; color:#7dfcc6');
+    title.setAttribute('position','0 0.54 0.01');
+    menuPanel.appendChild(title);
 
-      FOODS.filter(f=>f.group===g).slice(0,3).forEach((f,idx)=>{
-        const btn=document.createElement('a-entity');
-        btn.classList.add('clickable');
-        btn.setAttribute('geometry','primitive: plane; width: 1.4; height: 0.28');
-        btn.setAttribute('material','color:#111827; opacity:0.95; shader:flat');
-        btn.setAttribute('position',`${0.0} ${y - idx*0.3} 0.06`);
-        const txt=document.createElement('a-entity');
-        txt.setAttribute('text',`value:+ ${f.name}; width:3.5; align:center; color:#7dfcc6`);
-        txt.setAttribute('position','0 0 0.01');
-        btn.appendChild(txt);
-        btn.addEventListener('click',()=>addFood(f));
-        menu.appendChild(btn);
-      });
+    // ปุ่มอาหาร 2 แถว (กลางจอ)
+    const groups=ORDER;
+    let rowY=0.18;
+    groups.forEach((g,gidx)=>{
+      const gTitle=document.createElement('a-entity');
+      gTitle.setAttribute('text',`value:${GROUPS[g].th}; width:4; align:left; color:#e2e8f0`);
+      gTitle.setAttribute('position',`-1.2 ${rowY} 0.01`);
+      menuPanel.appendChild(gTitle);
+
+      const foods=FOODS.filter(f=>f.group===g);
+      if(!foods.length){
+        const warn=document.createElement('a-entity');
+        warn.setAttribute('text','value:(ไม่มีรายการ — ตรวจ JSON); width:3.6; align:left; color:#fecaca');
+        warn.setAttribute('position',`-0.2 ${rowY} 0.01`);
+        menuPanel.appendChild(warn);
+      }else{
+        foods.slice(0,3).forEach((f,idx)=>{
+          const x=-0.2 + idx*0.8;
+          const btn=document.createElement('a-entity');
+          btn.classList.add('clickable');
+          btn.setAttribute('geometry','primitive: plane; width: 0.72; height: 0.28');
+          btn.setAttribute('material','color:#111827; opacity:0.95; shader:flat');
+          btn.setAttribute('position',`${x} ${rowY} 0.02`);
+          const txt=document.createElement('a-entity');
+          txt.setAttribute('text',`value:+ ${f.name}; width:2.2; align:center; color:#7dfcc6`);
+          txt.setAttribute('position','0 0 0.01');
+          btn.appendChild(txt);
+          btn.addEventListener('click',()=>addFood(f));
+          menuPanel.appendChild(btn);
+        });
+      }
+      rowY -= 0.36;
     });
+
+    // ตำแหน่งเมนู: ด้านบน ตรงกลาง และ "ขยับมาใกล้ผู้เล่น" เพื่อไม่ถูกบัง
+    menuPanel.setAttribute('position','0 0.75 0.12');
+    root.appendChild(menuPanel);
 
     // ปุ่ม “ให้คะแนน”
     const finish=document.createElement('a-entity');
@@ -153,12 +182,21 @@ function init(){
     hint.setAttribute('text','value:เป้าหมาย: แป้ง1–2 | ผัก≥2 | ผลไม้≥1 | โปรตีน1 | นม1; width:5.5; align:center; color:#cbd5e1');
     hint.setAttribute('position','0 -1.1 0.06');
     root.appendChild(hint);
+
+    // แสดง/ซ่อนเมนูตามสถานะ
+    menuPanel.setAttribute('visible', state.menuVisible);
+  }
+
+  function toggleMenu(){
+    state.menuVisible = !state.menuVisible;
+    if(menuPanel) menuPanel.setAttribute('visible', state.menuVisible);
+    popToast(state.menuVisible ? "แสดงเมนู" : "ซ่อนเมนู");
   }
 
   function updateTexts(){
     ["grain","vegetable","fruit","protein","dairy"].forEach(g=>{
       const el=document.getElementById(`txt-${g}`);
-      if(el) el.setAttribute('text',`value:${GROUPS[g].th}: ${state.count[g]||0}; width:4; align:center; color:#fff`);
+      if(el) el.setAttribute('text',`value:${GROUPS[g].th}: ${state.count[g]||0}; width:4.2; align:center; color:#fff`);
     });
   }
 
@@ -193,7 +231,7 @@ function init(){
 
   function start(){
     reset(); state.running=true;
-    setHUD("เริ่มจัดจานได้เลย! เลือกอาหารจากเมนูด้านซ้าย");
+    setHUD("เริ่มจัดจานได้เลย! ใช้เมนูด้านบนเพื่อเพิ่มอาหาร");
   }
 
   // ---------- Import/Export ----------
@@ -204,7 +242,7 @@ function init(){
       if(Array.isArray(obj.foods)) FOODS=obj.foods;
       else if(Array.isArray(obj)) FOODS=obj;
       else throw new Error("รูปแบบ JSON ไม่ถูกต้อง");
-      start(); // รีเฟรชเมนู
+      start(); // รีเฟรชเมนูใหม่
     }catch(err){ alert("อ่านไฟล์ไม่สำเร็จ"); console.error(err); }
     finally{ importInput.value=""; }
   });
@@ -224,6 +262,10 @@ function init(){
 
   bindClick(btnStart, ()=>{ if(!state.running) start(); });
   bindClick(btnReset, reset);
+  bindClick(btnToggleMenu, toggleMenu);
+
+  // ปุ่มคีย์ลัด M
+  window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='m') toggleMenu(); });
 
   // ---------- Boot ----------
   reset();
