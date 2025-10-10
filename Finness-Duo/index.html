@@ -2,148 +2,85 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
   <title>Fitness Duo VR — Menu</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- ข้อความไทยคมชัด -->
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
   <style>
-    :root {
-      --glass: rgba(0,0,0,.55);
-      --card: rgba(255,255,255,.92);
-    }
-    html, body { margin:0; height:100%; background:#050914; font-family:system-ui, Arial, sans-serif; }
-    a-scene, a-scene canvas { position:fixed; inset:0; z-index:1; }
-
-    /* Top HUD */
-    .hud {
-      position:fixed; z-index:2147483001; right:12px; top:12px; min-width:320px;
-      background:var(--glass); color:#fff; padding:10px 14px; border-radius:12px; white-space:pre-line;
-    }
-    .hud h1 { margin:0 0 6px 0; font-size:18px; }
-
-    /* Main UI panel */
-    .ui {
-      position:fixed; z-index:2147483001; left:12px; bottom:12px; right:12px;
-      display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:stretch;
-    }
-    @media (max-width: 980px){
-      .ui { grid-template-columns: 1fr; }
-    }
-    .card {
-      background:var(--card); border-radius:16px; padding:14px; box-shadow:0 8px 28px rgba(0,0,0,.25);
-      display:flex; flex-direction:column; gap:10px;
-    }
-    .card h2 { margin:0; font-size:18px; color:#0b1220; display:flex; align-items:center; gap:6px; }
-    .row { display:flex; gap:8px; flex-wrap:wrap; }
-    .row > label { background:#fff; padding:10px 12px; border-radius:12px; display:flex; gap:8px; align-items:center; font-weight:700; color:#0b1220; }
-    select { border:none; font-weight:700; background:transparent; outline:none; }
-    .btn {
-      border:none; border-radius:12px; padding:12px 16px; font-weight:800; cursor:pointer;
-      box-shadow:0 6px 18px rgba(0,0,0,.22);
-    }
-    .btn.primary { background:#79a8ff; color:#001; }
-    .btn.green   { background:#7dfcc6; color:#052; }
-    .btn.gray    { background:#e5e7eb; color:#111; }
-    .foot { display:flex; gap:8px; flex-wrap:wrap; }
-
-    /* Tiny footer line */
-    .footer {
-      position:fixed; z-index:2147483001; left:12px; top:12px;
-      background:var(--glass); color:#fff; padding:8px 12px; border-radius:12px; font-size:13px;
-      max-width:560px;
-    }
+    html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
+    a-scene, a-scene canvas{position:fixed;inset:0}
+    /* UI ลอยด้านล่าง ป้องกันโดนบัง */
+    .ui{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:9999;display:flex;flex-wrap:wrap;gap:10px}
+    .btn{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+    .btn.primary{background:#7dfcc6;color:#053b2a}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .card{position:fixed;right:12px;top:12px;background:rgba(0,0,0,.55);color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;z-index:9999}
+    select{padding:10px;border-radius:10px;border:none;font-weight:700}
   </style>
 </head>
 <body>
-  <!-- Left hint -->
-  <div class="footer">
-    <b>Fitness Duo VR</b><br/>
-    เลือกเกมที่ต้องการเล่น → ปรับโหมด/ธีม → กด Start เกมจะเปิดหน้า Adventure หรือ Rhythm พร้อมพารามิเตอร์
-  </div>
-
-  <!-- Right HUD -->
-  <div class="hud">
-    <h1 id="title">เมนูหลัก</h1>
-    <div id="stat">พร้อมเริ่ม • เลือกเกมด้านล่าง</div>
-  </div>
-
-  <!-- Cards -->
-  <div class="ui">
-    <!-- Adventure card -->
-    <div class="card">
-      <h2>🏃‍♂️ Adventure Mode — วิ่งเก็บพลังงาน</h2>
-      <div class="row">
-        <label>โหมด:
-          <select id="advDiff">
-            <option value="easy" selected>Easy</option>
-            <option value="normal">Normal</option>
-            <option value="hard">Hard</option>
-          </select>
-        </label>
-        <label>ธีม:
-          <select id="advTheme">
-            <option value="jungle" selected>Jungle</option>
-            <option value="city">City</option>
-            <option value="space">Space</option>
-          </select>
-        </label>
-        <label>เควส:
-          <select id="advQuest">
-            <option value="collect" selected>เก็บ Orb</option>
-            <option value="survive">เอาตัวรอด</option>
-            <option value="streak">หลบต่อเนื่อง</option>
-          </select>
-        </label>
-      </div>
-      <div class="foot">
-        <button id="btnAdvStart" class="btn primary">▶ Start Adventure</button>
-        <button id="btnAdvHow" class="btn gray">How to Play</button>
-      </div>
+  <!-- HTML UI: ปุ่มใหญ่ ใช้ง่ายบนมือถือ -->
+  <div class="ui" id="ui">
+    <button id="btnStart" class="btn primary" type="button">Start</button>
+    <div class="row">
+      <label>โหมด:
+        <select id="difficulty">
+          <option value="easy" selected>Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </label>
+      <label>ธีม:
+        <select id="theme">
+          <option value="jungle" selected>Jungle</option>
+          <option value="city">City</option>
+          <option value="space">Space</option>
+        </select>
+      </label>
+      <label>เควส:
+        <select id="quest">
+          <option value="collect" selected>Collect</option>
+          <option value="survive">Survive</option>
+          <option value="streak">Streak</option>
+        </select>
+      </label>
+      <label>Rhythm BPM:
+        <select id="bpm">
+          <option value="96" selected>96</option>
+          <option value="110">110</option>
+          <option value="128">128</option>
+        </select>
+      </label>
     </div>
-
-    <!-- Rhythm card -->
-    <div class="card">
-      <h2>🎵 Rhythm Stretch VR — ขยับตามจังหวะ</h2>
-      <div class="row">
-        <label>โหมด:
-          <select id="rymMode">
-            <option value="training" selected>Training</option>
-            <option value="challenge">Challenge</option>
-          </select>
-        </label>
-        <label>BPM:
-          <select id="rymBpm">
-            <option value="100" selected>100</option>
-            <option value="110">110</option>
-            <option value="120">120</option>
-            <option value="130">130</option>
-          </select>
-        </label>
-        <label>ธีม:
-          <select id="rymTheme">
-            <option value="beach" selected>Beach</option>
-            <option value="city">City</option>
-            <option value="galaxy">Galaxy</option>
-          </select>
-        </label>
-      </div>
-      <div class="foot">
-        <button id="btnRymStart" class="btn green">▶ Start Rhythm</button>
-        <button id="btnRymHow" class="btn gray">How to Play</button>
-      </div>
+    <div class="row">
+      <button id="btnAdventure" class="btn" type="button">ไป Adventure</button>
+      <button id="btnRhythm" class="btn" type="button">ไป Rhythm</button>
     </div>
   </div>
 
-  <!-- 360° background preview (optional sky) -->
-  <a-scene background="color:#050914" renderer="antialias:true;colorManagement:true">
-    <a-assets timeout="30000">
-      <!-- ถ้ามีไฟล์ 360° ให้อ้างที่นี่ (ไม่จำเป็นต้องมี) -->
-      <!-- <img id="sky-city" src="assets/backgrounds/daysky013a_4k.jpg" crossorigin="anonymous"> -->
-    </a-assets>
+  <div class="card" id="hud">Fitness Duo VR — Menu\nพร้อมเริ่ม</div>
 
-    <a-sky id="sky" radius="24" color="#0b1220"></a-sky>
+  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+    <a-assets timeout="30000"></a-assets>
 
-    <!-- แสงเบา ๆ -->
-    <a-entity light="type: ambient; intensity: 1.0; color: #fff"></a-entity>
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity id="cam" camera look-controls>
+        <!-- desktop=mouse / VR=gaze fuse (สลับใน game.js) -->
+        <a-entity id="cursor"
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: .clickable; far: 15; interval: 0"
+          position="0 0 -1"
+          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+          material="color:#7dfcc6; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
+      </a-entity>
+    </a-entity>
+
+    <!-- พื้นที่จัดวางป้าย 3D -->
+    <a-entity id="root" position="0 1.25 -3"></a-entity>
+
+    <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
+    <a-sky radius="24" color="#0b1220"></a-sky>
   </a-scene>
 
   <script src="game.js"></script>
