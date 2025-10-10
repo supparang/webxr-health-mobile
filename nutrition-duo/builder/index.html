@@ -46,7 +46,11 @@
   </div>
 
   <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
-    <a-assets timeout="30000"></a-assets>
+    <a-assets timeout="30000">
+      <!-- ฟอนต์ไทยสำหรับ A-Frame text -->
+      <!-- ใช้ไฟล์ออนไลน์ หากต้องการออฟไลน์ ให้เปลี่ยน src ไปที่ ../assets/fonts/NotoSansThai-Regular.woff2 -->
+      <a-asset-item id="thaiFont" src="https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf"></a-asset-item>
+    </a-assets>
 
     <!-- กล้อง + เคอร์เซอร์ -->
     <a-entity id="rig" position="0 1.6 0">
