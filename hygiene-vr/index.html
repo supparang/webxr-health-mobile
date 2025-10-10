@@ -2,76 +2,109 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>Hygiene Rhythm Game (VR)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+  <title>Hygiene Rhythm Game (V2)</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
   <style>
-    :root { --glass: rgba(0,0,0,.55); }
-    body { margin:0; font-family:system-ui, Arial; background:#eef5ff; color:#0b1220; }
-
-    /* UI overlays ต้องกดได้เสมอ */
-    .hud, .ui, .tip { position:fixed; z-index:9999; pointer-events:auto; }
-    .hud { right:12px; top:12px; background:var(--glass); color:#fff; padding:10px 14px; border-radius:12px; min-width:320px; white-space:pre-line }
-    .hud h1 { margin:0 0 6px 0; font-size:18px }
-    .ui  { left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap }
-    .ui select, .ui button { padding:8px 12px; border-radius:12px; border:none; font-weight:700; background:#79a8ff; color:#001; box-shadow:0 2px 8px rgba(0,0,0,.18); cursor:pointer }
-    .ui select { background:#e6f0ff; color:#0b1220; font-weight:600 }
-    .ui button.gray { background:#e5e7eb; color:#111; font-weight:600 }
-    .tip { left:12px; top:12px; background:var(--glass); color:#fff; padding:10px 12px; border-radius:12px; max-width:520px; font-size:14px; line-height:1.45 }
-
-    /* กัน canvas ของ A-Frame บังคลิก DOM บนเดสก์ท็อป */
-    a-scene, a-scene canvas { pointer-events: none !important; }
-    /* ยกเว้นปุ่ม Enter VR/AR ให้กดได้ */
-    .a-enter-vr, .a-enter-ar { pointer-events:auto !important; z-index:10000; }
+    html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
+    a-scene, a-scene canvas{position:fixed;inset:0}
+    .ui{
+      position:fixed;left:50%;transform:translateX(-50%);
+      bottom:12px;z-index:9999;display:flex;flex-wrap:wrap;gap:8px;align-items:center
+    }
+    .btn, select, input[type="range"]{
+      background:#fff;color:#0b1220;border:none;border-radius:12px;
+      padding:10px 12px;font-weight:800;box-shadow:0 2px 12px rgba(0,0,0,.3)
+    }
+    .btn.primary{background:#93c5fd;color:#08223b}
+    .card{
+      position:fixed;right:12px;top:12px;background:rgba(0,0,0,.55);
+      color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;z-index:9999
+    }
+    .group{display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.12);border-radius:12px;padding:6px 8px}
+    label{color:#fff}
   </style>
 </head>
 <body>
-  <div class="tip">
-    <b>Hygiene Rhythm Game</b><br/>
-    เล็งเคอร์เซอร์ไปที่เลนแล้ว <b>มองค้าง 1 วิ</b> (fuse) หรือกด OK เพื่อเก็บโน้ต<br/>
-    โหมด <b>Training</b>: ปล่อยโน้ตช้า + ตัวเลขนับบีท 1-2-3-4
-  </div>
-
-  <div class="hud">
-    <h1>Rhythm HUD</h1>
-    <div id="hudText">พร้อมเริ่ม</div>
-    <div id="feedback" style="margin-top:6px;font-size:18px;"></div>
-  </div>
-
   <div class="ui">
-    <label>โหมด:
-      <select id="difficulty">
-        <option value="training" selected>Training (ช้า + นับบีท)</option>
-        <option value="easy">Easy (BPM 80)</option>
-        <option value="normal">Normal (BPM 100)</option>
-        <option value="hard">Hard (BPM 120)</option>
-      </select>
-    </label>
-    <button id="btnStart">Start</button>
-    <button id="btnReset" class="gray">Reset</button>
+    <button id="btnStart" class="btn primary" type="button">Start</button>
+    <button id="btnReset" class="btn" type="button">Reset</button>
+    <div class="group">
+      <label>BPM:
+        <select id="bpm">
+          <option value="96" selected>96</option>
+          <option value="110">110</option>
+          <option value="128">128</option>
+        </select>
+      </label>
+      <label>โหมด:
+        <select id="mode">
+          <option value="easy" selected>Easy</option>
+          <option value="normal">Normal</option>
+          <option value="hard">Hard</option>
+        </select>
+      </label>
+      <label>Training:
+        <select id="training">
+          <option value="on" selected>On</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
+    </div>
+    <div class="group">
+      <label>Calibration (ms)</label>
+      <input id="calib" type="range" min="-200" max="200" step="5" value="0"/>
+      <span id="calibVal" style="color:#fff;font-weight:700">0</span>
+    </div>
   </div>
 
-  <a-scene renderer="antialias:true;colorManagement:true" background="color:#eef5ff" raycaster="showLine:false">
-    <!-- กล้อง + เคอร์เซอร์ (fuse 1 วิ) -->
+  <div class="card" id="hud">Hygiene Rhythm — พร้อมเริ่ม</div>
+
+  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+    <a-assets timeout="30000">
+      <!-- ฟอนต์ไทย -->
+      <a-asset-item id="thaiFont" src="https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf"></a-asset-item>
+
+      <!-- Emoji/ไอคอนขั้นตอนล้างมือ/แปรงฟัน (SVG inlined) -->
+      <img id="em-wash"   src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%237dfcc6"/><text x="160" y="180" font-size="110" text-anchor="middle">🧼</text></svg>'>
+      <img id="em-rub"    src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%2393c5fd"/><text x="160" y="180" font-size="110" text-anchor="middle">🤲</text></svg>'>
+      <img id="em-nail"   src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fecaca"/><text x="160" y="180" font-size="110" text-anchor="middle">🧴</text></svg>'>
+      <img id="em-rinse"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23bbf7d0"/><text x="160" y="180" font-size="110" text-anchor="middle">💧</text></svg>'>
+      <img id="em-dry"    src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fde68a"/><text x="160" y="180" font-size="110" text-anchor="middle">🧻</text></svg>'>
+
+      <img id="em-brush"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23a78bfa"/><text x="160" y="180" font-size="110" text-anchor="middle">🪥</text></svg>'>
+      <img id="em-molar"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23c084fc"/><text x="160" y="180" font-size="110" text-anchor="middle">🦷</text></svg>'>
+      <img id="em-timer"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fda4af"/><text x="160" y="180" font-size="110" text-anchor="middle">⏱️</text></svg>'>
+    </a-assets>
+
+    <!-- กล้อง + เคอร์เซอร์ mouse/VR -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-entity id="cam" camera look-controls>
+      <a-entity camera look-controls>
         <a-entity id="cursor"
-                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
-                  raycaster="objects: .selectable"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-                  material="color: #0ea5e9; shader: flat; opacity: 0.95">
-        </a-entity>
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: .clickable; far: 15; interval: 0"
+          position="0 0 -1"
+          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+          material="color:#93c5fd; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
       </a-entity>
     </a-entity>
 
-    <!-- รากฉากเกม -->
-    <a-entity id="root" position="0 1.5 -3"></a-entity>
+    <!-- เวทีหลัก -->
+    <a-entity id="root" position="0 1.25 -3"></a-entity>
 
-    <!-- ฉาก/แสง -->
-    <a-sky color="#eef5ff"></a-sky>
-    <a-entity light="type: ambient; color: #ffffff; intensity: 0.9"></a-entity>
-    <a-entity light="type: directional; color: #fff; intensity: 0.8" position="1 2 0"></a-entity>
+    <!-- เส้นเป้าตีจังหวะ -->
+    <a-entity id="hitLine" geometry="primitive: plane; width: 2.4; height: 0.04"
+              material="color:#1e293b; opacity:0.95; shader:flat"
+              position="0 -0.35 0.05"></a-entity>
+
+    <!-- แป้นกด/จ้อง -->
+    <a-entity id="hitPad" class="clickable" geometry="primitive: plane; width: 2.4; height: 0.45"
+              material="color:#0f172a; opacity:0.95; shader:flat"
+              position="0 -0.6 0.06"></a-entity>
+
+    <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
+    <a-sky color="#0b1220"></a-sky>
   </a-scene>
 
   <script src="game.js"></script>
