@@ -1,370 +1,193 @@
-/* Hygiene Rhythm Game – Ultra-Lite Mobile + Training + Desktop Click Patch
-   - Object pool + object3D.position (เร็วบนมือถือ)
-   - Training: BPM ช้า + เคาน์เตอร์ 1-2-3-4
-   - ปุ่ม Start/Reset บนเดสก์ท็อปกดได้แน่นอน + คีย์ลัด Space / R
-*/
+// Hygiene Rhythm Game (V2) — ไทยชัด, Training/Calibration, Perfect/Good, เมโทรนอม, เดสก์ท็อป/มือถือ/VR
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",init); else init();
 
-const $ = (id)=>document.getElementById(id);
-const hud = $("hudText");
-const fb = $("feedback");
-const btnStart = $("btnStart");
-const btnReset = $("btnReset");
-const selectDiff = $("difficulty");
-const root = document.getElementById("root");
+function init(){
+  const $=sel=>document.querySelector(sel);
+  const scene=$("#scene"), root=$("#root"), cursor=$("#cursor"), hud=$("#hud");
+  const btnStart=$("#btnStart"), btnReset=$("#btnReset");
+  const selBpm=$("#bpm"), selMode=$("#mode"), selTrain=$("#training");
+  const calib=$("#calib"), calibVal=$("#calibVal");
+  const hitPad=$("#hitPad");
 
-const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // cursor desktop/VR
+  function setCursorMode(m){ if(!cursor) return;
+    if(m==="vr"){ cursor.setAttribute("cursor","rayOrigin: entity; fuse: true; fuseTimeout: 900"); cursor.setAttribute("visible","true"); }
+    else{ cursor.setAttribute("cursor","rayOrigin: mouse; fuse: false"); cursor.setAttribute("visible","false"); } }
+  setCursorMode("desktop"); scene?.addEventListener("enter-vr",()=>setCursorMode("vr")); scene?.addEventListener("exit-vr",()=>setCursorMode("desktop"));
 
-// ---------------- State ----------------
-let state = {
-  running:false,
-  startTime:0,
-  elapsed:0,
-  bpm:100,
-  beatSec:0.6,
-  hitWindow:0.35,
-  speedFactor:2.0,
-  duration:60,
-
-  score:0, combo:0, maxCombo:0,
-
-  lanes:{},               // lane roots
-  pool:[],                // pooled note entities
-  active:[],              // active notes (objects holding ref to pooled entity)
-  mapNotes:[],            // schedule notes (time,lane)
-  nextSpawnIdx:0,
-
-  countdownEl:null,
-  beatCounterEl:null,
-  lastBeatIndex:-1,
-
-  rafId:null,
-
-  lastHudTs:0,
-  hudInterval: isMobile ? 250 : 120, // ms (throttle HUD)
-};
-
-// ---------------- Beatmaps ----------------
-function makePattern(bpm, duration, warmup=false, hard=false, stepBeats=2){
-  const beat = 60/bpm;
-  const step = beat*stepBeats;
-  const order = ["wash","brush","cover"];
-  let tStart = warmup ? beat*2 : beat;
-  let arr = [];
-  let i=0;
-  for(let t=tStart; t<duration; t+=step){
-    arr.push({time:t, lane:order[i%3]});
-    if(hard && i%4===2) arr.push({time: t+step/2, lane: order[(i+1)%3]});
-    i++;
+  // Thai text helper
+  const THAI_FONT = $("#thaiFont")?.getAttribute("src");
+  function label3D(value, opts={}){
+    const e=document.createElement('a-entity');
+    const {color="#e2e8f0", fontSize=0.18, maxWidth=5, x=0, y=0, z=0.06} = opts;
+    e.setAttribute('troika-text',`
+      value:${value};
+      font:${THAI_FONT};
+      color:${color};
+      fontSize:${fontSize};
+      maxWidth:${maxWidth};
+      align:center;
+    `.replace(/\s+/g,' '));
+    e.setAttribute('position',`${x} ${y} ${z}`);
+    e.setAttribute('material','shader: standard; roughness:1; metalness:0');
+    return e;
   }
-  return arr;
-}
-const BEATMAPS = {
-  training: { bpm:60,  duration:40, notes: makePattern(60,40,true,false,4), hitWindow:0.5, speed:1.2 },
-  easy:     { bpm:80,  duration:40, notes: makePattern(80,40,true,false,2), hitWindow:0.38, speed:2.0 },
-  normal:   { bpm:100, duration:60, notes: makePattern(100,60,true,false,2),hitWindow:0.35, speed:2.2 },
-  hard:     { bpm:120, duration:60, notes: makePattern(120,60,false,true,2),hitWindow:0.30, speed:2.4 },
-};
-
-// ---------------- Helpers ----------------
-function clearChildren(el){ while(el.firstChild) el.removeChild(el.firstChild); }
-
-// สร้างรูปทรงโน้ตแบบเบาสุด
-function createNoteMesh(lane){
-  const node = document.createElement("a-entity");
-  if (lane==="wash"){ // วงกลม (เขียว)
-    const body = document.createElement("a-entity");
-    body.setAttribute("geometry","primitive: circle; radius:0.18; segments:48");
-    body.setAttribute("material","color:#22c55e; opacity:0.98; shader:flat");
-    node.appendChild(body);
-    const border = document.createElement("a-entity");
-    border.setAttribute("geometry","primitive: ring; radiusInner:0.18; radiusOuter:0.205; segmentsTheta:48");
-    border.setAttribute("material","color:#0b1220; opacity:0.5; shader:flat");
-    node.appendChild(border);
-  } else if (lane==="brush"){ // สี่เหลี่ยม (เหลือง)
-    const body = document.createElement("a-entity");
-    body.setAttribute("geometry","primitive: box; width:0.34; height:0.34; depth:0.02");
-    body.setAttribute("material","color:#eab308; opacity:0.98; shader:flat");
-    node.appendChild(body);
-    const border = document.createElement("a-entity");
-    border.setAttribute("geometry","primitive: box; width:0.36; height:0.36; depth:0.005");
-    border.setAttribute("material","color:#0b1220; opacity:0.5; shader:flat");
-    node.appendChild(border);
-  } else { // เพชร (แดง) = box หมุน 45°
-    const body = document.createElement("a-entity");
-    body.setAttribute("geometry","primitive: box; width:0.3; height:0.3; depth:0.02");
-    body.setAttribute("material","color:#ef4444; opacity:0.98; shader:flat");
-    body.setAttribute("rotation","0 0 45");
-    node.appendChild(body);
-    const border = document.createElement("a-entity");
-    border.setAttribute("geometry","primitive: box; width:0.32; height:0.32; depth:0.005");
-    border.setAttribute("material","color:#0b1220; opacity:0.5; shader:flat");
-    border.setAttribute("rotation","0 0 45");
-    node.appendChild(border);
+  function toast(text,color){
+    const t=label3D(text,{color,fontSize:0.2,y:0.75});
+    root.appendChild(t); setTimeout(()=>t.parentNode&&t.parentNode.removeChild(t),460);
   }
-  return node;
-}
 
-// พูลเอนทิตีโน้ตล่วงหน้า
-function buildPool(poolSize){
-  state.pool = [];
-  const lanes = ["wash","brush","cover"];
-  for(let i=0;i<poolSize;i++){
-    const lane = lanes[i%3];
-    const e = createNoteMesh(lane);
-    e.object3D.position.set( (lane==="wash"?-1.2: lane==="brush"?0:1.2), 0, -10 );
-    e.setAttribute("visible","false");
-    e.dataset = { lane };
-    root.appendChild(e);
-    state.pool.push({el:e, inUse:false, lane});
+  // Audio
+  let actx=null,gain=null;
+  function ensureAudio(){ if(actx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
+    actx=new AC(); gain=actx.createGain(); gain.gain.value=0.12; gain.connect(actx.destination); }
+  function click(){
+    if(!actx) return;
+    const o=actx.createOscillator(), g=actx.createGain(); o.type="square"; o.frequency.value=880; o.connect(g); g.connect(gain);
+    const t=actx.currentTime; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.22,t+0.005); g.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+    o.start(t); o.stop(t+0.06);
   }
-}
+  ["pointerdown","touchend","click"].forEach(ev=>window.addEventListener(ev,()=>ensureAudio(),{once:true}));
 
-function acquireNote(lane){
-  for (const p of state.pool){
-    if (!p.inUse && p.lane===lane){
-      p.inUse = true;
-      p.el.setAttribute("visible","true");
-      return p;
-    }
-  }
-  return null;
-}
-function releaseNote(p){
-  if (!p) return;
-  p.inUse = false;
-  p.el.setAttribute("visible","false");
-  p.el.object3D.position.set( (p.lane==="wash"?-1.2: p.lane==="brush"?0:1.2), 0, -10 );
-}
+  // Notes & state
+  const EMO = ["#em-wash","#em-rub","#em-nail","#em-rinse","#em-dry","#em-brush","#em-molar","#em-timer"];
+  const DIFF = { easy:{hit:0.18, secs:55}, normal:{hit:0.14, secs:65}, hard:{hit:0.10, secs:75} };
 
-// ---------------- Scene ----------------
-function buildScene(){
-  clearChildren(root);
-  state.lanes={};
-
-  // เส้น Hit + pulse animation (ไม่อัปเดตทุกเฟรม)
-  const hit = document.createElement("a-entity");
-  hit.setAttribute("geometry","primitive: plane; width:3.6; height:0.03");
-  hit.setAttribute("material","color:#0ea5e9; opacity:0.9; shader:flat");
-  hit.setAttribute("position","0 -0.25 0");
-  hit.setAttribute("animation__pulse","property: material.opacity; dir: alternate; dur: 250; easing: easeInOutSine; from:0.55; to:0.95; loop:true");
-  root.appendChild(hit);
-
-  // 3 lanes (ปุ่มกด)
-  const defs = [
-    {key:"wash",  x:-1.2, color:"#22c55e", label:"ล้างมือ"},
-    {key:"brush", x: 0.0, color:"#eab308", label:"แปรงฟัน"},
-    {key:"cover", x: 1.2, color:"#ef4444", label:"ปิดปาก"}
-  ];
-  defs.forEach(L=>{
-    const lane = document.createElement("a-entity");
-    lane.setAttribute("position", `${L.x} 0 0`);
-
-    const panel = document.createElement("a-entity");
-    panel.classList.add("selectable");
-    panel.setAttribute("geometry","primitive: plane; width:1.0; height:0.5");
-    panel.setAttribute("material", `color:${L.color}; opacity:0.88; shader:flat`);
-    panel.setAttribute("position", `0 -0.55 0`);
-    lane.appendChild(panel);
-
-    const txt = document.createElement("a-entity");
-    txt.setAttribute("text", `value:${L.label}; width:4.2; align:center; color:#0b1220`);
-    txt.setAttribute("position", `0 -0.55 0.02`);
-    lane.appendChild(txt);
-
-    panel.addEventListener("click", ()=> tryHit(L.key));
-
-    root.appendChild(lane);
-    state.lanes[L.key] = lane;
-  });
-
-  // Countdown
-  const cd = document.createElement("a-entity");
-  cd.setAttribute("position","0 0.4 0.01");
-  cd.setAttribute("text","value: ; width:5.2; align:center; color:#0b1220");
-  root.appendChild(cd);
-  state.countdownEl = cd;
-
-  // Beat Counter (Training)
-  const bc = document.createElement("a-entity");
-  bc.setAttribute("position","0 0.75 0.01");
-  bc.setAttribute("text","value: ; width:6; align:center; color:#0b1220");
-  root.appendChild(bc);
-  state.beatCounterEl = bc;
-}
-
-// ---------------- Game Flow ----------------
-function startGame(){
-  const diff = selectDiff.value;
-  const map = BEATMAPS[diff];
-
-  state.running = true;
-  state.startTime = performance.now()/1000;
-  state.elapsed = 0;
-
-  state.bpm = map.bpm;
-  state.beatSec = 60/state.bpm;
-  state.duration = map.duration;
-  state.hitWindow = map.hitWindow ?? 0.35;
-  state.speedFactor = map.speed ?? 2.0;
-  state.score = 0; state.combo=0; state.maxCombo=0;
-  state.lastBeatIndex = -1;
-
-  fb.textContent = "";
-  hud.textContent = "เริ่มเพลง…";
-
-  buildScene();
-
-  // สร้างพูล (มือถือเล็กกว่า)
-  const poolSize = isMobile ? 24 : 36;
-  buildPool(poolSize);
-
-  // ตารางโน้ต
-  state.mapNotes = map.notes.slice();
-  state.nextSpawnIdx = 0;
-  state.active = [];
-
-  runCountdown(3, ()=>{
-    if (state.rafId) cancelAnimationFrame(state.rafId);
-    tick();
-  });
-}
-
-function runCountdown(sec, onDone){
-  let t = sec;
-  const step = ()=>{
-    if (!state.countdownEl) return;
-    state.countdownEl.setAttribute("text", `value:${t>0?t:"Go!"}; width:5.2; align:center; color:#0b1220`);
-    if (t>0) setTimeout(()=>{ t--; step(); }, 700);
-    else setTimeout(()=>{ state.countdownEl.setAttribute("text","value: "); onDone&&onDone(); }, 400);
+  const state={
+    running:false, raf:0, t0:0, elapsed:0,
+    score:0, combo:0, best:0, accHit:0, accTotal:0,
+    hitWindow:DIFF.easy.hit, duration:DIFF.easy.secs,
+    calibrationMs:0, // + ช้าลง, - เร็วขึ้น
   };
-  step();
-}
+  let beatSec=60/96, nextBeat=0, notes=[]; // {el,t,z,judged}
 
-function resetGame(){
-  state.running = false;
-  if (state.rafId) cancelAnimationFrame(state.rafId);
-  fb.textContent = "";
-  clearChildren(root);
-  hud.textContent = "พร้อมเริ่ม";
-}
-
-function finishGame(){
-  state.running = false;
-  if (state.rafId) cancelAnimationFrame(state.rafId);
-  const stars = state.score >= 400 ? "⭐⭐⭐" : state.score >= 250 ? "⭐⭐" : "⭐";
-  hud.textContent = `จบเพลง\nคะแนน: ${state.score}\nคอมโบสูงสุด: ${state.maxCombo}\n${stars}`;
-}
-
-// ---------------- Loop ----------------
-function tick(){
-  if (!state.running) return;
-  const now = performance.now()/1000;
-  state.elapsed = now - state.startTime;
-
-  // Spawn ล่วงหน้า ~2.2 วิ
-  const lead = 2.2;
-  while (state.nextSpawnIdx < state.mapNotes.length){
-    const n = state.mapNotes[state.nextSpawnIdx];
-    if (n.time - state.elapsed <= lead){
-      const p = acquireNote(n.lane);
-      if (p){
-        p.time = n.time;
-        const zStart = -lead * state.speedFactor;
-        p.el.object3D.position.set( (n.lane==="wash"?-1.2: n.lane==="brush"?0:1.2), 0, zStart );
-        p.lane = n.lane;
-        p.judged = false;
-        state.active.push(p);
-      }
-      state.nextSpawnIdx++;
-    } else break;
+  // UI helpers
+  function setHUD(msg){
+    const acc = state.accTotal>0 ? Math.round(state.accHit/state.accTotal*100) : 0;
+    hud.textContent = `Hygiene Rhythm — bpm=${Math.round(60/beatSec)} mode=${selMode.value}\nscore=${state.score} combo=${state.combo} best=${state.best} acc=${acc}%\n${msg||""}`;
+  }
+  function makeNote(){
+    const e=document.createElement('a-entity');
+    e.classList.add('note');
+    e.setAttribute('geometry','primitive: plane; width: 0.66; height: 0.66');
+    const id=EMO[(Math.random()*EMO.length)|0];
+    e.setAttribute('material',`src:${id}; shader:flat; opacity:0.98; transparent:true`);
+    e.object3D.position.set(0,0,2.8);
+    root.appendChild(e);
+    return {el:e, t:state.elapsed + 1.6, z:2.8, judged:false};
   }
 
-  // Move & miss
-  for (const p of state.active){
-    if (!p || p.judged) continue;
-    const dt = p.time - state.elapsed;     // 0 ที่เส้น hit
-    p.el.object3D.position.z = dt * state.speedFactor;
-    if (dt < -state.hitWindow && !p.judged) judge(p, "miss");
+  function applyMode(){
+    const m=selMode.value;
+    state.hitWindow = DIFF[m]?.hit || DIFF.easy.hit;
+    state.duration  = DIFF[m]?.secs || DIFF.easy.secs;
+    setHUD("ตั้งค่าโหมดแล้ว");
   }
+  function applyBPM(){ beatSec = 60 / parseInt(selBpm.value||"96",10); setHUD("ตั้งค่า BPM แล้ว"); }
+  function applyCalib(){ state.calibrationMs = parseInt(calib.value,10)||0; calibVal.textContent = state.calibrationMs; }
 
-  // HUD throttle
-  const ms = performance.now();
-  if (ms - state.lastHudTs > state.hudInterval){
-    state.lastHudTs = ms;
-    const remain = Math.max(0, Math.ceil(state.duration - state.elapsed));
-    hud.textContent = `เวลา: ${remain} วิ\nคะแนน: ${state.score}\nคอมโบ: x${state.combo}`;
-  }
-
-  // Beat counter (เฉพาะ Training)
-  if (selectDiff.value === "training" && state.beatCounterEl){
-    const idx = (Math.floor(state.elapsed / state.beatSec) % 4) + 1;
-    if (idx !== state.lastBeatIndex){
-      state.lastBeatIndex = idx;
-      state.beatCounterEl.setAttribute("text", `value:${idx}; width:6; align:center; color:#0b1220`);
+  // judge
+  function judgeHit(){
+    const target = state.elapsed + (state.calibrationMs/1000);
+    let best=null, bestErr=999;
+    for(const it of notes){
+      if(it.judged) continue;
+      const err=Math.abs(it.t - target);
+      if(err<bestErr){ best=it; bestErr=err; }
     }
+    state.accTotal++;
+    if(!best || bestErr>state.hitWindow){ state.combo=0; toast("Miss","#fecaca"); return; }
+    best.judged=true; best.el.setAttribute("visible","false");
+    state.accHit++;
+    if(bestErr<=state.hitWindow*0.35){ state.score+=300; state.combo++; toast("Perfect +300","#7dfcc6"); }
+    else { state.score+=150; state.combo++; toast("Good +150","#a7f3d0"); }
+    state.best=Math.max(state.best,state.combo);
   }
 
-  // End
-  if (state.elapsed >= state.duration){
-    for (const p of state.active){ if (p && !p.judged) judge(p,"miss"); }
-    finishGame();
-    return;
+  // flow
+  function start(){
+    notes.forEach(n=>n.el?.parentNode?.removeChild(n.el)); notes.length=0;
+    state.running=true; state.score=0; state.combo=0; state.best=0; state.accHit=0; state.accTotal=0;
+    state.t0=performance.now()/1000; state.elapsed=0; nextBeat=0;
+    setHUD("เริ่ม! เคาะตามจังหวะที่แผ่น HIT");
+    loop();
+  }
+  function reset(){
+    state.running=false; cancelAnimationFrame(state.raf);
+    notes.forEach(n=>n.el?.parentNode?.removeChild(n.el)); notes.length=0;
+    setHUD("รีเซ็ตแล้ว");
+  }
+  function end(){
+    state.running=false; cancelAnimationFrame(state.raf);
+    const acc = state.accTotal? Math.round(state.accHit/state.accTotal*100):0;
+    setHUD(`จบเกม • score=${state.score} best=${state.best} ACC=${acc}%`);
   }
 
-  state.rafId = requestAnimationFrame(tick);
+  // main loop
+  function loop(){
+    if(!state.running) return;
+    const now=performance.now()/1000; state.elapsed=now-state.t0;
+
+    // Training mode → ลดความถี่โน้ต (ช้าลงครึ่งหนึ่ง) และโชว์นับ 1-2-3-4
+    const trainingOn = selTrain.value==="on";
+    const scheduleSpan = trainingOn ? beatSec*2 : beatSec;
+
+    while(nextBeat <= state.elapsed + 1.0){
+      notes.push(makeNote());
+      click();
+      nextBeat += scheduleSpan;
+    }
+
+    // count 1-2-3-4 (แสดงทุกบีตใน Training)
+    if(trainingOn){
+      // คำนวณลิสต์ count ตามจังหวะที่กำลังจะลง
+      const tBeat = Math.floor(state.elapsed/beatSec)%4;
+      const countText = (["1","2","3","4"][tBeat]);
+      // อัปเดตเป็นครั้งคราว
+      if(!loop._lastCount || loop._lastCount!==tBeat){
+        loop._lastCount=tBeat;
+        const c=label3D(countText,{fontSize:0.34,y:0.3,color:"#f8fafc"});
+        root.appendChild(c);
+        setTimeout(()=>c.parentNode&&c.parentNode.removeChild(c),220);
+      }
+    }
+
+    // move
+    const speedZ = 1.6; // ระยะ/วินาที
+    for(const it of notes){
+      if(it.judged) continue;
+      const dt = it.t - (state.elapsed + (state.calibrationMs/1000));
+      it.z = Math.max(0, dt*speedZ);
+      it.el.object3D.position.z = it.z;
+      if(dt<-state.hitWindow && !it.judged){ it.judged=true; it.el.setAttribute("visible","false"); state.combo=0; toast("Miss","#fecaca"); }
+    }
+
+    setHUD();
+    if(state.elapsed>=state.duration) return end();
+    state.raf=requestAnimationFrame(loop);
+  }
+
+  // input bindings: pad + keyboard + VR select
+  function bindHit(el){
+    const h=e=>{ e.preventDefault(); e.stopPropagation(); ensureAudio(); judgeHit(); };
+    el.addEventListener('click',h);
+    el.addEventListener('pointerup',h);
+    el.addEventListener('touchend',h,{passive:false});
+  }
+  bindHit(hitPad);
+  window.addEventListener('keydown',e=>{ if(e.key===' '||e.key==='Enter') judgeHit(); });
+  // VR select (รวม hand/controller)
+  scene.addEventListener('select', ()=>judgeHit());
+
+  // UI events
+  btnStart.addEventListener('click', ()=>!state.running&&start());
+  btnReset.addEventListener('click', reset);
+  selMode.addEventListener('change', applyMode);
+  selBpm.addEventListener('change', applyBPM);
+  selTrain.addEventListener('change', ()=>setHUD("สลับ Training แล้ว"));
+  calib.addEventListener('input', applyCalib);
+
+  // boot
+  applyMode(); applyBPM(); applyCalib();
+  setHUD("พร้อมเริ่ม • กด Start แล้วเคาะตามจังหวะ • Training โชว์ตัวนับ 1-2-3-4");
 }
-
-// ---------------- Input & Judgement ----------------
-function tryHit(lane){
-  if (!state.running) return;
-  let best=null, bestAbs=Infinity;
-  for (const p of state.active){
-    if (!p || p.judged || p.lane!==lane) continue;
-    const abs = Math.abs(p.time - state.elapsed);
-    if (abs < bestAbs){ bestAbs = abs; best = p; }
-  }
-  if (!best) return;
-
-  if (bestAbs <= state.hitWindow*0.35) judge(best,"perfect");
-  else if (bestAbs <= state.hitWindow*0.65) judge(best,"great");
-  else if (bestAbs <= state.hitWindow)      judge(best,"good");
-  else                                      judge(best,"miss");
-}
-
-function judge(p, type){
-  p.judged = true;
-
-  // คะแนน
-  let add=0, text="", color="";
-  switch(type){
-    case "perfect": add=30; text="Perfect!"; color="#38bdf8"; state.combo++; break;
-    case "great":   add=20; text="Great!";   color="#22c55e"; state.combo++; break;
-    case "good":    add=10; text="Good";     color="#eab308"; state.combo=0; break;
-    default:        add=0;  text="Miss";     color="#ef4444"; state.combo=0; break;
-  }
-  state.score += add + Math.max(0, state.combo-1)*2;
-  state.maxCombo = Math.max(state.maxCombo, state.combo);
-
-  fb.innerHTML = `<span style="color:${color};font-weight:800;">${text}</span>`;
-  setTimeout(()=> fb.textContent="", 350);
-
-  // pop เบา ๆ แล้วคืนพูล
-  try { p.el.setAttribute("animation__pop","property: scale; to: 1.25 1.25 1; dur: 80; dir: alternate; easing: easeOutQuad"); } catch(e){}
-  setTimeout(()=>{ releaseNote(p); }, 120);
-}
-
-// ---------------- Buttons & Shortcuts ----------------
-btnStart.style.pointerEvents = 'auto';
-btnReset.style.pointerEvents = 'auto';
-btnStart.onclick = ()=>{ if(!state.running) startGame(); else finishGame(); };
-btnReset.onclick = resetGame;
-
-// คีย์ลัดบนเดสก์ท็อป: Space = Start/Finish, R = Reset
-window.addEventListener('keydown', (e)=>{
-  const k = e.key.toLowerCase();
-  if (k === ' ') { e.preventDefault(); if (!state.running) startGame(); else finishGame(); }
-  if (k === 'r') { e.preventDefault(); resetGame(); }
-});
-
-// Init
-resetGame();
