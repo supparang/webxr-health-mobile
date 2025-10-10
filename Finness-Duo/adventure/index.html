@@ -3,191 +3,58 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>Adventure Mode — Fitness Duo VR</title>
+  <title>Fitness Duo — Adventure</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
   <style>
-    :root { --glass: rgba(0,0,0,.6); }
-    html,body{margin:0;height:100%;background:#050914;font-family:system-ui,Arial,sans-serif;}
-    a-scene, a-scene canvas { position:fixed; inset:0; z-index:1; }
-    .hud, .ui, .back, .debug {
-      position:fixed; z-index:2147483000; pointer-events:auto;
-    }
-    .hud { right:12px; top:12px; min-width:320px; background:var(--glass); color:#fff;
-      padding:10px 14px; border-radius:12px; white-space:pre-line; }
-    .hud h1{margin:0 0 6px 0; font-size:18px;}
-    .ui { left:12px; bottom:12px; display:flex; gap:8px; flex-wrap:wrap; }
-    .ui label, .ui button {
-      background:#fff; color:#0b1220; border:none; border-radius:12px; padding:10px 12px; font-weight:700;
-      box-shadow:0 2px 10px rgba(0,0,0,.25); cursor:pointer;
-    }
-    .ui button.primary{background:#79a8ff; color:#001;}
-    .back { left:12px; top:12px; background:var(--glass); color:#fff; padding:8px 12px; border-radius:10px; }
-    .back a{color:#fff; text-decoration:none; font-weight:700;}
-    .debug { left:12px; top:56px; background:rgba(255,0,0,.12); color:#fff; padding:6px 10px; border-radius:10px; font-size:12px; display:none; }
-    .debug.show { display:block; }
+    html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
+    a-scene, a-scene canvas{position:fixed;inset:0}
+    .ui{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:9999;display:flex;gap:10px;flex-wrap:wrap}
+    .btn{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+    .btn.primary{background:#7dfcc6;color:#053b2a}
+    .card{position:fixed;right:12px;top:12px;background:rgba(0,0,0,.55);color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;z-index:9999}
+    select{padding:10px;border:none;border-radius:10px;font-weight:700}
   </style>
 </head>
 <body>
-  <div class="back">⬅ <a href="../index.html">กลับเมนูหลัก</a></div>
-  <div id="debug" class="debug"></div>
-
-  <div class="hud">
-    <h1 id="hudTitle">Adventure Mode</h1>
-    <div id="hudText">กำลังโหลด…</div>
-    <div id="hudLives" style="margin-top:6px;">❤️❤️❤️</div>
-    <div id="hudQuest" style="margin-top:6px;font-size:14px;opacity:.9"></div>
-  </div>
-
   <div class="ui">
-    <label>โหมด:
-      <select id="difficulty">
-        <option value="easy">Easy</option>
-        <option value="normal">Normal</option>
-        <option value="hard">Hard</option>
+    <button id="btnStart" class="btn primary" type="button">Start</button>
+    <button id="btnReset" class="btn" type="button">Reset</button>
+    <label>เลน:
+      <select id="lane">
+        <option value="0">ซ้าย (A/←)</option>
+        <option value="1" selected>กลาง (S/↑)</option>
+        <option value="2">ขวา (D/→)</option>
       </select>
     </label>
-    <label>ธีม:
-      <select id="theme">
-        <option value="jungle">Jungle</option>
-        <option value="city">City</option>
-        <option value="space">Space</option>
-      </select>
-    </label>
-    <label>เควส:
-      <select id="quest">
-        <option value="collect">เก็บ Orb</option>
-        <option value="survive">เอาตัวรอด</option>
-        <option value="streak">หลบต่อเนื่อง</option>
-      </select>
-    </label>
-    <button id="btnStart" class="primary">Start</button>
-    <button id="btnReset">Reset</button>
   </div>
+  <div class="card" id="hud">Adventure — loading…</div>
 
-  <!-- ป้ายเลนในฉาก -->
-  <a-scene background="color:#06111f" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
+    <a-assets timeout="30000">
+      <!-- ภาพท้องฟ้า (ถ้าไม่มีจะใช้สีแทน) -->
+      <img id="bg-jungle" crossorigin="anonymous" src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2048&auto=format&fit=crop"/>
+      <img id="bg-city"   crossorigin="anonymous" src="https://images.unsplash.com/photo-1467269204594-9661b134dd2b?q=80&w=2048&auto=format&fit=crop"/>
+      <img id="bg-space"  crossorigin="anonymous" src="https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3?q=80&w=2048&auto=format&fit=crop"/>
+    </a-assets>
+
     <a-entity id="rig" position="0 1.6 0">
       <a-entity id="cam" camera look-controls>
         <a-entity id="cursor"
-                  cursor="rayOrigin: entity; fuse: true; fuseTimeout: 1000"
-                  raycaster="objects: .selectable"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-                  material="color:#0ea5e9; shader:flat; opacity:0.95"></a-entity>
+          cursor="rayOrigin: mouse; fuse: false"
+          raycaster="objects: .clickable; far: 15; interval: 0"
+          position="0 0 -1"
+          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
+          material="color:#7dfcc6; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
       </a-entity>
     </a-entity>
 
-    <a-entity id="root" position="0 1.5 -3"></a-entity>
+    <a-entity id="root" position="0 1.25 -3"></a-entity>
 
-    <a-entity id="laneL" class="selectable" position="-1.2 -0.8 -3"
-              geometry="primitive: plane; width: 1.0; height: 0.35"
-              material="color:#ffffff; opacity:0.92; shader:flat">
-      <a-entity position="0 0 0.01" text="value:เลนซ้าย; width:3; align:center; color:#0b1220"></a-entity>
-    </a-entity>
-    <a-entity id="laneC" class="selectable" position="0 -0.8 -3"
-              geometry="primitive: plane; width: 1.0; height: 0.35"
-              material="color:#ffffff; opacity:0.92; shader:flat">
-      <a-entity position="0 0 0.01" text="value:เลนกลาง; width:3; align:center; color:#0b1220"></a-entity>
-    </a-entity>
-    <a-entity id="laneR" class="selectable" position="1.2 -0.8 -3"
-              geometry="primitive: plane; width: 1.0; height: 0.35"
-              material="color:#ffffff; opacity:0.92; shader:flat">
-      <a-entity position="0 0 0.01" text="value:เลนขวา; width:3; align:center; color:#0b1220"></a-entity>
-    </a-entity>
-
-    <a-entity id="hitLine" geometry="primitive: plane; width: 3.6; height: 0.03"
-              material="color:#0ea5e9; opacity:0.9; shader:flat"
-              position="0 -0.25 -3"></a-entity>
-
+    <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
     <a-sky id="sky" radius="24" color="#0b1220"></a-sky>
-    <a-entity light="type: ambient; color: #ffffff; intensity: 1.0"></a-entity>
   </a-scene>
 
-  <!-- เกมหลักของ Adventure -->
   <script src="game.js"></script>
-
-  <!-- ตัวตั้งค่าจาก Query + Safety Net สำหรับ Start -->
-  <script>
-    (function boot(){
-      const $ = (id)=>document.getElementById(id);
-      const dbg = $("debug");
-      const hudText = $("hudText");
-
-      const log = (m, warn=false)=>{
-        console[warn?'warn':'log']("[ADV] "+m);
-        if (dbg){ dbg.classList.add('show'); dbg.textContent = m; }
-      };
-
-      // 1) อัปเดตจาก query
-      const q = new URLSearchParams(location.search);
-      const mapVal = (elId, key, allow=[])=>{
-        const v = q.get(key);
-        if (!v) return;
-        const el = $(elId);
-        if (!el) return;
-        if (allow.length===0 || allow.includes(v)) {
-          el.value = v;
-          el.dispatchEvent(new Event('change'));
-        }
-      };
-      mapVal('difficulty','diff',['easy','normal','hard']);
-      mapVal('theme','theme',['jungle','city','space']);
-      mapVal('quest','quest',['collect','survive','streak']);
-      if (hudText) hudText.textContent = 'พร้อมเริ่ม (ค่าถูกตั้งตามลิงก์แล้ว)';
-
-      // 2) ฟอลแบ็ก: ผูกปุ่ม Start หาก game.js ไม่ได้ผูก
-      const btnStart = $("btnStart");
-      const btnReset = $("btnReset");
-
-      function resumeAudioIfAny(){
-        // ถ้าเกมของคุณมี ensureAudio() อยู่ จะถูกเรียกใน startGame เอง
-        // ที่นี่ปลุก AudioContext แบบมาตรฐาน (หลายบราวเซอร์ต้องการ gesture)
-        try{
-          const AC = window.AudioContext || window.webkitAudioContext;
-          if (AC && !window.__audioCtx){
-            window.__audioCtx = new AC();
-            const osc = __audioCtx.createOscillator();
-            const gain = __audioCtx.createGain();
-            gain.gain.value = 0.0001; // เงียบ
-            osc.connect(gain).connect(__audioCtx.destination);
-            osc.start(); osc.stop(__audioCtx.currentTime + 0.02);
-          }
-        }catch(e){}
-      }
-
-      if (btnStart){
-        btnStart.addEventListener('click', ()=>{
-          resumeAudioIfAny();
-          if (typeof window.startGame === 'function'){
-            log("เรียก startGame() จาก game.js");
-            try{ window.startGame(); }catch(err){ log("startGame() error: "+err, true); alert("เกิดข้อผิดพลาดใน startGame() ดู Console"); }
-          }else{
-            log("ไม่พบฟังก์ชัน startGame() — ตรวจ path ของ game.js", true);
-            alert("ไม่พบฟังก์ชัน startGame()\nเป็นไปได้ว่าเกมไม่โหลด: ตรวจว่าไฟล์ adventure/game.js อยู่จริงและเส้นทาง <script src=\"game.js\"> ถูกต้อง");
-          }
-        });
-      }
-      if (btnReset){
-        btnReset.addEventListener('click', ()=>{
-          if (typeof window.stopMusic === 'function'){ try{ window.stopMusic(); }catch(e){} }
-          if (hudText) hudText.textContent = 'รีเซ็ตแล้ว • พร้อมเริ่ม';
-        });
-      }
-
-      // 3) autostart
-      if (q.get('autostart') === '1' && btnStart){
-        setTimeout(()=> btnStart.click(), 250);
-      }
-
-      // 4) รายงานสถานะโหลด game.js
-      setTimeout(()=>{
-        if (typeof window.startGame === 'function'){
-          log("game.js โหลดสำเร็จ • พร้อมเริ่ม");
-        }else{
-          log("game.js อาจไม่โหลด (เช็ค 404 ใน DevTools/Network)", true);
-        }
-      }, 150);
-    })();
-  </script>
 </body>
 </html>
