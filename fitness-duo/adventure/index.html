@@ -1,31 +1,54 @@
-
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Adventure — QuickFix</title>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <style>
-    body{margin:0;background:#000;color:#e2e8f0;font:16px system-ui}
-    .overlay{position:fixed;left:0;right:0;top:0;padding:8px 10px;background:rgba(11,18,32,.85);z-index:10}
-    button{background:#7dfcc6;color:#053b2a;border:0;border-radius:10px;padding:8px 12px;font-weight:700}
-    #status{margin-left:8px;color:#9fb1d1}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Adventure (Fresh Start)</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<style>
+  body{margin:0;background:#000;color:#e2e8f0;font:16px system-ui}
+  .overlay{position:fixed;left:0;right:0;top:0;padding:8px 10px;background:rgba(11,18,32,.9);z-index:10;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:6px 12px}
+  #status{font-size:13px;color:#9fb1d1;margin-left:6px}
+  .modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.55);z-index:9999}
+  .modal.show{display:grid}
+  .card{width:min(720px,92vw);background:#0b1220;border:1px solid #334155;border-radius:14px;padding:16px 18px}
+  .kbd{display:inline-block;padding:1px 6px;border:1px solid #475569;border-radius:6px;background:#0f172a;color:#cbd5e1;font-size:12px}
+</style>
 </head>
 <body>
   <div class="overlay">
     <button id="btnStart">Start</button>
     <button id="btnReset">Reset</button>
+    <button id="btnHelp">Help ?</button>
     <span id="status">พร้อมเริ่ม</span>
   </div>
 
-  <a-scene background="color: #062014" renderer="antialias:true" id="scene">
+  <div id="helpModal" class="modal" aria-hidden="true">
+    <div class="card">
+      <h3>วิธีเล่น: Adventure Runner</h3>
+      <p>เป้าหมาย: เก็บ <b>เขียว</b> (คะแนน) และ <b>ทอง</b> (คะแนนเยอะ) — <u>หลบ</u> สิ่งกีดขวางสีแดง</p>
+      <ul>
+        <li><span class="kbd">A</span>/<span class="kbd">←</span> = ซ้าย • <span class="kbd">S</span>/<span class="kbd">↑</span> = กลาง • <span class="kbd">D</span>/<span class="kbd">→</span> = ขวา</li>
+        <li>มือถือ: แตะปุ่มเลนด้านล่างจอ</li>
+        <li>ให้วัตถุถึง “วงฟ้ากลาง” แล้วอยู่เลนที่ถูกต้อง</li>
+      </ul>
+      <div style="text-align:right"><button id="btnCloseHelp">ปิด</button></div>
+    </div>
+  </div>
+
+  <a-scene renderer="antialias:true" background="color: #000">
     <a-entity id="root" position="0 1.25 -3"></a-entity>
-    <a-entity id="hud"  position="0 1.1  0" text="value:Adventure QuickFix; width:5; align:center; color:#e2e8f0"></a-entity>
-    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    <a-entity id="hud" position="0 1.0 -2.9" text="value: ; width:5; align:center; color:#e2e8f0"></a-entity>
+    <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
   <script src="./game.js"></script>
+  <script>
+    const help = document.getElementById('helpModal');
+    document.getElementById('btnHelp').onclick=()=>help.classList.add('show');
+    document.getElementById('btnCloseHelp').onclick=()=>help.classList.remove('show');
+    help.addEventListener('click',e=>{ if(e.target===help) help.classList.remove('show'); });
+  </script>
 </body>
 </html>
