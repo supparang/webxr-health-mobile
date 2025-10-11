@@ -1,13 +1,11 @@
-// /rhythm/game.js — QuickFix EXTREME (3-lane + Sections + Fever)
+// /rhythm/game.js — 3 Lane + HitLine + Clear Legend
 (function(){
   let running=false, raf=0, t0=0, elapsed=0;
   let score=0, combo=0, best=0, fever=false, feverEnd=0, feverCount=0;
   let notes=[], nextBeat=0, bpm=108, sectionBeats=8, hitWin=0.16, duration=50;
 
-  const root=document.getElementById('root');
-  const hud =document.getElementById('hud');
-  const scene=document.getElementById('scene');
-  const statusEl=document.getElementById('status');
+  const root=document.getElementById('root'), hud=document.getElementById('hud');
+  const scene=document.getElementById('scene'), statusEl=document.getElementById('status');
 
   // Audio
   let actx=null, master=null;
@@ -21,7 +19,9 @@
   ['pointerdown','touchend','keydown','click'].forEach(ev=>window.addEventListener(ev,()=>ensureAudio(),{once:true,capture:true}));
 
   function setHUD(msg){
-    const f=fever?' • FEVER!':''; hud.setAttribute('text',`value:Score ${score} • Combo ${combo} (Best ${best})${f}\n${msg||''}; width:5; align:center; color:#e2e8f0`);
+    const f=fever?' • FEVER!':'';
+    const legend='วิธีเล่น: รอ “โน้ตเลนเดียวกัน” ให้ถึงเส้นวงฟ้า แล้วกดปุ่มของเลนนั้น (A/S/D หรือ L/C/R)';
+    hud.setAttribute('text',`value:${legend}\nScore ${score} • Combo ${combo} (Best ${best})${f}\n${msg||''}; width:5.2; align:center; color:#e2e8f0`);
   }
   function toast(txt,color="#93c5fd",y=1.05,ms=520){
     const t=document.createElement('a-entity');
@@ -29,6 +29,27 @@
     root.appendChild(t); t.setAttribute('animation__up','property: position; to: 0 1.25 0.05; dur: 360; easing: easeOutQuad'); setTimeout(()=>t.remove(),ms);
   }
   function laneX(i){ return [-0.9,0,0.9][i]; }
+
+  // Hit Line + Lane labels
+  function buildHitLine(){
+    const line=document.createElement('a-entity');
+    line.setAttribute('geometry','primitive: ring; radiusInner:0.05; radiusOuter:0.055; segmentsTheta:64');
+    line.setAttribute('material','color:#93c5fd; opacity:0.95; shader:flat');
+    line.setAttribute('position','0 0 0.06');
+    line.setAttribute('animation__pulse','property: scale; to: 1.06 1.06 1; dir: alternate; dur: 480; loop: true; easing: easeInOutSine');
+    root.appendChild(line);
+    // แถบเลน + ป้าย
+    [-0.9,0,0.9].forEach((x,i)=>{
+      const p=document.createElement('a-entity');
+      p.setAttribute('geometry','primitive: plane; width:0.95; height:0.06');
+      p.setAttribute('material','color:#1f2937; opacity:0.7; shader:flat');
+      p.setAttribute('position',`${x} -0.28 0.055`);
+      const t=document.createElement('a-entity');
+      t.setAttribute('text',`value:${['L(A/←)','C(S/↑)','R(D/→)'][i]}; width:2.2; align:center; color:#9fb1d1`);
+      t.setAttribute('position','0 -0.05 0.01'); p.appendChild(t);
+      root.appendChild(p);
+    });
+  }
 
   // Section themes
   const THEMES = [
@@ -41,7 +62,8 @@
   function spawn(lane){
     const th=THEMES[curTheme]; const n=document.createElement('a-entity');
     n.classList.add('note'); n.setAttribute('geometry','primitive: '+th.shape);
-    const hues=th.hues, h=hues[(Math.random()*hues.length)|0]; n.setAttribute('material', th.mat(h));
+    const h=th.hues[(Math.random()*th.hues.length)|0];
+    n.setAttribute('material', th.mat(h));
     n.object3D.position.set(laneX(lane),0,3.0); root.appendChild(n);
     notes.push({el:n, lane, t:elapsed+1.6, judged:false});
   }
@@ -51,30 +73,24 @@
   function addScore(n){ score += fever ? Math.round(n*1.5) : n; }
 
   function judge(lane){
-    // โน้ตที่เลนเดียวกันและใกล้ที่สุด
     let bestIt=null, bestErr=9;
-    for(const it of notes){
-      if(it.judged || it.lane!==lane) continue;
-      const err=Math.abs(it.t - elapsed);
-      if(err<bestErr){ bestErr=err; bestIt=it; }
-    }
-    if(!bestIt || bestErr>hitWin){
-      combo=0; toast('Miss','#fecaca'); return;
-    }
+    for(const it of notes){ if(it.judged || it.lane!==lane) continue;
+      const err=Math.abs(it.t - elapsed); if(err<bestErr){ bestErr=err; bestIt=it; } }
+    if(!bestIt || bestErr>hitWin){ combo=0; toast('Miss','#fecaca'); return; }
     bestIt.judged=true; bestIt.el.setAttribute('visible','false');
     if(bestErr<=hitWin*0.35){ addScore(300); combo++; toast('Perfect +300','#7dfcc6'); click(1000,0.05,0.2); }
     else { addScore(160); combo++; toast('Good +160','#a7f3d0'); click(820,0.05,0.16); }
     best=Math.max(best,combo);
     if(!fever && combo>0 && combo%8===0) enterFever();
-    // Adaptive timing: เก่งขึ้น → hit window แคบลงนิดๆ (ท้าทาย)
-    if(combo%6===0) hitWin = Math.max(0.10, hitWin-0.004);
+    if(combo%6===0) hitWin = Math.max(0.10, hitWin-0.004); // ยิ่งแม่น ยิ่งแคบ
   }
 
   function start(){
     running=true; t0=performance.now()/1000; elapsed=0;
     score=0; combo=0; best=0; fever=false; feverEnd=0; feverCount=0; notes.length=0;
     nextBeat=0; curTheme=0; beatCount=0; hitWin=0.16; duration=50;
-    buildPads(); setHUD('เริ่ม! A/S/D หรือคลิกปุ่ม L/C/R ให้ตรงเลนตามจังหวะ');
+    buildHitLine(); buildPads();
+    setHUD('เริ่ม! ให้โน้ต “ถึงเส้นวงฟ้า” แล้วกดเลนที่ตรงกัน (A/S/D หรือแตะปุ่ม L/C/R)');
     loop();
   }
   function end(title='จบเกม'){ running=false; cancelAnimationFrame(raf); setHUD(`${title} • Score ${score}`); }
@@ -84,24 +100,22 @@
     if(!running) return;
     const now=performance.now()/1000; elapsed=now-t0;
 
+    // Spawn + เมโทรนอม
     while(nextBeat <= elapsed + 1.0){
-      // เปลี่ยนธีมทุก 8 บีต
       if(beatCount % sectionBeats === 0 && beatCount>0){
-        curTheme = (curTheme+1) % THEMES.length;
-        toast('Section Change','#cbd5e1',1.08,540);
+        curTheme = (curTheme+1) % THEMES.length; toast('เปลี่ยนท่อนเพลง','#cbd5e1',1.08,540);
       }
-      // ปล่อย 1–2 ตัวแบบสุ่มเลน
       const lane=(Math.random()*3|0);
       spawn(lane);
       if(Math.random()<0.28) spawn((lane+1)%3);
-      click(660,0.035,0.08); // เมโทรนอม
+      click(660,0.035,0.08);
       nextBeat += 60/bpm; beatCount++;
     }
 
-    // เคลื่อนโน้ต
-    const speedZ = 1.65 + (fever?0.12:0); // เร็วขึ้นเมื่อ Fever
+    const speedZ = 1.65 + (fever?0.12:0);
     for(const it of notes){
-      if(it.judged) continue; const dt=it.t - elapsed;
+      if(it.judged) continue;
+      const dt = it.t - elapsed;
       it.el.object3D.position.z = Math.max(0, dt*speedZ);
       if(dt<-0.22 && !it.judged){ it.judged=true; it.el.setAttribute('visible','false'); combo=0; toast('Miss','#fecaca'); }
     }
@@ -111,7 +125,7 @@
     setHUD(); raf=requestAnimationFrame(loop);
   }
 
-  // ===== Controls =====
+  // Controls
   function bindKeys(){
     window.addEventListener('keydown',e=>{
       const k=e.key.toLowerCase();
@@ -121,19 +135,16 @@
     });
   }
   function buildPads(){
-    // ถ้ายังไม่มี แปะปุ่ม L/C/R ให้แตะได้
     if(document.getElementById('padL')) return;
-    const make=(id,x,label)=>{ const p=document.createElement('a-entity'); p.setAttribute('id',id);
-      p.setAttribute('geometry','primitive: plane; width:0.9; height:0.5');
+    const make=(id,x,label,lane)=>{ const p=document.createElement('a-entity'); p.setAttribute('id',id);
+      p.setAttribute('geometry','primitive: plane; width:0.95; height:0.55');
       p.setAttribute('material','color:#1e293b; opacity:0.95; shader:flat');
       p.setAttribute('position',`${x} -0.55 0.06`);
-      const t=document.createElement('a-entity');
-      t.setAttribute('text',`value:${label}; width:3; align:center; color:#93c5fd`);
+      const t=document.createElement('a-entity'); t.setAttribute('text',`value:${label}; width:3; align:center; color:#93c5fd`);
       t.setAttribute('position','0 0 0.01'); p.appendChild(t);
-      p.addEventListener('click',()=>judge( {L:0,C:1,R:2}[label] ));
-      root.appendChild(p);
+      p.addEventListener('click',()=>judge(lane)); root.appendChild(p);
     };
-    make('padL', -0.95, 'L'); make('padC', 0, 'C'); make('padR', 0.95, 'R');
+    make('padL', -0.95, 'L (A/←)',0); make('padC', 0, 'C (S/↑)',1); make('padR', 0.95, 'R (D/→)',2);
   }
 
   function bindUI(){
