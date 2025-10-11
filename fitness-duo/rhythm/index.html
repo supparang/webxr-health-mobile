@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Rhythm (Fresh Start)</title>
+<title>Fitness Duo — Rhythm</title>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <style>
   body{margin:0;background:#000;color:#e2e8f0;font:16px system-ui}
@@ -12,7 +12,7 @@
   #status{font-size:13px;color:#9fb1d1;margin-left:6px}
   .modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.55);z-index:9999}
   .modal.show{display:grid}
-  .card{width:min(720px,92vw);background:#0b1220;border:1px solid #334155;border-radius:14px;padding:16px 18px}
+  .card{width:min(760px,92vw);background:#0b1220;border:1px solid #334155;border-radius:14px;padding:16px 18px}
   .kbd{display:inline-block;padding:1px 6px;border:1px solid #475569;border-radius:6px;background:#0f172a;color:#cbd5e1;font-size:12px}
 </style>
 </head>
@@ -26,12 +26,12 @@
 
   <div id="helpModal" class="modal" aria-hidden="true">
     <div class="card">
-      <h3>วิธีเล่น: Rhythm (3 เลน)</h3>
-      <p>ให้ “โน้ตเลนเดียวกัน” มาถึงวงฟ้ากลาง แล้วกดเลนนั้นให้ตรงจังหวะ</p>
+      <h3>วิธีเล่น: Rhythm — Beat Boxer</h3>
+      <p>ให้ “โน้ตเลนเดียวกัน” มาถึงวงฟ้าแล้วกดเลนนั้นให้ตรงจังหวะ</p>
       <ul>
-        <li><span class="kbd">A</span>/<span class="kbd">←</span> = ซ้าย (L) • <span class="kbd">S</span>/<span class="kbd">↑</span> = กลาง (C) • <span class="kbd">D</span>/<span class="kbd">→</span> = ขวา (R)</li>
-        <li>มือถือ: แตะปุ่ม L / C / R ใต้จอ</li>
-        <li>คะแนน: Perfect +300 • Good +160 • Miss = คอมโบหลุด</li>
+        <li><span class="kbd">A</span>/<span class="kbd">←</span> = L • <span class="kbd">S</span>/<span class="kbd">↑</span> = C • <span class="kbd">D</span>/<span class="kbd">→</span> = R</li>
+        <li>มือถือ: แตะปุ่ม L/C/R ใต้จอ</li>
+        <li>Perfect +300 • Good +160 • Miss = คอมโบหลุด • คอมโบครบ → <b>FEVER</b></li>
       </ul>
       <div style="text-align:right"><button id="btnCloseHelp">ปิด</button></div>
     </div>
@@ -39,10 +39,11 @@
 
   <a-scene renderer="antialias:true" background="color:#000">
     <a-entity id="root" position="0 1.25 -3"></a-entity>
-    <a-entity id="hud" position="0 1.0 -2.9" text="value: ; width:5; align:center; color:#e2e8f0"></a-entity>
+    <a-entity id="hud" position="0 1.0 -2.9" text="value: ; width:5.6; align:center; color:#e2e8f0"></a-entity>
     <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
+  <script src="./config.js"></script>
   <script src="./game.js"></script>
   <script>
     const help = document.getElementById('helpModal');
