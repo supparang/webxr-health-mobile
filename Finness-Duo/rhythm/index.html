@@ -1,47 +1,78 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>Fitness Duo — Rhythm</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Hygiene Rhythm</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
+  <script src="https://unpkg.com/troika-three-text/dist/troika-three-text.min.js"></script>
   <style>
-    html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
-    a-scene, a-scene canvas{position:fixed;inset:0}
-    .ui{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:9999;display:flex;gap:10px;flex-wrap:wrap}
-    .btn{background:#fff;color:#0b1220;border:none;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.3)}
-    .btn.primary{background:#93c5fd;color:#08223b}
-    .card{position:fixed;right:12px;top:12px;background:rgba(0,0,0,.55);color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;z-index:9999}
+    body{margin:0;background:#000;color:#e2e8f0;font:16px system-ui}
+    .overlay{position:fixed;left:0;right:0;top:0;padding:8px 10px;background:rgba(11,18,32,.85);z-index:10}
+    .overlay *{font-size:14px}
+    .row{display:inline-grid;grid-auto-flow:column;gap:6px;align-items:center;margin-right:12px}
+    button,select{background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:6px 10px}
+    #status{font-size:13px;color:#9fb1d1;margin-left:8px}
   </style>
 </head>
 <body>
-  <div class="ui">
-    <button id="btnStart" class="btn primary" type="button">Start</button>
-    <button id="btnReset" class="btn" type="button">Reset</button>
+  <div class="overlay">
+    <span class="row">
+      <label>Diff</label>
+      <select id="difficulty"><option>easy</option><option selected>normal</option><option>hard</option></select>
+    </span>
+    <span class="row">
+      <label>BPM</label>
+      <select id="bpm"><option>96</option><option selected>108</option><option>120</option><option>128</option></select>
+    </span>
+    <span class="row">
+      <label>Training</label>
+      <select id="training"><option value="on" selected>On</option><option value="off">Off</option></select>
+    </span>
+    <span class="row">
+      <label>Task</label>
+      <select id="task"><option value="bathe">อาบน้ำ</option><option value="oral">ช่องปาก/ฟัน</option><option value="hands" selected>ล้างมือ 7 ขั้น</option><option value="nails">ดูแลเล็บ</option></select>
+    </span>
+    <button id="btnStart">Start</button>
+    <button id="btnReset">Reset</button>
+    <span id="status">พร้อมเริ่ม</span>
   </div>
-  <div class="card" id="hud">Rhythm — loading…</div>
 
-  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
-    <a-assets timeout="30000"></a-assets>
-
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity id="cam" camera look-controls>
-        <a-entity id="cursor"
-          cursor="rayOrigin: mouse; fuse: false"
-          raycaster="objects: .clickable; far: 15; interval: 0"
-          position="0 0 -1"
-          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-          material="color:#93c5fd; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
-      </a-entity>
-    </a-entity>
-
+  <a-scene renderer="antialias:true" background="color: #000">
+    <a-assets>
+      <img id="thaiFont" src="https://raw.githubusercontent.com/google/fonts/main/ofl/notoSansThai/NotoSansThai-VariableFont_wdth,wght.ttf">
+    </a-assets>
+    <a-entity id="scene"></a-entity>
     <a-entity id="root" position="0 1.25 -3"></a-entity>
-
-    <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
-    <a-sky radius="24" color="#0b1220"></a-sky>
+    <a-entity position="0 1.6 0" camera look-controls></a-entity>
+    <a-entity id="hud" position="0 0 0"></a-entity>
   </a-scene>
 
-  <script src="game.js"></script>
+  <!-- ใส่ไฟล์เกม Rhythm เวอร์ชันล่าสุดของคุณ -->
+  <script src="../rhythm-game.js"></script>
+  <script>
+    // ===== อ่าน query + เซ็ตค่า + autostart =====
+    (function(){
+      const qs = new URLSearchParams(location.search);
+      const q = (k, d=null)=>qs.get(k) ?? d;
+      const byId = (id)=>document.getElementById(id);
+
+      if(q('diff'))     byId('difficulty').value = q('diff');
+      if(q('bpm'))      byId('bpm').value = q('bpm');
+      if(q('training')) byId('training').value = q('training');
+      if(q('task'))     byId('task').value = q('task');
+
+      document.getElementById('status').textContent =
+        `Loaded • diff=${byId('difficulty').value}, bpm=${byId('bpm').value}, training=${byId('training').value}, task=${byId('task').value}`;
+
+      if(q('autostart')==='1'){
+        setTimeout(()=>{
+          if(typeof window.start === 'function') window.start();
+          else if(typeof window.startGame === 'function') window.startGame();
+          else document.getElementById('btnStart')?.click();
+        }, 200);
+      }
+    })();
+  </script>
 </body>
 </html>
