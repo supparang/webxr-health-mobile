@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Fitness Adventure VR</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    body{margin:0;background:#000;color:#e2e8f0;font:16px system-ui}
+    .overlay{position:fixed;left:0;right:0;top:0;padding:8px 10px;background:rgba(11,18,32,.85);z-index:10}
+    .overlay *{font-size:14px}
+    .row{display:inline-grid;grid-auto-flow:column;gap:6px;align-items:center;margin-right:12px}
+    button,select{background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:6px 10px}
+    #status{font-size:13px;color:#9fb1d1;margin-left:8px}
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <span class="row"><label>Diff</label>
+      <select id="difficulty"><option>easy</option><option selected>normal</option><option>hard</option></select>
+    </span>
+    <span class="row"><label>Theme</label>
+      <select id="theme"><option>jungle</option><option>city</option><option>space</option></select>
+    </span>
+    <span class="row"><label>Quest</label>
+      <select id="quest"><option>collect</option><option>survive</option><option>streak</option></select>
+    </span>
+    <button id="btnStart">Start</button><button id="btnReset">Reset</button><span id="status">พร้อมเริ่ม</span>
+  </div>
+
+  <a-scene renderer="antialias:true" background="color: #000" id="scene">
+    <a-assets>
+      <img id="bg-jungle" src="../assets/bg/jungle.jpg">
+      <img id="bg-city"   src="../assets/bg/city.jpg">
+      <img id="bg-space"  src="../assets/bg/space.jpg">
+      <img id="px-jungle" src="../assets/bg/jungle-parallax.png">
+      <img id="px-city"   src="../assets/bg/city-parallax.png">
+      <img id="px-space"  src="../assets/bg/space-parallax.png">
+    </a-assets>
+    <a-entity id="parallaxRoot" position="0 1.25 -3">
+      <a-entity id="sky" geometry="primitive: plane; width:6; height:3.2" position="0 0 0" material="color:#10222a"></a-entity>
+      <a-entity id="parallax" geometry="primitive: plane; width:6; height:3.2" position="0 0 0.01" material="color:#fff; opacity:0.0"></a-entity>
+      <a-entity id="root" position="0 0 0.02"></a-entity>
+      <a-entity id="hudTitle" position="0 1.1 0.08" text="value:Fitness Adventure; width:5; align:center; color:#e2e8f0"></a-entity>
+      <a-entity id="hudText"  position="0 0.92 0.08" text="value:พร้อมเริ่ม; width:5; align:center; color:#cbd5e1"></a-entity>
+      <a-entity id="hudLives" position="-1.6 0.92 0.08" text="value:❤️❤️❤️; width:3; align:left; color:#fecaca"></a-entity>
+      <a-entity id="hudQuest" position="0 -0.95 0.08" text="value:; width:5; align:center; color:#7dfcc6"></a-entity>
+      <a-entity id="laneL" geometry="primitive: plane; width:0.9; height:0.35" position="-1.2 -1.15 0.09" material="color:#0f172a; opacity:0.9"></a-entity>
+      <a-entity id="laneC" geometry="primitive: plane; width:0.9; height:0.35" position="0    -1.15 0.09" material="color:#0f172a; opacity:0.9"></a-entity>
+      <a-entity id="laneR" geometry="primitive: plane; width:0.9; height:0.35" position="1.2  -1.15 0.09" material="color:#0f172a; opacity:0.9"></a-entity>
+    </a-entity>
+    <a-entity camera look-controls position="0 1.6 0"></a-entity>
+  </a-scene>
+
+  <script src="../adventure-game.js"></script>
+  <script>
+    (function(){
+      const qs = new URLSearchParams(location.search);
+      const q = (k, d=null)=>qs.get(k) ?? d;
+      const byId = (id)=>document.getElementById(id);
+      if(q('diff'))   byId('difficulty').value  = q('diff');
+      if(q('theme'))  byId('theme').value = q('theme');
+      if(q('quest'))  byId('quest').value = q('quest');
+      const status = document.getElementById('status');
+      status.textContent = `Loaded • diff=${byId('difficulty').value}, theme=${byId('theme').value}, quest=${byId('quest').value}`;
+      if(q('autostart')==='1'){
+        setTimeout(()=>{ if(typeof window.startGame === 'function'){ window.startGame(); } else { document.getElementById('btnStart')?.click(); }}, 200);
+      }
+    })();
+  </script>
+</body>
+</html>
