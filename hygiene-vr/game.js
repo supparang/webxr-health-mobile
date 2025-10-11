@@ -1,5 +1,6 @@
-// Hygiene Rhythm — Action+Collect+Learn (V5)
-// เน้นแอคชัน + เก็บเหรียญ/พาวเวอร์ + ควิซความรู้สุขอนามัย
+// Hygiene Rhythm — Action+Collect+Learn (V5.2 Hyper-Spawn)
+// เน้นแอคชัน + เก็บเหรียญ/พาวเวอร์ + ควิซ + ปล่อยโน้ตเยอะขึ้น แต่คุม performance ได้
+
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 
 function init(){
@@ -9,6 +10,24 @@ function init(){
   const selTask=$("#task"), selDiff=$("#difficulty"), selBpm=$("#bpm"), selTrain=$("#training");
   const calib=$("#calib"), calibVal=$("#calibVal");
   const THAI_FONT = $("#thaiFont")?.getAttribute("src");
+
+  // ======= TUNING KNOBS (ปรับความถี่ได้ง่าย) =======
+  const TUNE = {
+    BASE_DENSITY: 0.85,     // ความน่าจะเป็นเกิดโน้ตต่อ "บีตหลัก" (0..1) — ยิ่งสูงยิ่งเยอะ
+    SUBDIV_PROB: 0.55,      // โอกาสสร้างโน้ต "ระหว่างบีต" (1/2, 1/4)
+    BURST_PROB: 0.38,       // โอกาสเกิด "Burst" (ปล่อยติดๆ 2–5 โน้ตใน 0.5–1.0 วิ)
+    BURST_SIZE: [2,5],      // ช่วงจำนวนโน้ตใน 1 Burst
+    MAX_CONCURRENT: 180,    // เพดานจำนวนโน้ตคงค้างพร้อมกัน (กันเครื่องอืด)
+    RAMP_PERFECT_STEP: 0.03,// ค่าคูณความหนาแน่นเพิ่มทุก 10 คอมโบ
+    RAMP_ACC_STEP: 0.02,    // ปรับเพิ่มตาม Accuracy
+    FEVER_DENSITY_BOOST: 0.2, // เพิ่มความหนาแน่นช่วง FEVER
+    SOAP_BOMB_WINDOW_BEATS: 4, // กวาดโน้ตล่วงหน้า (หน่วยบีต)
+    SHIELD_HITS: 2,         // Shield กันพลาดได้กี่ครั้ง
+    BOSS_LAST_SECS: 15,     // ความยาวบอสเฟสท้ายเกม
+    TRAIN_LEAD: 2.0,        // เวลานำหน้าในโหมด Training
+    PLAY_LEAD: 1.6,         // เวลานำหน้าโหมดปกติ
+    SPEED_Z: 1.7,           // ความเร็วการวิ่งเข้าหาผู้เล่น
+  };
 
   // ---------- helpers ----------
   function label3D(value, opts={}){
@@ -38,10 +57,10 @@ function init(){
   })();
 
   // ---------- timing / difficulty ----------
-  const DIFF = { easy:{hit:0.18, secs:70}, normal:{hit:0.14, secs:85}, hard:{hit:0.10, secs:100} };
-  let beatSec = 60 / parseInt(selBpm?.value||"96",10);
+  const DIFF = { easy:{hit:0.18, secs:70}, normal:{hit:0.14, secs:90}, hard:{hit:0.10, secs:105} };
+  let beatSec = 60 / parseInt(selBpm?.value||"108",10); // ขยับค่าเริ่ม BPM ให้เร็วขึ้นเล็กน้อย
 
-  // ---------- tasks (เหมือนเดิม) ----------
+  // ---------- tasks ----------
   const TASKS = {
     bathe: { name:"อาบน้ำ", emojis:["#em-shower","#em-soap","#em-scrub","#em-towel"], goalText:"ชำระร่างกายครบส่วนใน 1 รอบ",
       init:(s)=>{ s.goalHits=36; }, onHit:(s)=>{ s.goalHits--; }, pass:(s)=> s.goalHits<=0 },
@@ -77,10 +96,9 @@ function init(){
     }
   }
 
-  // ---------- HUD (เหรียญ / พาวเวอร์ / Fever) ----------
+  // ---------- HUD (Fever/Coin/Power) ----------
   let feverGauge=null, feverLabel=null, coinHud=null, powerHud=null;
   function buildTopHUD(){
-    // Fever bar
     if(feverGauge) feverGauge.remove();
     feverGauge=document.createElement('a-entity');
     feverGauge.setAttribute('geometry','primitive: plane; width: 2.2; height: 0.06');
@@ -94,7 +112,6 @@ function init(){
     feverLabel=label3D("FEVER",{fontSize:0.14,y:0.1,color:"#cbd5e1"}); feverGauge.appendChild(feverLabel);
     uiRoot.appendChild(feverGauge);
 
-    // Coin / Power HUD
     if(coinHud) coinHud.remove();
     coinHud=label3D("🪙0",{fontSize:0.18,x:-1.1,y:0.72}); uiRoot.appendChild(coinHud);
     if(powerHud) powerHud.remove();
@@ -111,20 +128,15 @@ function init(){
   function setCoins(n){ coinHud?.setAttribute('troika-text',`value: 🪙${n}; font:${THAI_FONT}; color:#e2e8f0; fontSize:0.18; maxWidth:4; align:left`); }
   function setPower(name){ powerHud?.setAttribute('troika-text',`value: Power: ${name||"—"}; font:${THAI_FONT}; color:#e2e8f0; fontSize:0.16; maxWidth:4; align:right`); }
 
-  // ---------- โปรไฟล์ / มิชชั่น ----------
-  const LS_KEY="hygieneRhythmV5_profile";
-  function loadProfile(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)||"{}"); }catch(e){ return {}; } }
-  function saveProfile(p){ try{ localStorage.setItem(LS_KEY, JSON.stringify(p)); }catch(e){} }
-
-  // ---------- เนื้อหาความรู้ / ควิซ ----------
+  // ---------- ควิซความรู้ ----------
   const QUIZ = [
-    {q:"ล้างมือควรอย่างน้อยกี่วินาที?", choices:["≥10 วิ","≥20 วิ","≥5 วิ"], ans:1, tip:"อย่างน้อย 20 วินาที (เทียบฮัมเพลงสั้น ๆ 2 รอบ)"},
+    {q:"ล้างมือควรอย่างน้อยกี่วินาที?", choices:["≥10 วิ","≥20 วิ","≥5 วิ"], ans:1, tip:"อย่างน้อย 20 วินาที (ฮัมเพลงสั้นๆ 2 รอบ)"},
     {q:"แปรงฟันวันละกี่ครั้ง?", choices:["1","2","4"], ans:1, tip:"เช้า-ก่อนนอน และใช้ไหมขัดฟันร่วมด้วย"},
-    {q:"เล็บยาวมีผลอย่างไร?", choices:["สะสมเชื้อโรค","ช่วยป้องกันเชื้อ","ไม่ต่าง"], ans:0, tip:"เล็บยาวสะสมสิ่งสกปรกและเชื้อโรคได้ง่าย"},
-    {q:"อาบน้ำควรทำอย่างไรหลังออกกำลังกาย?", choices:["ปล่อยให้เหงื่อแห้งเอง","อาบน้ำทันที","เช็ดผ้าเฉย ๆ"], ans:1, tip:"อาบน้ำชำระเหงื่อ ช่วยลดการสะสมเชื้อโรค/กลิ่น"}
+    {q:"เล็บยาวส่งผล?", choices:["สะสมเชื้อโรค","ช่วยป้องกันเชื้อ","ไม่ต่าง"], ans:0, tip:"เล็บยาวสะสมสิ่งสกปรก/เชื้อโรคได้ง่าย"},
+    {q:"หลังออกกำลังกายควร?", choices:["ปล่อยเหงื่อแห้ง","อาบน้ำทันที","เช็ดผ้าเฉยๆ"], ans:1, tip:"อาบน้ำชำระเหงื่อ ลดการสะสมเชื้อโรค/กลิ่น"}
   ];
   function showQuiz(onClose){
-    state.paused=true; // หยุดเกมชั่วคราว
+    state.paused=true;
     const panel=document.createElement('a-entity');
     panel.setAttribute('geometry','primitive: plane; width: 2.2; height: 1.3');
     panel.setAttribute('material','color:#0b1220; opacity:0.98; shader:flat');
@@ -134,17 +146,18 @@ function init(){
     panel.appendChild(label3D("ความรู้สุขอนามัย 🧠",{fontSize:0.22,y:0.5,color:"#7dfcc6"}));
     panel.appendChild(label3D(item.q,{fontSize:0.18,y:0.28,color:"#e2e8f0",maxWidth:4}));
 
-    const mkChoice = (text,idx,x)=> {
+    const mkChoice = (text,idx)=> {
       const b=document.createElement('a-entity'); b.classList.add('clickable');
       b.setAttribute('geometry','primitive: plane; width: 1.9; height: 0.24');
       b.setAttribute('material','color:#1e293b; opacity:0.95; shader:flat');
-      b.setAttribute('position',`${x} ${0.05 - idx*0.3} 0.01`);
+      b.setAttribute('position',`0 ${0.05 - idx*0.3} 0.01`);
       b.appendChild(label3D(`${idx+1}. ${text}`,{fontSize:0.16,color:"#e5e7eb"}));
       b.addEventListener('click',()=>{
         const correct = idx===item.ans;
         if(correct){
-          state.score+=1000; state.coins+=2; setCoins(state.coins);
-          toast("ถูกต้อง! +1000 คะแนน +🪙2","#7dfcc6");
+          const bonus = state.feverOn? 1500: 1000;
+          state.score+=bonus; state.coins+= (state.feverOn?3:2); setCoins(state.coins);
+          toast(`ถูกต้อง! +${bonus} คะแนน +🪙${state.feverOn?3:2}`,"#7dfcc6");
         }else{
           toast(`เฉลย: ${item.tip}`,"#fde68a");
         }
@@ -152,81 +165,34 @@ function init(){
       });
       return b;
     };
-    item.choices.forEach((c,i)=>panel.appendChild(mkChoice(c,i,0)));
+    item.choices.forEach((c,i)=>panel.appendChild(mkChoice(c,i)));
     panel.appendChild(label3D(`TIP: ${item.tip}`,{fontSize:0.14,y:-0.58,color:"#cbd5e1",maxWidth:4}));
     uiRoot.appendChild(panel);
   }
 
-  // ---------- สถานะเกม ----------
+  // ---------- state ----------
   const state={
-    running:false, paused:false, raf:0, t0:0, elapsed:0, pauseHold:0,
+    running:false, paused:false, raf:0, t0:0, elapsed:0,
     score:0, combo:0, best:0, accHit:0, accTotal:0, perfectCount:0,
     fever:0, feverOn:false, feverReady:false, feverEnd:0, feverCount:0, feverSeenMax:0, multiplier:1,
     hitWindow:DIFF.easy.hit, duration:DIFF.easy.secs, calibrationMs:0, taskKey: selTask?.value || "bathe",
     trainOn: (selTrain?.value||"on")==="on",
     coins:0, coinsSinceQuiz:0,
-    power:null, shield:false // power: "Soap Bomb" | "Shield" | null
+    power:null, shieldLeft:0
   };
 
-  // ---------- สร้างไทม์ไลน์ ----------
+  // ---------- timeline / notes ----------
   let timeline=[], tlIdx=0, notes=[];
-  const laneXPos=[-0.8,0,0.8];
-  const rndLane=()=> (Math.random()*3)|0;
-  function makeSections(){
-    const mainBeats=Math.max(8, Math.floor((state.duration/beatSec)-24));
-    return [
-      {name:"Intro", beats:12, density:0.35},
-      {name:"Main",  beats:mainBeats, density: state.trainOn?0.50:0.70},
-      {name:"Boss",  beats:12, density:0.92}
-    ];
-  }
-  function fillTimeline(){
-    timeline.length=0; tlIdx=0;
-    let tBeat=0; const sections=makeSections();
-    for(const sec of sections){
-      for(let i=0;i<sec.beats;i++){
-        timeline.push({time:tBeat, kind:'_click'});
-        if(Math.random()<sec.density){
-          const r=Math.random(); const lane=rndLane();
-          if(r<Math.min(0.16, sec.density*0.25)){
-            timeline.push({time:tBeat, kind:'hold', lane, beatsLen: (Math.random()<0.5?2:3)});
-          }else if(r<Math.min(0.36, sec.density*0.45)){
-            timeline.push({time:tBeat, kind:'swipe', lane, dir: (Math.random()<0.5?-1:1)});
-          }else{
-            const p=Math.random();
-            if(p<0.6) timeline.push({time:tBeat, kind:'tap', lane});
-            else if(p<0.9){ const l2=(lane+1+((Math.random()*2)|0))%3; timeline.push({time:tBeat, kind:'tap', lane}); timeline.push({time:tBeat, kind:'tap', lane:l2}); }
-            else { timeline.push({time:tBeat, kind:'tap', lane:0}); timeline.push({time:tBeat, kind:'tap', lane:1}); timeline.push({time:tBeat, kind:'tap', lane:2}); }
-          }
-        }
-        tBeat += 1;
-      }
-    }
-    for(const it of timeline){ it.time = it.time*beatSec; }
-  }
+  const laneXPos=[-0.8,0,0.8], rndLane=()=> (Math.random()*3)|0;
 
-  // ---------- สปอว์นจากไทม์ไลน์ ----------
-  function spawnFromTimeline(){
-    const lead = state.trainOn ? 2.0 : 1.6;
-    while(tlIdx < timeline.length){
-      const ev = timeline[tlIdx];
-      if(ev.time - state.elapsed <= lead){
-        if(ev.kind==='_click'){ click(); tlIdx++; continue; }
-        if(ev.kind==='tap'){ spawnTap(ev.lane, ev.time); }
-        else if(ev.kind==='hold'){ spawnHold(ev.lane, ev.time, ev.beatsLen); }
-        else if(ev.kind==='swipe'){ spawnSwipe(ev.lane, ev.time, ev.dir); }
-        tlIdx++;
-      }else break;
-    }
-  }
-
-  // ---------- โน้ต/ศัตรู + เหรียญ ----------
-  function noteMat(src){ return `src:${src}; shader:flat; opacity:0.98; transparent:true`; }
   function pickEmoji(){
     const T=TASKS[state.taskKey];
     if(state.taskKey==='hands'){ const idx=(state.stepIndex||0)%7; return T.seq[idx]; }
     return T.emojis[(Math.random()*T.emojis.length)|0];
   }
+  function noteMat(src){ return `src:${src}; shader:flat; opacity:0.98; transparent:true`; }
+
+  // — base spawners
   function baseNote(src, lane){
     const n=document.createElement('a-entity');
     n.classList.add('note'); n.setAttribute('geometry','primitive: plane; width:0.62; height:0.62');
@@ -234,12 +200,12 @@ function init(){
     const T=TASKS[state.taskKey]; if(T.onNoteSpawn) T.onNoteSpawn(state, n);
     return n;
   }
-  function spawnTap(lane, whenSec){
+  function makeTap(lane, whenSec){
     const el=baseNote(pickEmoji(), lane);
     const obj={el, lane, t:whenSec, z:2.8, judged:false, type:'tap', __isDent:el.__isDent};
     notes.push(obj); return obj;
   }
-  function spawnHold(lane, whenSec, beatsLen){
+  function makeHold(lane, whenSec, beatsLen){
     const head=baseNote(pickEmoji(), lane);
     const bar=document.createElement('a-entity');
     bar.setAttribute('geometry','primitive: plane; width:0.18; height:1.2');
@@ -249,37 +215,139 @@ function init(){
     const obj={el:head, lane, t:whenSec, z:2.8, judged:false, type:'hold', holdEnd:whenSec+holdDur, bar};
     notes.push(obj); return obj;
   }
-  function spawnSwipe(lane, whenSec, dir){
+  function makeSwipe(lane, whenSec, dir){
     const n=baseNote(pickEmoji(), lane);
     n.appendChild(label3D(dir<0?"⬅️":"➡️",{fontSize:0.28,y:-0.45,color:"#fde68a"}));
     const obj={el:n, lane, t:whenSec, z:2.8, judged:false, type:'swipe', dir};
     notes.push(obj); return obj;
   }
 
+  // ---------- Hyper-Spawn Timeline ----------
+  function effectiveDensity(){
+    const comboBoost = Math.floor(state.combo/10) * TUNE.RAMP_PERFECT_STEP; // ทุก 10 คอมโบ
+    const acc = state.accTotal? (state.accHit/state.accTotal): 0;
+    const accBoost = (acc-0.7>0? (acc-0.7)*TUNE.RAMP_ACC_STEP*10 : 0); // แม่นยำ >70% บูสต์ขึ้น
+    const feverBoost = state.feverOn? TUNE.FEVER_DENSITY_BOOST : 0;
+    return Math.min(1.0, TUNE.BASE_DENSITY + comboBoost + accBoost + feverBoost);
+  }
+
+  function pushBurst(tBase){
+    const k = Math.floor(TUNE.BURST_SIZE[0] + Math.random()*(TUNE.BURST_SIZE[1]-TUNE.BURST_SIZE[0]+1));
+    for(let i=0;i<k;i++){
+      const lane=rndLane(); const dt = (Math.random()*0.5) * (i/(k-1)+0.2); // กระจายช่วงสั้นๆ
+      // 30% ใช้ swipe/hold ใน burst เพื่อสลับอารมณ์
+      const r=Math.random();
+      if(r<0.15) timeline.push({time:tBase+dt, kind:'swipe', lane, dir: (Math.random()<0.5?-1:1)});
+      else if(r<0.30) timeline.push({time:tBase+dt, kind:'hold', lane, beatsLen:2});
+      else timeline.push({time:tBase+dt, kind:'tap', lane});
+    }
+  }
+
+  function fillTimeline(){
+    timeline.length=0; tlIdx=0;
+    let tBeat=0;
+    const totalBeats = Math.floor((state.duration - TUNE.BOSS_LAST_SECS)/beatSec);
+    // main part
+    for(let i=0;i<totalBeats;i++){
+      // metronome tick
+      timeline.push({time:tBeat*beatSec, kind:'_click'});
+
+      // density by difficulty/skill
+      if(Math.random()<effectiveDensity()){
+        const r=Math.random(); const lane=rndLane();
+        if(r<0.18) timeline.push({time:tBeat*beatSec, kind:'hold', lane, beatsLen: (Math.random()<0.5?2:3)});
+        else if(r<0.38) timeline.push({time:tBeat*beatSec, kind:'swipe', lane, dir: (Math.random()<0.5?-1:1)});
+        else{
+          const p=Math.random();
+          if(p<0.6) timeline.push({time:tBeat*beatSec, kind:'tap', lane});
+          else if(p<0.9){ const l2=(lane+1+((Math.random()*2)|0))%3; timeline.push({time:tBeat*beatSec, kind:'tap', lane}); timeline.push({time:tBeat*beatSec, kind:'tap', lane:l2}); }
+          else { timeline.push({time:tBeat*beatSec, kind:'tap', lane:0}); timeline.push({time:tBeat*beatSec, kind:'tap', lane:1}); timeline.push({time:tBeat*beatSec, kind:'tap', lane:2}); }
+        }
+      }
+
+      // sub-beat (1/2, 1/4)
+      if(Math.random()<TUNE.SUBDIV_PROB){
+        const subCount = (Math.random()<0.5)? 1 : 3; // 1 = ครึ่งบีตเดียว, 3 = 1/4,2/4,3/4
+        for(let s=1;s<=subCount;s++){
+          const subT = (tBeat + s/(subCount+1)) * beatSec;
+          if(Math.random()<effectiveDensity()*0.7){
+            const lane=rndLane();
+            if(Math.random()<0.2) timeline.push({time:subT, kind:'swipe', lane, dir:(Math.random()<0.5?-1:1)});
+            else timeline.push({time:subT, kind:'tap', lane});
+          }
+        }
+      }
+
+      // burst
+      if(Math.random()<TUNE.BURST_PROB) pushBurst(tBeat*beatSec);
+
+      tBeat += 1;
+    }
+
+    // boss wave (ท้ายเกม)
+    const bossStart = state.duration - TUNE.BOSS_LAST_SECS;
+    const bossBeats = Math.floor(TUNE.BOSS_LAST_SECS / beatSec);
+    for(let b=0;b<bossBeats;b++){
+      const t = bossStart + b*beatSec;
+      timeline.push({time:t, kind:'_click'});
+      // ปล่อยแน่น: triple + swipe/hold แซม
+      const pattern = b%4;
+      if(pattern===0){ timeline.push({time:t, kind:'tap', lane:0}); timeline.push({time:t, kind:'tap', lane:1}); timeline.push({time:t, kind:'tap', lane:2}); }
+      else if(pattern===1){ timeline.push({time:t, kind:'swipe', lane:rndLane(), dir:(Math.random()<0.5?-1:1)}); }
+      else if(pattern===2){ timeline.push({time:t, kind:'hold', lane:rndLane(), beatsLen:2}); }
+      else { const l=rndLane(); const l2=(l+1+((Math.random()*2)|0))%3; timeline.push({time:t, kind:'tap', lane:l}); timeline.push({time:t, kind:'tap', lane:l2}); }
+      // sub-beat เสริม
+      const subT = t + beatSec/2;
+      timeline.push({time:subT, kind:'tap', lane:rndLane()});
+      if(Math.random()<0.5) timeline.push({time:subT+beatSec/4, kind:'tap', lane:rndLane()});
+    }
+
+    // ป้องกันโอเวอร์โหลด: เรียงตามเวลา
+    timeline.sort((a,b)=>a.time-b.time);
+  }
+
+  // ---------- spawn controller ----------
+  function spawnFromTimeline(){
+    const lead = state.trainOn ? TUNE.TRAIN_LEAD : TUNE.PLAY_LEAD;
+    // Limit active notes
+    if(activeCount() > TUNE.MAX_CONCURRENT) return;
+
+    while(tlIdx < timeline.length){
+      const ev = timeline[tlIdx];
+      if(ev.time - state.elapsed <= lead){
+        if(ev.kind==='_click'){ click(); tlIdx++; continue; }
+        if(ev.kind==='tap')   makeTap(ev.lane, ev.time);
+        else if(ev.kind==='hold')  makeHold(ev.lane, ev.time, ev.beatsLen);
+        else if(ev.kind==='swipe') makeSwipe(ev.lane, ev.time, ev.dir);
+        tlIdx++;
+        if(activeCount() > TUNE.MAX_CONCURRENT) break;
+      }else break;
+    }
+  }
+  function activeCount(){ let c=0; for(const it of notes){ if(!it.judged) c++; } return c; }
+
+  // ---------- coins/power ----------
   function spawnCoin(fromNote, amount){
-    // เหรียญเล็ก ๆ กระเด้งขึ้นไป HUD
     for(let i=0;i<amount;i++){
       const c=document.createElement('a-entity');
       c.setAttribute('geometry','primitive: plane; width:0.24; height:0.24');
       c.setAttribute('material','color:#fde68a; opacity:0.98; shader:flat');
       c.object3D.position.copy(fromNote.el.object3D.position);
       uiRoot.appendChild(c);
-      // แอนิเมชันลอยขึ้นแล้ววิ่งไปมุมซ้ายบน
       const p=fromNote.el.object3D.position.clone();
-      c.setAttribute('animation__rise',`property: position; to: ${p.x} ${p.y+0.5} ${p.z}; dur:180; easing:easeOutQuad`);
+      c.setAttribute('animation__rise',`property: position; to: ${p.x} ${p.y+0.5} ${p.z}; dur:160; easing:easeOutQuad`);
       setTimeout(()=>{
-        c.setAttribute('animation__fly','property: position; to: -1.2 0.72 0.05; dur:360; easing:easeInCubic');
-        setTimeout(()=>c.remove(),400);
-      },190);
+        c.setAttribute('animation__fly','property: position; to: -1.2 0.72 0.05; dur:320; easing:easeInCubic');
+        setTimeout(()=>c.remove(),340);
+      },170);
     }
   }
-
   function tryDropPower(){
-    // โอกาสเล็กน้อยดรอปพาวเวอร์เมื่อ Perfect สะสม
-    if(Math.random()<0.18){
-      state.power = Math.random()<0.5 ? "Soap Bomb" : "Shield";
-      setPower(state.power);
-      toast(`ได้พาวเวอร์: ${state.power}`, "#7dfcc6");
+    // เพิ่มโอกาสใน Fever
+    const prob = state.feverOn ? 0.28 : 0.18;
+    if(Math.random()<prob){
+      if(Math.random()<0.5){ state.power="Soap Bomb"; setPower("Soap Bomb"); toast("ได้พาวเวอร์: Soap Bomb","#7dfcc6"); }
+      else { state.power="Shield"; state.shieldLeft=TUNE.SHIELD_HITS; setPower("Shield (x"+state.shieldLeft+")"); toast("ได้พาวเวอร์: Shield","#7dfcc6"); }
     }
   }
 
@@ -292,7 +360,7 @@ function init(){
   }
   function tryTriggerFever(){ if(!state.feverReady || state.feverOn) return false; state.feverOn=true; state.feverReady=false; state.feverEnd=state.elapsed+7; state.fever=0; setFeverFill(0,false,true); state.feverCount++; toast("FEVER ON! ✨","#7dfcc6"); return true; }
   function updateFever(){ if(state.feverOn && state.elapsed>=state.feverEnd){ state.feverOn=false; setFeverFill(state.fever/100,false,false); toast("Fever End","#cbd5e1"); } }
-  function updateMultiplier(){ state.multiplier = state.combo>=40?4: state.combo>=20?3: state.combo>=10?2:1; }
+  function updateMultiplier(){ state.multiplier = state.combo>=60?5: state.combo>=40?4: state.combo>=20?3: state.combo>=10?2:1; }
 
   // ---------- judge ----------
   const keyToLane=(k)=>k==='a'||k==='arrowleft'?0:k==='s'||k==='arrowup'?1:k==='d'||k==='arrowright'?2:null;
@@ -306,15 +374,14 @@ function init(){
   function judgeHit(lane, swipeDirTouch=null){
     // เปิด FEVER ด้วยเลนกลางเมื่อ READY
     if(lane===1 && state.feverReady){ if(tryTriggerFever()) return; }
-
-    if(state.paused) return; // ถ้ามีควิซกำลังเปิดอยู่
+    if(state.paused) return;
 
     const target = state.elapsed + (state.calibrationMs/1000);
     let best=null, bestErr=999;
     for(const it of notes){ if(it.judged || it.lane!==lane) continue; const err=Math.abs(it.t - target); if(err<bestErr){ best=it; bestErr=err; } }
     state.accTotal++;
     if(!best || bestErr>state.hitWindow){
-      if(state.shield){ state.shield=false; setPower(state.power?`${state.power} (Shield used)`: "—"); toast("Shield! ป้องกัน Miss","#93c5fd"); return; }
+      if(state.shieldLeft>0){ state.shieldLeft--; setPower(state.shieldLeft>0?`Shield (x${state.shieldLeft})`:"—"); toast("Shield! ป้องกัน Miss","#93c5fd"); return; }
       state.combo=0; updateMultiplier(); toast("Miss","#fecaca"); addFever(-8); state.hitWindow=Math.min(DIFF.easy.hit, state.hitWindow+0.01); return;
     }
 
@@ -333,38 +400,35 @@ function init(){
   function scoreHit(note, err, mul=1){
     const perfect = err<=state.hitWindow*0.35;
     const base = perfect?300:150;
-    const gain = Math.round(base * (state.feverOn?1.5:1) * state.multiplier * mul);
+    const feverMul = state.feverOn?1.6:1;
+    const gain = Math.round(base * feverMul * state.multiplier * mul);
     state.score += gain;
     state.combo++; updateMultiplier();
-    if(perfect){ state.perfectCount++; if(state.hitWindow>0.08) state.hitWindow -= 0.002; addFever(6); spawnCoin(note, 2); state.coins+=2; tryDropPower(); }
-    else { addFever(3); spawnCoin(note, 1); state.coins+=1; }
+    if(perfect){ state.perfectCount++; if(state.hitWindow>0.08) state.hitWindow -= 0.002; addFever(6); spawnCoin(note, state.feverOn?3:2); state.coins+=(state.feverOn?3:2); tryDropPower(); }
+    else { addFever(3); spawnCoin(note, state.feverOn?2:1); state.coins+=(state.feverOn?2:1); }
     setCoins(state.coins);
     state.accHit++; state.best=Math.max(state.best,state.combo);
     TASKS[state.taskKey]?.onHit?.(state, note);
 
     state.coinsSinceQuiz += perfect?2:1;
-    if(state.coinsSinceQuiz>=6){ state.coinsSinceQuiz=0; showQuiz(()=>{ /* resume */ }); }
+    if(state.coinsSinceQuiz>=6){ state.coinsSinceQuiz=0; showQuiz(()=>{}); }
 
-    // ใช้พาวเวอร์อัตโนมัติถ้ามี Soap Bomb
+    // ใช้พาวเวอร์อัตโนมัติ: Soap Bomb
     if(state.power==="Soap Bomb"){
       state.power=null; setPower("—");
-      // เคลียร์โน้ตที่กำลังจะถึง 2 บีตถัดไป
-      const windowSec = 2*beatSec;
+      const windowSec = TUNE.SOAP_BOMB_WINDOW_BEATS*beatSec;
       let cleared=0;
       for(const it of notes){
         if(!it.judged && it.t - state.elapsed <= windowSec){
-          it.judged=true; it.el.setAttribute('visible','false'); it.bar?.setAttribute('visible','false');
-          cleared++;
+          it.judged=true; it.el.setAttribute('visible','false'); it.bar?.setAttribute('visible','false'); cleared++;
         }
       }
       toast(`Soap Bomb! เคลียร์ ${cleared} โน้ต`, "#7dfcc6");
       state.score += 200 * cleared;
-    }else if(state.power==="Shield"){
-      state.shield = true; state.power=null; setPower("Shield (Armed)");
     }
   }
 
-  // ---------- Flow ----------
+  // ---------- flow ----------
   function setHUD(msg=""){
     const T=TASKS[state.taskKey], name=T?.name||state.taskKey;
     let extra="";
@@ -374,9 +438,9 @@ function init(){
     if(state.taskKey==="nails") extra=`เหลือ ${Math.max(0,state.trimLeft)} ครั้ง`;
     hud.textContent = `Hygiene Rhythm • ${name}\nscore=${state.score} combo=${state.combo} best=${state.best} acc=${state.accTotal?Math.round(state.accHit/state.accTotal*100):0}% x${state.multiplier} ${state.feverOn?'• FEVER':''}${state.feverReady?' • READY':''}\nเวลา ${Math.max(0,Math.ceil(state.duration - state.elapsed))}s\n${T?.goalText||""}\n${extra}\n${msg}`;
   }
-  function applyDiff(){ const d=DIFF[selDiff.value]||DIFF.easy; state.hitWindow=d.hit; state.duration=d.secs; }
   function applyTask(){ state.taskKey=selTask.value; (TASKS[state.taskKey]?.init||(()=>{}))(state); }
   function applyCalib(){ state.calibrationMs=parseInt(calib.value||"0",10); calibVal.textContent=state.calibrationMs; }
+  function applyDiff(){ const d=DIFF[selDiff.value]||DIFF.easy; state.hitWindow=d.hit; state.duration=d.secs; }
 
   function start(){
     ensureAudio();
@@ -384,12 +448,15 @@ function init(){
     state.running=true; state.paused=false; state.score=0; state.combo=0; state.best=0; state.accHit=0; state.accTotal=0; state.perfectCount=0;
     state.fever=0; state.feverOn=false; state.feverReady=false; state.feverEnd=0; state.feverCount=0; state.feverSeenMax=0; state.multiplier=1;
     state.trainOn = (selTrain?.value||"on")==="on";
-    state.coins=0; state.coinsSinceQuiz=0; setCoins(0); state.power=null; state.shield=false; setPower("—");
+    state.coins=0; state.coinsSinceQuiz=0; setCoins(0); state.power=null; state.shieldLeft=0; setPower("—");
     (TASKS[state.taskKey]?.init||(()=>{}))(state);
-    buildLanePads(); buildTopHUD(); setFeverFill(0,false,false);
+
+    // timeline เต็มรูปแบบ
     fillTimeline();
-    state.t0=performance.now()/1000; state.elapsed=0; state.pauseHold=0;
-    setHUD("เริ่ม!");
+
+    buildLanePads(); buildTopHUD(); setFeverFill(0,false,false);
+    state.t0=performance.now()/1000; state.elapsed=0;
+    setHUD("เริ่ม! • Hyper-Spawn โลดแล่น");
     loop();
   }
   function reset(){
@@ -417,16 +484,15 @@ function init(){
   // ---------- loop ----------
   function loop(){
     if(!state.running) return;
-    if(state.paused){ // freeze time
-      state.t0 += (performance.now()/1000 - (state.lastNow || performance.now()/1000));
-      state.lastNow = performance.now()/1000;
-      state.raf=requestAnimationFrame(loop); return;
-    }
+    if(state.paused){ state.raf=requestAnimationFrame(loop); return; }
+
     const now=performance.now()/1000; state.elapsed=now-state.t0;
 
+    // spawn
     spawnFromTimeline();
 
-    const speedZ=1.6;
+    // move/judge auto-miss/hold-complete
+    const speedZ=TUNE.SPEED_Z;
     for(const it of notes){
       if(it.judged) continue;
       const dt = it.t - (state.elapsed + (state.calibrationMs/1000));
@@ -439,7 +505,7 @@ function init(){
       }
       if(dt<-state.hitWindow && !it.judged && it.type!=='hold'){
         it.judged=true; it.el.setAttribute('visible','false');
-        if(state.shield){ state.shield=false; setPower("—"); toast("Shield! ป้องกัน Miss","#93c5fd"); }
+        if(state.shieldLeft>0){ state.shieldLeft--; setPower(state.shieldLeft>0?`Shield (x${state.shieldLeft})`:"—"); toast("Shield! ป้องกัน Miss","#93c5fd"); }
         else { state.combo=0; updateMultiplier(); toast("Miss","#fecaca"); addFever(-8); state.hitWindow=Math.min(DIFF.easy.hit, state.hitWindow+0.008); }
       }
     }
@@ -469,30 +535,15 @@ function init(){
     if(k==='s' && !state.running) start();
     if(k==='r') reset();
   });
-
-  // ---------- bindings ----------
   btnStart?.addEventListener('click', ()=>!state.running&&start());
   btnReset?.addEventListener('click', reset);
-  selDiff?.addEventListener('change', ()=>{ state.hitWindow=(DIFF[selDiff.value]||DIFF.easy).hit; state.duration=(DIFF[selDiff.value]||DIFF.easy).secs; setHUD("ตั้งค่าโหมดแล้ว"); });
-  selBpm?.addEventListener('change',  ()=>{ beatSec = 60/parseInt(selBpm.value||"96",10); setHUD("ตั้งค่า BPM แล้ว"); });
+  selDiff?.addEventListener('change', ()=>{ applyDiff(); setHUD("ตั้งค่าโหมดแล้ว"); });
+  selBpm?.addEventListener('change',  ()=>{ beatSec = 60/parseInt(selBpm.value||"108",10); setHUD("ตั้งค่า BPM แล้ว"); });
   selTask?.addEventListener('change', ()=>{ applyTask(); setHUD("สลับเกมแล้ว"); });
   selTrain?.addEventListener('change',()=>{ state.trainOn=(selTrain.value==="on"); setHUD("สลับ Training แล้ว"); });
   calib?.addEventListener('input', ()=>applyCalib());
 
   // ---------- boot ----------
-  (function addChainButton(){
-    const btn=document.createElement('a-entity');
-    btn.classList.add('clickable');
-    btn.setAttribute('geometry','primitive: plane; width: 0.9; height: 0.28');
-    btn.setAttribute('material','color:#fde68a; opacity:0.95; shader:flat');
-    btn.setAttribute('position','-0.9 1.05 0.06');
-    btn.appendChild(label3D("Start Chain-3",{fontSize:0.14,color:"#422006"}));
-    btn.addEventListener('click', ()=>{
-      selTask.value = "bathe"; applyTask(); start(); // โหมด Chain: เริ่มด้วย bathe → ให้ผู้เล่นกด Continue เอง
-    });
-    uiRoot.appendChild(btn);
-  })();
-
-  applyTask(); applyCalib(); buildLanePads(); buildTopHUD(); setFeverFill(0,false,false); setCoins(0); setPower("—");
-  hud.textContent = "พร้อมเริ่ม • แอคชัน+เก็บของ+ควิซ • กด Start แล้วลุย!";
+  applyDiff(); applyTask(); applyCalib(); buildLanePads(); buildTopHUD(); setFeverFill(0,false,false); setCoins(0); setPower("—");
+  hud.textContent = "พร้อมเริ่ม • Hyper-Spawn • กด Start แล้วลุย!";
 }
