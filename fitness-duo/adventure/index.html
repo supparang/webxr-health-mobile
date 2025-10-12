@@ -28,23 +28,35 @@
     <span id="status">พร้อมเริ่ม</span>
   </div>
 
-  <a-scene renderer="antialias:true" background="color: #000">
+  <a-scene renderer="antialias:true" background="color:#000">
+    <!-- ⛰️ โหลดรูปท้องฟ้า 360° (equirectangular) -->
+    <a-assets timeout="15000">
+      <!-- ปรับพาธให้ตรงกับโปรเจกต์ของคุณ -->
+      <img id="bg-jungle" src="../assets/backgrounds/jungle_sky.jpg" crossorigin="anonymous">
+      <img id="bg-city"   src="../assets/backgrounds/city_sky.jpg" crossorigin="anonymous">
+      <img id="bg-space"  src="../assets/backgrounds/space_sky.jpg" crossorigin="anonymous">
+    </a-assets>
+
+    <!-- ท้องฟ้า -->
+    <a-sky id="sky" radius="30" src="#bg-jungle" color="#0b1220"></a-sky>
+
+    <!-- รากเกม -->
     <a-entity id="root" position="0 1.25 -3"></a-entity>
     <a-entity id="hud" position="0 0 0"></a-entity>
+
+    <!-- กล้อง -->
     <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
   <script>
-    // อ่าน theme จาก URL มาก่อน แล้ว sync ลง select
+    // sync theme จาก URL + ตั้ง override ก่อนเริ่ม
     (function(){
       const qs = new URLSearchParams(location.search);
       const t = (qs.get('theme') || 'jungle').toLowerCase();
       const sel = document.getElementById('theme');
       if (sel) sel.value = t;
-      // ตั้ง override เริ่มต้น (เพื่อให้ game.js อ่านได้ตอน start)
       window.__OVERRIDE_THEME = t;
       document.getElementById('status').textContent = 'Loaded • theme='+t;
-      // เมื่อผู้ใช้กด Start ให้อัปเดต override + URL
       document.getElementById('btnStart').addEventListener('click', ()=>{
         const val = sel.value;
         window.__OVERRIDE_THEME = val;
