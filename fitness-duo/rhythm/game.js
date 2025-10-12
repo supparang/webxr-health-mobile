@@ -1,0 +1,1 @@
+console.log('Rhythm game placeholder loaded');
