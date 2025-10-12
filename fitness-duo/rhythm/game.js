@@ -1,35 +1,39 @@
-// Rhythm — Day6: Visual Polish + Sounds + Section Theme + Sparks + Shake + Ambient
+// Rhythm — Day6 (อ่านธีม runtime + Visual/Sparks + StartOffset)
 (function(){
   const CFG = window.RHYTHM_CFG || {};
   const MAP = window.RHYTHM_BEATMAP || {bpm:(CFG.bpm||108), bars:[]};
-
   const root=document.getElementById('root');
   const hud =document.getElementById('hud');
   const statusEl=document.getElementById('status');
+  const btnStart=document.getElementById('btnStart');
+  const btnReset=document.getElementById('btnReset');
 
-  // Theme from URL (affects lane colors / ambient motif slightly)
-  const THEME=(new URLSearchParams(location.search).get('theme')||'city').toLowerCase();
+  function getThemeName(){
+    return (window.__OVERRIDE_THEME ||
+            new URLSearchParams(location.search).get('theme') ||
+            'city').toLowerCase();
+  }
 
   // --------- State ----------
   let running=false, raf=0, t0=0, elapsed=0;
   let score=0, combo=0, best=0, fever=false, feverEnd=0, feverCount=0, inFinisher=false;
-  let tutorial=true, tutEndAt=CFG.tutorialSecs ?? 10;
+  let tutorial=true, tutEndAt=CFG.tutorialSecs ?? 10, THEME='city';
 
   const notes=[]; // {el,lane,t,hold,judged,dodge,headHit,tailDue,barEl}
   const laneX=i=>[-0.9,0,0.9][i];
 
   const bpm = MAP.bpm || CFG.bpm || 108;
   const duration = CFG.duration || 60;
-  const finisherSecs = CFG.finisherSecs || 10;
   const beatSec = 60 / bpm;
   const START_OFFSET = (CFG.startOffsetSec ?? 1.6);
   const CALIB_MS = (CFG.calibrationOffsetMs ?? 0);
+  const finisherSecs = CFG.finisherSecs || 10;
 
   let nextNoteIdx=0, flatNotes=[];
   let hitPerfect = (CFG.hitWindowMs?.perfect ?? 55) / 1000;
   let hitGood    = (CFG.hitWindowMs?.good ?? 110) / 1000;
 
-  // --------- Audio ----------
+  // --------- Audio / Ambient ----------
   let actx=null, master=null, ambGain=null;
   function ensureAudio(){ if(actx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
     actx=new AC(); master=actx.createGain(); master.gain.value=0.18; master.connect(actx.destination);
@@ -57,7 +61,7 @@
   }
   ['pointerdown','touchend','keydown','click'].forEach(ev=>window.addEventListener(ev,()=>ensureAudio(),{once:true,capture:true}));
 
-  // --------- Particles (Sparks) ----------
+  // --------- Particles (pool) ----------
   const pPool=[]; let pIdx=0; const MAX_P=56;
   function initParticles(){ for(let i=0;i<MAX_P;i++){ const e=document.createElement('a-entity');
     e.setAttribute('geometry','primitive: sphere; radius:0.02');
@@ -71,12 +75,9 @@
       p.life=0.3+Math.random()*0.18; p.vx=(Math.random()*0.6-0.3); p.vy=(Math.random()*0.6); p.vz=(-0.4-Math.random()*0.6);
     }
   }
-  function stepParticles(dt){
-    for(const p of pPool){ if(!p || p.life<=0) continue;
-      p.life-=dt; if(p.life<=0){ p.el.setAttribute('visible','false'); continue; }
-      const o=p.el.object3D.position; o.x+=p.vx*dt; o.y+=p.vy*dt; o.z+=p.vz*dt; p.vy-=dt*0.8;
-    }
-  }
+  function stepParticles(dt){ for(const p of pPool){ if(!p||p.life<=0) continue; p.life-=dt;
+    if(p.life<=0){ p.el.setAttribute('visible','false'); continue; }
+    const o=p.el.object3D.position; o.x+=p.vx*dt; o.y+=p.vy*dt; o.z+=p.vz*dt; p.vy-=dt*0.8; } }
   function shakeCamera(power=0.02, ms=120){
     const cam=document.querySelector('[camera]'); if(!cam) return;
     const o=cam.object3D.position.clone(); let t=0;
@@ -85,7 +86,7 @@
   }
 
   // --------- Legend/Banner/UI ----------
-  let legend=null, banner=null, bannerTO=0;
+  let legend=null,banner=null,bannerTO=0;
   function ensureLegend(){
     if(legend) return;
     legend=document.createElement('a-entity');
@@ -108,7 +109,7 @@
   function setHUD(msg){
     const f=fever?' • FEVER!':'';
     const fin = inFinisher ? ' • FINISHER x'+(CFG.finisherMultiplier||2) : '';
-    hud.setAttribute('text',`value:Score ${score} • Combo ${combo} (Best ${best})${f}${fin}\nให้โน้ตถึงวงฟ้าแล้วกดเลนให้ตรง (A/S/D หรือ L/C/R) — Dodge: ห้ามกด\n${msg||''}; width:5.9; align:center; color:#e2e8f0`);
+    hud.setAttribute('text',`value:[${THEME.toUpperCase()}] Score ${score} • Combo ${combo} (Best ${best})${f}${fin}\nให้โน้ตถึงวงฟ้าแล้วกดเลนให้ตรง (A/S/D หรือ L/C/R) — Dodge: ห้ามกด\n${msg||''}; width:5.9; align:center; color:#e2e8f0`);
   }
   function toast(txt,color="#93c5fd",y=1.05,ms=520){
     const e=document.createElement('a-entity');
@@ -118,13 +119,16 @@
     setTimeout(()=>e.remove(),ms);
   }
 
-  // --------- Lane UI (เปลี่ยนสีตามธีม) ----------
+  // --------- Lane UI (สีตามธีม) ----------
+  function laneColors(){
+    if(THEME==='space') return ['#7c3aed','#334155','#06b6d4'];
+    if(THEME==='jungle') return ['#14532d','#334155','#166534'];
+    return ['#0ea5e9','#334155','#22c55e']; // city
+  }
   function buildLaneUI(){
+    const kids=[...root.children]; kids.forEach(k=>k.remove()); root.__laneUI=false;
     if(root.__laneUI) return; root.__laneUI=true;
-    const lanes = (THEME==='space')? ['#7c3aed','#334155','#06b6d4']
-                 : (THEME==='jungle')? ['#14532d','#334155','#166534']
-                 : ['#0ea5e9','#334155','#22c55e'];
-
+    const lanes=laneColors();
     [-0.9,0,0.9].forEach((x,i)=>{
       const bg=document.createElement('a-entity');
       bg.setAttribute('geometry','primitive: plane; width:0.98; height:1.35');
@@ -151,10 +155,9 @@
     root.appendChild(hit);
   }
 
-  // --------- Flatten Map (start offset + calibration) ----------
+  // --------- Map flatten (offset/calib) ----------
   function buildFlatNotes(){
-    const bars = MAP.bars||[];
-    const arr=[]; const calS = CALIB_MS/1000;
+    const bars = MAP.bars||[]; const arr=[]; const calS=CALIB_MS/1000;
     for(const bar of bars){ for(const n of (bar.notes||[])){
       const tWorld = (n.t + START_OFFSET + calS);
       arr.push({lane:n.lane, t:tWorld, hold:n.hold||0, dodge: !!n.dodge});
@@ -162,7 +165,7 @@
     arr.sort((a,b)=>a.t-b.t); flatNotes=arr; nextNoteIdx=0;
   }
 
-  // --------- Spawn ----------
+  // --------- Spawn & movement ----------
   function spawn(it){
     let geom, mat;
     if(it.dodge){ geom='ring; radiusInner:0.06; radiusOuter:0.18'; mat='color:#ef4444; shader:flat; opacity:0.98'; }
@@ -188,15 +191,14 @@
     notes.push({el:n, lane:it.lane, t:it.t, hold:it.hold, judged:false, dodge:it.dodge, headHit:false, tailDue:it.t+(it.hold||0), barEl:bar});
   }
 
-  // --------- Scoring / Fever / Tighten ----------
-  function baseMult(){ return (fever ? 1.5 : 1.0) * (inFinisher ? (CFG.finisherMultiplier||2.0) : 1.0); }
+  // --------- Score / Fever / Tighten ----------
+  function baseMult(){ return (fever ? 1.5 : 1.0) * (inFinisher ? (CFG.finisherMultiplier||2) : 1.0); }
   function addScore(n){ score += Math.round(n * baseMult()); }
   function enterFever(){ fever=true; feverEnd=elapsed+(CFG.feverSecs||6); feverCount++; showBanner('FEVER! ✨','#7dfcc6',900); }
   function updateFever(){ if(fever && elapsed>=feverEnd){ fever=false; showBanner('Fever End','#cbd5e1',800); } }
   function applyTighten(){ const step = CFG.tightenPer6ComboMs||0; const reduce = Math.floor(combo/6)*step/1000;
-    hitPerfect = ((CFG.hitWindowMs?.perfect ?? 55)/1000) - reduce*0.5;
-    hitGood    = ((CFG.hitWindowMs?.good ?? 110)/1000) - reduce;
-    hitPerfect = Math.max(0.03, hitPerfect); hitGood = Math.max(0.07, hitGood); }
+    hitPerfect=((CFG.hitWindowMs?.perfect ?? 55)/1000)-reduce*0.5; hitGood=((CFG.hitWindowMs?.good ?? 110)/1000)-reduce;
+    hitPerfect=Math.max(0.03,hitPerfect); hitGood=Math.max(0.07,hitGood); }
 
   // --------- Judge ----------
   function judge(lane){
@@ -245,7 +247,7 @@
 
   function dodgePassed(it){ addScore(80); toast('Dodge OK +80','#93c5fd',1.0,420); }
 
-  // --------- Section/Finisher ----------
+  // --------- Section / Finisher ----------
   let nextSectionBeat=0;
   function sectionBannerIfNeeded(){
     if(tutorial || CFG.showSectionBanners===false) return;
@@ -295,8 +297,17 @@
     setHUD(); raf=requestAnimationFrame(loop);
   }
 
-  // --------- Start/End/Reset/Bind ----------
+  // --------- Flow ----------
+  function buildFlatNotes(){
+    const bars = MAP.bars||[]; const arr=[]; const calS=CALIB_MS/1000;
+    for(const bar of bars){ for(const n of (bar.notes||[])){
+      const tWorld = (n.t + START_OFFSET + calS);
+      arr.push({lane:n.lane, t:tWorld, hold:n.hold||0, dodge: !!n.dodge});
+    } }
+    arr.sort((a,b)=>a.t-b.t); flatNotes=arr; nextNoteIdx=0;
+  }
   function start(){
+    THEME = getThemeName();
     running=true; t0=performance.now()/1000; elapsed=0;
     score=0; combo=0; best=0; fever=false; feverEnd=0; feverCount=0; inFinisher=false;
     notes.splice(0).forEach(n=>n.el?.remove());
@@ -310,18 +321,20 @@
     raf=requestAnimationFrame(loop);
   }
   function end(msg){ running=false; cancelAnimationFrame(raf); hideBanner(); setHUD(`${msg} • Score ${score}`); }
-  function reset(){ running=false; cancelAnimationFrame(raf); hideBanner(); notes.splice(0).forEach(n=>n.el?.remove()); root.__laneUI=false; const kids=[...root.children]; kids.forEach(k=>k.remove()); setTimeout(()=>{ buildLaneUI(); ensureLegend(); setHUD('พร้อมเริ่ม'); },0); }
+  function reset(){ running=false; cancelAnimationFrame(raf); hideBanner(); notes.splice(0).forEach(n=>n.el?.remove());
+    root.__laneUI=false; const kids=[...root.children]; kids.forEach(k=>k.remove()); setTimeout(()=>{ buildLaneUI(); ensureLegend(); setHUD('พร้อมเริ่ม'); },0); }
 
+  // --------- Bind ----------
   function bind(){
-    document.getElementById('btnStart').onclick=()=>{ ensureAudio(); if(!running) start(); };
-    document.getElementById('btnReset').onclick=()=>reset();
+    btnStart.onclick=()=>{ ensureAudio(); if(!running) start(); };
+    btnReset.onclick=()=>reset();
     window.addEventListener('keydown',e=>{
       const k=e.key.toLowerCase();
       if(k==='a'||k==='arrowleft') judge(0);
       if(k==='s'||k==='arrowup')   judge(1);
       if(k==='d'||k==='arrowright')judge(2);
     });
-    statusEl.textContent='พร้อมเริ่ม • กด Start';
+    statusEl.textContent='พร้อมเริ่ม • เลือกธีมแล้วกด Start';
   }
   const scene=document.querySelector('a-scene');
   if(!scene.hasLoaded){ scene.addEventListener('loaded', bind, {once:true}); } else bind();
