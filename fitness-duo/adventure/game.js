@@ -1,4 +1,4 @@
-// Adventure — Theme Runtime + Robust Sky Loader + Tutorial + Simple Run
+// Adventure — เล่นได้จริง: Robust Sky, Tutorial, สุ่มไอเท็ม, คีย์ A/S/D หรือ ←↑→
 (function(){
   const root     = document.getElementById('root');
   const hud      = document.getElementById('hud');
@@ -7,6 +7,7 @@
   const btnReset = document.getElementById('btnReset');
   const statusEl = document.getElementById('status');
 
+  // ===== THEME / SKY =====
   function getThemeName(){
     return (window.__OVERRIDE_THEME ||
            new URLSearchParams(location.search).get('theme') ||
@@ -20,7 +21,6 @@
     };
     return map[name] || map.jungle;
   }
-
   function resolveCandidates(file){
     const rel = [
       `../assets/backgrounds/${file}`,
@@ -36,14 +36,12 @@
       img.crossOrigin = 'anonymous';
       img.onload = ()=>resolve(url);
       img.onerror = ()=>reject(url);
-      img.src = url + `?v=${Date.now()}`;
+      img.src = url + `?v=${Date.now()}`; // bypass cache
     });
   }
   async function pickFirstAvailable(file){
     const cand = resolveCandidates(file);
-    for(const u of cand){
-      try{ await preloadImage(u); return u; }catch(e){}
-    }
+    for(const u of cand){ try{ await preloadImage(u); return u; }catch(e){} }
     throw new Error('ไม่พบไฟล์ท้องฟ้า: '+file);
   }
   async function swapSky(themeName){
@@ -52,9 +50,7 @@
                :                        'jungle_sky.jpg';
     try{
       const scene = document.querySelector('a-scene');
-      if(scene && !scene.hasLoaded){
-        await new Promise(res=>scene.addEventListener('loaded',res,{once:true}));
-      }
+      if(scene && !scene.hasLoaded) await new Promise(res=>scene.addEventListener('loaded',res,{once:true}));
       const url = await pickFirstAvailable(file);
       skyEl.setAttribute('src', url);
       skyEl.setAttribute('color', themeCfg(themeName).color);
@@ -67,15 +63,17 @@
     }
   }
 
+  // ===== STATE =====
   let THEME='jungle', Theme=themeCfg('jungle');
   let running=false, raf=0, t0=0, elapsed=0;
   let lane=1, score=0, lives=3, combo=0, best=0;
   let duration=60, tutorial=true, tutEndAt=8;
 
-  const items=[];
+  const items=[]; // {el,t,kind,lane,judged}
   const laneX = i=>[-1.2,0,1.2][i];
   const HIT_Z = 0.34;
 
+  // ===== AUDIO (เบา ๆ) =====
   let actx=null, master=null;
   function ensureAudio(){ if(actx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
     actx=new AC(); master=actx.createGain(); master.gain.value=0.16; master.connect(actx.destination); }
@@ -85,6 +83,7 @@
     o.start(t); o.stop(t+d+0.02); }
   ['pointerdown','touchend','keydown','click'].forEach(ev=>window.addEventListener(ev,()=>ensureAudio(),{once:true,capture:true}));
 
+  // ===== UI =====
   function buildLaneUI(){
     [...root.children].forEach(k=>k.remove());
     const colors = Theme.lane;
@@ -115,6 +114,7 @@
     setTimeout(()=>t.remove(),ms);
   }
 
+  // ===== Spawner / Pattern =====
   function spawn(kind,l,t){
     const e=document.createElement('a-entity');
     let geo, col;
@@ -141,14 +141,15 @@
     }
   }
 
+  // ===== Mechanics =====
   function addScore(n){ score+=n; }
   function collect(kind){
-    if(kind==='orb'){ addScore(20); combo++; tick(820,0.05,0.18); toast('เก็บ +20','#34d399'); }
-    else if(kind==='star'){ addScore(90); combo+=2; tick(980,0.06,0.2); toast('ดาว +90','#fbbf24'); }
+    if(kind==='orb'){ addScore(20); combo++; beep(820,0.05,0.18,'triangle'); toast('เก็บ +20','#34d399'); }
+    else if(kind==='star'){ addScore(90); combo+=2; beep(980,0.06,0.2,'square'); toast('ดาว +90','#fbbf24'); }
     best=Math.max(best,combo);
   }
   function hitObstacle(){
-    lives--; combo=0; toast('ชน -1 ชีวิต','#ef4444'); tick(200,0.1,0.24);
+    lives--; combo=0; toast('ชน -1 ชีวิต','#ef4444'); beep(200,0.1,0.24,'sawtooth');
     if(lives<=0) return end('Game Over');
   }
   function curSpeed(){
@@ -158,6 +159,7 @@
     return base + timeBoost + comboBoost;
   }
 
+  // ===== Loop =====
   function loop(){
     if(!running) return;
     const now=performance.now()/1000; elapsed = now - t0;
@@ -167,12 +169,12 @@
       if(it.judged) continue;
       const dz = it.t - elapsed;
       it.el.object3D.position.z = Math.max(0, dz*speed);
-      if(Math.abs(dz)<=0.34){
+      if(Math.abs(dz)<=HIT_Z){
         if(it.lane===lane){
           it.judged=true; it.el.setAttribute('visible','false');
           if(it.kind==='ob') hitObstacle(); else collect(it.kind);
         }
-      }else if(dz<-0.36 && !it.judged){
+      }else if(dz<-HIT_Z-0.02 && !it.judged){
         it.judged=true; it.el.setAttribute('visible','false');
       }
     }
@@ -182,75 +184,28 @@
     setHUD('A/S/D หรือ ←↑→ เพื่อเปลี่ยนเลน'); raf=requestAnimationFrame(loop);
   }
 
-  let lane=1, lives=3;
+  // ===== Flow =====
   function start(){
-    const t = getThemeName(); THEME=t; swapSky(THEME);
+    const t = getThemeName(); THEME=t; Theme=themeCfg(t); swapSky(THEME);
     running=true; t0=performance.now()/1000; elapsed=0;
-    lane=1; score=0; lives=3; combo=0; best=0; tutorial=true;
-    buildLaneUI(); buildTutorial(); setHUD('Tutorial: ดูจังหวะช้า ๆ ก่อน'); ensureAudio();
-    tick(660,0.05,0.18); setTimeout(()=>tick(700,0.05,0.18),200);
+    lane=1; score=0; lives=3; combo=0; best=0; duration=60; tutorial=true;
+    buildLaneUI(); buildTutorial(); setHUD('Tutorial เริ่ม • ทำตามไกด์'); ensureAudio();
+    beep(660,0.05,0.18,'sine'); setTimeout(()=>beep(700,0.05,0.18,'square'),220);
     raf=requestAnimationFrame(loop);
   }
   function end(msg){ running=false; cancelAnimationFrame(raf); setHUD(`${msg} • Score ${score}`); }
   function reset(){ running=false; cancelAnimationFrame(raf); items.splice(0).forEach(n=>n.el.remove());
     [...root.children].forEach(k=>k.remove()); buildLaneUI(); setHUD('พร้อมเริ่ม'); }
 
-  function buildLaneUI(){
-    [...root.children].forEach(k=>k.remove()); root.__laneUI=false;
-    const lanes = THEME==='space' ? ['#7c3aed','#334155','#06b6d4'] : (THEME==='jungle' ? ['#14532d','#334155','#166534'] : ['#0ea5e9','#334155','#22c55e']);
-    [-0.9,0,0.9].forEach((x,i)=>{
-      const bg=document.createElement('a-entity');
-      bg.setAttribute('geometry','primitive:plane; width:0.98; height:1.35');
-      bg.setAttribute('material',`color:${lanes[i]}; opacity:0.12; shader:flat`);
-      bg.setAttribute('position',`${x} 0 0.02`); root.appendChild(bg);
-      const tag=document.createElement('a-entity');
-      tag.setAttribute('text',`value:${['L(A/←)','C(S/↑)','R(D/→)'][i]}; width:2.2; align:center; color:#9fb1d1`);
-      tag.setAttribute('position',`${x} -0.75 0.05`); root.appendChild(tag);
-      const pad=document.createElement('a-entity');
-      pad.setAttribute('geometry','primitive:plane; width:0.95; height:0.55');
-      pad.setAttribute('material','color:#0f172a; opacity:0.95; shader:flat');
-      pad.setAttribute('position',`${x} -0.55 0.06`);
-      const t=document.createElement('a-entity'); t.setAttribute('text',`value:${['L','C','R'][i]}; width:3; align:center; color:#93c5fd`);
-      t.setAttribute('position','0 0 0.01'); pad.appendChild(t);
-      pad.addEventListener('click',()=>judge(i)); root.appendChild(pad);
-    });
-    const hit=document.createElement('a-entity');
-    hit.setAttribute('geometry','primitive:ring; radiusInner:0.07; radiusOuter:0.09; segmentsTheta:64');
-    hit.setAttribute('material','color:#93c5fd; opacity:0.95; shader:flat');
-    hit.setAttribute('position','0 0 0.06');
-    hit.setAttribute('animation__pulse','property: scale; to:1.07 1.07 1; dir:alternate; dur:480; loop:true');
-    root.appendChild(hit);
-  }
-
-  function judge(laneIndex){
-    ensureAudio();
-    let hit=False
-    for(const it of items){
-      if(it.judged || it.lane!==laneIndex) continue;
-      const err=Math.abs(it.t - elapsed);
-      if(err<=0.11){
-        it.judged=true; it.el.setAttribute('visible','false');
-        const perfect = err<=0.055;
-        if(it.kind==='ob'){ hitObstacle(); }
-        else {
-          score += perfect?300:160; 
-          combo++; best=Math.max(best,combo);
-          tick(perfect?1000:820,0.05, perfect?0.2:0.16);
-        }
-        hit=true; break;
-      }
-    }
-    if(!hit){ combo=0; }
-  }
-
+  // ===== Bind =====
   function bind(){
     btnStart.onclick=()=>{ ensureAudio(); if(!running) start(); };
     btnReset.onclick=()=>reset();
     window.addEventListener('keydown',e=>{
       const k=e.key.toLowerCase();
-      if(k==='a'||k==='arrowleft') judge(0);
-      if(k==='s'||k==='arrowup')   judge(1);
-      if(k==='d'||k==='arrowright')judge(2);
+      if(k==='a'||k==='arrowleft') lane=0;
+      if(k==='s'||k==='arrowup')   lane=1;
+      if(k==='d'||k==='arrowright')lane=2;
     });
     statusEl && (statusEl.textContent='พร้อมเริ่ม • เลือกธีมแล้วกด Start');
   }
