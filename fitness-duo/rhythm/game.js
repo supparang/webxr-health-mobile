@@ -1,4 +1,4 @@
-// Rhythm — เล่นได้จริง: Robust Sky, Tutorial แล้วปล่อยโน้ต/สิ่งกีดขวาง กด L/C/R
+// Rhythm — โน้ต/วงแดง (Dodge) ไหลเข้าวงฟ้า, กด L/C/R (A/S/D), ปรับธีม + Sky Asset Loader
 (function(){
   const root     = document.getElementById('root');
   const hud      = document.getElementById('hud');
@@ -7,56 +7,79 @@
   const btnReset = document.getElementById('btnReset');
   const statusEl = document.getElementById('status');
 
-  // ===== THEME / SKY =====
+  // ===== Theme =====
   function getThemeName(){
     return (window.__OVERRIDE_THEME ||
            new URLSearchParams(location.search).get('theme') ||
            'city').toLowerCase();
   }
   function themeColor(name){ return name==='space' ? '#050914' : '#0b1220'; }
-  function resolveCandidates(file){
-    const rel = [
+
+  // ===== Sky Asset Loader (แพตช์ภาพพื้นหลัง) =====
+  async function ensureAssetsRoot(){
+    let assets = document.querySelector('a-assets');
+    if(!assets){
+      assets = document.createElement('a-assets');
+      const scene = document.querySelector('a-scene');
+      scene.appendChild(assets);
+      await new Promise(res=>setTimeout(res,0));
+    }
+    return assets;
+  }
+  function candidatePaths(file){
+    return [
       `../assets/backgrounds/${file}`,
       `./assets/backgrounds/${file}`,
-      `/fitness-duo/assets/backgrounds/${file}`,
       `/webxr-health-mobile/fitness-duo/assets/backgrounds/${file}`,
+      `/fitness-duo/assets/backgrounds/${file}`,
     ];
-    return [...new Set(rel)];
   }
-  function preloadImage(url){
+  function probeImg(url){
     return new Promise((resolve,reject)=>{
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = ()=>resolve(url);
-      img.onerror = ()=>reject(url);
-      img.src = url + `?v=${Date.now()}`;
+      const t = new Image();
+      t.onload = ()=>resolve(url);
+      t.onerror = ()=>reject(url);
+      t.src = url + `?v=${Date.now()}`;
     });
   }
-  async function pickFirstAvailable(file){
-    const cand = resolveCandidates(file);
-    for(const u of cand){ try{ await preloadImage(u); return u; }catch(e){} }
-    throw new Error('ไม่พบไฟล์ท้องฟ้า: '+file);
+  async function findFirstOK(file){
+    const list = candidatePaths(file);
+    for(const u of list){ try{ await probeImg(u); return u; }catch(e){} }
+    throw new Error('Background not found: '+file);
+  }
+  function loadImgToAssets(id, url){
+    return new Promise(async (resolve,reject)=>{
+      const assets = await ensureAssetsRoot();
+      const img = document.createElement('img');
+      img.id = id;
+      img.src = url + `?v=${Date.now()}`;
+      img.onload  = ()=>resolve(img);
+      img.onerror = ()=>reject(url);
+      assets.appendChild(img);
+    });
   }
   async function swapSky(themeName){
     const file = themeName==='space' ? 'space_sky.jpg'
                : themeName==='jungle'? 'jungle_sky.jpg'
                :                       'city_sky.jpg';
+    const id   = `bg-${themeName}`;
     try{
       const scene = document.querySelector('a-scene');
       if(scene && !scene.hasLoaded) await new Promise(res=>scene.addEventListener('loaded',res,{once:true}));
-      const url = await pickFirstAvailable(file);
-      skyEl.setAttribute('src', url);
+      const url = await findFirstOK(file);
+      await loadImgToAssets(id, url);
+      skyEl.setAttribute('src', `#${id}`);
       skyEl.setAttribute('color', themeColor(themeName));
-      statusEl && (statusEl.textContent = `Sky OK • ${themeName} ✓`);
+      statusEl && (statusEl.textContent = `Sky OK • ${themeName} ✓ (${url})`);
     }catch(err){
-      console.warn(err);
+      console.warn('[Sky Fallback]', err);
       skyEl.removeAttribute('src');
       skyEl.setAttribute('color', themeColor(themeName));
       statusEl && (statusEl.textContent = `Sky Fallback (no image) • ${themeName}`);
     }
   }
 
-  // ===== STATE =====
+  // ===== State =====
   let running=false, raf=0, t0=0, elapsed=0, THEME='city';
   let score=0, combo=0, best=0, fever=false, feverEnd=0;
   let tutorial=true, tutEndAt=10;
@@ -68,7 +91,7 @@
   const HIT_P=0.055, HIT_G=0.11;
   let nextNoteIdx=0, flatNotes=[];
 
-  // ===== AUDIO =====
+  // ===== Audio =====
   let actx=null, master=null;
   function ensureAudio(){ if(actx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
     actx=new AC(); master=actx.createGain(); master.gain.value=0.18; master.connect(actx.destination); }
@@ -78,7 +101,7 @@
     o.start(t); o.stop(t+d+0.02); }
   ['pointerdown','touchend','keydown','click'].forEach(ev=>window.addEventListener(ev,()=>ensureAudio(),{once:true,capture:true}));
 
-  // ===== Particles =====
+  // ===== Particles (เอฟเฟกต์ตอนกดโดน) =====
   const pPool=[]; let pIdx=0; const MAXP=56;
   function initParticles(){ for(let i=0;i<MAXP;i++){ const e=document.createElement('a-entity');
     e.setAttribute('geometry','primitive:sphere; radius:0.02'); e.setAttribute('material','color:#7dfcc6; shader:flat; opacity:0.95');
@@ -141,7 +164,7 @@
     t += 8*beatSec*0.9;
     for(let i=0;i<32;i++){
       const lane=(Math.random()*3|0); const isDodge = Math.random()<0.2;
-      arr.push({lane, t:t + i*beatSec*0.8, dodge:isDodge});
+      arr.push({lane, t:t + i*beatSec*0.8, dodge=isDodge});
     }
     flatNotes=arr.sort((a,b)=>a.t-b.t); nextNoteIdx=0;
   }
@@ -202,7 +225,8 @@
     stepParticles(Math.max(0,dt));
     if(tutorial && elapsed>=tutEndAt){ tutorial=false; }
     if(elapsed>=duration) return end('Stage Clear');
-    setHUD(); raf=requestAnimationFrame(loop);
+    setHUD();
+    raf=requestAnimationFrame(loop);
   }
 
   // ===== Flow =====
