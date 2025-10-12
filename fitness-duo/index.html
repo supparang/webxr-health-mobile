@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fitness Duo VR - Main Menu</title>
+<style>body{margin:0;background:#0b1220;color:#e2e8f0;font:16px system-ui;text-align:center}
+h1{margin:22px 0 6px;font-size:28px}.menu{margin:20px auto;display:flex;flex-direction:column;gap:12px;align-items:center;max-width:520px}
+.btn{font-size:18px;padding:12px 20px;width:280px;cursor:pointer;border:1px solid #1f2a44;background:#1e293b;color:#fff;border-radius:12px}
+.btn:hover{background:#24344e}.row{display:inline-grid;grid-auto-flow:column;gap:6px;align-items:center}select{background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:6px 10px}</style>
+<h1>🏋️‍♂️ Fitness Duo VR</h1><p>เลือกโหมดการออกกำลังกาย</p>
+<div class="menu">
+  <div class="row"><label>ธีม</label>
+    <select id="theme"><option value="jungle" selected>Jungle</option><option value="city">City</option><option value="space">Space</option></select>
+  </div>
+  <button class="btn" onclick="goAdventure()">🚀 Adventure Runner</button>
+  <button class="btn" onclick="goRhythm()">🎵 Rhythm Punch</button>
+</div>
+<script>function getTheme(){return document.getElementById('theme').value;}
+function goAdventure(){location='./adventure/index.html?theme='+encodeURIComponent(getTheme());}
+function goRhythm(){location='./rhythm/index.html?theme='+encodeURIComponent(getTheme());}</script>
