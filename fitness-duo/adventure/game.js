@@ -1,4 +1,4 @@
-// Adventure — เล่นได้จริง: Robust Sky, Tutorial, สุ่มไอเท็ม, คีย์ A/S/D หรือ ←↑→
+// Adventure — Runner 3 เลน: Tutorial → สุ่มไอเท็ม, คีย์ A/S/D หรือ ←↑→, ปรับธีม + Sky Asset Loader
 (function(){
   const root     = document.getElementById('root');
   const hud      = document.getElementById('hud');
@@ -7,7 +7,7 @@
   const btnReset = document.getElementById('btnReset');
   const statusEl = document.getElementById('status');
 
-  // ===== THEME / SKY =====
+  // ===== Utils / Theme =====
   function getThemeName(){
     return (window.__OVERRIDE_THEME ||
            new URLSearchParams(location.search).get('theme') ||
@@ -21,49 +21,72 @@
     };
     return map[name] || map.jungle;
   }
-  function resolveCandidates(file){
-    const rel = [
+
+  // ===== Sky Asset Loader (แพตช์ภาพพื้นหลัง) =====
+  async function ensureAssetsRoot(){
+    let assets = document.querySelector('a-assets');
+    if(!assets){
+      assets = document.createElement('a-assets');
+      const scene = document.querySelector('a-scene');
+      scene.appendChild(assets);
+      await new Promise(res=>setTimeout(res,0));
+    }
+    return assets;
+  }
+  function candidatePaths(file){
+    return [
       `../assets/backgrounds/${file}`,
       `./assets/backgrounds/${file}`,
-      `/fitness-duo/assets/backgrounds/${file}`,
       `/webxr-health-mobile/fitness-duo/assets/backgrounds/${file}`,
+      `/fitness-duo/assets/backgrounds/${file}`,
     ];
-    return [...new Set(rel)];
   }
-  function preloadImage(url){
+  function probeImg(url){
     return new Promise((resolve,reject)=>{
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = ()=>resolve(url);
-      img.onerror = ()=>reject(url);
-      img.src = url + `?v=${Date.now()}`; // bypass cache
+      const t = new Image();
+      t.onload = ()=>resolve(url);
+      t.onerror = ()=>reject(url);
+      t.src = url + `?v=${Date.now()}`;
     });
   }
-  async function pickFirstAvailable(file){
-    const cand = resolveCandidates(file);
-    for(const u of cand){ try{ await preloadImage(u); return u; }catch(e){} }
-    throw new Error('ไม่พบไฟล์ท้องฟ้า: '+file);
+  async function findFirstOK(file){
+    const list = candidatePaths(file);
+    for(const u of list){ try{ await probeImg(u); return u; }catch(e){} }
+    throw new Error('Background not found: '+file);
+  }
+  function loadImgToAssets(id, url){
+    return new Promise(async (resolve,reject)=>{
+      const assets = await ensureAssetsRoot();
+      const img = document.createElement('img');
+      img.id = id;
+      img.src = url + `?v=${Date.now()}`;
+      img.onload  = ()=>resolve(img);
+      img.onerror = ()=>reject(url);
+      assets.appendChild(img);
+    });
   }
   async function swapSky(themeName){
     const file = themeName==='space' ? 'space_sky.jpg'
                : themeName==='city'  ? 'city_sky.jpg'
                :                        'jungle_sky.jpg';
+    const id   = `bg-${themeName}`;
     try{
       const scene = document.querySelector('a-scene');
       if(scene && !scene.hasLoaded) await new Promise(res=>scene.addEventListener('loaded',res,{once:true}));
-      const url = await pickFirstAvailable(file);
-      skyEl.setAttribute('src', url);
+      const url = await findFirstOK(file);
+      await loadImgToAssets(id, url);
+      skyEl.setAttribute('src', `#${id}`); // ใช้ selector จาก assets
       skyEl.setAttribute('color', themeCfg(themeName).color);
-      statusEl && (statusEl.textContent = `Sky OK • ${themeName} ✓`);
+      statusEl && (statusEl.textContent = `Sky OK • ${themeName} ✓ (${url})`);
     }catch(err){
-      console.warn(err);
+      console.warn('[Sky Fallback]', err);
       skyEl.removeAttribute('src');
       skyEl.setAttribute('color', themeCfg(themeName).color);
       statusEl && (statusEl.textContent = `Sky Fallback (no image) • ${themeName}`);
     }
   }
 
-  // ===== STATE =====
+  // ===== State =====
   let THEME='jungle', Theme=themeCfg('jungle');
   let running=false, raf=0, t0=0, elapsed=0;
   let lane=1, score=0, lives=3, combo=0, best=0;
@@ -73,7 +96,7 @@
   const laneX = i=>[-1.2,0,1.2][i];
   const HIT_Z = 0.34;
 
-  // ===== AUDIO (เบา ๆ) =====
+  // ===== Audio (เบา ๆ) =====
   let actx=null, master=null;
   function ensureAudio(){ if(actx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
     actx=new AC(); master=actx.createGain(); master.gain.value=0.16; master.connect(actx.destination); }
@@ -114,7 +137,7 @@
     setTimeout(()=>t.remove(),ms);
   }
 
-  // ===== Spawner / Pattern =====
+  // ===== Spawner =====
   function spawn(kind,l,t){
     const e=document.createElement('a-entity');
     let geo, col;
@@ -181,12 +204,13 @@
 
     if(tutorial && elapsed>=tutEndAt){ tutorial=false; buildPattern(); }
     if(elapsed>=duration) return end('Stage Clear');
-    setHUD('A/S/D หรือ ←↑→ เพื่อเปลี่ยนเลน'); raf=requestAnimationFrame(loop);
+    setHUD('A/S/D หรือ ←↑→ เพื่อเปลี่ยนเลน');
+    raf=requestAnimationFrame(loop);
   }
 
   // ===== Flow =====
   function start(){
-    const t = getThemeName(); THEME=t; Theme=themeCfg(t); swapSky(THEME);
+    THEME = getThemeName(); Theme=themeCfg(THEME); swapSky(THEME);
     running=true; t0=performance.now()/1000; elapsed=0;
     lane=1; score=0; lives=3; combo=0; best=0; duration=60; tutorial=true;
     buildLaneUI(); buildTutorial(); setHUD('Tutorial เริ่ม • ทำตามไกด์'); ensureAudio();
