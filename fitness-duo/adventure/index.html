@@ -52,7 +52,21 @@
       });
     })();
   </script>
+<!doctype html><meta charset="utf-8">
+<title>Adventure</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<div style="position:fixed;left:8px;top:8px;z-index:10">
+  <select id="theme"><option>jungle</option><option>city</option><option>space</option></select>
+  <button id="btnStart">Start</button><button id="btnReset">Reset</button>
+  <span id="status">ready</span>
+</div>
+<a-scene background="color:#000">
+  <a-sky id="sky" radius="30" color="#0b1220"></a-sky>
+  <a-entity id="root" position="0 1.25 -3"></a-entity>
+  <a-entity id="hud" position="0 0 0"></a-entity>
+  <a-entity position="0 1.6 0" camera look-controls></a-entity>
+</a-scene>
+<script src="./game.js"></script>
 
-  <script src="./game.js"></script>
 </body>
 </html>
