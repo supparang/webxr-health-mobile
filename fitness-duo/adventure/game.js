@@ -1,86 +1,97 @@
-// Adventure — Theme Runtime + Sky Swap + Tutorial + Powerups (ย่อให้กระชับ ใช้งานได้จริง)
+// Adventure — Theme Runtime + Robust Sky Loader + Tutorial + Simple Run
 (function(){
-  const root = document.getElementById('root');
-  const hud  = document.getElementById('hud');
-  const skyEl= document.getElementById('sky');
+  const root     = document.getElementById('root');
+  const hud      = document.getElementById('hud');
+  const skyEl    = document.getElementById('sky');
   const btnStart = document.getElementById('btnStart');
   const btnReset = document.getElementById('btnReset');
   const statusEl = document.getElementById('status');
 
-  // ---------- Theme helpers ----------
+  // ========== THEME / SKY ==========
   function getThemeName(){
     return (window.__OVERRIDE_THEME ||
-            new URLSearchParams(location.search).get('theme') ||
-            'jungle').toLowerCase();
+           new URLSearchParams(location.search).get('theme') ||
+           'jungle').toLowerCase();
   }
   function themeCfg(name){
     const map = {
-      jungle:{ lane:['#14532d','#334155','#166534'], sky:'#bg-jungle', color:'#0b1220', power:'vine'  },
-      city:  { lane:['#0ea5e9','#334155','#22c55e'], sky:'#bg-city',   color:'#0b1220', power:'dash'  },
-      space: { lane:['#7c3aed','#334155','#06b6d4'], sky:'#bg-space',  color:'#050914', power:'warp'  }
+      jungle:{ lane:['#14532d','#334155','#166534'], color:'#0b1220' },
+      city:  { lane:['#0ea5e9','#334155','#22c55e'], color:'#0b1220' },
+      space: { lane:['#7c3aed','#334155','#06b6d4'], color:'#050914' }
     };
     return map[name] || map.jungle;
   }
-  function swapSky(name){
-    const cfg = themeCfg(name);
+
+  // --- robust path resolver + preloader ---
+  function resolveCandidates(file){
+    const rel = [
+      `../assets/backgrounds/${file}`,
+      `./assets/backgrounds/${file}`,
+      `/fitness-duo/assets/backgrounds/${file}`,
+      `/webxr-health-mobile/fitness-duo/assets/backgrounds/${file}`, // GitHub Pages (repo path)
+    ];
+    return [...new Set(rel)];
+  }
+  function preloadImage(url){
+    return new Promise((resolve,reject)=>{
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = ()=>resolve(url);
+      img.onerror = ()=>reject(url);
+      img.src = url + `?v=${Date.now()}`;
+    });
+  }
+  async function pickFirstAvailable(file){
+    const cand = resolveCandidates(file);
+    for(const u of cand){
+      try{ await preloadImage(u); return u; }catch(e){}
+    }
+    throw new Error('ไม่พบไฟล์ท้องฟ้า: '+file);
+  }
+  async function swapSky(themeName){
+    const file = themeName==='space' ? 'space_sky.jpg'
+               : themeName==='city'  ? 'city_sky.jpg'
+               :                        'jungle_sky.jpg';
     try{
-      if(skyEl){ skyEl.setAttribute('src', cfg.sky); skyEl.setAttribute('color', cfg.color||'#000'); }
-    }catch(e){ console.warn('swapSky error', e); }
+      const scene = document.querySelector('a-scene');
+      if(scene && !scene.hasLoaded){
+        await new Promise(res=>scene.addEventListener('loaded',res,{once:true}));
+      }
+      const url = await pickFirstAvailable(file);
+      skyEl.setAttribute('src', url);
+      skyEl.setAttribute('color', themeCfg(themeName).color);
+      statusEl && (statusEl.textContent = `Sky OK • ${themeName} ✓`);
+    }catch(err){
+      console.warn(err);
+      skyEl.removeAttribute('src');
+      skyEl.setAttribute('color', themeCfg(themeName).color);
+      statusEl && (statusEl.textContent = `Sky Fallback (no image) • ${themeName}`);
+    }
   }
 
-  // ---------- State ----------
+  // ========== STATE ==========
   let THEME='jungle', Theme=themeCfg('jungle');
   let running=false, raf=0, t0=0, elapsed=0;
   let lane=1, score=0, lives=3, combo=0, best=0;
-  let duration=120, tutorial=true, tutEndAt=10;
-  let fever=false, feverEnd=0, shields=0, magnetUntil=0, dashUntil=0, warpUntil=0, nextPowerAt=8;
-  const items = [];
-  const laneX = i => [-1.2,0,1.2][i];
+  let duration=60, tutorial=true, tutEndAt=8;
+
+  const items=[]; // {el, t, lane, kind, judged}
+  const laneX = i=>[-1.2,0,1.2][i];
   const HIT_Z = 0.34;
 
-  // ---------- Audio (เบา ๆ ใช้ WebAudio click/tone) ----------
-  let actx=null, master=null, musicGain=null;
+  // ========== AUDIO (light) ==========
+  let actx=null, master=null;
   function ensureAudio(){ if(actx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
-    actx=new AC(); master=actx.createGain(); master.gain.value=0.16; master.connect(actx.destination);
-    musicGain=actx.createGain(); musicGain.gain.value=0.08; musicGain.connect(actx.destination); ambient(); }
-  function tone(f=700,d=0.05,g=0.18,tp='square'){ if(!actx) return; const o=actx.createOscillator(), v=actx.createGain();
+    actx=new AC(); master=actx.createGain(); master.gain.value=0.16; master.connect(actx.destination); }
+  function beep(f=740,d=0.05,g=0.18,tp='square'){ if(!actx) return; const o=actx.createOscillator(), v=actx.createGain();
     o.type=tp; o.frequency.value=f; o.connect(v); v.connect(master);
     const t=actx.currentTime; v.gain.setValueAtTime(0,t); v.gain.linearRampToValueAtTime(g,t+0.005); v.gain.exponentialRampToValueAtTime(0.0001,t+d);
     o.start(t); o.stop(t+d+0.02); }
-  function ambient(){
-    if(!actx) return;
-    const scale = THEME==='jungle'?[220,277,330,392]: THEME==='city'?[240,300,360,420]: [200,252,300,400];
-    const wave  = THEME==='jungle'?'triangle': THEME==='city'?'sine':'square';
-    let s=0; (function loopAmb(){
-      if(!running) return;
-      const t=actx.currentTime;
-      for(let i=0;i<6;i++){
-        const o=actx.createOscillator(), g=actx.createGain(); o.type=wave;
-        const f=scale[(i+s)%scale.length]*(THEME==='space'&&i%3===0?0.5:1);
-        o.frequency.value=f; o.connect(g); g.connect(musicGain);
-        const tt=t+i*0.22; g.gain.setValueAtTime(0,tt); g.gain.linearRampToValueAtTime(0.08,tt+0.01); g.gain.linearRampToValueAtTime(0,tt+0.18);
-        o.start(tt); o.stop(tt+0.2);
-      }
-      s++; setTimeout(loopAmb, 800);
-    })();
-  }
   ['pointerdown','touchend','keydown','click'].forEach(ev=>window.addEventListener(ev,()=>ensureAudio(),{once:true,capture:true}));
 
-  // ---------- Particles (เล็ก ๆ) ----------
-  const pPool=[]; let pIdx=0; const MAXP=48;
-  function initParticles(){ for(let i=0;i<MAXP;i++){ const e=document.createElement('a-entity');
-    e.setAttribute('geometry','primitive:sphere; radius:0.02'); e.setAttribute('material','color:#93c5fd; shader:flat; opacity:0.95');
-    e.setAttribute('visible','false'); root.appendChild(e); pPool.push({el:e,life:0,vx:0,vy:0,vz:0}); } }
-  function spark(x,y,z,c='#93c5fd'){ const n=6; for(let i=0;i<n;i++){ const p=pPool[pIdx++%MAXP];
-    p.el.setAttribute('material',`color:${c}; shader:flat; opacity:0.95`); p.el.object3D.position.set(x,y,z); p.el.setAttribute('visible','true');
-    p.life=0.32+Math.random()*0.2; p.vx=(Math.random()*0.6-0.3); p.vy=(Math.random()*0.6); p.vz=(-0.4-Math.random()*0.6); } }
-  function stepParticles(dt){ for(const p of pPool){ if(!p||p.life<=0) continue; p.life-=dt;
-    if(p.life<=0){ p.el.setAttribute('visible','false'); continue; }
-    const o=p.el.object3D.position; o.x+=p.vx*dt; o.y+=p.vy*dt; o.z+=p.vz*dt; p.vy-=dt*0.8; } }
-
-  // ---------- UI ----------
+  // ========== UI ==========
   function buildLaneUI(){
-    [...root.children].forEach(k=>k.remove()); root.__laneUI=false;
+    [...root.children].forEach(k=>k.remove());
     const colors = Theme.lane;
     [-1.2,0,1.2].forEach((x,i)=>{
       const bg=document.createElement('a-entity');
@@ -99,8 +110,7 @@
     root.appendChild(hit);
   }
   function setHUD(msg){
-    const f=fever?' • FEVER!':'';
-    hud.setAttribute('text',`value:[${THEME.toUpperCase()}] Score ${score} • Lives ${lives} • Combo ${combo} (Best ${best})${f}\nเก็บ: เขียว/ทอง/บัฟ • หลบ: แดง\n${msg||''}; width:5.8; align:center; color:#e2e8f0`);
+    hud.setAttribute('text',`value:[${THEME.toUpperCase()}] Score ${score} • Lives ${lives} • Combo ${combo} (Best ${best})\nเก็บ: เขียว/ทอง • หลบ: แดง\n${msg||''}; width:5.8; align:center; color:#e2e8f0`);
   }
   function toast(txt,color="#7dfcc6",y=0.98,ms=560){
     const t=document.createElement('a-entity');
@@ -110,117 +120,91 @@
     setTimeout(()=>t.remove(),ms);
   }
 
-  // ---------- Spawner ----------
+  // ========== Spawner ==========
   function spawn(kind,l,t){
     const e=document.createElement('a-entity');
     let geo, col;
     if(kind==='orb'){ geo='sphere; radius:0.16'; col='#22c55e'; }
     else if(kind==='star'){ geo='sphere; radius:0.2'; col='#f59e0b'; }
-    else if(kind==='shield'){ geo='torus; radius:0.22; radiusTubular:0.03'; col='#7dfcc6'; }
-    else if(kind==='magnet'){ geo='octahedron; radius:0.22'; col='#60a5fa'; }
-    else if(kind==='time'){ geo='cylinder; radius:0.16; height:0.12'; col='#fcd34d'; }
-    else { kind='obstacle'; geo='box; width:0.7; height:0.5; depth:0.3'; col='#ef4444'; }
+    else { kind='ob'; geo='box; width:0.7; height:0.5; depth:0.3'; col='#ef4444'; }
     e.setAttribute('geometry','primitive:'+geo);
     e.setAttribute('material',`color:${col}; shader:flat; opacity:0.98`);
     e.object3D.position.set(laneX(l),0,3.25);
     root.appendChild(e);
     items.push({el:e,t,kind,lane:l,judged:false});
   }
-  function buildPattern(){
-    items.splice(0).forEach(n=>n.el.remove());
-    let t=tutorial?0.9:0.8; const pick=()=>Math.random()<0.65?'orb':(Math.random()<0.5?'obstacle':'star');
-    while(t<duration){
-      const l=(Math.random()*3|0), kind=pick(); spawn(kind,l,t);
-      if(Math.random()<0.2) spawn('obstacle',(Math.random()*3|0), t+0.22);
-      t += (tutorial?1.1:0.86) + (Math.random()*0.22 - 0.08);
-    }
-  }
   function buildTutorial(){
     items.splice(0).forEach(n=>n.el.remove());
-    let t=0.8; spawn('orb',1,t); t+=1.2; spawn('obstacle',1,t); t+=1.2; spawn('star',0,t); t+=1.0; spawn('shield',2,t); t+=1.0; spawn('time',1,t);
-    toast('สลับเลน A/S/D หรือ ← ↑ →','#cbd5e1',0.9,1500);
+    let t=0.9; spawn('orb',1,t); t+=1.2; spawn('ob',1,t); t+=1.2; spawn('star',0,t); t+=1.0; spawn('orb',2,t); t+=1.0; spawn('ob',1,t);
+  }
+  function buildPattern(){
+    items.splice(0).forEach(n=>n.el.remove());
+    let t=0.8; const pick=()=>Math.random()<0.65?'orb':(Math.random()<0.5?'ob':'star');
+    while(t<duration){
+      const l=(Math.random()*3|0), kind=pick(); spawn(kind,l,t);
+      if(Math.random()<0.2) spawn('ob',(Math.random()*3|0), t+0.22);
+      t += 0.86 + (Math.random()*0.22 - 0.08);
+    }
   }
 
-  // ---------- Mechanics ----------
-  function addScore(n){ score += fever ? Math.round(n*1.5) : n; }
+  // ========== Mechanics ==========
+  function addScore(n){ score+=n; }
   function collect(kind){
-    spark(laneX(lane),0,0.06, kind==='star'?'#f59e0b':'#34d399');
-    if(kind==='orb'){ addScore(20); combo++; tone(760,0.04,0.2,'triangle'); }
-    else if(kind==='star'){ addScore(90); combo+=2; tone(980,0.06,0.22,'square'); }
-    else if(kind==='shield'){ shields=Math.min(2,shields+1); toast('🛡️ Shield +1'); tone(520,0.05,0.2,'sine'); }
-    else if(kind==='magnet'){ magnetUntil=elapsed+5; toast('🧲 Magnet 5s','#93c5fd'); tone(620,0.05,0.2,'sine'); }
-    else if(kind==='time'){ duration=Math.min(140, duration+2); toast('⏱️ +เวลา','#fde68a'); tone(680,0.05,0.2,'sine'); }
-    best=Math.max(best,combo); if(!fever && combo>0 && combo%10===0){ fever=true; feverEnd=elapsed+6; toast('FEVER! ✨','#7dfcc6'); }
+    if(kind==='orb'){ addScore(20); combo++; beep(820,0.05,0.18,'triangle'); toast('เก็บ +20','#34d399'); }
+    else if(kind==='star'){ addScore(90); combo+=2; beep(980,0.06,0.2,'square'); toast('ดาว +90','#fbbf24'); }
+    best=Math.max(best,combo);
   }
   function hitObstacle(){
-    spark(laneX(lane),0,0.06,'#ef4444');
-    if(shields>0){ shields--; toast('🛡️ Block','#7dfcc6'); tone(420,0.06,0.22,'sawtooth'); return; }
-    lives--; combo=0; toast('⚠️ ชน -1','#ef4444'); tone(180,0.1,0.26,'sawtooth');
-    if(lives<=0){ return end('Game Over'); }
-  }
-  function pullByMagnet(it){
-    if(elapsed>magnetUntil) return;
-    if(it.kind==='orb'||it.kind==='star'){ const dx=(0-laneX(it.lane))*0.03; it.el.object3D.position.x += dx; }
+    lives--; combo=0; toast('ชน -1 ชีวิต','#ef4444'); beep(200,0.1,0.24,'sawtooth');
+    if(lives<=0) return end('Game Over');
   }
   function curSpeed(){
     const base = tutorial?1.6:2.0;
     const timeBoost = Math.min(1.0, Math.max(0,(elapsed-(tutorial?0:tutEndAt))*0.016));
     const comboBoost = Math.min(0.8, Math.floor(combo/8)*0.12);
-    const feverBoost = fever?0.18:0;
-    const dashBoost = elapsed<dashUntil?0.35:0;
-    return base + timeBoost + comboBoost + feverBoost + dashBoost;
+    return base + timeBoost + comboBoost;
   }
-  function themePowerTick(){
-    if(!running || tutorial) return;
-    if(elapsed>=nextPowerAt){
-      if(Theme.power==='vine'){ if(shields<2){ shields++; toast('🌿 Vine Shield +1','#7dfcc6'); tone(520,0.06,0.2,'sine'); } nextPowerAt+=20; }
-      else if(Theme.power==='dash'){ dashUntil=elapsed+8; toast('⚡ Dash Surge','#93c5fd'); tone(900,0.08,0.22,'square'); nextPowerAt+=25; }
-      else if(Theme.power==='warp'){ warpUntil=elapsed+7; toast('🌀 Time Warp (+15%)','#a78bfa'); tone(740,0.08,0.2,'triangle'); nextPowerAt+=22; }
-    }
-  }
-  function effHitZ(){ return elapsed<warpUntil ? HIT_Z*1.15 : HIT_Z; }
 
-  // ---------- Loop ----------
+  // ========== Loop ==========
   function loop(){
     if(!running) return;
-    const now=performance.now()/1000; const prev=elapsed; const dt = (elapsed=now-t0) - prev;
-    const speed = curSpeed(); const win = effHitZ();
+    const now=performance.now()/1000; elapsed = now - t0;
+    const speed = curSpeed();
 
     for(const it of items){
       if(it.judged) continue;
       const dz = it.t - elapsed;
       it.el.object3D.position.z = Math.max(0, dz*speed);
-      pullByMagnet(it);
-      if(Math.abs(dz)<=win){
-        if(it.lane===lane){ it.judged=true; it.el.setAttribute('visible','false');
-          if(it.kind==='obstacle') hitObstacle(); else collect(it.kind);
+      if(Math.abs(dz)<=HIT_Z){
+        // auto-judge เมื่อถึงโซน hit: ถ้าเลนตรง จะ “เก็บ/ชน” อัตโนมัติ (Demo)
+        if(it.lane===lane){
+          it.judged=true; it.el.setAttribute('visible','false');
+          if(it.kind==='ob') hitObstacle(); else collect(it.kind);
         }
-      }else if(dz<-win-0.02 && !it.judged){ it.judged=true; it.el.setAttribute('visible','false'); }
+      }else if(dz<-HIT_Z-0.02 && !it.judged){
+        it.judged=true; it.el.setAttribute('visible','false');
+      }
     }
 
-    if(fever && elapsed>=feverEnd) fever=false;
-    themePowerTick(); stepParticles(Math.max(0,dt));
     if(tutorial && elapsed>=tutEndAt){ tutorial=false; buildPattern(); }
     if(elapsed>=duration) return end('Stage Clear');
     setHUD('A/S/D หรือ ←↑→ เพื่อเปลี่ยนเลน'); raf=requestAnimationFrame(loop);
   }
 
-  // ---------- Flow ----------
+  // ========== Flow ==========
   function start(){
-    THEME = getThemeName(); Theme = themeCfg(THEME); swapSky(THEME);
+    const t = getThemeName(); THEME=t; Theme=themeCfg(t); swapSky(THEME);
     running=true; t0=performance.now()/1000; elapsed=0;
-    lane=1; score=0; lives=3; combo=0; best=0; duration=120;
-    tutorial=true; shields=0; magnetUntil=0; dashUntil=0; warpUntil=0; nextPowerAt=8;
-    buildLaneUI(); initParticles(); buildTutorial(); setHUD('Tutorial เริ่ม • ทำตามไกด์'); ensureAudio();
-    tone(660,0.05,0.18,'sine'); setTimeout(()=>tone(700,0.05,0.18,'square'),220);
-    setTimeout(()=>tone(700,0.05,0.18,'square'),620); setTimeout(()=>tone(900,0.06,0.22,'square'),1020);
-    loop();
+    lane=1; score=0; lives=3; combo=0; best=0; duration=60; tutorial=true;
+    buildLaneUI(); buildTutorial(); setHUD('Tutorial เริ่ม • ทำตามไกด์'); ensureAudio();
+    beep(660,0.05,0.18,'sine'); setTimeout(()=>beep(700,0.05,0.18,'square'),220);
+    raf=requestAnimationFrame(loop);
   }
   function end(msg){ running=false; cancelAnimationFrame(raf); setHUD(`${msg} • Score ${score}`); }
   function reset(){ running=false; cancelAnimationFrame(raf); items.splice(0).forEach(n=>n.el.remove());
-    root.__laneUI=false; [...root.children].forEach(k=>k.remove()); setTimeout(()=>{ buildLaneUI(); setHUD('พร้อมเริ่ม'); },0); }
+    [...root.children].forEach(k=>k.remove()); buildLaneUI(); setHUD('พร้อมเริ่ม'); }
 
-  // ---------- Bind ----------
+  // ========== Bind ==========
   function bind(){
     btnStart.onclick=()=>{ ensureAudio(); if(!running) start(); };
     btnReset.onclick=()=>reset();
