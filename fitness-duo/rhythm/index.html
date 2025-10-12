@@ -28,17 +28,22 @@
     <span id="status">พร้อมเริ่ม</span>
   </div>
 
-  <a-scene renderer="antialias:true" background="color: #000">
+  <a-scene renderer="antialias:true" background="color:#000">
+    <a-assets timeout="15000">
+      <img id="bg-jungle" src="../assets/backgrounds/jungle_sky.jpg" crossorigin="anonymous">
+      <img id="bg-city"   src="../assets/backgrounds/city_sky.jpg" crossorigin="anonymous">
+      <img id="bg-space"  src="../assets/backgrounds/space_sky.jpg" crossorigin="anonymous">
+    </a-assets>
+    <a-sky id="sky" radius="30" src="#bg-city" color="#0b1220"></a-sky>
+
     <a-entity id="root" position="0 1.25 -3"></a-entity>
     <a-entity id="hud" position="0 0 0"></a-entity>
     <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
-  <!-- config ที่คุณมีอยู่แล้ว (Day5+startOffset) -->
   <script src="./config.js"></script>
 
   <script>
-    // sync theme จาก URL + ตั้ง override ก่อนเริ่ม
     (function(){
       const qs = new URLSearchParams(location.search);
       const t = (qs.get('theme') || 'city').toLowerCase();
