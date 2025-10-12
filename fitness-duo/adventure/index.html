@@ -29,16 +29,8 @@
   </div>
 
   <a-scene renderer="antialias:true" background="color:#000">
-    <!-- ⛰️ โหลดรูปท้องฟ้า 360° (equirectangular) -->
-    <a-assets timeout="15000">
-      <!-- ปรับพาธให้ตรงกับโปรเจกต์ของคุณ -->
-      <img id="bg-jungle" src="../assets/backgrounds/jungle_sky.jpg" crossorigin="anonymous">
-      <img id="bg-city"   src="../assets/backgrounds/city_sky.jpg" crossorigin="anonymous">
-      <img id="bg-space"  src="../assets/backgrounds/space_sky.jpg" crossorigin="anonymous">
-    </a-assets>
-
-    <!-- ท้องฟ้า -->
-    <a-sky id="sky" radius="30" src="#bg-jungle" color="#0b1220"></a-sky>
+    <!-- ท้องฟ้าพื้นหลัง (จะเซ็ต src ตอน start ด้วย swapSky) -->
+    <a-sky id="sky" radius="30" color="#0b1220"></a-sky>
 
     <!-- รากเกม -->
     <a-entity id="root" position="0 1.25 -3"></a-entity>
@@ -48,8 +40,8 @@
     <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
 
+  <!-- sync theme จาก URL -->
   <script>
-    // sync theme จาก URL + ตั้ง override ก่อนเริ่ม
     (function(){
       const qs = new URLSearchParams(location.search);
       const t = (qs.get('theme') || 'jungle').toLowerCase();
@@ -57,6 +49,7 @@
       if (sel) sel.value = t;
       window.__OVERRIDE_THEME = t;
       document.getElementById('status').textContent = 'Loaded • theme='+t;
+
       document.getElementById('btnStart').addEventListener('click', ()=>{
         const val = sel.value;
         window.__OVERRIDE_THEME = val;
