@@ -9,7 +9,7 @@
     body{margin:0;background:#000;color:#e2e8f0;font:16px system-ui}
     .overlay{position:fixed;left:0;right:0;top:0;padding:8px 10px;background:rgba(11,18,32,.85);z-index:10;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
     .row{display:inline-grid;grid-auto-flow:column;gap:6px;align-items:center}
-    button,select{background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:6px 10px}
+    button,select{background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:10px;padding:6px 10px;cursor:pointer}
     #status{font-size:13px;color:#9fb1d1;margin-left:8px}
   </style>
 </head>
@@ -36,6 +36,7 @@
   </a-scene>
 
   <script>
+    // sync theme from URL once
     (function(){
       const qs = new URLSearchParams(location.search);
       const t = (qs.get('theme') || 'jungle').toLowerCase();
