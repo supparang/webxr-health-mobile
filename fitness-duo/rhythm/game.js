@@ -1,64 +1,89 @@
-// Rhythm — Theme Runtime + Sky Swap + Tutorial + Notes Spawn (ย่อให้กระชับ ใช้งานได้จริง)
+// Rhythm — Theme Runtime + Robust Sky Loader + Tutorial + Notes Spawn
 (function(){
-  const root = document.getElementById('root');
-  const hud  = document.getElementById('hud');
-  const skyEl= document.getElementById('sky');
+  const root     = document.getElementById('root');
+  const hud      = document.getElementById('hud');
+  const skyEl    = document.getElementById('sky');
   const btnStart = document.getElementById('btnStart');
   const btnReset = document.getElementById('btnReset');
   const statusEl = document.getElementById('status');
 
-  // ---------- Theme ----------
+  // ===== THEME / SKY =====
   function getThemeName(){
     return (window.__OVERRIDE_THEME ||
-            new URLSearchParams(location.search).get('theme') ||
-            'city').toLowerCase();
+           new URLSearchParams(location.search).get('theme') ||
+           'city').toLowerCase();
   }
-  function themeSkyId(name){ return name==='jungle'?'#bg-jungle' : (name==='space' ? '#bg-space' : '#bg-city'); }
-  function swapSky(name){
-    try{ if(skyEl){ skyEl.setAttribute('src', themeSkyId(name)); skyEl.setAttribute('color', name==='space' ? '#050914' : '#0b1220'); } }
-    catch(e){ console.warn('swapSky rhythm', e); }
+  function themeColor(name){ return name==='space' ? '#050914' : '#0b1220'; }
+
+  function resolveCandidates(file){
+    const rel = [
+      `../assets/backgrounds/${file}`,
+      `./assets/backgrounds/${file}`,
+      `/fitness-duo/assets/backgrounds/${file}`,
+      `/webxr-health-mobile/fitness-duo/assets/backgrounds/${file}`,
+    ];
+    return [...new Set(rel)];
+  }
+  function preloadImage(url){
+    return new Promise((resolve,reject)=>{
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = ()=>resolve(url);
+      img.onerror = ()=>reject(url);
+      img.src = url + `?v=${Date.now()}`;
+    });
+  }
+  async function pickFirstAvailable(file){
+    const cand = resolveCandidates(file);
+    for(const u of cand){
+      try{ await preloadImage(u); return u; }catch(e){}
+    }
+    throw new Error('ไม่พบไฟล์ท้องฟ้า: '+file);
+  }
+  async function swapSky(themeName){
+    const file = themeName==='space' ? 'space_sky.jpg'
+               : themeName==='jungle'? 'jungle_sky.jpg'
+               :                       'city_sky.jpg';
+    try{
+      const scene = document.querySelector('a-scene');
+      if(scene && !scene.hasLoaded){
+        await new Promise(res=>scene.addEventListener('loaded',res,{once:true}));
+      }
+      const url = await pickFirstAvailable(file);
+      skyEl.setAttribute('src', url);
+      skyEl.setAttribute('color', themeColor(themeName));
+      statusEl && (statusEl.textContent = `Sky OK • ${themeName} ✓`);
+    }catch(err){
+      console.warn(err);
+      skyEl.removeAttribute('src');
+      skyEl.setAttribute('color', themeColor(themeName));
+      statusEl && (statusEl.textContent = `Sky Fallback (no image) • ${themeName}`);
+    }
   }
 
-  // ---------- State ----------
-  let running=false, raf=0, t0=0, elapsed=0;
-  let score=0, combo=0, best=0, fever=false, feverEnd=0, inFinisher=false;
-  let tutorial=true, tutEndAt=10, THEME='city';
+  // ===== STATE =====
+  let running=false, raf=0, t0=0, elapsed=0, THEME='city';
+  let score=0, combo=0, best=0, fever=false, feverEnd=0;
+  let tutorial=true, tutEndAt=10;
 
   const notes=[]; // {el,lane,t,judged,dodge}
   const laneX=i=>[-0.9,0,0.9][i];
   const duration=60; const bpm=108; const beatSec=60/bpm;
   const START_OFFSET=1.6;
   const HIT_P=0.055, HIT_G=0.11;
-
   let nextNoteIdx=0, flatNotes=[];
 
-  // ---------- Audio ----------
-  let actx=null, master=null, ambGain=null;
+  // ===== AUDIO =====
+  let actx=null, master=null;
   function ensureAudio(){ if(actx) return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return;
-    actx=new AC(); master=actx.createGain(); master.gain.value=0.18; master.connect(actx.destination);
-    ambGain=actx.createGain(); ambGain.gain.value=0.08; ambGain.connect(actx.destination); ambient(); }
+    actx=new AC(); master=actx.createGain(); master.gain.value=0.18; master.connect(actx.destination); }
   function tick(f=880,d=0.05,g=0.18){ if(!actx) return; const o=actx.createOscillator(), v=actx.createGain();
     o.type='square'; o.frequency.value=f; o.connect(v); v.connect(master);
     const t=actx.currentTime; v.gain.setValueAtTime(0,t); v.gain.linearRampToValueAtTime(g,t+0.005); v.gain.exponentialRampToValueAtTime(0.0001,t+d);
     o.start(t); o.stop(t+d+0.02); }
-  function ambient(){
-    const motif = THEME==='jungle'?[220,277,330,392]: THEME==='space'?[190,226,285,340]: [240,300,360,420];
-    let s=0; (function loopAmb(){
-      if(!running) return;
-      const t=actx.currentTime;
-      for(let i=0;i<4;i++){
-        const o=actx.createOscillator(), g=actx.createGain();
-        o.type = THEME==='space'?'triangle': (THEME==='jungle'?'sine':'square');
-        o.frequency.value = motif[(i+s)%motif.length]; o.connect(g); g.connect(ambGain);
-        const tt=t+i*0.26; g.gain.setValueAtTime(0,tt); g.gain.linearRampToValueAtTime(0.07,tt+0.01); g.gain.linearRampToValueAtTime(0,tt+0.18);
-        o.start(tt); o.stop(tt+0.2);
-      }
-      s++; setTimeout(loopAmb, 900);
-    })();
-  }
   ['pointerdown','touchend','keydown','click'].forEach(ev=>window.addEventListener(ev,()=>ensureAudio(),{once:true,capture:true}));
 
-  // ---------- Particles ----------
+  // ===== Particles (เล็ก) =====
   const pPool=[]; let pIdx=0; const MAXP=56;
   function initParticles(){ for(let i=0;i<MAXP;i++){ const e=document.createElement('a-entity');
     e.setAttribute('geometry','primitive:sphere; radius:0.02'); e.setAttribute('material','color:#7dfcc6; shader:flat; opacity:0.95');
@@ -70,7 +95,7 @@
     if(p.life<=0){ p.el.setAttribute('visible','false'); continue; }
     const o=p.el.object3D.position; o.x+=p.vx*dt; o.y+=p.vy*dt; o.z+=p.vz*dt; p.vy-=dt*0.8; } }
 
-  // ---------- UI ----------
+  // ===== UI =====
   function laneColors(){
     if(THEME==='space') return ['#7c3aed','#334155','#06b6d4'];
     if(THEME==='jungle') return ['#14532d','#334155','#166534'];
@@ -104,8 +129,7 @@
   }
   function setHUD(msg){
     const f=fever?' • FEVER!':'';
-    const fin = inFinisher ? ' • FINISHER x2' : '';
-    hud.setAttribute('text',`value:[${THEME.toUpperCase()}] Score ${score} • Combo ${combo} (Best ${best})${f}${fin}\nให้โน้ตถึงวงฟ้าแล้วกดเลนให้ตรง (A/S/D หรือ L/C/R)\n${msg||''}; width:5.9; align:center; color:#e2e8f0`);
+    hud.setAttribute('text',`value:[${THEME.toUpperCase()}] Score ${score} • Combo ${combo} (Best ${best})${f}\nให้โน้ตถึงวงฟ้าแล้วกดเลนให้ตรง (A/S/D หรือ L/C/R)\n${msg||''}; width:5.9; align:center; color:#e2e8f0`);
   }
   function toast(txt,color="#93c5fd",y=1.05,ms=520){
     const e=document.createElement('a-entity');
@@ -115,13 +139,11 @@
     setTimeout(()=>e.remove(),ms);
   }
 
-  // ---------- Beatmap (เดโม: สร้างโน้ตจาก BPM)
+  // ===== Beatmap (auto gen) =====
   function buildFlatNotes(){
-    const arr=[]; let t=START_OFFSET+0.8; let beat=0;
-    // Tutorial 8 beats: กลาง-ซ้าย-ขวา สลับ + dodge ปน
+    const arr=[]; let t=START_OFFSET+0.8;
     for(let i=0;i<8;i++){ const lane = i%3; arr.push({lane, t:t + i*beatSec*0.9, dodge:false}); }
     t += 8*beatSec*0.9;
-    // Main: 32 notes ปน dodge
     for(let i=0;i<32;i++){
       const lane=(Math.random()*3|0); const isDodge = Math.random()<0.2;
       arr.push({lane, t:t + i*beatSec*0.8, dodge:isDodge});
@@ -129,7 +151,7 @@
     flatNotes=arr.sort((a,b)=>a.t-b.t); nextNoteIdx=0;
   }
 
-  // ---------- Spawn / movement ----------
+  // ===== Spawn / movement =====
   function spawn(it){
     let geom, mat;
     if(it.dodge){ geom='ring; radiusInner:0.06; radiusOuter:0.18'; mat='color:#ef4444; shader:flat; opacity:0.98'; }
@@ -159,7 +181,7 @@
     if(!fever && combo>0 && combo%8===0){ fever=true; feverEnd=elapsed+6; toast('FEVER! ✨','#7dfcc6'); }
   }
 
-  // ---------- Loop ----------
+  // ===== Loop =====
   function loop(){
     if(!running) return;
     const now=performance.now()/1000; const prev=elapsed; const dt=(elapsed=now-t0)-prev;
@@ -169,7 +191,7 @@
       spawn(flatNotes[nextNoteIdx]); nextNoteIdx++;
     }
 
-    const speedZ = (tutorial?1.4:1.65) + (fever?0.12:0) + (inFinisher?0.10:0);
+    const speedZ = (tutorial?1.4:1.65) + (fever?0.12:0);
     for(const it of notes){
       if(it.judged) continue;
       const dtz = it.t - elapsed;
@@ -188,22 +210,21 @@
     setHUD(); raf=requestAnimationFrame(loop);
   }
 
-  // ---------- Flow ----------
+  // ===== Flow =====
   function start(){
     THEME = getThemeName(); swapSky(THEME);
     running=true; t0=performance.now()/1000; elapsed=0;
-    score=0; combo=0; best=0; fever=false; feverEnd=0; inFinisher=false;
+    score=0; combo=0; best=0; fever=false; feverEnd=0;
     notes.splice(0).forEach(n=>n.el?.remove());
     buildLaneUI(); initParticles(); buildFlatNotes();
-    setHUD('Tutorial: ดูจังหวะช้า ๆ ก่อน'); tick(660,0.05,0.18); setTimeout(()=>tick(700,0.05,0.18),200);
-    setTimeout(()=>tick(700,0.05,0.18),600); setTimeout(()=>tick(700,0.05,0.18),1000); setTimeout(()=>tick(900,0.06,0.22),1400);
+    setHUD('Tutorial: ดูจังหวะช้า ๆ ก่อน'); tick(660,0.05,0.18);
     raf=requestAnimationFrame(loop);
   }
   function end(msg){ running=false; cancelAnimationFrame(raf); setHUD(`${msg} • Score ${score}`); }
   function reset(){ running=false; cancelAnimationFrame(raf); notes.splice(0).forEach(n=>n.el?.remove());
     root.__laneUI=false; [...root.children].forEach(k=>k.remove()); setTimeout(()=>{ buildLaneUI(); setHUD('พร้อมเริ่ม'); },0); }
 
-  // ---------- Bind ----------
+  // ===== Bind =====
   function bind(){
     btnStart.onclick=()=>{ ensureAudio(); if(!running) start(); };
     btnReset.onclick=()=>reset();
