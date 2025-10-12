@@ -29,19 +29,11 @@
   </div>
 
   <a-scene renderer="antialias:true" background="color:#000">
-    <a-assets timeout="15000">
-      <img id="bg-jungle" src="../assets/backgrounds/jungle_sky.jpg" crossorigin="anonymous">
-      <img id="bg-city"   src="../assets/backgrounds/city_sky.jpg" crossorigin="anonymous">
-      <img id="bg-space"  src="../assets/backgrounds/space_sky.jpg" crossorigin="anonymous">
-    </a-assets>
-    <a-sky id="sky" radius="30" src="#bg-city" color="#0b1220"></a-sky>
-
+    <a-sky id="sky" radius="30" color="#0b1220"></a-sky>
     <a-entity id="root" position="0 1.25 -3"></a-entity>
     <a-entity id="hud" position="0 0 0"></a-entity>
     <a-entity position="0 1.6 0" camera look-controls></a-entity>
   </a-scene>
-
-  <script src="./config.js"></script>
 
   <script>
     (function(){
@@ -51,6 +43,7 @@
       if (sel) sel.value = t;
       window.__OVERRIDE_THEME = t;
       document.getElementById('status').textContent = 'Loaded • theme='+t;
+
       document.getElementById('btnStart').addEventListener('click', ()=>{
         const val = sel.value;
         window.__OVERRIDE_THEME = val;
