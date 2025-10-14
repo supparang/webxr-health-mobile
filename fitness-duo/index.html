@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fitness Adventure VR (ฟิตเนสดูโอ)</title>
+    <!-- A-Frame CDN -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <!-- Optional hand-tracking (if device supports) -->
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+    <script src="./game.js"></script>
+    <style>
+      .hud { position: fixed; left: 0; right: 0; top: 0; padding: 8px 12px; font-family: system-ui, Arial; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.7); pointer-events: none; z-index: 10000; }
+      .hud .badge { background: rgba(0,0,0,.35); border-radius: 8px; padding: 6px 10px; display: inline-block; margin-right: 8px; }
+      .panel { z-index: 9999; pointer-events: auto;
+        position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: min(92vw, 720px); background: rgba(20, 24, 28, .92);
+        color: #fff; border-radius: 16px; padding: 18px; font-family: system-ui, Arial;
+        box-shadow: 0 10px 30px rgba(0,0,0,.4);
+      }
+      .panel h1 { margin: 0 0 10px; font-size: 28px; }
+      .panel p { opacity: .9; line-height: 1.5; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+      .btn { pointer-events: auto;
+        flex: 1 1 180px; background: #2b74f7; color: #fff; border: 0; border-radius: 12px;
+        padding: 12px 14px; font-size: 16px; cursor: pointer; box-shadow: 0 6px 14px rgba(43,116,247,.35);
+      }
+      .btn.secondary { background: #444c56; box-shadow: none; }
+      .theme-chip {
+        flex: 1 1 160px; background: #20262e; border-radius: 12px; padding: 8px; cursor: pointer;
+        border: 2px solid transparent;
+      }
+      .theme-chip.active { border-color: #2b74f7; }
+      .theme-chip img { width: 100%; border-radius: 8px; display:block; }
+      .theme-chip label { display:block; text-align:center; padding:6px 0; font-weight:600; }
+      .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; background: rgba(0,0,0,.75); color:#fff; padding:10px 14px; border-radius: 999px; font-family: system-ui; display:none; z-index: 10000;}
+      .result { text-align:center; }
+      .stars { font-size: 28px; letter-spacing: 4px; }
+      .kbd { background:#111; padding:2px 6px; border-radius:6px; }
+      a { color: #7fb3ff; }
+      @media (max-width:520px){ .panel{ padding:14px } .panel h1{font-size:22px} }
+    </style>
+  </head>
+  <body>
+    <!-- Menu Panel -->
+    <div id="menuPanel" class="panel">
+      <h1>เกมออกกำลังกาย VR</h1>
+      <p>เลือกธีม อ่านวิธีเล่น แล้วเริ่มได้เลย! รองรับมือถือ (มอง/แตะ) และแว่น VR (กดทริกเกอร์)</p>
+
+      <div class="row" id="themeRow">
+        <div class="theme-chip" data-theme="jungle" onclick="APP.selectTheme('jungle')">
+          <img src="assets/backgrounds/jungle.png" alt="Jungle" />
+          <label>ป่า</label>
+        </div>
+        <div class="theme-chip" data-theme="city" onclick="APP.selectTheme('city')">
+          <img src="assets/backgrounds/city.png" alt="City" />
+          <label>เมือง</label>
+        </div>
+        <div class="theme-chip" data-theme="space" onclick="APP.selectTheme('space')">
+          <img src="assets/backgrounds/space.png" alt="Space" />
+          <label>อวกาศ</label>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="startTimedBtn" class="btn">เริ่มเกม (จับเวลา)</button>
+        <button id="practiceBtn" class="btn secondary">โหมดฝึก (ไม่จับเวลา)</button>
+        <button id="weeklyBtn" class="btn secondary">ภารกิจประจำสัปดาห์</button>
+      </div>
+
+      <details style="margin-top:10px">
+        <summary>วิธีเล่น</summary>
+        <p>แตะ/ยิงเป้าลอยเมื่อปรากฏ ใช้มองแล้วแตะบนมือถือ หรือกดทริกเกอร์บนคอนโทรลเลอร์เพื่อ <span class="kbd">คลิก</span> ทำคอมโบเพื่อรับดาว (1–3) และพยายามอย่าพลาดเป้า!</p>
+        <p>ต้องการเปลี่ยนธีมระหว่างเล่น ให้เปิดเมนูหยุดชั่วคราว (Pause)</p>
+      </details>
+    </div>
+
+    <!-- Result Panel -->
+    <div id="resultPanel" class="panel" style="display:none">
+      <div class="result">
+        <h1>เก่งมาก!</h1>
+        <div id="scoreLine">คะแนน: 0</div>
+        <div id="starLine" class="stars">☆ ☆ ☆</div>
+        <p id="summaryLine">—</p>
+        <div class="row">
+          <button class="btn" onclick="APP.restart()">เล่นอีกครั้ง</button>
+          <button class="btn secondary" onclick="APP.backToMenu()">กลับเมนู</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <!-- HUD -->
+    <div id="hud" class="hud" style="display:none">
+      <span class="badge" id="hudMode">โหมดฝึก</span>
+      <span class="badge" id="hudTime">เวลา: 60</span>
+      <span class="badge" id="hudScore">คะแนน: 0</span>
+      <span class="badge" id="hudCombo">คอมโบ: x1</span>
+      <span class="badge"><a href="#" onclick="APP.pause();return false;">หยุดชั่วคราว</a></span>
+    </div>
+
+    
+<!-- Floating Menu Button -->
+<button id="floatMenuBtn" onclick="APP.backToMenu()" 
+  style="position:fixed; right:12px; top:12px; z-index:10001; pointer-events:auto; 
+         background:#2b74f7; color:#fff; border:none; 
+         padding:10px 12px; border-radius:10px; 
+         font-family: system-ui, Arial; box-shadow:0 6px 14px rgba(43,116,247,.35);">
+  Menu
+</button>
+
+    
+<!-- DEBUG CONSOLE -->
+<div id="debugPanel" style="position:fixed;left:8px;bottom:8px;max-width:min(92vw,680px);
+  background:rgba(0,0,0,.65);color:#fff;font:12px/1.4 system-ui,Arial;padding:8px 10px;
+  border-radius:10px;z-index:10002;display:none;white-space:pre-wrap"></div>
+
+<!-- SAFE START OVERLAY -->
+<div id="safeStart" style="position:fixed;inset:0;background:rgba(0,0,0,.75);color:#fff;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;
+  z-index:10003;">
+  <div style="font-size:22px;font-weight:700;">พร้อมเริ่มใช้งาน</div>
+  <div style="opacity:.9;text-align:center;max-width:80vw">กดปุ่มด้านล่างเพื่อเริ่มเกมอย่างปลอดภัย (รองรับมือถือ/VR)</div>
+  <button id="safeStartBtn" style="background:#2b74f7;color:#fff;border:none;border-radius:12px;
+    padding:12px 16px;font-size:16px;box-shadow:0 6px 14px rgba(43,116,247,.35);cursor:pointer">
+    เริ่มแบบปลอดภัย (โหมดฝึก)
+  </button>
+  <button id="safeStartTimedBtn" style="background:#2b74f7;color:#fff;border:none;border-radius:12px;
+    padding:12px 16px;font-size:16px;box-shadow:0 6px 14px rgba(43,116,247,.35);cursor:pointer">
+    เริ่มแบบปลอดภัย (จับเวลา)
+  </button>
+  <button id="toggleDebugBtn" style="background:#444c56;color:#fff;border:none;border-radius:12px;
+    padding:8px 12px;font-size:13px;cursor:pointer">แสดง/ซ่อน Debug</button>
+</div>
+
+    <!-- A-Frame Scene -->
+    <a-scene embedded vr-mode-ui="enabled: true" renderer="colorManagement: true">
+      <a-assets timeout="10000">
+        <img id="bg-jungle" src="assets/backgrounds/jungle.png" crossorigin="anonymous" />
+        <img id="bg-city"   src="assets/backgrounds/city.png" crossorigin="anonymous" />
+        <img id="bg-space"  src="assets/backgrounds/space.png" crossorigin="anonymous" />
+        <a-asset-item id="click-sound" src=""></a-asset-item>
+      </a-assets>
+
+      <!-- Sky will be set by APP.setThemeSky(...) -->
+      <a-sky id="sky" color="#111122"></a-sky>
+
+      <!-- Target container -->
+      <a-entity id="spawner"></a-entity>
+
+      <!-- Camera rig with cursor for mobile/desktop -->
+      <a-entity id="rig" position="0 1.6 0">
+        <a-camera id="camera" wasd-controls-enabled="false" look-controls="pointerLockEnabled: false">
+          <a-cursor
+            id="cursor"
+            fuse="true"
+            fuse-timeout="600"
+            material="shader: flat; opacity: 0.85"
+            geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01">
+          </a-cursor>
+        </a-camera>
+      </a-entity>
+
+      <!-- Lights -->
+      <a-entity light="type: ambient; color: #BBB"></a-entity>
+      <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
+    </a-scene>
+  </body>
+</html>
