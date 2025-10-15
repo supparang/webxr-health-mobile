@@ -104,3 +104,14 @@ canvas.distort2{filter:contrast(1.12) saturate(1.12) brightness(1.04) blur(0.6px
 .shake-strong{animation:shakeStrong .12s linear infinite}
 @keyframes shakeSlight{0%{transform:translate(0,0)}25%{transform:translate(1px,0)}50%{transform:translate(0,1px)}75%{transform:translate(-1px,0)}100%{transform:translate(0,0)}}
 @keyframes shakeStrong{0%{transform:translate(0,0)}25%{transform:translate(2px,0)}50%{transform:translate(0,2px)}75%{transform:translate(-2px,0)}100%{transform:translate(0,0)}}
+
+/* HP Bar */
+#hpBarWrap{
+  position:fixed;left:50%;bottom:50px;transform:translateX(-50%);
+  width:min(420px,80vw);height:12px;border-radius:10px;overflow:hidden;
+  background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);z-index:10002
+}
+#hpBarFill{
+  height:100%;width:100%;background:linear-gradient(90deg,#4ade80,#16a34a);
+  box-shadow:0 0 14px rgba(34,197,94,.5)
+}
