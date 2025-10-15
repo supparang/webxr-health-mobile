@@ -34,3 +34,11 @@ repeating-linear-gradient(45deg, rgba(0, 255, 255, .06) 0 2px, rgba(0,0,0,0) 3px
 #settingsModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:10004;place-items:center}
 #settingsModal .card{background:#121a22;border:1px solid #22303a;border-radius:14px;padding:16px;color:#e6f7ff;width:min(92vw,520px)}
 #settingsModal.active{display:grid}
+/* FX & HUD+Objective */
+.hud .interactive{pointer-events:auto}
+#objective{position:fixed;left:50%;transform:translateX(-50%);top:56px;
+  background:rgba(0,0,0,.55);padding:8px 12px;border-radius:12px;
+  border:1px solid #23303a;color:#dff8ff;z-index:10001}
+.hit-popup{position:absolute;pointer-events:none;font-weight:800}
+.pop-score{color:#7fffd4;text-shadow:0 1px 8px rgba(0,255,255,.6);opacity:0;transform:translate(-50%,-50%) scale(.9);transition:all .45s ease}
+.pop-score.show{opacity:1; transform:translate(-50%,-90%) scale(1.1)}
