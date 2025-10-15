@@ -1,0 +1,36 @@
+
+:root{--cyan:#39d3e6; --bg:#0b0f14; --panel:#121a22; --text:#e8eef6;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,Arial,sans-serif}
+.center-card{min-height:100vh;display:grid;place-items:center}
+.card{background:var(--panel);border:1px solid #1f2a33;border-radius:16px;padding:20px;width:min(92vw,760px);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+h1{margin:0 0 6px} h2{margin:0 0 14px;opacity:.9;font-size:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.btn{flex:1 1 220px;background:var(--cyan);color:#001018;border:0;border-radius:12px;padding:14px 16px;cursor:pointer;font-weight:700;text-align:center;text-decoration:none}
+.btn.secondary{background:#2a3540;color:#d8e6f0}
+.lang{display:flex;gap:8px;margin:8px 0 14px}
+.lang button{background:#1a2028;color:#cfe9f2;border:1px solid #23303a;padding:6px 10px;border-radius:10px;cursor:pointer}
+.hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;display:flex;gap:8px;pointer-events:none;z-index:9999}
+.badge{background:rgba(0,0,0,.45);padding:6px 10px;border-radius:10px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:rgba(0,0,0,.8);padding:10px 14px;border-radius:999px;display:none;z-index:10000}
+a-scene{pointer-events:auto}
+small.hint{opacity:.8}
+/* bottom HUD */
+.hud.bottom{top:auto;bottom:0;justify-content:space-between}
+/* interactive in HUD */
+.hud .interactive{pointer-events:auto}
+/* Phase C UI */
+#overlayFX{position:fixed;inset:0;pointer-events:none;z-index:10002;mix-blend-mode:screen;opacity:0;transition:opacity .18s ease}
+#overlayFX.overload{opacity:.35; background:
+radial-gradient(60% 60% at 50% 50%, rgba(57,211,230,.12) 0%, rgba(0,0,0,.0) 40%),
+repeating-linear-gradient(45deg, rgba(0, 255, 255, .06) 0 2px, rgba(0,0,0,0) 3px 8px);}
+#skillWheelPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:rgba(10,14,18,.90);border:1px solid #23303a;border-radius:16px;
+  padding:18px;display:none;z-index:10003;min-width:320px;color:#dff8ff}
+#skillWheelPanel.active{display:block}
+#skillWheelPanel h3{margin:0 0 10px;color:#39d3e6}
+#skillWheelPanel .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#skillWheelPanel button{padding:10px;border-radius:12px;border:1px solid #2a3a44;background:#162029;color:#cfe9f2;cursor:pointer}
+#skillWheelPanel button:hover{border-color:#39d3e6}
+#settingsModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:10004;place-items:center}
+#settingsModal .card{background:#121a22;border:1px solid #22303a;border-radius:14px;padding:16px;color:#e6f7ff;width:min(92vw,520px)}
+#settingsModal.active{display:grid}
