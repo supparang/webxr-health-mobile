@@ -23,7 +23,8 @@
     "objectiveBoss":"Objective: จัดการ Mini Boss!",
     "dailyQuests":"เควสต์รายวัน",
     "bossAttack":"บอสโจมตี",
-    "miss":"พลาด"
+    "miss":"พลาด",
+    "reflect":"พลังสะท้อน"
   },
   "en": {
     "title":"SHADOW BREAKER",
@@ -49,6 +50,7 @@
     "objectiveBoss":"Objective: Defeat Mini Boss!",
     "dailyQuests":"Daily Quests",
     "bossAttack":"Boss attack",
-    "miss":"Miss"
+    "miss":"Miss",
+    "reflect":"Reflect"
   }
 }
