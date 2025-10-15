@@ -2,92 +2,76 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Play – Shadow Breaker</title>
+  <title>Shadow Breaker – WebXR</title>
   <link rel="stylesheet" href="src/styles.css"/>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="src/components.js" defer></script>
+  <script>
+    let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
+    const $ = (id)=>document.getElementById(id);
+    const T = (k)=> (I18N && I18N[CUR] && I18N[CUR][k]) || k;
+
+    async function loadI18n(){ const r=await fetch('src/i18n.json'); I18N=await r.json(); applyTexts(); }
+    function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); applyTexts(); }
+    function applyTexts(){
+      if(!I18N) return;
+      $('title').textContent   = T('title');
+      $('subtitle').textContent= T('subtitle');
+      $('lblMode').textContent = T('mode');
+      $('lblTimed').textContent= T('startTimed');
+      $('lblPractice').textContent = T('startPractice');
+      $('lblDiff').textContent = T('difficulty');
+      $('optEasy').textContent   = T('easy');
+      $('optNormal').textContent = T('normal');
+      $('optHard').textContent   = T('hard');
+      $('lblMap').textContent  = T('map');
+      $('mapCity').textContent = T('mapCity');
+      $('mapForest').textContent= T('mapForest');
+      $('mapVoid').textContent  = T('mapVoid');
+      $('btnTH').textContent = 'ไทย';
+      $('btnEN').textContent = 'English';
+    }
+    function start(mode){
+      const diff=$('selDiff').value;
+      const map=document.querySelector('input[name="map"]:checked').value;
+      location.href=`play.html?mode=${mode}&diff=${diff}&map=${map}`;
+    }
+    window.addEventListener('DOMContentLoaded', loadI18n);
+  </script>
 </head>
 <body>
-  <!-- Top HUD -->
-  <div class="hud">
-    <div class="badge" id="hudScore">—</div>
-    <div class="badge" id="hudCombo">—</div>
-    <div class="badge" id="hudTime">—</div>
-    <div class="badge" id="hudArcane">—</div>
-    <div class="badge interactive"><a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a></div>
-    <div class="badge interactive">
-      <button id="btnTH" class="mini">ไทย</button>
-      <button id="btnEN" class="mini">English</button>
+  <div class="center-card">
+    <div class="card">
+      <h1 id="title">SHADOW BREAKER</h1>
+      <h2 id="subtitle">Arcane Spirit • Ritual Combat</h2>
+
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><strong id="lblMode">Mode</strong></div>
+        <div class="row">
+          <button class="btn" id="lblTimed" onclick="start('timed')">Start (Timed)</button>
+          <button class="btn secondary" id="lblPractice" onclick="start('practice')">Practice (No Timer)</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;align-items:center">
+        <div style="min-width:120px"><strong id="lblDiff">Difficulty</strong></div>
+        <select id="selDiff" class="btn secondary" style="flex:0 0 auto">
+          <option value="easy" id="optEasy">Easy</option>
+          <option value="normal" id="optNormal" selected>Normal</option>
+          <option value="hard" id="optHard">Hard</option>
+        </select>
+      </div>
+
+      <div class="row" style="margin-top:12px;align-items:center">
+        <div style="min-width:120px"><strong id="lblMap">Map</strong></div>
+        <label class="chip"><input type="radio" name="map" value="city" checked><span id="mapCity">Neo City</span></label>
+        <label class="chip"><input type="radio" name="map" value="forest"><span id="mapForest">Ancient Forest</span></label>
+        <label class="chip"><input type="radio" name="map" value="void"><span id="mapVoid">Void Arena</span></label>
+      </div>
+
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn secondary" id="btnTH" onclick="setLang('th')">ไทย</button>
+        <button class="btn secondary" id="btnEN" onclick="setLang('en')">English</button>
+      </div>
     </div>
   </div>
-
-  <!-- Bottom HUD -->
-  <div class="hud bottom">
-    <div class="badge" id="hudHP">HP: 100</div>
-    <div class="badge" id="hudOverload">Overload: 0%</div>
-    <div class="badge" id="hudBoss">Boss HP: —</div>
-    <div class="badge interactive"><button id="btnQuest" class="mini">Quests</button></div>
-  </div>
-
-  <div id="toast" class="toast"></div>
-  <div id="objective">Objective: ทำคะแนนให้ถึง 400 เพื่อเรียก Mini Boss</div>
-
-  <!-- Overload Power Bar -->
-  <div id="overloadBarWrap">
-    <div id="overloadBarGlow"></div><div id="overloadBarCrack"></div>
-    <div id="overloadBarFill"></div><div id="overloadBarText">Overload: 0%</div>
-  </div>
-
-  <!-- HP Bar -->
-  <div id="hpBarWrap"><div id="hpBarFill"></div></div>
-
-  <!-- Quests Panel -->
-  <div id="questPanel" class="panel hidden">
-    <div class="panel-header">
-      <span id="qTitle">Daily Quests</span>
-      <button id="qClose" class="mini">×</button>
-    </div>
-    <div id="qList" class="panel-body"></div>
-  </div>
-
-  <!-- Scene -->
-  <a-scene id="scene" shadow-breaker-game renderer="colorManagement: true; physicallyCorrectLights: true; antialias: false; sortObjects: true; foveationLevel: 2; powerPreference: high-performance">
-    <a-assets timeout="10000">
-      <img id="bg_city"   src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
-      <img id="bg_forest" src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
-      <img id="bg_void"   src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
-    </a-assets>
-    <a-sky id="sky" color="#111122" src="#bg_city"></a-sky>
-    <a-entity id="spawner"></a-entity>
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
-      <a-entity cursor="rayOrigin: mouse; fuse:false" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <a-entity laser-controls="hand: left"  raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-    </a-entity>
-    <a-entity light="type: ambient; color: #BBB"></a-entity>
-    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
-  </a-scene>
-
-  <!-- FX overlays -->
-  <div id="overlayFX" aria-hidden="true"><div class="fx-vignette"></div><div class="fx-veil"></div><div class="fx-sparks"></div></div>
-  <div id="heatHaze" aria-hidden="true"></div>
-
-  <script>
-    // map swap by URL
-    const q=new URLSearchParams(location.search);
-    const map=q.get('map')||'city';
-    const sky=document.getElementById('sky');
-    if(map==='forest') sky.setAttribute('src','#bg_forest');
-    else if(map==='void') sky.setAttribute('src','#bg_void');
-    else sky.setAttribute('src','#bg_city');
-
-    // language instant toggle
-    const setLang=(v)=>{ localStorage.setItem('sb_lang', v); if(window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v); };
-    btnTH.onclick=()=>setLang('th'); btnEN.onclick=()=>setLang('en');
-
-    // quests panel toggle
-    const qp=document.getElementById('questPanel'); qClose.onclick=()=>qp.classList.add('hidden'); btnQuest.onclick=()=>qp.classList.toggle('hidden');
-  </script>
 </body>
 </html>
