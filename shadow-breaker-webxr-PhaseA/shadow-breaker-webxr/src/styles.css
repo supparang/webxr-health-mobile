@@ -3,3 +3,22 @@
 .hud.bottom{top:auto;bottom:0;justify-content:space-between}
 /* enable clicks for specific HUD items */
 .hud .interactive { pointer-events: auto; }
+/* === Phase B UI === */
+.hud .interactive{pointer-events:auto}
+#overlayFX{position:fixed;inset:0;pointer-events:none;z-index:10002;mix-blend-mode:screen;opacity:0;transition:opacity .18s ease}
+#overlayFX.overload{opacity:.35; background:
+radial-gradient(60% 60% at 50% 50%, rgba(57,211,230,.12) 0%, rgba(0,0,0,.0) 40%),
+repeating-linear-gradient(45deg, rgba(0, 255, 255, .06) 0 2px, rgba(0,0,0,0) 3px 8px);}
+
+#skillWheelPanel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:rgba(10,14,18,.90);border:1px solid #23303a;border-radius:16px;
+  padding:18px;display:none;z-index:10003;min-width:320px;color:#dff8ff}
+#skillWheelPanel.active{display:block}
+#skillWheelPanel h3{margin:0 0 10px;color:#39d3e6}
+#skillWheelPanel .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#skillWheelPanel button{padding:10px;border-radius:12px;border:1px solid #2a3a44;background:#162029;color:#cfe9f2;cursor:pointer}
+#skillWheelPanel button:hover{border-color:#39d3e6}
+
+#settingsModal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:10004;place-items:center}
+#settingsModal .card{background:#121a22;border:1px solid #22303a;border-radius:14px;padding:16px;color:#e6f7ff;width:min(92vw,520px)}
+#settingsModal.active{display:grid}
