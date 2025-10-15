@@ -5,10 +5,26 @@
   <title>Shadow Breaker – WebXR</title>
   <link rel="stylesheet" href="src/styles.css"/>
   <script>
-    const lang={get(){return localStorage.getItem('sb_lang')||'th'},set(v){localStorage.setItem('sb_lang',v);location.reload();}};
-    async function t(key){const res=await fetch('src/i18n.json');const data=await res.json();const cur=lang.get();return (data[cur]&&data[cur][key])||key;}
-    async function applyText(){document.getElementById('title').textContent=await t('title');document.getElementById('subtitle').textContent=await t('subtitle');document.getElementById('startTimed').textContent=await t('startTimed');document.getElementById('startPractice').textContent=await t('startPractice');}
-    window.addEventListener('DOMContentLoaded', ()=>{applyText();});
+    // i18n in-page (โหลดไฟล์หลักใน play)
+    let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
+    const T=(k)=> (I18N && I18N[CUR] && I18N[CUR][k]) || k;
+    async function loadI18n(){ const r=await fetch('src/i18n.json'); I18N=await r.json(); applyTexts(); }
+    function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); applyTexts(); }
+    function applyTexts(){
+      if(!I18N) return;
+      title.textContent=T('title'); subtitle.textContent=T('subtitle');
+      lblMode.textContent=T('mode');
+      lblTimed.textContent=T('startTimed'); lblPractice.textContent=T('startPractice');
+      lblDiff.textContent=T('difficulty'); optEasy.textContent=T('easy'); optNormal.textContent=T('normal'); optHard.textContent=T('hard');
+      lblMap.textContent=T('map'); mapCity.textContent=T('mapCity'); mapForest.textContent=T('mapForest'); mapVoid.textContent=T('mapVoid');
+      btnTH.textContent='ไทย'; btnEN.textContent='English';
+    }
+    function start(mode){
+      const diff=document.getElementById('selDiff').value;
+      const map=document.querySelector('input[name="map"]:checked').value;
+      location.href=`play.html?mode=${mode}&diff=${diff}&map=${map}`;
+    }
+    window.addEventListener('DOMContentLoaded', loadI18n);
   </script>
 </head>
 <body>
@@ -16,9 +32,34 @@
     <div class="card">
       <h1 id="title">SHADOW BREAKER</h1>
       <h2 id="subtitle">Arcane Spirit • Ritual Combat</h2>
-      <div class="row">
-        <a id="startTimed" class="btn" href="play.html?mode=timed">เริ่มเกม (จับเวลา)</a>
-        <a id="startPractice" class="btn secondary" href="play.html?mode=practice">โหมดฝึก (ไม่จับเวลา)</a>
+
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><strong id="lblMode">Mode</strong></div>
+        <div class="row">
+          <button class="btn" id="lblTimed" onclick="start('timed')">Start (Timed)</button>
+          <button class="btn secondary" id="lblPractice" onclick="start('practice')">Practice (No Timer)</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;align-items:center">
+        <div style="min-width:120px"><strong id="lblDiff">Difficulty</strong></div>
+        <select id="selDiff" class="btn secondary" style="flex:0 0 auto">
+          <option value="easy" id="optEasy">Easy</option>
+          <option value="normal" id="optNormal" selected>Normal</option>
+          <option value="hard" id="optHard">Hard</option>
+        </select>
+      </div>
+
+      <div class="row" style="margin-top:12px;align-items:center">
+        <div style="min-width:120px"><strong id="lblMap">Map</strong></div>
+        <label class="chip"><input type="radio" name="map" value="city" checked><span id="mapCity">Neo City</span></label>
+        <label class="chip"><input type="radio" name="map" value="forest"><span id="mapForest">Ancient Forest</span></label>
+        <label class="chip"><input type="radio" name="map" value="void"><span id="mapVoid">Void Arena</span></label>
+      </div>
+
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn secondary" id="btnTH" onclick="setLang('th')">ไทย</button>
+        <button class="btn secondary" id="btnEN" onclick="setLang('en')">English</button>
       </div>
     </div>
   </div>
