@@ -1,4 +1,7 @@
-// Shadow Breaker – Difficulty + Enemies + Daily Quests + Instant i18n + Overload FX + HP Balance
+// Shadow Breaker – Phase C Packs (A+B+C):
+// C1: Critical Hit + Combo Alert + Hit FX
+// C2: Enemies: Heavy / Split / Trap  (+ Speed / Shield / Curse from before)
+// C3: Score System Pro: Grade + Best Score persist
 (function(){
   const $=(id)=>document.getElementById(id);
   const qs=(sel)=>document.querySelector(sel);
@@ -8,7 +11,7 @@
   // SFX
   const SFX={ctx:null,
     beep(f=880,d=.08,v=.2){try{this.ctx=this.ctx||new (window.AudioContext||window.webkitAudioContext)();const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+d);}catch(e){}},
-    hit(){this.beep(900,.05,.2)}, ok(){this.beep(660,.07,.18)}, warn(){this.beep(160,.12,.25)}
+    hit(){this.beep(920,.05,.2)}, ok(){this.beep(660,.07,.18)}, warn(){this.beep(160,.12,.25)}, crit(){this.beep(1400,.06,.25)}
   };
 
   // Overload bar UI
@@ -23,17 +26,28 @@
     else if(p>=100) wrap.classList.add('z2');
   }
 
-  // Score popup
-  function spawnScorePopup(worldPos, text="+100"){
+  // Score popup (supports crit)
+  function spawnScorePopup(worldPos, text="+100", cls="pop-score"){
     const scene=qs('a-scene'), cam=$('camera'); if(!scene||!cam) return;
     const camera=cam.getObject3D('camera'), renderer=scene.renderer; if(!camera||!renderer) return;
     const v=new THREE.Vector3(worldPos.x,worldPos.y,worldPos.z).project(camera);
     const rect=renderer.domElement.getBoundingClientRect();
     const x=(v.x*.5+.5)*rect.width+rect.left, y=(-v.y*.5+.5)*rect.height+rect.top;
-    const div=document.createElement('div'); div.className='hit-popup pop-score';
+    const div=document.createElement('div'); div.className=`hit-popup ${cls}`;
     div.style.left=x+'px'; div.style.top=y+'px'; div.textContent=text;
     document.body.appendChild(div); requestAnimationFrame(()=>div.classList.add('show'));
     setTimeout(()=>{ div.style.opacity='0'; },380); setTimeout(()=>{ try{div.remove();}catch(e){} },700);
+  }
+
+  // Combo Alert (C1)
+  function comboAlert(combo, dict){
+    const el = document.createElement('div');
+    el.className = 'combo-alert';
+    el.textContent = `${(dict&&dict.combo)||'Combo'} x${combo}!`;
+    document.body.appendChild(el);
+    requestAnimationFrame(()=> el.classList.add('show'));
+    setTimeout(()=>{ el.classList.remove('show'); el.style.opacity='0'; }, 500);
+    setTimeout(()=>{ try{el.remove();}catch(e){} }, 800);
   }
 
   // Daily Quests
@@ -45,9 +59,9 @@
     const q={
       date:today,
       list:[
-        {id:'score1500',   name:{th:'ทำคะแนนรวม 1,500', en:'Reach total score 1,500'}, goal:1500, cur:0, done:false, type:'score'},
-        {id:'combo8',      name:{th:'ทำคอมโบ x8', en:'Reach combo x8'}, goal:8, cur:0, done:false, type:'combo'},
-        {id:'boss1',       name:{th:'ชนะบอส 1 ครั้ง', en:'Defeat 1 boss'}, goal:1, cur:0, done:false, type:'boss'}
+        {id:'score1500', name:{th:'ทำคะแนนรวม 1,500', en:'Reach total score 1,500'}, goal:1500, cur:0, done:false, type:'score'},
+        {id:'combo8',    name:{th:'ทำคอมโบ x8',       en:'Reach combo x8'},        goal:8,    cur:0, done:false, type:'combo'},
+        {id:'boss1',     name:{th:'ชนะบอส 1 ครั้ง',   en:'Defeat 1 boss'},         goal:1,    cur:0, done:false, type:'boss'}
       ]
     };
     localStorage.setItem(QUEST_KEY, JSON.stringify(q)); return q;
@@ -67,19 +81,22 @@
 
   // Difficulty presets
   const DIFF={
-    easy:   {spawnMs:900, lifeMs:3400, timedSec:70, missHP:3, bossHit:6, clickMissHP:1},
-    normal: {spawnMs:800, lifeMs:3200, timedSec:60, missHP:5, bossHit:8, clickMissHP:2},
-    hard:   {spawnMs:650, lifeMs:2800, timedSec:50, missHP:8, bossHit:14, clickMissHP:3}
+    easy:   {spawnMs:900, lifeMs:3400, timedSec:70, missHP:3, bossHit:6,  clickMissHP:1, critBase:0.08},
+    normal: {spawnMs:800, lifeMs:3200, timedSec:60, missHP:5, bossHit:8,  clickMissHP:2, critBase:0.10},
+    hard:   {spawnMs:650, lifeMs:2800, timedSec:50, missHP:8, bossHit:14, clickMissHP:3, critBase:0.12}
   };
 
-  // Enemy types
+  // Enemy types (C2 add Heavy/Split/Trap)
   const ENEMY={
     speed:{radius:0.22, color:'#46ffc8', lifeMul:0.7, score:120},
     shield:{radius:0.28, color:'#6ad1ff', hp:3, score:150},
-    curse:{radius:0.25, color:'#ab6aff', effect:'+OL', score:110}
+    curse:{radius:0.25, color:'#ab6aff', effect:'+OL', score:110},
+    heavy:{radius:0.32, color:'#ff7b5a', hp:4, lifeMul:1.2, score:170},
+    split:{radius:0.24, color:'#ffd257', hp:1, lifeMul:0.9, score:90},
+    trap: {radius:0.24, color:'#ff3fa7', hp:1, lifeMul:1.0, score:130} // on click → +Overload & small self-dmg
   };
 
-  // FX helpers (Overload)
+  // Overload FX helpers
   function applyOverloadFX(val){
     const fx=$('overlayFX'); if(!fx) return;
     fx.classList.remove('stage-mild','stage-danger','stage-critical','stage-z2');
@@ -142,7 +159,8 @@
           playing:false, timeLeft:(this.mode==='timed')?this.cfg.timedSec:9999,
           score:0, combo:1, arcane:0, overload:0, hp:100,
           last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
-          phase:'tutorial', boss:null, idleTimer:0
+          phase:'tutorial', boss:null, idleTimer:0,
+          best: Number(localStorage.getItem('sb_best')||0)
         };
         this.daily=genDaily(); updateQuestUI(this.dict,this.daily);
         this.updateHUD(); this.startGame();
@@ -200,21 +218,29 @@
       if(this.st.hp<=0){ this.endGame(); return; }
     },
 
-    // === Enemy spawn (Speed / Shield / Curse / Normal)
+    // === Enemy spawn (Speed/Shield/Curse + Heavy/Split/Trap)
     spawnTarget:function(){
       const spawner=qs('#spawner');
+      // spawn distribution (sum <=1): tune feel
       const r=Math.random();
       let type='normal';
-      if(r<0.20) type='speed';
-      else if(r<0.35) type='shield';
-      else if(r<0.50) type='curse';
+      if(r<0.16) type='speed';
+      else if(r<0.30) type='shield';
+      else if(r<0.43) type='curse';
+      else if(r<0.55) type='heavy';
+      else if(r<0.70) type='split';
+      else if(r<0.82) type='trap';
+      // else normal
 
       const e=document.createElement('a-entity');
       let radius=0.26, color='#39c5bb', life=this.cfg.lifeMs, hp=1, scoreBase=100;
 
       if(type==='speed'){ radius=ENEMY.speed.radius; color=ENEMY.speed.color; life=this.cfg.lifeMs*ENEMY.speed.lifeMul; scoreBase=ENEMY.speed.score; }
       if(type==='shield'){ radius=ENEMY.shield.radius; color=ENEMY.shield.color; hp=ENEMY.shield.hp; scoreBase=ENEMY.shield.score; }
-      if(type==='curse'){ radius=ENEMY.curse.radius; color=ENEMY.curse.color; scoreBase=ENEMY.curse.score; }
+      if(type==='curse'){ radius=ENEMY.curse.radius;  color=ENEMY.curse.color; scoreBase=ENEMY.curse.score; }
+      if(type==='heavy'){ radius=ENEMY.heavy.radius;  color=ENEMY.heavy.color; hp=ENEMY.heavy.hp; life=this.cfg.lifeMs*ENEMY.heavy.lifeMul; scoreBase=ENEMY.heavy.score; }
+      if(type==='split'){ radius=ENEMY.split.radius;  color=ENEMY.split.color; life=this.cfg.lifeMs*ENEMY.split.lifeMul; scoreBase=ENEMY.split.score; }
+      if(type==='trap'){  radius=ENEMY.trap.radius;   color=ENEMY.trap.color;  life=this.cfg.lifeMs*ENEMY.trap.lifeMul;  scoreBase=ENEMY.trap.score; }
 
       e.setAttribute('geometry',`primitive: sphere; radius: ${radius}`);
       e.setAttribute('material',`color:${color}; emissive:#0af; metalness:0.1; roughness:0.4`);
@@ -227,23 +253,39 @@
       e.addEventListener('click',()=>{
         if(!this.st.playing) return;
 
-        // shield: ต้องคลิกหลายครั้ง
-        if(type==='shield'){
+        // TRAP: on click → punish small
+        if(type==='trap'){
+          this.st.overload = Math.min(130, this.st.overload + 6);
+          this.st.hp = Math.max(0, this.st.hp - 3);
+          toast(`Trap! +OL + HP-3`);
+        }
+
+        // SHIELD: multi-hit
+        if(type==='shield' || type==='heavy'){
           let shp=Number(e.dataset.hp||1);
           shp -= 1;
           if(shp>0){
             e.dataset.hp=shp;
             e.setAttribute('material','color:#bfe8ff; emissive:#4cf; metalness:0.2; roughness:0.2');
             SFX.hit(); spawnShockwave(pos);
-            this.st.overload = Math.min(130, this.st.overload + 0.6);
+            // small overload for shield/heavy ping
+            this.st.overload = Math.min(130, this.st.overload + (type==='heavy'?0.8:0.6));
             this.updateHUD(); return;
           }
         }
 
+        // CRITICAL (C1): base chance + combo scaling
+        const critChance = this.cfg.critBase + Math.min(0.15, (this.st.combo-1)*0.01); // +1% per combo step up to +15%
+        const isCrit = Math.random() < critChance;
+        const critMul = isCrit ? 1.75 : 1.0;
+
         // scoring
-        this.st.combo = Math.min(9, this.st.combo+1);
-        const add = scoreBase + (this.st.combo-1)*10;
+        this.st.combo = Math.min(20, this.st.combo+1);
+        const add = Math.round((scoreBase + (this.st.combo-1)*10) * critMul);
         this.st.score += add;
+
+        // Combo alert at thresholds
+        if(this.st.combo===5 || this.st.combo===10 || this.st.combo===15){ comboAlert(this.st.combo, this.dict); }
 
         // quests
         const q=this.daily;
@@ -254,14 +296,44 @@
 
         // resources & overload
         this.st.arcane = Math.min(100, this.st.arcane+3);
-        let olGain = 1 + Math.max(0,(this.st.combo-1))*0.5;
+        let olGain = 1 + Math.max(0,(this.st.combo-1))*0.5 + (isCrit?0.5:0);
         if(type==='curse') olGain += 2;
         this.st.overload = Math.min(130, this.st.overload + olGain);
 
         this.st.idleTimer = 0;
-        spawnScorePopup(pos, '+'+add);
-        SFX.hit();
-        if(this.st.boss){ this.damageBoss(type==='curse'?4:3); }
+        spawnScorePopup(pos, (isCrit?`${T(this.dict,'crit','CRIT!')} +${add}`:`+${add}`), isCrit?'pop-crit':'pop-score');
+        isCrit? SFX.crit() : SFX.hit();
+
+        // Boss damage
+        if(this.st.boss){ this.damageBoss(isCrit ? 6 : (type==='curse'?4:3)); }
+
+        // Split: spawn two small children on kill
+        if(type==='split'){
+          try{
+            const child = (dx)=> {
+              const ch=document.createElement('a-entity');
+              ch.setAttribute('geometry','primitive: sphere; radius: 0.18');
+              ch.setAttribute('material','color:#ffe48f; emissive:#ffda6a; metalness:0.1; roughness:0.4');
+              ch.setAttribute('position',`${pos.x+dx} ${pos.y} ${pos.z-0.1}`);
+              ch.classList.add('clickable');
+              ch.setAttribute('animation__pulse','property: scale; to:1.14 1.14 1.14; dir:alternate; loop:true; dur:550');
+              // simple one-click child
+              ch.addEventListener('click',()=>{
+                if(!this.st.playing) return;
+                this.st.combo=Math.min(20,this.st.combo+1);
+                const add2=80 + (this.st.combo-1)*8; this.st.score+=add2;
+                this.st.arcane=Math.min(100,this.st.arcane+2);
+                this.st.overload=Math.min(130,this.st.overload+0.8);
+                spawnScorePopup(ch.object3D.position, `+${add2}`);
+                SFX.hit(); ch.remove(); this.updateHUD();
+              });
+              setTimeout(()=>{ if(ch.parentNode){ ch.remove(); this.st.combo=1; this.st.hp=Math.max(0,this.st.hp-this.cfg.missHP); this.updateHUD(); } }, this.cfg.lifeMs*0.6);
+              qs('#spawner').appendChild(ch);
+            };
+            child(-0.12); child(0.12);
+          }catch(e){}
+        }
+
         try{ spawnShockwave(pos); }catch(e){}
         this.updateHUD();
         e.remove();
@@ -281,7 +353,7 @@
       spawner.appendChild(e);
     },
 
-    // Skill wheel
+    // Skill wheel (เดิม)
     openSkillWheel:function(){
       const opts=[
         {k:'pulse',label:'Arcane Pulse',cost:10,over:6},
@@ -301,11 +373,7 @@
       this.raiseOverload(c.over); this.st.idleTimer=0; try{ spawnShockwave({x:0,y:1.5,z:-2}); }catch(e){}
       this.updateHUD();
     },
-
-    castArcanePulse:function(){
-      Array.from(document.querySelectorAll('.clickable')).forEach(el=>{ try{ el.emit('click'); }catch(e){} });
-      if(this.st.boss){ this.damageBoss(12); } toast('Arcane Pulse!');
-    },
+    castArcanePulse:function(){ Array.from(document.querySelectorAll('.clickable')).forEach(el=>{ try{ el.emit('click'); }catch(e){} }); if(this.st.boss){ this.damageBoss(12); } toast('Arcane Pulse!'); },
     castShadowBind:function(){ if(this.st.boss){ this.damageBoss(5); } toast('Shadow Bind!'); },
     castArcaneBurst:function(){ if(this.st.boss){ this.damageBoss(20); } toast('Arcane Burst!'); },
 
@@ -317,7 +385,7 @@
     // Boss
     spawnMiniBoss:function(){
       if(this.st.boss) return;
-      const b={ hp:140, el:document.createElement('a-entity'), t:0 };
+      const b={ hp:160, el:document.createElement('a-entity'), t:0 };
       b.el.setAttribute('geometry','primitive: icosahedron; radius: 0.6');
       b.el.setAttribute('material','color:#17394a; emissive:#0ff; metalness:0.2; roughness:0.2');
       b.el.setAttribute('position',{x:0,y:1.6,z:-2.6});
@@ -344,7 +412,20 @@
       } else { this.updateHUD(); }
     },
 
-    endGame:function(){ this.st.playing=false; toast(`${T(this.dict,'finished','Finished')} • ${T(this.dict,'score','Score')}: ${this.st.score}`,2000); },
+    // C3: End + Grade + Best Score persist
+    endGame:function(){
+      this.st.playing=false;
+      // persist best score
+      const best = Number(localStorage.getItem('sb_best')||0);
+      if(this.st.score > best){ localStorage.setItem('sb_best', String(this.st.score)); this.st.best = this.st.score; }
+      // grade
+      const s=this.st.score, combo=this.st.combo, timeUsed=(this.mode==='timed')? (this.cfg.timedSec - this.st.timeLeft) : 0;
+      const grade = (s>=3000 || (s>=2200 && combo>=12)) ? 'S' :
+                    (s>=1800 || (s>=1400 && combo>=10)) ? 'A' :
+                    (s>=900) ? 'B' : 'C';
+      const msg = `${(this.dict&&this.dict['finished'])||'Finished'} • ${(this.dict&&this.dict['score'])||'Score'}: ${s} • ${(this.dict&&this.dict['grade'])||'Grade'}: ${grade} • ${(this.dict&&this.dict['best'])||'Best'}: ${Math.max(best,this.st.score)}`;
+      toast(msg, 2800);
+    },
 
     manualRay:function(evt){
       this.st.idleTimer=0;
@@ -367,6 +448,5 @@
     }
   });
 
-  // expose helpers if needed (debug)
-  window.__SB_DEBUG__ = { updateOverloadUI, applyOverloadFX, applyOverloadFX3 };
+  window.__SB_DEBUG__ = {};
 })();
