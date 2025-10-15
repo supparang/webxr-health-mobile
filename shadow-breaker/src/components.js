@@ -1,20 +1,21 @@
-// Shadow Breaker – Phase C Packs (A+B+C):
-// C1: Critical Hit + Combo Alert + Hit FX
-// C2: Enemies: Heavy / Split / Trap  (+ Speed / Shield / Curse from before)
-// C3: Score System Pro: Grade + Best Score persist
+// Shadow Breaker – Phase C Packs + HP Rebalance:
+// - C1: Critical Hit + Combo Alert + Hit FX
+// - C2: Enemies: Heavy / Split / Trap (+ Speed / Shield / Curse)
+// - C3: Score System Pro: Grade + Best Score persist
+// - HP Rebalance: damage cooldown + softer OL drain + lower damage presets
 (function(){
   const $=(id)=>document.getElementById(id);
   const qs=(sel)=>document.querySelector(sel);
   const T=(dict,k,def)=> (dict && dict[k]) || def || k;
   const toast=(m,ms=900)=>{const t=$('toast'); if(!t) return; t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',ms);};
 
-  // SFX
+  // ===== SFX =====
   const SFX={ctx:null,
     beep(f=880,d=.08,v=.2){try{this.ctx=this.ctx||new (window.AudioContext||window.webkitAudioContext)();const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+d);}catch(e){}},
     hit(){this.beep(920,.05,.2)}, ok(){this.beep(660,.07,.18)}, warn(){this.beep(160,.12,.25)}, crit(){this.beep(1400,.06,.25)}
   };
 
-  // Overload bar UI
+  // ===== Overload bar UI =====
   function updateOverloadUI(val){
     const wrap=$('overloadBarWrap'), fill=$('overloadBarFill'), text=$('overloadBarText');
     if(!wrap||!fill||!text) return;
@@ -26,7 +27,7 @@
     else if(p>=100) wrap.classList.add('z2');
   }
 
-  // Score popup (supports crit)
+  // ===== Score popup (supports crit) =====
   function spawnScorePopup(worldPos, text="+100", cls="pop-score"){
     const scene=qs('a-scene'), cam=$('camera'); if(!scene||!cam) return;
     const camera=cam.getObject3D('camera'), renderer=scene.renderer; if(!camera||!renderer) return;
@@ -39,31 +40,28 @@
     setTimeout(()=>{ div.style.opacity='0'; },380); setTimeout(()=>{ try{div.remove();}catch(e){} },700);
   }
 
-  // Combo Alert (C1)
+  // ===== Combo Alert (C1) =====
   function comboAlert(combo, dict){
-    const el = document.createElement('div');
-    el.className = 'combo-alert';
-    el.textContent = `${(dict&&dict.combo)||'Combo'} x${combo}!`;
+    const el=document.createElement('div');
+    el.className='combo-alert';
+    el.textContent=`${(dict&&dict.combo)||'Combo'} x${combo}!`;
     document.body.appendChild(el);
     requestAnimationFrame(()=> el.classList.add('show'));
     setTimeout(()=>{ el.classList.remove('show'); el.style.opacity='0'; }, 500);
     setTimeout(()=>{ try{el.remove();}catch(e){} }, 800);
   }
 
-  // Daily Quests
+  // ===== Daily Quests =====
   const QUEST_KEY='sb_daily_v1';
   function genDaily(){
     const today=new Date().toISOString().slice(0,10);
     const exist=JSON.parse(localStorage.getItem(QUEST_KEY)||'{}');
     if(exist.date===today) return exist;
-    const q={
-      date:today,
-      list:[
-        {id:'score1500', name:{th:'ทำคะแนนรวม 1,500', en:'Reach total score 1,500'}, goal:1500, cur:0, done:false, type:'score'},
-        {id:'combo8',    name:{th:'ทำคอมโบ x8',       en:'Reach combo x8'},        goal:8,    cur:0, done:false, type:'combo'},
-        {id:'boss1',     name:{th:'ชนะบอส 1 ครั้ง',   en:'Defeat 1 boss'},         goal:1,    cur:0, done:false, type:'boss'}
-      ]
-    };
+    const q={ date:today, list:[
+      {id:'score1500', name:{th:'ทำคะแนนรวม 1,500', en:'Reach total score 1,500'}, goal:1500, cur:0, done:false, type:'score'},
+      {id:'combo8',    name:{th:'ทำคอมโบ x8',       en:'Reach combo x8'},        goal:8,    cur:0, done:false, type:'combo'},
+      {id:'boss1',     name:{th:'ชนะบอส 1 ครั้ง',   en:'Defeat 1 boss'},         goal:1,    cur:0, done:false, type:'boss'}
+    ]};
     localStorage.setItem(QUEST_KEY, JSON.stringify(q)); return q;
   }
   function saveDaily(q){ localStorage.setItem(QUEST_KEY, JSON.stringify(q)); }
@@ -72,21 +70,21 @@
     title.textContent=T(dict,'dailyQuests','Daily Quests');
     box.innerHTML='';
     q.list.forEach(it=>{
-      const line=document.createElement('div');
       const nm = it.name[(localStorage.getItem('sb_lang')||'th')];
+      const line=document.createElement('div');
       line.textContent=`• ${nm} — ${it.cur}/${it.goal} ${it.done?'✓':''}`;
       box.appendChild(line);
     });
   }
 
-  // Difficulty presets
+  // ===== Difficulty presets (HP-reduced damage) =====
   const DIFF={
-    easy:   {spawnMs:900, lifeMs:3400, timedSec:70, missHP:3, bossHit:6,  clickMissHP:1, critBase:0.08},
-    normal: {spawnMs:800, lifeMs:3200, timedSec:60, missHP:5, bossHit:8,  clickMissHP:2, critBase:0.10},
-    hard:   {spawnMs:650, lifeMs:2800, timedSec:50, missHP:8, bossHit:14, clickMissHP:3, critBase:0.12}
+    easy:   {spawnMs:900, lifeMs:3400, timedSec:70, missHP:1, bossHit:4,  clickMissHP:0, critBase:0.08},
+    normal: {spawnMs:800, lifeMs:3200, timedSec:60, missHP:3, bossHit:6,  clickMissHP:1, critBase:0.10},
+    hard:   {spawnMs:650, lifeMs:2800, timedSec:50, missHP:5, bossHit:10, clickMissHP:2, critBase:0.12}
   };
 
-  // Enemy types (C2 add Heavy/Split/Trap)
+  // ===== Enemy types (C2 add Heavy/Split/Trap) =====
   const ENEMY={
     speed:{radius:0.22, color:'#46ffc8', lifeMul:0.7, score:120},
     shield:{radius:0.28, color:'#6ad1ff', hp:3, score:150},
@@ -96,7 +94,7 @@
     trap: {radius:0.24, color:'#ff3fa7', hp:1, lifeMul:1.0, score:130} // on click → +Overload & small self-dmg
   };
 
-  // Overload FX helpers
+  // ===== Overload FX helpers =====
   function applyOverloadFX(val){
     const fx=$('overlayFX'); if(!fx) return;
     fx.classList.remove('stage-mild','stage-danger','stage-critical','stage-z2');
@@ -143,7 +141,7 @@
     }catch(e){}
   }
 
-  // === Component ===
+  // ===== Component =====
   AFRAME.registerComponent('shadow-breaker-game',{
     init:function(){
       const q=new URLSearchParams(location.search);
@@ -160,7 +158,8 @@
           score:0, combo:1, arcane:0, overload:0, hp:100,
           last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
           phase:'tutorial', boss:null, idleTimer:0,
-          best: Number(localStorage.getItem('sb_best')||0)
+          best: Number(localStorage.getItem('sb_best')||0),
+          dmgCD:0, olTick:0 // <<< HP cooldown + overload tick timer
         };
         this.daily=genDaily(); updateQuestUI(this.dict,this.daily);
         this.updateHUD(); this.startGame();
@@ -190,6 +189,16 @@
       updateQuestUI(this.dict,this.daily);
     },
 
+    // === New: damage intake with cooldown ===
+    takeDamage:function(amount,label){
+      if(amount<=0) return;
+      if(this.st.dmgCD>0) return;           // brief invulnerability window
+      this.st.hp = Math.max(0, this.st.hp - amount);
+      this.st.dmgCD = 0.6;                   // 0.6s cooldown between damage ticks
+      if(label){ toast(`-${Math.round(amount)} HP (${label})`); }
+      this.updateHUD();
+    },
+
     loop:function(){
       if(!this.st.playing) return;
       requestAnimationFrame(this.loop.bind(this));
@@ -209,19 +218,30 @@
         if(this.st.timeLeft<=0){ this.endGame(); return; }
       }
 
+      // idle lowers OL a bit
       this.st.idleTimer += dt;
       if(this.st.idleTimer >= 3){ this.st.overload = Math.max(0, this.st.overload - 0.5*dt); }
-      if(this.st.overload >= 80 && this.st.overload < 100){ this.st.hp = Math.max(0, this.st.hp - 1*dt); }
-      if(this.st.overload >= 100){ this.st.hp = Math.max(0, this.st.hp - 5*dt); }
+
+      // Overload drains HP in pulses (SOFTER) + damage cooldown ticking
+      this.st.olTick += dt;
+      if(this.st.overload>=80 && this.st.overload<100 && this.st.olTick>=0.5){
+        this.takeDamage(0.4, 'Overload');   // softer than before
+        this.st.olTick = 0;
+      } else if(this.st.overload>=100 && this.st.olTick>=0.4){
+        this.takeDamage(1.2, 'Overload+');  // softer than before
+        this.st.olTick = 0;
+      }
+
+      if(this.st.dmgCD>0) this.st.dmgCD = Math.max(0, this.st.dmgCD - dt);
 
       this.updateHUD();
       if(this.st.hp<=0){ this.endGame(); return; }
     },
 
-    // === Enemy spawn (Speed/Shield/Curse + Heavy/Split/Trap)
+    // === Enemy spawn (Speed/Shield/Curse + Heavy/Split/Trap) ===
     spawnTarget:function(){
       const spawner=qs('#spawner');
-      // spawn distribution (sum <=1): tune feel
+      // distribution
       const r=Math.random();
       let type='normal';
       if(r<0.16) type='speed';
@@ -230,7 +250,6 @@
       else if(r<0.55) type='heavy';
       else if(r<0.70) type='split';
       else if(r<0.82) type='trap';
-      // else normal
 
       const e=document.createElement('a-entity');
       let radius=0.26, color='#39c5bb', life=this.cfg.lifeMs, hp=1, scoreBase=100;
@@ -256,11 +275,11 @@
         // TRAP: on click → punish small
         if(type==='trap'){
           this.st.overload = Math.min(130, this.st.overload + 6);
-          this.st.hp = Math.max(0, this.st.hp - 3);
-          toast(`Trap! +OL + HP-3`);
+          this.takeDamage(3,'Trap');
+          toast(`Trap! +OL`);
         }
 
-        // SHIELD: multi-hit
+        // SHIELD/HEAVY: multi-hit
         if(type==='shield' || type==='heavy'){
           let shp=Number(e.dataset.hp||1);
           shp -= 1;
@@ -268,14 +287,13 @@
             e.dataset.hp=shp;
             e.setAttribute('material','color:#bfe8ff; emissive:#4cf; metalness:0.2; roughness:0.2');
             SFX.hit(); spawnShockwave(pos);
-            // small overload for shield/heavy ping
-            this.st.overload = Math.min(130, this.st.overload + (type==='heavy'?0.8:0.6));
+            this.st.overload = Math.min(130, this.st.overload + (type==='heavy'?0.8:0.6)); // small OL per ping
             this.updateHUD(); return;
           }
         }
 
-        // CRITICAL (C1): base chance + combo scaling
-        const critChance = this.cfg.critBase + Math.min(0.15, (this.st.combo-1)*0.01); // +1% per combo step up to +15%
+        // CRITICAL (C1)
+        const critChance = this.cfg.critBase + Math.min(0.15, (this.st.combo-1)*0.01);
         const isCrit = Math.random() < critChance;
         const critMul = isCrit ? 1.75 : 1.0;
 
@@ -284,7 +302,7 @@
         const add = Math.round((scoreBase + (this.st.combo-1)*10) * critMul);
         this.st.score += add;
 
-        // Combo alert at thresholds
+        // Combo alert thresholds
         if(this.st.combo===5 || this.st.combo===10 || this.st.combo===15){ comboAlert(this.st.combo, this.dict); }
 
         // quests
@@ -317,7 +335,6 @@
               ch.setAttribute('position',`${pos.x+dx} ${pos.y} ${pos.z-0.1}`);
               ch.classList.add('clickable');
               ch.setAttribute('animation__pulse','property: scale; to:1.14 1.14 1.14; dir:alternate; loop:true; dur:550');
-              // simple one-click child
               ch.addEventListener('click',()=>{
                 if(!this.st.playing) return;
                 this.st.combo=Math.min(20,this.st.combo+1);
@@ -327,7 +344,7 @@
                 spawnScorePopup(ch.object3D.position, `+${add2}`);
                 SFX.hit(); ch.remove(); this.updateHUD();
               });
-              setTimeout(()=>{ if(ch.parentNode){ ch.remove(); this.st.combo=1; this.st.hp=Math.max(0,this.st.hp-this.cfg.missHP); this.updateHUD(); } }, this.cfg.lifeMs*0.6);
+              setTimeout(()=>{ if(ch.parentNode){ ch.remove(); this.st.combo=1; this.takeDamage(this.cfg.missHP, T(this.dict,'miss','Miss')); this.updateHUD(); } }, this.cfg.lifeMs*0.6);
               qs('#spawner').appendChild(ch);
             };
             child(-0.12); child(0.12);
@@ -344,8 +361,7 @@
           e.remove();
           this.st.combo = 1;
           this.st.overload = Math.max(0, this.st.overload - 1);
-          this.st.hp = Math.max(0, this.st.hp - this.cfg.missHP);
-          toast(`-${this.cfg.missHP} HP (${T(this.dict,'miss','Miss')})`);
+          this.takeDamage(this.cfg.missHP, T(this.dict,'miss','Miss'));
           this.updateHUD();
         }
       }, life);
@@ -353,7 +369,7 @@
       spawner.appendChild(e);
     },
 
-    // Skill wheel (เดิม)
+    // === Skill wheel ===
     openSkillWheel:function(){
       const opts=[
         {k:'pulse',label:'Arcane Pulse',cost:10,over:6},
@@ -382,7 +398,7 @@
       this.st.idleTimer=0; updateOverloadUI(this.st.overload); applyOverloadFX(this.st.overload); applyOverloadFX3(this.st.overload);
     },
 
-    // Boss
+    // === Boss ===
     spawnMiniBoss:function(){
       if(this.st.boss) return;
       const b={ hp:160, el:document.createElement('a-entity'), t:0 };
@@ -395,8 +411,7 @@
       const atk=()=>{
         if(!this.st.boss || !this.st.playing || this.st.hp<=0) return;
         const dmg=this.cfg.bossHit + Math.floor(this.st.overload/50);
-        this.st.hp=Math.max(0,this.st.hp-dmg);
-        toast(`-${dmg} HP (${T(this.dict,'bossAttack','Boss attack')})`);
+        this.takeDamage(dmg, T(this.dict,'bossAttack','Boss attack'));
         try{ spawnShockwave({x:0,y:1.5,z:-2.2}); }catch(e){}
         this.updateHUD();
         if(this.st.hp>0 && this.st.boss) setTimeout(atk, 1800);
@@ -412,14 +427,12 @@
       } else { this.updateHUD(); }
     },
 
-    // C3: End + Grade + Best Score persist
+    // === End + Grade + Best Score persist (C3) ===
     endGame:function(){
       this.st.playing=false;
-      // persist best score
       const best = Number(localStorage.getItem('sb_best')||0);
       if(this.st.score > best){ localStorage.setItem('sb_best', String(this.st.score)); this.st.best = this.st.score; }
-      // grade
-      const s=this.st.score, combo=this.st.combo, timeUsed=(this.mode==='timed')? (this.cfg.timedSec - this.st.timeLeft) : 0;
+      const s=this.st.score, combo=this.st.combo;
       const grade = (s>=3000 || (s>=2200 && combo>=12)) ? 'S' :
                     (s>=1800 || (s>=1400 && combo>=10)) ? 'A' :
                     (s>=900) ? 'B' : 'C';
@@ -427,6 +440,7 @@
       toast(msg, 2800);
     },
 
+    // === Manual ray + click-miss damage uses cooldown ===
     manualRay:function(evt){
       this.st.idleTimer=0;
       const sceneEl=qs('a-scene'), camEl=$('camera');
@@ -441,8 +455,7 @@
         let obj=hits[0].object; while(obj && !obj.el) obj=obj.parent;
         if(obj && obj.el) obj.el.emit('click');
       }else{
-        this.st.hp=Math.max(0,this.st.hp-this.cfg.clickMissHP);
-        toast(`-${this.cfg.clickMissHP} HP (${T(this.dict,'reflect','Reflect')})`);
+        this.takeDamage(this.cfg.clickMissHP, T(this.dict,'reflect','Reflect'));
         this.updateHUD();
       }
     }
