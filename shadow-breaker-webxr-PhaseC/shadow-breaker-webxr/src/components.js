@@ -1,35 +1,85 @@
-// src/components.js  — Minimal Stable (Phase A) ✔ spawns for sure
+// src/components.js — Phase A + Hit FX + Score Popup + Objective HUD (รวมข้อ 3 ทั้งหมด)
 (function(){
   const $=(id)=>document.getElementById(id);
   const qs=(sel)=>document.querySelector(sel);
   const toast=(m,ms=900)=>{const t=$('toast'); if(!t) return; t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',ms);};
 
+  // ===== 3.1: เสียงสั้น + FX Helper =====
+  const SFX = {
+    ctx:null,
+    beep(f=880,d=.08,v=.2){ try{
+      this.ctx=this.ctx||new (window.AudioContext||window.webkitAudioContext)();
+      const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+      o.type='square'; o.frequency.value=f; g.gain.value=v;
+      o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime+d);
+    }catch(e){} },
+    hit(){ this.beep(900,.05,.2); }, ok(){ this.beep(660,.07,.18); }, warn(){ this.beep(160,.12,.25); }
+  };
+
+  function spawnHitSpark(pos){
+    const el=document.createElement('a-entity');
+    el.setAttribute('geometry','primitive: ring; radiusInner:0.02; radiusOuter:0.18');
+    el.setAttribute('material','color:#39d3e6; opacity:0.9; side:double');
+    el.setAttribute('rotation','0 0 0');
+    el.setAttribute('position', pos);
+    el.setAttribute('animation__scale','property: scale; to:1.8 1.8 1.8; dur:180; easing:easeOutQuad');
+    el.setAttribute('animation__fade','property: components.material.material.opacity; to:0; dur:220; delay:60');
+    document.querySelector('a-scene').appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(e){} }, 260);
+  }
+
+  function spawnScorePopup(worldPos, text="+100"){
+    // 3D -> 2D screen space popup
+    const scene=document.querySelector('a-scene'); const cam=document.getElementById('camera');
+    if(!scene || !cam) return;
+    const camera=cam.getObject3D('camera'); const renderer=scene.renderer;
+    if(!camera || !renderer) return;
+
+    const v = new THREE.Vector3(worldPos.x, worldPos.y, worldPos.z).project(camera);
+    const rect = renderer.domElement.getBoundingClientRect();
+    const x = (v.x * .5 + .5) * rect.width + rect.left;
+    const y = (-v.y * .5 + .5) * rect.height + rect.top;
+
+    const div=document.createElement('div');
+    div.className='hit-popup pop-score';
+    div.style.position='absolute';
+    div.style.left = x+'px'; div.style.top = y+'px';
+    div.textContent=text;
+    document.body.appendChild(div);
+    requestAnimationFrame(()=> div.classList.add('show'));
+    setTimeout(()=>{ div.style.opacity='0'; }, 380);
+    setTimeout(()=>{ try{ div.remove(); }catch(e){} }, 700);
+  }
+
   AFRAME.registerComponent('shadow-breaker-game',{
     init:function(){
       this.mode=(new URLSearchParams(location.search).get('mode')==='timed')?'timed':'practice';
       this.dict={};
-      // load i18n
       fetch('src/i18n.json').then(r=>r.json()).then(data=>{
         const cur = localStorage.getItem('sb_lang') || 'th';
         this.dict = data[cur] || data['th'] || {};
-        // game state
         this.st={
           playing:false,
           timeLeft:(this.mode==='timed')?60:9999,
           score:0, combo:1, arcane:0, overload:0, hp:100,
           last:performance.now(),
-          spawnEveryMs:800,                 // เร็วขึ้นนิด
-          spawnTimer:performance.now()-801, // บังคับให้สปอว์นตั้งแต่เฟรมแรก
+          spawnEveryMs:800,
+          spawnTimer:performance.now()-801, // ให้เกิดเป้าตั้งแต่เฟรมแรก
           phase:'tutorial', boss:null
         };
         this.updateHUD();
         this.startGame();
         toast(this.dict['missionStart']||'Mission Start');
+
         const bw=$('btnSkillWheel'); if(bw){ bw.onclick=()=>this.openSkillWheel(); }
         window.addEventListener('keydown',(e)=>{ if(e.key==='q'||e.key==='Q') this.openSkillWheel(); });
+
+        // ===== 3.2: ตั้ง Objective เริ่มต้น =====
+        const obj = $('objective');
+        if(obj) obj.textContent = 'Objective: ทำคะแนนให้ถึง 400 เพื่อเรียก Mini Boss';
       });
 
-      // Fallback mouse ray (นอกจาก cursor/laser ของ A-Frame)
+      // mouse ray fallback
       window.addEventListener('click', this.manualRay.bind(this), {passive:false});
     },
 
@@ -55,19 +105,19 @@
       const dt=(now-this.st.last)/1000;
       this.st.last=now;
 
-      // สปอว์นแน่นอน
       if(now - this.st.spawnTimer > this.st.spawnEveryMs){
         this.st.spawnTimer = now;
         this.spawnTarget();
       }
 
-      // mini boss
+      // ===== 3.3: mission flow + ปรับ Objective ตอนบอสเข้า =====
       if(this.st.phase==='tutorial' && this.st.score>=400){
         this.st.phase='boss';
+        const obj = $('objective');
+        if(obj) obj.textContent = 'Objective: จัดการ Mini Boss!';
         this.spawnMiniBoss();
       }
 
-      // จับเวลาใช้ this.mode เท่านั้น
       if(this.mode==='timed'){
         this.st.timeLeft=Math.max(0,this.st.timeLeft-dt);
         $('hudTime').textContent = `${(this.dict['time']||'Time')}: ${Math.ceil(this.st.timeLeft)}`;
@@ -75,41 +125,50 @@
       }
     },
 
-    // ===== Targets =====
+    // ===== 3.4: spawnTarget() ใหม่ (FX + popup + กันพลาด spawner) =====
     spawnTarget:function(){
       let spawner = qs('#spawner');
       if(!spawner){
-        // กันพลาดถ้าไม่มี spawner ใน HTML
-        spawner = document.createElement('a-entity');
-        spawner.id='spawner';
-        const scene=qs('a-scene'); scene && scene.appendChild(spawner);
+        spawner = document.createElement('a-entity'); spawner.id='spawner';
+        qs('a-scene')?.appendChild(spawner);
       }
 
       const e=document.createElement('a-entity');
-      e.setAttribute('geometry','primitive: sphere; radius: 0.26'); // ใหญ่ขึ้น
+      e.setAttribute('geometry','primitive: sphere; radius: 0.26');
       e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
       const rx=(Math.random()*2-1)*0.9, ry=1.2+Math.random()*0.6, rz=-2.0-Math.random()*0.5;
-      e.setAttribute('position',{x:rx,y:ry,z:rz});
+      const pos={x:rx,y:ry,z:rz};
+      e.setAttribute('position', pos);
       e.classList.add('clickable');
       e.setAttribute('animation__pulse','property: scale; to:1.18 1.18 1.18; dir:alternate; loop:true; dur:600');
 
       e.addEventListener('click',()=>{
         if(!this.st.playing) return;
-        this.st.combo=Math.min(9,this.st.combo+1);
-        this.st.score+=100+(this.st.combo-1)*10;
-        this.st.arcane=Math.min(100,this.st.arcane+3);
+        this.st.combo = Math.min(9, this.st.combo+1);
+        const add = 100 + (this.st.combo-1)*10;
+        this.st.score += add;
+        this.st.arcane = Math.min(100, this.st.arcane+3);
         this.updateHUD();
+
+        // FX + เสียง + popup
+        const wp = e.getAttribute('position');
+        spawnHitSpark(wp);
+        spawnScorePopup(wp, '+'+add);
+        SFX.hit();
+
         if(this.st.boss){ this.damageBoss(3); }
         e.remove();
-        toast((this.dict['great']||'Great! +100'));
       });
 
-      // อายุเป้า 3.2s เพื่อให้เห็นชัด
-      setTimeout(()=>{ if(e.parentNode){ e.remove(); this.st.combo=1; } }, 3200);
+      // อายุเป้า
+      setTimeout(()=>{
+        if(e.parentNode){
+          e.remove();
+          this.st.combo = 1; // หลุดคอมโบเมื่อพลาด
+        }
+      }, 3200);
 
       spawner.appendChild(e);
-      // DEBUG: เปิดดูได้ในคอนโซล
-      // console.log('[ShadowBreaker] spawnTarget');
     },
 
     // ===== Skills (Phase A quick) =====
@@ -152,7 +211,7 @@
       boss.el.setAttribute('material','color:#17394a; emissive:#0ff; metalness:0.2; roughness:0.2');
       boss.el.setAttribute('position',{x:0,y:1.6,z:-2.6});
       boss.el.classList.add('boss');
-      const spawner=qs('#spawner'); spawner && spawner.appendChild(boss.el);
+      qs('#spawner')?.appendChild(boss.el);
       this.st.boss=boss;
       this.updateHUD();
       toast(this.dict['missionBoss']||'Mini Boss!');
@@ -166,6 +225,12 @@
         this.st.boss=null;
         this.updateHUD();
         toast(this.dict['missionClear']||'Mission Clear');
+
+        // ===== 3.5: Objective เคลียร์ + เสียง OK =====
+        const obj = $('objective');
+        if(obj) obj.textContent = 'Mission Clear! กลับเมนูหรือเล่นต่อได้';
+        SFX.ok();
+
       }else{
         this.updateHUD();
       }
