@@ -3,6 +3,17 @@
 <title>Play – Shadow Breaker</title><link rel="stylesheet" href="src/styles.css"/>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="src/components.js" defer></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  var back = document.getElementById('backLink');
+  if(back){
+    back.addEventListener('click', function(e){
+      e.preventDefault();
+      window.location.href = 'index.html';
+    });
+  }
+});
+</script>  
 </head><body>
 <div class="hud">
 <div class="badge" id="hudScore">—</div>
