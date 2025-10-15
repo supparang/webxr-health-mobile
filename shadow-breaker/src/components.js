@@ -1,4 +1,4 @@
-// Shadow Breaker – Latest build: Overload Part 3 + Spawn Fix (QB-3, C5, BAR-C, POS-2)
+// Shadow Breaker – Latest build: Overload Part 3 + Spawn Fix + HP Damage (QB-3, C5, BAR-C, POS-2)
 (function(){
   const $=(id)=>document.getElementById(id);
   const qs=(sel)=>document.querySelector(sel);
@@ -156,6 +156,10 @@
       try{ this.applyOverloadFX(s.overload); }catch(_){}
       try{ this.applyOverloadFX3(s.overload); }catch(_){}
       this._checkStages && this._checkStages();
+
+      // Update HP bar fill (ifมี)
+      const hpFill = $('hpBarFill');
+      if(hpFill){ hpFill.style.width = Math.max(0, Math.min(100, s.hp)) + '%'; }
     },
 
     loop:function(){
@@ -187,6 +191,12 @@
       if(this.st.overload >= 100){ this.st.hp = Math.max(0, this.st.hp - 5*dt); }
 
       this.updateHUD();
+
+      // NEW: Game over when HP <= 0
+      if(this.st.hp <= 0){
+        this.endGame();
+        return;
+      }
     },
 
     spawnTarget:function(){
@@ -221,6 +231,9 @@
           e.remove();
           this.st.combo = 1;
           this.st.overload = Math.max(0, this.st.overload - 1); // Miss reduces a bit
+          // NEW: Miss hurts
+          this.st.hp = Math.max(0, this.st.hp - 5);
+          toast('-5 HP (เป้าหลุด)');
           this.updateHUD();
         }
       }, 3200);
@@ -290,6 +303,18 @@
       b.el.classList.add('boss');
       qs('#spawner')?.appendChild(b.el);
       this.st.boss=b; this.updateHUD(); toast(this.dict['missionBoss']||'Mini Boss!');
+
+      // NEW: Boss attacks every ~1.8s while alive
+      const bossAtk = ()=>{
+        if(!this.st.boss || !this.st.playing || this.st.hp<=0) return;
+        const dmg = 8 + Math.floor(this.st.overload / 50); // 0 / +1 / +2 tiers
+        this.st.hp = Math.max(0, this.st.hp - dmg);
+        toast(`-${dmg} HP (บอสโจมตี)`);
+        try{ this.spawnShockwave({x:0,y:1.5,z:-2.2}); }catch(e){}
+        this.updateHUD();
+        if(this.st.hp>0 && this.st.boss) setTimeout(bossAtk, 1800);
+      };
+      setTimeout(bossAtk, 1200);
     },
     damageBoss:function(amount){
       if(!this.st.boss) return; this.st.boss.hp -= amount;
@@ -311,7 +336,15 @@
       const raycaster=new THREE.Raycaster(); raycaster.setFromCamera(mouse,camera);
       const nodes=Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
       const hits=raycaster.intersectObjects(nodes,true);
-      if(hits.length){ let obj=hits[0].object; while(obj && !obj.el) obj=obj.parent; if(obj && obj.el) obj.el.emit('click'); }
+      if(hits.length){
+        let obj=hits[0].object; while(obj && !obj.el) obj=obj.parent;
+        if(obj && obj.el) obj.el.emit('click');
+      } else {
+        // NEW: click miss hurts a little
+        this.st.hp = Math.max(0, this.st.hp - 2);
+        toast('-2 HP (พลังสะท้อน)');
+        this.updateHUD();
+      }
     }
   });
 })();
