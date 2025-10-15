@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>เล่น — Fitness Duo Pro</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="scripts/game.js" defer></script>
+  <style>
+    body{margin:0;background:#0b0f14;font-family:system-ui,Arial;color:#e8eef6}
+    .hud{position:fixed;left:0;right:0;top:0;padding:8px 12px;display:flex;gap:8px;pointer-events:none;z-index:10000}
+    .badge{background:rgba(0,0,0,.45);padding:6px 10px;border-radius:10px}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;background:rgba(0,0,0,.8);
+           padding:10px 14px;border-radius:999px;display:none;z-index:10001}
+    .back{color:#8fbaff}
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <div class="badge" id="hudMode">โหมดฝึก</div>
+    <div class="badge" id="hudTime">เวลา: ∞</div>
+    <div class="badge" id="hudScore">คะแนน: 0</div>
+    <div class="badge" id="hudCombo">คอมโบ: x1</div>
+    <div class="badge"><a href="index.html" class="back">กลับเมนู</a></div>
+  </div>
+  <div id="toast" class="toast"></div>
+
+  <a-scene renderer="colorManagement: true">
+    <a-assets timeout="10000">
+      <img id="bg-jungle" src="assets/backgrounds/jungle.png" crossorigin="anonymous">
+      <img id="bg-city" src="assets/backgrounds/city.png" crossorigin="anonymous">
+      <img id="bg-space" src="assets/backgrounds/space.png" crossorigin="anonymous">
+    </a-assets>
+    <a-sky id="sky" color="#111122"></a-sky>
+    <a-entity id="spawner"></a-entity>
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
+      <!-- Desktop mouse cursor -->
+      <a-entity id="mouseCursor" cursor="rayOrigin: mouse; fuse: false" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+      <!-- VR laser controllers -->
+      <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+      <a-entity laser-controls="hand: left" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+    </a-entity>
+
+    <a-entity light="type: ambient; color: #BBB"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
+  </a-scene>
+</body>
+</html>
