@@ -93,29 +93,80 @@
     },
 
     loop:function(){
-      if(!this.st.playing) return;
-      requestAnimationFrame(this.loop.bind(this));
-      const now=performance.now(); const dt=(now-this.st.last)/1000; this.st.last=now;
-      const mul=(this.st.diff==='hard')?0.7:(this.st.diff==='easy')?1.2:0.9;
-      if(now-this.st.spawnTimer>this.st.spawnEveryMs*mul){ this.st.spawnTimer=now; this.spawnTargetAI(); }
-      if(this.mode==='timed'){
-        this.st.timeLeft=Math.max(0,this.st.timeLeft-dt);
-        $('hudTime').textContent=`${(this.dict['time']||'Time')}: ${Math.ceil(this.st.timeLeft)}`;
-        if(this.st.timeLeft<=0) this.endGame();
-      }
-      this.tickEnemies(dt);
-      this.tickBoss(dt);
-      if(this.st.phase==='tutorial' && this.st.score>=600){
-        this.st.phase='boss'; this.enterCinematic('SHADOW REIGN • MINI BOSS'); setTimeout(()=> this.spawnMiniBoss(), 900);
-      }
-    },
+  if(!this.st.playing) return;
+  requestAnimationFrame(this.loop.bind(this));
 
-    spawnTargetAI:function(){
-      const e=this.pool.get();
-      const rx=(Math.random()*2-1)*1.4, ry=1+Math.random()*1.2, rz=-3.2-Math.random()*0.8;
-      e.setAttribute('position',{x:rx,y:ry,z:rz});
-      e.dataset.hp=30; e.dataset.vx=(Math.random()*2-1)*0.4; e.dataset.vy=(Math.random()*2-1)*0.2;
-    },
+  const now = performance.now();
+  const dt  = (now - this.st.last) / 1000;
+  this.st.last = now;
+
+  // สปอว์นเป้าทุก ๆ ~0.8–1.0 วินาที (ปรับจากค่าเริ่มต้นได้)
+  if(now - this.st.spawnTimer > this.st.spawnEveryMs){
+    this.st.spawnTimer = now;
+    this.spawnTarget(); // ใช้ชื่อฟังก์ชันนี้ให้ตรงกับที่ประกาศจริง
+  }
+
+  // flow -> mini boss
+  if(this.st.phase === 'tutorial' && this.st.score >= 400){
+    this.st.phase = 'boss';
+    this.spawnMiniBoss();
+  }
+
+  // ใช้ this.mode เสมอ
+  if(this.mode === 'timed'){
+    this.st.timeLeft = Math.max(0, this.st.timeLeft - dt);
+    document.getElementById('hudTime').textContent =
+      `${(this.dict['time']||'Time')}: ${Math.ceil(this.st.timeLeft)}`;
+    if(this.st.timeLeft <= 0){ this.endGame(); }
+  }
+},
+
+
+  spawnTarget:function(){
+  let spawner = qs('#spawner');
+  if(!spawner){
+    // กันเคสไม่มี spawner ใน HTML
+    spawner = document.createElement('a-entity');
+    spawner.id = 'spawner';
+    const scene = document.querySelector('a-scene');
+    scene && scene.appendChild(spawner);
+  }
+
+  const e = document.createElement('a-entity');
+  e.setAttribute('geometry','primitive: sphere; radius: 0.26'); // ใหญ่ขึ้น มองง่าย
+  e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
+
+  // ใกล้ขึ้นและกึ่งกลางกว่าเดิม
+  const rx = (Math.random()*2-1)*0.9;
+  const ry = 1.2 + Math.random()*0.6;
+  const rz = -2.0 - Math.random()*0.5;
+  e.setAttribute('position',{x:rx,y:ry,z:rz});
+
+  e.classList.add('clickable');
+  e.setAttribute('animation__pulse','property: scale; to:1.18 1.18 1.18; dir:alternate; loop:true; dur:600');
+
+  e.addEventListener('click', ()=>{
+    if(!this.st.playing) return;
+    this.st.combo  = Math.min(9, this.st.combo+1);
+    this.st.score += 100 + (this.st.combo-1)*10;
+    this.st.arcane = Math.min(100, this.st.arcane+3);
+    this.updateHUD();
+    if(this.st.boss){ this.damageBoss(3); }
+    e.remove();
+    toast((this.dict['great']||'Great! +100'));
+  });
+
+  // อายุเป้าให้นานขึ้นหน่อย (3.2s)
+  setTimeout(()=>{
+    if(e.parentNode){
+      e.remove();
+      this.st.combo = 1;
+    }
+  }, 3200);
+
+  spawner.appendChild(e);
+},
+
 
     tickEnemies:function(dt){
       const list=Array.from(this.pool.active||[]);
