@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Healthy Hero VR – โภชนาการ ป.5 (Universal)</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    :root{ --bg:#F4FBFF; --primary:#3DDC84; --accent:#4F86F7; --warn:#FF9F1C; --bad:#FF6B6B; --panel:#FFFFFF; }
+    body{margin:0;font-family:Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;background:var(--bg)}
+    .tip{position:fixed;left:12px;bottom:12px;background:#fff;border:1px solid #e6f0f5;padding:10px 12px;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.06);font-size:13px;color:#123}
+    .tip b{color:var(--accent)}
+  </style>
+</head>
+<body>
+  <div class="tip">เปิดใน Chrome/Edge • เล่นได้บนคอม/มือถือ/แว่น VR • ธีมสีสดใส <b>Universal Build</b></div>
+  <a-scene renderer="colorManagement:true; antialias:true" background="color: #F4FBFF">
+    <a-entity light="type: ambient; intensity:0.75"></a-entity>
+    <a-entity light="type: directional; intensity:0.9" position="1 2 0"></a-entity>
+    <a-plane position="0 0 -1" rotation="-90 0 0" width="26" height="26" color="#EAF7EF"></a-plane>
+
+    <a-entity id="rig" position="0 1.6 2">
+      <a-entity id="camera" camera look-controls>
+        <a-entity id="fuseCursor" cursor="fuse:true; fuseTimeout:800" raycaster="objects:.clickable"
+          position="0 0 -1" geometry="primitive:ring; radiusInner: 0.01; radiusOuter: 0.016" material="color:#1A202C; shader:flat"></a-entity>
+      </a-entity>
+      <a-entity laser-controls="hand: left" raycaster="objects: .clickable"></a-entity>
+      <a-entity laser-controls="hand: right" raycaster="objects: .clickable"></a-entity>
+    </a-entity>
+    <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+
+    <a-entity id="hud" position="0 2.65 -1.2">
+      <a-plane width="2.8" height="0.82" color="#FFFFFF" opacity="0.95" material="shader: flat"></a-plane>
+      <a-text id="hudText" value="-" color="#0A2" width="2.6" align="center" position="0 0 0.01"></a-text>
+    </a-entity>
+
+    <a-entity id="splash" position="0 1.8 -1.7">
+      <a-plane width="2.9" height="2.1" color="#FFFFFF" opacity="0.98" material="shader: flat"></a-plane>
+      <a-text value="Healthy Hero VR" align="center" width="2.6" color="#3DDC84" position="0 0.85 0.01"></a-text>
+      <a-text value="โภชนาการ ป.5 (Universal)" align="center" width="2.6" color="#4F86F7" position="0 0.65 0.01"></a-text>
+
+      <a-entity class="clickable button" position="0 0.35 0.01" button="label: A) เลือกอาหารสุขภาพ; color:#3DDC84; action: modeA"></a-entity>
+      <a-entity class="clickable button" position="0 0.10 0.01" button="label: B) จัดหมวดหมู่ 5 หมู่; color:#4F86F7; action: modeB"></a-entity>
+      <a-entity class="clickable button" position="0 -0.15 0.01" button="label: C) อ่านฉลากโภชนาการ; color:#FF9F1C; action: modeC"></a-entity>
+      <a-entity class="clickable button" position="0 -0.40 0.01" button="label: D) วางแผนแคลอรี่รายวัน; color:#9B59B6; action: modeD"></a-entity>
+
+      <a-entity class="clickable button" position="-0.85 -0.85 0.01" button="label: วิธีเล่น; color:#A0AEC0; action: how"></a-entity>
+      <a-entity class="clickable button" position="0.85 -0.85 0.01" button="label: ตั้งค่า; color:#00B894; action: settings"></a-entity>
+    </a-entity>
+
+    <a-entity id="howto" position="0 1.8 -1.7" visible="false">
+      <a-plane width="2.8" height="1.9" color="#FFFFFF" opacity="0.98" material="shader: flat"></a-plane>
+      <a-text value="วิธีเล่น" align="center" width="2.5" color="#1A202C" position="0 0.75 0.01"></a-text>
+      <a-text id="howBody" value="-" align="left" width="2.5" color="#2D3748" position="-1.2 0.2 0.01"></a-text>
+      <a-entity class="clickable button" position="0 -0.75 0.01" button="label: กลับเมนู; color:#FF9F1C; action: back"></a-entity>
+    </a-entity>
+
+    <a-entity id="result" position="0 1.8 -1.7" visible="false">
+      <a-plane width="2.8" height="1.8" color="#FFFFFF" opacity="0.98" material="shader: flat"></a-plane>
+      <a-text id="resultTitle" value="สรุปผล" align="center" width="2.6" color="#1A202C" position="0 0.65 0.01"></a-text>
+      <a-text id="resultBody" value="-" align="center" width="2.6" color="#2D3748" position="0 0.2 0.01"></a-text>
+      <a-entity class="clickable button" position="0.6 -0.45 0.01" button="label: เล่นอีกครั้ง; color:#3DDC84; action: replay"></a-entity>
+      <a-entity class="clickable button" position="-0.6 -0.45 0.01" button="label: กลับเมนู; color:#4F86F7; action: back"></a-entity>
+    </a-entity>
+
+    <a-entity id="settings" position="0 1.8 -1.7" visible="false">
+      <a-plane width="2.8" height="1.8" color="#FFFFFF" opacity="0.98" material="shader: flat"></a-plane>
+      <a-text value="ตั้งค่า" align="center" width="2.5" color="#1A202C" position="0 0.65 0.01"></a-text>
+      <a-text id="setBody" value="• เกณฑ์ดาว: 0–3 ดาว\n• ใช้ Chrome/Edge รุ่นล่าสุด" align="left" width="2.4" color="#2D3748" position="-1.15 0.2 0.01"></a-text>
+      <a-entity class="clickable button" position="0 -0.65 0.01" button="label: กลับเมนู; color:#FF9F1C; action: back"></a-entity>
+    </a-entity>
+
+    <a-entity id="gameRoot" position="0 1.25 -2.85" visible="false">
+      <a-box width="3.9" height="0.1" depth="2.5" color="#F8F9FA" position="0 0 0"></a-box>
+      <a-text id="gameTitle" value="-" align="center" width="3.5" color="#3DDC84" position="0 0.85 0.05"></a-text>
+      <a-entity id="spawnArea" position="0 0.15 0"></a-entity>
+      <a-entity id="pauseBtn" class="clickable button" position="1.7 0.9 0.05" button="label: หยุดชั่วคราว; color:#A0AEC0; action: pause"></a-entity>
+    </a-entity>
+
+    <script src="game.js"></script>
+  </a-scene>
+</body>
+</html>
