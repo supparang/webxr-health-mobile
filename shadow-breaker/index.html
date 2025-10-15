@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Shadow Breaker – WebXR</title>
+  <link rel="stylesheet" href="src/styles.css"/>
+  <script>
+    const lang={get(){return localStorage.getItem('sb_lang')||'th'},set(v){localStorage.setItem('sb_lang',v);location.reload();}};
+    async function t(key){const res=await fetch('src/i18n.json');const data=await res.json();const cur=lang.get();return (data[cur]&&data[cur][key])||key;}
+    async function applyText(){document.getElementById('title').textContent=await t('title');document.getElementById('subtitle').textContent=await t('subtitle');document.getElementById('startTimed').textContent=await t('startTimed');document.getElementById('startPractice').textContent=await t('startPractice');}
+    window.addEventListener('DOMContentLoaded', ()=>{applyText();});
+  </script>
+</head>
+<body>
+  <div class="center-card">
+    <div class="card">
+      <h1 id="title">SHADOW BREAKER</h1>
+      <h2 id="subtitle">Arcane Spirit • Ritual Combat</h2>
+      <div class="row">
+        <a id="startTimed" class="btn" href="play.html?mode=timed">เริ่มเกม (จับเวลา)</a>
+        <a id="startPractice" class="btn secondary" href="play.html?mode=practice">โหมดฝึก (ไม่จับเวลา)</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
