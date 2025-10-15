@@ -24,7 +24,10 @@
     "dailyQuests":"เควสต์รายวัน",
     "bossAttack":"บอสโจมตี",
     "miss":"พลาด",
-    "reflect":"พลังสะท้อน"
+    "reflect":"พลังสะท้อน",
+    "crit":"คริติคอล!",
+    "grade":"เกรด",
+    "best":"สถิติสูงสุด"
   },
   "en": {
     "title":"SHADOW BREAKER",
@@ -51,6 +54,9 @@
     "dailyQuests":"Daily Quests",
     "bossAttack":"Boss attack",
     "miss":"Miss",
-    "reflect":"Reflect"
+    "reflect":"Reflect",
+    "crit":"CRIT!",
+    "grade":"Grade",
+    "best":"Best"
   }
 }
