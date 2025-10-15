@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Fitness Duo (Desktop Stable)</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="./game.js"></script>
+  <style>
+    :root { --bg:#0f141a; --panel:#1d2430; --brand:#2b74f7; }
+    body { margin:0; background:#0b0f14; font-family:system-ui, Arial, sans-serif; color:#e8eef6; }
+    .wrap { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr; pointer-events:none; z-index:5; }
+    header { padding:10px 16px; background:linear-gradient(0deg, rgba(0,0,0,.0), rgba(0,0,0,.35)); }
+    .hud { padding:6px 16px; display:flex; gap:8px; align-items:center; }
+    .badge { background: rgba(0,0,0,.45); padding:6px 10px; border-radius:10px; pointer-events:auto; }
+    .menu {
+      pointer-events:auto; margin:auto; background:rgba(12,16,22,.92); border-radius:16px; width:min(92vw, 760px);
+      padding:18px; box-shadow:0 10px 30px rgba(0,0,0,.5);
+    }
+    h1 { margin:0 0 8px; font-size:28px; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; }
+    .theme { flex:1 1 160px; background:#1b222c; border:2px solid transparent; border-radius:12px; cursor:pointer; }
+    .theme.active { border-color: var(--brand); }
+    .theme img { width:100%; height:100px; object-fit:cover; display:block; border-radius:10px 10px 0 0; }
+    .theme label { display:block; text-align:center; padding:6px 0; font-weight:700; }
+    .btn { background:var(--brand); color:#fff; border:none; padding:12px 14px; border-radius:12px; cursor:pointer; box-shadow:0 6px 14px rgba(43,116,247,.35); }
+    .btn.secondary { background:#3b4350; box-shadow:none; }
+    .footer { margin-top:10px; opacity:.9; font-size:14px; }
+    .toast { position:fixed; left:50%; transform:translateX(-50%); bottom:16px; background:rgba(0,0,0,.8); padding:10px 14px; border-radius:999px; display:none; z-index:7; }
+    .hidden { display:none !important; }
+    a { color:#8fbaff; }
+    /* Scene click lock until start */
+    a-scene { pointer-events:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="hud">
+        <div class="badge" id="hudMode">โหมดฝึก</div>
+        <div class="badge" id="hudTime">เวลา: ∞</div>
+        <div class="badge" id="hudScore">คะแนน: 0</div>
+        <div class="badge" id="hudCombo">คอมโบ: x1</div>
+        <div class="badge"><button id="pauseBtn" class="btn secondary">หยุดชั่วคราว (Esc)</button></div>
+      </div>
+    </header>
+
+    <main id="menu" class="menu">
+      <h1>Fitness Duo (Desktop)</h1>
+      <p>ฉบับเน้นเดสก์ท็อป กดเริ่มแล้วเล่นได้ทันที (คลิกเมาส์ยิงเป้า).<br/>ลัดคีย์บอร์ด: <b>Enter</b> เริ่ม, <b>Esc</b> หยุด/กลับเมนู, <b>R</b> เล่นใหม่.</p>
+
+      <div class="row" id="themes">
+        <div class="theme" data-theme="jungle"><img src="assets/backgrounds/jungle.png"/><label>ป่า</label></div>
+        <div class="theme" data-theme="city"><img src="assets/backgrounds/city.png"/><label>เมือง</label></div>
+        <div class="theme" data-theme="space"><img src="assets/backgrounds/space.png"/><label>อวกาศ</label></div>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <button id="startTimed" class="btn">เริ่มเกม (จับเวลา)</button>
+        <button id="startPractice" class="btn secondary">โหมดฝึก (ไม่จับเวลา)</button>
+      </div>
+
+      <div class="footer">ถ้าเปิดไฟล์ตรง ๆ แล้วมีปัญหา ให้รันผ่านเว็บเซิร์ฟเวอร์ เช่น <code>python3 -m http.server 8000</code> แล้วเข้า <code>http://localhost:8000</code></div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <a-scene renderer="colorManagement: true">
+    <a-assets timeout="10000">
+      <img id="bg-jungle" src="assets/backgrounds/jungle.png" crossorigin="anonymous">
+      <img id="bg-city" src="assets/backgrounds/city.png" crossorigin="anonymous">
+      <img id="bg-space" src="assets/backgrounds/space.png" crossorigin="anonymous">
+    </a-assets>
+    <a-sky id="sky" color="#111122"></a-sky>
+    <a-entity id="spawner"></a-entity>
+
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
+      <!-- Mouse cursor for desktop clicking -->
+      <a-entity id="mouseCursor" cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+    </a-entity>
+
+    <a-entity light="type: ambient; color: #BBB"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
+  </a-scene>
+</body>
+</html>
