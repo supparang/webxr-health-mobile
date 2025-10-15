@@ -1,0 +1,28 @@
+{
+  "th": {
+    "title": "SHADOW BREAKER",
+    "subtitle": "Arcane Spirit • Ritual Combat",
+    "startTimed": "เริ่มเกม (จับเวลา)",
+    "startPractice": "โหมดฝึก (ไม่จับเวลา)",
+    "score": "คะแนน",
+    "combo": "คอมโบ",
+    "time": "เวลา",
+    "arcane": "พลัง",
+    "overload": "อันตราย",
+    "great": "เยี่ยม! +100",
+    "finished": "จบเกม"
+  },
+  "en": {
+    "title": "SHADOW BREAKER",
+    "subtitle": "Arcane Spirit • Ritual Combat",
+    "startTimed": "Start (Timed)",
+    "startPractice": "Practice (No Timer)",
+    "score": "Score",
+    "combo": "Combo",
+    "time": "Time",
+    "arcane": "Arcane",
+    "overload": "Overload",
+    "great": "Great! +100",
+    "finished": "Finished"
+  }
+}
