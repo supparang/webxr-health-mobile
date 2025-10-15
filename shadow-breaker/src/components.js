@@ -1,4 +1,4 @@
-// Shadow Breaker – Difficulty + Enemies + Daily Quests + Instant i18n
+// Shadow Breaker – Difficulty + Enemies + Daily Quests + Instant i18n + Overload FX + HP Balance
 (function(){
   const $=(id)=>document.getElementById(id);
   const qs=(sel)=>document.querySelector(sel);
@@ -36,7 +36,7 @@
     setTimeout(()=>{ div.style.opacity='0'; },380); setTimeout(()=>{ try{div.remove();}catch(e){} },700);
   }
 
-  // == Daily Quests (localStorage mock) ==
+  // Daily Quests
   const QUEST_KEY='sb_daily_v1';
   function genDaily(){
     const today=new Date().toISOString().slice(0,10);
@@ -50,8 +50,7 @@
         {id:'boss1',       name:{th:'ชนะบอส 1 ครั้ง', en:'Defeat 1 boss'}, goal:1, cur:0, done:false, type:'boss'}
       ]
     };
-    localStorage.setItem(QUEST_KEY, JSON.stringify(q));
-    return q;
+    localStorage.setItem(QUEST_KEY, JSON.stringify(q)); return q;
   }
   function saveDaily(q){ localStorage.setItem(QUEST_KEY, JSON.stringify(q)); }
   function updateQuestUI(dict,q){
@@ -66,7 +65,7 @@
     });
   }
 
-  // Difficulty presets (tuned)
+  // Difficulty presets
   const DIFF={
     easy:   {spawnMs:900, lifeMs:3400, timedSec:70, missHP:3, bossHit:6, clickMissHP:1},
     normal: {spawnMs:800, lifeMs:3200, timedSec:60, missHP:5, bossHit:8, clickMissHP:2},
@@ -80,7 +79,7 @@
     curse:{radius:0.25, color:'#ab6aff', effect:'+OL', score:110}
   };
 
-  // FX Part 2/3 helpers
+  // FX helpers (Overload)
   function applyOverloadFX(val){
     const fx=$('overlayFX'); if(!fx) return;
     fx.classList.remove('stage-mild','stage-danger','stage-critical','stage-z2');
@@ -135,25 +134,19 @@
       this.diff=q.get('diff')||'normal';
       this.cfg=DIFF[this.diff]||DIFF.normal;
 
-      // load i18n
       fetch('src/i18n.json').then(r=>r.json()).then(data=>{
         const cur=localStorage.getItem('sb_lang')||'th';
         this.i18n=data; this.dict=data[cur]||data['th']||{};
-        // expose runtime lang switch
-        window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']; this.updateHUD(); $('objective').textContent=v==='th'?'Objective: ทำคะแนนให้ถึง 400 เพื่อเรียก Mini Boss':'Objective: Reach 400 to summon Mini Boss'; updateQuestUI(this.dict,this.daily); };
-        // state
+        window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']; this.updateHUD(); const obj=$('objective'); if(obj) obj.textContent=v==='th'?'Objective: ทำคะแนนให้ถึง 400 เพื่อเรียก Mini Boss':'Objective: Reach 400 to summon Mini Boss'; updateQuestUI(this.dict,this.daily); };
         this.st={
           playing:false, timeLeft:(this.mode==='timed')?this.cfg.timedSec:9999,
           score:0, combo:1, arcane:0, overload:0, hp:100,
           last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
           phase:'tutorial', boss:null, idleTimer:0
         };
-        // daily quests
         this.daily=genDaily(); updateQuestUI(this.dict,this.daily);
-
         this.updateHUD(); this.startGame();
         toast(T(this.dict,'missionStart','Mission Start: Tutorial'));
-        // UI button labels
         $('btnTH') && ($('btnTH').textContent='ไทย'); $('btnEN') && ($('btnEN').textContent='English');
       });
 
@@ -165,19 +158,17 @@
     startGame:function(){ this.st.playing=true; this.loop(); },
 
     updateHUD:function(){
-      const s=this.st, d=this.dict, L=(k,def)=>T(d,k,def);
+      const s=this.st, d=this.dict, L=(k,def)=>(d && d[k]) || def;
       $('hudScore') && ($('hudScore').textContent = `${L('score','Score')}: ${s.score}`);
       $('hudCombo') && ($('hudCombo').textContent = `${L('combo','Combo')}: x${s.combo}`);
-      $('hudTime')  && ($('hudTime').textContent  = `${L('time','Time')}: ${this.mode==='timed'?Math.ceil(s.timeLeft):'∞'}`);
+      $('hudTime')  && ($('hudTime').textContent  = `${L('time','Time')}${this.mode==='timed'?' ⏱':''}: ${this.mode==='timed'?Math.ceil(s.timeLeft):'∞'}`);
       $('hudArcane')&& ($('hudArcane').textContent= `${L('arcane','Arcane')}: ${s.arcane}%`);
       $('backLink') && ($('backLink').textContent = (L('back','Back')));
       $('hudHP')    && ($('hudHP').textContent    = `${L('hp','HP')}: ${Math.max(0,Math.ceil(s.hp))}`);
       $('hudOverload') && ($('hudOverload').textContent = `Overload: ${Math.round(s.overload)}%`);
       $('hudBoss')  && ($('hudBoss').textContent  = s.boss? `${L('bossHP','Boss HP')}: ${Math.max(0,Math.ceil(s.boss.hp))}` : `${L('bossHP','Boss HP')}: —`);
       updateOverloadUI(s.overload); applyOverloadFX(s.overload); applyOverloadFX3(s.overload);
-      // HP bar fill
       const hpFill=$('hpBarFill'); if(hpFill){ hpFill.style.width=Math.max(0,Math.min(100,s.hp))+'%'; }
-      // quests panel refresh
       updateQuestUI(this.dict,this.daily);
     },
 
@@ -186,24 +177,20 @@
       requestAnimationFrame(this.loop.bind(this));
       const now=performance.now(), dt=(now-this.st.last)/1000; this.st.last=now;
 
-      // spawn
       if(now - this.st.spawnTimer > this.st.spawnEveryMs){ this.st.spawnTimer=now; this.spawnTarget(); }
 
-      // tutorial -> boss
       if(this.st.phase==='tutorial' && this.st.score>=400){
         this.st.phase='boss';
-        const obj=$('objective'); if(obj) obj.textContent=T(this.dict,'objectiveBoss','Objective: Defeat Mini Boss!');
+        const obj=$('objective'); if(obj) obj.textContent=(this.dict && this.dict['objectiveBoss'])||'Objective: Defeat Mini Boss!';
         this.spawnMiniBoss();
       }
 
-      // timer
       if(this.mode==='timed'){
         this.st.timeLeft=Math.max(0,this.st.timeLeft-dt);
-        $('hudTime') && ($('hudTime').textContent = `${T(this.dict,'time','Time')}: ${Math.ceil(this.st.timeLeft)}`);
+        $('hudTime') && ($('hudTime').textContent = `${(this.dict && this.dict['time'])||'Time'} ⏱: ${Math.ceil(this.st.timeLeft)}`);
         if(this.st.timeLeft<=0){ this.endGame(); return; }
       }
 
-      // Overload punish / decay
       this.st.idleTimer += dt;
       if(this.st.idleTimer >= 3){ this.st.overload = Math.max(0, this.st.overload - 0.5*dt); }
       if(this.st.overload >= 80 && this.st.overload < 100){ this.st.hp = Math.max(0, this.st.hp - 1*dt); }
@@ -239,7 +226,8 @@
 
       e.addEventListener('click',()=>{
         if(!this.st.playing) return;
-        // shield: reduce hp until 0
+
+        // shield: ต้องคลิกหลายครั้ง
         if(type==='shield'){
           let shp=Number(e.dataset.hp||1);
           shp -= 1;
@@ -247,7 +235,6 @@
             e.dataset.hp=shp;
             e.setAttribute('material','color:#bfe8ff; emissive:#4cf; metalness:0.2; roughness:0.2');
             SFX.hit(); spawnShockwave(pos);
-            // small overload for shield ping
             this.st.overload = Math.min(130, this.st.overload + 0.6);
             this.updateHUD(); return;
           }
@@ -258,19 +245,19 @@
         const add = scoreBase + (this.st.combo-1)*10;
         this.st.score += add;
 
-        // quests progress
+        // quests
         const q=this.daily;
         q.list.find(x=>x.id==='score1500').cur = Math.min(99999, (q.list.find(x=>x.id==='score1500').cur||0)+add);
-        q.list.find(x=>x.id==='combo8').cur = Math.max(q.list.find(x=>x.id==='combo8').cur||0, this.st.combo);
+        q.list.find(x=>x.id==='combo8').cur    = Math.max(q.list.find(x=>x.id==='combo8').cur||0, this.st.combo);
         if(this.st.boss && (this.st.boss.hp<=0)) q.list.find(x=>x.id==='boss1').cur=1;
         q.list.forEach(it=>{ if(!it.done && it.cur>=it.goal) it.done=true; }); saveDaily(q);
 
-        // resources
+        // resources & overload
         this.st.arcane = Math.min(100, this.st.arcane+3);
-        // overload gain
         let olGain = 1 + Math.max(0,(this.st.combo-1))*0.5;
-        if(type==='curse') olGain += 2; // curse target adds extra overload risk
+        if(type==='curse') olGain += 2;
         this.st.overload = Math.min(130, this.st.overload + olGain);
+
         this.st.idleTimer = 0;
         spawnScorePopup(pos, '+'+add);
         SFX.hit();
@@ -283,7 +270,6 @@
       setTimeout(()=>{
         if(e.parentNode){
           e.remove();
-          // on miss
           this.st.combo = 1;
           this.st.overload = Math.max(0, this.st.overload - 1);
           this.st.hp = Math.max(0, this.st.hp - this.cfg.missHP);
@@ -338,7 +324,6 @@
       b.el.classList.add('boss');
       qs('#spawner')?.appendChild(b.el);
       this.st.boss=b; this.updateHUD(); toast(T(this.dict,'missionBoss','Mini Boss!'));
-      // boss attack loop by difficulty
       const atk=()=>{
         if(!this.st.boss || !this.st.playing || this.st.hp<=0) return;
         const dmg=this.cfg.bossHit + Math.floor(this.st.overload/50);
@@ -355,7 +340,6 @@
       if(this.st.boss.hp<=0){
         try{this.st.boss.el.remove();}catch(e){}
         this.st.boss=null; this.updateHUD(); toast(T(this.dict,'missionClear','Mission Clear')); SFX.ok();
-        // quest boss
         const q=this.daily; const it=q.list.find(x=>x.id==='boss1'); if(it){ it.cur=1; it.done=true; saveDaily(q); }
       } else { this.updateHUD(); }
     },
@@ -376,11 +360,13 @@
         let obj=hits[0].object; while(obj && !obj.el) obj=obj.parent;
         if(obj && obj.el) obj.el.emit('click');
       }else{
-        // click miss hurts by difficulty
         this.st.hp=Math.max(0,this.st.hp-this.cfg.clickMissHP);
-        toast(`-${this.cfg.clickMissHP} HP (Reflect)`);
+        toast(`-${this.cfg.clickMissHP} HP (${T(this.dict,'reflect','Reflect')})`);
         this.updateHUD();
       }
     }
   });
+
+  // expose helpers if needed (debug)
+  window.__SB_DEBUG__ = { updateOverloadUI, applyOverloadFX, applyOverloadFX3 };
 })();
