@@ -4,22 +4,15 @@
   <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Play – Shadow Breaker</title>
   <link rel="stylesheet" href="src/styles.css"/>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- เลือกโหลด components ตาม query -->
-  <script>
-    (function(){
-      const q=new URLSearchParams(location.search);
-      const game=q.get('game')||'combat';
-      const legacy=(q.get('legacy')==='1');
-      const src = (game==='combat' && legacy) ? 'src/components_arcane_legacy.js'
-                                              : 'src/components.js';
-      const s=document.createElement('script'); s.src=src; s.defer=true; document.head.appendChild(s);
-    })();
-  </script>
+  <!-- เกมทั้ง 4 โหมดรวมอยู่ในไฟล์นี้ -->
+  <script src="src/components.js" defer></script>
 </head>
 <body>
-  <!-- Top HUD -->
+  <!-- HUD ด้านบน -->
   <div class="hud">
     <div class="badge" id="hudGame">—</div>
     <div class="badge" id="hudScore">—</div>
@@ -33,7 +26,7 @@
     </div>
   </div>
 
-  <!-- Bottom HUD -->
+  <!-- HUD ด้านล่าง -->
   <div class="hud bottom">
     <div class="badge" id="hudHP">ENERGY: 100</div>
     <div class="badge" id="hudOverload">Overload: 0%</div>
@@ -41,26 +34,34 @@
     <div class="badge interactive"><button id="btnQuest" class="mini">Quests</button></div>
   </div>
 
+  <!-- Toast / Objective -->
   <div id="toast" class="toast"></div>
   <div id="objective">Objective</div>
 
-  <!-- Overload / HP bars -->
-  <div id="overloadBarWrap"><div id="overloadBarGlow"></div><div id="overloadBarCrack"></div><div id="overloadBarFill"></div><div id="overloadBarText">Overload: 0%</div></div>
+  <!-- Bars -->
+  <div id="overloadBarWrap">
+    <div id="overloadBarGlow"></div>
+    <div id="overloadBarCrack"></div>
+    <div id="overloadBarFill"></div>
+    <div id="overloadBarText">Overload: 0%</div>
+  </div>
   <div id="hpBarWrap"><div id="hpBarFill"></div></div>
 
-  <!-- Quests Panel -->
+  <!-- แผงเควสต์ -->
   <div id="questPanel" class="panel hidden">
     <div class="panel-header"><span id="qTitle">Daily Quests</span><button id="qClose" class="mini">×</button></div>
     <div id="qList" class="panel-body"></div>
   </div>
 
-  <!-- Scene -->
-  <a-scene id="scene" shadow-breaker-game renderer="colorManagement: true; physicallyCorrectLights: true; antialias: false; sortObjects: true; foveationLevel: 2; powerPreference: high-performance">
+  <!-- ฉาก A-Frame -->
+  <a-scene id="scene" shadow-breaker-game
+           renderer="colorManagement: true; physicallyCorrectLights: true; antialias: false; sortObjects: true; foveationLevel: 2; powerPreference: high-performance">
     <a-assets timeout="10000">
       <img id="bg_city"   src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
       <img id="bg_forest" src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
       <img id="bg_void"   src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
     </a-assets>
+
     <a-sky id="sky" color="#111122" src="#bg_city"></a-sky>
 
     <a-entity id="spawner"></a-entity>
@@ -75,22 +76,20 @@
     <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
   </a-scene>
 
-  <!-- FX overlays -->
-  <div id="overlayFX" aria-hidden="true"><div class="fx-vignette"></div><div class="fx-veil"></div><div class="fx-sparks"></div></div>
-  <div id="heatHaze" aria-hidden="true"></div>
-
+  <!-- สลับภาษาแบบทันที + เลือกฉากพื้นหลัง -->
   <script>
-    const q=new URLSearchParams(location.search);
-    const map=q.get('map')||'city';
-    const sky=document.getElementById('sky');
+    // แผนที่
+    const q = new URLSearchParams(location.search);
+    const map = q.get('map') || 'city';
+    const sky = document.getElementById('sky');
     sky.setAttribute('src', map==='forest' ? '#bg_forest' : map==='void' ? '#bg_void' : '#bg_city');
 
-    // ภาษาแบบทันที
-    const setLang=(v)=>{ localStorage.setItem('sb_lang', v); if(window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v); };
-    document.getElementById('btnTH').onclick=()=>setLang('th');
-    document.getElementById('btnEN').onclick=()=>setLang('en');
+    // เปลี่ยนภาษาในเกมทันที (ไม่รีเฟรช)
+    const setLang = (v)=>{ localStorage.setItem('sb_lang', v); if(window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v); };
+    document.getElementById('btnTH').onclick = ()=>setLang('th');
+    document.getElementById('btnEN').onclick = ()=>setLang('en');
 
-    // quests panel toggle
+    // toggle เควสต์
     const qp=document.getElementById('questPanel');
     document.getElementById('qClose').onclick=()=>qp.classList.add('hidden');
     document.getElementById('btnQuest').onclick=()=>qp.classList.toggle('hidden');
