@@ -34,7 +34,19 @@
 </a-scene>
 
 <script>
-AFRAME.registerComponent('combat-director',{
+<script>
+// --- EXO DOM refs (Hotfix for modern browsers) ---
+const score   = document.getElementById('score');
+const combo   = document.getElementById('combo');
+const time    = document.getElementById('time');
+const panel   = document.getElementById('panel');
+const overlay = document.getElementById('overlay');
+const player  = document.getElementById('player');
+const touchL  = document.getElementById('touchL');
+const touchR  = document.getElementById('touchR');
+</script>
+
+  AFRAME.registerComponent('combat-director',{
   init(){
     this.state={score:0,combo:1.0,time:60,running:false};
     this.rec=new EXO_METRICS.Recorder('CombatReflex');
