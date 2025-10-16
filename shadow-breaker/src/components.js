@@ -1,8 +1,8 @@
-/* Shadow Breaker – Mixed Signature Fitness Build
+/* Shadow Breaker – Mixed Signature Fitness Build (G5 Glow)
    - 4 Games: combat / dash / impact / flow
    - Fitness HUD: Calories + Workout Level
-   - Impact submodes A–E (count|timed|boss|endless|fitness)
-   - Overload balance softened; Dash warnings clearer
+   - Impact submodes: count | timed | boss | endless | fitness
+   - HOTFIX: บังคับ default mode=timed ทุกเกมถ้าไม่ระบุ, ใช้ this.mode เสมอ, HUD เวลาอัปเดตแน่
 */
 (function(){
   const $=id=>document.getElementById(id);
@@ -11,19 +11,16 @@
   const T=(d,k,def)=>(d&&d[k])||def||k;
   const tr=(d,k,f,v)=>{let s=(d&&d[k])||f||k; if(v) Object.keys(v).forEach(x=>s=s.replaceAll('{'+x+'}',String(v[x]))); return s; };
 
-  // SFX
   const SFX={ctx:null,
     beep(f=880,d=.08,v=.2){try{this.ctx=this.ctx||new (window.AudioContext||window.webkitAudioContext)();const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+d);}catch(_){ } },
     hit(){this.beep(920,.05,.2)}, ok(){this.beep(660,.07,.18)}, warn(){this.beep(160,.12,.25)}, crit(){this.beep(1400,.06,.25)}
   };
 
-  // Overload UI
   function updateOverloadUI(v){ const w=$('overloadBarWrap'),f=$('overloadBarFill'),t=$('overloadBarText'); if(!w) return;
     const p=Math.max(0,Math.min(100,Math.round(v))); f.style.width=p+'%'; if(t) t.textContent='Overload: '+p+'%';
     w.className=''; w.id='overloadBarWrap'; if(p>=50&&p<80) w.classList.add('danger'); else if(p>=80&&p<100) w.classList.add('critical'); else if(p>=100) w.classList.add('z2');
   }
 
-  // Dash warning
   function ensureWarnDOM(){ let w=document.getElementById('warnWrap');
     if(!w){ w=document.createElement('div'); w.id='warnWrap'; w.className='warn-wrap';
       w.innerHTML=`<div id="warnL" class="warn-arrow" style="visibility:hidden">← DASH</div>
@@ -42,14 +39,12 @@
     setTimeout(()=>{el.style.visibility='hidden';el.classList.remove('flash');},ms);
   }
 
-  // Difficulty & balance
   const DIFF={
     easy:{   spawnMs:950, lifeMs:3800, timedSec:80, missHP:0, bossHit:3,  clickMissHP:0, olDrain:0.42, olTickMinor:0.25, olTickMajor:0.8 },
     normal:{ spawnMs:800, lifeMs:3200, timedSec:65, missHP:3, bossHit:6,  clickMissHP:1, olDrain:0.35, olTickMinor:0.35, olTickMajor:1.0 },
     hard:{   spawnMs:650, lifeMs:2800, timedSec:55, missHP:5, bossHit:10, clickMissHP:2, olDrain:0.28, olTickMinor:0.45, olTickMajor:1.25 }
   };
 
-  // Daily quests (mini)
   const QUEST_KEY='sb_daily_v1';
   const genDaily=()=>{const today=new Date().toISOString().slice(0,10);const ex=JSON.parse(localStorage.getItem(QUEST_KEY)||'{}');if(ex.date===today) return ex;
     const q={date:today,list:[
@@ -64,27 +59,20 @@
     q.list.forEach(it=>{const nm=it.name[(localStorage.getItem('sb_lang')||'th')]; const line=document.createElement('div'); line.textContent=`• ${nm} — ${it.cur}/${it.goal} ${it.done?'✓':''}`; box.appendChild(line);});
   }
 
-  // Fitness helpers
-  function kcalFromActivity(ptsPerSec, bodyMass=40){ // ป.5 ~ 35–45kg ใช้ 40kg กลาง
-    // ประมาณ: 1 point ≈ 1 “effort unit”;  pts/sec -> MET proxy
-    const MET = Math.min(8, 2 + ptsPerSec*0.04); // 2–8 MET
-    return (MET * bodyMass / 3600); // kcal per sec
-  }
-  function levelFromScore(score){ // arcade style
-    if(score<800) return 1; if(score<1800) return 2; if(score<3200) return 3; if(score<5200) return 4; if(score<8000) return 5; return 6;
-  }
+  function kcalFromActivity(ptsPerSec, bodyMass=40){ const MET = Math.min(8, 2 + ptsPerSec*0.04); return (MET * bodyMass / 3600); }
+  function levelFromScore(score){ if(score<800) return 1; if(score<1800) return 2; if(score<3200) return 3; if(score<5200) return 4; if(score<8000) return 5; return 6; }
 
   AFRAME.registerComponent('shadow-breaker-game',{
     init:function(){
       const q=new URLSearchParams(location.search);
       this.game=q.get('game')||'combat';
-      this.mode=(q.get('mode')==='timed')?'timed':'practice';
-      this.diff=q.get('diff')||'normal'; this.cfg=DIFF[this.diff]||DIFF.normal;
 
-      // Impact submodes
+      // ★ HOTFIX: ถ้าไม่ระบุ ให้ default เป็น timed เสมอ
+      const rawMode=q.get('mode');
+      this.mode=(rawMode==='practice')?'practice':'timed';
+
+      this.diff=q.get('diff')||'normal'; this.cfg=DIFF[this.diff]||DIFF.normal;
       this.ibMode=(q.get('ib')||'count').toLowerCase();
-      const IB={count:{targetCores:10}, timed:{seconds:60}, boss:{preCores:5,bossHP:600}, endless:{}, fitness:{reps:50,minHold:0.3}};
-      this.ibCfg=IB[this.ibMode]||IB.count;
 
       fetch('src/i18n.json').then(r=>r.json()).then(data=>{
         const cur=localStorage.getItem('sb_lang')||'th';
@@ -92,57 +80,49 @@
         window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']; this.updateHUD(); this.updateObjective(); };
 
         this.st={
-          playing:false, timeLeft:(this.mode==='timed')?this.cfg.timedSec:9999,
+          playing:false,
+          timeLeft:(this.mode==='timed')?(this.cfg.timedSec||60):9999,
           score:0, combo:1, arcane:0, overload:0, hp:100,
           last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
           dmgCD:0, olTick:0, idleTimer:0,
-          // dash
           jumpT:0, crouch:false, side:0, sideT:0, burst:0, burstCD:0,
-          // impact
-          chargeStart:0, _impactAlive:false, cores:0, reps:0, bossHP:0, bossAlive:false,
-          // flow
-          flowNext:0,
-          // fitness
-          kcal:0, level:1
+          chargeStart:0, _impactAlive:false, cores:0, reps:0, bossHP:0, bossAlive:false, flowNext:0,
+          kcal:0, level:1, boss:null
         };
-        if(this.game==='impact' && this.ibMode==='timed'){ this.st.timeLeft=this.ibCfg.seconds||60; }
 
-        this.daily=genDaily(); updateQuestUI(this.dict,this.daily);
-
-        const nameMap={ combat:T(this.dict,'modeCombat','Arcane Combat'), dash:T(this.dict,'modeDash','Rift Dash'), impact:T(this.dict,'modeImpact','Impact Breaker'), flow:T(this.dict,'modeFlow','Spirit Flow') };
-        $('hudGame').textContent=nameMap[this.game]||'—';
-
-        // Controls
-        window.addEventListener('keydown',(e)=>{
-          if(this.game==='dash'){
-            if(e.key==='ArrowUp'||e.code==='Space'){ if(this.st.jumpT<=0) this.st.jumpT=0.6; }
-            if(e.key==='ArrowDown'){ this.st.crouch=true; }
-            if(e.key==='ArrowLeft'){ this.st.side=-1; this.st.sideT=0.35; }
-            if(e.key==='ArrowRight'){ this.st.side=1; this.st.sideT=0.35; }
-            if(e.key==='Shift'&&this.st.burstCD<=0){ this.st.burst=0.28; this.st.burstCD=2.0; showWarn('burst',480); SFX.ok(); }
-          }
-          if(this.game==='flow'){
-            if('aA'.includes(e.key)) this.checkFlowHit('A');
-            if('sS'.includes(e.key)) this.checkFlowHit('S');
-            if('dD'.includes(e.key)) this.checkFlowHit('D');
-          }
-          if(this.game==='impact' && (e.key==='m'||e.key==='M')){
-            const order=['count','timed','boss','endless','fitness'];
-            const i=Math.max(0,order.indexOf(this.ibMode));
-            this.ibMode=order[(i+1)%order.length]; this.st.cores=0; this.st.reps=0; this.st.bossHP=0; this.st.bossAlive=false;
-            if(this.ibMode==='timed'){ this.st.timeLeft=this.ibCfg.seconds||60; }
-            this.updateObjective(); this.updateHUD();
-            toast(tr(this.dict,'ibModeSwitch','Impact mode: {MODE} (press M)',{MODE:this.ibMode.toUpperCase()}),1200);
-          }
-        });
-        window.addEventListener('keyup',(e)=>{ if(this.game==='dash' && e.key==='ArrowDown') this.st.crouch=false; });
-        window.addEventListener('mousedown', e=>{ if(this.game==='impact') this.st.chargeStart=performance.now(); });
-        window.addEventListener('mouseup',   e=>{ if(this.game==='impact') this.releaseImpact(); });
-        window.addEventListener('click', this.manualRay && this.manualRay.bind(this), {passive:false});
-
-        this.updateObjective(); this.startGame();
+        // ตั้งค่า HUD/Objective ก่อนเริ่ม เพื่อให้เห็นเวลาแน่ๆ
+        this.updateHUD(); this.updateObjective(); this.startGame();
         if(this.game==='combat') this.showCombatTutorial();
+        try{ console.info('[SB] game=%s mode=%s diff=%s time=%s', this.game, this.mode, this.diff, this.st.timeLeft); }catch(_){}
       });
+
+      // Controls
+      window.addEventListener('keydown',(e)=>{
+        if(this.game==='dash'){
+          if(e.key==='ArrowUp'||e.code==='Space'){ if(this.st.jumpT<=0) this.st.jumpT=0.6; }
+          if(e.key==='ArrowDown'){ this.st.crouch=true; }
+          if(e.key==='ArrowLeft'){ this.st.side=-1; this.st.sideT=0.35; }
+          if(e.key==='ArrowRight'){ this.st.side=1; this.st.sideT=0.35; }
+          if(e.key==='Shift'&&this.st.burstCD<=0){ this.st.burst=0.28; this.st.burstCD=2.0; showWarn('burst',480); SFX.ok(); }
+        }
+        if(this.game==='flow'){
+          if('aA'.includes(e.key)) this.checkFlowHit('A');
+          if('sS'.includes(e.key)) this.checkFlowHit('S');
+          if('dD'.includes(e.key)) this.checkFlowHit('D');
+        }
+        if(this.game==='impact' && (e.key==='m'||e.key==='M')){
+          const order=['count','timed','boss','endless','fitness'];
+          const i=Math.max(0,order.indexOf(this.ibMode));
+          this.ibMode=order[(i+1)%order.length]; this.st.cores=0; this.st.reps=0; this.st.bossHP=0; this.st.bossAlive=false;
+          if(this.ibMode==='timed') this.st.timeLeft=60;
+          this.updateObjective(); this.updateHUD();
+          toast(tr(this.dict,'ibModeSwitch','Impact mode: {MODE} (press M)',{MODE:this.ibMode.toUpperCase()}),1200);
+        }
+      });
+      window.addEventListener('keyup',(e)=>{ if(this.game==='dash' && e.key==='ArrowDown') this.st.crouch=false; });
+      window.addEventListener('mousedown', e=>{ if(this.game==='impact') this.st.chargeStart=performance.now(); });
+      window.addEventListener('mouseup',   e=>{ if(this.game==='impact') this.releaseImpact(); });
+      window.addEventListener('click', this.manualRay && this.manualRay.bind(this), {passive:false});
     },
 
     startGame:function(){ this.st.playing=true; this.loop(); },
@@ -151,11 +131,11 @@
       const o=$('objective'); if(!o) return;
       if(this.game==='impact'){
         const d=this.dict,m=this.ibMode;
-        if(m==='count')   return o.textContent=tr(d,'ibObjectiveA','Destroy {N} cores',{N:this.ibCfg.targetCores||10});
-        if(m==='timed')   return o.textContent=tr(d,'ibObjectiveB','High score before time ends ({T}s)',{T:this.ibCfg.seconds||60});
-        if(m==='boss')    return o.textContent=tr(d,'ibObjectiveC','Break {X} cores to summon the boss, then defeat it!',{X:this.ibCfg.preCores||5});
+        if(m==='count')   return o.textContent=tr(d,'ibObjectiveA','Destroy {N} cores',{N:10});
+        if(m==='timed')   return o.textContent=tr(d,'ibObjectiveB','High score before time ends ({T}s)',{T:60});
+        if(m==='boss')    return o.textContent=tr(d,'ibObjectiveC','Break {X} cores to summon the boss, then defeat it!',{X:5});
         if(m==='endless') return o.textContent=tr(d,'ibObjectiveD','Endless training for high score');
-        if(m==='fitness') return o.textContent=tr(d,'ibObjectiveE','Do charge-release for {R} reps',{R:this.ibCfg.reps||50});
+        if(m==='fitness') return o.textContent=tr(d,'ibObjectiveE','Do charge-release for {R} reps',{R:50});
       }
       const obj={
         combat:T(this.dict,'objectiveCombat','Reach score to summon Mini Boss'),
@@ -167,65 +147,52 @@
     },
 
     updateHUD:function(){
-      const s=this.st, d=this.dict, L=(k,def)=>(d&&d[k])||def, timed=(this.mode==='timed');
-      $('#hudScore') && ($('#hudScore').textContent=`${L('score','Score')}: ${s.score}`);
-      $('#hudCombo') && ($('#hudCombo').textContent=`${L('combo','Combo')}: x${s.combo}`);
-      $('#hudTime')  && ($('#hudTime').textContent = `${L('time','Time')}${timed?' ⏱':''}: ${timed?Math.ceil(s.timeLeft):'∞'}`);
-      $('#hudArcane')&& ($('#hudArcane').textContent=`${L('arcane','Arcane')}: ${s.arcane}%`);
-      $('#backLink') && ($('#backLink').textContent=L('back','Back'));
-      $('#hudHP')    && ($('#hudHP').textContent=`${L('hp','ENERGY')}: ${Math.max(0,Math.ceil(s.hp))}`);
-      $('#hudOverload') && ($('#hudOverload').textContent=`Overload: ${Math.round(s.overload)}%`);
-      $('#hudBoss')  && ($('#hudBoss').textContent=(this.game==='combat' && s.boss)?`${L('bossHP','Boss HP')}: ${Math.max(0,Math.ceil(s.boss.hp))}`:`${L('bossHP','Boss HP')}: —`);
-      // Fitness HUD
-      $('#hudCal') && ($('#hudCal').textContent = `${L('calories','Calories')}: ${s.kcal.toFixed(1)}`);
-      const lvl = levelFromScore(s.score); s.level=lvl;
-      $('#hudLvl') && ($('#hudLvl').textContent = `${L('level','Level')}: ${lvl}`);
-      updateOverloadUI(s.overload);
-      const hpFill=$('hpBarFill'); if(hpFill) hpFill.style.width=Math.max(0,Math.min(100,s.hp))+'%';
-      updateQuestUI(this.dict,this.daily);
+      const s=this.st||{}, d=this.dict||{}, L=(k,def)=>(d&&d[k])||def, timed=(this.mode==='timed');
+      const set=(id,txt)=>{ const el=$(id); if(!el) return; el.style.display='inline-flex'; el.style.visibility='visible'; el.textContent=txt; };
+      set('hudScore', `${L('score','Score')}: ${s.score||0}`);
+      set('hudCombo', `${L('combo','Combo')}: x${s.combo||1}`);
+      set('hudTime',  `${L('time','Time')}${timed?' ⏱':''}: ${timed?Math.ceil(s.timeLeft||0):'∞'}`);
+      set('hudArcane',`${L('arcane','Arcane')}: ${Math.round(s.arcane||0)}%`);
+      set('hudHP',    `${L('hp','ENERGY')}: ${Math.max(0,Math.ceil(s.hp||0))}`);
+      set('hudOverload', `Overload: ${Math.round(s.overload||0)}%`);
+      const bossTxt=(this.game==='combat' && s.boss)?`${L('bossHP','Boss HP')}: ${Math.max(0,Math.ceil(s.boss.hp||0))}`:`${L('bossHP','Boss HP')}: —`;
+      set('hudBoss', bossTxt);
+      const calEl=$('hudCal'); if(calEl){ calEl.style.display='inline-flex'; calEl.style.visibility='visible'; calEl.textContent = `${L('calories','Calories')}: ${(s.kcal||0).toFixed(1)}`; }
+      const lvlEl=$('hudLvl'); if(lvlEl){ const lvl=levelFromScore(s.score||0); s.level=lvl; lvlEl.style.display='inline-flex'; lvlEl.style.visibility='visible'; lvlEl.textContent = `${L('level','Level')}: ${lvl}`; }
+      const back=$('backLink'); if(back) back.textContent=L('back','Back');
+      const hpFill=$('hpBarFill'); if(hpFill){ hpFill.style.width=Math.max(0,Math.min(100,s.hp||0))+'%'; }
+      updateOverloadUI(s.overload||0);
+      if(this.daily) updateQuestUI(this.dict,this.daily); else { this.daily=genDaily(); updateQuestUI(this.dict,this.daily); }
     },
 
-    // Damage with brief cooldown
-    takeDamage:function(amount,label){
-      if(amount<=0||this.st.dmgCD>0) return;
-      this.st.hp=Math.max(0,this.st.hp-amount);
-      this.st.dmgCD=0.5;
-      toast(`-${Math.round(amount)} HP (${label||'Hit'})`); this.updateHUD();
-    },
+    takeDamage:function(amount,label){ if(amount<=0||this.st.dmgCD>0) return; this.st.hp=Math.max(0,this.st.hp-amount); this.st.dmgCD=0.5; toast(`-${Math.round(amount)} HP (${label||'Hit'})`); this.updateHUD(); },
 
-    // Main loop
     loop:function(){
-      if(!this.st.playing) return;
+      if(!this.st || !this.st.playing) return;
       requestAnimationFrame(this.loop.bind(this));
-      const now=performance.now(), dt=(now-this.st.last)/1000; this.st.last=now;
+      const now=performance.now(); let dt=(now-this.st.last)/1000; if(dt<0||dt>0.25) dt=0.016; this.st.last=now;
 
-      if(this.mode==='timed'){ this.st.timeLeft=Math.max(0,this.st.timeLeft-dt); if(this.st.timeLeft<=0) return this.endGame(); }
+      if(this.mode==='timed'){
+        this.st.timeLeft=Math.max(0,(this.st.timeLeft||0)-dt);
+        if(this.st.timeLeft<=0){ this.endGame(); this.updateHUD(); return; }
+      }
 
-      // Fitness calories update
-      const ptsRate = Math.max(0, (this.st.combo-1)*8 + (this.st.overload/10)); // proxy
-      this.st.kcal += kcalFromActivity(ptsRate);
+      const ptsRate=Math.max(0, ((this.st.combo||1)-1)*8 + (this.st.overload||0)/10); this.st.kcal += kcalFromActivity(ptsRate);
 
-      // Overload balance
       this.st.olTick+=dt;
       if(this.st.overload>=80 && this.st.overload<100 && this.st.olTick>=0.6){ this.takeDamage(this.cfg.olTickMinor,'Overload'); this.st.olTick=0; }
       if(this.st.overload>=100 && this.st.olTick>=0.5){ this.takeDamage(this.cfg.olTickMajor,'Overload+'); this.st.olTick=0; }
-      // passive drain when idle
-      this.st.idleTimer=(this.st.idleTimer||0)+dt; if(this.st.idleTimer>1.8 && this.st.overload>0){
-        this.st.overload=Math.max(0, this.st.overload - this.cfg.olDrain*dt);
-      }
-      if(this.st.dmgCD>0) this.st.dmgCD=Math.max(0,this.st.dmgCD-dt);
 
-      // per game
       if(this.game==='combat') this.tickCombat(now,dt);
       if(this.game==='dash')   this.tickDash(now,dt);
       if(this.game==='impact') this.tickImpact(now,dt);
       if(this.game==='flow')   this.tickFlow(now,dt);
 
       this.updateHUD();
-      if(this.st.hp<=0) this.endGame();
+      if((this.st.hp||0)<=0) this.endGame();
     },
 
-    /* ===== COMBAT (B) ===== */
+    /* ===== COMBAT ===== */
     tickCombat:function(now,dt){
       if(now-this.st.spawnTimer>this.st.spawnEveryMs){ this.st.spawnTimer=now; this.spawnTarget(); }
       const needScore=(this.diff==='easy')?600:400;
@@ -311,7 +278,7 @@
     checkDashPose:function(type){ const isJump=this.st.jumpT>0, isDuck=this.st.crouch, isLeft=this.st.side<0&&this.st.sideT>0, isRight=this.st.side>0&&this.st.sideT>0, burst=this.st.burst>0;
       if(type==='low') return isJump; if(type==='high') return isDuck; if(type==='leftBeam') return isRight||burst; if(type==='rightBeam') return isLeft||burst; if(type==='shock') return burst; return false; },
 
-    /* ===== IMPACT (A–E) ===== */
+    /* ===== IMPACT ===== */
     tickImpact:function(now,dt){
       if(!this._impactAlive){ this.spawnImpactCore(); }
       if(this.st.chargeStart>0){ const t=(now-this.st.chargeStart)/1000; const pct=Math.min(100,Math.round(t/2*100)); $('#hudArcane').textContent=`CHARGE: ${pct}%`; }
@@ -329,7 +296,7 @@
       const e=qs('.impact-core'); const held=this.st.chargeStart>0?(performance.now()-this.st.chargeStart)/1000:0; this.st.chargeStart=0;
       const clamped=Math.max(0,Math.min(2,held)); const dmg=Math.round(200*clamped); const olGain=1.1*(clamped/2); const good=clamped>=0.12;
 
-      if(this.ibMode==='fitness'){ const need=this.ibCfg.minHold||0.3; if(clamped>=need) this.st.reps++; }
+      if(this.ibMode==='fitness'){ const need=0.3; if(clamped>=need) this.st.reps++; }
 
       if(this.ibMode==='boss' && this.st.bossAlive){
         const dealt=Math.max(20,Math.round(dmg*0.8)); this.st.bossHP=Math.max(0,this.st.bossHP-dealt);
@@ -344,15 +311,15 @@
         this.st.overload=Math.min(130,this.st.overload+olGain); this.st.idleTimer=0;
         if(e){ try{e.remove();}catch(_){ } } this._impactAlive=false; this.st.cores++;
 
-        if(this.ibMode==='boss' && !this.st.bossAlive && this.st.cores>=(this.ibCfg.preCores||5)){ this.summonImpactBoss(); return; }
-        if(this.ibMode==='count' && this.st.cores>=(this.ibCfg.targetCores||10)) return this.finishImpact();
-        if(this.ibMode==='fitness' && this.st.reps>=(this.ibCfg.reps||50)) return this.finishImpact();
+        if(this.ibMode==='boss' && !this.st.bossAlive && this.st.cores>=5){ this.summonImpactBoss(); return; }
+        if(this.ibMode==='count' && this.st.cores>=10) return this.finishImpact();
+        if(this.ibMode==='fitness' && this.st.reps>=50) return this.finishImpact();
 
         setTimeout(()=>this.spawnImpactCore(),650); this.updateHUD();
       }
     },
     summonImpactBoss:function(){
-      this.st.bossAlive=true; this.st.bossHP=(this.ibCfg.bossHP||600);
+      this.st.bossAlive=true; this.st.bossHP=600;
       const b=document.createElement('a-entity');
       b.setAttribute('geometry','primitive: icosahedron; radius: 0.95');
       b.setAttribute('material','color:#2b1144; emissive:#a0f; metalness:0.3; roughness:0.2');
@@ -385,7 +352,6 @@
       else{ this.st.combo=1; this.takeDamage(0.25,'Off-beat'); this.st.overload=Math.max(0,this.st.overload-0.2); SFX.warn(); this.updateHUD(); }
     },
 
-    // End
     endGame:function(){ this.st.playing=false; toast(`${T(this.dict,'finished','Finished')} • ${T(this.dict,'score','Score')}: ${this.st.score}`,2000); }
   });
 })();
