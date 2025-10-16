@@ -3,158 +3,81 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Shadow Breaker – Training Hub</title>
+  <title>Shadow Breaker — Neo Fitness Pack</title>
   <link rel="stylesheet" href="src/styles.css"/>
-  <script>
-    let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
-    const $=id=>document.getElementById(id);
-    const T=(k,def)=> (I18N&&I18N[CUR]&&I18N[CUR][k])||def||k;
-
-    const FALLBACK={
-      th:{title:"SHADOW BREAKER",subtitle:"Neo Anime Tech • Training Hub",training:"ศูนย์ฝึก",
-        modeCombat:"Arcane Combat",modeDash:"Rift Dash",modeImpact:"Impact Breaker",modeFlow:"Spirit Flow",
-        modeCombatDesc:"เวทมนตร์สายเงา ยิงทำลายเป้าด้วยพลังต้องสาป",
-        modeDashDesc:"พุ่งหลบกำแพงเลเซอร์ รอดให้ไวในรอยแยกมิติ",
-        modeImpactDesc:"ชาร์จพลังหมัดแตกแกน พุ่งทะลุขีดจำกัด",
-        modeFlowDesc:"ควบคุมลมหายใจตามจังหวะ ร่างกายและวิญญาณเป็นหนึ่ง",
-        difficulty:"ความยาก",easy:"ง่าย",normal:"ปกติ",hard:"ยาก",
-        map:"แผนที่",mapCity:"นครนีโอ",mapForest:"อารณะโบราณ",mapVoid:"อารีน่าวอยด์",
-        hubTip:"ทิป: ทุกเกมใช้ระบบภาษา i18n จากไฟล์ JSON เดียวกัน",
-        ibModeLabel:"โหมด Impact",ibModeA:"โหมดนับจำนวน",ibModeB:"โหมดจับเวลา",
-        ibModeC:"โหมดบอส",ibModeD:"โหมดไม่สิ้นสุด",ibModeE:"โหมดฟิตเนส"},
-      en:{title:"SHADOW BREAKER",subtitle:"Neo Anime Tech • Training Hub",training:"Training",
-        modeCombat:"Arcane Combat",modeDash:"Rift Dash",modeImpact:"Impact Breaker",modeFlow:"Spirit Flow",
-        modeCombatDesc:"Shadow sorcery—shatter targets with cursed energy.",
-        modeDashDesc:"Blink past laser walls inside the rift.",
-        modeImpactDesc:"Charge your fist and break the core beyond limits.",
-        modeFlowDesc:"Breathe with the beat—body and spirit as one.",
-        difficulty:"Difficulty",easy:"Easy",normal:"Normal",hard:"Hard",
-        map:"Map",mapCity:"Neo City",mapForest:"Ancient Forest",mapVoid:"Void Arena",
-        hubTip:"Tip: All games use a unified JSON i18n.",
-        ibModeLabel:"Impact Mode",ibModeA:"Count Mode",ibModeB:"Timed Mode",
-        ibModeC:"Boss Mode",ibModeD:"Endless Mode",ibModeE:"Fitness Mode"}
-    };
-
-    async function loadI18n(){
-      try{ const r=await fetch('src/i18n.json',{cache:'no-store'}); if(!r.ok) throw 0; I18N=await r.json(); }
-      catch(_){ I18N=FALLBACK; }
-      applyTexts();
-    }
-    function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); document.documentElement.setAttribute('lang',v); applyTexts(); }
-    function applyTexts(){
-      if(!$('titleMain')) return;
-      $('titleMain').textContent=T('title','SHADOW BREAKER');
-      $('subtitle').textContent=T('subtitle','Neo Anime Tech • Training Hub');
-
-      $('btnCombat').textContent=T('modeCombat','Arcane Combat');
-      $('descCombat').textContent=T('modeCombatDesc','Shadow sorcery—shatter targets with cursed energy.');
-      $('btnDash').textContent=T('modeDash','Rift Dash');
-      $('descDash').textContent=T('modeDashDesc','Blink past laser walls inside the rift.');
-      $('btnImpact').textContent=T('modeImpact','Impact Breaker');
-      $('descImpact').textContent=T('modeImpactDesc','Charge your fist and break the core beyond limits.');
-      $('btnFlow').textContent=T('modeFlow','Spirit Flow');
-      $('descFlow').textContent=T('modeFlowDesc','Breathe with the beat—body and spirit as one.');
-
-      $('lblTraining').textContent=T('training','Training');
-      $('lblDiff').textContent=T('difficulty','Difficulty');
-      $('optEasy').textContent=T('easy','Easy');
-      $('optNormal').textContent=T('normal','Normal');
-      $('optHard').textContent=T('hard','Hard');
-
-      $('lblMap').textContent=T('map','Map');
-      $('optCity').textContent=T('mapCity','Neo City');
-      $('optForest').textContent=T('mapForest','Ancient Forest');
-      $('optVoid').textContent=T('mapVoid','Void Arena');
-
-      $('lblImpactMode').textContent=T('ibModeLabel','Impact Mode');
-      $('optIbCount').textContent=T('ibModeA','Count Mode');
-      $('optIbTimed').textContent=T('ibModeB','Timed Mode');
-      $('optIbBoss').textContent=T('ibModeC','Boss Mode');
-      $('optIbEndless').textContent=T('ibModeD','Endless Mode');
-      $('optIbFitness').textContent=T('ibModeE','Fitness Mode');
-
-      $('btnTH').textContent='ไทย'; $('btnEN').textContent='English';
-      $('tip').textContent=T('hubTip','Tip: All games use a unified JSON i18n.');
-    }
-    function start(game){
-      const diff=$('selDiff').value, map=$('selMap').value;
-      const mode='timed'; // ค่าเริ่มเพื่อให้ทุกเกมเห็นเวลา
-      const ib=(game==='impact')?`&ib=${$('selImpactMode').value}`:'';
-      location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}${ib}`;
-    }
-    window.addEventListener('DOMContentLoaded', ()=>{
-      document.documentElement.setAttribute('lang',CUR);
-      loadI18n();
-      $('btnTH').addEventListener('click',()=>setLang('th'));
-      $('btnEN').addEventListener('click',()=>setLang('en'));
-    });
-  </script>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1100px;margin:28px auto;padding:0 12px}
+    .card{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px}
+    .card h3{margin:.2rem 0 .4rem 0}
+    .card p{opacity:.9;margin:.2rem 0 .6rem 0}
+    .btn{display:inline-block;background:#0aa6ff;border:0;color:#001018;font-weight:800;padding:8px 12px;border-radius:10px;text-decoration:none}
+    .langbar{display:flex;gap:8px;justify-content:center;margin:10px 0}
+    .title{margin:18px 0 8px 0;text-align:center}
+    .subtitle{text-align:center;opacity:.9;margin-bottom:6px}
+  </style>
 </head>
-<body class="hub-bg hub-g5">
-  <div class="center-card">
-    <div class="card card-g5">
-      <h1 id="titleMain" class="title-g5">SHADOW BREAKER</h1>
-      <h2 id="subtitle" class="subtitle-g5">Neo Anime Tech • Training Hub</h2>
-
-      <div class="grid4 mb8">
-        <button class="tile tile-g5 tile-combat" onclick="start('combat')">
-          <div class="tile-ico ico-combat"></div>
-          <span class="tile-label" id="btnCombat">Arcane Combat</span>
-          <span class="tile-desc" id="descCombat">เวทมนตร์สายเงา ยิงทำลายเป้าด้วยพลังต้องสาป</span>
-        </button>
-        <button class="tile tile-g5 tile-dash" onclick="start('dash')">
-          <div class="tile-ico ico-dash"></div>
-          <span class="tile-label" id="btnDash">Rift Dash</span>
-          <span class="tile-desc" id="descDash">พุ่งหลบกำแพงเลเซอร์ รอดให้ไวในรอยแยกมิติ</span>
-        </button>
-        <button class="tile tile-g5 tile-impact" onclick="start('impact')">
-          <div class="tile-ico ico-impact"></div>
-          <span class="tile-label" id="btnImpact">Impact Breaker</span>
-          <span class="tile-desc" id="descImpact">ชาร์จพลังหมัดแตกแกน พุ่งทะลุขีดจำกัด</span>
-        </button>
-        <button class="tile tile-g5 tile-flow" onclick="start('flow')">
-          <div class="tile-ico ico-flow"></div>
-          <span class="tile-label" id="btnFlow">Spirit Flow</span>
-          <span class="tile-desc" id="descFlow">ควบคุมลมหายใจตามจังหวะ ร่างกายและวิญญาณเป็นหนึ่ง</span>
-        </button>
-      </div>
-
-      <div class="row wrap gap">
-        <div><strong id="lblTraining">Training</strong></div>
-        <div>
-          <strong id="lblDiff">Difficulty</strong>
-          <select id="selDiff" class="btn secondary">
-            <option value="easy" id="optEasy">Easy</option>
-            <option value="normal" id="optNormal" selected>Normal</option>
-            <option value="hard" id="optHard">Hard</option>
-          </select>
-        </div>
-        <div>
-          <strong id="lblMap">Map</strong>
-          <select id="selMap" class="btn secondary">
-            <option value="city" id="optCity">Neo City</option>
-            <option value="forest" id="optForest">Ancient Forest</option>
-            <option value="void" id="optVoid">Void Arena</option>
-          </select>
-        </div>
-        <div>
-          <strong id="lblImpactMode">Impact Mode</strong>
-          <select id="selImpactMode" class="btn secondary">
-            <option value="count" id="optIbCount">Count Mode</option>
-            <option value="timed" id="optIbTimed">Timed Mode</option>
-            <option value="boss" id="optIbBoss">Boss Mode</option>
-            <option value="endless" id="optIbEndless">Endless Mode</option>
-            <option value="fitness" id="optIbFitness">Fitness Mode</option>
-          </select>
-        </div>
-        <div class="row" style="margin-left:auto;gap:6px">
-          <button class="btn secondary" id="btnTH">ไทย</button>
-          <button class="btn secondary" id="btnEN">English</button>
-        </div>
-      </div>
-
-      <p id="tip" class="hint">Tip: All games use a unified JSON i18n.</p>
+<body>
+  <div class="title">
+    <h1>Shadow Breaker – Hyper Neo Tech Fitness</h1>
+    <div class="subtitle" id="subTitle">เลือกเกมออกกำลังกาย 4 แบบ (เดสก์ท็อป/VR)</div>
+    <div class="langbar">
+      <button id="btnTH" class="mini">ไทย</button>
+      <button id="btnEN" class="mini">English</button>
     </div>
   </div>
+
+  <div class="grid" id="gridGames">
+    <div class="card">
+      <h3 id="g1t">Arcane Combat</h3>
+      <p id="g1d">ยิงเป้า เก็บคอมโบ เรียกบอส</p>
+      <a class="btn" href="play.html?game=combat&mode=timed&diff=normal" id="g1b">เริ่ม</a>
+    </div>
+    <div class="card">
+      <h3 id="g2t">Rift Dash</h3>
+      <p id="g2d">กระโดด/หมอบ/เบี่ยงตัว หลบอุปสรรค</p>
+      <a class="btn" href="play.html?game=dash&mode=timed&diff=normal" id="g2b">เริ่ม</a>
+    </div>
+    <div class="card">
+      <h3 id="g3t">Impact Breaker</h3>
+      <p id="g3d">ชาร์จ–ปล่อยพลัง ทำลายแกนพลังงาน</p>
+      <a class="btn" href="play.html?game=impact&ib=count&mode=timed" id="g3b">เริ่ม</a>
+    </div>
+    <div class="card">
+      <h3 id="g4t">Rhythm Flow</h3>
+      <p id="g4d">กด A/S/D ตามจังหวะ</p>
+      <a class="btn" href="play.html?game=flow&mode=timed" id="g4b">เริ่ม</a>
+    </div>
+  </div>
+
+  <script>
+    const I18N = {
+      th:{
+        sub:'เลือกเกมออกกำลังกาย 4 แบบ (เดสก์ท็อป/VR)',
+        g1t:'Arcane Combat', g1d:'ยิงเป้า เก็บคอมโบ เรียกบอส', g1b:'เริ่ม',
+        g2t:'Rift Dash', g2d:'กระโดด/หมอบ/เบี่ยงตัว หลบอุปสรรค', g2b:'เริ่ม',
+        g3t:'Impact Breaker', g3d:'ชาร์จ–ปล่อยพลัง ทำลายแกนพลังงาน', g3b:'เริ่ม',
+        g4t:'Rhythm Flow', g4d:'กด A/S/D ตามจังหวะ', g4b:'เริ่ม'
+      },
+      en:{
+        sub:'Pick 4 fitness games (Desktop / VR)',
+        g1t:'Arcane Combat', g1d:'Pop targets, build combo, summon boss', g1b:'Play',
+        g2t:'Rift Dash', g2d:'Jump / Duck / Strafe to avoid hazards', g2b:'Play',
+        g3t:'Impact Breaker', g3d:'Charge and release to break cores', g3b:'Play',
+        g4t:'Rhythm Flow', g4d:'Hit A / S / D on beat', g4b:'Play'
+      }
+    };
+    function applyLang(v){
+      localStorage.setItem('sb_lang', v);
+      const d=I18N[v]||I18N.th;
+      subTitle.textContent=d.sub;
+      g1t.textContent=d.g1t; g1d.textContent=d.g1d; g1b.textContent=d.g1b;
+      g2t.textContent=d.g2t; g2d.textContent=d.g2d; g2b.textContent=d.g2b;
+      g3t.textContent=d.g3t; g3d.textContent=d.g3d; g3b.textContent=d.g3b;
+      g4t.textContent=d.g4t; g4d.textContent=d.g4d; g4b.textContent=d.g4b;
+    }
+    const cur = localStorage.getItem('sb_lang')||'th'; applyLang(cur);
+    btnTH.onclick=()=>applyLang('th'); btnEN.onclick=()=>applyLang('en');
+  </script>
 </body>
 </html>
