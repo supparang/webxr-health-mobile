@@ -1,47 +1,120 @@
-<!doctype html>
-<html lang="en"><head>
+<!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Rhythm Rider</title>
+<title>EXO · Rhythm Sync</title>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<style>html,body{margin:0;height:100%;background:#0a0e18;color:#e6f2ff;font-family:system-ui}
-#hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:.6rem 1rem;background:linear-gradient(180deg,rgba(17,40,72,.55),transparent);z-index:5;pointer-events:none}
-.hud-left,.hud-right{display:flex;gap:.6rem;align-items:center}
-.btn{pointer-events:auto;border:1px solid #112848;background:linear-gradient(180deg,rgba(138,209,255,.12),rgba(138,209,255,.05));padding:.35rem .7rem;border-radius:.6rem;color:#e6f2ff}
-.touch-zone{position:fixed;top:0;bottom:0;width:50vw;z-index:4} #touch-left{left:0} #touch-right{right:0}
-.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,16,32,.55);backdrop-filter:blur(4px);z-index:10}
-.overlay.hidden{display:none}
-.panel{background:#0e1424;border:1px solid #112848;color:#e6f2ff;padding:1rem 1.2rem;border-radius:1rem;min-width:260px;box-shadow:0 0 24px rgba(138,209,255,.35)}
-</style></head>
-<body>
-<div id="hud"><div class="hud-left"><span id="score">0</span><span id="combo">x1.0</span></div>
-<div class="hud-right"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a class="btn" href="../index.html">⟵ Menu</a></div></div>
-<div id="touch-left" class="touch-zone"></div><div id="touch-right" class="touch-zone"></div>
-<div id="overlay" class="overlay hidden"><div class="panel"><h1>Paused</h1><p>Tap to resume</p><div style="display:flex;gap:.6rem"><button id="btnResume" class="btn">▶ Resume</button><button id="btnRestart" class="btn">⟲ Restart</button></div></div></div>
+<link rel="stylesheet" href="../core/exo-ui.css">
+</head><body>
+<div class="hud">
+  <div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
+  <div class="box"><span id="time">60</span><a class="btn" id="btnPause">⏸</a><a class="btn" href="../index.html">⟵ Hub</a></div>
+</div>
+<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
+<div id="overlay" class="overlay" style="display:none"><div class="panel" id="panel"></div></div>
 
-<a-scene>
-  <a-entity light="type:ambient;intensity:.7"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" color="#0f1b33"></a-plane>
+<script src="../core/exo-metrics.js"></script>
+<script src="../core/exo-core.js"></script>
+
+<a-scene vr-mode-ui="enabled: true" renderer="antialias:true; highRefreshRate:true; colorManagement:true">
+  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
+  <a-entity light="type:directional;intensity:.9;color:#aee0ff" position="0 3 2"></a-entity>
+  <a-entity geometry="primitive: box; depth:22; height:6; width:12" position="0 3 -7"
+            material="color:#0c1428; side:back; metalness:.1; roughness:.9"></a-entity>
+  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 .01 -3.5"
+            material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.6"></a-entity>
   <a-entity id="rig"><a-entity camera position="0 1.6 0"><a-entity cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity></a-entity></a-entity>
-  <a-entity id="director" game-director></a-entity>
+
+  <a-entity id="director" rhythm-director></a-entity>
 </a-scene>
 
 <script>
-function blip(){const ac=blip.ac||(blip.ac=new (window.AudioContext||window.webkitAudioContext)());const o=ac.createOscillator(),g=ac.createGain();o.type="sine";o.frequency.value=660;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();setTimeout(()=>o.stop(),60);}
-AFRAME.registerComponent('game-director',{init(){
-  this.state={score:0,combo:1.0,time:60,running:true};
-  this.$s=score; this.$c=combo; this.$t=time; btnPause.onclick=()=>this.pause(); btnResume.onclick=()=>this.resume(); btnRestart.onclick=()=>location.reload();
-  const hit=(side)=>this.tryHit(side);
-  ['touchstart','mousedown'].forEach(ev=>{touch-left.addEventListener(ev,()=>hit('L'));touch-right.addEventListener(ev,()=>hit('R'));});
-  this.spawnZ=-4; this.hitZ=-0.5; this.laneX={L:-0.8,R:0.8}; this.pool=[]; for(let i=0;i<16;i++) this.pool.push(this.makeBall(this.el.sceneEl));
-  this.elapsed=0; this.next=0.6; this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;} this.state.time--; this.$t.textContent=this.state.time; },1000);
-  this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
-},pause(){this.state.running=false;overlay.classList.remove('hidden');},resume(){this.state.running=true;overlay.classList.add('hidden');},
-makeBall(scene){ const e=document.createElement('a-entity'); e.setAttribute('class','clickable'); e.setAttribute('geometry','primitive:sphere;radius:.22'); e.setAttribute('material','color:#66c;emissive:#224'); e.setAttribute('visible',false); e.object3D.position.set(0,1.4,-4); e.userData={alive:false,side:'L',vz:4.2}; e.addEventListener('click',()=>this.tryHit(e.userData.side)); scene.appendChild(e); return e; },
-spawn(side){ const e=this.pool.find(o=>!o.userData.alive); if(!e) return; e.userData.alive=true; e.userData.side=side; e.object3D.position.set(this.laneX[side],1.4,-4); e.setAttribute('visible',true); },
-tryHit(side){ if(!this.state.running) return; let best=null, dzBest=999; for(const e of this.pool){ if(!e.userData.alive||e.userData.side!==side) continue; const dz=Math.abs(e.object3D.position.z+0.5); if(dz<dzBest){best=e;dzBest=dz;} } if(best && dzBest<=0.25){ this.onHit(best,dzBest); } else { this.state.combo=1.0; this.$c.textContent='x'+this.state.combo.toFixed(1); } },
-onHit(e,dz){ blip(); const base=(dz<=0.08?100:dz<=0.18?60:30); this.state.score+=Math.round(base*this.state.combo); this.$s.textContent=this.state.score; this.state.combo=Math.min(this.state.combo+0.2,5); this.$c.textContent='x'+this.state.combo.toFixed(1); e.setAttribute('visible',false); e.userData.alive=false; },
-end(){ this.state.running=false; clearInterval(this.timer); overlay.classList.remove('hidden'); },
-tick(t,dt){ if(!this.state.running) return; const dtS=dt/1000; this.elapsed+=dtS; if(this.elapsed>=this.next){ this.spawn((Math.random()<0.5)?'L':'R'); this.next+=0.6; } for(const e of this.pool){ if(!e.userData.alive) continue; e.object3D.position.z+=e.userData.vz*dtS; if(e.object3D.position.z>0.4){ e.setAttribute('visible',false); e.userData.alive=false; this.state.combo=1.0; this.$c.textContent='x'+this.state.combo.toFixed(1); } } }
+AFRAME.registerComponent('rhythm-director',{
+  init(){
+    this.state={score:0,combo:1.0,time:60,running:false};
+    this.rec=new EXO_METRICS.Recorder('RhythmSync');
+    this.spawnZ=-4; this.hitZ=-0.5; this.laneX={L:-0.8,R:0.8};
+    this.speed=4.4; this.pool=[]; for(let i=0;i<16;i++) this.pool.push(this.mkNote(this.el.sceneEl));
+    // Beat timeline
+    const q=new URLSearchParams(location.search);
+    const bpm = +(q.get('bpm')||100);
+    this.beatIv = 60/bpm; this.elapsed=0; this.nextBeat=0; this.sideToggle=false;
+    EXO.startOverlay(()=>this.start());
+    EXO.attachBasicInput({onLeft:()=>this.tryHit('L'), onRight:()=>this.tryHit('R'), onPause:()=>this.pause()});
+    document.getElementById('btnPause').onclick=()=>this.pause();
+    this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
+    this.$s=score; this.$c=combo; this.$t=time;
+  },
+  start(){
+    this.state.running=true; this.t0=EXO.now();
+    this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;}
+      this.state.time--; this.$t.textContent=this.state.time; },1000);
+  },
+  pause(){ this.state.running=false; this.showPanel(`<div class="title">Paused</div><p class="note">Tap Start on overlay to resume</p><div style="display:flex;gap:.6rem"><a class="btn" href="../index.html">⟵ Hub</a><a class="btn" onclick="location.reload()">⟲ Restart</a></div>`); },
+  mkNote(scene){ const e=document.createElement('a-entity'); e.setAttribute('class','clickable');
+    e.setAttribute('geometry','primitive:sphere; radius:.22'); e.setAttribute('material','color:#6aa3ff; emissive:#234a99; emissiveIntensity:.3');
+    e.setAttribute('visible',false); e.userData={alive:false,side:'L',beatTime:0};
+    e.addEventListener('click',()=>this.tryHit(e.userData.side)); scene.appendChild(e); return e; },
+  spawn(side, beatTime){
+    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
+    e.userData.alive=true; e.userData.side=side; e.object3D.position.set(this.laneX[side],1.4,this.spawnZ); e.setAttribute('visible',true);
+    e.userData.beatTime=beatTime; // target ideal hit time (absolute seconds)
+  },
+  tryHit(side){
+    if(!this.state.running) return; EXO.beep(660,0.04,0.12);
+    let best=null, bestErr=9999;
+    const t=EXO.now();
+    for(const e of this.pool){
+      if(!e.userData.alive||e.userData.side!==side) continue;
+      const errMs = Math.abs((t - e.userData.beatTime)*1000);
+      if(errMs<bestErr){ best=e; bestErr=errMs; }
+    }
+    if(best && bestErr<=180){ // 180ms window
+      const grade = bestErr<=60?1.0 : bestErr<=120?0.7 : 0.4;
+      this.state.score+=Math.round(grade*100*this.state.combo); this.$s.textContent=this.state.score;
+      this.state.combo=Math.min(5,this.state.combo+0.25); this.$c.textContent='x'+this.state.combo.toFixed(1);
+      best.setAttribute('visible',false); best.userData.alive=false;
+      this.rec.log({t, stimulus:best.userData.beatTime, response:t, reactionMs:0, timingErrorMs: (t-best.userData.beatTime)*1000, success:true, hitQuality:grade});
+    }else{
+      this.state.combo=1.0; this.$c.textContent='x1.0';
+      this.rec.log({t, success:false, timingErrorMs:999});
+    }
+  },
+  end(){
+    this.state.running=false; clearInterval(this.timer);
+    const sum=this.rec.summary(); const csv=this.rec.csv('session-'+Date.now());
+    const html=`<div class="title">Result — Rhythm Sync</div>
+      <div class="kpi">
+        <div>Score<br><b>${sum.score.toFixed(0)}</b></div>
+        <div>Accuracy<br><b>${sum.accuracyPct.toFixed(1)}%</b></div>
+        <div>Avg Err<br><b>${Math.abs(sum.avgReactionMs||0).toFixed(1)} ms</b></div>
+        <div>Stability<br><b>${sum.stability.toFixed(1)}</b></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" id="dl">⬇ Download CSV</a>
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.showPanel(html); document.getElementById('dl').onclick=()=>EXO.downloadCSV('exo_rhythm_sync.csv',csv);
+  },
+  showPanel(inner){ panel.innerHTML=inner; overlay.style.display='flex'; },
+  tick(t,dt){
+    if(!this.state.running) return;
+    const dtS=dt/1000; this.elapsed += dtS;
+    // schedule beats
+    const nowAbs = EXO.now();
+    if(nowAbs >= (this.t0 + this.nextBeat)){
+      const side = (this.sideToggle=!this.sideToggle) ? 'L':'R';
+      this.spawn(side, this.t0 + this.nextBeat);
+      this.nextBeat += this.beatIv;
+    }
+    // move notes & auto miss
+    for(const e of this.pool){
+      if(!e.userData.alive) continue;
+      const p=e.object3D.position; p.z += 4.4*dtS;
+      if(p.z>0.4){ e.setAttribute('visible',false); e.userData.alive=false; this.state.combo=1.0; this.$c.textContent='x1.0';
+        this.rec.log({t:EXO.now(), success:false, timingErrorMs:999}); }
+    }
+  }
 });
 </script>
 </body></html>
