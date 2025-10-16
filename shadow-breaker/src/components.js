@@ -1,8 +1,9 @@
 /*  Shadow Breaker – 4 Modes: combat / dash / impact / flow
-    - Combat: ใช้ไฟล์ legacy ได้ผ่าน ?legacy=1 (โหลด components_arcane_legacy.js)
-    - Dash: Hyper + Warning (M2) + Burst
-    - Impact: ชาร์จ-ปล่อยพลัง
-    - Flow: จังหวะ A/S/D
+    - ใช้ i18n.json สำหรับข้อความทุกเกม
+    - Arcane Combat = เวอร์ชัน B (พร้อม Overload/HP/สกิล/บอส/ทิป)
+    - Rift Dash = Hyper + Warning (M2) + Burst
+    - Impact = ชาร์จ-ปล่อยพลัง
+    - Flow = จังหวะ A/S/D
 */
 (function(){
   const $=(id)=>document.getElementById(id);
@@ -25,7 +26,7 @@
     if(p>=50&&p<80) w.classList.add('danger'); else if(p>=80&&p<100) w.classList.add('critical'); else if(p>=100) w.classList.add('z2');
   }
 
-  // ===== Rift Dash Warning UI (M2) =====
+  // ===== Warning UI (Rift Dash – M2) =====
   function ensureWarnDOM(){
     let w=document.getElementById('warnWrap');
     if(!w){
@@ -66,10 +67,9 @@
   // ===== Daily Quests (ย่อ) =====
   const QUEST_KEY='sb_daily_v1';
   const genDaily=()=>{const today=new Date().toISOString().slice(0,10);const ex=JSON.parse(localStorage.getItem(QUEST_KEY)||'{}');if(ex.date===today) return ex;const q={date:today,list:[{id:'score1500',name:{th:'ทำคะแนนรวม 1,500',en:'Reach total score 1,500'},goal:1500,cur:0,done:false},{id:'combo8',name:{th:'ทำคอมโบ x8',en:'Reach combo x8'},goal:8,cur:0,done:false},{id:'boss1',name:{th:'ชนะบอส 1 ครั้ง',en:'Defeat 1 boss'},goal:1,cur:0,done:false}]};localStorage.setItem(QUEST_KEY,JSON.stringify(q));return q;};
-  const saveDaily=(q)=>localStorage.setItem(QUEST_KEY,JSON.stringify(q));
   function updateQuestUI(dict,q){const box=$('qList'), title=$('qTitle'); if(!box) return; title.textContent=T(dict,'dailyQuests','Daily Quests'); box.innerHTML=''; q.list.forEach(it=>{const nm=it.name[(localStorage.getItem('sb_lang')||'th')]; const line=document.createElement('div'); line.textContent=`• ${nm} — ${it.cur}/${it.goal} ${it.done?'✓':''}`; box.appendChild(line);});}
 
-  // ===== Component =====
+  // ===== Component: 4 โหมด =====
   AFRAME.registerComponent('shadow-breaker-game',{
     init:function(){
       const q=new URLSearchParams(location.search);
@@ -83,9 +83,6 @@
         this.i18n=data; this.dict=data[cur]||data['th']||{};
         window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']; this.updateHUD(); };
 
-        // kid-easy flag (ใช้ใน combat ถ้าโหลดเวอร์ชันนี้)
-        this.kid = (this.game==='combat' && this.diff==='easy');
-
         // state หลัก
         this.st={
           playing:false, timeLeft:(this.mode==='timed')?this.cfg.timedSec:9999,
@@ -97,7 +94,7 @@
           // impact
           chargeStart:0, _impactAlive:false,
           // flow
-          flowNotes:[], flowBeat:0, flowNext:0
+          flowNext:0
         };
         this.daily=genDaily(); updateQuestUI(this.dict,this.daily);
 
@@ -126,17 +123,17 @@
         });
         window.addEventListener('keyup',(e)=>{ if(this.game==='dash' && (e.key==='ArrowDown')) this.st.crouch=false; });
 
-        // impact press
+        // Impact press
         window.addEventListener('mousedown', (e)=>{ if(this.game==='impact') this.st.chargeStart=performance.now(); });
         window.addEventListener('mouseup',   (e)=>{ if(this.game==='impact') this.releaseImpact(); });
 
-        // manual ray (combat ในไฟล์นี้ ถ้าคุณไม่ได้ใช้ legacy)
+        // Combat ยิงเมาส์ (manual ray)
         window.addEventListener('click', this.manualRay && this.manualRay.bind(this), {passive:false});
 
         this.updateObjective();
         this.startGame();
 
-        if(this.game==='combat' && this.showCombatTutorial) this.showCombatTutorial();
+        if(this.game==='combat') this.showCombatTutorial();
       });
     },
 
@@ -145,10 +142,10 @@
     updateObjective:function(){
       const o=$('objective'); if(!o) return;
       const obj={
-        combat:'ทำคะแนนถึง 400 (หรือ 600 ใน Easy) เพื่อเรียก Mini Boss',
-        dash:'หลบกำแพง/เลเซอร์: ↑ กระโดด • ↓ ก้ม • ←/→ หลบข้าง • SHIFT Burst',
-        impact:'กดเมาส์ค้างเพื่อชาร์จ แล้วปล่อยทำลายแกนพลัง',
-        flow:'กด A / S / D ให้ตรงสัญญาณจังหวะ'
+        combat:T(this.dict,'objectiveCombat','Reach score to summon Mini Boss'),
+        dash:  T(this.dict,'objectiveDash','Avoid walls/lasers: ↑ Jump • ↓ Duck • ←/→ Side • SHIFT Burst'),
+        impact:T(this.dict,'objectiveImpact','Hold to charge, release to break the core'),
+        flow:  T(this.dict,'objectiveFlow','Press A / S / D on beat')
       };
       o.textContent = obj[this.game];
     },
@@ -187,7 +184,7 @@
         if(this.st.timeLeft<=0) return this.endGame();
       }
 
-      // Overload pulse damage (ใช้ร่วมทุกโหมด)
+      // Overload pulse damage
       this.st.olTick += dt;
       if(this.st.overload>=80 && this.st.overload<100 && this.st.olTick>=0.5){ this.takeDamage(0.4,'Overload'); this.st.olTick=0; }
       if(this.st.overload>=100 && this.st.olTick>=0.4){ this.takeDamage(1.2,'Overload+'); this.st.olTick=0; }
@@ -199,8 +196,8 @@
         this.st.overload = Math.max(0, this.st.overload - 0.35*dt);
       }
 
-      // สวิตช์ตามโหมด
-      if(this.game==='combat'){ this.tickCombat && this.tickCombat(now,dt); }
+      // per-mode
+      if(this.game==='combat') this.tickCombat(now,dt);
       if(this.game==='dash')   this.tickDash(now,dt);
       if(this.game==='impact') this.tickImpact(now,dt);
       if(this.game==='flow')   this.tickFlow(now,dt);
@@ -209,7 +206,103 @@
       if(this.st.hp<=0) this.endGame();
     },
 
-    /* ===== MODE: DASH (Hyper + M2) ===== */
+    /* ========== MODE: COMBAT (เวอร์ชัน B) ========== */
+    tickCombat:function(now,dt){
+      if(now-this.st.spawnTimer>this.st.spawnEveryMs){ this.st.spawnTimer=now; this.spawnTarget(); }
+      const needScore = (this.diff==='easy') ? 600 : 400;
+      if(this.st.phase!=='boss' && this.st.score>=needScore){
+        this.st.phase='boss'; this.spawnMiniBoss();
+      }
+    },
+    spawnTarget:function(){
+      const sp=qs('#spawner'); if(!sp) return;
+      const e=document.createElement('a-entity');
+      e.setAttribute('geometry','primitive: sphere; radius: 0.25');
+      e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
+      const rx=(Math.random()*2-1)*0.9, ry=1.2+Math.random()*0.6, rz=-2.0-Math.random()*0.5;
+      e.setAttribute('position',{x:rx,y:ry,z:rz});
+      e.classList.add('clickable');
+      e.setAttribute('animation__pulse','property: scale; to:1.12 1.12 1.12; dir:alternate; loop:true; dur:650');
+
+      // ยิงโดน
+      e.addEventListener('click',()=>{
+        if(!this.st.playing) return;
+        this.st.combo=Math.min(20,this.st.combo+1);
+        const add=100+(this.st.combo-1)*10;
+        this.st.score+=add; this.st.arcane=Math.min(100,this.st.arcane+3);
+        this.st.overload=Math.min(130,this.st.overload+0.9);
+        this.st.idleTimer = 0;
+        if(this.st.boss){ this.damageBoss(3); }
+        SFX.hit(); e.remove(); this.updateHUD();
+      });
+
+      setTimeout(()=>{ if(e.parentNode){
+        e.remove(); this.st.combo=1;
+        if(this.diff!=='easy') this.takeDamage(this.cfg.missHP, (this.dict && this.dict['miss'])||'Miss');
+        this.st.overload=Math.max(0,this.st.overload-0.6);
+        this.updateHUD();
+      }}, this.cfg.lifeMs);
+
+      sp.appendChild(e);
+    },
+    spawnMiniBoss:function(){
+      const b={ hp:140, el:document.createElement('a-entity') };
+      b.el.setAttribute('geometry','primitive: icosahedron; radius: 0.6');
+      b.el.setAttribute('material','color:#17394a; emissive:#0ff; metalness:0.2; roughness:0.2');
+      b.el.setAttribute('position',{x:0,y:1.6,z:-2.6}); b.el.classList.add('boss');
+      qs('#spawner').appendChild(b.el); this.st.boss=b; toast(T(this.dict,'missionBoss','Mini Boss!'));
+
+      const atk=()=>{ if(!this.st.boss||!this.st.playing||this.st.hp<=0) return;
+        const dmg=this.cfg.bossHit + Math.floor(this.st.overload/50);
+        this.takeDamage(dmg,T(this.dict,'bossAttack','Boss attack'));
+        if(this.st.hp>0 && this.st.boss) setTimeout(atk, 1800);
+      };
+      setTimeout(atk, 1200);
+    },
+    damageBoss:function(amount){
+      if(!this.st.boss) return;
+      this.st.boss.hp-=amount;
+      if(this.st.boss.hp<=0){
+        try{ this.st.boss.el.remove(); }catch(_){}
+        this.st.boss=null;
+        toast(T(this.dict,'missionClear','Mission Clear'));
+      }
+      this.updateHUD();
+    },
+    manualRay:function(evt){
+      const sceneEl=qs('a-scene'), camEl=$('camera');
+      const renderer=sceneEl && sceneEl.renderer, camera=camEl && camEl.getObject3D('camera');
+      if(!renderer||!camera||!this.st.playing) return;
+      const rect=renderer.domElement.getBoundingClientRect();
+      const mouse=new THREE.Vector2(((evt.clientX-rect.left)/rect.width)*2-1,-((evt.clientY-rect.top)/rect.height)*2+1);
+      const raycaster=new THREE.Raycaster(); raycaster.setFromCamera(mouse,camera);
+      const nodes=Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
+      const hits=raycaster.intersectObjects(nodes,true);
+      if(hits.length){ let obj=hits[0].object; while(obj && !obj.el) obj=obj.parent; if(obj && obj.el) obj.el.emit('click'); }
+    },
+    showCombatTutorial:function(){
+      try{
+        const el=document.createElement('div');
+        el.id='tutorialTip';
+        el.style.position='fixed';
+        el.style.left='50%'; el.style.top='14%';
+        el.style.transform='translateX(-50%)';
+        el.style.zIndex='10010';
+        el.style.background='rgba(0,0,0,.65)';
+        el.style.border='1px solid rgba(255,255,255,.15)';
+        el.style.padding='10px 14px';
+        el.style.borderRadius='12px';
+        el.style.color='#cfefff';
+        el.style.fontWeight='700';
+        el.style.letterSpacing='.3px';
+        el.textContent=T(this.dict,'missionStart','Mission Start: Tutorial');
+        document.body.appendChild(el);
+        setTimeout(()=>{ el.style.opacity='0'; }, 18000);
+        setTimeout(()=>{ try{el.remove();}catch(_){ } }, 20000);
+      }catch(_){}
+    },
+
+    /* ========== MODE: DASH (Hyper + M2) ========== */
     tickDash:function(now,dt){
       if(this.st.jumpT>0) this.st.jumpT=Math.max(0,this.st.jumpT-dt);
       if(this.st.sideT>0) this.st.sideT=Math.max(0,this.st.sideT-dt); else this.st.side=0;
@@ -303,7 +396,7 @@
       return false;
     },
 
-    /* ===== MODE: IMPACT ===== */
+    /* ========== MODE: IMPACT ========== */
     tickImpact:function(now,dt){
       if(!this._impactAlive){ this.spawnImpactCore(); }
       if(this.st.chargeStart>0){
@@ -317,7 +410,7 @@
       e.setAttribute('material','color:#ffb36b; emissive:#f80; metalness:0.2; roughness:0.2');
       e.setAttribute('position','0 1.3 -2.2'); e.classList.add('impact-core');
       this._impactAlive=true; qs('#spawner').appendChild(e);
-      $('objective').textContent='ชาร์จให้เต็มแล้วปล่อยทำลายแกนพลัง (0–2s)';
+      $('objective').textContent=T(this.dict,'objectiveImpact','Hold to charge, release to break the core');
     },
     releaseImpact:function(){
       if(!this._impactAlive) return;
@@ -327,7 +420,6 @@
       const clamped=Math.max(0,Math.min(2,held));
       const dmg=Math.round(200*clamped); // 0–400 score
       this.st.score+=dmg; this.st.combo=Math.min(20,this.st.combo+1);
-      // ขยับแล้ว OL ขึ้นเล็กน้อยตามเวลาชาร์จ
       const olGain = 1.2 * (clamped/2); // 0–1.2
       this.st.overload = Math.min(130, this.st.overload + olGain);
       this.st.idleTimer = 0;
@@ -338,13 +430,13 @@
       setTimeout(()=>this.spawnImpactCore(), 800);
     },
 
-    /* ===== MODE: FLOW ===== */
+    /* ========== MODE: FLOW ========== */
     tickFlow:function(now,dt){
       if(!this.st.flowNext) this.st.flowNext=now+800;
       if(now>=this.st.flowNext){
         const lanes=['A','S','D']; const L=lanes[Math.floor(Math.random()*lanes.length)];
         this.spawnFlowNote(L, now);
-        this.st.flowNext = now + 900; // เริ่มง่าย
+        this.st.flowNext = now + 900; // ง่ายก่อน
       }
       document.querySelectorAll('.flow-note').forEach(n=>{
         const born=Number(n.dataset.t0||0); const age=now-born; const life=900;
@@ -368,7 +460,7 @@
       n.style.position='absolute'; n.style.left = lane==='A'?'20%':(lane==='S'?'45%':'70%'); n.style.top='10%';
       n.style.background='rgba(0,0,0,.55)'; n.style.border='1px solid #49b'; n.textContent=lane;
       wrap.appendChild(n);
-      $('objective').textContent='กด A/S/D ให้ตรงกับสัญลักษณ์ตกลงมา';
+      $('objective').textContent=T(this.dict,'objectiveFlow','Press A/S/D on beat');
     },
     checkFlowHit:function(key){
       const notes=[...document.querySelectorAll('.flow-note')].filter(n=>n.dataset.key===key);
@@ -389,7 +481,7 @@
       }
     },
 
-    /* ===== Shared End / (optional) manualRay for combat if not legacy ===== */
+    /* ===== End ===== */
     endGame:function(){ this.st.playing=false; toast(`${T(this.dict,'finished','Finished')} • ${T(this.dict,'score','Score')}: ${this.st.score}`,2000); }
   });
 })();
