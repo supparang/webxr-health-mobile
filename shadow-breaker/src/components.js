@@ -1,14 +1,12 @@
-/* Shadow Breaker – Mixed Signature Fitness Build (G5 Glow)
+/* Shadow Breaker – Mixed Signature Fitness Build (G5 Glow + Failsafe)
    Components: A-Frame runtime for 4 games (combat/dash/impact/flow)
-   Emergency + Gameplay Updates:
-   - ERROR OVERLAY: โชว์ error ด้านซ้ายบน ถ้าโค้ด/ไฟล์มีปัญหา
-   - SANITY CUBE: กล่องหมุน 10 วินาทีแรก ยืนยันว่าฉากเรนเดอร์/อนิเมต
-   - WATCHDOG SPAWNER: ถ้าระบบสปอว์นเงียบ จะบังคับสปอว์นให้เอง
-   - SAFE-BOOT i18n: ต่อให้โหลด i18n ไม่ได้ เกมก็เริ่มแน่
-   - Default mode 'timed' ให้เวลาแสดง/เดินแน่นอน
-   - Arcane Combat: Multi-Gate boss spawn (Score OR Kills OR Assist) + Safety Gate
-   - Boss Debug HUD (S/K/A) + Force Boss (กด B)
-   - Fitness (calories + level), Daily quests
+   What’s inside:
+   - ERROR OVERLAY (โชว์ error มุมซ้ายบน)
+   - SAFE-BOOT i18n + **FAILSAFE TIMER** (เริ่มเกมอัตโนมัติภายใน ~1.5s แม้ fetch แขวน)
+   - SANITY CUBE (กล่องหมุน 10 วิแรก)
+   - WATCHDOG SPAWNER (กันนิ่ง บังคับสปอว์น)
+   - Arcane Combat: Gates + Boss Debug + Force Boss (B)
+   - Fitness (kcal/level), Daily Quests
 */
 (function(){
 
@@ -178,20 +176,29 @@
           startNow();
         }
 
+        // เคลียร์ failsafe timer เมื่อติดเครื่องแล้ว
+        try{ clearTimeout(startFallback); }catch(_){}
+        __started = true;
+
         try{ console.info('[SB] SAFE-BOOT OK', {game:this.game, mode:this.mode, diff:this.diff}); }catch(_){}
       };
 
-      // พยายามโหลด i18n ถ้าโหลดไม่ได้ ให้ใช้ {} แล้วเดินต่อ
+      // --- FAILSAFE TIMER: ถ้า i18n ยังไม่สตาร์ทใน 1500ms ให้สตาร์ทด้วย {} ---
+      let __started = false;
+      const safeStartWrap = (data)=>{ if (!__started) { safeStart(data); } };
+      const startFallback = setTimeout(()=>{ safeStartWrap({}); }, 1500);
+
+      // พยายามโหลด i18n ถ้าโหลดไม่ได้/ช้า ให้ใช้ failsafe
       (async ()=>{
         try{
           const r = await fetch('src/i18n.json', {cache:'no-store'});
           if(!r.ok) throw new Error('i18n HTTP '+r.status);
           const data = await r.json();
-          safeStart(data);
+          safeStartWrap(data);
         }catch(err){
           const t = $('toast');
           if(t){ t.textContent = 'i18n load failed – running with defaults'; t.style.display='block'; setTimeout(()=>t.style.display='none',1500); }
-          safeStart({});
+          safeStartWrap({});
         }
       })();
 
@@ -322,7 +329,6 @@
       try{
         if(this.game==='combat' && this.st.playing){
           const hasTargets = document.querySelectorAll('.clickable').length;
-          // ถ้าไม่มีเป้าเลย และเวลาวิ่ง > 3 วินาที นับว่าแปลก → บังคับสปอว์น
           if(!hasTargets && (this.mode!=='timed' || this.st.timeLeft < (this.cfg.timedSec||60) - 3)){
             this.st.spawnTimer = performance.now() - (this.st.spawnEveryMs + 10);
             this.spawnTarget();
@@ -392,7 +398,7 @@
         const add=120+(this.st.combo-1)*12;
         this.st.score+=add; this.st.arcane=Math.min(100,this.st.arcane+3);
         this.st.overload=Math.min(130,this.st.overload+0.9); this.st.idleTimer=0;
-        this.st.kills++; // สำคัญ: นับเป้าที่ยิงโดน
+        this.st.kills++; // นับเป้าที่ยิงโดน (สำคัญต่อ Gate)
         if(this.st.boss){ this.damageBoss(3); }
         SFX.hit(); e.remove(); this.updateHUD();
       });
@@ -422,7 +428,7 @@
       if(!this.st.boss) return;
       this.st.boss.hp -= amount;
       if(this.st.boss.hp<=0){
-        try{ this.st.boss.el.remove(); }catch(_){}
+        try{ this.st.boss.el.remove(); }catch(_){ }
         this.st.boss=null; toast(T(this.dict,'missionClear','Mission Clear'));
         if(this.daily){ const it=this.daily.list.find(x=>x.id==='boss1'); if(it && !it.done){ it.cur=1; it.done=true; saveDaily(this.daily); } }
       }
