@@ -1,134 +1,139 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Play – Shadow Breaker</title>
+
+  <!-- Styles -->
   <link rel="stylesheet" href="src/styles.css"/>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Game Component -->
   <script src="src/components.js" defer></script>
 </head>
 <body>
-  <!-- HUD Top (center strip) -->
-<div class="hud" id="hudTop">
-  <div class="badge" id="hudGame">—</div>
-  <div class="badge" id="hudScore">—</div>
-  <div class="badge" id="hudCombo">—</div>
-  <div class="badge" id="hudTime">—</div>  <!-- เวลาเด่น -->
-  <div class="badge" id="hudArcane">—</div>
-  <div class="badge" id="hudCal">Cal: 0.0</div>
-  <div class="badge" id="hudLvl">Lv.1</div>
-  <div class="badge interactive"><a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a></div>
-  <div class="badge interactive"><button id="btnTH" class="mini">ไทย</button><button id="btnEN" class="mini">English</button></div>
-</div>
 
+  <!-- ===== HUD Top (center strip) ===== -->
+  <div class="hud" id="hudTop">
+    <div class="badge" id="hudGame">Shadow Breaker</div>
+    <div class="badge" id="hudScore">Score: 0</div>
+    <div class="badge" id="hudCombo">Combo: x1</div>
+    <div class="badge" id="hudTime">Time: 60</div>  <!-- เวลาเด่น -->
+    <div class="badge" id="hudArcane">Arcane: 0%</div>
+    <div class="badge" id="hudCal">Cal: 0.0</div>
+    <div class="badge" id="hudLvl">Lv.1</div>
 
-  <!-- HUD Bottom -->
-  <div class="hud bottom">
+    <!-- Back & Language -->
+    <div class="badge interactive">
+      <a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a>
+    </div>
+    <div class="badge interactive">
+      <button id="btnTH" class="mini">ไทย</button>
+      <button id="btnEN" class="mini">English</button>
+    </div>
+
+    <!-- Debug Gate HUD -->
+    <div class="badge" id="hudDBG" style="opacity:.9">DBG</div>
+  </div>
+
+  <!-- ===== HUD Bottom ===== -->
+  <div class="hud bottom" id="hudBottom" style="justify-content:center;gap:10px">
     <div class="badge" id="hudHP">ENERGY: 100</div>
     <div class="badge" id="hudOverload">Overload: 0%</div>
     <div class="badge" id="hudBoss">Boss HP: —</div>
-    <div class="badge interactive"><button id="btnQuest" class="mini">Quests</button></div>
+    <div class="badge interactive"><button id="btnSkillWheel">Skill Wheel (Q)</button></div>
   </div>
 
+  <!-- Toast / Objective / Quests -->
   <div id="toast" class="toast"></div>
-  <div id="objective">Objective</div>
+  <div id="objective" class="objective"></div>
+  <div id="questPanel" class="quest-panel">
+    <div id="qTitle" class="quest-title">Daily Quests</div>
+    <div id="qList" class="quest-list"></div>
+  </div>
 
-  <!-- Bars -->
-  <div id="overloadBarWrap"><div id="overloadBarGlow"></div><div id="overloadBarCrack"></div><div id="overloadBarFill"></div><div id="overloadBarText">Overload: 0%</div></div>
-  <div id="hpBarWrap"><div id="hpBarFill"></div></div>
+  <!-- Overload & HP bars (UI overlay) -->
+  <div id="overloadBarWrap" class="bar-wrap" style="left:50%;transform:translateX(-50%);bottom:12%;">
+    <div class="bar-label" id="overloadBarText">Overload: 0%</div>
+    <div class="bar">
+      <div class="bar-fill" id="overloadBarFill" style="width:0%"></div>
+    </div>
+  </div>
+  <div id="hpBarWrap" class="bar-wrap" style="left:50%;transform:translateX(-50%);bottom:6%;">
+    <div class="bar-label">ENERGY</div>
+    <div class="bar">
+      <div class="bar-fill hp" id="hpBarFill" style="width:100%"></div>
+    </div>
+  </div>
 
-  <!-- Quest Panel -->
-  <div id="questPanel" class="panel hidden"><div class="panel-header"><span id="qTitle">Daily Quests</span><button id="qClose" class="mini">×</button></div><div id="qList" class="panel-body"></div></div>
-
-  <!-- Scene -->
-  <a-scene id="scene" shadow-breaker-game renderer="colorManagement: true; physicallyCorrectLights: true; antialias: false; sortObjects: true; foveationLevel: 2; powerPreference: high-performance">
+  <!-- ===== A-Frame Scene ===== -->
+  <a-scene renderer="colorManagement: true" shadow-breaker-game>
     <a-assets timeout="10000">
-      <img id="bg_city"   src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
-      <img id="bg_forest" src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
-      <img id="bg_void"   src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
+      <img id="bg" src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
     </a-assets>
-    <a-sky id="sky" color="#0c0f18" src="#bg_city"></a-sky>
 
+    <a-sky src="#bg" color="#111122"></a-sky>
+
+    <!-- Spawner root -->
     <a-entity id="spawner"></a-entity>
+
+    <!-- Player rig + camera + inputs -->
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
-      <a-entity cursor="rayOrigin: mouse; fuse:false" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <a-entity laser-controls="hand: left"  raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+      <!-- Desktop mouse cursor -->
+      <a-entity cursor="rayOrigin: mouse; fuse:false"
+                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+      <!-- VR laser controllers -->
+      <a-entity laser-controls="hand: right"
+                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+      <a-entity laser-controls="hand: left"
+                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
     </a-entity>
 
-    <a-entity light="type: ambient; color: #9bb"></a-entity>
-    <a-entity light="type: directional; intensity: 0.7" position="0 4 -2"></a-entity>
+    <!-- Lights -->
+    <a-entity light="type: ambient; color: #BBB"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
   </a-scene>
 
+  <!-- ===== Page Helpers ===== -->
   <script>
-    const q=new URLSearchParams(location.search);
-    const map=q.get('map')||'city';
-    const sky=document.getElementById('sky');
-    sky.setAttribute('src', map==='forest' ? '#bg_forest' : map==='void' ? '#bg_void' : '#bg_city');
+    // ปุ่มภาษา: เปลี่ยนทันทีโดยไม่รีเฟรช ถ้ามี __shadowBreakerSetLang
+    (function wireLang(){
+      const th=document.getElementById('btnTH'), en=document.getElementById('btnEN');
+      const apply=(v)=>{ localStorage.setItem('sb_lang', v);
+        if (window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v);
+      };
+      if (th) th.onclick = ()=>apply('th');
+      if (en) en.onclick = ()=>apply('en');
+    })();
 
-    const setLang=(v)=>{ localStorage.setItem('sb_lang', v); if(window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v); };
-    document.getElementById('btnTH').onclick=()=>setLang('th');
-    document.getElementById('btnEN').onclick=()=>setLang('en');
+    // บังคับ HUD เวลาให้โชว์เสมอ (กันโดน CSS/ปลั๊กอินอื่นซ่อน) + กัน Canvas ทับ
+    (function ensureTimeHUD(){
+      const timeEl = document.getElementById('hudTime');
+      const hudTop = document.getElementById('hudTop');
+      if (!timeEl || !hudTop) return;
 
-    const qp=document.getElementById('questPanel');
-    document.getElementById('qClose').onclick=()=>qp.classList.add('hidden');
-    document.getElementById('btnQuest').onclick=()=>qp.classList.toggle('hidden');
-  </script>
-  <style>#hudTime{display:inline-flex!important;visibility:visible!important}</style>
-  <script>
-  // บังคับให้ "เวลา" โผล่ และกันโดน CSS อื่นซ่อน
-  (function ensureTimeHUD(){
-    const timeEl = document.getElementById('hudTime');
-    const hudTop = document.getElementById('hudTop');
-    if (!timeEl || !hudTop) return;
-
-    function forceShow(){
-      timeEl.style.display='inline-flex';
-      timeEl.style.visibility='visible';
-      hudTop.style.zIndex='10050';
-    }
-
-    // ย้ำหลายครั้งช่วง 2 วิ.แรก เผื่อ A-Frame สร้าง canvas ช้า
-    let n=0; const iv=setInterval(()=>{ forceShow(); n++; if(n>10) clearInterval(iv); }, 180);
-
-    // หลังจาก scene เริ่มแล้ว คอยย้ำทุก ๆ 1 วิ. เฉพาะถ้าโดนซ่อน
-    setInterval(()=>{
-      const cs = getComputedStyle(timeEl);
-      if (cs.display==='none' || cs.visibility==='hidden') forceShow();
-    }, 1000);
-
-    // ถ้าคุณมี component.updateHUD() อยู่แล้ว การนับเวลาจะวิ่ง;
-    // แต่กันพลาด: ลดเวลาทุก 1s ถ้าเห็นว่าตัวเลขไม่ขยับ (fallback แบบอ่อน)
-    let prevText = ''; setInterval(()=>{
-      const t = timeEl.textContent || '';
-      if (/\d/.test(t) && t === prevText) {
-        // จับเลขท้ายสุดแล้วลดเอง 1 หน่วย (แสดงผลเท่านั้น ไม่ยุ่ง state)
-        const m = t.match(/(\d+)(?!.*\d)/);
-        if (m) {
-          const v = Math.max(0, parseInt(m[1], 10) - 1);
-          timeEl.textContent = t.replace(/(\d+)(?!.*\d)/, String(v));
-        }
+      function forceShow(){
+        timeEl.style.display='inline-flex';
+        timeEl.style.visibility='visible';
+        hudTop.style.zIndex='10050';
       }
-      prevText = timeEl.textContent || '';
-    }, 1000);
-  })();
+      let n=0; const iv=setInterval(()=>{ forceShow(); n++; if(n>10) clearInterval(iv); }, 180);
 
-  // ปุ่มภาษาในหน้าเล่น แปลทันที
-  (function wireLang(){
-    const setLang=(v)=>{ localStorage.setItem('sb_lang', v);
-      if (window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v);
-    };
-    const th=document.getElementById('btnTH'), en=document.getElementById('btnEN');
-    if (th) th.onclick=()=>setLang('th');
-    if (en) en.onclick=()=>setLang('en');
-  })();
+      // ถ้าถูกซ่อนภายหลัง ให้คืนค่าอัตโนมัติ
+      setInterval(()=>{
+        const cs = getComputedStyle(timeEl);
+        if (cs.display==='none' || cs.visibility==='hidden') forceShow();
+      }, 1000);
 
-  // ย้ำให้ canvas อยู่ล่าง (กันธีม/ปลั๊กอินบางตัวตั้ง z-index สูง)
-  setTimeout(()=>{
-    document.querySelectorAll('.a-canvas,.a-grab-cursor').forEach(c=>c.style.zIndex='0');
-  }, 300);
-</script>
-
+      // ทำให้ a-canvas อยู่วงล่าง ป้องกันทับ HUD
+      setTimeout(()=>{
+        document.querySelectorAll('.a-canvas,.a-grab-cursor').forEach(c=>c.style.zIndex='0');
+      }, 300);
+    })();
+  </script>
 </body>
 </html>
