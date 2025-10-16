@@ -1,23 +1,32 @@
-// Shadow Breaker – 4 Game Modes (combat/dash/impact/flow) + Kid-Friendly Combat Patch
-// - โหมด combat ได้รับการปรับให้เหมาะกับ ป.5 เมื่อเล่นความยาก "easy":
-//   * เป้าใหญ่ขึ้น อยู่ทนขึ้น, ไม่เสียพลังจากพลาดเป้า, ฟื้น ENERGY เป็นจังหวะ,
-//     Overload กร่อนช้าลง, บอสโผล่ช้าลงและโจมตีช้าลง, Tutorial 20 วิแรก
+// Shadow Breaker – 4 Game Modes (combat/dash/impact/flow)
+// + Kid-Friendly Combat (Easy) + ACTIVE Overload System (all modes)
 (function(){
   const $=(id)=>document.getElementById(id);
   const qs=(sel)=>document.querySelector(sel);
   const T=(d,k,def)=>(d&&d[k])||def||k;
   const toast=(m,ms=900)=>{const t=$('toast'); if(!t) return; t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',ms);};
 
-  // ===== Utility =====
+  // ===== SFX =====
   const SFX={ctx:null,
     beep(f=880,d=.08,v=.2){try{this.ctx=this.ctx||new (window.AudioContext||window.webkitAudioContext)();const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='square';o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(this.ctx.destination);o.start();o.stop(this.ctx.currentTime+d);}catch(e){}},
     hit(){this.beep(920,.05,.2)}, ok(){this.beep(660,.07,.18)}, warn(){this.beep(160,.12,.25)}, crit(){this.beep(1400,.06,.25)}
   };
-  function updateOverloadUI(v){const w=$('overloadBarWrap'),f=$('overloadBarFill'),t=$('overloadBarText');if(!w||!f||!t)return;const p=Math.max(0,Math.min(100,Math.round(v)));f.style.width=p+'%';t.textContent='Overload: '+p+'%';w.className='';w.id='overloadBarWrap';if(p>=50&&p<80)w.classList.add('danger');else if(p>=80&&p<100)w.classList.add('critical');else if(p>=100)w.classList.add('z2');}
 
-  // ===== Difficulty (ใช้ร่วมทุกโหมด) =====
+  // ===== Overload HUD =====
+  function updateOverloadUI(v){
+    const w=$('overloadBarWrap'),f=$('overloadBarFill'),t=$('overloadBarText');
+    if(!w||!f||!t) return;
+    const p=Math.max(0,Math.min(100,Math.round(v)));
+    f.style.width=p+'%'; t.textContent='Overload: '+p+'%';
+    w.className=''; w.id='overloadBarWrap';
+    if(p>=50&&p<80) w.classList.add('danger');
+    else if(p>=80&&p<100) w.classList.add('critical');
+    else if(p>=100) w.classList.add('z2');
+  }
+
+  // ===== Difficulty =====
   const DIFF={
-    // kid-friendly easy (แพตช์แล้ว)
+    // Kid-friendly easy
     easy:   {spawnMs:950, lifeMs:3800, timedSec:75, missHP:0, bossHit:3,  clickMissHP:0},
     normal: {spawnMs:800, lifeMs:3200, timedSec:60, missHP:3, bossHit:6,  clickMissHP:1},
     hard:   {spawnMs:650, lifeMs:2800, timedSec:50, missHP:5, bossHit:10, clickMissHP:2}
@@ -43,23 +52,23 @@
         this.i18n=data; this.dict=data[cur]||data['th']||{};
         window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']; this.updateHUD(); };
 
-        // kid-easy flag (แพตช์)
+        // kid-easy flag
         this.kid = (this.game==='combat' && this.diff==='easy');
 
-        // state หลัก
+        // state
         this.st={
           playing:false, timeLeft:(this.mode==='timed')?this.cfg.timedSec:9999,
           score:0, combo:1, arcane:0, overload:0, hp:100,
           last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
           dmgCD:0, olTick:0, idleTimer:0, recoverCD:0,
-          // โหมดเฉพาะ
+          // per-mode
           jumpT:0, crouch:false,             // dash
           chargeStart:0, _impactAlive:false, // impact
           flowNotes:[], flowBeat:0, flowNext:0 // flow
         };
         this.daily=genDaily(); updateQuestUI(this.dict,this.daily);
 
-        // ชื่อโหมดบน HUD
+        // HUD label
         const nameMap={
           combat:T(this.dict,'modeCombat','Arcane Combat'),
           dash:T(this.dict,'modeDash','Rift Dash'),
@@ -68,10 +77,10 @@
         };
         $('hudGame').textContent = nameMap[this.game]||'—';
 
-        // คีย์ควบคุมเสริมสำหรับโหมดต่าง ๆ
+        // Controls
         window.addEventListener('keydown', (e)=>{
           if(this.game==='dash'){
-            if(e.key==='ArrowUp' && this.st.jumpT<=0) this.st.jumpT=0.6; // กระโดด 0.6s
+            if(e.key==='ArrowUp' && this.st.jumpT<=0) this.st.jumpT=0.6;
             if(e.key==='ArrowDown') this.st.crouch=true;
           }
           if(this.game==='flow'){
@@ -81,18 +90,12 @@
           }
         });
         window.addEventListener('keyup',(e)=>{ if(this.game==='dash' && e.key==='ArrowDown') this.st.crouch=false; });
-
-        // เมาส์ค้างสำหรับ impact
         window.addEventListener('mousedown', (e)=>{ if(this.game==='impact') this.st.chargeStart=performance.now(); });
         window.addEventListener('mouseup',   (e)=>{ if(this.game==='impact') this.releaseImpact(); });
-
-        // manual ray (combat ใช้อยู่)
-        window.addEventListener('click', this.manualRay.bind(this), {passive:false});
+        window.addEventListener('click', this.manualRay.bind(this), {passive:false}); // combat
 
         this.updateObjective();
         this.startGame();
-
-        // Tutorial 20 วิแรก (เฉพาะ combat)
         if(this.game==='combat') this.showCombatTutorial();
       });
     },
@@ -102,7 +105,7 @@
     updateObjective:function(){
       const o=$('objective'); if(!o) return;
       const obj={
-        combat:'ทำคะแนนถึง 400 (หรืิอ 600 ใน Easy) เพื่อเรียก Mini Boss',
+        combat:'ทำคะแนนถึง 400 (หรือ 600 ใน Easy) เพื่อเรียก Mini Boss',
         dash:'กด ↑ กระโดด, ↓ ย่อตัว — หลบแท่งพลัง',
         impact:'กดเมาส์ค้างเพื่อชาร์จ แล้วปล่อยทำลายแกนพลัง',
         flow:'กด A / S / D ให้ตรงสัญญาณจังหวะ'
@@ -129,7 +132,7 @@
       if(amount<=0) return;
       if(this.st.dmgCD>0) return;
       this.st.hp=Math.max(0,this.st.hp-amount);
-      this.st.dmgCD=0.6; this.st.recoverCD=0; // รีเซ็ตรีเจนเมื่อโดน
+      this.st.dmgCD=0.6; this.st.recoverCD=0;
       toast(`-${Math.round(amount)} HP (${label||'Hit'})`);
       this.updateHUD();
     },
@@ -144,19 +147,23 @@
         if(this.st.timeLeft<=0) return this.endGame();
       }
 
-      // Overload drain — เบาลงถ้า kid-easy
+      // ===== ACTIVE Overload drain (pulsed) =====
       this.st.olTick += dt;
       if(this.st.overload>=80 && this.st.overload<100 && this.st.olTick>=0.5){
-        this.takeDamage((this.kid?0.2:0.4),'Overload');
-        this.st.olTick=0;
+        this.takeDamage((this.kid?0.2:0.4),'Overload'); this.st.olTick=0;
       }
       if(this.st.overload>=100 && this.st.olTick>=0.4){
-        this.takeDamage((this.kid?0.6:1.2),'Overload+');
-        this.st.olTick=0;
+        this.takeDamage((this.kid?0.6:1.2),'Overload+'); this.st.olTick=0;
       }
       if(this.st.dmgCD>0) this.st.dmgCD=Math.max(0,this.st.dmgCD-dt);
 
-      // Energy Regen (เฉพาะ combat + easy)
+      // ===== Idle recovery of Overload (rest breath) =====
+      this.st.idleTimer = (this.st.idleTimer||0) + dt;
+      if(this.st.idleTimer > 2 && this.st.overload > 0){
+        this.st.overload = Math.max(0, this.st.overload - 0.35*dt);
+      }
+
+      // Kid Easy: ENERGY regen
       if(this.kid && this.game==='combat'){
         this.st.recoverCD += dt;
         if(this.st.recoverCD >= 1.5 && this.st.hp < 90){
@@ -165,7 +172,7 @@
         }
       }
 
-      // สวิตช์ตามโหมด
+      // Tick per mode
       if(this.game==='combat') this.tickCombat(now,dt);
       if(this.game==='dash')   this.tickDash(now,dt);
       if(this.game==='impact') this.tickImpact(now,dt);
@@ -175,41 +182,46 @@
       if(this.st.hp<=0) this.endGame();
     },
 
-    /* ========== MODE 1: COMBAT (ปรับ kid-easy) ========== */
+    /* ========== MODE 1: COMBAT ========== */
     tickCombat:function(now,dt){
       if(now-this.st.spawnTimer>this.st.spawnEveryMs){ this.st.spawnTimer=now; this.spawnTarget(); }
-      // boss threshold: easy = 600, ปกติ = 400
       const needScore = this.kid ? 600 : 400;
       if(this.st.phase!=='boss' && this.st.score>=needScore){
-        this.st.phase='boss';
-        this.spawnMiniBoss();
+        this.st.phase='boss'; this.spawnMiniBoss();
       }
     },
     spawnTarget:function(){
       const sp=qs('#spawner'); const e=document.createElement('a-entity');
-      // base target
       e.setAttribute('geometry','primitive: sphere; radius: 0.25');
       e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
       const rx=(Math.random()*2-1)*0.9, ry=1.2+Math.random()*0.6, rz=-2.0-Math.random()*0.5;
       const pos={x:rx,y:ry,z:rz}; e.setAttribute('position',pos); e.classList.add('clickable');
 
-      // kid-easy: bigger & longer
-      if(this.kid){
-        e.setAttribute('geometry','primitive: sphere; radius: 0.29');
-      }
+      if(this.kid){ e.setAttribute('geometry','primitive: sphere; radius: 0.29'); }
 
       e.addEventListener('click',()=>{
         if(!this.st.playing) return;
         this.st.combo=Math.min(20,this.st.combo+1);
-        const add=100+(this.st.combo-1)*10; this.st.score+=add; this.st.arcane=Math.min(100,this.st.arcane+3);
-        if(this.st.boss){ this.st.boss.hp-=3; if(this.st.boss.hp<=0){ try{this.st.boss.el.remove();}catch(_){ } this.st.boss=null; toast(T(this.dict,'missionClear','Mission Clear')); } }
-        SFX.hit(); e.remove();
+        const add=100+(this.st.combo-1)*10;
+        this.st.score+=add; this.st.arcane=Math.min(100,this.st.arcane+3);
+
+        // >>> Overload gain on hit (combat)
+        const olGain = 0.8 + Math.min(1.5,(this.st.combo-1)*0.15);
+        this.st.overload = Math.min(130, this.st.overload + olGain);
+        this.st.idleTimer = 0;
+
+        if(this.st.boss){
+          this.st.boss.hp-=3;
+          if(this.st.boss.hp<=0){ try{this.st.boss.el.remove();}catch(_){ } this.st.boss=null; toast(T(this.dict,'missionClear','Mission Clear')); }
+        }
+        SFX.hit(); e.remove(); this.updateHUD();
       });
 
       const lifeMs = this.kid ? Math.floor(this.cfg.lifeMs * 1.2) : this.cfg.lifeMs;
       setTimeout(()=>{ if(e.parentNode){
         e.remove(); this.st.combo=1;
-        // ใน easy เราไม่หักพลังเมื่อพลาด (missHP=0) แต่โหมดอื่นยังทำงานปกติ
+        // on miss: relax OL a bit
+        this.st.overload = Math.max(0, this.st.overload - 0.6);
         if(!this.kid) this.takeDamage(this.cfg.missHP, (this.dict && this.dict['miss'])||'Miss');
         this.updateHUD();
       } }, lifeMs);
@@ -226,19 +238,17 @@
       const atk=()=>{ if(!this.st.boss||!this.st.playing||this.st.hp<=0) return;
         const dmg=this.cfg.bossHit + Math.floor(this.st.overload/50);
         this.takeDamage(dmg,T(this.dict,'bossAttack','Boss attack'));
-        if(this.st.hp>0 && this.st.boss) setTimeout(atk, this.kid ? 2200 : 1800); // ช้าลงใน easy
+        if(this.st.hp>0 && this.st.boss) setTimeout(atk, this.kid ? 2200 : 1800);
       };
-      setTimeout(atk, this.kid ? 1600 : 1200); // เริ่มช้าลงใน easy
+      setTimeout(atk, this.kid ? 1600 : 1200);
     },
 
     /* ========== MODE 2: DASH (Cardio – Jump/Crouch) ========== */
     tickDash:function(now,dt){
-      // กระโดด/ย่อ
       if(this.st.jumpT>0){ this.st.jumpT=Math.max(0,this.st.jumpT-dt); }
       const rig=$('#rig'); if(rig){ const base=1.6; const y = (this.st.jumpT>0) ? base + 0.4*Math.sin((0.6-this.st.jumpT)/0.6*Math.PI) : base - (this.st.crouch?0.35:0); rig.setAttribute('position',`0 ${y.toFixed(3)} 0`); }
-      // spawn bars
       if(now-this.st.spawnTimer>Math.max(650,this.cfg.spawnMs)){ this.st.spawnTimer=now; this.spawnDashBar(); }
-      // move & collide
+
       document.querySelectorAll('.hazard').forEach(h=>{
         const z=Number(h.dataset.z||-3); const speed=1.8; const nz=z+speed*dt; h.dataset.z=nz;
         h.setAttribute('position',`0 0 ${nz.toFixed(3)}`);
@@ -248,8 +258,18 @@
           const ok = (type==='low'  && this.st.jumpT>0) ||
                      (type==='high' && this.st.crouch) ||
                      (type==='mid'  && !this.st.crouch && this.st.jumpT<=0);
-          if(ok){ this.st.score+=120; this.st.combo=Math.min(20,this.st.combo+1); SFX.ok(); }
-          else { this.st.combo=1; this.takeDamage(this.cfg.missHP,'Dash Miss'); SFX.warn(); }
+          if(ok){
+            this.st.score+=120; this.st.combo=Math.min(20,this.st.combo+1);
+            // >>> Overload gain on successful dodge
+            this.st.overload = Math.min(130, this.st.overload + 0.9);
+            this.st.idleTimer = 0;
+            SFX.ok();
+          }else{
+            this.st.combo=1; this.takeDamage(this.cfg.missHP,'Dash Miss');
+            // relax OL a bit on miss
+            this.st.overload = Math.max(0, this.st.overload - 0.4);
+            SFX.warn();
+          }
           setTimeout(()=>{ try{h.remove();}catch(_){ } }, 50);
         }
       });
@@ -258,9 +278,9 @@
       const e=document.createElement('a-entity'); e.classList.add('hazard');
       const r=Math.random(); const type = r<0.33?'low':(r<0.66?'high':'mid'); e.dataset.type=type; e.dataset.z=-3.2;
       let y=1.0, h=0.3;
-      if(type==='low'){ y=0.3; h=0.3; }      // ต้องกระโดด
-      else if(type==='high'){ y=1.35; h=0.3;} // ต้องย่อ
-      else { y=0.8; h=0.5; }                  // ยืนปกติ
+      if(type==='low'){ y=0.3; h=0.3; }
+      else if(type==='high'){ y=1.35; h=0.3;}
+      else { y=0.8; h=0.5; }
       e.setAttribute('geometry',`primitive: box; width: 2.2; height:${h}; depth:0.2`);
       e.setAttribute('material','color:#8bd8ff; emissive:#3cf; opacity:0.8; transparent:true');
       e.setAttribute('position',`0 ${y} -3.2`);
@@ -291,9 +311,14 @@
       const clamped=Math.max(0,Math.min(2,held));
       const dmg=Math.round(200*clamped); // 0–400 score
       this.st.score+=dmg; this.st.combo=Math.min(20,this.st.combo+1);
+      // >>> Overload gain based on charge duration
+      const olGain = 1.2 * (clamped/2); // 0–1.2
+      this.st.overload = Math.min(130, this.st.overload + olGain);
+      this.st.idleTimer = 0;
+
       try{ e.remove(); }catch(_){}
       this._impactAlive=false; $('objective').textContent='ดีมาก! สร้างแกนถัดไป...';
-      SFX.ok();
+      SFX.ok(); this.updateHUD();
       setTimeout(()=>this.spawnImpactCore(), 800);
     },
 
@@ -303,7 +328,7 @@
       if(now>=this.st.flowNext){
         const lanes=['A','S','D']; const L=lanes[Math.floor(Math.random()*lanes.length)];
         this.spawnFlowNote(L, now);
-        this.st.flowNext = now + 900; // 0.9s ต่อโน้ต (เริ่มง่าย)
+        this.st.flowNext = now + 900; // 0.9s/โน้ต เริ่มง่าย
       }
       document.querySelectorAll('.flow-note').forEach(n=>{
         const born=Number(n.dataset.t0||0); const age=now-born; const life=900;
@@ -338,16 +363,22 @@
       if(delta<=200){
         this.st.score += delta<80 ? 150 : 100;
         this.st.combo = Math.min(20, this.st.combo+1);
-        SFX.hit(); n.remove();
+        // >>> Overload gain on rhythm success
+        this.st.overload = Math.min(130, this.st.overload + 0.5);
+        this.st.idleTimer = 0;
+        SFX.hit(); n.remove(); this.updateHUD();
       }else{
-        this.st.combo=1; this.takeDamage(0.3,'Off-beat'); SFX.warn();
+        this.st.combo=1; this.takeDamage(0.3,'Off-beat');
+        // relax OL a bit on miss
+        this.st.overload = Math.max(0, this.st.overload - 0.2);
+        SFX.warn(); this.updateHUD();
       }
     },
 
     /* ===== End / Manual Ray (combat uses) ===== */
     endGame:function(){ this.st.playing=false; toast(`${T(this.dict,'finished','Finished')} • ${T(this.dict,'score','Score')}: ${this.st.score}`,2000); },
     manualRay:function(evt){
-      if(this.game!=='combat') return; // ยิงเฉพาะโหมด combat
+      if(this.game!=='combat') return;
       const sceneEl=qs('a-scene'), camEl=$('camera');
       const renderer=sceneEl && sceneEl.renderer, camera=camEl && camEl.getObject3D('camera');
       if(!renderer||!camera||!this.st.playing) return;
@@ -360,7 +391,7 @@
       else{ this.takeDamage(this.cfg.clickMissHP,T(this.dict,'reflect','Reflect')); }
     },
 
-    // ===== Tutorial (เฉพาะ combat) =====
+    // ===== Tutorial (combat) =====
     showCombatTutorial:function(){
       try{
         const el=document.createElement('div');
