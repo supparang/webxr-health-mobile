@@ -1,20 +1,172 @@
-/* G5 Glow HUD + UI */
-body{margin:0;background:#0b0f18;color:#cfefff;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans","Liberation Sans",Arial}
-.hud{position:fixed;left:50%;transform:translateX(-50%);top:8%;display:flex;gap:8px;z-index:10050;pointer-events:none}
-.hud.bottom{top:auto;bottom:4%}
-.badge{background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.15);color:#cfefff;padding:6px 10px;border-radius:10px;font:600 14px/1.2 ui-sans-serif}
-.badge.interactive{pointer-events:auto}
-.mini{font:600 13px/1 ui-sans-serif;padding:5px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#0a2130;color:#bfe9ff;cursor:pointer}
-.toast{position:fixed;left:50%;transform:translateX(-50%);top:16%;background:#000a;color:#fff;padding:8px 12px;border-radius:8px;z-index:10060;display:none}
-.objective{position:fixed;left:50%;transform:translateX(-50%);top:20%;color:#dff;z-index:10040}
-.quest-panel{position:fixed;right:12px;top:12px;z-index:10040;color:#cfefff}
-.bar-wrap{position:fixed;z-index:10045;width:60%;max-width:520px}
-.bar{height:8px;background:rgba(255,255,255,.1);border-radius:8px;overflow:hidden}
-.bar-fill{height:100%;background:linear-gradient(90deg,#39c5bb,#0af)}
-.bar-fill.hp{background:linear-gradient(90deg,#5cff8b,#1fbf4a)}
-.warn-wrap,.warn-mid{position:fixed;z-index:10030;left:50%;transform:translateX(-50%);top:26%;display:flex;gap:14px}
-.warn-arrow{background:#0a1b25;border:1px solid #3cf;color:#dff;padding:6px 8px;border-radius:10px}
-.warn-arrow.flash{animation:flash .8s ease-in-out 1}
-@keyframes flash{0%{opacity:.3}50%{opacity:1}100%{opacity:.3}}
-/* A-Frame canvas under HUD */
-.a-canvas,.a-grab-cursor{z-index:0}
+/* ===== Base ===== */
+* { box-sizing: border-box; }
+html, body { margin:0; padding:0; height:100%; background:#0a0b10; color:#dff5ff; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif; }
+a { color:#8bd8ff; }
+
+/* ===== HUD ===== */
+.hud {
+  position: fixed;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10040;
+  pointer-events: none;
+  flex-wrap: wrap;
+}
+.hud.bottom {
+  top: auto;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  justify-content: center;
+}
+.badge {
+  pointer-events: none;
+  background: rgba(0,0,0,.55);
+  border: 1px solid rgba(140,220,255,.25);
+  color: #cfefff;
+  padding: 6px 10px;
+  border-radius: 12px;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  letter-spacing: .2px;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 0 1px rgba(70,170,220,.15), 0 6px 18px rgba(0,0,0,.25);
+}
+.badge.mini { padding: 4px 8px; font-weight: 600; }
+.badge.interactive { pointer-events: auto; }
+.badge button {
+  appearance: none; background: #10222b; color:#9fe6ff; border:1px solid #2e6b79;
+  padding:6px 10px; border-radius:10px; cursor:pointer; font-weight:700;
+}
+.badge button:hover { filter: brightness(1.1); }
+
+/* ===== Toast / Objective / Quest ===== */
+.toast {
+  position: fixed;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.65);
+  color:#dff5ff;
+  border: 1px solid rgba(255,255,255,.15);
+  padding: 10px 14px;
+  border-radius: 12px;
+  z-index: 10030;
+  display: none;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.objective {
+  position: fixed;
+  left: 50%;
+  top: 11%;
+  transform: translateX(-50%);
+  background: rgba(10,15,25,.55);
+  border: 1px solid rgba(140,220,255,.2);
+  padding: 8px 12px;
+  border-radius: 12px;
+  z-index: 10025;
+  font-weight: 700;
+  color:#bfeaff;
+}
+.quest-panel {
+  position: fixed;
+  right: 10px;
+  top: 10px;
+  width: min(320px, 38vw);
+  z-index: 10020;
+  background: rgba(0,0,0,.45);
+  border: 1px solid rgba(140,220,255,.2);
+  border-radius: 12px;
+  padding: 8px 10px;
+  color:#cfefff;
+}
+.quest-title { font-weight: 800; margin-bottom: 6px; }
+
+/* ===== Bars (HP/Overload) ===== */
+.bar-wrap {
+  position: fixed;
+  z-index: 10015;
+  width: min(520px, 80vw);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.45);
+  border: 1px solid rgba(140,220,255,.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+.bar-label {
+  font-weight: 800;
+  color:#dff5ff;
+  margin-bottom: 6px;
+}
+.bar {
+  width: 100%;
+  height: 12px;
+  background: rgba(255,255,255,.08);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+}
+.bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #39c5bb, #0af);
+  box-shadow: 0 0 12px rgba(10,170,255,.35);
+  transition: width .18s ease;
+}
+.bar-fill.hp {
+  background: linear-gradient(90deg, #9df168, #2fd16a);
+  box-shadow: 0 0 12px rgba(100,220,120,.35);
+}
+
+/* Overload states (G5 Glow) */
+#overloadBarWrap.danger { box-shadow: 0 0 8px rgba(255,160,60,.35), 0 0 26px rgba(255,110,40,.25); }
+#overloadBarWrap.critical { box-shadow: 0 0 10px rgba(255,60,60,.45), 0 0 34px rgba(255,20,20,.28); }
+#overloadBarWrap.z2 { box-shadow: 0 0 14px rgba(255,255,255,.5), 0 0 38px rgba(180,240,255,.35); }
+
+/* ===== Flow notes ===== */
+#flowWrap .badge { background: rgba(0,0,0,.55); border:1px solid #49b; }
+
+/* ===== Warning arrows for Dash ===== */
+.warn-wrap, .warn-mid {
+  position: fixed;
+  z-index: 10012;
+  left:50%; transform: translateX(-50%);
+  top: 22%;
+  width: 80%;
+  display:flex; justify-content: space-between;
+  pointer-events: none;
+}
+.warn-mid { top: 32%; width: 50%; justify-content: center; }
+.warn-arrow {
+  background: rgba(0,0,0,.55);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #ffecb0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  text-shadow: 0 0 6px rgba(255,220,120,.4);
+}
+.flash { animation: flash 0.45s ease-in-out 0s 1; }
+@keyframes flash {
+  0% { transform: scale(1);   box-shadow: 0 0 0 rgba(255,220,120,0); }
+  50%{ transform: scale(1.06);box-shadow: 0 0 22px rgba(255,220,120,.28); }
+  100%{transform: scale(1);   box-shadow: 0 0 0 rgba(255,220,120,0); }
+}
+
+/* ===== A-Frame canvas safety ===== */
+.a-canvas, .a-grab-cursor { z-index: 0 !important; }
+
+/* ===== Responsive tweaks ===== */
+@media (max-width: 720px) {
+  .hud { gap: 6px; }
+  .badge { padding: 5px 8px; border-radius: 10px; font-weight: 700; }
+  .quest-panel { width: calc(100vw - 20px); }
+  .bar-wrap { width: calc(100vw - 20px); }
+}
