@@ -151,5 +151,110 @@
     }
   });
   </script>
+  <!-- ===== EMERGENCY INLINE COMPONENT (runs only if src/components.js missing) ===== -->
+<script>
+(function(){
+  // รอให้ A-Frame โหลดก่อน
+  function afterAF(){ return new Promise(r=>{
+    if (window.AFRAME) return r();
+    const iv=setInterval(()=>{ if(window.AFRAME){ clearInterval(iv); r(); } },50);
+  });}
+
+  afterAF().then(()=>{
+
+    // ถ้า shadow-breaker-game ยังไม่ถูก register ให้ลงตัว Fallback นี้
+    if (!AFRAME.components['shadow-breaker-game']) {
+      console.warn('[SB:FALLBACK] external components.js not detected -> using inline fallback');
+
+      AFRAME.registerComponent('shadow-breaker-game',{
+        init:function(){
+          // สถานะเริ่มต้น
+          this.playing = true;
+          this.score = 0;
+          this.combo = 1;
+          this.timeLeft = 60;      // โหมดจับเวลา
+          this.last = performance.now();
+          this.spawnEvery = 1000;  // ms
+          this.spawnT = performance.now() - this.spawnEvery - 1;
+
+          // HUD ขั้นต่ำให้แสดงแน่
+          const S=(id,txt)=>{ const el=document.getElementById(id); if(el){ el.style.display='inline-flex'; el.textContent=txt; } };
+          S('hudTime','Time: 60');
+          S('hudScore','Score: 0');
+          S('hudCombo','Combo: x1');
+
+          this.loop();
+        },
+
+        loop:function(){
+          if(!this.playing) return;
+          requestAnimationFrame(this.loop.bind(this));
+          const now=performance.now();
+          const dt=(now-this.last)/1000; this.last=now;
+
+          // เดินเวลา
+          this.timeLeft = Math.max(0, this.timeLeft - dt);
+          const tEl=document.getElementById('hudTime');
+          if(tEl) tEl.textContent = 'Time: ' + Math.ceil(this.timeLeft);
+          if(this.timeLeft<=0){ this.playing=false; toast('Finished • Score: '+this.score, 2000); return; }
+
+          // สปอว์นเป้า
+          if (now - this.spawnT > this.spawnEvery) {
+            this.spawnT = now;
+            this.spawnTarget();
+          }
+        },
+
+        spawnTarget:function(){
+          const sp=document.getElementById('spawner'); if(!sp) return;
+          const e=document.createElement('a-entity');
+          e.setAttribute('geometry','primitive: sphere; radius: 0.25');
+          e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
+          const rx=(Math.random()*2-1)*0.9, ry=1.2+Math.random()*0.6, rz=-2.0-Math.random()*0.5;
+          e.setAttribute('position', {x:rx,y:ry,z:rz});
+          e.classList.add('clickable');
+          e.setAttribute('animation__pulse','property: scale; to:1.12 1.12 1.12; dir:alternate; loop:true; dur:650');
+
+          // ยิงแล้วบวกคะแนน
+          e.addEventListener('click', ()=>{
+            if(!this.playing) return;
+            this.combo = Math.min(20, this.combo+1);
+            const add = 100 + (this.combo-1)*10;
+            this.score += add;
+            const sEl=document.getElementById('hudScore'); if(sEl) sEl.textContent='Score: '+this.score;
+            const cEl=document.getElementById('hudCombo'); if(cEl) cEl.textContent='Combo: x'+this.combo;
+            toast('Great! +'+add, 700);
+            e.remove();
+          });
+
+          // หมดเวลาเป้าหาย/คอมโบแตก
+          setTimeout(()=>{
+            if(e.parentNode){
+              e.remove();
+              this.combo=1;
+              const cEl=document.getElementById('hudCombo'); if(cEl) cEl.textContent='Combo: x1';
+            }
+          }, 2800);
+
+          sp.appendChild(e);
+        }
+      });
+
+      // ถ้าซีนถูกสร้างไปแล้ว ให้ “ติดตั้ง” component และบูตทันที
+      const scn=document.querySelector('a-scene');
+      if (scn) {
+        scn.removeAttribute('shadow-breaker-game');
+        setTimeout(()=>scn.setAttribute('shadow-breaker-game',''),0);
+      }
+    } else {
+      console.log('[SB:FALLBACK] external component found; inline fallback not used');
+    }
+  });
+
+  // Toast แบบสั้น (สำรอง)
+  function toast(m,ms){ let t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.style.cssText='position:fixed;left:50%;top:16%;transform:translateX(-50%);background:rgba(0,0,0,.65);color:#dff5ff;border:1px solid rgba(255,255,255,.15);padding:10px 14px;border-radius:12px;z-index:10030;font-weight:800;letter-spacing:.3px;'; document.body.appendChild(t); } t.textContent=m; t.style.display='block'; setTimeout(()=>t.style.display='none',ms||900); }
+})();
+</script>
+
 </body>
 </html>
