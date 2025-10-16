@@ -21,12 +21,11 @@
     <div class="badge" id="hudGame">Shadow Breaker</div>
     <div class="badge" id="hudScore">Score: 0</div>
     <div class="badge" id="hudCombo">Combo: x1</div>
-    <div class="badge" id="hudTime">Time: 60</div>  <!-- เวลาเด่น -->
+    <div class="badge" id="hudTime">Time: 60</div>
     <div class="badge" id="hudArcane">Arcane: 0%</div>
     <div class="badge" id="hudCal">Cal: 0.0</div>
     <div class="badge" id="hudLvl">Lv.1</div>
 
-    <!-- Back & Language -->
     <div class="badge interactive">
       <a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a>
     </div>
@@ -35,7 +34,6 @@
       <button id="btnEN" class="mini">English</button>
     </div>
 
-    <!-- Debug Gate HUD -->
     <div class="badge" id="hudDBG" style="opacity:.9">DBG</div>
   </div>
 
@@ -96,6 +94,14 @@
     <!-- Lights -->
     <a-entity light="type: ambient; color: #BBB"></a-entity>
     <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
+
+    <!-- ===== SANITY CUBE (ยืนยันว่าฉากกำลังเคลื่อนไหว) ===== -->
+    <a-entity id="sanityCube"
+              geometry="primitive: box; depth: 0.25; height: 0.25; width: 0.25"
+              material="color: #7cf; emissive: #39c5bb"
+              position="-0.9 1.1 -2.2"
+              animation__rot="property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear">
+    </a-entity>
   </a-scene>
 
   <!-- ===== Page Helpers ===== -->
@@ -110,29 +116,73 @@
       if (en) en.onclick = ()=>apply('en');
     })();
 
-    // บังคับ HUD เวลาให้โชว์เสมอ (กันโดน CSS/ปลั๊กอินอื่นซ่อน) + กัน Canvas ทับ
+    // บังคับ HUD เวลาให้โชว์เสมอ + กัน Canvas ทับ
     (function ensureTimeHUD(){
       const timeEl = document.getElementById('hudTime');
       const hudTop = document.getElementById('hudTop');
       if (!timeEl || !hudTop) return;
-
       function forceShow(){
         timeEl.style.display='inline-flex';
         timeEl.style.visibility='visible';
         hudTop.style.zIndex='10050';
       }
       let n=0; const iv=setInterval(()=>{ forceShow(); n++; if(n>10) clearInterval(iv); }, 180);
-
-      // ถ้าถูกซ่อนภายหลัง ให้คืนค่าอัตโนมัติ
       setInterval(()=>{
         const cs = getComputedStyle(timeEl);
         if (cs.display==='none' || cs.visibility==='hidden') forceShow();
       }, 1000);
-
-      // ทำให้ a-canvas อยู่วงล่าง ป้องกันทับ HUD
       setTimeout(()=>{
         document.querySelectorAll('.a-canvas,.a-grab-cursor').forEach(c=>c.style.zIndex='0');
       }, 300);
+    })();
+
+    // ===== Probe: ตรวจว่า components.js ทำงานไหม =====
+    (function probeComponent(){
+      function showBanner(msg, bg='#b41414'){
+        const box = document.createElement('div');
+        Object.assign(box.style, {
+          position:'fixed', left:'10px', bottom:'10px', zIndex:100000,
+          maxWidth:'80vw', background:bg, color:'#fff', padding:'8px 10px',
+          borderRadius:'8px', font:'12px/1.4 ui-monospace, Menlo, monospace'
+        });
+        box.textContent = msg;
+        document.body.appendChild(box);
+      }
+      window.addEventListener('load', ()=>{
+        const scn = document.querySelector('a-scene');
+        const hasComp = scn && scn.components && scn.components['shadow-breaker-game'];
+        if (!hasComp) {
+          showBanner('shadow-breaker-game component NOT attached (เช็ค src/components.js พาธ/ข้อผิดพลาด)', '#d9534f');
+          console.log('[Probe] component missing. Scene:', scn);
+        } else {
+          showBanner('shadow-breaker-game component attached ✓', '#5cb85c');
+          console.log('[Probe] component attached ✓');
+        }
+      });
+    })();
+
+    // ===== Watchdog (ฝั่งหน้า HTML): ถ้าเกมนิ่ง จะบังคับสปอว์นลูกบอลทดสอบ =====
+    (function htmlWatchdog(){
+      function spawnTestBall(){
+        const sp = document.getElementById('spawner'); if(!sp) return;
+        const e = document.createElement('a-entity');
+        e.setAttribute('geometry','primitive: sphere; radius: 0.22');
+        e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
+        const rx=(Math.random()*2-1)*1.0, ry=1.2+Math.random()*0.8, rz=-2.2-Math.random()*0.6;
+        e.setAttribute('position',`${rx} ${ry} ${rz}`);
+        e.classList.add('clickable');
+        e.setAttribute('animation__pulse','property: scale; to:1.15 1.15 1.15; dir:alternate; loop:true; dur:650');
+        // auto-remove after 3s
+        setTimeout(()=>{ try{ e.remove(); }catch(_){} }, 3000);
+        sp.appendChild(e);
+      }
+      let tries=0;
+      const iv = setInterval(()=>{
+        tries++;
+        const anyTargets = document.querySelectorAll('.clickable').length;
+        if (!anyTargets) spawnTestBall();
+        if (tries>8) clearInterval(iv);
+      }, 2000);
     })();
   </script>
 </body>
