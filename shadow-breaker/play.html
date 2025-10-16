@@ -4,29 +4,24 @@
   <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Play – Shadow Breaker</title>
   <link rel="stylesheet" href="src/styles.css"/>
-
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- รวม 4 โหมด -->
   <script src="src/components.js" defer></script>
 </head>
 <body>
-  <!-- HUD บน -->
+  <!-- HUD Top -->
   <div class="hud">
     <div class="badge" id="hudGame">—</div>
     <div class="badge" id="hudScore">—</div>
     <div class="badge" id="hudCombo">—</div>
     <div class="badge" id="hudTime">—</div>
     <div class="badge" id="hudArcane">—</div>
+    <div class="badge" id="hudCal">Cal: 0.0</div>
+    <div class="badge" id="hudLvl">Lv.1</div>
     <div class="badge interactive"><a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a></div>
-    <div class="badge interactive">
-      <button id="btnTH" class="mini">ไทย</button>
-      <button id="btnEN" class="mini">English</button>
-    </div>
+    <div class="badge interactive"><button id="btnTH" class="mini">ไทย</button><button id="btnEN" class="mini">English</button></div>
   </div>
 
-  <!-- HUD ล่าง -->
+  <!-- HUD Bottom -->
   <div class="hud bottom">
     <div class="badge" id="hudHP">ENERGY: 100</div>
     <div class="badge" id="hudOverload">Overload: 0%</div>
@@ -34,7 +29,6 @@
     <div class="badge interactive"><button id="btnQuest" class="mini">Quests</button></div>
   </div>
 
-  <!-- Toast / Objective -->
   <div id="toast" class="toast"></div>
   <div id="objective">Objective</div>
 
@@ -42,11 +36,8 @@
   <div id="overloadBarWrap"><div id="overloadBarGlow"></div><div id="overloadBarCrack"></div><div id="overloadBarFill"></div><div id="overloadBarText">Overload: 0%</div></div>
   <div id="hpBarWrap"><div id="hpBarFill"></div></div>
 
-  <!-- Quests -->
-  <div id="questPanel" class="panel hidden">
-    <div class="panel-header"><span id="qTitle">Daily Quests</span><button id="qClose" class="mini">×</button></div>
-    <div id="qList" class="panel-body"></div>
-  </div>
+  <!-- Quest Panel -->
+  <div id="questPanel" class="panel hidden"><div class="panel-header"><span id="qTitle">Daily Quests</span><button id="qClose" class="mini">×</button></div><div id="qList" class="panel-body"></div></div>
 
   <!-- Scene -->
   <a-scene id="scene" shadow-breaker-game renderer="colorManagement: true; physicallyCorrectLights: true; antialias: false; sortObjects: true; foveationLevel: 2; powerPreference: high-performance">
@@ -55,7 +46,7 @@
       <img id="bg_forest" src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
       <img id="bg_void"   src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
     </a-assets>
-    <a-sky id="sky" color="#111122" src="#bg_city"></a-sky>
+    <a-sky id="sky" color="#0c0f18" src="#bg_city"></a-sky>
 
     <a-entity id="spawner"></a-entity>
     <a-entity id="rig" position="0 1.6 0">
@@ -65,8 +56,8 @@
       <a-entity laser-controls="hand: left"  raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
     </a-entity>
 
-    <a-entity light="type: ambient; color: #BBB"></a-entity>
-    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
+    <a-entity light="type: ambient; color: #9bb"></a-entity>
+    <a-entity light="type: directional; intensity: 0.7" position="0 4 -2"></a-entity>
   </a-scene>
 
   <script>
@@ -74,13 +65,9 @@
     const map=q.get('map')||'city';
     const sky=document.getElementById('sky');
     sky.setAttribute('src', map==='forest' ? '#bg_forest' : map==='void' ? '#bg_void' : '#bg_city');
-
-    // ภาษาแบบทันที
     const setLang=(v)=>{ localStorage.setItem('sb_lang', v); if(window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v); };
     document.getElementById('btnTH').onclick=()=>setLang('th');
     document.getElementById('btnEN').onclick=()=>setLang('en');
-
-    // quests panel
     const qp=document.getElementById('questPanel');
     document.getElementById('qClose').onclick=()=>qp.classList.add('hidden');
     document.getElementById('btnQuest').onclick=()=>qp.classList.toggle('hidden');
