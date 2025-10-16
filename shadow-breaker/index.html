@@ -14,10 +14,17 @@
     const $ = (id)=>document.getElementById(id);
     const T = (k, def) => (I18N && I18N[CUR] && I18N[CUR][k]) || def || k;
 
+    // เพิ่มคำอธิบายแบบ "ฮีโร่อะนิเมะ" สำหรับแต่ละเกม
     const FALLBACK = {
       th: {
         title:"SHADOW BREAKER", subtitle:"Neo Anime Tech • Training Hub", training:"ศูนย์ฝึก",
         modeCombat:"Arcane Combat", modeDash:"Rift Dash", modeImpact:"Impact Breaker", modeFlow:"Spirit Flow",
+        // คำอธิบายแนว C: ฮีโร่/อนิเมะ
+        modeCombatDesc:"เวทมนตร์สายเงา ยิงทำลายเป้าด้วยพลังต้องสาป",
+        modeDashDesc:"พุ่งหลบกำแพงเลเซอร์ รอดให้ไวในรอยแยกมิติ",
+        modeImpactDesc:"ชาร์จพลังหมัดแตกแกน พุ่งทะลุขีดจำกัด",
+        modeFlowDesc:"ควบคุมลมหายใจตามจังหวะ ร่างกายและวิญญาณเป็นหนึ่ง",
+
         difficulty:"ความยาก", easy:"ง่าย", normal:"ปกติ", hard:"ยาก",
         map:"แผนที่", mapCity:"นครนีโอ", mapForest:"อารณะโบราณ", mapVoid:"อารีน่าวอยด์",
         hubTip:"ทิป: ทุกเกมใช้ระบบภาษา i18n จากไฟล์ JSON เดียวกัน",
@@ -27,6 +34,12 @@
       en: {
         title:"SHADOW BREAKER", subtitle:"Neo Anime Tech • Training Hub", training:"Training",
         modeCombat:"Arcane Combat", modeDash:"Rift Dash", modeImpact:"Impact Breaker", modeFlow:"Spirit Flow",
+        // Anime-style descriptions
+        modeCombatDesc:"Shadow sorcery marksmanship—shatter targets with cursed energy.",
+        modeDashDesc:"Blink through laser walls—survive the dimensional rift.",
+        modeImpactDesc:"Charge your fist—break the core beyond limits.",
+        modeFlowDesc:"Breathe with the beat—body and spirit as one.",
+
         difficulty:"Difficulty", easy:"Easy", normal:"Normal", hard:"Hard",
         map:"Map", mapCity:"Neo City", mapForest:"Ancient Forest", mapVoid:"Void Arena",
         hubTip:"Tip: All four games use a unified JSON i18n.",
@@ -59,11 +72,15 @@
       $('titleMain').textContent   = T('title','SHADOW BREAKER');
       $('subtitle').textContent    = T('subtitle','Neo Anime Tech • Training Hub');
 
-      // ปุ่มชื่อเกม
+      // ปุ่มชื่อเกม + คำอธิบาย
       $('btnCombat').textContent   = T('modeCombat','Arcane Combat');
+      $('descCombat').textContent  = T('modeCombatDesc','Shadow sorcery marksmanship—shatter targets with cursed energy.');
       $('btnDash').textContent     = T('modeDash','Rift Dash');
+      $('descDash').textContent    = T('modeDashDesc','Blink through laser walls—survive the dimensional rift.');
       $('btnImpact').textContent   = T('modeImpact','Impact Breaker');
+      $('descImpact').textContent  = T('modeImpactDesc','Charge your fist—break the core beyond limits.');
       $('btnFlow').textContent     = T('modeFlow','Spirit Flow');
+      $('descFlow').textContent    = T('modeFlowDesc','Breathe with the beat—body and spirit as one.');
 
       // ป้าย/ตัวเลือก
       $('lblTraining').textContent = T('training','Training');
@@ -112,23 +129,27 @@
       <h1 id="titleMain">SHADOW BREAKER</h1>
       <h2 id="subtitle">Neo Anime Tech • Training Hub</h2>
 
-      <!-- Tiles: 4 เกม + ชื่อชัด -->
+      <!-- Tiles: 4 เกม + ชื่อ + คำอธิบาย -->
       <div class="grid4 mb8">
         <button class="tile" onclick="start('combat')">
           <div class="tile-ico ico-combat"></div>
           <span class="tile-label" id="btnCombat">Arcane Combat</span>
+          <span class="tile-desc" id="descCombat">เวทมนตร์สายเงา ยิงทำลายเป้าด้วยพลังต้องสาป</span>
         </button>
         <button class="tile" onclick="start('dash')">
           <div class="tile-ico ico-dash"></div>
           <span class="tile-label" id="btnDash">Rift Dash</span>
+          <span class="tile-desc" id="descDash">พุ่งหลบกำแพงเลเซอร์ รอดให้ไวในรอยแยกมิติ</span>
         </button>
         <button class="tile" onclick="start('impact')">
           <div class="tile-ico ico-impact"></div>
           <span class="tile-label" id="btnImpact">Impact Breaker</span>
+          <span class="tile-desc" id="descImpact">ชาร์จพลังหมัดแตกแกน พุ่งทะลุขีดจำกัด</span>
         </button>
         <button class="tile" onclick="start('flow')">
           <div class="tile-ico ico-flow"></div>
           <span class="tile-label" id="btnFlow">Spirit Flow</span>
+          <span class="tile-desc" id="descFlow">ควบคุมลมหายใจตามจังหวะ ร่างกายและวิญญาณเป็นหนึ่ง</span>
         </button>
       </div>
 
@@ -177,10 +198,11 @@
     </div>
   </div>
 
-  <!-- Extra CSS to ensure labels are visible (in case styles.css is old) -->
+  <!-- Inline CSS เพื่อให้คำอธิบายเห็นชัด แม้ styles.css ยังไม่อัปเดต -->
   <style>
     .tile{ color:#cfefff; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; }
     .tile-label{ display:block; margin-top:8px; font-weight:700; letter-spacing:.2px; text-shadow:0 1px 2px rgba(0,0,0,.35); }
+    .tile-desc{ display:block; margin-top:4px; opacity:.9; font-size:0.92rem; text-align:center; line-height:1.25; color:#bfe9ff; }
     .tile:focus{ outline:2px solid rgba(139,216,255,.35); outline-offset:2px; }
   </style>
 </body>
