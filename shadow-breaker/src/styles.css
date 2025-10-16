@@ -104,3 +104,52 @@ body{margin:0;background:#0a0f16;color:#cfefff;font-family:Inter,system-ui,Segoe
 
 @media (max-width:1100px){ .grid4{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:560px){ .grid4{grid-template-columns:1fr} .tile-ico{height:72px} }
+/* --- A-Frame canvas อยู่วงล่างเสมอ --- */
+.a-canvas, .a-grab-cursor { z-index: 0 !important; }
+
+/* --- HUD แถบบนแบบกึ่งโปร่ง + เบลอ --- */
+.hud {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: 12px; display: flex; gap: 8px; padding: 8px 10px;
+  background: linear-gradient(180deg, rgba(4,12,20,.64), rgba(8,16,24,.64));
+  border: 1px solid rgba(139,216,255,.25);
+  border-radius: 14px; backdrop-filter: blur(6px);
+  box-shadow: 0 8px 26px rgba(0,0,0,.35), inset 0 0 18px rgba(139,216,255,.08);
+  z-index: 10050 !important; pointer-events: none;
+}
+.hud.bottom {
+  top: auto; bottom: 16px;
+  justify-content: center; padding: 8px 12px;
+}
+
+/* ป้าย HUD */
+.badge {
+  background: rgba(0,10,20,.55);
+  border: 1px solid rgba(139,216,255,.22);
+  padding: 6px 10px; border-radius: 12px; font-weight: 700;
+  letter-spacing: .2px; pointer-events: none; color: #cfefff;
+}
+.badge.interactive { pointer-events: auto; }
+
+/* เน้น "เวลา" ให้เด่น */
+#hudTime {
+  display: inline-flex !important; visibility: visible !important;
+  background: linear-gradient(90deg, rgba(20,60,100,.9), rgba(10,30,70,.9));
+  border-color: rgba(120,200,255,.5); box-shadow:
+    0 0 12px rgba(120,200,255,.35), inset 0 0 12px rgba(120,200,255,.15);
+}
+#hudTime::before { content: "⏱ "; opacity: .95; }
+
+/* ป้องกัน overlay อื่นบัง */
+#toast, #objective, #questPanel, #overloadBarWrap, #hpBarWrap { z-index: 10040 !important; }
+
+/* แถบ HP / Overload ลอยบนสุดรองจาก HUD */
+#overloadBarWrap, #hpBarWrap { position: fixed; z-index: 10045 !important; }
+
+/* มือถือ/จอเล็ก จัด HUD ให้ไม่หลุดจอ */
+@media (max-width: 720px) {
+  .hud { gap: 6px; padding: 6px 8px; top: 8px; border-radius: 12px; }
+  .badge { padding: 5px 8px; font-size: 0.9rem; }
+  #overloadBarWrap { width: 86%; bottom: 9%; }
+}
+
