@@ -6,10 +6,9 @@
   <title>Shadow Breaker – Training Hub</title>
   <link rel="stylesheet" href="src/styles.css"/>
   <script>
-    // ===== i18n safe loader (instant switch + fallback) =====
     let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
     const $=id=>document.getElementById(id);
-    const T=(k,def)=> (I18N&&I18N[CUR]&&I18N[CUR][k]) || def || k;
+    const T=(k,def)=> (I18N&&I18N[CUR]&&I18N[CUR][k])||def||k;
 
     const FALLBACK={
       th:{title:"SHADOW BREAKER",subtitle:"Neo Anime Tech • Training Hub",training:"ศูนย์ฝึก",
@@ -42,49 +41,47 @@
       applyTexts();
     }
     function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); document.documentElement.setAttribute('lang',v); applyTexts(); }
-
     function applyTexts(){
       if(!$('titleMain')) return;
-      $('titleMain').textContent   = T('title','SHADOW BREAKER');
-      $('subtitle').textContent    = T('subtitle','Neo Anime Tech • Training Hub');
+      $('titleMain').textContent=T('title','SHADOW BREAKER');
+      $('subtitle').textContent=T('subtitle','Neo Anime Tech • Training Hub');
 
-      $('btnCombat').textContent   = T('modeCombat','Arcane Combat');
-      $('descCombat').textContent  = T('modeCombatDesc','Shadow sorcery—shatter targets with cursed energy.');
-      $('btnDash').textContent     = T('modeDash','Rift Dash');
-      $('descDash').textContent    = T('modeDashDesc','Blink past laser walls inside the rift.');
-      $('btnImpact').textContent   = T('modeImpact','Impact Breaker');
-      $('descImpact').textContent  = T('modeImpactDesc','Charge your fist and break the core beyond limits.');
-      $('btnFlow').textContent     = T('modeFlow','Spirit Flow');
-      $('descFlow').textContent    = T('modeFlowDesc','Breathe with the beat—body and spirit as one.');
+      $('btnCombat').textContent=T('modeCombat','Arcane Combat');
+      $('descCombat').textContent=T('modeCombatDesc','Shadow sorcery—shatter targets with cursed energy.');
+      $('btnDash').textContent=T('modeDash','Rift Dash');
+      $('descDash').textContent=T('modeDashDesc','Blink past laser walls inside the rift.');
+      $('btnImpact').textContent=T('modeImpact','Impact Breaker');
+      $('descImpact').textContent=T('modeImpactDesc','Charge your fist and break the core beyond limits.');
+      $('btnFlow').textContent=T('modeFlow','Spirit Flow');
+      $('descFlow').textContent=T('modeFlowDesc','Breathe with the beat—body and spirit as one.');
 
-      $('lblTraining').textContent = T('training','Training');
-      $('lblDiff').textContent     = T('difficulty','Difficulty');
-      $('optEasy').textContent     = T('easy','Easy');
-      $('optNormal').textContent   = T('normal','Normal');
-      $('optHard').textContent     = T('hard','Hard');
+      $('lblTraining').textContent=T('training','Training');
+      $('lblDiff').textContent=T('difficulty','Difficulty');
+      $('optEasy').textContent=T('easy','Easy');
+      $('optNormal').textContent=T('normal','Normal');
+      $('optHard').textContent=T('hard','Hard');
 
-      $('lblMap').textContent      = T('map','Map');
-      $('optCity').textContent     = T('mapCity','Neo City');
-      $('optForest').textContent   = T('mapForest','Ancient Forest');
-      $('optVoid').textContent     = T('mapVoid','Void Arena');
+      $('lblMap').textContent=T('map','Map');
+      $('optCity').textContent=T('mapCity','Neo City');
+      $('optForest').textContent=T('mapForest','Ancient Forest');
+      $('optVoid').textContent=T('mapVoid','Void Arena');
 
-      $('lblImpactMode').textContent = T('ibModeLabel','Impact Mode');
-      $('optIbCount').textContent    = T('ibModeA','Count Mode');
-      $('optIbTimed').textContent    = T('ibModeB','Timed Mode');
-      $('optIbBoss').textContent     = T('ibModeC','Boss Mode');
-      $('optIbEndless').textContent  = T('ibModeD','Endless Mode');
-      $('optIbFitness').textContent  = T('ibModeE','Fitness Mode');
+      $('lblImpactMode').textContent=T('ibModeLabel','Impact Mode');
+      $('optIbCount').textContent=T('ibModeA','Count Mode');
+      $('optIbTimed').textContent=T('ibModeB','Timed Mode');
+      $('optIbBoss').textContent=T('ibModeC','Boss Mode');
+      $('optIbEndless').textContent=T('ibModeD','Endless Mode');
+      $('optIbFitness').textContent=T('ibModeE','Fitness Mode');
 
       $('btnTH').textContent='ไทย'; $('btnEN').textContent='English';
       $('tip').textContent=T('hubTip','Tip: All games use a unified JSON i18n.');
     }
-
     function start(game){
-      const diff=$('selDiff').value, map=$('selMap').value, mode='timed';
+      const diff=$('selDiff').value, map=$('selMap').value;
+      const mode='timed'; // ค่าเริ่มเพื่อให้ทุกเกมเห็นเวลา
       const ib=(game==='impact')?`&ib=${$('selImpactMode').value}`:'';
       location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}${ib}`;
     }
-
     window.addEventListener('DOMContentLoaded', ()=>{
       document.documentElement.setAttribute('lang',CUR);
       loadI18n();
@@ -93,33 +90,28 @@
     });
   </script>
 </head>
-
 <body class="hub-bg hub-g5">
   <div class="center-card">
     <div class="card card-g5">
       <h1 id="titleMain" class="title-g5">SHADOW BREAKER</h1>
       <h2 id="subtitle" class="subtitle-g5">Neo Anime Tech • Training Hub</h2>
 
-      <!-- Tiles: 4 เกม + Glow G5 -->
       <div class="grid4 mb8">
         <button class="tile tile-g5 tile-combat" onclick="start('combat')">
           <div class="tile-ico ico-combat"></div>
           <span class="tile-label" id="btnCombat">Arcane Combat</span>
           <span class="tile-desc" id="descCombat">เวทมนตร์สายเงา ยิงทำลายเป้าด้วยพลังต้องสาป</span>
         </button>
-
         <button class="tile tile-g5 tile-dash" onclick="start('dash')">
           <div class="tile-ico ico-dash"></div>
           <span class="tile-label" id="btnDash">Rift Dash</span>
           <span class="tile-desc" id="descDash">พุ่งหลบกำแพงเลเซอร์ รอดให้ไวในรอยแยกมิติ</span>
         </button>
-
         <button class="tile tile-g5 tile-impact" onclick="start('impact')">
           <div class="tile-ico ico-impact"></div>
           <span class="tile-label" id="btnImpact">Impact Breaker</span>
           <span class="tile-desc" id="descImpact">ชาร์จพลังหมัดแตกแกน พุ่งทะลุขีดจำกัด</span>
         </button>
-
         <button class="tile tile-g5 tile-flow" onclick="start('flow')">
           <div class="tile-ico ico-flow"></div>
           <span class="tile-label" id="btnFlow">Spirit Flow</span>
@@ -127,39 +119,34 @@
         </button>
       </div>
 
-      <!-- Controls -->
       <div class="row wrap gap">
         <div><strong id="lblTraining">Training</strong></div>
-
         <div>
           <strong id="lblDiff">Difficulty</strong>
           <select id="selDiff" class="btn secondary">
-            <option value="easy"   id="optEasy">Easy</option>
+            <option value="easy" id="optEasy">Easy</option>
             <option value="normal" id="optNormal" selected>Normal</option>
-            <option value="hard"   id="optHard">Hard</option>
+            <option value="hard" id="optHard">Hard</option>
           </select>
         </div>
-
         <div>
           <strong id="lblMap">Map</strong>
           <select id="selMap" class="btn secondary">
-            <option value="city"   id="optCity">Neo City</option>
+            <option value="city" id="optCity">Neo City</option>
             <option value="forest" id="optForest">Ancient Forest</option>
-            <option value="void"   id="optVoid">Void Arena</option>
+            <option value="void" id="optVoid">Void Arena</option>
           </select>
         </div>
-
         <div>
           <strong id="lblImpactMode">Impact Mode</strong>
           <select id="selImpactMode" class="btn secondary">
-            <option value="count"   id="optIbCount">Count Mode</option>
-            <option value="timed"   id="optIbTimed">Timed Mode</option>
-            <option value="boss"    id="optIbBoss">Boss Mode</option>
+            <option value="count" id="optIbCount">Count Mode</option>
+            <option value="timed" id="optIbTimed">Timed Mode</option>
+            <option value="boss" id="optIbBoss">Boss Mode</option>
             <option value="endless" id="optIbEndless">Endless Mode</option>
             <option value="fitness" id="optIbFitness">Fitness Mode</option>
           </select>
         </div>
-
         <div class="row" style="margin-left:auto;gap:6px">
           <button class="btn secondary" id="btnTH">ไทย</button>
           <button class="btn secondary" id="btnEN">English</button>
