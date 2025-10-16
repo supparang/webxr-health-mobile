@@ -1,11 +1,11 @@
 /* Shadow Breaker – Mixed Signature Fitness Build (G5 Glow)
    Components: A-Frame runtime for 4 games (combat/dash/impact/flow)
    Updates:
+   - SAFE-BOOT: ต่อให้ i18n ล้มเหลว เกมก็เริ่มแน่
    - Default mode 'timed' so time always shows & decrements
-   - HUD time forced visible (anti-hide)
+   - HUD time forced visible (anti-hide by page CSS)
    - Arcane Combat: Multi-Gate boss spawn (Score OR Kills OR Assist), Safety Gate
-   - Boss Debug HUD (shows S/K/A gates live)
-   - Force Boss (press B) for testing
+   - Boss Debug HUD (shows S/K/A gates live) + Force Boss (press B)
    - Fitness (calories + level), Daily quests
 */
 (function(){
@@ -58,6 +58,7 @@
     hard:   { spawnMs:650, lifeMs:2800, timedSec:55, missHP:5, bossHit:10, clickMissHP:2, olTickMinor:0.45, olTickMajor:1.25 }
   };
 
+  // --- Daily Quests (localStorage) ---
   const QUEST_KEY='sb_daily_v1';
   const genDaily=()=>{ const today=new Date().toISOString().slice(0,10);
     const ex=JSON.parse(localStorage.getItem(QUEST_KEY)||'{}'); if(ex.date===today) return ex;
@@ -91,12 +92,25 @@
       this.diff=q.get('diff')||'normal'; this.cfg=DIFF[this.diff]||DIFF.normal;
       this.ibMode=(q.get('ib')||'count').toLowerCase();
 
-      fetch('src/i18n.json').then(r=>r.json()).then(data=>{
-        const cur=localStorage.getItem('sb_lang')||'th';
-        this.i18n=data; this.dict=data[cur]||data['th']||{};
-        window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']||{}; this.updateHUD(); this.updateObjective(); };
+      // --- SAFE-BOOT i18n + START ---
+      const safeStart = (data)=>{
+        try{
+          const cur = localStorage.getItem('sb_lang') || 'th';
+          this.i18n = data || {};
+          this.dict = (this.i18n[cur] || this.i18n['th'] || {});
+        }catch(_){
+          this.i18n = {}; this.dict = {};
+        }
 
-        this.st={
+        // setLang runtime (เปลี่ยนภาษาแบบไม่รีเฟรช)
+        window.__shadowBreakerSetLang = (v)=>{
+          try{ localStorage.setItem('sb_lang', v); }catch(_){}
+          this.dict = (this.i18n && this.i18n[v]) ? this.i18n[v] : (this.i18n['th'] || {});
+          this.updateHUD(); this.updateObjective();
+        };
+
+        // --- STATE ---
+        this.st = {
           playing:false,
           timeLeft:(this.mode==='timed')?(this.cfg.timedSec||60):9999,
           score:0, combo:1, arcane:0, overload:0, hp:100,
@@ -104,7 +118,7 @@
           dmgCD:0, olTick:0, idleTimer:0,
           // combat
           kills:0, phase:'tutorial', boss:null,
-          _dbg:{scoreGate:false,killGate:false,assistGate:false}, // << Debug gate flags
+          _dbg:{scoreGate:false,killGate:false,assistGate:false},
           // dash
           jumpT:0, crouch:false, side:0, sideT:0, burst:0, burstCD:0,
           // impact
@@ -115,11 +129,35 @@
           kcal:0, level:1
         };
 
-        this.updateHUD(); this.updateObjective(); this.startGame();
-        if(this.game==='combat') this.showCombatTutorial();
-        try{ console.info('[SB] game=%s mode=%s diff=%s time=%s', this.game, this.mode, this.diff, this.st.timeLeft); }catch(_){}
-      });
+        // อัปเดต HUD เพื่อให้เห็นว่าระบบติดขึ้น
+        this.updateHUD(); this.updateObjective();
 
+        // รอ scene โหลดก่อนค่อยสตาร์ท (กัน renderer มาช้า)
+        const startNow = ()=>{ this.startGame(); if(this.game==='combat') this.showCombatTutorial(); };
+        if (this.el && this.el.sceneEl && !this.el.sceneEl.hasLoaded) {
+          this.el.sceneEl.addEventListener('loaded', startNow, {once:true});
+        } else {
+          startNow();
+        }
+
+        try{ console.info('[SB] SAFE-BOOT OK', {game:this.game, mode:this.mode, diff:this.diff}); }catch(_){}
+      };
+
+      // พยายามโหลด i18n ถ้าโหลดไม่ได้ ให้ใช้ {} แล้วเดินต่อ
+      (async ()=>{
+        try{
+          const r = await fetch('src/i18n.json', {cache:'no-store'});
+          if(!r.ok) throw new Error('i18n HTTP '+r.status);
+          const data = await r.json();
+          safeStart(data);
+        }catch(err){
+          const t = $('toast');
+          if(t){ t.textContent = 'i18n load failed – running with defaults'; t.style.display='block'; setTimeout(()=>t.style.display='none',1500); }
+          safeStart({});
+        }
+      })();
+
+      // Controls
       window.addEventListener('keydown',(e)=>{
         if(this.game==='dash'){
           if(e.key==='ArrowUp'||e.code==='Space'){ if(this.st.jumpT<=0) this.st.jumpT=0.6; }
@@ -150,6 +188,7 @@
       window.addEventListener('mousedown', e=>{ if(this.game==='impact') this.st.chargeStart=performance.now(); });
       window.addEventListener('mouseup',   e=>{ if(this.game==='impact') this.releaseImpact(); });
 
+      // manual ray for click/tap
       window.addEventListener('click', this.manualRay && this.manualRay.bind(this), {passive:false});
     },
 
@@ -295,7 +334,7 @@
         const add=120+(this.st.combo-1)*12;
         this.st.score+=add; this.st.arcane=Math.min(100,this.st.arcane+3);
         this.st.overload=Math.min(130,this.st.overload+0.9); this.st.idleTimer=0;
-        this.st.kills++; // << important
+        this.st.kills++; // << สำคัญ
         if(this.st.boss){ this.damageBoss(3); }
         SFX.hit(); e.remove(); this.updateHUD();
       });
