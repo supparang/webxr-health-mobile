@@ -148,13 +148,11 @@
           kcal:0, level:1
         };
 
-        // อัปเดต HUD เพื่อให้เห็นว่าระบบติดขึ้น
         this.updateHUD(); this.updateObjective();
 
         // รอ scene โหลดก่อนค่อยสตาร์ท + SANITY CUBE
         const startNow = ()=>{
           this.startGame();
-          // SANITY CUBE: ถ้าฉากเรนเดอร์อยู่ จะเห็นกล่องหมุน 10 วิ
           try{
             const scn = this.el && this.el.sceneEl;
             if (scn) {
@@ -176,7 +174,6 @@
           startNow();
         }
 
-        // เคลียร์ failsafe timer เมื่อติดเครื่องแล้ว
         try{ clearTimeout(startFallback); }catch(_){}
         __started = true;
 
@@ -224,7 +221,6 @@
           this.updateObjective(); this.updateHUD();
           toast(tr(this.dict,'ibModeSwitch','Impact mode: {MODE} (press M)',{MODE:this.ibMode.toUpperCase()}),1200);
         }
-        // TEST: Force Boss (Combat) – press B
         if(this.game==='combat' && (e.key==='b'||e.key==='B')){
           if(!this.st.boss){ this.st.phase='boss'; this.spawnMiniBoss(); toast('FORCE BOSS (Test)',900); }
         }
@@ -233,7 +229,6 @@
       window.addEventListener('mousedown', e=>{ if(this.game==='impact') this.st.chargeStart=performance.now(); });
       window.addEventListener('mouseup',   e=>{ if(this.game==='impact') this.releaseImpact(); });
 
-      // manual ray for click/tap
       window.addEventListener('click', this.manualRay && this.manualRay.bind(this), {passive:false});
     },
 
@@ -285,7 +280,6 @@
 
       if(this.daily) updateQuestUI(this.dict,this.daily); else { this.daily=genDaily(); updateQuestUI(this.dict,this.daily); }
 
-      // --- DEBUG HUD (Boss Gates Live) ---
       const dbg=$('hudDBG');
       if(dbg){
         const S=this.st.score|0, K=this.st.kills|0, T=(this.mode==='timed')?Math.ceil(this.st.timeLeft||0):Infinity;
@@ -325,7 +319,6 @@
 
       this.updateHUD();
 
-      // ---- WATCHDOG: บังคับสปอว์นเมื่อเกมนิ่งผิดปกติ ----
       try{
         if(this.game==='combat' && this.st.playing){
           const hasTargets = document.querySelectorAll('.clickable').length;
@@ -365,10 +358,8 @@
       const assistGate = (this.mode==='timed' && this.st.timeLeft <= gates.assistTime &&
                           this.st.score >= Math.floor(gates.score * gates.assistScoreRatio));
 
-      // DEBUG flags
       this.st._dbg={scoreGate,killGate,assistGate};
 
-      // Safety Gate
       let safetyGate=false;
       if(this.mode==='timed'){
         const total=(this.cfg.timedSec||60);
@@ -398,7 +389,7 @@
         const add=120+(this.st.combo-1)*12;
         this.st.score+=add; this.st.arcane=Math.min(100,this.st.arcane+3);
         this.st.overload=Math.min(130,this.st.overload+0.9); this.st.idleTimer=0;
-        this.st.kills++; // นับเป้าที่ยิงโดน (สำคัญต่อ Gate)
+        this.st.kills++;
         if(this.st.boss){ this.damageBoss(3); }
         SFX.hit(); e.remove(); this.updateHUD();
       });
