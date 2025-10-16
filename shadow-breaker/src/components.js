@@ -79,16 +79,21 @@
         this.i18n=data; this.dict=data[cur]||data['th']||{};
         window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']; this.updateHUD(); this.updateObjective(); };
 
-        this.st={
-          playing:false,
-          timeLeft:(this.mode==='timed')?(this.cfg.timedSec||60):9999,
-          score:0, combo:1, arcane:0, overload:0, hp:100,
-          last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
-          dmgCD:0, olTick:0, idleTimer:0,
-          jumpT:0, crouch:false, side:0, sideT:0, burst:0, burstCD:0,
-          chargeStart:0, _impactAlive:false, cores:0, reps:0, bossHP:0, bossAlive:false, flowNext:0,
-          kcal:0, level:1, boss:null
-        };
+        this.st = {
+  playing:false,
+  timeLeft:(this.mode==='timed')?(this.cfg.timedSec||60):9999,
+  score:0, combo:1, arcane:0, overload:0, hp:100,
+  last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
+  dmgCD:0, olTick:0, idleTimer:0,
+  // ↓↓↓  เพิ่มสองตัวนี้
+  kills:0,
+  phase:'tutorial',
+  // ที่เหลือตามเดิม...
+  jumpT:0, crouch:false, side:0, sideT:0, burst:0, burstCD:0,
+  chargeStart:0, _impactAlive:false, cores:0, reps:0, bossHP:0, bossAlive:false, flowNext:0,
+  kcal:0, level:1, boss:null
+};
+
 
         // ตั้งค่า HUD/Objective ก่อนเริ่ม เพื่อให้เห็นเวลาแน่ๆ
         this.updateHUD(); this.updateObjective(); this.startGame();
