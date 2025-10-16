@@ -1,5 +1,7 @@
-// Shadow Breaker – 4 Game Modes (combat/dash/impact/flow)
-// NOTE: โค้ดนี้สรุป/ย่อจากเวอร์ชันก่อนหน้าให้เล่นได้ครบ 4 โหมด
+// Shadow Breaker – 4 Game Modes (combat/dash/impact/flow) + Kid-Friendly Combat Patch
+// - โหมด combat ได้รับการปรับให้เหมาะกับ ป.5 เมื่อเล่นความยาก "easy":
+//   * เป้าใหญ่ขึ้น อยู่ทนขึ้น, ไม่เสียพลังจากพลาดเป้า, ฟื้น ENERGY เป็นจังหวะ,
+//     Overload กร่อนช้าลง, บอสโผล่ช้าลงและโจมตีช้าลง, Tutorial 20 วิแรก
 (function(){
   const $=(id)=>document.getElementById(id);
   const qs=(sel)=>document.querySelector(sel);
@@ -15,7 +17,8 @@
 
   // ===== Difficulty (ใช้ร่วมทุกโหมด) =====
   const DIFF={
-    easy:   {spawnMs:900, lifeMs:3400, timedSec:70, missHP:1, bossHit:4,  clickMissHP:0},
+    // kid-friendly easy (แพตช์แล้ว)
+    easy:   {spawnMs:950, lifeMs:3800, timedSec:75, missHP:0, bossHit:3,  clickMissHP:0},
     normal: {spawnMs:800, lifeMs:3200, timedSec:60, missHP:3, bossHit:6,  clickMissHP:1},
     hard:   {spawnMs:650, lifeMs:2800, timedSec:50, missHP:5, bossHit:10, clickMissHP:2}
   };
@@ -40,15 +43,18 @@
         this.i18n=data; this.dict=data[cur]||data['th']||{};
         window.__shadowBreakerSetLang=(v)=>{ localStorage.setItem('sb_lang',v); this.dict=this.i18n[v]||this.i18n['th']; this.updateHUD(); };
 
+        // kid-easy flag (แพตช์)
+        this.kid = (this.game==='combat' && this.diff==='easy');
+
         // state หลัก
         this.st={
           playing:false, timeLeft:(this.mode==='timed')?this.cfg.timedSec:9999,
           score:0, combo:1, arcane:0, overload:0, hp:100,
           last:performance.now(), spawnEveryMs:this.cfg.spawnMs, spawnTimer:performance.now()-this.cfg.spawnMs-1,
-          dmgCD:0, olTick:0, idleTimer:0,
+          dmgCD:0, olTick:0, idleTimer:0, recoverCD:0,
           // โหมดเฉพาะ
-          jumpT:0, crouch:false,
-          chargeStart:0, // impact
+          jumpT:0, crouch:false,             // dash
+          chargeStart:0, _impactAlive:false, // impact
           flowNotes:[], flowBeat:0, flowNext:0 // flow
         };
         this.daily=genDaily(); updateQuestUI(this.dict,this.daily);
@@ -85,6 +91,9 @@
 
         this.updateObjective();
         this.startGame();
+
+        // Tutorial 20 วิแรก (เฉพาะ combat)
+        if(this.game==='combat') this.showCombatTutorial();
       });
     },
 
@@ -92,10 +101,9 @@
 
     updateObjective:function(){
       const o=$('objective'); if(!o) return;
-      const d=this.dict;
       const obj={
-        combat:'ทำคะแนนถึง 400 เพื่อเรียก Mini Boss',
-        dash:'กด ↑ เพื่อกระโดด, ↓ เพื่อย่อตัว — หลบแท่งพลัง',
+        combat:'ทำคะแนนถึง 400 (หรืิอ 600 ใน Easy) เพื่อเรียก Mini Boss',
+        dash:'กด ↑ กระโดด, ↓ ย่อตัว — หลบแท่งพลัง',
         impact:'กดเมาส์ค้างเพื่อชาร์จ แล้วปล่อยทำลายแกนพลัง',
         flow:'กด A / S / D ให้ตรงสัญญาณจังหวะ'
       };
@@ -121,7 +129,8 @@
       if(amount<=0) return;
       if(this.st.dmgCD>0) return;
       this.st.hp=Math.max(0,this.st.hp-amount);
-      this.st.dmgCD=0.6; toast(`-${Math.round(amount)} HP (${label||'Hit'})`);
+      this.st.dmgCD=0.6; this.st.recoverCD=0; // รีเซ็ตรีเจนเมื่อโดน
+      toast(`-${Math.round(amount)} HP (${label||'Hit'})`);
       this.updateHUD();
     },
 
@@ -135,11 +144,26 @@
         if(this.st.timeLeft<=0) return this.endGame();
       }
 
-      // shared: Overload drain ช้า ๆ
+      // Overload drain — เบาลงถ้า kid-easy
       this.st.olTick += dt;
-      if(this.st.olTick>=0.5 && this.st.overload>=80 && this.st.overload<100){ this.takeDamage(0.4,'Overload'); this.st.olTick=0; }
-      if(this.st.olTick>=0.4 && this.st.overload>=100){ this.takeDamage(1.2,'Overload+'); this.st.olTick=0; }
+      if(this.st.overload>=80 && this.st.overload<100 && this.st.olTick>=0.5){
+        this.takeDamage((this.kid?0.2:0.4),'Overload');
+        this.st.olTick=0;
+      }
+      if(this.st.overload>=100 && this.st.olTick>=0.4){
+        this.takeDamage((this.kid?0.6:1.2),'Overload+');
+        this.st.olTick=0;
+      }
       if(this.st.dmgCD>0) this.st.dmgCD=Math.max(0,this.st.dmgCD-dt);
+
+      // Energy Regen (เฉพาะ combat + easy)
+      if(this.kid && this.game==='combat'){
+        this.st.recoverCD += dt;
+        if(this.st.recoverCD >= 1.5 && this.st.hp < 90){
+          this.st.hp = Math.min(100, this.st.hp + 2);
+          this.st.recoverCD = 0;
+        }
+      }
 
       // สวิตช์ตามโหมด
       if(this.game==='combat') this.tickCombat(now,dt);
@@ -151,18 +175,29 @@
       if(this.st.hp<=0) this.endGame();
     },
 
-    /* ========== MODE 1: COMBAT (ย่อจากของเดิม) ========== */
+    /* ========== MODE 1: COMBAT (ปรับ kid-easy) ========== */
     tickCombat:function(now,dt){
       if(now-this.st.spawnTimer>this.st.spawnEveryMs){ this.st.spawnTimer=now; this.spawnTarget(); }
-      if(this.st.phase!=='boss' && this.st.score>=400){ this.st.phase='boss'; this.spawnMiniBoss(); }
+      // boss threshold: easy = 600, ปกติ = 400
+      const needScore = this.kid ? 600 : 400;
+      if(this.st.phase!=='boss' && this.st.score>=needScore){
+        this.st.phase='boss';
+        this.spawnMiniBoss();
+      }
     },
     spawnTarget:function(){
-      // เป้าแบบเดียว (ย่อ)
       const sp=qs('#spawner'); const e=document.createElement('a-entity');
+      // base target
       e.setAttribute('geometry','primitive: sphere; radius: 0.25');
       e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
       const rx=(Math.random()*2-1)*0.9, ry=1.2+Math.random()*0.6, rz=-2.0-Math.random()*0.5;
       const pos={x:rx,y:ry,z:rz}; e.setAttribute('position',pos); e.classList.add('clickable');
+
+      // kid-easy: bigger & longer
+      if(this.kid){
+        e.setAttribute('geometry','primitive: sphere; radius: 0.29');
+      }
+
       e.addEventListener('click',()=>{
         if(!this.st.playing) return;
         this.st.combo=Math.min(20,this.st.combo+1);
@@ -170,7 +205,15 @@
         if(this.st.boss){ this.st.boss.hp-=3; if(this.st.boss.hp<=0){ try{this.st.boss.el.remove();}catch(_){ } this.st.boss=null; toast(T(this.dict,'missionClear','Mission Clear')); } }
         SFX.hit(); e.remove();
       });
-      setTimeout(()=>{ if(e.parentNode){ e.remove(); this.st.combo=1; this.takeDamage(this.cfg.missHP,T(this.dict,'miss','Miss')); } }, this.cfg.lifeMs);
+
+      const lifeMs = this.kid ? Math.floor(this.cfg.lifeMs * 1.2) : this.cfg.lifeMs;
+      setTimeout(()=>{ if(e.parentNode){
+        e.remove(); this.st.combo=1;
+        // ใน easy เราไม่หักพลังเมื่อพลาด (missHP=0) แต่โหมดอื่นยังทำงานปกติ
+        if(!this.kid) this.takeDamage(this.cfg.missHP, (this.dict && this.dict['miss'])||'Miss');
+        this.updateHUD();
+      } }, lifeMs);
+
       sp.appendChild(e);
     },
     spawnMiniBoss:function(){
@@ -179,29 +222,29 @@
       b.el.setAttribute('material','color:#17394a; emissive:#0ff; metalness:0.2; roughness:0.2');
       b.el.setAttribute('position',{x:0,y:1.6,z:-2.6}); b.el.classList.add('boss');
       qs('#spawner').appendChild(b.el); this.st.boss=b; toast(T(this.dict,'missionBoss','Mini Boss!'));
+
       const atk=()=>{ if(!this.st.boss||!this.st.playing||this.st.hp<=0) return;
-        const dmg=this.cfg.bossHit + Math.floor(this.st.overload/50); this.takeDamage(dmg,T(this.dict,'bossAttack','Boss attack'));
-        if(this.st.hp>0 && this.st.boss) setTimeout(atk,1800);
-      }; setTimeout(atk,1200);
+        const dmg=this.cfg.bossHit + Math.floor(this.st.overload/50);
+        this.takeDamage(dmg,T(this.dict,'bossAttack','Boss attack'));
+        if(this.st.hp>0 && this.st.boss) setTimeout(atk, this.kid ? 2200 : 1800); // ช้าลงใน easy
+      };
+      setTimeout(atk, this.kid ? 1600 : 1200); // เริ่มช้าลงใน easy
     },
 
     /* ========== MODE 2: DASH (Cardio – Jump/Crouch) ========== */
     tickDash:function(now,dt){
-      // กระโดด (ยกตัวขึ้น/ลงตามเวลา)
+      // กระโดด/ย่อ
       if(this.st.jumpT>0){ this.st.jumpT=Math.max(0,this.st.jumpT-dt); }
       const rig=$('#rig'); if(rig){ const base=1.6; const y = (this.st.jumpT>0) ? base + 0.4*Math.sin((0.6-this.st.jumpT)/0.6*Math.PI) : base - (this.st.crouch?0.35:0); rig.setAttribute('position',`0 ${y.toFixed(3)} 0`); }
-
-      // สปอว์นแท่งทุกช่วง
+      // spawn bars
       if(now-this.st.spawnTimer>Math.max(650,this.cfg.spawnMs)){ this.st.spawnTimer=now; this.spawnDashBar(); }
-
-      // ขยับแท่งเข้าใส่ผู้เล่น + ตรวจชน
+      // move & collide
       document.querySelectorAll('.hazard').forEach(h=>{
         const z=Number(h.dataset.z||-3); const speed=1.8; const nz=z+speed*dt; h.dataset.z=nz;
         h.setAttribute('position',`0 0 ${nz.toFixed(3)}`);
         if(nz>-0.2 && !h.dataset.hit){
           h.dataset.hit='1';
           const type=h.dataset.type; // low/high/mid
-          // ตรวจท่าผู้เล่น (jump/crouch/normal)
           const ok = (type==='low'  && this.st.jumpT>0) ||
                      (type==='high' && this.st.crouch) ||
                      (type==='mid'  && !this.st.crouch && this.st.jumpT<=0);
@@ -214,7 +257,6 @@
     spawnDashBar:function(){
       const e=document.createElement('a-entity'); e.classList.add('hazard');
       const r=Math.random(); const type = r<0.33?'low':(r<0.66?'high':'mid'); e.dataset.type=type; e.dataset.z=-3.2;
-      // วาดเป็นกล่อง 3 แบบ: low = ช่องบน, high = ช่องล่าง, mid = ช่องกลาง
       let y=1.0, h=0.3;
       if(type==='low'){ y=0.3; h=0.3; }      // ต้องกระโดด
       else if(type==='high'){ y=1.35; h=0.3;} // ต้องย่อ
@@ -227,11 +269,10 @@
 
     /* ========== MODE 3: IMPACT (Strength – Charge & Release) ========== */
     tickImpact:function(now,dt){
-      // ถ้าไม่มีเป้าหมาย ให้สร้างแท่งพลัง 1 อัน
       if(!this._impactAlive){ this.spawnImpactCore(); }
-      // แสดงสถานะชาร์จบน HUD (ที่ hudArcane)
       if(this.st.chargeStart>0){
-        const t=(now-this.st.chargeStart)/1000; const pct=Math.min(100,Math.round(t/2*100)); $('hudArcane').textContent=`CHARGE: ${pct}%`;
+        const t=(now-this.st.chargeStart)/1000; const pct=Math.min(100,Math.round(t/2*100));
+        $('hudArcane').textContent=`CHARGE: ${pct}%`;
       }
     },
     spawnImpactCore:function(){
@@ -258,24 +299,20 @@
 
     /* ========== MODE 4: FLOW (Rhythm – A/S/D) ========== */
     tickFlow:function(now,dt){
-      // จังหวะ 90 BPM → 0.666s ต่อบีต
       if(!this.st.flowNext) this.st.flowNext=now+800;
       if(now>=this.st.flowNext){
-        // สุ่มเลน: A/S/D
         const lanes=['A','S','D']; const L=lanes[Math.floor(Math.random()*lanes.length)];
         this.spawnFlowNote(L, now);
         this.st.flowNext = now + 900; // 0.9s ต่อโน้ต (เริ่มง่าย)
       }
-      // เคลื่อน UI note: ใช้ DOM ง่าย ๆ
       document.querySelectorAll('.flow-note').forEach(n=>{
-        const born=Number(n.dataset.t0||0); const age=now-born; const life=900; // ms
+        const born=Number(n.dataset.t0||0); const age=now-born; const life=900;
         const y = Math.min(100, (age/life)*100);
         n.style.top = (10+y*0.6)+'%';
         if(age>life+200){ n.remove(); this.st.combo=1; this.takeDamage(0.5,'Late'); }
       });
     },
     spawnFlowNote:function(lane, now){
-      // overlay div
       let wrap=$('#flowWrap');
       if(!wrap){
         wrap=document.createElement('div'); wrap.id='flowWrap';
@@ -293,14 +330,12 @@
       $('objective').textContent='กด A/S/D ให้ตรงกับสัญลักษณ์ตกลงมา';
     },
     checkFlowHit:function(key){
-      // หาโน้ตที่ใกล้เคียงสุดในเลนนั้น
       const notes=[...document.querySelectorAll('.flow-note')].filter(n=>n.dataset.key===key);
       if(!notes.length) return;
-      // ตัวที่อยู่ต่ำสุด (top มากสุด)
       notes.sort((a,b)=>parseFloat(b.style.top)-parseFloat(a.style.top));
       const n=notes[0]; const now=performance.now(); const born=Number(n.dataset.t0||0);
-      const age=now-born; const life=900; const delta=Math.abs(age-life); // ใกล้ 900ms = perfect
-      if(delta<=200){ // hit
+      const age=now-born; const life=900; const delta=Math.abs(age-life);
+      if(delta<=200){
         this.st.score += delta<80 ? 150 : 100;
         this.st.combo = Math.min(20, this.st.combo+1);
         SFX.hit(); n.remove();
@@ -323,6 +358,29 @@
       const hits=raycaster.intersectObjects(nodes,true);
       if(hits.length){ let obj=hits[0].object; while(obj && !obj.el) obj=obj.parent; if(obj && obj.el) obj.el.emit('click'); }
       else{ this.takeDamage(this.cfg.clickMissHP,T(this.dict,'reflect','Reflect')); }
+    },
+
+    // ===== Tutorial (เฉพาะ combat) =====
+    showCombatTutorial:function(){
+      try{
+        const el=document.createElement('div');
+        el.id='tutorialTip';
+        el.style.position='fixed';
+        el.style.left='50%'; el.style.top='14%';
+        el.style.transform='translateX(-50%)';
+        el.style.zIndex='10010';
+        el.style.background='rgba(0,0,0,.65)';
+        el.style.border='1px solid rgba(255,255,255,.15)';
+        el.style.padding='10px 14px';
+        el.style.borderRadius='12px';
+        el.style.color='#cfefff';
+        el.style.fontWeight='700';
+        el.style.letterSpacing='.3px';
+        el.textContent='คลิกเป้าพลังเพื่อเก็บคะแนน • โหมด Easy: เป้าใหญ่ขึ้น อยู่ทนนาน และ ENERGY ฟื้นทีละนิด';
+        document.body.appendChild(el);
+        setTimeout(()=>{ el.style.opacity='0'; }, 18000);
+        setTimeout(()=>{ try{el.remove();}catch(_){ } }, 20000);
+      }catch(_){}
     }
   });
 })();
