@@ -8,18 +8,19 @@
   <script src="src/components.js" defer></script>
 </head>
 <body>
-  <!-- HUD Top -->
-  <div class="hud">
-    <div class="badge" id="hudGame">—</div>
-    <div class="badge" id="hudScore">—</div>
-    <div class="badge" id="hudCombo">—</div>
-    <div class="badge" id="hudTime">—</div>
-    <div class="badge" id="hudArcane">—</div>
-    <div class="badge" id="hudCal">Cal: 0.0</div>
-    <div class="badge" id="hudLvl">Lv.1</div>
-    <div class="badge interactive"><a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a></div>
-    <div class="badge interactive"><button id="btnTH" class="mini">ไทย</button><button id="btnEN" class="mini">English</button></div>
-  </div>
+  <!-- HUD Top (center strip) -->
+<div class="hud" id="hudTop">
+  <div class="badge" id="hudGame">—</div>
+  <div class="badge" id="hudScore">—</div>
+  <div class="badge" id="hudCombo">—</div>
+  <div class="badge" id="hudTime">—</div>  <!-- เวลาเด่น -->
+  <div class="badge" id="hudArcane">—</div>
+  <div class="badge" id="hudCal">Cal: 0.0</div>
+  <div class="badge" id="hudLvl">Lv.1</div>
+  <div class="badge interactive"><a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a></div>
+  <div class="badge interactive"><button id="btnTH" class="mini">ไทย</button><button id="btnEN" class="mini">English</button></div>
+</div>
+
 
   <!-- HUD Bottom -->
   <div class="hud bottom">
@@ -75,5 +76,59 @@
     document.getElementById('btnQuest').onclick=()=>qp.classList.toggle('hidden');
   </script>
   <style>#hudTime{display:inline-flex!important;visibility:visible!important}</style>
+  <script>
+  // บังคับให้ "เวลา" โผล่ และกันโดน CSS อื่นซ่อน
+  (function ensureTimeHUD(){
+    const timeEl = document.getElementById('hudTime');
+    const hudTop = document.getElementById('hudTop');
+    if (!timeEl || !hudTop) return;
+
+    function forceShow(){
+      timeEl.style.display='inline-flex';
+      timeEl.style.visibility='visible';
+      hudTop.style.zIndex='10050';
+    }
+
+    // ย้ำหลายครั้งช่วง 2 วิ.แรก เผื่อ A-Frame สร้าง canvas ช้า
+    let n=0; const iv=setInterval(()=>{ forceShow(); n++; if(n>10) clearInterval(iv); }, 180);
+
+    // หลังจาก scene เริ่มแล้ว คอยย้ำทุก ๆ 1 วิ. เฉพาะถ้าโดนซ่อน
+    setInterval(()=>{
+      const cs = getComputedStyle(timeEl);
+      if (cs.display==='none' || cs.visibility==='hidden') forceShow();
+    }, 1000);
+
+    // ถ้าคุณมี component.updateHUD() อยู่แล้ว การนับเวลาจะวิ่ง;
+    // แต่กันพลาด: ลดเวลาทุก 1s ถ้าเห็นว่าตัวเลขไม่ขยับ (fallback แบบอ่อน)
+    let prevText = ''; setInterval(()=>{
+      const t = timeEl.textContent || '';
+      if (/\d/.test(t) && t === prevText) {
+        // จับเลขท้ายสุดแล้วลดเอง 1 หน่วย (แสดงผลเท่านั้น ไม่ยุ่ง state)
+        const m = t.match(/(\d+)(?!.*\d)/);
+        if (m) {
+          const v = Math.max(0, parseInt(m[1], 10) - 1);
+          timeEl.textContent = t.replace(/(\d+)(?!.*\d)/, String(v));
+        }
+      }
+      prevText = timeEl.textContent || '';
+    }, 1000);
+  })();
+
+  // ปุ่มภาษาในหน้าเล่น แปลทันที
+  (function wireLang(){
+    const setLang=(v)=>{ localStorage.setItem('sb_lang', v);
+      if (window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v);
+    };
+    const th=document.getElementById('btnTH'), en=document.getElementById('btnEN');
+    if (th) th.onclick=()=>setLang('th');
+    if (en) en.onclick=()=>setLang('en');
+  })();
+
+  // ย้ำให้ canvas อยู่ล่าง (กันธีม/ปลั๊กอินบางตัวตั้ง z-index สูง)
+  setTimeout(()=>{
+    document.querySelectorAll('.a-canvas,.a-grab-cursor').forEach(c=>c.style.zIndex='0');
+  }, 300);
+</script>
+
 </body>
 </html>
