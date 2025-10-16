@@ -65,12 +65,15 @@
     const map=q.get('map')||'city';
     const sky=document.getElementById('sky');
     sky.setAttribute('src', map==='forest' ? '#bg_forest' : map==='void' ? '#bg_void' : '#bg_city');
+
     const setLang=(v)=>{ localStorage.setItem('sb_lang', v); if(window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v); };
     document.getElementById('btnTH').onclick=()=>setLang('th');
     document.getElementById('btnEN').onclick=()=>setLang('en');
+
     const qp=document.getElementById('questPanel');
     document.getElementById('qClose').onclick=()=>qp.classList.add('hidden');
     document.getElementById('btnQuest').onclick=()=>qp.classList.toggle('hidden');
   </script>
+  <style>#hudTime{display:inline-flex!important;visibility:visible!important}</style>
 </body>
 </html>
