@@ -10,7 +10,6 @@
 <body>
   <!-- Top HUD -->
   <div class="hud">
-    <div class="badge" id="hudGame">—</div>
     <div class="badge" id="hudScore">—</div>
     <div class="badge" id="hudCombo">—</div>
     <div class="badge" id="hudTime">—</div>
@@ -24,22 +23,30 @@
 
   <!-- Bottom HUD -->
   <div class="hud bottom">
-    <div class="badge" id="hudHP">ENERGY: 100</div>
+    <div class="badge" id="hudHP">HP: 100</div>
     <div class="badge" id="hudOverload">Overload: 0%</div>
     <div class="badge" id="hudBoss">Boss HP: —</div>
     <div class="badge interactive"><button id="btnQuest" class="mini">Quests</button></div>
   </div>
 
   <div id="toast" class="toast"></div>
-  <div id="objective">Objective</div>
+  <div id="objective">Objective: ทำคะแนนให้ถึง 400 เพื่อเรียก Mini Boss</div>
 
-  <!-- Overload / HP bars (เดิม) -->
-  <div id="overloadBarWrap"><div id="overloadBarGlow"></div><div id="overloadBarCrack"></div><div id="overloadBarFill"></div><div id="overloadBarText">Overload: 0%</div></div>
+  <!-- Overload Power Bar -->
+  <div id="overloadBarWrap">
+    <div id="overloadBarGlow"></div><div id="overloadBarCrack"></div>
+    <div id="overloadBarFill"></div><div id="overloadBarText">Overload: 0%</div>
+  </div>
+
+  <!-- HP Bar -->
   <div id="hpBarWrap"><div id="hpBarFill"></div></div>
 
   <!-- Quests Panel -->
   <div id="questPanel" class="panel hidden">
-    <div class="panel-header"><span id="qTitle">Daily Quests</span><button id="qClose" class="mini">×</button></div>
+    <div class="panel-header">
+      <span id="qTitle">Daily Quests</span>
+      <button id="qClose" class="mini">×</button>
+    </div>
     <div id="qList" class="panel-body"></div>
   </div>
 
@@ -51,7 +58,6 @@
       <img id="bg_void"   src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
     </a-assets>
     <a-sky id="sky" color="#111122" src="#bg_city"></a-sky>
-
     <a-entity id="spawner"></a-entity>
     <a-entity id="rig" position="0 1.6 0">
       <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
@@ -59,7 +65,6 @@
       <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
       <a-entity laser-controls="hand: left"  raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
     </a-entity>
-
     <a-entity light="type: ambient; color: #BBB"></a-entity>
     <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
   </a-scene>
@@ -69,13 +74,13 @@
   <div id="heatHaze" aria-hidden="true"></div>
 
   <script>
-    // map (ไว้ใช้ต่อภายหลัง)
+    // map by URL
     const q=new URLSearchParams(location.search);
     const map=q.get('map')||'city';
     const sky=document.getElementById('sky');
     sky.setAttribute('src', map==='forest' ? '#bg_forest' : map==='void' ? '#bg_void' : '#bg_city');
 
-    // ภาษาแบบทันที
+    // language instant toggle
     const setLang=(v)=>{ localStorage.setItem('sb_lang', v); if(window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v); };
     document.getElementById('btnTH').onclick=()=>setLang('th');
     document.getElementById('btnEN').onclick=()=>setLang('en');
