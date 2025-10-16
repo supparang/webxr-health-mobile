@@ -1,73 +1,29 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Shadow Breaker – Training Hub</title>
-  <link rel="stylesheet" href="src/styles.css"/>
-  <script>
-    let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
-    const $ = (id)=>document.getElementById(id);
-    const T = (k,def)=> (I18N && I18N[CUR] && I18N[CUR][k]) || def || k;
+<script>
+  let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
+  const $ = (id)=>document.getElementById(id);
+  const T = (k,def)=> (I18N && I18N[CUR] && I18N[CUR][k]) || def || k;
 
-    async function loadI18n(){ const r=await fetch('src/i18n.json'); I18N=await r.json(); applyTexts(); }
-    function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); applyTexts(); }
-    function applyTexts(){
-      $('titleMain').textContent   = T('title','SHADOW BREAKER');
-      $('subtitle').textContent    = T('subtitle','Neo Anime Tech • Training Hub');
-      $('lblTraining').textContent = T('training','Training');
-      $('btnCombat').textContent   = T('modeCombat','Arcane Combat');
-      $('btnDash').textContent     = T('modeDash','Rift Dash');
-      $('btnImpact').textContent   = T('modeImpact','Impact Breaker');
-      $('btnFlow').textContent     = T('modeFlow','Spirit Flow');
-      $('lblDiff').textContent     = T('difficulty','Difficulty');
-      $('optEasy').textContent     = T('easy','Easy');
-      $('optNormal').textContent   = T('normal','Normal');
-      $('optHard').textContent     = T('hard','Hard');
-      $('btnTH').textContent='ไทย'; $('btnEN').textContent='English';
-    }
-    function start(game){
-      const diff=$('selDiff').value;
-      const mode='timed';
-      // Combat ใช้เวอร์ชันเมื่อคืน → legacy=1
-      const legacy = (game==='combat') ? '&legacy=1' : '';
-      location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=city${legacy}`;
-    }
-    window.addEventListener('DOMContentLoaded', loadI18n);
-  </script>
-</head>
-<body>
-  <div class="center-card">
-    <div class="card">
-      <h1 id="titleMain">SHADOW BREAKER</h1>
-      <h2 id="subtitle">Neo Anime Tech • Training Hub</h2>
+  async function loadI18n(){ const r=await fetch('src/i18n.json'); I18N=await r.json(); applyTexts(); }
+  function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); applyTexts(); }
+  function applyTexts(){
+    $('titleMain').textContent   = T('title','SHADOW BREAKER');
+    $('subtitle').textContent    = T('subtitle','Neo Anime Tech • Training Hub');
+    $('lblTraining').textContent = T('training','Training');
+    $('btnCombat').textContent   = T('modeCombat','Arcane Combat');
+    $('btnDash').textContent     = T('modeDash','Rift Dash');
+    $('btnImpact').textContent   = T('modeImpact','Impact Breaker');
+    $('btnFlow').textContent     = T('modeFlow','Spirit Flow');
+    $('lblDiff').textContent     = T('difficulty','Difficulty');
+    $('optEasy').textContent     = T('easy','Easy');
+    $('optNormal').textContent   = T('normal','Normal');
+    $('optHard').textContent     = T('hard','Hard');
+    $('btnTH').textContent='ไทย'; $('btnEN').textContent='English';
+  }
 
-      <div class="row" style="justify-content:space-between;align-items:center;margin:10px 0">
-        <strong id="lblTraining">Training</strong>
-        <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button class="btn" id="btnCombat" onclick="start('combat')">Arcane Combat</button>
-          <button class="btn" id="btnDash"   onclick="start('dash')">Rift Dash</button>
-          <button class="btn" id="btnImpact" onclick="start('impact')">Impact Breaker</button>
-          <button class="btn" id="btnFlow"   onclick="start('flow')">Spirit Flow</button>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:12px;align-items:center;gap:10px">
-        <div><strong id="lblDiff">Difficulty</strong></div>
-        <select id="selDiff" class="btn secondary">
-          <option value="easy" id="optEasy">Easy</option>
-          <option value="normal" id="optNormal" selected>Normal</option>
-          <option value="hard" id="optHard">Hard</option>
-        </select>
-        <div class="row" style="margin-left:auto;gap:6px">
-          <button class="btn secondary" id="btnTH" onclick="setLang('th')">ไทย</button>
-          <button class="btn secondary" id="btnEN" onclick="setLang('en')">English</button>
-        </div>
-      </div>
-
-      <p class="hint">
-        Tip: เกมที่ 1 คือ <b>Arcane Combat (Shadow Breaker)</b> ใช้เวอร์ชันเมื่อคืน (legacy) ส่วนเกมที่ 2–4 ใช้โค้ดล่าสุด
-      </p>
-    </div>
-  </div>
-</body>
-</html>
+  function start(game){
+    const diff=$('selDiff').value;
+    const mode='timed';
+    location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=city`;
+  }
+  window.addEventListener('DOMContentLoaded', loadI18n);
+</script>
