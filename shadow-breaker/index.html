@@ -5,58 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shadow Breaker – Training Hub</title>
   <link rel="stylesheet" href="src/styles.css"/>
-
   <script>
-    // ===== i18n boot =====
-    let I18N = null;
-    let CUR  = localStorage.getItem('sb_lang') || 'th';
-    const $  = (id)=>document.getElementById(id);
-    const T  = (k,def)=> (I18N && I18N[CUR] && I18N[CUR][k]) || def || k;
-
-    async function loadI18n(){
-      try{
-        const r = await fetch('src/i18n.json', {cache:'no-store'});
-        I18N = await r.json();
-      }catch(e){ I18N = null; }
-      applyTexts();
-    }
-    function setLang(v){
-      CUR = v;
-      localStorage.setItem('sb_lang', v);
-      applyTexts();
-    }
+    let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
+    const $=id=>document.getElementById(id);
+    const T=(k,def)=> (I18N&&I18N[CUR]&&I18N[CUR][k]) || def || k;
+    async function loadI18n(){ try{const r=await fetch('src/i18n.json',{cache:'no-store'}); I18N=await r.json();}catch(e){ I18N=null; } applyTexts(); }
+    function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); applyTexts(); }
     function applyTexts(){
-      $('titleMain').textContent   = T('title','SHADOW BREAKER');
-      $('subtitle').textContent    = T('subtitle','Neo Anime Tech • Training Hub');
-      $('lblTraining').textContent = T('training','Training');
-      $('btnCombat').textContent   = T('modeCombat','Arcane Combat');
-      $('btnDash').textContent     = T('modeDash','Rift Dash');
-      $('btnImpact').textContent   = T('modeImpact','Impact Breaker');
-      $('btnFlow').textContent     = T('modeFlow','Spirit Flow');
-
-      $('lblDiff').textContent     = T('difficulty','Difficulty');
-      $('optEasy').textContent     = T('easy','Easy');
-      $('optNormal').textContent   = T('normal','Normal');
-      $('optHard').textContent     = T('hard','Hard');
-
-      $('lblMap').textContent      = T('map','Map');
-      $('optCity').textContent     = T('mapCity','Neo City');
-      $('optForest').textContent   = T('mapForest','Ancient Forest');
-      $('optVoid').textContent     = T('mapVoid','Void Arena');
-
-      $('btnTH').textContent       = 'ไทย';
-      $('btnEN').textContent       = 'English';
-      $('tip').textContent         = T('hubTip','Tip: All four games use a unified JSON i18n.');
+      $('titleMain').textContent=T('title','SHADOW BREAKER');
+      $('subtitle').textContent=T('subtitle','Neo Anime Tech • Training Hub');
+      $('lblTraining').textContent=T('training','Training');
+      $('btnCombat').textContent=T('modeCombat','Arcane Combat');
+      $('btnDash').textContent=T('modeDash','Rift Dash');
+      $('btnImpact').textContent=T('modeImpact','Impact Breaker');
+      $('btnFlow').textContent=T('modeFlow','Spirit Flow');
+      $('lblDiff').textContent=T('difficulty','Difficulty');
+      $('optEasy').textContent=T('easy','Easy'); $('optNormal').textContent=T('normal','Normal'); $('optHard').textContent=T('hard','Hard');
+      $('lblMap').textContent=T('map','Map');
+      $('optCity').textContent=T('mapCity','Neo City'); $('optForest').textContent=T('mapForest','Ancient Forest'); $('optVoid').textContent=T('mapVoid','Void Arena');
+      $('btnTH').textContent='ไทย'; $('btnEN').textContent='English';
+      $('tip').textContent=T('hubTip','Tip: All four games use a unified JSON i18n.');
     }
-
-    // ===== router =====
     function start(game){
-      const diff = $('selDiff').value;
-      const map  = $('selMap').value;
-      const mode = 'timed'; // fixed for hub
-      location.href = `play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}`;
+      const diff=$('selDiff').value, map=$('selMap').value, mode='timed';
+      location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}`;
     }
-
     window.addEventListener('DOMContentLoaded', loadI18n);
   </script>
 </head>
@@ -79,18 +52,18 @@
       <div class="row" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:wrap">
         <div><strong id="lblDiff">Difficulty</strong></div>
         <select id="selDiff" class="btn secondary">
-          <option value="easy"   id="optEasy">Easy</option>
+          <option value="easy" id="optEasy">Easy</option>
           <option value="normal" id="optNormal" selected>Normal</option>
-          <option value="hard"   id="optHard">Hard</option>
+          <option value="hard" id="optHard">Hard</option>
         </select>
 
         <div style="width:12px"></div>
 
         <div><strong id="lblMap">Map</strong></div>
         <select id="selMap" class="btn secondary">
-          <option value="city"   id="optCity">Neo City</option>
+          <option value="city" id="optCity">Neo City</option>
           <option value="forest" id="optForest">Ancient Forest</option>
-          <option value="void"   id="optVoid">Void Arena</option>
+          <option value="void" id="optVoid">Void Arena</option>
         </select>
 
         <div class="row" style="margin-left:auto;gap:6px">
