@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Shadow Breaker – Training Hub</title>
+  <title>Shadow Breaker – WebXR</title>
   <link rel="stylesheet" href="src/styles.css"/>
   <script>
     let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
@@ -15,22 +15,24 @@
       if(!I18N) return;
       $('title').textContent   = T('title');
       $('subtitle').textContent= T('subtitle');
-      $('lblTraining').textContent = T('training','Training');
-      $('btnCombat').textContent = T('modeCombat','Arcane Combat');
-      $('btnDash').textContent   = T('modeDash','Rift Dash');
-      $('btnImpact').textContent = T('modeImpact','Impact Breaker');
-      $('btnFlow').textContent   = T('modeFlow','Spirit Flow');
-
+      $('lblMode').textContent = T('mode');
+      $('lblTimed').textContent= T('startTimed');
+      $('lblPractice').textContent = T('startPractice');
       $('lblDiff').textContent = T('difficulty');
       $('optEasy').textContent   = T('easy');
       $('optNormal').textContent = T('normal');
       $('optHard').textContent   = T('hard');
-      $('btnTH').textContent = 'ไทย'; $('btnEN').textContent='English';
+      $('lblMap').textContent  = T('map');
+      $('mapCity').textContent = T('mapCity');
+      $('mapForest').textContent= T('mapForest');
+      $('mapVoid').textContent  = T('mapVoid');
+      $('btnTH').textContent = 'ไทย';
+      $('btnEN').textContent = 'English';
     }
-    function start(game){
+    function start(mode){
       const diff=$('selDiff').value;
-      const mode='timed'; // ค่าเริ่ม – ยังใช้โหมดจับเวลาได้
-      location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=city`;
+      const map=document.querySelector('input[name="map"]:checked').value;
+      location.href=`play.html?mode=${mode}&diff=${diff}&map=${map}`;
     }
     window.addEventListener('DOMContentLoaded', loadI18n);
   </script>
@@ -39,15 +41,13 @@
   <div class="center-card">
     <div class="card">
       <h1 id="title">SHADOW BREAKER</h1>
-      <h2 id="subtitle">Neo Anime Tech • Training Hub</h2>
+      <h2 id="subtitle">Arcane Spirit • Ritual Combat</h2>
 
-      <div class="row" style="justify-content:space-between;align-items:center;margin:10px 0">
-        <strong id="lblTraining">Training</strong>
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <div><strong id="lblMode">Mode</strong></div>
         <div class="row">
-          <button class="btn"        id="btnCombat" onclick="start('combat')">Arcane Combat</button>
-          <button class="btn"        id="btnDash"   onclick="start('dash')">Rift Dash</button>
-          <button class="btn"        id="btnImpact" onclick="start('impact')">Impact Breaker</button>
-          <button class="btn"        id="btnFlow"   onclick="start('flow')">Spirit Flow</button>
+          <button class="btn" id="lblTimed" onclick="start('timed')">Start (Timed)</button>
+          <button class="btn secondary" id="lblPractice" onclick="start('practice')">Practice (No Timer)</button>
         </div>
       </div>
 
@@ -58,15 +58,19 @@
           <option value="normal" id="optNormal" selected>Normal</option>
           <option value="hard" id="optHard">Hard</option>
         </select>
-        <div class="row" style="margin-left:auto">
-          <button class="btn secondary" id="btnTH" onclick="setLang('th')">ไทย</button>
-          <button class="btn secondary" id="btnEN" onclick="setLang('en')">English</button>
-        </div>
       </div>
 
-      <p style="opacity:.8;margin-top:12px">
-        Tip: โหมด <b>Arcane Combat</b> คือ Shadow Breaker (เกมที่ 1) ส่วนอีก 3 โหมดเป็นฟิตเนสเสริมสำหรับ ป.5
-      </p>
+      <div class="row" style="margin-top:12px;align-items:center">
+        <div style="min-width:120px"><strong id="lblMap">Map</strong></div>
+        <label class="chip"><input type="radio" name="map" value="city" checked><span id="mapCity">Neo City</span></label>
+        <label class="chip"><input type="radio" name="map" value="forest"><span id="mapForest">Ancient Forest</span></label>
+        <label class="chip"><input type="radio" name="map" value="void"><span id="mapVoid">Void Arena</span></label>
+      </div>
+
+      <div class="row" style="margin-top:14px;justify-content:flex-end">
+        <button class="btn secondary" id="btnTH" onclick="setLang('th')">ไทย</button>
+        <button class="btn secondary" id="btnEN" onclick="setLang('en')">English</button>
+      </div>
     </div>
   </div>
 </body>
