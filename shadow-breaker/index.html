@@ -5,165 +5,105 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shadow Breaker – Training Hub</title>
   <link rel="stylesheet" href="src/styles.css"/>
-
   <script>
-    // ===== Safe i18n Loader (ทันที, กัน fetch fail, สลับภาษาได้แบบไม่รีเฟรช) =====
-    let I18N = null;
-    let CUR  = localStorage.getItem('sb_lang') || 'th';
-
-    const $ = (id)=>document.getElementById(id);
-    const T = (k, def) => (I18N && I18N[CUR] && I18N[CUR][k]) || def || k;
-
-    // สำรองข้อความขั้นต่ำ ถ้า fetch ไม่ได้
-    const FALLBACK = {
-      th: {
-        title:"SHADOW BREAKER", subtitle:"Neo Anime Tech • Training Hub",
-        training:"ศูนย์ฝึก",
-        modeCombat:"Arcane Combat", modeDash:"Rift Dash", modeImpact:"Impact Breaker", modeFlow:"Spirit Flow",
-        difficulty:"ความยาก", easy:"ง่าย", normal:"ปกติ", hard:"ยาก",
-        map:"แผนที่", mapCity:"นครนีโอ", mapForest:"อารณะโบราณ", mapVoid:"อารีน่าวอยด์",
-        hubTip:"ทิป: ทุกเกมใช้ระบบภาษา i18n จากไฟล์ JSON เดียวกัน",
-        ibModeLabel:"โหมด Impact",
-        ibModeA:"โหมดนับจำนวน", ibModeB:"โหมดจับเวลา", ibModeC:"โหมดบอส", ibModeD:"โหมดไม่สิ้นสุด", ibModeE:"โหมดฟิตเนส"
-      },
-      en: {
-        title:"SHADOW BREAKER", subtitle:"Neo Anime Tech • Training Hub",
-        training:"Training",
-        modeCombat:"Arcane Combat", modeDash:"Rift Dash", modeImpact:"Impact Breaker", modeFlow:"Spirit Flow",
-        difficulty:"Difficulty", easy:"Easy", normal:"Normal", hard:"Hard",
-        map:"Map", mapCity:"Neo City", mapForest:"Ancient Forest", mapVoid:"Void Arena",
-        hubTip:"Tip: All four games use a unified JSON i18n.",
-        ibModeLabel:"Impact Mode",
-        ibModeA:"Count Mode", ibModeB:"Timed Mode", ibModeC:"Boss Mode", ibModeD:"Endless Mode", ibModeE:"Fitness Mode"
-      }
-    };
-
-    async function loadI18n(){
-      try{
-        const res = await fetch('src/i18n.json', {cache:'no-store'});
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        I18N = await res.json();
-      }catch(err){
-        console.warn('i18n.json โหลดไม่สำเร็จ ใช้ FALLBACK แทน', err);
-        I18N = FALLBACK; // กันหน้าขาว
-      }
-      applyTexts(); // render หลังมี I18N แน่ๆ
-    }
-
-    function setLang(v){
-      CUR = v;
-      localStorage.setItem('sb_lang', v);
-      document.documentElement.setAttribute('lang', v); // ให้ <html lang="..."> ตรง
-      applyTexts(); // เปลี่ยนข้อความทันที ไม่ต้องรีเฟรช
-    }
-
+    // i18n safe loader
+    let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
+    const $=id=>document.getElementById(id);
+    const T=(k,def)=> (I18N&&I18N[CUR]&&I18N[CUR][k]) || def || k;
+    const FALLBACK={ th:{title:"SHADOW BREAKER",subtitle:"Neo Anime Tech • Training Hub",training:"ศูนย์ฝึก",
+      modeCombat:"Arcane Combat",modeDash:"Rift Dash",modeImpact:"Impact Breaker",modeFlow:"Spirit Flow",
+      difficulty:"ความยาก",easy:"ง่าย",normal:"ปกติ",hard:"ยาก", map:"แผนที่",mapCity:"นครนีโอ",mapForest:"อารณะโบราณ",mapVoid:"อารีน่าวอยด์",
+      hubTip:"ทิป: ทุกเกมใช้ระบบภาษา i18n จากไฟล์ JSON เดียวกัน", ibModeLabel:"โหมด Impact",
+      ibModeA:"โหมดนับจำนวน",ibModeB:"โหมดจับเวลา",ibModeC:"โหมดบอส",ibModeD:"โหมดไม่สิ้นสุด",ibModeE:"โหมดฟิตเนส"},
+      en:{title:"SHADOW BREAKER",subtitle:"Neo Anime Tech • Training Hub",training:"Training",
+      modeCombat:"Arcane Combat",modeDash:"Rift Dash",modeImpact:"Impact Breaker",modeFlow:"Spirit Flow",
+      difficulty:"Difficulty",easy:"Easy",normal:"Normal",hard:"Hard", map:"Map",mapCity:"Neo City",mapForest:"Ancient Forest",mapVoid:"Void Arena",
+      hubTip:"Tip: All four games use a unified JSON i18n.", ibModeLabel:"Impact Mode",
+      ibModeA:"Count Mode",ibModeB:"Timed Mode",ibModeC:"Boss Mode",ibModeD:"Endless Mode",ibModeE:"Fitness Mode"} };
+    async function loadI18n(){ try{const r=await fetch('src/i18n.json',{cache:'no-store'}); if(!r.ok) throw 0; I18N=await r.json();}catch(_){I18N=FALLBACK;} applyTexts(); }
+    function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); document.documentElement.setAttribute('lang',v); applyTexts(); }
     function applyTexts(){
-      // ป้องกันกรณี DOM ยังไม่พร้อม
-      if(!$('titleMain')) return;
-
-      // ตั้งค่า UI ตามภาษา
-      $('titleMain').textContent   = T('title','SHADOW BREAKER');
-      $('subtitle').textContent    = T('subtitle','Neo Anime Tech • Training Hub');
-
-      $('lblTraining').textContent = T('training','Training');
-      $('btnCombat').textContent   = T('modeCombat','Arcane Combat');
-      $('btnDash').textContent     = T('modeDash','Rift Dash');
-      $('btnImpact').textContent   = T('modeImpact','Impact Breaker');
-      $('btnFlow').textContent     = T('modeFlow','Spirit Flow');
-
-      $('lblDiff').textContent     = T('difficulty','Difficulty');
-      $('optEasy').textContent     = T('easy','Easy');
-      $('optNormal').textContent   = T('normal','Normal');
-      $('optHard').textContent     = T('hard','Hard');
-
-      $('lblMap').textContent      = T('map','Map');
-      $('optCity').textContent     = T('mapCity','Neo City');
-      $('optForest').textContent   = T('mapForest','Ancient Forest');
-      $('optVoid').textContent     = T('mapVoid','Void Arena');
-
-      $('lblImpactMode').textContent = T('ibModeLabel','Impact Mode');
-      $('optIbCount').textContent    = T('ibModeA','Count Mode');
-      $('optIbTimed').textContent    = T('ibModeB','Timed Mode');
-      $('optIbBoss').textContent     = T('ibModeC','Boss Mode');
-      $('optIbEndless').textContent  = T('ibModeD','Endless Mode');
-      $('optIbFitness').textContent  = T('ibModeE','Fitness Mode');
-
-      $('btnTH').textContent = 'ไทย';
-      $('btnEN').textContent = 'English';
-      $('tip').textContent   = T('hubTip','Tip: All four games use a unified JSON i18n.');
+      $('titleMain').textContent=T('title','SHADOW BREAKER');
+      $('subtitle').textContent=T('subtitle','Neo Anime Tech • Training Hub');
+      $('lblTraining').textContent=T('training','Training');
+      $('btnCombat').textContent=T('modeCombat','Arcane Combat');
+      $('btnDash').textContent=T('modeDash','Rift Dash');
+      $('btnImpact').textContent=T('modeImpact','Impact Breaker');
+      $('btnFlow').textContent=T('modeFlow','Spirit Flow');
+      $('lblDiff').textContent=T('difficulty','Difficulty');
+      $('optEasy').textContent=T('easy','Easy'); $('optNormal').textContent=T('normal','Normal'); $('optHard').textContent=T('hard','Hard');
+      $('lblMap').textContent=T('map','Map');
+      $('optCity').textContent=T('mapCity','Neo City'); $('optForest').textContent=T('mapForest','Ancient Forest'); $('optVoid').textContent=T('mapVoid','Void Arena');
+      $('lblImpactMode').textContent=T('ibModeLabel','Impact Mode');
+      $('optIbCount').textContent=T('ibModeA','Count Mode');
+      $('optIbTimed').textContent=T('ibModeB','Timed Mode');
+      $('optIbBoss').textContent=T('ibModeC','Boss Mode');
+      $('optIbEndless').textContent=T('ibModeD','Endless Mode');
+      $('optIbFitness').textContent=T('ibModeE','Fitness Mode');
+      $('btnTH').textContent='ไทย'; $('btnEN').textContent='English';
+      $('tip').textContent=T('hubTip','Tip: All four games use a unified JSON i18n.');
     }
-
     function start(game){
-      const diff = $('selDiff').value;
-      const map  = $('selMap').value;
-      const mode = 'timed';
-      const ib   = (game==='impact') ? `&ib=${$('selImpactMode').value}` : '';
-      location.href = `play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}${ib}`;
+      const diff=$('selDiff').value, map=$('selMap').value, mode='timed';
+      const ib=(game==='impact')?`&ib=${$('selImpactMode').value}`:'';
+      location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}${ib}`;
     }
-
-    // บูตเมื่อ DOM พร้อมเท่านั้น
-    window.addEventListener('DOMContentLoaded', ()=>{
-      document.documentElement.setAttribute('lang', CUR);
-      loadI18n();
-      // เผื่อกรณีบาง browser inline onclick ไม่ยิง
-      $('btnTH').addEventListener('click', ()=>setLang('th'));
-      $('btnEN').addEventListener('click', ()=>setLang('en'));
-    });
+    window.addEventListener('DOMContentLoaded', ()=>{ document.documentElement.setAttribute('lang',CUR); loadI18n();
+      $('btnTH').addEventListener('click',()=>setLang('th')); $('btnEN').addEventListener('click',()=>setLang('en')); });
   </script>
 </head>
-<body>
+<body class="hub-bg">
   <div class="center-card">
     <div class="card">
       <h1 id="titleMain">SHADOW BREAKER</h1>
       <h2 id="subtitle">Neo Anime Tech • Training Hub</h2>
 
-      <div class="row" style="justify-content:space-between;align-items:center;margin:10px 0">
-        <strong id="lblTraining">Training</strong>
-        <div class="row" style="gap:8px;flex-wrap:wrap">
-          <button class="btn" id="btnCombat" onclick="start('combat')">Arcane Combat</button>
-          <button class="btn" id="btnDash"   onclick="start('dash')">Rift Dash</button>
-          <button class="btn" id="btnImpact" onclick="start('impact')">Impact Breaker</button>
-          <button class="btn" id="btnFlow"   onclick="start('flow')">Spirit Flow</button>
-        </div>
+      <!-- Game icons -->
+      <div class="grid4 mb8">
+        <button class="tile" onclick="start('combat')">
+          <div class="tile-ico ico-combat"></div><div id="btnCombat">Arcane Combat</div>
+        </button>
+        <button class="tile" onclick="start('dash')">
+          <div class="tile-ico ico-dash"></div><div id="btnDash">Rift Dash</div>
+        </button>
+        <button class="tile" onclick="start('impact')">
+          <div class="tile-ico ico-impact"></div><div id="btnImpact">Impact Breaker</div>
+        </button>
+        <button class="tile" onclick="start('flow')">
+          <div class="tile-ico ico-flow"></div><div id="btnFlow">Spirit Flow</div>
+        </button>
       </div>
 
-      <div class="row" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:wrap">
-        <div>
-          <strong id="lblDiff">Difficulty</strong>
+      <div class="row wrap gap">
+        <div><strong id="lblTraining">Training</strong></div>
+        <div><strong id="lblDiff">Difficulty</strong>
           <select id="selDiff" class="btn secondary">
-            <option value="easy"   id="optEasy">Easy</option>
+            <option value="easy" id="optEasy">Easy</option>
             <option value="normal" id="optNormal" selected>Normal</option>
-            <option value="hard"   id="optHard">Hard</option>
+            <option value="hard" id="optHard">Hard</option>
           </select>
         </div>
-
-        <div>
-          <strong id="lblMap">Map</strong>
+        <div><strong id="lblMap">Map</strong>
           <select id="selMap" class="btn secondary">
-            <option value="city"   id="optCity">Neo City</option>
+            <option value="city" id="optCity">Neo City</option>
             <option value="forest" id="optForest">Ancient Forest</option>
-            <option value="void"   id="optVoid">Void Arena</option>
+            <option value="void" id="optVoid">Void Arena</option>
           </select>
         </div>
-
-        <!-- เลือกโหมดย่อย Impact -->
-        <div>
-          <strong id="lblImpactMode">Impact Mode</strong>
+        <div><strong id="lblImpactMode">Impact Mode</strong>
           <select id="selImpactMode" class="btn secondary">
-            <option value="count"   id="optIbCount">Count Mode</option>
-            <option value="timed"   id="optIbTimed">Timed Mode</option>
-            <option value="boss"    id="optIbBoss">Boss Mode</option>
+            <option value="count" id="optIbCount">Count Mode</option>
+            <option value="timed" id="optIbTimed">Timed Mode</option>
+            <option value="boss" id="optIbBoss">Boss Mode</option>
             <option value="endless" id="optIbEndless">Endless Mode</option>
             <option value="fitness" id="optIbFitness">Fitness Mode</option>
           </select>
         </div>
-
         <div class="row" style="margin-left:auto;gap:6px">
           <button class="btn secondary" id="btnTH">ไทย</button>
           <button class="btn secondary" id="btnEN">English</button>
         </div>
       </div>
-
       <p id="tip" class="hint">Tip: All four games use a unified JSON i18n.</p>
     </div>
   </div>
