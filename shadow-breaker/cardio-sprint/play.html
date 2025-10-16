@@ -1,52 +1,113 @@
-<!doctype html>
-<html lang="en"><head>
+<!doctype html><html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Cardio Sprint</title>
+<title>EXO · Mobility Dash</title>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<style>html,body{margin:0;height:100%;background:#0a0e18;color:#e6f2ff;font-family:system-ui}
-#hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:.6rem 1rem;background:linear-gradient(180deg,rgba(17,40,72,.55),transparent);z-index:5;pointer-events:none}
-.hud-left,.hud-right{display:flex;gap:.6rem;align-items:center}
-.btn{pointer-events:auto;border:1px solid #112848;background:linear-gradient(180deg,rgba(138,209,255,.12),rgba(138,209,255,.05));padding:.35rem .7rem;border-radius:.6rem;color:#e6f2ff}
-.touch-zone{position:fixed;top:0;bottom:0;width:50vw;z-index:4} #touch-left{left:0} #touch-right{right:0}
-.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,16,32,.55);backdrop-filter:blur(4px);z-index:10}
-.overlay.hidden{display:none}
-.panel{background:#0e1424;border:1px solid #112848;color:#e6f2ff;padding:1rem 1.2rem;border-radius:1rem;min-width:260px;box-shadow:0 0 24px rgba(138,209,255,.35)}
-</style></head>
-<body>
-<div id="hud"><div class="hud-left"><span id="score">0</span></div>
-<div class="hud-right"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a class="btn" href="../index.html">⟵ Menu</a></div></div>
-<div id="touch-left" class="touch-zone"></div><div id="touch-right" class="touch-zone"></div>
-<div id="overlay" class="overlay hidden"><div class="panel"><h1>Paused</h1><p>Tap to resume</p><div style="display:flex;gap:.6rem"><button id="btnResume" class="btn">▶ Resume</button><button id="btnRestart" class="btn">⟲ Restart</button></div></div></div>
+<link rel="stylesheet" href="../core/exo-ui.css">
+</head><body>
+<div class="hud">
+  <div class="box"><span id="score">0</span></div>
+  <div class="box"><span id="time">60</span><a class="btn" id="btnPause">⏸</a><a class="btn" href="../index.html">⟵ Hub</a></div>
+</div>
+<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
+<div id="overlay" class="overlay" style="display:none"><div class="panel" id="panel"></div></div>
 
-<a-scene>
-  <a-entity light="type:ambient;intensity:.7"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" color="#0f1b33"></a-plane>
+<script src="../core/exo-metrics.js"></script>
+<script src="../core/exo-core.js"></script>
+
+<a-scene vr-mode-ui="enabled: true" renderer="antialias:true; highRefreshRate:true; colorManagement:true">
+  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
+  <a-entity light="type:directional;intensity:.9;color:#aee0ff" position="0 3 2"></a-entity>
+  <a-entity geometry="primitive: box; depth:22; height:6; width:12" position="0 3 -7"
+            material="color:#0c1428; side:back; metalness:.1; roughness:.9"></a-entity>
+  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 .01 -3.5"
+            material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.6"></a-entity>
   <a-entity id="rig"><a-entity camera position="0 1.6 0"><a-entity cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity></a-entity></a-entity>
+
   <a-box id="player" color="#4caf50" depth=".2" height=".2" width=".2" position="0 1.0 -0.5"></a-box>
-  <a-entity id="director" game-director></a-entity>
+  <a-entity id="director" dash-director></a-entity>
 </a-scene>
 
 <script>
-function blip(p=660){const ac=blip.ac||(blip.ac=new (window.AudioContext||window.webkitAudioContext)());const o=ac.createOscillator(),g=ac.createGain();o.type="triangle";o.frequency.value=p;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();setTimeout(()=>o.stop(),70);}
-AFRAME.registerComponent('game-director',{init(){
-  this.state={score:0,time:60,running:true};
-  this.$s=score; this.$t=time; btnPause.onclick=()=>this.pause(); btnResume.onclick=()=>this.resume(); btnRestart.onclick=()=>location.reload();
-  this.playerX=0; const left=()=>{this.playerX=-0.8;}; const right=()=>{this.playerX=0.8;};
-  ['touchstart','mousedown'].forEach(ev=>{touch-left.addEventListener(ev,left);touch-right.addEventListener(ev,right);});
-  this.spawnZ=-6; this.pool=[]; for(let i=0;i<12;i++) this.pool.push(this.makeObstacle(this.el.sceneEl));
-  this.elapsed=0; this.next=0.7; this.speed=4.8;
-  this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;} this.state.time--; this.$t.textContent=this.state.time; },1000);
-  this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
-},pause(){this.state.running=false;overlay.classList.remove('hidden');},resume(){this.state.running=true;overlay.classList.add('hidden');},
-makeObstacle(scene){ const e=document.createElement('a-entity'); e.setAttribute('geometry','primitive: box; depth:0.4; height:0.5; width:0.5'); e.setAttribute('material','color:#e53935'); e.setAttribute('visible',false); e.object3D.position.set(0,1.1,-6); e.userData={alive:false,x:-0.8}; scene.appendChild(e); return e; },
-spawn(){ const e=this.pool.find(o=>!o.userData.alive); if(!e) return; const lane=(Math.random()<0.5)?-0.8:0.8; e.userData.alive=true; e.userData.x=lane; e.object3D.position.set(lane,1.1,this.spawnZ); e.setAttribute('visible',true); },
-end(){ this.state.running=false; clearInterval(this.timer); overlay.classList.remove('hidden'); },
-tick(t,dt){ if(!this.state.running) return; const dtS=dt/1000; player.object3D.position.x=this.playerX; this.elapsed+=dtS; if(this.elapsed>=this.next){ this.spawn(); this.next+=0.7; }
-  for(const e of this.pool){ if(!e.userData.alive) continue; const p=e.object3D.position; p.z+=this.speed*dtS;
-    if(p.z>-0.4){ if(Math.abs(p.x-this.playerX)<0.3){ this.state.score=Math.max(0,this.state.score-50); blip(220);} else { this.state.score+=20; blip(760);} this.$s.textContent=this.state.score; e.setAttribute('visible',false); e.userData.alive=false; }
-    if(p.z>0.6){ e.setAttribute('visible',false); e.userData.alive=false; }
+AFRAME.registerComponent('dash-director',{
+  init(){
+    this.state={score:0,time:60,running:false};
+    this.rec=new EXO_METRICS.Recorder('MobilityDash');
+    this.laneX={L:-0.8,R:0.8}; this.playerLane='L';
+    this.spawnZ=-6; this.speed=4.8; this.pool=[]; for(let i=0;i<12;i++) this.pool.push(this.mkObstacle(this.el.sceneEl));
+    this.elapsed=0; this.nextSpawn=0.8; // seconds
+    EXO.startOverlay(()=>this.start());
+    EXO.attachBasicInput({onLeft:()=>this.move('L'), onRight:()=>this.move('R'), onPause:()=>this.pause()});
+    document.getElementById('btnPause').onclick=()=>this.pause();
+    this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
+    this.$s=score; this.$t=time;
+  },
+  start(){
+    this.state.running=true;
+    this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;}
+      this.state.time--; this.$t.textContent=this.state.time; },1000);
+  },
+  pause(){ this.state.running=false; this.showPanel(`<div class="title">Paused</div><div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" href="../index.html">⟵ Hub</a><a class="btn" onclick="location.reload()">⟲ Restart</a></div>`); },
+  mkObstacle(scene){ const e=document.createElement('a-entity'); e.setAttribute('geometry','primitive: box; depth:0.4; height:0.5; width:0.5'); e.setAttribute('material','color:#e53935');
+    e.setAttribute('visible',false); e.userData={alive:false,lane:'L',spawnTime:0}; scene.appendChild(e); return e; },
+  spawn(lane){
+    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
+    e.userData.alive=true; e.userData.lane=lane; e.userData.spawnTime=EXO.now();
+    e.object3D.position.set(this.laneX[lane],1.1,this.spawnZ); e.setAttribute('visible',true);
+  },
+  move(lane){
+    if(!this.state.running) return;
+    const t=EXO.now(); // record decision time if obstacle approaching same lane
+    this.playerLane=lane; player.object3D.position.x=this.laneX[lane];
+    // find nearest approaching obstacle on chosen lane to compute decisionMs (optional heuristic)
+    let target=null, dzBest=999;
+    for(const e of this.pool){
+      if(!e.userData.alive) continue;
+      const dz = Math.abs(e.object3D.position.z + 0.5);
+      if(dz<dzBest){dzBest=dz; target=e;}
+    }
+    if(target){ this.lastDecisionMs = (t - target.userData.spawnTime)*1000; }
+  },
+  end(){
+    this.state.running=false; clearInterval(this.timer);
+    const sum=this.rec.summary(); const csv=this.rec.csv('session-'+Date.now());
+    const html=`<div class="title">Result — Mobility Dash</div>
+      <div class="kpi">
+        <div>Score<br><b>${sum.score.toFixed(0)}</b></div>
+        <div>Accuracy<br><b>${sum.accuracyPct.toFixed(1)}%</b></div>
+        <div>Avg RT (decision)<br><b>${sum.avgReactionMs.toFixed(1)} ms</b></div>
+        <div>Stability<br><b>${sum.stability.toFixed(1)}</b></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" id="dl">⬇ Download CSV</a>
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.showPanel(html); document.getElementById('dl').onclick=()=>EXO.downloadCSV('exo_mobility_dash.csv',csv);
+  },
+  showPanel(inner){ panel.innerHTML=inner; overlay.style.display='flex'; },
+  tick(t,dt){
+    if(!this.state.running) return;
+    const dtS=dt/1000; this.elapsed+=dtS;
+    if(this.elapsed>=this.nextSpawn){ this.spawn(Math.random()<0.5?'L':'R'); this.nextSpawn+=0.8; }
+    for(const e of this.pool){
+      if(!e.userData.alive) continue;
+      const p=e.object3D.position; p.z += this.speed*dtS;
+      if(p.z>-0.4){
+        const avoid = ( (e.userData.lane==='L' && this.playerLane==='R') || (e.userData.lane==='R' && this.playerLane==='L') );
+        const t=EXO.now();
+        if(avoid){ // success
+          this.state.score+=20; this.$s.textContent=this.state.score;
+          this.rec.log({t, stimulus:e.userData.spawnTime, response:t, reactionMs:(t-e.userData.spawnTime)*1000, success:true, decisionMs:this.lastDecisionMs||0});
+        }else{ // hit
+          this.state.score=Math.max(0,this.state.score-50); this.$s.textContent=this.state.score;
+          this.rec.log({t, stimulus:e.userData.spawnTime, response:t, reactionMs:(t-e.userData.spawnTime)*1000, success:false, decisionMs:this.lastDecisionMs||0});
+        }
+        e.setAttribute('visible',false); e.userData.alive=false;
+      }
+      if(p.z>0.6){ e.setAttribute('visible',false); e.userData.alive=false; }
+    }
   }
-}
 });
 </script>
 </body></html>
