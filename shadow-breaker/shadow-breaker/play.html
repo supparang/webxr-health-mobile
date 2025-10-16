@@ -1,90 +1,125 @@
-<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Shadow Breaker — Future Space Training</title>
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>EXO · Combat Reflex</title>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<style>
-:root{--panel:#0e1424;--line:#112848;--text:#e6f2ff}
-html,body{margin:0;height:100%;background:linear-gradient(180deg,#081022,#0a0e18);color:var(--text);font-family:system-ui}
-#hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:.6rem 1rem;background:linear-gradient(180deg,rgba(17,40,72,.55),transparent);z-index:5;pointer-events:none}
-.hud-left,.hud-right{display:flex;gap:.6rem;align-items:center}
-.btn{pointer-events:auto;border:1px solid var(--line);background:linear-gradient(180deg,rgba(138,209,255,.12),rgba(138,209,255,.05));padding:.35rem .7rem;border-radius:.6rem;color:var(--text)}
-#score{font-weight:800;font-size:1.2rem} #time{font-weight:800} #combo{opacity:.9}
-.touch-zone{position:fixed;top:0;bottom:0;width:50vw;z-index:4} #touch-left{left:0} #touch-right{right:0}
-.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,16,32,.55);backdrop-filter:blur(4px);z-index:10}
-.overlay.hidden{display:none}
-.panel{background:var(--panel);border:1px solid var(--line);color:var(--text);padding:1rem 1.2rem;border-radius:1rem;min-width:260px;box-shadow:0 0 24px rgba(138,209,255,.35)}
-</style>
-</head>
-<body>
-<div id="hud">
-  <div class="hud-left"><span id="score">0</span><span id="combo">x1.0</span></div>
-  <div class="hud-right"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a class="btn" href="../index.html">⟵ Menu</a></div>
+<link rel="stylesheet" href="../core/exo-ui.css">
+</head><body>
+<div class="hud">
+  <div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
+  <div class="box"><span id="time">60</span><a class="btn" id="btnPause">⏸</a><a class="btn" href="../index.html">⟵ Hub</a></div>
 </div>
-<div id="touch-left" class="touch-zone"></div><div id="touch-right" class="touch-zone"></div>
-<div id="overlay" class="overlay hidden"><div class="panel">
-  <h1>Paused</h1><p>Tap to resume</p>
-  <div style="display:flex;gap:.6rem"><button id="btnResume" class="btn">▶ Resume</button><button id="btnRestart" class="btn">⟲ Restart</button><a class="btn" href="../index.html">⟵ Back</a></div>
-</div></div>
+<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
 
-<a-scene vr-mode-ui="enabled: true" renderer="antialias: true; colorManagement: true">
-  <a-entity light="type: ambient; intensity: 0.65; color: #88aaff"></a-entity>
-  <a-entity light="type: directional; intensity: 0.9; color: #aee0ff" position="0 3 2"></a-entity>
+<div id="overlay" class="overlay" style="display:none"><div class="panel" id="panel"></div></div>
+
+<script src="../core/exo-metrics.js"></script>
+<script src="../core/exo-core.js"></script>
+
+<a-scene vr-mode-ui="enabled: true" renderer="antialias:true; highRefreshRate:true; colorManagement:true">
+  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
+  <a-entity light="type:directional;intensity:.9;color:#aee0ff" position="0 3 2"></a-entity>
+
+  <!-- ห้องฝึกแบบเรียบ -->
   <a-entity geometry="primitive: box; depth: 22; height: 6; width: 12" position="0 3 -7"
             material="color: #0c1428; side: back; metalness:0.1; roughness:0.9"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="metalness:0.35; roughness:0.4; color:#0f1b33"></a-plane>
-  <a-entity geometry="primitive: box; depth: 0.02; height: 0.02; width: 12" position="0 0.01 -3.5"
-            material="color: #69b3ff; emissive: #69b3ff; emissiveIntensity: 0.6"></a-entity>
-  <a-entity id="rig"><a-entity id="camera" camera wasd-controls="enabled:false" position="0 1.6 0">
-    <a-entity cursor="fuse:false;rayOrigin:mouse" raycaster="objects:.clickable" position="0 0 -0.1"></a-entity></a-entity></a-entity>
-  <a-entity id="lanes"></a-entity>
-  <a-entity id="director" game-director></a-entity>
+  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+  <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -3.5"
+            material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.6"></a-entity>
+
+  <!-- Rig + cursor -->
+  <a-entity id="rig"><a-entity camera position="0 1.6 0"><a-entity cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity></a-entity></a-entity>
+
+  <!-- Targets pool -->
+  <a-entity id="director" combat-director></a-entity>
 </a-scene>
 
 <script>
-function playBeep(pitch=440,dur=0.06,vol=0.2){ // tiny SFX (no external files)
-  const ac=playBeep.ac||(playBeep.ac=new (window.AudioContext||window.webkitAudioContext)());
-  const o=ac.createOscillator(), g=ac.createGain(); o.type="square"; o.frequency.value=pitch; g.gain.value=vol; o.connect(g); g.connect(ac.destination);
-  o.start(); setTimeout(()=>{o.stop();}, dur*1000);
-}
-AFRAME.registerComponent('game-director',{
+AFRAME.registerComponent('combat-director',{
   init(){
-    const q=new URLSearchParams(location.search);
-    this.state={score:0,combo:1.0,time:60,running:true,diff:q.get('diff')||'normal'};
-    this.$s=score; this.$c=combo; this.$t=time;
-    btnPause.onclick=()=>this.pause(); btnResume.onclick=()=>this.resume(); btnRestart.onclick=()=>location.reload();
-    const punch=(side)=>this.tryPunch(side);
-    ['touchstart','mousedown'].forEach(ev=>{touch-left.addEventListener(ev,()=>punch('L'));touch-right.addEventListener(ev,()=>punch('R'));});
+    this.state={score:0,combo:1.0,time:60,running:false};
+    this.rec=new EXO_METRICS.Recorder('CombatReflex');
     this.spawnZ=-4; this.hitZ=-0.5; this.laneX={L:-0.8,R:0.8};
-    this.pool=[]; for(let i=0;i<16;i++) this.pool.push(this.makeTarget(this.el.sceneEl));
-    this.speed=(this.state.diff==='hard'?6:this.state.diff==='easy'?3.6:4.6);
-    this.spawnInterval=(this.state.diff==='hard'?0.35:this.state.diff==='easy'?0.8:0.55);
-    this.elapsed=0; this.spawnCooldown=0;
-    this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.endRun();return;} this.state.time--; this.$t.textContent=this.state.time; },1000);
+    this.speed=4.8; this.spawnIv=0.55; this.pool=[]; this.spawnCooldown=0;
+    for(let i=0;i<16;i++) this.pool.push(this.mkTarget(this.el.sceneEl));
+    EXO.startOverlay(()=>{ this.start(); });
+    EXO.attachBasicInput({onLeft:()=>this.tryHit('L'), onRight:()=>this.tryHit('R'), onPause:()=>this.pause()});
+    document.getElementById('btnPause').onclick=()=>this.pause();
     this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
+    this.$s=score; this.$c=combo; this.$t=time;
   },
-  pause(){ this.state.running=false; overlay.classList.remove('hidden'); },
-  resume(){ this.state.running=true; overlay.classList.add('hidden'); },
-  makeTarget(scene){ const e=document.createElement('a-entity'); e.setAttribute('class','clickable');
+  start(){
+    this.state.running=true;
+    this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;} this.state.time--; this.$t.textContent=this.state.time; },1000);
+  },
+  pause(){ this.state.running=false; this.showPanel(`<div class="title">Paused</div><p class="note">Tap Start on overlay to resume</p><div style="display:flex;gap:.6rem"><a class="btn" href="../index.html">⟵ Hub</a><a class="btn" onclick="location.reload()">⟲ Restart</a></div>`); },
+  mkTarget(scene){ const e=document.createElement('a-entity'); e.setAttribute('class','clickable');
     e.setAttribute('geometry','primitive: box; depth:0.35; height:0.35; width:0.35');
     e.setAttribute('material','color:#9ecbff; metalness:0.2; roughness:0.4; emissive:#2a6fb5; emissiveIntensity:0.25');
-    e.setAttribute('visible',false); e.object3D.position.set(0,1.4,-4); e.userData={alive:false,side:'L'};
-    e.addEventListener('click',()=>this.tryPunch(e.userData.side)); scene.appendChild(e); return e; },
-  spawn(side){ const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
-    e.userData.alive=true; e.userData.side=side; e.userData.vz=this.speed; e.object3D.position.set(this.laneX[side],1.4,this.spawnZ); e.object3D.scale.set(1,1,1); e.setAttribute('visible',true); },
-  tryPunch(side){ if(!this.state.running) return; playBeep(520,0.04,0.15);
-    let best=null, bestDz=999; for(const e of this.pool){ if(!e.userData.alive||e.userData.side!==side) continue; const dz=Math.abs(e.object3D.position.z-this.hitZ); if(dz<bestDz){best=e;bestDz=dz;} }
-    if(best && bestDz<=0.25){ this.onHit(best,bestDz); } else { this.state.combo=1.0; this.$c.textContent='x'+this.state.combo.toFixed(1); } },
-  onHit(e,dz){ const base=(dz<=0.08?100:dz<=0.18?60:30); this.state.score+=Math.round(base*this.state.combo);
-    this.$s.textContent=this.state.score; this.state.combo=Math.min(this.state.combo+0.2,5); this.$c.textContent='x'+this.state.combo.toFixed(1);
-    playBeep(220,0.06,0.2); e.setAttribute('animation__pop','property: scale; to: 0.1 0.1 0.1; dur:80; easing:easeOutQuad');
-    setTimeout(()=>{e.setAttribute('visible',false);e.userData.alive=false;e.removeAttribute('animation__pop');},90); },
-  endRun(){ this.state.running=false; clearInterval(this.timer); overlay.classList.remove('hidden'); },
-  tick(t,dt){ if(!this.state.running) return; const dtS=dt/1000; this.elapsed+=dtS; this.spawnCooldown-=dtS;
-    if(this.spawnCooldown<=0){ this.spawn((Math.random()<0.5)?'L':'R'); this.spawnCooldown=this.spawnInterval; }
-    for(const e of this.pool){ if(!e.userData.alive) continue; const p=e.object3D.position; p.z+=e.userData.vz*dtS; if(p.z>0.3){ e.setAttribute('visible',false); e.userData.alive=false; this.state.combo=1.0; this.$c.textContent='x'+this.state.combo.toFixed(1); } }
+    e.setAttribute('visible',false); e.userData={alive:false,side:'L',st:0,rt:0};
+    e.addEventListener('click',()=>this.tryHit(e.userData.side)); scene.appendChild(e); return e; },
+  spawn(side){
+    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
+    e.userData.alive=true; e.userData.side=side; e.userData.vz=this.speed;
+    e.object3D.position.set(this.laneX[side],1.4,this.spawnZ); e.object3D.scale.set(1,1,1); e.setAttribute('visible',true);
+    e.userData.st = EXO.now(); // stimulus time when target becomes active
+  },
+  tryHit(side){
+    if(!this.state.running) return; EXO.beep(540,0.04,0.12);
+    let best=null, dzBest=999;
+    for(const e of this.pool){
+      if(!e.userData.alive||e.userData.side!==side) continue;
+      const dz=Math.abs(e.object3D.position.z - this.hitZ);
+      if(dz<dzBest){best=e;dzBest=dz;}
+    }
+    if(best && dzBest<=0.25){
+      const resp=EXO.now();
+      const rt = (resp - best.userData.st)*1000.0;
+      const hitQ = dzBest<=0.08?1.0:dzBest<=0.18?0.6:0.3;
+      this.state.score+=Math.round(hitQ*100*this.state.combo); this.$s.textContent=this.state.score;
+      this.state.combo=Math.min(5,this.state.combo+0.2); this.$c.textContent='x'+this.state.combo.toFixed(1);
+      best.setAttribute('animation__pop','property: scale; to: 0.1 0.1 0.1; dur:80; easing:easeOutQuad');
+      setTimeout(()=>{ best.setAttribute('visible',false); best.userData.alive=false; best.removeAttribute('animation__pop'); },90);
+      this.rec.log({t:EXO.now(), stimulus:best.userData.st, response:resp, reactionMs:rt, success:true, hitQuality:hitQ});
+    }else{
+      this.state.combo=1.0; this.$c.textContent='x1.0';
+      this.rec.log({t:EXO.now(), reactionMs:0, success:false, hitQuality:0});
+    }
+  },
+  end(){
+    this.state.running=false; clearInterval(this.timer);
+    const sum=this.rec.summary();
+    const csv=this.rec.csv('session-'+Date.now());
+    const html=`
+      <div class="title">Result — Combat Reflex</div>
+      <div class="kpi">
+        <div>Score<br><b>${sum.score.toFixed(0)}</b></div>
+        <div>Accuracy<br><b>${sum.accuracyPct.toFixed(1)}%</b></div>
+        <div>Avg RT<br><b>${sum.avgReactionMs.toFixed(1)} ms</b></div>
+        <div>P95 RT<br><b>${sum.p95ReactionMs.toFixed(1)} ms</b></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" id="dl">⬇ Download CSV</a>
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.showPanel(html);
+    document.getElementById('dl').onclick=()=>EXO.downloadCSV('exo_combat_reflex.csv',csv);
+  },
+  showPanel(inner){ const p=document.getElementById('panel'); p.innerHTML=inner; document.getElementById('overlay').style.display='flex'; },
+  tick(t,dt){
+    if(!this.state.running) return;
+    const dtS=dt/1000; this.spawnCooldown-=dtS;
+    if(this.spawnCooldown<=0){ this.spawn(Math.random()<0.5?'L':'R'); this.spawnCooldown=this.spawnIv; }
+    for(const e of this.pool){
+      if(!e.userData.alive) continue;
+      const p=e.object3D.position; p.z+=e.userData.vz*dtS;
+      if(p.z>0.3){ // miss
+        e.setAttribute('visible',false); e.userData.alive=false;
+        this.state.combo=1.0; this.$c.textContent='x1.0';
+        this.rec.log({t:EXO.now(), stimulus:e.userData.st, response:EXO.now(), reactionMs:0, success:false, hitQuality:0});
+      }
+    }
   }
 });
 </script>
-</body>
-</html>
+</body></html>
