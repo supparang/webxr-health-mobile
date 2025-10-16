@@ -1,12 +1,14 @@
 /* Shadow Breaker – Mixed Signature Fitness Build (G5 Glow + Failsafe)
-   Components: A-Frame runtime for 4 games (combat/dash/impact/flow)
-   What’s inside:
-   - ERROR OVERLAY (โชว์ error มุมซ้ายบน)
-   - SAFE-BOOT i18n + **FAILSAFE TIMER** (เริ่มเกมอัตโนมัติภายใน ~1.5s แม้ fetch แขวน)
-   - SANITY CUBE (กล่องหมุน 10 วิแรก)
-   - WATCHDOG SPAWNER (กันนิ่ง บังคับสปอว์น)
-   - Arcane Combat: Gates + Boss Debug + Force Boss (B)
+   MODE: FULL DEV (verbose logs, probes, safety guards)
+   Games: combat / dash / impact / flow
+   Features:
+   - ERROR OVERLAY (แดงมุมซ้ายบน)
+   - SAFE-BOOT i18n + FAILSAFE TIMER (~1.5s ถ้า fetch ช้า/พัง ก็เริ่มเกม)
+   - SANITY CUBE (ยืนยันฉากหมุน 10 วิแรก)
+   - WATCHDOG SPAWNER (กันเกมนิ่ง)
+   - Arcane Combat: Multi-Gate boss spawn + Boss Debug HUD + Force Boss (B)
    - Fitness (kcal/level), Daily Quests
+   - DEV LOGS: console.info/debug เต็มที่
 */
 (function(){
 
@@ -31,6 +33,7 @@
   // ---------- helpers ----------
   const $  =(id)=>document.getElementById(id);
   const qs =(sel)=>document.querySelector(sel);
+  const qsa=(sel)=>Array.from(document.querySelectorAll(sel));
   const T  =(d,k,def)=>(d&&d[k])||def||k;
   const tr =(d,k,f,v)=>{let s=(d&&d[k])||f||k; if(v) Object.keys(v).forEach(x=>s=s.replaceAll('{'+x+'}',String(v[x]))); return s; };
 
@@ -105,11 +108,13 @@
   // ---------- component ----------
   AFRAME.registerComponent('shadow-breaker-game',{
     init:function(){
+      console.info('[SB] init component…');
       const q=new URLSearchParams(location.search);
       this.game=q.get('game')||'combat';
       const rawMode=q.get('mode'); this.mode=(rawMode==='practice')?'practice':'timed'; // default timed
       this.diff=q.get('diff')||'normal'; this.cfg=DIFF[this.diff]||DIFF.normal;
       this.ibMode=(q.get('ib')||'count').toLowerCase();
+      console.info('[SB] params',{game:this.game, mode:this.mode, diff:this.diff, ib:this.ibMode});
 
       // --- SAFE-BOOT i18n + START ---
       const safeStart = (data)=>{
@@ -125,6 +130,7 @@
         window.__shadowBreakerSetLang = (v)=>{
           try{ localStorage.setItem('sb_lang', v); }catch(_){}
           this.dict = (this.i18n && this.i18n[v]) ? this.i18n[v] : (this.i18n['th'] || {});
+          console.debug('[SB] setLang ->', v);
           this.updateHUD(); this.updateObjective();
         };
 
@@ -152,6 +158,7 @@
 
         // รอ scene โหลดก่อนค่อยสตาร์ท + SANITY CUBE
         const startNow = ()=>{
+          console.info('[SB] start game now');
           this.startGame();
           try{
             const scn = this.el && this.el.sceneEl;
@@ -163,8 +170,9 @@
               cube.setAttribute('animation__rot','property: rotation; to:0 360 0; loop:true; dur:4000; easing:linear');
               scn.appendChild(cube);
               setTimeout(()=>{ try{ cube.remove(); }catch(_){ } }, 10000);
+              console.debug('[SB] sanity cube spawned');
             }
-          }catch(_){}
+          }catch(err){ console.warn('[SB] sanity cube err', err); }
           if(this.game==='combat') this.showCombatTutorial();
         };
 
@@ -177,22 +185,24 @@
         try{ clearTimeout(startFallback); }catch(_){}
         __started = true;
 
-        try{ console.info('[SB] SAFE-BOOT OK', {game:this.game, mode:this.mode, diff:this.diff}); }catch(_){}
+        console.info('[SB] SAFE-BOOT OK', {game:this.game, mode:this.mode, diff:this.diff});
       };
 
-      // --- FAILSAFE TIMER: ถ้า i18n ยังไม่สตาร์ทใน 1500ms ให้สตาร์ทด้วย {} ---
+      // --- FAILSAFE TIMER: 1.5s ---
       let __started = false;
       const safeStartWrap = (data)=>{ if (!__started) { safeStart(data); } };
-      const startFallback = setTimeout(()=>{ safeStartWrap({}); }, 1500);
+      const startFallback = setTimeout(()=>{ console.warn('[SB] i18n timeout -> fallback {}'); safeStartWrap({}); }, 1500);
 
-      // พยายามโหลด i18n ถ้าโหลดไม่ได้/ช้า ให้ใช้ failsafe
+      // พยายามโหลด i18n
       (async ()=>{
         try{
           const r = await fetch('src/i18n.json', {cache:'no-store'});
           if(!r.ok) throw new Error('i18n HTTP '+r.status);
           const data = await r.json();
+          console.debug('[SB] i18n loaded');
           safeStartWrap(data);
         }catch(err){
+          console.warn('[SB] i18n load failed', err);
           const t = $('toast');
           if(t){ t.textContent = 'i18n load failed – running with defaults'; t.style.display='block'; setTimeout(()=>t.style.display='none',1500); }
           safeStartWrap({});
@@ -220,9 +230,10 @@
           if(this.ibMode==='timed') this.st.timeLeft=60;
           this.updateObjective(); this.updateHUD();
           toast(tr(this.dict,'ibModeSwitch','Impact mode: {MODE} (press M)',{MODE:this.ibMode.toUpperCase()}),1200);
+          console.debug('[SB] impact mode ->', this.ibMode);
         }
         if(this.game==='combat' && (e.key==='b'||e.key==='B')){
-          if(!this.st.boss){ this.st.phase='boss'; this.spawnMiniBoss(); toast('FORCE BOSS (Test)',900); }
+          if(!this.st.boss){ this.st.phase='boss'; this.spawnMiniBoss(); toast('FORCE BOSS (Test)',900); console.debug('[SB] force boss'); }
         }
       });
       window.addEventListener('keyup',(e)=>{ if(this.game==='dash' && e.key==='ArrowDown') this.st.crouch=false; });
@@ -325,16 +336,18 @@
           if(!hasTargets && (this.mode!=='timed' || this.st.timeLeft < (this.cfg.timedSec||60) - 3)){
             this.st.spawnTimer = performance.now() - (this.st.spawnEveryMs + 10);
             this.spawnTarget();
+            console.debug('[SB] watchdog: forced target spawn');
           }
         }
         if(this.game==='dash' && this.st.playing){
           const hasHaz = document.querySelectorAll('.hazard').length;
-          if(!hasHaz) this.spawnDashObstacle(performance.now());
+          if(!hasHaz) { this.spawnDashObstacle(performance.now()); console.debug('[SB] watchdog: forced dash hazard'); }
         }
         if(this.game==='impact' && this.st.playing && !document.querySelector('.impact-core') && !this.st.bossAlive){
           this._impactAlive=false; this.spawnImpactCore();
+          console.debug('[SB] watchdog: forced impact core');
         }
-      }catch(_){}
+      }catch(err){ console.warn('[SB] watchdog err', err); }
 
       if((this.st.hp||0)<=0) this.endGame();
     },
@@ -364,7 +377,7 @@
       if(this.mode==='timed'){
         const total=(this.cfg.timedSec||60);
         const elapsed=Math.max(0,total-(this.st.timeLeft||0));
-        if(elapsed>=gates.safetyAt && (this.st.score>=gates.safetyScore || this.st.kills>=gates.safetyKills)){
+        if(elapsed>=gates.safetyAt && (this.st.score>=gates.safetyScore || this.st.kills>=gates.kills)){
           safetyGate=true;
         }
       }
@@ -372,6 +385,7 @@
       if(this.st.phase!=='boss' && (scoreGate||killGate||assistGate||safetyGate)){
         this.st.phase='boss';
         this.spawnMiniBoss();
+        console.debug('[SB] boss triggered', {scoreGate, killGate, assistGate, safetyGate});
       }
     },
 
