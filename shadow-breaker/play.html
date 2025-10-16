@@ -11,7 +11,7 @@
   <!-- ===== A-Frame ===== -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ===== FIX: โหลด components.js ให้ติดแน่นอน + กัน path พัง ===== -->
+  <!-- ===== FIX: โหลด components.js แบบ Fallback ป้องกัน path พัง ===== -->
   <script>
   (function(){
     const paths = [
@@ -28,7 +28,7 @@
     }
     function load(i){
       if(i>=paths.length){
-        alert("ERROR: ไม่พบ components.js – ตรวจสอบโฟลเดอร์ src");
+        alert("ERROR: ไม่พบ src/components.js – ตรวจสอบโฟลเดอร์ src");
         return;
       }
       const s = document.createElement("script");
@@ -46,3 +46,110 @@
   </script>
 </head>
 <body>
+
+  <!-- ===== HUD Top ===== -->
+  <div class="hud" id="hudTop">
+    <div class="badge" id="hudGame">Shadow Breaker</div>
+    <div class="badge" id="hudScore">Score: 0</div>
+    <div class="badge" id="hudCombo">Combo: x1</div>
+    <div class="badge" id="hudTime">Time: 60</div>
+    <div class="badge" id="hudArcane">Arcane: 0%</div>
+    <div class="badge" id="hudCal">Cal: 0.0</div>
+    <div class="badge" id="hudLvl">Lv.1</div>
+    <div class="badge interactive">
+      <a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a>
+    </div>
+    <div class="badge interactive">
+      <button id="btnTH" class="mini">ไทย</button>
+      <button id="btnEN" class="mini">English</button>
+    </div>
+    <div class="badge" id="hudDBG">DBG</div>
+  </div>
+
+  <!-- ===== HUD Bottom ===== -->
+  <div class="hud bottom">
+    <div class="badge" id="hudHP">ENERGY: 100</div>
+    <div class="badge" id="hudOverload">Overload: 0%</div>
+    <div class="badge" id="hudBoss">Boss HP: —</div>
+    <div class="badge interactive"><button id="btnSkillWheel">Skill Wheel (Q)</button></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <div id="objective" class="objective"></div>
+  <div id="questPanel" class="quest-panel">
+    <div id="qTitle" class="quest-title">Daily Quests</div>
+    <div id="qList" class="quest-list"></div>
+  </div>
+
+  <!-- ===== A-Frame Scene ===== -->
+  <a-scene renderer="colorManagement: true" shadow-breaker-game>
+    <a-assets>
+      <img id="bg" src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
+    </a-assets>
+    <a-sky src="#bg"></a-sky>
+    <a-entity id="spawner"></a-entity>
+    <a-entity id="rig" position="0 1.6 0">
+      <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
+      <a-entity cursor="rayOrigin: mouse; fuse:false"
+                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+      <a-entity laser-controls="hand: right"
+                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+      <a-entity laser-controls="hand: left"
+                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
+    </a-entity>
+    <a-entity light="type: ambient; color: #BBB"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
+  </a-scene>
+
+  <!-- ===== Helpers ===== -->
+  <script>
+    (function wireLang(){
+      const th=document.getElementById('btnTH'), en=document.getElementById('btnEN');
+      const apply=(v)=>{ localStorage.setItem('sb_lang', v);
+        if (window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v);
+      };
+      if (th) th.onclick = ()=>apply('th');
+      if (en) en.onclick = ()=>apply('en');
+    })();
+
+    (function ensureHUD(){
+      const timeEl = document.getElementById('hudTime');
+      const hudTop = document.getElementById('hudTop');
+      if (!timeEl) return;
+      timeEl.style.display='inline-flex';
+      hudTop.style.zIndex='10050';
+    })();
+
+    (function autoTestTargets(){
+      let count=0;
+      const iv = setInterval(()=>{
+        if(document.querySelectorAll('.clickable').length===0){
+          const sp=document.getElementById('spawner');
+          if(sp){
+            const e=document.createElement('a-entity');
+            e.setAttribute('geometry','primitive: sphere; radius: 0.22');
+            e.setAttribute('material','color:#39c5bb; emissive:#0af');
+            e.setAttribute('position', `${Math.random()*1-0.5} 1.4 -2.2`);
+            e.classList.add('clickable');
+            sp.appendChild(e);
+          }
+        }
+        if(++count>5) clearInterval(iv);
+      },2000);
+    })();
+  </script>
+
+  <!-- ===== Extra Safe Component Attach ===== -->
+  <script>
+  window.addEventListener('load', ()=>{
+    const scn = document.querySelector('a-scene');
+    if (!scn) return;
+    const ok = scn.components && scn.components['shadow-breaker-game'];
+    if (!ok){
+      scn.removeAttribute('shadow-breaker-game');
+      setTimeout(()=>scn.setAttribute('shadow-breaker-game',''), 100);
+    }
+  });
+  </script>
+</body>
+</html>
