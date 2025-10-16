@@ -5,203 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Play – Shadow Breaker</title>
 
-  <!-- Styles -->
+  <!-- ===== Styles ===== -->
   <link rel="stylesheet" href="src/styles.css"/>
 
-  <!-- A-Frame -->
+  <!-- ===== A-Frame ===== -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- ✅ โหลด components.js แบบ Fallback ป้องกันพาธผิด -->
+  <!-- ===== FIX: โหลด components.js ให้ติดแน่นอน + กัน path พัง ===== -->
   <script>
   (function(){
     const paths = [
-      'src/components.js?v=2',
-      './src/components.js?v=2',
-      '../src/components.js?v=2',
-      '/src/components.js?v=2'
+      "src/components.js?v=5",
+      "./src/components.js?v=5",
+      "../src/components.js?v=5",
+      "/src/components.js?v=5"
     ];
-    function loadScript(i){
-      if(i >= paths.length){
-        const box = document.createElement('div');
-        Object.assign(box.style,{position:'fixed',left:'10px',top:'10px',padding:'10px',background:'rgba(180,20,20,.92)',color:'#fff',zIndex:99999,borderRadius:'8px'});
-        box.textContent = 'ERROR: ไม่พบ src/components.js – ตรวจสอบพาธไฟล์!';
-        document.addEventListener('DOMContentLoaded',()=>document.body.appendChild(box));
-        console.error("❌ ไม่พบ components.js ในพาธที่ลองทั้งหมด");
+    function reattachComponent(){
+      const scene = document.querySelector("a-scene");
+      if (!scene) return setTimeout(reattachComponent, 100);
+      scene.removeAttribute("shadow-breaker-game");
+      setTimeout(()=>scene.setAttribute("shadow-breaker-game",""), 0);
+    }
+    function load(i){
+      if(i>=paths.length){
+        alert("ERROR: ไม่พบ components.js – ตรวจสอบโฟลเดอร์ src");
         return;
       }
-      const s = document.createElement('script');
-      s.src = paths[i]; s.defer = true;
-      s.onload = () => console.log('✅ Loaded:', paths[i]);
-      s.onerror = () => { console.warn('⚠️ Failed:', paths[i]); loadScript(i+1); };
+      const s = document.createElement("script");
+      s.src = paths[i];
+      s.async = false;
+      s.onload = () => {
+        console.log("[OK] Loaded:", paths[i]);
+        reattachComponent();
+      };
+      s.onerror = () => load(i+1);
       document.head.appendChild(s);
     }
-    loadScript(0);
+    load(0);
   })();
   </script>
 </head>
 <body>
-
-  <!-- ===== HUD Top (center strip) ===== -->
-  <div class="hud" id="hudTop">
-    <div class="badge" id="hudGame">Shadow Breaker</div>
-    <div class="badge" id="hudScore">Score: 0</div>
-    <div class="badge" id="hudCombo">Combo: x1</div>
-    <div class="badge" id="hudTime">Time: 60</div>
-    <div class="badge" id="hudArcane">Arcane: 0%</div>
-    <div class="badge" id="hudCal">Cal: 0.0</div>
-    <div class="badge" id="hudLvl">Lv.1</div>
-
-    <div class="badge interactive">
-      <a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a>
-    </div>
-    <div class="badge interactive">
-      <button id="btnTH" class="mini">ไทย</button>
-      <button id="btnEN" class="mini">English</button>
-    </div>
-
-    <div class="badge" id="hudDBG" style="opacity:.9">DBG</div>
-  </div>
-
-  <!-- ===== HUD Bottom ===== -->
-  <div class="hud bottom" id="hudBottom" style="justify-content:center;gap:10px">
-    <div class="badge" id="hudHP">ENERGY: 100</div>
-    <div class="badge" id="hudOverload">Overload: 0%</div>
-    <div class="badge" id="hudBoss">Boss HP: —</div>
-    <div class="badge interactive"><button id="btnSkillWheel">Skill Wheel (Q)</button></div>
-  </div>
-
-  <!-- Toast / Objective / Quests -->
-  <div id="toast" class="toast"></div>
-  <div id="objective" class="objective"></div>
-  <div id="questPanel" class="quest-panel">
-    <div id="qTitle" class="quest-title">Daily Quests</div>
-    <div id="qList" class="quest-list"></div>
-  </div>
-
-  <!-- Overload & HP bars (UI overlay) -->
-  <div id="overloadBarWrap" class="bar-wrap" style="left:50%;transform:translateX(-50%);bottom:12%;">
-    <div class="bar-label" id="overloadBarText">Overload: 0%</div>
-    <div class="bar">
-      <div class="bar-fill" id="overloadBarFill" style="width:0%"></div>
-    </div>
-  </div>
-  <div id="hpBarWrap" class="bar-wrap" style="left:50%;transform:translateX(-50%);bottom:6%;">
-    <div class="bar-label">ENERGY</div>
-    <div class="bar">
-      <div class="bar-fill hp" id="hpBarFill" style="width:100%"></div>
-    </div>
-  </div>
-
-  <!-- ===== A-Frame Scene ===== -->
-  <a-scene renderer="colorManagement: true" shadow-breaker-game>
-    <a-assets timeout="10000">
-      <img id="bg" src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
-    </a-assets>
-
-    <a-sky src="#bg" color="#111122"></a-sky>
-
-    <!-- Spawner root -->
-    <a-entity id="spawner"></a-entity>
-
-    <!-- Player rig + camera + inputs -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
-      <!-- Desktop mouse cursor -->
-      <a-entity cursor="rayOrigin: mouse; fuse:false"
-                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <!-- VR laser controllers -->
-      <a-entity laser-controls="hand: right"
-                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <a-entity laser-controls="hand: left"
-                raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-    </a-entity>
-
-    <!-- Lights -->
-    <a-entity light="type: ambient; color: #BBB"></a-entity>
-    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
-
-    <!-- SANITY CUBE -->
-    <a-entity id="sanityCube"
-              geometry="primitive: box; depth: 0.25; height: 0.25; width: 0.25"
-              material="color: #7cf; emissive: #39c5bb"
-              position="-0.9 1.1 -2.2"
-              animation__rot="property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear">
-    </a-entity>
-  </a-scene>
-
-  <!-- ===== Page Helpers ===== -->
-  <script>
-    (function wireLang(){
-      const th=document.getElementById('btnTH'), en=document.getElementById('btnEN');
-      const apply=(v)=>{ localStorage.setItem('sb_lang', v);
-        if (window.__shadowBreakerSetLang) window.__shadowBreakerSetLang(v);
-      };
-      if (th) th.onclick = ()=>apply('th');
-      if (en) en.onclick = ()=>apply('en');
-    })();
-
-    (function ensureTimeHUD(){
-      const timeEl = document.getElementById('hudTime');
-      const hudTop = document.getElementById('hudTop');
-      if (!timeEl || !hudTop) return;
-      function forceShow(){
-        timeEl.style.display='inline-flex';
-        timeEl.style.visibility='visible';
-        hudTop.style.zIndex='10050';
-      }
-      let n=0; const iv=setInterval(()=>{ forceShow(); n++; if(n>10) clearInterval(iv); }, 180);
-      setInterval(()=>{
-        const cs = getComputedStyle(timeEl);
-        if (cs.display==='none' || cs.visibility==='hidden') forceShow();
-      }, 1000);
-      setTimeout(()=>{
-        document.querySelectorAll('.a-canvas,.a-grab-cursor').forEach(c=>c.style.zIndex='0');
-      }, 300);
-    })();
-
-    (function probeComponent(){
-      function showBanner(msg, bg='#b41414'){
-        const box = document.createElement('div');
-        Object.assign(box.style, {
-          position:'fixed', left:'10px', bottom:'10px', zIndex:100000,
-          maxWidth:'80vw', background:bg, color:'#fff', padding:'8px 10px',
-          borderRadius:'8px', font:'12px/1.4 ui-monospace, Menlo, monospace'
-        });
-        box.textContent = msg;
-        document.body.appendChild(box);
-      }
-      window.addEventListener('load', ()=>{
-        const scn = document.querySelector('a-scene');
-        const hasComp = scn && scn.components && scn.components['shadow-breaker-game'];
-        if (!hasComp) {
-          showBanner('shadow-breaker-game component NOT attached (เช็ค src/components.js พาธ/ข้อผิดพลาด)', '#d9534f');
-        } else {
-          showBanner('shadow-breaker-game component attached ✓', '#5cb85c');
-        }
-      });
-    })();
-
-    (function htmlWatchdog(){
-      function spawnTestBall(){
-        const sp = document.getElementById('spawner'); if(!sp) return;
-        const e = document.createElement('a-entity');
-        e.setAttribute('geometry','primitive: sphere; radius: 0.22');
-        e.setAttribute('material','color:#39c5bb; emissive:#0af; metalness:0.1; roughness:0.4');
-        const rx=(Math.random()*2-1)*1.0, ry=1.2+Math.random()*0.8, rz=-2.2-Math.random()*0.6;
-        e.setAttribute('position',`${rx} ${ry} ${rz}`);
-        e.classList.add('clickable');
-        e.setAttribute('animation__pulse','property: scale; to:1.15 1.15 1.15; dir:alternate; loop:true; dur:650');
-        setTimeout(()=>{ try{ e.remove(); }catch(_){} }, 3000);
-        sp.appendChild(e);
-      }
-      let tries=0;
-      const iv = setInterval(()=>{
-        tries++;
-        const anyTargets = document.querySelectorAll('.clickable').length;
-        if (!anyTargets) spawnTestBall();
-        if (tries>8) clearInterval(iv);
-      }, 2000);
-    })();
-  </script>
-</body>
-</html>
