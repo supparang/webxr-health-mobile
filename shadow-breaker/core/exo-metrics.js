@@ -1,4 +1,3 @@
-<script>
 // EXO Metrics (D3 Neuro Performance)
 window.EXO_METRICS=(function(){
   function std(arr){ if(!arr.length) return 0; const m = arr.reduce((a,b)=>a+b,0)/arr.length; return Math.sqrt(arr.reduce((s,x)=>s+(x-m)*(x-m),0)/arr.length); }
@@ -27,4 +26,3 @@ window.EXO_METRICS=(function(){
   }
   return {Recorder};
 })();
-</script>
