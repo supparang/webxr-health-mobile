@@ -1,55 +1,52 @@
 <!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Play – Shadow Breaker</title>
-  <link rel="stylesheet" href="src/styles.css"/>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="src/components.js" defer></script>
-</head>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Cardio Sprint</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<style>html,body{margin:0;height:100%;background:#0a0e18;color:#e6f2ff;font-family:system-ui}
+#hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:.6rem 1rem;background:linear-gradient(180deg,rgba(17,40,72,.55),transparent);z-index:5;pointer-events:none}
+.hud-left,.hud-right{display:flex;gap:.6rem;align-items:center}
+.btn{pointer-events:auto;border:1px solid #112848;background:linear-gradient(180deg,rgba(138,209,255,.12),rgba(138,209,255,.05));padding:.35rem .7rem;border-radius:.6rem;color:#e6f2ff}
+.touch-zone{position:fixed;top:0;bottom:0;width:50vw;z-index:4} #touch-left{left:0} #touch-right{right:0}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,16,32,.55);backdrop-filter:blur(4px);z-index:10}
+.overlay.hidden{display:none}
+.panel{background:#0e1424;border:1px solid #112848;color:#e6f2ff;padding:1rem 1.2rem;border-radius:1rem;min-width:260px;box-shadow:0 0 24px rgba(138,209,255,.35)}
+</style></head>
 <body>
-  <div class="hud">
-    <div class="badge" id="hudScore">—</div>
-    <div class="badge" id="hudCombo">—</div>
-    <div class="badge" id="hudTime">—</div>
-    <div class="badge" id="hudArcane">—</div>
-    <div class="badge interactive"><a href="index.html" style="color:#8bd8ff;text-decoration:none" id="backLink">Back</a></div>
-  </div>
+<div id="hud"><div class="hud-left"><span id="score">0</span></div>
+<div class="hud-right"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a class="btn" href="../index.html">⟵ Menu</a></div></div>
+<div id="touch-left" class="touch-zone"></div><div id="touch-right" class="touch-zone"></div>
+<div id="overlay" class="overlay hidden"><div class="panel"><h1>Paused</h1><p>Tap to resume</p><div style="display:flex;gap:.6rem"><button id="btnResume" class="btn">▶ Resume</button><button id="btnRestart" class="btn">⟲ Restart</button></div></div></div>
 
-  <div class="hud bottom">
-    <div class="badge" id="hudHP">HP: 100</div>
-    <div class="badge" id="hudOverload">Overload: 0%</div>
-    <div class="badge" id="hudBoss">Boss HP: —</div>
-  </div>
+<a-scene>
+  <a-entity light="type:ambient;intensity:.7"></a-entity>
+  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" color="#0f1b33"></a-plane>
+  <a-entity id="rig"><a-entity camera position="0 1.6 0"><a-entity cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity></a-entity></a-entity>
+  <a-box id="player" color="#4caf50" depth=".2" height=".2" width=".2" position="0 1.0 -0.5"></a-box>
+  <a-entity id="director" game-director></a-entity>
+</a-scene>
 
-  <div id="toast" class="toast"></div>
-  <div id="objective">Objective: ทำคะแนนให้ถึง 400 เพื่อเรียก Mini Boss</div>
-
-  <!-- Overload Power Bar (POS-2 center-bottom) -->
-  <div id="overloadBarWrap">
-    <div id="overloadBarGlow"></div>
-    <div id="overloadBarCrack"></div>
-    <div id="overloadBarFill"></div>
-    <div id="overloadBarText">Overload: 0%</div>
-  </div>
-
-  <a-scene shadow-breaker-game renderer="colorManagement: true; physicallyCorrectLights: true; antialias: false; sortObjects: true; foveationLevel: 2; powerPreference: high-performance">
-    <a-assets timeout="10000">
-      <img id="bg" src="https://images.unsplash.com/photo-1499346030926-9a72daac6c63?q=80&w=1920&auto=format&fit=crop" crossorigin="anonymous">
-    </a-assets>
-
-    <a-sky src="#bg" color="#111122"></a-sky>
-    <a-entity id="spawner"></a-entity>
-
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera id="camera" wasd-controls-enabled="false"></a-camera>
-      <a-entity cursor="rayOrigin: mouse; fuse:false" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-      <a-entity laser-controls="hand: left"  raycaster="objects: .clickable; far: 30; interval: 0"></a-entity>
-    </a-entity>
-
-    <a-entity light="type: ambient; color: #BBB"></a-entity>
-    <a-entity light="type: directional; intensity: 0.6" position="0 4 -2"></a-entity>
-  </a-scene>
-</body>
-</html>
+<script>
+function blip(p=660){const ac=blip.ac||(blip.ac=new (window.AudioContext||window.webkitAudioContext)());const o=ac.createOscillator(),g=ac.createGain();o.type="triangle";o.frequency.value=p;g.gain.value=.15;o.connect(g);g.connect(ac.destination);o.start();setTimeout(()=>o.stop(),70);}
+AFRAME.registerComponent('game-director',{init(){
+  this.state={score:0,time:60,running:true};
+  this.$s=score; this.$t=time; btnPause.onclick=()=>this.pause(); btnResume.onclick=()=>this.resume(); btnRestart.onclick=()=>location.reload();
+  this.playerX=0; const left=()=>{this.playerX=-0.8;}; const right=()=>{this.playerX=0.8;};
+  ['touchstart','mousedown'].forEach(ev=>{touch-left.addEventListener(ev,left);touch-right.addEventListener(ev,right);});
+  this.spawnZ=-6; this.pool=[]; for(let i=0;i<12;i++) this.pool.push(this.makeObstacle(this.el.sceneEl));
+  this.elapsed=0; this.next=0.7; this.speed=4.8;
+  this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;} this.state.time--; this.$t.textContent=this.state.time; },1000);
+  this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
+},pause(){this.state.running=false;overlay.classList.remove('hidden');},resume(){this.state.running=true;overlay.classList.add('hidden');},
+makeObstacle(scene){ const e=document.createElement('a-entity'); e.setAttribute('geometry','primitive: box; depth:0.4; height:0.5; width:0.5'); e.setAttribute('material','color:#e53935'); e.setAttribute('visible',false); e.object3D.position.set(0,1.1,-6); e.userData={alive:false,x:-0.8}; scene.appendChild(e); return e; },
+spawn(){ const e=this.pool.find(o=>!o.userData.alive); if(!e) return; const lane=(Math.random()<0.5)?-0.8:0.8; e.userData.alive=true; e.userData.x=lane; e.object3D.position.set(lane,1.1,this.spawnZ); e.setAttribute('visible',true); },
+end(){ this.state.running=false; clearInterval(this.timer); overlay.classList.remove('hidden'); },
+tick(t,dt){ if(!this.state.running) return; const dtS=dt/1000; player.object3D.position.x=this.playerX; this.elapsed+=dtS; if(this.elapsed>=this.next){ this.spawn(); this.next+=0.7; }
+  for(const e of this.pool){ if(!e.userData.alive) continue; const p=e.object3D.position; p.z+=this.speed*dtS;
+    if(p.z>-0.4){ if(Math.abs(p.x-this.playerX)<0.3){ this.state.score=Math.max(0,this.state.score-50); blip(220);} else { this.state.score+=20; blip(760);} this.$s.textContent=this.state.score; e.setAttribute('visible',false); e.userData.alive=false; }
+    if(p.z>0.6){ e.setAttribute('visible',false); e.userData.alive=false; }
+  }
+}
+});
+</script>
+</body></html>
