@@ -1,73 +1,86 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>XR Health Lab — Game Hub</title>
-  <style>
-    :root{
-      --bg:#0a0e18; --panel:#0e1424; --line:#112848;
-      --text:#e6f2ff; --muted:#a7c5ff; --accent:#69b3ff; --accent2:#8ad1ff;
-    }
-    html,body{margin:0;padding:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial;
-      background:radial-gradient(1200px 600px at 70% -10%,rgba(138,209,255,.12),transparent),linear-gradient(180deg,#081022,#0a0e18);color:var(--text)}
-    a{color:inherit}
-    header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid vdowar(--line);
-      background:linear-gradient(180deg,rgba(17,40,72,.4),rgba(17,40,72,.1));backdrop-filter:blur(6px)}
-    .brand{display:flex;gap:10px;align-items:center;font-weight:800;letter-spacing:.02em}
-    .brand .txt{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 24px rgba(138,209,255,.35),0 0 60px rgba(105,179,255,.25)}
-    .logo{width:34px;height:34px}
-    .hub{display:grid;gap:14px;max-width:840px;margin:28px auto;padding:0 16px}
-    .card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;text-decoration:none;box-shadow:0 0 24px rgba(138,209,255,.2)}
-    .card .title{font-weight:700;font-size:1.12rem}
-    .card .desc{opacity:.85}
-    .btn{pointer-events:auto;border:1px solid var(--line);background:linear-gradient(180deg,rgba(138,209,255,.12),rgba(138,209,255,.05));
-      padding:.35rem .7rem;border-radius:.6rem;color:var(--text)}
-    footer{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;text-align:center;font:12px/1.35 system-ui;color:var(--muted);
-      background:linear-gradient(180deg,transparent,rgba(8,16,32,.65))}
-  </style>
-  <script>
-    // ultra-light i18n
-    (function(){
-      const STR={en:{menu:'Shadow Breaker',desc:'Futuristic Training · Neon Combat',lang:'EN'},
-                 th:{menu:'Shadow Breaker',desc:'ฝึกต่อสู้ล้ำอนาคต · นีออนคอมแบต',lang:'TH'}};
-      window.I18N={lang:localStorage.getItem('lang')||'en',
-        t(k){return (STR[this.lang]&&STR[this.lang][k])||k;},
-        toggle(){this.lang=this.lang==='en'?'th':'en';localStorage.setItem('lang',this.lang);return this.lang;}
-      };
-    })();
-  </script>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>XR Health Lab — Game Hub</title>
+<style>
+:root{--bg:#0a0e18;--panel:#0e1424;--line:#112848;--text:#e6f2ff;--muted:#a7c5ff;--accent:#69b3ff;--accent2:#8ad1ff}
+html,body{margin:0;padding:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial;
+  background:radial-gradient(1200px 600px at 70% -10%,rgba(138,209,255,.12),transparent),linear-gradient(180deg,#081022,#0a0e18);color:var(--text)}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(17,40,72,.4),rgba(17,40,72,.1));backdrop-filter:blur(6px)}
+.brand{display:flex;gap:10px;align-items:center;font-weight:800;letter-spacing:.02em}
+.brand .txt{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 24px rgba(138,209,255,.35),0 0 60px rgba(105,179,255,.25)}
+.logo{width:34px;height:34px}
+.hub{display:grid;gap:14px;max-width:840px;margin:28px auto;padding:0 16px}
+.card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;box-shadow:0 0 24px rgba(138,209,255,.2)}
+.card .title{font-weight:700;font-size:1.12rem}
+.card .desc{opacity:.85}
+.btn{pointer-events:auto;border:1px solid var(--line);background:linear-gradient(180deg,rgba(138,209,255,.12),rgba(138,209,255,.05));
+  padding:.35rem .7rem;border-radius:.6rem;color:var(--text)}
+footer{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;text-align:center;font:12px/1.35 system-ui;color:var(--muted);
+  background:linear-gradient(180deg,transparent,rgba(8,16,32,.65))}
+</style>
+<script>
+(function(){ // ultra-light i18n
+  const STR={en:{sb:'Shadow Breaker',rr:'Rhythm Rider',cs:'Cardio Sprint',sq:'Sky Squats',
+                 d_sb:'Futuristic Training · Neon Combat', d_rr:'Tap to the beat', d_cs:'Dodge obstacles', d_sq:'Hold to squat', lang:'EN'},
+             th:{sb:'Shadow Breaker',rr:'Rhythm Rider',cs:'Cardio Sprint',sq:'Sky Squats',
+                 d_sb:'ฝึกต่อสู้ล้ำอนาคต · นีออนคอมแบต', d_rr:'แตะตามจังหวะ', d_cs:'วิ่งหลบสิ่งกีดขวาง', d_sq:'กดค้างเพื่อย่อตัว', lang:'TH'}};
+  window.I18N={lang:localStorage.getItem('lang')||'en',
+    t(k){return (STR[this.lang]&&STR[this.lang][k])||k;},
+    toggle(){this.lang=this.lang==='en'?'th':'en';localStorage.setItem('lang',this.lang);return this.lang;}
+  };
+})();
+</script>
 </head>
 <body>
-  <header>
-    <div class="brand">
-      <svg class="logo" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#69b3ff"/><stop offset="1" stop-color="#8ad1ff"/></linearGradient></defs>
-        <path d="M10,85 L40,15 L70,85" fill="none" stroke="url(#g)" stroke-width="10"/>
-        <path d="M42,20 L64,20 L52,42 L76,42 L34,90 L46,60 L26,60 Z" fill="url(#g)" opacity="0.85"/>
-      </svg>
-      <div class="txt">XR Health Lab — Shadow Breaker</div>
-    </div>
-    <div class="right"><button id="btnLang" class="btn">EN</button></div>
-  </header>
+<header>
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#69b3ff"/><stop offset="1" stop-color="#8ad1ff"/></linearGradient></defs>
+      <path d="M10,85 L40,15 L70,85" fill="none" stroke="url(#g)" stroke-width="10"/>
+      <path d="M42,20 L64,20 L52,42 L76,42 L34,90 L46,60 L26,60 Z" fill="url(#g)" opacity="0.85"/>
+    </svg>
+    <div class="txt">XR Health Lab — Game Hub</div>
+  </div>
+  <div class="right"><button id="btnLang" class="btn">EN</button></div>
+</header>
 
-  <main class="hub">
-    <a class="card" href="play.html?mode=timed&diff=normal">
-      <div class="title" id="m0"></div>
-      <div class="desc" id="d0"></div>
-    </a>
-  </main>
+<main class="hub">
+  <a class="card" href="shadow-breaker/play.html?mode=timed&diff=normal">
+    <div class="title" id="t1"></div><div class="desc" id="d1"></div>
+  </a>
+  <a class="card" href="rhythm-rider/play.html?mode=timed&diff=normal">
+    <div class="title" id="t2"></div><div class="desc" id="d2"></div>
+  </a>
+  <a class="card" href="cardio-sprint/play.html?mode=timed&diff=normal">
+    <div class="title" id="t3"></div><div class="desc" id="d3"></div>
+  </a>
+  <a class="card" href="sky-squats/play.html?mode=timed&diff=normal">
+    <div class="title" id="t4"></div><div class="desc" id="d4"></div>
+  </a>
+</main>
 
-  <footer>
-    <div><strong>XR Health Lab — Shadow Breaker (Advanced)</strong></div>
-    <div>© 2025 Supparang Ruangvanich · Chandrakasem Rajabhat University</div>
-    <div style="opacity:.9">A WebXR Fitness Prototype for Research &amp; Teaching · Powered by A-Frame · GitHub Pages</div>
-  </footer>
+<footer>
+  <div><strong>XR Health Lab — WebXR Fitness Pack</strong></div>
+  <div>© 2025 Supparang Ruangvanich · Chandrakasem Rajabhat University</div>
+  <div style="opacity:.9">A WebXR Fitness Prototype for Research &amp; Teaching</div>
+</footer>
 
-  <script>
-    const $btn=document.getElementById('btnLang');
-    function sync(){ $btn.textContent=I18N.t('lang'); m0.textContent=I18N.t('menu'); d0.textContent=I18N.t('desc'); }
-    $btn.onclick=()=>{ I18N.toggle(); sync(); };
-    sync();
-  </script>
+<script>
+const $btn=document.getElementById('btnLang');
+function sync(){
+  $btn.textContent=I18N.t('lang');
+  t1.textContent=I18N.t('sb'); d1.textContent=I18N.t('d_sb');
+  t2.textContent=I18N.t('rr'); d2.textContent=I18N.t('d_rr');
+  t3.textContent=I18N.t('cs'); d3.textContent=I18N.t('d_cs');
+  t4.textContent=I18N.t('sq'); d4.textContent=I18N.t('d_sq');
+}
+$btn.onclick=()=>{ I18N.toggle(); sync(); };
+sync();
+</script>
 </body>
 </html>
