@@ -5,63 +5,110 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shadow Breaker – Training Hub</title>
   <link rel="stylesheet" href="src/styles.css"/>
+
   <script>
-    let I18N=null, CUR=localStorage.getItem('sb_lang')||'th';
-    const $=id=>document.getElementById(id);
-    const T=(k,def)=> (I18N&&I18N[CUR]&&I18N[CUR][k]) || def || k;
+    // ===== Safe i18n Loader (ทันที, กัน fetch fail, สลับภาษาได้แบบไม่รีเฟรช) =====
+    let I18N = null;
+    let CUR  = localStorage.getItem('sb_lang') || 'th';
+
+    const $ = (id)=>document.getElementById(id);
+    const T = (k, def) => (I18N && I18N[CUR] && I18N[CUR][k]) || def || k;
+
+    // สำรองข้อความขั้นต่ำ ถ้า fetch ไม่ได้
+    const FALLBACK = {
+      th: {
+        title:"SHADOW BREAKER", subtitle:"Neo Anime Tech • Training Hub",
+        training:"ศูนย์ฝึก",
+        modeCombat:"Arcane Combat", modeDash:"Rift Dash", modeImpact:"Impact Breaker", modeFlow:"Spirit Flow",
+        difficulty:"ความยาก", easy:"ง่าย", normal:"ปกติ", hard:"ยาก",
+        map:"แผนที่", mapCity:"นครนีโอ", mapForest:"อารณะโบราณ", mapVoid:"อารีน่าวอยด์",
+        hubTip:"ทิป: ทุกเกมใช้ระบบภาษา i18n จากไฟล์ JSON เดียวกัน",
+        ibModeLabel:"โหมด Impact",
+        ibModeA:"โหมดนับจำนวน", ibModeB:"โหมดจับเวลา", ibModeC:"โหมดบอส", ibModeD:"โหมดไม่สิ้นสุด", ibModeE:"โหมดฟิตเนส"
+      },
+      en: {
+        title:"SHADOW BREAKER", subtitle:"Neo Anime Tech • Training Hub",
+        training:"Training",
+        modeCombat:"Arcane Combat", modeDash:"Rift Dash", modeImpact:"Impact Breaker", modeFlow:"Spirit Flow",
+        difficulty:"Difficulty", easy:"Easy", normal:"Normal", hard:"Hard",
+        map:"Map", mapCity:"Neo City", mapForest:"Ancient Forest", mapVoid:"Void Arena",
+        hubTip:"Tip: All four games use a unified JSON i18n.",
+        ibModeLabel:"Impact Mode",
+        ibModeA:"Count Mode", ibModeB:"Timed Mode", ibModeC:"Boss Mode", ibModeD:"Endless Mode", ibModeE:"Fitness Mode"
+      }
+    };
 
     async function loadI18n(){
       try{
-        const r=await fetch('src/i18n.json',{cache:'no-store'});
-        I18N=await r.json();
-      }catch(e){ I18N=null; }
-      applyTexts();
+        const res = await fetch('src/i18n.json', {cache:'no-store'});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        I18N = await res.json();
+      }catch(err){
+        console.warn('i18n.json โหลดไม่สำเร็จ ใช้ FALLBACK แทน', err);
+        I18N = FALLBACK; // กันหน้าขาว
+      }
+      applyTexts(); // render หลังมี I18N แน่ๆ
     }
-    function setLang(v){ CUR=v; localStorage.setItem('sb_lang',v); applyTexts(); }
+
+    function setLang(v){
+      CUR = v;
+      localStorage.setItem('sb_lang', v);
+      document.documentElement.setAttribute('lang', v); // ให้ <html lang="..."> ตรง
+      applyTexts(); // เปลี่ยนข้อความทันที ไม่ต้องรีเฟรช
+    }
 
     function applyTexts(){
-      $('titleMain').textContent=T('title','SHADOW BREAKER');
-      $('subtitle').textContent=T('subtitle','Neo Anime Tech • Training Hub');
+      // ป้องกันกรณี DOM ยังไม่พร้อม
+      if(!$('titleMain')) return;
 
-      $('lblTraining').textContent=T('training','Training');
-      $('btnCombat').textContent=T('modeCombat','Arcane Combat');
-      $('btnDash').textContent=T('modeDash','Rift Dash');
-      $('btnImpact').textContent=T('modeImpact','Impact Breaker');
-      $('btnFlow').textContent=T('modeFlow','Spirit Flow');
+      // ตั้งค่า UI ตามภาษา
+      $('titleMain').textContent   = T('title','SHADOW BREAKER');
+      $('subtitle').textContent    = T('subtitle','Neo Anime Tech • Training Hub');
 
-      $('lblDiff').textContent=T('difficulty','Difficulty');
-      $('optEasy').textContent=T('easy','Easy');
-      $('optNormal').textContent=T('normal','Normal');
-      $('optHard').textContent=T('hard','Hard');
+      $('lblTraining').textContent = T('training','Training');
+      $('btnCombat').textContent   = T('modeCombat','Arcane Combat');
+      $('btnDash').textContent     = T('modeDash','Rift Dash');
+      $('btnImpact').textContent   = T('modeImpact','Impact Breaker');
+      $('btnFlow').textContent     = T('modeFlow','Spirit Flow');
 
-      $('lblMap').textContent=T('map','Map');
-      $('optCity').textContent=T('mapCity','Neo City');
-      $('optForest').textContent=T('mapForest','Ancient Forest');
-      $('optVoid').textContent=T('mapVoid','Void Arena');
+      $('lblDiff').textContent     = T('difficulty','Difficulty');
+      $('optEasy').textContent     = T('easy','Easy');
+      $('optNormal').textContent   = T('normal','Normal');
+      $('optHard').textContent     = T('hard','Hard');
 
-      // ใหม่: ป้าย Impact Sub-mode + ชื่อแต่ละโหมด
-      $('lblImpactMode').textContent=T('ibModeLabel','Impact Mode');
-      $('optIbCount').textContent=T('ibModeA','Count Mode');
-      $('optIbTimed').textContent=T('ibModeB','Timed Mode');
-      $('optIbBoss').textContent=T('ibModeC','Boss Mode');
-      $('optIbEndless').textContent=T('ibModeD','Endless Mode');
-      $('optIbFitness').textContent=T('ibModeE','Fitness Mode');
+      $('lblMap').textContent      = T('map','Map');
+      $('optCity').textContent     = T('mapCity','Neo City');
+      $('optForest').textContent   = T('mapForest','Ancient Forest');
+      $('optVoid').textContent     = T('mapVoid','Void Arena');
 
-      $('btnTH').textContent='ไทย';
-      $('btnEN').textContent='English';
-      $('tip').textContent=T('hubTip','Tip: All four games use a unified JSON i18n.');
+      $('lblImpactMode').textContent = T('ibModeLabel','Impact Mode');
+      $('optIbCount').textContent    = T('ibModeA','Count Mode');
+      $('optIbTimed').textContent    = T('ibModeB','Timed Mode');
+      $('optIbBoss').textContent     = T('ibModeC','Boss Mode');
+      $('optIbEndless').textContent  = T('ibModeD','Endless Mode');
+      $('optIbFitness').textContent  = T('ibModeE','Fitness Mode');
+
+      $('btnTH').textContent = 'ไทย';
+      $('btnEN').textContent = 'English';
+      $('tip').textContent   = T('hubTip','Tip: All four games use a unified JSON i18n.');
     }
 
     function start(game){
-      const diff=$('selDiff').value;
-      const map=$('selMap').value;
-      const mode='timed';
-      // ถ้าเป็น Impact ให้พ่วง ib= โหมดย่อยที่เลือก
-      const ib = (game==='impact') ? `&ib=${$('selImpactMode').value}` : '';
-      location.href=`play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}${ib}`;
+      const diff = $('selDiff').value;
+      const map  = $('selMap').value;
+      const mode = 'timed';
+      const ib   = (game==='impact') ? `&ib=${$('selImpactMode').value}` : '';
+      location.href = `play.html?game=${game}&mode=${mode}&diff=${diff}&map=${map}${ib}`;
     }
 
-    window.addEventListener('DOMContentLoaded', loadI18n);
+    // บูตเมื่อ DOM พร้อมเท่านั้น
+    window.addEventListener('DOMContentLoaded', ()=>{
+      document.documentElement.setAttribute('lang', CUR);
+      loadI18n();
+      // เผื่อกรณีบาง browser inline onclick ไม่ยิง
+      $('btnTH').addEventListener('click', ()=>setLang('th'));
+      $('btnEN').addEventListener('click', ()=>setLang('en'));
+    });
   </script>
 </head>
 <body>
@@ -84,22 +131,22 @@
         <div>
           <strong id="lblDiff">Difficulty</strong>
           <select id="selDiff" class="btn secondary">
-            <option value="easy" id="optEasy">Easy</option>
+            <option value="easy"   id="optEasy">Easy</option>
             <option value="normal" id="optNormal" selected>Normal</option>
-            <option value="hard" id="optHard">Hard</option>
+            <option value="hard"   id="optHard">Hard</option>
           </select>
         </div>
 
         <div>
           <strong id="lblMap">Map</strong>
           <select id="selMap" class="btn secondary">
-            <option value="city" id="optCity">Neo City</option>
+            <option value="city"   id="optCity">Neo City</option>
             <option value="forest" id="optForest">Ancient Forest</option>
-            <option value="void" id="optVoid">Void Arena</option>
+            <option value="void"   id="optVoid">Void Arena</option>
           </select>
         </div>
 
-        <!-- ใหม่: เลือกโหมดย่อย Impact -->
+        <!-- เลือกโหมดย่อย Impact -->
         <div>
           <strong id="lblImpactMode">Impact Mode</strong>
           <select id="selImpactMode" class="btn secondary">
@@ -112,8 +159,8 @@
         </div>
 
         <div class="row" style="margin-left:auto;gap:6px">
-          <button class="btn secondary" id="btnTH" onclick="setLang('th')">ไทย</button>
-          <button class="btn secondary" id="btnEN" onclick="setLang('en')">English</button>
+          <button class="btn secondary" id="btnTH">ไทย</button>
+          <button class="btn secondary" id="btnEN">English</button>
         </div>
       </div>
 
