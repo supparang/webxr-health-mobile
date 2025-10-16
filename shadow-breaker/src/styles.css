@@ -1,16 +1,13 @@
-/* ===== Base / Hub (คงของเดิมได้) ===== */
 :root{
   --cyan:#8bd8ff; --ink:#0a0f16; --glass:rgba(8,14,22,.72);
-  /* Signature palette (D) */
-  --c-combat:#64d2ff;   --g-combat:#0ae;   --shadow-combat:#001a33;
-  --c-dash:#ff5b5b;     --g-dash:#ff2a2a;  --shadow-dash:#2a0000;
-  --c-impact:#ffb74d;   --g-impact:#ff8c00;--shadow-impact:#3a1a00;
-  --c-flow:#7de38c;     --g-flow:#37d067;  --shadow-flow:#062a12;
+  --c-combat:#64d2ff; --g-combat:#0ae; --shadow-combat:#001a33;
+  --c-dash:#ff5b5b; --g-dash:#ff2a2a; --shadow-dash:#2a0000;
+  --c-impact:#ffb74d; --g-impact:#ff8c00; --shadow-impact:#3a1a00;
+  --c-flow:#7de38c; --g-flow:#37d067; --shadow-flow:#062a12;
 }
 *{box-sizing:border-box}
 body{margin:0;background:#0a0f16;color:#cfefff;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
 
-/* Background with deep neon fog for G5 */
 .hub-bg{
   background:
    radial-gradient(1200px 600px at 50% -10%, rgba(40,80,120,.35), transparent),
@@ -25,7 +22,6 @@ body{margin:0;background:#0a0f16;color:#cfefff;font-family:Inter,system-ui,Segoe
 .btn:hover{filter:brightness(1.12)} .btn.secondary{background:#0c1622}
 .hint{opacity:.75}
 
-/* ===== Tiles Grid ===== */
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .tile{ color:#cfefff; display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
   background:#0f1724;border:1px solid rgba(139,216,255,.18);border-radius:16px;padding:14px 12px;cursor:pointer; text-align:center; position:relative; overflow:hidden;
@@ -36,85 +32,75 @@ body{margin:0;background:#0a0f16;color:#cfefff;font-family:Inter,system-ui,Segoe
 .tile-label{ display:block; margin-top:8px; font-weight:800; letter-spacing:.2px; text-shadow:0 1px 2px rgba(0,0,0,.35); font-size:1.02rem}
 .tile-desc{ display:block; margin-top:4px; opacity:.95; font-size:0.92rem; line-height:1.25; color:#bfe9ff}
 
-/* ===== G5 Hyper Overdrive Glow ===== */
-.title-g5{
-  text-shadow:0 0 12px rgba(120,210,255,.75), 0 0 28px rgba(40,160,255,.45), 0 0 60px rgba(0,120,220,.25);
-}
+/* G5 Hyper Overdrive */
+.title-g5{ text-shadow:0 0 12px rgba(120,210,255,.75), 0 0 28px rgba(40,160,255,.45), 0 0 60px rgba(0,120,220,.25); }
 .subtitle-g5{opacity:.9; text-shadow:0 0 10px rgba(180,120,255,.25)}
-
 .card-g5{
-  box-shadow:
-    inset 0 0 80px rgba(40,120,180,.08),
-    0 0 24px rgba(0,180,255,.12),
-    0 0 60px rgba(255,70,70,.08);
+  box-shadow: inset 0 0 80px rgba(40,120,180,.08), 0 0 24px rgba(0,180,255,.12), 0 0 60px rgba(255,70,70,.08);
   backdrop-filter: blur(6px);
 }
-
-/* generic G5 aura layers */
-.tile-g5::before, .tile-g5::after{
-  content:""; position:absolute; inset:-2px; border-radius:18px; pointer-events:none;
-}
+.tile-g5::before, .tile-g5::after{ content:""; position:absolute; inset:-2px; border-radius:18px; pointer-events:none; }
 .tile-g5::before{
   background: radial-gradient(120px 80px at 50% 10%, rgba(255,255,255,.06), transparent 60%),
               radial-gradient(240px 120px at 50% 120%, rgba(255,255,255,.05), transparent 60%);
   filter: blur(1px);
 }
-.tile-g5::after{ /* neon frame */
-  border:1px solid rgba(139,216,255,.28);
-  box-shadow:0 0 20px rgba(139,216,255,.15), inset 0 0 12px rgba(139,216,255,.1);
-}
+.tile-g5::after{ border:1px solid rgba(139,216,255,.28); box-shadow:0 0 20px rgba(139,216,255,.15), inset 0 0 12px rgba(139,216,255,.1); }
+@keyframes g5Sweep{0%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+.tile-g5 .tile-ico::after{ content:""; position:absolute; top:0; left:-100%; width:40%; height:100%;
+  background:linear-gradient(110deg, transparent 0%, rgba(255,255,255,.18) 45%, transparent 90%); animation:g5Sweep 1.8s linear infinite; mix-blend-mode: screen; }
+@keyframes g5Pulse{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+.tile-g5:hover{ animation:g5Pulse .8s ease-in-out both; filter:saturate(1.2); }
 
-/* energy stripe moving */
-@keyframes g5Sweep{ 0%{transform:translateX(-120%)} 100%{transform:translateX(120%)} }
-.tile-g5 .tile-ico::after{
-  content:""; position:absolute; top:0; left:-100%; width:40%; height:100%;
-  background:linear-gradient(110deg, transparent 0%, rgba(255,255,255,.18) 45%, transparent 90%);
-  animation:g5Sweep 1.8s linear infinite;
-  mix-blend-mode: screen;
-}
-
-/* pulse on hover */
-@keyframes g5Pulse{ 0%{transform:scale(1)} 50%{transform:scale(1.02)} 100%{transform:scale(1)} }
-.tile-g5:hover{ animation:g5Pulse .8s ease-in-out both; filter: saturate(1.2); }
-
-/* ===== Per-game Aura (Theme D) ===== */
-.ico-combat{ background:
-  radial-gradient(70px 60px at 50% 40%, rgba(100,210,255,.38), transparent 70%),
-  radial-gradient(140px 100px at 50% 120%, rgba(0,26,51,.85), transparent 70%);
-  box-shadow: inset 0 0 28px rgba(100,210,255,.35), 0 0 24px rgba(0,170,238,.35);
-}
+/* Per-game Aura (Theme D) */
+.ico-combat{ background: radial-gradient(70px 60px at 50% 40%, rgba(100,210,255,.38), transparent 70%), radial-gradient(140px 100px at 50% 120%, rgba(0,26,51,.85), transparent 70%); box-shadow: inset 0 0 28px rgba(100,210,255,.35), 0 0 24px rgba(0,170,238,.35); }
 .tile-combat{ border-color: rgba(100,210,255,.28); box-shadow: 0 0 22px rgba(0,170,238,.18) }
 .tile-combat:hover{ box-shadow: 0 0 30px rgba(0,170,238,.35) }
 .tile-combat::after{ border-color: rgba(100,210,255,.5); box-shadow: 0 0 34px rgba(0,170,238,.4), inset 0 0 16px rgba(0,170,238,.25) }
 
-.ico-dash{ background:
-  radial-gradient(70px 60px at 50% 40%, rgba(255,90,90,.40), transparent 70%),
-  radial-gradient(140px 100px at 50% 120%, rgba(42,0,0,.85), transparent 70%);
-  box-shadow: inset 0 0 28px rgba(255,70,70,.36), 0 0 24px rgba(255,42,42,.32);
-}
+.ico-dash{ background: radial-gradient(70px 60px at 50% 40%, rgba(255,90,90,.40), transparent 70%), radial-gradient(140px 100px at 50% 120%, rgba(42,0,0,.85), transparent 70%); box-shadow: inset 0 0 28px rgba(255,70,70,.36), 0 0 24px rgba(255,42,42,.32); }
 .tile-dash{ border-color: rgba(255,90,90,.28); box-shadow: 0 0 22px rgba(255,42,42,.18) }
 .tile-dash:hover{ box-shadow: 0 0 30px rgba(255,42,42,.38) }
 .tile-dash::after{ border-color: rgba(255,90,90,.5); box-shadow: 0 0 34px rgba(255,42,42,.42), inset 0 0 16px rgba(255,42,42,.25) }
 
-.ico-impact{ background:
-  radial-gradient(70px 60px at 50% 40%, rgba(255,183,77,.42), transparent 70%),
-  radial-gradient(140px 100px at 50% 120%, rgba(58,26,0,.85), transparent 70%);
-  box-shadow: inset 0 0 28px rgba(255,140,0,.36), 0 0 24px rgba(255,120,0,.30);
-}
+.ico-impact{ background: radial-gradient(70px 60px at 50% 40%, rgba(255,183,77,.42), transparent 70%), radial-gradient(140px 100px at 50% 120%, rgba(58,26,0,.85), transparent 70%); box-shadow: inset 0 0 28px rgba(255,140,0,.36), 0 0 24px rgba(255,120,0,.30); }
 .tile-impact{ border-color: rgba(255,183,77,.30); box-shadow: 0 0 22px rgba(255,140,0,.18) }
 .tile-impact:hover{ box-shadow: 0 0 30px rgba(255,140,0,.38) }
 .tile-impact::after{ border-color: rgba(255,183,77,.55); box-shadow: 0 0 34px rgba(255,140,0,.42), inset 0 0 16px rgba(255,120,0,.25) }
 
-.ico-flow{ background:
-  radial-gradient(70px 60px at 50% 40%, rgba(125,227,140,.40), transparent 70%),
-  radial-gradient(140px 100px at 50% 120%, rgba(6,42,18,.85), transparent 70%);
-  box-shadow: inset 0 0 28px rgba(55,208,103,.36), 0 0 24px rgba(40,190,90,.32);
-}
+.ico-flow{ background: radial-gradient(70px 60px at 50% 40%, rgba(125,227,140,.40), transparent 70%), radial-gradient(140px 100px at 50% 120%, rgba(6,42,18,.85), transparent 70%); box-shadow: inset 0 0 28px rgba(55,208,103,.36), 0 0 24px rgba(40,190,90,.32); }
 .tile-flow{ border-color: rgba(125,227,140,.30); box-shadow: 0 0 22px rgba(55,208,103,.18) }
 .tile-flow:hover{ box-shadow: 0 0 30px rgba(55,208,103,.38) }
 .tile-flow::after{ border-color: rgba(125,227,140,.55); box-shadow: 0 0 34px rgba(55,208,103,.42), inset 0 0 16px rgba(55,208,103,.25) }
 
-/* ===== Form bits ===== */
-.row.space{justify-content:space-between}
+/* HUD */
+.hud{position:fixed;left:0;top:0;right:0;display:flex;gap:6px;padding:8px;z-index:10000;pointer-events:none}
+.hud.bottom{top:auto;bottom:0;justify-content:space-between}
+.badge{background:rgba(0,10,20,.65);border:1px solid rgba(139,216,255,.25);padding:6px 10px;border-radius:12px;font-weight:600;pointer-events:none}
+.badge.interactive{pointer-events:auto}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:14%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.15);padding:8px 12px;border-radius:12px;display:none;z-index:10005}
+#objective{position:fixed;left:50%;transform:translateX(-50%);top:8%;z-index:10005;opacity:.9}
+
+/* Bars */
+#overloadBarWrap{position:fixed;left:50%;transform:translateX(-50%);bottom:6%;width:60%;height:14px;background:rgba(0,0,0,.5);border:1px solid rgba(255,90,90,.18);border-radius:12px;overflow:hidden;z-index:10003}
+#overloadBarFill{height:100%;width:0;background:linear-gradient(90deg,#5cf,#f66);transition:width .15s}
+#overloadBarText{position:absolute;left:50%;transform:translateX(-50%);top:-22px;font-weight:700;letter-spacing:.2px}
+#overloadBarWrap.danger{box-shadow:0 0 12px rgba(255,190,100,.35)}
+#overloadBarWrap.critical{box-shadow:0 0 16px rgba(255,120,120,.55)}
+#overloadBarWrap.z2{box-shadow:0 0 20px rgba(255,80,80,.9)}
+#hpBarWrap{position:fixed;left:20px;bottom:6%;width:200px;height:10px;background:rgba(0,0,0,.5);border:1px solid rgba(139,216,255,.25);border-radius:10px;overflow:hidden;z-index:10003}
+#hpBarFill{height:100%;width:100%;background:linear-gradient(90deg,#6cf,#3af)}
+
+/* Dash warnings */
+.warn-wrap{position:fixed;left:50%;transform:translateX(-50%);top:12%;z-index:10020;pointer-events:none;width:520px;display:flex;justify-content:space-between;opacity:.95}
+.warn-arrow{font-weight:800;border:2px solid #8bd8ff;background:rgba(0,10,20,.65);padding:6px 10px;border-radius:12px;box-shadow:0 0 12px rgba(100,200,255,.35)}
+.warn-arrow.flash{animation:warnPulse .6s ease-in-out infinite}
+@keyframes warnPulse{0%{filter:brightness(1)}50%{filter:brightness(1.6)}100%{filter:brightness(1)}}
+.warn-mid{position:fixed;left:50%;transform:translateX(-50%);top:18%;z-index:10020}
+.warn-mid .warn-arrow{border-color:#ff8b8b}
+
+/* Anti-hide for HUD time (กันโดนธีมอื่นปิด) */
+#hudTime{display:inline-flex!important;visibility:visible!important}
+
 @media (max-width:1100px){ .grid4{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:560px){ .grid4{grid-template-columns:1fr} .tile-ico{height:72px} }
