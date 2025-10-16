@@ -1,14 +1,35 @@
 /* Shadow Breaker – Mixed Signature Fitness Build (G5 Glow)
    Components: A-Frame runtime for 4 games (combat/dash/impact/flow)
-   Updates:
-   - SAFE-BOOT: ต่อให้ i18n ล้มเหลว เกมก็เริ่มแน่
-   - Default mode 'timed' so time always shows & decrements
-   - HUD time forced visible (anti-hide by page CSS)
-   - Arcane Combat: Multi-Gate boss spawn (Score OR Kills OR Assist), Safety Gate
-   - Boss Debug HUD (shows S/K/A gates live) + Force Boss (press B)
+   Emergency + Gameplay Updates:
+   - ERROR OVERLAY: โชว์ error ด้านซ้ายบน ถ้าโค้ด/ไฟล์มีปัญหา
+   - SANITY CUBE: กล่องหมุน 10 วินาทีแรก ยืนยันว่าฉากเรนเดอร์/อนิเมต
+   - WATCHDOG SPAWNER: ถ้าระบบสปอว์นเงียบ จะบังคับสปอว์นให้เอง
+   - SAFE-BOOT i18n: ต่อให้โหลด i18n ไม่ได้ เกมก็เริ่มแน่
+   - Default mode 'timed' ให้เวลาแสดง/เดินแน่นอน
+   - Arcane Combat: Multi-Gate boss spawn (Score OR Kills OR Assist) + Safety Gate
+   - Boss Debug HUD (S/K/A) + Force Boss (กด B)
    - Fitness (calories + level), Daily quests
 */
 (function(){
+
+  // ===== Emergency Error Overlay =====
+  (function(){
+    if (window.__SB_ERR_OVERLAY__) return;
+    window.__SB_ERR_OVERLAY__ = true;
+    const box = document.createElement('div');
+    Object.assign(box.style, {
+      position:'fixed', left:'10px', top:'10px', zIndex: 100000,
+      maxWidth:'70vw', background:'rgba(180,20,20,.92)',
+      color:'#fff', padding:'10px 12px', borderRadius:'8px',
+      font:'12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace',
+      display:'none', whiteSpace:'pre-wrap'
+    });
+    document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(box));
+    function show(msg){ box.textContent = 'ERROR: ' + msg; box.style.display='block'; }
+    window.addEventListener('error', (e)=>{ show(e.message || String(e.error||'unknown')); });
+    window.addEventListener('unhandledrejection', (e)=>{ show((e.reason && e.reason.message) || String(e.reason)); });
+  })();
+
   // ---------- helpers ----------
   const $  =(id)=>document.getElementById(id);
   const qs =(sel)=>document.querySelector(sel);
@@ -132,8 +153,25 @@
         // อัปเดต HUD เพื่อให้เห็นว่าระบบติดขึ้น
         this.updateHUD(); this.updateObjective();
 
-        // รอ scene โหลดก่อนค่อยสตาร์ท (กัน renderer มาช้า)
-        const startNow = ()=>{ this.startGame(); if(this.game==='combat') this.showCombatTutorial(); };
+        // รอ scene โหลดก่อนค่อยสตาร์ท + SANITY CUBE
+        const startNow = ()=>{
+          this.startGame();
+          // SANITY CUBE: ถ้าฉากเรนเดอร์อยู่ จะเห็นกล่องหมุน 10 วิ
+          try{
+            const scn = this.el && this.el.sceneEl;
+            if (scn) {
+              const cube = document.createElement('a-entity');
+              cube.setAttribute('geometry','primitive: box; depth:0.25; height:0.25; width:0.25');
+              cube.setAttribute('material','color:#7cf; emissive:#39c5bb');
+              cube.setAttribute('position',{x:-0.9,y:1.1,z:-2.2});
+              cube.setAttribute('animation__rot','property: rotation; to:0 360 0; loop:true; dur:4000; easing:linear');
+              scn.appendChild(cube);
+              setTimeout(()=>{ try{ cube.remove(); }catch(_){ } }, 10000);
+            }
+          }catch(_){}
+          if(this.game==='combat') this.showCombatTutorial();
+        };
+
         if (this.el && this.el.sceneEl && !this.el.sceneEl.hasLoaded) {
           this.el.sceneEl.addEventListener('loaded', startNow, {once:true});
         } else {
@@ -279,6 +317,26 @@
       if(this.game==='flow')   this.tickFlow(now,dt);
 
       this.updateHUD();
+
+      // ---- WATCHDOG: บังคับสปอว์นเมื่อเกมนิ่งผิดปกติ ----
+      try{
+        if(this.game==='combat' && this.st.playing){
+          const hasTargets = document.querySelectorAll('.clickable').length;
+          // ถ้าไม่มีเป้าเลย และเวลาวิ่ง > 3 วินาที นับว่าแปลก → บังคับสปอว์น
+          if(!hasTargets && (this.mode!=='timed' || this.st.timeLeft < (this.cfg.timedSec||60) - 3)){
+            this.st.spawnTimer = performance.now() - (this.st.spawnEveryMs + 10);
+            this.spawnTarget();
+          }
+        }
+        if(this.game==='dash' && this.st.playing){
+          const hasHaz = document.querySelectorAll('.hazard').length;
+          if(!hasHaz) this.spawnDashObstacle(performance.now());
+        }
+        if(this.game==='impact' && this.st.playing && !document.querySelector('.impact-core') && !this.st.bossAlive){
+          this._impactAlive=false; this.spawnImpactCore();
+        }
+      }catch(_){}
+
       if((this.st.hp||0)<=0) this.endGame();
     },
 
@@ -334,7 +392,7 @@
         const add=120+(this.st.combo-1)*12;
         this.st.score+=add; this.st.arcane=Math.min(100,this.st.arcane+3);
         this.st.overload=Math.min(130,this.st.overload+0.9); this.st.idleTimer=0;
-        this.st.kills++; // << สำคัญ
+        this.st.kills++; // สำคัญ: นับเป้าที่ยิงโดน
         if(this.st.boss){ this.damageBoss(3); }
         SFX.hit(); e.remove(); this.updateHUD();
       });
