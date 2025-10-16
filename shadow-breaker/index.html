@@ -1,83 +1,73 @@
 <!doctype html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Shadow Breaker — Neo Fitness Pack</title>
-  <link rel="stylesheet" href="src/styles.css"/>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <title>XR Health Lab — Game Hub</title>
   <style>
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1100px;margin:28px auto;padding:0 12px}
-    .card{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px}
-    .card h3{margin:.2rem 0 .4rem 0}
-    .card p{opacity:.9;margin:.2rem 0 .6rem 0}
-    .btn{display:inline-block;background:#0aa6ff;border:0;color:#001018;font-weight:800;padding:8px 12px;border-radius:10px;text-decoration:none}
-    .langbar{display:flex;gap:8px;justify-content:center;margin:10px 0}
-    .title{margin:18px 0 8px 0;text-align:center}
-    .subtitle{text-align:center;opacity:.9;margin-bottom:6px}
+    :root{
+      --bg:#0a0e18; --panel:#0e1424; --line:#112848;
+      --text:#e6f2ff; --muted:#a7c5ff; --accent:#69b3ff; --accent2:#8ad1ff;
+    }
+    html,body{margin:0;padding:0;height:100%;font-family:system-ui,Segoe UI,Roboto,Arial;
+      background:radial-gradient(1200px 600px at 70% -10%,rgba(138,209,255,.12),transparent),linear-gradient(180deg,#081022,#0a0e18);color:var(--text)}
+    a{color:inherit}
+    header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(17,40,72,.4),rgba(17,40,72,.1));backdrop-filter:blur(6px)}
+    .brand{display:flex;gap:10px;align-items:center;font-weight:800;letter-spacing:.02em}
+    .brand .txt{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 24px rgba(138,209,255,.35),0 0 60px rgba(105,179,255,.25)}
+    .logo{width:34px;height:34px}
+    .hub{display:grid;gap:14px;max-width:840px;margin:28px auto;padding:0 16px}
+    .card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px 16px;text-decoration:none;box-shadow:0 0 24px rgba(138,209,255,.2)}
+    .card .title{font-weight:700;font-size:1.12rem}
+    .card .desc{opacity:.85}
+    .btn{pointer-events:auto;border:1px solid var(--line);background:linear-gradient(180deg,rgba(138,209,255,.12),rgba(138,209,255,.05));
+      padding:.35rem .7rem;border-radius:.6rem;color:var(--text)}
+    footer{position:fixed;left:0;right:0;bottom:0;padding:10px 12px;text-align:center;font:12px/1.35 system-ui;color:var(--muted);
+      background:linear-gradient(180deg,transparent,rgba(8,16,32,.65))}
   </style>
+  <script>
+    // ultra-light i18n
+    (function(){
+      const STR={en:{menu:'Shadow Breaker',desc:'Futuristic Training · Neon Combat',lang:'EN'},
+                 th:{menu:'Shadow Breaker',desc:'ฝึกต่อสู้ล้ำอนาคต · นีออนคอมแบต',lang:'TH'}};
+      window.I18N={lang:localStorage.getItem('lang')||'en',
+        t(k){return (STR[this.lang]&&STR[this.lang][k])||k;},
+        toggle(){this.lang=this.lang==='en'?'th':'en';localStorage.setItem('lang',this.lang);return this.lang;}
+      };
+    })();
+  </script>
 </head>
 <body>
-  <div class="title">
-    <h1>Shadow Breaker – Hyper Neo Tech Fitness</h1>
-    <div class="subtitle" id="subTitle">เลือกเกมออกกำลังกาย 4 แบบ (เดสก์ท็อป/VR)</div>
-    <div class="langbar">
-      <button id="btnTH" class="mini">ไทย</button>
-      <button id="btnEN" class="mini">English</button>
+  <header>
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#69b3ff"/><stop offset="1" stop-color="#8ad1ff"/></linearGradient></defs>
+        <path d="M10,85 L40,15 L70,85" fill="none" stroke="url(#g)" stroke-width="10"/>
+        <path d="M42,20 L64,20 L52,42 L76,42 L34,90 L46,60 L26,60 Z" fill="url(#g)" opacity="0.85"/>
+      </svg>
+      <div class="txt">XR Health Lab — Shadow Breaker</div>
     </div>
-  </div>
+    <div class="right"><button id="btnLang" class="btn">EN</button></div>
+  </header>
 
-  <div class="grid" id="gridGames">
-    <div class="card">
-      <h3 id="g1t">Arcane Combat</h3>
-      <p id="g1d">ยิงเป้า เก็บคอมโบ เรียกบอส</p>
-      <a class="btn" href="play.html?game=combat&mode=timed&diff=normal" id="g1b">เริ่ม</a>
-    </div>
-    <div class="card">
-      <h3 id="g2t">Rift Dash</h3>
-      <p id="g2d">กระโดด/หมอบ/เบี่ยงตัว หลบอุปสรรค</p>
-      <a class="btn" href="play.html?game=dash&mode=timed&diff=normal" id="g2b">เริ่ม</a>
-    </div>
-    <div class="card">
-      <h3 id="g3t">Impact Breaker</h3>
-      <p id="g3d">ชาร์จ–ปล่อยพลัง ทำลายแกนพลังงาน</p>
-      <a class="btn" href="play.html?game=impact&ib=count&mode=timed" id="g3b">เริ่ม</a>
-    </div>
-    <div class="card">
-      <h3 id="g4t">Rhythm Flow</h3>
-      <p id="g4d">กด A/S/D ตามจังหวะ</p>
-      <a class="btn" href="play.html?game=flow&mode=timed" id="g4b">เริ่ม</a>
-    </div>
-  </div>
+  <main class="hub">
+    <a class="card" href="shadow-breaker/play.html?mode=timed&diff=normal">
+      <div class="title" id="m0"></div>
+      <div class="desc" id="d0"></div>
+    </a>
+  </main>
+
+  <footer>
+    <div><strong>XR Health Lab — Shadow Breaker (Advanced)</strong></div>
+    <div>© 2025 Supparang Ruangvanich · Chandrakasem Rajabhat University</div>
+    <div style="opacity:.9">A WebXR Fitness Prototype for Research &amp; Teaching · Powered by A-Frame · GitHub Pages</div>
+  </footer>
 
   <script>
-    const I18N = {
-      th:{
-        sub:'เลือกเกมออกกำลังกาย 4 แบบ (เดสก์ท็อป/VR)',
-        g1t:'Arcane Combat', g1d:'ยิงเป้า เก็บคอมโบ เรียกบอส', g1b:'เริ่ม',
-        g2t:'Rift Dash', g2d:'กระโดด/หมอบ/เบี่ยงตัว หลบอุปสรรค', g2b:'เริ่ม',
-        g3t:'Impact Breaker', g3d:'ชาร์จ–ปล่อยพลัง ทำลายแกนพลังงาน', g3b:'เริ่ม',
-        g4t:'Rhythm Flow', g4d:'กด A/S/D ตามจังหวะ', g4b:'เริ่ม'
-      },
-      en:{
-        sub:'Pick 4 fitness games (Desktop / VR)',
-        g1t:'Arcane Combat', g1d:'Pop targets, build combo, summon boss', g1b:'Play',
-        g2t:'Rift Dash', g2d:'Jump / Duck / Strafe to avoid hazards', g2b:'Play',
-        g3t:'Impact Breaker', g3d:'Charge and release to break cores', g3b:'Play',
-        g4t:'Rhythm Flow', g4d:'Hit A / S / D on beat', g4b:'Play'
-      }
-    };
-    function applyLang(v){
-      localStorage.setItem('sb_lang', v);
-      const d=I18N[v]||I18N.th;
-      subTitle.textContent=d.sub;
-      g1t.textContent=d.g1t; g1d.textContent=d.g1d; g1b.textContent=d.g1b;
-      g2t.textContent=d.g2t; g2d.textContent=d.g2d; g2b.textContent=d.g2b;
-      g3t.textContent=d.g3t; g3d.textContent=d.g3d; g3b.textContent=d.g3b;
-      g4t.textContent=d.g4t; g4d.textContent=d.g4d; g4b.textContent=d.g4b;
-    }
-    const cur = localStorage.getItem('sb_lang')||'th'; applyLang(cur);
-    btnTH.onclick=()=>applyLang('th'); btnEN.onclick=()=>applyLang('en');
+    const $btn=document.getElementById('btnLang');
+    function sync(){ $btn.textContent=I18N.t('lang'); m0.textContent=I18N.t('menu'); d0.textContent=I18N.t('desc'); }
+    $btn.onclick=()=>{ I18N.toggle(); sync(); };
+    sync();
   </script>
 </body>
 </html>
