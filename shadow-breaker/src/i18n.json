@@ -51,19 +51,18 @@
 
     "hubTip": "ทิป: ทุกเกมใช้ระบบภาษา i18n เดียวผ่าน JSON"
   },
-
   "en": {
     "title": "SHADOW BREAKER",
     "subtitle": "Neo Anime Tech • Training Hub",
     "training": "Training",
     "modeCombat": "Arcane Combat",
-    "modeCombatDesc": "Shadow sorcery marksmanship—shatter targets with cursed energy.",
+    "modeCombatDesc": "Shadow sorcery—shatter targets with cursed energy.",
     "modeDash": "Rift Dash",
-    "modeDashDesc": "Break through laser walls—survive the dimensional rift.",
+    "modeDashDesc": "Break through laser walls—survive the rift.",
     "modeImpact": "Impact Breaker",
     "modeImpactDesc": "Charge your fist and break the limit.",
     "modeFlow": "Spirit Flow",
-    "modeFlowDesc": "Control breathing—flow with spirit and rhythm.",
+    "modeFlowDesc": "Breathe with the beat—body and spirit as one.",
 
     "difficulty": "Difficulty",
     "easy": "Easy",
@@ -84,7 +83,7 @@
 
     "objectiveCombat": "Reach 400 points to summon the mini boss.",
     "objectiveDash": "Use arrow keys to dodge obstacles.",
-    "objectiveImpact": "Hold to charge, release to strike the energy core.",
+    "objectiveImpact": "Hold to charge, release to strike the core.",
     "objectiveFlow": "Press keys with rhythm to build combo.",
 
     "back": "Back",
