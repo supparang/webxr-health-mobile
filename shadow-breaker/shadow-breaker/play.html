@@ -56,15 +56,14 @@
     <a-entity combat-game></a-entity>
     <a-entity combat-input></a-entity>
 
-    <!-- Camera rig + sky (ให้เห็นฉากแน่นอน) -->
-<a-entity id="rig" position="0 1.6 0">
-  <a-entity camera look-controls wasd-controls></a-entity>
-</a-entity>
-<a-sky color="#0b1120"></a-sky>
-
+    <!-- ✅ Camera rig + sky เพื่อให้เห็นฉากแน่นอน -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity camera look-controls wasd-controls></a-entity>
+    </a-entity>
+    <a-sky color="#0b1120"></a-sky>
   </a-scene>
 
-  <!-- ✅ EXO Start Hotfix: บังคับมีปุ่ม START เสมอ + Tutorial/Try Hit -->
+  <!-- ✅ EXO Start Hotfix + Tutorial/Try Hit -->
   <script>
   (function (w){
     w.EXO = w.EXO || {};
@@ -151,7 +150,7 @@
   })(window);
   </script>
 
-  <!-- GAME SCRIPT (Elite Punch + Tutorial/Practice) -->
+  <!-- 🎮 GAME SCRIPT (Elite Punch + Tutorial/Practice + Safety Spawner) -->
   <script>
   AFRAME.registerComponent('combat-game',{
     init(){
@@ -184,13 +183,19 @@
         {n:6,lanes:['L','L','R','R','L','R'],jitter:40}
       ];
       this._patternQueue=[];
+
       // coach voice
       this.coach=(line)=>{ try{ if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(line); u.lang='en-US'; u.rate=1; speechSynthesis.speak(u);} }catch(e){} };
+
       // expose to hotfix
       window.__startGame = ()=>this.start();
       window.__startPractice = ()=>this.startPractice();
+
       // Start overlay
-      EXO_safeStart(()=>this.start(), this.ui.overlay, { title:'Combat Reflex — Elite Punch Protocol', note:`Diff: ${this.diff} · Time: ${this.totalTime}s` });
+      EXO_safeStart(()=>this.start(), this.ui.overlay, {
+        title:'Combat Reflex — Elite Punch Protocol',
+        note:`Diff: ${this.diff} · Time: ${this.totalTime}s`
+      });
     },
 
     /* ===== Practice ===== */
@@ -220,11 +225,28 @@
     start(){
       const s=this.state; s.practice=false; s.running=true;
       s.time=this.totalTime; s.score=0; s.combo=0; s.maxCombo=0; s.hit=0; s.miss=0; s.fever=0; s.feverOn=false;
+      s.lastSpawn = 0; // ✅ รีเซ็ตสปอว์น
       this.pickMission(); this.refreshUI(); this.clearTimers();
+
+      // เดินเวลา
       this.timer=setInterval(()=>{ if(!s.running) return; s.time--; this.ui.time.textContent=s.time; if(s.time<=0) this.end(); },1000);
+
+      // Rush รอบแรก
       this.nextRushAt=performance.now()+6000;
+
+      // ✅ SAFETY SPAWNER : บังคับมีเป้าเสมอถ้า tick ไม่วิ่ง/ไม่มีเป้า
+      this.spawnGuard = setInterval(()=>{
+        if(!this.state.running) return;
+        const hasNote = document.querySelector('.note');
+        if(!hasNote && (performance.now() - this.state.lastSpawn > 450)){
+          const lane=(Math.random()<0.5)?'L':'R';
+          this.spawnTarget(lane, this.rollType());
+          this.state.lastSpawn = performance.now();
+        }
+      }, 400);
     },
     clearTimers(){ clearInterval(this.timer); clearInterval(this.practiceTimer); },
+    stopGuards(){ clearInterval(this.spawnGuard); },
 
     tick(t,dt){
       const s=this.state;
@@ -233,25 +255,32 @@
       this.dd.tickDecay(dt); this.fv.tick(dt);
       this.ui.fever.style.width=Math.min(100,s.fever|0)+'%';
       const now=performance.now();
+
       // Rush phase
       if(!s.rush && now>=this.nextRushAt){ s.rush=true; s.rushUntil=now+7000; this.flashScreen('#60a5fa'); this.coach('RUSH PHASE!'); }
       if(s.rush && now>=s.rushUntil){ s.rush=false; this.nextRushAt=now+18000; }
-      // Spawn
+
+      // Spawn cadence
       const dynIv=this.dd.getSpawnIv?this.dd.getSpawnIv():null;
       let baseIv=dynIv||s.spawnIvBase; baseIv -= Math.min(120, s.combo*2); if(s.rush) baseIv*=0.7;
       const spawnIv=Math.max(220, baseIv);
+
       if(this._patternQueue.length){
-        const top=this._patternQueue[0], now2=performance.now();
-        if(now2>=top.next){ this.spawnTarget(top.laneSeq[top.i%top.laneSeq.length], top.type); top.i++; if(top.i>=top.n){ this._patternQueue.shift(); } else { top.next=now2+top.step+(top.jitter?(Math.random()*top.jitter|0):0);} }
+        const top=this._patternQueue[0];
+        if(now>=top.next){
+          this.spawnTarget(top.laneSeq[top.i%top.laneSeq.length], top.type);
+          top.i++; if(top.i>=top.n){ this._patternQueue.shift(); }
+          else { top.next=now+top.step+(top.jitter?(Math.random()*top.jitter|0):0); }
+        }
         this.updateMissionTimer(dt); return;
       }
-      if(performance.now()-s.lastSpawn>=spawnIv){
-        s.lastSpawn=performance.now();
+      if(now - s.lastSpawn >= spawnIv){
+        s.lastSpawn = now;
         if(Math.random()<0.35){
           const p=this.patterns[(Math.random()*this.patterns.length)|0];
           const type=this.rollType(); const step=Math.max(160, spawnIv*0.5);
           const lanes=[]; for(let i=0;i<p.n;i++) lanes.push(p.lanes[i%p.lanes.length]);
-          this._patternQueue.push({i:0,n:p.n,step,jitter:p.jitter,laneSeq:lanes,type,next:performance.now()});
+          this._patternQueue.push({i:0,n:p.n,step,jitter:p.jitter,laneSeq:lanes,type,next:now});
           this.spawnTarget(lanes[0], type);
         }else{
           const lane=(Math.random()<0.5)?'L':'R'; this.spawnTarget(lane, this.rollType());
@@ -266,18 +295,23 @@
       const x=this.lanes[lane], y=1.25, zStart=-3.8;
       const speedMul=(this.dd.getSpeedMul?this.dd.getSpeedMul():1)*(this.state.rush?1.15:1);
       const dur=Math.max(900, 2000/speedMul);
+
       const el=document.createElement('a-box'); el.setAttribute('width','0.35'); el.setAttribute('height','0.35'); el.setAttribute('depth','0.35');
       el.setAttribute('position',`${x} ${y} ${zStart}`); el.classList.add('note'); el.dataset.lane=lane; el.dataset.type=type;
       el.setAttribute('color', type==='golden'?'#fbbf24': type==='bomb'?'#ef4444': type==='armored'?'#60a5fa': type==='timeorb'?'#34d399':'#29b6f6');
       this.el.sceneEl.appendChild(el);
       el.setAttribute('animation__move',{property:'position', to:`${x} ${y} -0.2`, dur, easing:'linear'});
+
       // trail
       const trail=document.createElement('a-ring'); trail.setAttribute('radius-inner','0.02'); trail.setAttribute('radius-outer','0.04'); trail.setAttribute('color','#93c5fd'); trail.setAttribute('position',`${x} ${y} ${zStart}`);
       this.el.sceneEl.appendChild(trail);
       trail.setAttribute('animation',{property:'position', to:`${x} ${y} -0.2`, dur, easing:'linear'});
       trail.setAttribute('animation__fade',{property:'opacity', to:0, dur:dur, easing:'easeOutQuad'});
       setTimeout(()=>{ trail.remove(); }, dur+40);
+
       if(type==='armored') this.state.hpTap[el.object3D.uuid]=2;
+
+      // miss timeout
       setTimeout(()=>{ if(!el.parentNode) return; if(!this.state.practice){ this.onMiss(); } el.remove(); }, dur+60);
     },
 
@@ -294,6 +328,7 @@
         if(this.state.practiceHits>=3){ this.finishPractice(); }
         return;
       }
+
       // Armored
       if(type==='armored'){
         const id=best.object3D.uuid; const hp=(this.state.hpTap[id]||2)-1; this.state.hpTap[id]=hp;
@@ -316,11 +351,13 @@
       let q='okay'; if(dist<=0.06) q='perfect'; else if(dist<=0.14) q='good';
       const base={perfect:190,good:130,okay:85}[q]; const bonus=(type==='golden')?120:0; let plus=base+bonus;
       if(this.state.rush) plus=Math.round(plus*1.1);
+
       // Fever
       if(!this.state.feverOn){
         this.state.fever=Math.min(100, this.state.fever + (q==='perfect'?3:q==='good'?2:1));
         if(this.state.fever>=100){ this.state.feverOn=true; this.flashScreen('#fb923c'); this.coach('OVERDRIVE!'); setTimeout(()=>{ this.state.feverOn=false; this.state.fever=0; },7000); }
       }
+
       this.addScore(this.fv.mulScore?this.fv.mulScore(plus):plus);
       this.state.combo++; this.state.maxCombo=Math.max(this.state.maxCombo,this.state.combo);
       this.state.hit++; this.dd.onHit?.(); this.fv.hit?.();
@@ -345,7 +382,7 @@
     // FX
     shake(mult=0.6){ const s=document.querySelector('a-scene'); if(!s) return; const o=s.object3D.position.clone(); let t=0; const id=setInterval(()=>{ t++; s.object3D.position.x=(Math.random()-0.5)*0.02*mult; s.object3D.position.y=(Math.random()-0.5)*0.02*mult; if(t>10){ clearInterval(id); s.object3D.position.copy(o);} },16); },
     hitSpark(el,color='#fff'){ try{ const p=el.getAttribute('position'); const sp=document.createElement('a-sphere'); sp.setAttribute('radius','0.06'); sp.setAttribute('color',color); sp.setAttribute('position',`${p.x} ${p.y} -0.18`); sp.setAttribute('opacity','0.9'); this.el.sceneEl.appendChild(sp); sp.setAttribute('animation__grow',{property:'scale',to:'1.8 1.8 1.8',dur:120,easing:'easeOutCubic'}); sp.setAttribute('animation__fade',{property:'opacity',to:0,dur:160,easing:'linear'}); setTimeout(()=>{sp.remove();},200);}catch(e){} },
-    flashScreen(color='#fff'){ const ov=this.ui.overlay, pn=this.ui.panel, prev=pv=pn.innerHTML; ov.style.display='flex'; pn.innerHTML=`<div style="width:220px;height:120px;background:${color};opacity:.22;border-radius:12px"></div>`; setTimeout(()=>{ ov.style.display='none'; pn.innerHTML=prev; },90); },
+    flashScreen(color='#fff'){ const ov=this.ui.overlay, pn=this.ui.panel; const prev = pn.innerHTML; ov.style.display='flex'; pn.innerHTML=`<div style="width:220px;height:120px;background:${color};opacity:.22;border-radius:12px"></div>`; setTimeout(()=>{ ov.style.display='none'; pn.innerHTML=prev; },90); },
 
     // Mission
     missionDefs:[
@@ -359,7 +396,7 @@
     updateMissionOn(evt,quality){ const m=this.state.mission; if(!m || this.state.missionOk) return; if(m.id==='combo'){ this.state.missionProg=Math.max(this.state.missionProg,this.state.combo); } else if(m.id==='perfects'){ if(evt==='hit' && quality==='perfect') this.state.missionProg++; } else if(m.id==='score'){ this.state.missionProg=this.state.score; } else if(m.id==='streak'){ if(evt==='miss') this._streakClock=0; } if(!this.state.missionOk){ if((m.id==='combo'&&this.state.missionProg>=m.need)||(m.id==='perfects'&&this.state.missionProg>=m.need)||(m.id==='score'&&this.state.missionProg>=m.need)){ this.state.missionOk=true; this.flashScreen('#10b981'); this.addScore(400);} } this.refreshUI(); },
 
     end(){
-      this.state.running=false; this.clearTimers();
+      this.state.running=false; this.clearTimers(); this.stopGuards();
       const p=this.ui.panel, o=this.ui.overlay;
       const tot=this.state.hit+this.state.miss; const acc=tot?Math.round(this.state.hit*1000/tot)/10:0;
       const rank=(acc>=95 && this.state.maxCombo>=40)?'SS':(acc>=90 && this.state.maxCombo>=30)?'S':(acc>=80)?'A':(acc>=70)?'B':'C';
@@ -387,7 +424,7 @@
         </div>`;
       try{ if(window.EXO_METRICS){ EXO_METRICS.saveRun?.({module:'Combat',diff:this.diff,time:this.totalTime,score:this.state.score,accuracy:acc,combo:this.state.maxCombo,mission:this.state.mission?.id||null,missionOk:this.state.missionOk||false}); } }catch(e){}
     },
-    remove(){ this.clearTimers(); }
+    remove(){ this.clearTimers(); this.stopGuards(); }
   });
 
   // INPUT
