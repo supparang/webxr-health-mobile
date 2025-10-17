@@ -26,11 +26,11 @@
     <div class="box"><span id="acc">Acc —</span></div>
   </header>
 
-  <!-- Touch zones -->
+  <!-- Touch zones (มือถือแตะซ้าย/ขวา) -->
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
 
-  <!-- Overlay -->
+  <!-- Overlay / Panel -->
   <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
 
   <!-- Scene -->
@@ -38,82 +38,88 @@
     <a-entity light="type:ambient;intensity:0.7"></a-entity>
     <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
 
-    <!-- Hit line -->
-    <a-entity position="0 1.25 -0.2">
-      <a-box width="2" height="0.02" depth="0.02" color="#4ade80"></a-box>
-    </a-entity>
+    <!-- เส้นตี -->
+    <a-entity position="0 1.25 -0.2"><a-box width="2" height="0.02" depth="0.02" color="#4ade80"></a-box></a-entity>
 
-    <!-- Player indicator -->
+    <!-- ตัวผู้เล่น (บอกตำแหน่ง) -->
     <a-box id="player" color="#4caf50" depth="0.3" height="0.3" width="0.3" position="-0.8 1.2 -0.5"></a-box>
 
-    <!-- Game -->
+    <!-- คอมโพเนนต์เกม -->
     <a-entity combat-game></a-entity>
     <a-entity combat-input></a-entity>
   </a-scene>
 
-  <!-- SHIM: ให้มี EXO_safeStart เสมอ -->
+  <!-- START OVERLAY FALLBACK (รับประกันมีปุ่ม Start) -->
   <script>
-    window.EXO_safeStart = window.EXO_safeStart || function(onStart, overlay, opts){
-      try{
-        if (window.EXO && typeof EXO.startOverlay === 'function') {
-          EXO.startOverlay(onStart, opts||{});
-        } else {
-          const go=()=>{try{onStart&&onStart();}catch(e){}};
-          window.addEventListener('pointerdown', function once(){window.removeEventListener('pointerdown', once,{once:true});go();},{once:true});
-          setTimeout(go,300);
-        }
-      }catch(e){try{onStart&&onStart();}catch(_e){}}
-    };
+  (function (w) {
+    w.EXO = w.EXO || {};
+    function ensureOverlay(){
+      let ov=document.getElementById('overlay'); if(!ov){ov=document.createElement('div');ov.id='overlay';ov.className='overlay';document.body.appendChild(ov);}
+      let pn=document.getElementById('panel'); if(!pn){pn=document.createElement('div');pn.id='panel';pn.className='panel';ov.appendChild(pn);}
+      return {ov:ov,pn:pn};
+    }
+    if (typeof w.EXO.startOverlay!=='function'){
+      w.EXO.startOverlay=function(onStart,opts={}){
+        const {ov,pn}=ensureOverlay();
+        ov.style.display='flex';
+        pn.innerHTML=`
+          <div class="title">${opts.title||'EXO TRAINING'}</div>
+          ${opts.note?`<div class="muted" style="margin:.4rem 0">${opts.note}</div>`:''}
+          <div style="display:flex;gap:.6rem;justify-content:center;margin-top:.6rem">
+            <a class="btn" id="__exoStartBtn">▶ Start</a>
+            <a class="btn" href="../index.html">⟵ Hub</a>
+          </div>
+          <div style="text-align:center;opacity:.7;margin-top:.4rem">Tip: Space / Enter เพื่อเริ่ม</div>`;
+        const go=async()=>{ov.style.display='none';try{await w.EXO?.audio?.ensure?.();await w.EXO?.audio?.ctx?.resume?.();}catch(e){} try{onStart&&onStart();}catch(e){}};
+        document.getElementById('__exoStartBtn')?.addEventListener('click',go,{once:true});
+        document.addEventListener('keydown',e=>{if(e.code==='Space'||e.key==='Enter'){go();}});
+        ov.addEventListener('pointerdown',ev=>{if(ev.target?.id==='__exoStartBtn'||ev.target?.classList?.contains('btn'))return;go();},{once:true,passive:true});
+      };
+    }
+    w.EXO_safeStart = w.EXO_safeStart || function(onStart,_overlay,opts){ try{w.EXO.startOverlay(onStart,opts||{});}catch(e){ try{onStart&&onStart();}catch(_e){} } };
+  })(window);
   </script>
 
-  <!-- Game Script (อัปเดต) -->
+  <!-- GAME SCRIPT (อัปเดตสนุก/ท้าทาย) -->
   <script>
-  AFRAME.registerComponent('combat-game', {
+  AFRAME.registerComponent('combat-game',{
     init(){
-      // UI
-      this.ui = {
-        score: document.getElementById('score'),
-        time:  document.getElementById('time'),
-        combo: document.getElementById('combo'),
-        acc:   document.getElementById('acc'),
-        fever: document.getElementById('feverBar')
-      };
+      // UI refs
+      this.ui={score:score,time:time,combo:combo,acc:acc,fever:feverBar};
+      // params
+      const q=new URLSearchParams(location.search);
+      this.diff=(q.get('diff')||'normal');
+      this.totalTime=Math.max(10,parseInt(q.get('time')||'60',10));
 
-      // Params
-      const q = new URLSearchParams(location.search);
-      this.diff = (q.get('diff')||'normal');
-      this.totalTime = Math.max(10, parseInt(q.get('time')||'60',10));
-
-      // State
-      this.state = {
-        running:false, time:this.totalTime, score:0,
-        combo:0, maxCombo:0, hit:0, miss:0,
-        fever:0, feverOn:false,
-        lastSpawn:0,
+      // state
+      this.state={
+        running:false,time:this.totalTime,score:0,
+        combo:0,maxCombo:0,hit:0,miss:0,
+        fever:0,feverOn:false,lastSpawn:0,
         spawnIvBase:{easy:750,normal:600,hard:460}[this.diff]||600,
         hpTap:{} // armored ต้องตี 2 ครั้ง
       };
-      this.lanes = {L:-0.8, R:0.8};
+      this.lanes={L:-0.8,R:0.8};
 
-      // Dynamic difficulty + fever (ใช้ exo-boost ถ้ามี)
-      this.dd = new (window.EXO_BOOST?.DynamicDifficulty||function(){return{
-        tickDecay(){}, onHit(){}, onMiss(){}, getSpeedMul(){return 1}, getSpawnIv(){return null}
+      // difficulty & fever (ใช้ exo-boost ถ้ามี)
+      this.dd=new (window.EXO_BOOST?.DynamicDifficulty||function(){return{
+        tickDecay(){},onHit(){},onMiss(){},getSpeedMul(){return 1},getSpawnIv(){return null}
       }})();
-      this.fv = new (window.EXO_BOOST?.FeverManager||function(){return{
-        tick(){}, hit(){}, miss(){}, mulScore(v){return v}
+      this.fv=new (window.EXO_BOOST?.FeverManager||function(){return{
+        tick(){},hit(){},miss(){},mulScore(v){return v}
       }})({need:10,dur:8000});
 
-      // Pattern
-      this.patterns = [
-        {n:4, lanes:['L','R','L','R'], jitter:0},      // burst
-        {n:6, lanes:['L','R'], jitter:80},             // alt
-        {n:5, lanes:['L'], jitter:60},                 // left streak
-        {n:5, lanes:['R'], jitter:60},                 // right streak
-        {n:6, lanes:['L','R','L','R','R','L'], jitter:0} // mix
+      // patterns
+      this.patterns=[
+        {n:4,lanes:['L','R','L','R'],jitter:0},
+        {n:6,lanes:['L','R'],jitter:80},
+        {n:5,lanes:['L'],jitter:60},
+        {n:5,lanes:['R'],jitter:60},
+        {n:6,lanes:['L','R','L','R','R','L'],jitter:0}
       ];
-      this._patternQueue = [];
+      this._patternQueue=[];
 
-      // Start
+      // start overlay
       EXO_safeStart(()=>this.start(), document.getElementById('overlay'), {
         title:'Combat Reflex',
         note:`Diff: ${this.diff} · Time: ${this.totalTime}s`
@@ -131,112 +137,100 @@
     tick(t,dt){
       if(!this.state.running) return;
       this.dd.tickDecay(dt); this.fv.tick(dt);
-      this.ui.fever.style.width = Math.min(100, this.state.fever|0)+'%';
+      this.ui.fever.style.width=Math.min(100,this.state.fever|0)+'%';
 
-      const now = performance.now();
-      const dynIv = this.dd.getSpawnIv ? this.dd.getSpawnIv() : null;
-      const baseIv = dynIv || this.state.spawnIvBase;
-      const comboBoost = Math.max(0, 120 - this.state.combo*2); // combo สูง → เร็วขึ้น
-      const spawnIv = Math.max(260, baseIv - comboBoost);
+      const now=performance.now();
+      const dynIv=this.dd.getSpawnIv?this.dd.getSpawnIv():null;
+      const baseIv=dynIv||this.state.spawnIvBase;
+      const comboBoost=Math.max(0,120-this.state.combo*2);
+      const spawnIv=Math.max(260,baseIv-comboBoost);
 
-      // ปล่อย pattern ที่ค้าง
-      if (this._patternQueue.length){
-        const top = this._patternQueue[0];
-        if (now >= top.next){
-          this.spawnTarget(top.laneSeq[top.i % top.laneSeq.length], top.type);
-          top.i++;
-          if (top.i >= top.n) this._patternQueue.shift();
-          else top.next = now + top.step + (top.jitter? (Math.random()*top.jitter|0):0);
+      if(this._patternQueue.length){
+        const top=this._patternQueue[0];
+        if(now>=top.next){
+          this.spawnTarget(top.laneSeq[top.i%top.laneSeq.length], top.type);
+          top.i++; if(top.i>=top.n) this._patternQueue.shift();
+          else top.next=now+top.step+(top.jitter?(Math.random()*top.jitter|0):0);
         }
         return;
       }
 
-      // สร้างใหม่
-      if (now - this.state.lastSpawn >= spawnIv){
-        this.state.lastSpawn = now;
-        if (Math.random() < 0.35){
-          const p = this.patterns[(Math.random()*this.patterns.length)|0];
-          const type = this.rollType();
-          const step = Math.max(180, spawnIv*0.55);
+      if(now-this.state.lastSpawn>=spawnIv){
+        this.state.lastSpawn=now;
+        if(Math.random()<0.35){
+          const p=this.patterns[(Math.random()*this.patterns.length)|0];
+          const type=this.rollType(); const step=Math.max(180,spawnIv*0.55);
           const lanes=[]; for(let i=0;i<p.n;i++) lanes.push(p.lanes[i%p.lanes.length]);
-          this._patternQueue.push({i:0,n:p.n, step, jitter:p.jitter, laneSeq:lanes, type, next:now});
-          this.spawnTarget(lanes[0], type);
-        } else {
-          const lane = (Math.random()<0.5)?'L':'R';
-          this.spawnTarget(lane, this.rollType());
+          this._patternQueue.push({i:0,n:p.n,step, jitter:p.jitter, laneSeq:lanes, type, next:now});
+          this.spawnTarget(lanes[0],type);
+        }else{
+          const lane=(Math.random()<0.5)?'L':'R';
+          this.spawnTarget(lane,this.rollType());
         }
       }
     },
 
     rollType(){
-      // normal 70% | golden 15% | bomb 10% | armored 5%
       const r=Math.random();
-      if (r<0.05) return 'armored';
-      if (r<0.15) return 'bomb';
-      if (r<0.30) return 'golden';
+      if(r<0.05) return 'armored';
+      if(r<0.15) return 'bomb';
+      if(r<0.30) return 'golden';
       return 'normal';
     },
 
-    spawnTarget(lane, type){
+    spawnTarget(lane,type){
       const x=this.lanes[lane], y=1.25, zStart=-3.8;
-      const speedMul = this.dd.getSpeedMul ? this.dd.getSpeedMul() : 1;
-      const dur = 2000 / speedMul;
+      const speedMul=this.dd.getSpeedMul?this.dd.getSpeedMul():1;
+      const dur=2000/speedMul;
 
       const el=document.createElement('a-box');
       el.setAttribute('width','0.35'); el.setAttribute('height','0.35'); el.setAttribute('depth','0.35');
-      el.setAttribute('position', `${x} ${y} ${zStart}`);
+      el.setAttribute('position',`${x} ${y} ${zStart}`);
       el.classList.add('note'); el.dataset.lane=lane; el.dataset.type=type;
-      el.setAttribute('color',
-        type==='golden' ? '#fbbf24' :
-        type==='bomb'   ? '#ef4444' :
-        type==='armored'? '#60a5fa' : '#29b6f6'
-      );
+      el.setAttribute('color', type==='golden'?'#fbbf24': type==='bomb'?'#ef4444': type==='armored'?'#60a5fa':'#29b6f6');
       this.el.sceneEl.appendChild(el);
-      el.setAttribute('animation__move',{property:'position', to:`${x} ${y} -0.2`, dur, easing:'linear'});
+      el.setAttribute('animation__move',{property:'position',to:`${x} ${y} -0.2`,dur,easing:'linear'});
 
-      if (type==='armored'){ this.state.hpTap[el.object3D.uuid]=2; }
-
+      if(type==='armored') this.state.hpTap[el.object3D.uuid]=2;
       setTimeout(()=>{ if(!el.parentNode) return; this.onMiss(); el.remove(); }, dur+60);
     },
 
     onHit(){
       if(!this.state.running) return;
-      // หาเป้าใกล้เส้นที่สุด
-      const notes=Array.from(document.querySelectorAll('.note'));
-      let best=null,dist=1e9;
+      // หาเป้าใกล้เส้น
+      const notes=[...document.querySelectorAll('.note')];
+      let best=null, dist=1e9;
       for(const n of notes){ const p=n.getAttribute('position'); if(!p) continue; const d=Math.abs(p.z-(-0.2)); if(d<dist){best=n;dist=d;} }
       if(!best || dist>0.28) return this.badTap();
 
-      const type = best.dataset.type||'normal';
-      // armored ลด HP ก่อน
-      if (type==='armored'){
+      const type=best.dataset.type||'normal';
+      // armored → ลด HP ทีละ 1
+      if(type==='armored'){
         const id=best.object3D.uuid; const hp=(this.state.hpTap[id]||2)-1; this.state.hpTap[id]=hp;
         this.flash(best,'#93c5fd'); EXO?.beep(700,0.03,0.1);
-        if (hp>0) return; // ยังไม่แตก
+        if(hp>0) return;
       }
-      // bomb โดนแล้วโดนโทษ
-      if (type==='bomb'){
+      // bomb → โดนโทษ
+      if(type==='bomb'){
         this.shake(); this.flashScreen('#ef4444'); this.addScore(-180);
         this.breakCombo(); this.dd.onMiss?.(); this.fv.miss?.(); EXO?.beep(220,0.08,0.12);
         best.remove(); return;
       }
 
-      // คุณภาพตามระยะ
       let q='okay'; if(dist<=0.06) q='perfect'; else if(dist<=0.14) q='good';
-      const base = {perfect:180, good:120, okay:80}[q]||100;
-      const bonus = (type==='golden')?100:0;
-      const plus = this.fv.mulScore? this.fv.mulScore(base+bonus) : (base+bonus);
+      const base={perfect:180,good:120,okay:80}[q]||100;
+      const bonus=(type==='golden')?100:0;
+      const plus=this.fv.mulScore?this.fv.mulScore(base+bonus):(base+bonus);
 
       this.addScore(plus);
       this.state.combo++; this.state.maxCombo=Math.max(this.state.maxCombo,this.state.combo);
       this.state.hit++; this.dd.onHit?.(); this.fv.hit?.();
 
-      // เกจ fever
-      this.state.fever = Math.min(100, this.state.fever + (q==='perfect'?3:q==='good'?2:1));
-      if (!this.state.feverOn && this.state.fever>=100){
+      this.state.fever=Math.min(100,this.state.fever+(q==='perfect'?3:q==='good'?2:1));
+      if(!this.state.feverOn && this.state.fever>=100){
         this.state.feverOn=true; this.flashScreen('#fb923c'); setTimeout(()=>{this.state.feverOn=false; this.state.fever=0;},7000);
       }
-      if (this.state.combo%10===0){ this.shake(1); this.flashScreen('#fde047'); }
+      if(this.state.combo%10===0){ this.shake(1); this.flashScreen('#fde047'); }
 
       this.flash(best, q==='perfect'?'#22c55e':q==='good'?'#0ea5e9':'#a78bfa');
       EXO?.beep(q==='perfect'?980:q==='good'?820:680,0.05,0.1);
@@ -264,8 +258,7 @@
 
     refreshUI(){
       this.ui.combo && (this.ui.combo.textContent='Combo '+this.state.combo);
-      const tot=this.state.hit+this.state.miss;
-      const acc=tot? Math.round(this.state.hit*1000/tot)/10 : 0;
+      const tot=this.state.hit+this.state.miss; const acc=tot?Math.round(this.state.hit*1000/tot)/10:0;
       this.ui.acc && (this.ui.acc.textContent=`Acc ${acc}%`);
       this.ui.fever && (this.ui.fever.style.width=Math.min(100,this.state.fever)+'%');
     },
@@ -274,7 +267,8 @@
     shake(mult=0.6){
       const s=document.querySelector('a-scene'); if(!s) return;
       const o=s.object3D.position.clone(); let t=0; const id=setInterval(()=>{
-        t++; s.object3D.position.x=(Math.random()-0.5)*0.02*mult; s.object3D.position.y=(Math.random()-0.5)*0.02*mult;
+        t++; s.object3D.position.x=(Math.random()-0.5)*0.02*mult;
+        s.object3D.position.y=(Math.random()-0.5)*0.02*mult;
         if(t>10){clearInterval(id); s.object3D.position.copy(o);}
       },16);
     },
@@ -289,7 +283,7 @@
     end(){
       this.state.running=false; clearInterval(this.timer);
       const p=document.getElementById('panel'), o=document.getElementById('overlay');
-      const tot=this.state.hit+this.state.miss; const acc=tot? Math.round(this.state.hit*1000/tot)/10 : 0;
+      const tot=this.state.hit+this.state.miss; const acc=tot?Math.round(this.state.hit*1000/tot)/10:0;
       o.style.display='flex';
       p.innerHTML=`
         <div class="title">Result</div>
@@ -306,8 +300,8 @@
     remove(){ clearInterval(this.timer); }
   });
 
-  // Input: ซ้าย/ขวา/Space = ตี
-  AFRAME.registerComponent('combat-input', {
+  // Input (ซ้าย/ขวา/Space = ตี)
+  AFRAME.registerComponent('combat-input',{
     init(){
       const comp=document.querySelector('[combat-game]').components['combat-game'];
       (window.EXO && EXO.attachBasicInput) ? EXO.attachBasicInput({
@@ -315,8 +309,8 @@
         onRight:()=> comp && comp.onHit(),
         onPause: ()=>{}
       }) : window.addEventListener('keydown', e=>{
-        if (e.key==='ArrowLeft' || e.key==='a' || e.key==='A') comp && comp.onHit();
-        if (e.key==='ArrowRight'|| e.key==='d' || e.key==='D' || e.code==='Space') comp && comp.onHit();
+        if(e.key==='ArrowLeft'||e.key==='a'||e.key==='A') comp && comp.onHit();
+        if(e.key==='ArrowRight'||e.key==='d'||e.key==='D'||e.code==='Space') comp && comp.onHit();
       });
     }
   });
