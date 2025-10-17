@@ -1,208 +1,127 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8">
-<title>EXO · Rhythm Sync (Perf)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<link rel="stylesheet" href="../core/exo-ui.css">
-<script src="../core/exo-i18n.js"></script>
-<script src="../core/exo-core.js"></script>
-<script src="../core/exo-metrics.js"></script>
-<script src="../core/exo-settings.js"></script>
-<script src="../core/exo-leaderboard.js"></script>
-<script src="../core/exo-net.js"></script>
-<script src="../core/exo-boost.js"></script>
-<style>
-#fb{position:fixed;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;z-index:30}
-.tag{font:700 28px/1 system-ui,Segoe UI,Roboto;padding:6px 10px;margin-top:10px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(10,20,36,.55);color:#e6f2ff;text-shadow:0 0 6px rgba(255,255,255,.15);opacity:0;transform:translateY(16px);animation:rise .42s ease-out forwards}
-.tag.perfect{color:#7ee787;border-color:#2b8a3e}.tag.good{color:#9ecbff;border-color:#2a6fb5}.tag.okay{color:#ffd166;border-color:#a77418}.tag.miss{color:#ff7777;border-color:#8a2b2b}
-@keyframes rise{0%{opacity:0;transform:translateY(16px)}80%{opacity:1;transform:translateY(-6px)}100%{opacity:0;transform:translateY(-2px)}}
-.feverBar{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);width:280px;height:10px;border:1px solid #2b4b86;border-radius:14px;background:rgba(14,20,36,.65);overflow:hidden;z-index:9}
-.feverFill{height:100%;width:0%;background:linear-gradient(90deg,#36d1dc,#5b86e5)}.feverOn .feverFill{background:linear-gradient(90deg,#ffd200,#ff7a00)}
-.screenFlash{position:fixed;inset:0;background:rgba(255,214,84,.18);pointer-events:none;opacity:0;transition:opacity .18s;z-index:8}.screenFlash.show{opacity:1}
-</style>
-</head><body>
-<div class="hud"><div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
-<div class="box"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a href="../index.html" class="btn">⏵ <span data-i18n="common.hub">Hub</span></a></div></div>
-<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div><div id="fb"></div>
-<div class="feverBar"><div id="feverFill" class="feverFill"></div></div><div id="flash" class="screenFlash"></div>
-<div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
-
-<a-scene renderer="antialias:true;colorManagement:true">
-  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
-  <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-  <!-- hit line -->
-  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 0.01 -0.5" material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
-  <a-entity rhythm-director></a-entity>
-</a-scene>
-
-<script>(function(w){if(!w.EXO_I18N){const F=(k,fb)=>fb||k;w.EXO_I18N={get:()=> 'th',set:()=>{},scope:()=>F.bind(null),t:()=>F,bindDom:()=>{},addPack:()=>{},packs:{}};}})(window);
-function EXO_safeStart(start,ov,cfg){try{if(window.EXO&&EXO.startOverlay){EXO.startOverlay(()=>start(),cfg||undefined);return;}}catch(e){}try{if(ov)ov.style.display='none';}catch(e){}window.addEventListener('click',function on(){window.removeEventListener('click',on,{once:true});try{start();}catch(e){}},{once:true});setTimeout(()=>{try{start();}catch(e){}},200);}</script>
-
 <script>
-AFRAME.registerComponent('rhythm-director',{
-  init:function(){
-    const tC=EXO_I18N.scope('common'),tR=EXO_I18N.scope('rhythm'),lang=EXO_I18N.get();
-    this.$s=$('#score');this.$c=$('#combo');this.$t=$('#time');this.$fb=$('#fb');this.$fever=$('#feverFill');this.$flash=$('#flash');this.panel=$('#panel');this.overlay=$('#overlay');
-    function $(s){return document.querySelector(s);}
-    const q=new URLSearchParams(location.search);
-    const diff=(q.get('diff')||'normal').toLowerCase();const music=q.get('music');const timeParam=Math.max(10,+(q.get('time')||60));
-    this.state={score:0,combo:1,maxCombo:1,time:timeParam,running:false,notesLeft:0,perfect:0,good:0,okay:0,miss:0};
-    this.hitZ=-0.5; this.hitWin={easy:.28,normal:.22,hard:.16}[diff]||.22;
-    this.$t.textContent=this.state.time;
+AFRAME.registerComponent('rhythm-game', {
+  init(){
+    this.scoreUI = document.getElementById('score');
+    this.timeUI  = document.getElementById('time');
+    const q = new URLSearchParams(location.search);
+    this.diff = (q.get('diff')||'normal');
+    this.bpm  = Math.max(60, parseInt(q.get('bpm')||'110',10));
+    this.chartUrl = q.get('chart')||'';
+    this.state = {running:false, score:0, notesLeft:0, nextBeat:0};
+    this.msPerBeat = 60000/this.bpm;
 
-    // lanes
-    this.laneX={L:-0.8,R:0.8}; this.spawnZ=-4.8; this.pool=[];
-    for(let i=0;i<24;i++){const e=document.createElement('a-entity');e.setAttribute('visible',false);e.userData={alive:false,lane:'L',vz:0,type:'normal'};const inner=document.createElement('a-entity');inner.setAttribute('geometry','primitive: box; depth:.34; height:.34; width:.34');inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');e.appendChild(inner);this.el.sceneEl.appendChild(e);this.pool.push(e);}
+    this.fv = new EXO_BOOST.FeverManager({need:12,dur:8000});
+    this.dd = new EXO_BOOST.DynamicDifficulty({});
 
-    // systems
-    this.fever=new EXO_BOOST.FeverManager({need:8,dur:9000,mul:2,barEl:this.$fever,flashEl:this.$flash});
-    this.dd=new EXO_BOOST.DynamicDifficulty({baseSpeed:4.6,baseSpawn:520,minSpawn:360,maxSpawn:900});
-    this.missions=new EXO_BOOST.MissionManager('short');
-
-    this.flash=(label,cls)=>{while(this.$fb.children.length>2)this.$fb.removeChild(this.$fb.firstChild);const s=document.createElement('div');s.className=`tag ${cls}`;s.textContent=label;this.$fb.appendChild(s);s.style.animationDuration='0.42s';setTimeout(()=>s.remove(),420);};
-    this.updateScore=()=>{this.$s.textContent=this.state.score;};
-    this.updateCombo=()=>{this.$c.textContent='x'+this.state.combo.toFixed(1);};
-
-    const overlayEl=this.overlay;
-    EXO_safeStart(this.start.bind(this),overlayEl,{title:tR('title'),howto:[
-      {title:lang==='th'?'จังหวะ':'Timing',text:tR('goal')},
-      {title:lang==='th'?'การบังคับ':'Controls',html:tR('ctrl')},
-      {title:lang==='th'?'การได้คะแนน':'Scoring',text:tR('scoreTip')}
-    ],note:`${tC('diff')}: <b>${diff.toUpperCase()}</b>${music?' · '+tC('music')+': on':''}`});
-
-    // input
-    const onL=()=>this.hit('L'),onR=()=>this.hit('R');
-    ['mousedown','touchstart'].forEach(ev=>{document.getElementById('touchL').addEventListener(ev,onL);document.getElementById('touchR').addEventListener(ev,onR);});
-    window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')onL();if(e.key==='ArrowRight'||e.code==='Space')onR();if(e.key==='Escape')this.pause();});
-    document.getElementById('btnPause').onclick=()=>this.pause();
-
-    if(music){try{EXO.audio.playMusic(music,{loop:true,volume:.35});}catch(e){}}
-
-    // timer
-    this.timer=setInterval(()=>{if(!this.state.running)return;this.state.time--;this.$t.textContent=this.state.time;if(this.state.time<=0 || (this.state.notesLeft<=0))this.end();},1000);
+    EXO_safeStart(()=>this.start(), document.getElementById('overlay'), {
+      title:'Rhythm Sync',
+      note:`Diff: ${this.diff} · ${this.bpm} BPM`
+    });
   },
 
-  start:function(){
+  async start(){
     this.state.running=true;
-    // initial spawn schedule
-    this.spawnLoop=setInterval(()=>this.spawn(), this.dd.getSpawnIv());
-  },
+    this.scoreUI.textContent='0';
+    this.timeUI.textContent='—';
 
-  spawn:function(){
-    if(!this.state.running)return;
-    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
-
-    const lane=Math.random()<.5?'L':'R';
-    const type=EXO_BOOST.Specials.roll({gold:.10,time:.06,bomb:.08,shield:0}); // rhythm: no shield by default
-    e.userData.alive=true; e.userData.lane=lane; e.userData.type=type;
-    e.userData.vz=4.6 * this.dd.getSpeedMul() + (Math.random()*.6-.3);
-    const inner=e.children[0];
-    if(type==='gold'){inner.setAttribute('material','color:#ffd54f; emissive:#b28704; emissiveIntensity:.45; metalness:.6; roughness:.2');}
-    else if(type==='bomb'){inner.setAttribute('material','color:#ff8a80; emissive:#8a2b2b; emissiveIntensity:.35');}
-    else if(type==='time'){inner.setAttribute('material','color:#a5d6a7; emissive:#2b8a3e; emissiveIntensity:.32');}
-    else{inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');}
-    e.object3D.position.set(this.laneX[lane],1.35,-4.8); e.setAttribute('visible',true);
-    this.state.notesLeft++;
-
-    clearInterval(this.spawnLoop); this.spawnLoop=setInterval(()=>this.spawn(), this.dd.getSpawnIv());
-  },
-
-  tier:function(dz){
-    const w=this.hitWin;
-    if(dz<=w*.35) return 'perfect';
-    if(dz<=w*.65) return 'good';
-    if(dz<=w*.95) return 'okay';
-    return 'miss';
-  },
-
-  findBest:function(lane){
-    let best=null,d=1e9;
-    for(const e of this.pool){ if(!e.userData.alive)continue; if(e.userData.lane!==lane)continue;
-      const dz=Math.abs(e.object3D.position.z - this.hitZ); if(dz<d){d=dz;best=e;}
+    // โหลด chart ถ้ามี ไม่งั้นสร้างสุ่ม
+    let chart = null;
+    if (this.chartUrl){
+      try{ chart = await (await fetch(this.chartUrl)).json(); }catch(e){ chart=null; }
     }
-    return {ent:best,dz:d};
+    this.chart = Array.isArray(chart?.notes) ? chart.notes : this.makeRandomChart();
+    this.state.notesLeft = this.chart.length;
+    this.state.nextBeat = performance.now();
+
+    // เริ่มเพลงถ้ามี param ?music=
+    const music = new URLSearchParams(location.search).get('music');
+    if (music && EXO.audio) EXO.audio.playMusic(music, {loop:false, volume:0.40});
   },
 
-  hit:function(lane){
+  makeRandomChart(){
+    // ทำโน้ตแบบ 4 lane (L/R/Up/Down) ตาม BPM ~ 48-64 notes
+    const lanes = ['L','R','U','D'];
+    const n = {easy:48, normal:64, hard:84}[this.diff]||64;
+    const arr=[];
+    for(let i=0;i<n;i++){
+      arr.push({lane: lanes[Math.floor(Math.random()*lanes.length)], beat:i});
+    }
+    return arr;
+  },
+
+  tick(t, dt){
     if(!this.state.running) return;
-    const {ent,bz}=(()=>{const r=this.findBest(lane);return {ent:r.ent,bz:r.dz};})();
-    const res=this.findBest(lane); const e=res.ent; const dz=res.dz;
-    if(!e){ this.state.combo=1; this.fever.miss(); this.$c.textContent='x1.0'; this.flash('MISS','miss'); EXO.beep(220,.05,.12); this.dd.onMiss(); return; }
-    const tier=this.tier(dz);
-
-    if(tier==='miss'){
-      this.state.combo=1; this.fever.miss(); this.$c.textContent='x1.0'; this.flash('MISS','miss'); EXO.beep(220,.05,.12); this.dd.onMiss();
-    }else{
-      const base = tier==='perfect'?140 : tier==='good'?110 : 80;
-      let gain = base * this.state.combo;
-      if(e.userData.type==='gold') gain += 120;
-      if(e.userData.type==='time'){ this.state.time=Math.min(999,this.state.time+2); this.$t.textContent=this.state.time; }
-      if(e.userData.type==='bomb'){ // penalty
-        this.state.score=Math.max(0,this.state.score-120); this.state.combo=1; this.fever.miss(); this.$c.textContent='x1.0'; this.flash('BOMB','miss'); EXO.beep(220,.06,.16); this.dd.onMiss();
-      }else{
-        this.state.score += this.fever.mulScore(Math.round(gain));
-        this.state.combo = Math.min(6, this.state.combo + (tier==='perfect'?0.25:0.18));
-        this.fever.hit(); this.dd.onHit();
-        this.flash(tier.toUpperCase(), tier); EXO.beep(520 + (tier==='perfect'?180:tier==='good'?90:0), .04, .12);
-      }
-      this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
+    this.fv.tick(dt);
+    const now = performance.now();
+    // สร้างโน้ตเมื่อถึงเวลา beat ถัดไป
+    if (this.state.notesLeft>0 && now >= this.state.nextBeat){
+      const idx = this.chart.length - this.state.notesLeft;
+      this.spawnNote(this.chart[idx]);
+      this.state.notesLeft--;
+      this.state.nextBeat += this.msPerBeat * (this.dd.getSpeedMul? (1/this.dd.getSpeedMul()) : 1);
     }
-
-    e.setAttribute('visible',false); e.userData.alive=false; this.state.notesLeft--;
+    // ถ้าโน้ตหมด → จบเกมทันที (ตามที่คุย)
+    if (this.state.notesLeft<=0 && document.querySelectorAll('.note').length===0){
+      this.end();
+    }
   },
 
-  pause:function(){
-    const tC=EXO_I18N.scope('common'); if(!this.state.running) return; this.state.running=false;
-    try{EXO.audio.stopMusic();}catch(e){}
-    this.panel.innerHTML=`<div class="title">${tC('paused')}</div>
-    <div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
-    <a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;
-    this.overlay.style.display='flex';
+  spawnNote(n){
+    const xmap = {L:-0.9, R:0.9, U:0, D:0};
+    const ym  = {L:1.2,  R:1.2, U:1.8, D:0.7};
+    const laneX = xmap[n.lane] ?? 0;
+    const laneY = ym[n.lane] ?? 1.2;
+
+    const a = document.createElement('a-sphere');
+    a.setAttribute('radius','0.22');
+    a.setAttribute('color', n.lane==='U' ? '#ffd166' : n.lane==='D' ? '#06d6a0' : '#4cc9f0');
+    a.setAttribute('position', `${laneX} ${laneY} -3.4`);
+    a.classList.add('note');
+    this.el.sceneEl.appendChild(a);
+
+    const dur = 1400;
+    a.setAttribute('animation__move',{property:'position', to:`${laneX} ${laneY} -0.15`, dur, easing:'linear'});
+
+    setTimeout(()=>{ if(a.parentNode){ this.onMiss(); a.remove(); } }, dur+50);
   },
 
-  tick:function(t,dt){
+  onHit(quality='good'){
     if(!this.state.running) return;
-    const s=dt/1000;
-    for(const e of this.pool){
-      if(!e.userData.alive) continue;
-      const p=e.object3D.position; p.z += e.userData.vz*s;
-      if(p.z > 0.25){
-        // miss auto
-        if(e.userData.type!=='bomb'){ this.state.miss++; this.state.combo=1; this.$c.textContent='x1.0'; this.flash('MISS','miss'); this.fever.miss(); this.dd.onMiss(); }
-        e.setAttribute('visible',false); e.userData.alive=false; this.state.notesLeft--;
-      }
-    }
-    this.fever.tick(dt); this.dd.tickDecay(dt);
+    const plus = {perfect:200, good:130, okay:80}[quality]||100;
+    const s = this.fv.mulScore ? this.fv.mulScore(plus) : plus;
+    this.state.score += s;
+    this.scoreUI.textContent = this.state.score;
+    this.dd.onHit&&this.dd.onHit(); this.fv.hit&&this.fv.hit();
+    EXO.beep(quality==='perfect'?1000:820,0.05,0.12);
   },
 
-  end:function(){
-    const tC=EXO_I18N.scope('common'), tR=EXO_I18N.scope('rhythm');
-    this.state.running=false; clearInterval(this.timer); clearInterval(this.spawnLoop);
-    try{EXO.audio.stopMusic();}catch(e){}
-    const total = this.state.perfect+this.state.good+this.state.okay+this.state.miss || 0;
-    const perfectPct = total? (this.state.perfect/total)*100 : 0;
+  onMiss(){
+    this.dd.onMiss&&this.dd.onMiss(); this.fv.miss&&this.fv.miss();
+    EXO.beep(260,0.06,0.12);
+  },
 
-    try{EXO_METRICS.recordSession({module:'Rhythm Sync',diff:(new URLSearchParams(location.search).get('diff')||'normal'),score:this.state.score||0,accuracy:Math.round(perfectPct*10)/10,hits:(this.state.perfect+this.state.good+this.state.okay),misses:this.state.miss||0,duration:+(new URLSearchParams(location.search).get('time')||60)});}catch(e){}
+  end(){
+    if(!this.state.running) return;
+    this.state.running=false;
+    const p=document.getElementById('panel'), o=document.getElementById('overlay');
+    o.style.display='flex';
+    p.innerHTML=`<div class="title">Result</div>
+      <div class="kpi"><div>Score</div><b>${this.state.score}</b></div>
+      <div style="text-align:center;margin-top:.6rem">
+        <a class="btn" href="../index.html">⟵ Back</a>
+        <a class="btn" onclick="location.reload()">↺ Replay</a>
+      </div>`;
+  }
+});
 
-    this.panel.innerHTML = `<div class="title">${tC('result')} — Rhythm Sync</div>
-    <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-    <div>${tC('score')}<br><b>${this.state.score}</b></div>
-    <div>${tC('maxCombo')}<br><b>${this.state.combo.toFixed(1)}×</b></div>
-    <div>Perfect%<br><b>${perfectPct.toFixed(1)}%</b></div></div>
-    <div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a><a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;
-    this.overlay.style.display='flex';
-
-    // Missions + XP
-    const metrics={score:this.state.score,hits:0,misses:this.state.miss,comboMax:Math.round(this.state.combo||1),avoided:0,perfectPct, timePlayed:+(new URLSearchParams(location.search).get('time')||60)};
-    const done=this.missions.evaluate(metrics); const reward=this.missions.rewardXP(); const baseXP=Math.round(this.state.score/25); const res=EXO_BOOST.XP.add(baseXP+reward);
-    const list=done.length?('<ul>'+done.map(x=>`<li>✓ ${x.name} (+${x.xp} XP)</li>`).join('')+'</ul>'):'<p>—</p>';
-    const lvl=`<div class="kpi"><div>XP</div><b>${res.xp}</b><div>Level</div><b>${res.level}</b></div>`;
-    const ms =`<div class="kpi"><div>Missions</div><div style="grid-column:1/-1">${list}</div></div>`;
-    this.panel.insertAdjacentHTML('beforeend',lvl+ms);
-
-    setTimeout(async()=>{try{const name=prompt(tC('askName'),'');if(!name)return;await EXO_LB.submit({name,module:'Rhythm Sync',score:this.state.score|0,accuracy:parseFloat(perfectPct.toFixed(1)),diff:(new URLSearchParams(location.search).get('diff')||'normal')});const ok=document.createElement('div');ok.className='kpi';ok.style.cssText='margin-top:8px;text-align:center';ok.innerHTML=`<div style="grid-column:1/-1"><b>${tC('sent')}</b></div>`;this.panel.appendChild(ok);}catch(e){}},300);
+AFRAME.registerComponent('rhythm-input',{
+  init(){
+    const g = document.querySelector('[rhythm-game]').components['rhythm-game'];
+    EXO.attachBasicInput({
+      onLeft: ()=> g && g.onHit('good'),
+      onRight:()=> g && g.onHit('good'),
+      onPause: ()=>{}
+    });
   }
 });
 </script>
-</body></html>
