@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Combat Reflex (feedback fixed)</title>
+  <title>EXO · Combat Reflex (patched: fast feedback & VS skip)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- A-Frame -->
@@ -22,15 +22,20 @@
     .vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
     .tagwin{color:#7ee787}.taglose{color:#ff7777}.tagtie{color:#ffd166}
 
-    /* Feedback tags */
+    /* ✅ Feedback tags (HIT/DECOY/MISS) */
     #fb{position:fixed;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;z-index:30}
     .tag{font:700 28px/1 system-ui,Segoe UI,Roboto;padding:6px 10px;margin-top:10px;border-radius:10px;
          border:1px solid rgba(255,255,255,.15);background:rgba(10,20,36,.55);color:#e6f2ff;
          text-shadow:0 0 6px rgba(255,255,255,.15);opacity:0;transform:translateY(16px);
-         animation:rise .7s ease-out forwards}
+         animation:rise .42s ease-out forwards} /* ⏱️ 420ms */
     .tag.good{color:#7ee787;border-color:#2b8a3e}
     .tag.miss{color:#ff7777;border-color:#8a2b2b}
-    @keyframes rise{to{opacity:1;transform:translateY(-6px)}}
+    /* ✅ fade-out เร็ว */
+    @keyframes rise{
+      0% {opacity:0; transform:translateY(16px)}
+      80%{opacity:1; transform:translateY(-6px)}
+      100%{opacity:0; transform:translateY(-2px)}
+    }
   </style>
 </head>
 <body>
@@ -83,14 +88,14 @@
     <a-entity combat-director></a-entity>
   </a-scene>
 
-<!-- Shim + Safe Start -->
+<!-- Shim + Safe Start (delay ลดเหลือ 200ms) -->
 <script>
 (function(w){ if(!w.EXO_I18N){ const F=(k,fb)=>fb||k; w.EXO_I18N={get:()=> 'th',set:()=>{},scope:()=>F.bind(null),t:()=>F,bindDom:()=>{},addPack:()=>{},packs:{}}; } })(window);
 function EXO_safeStart(startFn, overlayEl, overlayConfig){
   try{ if(window.EXO&&EXO.startOverlay){ EXO.startOverlay(()=>startFn(), overlayConfig||undefined); return; } }catch(e){}
   try{ if(overlayEl) overlayEl.style.display='none'; }catch(e){}
   window.addEventListener('click', function onOnce(){ window.removeEventListener('click', onOnce, {once:true}); try{ startFn(); }catch(e){} }, {once:true});
-  setTimeout(()=>{ try{ startFn(); }catch(e){} }, 800);
+  setTimeout(()=>{ try{ startFn(); }catch(e){} }, 200); /* ⏱️ ลดดีเลย์ */
 }
 </script>
 
@@ -159,7 +164,7 @@ AFRAME.registerComponent('combat-director', {
       note: `${tC('diff')}: <b>${diff.toUpperCase()}</b>${music?' · '+tC('music')+': on':''}${this.isVS?' · '+tC('vs'):''}`
     });
 
-    // Inputs (ผูกตรงกับจอ + คีย์บอร์ด เพื่อให้ tryHit ถูกเรียกแน่นอน)
+    // Inputs
     const onL = ()=> this.tryHit('L');
     const onR = ()=> this.tryHit('R');
     ['mousedown','touchstart'].forEach(ev=>{
@@ -187,13 +192,16 @@ AFRAME.registerComponent('combat-director', {
     },1000);
   },
 
+  /* ✅ จำกัดป้ายไม่ให้ค้างเยอะ + อายุ 420ms */
   flash(label, cls){
     try{
+      while (this.$fb.children.length > 2) this.$fb.removeChild(this.$fb.firstChild);
       const s=document.createElement('div');
       s.className=`tag ${cls}`;
       s.textContent=label;
       this.$fb.appendChild(s);
-      setTimeout(()=> s.remove(), 750);
+      s.style.animationDuration = '0.42s';
+      setTimeout(()=> s.remove(), 420);
     }catch(e){}
   },
 
@@ -236,12 +244,10 @@ AFRAME.registerComponent('combat-director', {
     if(!this.state.running) return;
     const best=this.findBest(side);
 
-    // ถ้าไม่มีเป้าในเลน → แสดง MISS ให้ผู้เล่นรับรู้
     if(!best){
       this.state.combo=1.0; this.$c.textContent='x1.0';
       this.flash('MISS','miss');
       EXO.beep(220, 0.04, 0.10);
-      // VS update
       if (this.isVS && EXO_NET.connected()){ EXO_NET.send({type:'state', score:this.state.score|0, combo:+this.state.combo}); }
       return;
     }
@@ -317,7 +323,7 @@ AFRAME.registerComponent('combat-director', {
         if(!e.userData.isDecoy){
           this.state.cntMiss++;
           this.state.combo=1.0; this.$c.textContent='x1.0';
-          this.flash('MISS','miss'); // หลุดเส้น = MISS
+          this.flash('MISS','miss');
         }
         e.setAttribute('visible', false);
         e.userData.alive=false;
@@ -386,6 +392,7 @@ AFRAME.registerComponent('combat-director', {
     this.panel.innerHTML = makeResultHTML(this.isVS ? this.opp?.isOver : false);
     this.overlay.style.display='flex';
 
+    /* ✅ รอคู่แข่งสั้นลง + ปุ่ม Skip ไป Hub */
     if(this.isVS && !this.opp?.isOver){
       const handler=(msg)=>{
         if(msg?.type==='over'){
@@ -396,7 +403,19 @@ AFRAME.registerComponent('combat-director', {
         }
       };
       EXO_NET.onMessage(handler);
-      setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=tC('pending'); }, 5000);
+
+      setTimeout(()=>{
+        const sS=document.getElementById('oppStatus');
+        if (sS && !this.opp.isOver) sS.textContent=tC('pending');
+        if (!this._skipBtn){
+          this._skipBtn = document.createElement('a');
+          this._skipBtn.className = 'btn';
+          this._skipBtn.style.marginTop = '8px';
+          this._skipBtn.textContent = tC('hub');
+          this._skipBtn.onclick = ()=> location.href = '../index.html';
+          this.panel.appendChild(this._skipBtn);
+        }
+      }, 2000); /* ⏱️ 2s */
     }
 
     setTimeout(async ()=>{
