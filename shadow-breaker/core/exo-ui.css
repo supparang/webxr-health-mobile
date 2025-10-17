@@ -75,3 +75,12 @@ a {
 
 #touchL { left: 0; }
 #touchR { right: 0; }
+<style>
+  .feverBar{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);
+    width:280px;height:10px;border:1px solid #2b4b86;border-radius:14px;
+    background:rgba(14,20,36,.65);overflow:hidden;z-index:9}
+  .feverFill{height:100%;width:0%;background:linear-gradient(90deg,#36d1dc,#5b86e5)}
+  .feverOn .feverFill{background:linear-gradient(90deg,#ffd200,#ff7a00)}
+  .screenFlash{position:fixed;inset:0;background:rgba(255,214,84,.18);pointer-events:none;opacity:0;transition:opacity .18s;z-index:8}
+  .screenFlash.show{opacity:1}
+</style>
