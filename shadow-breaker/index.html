@@ -118,7 +118,7 @@
   <script src="core/exo-metrics.js"></script>
   <script src="core/exo-settings.js"></script>
   <script>
-    // ----- Dashboard -----
+    // ---------- Dashboard ----------
     function fmtSec(s){ const m=Math.floor(s/60), r=s%60; return (m? m+'m ':'')+r+'s'; }
     function refreshDash(){
       const d = EXO_METRICS.dashboard();
@@ -142,65 +142,102 @@
     }
     refreshDash();
 
-    // ----- Workout Program -----
+    // ---------- Helper: open with fallbacks ----------
+    async function goFirstAvailable(urls){
+      for (const u of urls){
+        try{
+          const r = await fetch(u, {method:'HEAD', cache:'no-cache'});
+          if (r.ok) { location.href = u; return; }
+        }catch(_e){
+          // บางโฮสต์ไม่ให้ HEAD/CORS → ลองเปิดตรงเลย
+          location.href = u; return;
+        }
+      }
+      alert('File not found: '+ urls.join(' | '));
+    }
+
+    // ---------- Workout Program ----------
     const programs = {
       quick: [
-        'shadow-breaker/play.html?diff=normal&time=60',
-        'mobility-dash/play.html?diff=normal&time=60',
-        'rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
-        'power-control/play.html?diff=normal&time=60'
+        ['shadow-breaker/play.html?diff=normal&time=60',
+         'shadow-breaker/play.html?game=combat&mode=timed&diff=normal&time=60'],
+
+        ['mobility-dash/play.html?diff=normal&time=60',
+         'shadow-breaker/play.html?game=dash&mode=timed&diff=normal&time=60'],
+
+        ['rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
+         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=normal&bpm=110'],
+
+        ['power-control/play.html?diff=normal&time=60',
+         'shadow-breaker/play.html?game=power&mode=timed&diff=normal&time=60']
       ],
       rhythm: [
-        'rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
-        'rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
-        'rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json'
+        ['rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
+         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=easy&bpm=100'],
+        ['rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
+         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=normal&bpm=120'],
+        ['rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json',
+         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=hard&bpm=135']
       ],
       lower: [
-        'power-control/play.html?diff=easy&time=45',
-        'power-control/play.html?diff=normal&time=60',
-        'mobility-dash/play.html?diff=normal&time=60'
+        ['power-control/play.html?diff=easy&time=45',
+         'shadow-breaker/play.html?game=power&mode=timed&diff=easy&time=45'],
+        ['power-control/play.html?diff=normal&time=60',
+         'shadow-breaker/play.html?game=power&mode=timed&diff=normal&time=60'],
+        ['mobility-dash/play.html?diff=normal&time=60',
+         'shadow-breaker/play.html?game=dash&mode=timed&diff=normal&time=60']
       ]
     };
 
-    btnProg.onclick = () => {
+    btnProg.onclick = async () => {
       const key = progSel.value;
-      const plan = programs[key] || programs.quick;
-      EXO.store.set('EXO_PLAN', {idx:0, paths:plan});
-      location.href = plan[0] + '&next=program.html';
+      const planPairs = programs[key] || programs.quick;
+      // เก็บทั้ง primary/fallback ไว้ที่ storage
+      const resolvedPrimaries = planPairs.map(p=>p[0]);
+      EXO.store.set('EXO_PLAN', {idx:0, paths:resolvedPrimaries, fallbacks:planPairs});
+      // เปิด step แรก พร้อม fallback
+      await goFirstAvailable(planPairs[0]);
     };
 
-    // ----- Rhythm -----
+    // ---------- Rhythm ----------
     chartPreset.addEventListener('change', ()=>{ customWrap.style.display = (chartPreset.value==='__custom__') ? 'flex':'none'; });
     btnRhythm.onclick = () => {
       const diff = rhythmDiff.value;
       const bpm  = Math.max(60, Math.min(220, parseInt(rhythmBpm.value||'110',10)));
-      let url = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
+      let primary = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
       const preset = chartPreset.value;
       if (preset){
-        url += '&chart=' + encodeURIComponent(preset==='__custom__'? chartUrl.value.trim() : preset);
+        primary += '&chart=' + encodeURIComponent(preset==='__custom__'? chartUrl.value.trim() : preset);
       }
-      location.href = url;
+      const fallback = 'shadow-breaker/play.html?game=rhythm&mode=chart&diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
+      goFirstAvailable([primary, fallback]);
     };
 
-    // ----- Combat -----
+    // ---------- Combat ----------
     btnCombat.onclick = () => {
       const diff = combatDiff.value;
       const t = Math.max(10, Math.min(600, parseInt(combatTime.value||'60',10)));
-      location.href = `shadow-breaker/play.html?diff=${diff}&time=${t}`;
+      const primary  = `shadow-breaker/play.html?diff=${diff}&time=${t}`;
+      const fallback = `shadow-breaker/play.html?game=combat&mode=timed&diff=${diff}&time=${t}`;
+      goFirstAvailable([primary, fallback]);
     };
 
-    // ----- Dash -----
+    // ---------- Dash ----------
     btnDash.onclick = () => {
       const diff = dashDiff.value;
       const t = Math.max(10, Math.min(600, parseInt(dashTime.value||'60',10)));
-      location.href = `mobility-dash/play.html?diff=${diff}&time=${t}`;
+      const primary  = `mobility-dash/play.html?diff=${diff}&time=${t}`;
+      const fallback = `shadow-breaker/play.html?game=dash&mode=timed&diff=${diff}&time=${t}`;
+      goFirstAvailable([primary, fallback]);
     };
 
-    // ----- Power -----
+    // ---------- Power ----------
     btnPower.onclick = () => {
       const diff = powerDiff.value;
       const t = Math.max(10, Math.min(600, parseInt(powerTime.value||'60',10)));
-      location.href = `power-control/play.html?diff=${diff}&time=${t}`;
+      const primary  = `power-control/play.html?diff=${diff}&time=${t}`;
+      const fallback = `shadow-breaker/play.html?game=power&mode=timed&diff=${diff}&time=${t}`;
+      goFirstAvailable([primary, fallback]);
     };
   </script>
 
