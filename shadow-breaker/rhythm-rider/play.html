@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Rhythm Sync (BPM/Chart + Difficulty + Feedback)</title>
+  <title>EXO · Rhythm Sync (BPM/Chart + Difficulty + Feedback + Stats)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <link rel="stylesheet" href="../core/exo-ui.css">
@@ -81,8 +81,19 @@ AFRAME.registerComponent('rhythm-game', {
     this.panel   = document.getElementById('panel');
     this.$fb     = document.getElementById('fb');
 
-    // State
-    this.state = { score: 0, combo: 1.0, time: 60, running: false };
+    // State (เพิ่มตัววัดผล)
+    this.state = { 
+      score: 0, 
+      combo: 1.0, 
+      maxCombo: 1.0,
+      time: 60, 
+      running: false,
+      // counters
+      cntPerfect: 0,
+      cntGood:    0,
+      cntOkay:    0,
+      cntMiss:    0
+    };
 
     // Query params
     const q = new URLSearchParams(location.search);
@@ -131,7 +142,7 @@ AFRAME.registerComponent('rhythm-game', {
       <div style="display:flex;gap:.6rem;justify-content:center">
         <button id="btnStart" class="btn">▶ Start</button>
       </div>
-      <small style="opacity:.7">Tip: PERFECT ≤ ${this.winPerfect}ms, GOOD ≤ ${this.winGood}ms, OKAY ≤ ${this.winOkay}ms</small>
+      <small style="opacity:.7">PERFECT ≤ ${this.winPerfect}ms, GOOD ≤ ${this.winGood}ms, OKAY ≤ ${this.winOkay}ms</small>
     `;
     this.overlay.style.display='flex';
     document.getElementById('btnStart').onclick = () => {
@@ -147,7 +158,7 @@ AFRAME.registerComponent('rhythm-game', {
     });
     document.getElementById('btnPause').onclick = () => this.pause();
 
-    // Timer demo 60s
+    // Timer demo 60s (ยังมีให้เห็น แต่จะหยุดเมื่อน็อตหมดเพราะ end())
     this.timer = setInterval(()=>{
       if (!this.state.running) return;
       this.state.time--; this.$t.textContent=this.state.time;
@@ -195,10 +206,11 @@ AFRAME.registerComponent('rhythm-game', {
     if (diff==='hard') {
       // เพิ่มความหนาแน่น
       return base.concat([
-        {t:13.5, side:'L', type:'tap'},
-        {t:14,   side:'R', type:'tap'},
-        {t:14.5, side:'L', type:'tap'},
-        {t:15,   side:'R', type:'hold', len:2},
+        {t:13.25, side:'L', type:'tap'},
+        {t:13.5,  side:'L', type:'tap'},
+        {t:14,    side:'R', type:'tap'},
+        {t:14.5,  side:'L', type:'tap'},
+        {t:15,    side:'R', type:'hold', len:2},
       ]);
     }
     // normal
@@ -259,6 +271,13 @@ AFRAME.registerComponent('rhythm-game', {
     return Math.round(base * this.dcfg.scoreMul * this.state.combo);
   },
 
+  registerHitTier(tier){
+    if (tier==='perfect') this.state.cntPerfect++;
+    else if (tier==='good') this.state.cntGood++;
+    else if (tier==='okay') this.state.cntOkay++;
+    else if (tier==='miss') this.state.cntMiss++;
+  },
+
   tryHit(side){
     if (!this.state.running) return;
     const t = EXO.now() - this.t0;
@@ -280,12 +299,14 @@ AFRAME.registerComponent('rhythm-game', {
 
     if (tier==='miss'){ this.miss(cand); return; }
 
-    // update score
+    // update score/combo
     this.state.score += this.scoreGain(tier);
     this.state.combo = Math.min(5.0, this.state.combo + (tier==='perfect'?0.2:0.15));
+    this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
     this.$s.textContent = this.state.score;
     this.$c.textContent = 'x' + this.state.combo.toFixed(1);
     this.flash(tier.toUpperCase(), tier);
+    this.registerHitTier(tier);
     EXO.beep(760, 0.03, 0.08);
 
     const inner=cand.children[0];
@@ -301,6 +322,7 @@ AFRAME.registerComponent('rhythm-game', {
     this.state.combo = 1.0;
     this.$c.textContent = 'x1.0';
     this.flash('MISS','miss');
+    this.registerHitTier('miss');
     const inner=e.children[0];
     inner.setAttribute('material','color:#ff5252; emissive:#8a2b2b; emissiveIntensity:.4');
   },
@@ -318,15 +340,42 @@ AFRAME.registerComponent('rhythm-game', {
     this.overlay.style.display='flex';
   },
 
+  // คำนวณสถิติ
+  computeStats(){
+    const totalNotes = this.chart.length;
+    const hits = this.state.cntPerfect + this.state.cntGood + this.state.cntOkay;
+    const hitRate = totalNotes > 0 ? (hits / totalNotes) * 100 : 0;
+    // Accuracy แบบถ่วงน้ำหนัก
+    const weighted = (this.state.cntPerfect*1) + (this.state.cntGood*0.7) + (this.state.cntOkay*0.4);
+    const accuracy = totalNotes > 0 ? (weighted / totalNotes) * 100 : 0;
+    return {
+      totalNotes, hits,
+      hitRate: Math.round(hitRate * 10) / 10,
+      accuracy: Math.round(accuracy * 10) / 10,
+      maxCombo: Math.round(this.state.maxCombo*10)/10
+    };
+  },
+
   end(){
     this.state.running=false;
+    clearInterval(this.timer); // หยุดจับเวลา
+
+    const stats = this.computeStats();
     this.panel.innerHTML = `
       <div class="title">Result — Rhythm Sync</div>
-      <div class="kpi">
+      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
         <div>Score<br><b>${this.state.score}</b></div>
-        <div>Combo<br><b>${this.state.combo.toFixed(1)}×</b></div>
+        <div>MAX Combo<br><b>${stats.maxCombo}×</b></div>
         <div>BPM<br><b>${this.bpm}</b></div>
-        <div>Notes<br><b>${this.chart.length}</b></div>
+        <div>Notes<br><b>${stats.totalNotes}</b></div>
+        <div>Hit Rate<br><b>${stats.hitRate}%</b></div>
+        <div>Accuracy<br><b>${stats.accuracy}%</b></div>
+      </div>
+      <div class="kpi" style="grid-template-columns:repeat(4,1fr)">
+        <div>Perfect<br><b>${this.state.cntPerfect}</b></div>
+        <div>Good<br><b>${this.state.cntGood}</b></div>
+        <div>Okay<br><b>${this.state.cntOkay}</b></div>
+        <div>Miss<br><b>${this.state.cntMiss}</b></div>
       </div>
       <div style="display:flex;gap:.6rem;justify-content:center">
         <a class="btn" onclick="location.reload()">⟲ Restart</a>
@@ -351,10 +400,13 @@ AFRAME.registerComponent('rhythm-game', {
         if (e.userData.type==='hold'){
           const ok = (e.userData.holding && tRel >= e.userData.holdEndAt - 0.05);
           if (ok){
-            this.state.score += this.scoreGain('good'); // โบนัสจบ hold
+            // โบนัสจบ hold นับเป็น Good (สม่ำเสมอ)
+            this.state.score += this.scoreGain('good');
             this.state.combo = Math.min(5.0, this.state.combo + 0.15);
+            this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
             this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
             this.flash('HOLD','good'); EXO.beep(680,0.05,0.1);
+            this.state.cntGood++;
           } else {
             this.miss(e);
           }
@@ -364,6 +416,14 @@ AFRAME.registerComponent('rhythm-game', {
         }
         e.setAttribute('visible',false); e.userData.alive=false;
       }
+    }
+
+    // ---- จบเกมทันทีเมื่อโน้ตหมด ----
+    const allSpawned = this.spawnedIdx >= this.chart.length - 1;
+    const anyAlive   = this.pool.some(e => e.userData.alive);
+    if (allSpawned && !anyAlive) {
+      this.end();
+      return;
     }
 
     requestAnimationFrame(this._tick);
