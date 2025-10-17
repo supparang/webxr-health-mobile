@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>EXO · Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="core/exo-ui.css">
+  <style>
+    .wrap{max-width:720px;margin:80px auto;padding:0 16px}
+    .card{background:rgba(14,20,36,.85);border:1px solid #112848;border-radius:12px;padding:16px}
+    .row{display:flex;gap:10px;align-items:center;margin:.5rem 0}
+    .row label{min-width:160px}
+    input[type="text"]{flex:1;padding:8px;border-radius:8px;border:1px solid #1a315a;background:#0b1325;color:#e6f2ff}
+    select{padding:8px;border-radius:8px;border:1px solid #1a315a;background:#0b1325;color:#e6f2ff}
+    .actions{display:flex;gap:8px;justify-content:center;margin-top:12px}
+  </style>
+</head>
+<body>
+  <header class="hud"><div class="box"><strong>EXO</strong></div></header>
+  <main class="wrap">
+    <section class="card">
+      <h3 id="title"></h3>
+
+      <div class="row">
+        <label id="labMusic"></label>
+        <select id="music"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+
+      <div class="row">
+        <label id="labSfx"></label>
+        <select id="sfx"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+
+      <div class="row">
+        <label id="labLang"></label>
+        <select id="lang"><option value="th"></option><option value="en"></option></select>
+      </div>
+
+      <h4 id="leadTitle" style="margin-top:10px"></h4>
+      <div class="row">
+        <label id="labApiUrl"></label>
+        <input id="apiUrl" type="text" placeholder="https://api.example.com/leaderboard">
+      </div>
+      <div class="row">
+        <label id="labApiKey"></label>
+        <input id="apiKey" type="text" placeholder="sk_...">
+      </div>
+
+      <div class="actions">
+        <button id="btnSave" class="btn"></button>
+        <a class="btn" href="index.html" id="btnBack"></a>
+      </div>
+    </section>
+  </main>
+
+  <script src="core/exo-core.js"></script>
+  <script src="core/exo-settings.js"></script>
+  <script>
+    const S = EXO_SETTINGS.get();
+    // i18n labels
+    title.textContent     = EXO_SETTINGS.t('settings');
+    labMusic.textContent  = EXO_SETTINGS.t('music');
+    labSfx.textContent    = EXO_SETTINGS.t('sfx');
+    labLang.textContent   = EXO_SETTINGS.t('language');
+    lang.options[0].text  = EXO_SETTINGS.t('thai');
+    lang.options[1].text  = EXO_SETTINGS.t('english');
+    leadTitle.textContent = EXO_SETTINGS.t('leaderboard');
+    labApiUrl.textContent = EXO_SETTINGS.t('apiUrl');
+    labApiKey.textContent = EXO_SETTINGS.t('apiKey');
+    btnSave.textContent   = EXO_SETTINGS.t('save');
+    btnBack.textContent   = EXO_SETTINGS.t('back');
+
+    // load state
+    music.value = S.music ? 'on':'off';
+    sfx.value   = S.sfx ? 'on':'off';
+    lang.value  = S.lang;
+    apiUrl.value= S.api.leaderboardUrl||'';
+    apiKey.value= S.api.apiKey||'';
+
+    btnSave.onclick = ()=>{
+      EXO_SETTINGS.set({
+        music: music.value==='on',
+        sfx:   sfx.value==='on',
+        lang:  lang.value,
+        api:   { leaderboardUrl: apiUrl.value.trim(), apiKey: apiKey.value.trim() }
+      });
+      // แสดงยืนยันเร็ว ๆ
+      btnSave.textContent = '✓ ' + EXO_SETTINGS.t('save');
+      setTimeout(()=> btnSave.textContent = EXO_SETTINGS.t('save'), 900);
+    };
+  </script>
+</body>
+</html>
