@@ -4,92 +4,153 @@
   <meta charset="utf-8">
   <title>EXO · Mobility Dash</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- Core & Metrics (ต้องเป็นเวอร์ชันที่อัปเดตล่าสุด) -->
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
 </head>
 <body>
 
+  <!-- HUD -->
   <div class="hud">
-    <div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
-    <div class="box"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a href="../index.html" class="btn">⟵ Hub</a></div>
+    <div class="box">
+      <span id="score">0</span>
+      <span id="combo">x1.0</span>
+    </div>
+    <div class="box">
+      <span id="time">60</span>
+      <button id="btnPause" class="btn">⏸</button>
+      <a href="../index.html" class="btn">⟵ Hub</a>
+    </div>
   </div>
 
-  <div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
+  <!-- Touch zones -->
+  <div id="touchL" class="touch"></div>
+  <div id="touchR" class="touch"></div>
+
+  <!-- Overlay -->
   <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
 
+  <!-- Scene -->
   <a-scene renderer="antialias:true; colorManagement:true">
     <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
     <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
-    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4"
+             material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+    <!-- เส้น Hit Line -->
     <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
               material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
+    <!-- Player (สองเลน: L=-0.8, R=0.8) -->
     <a-box id="player" color="#4caf50" depth="0.3" height="0.3" width="0.3" position="-0.8 1.2 -0.5"></a-box>
+
+    <!-- Game Logic -->
     <a-entity dash-game></a-entity>
   </a-scene>
 
 <script>
 AFRAME.registerComponent('dash-game',{
   init(){
-    this.$s=document.getElementById('score'); this.$c=document.getElementById('combo'); this.$t=document.getElementById('time');
-    this.overlay=document.getElementById('overlay'); this.panel=document.getElementById('panel'); this.player=document.getElementById('player');
+    // ===== UI refs =====
+    this.$s=document.getElementById('score');
+    this.$c=document.getElementById('combo');
+    this.$t=document.getElementById('time');
+    this.overlay=document.getElementById('overlay');
+    this.panel=document.getElementById('panel');
+    this.player=document.getElementById('player');
 
+    // ===== Query / Difficulty / Music =====
     const q=new URLSearchParams(location.search);
     const diff=(q.get('diff')||'normal').toLowerCase();
-    const T=Math.max(10, +(q.get('time')||60));
+    const music=q.get('music');                 // ?music=assets/track.ogg
+    const timeParam=Math.max(10, +(q.get('time')||60));
 
+    // ค่าพรีเซ็ตความยาก
     const DIFF={
-      easy:{ speed:0.045, spawn:950, laneSwapBonus:12, hitPenalty:8 },
-      normal:{ speed:0.055, spawn:800, laneSwapBonus:15, hitPenalty:10 },
-      hard:{ speed:0.07, spawn:650, laneSwapBonus:18, hitPenalty:12 }
+      easy:   { speed:0.045, spawn:950, laneSwapBonus:12, hitPenalty:8 },
+      normal: { speed:0.055, spawn:800,  laneSwapBonus:15, hitPenalty:10 },
+      hard:   { speed:0.070, spawn:650,  laneSwapBonus:18, hitPenalty:12 }
     };
     this.cfg=DIFF[diff]||DIFF.normal;
 
-    this.state={ score:0, combo:1.0, maxCombo:1.0, time:T, running:false, avoided:0, hit:0 };
-    this.lanes={L:-0.8,R:0.8}; this.playerLane='L';
-    this.obstacles=[];
+    // ===== State =====
+    this.state={ score:0, combo:1.0, maxCombo:1.0, time:timeParam, running:false, avoided:0, hit:0 };
+    this.$t.textContent=this.state.time;
 
-    this.panel.innerHTML=`
-      <div class="title">Mobility Dash</div>
-      <p>Difficulty: <b>${diff.toUpperCase()}</b></p>
-      <button id="btnStart" class="btn">▶ Start</button>
-      <div class="muted" style="margin-top:6px">←/A เลื่อนซ้าย · →/D เลื่อนขวา</div>
-    `;
-    this.overlay.style.display='flex';
-    document.getElementById('btnStart').onclick=()=>{ this.overlay.style.display='none'; this.start(); };
+    // ===== Space / lanes =====
+    this.lanes={L:-0.8,R:0.8};
+    this.playerLane='L';
+    this.obstacles=[]; // active obstacle a-box list
+    this.movers=new Set(); // track all setInterval movers for cleanup
 
-    EXO.attachBasicInput({onLeft:()=>this.move('L'), onRight:()=>this.move('R'), onPause:()=>this.pause()});
+    // ===== Tutorial + Start =====
+    this.title='Mobility Dash';
+    this.tutorialGoal='สลับเลนซ้าย/ขวาเพื่อหลบกล่องสีแดงที่พุ่งเข้ามาให้พ้นเส้น';
+    this.tutorialCtrlHTML='<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>';
+    this.tutorialScore='หลบสำเร็จ +คะแนน × คอมโบ • ชน = หักคะแนนและคอมโบตก';
+
+    EXO.startOverlay(()=> this.start(), {
+      title: 'EXO — Mobility Dash',
+      howto: [
+        { title:'เป้าหมาย', text: this.tutorialGoal },
+        { title:'การบังคับ', html: this.tutorialCtrlHTML },
+        { title:'การได้คะแนน', text: this.tutorialScore }
+      ],
+      note: `Difficulty: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}`
+    });
+
+    // ===== Inputs =====
+    EXO.attachBasicInput({ onLeft:()=>this.move('L'), onRight:()=>this.move('R'), onPause:()=>this.pause() });
     document.getElementById('btnPause').onclick=()=>this.pause();
 
-    this.timer=setInterval(()=>{ if(!this.state.running) return; this.state.time--; this.$t.textContent=this.state.time; if(this.state.time<=0) this.end(); },1000);
+    // ===== Music (optional) =====
+    if (music) { try{ EXO.audio.playMusic(music, {loop:true, volume:0.35}); }catch(e){} }
+
+    // ===== Countdown =====
+    this.timer=setInterval(()=>{
+      if(!this.state.running) return;
+      this.state.time--;
+      this.$t.textContent=this.state.time;
+      if(this.state.time<=0) this.end();
+    },1000);
   },
 
+  // ===== Start session =====
   start(){
     this.state.running=true;
     this.spawnLoop=setInterval(()=>this.spawn(), this.cfg.spawn);
   },
 
+  // ===== Player move lane =====
   move(side){
     if(!this.state.running) return;
-    this.playerLane=side; this.player.setAttribute('position', `${this.lanes[side]} 1.2 -0.5`);
+    this.playerLane=side;
+    this.player.setAttribute('position', `${this.lanes[side]} 1.2 -0.5`);
   },
 
+  // ===== Spawn obstacle =====
   spawn(){
     if(!this.state.running) return;
     const side=Math.random()<0.5?'L':'R';
     const box=document.createElement('a-box');
-    box.setAttribute('color','#e53935'); box.setAttribute('depth',0.4); box.setAttribute('height',0.4); box.setAttribute('width',0.4);
-    box.setAttribute('position', `${this.lanes[side]} 1.2 -4`); box.setAttribute('data-side', side);
+    box.setAttribute('color','#e53935');
+    box.setAttribute('depth',0.4); box.setAttribute('height',0.4); box.setAttribute('width',0.4);
+    box.setAttribute('position', `${this.lanes[side]} 1.2 -4`);
+    box.setAttribute('data-side', side);
     this.el.sceneEl.appendChild(box);
     this.obstacles.push(box);
 
-    box.__mover=setInterval(()=>{
-      if(!this.state.running||!box.parentNode){ clearInterval(box.__mover); return; }
-      const p=box.getAttribute('position'); const z=p.z + this.cfg.speed;
+    // mover loop (16ms ~ 60fps)
+    const mover=setInterval(()=>{
+      if(!this.state.running || !box.parentNode){ clearInterval(mover); this.movers.delete(mover); return; }
+      const p=box.getAttribute('position');
+      const z=p.z + this.cfg.speed;
       box.setAttribute('position', `${p.x} ${p.y} ${z}`);
+
+      // ถึงเส้น hit line
       if(z>=-0.5){
         if(this.playerLane!==side){
           // หลบได้
@@ -105,18 +166,30 @@ AFRAME.registerComponent('dash-game',{
           this.state.combo = 1.0;
           EXO.beep(220,0.06,0.15);
         }
-        this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
+        this.$s.textContent=this.state.score;
+        this.$c.textContent='x'+this.state.combo.toFixed(1);
+
+        // cleanup object
         try{ box.parentNode.removeChild(box);}catch(e){}
         const i=this.obstacles.indexOf(box); if(i>=0) this.obstacles.splice(i,1);
-        clearInterval(box.__mover);
+        clearInterval(mover); this.movers.delete(mover);
       }
     },16);
+    this.movers.add(mover);
   },
 
+  // ===== Pause =====
   pause(){
     if(!this.state.running) return;
     this.state.running=false;
-    this.obstacles.forEach(b=>{ if(b.__mover) clearInterval(b.__mover); });
+
+    // หยุดการเคลื่อนที่ชั่วคราว
+    this.movers.forEach(h=>clearInterval(h));
+    clearInterval(this.spawnLoop);
+
+    // หยุดเพลงตอนพัก (ถ้าต้องการให้เงียบ)
+    try{ EXO.audio.stopMusic(); }catch(e){}
+
     this.panel.innerHTML=`
       <div class="title">Paused</div>
       <div style="display:flex;gap:.6rem;justify-content:center">
@@ -126,15 +199,37 @@ AFRAME.registerComponent('dash-game',{
     this.overlay.style.display='flex';
   },
 
+  // ===== End session =====
   end(){
     this.state.running=false;
-    clearInterval(this.timer); clearInterval(this.spawnLoop);
-    this.obstacles.forEach(b=>{ if(b.__mover) clearInterval(b.__mover); });
+    clearInterval(this.timer);
+    clearInterval(this.spawnLoop);
+    this.movers.forEach(h=>clearInterval(h));
+    this.movers.clear();
 
+    // คำนวณสถิติ
     const total=this.state.avoided + this.state.hit;
     const hitRate = total>0 ? (this.state.avoided/total)*100 : 0;
-    const acc = hitRate; // สำหรับเกมนี้ใช้สัดส่วนหลบสำเร็จเป็น accuracy
+    const acc = hitRate;
 
+    // ----- Logging รวม -----
+    try{
+      const duration = +(new URLSearchParams(location.search).get('time')||this.state.time||60);
+      EXO_METRICS.recordSession({
+        module: 'Mobility Dash',
+        diff: (new URLSearchParams(location.search).get('diff')||'normal'),
+        score: this.state.score||0,
+        accuracy: Math.round(acc*10)/10,
+        hits: this.state.avoided||0,
+        misses: this.state.hit||0,
+        duration
+      });
+    }catch(e){}
+
+    // หยุดเพลงเมื่อจบ
+    try{ EXO.audio.stopMusic(); }catch(e){}
+
+    // ผลลัพธ์
     this.panel.innerHTML=`
       <div class="title">Result — Mobility Dash</div>
       <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
@@ -151,6 +246,10 @@ AFRAME.registerComponent('dash-game',{
         <a class="btn" href="../index.html">⟵ Hub</a>
       </div>`;
     this.overlay.style.display='flex';
+
+    // Workout Program: ส่งต่ออัตโนมัติถ้ามี ?next=
+    const nextURL = new URLSearchParams(location.search).get('next');
+    if (nextURL) { setTimeout(()=> location.href = nextURL, 1500); }
   }
 });
 </script>
