@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>EXO · Leaderboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="core/exo-ui.css">
+  <style>.wrap{max-width:860px;margin:80px auto;padding:0 16px}.tbl{width:100%;border-collapse:collapse}.tbl th,.tbl td{border-bottom:1px solid #112848;padding:8px;text-align:left}</style>
+</head>
+<body>
+  <header class="hud"><div class="box"><strong>EXO Leaderboard</strong></div><div class="box"><a class="btn" href="index.html">⟵ Hub</a></div></header>
+  <main class="wrap">
+    <div class="panel">
+      <div class="title">Top 20</div>
+      <table class="tbl" id="tb"><thead><tr><th>#</th><th>Name</th><th>Module</th><th>Score</th><th>Acc</th><th>Diff</th><th>When</th></tr></thead><tbody></tbody></table>
+    </div>
+  </main>
+  <script src="core/exo-core.js"></script>
+  <script src="core/exo-settings.js"></script>
+  <script src="core/exo-leaderboard.js"></script>
+  <script>
+    (async ()=>{
+      const rows = await EXO_LB.top(20);
+      const tb = document.querySelector('#tb tbody'); tb.innerHTML='';
+      rows.forEach((r,i)=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td>${i+1}</td><td>${r.name||'-'}</td><td>${r.module}</td><td>${r.score}</td><td>${(r.accuracy||0).toFixed(1)}%</td><td>${r.diff||'-'}</td><td>${new Date(r.t).toLocaleString()}</td>`;
+        tb.appendChild(tr);
+      });
+    })();
+  </script>
+</body>
+</html>
