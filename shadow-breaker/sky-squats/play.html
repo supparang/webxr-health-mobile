@@ -1,381 +1,163 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8">
-  <title>EXO · Power Control (VS + LB + i18n: central)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8">
+<title>EXO · Power Control (Perf)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<link rel="stylesheet" href="../core/exo-ui.css">
+<script src="../core/exo-i18n.js"></script>
+<script src="../core/exo-core.js"></script>
+<script src="../core/exo-metrics.js"></script>
+<script src="../core/exo-settings.js"></script>
+<script src="../core/exo-leaderboard.js"></script>
+<script src="../core/exo-net.js"></script>
+<script src="../core/exo-boost.js"></script>
+<style>
+#fb{position:fixed;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;z-index:30}
+.tag{font:700 28px/1 system-ui,Segoe UI,Roboto;padding:6px 10px;margin-top:10px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(10,20,36,.55);color:#e6f2ff;text-shadow:0 0 6px rgba(255,255,255,.15);opacity:0;transform:translateY(16px);animation:rise .42s ease-out forwards}
+.tag.good{color:#7ee787;border-color:#2b8a3e}.tag.miss{color:#ff7777;border-color:#8a2b2b}
+@keyframes rise{0%{opacity:0;transform:translateY(16px)}80%{opacity:1;transform:translateY(-6px)}100%{opacity:0;transform:translateY(-2px)}}
+.feverBar{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);width:280px;height:10px;border:1px solid #2b4b86;border-radius:14px;background:rgba(14,20,36,.65);overflow:hidden;z-index:9}
+.feverFill{height:100%;width:0%;background:linear-gradient(90deg,#36d1dc,#5b86e5)}.feverOn .feverFill{background:linear-gradient(90deg,#ffd200,#ff7a00)}
+.screenFlash{position:fixed;inset:0;background:rgba(255,214,84,.18);pointer-events:none;opacity:0;transition:opacity .18s;z-index:8}.screenFlash.show{opacity:1}
+.hint{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);opacity:.76}
+</style>
+</head><body>
+<div class="hud"><div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
+<div class="box"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a href="../index.html" class="btn">⏵ <span data-i18n="common.hub">Hub</span></a></div></div>
+<div class="hint">Press / ปุ่ม ↓ หรือ Space = Squat / ยืน</div>
+<div id="fb"></div>
+<div class="feverBar"><div id="feverFill" class="feverFill"></div></div><div id="flash" class="screenFlash"></div>
+<div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
 
-  <!-- A-Frame -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<a-scene renderer="antialias:true;colorManagement:true">
+  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
+  <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
+  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 0.01 -0.5" material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
+  <a-entity power-game></a-entity>
+</a-scene>
 
-  <!-- UI & Core -->
-  <link rel="stylesheet" href="../core/exo-ui.css">
-  <!-- ✅ i18n กลาง -->
-  <script src="../core/exo-i18n.js"></script>
-  <script src="../core/exo-core.js"></script>
-  <script src="../core/exo-metrics.js"></script>
-
-  <!-- Settings + Leaderboard + VS -->
-  <script src="../core/exo-settings.js"></script>
-  <script src="../core/exo-leaderboard.js"></script>
-  <script src="../core/exo-net.js"></script>
-
-  <style>
-    .vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}
-    .vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
-    .tagwin{color:#7ee787}.taglose{color:#ff7777}.tagtie{color:#ffd166}
-  </style>
-</head>
-<body>
-
-  <!-- HUD -->
-  <div class="feverBar"><div id="feverFill" class="feverFill"></div></div>
-<div id="flash" class="screenFlash"></div>
-
-  <div class="hud">
-    <div class="box">
-      <span id="score">0</span>
-      <span id="combo">x1.0</span>
-    </div>
-    <div class="box">
-      <span id="time">60</span>
-      <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⟵ <span data-i18n="common.hub">Hub</span></a>
-    </div>
-  </div>
-
-  <!-- Touch Zones (ซ้าย = กดค้างเพื่อ Squat, ขวา = ปล่อย) -->
-  <div id="touchL" class="touch"></div>
-  <div id="touchR" class="touch"></div>
-
-  <!-- ✅ VS HUD (เปิดเมื่อ ?vs=1) -->
-  <div id="vsHud" class="vsHud" style="display:none">
-    <div class="box">
-      <span id="lblOpp" data-i18n="common.opponent">Opponent</span> <span id="oppConn">⏳</span> —
-      <span id="lblScore" data-i18n="common.score">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
-    </div>
-  </div>
-
-  <!-- Overlay -->
-  <div id="overlay" class="overlay" style="display:none;">
-    <div id="panel" class="panel"></div>
-  </div>
-
-  <!-- Scene -->
-  <a-scene renderer="antialias:true; colorManagement:true">
-
-    <!-- Lighting -->
-    <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
-    <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
-
-    <!-- Floor + Hit Line -->
-    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33;"></a-plane>
-    <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 0.01 -0.5"
-              material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
-
-    <!-- Player -->
-    <a-box id="player" color="#03a9f4" depth="0.3" height="0.6" width="0.6" position="0 1.6 -0.5"></a-box>
-
-    <!-- Game Logic -->
-    <a-entity power-game></a-entity>
-  </a-scene>
+<script>(function(w){if(!w.EXO_I18N){const F=(k,fb)=>fb||k;w.EXO_I18N={get:()=> 'th',set:()=>{},scope:()=>F.bind(null),t:()=>F,bindDom:()=>{},addPack:()=>{},packs:{}};}})(window);
+function EXO_safeStart(start,ov,cfg){try{if(window.EXO&&EXO.startOverlay){EXO.startOverlay(()=>start(),cfg||undefined);return;}}catch(e){}try{if(ov)ov.style.display='none';}catch(e){}window.addEventListener('click',function on(){window.removeEventListener('click',on,{once:true});try{start();}catch(e){}},{once:true});setTimeout(()=>{try{start();}catch(e){}},200);}</script>
 
 <script>
 AFRAME.registerComponent('power-game',{
-  init(){
-    // ===== i18n ศูนย์กลาง =====
-    const lang = EXO_I18N.get();
-    const tC   = EXO_I18N.scope('common');
-    const tMod = EXO_I18N.scope('power');
+  init:function(){
+    const tC=EXO_I18N.scope('common'),tP=EXO_I18N.scope('power'),lang=EXO_I18N.get();
+    const $=s=>document.querySelector(s);
+    this.$s=$('#score');this.$c=$('#combo');this.$t=$('#time');this.$fb=$('#fb');this.$fever=$('#feverFill');this.$flash=$('#flash');this.panel=$('#panel');this.overlay=$('#overlay');
 
-    // ===== UI Refs =====
-    this.$s=document.getElementById('score');
-    this.$c=document.getElementById('combo');
-    this.$t=document.getElementById('time');
-    this.overlay=document.getElementById('overlay');
-    this.panel=document.getElementById('panel');
-    this.player=document.getElementById('player');
-
-    // ===== Query Params / VS =====
     const q=new URLSearchParams(location.search);
-    const diff=(q.get('diff')||'normal').toLowerCase();
-    const music=q.get('music'); // ?music=assets/music.ogg
-    const timeParam=Math.max(10, +(q.get('time')||60));
-    this.isVS = q.get('vs') === '1';
-
-    // ✅ VS HUD
-    if (this.isVS){
-      document.getElementById('vsHud').style.display='block';
-      this.$oppConn = document.getElementById('oppConn');
-      this.$oppScore= document.getElementById('oppScore');
-      this.$oppCombo= document.getElementById('oppCombo');
-      this.opp = {score:0, combo:1.0, isOver:false};
-
-      EXO_NET.onState(st => { this.$oppConn.textContent = (st==='connected'?'✅':'⏳'); });
-      EXO_NET.onMessage(msg => {
-        if (msg?.type==='state'){
-          this.opp.score = msg.score|0; this.opp.combo = +msg.combo||1.0;
-          this.$oppScore.textContent = this.opp.score;
-          this.$oppCombo.textContent = 'x' + this.opp.combo.toFixed(1);
-        }
-        if (msg?.type==='over'){
-          this.opp.isOver = true; this.opp.score = msg.score|0;
-          this.$oppScore.textContent = this.opp.score;
-        }
-      });
-    }
-
-    // ===== Difficulty Presets =====
-    const DIFF={
-      easy:{ speed:3.2, spawn:1300, bonus:28, penalty:20, squatY:1.0, standY:1.6 },
-      normal:{ speed:3.8, spawn:1200, bonus:30, penalty:30, squatY:1.0, standY:1.6 },
-      hard:{ speed:4.6, spawn:1000, bonus:34, penalty:36, squatY:0.95, standY:1.65 }
-    };
-    this.cfg=DIFF[diff]||DIFF.normal;
-
-    // ===== State =====
-    this.state={ score:0, combo:1.0, maxCombo:1.0, time:timeParam, running:false, pass:0, fail:0 };
+    const diff=(q.get('diff')||'normal').toLowerCase();const timeParam=Math.max(10,+(q.get('time')||60));
+    this.state={score:0,combo:1,maxCombo:1,time:timeParam,running:false,pass:0,fail:0};
     this.$t.textContent=this.state.time;
 
+    this.spawnZ=-5.2; this.pool=[];
+    for(let i=0;i<18;i++){const e=document.createElement('a-entity');e.setAttribute('visible',false);e.userData={alive:false,type:'normal',vz:0,needLow:false,hp:1};const inner=document.createElement('a-entity');inner.setAttribute('geometry','primitive: ring; radiusInner:.22; radiusOuter:.28');inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');e.appendChild(inner);this.el.sceneEl.appendChild(e);this.pool.push(e);}
+
     this.squatting=false;
-    this.rings=[];
-    this.movers=new Set();
 
-    // ===== Tutorial =====
-    EXO.startOverlay(()=>this.start(),{
-      title: tMod('title') + (this.isVS?' · '+tC('vs'):''),
-      howto:[
-        {title: lang==='th'?'เป้าหมาย':'Goal', text:tMod('goal')},
-        {title: lang==='th'?'การควบคุม':'Controls', html:tMod('ctrl')},
-        {title: lang==='th'?'คะแนน':'Scoring', text:tMod('scoreTip')}
-      ],
-      note:`${tC('diff')}: <b>${diff.toUpperCase()}</b>${music?' · '+tC('music')+': on':''}${this.isVS?' · '+tC('vs'):''}`
-    });
+    this.fever=new EXO_BOOST.FeverManager({need:10,dur:10000,mul:2,barEl:this.$fever,flashEl:this.$flash});
+    this.dd=new EXO_BOOST.DynamicDifficulty({baseSpeed:4.0,baseSpawn:600,minSpawn:380,maxSpawn:900});
+    this.missions=new EXO_BOOST.MissionManager('short');
 
-    // ===== Control Input =====
-    const down=()=>this.setSquat(true);
-    const up  =()=>this.setSquat(false);
+    this.flash=(label,cls)=>{while(this.$fb.children.length>2)this.$fb.removeChild(this.$fb.firstChild);const s=document.createElement('div');s.className=`tag ${cls}`;s.textContent=label;this.$fb.appendChild(s);s.style.animationDuration='0.42s';setTimeout(()=>s.remove(),420);};
+    this.updateScore=()=>this.$s.textContent=this.state.score;
+    this.updateCombo=()=>this.$c.textContent='x'+this.state.combo.toFixed(1);
 
-    ['mousedown','touchstart'].forEach(e=>{
-      document.getElementById('touchL').addEventListener(e,down);
-    });
-    ['mouseup','mouseleave','touchend','touchcancel'].forEach(e=>{
-      document.getElementById('touchL').addEventListener(e,up);
-    });
-    // โซนขวา = ปล่อย
-    ['mousedown','touchstart'].forEach(e=>{
-      document.getElementById('touchR').addEventListener(e,up);
-    });
+    EXO_safeStart(this.start.bind(this),this.overlay,{title:tP('title'),howto:[
+      {title:lang==='th'?'เป้าหมาย':'Goal',text:tP('goal')},
+      {title:lang==='th'?'การบังคับ':'Controls',html:tP('ctrl')},
+      {title:lang==='th'?'คะแนน':'Scoring',text:tP('scoreTip')}
+    ],note:`${tC('diff')}: <b>${diff.toUpperCase()}</b>`});
 
-    window.addEventListener('keydown',e=>{
-      if(e.code==='Space' || e.key==='ArrowDown') this.setSquat(true);
-      if(e.key==='Escape') this.pause();
-    });
-    window.addEventListener('keyup',e=>{
-      if(e.code==='Space' || e.key==='ArrowDown') this.setSquat(false);
-    });
+    window.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.code==='Space'){this.squatting=true;} if(e.key==='ArrowUp'){this.squatting=false;} if(e.key==='Escape')this.pause();});
+    window.addEventListener('keyup',e=>{if(e.key==='ArrowDown'||e.code==='Space'){this.squatting=false;}});
 
     document.getElementById('btnPause').onclick=()=>this.pause();
 
-    // ===== Music =====
-    if(music) try{EXO.audio.playMusic(music,{loop:true,volume:0.35});}catch(e){}
-
-    // ===== Timer =====
-    this.timer=setInterval(()=>{
-      if(!this.state.running) return;
-      this.state.time--; this.$t.textContent=this.state.time;
-      if(this.state.time<=0) this.end();
-    },1000);
+    this.timer=setInterval(()=>{if(!this.state.running)return;this.state.time--;this.$t.textContent=this.state.time;if(this.state.time<=0)this.end();},1000);
   },
 
-  start(){
-    this.state.running=true;
-    this.setSquat(false); // เริ่มจากยืน
-    this.spawnLoop=setInterval(()=>this.spawn(),this.cfg.spawn);
+  start:function(){this.state.running=true;this.spawnLoop=setInterval(()=>this.spawn(), this.dd.getSpawnIv());},
+
+  spawn:function(){
+    if(!this.state.running)return;
+    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
+    const type=EXO_BOOST.Specials.roll({gold:.12,time:.06,bomb:.08,shield:.10});
+    e.userData.alive=true; e.userData.type=type; e.userData.vz=4.0*this.dd.getSpeedMul()+(Math.random()*.6-.3);
+    e.userData.needLow = Math.random()<.5; // true = ต้องนั่ง; false = ยืน
+    e.userData.hp = (type==='shield')?2:1;
+    e.object3D.position.set(0, e.userData.needLow?0.9:1.6, this.spawnZ);
+
+    const inner=e.children[0];
+    if(type==='gold'){inner.setAttribute('material','color:#ffd54f; emissive:#b28704; emissiveIntensity:.45');}
+    else if(type==='bomb'){inner.setAttribute('material','color:#ef5350; emissive:#8a2b2b; emissiveIntensity:.35');}
+    else if(type==='time'){inner.setAttribute('material','color:#81c784; emissive:#2b8a3e; emissiveIntensity:.32');}
+    else if(type==='shield'){inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25'); inner.setAttribute('geometry','primitive: torus; radius:.28; radiusTubular:.03');}
+    else{inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25'); inner.setAttribute('geometry','primitive: ring; radiusInner:.22; radiusOuter:.28');}
+
+    e.setAttribute('visible',true);
+    clearInterval(this.spawnLoop); this.spawnLoop=setInterval(()=>this.spawn(), this.dd.getSpawnIv());
   },
 
-  setSquat(flag){
-    this.squatting=!!flag;
-    this.player.object3D.position.y=this.squatting?this.cfg.squatY:this.cfg.standY;
+  pause:function(){
+    const tC=EXO_I18N.scope('common'); if(!this.state.running)return; this.state.running=false;
+    this.panel.innerHTML=`<div class="title">${tC('paused')}</div><div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a><a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;
+    this.overlay.style.display='flex';
   },
 
-  spawn(){
+  tick:function(t,dt){
     if(!this.state.running) return;
-    const isLow=Math.random()<0.5;
-    const y=isLow?this.cfg.squatY:(this.cfg.standY+0.2);
+    const s=dt/1000;
+    for(const e of this.pool){
+      if(!e.userData.alive) continue;
+      const p=e.object3D.position; p.z += e.userData.vz*s;
 
-    const ring=document.createElement('a-torus');
-    ring.setAttribute('radius',0.6);
-    ring.setAttribute('radius-tubular',0.05);
-    ring.setAttribute('color',isLow?'#ffc107':'#8bc34a');
-    ring.setAttribute('position',`0 ${y} -5`);
-    ring.setAttribute('data-low',isLow?'1':'0');
-    this.el.sceneEl.appendChild(ring);
-    this.rings.push(ring);
-
-    const mover=setInterval(()=>{
-      if(!this.state.running||!ring.parentNode){clearInterval(mover);this.movers.delete(mover);return;}
-      const p=ring.getAttribute('position');
-      ring.setAttribute('position',`0 ${p.y} ${p.z + this.cfg.speed*0.016}`);
-
-      if(p.z>-0.5){
-        const needLow=ring.getAttribute('data-low')==='1';
-        const ok=(needLow&&this.squatting)||(!needLow&&!this.squatting);
-
+      if(p.z > -0.5){
+        const ok = (e.userData.needLow && this.squatting) || (!e.userData.needLow && !this.squatting);
         if(ok){
-          this.state.pass++;
-          this.state.score+=Math.round(this.cfg.bonus*this.state.combo);
-          this.state.combo=Math.min(5.0,this.state.combo+0.18);
-          this.state.maxCombo=Math.max(this.state.maxCombo,this.state.combo);
-          EXO.beep(700,0.05,0.1);
-        } else {
-          this.state.fail++;
-          this.state.score=Math.max(0,this.state.score-this.cfg.penalty);
-          this.state.combo=1.0;
-          EXO.beep(220,0.06,0.15);
+          if(e.userData.type==='shield' && e.userData.hp>1){ e.userData.hp-=1; this.flash('BREAK','good'); EXO.beep(480,.05,.08); this.fever.hit(); this.dd.onHit(); continue; }
+          let gain=80 + (e.userData.type==='gold'?16:0);
+          this.state.score += this.fever.mulScore(Math.round(gain*this.state.combo));
+          this.state.combo=Math.min(6,this.state.combo+.18); this.state.maxCombo=Math.max(this.state.maxCombo,this.state.combo);
+          this.fever.hit(); this.dd.onHit(); this.flash('PASS','good'); EXO.beep(700,.05,.1);
+          if(e.userData.type==='time'){ this.state.time=Math.min(999,this.state.time+2); document.getElementById('time').textContent=this.state.time; }
+        }else{
+          this.state.score=Math.max(0,this.state.score - 90 - (e.userData.type==='bomb'?20:0));
+          this.state.combo=1; this.fever.miss(); this.dd.onMiss(); this.flash('FAIL','miss'); EXO.beep(220,.06,.15);
         }
-        this.$s.textContent=this.state.score;
-        this.$c.textContent='x'+this.state.combo.toFixed(1);
-
-        // ✅ ส่งสถานะ VS ทุกครั้งที่มีการเปลี่ยนสกอร์/คอมโบ
-        if (this.isVS && EXO_NET.connected()){
-          EXO_NET.send({type:'state', score:this.state.score|0, combo:+this.state.combo});
-        }
-
-        try{ring.parentNode.removeChild(ring);}catch(e){}
-        const i=this.rings.indexOf(ring); if(i>=0) this.rings.splice(i,1);
-        clearInterval(mover); this.movers.delete(mover);
+        this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
+        e.setAttribute('visible',false); e.userData.alive=false;
+      }else if(p.z > 0.3){
+        e.setAttribute('visible',false); e.userData.alive=false;
       }
-    },16);
-    this.movers.add(mover);
+    }
+    this.fever.tick(dt); this.dd.tickDecay(dt);
   },
 
-  pause(){
-    if(!this.state.running) return;
-    this.state.running=false;
-    clearInterval(this.spawnLoop);
-    this.movers.forEach(m=>clearInterval(m));
-
-    try{EXO.audio.stopMusic();}catch(e){}
-
-    const tC = EXO_I18N.scope('common');
-    this.panel.innerHTML=`
-      <div class="title">${tC('paused')}${this.isVS?' · '+tC('vs'):''}</div>
-      <p>${tMod('ctrl')}</p>
-      <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
-        <a class="btn" href="../index.html">⟵ ${tC('hub')}</a>
-      </div>`;
-    this.overlay.style.display='flex';
-  },
-
-  end(){
-    const tC = EXO_I18N.scope('common');
-    const tP = EXO_I18N.scope('power');
-
-    this.state.running=false;
-    clearInterval(this.timer);
-    clearInterval(this.spawnLoop);
-    this.movers.forEach(m=>clearInterval(m));
-    this.movers.clear();
-
-    const total=this.state.pass+this.state.fail;
-    const acc=total>0?(this.state.pass/total)*100:0;
-
-    try{
-      EXO_METRICS.recordSession({
-        module:'Power Control',
-        diff:(new URLSearchParams(location.search).get('diff')||'normal'),
-        score:this.state.score,
-        accuracy:Math.round(acc*10)/10,
-        hits:this.state.pass,
-        misses:this.state.fail,
-        duration:this.state.time
-      });
-    }catch(e){}
-
-    try{EXO.audio.stopMusic();}catch(e){}
-
-    // ✅ แจ้งผลให้คู่แข่ง
-    if (this.isVS && EXO_NET.connected()){
-      EXO_NET.send({type:'over', score:this.state.score|0});
-    }
-
-    const makeResult = (oppKnown=false)=>{
-      let verdict='';
-      if (this.isVS && oppKnown){
-        if (this.state.score > (this.opp?.score||0)) verdict = `<div class="tagwin"><b>${tC('youWin')}</b></div>`;
-        else if (this.state.score < (this.opp?.score||0)) verdict = `<div class="taglose"><b>${tC('youLose')}</b></div>`;
-        else verdict = `<div class="tagtie"><b>${tC('tie')}</b></div>`;
-      }
-      return `
-        <div class="title">${tC('result')} — Power Control ${this.isVS?'· '+tC('vs'):''}</div>
-        ${verdict}
-        <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-          <div>${tC('score')}<br><b>${this.state.score}</b></div>
-          <div>${tC('maxCombo')}<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
-          <div>${tC('accuracy')}<br><b>${acc.toFixed(1)}%</b></div>
-        </div>
-        <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-          <div>${tP('pass')}<br><b>${this.state.pass}</b></div>
-          <div>${tP('fail')}<br><b>${this.state.fail}</b></div>
-        </div>
-        ${this.isVS ? `
-        <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-          <div>${tC('oppScore')}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
-          <div>${tC('oppStatus')}<br><b id="oppStatus">${this.opp?.isOver?tC('finished'):tC('pending')}</b></div>
-        </div>`:``}
-        <div style="display:flex;gap:.6rem;justify-content:center">
-          <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
-          <a class="btn" href="../index.html">⟵ ${tC('hub')}</a>
-        </div>`;
-    };
-
-    this.panel.innerHTML = makeResult(this.isVS ? this.opp?.isOver : false);
+  end:function(){
+    const tC=EXO_I18N.scope('common'), tP=EXO_I18N.scope('power');
+    this.state.running=false; clearInterval(this.timer); clearInterval(this.spawnLoop);
+    const acc = (this.state.pass + this.state.fail) ? (this.state.pass/(this.state.pass+this.state.fail))*100 : 0;
+    try{EXO_METRICS.recordSession({module:'Power Control',diff:(new URLSearchParams(location.search).get('diff')||'normal'),score:this.state.score||0,accuracy:Math.round(acc*10)/10,hits:this.state.pass||0,misses:this.state.fail||0,duration:+(new URLSearchParams(location.search).get('time')||60)});}catch(e){}
+    this.panel.innerHTML = `<div class="title">${tC('result')} — Power Control</div>
+    <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
+      <div>${tC('score')}<br><b>${this.state.score}</b></div>
+      <div>${tC('maxCombo')}<br><b>${this.state.combo.toFixed(1)}×</b></div>
+      <div>Pass%<br><b>${acc.toFixed(1)}%</b></div>
+    </div>
+    <div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a><a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;
     this.overlay.style.display='flex';
 
-    // ถ้า VS และฝั่งตรงข้ามยังไม่จบ ให้รอฟังผลแล้วอัปเดต verdict
-    if (this.isVS && !this.opp?.isOver){
-      const handler=(msg)=>{
-        if (msg?.type==='over'){
-          this.opp.isOver=true; this.opp.score=msg.score|0;
-          const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
-          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=tC('finished');
-          this.panel.innerHTML = makeResult(true);
-        }
-      };
-      EXO_NET.onMessage(handler);
-      setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=tC('pending'); }, 5000);
-    }
-
-    // ===== Online Leaderboard (Auto Submit: ถามชื่อแล้วส่ง) =====
-    setTimeout(async ()=>{
-      try{
-        const name = prompt(tC('askName'),'');
-        if (!name) return;
-
-        await EXO_LB.submit({
-          name,
-          module: 'Power Control',
-          score: this.state.score|0,
-          accuracy: Math.round(acc*10)/10,
-          diff: (new URLSearchParams(location.search).get('diff')||'normal')
-        });
-
-        // แจ้งยืนยัน
-        const ok = document.createElement('div');
-        ok.className = 'kpi';
-        ok.style.cssText = 'margin-top:8px;text-align:center';
-        ok.innerHTML = `<div style="grid-column:1/-1"><b>${tC('sent')}</b></div>`;
-        this.panel.appendChild(ok);
-      }catch(e){ console.warn('LB submit failed', e); }
-    }, 350);
-
-    const nextURL=new URLSearchParams(location.search).get('next');
-    if(nextURL) setTimeout(()=>location.href=nextURL,1500);
+    // Missions + XP
+    const metrics={score:this.state.score,hits:this.state.pass,misses:this.state.fail,comboMax:Math.round(this.state.combo||1),avoided:0,perfectPct:acc,timePlayed:+(new URLSearchParams(location.search).get('time')||60)};
+    const done=this.missions.evaluate(metrics); const reward=this.missions.rewardXP(); const baseXP=Math.round(this.state.score/25); const res=EXO_BOOST.XP.add(baseXP+reward);
+    const list=done.length?('<ul>'+done.map(x=>`<li>✓ ${x.name} (+${x.xp} XP)</li>`).join('')+'</ul>'):'<p>—</p>';
+    const lvl=`<div class="kpi"><div>XP</div><b>${res.xp}</b><div>Level</div><b>${res.level}</b></div>`;
+    const ms =`<div class="kpi"><div>Missions</div><div style="grid-column:1/-1">${list}</div></div>`;
+    this.panel.insertAdjacentHTML('beforeend',lvl+ms);
   }
 });
 </script>
-
-</body>
-</html>
+</body></html>
