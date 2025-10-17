@@ -56,6 +56,92 @@
     <a-entity combat-game></a-entity>
     <a-entity combat-input></a-entity>
   </a-scene>
+<!-- ✅ EXO Start Hotfix: บังคับมีปุ่ม START เสมอ -->
+<script>
+(function (w){
+  // 1) สร้าง overlay/panel ถ้ายังไม่มี
+  function ensureOverlay(){
+    let ov = document.getElementById('overlay');
+    if(!ov){ ov = document.createElement('div'); ov.id='overlay'; ov.className='overlay'; document.body.appendChild(ov); }
+    let pn = document.getElementById('panel');
+    if(!pn){ pn = document.createElement('div'); pn.id='panel'; pn.className='panel'; ov.appendChild(pn); }
+    return {ov,pn};
+  }
+
+  // 2) ฟังก์ชันเริ่มเกมแบบปลอดภัย
+  async function goStart(){
+    try { await w.EXO?.audio?.ensure?.(); await w.EXO?.audio?.ctx?.resume?.(); } catch(e){}
+    // ถ้าเกมประกาศฟังก์ชันไว้
+    if (typeof w.__startGame === 'function'){ w.__startGame(); return; }
+    // หา component แล้วเรียก start() โดยตรง
+    const host = document.querySelector('[combat-game]');
+    const comp = host && host.components && host.components['combat-game'];
+    if (comp && typeof comp.start === 'function'){ comp.start(); return; }
+    // สุดท้าย ยิงอีเวนต์ให้โค้ดเกมฟังเอง
+    window.dispatchEvent(new CustomEvent('exo-start'));
+  }
+
+  // 3) แสดงหน้าปก Start (ถ้า EXO.startOverlay ไม่มี/เงียบ)
+  function showStartScreen(opts={}){
+    const {ov,pn} = ensureOverlay();
+    ov.style.display = 'flex';
+    pn.innerHTML = `
+      <div class="title">${opts.title || 'EXO TRAINING'}</div>
+      ${opts.note ? `<div class="muted" style="margin:.4rem 0">${opts.note}</div>` : ``}
+      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
+        <div><b>ซ้าย</b><br>ตี/ปัด</div>
+        <div><b>ขวา</b><br>ตี/ปัด</div>
+        <div><b>Space</b><br>เริ่ม/ตี</div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center;margin-top:.6rem">
+        <a class="btn" id="__exoStartBtn">▶ Start</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>
+      <div style="text-align:center;opacity:.7;margin-top:.4rem">Tip: กด Space/Enter หรือแตะที่พื้นหลังเพื่อเริ่ม</div>
+    `;
+    const go = ()=>{ ov.style.display='none'; goStart(); };
+    document.getElementById('__exoStartBtn')?.addEventListener('click', go, {once:true});
+    document.addEventListener('keydown', e=>{ if(e.code==='Space'||e.key==='Enter') go(); });
+    ov.addEventListener('pointerdown', ev=>{
+      if (ev.target?.id==='__exoStartBtn' || ev.target?.classList?.contains('btn')) return;
+      go();
+    }, {once:true, passive:true});
+  }
+
+  // 4) ให้ EXO.startOverlay เรียกของเราเป็นค่าเริ่มต้น (ถ้าไฟล์ core ไม่มี/เสีย)
+  w.EXO = w.EXO || {};
+  if (typeof w.EXO.startOverlay !== 'function'){
+    w.EXO.startOverlay = (onStart, opts={})=>{
+      showStartScreen(opts);
+      // เผื่อโค้ดเกมเดิมเรียกส่ง onStart เข้ามา
+      window.addEventListener('exo-start', ()=>{ try{ onStart && onStart(); }catch(e){} }, {once:true});
+      const btn = document.getElementById('__exoStartBtn');
+      btn && btn.addEventListener('click', ()=>{ try{ onStart && onStart(); }catch(e){} }, {once:true});
+    };
+  }
+
+  // 5) ให้เรียกง่าย ๆ ผ่าน EXO_safeStart ด้วย
+  w.EXO_safeStart = w.EXO_safeStart || function(onStart, _overlay, opts){
+    try { w.EXO.startOverlay(onStart, opts||{}); }
+    catch(e){ try{ onStart && onStart(); }catch(_e){} }
+  };
+
+  // 6) ถ้าอยาก auto-start เงียบ ๆ (เช่นทดสอบ), ใส่ ?autostart=1
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('autostart') === '1'){
+    setTimeout(()=>{ goStart(); }, 400);
+  }else{
+    // ถ้าไม่มีใครเรียก startOverlay ภายใน 300ms → แสดงเอง
+    setTimeout(()=>{
+      // ป้องกันกรณี overlay ของเกมแสดงแล้ว
+      const ov = document.getElementById('overlay');
+      if (!ov || ov.style.display==='none' || ov.style.display===''){
+        showStartScreen({title:'Combat Reflex', note:`Diff: ${qs.get('diff')||'normal'} · Time: ${qs.get('time')||60}s`});
+      }
+    }, 300);
+  }
+})(window);
+</script>
 
   <!-- START OVERLAY + TUTORIAL + TRY HIT (fallback) -->
   <script>
