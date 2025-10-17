@@ -1,0 +1,16 @@
+[
+  {"t":0,"side":"L","type":"tap"},
+  {"t":1,"side":"R","type":"tap"},
+  {"t":2,"side":"L","type":"hold","len":4},
+  {"t":7,"side":"R","type":"tap"},
+  {"t":7.5,"side":"R","type":"tap"},
+  {"t":8,"side":"L","type":"tap"},
+  {"t":9,"side":"R","type":"tap"},
+  {"t":10,"side":"L","type":"tap"},
+  {"t":11,"side":"R","type":"hold","len":3},
+  {"t":15,"side":"L","type":"tap"},
+  {"t":15.5,"side":"L","type":"tap"},
+  {"t":16,"side":"R","type":"tap"},
+  {"t":16.5,"side":"L","type":"tap"},
+  {"t":17,"side":"R","type":"tap"}
+]
