@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="core/exo-ui.css">
   <style>
-    .grid{max-width:980px;margin:84px auto 40px;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+    .grid{max-width:1040px;margin:84px auto 40px;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
     .card{background:rgba(14,20,36,.85);border:1px solid #112848;border-radius:12px;padding:14px}
     .card h3{margin:.2rem 0 .6rem 0}
     .row{display:flex;gap:8px;align-items:center;margin:.35rem 0}
@@ -15,189 +15,174 @@
     .btn.wide{width:100%;text-align:center}
     .hint{font-size:12px;color:#a7c5ff;margin-top:6px}
     label{min-width:94px}
+    .xpbar{height:8px;border-radius:6px;background:#0b1325;border:1px solid #1a315a;overflow:hidden}
+    .xpbar>div{height:100%}
   </style>
 </head>
 <body>
-
-  <header class="hud">
-    <div class="box"><strong>EXO TRAINING PROTOCOL</strong></div>
-  </header>
+  <header class="hud"><div class="box"><strong>EXO TRAINING PROTOCOL</strong></div></header>
 
   <main class="grid">
-    <!-- 1) Combat Reflex -->
-    <section class="card" id="cardCombat">
-      <h3>Combat Reflex</h3>
-      <p class="muted">เกม 1 — ตอบสนองไว ตีเป้าเข้า Hit Line (มี Decoy, Hit Window)</p>
-
-      <div class="row">
-        <label>Difficulty</label>
-        <select id="combatDiff">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
-        </select>
-      </div>
-
-      <div class="row">
-        <label>Time (s)</label>
-        <input id="combatTime" type="number" value="60" min="10" max="600" step="5">
-      </div>
-
-      <div class="row" style="margin-top:.6rem">
-        <button id="btnCombat" class="btn wide">▶ Play Combat Reflex</button>
-      </div>
-    </section>
-
-    <!-- 2) Rhythm Sync -->
-    <section class="card" id="cardRhythm">
-      <h3>Rhythm Sync</h3>
-      <p class="muted">เกม 2 — ตามจังหวะ BPM + Chart (จบทันทีเมื่อโน้ตหมด)</p>
-
-      <div class="row">
-        <label>Difficulty</label>
-        <select id="rhythmDiff">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
-        </select>
-      </div>
-
-      <div class="row">
-        <label>BPM</label>
-        <input id="rhythmBpm" type="number" value="110" min="60" max="220" step="1">
-      </div>
-
-      <div class="row">
-        <label>Chart</label>
-        <select id="chartPreset">
-          <option value="">(ใช้ชาร์ตเริ่มต้นตามโหมด)</option>
-          <option value="rhythm-rider/charts/easy.json">charts/easy.json</option>
-          <option value="rhythm-rider/charts/normal.json">charts/normal.json</option>
-          <option value="rhythm-rider/charts/hard.json">charts/hard.json</option>
-          <option value="__custom__">Custom URL…</option>
-        </select>
-      </div>
-
-      <div class="row" id="customWrap" style="display:none">
-        <label>URL</label>
-        <input id="chartUrl" type="text" placeholder="https://your.host/chart.json">
-      </div>
-
-      <div class="hint">* Rhythm จะจบทันทีเมื่อโน้ตหมด (ตัวจับเวลายังแสดง แต่ไม่ใช้ตัดสินจบ)</div>
-
-      <div class="row" style="margin-top:.6rem">
-        <button id="btnRhythm" class="btn wide">▶ Play Rhythm Sync</button>
-      </div>
-    </section>
-
-    <!-- 3) Mobility Dash -->
+    <!-- Dashboard -->
     <section class="card" id="cardDash">
-      <h3>Mobility Dash</h3>
-      <p class="muted">เกม 3 — สลับเลนหลบสิ่งกีดขวาง (Agility)</p>
-
-      <div class="row">
-        <label>Difficulty</label>
-        <select id="dashDiff">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
-        </select>
-      </div>
-
-      <div class="row">
-        <label>Time (s)</label>
-        <input id="dashTime" type="number" value="60" min="10" max="600" step="5">
-      </div>
-
-      <div class="row" style="margin-top:.6rem">
-        <button id="btnDash" class="btn wide">▶ Play Mobility Dash</button>
-      </div>
+      <h3>Dashboard</h3>
+      <div class="row"><div class="muted">Rank</div><div id="rank" style="margin-left:auto;font-weight:700">-</div></div>
+      <div class="row"><div class="muted">Level</div><div id="level" style="margin-left:auto;font-weight:700">1</div></div>
+      <div class="xpbar"><div id="xpbar" style="width:0%; background:#3B82F6;"></div></div>
+      <div class="row"><div class="muted">Sessions</div><div id="sess" style="margin-left:auto">0</div></div>
+      <div class="row"><div class="muted">Total Time</div><div id="ttime" style="margin-left:auto">0s</div></div>
+      <div class="row"><div class="muted">Total Score</div><div id="tscore" style="margin-left:auto">0</div></div>
+      <div class="row"><div class="muted">Avg Score</div><div id="avg" style="margin-left:auto">0</div></div>
+      <div class="hint">Recent Sessions (ล่าสุด 5 รายการ):</div>
+      <ul id="recent" style="margin:.4rem 0 0 1rem; padding:0; list-style:disc; font-size:12px;"></ul>
     </section>
 
-    <!-- 4) Power Control -->
-    <section class="card" id="cardPower">
-      <h3>Power Control</h3>
-      <p class="muted">เกม 4 — ย่อ/ยืน ผ่านวงแหวนให้ถูก (Hold/Release)</p>
-
+    <!-- Workout Programs -->
+    <section class="card" id="cardProg">
+      <h3>Workout Program</h3>
+      <p class="muted">เลือกโปรแกรมฝึกต่อเนื่อง ระบบจะพาเล่นทีละเกม</p>
       <div class="row">
-        <label>Difficulty</label>
-        <select id="powerDiff">
-          <option value="easy">Easy</option>
-          <option value="normal" selected>Normal</option>
-          <option value="hard">Hard</option>
+        <label>Program</label>
+        <select id="progSel">
+          <option value="quick">Quick Sweat (≈6 นาที)</option>
+          <option value="rhythm">Rhythm Focus</option>
+          <option value="lower">Lower Body Power</option>
         </select>
       </div>
+      <div class="row"><button id="btnProg" class="btn wide">▶ Start Program</button></div>
+      <div class="hint">ระหว่างเล่นแต่ละเกม จะส่งต่อเกมถัดไปอัตโนมัติ</div>
+    </section>
 
-      <div class="row">
-        <label>Time (s)</label>
-        <input id="powerTime" type="number" value="60" min="10" max="600" step="5">
-      </div>
+    <!-- Combat Reflex -->
+    <section class="card" id="cardCombat">
+      <h3>Combat Reflex</h3><p class="muted">เกม 1 — ตอบสนองไว ตีเป้าเข้า Hit Line</p>
+      <div class="row"><label>Difficulty</label><select id="combatDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
+      <div class="row"><label>Time (s)</label><input id="combatTime" type="number" value="60" min="10" max="600" step="5"></div>
+      <div class="row"><button id="btnCombat" class="btn wide">▶ Play Combat Reflex</button></div>
+    </section>
 
-      <div class="row" style="margin-top:.6rem">
-        <button id="btnPower" class="btn wide">▶ Play Power Control</button>
-      </div>
+    <!-- Rhythm Sync -->
+    <section class="card" id="cardRhythm">
+      <h3>Rhythm Sync</h3><p class="muted">เกม 2 — ตามจังหวะ BPM + Chart (จบเมื่อโน้ตหมด)</p>
+      <div class="row"><label>Difficulty</label><select id="rhythmDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
+      <div class="row"><label>BPM</label><input id="rhythmBpm" type="number" value="110" min="60" max="220" step="1"></div>
+      <div class="row"><label>Chart</label><select id="chartPreset"><option value="">(default by diff)</option><option value="rhythm-rider/charts/easy.json">charts/easy.json</option><option value="rhythm-rider/charts/normal.json">charts/normal.json</option><option value="rhythm-rider/charts/hard.json">charts/hard.json</option><option value="__custom__">Custom URL…</option></select></div>
+      <div class="row" id="customWrap" style="display:none"><label>URL</label><input id="chartUrl" type="text" placeholder="https://your.host/chart.json"></div>
+      <div class="hint">Tip: เพิ่มเพลงด้วย ?music=assets/track.ogg</div>
+      <div class="row"><button id="btnRhythm" class="btn wide">▶ Play Rhythm Sync</button></div>
+    </section>
+
+    <!-- Mobility Dash -->
+    <section class="card" id="cardDash">
+      <h3>Mobility Dash</h3><p class="muted">เกม 3 — สลับเลนหลบสิ่งกีดขวาง</p>
+      <div class="row"><label>Difficulty</label><select id="dashDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
+      <div class="row"><label>Time (s)</label><input id="dashTime" type="number" value="60" min="10" max="600" step="5"></div>
+      <div class="row"><button id="btnDash" class="btn wide">▶ Play Mobility Dash</button></div>
+    </section>
+
+    <!-- Power Control -->
+    <section class="card" id="cardPower">
+      <h3>Power Control</h3><p class="muted">เกม 4 — ย่อ/ยืน ผ่านวงแหวนให้ถูก</p>
+      <div class="row"><label>Difficulty</label><select id="powerDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
+      <div class="row"><label>Time (s)</label><input id="powerTime" type="number" value="60" min="10" max="600" step="5"></div>
+      <div class="row"><button id="btnPower" class="btn wide">▶ Play Power Control</button></div>
     </section>
   </main>
 
+  <script src="core/exo-core.js"></script>
+  <script src="core/exo-metrics.js"></script>
   <script>
-    // --- Rhythm ---
+    // ----- Dashboard -----
+    function fmtSec(s){ const m=Math.floor(s/60), r=s%60; return (m? m+'m ':'')+r+'s'; }
+    function refreshDash(){
+      const d = EXO_METRICS.dashboard();
+      document.getElementById('rank').textContent  = d.profile.rank || '-';
+      document.getElementById('level').textContent = d.profile.level;
+      const need = d.profile.level*500;
+      const pct = Math.min(100, Math.round((d.profile.xp/need)*100));
+      document.getElementById('xpbar').style.width = pct+'%';
+      document.getElementById('sess').textContent  = d.totals.sessions;
+      document.getElementById('ttime').textContent = fmtSec(d.totals.time|0);
+      document.getElementById('tscore').textContent= d.totals.score|0;
+      document.getElementById('avg').textContent   = d.totals.avgScore|0;
+
+      const ul = document.getElementById('recent'); ul.innerHTML='';
+      d.recent.forEach(s=>{
+        const li=document.createElement('li');
+        const dt=new Date(s.t).toLocaleString();
+        li.textContent = `[${dt}] ${s.module} (${s.diff}) — Score ${s.score}, Acc ${Math.round((s.accuracy||0)*10)/10}%`;
+        ul.appendChild(li);
+      });
+    }
+    refreshDash();
+
+    // ----- Workout Program -----
+    const programs = {
+      quick: [
+        'shadow-breaker/play.html?diff=normal&time=60',
+        'cardio-sprint/play.html?diff=normal&time=60',
+        'rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
+        'sky-squats/play.html?diff=normal&time=60'
+      ],
+      rhythm: [
+        'rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
+        'rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
+        'rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json'
+      ],
+      lower: [
+        'sky-squats/play.html?diff=easy&time=45',
+        'sky-squats/play.html?diff=normal&time=60',
+        'cardio-sprint/play.html?diff=normal&time=60'
+      ]
+    };
+
+    document.getElementById('btnProg').onclick = () => {
+      const key = document.getElementById('progSel').value;
+      const plan = programs[key] || programs.quick;
+      // บันทึกโปรแกรมลง storage เพื่อใช้ส่งต่อ
+      EXO.store.set('EXO_PLAN', {idx:0, paths:plan});
+      // เข้าเกมแรก พร้อม next=program.html
+      location.href = plan[0] + '&next=program.html';
+    };
+
+    // ----- Launchers -----
+    // Rhythm
     const rhythmDiff   = document.getElementById('rhythmDiff');
     const rhythmBpm    = document.getElementById('rhythmBpm');
     const chartPreset  = document.getElementById('chartPreset');
     const customWrap   = document.getElementById('customWrap');
     const chartUrl     = document.getElementById('chartUrl');
-    document.getElementById('btnRhythm').addEventListener('click', () => {
-      const diff = (rhythmDiff.value || 'normal').toLowerCase();
-      const bpm  = Math.max(60, Math.min(220, parseInt(rhythmBpm.value || '110', 10)));
-      let url = 'rhythm-rider/play.html?diff=' + encodeURIComponent(diff) + '&bpm=' + encodeURIComponent(bpm);
+    chartPreset.addEventListener('change', ()=>{ customWrap.style.display = (chartPreset.value==='__custom__') ? 'flex':'none'; });
+    document.getElementById('btnRhythm').onclick = () => {
+      const diff = rhythmDiff.value; const bpm = Math.max(60, Math.min(220, parseInt(rhythmBpm.value||'110',10)));
+      let url = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
       const preset = chartPreset.value;
-      if (preset) {
-        if (preset === '__custom__') {
-          const cu = chartUrl.value.trim();
-          if (cu) url += '&chart=' + encodeURIComponent(cu);
-        } else {
-          url += '&chart=' + encodeURIComponent(preset);
-        }
+      if (preset){
+        url += '&chart=' + encodeURIComponent(preset==='__custom__'? chartUrl.value.trim() : preset);
       }
       location.href = url;
-    });
-    chartPreset.addEventListener('change', () => {
-      customWrap.style.display = (chartPreset.value === '__custom__') ? 'flex' : 'none';
-    });
+    };
 
-    // --- Combat ---
-    const combatDiff = document.getElementById('combatDiff');
-    const combatTime = document.getElementById('combatTime');
-    document.getElementById('btnCombat').addEventListener('click', () => {
-      const diff = (combatDiff.value || 'normal').toLowerCase();
-      const t = Math.max(10, Math.min(600, parseInt(combatTime.value || '60', 10)));
-      const url = `shadow-breaker/play.html?diff=${encodeURIComponent(diff)}&time=${encodeURIComponent(t)}`;
-      location.href = url;
-    });
-
-    // --- Dash ---
-    const dashDiff = document.getElementById('dashDiff');
-    const dashTime = document.getElementById('dashTime');
-    document.getElementById('btnDash').addEventListener('click', () => {
-      const diff = (dashDiff.value || 'normal').toLowerCase();
-      const t = Math.max(10, Math.min(600, parseInt(dashTime.value || '60', 10)));
-      const url = `cardio-sprint/play.html?diff=${encodeURIComponent(diff)}&time=${encodeURIComponent(t)}`;
-      location.href = url;
-    });
-
-    // --- Power ---
-    const powerDiff = document.getElementById('powerDiff');
-    const powerTime = document.getElementById('powerTime');
-    document.getElementById('btnPower').addEventListener('click', () => {
-      const diff = (powerDiff.value || 'normal').toLowerCase();
-      const t = Math.max(10, Math.min(600, parseInt(powerTime.value || '60', 10)));
-      const url = `sky-squats/play.html?diff=${encodeURIComponent(diff)}&time=${encodeURIComponent(t)}`;
-      location.href = url;
-    });
+    // Combat
+    document.getElementById('btnCombat').onclick = () => {
+      const diff = document.getElementById('combatDiff').value;
+      const t = Math.max(10, Math.min(600, parseInt(document.getElementById('combatTime').value||'60',10)));
+      location.href = `shadow-breaker/play.html?diff=${diff}&time=${t}`;
+    };
+    // Dash
+    document.getElementById('btnDash').onclick = () => {
+      const diff = document.getElementById('dashDiff').value;
+      const t = Math.max(10, Math.min(600, parseInt(document.getElementById('dashTime').value||'60',10)));
+      location.href = `cardio-sprint/play.html?diff=${diff}&time=${t}`;
+    };
+    // Power
+    document.getElementById('btnPower').onclick = () => {
+      const diff = document.getElementById('powerDiff').value;
+      const t = Math.max(10, Math.min(600, parseInt(document.getElementById('powerTime').value||'60',10)));
+      location.href = `sky-squats/play.html?diff=${diff}&time=${t}`;
+    };
   </script>
 
-  <p style="text-align:center;color:#6d7a8a;font-size:12px;margin-top:10px;">
-    Prototype WebXR Fitness System – EXO Training Protocol
-  </p>
+  <p style="text-align:center;color:#6d7a8a;font-size:12px;margin-top:10px;">Prototype WebXR Fitness System – EXO Training Protocol</p>
 </body>
 </html>
