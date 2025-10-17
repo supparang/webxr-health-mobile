@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8">
   <title>EXO Training Protocol — Hub</title>
@@ -17,10 +17,19 @@
     label{min-width:94px}
     .xpbar{height:8px;border-radius:6px;background:#0b1325;border:1px solid #1a315a;overflow:hidden}
     .xpbar>div{height:100%}
+    header.hud .box.right{gap:8px}
   </style>
 </head>
 <body>
-  <header class="hud"><div class="box"><strong>EXO TRAINING PROTOCOL</strong></div></header>
+  <!-- Header พร้อมปุ่ม Settings -->
+  <header class="hud">
+    <div class="box"><strong>EXO TRAINING PROTOCOL</strong></div>
+    <div class="box right">
+      <a class="btn" href="leaderboard.html">🏆 Leaderboard</a>
+      <a class="btn" href="vs.html">⚔ VS</a>
+      <a class="btn" href="settings.html">⚙ Settings</a>
+    </div>
+  </header>
 
   <main class="grid">
     <!-- Dashboard -->
@@ -55,7 +64,8 @@
 
     <!-- Combat Reflex -->
     <section class="card" id="cardCombat">
-      <h3>Combat Reflex</h3><p class="muted">เกม 1 — ตอบสนองไว ตีเป้าเข้า Hit Line</p>
+      <h3>Combat Reflex</h3>
+      <p class="muted">เกม 1 — ตอบสนองไว ตีเป้าเข้า Hit Line</p>
       <div class="row"><label>Difficulty</label><select id="combatDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
       <div class="row"><label>Time (s)</label><input id="combatTime" type="number" value="60" min="10" max="600" step="5"></div>
       <div class="row"><button id="btnCombat" class="btn wide">▶ Play Combat Reflex</button></div>
@@ -63,10 +73,23 @@
 
     <!-- Rhythm Sync -->
     <section class="card" id="cardRhythm">
-      <h3>Rhythm Sync</h3><p class="muted">เกม 2 — ตามจังหวะ BPM + Chart (จบเมื่อโน้ตหมด)</p>
+      <h3>Rhythm Sync</h3>
+      <p class="muted">เกม 2 — ตามจังหวะ BPM + Chart (จบเมื่อโน้ตหมด)</p>
       <div class="row"><label>Difficulty</label><select id="rhythmDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
       <div class="row"><label>BPM</label><input id="rhythmBpm" type="number" value="110" min="60" max="220" step="1"></div>
-      <div class="row"><label>Chart</label><select id="chartPreset"><option value="">(default by diff)</option><option value="rhythm-rider/charts/easy.json">charts/easy.json</option><option value="rhythm-rider/charts/normal.json">charts/normal.json</option><option value="rhythm-rider/charts/hard.json">charts/hard.json</option><option value="__custom__">Custom URL…</option></select></div>
+      <div class="row">
+        <label>Chart</label>
+        <select id="chartPreset">
+          <option value="">(default by diff)</option>
+          <option value="rhythm-rider/charts/easy.json">charts/easy.json</option>
+          <option value="rhythm-rider/charts/normal.json">charts/normal.json</option>
+          <option value="rhythm-rider/charts/hard.json">charts/hard.json</option>
+          <option value="rhythm-rider/charts/sprint.json">charts/sprint.json</option>
+          <option value="rhythm-rider/charts/crossfire.json">charts/crossfire.json</option>
+          <option value="rhythm-rider/charts/marathon.json">charts/marathon.json</option>
+          <option value="__custom__">Custom URL…</option>
+        </select>
+      </div>
       <div class="row" id="customWrap" style="display:none"><label>URL</label><input id="chartUrl" type="text" placeholder="https://your.host/chart.json"></div>
       <div class="hint">Tip: เพิ่มเพลงด้วย ?music=assets/track.ogg</div>
       <div class="row"><button id="btnRhythm" class="btn wide">▶ Play Rhythm Sync</button></div>
@@ -74,7 +97,8 @@
 
     <!-- Mobility Dash -->
     <section class="card" id="cardDash">
-      <h3>Mobility Dash</h3><p class="muted">เกม 3 — สลับเลนหลบสิ่งกีดขวาง</p>
+      <h3>Mobility Dash</h3>
+      <p class="muted">เกม 3 — สลับเลนหลบสิ่งกีดขวาง</p>
       <div class="row"><label>Difficulty</label><select id="dashDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
       <div class="row"><label>Time (s)</label><input id="dashTime" type="number" value="60" min="10" max="600" step="5"></div>
       <div class="row"><button id="btnDash" class="btn wide">▶ Play Mobility Dash</button></div>
@@ -82,7 +106,8 @@
 
     <!-- Power Control -->
     <section class="card" id="cardPower">
-      <h3>Power Control</h3><p class="muted">เกม 4 — ย่อ/ยืน ผ่านวงแหวนให้ถูก</p>
+      <h3>Power Control</h3>
+      <p class="muted">เกม 4 — ย่อ/ยืน ผ่านวงแหวนให้ถูก</p>
       <div class="row"><label>Difficulty</label><select id="powerDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
       <div class="row"><label>Time (s)</label><input id="powerTime" type="number" value="60" min="10" max="600" step="5"></div>
       <div class="row"><button id="btnPower" class="btn wide">▶ Play Power Control</button></div>
@@ -91,27 +116,28 @@
 
   <script src="core/exo-core.js"></script>
   <script src="core/exo-metrics.js"></script>
+  <script src="core/exo-settings.js"></script>
   <script>
     // ----- Dashboard -----
     function fmtSec(s){ const m=Math.floor(s/60), r=s%60; return (m? m+'m ':'')+r+'s'; }
     function refreshDash(){
       const d = EXO_METRICS.dashboard();
-      document.getElementById('rank').textContent  = d.profile.rank || '-';
-      document.getElementById('level').textContent = d.profile.level;
+      rank.textContent  = d.profile.rank || '-';
+      level.textContent = d.profile.level;
       const need = d.profile.level*500;
       const pct = Math.min(100, Math.round((d.profile.xp/need)*100));
-      document.getElementById('xpbar').style.width = pct+'%';
-      document.getElementById('sess').textContent  = d.totals.sessions;
-      document.getElementById('ttime').textContent = fmtSec(d.totals.time|0);
-      document.getElementById('tscore').textContent= d.totals.score|0;
-      document.getElementById('avg').textContent   = d.totals.avgScore|0;
+      xpbar.style.width = pct+'%';
+      sess.textContent  = d.totals.sessions;
+      ttime.textContent = fmtSec(d.totals.time|0);
+      tscore.textContent= d.totals.score|0;
+      avg.textContent   = d.totals.avgScore|0;
 
-      const ul = document.getElementById('recent'); ul.innerHTML='';
+      recent.innerHTML='';
       d.recent.forEach(s=>{
         const li=document.createElement('li');
         const dt=new Date(s.t).toLocaleString();
         li.textContent = `[${dt}] ${s.module} (${s.diff}) — Score ${s.score}, Acc ${Math.round((s.accuracy||0)*10)/10}%`;
-        ul.appendChild(li);
+        recent.appendChild(li);
       });
     }
     refreshDash();
@@ -136,25 +162,19 @@
       ]
     };
 
-    document.getElementById('btnProg').onclick = () => {
-      const key = document.getElementById('progSel').value;
+    btnProg.onclick = () => {
+      const key = progSel.value;
       const plan = programs[key] || programs.quick;
-      // บันทึกโปรแกรมลง storage เพื่อใช้ส่งต่อ
       EXO.store.set('EXO_PLAN', {idx:0, paths:plan});
-      // เข้าเกมแรก พร้อม next=program.html
       location.href = plan[0] + '&next=program.html';
     };
 
     // ----- Launchers -----
     // Rhythm
-    const rhythmDiff   = document.getElementById('rhythmDiff');
-    const rhythmBpm    = document.getElementById('rhythmBpm');
-    const chartPreset  = document.getElementById('chartPreset');
-    const customWrap   = document.getElementById('customWrap');
-    const chartUrl     = document.getElementById('chartUrl');
     chartPreset.addEventListener('change', ()=>{ customWrap.style.display = (chartPreset.value==='__custom__') ? 'flex':'none'; });
-    document.getElementById('btnRhythm').onclick = () => {
-      const diff = rhythmDiff.value; const bpm = Math.max(60, Math.min(220, parseInt(rhythmBpm.value||'110',10)));
+    btnRhythm.onclick = () => {
+      const diff = rhythmDiff.value;
+      const bpm  = Math.max(60, Math.min(220, parseInt(rhythmBpm.value||'110',10)));
       let url = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
       const preset = chartPreset.value;
       if (preset){
@@ -164,25 +184,27 @@
     };
 
     // Combat
-    document.getElementById('btnCombat').onclick = () => {
-      const diff = document.getElementById('combatDiff').value;
-      const t = Math.max(10, Math.min(600, parseInt(document.getElementById('combatTime').value||'60',10)));
+    btnCombat.onclick = () => {
+      const diff = combatDiff.value;
+      const t = Math.max(10, Math.min(600, parseInt(combatTime.value||'60',10)));
       location.href = `shadow-breaker/play.html?diff=${diff}&time=${t}`;
     };
     // Dash
-    document.getElementById('btnDash').onclick = () => {
-      const diff = document.getElementById('dashDiff').value;
-      const t = Math.max(10, Math.min(600, parseInt(document.getElementById('dashTime').value||'60',10)));
+    btnDash.onclick = () => {
+      const diff = dashDiff.value;
+      const t = Math.max(10, Math.min(600, parseInt(dashTime.value||'60',10)));
       location.href = `cardio-sprint/play.html?diff=${diff}&time=${t}`;
     };
     // Power
-    document.getElementById('btnPower').onclick = () => {
-      const diff = document.getElementById('powerDiff').value;
-      const t = Math.max(10, Math.min(600, parseInt(document.getElementById('powerTime').value||'60',10)));
+    btnPower.onclick = () => {
+      const diff = powerDiff.value;
+      const t = Math.max(10, Math.min(600, parseInt(powerTime.value||'60',10)));
       location.href = `sky-squats/play.html?diff=${diff}&time=${t}`;
     };
   </script>
 
-  <p style="text-align:center;color:#6d7a8a;font-size:12px;margin-top:10px;">Prototype WebXR Fitness System – EXO Training Protocol</p>
+  <p style="text-align:center;color:#6d7a8a;font-size:12px;margin-top:10px;">
+    Prototype WebXR Fitness System – EXO Training Protocol
+  </p>
 </body>
 </html>
