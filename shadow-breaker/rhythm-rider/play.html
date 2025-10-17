@@ -2,43 +2,40 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Rhythm Sync (VS + LB + i18n)</title>
+  <title>EXO · Rhythm Sync (VS + LB + i18n: central)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- Core & Metrics -->
+  <!-- UI & Core -->
   <link rel="stylesheet" href="../core/exo-ui.css">
+  <!-- ✅ i18n กลาง -->
+  <script src="../core/exo-i18n.js"></script>
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
 
-  <!-- ✅ Settings + Leaderboard + VS -->
+  <!-- Settings + Leaderboard + VS -->
   <script src="../core/exo-settings.js"></script>
   <script src="../core/exo-leaderboard.js"></script>
   <script src="../core/exo-net.js"></script>
 
   <style>
-    .beatRail { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; color:#9ecbff; font-size:12px; opacity:.8 }
-    #fb { position:fixed; left:50%; top:30%; transform:translateX(-50%); pointer-events:none; z-index:30; }
-    .tag { font: 700 28px/1 system-ui,Segoe UI,Roboto; padding:6px 10px; margin-top:10px; border-radius:10px; border:1px solid rgba(255,255,255,.15);
-           background:rgba(10,20,36,.55); color:#e6f2ff; text-shadow:0 0 6px rgba(255,255,255,.15); opacity:0; transform:translateY(16px);
-           animation: rise .7s ease-out forwards; }
-    .tag.perfect { color:#7ee787; border-color:#2b8a3e; }
-    .tag.good    { color:#9ecbff; border-color:#2a6fb5; }
-    .tag.okay    { color:#ffd166; border-color:#a77418; }
-    .tag.miss    { color:#ff7777; border-color:#8a2b2b; }
-    @keyframes rise { to { opacity:1; transform:translateY(-6px); } }
-
-    .grade { display:inline-flex; align-items:center; justify-content:center; width:64px; height:64px; border-radius:50%;
-             font:800 28px/1 system-ui; background:linear-gradient(180deg,#0b1325,#0f1b33); border:2px solid #284c92; color:#e6f2ff;
-             box-shadow:0 0 18px rgba(59,130,246,.35) inset, 0 0 12px rgba(59,130,246,.25); }
-    .grade.s   { border-color:#28a745; box-shadow:0 0 18px rgba(40,167,69,.35) inset, 0 0 12px rgba(40,167,69,.25); }
-    .grade.ss  { border-color:#ffd166; box-shadow:0 0 18px rgba(255,209,102,.35) inset, 0 0 12px rgba(255,209,102,.25); color:#0a0a0a; }
-
-    .legend { display:flex; gap:10px; justify-content:center; font-size:12px; color:#a7c5ff; }
-    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-    .p { background:#7ee787; } .g { background:#9ecbff; } .o{background:#ffd166;} .m{background:#ff7777;}
+    .beatRail{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;color:#9ecbff;font-size:12px;opacity:.8}
+    #fb{position:fixed;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;z-index:30}
+    .tag{font:700 28px/1 system-ui,Segoe UI,Roboto;padding:6px 10px;margin-top:10px;border-radius:10px;border:1px solid rgba(255,255,255,.15);
+         background:rgba(10,20,36,.55);color:#e6f2ff;text-shadow:0 0 6px rgba(255,255,255,.15);opacity:0;transform:translateY(16px);
+         animation:rise .7s ease-out forwards}
+    .tag.perfect{color:#7ee787;border-color:#2b8a3e}.tag.good{color:#9ecbff;border-color:#2a6fb5}
+    .tag.okay{color:#ffd166;border-color:#a77418}.tag.miss{color:#ff7777;border-color:#8a2b2b}
+    @keyframes rise{to{opacity:1;transform:translateY(-6px)}}
+    .grade{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:50%;
+           font:800 28px/1 system-ui;background:linear-gradient(180deg,#0b1325,#0f1b33);border:2px solid #284c92;color:#e6f2ff;
+           box-shadow:0 0 18px rgba(59,130,246,.35) inset,0 0 12px rgba(59,130,246,.25)}
+    .grade.s{border-color:#28a745;box-shadow:0 0 18px rgba(40,167,69,.35) inset,0 0 12px rgba(40,167,69,.25)}
+    .grade.ss{border-color:#ffd166;box-shadow:0 0 18px rgba(255,209,102,.35) inset,0 0 12px rgba(255,209,102,.25);color:#0a0a0a}
+    .legend{display:flex;gap:10px;justify-content:center;font-size:12px;color:#a7c5ff}.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+    .p{background:#7ee787}.g{background:#9ecbff}.o{background:#ffd166}.m{background:#ff7777}
 
     /* ✅ VS HUD */
     .vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}
@@ -57,7 +54,7 @@
     <div class="box">
       <span id="time">60</span>
       <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⏵ Hub</a>
+      <a href="../index.html" class="btn">⏵ <span data-i18n="common.hub">Hub</span></a>
     </div>
   </div>
 
@@ -68,8 +65,8 @@
   <!-- ✅ VS HUD (เปิดเมื่อ ?vs=1) -->
   <div id="vsHud" class="vsHud" style="display:none">
     <div class="box">
-      <span id="lblOpp">Opponent</span> <span id="oppConn">⏳</span> —
-      <span id="lblScore">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
+      <span id="lblOpp" data-i18n="common.opponent">Opponent</span> <span id="oppConn">⏳</span> —
+      <span id="lblScore" data-i18n="common.score">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
     </div>
   </div>
 
@@ -80,7 +77,7 @@
   <div id="fb"></div>
 
   <!-- Beat Rail hint -->
-  <div class="beatRail" id="beatHint">Hit on the line ↓</div>
+  <div class="beatRail" id="beatHint" data-i18n="rhythm.hitHint">Hit on the line ↓</div>
 
   <!-- Scene -->
   <a-scene renderer="antialias:true; colorManagement:true">
@@ -105,34 +102,10 @@
 <script>
 AFRAME.registerComponent('rhythm-game', {
   async init() {
-    // ===== i18n =====
-    const lang = (window.EXO_SETTINGS?.get()?.lang)||'th';
-    const L = {
-      th:{ title:'EXO — Rhythm Sync', vs:'โหมดดวล', goal:'ตีตามจังหวะ BPM ให้โน้ตชนเส้นพอดี · Hold ต้องกดค้างจนจบแท่ง',
-           ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>',
-           scoreTip:'PERFECT/GOOD/OKAY/MISS ตามความตรงเวลา · คอมโบสูงยิ่งได้คะแนนมาก',
-           bpm:'BPM', diff:'ระดับ', music:'เพลง', paused:'พักเกม', hub:'กลับ Hub', restart:'เริ่มใหม่',
-           result:'ผลลัพธ์', accuracy:'ความแม่นยำ', maxCombo:'คอมโบสูงสุด',
-           perfect:'Perfect', good:'Good', okay:'Okay', miss:'Miss', notes:'จำนวนโน้ต',
-           opp:'คู่แข่ง', oppScore:'คะแนนคู่แข่ง', oppStatus:'สถานะคู่แข่ง', finished:'จบแล้ว', pending:'รอผล...',
-           verdictWin:'YOU WIN', verdictLose:'YOU LOSE', verdictTie:'TIE',
-           hitHint:'ตีให้ตรงเส้น ↓',
-           askName:'ชื่อสำหรับ Leaderboard (เว้นว่างเพื่อข้าม):',
-           sent:'✓ ส่งคะแนนขึ้น Leaderboard แล้ว'
-      },
-      en:{ title:'EXO — Rhythm Sync', vs:'VS Mode', goal:'Hit notes on the line; hold notes must be held to the end',
-           ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>Mobile: Tap Left/Right</li><li>Keyboard: ←/A and →/D</li><li>VR: Left/Right Trigger</li></ul>',
-           scoreTip:'PERFECT/GOOD/OKAY/MISS by timing · Higher combo → higher score',
-           bpm:'BPM', diff:'Difficulty', music:'Music', paused:'Paused', hub:'Hub', restart:'Restart',
-           result:'Result', accuracy:'Accuracy', maxCombo:'Max Combo',
-           perfect:'Perfect', good:'Good', okay:'Okay', miss:'Miss', notes:'Notes',
-           opp:'Opponent', oppScore:'Opponent Score', oppStatus:'Opponent Status', finished:'Finished', pending:'Pending…',
-           verdictWin:'YOU WIN', verdictLose:'YOU LOSE', verdictTie:'TIE',
-           hitHint:'Hit on the line ↓',
-           askName:'Name for Leaderboard (leave blank to skip):',
-           sent:'✓ Submitted to Leaderboard'
-      }
-    }[lang]; const t=k=>L[k]||k;
+    // ===== i18n ศูนย์กลาง =====
+    const lang = EXO_I18N.get();
+    const tC   = EXO_I18N.scope('common');
+    const tMod = EXO_I18N.scope('rhythm');
 
     // ===== UI refs =====
     this.$s = document.getElementById('score');
@@ -142,15 +115,11 @@ AFRAME.registerComponent('rhythm-game', {
     this.panel   = document.getElementById('panel');
     this.$fb     = document.getElementById('fb');
 
-    document.getElementById('beatHint').textContent = t('hitHint');
-
     // ===== VS Mode? =====
     const q = new URLSearchParams(location.search);
     this.isVS = q.get('vs') === '1';
     if (this.isVS){
       document.getElementById('vsHud').style.display='block';
-      document.getElementById('lblOpp').textContent = t('opp');
-      document.getElementById('lblScore').textContent = t('result')==='Result'?'Score':'คะแนน';
       this.$oppConn = document.getElementById('oppConn');
       this.$oppScore= document.getElementById('oppScore');
       this.$oppCombo= document.getElementById('oppCombo');
@@ -210,13 +179,13 @@ AFRAME.registerComponent('rhythm-game', {
 
     // ===== Tutorial + Start Overlay =====
     EXO.startOverlay(()=> { this.overlay.style.display='none'; this.start(); }, {
-      title: L.title + (this.isVS?' · '+L.vs:''),
+      title: tMod('title') + (this.isVS?' · '+tC('vs'):''),
       howto: [
-        { title: lang==='th'?'เป้าหมาย':'Goal',         text: L.goal },
-        { title: lang==='th'?'การบังคับ':'Controls',     html: L.ctrl },
-        { title: lang==='th'?'การได้คะแนน':'Scoring',    text: L.scoreTip }
+        { title: lang==='th'?'เป้าหมาย':'Goal',         text: tMod('goal') },
+        { title: lang==='th'?'การบังคับ':'Controls',     html: tMod('ctrl') },
+        { title: lang==='th'?'การได้คะแนน':'Scoring',    text: tMod('scoreTip') }
       ],
-      note: `${L.bpm}: <b>${this.bpm}</b> · ${L.diff}: <b>${diff.toUpperCase()}</b>${music?' · '+L.music+': on':''}${this.isVS?' · '+L.vs:''}`
+      note: `${tC('bpm')}: <b>${this.bpm}</b> · ${tC('diff')}: <b>${diff.toUpperCase()}</b>${music?' · '+tC('music')+': on':''}${this.isVS?' · '+tC('vs'):''}`
     });
 
     // ===== Inputs =====
@@ -239,7 +208,7 @@ AFRAME.registerComponent('rhythm-game', {
     this.lookAhead = 2.0; // sec
     this.spawnedIdx = -1;
 
-    // Hit error log
+    // Hit error log (สำหรับกราฟ)
     this.errors = []; // {tIdx, ms, tier}
   },
 
@@ -382,9 +351,10 @@ AFRAME.registerComponent('rhythm-game', {
   },
 
   miss(e, errMs=NaN){
+    const tMod = EXO_I18N.scope('rhythm');
     this.state.combo = 1.0;
     this.$c.textContent = 'x1.0';
-    this.flash('MISS','miss');
+    this.flash(tMod('miss','Miss').toUpperCase(),'miss');
     this.registerHitTier('miss');
     const inner=e.children[0];
     inner.setAttribute('material','color:#ff5252; emissive:#8a2b2b; emissiveIntensity:.4');
@@ -396,14 +366,15 @@ AFRAME.registerComponent('rhythm-game', {
   },
 
   pause(){
+    const tC = EXO_I18N.scope('common');
     if (!this.state.running) return;
     this.state.running=false;
     this.panel.innerHTML = `
-      <div class="title">${L.paused}${this.isVS?' · '+L.vs:''}</div>
-      <p>${L.bpm} <b>${this.bpm}</b></p>
+      <div class="title">${tC('paused')}${this.isVS?' · '+tC('vs'):''}</div>
+      <p>${tC('bpm')} <b>${this.bpm}</b></p>
       <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" onclick="location.reload()">⟲ ${L.restart}</a>
-        <a class="btn" href="../index.html">⏵ ${L.hub}</a>
+        <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
+        <a class="btn" href="../index.html">⏵ ${tC('hub')}</a>
       </div>`;
     this.overlay.style.display='flex';
   },
@@ -454,6 +425,9 @@ AFRAME.registerComponent('rhythm-game', {
   },
 
   end(){
+    const tC = EXO_I18N.scope('common');
+    const tR = EXO_I18N.scope('rhythm');
+
     this.state.running=false;
     clearInterval(this.timer);
 
@@ -480,33 +454,33 @@ AFRAME.registerComponent('rhythm-game', {
 
     const gradeClass = stats.grade==='SS' ? 'grade ss' : (stats.grade==='S'?'grade s':'grade');
     const makeResult = (oppKnown=false)=>`
-      <div class="title">${L.result} — Rhythm Sync ${this.isVS?'· '+L.vs:''}</div>
+      <div class="title">${tC('result')} — Rhythm Sync ${this.isVS?'· '+tC('vs'):''}</div>
       <div style="display:flex; gap:16px; align-items:center; justify-content:center; margin-bottom:8px">
         <div class="${gradeClass}">${stats.grade}</div>
         <div class="kpi" style="grid-template-columns:repeat(3,1fr); min-width:320px">
-          <div>${L.result==='Result'?'Score':'คะแนน'}<br><b>${this.state.score}</b></div>
-          <div>${L.maxCombo}<br><b>${stats.maxCombo}×</b></div>
-          <div>${L.accuracy}<br><b>${stats.accuracy}%</b></div>
-          <div>${L.perfect}<br><b>${this.state.cntPerfect}</b></div>
-          <div>${L.good}<br><b>${this.state.cntGood}</b></div>
-          <div>${L.okay}<br><b>${this.state.cntOkay}</b></div>
-          <div>${L.miss}<br><b>${this.state.cntMiss}</b></div>
-          <div>${L.bpm}<br><b>${this.bpm}</b></div>
-          <div>${L.notes}<br><b>${stats.totalNotes}</b></div>
+          <div>${tC('score')}<br><b>${this.state.score}</b></div>
+          <div>${tC('maxCombo')}<br><b>${stats.maxCombo}×</b></div>
+          <div>${tC('accuracy')}<br><b>${stats.accuracy}%</b></div>
+          <div>${tR('perfect')}<br><b>${this.state.cntPerfect}</b></div>
+          <div>${tR('good')}<br><b>${this.state.cntGood}</b></div>
+          <div>${tR('okay')}<br><b>${this.state.cntOkay}</b></div>
+          <div>${tR('miss')}<br><b>${this.state.cntMiss}</b></div>
+          <div>${tC('bpm')}<br><b>${this.bpm}</b></div>
+          <div>${tC('notes')}<br><b>${stats.totalNotes}</b></div>
         </div>
       </div>
       ${this.isVS ? `
       <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-        <div>${L.oppScore}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
-        <div>${L.oppStatus}<br><b id="oppStatus">${this.opp?.isOver?L.finished:L.pending}</b></div>
+        <div>${tC('oppScore')}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
+        <div>${tC('oppStatus')}<br><b id="oppStatus">${this.opp?.isOver?tC('finished'):tC('pending')}</b></div>
       </div>
       <div id="vsVerdict" style="text-align:center;margin-top:6px"></div>` : ``}
       <div id="graphWrap" style="display:flex; flex-direction:column; align-items:center; gap:6px; margin:8px 0 6px;">
         <div class="legend"><span><i class="dot p"></i> Perfect</span><span><i class="dot g"></i> Good</span><span><i class="dot o"></i> Okay</span><span><i class="dot m"></i> Miss</span></div>
       </div>
       <div style="display:flex;gap:.6rem;justify-content:center;margin-top:8px">
-        <a class="btn" onclick="location.reload()">⟲ ${L.restart}</a>
-        <a class="btn" href="../index.html">⏵ ${L.hub}</a>
+        <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
+        <a class="btn" href="../index.html">⏵ ${tC('hub')}</a>
       </div>`;
 
     this.panel.innerHTML = makeResult(this.isVS ? this.opp?.isOver : false);
@@ -518,9 +492,9 @@ AFRAME.registerComponent('rhythm-game', {
     const renderVerdict = ()=>{
       const box=document.getElementById('vsVerdict'); if(!box) return;
       const a=this.state.score|0, b=this.opp.score|0;
-      if (a>b) box.innerHTML = `<div class="tagwin"><b>${L.verdictWin}</b></div>`;
-      else if (a<b) box.innerHTML = `<div class="taglose"><b>${L.verdictLose}</b></div>`;
-      else box.innerHTML = `<div class="tagtie"><b>${L.verdictTie}</b></div>`;
+      if (a>b) box.innerHTML = `<div class="tagwin"><b>${tC('youWin')}</b></div>`;
+      else if (a<b) box.innerHTML = `<div class="taglose"><b>${tC('youLose')}</b></div>`;
+      else box.innerHTML = `<div class="tagtie"><b>${tC('tie')}</b></div>`;
     };
 
     if (this.isVS){
@@ -530,19 +504,19 @@ AFRAME.registerComponent('rhythm-game', {
           if (msg?.type==='over'){
             this.opp.isOver=true; this.opp.score=msg.score|0;
             const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
-            const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=L.finished;
+            const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=tC('finished');
             renderVerdict();
           }
         };
         EXO_NET.onMessage(handler);
-        setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=L.pending; }, 3000);
+        setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=tC('pending'); }, 3000);
       }
     }
 
     // ====== Online Leaderboard (Auto Submit: ถามชื่อแล้วส่ง) ======
     setTimeout(async ()=>{
       try{
-        const name = prompt(L.askName,'');
+        const name = prompt(tC('askName'),'');
         if (!name) return;
 
         await EXO_LB.submit({
@@ -556,7 +530,7 @@ AFRAME.registerComponent('rhythm-game', {
         const ok = document.createElement('div');
         ok.className = 'kpi';
         ok.style.cssText = 'margin-top:8px;text-align:center';
-        ok.innerHTML = `<div style="grid-column:1/-1"><b>${L.sent}</b></div>`;
+        ok.innerHTML = `<div style="grid-column:1/-1"><b>${tC('sent')}</b></div>`;
         this.panel.appendChild(ok);
       }catch(e){ console.warn('LB submit failed', e); }
     }, 350);
