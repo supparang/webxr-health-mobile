@@ -1,22 +1,25 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EXO TRAINING PROTOCOL — Hub</title>
-<link rel="stylesheet" href="core/exo-ui.css">
-</head><body>
-<header class="hud">
-  <div class="box"><strong>EXO TRAINING PROTOCOL</strong></div>
-  <div class="box"><a class="btn" href="#" id="lang">EN</a></div>
-</header>
-<main style="max-width:860px;margin:84px auto 40px;padding:0 16px;display:grid;gap:12px">
-  <a class="btn" href="shadow-breaker/play.html?diff=normal">Combat Reflex</a>
-  <a class="btn" href="rhythm-rider/play.html?diff=normal">Rhythm Sync</a>
-  <a class="btn" href="cardio-sprint/play.html?diff=normal">Mobility Dash</a>
-  <a class="btn" href="sky-squats/play.html?diff=normal">Power Control</a>
-</main>
-<script>
-const STR={en:{hub:'EXO TRAINING PROTOCOL'}, th:{hub:'โปรโตคอลฝึก EXO'}};
-let lang=localStorage.getItem('lang')||'en'; function apply(){ document.title=STR[lang].hub+' — Hub'; langBtn.textContent=lang.toUpperCase();}
-const langBtn=document.getElementById('lang'); langBtn.onclick=()=>{lang=lang==='en'?'th':'en';localStorage.setItem('lang',lang);apply();};
-apply();
-</script>
-</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EXO Training Protocol</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="core/exo-ui.css">
+</head>
+<body>
+  <header class="hud">
+    <div class="box"><strong>EXO TRAINING PROTOCOL</strong></div>
+  </header>
+
+  <main style="max-width:860px;margin:80px auto;padding:0 16px;display:grid;gap:12px;">
+    <a class="btn" href="shadow-breaker/play.html">▶ Combat Reflex</a>
+    <a class="btn" href="rhythm-rider/play.html">▶ Rhythm Sync</a>
+    <a class="btn" href="cardio-sprint/play.html">▶ Mobility Dash</a>
+    <a class="btn" href="sky-squats/play.html">▶ Power Control</a>
+  </main>
+
+  <p style="text-align:center;color:#6d7a8a;font-size:12px;margin-top:40px;">
+    Prototype WebXR Fitness System – EXO Training Protocol
+  </p>
+</body>
+</html>
