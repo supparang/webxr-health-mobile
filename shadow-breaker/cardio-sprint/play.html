@@ -27,7 +27,7 @@
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
 
-  <!-- Overlay -->
+  <!-- Overlay (มีไว้ให้ EXO.startOverlay ใช้งาน) -->
   <div id="overlay" class="overlay" style="display:none;">
     <div id="panel" class="panel"></div>
   </div>
@@ -47,30 +47,34 @@
   <script>
   AFRAME.registerComponent('dash-game', {
     init() {
+      // DOM
       this.scoreUI = document.getElementById('score');
       this.timeUI  = document.getElementById('time');
       this.overlay = document.getElementById('overlay');
       this.panel   = document.getElementById('panel');
       this.player  = document.getElementById('player');
 
+      // State
       this.state = { score: 0, time: 60, running: false };
-      this.spawnInterval = 800;
       this.obstacles = [];
       this.lanes = { L: -0.8, R: 0.8 };
       this.playerLane = "L";
+      this.spawnMs = 800;
+      this.speed = 0.05; // z per frame (~16ms)
 
+      // ▶ Start overlay
       EXO.startOverlay(() => this.start());
 
+      // Input
       EXO.attachBasicInput({
-        onLeft: () => this.move("L"),
+        onLeft:  () => this.move("L"),
         onRight: () => this.move("R"),
         onPause: () => this.pause()
       });
-
       document.getElementById('btnPause').onclick = () => this.pause();
 
-      this.loop = setInterval(() => this.spawn(), this.spawnInterval);
-
+      // Timers
+      this.spawnLoop = setInterval(() => this.spawn(), this.spawnMs);
       this.timer = setInterval(() => {
         if (!this.state.running) return;
         this.state.time--;
@@ -83,4 +87,90 @@
       this.state.running = true;
     },
 
-    move(s
+    move(side) {
+      if (!this.state.running) return;
+      this.playerLane = side;
+      this.player.setAttribute("position", `${this.lanes[side]} 1.2 -0.5`);
+    },
+
+    spawn() {
+      if (!this.state.running) return;
+      const side = Math.random() > 0.5 ? 'L' : 'R';
+      const box = document.createElement('a-box');
+      box.setAttribute('color', '#e53935');
+      box.setAttribute('depth', 0.4);
+      box.setAttribute('height', 0.4);
+      box.setAttribute('width', 0.4);
+      box.setAttribute('position', `${this.lanes[side]} 1.2 -4`);
+      box.setAttribute('data-side', side);
+      this.el.sceneEl.appendChild(box);
+      this.obstacles.push(box);
+
+      // เคลื่อนที่เข้าหาผู้เล่นด้วย interval (ง่ายและพอสำหรับ prototype)
+      const mover = setInterval(() => {
+        if (!this.state.running || !box.parentNode) {
+          clearInterval(mover);
+          return;
+        }
+        const pos = box.getAttribute('position');
+        const nextZ = pos.z + this.speed; // เคลื่อนมาข้างหน้า
+        box.setAttribute('position', `${pos.x} ${pos.y} ${nextZ}`);
+
+        // ถึงระยะตัดสิน
+        if (nextZ >= -0.5) {
+          const sideNow = box.getAttribute('data-side');
+          // หลบถูกเลน = คะแนน+, ชน = คะแนน-
+          if (this.playerLane !== sideNow) {
+            this.state.score += 10;
+          } else {
+            this.state.score = Math.max(0, this.state.score - 5);
+          }
+          this.scoreUI.innerText = this.state.score;
+
+          // ลบกล่อง + เคลียร์
+          try { box.parentNode.removeChild(box); } catch(e){}
+          const idx = this.obstacles.indexOf(box);
+          if (idx >= 0) this.obstacles.splice(idx, 1);
+          clearInterval(mover);
+        }
+      }, 16);
+      // เก็บ reference ไว้จะได้เคลียร์ตอน pause/end
+      box.__mover = mover;
+    },
+
+    pause() {
+      if (!this.state.running) return;
+      this.state.running = false;
+
+      // หยุด obstacle ที่กำลังวิ่ง
+      this.obstacles.forEach(b => { if (b.__mover) clearInterval(b.__mover); });
+      this.panel.innerHTML = `
+        <h3>Paused</h3>
+        <p>←/A = ซ้าย · →/D = ขวา</p>
+        <button class="btn" onclick="location.reload()">Restart</button>
+        <a class="btn" href="../index.html">Exit</a>
+      `;
+      this.overlay.style.display = "flex";
+    },
+
+    end() {
+      this.state.running = false;
+
+      // เคลียร์ interval ทั้งหมด
+      clearInterval(this.spawnLoop);
+      clearInterval(this.timer);
+      this.obstacles.forEach(b => { if (b.__mover) clearInterval(b.__mover); });
+
+      this.panel.innerHTML = `
+        <h3>Session Complete</h3>
+        <p>Score: ${this.state.score}</p>
+        <button class="btn" onclick="location.reload()">Restart</button>
+        <a href="../index.html" class="btn">Exit</a>
+      `;
+      this.overlay.style.display = "flex";
+    }
+  });
+  </script>
+
+</body>
+</html>
