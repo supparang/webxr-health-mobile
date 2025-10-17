@@ -1,17 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Combat Reflex (VS Ready)</title>
+  <title>EXO · Combat Reflex (VS + LB + i18n)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- Core & Metrics -->
+
+  <!-- Core & UI -->
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
-  <!-- ✅ VS / P2P -->
+
+  <!-- Settings + Leaderboard + VS -->
+  <script src="../core/exo-settings.js"></script>
+  <script src="../core/exo-leaderboard.js"></script>
   <script src="../core/exo-net.js"></script>
+
   <style>
     .vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}
     .vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
@@ -28,7 +34,7 @@
     </div>
     <div class="box">
       <span id="time">60</span>
-      <button id="btnPause" class="btn">⏸</button>
+      <button id="btnPause" class="btn" title="Pause">⏸</button>
       <a href="../index.html" class="btn">⟵ Hub</a>
     </div>
   </div>
@@ -37,10 +43,10 @@
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
 
-  <!-- VS HUD (จะสร้างด้วยสคริปต์เมื่อ ?vs=1) -->
+  <!-- VS HUD (เปิดเมื่อ ?vs=1) -->
   <div id="vsHud" class="vsHud" style="display:none">
     <div class="box">
-      Opponent <span id="oppConn">⏳</span> — Score <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
+      <span id="lblOpp">Opponent</span> <span id="oppConn">⏳</span> — <span id="lblScore">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
     </div>
   </div>
 
@@ -51,10 +57,10 @@
 
   <!-- Scene -->
   <a-scene renderer="antialias:true; colorManagement:true">
-    <!-- แสง & ห้อง -->
     <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
     <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
+    <!-- ห้อง -->
     <a-entity geometry="primitive: box; depth: 22; height: 6; width: 12" position="0 3 -7"
               material="color: #0c1428; side: back; metalness:0.1; roughness:0.9"></a-entity>
     <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4"
@@ -70,6 +76,66 @@
 <script>
 AFRAME.registerComponent('combat-director', {
   init(){
+    // ===== i18n =====
+    const lang = (window.EXO_SETTINGS?.get()?.lang)||'th';
+    const L = {
+      th:{
+        title:'EXO — Combat Reflex',
+        vs:'โหมดดวล',
+        goal:'ตีเป้าสีน้ำเงินให้ตรงเส้น Hit Line · อย่าตี Decoy (สีแดง)',
+        ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>',
+        scoreTip:'ใกล้เส้นยิ่งได้คะแนนมาก · ตี decoy จะถูกหักคะแนนและคอมโบตก',
+        paused:'พักเกม',
+        result:'ผลลัพธ์',
+        score:'คะแนน',
+        maxCombo:'คอมโบสูงสุด',
+        hitRate:'ความแม่นยำ',
+        avoided:'ตีโดน',
+        missed:'พลาด',
+        opponent:'คู่แข่ง',
+        oppScore:'คะแนนคู่แข่ง',
+        oppStatus:'สถานะคู่แข่ง',
+        finished:'จบแล้ว',
+        pending:'รอผล...',
+        youWin:'YOU WIN',
+        youLose:'YOU LOSE',
+        tie:'TIE',
+        hub:'กลับ Hub',
+        restart:'เริ่มใหม่',
+        askName:'ชื่อสำหรับ Leaderboard (เว้นว่างเพื่อข้าม):',
+        sent:'✓ ส่งคะแนนขึ้น Leaderboard แล้ว',
+        diff:'ระดับ'
+      },
+      en:{
+        title:'EXO — Combat Reflex',
+        vs:'VS Mode',
+        goal:'Hit blue targets on the Hit Line · Avoid red decoys',
+        ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>Mobile/Desktop: Tap Left/Right</li><li>Keyboard: ←/A and →/D</li><li>VR: Left/Right Trigger</li></ul>',
+        scoreTip:'Closer to the line = higher score · Hitting decoys penalizes score & combo',
+        paused:'Paused',
+        result:'Result',
+        score:'Score',
+        maxCombo:'Max Combo',
+        hitRate:'Hit Rate',
+        avoided:'Hits',
+        missed:'Misses',
+        opponent:'Opponent',
+        oppScore:'Opponent Score',
+        oppStatus:'Opponent Status',
+        finished:'Finished',
+        pending:'Pending…',
+        youWin:'YOU WIN',
+        youLose:'YOU LOSE',
+        tie:'TIE',
+        hub:'Hub',
+        restart:'Restart',
+        askName:'Name for Leaderboard (leave blank to skip):',
+        sent:'✓ Submitted to Leaderboard',
+        diff:'Difficulty'
+      }
+    }[lang];
+    const t = k => L[k] || k;
+
     // ===== Refs =====
     this.$s = document.getElementById('score');
     this.$c = document.getElementById('combo');
@@ -91,8 +157,10 @@ AFRAME.registerComponent('combat-director', {
       this.$oppScore= document.getElementById('oppScore');
       this.$oppCombo= document.getElementById('oppCombo');
       this.$vsHud.style.display = 'block';
-      this.opp = {score:0, combo:1.0, isOver:false};
+      document.getElementById('lblOpp').textContent = t('opponent');
+      document.getElementById('lblScore').textContent = t('score');
 
+      this.opp = {score:0, combo:1.0, isOver:false};
       EXO_NET.onState(st => { this.$oppConn.textContent = (st==='connected'?'✅':'⏳'); });
       EXO_NET.onMessage(msg => {
         if (msg?.type==='state') {
@@ -134,18 +202,14 @@ AFRAME.registerComponent('combat-director', {
 
     // ===== Tutorial + Start =====
     this.title = 'Combat Reflex';
-    this.tutorialGoal = 'ตีเป้าสีน้ำเงินให้ตรงเส้น Hit Line · อย่าตี Decoy (สีแดง)';
-    this.tutorialCtrlHTML = '<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>';
-    this.tutorialScore = 'ใกล้เส้นยิ่งได้คะแนนมาก · ตี decoy จะถูกลงโทษและคอมโบตก';
-
     EXO.startOverlay(()=> this.start(), {
-      title: 'EXO — Combat Reflex' + (this.isVS ? ' · VS' : ''),
+      title: t('title') + (this.isVS ? ' · ' + t('vs') : ''),
       howto: [
-        { title:'เป้าหมาย', text: this.tutorialGoal },
-        { title:'การบังคับ', html: this.tutorialCtrlHTML },
-        { title:'การได้คะแนน', text: this.tutorialScore }
+        { title: lang==='th'?'เป้าหมาย':'Goal',         text: t('goal') },
+        { title: lang==='th'?'การบังคับ':'Controls',     html: t('ctrl') },
+        { title: lang==='th'?'การได้คะแนน':'Scoring',    text: t('scoreTip') }
       ],
-      note: `Difficulty: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}${this.isVS?' · VS Mode':''}`
+      note: `${t('diff')}: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}${this.isVS?' · VS':''}`
     });
 
     // ===== Input =====
@@ -237,7 +301,7 @@ AFRAME.registerComponent('combat-director', {
       this.state.combo = 1.0; this.$c.textContent = 'x1.0';
     }
 
-    // ✅ ส่งสถานะ VS ทุกครั้งที่มีอัปเดตสกอร์/คอมโบ
+    // ส่งสถานะ VS ทุกครั้งที่มีอัปเดต
     if (this.isVS && EXO_NET.connected()){
       EXO_NET.send({type:'state', score:this.state.score|0, combo:+this.state.combo});
     }
@@ -256,14 +320,16 @@ AFRAME.registerComponent('combat-director', {
 
   pause(){
     if (!this.state.running) return;
+    const lang = (window.EXO_SETTINGS?.get()?.lang)||'th';
+    const title = (lang==='th'?'พักเกม':'Paused') + (this.isVS?' · VS':'');
     this.state.running = false;
     try{ EXO.audio.stopMusic(); }catch(e){}
 
     this.panel.innerHTML = `
-      <div class="title">Paused${this.isVS?' · VS':''}</div>
+      <div class="title">${title}</div>
       <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⟵ Hub</a>
+        <a class="btn" onclick="location.reload()">⟲ ${lang==='th'?'เริ่มใหม่':'Restart'}</a>
+        <a class="btn" href="../index.html">⟵ ${lang==='th'?'กลับ Hub':'Hub'}</a>
       </div>`;
     this.overlay.style.display='flex';
   },
@@ -288,10 +354,17 @@ AFRAME.registerComponent('combat-director', {
   },
 
   end(){
+    const lang = (window.EXO_SETTINGS?.get()?.lang)||'th';
+    const t = k => ({
+      th:{result:'ผลลัพธ์',score:'คะแนน',maxCombo:'คอมโบสูงสุด',hitRate:'ความแม่นยำ',opponent:'คู่แข่ง',oppScore:'คะแนนคู่แข่ง',oppStatus:'สถานะคู่แข่ง',finished:'จบแล้ว',pending:'รอผล...',restart:'เริ่มใหม่',hub:'กลับ Hub'},
+      en:{result:'Result',score:'Score',maxCombo:'Max Combo',hitRate:'Hit Rate',opponent:'Opponent',oppScore:'Opponent Score',oppStatus:'Opponent Status',finished:'Finished',pending:'Pending…',restart:'Restart',hub:'Hub'}
+    }[lang][k]||k);
+
     this.state.running = false;
     clearInterval(this.timer);
     clearInterval(this.spawnLoop);
 
+    // Metrics
     try{
       const duration = +(new URLSearchParams(location.search).get('time') || this.state.time || 60);
       const total = (this.state.cntHit||0) + (this.state.cntMiss||0);
@@ -310,58 +383,83 @@ AFRAME.registerComponent('combat-director', {
 
     try{ EXO.audio.stopMusic(); }catch(e){}
 
-    // ✅ ส่งผลลัพธ์ให้คู่แข่ง (ถ้าเป็น VS)
+    // ส่งผลให้คู่แข่ง (ถ้า VS)
     if (this.isVS && EXO_NET.connected()){
       EXO_NET.send({type:'over', score:this.state.score|0});
     }
 
-    // สร้างสรุปผล + ถ้าเป็น VS ให้โชว์ผลแพ้ชนะเมื่อทราบคะแนนคู่แข่ง
-    const makeResultHTML = (oppFinalKnown=false)=>{
-      let vsLine = '';
-      if (this.isVS && oppFinalKnown){
-        if (this.state.score > this.opp.score) vsLine = `<div class="tagwin"><b>YOU WIN</b></div>`;
-        else if (this.state.score < this.opp.score) vsLine = `<div class="taglose"><b>YOU LOSE</b></div>`;
-        else vsLine = `<div class="tagtie"><b>TIE</b></div>`;
+    const total=(this.state.cntHit||0)+(this.state.cntMiss||0);
+    const hitRateStr = total>0 ? ((this.state.cntHit/total)*100).toFixed(1) : '0.0';
+
+    // Result UI (+ VS verdict เมื่อทราบสกอร์คู่แข่ง)
+    const makeResultHTML = (oppKnown=false)=>{
+      let verdict = '';
+      if (this.isVS && oppKnown){
+        if (this.state.score > (this.opp?.score||0)) verdict = `<div class="tagwin"><b>${lang==='th'?'YOU WIN':'YOU WIN'}</b></div>`;
+        else if (this.state.score < (this.opp?.score||0)) verdict = `<div class="taglose"><b>${lang==='th'?'YOU LOSE':'YOU LOSE'}</b></div>`;
+        else verdict = `<div class="tagtie"><b>${lang==='th'?'TIE':'TIE'}</b></div>`;
       }
       return `
-        <div class="title">Result — Combat Reflex ${this.isVS?'· VS':''}</div>
-        ${vsLine}
+        <div class="title">${t('result')} — Combat Reflex ${this.isVS?'· VS':''}</div>
+        ${verdict}
         <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-          <div>Score<br><b>${this.state.score}</b></div>
-          <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
-          <div>Hit Rate<br><b>${
-            (()=>{
-              const total=(this.state.cntHit||0)+(this.state.cntMiss||0);
-              return total>0 ? ((this.state.cntHit/total)*100).toFixed(1) : '0.0';
-            })()
-          }%</b></div>
+          <div>${t('score')}<br><b>${this.state.score}</b></div>
+          <div>${t('maxCombo')}<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+          <div>${t('hitRate')}<br><b>${hitRateStr}%</b></div>
         </div>
         ${this.isVS ? `
         <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-          <div>Opponent Score<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
-          <div>Opponent Status<br><b>${this.opp?.isOver?'Finished':'Pending'}</b></div>
+          <div>${t('oppScore')}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
+          <div>${t('oppStatus')}<br><b id="oppStatus">${this.opp?.isOver?t('finished'):t('pending')}</b></div>
         </div>` : ``}
         <div style="display:flex;gap:.6rem;justify-content:center">
-          <a class="btn" onclick="location.reload()">⟲ Restart</a>
-          <a class="btn" href="../index.html">⟵ Hub</a>
+          <a class="btn" onclick="location.reload()">⟲ ${t('restart')}</a>
+          <a class="btn" href="../index.html">⟵ ${t('hub')}</a>
         </div>`;
     };
 
     this.panel.innerHTML = makeResultHTML(this.isVS ? this.opp?.isOver : false);
     this.overlay.style.display='flex';
 
-    // ถ้า VS และฝั่งตรงข้ามยังไม่ส่ง over เข้ามา ให้รอฟังแล้วอัปเดตผล
-    if (this.isVS && !this.opp.isOver){
+    // ===== Online Leaderboard (Auto Submit: ถามชื่อแล้วส่ง) =====
+    setTimeout(async ()=>{
+      try{
+        const name = prompt( (lang==='th') ? 'ชื่อสำหรับ Leaderboard (เว้นว่างเพื่อข้าม):' : 'Name for Leaderboard (leave blank to skip):','');
+        if (!name) return;
+
+        const total = (this.state.cntHit||0) + (this.state.cntMiss||0);
+        const accuracy = total>0 ? Math.round(((this.state.cntHit/total)*100)*10)/10 : 0;
+
+        await EXO_LB.submit({
+          name,
+          module: 'Combat Reflex',
+          score: this.state.score|0,
+          accuracy,
+          diff: (new URLSearchParams(location.search).get('diff')||'normal')
+        });
+
+        // แจ้งยืนยัน
+        const ok = document.createElement('div');
+        ok.className = 'kpi';
+        ok.style.cssText = 'margin-top:8px;text-align:center';
+        ok.innerHTML = `<div style="grid-column:1/-1"><b>${(lang==='th')?'✓ ส่งคะแนนขึ้น Leaderboard แล้ว':'✓ Submitted to Leaderboard'}</b></div>`;
+        this.panel.appendChild(ok);
+      }catch(e){ console.warn('LB submit failed', e); }
+    }, 300);
+
+    // ===== รอฟังผลคู่แข่งหลังจอผล (ถ้า VS) =====
+    if (this.isVS && !this.opp?.isOver){
       const handler = (msg)=>{
         if (msg?.type==='over'){
-          this.opp.isOver = true;
-          this.opp.score  = msg.score|0;
+          this.opp.isOver = true; this.opp.score = msg.score|0;
+          const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
+          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=t('finished');
+          // อัปเดต verdict ใหม่
           this.panel.innerHTML = makeResultHTML(true);
         }
       };
       EXO_NET.onMessage(handler);
-      // กันกรณีไม่มาเลย 5 วินาที ก็แสดงเท่าที่รู้
-      setTimeout(()=>{ this.panel.innerHTML = makeResultHTML(this.opp.isOver); }, 5000);
+      setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=t('pending'); }, 5000);
     }
 
     // Workout Program: ไปต่ออัตโนมัติถ้ามี next=
