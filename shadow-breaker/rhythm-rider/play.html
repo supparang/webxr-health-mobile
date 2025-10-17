@@ -2,15 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Rhythm Sync (Chart/BPM)</title>
+  <title>EXO · Rhythm Sync (BPM/Chart + Difficulty + Feedback)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
   <style>
-    /* เฉพาะเกมนี้: เส้นจังหวะ/เลน */
     .beatRail { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; color:#9ecbff; font-size:12px; opacity:.8 }
+    /* Feedback popup */
+    #fb { position:fixed; left:50%; top:30%; transform:translateX(-50%); pointer-events:none; z-index:30; }
+    .tag { font: 700 28px/1 system-ui,Segoe UI,Roboto; padding:6px 10px; margin-top:10px; border-radius:10px; border:1px solid rgba(255,255,255,.15);
+           background:rgba(10,20,36,.55); color:#e6f2ff; text-shadow:0 0 6px rgba(255,255,255,.15); opacity:0; transform:translateY(16px);
+           animation: rise .7s ease-out forwards; }
+    .tag.perfect { color:#7ee787; border-color:#2b8a3e; }
+    .tag.good    { color:#9ecbff; border-color:#2a6fb5; }
+    .tag.okay    { color:#ffd166; border-color:#a77418; }
+    .tag.miss    { color:#ff7777; border-color:#8a2b2b; }
+    @keyframes rise { to { opacity:1; transform:translateY(-6px); } }
   </style>
 </head>
 <body>
@@ -24,7 +33,7 @@
     <div class="box">
       <span id="time">60</span>
       <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⟵ Exit</a>
+      <a href="../index.html" class="btn">⟵ Hub</a>
     </div>
   </div>
 
@@ -33,9 +42,10 @@
   <div id="touchR" class="touch"></div>
 
   <!-- Overlay -->
-  <div id="overlay" class="overlay" style="display:none;">
-    <div id="panel" class="panel"></div>
-  </div>
+  <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
+
+  <!-- Feedback container -->
+  <div id="fb"></div>
 
   <!-- Beat Rail hint -->
   <div class="beatRail">Hit on the line ↓</div>
@@ -54,284 +64,312 @@
               material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
     <!-- Camera -->
-    <a-entity id="rig">
-      <a-entity camera position="0 1.6 0"></a-entity>
-    </a-entity>
+    <a-entity id="rig"><a-entity camera position="0 1.6 0"></a-entity></a-entity>
 
     <!-- Game Logic -->
     <a-entity rhythm-game></a-entity>
   </a-scene>
 
-  <script>
-  AFRAME.registerComponent('rhythm-game', {
-    init() {
-      // UI refs
-      this.$s = document.getElementById('score');
-      this.$c = document.getElementById('combo');
-      this.$t = document.getElementById('time');
-      this.overlay = document.getElementById('overlay');
-      this.panel   = document.getElementById('panel');
+<script>
+AFRAME.registerComponent('rhythm-game', {
+  async init() {
+    // UI refs
+    this.$s = document.getElementById('score');
+    this.$c = document.getElementById('combo');
+    this.$t = document.getElementById('time');
+    this.overlay = document.getElementById('overlay');
+    this.panel   = document.getElementById('panel');
+    this.$fb     = document.getElementById('fb');
 
-      // State
-      this.state = { score: 0, combo: 1.0, time: 60, running: false };
+    // State
+    this.state = { score: 0, combo: 1.0, time: 60, running: false };
 
-      // Rhythm settings (BPM + chart)
-      const q = new URLSearchParams(location.search);
-      this.bpm = +(q.get('bpm') || 110);
-      this.beat = 60 / this.bpm; // seconds per beat
-      // Chart: time (in beats), side ('L'/'R'), type ('tap'/'hold'), len (beats if hold)
-      this.chart = [
-        {t:0,  side:'L', type:'tap'},
-        {t:1,  side:'R', type:'tap'},
-        {t:2,  side:'L', type:'tap'},
-        {t:3,  side:'R', type:'tap'},
-        {t:4,  side:'L', type:'hold', len:2}, // long note: hold for 2 beats
-        {t:7,  side:'R', type:'tap'},
-        {t:7.5,side:'L', type:'tap'},
-        {t:8,  side:'R', type:'tap'},
-        {t:9,  side:'R', type:'hold', len:1.5},
-        {t:11, side:'L', type:'tap'},
-        {t:12, side:'R', type:'tap'},
-        {t:12.5,side:'L', type:'tap'},
-        {t:13, side:'R', type:'tap'},
-      ];
+    // Query params
+    const q = new URLSearchParams(location.search);
+    const diff = (q.get('diff')||'normal').toLowerCase(); // easy|normal|hard
+    this.bpm = +(q.get('bpm') || 110);
+    const chartUrl = q.get('chart'); // absolute/relative URL to JSON
 
-      // Spawn/Hit geometry
-      this.spawnZ = -5;
-      this.hitZ   = -0.5;
-      this.laneX  = {L:-0.8, R:0.8};
+    // Difficulty presets
+    const DIFF = {
+      easy:   { windows: {perfect: 90, good: 150, okay: 220}, scoreMul: 1.0 },
+      normal: { windows: {perfect: 50, good: 110, okay: 170}, scoreMul: 1.1 },
+      hard:   { windows: {perfect: 30, good: 70,  okay: 110}, scoreMul: 1.25 },
+    };
+    this.dcfg = DIFF[diff] || DIFF.normal;
 
-      // Object pool
-      this.pool = [];
-      for (let i=0;i<24;i++) this.pool.push(this.mkNote(this.el.sceneEl));
+    // rhythm
+    this.beat = 60 / this.bpm;
+    this.spawnZ = -5; this.hitZ = -0.5; this.laneX = {L:-0.8, R:0.8};
 
-      // Scheduling
-      this.lookAhead = 2.0; // sec: สร้างล่วงหน้า
-      this.spawnedIdx = -1; // index สุดท้ายที่ spawn แล้ว
-      this.t0 = 0;
+    // pool
+    this.pool = []; for (let i=0;i<32;i++) this.pool.push(this.mkNote(this.el.sceneEl));
 
-      // Timing windows (ms)
-      this.winPerfect = 50;
-      this.winGood    = 110;
-      this.winOkay    = 170;
+    // หน้าต่างเวลา
+    this.winPerfect = this.dcfg.windows.perfect;
+    this.winGood    = this.dcfg.windows.good;
+    this.winOkay    = this.dcfg.windows.okay;
 
-      // Start overlay
-      EXO.startOverlay(() => this.start());
+    // โหลดชาร์ต (ถ้ามี chart= ใน query)
+    this.chart = null;
+    try {
+      if (chartUrl) {
+        const res = await fetch(chartUrl, {cache:'no-store'});
+        this.chart = await res.json();
+      }
+    } catch(e){ console.warn('Chart load failed', e); }
+    if (!Array.isArray(this.chart)) {
+      // fallback chart ภายใน (เหมาะกับ easy/normal/hard)
+      this.chart = this.defaultChart(diff);
+    }
 
-      // Inputs: hit only at intention; early/late จะได้คะแนนน้อย/พลาด
-      EXO.attachBasicInput({
-        onLeft:  () => this.tryHit('L'),
-        onRight: () => this.tryHit('R'),
-        onPause: () => this.pause()
-      });
-      document.getElementById('btnPause').onclick = () => this.pause();
+    // สรุปข้อมูลหน้า overlay ก่อนเริ่ม
+    const noteCount = this.chart.length;
+    this.panel.innerHTML = `
+      <div class="title">Rhythm Sync</div>
+      <p>BPM: <b>${this.bpm}</b> · Difficulty: <b>${diff.toUpperCase()}</b><br/>Notes: <b>${noteCount}</b></p>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <button id="btnStart" class="btn">▶ Start</button>
+      </div>
+      <small style="opacity:.7">Tip: PERFECT ≤ ${this.winPerfect}ms, GOOD ≤ ${this.winGood}ms, OKAY ≤ ${this.winOkay}ms</small>
+    `;
+    this.overlay.style.display='flex';
+    document.getElementById('btnStart').onclick = () => {
+      this.overlay.style.display='none';
+      this.start();
+    };
 
-      // Timer countdown (สำหรับเดโม 60 วิ)
-      this.timer = setInterval(() => {
-        if (!this.state.running) return;
-        this.state.time--;
-        this.$t.textContent = this.state.time;
-        if (this.state.time <= 0) this.end();
-      }, 1000);
+    // Inputs
+    EXO.attachBasicInput({
+      onLeft:  () => this.tryHit('L'),
+      onRight: () => this.tryHit('R'),
+      onPause: () => this.pause()
+    });
+    document.getElementById('btnPause').onclick = () => this.pause();
 
-      // RAF loop
-      this._tick = this._tick.bind(this);
-      requestAnimationFrame(this._tick);
-    },
+    // Timer demo 60s
+    this.timer = setInterval(()=>{
+      if (!this.state.running) return;
+      this.state.time--; this.$t.textContent=this.state.time;
+      if (this.state.time<=0) this.end();
+    },1000);
 
-    mkNote(scene) {
-      const e=document.createElement('a-entity');
-      e.setAttribute('visible', false);
-      e.userData = {alive:false, side:'L', hitAt:0, type:'tap', holdEndAt:0, spawned:false};
-      // ใช้ทรงต่างกันเพื่อแยก type
-      const box = document.createElement('a-entity');
-      box.setAttribute('geometry','primitive:sphere; radius:.22');
-      box.setAttribute('material','color:#ff6ef0; emissive:#6a2a8a; emissiveIntensity:.35');
-      e.appendChild(box);
-      scene.appendChild(e);
-      return e;
-    },
+    // RAF
+    this._tick = this._tick.bind(this);
+    requestAnimationFrame(this._tick);
 
-    start() {
-      this.t0 = EXO.now();
-      this.state.running = true;
-      this.lastBeatIdx = -1;
-    },
+    // schedule
+    this.lookAhead = 2.0; // sec
+    this.spawnedIdx = -1;
+  },
 
-    // สร้างโน้ตตาม chart เมื่อเข้า lookAhead window
-    schedule() {
-      const tNow = EXO.now() - this.t0;
-      for (let i=this.spawnedIdx+1; i<this.chart.length; i++) {
-        const n = this.chart[i];
-        const noteTime = n.t * this.beat; // seconds absolute (relative to t0)
-        if (noteTime - tNow <= this.lookAhead) {
-          // spawn
-          const e = this.pool.find(o=>!o.userData.alive);
-          if (!e) break;
-          e.userData.alive = true;
-          e.userData.side  = n.side;
-          e.userData.type  = n.type;
-          e.userData.hitAt = noteTime; // วินาทีที่จะต้องถึงเส้น
-          e.userData.holdEndAt = (n.type==='hold') ? (noteTime + (n.len||1)*this.beat) : 0;
-          e.userData.spawned = true;
+  mkNote(scene){
+    const e=document.createElement('a-entity');
+    e.setAttribute('visible', false);
+    e.userData = {alive:false, side:'L', hitAt:0, type:'tap', holdEndAt:0, spawned:false};
+    const inner=document.createElement('a-entity');
+    inner.setAttribute('geometry','primitive:sphere; radius:.22');
+    inner.setAttribute('material','color:#ff6ef0; emissive:#6a2a8a; emissiveIntensity:.35');
+    e.appendChild(inner);
+    scene.appendChild(e); return e;
+  },
 
-          // ตำแหน่งเริ่ม + สี
-          e.object3D.position.set(this.laneX[n.side], 1.4, this.spawnZ);
-          const inner = e.children[0];
-          if (n.type==='hold') {
-            inner.setAttribute('geometry','primitive:cylinder; radius:.17; height:.5');
-            inner.setAttribute('material','color:#7ee787; emissive:#2b8a3e; emissiveIntensity:.35');
-          } else {
-            inner.setAttribute('geometry','primitive:sphere; radius:.22');
-            inner.setAttribute('material','color:#ff6ef0; emissive:#6a2a8a; emissiveIntensity:.35');
-          }
-          e.setAttribute('visible', true);
+  defaultChart(diff){
+    // chart format: [{t:<beats>, side:'L'|'R', type:'tap'|'hold', len:<beats?>}, ...]
+    const base = [
+      {t:0, side:'L', type:'tap'},
+      {t:1, side:'R', type:'tap'},
+      {t:2, side:'L', type:'tap'},
+      {t:3, side:'R', type:'tap'},
+      {t:4, side:'L', type:'hold', len:2},
+      {t:7, side:'R', type:'tap'},
+      {t:7.5, side:'L', type:'tap'},
+      {t:8, side:'R', type:'tap'},
+      {t:9, side:'R', type:'hold', len:1.5},
+      {t:11, side:'L', type:'tap'},
+      {t:12, side:'R', type:'tap'},
+      {t:12.5, side:'L', type:'tap'},
+      {t:13, side:'R', type:'tap'},
+    ];
+    if (diff==='easy')  return base;
+    if (diff==='hard') {
+      // เพิ่มความหนาแน่น
+      return base.concat([
+        {t:13.5, side:'L', type:'tap'},
+        {t:14,   side:'R', type:'tap'},
+        {t:14.5, side:'L', type:'tap'},
+        {t:15,   side:'R', type:'hold', len:2},
+      ]);
+    }
+    // normal
+    return base.concat([{t:13.25, side:'L', type:'tap'}]);
+  },
 
-          // คำนวณความเร็วให้ถึง hitZ ณ เวลาที่กำหนด
-          const travelTime = Math.max(0.1, noteTime - tNow);
-          e.userData.vz = (this.hitZ - this.spawnZ) / travelTime;
+  start(){
+    this.t0 = EXO.now();
+    this.state.running = true;
+    this.lastBeatIdx = -1;
+  },
 
-          this.spawnedIdx = i;
+  flash(label, cls){
+    const s = document.createElement('div');
+    s.className = `tag ${cls}`;
+    s.textContent = label;
+    this.$fb.appendChild(s);
+    setTimeout(()=> s.remove(), 750);
+  },
+
+  metronome(){
+    const tRel = EXO.now() - this.t0;
+    const beatIdx = Math.floor(tRel / this.beat);
+    if (beatIdx !== this.lastBeatIdx) {
+      this.lastBeatIdx = beatIdx;
+      EXO.beep(900, 0.03, 0.06);
+    }
+  },
+
+  schedule(){
+    const tNow = EXO.now() - this.t0;
+    for (let i=this.spawnedIdx+1; i<this.chart.length; i++){
+      const n=this.chart[i]; const noteTime = n.t * this.beat;
+      if (noteTime - tNow <= this.lookAhead){
+        const e = this.pool.find(o=>!o.userData.alive); if (!e) break;
+        e.userData.alive=true; e.userData.side=n.side; e.userData.type=n.type;
+        e.userData.hitAt=noteTime; e.userData.holdEndAt = (n.type==='hold') ? (noteTime + (n.len||1)*this.beat) : 0;
+        e.object3D.position.set(this.laneX[n.side], 1.4, this.spawnZ);
+        const inner=e.children[0];
+        if (n.type==='hold'){
+          inner.setAttribute('geometry','primitive:cylinder; radius:.17; height:.5');
+          inner.setAttribute('material','color:#7ee787; emissive:#2b8a3e; emissiveIntensity:.35');
         } else {
-          break;
+          inner.setAttribute('geometry','primitive:sphere; radius:.22');
+          inner.setAttribute('material','color:#ff6ef0; emissive:#6a2a8a; emissiveIntensity:.35');
         }
+        e.setAttribute('visible',true);
+        // ให้ถึงเส้นตรงเวลา
+        const travelTime = Math.max(0.1, noteTime - tNow);
+        e.userData.vz = (this.hitZ - this.spawnZ) / travelTime;
+        this.spawnedIdx = i;
+      } else break;
+    }
+  },
+
+  scoreGain(tier){
+    const base = {perfect:120, good:80, okay:40, miss:0}[tier] || 0;
+    return Math.round(base * this.dcfg.scoreMul * this.state.combo);
+  },
+
+  tryHit(side){
+    if (!this.state.running) return;
+    const t = EXO.now() - this.t0;
+    let cand=null, bestErr=1e9;
+    for (const e of this.pool){
+      if (!e.userData.alive) continue;
+      if (e.userData.side!==side) continue;
+      const errMs = Math.abs(t - e.userData.hitAt)*1000;
+      if (e.userData.type==='tap' || (e.userData.type==='hold' && t <= e.userData.holdEndAt + 0.2)){
+        if (errMs<bestErr){bestErr=errMs; cand=e;}
       }
-    },
+    }
+    if (!cand) return;
 
-    // เมโทรนอม (ติ๊กทุก beat)
-    metronome() {
-      const tRel = EXO.now() - this.t0;
-      const beatIdx = Math.floor(tRel / this.beat);
-      if (beatIdx !== this.lastBeatIdx) {
-        this.lastBeatIdx = beatIdx;
-        EXO.beep(900, 0.03, 0.06);
-      }
-    },
+    let tier='miss';
+    if (bestErr<=this.winPerfect) tier='perfect';
+    else if (bestErr<=this.winGood) tier='good';
+    else if (bestErr<=this.winOkay) tier='okay';
 
-    tryHit(side) {
-      if (!this.state.running) return;
-      const t = EXO.now() - this.t0;
+    if (tier==='miss'){ this.miss(cand); return; }
 
-      // หาโน้ตที่ยังไม่ถูกตัดสินและอยู่เลนเดียวกัน ใกล้เวลามากสุด
-      let cand = null, bestErr = 1e9;
-      for (const e of this.pool) {
-        if (!e.userData.alive) continue;
-        if (e.userData.side !== side) continue;
-        const errMs = Math.abs(t - e.userData.hitAt) * 1000;
-        // สำหรับ hold: ตีตอนเริ่มก็ได้คะแนนเริ่ม
-        if (e.userData.type==='tap' || (e.userData.type==='hold' && t <= e.userData.holdEndAt + 0.2)) {
-          if (errMs < bestErr) { bestErr = errMs; cand = e; }
-        }
-      }
+    // update score
+    this.state.score += this.scoreGain(tier);
+    this.state.combo = Math.min(5.0, this.state.combo + (tier==='perfect'?0.2:0.15));
+    this.$s.textContent = this.state.score;
+    this.$c.textContent = 'x' + this.state.combo.toFixed(1);
+    this.flash(tier.toUpperCase(), tier);
+    EXO.beep(760, 0.03, 0.08);
 
-      if (!cand) return;
+    const inner=cand.children[0];
+    if (cand.userData.type==='tap'){
+      cand.setAttribute('visible',false); cand.userData.alive=false;
+    } else {
+      inner.setAttribute('material','color:#b6f7c8; emissive:#3bbf5a; emissiveIntensity:.5');
+      cand.userData.holding=true;
+    }
+  },
 
-      // ตัดสินคะแนนด้วย timing window
-      let gain = 0, label = "";
-      if (bestErr <= this.winPerfect) { gain=120; label="Perfect"; }
-      else if (bestErr <= this.winGood) { gain=80; label="Good"; }
-      else if (bestErr <= this.winOkay) { gain=40; label="Okay"; }
-      else { this.miss(cand); return; }
+  miss(e){
+    this.state.combo = 1.0;
+    this.$c.textContent = 'x1.0';
+    this.flash('MISS','miss');
+    const inner=e.children[0];
+    inner.setAttribute('material','color:#ff5252; emissive:#8a2b2b; emissiveIntensity:.4');
+  },
 
-      // อัปเดตคะแนน/คอมโบ
-      this.state.score += Math.round(gain * this.state.combo);
-      this.state.combo = Math.min(5.0, this.state.combo + 0.15);
-      this.$s.textContent = this.state.score;
-      this.$c.textContent = "x" + this.state.combo.toFixed(1);
-      EXO.beep(760, 0.03, 0.08);
+  pause(){
+    if (!this.state.running) return;
+    this.state.running=false;
+    this.panel.innerHTML = `
+      <div class="title">Paused</div>
+      <p>BPM <b>${this.bpm}</b> · PERFECT ≤ ${this.winPerfect}ms</p>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  },
 
-      // สำหรับ tap — ลบเลย / สำหรับ hold — เปลี่ยนสีเป็นสถานะกำลังถือ
-      const inner = cand.children[0];
-      if (cand.userData.type === 'tap') {
-        cand.setAttribute('visible', false);
-        cand.userData.alive = false;
-      } else {
-        inner.setAttribute('material','color:#b6f7c8; emissive:#3bbf5a; emissiveIntensity:.5');
-        // จะตัดสินอีกครั้งว่า "ถือถึงปลายทางไหม" ตอนถึง hit line/เลยไป
-        cand.userData.holding = true;
-      }
-    },
+  end(){
+    this.state.running=false;
+    this.panel.innerHTML = `
+      <div class="title">Result — Rhythm Sync</div>
+      <div class="kpi">
+        <div>Score<br><b>${this.state.score}</b></div>
+        <div>Combo<br><b>${this.state.combo.toFixed(1)}×</b></div>
+        <div>BPM<br><b>${this.bpm}</b></div>
+        <div>Notes<br><b>${this.chart.length}</b></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  },
 
-    miss(e) {
-      this.state.combo = 1.0;
-      this.$c.textContent = "x1.0";
-      // feedback เล็กน้อย
-      const inner = e.children[0];
-      inner.setAttribute('material','color:#ff5252; emissive:#8a2b2b; emissiveIntensity:.4');
-    },
+  _tick(){
+    if (!this.state.running){ requestAnimationFrame(this._tick); return; }
 
-    pause() {
-      if (!this.state.running) return;
-      this.state.running = false;
-      this.panel.innerHTML = `
-        <div class="title">Paused</div>
-        <p>Hit on the blue line · Follow BPM ${this.bpm}</p>
-        <div style="display:flex;gap:.6rem;justify-content:center">
-          <a class="btn" onclick="location.reload()">⟲ Restart</a>
-          <a class="btn" href="../index.html">⟵ Hub</a>
-        </div>`;
-      this.overlay.style.display = 'flex';
-    },
+    // schedule + metronome
+    this.schedule();
+    this.metronome();
 
-    end() {
-      this.state.running = false;
-      this.panel.innerHTML = `
-        <div class="title">Result — Rhythm Sync</div>
-        <div class="kpi">
-          <div>Score<br><b>${this.state.score}</b></div>
-          <div>Combo<br><b>${this.state.combo.toFixed(1)}×</b></div>
-          <div>BPM<br><b>${this.bpm}</b></div>
-          <div>Notes<br><b>${this.chart.length}</b></div>
-        </div>
-        <div style="display:flex;gap:.6rem;justify-content:center">
-          <a class="btn" onclick="location.reload()">⟲ Restart</a>
-          <a class="btn" href="../index.html">⟵ Hub</a>
-        </div>`;
-      this.overlay.style.display = 'flex';
-    },
-
-    _tick() {
-      // เกมยังไม่เริ่มก็รอ
-      if (!this.state.running) { requestAnimationFrame(this._tick); return; }
-
-      // Schedule และ metronome
-      this.schedule();
-      this.metronome();
-
-      // อัปเดตตำแหน่งโน้ต + ตัดสิน hold/miss เมื่อผ่าน hit line
-      const tRel = EXO.now() - this.t0;
-      for (const e of this.pool) {
-        if (!e.userData.alive) continue;
-        const p=e.object3D.position;
-        p.z += e.userData.vz * (1/60); // ประมาณ 60fps
-        // พอเลย hit line ไปนิด ให้ตัดสินผล
-        if (p.z >= this.hitZ + 0.05) {
-          if (e.userData.type==='hold') {
-            // ถือสำเร็จถ้าเคยกดก่อน hitAt และยังถือจนเกิน holdEndAt
-            const now = tRel;
-            const ok = (e.userData.holding && now >= e.userData.holdEndAt - 0.05);
-            if (ok) {
-              this.state.score += Math.round(150 * this.state.combo);
-              this.state.combo = Math.min(5.0, this.state.combo + 0.25);
-              this.$s.textContent = this.state.score;
-              this.$c.textContent = "x" + this.state.combo.toFixed(1);
-              EXO.beep(680, 0.05, 0.1);
-            } else {
-              this.miss(e);
-            }
+    // move + resolve
+    const tRel = EXO.now() - this.t0;
+    for (const e of this.pool){
+      if (!e.userData.alive) continue;
+      const p=e.object3D.position; p.z += e.userData.vz*(1/60);
+      if (p.z >= this.hitZ + 0.05){
+        if (e.userData.type==='hold'){
+          const ok = (e.userData.holding && tRel >= e.userData.holdEndAt - 0.05);
+          if (ok){
+            this.state.score += this.scoreGain('good'); // โบนัสจบ hold
+            this.state.combo = Math.min(5.0, this.state.combo + 0.15);
+            this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
+            this.flash('HOLD','good'); EXO.beep(680,0.05,0.1);
           } else {
-            // tap: ถ้ายังไม่โดนก่อนถึง line → miss
             this.miss(e);
           }
-          e.setAttribute('visible', false);
-          e.userData.alive = false;
+        } else {
+          // tap: ถ้ายังไม่ถูก hit ก่อนถึง line → miss
+          this.miss(e);
         }
+        e.setAttribute('visible',false); e.userData.alive=false;
       }
-
-      requestAnimationFrame(this._tick);
     }
-  });
-  </script>
+
+    requestAnimationFrame(this._tick);
+  }
+});
+</script>
 
 </body>
 </html>
