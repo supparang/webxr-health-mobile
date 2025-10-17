@@ -11,166 +11,149 @@
 </head>
 <body>
 
-  <!-- HUD -->
   <div class="hud">
-    <div class="box">
-      <span id="score">0</span>
-    </div>
-    <div class="box">
-      <span id="time">60</span>
-      <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⟵ Exit</a>
-    </div>
+    <div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
+    <div class="box"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a href="../index.html" class="btn">⟵ Hub</a></div>
   </div>
 
-  <!-- Touch -->
-  <div id="touchL" class="touch"></div>
-  <div id="touchR" class="touch"></div>
+  <div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
+  <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
 
-  <!-- Overlay (มีไว้ให้ EXO.startOverlay ใช้งาน) -->
-  <div id="overlay" class="overlay" style="display:none;">
-    <div id="panel" class="panel"></div>
-  </div>
+  <a-scene renderer="antialias:true; colorManagement:true">
+    <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
+    <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
-  <!-- Scene -->
-  <a-scene>
-    <a-entity light="type:ambient;intensity:0.7"></a-entity>
-    <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
+    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+    <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
+              material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
-    <!-- Player -->
     <a-box id="player" color="#4caf50" depth="0.3" height="0.3" width="0.3" position="-0.8 1.2 -0.5"></a-box>
-
-    <!-- Game Controller -->
     <a-entity dash-game></a-entity>
   </a-scene>
 
-  <script>
-  AFRAME.registerComponent('dash-game', {
-    init() {
-      // DOM
-      this.scoreUI = document.getElementById('score');
-      this.timeUI  = document.getElementById('time');
-      this.overlay = document.getElementById('overlay');
-      this.panel   = document.getElementById('panel');
-      this.player  = document.getElementById('player');
+<script>
+AFRAME.registerComponent('dash-game',{
+  init(){
+    this.$s=document.getElementById('score'); this.$c=document.getElementById('combo'); this.$t=document.getElementById('time');
+    this.overlay=document.getElementById('overlay'); this.panel=document.getElementById('panel'); this.player=document.getElementById('player');
 
-      // State
-      this.state = { score: 0, time: 60, running: false };
-      this.obstacles = [];
-      this.lanes = { L: -0.8, R: 0.8 };
-      this.playerLane = "L";
-      this.spawnMs = 800;
-      this.speed = 0.05; // z per frame (~16ms)
+    const q=new URLSearchParams(location.search);
+    const diff=(q.get('diff')||'normal').toLowerCase();
+    const T=Math.max(10, +(q.get('time')||60));
 
-      // ▶ Start overlay
-      EXO.startOverlay(() => this.start());
+    const DIFF={
+      easy:{ speed:0.045, spawn:950, laneSwapBonus:12, hitPenalty:8 },
+      normal:{ speed:0.055, spawn:800, laneSwapBonus:15, hitPenalty:10 },
+      hard:{ speed:0.07, spawn:650, laneSwapBonus:18, hitPenalty:12 }
+    };
+    this.cfg=DIFF[diff]||DIFF.normal;
 
-      // Input
-      EXO.attachBasicInput({
-        onLeft:  () => this.move("L"),
-        onRight: () => this.move("R"),
-        onPause: () => this.pause()
-      });
-      document.getElementById('btnPause').onclick = () => this.pause();
+    this.state={ score:0, combo:1.0, maxCombo:1.0, time:T, running:false, avoided:0, hit:0 };
+    this.lanes={L:-0.8,R:0.8}; this.playerLane='L';
+    this.obstacles=[];
 
-      // Timers
-      this.spawnLoop = setInterval(() => this.spawn(), this.spawnMs);
-      this.timer = setInterval(() => {
-        if (!this.state.running) return;
-        this.state.time--;
-        this.timeUI.innerText = this.state.time;
-        if (this.state.time <= 0) this.end();
-      }, 1000);
-    },
+    this.panel.innerHTML=`
+      <div class="title">Mobility Dash</div>
+      <p>Difficulty: <b>${diff.toUpperCase()}</b></p>
+      <button id="btnStart" class="btn">▶ Start</button>
+      <div class="muted" style="margin-top:6px">←/A เลื่อนซ้าย · →/D เลื่อนขวา</div>
+    `;
+    this.overlay.style.display='flex';
+    document.getElementById('btnStart').onclick=()=>{ this.overlay.style.display='none'; this.start(); };
 
-    start() {
-      this.state.running = true;
-    },
+    EXO.attachBasicInput({onLeft:()=>this.move('L'), onRight:()=>this.move('R'), onPause:()=>this.pause()});
+    document.getElementById('btnPause').onclick=()=>this.pause();
 
-    move(side) {
-      if (!this.state.running) return;
-      this.playerLane = side;
-      this.player.setAttribute("position", `${this.lanes[side]} 1.2 -0.5`);
-    },
+    this.timer=setInterval(()=>{ if(!this.state.running) return; this.state.time--; this.$t.textContent=this.state.time; if(this.state.time<=0) this.end(); },1000);
+  },
 
-    spawn() {
-      if (!this.state.running) return;
-      const side = Math.random() > 0.5 ? 'L' : 'R';
-      const box = document.createElement('a-box');
-      box.setAttribute('color', '#e53935');
-      box.setAttribute('depth', 0.4);
-      box.setAttribute('height', 0.4);
-      box.setAttribute('width', 0.4);
-      box.setAttribute('position', `${this.lanes[side]} 1.2 -4`);
-      box.setAttribute('data-side', side);
-      this.el.sceneEl.appendChild(box);
-      this.obstacles.push(box);
+  start(){
+    this.state.running=true;
+    this.spawnLoop=setInterval(()=>this.spawn(), this.cfg.spawn);
+  },
 
-      // เคลื่อนที่เข้าหาผู้เล่นด้วย interval (ง่ายและพอสำหรับ prototype)
-      const mover = setInterval(() => {
-        if (!this.state.running || !box.parentNode) {
-          clearInterval(mover);
-          return;
+  move(side){
+    if(!this.state.running) return;
+    this.playerLane=side; this.player.setAttribute('position', `${this.lanes[side]} 1.2 -0.5`);
+  },
+
+  spawn(){
+    if(!this.state.running) return;
+    const side=Math.random()<0.5?'L':'R';
+    const box=document.createElement('a-box');
+    box.setAttribute('color','#e53935'); box.setAttribute('depth',0.4); box.setAttribute('height',0.4); box.setAttribute('width',0.4);
+    box.setAttribute('position', `${this.lanes[side]} 1.2 -4`); box.setAttribute('data-side', side);
+    this.el.sceneEl.appendChild(box);
+    this.obstacles.push(box);
+
+    box.__mover=setInterval(()=>{
+      if(!this.state.running||!box.parentNode){ clearInterval(box.__mover); return; }
+      const p=box.getAttribute('position'); const z=p.z + this.cfg.speed;
+      box.setAttribute('position', `${p.x} ${p.y} ${z}`);
+      if(z>=-0.5){
+        if(this.playerLane!==side){
+          // หลบได้
+          this.state.avoided++;
+          this.state.score += Math.round(this.cfg.laneSwapBonus * this.state.combo);
+          this.state.combo = Math.min(5.0, this.state.combo+0.15);
+          this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+          EXO.beep(720,0.03,0.08);
+        }else{
+          // ชน
+          this.state.hit++;
+          this.state.score = Math.max(0, this.state.score - this.cfg.hitPenalty);
+          this.state.combo = 1.0;
+          EXO.beep(220,0.06,0.15);
         }
-        const pos = box.getAttribute('position');
-        const nextZ = pos.z + this.speed; // เคลื่อนมาข้างหน้า
-        box.setAttribute('position', `${pos.x} ${pos.y} ${nextZ}`);
+        this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
+        try{ box.parentNode.removeChild(box);}catch(e){}
+        const i=this.obstacles.indexOf(box); if(i>=0) this.obstacles.splice(i,1);
+        clearInterval(box.__mover);
+      }
+    },16);
+  },
 
-        // ถึงระยะตัดสิน
-        if (nextZ >= -0.5) {
-          const sideNow = box.getAttribute('data-side');
-          // หลบถูกเลน = คะแนน+, ชน = คะแนน-
-          if (this.playerLane !== sideNow) {
-            this.state.score += 10;
-          } else {
-            this.state.score = Math.max(0, this.state.score - 5);
-          }
-          this.scoreUI.innerText = this.state.score;
+  pause(){
+    if(!this.state.running) return;
+    this.state.running=false;
+    this.obstacles.forEach(b=>{ if(b.__mover) clearInterval(b.__mover); });
+    this.panel.innerHTML=`
+      <div class="title">Paused</div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  },
 
-          // ลบกล่อง + เคลียร์
-          try { box.parentNode.removeChild(box); } catch(e){}
-          const idx = this.obstacles.indexOf(box);
-          if (idx >= 0) this.obstacles.splice(idx, 1);
-          clearInterval(mover);
-        }
-      }, 16);
-      // เก็บ reference ไว้จะได้เคลียร์ตอน pause/end
-      box.__mover = mover;
-    },
+  end(){
+    this.state.running=false;
+    clearInterval(this.timer); clearInterval(this.spawnLoop);
+    this.obstacles.forEach(b=>{ if(b.__mover) clearInterval(b.__mover); });
 
-    pause() {
-      if (!this.state.running) return;
-      this.state.running = false;
+    const total=this.state.avoided + this.state.hit;
+    const hitRate = total>0 ? (this.state.avoided/total)*100 : 0;
+    const acc = hitRate; // สำหรับเกมนี้ใช้สัดส่วนหลบสำเร็จเป็น accuracy
 
-      // หยุด obstacle ที่กำลังวิ่ง
-      this.obstacles.forEach(b => { if (b.__mover) clearInterval(b.__mover); });
-      this.panel.innerHTML = `
-        <h3>Paused</h3>
-        <p>←/A = ซ้าย · →/D = ขวา</p>
-        <button class="btn" onclick="location.reload()">Restart</button>
-        <a class="btn" href="../index.html">Exit</a>
-      `;
-      this.overlay.style.display = "flex";
-    },
-
-    end() {
-      this.state.running = false;
-
-      // เคลียร์ interval ทั้งหมด
-      clearInterval(this.spawnLoop);
-      clearInterval(this.timer);
-      this.obstacles.forEach(b => { if (b.__mover) clearInterval(b.__mover); });
-
-      this.panel.innerHTML = `
-        <h3>Session Complete</h3>
-        <p>Score: ${this.state.score}</p>
-        <button class="btn" onclick="location.reload()">Restart</button>
-        <a href="../index.html" class="btn">Exit</a>
-      `;
-      this.overlay.style.display = "flex";
-    }
-  });
-  </script>
+    this.panel.innerHTML=`
+      <div class="title">Result — Mobility Dash</div>
+      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
+        <div>Score<br><b>${this.state.score}</b></div>
+        <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+        <div>Accuracy<br><b>${hitRate.toFixed(1)}%</b></div>
+      </div>
+      <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+        <div>Avoided<br><b>${this.state.avoided}</b></div>
+        <div>Hit<br><b>${this.state.hit}</b></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  }
+});
+</script>
 
 </body>
 </html>
