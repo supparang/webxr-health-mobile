@@ -1,137 +1,149 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EXO · Combat Reflex</title>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<link rel="stylesheet" href="../core/exo-ui.css">
-</head><body>
-<div class="hud">
-  <div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
-  <div class="box"><span id="time">60</span><a class="btn" id="btnPause">⏸</a><a class="btn" href="../index.html">⟵ Hub</a></div>
-</div>
-<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EXO · Combat Reflex</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <link rel="stylesheet" href="../core/exo-ui.css">
+  <script src="../core/exo-core.js"></script>
+  <script src="../core/exo-metrics.js"></script>
+</head>
+<body>
 
-<div id="overlay" class="overlay" style="display:none"><div class="panel" id="panel"></div></div>
+  <!-- HUD -->
+  <div class="hud">
+    <div class="box">
+      <span id="score">0</span>
+      <span id="combo">x1.0</span>
+    </div>
+    <div class="box">
+      <span id="time">60</span>
+      <button id="btnPause" class="btn">⏸</button>
+      <a href="../index.html" class="btn">⟵ Exit</a>
+    </div>
+  </div>
 
-<script src="../core/exo-metrics.js"></script>
-<script src="../core/exo-core.js"></script>
+  <!-- Touch areas -->
+  <div id="touchL" class="touch"></div>
+  <div id="touchR" class="touch"></div>
 
-<a-scene vr-mode-ui="enabled: true" renderer="antialias:true; highRefreshRate:true; colorManagement:true">
-  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
-  <a-entity light="type:directional;intensity:.9;color:#aee0ff" position="0 3 2"></a-entity>
+  <!-- Overlay -->
+  <div id="overlay" class="overlay" style="display:none;">
+    <div id="panel" class="panel"></div>
+  </div>
 
-  <!-- ห้องฝึกแบบเรียบ -->
-  <a-entity geometry="primitive: box; depth: 22; height: 6; width: 12" position="0 3 -7"
-            material="color: #0c1428; side: back; metalness:0.1; roughness:0.9"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-  <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -3.5"
-            material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.6"></a-entity>
+  <!-- Scene -->
+  <a-scene>
+    <a-entity light="type:ambient;intensity:0.7"></a-entity>
+    <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
 
-  <!-- Rig + cursor -->
-  <a-entity id="rig"><a-entity camera position="0 1.6 0"><a-entity cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity></a-entity></a-entity>
+    <!-- Camera -->
+    <a-entity id="rig">
+      <a-entity camera position="0 1.6 0"></a-entity>
+    </a-entity>
 
-  <!-- Targets pool -->
-  <a-entity id="director" combat-director></a-entity>
-</a-scene>
+    <!-- Game Manager -->
+    <a-entity id="game" combat-game></a-entity>
+  </a-scene>
 
-<script>
-<script>
-// --- EXO DOM refs (Hotfix for modern browsers) ---
-const score   = document.getElementById('score');
-const combo   = document.getElementById('combo');
-const time    = document.getElementById('time');
-const panel   = document.getElementById('panel');
-const overlay = document.getElementById('overlay');
-const player  = document.getElementById('player');
-const touchL  = document.getElementById('touchL');
-const touchR  = document.getElementById('touchR');
-</script>
+  <script>
+  AFRAME.registerComponent('combat-game', {
+    init() {
+      // DOM refs
+      this.scoreUI = document.getElementById('score');
+      this.comboUI = document.getElementById('combo');
+      this.timeUI  = document.getElementById('time');
+      this.overlay = document.getElementById('overlay');
+      this.panel   = document.getElementById('panel');
 
-  AFRAME.registerComponent('combat-director',{
-  init(){
-    this.state={score:0,combo:1.0,time:60,running:false};
-    this.rec=new EXO_METRICS.Recorder('CombatReflex');
-    this.spawnZ=-4; this.hitZ=-0.5; this.laneX={L:-0.8,R:0.8};
-    this.speed=4.8; this.spawnIv=0.55; this.pool=[]; this.spawnCooldown=0;
-    for(let i=0;i<16;i++) this.pool.push(this.mkTarget(this.el.sceneEl));
-    EXO.startOverlay(()=>{ this.start(); });
-    EXO.attachBasicInput({onLeft:()=>this.tryHit('L'), onRight:()=>this.tryHit('R'), onPause:()=>this.pause()});
-    document.getElementById('btnPause').onclick=()=>this.pause();
-    this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
-    this.$s=score; this.$c=combo; this.$t=time;
-  },
-  start(){
-    this.state.running=true;
-    this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;} this.state.time--; this.$t.textContent=this.state.time; },1000);
-  },
-  pause(){ this.state.running=false; this.showPanel(`<div class="title">Paused</div><p class="note">Tap Start on overlay to resume</p><div style="display:flex;gap:.6rem"><a class="btn" href="../index.html">⟵ Hub</a><a class="btn" onclick="location.reload()">⟲ Restart</a></div>`); },
-  mkTarget(scene){ const e=document.createElement('a-entity'); e.setAttribute('class','clickable');
-    e.setAttribute('geometry','primitive: box; depth:0.35; height:0.35; width:0.35');
-    e.setAttribute('material','color:#9ecbff; metalness:0.2; roughness:0.4; emissive:#2a6fb5; emissiveIntensity:0.25');
-    e.setAttribute('visible',false); e.userData={alive:false,side:'L',st:0,rt:0};
-    e.addEventListener('click',()=>this.tryHit(e.userData.side)); scene.appendChild(e); return e; },
-  spawn(side){
-    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
-    e.userData.alive=true; e.userData.side=side; e.userData.vz=this.speed;
-    e.object3D.position.set(this.laneX[side],1.4,this.spawnZ); e.object3D.scale.set(1,1,1); e.setAttribute('visible',true);
-    e.userData.st = EXO.now(); // stimulus time when target becomes active
-  },
-  tryHit(side){
-    if(!this.state.running) return; EXO.beep(540,0.04,0.12);
-    let best=null, dzBest=999;
-    for(const e of this.pool){
-      if(!e.userData.alive||e.userData.side!==side) continue;
-      const dz=Math.abs(e.object3D.position.z - this.hitZ);
-      if(dz<dzBest){best=e;dzBest=dz;}
-    }
-    if(best && dzBest<=0.25){
-      const resp=EXO.now();
-      const rt = (resp - best.userData.st)*1000.0;
-      const hitQ = dzBest<=0.08?1.0:dzBest<=0.18?0.6:0.3;
-      this.state.score+=Math.round(hitQ*100*this.state.combo); this.$s.textContent=this.state.score;
-      this.state.combo=Math.min(5,this.state.combo+0.2); this.$c.textContent='x'+this.state.combo.toFixed(1);
-      best.setAttribute('animation__pop','property: scale; to: 0.1 0.1 0.1; dur:80; easing:easeOutQuad');
-      setTimeout(()=>{ best.setAttribute('visible',false); best.userData.alive=false; best.removeAttribute('animation__pop'); },90);
-      this.rec.log({t:EXO.now(), stimulus:best.userData.st, response:resp, reactionMs:rt, success:true, hitQuality:hitQ});
-    }else{
-      this.state.combo=1.0; this.$c.textContent='x1.0';
-      this.rec.log({t:EXO.now(), reactionMs:0, success:false, hitQuality:0});
-    }
-  },
-  end(){
-    this.state.running=false; clearInterval(this.timer);
-    const sum=this.rec.summary();
-    const csv=this.rec.csv('session-'+Date.now());
-    const html=`
-      <div class="title">Result — Combat Reflex</div>
-      <div class="kpi">
-        <div>Score<br><b>${sum.score.toFixed(0)}</b></div>
-        <div>Accuracy<br><b>${sum.accuracyPct.toFixed(1)}%</b></div>
-        <div>Avg RT<br><b>${sum.avgReactionMs.toFixed(1)} ms</b></div>
-        <div>P95 RT<br><b>${sum.p95ReactionMs.toFixed(1)} ms</b></div>
-      </div>
-      <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" id="dl">⬇ Download CSV</a>
-        <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⟵ Hub</a>
-      </div>`;
-    this.showPanel(html);
-    document.getElementById('dl').onclick=()=>EXO.downloadCSV('exo_combat_reflex.csv',csv);
-  },
-  showPanel(inner){ const p=document.getElementById('panel'); p.innerHTML=inner; document.getElementById('overlay').style.display='flex'; },
-  tick(t,dt){
-    if(!this.state.running) return;
-    const dtS=dt/1000; this.spawnCooldown-=dtS;
-    if(this.spawnCooldown<=0){ this.spawn(Math.random()<0.5?'L':'R'); this.spawnCooldown=this.spawnIv; }
-    for(const e of this.pool){
-      if(!e.userData.alive) continue;
-      const p=e.object3D.position; p.z+=e.userData.vz*dtS;
-      if(p.z>0.3){ // miss
-        e.setAttribute('visible',false); e.userData.alive=false;
-        this.state.combo=1.0; this.$c.textContent='x1.0';
-        this.rec.log({t:EXO.now(), stimulus:e.userData.st, response:EXO.now(), reactionMs:0, success:false, hitQuality:0});
+      // Game state
+      this.state = { score: 0, combo: 1.0, time: 60, running: false };
+      this.targets = [];
+      this.spawnTimer = 0.6;
+
+      // Start overlay
+      EXO.startOverlay(() => this.start());
+
+      // Input
+      EXO.attachBasicInput({
+        onLeft:  () => this.hit('L'),
+        onRight: () => this.hit('R'),
+        onPause: () => this.pause()
+      });
+
+      // Pause button
+      document.getElementById('btnPause').onclick = () => this.pause();
+
+      // Spawn loop
+      this.spawnInterval = setInterval(() => {
+        if (!this.state.running) return;
+        this.spawn();
+      }, 600);
+
+      // Countdown timer
+      this.timer = setInterval(() => {
+        if (!this.state.running) return;
+        this.state.time--;
+        this.timeUI.innerText = this.state.time;
+        if (this.state.time <= 0) this.end();
+      }, 1000);
+    },
+
+    start() {
+      this.state.running = true;
+    },
+
+    spawn() {
+      const side = Math.random() < 0.5 ? 'L' : 'R';
+      const x = side === 'L' ? -0.8 : 0.8;
+      const target = document.createElement('a-box');
+      target.setAttribute('color', '#4fc3f7');
+      target.setAttribute('depth', 0.3);
+      target.setAttribute('height', 0.3);
+      target.setAttribute('width', 0.3);
+      target.setAttribute('position', `${x} 1.5 -4`);
+      target.setAttribute('data-side', side);
+      this.el.sceneEl.appendChild(target);
+      this.targets.push(target);
+    },
+
+    hit(side) {
+      if (!this.state.running) return;
+
+      let target = this.targets.find(t => t.getAttribute('data-side') === side);
+      if (target) {
+        EXO.beep();
+        this.state.score += Math.round(100 * this.state.combo);
+        this.state.combo += 0.1;
+        this.scoreUI.innerText = this.state.score;
+        this.comboUI.innerText = "x" + this.state.combo.toFixed(1);
+        target.parentNode.removeChild(target);
+        this.targets.splice(this.targets.indexOf(target), 1);
       }
+    },
+
+    pause() {
+      this.state.running = false;
+      this.panel.innerHTML = `
+        <h3>Paused</h3>
+        <button class="btn" onclick="location.reload()">Restart</button>
+      `;
+      this.overlay.style.display = "flex";
+    },
+
+    end() {
+      this.state.running = false;
+      this.panel.innerHTML = `
+        <h3>Session Complete!</h3>
+        <p>Score: ${this.state.score}</p>
+        <button class="btn" onclick="location.reload()">Restart</button>
+        <a href="../index.html" class="btn">Exit</a>
+      `;
+      this.overlay.style.display = "flex";
     }
-  }
-});
-</script>
-</body></html>
+  });
+  </script>
+
+</body>
+</html>
