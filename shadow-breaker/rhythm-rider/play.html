@@ -2,12 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Rhythm Sync (BPM/Chart + Difficulty + Feedback + Stats)</title>
+  <title>EXO · Rhythm Sync (Full: Tutorial + Music + Stats + Grade + Graph)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Core & Metrics (ใช้เวอร์ชันที่อัปเดตล่าสุด) -->
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
+
   <style>
     .beatRail { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; color:#9ecbff; font-size:12px; opacity:.8 }
     /* Feedback popup */
@@ -20,6 +24,18 @@
     .tag.okay    { color:#ffd166; border-color:#a77418; }
     .tag.miss    { color:#ff7777; border-color:#8a2b2b; }
     @keyframes rise { to { opacity:1; transform:translateY(-6px); } }
+
+    /* Grade badge */
+    .grade { display:inline-flex; align-items:center; justify-content:center; width:64px; height:64px; border-radius:50%;
+             font:800 28px/1 system-ui; background:linear-gradient(180deg,#0b1325,#0f1b33); border:2px solid #284c92; color:#e6f2ff;
+             box-shadow:0 0 18px rgba(59,130,246,.35) inset, 0 0 12px rgba(59,130,246,.25); }
+    .grade.s   { border-color:#28a745; box-shadow:0 0 18px rgba(40,167,69,.35) inset, 0 0 12px rgba(40,167,69,.25); }
+    .grade.ss  { border-color:#ffd166; box-shadow:0 0 18px rgba(255,209,102,.35) inset, 0 0 12px rgba(255,209,102,.25); color:#0a0a0a; }
+
+    /* Tiny legend */
+    .legend { display:flex; gap:10px; justify-content:center; font-size:12px; color:#a7c5ff; }
+    .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+    .p { background:#7ee787; } .g { background:#9ecbff; } .o{background:#ffd166;} .m{background:#ff7777;}
   </style>
 </head>
 <body>
@@ -73,7 +89,7 @@
 <script>
 AFRAME.registerComponent('rhythm-game', {
   async init() {
-    // UI refs
+    // ===== UI refs =====
     this.$s = document.getElementById('score');
     this.$c = document.getElementById('combo');
     this.$t = document.getElementById('time');
@@ -81,7 +97,7 @@ AFRAME.registerComponent('rhythm-game', {
     this.panel   = document.getElementById('panel');
     this.$fb     = document.getElementById('fb');
 
-    // State (เพิ่มตัววัดผล)
+    // ===== State =====
     this.state = { 
       score: 0, 
       combo: 1.0, 
@@ -95,13 +111,14 @@ AFRAME.registerComponent('rhythm-game', {
       cntMiss:    0
     };
 
-    // Query params
+    // ===== Query params =====
     const q = new URLSearchParams(location.search);
     const diff = (q.get('diff')||'normal').toLowerCase(); // easy|normal|hard
     this.bpm = +(q.get('bpm') || 110);
     const chartUrl = q.get('chart'); // absolute/relative URL to JSON
+    const music = q.get('music');
 
-    // Difficulty presets
+    // ===== Difficulty presets =====
     const DIFF = {
       easy:   { windows: {perfect: 90, good: 150, okay: 220}, scoreMul: 1.0 },
       normal: { windows: {perfect: 50, good: 110, okay: 170}, scoreMul: 1.1 },
@@ -109,19 +126,19 @@ AFRAME.registerComponent('rhythm-game', {
     };
     this.dcfg = DIFF[diff] || DIFF.normal;
 
-    // rhythm
+    // ===== rhythm / lanes =====
     this.beat = 60 / this.bpm;
     this.spawnZ = -5; this.hitZ = -0.5; this.laneX = {L:-0.8, R:0.8};
 
     // pool
     this.pool = []; for (let i=0;i<32;i++) this.pool.push(this.mkNote(this.el.sceneEl));
 
-    // หน้าต่างเวลา
+    // windows
     this.winPerfect = this.dcfg.windows.perfect;
     this.winGood    = this.dcfg.windows.good;
     this.winOkay    = this.dcfg.windows.okay;
 
-    // โหลดชาร์ต (ถ้ามี chart= ใน query)
+    // ===== Load chart =====
     this.chart = null;
     try {
       if (chartUrl) {
@@ -130,27 +147,28 @@ AFRAME.registerComponent('rhythm-game', {
       }
     } catch(e){ console.warn('Chart load failed', e); }
     if (!Array.isArray(this.chart)) {
-      // fallback chart ภายใน (เหมาะกับ easy/normal/hard)
-      this.chart = this.defaultChart(diff);
+      this.chart = this.defaultChart(diff); // fallback
     }
 
-    // สรุปข้อมูลหน้า overlay ก่อนเริ่ม
-    const noteCount = this.chart.length;
-    this.panel.innerHTML = `
-      <div class="title">Rhythm Sync</div>
-      <p>BPM: <b>${this.bpm}</b> · Difficulty: <b>${diff.toUpperCase()}</b><br/>Notes: <b>${noteCount}</b></p>
-      <div style="display:flex;gap:.6rem;justify-content:center">
-        <button id="btnStart" class="btn">▶ Start</button>
-      </div>
-      <small style="opacity:.7">PERFECT ≤ ${this.winPerfect}ms, GOOD ≤ ${this.winGood}ms, OKAY ≤ ${this.winOkay}ms</small>
-    `;
-    this.overlay.style.display='flex';
-    document.getElementById('btnStart').onclick = () => {
+    // ===== Tutorial + Start Overlay (ใช้ระบบ EXO) =====
+    this.title = 'Rhythm Sync';
+    this.tutorialGoal = 'ตีตามจังหวะ BPM ให้โน้ตชนเส้นพอดี · Hold ต้องกดค้างจนจบแท่ง';
+    this.tutorialCtrlHTML = '<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>';
+    this.tutorialScore = 'PERFECT/GOOD/OKAY/MISS ตามความตรงเวลา · คอมโบยิ่งสูงคะแนนยิ่งพุ่ง';
+    EXO.startOverlay(()=> {
       this.overlay.style.display='none';
       this.start();
-    };
+    }, {
+      title: 'EXO — Rhythm Sync',
+      howto: [
+        { title:'เป้าหมาย', text: this.tutorialGoal },
+        { title:'การบังคับ', html: this.tutorialCtrlHTML },
+        { title:'การได้คะแนน', text: this.tutorialScore }
+      ],
+      note: `BPM: <b>${this.bpm}</b> · Difficulty: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}`
+    });
 
-    // Inputs
+    // ===== Inputs =====
     EXO.attachBasicInput({
       onLeft:  () => this.tryHit('L'),
       onRight: () => this.tryHit('R'),
@@ -158,26 +176,30 @@ AFRAME.registerComponent('rhythm-game', {
     });
     document.getElementById('btnPause').onclick = () => this.pause();
 
-    // Timer demo 60s (ยังมีให้เห็น แต่จะหยุดเมื่อน็อตหมดเพราะ end())
+    // ===== Timer (แสดงผลเท่านั้น; เกมจะจบเมื่อโน้ตหมด) =====
     this.timer = setInterval(()=>{
       if (!this.state.running) return;
       this.state.time--; this.$t.textContent=this.state.time;
       if (this.state.time<=0) this.end();
     },1000);
 
-    // RAF
+    // ===== Music (optional) =====
+    if (music) { try{ EXO.audio.playMusic(music, {loop:true, volume:0.35}); }catch(e){} }
+
+    // ===== RAF + schedule =====
     this._tick = this._tick.bind(this);
     requestAnimationFrame(this._tick);
-
-    // schedule
     this.lookAhead = 2.0; // sec
     this.spawnedIdx = -1;
+
+    // ===== Hit error timeline (ms, signed) =====
+    this.errors = []; // {tIdx, ms, tier}
   },
 
   mkNote(scene){
     const e=document.createElement('a-entity');
     e.setAttribute('visible', false);
-    e.userData = {alive:false, side:'L', hitAt:0, type:'tap', holdEndAt:0, spawned:false};
+    e.userData = {alive:false, side:'L', hitAt:0, type:'tap', holdEndAt:0, spawned:false, idx:-1};
     const inner=document.createElement('a-entity');
     inner.setAttribute('geometry','primitive:sphere; radius:.22');
     inner.setAttribute('material','color:#ff6ef0; emissive:#6a2a8a; emissiveIntensity:.35');
@@ -194,7 +216,7 @@ AFRAME.registerComponent('rhythm-game', {
       {t:3, side:'R', type:'tap'},
       {t:4, side:'L', type:'hold', len:2},
       {t:7, side:'R', type:'tap'},
-      {t:7.5, side:'L', type:'tap'},
+      {t':7.5, side:'L', type:'tap'}, /* safe: string key to avoid minifiers */
       {t:8, side:'R', type:'tap'},
       {t:9, side:'R', type:'hold', len:1.5},
       {t:11, side:'L', type:'tap'},
@@ -204,7 +226,6 @@ AFRAME.registerComponent('rhythm-game', {
     ];
     if (diff==='easy')  return base;
     if (diff==='hard') {
-      // เพิ่มความหนาแน่น
       return base.concat([
         {t:13.25, side:'L', type:'tap'},
         {t:13.5,  side:'L', type:'tap'},
@@ -213,7 +234,6 @@ AFRAME.registerComponent('rhythm-game', {
         {t:15,    side:'R', type:'hold', len:2},
       ]);
     }
-    // normal
     return base.concat([{t:13.25, side:'L', type:'tap'}]);
   },
 
@@ -246,7 +266,7 @@ AFRAME.registerComponent('rhythm-game', {
       const n=this.chart[i]; const noteTime = n.t * this.beat;
       if (noteTime - tNow <= this.lookAhead){
         const e = this.pool.find(o=>!o.userData.alive); if (!e) break;
-        e.userData.alive=true; e.userData.side=n.side; e.userData.type=n.type;
+        e.userData.alive=true; e.userData.side=n.side; e.userData.type=n.type; e.userData.idx=i;
         e.userData.hitAt=noteTime; e.userData.holdEndAt = (n.type==='hold') ? (noteTime + (n.len||1)*this.beat) : 0;
         e.object3D.position.set(this.laneX[n.side], 1.4, this.spawnZ);
         const inner=e.children[0];
@@ -271,7 +291,7 @@ AFRAME.registerComponent('rhythm-game', {
     return Math.round(base * this.dcfg.scoreMul * this.state.combo);
   },
 
-  registerHitTier(tier){
+  registerHitTier(tier){ // counter
     if (tier==='perfect') this.state.cntPerfect++;
     else if (tier==='good') this.state.cntGood++;
     else if (tier==='okay') this.state.cntOkay++;
@@ -285,19 +305,20 @@ AFRAME.registerComponent('rhythm-game', {
     for (const e of this.pool){
       if (!e.userData.alive) continue;
       if (e.userData.side!==side) continue;
-      const errMs = Math.abs(t - e.userData.hitAt)*1000;
+      const errMs = (t - e.userData.hitAt)*1000; // signed
+      const absv = Math.abs(errMs);
       if (e.userData.type==='tap' || (e.userData.type==='hold' && t <= e.userData.holdEndAt + 0.2)){
-        if (errMs<bestErr){bestErr=errMs; cand=e;}
+        if (absv<Math.abs(bestErr)){bestErr=errMs; cand=e;}
       }
     }
     if (!cand) return;
 
     let tier='miss';
-    if (bestErr<=this.winPerfect) tier='perfect';
-    else if (bestErr<=this.winGood) tier='good';
-    else if (bestErr<=this.winOkay) tier='okay';
+    if (Math.abs(bestErr)<=this.winPerfect) tier='perfect';
+    else if (Math.abs(bestErr)<=this.winGood) tier='good';
+    else if (Math.abs(bestErr)<=this.winOkay) tier='okay';
 
-    if (tier==='miss'){ this.miss(cand); return; }
+    if (tier==='miss'){ this.miss(cand, bestErr); return; }
 
     // update score/combo
     this.state.score += this.scoreGain(tier);
@@ -307,6 +328,7 @@ AFRAME.registerComponent('rhythm-game', {
     this.$c.textContent = 'x' + this.state.combo.toFixed(1);
     this.flash(tier.toUpperCase(), tier);
     this.registerHitTier(tier);
+    this.errors.push({tIdx: cand.userData.idx, ms: Math.round(bestErr), tier});
     EXO.beep(760, 0.03, 0.08);
 
     const inner=cand.children[0];
@@ -318,13 +340,14 @@ AFRAME.registerComponent('rhythm-game', {
     }
   },
 
-  miss(e){
+  miss(e, errMs=NaN){
     this.state.combo = 1.0;
     this.$c.textContent = 'x1.0';
     this.flash('MISS','miss');
     this.registerHitTier('miss');
     const inner=e.children[0];
-    inner.setAttribute('material','color:#ff5252; emissive:#8a2b2b; emissiveIntensity:.4');
+    inner.setAttribute('material','color:#ff5252; emissive:'#8a2b2b'; emissiveIntensity:.4');
+    this.errors.push({tIdx: e.userData.idx, ms: isNaN(errMs)? null : Math.round(errMs), tier:'miss'});
   },
 
   pause(){
@@ -340,20 +363,98 @@ AFRAME.registerComponent('rhythm-game', {
     this.overlay.style.display='flex';
   },
 
-  // คำนวณสถิติ
+  // คำนวณสถิติ + เกรด
   computeStats(){
     const totalNotes = this.chart.length;
     const hits = this.state.cntPerfect + this.state.cntGood + this.state.cntOkay;
     const hitRate = totalNotes > 0 ? (hits / totalNotes) * 100 : 0;
-    // Accuracy แบบถ่วงน้ำหนัก
     const weighted = (this.state.cntPerfect*1) + (this.state.cntGood*0.7) + (this.state.cntOkay*0.4);
     const accuracy = totalNotes > 0 ? (weighted / totalNotes) * 100 : 0;
+
+    // Grade rule (ตัวอย่าง):
+    // SS: acc >= 98% && miss == 0
+    // S : acc >= 92%
+    // A : acc >= 85%
+    // B : acc >= 75%
+    // C : ที่เหลือ
+    let grade='C';
+    if (accuracy>=92) grade='S';
+    if (accuracy>=98 && this.state.cntMiss===0) grade='SS';
+    else if (accuracy>=85 && grade==='C') grade='A';
+    else if (accuracy>=75 && grade==='C') grade='B';
+
     return {
       totalNotes, hits,
       hitRate: Math.round(hitRate * 10) / 10,
       accuracy: Math.round(accuracy * 10) / 10,
-      maxCombo: Math.round(this.state.maxCombo*10)/10
+      maxCombo: Math.round(this.state.maxCombo*10)/10,
+      grade
     };
+  },
+
+  // สร้างกราฟ SVG (Hit Timing Error)
+  renderGraphSVG(width, height){
+    const pad=24, w=width, h=height;
+    const svgNS='http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS,'svg');
+    svg.setAttribute('width', w); svg.setAttribute('height', h);
+    svg.style.background='rgba(8,14,28,.6)'; svg.style.border='1px solid #112848'; svg.style.borderRadius='8px';
+
+    const data=this.errors.filter(e=>e.ms!==null && !isNaN(e.ms)).sort((a,b)=>a.tIdx-b.tIdx);
+    const N=(data.length||1);
+    const x = i=> pad + ( (w-2*pad) * (i/(N-1||1)) );
+    const range = Math.max(this.winOkay, 220); // ms scale
+    const y = ms => (h/2) - ( (h/2-pad) * (ms/range) ); // ms positive=late негатив/early
+
+    // axes
+    const axis = document.createElementNS(svgNS,'line');
+    axis.setAttribute('x1', pad); axis.setAttribute('x2', w-pad);
+    axis.setAttribute('y1', h/2); axis.setAttribute('y2', h/2);
+    axis.setAttribute('stroke', '#2b4b86'); axis.setAttribute('stroke-width','1');
+    svg.appendChild(axis);
+
+    // threshold lines
+    const makeH=(ms,color)=>{
+      const L=document.createElementNS(svgNS,'line');
+      const yy=y(ms);
+      L.setAttribute('x1', pad); L.setAttribute('x2', w-pad);
+      L.setAttribute('y1', yy);  L.setAttribute('y2', yy);
+      L.setAttribute('stroke', color); L.setAttribute('stroke-dasharray','4 4'); L.setAttribute('stroke-width','1');
+      svg.appendChild(L);
+      const L2=document.createElementNS(svgNS,'line');
+      const yy2=y(-ms);
+      L2.setAttribute('x1', pad); L2.setAttribute('x2', w-pad);
+      L2.setAttribute('y1', yy2);  L2.setAttribute('y2', yy2);
+      L2.setAttribute('stroke', color); L2.setAttribute('stroke-dasharray','4 4'); L2.setAttribute('stroke-width','1');
+      svg.appendChild(L2);
+    };
+    makeH(this.winPerfect,'#2b8a3e'); // perfect
+    makeH(this.winGood,'#2a6fb5');    // good
+    makeH(this.winOkay,'#a77418');    // okay
+
+    // points
+    const colorMap={perfect:'#7ee787', good:'#9ecbff', okay:'#ffd166', miss:'#ff7777'};
+    data.forEach((d,i)=>{
+      const c=document.createElementNS(svgNS,'circle');
+      c.setAttribute('cx', x(i));
+      c.setAttribute('cy', y(d.ms));
+      c.setAttribute('r', 3.5);
+      c.setAttribute('fill', colorMap[d.tier] || '#e6f2ff');
+      svg.appendChild(c);
+    });
+
+    // labels
+    const label = (text, X, Y)=>{
+      const t=document.createElementNS(svgNS,'text');
+      t.textContent=text; t.setAttribute('x', X); t.setAttribute('y', Y);
+      t.setAttribute('fill','#a7c5ff'); t.setAttribute('font-size','10');
+      svg.appendChild(t);
+    };
+    label('+ms (Late)', 6, 12);
+    label('-ms (Early)', 6, h-4);
+    label('Hit Index →', w-70, h-6);
+
+    return svg;
   },
 
   end(){
@@ -361,27 +462,65 @@ AFRAME.registerComponent('rhythm-game', {
     clearInterval(this.timer); // หยุดจับเวลา
 
     const stats = this.computeStats();
+
+    // ----- Logging รวม -----
+    try{
+      EXO_METRICS.recordSession({
+        module: 'Rhythm Sync',
+        diff: (new URLSearchParams(location.search).get('diff')||'normal'),
+        score: this.state.score,
+        accuracy: stats.accuracy,
+        hits: this.state.cntPerfect + this.state.cntGood + this.state.cntOkay,
+        misses: this.state.cntMiss,
+        duration: this.state.time // ใช้ตัวเลข HUD เป็นความยาว session โดยคร่าว
+      });
+    }catch(e){}
+
+    // หยุดเพลงเมื่อจบ (ถ้าเปิดไว้)
+    try{ EXO.audio.stopMusic(); }catch(e){}
+
+    // ----- Result UI -----
+    const gradeClass = stats.grade==='SS' ? 'grade ss' : (stats.grade==='S'?'grade s':'grade');
     this.panel.innerHTML = `
       <div class="title">Result — Rhythm Sync</div>
-      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-        <div>Score<br><b>${this.state.score}</b></div>
-        <div>MAX Combo<br><b>${stats.maxCombo}×</b></div>
-        <div>BPM<br><b>${this.bpm}</b></div>
-        <div>Notes<br><b>${stats.totalNotes}</b></div>
-        <div>Hit Rate<br><b>${stats.hitRate}%</b></div>
-        <div>Accuracy<br><b>${stats.accuracy}%</b></div>
+      <div style="display:flex; gap:16px; align-items:center; justify-content:center; margin-bottom:8px">
+        <div class="${gradeClass}">${stats.grade}</div>
+        <div class="kpi" style="grid-template-columns:repeat(3,1fr); min-width:320px">
+          <div>Score<br><b>${this.state.score}</b></div>
+          <div>Max Combo<br><b>${stats.maxCombo}×</b></div>
+          <div>Accuracy<br><b>${stats.accuracy}%</b></div>
+          <div>Perfect<br><b>${this.state.cntPerfect}</b></div>
+          <div>Good<br><b>${this.state.cntGood}</b></div>
+          <div>Okay<br><b>${this.state.cntOkay}</b></div>
+          <div>Miss<br><b>${this.state.cntMiss}</b></div>
+          <div>BPM<br><b>${this.bpm}</b></div>
+          <div>Notes<br><b>${stats.totalNotes}</b></div>
+        </div>
       </div>
-      <div class="kpi" style="grid-template-columns:repeat(4,1fr)">
-        <div>Perfect<br><b>${this.state.cntPerfect}</b></div>
-        <div>Good<br><b>${this.state.cntGood}</b></div>
-        <div>Okay<br><b>${this.state.cntOkay}</b></div>
-        <div>Miss<br><b>${this.state.cntMiss}</b></div>
+
+      <div id="graphWrap" style="display:flex; flex-direction:column; align-items:center; gap:6px; margin:8px 0 6px;">
+        <div class="legend">
+          <span><i class="dot p"></i> Perfect</span>
+          <span><i class="dot g"></i> Good</span>
+          <span><i class="dot o"></i> Okay</span>
+          <span><i class="dot m"></i> Miss</span>
+        </div>
       </div>
-      <div style="display:flex;gap:.6rem;justify-content:center">
+
+      <div style="display:flex;gap:.6rem;justify-content:center;margin-top:8px">
         <a class="btn" onclick="location.reload()">⟲ Restart</a>
         <a class="btn" href="../index.html">⟵ Hub</a>
       </div>`;
+
+    // วาดกราฟ
+    const wrap = document.getElementById('graphWrap');
+    wrap.appendChild(this.renderGraphSVG(560, 180));
+
     this.overlay.style.display='flex';
+
+    // ----- Workout Program: ไปต่ออัตโนมัติถ้ามี next= -----
+    const nextURL = new URLSearchParams(location.search).get('next');
+    if (nextURL) { setTimeout(()=> location.href = nextURL, 1500); }
   },
 
   _tick(){
@@ -400,7 +539,7 @@ AFRAME.registerComponent('rhythm-game', {
         if (e.userData.type==='hold'){
           const ok = (e.userData.holding && tRel >= e.userData.holdEndAt - 0.05);
           if (ok){
-            // โบนัสจบ hold นับเป็น Good (สม่ำเสมอ)
+            // โบนัสจบ hold นับเป็น Good
             this.state.score += this.scoreGain('good');
             this.state.combo = Math.min(5.0, this.state.combo + 0.15);
             this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
@@ -411,8 +550,7 @@ AFRAME.registerComponent('rhythm-game', {
             this.miss(e);
           }
         } else {
-          // tap: ถ้ายังไม่ถูก hit ก่อนถึง line → miss
-          this.miss(e);
+          this.miss(e); // tap เลยเส้นแล้วยังไม่โดน
         }
         e.setAttribute('visible',false); e.userData.alive=false;
       }
