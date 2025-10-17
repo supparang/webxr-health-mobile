@@ -4,7 +4,9 @@
   <meta charset="utf-8">
   <title>EXO · Combat Reflex</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- Core & Metrics (เวอร์ชันที่อัปเดตแล้วของคุณ) -->
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
@@ -24,161 +26,209 @@
     </div>
   </div>
 
+  <!-- Touch zones (ซ้าย/ขวา) -->
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
 
   <!-- Overlay -->
-  <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
+  <div id="overlay" class="overlay" style="display:none;">
+    <div id="panel" class="panel"></div>
+  </div>
 
+  <!-- Scene -->
   <a-scene renderer="antialias:true; colorManagement:true">
+    <!-- แสง & ห้อง -->
     <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
     <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
-    <!-- ห้อง + พื้น + เส้น Hit Line -->
     <a-entity geometry="primitive: box; depth: 22; height: 6; width: 12" position="0 3 -7"
               material="color: #0c1428; side: back; metalness:0.1; roughness:0.9"></a-entity>
     <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4"
              material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+    <!-- เส้น Hit Line -->
     <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
               material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
-    <a-entity id="director" combat-director></a-entity>
+    <!-- Director -->
+    <a-entity combat-director></a-entity>
   </a-scene>
 
 <script>
 AFRAME.registerComponent('combat-director', {
   init(){
-    // UI
+    // ===== Refs =====
     this.$s = document.getElementById('score');
     this.$c = document.getElementById('combo');
     this.$t = document.getElementById('time');
     this.overlay = document.getElementById('overlay');
     this.panel   = document.getElementById('panel');
 
-    // Query
+    // ===== Query & Config =====
     const q = new URLSearchParams(location.search);
     const diff = (q.get('diff')||'normal').toLowerCase();
-    const T = Math.max(10, +(q.get('time')||60));
+    const music = q.get('music');                  // ?music=assets/track.ogg
+    const timeParam = Math.max(10, +(q.get('time')||60));
 
-    // Difficulty presets
+    // ความยาก (สปีด/ช่วงเวลาเข้าเส้น/อัตรา decoy)
     const DIFF = {
       easy:   { speed: 3.8, spawnIv: 650, hitWin: 0.28, decoy: 0.10 },
       normal: { speed: 4.8, spawnIv: 550, hitWin: 0.22, decoy: 0.20 },
       hard:   { speed: 6.0, spawnIv: 430, hitWin: 0.16, decoy: 0.35 }
     };
-    this.cfg = DIFF[diff]||DIFF.normal;
+    this.cfg = DIFF[diff] || DIFF.normal;
 
-    // State
+    // ===== State =====
     this.state = {
-      score:0, combo:1.0, maxCombo:1.0, time:T, running:false,
-      cntHit:0, cntMiss:0
+      score: 0, combo: 1.0, maxCombo: 1.0,
+      time: timeParam, running: false,
+      cntHit: 0, cntMiss: 0
     };
+    this.$t.textContent = this.state.time;
 
-    // Lanes
-    this.spawnZ=-4.5; this.hitZ=-0.5; this.laneX={L:-0.8,R:0.8};
-    this.pool=[]; for(let i=0;i<18;i++) this.pool.push(this.mkTarget(this.el.sceneEl));
-    this.spawnLoop=null;
+    // ===== Gameplay space =====
+    this.spawnZ = -4.5;
+    this.hitZ   = -0.5;
+    this.laneX  = { L:-0.8, R:0.8 };
+    this.pool   = [];
+    for (let i=0;i<18;i++) this.pool.push(this.mkTarget(this.el.sceneEl));
 
-    // Start
-    this.panel.innerHTML=`
-      <div class="title">Combat Reflex</div>
-      <p>Difficulty: <b>${diff.toUpperCase()}</b> · Hit window: ±${Math.round(this.cfg.hitWin*1000)} ms</p>
-      <button id="btnStart" class="btn">▶ Start</button>
-    `;
-    this.overlay.style.display='flex';
-    document.getElementById('btnStart').onclick=()=>{ this.overlay.style.display='none'; this.start(); };
+    // ===== Tutorial + Start =====
+    this.title = 'Combat Reflex';
+    this.tutorialGoal = 'ตีเป้าสีน้ำเงินให้ตรงเส้น Hit Line · อย่าตี Decoy (สีแดง)';
+    this.tutorialCtrlHTML = '<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>';
+    this.tutorialScore = 'ใกล้เส้นยิ่งได้คะแนนมาก · ตี decoy จะถูกลงโทษและคอมโบตก';
 
-    EXO.attachBasicInput({onLeft:()=>this.tryHit('L'), onRight:()=>this.tryHit('R'), onPause:()=>this.pause()});
-    document.getElementById('btnPause').onclick=()=>this.pause();
+    EXO.startOverlay(()=> this.start(), {
+      title: 'EXO — Combat Reflex',
+      howto: [
+        { title:'เป้าหมาย', text: this.tutorialGoal },
+        { title:'การบังคับ', html: this.tutorialCtrlHTML },
+        { title:'การได้คะแนน', text: this.tutorialScore }
+      ],
+      note: `Difficulty: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}`
+    });
 
-    // countdown
-    this.timer=setInterval(()=>{
-      if(!this.state.running) return;
-      this.state.time--; this.$t.textContent=this.state.time;
-      if(this.state.time<=0) this.end();
-    },1000);
+    // ===== Input =====
+    EXO.attachBasicInput({
+      onLeft:  () => this.tryHit('L'),
+      onRight: () => this.tryHit('R'),
+      onPause: () => this.pause()
+    });
+    document.getElementById('btnPause').onclick = () => this.pause();
+
+    // ===== Music (optional) =====
+    if (music) { try{ EXO.audio.playMusic(music, {loop:true, volume:0.35}); }catch(e){} }
+
+    // ===== Countdown =====
+    this.timer = setInterval(()=>{
+      if (!this.state.running) return;
+      this.state.time--;
+      this.$t.textContent = this.state.time;
+      if (this.state.time <= 0) this.end();
+    }, 1000);
   },
 
+  // ===== Create target (blue for real, red for decoy) =====
   mkTarget(scene){
     const e=document.createElement('a-entity');
-    e.setAttribute('visible',false);
-    e.userData={alive:false,side:'L',vz:0,isDecoy:false};
+    e.setAttribute('visible', false);
+    e.userData = { alive:false, side:'L', vz:0, isDecoy:false };
     const inner=document.createElement('a-entity');
     inner.setAttribute('geometry','primitive: box; depth:0.35; height:0.35; width:0.35');
     inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');
-    e.appendChild(inner); scene.appendChild(e); return e;
+    e.appendChild(inner);
+    scene.appendChild(e);
+    return e;
   },
 
+  // ===== Start game =====
   start(){
-    this.state.running=true;
+    this.state.running = true;
     // spawn loop
-    this.spawnLoop=setInterval(()=>this.spawn(), this.cfg.spawnIv);
+    this.spawnLoop = setInterval(()=> this.spawn(), this.cfg.spawnIv);
   },
 
+  // ===== Spawn a target =====
   spawn(){
-    if(!this.state.running) return;
-    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
-    const side=Math.random()<0.5?'L':'R';
+    if (!this.state.running) return;
+    const e = this.pool.find(o=>!o.userData.alive); if (!e) return;
+
+    const side = Math.random()<0.5 ? 'L' : 'R';
     const isDecoy = Math.random()<this.cfg.decoy;
-    e.userData.alive=true; e.userData.side=side; e.userData.isDecoy=isDecoy;
-    e.userData.vz=this.cfg.speed + (Math.random()*0.8-0.4); // เล็กน้อยให้ต่างกัน
-    e.object3D.position.set(this.laneX[side],1.4,this.spawnZ);
-    // สี decoy ให้ต่าง (แดง) — ห้ามตี
-    const inner=e.children[0];
-    if(isDecoy){
+
+    e.userData.alive   = true;
+    e.userData.side    = side;
+    e.userData.isDecoy = isDecoy;
+    e.userData.vz      = this.cfg.speed + (Math.random()*0.8 - 0.4); // randomize เล็กน้อย
+    e.object3D.position.set(this.laneX[side], 1.4, this.spawnZ);
+
+    const inner = e.children[0];
+    if (isDecoy){
       inner.setAttribute('material','color:#ff8a80; emissive:#8a2b2b; emissiveIntensity:.35');
-    }else{
+    } else {
       inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');
     }
-    e.setAttribute('visible',true);
+    e.setAttribute('visible', true);
   },
 
+  // ===== Try to hit on a side =====
   tryHit(side){
-    if(!this.state.running) return;
-    const best=this.findBest(side);
-    if(!best) return;
+    if (!this.state.running) return;
+    const best = this.findBest(side);
+    if (!best) return;
 
-    const dz=Math.abs(best.object3D.position.z - this.hitZ);
-    if(dz<=this.cfg.hitWin){
-      // โดน
-      if(best.userData.isDecoy){
-        // โดนตัวล่อ = ลงโทษ
-        this.state.combo=1.0; this.$c.textContent='x1.0';
-        this.state.score=Math.max(0,this.state.score-100);
-        this.$s.textContent=this.state.score;
-        EXO.beep(220,0.06,0.15);
-      }else{
+    const dz = Math.abs(best.object3D.position.z - this.hitZ);
+
+    // ภายใน hit window ถือว่าโดน
+    if (dz <= this.cfg.hitWin){
+      if (best.userData.isDecoy){
+        // ตี decoy → โดนลงโทษ
+        this.state.combo = 1.0; this.$c.textContent='x1.0';
+        this.state.score = Math.max(0, this.state.score - 100);
+        this.$s.textContent = this.state.score;
+        EXO.beep(220, 0.06, 0.15);
+      } else {
+        // โดนเป้าจริง → คะแนนขึ้นตามคุณภาพระยะ
         this.state.cntHit++;
         const quality = dz<=this.cfg.hitWin*0.4 ? 1.0 : dz<=this.cfg.hitWin*0.7 ? 0.7 : 0.4;
-        this.state.score += Math.round(120*quality*this.state.combo);
-        this.state.combo = Math.min(5.0, this.state.combo+0.2);
-        this.state.maxCombo = Math.max(this.state.maxCombo,this.state.combo);
-        this.$s.textContent=this.state.score;
-        this.$c.textContent='x'+this.state.combo.toFixed(1);
-        EXO.beep(540,0.04,0.12);
+        this.state.score += Math.round(120 * quality * this.state.combo);
+        this.state.combo = Math.min(5.0, this.state.combo + 0.2);
+        this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+        this.$s.textContent = this.state.score;
+        this.$c.textContent = 'x' + this.state.combo.toFixed(1);
+        EXO.beep(540, 0.04, 0.12);
       }
-      best.setAttribute('visible',false); best.userData.alive=false;
-    }else{
-      // ตีพลาดไกล
-      this.state.combo=1.0; this.$c.textContent='x1.0';
+
+      best.setAttribute('visible', false);
+      best.userData.alive = false;
+    } else {
+      // ตีห่างจากเส้นมาก → คอมโบตก
+      this.state.combo = 1.0;
+      this.$c.textContent = 'x1.0';
     }
   },
 
+  // ===== Find nearest target on the chosen lane =====
   findBest(side){
     let best=null, dzBest=1e9;
-    for(const e of this.pool){
-      if(!e.userData.alive) continue;
-      if(e.userData.side!==side) continue;
-      const dz=Math.abs(e.object3D.position.z - this.hitZ);
-      if(dz<dzBest){ dzBest=dz; best=e; }
+    for (const e of this.pool){
+      if (!e.userData.alive) continue;
+      if (e.userData.side !== side) continue;
+      const dz = Math.abs(e.object3D.position.z - this.hitZ);
+      if (dz < dzBest){ dzBest = dz; best = e; }
     }
     return best;
   },
 
+  // ===== Pause =====
   pause(){
-    if(!this.state.running) return;
-    this.state.running=false;
-    this.panel.innerHTML=`
+    if (!this.state.running) return;
+    this.state.running = false;
+
+    // หยุดเพลงระหว่างพัก (ถ้าต้องการเงียบตอน Pause)
+    try{ EXO.audio.stopMusic(); }catch(e){}
+
+    this.panel.innerHTML = `
       <div class="title">Paused</div>
       <div style="display:flex;gap:.6rem;justify-content:center">
         <a class="btn" onclick="location.reload()">⟲ Restart</a>
@@ -187,48 +237,79 @@ AFRAME.registerComponent('combat-director', {
     this.overlay.style.display='flex';
   },
 
-  computeStats(){
-    const total = this.state.cntHit + this.state.cntMiss; // note: miss จะเพิ่มจากหลุดเส้น
-    const hitRate = total>0 ? (this.state.cntHit/total)*100 : 0;
-    return { hitRate: Math.round(hitRate*10)/10, maxCombo: Math.round(this.state.maxCombo*10)/10 };
+  // ===== Tick: move targets forward & mark miss if they pass =====
+  tick: function(time, dt){
+    if (!this.state?.running) return;
+    const dtS = dt/1000;
+    for (const e of this.pool){
+      if (!e.userData.alive) continue;
+      const p = e.object3D.position;
+      p.z += e.userData.vz * dtS;
+
+      // เลยผู้เล่นไป → พลาด (เฉพาะเป้าจริง)
+      if (p.z > 0.2){
+        if (!e.userData.isDecoy){
+          this.state.cntMiss++;
+          this.state.combo = 1.0; this.$c.textContent = 'x1.0';
+        }
+        e.setAttribute('visible', false);
+        e.userData.alive = false;
+      }
+    }
   },
 
+  // ===== End session =====
   end(){
-    this.state.running=false;
+    this.state.running = false;
     clearInterval(this.timer);
     clearInterval(this.spawnLoop);
 
-    // นับ miss จากสิ่งที่ยัง alive และเลยเส้นไปแล้ว แถมรวมเหตุการณ์ที่ผ่านมา
-    // (ที่พลาดเพราะปล่อยให้ทะลุเส้น เราจะเพิ่ม miss ตอนอัปเดตตำแหน่งด้านล่าง)
-    const st=this.computeStats();
-    this.panel.innerHTML=`
+    // ----- Logging รวม (คะแนน/ความแม่น/เวลา) -----
+    try{
+      const duration = +(new URLSearchParams(location.search).get('time') || this.state.time || 60);
+      const total = (this.state.cntHit||0) + (this.state.cntMiss||0);
+      const hitRate = total>0 ? (this.state.cntHit/total)*100 : 0;
+
+      EXO_METRICS.recordSession({
+        module: 'Combat Reflex',
+        diff: (new URLSearchParams(location.search).get('diff')||'normal'),
+        score: this.state.score||0,
+        accuracy: Math.round(hitRate*10)/10,
+        hits: this.state.cntHit||0,
+        misses: this.state.cntMiss||0,
+        duration
+      });
+    }catch(e){}
+
+    // หยุดเพลงเมื่อจบ (ถ้าเปิดไว้)
+    try{ EXO.audio.stopMusic(); }catch(e){}
+
+    // ----- Result Overlay -----
+    this.panel.innerHTML = `
       <div class="title">Result — Combat Reflex</div>
       <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
         <div>Score<br><b>${this.state.score}</b></div>
-        <div>MAX Combo<br><b>${st.maxCombo}×</b></div>
-        <div>Hit Rate<br><b>${st.hitRate}%</b></div>
+        <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+        <div>Hit Rate<br><b>${
+          (()=>{
+            const total=(this.state.cntHit||0)+(this.state.cntMiss||0);
+            return total>0 ? ((this.state.cntHit/total)*100).toFixed(1) : '0.0';
+          })()
+        }%</b></div>
+      </div>
+      <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+        <div>Hits<br><b>${this.state.cntHit}</b></div>
+        <div>Misses<br><b>${this.state.cntMiss}</b></div>
       </div>
       <div style="display:flex;gap:.6rem;justify-content:center">
         <a class="btn" onclick="location.reload()">⟲ Restart</a>
         <a class="btn" href="../index.html">⟵ Hub</a>
       </div>`;
     this.overlay.style.display='flex';
-  },
 
-  tick: function(time, dt){
-    if(!this.state?.running) return;
-    const dtS=dt/1000;
-    for(const e of this.pool){
-      if(!e.userData.alive) continue;
-      const p=e.object3D.position; p.z += e.userData.vz*dtS;
-      if(p.z>0.2){ // เลยผู้เล่น = พลาด
-        if(!e.userData.isDecoy){
-          this.state.cntMiss++;
-          this.state.combo=1.0; this.$c.textContent='x1.0';
-        }
-        e.setAttribute('visible',false); e.userData.alive=false;
-      }
-    }
+    // ----- Workout Program: ไปต่ออัตโนมัติถ้ามี next= -----
+    const nextURL = new URLSearchParams(location.search).get('next');
+    if (nextURL) { setTimeout(()=> location.href = nextURL, 1500); }
   }
 });
 </script>
