@@ -33,7 +33,7 @@
 
   <main class="grid">
     <!-- Dashboard -->
-    <section class="card" id="cardDash">
+    <section class="card" id="cardDashboard">
       <h3>Dashboard</h3>
       <div class="row"><div class="muted">Rank</div><div id="rank" style="margin-left:auto;font-weight:700">-</div></div>
       <div class="row"><div class="muted">Level</div><div id="level" style="margin-left:auto;font-weight:700">1</div></div>
@@ -96,7 +96,7 @@
     </section>
 
     <!-- Mobility Dash -->
-    <section class="card" id="cardDash">
+    <section class="card" id="cardMobility">
       <h3>Mobility Dash</h3>
       <p class="muted">เกม 3 — สลับเลนหลบสิ่งกีดขวาง</p>
       <div class="row"><label>Difficulty</label><select id="dashDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
@@ -146,9 +146,9 @@
     const programs = {
       quick: [
         'shadow-breaker/play.html?diff=normal&time=60',
-        'cardio-sprint/play.html?diff=normal&time=60',
+        'mobility-dash/play.html?diff=normal&time=60',
         'rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
-        'sky-squats/play.html?diff=normal&time=60'
+        'power-control/play.html?diff=normal&time=60'
       ],
       rhythm: [
         'rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
@@ -156,9 +156,9 @@
         'rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json'
       ],
       lower: [
-        'sky-squats/play.html?diff=easy&time=45',
-        'sky-squats/play.html?diff=normal&time=60',
-        'cardio-sprint/play.html?diff=normal&time=60'
+        'power-control/play.html?diff=easy&time=45',
+        'power-control/play.html?diff=normal&time=60',
+        'mobility-dash/play.html?diff=normal&time=60'
       ]
     };
 
@@ -169,8 +169,7 @@
       location.href = plan[0] + '&next=program.html';
     };
 
-    // ----- Launchers -----
-    // Rhythm
+    // ----- Rhythm -----
     chartPreset.addEventListener('change', ()=>{ customWrap.style.display = (chartPreset.value==='__custom__') ? 'flex':'none'; });
     btnRhythm.onclick = () => {
       const diff = rhythmDiff.value;
@@ -183,23 +182,25 @@
       location.href = url;
     };
 
-    // Combat
+    // ----- Combat -----
     btnCombat.onclick = () => {
       const diff = combatDiff.value;
       const t = Math.max(10, Math.min(600, parseInt(combatTime.value||'60',10)));
       location.href = `shadow-breaker/play.html?diff=${diff}&time=${t}`;
     };
-    // Dash
+
+    // ----- Dash -----
     btnDash.onclick = () => {
       const diff = dashDiff.value;
       const t = Math.max(10, Math.min(600, parseInt(dashTime.value||'60',10)));
-      location.href = `cardio-sprint/play.html?diff=${diff}&time=${t}`;
+      location.href = `mobility-dash/play.html?diff=${diff}&time=${t}`;
     };
-    // Power
+
+    // ----- Power -----
     btnPower.onclick = () => {
       const diff = powerDiff.value;
       const t = Math.max(10, Math.min(600, parseInt(powerTime.value||'60',10)));
-      location.href = `sky-squats/play.html?diff=${diff}&time=${t}`;
+      location.href = `power-control/play.html?diff=${diff}&time=${t}`;
     };
   </script>
 
