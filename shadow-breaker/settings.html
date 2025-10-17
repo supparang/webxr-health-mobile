@@ -3,122 +3,168 @@
 <head>
   <meta charset="utf-8">
   <title>EXO · Settings</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <link rel="stylesheet" href="./core/exo-ui.css">
-  <script src="./core/exo-i18n.js"></script>
-  <script src="./core/exo-core.js"></script>
-  <script src="./core/exo-settings.js"></script>
-
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="core/exo-ui.css">
   <style>
-    .wrap{max-width:760px;margin:14px auto}
-    .card{padding:14px;border:1px solid #112848;background:rgba(14,20,36,.8);border-radius:14px;margin-bottom:12px}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .row > * {flex:1 1 180px}
-    .danger{color:#ff9a9a}
+    .wrap{max-width:680px;margin:84px auto 40px;padding:0 16px}
+    .card{background:rgba(14,20,36,.85);border:1px solid #112848;border-radius:12px;padding:16px;margin-bottom:14px}
+    .row{display:flex;gap:10px;align-items:center;margin:.5rem 0}
+    .row label{min-width:140px}
+    .muted{color:#7f8ea3;font-size:12px}
+    .btnrow{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+    input[type="range"]{width:180px}
+    .sep{height:1px;background:#112848;margin:10px 0}
   </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>EXO · Settings</h1>
-
-  <div class="card">
-    <h3>Language</h3>
-    <div class="row">
-      <select id="selLang">
-        <option value="th">ไทย (TH)</option>
-        <option value="en">English (EN)</option>
-      </select>
-      <button class="btn" id="btnApplyLang">Apply</button>
-      <span id="langStatus"></span>
+  <header class="hud">
+    <div class="box"><strong>EXO SETTINGS</strong></div>
+    <div class="box right">
+      <a class="btn" href="index.html">⟵ Hub</a>
     </div>
-    <p class="small">* จะมีผลทันทีและถูกจำไว้ (localStorage + EXO_SETTINGS)</p>
-  </div>
+  </header>
 
-  <div class="card">
-    <h3>Audio</h3>
-    <div class="row">
-      <label><input type="checkbox" id="chkMusic"> Music</label>
-      <label><input type="checkbox" id="chkSfx"> SFX</label>
-      <button class="btn" id="btnSaveAudio">Save</button>
-      <span id="audioStatus"></span>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Gameplay Defaults</h3>
-    <div class="row">
-      <label>Default Difficulty
-        <select id="selDiff">
-          <option value="easy">EASY</option>
-          <option value="normal">NORMAL</option>
-          <option value="hard">HARD</option>
+  <main class="wrap">
+    <section class="card">
+      <h3>General</h3>
+      <div class="row">
+        <label for="lang">Language</label>
+        <select id="lang">
+          <option value="th">ภาษาไทย (TH)</option>
+          <option value="en">English (EN)</option>
         </select>
-      </label>
-      <label>Default Time
-        <select id="selTime">
-          <option>30</option><option selected>60</option><option>90</option>
-        </select>
-      </label>
-      <button class="btn" id="btnSaveGame">Save</button>
-      <span id="gameStatus"></span>
+      </div>
+      <div class="muted">สลับภาษาได้ทันที เกมถัดไปจะใช้ภาษาตามนี้</div>
+    </section>
+
+    <section class="card">
+      <h3>Audio</h3>
+      <div class="row">
+        <label for="musicOn">Music</label>
+        <input id="musicOn" type="checkbox">
+        <span class="muted">เปิด/ปิดเพลงประกอบ</span>
+      </div>
+      <div class="row">
+        <label for="musicVol">Music Volume</label>
+        <input id="musicVol" type="range" min="0" max="1" step="0.01">
+        <span id="musicVolTxt" class="muted">0.40</span>
+      </div>
+      <div class="sep"></div>
+      <div class="row">
+        <label for="sfxOn">SFX</label>
+        <input id="sfxOn" type="checkbox">
+        <span class="muted">เปิด/ปิดเสียงเอฟเฟกต์</span>
+      </div>
+      <div class="row">
+        <label for="sfxVol">SFX Volume</label>
+        <input id="sfxVol" type="range" min="0" max="1" step="0.01">
+        <span id="sfxVolTxt" class="muted">0.12</span>
+      </div>
+      <div class="row" style="justify-content:flex-start">
+        <button id="btnTestSfx" class="btn">🔊 Test SFX</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3>Data</h3>
+      <div class="row">
+        <button id="btnReset" class="btn">🗑 Clear Local Data</button>
+        <span class="muted">ล้างสถิติ/ค่าเซ็ตติ้งทั้งหมดจากอุปกรณ์นี้</span>
+      </div>
+    </section>
+
+    <div class="btnrow">
+      <a href="index.html" class="btn">⟵ Back</a>
+      <button id="btnSave" class="btn">💾 Save</button>
     </div>
-    <p class="small">* หน้า Hub สามารถอ่านค่านี้ไปตั้งค่าเริ่มต้นได้ตามต้องการ</p>
-  </div>
+  </main>
 
-  <div class="row" style="justify-content:flex-end">
-    <a class="btn" href="./index.html">⟵ Hub</a>
-  </div>
-</div>
+  <script src="core/exo-core.js"></script>
+  <script src="core/exo-i18n.js"></script>
+  <script>
+    // ----- settings key / defaults -----
+    const KEY = 'EXO_SETTINGS';
+    const defaults = { lang:'th', music:true, sfx:true, musicVol:0.40, sfxVol:0.12 };
 
-<script>
-(function(){
-  // โหลดสถานะจาก EXO_SETTINGS (ถ้าไม่มีให้คืนค่า default)
-  const S = (EXO_SETTINGS.get && EXO_SETTINGS.get()) || {};
-  const byId = id => document.getElementById(id);
+    // DOM refs
+    const lang = document.getElementById('lang');
+    const musicOn = document.getElementById('musicOn');
+    const sfxOn = document.getElementById('sfxOn');
+    const musicVol = document.getElementById('musicVol');
+    const sfxVol = document.getElementById('sfxVol');
+    const musicVolTxt = document.getElementById('musicVolTxt');
+    const sfxVolTxt = document.getElementById('sfxVolTxt');
 
-  // Language
-  const currentLang = EXO_I18N.get();
-  byId('selLang').value = currentLang;
-  byId('btnApplyLang').onclick = ()=>{
-    const lang = byId('selLang').value;
-    EXO_I18N.set(lang); // จะ bind DOM อัตโนมัติให้หน้าอื่น
-    const curr = EXO_SETTINGS.get() || {};
-    EXO_SETTINGS.set({...curr, lang});
-    byId('langStatus').textContent = '✓ Applied ('+lang.toUpperCase()+')';
-    setTimeout(()=> byId('langStatus').textContent='', 1200);
-  };
+    // load
+    const cur = Object.assign({}, defaults, EXO.store.get(KEY, {}));
+    lang.value = cur.lang;
+    musicOn.checked = !!cur.music;
+    sfxOn.checked = !!cur.sfx;
+    musicVol.value = cur.musicVol;
+    sfxVol.value = cur.sfxVol;
+    musicVolTxt.textContent = (+cur.musicVol).toFixed(2);
+    sfxVolTxt.textContent = (+cur.sfxVol).toFixed(2);
 
-  // Audio
-  byId('chkMusic').checked = S.music !== false; // default = true
-  byId('chkSfx').checked   = S.sfx   !== false; // default = true
-  byId('btnSaveAudio').onclick = ()=>{
-    const curr = EXO_SETTINGS.get() || {};
-    EXO_SETTINGS.set({
-      ...curr,
-      music: byId('chkMusic').checked,
-      sfx:   byId('chkSfx').checked
+    // live preview (SFX only)
+    document.getElementById('btnTestSfx').onclick = () => {
+      if (!sfxOn.checked) return;
+      try {
+        // use EXO.audio.beep for preview at chosen sfxVol
+        const v = Math.max(0, Math.min(1, parseFloat(sfxVol.value||'0.12')));
+        // temporarily set
+        EXO.audio.ensure?.();
+        if (EXO.audio.sfxGain) EXO.audio.sfxGain.gain.value = v;
+        EXO.beep(660, 0.08, v);
+        setTimeout(()=>EXO.beep(880, 0.08, v), 110);
+      }catch(e){}
+    };
+
+    // show % text
+    musicVol.addEventListener('input', ()=> musicVolTxt.textContent = (+musicVol.value).toFixed(2));
+    sfxVol.addEventListener('input',   ()=> sfxVolTxt.textContent   = (+sfxVol.value).toFixed(2));
+
+    // save
+    function save(){
+      const next = {
+        lang: lang.value || 'th',
+        music: !!musicOn.checked,
+        sfx: !!sfxOn.checked,
+        musicVol: Math.max(0, Math.min(1, parseFloat(musicVol.value||'0.4'))),
+        sfxVol:   Math.max(0, Math.min(1, parseFloat(sfxVol.value||'0.12')))
+      };
+      EXO.store.set(KEY, next);
+
+      // broadcast to any open game tabs
+      try { window.dispatchEvent(new CustomEvent('exo:settingsChanged', {detail: next})); } catch(e){}
+      // apply immediately in this page (for preview)
+      try {
+        if (EXO_I18N && typeof EXO_I18N.set === 'function') EXO_I18N.set(next.lang);
+        if (EXO.audio){
+          EXO.audio.ensure?.();
+          if (EXO.audio.musicGain) EXO.audio.musicGain.gain.value = next.music && next.musicVol ? next.musicVol : 0;
+          if (EXO.audio.sfxGain)   EXO.audio.sfxGain.gain.value   = next.sfx   && next.sfxVol   ? next.sfxVol   : 0;
+          if (!next.music) EXO.audio.stopMusic?.();
+        }
+      }catch(e){}
+
+      alert('Saved ✅');
+    }
+    document.getElementById('btnSave').onclick = save;
+
+    // reset
+    document.getElementById('btnReset').onclick = ()=>{
+      if (!confirm('ล้างข้อมูลทั้งหมดบนอุปกรณ์นี้? (settings/metrics/xp)')) return;
+      try {
+        localStorage.clear();
+      } catch(e){}
+      alert('Cleared ✅');
+      location.reload();
+    };
+
+    // auto-save on change
+    [lang, musicOn, sfxOn, musicVol, sfxVol].forEach(el=>{
+      el.addEventListener('change', save);
     });
-    byId('audioStatus').textContent = '✓ Saved';
-    setTimeout(()=> byId('audioStatus').textContent='', 1200);
-  };
-
-  // Gameplay defaults
-  byId('selDiff').value = S.defaultDiff || 'normal';
-  byId('selTime').value = S.defaultTime || '60';
-  byId('btnSaveGame').onclick = ()=>{
-    const curr = EXO_SETTINGS.get() || {};
-    EXO_SETTINGS.set({
-      ...curr,
-      defaultDiff: byId('selDiff').value,
-      defaultTime: byId('selTime').value
-    });
-    byId('gameStatus').textContent = '✓ Saved';
-    setTimeout(()=> byId('gameStatus').textContent='', 1200);
-  };
-
-})();
-</script>
-
+  </script>
 </body>
 </html>
