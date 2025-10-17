@@ -1,0 +1,31 @@
+<!doctype html><html lang="th"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EXO Program</title>
+<link rel="stylesheet" href="core/exo-ui.css">
+</head><body>
+<div class="overlay" style="display:flex"><div class="panel" id="p">Loading…</div></div>
+<script src="core/exo-core.js"></script>
+<script>
+/* ดึงแผนจาก EXO_PLAN แล้ววิ่งต่อเนื่อง */
+const p = EXO.store.get('EXO_PLAN');
+const panel = document.getElementById('p');
+if(!p || !Array.isArray(p.paths) || p.paths.length===0){
+  panel.innerHTML = `<div class="title">Program Finished</div>
+  <div style="text-align:center"><a class="btn" href="index.html">⏵ Back to Hub</a></div>`;
+}else{
+  const i = Math.min(p.idx|0, p.paths.length-1);
+  const nextIdx = i+1;
+  const hasNext = nextIdx < p.paths.length;
+  const nextUrl = hasNext ? (p.paths[nextIdx] + '&next=program.html') : 'index.html';
+
+  // บันทึก index ถัดไป
+  EXO.store.set('EXO_PLAN', {idx: nextIdx, paths: p.paths});
+
+  panel.innerHTML = `<div class="title">Program</div>
+    <div class="kpi"><div>Step</div><b>${i+1} / ${p.paths.length}</b></div>
+    <div class="muted" style="text-align:center;word-break:break-all;margin:.6rem 0">${p.paths[i]}</div>
+    <div style="text-align:center"><a class="btn" id="go">▶ Continue</a></div>`;
+  document.getElementById('go').onclick = ()=> location.href = p.paths[i] + '&next=' + encodeURIComponent(nextUrl);
+}
+</script>
+</body></html>
