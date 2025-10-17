@@ -1,17 +1,23 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Mobility Dash (VS Ready)</title>
+  <title>EXO · Mobility Dash (VS + LB + i18n)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- Core & Metrics -->
+
+  <!-- Core & UI -->
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
-  <!-- ✅ VS / P2P -->
+
+  <!-- ✅ Settings + Leaderboard + VS -->
+  <script src="../core/exo-settings.js"></script>
+  <script src="../core/exo-leaderboard.js"></script>
   <script src="../core/exo-net.js"></script>
+
   <style>
     .vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}
     .vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
@@ -40,7 +46,8 @@
   <!-- ✅ VS HUD (เปิดเมื่อ ?vs=1) -->
   <div id="vsHud" class="vsHud" style="display:none">
     <div class="box">
-      Opponent <span id="oppConn">⏳</span> — Score <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
+      <span id="lblOpp">Opponent</span> <span id="oppConn">⏳</span> — 
+      <span id="lblScore">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
     </div>
   </div>
 
@@ -68,6 +75,31 @@
 <script>
 AFRAME.registerComponent('dash-game',{
   init(){
+    // ===== i18n =====
+    const lang = (window.EXO_SETTINGS?.get()?.lang)||'th';
+    const L = {
+      th:{ title:'EXO — Mobility Dash', vs:'โหมดดวล',
+           goal:'สลับเลนซ้าย/ขวาเพื่อหลบกล่องสีแดงที่พุ่งเข้ามา',
+           ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>',
+           scoreTip:'หลบสำเร็จได้คะแนน × คอมโบ • ชนจะถูกหักคะแนนและคอมโบตก',
+           diff:'ระดับ', music:'เพลง', paused:'พักเกม', restart:'เริ่มใหม่', hub:'กลับ Hub',
+           result:'ผลลัพธ์', score:'คะแนน', maxCombo:'คอมโบสูงสุด', accuracy:'ความแม่นยำ',
+           avoided:'หลบสำเร็จ', hit:'ชน', opp:'คู่แข่ง', oppScore:'คะแนนคู่แข่ง', oppStatus:'สถานะคู่แข่ง',
+           finished:'จบแล้ว', pending:'รอผล...', askName:'ชื่อสำหรับ Leaderboard (เว้นว่างเพื่อข้าม):',
+           sent:'✓ ส่งคะแนนขึ้น Leaderboard แล้ว', youWin:'YOU WIN', youLose:'YOU LOSE', tie:'TIE'
+      },
+      en:{ title:'EXO — Mobility Dash', vs:'VS Mode',
+           goal:'Switch lanes (L/R) to avoid incoming red boxes.',
+           ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>Mobile/Desktop: Tap Left/Right</li><li>Keyboard: ←/A and →/D</li><li>VR: Left/Right Trigger</li></ul>',
+           scoreTip:'Avoid = score × combo • Hit = penalty & combo reset',
+           diff:'Difficulty', music:'Music', paused:'Paused', restart:'Restart', hub:'Hub',
+           result:'Result', score:'Score', maxCombo:'Max Combo', accuracy:'Accuracy',
+           avoided:'Avoided', hit:'Hit', opp:'Opponent', oppScore:'Opponent Score', oppStatus:'Opponent Status',
+           finished:'Finished', pending:'Pending…', askName:'Name for Leaderboard (leave blank to skip):',
+           sent:'✓ Submitted to Leaderboard', youWin:'YOU WIN', youLose:'YOU LOSE', tie:'TIE'
+      }
+    }[lang]; const t=k=>L[k]||k;
+
     // ===== UI refs =====
     this.$s=document.getElementById('score');
     this.$c=document.getElementById('combo');
@@ -89,6 +121,8 @@ AFRAME.registerComponent('dash-game',{
       this.$oppConn = document.getElementById('oppConn');
       this.$oppScore= document.getElementById('oppScore');
       this.$oppCombo= document.getElementById('oppCombo');
+      document.getElementById('lblOpp').textContent = t('opp');
+      document.getElementById('lblScore').textContent = (lang==='th'?'คะแนน':'Score');
       this.$vsHud.style.display='block';
       this.opp = {score:0, combo:1.0, isOver:false};
 
@@ -125,19 +159,14 @@ AFRAME.registerComponent('dash-game',{
     this.movers=new Set();
 
     // ===== Tutorial + Start =====
-    this.title='Mobility Dash';
-    this.tutorialGoal='สลับเลนซ้าย/ขวาเพื่อหลบกล่องสีแดงที่พุ่งเข้ามา';
-    this.tutorialCtrlHTML='<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>';
-    this.tutorialScore='หลบสำเร็จ +คะแนน×คอมโบ • ชน = หักคะแนนและคอมโบตก';
-
     EXO.startOverlay(()=> this.start(), {
-      title: 'EXO — Mobility Dash' + (this.isVS?' · VS':''),
+      title: L.title + (this.isVS?' · '+L.vs:''),
       howto: [
-        { title:'เป้าหมาย', text: this.tutorialGoal },
-        { title:'การบังคับ', html: this.tutorialCtrlHTML },
-        { title:'การได้คะแนน', text: this.tutorialScore }
+        { title: lang==='th'?'เป้าหมาย':'Goal',         text: L.goal },
+        { title: lang==='th'?'การบังคับ':'Controls',     html: L.ctrl },
+        { title: lang==='th'?'การได้คะแนน':'Scoring',    text: L.scoreTip }
       ],
-      note: `Difficulty: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}${this.isVS?' · VS Mode':''}`
+      note: `${L.diff}: <b>${diff.toUpperCase()}</b>${music?' · '+L.music+': on':''}${this.isVS?' · '+L.vs:''}`
     });
 
     // ===== Inputs =====
@@ -231,10 +260,10 @@ AFRAME.registerComponent('dash-game',{
     try{ EXO.audio.stopMusic(); }catch(e){}
 
     this.panel.innerHTML=`
-      <div class="title">Paused${this.isVS?' · VS':''}</div>
+      <div class="title">${L.paused}${this.isVS?' · '+L.vs:''}</div>
       <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⏵ Hub</a>
+        <a class="btn" onclick="location.reload()">⟲ ${L.restart}</a>
+        <a class="btn" href="../index.html">⏵ ${L.hub}</a>
       </div>`;
     this.overlay.style.display='flex';
   },
@@ -275,30 +304,30 @@ AFRAME.registerComponent('dash-game',{
     const makeResultHTML = (oppKnown=false)=>{
       let verdict = '';
       if (this.isVS && oppKnown){
-        if (this.state.score > this.opp.score) verdict = `<div class="tagwin"><b>YOU WIN</b></div>`;
-        else if (this.state.score < this.opp.score) verdict = `<div class="taglose"><b>YOU LOSE</b></div>`;
-        else verdict = `<div class="tagtie"><b>TIE</b></div>`;
+        if (this.state.score > (this.opp?.score||0)) verdict = `<div class="tagwin"><b>${L.youWin}</b></div>`;
+        else if (this.state.score < (this.opp?.score||0)) verdict = `<div class="taglose"><b>${L.youLose}</b></div>`;
+        else verdict = `<div class="tagtie"><b>${L.tie}</b></div>`;
       }
       return `
-        <div class="title">Result — Mobility Dash ${this.isVS?'· VS':''}</div>
+        <div class="title">${L.result} — Mobility Dash ${this.isVS?'· '+L.vs:''}</div>
         ${verdict}
         <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-          <div>Score<br><b>${this.state.score}</b></div>
-          <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
-          <div>Accuracy<br><b>${acc.toFixed(1)}%</b></div>
+          <div>${L.score}<br><b>${this.state.score}</b></div>
+          <div>${L.maxCombo}<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+          <div>${L.accuracy}<br><b>${acc.toFixed(1)}%</b></div>
         </div>
         <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-          <div>Avoided<br><b>${this.state.avoided}</b></div>
-          <div>Hit<br><b>${this.state.hit}</b></div>
+          <div>${L.avoided}<br><b>${this.state.avoided}</b></div>
+          <div>${L.hit}<br><b>${this.state.hit}</b></div>
         </div>
         ${this.isVS ? `
         <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-          <div>Opponent Score<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
-          <div>Opponent Status<br><b id="oppStatus">${this.opp?.isOver?'Finished':'Pending'}</b></div>
+          <div>${L.oppScore}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
+          <div>${L.oppStatus}<br><b id="oppStatus">${this.opp?.isOver?L.finished:L.pending}</b></div>
         </div>` : ``}
         <div style="display:flex;gap:.6rem;justify-content:center">
-          <a class="btn" onclick="location.reload()">⟲ Restart</a>
-          <a class="btn" href="../index.html">⏵ Hub</a>
+          <a class="btn" onclick="location.reload()">⟲ ${L.restart}</a>
+          <a class="btn" href="../index.html">⏵ ${L.hub}</a>
         </div>`;
     };
 
@@ -306,21 +335,41 @@ AFRAME.registerComponent('dash-game',{
     this.overlay.style.display='flex';
 
     // ถ้า VS และยังไม่รู้ผลคู่แข่ง → รอฟังแล้วอัปเดต verdict
-    if (this.isVS && !this.opp.isOver){
+    if (this.isVS && !this.opp?.isOver){
       const handler = (msg)=>{
         if (msg?.type==='over'){
           this.opp.isOver = true; this.opp.score = msg.score|0;
           const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
-          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent='Finished';
+          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=L.finished;
           this.panel.innerHTML = makeResultHTML(true);
         }
       };
       EXO_NET.onMessage(handler);
-      setTimeout(()=>{ // fallback กันเงียบ
-        const sS=document.getElementById('oppStatus');
-        if (sS && !this.opp.isOver) sS.textContent='Pending…';
-      }, 5000);
+      setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=L.pending; }, 5000);
     }
+
+    // ===== Online Leaderboard (Auto Submit: ถามชื่อแล้วส่ง) =====
+    setTimeout(async ()=>{
+      try{
+        const name = prompt(L.askName,'');
+        if (!name) return;
+
+        await EXO_LB.submit({
+          name,
+          module: 'Mobility Dash',
+          score: this.state.score|0,
+          accuracy: Math.round(acc*10)/10,
+          diff: (new URLSearchParams(location.search).get('diff')||'normal')
+        });
+
+        // แจ้งยืนยัน
+        const ok = document.createElement('div');
+        ok.className = 'kpi';
+        ok.style.cssText = 'margin-top:8px;text-align:center';
+        ok.innerHTML = `<div style="grid-column:1/-1"><b>${L.sent}</b></div>`;
+        this.panel.appendChild(ok);
+      }catch(e){ console.warn('LB submit failed', e); }
+    }, 350);
 
     // Workout Program: ส่งต่อถ้ามี next=
     const nextURL = new URLSearchParams(location.search).get('next');
