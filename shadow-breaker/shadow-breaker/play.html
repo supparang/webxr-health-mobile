@@ -1,144 +1,180 @@
-<script>
-AFRAME.registerComponent('combat-game', {
-  init(){
-    // UI
-    this.scoreUI = document.getElementById('score');
-    this.timeUI  = document.getElementById('time');
-    this.overlay = document.getElementById('overlay');
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>EXO · Combat Reflex</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- EXO Core (ต้องมาก่อนสคริปต์เกม) -->
+  <link rel="stylesheet" href="../core/exo-ui.css">
+  <script src="../core/exo-core.js"></script>
+  <script src="../core/exo-boost.js"></script>
+</head>
+<body>
 
-    // Params
-    const q = new URLSearchParams(location.search);
-    this.diff = (q.get('diff')||'normal');
-    this.totalTime = Math.max(10, parseInt(q.get('time')||'60',10));
+  <!-- HUD -->
+  <header class="hud">
+    <div class="box"><span id="score">0</span></div>
+    <div class="box">
+      <span id="time">60</span>
+      <a class="btn" href="../index.html">⟵ Hub</a>
+    </div>
+  </header>
 
-    // State
-    this.state = {running:false, time:this.totalTime, score:0};
-    this.spawnIvBase = {easy:800, normal:600, hard:480}[this.diff] || 600;
-    this.lastSpawn = 0;
+  <!-- Touch zones -->
+  <div id="touchL" class="touch"></div>
+  <div id="touchR" class="touch"></div>
 
-    // Fever & Diff (optional)
-    this.dd = new EXO_BOOST.DynamicDifficulty({});
-    this.fv = new EXO_BOOST.FeverManager({need:8,dur:9000});
+  <!-- Overlay (ต้องมี) -->
+  <div id="overlay" class="overlay" style="display:none;">
+    <div id="panel" class="panel"></div>
+  </div>
 
-    // Start button
-    EXO_safeStart(()=>this.start(), this.overlay, {
-      title:'Combat Reflex',
-      note:`Diff: ${this.diff} · Time: ${this.totalTime}s`
-    });
-  },
+  <!-- Scene -->
+  <a-scene>
+    <a-entity light="type:ambient;intensity:0.7"></a-entity>
+    <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
 
-  start(){
-    // reset
-    this.state.running = true;
-    this.state.time = this.totalTime;
-    this.state.score = 0;
-    this.scoreUI.textContent = '0';
-    this.timeUI.textContent = String(this.totalTime);
-    this.lastSpawn = performance.now();
+    <!-- เส้นตี -->
+    <a-entity position="0 1.25 -0.2">
+      <a-box width="2" height="0.02" depth="0.02" color="#4ade80"></a-box>
+    </a-entity>
 
-    // timer
-    this.timer = setInterval(()=>{
-      if(!this.state.running) return;
-      this.state.time -= 1;
-      this.timeUI.textContent = this.state.time;
-      if (this.state.time <= 0) this.end();
-    }, 1000);
-  },
+    <!-- Player indicator (ไม่จำเป็นต่อ logic แต่เห็นตำแหน่ง) -->
+    <a-box id="player" color="#4caf50" depth="0.3" height="0.3" width="0.3" position="-0.8 1.2 -0.5"></a-box>
 
-  tick(t, dt){
-    if(!this.state.running) return;
-    // dynamic spawn interval
-    this.dd.tickDecay(dt);
-    const iv = Math.max(300, this.dd.getSpawnIv ? this.dd.getSpawnIv() : this.spawnIvBase);
-    if (performance.now() - this.lastSpawn >= iv){
-      this.spawnTarget();
+    <!-- Game -->
+    <a-entity combat-game></a-entity>
+    <a-entity combat-input></a-entity>
+  </a-scene>
+
+  <!-- Game Script -->
+  <script>
+  AFRAME.registerComponent('combat-game', {
+    init(){
+      this.scoreUI = document.getElementById('score');
+      this.timeUI  = document.getElementById('time');
+
+      const q = new URLSearchParams(location.search);
+      this.diff = (q.get('diff')||'normal');
+      this.totalTime = Math.max(10, parseInt(q.get('time')||'60',10));
+
+      this.state = {running:false, time:this.totalTime, score:0};
+      this.spawnIvBase = {easy:800, normal:600, hard:480}[this.diff] || 600;
+      this.lastSpawn = 0;
+
+      this.dd = new (window.EXO_BOOST?.DynamicDifficulty||function(){return{tickDecay(){},getSpawnIv(){return 600},getSpeedMul(){return 1},onHit(){},onMiss(){}}})();
+      this.fv = new (window.EXO_BOOST?.FeverManager||function(){return{tick(){},hit(){},miss(){},mulScore(v){return v}}})({need:8,dur:9000});
+
+      // เริ่มด้วยปุ่ม Start (จาก EXO Core)
+      EXO_safeStart(()=>this.start(), document.getElementById('overlay'), {
+        title:'Combat Reflex',
+        note:`Diff: ${this.diff} · Time: ${this.totalTime}s`
+      });
+    },
+
+    start(){
+      this.state.running = true;
+      this.state.time = this.totalTime;
+      this.state.score = 0;
+      this.scoreUI.textContent = '0';
+      this.timeUI.textContent  = String(this.totalTime);
       this.lastSpawn = performance.now();
+
+      this.timer = setInterval(()=>{
+        if (!this.state.running) return;
+        this.state.time -= 1;
+        this.timeUI.textContent = this.state.time;
+        if (this.state.time <= 0) this.end();
+      }, 1000);
+    },
+
+    tick(t, dt){
+      if (!this.state.running) return;
+      this.dd.tickDecay && this.dd.tickDecay(dt);
+      const iv = Math.max(300, this.dd.getSpawnIv ? this.dd.getSpawnIv() : this.spawnIvBase);
+      if (performance.now() - this.lastSpawn >= iv){
+        this.spawnTarget();
+        this.lastSpawn = performance.now();
+      }
+      this.fv.tick && this.fv.tick(dt);
+    },
+
+    spawnTarget(){
+      const laneX = (Math.random()<0.5) ? -0.8 : 0.8;
+      const zStart = -3.8;
+      const speedMul = this.dd.getSpeedMul ? this.dd.getSpeedMul() : 1;
+
+      const box = document.createElement('a-box');
+      box.setAttribute('width','0.35');
+      box.setAttribute('height','0.35');
+      box.setAttribute('depth','0.35');
+      box.setAttribute('color','#29b6f6');
+      box.setAttribute('position', `${laneX} 1.25 ${zStart}`);
+      box.classList.add('note');
+      this.el.sceneEl.appendChild(box);
+
+      const dur = 2200 / speedMul;
+      box.setAttribute('animation__move',{
+        property:'position', to:`${laneX} 1.25 -0.2`, dur, easing:'linear'
+      });
+
+      // ถึงเส้นแล้วยังไม่โดน → Miss
+      setTimeout(()=>{
+        if(!box.parentNode) return;
+        this.onMiss();
+        box.remove();
+      }, dur + 60);
+    },
+
+    onHit(quality='good'){
+      if(!this.state.running) return;
+      const base = {perfect:150, good:100, okay:60}[quality] || 80;
+      const s = this.fv.mulScore ? this.fv.mulScore(base) : base;
+      this.state.score += s|0;
+      this.scoreUI.textContent = this.state.score;
+      this.dd.onHit && this.dd.onHit();
+      this.fv.hit && this.fv.hit();
+      try{ EXO.beep(quality==='perfect'?920:quality==='good'?780:640, 0.05, 0.10); }catch(e){}
+    },
+
+    onMiss(){
+      if(!this.state.running) return;
+      this.dd.onMiss && this.dd.onMiss();
+      this.fv.miss && this.fv.miss();
+      EXO.beep(240, 0.06, 0.1);
+    },
+
+    end(){
+      this.state.running = false;
+      clearInterval(this.timer);
+      const p = document.getElementById('panel');
+      const o = document.getElementById('overlay');
+      o.style.display='flex';
+      p.innerHTML = `
+        <div class="title">Result</div>
+        <div class="kpi"><div>Score</div><b>${this.state.score}</b></div>
+        <div style="text-align:center;margin-top:.6rem">
+          <a class="btn" href="../index.html">⟵ Back</a>
+          <a class="btn" onclick="location.reload()">↺ Replay</a>
+        </div>`;
+    },
+
+    remove(){ clearInterval(this.timer); }
+  });
+
+  // input ตัวอย่าง: ซ้าย/ขวา = ตี
+  AFRAME.registerComponent('combat-input', {
+    init(){
+      const comp = document.querySelector('[combat-game]').components['combat-game'];
+      EXO.attachBasicInput({
+        onLeft: ()=> comp && comp.onHit('good'),
+        onRight:()=> comp && comp.onHit('good'),
+        onPause: ()=>{}
+      });
     }
-    // fever bar (ถ้ามี)
-    this.fv.tick(dt);
-  },
-
-  spawnTarget(){
-    // lane L/R แบบสุ่ม
-    const laneX = (Math.random()<0.5) ? -0.8 : 0.8;
-    const zStart = -3.8;
-    const speed = 1.6 * (this.dd.getSpeedMul ? this.dd.getSpeedMul() : 1);
-
-    const box = document.createElement('a-box');
-    box.setAttribute('width','0.35');
-    box.setAttribute('height','0.35');
-    box.setAttribute('depth','0.35');
-    box.setAttribute('color','#29b6f6');
-    box.setAttribute('position', `${laneX} 1.25 ${zStart}`);
-    box.setAttribute('class','note');
-    this.el.sceneEl.appendChild(box);
-
-    // เคลื่อนเข้าหา player ด้วย animation__move
-    const dur = 2200 / speed;
-    box.setAttribute('animation__move', {
-      property: 'position',
-      to: `${laneX} 1.25 -0.2`,
-      dur: dur,
-      easing: 'linear'
-    });
-
-    // เมื่อถึง Hit line → ถ้ายังอยู่ = นับ miss และลบ
-    setTimeout(()=>{
-      if(!box.parentNode) return;
-      this.onMiss();
-      box.remove();
-    }, dur + 60);
-  },
-
-  onHit(quality='good'){
-    // เรียกจาก input ของคุณ (เมื่อผู้เล่นตีโดน lane ปัจจุบัน)
-    if(!this.state.running) return;
-    const base = {perfect:150, good:100, okay:60}[quality] || 80;
-    const s = this.fv.mulScore ? this.fv.mulScore(base) : base;
-    this.state.score += s|0;
-    this.scoreUI.textContent = this.state.score;
-    this.dd.onHit && this.dd.onHit();
-    this.fv.hit && this.fv.hit();
-    try{ EXO.beep(quality==='perfect'?920:quality==='good'?780:640, 0.05, 0.10); }catch(e){}
-  },
-
-  onMiss(){
-    if(!this.state.running) return;
-    this.dd.onMiss && this.dd.onMiss();
-    this.fv.miss && this.fv.miss();
-    try{ EXO.beep(240, 0.06, 0.1); }catch(e){}
-  },
-
-  end(){
-    this.state.running = false;
-    clearInterval(this.timer);
-    // summary minimal
-    const p = document.getElementById('panel');
-    const ov = document.getElementById('overlay');
-    ov.style.display='flex';
-    p.innerHTML = `
-      <div class="title">Result</div>
-      <div class="kpi"><div>Score</div><b>${this.state.score}</b></div>
-      <div style="text-align:center;margin-top:.6rem">
-        <a class="btn" href="../index.html">⟵ Back</a>
-        <a class="btn" onclick="location.reload()">↺ Replay</a>
-      </div>`;
-  },
-
-  remove(){
-    clearInterval(this.timer);
-  }
-});
-
-// ตัวอย่าง map ปุ่มซ้าย/ขวา → onHit (คุณมีระบบของตัวเองอยู่แล้วก็เรียก onHit() ได้เลย)
-AFRAME.registerComponent('combat-input', {
-  init(){
-    const game = document.querySelector('[combat-game]').components['combat-game'];
-    EXO.attachBasicInput({
-      onLeft: ()=> game && game.onHit('good'),
-      onRight:()=> game && game.onHit('good'),
-      onPause: ()=>{}
-    });
-  }
-});
-</script>
+  });
+  </script>
+</body>
+</html>
