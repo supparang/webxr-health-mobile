@@ -126,3 +126,60 @@ window.EXO = (function () {
     store
   };
 })();
+<script>
+/* EXO.startOverlay — fallback ที่รับประกันว่ามีปุ่มเริ่มเกม */
+(function (w){
+  w.EXO = w.EXO || {};
+
+  // มีอยู่แล้วก็ไม่ทับ (กันชนทับเวอร์ชันที่คุณมี)
+  if (typeof w.EXO.startOverlay === 'function') return;
+
+  w.EXO.startOverlay = function(onStart, cfg){
+    const overlay = document.getElementById('overlay');
+    const panel   = document.getElementById('panel');
+    const title   = (cfg && cfg.title) || 'Ready?';
+    const howto   = (cfg && cfg.howto) || [];
+    const note    = (cfg && cfg.note)  || '';
+
+    if (!overlay || !panel){
+      // ไม่มี DOM overlay → สตาร์ตตรง ๆ แต่ยังรอ gesture ได้
+      const startNow = () => { try{ onStart && onStart(); }catch(e){} };
+      // รอ gesture สั้น ๆ เพื่อปลดล็อกเสียงบนมือถือ
+      window.addEventListener('pointerdown', function once(){ window.removeEventListener('pointerdown', once, {once:true}); startNow(); }, {once:true});
+      setTimeout(startNow, 300);
+      return;
+    }
+
+    // วาดหน้าต่างเริ่มเกม + ปุ่ม Start
+    overlay.style.display = 'flex';
+    panel.innerHTML = `
+      <div class="title">${title}</div>
+      ${howto.length ? `<div class="kpi" style="grid-template-columns:repeat(${Math.min(3,howto.length)},1fr)">
+        ${howto.map(h => `<div><b>${h.title||''}</b><br>${h.html || h.text || ''}</div>`).join('')}
+      </div>` : ``}
+      ${note ? `<div style="opacity:.8;margin:.4rem 0">${note}</div>` : ``}
+      <div style="display:flex;gap:.6rem;justify-content:center;margin-top:.6rem">
+        <a class="btn" id="__exoStartBtn">▶ Start</a>
+      </div>
+      <div style="text-align:center;opacity:.7;margin-top:.4rem">Tip: กด Space/Enter เพื่อเริ่ม</div>
+    `;
+
+    const go = () => {
+      overlay.style.display = 'none';
+      try{ onStart && onStart(); }catch(e){}
+      document.removeEventListener('keydown', keyGo);
+    };
+    const keyGo = (e) => { if (e.code==='Space' || e.key==='Enter'){ go(); } };
+
+    document.getElementById('__exoStartBtn').onclick = go;
+    document.addEventListener('keydown', keyGo);
+
+    // เผื่อผู้ใช้แตะที่ไหนก็ได้
+    overlay.addEventListener('pointerdown', (ev) => {
+      // กันกดที่ panel link อื่น ๆ
+      if (ev.target && (ev.target.id==='__exoStartBtn' || ev.target.classList.contains('btn'))) return;
+      go();
+    });
+  };
+})(window);
+</script>
