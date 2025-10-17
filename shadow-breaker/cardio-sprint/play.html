@@ -2,14 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Mobility Dash</title>
+  <title>EXO · Mobility Dash (VS Ready)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- Core & Metrics (ต้องเป็นเวอร์ชันที่อัปเดตล่าสุด) -->
+  <!-- Core & Metrics -->
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
+  <!-- ✅ VS / P2P -->
+  <script src="../core/exo-net.js"></script>
+  <style>
+    .vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}
+    .vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
+    .tagwin{color:#7ee787}.taglose{color:#ff7777}.tagtie{color:#ffd166}
+  </style>
 </head>
 <body>
 
@@ -22,13 +29,20 @@
     <div class="box">
       <span id="time">60</span>
       <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⟵ Hub</a>
+      <a href="../index.html" class="btn">⏵ Hub</a>
     </div>
   </div>
 
   <!-- Touch zones -->
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
+
+  <!-- ✅ VS HUD (เปิดเมื่อ ?vs=1) -->
+  <div id="vsHud" class="vsHud" style="display:none">
+    <div class="box">
+      Opponent <span id="oppConn">⏳</span> — Score <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
+    </div>
+  </div>
 
   <!-- Overlay -->
   <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
@@ -44,7 +58,7 @@
     <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
               material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
-    <!-- Player (สองเลน: L=-0.8, R=0.8) -->
+    <!-- Player -->
     <a-box id="player" color="#4caf50" depth="0.3" height="0.3" width="0.3" position="-0.8 1.2 -0.5"></a-box>
 
     <!-- Game Logic -->
@@ -62,11 +76,35 @@ AFRAME.registerComponent('dash-game',{
     this.panel=document.getElementById('panel');
     this.player=document.getElementById('player');
 
-    // ===== Query / Difficulty / Music =====
+    // ===== Query / Difficulty / Music / VS =====
     const q=new URLSearchParams(location.search);
     const diff=(q.get('diff')||'normal').toLowerCase();
-    const music=q.get('music');                 // ?music=assets/track.ogg
+    const music=q.get('music');
     const timeParam=Math.max(10, +(q.get('time')||60));
+    this.isVS = q.get('vs')==='1';
+
+    // ✅ VS HUD
+    if (this.isVS){
+      this.$vsHud   = document.getElementById('vsHud');
+      this.$oppConn = document.getElementById('oppConn');
+      this.$oppScore= document.getElementById('oppScore');
+      this.$oppCombo= document.getElementById('oppCombo');
+      this.$vsHud.style.display='block';
+      this.opp = {score:0, combo:1.0, isOver:false};
+
+      EXO_NET.onState(st=> this.$oppConn.textContent = (st==='connected'?'✅':'⏳'));
+      EXO_NET.onMessage(msg=>{
+        if (msg?.type==='state'){
+          this.opp.score = msg.score|0; this.opp.combo = +msg.combo||1.0;
+          this.$oppScore.textContent = this.opp.score;
+          this.$oppCombo.textContent = 'x' + this.opp.combo.toFixed(1);
+        }
+        if (msg?.type==='over'){
+          this.opp.isOver = true; this.opp.score = msg.score|0;
+          this.$oppScore.textContent = this.opp.score;
+        }
+      });
+    }
 
     // ค่าพรีเซ็ตความยาก
     const DIFF={
@@ -83,23 +121,23 @@ AFRAME.registerComponent('dash-game',{
     // ===== Space / lanes =====
     this.lanes={L:-0.8,R:0.8};
     this.playerLane='L';
-    this.obstacles=[]; // active obstacle a-box list
-    this.movers=new Set(); // track all setInterval movers for cleanup
+    this.obstacles=[];   // active obstacle list
+    this.movers=new Set();
 
     // ===== Tutorial + Start =====
     this.title='Mobility Dash';
-    this.tutorialGoal='สลับเลนซ้าย/ขวาเพื่อหลบกล่องสีแดงที่พุ่งเข้ามาให้พ้นเส้น';
+    this.tutorialGoal='สลับเลนซ้าย/ขวาเพื่อหลบกล่องสีแดงที่พุ่งเข้ามา';
     this.tutorialCtrlHTML='<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>';
-    this.tutorialScore='หลบสำเร็จ +คะแนน × คอมโบ • ชน = หักคะแนนและคอมโบตก';
+    this.tutorialScore='หลบสำเร็จ +คะแนน×คอมโบ • ชน = หักคะแนนและคอมโบตก';
 
     EXO.startOverlay(()=> this.start(), {
-      title: 'EXO — Mobility Dash',
+      title: 'EXO — Mobility Dash' + (this.isVS?' · VS':''),
       howto: [
         { title:'เป้าหมาย', text: this.tutorialGoal },
         { title:'การบังคับ', html: this.tutorialCtrlHTML },
         { title:'การได้คะแนน', text: this.tutorialScore }
       ],
-      note: `Difficulty: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}`
+      note: `Difficulty: <b>${diff.toUpperCase()}</b>${music?' · Music: on':''}${this.isVS?' · VS Mode':''}`
     });
 
     // ===== Inputs =====
@@ -143,14 +181,13 @@ AFRAME.registerComponent('dash-game',{
     this.el.sceneEl.appendChild(box);
     this.obstacles.push(box);
 
-    // mover loop (16ms ~ 60fps)
     const mover=setInterval(()=>{
       if(!this.state.running || !box.parentNode){ clearInterval(mover); this.movers.delete(mover); return; }
       const p=box.getAttribute('position');
       const z=p.z + this.cfg.speed;
       box.setAttribute('position', `${p.x} ${p.y} ${z}`);
 
-      // ถึงเส้น hit line
+      // ถึงเส้น
       if(z>=-0.5){
         if(this.playerLane!==side){
           // หลบได้
@@ -169,7 +206,12 @@ AFRAME.registerComponent('dash-game',{
         this.$s.textContent=this.state.score;
         this.$c.textContent='x'+this.state.combo.toFixed(1);
 
-        // cleanup object
+        // ✅ ส่งสถานะ VS ทุกครั้งที่มีการเปลี่ยนสกอร์/คอมโบ
+        if (this.isVS && EXO_NET.connected()){
+          EXO_NET.send({type:'state', score:this.state.score|0, combo:+this.state.combo});
+        }
+
+        // cleanup
         try{ box.parentNode.removeChild(box);}catch(e){}
         const i=this.obstacles.indexOf(box); if(i>=0) this.obstacles.splice(i,1);
         clearInterval(mover); this.movers.delete(mover);
@@ -183,18 +225,16 @@ AFRAME.registerComponent('dash-game',{
     if(!this.state.running) return;
     this.state.running=false;
 
-    // หยุดการเคลื่อนที่ชั่วคราว
     this.movers.forEach(h=>clearInterval(h));
     clearInterval(this.spawnLoop);
 
-    // หยุดเพลงตอนพัก (ถ้าต้องการให้เงียบ)
     try{ EXO.audio.stopMusic(); }catch(e){}
 
     this.panel.innerHTML=`
-      <div class="title">Paused</div>
+      <div class="title">Paused${this.isVS?' · VS':''}</div>
       <div style="display:flex;gap:.6rem;justify-content:center">
         <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⟵ Hub</a>
+        <a class="btn" href="../index.html">⏵ Hub</a>
       </div>`;
     this.overlay.style.display='flex';
   },
@@ -207,12 +247,10 @@ AFRAME.registerComponent('dash-game',{
     this.movers.forEach(h=>clearInterval(h));
     this.movers.clear();
 
-    // คำนวณสถิติ
     const total=this.state.avoided + this.state.hit;
-    const hitRate = total>0 ? (this.state.avoided/total)*100 : 0;
-    const acc = hitRate;
+    const acc = total>0 ? (this.state.avoided/total)*100 : 0;
 
-    // ----- Logging รวม -----
+    // Metrics
     try{
       const duration = +(new URLSearchParams(location.search).get('time')||this.state.time||60);
       EXO_METRICS.recordSession({
@@ -226,28 +264,65 @@ AFRAME.registerComponent('dash-game',{
       });
     }catch(e){}
 
-    // หยุดเพลงเมื่อจบ
     try{ EXO.audio.stopMusic(); }catch(e){}
 
-    // ผลลัพธ์
-    this.panel.innerHTML=`
-      <div class="title">Result — Mobility Dash</div>
-      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-        <div>Score<br><b>${this.state.score}</b></div>
-        <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
-        <div>Accuracy<br><b>${hitRate.toFixed(1)}%</b></div>
-      </div>
-      <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-        <div>Avoided<br><b>${this.state.avoided}</b></div>
-        <div>Hit<br><b>${this.state.hit}</b></div>
-      </div>
-      <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⟵ Hub</a>
-      </div>`;
+    // ✅ แจ้งผลให้คู่แข่ง
+    if (this.isVS && EXO_NET.connected()){
+      EXO_NET.send({type:'over', score:this.state.score|0});
+    }
+
+    // Result UI (+ VS verdict เมื่อทราบสกอร์คู่แข่ง)
+    const makeResultHTML = (oppKnown=false)=>{
+      let verdict = '';
+      if (this.isVS && oppKnown){
+        if (this.state.score > this.opp.score) verdict = `<div class="tagwin"><b>YOU WIN</b></div>`;
+        else if (this.state.score < this.opp.score) verdict = `<div class="taglose"><b>YOU LOSE</b></div>`;
+        else verdict = `<div class="tagtie"><b>TIE</b></div>`;
+      }
+      return `
+        <div class="title">Result — Mobility Dash ${this.isVS?'· VS':''}</div>
+        ${verdict}
+        <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
+          <div>Score<br><b>${this.state.score}</b></div>
+          <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+          <div>Accuracy<br><b>${acc.toFixed(1)}%</b></div>
+        </div>
+        <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+          <div>Avoided<br><b>${this.state.avoided}</b></div>
+          <div>Hit<br><b>${this.state.hit}</b></div>
+        </div>
+        ${this.isVS ? `
+        <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+          <div>Opponent Score<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
+          <div>Opponent Status<br><b id="oppStatus">${this.opp?.isOver?'Finished':'Pending'}</b></div>
+        </div>` : ``}
+        <div style="display:flex;gap:.6rem;justify-content:center">
+          <a class="btn" onclick="location.reload()">⟲ Restart</a>
+          <a class="btn" href="../index.html">⏵ Hub</a>
+        </div>`;
+    };
+
+    this.panel.innerHTML = makeResultHTML(this.isVS ? this.opp?.isOver : false);
     this.overlay.style.display='flex';
 
-    // Workout Program: ส่งต่ออัตโนมัติถ้ามี ?next=
+    // ถ้า VS และยังไม่รู้ผลคู่แข่ง → รอฟังแล้วอัปเดต verdict
+    if (this.isVS && !this.opp.isOver){
+      const handler = (msg)=>{
+        if (msg?.type==='over'){
+          this.opp.isOver = true; this.opp.score = msg.score|0;
+          const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
+          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent='Finished';
+          this.panel.innerHTML = makeResultHTML(true);
+        }
+      };
+      EXO_NET.onMessage(handler);
+      setTimeout(()=>{ // fallback กันเงียบ
+        const sS=document.getElementById('oppStatus');
+        if (sS && !this.opp.isOver) sS.textContent='Pending…';
+      }, 5000);
+    }
+
+    // Workout Program: ส่งต่อถ้ามี next=
     const nextURL = new URLSearchParams(location.search).get('next');
     if (nextURL) { setTimeout(()=> location.href = nextURL, 1500); }
   }
