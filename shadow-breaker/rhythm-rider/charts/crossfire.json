@@ -1,0 +1,19 @@
+[
+  {"t":0,"side":"L","type":"tap"},
+  {"t":0,"side":"R","type":"tap"},
+  {"t":0.5,"side":"L","type":"tap"},
+  {"t":1,"side":"R","type":"tap"},
+  {"t":1.5,"side":"L","type":"tap"},
+  {"t":2,"side":"R","type":"hold","len":1.5},
+  {"t":3.75,"side":"L","type":"tap"},
+  {"t":4,"side":"R","type":"tap"},
+  {"t":4.25,"side":"L","type":"tap"},
+  {"t":4.5,"side":"R","type":"tap"},
+  {"t":5,"side":"L","type":"hold","len":2},
+  {"t":7.25,"side":"R","type":"tap"},
+  {"t":7.5,"side":"L","type":"tap"},
+  {"t":8,"side":"R","type":"tap"},
+  {"t":8.5,"side":"L","type":"tap"},
+  {"t":9,"side":"R","type":"tap"},
+  {"t":9.5,"side":"L","type":"tap"}
+]
