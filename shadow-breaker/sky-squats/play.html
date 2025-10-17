@@ -1,109 +1,181 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EXO · Power Control</title>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<link rel="stylesheet" href="../core/exo-ui.css">
-</head><body>
-<div class="hud">
-  <div class="box"><span id="score">0</span></div>
-  <div class="box"><span id="time">60</span><a class="btn" id="btnPause">⏸</a><a class="btn" href="../index.html">⟵ Hub</a></div>
-</div>
-<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
-<div id="overlay" class="overlay" style="display:none"><div class="panel" id="panel"></div></div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EXO · Power Control</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <link rel="stylesheet" href="../core/exo-ui.css">
+  <script src="../core/exo-core.js"></script>
+  <script src="../core/exo-metrics.js"></script>
+</head>
+<body>
 
-<script src="../core/exo-metrics.js"></script>
-<script src="../core/exo-core.js"></script>
+  <!-- HUD -->
+  <div class="hud">
+    <div class="box">
+      <span id="score">0</span>
+    </div>
+    <div class="box">
+      <span id="time">60</span>
+      <button id="btnPause" class="btn">⏸</button>
+      <a href="../index.html" class="btn">⟵ Exit</a>
+    </div>
+  </div>
 
-<a-scene vr-mode-ui="enabled: true" renderer="antialias:true; highRefreshRate:true; colorManagement:true">
-  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
-  <a-entity light="type:directional;intensity:.9;color:#aee0ff" position="0 3 2"></a-entity>
-  <a-entity geometry="primitive: box; depth:22; height:6; width:12" position="0 3 -7"
-            material="color:#0c1428; side:back; metalness:.1; roughness:.9"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 .01 -3.5"
-            material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.6"></a-entity>
-  <a-entity id="rig"><a-entity camera position="0 1.6 0"><a-entity cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity></a-entity></a-entity>
+  <!-- Touch zones (ซ้าย/ขวา) ใช้กดค้าง = ย่อตัว -->
+  <div id="touchL" class="touch"></div>
+  <div id="touchR" class="touch"></div>
 
-  <a-box id="player" color="#03a9f4" depth=".2" height=".5" width=".5" position="0 1.5 -0.5"></a-box>
-  <a-entity id="director" power-director></a-entity>
-</a-scene>
+  <!-- Overlay -->
+  <div id="overlay" class="overlay" style="display:none;">
+    <div id="panel" class="panel"></div>
+  </div>
 
-<script>
+  <!-- Scene -->
+  <a-scene>
+    <a-entity light="type:ambient;intensity:0.7"></a-entity>
+    <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
+
+    <!-- ตัวผู้เล่น (แท่งแสดงความสูงตัว) -->
+    <a-box id="player" color="#03a9f4" depth="0.3" height="0.6" width="0.6" position="0 1.6 -0.5"></a-box>
+
+    <!-- Game Controller -->
+    <a-entity power-game></a-entity>
+  </a-scene>
+
   <script>
-// --- EXO DOM refs (Hotfix for modern browsers) ---
-const score   = document.getElementById('score');
-const combo   = document.getElementById('combo');
-const time    = document.getElementById('time');
-const panel   = document.getElementById('panel');
-const overlay = document.getElementById('overlay');
-const player  = document.getElementById('player');
-const touchL  = document.getElementById('touchL');
-const touchR  = document.getElementById('touchR');
-</script>
+  AFRAME.registerComponent('power-game', {
+    init() {
+      this.scoreUI = document.getElementById('score');
+      this.timeUI  = document.getElementById('time');
+      this.overlay = document.getElementById('overlay');
+      this.panel   = document.getElementById('panel');
+      this.player  = document.getElementById('player');
 
-AFRAME.registerComponent('power-director',{
-  init(){
-    this.state={score:0,time:60,running:false};
-    this.rec=new EXO_METRICS.Recorder('PowerControl');
-    this.squatting=false; this.speed=3.8; this.spawnZ=-6;
-    this.rings=[]; for(let i=0;i<12;i++) this.rings.push(this.mkRing(this.el.sceneEl));
-    this.elapsed=0; this.next=1.2;
-    EXO.startOverlay(()=>this.start());
-    const onDown=()=>{this.squatting=true;}; const onUp=()=>{this.squatting=false;};
-    ['mousedown','touchstart'].forEach(ev=>{touchL.addEventListener(ev,onDown);touchR.addEventListener(ev,onDown);});
-    ['mouseup','touchend','mouseleave'].forEach(ev=>{touchL.addEventListener(ev,onUp);touchR.addEventListener(ev,onUp);});
-    EXO.attachBasicInput({onLeft:onDown,onRight:onDown,onPause:()=>this.pause()}); // keyboard left/right = squat
-    document.getElementById('btnPause').onclick=()=>this.pause();
-    this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
-    this.$s=score; this.$t=time;
-  },
-  start(){
-    this.state.running=true;
-    this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;}
-      this.state.time--; this.$t.textContent=this.state.time; },1000);
-  },
-  pause(){ this.state.running=false; this.showPanel(`<div class="title">Paused</div><div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" href="../index.html">⟵ Hub</a><a class="btn" onclick="location.reload()">⟲ Restart</a></div>`); },
-  mkRing(scene){ const e=document.createElement('a-torus'); e.setAttribute('radius','0.6'); e.setAttribute('radius-tubular','0.04'); e.setAttribute('color','#ffc107');
-    e.setAttribute('visible',false); e.object3D.position.set(0,1.3,this.spawnZ); e.userData={alive:false,y:1.1,spawnTime:0}; scene.appendChild(e); return e; },
-  spawn(){ const e=this.rings.find(o=>!o.userData.alive); if(!e) return; const y=(Math.random()<0.5)?1.0:1.8; e.userData.alive=true; e.userData.y=y; e.userData.spawnTime=EXO.now(); e.object3D.position.set(0,y,this.spawnZ); e.setAttribute('visible',true); },
-  end(){
-    this.state.running=false; clearInterval(this.timer);
-    const sum=this.rec.summary(); const csv=this.rec.csv('session-'+Date.now());
-    const html=`<div class="title">Result — Power Control</div>
-      <div class="kpi">
-        <div>Score<br><b>${sum.score.toFixed(0)}</b></div>
-        <div>Accuracy<br><b>${sum.accuracyPct.toFixed(1)}%</b></div>
-        <div>Avg RT (hold)<br><b>${sum.avgReactionMs.toFixed(1)} ms</b></div>
-        <div>Stability<br><b>${sum.stability.toFixed(1)}</b></div>
-      </div>
-      <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" id="dl">⬇ Download CSV</a>
-        <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⟵ Hub</a>
-      </div>`;
-    this.showPanel(html); document.getElementById('dl').onclick=()=>EXO.downloadCSV('exo_power_control.csv',csv);
-  },
-  showPanel(inner){ panel.innerHTML=inner; overlay.style.display='flex'; },
-  tick(t,dt){
-    if(!this.state.running) return;
-    const dtS=dt/1000; this.elapsed+=dtS; player.object3D.position.y=this.squatting?1.0:1.6;
-    if(this.elapsed>=this.next){ this.spawn(); this.next+=1.2; }
-    for(const e of this.rings){
-      if(!e.userData.alive) continue;
-      const p=e.object3D.position; p.z += this.speed*dtS;
-      if(p.z>-0.4){
-        const needLow = e.userData.y<1.2;
-        const ok = (needLow && this.squatting) || (!needLow && !this.squatting);
-        const tNow=EXO.now();
-        const rtMs = (tNow - e.userData.spawnTime)*1000; // simple response/hold timing
-        if(ok){ this.state.score += 30; } else { this.state.score = Math.max(0, this.state.score - 30); }
-        this.$s.textContent=this.state.score;
-        this.rec.log({t:tNow, stimulus:e.userData.spawnTime, response:tNow, reactionMs:rtMs, success:ok, hitQuality: ok?1:0});
-        e.setAttribute('visible',false); e.userData.alive=false;
-      }
-      if(p.z>0.6){ e.setAttribute('visible',false); e.userData.alive=false; }
+      this.state = { score: 0, time: 60, running: false };
+      this.squatting = false;                // true = ย่อตัว, false = ยืน
+      this.speed = 3.6;                      // ความเร็ววงแหวน
+      this.spawnEvery = 1200;                // ms ต่อหนึ่งวง
+      this.rings = [];
+
+      // เริ่มด้วย overlay ▶ Start
+      EXO.startOverlay(() => this.start());
+
+      // ปุ่ม Pause
+      document.getElementById('btnPause').onclick = () => this.pause();
+
+      // Touch (กดค้าง = squat)
+      const onDown = () => this.setSquat(true);
+      const onUp   = () => this.setSquat(false);
+      ['mousedown','touchstart'].forEach(ev=>{
+        document.getElementById('touchL').addEventListener(ev, onDown, {passive:true});
+        document.getElementById('touchR').addEventListener(ev, onDown, {passive:true});
+      });
+      ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev=>{
+        document.getElementById('touchL').addEventListener(ev, onUp, {passive:true});
+        document.getElementById('touchR').addEventListener(ev, onUp, {passive:true});
+      });
+
+      // Keyboard (กด/ปล่อย Space หรือ ArrowDown เพื่อ squat)
+      window.addEventListener('keydown', e=>{
+        if (e.code === 'Space' || e.key === 'ArrowDown') this.setSquat(true);
+        if (e.key === 'Escape') this.pause();
+      });
+      window.addEventListener('keyup', e=>{
+        if (e.code === 'Space' || e.key === 'ArrowDown') this.setSquat(false);
+      });
+
+      // สปอนวงแหวนเรื่อย ๆ
+      this.loop = setInterval(()=> this.spawn(), this.spawnEvery);
+
+      // นับเวลาถอยหลัง
+      this.timer = setInterval(() => {
+        if (!this.state.running) return;
+        this.state.time--;
+        this.timeUI.innerText = this.state.time;
+        if (this.state.time <= 0) this.end();
+      }, 1000);
+    },
+
+    start() {
+      this.state.running = true;
+    },
+
+    setSquat(flag) {
+      this.squatting = !!flag;
+      // เปลี่ยนความสูง box ผู้เล่นให้เห็นภาพ
+      const y = this.squatting ? 1.0 : 1.6;
+      this.player.setAttribute('position', `0 ${y} -0.5`);
+    },
+
+    spawn() {
+      if (!this.state.running) return;
+      const isLow = Math.random() < 0.5;     // true = ต้องย่อตัว, false = ต้องยืน
+      const y = isLow ? 1.0 : 1.8;
+
+      const ring = document.createElement('a-torus');
+      ring.setAttribute('radius', 0.6);
+      ring.setAttribute('radius-tubular', 0.05);
+      ring.setAttribute('color', isLow ? '#ffc107' : '#8bc34a'); // สีเหลือง = squat / เขียว = stand
+      ring.setAttribute('position', `0 ${y} -5`);
+      ring.setAttribute('data-low', isLow ? '1' : '0');
+
+      this.el.sceneEl.appendChild(ring);
+      this.rings.push(ring);
+
+      // เคลื่อนที่เข้าหาผู้เล่น
+      const interval = setInterval(() => {
+        if (!this.state.running || !ring.parentNode) {
+          clearInterval(interval);
+          return;
+        }
+        const p = ring.getAttribute('position');
+        const zNext = p.z + (this.speed * 0.016);  // ~60 FPS
+        ring.setAttribute('position', `0 ${p.y} ${zNext}`);
+
+        // ถึงจุดตัดสิน
+        if (zNext >= -0.5) {
+          const needLow = ring.getAttribute('data-low') === '1';
+          const ok = (needLow && this.squatting) || (!needLow && !this.squatting);
+          if (ok) {
+            this.state.score += 30;
+            EXO.beep(700, 0.05, 0.1);
+          } else {
+            this.state.score = Math.max(0, this.state.score - 30);
+            EXO.beep(220, 0.06, 0.15);
+          }
+          this.scoreUI.innerText = this.state.score;
+
+          ring.parentNode.removeChild(ring);
+          this.rings.splice(this.rings.indexOf(ring), 1);
+          clearInterval(interval);
+        }
+      }, 16);
+    },
+
+    pause() {
+      this.state.running = false;
+      this.panel.innerHTML = `
+        <h3>Paused</h3>
+        <p>Hold touch/space = Squat · Release = Stand</p>
+        <button class="btn" onclick="location.reload()">Restart</button>
+      `;
+      this.overlay.style.display = 'flex';
+    },
+
+    end() {
+      this.state.running = false;
+      this.panel.innerHTML = `
+        <h3>Session Complete</h3>
+        <p>Score: ${this.state.score}</p>
+        <button class="btn" onclick="location.reload()">Restart</button>
+        <a href="../index.html" class="btn">Exit</a>
+      `;
+      this.overlay.style.display = 'flex';
     }
-  }
-});
-</script>
-</body></html>
+  });
+  </script>
+
+</body>
+</html>
