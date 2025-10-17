@@ -55,6 +55,13 @@
     <!-- Game Entities -->
     <a-entity combat-game></a-entity>
     <a-entity combat-input></a-entity>
+
+    <!-- Camera rig + sky (ให้เห็นฉากแน่นอน) -->
+<a-entity id="rig" position="0 1.6 0">
+  <a-entity camera look-controls wasd-controls></a-entity>
+</a-entity>
+<a-sky color="#0b1120"></a-sky>
+
   </a-scene>
 
   <!-- ✅ EXO Start Hotfix: บังคับมีปุ่ม START เสมอ + Tutorial/Try Hit -->
