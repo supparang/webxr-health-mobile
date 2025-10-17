@@ -1,0 +1,20 @@
+[
+  {"t":0, "side":"L", "type":"tap"},
+  {"t":1, "side":"R", "type":"tap"},
+  {"t":2, "side":"L", "type":"tap"},
+  {"t":3, "side":"R", "type":"tap"},
+  {"t":4, "side":"L", "type":"hold", "len":2},
+  {"t":7, "side":"R", "type":"tap"},
+  {"t":7.5, "side":"L", "type":"tap"},
+  {"t":8, "side":"R", "type":"tap"},
+  {"t":9, "side":"R", "type":"hold", "len":1.5},
+  {"t":11, "side":"L", "type":"tap"},
+  {"t":12, "side":"R", "type":"tap"},
+  {"t":12.5, "side":"L", "type":"tap"},
+  {"t":13, "side":"R", "type":"tap"},
+  {"t":13.25, "side":"L", "type":"tap"},
+  {"t":13.5, "side":"L", "type":"tap"},
+  {"t":14, "side":"R", "type":"tap"},
+  {"t":14.5, "side":"L", "type":"tap"},
+  {"t":15, "side":"R", "type":"hold", "len":2}
+]
