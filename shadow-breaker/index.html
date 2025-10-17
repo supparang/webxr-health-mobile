@@ -33,7 +33,7 @@
 
   <main class="grid">
     <!-- Dashboard -->
-    <section class="card" id="cardDashboard">
+    <section class="card" id="cardDash">
       <h3>Dashboard</h3>
       <div class="row"><div class="muted">Rank</div><div id="rank" style="margin-left:auto;font-weight:700">-</div></div>
       <div class="row"><div class="muted">Level</div><div id="level" style="margin-left:auto;font-weight:700">1</div></div>
@@ -68,6 +68,14 @@
       <p class="muted">เกม 1 — ตอบสนองไว ตีเป้าเข้า Hit Line</p>
       <div class="row"><label>Difficulty</label><select id="combatDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
       <div class="row"><label>Time (s)</label><input id="combatTime" type="number" value="60" min="10" max="600" step="5"></div>
+      <!-- ✅ Items toggle -->
+      <div class="row">
+        <label>Items</label>
+        <label style="display:flex;align-items:center;gap:8px">
+          <input id="combatItemTime" type="checkbox">
+          <span class="muted">Time Orb (+เวลา)</span>
+        </label>
+      </div>
       <div class="row"><button id="btnCombat" class="btn wide">▶ Play Combat Reflex</button></div>
     </section>
 
@@ -96,7 +104,7 @@
     </section>
 
     <!-- Mobility Dash -->
-    <section class="card" id="cardMobility">
+    <section class="card" id="cardDash">
       <h3>Mobility Dash</h3>
       <p class="muted">เกม 3 — สลับเลนหลบสิ่งกีดขวาง</p>
       <div class="row"><label>Difficulty</label><select id="dashDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
@@ -118,181 +126,97 @@
   <script src="core/exo-metrics.js"></script>
   <script src="core/exo-settings.js"></script>
   <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    // ---------- cache DOM refs ----------
-    const el = (id) => document.getElementById(id);
-
-    const $rank   = el('rank');
-    const $level  = el('level');
-    const $xpbar  = el('xpbar');
-    const $sess   = el('sess');
-    const $ttime  = el('ttime');
-    const $tscore = el('tscore');
-    const $avg    = el('avg');
-    const $recent = el('recent');
-
-    const $progSel = el('progSel');
-    const $btnProg = el('btnProg');
-
-    const $combatDiff = el('combatDiff');
-    const $combatTime = el('combatTime');
-    const $btnCombat  = el('btnCombat');
-
-    const $rhythmDiff   = el('rhythmDiff');
-    const $rhythmBpm    = el('rhythmBpm');
-    const $chartPreset  = el('chartPreset');
-    const $customWrap   = el('customWrap');
-    const $chartUrl     = el('chartUrl');
-    const $btnRhythm    = el('btnRhythm');
-
-    const $dashDiff = el('dashDiff');
-    const $dashTime = el('dashTime');
-    const $btnDash  = el('btnDash');
-
-    const $powerDiff = el('powerDiff');
-    const $powerTime = el('powerTime');
-    const $btnPower  = el('btnPower');
-
-    // ---------- Dashboard ----------
-    function fmtSec(s){ s = s|0; const m=Math.floor(s/60), r=s%60; return (m? m+'m ':'')+r+'s'; }
+    // ----- Dashboard -----
+    function fmtSec(s){ const m=Math.floor(s/60), r=s%60; return (m? m+'m ':'')+r+'s'; }
     function refreshDash(){
-      try{
-        const d = (window.EXO_METRICS && EXO_METRICS.dashboard) ? EXO_METRICS.dashboard() : {
-          profile:{rank:'-', level:1, xp:0}, totals:{sessions:0,time:0,score:0,avgScore:0}, recent:[]
-        };
-        if($rank)  $rank.textContent  = d.profile.rank || '-';
-        if($level) $level.textContent = d.profile.level ?? 1;
-        if($xpbar){
-          const need = (d.profile.level||1)*500;
-          const pct = Math.min(100, Math.round(((d.profile.xp||0)/need)*100));
-          $xpbar.style.width = pct+'%';
-        }
-        if($sess)   $sess.textContent   = d.totals.sessions|0;
-        if($ttime)  $ttime.textContent  = fmtSec(d.totals.time|0);
-        if($tscore) $tscore.textContent = d.totals.score|0;
-        if($avg)    $avg.textContent    = d.totals.avgScore|0;
+      const d = EXO_METRICS.dashboard();
+      rank.textContent  = d.profile.rank || '-';
+      level.textContent = d.profile.level;
+      const need = d.profile.level*500;
+      const pct = Math.min(100, Math.round((d.profile.xp/need)*100));
+      xpbar.style.width = pct+'%';
+      sess.textContent  = d.totals.sessions;
+      ttime.textContent = fmtSec(d.totals.time|0);
+      tscore.textContent= d.totals.score|0;
+      avg.textContent   = d.totals.avgScore|0;
 
-        if($recent){
-          $recent.innerHTML='';
-          (d.recent||[]).slice(0,5).forEach(s=>{
-            const li=document.createElement('li');
-            const dt=new Date(s.t||Date.now()).toLocaleString();
-            li.textContent = `[${dt}] ${s.module||'-'} (${s.diff||'-'}) — Score ${s.score||0}, Acc ${Math.round(((s.accuracy||0))*10)/10}%`;
-            $recent.appendChild(li);
-          });
-        }
-      }catch(e){ console.warn('[Hub] dashboard error:', e); }
+      recent.innerHTML='';
+      d.recent.forEach(s=>{
+        const li=document.createElement('li');
+        const dt=new Date(s.t).toLocaleString();
+        li.textContent = `[${dt}] ${s.module} (${s.diff}) — Score ${s.score}, Acc ${Math.round((s.accuracy||0)*10)/10}%`;
+        recent.appendChild(li);
+      });
     }
     refreshDash();
 
-    // ---------- Helper: open with fallbacks ----------
-    async function goFirstAvailable(urls){
-      for (const u of urls){
-        try{
-          const r = await fetch(u, {method:'HEAD', cache:'no-cache'});
-          if (r.ok) { location.href = u; return; }
-        }catch(_e){
-          // HEAD อาจโดนบล็อก → ลองเปิดตรง
-          location.href = u; return;
-        }
-      }
-      alert('File not found: '+ urls.join(' | '));
-    }
-
-    // ---------- Workout Program ----------
+    // ----- Workout Program -----
     const programs = {
       quick: [
-        ['shadow-breaker/play.html?diff=normal&time=60',
-         'shadow-breaker/play.html?game=combat&mode=timed&diff=normal&time=60'],
-
-        ['mobility-dash/play.html?diff=normal&time=60',
-         'shadow-breaker/play.html?game=dash&mode=timed&diff=normal&time=60'],
-
-        ['rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
-         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=normal&bpm=110'],
-
-        ['power-control/play.html?diff=normal&time=60',
-         'shadow-breaker/play.html?game=power&mode=timed&diff=normal&time=60']
+        'shadow-breaker/play.html?diff=normal&time=60',
+        'cardio-sprint/play.html?diff=normal&time=60',
+        'rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
+        'sky-squats/play.html?diff=normal&time=60'
       ],
       rhythm: [
-        ['rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
-         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=easy&bpm=100'],
-        ['rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
-         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=normal&bpm=120'],
-        ['rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json',
-         'shadow-breaker/play.html?game=rhythm&mode=chart&diff=hard&bpm=135']
+        'rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
+        'rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
+        'rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json'
       ],
       lower: [
-        ['power-control/play.html?diff=easy&time=45',
-         'shadow-breaker/play.html?game=power&mode=timed&diff=easy&time=45'],
-        ['power-control/play.html?diff=normal&time=60',
-         'shadow-breaker/play.html?game=power&mode=timed&diff=normal&time=60'],
-        ['mobility-dash/play.html?diff=normal&time=60',
-         'shadow-breaker/play.html?game=dash&mode=timed&diff=normal&time=60']
+        'sky-squats/play.html?diff=easy&time=45',
+        'sky-squats/play.html?diff=normal&time=60',
+        'cardio-sprint/play.html?diff=normal&time=60'
       ]
     };
 
-    if ($btnProg){
-      $btnProg.onclick = async () => {
-        const key = ($progSel && $progSel.value) || 'quick';
-        const planPairs = programs[key] || programs.quick;
-        const resolvedPrimaries = planPairs.map(p=>p[0]);
-        EXO.store.set('EXO_PLAN', {idx:0, paths:resolvedPrimaries, fallbacks:planPairs});
-        await goFirstAvailable(planPairs[0]);
-      };
-    }
+    btnProg.onclick = () => {
+      const key = progSel.value;
+      const plan = programs[key] || programs.quick;
+      EXO.store.set('EXO_PLAN', {idx:0, paths:plan});
+      location.href = plan[0] + '&next=program.html';
+    };
 
-    // ---------- Rhythm ----------
-    if ($chartPreset && $customWrap){
-      $chartPreset.addEventListener('change', ()=>{ $customWrap.style.display = ($chartPreset.value==='__custom__') ? 'flex':'none'; });
-    }
-    if ($btnRhythm){
-      $btnRhythm.onclick = () => {
-        const diff = ($rhythmDiff && $rhythmDiff.value) || 'normal';
-        const bpm  = Math.max(60, Math.min(220, parseInt(($rhythmBpm && $rhythmBpm.value) || '110', 10)));
-        let primary = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
-        const preset = $chartPreset ? $chartPreset.value : '';
-        if (preset){
-          primary += '&chart=' + encodeURIComponent(preset==='__custom__' ? ($chartUrl?.value.trim() || '') : preset);
-        }
-        const fallback = 'shadow-breaker/play.html?game=rhythm&mode=chart&diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
-        goFirstAvailable([primary, fallback]);
-      };
-    }
+    // ----- Rhythm -----
+    chartPreset.addEventListener('change', ()=>{ customWrap.style.display = (chartPreset.value==='__custom__') ? 'flex':'none'; });
+    btnRhythm.onclick = () => {
+      const diff = rhythmDiff.value;
+      const bpm  = Math.max(60, Math.min(220, parseInt(rhythmBpm.value||'110',10)));
+      let url = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
+      const preset = chartPreset.value;
+      if (preset){
+        url += '&chart=' + encodeURIComponent(preset==='__custom__'? chartUrl.value.trim() : preset);
+      }
+      location.href = url;
+    };
 
-    // ---------- Combat ----------
-    if ($btnCombat){
-      $btnCombat.onclick = () => {
-        const diff = ($combatDiff && $combatDiff.value) || 'normal';
-        const t = Math.max(10, Math.min(600, parseInt(($combatTime && $combatTime.value) || '60', 10)));
-        const primary  = `shadow-breaker/play.html?diff=${diff}&time=${t}`;
-        const fallback = `shadow-breaker/play.html?game=combat&mode=timed&diff=${diff}&time=${t}`;
-        goFirstAvailable([primary, fallback]);
-      };
-    }
+    // ----- Combat -----
+    btnCombat.onclick = () => {
+      const diff = combatDiff.value;
+      const t = Math.max(10, Math.min(600, parseInt(combatTime.value||'60',10)));
+      let url = `shadow-breaker/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
 
-    // ---------- Dash ----------
-    if ($btnDash){
-      $btnDash.onclick = () => {
-        const diff = ($dashDiff && $dashDiff.value) || 'normal';
-        const t = Math.max(10, Math.min(600, parseInt(($dashTime && $dashTime.value) || '60', 10)));
-        const primary  = `mobility-dash/play.html?diff=${diff}&time=${t}`;
-        const fallback = `shadow-breaker/play.html?game=dash&mode=timed&diff=${diff}&time=${t}`;
-        goFirstAvailable([primary, fallback]);
-      };
-    }
+      // ✅ ถ้าเลือก Items → ใส่พารามิเตอร์เปิด Time Orb + Time Gain
+      const itemTime = document.getElementById('combatItemTime')?.checked;
+      if (itemTime) {
+        url += '&timeorb=1&timegain=1';
+      }
+      location.href = url;
+    };
 
-    // ---------- Power ----------
-    if ($btnPower){
-      $btnPower.onclick = () => {
-        const diff = ($powerDiff && $powerDiff.value) || 'normal';
-        const t = Math.max(10, Math.min(600, parseInt(($powerTime && $powerTime.value) || '60', 10)));
-        const primary  = `power-control/play.html?diff=${diff}&time=${t}`;
-        const fallback = `shadow-breaker/play.html?game=power&mode=timed&diff=${diff}&time=${t}`;
-        goFirstAvailable([primary, fallback]);
-      };
-    }
-  });
+    // ----- Dash -----
+    btnDash.onclick = () => {
+      const diff = dashDiff.value;
+      const t = Math.max(10, Math.min(600, parseInt(dashTime.value||'60',10)));
+      location.href = `cardio-sprint/play.html?diff=${diff}&time=${t}`;
+    };
+
+    // ----- Power -----
+    btnPower.onclick = () => {
+      const diff = powerDiff.value;
+      const t = Math.max(10, Math.min(600, parseInt(powerTime.value||'60',10)));
+      location.href = `sky-squats/play.html?diff=${diff}&time=${t}`;
+    };
   </script>
 
   <p style="text-align:center;color:#6d7a8a;font-size:12px;margin-top:10px;">
