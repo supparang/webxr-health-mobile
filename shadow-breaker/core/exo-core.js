@@ -32,24 +32,52 @@ window.EXO = (function () {
     return performance.now() / 1000;
   }
 
-  // Start screen overlay
-  function startOverlay(onStart) {
-    const overlay = document.getElementById('overlay');
-    const panel = document.getElementById('panel');
+// Start screen overlay (auto-create if missing)
+function startOverlay(onStart) {
+  let overlay = document.getElementById('overlay');
+  let panel   = document.getElementById('panel');
 
+  // ถ้าไม่มี element ให้สร้างใหม่ (กันพลาดทุกหน้า)
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'overlay';
+    overlay.className = 'overlay';
+    // เผื่อ CSS ไม่โหลด ให้ใส่ style สำคัญไว้เลย
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
     overlay.style.display = 'flex';
-    panel.innerHTML = `
-      <div class="title">EXO TRAINING PROTOCOL</div>
-      <p>Tap to Start</p>
-      <button id="btnStart" class="btn">▶ Start</button>
-    `;
-
-    document.getElementById('btnStart').onclick = () => {
-      overlay.style.display = 'none';
-      AC.ensure();
-      if (onStart) onStart();
-    };
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.background = 'rgba(9,14,23,0.85)';
+    overlay.style.zIndex = '9999';
+    document.body.appendChild(overlay);
+  } else {
+    overlay.style.display = 'flex';
   }
+
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'panel';
+    panel.className = 'panel';
+    panel.style.minWidth = '260px';
+    panel.style.textAlign = 'center';
+    overlay.appendChild(panel);
+  }
+
+  panel.innerHTML = `
+    <div class="title">EXO TRAINING PROTOCOL</div>
+    <p>Tap / Click to start</p>
+    <button id="btnStart" class="btn">▶ Start</button>
+  `;
+
+  const btn = document.getElementById('btnStart');
+  btn.onclick = () => {
+    overlay.style.display = 'none';
+    try { AC.ensure && AC.ensure(); } catch(e){}
+    if (onStart) onStart();
+  };
+}
+
 
   // Input system
   function attachBasicInput({ onLeft, onRight, onPause }) {
