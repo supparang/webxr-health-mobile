@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Combat Reflex (VS + LB + i18n: central + safe start)</title>
+  <title>EXO · Combat Reflex (VS + LB + i18n: central + safe start + feedback)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- A-Frame -->
@@ -23,6 +23,16 @@
     .vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}
     .vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
     .tagwin{color:#7ee787}.taglose{color:#ff7777}.tagtie{color:#ffd166}
+
+    /* ✅ Feedback tags (HIT/DECOY/MISS) */
+    #fb{position:fixed;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;z-index:30}
+    .tag{font:700 28px/1 system-ui,Segoe UI,Roboto;padding:6px 10px;margin-top:10px;border-radius:10px;
+         border:1px solid rgba(255,255,255,.15);background:rgba(10,20,36,.55);color:#e6f2ff;
+         text-shadow:0 0 6px rgba(255,255,255,.15);opacity:0;transform:translateY(16px);
+         animation:rise .7s ease-out forwards}
+    .tag.good{color:#7ee787;border-color:#2b8a3e}
+    .tag.miss{color:#ff7777;border-color:#8a2b2b}
+    @keyframes rise{to{opacity:1;transform:translateY(-6px)}}
   </style>
 </head>
 <body>
@@ -43,6 +53,9 @@
   <!-- Touch zones -->
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
+
+  <!-- ✅ Feedback container -->
+  <div id="fb"></div>
 
   <!-- VS HUD (เปิดเมื่อ ?vs=1) -->
   <div id="vsHud" class="vsHud" style="display:none">
@@ -76,7 +89,7 @@
     <a-entity combat-director></a-entity>
   </a-scene>
 
-<!-- ======= Hotfix shim + Safe Start (ป้องกันเกมเงียบ) ======= -->
+<!-- ======= Hotfix shim + Safe Start (กันเกมเงียบ) ======= -->
 <script>
 // --- i18n safe shim: ถ้า core/exo-i18n.js โหลดไม่สำเร็จ เกมจะยังรันได้ ---
 (function(w){
@@ -121,6 +134,7 @@ AFRAME.registerComponent('combat-director', {
     this.$t = document.getElementById('time');
     this.overlay = document.getElementById('overlay');
     this.panel   = document.getElementById('panel');
+    this.$fb     = document.getElementById('fb'); // ✅ feedback container
 
     // ===== Query & VS =====
     const q = new URLSearchParams(location.search);
@@ -209,6 +223,17 @@ AFRAME.registerComponent('combat-director', {
     }, 1000);
   },
 
+  // ✅ ฟังก์ชันแสดงป้าย
+  flash(label, cls){
+    try{
+      const s = document.createElement('div');
+      s.className = `tag ${cls}`;
+      s.textContent = label;
+      this.$fb.appendChild(s);
+      setTimeout(()=> s.remove(), 750);
+    }catch(e){}
+  },
+
   mkTarget(scene){
     const e=document.createElement('a-entity');
     e.setAttribute('visible', false);
@@ -261,6 +286,7 @@ AFRAME.registerComponent('combat-director', {
         this.state.score = Math.max(0, this.state.score - 100);
         this.$s.textContent = this.state.score;
         EXO.beep(220, 0.06, 0.15);
+        this.flash('DECOY','miss');         // ✅ ป้าย DECOY
       } else {
         this.state.cntHit++;
         const quality = dz<=this.cfg.hitWin*0.4 ? 1.0 : dz<=this.cfg.hitWin*0.7 ? 0.7 : 0.4;
@@ -270,12 +296,14 @@ AFRAME.registerComponent('combat-director', {
         this.$s.textContent = this.state.score;
         this.$c.textContent = 'x' + this.state.combo.toFixed(1);
         EXO.beep(540, 0.04, 0.12);
+        this.flash('HIT','good');           // ✅ ป้าย HIT
       }
 
       best.setAttribute('visible', false);
       best.userData.alive = false;
     } else {
       this.state.combo = 1.0; this.$c.textContent = 'x1.0';
+      this.flash('MISS','miss');            // ✅ พลาดในหน้าต่างตี
     }
 
     // ส่งสถานะ VS ทุกครั้งที่มีอัปเดต
@@ -322,6 +350,7 @@ AFRAME.registerComponent('combat-director', {
         if (!e.userData.isDecoy){
           this.state.cntMiss++;
           this.state.combo = 1.0; this.$c.textContent = 'x1.0';
+          this.flash('MISS','miss');      // ✅ เป้าแท้หลุดเส้น = MISS
         }
         e.setAttribute('visible', false);
         e.userData.alive = false;
