@@ -1,163 +1,120 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8">
-<title>EXO · Mobility Dash (Perf)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<link rel="stylesheet" href="../core/exo-ui.css">
-<script src="../core/exo-i18n.js"></script>
-<script src="../core/exo-core.js"></script>
-<script src="../core/exo-metrics.js"></script>
-<script src="../core/exo-settings.js"></script>
-<script src="../core/exo-leaderboard.js"></script>
-<script src="../core/exo-net.js"></script>
-<script src="../core/exo-boost.js"></script>
-<style>
-#fb{position:fixed;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;z-index:30}
-.tag{font:700 28px/1 system-ui,Segoe UI,Roboto;padding:6px 10px;margin-top:10px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(10,20,36,.55);color:#e6f2ff;text-shadow:0 0 6px rgba(255,255,255,.15);opacity:0;transform:translateY(16px);animation:rise .42s ease-out forwards}
-.tag.good{color:#7ee787;border-color:#2b8a3e}.tag.miss{color:#ff7777;border-color:#8a2b2b}
-@keyframes rise{0%{opacity:0;transform:translateY(16px)}80%{opacity:1;transform:translateY(-6px)}100%{opacity:0;transform:translateY(-2px)}}
-.feverBar{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);width:280px;height:10px;border:1px solid #2b4b86;border-radius:14px;background:rgba(14,20,36,.65);overflow:hidden;z-index:9}
-.feverFill{height:100%;width:0%;background:linear-gradient(90deg,#36d1dc,#5b86e5)}.feverOn .feverFill{background:linear-gradient(90deg,#ffd200,#ff7a00)}
-.screenFlash{position:fixed;inset:0;background:rgba(255,214,84,.18);pointer-events:none;opacity:0;transition:opacity .18s;z-index:8}.screenFlash.show{opacity:1}
-</style>
-</head><body>
-<div class="hud"><div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
-<div class="box"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a href="../index.html" class="btn">⏵ <span data-i18n="common.hub">Hub</span></a></div></div>
-<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div><div id="fb"></div>
-<div class="feverBar"><div id="feverFill" class="feverFill"></div></div><div id="flash" class="screenFlash"></div>
-<div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
-
-<a-scene renderer="antialias:true;colorManagement:true">
-  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
-  <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 0.01 -0.5" material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
-  <a-box id="player" color="#4caf50" depth="0.3" height="0.3" width="0.3" position="-0.8 1.2 -0.5"></a-box>
-  <a-entity dash-game></a-entity>
-</a-scene>
-
-<script>(function(w){if(!w.EXO_I18N){const F=(k,fb)=>fb||k;w.EXO_I18N={get:()=> 'th',set:()=>{},scope:()=>F.bind(null),t:()=>F,bindDom:()=>{},addPack:()=>{},packs:{}};}})(window);
-function EXO_safeStart(start,ov,cfg){try{if(window.EXO&&EXO.startOverlay){EXO.startOverlay(()=>start(),cfg||undefined);return;}}catch(e){}try{if(ov)ov.style.display='none';}catch(e){}window.addEventListener('click',function on(){window.removeEventListener('click',on,{once:true});try{start();}catch(e){}},{once:true});setTimeout(()=>{try{start();}catch(e){}},200);}</script>
-
 <script>
 AFRAME.registerComponent('dash-game',{
-  init:function(){
-    const tC=EXO_I18N.scope('common'),tD=EXO_I18N.scope('dash'),lang=EXO_I18N.get();
-    const $=s=>document.querySelector(s);
-    this.$s=$('#score');this.$c=$('#combo');this.$t=$('#time');this.$fb=$('#fb');this.$fever=$('#feverFill');this.$flash=$('#flash');this.panel=$('#panel');this.overlay=$('#overlay');
-    this.player=document.getElementById('player');
+  init(){
+    this.scoreUI = document.getElementById('score');
+    this.timeUI  = document.getElementById('time');
+    this.player  = document.getElementById('player');
 
-    const q=new URLSearchParams(location.search);
-    const diff=(q.get('diff')||'normal').toLowerCase();const timeParam=Math.max(10,+(q.get('time')||60));
-    this.state={score:0,combo:1,maxCombo:1,time:timeParam,running:false,avoided:0,hit:0};
-    this.$t.textContent=this.state.time;
+    const q = new URLSearchParams(location.search);
+    this.diff = (q.get('diff')||'normal');
+    this.totalTime = Math.max(10, parseInt(q.get('time')||'60',10));
 
-    this.laneX={L:-0.8,R:0.8}; this.playerLane='L';
-    this.spawnZ=-5.2; this.pool=[];
-    for(let i=0;i<20;i++){const e=document.createElement('a-box');e.setAttribute('visible',false);e.setAttribute('depth','.34');e.setAttribute('height','.34');e.setAttribute('width','.34');e.userData={alive:false,side:'L',vz:0,type:'normal'};this.el.sceneEl.appendChild(e);this.pool.push(e);}
+    this.state = {running:false, time:this.totalTime, score:0, lane:'L'};
+    this.lanes = {L:-0.8, R:0.8};
+    this.lastSpawn = 0;
 
-    // systems
-    this.fever=new EXO_BOOST.FeverManager({need:8,dur:9000,mul:2,barEl:this.$fever,flashEl:this.$flash});
-    this.dd=new EXO_BOOST.DynamicDifficulty({baseSpeed:4.8,baseSpawn:550,minSpawn:380,maxSpawn:900});
-    this.missions=new EXO_BOOST.MissionManager('short');
+    this.dd = new EXO_BOOST.DynamicDifficulty({});
+    this.fv = new EXO_BOOST.FeverManager({need:10,dur:8000});
 
-    this.flash=(label,cls)=>{while(this.$fb.children.length>2)this.$fb.removeChild(this.$fb.firstChild);const s=document.createElement('div');s.className=`tag ${cls}`;s.textContent=label;this.$fb.appendChild(s);s.style.animationDuration='0.42s';setTimeout(()=>s.remove(),420);};
-    this.updateScore=()=>this.$s.textContent=this.state.score;
-    this.updateCombo=()=>this.$c.textContent='x'+this.state.combo.toFixed(1);
+    EXO.attachBasicInput({
+      onLeft: ()=> this.move('L'),
+      onRight:()=> this.move('R'),
+      onPause: ()=>{}
+    });
 
-    EXO_safeStart(this.start.bind(this), this.overlay, {title:tD('title'),howto:[
-      {title:lang==='th'?'เป้าหมาย':'Goal',text:tD('goal')},
-      {title:lang==='th'?'การบังคับ':'Controls',html:tD('ctrl')},
-      {title:lang==='th'?'คะแนน':'Scoring',text:tD('scoreTip')}
-    ],note:`${tC('diff')}: <b>${diff.toUpperCase()}</b>`});
-
-    // input: tap L/R / keys
-    const goL=()=>{this.playerLane='L'; this.player.setAttribute('position',`${this.laneX.L} 1.2 -0.5`);};
-    const goR=()=>{this.playerLane='R'; this.player.setAttribute('position',`${this.laneX.R} 1.2 -0.5`);};
-    ['mousedown','touchstart'].forEach(ev=>{document.getElementById('touchL').addEventListener(ev,goL);document.getElementById('touchR').addEventListener(ev,goR);});
-    window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')goL(); if(e.key==='ArrowRight'||e.code==='Space')goR(); if(e.key==='Escape')this.pause();});
-    document.getElementById('btnPause').onclick=()=>this.pause();
-
-    this.timer=setInterval(()=>{if(!this.state.running)return;this.state.time--;this.$t.textContent=this.state.time;if(this.state.time<=0)this.end();},1000);
+    EXO_safeStart(()=>this.start(), document.getElementById('overlay'), {
+      title:'Mobility Dash',
+      note:`Diff: ${this.diff} · Time: ${this.totalTime}s`
+    });
   },
 
-  start:function(){this.state.running=true;this.spawnLoop=setInterval(()=>this.spawn(), this.dd.getSpawnIv());},
-
-  spawn:function(){
-    if(!this.state.running)return;
-    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
-    const side=Math.random()<.5?'L':'R'; const type=EXO_BOOST.Specials.roll({gold:.12,time:.06,bomb:.08,shield:0});
-    e.userData.alive=true; e.userData.side=side; e.userData.type=type;
-    e.userData.vz=4.8*this.dd.getSpeedMul()+(Math.random()*.7-.35);
-    e.setAttribute('position',`${this.laneX[side]} 1.2 ${this.spawnZ}`);
-    if(type==='gold') e.setAttribute('color','#ffd54f'); else if(type==='bomb') e.setAttribute('color','#ef5350'); else if(type==='time') e.setAttribute('color','#81c784'); else e.setAttribute('color','#9ecbff');
-    e.setAttribute('visible',true);
-    clearInterval(this.spawnLoop); this.spawnLoop=setInterval(()=>this.spawn(), this.dd.getSpawnIv());
+  start(){
+    this.state.running=true;
+    this.state.time=this.totalTime;
+    this.state.score=0;
+    this.scoreUI.textContent='0';
+    this.timeUI.textContent=String(this.totalTime);
+    this.move('L');
+    this.timer=setInterval(()=>{
+      if(!this.state.running) return;
+      this.state.time--;
+      this.timeUI.textContent=this.state.time;
+      if(this.state.time<=0) this.end();
+    },1000);
   },
 
-  pause:function(){
-    const tC=EXO_I18N.scope('common'); if(!this.state.running)return; this.state.running=false;
-    this.panel.innerHTML=`<div class="title">${tC('paused')}</div><div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a><a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;
-    this.overlay.style.display='flex';
+  move(side){
+    this.state.lane=side;
+    const x=this.lanes[side];
+    this.player.setAttribute('position', `${x} 1.2 -0.5`);
   },
 
-  tick:function(t,dt){
+  tick(t,dt){
     if(!this.state.running) return;
-    const s=dt/1000;
-    for(const e of this.pool){
-      if(!e.userData.alive) continue;
-      const p=e.object3D.position; p.z += e.userData.vz*s;
-
-      if(p.z > -0.5){ // cross hitline
-        const side=e.userData.side, type=e.userData.type;
-        if(this.playerLane!==side){
-          // avoided
-          this.state.avoided++;
-          let gain=70 + (type==='gold'?20:0);
-          this.state.score += this.fever.mulScore(Math.round(gain*this.state.combo));
-          this.state.combo=Math.min(5,this.state.combo+.15);
-          this.updateScore(); this.updateCombo();
-          this.fever.hit(); this.dd.onHit();
-          this.flash('DODGE','good'); EXO.beep(620,.04,.1);
-        }else{
-          // hit obstacle
-          this.state.hit++;
-          let penalty=80 + (type==='bomb'?20:0);
-          this.state.score=Math.max(0,this.state.score - penalty);
-          this.state.combo=1; this.updateScore(); this.updateCombo();
-          this.fever.miss(); this.dd.onMiss(); this.flash('HIT','miss'); EXO.beep(220,.06,.16);
-        }
-        if(type==='time' && this.playerLane!==side){ this.state.time=Math.min(999,this.state.time+2); document.getElementById('time').textContent=this.state.time; }
-        e.setAttribute('visible',false); e.userData.alive=false;
-      }else if(p.z > 0.3){
-        e.setAttribute('visible',false); e.userData.alive=false;
-      }
+    this.dd.tickDecay(dt); this.fv.tick(dt);
+    const iv = Math.max(380, this.dd.getSpawnIv? this.dd.getSpawnIv():600);
+    if (performance.now()-this.lastSpawn >= iv){
+      this.spawnObstacle();
+      this.lastSpawn=performance.now();
     }
-    this.fever.tick(dt); this.dd.tickDecay(dt);
   },
 
-  end:function(){
-    const tC=EXO_I18N.scope('common'), tD=EXO_I18N.scope('dash');
-    this.state.running=false; clearInterval(this.timer); clearInterval(this.spawnLoop);
-    const acc = (this.state.avoided + this.state.hit) ? (this.state.avoided/(this.state.avoided+this.state.hit))*100 : 0;
-    try{EXO_METRICS.recordSession({module:'Mobility Dash',diff:(new URLSearchParams(location.search).get('diff')||'normal'),score:this.state.score||0,accuracy:Math.round(acc*10)/10,hits:this.state.avoided||0,misses:this.state.hit||0,duration:+(new URLSearchParams(location.search).get('time')||60)});}catch(e){}
-    this.panel.innerHTML = `<div class="title">${tC('result')} — Mobility Dash</div>
-    <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-      <div>${tC('score')}<br><b>${this.state.score}</b></div>
-      <div>${tC('maxCombo')}<br><b>${this.state.combo.toFixed(1)}×</b></div>
-      <div>Dodged%<br><b>${acc.toFixed(1)}%</b></div>
-    </div>
-    <div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a><a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;
-    this.overlay.style.display='flex';
+  spawnObstacle(){
+    const lane = (Math.random()<0.5)?'L':'R';
+    const x = this.lanes[lane], zStart=-3.6, y=1.05;
+    const o = document.createElement('a-cylinder');
+    o.setAttribute('radius','0.22'); o.setAttribute('height','0.42');
+    o.setAttribute('color','#ef476f'); o.classList.add('obs');
+    o.setAttribute('position', `${x} ${y} ${zStart}`);
+    this.el.sceneEl.appendChild(o);
 
-    // Missions + XP
-    const metrics={score:this.state.score,hits:this.state.avoided,misses:this.state.hit,comboMax:Math.round(this.state.combo||1),avoided:this.state.avoided,perfectPct:acc,timePlayed:+(new URLSearchParams(location.search).get('time')||60)};
-    const done=this.missions.evaluate(metrics); const reward=this.missions.rewardXP(); const baseXP=Math.round(this.state.score/25); const res=EXO_BOOST.XP.add(baseXP+reward);
-    const list=done.length?('<ul>'+done.map(x=>`<li>✓ ${x.name} (+${x.xp} XP)</li>`).join('')+'</ul>'):'<p>—</p>';
-    const lvl=`<div class="kpi"><div>XP</div><b>${res.xp}</b><div>Level</div><b>${res.level}</b></div>`;
-    const ms =`<div class="kpi"><div>Missions</div><div style="grid-column:1/-1">${list}</div></div>`;
-    this.panel.insertAdjacentHTML('beforeend',lvl+ms);
-  }
+    const dur = 1400 / (this.dd.getSpeedMul? this.dd.getSpeedMul():1);
+    o.setAttribute('animation__move',{property:'position', to:`${x} ${y} -0.35`, dur, easing:'linear'});
+
+    // เมื่อถึงเส้น ตรวจชน/หลบ
+    setTimeout(()=>{
+      if(!o.parentNode) return;
+      if (this.state.lane===lane){
+        // ชน
+        this.onHitObstacle();
+      }else{
+        // หลบสำเร็จ = ได้คะแนน + fever
+        this.addScore(60);
+        this.fv.hit&&this.fv.hit();
+      }
+      o.remove();
+    }, dur+40);
+  },
+
+  addScore(v){
+    const s = this.fv.mulScore? this.fv.mulScore(v):v;
+    this.state.score += s;
+    this.scoreUI.textContent = this.state.score;
+    this.dd.onHit&&this.dd.onHit();
+    EXO.beep(680,0.04,0.1);
+  },
+
+  onHitObstacle(){
+    this.dd.onMiss&&this.dd.onMiss();
+    this.fv.miss&&this.fv.miss();
+    this.state.score = Math.max(0, this.state.score-120);
+    this.scoreUI.textContent=this.state.score;
+    EXO.beep(220,0.06,0.12);
+  },
+
+  end(){
+    this.state.running=false;
+    clearInterval(this.timer);
+    const p=document.getElementById('panel'), o=document.getElementById('overlay');
+    o.style.display='flex';
+    p.innerHTML=`<div class="title">Result</div>
+      <div class="kpi"><div>Score</div><b>${this.state.score}</b></div>
+      <div style="text-align:center;margin-top:.6rem">
+        <a class="btn" href="../index.html">⟵ Back</a>
+        <a class="btn" onclick="location.reload()">↺ Replay</a>
+      </div>`;
+  },
+
+  remove(){ clearInterval(this.timer); }
 });
 </script>
-</body></html>
