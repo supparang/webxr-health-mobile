@@ -465,4 +465,148 @@ AFRAME.registerComponent('rhythm-game', {
         diff: (new URLSearchParams(location.search).get('diff')||'normal'),
         score: this.state.score,
         accuracy: stats.accuracy,
-        hits: this.state.cntPerfect +
+        hits: this.state.cntPerfect + this.state.cntGood + this.state.cntOkay,
+        misses: this.state.cntMiss,
+        duration: this.state.time
+      });
+    }catch(e){}
+
+    try{ EXO.audio.stopMusic(); }catch(e){}
+
+    // ✅ แจ้งผลให้คู่แข่ง
+    if (this.isVS && EXO_NET.connected()){
+      EXO_NET.send({type:'over', score:this.state.score|0});
+    }
+
+    const gradeClass = stats.grade==='SS' ? 'grade ss' : (stats.grade==='S'?'grade s':'grade');
+    const makeResult = (oppKnown=false)=>`
+      <div class="title">${L.result} — Rhythm Sync ${this.isVS?'· '+L.vs:''}</div>
+      <div style="display:flex; gap:16px; align-items:center; justify-content:center; margin-bottom:8px">
+        <div class="${gradeClass}">${stats.grade}</div>
+        <div class="kpi" style="grid-template-columns:repeat(3,1fr); min-width:320px">
+          <div>${L.result==='Result'?'Score':'คะแนน'}<br><b>${this.state.score}</b></div>
+          <div>${L.maxCombo}<br><b>${stats.maxCombo}×</b></div>
+          <div>${L.accuracy}<br><b>${stats.accuracy}%</b></div>
+          <div>${L.perfect}<br><b>${this.state.cntPerfect}</b></div>
+          <div>${L.good}<br><b>${this.state.cntGood}</b></div>
+          <div>${L.okay}<br><b>${this.state.cntOkay}</b></div>
+          <div>${L.miss}<br><b>${this.state.cntMiss}</b></div>
+          <div>${L.bpm}<br><b>${this.bpm}</b></div>
+          <div>${L.notes}<br><b>${stats.totalNotes}</b></div>
+        </div>
+      </div>
+      ${this.isVS ? `
+      <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+        <div>${L.oppScore}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
+        <div>${L.oppStatus}<br><b id="oppStatus">${this.opp?.isOver?L.finished:L.pending}</b></div>
+      </div>
+      <div id="vsVerdict" style="text-align:center;margin-top:6px"></div>` : ``}
+      <div id="graphWrap" style="display:flex; flex-direction:column; align-items:center; gap:6px; margin:8px 0 6px;">
+        <div class="legend"><span><i class="dot p"></i> Perfect</span><span><i class="dot g"></i> Good</span><span><i class="dot o"></i> Okay</span><span><i class="dot m"></i> Miss</span></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center;margin-top:8px">
+        <a class="btn" onclick="location.reload()">⟲ ${L.restart}</a>
+        <a class="btn" href="../index.html">⏵ ${L.hub}</a>
+      </div>`;
+
+    this.panel.innerHTML = makeResult(this.isVS ? this.opp?.isOver : false);
+    const wrap = document.getElementById('graphWrap');
+    wrap.appendChild(this.renderGraphSVG(560, 180));
+    this.overlay.style.display='flex';
+
+    // ถ้า VS: สรุปผลชนะ/แพ้/เสมอ เมื่อมีสกอร์คู่แข่ง
+    const renderVerdict = ()=>{
+      const box=document.getElementById('vsVerdict'); if(!box) return;
+      const a=this.state.score|0, b=this.opp.score|0;
+      if (a>b) box.innerHTML = `<div class="tagwin"><b>${L.verdictWin}</b></div>`;
+      else if (a<b) box.innerHTML = `<div class="taglose"><b>${L.verdictLose}</b></div>`;
+      else box.innerHTML = `<div class="tagtie"><b>${L.verdictTie}</b></div>`;
+    };
+
+    if (this.isVS){
+      if (this.opp.isOver) renderVerdict();
+      else {
+        const handler=(msg)=>{
+          if (msg?.type==='over'){
+            this.opp.isOver=true; this.opp.score=msg.score|0;
+            const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
+            const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=L.finished;
+            renderVerdict();
+          }
+        };
+        EXO_NET.onMessage(handler);
+        setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=L.pending; }, 3000);
+      }
+    }
+
+    // ====== Online Leaderboard (Auto Submit: ถามชื่อแล้วส่ง) ======
+    setTimeout(async ()=>{
+      try{
+        const name = prompt(L.askName,'');
+        if (!name) return;
+
+        await EXO_LB.submit({
+          name,
+          module: 'Rhythm Sync',
+          score: this.state.score|0,
+          accuracy: stats.accuracy,
+          diff: (new URLSearchParams(location.search).get('diff')||'normal')
+        });
+
+        const ok = document.createElement('div');
+        ok.className = 'kpi';
+        ok.style.cssText = 'margin-top:8px;text-align:center';
+        ok.innerHTML = `<div style="grid-column:1/-1"><b>${L.sent}</b></div>`;
+        this.panel.appendChild(ok);
+      }catch(e){ console.warn('LB submit failed', e); }
+    }, 350);
+
+    const nextURL = new URLSearchParams(location.search).get('next');
+    if (nextURL) { setTimeout(()=> location.href = nextURL, 1500); }
+  },
+
+  _tick(){
+    if (!this.state.running){ requestAnimationFrame(this._tick); return; }
+    this.schedule(); this.metronome();
+
+    const tRel = EXO.now() - this.t0;
+    for (const e of this.pool){
+      if (!e.userData.alive) continue;
+      const p=e.object3D.position; p.z += e.userData.vz*(1/60);
+      if (p.z >= this.hitZ + 0.05){
+        if (e.userData.type==='hold'){
+          const ok = (e.userData.holding && tRel >= e.userData.holdEndAt - 0.05);
+          if (ok){
+            this.state.score += this.scoreGain('good');
+            this.state.combo = Math.min(5.0, this.state.combo + 0.15);
+            this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+            this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
+            this.flash('HOLD','good'); EXO.beep(680,0.05,0.1);
+            this.state.cntGood++;
+          } else {
+            this.miss(e);
+          }
+        } else {
+          this.miss(e);
+        }
+        e.setAttribute('visible',false); e.userData.alive=false;
+
+        // ส่งสถานะหลังจบโน้ตหนึ่งตัว (VS)
+        if (this.isVS && EXO_NET.connected()){
+          EXO_NET.send({type:'state', score:this.state.score|0, combo:+this.state.combo});
+        }
+      }
+    }
+
+    // จบเมื่อโน้ตหมด
+    const allSpawned = this.spawnedIdx >= this.chart.length - 1;
+    const anyAlive   = this.pool.some(e => e.userData.alive);
+    if (allSpawned && !anyAlive) { this.end(); return; }
+
+    requestAnimationFrame(this._tick);
+  }
+});
+</script>
+
+</body>
+</html>
