@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Power Control</title>
+  <title>EXO · Power Control (VS Ready)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- A-Frame -->
@@ -12,6 +12,14 @@
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
+  <!-- ✅ VS / P2P -->
+  <script src="../core/exo-net.js"></script>
+
+  <style>
+    .vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}
+    .vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
+    .tagwin{color:#7ee787}.taglose{color:#ff7777}.tagtie{color:#ffd166}
+  </style>
 </head>
 <body>
 
@@ -28,9 +36,16 @@
     </div>
   </div>
 
-  <!-- Touch Zones -->
+  <!-- Touch Zones (ใช้กดค้างเพื่อ Squat) -->
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
+
+  <!-- ✅ VS HUD (เปิดเมื่อ ?vs=1) -->
+  <div id="vsHud" class="vsHud" style="display:none">
+    <div class="box">
+      Opponent <span id="oppConn">⏳</span> — Score <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
+    </div>
+  </div>
 
   <!-- Overlay -->
   <div id="overlay" class="overlay" style="display:none;">
@@ -59,7 +74,7 @@
 <script>
 AFRAME.registerComponent('power-game',{
   init(){
-    // ===== UI References =====
+    // ===== UI Refs =====
     this.$s=document.getElementById('score');
     this.$c=document.getElementById('combo');
     this.$t=document.getElementById('time');
@@ -67,11 +82,35 @@ AFRAME.registerComponent('power-game',{
     this.panel=document.getElementById('panel');
     this.player=document.getElementById('player');
 
-    // ===== Query Params =====
+    // ===== Query Params / VS =====
     const q=new URLSearchParams(location.search);
     const diff=(q.get('diff')||'normal').toLowerCase();
     const music=q.get('music'); // ?music=assets/music.ogg
     const timeParam=Math.max(10, +(q.get('time')||60));
+    this.isVS = q.get('vs') === '1';
+
+    // ✅ VS HUD
+    if (this.isVS){
+      this.$vsHud   = document.getElementById('vsHud');
+      this.$oppConn = document.getElementById('oppConn');
+      this.$oppScore= document.getElementById('oppScore');
+      this.$oppCombo= document.getElementById('oppCombo');
+      this.$vsHud.style.display='block';
+      this.opp = {score:0, combo:1.0, isOver:false};
+
+      EXO_NET.onState(st => { this.$oppConn.textContent = (st==='connected'?'✅':'⏳'); });
+      EXO_NET.onMessage(msg => {
+        if (msg?.type==='state'){
+          this.opp.score = msg.score|0; this.opp.combo = +msg.combo||1.0;
+          this.$oppScore.textContent = this.opp.score;
+          this.$oppCombo.textContent = 'x' + this.opp.combo.toFixed(1);
+        }
+        if (msg?.type==='over'){
+          this.opp.isOver = true; this.opp.score = msg.score|0;
+          this.$oppScore.textContent = this.opp.score;
+        }
+      });
+    }
 
     // ===== Difficulty Presets =====
     const DIFF={
@@ -96,13 +135,13 @@ AFRAME.registerComponent('power-game',{
     this.tutorialScore='ผ่านวงแหวนถูกท่า = คะแนน + คอมโบ · ผิดท่า = หักคะแนน';
 
     EXO.startOverlay(()=>this.start(),{
-      title:'EXO — Power Control',
+      title:'EXO — Power Control' + (this.isVS?' · VS':''),
       howto:[
         {title:'เป้าหมาย',text:this.tutorialGoal},
         {title:'การควบคุม',html:this.tutorialCtrlHTML},
         {title:'คะแนน',text:this.tutorialScore}
       ],
-      note:`Difficulty:<b>${diff.toUpperCase()}</b>${music?' · Music: on':''}`
+      note:`Difficulty:<b>${diff.toUpperCase()}</b>${music?' · Music: on':''}${this.isVS?' · VS Mode':''}`
     });
 
     // ===== Control Input =====
@@ -134,8 +173,7 @@ AFRAME.registerComponent('power-game',{
     // ===== Timer =====
     this.timer=setInterval(()=>{
       if(!this.state.running) return;
-      this.state.time--;
-      this.$t.textContent=this.state.time;
+      this.state.time--; this.$t.textContent=this.state.time;
       if(this.state.time<=0) this.end();
     },1000);
   },
@@ -165,7 +203,7 @@ AFRAME.registerComponent('power-game',{
     this.rings.push(ring);
 
     const mover=setInterval(()=>{
-      if(!this.state.running||!ring.parentNode){clearInterval(mover);return;}
+      if(!this.state.running||!ring.parentNode){clearInterval(mover);this.movers.delete(mover);return;}
       const p=ring.getAttribute('position');
       ring.setAttribute('position',`0 ${p.y} ${p.z + this.cfg.speed*0.016}`);
 
@@ -188,9 +226,14 @@ AFRAME.registerComponent('power-game',{
         this.$s.textContent=this.state.score;
         this.$c.textContent='x'+this.state.combo.toFixed(1);
 
+        // ✅ ส่งสถานะ VS ทุกครั้งที่มีการเปลี่ยนสกอร์/คอมโบ
+        if (this.isVS && EXO_NET.connected()){
+          EXO_NET.send({type:'state', score:this.state.score|0, combo:+this.state.combo});
+        }
+
         try{ring.parentNode.removeChild(ring);}catch(e){}
         const i=this.rings.indexOf(ring); if(i>=0) this.rings.splice(i,1);
-        clearInterval(mover);
+        clearInterval(mover); this.movers.delete(mover);
       }
     },16);
     this.movers.add(mover);
@@ -205,7 +248,7 @@ AFRAME.registerComponent('power-game',{
     try{EXO.audio.stopMusic();}catch(e){}
 
     this.panel.innerHTML=`
-      <div class="title">Paused</div>
+      <div class="title">Paused${this.isVS?' · VS':''}</div>
       <p>Hold to squat · Release to stand</p>
       <div style="display:flex;gap:.6rem;justify-content:center">
         <a class="btn" onclick="location.reload()">⟲ Restart</a>
@@ -219,6 +262,7 @@ AFRAME.registerComponent('power-game',{
     clearInterval(this.timer);
     clearInterval(this.spawnLoop);
     this.movers.forEach(m=>clearInterval(m));
+    this.movers.clear();
 
     const total=this.state.pass+this.state.fail;
     const acc=total>0?(this.state.pass/total)*100:0;
@@ -237,22 +281,57 @@ AFRAME.registerComponent('power-game',{
 
     try{EXO.audio.stopMusic();}catch(e){}
 
-    this.panel.innerHTML=`
-      <div class="title">Result — Power Control</div>
-      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-        <div>Score<br><b>${this.state.score}</b></div>
-        <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
-        <div>Accuracy<br><b>${acc.toFixed(1)}%</b></div>
-      </div>
-      <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-        <div>Pass<br><b>${this.state.pass}</b></div>
-        <div>Fail<br><b>${this.state.fail}</b></div>
-      </div>
-      <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⟵ Hub</a>
-      </div>`;
+    // ✅ แจ้งผลให้คู่แข่ง
+    if (this.isVS && EXO_NET.connected()){
+      EXO_NET.send({type:'over', score:this.state.score|0});
+    }
+
+    const makeResult = (oppKnown=false)=>{
+      let verdict='';
+      if (this.isVS && oppKnown){
+        if (this.state.score > this.opp.score) verdict = `<div class="tagwin"><b>YOU WIN</b></div>`;
+        else if (this.state.score < this.opp.score) verdict = `<div class="taglose"><b>YOU LOSE</b></div>`;
+        else verdict = `<div class="tagtie"><b>TIE</b></div>`;
+      }
+      return `
+        <div class="title">Result — Power Control ${this.isVS?'· VS':''}</div>
+        ${verdict}
+        <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
+          <div>Score<br><b>${this.state.score}</b></div>
+          <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+          <div>Accuracy<br><b>${acc.toFixed(1)}%</b></div>
+        </div>
+        <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+          <div>Pass<br><b>${this.state.pass}</b></div>
+          <div>Fail<br><b>${this.state.fail}</b></div>
+        </div>
+        ${this.isVS ? `
+        <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+          <div>Opponent Score<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
+          <div>Opponent Status<br><b id="oppStatus">${this.opp?.isOver?'Finished':'Pending'}</b></div>
+        </div>`:``}
+        <div style="display:flex;gap:.6rem;justify-content:center">
+          <a class="btn" onclick="location.reload()">⟲ Restart</a>
+          <a class="btn" href="../index.html">⟵ Hub</a>
+        </div>`;
+    };
+
+    this.panel.innerHTML = makeResult(this.isVS ? this.opp?.isOver : false);
     this.overlay.style.display='flex';
+
+    // ถ้า VS และฝั่งตรงข้ามยังไม่จบ ให้รอฟังผลแล้วอัปเดต verdict
+    if (this.isVS && !this.opp.isOver){
+      const handler=(msg)=>{
+        if (msg?.type==='over'){
+          this.opp.isOver=true; this.opp.score=msg.score|0;
+          const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
+          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent='Finished';
+          this.panel.innerHTML = makeResult(true);
+        }
+      };
+      EXO_NET.onMessage(handler);
+      setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent='Pending…'; }, 5000);
+    }
 
     const nextURL=new URLSearchParams(location.search).get('next');
     if(nextURL) setTimeout(()=>location.href=nextURL,1500);
