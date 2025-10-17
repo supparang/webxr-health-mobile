@@ -4,43 +4,76 @@
   <meta charset="utf-8">
   <title>EXO · Power Control</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Core -->
   <link rel="stylesheet" href="../core/exo-ui.css">
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
 </head>
 <body>
 
+  <!-- HUD -->
   <div class="hud">
-    <div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
-    <div class="box"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a href="../index.html" class="btn">⟵ Hub</a></div>
+    <div class="box">
+      <span id="score">0</span>
+      <span id="combo">x1.0</span>
+    </div>
+    <div class="box">
+      <span id="time">60</span>
+      <button id="btnPause" class="btn">⏸</button>
+      <a href="../index.html" class="btn">⟵ Hub</a>
+    </div>
   </div>
 
-  <div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
-  <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
+  <!-- Touch Zones -->
+  <div id="touchL" class="touch"></div>
+  <div id="touchR" class="touch"></div>
 
+  <!-- Overlay -->
+  <div id="overlay" class="overlay" style="display:none;">
+    <div id="panel" class="panel"></div>
+  </div>
+
+  <!-- Scene -->
   <a-scene renderer="antialias:true; colorManagement:true">
+
+    <!-- Lighting -->
     <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
     <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
-    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-    <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
+    <!-- Floor + Hit Line -->
+    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33;"></a-plane>
+    <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 0.01 -0.5"
               material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
+    <!-- Player -->
     <a-box id="player" color="#03a9f4" depth="0.3" height="0.6" width="0.6" position="0 1.6 -0.5"></a-box>
+
+    <!-- Game Logic -->
     <a-entity power-game></a-entity>
   </a-scene>
 
 <script>
 AFRAME.registerComponent('power-game',{
   init(){
-    this.$s=document.getElementById('score'); this.$c=document.getElementById('combo'); this.$t=document.getElementById('time');
-    this.overlay=document.getElementById('overlay'); this.panel=document.getElementById('panel'); this.player=document.getElementById('player');
+    // ===== UI References =====
+    this.$s=document.getElementById('score');
+    this.$c=document.getElementById('combo');
+    this.$t=document.getElementById('time');
+    this.overlay=document.getElementById('overlay');
+    this.panel=document.getElementById('panel');
+    this.player=document.getElementById('player');
 
+    // ===== Query Params =====
     const q=new URLSearchParams(location.search);
     const diff=(q.get('diff')||'normal').toLowerCase();
-    const T=Math.max(10, +(q.get('time')||60));
+    const music=q.get('music'); // ?music=assets/music.ogg
+    const timeParam=Math.max(10, +(q.get('time')||60));
 
+    // ===== Difficulty Presets =====
     const DIFF={
       easy:{ speed:3.2, spawn:1300, bonus:28, penalty:20, squatY:1.0, standY:1.6 },
       normal:{ speed:3.8, spawn:1200, bonus:30, penalty:30, squatY:1.0, standY:1.6 },
@@ -48,90 +81,132 @@ AFRAME.registerComponent('power-game',{
     };
     this.cfg=DIFF[diff]||DIFF.normal;
 
-    this.state={ score:0, combo:1.0, maxCombo:1.0, time:T, running:false, pass:0, fail:0 };
-    this.squatting=false; this.rings=[];
+    // ===== State =====
+    this.state={ score:0, combo:1.0, maxCombo:1.0, time:timeParam, running:false, pass:0, fail:0 };
+    this.$t.textContent=this.state.time;
 
-    this.panel.innerHTML=`
-      <div class="title">Power Control</div>
-      <p>Difficulty: <b>${diff.toUpperCase()}</b> · Hold touch/space = Squat</p>
-      <button id="btnStart" class="btn">▶ Start</button>
-    `;
-    this.overlay.style.display='flex';
-    document.getElementById('btnStart').onclick=()=>{ this.overlay.style.display='none'; this.start(); };
+    this.squatting=false;
+    this.rings=[];
+    this.movers=new Set();
 
-    // input: hold to squat
-    const onDown=()=>this.setSquat(true), onUp=()=>this.setSquat(false);
-    ['mousedown','touchstart'].forEach(ev=>{
-      document.getElementById('touchL').addEventListener(ev,onDown,{passive:true});
-      document.getElementById('touchR').addEventListener(ev,onDown,{passive:true});
+    // ===== Tutorial =====
+    this.title='Power Control';
+    this.tutorialGoal='ย่อ (Hold) / ยืน (Release) ให้ถูกตอนวงแหวนถึงเส้น';
+    this.tutorialCtrlHTML='<ul style="text-align:left;max-width:260px;margin:auto"><li>กดค้าง = ย่อ (Squat)</li><li>ปล่อย = ยืน (Stand)</li></ul>';
+    this.tutorialScore='ผ่านวงแหวนถูกท่า = คะแนน + คอมโบ · ผิดท่า = หักคะแนน';
+
+    EXO.startOverlay(()=>this.start(),{
+      title:'EXO — Power Control',
+      howto:[
+        {title:'เป้าหมาย',text:this.tutorialGoal},
+        {title:'การควบคุม',html:this.tutorialCtrlHTML},
+        {title:'คะแนน',text:this.tutorialScore}
+      ],
+      note:`Difficulty:<b>${diff.toUpperCase()}</b>${music?' · Music: on':''}`
     });
-    ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev=>{
-      document.getElementById('touchL').addEventListener(ev,onUp,{passive:true});
-      document.getElementById('touchR').addEventListener(ev,onUp,{passive:true});
+
+    // ===== Control Input =====
+    const down=()=>this.setSquat(true);
+    const up  =()=>this.setSquat(false);
+
+    ['mousedown','touchstart'].forEach(e=>{
+      document.getElementById('touchL').addEventListener(e,down);
+      document.getElementById('touchR').addEventListener(e,down);
     });
-    window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.key==='ArrowDown') this.setSquat(true); if(e.key==='Escape') this.pause(); });
-    window.addEventListener('keyup',e=>{ if(e.code==='Space'||e.key==='ArrowDown') this.setSquat(false); });
+    ['mouseup','mouseleave','touchend','touchcancel'].forEach(e=>{
+      document.getElementById('touchL').addEventListener(e,up);
+      document.getElementById('touchR').addEventListener(e,up);
+    });
+
+    window.addEventListener('keydown',e=>{
+      if(e.code==='Space' || e.key==='ArrowDown') this.setSquat(true);
+      if(e.key==='Escape') this.pause();
+    });
+    window.addEventListener('keyup',e=>{
+      if(e.code==='Space' || e.key==='ArrowDown') this.setSquat(false);
+    });
 
     document.getElementById('btnPause').onclick=()=>this.pause();
-    this.timer=setInterval(()=>{ if(!this.state.running) return; this.state.time--; this.$t.textContent=this.state.time; if(this.state.time<=0) this.end(); },1000);
+
+    // ===== Music =====
+    if(music) try{EXO.audio.playMusic(music,{loop:true,volume:0.35});}catch(e){}
+
+    // ===== Timer =====
+    this.timer=setInterval(()=>{
+      if(!this.state.running) return;
+      this.state.time--;
+      this.$t.textContent=this.state.time;
+      if(this.state.time<=0) this.end();
+    },1000);
   },
 
   start(){
     this.state.running=true;
-    this.spawnLoop=setInterval(()=>this.spawn(), this.cfg.spawn);
+    this.spawnLoop=setInterval(()=>this.spawn(),this.cfg.spawn);
   },
 
   setSquat(flag){
     this.squatting=!!flag;
-    this.player.object3D.position.y = this.squatting ? this.cfg.squatY : this.cfg.standY;
+    this.player.object3D.position.y=this.squatting?this.cfg.squatY:this.cfg.standY;
   },
 
   spawn(){
     if(!this.state.running) return;
     const isLow=Math.random()<0.5;
     const y=isLow?this.cfg.squatY:(this.cfg.standY+0.2);
+
     const ring=document.createElement('a-torus');
-    ring.setAttribute('radius',0.6); ring.setAttribute('radius-tubular',0.05);
-    ring.setAttribute('color', isLow? '#ffc107':'#8bc34a');
-    ring.setAttribute('position', `0 ${y} -5`);
-    ring.setAttribute('data-low', isLow?'1':'0');
+    ring.setAttribute('radius',0.6);
+    ring.setAttribute('radius-tubular',0.05);
+    ring.setAttribute('color',isLow?'#ffc107':'#8bc34a');
+    ring.setAttribute('position',`0 ${y} -5`);
+    ring.setAttribute('data-low',isLow?'1':'0');
     this.el.sceneEl.appendChild(ring);
     this.rings.push(ring);
 
-    ring.__mover=setInterval(()=>{
-      if(!this.state.running||!ring.parentNode){ clearInterval(ring.__mover); return; }
-      const p=ring.getAttribute('position'); const z=p.z + this.cfg.speed*0.016;
-      ring.setAttribute('position', `0 ${p.y} ${z}`);
-      if(z>=-0.5){
-        const needLow = ring.getAttribute('data-low')==='1';
-        const ok = (needLow && this.squatting) || (!needLow && !this.squatting);
+    const mover=setInterval(()=>{
+      if(!this.state.running||!ring.parentNode){clearInterval(mover);return;}
+      const p=ring.getAttribute('position');
+      ring.setAttribute('position',`0 ${p.y} ${p.z + this.cfg.speed*0.016}`);
+
+      if(p.z>-0.5){
+        const needLow=ring.getAttribute('data-low')==='1';
+        const ok=(needLow&&this.squatting)||(!needLow&&!this.squatting);
+
         if(ok){
           this.state.pass++;
-          this.state.score += Math.round(this.cfg.bonus * this.state.combo);
-          this.state.combo = Math.min(5.0, this.state.combo+0.18);
-          this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+          this.state.score+=Math.round(this.cfg.bonus*this.state.combo);
+          this.state.combo=Math.min(5.0,this.state.combo+0.18);
+          this.state.maxCombo=Math.max(this.state.maxCombo,this.state.combo);
           EXO.beep(700,0.05,0.1);
-        }else{
+        } else {
           this.state.fail++;
-          this.state.score = Math.max(0, this.state.score - this.cfg.penalty);
-          this.state.combo = 1.0;
+          this.state.score=Math.max(0,this.state.score-this.cfg.penalty);
+          this.state.combo=1.0;
           EXO.beep(220,0.06,0.15);
         }
-        this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
-        try{ ring.parentNode.removeChild(ring);}catch(e){}
+        this.$s.textContent=this.state.score;
+        this.$c.textContent='x'+this.state.combo.toFixed(1);
+
+        try{ring.parentNode.removeChild(ring);}catch(e){}
         const i=this.rings.indexOf(ring); if(i>=0) this.rings.splice(i,1);
-        clearInterval(ring.__mover);
+        clearInterval(mover);
       }
     },16);
+    this.movers.add(mover);
   },
 
   pause(){
     if(!this.state.running) return;
     this.state.running=false;
-    this.rings.forEach(r=>{ if(r.__mover) clearInterval(r.__mover); });
+    clearInterval(this.spawnLoop);
+    this.movers.forEach(m=>clearInterval(m));
+
+    try{EXO.audio.stopMusic();}catch(e){}
+
     this.panel.innerHTML=`
       <div class="title">Paused</div>
-      <p>Hold touch/space = Squat · Release = Stand</p>
+      <p>Hold to squat · Release to stand</p>
       <div style="display:flex;gap:.6rem;justify-content:center">
         <a class="btn" onclick="location.reload()">⟲ Restart</a>
         <a class="btn" href="../index.html">⟵ Hub</a>
@@ -141,11 +216,26 @@ AFRAME.registerComponent('power-game',{
 
   end(){
     this.state.running=false;
-    clearInterval(this.timer); clearInterval(this.spawnLoop);
-    this.rings.forEach(r=>{ if(r.__mover) clearInterval(r.__mover); });
+    clearInterval(this.timer);
+    clearInterval(this.spawnLoop);
+    this.movers.forEach(m=>clearInterval(m));
 
-    const total=this.state.pass + this.state.fail;
-    const acc = total>0 ? (this.state.pass/total)*100 : 0;
+    const total=this.state.pass+this.state.fail;
+    const acc=total>0?(this.state.pass/total)*100:0;
+
+    try{
+      EXO_METRICS.recordSession({
+        module:'Power Control',
+        diff:(new URLSearchParams(location.search).get('diff')||'normal'),
+        score:this.state.score,
+        accuracy:Math.round(acc*10)/10,
+        hits:this.state.pass,
+        misses:this.state.fail,
+        duration:this.state.time
+      });
+    }catch(e){}
+
+    try{EXO.audio.stopMusic();}catch(e){}
 
     this.panel.innerHTML=`
       <div class="title">Result — Power Control</div>
@@ -163,6 +253,9 @@ AFRAME.registerComponent('power-game',{
         <a class="btn" href="../index.html">⟵ Hub</a>
       </div>`;
     this.overlay.style.display='flex';
+
+    const nextURL=new URLSearchParams(location.search).get('next');
+    if(nextURL) setTimeout(()=>location.href=nextURL,1500);
   }
 });
 </script>
