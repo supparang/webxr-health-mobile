@@ -1,186 +1,144 @@
-<!doctype html><html lang="th"><head>
-<meta charset="utf-8">
-<title>EXO · Combat Reflex (Perf Build)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<link rel="stylesheet" href="../core/exo-ui.css">
-<script src="../core/exo-i18n.js"></script>
-<script src="../core/exo-core.js"></script>
-<script src="../core/exo-metrics.js"></script>
-<script src="../core/exo-settings.js"></script>
-<script src="../core/exo-leaderboard.js"></script>
-<script src="../core/exo-net.js"></script>
-<script src="../core/exo-boost.js"></script>
-<style>
-.vsHud{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9}.vsHud .box{background:rgba(14,20,36,.85);border:1px solid #112848}
-.tagwin{color:#7ee787}.taglose{color:#ff7777}.tagtie{color:#ffd166}
-#fb{position:fixed;left:50%;top:30%;transform:translateX(-50%);pointer-events:none;z-index:30}
-.tag{font:700 28px/1 system-ui,Segoe UI,Roboto;padding:6px 10px;margin-top:10px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(10,20,36,.55);color:#e6f2ff;text-shadow:0 0 6px rgba(255,255,255,.15);opacity:0;transform:translateY(16px);animation:rise .42s ease-out forwards}
-.tag.good{color:#7ee787;border-color:#2b8a3e}.tag.miss{color:#ff7777;border-color:#8a2b2b}
-@keyframes rise{0%{opacity:0;transform:translateY(16px)}80%{opacity:1;transform:translateY(-6px)}100%{opacity:0;transform:translateY(-2px)}}
-.feverBar{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);width:280px;height:10px;border:1px solid #2b4b86;border-radius:14px;background:rgba(14,20,36,.65);overflow:hidden;z-index:9}
-.feverFill{height:100%;width:0%;background:linear-gradient(90deg,#36d1dc,#5b86e5)}.feverOn .feverFill{background:linear-gradient(90deg,#ffd200,#ff7a00)}
-.screenFlash{position:fixed;inset:0;background:rgba(255,214,84,.18);pointer-events:none;opacity:0;transition:opacity .18s;z-index:8}.screenFlash.show{opacity:1}
-</style>
-</head><body>
-<div class="hud"><div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
-<div class="box"><span id="time">60</span><button id="btnPause" class="btn" title="Pause">⏸</button><a href="../index.html" class="btn">⏵ <span data-i18n="common.hub">Hub</span></a></div></div>
-<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
-<div id="fb"></div>
-<div id="vsHud" class="vsHud" style="display:none"><div class="box">
-<span data-i18n="common.opponent">Opponent</span> <span id="oppConn">⏳</span> — <span data-i18n="common.score">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
-</div></div>
-<div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
-<div class="feverBar"><div id="feverFill" class="feverFill"></div></div><div id="flash" class="screenFlash"></div>
-
-<a-scene renderer="antialias:true;colorManagement:true">
-  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
-  <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
-  <a-entity geometry="primitive: box; depth: 22; height: 6; width: 12" position="0 3 -7"
-            material="color:#0c1428; side: back; metalness:.1; roughness:.9"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 0.01 -0.5"
-            material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
-  <a-entity combat-director></a-entity>
-</a-scene>
-
-<script>(function(w){if(!w.EXO_I18N){const F=(k,fb)=>fb||k;w.EXO_I18N={get:()=> 'th',set:()=>{},scope:()=>F.bind(null),t:()=>F,bindDom:()=>{},addPack:()=>{},packs:{}};}})(window);
-function EXO_safeStart(startFn, overlayEl, cfg){try{if(window.EXO&&EXO.startOverlay){EXO.startOverlay(()=>startFn(),cfg||undefined);return;}}catch(e){}try{if(overlayEl)overlayEl.style.display='none';}catch(e){}window.addEventListener('click',function on(){window.removeEventListener('click',on,{once:true});try{startFn();}catch(e){}},{once:true});setTimeout(()=>{try{startFn();}catch(e){}},200);}</script>
-
 <script>
-AFRAME.registerComponent('combat-director',{init:function(){
-  const tC=EXO_I18N.scope('common'),tM=EXO_I18N.scope('combat'),lang=EXO_I18N.get();
-  this.$s=document.getElementById('score');this.$c=document.getElementById('combo');this.$t=document.getElementById('time');
-  this.$fb=document.getElementById('fb');this.overlay=document.getElementById('overlay');this.panel=document.getElementById('panel');
-  this.$fever=document.getElementById('feverFill');this.$flash=document.getElementById('flash');
+AFRAME.registerComponent('combat-game', {
+  init(){
+    // UI
+    this.scoreUI = document.getElementById('score');
+    this.timeUI  = document.getElementById('time');
+    this.overlay = document.getElementById('overlay');
 
-  const q=new URLSearchParams(location.search);
-  const diff=(q.get('diff')||'normal').toLowerCase();const music=q.get('music');const timeParam=Math.max(10,+(q.get('time')||60));
-  this.isVS=q.get('vs')==='1';
+    // Params
+    const q = new URLSearchParams(location.search);
+    this.diff = (q.get('diff')||'normal');
+    this.totalTime = Math.max(10, parseInt(q.get('time')||'60',10));
 
-  if(this.isVS){const H=document.getElementById('vsHud');H.style.display='block';
-    this.$oppConn=document.getElementById('oppConn');this.$oppScore=document.getElementById('oppScore');this.$oppCombo=document.getElementById('oppCombo');
-    this.opp={score:0,combo:1,isOver:false};EXO_NET.onState(st=>this.$oppConn.textContent=(st==='connected'?'✅':'⏳'));
-    EXO_NET.onMessage(m=>{if(m?.type==='state'){this.opp.score=m.score|0;this.opp.combo=+m.combo||1;this.$oppScore.textContent=this.opp.score;this.$oppCombo.textContent='x'+this.opp.combo.toFixed(1);}
-      if(m?.type==='over'){this.opp.isOver=true;this.opp.score=m.score|0;this.$oppScore.textContent=this.opp.score;}});}
+    // State
+    this.state = {running:false, time:this.totalTime, score:0};
+    this.spawnIvBase = {easy:800, normal:600, hard:480}[this.diff] || 600;
+    this.lastSpawn = 0;
 
-  const DIFF={easy:{speed:3.8,spawnIv:650,hitWin:.28,decoy:.10},normal:{speed:4.8,spawnIv:550,hitWin:.22,decoy:.20},hard:{speed:6.0,spawnIv:430,hitWin:.16,decoy:.35}};
-  this.cfg=DIFF[diff]||DIFF.normal;
+    // Fever & Diff (optional)
+    this.dd = new EXO_BOOST.DynamicDifficulty({});
+    this.fv = new EXO_BOOST.FeverManager({need:8,dur:9000});
 
-  this.state={score:0,combo:1,maxCombo:1,time:timeParam,running:false,cntHit:0,cntMiss:0};
-  this.$t.textContent=this.state.time;
+    // Start button
+    EXO_safeStart(()=>this.start(), this.overlay, {
+      title:'Combat Reflex',
+      note:`Diff: ${this.diff} · Time: ${this.totalTime}s`
+    });
+  },
 
-  this.spawnZ=-4.5;this.hitZ=-0.5;this.laneX={L:-0.8,R:0.8};
-  this.pool=[];for(let i=0;i<18;i++)this.pool.push(this.mkTarget(this.el.sceneEl));
+  start(){
+    // reset
+    this.state.running = true;
+    this.state.time = this.totalTime;
+    this.state.score = 0;
+    this.scoreUI.textContent = '0';
+    this.timeUI.textContent = String(this.totalTime);
+    this.lastSpawn = performance.now();
 
-  // Systems
-  this.fever=new EXO_BOOST.FeverManager({need:6,dur:8000,mul:2,barEl:this.$fever,flashEl:this.$flash});
-  this.dd=new EXO_BOOST.DynamicDifficulty({baseSpeed:this.cfg.speed,baseSpawn:this.cfg.spawnIv,minSpawn:380,maxSpawn:900});
-  this.missions=new EXO_BOOST.MissionManager('short');
+    // timer
+    this.timer = setInterval(()=>{
+      if(!this.state.running) return;
+      this.state.time -= 1;
+      this.timeUI.textContent = this.state.time;
+      if (this.state.time <= 0) this.end();
+    }, 1000);
+  },
 
-  // helpers
-  this.addScore=v=>{this.state.score+=this.fever.mulScore(v);this.$s.textContent=this.state.score;};
-  this.addTime=sec=>{this.state.time=Math.min(999,this.state.time+sec);this.$t.textContent=this.state.time;};
-  this.penalty=v=>{this.state.score=Math.max(0,this.state.score-v);this.$s.textContent=this.state.score;};
+  tick(t, dt){
+    if(!this.state.running) return;
+    // dynamic spawn interval
+    this.dd.tickDecay(dt);
+    const iv = Math.max(300, this.dd.getSpawnIv ? this.dd.getSpawnIv() : this.spawnIvBase);
+    if (performance.now() - this.lastSpawn >= iv){
+      this.spawnTarget();
+      this.lastSpawn = performance.now();
+    }
+    // fever bar (ถ้ามี)
+    this.fv.tick(dt);
+  },
 
-  this.el.sceneEl.addEventListener('loaded',()=>{this.camObj=this.el.sceneEl.camera;});
+  spawnTarget(){
+    // lane L/R แบบสุ่ม
+    const laneX = (Math.random()<0.5) ? -0.8 : 0.8;
+    const zStart = -3.8;
+    const speed = 1.6 * (this.dd.getSpeedMul ? this.dd.getSpeedMul() : 1);
 
-  const overlayEl=document.getElementById('overlay');
-  EXO_safeStart(this.start.bind(this),overlayEl,{title:tM('title')+(this.isVS?' · '+tC('vs'):''),howto:[
-    {title:lang==='th'?'เป้าหมาย':'Goal',text:tM('goal')},
-    {title:lang==='th'?'การบังคับ':'Controls',html:tM('ctrl')},
-    {title:lang==='th'?'การได้คะแนน':'Scoring',text:tM('scoreTip')}
-  ],note:`${tC('diff')}: <b>${diff.toUpperCase()}</b>${music?' · '+tC('music')+': on':''}${this.isVS?' · '+tC('vs'):''}`});
+    const box = document.createElement('a-box');
+    box.setAttribute('width','0.35');
+    box.setAttribute('height','0.35');
+    box.setAttribute('depth','0.35');
+    box.setAttribute('color','#29b6f6');
+    box.setAttribute('position', `${laneX} 1.25 ${zStart}`);
+    box.setAttribute('class','note');
+    this.el.sceneEl.appendChild(box);
 
-  const onL=()=>this.tryHit('L'),onR=()=>this.tryHit('R');
-  ['mousedown','touchstart'].forEach(ev=>{document.getElementById('touchL').addEventListener(ev,onL);document.getElementById('touchR').addEventListener(ev,onR);});
-  window.addEventListener('keydown',e=>{if(e.key==='ArrowLeft')onL();if(e.key==='ArrowRight'||e.code==='Space')onR();if(e.key==='Escape')this.pause();});
-  document.getElementById('btnPause').onclick=()=>this.pause();
-  if(music){try{EXO.audio.playMusic(music,{loop:true,volume:.35});}catch(e){}}
+    // เคลื่อนเข้าหา player ด้วย animation__move
+    const dur = 2200 / speed;
+    box.setAttribute('animation__move', {
+      property: 'position',
+      to: `${laneX} 1.25 -0.2`,
+      dur: dur,
+      easing: 'linear'
+    });
 
-  this.timer=setInterval(()=>{if(!this.state.running)return;this.state.time--;this.$t.textContent=this.state.time;if(this.state.time<=0)this.end();},1000);
-},flash:function(label,cls){try{while(this.$fb.children.length>2)this.$fb.removeChild(this.$fb.firstChild);const s=document.createElement('div');s.className=`tag ${cls}`;s.textContent=label;this.$fb.appendChild(s);s.style.animationDuration='0.42s';setTimeout(()=>s.remove(),420);}catch(e){}},
-mkTarget:function(scene){const e=document.createElement('a-entity');e.setAttribute('visible',false);e.userData={alive:false,side:'L',vz:0,type:'normal',hp:1};const inner=document.createElement('a-entity');inner.setAttribute('geometry','primitive: box; depth:.35; height:.35; width:.35');inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');e.appendChild(inner);scene.appendChild(e);return e;},
-start:function(){this.state.running=true;this.spawnLoop=setInterval(()=>this.spawn(),this.dd.getSpawnIv());},
-spawn:function(){
-  if(!this.state.running)return;
-  const e=this.pool.find(o=>!o.userData.alive);if(!e)return;
-  const side=Math.random()<.5?'L':'R';const kind=EXO_BOOST.Specials.roll({gold:.10,time:.06,bomb:.08,shield:.12});
-  e.userData.alive=true;e.userData.side=side;e.userData.type=kind;e.userData.hp=(kind==='shield')?2:1;
-  e.userData.vz=this.cfg.speed*this.dd.getSpeedMul()+(Math.random()*.6-.3);
-  const inner=e.children[0];
-  if(kind==='bomb'){inner.setAttribute('material','color:#ff8a80; emissive:#8a2b2b; emissiveIntensity:.35');inner.setAttribute('geometry','primitive: box; depth:.35; height:.35; width:.35');}
-  else if(kind==='gold'){inner.setAttribute('material','color:#ffd54f; emissive:#b28704; emissiveIntensity:.45; metalness:.6; roughness:.2');inner.setAttribute('geometry','primitive: box; depth:.35; height:.35; width:.35');}
-  else if(kind==='shield'){inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');inner.setAttribute('geometry','primitive: torus; radius:.26; radiusTubular:.025');}
-  else{inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');inner.setAttribute('geometry','primitive: box; depth:.35; height:.35; width:.35');}
-  e.object3D.position.set(this.laneX[side],1.4,this.spawnZ);e.setAttribute('visible',true);
-  clearInterval(this.spawnLoop);this.spawnLoop=setInterval(()=>this.spawn(),this.dd.getSpawnIv());
-},
-tryHit:function(side){
-  if(!this.state.running)return;const b=this.findBest(side);
-  if(!b){this.fever.miss();this.state.combo=1;this.$c.textContent='x1.0';this.flash('MISS','miss');this.dd.onMiss();if(this.isVS&&EXO_NET.connected())EXO_NET.send({type:'state',score:this.state.score|0,combo:+this.state.combo});return;}
-  const dz=Math.abs(b.object3D.position.z-this.hitZ);
-  if(dz<=this.cfg.hitWin){
-    // shield needs 2 hits
-    if(b.userData.type==='shield'&&b.userData.hp>1){b.userData.hp-=1;this.flash('BREAK','good');EXO.beep(480,.05,.08);this.fever.hit();this.dd.onHit();EXO_BOOST.Juice.shake(this.camObj,this.fever.on?.022:.015);return;}
-    const q=dz<=this.cfg.hitWin*.4?1:dz<=this.cfg.hitWin*.7?.7:.4;
-    const base=(b.userData.type==='gold')?220:120;
-    const gain=Math.round(base*q*this.state.combo);
-    this.addScore(gain);
-    this.state.combo=Math.min(6,this.state.combo+.22);this.state.maxCombo=Math.max(this.state.maxCombo,this.state.combo);this.$c.textContent='x'+this.state.combo.toFixed(1);
+    // เมื่อถึง Hit line → ถ้ายังอยู่ = นับ miss และลบ
+    setTimeout(()=>{
+      if(!box.parentNode) return;
+      this.onMiss();
+      box.remove();
+    }, dur + 60);
+  },
 
-    // specials
-    if(b.userData.type==='time')this.addTime(2);
-    if(b.userData.type==='bomb'){this.penalty(120);this.state.combo=1;this.$c.textContent='x1.0';this.fever.miss();this.dd.onMiss();this.flash('BOMB','miss');EXO.beep(220,.06,.16);}
-    else{this.fever.hit();this.dd.onHit();this.flash(b.userData.type==='gold'?'GOLD!':'HIT','good');EXO.beep(540+.12*(q*300),.04,.12);}
+  onHit(quality='good'){
+    // เรียกจาก input ของคุณ (เมื่อผู้เล่นตีโดน lane ปัจจุบัน)
+    if(!this.state.running) return;
+    const base = {perfect:150, good:100, okay:60}[quality] || 80;
+    const s = this.fv.mulScore ? this.fv.mulScore(base) : base;
+    this.state.score += s|0;
+    this.scoreUI.textContent = this.state.score;
+    this.dd.onHit && this.dd.onHit();
+    this.fv.hit && this.fv.hit();
+    try{ EXO.beep(quality==='perfect'?920:quality==='good'?780:640, 0.05, 0.10); }catch(e){}
+  },
 
-    EXO_BOOST.Juice.shake(this.camObj,this.fever.on?.022:.015);
-    b.setAttribute('visible',false);b.userData.alive=false;
-  }else{
-    this.fever.miss();this.state.combo=1;this.$c.textContent='x1.0';this.flash('MISS','miss');EXO.beep(220,.04,.10);this.dd.onMiss();
+  onMiss(){
+    if(!this.state.running) return;
+    this.dd.onMiss && this.dd.onMiss();
+    this.fv.miss && this.fv.miss();
+    try{ EXO.beep(240, 0.06, 0.1); }catch(e){}
+  },
+
+  end(){
+    this.state.running = false;
+    clearInterval(this.timer);
+    // summary minimal
+    const p = document.getElementById('panel');
+    const ov = document.getElementById('overlay');
+    ov.style.display='flex';
+    p.innerHTML = `
+      <div class="title">Result</div>
+      <div class="kpi"><div>Score</div><b>${this.state.score}</b></div>
+      <div style="text-align:center;margin-top:.6rem">
+        <a class="btn" href="../index.html">⟵ Back</a>
+        <a class="btn" onclick="location.reload()">↺ Replay</a>
+      </div>`;
+  },
+
+  remove(){
+    clearInterval(this.timer);
   }
-  if(this.isVS&&EXO_NET.connected())EXO_NET.send({type:'state',score:this.state.score|0,combo:+this.state.combo});
-},
-findBest:function(side){let best=null,d=1e9;for(const e of this.pool){if(!e.userData.alive)continue;if(e.userData.side!==side)continue;const dz=Math.abs(e.object3D.position.z-this.hitZ);if(dz<d){d=dz;best=e;}}return best;},
-pause:function(){if(!this.state.running)return;const tC=EXO_I18N.scope('common');this.state.running=false;try{EXO.audio.stopMusic();}catch(e){};this.panel.innerHTML=`<div class="title">${tC('paused')}${this.isVS?' · '+tC('vs'):''}</div><div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a><a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;this.overlay.style.display='flex';},
-tick:function(t,dt){
-  if(!this.state.running)return;const s=dt/1000;
-  for(const e of this.pool){if(!e.userData.alive)continue;const p=e.object3D.position;p.z+=e.userData.vz*s;if(p.z>.2){if(e.userData.type!=='bomb'){this.state.cntMiss++;this.state.combo=1;this.$c.textContent='x1.0';this.flash('MISS','miss');this.fever.miss();this.dd.onMiss();}e.setAttribute('visible',false);e.userData.alive=false;}}
-  this.fever.tick(dt);this.dd.tickDecay(dt);
-},
-end:function(){
-  const tC=EXO_I18N.scope('common'),tM=EXO_I18N.scope('combat');
-  this.state.running=false;clearInterval(this.timer);clearInterval(this.spawnLoop);try{EXO.audio.stopMusic();}catch(e){}
-  if(this.isVS&&EXO_NET.connected())EXO_NET.send({type:'over',score:this.state.score|0});
-  const total=(this.state.cntHit||0)+(this.state.cntMiss||0);const hitRate=total? (this.state.cntHit/total)*100:0;const hitRateStr=hitRate.toFixed(1);
+});
 
-  try{EXO_METRICS.recordSession({module:'Combat Reflex',diff:(new URLSearchParams(location.search).get('diff')||'normal'),score:this.state.score||0,accuracy:Math.round(hitRate*10)/10,hits:this.state.cntHit||0,misses:this.state.cntMiss||0,duration:+(new URLSearchParams(location.search).get('time')||60)});}catch(e){}
-
-  const makeHTML=(oppKnown=false)=>{let verdict='';if(this.isVS&&oppKnown){if(this.state.score>(this.opp?.score||0))verdict=`<div class="tagwin"><b>${tC('youWin')}</b></div>`;else if(this.state.score<(this.opp?.score||0))verdict=`<div class="taglose"><b>${tC('youLose')}</b></div>`;else verdict=`<div class="tagtie"><b>${tC('tie')}</b></div>`;}
-    return `<div class="title">${tC('result')} — Combat Reflex ${this.isVS?'· '+tC('vs'):''}</div>${verdict}
-      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-        <div>${tC('score')}<br><b>${this.state.score}</b></div>
-        <div>${tC('maxCombo')}<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
-        <div>${tM('hitRate')}<br><b>${hitRateStr}%</b></div>
-      </div>
-      ${this.isVS?`<div class="kpi" style="grid-template-columns:repeat(2,1fr)"><div>${tC('oppScore')}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div><div>${tC('oppStatus')}<br><b id="oppStatus">${this.opp?.isOver?tC('finished'):tC('pending')}</b></div></div>`:''}
-      <div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a><a class="btn" href="../index.html">⏵ ${tC('hub')}</a></div>`;};
-  this.panel.innerHTML=makeHTML(this.isVS?this.opp?.isOver:false);this.overlay.style.display='flex';
-
-  if(this.isVS&&!this.opp?.isOver){EXO_NET.onMessage(m=>{if(m?.type==='over'){this.opp.isOver=true;this.opp.score=m.score|0;const sF=document.getElementById('oppScoreFinal');if(sF)sF.textContent=this.opp.score;const sS=document.getElementById('oppStatus');if(sS)sS.textContent=tC('finished');this.panel.innerHTML=makeHTML(true);}});setTimeout(()=>{const sS=document.getElementById('oppStatus');if(sS&&!this.opp.isOver)sS.textContent=tC('pending');if(!this._skipBtn){this._skipBtn=document.createElement('a');this._skipBtn.className='btn';this._skipBtn.style.marginTop='8px';this._skipBtn.textContent=tC('hub');this._skipBtn.onclick=()=>location.href='../index.html';this.panel.appendChild(this._skipBtn);}},2000);}
-
-  // Missions + XP
-  const metrics={score:this.state.score,hits:this.state.cntHit,misses:this.state.cntMiss,comboMax:Math.round(this.state.maxCombo||1),avoided:0,perfectPct:hitRate,timePlayed:+(new URLSearchParams(location.search).get('time')||60)};
-  const done=this.missions.evaluate(metrics);const reward=this.missions.rewardXP();const baseXP=Math.round(this.state.score/25);const res=EXO_BOOST.XP.add(baseXP+reward);
-  const list=done.length?('<ul>'+done.map(x=>`<li>✓ ${x.name} (+${x.xp} XP)</li>`).join('')+'</ul>'):'<p>—</p>';
-  const lvl=`<div class="kpi"><div>XP</div><b>${res.xp}</b><div>Level</div><b>${res.level}</b></div>`;
-  const ms =`<div class="kpi"><div>Missions</div><div style="grid-column:1/-1">${list}</div></div>`;
-  this.panel.insertAdjacentHTML('beforeend',lvl+ms);
-
-  // Online LB (ถามชื่อแล้วส่ง)
-  setTimeout(async()=>{try{const name=prompt(tC('askName'),'');if(!name)return;await EXO_LB.submit({name,module:'Combat Reflex',score:this.state.score|0,accuracy:parseFloat(hitRateStr),diff:(new URLSearchParams(location.search).get('diff')||'normal')});const ok=document.createElement('div');ok.className='kpi';ok.style.cssText='margin-top:8px;text-align:center';ok.innerHTML=`<div style="grid-column:1/-1"><b>${tC('sent')}</b></div>`;this.panel.appendChild(ok);}catch(e){}},300);
-
-  const nextURL=new URLSearchParams(location.search).get('next');if(nextURL)setTimeout(()=>location.href=nextURL,1500);
-}});
+// ตัวอย่าง map ปุ่มซ้าย/ขวา → onHit (คุณมีระบบของตัวเองอยู่แล้วก็เรียก onHit() ได้เลย)
+AFRAME.registerComponent('combat-input', {
+  init(){
+    const game = document.querySelector('[combat-game]').components['combat-game'];
+    EXO.attachBasicInput({
+      onLeft: ()=> game && game.onHit('good'),
+      onRight:()=> game && game.onHit('good'),
+      onPause: ()=>{}
+    });
+  }
+});
 </script>
-</body></html>
