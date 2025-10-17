@@ -1,125 +1,86 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>EXO · Mobility Dash</title>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<link rel="stylesheet" href="../core/exo-ui.css">
-</head><body>
-<div class="hud">
-  <div class="box"><span id="score">0</span></div>
-  <div class="box"><span id="time">60</span><a class="btn" id="btnPause">⏸</a><a class="btn" href="../index.html">⟵ Hub</a></div>
-</div>
-<div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
-<div id="overlay" class="overlay" style="display:none"><div class="panel" id="panel"></div></div>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>EXO · Mobility Dash</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <link rel="stylesheet" href="../core/exo-ui.css">
+  <script src="../core/exo-core.js"></script>
+  <script src="../core/exo-metrics.js"></script>
+</head>
+<body>
 
-<script src="../core/exo-metrics.js"></script>
-<script src="../core/exo-core.js"></script>
+  <!-- HUD -->
+  <div class="hud">
+    <div class="box">
+      <span id="score">0</span>
+    </div>
+    <div class="box">
+      <span id="time">60</span>
+      <button id="btnPause" class="btn">⏸</button>
+      <a href="../index.html" class="btn">⟵ Exit</a>
+    </div>
+  </div>
 
-<a-scene vr-mode-ui="enabled: true" renderer="antialias:true; highRefreshRate:true; colorManagement:true">
-  <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
-  <a-entity light="type:directional;intensity:.9;color:#aee0ff" position="0 3 2"></a-entity>
-  <a-entity geometry="primitive: box; depth:22; height:6; width:12" position="0 3 -7"
-            material="color:#0c1428; side:back; metalness:.1; roughness:.9"></a-entity>
-  <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-  <a-entity geometry="primitive: box; depth:.02; height:.02; width:12" position="0 .01 -3.5"
-            material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.6"></a-entity>
-  <a-entity id="rig"><a-entity camera position="0 1.6 0"><a-entity cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity></a-entity></a-entity>
+  <!-- Touch -->
+  <div id="touchL" class="touch"></div>
+  <div id="touchR" class="touch"></div>
 
-  <a-box id="player" color="#4caf50" depth=".2" height=".2" width=".2" position="0 1.0 -0.5"></a-box>
-  <a-entity id="director" dash-director></a-entity>
-</a-scene>
+  <!-- Overlay -->
+  <div id="overlay" class="overlay" style="display:none;">
+    <div id="panel" class="panel"></div>
+  </div>
 
-<script>
+  <!-- Scene -->
+  <a-scene>
+    <a-entity light="type:ambient;intensity:0.7"></a-entity>
+    <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
+
+    <!-- Player -->
+    <a-box id="player" color="#4caf50" depth="0.3" height="0.3" width="0.3" position="-0.8 1.2 -0.5"></a-box>
+
+    <!-- Game Controller -->
+    <a-entity dash-game></a-entity>
+  </a-scene>
+
   <script>
-// --- EXO DOM refs (Hotfix for modern browsers) ---
-const score   = document.getElementById('score');
-const combo   = document.getElementById('combo');
-const time    = document.getElementById('time');
-const panel   = document.getElementById('panel');
-const overlay = document.getElementById('overlay');
-const player  = document.getElementById('player');
-const touchL  = document.getElementById('touchL');
-const touchR  = document.getElementById('touchR');
-</script>
+  AFRAME.registerComponent('dash-game', {
+    init() {
+      this.scoreUI = document.getElementById('score');
+      this.timeUI  = document.getElementById('time');
+      this.overlay = document.getElementById('overlay');
+      this.panel   = document.getElementById('panel');
+      this.player  = document.getElementById('player');
 
-AFRAME.registerComponent('dash-director',{
-  init(){
-    this.state={score:0,time:60,running:false};
-    this.rec=new EXO_METRICS.Recorder('MobilityDash');
-    this.laneX={L:-0.8,R:0.8}; this.playerLane='L';
-    this.spawnZ=-6; this.speed=4.8; this.pool=[]; for(let i=0;i<12;i++) this.pool.push(this.mkObstacle(this.el.sceneEl));
-    this.elapsed=0; this.nextSpawn=0.8; // seconds
-    EXO.startOverlay(()=>this.start());
-    EXO.attachBasicInput({onLeft:()=>this.move('L'), onRight:()=>this.move('R'), onPause:()=>this.pause()});
-    document.getElementById('btnPause').onclick=()=>this.pause();
-    this.tick=AFRAME.utils.throttleTick(this.tick.bind(this),16);
-    this.$s=score; this.$t=time;
-  },
-  start(){
-    this.state.running=true;
-    this.timer=setInterval(()=>{ if(!this.state.running) return; if(this.state.time<=0){this.end();return;}
-      this.state.time--; this.$t.textContent=this.state.time; },1000);
-  },
-  pause(){ this.state.running=false; this.showPanel(`<div class="title">Paused</div><div style="display:flex;gap:.6rem;justify-content:center"><a class="btn" href="../index.html">⟵ Hub</a><a class="btn" onclick="location.reload()">⟲ Restart</a></div>`); },
-  mkObstacle(scene){ const e=document.createElement('a-entity'); e.setAttribute('geometry','primitive: box; depth:0.4; height:0.5; width:0.5'); e.setAttribute('material','color:#e53935');
-    e.setAttribute('visible',false); e.userData={alive:false,lane:'L',spawnTime:0}; scene.appendChild(e); return e; },
-  spawn(lane){
-    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
-    e.userData.alive=true; e.userData.lane=lane; e.userData.spawnTime=EXO.now();
-    e.object3D.position.set(this.laneX[lane],1.1,this.spawnZ); e.setAttribute('visible',true);
-  },
-  move(lane){
-    if(!this.state.running) return;
-    const t=EXO.now(); // record decision time if obstacle approaching same lane
-    this.playerLane=lane; player.object3D.position.x=this.laneX[lane];
-    // find nearest approaching obstacle on chosen lane to compute decisionMs (optional heuristic)
-    let target=null, dzBest=999;
-    for(const e of this.pool){
-      if(!e.userData.alive) continue;
-      const dz = Math.abs(e.object3D.position.z + 0.5);
-      if(dz<dzBest){dzBest=dz; target=e;}
-    }
-    if(target){ this.lastDecisionMs = (t - target.userData.spawnTime)*1000; }
-  },
-  end(){
-    this.state.running=false; clearInterval(this.timer);
-    const sum=this.rec.summary(); const csv=this.rec.csv('session-'+Date.now());
-    const html=`<div class="title">Result — Mobility Dash</div>
-      <div class="kpi">
-        <div>Score<br><b>${sum.score.toFixed(0)}</b></div>
-        <div>Accuracy<br><b>${sum.accuracyPct.toFixed(1)}%</b></div>
-        <div>Avg RT (decision)<br><b>${sum.avgReactionMs.toFixed(1)} ms</b></div>
-        <div>Stability<br><b>${sum.stability.toFixed(1)}</b></div>
-      </div>
-      <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" id="dl">⬇ Download CSV</a>
-        <a class="btn" onclick="location.reload()">⟲ Restart</a>
-        <a class="btn" href="../index.html">⟵ Hub</a>
-      </div>`;
-    this.showPanel(html); document.getElementById('dl').onclick=()=>EXO.downloadCSV('exo_mobility_dash.csv',csv);
-  },
-  showPanel(inner){ panel.innerHTML=inner; overlay.style.display='flex'; },
-  tick(t,dt){
-    if(!this.state.running) return;
-    const dtS=dt/1000; this.elapsed+=dtS;
-    if(this.elapsed>=this.nextSpawn){ this.spawn(Math.random()<0.5?'L':'R'); this.nextSpawn+=0.8; }
-    for(const e of this.pool){
-      if(!e.userData.alive) continue;
-      const p=e.object3D.position; p.z += this.speed*dtS;
-      if(p.z>-0.4){
-        const avoid = ( (e.userData.lane==='L' && this.playerLane==='R') || (e.userData.lane==='R' && this.playerLane==='L') );
-        const t=EXO.now();
-        if(avoid){ // success
-          this.state.score+=20; this.$s.textContent=this.state.score;
-          this.rec.log({t, stimulus:e.userData.spawnTime, response:t, reactionMs:(t-e.userData.spawnTime)*1000, success:true, decisionMs:this.lastDecisionMs||0});
-        }else{ // hit
-          this.state.score=Math.max(0,this.state.score-50); this.$s.textContent=this.state.score;
-          this.rec.log({t, stimulus:e.userData.spawnTime, response:t, reactionMs:(t-e.userData.spawnTime)*1000, success:false, decisionMs:this.lastDecisionMs||0});
-        }
-        e.setAttribute('visible',false); e.userData.alive=false;
-      }
-      if(p.z>0.6){ e.setAttribute('visible',false); e.userData.alive=false; }
-    }
-  }
-});
-</script>
-</body></html>
+      this.state = { score: 0, time: 60, running: false };
+      this.spawnInterval = 800;
+      this.obstacles = [];
+      this.lanes = { L: -0.8, R: 0.8 };
+      this.playerLane = "L";
+
+      EXO.startOverlay(() => this.start());
+
+      EXO.attachBasicInput({
+        onLeft: () => this.move("L"),
+        onRight: () => this.move("R"),
+        onPause: () => this.pause()
+      });
+
+      document.getElementById('btnPause').onclick = () => this.pause();
+
+      this.loop = setInterval(() => this.spawn(), this.spawnInterval);
+
+      this.timer = setInterval(() => {
+        if (!this.state.running) return;
+        this.state.time--;
+        this.timeUI.innerText = this.state.time;
+        if (this.state.time <= 0) this.end();
+      }, 1000);
+    },
+
+    start() {
+      this.state.running = true;
+    },
+
+    move(s
