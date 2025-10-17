@@ -138,6 +138,12 @@
       this.diff=(q.get('diff')||'normal');
       this.totalTime=Math.max(10, parseInt(q.get('time')||'60',10));
 
+      // ✅ Config: ปิด time orb และ time gain เป็นค่าเริ่มต้น
+      this.cfg = {
+        allowTimeOrb:  (q.get('timeorb') === '1'),
+        allowTimeGain: (q.get('timegain') === '1')
+      };
+
       // State
       this.state={
         running:false, practice:false,
@@ -298,7 +304,15 @@
       }
     },
 
-    rollType(){ const r=Math.random(); if(r<0.07) return 'armored'; if(r<0.16) return 'bomb'; if(r<0.30) return 'golden'; if(r<0.38) return 'timeorb'; return 'normal'; },
+    // ✅ rollType เคารพ config: timeorb จะสุ่มเฉพาะเมื่อเปิดใช้งาน
+    rollType(){
+      const r = Math.random();
+      if (r < 0.07) return 'armored';
+      if (r < 0.16) return 'bomb';
+      if (r < 0.30) return 'golden';
+      if (this.cfg.allowTimeOrb && r < 0.38) return 'timeorb';
+      return 'normal';
+    },
 
     spawnTarget(lane,type,durOverride){
       const x=(lane==='L')?-0.8:0.8, y=1.25, zStart=-3.8;
@@ -339,11 +353,14 @@
       if(type==='bomb'){
         this.addScore(-220); this.breakCombo(); best.remove(); this.updateMissionOn('miss'); return;
       }
-      // Time orb
+      // ✅ Time orb (เคารพ config: ไม่เพิ่มเวลาถ้าไม่เปิด)
       if(type==='timeorb'){
-        this.state.time=Math.min(this.totalTime+30, this.state.time+5);
-        this.ui.time.textContent=this.state.time;
-        this.addScore(120); this.state.combo++; this.state.hit++; best.remove(); this.updateMissionOn('hit','okay'); this.refreshUI(); return;
+        if (this.cfg.allowTimeGain){
+          this.state.time = Math.max(0, this.state.time + 5);
+          this.ui.time.textContent = this.state.time;
+        }
+        this.addScore(120); this.state.combo++; this.state.hit++;
+        best.remove(); this.updateMissionOn('hit','okay'); this.refreshUI(); return;
       }
 
       // คุณภาพตามระยะ
