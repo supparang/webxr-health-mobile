@@ -11,171 +11,161 @@
 </head>
 <body>
 
-  <!-- HUD -->
   <div class="hud">
-    <div class="box">
-      <span id="score">0</span>
-    </div>
-    <div class="box">
-      <span id="time">60</span>
-      <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⟵ Exit</a>
-    </div>
+    <div class="box"><span id="score">0</span><span id="combo">x1.0</span></div>
+    <div class="box"><span id="time">60</span><button id="btnPause" class="btn">⏸</button><a href="../index.html" class="btn">⟵ Hub</a></div>
   </div>
 
-  <!-- Touch zones (ซ้าย/ขวา) ใช้กดค้าง = ย่อตัว -->
-  <div id="touchL" class="touch"></div>
-  <div id="touchR" class="touch"></div>
+  <div id="touchL" class="touch"></div><div id="touchR" class="touch"></div>
+  <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
 
-  <!-- Overlay -->
-  <div id="overlay" class="overlay" style="display:none;">
-    <div id="panel" class="panel"></div>
-  </div>
+  <a-scene renderer="antialias:true; colorManagement:true">
+    <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
+    <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
-  <!-- Scene -->
-  <a-scene>
-    <a-entity light="type:ambient;intensity:0.7"></a-entity>
-    <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
+    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4" material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+    <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
+              material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
-    <!-- ตัวผู้เล่น (แท่งแสดงความสูงตัว) -->
     <a-box id="player" color="#03a9f4" depth="0.3" height="0.6" width="0.6" position="0 1.6 -0.5"></a-box>
-
-    <!-- Game Controller -->
     <a-entity power-game></a-entity>
   </a-scene>
 
-  <script>
-  AFRAME.registerComponent('power-game', {
-    init() {
-      this.scoreUI = document.getElementById('score');
-      this.timeUI  = document.getElementById('time');
-      this.overlay = document.getElementById('overlay');
-      this.panel   = document.getElementById('panel');
-      this.player  = document.getElementById('player');
+<script>
+AFRAME.registerComponent('power-game',{
+  init(){
+    this.$s=document.getElementById('score'); this.$c=document.getElementById('combo'); this.$t=document.getElementById('time');
+    this.overlay=document.getElementById('overlay'); this.panel=document.getElementById('panel'); this.player=document.getElementById('player');
 
-      this.state = { score: 0, time: 60, running: false };
-      this.squatting = false;                // true = ย่อตัว, false = ยืน
-      this.speed = 3.6;                      // ความเร็ววงแหวน
-      this.spawnEvery = 1200;                // ms ต่อหนึ่งวง
-      this.rings = [];
+    const q=new URLSearchParams(location.search);
+    const diff=(q.get('diff')||'normal').toLowerCase();
+    const T=Math.max(10, +(q.get('time')||60));
 
-      // เริ่มด้วย overlay ▶ Start
-      EXO.startOverlay(() => this.start());
+    const DIFF={
+      easy:{ speed:3.2, spawn:1300, bonus:28, penalty:20, squatY:1.0, standY:1.6 },
+      normal:{ speed:3.8, spawn:1200, bonus:30, penalty:30, squatY:1.0, standY:1.6 },
+      hard:{ speed:4.6, spawn:1000, bonus:34, penalty:36, squatY:0.95, standY:1.65 }
+    };
+    this.cfg=DIFF[diff]||DIFF.normal;
 
-      // ปุ่ม Pause
-      document.getElementById('btnPause').onclick = () => this.pause();
+    this.state={ score:0, combo:1.0, maxCombo:1.0, time:T, running:false, pass:0, fail:0 };
+    this.squatting=false; this.rings=[];
 
-      // Touch (กดค้าง = squat)
-      const onDown = () => this.setSquat(true);
-      const onUp   = () => this.setSquat(false);
-      ['mousedown','touchstart'].forEach(ev=>{
-        document.getElementById('touchL').addEventListener(ev, onDown, {passive:true});
-        document.getElementById('touchR').addEventListener(ev, onDown, {passive:true});
-      });
-      ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev=>{
-        document.getElementById('touchL').addEventListener(ev, onUp, {passive:true});
-        document.getElementById('touchR').addEventListener(ev, onUp, {passive:true});
-      });
+    this.panel.innerHTML=`
+      <div class="title">Power Control</div>
+      <p>Difficulty: <b>${diff.toUpperCase()}</b> · Hold touch/space = Squat</p>
+      <button id="btnStart" class="btn">▶ Start</button>
+    `;
+    this.overlay.style.display='flex';
+    document.getElementById('btnStart').onclick=()=>{ this.overlay.style.display='none'; this.start(); };
 
-      // Keyboard (กด/ปล่อย Space หรือ ArrowDown เพื่อ squat)
-      window.addEventListener('keydown', e=>{
-        if (e.code === 'Space' || e.key === 'ArrowDown') this.setSquat(true);
-        if (e.key === 'Escape') this.pause();
-      });
-      window.addEventListener('keyup', e=>{
-        if (e.code === 'Space' || e.key === 'ArrowDown') this.setSquat(false);
-      });
+    // input: hold to squat
+    const onDown=()=>this.setSquat(true), onUp=()=>this.setSquat(false);
+    ['mousedown','touchstart'].forEach(ev=>{
+      document.getElementById('touchL').addEventListener(ev,onDown,{passive:true});
+      document.getElementById('touchR').addEventListener(ev,onDown,{passive:true});
+    });
+    ['mouseup','mouseleave','touchend','touchcancel'].forEach(ev=>{
+      document.getElementById('touchL').addEventListener(ev,onUp,{passive:true});
+      document.getElementById('touchR').addEventListener(ev,onUp,{passive:true});
+    });
+    window.addEventListener('keydown',e=>{ if(e.code==='Space'||e.key==='ArrowDown') this.setSquat(true); if(e.key==='Escape') this.pause(); });
+    window.addEventListener('keyup',e=>{ if(e.code==='Space'||e.key==='ArrowDown') this.setSquat(false); });
 
-      // สปอนวงแหวนเรื่อย ๆ
-      this.loop = setInterval(()=> this.spawn(), this.spawnEvery);
+    document.getElementById('btnPause').onclick=()=>this.pause();
+    this.timer=setInterval(()=>{ if(!this.state.running) return; this.state.time--; this.$t.textContent=this.state.time; if(this.state.time<=0) this.end(); },1000);
+  },
 
-      // นับเวลาถอยหลัง
-      this.timer = setInterval(() => {
-        if (!this.state.running) return;
-        this.state.time--;
-        this.timeUI.innerText = this.state.time;
-        if (this.state.time <= 0) this.end();
-      }, 1000);
-    },
+  start(){
+    this.state.running=true;
+    this.spawnLoop=setInterval(()=>this.spawn(), this.cfg.spawn);
+  },
 
-    start() {
-      this.state.running = true;
-    },
+  setSquat(flag){
+    this.squatting=!!flag;
+    this.player.object3D.position.y = this.squatting ? this.cfg.squatY : this.cfg.standY;
+  },
 
-    setSquat(flag) {
-      this.squatting = !!flag;
-      // เปลี่ยนความสูง box ผู้เล่นให้เห็นภาพ
-      const y = this.squatting ? 1.0 : 1.6;
-      this.player.setAttribute('position', `0 ${y} -0.5`);
-    },
+  spawn(){
+    if(!this.state.running) return;
+    const isLow=Math.random()<0.5;
+    const y=isLow?this.cfg.squatY:(this.cfg.standY+0.2);
+    const ring=document.createElement('a-torus');
+    ring.setAttribute('radius',0.6); ring.setAttribute('radius-tubular',0.05);
+    ring.setAttribute('color', isLow? '#ffc107':'#8bc34a');
+    ring.setAttribute('position', `0 ${y} -5`);
+    ring.setAttribute('data-low', isLow?'1':'0');
+    this.el.sceneEl.appendChild(ring);
+    this.rings.push(ring);
 
-    spawn() {
-      if (!this.state.running) return;
-      const isLow = Math.random() < 0.5;     // true = ต้องย่อตัว, false = ต้องยืน
-      const y = isLow ? 1.0 : 1.8;
-
-      const ring = document.createElement('a-torus');
-      ring.setAttribute('radius', 0.6);
-      ring.setAttribute('radius-tubular', 0.05);
-      ring.setAttribute('color', isLow ? '#ffc107' : '#8bc34a'); // สีเหลือง = squat / เขียว = stand
-      ring.setAttribute('position', `0 ${y} -5`);
-      ring.setAttribute('data-low', isLow ? '1' : '0');
-
-      this.el.sceneEl.appendChild(ring);
-      this.rings.push(ring);
-
-      // เคลื่อนที่เข้าหาผู้เล่น
-      const interval = setInterval(() => {
-        if (!this.state.running || !ring.parentNode) {
-          clearInterval(interval);
-          return;
+    ring.__mover=setInterval(()=>{
+      if(!this.state.running||!ring.parentNode){ clearInterval(ring.__mover); return; }
+      const p=ring.getAttribute('position'); const z=p.z + this.cfg.speed*0.016;
+      ring.setAttribute('position', `0 ${p.y} ${z}`);
+      if(z>=-0.5){
+        const needLow = ring.getAttribute('data-low')==='1';
+        const ok = (needLow && this.squatting) || (!needLow && !this.squatting);
+        if(ok){
+          this.state.pass++;
+          this.state.score += Math.round(this.cfg.bonus * this.state.combo);
+          this.state.combo = Math.min(5.0, this.state.combo+0.18);
+          this.state.maxCombo = Math.max(this.state.maxCombo, this.state.combo);
+          EXO.beep(700,0.05,0.1);
+        }else{
+          this.state.fail++;
+          this.state.score = Math.max(0, this.state.score - this.cfg.penalty);
+          this.state.combo = 1.0;
+          EXO.beep(220,0.06,0.15);
         }
-        const p = ring.getAttribute('position');
-        const zNext = p.z + (this.speed * 0.016);  // ~60 FPS
-        ring.setAttribute('position', `0 ${p.y} ${zNext}`);
+        this.$s.textContent=this.state.score; this.$c.textContent='x'+this.state.combo.toFixed(1);
+        try{ ring.parentNode.removeChild(ring);}catch(e){}
+        const i=this.rings.indexOf(ring); if(i>=0) this.rings.splice(i,1);
+        clearInterval(ring.__mover);
+      }
+    },16);
+  },
 
-        // ถึงจุดตัดสิน
-        if (zNext >= -0.5) {
-          const needLow = ring.getAttribute('data-low') === '1';
-          const ok = (needLow && this.squatting) || (!needLow && !this.squatting);
-          if (ok) {
-            this.state.score += 30;
-            EXO.beep(700, 0.05, 0.1);
-          } else {
-            this.state.score = Math.max(0, this.state.score - 30);
-            EXO.beep(220, 0.06, 0.15);
-          }
-          this.scoreUI.innerText = this.state.score;
+  pause(){
+    if(!this.state.running) return;
+    this.state.running=false;
+    this.rings.forEach(r=>{ if(r.__mover) clearInterval(r.__mover); });
+    this.panel.innerHTML=`
+      <div class="title">Paused</div>
+      <p>Hold touch/space = Squat · Release = Stand</p>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  },
 
-          ring.parentNode.removeChild(ring);
-          this.rings.splice(this.rings.indexOf(ring), 1);
-          clearInterval(interval);
-        }
-      }, 16);
-    },
+  end(){
+    this.state.running=false;
+    clearInterval(this.timer); clearInterval(this.spawnLoop);
+    this.rings.forEach(r=>{ if(r.__mover) clearInterval(r.__mover); });
 
-    pause() {
-      this.state.running = false;
-      this.panel.innerHTML = `
-        <h3>Paused</h3>
-        <p>Hold touch/space = Squat · Release = Stand</p>
-        <button class="btn" onclick="location.reload()">Restart</button>
-      `;
-      this.overlay.style.display = 'flex';
-    },
+    const total=this.state.pass + this.state.fail;
+    const acc = total>0 ? (this.state.pass/total)*100 : 0;
 
-    end() {
-      this.state.running = false;
-      this.panel.innerHTML = `
-        <h3>Session Complete</h3>
-        <p>Score: ${this.state.score}</p>
-        <button class="btn" onclick="location.reload()">Restart</button>
-        <a href="../index.html" class="btn">Exit</a>
-      `;
-      this.overlay.style.display = 'flex';
-    }
-  });
-  </script>
+    this.panel.innerHTML=`
+      <div class="title">Result — Power Control</div>
+      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
+        <div>Score<br><b>${this.state.score}</b></div>
+        <div>MAX Combo<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+        <div>Accuracy<br><b>${acc.toFixed(1)}%</b></div>
+      </div>
+      <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
+        <div>Pass<br><b>${this.state.pass}</b></div>
+        <div>Fail<br><b>${this.state.fail}</b></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  }
+});
+</script>
 
 </body>
 </html>
