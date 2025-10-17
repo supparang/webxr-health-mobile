@@ -60,7 +60,7 @@
     <a-sky color="#0b1120"></a-sky>
   </a-scene>
 
-  <!-- Start Overlay (มี Start / Try Hit) -->
+  <!-- Start Overlay (Start / Try Hit) -->
   <script>
   (function (w){
     function ensureOverlay(){
@@ -80,17 +80,42 @@
           <a class="btn" href="../index.html">⟵ Hub</a>
         </div>
         <div style="text-align:center;opacity:.7;margin-top:.4rem">Space/Enter เพื่อเริ่ม</div>`;
-      const go=()=>{ ov.style.display='none'; window.__startGame?.(); };
-      const tryGo=()=>{ ov.style.display='none'; window.__startPractice?.(); };
-      document.getElementById('btnStart')?.addEventListener('click', go, {once:true});
-      document.getElementById('btnTry')?.addEventListener('click', tryGo, {once:true});
-      document.addEventListener('keydown', e=>{ if(e.code==='Space'||e.key==='Enter'){ go(); }});
+
+      async function unlockAudio(){ try{ await w.EXO?.audio?.ensure?.(); await w.EXO?.audio?.ctx?.resume?.(); }catch(e){} }
+
+      const goStart = async ()=>{
+        await unlockAudio();
+        ov.style.display='none';
+        if (typeof w.__startGame === 'function') w.__startGame();
+        else window.dispatchEvent(new CustomEvent('exo-start'));
+      };
+      const goTry = async ()=>{
+        await unlockAudio();
+        ov.style.display='none';
+        if (typeof w.__startPractice === 'function') w.__startPractice();
+        else window.dispatchEvent(new CustomEvent('exo-try'));
+      };
+
+      document.getElementById('btnStart')?.addEventListener('click', goStart, {once:true});
+      document.getElementById('btnTry')?.addEventListener('click', goTry,   {once:true});
+      document.addEventListener('keydown', e=>{ if(e.code==='Space'||e.key==='Enter'){ goStart(); }});
     }
+
     w.EXO = w.EXO || {};
-    w.EXO.startOverlay = w.EXO.startOverlay || function(onStart, opts){ showStart(opts||{}); window.addEventListener('exo-start', ()=>{try{onStart&&onStart();}catch(e){}},{once:true}); };
+    w.EXO.startOverlay = w.EXO.startOverlay || function(onStart, opts){
+      showStart(opts||{});
+      window.addEventListener('exo-start', ()=>{ try{ onStart && onStart(); }catch(e){} }, {once:true});
+    };
     w.EXO_safeStart = w.EXO_safeStart || ((onStart,_o,opts)=>{ try{ w.EXO.startOverlay(onStart,opts||{});}catch(e){ try{onStart&&onStart();}catch(_e){} }});
-    // ถ้ายังไม่มี overlay แสดงเองหลัง 300ms
-    setTimeout(()=>{ const ov=document.getElementById('overlay'); if(!ov || ov.style.display==='none' || ov.style.display===''){ const qs=new URLSearchParams(location.search); showStart({title:'Combat Reflex', note:`Diff: ${qs.get('diff')||'normal'} · Time: ${qs.get('time')||60}s`}); } },300);
+
+    // auto-show ถ้าไม่มีใครเรียก
+    setTimeout(()=>{
+      const ov=document.getElementById('overlay');
+      if(!ov || ov.style.display==='none' || ov.style.display===''){
+        const qs=new URLSearchParams(location.search);
+        showStart({title:'Combat Reflex', note:`Diff: ${qs.get('diff')||'normal'} · Time: ${qs.get('time')||60}s`});
+      }
+    },300);
   })(window);
   </script>
 
@@ -98,13 +123,10 @@
   <script>
   AFRAME.registerComponent('combat-game',{
     init(){
-      // รอ scene loaded ก่อน
+      // รอ scene loaded ให้สมบูรณ์ก่อน
       this.scene = this.el.sceneEl;
-      if (!this.scene.hasLoaded){
-        this.scene.addEventListener('loaded', ()=>this._boot(), {once:true});
-      } else {
-        this._boot();
-      }
+      if (!this.scene.hasLoaded) this.scene.addEventListener('loaded', ()=>this._boot(), {once:true});
+      else this._boot();
     },
 
     _boot(){
@@ -123,7 +145,7 @@
         fever:0, feverOn:false, lastSpawn:0, hpTap:{},
         spawnIvBase:{easy:780,normal:620,hard:480}[this.diff]||620,
         rush:false, rushUntil:0,
-        mission:null, missionOk:false, missionProg:0, missionNeed:0,
+        mission:null, missionOk:false, missionProg:0,
         practiceHits:0
       };
       this.lanes={L:-0.8,R:0.8};
@@ -143,17 +165,19 @@
       ];
       this._patternQueue=[];
 
-      // expose to overlay buttons
+      // Hook ปุ่มจาก overlay
       window.__startGame = ()=>this.start();
       window.__startPractice = ()=>this.startPractice();
+      window.addEventListener('exo-try',  ()=> this.startPractice(), { once:false });
+      window.addEventListener('exo-start',()=> this.start(),         { once:false });
 
-      // overlay
+      // แสดง overlay เริ่ม
       EXO_safeStart(()=>this.start(), this.ui.overlay, {
         title:'Combat Reflex — Elite Punch Protocol',
         note:`Diff: ${this.diff} · Time: ${this.totalTime}s`
       });
 
-      // Super-safety RAF: ถ้าไม่มีโน้ตเลยเกิน 800ms ให้ spawn
+      // rAF guard: ถ้าหายเงียบ 800ms ให้ spawn
       const guard = ()=>{
         if (this.state.running || this.state.practice){
           const gap = performance.now() - this.state.lastSpawn;
@@ -168,21 +192,22 @@
       this._rafGuard = requestAnimationFrame(guard);
     },
 
-    /* ===== Practice ===== */
+    /* ===== Practice (Try Hit) ===== */
     startPractice(){
-      const s=this.state; s.practice=true; s.running=false; s.practiceHits=0;
-      this.clearTimers(); this.ui.overlay.style.display='none';
-      // burst spawn ทันที
-      this.spawnBurst(3, 2400, 'practice');
-      // safety interval
-      this.practiceTimer=setInterval(()=>{
-        if(!s.practice) return;
-        if(!document.querySelector('.note')){
-          this.spawnBurst(1, 2200, 'practice');
-        }
-      }, 500);
-      // ปิดแผงแล้วเริ่มฝึก
-      setTimeout(()=>{ this.ui.overlay.style.display='none'; }, 100);
+      const s=this.state;
+      s.practice=true; s.running=false; s.practiceHits=0;
+      this.clearTimers();
+      this.ui.overlay.style.display='none';
+
+      // Burst ทันที 3 ลูกแรก
+      requestAnimationFrame(()=>{
+        this.spawnBurst(3, 2400, 'practice');
+        // Safety: ถ้า 0.5s ไม่มีเป้า ให้สปอว์นเพิ่ม
+        this.practiceTimer = setInterval(()=>{
+          if(!s.practice) return;
+          if(!document.querySelector('.note')) this.spawnBurst(1, 2200, 'practice');
+        }, 500);
+      });
     },
     finishPractice(){ this.state.practice=false; this.clearTimers(); document.querySelectorAll('.note').forEach(n=>n.remove()); this.start(); },
     quitPractice(){ this.state.practice=false; this.clearTimers(); document.querySelectorAll('.note').forEach(n=>n.remove()); EXO.startOverlay(()=>this.start(),{title:'Combat Reflex',note:'พร้อมเริ่มแล้ว'}); },
@@ -201,10 +226,10 @@
       // Rush รอบแรก
       this.nextRushAt=performance.now()+6000;
 
-      // ✅ burst spawn ทันที 4 ลูกแรก
+      // Burst เริ่มเกมทันที 4 ลูก
       this.spawnBurst(4, Math.max(1200, 2000), 'normal');
 
-      // ✅ Safety spawner (interval)
+      // Safety spawner (interval)
       this.spawnGuard=setInterval(()=>{
         if(!s.running) return;
         if (!document.querySelector('.note') && (performance.now()-s.lastSpawn>500)){
@@ -227,11 +252,11 @@
 
       const now=performance.now();
 
-      // Rush
-      if(!s.rush && now>=this.nextRushAt){ s.rush=true; s.rushUntil=now+7000; this.flash('#60a5fa'); }
+      // Rush windows
+      if(!s.rush && now>=this.nextRushAt){ s.rush=true; s.rushUntil=now+7000; }
       if(s.rush && now>=s.rushUntil){ s.rush=false; this.nextRushAt=now+18000; }
 
-      // Spawn cadence (ปกติ)
+      // Spawn cadence
       const dynIv=this.dd.getSpawnIv?this.dd.getSpawnIv():null;
       let baseIv=dynIv||s.spawnIvBase; baseIv -= Math.min(120, s.combo*2); if(s.rush) baseIv*=0.7;
       const spawnIv=Math.max(220, baseIv);
@@ -287,7 +312,7 @@
       this.el.sceneEl.appendChild(el);
       el.setAttribute('animation__move',{property:'position', to:`${x} ${y} -0.2`, dur, easing:'linear'});
 
-      // หมดเวลา = Miss (เฉพาะโหมดเกม)
+      // miss timeout (เฉพาะโหมดเกม)
       setTimeout(()=>{ if(!el.parentNode) return; if(!this.state.practice){ this.onMiss(); } el.remove(); }, dur+60);
     },
 
@@ -299,8 +324,7 @@
 
       // Practice: โดนครบ 3 → start เกมจริง
       if(this.state.practice){
-        this.state.practiceHits++;
-        best.remove();
+        this.state.practiceHits++; best.remove();
         if(this.state.practiceHits>=3){ this.finishPractice(); }
         return;
       }
@@ -348,7 +372,7 @@
       if(this.state.mission){ const m=this.state.mission; const txt=`${m.label} — ${Math.min(m.need,this.state.missionProg)} / ${m.need}`; this.ui.mission.textContent='Mission: '+txt+(this.state.missionOk?' ✅':''); }
     },
 
-    // Missions (คงเดิมแบบย่อ)
+    // Missions (ย่อ)
     missionDefs:[
       {id:'combo',    text:(n)=>`Combo ≥ ${n}`,        need:()=>({need: 20})},
       {id:'perfects', text:(n)=>`Perfect ${n} ครั้ง`,  need:()=>({need: 10})},
