@@ -176,5 +176,104 @@
     }
   });
   </script>
+  <script>
+/* ===== EXO Hotfix: force-start + guaranteed spawner for Combat ===== */
+(function(){
+  const qs = new URLSearchParams(location.search);
+  const AUTOSTART = qs.get('autostart') === '1'; // optional ?autostart=1
+  const scene = document.querySelector('a-scene');
+
+  // 1) ถ้า overlay/EXO ยังไม่มี ให้ทำปุ่ม Start ชั่วคราว
+  function ensureStartUI(startFn){
+    const overlay = document.getElementById('overlay') || (() => {
+      const ov = document.createElement('div'); ov.id='overlay'; ov.className='overlay'; ov.style.display='flex';
+      const pn = document.createElement('div'); pn.id='panel'; pn.className='panel'; ov.appendChild(pn);
+      document.body.appendChild(ov); return ov;
+    })();
+    const panel = document.getElementById('panel');
+    panel.innerHTML = `
+      <div class="title">Combat Reflex</div>
+      <div style="text-align:center"><a class="btn" id="__hfStart">▶ Start</a></div>
+      <div class="muted" style="text-align:center;margin-top:.5rem">ถ้าไม่เริ่ม ให้กด Space/แตะหน้าจอ</div>`;
+    const go = ()=>{ overlay.style.display='none'; try{ startFn(); }catch(e){ console.error(e); } };
+    document.getElementById('__hfStart').onclick = go;
+    document.addEventListener('keydown', e=>{ if(e.code==='Space'||e.key==='Enter') go(); }, {once:true});
+    overlay.addEventListener('pointerdown', go, {once:true, passive:true});
+  }
+
+  // 2) เข้าถึง component เกม
+  function getGameComp(){
+    const host = document.querySelector('[combat-game]');
+    return host && host.components && host.components['combat-game'];
+  }
+
+  // 3) สั่งเริ่มเกมแบบปลอดภัย
+  function safeStartGame(){
+    const comp = getGameComp();
+    if (!comp || typeof comp.start!=='function'){
+      console.warn('[HOTFIX] combat-game component not ready; retrying…');
+      setTimeout(safeStartGame, 150);
+      return;
+    }
+    // ใช้ EXO_safeStart ถ้ามี, ไม่งั้นสตาร์ตตรง ๆ
+    try{
+      if (window.EXO_safeStart){
+        EXO_safeStart(()=>comp.start(), document.getElementById('overlay'), {
+          title:'Combat Reflex',
+          note: `Diff: ${new URLSearchParams(location.search).get('diff')||'normal'} · Time: ${new URLSearchParams(location.search).get('time')||60}s`
+        });
+      }else{
+        ensureStartUI(()=>comp.start());
+      }
+    }catch(e){
+      console.warn('[HOTFIX] fallback start', e);
+      ensureStartUI(()=>comp.start());
+    }
+  }
+
+  // 4) ถ้า tick ของ A-Frame ไม่วิ่ง/หรือ diff manager พัง → เปิด “guaranteed spawner”
+  let safetySpawner = null;
+  function ensureSpawner(){
+    const comp = getGameComp();
+    if (!comp) return;
+
+    // มี tick อยู่แล้ว แต่เผื่อบางเครื่อง tick ไม่ถูกเรียก → ติดตั้ง interval สำรอง
+    if (safetySpawner) clearInterval(safetySpawner);
+    safetySpawner = setInterval(()=>{
+      try{
+        if (!comp.state || !comp.state.running) return;
+        // ถ้ายังไม่มี .spawnTarget ให้ข้าม
+        if (typeof comp.spawnTarget === 'function'){
+          // จำกัดความถี่ขั้นต่ำ ~700ms เพื่อไม่ถี่เกิน
+          if (!comp.__lastSpawn || (performance.now()-comp.__lastSpawn>700)){
+            comp.spawnTarget();
+            comp.__lastSpawn = performance.now();
+          }
+        }
+      }catch(e){ console.warn('[HOTFIX] spawner interval error', e); }
+    }, 300);
+  }
+
+  // 5) hook เมื่อ scene พร้อม
+  function onSceneReady(){
+    // บางเว็บต้อง gesture ก่อน audio: ใส่ autostart option ได้ด้วย ?autostart=1
+    if (AUTOSTART){
+      // เริ่มเองหลัง 400ms (ยังแตะ/กด Start ได้เหมือนเดิม)
+      setTimeout(safeStartGame, 400);
+    }else{
+      safeStartGame();
+    }
+    ensureSpawner();
+  }
+
+  if (scene && scene.hasLoaded){ onSceneReady(); }
+  else if (scene){ scene.addEventListener('loaded', onSceneReady, {once:true}); }
+  else { // ถ้าไม่มี <a-scene> (ผิด DOM) ก็พยายามเริ่มอยู่ดี
+    console.warn('[HOTFIX] <a-scene> not found; forcing start');
+    setTimeout(onSceneReady, 300);
+  }
+})();
+</script>
+
 </body>
 </html>
