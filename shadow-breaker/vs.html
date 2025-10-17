@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <title>EXO VS Lobby</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="core/exo-ui.css">
+  <style>.area{display:grid;grid-template-columns:1fr;gap:10px;max-width:860px;margin:80px auto;padding:0 16px}</style>
+</head>
+<body>
+  <header class="hud"><div class="box"><strong>EXO VS</strong></div><div class="box"><a class="btn" href="index.html">⟵ Hub</a></div></header>
+  <main class="area">
+    <div class="panel">
+      <div class="title">Create Room</div>
+      <p>1) กดปุ่มเพื่อสร้าง Offer → คัดลอกข้อความให้เพื่อน</p>
+      <button class="btn" id="btnMake">🎲 Create Offer</button>
+      <textarea id="offer" rows="5" style="width:100%;margin-top:8px" placeholder="(auto)"></textarea>
+      <p>2) วาง Answer จากเพื่อนด้านล่าง แล้วกด Accept</p>
+      <textarea id="answer" rows="5" style="width:100%"></textarea>
+      <button class="btn" id="btnAccept">✅ Accept Answer</button>
+    </div>
+
+    <div class="panel">
+      <div class="title">Join Room</div>
+      <p>วาง Offer ที่ได้รับ แล้วกด Join → คัดลอก Answer ส่งกลับ</p>
+      <textarea id="joinOffer" rows="5" style="width:100%"></textarea>
+      <button class="btn" id="btnJoin">🔗 Join</button>
+      <textarea id="joinAnswer" rows="5" style="width:100%;margin-top:8px" placeholder="(copy & send back)"></textarea>
+    </div>
+
+    <div class="panel">
+      <div class="title">Status</div>
+      <div id="st">-</div>
+      <div style="margin-top:10px">
+        <a class="btn" href="shadow-breaker/play.html?diff=normal&time=60&vs=1">▶ Combat VS</a>
+        <a class="btn" href="rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json&vs=1">▶ Rhythm VS</a>
+      </div>
+    </div>
+  </main>
+
+  <script src="core/exo-core.js"></script>
+  <script src="core/exo-net.js"></script>
+  <script>
+    EXO_NET.onState(s=> st.textContent = 'Peer: '+s);
+    EXO_NET.onMessage(msg=> console.log('Peer:', msg));
+
+    btnMake.onclick = async ()=>{
+      offer.value = await EXO_NET.create();
+    };
+    btnAccept.onclick = async ()=>{
+      await EXO_NET.acceptAnswer(answer.value.trim());
+    };
+    btnJoin.onclick = async ()=>{
+      joinAnswer.value = await EXO_NET.join(joinOffer.value.trim());
+    };
+  </script>
+</body>
+</html>
