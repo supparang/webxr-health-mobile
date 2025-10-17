@@ -1,12 +1,77 @@
-:root{--bg:#0a0e18;--panel:#0e1424;--line:#112848;--text:#e6f2ff;--muted:#a7c5ff;--qblue:#3B82F6}
-html,body{margin:0;height:100%;background:linear-gradient(180deg,#081022,#0a0e18);color:var(--text);font-family:system-ui,Segoe UI,Roboto,Arial}
-.hud{position:fixed;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:.6rem 1rem;background:linear-gradient(180deg,rgba(17,40,72,.55),transparent);z-index:5;pointer-events:none}
-.hud .box{display:flex;gap:.6rem;align-items:center}
-.btn{pointer-events:auto;border:1px solid var(--line);background:linear-gradient(180deg,rgba(59,130,246,.18),rgba(59,130,246,.06));padding:.35rem .7rem;border-radius:.6rem;color:var(--text)}
-.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(8,16,32,.6);backdrop-filter:blur(4px);z-index:10}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:0 0 24px rgba(59,130,246,.25);min-width:280px}
-.title{font-weight:800;color:var(--text)}
-.note{color:var(--muted);font-size:.92rem}
-.kpi{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:.6rem 0}
-.kpi div{background:#0b1325;border:1px solid #0f1e3a;border-radius:10px;padding:8px 10px}
-.touch{position:fixed;top:0;bottom:0;width:50vw;z-index:4} #touchL{left:0} #touchR{right:0}
+:root {
+  --bg: #0a0e18;
+  --panel: #0e1424;
+  --line: #112848;
+  --text: #e6f2ff;
+  --muted: #7f8ea3;
+  --qblue: #3B82F6;
+}
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  font-family: system-ui, Segoe UI, Roboto, sans-serif;
+  color: var(--text);
+}
+
+a {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(10, 16, 28, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+}
+
+.box {
+  display: flex;
+  gap: 10px;
+  font-size: 18px;
+}
+
+.btn {
+  padding: 10px 14px;
+  background: rgba(59,130,246,0.14);
+  border: 1px solid var(--qblue);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(9, 14, 23, 0.85);
+  z-index: 20;
+}
+
+.panel {
+  background: var(--panel);
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  text-align: center;
+  min-width: 260px;
+}
+
+.touch {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+}
+
+#touchL { left: 0; }
+#touchR { right: 0; }
