@@ -2,20 +2,18 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Mobility Dash (VS + LB + i18n: central)</title>
+  <title>EXO · Mobility Dash (VS + LB + i18n)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- UI & Core -->
+  <!-- Core & UI -->
   <link rel="stylesheet" href="../core/exo-ui.css">
-  <!-- ✅ i18n กลาง -->
-  <script src="../core/exo-i18n.js"></script>
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
 
-  <!-- Settings + Leaderboard + VS -->
+  <!-- ✅ Settings + Leaderboard + VS -->
   <script src="../core/exo-settings.js"></script>
   <script src="../core/exo-leaderboard.js"></script>
   <script src="../core/exo-net.js"></script>
@@ -37,7 +35,7 @@
     <div class="box">
       <span id="time">60</span>
       <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⏵ <span data-i18n="common.hub">Hub</span></a>
+      <a href="../index.html" class="btn">⏵ Hub</a>
     </div>
   </div>
 
@@ -48,8 +46,8 @@
   <!-- ✅ VS HUD (เปิดเมื่อ ?vs=1) -->
   <div id="vsHud" class="vsHud" style="display:none">
     <div class="box">
-      <span id="lblOpp" data-i18n="common.opponent">Opponent</span> <span id="oppConn">⏳</span> — 
-      <span id="lblScore" data-i18n="common.score">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
+      <span id="lblOpp">Opponent</span> <span id="oppConn">⏳</span> — 
+      <span id="lblScore">Score</span> <b id="oppScore">0</b> | <span id="oppCombo">x1.0</span>
     </div>
   </div>
 
@@ -77,10 +75,30 @@
 <script>
 AFRAME.registerComponent('dash-game',{
   init(){
-    // ===== i18n ศูนย์กลาง =====
-    const lang = EXO_I18N.get();
-    const tC   = EXO_I18N.scope('common');
-    const tMod = EXO_I18N.scope('dash');
+    // ===== i18n =====
+    const lang = (window.EXO_SETTINGS?.get()?.lang)||'th';
+    const L = {
+      th:{ title:'EXO — Mobility Dash', vs:'โหมดดวล',
+           goal:'สลับเลนซ้าย/ขวาเพื่อหลบกล่องสีแดงที่พุ่งเข้ามา',
+           ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>มือถือ/เดสก์ท็อป: แตะซ้าย/ขวา</li><li>คีย์บอร์ด: ←/A และ →/D</li><li>VR: Trigger ซ้าย/ขวา</li></ul>',
+           scoreTip:'หลบสำเร็จได้คะแนน × คอมโบ • ชนจะถูกหักคะแนนและคอมโบตก',
+           diff:'ระดับ', music:'เพลง', paused:'พักเกม', restart:'เริ่มใหม่', hub:'กลับ Hub',
+           result:'ผลลัพธ์', score:'คะแนน', maxCombo:'คอมโบสูงสุด', accuracy:'ความแม่นยำ',
+           avoided:'หลบสำเร็จ', hit:'ชน', opp:'คู่แข่ง', oppScore:'คะแนนคู่แข่ง', oppStatus:'สถานะคู่แข่ง',
+           finished:'จบแล้ว', pending:'รอผล...', askName:'ชื่อสำหรับ Leaderboard (เว้นว่างเพื่อข้าม):',
+           sent:'✓ ส่งคะแนนขึ้น Leaderboard แล้ว', youWin:'YOU WIN', youLose:'YOU LOSE', tie:'TIE'
+      },
+      en:{ title:'EXO — Mobility Dash', vs:'VS Mode',
+           goal:'Switch lanes (L/R) to avoid incoming red boxes.',
+           ctrl:'<ul style="text-align:left;margin:0 auto;max-width:260px"><li>Mobile/Desktop: Tap Left/Right</li><li>Keyboard: ←/A and →/D</li><li>VR: Left/Right Trigger</li></ul>',
+           scoreTip:'Avoid = score × combo • Hit = penalty & combo reset',
+           diff:'Difficulty', music:'Music', paused:'Paused', restart:'Restart', hub:'Hub',
+           result:'Result', score:'Score', maxCombo:'Max Combo', accuracy:'Accuracy',
+           avoided:'Avoided', hit:'Hit', opp:'Opponent', oppScore:'Opponent Score', oppStatus:'Opponent Status',
+           finished:'Finished', pending:'Pending…', askName:'Name for Leaderboard (leave blank to skip):',
+           sent:'✓ Submitted to Leaderboard', youWin:'YOU WIN', youLose:'YOU LOSE', tie:'TIE'
+      }
+    }[lang]; const t=k=>L[k]||k;
 
     // ===== UI refs =====
     this.$s=document.getElementById('score');
@@ -103,6 +121,8 @@ AFRAME.registerComponent('dash-game',{
       this.$oppConn = document.getElementById('oppConn');
       this.$oppScore= document.getElementById('oppScore');
       this.$oppCombo= document.getElementById('oppCombo');
+      document.getElementById('lblOpp').textContent = t('opp');
+      document.getElementById('lblScore').textContent = (lang==='th'?'คะแนน':'Score');
       this.$vsHud.style.display='block';
       this.opp = {score:0, combo:1.0, isOver:false};
 
@@ -135,18 +155,18 @@ AFRAME.registerComponent('dash-game',{
     // ===== Space / lanes =====
     this.lanes={L:-0.8,R:0.8};
     this.playerLane='L';
-    this.obstacles=[];
+    this.obstacles=[];   // active obstacle list
     this.movers=new Set();
 
     // ===== Tutorial + Start =====
     EXO.startOverlay(()=> this.start(), {
-      title: tMod('title') + (this.isVS?' · '+tC('vs'):''),
+      title: L.title + (this.isVS?' · '+L.vs:''),
       howto: [
-        { title: lang==='th'?'เป้าหมาย':'Goal',         text: tMod('goal') },
-        { title: lang==='th'?'การบังคับ':'Controls',     html: tMod('ctrl') },
-        { title: lang==='th'?'การได้คะแนน':'Scoring',    text: tMod('scoreTip') }
+        { title: lang==='th'?'เป้าหมาย':'Goal',         text: L.goal },
+        { title: lang==='th'?'การบังคับ':'Controls',     html: L.ctrl },
+        { title: lang==='th'?'การได้คะแนน':'Scoring',    text: L.scoreTip }
       ],
-      note: `${tC('diff')}: <b>${diff.toUpperCase()}</b>${music?' · '+tC('music')+': on':''}${this.isVS?' · '+tC('vs'):''}`
+      note: `${L.diff}: <b>${diff.toUpperCase()}</b>${music?' · '+L.music+': on':''}${this.isVS?' · '+L.vs:''}`
     });
 
     // ===== Inputs =====
@@ -239,21 +259,17 @@ AFRAME.registerComponent('dash-game',{
 
     try{ EXO.audio.stopMusic(); }catch(e){}
 
-    const tC = EXO_I18N.scope('common');
     this.panel.innerHTML=`
-      <div class="title">${tC('paused')}${this.isVS?' · '+tC('vs'):''}</div>
+      <div class="title">${L.paused}${this.isVS?' · '+L.vs:''}</div>
       <div style="display:flex;gap:.6rem;justify-content:center">
-        <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
-        <a class="btn" href="../index.html">⏵ ${tC('hub')}</a>
+        <a class="btn" onclick="location.reload()">⟲ ${L.restart}</a>
+        <a class="btn" href="../index.html">⏵ ${L.hub}</a>
       </div>`;
     this.overlay.style.display='flex';
   },
 
   // ===== End session =====
   end(){
-    const tC = EXO_I18N.scope('common');
-    const tD = EXO_I18N.scope('dash');
-
     this.state.running=false;
     clearInterval(this.timer);
     clearInterval(this.spawnLoop);
@@ -288,30 +304,30 @@ AFRAME.registerComponent('dash-game',{
     const makeResultHTML = (oppKnown=false)=>{
       let verdict = '';
       if (this.isVS && oppKnown){
-        if (this.state.score > (this.opp?.score||0)) verdict = `<div class="tagwin"><b>${tC('youWin')}</b></div>`;
-        else if (this.state.score < (this.opp?.score||0)) verdict = `<div class="taglose"><b>${tC('youLose')}</b></div>`;
-        else verdict = `<div class="tagtie"><b>${tC('tie')}</b></div>`;
+        if (this.state.score > (this.opp?.score||0)) verdict = `<div class="tagwin"><b>${L.youWin}</b></div>`;
+        else if (this.state.score < (this.opp?.score||0)) verdict = `<div class="taglose"><b>${L.youLose}</b></div>`;
+        else verdict = `<div class="tagtie"><b>${L.tie}</b></div>`;
       }
       return `
-        <div class="title">${tC('result')} — Mobility Dash ${this.isVS?'· '+tC('vs'):''}</div>
+        <div class="title">${L.result} — Mobility Dash ${this.isVS?'· '+L.vs:''}</div>
         ${verdict}
         <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
-          <div>${tC('score')}<br><b>${this.state.score}</b></div>
-          <div>${tC('maxCombo')}<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
-          <div>${tC('accuracy')}<br><b>${acc.toFixed(1)}%</b></div>
+          <div>${L.score}<br><b>${this.state.score}</b></div>
+          <div>${L.maxCombo}<br><b>${this.state.maxCombo.toFixed(1)}×</b></div>
+          <div>${L.accuracy}<br><b>${acc.toFixed(1)}%</b></div>
         </div>
         <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-          <div>${tD('avoided')}<br><b>${this.state.avoided}</b></div>
-          <div>${tD('hit')}<br><b>${this.state.hit}</b></div>
+          <div>${L.avoided}<br><b>${this.state.avoided}</b></div>
+          <div>${L.hit}<br><b>${this.state.hit}</b></div>
         </div>
         ${this.isVS ? `
         <div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-          <div>${tC('oppScore')}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
-          <div>${tC('oppStatus')}<br><b id="oppStatus">${this.opp?.isOver?tC('finished'):tC('pending')}</b></div>
+          <div>${L.oppScore}<br><b id="oppScoreFinal">${this.opp?.score||0}</b></div>
+          <div>${L.oppStatus}<br><b id="oppStatus">${this.opp?.isOver?L.finished:L.pending}</b></div>
         </div>` : ``}
         <div style="display:flex;gap:.6rem;justify-content:center">
-          <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
-          <a class="btn" href="../index.html">⏵ ${tC('hub')}</a>
+          <a class="btn" onclick="location.reload()">⟲ ${L.restart}</a>
+          <a class="btn" href="../index.html">⏵ ${L.hub}</a>
         </div>`;
     };
 
@@ -324,18 +340,18 @@ AFRAME.registerComponent('dash-game',{
         if (msg?.type==='over'){
           this.opp.isOver = true; this.opp.score = msg.score|0;
           const sF=document.getElementById('oppScoreFinal'); if(sF) sF.textContent=this.opp.score;
-          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=tC('finished');
+          const sS=document.getElementById('oppStatus'); if(sS) sS.textContent=L.finished;
           this.panel.innerHTML = makeResultHTML(true);
         }
       };
       EXO_NET.onMessage(handler);
-      setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=tC('pending'); }, 5000);
+      setTimeout(()=>{ const sS=document.getElementById('oppStatus'); if (sS && !this.opp.isOver) sS.textContent=L.pending; }, 5000);
     }
 
     // ===== Online Leaderboard (Auto Submit: ถามชื่อแล้วส่ง) =====
     setTimeout(async ()=>{
       try{
-        const name = prompt(tC('askName'),'');
+        const name = prompt(L.askName,'');
         if (!name) return;
 
         await EXO_LB.submit({
@@ -350,7 +366,7 @@ AFRAME.registerComponent('dash-game',{
         const ok = document.createElement('div');
         ok.className = 'kpi';
         ok.style.cssText = 'margin-top:8px;text-align:center';
-        ok.innerHTML = `<div style="grid-column:1/-1"><b>${tC('sent')}</b></div>`;
+        ok.innerHTML = `<div style="grid-column:1/-1"><b>${L.sent}</b></div>`;
         this.panel.appendChild(ok);
       }catch(e){ console.warn('LB submit failed', e); }
     }, 350);
