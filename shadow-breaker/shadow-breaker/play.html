@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8">
-  <title>EXO · Combat Reflex (VS + LB + i18n: central)</title>
+  <title>EXO · Combat Reflex (VS + LB + i18n: central + safe start)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <!-- A-Frame -->
@@ -10,11 +10,10 @@
 
   <!-- UI & Core -->
   <link rel="stylesheet" href="../core/exo-ui.css">
-  <!-- ✅ โหลด i18n กลางก่อนใช้งาน -->
+  <!-- ✅ i18n กลาง (ควรมีไฟล์นี้) -->
   <script src="../core/exo-i18n.js"></script>
   <script src="../core/exo-core.js"></script>
   <script src="../core/exo-metrics.js"></script>
-
   <!-- Settings + Leaderboard + VS -->
   <script src="../core/exo-settings.js"></script>
   <script src="../core/exo-leaderboard.js"></script>
@@ -37,7 +36,7 @@
     <div class="box">
       <span id="time">60</span>
       <button id="btnPause" class="btn" title="Pause">⏸</button>
-      <a href="../index.html" class="btn">⟵ <span data-i18n="common.hub">Hub</span></a>
+      <a href="../index.html" class="btn">⏵ <span data-i18n="common.hub">Hub</span></a>
     </div>
   </div>
 
@@ -65,18 +64,48 @@
     <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
     <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
-    <!-- ห้อง -->
+    <!-- ห้อง + พื้น + เส้น Hit Line -->
     <a-entity geometry="primitive: box; depth: 22; height: 6; width: 12" position="0 3 -7"
               material="color: #0c1428; side: back; metalness:0.1; roughness:0.9"></a-entity>
     <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4"
              material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
-    <!-- เส้น Hit Line -->
     <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
               material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
     <!-- Director -->
     <a-entity combat-director></a-entity>
   </a-scene>
+
+<!-- ======= Hotfix shim + Safe Start (ป้องกันเกมเงียบ) ======= -->
+<script>
+// --- i18n safe shim: ถ้า core/exo-i18n.js โหลดไม่สำเร็จ เกมจะยังรันได้ ---
+(function(w){
+  if (!w.EXO_I18N) {
+    const F=(k,fb)=>fb||k;
+    w.EXO_I18N={get:()=> 'th', set:()=>{}, scope:()=> F.bind(null), t:()=>F, bindDom:()=>{}, addPack:()=>{}, packs:{}};
+    console.warn('[EXO] i18n shim active (core/exo-i18n.js not found?)');
+  }
+})(window);
+
+// --- Overlay safe-start: ถ้า overlay ใช้ไม่ได้ ให้เริ่มเกมอัตโนมัติ ---
+function EXO_safeStart(startFn, overlayEl, overlayConfig) {
+  try {
+    if (window.EXO && EXO.startOverlay) {
+      EXO.startOverlay(()=> startFn(), overlayConfig||undefined);
+      return;
+    }
+  } catch(e) { console.warn('EXO.startOverlay error, fallback start', e); }
+  try { if (overlayEl) overlayEl.style.display='none'; } catch(e){}
+  // ให้สิทธิ์เสียง: เริ่มเมื่อผู้ใช้คลิกครั้งแรก
+  window.addEventListener('click', function onOnce(){
+    window.removeEventListener('click', onOnce, {once:true});
+    try{ startFn(); }catch(e){ console.error(e); }
+  }, {once:true});
+  // กันลืมคลิก: สตาร์ทอัตโนมัติหลัง 800ms
+  setTimeout(()=>{ try{ startFn(); }catch(e){ console.error(e);} }, 800);
+}
+</script>
+<!-- ======================================================== -->
 
 <script>
 AFRAME.registerComponent('combat-director', {
@@ -148,8 +177,9 @@ AFRAME.registerComponent('combat-director', {
     this.pool   = [];
     for (let i=0;i<18;i++) this.pool.push(this.mkTarget(this.el.sceneEl));
 
-    // ===== Tutorial + Start =====
-    EXO.startOverlay(()=> this.start(), {
+    // ===== Tutorial + Safe Start =====
+    const overlayEl = document.getElementById('overlay');
+    EXO_safeStart(this.start.bind(this), overlayEl, {
       title: tMod('title') + (this.isVS ? ' · ' + tC('vs') : ''),
       howto: [
         { title: lang==='th'?'เป้าหมาย':'Goal',         text: tMod('goal') },
@@ -275,7 +305,7 @@ AFRAME.registerComponent('combat-director', {
       <div class="title">${tC('paused')}${this.isVS?' · '+tC('vs'):''}</div>
       <div style="display:flex;gap:.6rem;justify-content:center">
         <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
-        <a class="btn" href="../index.html">⟵ ${tC('hub')}</a>
+        <a class="btn" href="../index.html">⏵ ${tC('hub')}</a>
       </div>`;
     this.overlay.style.display='flex';
   },
@@ -357,7 +387,7 @@ AFRAME.registerComponent('combat-director', {
         </div>` : ``}
         <div style="display:flex;gap:.6rem;justify-content:center">
           <a class="btn" onclick="location.reload()">⟲ ${tC('restart')}</a>
-          <a class="btn" href="../index.html">⟵ ${tC('hub')}</a>
+          <a class="btn" href="../index.html">⏵ ${tC('hub')}</a>
         </div>`;
     };
 
