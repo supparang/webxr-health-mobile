@@ -20,130 +20,218 @@
     <div class="box">
       <span id="time">60</span>
       <button id="btnPause" class="btn">⏸</button>
-      <a href="../index.html" class="btn">⟵ Exit</a>
+      <a href="../index.html" class="btn">⟵ Hub</a>
     </div>
   </div>
 
-  <!-- Touch areas -->
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
 
   <!-- Overlay -->
-  <div id="overlay" class="overlay" style="display:none;">
-    <div id="panel" class="panel"></div>
-  </div>
+  <div id="overlay" class="overlay" style="display:none;"><div id="panel" class="panel"></div></div>
 
-  <!-- Scene -->
-  <a-scene>
-    <a-entity light="type:ambient;intensity:0.7"></a-entity>
-    <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
+  <a-scene renderer="antialias:true; colorManagement:true">
+    <a-entity light="type:ambient;intensity:.7;color:#88aaff"></a-entity>
+    <a-entity light="type:directional;intensity:.9" position="0 3 2"></a-entity>
 
-    <!-- Camera -->
-    <a-entity id="rig">
-      <a-entity camera position="0 1.6 0"></a-entity>
-    </a-entity>
+    <!-- ห้อง + พื้น + เส้น Hit Line -->
+    <a-entity geometry="primitive: box; depth: 22; height: 6; width: 12" position="0 3 -7"
+              material="color: #0c1428; side: back; metalness:0.1; roughness:0.9"></a-entity>
+    <a-plane rotation="-90 0 0" width="14" height="14" position="0 0 -4"
+             material="color:#0f1b33; metalness:.35; roughness:.4"></a-plane>
+    <a-entity geometry="primitive: box; depth: .02; height: .02; width: 12" position="0 0.01 -0.5"
+              material="color:#3B82F6; emissive:#3B82F6; emissiveIntensity:.8"></a-entity>
 
-    <!-- Game Manager -->
-    <a-entity id="game" combat-game></a-entity>
+    <a-entity id="director" combat-director></a-entity>
   </a-scene>
 
-  <script>
-  AFRAME.registerComponent('combat-game', {
-    init() {
-      // DOM refs
-      this.scoreUI = document.getElementById('score');
-      this.comboUI = document.getElementById('combo');
-      this.timeUI  = document.getElementById('time');
-      this.overlay = document.getElementById('overlay');
-      this.panel   = document.getElementById('panel');
+<script>
+AFRAME.registerComponent('combat-director', {
+  init(){
+    // UI
+    this.$s = document.getElementById('score');
+    this.$c = document.getElementById('combo');
+    this.$t = document.getElementById('time');
+    this.overlay = document.getElementById('overlay');
+    this.panel   = document.getElementById('panel');
 
-      // Game state
-      this.state = { score: 0, combo: 1.0, time: 60, running: false };
-      this.targets = [];
-      this.spawnTimer = 0.6;
+    // Query
+    const q = new URLSearchParams(location.search);
+    const diff = (q.get('diff')||'normal').toLowerCase();
+    const T = Math.max(10, +(q.get('time')||60));
 
-      // Start overlay
-      EXO.startOverlay(() => this.start());
+    // Difficulty presets
+    const DIFF = {
+      easy:   { speed: 3.8, spawnIv: 650, hitWin: 0.28, decoy: 0.10 },
+      normal: { speed: 4.8, spawnIv: 550, hitWin: 0.22, decoy: 0.20 },
+      hard:   { speed: 6.0, spawnIv: 430, hitWin: 0.16, decoy: 0.35 }
+    };
+    this.cfg = DIFF[diff]||DIFF.normal;
 
-      // Input
-      EXO.attachBasicInput({
-        onLeft:  () => this.hit('L'),
-        onRight: () => this.hit('R'),
-        onPause: () => this.pause()
-      });
+    // State
+    this.state = {
+      score:0, combo:1.0, maxCombo:1.0, time:T, running:false,
+      cntHit:0, cntMiss:0
+    };
 
-      // Pause button
-      document.getElementById('btnPause').onclick = () => this.pause();
+    // Lanes
+    this.spawnZ=-4.5; this.hitZ=-0.5; this.laneX={L:-0.8,R:0.8};
+    this.pool=[]; for(let i=0;i<18;i++) this.pool.push(this.mkTarget(this.el.sceneEl));
+    this.spawnLoop=null;
 
-      // Spawn loop
-      this.spawnInterval = setInterval(() => {
-        if (!this.state.running) return;
-        this.spawn();
-      }, 600);
+    // Start
+    this.panel.innerHTML=`
+      <div class="title">Combat Reflex</div>
+      <p>Difficulty: <b>${diff.toUpperCase()}</b> · Hit window: ±${Math.round(this.cfg.hitWin*1000)} ms</p>
+      <button id="btnStart" class="btn">▶ Start</button>
+    `;
+    this.overlay.style.display='flex';
+    document.getElementById('btnStart').onclick=()=>{ this.overlay.style.display='none'; this.start(); };
 
-      // Countdown timer
-      this.timer = setInterval(() => {
-        if (!this.state.running) return;
-        this.state.time--;
-        this.timeUI.innerText = this.state.time;
-        if (this.state.time <= 0) this.end();
-      }, 1000);
-    },
+    EXO.attachBasicInput({onLeft:()=>this.tryHit('L'), onRight:()=>this.tryHit('R'), onPause:()=>this.pause()});
+    document.getElementById('btnPause').onclick=()=>this.pause();
 
-    start() {
-      this.state.running = true;
-    },
+    // countdown
+    this.timer=setInterval(()=>{
+      if(!this.state.running) return;
+      this.state.time--; this.$t.textContent=this.state.time;
+      if(this.state.time<=0) this.end();
+    },1000);
+  },
 
-    spawn() {
-      const side = Math.random() < 0.5 ? 'L' : 'R';
-      const x = side === 'L' ? -0.8 : 0.8;
-      const target = document.createElement('a-box');
-      target.setAttribute('color', '#4fc3f7');
-      target.setAttribute('depth', 0.3);
-      target.setAttribute('height', 0.3);
-      target.setAttribute('width', 0.3);
-      target.setAttribute('position', `${x} 1.5 -4`);
-      target.setAttribute('data-side', side);
-      this.el.sceneEl.appendChild(target);
-      this.targets.push(target);
-    },
+  mkTarget(scene){
+    const e=document.createElement('a-entity');
+    e.setAttribute('visible',false);
+    e.userData={alive:false,side:'L',vz:0,isDecoy:false};
+    const inner=document.createElement('a-entity');
+    inner.setAttribute('geometry','primitive: box; depth:0.35; height:0.35; width:0.35');
+    inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');
+    e.appendChild(inner); scene.appendChild(e); return e;
+  },
 
-    hit(side) {
-      if (!this.state.running) return;
+  start(){
+    this.state.running=true;
+    // spawn loop
+    this.spawnLoop=setInterval(()=>this.spawn(), this.cfg.spawnIv);
+  },
 
-      let target = this.targets.find(t => t.getAttribute('data-side') === side);
-      if (target) {
-        EXO.beep();
-        this.state.score += Math.round(100 * this.state.combo);
-        this.state.combo += 0.1;
-        this.scoreUI.innerText = this.state.score;
-        this.comboUI.innerText = "x" + this.state.combo.toFixed(1);
-        target.parentNode.removeChild(target);
-        this.targets.splice(this.targets.indexOf(target), 1);
-      }
-    },
-
-    pause() {
-      this.state.running = false;
-      this.panel.innerHTML = `
-        <h3>Paused</h3>
-        <button class="btn" onclick="location.reload()">Restart</button>
-      `;
-      this.overlay.style.display = "flex";
-    },
-
-    end() {
-      this.state.running = false;
-      this.panel.innerHTML = `
-        <h3>Session Complete!</h3>
-        <p>Score: ${this.state.score}</p>
-        <button class="btn" onclick="location.reload()">Restart</button>
-        <a href="../index.html" class="btn">Exit</a>
-      `;
-      this.overlay.style.display = "flex";
+  spawn(){
+    if(!this.state.running) return;
+    const e=this.pool.find(o=>!o.userData.alive); if(!e) return;
+    const side=Math.random()<0.5?'L':'R';
+    const isDecoy = Math.random()<this.cfg.decoy;
+    e.userData.alive=true; e.userData.side=side; e.userData.isDecoy=isDecoy;
+    e.userData.vz=this.cfg.speed + (Math.random()*0.8-0.4); // เล็กน้อยให้ต่างกัน
+    e.object3D.position.set(this.laneX[side],1.4,this.spawnZ);
+    // สี decoy ให้ต่าง (แดง) — ห้ามตี
+    const inner=e.children[0];
+    if(isDecoy){
+      inner.setAttribute('material','color:#ff8a80; emissive:#8a2b2b; emissiveIntensity:.35');
+    }else{
+      inner.setAttribute('material','color:#9ecbff; emissive:#2a6fb5; emissiveIntensity:.25');
     }
-  });
-  </script>
+    e.setAttribute('visible',true);
+  },
+
+  tryHit(side){
+    if(!this.state.running) return;
+    const best=this.findBest(side);
+    if(!best) return;
+
+    const dz=Math.abs(best.object3D.position.z - this.hitZ);
+    if(dz<=this.cfg.hitWin){
+      // โดน
+      if(best.userData.isDecoy){
+        // โดนตัวล่อ = ลงโทษ
+        this.state.combo=1.0; this.$c.textContent='x1.0';
+        this.state.score=Math.max(0,this.state.score-100);
+        this.$s.textContent=this.state.score;
+        EXO.beep(220,0.06,0.15);
+      }else{
+        this.state.cntHit++;
+        const quality = dz<=this.cfg.hitWin*0.4 ? 1.0 : dz<=this.cfg.hitWin*0.7 ? 0.7 : 0.4;
+        this.state.score += Math.round(120*quality*this.state.combo);
+        this.state.combo = Math.min(5.0, this.state.combo+0.2);
+        this.state.maxCombo = Math.max(this.state.maxCombo,this.state.combo);
+        this.$s.textContent=this.state.score;
+        this.$c.textContent='x'+this.state.combo.toFixed(1);
+        EXO.beep(540,0.04,0.12);
+      }
+      best.setAttribute('visible',false); best.userData.alive=false;
+    }else{
+      // ตีพลาดไกล
+      this.state.combo=1.0; this.$c.textContent='x1.0';
+    }
+  },
+
+  findBest(side){
+    let best=null, dzBest=1e9;
+    for(const e of this.pool){
+      if(!e.userData.alive) continue;
+      if(e.userData.side!==side) continue;
+      const dz=Math.abs(e.object3D.position.z - this.hitZ);
+      if(dz<dzBest){ dzBest=dz; best=e; }
+    }
+    return best;
+  },
+
+  pause(){
+    if(!this.state.running) return;
+    this.state.running=false;
+    this.panel.innerHTML=`
+      <div class="title">Paused</div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  },
+
+  computeStats(){
+    const total = this.state.cntHit + this.state.cntMiss; // note: miss จะเพิ่มจากหลุดเส้น
+    const hitRate = total>0 ? (this.state.cntHit/total)*100 : 0;
+    return { hitRate: Math.round(hitRate*10)/10, maxCombo: Math.round(this.state.maxCombo*10)/10 };
+  },
+
+  end(){
+    this.state.running=false;
+    clearInterval(this.timer);
+    clearInterval(this.spawnLoop);
+
+    // นับ miss จากสิ่งที่ยัง alive และเลยเส้นไปแล้ว แถมรวมเหตุการณ์ที่ผ่านมา
+    // (ที่พลาดเพราะปล่อยให้ทะลุเส้น เราจะเพิ่ม miss ตอนอัปเดตตำแหน่งด้านล่าง)
+    const st=this.computeStats();
+    this.panel.innerHTML=`
+      <div class="title">Result — Combat Reflex</div>
+      <div class="kpi" style="grid-template-columns:repeat(3,1fr)">
+        <div>Score<br><b>${this.state.score}</b></div>
+        <div>MAX Combo<br><b>${st.maxCombo}×</b></div>
+        <div>Hit Rate<br><b>${st.hitRate}%</b></div>
+      </div>
+      <div style="display:flex;gap:.6rem;justify-content:center">
+        <a class="btn" onclick="location.reload()">⟲ Restart</a>
+        <a class="btn" href="../index.html">⟵ Hub</a>
+      </div>`;
+    this.overlay.style.display='flex';
+  },
+
+  tick: function(time, dt){
+    if(!this.state?.running) return;
+    const dtS=dt/1000;
+    for(const e of this.pool){
+      if(!e.userData.alive) continue;
+      const p=e.object3D.position; p.z += e.userData.vz*dtS;
+      if(p.z>0.2){ // เลยผู้เล่น = พลาด
+        if(!e.userData.isDecoy){
+          this.state.cntMiss++;
+          this.state.combo=1.0; this.$c.textContent='x1.0';
+        }
+        e.setAttribute('visible',false); e.userData.alive=false;
+      }
+    }
+  }
+});
+</script>
 
 </body>
 </html>
