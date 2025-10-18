@@ -7,17 +7,15 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
-
-    /* ฉากอยู่ล่างสุด */
+    /* ฉากล่างสุด */
     a-scene, canvas.a-canvas { position:fixed; inset:0; z-index:0 !important; }
-
-    /* ค่าเริ่มต้น: ปิดคลิก canvas เพื่อให้ปุ่มทำงาน 100% */
+    /* ค่าเริ่มต้น: ปิดคลิก canvas ให้ปุ่มทำงานแน่นอน */
     canvas.a-canvas { pointer-events: none !important; }
-    /* เปิดคลิกฉากเฉพาะตอนเล่นเกม */
+    /* ระหว่างเล่นเกมเท่านั้นค่อยเปิดคลิกให้ canvas */
     body.game-running canvas.a-canvas { pointer-events: auto !important; }
 
-    /* UI บนสุด */
-    .hud, #menuBar, .overlay, .targetBox, .quotaBox {
+    /* UI ด้านบน */
+    .hud, #menuBar, .overlay, .targetBox, .quotaBox, #toast {
       position: fixed; z-index: 2147483647 !important; pointer-events: auto !important;
       font-family: system-ui, sans-serif; color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,.8);
     }
@@ -44,52 +42,68 @@
     .overlay.show { display:flex; pointer-events:auto; }
     .card { background:rgba(8,10,20,0.96); border:1px solid #0ff; border-radius:16px; padding:18px 20px; color:#0ff; width:min(94vw,640px); text-align:center }
     .stars { font-size:28px; margin:8px 0 4px }
+
+    /* Toast debug ให้เห็นว่าปุ่มโดนคลิกแน่ ๆ */
+    #toast { left:50%; transform:translateX(-50%); bottom:64px; background:rgba(0,0,0,.7);
+             border:1px solid #0ff; border-radius:10px; padding:8px 12px; display:none; }
+    #toast.show { display:block; }
   </style>
 
-  <!-- SAFE UI stub + Canvas MutationObserver (กันพลาด Chrome) -->
+  <!-- Fallback ที่ทำงานได้ทันทีแม้ GAME_UI ยังไม่พร้อม -->
   <script>
-    // Stub เพื่อให้ปุ่มเรียกได้แม้เกมโหลดช้า
-    window.GAME_UI = window.GAME_UI || {
-      _q: [], _ready: false,
-      _bind(real){ this._real=real; this._ready=true; this._q.forEach(fn=>{try{fn()}catch(e){}}); this._q=[]; },
-      _call(name,...args){ const go=()=>{ try{ this._real[name](...args); }catch(e){ console.error(e); } };
-        this._ready? go() : this._q.push(go); },
-      start(){this._call('start')}, pause(){this._call('pause')}, restart(){this._call('restart')},
-      how(){this._call('how')}, setMode(m){this._call('setMode',m)}, setDiff(d){this._call('setDiff',d)},
-      toggleLang(){this._call('toggleLang')}, toggleVoice(){this._call('toggleVoice')}
-    };
-
-    // บังคับ pointer-events ที่ canvas ทุกครั้งที่ A-Frame สร้างแท็กใหม่ (Chrome ชอบแทนที่)
+    // บังคับ pointer-events ของ canvas ทุกครั้งที่ A-Frame สร้างใหม่ (Chrome ชอบแทนที่)
     const enforceCanvasPE = () => {
       document.querySelectorAll('canvas.a-canvas').forEach(cv=>{
-        const should = document.body.classList.contains('game-running') ? 'auto' : 'none';
-        const val = should === 'auto' ? 'auto' : 'none';
-        if (getComputedStyle(cv).pointerEvents !== val) {
-          cv.style.pointerEvents = val;
-        }
+        const on = document.body.classList.contains('game-running');
+        const want = on ? 'auto' : 'none';
+        if (getComputedStyle(cv).pointerEvents !== want) cv.style.pointerEvents = want;
       });
     };
-    const mo = new MutationObserver((mut) => {
-      let touched = false;
-      for (const m of mut) {
-        if (m.type === 'childList') {
-          if ([...m.addedNodes].some(n => n.tagName === 'CANVAS' || (n.querySelector && n.querySelector('canvas.a-canvas')))) {
-            touched = true;
-          }
-        }
-        if (m.type === 'attributes' && m.target.matches && m.target.matches('canvas.a-canvas')) {
-          touched = true;
-        }
-      }
-      if (touched) enforceCanvasPE();
-    });
-    window.addEventListener('DOMContentLoaded', ()=>{
+    const mo = new MutationObserver(() => enforceCanvasPE());
+    window.addEventListener('DOMContentLoaded', () => {
       mo.observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style'] });
       enforceCanvasPE();
     });
-    // ช่วยเวลาเข้าสู่ VR/ออกจาก VR
-    document.addEventListener('enter-vr', enforceCanvasPE, true);
-    document.addEventListener('exit-vr',  enforceCanvasPE, true);
+
+    // Toast สำหรับบอกผลคลิกทันที
+    function toast(msg){ const t=document.getElementById('toast'); if(!t) return;
+      t.textContent = msg; t.classList.add('show'); clearTimeout(toast._h);
+      toast._h = setTimeout(()=> t.classList.remove('show'), 1200);
+    }
+
+    // Hard fallback: ปุ่มทำงานแม้ไม่มี game.js
+    function callUI(name, ...args){
+      try {
+        if (window.GAME_UI && typeof window.GAME_UI[name]==='function') {
+          return window.GAME_UI[name](...args);
+        }
+      } catch(e){ console.error(e); }
+      // ถ้าไม่มี GAME_UI ให้ตอบสนองขั้นต่ำเพื่อยืนยันว่าปุ่มคลิกติดจริง
+      if (name==='start') { document.body.classList.add('game-running'); enforceCanvasPE(); toast('Starting (engine loading)'); }
+      else if (name==='pause') { toast('Paused (engine not ready)'); }
+      else if (name==='restart') { document.body.classList.add('game-running'); enforceCanvasPE(); toast('Restart (engine loading)'); }
+      else if (name==='how') { alert('วิธีเล่น: เลือกโหมดแล้วกดเริ่มเกม (กำลังโหลดเอนจิน)'); }
+      else if (name==='setMode') { toast('Mode set'); }
+      else if (name==='setDiff') { toast('Difficulty set'); }
+      else if (name==='toggleLang') { toast('Toggle language'); }
+      else if (name==='toggleVoice') { toast('Toggle voice'); }
+    }
+
+    // Stub ที่ยอมรับ bind ของเกมภายหลัง
+    window.GAME_UI = window.GAME_UI || {
+      _q: [], _ready:false,
+      _bind(real){ this._real=real; this._ready=true; this._q.forEach(fn=>{try{fn()}catch(e){}}); this._q=[]; },
+      _call(name,...args){ const go=()=>{ try{ this._real[name](...args); }catch(e){ console.error(e); } };
+        this._ready? go() : this._q.push(go); },
+      start(){ callUI('start'); this._call('start'); },
+      pause(){ callUI('pause'); this._call('pause'); },
+      restart(){ callUI('restart'); this._call('restart'); },
+      how(){ callUI('how'); this._call('how'); },
+      setMode(m){ callUI('setMode',m); this._call('setMode',m); },
+      setDiff(d){ callUI('setDiff',d); this._call('setDiff',d); },
+      toggleLang(){ callUI('toggleLang'); this._call('toggleLang'); },
+      toggleVoice(){ callUI('toggleVoice'); this._call('toggleVoice'); }
+    };
   </script>
 </head>
 <body>
@@ -118,27 +132,30 @@
     <div class="targetName" id="quotaText">—</div>
   </div>
 
-  <!-- เมนูด้านล่าง -->
+  <!-- เมนู -->
   <div id="menuBar">
     <div id="modeBar" style="margin-bottom:6px">
-      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('goodjunk')">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
-      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('groups')">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
-      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('hydration')">💧 <span data-i18n="modeHydra">Hydration</span></span>
-      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('plate')">🍱 <span data-i18n="modePlate">Build Plate</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="callUI('setMode','goodjunk')">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="callUI('setMode','groups')">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="callUI('setMode','hydration')">💧 <span data-i18n="modeHydra">Hydration</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="callUI('setMode','plate')">🍱 <span data-i18n="modePlate">Build Plate</span></span>
     </div>
     <div id="diffBar" style="margin:8px 0">
-      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setDiff('Easy')">Easy</span>
-      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setDiff('Normal')">Normal</span>
-      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setDiff('Hard')">Hard</span>
+      <span class="tag" role="button" tabindex="0" onclick="callUI('setDiff','Easy')">Easy</span>
+      <span class="tag" role="button" tabindex="0" onclick="callUI('setDiff','Normal')">Normal</span>
+      <span class="tag" role="button" tabindex="0" onclick="callUI('setDiff','Hard')">Hard</span>
     </div>
     <div>
-      <button class="btn" id="btnStart"  onclick="GAME_UI.start()">▶ <span data-i18n="start">เริ่มเกม</span></button>
-      <button class="btn" id="btnPause"  onclick="GAME_UI.pause()">⏸ <span data-i18n="pause">พัก</span></button>
-      <button class="btn" id="btnHow"    onclick="GAME_UI.how()">❓ <span data-i18n="how">วิธีเล่น</span></button>
-      <button class="btn" id="btnLang"   onclick="GAME_UI.toggleLang()">🌐 <span id="langText">ไทย/English</span></button>
-      <button class="btn" id="btnVoice"  onclick="GAME_UI.toggleVoice()">🔊 <span data-i18n="voiceOn">เสียงพูด: เปิด</span></button>
+      <button class="btn" id="btnStart"  onclick="callUI('start')">▶ <span data-i18n="start">เริ่มเกม</span></button>
+      <button class="btn" id="btnPause"  onclick="callUI('pause')">⏸ <span data-i18n="pause">พัก</span></button>
+      <button class="btn" id="btnHow"    onclick="callUI('how')">❓ <span data-i18n="how">วิธีเล่น</span></button>
+      <button class="btn" id="btnLang"   onclick="callUI('toggleLang')">🌐 <span id="langText">ไทย/English</span></button>
+      <button class="btn" id="btnVoice"  onclick="callUI('toggleVoice')">🔊 <span data-i18n="voiceOn">เสียงพูด: เปิด</span></button>
     </div>
   </div>
+
+  <!-- Toast แสดงผลคลิก -->
+  <div id="toast">clicked</div>
 
   <!-- สรุปผล -->
   <div class="overlay" id="summary">
@@ -148,7 +165,7 @@
       <div id="sumBody">Score: 0 • Combo Max: x1 • Mode: — • Diff: —</div>
       <div style="margin-top:8px"><span id="sumTips">VR: จ้องไอเท็มจนวงแหวนครบเพื่อเลือก</span></div>
       <div style="margin-top:12px">
-        <button class="btn" id="btnRestart" onclick="GAME_UI.restart()">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
+        <button class="btn" id="btnRestart" onclick="callUI('restart')">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
       </div>
     </div>
   </div>
