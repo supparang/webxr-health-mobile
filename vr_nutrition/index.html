@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>VR Nutrition — CLICK GUARD v2 (3D boxes)</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
+<style>
+  html,body{margin:0;height:100%;background:#050910;overflow:hidden}
+  a-scene,canvas.a-canvas{position:fixed;inset:0;z-index:0}
+  body:not(.game-running) a-scene, body:not(.game-running) canvas.a-canvas, body:not(.game-running) .a-enter-vr{pointer-events:none!important}
+  .hud,#menuBar,#dbg{position:fixed;z-index:2147483647!important;pointer-events:auto!important;font-family:system-ui;color:#0ff}
+  .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center;text-shadow:0 0 8px rgba(0,255,255,.7)}
+  #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center}
+  .btn{display:inline-block;padding:10px 14px;margin:0 6px;border:1px solid #0ff;border-radius:12px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer}
+  #dbg{left:8px;bottom:8px;background:rgba(0,0,0,.6);padding:6px 8px;border-radius:8px;border:1px solid #0ff;display:none;white-space:pre;font-size:12px}
+  body.debug #dbg{display:block}
+</style>
+</head>
+<body>
+  <div class="hud">Score: <span id="score">0</span> | Combo: <span id="combo">x1</span> | Time: <span id="time">60</span>s</div>
+  <div id="menuBar">
+    <button id="btnStart" class="btn">▶ เริ่มเกม</button>
+    <button id="btnPause" class="btn">⏸ พัก</button>
+    <button id="btnRestart" class="btn">↻ เริ่มใหม่</button>
+    <button id="btnDebug" class="btn">🐛 Debug</button>
+  </div>
+  <div id="dbg">STATE: ready</div>
+
+  <a-scene id="scene" background="color:#050910" loading-screen="enabled:false"
+           renderer="antialias:true; highRefreshRate:true; colorManagement:true">
+    <a-entity id="ambient" light="type: ambient; color: #BBB"></a-entity>
+    <a-entity id="hemilight" light="type: hemisphere; color: #fffff0; groundColor: #222; intensity: 0.9"></a-entity>
+    <a-sky color="#050910"></a-sky>
+
+    <a-entity id="playerCam" position="0 1.6 0" camera look-controls
+              raycaster="objects: .clickable; far: 12"
+              cursor="rayOrigin: entity; fuse: true; fuseTimeout: 700">
+      <a-entity position="0 0 -1" geometry="primitive:ring;radiusInner:0.005;radiusOuter:0.008"
+                material="color:#0ff;shader:flat;opacity:0.9"></a-entity>
+    </a-entity>
+
+    <a-entity id="mouseRig" cursor="rayOrigin: mouse" raycaster="objects: .clickable; far: 12"></a-entity>
+
+    <!-- Debug beacon always in front of camera to prove 3D renders -->
+    <a-box id="beacon" position="0 1.6 -1.2" depth="0.2" height="0.2" width="0.2"
+           color="#0ff" material="emissive:#0ff; emissiveIntensity:0.6"
+           animation__yoyo="property: position; to: 0 1.7 -1.2; dir: alternate; loop: true; dur: 800"></a-box>
+
+    <a-entity id="spawnerRoot" position="0 1.6 -2.0"></a-entity>
+  </a-scene>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const dbg=(m)=>{ const d=$("#dbg"); d.textContent = "STATE: " + m; };
+
+  // Toggle debug
+  $("#btnDebug").addEventListener('click',()=>document.body.classList.toggle('debug'));
+  window.addEventListener('keydown',e=>{ if(e.key==='`') document.body.classList.toggle('debug'); });
+
+  const APP={running:false,paused:false,score:0,timeLeft:60,combo:1};
+  let spawnH=null,timerH=null, watchdogH=null, SPAWN_COUNT=0;
+
+  const COLORS=['#39d','#0f9','#fd0','#f55','#9f6','#0ff','#f0f','#fa0','#0fa','#a0f'];
+
+  function setHUD(){ $("#score").textContent=APP.score; $("#time").textContent=APP.timeLeft; $("#combo").textContent='x'+APP.combo; }
+
+  function spawn(){
+    const root=$("#spawnerRoot"); if(!root) return;
+    // random lane in FOV (left/center/right) and slight Y variation
+    const xs=[-0.8,0,0.8][Math.floor(Math.random()*3)];
+    const ys=[-0.05,0.12,0.29][Math.floor(Math.random()*3)];
+    const z=-2 + (Math.random()*0.4-0.2); // -2 ± 0.2
+    const c=COLORS[Math.floor(Math.random()*COLORS.length)];
+    const box=document.createElement('a-box');
+    box.setAttribute('depth','0.18'); box.setAttribute('height','0.38'); box.setAttribute('width','0.38');
+    box.setAttribute('color', c);
+    box.setAttribute('material', 'shader:standard; metalness:0.05; roughness:0.6; emissive:#000');
+    box.setAttribute('position',`${xs} ${1.6+ys} ${z}`);
+    box.setAttribute('class','clickable');
+    box.setAttribute('animation__float','property: position; dir: alternate; loop: true; dur: 900; to: '+xs+' '+(1.6+ys+0.08)+' '+z);
+    box.addEventListener('click',()=>{ APP.score+=5; setHUD(); if(box.parentNode) box.parentNode.removeChild(box); });
+    root.appendChild(box); SPAWN_COUNT++;
+    setTimeout(()=>{ if(box.parentNode){ box.parentNode.removeChild(box);} }, 3200);
+  }
+
+  function loop(){ if(!APP.running||APP.paused) return; spawn(); spawnH=setTimeout(loop, 740); }
+  function tick(){ if(!APP.running||APP.paused) return; timerH=setTimeout(()=>{ APP.timeLeft--; setHUD(); if(APP.timeLeft<=0){ stop(); } else tick(); }, 1000); }
+
+  function start(){
+    APP.running=true; APP.paused=false; document.body.classList.add('game-running'); setHUD();
+    setTimeout(()=>spawn(), 200); loop(); tick(); dbg('start');
+    // watchdog: ensure spawn happening and time progressing
+    clearTimeout(watchdogH);
+    let seenTime=APP.timeLeft, seenSp=SPAWN_COUNT;
+    function kick(){
+      const stuck = (APP.timeLeft===seenTime) || (SPAWN_COUNT===seenSp);
+      if(stuck){ clearTimeout(spawnH); clearTimeout(timerH); setTimeout(()=>{ spawn(); loop(); tick(); }, 150); dbg('watchdog kick'); }
+      seenTime=APP.timeLeft; seenSp=SPAWN_COUNT;
+      watchdogH=setTimeout(kick, 1200);
+    }
+    kick();
+  }
+
+  function pause(){ if(!APP.running) return; APP.paused=!APP.paused; if(APP.paused){ clearTimeout(spawnH); clearTimeout(timerH); dbg('paused'); } else { dbg('resumed'); loop(); tick(); } }
+  function restart(){ clearTimeout(spawnH); clearTimeout(timerH); clearTimeout(watchdogH); APP.running=false; APP.paused=false; APP.score=0; APP.timeLeft=60; setHUD(); start(); }
+
+  // Bind buttons
+  $("#btnStart").addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); start(); }, false);
+  $("#btnPause").addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); pause(); }, false);
+  $("#btnRestart").addEventListener('click',(e)=>{ e.preventDefault(); e.stopPropagation(); restart(); }, false);
+
+  // when scene loaded, ensure beacon visible
+  document.getElementById('scene').addEventListener('loaded',()=>{ dbg('scene loaded'); });
+
+  setHUD(); dbg('ready');
+})();</script>
+</body>
+</html>
