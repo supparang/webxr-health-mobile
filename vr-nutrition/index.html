@@ -354,7 +354,6 @@
   const showToast=(msg,ms=1200)=>{ toast.textContent=msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',ms); };
 
   /* Spawn/Destroy */
-  const ACTIVE=new Set(); // local ref ifต้องการ แต่ใช้ game.ACTIVE ด้านล่าง
   function destroy(obj){ if(obj.parent) obj.parent.remove(obj); game.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
   function spawn(){
     const lane=pickLane(); if(!lane) return;
@@ -376,7 +375,7 @@
   function nextTarget(){
     const arr=groupsArr.filter(x=>x!==game.currentTarget);
     game.currentTarget = arr[Math.floor(Math.random()*arr.length)];
-    updateTargetLabel(); // อัปเดตป้ายทุกครั้งที่เปลี่ยนเป้าหมาย
+    updateTargetLabel();
   }
   function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(game.state.difficulty==='Hard') base.veggies=3; game.plateQuota=base; }
   function setFever(on){ game.state.fever=on; document.body.classList.toggle('fever', on); }
@@ -432,7 +431,7 @@
   function start(){
     $("#summary").style.display='none'; $("#help").style.display='none';
     game.state.score=0; game.state.combo=1; game.state.comboMax=1; game.state.timeLeft=60; game.state.hits=0; game.state.misses=0; game.state.specials={time:0,fever:0,slow:0,bomb:0,shield:0};
-    if(game.state.mode==='groups'){ nextTarget(); updateTargetLabel(); } // ตั้งเป้าหมายเริ่มต้น + แสดงป้าย
+    if(game.state.mode==='groups'){ nextTarget(); updateTargetLabel(); }
     if(game.state.mode==='plate'){ resetPlateQuota(); }
     updateHUD(); game.state.running=true; game.state.paused=false;
     setTimeout(spawn, 200); loop(); timer();
@@ -461,13 +460,13 @@
   function renderLoop(){ const q=camera.quaternion; game.ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
   renderer.setAnimationLoop(renderLoop);
 
-  /* UI API */
+  /* UI API (แก้ help ให้ปิด summary ก่อน) */
   const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; WD=0; start(); },
              setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); updateHUD(); updateTargetLabel(); },
              setDiff:(d)=>{ game.state.difficulty=d; localStorage.setItem('ng_diff',d); updateHUD(); },
              toggleLang:()=>{ uiState.lang=(uiState.lang==='th'?'en':'th'); localStorage.setItem('ng_lang',uiState.lang); game.state.lang=uiState.lang; applyLang(); },
-             help: ()=>{ $('#help').style.display='flex'; applyLang(); },
-             helpClose: ()=>{ $('#help').style.display='none'; }
+             help: ()=>{ document.getElementById('summary').style.display='none'; document.getElementById('help').style.display='flex'; applyLang(); },
+             helpClose: ()=>{ document.getElementById('help').style.display='none'; }
            };
   window.UI=UI;
 
@@ -479,6 +478,18 @@
     const map={start:UI.start,pause:UI.pause,restart:UI.restart,lang:UI.toggleLang,help:UI.help};
     if(act in map) map[act](); else if(act==='mode') UI.setMode(val); else if(act==='diff') UI.setDiff(val);
   }, false);
+
+  /* ✅ delegate click ในหน้าสรุปให้ทำงานได้ */
+  document.getElementById('summary').addEventListener('click', (e)=>{
+    const btn = e.target.closest('button');
+    if(!btn) return;
+    const act = btn.getAttribute('data-action');
+    e.preventDefault(); e.stopPropagation();
+    if(act === 'help') { UI.help(); }
+    else if(act === 'restart') { UI.restart(); }
+  });
+
+  /* Help overlay close-on-bg */
   $("#help").addEventListener('click',(e)=>{ if(e.target.id==='help') UI.helpClose(); });
   $("#help").querySelector('[data-action=helpClose]').addEventListener('click', ()=>UI.helpClose());
 
