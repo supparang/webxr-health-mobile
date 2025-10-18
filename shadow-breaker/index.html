@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <title>EXO Training Protocol — Hub</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Core อยู่นอกโฟลเดอร์นี้ -->
-  <link rel="stylesheet" href="../core/exo-ui.css">
+  <!-- Core (อยู่ที่ /core) -->
+  <link rel="stylesheet" href="core/exo-ui.css">
   <style>
     .grid{max-width:1040px;margin:84px auto 40px;padding:0 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
     .card{background:rgba(14,20,36,.85);border:1px solid #112848;border-radius:12px;padding:14px}
@@ -35,7 +35,7 @@
           <option value="en">English</option>
         </select>
       </div>
-      <!-- ไฟล์เหล่านี้อยู่ใน /shadow-breaker/ โฟลเดอร์เดียวกับ index -->
+      <!-- ไฟล์เหล่านี้อยู่โฟลเดอร์เดียวกับ index (root) -->
       <a class="btn" href="leaderboard.html" id="btnLeaderboard">🏆 Leaderboard</a>
       <a class="btn" href="vs.html" id="btnVS">⚔ VS</a>
       <a class="btn" href="settings.html" id="btnSettings">⚙ Settings</a>
@@ -73,10 +73,10 @@
       <div class="hint" id="progHint">ระหว่างเล่นแต่ละเกม จะส่งต่อเกมถัดไปอัตโนมัติ</div>
     </section>
 
-    <!-- Combat Reflex (เกม 1) -->
+    <!-- COMBAT ⚡ Reflex Training (เกม 1) -->
     <section class="card" id="cardCombat">
-      <h3 id="combatTitle">Combat Reflex</h3>
-      <p class="muted" id="combatDesc">เกม 1 — ตอบสนองไว ตีเป้าเข้า Hit Line</p>
+      <h3 id="combatTitle">COMBAT ⚡ Reflex Training</h3>
+      <p class="muted" id="combatDesc">ตีให้เข้า Hit Line — เน้นความไว + ความแม่น</p>
       <div class="row"><label id="lblDiff1">Difficulty</label>
         <select id="combatDiff">
           <option value="easy" data-i18n="diff.easy">easy</option>
@@ -85,6 +85,7 @@
         </select>
       </div>
       <div class="row"><label id="lblTime1">Time (s)</label><input id="combatTime" type="number" value="60" min="10" max="600" step="5"></div>
+      <!-- Items -->
       <div class="row">
         <label id="lblItems1">Items</label>
         <label style="display:flex;align-items:center;gap:8px">
@@ -92,13 +93,13 @@
           <span class="muted" id="lblTimeOrb">Time Orb (+เวลา)</span>
         </label>
       </div>
-      <div class="row"><button id="btnCombat" class="btn wide">▶ <span id="btnCombatTxt">Play Combat Reflex</span></button></div>
+      <div class="row"><button id="btnCombat" class="btn wide">▶ <span id="btnCombatTxt">Play COMBAT</span></button></div>
     </section>
 
-    <!-- Rhythm Sync (เกม 2) -->
+    <!-- RHYTHM 🎵 BPM Strike (เกม 2) -->
     <section class="card" id="cardRhythm">
-      <h3 id="rhythmTitle">Rhythm Sync</h3>
-      <p class="muted" id="rhythmDesc">เกม 2 — ตามจังหวะ BPM + Chart (จบเมื่อโน้ตหมด)</p>
+      <h3 id="rhythmTitle">RHYTHM 🎵 BPM Strike</h3>
+      <p class="muted" id="rhythmDesc">ตามจังหวะ BPM + Chart — โน้ตหมดจบเกม</p>
       <div class="row"><label id="lblDiff2">Difficulty</label>
         <select id="rhythmDiff">
           <option value="easy" data-i18n="diff.easy">easy</option>
@@ -111,24 +112,24 @@
         <label id="lblChart">Chart</label>
         <select id="chartPreset">
           <option value="">{default by diff}</option>
-          <option value="../rhythm-rider/charts/easy.json">charts/easy.json</option>
-          <option value="../rhythm-rider/charts/normal.json">charts/normal.json</option>
-          <option value="../rhythm-rider/charts/hard.json">charts/hard.json</option>
-          <option value="../rhythm-rider/charts/sprint.json">charts/sprint.json</option>
-          <option value="../rhythm-rider/charts/crossfire.json">charts/crossfire.json</option>
-          <option value="../rhythm-rider/charts/marathon.json">charts/marathon.json</option>
+          <option value="rhythm-rider/charts/easy.json">charts/easy.json</option>
+          <option value="rhythm-rider/charts/normal.json">charts/normal.json</option>
+          <option value="rhythm-rider/charts/hard.json">charts/hard.json</option>
+          <option value="rhythm-rider/charts/sprint.json">charts/sprint.json</option>
+          <option value="rhythm-rider/charts/crossfire.json">charts/crossfire.json</option>
+          <option value="rhythm-rider/charts/marathon.json">charts/marathon.json</option>
           <option value="__custom__" data-i18n="chart.custom">Custom URL…</option>
         </select>
       </div>
       <div class="row" id="customWrap" style="display:none"><label id="lblUrl">URL</label><input id="chartUrl" type="text" placeholder="https://your.host/chart.json"></div>
       <div class="hint" id="rhythmHint">Tip: เพิ่มเพลงด้วย ?music=assets/track.ogg</div>
-      <div class="row"><button id="btnRhythm" class="btn wide">▶ <span id="btnRhythmTxt">Play Rhythm Sync</span></button></div>
+      <div class="row"><button id="btnRhythm" class="btn wide">▶ <span id="btnRhythmTxt">Play RHYTHM</span></button></div>
     </section>
 
-    <!-- Mobility Dash (เกม 3) -->
+    <!-- DASH 🏃 Mobility Run (เกม 3) -->
     <section class="card" id="cardDashMobility">
-      <h3 id="dashGameTitle">Mobility Dash</h3>
-      <p class="muted" id="dashGameDesc">เกม 3 — สลับเลนหลบสิ่งกีดขวาง</p>
+      <h3 id="dashGameTitle">DASH 🏃 Mobility Run</h3>
+      <p class="muted" id="dashGameDesc">สลับเลน หลบสิ่งกีดขวาง — โฟกัสจังหวะการเคลื่อนที่</p>
       <div class="row"><label id="lblDiff3">Difficulty</label>
         <select id="dashDiff">
           <option value="easy" data-i18n="diff.easy">easy</option>
@@ -137,13 +138,13 @@
         </select>
       </div>
       <div class="row"><label id="lblTime3">Time (s)</label><input id="dashTime" type="number" value="60" min="10" max="600" step="5"></div>
-      <div class="row"><button id="btnDash" class="btn wide">▶ <span id="btnDashTxt">Play Mobility Dash</span></button></div>
+      <div class="row"><button id="btnDash" class="btn wide">▶ <span id="btnDashTxt">Play DASH</span></button></div>
     </section>
 
-    <!-- Power Control (เกม 4) -->
+    <!-- POWER 🛡 Squat Control (เกม 4) -->
     <section class="card" id="cardPower">
-      <h3 id="powerTitle">Power Control</h3>
-      <p class="muted" id="powerDesc">เกม 4 — ย่อ/ยืน ผ่านวงแหวนให้ถูก</p>
+      <h3 id="powerTitle">POWER 🛡 Squat Control</h3>
+      <p class="muted" id="powerDesc">ย่อ/ยืน ผ่านวงแหวนให้ตรงระดับ — เร่งแรงช่วงล่าง</p>
       <div class="row"><label id="lblDiff4">Difficulty</label>
         <select id="powerDiff">
           <option value="easy" data-i18n="diff.easy">easy</option>
@@ -152,17 +153,17 @@
         </select>
       </div>
       <div class="row"><label id="lblTime4">Time (s)</label><input id="powerTime" type="number" value="60" min="10" max="600" step="5"></div>
-      <div class="row"><button id="btnPower" class="btn wide">▶ <span id="btnPowerTxt">Play Power Control</span></button></div>
+      <div class="row"><button id="btnPower" class="btn wide">▶ <span id="btnPowerTxt">Play POWER</span></button></div>
     </section>
   </main>
 
   <!-- Core scripts -->
-  <script src="../core/exo-core.js"></script>
-  <script src="../core/exo-metrics.js"></script>
-  <script src="../core/exo-settings.js"></script>
+  <script src="core/exo-core.js"></script>
+  <script src="core/exo-metrics.js"></script>
+  <script src="core/exo-settings.js"></script>
 
   <script>
-    /* -------- i18n (TH/EN) -------- */
+    /* -------- i18n (TH/EN) + ชื่อเกมสไตล์ D -------- */
     const I18N = {
       th: { title:"EXO TRAINING PROTOCOL", language:"ภาษา",
         leaderboard:"🏆 ตารางอันดับ", vs:"⚔ โหมด VS", settings:"⚙ ตั้งค่า",
@@ -174,10 +175,11 @@
         progHint:"ระหว่างเล่นแต่ละเกม จะส่งต่อเกมถัดไปอัตโนมัติ",
         prog:{quick:"Quick Sweat (≈6 นาที)", rhythm:"Rhythm Focus", lower:"Lower Body Power"},
         diff:{easy:"ง่าย", normal:"ปกติ", hard:"ยาก"},
-        combatTitle:"Combat Reflex", combatDesc:"เกม 1 — ตอบสนองไว ตีเป้าเข้าเส้น", playCombat:"เริ่ม Combat Reflex",
-        rhythmTitle:"Rhythm Sync", rhythmDesc:"เกม 2 — ตามจังหวะ (จบเมื่อโน้ตหมด)", playRhythm:"เริ่ม Rhythm Sync",
-        dashGameTitle:"Mobility Dash", dashGameDesc:"เกม 3 — สลับเลนหลบสิ่งกีดขวาง", playDash:"เริ่ม Mobility Dash",
-        powerTitle:"Power Control", powerDesc:"เกม 4 — ย่อ/ยืน ผ่านวงแหวน", playPower:"เริ่ม Power Control",
+        // ชื่อการ์ดแบบ D
+        combatTitle:"COMBAT ⚡ Reflex Training", combatDesc:"ตีให้เข้า Hit Line — เน้นความไว + ความแม่น", playCombat:"เล่น COMBAT",
+        rhythmTitle:"RHYTHM 🎵 BPM Strike", rhythmDesc:"ตามจังหวะ BPM + Chart — โน้ตหมดจบเกม", playRhythm:"เล่น RHYTHM",
+        dashGameTitle:"DASH 🏃 Mobility Run", dashGameDesc:"สลับเลน หลบสิ่งกีดขวาง — โฟกัสจังหวะการเคลื่อนที่", playDash:"เล่น DASH",
+        powerTitle:"POWER 🛡 Squat Control", powerDesc:"ย่อ/ยืน ผ่านวงแหวนให้ตรงระดับ — เร่งแรงช่วงล่าง", playPower:"เล่น POWER",
         difficulty:"ความยาก", timeS:"เวลา (วินาที)", items:"ไอเท็ม", timeOrb:"Time Orb (+เวลา)",
         bpm:"BPM", chart:"ชาร์ต", custom:"กำหนด URL เอง…", url:"URL",
         tipMusic:"ทิป: เพิ่มเพลงด้วย ?music=assets/track.ogg"
@@ -192,10 +194,11 @@
         progHint:"Between games, it auto-continues to the next.",
         prog:{quick:"Quick Sweat (≈6 min)", rhythm:"Rhythm Focus", lower:"Lower Body Power"},
         diff:{easy:"easy", normal:"normal", hard:"hard"},
-        combatTitle:"Combat Reflex", combatDesc:"Game 1 — Fast reaction, hit on the line", playCombat:"Play Combat Reflex",
-        rhythmTitle:"Rhythm Sync", rhythmDesc:"Game 2 — Follow BPM + Chart (ends when notes finish)", playRhythm:"Play Rhythm Sync",
-        dashGameTitle:"Mobility Dash", dashGameDesc:"Game 3 — Lane-switch obstacle dodge", playDash:"Play Mobility Dash",
-        powerTitle:"Power Control", powerDesc:"Game 4 — Squat/Stand through rings", playPower:"Play Power Control",
+        // Card names style D
+        combatTitle:"COMBAT ⚡ Reflex Training", combatDesc:"Hit the line — pure speed + precision", playCombat:"Play COMBAT",
+        rhythmTitle:"RHYTHM 🎵 BPM Strike", rhythmDesc:"Follow BPM + charts — ends when notes finish", playRhythm:"Play RHYTHM",
+        dashGameTitle:"DASH 🏃 Mobility Run", dashGameDesc:"Lane-switch obstacle dodge — timing focus", playDash:"Play DASH",
+        powerTitle:"POWER 🛡 Squat Control", powerDesc:"Squat/stand through rings — lower-body power", playPower:"Play POWER",
         difficulty:"Difficulty", timeS:"Time (s)", items:"Items", timeOrb:"Time Orb (+time)",
         bpm:"BPM", chart:"Chart", custom:"Custom URL…", url:"URL",
         tipMusic:"Tip: add music via ?music=assets/track.ogg"
@@ -213,8 +216,10 @@
       try{ window.EXO && EXO.store && EXO.store.set('EXO_LANG', lang); }catch(e){}
       document.documentElement.lang = lang;
       const L = I18N[lang] || I18N.th;
+
       $('txtTitle').textContent = L.title; $('txtLang').textContent  = L.language;
       $('btnLeaderboard').textContent = L.leaderboard; $('btnVS').textContent = L.vs; $('btnSettings').textContent = L.settings;
+
       $('dashTitle').textContent = L.dashTitle; $('lblRank').textContent = L.rank; $('lblLevel').textContent = L.level;
       $('lblSess').textContent = L.sessions; $('lblTotalTime').textContent = L.totalTime; $('lblTotalScore').textContent = L.totalScore; $('lblAvgScore').textContent = L.avgScore;
       $('lblRecent').textContent = L.recent;
@@ -283,23 +288,23 @@
       }
       refreshDash();
 
-      // Workout Program → program.html (อยู่โฟลเดอร์เดียวกัน)
+      // Workout Program → ใช้ path จาก root
       const programs = {
         quick: [
-          '../shadow-breaker/play.html?diff=normal&time=60',  // Combat
-          '../cardio-sprint/play.html?diff=normal&time=60',   // Dash
-          '../rhythm-rider/play.html?diff=normal&bpm=110&chart=../rhythm-rider/charts/normal.json',
-          '../sky-squats/play.html?diff=normal&time=60'       // Power
+          'shadow-breaker/play.html?diff=normal&time=60',                         // Combat
+          'cardio-sprint/play.html?diff=normal&time=60',                          // Dash
+          'rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
+          'sky-squats/play.html?diff=normal&time=60'                              // Power
         ],
         rhythm: [
-          '../rhythm-rider/play.html?diff=easy&bpm=100&chart=../rhythm-rider/charts/easy.json',
-          '../rhythm-rider/play.html?diff=normal&bpm=120&chart=../rhythm-rider/charts/normal.json',
-          '../rhythm-rider/play.html?diff=hard&bpm=135&chart=../rhythm-rider/charts/hard.json'
+          'rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
+          'rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
+          'rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json'
         ],
         lower: [
-          '../sky-squats/play.html?diff=easy&time=45',
-          '../sky-squats/play.html?diff=normal&time=60',
-          '../cardio-sprint/play.html?diff=normal&time=60'
+          'sky-squats/play.html?diff=easy&time=45',
+          'sky-squats/play.html?diff=normal&time=60',
+          'cardio-sprint/play.html?diff=normal&time=60'
         ]
       };
 
@@ -311,14 +316,14 @@
         location.href = plan[0] + '&next=program.html';
       });
 
-      // Rhythm card (เกม 2)
+      // Rhythm card (เกม 2) — path จาก root
       const preset = $('chartPreset'), customWrap = $('customWrap'), chartUrl = $('chartUrl');
       preset && preset.addEventListener('change', ()=>{ if(customWrap) customWrap.style.display = (preset.value==='__custom__') ? 'flex':'none'; });
       const btnRhythm = $('btnRhythm');
       btnRhythm && (btnRhythm.onclick = () => {
         const diff = $('rhythmDiff').value;
         const bpm  = Math.max(60, Math.min(220, parseInt(($('rhythmBpm').value||'110'),10)));
-        let url = '../rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
+        let url = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
         const p = preset?.value;
         if (p){
           url += '&chart=' + encodeURIComponent(p==='__custom__' ? (chartUrl?.value||'').trim() : p);
@@ -326,12 +331,12 @@
         location.href = url;
       });
 
-      // Combat card (เกม 1)
+      // Combat card (เกม 1) — path จาก root
       const btnCombat = $('btnCombat');
       btnCombat && (btnCombat.onclick = () => {
         const diff = $('combatDiff').value;
         const t = Math.max(10, Math.min(600, parseInt(($('combatTime').value||'60'),10)));
-        let url = `../shadow-breaker/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
+        let url = `shadow-breaker/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
         const itemTime = $('combatItemTime')?.checked;
         if (itemTime) url += '&timeorb=1&timegain=1';
         location.href = url;
@@ -342,7 +347,7 @@
       btnDash && (btnDash.onclick = () => {
         const diff = $('dashDiff').value;
         const t = Math.max(10, Math.min(600, parseInt(($('dashTime').value||'60'),10)));
-        location.href = `../cardio-sprint/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
+        location.href = `cardio-sprint/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
       });
 
       // Power card (เกม 4)
@@ -350,7 +355,7 @@
       btnPower && (btnPower.onclick = () => {
         const diff = $('powerDiff').value;
         const t = Math.max(10, Math.min(600, parseInt(($('powerTime').value||'60'),10)));
-        location.href = `../sky-squats/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
+        location.href = `sky-squats/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
       });
     });
   </script>
