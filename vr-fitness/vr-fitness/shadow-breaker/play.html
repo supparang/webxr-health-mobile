@@ -1,0 +1,25 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Shadow Breaker — Play</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script><script src="./sb-app.js"></script>
+<style>.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;background:rgba(0,0,0,.65);color:#fff;font-family:system-ui;z-index:9;text-align:center;padding:20px}
+.overlay button{margin-top:12px;padding:10px 14px;border:0;border-radius:10px;background:#22c55e;color:#fff;font-weight:700;cursor:pointer}.overlay--small{align-items:flex-start;justify-content:flex-start;gap:8px;padding:14px}.row{display:flex;gap:8px}.hidden{display:none}
+.hint{position:fixed;left:12px;bottom:10px;background:rgba(15,23,42,.8);color:#dbeafe;padding:8px 10px;border-radius:10px;font-size:12px;z-index:9}
+</style></head><body>
+<div id="start" class="overlay"><h2>พร้อมหรือยัง?</h2><p>Enter=Start • Space=Hit • P=Pause • Esc=Back</p><button onclick="SB_UI.start()">Start</button><div style="height:8px"></div><button onclick="location.href='index.html'">กลับเมนู</button></div>
+<div id="pause" class="overlay hidden"><h2>หยุดพัก</h2><div class="row"><button onclick="SB_UI.resume()">Resume</button><button onclick="location.href='index.html'">Quit</button></div></div>
+<div id="end" class="overlay hidden"><h2>จบเกม</h2><p id="end-summary"></p><div class="row"><button onclick="location.reload()">เล่นอีกครั้ง</button><button onclick="location.href='index.html'">กลับเมนู</button></div></div>
+<div id="strip" class="overlay overlay--small hidden" style="background:transparent;pointer-events:none"><div style="margin:8px 0 0 auto;pointer-events:auto">
+  <button onclick="SB_UI.togglePause()" style="background:#2563eb">Pause/Resume</button>
+  <button onclick="location.href='index.html'">Back</button></div></div>
+<div class="hint">KB: Enter=Start, Space=Hit, P=Pause, Esc=Back, ↑↓←→ เล็ง</div>
+<a-scene renderer="antialias:true" background="color: #0a0f1a">
+  <a-assets><img id="tex-target" src="./assets/target.png"></a-assets>
+  <a-sky color="#0a0f1a"></a-sky><a-plane rotation="-90 0 0" width="50" height="50" color="#0f172a"></a-plane>
+  <a-entity id="rig" position="0 1.6 0" rotation="0 0 0"><a-camera wasd-controls-enabled="false">
+    <a-cursor id="cursor" raycaster="objects: .clickable" fuse="true" fuse-timeout="650" geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015" material="shader: flat; color: #e2e8f0"></a-cursor>
+  </a-camera></a-entity>
+  <a-entity id="hud" position="0 2 -1.8"><a-entity geometry="primitive: plane; width: 1.8; height: 0.5" material="color: #0b1220; opacity: 0.82"></a-entity>
+    <a-text id="hud-score" value="Score: 0" position="-0.85 0.12 0" color="#e5edff" width="2.5"></a-text>
+    <a-text id="hud-time"  value="Time: -"  position="-0.85 -0.07 0" color="#e5edff" width="2.5"></a-text>
+    <a-text id="hud-mode"  value="Mode: -"  position="-0.85 -0.24 0" color="#e5edff" width="2.5"></a-text></a-entity>
+  <a-entity id="spawner"></a-entity></a-scene></body></html>
