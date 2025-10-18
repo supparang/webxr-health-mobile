@@ -7,17 +7,11 @@
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
 <style>
   html,body{margin:0;height:100%;background:#000}
-  /* ฉากอยู่ล่างสุด */
   a-scene,canvas.a-canvas{position:fixed;inset:0;z-index:0!important}
-  /* ค่าเริ่มต้น: ปิดคลิกฉากทุกชั้น */
   a-scene, canvas.a-canvas, .a-enter-vr{pointer-events:none!important}
-  /* เปิดคลิกฉากเฉพาะตอนเล่นเกม */
-  body.game-running a-scene,
-  body.game-running canvas.a-canvas,
-  body.game-running .a-enter-vr{pointer-events:auto!important}
+  body.game-running a-scene, body.game-running canvas.a-canvas, body.game-running .a-enter-vr{pointer-events:auto!important}
 
-  /* UI บนสุด */
-  .hud,#menuBar,.overlay,#toast{position:fixed;z-index:2147483647!important;pointer-events:auto!important;
+  .hud,#menuBar,.overlay,#toast,.modal{position:fixed;z-index:2147483647!important;pointer-events:auto!important;
     font-family:system-ui,sans-serif;color:#0ff;text-shadow:0 0 8px rgba(0,255,255,.8)}
   .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
   .hud .row{margin:6px 0}
@@ -30,40 +24,63 @@
   .overlay{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);pointer-events:none}
   .overlay.show{display:flex;pointer-events:auto}
   .card{background:rgba(8,10,20,.96);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,640px);text-align:center}
+
   #toast{left:50%;transform:translateX(-50%);bottom:64px;background:rgba(0,0,0,.7);border:1px solid #0ff;border-radius:10px;padding:8px 12px;display:none}
   #toast.show{display:block}
+
+  /* ---------- HOW MODAL ---------- */
+  #howModal{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
+  #howModal.show{display:flex}
+  .how-card{background:rgba(10,14,26,.98);border:1px solid #0ff;border-radius:16px;padding:18px 20px;width:min(94vw,720px);max-height:80vh;overflow:auto;color:#0ff}
+  .how-title{font-size:20px;margin-bottom:10px}
+  .how-grid{display:grid;grid-template-columns: 1fr; gap:10px}
+  .how-actions{margin-top:12px;text-align:right}
+  .how-btn{padding:8px 12px;border:1px solid #0ff;border-radius:10px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer}
+  .how-btn:hover{background:rgba(0,255,255,.12)}
 </style>
 
 <script>
-/* ---------- Enforce: ปรับ pointer-events ของ canvas/scene ทุกครั้งที่ถูกสร้างใหม่ ---------- */
-function enforcePE(){
-  const on=document.body.classList.contains('game-running');
-  const want=on?'auto':'none';
-  document.querySelectorAll('a-scene,canvas.a-canvas,.a-enter-vr').forEach(el=>{
-    if(getComputedStyle(el).pointerEvents!==want) el.style.pointerEvents=want;
-  });
-}
+/* ---------- Enforce pointer-events ---------- */
+function enforcePE(){const on=document.body.classList.contains('game-running');const want=on?'auto':'none';
+  document.querySelectorAll('a-scene,canvas.a-canvas,.a-enter-vr').forEach(el=>{if(getComputedStyle(el).pointerEvents!==want) el.style.pointerEvents=want;});}
 const mo=new MutationObserver(enforcePE);
-window.addEventListener('DOMContentLoaded',()=>{
-  mo.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
-  enforcePE();
-});
+window.addEventListener('DOMContentLoaded',()=>{mo.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});enforcePE();});
 
-/* ---------- Toast ดูว่าปุ่มถูกคลิกแน่ ๆ ---------- */
+/* ---------- Toast ---------- */
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._h);toast._h=setTimeout(()=>t.classList.remove('show'),1200);}
 
-/* ---------- Fallback: ปุ่มทำงานทันที แม้เกมยังไม่โหลด ---------- */
+/* ---------- HOW MODAL (แทน alert) ---------- */
+function openHow(textHTML){
+  const m=document.getElementById('howModal'); const body=document.body;
+  document.getElementById('howBody').innerHTML=textHTML;
+  m.classList.add('show');
+  body.classList.remove('game-running'); // กันฉากรับคลิกทับ
+  enforcePE();
+}
+function closeHow(){
+  const m=document.getElementById('howModal'); m.classList.remove('show');
+}
+window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeHow(); });
+function clickHowBackdrop(e){ if(e.target.id==='howModal') closeHow(); }
+
+/* ---------- Fallback buttons ---------- */
 function callUI(name,...args){
-  // ถ้ามี GAME_UI จริงแล้วให้เรียก
   try{ if(window.GAME_UI && typeof window.GAME_UI[name]==='function'){ return window.GAME_UI[name](...args); } }catch(e){console.error(e)}
-  // ถ้ายังไม่มี ให้ตอบสนองขั้นต่ำ เพื่อยืนยันว่าปุ่มทำงาน
   if(name==='start'||name==='restart'){ document.body.classList.add('game-running'); enforcePE(); toast(name==='start'?'Starting…':'Restarting…'); }
   else if(name==='pause'){ toast('Pause (engine pending)'); }
-  else if(name==='how'){ alert('วิธีเล่น: เลือกโหมด แล้วเริ่มเกม (เอนจินกำลังโหลด)'); }
+  else if(name==='how'){ 
+    openHow(`<div class="how-grid">
+      <div><b>โหมด ดี vs ขยะ:</b> จ้อง/คลิกอาหารที่ดี หลีกเลี่ยงขยะ รักษาคอมโบ</div>
+      <div><b>โหมด จาน 5 หมู่:</b> ดูหมู่เป้าหมายมุมขวาบน เก็บให้ตรงหมู่</div>
+      <div><b>โหมด Hydration:</b> เก็บน้ำ 💧 หลีกเลี่ยงน้ำหวาน สะสมสตรีคเพิ่มเวลา</div>
+      <div><b>โหมด Build Plate:</b> เก็บตามโควตา Plate (ขวาบน) ครบชุดรับโบนัส</div>
+      <div><b>การควบคุม:</b> เมาส์/แตะ หรือจ้องใน VR จนวงแหวนครบ</div>
+    </div>`); 
+  }
   else { toast(name+' (queued)'); }
 }
 
-/* ---------- Stub: ให้เกมเข้ามาผูกทีหลัง ---------- */
+/* ---------- Stub สำหรับเกมจริง ---------- */
 window.GAME_UI=window.GAME_UI||{
   _q:[],_ready:false,
   _bind(real){this._real=real;this._ready=true;this._q.forEach(fn=>{try{fn()}catch(e){}});this._q=[];},
@@ -71,7 +88,7 @@ window.GAME_UI=window.GAME_UI||{
   start(){callUI('start');this._call('start')},pause(){callUI('pause');this._call('pause')},
   restart(){callUI('restart');this._call('restart')},how(){callUI('how');this._call('how')},
   setMode(m){callUI('setMode',m);this._call('setMode',m)},setDiff(d){callUI('setDiff',d);this._call('setDiff',d)},
-  toggleLang(){callUI('toggleLang');this._call('toggleLang')},toggleVoice(){callUI('toggleVoice');this._call('toggleVoice')}
+  toggleLang(){/* ไม่จำเป็นกับปัญหานี้ */},toggleVoice(){/* ไม่จำเป็นกับปัญหานี้ */}
 };
 </script>
 </head>
@@ -114,6 +131,17 @@ window.GAME_UI=window.GAME_UI||{
 
   <div id="toast">clicked</div>
 
+  <!-- HOW MODAL -->
+  <div id="howModal" class="modal" onclick="clickHowBackdrop(event)">
+    <div class="how-card">
+      <div class="how-title">วิธีเล่น</div>
+      <div id="howBody" class="how-body">…</div>
+      <div class="how-actions">
+        <button class="how-btn" onclick="closeHow()">ปิด</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Summary -->
   <div class="overlay" id="summary">
     <div class="card">
@@ -128,6 +156,7 @@ window.GAME_UI=window.GAME_UI||{
   <a-scene id="scene" vr-mode-ui="enabled: true"
            renderer="colorManagement: true; antialias: false; highRefreshRate: true; physicallyCorrectLights: true"
            xr="foveationLevel: 2" background="color:#02040a">
+
     <a-assets>
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
