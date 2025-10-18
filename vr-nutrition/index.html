@@ -13,6 +13,10 @@
       position: absolute; z-index: 1000 !important; pointer-events: auto !important;
       font-family: system-ui, sans-serif; color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,.8);
     }
+    /* ให้ปุ่ม/เมนูอยู่บนสุดและรับคลิกแน่ ๆ */
+.hud, #menuBar, .overlay, .targetBox { z-index: 1000 !important; pointer-events: auto !important; }
+canvas.a-canvas { z-index: 0 !important; }  /* ฉากอยู่ด้านล่าง UI */
+
     .hud { left:50%; transform:translateX(-50%); top:10px; text-align:center }
     .hud .row { margin:6px 0; }
     .badge { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #0ff; margin-left:6px }
