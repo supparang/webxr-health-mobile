@@ -25,19 +25,25 @@
         voiceOn:"Voice: On", voiceOff:"Voice: Off", quota:"Plate Quota",
         howTitle:"How to Play"}
   };
-  const t = (k)=> I18N[APP.lang][k];
 
   // ===== STATE =====
   const APP = {
     lang: localStorage.getItem("vrn_lang") || "th",
     voiceOn: JSON.parse(localStorage.getItem("vrn_voiceOn") || "true"),
-    difficulty: localStorage.getItem("vrn_diff") || "Normal", // Easy | Normal | Hard
-    mode: localStorage.getItem("vrn_mode") || "goodjunk",     // 4 modes
+    difficulty: localStorage.getItem("vrn_diff") || "Normal",
+    mode: localStorage.getItem("vrn_mode") || "goodjunk",
     score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1,
     best: parseInt(localStorage.getItem("vrn_best")||"0"),
     mission: JSON.parse(localStorage.getItem("vrn_mission")||"null"),
     currentTarget:null, fever:false, protect:0, plateQuota:null
   };
+
+  // Fever settings
+  const FEVER_MULT = 2.0;           // คูณคะแนนระหว่างไฟลุก
+  const FEVER_HIT_BONUS = 1;        // โบนัสเพิ่มต่อชิ้นระหว่างไฟลุก
+  const FEVER_TIME_MS = 6000;       // ระยะเวลาไฟลุกพื้นฐาน
+  let feverTimer=null;
+
   (function ensureMission(){
     const today = new Date().toISOString().slice(0,10);
     if(!APP.mission || APP.mission.date !== today){
@@ -56,6 +62,7 @@
   const pickSpecial=()=>{ const bag=specials.flatMap(s=>Array(Math.round(s.weight*10)).fill(s)); return bag[Math.floor(Math.random()*bag.length)]; };
 
   // ===== HUD / Lang =====
+  const t = (k)=> I18N[APP.lang][k];
   function applyLang(){
     $("#lblScore").textContent=t("score"); $("#lblTime").textContent=t("time"); $("#lblBest").textContent=t("best");
     $("#lblMode").textContent=t("mode"); $("#lblDiff").textContent=t("diff"); $("#lblCombo").textContent="x"+APP.combo;
@@ -96,16 +103,11 @@
     if(isPlate) resetPlateQuota();
   }
   function setDiff(d){ APP.difficulty=d; localStorage.setItem("vrn_diff",d); updateHUD(); }
-
-  function resetPlateQuota(){
-    const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1};
-    if(APP.difficulty==="Hard") base.veggies=3;
-    APP.plateQuota=base; renderQuota();
-  }
+  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(APP.difficulty==="Hard") base.veggies=3; APP.plateQuota=base; renderQuota(); }
   function renderQuota(){ const q=APP.plateQuota; $("#quotaText").textContent=`Grains:${q.grains}  Veg:${q.veggies}  Prot:${q.protein}  Fruit:${q.fruits}  Dairy:${q.dairy}`; }
   const plateQuotaDone = () => Object.values(APP.plateQuota).every(v=>v<=0);
 
-  // ===== Spawner (กันซ้อน/ชิด) =====
+  // ===== Spawner (anti-overlap) =====
   const SPAWN_CFG={useLanes:true,minDist:0.48,maxActive:{Easy:3,Normal:4,Hard:5},scale:0.78};
   const LANE_X=[-0.80,0.00,0.80], LANE_Y=[-0.05,0.12,0.29], LANE_Z=[-0.36,0.00,0.36];
   let occupiedSlots=new Set(), slotCooldown=new Map(), ACTIVE_ENTS=new Set(), lastLane=null;
@@ -142,23 +144,34 @@
       const pool=Math.random()<rate?foods.hydration.filter(x=>x.type==="water"):foods.hydration.filter(x=>x.type!=="water");
       const f=pool[Math.floor(Math.random()*pool.length)]; return {src:f.id, meta:{hydra:f.type}};
     }
-    const f=foods.groups[Math.floor(Math.random()*foods.groups.length)]; return {src:f.id, meta:{group:f.group, plate:true}};
+    const f=foods.groups[Math.floor(Math.random()*foods.length)]; return {src:f.id, meta:{group:f.group, plate:true}};
   }
 
   let SPAWN_COUNT=0, spawnerHandle=null, targetHits=0, targetHitNeed=3;
+
+  function imgReady(sel){ const el=document.querySelector(sel); return !!(el && (el.complete===true || el.naturalWidth>0)); }
+
   function spawnOne(){
     const root=$("#spawnerRoot"); const maxAct=SPAWN_CFG.maxActive[APP.difficulty]||4; if(ACTIVE_ENTS.size>=maxAct) return;
     const life=APP.difficulty==="Hard"?1900:APP.difficulty==="Easy"?4200:3000; const lifeJ=Math.floor(Math.random()*500-250);
     const pick=pickSrcAndMeta(); const lane=pickLaneSlot(); if(!lane) return;
     const pos={x:lane.x,y:lane.y,z:lane.z}; const slotKey=lane.slotKey;
 
-    const ent=document.createElement("a-image");
-    ent.setAttribute("src",pick.src);
+    const useImg = imgReady(pick.src);
+    const ent=document.createElement(useImg ? "a-image" : "a-entity");
+    if (useImg) {
+      ent.setAttribute("src",pick.src);
+      ent.setAttribute("geometry","primitive: plane; width: 1; height: 1");
+      ent.setAttribute("material","shader: flat; transparent: true; opacity: 0.98");
+    } else {
+      const colors=['#39d','#0f9','#fd0','#f55','#9f6','#0ff','#f0f'];
+      const c=colors[Math.floor(Math.random()*colors.length)];
+      ent.setAttribute("geometry","primitive: plane; width: 1; height: 1");
+      ent.setAttribute("material",`shader: flat; color: ${c}; opacity: 0.98`);
+    }
     ent.setAttribute("position",`${pos.x} ${pos.y} ${pos.z}`);
     ent.setAttribute("scale",`${SPAWN_CFG.scale} ${SPAWN_CFG.scale} ${SPAWN_CFG.scale}`);
     ent.setAttribute("class","clickable");
-    ent.setAttribute("geometry","primitive: plane; width: 1; height: 1");
-    ent.setAttribute("material","shader: flat; transparent: true; opacity: 0.98");
     ent.dataset.meta=JSON.stringify(pick.meta); ent.dataset.slotKey=slotKey;
     ent.setAttribute("animation__pulse",`property: scale; dir: alternate; dur: 640; loop:true; to: ${SPAWN_CFG.scale+0.07} ${SPAWN_CFG.scale+0.07} ${SPAWN_CFG.scale+0.07}`);
 
@@ -178,7 +191,7 @@
     }, life+lifeJ);
   }
 
-  // ===== HIT / FEEDBACK =====
+  // ===== Feedback / Fever =====
   function speak(th,en){
     if(!APP.voiceOn) return;
     try{
@@ -189,31 +202,66 @@
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     }catch(_){}
   }
+
+  function setFeverUI(on){
+    const bd=document.body, fb=$("#feverBadge");
+    if(on){ bd.classList.add("fever-active"); fb && (fb.style.display="inline-block"); }
+    else { bd.classList.remove("fever-active"); fb && (fb.style.display="none"); }
+  }
+
+  function enterFever(ms=FEVER_TIME_MS){
+    if(feverTimer) clearTimeout(feverTimer);
+    APP.fever=true; setFeverUI(true);
+    feverTimer=setTimeout(()=>{ APP.fever=false; setFeverUI(false); }, ms);
+  }
+
+  function extendFever(extraMs=1200){
+    if(!APP.fever) return;
+    if(feverTimer){ const left = Math.max(0, feverTimer._end - performance.now()); clearTimeout(feverTimer); const next = left + extraMs; feverTimer=setTimeout(()=>{ APP.fever=false; setFeverUI(false); }, next); feverTimer._end = performance.now()+next; }
+  }
+
+  function comboBreak(){ APP.combo=1; setFeverUI(false); APP.fever=false; if(feverTimer){ clearTimeout(feverTimer); feverTimer=null; } updateHUD(); }
+
   function handleHit(ent){
     const meta=JSON.parse(ent.dataset.meta||"{}");
+
     if(meta.special){
       switch(meta.special){
         case "time": APP.timeLeft=Math.min(99,APP.timeLeft+5); speak("ได้เวลาเพิ่ม","Time +5"); break;
         case "fever": enterFever(); speak("โหมดไฟลุก!","Fever!"); break;
         case "shield": APP.protect=Math.min(1,APP.protect+1); speak("กันพลาด 1 ครั้ง","Shield up"); break;
         case "slow": { const old=APP.difficulty; APP.difficulty="Easy"; setTimeout(()=>APP.difficulty=old,2000); speak("ช้าลงชั่วคราว","Time slow"); } break;
-        case "bomb": if(APP.protect>0){ APP.protect--; speak("กันพลาดไว้แล้ว","Shield saved"); } else { comboBreak(); APP.score=Math.max(0,APP.score-5); speak("คอมโบหลุด!","Combo break!"); } break;
+        case "bomb": if(APP.protect>0){ APP.protect--; speak("กันพลาดไว้แล้ว","Shield saved"); }
+                     else { comboBreak(); APP.score=Math.max(0,APP.score-5); speak("คอมโบหลุด!","Combo break!"); } break;
       }
       updateHUD(); return;
     }
-    let good=false, delta=0, th="", en="";
-    if(APP.mode==="goodjunk"){ good=meta.good===true; delta=good?5*APP.combo:-3; if(!good) comboBreak(); }
-    else if(APP.mode==="groups"){ good=meta.group===APP.currentTarget; delta=good?6*APP.combo:-2; if(good){ targetHits++; if(targetHits>=targetHitNeed){ nextTarget(); } } else comboBreak(); }
-    else if(APP.mode==="hydration"){ good=meta.hydra==="water"; delta=good?4*APP.combo:-4; if(good){ if(APP.combo%3===0) APP.timeLeft=Math.min(99,APP.timeLeft+2); } else comboBreak(); th=good?"ดื่มน้ำดีมาก":"หวานไป!"; en=good?"Nice water!":"Too sugary!"; }
-    else if(APP.mode==="plate"){ if(meta.group){ const g=meta.group; if(APP.plateQuota[g]>0){ good=true; APP.plateQuota[g]-=1; renderQuota(); if(plateQuotaDone()){ delta+=12; resetPlateQuota(); speak("จานครบชุด!","Plate complete!"); } } else { delta+=1; } } }
-    if(APP.fever && delta>0) delta+=Math.floor(delta);
+
+    let good=false, base=0, th="", en="";
+    if(APP.mode==="goodjunk"){ good=meta.good===true; base=good?5:-3; if(!good) comboBreak(); }
+    else if(APP.mode==="groups"){ good=meta.group===APP.currentTarget; base=good?6:-2; if(good){ targetHits++; if(targetHits>=targetHitNeed){ nextTarget(); } } else comboBreak(); }
+    else if(APP.mode==="hydration"){ good=meta.hydra==="water"; base=good?4:-4; if(good){ if(APP.combo%3===0) APP.timeLeft=Math.min(99,APP.timeLeft+2); } else comboBreak(); th=good?"ดื่มน้ำดีมาก":"หวานไป!"; en=good?"Nice water!":"Too sugary!"; }
+    else if(APP.mode==="plate"){
+      if(meta.group){
+        const g=meta.group;
+        if(APP.plateQuota[g]>0){ good=true; APP.plateQuota[g]-=1; renderQuota();
+          if(plateQuotaDone()){ base+=12; resetPlateQuota(); speak("จานครบชุด!","Plate complete!"); }
+        } else { base+=1; }
+      }
+    }
+
+    // คำนวณคะแนนรวมด้วยคอมโบ + โบนัสไฟลุก
+    let delta = good ? (base * APP.combo) : base;
+    if(APP.fever && delta>0){
+      delta = Math.round(delta * FEVER_MULT) + FEVER_HIT_BONUS; // คูณ + โบนัส
+      extendFever(250); // เก็บต่อเนื่อง ต่อเวลาไฟลุกอีกหน่อย
+    }
+
     APP.score=Math.max(0, APP.score+delta);
     if(good){ APP.combo=Math.min(5,APP.combo+1); APP.comboMax=Math.max(APP.comboMax,APP.combo); }
-    if(APP.combo>=4) enterFever();
+    if(APP.combo>=4 && !APP.fever){ enterFever(); speak("โหมดไฟลุก!","Fever!"); }
     updateHUD(); if(th||en) speak(th,en);
   }
-  let feverTimer=null; function enterFever(ms=6000){ if(APP.fever) return; APP.fever=true; if(feverTimer) clearTimeout(feverTimer); feverTimer=setTimeout(()=>APP.fever=false,ms); }
-  function comboBreak(){ APP.combo=1; updateHUD(); }
 
   // ===== Targets =====
   function nextTarget(){ targetHits=0; const pool=targets.slice(); if(APP.currentTarget){ const i=pool.indexOf(APP.currentTarget); if(i>=0) pool.splice(i,1); } APP.currentTarget=pool[Math.floor(Math.random()*pool.length)]; $("#targetName").textContent=APP.currentTarget.toUpperCase(); }
@@ -235,12 +283,13 @@
     if(APP.running && !APP.paused) return;
     if(!APP.running){
       APP.score=0; APP.combo=1; APP.comboMax=1; APP.timeLeft=60; updateHUD();
+      setFeverUI(false); APP.fever=false; if(feverTimer){clearTimeout(feverTimer);feverTimer=null;}
       if(APP.mode==="groups") nextTarget();
       if(APP.mode==="hydration"){ APP.currentTarget="water"; $("#targetName").textContent="WATER"; }
       if(APP.mode==="plate") resetPlateQuota();
     }
     APP.running=true; APP.paused=false; hideSummary();
-    document.body.classList.add("game-running"); // เปิดคลิกฉาก
+    document.body.classList.add("game-running");
     setTimeout(()=>{ if(SPAWN_COUNT===0){ try{ spawnOne(); }catch(e){} } }, 400);
     loop(); timerTick();
   }
@@ -254,7 +303,8 @@
     $("#sumStars").textContent="★".repeat(star)+"☆".repeat(3-star);
     $("#sumBody").textContent=`Score: ${APP.score} • Combo Max: x${APP.comboMax} • Mode: ${APP.mode} • Diff: ${APP.difficulty}`;
     showSummary();
-    document.body.classList.remove("game-running"); // ปิดคลิกฉาก
+    document.body.classList.remove("game-running");
+    setFeverUI(false); APP.fever=false; if(feverTimer){clearTimeout(feverTimer);feverTimer=null;}
   }
 
   // ===== Scene click fallback =====
@@ -269,22 +319,22 @@
     });
   })();
 
-  // ===== Init =====
+  // ===== Init & Bind =====
   applyLang(); updateHUD(); setMode(APP.mode);
 
-  // ===== Bind GAME_UI =====
   const REAL = {
     start: startGame, pause: pauseGame,
     restart: ()=>{ hideSummary(); APP.running=false; APP.paused=false; clearTimeout(spawnerHandle); SPAWN_COUNT=0; startGame(); },
     how: ()=>{ const html = `
       <div class="how-grid">
-        <div><b>${t("modeGJ")}:</b> ${t("howGJ")}</div>
-        <div><b>${t("modeGroups")}:</b> ${t("howGroups")}</div>
-        <div><b>${t("modeHydra")}:</b> ${t("howHydra")}</div>
-        <div><b>${t("modePlate")}:</b> ${t("howPlate")}</div>
-        <div><b>Controls:</b> Mouse/Touch or VR gaze (fuse)</div>
+        <div><b>${t("modeGJ")}:</b> ${I18N[APP.lang].howGJ}</div>
+        <div><b>${t("modeGroups")}:</b> ${I18N[APP.lang].howGroups}</div>
+        <div><b>${t("modeHydra")}:</b> ${I18N[APP.lang].howHydra}</div>
+        <div><b>${t("modePlate")}:</b> ${I18N[APP.lang].howPlate}</div>
+        <div><b>Fever:</b> คอมโบสูงจะเข้าไฟลุก คะแนนคูณ ×${FEVER_MULT} + โบนัสต่อชิ้น +${FEVER_HIT_BONUS}</div>
+        <div><b>Controls:</b> Mouse/Touch หรือ VR gaze (fuse)</div>
       </div>`;
-      if(typeof window.openHow==='function'){ window.openHow(html, t("howTitle")); }
+      if(typeof window.openHow==='function'){ window.openHow(html, I18N[APP.lang].howTitle); }
     },
     setMode: (m)=>{ setMode(m); applyLang(); },
     setDiff: (d)=>{ setDiff(d); },
