@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>disease</title>
+  <link rel="stylesheet" href="../css/style.css"/>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="../js/app.js"></script>
+  <style>.floatingUI{position:fixed;left:50%;transform:translateX(-50%);bottom:10px}</style>
+</head>
+<body>
+<div class="hud">
+  <strong data-i18n="disease"></strong>
+  <span class="badge" data-i18n="difficulty"></span>:
+  <button class="btn small" onclick="setDiff('easy')" data-i18n="easy"></button>
+  <button class="btn small" onclick="setDiff('normal')" data-i18n="normal"></button>
+  <button class="btn small" onclick="setDiff('hard')" data-i18n="hard"></button>
+  <span class="badge" id="hudTime">00:00</span>
+  <span class="badge" id="hudScore" data-i18n="score"></span>: <span class="badge" id="scoreVal">0</span>
+  <button class="btn small" onclick="APP.setLang('th')" data-i18n="thai"></button>
+  <button class="btn small" onclick="APP.setLang('en')" data-i18n="english"></button>
+</div>
+<div class="panel">
+  <button class="btn" onclick="startGame()" data-i18n="timer_mode"></button>
+  <button class="btn secondary" onclick="startPractice()" data-i18n="practice_mode"></button>
+  <button class="btn secondary" onclick="location.href='../index.html'" data-i18n="back"></button>
+</div>
+
+<a-scene renderer="antialias: true; colorManagement: true" background="color: #0a0f1c">
+  <a-entity position="0 1.6 0">
+    <a-entity camera look-controls></a-entity>
+    <a-entity cursor="rayOrigin: mouse" raycaster="objects: .clickable"></a-entity>
+  </a-entity>
+  <a-entity light="type: ambient; intensity: 0.6"></a-entity>
+  <a-entity light="type: directional; intensity: 1" position="1 2 1"></a-entity>
+  <a-plane position="0 0 -2" rotation="-90 0 0" width="20" height="20" color="#111827"></a-plane>
+
+  <!-- Gameplay root -->
+  <a-entity id="gameRoot" position="0 1.4 -1.8"></a-entity>
+
+  <!-- Floating hint -->
+  <a-entity position="0 2 -1.5" id="hint" text="value:; align:center; width:3.2; color:#e5e7eb"></a-entity>
+</a-scene>
+
+<script>
+let state = {
+  running:false, practice:false, diff:'normal', time:60, score:0, maxScore:0, step:0, started:false
+};
+function setDiff(d){ state.diff=d; }
+function reset(){
+  state.score=0; state.step=0; state.started=false;
+  document.getElementById('scoreVal').textContent=state.score;
+  document.getElementById('hudTime').textContent=APP.formatTime(state.time);
+  document.getElementById('hint').setAttribute('text','value:'+APP.t('select_mode'));
+}
+function startPractice(){ state.practice=true; start(true); }
+function startGame(){ state.practice=false; start(false); }
+function start(practice){
+  if(state.running) return;
+  state.running = true; state.started=true;
+  state.time = (state.diff==='easy')?75:(state.diff==='hard'?45:60);
+  document.getElementById('hudTime').textContent=APP.formatTime(state.time);
+  loop();
+  initGame();
+}
+function loop(){
+  if(!state.running) return;
+  if(!state.practice){ state.time -= 1/30; document.getElementById('hudTime').textContent = APP.formatTime(state.time); }
+  if(state.time<=0 && !state.practice) return end();
+  requestAnimationFrame(loop);
+}
+function addScore(x){ state.score+=x; document.getElementById('scoreVal').textContent=state.score; APP.beep(1200,0.05); }
+function addHint(msg){ document.getElementById('hint').setAttribute('text','value:'+msg); }
+function end(){
+  state.running=false;
+  const stars = APP.stars(state.score, Math.max(1,state.maxScore));
+  alert(APP.t('summary')+`\n`+APP.t('score')+': '+state.score+`\n`+APP.t('stars')+': ` + '★'.repeat(stars));
+}
+
+function spawnButton(x,y,label,cb){
+  const root = document.getElementById('gameRoot');
+  const id = 'btn_'+Math.random().toString(36).slice(2);
+  const p = document.createElement('a-entity');
+  p.setAttribute('position', `${x} ${y} 0`);
+  const b = document.createElement('a-plane');
+  b.setAttribute('width','0.6'); b.setAttribute('height','0.25');
+  b.setAttribute('color','#34a1ff'); b.setAttribute('class','clickable');
+  b.setAttribute('event-set__enter','_event: mouseenter; material.color: #60a5fa');
+  b.setAttribute('event-set__leave','_event: mouseleave; material.color: #34a1ff');
+  b.addEventListener('click',()=>cb && cb());
+  const t = document.createElement('a-entity');
+  t.setAttribute('text', `value:${label}; align:center; width:2; color:#fff`);
+  t.setAttribute('position','0 0 0.01');
+  p.appendChild(b); p.appendChild(t); root.appendChild(p);
+  return id;
+}
+
+// Game-specific logic
+function initGame(){
+  // placeholder; will be replaced per game
+  state.maxScore = 10;
+  addHint(APP.t('select_diff'));
+}
+
+
+// Disease prevention — avoid red germs, collect shields/masks (blue)
+let ticks=0, hit=0, got=0;
+function initGame(){
+  state.maxScore = 80;
+  addHint(APP.lang==='th' ? "หลบเชื้อโรคสีแดง เก็บไอเท็มสีน้ำเงิน" : "Avoid red germs, collect blue items");
+  const root = document.getElementById('gameRoot'); root.innerHTML='';
+  // spawn moving targets
+  for(let i=0;i<6;i++){ spawnMover(true); } // red germs
+  for(let i=0;i<4;i++){ spawnMover(false); } // blue items
+  animate();
+}
+function spawnMover(isRed){
+  const node = document.createElement('a-entity');
+  const c = document.createElement('a-circle');
+  c.setAttribute('radius', '0.16'); c.setAttribute('color', isRed? '#ef4444' : '#38bdf8');
+  c.setAttribute('class','clickable');
+  c.addEventListener('click',()=>{
+    if(!state.running) return;
+    if(isRed){ state.score=Math.max(0,state.score-8); hit++; APP.beep(220,0.06); }
+    else { addScore(10); got++; }
+    document.getElementById('scoreVal').textContent=state.score;
+  });
+  node.appendChild(c);
+  randomize(node);
+  document.getElementById('gameRoot').appendChild(node);
+}
+function randomize(el){
+  const x = -1.2 + Math.random()*2.4;
+  const y = -0.4 + Math.random()*1.4;
+  el.setAttribute('position', `${x} ${y} 0`);
+}
+function animate(){
+  if(!state.running) return;
+  ticks++;
+  const children = Array.from(document.getElementById('gameRoot').children);
+  children.forEach((n,idx)=>{
+    const p = n.getAttribute('position');
+    const nx = p.x + Math.sin((ticks+idx*17)/50)*0.01;
+    const ny = p.y + Math.cos((ticks+idx*11)/60)*0.01;
+    n.setAttribute('position', `${nx} ${ny} 0`);
+  });
+  if(!state.practice && state.time<=0) return end();
+  requestAnimationFrame(animate);
+}
+
+reset();
+</script>
+</body>
+</html>
