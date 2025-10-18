@@ -9,12 +9,21 @@
   html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
   canvas#c{position:fixed;inset:0;display:block;background:var(--bg);z-index:0}
 
-  /* HUD + Menu */
   .hud,#menuBar,#summary,.reticle,#errors,#vrSlot,#valueTip,#toast,#help{
     position:fixed; z-index:2147483600; color:var(--cy);
     font-family:system-ui,Segoe UI,Apple Color Emoji; text-shadow:0 0 8px rgba(0,255,255,.6)
   }
   .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
+
+  /* Plate tracker pills */
+  #plateTracker{ display:none; margin-top:6px; }
+  .pills{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap }
+  .pill{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px;
+         border:1px solid var(--cy); border-radius:12px; background:rgba(0,0,0,.35); }
+  .pill .need{opacity:.85}
+  .pill.done{ opacity:.75; border-style:dashed }
+  .pill .icon{min-width:18px; text-align:center}
+
   #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
   .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
   .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
@@ -30,11 +39,9 @@
   #valueTip{left:50%;top:calc(50% + 28px);transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none}
   #toast{left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none}
 
-  /* Summary */
   #summary{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
   .card{background:var(--card);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:var(--cy);width:min(94vw,760px);text-align:center}
 
-  /* Help modal */
   #help{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
   #help .card{width:min(96vw,920px); text-align:left}
   #help h2{margin:0 0 8px 0}
@@ -46,7 +53,6 @@
   #help .grid{display:grid;grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px}
   #help .foot{display:flex;justify-content:flex-end;margin-top:12px;gap:10px}
 
-  /* Floating score */
   .floatScore{font-weight:700; pointer-events:none; color:#8ff; text-shadow:0 0 8px rgba(0,255,255,.7); position:fixed; z-index:2147483640}
   @keyframes popUp { 0%{transform:translate(-50%,0) scale(0.9); opacity:1}
                      70%{transform:translate(-50%,-26px) scale(1.05); opacity:.95}
@@ -83,6 +89,12 @@
   <div id="targetWrap" style="margin-top:6px;display:none">
     🎯 <span data-i18n="target">หมวดเป้าหมาย</span>:
     <span id="targetBadge">—</span>
+  </div>
+
+  <!-- 🍱 Plate tracker (เฉพาะโหมดจัดจานสุขภาพ) -->
+  <div id="plateTracker">
+    🍱 <span>โควตา</span>:
+    <div class="pills" id="platePills"></div>
   </div>
 </div>
 
@@ -129,45 +141,22 @@
     <h2 data-i18n="howto">วิธีเล่น</h2>
     <div id="helpBody" style="line-height:1.6"></div>
 
-    <!-- กติกาแต่ละโหมด -->
     <div class="grid">
-      <div class="sect">
-        <div class="icon">🥗</div>
-        <div>
-          <b data-i18n="modeGJ">ดี vs ขยะ</b>
-          <div class="sub" data-i18n="ruleGJ">เลือกอาหารดี... หลีกเลี่ยงอาหารขยะ</div>
-          <div class="chips"><span class="chip">🥦 🍎 ✅</span><span class="chip">🍟 🥤 ❌</span></div>
-        </div>
-      </div>
-      <div class="sect">
-        <div class="icon">🍽️</div>
-        <div>
-          <b data-i18n="modeGroups">จาน 5 หมู่</b>
-          <div class="sub" data-i18n="ruleGroups">สุ่ม “หมวดเป้าหมาย” ให้เก็บถูก 3 ชิ้นติด</div>
-          <div class="chips"><span class="chip">🍞 ธัญพืช</span><span class="chip">🍗 โปรตีน</span><span class="chip">🥦 ผัก</span><span class="chip">🍎 ผลไม้</span><span class="chip">🥛 นม</span></div>
-        </div>
-      </div>
-      <div class="sect">
-        <div class="icon">💧</div>
-        <div>
-          <b data-i18n="modeHydra">สมดุลน้ำ</b>
-          <div class="sub" data-i18n="ruleHydra">เลือกน้ำสะอาด (💧/🚰) หลีกเลี่ยงน้ำหวาน/อัดลม</div>
-          <div class="chips"><span class="chip">💧 🚰 ✅</span><span class="chip">🥤 🧃 ❌</span></div>
-        </div>
-      </div>
-      <div class="sect">
-        <div class="icon">🍱</div>
-        <div>
-          <b data-i18n="modePlate">จัดจานสุขภาพ</b>
-          <div class="sub" data-i18n="rulePlate">เก็บครบโควตาแต่ละหมวด → โบนัสจาน</div>
-          <div class="chips"><span class="chip">🍞×2</span><span class="chip">🥦×2</span><span class="chip">🍗×1</span><span class="chip">🍎×1</span><span class="chip">🥛×1</span></div>
-        </div>
-      </div>
+      <div class="sect"><div class="icon">🥗</div><div><b data-i18n="modeGJ">ดี vs ขยะ</b>
+        <div class="sub" data-i18n="ruleGJ">เลือกอาหารดี... หลีกเลี่ยงอาหารขยะ</div>
+        <div class="chips"><span class="chip">🥦 🍎 ✅</span><span class="chip">🍟 🥤 ❌</span></div></div></div>
+      <div class="sect"><div class="icon">🍽️</div><div><b data-i18n="modeGroups">จาน 5 หมู่</b>
+        <div class="sub" data-i18n="ruleGroups">สุ่ม “หมวดเป้าหมาย” ให้เก็บถูก 3 ชิ้นติด</div>
+        <div class="chips"><span class="chip">🍞 ธัญพืช</span><span class="chip">🍗 โปรตีน</span><span class="chip">🥦 ผัก</span><span class="chip">🍎 ผลไม้</span><span class="chip">🥛 นม</span></div></div></div>
+      <div class="sect"><div class="icon">💧</div><div><b data-i18n="modeHydra">สมดุลน้ำ</b>
+        <div class="sub" data-i18n="ruleHydra">เลือกน้ำสะอาด (💧/🚰) หลีกเลี่ยงน้ำหวาน/อัดลม</div>
+        <div class="chips"><span class="chip">💧 🚰 ✅</span><span class="chip">🥤 🧃 ❌</span></div></div></div>
+      <div class="sect"><div class="icon">🍱</div><div><b data-i18n="modePlate">จัดจานสุขภาพ</b>
+        <div class="sub" data-i18n="rulePlate">เก็บครบโควตาแต่ละหมวด → โบนัสจาน</div>
+        <div class="chips"><span class="chip">🍞×2</span><span class="chip">🥦×2</span><span class="chip">🍗×1</span><span class="chip">🍎×1</span><span class="chip">🥛×1</span></div></div></div>
     </div>
 
-    <div class="foot">
-      <button class="btn" data-action="helpClose" type="button"><span data-i18n="ok">โอเค</span></button>
-    </div>
+    <div class="foot"><button class="btn" data-action="helpClose" type="button"><span data-i18n="ok">โอเค</span></button></div>
   </div>
 </div>
 
@@ -178,7 +167,6 @@
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
   const toast=$("#toast"), errEl=$("#errors");
 
-  /* ================= I18N ================= */
   const I18N={
     th:{score:"คะแนน", combo:"คอมโบ", time:"เวลา", best:"สถิติ", mode:"โหมด", diff:"ความยาก",
         start:"เริ่มเกม", pause:"พัก", restart:"เริ่มใหม่", howto:"วิธีเล่น", langBtn:"ไทย/English",
@@ -193,8 +181,7 @@
         howtoHTML:`<b>เป้าหมาย</b>: เลือกอาหาร/เครื่องดื่มตามกติกาของโหมดนั้น ๆ<br/>
           <b>การควบคุม</b>: คลิก/แตะ • VR จ้อง ~0.7s<br/>
           <b>คะแนน</b>: ถูกได้คะแนน คอมโบเพิ่มตัวคูณ • พลาดคอมโบรีเซ็ต<br/>
-          <b>พาวเวอร์อัป</b>: ⏱️ +เวลา • 🔥 FEVER • 🐢 ช้า • 🛡️ กันพลาด • 💣 โทษ`}
-    ,
+          <b>พาวเวอร์อัป</b>: ⏱️ +เวลา • 🔥 FEVER • 🐢 ช้า • 🛡️ กันพลาด • 💣 โทษ`},
     en:{score:"Score", combo:"Combo", time:"Time", best:"Best", mode:"Mode", diff:"Difficulty",
         start:"Start", pause:"Pause", restart:"Restart", howto:"How to play", langBtn:"Thai/English",
         easy:"Easy", normal:"Normal", hard:"Hard", summary:"Summary", ok:"OK",
@@ -224,16 +211,15 @@
     updateTargetLabel();
   }
 
-  /* ================ WebAudio ================ */
+  /* Audio */
   let AC=null, master=null, muted=false;
   function audioInit(){ try{ AC = AC||new (window.AudioContext||window.webkitAudioContext)(); master = master||AC.createGain(); master.connect(AC.destination); master.gain.value= muted?0:0.22; }catch(e){} }
   function setMuted(on){ muted=on; if(!AC) audioInit(); if(master) master.gain.value = on?0:0.22; showToast(on?'Muted':'Sound on'); }
   function ding(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='sine'; const t=AC.currentTime; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(1320,t+0.08); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22); o.start(t); o.stop(t+0.24); }
   function thud(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='triangle'; const t=AC.currentTime; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(110,t+0.12); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }
-  /* ติ๊กเบา ๆ ตอนเริ่มจ้อง */
   function tick(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='square'; const t=AC.currentTime; o.frequency.setValueAtTime(600,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.06); o.start(t); o.stop(t+0.07); }
 
-  /* ================ THREE/XR ================ */
+  /* THREE/XR */
   const canvas=$("#c");
   const renderer=new THREE.WebGLRenderer({canvas, antialias:true}); renderer.setClearColor(0x061018,1); renderer.xr.enabled=true;
   try{ const VRB=window.VRButton||(window.THREE&&window.THREE.VRButton); const vrEl=(VRB&&VRB.createButton)?VRB.createButton(renderer):null; if(vrEl){ $("#vrSlot")?.replaceWith(vrEl); } }catch(e){}
@@ -244,14 +230,14 @@
   function emojiTexture(char){ const s=128, cnv=document.createElement('canvas'); cnv.width=cnv.height=s; const ctx=cnv.getContext('2d'); ctx.font="100px system-ui, Apple Color Emoji, Segoe UI Emoji"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(char,s/2,s/2); const tex=new THREE.CanvasTexture(cnv); tex.needsUpdate=true; return tex; }
   function makeEmoji(char){ const tex=emojiTexture(char); const geo=new THREE.PlaneGeometry(0.5,0.5); const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false}); const m=new THREE.Mesh(geo,mat); m.lookAt(camera.position); return m; }
 
-  /* ================ Lanes ================ */
+  /* Lanes */
   const LANE_X=[-1.1,-0.55,0,0.55,1.1], LANE_Y=[-0.2,0.0,0.18,0.32], LANE_Z=-2.2;
   const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now();
   const isAdj=(r,c)=>{ if(!lastLane) return false; const [pr,pc]=lastLane; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
   function pickLane(){ const cand=[]; for(let r=0;r<LANE_Y.length;r++){ for(let c=0;c<LANE_X.length;c++){ const k=r+','+c, cd=cooldown.get(k)||0, free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); }} if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); lastLane=[p.r,p.c]; return {x:LANE_X[p.c], y:1.6+LANE_Y[p.r], z:LANE_Z-0.1*Math.abs(p.c-2), key:p.k}; }
   function releaseLane(k){ occupied.delete(k); cooldown.set(k, now()+800); }
 
-  /* ================ Library ================ */
+  /* Library */
   const LIB={
     good:["🥦","🍎","🍌","🍅","🥕","🍇","🍗","🥛","🍠","🌽","🥬","🍊"],
     junk:["🍟","🍔","🍕","🌭","🍰","🍩","🧁","🥤","🍫"],
@@ -261,17 +247,19 @@
   };
   const groupsArr=['grains','protein','veggies','fruits','dairy'];
 
-  /* ================ Game Core ================ */
+  /* Game Core */
   const game={
     state:{ lang: uiState.lang,
       difficulty: localStorage.getItem('ng_diff') || 'Normal',
       mode: localStorage.getItem('ng_mode') || 'goodjunk',
       score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best: parseInt(localStorage.getItem('ng_best')||'0'),
       hits:0, misses:0, specials:{time:0,fever:0,slow:0,bomb:0,shield:0}, fever:false, shield:false,
-      lastHydraBonus: 0 /* ✅ คูลดาวน์โบนัสเวลาในโหมดสมดุลน้ำ */
+      lastHydraBonus: 0
     },
     ACTIVE:new Set(), timers:{spawn:null,time:null,watch:null}, counters:{spawn:0,wd:0},
-    currentTarget:'grains', targetHits:0, plateQuota:null
+    currentTarget:'grains', targetHits:0,
+    plateQuota:null,   /* เหลืออยู่ */
+    plateTarget:null   /* เป้าทั้งหมด (คงที่รอบนั้น) */
   };
 
   function pickMeta(){
@@ -283,7 +271,6 @@
     const g=groupsArr[Math.floor(Math.random()*groupsArr.length)]; return {group:g, plate:true};
   }
 
-  /* ✅ Plate ใช้อิโมจิอาหารจริง */
   function charFor(meta){
     if(meta.special) return LIB.special[meta.special];
     if(game.state.mode==='goodjunk'){
@@ -300,7 +287,7 @@
     }
   }
 
-  /* HUD + Target */
+  /* HUD + Target + Plate tracker */
   function updateHUD(){
     $("#score").textContent=game.state.score; $("#time").textContent=game.state.timeLeft;
     $("#best").textContent=game.state.best; $("#difficulty").textContent=
@@ -309,6 +296,7 @@
                                 (game.state.mode==='groups')? t('modeGroups') :
                                 (game.state.mode==='hydration')? t('modeHydra') : t('modePlate');
     $("#combo").textContent='x'+game.state.combo;
+    renderPlateTracker(); // อัปเดตทุกครั้ง
   }
   function groupDisplayKey(key){ return key==='grains'?'🍞':key==='protein'?'🍗':key==='veggies'?'🥦':key==='fruits'?'🍎':'🥛'; }
   function updateTargetLabel(){
@@ -318,9 +306,29 @@
       const icon = groupDisplayKey(game.currentTarget);
       wrap.style.display='block';
       badge.textContent = `${icon} ${name}`;
-      badge.className=''; badge.classList.add('badge--'+game.currentTarget); // สีตามหมวด
+      badge.className=''; badge.classList.add('badge--'+game.currentTarget);
       const tSpan = wrap.querySelector('[data-i18n="target"]'); if(tSpan) tSpan.textContent = (I18N[uiState.lang]?.target)||'Target';
     }else wrap.style.display='none';
+  }
+
+  function renderPlateTracker(){
+    const wrap=$("#plateTracker"), pills=$("#platePills");
+    if(game.state.mode!=='plate'){ wrap.style.display='none'; return; }
+    wrap.style.display='block';
+    if(!game.plateTarget||!game.plateQuota){ pills.innerHTML='—'; return; }
+    const names = I18N[uiState.lang]?.groupNames || {grains:'Grains',protein:'Protein',veggies:'Veggies',fruits:'Fruits',dairy:'Dairy'};
+    const order=['grains','veggies','protein','fruits','dairy'];
+    pills.innerHTML = order.map(k=>{
+      const icon=groupDisplayKey(k);
+      const need=game.plateTarget[k]||0;
+      const left=game.plateQuota[k]||0;
+      const have=Math.max(0, need-left);
+      const done = left<=0;
+      return `<span class="pill ${done?'done':''}" title="${names[k]}">
+        <span class="icon">${icon}</span>
+        <span class="have">${have}</span>/<span class="need">${need}</span>
+      </span>`;
+    }).join('');
   }
 
   /* Floating score */
@@ -335,19 +343,14 @@
   }
   const showToast=(msg,ms=1200)=>{ toast.textContent=msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',ms); };
 
-  /* Spawn / Destroy */
   function destroy(obj){ if(obj.parent) obj.parent.remove(obj); game.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
-  function avoidHUD(mesh){
-    const p = toScreen(mesh.position);
-    if(p.y < 90) mesh.position.y -= 0.14; // เลี่ยงชน HUD
-  }
+  function avoidHUD(mesh){ const p = toScreen(mesh.position); if(p.y < 90) mesh.position.y -= 0.14; }
   function spawn(){
     const lane=pickLane(); if(!lane) return;
     const meta=pickMeta(); const ch=charFor(meta);
     const m=makeEmoji(ch); m.position.set(lane.x,lane.y,lane.z); m.userData={lane:lane.key, meta};
     group.add(m); game.ACTIVE.add(m);
     avoidHUD(m);
-
     const life= game.state.difficulty==='Hard'?1900:game.state.difficulty==='Easy'?4200:3000;
     m.userData.timer = setTimeout(()=>{ if(!m.parent) return;
       if(!meta.special){
@@ -359,9 +362,14 @@
     }, life + Math.floor(Math.random()*500-250));
   }
 
-  /* Scoring */
   function nextTarget(){ const arr=groupsArr.filter(x=>x!==game.currentTarget); game.currentTarget = arr[Math.floor(Math.random()*arr.length)]; updateTargetLabel(); }
-  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(game.state.difficulty==='Hard') base.veggies=3; game.plateQuota=base; }
+  function resetPlateQuota(){
+    const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1};
+    if(game.state.difficulty==='Hard') base.veggies=3;
+    game.plateQuota = {...base};   // เหลืออยู่
+    game.plateTarget = {...base};  // เป้าทั้งหมดคงที่
+    renderPlateTracker();
+  }
   function setFever(on){ game.state.fever=on; document.body.classList.toggle('fever', on); }
   let feverTimer=null; function enterFever(ms=6500){ if(feverTimer) clearTimeout(feverTimer); setFever(true); feverTimer=setTimeout(()=>setFever(false), ms); }
   function comboBreak(){ game.state.combo=1; setFever(false); updateHUD(); }
@@ -388,7 +396,6 @@
       const good=m.group===game.currentTarget; base=good?7:-2; delta = good? base*game.state.combo : base; positive=delta>0;
       if(good){ game.state.hits++; game.targetHits++; ding(); if(game.targetHits>=3){ nextTarget(); game.targetHits=0; } } else { thud(); comboBreak(); }
     }else if(game.state.mode==='hydration'){
-      /* ✅ ตัวเลือก A: +2s เมื่อคอมโบ %3==0 และห่างโบนัสก่อน >=5s */
       const good=m.hydra==='water'; base=good?5:-4; delta = good? base*game.state.combo : base; positive=delta>0;
       if(good){
         game.state.hits++; ding();
@@ -406,8 +413,9 @@
         if(!game.plateQuota) resetPlateQuota();
         if(game.plateQuota[m.group]>0){
           positive=true; game.state.hits++; base=6; game.plateQuota[m.group]-=1;
+          renderPlateTracker(); // อัปเดตตัวนับทันที
           if(Object.values(game.plateQuota).every(v=>v<=0)){
-            base+=14; resetPlateQuota(); showToast('Plate!');
+            base+=14; resetPlateQuota(); showToast('Plate!'); // เริ่มจานใหม่พร้อมรีเซ็ตตัวนับ
           }
           delta = base*game.state.combo; ding();
         }else{
@@ -441,12 +449,12 @@
     const inter=raycaster.intersectObjects(Array.from(game.ACTIVE));
     if(inter.length>0){
       const o=inter[0].object;
-      if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); $("#ret").classList.add('progress'); tick(); } // ติ๊กเมื่อเริ่มจ้อง
+      if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); $("#ret").classList.add('progress'); tick(); }
       else if(performance.now()-gazeStart >= DWELL){ handleHit(o); destroy(o); gazeTarget=null; $("#ret").classList.remove('progress'); }
     } else { gazeTarget=null; $("#ret").classList.remove('progress'); }
   }
 
-  /* Loops (dynamic difficulty) */
+  /* Loops */
   let spH=null, tmH=null, watchdogH=null, SPAWN_COUNT=0, WD=0;
   function loop(){
     if(!game.state.running||game.state.paused) return;
@@ -463,11 +471,10 @@
     game.state.score=0; game.state.combo=1; game.state.comboMax=1; game.state.timeLeft=60; game.state.hits=0; game.state.misses=0; game.state.specials={time:0,fever:0,slow:0,bomb:0,shield:0};
     game.counters.spawn=0; SPAWN_COUNT=0;
     if(game.state.mode==='groups'){ nextTarget(); updateTargetLabel(); }
-    if(game.state.mode==='plate'){ resetPlateQuota(); }
+    if(game.state.mode==='plate'){ resetPlateQuota(); } else { renderPlateTracker(); }
     updateHUD(); game.state.running=true; game.state.paused=false;
     setTimeout(spawn, 200); loop(); timer();
 
-    // watchdog กันค้าง
     clearTimeout(watchdogH); let seenT=game.state.timeLeft, seenS=SPAWN_COUNT;
     (function kick(){ const stuck=(seenT===game.state.timeLeft)||(seenS===SPAWN_COUNT); if(stuck){ WD++; clearTimeout(spH); clearTimeout(tmH); setTimeout(()=>{ spawn(); loop(); timer(); },150); } seenT=game.state.timeLeft; seenS=SPAWN_COUNT; watchdogH=setTimeout(kick,1200); })();
   }
@@ -486,6 +493,16 @@
     if(game.state.score>game.state.best){ game.state.best=game.state.score; localStorage.setItem('ng_best', String(game.state.best)); }
     saveModeStat();
 
+    // ถ้าอยู่โหมด plate: สรุปรายการ "ยังขาด"
+    let plateMissing = '';
+    if(game.state.mode==='plate' && game.plateQuota && game.plateTarget){
+      const names = I18N[uiState.lang]?.groupNames || {grains:'Grains',protein:'Protein',veggies:'Veggies',fruits:'Fruits',dairy:'Dairy'};
+      const order=['grains','veggies','protein','fruits','dairy'];
+      const miss = order.filter(k=> (game.plateQuota[k]||0) > 0)
+                        .map(k=> `${groupDisplayKey(k)} ${names[k]} ×${game.plateQuota[k]}`);
+      if(miss.length) plateMissing = `<br/><b>ยังขาด</b>: ${miss.join(' • ')}`;
+    }
+
     const star=game.state.score>=240?3:game.state.score>=160?2:1; const b=game.state.best, s=game.state.specials, modeName=$("#modeName").textContent;
     $("#sumStars").textContent="★".repeat(star)+"☆".repeat(3-star);
     $("#sumBody").innerHTML = `<div style="line-height:1.7">
@@ -493,27 +510,25 @@
         <b>Hits</b>: ${game.state.hits} • <b>Misses</b>: ${game.state.misses}<br/>
         <b>Power-ups</b>: ⏱️ ${s.time} • 🔥 ${s.fever} • 🐢 ${s.slow} • 🛡️ ${s.shield} • 💣 ${s.bomb}<br/>
         <b>${t('mode')}</b>: ${modeName} • <b>${t('diff')}</b>: ${ (uiState.lang==='th' ? (game.state.difficulty==='Easy'?'ง่าย':game.state.difficulty==='Hard'?'ยาก':'ปกติ') : game.state.difficulty) }
+        ${plateMissing}
       </div>`;
     $("#sumTitle").textContent=t('summary');
     $("#summary").style.display='flex';
   }
 
-  /* Resize & render */
   function resize(){ const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
   function renderLoop(){ const q=camera.quaternion; game.ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
   renderer.setAnimationLoop(renderLoop);
 
-  /* UI API */
   const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; WD=0; start(); },
-             setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); updateHUD(); updateTargetLabel(); },
-             setDiff:(d)=>{ game.state.difficulty=d; localStorage.setItem('ng_diff',d); updateHUD(); },
+             setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); updateHUD(); updateTargetLabel(); if(m==='plate'){ resetPlateQuota(); } else { renderPlateTracker(); } },
+             setDiff:(d)=>{ game.state.difficulty=d; localStorage.setItem('ng_diff',d); if(game.state.mode==='plate'){ resetPlateQuota(); } updateHUD(); },
              toggleLang:()=>{ uiState.lang=(uiState.lang==='th'?'en':'th'); localStorage.setItem('ng_lang',uiState.lang); game.state.lang=uiState.lang; applyLang(); },
              help: ()=>{ document.getElementById('summary').style.display='none'; document.getElementById('help').style.display='flex'; applyLang(); },
              helpClose: ()=>{ document.getElementById('help').style.display='none'; } };
   window.UI=UI;
 
-  /* Bind menu */
   $("#menuBar").addEventListener('click',(e)=>{
     const btn=e.target.closest('button'); if(!btn) return;
     const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value');
@@ -524,29 +539,21 @@
     if(act in map) map[act](); else if(act==='mode') UI.setMode(val); else if(act==='diff') UI.setDiff(val);
   }, false);
 
-  /* delegate click ในหน้าสรุป */
   document.getElementById('summary').addEventListener('click', (e)=>{
     const btn = e.target.closest('button'); if(!btn) return;
-    const act = btn.getAttribute('data-action');
-    e.preventDefault(); e.stopPropagation();
-    if(act === 'help') { UI.help(); }
-    else if(act === 'restart') { UI.restart(); }
+    const act = btn.getAttribute('data-action'); e.preventDefault(); e.stopPropagation();
+    if(act === 'help') UI.help(); else if(act === 'restart') UI.restart();
   });
 
-  /* Help overlay close-on-bg */
   $("#help").addEventListener('click',(e)=>{ if(e.target.id==='help') UI.helpClose(); });
   $("#help").querySelector('[data-action=helpClose]').addEventListener('click', ()=>UI.helpClose());
 
-  /* First-run tutorial (โชว์สั้น ๆ ครั้งแรก) */
   if(!localStorage.getItem('ng_seenTutorial')){
     UI.help();
     setTimeout(()=>{ document.getElementById('help').style.display='none'; localStorage.setItem('ng_seenTutorial','1'); }, 4500);
   }
 
-  /* Init */
   applyLang(); updateHUD();
-
-  /* Errors surface */
   window.onerror=(msg,src,line,col)=>{ errEl.style.display='block'; errEl.textContent="Errors: "+msg+" @"+(src||'inline')+":"+line+":"+col; };
 })();
 </script>
