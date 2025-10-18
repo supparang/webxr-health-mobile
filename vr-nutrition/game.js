@@ -53,8 +53,8 @@
   const LANE_Y = [-0.05, 0.12, 0.29];
   const LANE_Z = [-0.36, 0.00, 0.36];
 
-  let occupiedSlots = new Set();      // เก็บ "r,c" ที่ใช้อยู่
-  let slotCooldown = new Map();       // "r,c" -> timestamp ที่ยังห้ามใช้
+  let occupiedSlots = new Set();      // "r,c" ที่ใช้อยู่
+  let slotCooldown = new Map();       // "r,c" -> timestamp ห้ามใช้ชั่วคราว
   let ACTIVE_ENTS = new Set();        // entities ที่ยังอยู่ในฉาก
   let lastLane = null;                // กันสุ่มซ้ำจุดเดิม
 
@@ -255,7 +255,7 @@
 
     // เลือกชนิด
     let src = null, meta = {};
-    if(Math.random() < 0.10){ // ลดโอกาส power-up ให้สนามโล่งขึ้น
+    if(Math.random() < 0.10){ // ลด power-up ให้สนามโล่งขึ้น
       const s = pickSpecial(); meta.special = s.type; src = s.img;
     } else if(APP.mode==="goodjunk"){
       const goodBias = APP.difficulty==="Easy" ? 0.70 : APP.difficulty==="Hard" ? 0.45 : 0.58;
@@ -453,8 +453,57 @@
     });
   })();
 
+  // ─── Mouse Laser control (Desktop) ───
+  (function setupMouseLaser(){
+    const scene   = document.querySelector("a-scene");
+    const camEl   = document.getElementById("playerCam");
+    const mouseRig= document.getElementById("mouseRig");
+    const laserEl = document.getElementById("mouseLaser");
+    if(!scene || !camEl || !mouseRig || !laserEl) return;
+
+    function updateLaser(){
+      // ถ้าอยู่ใน VR ซ่อนเลเซอร์เมาส์
+      if (scene.is && scene.is("vr-mode")) { laserEl.setAttribute("visible","false"); return; }
+      const rc = mouseRig.components && mouseRig.components.raycaster;
+      if(!rc) return;
+      rc.refreshObjects();
+      const hit = rc.intersections && rc.intersections[0];
+      if(hit && hit.point && hit.object && hit.object.el && hit.object.el.classList.contains("clickable")){
+        // world position ของกล้อง
+        const start = new THREE.Vector3();
+        camEl.object3D.getWorldPosition(start);
+        const end = hit.point.clone();
+        laserEl.setAttribute("line", `start: ${start.x} ${start.y} ${start.z}; end: ${end.x} ${end.y} ${end.z}; color: #0ff`);
+        laserEl.setAttribute("visible", "true");
+      } else {
+        laserEl.setAttribute("visible", "false");
+      }
+    }
+
+    scene.addEventListener("loaded", ()=> {
+      scene.addEventListener("mousemove", updateLaser);
+    });
+    const laserTimer = setInterval(updateLaser, 120);
+
+    window.addEventListener("mousedown", (e)=>{
+      if(e.button !== 0) return;            // left button only
+      if (scene.is && scene.is("vr-mode")) return; // ใน VR ใช้จ้องตามเดิม
+      try{
+        const rc = mouseRig.components.raycaster;
+        rc.refreshObjects();
+        const hit = rc.intersections && rc.intersections[0];
+        if(hit && hit.object && hit.object.el && hit.object.el.classList.contains("clickable")){
+          hit.object.el.emit("click");
+        }
+      }catch(_){}
+    });
+
+    scene.addEventListener("enter-vr", ()=> laserEl.setAttribute("visible","false"));
+    scene.addEventListener("exit-vr",  ()=> laserEl.setAttribute("visible","false"));
+    window.addEventListener("beforeunload", ()=> clearInterval(laserTimer));
+  })();
+
   // INIT
-  let SPAWN_COUNT = 0; // เคานต์เพื่อ safety spawn
   applyLang(); updateHUD(); setMode(APP.mode); setDiff(APP.difficulty);
   showEmojiMenu();
   window.APP_VR_NUTRITION = APP;
