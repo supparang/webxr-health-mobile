@@ -6,18 +6,11 @@
 <title>VR Nutrition — 4 Games</title>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
 <style>
-  html,body{margin:0;height:100%;background:#000}
-  /* ฉากอยู่ล่างสุด */
+  html,body{margin:0;height:100%;background:#050910;overflow:hidden}
   a-scene,canvas.a-canvas{position:fixed;inset:0;z-index:0!important}
-
-  /* ค่าเริ่มต้น: ปิดคลิกฉากทุกชั้นเพื่อให้ปุ่มกดได้แน่ */
   a-scene, canvas.a-canvas, .a-enter-vr{pointer-events:none!important}
-  /* ระหว่างเล่นเกมเท่านั้นเปิดคลิกให้ฉาก */
-  body.game-running a-scene,
-  body.game-running canvas.a-canvas,
-  body.game-running .a-enter-vr{pointer-events:auto!important}
+  body.game-running a-scene, body.game-running canvas.a-canvas, body.game-running .a-enter-vr{pointer-events:auto!important}
 
-  /* UI */
   .hud,#menuBar,.overlay,#toast,.modal{
     position:fixed;z-index:2147483647!important;pointer-events:auto!important;
     font-family:system-ui,Segoe UI,Arial,sans-serif;color:#0ff;text-shadow:0 0 8px rgba(0,255,255,.7)
@@ -26,10 +19,7 @@
   .hud .row{margin:6px 0}
   .badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid #0ff;margin-left:6px}
   #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center}
-  .btn,.tag{
-    display:inline-block;padding:10px 14px;margin:0 6px;border:1px solid #0ff;border-radius:12px;
-    background:rgba(0,0,0,.35);color:#0ff;cursor:pointer;user-select:none;font-size:16px
-  }
+  .btn,.tag{display:inline-block;padding:10px 14px;margin:0 6px;border:1px solid #0ff;border-radius:12px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer;user-select:none;font-size:16px}
   .tag{border-style:dashed}
   .btn:hover,.tag:hover{background:rgba(0,255,255,.12)}
   .targetBox{right:10px;top:10px;text-align:right;color:#fff}
@@ -47,14 +37,22 @@
   #howModal.show{display:flex}
   .how-card{background:rgba(10,14,26,.98);border:1px solid #0ff;border-radius:16px;padding:18px 20px;width:min(94vw,720px);max-height:80vh;overflow:auto;color:#0ff}
   .how-title{font-size:20px;margin-bottom:10px}
-  .how-grid{display:grid;grid-template-columns: 1fr; gap:10px}
+  .how-grid{display:grid;grid-template-columns:1fr;gap:10px}
   .how-actions{margin-top:12px;text-align:right}
   .how-btn{padding:8px 12px;border:1px solid #0ff;border-radius:10px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer}
   .how-btn:hover{background:rgba(0,255,255,.12)}
+
+  /* ===== Fever visuals ===== */
+  #feverBadge{display:none;margin-left:8px;border-color:#ff3;border:1px solid;padding:2px 10px;border-radius:999px;color:#ff3;text-shadow:0 0 10px rgba(255,255,0,.85)}
+  body.fever-active .hud{color:#fffbcc;text-shadow:0 0 12px rgba(255,240,0,.9)}
+  body.fever-active #feverBadge{display:inline-block}
+  body.fever-active::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:2147483646;
+    box-shadow:inset 0 0 120px 40px rgba(255,200,0,.25);
+  }
 </style>
 
 <script>
-/* ---------- Enforce pointer-events (กัน Chrome แทน canvas ใหม่) ---------- */
 function enforcePE(){
   const on=document.body.classList.contains('game-running');
   const want=on?'auto':'none';
@@ -67,41 +65,34 @@ window.addEventListener('DOMContentLoaded',()=>{
   mo.observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
   enforcePE();
 });
-
-/* ---------- Toast ---------- */
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._h);toast._h=setTimeout(()=>t.classList.remove('show'),1200);}
 
-/* ---------- HOW MODAL ---------- */
 function openHow(textHTML,title){
   const m=document.getElementById('howModal'); const body=document.body;
   document.getElementById('howBody').innerHTML=textHTML;
   document.getElementById('howTitle').textContent = title || 'How to Play';
   m.classList.add('show');
-  body.classList.remove('game-running'); // กันฉากรับคลิกทับ
-  enforcePE();
+  body.classList.remove('game-running'); enforcePE();
 }
 function closeHow(){ document.getElementById('howModal').classList.remove('show'); }
 window.addEventListener('keydown',e=>{ if(e.key==='Escape') closeHow(); });
 function clickHowBackdrop(e){ if(e.target.id==='howModal') closeHow(); }
 
-/* ---------- Fallback buttons (ทำงานแม้เกมยังไม่ bind) ---------- */
 function callUI(name,...args){
   try{ if(window.GAME_UI && typeof window.GAME_UI[name]==='function'){ return window.GAME_UI[name](...args); } }catch(e){console.error(e)}
   if(name==='start'||name==='restart'){ document.body.classList.add('game-running'); enforcePE(); toast(name==='start'?'Starting…':'Restarting…'); }
   else if(name==='pause'){ toast('Pause (engine pending)'); }
   else if(name==='how'){
-    // แสดง How แบบสั้นในกรณีเอนจินยังไม่ bind
     openHow(`<div class="how-grid">
       <div><b>โหมด ดี vs ขยะ:</b> จ้อง/คลิกอาหารที่ดี หลีกเลี่ยงขยะ</div>
-      <div><b>โหมด จาน 5 หมู่:</b> ดูหมู่เป้าหมายมุมขวาบน เก็บให้ตรงหมู่</div>
+      <div><b>จาน 5 หมู่:</b> เก็บให้ตรงหมู่เป้าหมาย (ขวาบน)</div>
       <div><b>Hydration:</b> เก็บน้ำ 💧 หลีกเลี่ยงน้ำหวาน</div>
-      <div><b>Build Plate:</b> เก็บตามโควตา Plate (ขวาบน) ครบชุดรับโบนัส</div>
-      <div><b>การควบคุม:</b> เมาส์/แตะ หรือจ้องใน VR จนวงแหวนครบ</div>
+      <div><b>Build Plate:</b> เก็บตามโควตา Plate ครบชุดรับโบนัส</div>
+      <div><b>Fever:</b> เก็บติดกันคอมโบสูงจะเข้าไฟลุก คะแนนคูณ!</div>
     </div>`,'วิธีเล่น');
   } else { toast(name+' (queued)'); }
 }
 
-/* ---------- Stub สำหรับเกมจริง ---------- */
 window.GAME_UI=window.GAME_UI||{
   _q:[],_ready:false,
   _bind(real){this._real=real;this._ready=true;this._q.forEach(fn=>{try{fn()}catch(e){}});this._q=[];},
@@ -121,6 +112,7 @@ window.GAME_UI=window.GAME_UI||{
       <span id="lblCombo">Combo</span>: <span id="combo">x1</span> |
       <span id="lblTime">Time</span>: <span id="time">60</span>s |
       <span id="lblBest">Best</span>: <span id="best">0</span>
+      <span id="feverBadge">FEVER!</span>
     </div>
     <div class="row">
       <span id="lblMode">Mode</span>: <span id="modeName">Good vs Junk</span> |
@@ -185,11 +177,10 @@ window.GAME_UI=window.GAME_UI||{
   </div>
 
   <!-- Scene -->
-  <a-scene id="scene" background="color:#02040a"
+  <a-scene id="scene" background="color:#050910"
            renderer="colorManagement:true; antialias:false; highRefreshRate:true; physicallyCorrectLights:true"
            xr="foveationLevel:2">
     <a-assets>
-      <!-- ใส่ภาพตามโฟลเดอร์ของคุณ -->
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
       <img id="water" src="assets/images/water.png">
@@ -201,8 +192,6 @@ window.GAME_UI=window.GAME_UI||{
       <img id="g_veggies" src="assets/images/veggies.png">
       <img id="g_fruits"  src="assets/images/fruits.png">
       <img id="g_dairy"   src="assets/images/dairy.png">
-
-      <!-- Power-ups -->
       <img id="p_time"   src="assets/images/time.png">
       <img id="p_fever"  src="assets/images/fever.png">
       <img id="p_shield" src="assets/images/shield.png">
@@ -212,7 +201,6 @@ window.GAME_UI=window.GAME_UI||{
 
     <a-sky color="#050910"></a-sky>
 
-    <!-- กล้องอยู่ระดับสายตา -->
     <a-entity id="playerCam" position="0 1.6 0" camera look-controls
               raycaster="objects: .clickable; far: 12"
               cursor="rayOrigin: entity; fuse: true; fuseTimeout: 750">
@@ -221,11 +209,7 @@ window.GAME_UI=window.GAME_UI||{
                 material="color:#0ff; shader:flat; opacity:0.9"></a-entity>
     </a-entity>
 
-    <!-- เมาส์ -->
-    <a-entity id="mouseRig"
-              cursor="rayOrigin: mouse"
-              raycaster="objects: .clickable; far: 12"></a-entity>
-
+    <a-entity id="mouseRig" cursor="rayOrigin: mouse" raycaster="objects: .clickable; far: 12"></a-entity>
     <a-entity id="spawnerRoot" position="0 1.6 -2.2"></a-entity>
   </a-scene>
 
