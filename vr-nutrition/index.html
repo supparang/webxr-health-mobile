@@ -3,40 +3,59 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-<title>Nutrition VR — Help + I18N</title>
+<title>Nutrition VR — จัดจานสุขภาพ</title>
 <style>
-  html,body{margin:0;height:100%;background:#061018;overflow:hidden}
-  canvas#c{position:fixed;inset:0;display:block;background:#061018;z-index:0}
-  .hud,#menuBar,#summary,#dbg,.reticle,#errors,#clicklog,#vrSlot,#valueTip,#toast,.floatScore,#help{
-    position:fixed; z-index:2147483600; color:#0ff; font-family:system-ui; text-shadow:0 0 8px rgba(0,255,255,.6)
+  :root{
+    --bg:#061018;
+    --cy:#0ff; --cy2:rgba(0,255,255,.12);
+    --card:rgba(8,12,20,.96);
+  }
+  html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
+  canvas#c{position:fixed;inset:0;display:block;background:var(--bg);z-index:0}
+
+  /* HUD + Menu */
+  .hud,#menuBar,#summary,.reticle,#errors,#vrSlot,#valueTip,#toast,#help{
+    position:fixed; z-index:2147483600; color:var(--cy);
+    font-family:system-ui,Segoe UI,Apple Color Emoji; text-shadow:0 0 8px rgba(0,255,255,.6)
   }
   .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
   #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1100px)}
   .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-  .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid #0ff;border-radius:12px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer;user-select:none}
+  .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
   .tag{border-style:dashed}
-  .btn:hover,.tag:hover{background:rgba(0,255,255,.12)}
-  #summary{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
-  .card{background:rgba(8,12,20,.96);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,720px);text-align:center}
-  #dbg{left:8px;bottom:8px;background:rgba(0,0,0,.5);padding:6px 8px;border-radius:8px;border:1px solid #0ff;white-space:pre;font-size:12px;display:none}
+  .btn:hover,.tag:hover{background:var(--cy2)}
   #errors{top:8px;right:8px;max-width:48ch;background:rgba(30,0,0,.85);padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb;display:none}
-  #clicklog{right:8px;bottom:8px;background:rgba(0,0,0,.55);padding:8px 10px;border-radius:8px;border:1px solid #0ff;font-size:12px;max-width:46ch;display:none}
   #fever{display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)}
   body.fever .hud{color:#fff8b0}
   body.fever #fever{display:inline-block}
-  .reticle{left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border:2px solid #0ff;border-radius:50%;pointer-events:none;opacity:.9}
-  .reticle .dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#0ff}
+  .reticle{left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border:2px solid var(--cy);border-radius:50%;pointer-events:none;opacity:.9}
+  .reticle .dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:var(--cy)}
   .reticle.progress{border-color:#ff0}
-  #valueTip{left:50%;top:calc(50% + 28px);transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid #0ff;border-radius:10px;padding:6px 10px;display:none}
-  #toast{left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid #0ff;border-radius:10px;padding:6px 10px;display:none}
-  .floatScore{font-weight:700; pointer-events:none; color:#8ff; text-shadow:0 0 8px rgba(0,255,255,.7)}
-  @keyframes popUp { 0%{transform:translate(-50%,0) scale(0.9); opacity:1} 70%{transform:translate(-50%,-26px) scale(1.05); opacity:.95} 100%{transform:translate(-50%,-46px) scale(1); opacity:0} }
+  #valueTip{left:50%;top:calc(50% + 28px);transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none}
+  #toast{left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none}
+
+  /* Summary */
+  #summary{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+  .card{background:var(--card);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:var(--cy);width:min(94vw,760px);text-align:center}
+
   /* Help modal */
   #help{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
-  #help .card{width:min(96vw,820px); text-align:left}
+  #help .card{width:min(96vw,920px); text-align:left}
   #help h2{margin:0 0 8px 0}
-  #help ul{margin:8px 0 0 18px}
+  #help .sect{display:grid;grid-template-columns: 46px 1fr; gap:10px; align-items:start; margin:10px 0}
+  #help .icon{font-size:30px;line-height:1}
+  #help ul{margin:6px 0 0 18px}
+  #help .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+  #help .chip{border:1px dashed var(--cy);border-radius:10px;padding:4px 8px;background:rgba(0,0,0,.3)}
+  #help .sub{margin-top:6px;opacity:.9}
+  #help .grid{display:grid;grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:10px}
   #help .foot{display:flex;justify-content:flex-end;margin-top:12px;gap:10px}
+
+  /* Floating score */
+  .floatScore{font-weight:700; pointer-events:none; color:#8ff; text-shadow:0 0 8px rgba(0,255,255,.7); position:fixed; z-index:2147483640}
+  @keyframes popUp { 0%{transform:translate(-50%,0) scale(0.9); opacity:1}
+                     70%{transform:translate(-50%,-26px) scale(1.05); opacity:.95}
+                     100%{transform:translate(-50%,-46px) scale(1); opacity:0} }
 </style>
 </head>
 <body>
@@ -55,15 +74,15 @@
        <span id="fever">FEVER!</span>
   </div>
   <div><span id="lblMode" data-i18n="mode">โหมด</span>: <span id="modeName">ดี vs ขยะ</span> |
-       <span id="lblDiff" data-i18n="diff">ความยาก</span>: <span id="difficulty">Normal</span></div>
+       <span id="lblDiff" data-i18n="diff">ความยาก</span>: <span id="difficulty">ปกติ</span></div>
 </div>
 
 <div id="menuBar">
   <div class="row" id="modes">
     <button class="tag" data-action="mode" data-value="goodjunk" type="button">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></button>
     <button class="tag" data-action="mode" data-value="groups" type="button">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></button>
-    <button class="tag" data-action="mode" data-value="hydration" type="button">💧 <span data-i18n="modeHydra">Hydration</span></button>
-    <button class="tag" data-action="mode" data-value="plate" type="button">🍱 <span data-i18n="modePlate">Build Plate</span></button>
+    <button class="tag" data-action="mode" data-value="hydration" type="button">💧 <span data-i18n="modeHydra">สมดุลน้ำ</span></button>
+    <button class="tag" data-action="mode" data-value="plate" type="button">🍱 <span data-i18n="modePlate">จัดจานสุขภาพ</span></button>
   </div>
   <div class="row" id="diff" style="margin:8px 0">
     <button class="tag" data-action="diff" data-value="Easy" type="button"><span data-i18n="easy">ง่าย</span></button>
@@ -76,90 +95,157 @@
     <button class="btn" data-action="restart" type="button">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
     <button class="btn" data-action="help" type="button">❓ <span data-i18n="howto">วิธีเล่น</span></button>
     <button class="btn" data-action="lang" type="button">🌐 <span data-i18n="langBtn">ไทย/English</span></button>
-    <button class="btn" data-action="logger" type="button">🪵 Log</button>
     <span id="vrSlot"></span>
   </div>
 </div>
 
+<!-- Summary -->
 <div id="summary">
   <div class="card">
     <div style="font-size:20px;margin-bottom:8px"><b id="sumTitle" data-i18n="summary">สรุปผล</b></div>
     <div id="sumStars" style="font-size:28px;margin:8px 0 4px">★☆☆</div>
     <div id="sumBody">...</div>
-    <div class="foot" style="justify-content:center;margin-top:12px">
+    <div class="row" style="justify-content:center;margin-top:12px">
       <button class="btn" data-action="restart" type="button">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
       <button class="btn" data-action="help" type="button">❓ <span data-i18n="howto">วิธีเล่น</span></button>
     </div>
   </div>
 </div>
 
+<!-- Help modal -->
 <div id="help">
   <div class="card">
     <h2 data-i18n="howto">วิธีเล่น</h2>
-    <div id="helpBody" style="line-height:1.6">
-      <!-- filled by JS -->
+    <div id="helpBody" style="line-height:1.6"></div>
+
+    <!-- กติกาเฉพาะแต่ละโหมด + ไอคอน/ภาพประกอบ (emoji + badge SVG) -->
+    <div class="grid">
+      <div class="sect">
+        <div class="icon">🥗</div>
+        <div>
+          <b data-i18n="modeGJ">ดี vs ขยะ</b>
+          <div class="sub" data-i18n="ruleGJ">
+            เลือกอาหารดี (ผัก ผลไม้ โปรตีนดี นม) หลีกเลี่ยงอาหารขยะ (ทอด หวานจัด น้ำอัดลม ฯลฯ)
+          </div>
+          <div class="chips">
+            <span class="chip">🥦 🍎 ✅</span>
+            <span class="chip">🍟 🥤 ❌</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="icon">🍽️</div>
+        <div>
+          <b data-i18n="modeGroups">จาน 5 หมู่</b>
+          <div class="sub" data-i18n="ruleGroups">
+            เกมจะสุ่ม “หมวดเป้าหมาย” (เช่น ธัญพืช/โปรตีน/ผัก/ผลไม้/นม) ให้เลือกให้ถูกติดต่อกัน 3 ชิ้น
+          </div>
+          <div class="chips">
+            <span class="chip">🍞 ธัญพืช</span>
+            <span class="chip">🍗 โปรตีน</span>
+            <span class="chip">🥦 ผัก</span>
+            <span class="chip">🍎 ผลไม้</span>
+            <span class="chip">🥛 นม</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="icon">💧</div>
+        <div>
+          <b data-i18n="modeHydra">สมดุลน้ำ</b>
+          <div class="sub" data-i18n="ruleHydra">
+            เลือกน้ำเปล่า/น้ำสะอาด (💧/🚰) ให้บ่อยที่สุด หลีกเลี่ยงน้ำหวาน/น้ำอัดลม
+          </div>
+          <div class="chips">
+            <span class="chip">💧 🚰 ✅</span>
+            <span class="chip">🥤 🧃 ❌</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sect">
+        <div class="icon">🍱</div>
+        <div>
+          <b data-i18n="modePlate">จัดจานสุขภาพ</b>
+          <div class="sub" data-i18n="rulePlate">
+            เก็บครบโควตาแต่ละหมวดเพื่อ “จัดจาน” สำเร็จ (ได้โบนัสใหญ่) แล้วเริ่มจานใหม่
+          </div>
+          <div class="chips">
+            <span class="chip">🍞×2</span>
+            <span class="chip">🥦×2</span>
+            <span class="chip">🍗×1</span>
+            <span class="chip">🍎×1</span>
+            <span class="chip">🥛×1</span>
+          </div>
+        </div>
+      </div>
     </div>
+
     <div class="foot">
       <button class="btn" data-action="helpClose" type="button"><span data-i18n="ok">โอเค</span></button>
     </div>
   </div>
 </div>
 
-<div id="dbg">STATE: boot</div>
-<div id="clicklog">clicklog: idle</div>
-
 <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.159.0/examples/js/VRButton.js"></script>
 <script>
 (function(){
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
-  const errEl=$("#errors"), toast=$("#toast");
-  const dbg=(m)=>$("#dbg").textContent='STATE: '+m;
-  const clog=(msg)=>{ const el=$("#clicklog"); if(el.style.display!=='none') el.textContent="clicklog: "+msg; };
-  const showToast=(msg,ms=1200)=>{ toast.textContent=msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',ms); };
-  window.onerror=(msg,src,line,col)=>{ errEl.style.display='block'; errEl.textContent="Errors: "+msg+" @"+(src||'inline')+":"+line+":"+col; };
+  const tip=$("#valueTip"), toast=$("#toast"), errEl=$("#errors");
 
-  // I18N
+  /* ================= I18N ================= */
   const I18N={
-    th:{score:"คะแนน", combo:"คอมโบ", time:"เวลา", best:"สถิติ", mode:"โหมด", diff:"ความยาก", start:"เริ่มเกม", pause:"พัก", restart:"เริ่มใหม่",
-        howto:"วิธีเล่น", langBtn:"ไทย/English", easy:"ง่าย", normal:"ปกติ", hard:"ยาก",
-        modeGJ:"ดี vs ขยะ", modeGroups:"จาน 5 หมู่", modeHydra:"Hydration", modePlate:"Build Plate", summary:"สรุปผล",
-        ok:"โอเค",
-        howtoHTML:`
-          <b>เป้าหมาย</b>: เลือกอาหาร/เครื่องดื่มตามกติกาของโหมดนั้น ๆ<br/>
+    th:{score:"คะแนน", combo:"คอมโบ", time:"เวลา", best:"สถิติ", mode:"โหมด", diff:"ความยาก",
+        start:"เริ่มเกม", pause:"พัก", restart:"เริ่มใหม่", howto:"วิธีเล่น", langBtn:"ไทย/English",
+        easy:"ง่าย", normal:"ปกติ", hard:"ยาก", summary:"สรุปผล", ok:"โอเค",
+        modeGJ:"ดี vs ขยะ", modeGroups:"จาน 5 หมู่", modeHydra:"สมดุลน้ำ", modePlate:"จัดจานสุขภาพ",
+        ruleGJ:"เลือกอาหารดี (ผัก ผลไม้ โปรตีนดี นม) หลีกเลี่ยงอาหารขยะ (ทอด หวานจัด น้ำอัดลม ฯลฯ)",
+        ruleGroups:"เกมจะสุ่ม “หมวดเป้าหมาย” (เช่น ธัญพืช/โปรตีน/ผัก/ผลไม้/นม) ให้เลือกให้ถูกติดต่อกัน 3 ชิ้น",
+        ruleHydra:"เลือกน้ำเปล่า/น้ำสะอาด (💧/🚰) ให้บ่อยที่สุด หลีกเลี่ยงน้ำหวาน/น้ำอัดลม",
+        rulePlate:"เก็บครบโควตาแต่ละหมวดเพื่อ “จัดจาน” สำเร็จ (ได้โบนัสใหญ่) แล้วเริ่มจานใหม่",
+        howtoHTML:`<b>เป้าหมาย</b>: เลือกอาหาร/เครื่องดื่มตามกติกาของโหมดนั้น ๆ<br/>
           <b>การควบคุม</b>: คอม/มือถือ คลิกหรือแตะไอคอน • VR ให้จ้องไอคอนค้าง ~0.7s<br/>
-          <b>คะแนน</b>: โดนเป้าถูกได้คะแนน คอมโบเพิ่มตัวคูณ • พลาดคอมโบจะรีเซ็ต<br/>
-          <b>พาวเวอร์อัป</b>: ⏱️ +เวลา • 🔥 FEVER คูณคะแนน • 🐢 ช้าชั่วคราว • 🛡️ กันพลาด • 💣 ลดคะแนน<br/>
-          <b>โหมด</b>: 🥗 ดี vs ขยะ | 🍽️ จาน 5 หมู่ | 💧 Hydration | 🍱 Build Plate
-        `},
-    en:{score:"Score", combo:"Combo", time:"Time", best:"Best", mode:"Mode", diff:"Difficulty", start:"Start", pause:"Pause", restart:"Restart",
-        howto:"How to play", langBtn:"Thai/English", easy:"Easy", normal:"Normal", hard:"Hard",
-        modeGJ:"Good vs Junk", modeGroups:"Food Groups", modeHydra:"Hydration", modePlate:"Build Plate", summary:"Summary",
-        ok:"OK",
-        howtoHTML:`
-          <b>Goal</b>: Pick items according to each mode's rule.<br/>
-          <b>Controls</b>: Desktop/Mobile click or tap • VR gaze to select (~0.7s).<br/>
-          <b>Scoring</b>: Correct hits score points; combos increase multiplier; miss resets combo.<br/>
-          <b>Power-ups</b>: ⏱️ time + • 🔥 FEVER multiplier • 🐢 slow • 🛡️ shield • 💣 penalty.<br/>
-          <b>Modes</b>: 🥗 Good vs Junk | 🍽️ Food Groups | 💧 Hydration | 🍱 Build Plate
-        `}
+          <b>คะแนน</b>: โดนเป้าถูกได้คะแนน คอมโบเพิ่มตัวคูณ • พลาดคอมโบรีเซ็ต<br/>
+          <b>พาวเวอร์อัป</b>: ⏱️ +เวลา • 🔥 FEVER คูณคะแนน • 🐢 ช้าชั่วคราว • 🛡️ กันพลาด • 💣 ลดคะแนน`
+    },
+    en:{score:"Score", combo:"Combo", time:"Time", best:"Best", mode:"Mode", diff:"Difficulty",
+        start:"Start", pause:"Pause", restart:"Restart", howto:"How to play", langBtn:"Thai/English",
+        easy:"Easy", normal:"Normal", hard:"Hard", summary:"Summary", ok:"OK",
+        modeGJ:"Good vs Junk", modeGroups:"Food Groups", modeHydra:"Hydration", modePlate:"Healthy Plate",
+        ruleGJ:"Pick healthy foods; avoid junk (fried, ultra-sweet, soda).",
+        ruleGroups:"Game picks a target group (grains/protein/veggies/fruits/dairy). Hit 3 in a row.",
+        ruleHydra:"Pick plain water (💧/🚰). Avoid sugary drinks/soda.",
+        rulePlate:"Complete quotas of each group to assemble a plate (big bonus), then start a new one.",
+        howtoHTML:`<b>Goal</b>: Pick items according to the mode rules.<br/>
+          <b>Controls</b>: Desktop/Mobile click or tap • VR gaze (~0.7s).<br/>
+          <b>Scoring</b>: Correct hits score points; combo increases multiplier; miss resets combo.<br/>
+          <b>Power-ups</b>: ⏱️ time+ • 🔥 FEVER multiplier • 🐢 slow • 🛡️ shield • 💣 penalty.`}
   };
-  const state={ lang: localStorage.getItem('ng_lang') || 'th' };
-  function t(k){ return (I18N[state.lang]&&I18N[state.lang][k]) || k; }
+  const uiState={ lang: localStorage.getItem('ng_lang') || 'th' };
+  function t(k){ return (I18N[uiState.lang]&&I18N[uiState.lang][k]) || k; }
   function applyLang(){
-    $$('[data-i18n]').forEach(el=>{ const key=el.getAttribute('data-i18n'); if(key==='howtoHTML'){ $('#helpBody').innerHTML = I18N[state.lang].howtoHTML; } else { el.textContent = t(key); } });
-    // mode name label
-    const modeName = (game.state.mode==='goodjunk')? t('modeGJ') : (game.state.mode==='groups')? t('modeGroups') : (game.state.mode==='hydration')? t('modeHydra') : t('modePlate');
+    $$('[data-i18n]').forEach(el=>{
+      const key=el.getAttribute('data-i18n');
+      if(key==='howtoHTML'){ $('#helpBody').innerHTML = I18N[uiState.lang].howtoHTML; }
+      else { el.textContent = t(key); }
+    });
+    // ปรับ label โหมดบน HUD ให้สอดคล้องกับ state.mode
+    const modeName = (game.state.mode==='goodjunk')? t('modeGJ') :
+                     (game.state.mode==='groups')? t('modeGroups') :
+                     (game.state.mode==='hydration')? t('modeHydra') : t('modePlate');
     $("#modeName").textContent = modeName;
   }
 
-  // WebAudio
+  /* ================ WebAudio (ding/thud) ================ */
   let AC=null, master=null;
   function audioInit(){ try{ AC = AC||new (window.AudioContext||window.webkitAudioContext)(); master = master||AC.createGain(); master.connect(AC.destination); master.gain.value=0.22; }catch(e){} }
   function ding(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='sine'; const t=AC.currentTime; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(1320,t+0.08); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22); o.start(t); o.stop(t+0.24); }
   function thud(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='triangle'; const t=AC.currentTime; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(110,t+0.12); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }
 
-  // THREE & GAME
+  /* ================ THREE/XR ================ */
   const canvas=$("#c");
   const renderer=new THREE.WebGLRenderer({canvas, antialias:true}); renderer.setClearColor(0x061018,1); renderer.xr.enabled=true;
   try{ const VRB=window.VRButton||(window.THREE&&window.THREE.VRButton); const vrEl=(VRB&&VRB.createButton)?VRB.createButton(renderer):null; if(vrEl){ $("#vrSlot")?.replaceWith(vrEl); } }catch(e){}
@@ -170,11 +256,14 @@
   function emojiTexture(char){ const s=128, cnv=document.createElement('canvas'); cnv.width=cnv.height=s; const ctx=cnv.getContext('2d'); ctx.font="100px system-ui, Apple Color Emoji, Segoe UI Emoji"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(char,s/2,s/2); const tex=new THREE.CanvasTexture(cnv); tex.needsUpdate=true; return tex; }
   function makeEmoji(char){ const tex=emojiTexture(char); const geo=new THREE.PlaneGeometry(0.5,0.5); const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false}); const m=new THREE.Mesh(geo,mat); m.lookAt(camera.position); return m; }
 
+  /* ================ Lanes ================ */
   const LANE_X=[-1.1,-0.55,0,0.55,1.1], LANE_Y=[-0.2,0.0,0.18,0.32], LANE_Z=-2.2;
-  const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now(); const isAdj=(r,c)=>{ if(!lastLane) return false; const [pr,pc]=lastLane; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
+  const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now();
+  const isAdj=(r,c)=>{ if(!lastLane) return false; const [pr,pc]=lastLane; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
   function pickLane(){ const cand=[]; for(let r=0;r<LANE_Y.length;r++){ for(let c=0;c<LANE_X.length;c++){ const k=r+','+c, cd=cooldown.get(k)||0, free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); }} if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); lastLane=[p.r,p.c]; return {x:LANE_X[p.c], y:1.6+LANE_Y[p.r], z:LANE_Z-0.1*Math.abs(p.c-2), key:p.k}; }
   function releaseLane(k){ occupied.delete(k); cooldown.set(k, now()+800); }
 
+  /* ================ Library ================ */
   const LIB={
     good:["🥦","🍎","🍌","🍅","🥕","🍇","🍗","🥛","🍠","🌽","🥬","🍊"],
     junk:["🍟","🍔","🍕","🌭","🍰","🍩","🧁","🥤","🍫"],
@@ -183,6 +272,18 @@
     special:{time:"⏱️", fever:"🔥", slow:"🐢", bomb:"💣", shield:"🛡️"}
   };
   const groupsArr=['grains','protein','veggies','fruits','dairy'];
+
+  /* ================ Game Core ================ */
+  const game={
+    state:{ lang: uiState.lang,
+      difficulty: localStorage.getItem('ng_diff') || 'Normal',
+      mode: localStorage.getItem('ng_mode') || 'goodjunk',
+      score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best: parseInt(localStorage.getItem('ng_best')||'0'),
+      hits:0, misses:0, specials:{time:0,fever:0,slow:0,bomb:0,shield:0}, fever:false, shield:false },
+    ACTIVE:new Set(), timers:{spawn:null,time:null,watch:null}, counters:{spawn:0,wd:0},
+    currentTarget:'grains', targetHits:0, plateQuota:null
+  };
+
   function pickMeta(){
     const r=Math.random();
     if(r<0.14){ const sp=['time','fever','slow','bomb','shield']; return {special: sp[Math.floor(Math.random()*sp.length)]}; }
@@ -197,34 +298,30 @@
        game.state.mode==='groups' ? LIB.groups[meta.group][Math.floor(Math.random()*LIB.groups[meta.group].length)] :
        game.state.mode==='hydration' ? (meta.hydra==='water' ? LIB.hydra.water[0] : (Math.random()<0.5?LIB.hydra.sugar[0]:LIB.hydra.soda[0])) : "🍽️");
   }
-  function toScreen(pos){ const v=pos.clone().project(camera); return { x:(v.x*0.5+0.5)*innerWidth, y:(-v.y*0.5+0.5)*innerHeight }; }
-  function floatScoreAt(pos, text, positive=true){
-    const p=toScreen(pos); const el=document.createElement('div'); el.className='floatScore'; el.textContent=text;
-    el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.position='fixed'; el.style.zIndex=2147483640;
-    el.style.color= positive? '#7fffd4' : '#ff8899'; el.style.animation='popUp 700ms ease-out forwards';
-    document.body.appendChild(el); setTimeout(()=>el.remove(), 750);
+
+  function updateHUD(){ $("#score").textContent=game.state.score; $("#time").textContent=game.state.timeLeft;
+    $("#best").textContent=game.state.best; $("#difficulty").textContent=
+      (uiState.lang==='th' ? (game.state.difficulty==='Easy'?'ง่าย':game.state.difficulty==='Hard'?'ยาก':'ปกติ') : game.state.difficulty);
+    $("#modeName").textContent=(game.state.mode==='goodjunk')? t('modeGJ') :
+                                (game.state.mode==='groups')? t('modeGroups') :
+                                (game.state.mode==='hydration')? t('modeHydra') : t('modePlate');
+    $("#combo").textContent='x'+game.state.combo;
   }
 
-  // Game core
-  const game={
-    state:{ lang: localStorage.getItem('ng_lang') || 'th',
-      difficulty: localStorage.getItem('ng_diff') || 'Normal',
-      mode: localStorage.getItem('ng_mode') || 'goodjunk',
-      score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best: parseInt(localStorage.getItem('ng_best')||'0'),
-      hits:0, misses:0, specials:{time:0,fever:0,slow:0,bomb:0,shield:0},
-      fever:false, shield:false },
-    ACTIVE:new Set(), timers:{spawn:null,time:null,watch:null}, counters:{spawn:0,wd:0},
-    currentTarget:'grains', targetHits:0, plateQuota:null
-  };
-  function updateHUD(){ $("#score").textContent=game.state.score; $("#time").textContent=game.state.timeLeft; $("#best").textContent=game.state.best; $("#difficulty").textContent=game.state.difficulty; $("#combo").textContent='x'+game.state.combo; }
-  function nextTarget(){ const arr=groupsArr.filter(x=>x!==game.currentTarget); game.currentTarget = arr[Math.floor(Math.random()*arr.length)]; }
-  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(game.state.difficulty==='Hard') base.veggies=3; game.plateQuota=base; }
-  function setFever(on){ game.state.fever=on; document.body.classList.toggle('fever', on); }
-  let feverTimer=null; function enterFever(ms=6500){ if(feverTimer) clearTimeout(feverTimer); setFever(true); feverTimer=setTimeout(()=>setFever(false), ms); }
-  function comboBreak(){ game.state.combo=1; setFever(false); updateHUD(); }
+  /* Floating score */
+  function toScreen(pos){ const v=pos.clone().project(camera); return { x:(v.x*0.5+0.5)*innerWidth, y:(-v.y*0.5+0.5)*innerHeight }; }
+  function floatScoreAt(pos, text, positive=true){
+    const p=toScreen(pos); const el=document.createElement('div');
+    el.className='floatScore'; el.textContent=text;
+    el.style.left=p.x+'px'; el.style.top=p.y+'px';
+    el.style.color= positive? '#7fffd4' : '#ff8899';
+    el.style.animation='popUp 700ms ease-out forwards';
+    document.body.appendChild(el); setTimeout(()=>el.remove(), 750);
+  }
+  const showToast=(msg,ms=1200)=>{ toast.textContent=msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',ms); };
 
+  /* Spawn/Destory */
   function destroy(obj){ if(obj.parent) obj.parent.remove(obj); game.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
-
   function spawn(){
     const lane=pickLane(); if(!lane) return;
     const meta=pickMeta(); const ch=charFor(meta);
@@ -240,6 +337,13 @@
       destroy(m);
     }, life + Math.floor(Math.random()*500-250));
   }
+
+  /* Scoring */
+  function nextTarget(){ const arr=groupsArr.filter(x=>x!==game.currentTarget); game.currentTarget = arr[Math.floor(Math.random()*arr.length)]; }
+  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(game.state.difficulty==='Hard') base.veggies=3; game.plateQuota=base; }
+  function setFever(on){ game.state.fever=on; document.body.classList.toggle('fever', on); }
+  let feverTimer=null; function enterFever(ms=6500){ if(feverTimer) clearTimeout(feverTimer); setFever(true); feverTimer=setTimeout(()=>setFever(false), ms); }
+  function comboBreak(){ game.state.combo=1; setFever(false); updateHUD(); }
 
   function handleHit(obj){
     audioInit();
@@ -264,6 +368,7 @@
     updateHUD(); if(delta!==0) floatScoreAt(obj.position, (delta>0?'+':'')+delta, delta>0);
   }
 
+  /* Input */
   function onClickCanvas(ev){
     if(!game.state.running||game.state.paused) return;
     const r=canvas.getBoundingClientRect(); const x=(ev.clientX-r.left)/r.width*2-1; const y=-(ev.clientY-r.top)/r.height*2+1;
@@ -274,6 +379,14 @@
   canvas.addEventListener('click', onClickCanvas);
   canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClickCanvas({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
 
+  /* Gaze */
+  let gazeTarget=null, gazeStart=0; const DWELL=700;
+  function handleGaze(){ if(!game.state.running||game.state.paused) return; raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+    const inter=raycaster.intersectObjects(Array.from(game.ACTIVE)); if(inter.length>0){ const o=inter[0].object; if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); $("#ret").classList.add('progress'); }
+      else if(performance.now()-gazeStart >= DWELL){ handleHit(o); destroy(o); gazeTarget=null; $("#ret").classList.remove('progress'); } }
+    else { gazeTarget=null; $("#ret").classList.remove('progress'); } }
+
+  /* Loops */
   let spH=null, tmH=null, watchdogH=null, SPAWN_COUNT=0, WD=0;
   function loop(){ if(!game.state.running||game.state.paused) return; spawn(); SPAWN_COUNT++; spH=setTimeout(loop, 700); }
   function timer(){ if(!game.state.running||game.state.paused) return; tmH=setTimeout(()=>{ game.state.timeLeft--; updateHUD(); if(game.state.timeLeft<=0){ endGame(); } else timer(); }, 1000); }
@@ -282,7 +395,7 @@
     $("#summary").style.display='none'; $("#help").style.display='none';
     game.state.score=0; game.state.combo=1; game.state.comboMax=1; game.state.timeLeft=60; game.state.hits=0; game.state.misses=0; game.state.specials={time:0,fever:0,slow:0,bomb:0,shield:0};
     if(game.state.mode==='groups'){ nextTarget(); } if(game.state.mode==='plate'){ resetPlateQuota(); }
-    updateHUD(); game.state.running=true; game.state.paused=false; dbg('running');
+    updateHUD(); game.state.running=true; game.state.paused=false;
     setTimeout(spawn, 200); loop(); timer();
     clearTimeout(watchdogH); let seenT=game.state.timeLeft, seenS=SPAWN_COUNT;
     (function kick(){ const stuck=(seenT===game.state.timeLeft)||(seenS===SPAWN_COUNT); if(stuck){ WD++; clearTimeout(spH); clearTimeout(tmH); setTimeout(()=>{ spawn(); loop(); timer(); },150); } seenT=game.state.timeLeft; seenS=SPAWN_COUNT; watchdogH=setTimeout(kick,1200); })();
@@ -291,53 +404,52 @@
   function endGame(){
     game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH);
     if(game.state.score>game.state.best){ game.state.best=game.state.score; localStorage.setItem('ng_best', String(game.state.best)); }
-    const star=game.state.score>=240?3:game.state.score>=160?2:1; const b=game.state.best, s=game.state.specials, modeName=(game.state.mode==='goodjunk')?t('modeGJ'): (game.state.mode==='groups')?t('modeGroups'): (game.state.mode==='hydration')?t('modeHydra'):t('modePlate');
+    const star=game.state.score>=240?3:game.state.score>=160?2:1; const b=game.state.best, s=game.state.specials, modeName=$("#modeName").textContent;
     $("#sumStars").textContent="★".repeat(star)+"☆".repeat(3-star);
     $("#sumBody").innerHTML = `<div style="line-height:1.7">
         <b>${t('score')}</b>: ${game.state.score} (${t('best')}: ${b}) • <b>Combo Max</b>: x${game.state.comboMax}<br/>
         <b>Hits</b>: ${game.state.hits} • <b>Misses</b>: ${game.state.misses}<br/>
         <b>Power-ups</b>: ⏱️ ${s.time} • 🔥 ${s.fever} • 🐢 ${s.slow} • 🛡️ ${s.shield} • 💣 ${s.bomb}<br/>
-        <b>${t('mode')}</b>: ${modeName} • <b>${t('diff')}</b>: ${game.state.difficulty}
+        <b>${t('mode')}</b>: ${modeName} • <b>${t('diff')}</b>: ${ (uiState.lang==='th' ? (game.state.difficulty==='Easy'?'ง่าย':game.state.difficulty==='Hard'?'ยาก':'ปกติ') : game.state.difficulty) }
       </div>`;
     $("#sumTitle").textContent=t('summary');
     $("#summary").style.display='flex';
   }
 
+  /* Resize & render */
   function resize(){ const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
   function renderLoop(){ const q=camera.quaternion; game.ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
   renderer.setAnimationLoop(renderLoop);
-  let gazeTarget=null, gazeStart=0; const DWELL=700;
-  function handleGaze(){ if(!game.state.running||game.state.paused) return; raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-    const inter=raycaster.intersectObjects(Array.from(game.ACTIVE)); if(inter.length>0){ const o=inter[0].object; if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); $("#ret").classList.add('progress'); }
-      else if(performance.now()-gazeStart >= DWELL){ handleHit(o); destroy(o); gazeTarget=null; $("#ret").classList.remove('progress'); } }
-    else { gazeTarget=null; $("#ret").classList.remove('progress'); } }
 
-  // UI API
+  /* UI API */
   const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; WD=0; start(); },
-             setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); $("#modeName").textContent=(m==='goodjunk')?t('modeGJ'):(m==='groups')?t('modeGroups'):(m==='hydration')?t('modeHydra'):t('modePlate'); },
+             setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); updateHUD(); },
              setDiff:(d)=>{ game.state.difficulty=d; localStorage.setItem('ng_diff',d); updateHUD(); },
-             toggleLang:()=>{ game.state.lang=(game.state.lang==='th'?'en':'th'); localStorage.setItem('ng_lang',game.state.lang); state.lang=game.state.lang; applyLang(); },
-             help: ()=>{ $('#help').style.display='flex'; $('#helpBody').innerHTML = I18N[game.state.lang].howtoHTML; },
+             toggleLang:()=>{ uiState.lang=(uiState.lang==='th'?'en':'th'); localStorage.setItem('ng_lang',uiState.lang); game.state.lang=uiState.lang; applyLang(); },
+             help: ()=>{ $('#help').style.display='flex'; applyLang(); },
              helpClose: ()=>{ $('#help').style.display='none'; }
            };
   window.UI=UI;
 
-  // Bind menu
+  /* Bind menu */
   $("#menuBar").addEventListener('click',(e)=>{
     const btn=e.target.closest('button'); if(!btn) return;
     const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value');
     e.preventDefault(); e.stopPropagation();
-    const map={start:UI.start,pause:UI.pause,restart:UI.restart,lang:UI.toggleLang,logger:()=>{ const el=$("#clicklog"); el.style.display=(el.style.display==='none'?'block':'none'); },help:UI.help};
+    const map={start:UI.start,pause:UI.pause,restart:UI.restart,lang:UI.toggleLang,help:UI.help};
     if(act in map) map[act](); else if(act==='mode') UI.setMode(val); else if(act==='diff') UI.setDiff(val);
-    clog(`menu action=${act} value=${val||'-'}`);
   }, false);
   $("#help").addEventListener('click',(e)=>{ if(e.target.id==='help') UI.helpClose(); });
   $("#help").querySelector('[data-action=helpClose]').addEventListener('click', ()=>UI.helpClose());
 
-  // Init
+  /* Init */
   applyLang();
-  updateHUD(); dbg('ready');
-})();</script>
+  updateHUD();
+
+  /* Errors surface */
+  window.onerror=(msg,src,line,col)=>{ errEl.style.display='block'; errEl.textContent="Errors: "+msg+" @"+(src||'inline')+":"+line+":"+col; };
+})();
+</script>
 </body>
 </html>
