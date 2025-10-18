@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>Nutrition Game — Three.js + VR Gaze</title>
+<style>
+  html,body{margin:0;height:100%;background:#061018;overflow:hidden}
+  canvas#c{position:fixed;inset:0;display:block;background:#061018}
+  .hud,#menuBar,#summary,#dbg{position:fixed;z-index:999999;color:#0ff;font-family:system-ui;text-shadow:0 0 8px rgba(0,255,255,.6)}
+  .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
+  #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center}
+  .btn,.tag{display:inline-block;padding:10px 14px;margin:0 6px;border:1px solid #0ff;border-radius:12px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer;user-select:none}
+  .tag{border-style:dashed}
+  .btn:hover,.tag:hover{background:rgba(0,255,255,.12)}
+  #summary{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+  .card{background:rgba(8,12,20,.96);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,640px);text-align:center}
+  #dbg{left:8px;bottom:8px;background:rgba(0,0,0,.5);padding:6px 8px;border-radius:8px;border:1px solid #0ff;white-space:pre;font-size:12px}
+  #fever{display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)}
+  body.fever .hud{color:#fff8b0}
+  body.fever #fever{display:inline-block}
+  /* Reticle */
+  .reticle {position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border:2px solid #0ff;border-radius:50%;z-index:999999;pointer-events:none;opacity:.9}
+  .reticle .dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:#0ff}
+  .reticle.progress {border-color:#ff0}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="reticle" id="ret"><div class="dot"></div></div>
+
+<div class="hud">
+  <div><span id="lblScore">คะแนน</span>: <span id="score">0</span> |
+       <span id="lblCombo">คอมโบ</span>: <span id="combo">x1</span> |
+       <span id="lblTime">เวลา</span>: <span id="time">60</span>s |
+       <span id="lblBest">สถิติ</span>: <span id="best">0</span>
+       <span id="fever">FEVER!</span>
+  </div>
+  <div><span id="lblMode">โหมด</span>: <span id="modeName">ดี vs ขยะ</span> |
+       <span id="lblDiff">ความยาก</span>: <span id="difficulty">Normal</span></div>
+</div>
+
+<div id="menuBar">
+  <div style="margin-bottom:6px">
+    <span class="tag" onclick="UI.setMode('goodjunk')">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
+    <span class="tag" onclick="UI.setMode('groups')">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
+    <span class="tag" onclick="UI.setMode('hydration')">💧 <span data-i18n="modeHydra">Hydration</span></span>
+    <span class="tag" onclick="UI.setMode('plate')">🍱 <span data-i18n="modePlate">Build Plate</span></span>
+  </div>
+  <div style="margin:6px 0">
+    <span class="tag" onclick="UI.setDiff('Easy')">Easy</span>
+    <span class="tag" onclick="UI.setDiff('Normal')">Normal</span>
+    <span class="tag" onclick="UI.setDiff('Hard')">Hard</span>
+  </div>
+  <div>
+    <button class="btn" onclick="UI.start()">▶ <span data-i18n="start">เริ่มเกม</span></button>
+    <button class="btn" onclick="UI.pause()">⏸ <span data-i18n="pause">พัก</span></button>
+    <button class="btn" onclick="UI.restart()">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
+    <button class="btn" onclick="UI.toggleLang()">🌐 ไทย/English</button>
+    <button class="btn" id="vrBtn">🕶️ VR</button>
+  </div>
+</div>
+
+<div id="summary">
+  <div class="card">
+    <div style="font-size:20px;margin-bottom:8px"><b id="sumTitle">สรุปผล</b></div>
+    <div id="sumStars" style="font-size:28px;margin:8px 0 4px">★☆☆</div>
+    <div id="sumBody">Score: 0 • Combo Max: x1 • Mode: — • Diff: —</div>
+    <div style="margin-top:12px"><button class="btn" onclick="UI.restart()">↻ <span data-i18n="restart">เริ่มใหม่</span></button></div>
+  </div>
+</div>
+
+<div id="dbg">STATE: boot</div>
+
+<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.159.0/examples/jsm/webxr/VRButton.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
