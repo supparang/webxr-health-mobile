@@ -1,0 +1,18 @@
+
+<!doctype html><html lang="th"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>VR Fitness Suite — Hub</title>
+<style>:root{--bg:#0b1220;--card:#0f172a;--stroke:#1f2a44;--txt:#e6f0ff;--muted:#93a3c5;--accent:#22c55e;--blue:#2563eb}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
+.wrap{max-width:980px;width:100%;padding:24px}.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.card h3{margin:0 0 8px;font-size:18px}.card p{margin:0 0 12px;color:#c7d2fe;font-size:14px;min-height:40px}button{padding:10px 14px;border:0;border-radius:12px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}
+.green{background:var(--accent)}footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}</style></head><body>
+<div class="wrap"><div class="head"><h1 style="margin:0">VR Fitness Suite</h1><div><button class="green" onclick="about()">How to Play</button></div></div>
+<div class="grid">
+  <div class="card"><h3>1) Shadow Breaker</h3><p>ตี/ทำลายเป้าลอย — โหมด Timed หรือ Endless</p><button onclick="goto('../shadow-breaker/index.html')">Play</button></div>
+  <div class="card"><h3>2) Rhythm Boxer</h3><p>ชกซ้าย/ขวาตามจังหวะ (Perfect/Good/Miss)</p><button onclick="goto('../rhythm-boxer/index.html')">Play</button></div>
+  <div class="card"><h3>3) Jump & Duck</h3><p>หลบ/ก้ม/ย่อตามเป้าสูง/ต่ำ</p><button onclick="goto('../jump-duck/index.html')">Play</button></div>
+  <div class="card"><h3>4) Balance Hold</h3><p>โฟกัสค้างบนจุดสมดุลตามเวลาที่กำหนด</p><button onclick="goto('../balance-hold/index.html')">Play</button></div>
+</div><footer>รองรับมือถือ + VR (A‑Frame/WebXR)</footer></div>
+<script>function goto(u){location.href=u}function about(){alert("วิธีเล่น\n\n- ใช้ gaze cursor (วงแหวนกลางจอ) เล็งที่เป้าแล้วแตะ/ปล่อยให้ fuse ทำงานเพื่อยืนยัน\n- รองรับมือถือและโหมด VR")}</script>
+</body></html>

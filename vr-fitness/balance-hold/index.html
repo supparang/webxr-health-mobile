@@ -1,0 +1,11 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Balance Hold — Menu</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1220;color:#e6f0ff;font-family:system-ui}
+.card{background:#0f172a;border:1px solid #1f2a44;border-radius:18px;box-shadow:0 10px 24px rgba(0,0,0,.35);padding:24px;max-width:640px}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}label{font-size:14px;color:#93c5fd}select,input{padding:10px 12px;border-radius:12px;border:1px solid #334155;background:#0b1324;color:#e5edff}
+button{padding:12px 16px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#10b981}</style></head><body>
+<div class="card"><h1>Balance Hold</h1><p>โฟกัสค้างบนจุดสมดุล แต่ละด่านนานขึ้นเรื่อย ๆ</p>
+<div class="row"><div><label>ด่านทั้งหมด</label><br/><select id="stages"><option>5</option><option selected>8</option><option>10</option></select></div></div>
+<div class="row"><button onclick="go()">เริ่มเกม</button><button class="secondary" onclick="home()">กลับ Hub</button></div></div>
+<script>function go(){location.href=`play.html?stages=${stages.value}`}function home(){location.href='../hub/index.html'}</script>
+</body></html>
