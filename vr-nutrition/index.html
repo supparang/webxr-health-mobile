@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>VR Nutrition — Gaze Edition</title>
+  <title>VR Nutrition — Gaze + Mouse Laser</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
@@ -91,7 +91,7 @@
     <a-assets>
       <!-- UI -->
       <img id="panel" src="assets/ui/panel.png">
-      <!-- Food -->
+      <!-- Food (ตัวอย่าง; เติมของเดิมทั้งหมดตามแพ็กของคุณ) -->
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
       <img id="water" src="assets/images/water.png">
@@ -114,11 +114,11 @@
 
     <a-sky color="#050910"></a-sky>
 
-    <!-- หัวเรื่อง: ไม่ occlude -->
+    <!-- หัวเรื่อง -->
     <a-plane id="titlePanel" class="ui" src="#panel" position="0 1.6 -2" width="1.8" height="0.9"
              material="transparent:true; depthTest:false; depthWrite:false; opacity:0.18"></a-plane>
     <a-entity id="titleText" text="value: VR Nutrition; align: center; width: 3; color: #0ff" position="0 2.1 -2"></a-entity>
-    <a-entity id="subtitleText" text="value: Gaze to Select; align: center; width: 3; color: #a0f" position="0 1.85 -2"></a-entity>
+    <a-entity id="subtitleText" text="value: Gaze + Mouse Laser; align: center; width: 3; color: #a0f" position="0 1.85 -2"></a-entity>
 
     <!-- กล้องโหมดจ้อง (Gaze + Fuse) -->
     <a-entity id="playerCam"
@@ -130,10 +130,21 @@
                 material="color: #0ff; shader: flat; opacity: 0.9"></a-entity>
     </a-entity>
 
+    <!-- Mouse Laser (Desktop) -->
+    <a-entity id="mouseRig"
+              raycaster="objects: .clickable; far: 12"
+              cursor="rayOrigin: mouse">
+    </a-entity>
+
+    <!-- เส้นเลเซอร์ที่วาดจากกล้องไปยังจุดที่เล็ง -->
+    <a-entity id="mouseLaser"
+              line="start: 0 0 0; end: 0 0 -1; color: #0ff"
+              visible="false"></a-entity>
+
     <!-- จุดเกิดวัตถุ -->
     <a-entity id="spawnerRoot" position="0 1.6 -2.2"></a-entity>
 
-    <!-- Emoji menu ในฉาก (ยังใช้ได้ ถ้าต้องการ) -->
+    <!-- Emoji menu ในฉาก -->
     <a-entity id="emojiMenuRoot" position="0 1.55 -2"></a-entity>
   </a-scene>
 
