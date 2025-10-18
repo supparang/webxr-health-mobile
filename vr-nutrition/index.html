@@ -7,50 +7,55 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
+
     /* ฉากอยู่ล่างสุด */
     a-scene, canvas.a-canvas { position:fixed; inset:0; z-index:0 !important; }
 
-    /* บล็อกคลิกฉากจนกว่าจะเริ่มเกม (ชี้ไปที่ canvas ตรง ๆ) */
-    a-scene[data-block="1"] canvas.a-canvas { pointer-events: none !important; }
-    a-scene[data-block="0"] canvas.a-canvas { pointer-events: auto !important; }
+    /* ค่าเริ่มต้น: ปิดคลิกฉากเพื่อให้ปุ่มทำงาน 100% */
+    canvas.a-canvas { pointer-events: none !important; }
+    /* เปิดคลิกฉากเฉพาะตอนเล่นเกม */
+    body.game-running canvas.a-canvas { pointer-events: auto !important; }
 
-    /* UI บนสุดและคลิกได้ */
+    /* UI บนสุด */
     .hud, #menuBar, .overlay, .targetBox, .quotaBox {
-      position: fixed; z-index: 9999 !important; pointer-events: auto !important;
+      position: fixed; z-index: 2147483647 !important; pointer-events: auto !important;
       font-family: system-ui, sans-serif; color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,.8);
     }
     .hud { left:50%; transform:translateX(-50%); top:10px; text-align:center }
     .hud .row { margin:6px 0; }
     .badge { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #0ff; margin-left:6px }
-    #menuBar { bottom:12px; left:50%; transform:translateX(-50%); text-align:center }
-    .btn { display:inline-block; padding:8px 12px; margin:0 6px; border:1px solid #0ff; border-radius:10px; cursor:pointer; user-select:none; }
-    .btn:hover { background: rgba(0,255,255,0.12); }
-    .tag { border:1px dashed #0ff; padding:4px 10px; border-radius:10px; margin:0 6px; display:inline-block; cursor:pointer; user-select:none; }
+
+    #menuBar { bottom:12px; left:50%; transform:translateX(-50%); text-align:center; }
+    button.btn, .tag {
+      display:inline-block; padding:10px 14px; margin:0 6px; border:1px solid #0ff; border-radius:12px;
+      background:rgba(0,0,0,.35); color:#0ff; cursor:pointer; user-select:none; font-size:16px;
+    }
+    button.btn:hover, .tag:hover { background: rgba(0,255,255,0.12); }
+    .tag { border-style: dashed; }
+
     .targetBox { right:10px; top:10px; text-align:right; color:#fff }
     .targetBox .tlabel { font-size:14px; opacity:0.8 }
     .targetName { font-size:18px }
     .quotaBox { right:10px; top:76px; text-align:right; color:#fff; display:none }
 
     /* Overlay: ไม่กินคลิกตอนซ่อน */
-    .overlay { inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); pointer-events: none; }
-    .overlay.show { display:flex; pointer-events:auto; } /* เฉพาะตอนแสดง */
+    .overlay { inset:0; display:none; align-items:center; justify-content:center;
+               background:rgba(0,0,0,0.6); pointer-events: none; }
+    .overlay.show { display:flex; pointer-events:auto; }
     .card { background:rgba(8,10,20,0.96); border:1px solid #0ff; border-radius:16px; padding:18px 20px; color:#0ff; width:min(94vw,640px); text-align:center }
     .stars { font-size:28px; margin:8px 0 4px }
   </style>
 
-  <!-- SAFE UI stub: กันกรณีเกมโหลดช้า/มี error ทำให้ onclick หาย -->
+  <!-- SAFE UI stub: ปุ่มเรียกได้แม้เกมโหลดช้า -->
   <script>
     window.GAME_UI = window.GAME_UI || {
-      _q: [],
-      _ready: false,
-      _bind(real) { this._real = real; this._ready = true; this._q.forEach(fn => { try{ fn(); }catch(e){} }); this._q=[]; },
-      _call(name, ...args) {
-        const go = () => { try{ this._real[name](...args); }catch(e){ console.error(e); } };
-        if (this._ready) go(); else this._q.push(go);
-      },
-      start(){ this._call('start'); }, pause(){ this._call('pause'); }, restart(){ this._call('restart'); },
-      how(){ this._call('how'); }, setMode(m){ this._call('setMode', m); }, setDiff(d){ this._call('setDiff', d); },
-      toggleLang(){ this._call('toggleLang'); }, toggleVoice(){ this._call('toggleVoice'); }
+      _q: [], _ready: false,
+      _bind(real){ this._real=real; this._ready=true; this._q.forEach(fn=>{try{fn()}catch(e){}}); this._q=[]; },
+      _call(name,...args){ const go=()=>{ try{ this._real[name](...args); }catch(e){ console.error(e); } };
+        this._ready? go() : this._q.push(go); },
+      start(){this._call('start')}, pause(){this._call('pause')}, restart(){this._call('restart')},
+      how(){this._call('how')}, setMode(m){this._call('setMode',m)}, setDiff(d){this._call('setDiff',d)},
+      toggleLang(){this._call('toggleLang')}, toggleVoice(){this._call('toggleVoice')}
     };
   </script>
 </head>
@@ -80,7 +85,7 @@
     <div class="targetName" id="quotaText">—</div>
   </div>
 
-  <!-- เมนูด้านล่าง (onclick fallback ตรง ๆ) -->
+  <!-- เมนูด้านล่าง -->
   <div id="menuBar">
     <div id="modeBar" style="margin-bottom:6px">
       <span class="tag" onclick="GAME_UI.setMode('goodjunk')">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
@@ -94,11 +99,11 @@
       <span class="tag" onclick="GAME_UI.setDiff('Hard')">Hard</span>
     </div>
     <div>
-      <span class="btn" id="btnStart"  onclick="GAME_UI.start()">▶ <span data-i18n="start">เริ่มเกม</span></span>
-      <span class="btn" id="btnPause"  onclick="GAME_UI.pause()">⏸ <span data-i18n="pause">พัก</span></span>
-      <span class="btn" id="btnHow"    onclick="GAME_UI.how()">❓ <span data-i18n="how">วิธีเล่น</span></span>
-      <span class="btn" id="btnLang"   onclick="GAME_UI.toggleLang()">🌐 <span id="langText">ไทย/English</span></span>
-      <span class="btn" id="btnVoice"  onclick="GAME_UI.toggleVoice()">🔊 <span data-i18n="voiceOn">เสียงพูด: เปิด</span></span>
+      <button class="btn" id="btnStart"  onclick="GAME_UI.start()">▶ <span data-i18n="start">เริ่มเกม</span></button>
+      <button class="btn" id="btnPause"  onclick="GAME_UI.pause()">⏸ <span data-i18n="pause">พัก</span></button>
+      <button class="btn" id="btnHow"    onclick="GAME_UI.how()">❓ <span data-i18n="how">วิธีเล่น</span></button>
+      <button class="btn" id="btnLang"   onclick="GAME_UI.toggleLang()">🌐 <span id="langText">ไทย/English</span></button>
+      <button class="btn" id="btnVoice"  onclick="GAME_UI.toggleVoice()">🔊 <span data-i18n="voiceOn">เสียงพูด: เปิด</span></button>
     </div>
   </div>
 
@@ -109,18 +114,19 @@
       <div class="stars" id="sumStars">★☆☆</div>
       <div id="sumBody">Score: 0 • Combo Max: x1 • Mode: — • Diff: —</div>
       <div style="margin-top:8px"><span id="sumTips">VR: จ้องไอเท็มจนวงแหวนครบเพื่อเลือก</span></div>
-      <div style="margin-top:12px"><span class="btn" id="btnRestart" onclick="GAME_UI.restart()">↻ <span data-i18n="restart">เริ่มใหม่</span></span></div>
+      <div style="margin-top:12px">
+        <button class="btn" id="btnRestart" onclick="GAME_UI.restart()">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
+      </div>
     </div>
   </div>
 
-  <!-- ฉาก A-Frame (เริ่มต้นบล็อกคลิกไว้ก่อน) -->
-  <a-scene id="scene" data-block="1" vr-mode-ui="enabled: true"
+  <!-- ฉาก A-Frame -->
+  <a-scene id="scene" vr-mode-ui="enabled: true"
            renderer="colorManagement: true; antialias: false; highRefreshRate: true; physicallyCorrectLights: true"
            xr="foveationLevel: 2"
            background="color: #02040a">
 
     <a-assets>
-      <!-- ตัวอย่าง asset -->
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
       <img id="water" src="assets/images/water.png">
