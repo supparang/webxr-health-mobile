@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>VR Nutrition — CLICKFIX</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<style>
+  html,body{margin:0;height:100%;background:#050910;overflow:hidden}
+  a-scene,canvas.a-canvas{position:fixed;inset:0;z-index:0}
+  /* Never let scene eat clicks while in menu */
+  body:not(.game-running) a-scene, body:not(.game-running) canvas.a-canvas, body:not(.game-running) .a-enter-vr{pointer-events:none!important}
+
+  .ui, .hud, #menuBar, .modal, .overlay, #toast, #dbg {
+    position:fixed; z-index:2147483647 !important; pointer-events:auto !important;
+    font-family:system-ui,Segoe UI,Arial,sans-serif; color:#0ff;
+  }
+  .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center;text-shadow:0 0 8px rgba(0,255,255,.7)}
+  #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center}
+  .btn,.tag{display:inline-block;padding:10px 14px;margin:0 6px;border:1px solid #0ff;border-radius:12px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer;user-select:none;font-size:16px}
+  .btn:hover,.tag:hover{background:rgba(0,255,255,.12)}
+
+  .modal{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
+  .modal.show{display:flex}
+  .card{background:rgba(10,14,26,.98);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;}
+
+  #dbg{left:8px;bottom:8px;background:rgba(0,0,0,.6);padding:6px 8px;border-radius:8px;border:1px solid #0ff;display:none;white-space:pre;font-size:12px}
+  body.debug #dbg{display:block}
+</style>
+</head>
+<body>
+  <div class="hud">Score: <span id="score">0</span> | Combo: <span id="combo">x1</span> | Time: <span id="time">60</span>s</div>
+  <div id="menuBar">
+    <button id="btnStart" class="btn">▶ เริ่มเกม</button>
+    <button id="btnPause" class="btn">⏸ พัก</button>
+    <button id="btnHow" class="btn">❓ วิธีเล่น</button>
+    <button id="btnRestart" class="btn">↻ เริ่มใหม่</button>
+  </div>
+
+  <div id="howModal" class="modal"><div class="card">
+    <div style="font-weight:700;margin-bottom:8px">วิธีเล่น</div>
+    <div>จ้อง/คลิกเก็บไอเท็มดี หลีกเลี่ยงขยะ เก็บคอมโบเพื่อเข้า FEVER</div>
+    <div style="margin-top:10px;text-align:right"><button id="btnCloseHow" class="btn">ปิด</button></div>
+  </div></div>
+
+  <div id="dbg">STATE: ready</div>
+
+  <a-scene id="scene" background="color:#050910" loading-screen="enabled:false"
+           renderer="colorManagement:true; antialias:false; highRefreshRate:true">
+    <a-entity id="playerCam" position="0 1.6 0" camera look-controls
+              raycaster="objects: .clickable; far: 12"
+              cursor="rayOrigin: entity; fuse: true; fuseTimeout: 700">
+      <a-entity position="0 0 -1" geometry="primitive:ring;radiusInner:0.005;radiusOuter:0.008"
+                material="color:#0ff;shader:flat;opacity:0.9"></a-entity>
+    </a-entity>
+    <a-entity id="mouseRig" cursor="rayOrigin: mouse" raycaster="objects: .clickable; far: 12"></a-entity>
+    <a-entity id="spawnerRoot" position="0 1.6 -2.2"></a-entity>
+  </a-scene>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const dbg=(m)=>{ const d=$("#dbg"); d.textContent = "STATE: " + m; };
+
+  // Global click debugger + blocker killer
+  window.addEventListener('click', (e) => {
+    const top = document.elementFromPoint(e.clientX, e.clientY);
+    if(top && top!==e.target){
+      // if a top transparent element steals clicks, disable its pointer events temporarily
+      const cs = getComputedStyle(top);
+      if (top !== document.body && (top.id==='summary' || top.classList.contains('overlay'))) {
+        top.style.pointerEvents='none';
+        dbg('unblocked overlay #' + (top.id||top.className));
+      }
+    }
+  }, true);
+
+  // Toggle debug HUD with backquote
+  window.addEventListener('keydown',e=>{ if(e.key==='`'){ document.body.classList.toggle('debug'); } });
+
+  // Minimal fake game just to verify UI clicks
+  const APP={running:false,paused:false,score:0,timeLeft:60,combo:1};
+  function setHUD(){ $("#score").textContent=APP.score; $("#time").textContent=APP.timeLeft; $("#combo").textContent='x'+APP.combo; }
+  let spawnH=null,timerH=null;
+  function spawn(){
+    const root=$("#spawnerRoot"); if(!root) return;
+    const ent=document.createElement('a-entity');
+    ent.setAttribute('geometry','primitive:plane;width:1;height:1');
+    ent.setAttribute('material','shader:flat;color:#39d;opacity:0.98');
+    ent.setAttribute('position',`${(-0.8+Math.random()*1.6).toFixed(2)} ${(0+Math.random()*0.4).toFixed(2)} ${(-0.3+Math.random()*0.6).toFixed(2)}`);
+    ent.setAttribute('scale','0.78 0.78 0.78');
+    ent.setAttribute('class','clickable');
+    ent.addEventListener('click',()=>{ APP.score+=5; setHUD(); ent.remove(); });
+    root.appendChild(ent);
+    setTimeout(()=>{ent.remove();}, 3000);
+  }
+  function loop(){ if(!APP.running||APP.paused) return; spawn(); spawnH=setTimeout(loop, 740); }
+  function tick(){ if(!APP.running||APP.paused) return; timerH=setTimeout(()=>{ APP.timeLeft--; setHUD(); if(APP.timeLeft<=0){ stop(); } else tick(); }, 1000); }
+  function start(){ APP.running=true; APP.paused=false; document.body.classList.add('game-running'); setHUD(); loop(); tick(); dbg('start'); }
+  function pause(){ if(!APP.running) return; APP.paused=!APP.paused; if(APP.paused){ clearTimeout(spawnH); clearTimeout(timerH); dbg('paused'); } else { dbg('resumed'); loop(); tick(); } }
+  function restart(){ clearTimeout(spawnH); clearTimeout(timerH); APP.running=false; APP.paused=false; APP.score=0; APP.timeLeft=60; setHUD(); start(); }
+
+  // Bind buttons both inline and programmatically
+  $("#btnStart").addEventListener('click', (e)=>{ e.stopPropagation(); start(); });
+  $("#btnPause").addEventListener('click', (e)=>{ e.stopPropagation(); pause(); });
+  $("#btnRestart").addEventListener('click', (e)=>{ e.stopPropagation(); restart(); });
+  $("#btnHow").addEventListener('click', (e)=>{ e.stopPropagation(); $("#howModal").classList.add('show'); });
+  $("#btnCloseHow").addEventListener('click', (e)=>{ e.stopPropagation(); $("#howModal").classList.remove('show'); });
+
+  // Ensure UI always on top & clickable
+  const reapply=()=>{
+    ['menuBar','howModal','dbg'].forEach(id=>{ const el=document.getElementById(id); if(el){ el.style.zIndex='2147483647'; el.style.pointerEvents='auto'; }});
+  };
+  setInterval(reapply, 400);
+
+  setHUD();
+  dbg('ready');
+})();
+</script>
+</body>
+</html>
