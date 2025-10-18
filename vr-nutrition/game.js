@@ -41,18 +41,22 @@
     fever: false, protect: 0
   };
 
-  // ─── Spawn Config to avoid overlap ───
+  // ─── Spawn Config to avoid overlap (wider spacing) ───
   const SPAWN_CFG = {
-    useLanes: true,           // true = ใช้ช่อง 3×3 กันซ้อน (แนะนำ)
-    minDist: 0.38,            // ใช้เมื่อ useLanes=false
-    maxActive: { Easy: 4, Normal: 5, Hard: 6 },
-    scale: 0.85               // ขนาดรูป + hitbox
+    useLanes: true,                 // ใช้ช่อง 3×3
+    minDist: 0.48,                  // ระยะขั้นต่ำ (ถ้า useLanes=false)
+    maxActive: { Easy: 3, Normal: 4, Hard: 5 }, // ลดจำนวนชิ้นพร้อมกัน
+    scale: 0.78                     // ลดขนาด hitbox/ไอคอน
   };
-  const LANE_X = [-0.65, 0.0, 0.65];
-  const LANE_Y = [-0.10, 0.08, 0.26];
-  const LANE_Z = [-0.28, 0.00, 0.28];
-  let occupiedSlots = new Set();
-  let ACTIVE_ENTS = new Set();
+  // ช่องให้กว้างขึ้น (X/Y/Z)
+  const LANE_X = [-0.80, 0.00, 0.80];
+  const LANE_Y = [-0.05, 0.12, 0.29];
+  const LANE_Z = [-0.36, 0.00, 0.36];
+
+  let occupiedSlots = new Set();      // เก็บ "r,c" ที่ใช้อยู่
+  let slotCooldown = new Map();       // "r,c" -> timestamp ที่ยังห้ามใช้
+  let ACTIVE_ENTS = new Set();        // entities ที่ยังอยู่ในฉาก
+  let lastLane = null;                // กันสุ่มซ้ำจุดเดิม
 
   // Mission (รายวัน)
   (function ensureMission(){
@@ -180,23 +184,52 @@
     feverTimer = setTimeout(()=>{ APP.fever=false; }, durationMs);
   }
 
-  // ─── เลือกตำแหน่งแบบไม่ซ้อน ───
+  // ─── ตำแหน่งแบบไม่ซ้อน ───
+  function nowMs(){ return performance.now(); }
+  function isAdjacencyBlocked(r, c){
+    if(!lastLane) return false;
+    const [pr, pc] = lastLane;
+    return Math.abs(pr - r) <= 1 && Math.abs(pc - c) <= 1; // กันติดกันเกินไป
+  }
   function pickLaneSlot(){
-    for(let i=0;i<12;i++){
-      const r = Math.floor(Math.random()*3);
-      const c = Math.floor(Math.random()*3);
-      const key = r+","+c;
-      if(!occupiedSlots.has(key)){
-        occupiedSlots.add(key);
-        return { x: LANE_X[c], y: LANE_Y[r], z: LANE_Z[(r+c)%3], slotKey: key };
+    const candidates = [];
+    for(let r=0;r<3;r++){
+      for(let c=0;c<3;c++){
+        const key = r+","+c;
+        const cd  = slotCooldown.get(key) || 0;
+        const free = !occupiedSlots.has(key) && nowMs() > cd && !isAdjacencyBlocked(r,c);
+        candidates.push({r,c,key,free});
       }
     }
-    return null;
+    const freeList = candidates.filter(x=>x.free);
+    if(freeList.length===0) return null;
+
+    // หลีกเลี่ยงคอลัมน์/บริเวณใกล้ lastLane ก่อน
+    freeList.sort((a,b)=>{
+      const lastC = lastLane ? lastLane[1] : -1;
+      const pa = (a.c===lastC?1:0) + (isAdjacencyBlocked(a.r,a.c)?2:0);
+      const pb = (b.c===lastC?1:0) + (isAdjacencyBlocked(b.r,b.c)?2:0);
+      return pa - pb;
+    });
+
+    const pick = freeList[Math.floor(Math.random()*Math.max(1, Math.ceil(freeList.length*0.6)))];
+    occupiedSlots.add(pick.key);
+    lastLane = [pick.r, pick.c];
+    return {
+      x: LANE_X[pick.c],
+      y: LANE_Y[pick.r],
+      z: LANE_Z[(pick.r + pick.c) % 3],
+      slotKey: pick.key
+    };
   }
-  function releaseLaneSlot(key){ if(key) occupiedSlots.delete(key); }
+  function releaseLaneSlot(key){
+    if(!key) return;
+    occupiedSlots.delete(key);
+    slotCooldown.set(key, nowMs() + 800); // คูลดาวน์ช่อง 800ms
+  }
   function findNonOverlapPosition(){
-    for(let i=0;i<16;i++){
-      const pos = { x: rand(-0.65, 0.65), y: rand(-0.10, 0.26), z: rand(-0.30, 0.30) };
+    for(let i=0;i<20;i++){
+      const pos = { x: rand(-0.80, 0.80), y: rand(-0.05, 0.29), z: rand(-0.36, 0.36) };
       let ok = true;
       ACTIVE_ENTS.forEach(ent=>{
         if(!ok) return;
@@ -214,14 +247,15 @@
   let SPAWN_COUNT = 0;
   function spawnOne(){
     const root = $("#spawnerRoot");
-    const maxAct = SPAWN_CFG.maxActive[APP.difficulty] || 5;
+    const maxAct = SPAWN_CFG.maxActive[APP.difficulty] || 4;
     if(ACTIVE_ENTS.size >= maxAct) return;
 
     const life = APP.difficulty==="Hard" ? 2000 : APP.difficulty==="Easy" ? 4200 : 3000;
-    const lifeJitter = Math.floor(rand(-200, 200));
-    let src = null, meta = {};
+    const lifeJitter = Math.floor(rand(-250, 250));
 
-    if(Math.random() < 0.12){
+    // เลือกชนิด
+    let src = null, meta = {};
+    if(Math.random() < 0.10){ // ลดโอกาส power-up ให้สนามโล่งขึ้น
       const s = pickSpecial(); meta.special = s.type; src = s.img;
     } else if(APP.mode==="goodjunk"){
       const goodBias = APP.difficulty==="Easy" ? 0.70 : APP.difficulty==="Hard" ? 0.45 : 0.58;
@@ -233,19 +267,20 @@
       src = f.id; meta.group = f.group;
     }
 
-    // เลือกตำแหน่ง
+    // เลือกตำแหน่ง (lane กว้าง + ไม่ติดกัน)
     let pos, slotKey=null;
     if(SPAWN_CFG.useLanes){
       const lane = pickLaneSlot();
-      if(!lane){ return; }
+      if(!lane) return; // ช่องเหมาะ ๆ เต็ม รอรอบถัดไป
       pos = { x: lane.x, y: lane.y, z: lane.z };
       slotKey = lane.slotKey;
     } else {
       const p = findNonOverlapPosition();
-      if(!p){ return; }
+      if(!p) return;
       pos = p;
     }
 
+    // สร้างเอนทิตี
     const ent = document.createElement("a-image");
     ent.setAttribute("src", src);
     ent.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
@@ -256,8 +291,8 @@
     ent.dataset.meta = JSON.stringify(meta);
     if(slotKey) ent.dataset.slotKey = slotKey;
 
-    ent.setAttribute("animation__pulse","property: scale; dir: alternate; dur: 620; loop:true; to: "
-      + (SPAWN_CFG.scale+0.08) + " " + (SPAWN_CFG.scale+0.08) + " " + (SPAWN_CFG.scale+0.08));
+    // แอนิเมชันเบา ๆ
+    ent.setAttribute("animation__pulse",`property: scale; dir: alternate; dur: 640; loop:true; to: ${SPAWN_CFG.scale+0.07} ${SPAWN_CFG.scale+0.07} ${SPAWN_CFG.scale+0.07}`);
 
     const remove = ()=> {
       if(ent.parentNode) ent.parentNode.removeChild(ent);
@@ -268,20 +303,19 @@
 
     root.appendChild(ent);
     ACTIVE_ENTS.add(ent);
-    SPAWN_COUNT++;
 
+    // หมดอายุ = นับเป็นพลาดบางกรณี
     setTimeout(()=>{
-      if(ent.parentNode){
-        const m = JSON.parse(ent.dataset.meta||"{}");
-        if(!m.special){
-          if(APP.mode==="goodjunk"){
-            if(m.good===false){ APP.score += 1; updateHUD(); } else { comboBreak(); }
-          } else {
-            if(m.group===APP.currentTarget){ comboBreak(); }
-          }
+      if(!ent.parentNode) return;
+      const m = JSON.parse(ent.dataset.meta||"{}");
+      if(!m.special){
+        if(APP.mode==="goodjunk"){
+          if(m.good===false){ APP.score += 1; updateHUD(); } else { comboBreak(); }
+        } else {
+          if(m.group===APP.currentTarget){ comboBreak(); }
         }
-        remove();
       }
+      remove();
     }, life + lifeJitter);
   }
 
@@ -333,9 +367,9 @@
 
   function loop(){
     if(!APP.running || APP.paused) return;
-    const baseRate = APP.mode==="goodjunk" ? 680 : 720; // ช้าลงเล็กน้อยสำหรับโหมดจ้อง
-    let rate = APP.difficulty==="Hard" ? baseRate*0.78 : APP.difficulty==="Easy" ? baseRate*1.20 : baseRate;
-    if(APP.fever) rate *= 0.78;
+    const baseRate = APP.mode==="goodjunk" ? 740 : 780; // ช้าลงอีกเล็กน้อยสำหรับโหมดจ้อง
+    let rate = APP.difficulty==="Hard" ? baseRate*0.80 : APP.difficulty==="Easy" ? baseRate*1.25 : baseRate;
+    if(APP.fever) rate *= 0.80;
     spawnOne();
     spawnerHandle = setTimeout(loop, rate);
   }
@@ -420,6 +454,7 @@
   })();
 
   // INIT
+  let SPAWN_COUNT = 0; // เคานต์เพื่อ safety spawn
   applyLang(); updateHUD(); setMode(APP.mode); setDiff(APP.difficulty);
   showEmojiMenu();
   window.APP_VR_NUTRITION = APP;
