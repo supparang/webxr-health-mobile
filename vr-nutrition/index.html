@@ -7,7 +7,12 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
+    /* ฉากอยู่ล่างสุด */
     a-scene, canvas.a-canvas { position:fixed; inset:0; z-index:0 !important; }
+    /* บล็อกคลิกฉากชั่วคราวจนกดเริ่มเกม */
+    #scene.blocked, #scene.blocked canvas.a-canvas { pointer-events: none !important; }
+
+    /* UI บนสุดและคลิกได้ */
     .hud, #menuBar, .overlay, .targetBox, .quotaBox {
       position: fixed; z-index: 9999 !important; pointer-events: auto !important;
       font-family: system-ui, sans-serif; color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,.8);
@@ -16,20 +21,24 @@
     .hud .row { margin:6px 0; }
     .badge { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #0ff; margin-left:6px }
     #menuBar { bottom:12px; left:50%; transform:translateX(-50%); text-align:center }
-    .btn { display:inline-block; padding:8px 12px; margin:0 6px; border:1px solid #0ff; border-radius:10px; cursor:pointer; }
+    .btn { display:inline-block; padding:8px 12px; margin:0 6px; border:1px solid #0ff; border-radius:10px; cursor:pointer; user-select:none; }
     .btn:hover { background: rgba(0,255,255,0.12); }
-    .tag { border:1px dashed #0ff; padding:4px 10px; border-radius:10px; margin:0 6px; display:inline-block; cursor:pointer; }
+    .tag { border:1px dashed #0ff; padding:4px 10px; border-radius:10px; margin:0 6px; display:inline-block; cursor:pointer; user-select:none; }
     .targetBox { right:10px; top:10px; text-align:right; color:#fff }
     .targetBox .tlabel { font-size:14px; opacity:0.8 }
     .targetName { font-size:18px }
     .quotaBox { right:10px; top:76px; text-align:right; color:#fff; display:none }
-    .overlay { inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.6) }
-    .overlay[style*="display: none"] { pointer-events: none !important; }
+
+    /* Overlay ไม่ทับคลิกตอนซ่อน */
+    .overlay { inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.6); pointer-events: none; }
+    .overlay.show { display:flex; pointer-events:auto; } /* โชว์เมื่อสรุปผล */
+
     .card { background:rgba(8,10,20,0.96); border:1px solid #0ff; border-radius:16px; padding:18px 20px; color:#0ff; width:min(94vw,640px); text-align:center }
     .stars { font-size:28px; margin:8px 0 4px }
   </style>
 </head>
 <body>
+  <!-- HUD -->
   <div class="hud" id="hud">
     <div class="row">
       <span id="lblScore">Score</span>: <span id="score">0</span> |
@@ -44,6 +53,7 @@
     </div>
   </div>
 
+  <!-- Target / Quota -->
   <div class="targetBox" id="targetBox" style="display:none">
     <div class="tlabel" id="lblTarget">Target</div>
     <div class="targetName" id="targetName">—</div>
@@ -53,44 +63,46 @@
     <div class="targetName" id="quotaText">—</div>
   </div>
 
+  <!-- เมนูด้านล่าง (ใส่ onclick fallback ตรง ๆ) -->
   <div id="menuBar">
     <div id="modeBar" style="margin-bottom:6px">
-      <span class="tag" data-mode="goodjunk">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
-      <span class="tag" data-mode="groups">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
-      <span class="tag" data-mode="hydration">💧 <span data-i18n="modeHydra">Hydration</span></span>
-      <span class="tag" data-mode="plate">🍱 <span data-i18n="modePlate">Build Plate</span></span>
+      <span class="tag" onclick="window.GAME_UI && GAME_UI.setMode('goodjunk')">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
+      <span class="tag" onclick="window.GAME_UI && GAME_UI.setMode('groups')">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
+      <span class="tag" onclick="window.GAME_UI && GAME_UI.setMode('hydration')">💧 <span data-i18n="modeHydra">Hydration</span></span>
+      <span class="tag" onclick="window.GAME_UI && GAME_UI.setMode('plate')">🍱 <span data-i18n="modePlate">Build Plate</span></span>
     </div>
     <div id="diffBar" style="margin:8px 0">
-      <span class="tag" data-diff="Easy">Easy</span>
-      <span class="tag" data-diff="Normal">Normal</span>
-      <span class="tag" data-diff="Hard">Hard</span>
+      <span class="tag" onclick="window.GAME_UI && GAME_UI.setDiff('Easy')">Easy</span>
+      <span class="tag" onclick="window.GAME_UI && GAME_UI.setDiff('Normal')">Normal</span>
+      <span class="tag" onclick="window.GAME_UI && GAME_UI.setDiff('Hard')">Hard</span>
     </div>
     <div>
-      <span class="btn" id="btnStart">▶ <span data-i18n="start">เริ่มเกม</span></span>
-      <span class="btn" id="btnPause">⏸ <span data-i18n="pause">พัก</span></span>
-      <span class="btn" id="btnHow">❓ <span data-i18n="how">วิธีเล่น</span></span>
-      <span class="btn" id="btnLang">🌐 <span id="langText">ไทย/English</span></span>
-      <span class="btn" id="btnVoice">🔊 <span data-i18n="voiceOn">เสียงพูด: เปิด</span></span>
+      <span class="btn" id="btnStart"  onclick="window.GAME_UI && GAME_UI.start()">▶ <span data-i18n="start">เริ่มเกม</span></span>
+      <span class="btn" id="btnPause"  onclick="window.GAME_UI && GAME_UI.pause()">⏸ <span data-i18n="pause">พัก</span></span>
+      <span class="btn" id="btnHow"    onclick="window.GAME_UI && GAME_UI.how()">❓ <span data-i18n="how">วิธีเล่น</span></span>
+      <span class="btn" id="btnLang"   onclick="window.GAME_UI && GAME_UI.toggleLang()">🌐 <span id="langText">ไทย/English</span></span>
+      <span class="btn" id="btnVoice"  onclick="window.GAME_UI && GAME_UI.toggleVoice()">🔊 <span data-i18n="voiceOn">เสียงพูด: เปิด</span></span>
     </div>
   </div>
 
+  <!-- สรุปผล -->
   <div class="overlay" id="summary">
     <div class="card">
       <div style="font-size:20px; margin-bottom:8px"><b id="sumTitle">Summary</b></div>
       <div class="stars" id="sumStars">★☆☆</div>
       <div id="sumBody">Score: 0 • Combo Max: x1 • Mode: — • Diff: —</div>
       <div style="margin-top:8px"><span id="sumTips">VR: จ้องไอเท็มจนวงแหวนครบเพื่อเลือก</span></div>
-      <div style="margin-top:12px"><span class="btn" id="btnRestart">↻ <span data-i18n="restart">เริ่มใหม่</span></span></div>
+      <div style="margin-top:12px"><span class="btn" id="btnRestart" onclick="window.GAME_UI && GAME_UI.restart()">↻ <span data-i18n="restart">เริ่มใหม่</span></span></div>
     </div>
   </div>
 
-  <a-scene vr-mode-ui="enabled: true"
+  <!-- ฉาก A-Frame (เริ่มต้นบล็อกคลิกไว้ก่อน) -->
+  <a-scene id="scene" class="blocked" vr-mode-ui="enabled: true"
            renderer="colorManagement: true; antialias: false; highRefreshRate: true; physicallyCorrectLights: true"
            xr="foveationLevel: 2"
            background="color: #02040a">
 
     <a-assets>
-      <img id="panel" src="assets/ui/panel.png">
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
       <img id="water" src="assets/images/water.png">
