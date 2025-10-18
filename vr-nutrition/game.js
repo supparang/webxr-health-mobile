@@ -1,11 +1,11 @@
-
 (() => {
   const $  = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
   // I18N
   const i18n = {
-    th: { start:"เริ่มเกม", pause:"พัก", how:"วิธีเล่น", restart:"เริ่มใหม่",
+    th: {
+      start:"เริ่มเกม", pause:"พัก", how:"วิธีเล่น", restart:"เริ่มใหม่",
       score:"คะแนน", time:"เวลา", best:"สถิติ", mode:"โหมด", diff:"ความยาก", combo:"คอมโบ",
       modeGJ:"ดี vs ขยะ", modeGroups:"จาน 5 หมู่", daily:"ภารกิจประจำวัน",
       howGJ:"จ้อง/แตะ อาหารที่ดี (ผลไม้ ผัก น้ำ) หลีกเลี่ยงอาหารขยะ (เบอร์เกอร์ โซดา โดนัท) เก็บคอมโบเพื่อคะแนนสูง!",
@@ -15,7 +15,8 @@
       langSetTH:"เปลี่ยนภาษาเป็นไทยแล้ว", langSetEN:"Language set to English",
       voiceOn:"เสียงพูด: เปิด", voiceOff:"เสียงพูด: ปิด"
     },
-    en: { start:"Start", pause:"Pause", how:"How to Play", restart:"Restart",
+    en: {
+      start:"Start", pause:"Pause", how:"How to Play", restart:"Restart",
       score:"Score", time:"Time", best:"Best", mode:"Mode", diff:"Difficulty", combo:"Combo",
       modeGJ:"Good vs Junk", modeGroups:"Food Groups Plate", daily:"Daily Mission",
       howGJ:"Gaze/tap healthy foods (fruits, veggies, water). Avoid junk (burger, soda, donut). Keep combo for higher scores!",
@@ -40,7 +41,7 @@
     fever: false, protect: 0
   };
 
-  // Mission
+  // Mission (รายวัน)
   (function ensureMission(){
     const today = new Date().toISOString().slice(0,10);
     if(!APP.mission || APP.mission.date !== today){
@@ -51,18 +52,12 @@
 
   const foods = {
     goodjunk: [
-      {id:"#apple", good:true, label:"apple"},
-      {id:"#broccoli", good:true, label:"veggies"},
-      {id:"#water",  good:true, label:"water"},
-      {id:"#burger", good:false, label:"burger"},
-      {id:"#soda",   good:false, label:"soda"},
-      {id:"#donut",  good:false, label:"donut"}
+      {id:"#apple", good:true}, {id:"#broccoli", good:true}, {id:"#water",  good:true},
+      {id:"#burger", good:false}, {id:"#soda",   good:false}, {id:"#donut",  good:false}
     ],
     groups: [
-      {id:"#g_grains",  group:"grains"},
-      {id:"#g_protein", group:"protein"},
-      {id:"#g_veggies", group:"veggies"},
-      {id:"#g_fruits",  group:"fruits"},
+      {id:"#g_grains",  group:"grains"}, {id:"#g_protein", group:"protein"},
+      {id:"#g_veggies", group:"veggies"}, {id:"#g_fruits",  group:"fruits"},
       {id:"#g_dairy",   group:"dairy"}
     ]
   };
@@ -88,13 +83,8 @@
     if(!APP.voiceOn) return;
     const u = new SpeechSynthesisUtterance(APP.lang==="th"? thMsg : enMsg);
     const voices = speechSynthesis.getVoices();
-    if(APP.lang==="th"){
-      const th = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("th"));
-      if(th) u.voice = th;
-    } else {
-      const en = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("en"));
-      if(en) u.voice = en;
-    }
+    if(APP.lang==="th"){ const th = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("th")); if(th) u.voice = th; }
+    else { const en = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("en")); if(en) u.voice = en; }
     speechSynthesis.cancel(); speechSynthesis.speak(u);
   }
   function applyLang(){
@@ -103,9 +93,9 @@
     $("#lblBest").textContent = t("best");
     $("#lblMode").textContent = t("mode");
     $("#lblDiff").textContent = t("diff");
-    $("#lblCombo").textContent = "Combo" in i18n[APP.lang] ? t("combo") : "Combo";
+    $("#lblCombo").textContent = "Combo";
     $("#sumTitle").textContent = t("summary");
-    $("#sumTips").textContent = APP.lang==="th" ? "ทิป: เก็บอาหารที่ดีต่อสุขภาพเพื่อคอมโบ!" : "Tip: Collect healthy to keep combo!";
+    $("#sumTips").textContent = APP.lang==="th" ? "VR: จ้องไอเท็มจนวงแหวนครบเพื่อเลือก" : "VR: Gaze until ring completes to select";
     $$("[data-i18n=modeGJ]").forEach(el=> el.textContent = t("modeGJ"));
     $$("[data-i18n=modeGroups]").forEach(el=> el.textContent = t("modeGroups"));
     $$("[data-i18n=start]").forEach(el=> el.textContent = t("start"));
@@ -140,10 +130,12 @@
   }
   function setDiff(d){ APP.difficulty = d; localStorage.setItem("vrn_diff", d); updateHUD(); }
   function hideTitleUI(){ ["titlePanel","titleText","subtitleText"].forEach(id=>{ const e = document.getElementById(id); if(e) e.setAttribute("visible","false"); }); }
+
+  // Emoji MENU (ยังมีให้ใช้ถ้าต้องการ)
+  function clearEmojiMenu(){ const root = document.getElementById("emojiMenuRoot"); while(root && root.firstChild) root.removeChild(root.firstChild); }
   function showEmojiMenu(){
     clearEmojiMenu();
-    const root = document.getElementById("emojiMenuRoot");
-    if(!root) return;
+    const root = document.getElementById("emojiMenuRoot"); if(!root) return;
     const items = [
       {emoji:"🥗", label: APP.lang==="th"?"ดีvsขยะ":"Good/Junk", action:()=>{ setMode("goodjunk"); }},
       {emoji:"🍽️",label: APP.lang==="th"?"จาน5หมู่":"5 Groups", action:()=>{ setMode("groups"); }},
@@ -165,10 +157,6 @@
       root.appendChild(e);
     });
   }
-  function clearEmojiMenu(){
-    const root = document.getElementById("emojiMenuRoot");
-    while(root && root.firstChild) root.removeChild(root.firstChild);
-  }
 
   // Fever
   let feverTimer = null;
@@ -179,11 +167,11 @@
     feverTimer = setTimeout(()=>{ APP.fever=false; }, durationMs);
   }
 
-  let SPAWN_COUNT = 0;
   // Spawner
+  let SPAWN_COUNT = 0;
   function spawnOne(){
     const root = $("#spawnerRoot");
-    const y = rand(-0.20, 0.25), x = rand(-0.85, 0.85), z = rand(-0.40, 0.40);
+    const y = rand(-0.20, 0.25), x = rand(-0.65, 0.65), z = rand(-0.30, 0.30);
     const life = APP.difficulty==="Hard" ? 2000 : APP.difficulty==="Easy" ? 4200 : 3000;
 
     let src = null, meta = {};
@@ -202,17 +190,15 @@
     const ent = document.createElement("a-image");
     ent.setAttribute("src", src);
     ent.setAttribute("position", `${x} ${y} ${z}`);
-    ent.setAttribute("scale","0.78 0.78 0.78");
+    ent.setAttribute("scale","0.9 0.9 0.9");
     ent.setAttribute("class","clickable");
+    ent.setAttribute("geometry","primitive: plane; width: 1; height: 1"); // ฮิตบ็อกซ์ชัด
     ent.setAttribute("material","shader: flat; transparent: true; opacity: 0.98");
     ent.dataset.meta = JSON.stringify(meta);
-    ent.setAttribute("animation__pulse","property: scale; dir: alternate; dur: 550; loop:true; to: 0.86 0.86 0.86");
+    ent.setAttribute("animation__pulse","property: scale; dir: alternate; dur: 550; loop:true; to: 1.0 1.0 1.0");
 
     const remove = ()=> ent.parentNode && ent.parentNode.removeChild(ent);
     ent.addEventListener("click", ()=>{ handleHit(ent); remove(); });
-    ent.addEventListener("mouseenter", ()=> ent.setAttribute("opacity","1.0"));
-    ent.addEventListener("mouseleave", ()=> ent.setAttribute("opacity","0.88"));
-
     root.appendChild(ent);
     SPAWN_COUNT++;
 
@@ -221,8 +207,7 @@
         const m = JSON.parse(ent.dataset.meta||"{}");
         if(!m.special){
           if(APP.mode==="goodjunk"){
-            if(m.good===false){ APP.score += 1; updateHUD(); }
-            else { comboBreak(); }
+            if(m.good===false){ APP.score += 1; updateHUD(); } else { comboBreak(); }
           } else {
             if(m.group===APP.currentTarget){ comboBreak(); }
           }
@@ -241,15 +226,8 @@
         case "time":   APP.timeLeft = Math.min(99, APP.timeLeft + 5); speak("ได้เวลาเพิ่ม","Time +5"); break;
         case "fever":  enterFever(); speak("โหมดไฟลุก!","Fever!"); break;
         case "shield": APP.protect = Math.min(1, APP.protect+1); speak("กันพลาด 1 ครั้ง","Shield up"); break;
-        case "slow":
-          const oldDiff = APP.difficulty; APP.difficulty = "Easy";
-          setTimeout(()=>{ APP.difficulty = oldDiff; }, 2000);
-          speak("ช้าลงชั่วคราว","Time slow");
-          break;
-        case "bomb":
-          if(APP.protect>0){ APP.protect--; speak("กันพลาดไว้แล้ว","Shield saved"); }
-          else { comboBreak(); APP.score = Math.max(0, APP.score - 5); speak("คอมโบหลุด!","Combo break!"); }
-          break;
+        case "slow":   { const old = APP.difficulty; APP.difficulty = "Easy"; setTimeout(()=> APP.difficulty = old, 2000); speak("ช้าลงชั่วคราว","Time slow"); } break;
+        case "bomb":   if(APP.protect>0){ APP.protect--; speak("กันพลาดไว้แล้ว","Shield saved"); } else { comboBreak(); APP.score = Math.max(0, APP.score - 5); speak("คอมโบหลุด!","Combo break!"); } break;
       }
       updateHUD(); return;
     }
@@ -267,24 +245,14 @@
       else comboBreak();
     }
 
-    if(APP.fever && delta > 0) delta += Math.floor(delta); // ~x2
+    if(APP.fever && delta > 0) delta += Math.floor(delta); // x2-ish
     APP.score = Math.max(0, APP.score + delta);
     if(good){ APP.combo = Math.min(5, APP.combo + 1); APP.comboMax = Math.max(APP.comboMax, APP.combo); }
     if(APP.combo >= 4) enterFever();
     updateHUD();
 
-    // Floating feedback
-    const fb = document.createElement("a-entity");
-    const txt = good ? (APP.lang==="th" ? `ดีมาก! +${delta}` : `Nice! +${delta}`) : (APP.lang==="th" ? `พลาด ${delta}` : `Miss ${delta}`);
-    fb.setAttribute("text", `value: ${txt}; align: center; width: 2.8; color: ${good?"#0f8":"#f55"}`);
-    const p = ent.getAttribute("position");
-    fb.setAttribute("position", `${p.x} ${p.y+0.2} ${p.z}`);
-    fb.setAttribute("animation__rise","property: position; to: "+`${p.x} ${p.y+0.7} ${p.z}`+"; dur: 700; easing: easeOutCubic");
-    fb.setAttribute("animation__fade","property: opacity; to: 0; dur: 700; easing: linear");
-    document.querySelector("a-scene").appendChild(fb);
-    setTimeout(()=> fb.parentNode && fb.parentNode.removeChild(fb), 750);
-
-    speak(good ? i18n.th.tipsGood : i18n.th.tipsBad, good ? i18n.en.tipsGood : i18n.en.tipsBad);
+    // Feedback เล็ก ๆ (optional): console ดูว่าโดน
+    // console.log("HIT", ent.getAttribute("src"), meta);
   }
 
   function comboBreak(){ APP.combo = 1; updateHUD(); }
@@ -297,23 +265,22 @@
     APP.currentTarget = pool[Math.floor(Math.random()*pool.length)];
     $("#targetName").textContent = APP.currentTarget.toUpperCase();
   }
+
   function loop(){
     if(!APP.running || APP.paused) return;
-    const baseRate = APP.mode==="goodjunk" ? 580 : 640;
-    let rate = APP.difficulty==="Hard" ? baseRate*0.65 : APP.difficulty==="Easy" ? baseRate*1.25 : baseRate;
-    if(APP.fever) rate *= 0.65;
+    const baseRate = APP.mode==="goodjunk" ? 640 : 680; // ช้าลงเล็กน้อยสำหรับโหมดจ้อง
+    let rate = APP.difficulty==="Hard" ? baseRate*0.75 : APP.difficulty==="Easy" ? baseRate*1.25 : baseRate;
+    if(APP.fever) rate *= 0.75;
     spawnOne();
     spawnerHandle = setTimeout(loop, rate);
   }
+
   function timerTick(){
     if(!APP.running || APP.paused) return;
     setTimeout(()=>{ APP.timeLeft -= 1; updateHUD(); if(APP.timeLeft<=0){ endGame(); } else { timerTick(); } }, 1000);
   }
 
   function startGame(){
-    // safety: ensure first spawns appear even if loop timing stalls
-    setTimeout(()=>{ if(SPAWN_COUNT===0){ try{ spawnOne(); }catch(e){} } }, 1200);
-
     if(APP.running && !APP.paused) return;
     if(!APP.running){
       APP.score = 0; APP.combo=1; APP.comboMax=1; APP.timeLeft = 60; updateHUD();
@@ -322,14 +289,18 @@
     APP.running = true; APP.paused=false;
     $("#summary").style.display = "none";
     hideTitleUI();
+    // Safety spawn: ถ้า 1.2s แล้วยังไม่มีชิ้นแรก บังคับ spawn
+    setTimeout(()=>{ if(SPAWN_COUNT===0) { try{ spawnOne(); }catch(e){} } }, 1200);
     loop(); timerTick();
   }
+
   function pauseGame(){
     if(!APP.running) return;
     APP.paused = !APP.paused;
     if(APP.paused){ clearTimeout(spawnerHandle); }
     else { loop(); timerTick(); }
   }
+
   function endGame(){
     APP.running=false; APP.paused=false; clearTimeout(spawnerHandle);
     if(APP.score>APP.best){ APP.best = APP.score; localStorage.setItem("vrn_best", String(APP.best)); }
@@ -340,11 +311,11 @@
     $("#sumStars").textContent = "★".repeat(star) + "☆".repeat(3-star);
     $("#sumBody").textContent = `Score: ${APP.score} • Combo Max: x${APP.comboMax} • Mode: ${APP.mode} • Diff: ${APP.difficulty}`;
     $("#summary").style.display = "flex";
-    showEmojiMenu();
+    showEmojiMenu(); // กลับเมนูอีโมจิหลังจบ
   }
 
-  // BINDINGS
-  $("#btnStart").addEventListener("click", ()=>{ try{ clearEmojiMenu(); }catch(e){}; startGame(); });
+  // ปุ่มกด
+  $("#btnStart").addEventListener("click", ()=>{ clearEmojiMenu(); startGame(); });
   $("#btnPause").addEventListener("click", pauseGame);
   $("#btnHow").addEventListener("click", ()=>{
     alert(APP.mode==="goodjunk" ? (APP.lang==="th"? i18n.th.howGJ : i18n.en.howGJ)
@@ -368,18 +339,23 @@
   $$("#modeBar .tag").forEach(tag=> tag.addEventListener("click", ()=>{ setMode(tag.getAttribute("data-mode")); applyLang(); }));
   $$("#diffBar .tag").forEach(tag=> tag.addEventListener("click", ()=> setDiff(tag.getAttribute("data-diff"))));
 
+  // Global click delegation — เผื่อฟิวส์ส่งคลิกไม่ถึง element เป้าหมาย
+  (function bindGlobalClickDelegation(){
+    const scene = document.querySelector("a-scene");
+    if(!scene) return;
+    scene.addEventListener("click", (evt)=>{
+      const el = evt.target;
+      try{
+        if(el && el.classList && el.classList.contains("clickable")){
+          handleHit(el);
+          el.parentNode && el.parentNode.removeChild(el);
+        }
+      }catch(_){}
+    });
+  })();
+
   // INIT
-  function showTitleUI(){ ["titlePanel","titleText","subtitleText"].forEach(id=>{ const e = document.getElementById(id); if(e) e.setAttribute("visible","true"); }); }
-  function translateGroup(g, lang="th"){ return g; } // placeholder
   applyLang(); updateHUD(); setMode(APP.mode); setDiff(APP.difficulty);
   showEmojiMenu();
   window.APP_VR_NUTRITION = APP;
 })();
-
-  // Keyboard quick start (spacebar)
-  window.addEventListener('keydown', (e)=>{
-    if(e.code==='Space' && !APP.running){
-      try{ clearEmojiMenu(); }catch(_){}
-      startGame();
-    }
-  });
