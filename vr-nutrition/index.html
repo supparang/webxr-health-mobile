@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-<title>Nutrition VR — Diagnostics Build</title>
+<title>Nutrition VR — Full (Scoring Fix)</title>
 <style>
   html,body{margin:0;height:100%;background:#061018;overflow:hidden}
   canvas#c{position:fixed;inset:0;display:block;background:#061018;z-index:0}
@@ -22,7 +22,7 @@
   #stat{left:8px;bottom:64px;background:rgba(0,12,20,.5);padding:6px 8px;border-radius:8px;border:1px solid #0ff;white-space:pre;font-size:12px}
   #boot{top:8px;left:8px;background:#064;padding:6px 10px;border-radius:8px;border:1px solid #0f8;color:#fff}
   #errors{top:8px;right:8px;max-width:48ch;background:rgba(30,0,0,.85);padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb;display:none}
-  #clicklog{right:8px;bottom:8px;background:rgba(0,0,0,.55);padding:8px 10px;border-radius:8px;border:1px solid #0ff;font-size:12px;max-width:46ch;display:block}
+  #clicklog{right:8px;bottom:8px;background:rgba(0,0,0,.55);padding:8px 10px;border-radius:8px;border:1px solid #0ff;font-size:12px;max-width:46ch;display:none}
   #fever{display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)}
   body.fever .hud{color:#fff8b0}
   body.fever #fever{display:inline-block}
@@ -85,7 +85,7 @@
 </div>
 
 <div id="dbg">STATE: boot</div>
-<div id="stat">Spawned: 0 | Active: 0 | Watchdog: 0</div>
+<div id="stat" style="display:none">Spawned: 0 | Active: 0 | Watchdog: 0</div>
 <div id="clicklog">clicklog: idle</div>
 
 <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
@@ -93,65 +93,160 @@
 <script>
 (function(){
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
-  const logEl=$("#clicklog"), errEl=$("#errors"), tip=$("#valueTip");
+  const logEl=$("#clicklog"), errEl=$("#errors"), tip=$("#valueTip"), statEl=$("#stat");
   const dbg=(m)=>$("#dbg").textContent='STATE: '+m;
-  const stat=(s)=>$("#stat").textContent=s;
-  const clog=(msg)=>{ logEl.textContent="clicklog: "+msg; };
+  const stat=(s)=>{ statEl.textContent=s; };
+  const clog=(msg)=>{ if(logEl.style.display!=='none') logEl.textContent="clicklog: "+msg; };
 
   window.onerror = (msg, src, line, col)=>{ errEl.style.display='block'; errEl.textContent="Errors: "+msg+" @"+(src||'inline')+":"+line+":"+col; };
 
-  const state={lang: 'th', difficulty: localStorage.getItem('ng_diff')||'Normal', mode: localStorage.getItem('ng_mode')||'goodjunk',
-               score:0,timeLeft:60,running:false,paused:false,combo:1,comboMax:1,best:0,fever:false,shield:false};
+  // State
+  const state={ lang: localStorage.getItem('ng_lang') || 'th',
+    difficulty: localStorage.getItem('ng_diff') || 'Normal',
+    mode: localStorage.getItem('ng_mode') || 'goodjunk',
+    score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best: parseInt(localStorage.getItem('ng_best')||'0'),
+    fever:false, shield:false };
+
   function updateHUD(){ $("#score").textContent=state.score; $("#time").textContent=state.timeLeft; $("#best").textContent=state.best; $("#difficulty").textContent=state.difficulty; $("#combo").textContent='x'+state.combo; }
 
+  // THREE + XR
   const canvas=$("#c");
   const renderer=new THREE.WebGLRenderer({canvas, antialias:true}); renderer.setClearColor(0x061018,1); renderer.xr.enabled=true;
   try{ const VRB=window.VRButton||(window.THREE&&window.THREE.VRButton); const vrEl=(VRB&&VRB.createButton)?VRB.createButton(renderer):null; if(vrEl){ $("#vrSlot")?.replaceWith(vrEl); } }catch(e){}
-
   const scene=new THREE.Scene(); const camera=new THREE.PerspectiveCamera(60,2,0.01,100); camera.position.set(0,1.6,2.8);
   scene.add(new THREE.AmbientLight(0xffffff,1.0)); const group=new THREE.Group(); scene.add(group);
   const raycaster=new THREE.Raycaster();
+
+  // Emoji material
   function emojiTexture(char){ const s=128, cnv=document.createElement('canvas'); cnv.width=cnv.height=s; const ctx=cnv.getContext('2d'); ctx.font="100px system-ui, Apple Color Emoji, Segoe UI Emoji"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(char,s/2,s/2); const tex=new THREE.CanvasTexture(cnv); tex.needsUpdate=true; return tex; }
-  const ACTIVE=new Set();
   function makeEmoji(char){ const tex=emojiTexture(char); const geo=new THREE.PlaneGeometry(0.5,0.5); const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false}); const m=new THREE.Mesh(geo,mat); m.lookAt(camera.position); return m; }
 
+  // Lanes
   const LANE_X=[-1.1,-0.55,0,0.55,1.1], LANE_Y=[-0.2,0.0,0.18,0.32], LANE_Z=-2.2;
   const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now(); const isAdj=(r,c)=>{ if(!lastLane) return false; const [pr,pc]=lastLane; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
   function pickLane(){ const cand=[]; for(let r=0;r<LANE_Y.length;r++){ for(let c=0;c<LANE_X.length;c++){ const k=r+','+c, cd=cooldown.get(k)||0, free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); }} if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); lastLane=[p.r,p.c]; return {x:LANE_X[p.c], y:1.6+LANE_Y[p.r], z:LANE_Z-0.1*Math.abs(p.c-2), key:p.k}; }
   function releaseLane(k){ occupied.delete(k); cooldown.set(k, now()+800); }
 
-  // simplified meta: always visible emoji selection
-  const LIB=["🍎","🥦","🍟","🥤","🍌","🍕","🥛","🍗","🍇","🍰"];
-  function spawn(){ const lane=pickLane(); if(!lane) return; const char=LIB[Math.floor(Math.random()*LIB.length)]; const m=makeEmoji(char); m.position.set(lane.x,lane.y,lane.z); m.userData={lane:lane.key}; group.add(m); ACTIVE.add(m);
-    setTimeout(()=>{ if(m.parent){ destroy(m); } }, 3500 + Math.floor(Math.random()*400-200));
+  // Meta & labels
+  const LIB={
+    good:["🥦","🍎","🍌","🍅","🥕","🍇","🍗","🥛","🍠","🌽","🥬","🍊"],
+    junk:["🍟","🍔","🍕","🌭","🍰","🍩","🧁","🥤","🍫"],
+    groups:{grains:["🍞","🍚","🥖","🥨"], protein:["🍗","🥚","🫘","🐟"], veggies:["🥦","🥕","🥬","🍅"], fruits:["🍎","🍌","🍇","🍊"], dairy:["🥛","🧀"]},
+    hydra:{water:["💧","🚰"], sugar:["🥤","🧃","🧋"], soda:["🥤"]},
+    special:{time:"⏱️", fever:"🔥", slow:"🐢", bomb:"💣", shield:"🛡️"}
+  };
+  function pickMeta(){
+    if(Math.random()<0.14){ const sp=['time','fever','slow','bomb','shield']; return {special: sp[Math.floor(Math.random()*sp.length)]}; }
+    if(state.mode==='goodjunk'){ const goodBias=state.difficulty==='Easy'?0.72:state.difficulty==='Hard'?0.46:0.6; return {good: Math.random()<goodBias}; }
+    if(state.mode==='groups'){ const arr=['grains','protein','veggies','fruits','dairy']; return {group: arr[Math.floor(Math.random()*arr.length)]}; }
+    if(state.mode==='hydration'){ const rate=state.difficulty==='Easy'?0.78:state.difficulty==='Hard'?0.55:0.66; const isWater=Math.random()<rate; return {hydra: isWater?'water':(Math.random()<0.5?'soda':'sugar')}; }
+    const arr=['grains','protein','veggies','fruits','dairy']; return {group: arr[Math.floor(Math.random()*arr.length)], plate:true};
   }
-  function destroy(o){ if(o.parent) o.parent.remove(o); ACTIVE.delete(o); releaseLane(o.userData.lane); }
+  function charFor(meta){
+    return meta.special ? LIB.special[meta.special] :
+      (state.mode==='goodjunk' ? (meta.good? LIB.good[Math.floor(Math.random()*LIB.good.length)] : LIB.junk[Math.floor(Math.random()*LIB.junk.length)]) :
+       state.mode==='groups' ? LIB.groups[meta.group][Math.floor(Math.random()*LIB.groups[meta.group].length)] :
+       state.mode==='hydration' ? (meta.hydra==='water' ? LIB.hydra.water[0] : (Math.random()<0.5?LIB.hydra.sugar[0]:LIB.hydra.soda[0])) : "🍽️");
+  }
 
-  function onClickCanvas(ev){ if(!state.running||state.paused) return; const r=canvas.getBoundingClientRect(); const x=(ev.clientX-r.left)/r.width*2-1; const y=-(ev.clientY-r.top)/r.height*2+1; const m=new THREE.Vector2(x,y); raycaster.setFromCamera(m,camera); const inter=raycaster.intersectObjects(Array.from(ACTIVE)); if(inter.length){ destroy(inter[0].object); } }
+  const ACTIVE=new Set();
+  function spawn(){
+    const lane=pickLane(); if(!lane) return;
+    const meta=pickMeta(); const ch=charFor(meta);
+    const m=makeEmoji(ch); m.position.set(lane.x,lane.y,lane.z); m.userData={lane:lane.key, meta};
+    group.add(m); ACTIVE.add(m);
+
+    const life= state.difficulty==='Hard'?1900:state.difficulty==='Easy'?4200:3000;
+    m.userData.timer = setTimeout(()=>{ if(!m.parent) return; // timeout penalty/bonus
+      if(!meta.special){
+        if(state.mode==='goodjunk'){ if(meta.good===false){ state.score+=1; updateHUD(); } else { comboBreak(); } }
+        else if(state.mode==='groups'){ if(meta.group===currentTarget){ comboBreak(); } }
+        else if(state.mode==='hydration'){ if(meta.hydra!=='water'){ state.score+=1; updateHUD(); } }
+      }
+      destroy(m);
+    }, life + Math.floor(Math.random()*500-250));
+  }
+  function destroy(obj){ if(obj.parent) obj.parent.remove(obj); ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
+
+  // Scoring logic
+  let currentTarget='grains', plateQuota=null, targetHits=0;
+  function nextTarget(){ const arr=['grains','protein','veggies','fruits','dairy'].filter(x=>x!==currentTarget); currentTarget = arr[Math.floor(Math.random()*arr.length)]; }
+  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(state.difficulty==='Hard') base.veggies=3; plateQuota=base; }
+  function comboBreak(){ state.combo=1; setFever(false); updateHUD(); }
+  const FEVER_MULT=2.0, FEVER_BONUS=1; let feverTimer=null;
+  function setFever(on){ state.fever=on; document.body.classList.toggle('fever', on); }
+  function enterFever(ms=6500){ if(feverTimer) clearTimeout(feverTimer); setFever(true); feverTimer=setTimeout(()=>setFever(false), ms); }
+
+  function handleHit(obj){
+    const m=obj.userData.meta; // meta exists
+    if(m.special){
+      if(m.special==='time'){ state.timeLeft=Math.min(99, state.timeLeft+5); }
+      if(m.special==='fever'){ enterFever(); }
+      if(m.special==='slow'){ const old=state.difficulty; state.difficulty='Easy'; setTimeout(()=>state.difficulty=old,2600); }
+      if(m.special==='bomb'){ comboBreak(); state.score=Math.max(0, state.score-5); }
+      if(m.special==='shield'){ state.shield=true; }
+      updateHUD(); return;
+    }
+    let good=false, base=0;
+    if(state.mode==='goodjunk'){ good=m.good===true; base=good?6:-3; if(!good) comboBreak(); }
+    else if(state.mode==='groups'){ good=m.group===currentTarget; base=good?7:-2; if(good){ targetHits++; if(targetHits>=3){ nextTarget(); targetHits=0; } } else comboBreak(); }
+    else if(state.mode==='hydration'){ good=m.hydra==='water'; base=good?5:-4; if(good && state.combo%3===0){ state.timeLeft=Math.min(99, state.timeLeft+2);} else if(!good) comboBreak(); }
+    else { if(m.group){ if(!plateQuota) resetPlateQuota(); if(plateQuota[m.group]>0){ good=true; plateQuota[m.group]-=1; if(Object.values(plateQuota).every(v=>v<=0)){ base+=14; resetPlateQuota(); } } else { base+=2; }} }
+    let delta = good ? base*state.combo : base; if(state.fever && delta>0){ delta = Math.round(delta*FEVER_MULT) + FEVER_BONUS; }
+    state.score=Math.max(0, state.score+delta); if(good){ state.combo=Math.min(6,state.combo+1); state.comboMax=Math.max(state.comboMax,state.combo); if(state.combo>=4 && !state.fever) enterFever(); }
+    updateHUD();
+  }
+
+  // Input
+  function onClickCanvas(ev){
+    if(!state.running||state.paused) return;
+    const r=canvas.getBoundingClientRect(); const x=(ev.clientX-r.left)/r.width*2-1; const y=-(ev.clientY-r.top)/r.height*2+1;
+    const m=new THREE.Vector2(x,y); raycaster.setFromCamera(m,camera);
+    const inter=raycaster.intersectObjects(Array.from(ACTIVE));
+    if(inter.length){ const obj=inter[0].object; handleHit(obj); destroy(obj); }
+  }
   canvas.addEventListener('click', onClickCanvas);
+  canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClickCanvas({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
 
+  // Gaze dwell
+  let gazeTarget=null, gazeStart=0; const DWELL=700;
+  function handleGaze(){
+    if(!state.running||state.paused) return;
+    raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+    const inter=raycaster.intersectObjects(Array.from(ACTIVE));
+    if(inter.length>0){
+      const o=inter[0].object;
+      if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); $("#ret").classList.add('progress'); }
+      else if(performance.now()-gazeStart >= DWELL){ handleHit(o); destroy(o); gazeTarget=null; $("#ret").classList.remove('progress'); }
+    } else { gazeTarget=null; $("#ret").classList.remove('progress'); }
+  }
+
+  // Loops
   let spH=null, tmH=null, watchdogH=null, SPAWN_COUNT=0, WD=0;
   function loop(){ if(!state.running||state.paused) return; spawn(); SPAWN_COUNT++; stat(`Spawned: ${SPAWN_COUNT} | Active: ${ACTIVE.size} | Watchdog: ${WD}`); spH=setTimeout(loop, 700); }
   function timer(){ if(!state.running||state.paused) return; tmH=setTimeout(()=>{ state.timeLeft--; updateHUD(); if(state.timeLeft<=0){ endGame(); } else timer(); }, 1000); }
 
   function start(){
     $("#summary").style.display='none'; state.score=0; state.combo=1; state.comboMax=1; state.timeLeft=60; updateHUD();
-    state.running=true; state.paused=false; dbg('running');
+    if(state.mode==='groups'){ nextTarget(); } if(state.mode==='plate'){ resetPlateQuota(); }
+    state.running=true; state.paused=false; dbg('running'); statEl.style.display='block';
     setTimeout(spawn, 200); loop(); timer();
     clearTimeout(watchdogH); let seenT=state.timeLeft, seenS=SPAWN_COUNT;
     (function kick(){ const stuck=(seenT===state.timeLeft)||(seenS===SPAWN_COUNT); if(stuck){ WD++; stat(`Spawned: ${SPAWN_COUNT} | Active: ${ACTIVE.size} | Watchdog: ${WD}`); clearTimeout(spH); clearTimeout(tmH); setTimeout(()=>{ spawn(); loop(); timer(); },150); } seenT=state.timeLeft; seenS=SPAWN_COUNT; watchdogH=setTimeout(kick,1200); })();
   }
   function pause(){ if(!state.running) return; state.paused=!state.paused; dbg(state.paused?'paused':'running'); if(!state.paused){ loop(); timer(); } }
-
-  function endGame(){ state.running=false; state.paused=false; clearTimeout(spH); clearTimeout(tmH); dbg('summary'); $("#summary").style.display='flex'; }
+  function endGame(){ state.running=false; state.paused=false; clearTimeout(spH); clearTimeout(tmH); dbg('summary'); $("#summary").style.display='flex'; statEl.style.display='none';
+    if(state.score>state.best){ state.best=state.score; localStorage.setItem('ng_best', String(state.best)); } }
 
   function resize(){ const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
-  function renderLoop(){ const q=camera.quaternion; ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); renderer.render(scene,camera); }
+  function renderLoop(){ const q=camera.quaternion; ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
   renderer.setAnimationLoop(renderLoop);
 
   const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ state.running=false; state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; WD=0; dbg('ready'); stat('Spawned: 0 | Active: 0 | Watchdog: 0'); start(); },
-             setMode:(m)=>{}, setDiff:(d)=>{ state.difficulty=d; updateHUD(); }, toggleLang:()=>{} };
+             setMode:(m)=>{ state.mode=m; localStorage.setItem('ng_mode',m); $("#modeName").textContent=m; },
+             setDiff:(d)=>{ state.difficulty=d; localStorage.setItem('ng_diff',d); updateHUD(); },
+             toggleLang:()=>{} };
   window.UI=UI;
 
   $("#menuBar").addEventListener('click',(e)=>{
@@ -163,7 +258,7 @@
     clog(`menu action=${act} value=${val||'-'}`);
   }, false);
 
-  dbg('ready'); stat('Spawned: 0 | Active: 0 | Watchdog: 0');
+  dbg('ready');
 })();</script>
 </body>
 </html>
