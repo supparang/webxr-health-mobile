@@ -3,14 +3,13 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>VR Nutrition — Stable Mouse & VR</title>
+  <title>VR Nutrition — 4 Games (VR + Mouse)</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
-    /* ฉากอยู่ล่างสุด */
     a-scene, canvas.a-canvas { position:fixed; inset:0; z-index:0 !important; }
-    /* UI อยู่บนสุดและรับคลิกแน่ ๆ */
-    .hud, #menuBar, .overlay, .targetBox {
+    /* UI บนสุดและคลิกได้ */
+    .hud, #menuBar, .overlay, .targetBox, .quotaBox {
       position: fixed; z-index: 9999 !important; pointer-events: auto !important;
       font-family: system-ui, sans-serif; color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,.8);
     }
@@ -24,6 +23,7 @@
     .targetBox { right:10px; top:10px; text-align:right; color:#fff }
     .targetBox .tlabel { font-size:14px; opacity:0.8 }
     .targetName { font-size:18px }
+    .quotaBox { right:10px; top:76px; text-align:right; color:#fff; display:none }
     .overlay { inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.6) }
     .overlay[style*="display: none"] { pointer-events: none !important; }
     .card { background:rgba(8,10,20,0.96); border:1px solid #0ff; border-radius:16px; padding:18px 20px; color:#0ff; width:min(94vw,640px); text-align:center }
@@ -46,17 +46,24 @@
     </div>
   </div>
 
-  <!-- Target (โหมด 5 หมู่) -->
+  <!-- Target (โหมด 5 หมู่ / Hydration) -->
   <div class="targetBox" id="targetBox" style="display:none">
     <div class="tlabel" id="lblTarget">Target</div>
     <div class="targetName" id="targetName">—</div>
   </div>
+  <!-- Quota (โหมด Build My Plate) -->
+  <div class="quotaBox" id="quotaBox">
+    <div class="tlabel" id="lblQuota">Plate Quota</div>
+    <div class="targetName" id="quotaText">—</div>
+  </div>
 
   <!-- เมนูด้านล่าง -->
   <div id="menuBar">
-    <div id="modeBar">
+    <div id="modeBar" style="margin-bottom:6px">
       <span class="tag" data-mode="goodjunk">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
       <span class="tag" data-mode="groups">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
+      <span class="tag" data-mode="hydration">💧 <span data-i18n="modeHydra">Hydration</span></span>
+      <span class="tag" data-mode="plate">🍱 <span data-i18n="modePlate">Build Plate</span></span>
     </div>
     <div id="diffBar" style="margin:8px 0">
       <span class="tag" data-diff="Easy">Easy</span>
@@ -90,18 +97,20 @@
            background="color: #02040a">
 
     <a-assets>
-      <!-- (assets ของคุณตามเดิม) -->
+      <!-- Food (ตัวอย่าง; เติมรายการของคุณให้ครบ) -->
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
       <img id="water" src="assets/images/water.png">
       <img id="burger" src="assets/images/burger.png">
       <img id="soda" src="assets/images/soda.png">
       <img id="donut" src="assets/images/donut.png">
+      <!-- Food Groups -->
       <img id="g_grains"  src="assets/images/grains.png">
       <img id="g_protein" src="assets/images/protein.png">
       <img id="g_veggies" src="assets/images/veggies.png">
       <img id="g_fruits"  src="assets/images/fruits.png">
       <img id="g_dairy"   src="assets/images/dairy.png">
+      <!-- Power-ups -->
       <img id="p_time"   src="assets/images/time.png">
       <img id="p_fever"  src="assets/images/fever.png">
       <img id="p_shield" src="assets/images/shield.png">
