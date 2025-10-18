@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>ClickFix — Single File</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b1220;overflow:hidden}
+  canvas#c{position:fixed;inset:0;display:block;background:#0b1220;z-index:0}
+  .hud,#menuBar,#dbg,#clicklog,#boot,#errors{position:fixed;z-index:2147483647;color:#0ff;font-family:system-ui}
+  #boot{top:8px;left:8px;background:#400;padding:6px 10px;border-radius:8px;border:1px solid #f66;color:#fff}
+  #errors{top:8px;right:8px;max-width:45ch;background:#220;padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb}
+  .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center;text-shadow:0 0 8px rgba(0,255,255,.6)}
+  #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,980px)}
+  .row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+  .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid #0ff;border-radius:12px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer;user-select:none}
+  .tag{border-style:dashed}
+  .btn:hover,.tag:hover{background:rgba(0,255,255,.12)}
+  #dbg{left:8px;bottom:8px;background:rgba(0,0,0,.5);padding:6px 8px;border-radius:8px;border:1px solid #0ff;white-space:pre;font-size:12px}
+  #clicklog{right:8px;bottom:8px;background:rgba(0,0,0,.55);padding:8px 10px;border-radius:8px;border:1px solid #0ff;font-size:12px;max-width:46ch}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="boot">BOOT: waiting JS…</div>
+<div id="errors">Errors: none</div>
+
+<div class="hud">
+  <div>Score: <span id="score">0</span> | Combo: <span id="combo">x1</span> | Time: <span id="time">60</span>s</div>
+</div>
+
+<div id="menuBar">
+  <div class="row" id="modes">
+    <button class="tag" data-action="mode" data-value="goodjunk" type="button">🥗 ดี vs ขยะ</button>
+    <button class="tag" data-action="mode" data-value="groups" type="button">🍽️ จาน 5 หมู่</button>
+    <button class="tag" data-action="mode" data-value="hydration" type="button">💧 Hydration</button>
+    <button class="tag" data-action="mode" data-value="plate" type="button">🍱 Build Plate</button>
+  </div>
+  <div class="row" id="diff" style="margin:8px 0">
+    <button class="tag" data-action="diff" data-value="Easy" type="button">Easy</button>
+    <button class="tag" data-action="diff" data-value="Normal" type="button">Normal</button>
+    <button class="tag" data-action="diff" data-value="Hard" type="button">Hard</button>
+  </div>
+  <div class="row" id="ctrls">
+    <button class="btn" data-action="start" type="button">▶ เริ่มเกม</button>
+    <button class="btn" data-action="pause" type="button">⏸ พัก</button>
+    <button class="btn" data-action="restart" type="button">↻ เริ่มใหม่</button>
+  </div>
+</div>
+
+<div id="dbg">STATE: boot</div>
+<div id="clicklog">clicklog: idle</div>
+
+<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const clog=(msg)=>$("#clicklog").textContent="clicklog: "+msg;
+  const dbg=(m)=>$("#dbg").textContent="STATE: "+m;
+
+  // Global error catcher
+  window.onerror = function(msg, src, line, col, err){
+    const t=document.getElementById('errors');
+    t.textContent = "Errors: " + msg + " @" + (src||'inline') + ":" + line + ":" + col;
+  };
+
+  // Confirm JS booted
+  const bootEl=$("#boot"); bootEl.textContent="BOOT: JS initialized"; bootEl.style.background="#064"; bootEl.style.borderColor="#0f8";
+
+  // Global click logger (capturing)
+  window.addEventListener('click', (e)=>{
+    const top=document.elementFromPoint(e.clientX,e.clientY);
+    clog("clicked target="+(e.target.id||e.target.getAttribute('data-action')||e.target.tagName)+" top="+(top && (top.id||top.getAttribute('data-action')||top.tagName)));
+  }, true);
+
+  // Event delegation for menuBar
+  const menu=$("#menuBar");
+  menu.addEventListener('click', (e)=>{
+    const btn=e.target.closest('button'); if(!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value');
+    clog("menu action="+act+" value="+val);
+    if(act==='start'){ start(); }
+    else if(act==='pause'){ paused=!paused; }
+    else if(act==='restart'){ stop(); start(); }
+    else if(act==='mode'){ mode=val; }
+    else if(act==='diff'){ difficulty=val; }
+  }, false);
+
+  // Basic Three scene (to show that canvas is below UI)
+  const canvas=$("#c");
+  const renderer = new THREE.WebGLRenderer({canvas, antialias:false, powerPreference:'high-performance'});
+  renderer.setClearColor(0x0b1220, 1);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, 2, 0.01, 100);
+  camera.position.set(0,1.6,2.8);
+  const group=new THREE.Group(); scene.add(group);
+  const geo=new THREE.BoxGeometry(0.6,0.6,0.6);
+  const mat=new THREE.MeshBasicMaterial({color:0x00ccff});
+  const cube=new THREE.Mesh(geo,mat); cube.position.set(0,1.6,-2); group.add(cube);
+
+  let score=0, timeLeft=60, running=false, paused=false, mode='goodjunk', difficulty='Normal';
+  function setHUD(){ $("#score").textContent=score; $("#time").textContent=timeLeft; }
+  function spawn(){ /* no-op here; only testing clicks */ }
+  function start(){ running=true; paused=false; score=0; timeLeft=60; setHUD(); dbg('started'); }
+  function stop(){ running=false; paused=false; dbg('stopped'); }
+  setHUD(); dbg('ready');
+
+  function resize(){ const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+  addEventListener('resize', resize); resize();
+  function anim(){ cube.rotation.y += 0.01; renderer.render(scene,camera); requestAnimationFrame(anim); }
+  anim();
+})();
+</script>
+</body>
+</html>
