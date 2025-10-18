@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>THREE Rotating Cube — ULTRA VISIBLE</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#00ff88}
+  #c{position:fixed;inset:0;display:block;visibility:visible;opacity:1;background:#00ff88}
+  .hud{position:fixed;z-index:9999;left:50%;transform:translateX(-50%);top:10px;color:#000;font-family:system-ui;background:#00ff88;padding:6px 10px;border-radius:10px;border:2px solid #000}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">THREE.js Rotating Cube (Neon BG)</div>
+<script>
+(function(){
+  // Load THREE from CDN
+  const s=document.createElement('script'); s.src='https://unpkg.com/three@0.159.0/build/three.min.js';
+  s.onload=boot; document.head.appendChild(s);
+
+  function boot(){
+    const canvas=document.getElementById('c');
+    const renderer = new THREE.WebGLRenderer({canvas, alpha:false, antialias:false, powerPreference:'high-performance', precision:'mediump'});
+    renderer.setClearColor(0x00ff88, 1);
+    const scene=new THREE.Scene();
+    const camera=new THREE.PerspectiveCamera(60, 2, 0.01, 100);
+    camera.position.set(0,0,3);
+
+    const geo=new THREE.BoxGeometry(1,1,1);
+    const mat=new THREE.MeshBasicMaterial({color:0xff0055}); // Basic (unlit) so always visible
+    const cube=new THREE.Mesh(geo, mat);
+    scene.add(cube);
+
+    function resize(){
+      const w=canvas.clientWidth, h=canvas.clientHeight;
+      renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize); resize();
+
+    function anim(){
+      cube.rotation.y += 0.02; cube.rotation.x += 0.01;
+      renderer.render(scene, camera);
+      requestAnimationFrame(anim);
+    }
+    anim();
+  }
+})();
+</script>
+</body>
+</html>

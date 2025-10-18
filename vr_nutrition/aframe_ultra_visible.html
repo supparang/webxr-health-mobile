@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>A-Frame ULTRA VISIBLE</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#00ff88}
+  canvas.a-canvas{position:fixed!important;inset:0!important;display:block!important;visibility:visible!important;opacity:1!important;z-index:0!important}
+  a-scene{position:fixed!important;inset:0!important;display:block!important;z-index:0!important}
+  .hud{position:fixed;z-index:2147483647!important;left:50%;transform:translateX(-50%);top:10px;color:#000;font-family:system-ui;background:#00ff88;padding:6px 10px;border-radius:10px;border:2px solid #000}
+  .foot{position:fixed;z-index:2147483647!important;left:50%;transform:translateX(-50%);bottom:10px;color:#000;font-family:system-ui;background:#00ff88;padding:6px 10px;border-radius:10px;border:2px solid #000}
+  .btn{margin:0 8px;padding:6px 10px;border:2px solid #000;border-radius:8px;background:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="hud">
+  <b>ULTRA VISIBLE (A-Frame)</b> • Clear=#00ff88 • Boxes=emissive • Plane=fullscreen
+  | <span id="info">boot</span>
+</div>
+<div class="foot">
+  <button class="btn" id="btnStart">▶ Spawn Boxes</button>
+  <button class="btn" id="btnWipe">🧽 Clear</button>
+</div>
+
+<a-scene id="scene" embedded loading-screen="enabled:false"
+  renderer="alpha:false; physicallyCorrectLights:false; colorManagement:false; precision:mediump; antialias:false; highRefreshRate:true; powerPreference:high-performance"
+  stats>
+  <!-- We force the GL clear color via background component -->
+  <a-sky color="#00ff88"></a-sky>
+
+  <!-- Camera: super-wide safe planes -->
+  <a-entity id="cam" camera="near:0.001; far:10000" position="0 1.6 2.5"></a-entity>
+
+  <!-- Fullscreen neon plane 1m in front of camera -->
+  <a-entity id="fsPlane" position="0 1.6 1.5" geometry="primitive: plane; width: 100; height: 100"
+            material="shader:flat; color:#00ff88; side:double"></a-entity>
+
+  <!-- Very bright emissive test box -->
+  <a-box id="testBox" position="0 1.6 -2" depth="1" height="1" width="1"
+         material="shader:flat; color:#000; emissive:#ffff00; emissiveIntensity:1.0; side:double"></a-box>
+
+  <a-entity id="spawnerRoot" position="0 0 0"></a-entity>
+</a-scene>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  const info=(m)=>{ document.getElementById('info').textContent=m; };
+  const COLORS=['#ff0055','#00ccff','#ffee00','#00ff88','#ff8800','#aa66ff'];
+
+  function addBox(x,y,z,c){
+    const box=document.createElement('a-box');
+    box.setAttribute('depth','0.6'); box.setAttribute('height','0.6'); box.setAttribute('width','0.6');
+    box.setAttribute('position',`${x} ${y} ${z}`);
+    box.setAttribute('material', `shader:flat; color:${c}; emissive:${c}; emissiveIntensity:0.9; side:double; opacity:1`);
+    box.setAttribute('animation__rot','property: rotation; to: 0 360 0; loop: true; dur: 2000');
+    document.getElementById('spawnerRoot').appendChild(box);
+    return box;
+  }
+
+  function spawnMany(){
+    for(let i=-2;i<=2;i++){
+      const x = i * 0.9;
+      const y = 1.6 + ((i%3)-1) * 0.6;
+      const z = -2 - Math.abs(i)*0.2;
+      addBox(x,y,z, COLORS[(i+COLORS.length)%COLORS.length]);
+    }
+    info('spawned 5 boxes');
+  }
+
+  document.getElementById('btnStart').addEventListener('click',spawnMany);
+  document.getElementById('btnWipe').addEventListener('click',()=>{
+    const root=document.getElementById('spawnerRoot');
+    root.innerHTML=''; info('cleared');
+  });
+
+  // Context loss / restore handlers
+  const canvasGetter=()=>document.querySelector('canvas.a-canvas');
+  window.addEventListener('webglcontextlost', (e)=>{ info('webglcontextlost'); }, true);
+  window.addEventListener('webglcontextrestored', (e)=>{ info('webglcontextrestored'); }, true);
+
+  // On load, report canvas CSS
+  window.addEventListener('load',()=>{
+    const c=canvasGetter(); const cs=getComputedStyle(c);
+    info(`canvas vis=${cs.visibility} disp=${cs.display} op=${cs.opacity} size=${c.width}x${c.height}`);
+  });
+})();
+</script>
+</body>
+</html>
