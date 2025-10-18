@@ -8,7 +8,7 @@
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- EXO Core & Boost (พาธ ABSOLUTE ใต้ /webxr-health-mobile/shadow-breaker/core) -->
+  <!-- EXO Core & Boost (ABSOLUTE path ใต้ /webxr-health-mobile/shadow-breaker/core) -->
   <link rel="stylesheet" href="/webxr-health-mobile/shadow-breaker/core/exo-ui.css">
   <script src="/webxr-health-mobile/shadow-breaker/core/exo-core.js"></script>
   <script src="/webxr-health-mobile/shadow-breaker/core/exo-boost.js"></script>
@@ -38,7 +38,7 @@
   <div id="touchL" class="touch"></div>
   <div id="touchR" class="touch"></div>
 
-  <!-- Overlay -->
+  <!-- Overlay (UI) -->
   <div id="overlay" class="overlay" style="display:none;">
     <div id="panel" class="panel"></div>
   </div>
@@ -53,7 +53,7 @@
       <a-box width="2" height="0.02" depth="0.02" color="#4ade80"></a-box>
     </a-entity>
 
-    <!-- Marker ตำแหน่งเลน (L/R y=1.25, UL/UR y=1.75) -->
+    <!-- เลน L/R/UL/UR -->
     <a-entity id="lanes">
       <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="-0.9 1.25 -0.2"></a-box>
       <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="0.9  1.25 -0.2"></a-box>
@@ -67,6 +67,65 @@
   </a-scene>
 
   <div class="laneLabel">L = A/◀ | R = D/▶ | UL = W/Q | UR = E</div>
+
+<script>
+/* ===== GUARANTEED START OVERLAY =====
+   ถ้า EXO.startOverlay ไม่พร้อม/ไม่มี → สร้างปุ่ม Start + Try Hit ให้เองทันที */
+(function(){
+  const AC = { ctx:null, ensure(){ try{ this.ctx = this.ctx || new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } };
+
+  window.EXO_SAFE = {
+    startOverlay(onStart, opts={}){
+      // ถ้า core มี startOverlay แล้ว ใช้อันนั้น
+      if (window.EXO && typeof EXO.startOverlay === 'function'){
+        return EXO.startOverlay(onStart, opts);
+      }
+      // ทำ overlay เอง
+      let overlay = document.getElementById('overlay');
+      let panel   = document.getElementById('panel');
+      if(!overlay){ overlay=document.createElement('div'); overlay.id='overlay'; overlay.className='overlay'; document.body.appendChild(overlay); }
+      if(!panel){ panel=document.createElement('div'); panel.id='panel'; panel.className='panel'; overlay.appendChild(panel); }
+
+      const title = opts.title || 'COMBAT ⚡ Reflex';
+      overlay.style.display = 'flex';
+      panel.innerHTML = `
+        <div class="title">${title}</div>
+        <div class="kpi" style="grid-template-columns:repeat(2,1fr);margin-top:.4rem">
+          <div><b>LEFT</b><br>A / ◀ หรือ แตะซ้าย</div>
+          <div><b>RIGHT</b><br>D / ▶ หรือ แตะขวา</div>
+          <div><b>UP-LEFT</b><br>W หรือ Q</div>
+          <div><b>UP-RIGHT</b><br>E</div>
+        </div>
+        ${opts.note? `<div class="muted" style="margin-top:.4rem">${opts.note}</div>`:''}
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:.6rem">
+          <a class="btn" id="__exoStart">▶ Start</a>
+          <a class="btn" id="__exoTry">Try Hit</a>
+        </div>
+        <div class="muted" style="text-align:center;margin-top:.4rem">Tip: Space/Enter เพื่อเริ่ม</div>
+      `;
+      const go = async ()=>{
+        try{ AC.ensure(); await AC.ctx?.resume(); }catch(e){}
+        overlay.style.display='none';
+        onStart && onStart();
+        document.removeEventListener('keydown', keyGo);
+      };
+      const keyGo = (e)=>{ if(e.code==='Space'||e.key==='Enter') go(); };
+
+      document.getElementById('__exoStart').onclick = go;
+      document.getElementById('__exoTry').onclick   = ()=> {
+        // ให้เกม spawn ชิ้น “ช้า ๆ” 1 ชิ้นเพื่อทดลอง
+        const comp = document.querySelector('[combat-game]')?.components['combat-game'];
+        comp && comp.spawnTarget && comp.spawnTarget({slow:true});
+      };
+      document.addEventListener('keydown', keyGo);
+      overlay.addEventListener('pointerdown', (ev)=>{
+        if(ev.target && (ev.target.id==='__exoStart'||ev.target.id==='__exoTry'||ev.target.classList.contains('btn'))) return;
+        go();
+      }, {once:true});
+    }
+  };
+})();
+</script>
 
 <script>
 /* ------------- helpers ------------- */
@@ -113,42 +172,12 @@ AFRAME.registerComponent('combat-game',{
     this.dd = new DD();
     this.fv = new FV({need:8, dur:9000});
 
-    // Overlay start + tutorial
-    this.installOverlay();
+    // ===== ใช้ Guaranteed Start Overlay =====
+    const note = `Diff: ${this.diff} · Time: ${this.totalTime}s`;
+    window.EXO_SAFE.startOverlay(()=> this.startGame(), {title:'COMBAT ⚡ Reflex', note});
 
     // Safety spawn (กันกรณี tick ไม่วิ่ง)
     this.__safeSpawnIv = setInterval(()=> this.safeSpawnTick(), 350);
-  },
-
-  installOverlay(){
-    const howto = [
-      {title:'Controls', html:`<div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-        <div><b>LEFT</b><br>A / ◀ หรือ แตะซ้าย</div>
-        <div><b>RIGHT</b><br>D / ▶ หรือ แตะขวา</div>
-        <div><b>UP-LEFT</b><br>W หรือ Q</div>
-        <div><b>UP-RIGHT</b><br>E</div>
-      </div>`},
-      {title:'Goal', html:`<p>ตีบล็อกให้ชน <b>เส้น Hit Line</b> ตรงพอดี<br>Perfect &gt; Great &gt; Good</p>`},
-      {title:'Try Hit', html:`<p>กดปุ่มด้านล่างเพื่อสุ่มเป้า “ช้า ๆ” ให้ลองตี</p>
-        <div style="text-align:center;margin-top:.4rem">
-          <a class="btn" id="btnTry">Try Hit</a>
-        </div>`}
-    ];
-    const start = ()=> this.startGame();
-
-    if (window.EXO && EXO.startOverlay){
-      EXO.startOverlay(start, {title:'COMBAT ⚡ Reflex', howto, note:`Diff: ${this.diff} · Time: ${this.totalTime}s`});
-      setTimeout(()=>{
-        const p = document.getElementById('panel');
-        p && p.addEventListener('click', (e)=>{ if (e.target && e.target.id==='btnTry'){ this.spawnTarget({slow:true}); } });
-      }, 50);
-    }else{
-      const o=document.getElementById('overlay'), p=document.getElementById('panel');
-      o.style.display='flex';
-      p.innerHTML=`<div class="title">COMBAT</div><div style="text-align:center"><a class="btn" id="go">▶ Start</a> <a class="btn" id="try">Try Hit</a></div>`;
-      document.getElementById('go').onclick=()=>{ o.style.display='none'; this.startGame(); };
-      document.getElementById('try').onclick=()=> this.spawnTarget({slow:true});
-    }
   },
 
   startGame(){
@@ -254,7 +283,6 @@ AFRAME.registerComponent('combat-game',{
 
     this.dd.onHit && this.dd.onHit();
     this.fv.hit && this.fv.hit();
-    if (this.fv.isActive && this.fv.isActive()) this.cameraShake(3);
   },
 
   whiff(){ this.registerMiss(); },
@@ -273,12 +301,6 @@ AFRAME.registerComponent('combat-game',{
     el.textContent=text; document.body.appendChild(el);
     setTimeout(()=>{ el.style.transition='all .35s ease'; el.style.opacity='0'; el.style.top='18%'; }, 10);
     setTimeout(()=> el.remove(), 420);
-  },
-
-  cameraShake(px=2){
-    const s = document.querySelector('a-scene'); if(!s) return;
-    const orig = s.style.transform||''; s.style.transform = `translate(${(Math.random()-.5)*px}px, ${(Math.random()-.5)*px}px)`;
-    setTimeout(()=> s.style.transform = orig, 80);
   },
 
   endGame(){
