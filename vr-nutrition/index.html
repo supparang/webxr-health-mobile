@@ -7,16 +7,16 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
+    a-scene { position: fixed; inset: 0; z-index: 0 !important; }
     canvas.a-canvas { z-index: 0 !important; }
-    a-scene { position: fixed; inset: 0; }
+    /* ให้ UI คลิกได้แน่ ๆ และอยู่บนสุด */
     .hud, #menuBar, .overlay, .targetBox {
-      position: absolute; z-index: 1000 !important; pointer-events: auto !important;
-      font-family: system-ui, sans-serif; color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,.8);
+      position: fixed;
+      z-index: 9999 !important;
+      pointer-events: auto !important;
+      font-family: system-ui, sans-serif; color: #0ff;
+      text-shadow: 0 0 8px rgba(0,255,255,.8);
     }
-    /* ให้ปุ่ม/เมนูอยู่บนสุดและรับคลิกแน่ ๆ */
-.hud, #menuBar, .overlay, .targetBox { z-index: 1000 !important; pointer-events: auto !important; }
-canvas.a-canvas { z-index: 0 !important; }  /* ฉากอยู่ด้านล่าง UI */
-
     .hud { left:50%; transform:translateX(-50%); top:10px; text-align:center }
     .hud .row { margin:6px 0; }
     .badge { display:inline-block; padding:2px 8px; border-radius:999px; border:1px solid #0ff; margin-left:6px }
@@ -95,7 +95,7 @@ canvas.a-canvas { z-index: 0 !important; }  /* ฉากอยู่ด้าน
     <a-assets>
       <!-- UI -->
       <img id="panel" src="assets/ui/panel.png">
-      <!-- Food (ตัวอย่าง; เติมของเดิมทั้งหมดตามแพ็กของคุณ) -->
+      <!-- Food (ตัวอย่าง; เติมรายการของคุณให้ครบ) -->
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
       <img id="water" src="assets/images/water.png">
@@ -140,7 +140,7 @@ canvas.a-canvas { z-index: 0 !important; }  /* ฉากอยู่ด้าน
               cursor="rayOrigin: mouse">
     </a-entity>
 
-    <!-- เส้นเลเซอร์ที่วาดจากกล้องไปยังจุดที่เล็ง -->
+    <!-- เส้นเลเซอร์ (ซ่อนเมื่ออยู่ใน VR) -->
     <a-entity id="mouseLaser"
               line="start: 0 0 0; end: 0 0 -1; color: #0ff"
               visible="false"></a-entity>
