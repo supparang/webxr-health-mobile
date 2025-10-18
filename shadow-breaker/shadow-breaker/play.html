@@ -4,14 +4,15 @@
   <meta charset="utf-8">
   <title>EXO · Combat Reflex</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
-  <!-- EXO Core & Boost (อยู่ที่ /core) -->
-  <link rel="stylesheet" href="../core/exo-ui.css">
-  <script src="../core/exo-core.js"></script>
-  <script src="../core/exo-boost.js"></script>
-  <script src="../core/exo-metrics.js"></script>
+  <!-- EXO Core & Boost (พาธ ABSOLUTE ใต้ /webxr-health-mobile/shadow-breaker/core) -->
+  <link rel="stylesheet" href="/webxr-health-mobile/shadow-breaker/core/exo-ui.css">
+  <script src="/webxr-health-mobile/shadow-breaker/core/exo-core.js"></script>
+  <script src="/webxr-health-mobile/shadow-breaker/core/exo-boost.js"></script>
+  <script src="/webxr-health-mobile/shadow-breaker/core/exo-metrics.js"></script>
 
   <style>
     .laneLabel{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);font-size:12px;color:#9bb3d9;opacity:.9}
@@ -29,7 +30,7 @@
     <div class="box">
       <span id="time">60</span>
       <span id="fever" class="muted">FEVER: 0%</span>
-      <a class="btn" href="index.html">⟵ Hub</a>
+      <a class="btn" href="/webxr-health-mobile/shadow-breaker/index.html">⟵ Hub</a>
     </div>
   </header>
 
@@ -47,24 +48,20 @@
     <a-entity light="type:ambient;intensity:0.8"></a-entity>
     <a-entity light="type:directional;intensity:1" position="0 3 -2"></a-entity>
 
-    <!-- Hit line -->
+    <!-- เส้น Hit Line -->
     <a-entity id="hitline" position="0 1.25 -0.2">
       <a-box width="2" height="0.02" depth="0.02" color="#4ade80"></a-box>
     </a-entity>
 
-    <!-- Lane markers -->
+    <!-- Marker ตำแหน่งเลน (L/R y=1.25, UL/UR y=1.75) -->
     <a-entity id="lanes">
-      <!-- L/R = y=1.25, UL/UR = y=1.75 -->
-      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="-0.9 1.4 -0.2"></a-box>
-      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="0.9 1.4 -0.2"></a-box>
-      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="-0.9 1.9 -0.2"></a-box>
-      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="0.9 1.9 -0.2"></a-box>
+      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="-0.9 1.25 -0.2"></a-box>
+      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="0.9  1.25 -0.2"></a-box>
+      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="-0.9 1.75 -0.2"></a-box>
+      <a-box color="#102234" width="0.02" height="0.9" depth="0.02" position="0.9  1.75 -0.2"></a-box>
     </a-entity>
 
-    <!-- Player indicator (optional) -->
-    <a-box id="player" color="#4caf50" depth="0.28" height="0.28" width="0.28" position="-0.9 1.25 -0.5" visible="false"></a-box>
-
-    <!-- Game components -->
+    <!-- Components -->
     <a-entity combat-game></a-entity>
     <a-entity combat-input></a-entity>
   </a-scene>
@@ -72,11 +69,11 @@
   <div class="laneLabel">L = A/◀ | R = D/▶ | UL = W/Q | UR = E</div>
 
 <script>
-/* --------------------- Utility --------------------- */
+/* ------------- helpers ------------- */
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 const qs = new URLSearchParams(location.search);
 
-/* ----------------- Main Game Component ------------- */
+/* ------------- main component ------------- */
 AFRAME.registerComponent('combat-game',{
   init(){
     // UI
@@ -89,35 +86,29 @@ AFRAME.registerComponent('combat-game',{
     this.diff = (qs.get('diff')||'normal');
     this.totalTime = clamp(parseInt(qs.get('time')||'60',10), 10, 600);
     this.allowTimeOrb = qs.get('timeorb')==='1';
-    this.timeGain = parseInt(qs.get('timegain')||'5',10); // +sec per orb (default 5)
+    this.timeGain = parseInt(qs.get('timegain')||'5',10); // +sec per orb
 
     // State
-    this.state = {
-      running:false, time:this.totalTime, score:0,
-      combo:0, bestCombo:0, feverPct:0
-    };
-    this.lanes = {
-      L:  {x:-0.9, y:1.25}, R:  {x:0.9,  y:1.25},
-      UL: {x:-0.9, y:1.75}, UR: {x:0.9,  y:1.75}
-    };
+    this.state = { running:false, time:this.totalTime, score:0, combo:0, bestCombo:0 };
+    this.lanes = { L:{x:-0.9,y:1.25}, R:{x:0.9,y:1.25}, UL:{x:-0.9,y:1.75}, UR:{x:0.9,y:1.75} };
     this.spawnBase = {easy:700, normal:520, hard:420}[this.diff]||520;
     this.speedBase = {easy:1.00, normal:1.15, hard:1.35}[this.diff]||1.15;
 
-    // Booster managers (fallback safe)
-    const DD = (window.EXO_BOOST && EXO_BOOST.DynamicDifficulty) || function(){
-      return { getSpawnIv:()=>this.spawnBase, getSpeedMul:()=>1, onHit(){}, onMiss(){}, tickDecay(){} };
-    }.bind(this);
-    const FV = (window.EXO_BOOST && EXO_BOOST.FeverManager) || function(cfg){
+    // Managers (fallback-safe)
+    const DD = (window.EXO_BOOST && EXO_BOOST.DynamicDifficulty) || (()=>({
+      getSpawnIv:()=>this.spawnBase, getSpeedMul:()=>1, onHit(){}, onMiss(){}, tickDecay(){}
+    }));
+    const FV = (window.EXO_BOOST && EXO_BOOST.FeverManager) || ((cfg)=>{
       let pct=0, active=false, t=0, need=(cfg?.need||8), dur=(cfg?.dur||9000);
       return {
         hit(){ pct = clamp(pct+100/need,0,100); if(pct>=100){ active=true; t=dur; } },
-        miss(){ pct = clamp(pct-22, 0,100); },
+        miss(){ pct = clamp(pct-22,0,100); },
         tick(dt){ if(active){ t-=dt; if(t<=0){ active=false; pct=0; } } },
         isActive(){ return active; },
         mulScore(v){ return active? Math.round(v*1.5):v; },
         getPct(){ return active? 100:pct }
       };
-    };
+    });
 
     this.dd = new DD();
     this.fv = new FV({need:8, dur:9000});
@@ -125,15 +116,15 @@ AFRAME.registerComponent('combat-game',{
     // Overlay start + tutorial
     this.installOverlay();
 
-    // Safety spawner (ถ้า tick ไม่วิ่ง)
-    this.__safeSpawnIv = setInterval(()=> this.safeSpawnTick(), 300);
+    // Safety spawn (กันกรณี tick ไม่วิ่ง)
+    this.__safeSpawnIv = setInterval(()=> this.safeSpawnTick(), 350);
   },
 
   installOverlay(){
     const howto = [
       {title:'Controls', html:`<div class="kpi" style="grid-template-columns:repeat(2,1fr)">
-        <div><b>LEFT</b><br>A / ◀ or tap left</div>
-        <div><b>RIGHT</b><br>D / ▶ or tap right</div>
+        <div><b>LEFT</b><br>A / ◀ หรือ แตะซ้าย</div>
+        <div><b>RIGHT</b><br>D / ▶ หรือ แตะขวา</div>
         <div><b>UP-LEFT</b><br>W หรือ Q</div>
         <div><b>UP-RIGHT</b><br>E</div>
       </div>`},
@@ -143,23 +134,20 @@ AFRAME.registerComponent('combat-game',{
           <a class="btn" id="btnTry">Try Hit</a>
         </div>`}
     ];
-
     const start = ()=> this.startGame();
+
     if (window.EXO && EXO.startOverlay){
       EXO.startOverlay(start, {title:'COMBAT ⚡ Reflex', howto, note:`Diff: ${this.diff} · Time: ${this.totalTime}s`});
-      // Hook Try
       setTimeout(()=>{
         const p = document.getElementById('panel');
-        p && p.addEventListener('click', (e)=>{
-          if (e.target && e.target.id==='btnTry'){ this.spawnTarget({slow:true}); }
-        });
+        p && p.addEventListener('click', (e)=>{ if (e.target && e.target.id==='btnTry'){ this.spawnTarget({slow:true}); } });
       }, 50);
     }else{
-      // Fallback button
       const o=document.getElementById('overlay'), p=document.getElementById('panel');
       o.style.display='flex';
-      p.innerHTML=`<div class="title">COMBAT</div><div style="text-align:center"><a class="btn" id="go">▶ Start</a></div>`;
+      p.innerHTML=`<div class="title">COMBAT</div><div style="text-align:center"><a class="btn" id="go">▶ Start</a> <a class="btn" id="try">Try Hit</a></div>`;
       document.getElementById('go').onclick=()=>{ o.style.display='none'; this.startGame(); };
+      document.getElementById('try').onclick=()=> this.spawnTarget({slow:true});
     }
   },
 
@@ -174,7 +162,6 @@ AFRAME.registerComponent('combat-game',{
     this.feverUI.textContent = 'FEVER: 0%';
     this.lastSpawn = performance.now();
 
-    // Game timer
     this.timer = setInterval(()=>{
       if(!this.state.running) return;
       this.state.time -= 1;
@@ -183,16 +170,13 @@ AFRAME.registerComponent('combat-game',{
     }, 1000);
   },
 
-  /* ---------- A-Frame tick ---------- */
   tick(t, dtMs){
     if(!this.state.running) return;
     const dt = dtMs;
-    // Difficulty decay / fever
     this.dd.tickDecay && this.dd.tickDecay(dt);
     this.fv.tick && this.fv.tick(dt);
     this.feverUI.textContent = `FEVER: ${this.fv.getPct? Math.round(this.fv.getPct()):0}%`;
 
-    // Spawn by interval
     const baseIv = this.dd.getSpawnIv ? this.dd.getSpawnIv(): this.spawnBase;
     const iv = clamp(baseIv, 260, 1200);
     if (performance.now()-this.lastSpawn >= iv){
@@ -201,63 +185,45 @@ AFRAME.registerComponent('combat-game',{
     }
   },
 
-  /* ---------- Safety spawner (interval) ---------- */
   safeSpawnTick(){
     if(!this.state.running) return;
-    if (!this.__lastSafe || (performance.now()-this.__lastSafe>1000)){
-      // ถ้ายังไม่มีเป้าในฉากเลย → บังคับเกิด 1 ชิ้น
-      const has = this.el.sceneEl.querySelector('.note');
-      if(!has) this.spawnTarget();
-      this.__lastSafe = performance.now();
-    }
+    const has = this.el.sceneEl.querySelector('.note, .orb');
+    if(!has) this.spawnTarget({slow:true});
   },
 
-  /* ---------- Spawner ---------- */
   spawnTarget(opts={}){
     const lanes = ['L','R','UL','UR'];
     const lane = lanes[Math.floor(Math.random()*lanes.length)];
     const pos = this.lanes[lane];
-    const zStart = -3.8;
-    const toZ = -0.2;
+    const zStart = -3.8, toZ = -0.2;
 
     const speedMul = (this.dd.getSpeedMul? this.dd.getSpeedMul():1) * this.speedBase * (opts.slow? 0.6 : 1);
     const dur = Math.round(2000 / speedMul);
 
-    // Time Orb?
     const isOrb = this.allowTimeOrb && Math.random()<0.08;
     const color = isOrb ? '#ffd24a' : (this.fv.isActive && this.fv.isActive()? '#ff7b6b' : '#29b6f6');
     const cls   = isOrb ? 'orb' : 'note';
 
     const box = document.createElement('a-box');
-    box.setAttribute('width','0.35');
-    box.setAttribute('height', isOrb ? '0.35':'0.35');
-    box.setAttribute('depth','0.35');
+    box.setAttribute('width','0.35'); box.setAttribute('height','0.35'); box.setAttribute('depth','0.35');
     box.setAttribute('color', color);
     if (this.fv.isActive && this.fv.isActive()) box.classList.add('feverGlow');
-    box.classList.add(cls);
-    box.dataset.lane = lane;
+    box.classList.add(cls); box.dataset.lane = lane;
     box.setAttribute('position', `${pos.x} ${pos.y} ${zStart}`);
     this.el.sceneEl.appendChild(box);
 
     box.setAttribute('animation__move',{property:'position', to:`${pos.x} ${pos.y} ${toZ}`, dur, easing:'linear'});
 
-    // Miss timeout
     setTimeout(()=>{
       if(!box.parentNode || !this.state.running) return;
-      // ถ้ายังอยู่ (ยังไม่โดน) ถือว่า Miss
-      this.registerMiss();
-      box.remove();
-    }, dur + 60);
+      this.registerMiss(); box.remove();
+    }, dur + 70);
   },
 
-  /* ---------- Hit/Miss Register ---------- */
   tryHit(laneKey){
     if(!this.state.running) return;
-    // หาออบเจ็กต์ใน lane ใกล้เส้นที่สุด (z ใกล้ -0.2)
     const objs = [...this.el.sceneEl.querySelectorAll('.note, .orb')].filter(n=> n.dataset.lane===laneKey);
     if (objs.length===0){ this.whiff(); return; }
-
-    // pick nearest to line
     const zLine = -0.2;
     let best=null, bestDz=99, bestIsOrb=false;
     objs.forEach(n=>{
@@ -266,60 +232,40 @@ AFRAME.registerComponent('combat-game',{
       if (dz < bestDz){ best=n; bestDz=dz; bestIsOrb = n.classList.contains('orb'); }
     });
 
-    // grading window (เมตร)
     const q = (bestDz<=0.04)? 'perfect' : (bestDz<=0.08)? 'great' : (bestDz<=0.14)? 'good' : 'miss';
     if (q==='miss'){ this.whiff(); return; }
 
-    // Remove target
     best.remove();
 
     if (bestIsOrb){
-      this.state.time += this.timeGain;
-      this.timeUI.textContent = this.state.time;
-      this.popText('+ '+this.timeGain+'s', '#ffd24a');
+      this.state.time += this.timeGain; this.timeUI.textContent = this.state.time;
+      this.popText(`+${this.timeGain}s`, '#ffd24a');
       try{ EXO.beep(1200, .06, .12);}catch(e){}
-      // Orb ไม่เพิ่มคอมโบ/ฟีเวอร์ แต่ไม่ถือว่า miss
       return;
     }
 
-    // score + combo
     const base = {perfect:160, great:120, good:80}[q]||80;
     const s = this.fv.mulScore? this.fv.mulScore(base):base;
-    this.state.score += s;
-    this.scoreUI.textContent = this.state.score;
-
-    this.state.combo++;
-    this.state.bestCombo = Math.max(this.state.bestCombo, this.state.combo);
+    this.state.score += s; this.scoreUI.textContent = this.state.score;
+    this.state.combo++; this.state.bestCombo = Math.max(this.state.bestCombo, this.state.combo);
     this.comboUI.textContent = 'x'+this.state.combo;
-
-    // Feedback
     this.popText(q.toUpperCase(), (q==='perfect')?'#9effa7':(q==='great')?'#7cc7ff':'#d0e2ff');
     try{ EXO.beep(q==='perfect'?980:q==='great'?820:680, .04, .1);}catch(e){}
 
-    // managers
     this.dd.onHit && this.dd.onHit();
     this.fv.hit && this.fv.hit();
-
-    // tiny rush cam shake on fever
-    if (this.fv.isActive && this.fv.isActive()){
-      this.cameraShake(3);
-    }
+    if (this.fv.isActive && this.fv.isActive()) this.cameraShake(3);
   },
 
-  whiff(){ // 空振り
-    this.registerMiss();
-  },
-
+  whiff(){ this.registerMiss(); },
   registerMiss(){
-    this.state.combo = 0;
-    this.comboUI.textContent = 'x0';
+    this.state.combo = 0; this.comboUI.textContent = 'x0';
     this.dd.onMiss && this.dd.onMiss();
     this.fv.miss && this.fv.miss();
     try{ EXO.beep(260, .06, .12);}catch(e){}
   },
 
   popText(text, color='#fff'){
-    const o=document.getElementById('overlay'), p=document.getElementById('panel');
     const el=document.createElement('div');
     el.style.position='fixed'; el.style.left='50%'; el.style.top='24%';
     el.style.transform='translate(-50%,-50%)'; el.style.color=color;
@@ -330,10 +276,8 @@ AFRAME.registerComponent('combat-game',{
   },
 
   cameraShake(px=2){
-    const s = document.querySelector('a-scene');
-    if(!s) return;
-    const orig = s.style.transform||'';
-    s.style.transform = `translate(${(Math.random()-.5)*px}px, ${(Math.random()-.5)*px}px)`;
+    const s = document.querySelector('a-scene'); if(!s) return;
+    const orig = s.style.transform||''; s.style.transform = `translate(${(Math.random()-.5)*px}px, ${(Math.random()-.5)*px}px)`;
     setTimeout(()=> s.style.transform = orig, 80);
   },
 
@@ -341,24 +285,20 @@ AFRAME.registerComponent('combat-game',{
     if(!this.state.running) return;
     this.state.running = false;
     clearInterval(this.timer);
-    // persist metrics (ถ้ามี)
+
     try{
       EXO_METRICS && EXO_METRICS.record('combat', {
-        diff:this.diff, time:this.totalTime,
-        score:this.state.score, combo:this.state.bestCombo,
-        accuracy: undefined
+        diff:this.diff, time:this.totalTime, score:this.state.score, combo:this.state.bestCombo, accuracy: undefined
       });
     }catch(e){}
 
-    // Leaderboard (local)
     const key='EXO_LB_COMBAT';
-    let lb = EXO.store.get(key, []);
+    let lb = (EXO.store && EXO.store.get)? EXO.store.get(key, []):[];
     lb.push({n:'',s:this.state.score,t:Date.now(),d:this.diff,c:this.state.bestCombo});
     lb.sort((a,b)=> b.s-a.s); lb = lb.slice(0,20);
-    EXO.store.set(key, lb);
+    EXO.store && EXO.store.set && EXO.store.set(key, lb);
 
-    // Result overlay + submit name + program continue
-    const next = qs.get('next'); // e.g. program.html
+    const next = qs.get('next');
     const o=document.getElementById('overlay'), p=document.getElementById('panel');
     o.style.display='flex';
     const top5 = lb.slice(0,5).map((r,i)=>`<div>${i+1}. ${r.n||'-'} — <b>${r.s}</b></div>`).join('');
@@ -374,26 +314,19 @@ AFRAME.registerComponent('combat-game',{
       <div class="muted" style="margin:.25rem 0 0 0">${top5||'-'}</div>
       <div style="display:flex;gap:8px;justify-content:center;margin-top:.8rem">
         <a class="btn" id="btnSave">💾 Save</a>
-        <a class="btn" href="index.html">⟵ Hub</a>
+        <a class="btn" href="/webxr-health-mobile/shadow-breaker/index.html">⟵ Hub</a>
         <a class="btn" onclick="location.reload()">↺ Replay</a>
         ${next? `<a class="btn" id="btnNext">▶ Continue</a>`:''}
       </div>
     `;
-
-    // Wire save
     document.getElementById('btnSave').onclick = ()=>{
       const name = (document.getElementById('nameInp').value||'').trim().slice(0,24);
-      let curr = EXO.store.get(key, []);
+      let curr = (EXO.store && EXO.store.get)? EXO.store.get(key, []):[];
       const idx = curr.findIndex(r=> r.s===this.state.score && !r.n);
-      if(idx>=0){ curr[idx].n = name; EXO.store.set(key, curr); }
-      // small feedback
+      if(idx>=0){ curr[idx].n = name; EXO.store && EXO.store.set && EXO.store.set(key, curr); }
       this.popText('Saved', '#8fe8a7');
     };
-    if(next){
-      document.getElementById('btnNext').onclick = ()=>{
-        location.href = next;
-      };
-    }
+    if(next){ document.getElementById('btnNext').onclick = ()=>{ location.href = next; }; }
   },
 
   remove(){
@@ -402,27 +335,31 @@ AFRAME.registerComponent('combat-game',{
   }
 });
 
-/* ----------------- Input Component ----------------- */
+/* ------------- input component ------------- */
 AFRAME.registerComponent('combat-input',{
   init(){
     const comp = document.querySelector('[combat-game]').components['combat-game'];
-
-    // Touch / Left-Right by EXO
-    EXO.attachBasicInput({
+    // EXO basic input (+ fallback)
+    const attach = (EXO && EXO.attachBasicInput) ? EXO.attachBasicInput : function({onLeft,onRight}){
+      document.getElementById('touchL').addEventListener('click', ()=> onLeft && onLeft());
+      document.getElementById('touchR').addEventListener('click', ()=> onRight && onRight());
+      window.addEventListener('keydown', e=>{
+        const k = e.key.toLowerCase();
+        if(k==='arrowleft' || k==='a') onLeft && onLeft();
+        if(k==='arrowright'|| k==='d') onRight && onRight();
+      });
+    };
+    attach({
       onLeft:  ()=> comp && comp.tryHit('L'),
       onRight: ()=> comp && comp.tryHit('R'),
       onPause: ()=>{}
     });
-
-    // Keyboard extras for UL/UR (W/Q/E)
+    // UL/UR
     window.addEventListener('keydown', (e)=>{
       if(!comp) return;
       const k = e.key.toLowerCase();
       if(k==='w' || k==='q') comp.tryHit('UL');
       if(k==='e')            comp.tryHit('UR');
-      // alt keys for L/R again
-      if(k==='arrowleft' || k==='a') comp.tryHit('L');
-      if(k==='arrowright'|| k==='d') comp.tryHit('R');
     });
   }
 });
