@@ -11,7 +11,7 @@
     /* ฉากอยู่ล่างสุด */
     a-scene, canvas.a-canvas { position:fixed; inset:0; z-index:0 !important; }
 
-    /* ค่าเริ่มต้น: ปิดคลิกฉากเพื่อให้ปุ่มทำงาน 100% */
+    /* ค่าเริ่มต้น: ปิดคลิก canvas เพื่อให้ปุ่มทำงาน 100% */
     canvas.a-canvas { pointer-events: none !important; }
     /* เปิดคลิกฉากเฉพาะตอนเล่นเกม */
     body.game-running canvas.a-canvas { pointer-events: auto !important; }
@@ -46,8 +46,9 @@
     .stars { font-size:28px; margin:8px 0 4px }
   </style>
 
-  <!-- SAFE UI stub: ปุ่มเรียกได้แม้เกมโหลดช้า -->
+  <!-- SAFE UI stub + Canvas MutationObserver (กันพลาด Chrome) -->
   <script>
+    // Stub เพื่อให้ปุ่มเรียกได้แม้เกมโหลดช้า
     window.GAME_UI = window.GAME_UI || {
       _q: [], _ready: false,
       _bind(real){ this._real=real; this._ready=true; this._q.forEach(fn=>{try{fn()}catch(e){}}); this._q=[]; },
@@ -57,6 +58,38 @@
       how(){this._call('how')}, setMode(m){this._call('setMode',m)}, setDiff(d){this._call('setDiff',d)},
       toggleLang(){this._call('toggleLang')}, toggleVoice(){this._call('toggleVoice')}
     };
+
+    // บังคับ pointer-events ที่ canvas ทุกครั้งที่ A-Frame สร้างแท็กใหม่ (Chrome ชอบแทนที่)
+    const enforceCanvasPE = () => {
+      document.querySelectorAll('canvas.a-canvas').forEach(cv=>{
+        const should = document.body.classList.contains('game-running') ? 'auto' : 'none';
+        const val = should === 'auto' ? 'auto' : 'none';
+        if (getComputedStyle(cv).pointerEvents !== val) {
+          cv.style.pointerEvents = val;
+        }
+      });
+    };
+    const mo = new MutationObserver((mut) => {
+      let touched = false;
+      for (const m of mut) {
+        if (m.type === 'childList') {
+          if ([...m.addedNodes].some(n => n.tagName === 'CANVAS' || (n.querySelector && n.querySelector('canvas.a-canvas')))) {
+            touched = true;
+          }
+        }
+        if (m.type === 'attributes' && m.target.matches && m.target.matches('canvas.a-canvas')) {
+          touched = true;
+        }
+      }
+      if (touched) enforceCanvasPE();
+    });
+    window.addEventListener('DOMContentLoaded', ()=>{
+      mo.observe(document.documentElement, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style'] });
+      enforceCanvasPE();
+    });
+    // ช่วยเวลาเข้าสู่ VR/ออกจาก VR
+    document.addEventListener('enter-vr', enforceCanvasPE, true);
+    document.addEventListener('exit-vr',  enforceCanvasPE, true);
   </script>
 </head>
 <body>
@@ -88,15 +121,15 @@
   <!-- เมนูด้านล่าง -->
   <div id="menuBar">
     <div id="modeBar" style="margin-bottom:6px">
-      <span class="tag" onclick="GAME_UI.setMode('goodjunk')">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
-      <span class="tag" onclick="GAME_UI.setMode('groups')">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
-      <span class="tag" onclick="GAME_UI.setMode('hydration')">💧 <span data-i18n="modeHydra">Hydration</span></span>
-      <span class="tag" onclick="GAME_UI.setMode('plate')">🍱 <span data-i18n="modePlate">Build Plate</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('goodjunk')">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('groups')">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('hydration')">💧 <span data-i18n="modeHydra">Hydration</span></span>
+      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setMode('plate')">🍱 <span data-i18n="modePlate">Build Plate</span></span>
     </div>
     <div id="diffBar" style="margin:8px 0">
-      <span class="tag" onclick="GAME_UI.setDiff('Easy')">Easy</span>
-      <span class="tag" onclick="GAME_UI.setDiff('Normal')">Normal</span>
-      <span class="tag" onclick="GAME_UI.setDiff('Hard')">Hard</span>
+      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setDiff('Easy')">Easy</span>
+      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setDiff('Normal')">Normal</span>
+      <span class="tag" role="button" tabindex="0" onclick="GAME_UI.setDiff('Hard')">Hard</span>
     </div>
     <div>
       <button class="btn" id="btnStart"  onclick="GAME_UI.start()">▶ <span data-i18n="start">เริ่มเกม</span></button>
