@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-<title>Nutrition VR — Working (Floating Score + Sounds)</title>
+<title>Nutrition VR — Help + I18N</title>
 <style>
   html,body{margin:0;height:100%;background:#061018;overflow:hidden}
   canvas#c{position:fixed;inset:0;display:block;background:#061018;z-index:0}
-  .hud,#menuBar,#summary,#dbg,.reticle,#errors,#clicklog,#vrSlot,#valueTip,#toast{
+  .hud,#menuBar,#summary,#dbg,.reticle,#errors,#clicklog,#vrSlot,#valueTip,#toast,.floatScore,#help{
     position:fixed; z-index:2147483600; color:#0ff; font-family:system-ui; text-shadow:0 0 8px rgba(0,255,255,.6)
   }
   .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
@@ -29,8 +29,14 @@
   .reticle.progress{border-color:#ff0}
   #valueTip{left:50%;top:calc(50% + 28px);transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid #0ff;border-radius:10px;padding:6px 10px;display:none}
   #toast{left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid #0ff;border-radius:10px;padding:6px 10px;display:none}
-  .floatScore{position:fixed; z-index:2147483640; font-weight:700; pointer-events:none; color:#8ff; text-shadow:0 0 8px rgba(0,255,255,.7)}
+  .floatScore{font-weight:700; pointer-events:none; color:#8ff; text-shadow:0 0 8px rgba(0,255,255,.7)}
   @keyframes popUp { 0%{transform:translate(-50%,0) scale(0.9); opacity:1} 70%{transform:translate(-50%,-26px) scale(1.05); opacity:.95} 100%{transform:translate(-50%,-46px) scale(1); opacity:0} }
+  /* Help modal */
+  #help{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+  #help .card{width:min(96vw,820px); text-align:left}
+  #help h2{margin:0 0 8px 0}
+  #help ul{margin:8px 0 0 18px}
+  #help .foot{display:flex;justify-content:flex-end;margin-top:12px;gap:10px}
 </style>
 </head>
 <body>
@@ -42,14 +48,14 @@
 <div id="toast">…</div>
 
 <div class="hud">
-  <div><span id="lblScore">คะแนน</span>: <span id="score">0</span> |
-       <span id="lblCombo">คอมโบ</span>: <span id="combo">x1</span> |
-       <span id="lblTime">เวลา</span>: <span id="time">60</span>s |
-       <span id="lblBest">สถิติ</span>: <span id="best">0</span>
+  <div><span id="lblScore" data-i18n="score">คะแนน</span>: <span id="score">0</span> |
+       <span id="lblCombo" data-i18n="combo">คอมโบ</span>: <span id="combo">x1</span> |
+       <span id="lblTime" data-i18n="time">เวลา</span>: <span id="time">60</span>s |
+       <span id="lblBest" data-i18n="best">สถิติ</span>: <span id="best">0</span>
        <span id="fever">FEVER!</span>
   </div>
-  <div><span id="lblMode">โหมด</span>: <span id="modeName">ดี vs ขยะ</span> |
-       <span id="lblDiff">ความยาก</span>: <span id="difficulty">Normal</span></div>
+  <div><span id="lblMode" data-i18n="mode">โหมด</span>: <span id="modeName">ดี vs ขยะ</span> |
+       <span id="lblDiff" data-i18n="diff">ความยาก</span>: <span id="difficulty">Normal</span></div>
 </div>
 
 <div id="menuBar">
@@ -60,15 +66,16 @@
     <button class="tag" data-action="mode" data-value="plate" type="button">🍱 <span data-i18n="modePlate">Build Plate</span></button>
   </div>
   <div class="row" id="diff" style="margin:8px 0">
-    <button class="tag" data-action="diff" data-value="Easy" type="button">Easy</button>
-    <button class="tag" data-action="diff" data-value="Normal" type="button">Normal</button>
-    <button class="tag" data-action="diff" data-value="Hard" type="button">Hard</button>
+    <button class="tag" data-action="diff" data-value="Easy" type="button"><span data-i18n="easy">ง่าย</span></button>
+    <button class="tag" data-action="diff" data-value="Normal" type="button"><span data-i18n="normal">ปกติ</span></button>
+    <button class="tag" data-action="diff" data-value="Hard" type="button"><span data-i18n="hard">ยาก</span></button>
   </div>
   <div class="row" id="ctrls">
     <button class="btn" data-action="start" type="button">▶ <span data-i18n="start">เริ่มเกม</span></button>
     <button class="btn" data-action="pause" type="button">⏸ <span data-i18n="pause">พัก</span></button>
     <button class="btn" data-action="restart" type="button">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
-    <button class="btn" data-action="lang" type="button">🌐 ไทย/English</button>
+    <button class="btn" data-action="help" type="button">❓ <span data-i18n="howto">วิธีเล่น</span></button>
+    <button class="btn" data-action="lang" type="button">🌐 <span data-i18n="langBtn">ไทย/English</span></button>
     <button class="btn" data-action="logger" type="button">🪵 Log</button>
     <span id="vrSlot"></span>
   </div>
@@ -76,10 +83,25 @@
 
 <div id="summary">
   <div class="card">
-    <div style="font-size:20px;margin-bottom:8px"><b id="sumTitle">สรุปผล</b></div>
+    <div style="font-size:20px;margin-bottom:8px"><b id="sumTitle" data-i18n="summary">สรุปผล</b></div>
     <div id="sumStars" style="font-size:28px;margin:8px 0 4px">★☆☆</div>
     <div id="sumBody">...</div>
-    <div style="margin-top:12px"><button class="btn" data-action="restart" type="button">↻ <span data-i18n="restart">เริ่มใหม่</span></button></div>
+    <div class="foot" style="justify-content:center;margin-top:12px">
+      <button class="btn" data-action="restart" type="button">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
+      <button class="btn" data-action="help" type="button">❓ <span data-i18n="howto">วิธีเล่น</span></button>
+    </div>
+  </div>
+</div>
+
+<div id="help">
+  <div class="card">
+    <h2 data-i18n="howto">วิธีเล่น</h2>
+    <div id="helpBody" style="line-height:1.6">
+      <!-- filled by JS -->
+    </div>
+    <div class="foot">
+      <button class="btn" data-action="helpClose" type="button"><span data-i18n="ok">โอเค</span></button>
+    </div>
   </div>
 </div>
 
@@ -97,22 +119,47 @@
   const showToast=(msg,ms=1200)=>{ toast.textContent=msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',ms); };
   window.onerror=(msg,src,line,col)=>{ errEl.style.display='block'; errEl.textContent="Errors: "+msg+" @"+(src||'inline')+":"+line+":"+col; };
 
+  // I18N
+  const I18N={
+    th:{score:"คะแนน", combo:"คอมโบ", time:"เวลา", best:"สถิติ", mode:"โหมด", diff:"ความยาก", start:"เริ่มเกม", pause:"พัก", restart:"เริ่มใหม่",
+        howto:"วิธีเล่น", langBtn:"ไทย/English", easy:"ง่าย", normal:"ปกติ", hard:"ยาก",
+        modeGJ:"ดี vs ขยะ", modeGroups:"จาน 5 หมู่", modeHydra:"Hydration", modePlate:"Build Plate", summary:"สรุปผล",
+        ok:"โอเค",
+        howtoHTML:`
+          <b>เป้าหมาย</b>: เลือกอาหาร/เครื่องดื่มตามกติกาของโหมดนั้น ๆ<br/>
+          <b>การควบคุม</b>: คอม/มือถือ คลิกหรือแตะไอคอน • VR ให้จ้องไอคอนค้าง ~0.7s<br/>
+          <b>คะแนน</b>: โดนเป้าถูกได้คะแนน คอมโบเพิ่มตัวคูณ • พลาดคอมโบจะรีเซ็ต<br/>
+          <b>พาวเวอร์อัป</b>: ⏱️ +เวลา • 🔥 FEVER คูณคะแนน • 🐢 ช้าชั่วคราว • 🛡️ กันพลาด • 💣 ลดคะแนน<br/>
+          <b>โหมด</b>: 🥗 ดี vs ขยะ | 🍽️ จาน 5 หมู่ | 💧 Hydration | 🍱 Build Plate
+        `},
+    en:{score:"Score", combo:"Combo", time:"Time", best:"Best", mode:"Mode", diff:"Difficulty", start:"Start", pause:"Pause", restart:"Restart",
+        howto:"How to play", langBtn:"Thai/English", easy:"Easy", normal:"Normal", hard:"Hard",
+        modeGJ:"Good vs Junk", modeGroups:"Food Groups", modeHydra:"Hydration", modePlate:"Build Plate", summary:"Summary",
+        ok:"OK",
+        howtoHTML:`
+          <b>Goal</b>: Pick items according to each mode's rule.<br/>
+          <b>Controls</b>: Desktop/Mobile click or tap • VR gaze to select (~0.7s).<br/>
+          <b>Scoring</b>: Correct hits score points; combos increase multiplier; miss resets combo.<br/>
+          <b>Power-ups</b>: ⏱️ time + • 🔥 FEVER multiplier • 🐢 slow • 🛡️ shield • 💣 penalty.<br/>
+          <b>Modes</b>: 🥗 Good vs Junk | 🍽️ Food Groups | 💧 Hydration | 🍱 Build Plate
+        `}
+  };
+  const state={ lang: localStorage.getItem('ng_lang') || 'th' };
+  function t(k){ return (I18N[state.lang]&&I18N[state.lang][k]) || k; }
+  function applyLang(){
+    $$('[data-i18n]').forEach(el=>{ const key=el.getAttribute('data-i18n'); if(key==='howtoHTML'){ $('#helpBody').innerHTML = I18N[state.lang].howtoHTML; } else { el.textContent = t(key); } });
+    // mode name label
+    const modeName = (game.state.mode==='goodjunk')? t('modeGJ') : (game.state.mode==='groups')? t('modeGroups') : (game.state.mode==='hydration')? t('modeHydra') : t('modePlate');
+    $("#modeName").textContent = modeName;
+  }
+
   // WebAudio
   let AC=null, master=null;
   function audioInit(){ try{ AC = AC||new (window.AudioContext||window.webkitAudioContext)(); master = master||AC.createGain(); master.connect(AC.destination); master.gain.value=0.22; }catch(e){} }
   function ding(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='sine'; const t=AC.currentTime; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(1320,t+0.08); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22); o.start(t); o.stop(t+0.24); }
   function thud(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='triangle'; const t=AC.currentTime; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(110,t+0.12); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }
 
-  // State
-  const state={ lang: localStorage.getItem('ng_lang') || 'th',
-    difficulty: localStorage.getItem('ng_diff') || 'Normal',
-    mode: localStorage.getItem('ng_mode') || 'goodjunk',
-    score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best: parseInt(localStorage.getItem('ng_best')||'0'),
-    hits:0, misses:0, specials:{time:0,fever:0,slow:0,bomb:0,shield:0},
-    fever:false, shield:false };
-  function updateHUD(){ $("#score").textContent=state.score; $("#time").textContent=state.timeLeft; $("#best").textContent=state.best; $("#difficulty").textContent=state.difficulty; $("#combo").textContent='x'+state.combo; }
-
-  // THREE
+  // THREE & GAME
   const canvas=$("#c");
   const renderer=new THREE.WebGLRenderer({canvas, antialias:true}); renderer.setClearColor(0x061018,1); renderer.xr.enabled=true;
   try{ const VRB=window.VRButton||(window.THREE&&window.THREE.VRButton); const vrEl=(VRB&&VRB.createButton)?VRB.createButton(renderer):null; if(vrEl){ $("#vrSlot")?.replaceWith(vrEl); } }catch(e){}
@@ -123,13 +170,11 @@
   function emojiTexture(char){ const s=128, cnv=document.createElement('canvas'); cnv.width=cnv.height=s; const ctx=cnv.getContext('2d'); ctx.font="100px system-ui, Apple Color Emoji, Segoe UI Emoji"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(char,s/2,s/2); const tex=new THREE.CanvasTexture(cnv); tex.needsUpdate=true; return tex; }
   function makeEmoji(char){ const tex=emojiTexture(char); const geo=new THREE.PlaneGeometry(0.5,0.5); const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false}); const m=new THREE.Mesh(geo,mat); m.lookAt(camera.position); return m; }
 
-  // lanes
   const LANE_X=[-1.1,-0.55,0,0.55,1.1], LANE_Y=[-0.2,0.0,0.18,0.32], LANE_Z=-2.2;
   const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now(); const isAdj=(r,c)=>{ if(!lastLane) return false; const [pr,pc]=lastLane; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
   function pickLane(){ const cand=[]; for(let r=0;r<LANE_Y.length;r++){ for(let c=0;c<LANE_X.length;c++){ const k=r+','+c, cd=cooldown.get(k)||0, free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); }} if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); lastLane=[p.r,p.c]; return {x:LANE_X[p.c], y:1.6+LANE_Y[p.r], z:LANE_Z-0.1*Math.abs(p.c-2), key:p.k}; }
   function releaseLane(k){ occupied.delete(k); cooldown.set(k, now()+800); }
 
-  // library
   const LIB={
     good:["🥦","🍎","🍌","🍅","🥕","🍇","🍗","🥛","🍠","🌽","🥬","🍊"],
     junk:["🍟","🍔","🍕","🌭","🍰","🍩","🧁","🥤","🍫"],
@@ -138,159 +183,160 @@
     special:{time:"⏱️", fever:"🔥", slow:"🐢", bomb:"💣", shield:"🛡️"}
   };
   const groupsArr=['grains','protein','veggies','fruits','dairy'];
-
   function pickMeta(){
-    if(Math.random()<0.14){ const sp=['time','fever','slow','bomb','shield']; return {special: sp[Math.floor(Math.random()*sp.length)]}; }
-    if(state.mode==='goodjunk'){ const goodBias=state.difficulty==='Easy'?0.72:state.difficulty==='Hard'?0.46:0.6; return {good: Math.random()<goodBias}; }
-    if(state.mode==='groups'){ return {group: groupsArr[Math.floor(Math.random()*groupsArr.length)]}; }
-    if(state.mode==='hydration'){ const rate=state.difficulty==='Easy'?0.78:state.difficulty==='Hard'?0.55:0.66; const isWater=Math.random()<rate; return {hydra: isWater?'water':(Math.random()<0.5?'soda':'sugar')}; }
+    const r=Math.random();
+    if(r<0.14){ const sp=['time','fever','slow','bomb','shield']; return {special: sp[Math.floor(Math.random()*sp.length)]}; }
+    if(game.state.mode==='goodjunk'){ const goodBias=game.state.difficulty==='Easy'?0.72:game.state.difficulty==='Hard'?0.46:0.6; return {good: Math.random()<goodBias}; }
+    if(game.state.mode==='groups'){ return {group: groupsArr[Math.floor(Math.random()*groupsArr.length)]}; }
+    if(game.state.mode==='hydration'){ const rate=game.state.difficulty==='Easy'?0.78:game.state.difficulty==='Hard'?0.55:0.66; const isWater=Math.random()<rate; return {hydra: isWater?'water':(Math.random()<0.5?'soda':'sugar')}; }
     const g=groupsArr[Math.floor(Math.random()*groupsArr.length)]; return {group:g, plate:true};
   }
   function charFor(meta){
     return meta.special ? LIB.special[meta.special] :
-      (state.mode==='goodjunk' ? (meta.good? LIB.good[Math.floor(Math.random()*LIB.good.length)] : LIB.junk[Math.floor(Math.random()*LIB.junk.length)]) :
-       state.mode==='groups' ? LIB.groups[meta.group][Math.floor(Math.random()*LIB.groups[meta.group].length)] :
-       state.mode==='hydration' ? (meta.hydra==='water' ? LIB.hydra.water[0] : (Math.random()<0.5?LIB.hydra.sugar[0]:LIB.hydra.soda[0])) : "🍽️");
+      (game.state.mode==='goodjunk' ? (meta.good? LIB.good[Math.floor(Math.random()*LIB.good.length)] : LIB.junk[Math.floor(Math.random()*LIB.junk.length)]) :
+       game.state.mode==='groups' ? LIB.groups[meta.group][Math.floor(Math.random()*LIB.groups[meta.group].length)] :
+       game.state.mode==='hydration' ? (meta.hydra==='water' ? LIB.hydra.water[0] : (Math.random()<0.5?LIB.hydra.sugar[0]:LIB.hydra.soda[0])) : "🍽️");
   }
-
   function toScreen(pos){ const v=pos.clone().project(camera); return { x:(v.x*0.5+0.5)*innerWidth, y:(-v.y*0.5+0.5)*innerHeight }; }
   function floatScoreAt(pos, text, positive=true){
-    const p=toScreen(pos);
-    const el=document.createElement('div'); el.className='floatScore'; el.textContent=text;
-    el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.color= positive? '#7fffd4' : '#ff8899';
-    el.style.animation='popUp 700ms ease-out forwards'; document.body.appendChild(el); setTimeout(()=>el.remove(), 750);
+    const p=toScreen(pos); const el=document.createElement('div'); el.className='floatScore'; el.textContent=text;
+    el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.position='fixed'; el.style.zIndex=2147483640;
+    el.style.color= positive? '#7fffd4' : '#ff8899'; el.style.animation='popUp 700ms ease-out forwards';
+    document.body.appendChild(el); setTimeout(()=>el.remove(), 750);
   }
 
-  const ACTIVE=new Set();
+  // Game core
+  const game={
+    state:{ lang: localStorage.getItem('ng_lang') || 'th',
+      difficulty: localStorage.getItem('ng_diff') || 'Normal',
+      mode: localStorage.getItem('ng_mode') || 'goodjunk',
+      score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best: parseInt(localStorage.getItem('ng_best')||'0'),
+      hits:0, misses:0, specials:{time:0,fever:0,slow:0,bomb:0,shield:0},
+      fever:false, shield:false },
+    ACTIVE:new Set(), timers:{spawn:null,time:null,watch:null}, counters:{spawn:0,wd:0},
+    currentTarget:'grains', targetHits:0, plateQuota:null
+  };
+  function updateHUD(){ $("#score").textContent=game.state.score; $("#time").textContent=game.state.timeLeft; $("#best").textContent=game.state.best; $("#difficulty").textContent=game.state.difficulty; $("#combo").textContent='x'+game.state.combo; }
+  function nextTarget(){ const arr=groupsArr.filter(x=>x!==game.currentTarget); game.currentTarget = arr[Math.floor(Math.random()*arr.length)]; }
+  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(game.state.difficulty==='Hard') base.veggies=3; game.plateQuota=base; }
+  function setFever(on){ game.state.fever=on; document.body.classList.toggle('fever', on); }
+  let feverTimer=null; function enterFever(ms=6500){ if(feverTimer) clearTimeout(feverTimer); setFever(true); feverTimer=setTimeout(()=>setFever(false), ms); }
+  function comboBreak(){ game.state.combo=1; setFever(false); updateHUD(); }
+
+  function destroy(obj){ if(obj.parent) obj.parent.remove(obj); game.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
+
   function spawn(){
     const lane=pickLane(); if(!lane) return;
     const meta=pickMeta(); const ch=charFor(meta);
     const m=makeEmoji(ch); m.position.set(lane.x,lane.y,lane.z); m.userData={lane:lane.key, meta};
-    group.add(m); ACTIVE.add(m);
-
-    const life= state.difficulty==='Hard'?1900:state.difficulty==='Easy'?4200:3000;
+    group.add(m); game.ACTIVE.add(m);
+    const life= game.state.difficulty==='Hard'?1900:game.state.difficulty==='Easy'?4200:3000;
     m.userData.timer = setTimeout(()=>{ if(!m.parent) return;
       if(!meta.special){
-        if(state.mode==='goodjunk'){ if(meta.good===false){ state.score+=1; state.misses++; updateHUD(); } else { comboBreak(); } }
-        else if(state.mode==='groups'){ if(meta.group===currentTarget){ comboBreak(); } }
-        else if(state.mode==='hydration'){ if(meta.hydra!=='water'){ state.score+=1; state.misses++; updateHUD(); } }
+        if(game.state.mode==='goodjunk'){ if(meta.good===false){ game.state.score+=1; game.state.misses++; updateHUD(); } else { comboBreak(); } }
+        else if(game.state.mode==='groups'){ if(meta.group===game.currentTarget){ comboBreak(); } }
+        else if(game.state.mode==='hydration'){ if(meta.hydra!=='water'){ game.state.score+=1; game.state.misses++; updateHUD(); } }
       }
       destroy(m);
     }, life + Math.floor(Math.random()*500-250));
   }
-  function destroy(obj){ if(obj.parent) obj.parent.remove(obj); ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
-
-  // Scoring
-  let currentTarget='grains', plateQuota=null, targetHits=0;
-  function nextTarget(){ const arr=groupsArr.filter(x=>x!==currentTarget); currentTarget = arr[Math.floor(Math.random()*arr.length)]; }
-  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(state.difficulty==='Hard') base.veggies=3; plateQuota=base; }
-  function comboBreak(){ state.combo=1; setFever(false); updateHUD(); }
-  const FEVER_MULT=2.0, FEVER_BONUS=1; let feverTimer=null;
-  function setFever(on){ state.fever=on; document.body.classList.toggle('fever', on); }
-  function enterFever(ms=6500){ if(feverTimer) clearTimeout(feverTimer); setFever(true); feverTimer=setTimeout(()=>setFever(false), ms); }
 
   function handleHit(obj){
     audioInit();
     const m=obj.userData.meta;
     let positive=false, delta=0, base=0;
     if(m.special){
-      state.specials[m.special] = (state.specials[m.special]||0)+1;
-      if(m.special==='time'){ state.timeLeft=Math.min(99, state.timeLeft+5); delta=0; positive=true; showToast('+5s'); ding(); }
+      game.state.specials[m.special] = (game.state.specials[m.special]||0)+1;
+      if(m.special==='time'){ game.state.timeLeft=Math.min(99, game.state.timeLeft+5); positive=true; showToast('+5s'); ding(); }
       if(m.special==='fever'){ enterFever(); positive=true; showToast('FEVER!'); ding(); }
-      if(m.special==='slow'){ const old=state.difficulty; state.difficulty='Easy'; setTimeout(()=>state.difficulty=old,2600); positive=true; showToast('Slow'); }
-      if(m.special==='bomb'){ comboBreak(); state.score=Math.max(0, state.score-5); delta=-5; positive=false; thud(); }
-      if(m.special==='shield'){ state.shield=true; positive=true; showToast('Shield'); }
-      updateHUD();
-      if(delta!==0) floatScoreAt(obj.position, (delta>0?'+':'')+delta, delta>0);
-      return;
+      if(m.special==='slow'){ const old=game.state.difficulty; game.state.difficulty='Easy'; setTimeout(()=>game.state.difficulty=old,2600); positive=true; showToast('Slow'); }
+      if(m.special==='bomb'){ comboBreak(); game.state.score=Math.max(0, game.state.score-5); delta=-5; positive=false; thud(); }
+      if(m.special==='shield'){ game.state.shield=true; positive=true; showToast('Shield'); }
+      updateHUD(); if(delta!==0) floatScoreAt(obj.position, (delta>0?'+':'')+delta, delta>0); return;
     }
-    if(state.mode==='goodjunk'){ const good=m.good===true; base=good?6:-3; delta = good? base*state.combo : base; positive = delta>0; if(!good) { thud(); comboBreak(); } else { ding(); state.hits++; } }
-    else if(state.mode==='groups'){ const good=m.group===currentTarget; base=good?7:-2; delta = good? base*state.combo : base; positive=delta>0; if(good){ state.hits++; targetHits++; ding(); if(targetHits>=3){ nextTarget(); targetHits=0; } } else { thud(); comboBreak(); } }
-    else if(state.mode==='hydration'){ const good=m.hydra==='water'; base=good?5:-4; delta = good? base*state.combo : base; positive=delta>0; if(good){ state.hits++; ding(); if(state.combo%3===0){ state.timeLeft=Math.min(99, state.timeLeft+2); showToast('+2s'); } } else { thud(); comboBreak(); } }
-    else { if(m.group){ if(!plateQuota) resetPlateQuota(); if(plateQuota[m.group]>0){ positive=true; state.hits++; base=6; plateQuota[m.group]-=1; if(Object.values(plateQuota).every(v=>v<=0)){ base+=14; resetPlateQuota(); showToast('Plate!'); } delta = base*state.combo; ding(); } else { delta=2; positive=true; state.hits++; ding(); } } }
-    if(state.fever && delta>0){ delta = Math.round(delta*FEVER_MULT) + FEVER_BONUS; }
-    state.score=Math.max(0, state.score+delta);
-    if(positive){ state.combo=Math.min(6,state.combo+1); state.comboMax=Math.max(state.comboMax,state.combo); if(state.combo>=4 && !state.fever) enterFever(); } else { state.misses++; }
-    updateHUD();
-    if(delta!==0) floatScoreAt(obj.position, (delta>0?'+':'')+delta, delta>0);
+    if(game.state.mode==='goodjunk'){ const good=m.good===true; base=good?6:-3; delta = good? base*game.state.combo : base; positive = delta>0; if(!good) { thud(); comboBreak(); } else { ding(); game.state.hits++; } }
+    else if(game.state.mode==='groups'){ const good=m.group===game.currentTarget; base=good?7:-2; delta = good? base*game.state.combo : base; positive=delta>0; if(good){ game.state.hits++; game.targetHits++; ding(); if(game.targetHits>=3){ nextTarget(); game.targetHits=0; } } else { thud(); comboBreak(); } }
+    else if(game.state.mode==='hydration'){ const good=m.hydra==='water'; base=good?5:-4; delta = good? base*game.state.combo : base; positive=delta>0; if(good){ game.state.hits++; ding(); if(game.state.combo%3===0){ game.state.timeLeft=Math.min(99, game.state.timeLeft+2); showToast('+2s'); } } else { thud(); comboBreak(); } }
+    else { if(m.group){ if(!game.plateQuota) resetPlateQuota(); if(game.plateQuota[m.group]>0){ positive=true; game.state.hits++; base=6; game.plateQuota[m.group]-=1; if(Object.values(game.plateQuota).every(v=>v<=0)){ base+=14; resetPlateQuota(); showToast('Plate!'); } delta = base*game.state.combo; ding(); } else { delta=2; positive=true; game.state.hits++; ding(); } } }
+    if(game.state.fever && delta>0){ delta = Math.round(delta*2.0) + 1; }
+    game.state.score=Math.max(0, game.state.score+delta);
+    if(positive){ game.state.combo=Math.min(6,game.state.combo+1); game.state.comboMax=Math.max(game.state.comboMax,game.state.combo); if(game.state.combo>=4 && !game.state.fever) enterFever(); } else { game.state.misses++; }
+    updateHUD(); if(delta!==0) floatScoreAt(obj.position, (delta>0?'+':'')+delta, delta>0);
   }
 
-  // Input
   function onClickCanvas(ev){
-    if(!state.running||state.paused) return;
+    if(!game.state.running||game.state.paused) return;
     const r=canvas.getBoundingClientRect(); const x=(ev.clientX-r.left)/r.width*2-1; const y=-(ev.clientY-r.top)/r.height*2+1;
     const m=new THREE.Vector2(x,y); raycaster.setFromCamera(m,camera);
-    const inter=raycaster.intersectObjects(Array.from(ACTIVE));
+    const inter=raycaster.intersectObjects(Array.from(game.ACTIVE));
     if(inter.length){ const obj=inter[0].object; handleHit(obj); destroy(obj); }
   }
   canvas.addEventListener('click', onClickCanvas);
   canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClickCanvas({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
 
-  // Gaze dwell
-  let gazeTarget=null, gazeStart=0; const DWELL=700;
-  function handleGaze(){
-    if(!state.running||state.paused) return;
-    raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
-    const inter=raycaster.intersectObjects(Array.from(ACTIVE));
-    if(inter.length>0){
-      const o=inter[0].object;
-      if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); $("#ret").classList.add('progress'); }
-      else if(performance.now()-gazeStart >= DWELL){ handleHit(o); destroy(o); gazeTarget=null; $("#ret").classList.remove('progress'); }
-    } else { gazeTarget=null; $("#ret").classList.remove('progress'); }
-  }
-
-  // Loops
   let spH=null, tmH=null, watchdogH=null, SPAWN_COUNT=0, WD=0;
-  function loop(){ if(!state.running||state.paused) return; spawn(); SPAWN_COUNT++; spH=setTimeout(loop, 700); }
-  function timer(){ if(!state.running||state.paused) return; tmH=setTimeout(()=>{ state.timeLeft--; updateHUD(); if(state.timeLeft<=0){ endGame(); } else timer(); }, 1000); }
+  function loop(){ if(!game.state.running||game.state.paused) return; spawn(); SPAWN_COUNT++; spH=setTimeout(loop, 700); }
+  function timer(){ if(!game.state.running||game.state.paused) return; tmH=setTimeout(()=>{ game.state.timeLeft--; updateHUD(); if(game.state.timeLeft<=0){ endGame(); } else timer(); }, 1000); }
 
   function start(){
-    $("#summary").style.display='none'; state.score=0; state.combo=1; state.comboMax=1; state.timeLeft=60; state.hits=0; state.misses=0; state.specials={time:0,fever:0,slow:0,bomb:0,shield:0}; updateHUD();
-    if(state.mode==='groups'){ nextTarget(); } if(state.mode==='plate'){ resetPlateQuota(); }
-    state.running=true; state.paused=false; dbg('running');
+    $("#summary").style.display='none'; $("#help").style.display='none';
+    game.state.score=0; game.state.combo=1; game.state.comboMax=1; game.state.timeLeft=60; game.state.hits=0; game.state.misses=0; game.state.specials={time:0,fever:0,slow:0,bomb:0,shield:0};
+    if(game.state.mode==='groups'){ nextTarget(); } if(game.state.mode==='plate'){ resetPlateQuota(); }
+    updateHUD(); game.state.running=true; game.state.paused=false; dbg('running');
     setTimeout(spawn, 200); loop(); timer();
-    clearTimeout(watchdogH); let seenT=state.timeLeft, seenS=SPAWN_COUNT;
-    (function kick(){ const stuck=(seenT===state.timeLeft)||(seenS===SPAWN_COUNT); if(stuck){ WD++; clearTimeout(spH); clearTimeout(tmH); setTimeout(()=>{ spawn(); loop(); timer(); },150); } seenT=state.timeLeft; seenS=SPAWN_COUNT; watchdogH=setTimeout(kick,1200); })();
+    clearTimeout(watchdogH); let seenT=game.state.timeLeft, seenS=SPAWN_COUNT;
+    (function kick(){ const stuck=(seenT===game.state.timeLeft)||(seenS===SPAWN_COUNT); if(stuck){ WD++; clearTimeout(spH); clearTimeout(tmH); setTimeout(()=>{ spawn(); loop(); timer(); },150); } seenT=game.state.timeLeft; seenS=SPAWN_COUNT; watchdogH=setTimeout(kick,1200); })();
   }
-  function pause(){ if(!state.running) return; state.paused=!state.paused; if(!state.paused){ loop(); timer(); } }
+  function pause(){ if(!game.state.running) return; game.state.paused=!game.state.paused; if(!game.state.paused){ loop(); timer(); } }
   function endGame(){
-    state.running=false; state.paused=false; clearTimeout(spH); clearTimeout(tmH);
-    if(state.score>state.best){ state.best=state.score; localStorage.setItem('ng_best', String(state.best)); }
-    const star=state.score>=240?3:state.score>=160?2:1; const b=state.best, s=state.specials, modeName=state.mode;
+    game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH);
+    if(game.state.score>game.state.best){ game.state.best=game.state.score; localStorage.setItem('ng_best', String(game.state.best)); }
+    const star=game.state.score>=240?3:game.state.score>=160?2:1; const b=game.state.best, s=game.state.specials, modeName=(game.state.mode==='goodjunk')?t('modeGJ'): (game.state.mode==='groups')?t('modeGroups'): (game.state.mode==='hydration')?t('modeHydra'):t('modePlate');
     $("#sumStars").textContent="★".repeat(star)+"☆".repeat(3-star);
     $("#sumBody").innerHTML = `<div style="line-height:1.7">
-        <b>Score</b>: ${state.score} (Best: ${b}) • <b>Combo Max</b>: x${state.comboMax}<br/>
-        <b>Hits</b>: ${state.hits} • <b>Misses</b>: ${state.misses}<br/>
+        <b>${t('score')}</b>: ${game.state.score} (${t('best')}: ${b}) • <b>Combo Max</b>: x${game.state.comboMax}<br/>
+        <b>Hits</b>: ${game.state.hits} • <b>Misses</b>: ${game.state.misses}<br/>
         <b>Power-ups</b>: ⏱️ ${s.time} • 🔥 ${s.fever} • 🐢 ${s.slow} • 🛡️ ${s.shield} • 💣 ${s.bomb}<br/>
-        <b>Mode</b>: ${modeName} • <b>Difficulty</b>: ${state.difficulty}
+        <b>${t('mode')}</b>: ${modeName} • <b>${t('diff')}</b>: ${game.state.difficulty}
       </div>`;
+    $("#sumTitle").textContent=t('summary');
     $("#summary").style.display='flex';
   }
 
-  // Resize & render
   function resize(){ const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
-  function renderLoop(){ const q=camera.quaternion; ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
+  function renderLoop(){ const q=camera.quaternion; game.ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
   renderer.setAnimationLoop(renderLoop);
+  let gazeTarget=null, gazeStart=0; const DWELL=700;
+  function handleGaze(){ if(!game.state.running||game.state.paused) return; raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+    const inter=raycaster.intersectObjects(Array.from(game.ACTIVE)); if(inter.length>0){ const o=inter[0].object; if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); $("#ret").classList.add('progress'); }
+      else if(performance.now()-gazeStart >= DWELL){ handleHit(o); destroy(o); gazeTarget=null; $("#ret").classList.remove('progress'); } }
+    else { gazeTarget=null; $("#ret").classList.remove('progress'); } }
 
-  // UI object must exist BEFORE binding
-  const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ state.running=false; state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; WD=0; start(); },
-             setMode:(m)=>{ state.mode=m; localStorage.setItem('ng_mode',m); $("#modeName").textContent=m; },
-             setDiff:(d)=>{ state.difficulty=d; localStorage.setItem('ng_diff',d); updateHUD(); },
-             toggleLang:()=>{ state.lang=(state.lang==='th'?'en':'th'); localStorage.setItem('ng_lang',state.lang); }};
+  // UI API
+  const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; WD=0; start(); },
+             setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); $("#modeName").textContent=(m==='goodjunk')?t('modeGJ'):(m==='groups')?t('modeGroups'):(m==='hydration')?t('modeHydra'):t('modePlate'); },
+             setDiff:(d)=>{ game.state.difficulty=d; localStorage.setItem('ng_diff',d); updateHUD(); },
+             toggleLang:()=>{ game.state.lang=(game.state.lang==='th'?'en':'th'); localStorage.setItem('ng_lang',game.state.lang); state.lang=game.state.lang; applyLang(); },
+             help: ()=>{ $('#help').style.display='flex'; $('#helpBody').innerHTML = I18N[game.state.lang].howtoHTML; },
+             helpClose: ()=>{ $('#help').style.display='none'; }
+           };
   window.UI=UI;
 
-  // Now bind menu (after UI exists)
+  // Bind menu
   $("#menuBar").addEventListener('click',(e)=>{
     const btn=e.target.closest('button'); if(!btn) return;
     const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value');
     e.preventDefault(); e.stopPropagation();
-    const map={start: UI.start, pause: UI.pause, restart: UI.restart, lang: UI.toggleLang, logger: ()=>{ const el=$("#clicklog"); el.style.display=(el.style.display==='none'?'block':'none'); }};
+    const map={start:UI.start,pause:UI.pause,restart:UI.restart,lang:UI.toggleLang,logger:()=>{ const el=$("#clicklog"); el.style.display=(el.style.display==='none'?'block':'none'); },help:UI.help};
     if(act in map) map[act](); else if(act==='mode') UI.setMode(val); else if(act==='diff') UI.setDiff(val);
     clog(`menu action=${act} value=${val||'-'}`);
   }, false);
+  $("#help").addEventListener('click',(e)=>{ if(e.target.id==='help') UI.helpClose(); });
+  $("#help").querySelector('[data-action=helpClose]').addEventListener('click', ()=>UI.helpClose());
 
   // Init
+  applyLang();
   updateHUD(); dbg('ready');
 })();</script>
 </body>
