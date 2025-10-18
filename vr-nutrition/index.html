@@ -3,19 +3,16 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>VR Nutrition — Gaze + Mouse Laser</title>
+  <title>VR Nutrition — Stable Mouse & VR</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
-    a-scene { position: fixed; inset: 0; z-index: 0 !important; }
-    canvas.a-canvas { z-index: 0 !important; }
-    /* ให้ UI คลิกได้แน่ ๆ และอยู่บนสุด */
+    /* ฉากอยู่ล่างสุด */
+    a-scene, canvas.a-canvas { position:fixed; inset:0; z-index:0 !important; }
+    /* UI อยู่บนสุดและรับคลิกแน่ ๆ */
     .hud, #menuBar, .overlay, .targetBox {
-      position: fixed;
-      z-index: 9999 !important;
-      pointer-events: auto !important;
-      font-family: system-ui, sans-serif; color: #0ff;
-      text-shadow: 0 0 8px rgba(0,255,255,.8);
+      position: fixed; z-index: 9999 !important; pointer-events: auto !important;
+      font-family: system-ui, sans-serif; color: #0ff; text-shadow: 0 0 8px rgba(0,255,255,.8);
     }
     .hud { left:50%; transform:translateX(-50%); top:10px; text-align:center }
     .hud .row { margin:6px 0; }
@@ -93,22 +90,18 @@
            background="color: #02040a">
 
     <a-assets>
-      <!-- UI -->
-      <img id="panel" src="assets/ui/panel.png">
-      <!-- Food (ตัวอย่าง; เติมรายการของคุณให้ครบ) -->
+      <!-- (assets ของคุณตามเดิม) -->
       <img id="apple" src="assets/images/apple.png">
       <img id="broccoli" src="assets/images/veggies.png">
       <img id="water" src="assets/images/water.png">
       <img id="burger" src="assets/images/burger.png">
       <img id="soda" src="assets/images/soda.png">
       <img id="donut" src="assets/images/donut.png">
-      <!-- Food Groups -->
       <img id="g_grains"  src="assets/images/grains.png">
       <img id="g_protein" src="assets/images/protein.png">
       <img id="g_veggies" src="assets/images/veggies.png">
       <img id="g_fruits"  src="assets/images/fruits.png">
       <img id="g_dairy"   src="assets/images/dairy.png">
-      <!-- Power-ups -->
       <img id="p_time"   src="assets/images/time.png">
       <img id="p_fever"  src="assets/images/fever.png">
       <img id="p_shield" src="assets/images/shield.png">
@@ -118,13 +111,7 @@
 
     <a-sky color="#050910"></a-sky>
 
-    <!-- หัวเรื่อง -->
-    <a-plane id="titlePanel" class="ui" src="#panel" position="0 1.6 -2" width="1.8" height="0.9"
-             material="transparent:true; depthTest:false; depthWrite:false; opacity:0.18"></a-plane>
-    <a-entity id="titleText" text="value: VR Nutrition; align: center; width: 3; color: #0ff" position="0 2.1 -2"></a-entity>
-    <a-entity id="subtitleText" text="value: Gaze + Mouse Laser; align: center; width: 3; color: #a0f" position="0 1.85 -2"></a-entity>
-
-    <!-- กล้องโหมดจ้อง (Gaze + Fuse) -->
+    <!-- กล้อง VR จ้อง + ฟิวส์ -->
     <a-entity id="playerCam"
               camera look-controls
               raycaster="objects: .clickable; far: 12"
@@ -134,21 +121,18 @@
                 material="color: #0ff; shader: flat; opacity: 0.9"></a-entity>
     </a-entity>
 
-    <!-- Mouse Laser (Desktop) -->
+    <!-- Cursor เมาส์มาตรฐาน (ปล่อยให้ A-Frame จัดการคลิกเอง) -->
     <a-entity id="mouseRig"
-              raycaster="objects: .clickable; far: 12"
-              cursor="rayOrigin: mouse">
-    </a-entity>
+              cursor="rayOrigin: mouse"
+              raycaster="objects: .clickable; far: 12"></a-entity>
 
-    <!-- เส้นเลเซอร์ (ซ่อนเมื่ออยู่ใน VR) -->
+    <!-- เส้นเลเซอร์โชว์เฉย ๆ (ไม่ดักคลิก) -->
     <a-entity id="mouseLaser"
               line="start: 0 0 0; end: 0 0 -1; color: #0ff"
               visible="false"></a-entity>
 
     <!-- จุดเกิดวัตถุ -->
     <a-entity id="spawnerRoot" position="0 1.6 -2.2"></a-entity>
-
-    <!-- Emoji menu ในฉาก -->
     <a-entity id="emojiMenuRoot" position="0 1.55 -2"></a-entity>
   </a-scene>
 
