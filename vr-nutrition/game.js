@@ -1,8 +1,8 @@
-
 (() => {
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
+  // ───────────────── I18N ─────────────────
   const i18n = {
     th: {
       start:"เริ่มเกม", pause:"พัก", how:"วิธีเล่น", restart:"เริ่มใหม่",
@@ -31,6 +31,7 @@
     }
   };
 
+  // ──────────────── STATE ────────────────
   const APP = {
     lang: localStorage.getItem("vrn_lang") || "th",
     voiceOn: JSON.parse(localStorage.getItem("vrn_voiceOn") || "true"),
@@ -42,6 +43,7 @@
     currentTarget: null
   };
 
+  // สร้างภารกิจรายวัน (คะแนนถึงเป้า)
   (function ensureMission(){
     const today = new Date().toISOString().slice(0,10);
     if(!APP.mission || APP.mission.date !== today){
@@ -54,23 +56,38 @@
     goodjunk: [
       {id:"#apple", good:true, label:"apple"},
       {id:"#broccoli", good:true, label:"veggies"},
-      {id:"#water", good:true, label:"water"},
+      {id:"#water",  good:true, label:"water"},
       {id:"#burger", good:false, label:"burger"},
-      {id:"#soda", good:false, label:"soda"},
-      {id:"#donut", good:false, label:"donut"}
+      {id:"#soda",   good:false, label:"soda"},
+      {id:"#donut",  good:false, label:"donut"}
     ],
     groups: [
-      {id:"#g_grains", group:"grains"},
+      {id:"#g_grains",  group:"grains"},
       {id:"#g_protein", group:"protein"},
       {id:"#g_veggies", group:"veggies"},
-      {id:"#g_fruits", group:"fruits"},
-      {id:"#g_dairy", group:"dairy"}
+      {id:"#g_fruits",  group:"fruits"},
+      {id:"#g_dairy",   group:"dairy"}
     ]
   };
-
   const targets = ["grains","protein","veggies","fruits","dairy"];
 
+  // ──────────────── UTIL ────────────────
   function t(k){ return i18n[APP.lang][k]; }
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+
+  function speak(thMsg, enMsg){
+    if(!APP.voiceOn) return;
+    const u = new SpeechSynthesisUtterance(APP.lang==="th"? thMsg : enMsg);
+    const voices = speechSynthesis.getVoices();
+    if(APP.lang==="th"){
+      const th = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("th"));
+      if(th) u.voice = th;
+    } else {
+      const en = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("en"));
+      if(en) u.voice = en;
+    }
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }
 
   function applyLang(){
     $("#lblScore").textContent = t("score");
@@ -90,23 +107,12 @@
     $("#missionTag").textContent = APP.lang==="th" ? i18n.th.daily : i18n.en.daily;
     $("#lblTarget").textContent = APP.lang==="th" ? i18n.th.target : i18n.en.target;
     $("#langText").textContent = (APP.lang==="th" ? "ไทย/English" : "English/ไทย");
-    $("#btnVoice").querySelector("span[data-i18n]").textContent = APP.voiceOn ? (APP.lang==="th" ? i18n.th.voiceOn : i18n.en.voiceOn) : (APP.lang==="th" ? i18n.th.voiceOff : i18n.en.voiceOff);
-    $("#modeName").textContent = APP.mode==="goodjunk" ? (APP.lang==="th"?i18n.th.modeGJ:i18n.en.modeGJ) : (APP.lang==="th"?i18n.th.modeGroups:i18n.en.modeGroups);
-  }
-
-  function speak(thMsg, enMsg){
-    if(!APP.voiceOn) return;
-    const u = new SpeechSynthesisUtterance(APP.lang==="th"? thMsg : enMsg);
-    const voices = speechSynthesis.getVoices();
-    if(APP.lang==="th"){
-      const th = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("th"));
-      if(th) u.voice = th;
-    } else {
-      const en = voices.find(v=> v.lang && v.lang.toLowerCase().startsWith("en"));
-      if(en) u.voice = en;
-    }
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
+    $("#btnVoice").querySelector("span[data-i18n]").textContent =
+      APP.voiceOn ? (APP.lang==="th" ? i18n.th.voiceOn : i18n.en.voiceOn)
+                  : (APP.lang==="th" ? i18n.th.voiceOff : i18n.en.voiceOff);
+    $("#modeName").textContent =
+      APP.mode==="goodjunk" ? (APP.lang==="th"?i18n.th.modeGJ:i18n.en.modeGJ)
+                            : (APP.lang==="th"?i18n.th.modeGroups:i18n.en.modeGroups);
   }
 
   function updateHUD(){
@@ -119,12 +125,12 @@
 
   function setMode(m){
     APP.mode = m; localStorage.setItem("vrn_mode", m);
-    $("#modeName").textContent = APP.mode==="goodjunk" ? (APP.lang==="th"?i18n.th.modeGJ:i18n.en.modeGJ) : (APP.lang==="th"?i18n.th.modeGroups:i18n.en.modeGroups);
+    $("#modeName").textContent =
+      APP.mode==="goodjunk" ? (APP.lang==="th"?i18n.th.modeGJ:i18n.en.modeGJ)
+                            : (APP.lang==="th"?i18n.th.modeGroups:i18n.en.modeGroups);
     const showTarget = (APP.mode==="groups");
     $("#targetBox").style.display = showTarget ? "block" : "none";
-    if(showTarget && !APP.currentTarget){
-      nextTarget();
-    }
+    if(showTarget && !APP.currentTarget){ nextTarget(); }
   }
 
   function setDiff(d){
@@ -132,16 +138,29 @@
     updateHUD();
   }
 
-  function rand(min,max){ return Math.random()*(max-min)+min; }
+  function hideTitleUI(){
+    ["titlePanel","titleText","subtitleText"].forEach(id=>{
+      const e = document.getElementById(id);
+      if(e) e.setAttribute("visible","false");
+    });
+  }
+  function showTitleUI(){
+    ["titlePanel","titleText","subtitleText"].forEach(id=>{
+      const e = document.getElementById(id);
+      if(e) e.setAttribute("visible","true");
+    });
+  }
 
+  // ──────────────── SPAWNER ────────────────
   function spawnOne(){
     const root = $("#spawnerRoot");
-    const y = rand(-0.4,0.4), x = rand(-1.0,1.0), z = rand(-1.0,1.0);
+    // root อยู่ที่ z=-2.2 ⇒ spawn ในช่วง −2.6..−1.8 ให้อยู่ในสายตาแน่
+    const y = rand(-0.20, 0.25), x = rand(-0.85, 0.85), z = rand(-0.40, 0.40);
     const life = APP.difficulty==="Hard" ? 2000 : APP.difficulty==="Easy" ? 4200 : 3000;
-    let src, meta={};
 
+    let src, meta={};
     if(APP.mode==="goodjunk"){
-      const goodBias = APP.difficulty==="Easy" ? 0.7 : APP.difficulty==="Hard" ? 0.45 : 0.58;
+      const goodBias = APP.difficulty==="Easy" ? 0.70 : APP.difficulty==="Hard" ? 0.45 : 0.58;
       const pool = Math.random()<goodBias ? foods.goodjunk.filter(f=>f.good) : foods.goodjunk.filter(f=>!f.good);
       const f = pool[Math.floor(Math.random()*pool.length)];
       src = f.id; meta.good = !!f.good;
@@ -153,37 +172,28 @@
     const ent = document.createElement("a-image");
     ent.setAttribute("src", src);
     ent.setAttribute("position", `${x} ${y} ${z}`);
-    ent.setAttribute("scale","0.62 0.62 0.62");
+    ent.setAttribute("scale","0.70 0.70 0.70");
     ent.setAttribute("class","clickable");
-    ent.setAttribute("opacity","0.95");
+    ent.setAttribute("material","shader: flat; transparent: true; opacity: 0.98");
     ent.dataset.meta = JSON.stringify(meta);
-    ent.setAttribute("animation__pulse","property: scale; dir: alternate; dur: 550; loop:true; to: 0.68 0.68 0.68");
+    ent.setAttribute("animation__pulse","property: scale; dir: alternate; dur: 550; loop:true; to: 0.78 0.78 0.78");
 
     const remove = ()=> ent.parentNode && ent.parentNode.removeChild(ent);
-
-    ent.addEventListener("click", ()=>{
-      handleHit(ent);
-      remove();
-    });
+    ent.addEventListener("click", ()=>{ handleHit(ent); remove(); });
     ent.addEventListener("mouseenter", ()=> ent.setAttribute("opacity","1.0"));
-    ent.addEventListener("mouseleave", ()=> ent.setAttribute("opacity","0.85"));
+    ent.addEventListener("mouseleave", ()=> ent.setAttribute("opacity","0.88"));
 
     root.appendChild(ent);
 
+    // ถ้าปล่อยผ่านจนหมดอายุ
     setTimeout(()=>{
       if(ent.parentNode){
         const meta = JSON.parse(ent.dataset.meta||"{}");
         if(APP.mode==="goodjunk"){
-          if(meta.good===false){
-            APP.score += 1; // avoidance bonus
-            updateHUD();
-          } else {
-            comboBreak();
-          }
+          if(meta.good===false){ APP.score += 1; updateHUD(); } // เลี่ยงขยะได้ → +1
+          else { comboBreak(); }
         } else {
-          if(meta.group===APP.currentTarget){
-            comboBreak();
-          }
+          if(meta.group===APP.currentTarget){ comboBreak(); }
         }
         remove();
       }
@@ -192,7 +202,7 @@
 
   function handleHit(ent){
     const meta = JSON.parse(ent.dataset.meta||"{}");
-    let good = false, delta=0;
+    let good = false, delta = 0;
 
     if(APP.mode==="goodjunk"){
       good = meta.good===true;
@@ -201,21 +211,15 @@
     } else {
       good = meta.group === APP.currentTarget;
       delta = good ? 6*APP.combo : -2;
-      if(good){
-        targetHits++;
-        if(targetHits>=targetHitNeed){ nextTarget(); }
-      } else {
-        comboBreak();
-      }
+      if(good){ targetHits++; if(targetHits>=targetHitNeed){ nextTarget(); } }
+      else comboBreak();
     }
 
     APP.score = Math.max(0, APP.score + delta);
-    if(good){
-      APP.combo = Math.min(5, APP.combo + 1);
-      APP.comboMax = Math.max(APP.comboMax, APP.combo);
-    }
+    if(good){ APP.combo = Math.min(5, APP.combo + 1); APP.comboMax = Math.max(APP.comboMax, APP.combo); }
     updateHUD();
 
+    // ข้อความลอย
     const fb = document.createElement("a-entity");
     const txt = good ? (APP.lang==="th" ? `ดีมาก! +${delta}` : `Nice! +${delta}`) : (APP.lang==="th" ? `พลาด ${delta}` : `Miss ${delta}`);
     fb.setAttribute("text", `value: ${txt}; align: center; width: 2.8; color: ${good?"#0f8":"#f55"}`);
@@ -226,51 +230,34 @@
     document.querySelector("a-scene").appendChild(fb);
     setTimeout(()=> fb.parentNode && fb.parentNode.removeChild(fb), 750);
 
+    // เสียงพูด
     speak(good ? i18n.th.tipsGood : i18n.th.tipsBad, good ? i18n.en.tipsGood : i18n.en.tipsBad);
   }
 
-  function comboBreak(){
-    APP.combo = 1; updateHUD();
-  }
+  function comboBreak(){ APP.combo = 1; updateHUD(); }
+
+  let spawnerHandle = null, targetHits=0, targetHitNeed=3;
 
   function nextTarget(){
     targetHits = 0;
-    targetHitNeed = 3;
     const pool = targets.slice();
-    if(APP.currentTarget){
-      const idx = pool.indexOf(APP.currentTarget);
-      if(idx>=0) pool.splice(idx,1);
-    }
+    if(APP.currentTarget){ const i = pool.indexOf(APP.currentTarget); if(i>=0) pool.splice(i,1); }
     APP.currentTarget = pool[Math.floor(Math.random()*pool.length)];
     $("#targetName").textContent = APP.currentTarget.toUpperCase();
-    speak(APP.lang==="th" ? ("เป้าหมาย: "+translateGroup(APP.currentTarget,"th")) : ("Target: "+translateGroup(APP.currentTarget,"en")));
+    speak(APP.lang==="th" ? ("เป้าหมาย: "+translateGroup(APP.currentTarget,"th"))
+                          : ("Target: "+translateGroup(APP.currentTarget,"en")));
   }
 
   function translateGroup(g, lang="th"){
     const map = {
-      grains: {th:"ธัญพืช", en:"Grains"},
+      grains:{th:"ธัญพืช", en:"Grains"},
       protein:{th:"โปรตีน", en:"Protein"},
       veggies:{th:"ผัก", en:"Veggies"},
-      fruits: {th:"ผลไม้", en:"Fruits"},
-      dairy:  {th:"นม/นมถั่วเหลือง", en:"Dairy"}
+      fruits:{th:"ผลไม้", en:"Fruits"},
+      dairy:{th:"นม/นมถั่วเหลือง", en:"Dairy"}
     };
     return map[g] ? map[g][lang] : g;
   }
-
-  function timerTick(){
-    if(!APP.running || APP.paused) return;
-    setTimeout(()=>{
-      APP.timeLeft -= 1;
-      updateHUD();
-      if(APP.timeLeft<=0){
-        endGame();
-      } else {
-        timerTick();
-      }
-    }, 1000);
-  }
-
-  let spawnerHandle = null, targetHits=0, targetHitNeed=3;
 
   function loop(){
     if(!APP.running || APP.paused) return;
@@ -280,40 +267,40 @@
     spawnerHandle = setTimeout(loop, rate);
   }
 
+  function timerTick(){
+    if(!APP.running || APP.paused) return;
+    setTimeout(()=>{
+      APP.timeLeft -= 1; updateHUD();
+      if(APP.timeLeft<=0){ endGame(); } else { timerTick(); }
+    }, 1000);
+  }
+
   function startGame(){
     if(APP.running && !APP.paused) return;
     if(!APP.running){
       APP.score = 0; APP.combo=1; APP.comboMax=1; APP.timeLeft = 60; updateHUD();
       if(APP.mode==="groups"){ nextTarget(); }
       speak(APP.lang==="th" ? "เริ่มเกม!" : "Start!");
-    } else {
-      speak(APP.lang==="th" ? "เล่นต่อ" : "Resume");
-    }
-    APP.running = true; APP.paused=false; hideTitleUI();
+    } else speak(APP.lang==="th" ? "เล่นต่อ" : "Resume");
+
+    APP.running = true; APP.paused=false;
     $("#summary").style.display = "none";
+    hideTitleUI();
     loop(); timerTick();
   }
 
   function pauseGame(){
     if(!APP.running) return;
     APP.paused = !APP.paused;
-    if(APP.paused){
-      clearTimeout(spawnerHandle);
-      speak(APP.lang==="th" ? "พักเกม" : "Paused");
-    } else {
-      speak(APP.lang==="th" ? "เล่นต่อ" : "Resume");
-      loop(); timerTick();
-    }
+    if(APP.paused){ clearTimeout(spawnerHandle); speak(APP.lang==="th" ? "พักเกม" : "Paused"); }
+    else { speak(APP.lang==="th" ? "เล่นต่อ" : "Resume"); loop(); timerTick(); }
   }
 
   function endGame(){
     APP.running=false; APP.paused=false; clearTimeout(spawnerHandle);
     if(APP.score>APP.best){ APP.best = APP.score; localStorage.setItem("vrn_best", String(APP.best)); }
-
     const mission = JSON.parse(localStorage.getItem("vrn_mission"));
-    if(mission && !mission.achieved && APP.score>=mission.goal){
-      mission.achieved = true; localStorage.setItem("vrn_mission", JSON.stringify(mission));
-    }
+    if(mission && !mission.achieved && APP.score>=mission.goal){ mission.achieved = true; localStorage.setItem("vrn_mission", JSON.stringify(mission)); }
 
     const star = APP.score>=180 ? 3 : APP.score>=120 ? 2 : 1;
     $("#sumStars").textContent = "★".repeat(star) + "☆".repeat(3-star);
@@ -322,6 +309,7 @@
     speak(APP.lang==="th" ? `จบเกม คะแนน ${APP.score}` : `Finished, score ${APP.score}`);
   }
 
+  // ──────────────── BINDINGS ────────────────
   $("#btnStart").addEventListener("click", startGame);
   $("#btnPause").addEventListener("click", pauseGame);
   $("#btnHow").addEventListener("click", ()=>{
@@ -345,10 +333,10 @@
     applyLang();
     if(APP.voiceOn) speak(APP.lang==="th"? i18n.th.voiceOn : i18n.en.voiceOn);
   });
-
-  $$("#modeBar .tag").forEach(tag=> tag.addEventListener("click", ()=> { setMode(tag.getAttribute("data-mode")); applyLang(); }));
+  $$("#modeBar .tag").forEach(tag=> tag.addEventListener("click", ()=>{ setMode(tag.getAttribute("data-mode")); applyLang(); }));
   $$("#diffBar .tag").forEach(tag=> tag.addEventListener("click", ()=> setDiff(tag.getAttribute("data-diff"))));
 
+  // ──────────────── INIT ────────────────
   applyLang(); updateHUD(); setMode(APP.mode); setDiff(APP.difficulty);
-  window.APP_VR_NUTRITION = APP;
+  window.APP_VR_NUTRITION = APP; // debug hook
 })();
