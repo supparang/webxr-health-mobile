@@ -21,7 +21,7 @@
   </style>
 </head>
 <body>
-  <!-- Header พร้อมปุ่ม Settings -->
+  <!-- Header -->
   <header class="hud">
     <div class="box"><strong>EXO TRAINING PROTOCOL</strong></div>
     <div class="box right">
@@ -33,7 +33,7 @@
 
   <main class="grid">
     <!-- Dashboard -->
-    <section class="card" id="cardDash">
+    <section class="card" id="cardDashboard">
       <h3>Dashboard</h3>
       <div class="row"><div class="muted">Rank</div><div id="rank" style="margin-left:auto;font-weight:700">-</div></div>
       <div class="row"><div class="muted">Level</div><div id="level" style="margin-left:auto;font-weight:700">1</div></div>
@@ -68,7 +68,7 @@
       <p class="muted">เกม 1 — ตอบสนองไว ตีเป้าเข้า Hit Line</p>
       <div class="row"><label>Difficulty</label><select id="combatDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
       <div class="row"><label>Time (s)</label><input id="combatTime" type="number" value="60" min="10" max="600" step="5"></div>
-      <!-- ✅ Items toggle -->
+      <!-- Items -->
       <div class="row">
         <label>Items</label>
         <label style="display:flex;align-items:center;gap:8px">
@@ -104,7 +104,7 @@
     </section>
 
     <!-- Mobility Dash -->
-    <section class="card" id="cardDash">
+    <section class="card" id="cardDashMobility">
       <h3>Mobility Dash</h3>
       <p class="muted">เกม 3 — สลับเลนหลบสิ่งกีดขวาง</p>
       <div class="row"><label>Difficulty</label><select id="dashDiff"><option>easy</option><option selected>normal</option><option>hard</option></select></div>
@@ -126,97 +126,108 @@
   <script src="core/exo-metrics.js"></script>
   <script src="core/exo-settings.js"></script>
   <script>
-    // ----- Dashboard -----
-    function fmtSec(s){ const m=Math.floor(s/60), r=s%60; return (m? m+'m ':'')+r+'s'; }
-    function refreshDash(){
-      const d = EXO_METRICS.dashboard();
-      rank.textContent  = d.profile.rank || '-';
-      level.textContent = d.profile.level;
-      const need = d.profile.level*500;
-      const pct = Math.min(100, Math.round((d.profile.xp/need)*100));
-      xpbar.style.width = pct+'%';
-      sess.textContent  = d.totals.sessions;
-      ttime.textContent = fmtSec(d.totals.time|0);
-      tscore.textContent= d.totals.score|0;
-      avg.textContent   = d.totals.avgScore|0;
+    const $ = (id)=> document.getElementById(id);
 
-      recent.innerHTML='';
-      d.recent.forEach(s=>{
-        const li=document.createElement('li');
-        const dt=new Date(s.t).toLocaleString();
-        li.textContent = `[${dt}] ${s.module} (${s.diff}) — Score ${s.score}, Acc ${Math.round((s.accuracy||0)*10)/10}%`;
-        recent.appendChild(li);
+    document.addEventListener('DOMContentLoaded', ()=> {
+      // ----- Dashboard -----
+      function fmtSec(s){ const m=Math.floor(s/60), r=s%60; return (m? m+'m ':'')+r+'s'; }
+      function refreshDash(){
+        try{
+          const d = (window.EXO_METRICS && EXO_METRICS.dashboard) ? EXO_METRICS.dashboard() : {
+            profile: {rank:'-', level:1, xp:0},
+            totals: {sessions:0, time:0, score:0, avgScore:0},
+            recent:[]
+          };
+          $('rank').textContent  = d.profile.rank || '-';
+          $('level').textContent = d.profile.level;
+          const need = d.profile.level*500;
+          const pct = Math.min(100, Math.round(((d.profile.xp||0)/need)*100));
+          $('xpbar').style.width = pct+'%';
+          $('sess').textContent  = d.totals.sessions||0;
+          $('ttime').textContent = fmtSec((d.totals.time|0));
+          $('tscore').textContent= d.totals.score|0;
+          $('avg').textContent   = d.totals.avgScore|0;
+          const recent = $('recent'); recent.innerHTML='';
+          (d.recent||[]).slice(0,5).forEach(s=>{
+            const li=document.createElement('li');
+            const dt=new Date(s.t||Date.now()).toLocaleString();
+            li.textContent = `[${dt}] ${s.module||'?'} (${s.diff||'-'}) — Score ${s.score||0}, Acc ${Math.round(((s.accuracy||0)*10))/10}%`;
+            recent.appendChild(li);
+          });
+        }catch(e){}
+      }
+      refreshDash();
+
+      // ----- Workout Program -----
+      const programs = {
+        quick: [
+          'shadow-breaker/play.html?diff=normal&time=60',
+          'cardio-sprint/play.html?diff=normal&time=60',
+          'rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
+          'sky-squats/play.html?diff=normal&time=60'
+        ],
+        rhythm: [
+          'rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
+          'rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
+          'rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json'
+        ],
+        lower: [
+          'sky-squats/play.html?diff=easy&time=45',
+          'sky-squats/play.html?diff=normal&time=60',
+          'cardio-sprint/play.html?diff=normal&time=60'
+        ]
+      };
+
+      const btnProg = $('btnProg');
+      btnProg && (btnProg.onclick = () => {
+        const key = $('progSel').value;
+        const plan = programs[key] || programs.quick;
+        (window.EXO && EXO.store) && EXO.store.set('EXO_PLAN', {idx:0, paths:plan});
+        location.href = plan[0] + '&next=program.html';
       });
-    }
-    refreshDash();
 
-    // ----- Workout Program -----
-    const programs = {
-      quick: [
-        'shadow-breaker/play.html?diff=normal&time=60',
-        'cardio-sprint/play.html?diff=normal&time=60',
-        'rhythm-rider/play.html?diff=normal&bpm=110&chart=rhythm-rider/charts/normal.json',
-        'sky-squats/play.html?diff=normal&time=60'
-      ],
-      rhythm: [
-        'rhythm-rider/play.html?diff=easy&bpm=100&chart=rhythm-rider/charts/easy.json',
-        'rhythm-rider/play.html?diff=normal&bpm=120&chart=rhythm-rider/charts/normal.json',
-        'rhythm-rider/play.html?diff=hard&bpm=135&chart=rhythm-rider/charts/hard.json'
-      ],
-      lower: [
-        'sky-squats/play.html?diff=easy&time=45',
-        'sky-squats/play.html?diff=normal&time=60',
-        'cardio-sprint/play.html?diff=normal&time=60'
-      ]
-    };
+      // ----- Rhythm card -----
+      const preset = $('chartPreset'), customWrap = $('customWrap'), chartUrl = $('chartUrl');
+      preset && preset.addEventListener('change', ()=>{ if(customWrap) customWrap.style.display = (preset.value==='__custom__') ? 'flex':'none'; });
+      const btnRhythm = $('btnRhythm');
+      btnRhythm && (btnRhythm.onclick = () => {
+        const diff = $('rhythmDiff').value;
+        const bpm  = Math.max(60, Math.min(220, parseInt(($('rhythmBpm').value||'110'),10)));
+        let url = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
+        const p = preset?.value;
+        if (p){
+          url += '&chart=' + encodeURIComponent(p==='__custom__' ? (chartUrl?.value||'').trim() : p);
+        }
+        location.href = url;
+      });
 
-    btnProg.onclick = () => {
-      const key = progSel.value;
-      const plan = programs[key] || programs.quick;
-      EXO.store.set('EXO_PLAN', {idx:0, paths:plan});
-      location.href = plan[0] + '&next=program.html';
-    };
+      // ----- Combat card -----
+      const btnCombat = $('btnCombat');
+      btnCombat && (btnCombat.onclick = () => {
+        const diff = $('combatDiff').value;
+        const t = Math.max(10, Math.min(600, parseInt(($('combatTime').value||'60'),10)));
+        let url = `shadow-breaker/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
+        const itemTime = $('combatItemTime')?.checked;
+        if (itemTime) url += '&timeorb=1&timegain=1';
+        location.href = url;
+      });
 
-    // ----- Rhythm -----
-    chartPreset.addEventListener('change', ()=>{ customWrap.style.display = (chartPreset.value==='__custom__') ? 'flex':'none'; });
-    btnRhythm.onclick = () => {
-      const diff = rhythmDiff.value;
-      const bpm  = Math.max(60, Math.min(220, parseInt(rhythmBpm.value||'110',10)));
-      let url = 'rhythm-rider/play.html?diff='+encodeURIComponent(diff)+'&bpm='+encodeURIComponent(bpm);
-      const preset = chartPreset.value;
-      if (preset){
-        url += '&chart=' + encodeURIComponent(preset==='__custom__'? chartUrl.value.trim() : preset);
-      }
-      location.href = url;
-    };
+      // ----- Dash card -----
+      const btnDash = $('btnDash');
+      btnDash && (btnDash.onclick = () => {
+        const diff = $('dashDiff').value;
+        const t = Math.max(10, Math.min(600, parseInt(($('dashTime').value||'60'),10)));
+        location.href = `cardio-sprint/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
+      });
 
-    // ----- Combat -----
-    btnCombat.onclick = () => {
-      const diff = combatDiff.value;
-      const t = Math.max(10, Math.min(600, parseInt(combatTime.value||'60',10)));
-      let url = `shadow-breaker/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
-
-      // ✅ ถ้าเลือก Items → ใส่พารามิเตอร์เปิด Time Orb + Time Gain
-      const itemTime = document.getElementById('combatItemTime')?.checked;
-      if (itemTime) {
-        url += '&timeorb=1&timegain=1';
-      }
-      location.href = url;
-    };
-
-    // ----- Dash -----
-    btnDash.onclick = () => {
-      const diff = dashDiff.value;
-      const t = Math.max(10, Math.min(600, parseInt(dashTime.value||'60',10)));
-      location.href = `cardio-sprint/play.html?diff=${diff}&time=${t}`;
-    };
-
-    // ----- Power -----
-    btnPower.onclick = () => {
-      const diff = powerDiff.value;
-      const t = Math.max(10, Math.min(600, parseInt(powerTime.value||'60',10)));
-      location.href = `sky-squats/play.html?diff=${diff}&time=${t}`;
-    };
+      // ----- Power card -----
+      const btnPower = $('btnPower');
+      btnPower && (btnPower.onclick = () => {
+        const diff = $('powerDiff').value;
+        const t = Math.max(10, Math.min(600, parseInt(($('powerTime').value||'60'),10)));
+        location.href = `sky-squats/play.html?diff=${encodeURIComponent(diff)}&time=${t}`;
+      });
+    });
   </script>
 
   <p style="text-align:center;color:#6d7a8a;font-size:12px;margin-top:10px;">
