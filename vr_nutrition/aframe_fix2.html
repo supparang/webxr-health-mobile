@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>A-Frame Spawn Boxes — Fix 2</title>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js" defer></script>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#00ff88}
+  canvas.a-canvas{position:fixed!important;inset:0!important;display:block!important;visibility:visible!important;opacity:1!important;z-index:0!important;background:#00ff88}
+  a-scene{position:fixed!important;inset:0!important;display:block!important;z-index:0!important}
+  .hud{position:fixed;z-index:2147483647;left:50%;transform:translateX(-50%);top:10px;color:#000;font-family:system-ui;background:#00ff88;padding:6px 10px;border-radius:10px;border:2px solid #000}
+  .foot{position:fixed;z-index:2147483647;left:50%;transform:translateX(-50%);bottom:10px;color:#000;font-family:system-ui;background:#00ff88;padding:6px 10px;border-radius:10px;border:2px solid #000}
+  .btn{margin:0 8px;padding:6px 10px;border:2px solid #000;border-radius:8px;background:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="hud"><b>A-Frame Spawn Boxes — Fix 2</b> • หน้านี้วางกล่องเริ่มต้น 1 อันให้เห็นทันที</div>
+<div class="foot">
+  <button class="btn" id="btnSpawn">▶ Spawn 5 Boxes</button>
+  <button class="btn" id="btnClear">🧽 Clear</button>
+</div>
+
+<a-scene id="scene" embedded loading-screen="enabled:false"
+  renderer="alpha:false; physicallyCorrectLights:false; colorManagement:false; precision:mediump; antialias:false; highRefreshRate:true; powerPreference:high-performance">
+  <a-sky color="#00ff88"></a-sky>
+  <a-entity id="cam" camera="near:0.001; far:10000" position="0 1.6 2.8"></a-entity>
+  <!-- pre-place one box that should ALWAYS be visible -->
+  <a-box id="prebox" position="0 1.6 -2" depth="1" height="1" width="1"
+         material="shader:flat; color:#ff0055; side:double"></a-box>
+  <a-entity id="root"></a-entity>
+</a-scene>
+
+<script>
+(function(){
+  const COLORS=['#ff0055','#00ccff','#ffee00','#00ff88','#ff8800','#aa66ff'];
+  function addBox(x,y,z,c){
+    const e=document.createElement('a-box');
+    e.setAttribute('position', `${x} ${y} ${z}`);
+    e.setAttribute('depth','0.6'); e.setAttribute('height','0.6'); e.setAttribute('width','0.6');
+    e.setAttribute('material', `shader:flat; color:${c}; side:double`);
+    e.setAttribute('animation__rot','property: rotation; to: 0 360 0; loop: true; dur: 2000');
+    document.getElementById('root').appendChild(e);
+    return e;
+  }
+  function spawnFive(){
+    for(let i=-2;i<=2;i++){
+      const x=i*0.9, y=1.6+((i%3)-1)*0.6, z=-2 - Math.abs(i)*0.2;
+      addBox(x,y,z, COLORS[(i+COLORS.length)%COLORS.length]);
+    }
+  }
+  document.getElementById('btnSpawn').addEventListener('click', spawnFive);
+  document.getElementById('btnClear').addEventListener('click', ()=>{ document.getElementById('root').innerHTML=''; });
+})();
+</script>
+</body>
+</html>
