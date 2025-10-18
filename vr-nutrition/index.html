@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>VR Nutrition — Phase B+</title>
+  <title>VR Nutrition — Gaze Edition</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
-    /* ให้ UI HTML คลิกได้เหนือฉาก */
     canvas.a-canvas { z-index: 0 !important; }
     a-scene { position: fixed; inset: 0; }
     .hud, #menuBar, .overlay, .targetBox {
@@ -46,7 +45,7 @@
     </div>
   </div>
 
-  <!-- Target (สำหรับโหมด 5 หมู่) -->
+  <!-- Target (โหมด 5 หมู่) -->
   <div class="targetBox" id="targetBox" style="display:none">
     <div class="tlabel" id="lblTarget">Target</div>
     <div class="targetName" id="targetName">—</div>
@@ -78,13 +77,17 @@
       <div style="font-size:20px; margin-bottom:8px"><b id="sumTitle">Summary</b></div>
       <div class="stars" id="sumStars">★☆☆</div>
       <div id="sumBody">Score: 0 • Combo Max: x1 • Mode: — • Diff: —</div>
-      <div style="margin-top:8px"><span id="sumTips">Tip: เก็บอาหารที่ดีต่อสุขภาพเพื่อคอมโบ!</span></div>
+      <div style="margin-top:8px"><span id="sumTips">VR: จ้องไอเท็มจนวงแหวนครบเพื่อเลือก</span></div>
       <div style="margin-top:12px"><span class="btn" id="btnRestart">↻ <span data-i18n="restart">เริ่มใหม่</span></span></div>
     </div>
   </div>
 
   <!-- ฉาก A-Frame -->
-  <a-scene renderer="colorManagement: true" background="color: #02040a">
+  <a-scene vr-mode-ui="enabled: true"
+           renderer="colorManagement: true; antialias: false; highRefreshRate: true; physicallyCorrectLights: true"
+           xr="foveationLevel: 2"
+           background="color: #02040a">
+
     <a-assets>
       <!-- UI -->
       <img id="panel" src="assets/ui/panel.png">
@@ -111,24 +114,26 @@
 
     <a-sky color="#050910"></a-sky>
 
-    <!-- แผงหัวเรื่อง: ไม่คั่นของในฉาก + ซ่อนอัตโนมัติเมื่อเริ่มเกม -->
+    <!-- หัวเรื่อง: ไม่ occlude -->
     <a-plane id="titlePanel" class="ui" src="#panel" position="0 1.6 -2" width="1.8" height="0.9"
              material="transparent:true; depthTest:false; depthWrite:false; opacity:0.18"></a-plane>
     <a-entity id="titleText" text="value: VR Nutrition; align: center; width: 3; color: #0ff" position="0 2.1 -2"></a-entity>
-    <a-entity id="subtitleText" text="value: Phase B — Fun & Challenge; align: center; width: 3; color: #a0f" position="0 1.85 -2"></a-entity>
+    <a-entity id="subtitleText" text="value: Gaze to Select; align: center; width: 3; color: #a0f" position="0 1.85 -2"></a-entity>
 
-    <!-- กล้อง + ตัวกรอง raycaster ให้ชนเฉพาะ .clickable -->
-    <a-entity camera look-controls wasd-controls raycaster="objects: .clickable">
-      <a-entity cursor="fuse:true; fuseTimeout:600"
-                position="0 0 -1"
-                geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.007"
-                material="color: #0ff; shader: flat"></a-entity>
+    <!-- กล้องโหมดจ้อง (Gaze + Fuse) -->
+    <a-entity id="playerCam"
+              camera look-controls
+              raycaster="objects: .clickable; far: 12"
+              cursor="rayOrigin: entity; fuse: true; fuseTimeout: 750">
+      <a-entity id="gazeRing" position="0 0 -1"
+                geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.008"
+                material="color: #0ff; shader: flat; opacity: 0.9"></a-entity>
     </a-entity>
 
-    <!-- สปอนเนอร์วัตถุ: ขยับมาใกล้กล้องเพื่อให้มองเห็นแน่นอน -->
+    <!-- จุดเกิดวัตถุ -->
     <a-entity id="spawnerRoot" position="0 1.6 -2.2"></a-entity>
 
-    <!-- Floating Emoji Menu root -->
+    <!-- Emoji menu ในฉาก (ยังใช้ได้ ถ้าต้องการ) -->
     <a-entity id="emojiMenuRoot" position="0 1.55 -2"></a-entity>
   </a-scene>
 
