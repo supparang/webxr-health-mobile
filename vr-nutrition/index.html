@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-  <title>VR Nutrition — Phase B</title>
+  <title>VR Nutrition — Phase B+</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body { margin:0; height:100%; background:#000; }
-    /* --- ให้ UI HTML คลิกได้เหนือฉาก --- */
+    /* ให้ UI HTML คลิกได้เหนือฉาก */
     canvas.a-canvas { z-index: 0 !important; }
     a-scene { position: fixed; inset: 0; }
     .hud, #menuBar, .overlay, .targetBox {
@@ -121,6 +121,9 @@
 
     <!-- สปอนเนอร์วัตถุ: ขยับมาใกล้กล้องเพื่อให้มองเห็นแน่นอน -->
     <a-entity id="spawnerRoot" position="0 1.6 -2.2"></a-entity>
+
+    <!-- Floating Emoji Menu root -->
+    <a-entity id="emojiMenuRoot" position="0 1.55 -2"></a-entity>
   </a-scene>
 
   <script src="game.js"></script>
