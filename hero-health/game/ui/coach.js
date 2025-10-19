@@ -1,1 +1,15 @@
-export class Coach{ onStart(){} onCombo(x){ this.say('Combo x'+x+'!'); } onFever(){ this.say('FEVER!!'); } onEnd(){} say(t){ const box=document.getElementById('coachHUD'); const text=document.getElementById('coachText'); if(!box||!text) return; text.textContent=t; box.style.display='block'; clearTimeout(this._t); this._t=setTimeout(()=>box.style.display='none',1200);} }
+export class Coach{
+  onStart(){}
+  onCombo(x){ this.say('Combo x'+x+'!'); }
+  onFever(){ this.say('FEVER!!'); }
+  onEnd(){}
+  say(t){
+    const box=document.getElementById('coachHUD');
+    const text=document.getElementById('coachText');
+    if(!box||!text) return;
+    text.textContent=t;
+    box.style.display='block';
+    clearTimeout(this._t);
+    this._t=setTimeout(()=>box.style.display='none',1200);
+  }
+}
