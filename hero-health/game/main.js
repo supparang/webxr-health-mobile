@@ -1,5 +1,11 @@
 import { Engine } from './core/engine.js';
 
+// === FIX 1: ใช้ THREE จาก global UMD ===
+const THREE = window?.THREE;
+if (!THREE) {
+  console.error('[HHA] THREE not found on window. Ensure <script src="...three.min.js"> is loaded before main.js');
+}
+
 /* ---------- SAFE HELPERS ---------- */
 const LANGS = ['TH','EN'];
 const safeLang = v => LANGS.includes(v) ? v : 'TH';
@@ -17,28 +23,40 @@ class HUD{
   setTime(v){ document.getElementById('time').textContent=v|0; }
   setDiff(v){ document.getElementById('difficulty').textContent=v; }
   setMode(v){ document.getElementById('modeName').textContent=v; }
-  fever(a){ document.getElementById('fever').style.display=a?'inline-block':'none'; }
   setHydration(p,z){
     const wrap=document.getElementById('hydroWrap'); wrap.style.display='block';
     document.getElementById('hydroBar').style.width=Math.max(0,Math.min(100,p))+'%';
-    document.getElementById('hydroLabel').textContent=Math.round(p)+'% '+(z==='ok'?'พอดี':(z==='low'?'น้อยไป':'มากไป'));
+    document.getElementById('hydroLabel').textContent=Math.round(p)+'% '+(z==='ok'?(SETTINGS.lang==='TH'?'พอดี':'OK'):(z==='low'?(SETTINGS.lang==='TH'?'น้อยไป':'Low'):(SETTINGS.lang==='TH'?'มากไป':'High')));
   }
   hideHydration(){ document.getElementById('hydroWrap').style.display='none'; }
 }
 class FloatingFX{
   spawn3D(obj, html, kind){
     const d=document.createElement('div');
-    d.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:700;color:'+(kind==='bad'?'#ff6':'#6f6')+';text-shadow:0 0 8px rgba(0,0,0,.6)';
+    d.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:700;color:'+(kind==='bad'?'#ff6':'#6f6')+';text-shadow:0 0 8px rgba(0,0,0,.6);pointer-events:none';
     d.innerHTML=html; document.body.appendChild(d);
-    setTimeout(()=>{ d.style.transition='all .4s'; d.style.opacity='0'; d.style.top='40%'; },40);
-    setTimeout(()=>d.remove(),700);
+    requestAnimationFrame(()=>{ d.style.transition='all .4s'; d.style.opacity='0'; d.style.top='40%'; });
+    setTimeout(()=>d.remove(),720);
   }
 }
 class ScoreSystem{ constructor(){ this.reset(); } reset(){ this.score=0; this.combo=0; this.bestCombo=0; } add(v){ this.score+=v; if(v>0){ this.combo++; this.bestCombo=Math.max(this.bestCombo,this.combo);} if(v<0){ this.combo=0; } return this.score; } }
 class FeverSystem{ constructor(){ this.timer=0; this.active=false; } scoreMul(){ return this.active?2:1; } update(dt){ if(this.active){ this.timer-=dt; if(this.timer<=0){ this.active=false; } } } onBad(){ this.active=false; } }
 class PowerUpSystem{ constructor(){ this.timeScale=1; this.scoreBoost=0; this._shield=0; } apply(k){ if(k==='slow'){ this.timeScale=0.8; setTimeout(()=>this.timeScale=1,5000);} if(k==='boost'){ this.scoreBoost=0.5; setTimeout(()=>this.scoreBoost=0,5000);} if(k==='shield'){ this._shield=Math.min(2,this._shield+1);} } tick(dt){} consumeShield(){ if(this._shield>0){ this._shield--; return true;} return false; } }
 class MissionSystem{ roll(mode){ this.goal={mode,target:30}; } evaluate(ctx){ return 0; } }
-class Leaderboard{ submit(mode,diff,score){ try{ const k='hha_board'; const arr=JSON.parse(localStorage.getItem(k)||'[]'); arr.push({t:Date.now(),mode,diff,score}); localStorage.setItem(k, JSON.stringify(arr).slice(0,200000)); }catch{} } }
+// === FIX 4: เขียนเก็บ leaderboard แบบ trim array ไม่ทำลาย JSON ===
+class Leaderboard{
+  submit(mode,diff,score){
+    try{
+      const k='hha_board';
+      const arr=JSON.parse(localStorage.getItem(k)||'[]');
+      arr.push({t:Date.now(),mode,diff,score});
+      const trimmed = arr.slice(-200);
+      localStorage.setItem(k, JSON.stringify(trimmed));
+    }catch(e){
+      console.warn('[HHA] leaderboard store failed', e);
+    }
+  }
+}
 
 /* ---------- CONFIG ---------- */
 const SETTINGS={lang:'TH',sound:true,quality:'High'};
@@ -149,10 +167,11 @@ function renderPills(state){
   const pills=document.getElementById('platePills'); if(!pills) return;
   pills.innerHTML='';
   const QUOTA={grain:2,veg:2,protein:1,fruit:1,dairy:1};
-  const labels={grain:'ธัญพืช',veg:'ผัก',protein:'โปรตีน',fruit:'ผลไม้',dairy:'นม'};
+  const labels={grain:(SETTINGS.lang==='TH'?'ธัญพืช':'Grain'),veg:(SETTINGS.lang==='TH'?'ผัก':'Vegetable'),protein:(SETTINGS.lang==='TH'?'โปรตีน':'Protein'),fruit:(SETTINGS.lang==='TH'?'ผลไม้':'Fruit'),dairy:(SETTINGS.lang==='TH'?'นม':'Dairy')};
   Object.keys(QUOTA).forEach(k=>{
     const cur=state.plate?.[k]||0, need=QUOTA[k];
     const el=document.createElement('div'); el.className='pill'+(cur>=need?' done':'');
+
     el.textContent=`${labels[k]} ${cur}/${need}`;
     pills.appendChild(el);
   });
@@ -171,22 +190,28 @@ function applyLanguage(){
   state.modeKey = safeModeKey(state.modeKey);
   state.difficulty = safeDiffKey(state.difficulty);
 
-  document.querySelector('.brand div').replaceChildren(L().brand);
+  const brandDiv = document.querySelector('.brand div'); if (brandDiv) brandDiv.textContent = L().brand;
 
   ['goodjunk','groups','hydration','plate'].forEach(k=>{
-    document.querySelector(`button[data-action="mode"][data-value="${k}"]`)?.replaceChildren(modeName(k));
+    const b=document.querySelector(`button[data-action="mode"][data-value="${k}"]`);
+    if (b) b.textContent = modeName(k);
   });
   ['Easy','Normal','Hard'].forEach(d=>{
-    document.querySelector(`button[data-action="diff"][data-value="${d}"]`)?.replaceChildren(diffName(d));
+    const b=document.querySelector(`button[data-action="diff"][data-value="${d}"]`);
+    if (b) b.textContent = diffName(d);
   });
 
-  document.querySelector('button[data-action="start"]')?.replaceChildren(L().buttons.start);
-  document.querySelector('button[data-action="pause"]')?.replaceChildren(L().buttons.pause);
-  document.querySelector('button[data-action="restart"]')?.replaceChildren(L().buttons.restart);
-  document.querySelector('button[data-action="help"]')?.replaceChildren(L().buttons.help);
+  const btnStart=document.querySelector('button[data-action="start"]');
+  const btnPause=document.querySelector('button[data-action="pause"]');
+  const btnRestart=document.querySelector('button[data-action="restart"]');
+  const btnHelp=document.querySelector('button[data-action="help"]');
+  if(btnStart) btnStart.textContent=L().buttons.start;
+  if(btnPause) btnPause.textContent=L().buttons.pause;
+  if(btnRestart) btnRestart.textContent=L().buttons.restart;
+  if(btnHelp) btnHelp.textContent=L().buttons.help;
 
-  document.querySelector('#help h2')?.replaceChildren(L().helpTitle);
-  document.getElementById('resTitle')?.replaceChildren(L().result.title);
+  const helpH2 = document.querySelector('#help h2'); if(helpH2) helpH2.textContent=L().helpTitle;
+  const resTitle = document.getElementById('resTitle'); if(resTitle) resTitle.textContent=L().result.title;
   document.getElementById('modeName')?.replaceChildren(modeName(state.modeKey));
   document.getElementById('difficulty')?.replaceChildren(diffName(state.difficulty));
 }
@@ -202,7 +227,7 @@ document.addEventListener('click',(e)=>{
   if(act==='start') start();
   else if(act==='pause') pause();
   else if(act==='restart'){ end(); start(); }
-  else if(act==='help'){ openHelpFor(state.modeKey); }
+  else if(act==='help'){ openHelpFor(state.modeKey); }  // FIX 2
 }, false);
 
 document.getElementById('help').addEventListener('click',(e)=>{
@@ -214,6 +239,31 @@ document.getElementById('result').addEventListener('click',(e)=>{
   if(a==='replay'){ document.getElementById('result').style.display='none'; start(); }
   if(a==='home'){ document.getElementById('result').style.display='none'; }
 });
+
+// === FIX 2: เพิ่มฟังก์ชัน openHelpFor ให้ปุ่มวิธีเล่นทำงาน ===
+function openHelpFor(modeKey){
+  const isTH = SETTINGS.lang==='TH';
+  const title = isTH ? 'วิธีเล่น (How to Play)' : 'How to Play';
+  const common = isTH
+    ? `• เลือกโหมดและระดับความยากที่แถบล่าง แล้วกด ▶ เริ่มเกม<br/>• คลิก/แตะ ไอคอนอาหารเพื่อเก็บคะแนน (เข้า VR ได้หากอุปกรณ์รองรับ)<br/>• ⏸ พัก, ↻ เริ่มใหม่, 🇹🇭/🇬🇧 สลับภาษา, 🔊 เปิด/ปิดเสียง, Graphics ปรับคุณภาพ`
+    : `• Choose mode & difficulty from bottom bar then press ▶ Start<br/>• Click/tap food icons to score (Enter VR if supported)<br/>• ⏸ Pause, ↻ Restart, 🇹🇭/🇬🇧 toggle language, 🔊 mute, Graphics quality`;
+  const perModeTH = {
+    goodjunk: '🥗 ดี vs ขยะ: เก็บของ “ดี” (+5) เลี่ยงของ “ขยะ” (−2)',
+    groups: '🍽️ จาน 5 หมู่: ดู 🎯 หมวดเป้าหมายบน HUD แล้วเก็บให้ตรงหมวด (+7)',
+    hydration: '💧 สมดุลน้ำ: รักษาระดับ 45–65% เก็บ 💧 (+5) เลี่ยง 🧋 (−3) ถ้าเกิน/ขาดจะถูกหักเวลา',
+    plate: '🍱 จัดจานสุขภาพ: เติมโควตา Grain/Vegetable/Protein/Fruit/Dairy ให้ครบ (ได้โบนัส)'
+  };
+  const perModeEN = {
+    goodjunk: '🥗 Good vs Junk: pick “good” foods (+5), avoid junk (−2)',
+    groups: '🍽️ Food Groups: watch 🎯 target on HUD, collect matching group (+7)',
+    hydration: '💧 Hydration: keep 45–65%; collect 💧 (+5), avoid 🧋 (−3); over/low penalizes time',
+    plate: '🍱 Healthy Plate: fill quotas per group; complete set for bonus'
+  };
+  const per = isTH ? perModeTH : perModeEN;
+  const html = `<b>${title}</b><br/>${common}<br/><br/>${per[modeKey]||''}`;
+  document.getElementById('helpBody').innerHTML = html;
+  document.getElementById('help').style.display = 'flex';
+}
 
 /* ---------- Lanes/Spawn ---------- */
 function setupLanes(){ const X=[-1.1,-0.55,0,0.55,1.1], Y=[-0.2,0.0,0.18,0.32], Z=-2.2; state.lane={X,Y,Z,occupied:new Set(),cooldown:new Map(),last:null}; }
@@ -320,10 +370,10 @@ function updateHUD(){
 }
 function buildBreakdownAndTips(){
   const m=state.modeKey,c=state.ctx; let html='',tip='';
-  if(m==='goodjunk'){ html=`<ul><li>Power-ups: <b>${c.powersUsed}</b> | Trap: <b>${c.trapsHit}</b></li></ul>`; tip='เล็งของดี เลี่ยง Trap'; }
-  else if(m==='groups'){ html=`<ul><li>ตรงหมวดเป้าหมาย: <b>${c.targetHitsTotal}</b></li><li>ผิดหมวด/พลาด: <b>${c.groupWrong}</b></li></ul>`; tip='ดู 🎯 บน HUD ก่อนคลิก'; }
-  else if(m==='hydration'){ const h=Math.round(state.hyd||0); html=`<ul><li>น้ำ: <b>${c.waterHits||0}</b> | หวานพลาด: <b>${c.sweetMiss||0}</b></li><li>Over: <b>${c.overHydPunish||0}</b> | Low: <b>${c.lowSweetPunish||0}</b></li><li>เวลาถูกหัก: <b>${c.timeMinus||0}s</b> | เพิ่มเวลา: <b>${c.timePlus||0}s</b></li><li>มิเตอร์สุดท้าย: <b>${h}%</b></li></ul>`; tip='คุม 45–65%'; }
-  else if(m==='plate'){ html=`<ul><li>เติมชิ้นในจาน: <b>${c.plateFills||0}</b> | PERFECT: <b>${c.perfectPlates||0}</b></li><li>เกินโควตา: <b>${c.overfillCount||0}</b></li></ul>`; tip='เติมตามโควตาให้ครบ'; }
+  if(m==='goodjunk'){ html=`<ul><li>Power-ups: <b>${c.powersUsed}</b> | Trap: <b>${c.trapsHit}</b></li></ul>`; tip=SETTINGS.lang==='TH'?'เล็งของดี เลี่ยง Trap':'Aim good, avoid traps'; }
+  else if(m==='groups'){ html=`<ul><li>ตรงหมวดเป้าหมาย: <b>${c.targetHitsTotal}</b></li><li>ผิดหมวด/พลาด: <b>${c.groupWrong}</b></li></ul>`; tip=SETTINGS.lang==='TH'?'ดู 🎯 บน HUD ก่อนคลิก':'Watch 🎯 on HUD'; }
+  else if(m==='hydration'){ const h=Math.round(state.hyd||0); html=`<ul><li>น้ำ: <b>${c.waterHits||0}</b> | หวานพลาด: <b>${c.sweetMiss||0}</b></li><li>Over: <b>${c.overHydPunish||0}</b> | Low: <b>${c.lowSweetPunish||0}</b></li><li>เวลาถูกหัก: <b>${c.timeMinus||0}s</b> | เพิ่มเวลา: <b>${c.timePlus||0}s</b></li><li>มิเตอร์สุดท้าย: <b>${h}%</b></li></ul>`; tip=SETTINGS.lang==='TH'?'คุม 45–65%':'Keep 45–65%'; }
+  else if(m==='plate'){ html=`<ul><li>เติมชิ้นในจาน: <b>${c.plateFills||0}</b> | PERFECT: <b>${c.perfectPlates||0}</b></li><li>เกินโควตา: <b>${c.overfillCount||0}</b></li></ul>`; tip=SETTINGS.lang==='TH'?'เติมตามโควตาให้ครบ':'Fill quotas'; }
   return {html,tip};
 }
 function presentResult(finalScore){
@@ -349,7 +399,14 @@ function loop(){
     loop._hydTick=(loop._hydTick||0)+dt;
     const z=state.hyd<state.hydMin?'low':(state.hyd>state.hydMax?'high':'ok');
     loop._lowAccum=(loop._lowAccum||0)+(z==='low'?dt:0);
-    if(loop._hydTick>1000){ loop._hydTick=0; if(z==='ok'){ systems.score.add(1);} document.getElementById('hydroWrap').style.display='block'; (new HUD).setHydration(state.hyd,z); }
+
+    if(loop._hydTick>1000){
+      loop._hydTick=0;
+      if(z==='ok'){ systems.score.add(1);}
+      document.getElementById('hydroWrap').style.display='block';
+      // === FIX 3: ใช้ hud เดิม ไม่สร้าง HUD ใหม่ทุกวินาที ===
+      hud.setHydration(state.hyd,z);
+    }
     if(loop._lowAccum>=4000){ loop._lowAccum=0; systems.score.add(-1); state.timeLeft=Math.max(0,state.timeLeft-1); state.ctx.timeMinus=(state.ctx.timeMinus||0)+1; }
   }
   updateHUD();
@@ -415,7 +472,8 @@ function boot(){
   };
   systems={ score:new ScoreSystem(), fever:new FeverSystem(), power:new PowerUpSystem(), mission:new MissionSystem(), board:new Leaderboard(), fx:sfx };
 
-  document.getElementById('langToggle')?.addEventListener('click', ()=>{ SETTINGS.lang=SETTINGS.lang==='TH'?'EN':'TH'; applyLanguage(); });
+  // Top-right controls
+  document.getElementById('langToggle')?.addEventListener('click', ()=>{ SETTINGS.lang=SETTINGS.lang==='TH'?'EN':'TH'; applyLanguage(); renderPills(state); });
   document.getElementById('soundToggle')?.addEventListener('click', ()=>{ SETTINGS.sound=!SETTINGS.sound; applySound(); });
   document.getElementById('gfxSelect')?.addEventListener('change', (e)=>{ SETTINGS.quality=e.target.value||'High'; applyQuality(); });
 
@@ -425,8 +483,16 @@ function boot(){
   canvasEl.addEventListener('click', onCanvasClick, {passive:true});
   canvasEl.addEventListener('touchstart', e=>{ const t=e.touches&&e.touches[0]; if(!t) return; onCanvasClick({clientX:t.clientX, clientY:t.clientY}); }, {passive:true});
 
+  // Animation loop via Engine
   engine.startLoop(loop);
 
-  window.onerror=(m,s,l,c)=>{ const mk=()=>{ const d=document.createElement('div'); d.id='errors'; d.style.cssText='position:fixed;top:8px;right:8px;background:rgba(30,0,0,.85);color:#ffb;border:1px solid #f66;padding:6px 10px;border-radius:8px;z-index:9999;max-width:60ch'; document.body.appendChild(d); return d; }; (document.getElementById('errors')||mk()).textContent='Errors: '+m+' @'+(s||'inline')+':'+l+':'+c; (document.getElementById('errors')||mk()).style.display='block'; };
+  // === เสริม: ปุ่ม Enter VR ถ้า Engine ไม่ได้เพิ่มให้ ===
+  if (window.VRButton && engine?.renderer) {
+    try { document.body.appendChild(window.VRButton.createButton(engine.renderer)); } catch {}
+  }
+
+  // Error overlay
+  window.onerror=(m,s,l,c)=>{ const mk=()=>{ const d=document.getElementById('errors')||document.createElement('div'); d.id='errors'; d.style.cssText='position:fixed;top:8px;right:8px;background:rgba(30,0,0,.85);color:#ffb;border:1px solid #f66;padding:6px 10px;border-radius:8px;z-index:9999;max-width:60ch'; if(!d.parentNode) document.body.appendChild(d); return d; }; const d=mk(); d.textContent='Errors: '+m+' @'+(s||'inline')+':'+l+':'+c; d.style.display='block'; };
+  window.addEventListener('unhandledrejection', e=>{ const d=document.getElementById('errors'); if(d){ d.textContent='Promise: '+e.reason; d.style.display='block'; }});
 }
 if(document.readyState==='loading'){ window.addEventListener('DOMContentLoaded', boot); } else { boot(); }
