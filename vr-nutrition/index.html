@@ -1,239 +1,168 @@
-<!DOCTYPE html><html lang="th"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-<title>EAT TO POWER – HERO ACADEMY (PRO Starter)</title>
-<link rel="icon" href="./assets/bonus_fire.svg"/>
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>EAT TO POWER – HERO ACADEMY (PRO B4)</title>
+<link rel="icon" href="./assets/logo.png"/>
 <style>
-:root{--bg:#061018;--cy:#0ff;--cy2:rgba(0,255,255,.12);--card:rgba(8,12,20,.96)}
-html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
-canvas#c{position:fixed;inset:0;display:block;background:var(--bg);z-index:0}
-body.celebrate::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:2147483646;background:radial-gradient(120% 120% at 50% 50%,rgba(255,255,255,.55) 0%,rgba(255,255,255,.25) 22%,rgba(0,255,200,.18) 45%,rgba(0,0,0,0) 60%),radial-gradient(140% 140% at 50% 50%,rgba(255,255,255,.28),rgba(0,0,0,0) 60%);animation:flashPulse 650ms ease-out forwards}
-@keyframes flashPulse{0%{opacity:0}10%{opacity:1}45%{opacity:.65}100%{opacity:0}}
-body.celebrate #c,body.celebrate .hud,body.celebrate #menuBar{animation:screenshake 380ms ease-in-out both}
-@keyframes screenshake{0%{transform:translate3d(0,0,0)}20%{transform:translate3d(2px,-2px,0)}40%{transform:translate3d(-2px,1px,0)}60%{transform:translate3d(1px,2px,0)}80%{transform:translate3d(-1px,-1px,0)}100%{transform:translate3d(0,0,0)}}
-.hud,#menuBar,#summary,.reticle,#errors,#vrSlot,#valueTip,#toast,#help{position:fixed;z-index:2147483600;color:var(--cy);font-family:system-ui,Segoe UI,Apple Color Emoji;text-shadow:0 0 8px rgba(0,255,255,.6)}
-.hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
-#plateTracker{display:none;margin-top:6px}.pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35)}
-.pill.done{opacity:1;border-color:#2ecc71!important;background:rgba(46,204,113,.22)!important;color:#dbfff1;box-shadow:0 0 12px rgba(46,204,113,.35) inset,0 0 12px rgba(46,204,113,.25)}
-.pill .icon{min-width:18px;text-align:center}
-#menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
-.row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
-.tag{border-style:dashed}.btn:hover,.tag:hover{background:var(--cy2)}
-#errors{top:8px;right:8px;max-width:48ch;background:rgba(30,0,0,.85);padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb;display:none}
-#fever{display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)}
-body.fever .hud{color:#fff8b0}body.fever #fever{display:inline-block}
-.reticle{left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border:2px solid var(--cy);border-radius:50%;pointer-events:none;opacity:.9}
-.reticle .dot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:var(--cy)}
-.reticle.progress{border-color:#ff0}
-#valueTip{left:50%;top:calc(50% + 28px);transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none}
-#toast{left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none}
-#summary{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
-.card{background:var(--card);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:var(--cy);width:min(94vw,760px);text-align:center}
-#help{inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
-#help .card{width:min(96vw,920px);text-align:left}#help h2{margin:0 0 8px 0}
-#help .sect{display:grid;grid-template-columns:46px 1fr;gap:10px;align-items:start;margin:10px 0}
-#help .icon{font-size:30px;line-height:1}#help .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
-#help .chip{border:1px dashed var(--cy);border-radius:10px;padding:4px 8px;background:rgba(0,0,0,.3)}
-#help .sub{margin-top:6px;opacity:.9}#help .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
-#help .foot{display:flex;justify-content:flex-end;margin-top:12px;gap:10px}
-.floatScore{font-weight:700;pointer-events:none;color:#8ff;text-shadow:0 0 8px rgba(0,255,255,.7);position:fixed;z-index:2147483640}
-@keyframes popUp{0%{transform:translate(-50%,0) scale(.9);opacity:1}70%{transform:translate(-50%,-26px) scale(1.05);opacity:.95}100%{transform:translate(-50%,-46px) scale(1);opacity:0}}
-#targetBadge{border:1px solid #0ff;border-radius:10px;padding:2px 8px;background:rgba(0,0,0,.35)}
-.badge--grains{border-color:#f1c40f!important;background:rgba(241,196,15,.18)!important}
-.badge--protein{border-color:#e67e22!important;background:rgba(230,126,34,.18)!important}
-.badge--veggies{border-color:#2ecc71!important;background:rgba(46,204,113,.18)!important}
-.badge--fruits{border-color:#e84393!important;background:rgba(232,67,147,.18)!important}
-.badge--dairy{border-color:#3498db!important;background:rgba(52,152,219,.18)!important}
+  :root{ --bg:#061018; --cy:#0ff; --cy2:rgba(0,255,255,.12); --card:rgba(8,12,20,.96); }
+  html,body{margin:0;height:100%;overflow:hidden;background:#000}
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none;
+    background:url('./assets/background.jpg') center/cover no-repeat fixed;
+    filter:saturate(1.2) brightness(1.05);
+    z-index:0;
+  }
+  canvas#c{position:fixed;inset:0;display:block;background:transparent;z-index:1}
+  .brand{position:fixed; left:12px; top:10px; z-index:3; display:flex; gap:8px; align-items:center; color:#aee; font-family:Rajdhani,Exo 2,system-ui; text-shadow:0 0 10px rgba(0,255,255,.55)}
+  .brand img{height:42px; filter:drop-shadow(0 0 10px rgba(0,255,255,.35))}
+  .hud,#menuBar,#summary,.reticle,#errors,#vrSlot,#valueTip,#toast,#help{position:fixed; z-index:4; color:#0ff; font-family:Rajdhani, Exo 2, system-ui; text-shadow:0 0 8px rgba(0,255,255,.6)}
+  .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
+  #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
+  .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
+  .btn:hover,.tag:hover{background:var(--cy2)}
+  #errors{top:8px;right:8px;max-width:48ch;background:rgba(30,0,0,.85);padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb;display:none}
+  /* click fix */
+  #menuBar, #menuBar * { pointer-events:auto !important; }
+  #help, #summary { pointer-events:auto !important; }
+  .reticle, #valueTip, #toast { pointer-events:none !important; }
+  canvas#c { pointer-events:none; }
 </style>
-</head><body>
+<link rel="preload" href="./assets/ding.wav" as="audio"/>
+<link rel="preload" href="./assets/thud.wav" as="audio"/>
+<link rel="preload" href="./assets/tick.wav" as="audio"/>
+</head>
+<body>
+<div class="brand"><img src="./assets/logo.png" alt="logo"/><div>EAT TO POWER – HERO ACADEMY</div></div>
 <canvas id="c"></canvas>
-<div class="reticle" id="ret"><div class="dot"></div></div>
-<div id="valueTip">…</div>
+<audio id="sfx-ding" src="./assets/ding.wav"></audio>
+<audio id="sfx-thud" src="./assets/thud.wav"></audio>
+<audio id="sfx-tick" src="./assets/tick.wav"></audio>
+
+<div class="reticle" id="ret" style="left:50%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border:2px solid var(--cy);border-radius:50%"><div class="dot" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4px;height:4px;border-radius:50%;background:var(--cy)"></div></div>
+<div id="valueTip" style="left:50%;top:calc(50% + 28px);transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none">…</div>
 <div id="errors">Errors: none</div>
-<div id="toast">…</div>
+<div id="toast" style="left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid var(--cy);border-radius:10px;padding:6px 10px;display:none">…</div>
+
 <div class="hud">
-  <div><span id="lblScore" data-i18n="score">คะแนน</span>: <span id="score">0</span> |
-  <span id="lblCombo" data-i18n="combo">คอมโบ</span>: <span id="combo">x1</span> |
-  <span id="lblTime" data-i18n="time">เวลา</span>: <span id="time">60</span>s |
-  <span id="lblBest" data-i18n="best">สถิติ</span>: <span id="best">0</span><span id="fever">FEVER!</span></div>
-  <div><span id="lblMode" data-i18n="mode">โหมด</span>: <span id="modeName">ดี vs ขยะ</span> |
-  <span id="lblDiff" data-i18n="diff">ความยาก</span>: <span id="difficulty">ปกติ</span></div>
-  <div id="targetWrap" style="margin-top:6px;display:none">🎯 <span data-i18n="target">หมวดเป้าหมาย</span>: <span id="targetBadge">—</span></div>
-  <div id="plateTracker">🍱 <span>โควตา</span>: <div class="pills" id="platePills"></div></div>
+  <div><span id="lblScore">คะแนน</span>: <span id="score">0</span> |
+      <span id="lblCombo">คอมโบ</span>: <span id="combo">x1</span> |
+      <span id="lblTime">เวลา</span>: <span id="time">60</span>s |
+      <span id="lblBest">สถิติ</span>: <span id="best">0</span>
+      <span id="fever" style="display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)">FEVER!</span></div>
+  <div><span id="lblMode">โหมด</span>: <span id="modeName">ดี vs ขยะ</span> |
+      <span id="lblDiff">ความยาก</span>: <span id="difficulty">ปกติ</span></div>
 </div>
+
 <div id="menuBar">
   <div class="row" id="modes">
-    <button class="tag" data-action="mode" data-value="goodjunk" type="button">🥗 <span data-i18n="modeGJ">ดี vs ขยะ</span></button>
-    <button class="tag" data-action="mode" data-value="groups" type="button">🍽️ <span data-i18n="modeGroups">จาน 5 หมู่</span></button>
-    <button class="tag" data-action="mode" data-value="hydration" type="button">💧 <span data-i18n="modeHydra">สมดุลน้ำ</span></button>
-    <button class="tag" data-action="mode" data-value="plate" type="button">🍱 <span data-i18n="modePlate">จัดจานสุขภาพ</span></button>
+    <button class="tag" data-action="mode" data-value="goodjunk" type="button">🥗 ดี vs ขยะ</button>
+    <button class="tag" data-action="mode" data-value="groups" type="button">🍽️ จาน 5 หมู่</button>
+    <button class="tag" data-action="mode" data-value="hydration" type="button">💧 สมดุลน้ำ</button>
+    <button class="tag" data-action="mode" data-value="plate" type="button">🍱 จัดจานสุขภาพ</button>
   </div>
   <div class="row" id="diff" style="margin:8px 0">
-    <button class="tag" data-action="diff" data-value="Easy" type="button"><span data-i18n="easy">ง่าย</span></button>
-    <button class="tag" data-action="diff" data-value="Normal" type="button"><span data-i18n="normal">ปกติ</span></button>
-    <button class="tag" data-action="diff" data-value="Hard" type="button"><span data-i18n="hard">ยาก</span></button>
+    <button class="tag" data-action="diff" data-value="Easy" type="button">ง่าย</button>
+    <button class="tag" data-action="diff" data-value="Normal" type="button">ปกติ</button>
+    <button class="tag" data-action="diff" data-value="Hard" type="button">ยาก</button>
   </div>
   <div class="row" id="ctrls">
-    <button class="btn" data-action="start" type="button">▶ <span data-i18n="start">เริ่มเกม</span></button>
-    <button class="btn" data-action="pause" type="button">⏸ <span data-i18n="pause">พัก</span></button>
-    <button class="btn" data-action="restart" type="button">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
-    <button class="btn" data-action="help" type="button">❓ <span data-i18n="howto">วิธีเล่น</span></button>
-    <button class="btn" data-action="lang" type="button">🌐 <span data-i18n="langBtn">ไทย/English</span></button>
-    <button class="btn" data-action="mute" type="button">🔇 <span>เสียง</span></button>
-    <button class="btn" data-action="reset" type="button">🗑️ <span>รีเซ็ตสถิติ</span></button>
-    <span id="vrSlot"></span>
+    <button class="btn" data-action="start" type="button">▶ เริ่มเกม</button>
+    <button class="btn" data-action="pause" type="button">⏸ พัก</button>
+    <button class="btn" data-action="restart" type="button">↻ เริ่มใหม่</button>
+    <button class="btn" data-action="help" type="button">❓ วิธีเล่น</button>
   </div>
 </div>
-<div id="summary"><div class="card">
-  <div style="font-size:20px;margin-bottom:8px"><b id="sumTitle" data-i18n="summary">สรุปผล</b></div>
-  <div id="sumStars" style="font-size:28px;margin:8px 0 4px">★☆☆</div>
-  <div id="sumBody">...</div>
-  <div class="row" style="justify-content:center;margin-top:12px">
-    <button class="btn" data-action="restart" type="button">↻ <span data-i18n="restart">เริ่มใหม่</span></button>
-    <button class="btn" data-action="help" type="button">❓ <span data-i18n="howto">วิธีเล่น</span></button>
+
+<div id="help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+  <div style="background:rgba(8,12,20,.96);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,760px)">
+    <h2>วิธีเล่น</h2>
+    <div>คลิก/แตะ หรือจ้องใน VR (~0.7s) เพื่อเลือกไอเท็มตามกติกาแต่ละโหมด</div>
+    <div style="margin-top:10px;text-align:right"><button class="btn" data-action="helpClose" type="button">โอเค</button></div>
   </div>
-</div></div>
-<div id="help"><div class="card">
-  <h2 data-i18n="howto">วิธีเล่น</h2>
-  <div id="helpBody" style="line-height:1.6"></div>
-  <div class="grid">
-    <div class="sect"><div class="icon">🥗</div><div><b data-i18n="modeGJ">ดี vs ขยะ</b><div class="sub" data-i18n="ruleGJ">เลือกอาหารดี... หลีกเลี่ยงอาหารขยะ</div><div class="chips"><span class="chip">🥦 🍎 ✅</span><span class="chip">🍟 🥤 ❌</span></div></div></div>
-    <div class="sect"><div class="icon">🍽️</div><div><b data-i18n="modeGroups">จาน 5 หมู่</b><div class="sub" data-i18n="ruleGroups">สุ่ม “หมวดเป้าหมาย” ให้เก็บถูก 3 ชิ้นติด</div><div class="chips"><span class="chip">🍞 ธัญพืช</span><span class="chip">🍗 โปรตีน</span><span class="chip">🥦 ผัก</span><span class="chip">🍎 ผลไม้</span><span class="chip">🥛 นม</span></div></div></div>
-    <div class="sect"><div class="icon">💧</div><div><b data-i18n="modeHydra">สมดุลน้ำ</b><div class="sub" data-i18n="ruleHydra">เลือกน้ำสะอาด (💧/🚰) หลีกเลี่ยงน้ำหวาน/อัดลม</div><div class="chips"><span class="chip">💧 🚰 ✅</span><span class="chip">🥤 🧃 ❌</span></div></div></div>
-    <div class="sect"><div class="icon">🍱</div><div><b data-i18n="modePlate">จัดจานสุขภาพ</b><div class="sub" data-i18n="rulePlate">เก็บครบโควตาแต่ละหมวด → โบนัสจาน</div><div class="chips"><span class="chip">🍞×2</span><span class="chip">🥦×2</span><span class="chip">🍗×1</span><span class="chip">🍎×1</span><span class="chip">🥛×1</span></div></div></div>
-  </div>
-  <div class="foot"><button class="btn" data-action="helpClose" type="button"><span data-i18n="ok">โอเค</span></button></div>
-</div></div>
+</div>
+
 <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.159.0/examples/js/VRButton.js"></script>
 <script>
 (function(){
-  const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s); const toast=$("#toast"), errEl=$("#errors");
-  const I18N={th:{score:"คะแนน",combo:"คอมโบ",time:"เวลา",best:"สถิติ",mode:"โหมด",diff:"ความยาก",start:"เริ่มเกม",pause:"พัก",restart:"เริ่มใหม่",howto:"วิธีเล่น",langBtn:"ไทย/English",easy:"ง่าย",normal:"ปกติ",hard:"ยาก",summary:"สรุปผล",ok:"โอเค",target:"หมวดเป้าหมาย",groupNames:{grains:"ธัญพืช",protein:"โปรตีน",veggies:"ผัก",fruits:"ผลไม้",dairy:"นม"},modeGJ:"ดี vs ขยะ",modeGroups:"จาน 5 หมู่",modeHydra:"สมดุลน้ำ",modePlate:"จัดจานสุขภาพ",ruleGJ:"เลือกอาหารดี (ผัก ผลไม้ โปรตีนดี นม) หลีกเลี่ยงอาหารขยะ",ruleGroups:"สุ่ม “หมวดเป้าหมาย” ให้เก็บถูก 3 ชิ้นติด",ruleHydra:"เลือกน้ำเปล่า/น้ำสะอาด (💧/🚰) หลีกเลี่ยงน้ำหวาน/น้ำอัดลม",rulePlate:"เก็บครบโควตาแต่ละหมวดเพื่อ “จัดจาน” สำเร็จ (โบนัสใหญ่)",howtoHTML:`<b>เป้าหมาย</b>: เลือกอาหาร/เครื่องดื่มตามกติกาของโหมดนั้น ๆ<br/><b>การควบคุม</b>: คลิก/แตะ • VR จ้อง ~0.7s<br/><b>คะแนน</b>: ถูกได้คะแนน คอมโบเพิ่มตัวคูณ • พลาดคอมโบรีเซ็ต<br/><b>พาวเวอร์อัป</b>: ⏱️ +เวลา • 🔥 FEVER • 🐢 ช้า • 🛡️ กันพลาด • 💣 โทษ`},
-             en:{score:"Score",combo:"Combo",time:"Time",best:"Best",mode:"Mode",diff:"Difficulty",start:"Start",pause:"Pause",restart:"Restart",howto:"How to play",langBtn:"Thai/English",easy:"Easy",normal:"Normal",hard:"Hard",summary:"Summary",ok:"OK",target:"Target",groupNames:{grains:"Grains",protein:"Protein",veggies:"Veggies",fruits:"Fruits",dairy:"Dairy"},modeGJ:"Good vs Junk",modeGroups:"Food Groups",modeHydra:"Hydration",modePlate:"Healthy Plate",ruleGJ:"Pick healthy foods; avoid junk.",ruleGroups:"Game picks a target group; hit 3 in a row.",ruleHydra:"Pick plain water (💧/🚰); avoid sugary drinks/soda.",rulePlate:"Complete group quotas to assemble a plate (big bonus).",howtoHTML:`<b>Goal</b>: Pick items by mode rules.<br/><b>Controls</b>: Click/Tap • VR gaze (~0.7s)<br/><b>Scoring</b>: Correct hits score; combo multiplies; miss resets.<br/><b>Power-ups</b>: ⏱️ time+ • 🔥 fever • 🐢 slow • 🛡️ shield • 💣 penalty.`}};
-  const uiState={ lang: localStorage.getItem('ng_lang') || 'th' };
-  function t(k){ return (I18N[uiState.lang]&&I18N[uiState.lang][k]) || k; }
-  function applyLang(){ $$('[data-i18n]').forEach(el=>{ const key=el.getAttribute('data-i18n'); if(key==='howtoHTML'){ $('#helpBody').innerHTML = I18N[uiState.lang].howtoHTML; } else { el.textContent = t(key); } });
-    $("#modeName").textContent = (game.state.mode==='goodjunk')? t('modeGJ') : (game.state.mode==='groups')? t('modeGroups') : (game.state.mode==='hydration')? t('modeHydra') : t('modePlate'); updateTargetLabel(); }
+  const $=s=>document.querySelector(s);
+  const canvas=$("#c");
+  const dingEl=$("#sfx-ding"), thudEl=$("#sfx-thud"), tickEl=$("#sfx-tick");
+
   let AC=null, master=null, muted=false;
-  function audioInit(){ try{ AC = AC||new (window.AudioContext||window.webkitAudioContext)(); master = master||AC.createGain(); master.connect(AC.destination); master.gain.value= muted?0:0.22; }catch(e){} }
-  function setMuted(on){ muted=on; if(!AC) audioInit(); if(master) master.gain.value = on?0:0.22; showToast(on?'Muted':'Sound on'); }
-  function ding(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='sine'; const t=AC.currentTime; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(1320,t+0.08); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22); o.start(t); o.stop(t+0.24); }
-  function thud(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='triangle'; const t=AC.currentTime; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(110,t+0.12); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }
-  function tick(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='square'; const t=AC.currentTime; o.frequency.setValueAtTime(600,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.06); o.start(t); o.stop(t+0.07); }
-  function celebratePlate(){ showToast('Plate Complete!'); document.body.classList.add('celebrate'); setTimeout(()=>document.body.classList.remove('celebrate'),700); try{ if(navigator.vibrate) navigator.vibrate([35,60,35]); }catch(e){} if(!AC) audioInit(); if(!AC) return; const t=AC.currentTime, freqs=[523.25,659.25,783.99,1046.5]; freqs.forEach((f,i)=>{ const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='sine'; o.frequency.value=f; const st=t+i*0.09,en=st+0.26; g.gain.setValueAtTime(0.0001,st); g.gain.exponentialRampToValueAtTime(0.55,st+0.02); g.gain.exponentialRampToValueAtTime(0.0001,en); o.start(st); o.stop(en); }); }
-  const canvas=$("#c"); const renderer=new THREE.WebGLRenderer({canvas, antialias:true}); renderer.setClearColor(0x061018,1); renderer.xr.enabled=true;
-  try{ const VRB=window.VRButton||(window.THREE&&window.THREE.VRButton); const vrEl=(VRB&&VRB.createButton)?VRB.createButton(renderer):null; if(vrEl){ $("#vrSlot")?.replaceWith(vrEl); } }catch(e){}
+  function audioInit(){ try{AC=AC||new (window.AudioContext||window.webkitAudioContext)(); master=master||AC.createGain(); master.connect(AC.destination); master.gain.value=muted?0:0.22;}catch(e){} }
+  function playAudio(el){ try{ if(el){ el.currentTime=0; el.volume= muted?0:0.85; el.play(); return true; } }catch(e){} return false; }
+  function ding(){ if(!playAudio(dingEl)){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(),g=AC.createGain(); o.connect(g); g.connect(master); o.type='sine'; const t=AC.currentTime; o.frequency.setValueAtTime(880,t); o.frequency.exponentialRampToValueAtTime(1320,t+0.08); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.22); o.start(t); o.stop(t+0.24);} }
+  function thud(){ if(!playAudio(thudEl)){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(),g=AC.createGain(); o.connect(g); g.connect(master); o.type='triangle'; const t=AC.currentTime; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(110,t+0.12); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27);} }
+  function tick(){ if(!playAudio(tickEl)){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(),g=AC.createGain(); o.connect(g); g.connect(master); o.type='square'; const t=AC.currentTime; o.frequency.setValueAtTime(600,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.06); o.start(t); o.stop(t+0.07);} }
+
+  const renderer=new THREE.WebGLRenderer({canvas, antialias:true}); renderer.setClearColor(0x000000,0); renderer.xr.enabled=true;
+  try{ const VRB=window.VRButton||(window.THREE&&window.THREE.VRButton); const vrEl=(VRB&&VRB.createButton)?VRB.createButton(renderer):null; if(vrEl){ const slot=document.createElement('div'); slot.style.position='fixed'; slot.style.right='8px'; slot.style.bottom='8px'; slot.style.zIndex=5; slot.appendChild(vrEl); document.body.appendChild(slot); } }catch(e){}
   const scene=new THREE.Scene(); const camera=new THREE.PerspectiveCamera(60,2,0.01,100); camera.position.set(0,1.6,2.8);
-  scene.add(new THREE.AmbientLight(0xffffff,1.0)); const group=new THREE.Group(); scene.add(group); const raycaster=new THREE.Raycaster();
-  function emojiTexture(char){ const s=128, cnv=document.createElement('canvas'); cnv.width=cnv.height=s; const ctx=cnv.getContext('2d'); ctx.font="100px system-ui, Apple Color Emoji, Segoe UI Emoji"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(char,s/2,s/2); const tex=new THREE.CanvasTexture(cnv); tex.needsUpdate=true; return tex; }
+  scene.add(new THREE.AmbientLight(0xffffff,1.0)); const group=new THREE.Group(); scene.add(group);
+  const raycaster=new THREE.Raycaster();
+
+  function emojiTexture(char){ const s=128, cnv=document.createElement('canvas'); cnv.width=cnv.height=s; const ctx=cnv.getContext('2d'); ctx.font="100px system-ui, 'Apple Color Emoji', 'Segoe UI Emoji'"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(char,s/2,s/2); const tex=new THREE.CanvasTexture(cnv); tex.needsUpdate=true; return tex; }
   function makeEmoji(char){ const tex=emojiTexture(char); const geo=new THREE.PlaneGeometry(0.5,0.5); const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false}); const m=new THREE.Mesh(geo,mat); m.lookAt(camera.position); return m; }
-  const LANE_X=[-1.1,-0.55,0,0.55,1.1], LANE_Y=[-0.2,0.0,0.18,0.32], LANE_Z=-2.2; const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now();
+
+  const game={ state:{mode:'goodjunk', difficulty:'Normal', running:false, paused:false, score:0, timeLeft:60, combo:1, comboMax:1, best:0}, ACTIVE:new Set() };
+  const LIB={ good:["🥦","🍎","🍌","🍅","🥕","🍇","🍗","🥛","🍠","🌽","🥬","🍊"], junk:["🍟","🍔","🍕","🌭","🍰","🍩","🧁","🥤","🍫"] };
+
+  const LANE_X=[-1.1,-0.55,0,0.55,1.1], LANE_Y=[-0.2,0.0,0.18,0.32], LANE_Z=-2.2;
+  const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now();
   const isAdj=(r,c)=>{ if(!lastLane) return false; const [pr,pc]=lastLane; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
-  function pickLane(){ const cand=[]; for(let r=0;r<LANE_Y.length;r++){ for(let c=0;c<LANE_X.length;c++){ const k=r+','+c, cd=cooldown.get(k)||0, free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); }} if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); lastLane=[p.r,p.c]; return {x:LANE_X[p.c], y:1.6+LANE_Y[p.r], z:LANE_Z-0.1*Math.abs(p.c-2), key:p.k}; }
+  function pickLane(){ const cand=[]; for(let r=0;r<LANE_Y.length;r++){ for(let c=0;c<LANE_X.length;c++){ const k=r+','+c,cd=cooldown.get(k)||0,free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); }} if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); lastLane=[p.r,p.c]; return {x:LANE_X[p.c], y:1.6+LANE_Y[p.r], z:LANE_Z-0.1*Math.abs(p.c-2), key:p.k}; }
   function releaseLane(k){ occupied.delete(k); cooldown.set(k, now()+800); }
-  const LIB={ good:["🥦","🍎","🍌","🍅","🥕","🍇","🍗","🥛","🍠","🌽","🥬","🍊"],
-    junk:["🍟","🍔","🍕","🌭","🍰","🍩","🧁","🥤","🍫"],
-    groups:{grains:["🍞","🍚","🥖","🥨"], protein:["🍗","🥚","🫘","🐟"], veggies:["🥦","🥕","🥬","🍅"], fruits:["🍎","🍌","🍇","🍊"], dairy:["🥛","🧀"]},
-    hydra:{water:["💧","🚰"], sugar:["🥤","🧃","🧋"], soda:["🥤"]},
-    special:{time:"⏱️", fever:"🔥", slow:"🐢", bomb:"💣", shield:"🛡️"} };
-  const groupsArr=['grains','protein','veggies','fruits','dairy'];
-  const game={ state:{ lang:(localStorage.getItem('ng_lang')||'th'), difficulty:(localStorage.getItem('ng_diff')||'Normal'), mode:(localStorage.getItem('ng_mode')||'goodjunk'),
-      score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best:parseInt(localStorage.getItem('ng_best')||'0'), hits:0, misses:0, specials:{time:0,fever:0,slow:0,bomb:0,shield:0}, fever:false, shield:false, lastHydraBonus:0 },
-    ACTIVE:new Set(), currentTarget:'grains', targetHits:0, plateQuota:null, plateTarget:null };
-  function pickMeta(){ const r=Math.random();
-    if(r<0.14){ const sp=['time','fever','slow','bomb','shield']; return {special: sp[Math.floor(Math.random()*sp.length)]}; }
-    if(game.state.mode==='goodjunk'){ const goodBias=game.state.difficulty==='Easy'?0.72:game.state.difficulty==='Hard'?0.46:0.6; return {good: Math.random()<goodBias}; }
-    if(game.state.mode==='groups'){ return {group: groupsArr[Math.floor(Math.random()*groupsArr.length)]}; }
-    if(game.state.mode==='hydration'){ const rate=game.state.difficulty==='Easy'?0.78:game.state.difficulty==='Hard'?0.55:0.66; const isWater=Math.random()<rate; return {hydra: isWater?'water':(Math.random()<0.5?'soda':'sugar')}; }
-    const g=groupsArr[Math.floor(Math.random()*groupsArr.length)]; return {group:g, plate:true}; }
-  function charFor(meta){ if(meta.special) return LIB.special[meta.special];
-    if(game.state.mode==='goodjunk'){ return (meta.good? LIB.good[Math.floor(Math.random()*LIB.good.length)] : LIB.junk[Math.floor(Math.random()*LIB.junk.length)]); }
-    if(game.state.mode==='groups'){ const a=LIB.groups[meta.group]; return a[Math.floor(Math.random()*a.length)]; }
-    if(game.state.mode==='hydration'){ return (meta.hydra==='water'? LIB.hydra.water[0] : (Math.random()<0.5?LIB.hydra.sugar[0]:LIB.hydra.soda[0])); }
-    if(meta.group){ const a=LIB.groups[meta.group]; return a[Math.floor(Math.random()*a.length)]; } return "🍽️"; }
-  function updateHUD(){ document.getElementById('score').textContent=game.state.score; document.getElementById('time').textContent=game.state.timeLeft; document.getElementById('best').textContent=game.state.best;
-    document.getElementById('difficulty').textContent=(uiState.lang==='th'?(game.state.difficulty==='Easy'?'ง่าย':game.state.difficulty==='Hard'?'ยาก':'ปกติ'):game.state.difficulty);
-    document.getElementById('modeName').textContent=(game.state.mode==='goodjunk')? t('modeGJ') : (game.state.mode==='groups')? t('modeGroups') : (game.state.mode==='hydration')? t('modeHydra') : t('modePlate');
-    document.getElementById('combo').textContent='x'+game.state.combo; renderPlateTracker(); }
-  function groupDisplayKey(key){ return key==='grains'?'🍞':key==='protein'?'🍗':key==='veggies'?'🥦':key==='fruits'?'🍎':'🥛'; }
-  function updateTargetLabel(){ const wrap=document.getElementById('targetWrap'), badge=document.getElementById('targetBadge');
-    if(game.state.mode==='groups'){ const name=(I18N[uiState.lang]?.groupNames?.[game.currentTarget])||game.currentTarget; const icon=groupDisplayKey(game.currentTarget);
-      wrap.style.display='block'; badge.textContent=`${icon} ${name}`; badge.className=''; badge.classList.add('badge--'+game.currentTarget); } else wrap.style.display='none'; }
-  function renderPlateTracker(){ const wrap=document.getElementById('plateTracker'), pills=document.getElementById('platePills'); if(game.state.mode!=='plate'){ wrap.style.display='none'; return; } wrap.style.display='block';
-    if(!game.plateTarget||!game.plateQuota){ pills.innerHTML='—'; return; } const names=I18N[uiState.lang]?.groupNames||{grains:'Grains',protein:'Protein',veggies:'Veggies',fruits:'Fruits',dairy:'Dairy'}; const order=['grains','veggies','protein','fruits','dairy'];
-    pills.innerHTML=order.map(k=>{ const icon=groupDisplayKey(k); const need=game.plateTarget[k]||0; const left=game.plateQuota[k]||0; const have=Math.max(0,need-left); const done=left<=0;
-      return `<span class="pill ${done?'done':''}" title="${names[k]}"><span class="icon">${icon}</span><span class="have">${have}</span>/<span class="need">${need}</span></span>`; }).join(''); }
-  function toScreen(pos){ const v=pos.clone().project(camera); return { x:(v.x*0.5+0.5)*innerWidth, y:(-v.y*0.5+0.5)*innerHeight }; }
-  function floatScoreAt(pos,text,positive=true){ const p=toScreen(pos); const el=document.createElement('div'); el.className='floatScore'; el.textContent=text; el.style.left=p.x+'px'; el.style.top=p.y+'px'; el.style.color=positive?'#7fffd4':'#ff8899'; el.style.animation='popUp 700ms ease-out forwards'; document.body.appendChild(el); setTimeout(()=>el.remove(),750); }
-  const showToast=(msg,ms=1200)=>{ const t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',ms); };
+
+  function spawn(){
+    const lane=pickLane(); if(!lane) return;
+    const goodBias= game.state.difficulty==='Easy'?0.72:game.state.difficulty==='Hard'?0.46:0.6;
+    const isGood=Math.random()<goodBias;
+    const ch = isGood ? LIB.good[Math.floor(Math.random()*LIB.good.length)] : LIB.junk[Math.floor(Math.random()*LIB.junk.length)];
+    const m=makeEmoji(ch); m.position.set(lane.x,lane.y,lane.z); m.userData={lane:lane.key, good:isGood};
+    group.add(m); game.ACTIVE.add(m);
+    const life= game.state.difficulty==='Hard'?1900:game.state.difficulty==='Easy'?4200:3000;
+    m.userData.timer=setTimeout(()=>{ if(!m.parent) return; destroy(m); }, life + Math.floor(Math.random()*500-250));
+  }
+
   function destroy(obj){ if(obj.parent) obj.parent.remove(obj); game.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
-  function avoidHUD(mesh){ const p=toScreen(mesh.position); if(p.y<90) mesh.position.y-=0.14; }
-  function spawn(){ const lane=pickLane(); if(!lane) return; const meta=pickMeta(); const ch=charFor(meta); const m=makeEmoji(ch); m.position.set(lane.x,lane.y,lane.z); m.userData={lane:lane.key,meta}; group.add(m); game.ACTIVE.add(m);
-    avoidHUD(m); const life=game.state.difficulty==='Hard'?1900:game.state.difficulty==='Easy'?4200:3000;
-    m.userData.timer=setTimeout(()=>{ if(!m.parent) return; if(!meta.special){ if(game.state.mode==='goodjunk'){ if(meta.good===false){ game.state.score+=1; game.state.misses++; updateHUD(); } else { comboBreak(); } } else if(game.state.mode==='groups'){ if(meta.group===game.currentTarget){ comboBreak(); } } else if(game.state.mode==='hydration'){ if(meta.hydra!=='water'){ game.state.score+=1; game.state.misses++; updateHUD(); } } } destroy(m); }, life + Math.floor(Math.random()*500-250)); }
-  function nextTarget(){ const arr=groupsArr.filter(x=>x!==game.currentTarget); game.currentTarget=arr[Math.floor(Math.random()*arr.length)]; updateTargetLabel(); }
-  function resetPlateQuota(){ const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1}; if(game.state.difficulty==='Hard') base.veggies=3; game.plateQuota={...base}; game.plateTarget={...base}; renderPlateTracker(); }
-  function setFever(on){ game.state.fever=on; document.body.classList.toggle('fever',on); }
-  let feverTimer=null; function enterFever(ms=6500){ if(feverTimer) clearTimeout(feverTimer); setFever(true); feverTimer=setTimeout(()=>setFever(false),ms); }
-  function comboBreak(){ game.state.combo=1; setFever(false); updateHUD(); }
-  function handleHit(obj){ const m=obj.userData.meta; if(!AC) audioInit(); let positive=false, delta=0, base=0;
-    if(m.special){ game.state.specials[m.special]=(game.state.specials[m.special]||0)+1;
-      if(m.special==='time'){ game.state.timeLeft=Math.min(99,game.state.timeLeft+5); positive=true; showToast('+5s'); ding(); }
-      if(m.special==='fever'){ enterFever(); positive=true; showToast('FEVER!'); ding(); }
-      if(m.special==='slow'){ const old=game.state.difficulty; game.state.difficulty='Easy'; setTimeout(()=>game.state.difficulty=old,2600); positive=true; showToast('Slow'); }
-      if(m.special==='bomb'){ comboBreak(); game.state.score=Math.max(0,game.state.score-5); delta=-5; positive=false; thud(); }
-      if(m.special==='shield'){ game.state.shield=true; positive=true; showToast('Shield'); }
-      updateHUD(); if(delta!==0) floatScoreAt(obj.position,(delta>0?'+':'')+delta,delta>0); return; }
-    if(game.state.mode==='goodjunk'){ const good=m.good===true; base=good?6:-3; delta=good?base*game.state.combo:base; positive=delta>0; if(!good){ thud(); comboBreak(); } else { ding(); game.state.hits++; } }
-    else if(game.state.mode==='groups'){ const good=m.group===game.currentTarget; base=good?7:-2; delta=good?base*game.state.combo:base; positive=delta>0; if(good){ game.state.hits++; game.targetHits++; ding(); if(game.targetHits>=3){ nextTarget(); game.targetHits=0; } } else { thud(); comboBreak(); } }
-    else if(game.state.mode==='hydration'){ const good=m.hydra==='water'; base=good?5:-4; delta=good?base*game.state.combo:base; positive=delta>0; if(good){ game.state.hits++; ding(); if(game.state.combo%3===0){ const nowT=performance.now(); if(nowT-(game.state.lastHydraBonus||0)>5000){ game.state.timeLeft=Math.min(99,game.state.timeLeft+2); showToast('+2s'); game.state.lastHydraBonus=nowT; } } } else { thud(); comboBreak(); } }
-    else { if(m.group){ if(!game.plateQuota) resetPlateQuota(); if(game.plateQuota[m.group]>0){ positive=true; game.state.hits++; base=6; game.plateQuota[m.group]-=1; renderPlateTracker(); if(Object.values(game.plateQuota).every(v=>v<=0)){ base+=14; celebratePlate(); resetPlateQuota(); } delta=base*game.state.combo; ding(); } else { delta=2; positive=true; game.state.hits++; ding(); } } }
-    if(game.state.fever && delta>0){ delta=Math.round(delta*2.0)+1; }
-    game.state.score=Math.max(0,game.state.score+delta); if(positive){ game.state.combo=Math.min(6,game.state.combo+1); game.state.comboMax=Math.max(game.state.comboMax,game.state.combo); if(game.state.combo>=4 && !game.state.fever) enterFever(); } else { game.state.misses++; }
-    updateHUD(); if(delta!==0) floatScoreAt(obj.position,(delta>0?'+':'')+delta,delta>0); }
-  function onClickCanvas(ev){ if(!game.state.running||game.state.paused) return; const r=canvas.getBoundingClientRect(); const x=(ev.clientX-r.left)/r.width*2-1; const y=-(ev.clientY-r.top)/r.height*2+1; const m=new THREE.Vector2(x,y); raycaster.setFromCamera(m,camera); const inter=raycaster.intersectObjects(Array.from(game.ACTIVE)); if(inter.length){ const obj=inter[0].object; handleHit(obj); destroy(obj); } }
-  const canvas=document.getElementById('c'); canvas.addEventListener('click', onClickCanvas);
-  canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClickCanvas({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
-  let gazeTarget=null, gazeStart=0; const DWELL=700; function handleGaze(){ if(!game.state.running||game.state.paused) return;
-    raycaster.setFromCamera(new THREE.Vector2(0,0), camera); const inter=raycaster.intersectObjects(Array.from(game.ACTIVE));
-    if(inter.length>0){ const o=inter[0].object; if(gazeTarget!==o){ gazeTarget=o; gazeStart=performance.now(); document.getElementById('ret').classList.add('progress'); tick(); }
-      else if(performance.now()-gazeStart>=DWELL){ handleHit(o); destroy(o); gazeTarget=null; document.getElementById('ret').classList.remove('progress'); } }
-    else { gazeTarget=null; document.getElementById('ret').classList.remove('progress'); } }
-  let spH=null, tmH=null, watchdogH=null, SPAWN_COUNT=0, WD=0;
+
+  function onClickCanvas(ev){ if(!game.state.running||game.state.paused) return;
+    const r=canvas.getBoundingClientRect(); const x=(ev.clientX-r.left)/r.width*2-1; const y=-(ev.clientY-r.top)/r.height*2+1;
+    const m=new THREE.Vector2(x,y); raycaster.setFromCamera(m,camera);
+    const inter=raycaster.intersectObjects(Array.from(game.ACTIVE));
+    if(inter.length){ const o=inter[0].object; hit(o); destroy(o); }
+  }
+
+  function hit(obj){ const g=obj.userData.good===true; if(g){ ding(); game.state.score+=5*game.state.combo; game.state.combo=Math.min(6,game.state.combo+1);} else { thud(); game.state.combo=1; } updateHUD(); }
+
+  function updateHUD(){ document.getElementById('score').textContent=game.state.score; document.getElementById('time').textContent=game.state.timeLeft; document.getElementById('difficulty').textContent=game.state.difficulty; document.getElementById('combo').textContent='x'+game.state.combo; }
+
+  let spH=null, tmH=null, SPAWN_COUNT=0;
   function loop(){ if(!game.state.running||game.state.paused) return; spawn(); SPAWN_COUNT++; const base=700; const accel=Math.max(0.5,1-(SPAWN_COUNT/120)); const next=Math.max(320,base*accel); spH=setTimeout(loop,next); }
-  function timer(){ if(!game.state.running||game.state.paused) return; tmH=setTimeout(()=>{ game.state.timeLeft--; updateHUD(); if(game.state.timeLeft<=0){ endGame(); } else timer(); }, 1000); }
-  function start(){ document.getElementById('summary').style.display='none'; document.getElementById('help').style.display='none'; game.state.score=0; game.state.combo=1; game.state.comboMax=1; game.state.timeLeft=60; game.state.hits=0; game.state.misses=0; game.state.specials={time:0,fever:0,slow:0,bomb:0,shield:0}; SPAWN_COUNT=0; if(game.state.mode==='groups'){ nextTarget(); updateTargetLabel(); } if(game.state.mode==='plate'){ resetPlateQuota(); } else { renderPlateTracker(); } updateHUD(); game.state.running=true; game.state.paused=false; setTimeout(spawn,200); loop(); timer();
-    clearTimeout(watchdogH); let seenT=game.state.timeLeft, seenS=SPAWN_COUNT; (function kick(){ const stuck=(seenT===game.state.timeLeft)||(seenS===SPAWN_COUNT); if(stuck){ WD++; clearTimeout(spH); clearTimeout(tmH); setTimeout(()=>{ spawn(); loop(); timer(); },150); } seenT=game.state.timeLeft; seenS=SPAWN_COUNT; watchdogH=setTimeout(kick,1200); })(); }
+  function timer(){ if(!game.state.running||game.state.paused) return; tmH=setTimeout(()=>{ game.state.timeLeft--; updateHUD(); if(game.state.timeLeft<=0) endGame(); else timer(); },1000); }
+  function start(){ document.getElementById('help').style.display='none'; game.state.running=true; game.state.paused=false; game.state.score=0; game.state.combo=1; game.state.timeLeft=60; updateHUD(); setTimeout(spawn,200); loop(); timer(); canvas.style.pointerEvents='auto'; }
   function pause(){ if(!game.state.running) return; game.state.paused=!game.state.paused; if(!game.state.paused){ loop(); timer(); } }
-  function saveModeStat(){ const key='ng_stats_'+game.state.mode; const obj=JSON.parse(localStorage.getItem(key)||'{}'); obj.best=Math.max(obj.best||0,game.state.score); obj.play=(obj.play||0)+1; localStorage.setItem(key, JSON.stringify(obj)); }
-  function endGame(){ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); if(game.state.score>game.state.best){ game.state.best=game.state.score; localStorage.setItem('ng_best', String(game.state.best)); } saveModeStat();
-    let plateMissing=''; if(game.state.mode==='plate' && game.plateQuota && game.plateTarget){ const names=I18N[uiState.lang]?.groupNames||{grains:'Grains',protein:'Protein',veggies:'Veggies',fruits:'Fruits',dairy:'Dairy'}; const order=['grains','veggies','protein','fruits','dairy'];
-      const miss=order.filter(k=>(game.plateQuota[k]||0)>0).map(k=>`${groupDisplayKey(k)} ${names[k]} ×${game.plateQuota[k]}`); if(miss.length) plateMissing=`<br/><b>ยังขาด</b>: ${miss.join(' • ')}`; }
-    const star=game.state.score>=240?3:game.state.score>=160?2:1; const b=game.state.best, s=game.state.specials, modeName=document.getElementById('modeName').textContent;
-    document.getElementById('sumStars').textContent="★".repeat(star)+"☆".repeat(3-star);
-    document.getElementById('sumBody').innerHTML=`<div style="line-height:1.7"><b>${t('score')}</b>: ${game.state.score} (${t('best')}: ${b}) • <b>Combo Max</b>: x${game.state.comboMax}<br/><b>Hits</b>: ${game.state.hits} • <b>Misses</b>: ${game.state.misses}<br/><b>Power-ups</b>: ⏱️ ${s.time} • 🔥 ${s.fever} • 🐢 ${s.slow} • 🛡️ ${s.shield} • 💣 ${s.bomb}<br/><b>${t('mode')}</b>: ${modeName} • <b>${t('diff')}</b>: ${(uiState.lang==='th' ? (game.state.difficulty==='Easy'?'ง่าย':game.state.difficulty==='Hard'?'ยาก':'ปกติ') : game.state.difficulty)} ${plateMissing}</div>`;
-    document.getElementById('sumTitle').textContent=t('summary'); document.getElementById('summary').style.display='flex'; }
-  function resize(){ const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+  function endGame(){ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); canvas.style.pointerEvents='none'; }
+
+  document.getElementById('menuBar').addEventListener('click', (e)=>{ const btn=e.target.closest('button'); if(!btn) return; const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value'); e.preventDefault(); e.stopPropagation();
+    if(act==='start') start(); else if(act==='pause') pause(); else if(act==='restart'){ endGame(); start(); } else if(act==='help'){ document.getElementById('help').style.display='flex'; }
+    else if(act==='mode'){ game.state.mode=val; } else if(act==='diff'){ game.state.difficulty=val; updateHUD(); }
+  }, false);
+  document.getElementById('help').addEventListener('click',(e)=>{ if(e.target.getAttribute('data-action')==='helpClose' || e.target.id==='help') e.currentTarget.style.display='none'; });
+
+  canvas.addEventListener('click', onClickCanvas);
+  canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClickCanvas({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
+
+  function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
-  function renderLoop(){ const q=camera.quaternion; game.ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
-  renderer.setAnimationLoop(renderLoop);
-  const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; start(); },
-    setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); updateHUD(); updateTargetLabel(); if(m==='plate'){ resetPlateQuota(); } else { renderPlateTracker(); } },
-    setDiff:(d)=>{ game.state.difficulty=d; localStorage.setItem('ng_diff',d); if(game.state.mode==='plate'){ resetPlateQuota(); } updateHUD(); },
-    toggleLang:()=>{ uiState.lang=(uiState.lang==='th'?'en':'th'); localStorage.setItem('ng_lang',uiState.lang); game.state.lang=uiState.lang; applyLang(); },
-    help: ()=>{ document.getElementById('summary').style.display='none'; document.getElementById('help').style.display='flex'; applyLang(); },
-    helpClose: ()=>{ document.getElementById('help').style.display='none'; } };
-  window.UI=UI;
-  document.getElementById('menuBar').addEventListener('click',(e)=>{ const btn=e.target.closest('button'); if(!btn) return; const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value'); e.preventDefault(); e.stopPropagation();
-    const map={start:UI.start,pause:UI.pause,restart:UI.restart,lang:UI.toggleLang,help:UI.help,mute:()=>setMuted(!muted),reset:()=>{ localStorage.removeItem('ng_best'); game.state.best=0; updateHUD(); showToast('Reset stats'); }};
-    if(act in map) map[act](); else if(act==='mode') UI.setMode(val); else if(act==='diff') UI.setDiff(val); }, false);
-  document.getElementById('summary').addEventListener('click',(e)=>{ const btn=e.target.closest('button'); if(!btn) return; const act=btn.getAttribute('data-action'); e.preventDefault(); e.stopPropagation(); if(act==='help'){ UI.help(); } else if(act==='restart'){ UI.restart(); } });
-  document.getElementById('help').addEventListener('click',(e)=>{ if(e.target.id==='help') UI.helpClose(); });
-  document.querySelector('#help [data-action=helpClose]').addEventListener('click', ()=>UI.helpClose());
-  if(!localStorage.getItem('ng_seenTutorial')){ UI.help(); setTimeout(()=>{ document.getElementById('help').style.display='none'; localStorage.setItem('ng_seenTutorial','1'); }, 4500); }
-  applyLang(); updateHUD();
+  renderer.setAnimationLoop(()=>{ renderer.render(scene,camera); });
+
   window.onerror=(msg,src,line,col)=>{ const err=document.getElementById('errors'); err.style.display='block'; err.textContent="Errors: "+msg+" @"+(src||'inline')+":"+line+":"+col; };
-})();
-</script></body></html>
+  canvas.style.pointerEvents='none';
+})();</script>
+</body>
+</html>
