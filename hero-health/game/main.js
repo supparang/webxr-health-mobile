@@ -1,6 +1,7 @@
-// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach + mode init patch)
+// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach + mode init patch) + external HUD
 import { Engine } from './core/engine.js';
 import { Coach } from './core/coach.js';
+import { HUD } from './core/hud.js';
 
 // ====== GLOBALS & DEBUG ======
 const THREE = window?.THREE;
@@ -26,27 +27,7 @@ const L = () => I18N[safeLang(SETTINGS.lang)] || I18N.TH;
 const modeName = k => safeKey(L().modes || {}, k, k || '—');
 const diffName = k => safeKey(L().diff  || {}, k, k || 'Normal');
 
-// ====== HUD / FX ======
-class HUD{
-  setScore(v){ document.getElementById('score').textContent = v|0; }
-  setCombo(v){ document.getElementById('combo').textContent = 'x'+(v||1); }
-  setTime(v){ document.getElementById('time').textContent = v|0; }
-  setDiff(v){ document.getElementById('difficulty').textContent = v; }
-  setMode(v){ document.getElementById('modeName').textContent = v; }
-  fever(active){
-    const el = document.getElementById('fever');
-    if (el) el.style.display = active ? 'inline-block' : 'none';
-  }
-  setHydration(p,z){
-    const wrap=document.getElementById('hydroWrap'); wrap.style.display='block';
-    document.getElementById('hydroBar').style.width=Math.max(0,Math.min(100,p))+'%';
-    const mapTH = {ok:'พอดี', low:'น้อยไป', high:'มากไป'};
-    const mapEN = {ok:'OK',   low:'Low',    high:'High'};
-    const label = (SETTINGS.lang==='TH'? mapTH : mapEN)[z] || z;
-    document.getElementById('hydroLabel').textContent = Math.round(p)+'% '+label;
-  }
-  hideHydration(){ document.getElementById('hydroWrap').style.display='none'; }
-}
+// ====== FX ======
 class FloatingFX{
   spawn3D(obj, html, kind){
     const d=document.createElement('div');
@@ -67,10 +48,8 @@ class ScoreSystem{
       this.combo++;
       this.bestCombo = Math.max(this.bestCombo, this.combo);
 
-      // Coach: combo up
       if (coach?.onCombo && this.combo !== before) coach.onCombo(this.combo);
 
-      // FEVER every 5 combo for 6s if not already active
       if (this.combo > 0 && this.combo % 5 === 0 && !systems.fever.active) {
         systems.fever.active = true;
         systems.fever.timer = 6000;
@@ -216,7 +195,7 @@ const MODES={
         if(done){
           sys.score.add(14);
           state.ctx.perfectPlates=(state.ctx.perfectPlates||0)+1;
-          coach?.say?.('Perfect plate!'); // Coach
+          coach?.say?.('Perfect plate!');
           state.plate={grain:0,veg:0,protein:0,fruit:0,dairy:0};
         }
       }else{
@@ -402,7 +381,6 @@ function spawnOnce(){
 
   const life=state.diffCfg?.life||3000;
   m.userData.timer=setTimeout(()=>{ if(!m.parent) return;
-    // auto-miss rewards/penalties
     if(meta.type==='gj' && meta.good===false){ systems.score.add(1); }
     if(meta.type==='groups'){ if(!(state.currentTarget && meta.group===state.currentTarget)){ state.ctx.groupWrong++; } }
     if(meta.type==='hydra' && meta.water===false){ systems.score.add(1); state.ctx.sweetMiss++; }
@@ -426,7 +404,6 @@ function hit(obj){
 
   MODES[state.modeKey].onHit(meta, systems, state, hud);
 
-  // Hydration penalties (over/low while taking certain items)
   if(state.modeKey==='hydration' && meta.type==='hydra' && meta.water===true && state.hyd>(state.hydMax||65)){
     systems.score.add(-4); state.timeLeft=Math.max(0,state.timeLeft-3); state.ctx.overHydPunish++; state.ctx.timeMinus+=3;
   }
@@ -542,7 +519,7 @@ function runTimer(){
 // ====== GAME STATE ======
 function start(){
   document.getElementById('help').style.display='none';
-  if (coach?.onStart) coach.onStart(); // Coach
+  if (coach?.onStart) coach.onStart();
 
   state.diffCfg=DIFFS[state.difficulty]||DIFFS.Normal;
   state.running=true; state.paused=false;
@@ -551,12 +528,10 @@ function start(){
 
   state.ctx={bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0};
 
-  // reset HUD sections, let mode.init decide what to show
   document.getElementById('hydroWrap').style.display='none';
   document.getElementById('targetWrap').style.display='none';
   document.getElementById('plateTracker').style.display='none';
 
-  // call mode init (sets targets, pills, hydration HUD, etc.)
   if (typeof MODES[state.modeKey]?.init === 'function') {
     MODES[state.modeKey].init(state, hud);
   }
@@ -580,9 +555,8 @@ function end(){
   document.getElementById('c').style.pointerEvents='none';
   const bonus=systems.mission.evaluate({...state.ctx, combo: systems.score.combo}); if(bonus>0){ systems.score.score+=bonus; }
   systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
-  if (coach?.onEnd) coach.onEnd(); // Coach
+  if (coach?.onEnd) coach.onEnd();
   presentResult(systems.score.score);
-  // cleanup all active sprites
   [...state.ACTIVE].forEach(obj => destroy(obj));
   D.log('game end', {score:systems.score.score});
 }
@@ -609,22 +583,18 @@ function boot(){
     }
   };
 
-  // top-right controls
   document.getElementById('langToggle')?.addEventListener('click', ()=>{ SETTINGS.lang=SETTINGS.lang==='TH'?'EN':'TH'; applyLanguage(); renderPills(state); });
   document.getElementById('soundToggle')?.addEventListener('click', ()=>{ SETTINGS.sound=!SETTINGS.sound; applySound(); });
   document.getElementById('gfxSelect')?.addEventListener('change', (e)=>{ SETTINGS.quality=e.target.value||'High'; applyQuality(); });
 
   applyLanguage(); applySound(); applyQuality();
 
-  // input
   const canvasEl=document.getElementById('c');
   canvasEl.addEventListener('click', onCanvasClick, {passive:true});
   canvasEl.addEventListener('touchstart', e=>{ const t=e.touches&&e.touches[0]; if(!t) return; onCanvasClick({clientX:t.clientX, clientY:t.clientY}); }, {passive:true});
 
-  // loop via engine
   engine.startLoop(loop);
 
-  // error overlay
   window.onerror=(m,s,l,c)=>{
     const mk=()=>{ const d=document.getElementById('errors')||document.createElement('div'); d.id='errors'; d.style.cssText='position:fixed;top:8px;right:8px;background:rgba(30,0,0,.85);color:#ffb;border:1px solid #f66;padding:6px 10px;border-radius:8px;z-index:9999;max-width:60ch;white-space:pre-wrap'; if(!d.parentNode) document.body.appendChild(d); return d; };
     const d=mk(); d.textContent='Errors: '+m+' @'+(s||'inline')+':'+l+':'+c; d.style.display='block';
