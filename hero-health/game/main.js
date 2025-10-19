@@ -1,4 +1,6 @@
-// game/main.js  — HERO HEALTH ACADEMY (อัปเดตครบ: Diff, Help รายโหมด, Hydration Meter + โทษน้ำมาก/น้อย, โทษเกินโควตาใน Plate, Floating Score, Power/Trap, Mission/Board)
+// game/main.js — HERO HEALTH ACADEMY
+// รวมครบ: 4 โหมด, Help รายโหมด, Hydration Meter + โทษน้ำมาก/น้อย, โทษเกินโควตาใน Plate,
+// Difficulty Easy/Normal/Hard, Floating Score, Power/Trap, Mission/Leaderboard, Result Modal
 
 import { Engine } from './core/engine.js';
 import { HUD } from './ui/hud.js';
@@ -61,8 +63,7 @@ const state = {
   ACTIVE:new Set(),
   lane:{},
   ctx:{goodHits:0, targetHitsTotal:0, bestStreak:0, currentStreak:0, waterHits:0, sweetMiss:0, perfectPlates:0, plateFills:0},
-  // ใช้สำหรับสื่อสารผลลัพธ์พิเศษจากบางโหมด (เช่น plate overfill)
-  __plateLast:null
+  __plateLast:null // flag สำหรับผลลัพธ์จาก plate (เกินโควตา)
 };
 
 // ---------- วิธีเล่นรายโหมด ----------
@@ -89,10 +90,10 @@ const HELP = {
     <h3>💧 สมดุลน้ำ (Hydration)</h3>
     <ul>
       <li>ดูมิเตอร์ 💧: โซน <b>พอดี 45–65%</b> ดีที่สุด</li>
-      <li>น้ำ 💧/🚰 เพิ่มเปอร์เซ็นต์ (+คะแนนมากสุดเมื่ออยู่โซนพอดี)</li>
+      <li>น้ำ 💧/🚰 เพิ่มเปอร์เซ็นต์ (ได้คะแนนมากสุดเมื่ออยู่โซนพอดี)</li>
       <li>หวาน 🧋 ลดเปอร์เซ็นต์ (−3)</li>
-      <li><b>ถ้าอยู่โซน “มากไป” แล้วเก็บน้ำ</b> → โดนลงโทษพิเศษ</li>
-      <li><b>ถ้าอยู่โซน “น้อยไป” แล้วเก็บหวาน</b> → โดนลงโทษพิเศษ</li>
+      <li><b>ถ้าอยู่โซน “มากไป” แล้วเก็บน้ำ</b> → โทษพิเศษ</li>
+      <li><b>ถ้าอยู่โซน “น้อยไป” แล้วเก็บหวาน</b> → โทษพิเศษ</li>
     </ul>
   `,
   plate: `
@@ -100,7 +101,7 @@ const HELP = {
     <ul>
       <li>เติมโควตาใน HUD: ธัญพืช ผัก โปรตีน ผลไม้ นม</li>
       <li>ของที่ยังขาด +6 | ครบจาน = PERFECT! +14</li>
-      <li><b>ถ้าเกินโควตา</b> → โดนลงโทษ: −2 คะแนน / −1s และคอมโบแตก</li>
+      <li><b>ถ้าเกินโควตา</b> → โทษ: −2 คะแนน / −1s และคอมโบแตก</li>
     </ul>
   `
 };
@@ -160,14 +161,14 @@ function spawnOnce(){
   // meta จากโหมด
   let meta = MODES[state.modeKey].pickMeta(state.difficulty, state);
 
-  // Hydration: bias น้ำตามความยากให้ชัดเจน
+  // Hydration: bias น้ำตามความยาก
   if(state.modeKey==='hydration'){
     const rate = (state.diffCfg && state.diffCfg.hydWaterRate) || 0.66;
     const water = Math.random() < rate;
     meta = { type:'hydra', water, char: water ? '💧' : '🧋' };
   }
 
-  // แทรก Power/Trap ตามโอกาสของความยาก
+  // แทรก Power/Trap
   meta = maybeSpecialMeta(meta);
 
   // สร้างอ็อบเจกต์
@@ -292,6 +293,61 @@ function updateHUD(){
   hud.fever(systems.fever.active);
 }
 
+// Result modal helpers
+function buildBreakdownAndTips(){
+  const m = state.modeKey;
+  const c = state.ctx;
+  let html='', tip='';
+
+  if(m==='goodjunk'){
+    html = `
+      <ul>
+        <li>ของดีที่เก็บ: <b>${c.goodHits}</b></li>
+        <li>สตรีคดีที่สุด: <b>${c.bestStreak}</b></li>
+      </ul>`;
+    tip = 'โฟกัสไอเท็มดีต่อเนื่องเพื่อดันคอมโบและเข้า FEVER เร็วขึ้น';
+  }
+  else if(m==='groups'){
+    html = `
+      <ul>
+        <li>เก็บตรงหมวดเป้าหมาย: <b>${c.targetHitsTotal}</b></li>
+        <li>สตรีคดีที่สุด: <b>${c.bestStreak}</b></li>
+      </ul>`;
+    tip = 'มอง HUD 🎯 ตลอด เปลี่ยนเลนล่วงหน้าให้เข้าแถวเป้า';
+  }
+  else if(m==='hydration'){
+    const hydNow = Math.round(state.hyd ?? 0);
+    html = `
+      <ul>
+        <li>เก็บน้ำ: <b>${c.waterHits}</b></li>
+        <li>พลาดเครื่องดื่มหวาน: <b>${c.sweetMiss}</b></li>
+        <li>สถานะมิเตอร์สุดท้าย: <b>${hydNow}%</b></li>
+      </ul>`;
+    tip = 'รักษา 💧 ไว้ช่วง 45–65% ถ้าเกิน/ขาด อย่าเก็บผิดฝั่งจะโดนโทษ';
+  }
+  else if(m==='plate'){
+    html = `
+      <ul>
+        <li>เติมชิ้นในจาน: <b>${c.plateFills}</b></li>
+        <li>จาน PERFECT: <b>${c.perfectPlates||0}</b></li>
+      </ul>`;
+    tip = 'สังเกตโควตาใน HUD ให้ครบทีละหมู่ หลีกเลี่ยงเกินโควตา (มีโทษ)';
+  }
+
+  return { html, tip };
+}
+function presentResult(finalScore){
+  const res = document.getElementById('result');
+  document.getElementById('resTitle').textContent = 'สรุปผลการเล่น';
+  document.getElementById('resScore').textContent = finalScore;
+  document.getElementById('resTime').textContent = Math.max(0, state.timeLeft|0);
+  document.getElementById('resMode').textContent = (MODES[state.modeKey].name || state.modeKey);
+  const {html, tip} = buildBreakdownAndTips();
+  document.getElementById('resBreakdown').innerHTML = html;
+  document.getElementById('resTips').textContent = 'Tips: ' + tip;
+  res.style.display = 'flex';
+}
+
 let spawnTimer=null, timeTimer=null, spawnCount=0, lastTs=performance.now();
 function loop(){
   const ts=performance.now(); const dt=ts-lastTs; lastTs=ts;
@@ -300,10 +356,10 @@ function loop(){
 
   // Hydration: decay + HUD update (เฉพาะโหมดน้ำ)
   if(state.running && state.modeKey==='hydration'){
-    // ลดลงตามเวลาเล็กน้อย
+    // ลดตามเวลาเล็กน้อย
     state.hyd = Math.max(0, Math.min(100, state.hyd - 0.0003 * dt * (systems.power.timeScale||1)));
 
-    // tick ~1s สำหรับอัปเดต HUD และให้รางวัลเมื่อรักษาพอดี
+    // tick ~1s สำหรับ HUD/รางวัลเมื่อพอดี
     if(!loop._hydTick) loop._hydTick=0;
     loop._hydTick += dt;
 
@@ -316,11 +372,11 @@ function loop(){
 
     if(loop._hydTick > 1000){
       loop._hydTick = 0;
-      if(z==='ok'){ systems.score.add(1); } // ให้รางวัลเล็กน้อยเมื่อรักษาพอดี
+      if(z==='ok'){ systems.score.add(1); } // รางวัลเล็กน้อยเมื่อรักษาพอดี
       hud.setHydration(state.hyd, z);
     }
 
-    // หากต่ำต่อเนื่อง ≥4s → ลงโทษเบา ๆ และเตือนโค้ช
+    // ต่ำต่อเนื่อง ≥4s → โทษเบา ๆ + เตือนโค้ช
     if(loop._lowAccum >= 4000){
       loop._lowAccum = 0;
       systems.score.add(-1);
@@ -377,14 +433,17 @@ function start(){
 }
 function pause(){ if(!state.running) return; state.paused=!state.paused; if(!state.paused){ runSpawn(); runTimer(); } }
 function end(){
-  state.running=false; state.paused=false; clearTimeout(spawnTimer); clearTimeout(timeTimer); canvas.style.pointerEvents='none';
+  state.running=false; state.paused=false;
+  clearTimeout(spawnTimer); clearTimeout(timeTimer);
+  canvas.style.pointerEvents='none';
+
   const bonus = systems.mission.evaluate({...state.ctx, combo: systems.score.combo});
   if(bonus>0){ systems.score.score += bonus; }
   systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
   coach.onEnd(); systems.fx.perfect();
-  const t=document.getElementById('toast') || ( ()=>{const d=document.createElement('div'); d.id='toast'; d.style.cssText='position:fixed;left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid #0ff;border-radius:10px;padding:6px 10px;color:#0ff;z-index:6'; document.body.appendChild(d); return d;})();
-  t.textContent = `จบเกม | คะแนน: ${systems.score.score}` + (bonus>0?` + โบนัสมิชชัน ${bonus}`:'');
-  t.style.display='block'; setTimeout(()=>t.style.display='none', 2600);
+
+  // แสดงหน้าสรุปผล
+  presentResult(systems.score.score);
 }
 
 // ---------- Landing & Menu ----------
@@ -418,8 +477,17 @@ document.getElementById('menuBar').addEventListener('click', (e)=>{
   }
 }, false);
 
+// Help close
 document.getElementById('help').addEventListener('click',(e)=>{
   if(e.target.getAttribute('data-action')==='helpClose' || e.target.id==='help') e.currentTarget.style.display='none';
+});
+
+// Result modal actions
+document.getElementById('result').addEventListener('click',(e)=>{
+  const b = e.target.closest('button'); if(!b) return;
+  const act = b.getAttribute('data-result');
+  if(act==='replay'){ document.getElementById('result').style.display='none'; start(); }
+  if(act==='home'){ document.getElementById('result').style.display='none'; /* กลับเมนู */ }
 });
 
 // ---------- Input ----------
