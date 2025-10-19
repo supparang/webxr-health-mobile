@@ -26,18 +26,11 @@
     .pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
     .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35)}
     .pill.done{border-color:#2ecc71;background:rgba(46,204,113,.22);color:#dbfff1;box-shadow:0 0 12px rgba(46,204,113,.25) inset}
-
-    /* Settings Bar */
-    #settingsBar .btn, #settingsBar select{
-      border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);
-    }
+    #settingsBar .btn, #settingsBar select{border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);}
   </style>
 </head>
 <body>
-  <!-- Brand -->
   <div class="brand"><img src="./assets/logo.png" alt="logo"/><div>HERO HEALTH ACADEMY</div></div>
-
-  <!-- Settings Bar -->
   <div id="settingsBar" style="position:fixed;right:10px;top:10px;z-index:6;display:flex;gap:8px;align-items:center">
     <button id="langToggle" class="btn" type="button" title="Language">🇹🇭/🇬🇧</button>
     <button id="soundToggle" class="btn" type="button" title="Sound">🔊</button>
@@ -47,11 +40,7 @@
       <option value="Low">Graphics: Low</option>
     </select>
   </div>
-
-  <!-- Render Surface -->
   <canvas id="c"></canvas>
-
-  <!-- HUD -->
   <div class="hud">
     <div>
       <span>คะแนน</span>: <span id="score">0</span> |
@@ -60,19 +49,10 @@
       <span>สถิติ</span>: <span id="best">0</span>
       <span id="fever" style="display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)">FEVER!</span>
     </div>
-
-    <!-- 🎯 Food Groups target -->
     <div id="targetWrap">🎯 หมวดเป้าหมาย:
       <span id="targetBadge" style="border:1px solid #0ff;border-radius:10px;padding:2px 8px;background:rgba(0,0,0,.35)">—</span>
     </div>
-
-    <!-- 🍱 Healthy Plate quota -->
-    <div id="plateTracker">
-      🍱 โควตา:
-      <div class="pills" id="platePills"></div>
-    </div>
-
-    <!-- 💧 Hydration meter -->
+    <div id="plateTracker">🍱 โควตา:<div class="pills" id="platePills"></div></div>
     <div id="hydroWrap" style="margin-top:6px;display:none">
       💧 สมดุลน้ำ:
       <span id="hydroLabel" style="margin-left:6px">—</span>
@@ -82,8 +62,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Menu -->
   <div id="menuBar">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk" type="button">🥗 ดี vs ขยะ</button>
@@ -104,8 +82,6 @@
       <button class="btn" data-action="help" type="button">❓ วิธีเล่น</button>
     </div>
   </div>
-
-  <!-- Help Popup -->
   <div id="help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:11">
     <div style="background:rgba(8,12,20,.96);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,820px);max-height:86vh;overflow:auto">
       <h2 style="font-family:var(--fontTH);margin:0 0 8px">วิธีเล่น (How to Play)</h2>
@@ -113,8 +89,6 @@
       <div style="margin-top:12px;text-align:right"><button class="btn" data-action="helpClose" type="button">โอเค</button></div>
     </div>
   </div>
-
-  <!-- Result Modal -->
   <div id="result" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:12;align-items:center;justify-content:center">
     <div style="width:min(92vw,820px);max-height:86vh;overflow:auto;background:rgba(8,12,20,.96);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;font-family:'Prompt',system-ui">
       <h2 id="resTitle" style="margin:0 0 8px">สรุปผล</h2>
@@ -133,11 +107,7 @@
       </div>
     </div>
   </div>
-
-  <!-- Toast -->
   <div id="toast" style="display:none"></div>
-
-  <!-- Landing: Hero Select -->
   <div id="landing" style="position:fixed;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;background:radial-gradient( circle at 50% 46%, rgba(10,20,30,.96), rgba(4,8,14,.98));">
     <div style="text-align:center;color:#bff;max-width:min(92vw,900px);padding:18px">
       <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-bottom:12px">
@@ -163,25 +133,17 @@
       <div style="margin-top:10px;font-size:13px;opacity:.8">Powered by EatToPower Engine</div>
     </div>
   </div>
-
-  <!-- Coach HUD -->
   <div id="coachHUD" style="position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:6;display:none;pointer-events:none">
     <div id="coachText" style="font-family:var(--fontTH);font-weight:700;color:#cfe;letter-spacing:.3px;background:rgba(0,0,0,.35);border:1px solid #0ff;border-radius:12px;padding:6px 10px;text-shadow:0 0 10px rgba(0,255,255,.6)"></div>
   </div>
-
-  <!-- SFX -->
   <audio id="sfx-ding" src="./assets/ding.wav"></audio>
   <audio id="sfx-thud" src="./assets/thud.wav"></audio>
   <audio id="sfx-tick" src="./assets/tick.wav"></audio>
   <audio id="sfx-hero" src="./assets/hero_in.wav"></audio>
   <audio id="sfx-fever" src="./assets/fever_in.wav"></audio>
   <audio id="sfx-perfect" src="./assets/perfect.wav"></audio>
-
-  <!-- Three.js + VR -->
   <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.159.0/examples/js/VRButton.js"></script>
-
-  <!-- Game -->
   <script type="module" src="./game/main.js"></script>
 </body>
 </html>
