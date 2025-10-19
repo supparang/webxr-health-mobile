@@ -1,7 +1,8 @@
-// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach + mode init patch) + external HUD
+// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach + mode init patch) + external HUD/FX
 import { Engine } from './core/engine.js';
 import { Coach } from './core/coach.js';
 import { HUD } from './core/hud.js';
+import { FloatingFX } from './core/fx.js';
 
 // ====== GLOBALS & DEBUG ======
 const THREE = window?.THREE;
@@ -27,16 +28,7 @@ const L = () => I18N[safeLang(SETTINGS.lang)] || I18N.TH;
 const modeName = k => safeKey(L().modes || {}, k, k || '—');
 const diffName = k => safeKey(L().diff  || {}, k, k || 'Normal');
 
-// ====== FX ======
-class FloatingFX{
-  spawn3D(obj, html, kind){
-    const d=document.createElement('div');
-    d.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:700;color:'+(kind==='bad'?'#ff6':'#6f6')+';text-shadow:0 0 8px rgba(0,0,0,.6);pointer-events:none';
-    d.innerHTML=html; document.body.appendChild(d);
-    requestAnimationFrame(()=>{ d.style.transition='all .4s'; d.style.opacity='0'; d.style.top='40%'; });
-    setTimeout(()=>d.remove(),720);
-  }
-}
+// ====== SYSTEMS ======
 class ScoreSystem{
   constructor(){ this.reset(); }
   reset(){ this.score=0; this.combo=0; this.bestCombo=0; }
@@ -47,9 +39,7 @@ class ScoreSystem{
     if (v > 0) {
       this.combo++;
       this.bestCombo = Math.max(this.bestCombo, this.combo);
-
       if (coach?.onCombo && this.combo !== before) coach.onCombo(this.combo);
-
       if (this.combo > 0 && this.combo % 5 === 0 && !systems.fever.active) {
         systems.fever.active = true;
         systems.fever.timer = 6000;
@@ -433,7 +423,7 @@ function hit(obj){
   else if(meta.type==='plate'){ txt=fmt(6*mult); }
   else if(meta.type==='power'){ txt=meta.kind==='timeplus'?'<b>+5s</b>':meta.kind==='timeminus'?'<b>-5s</b>':meta.kind.toUpperCase(); kind= meta.kind==='timeminus'?'bad':'good'; }
   else if(meta.type==='trap'){ txt=meta.kind==='bomb'?fmt(-6):fmt(-4); kind='bad'; }
-  (floating ||= new FloatingFX()).spawn3D(obj, txt, kind);
+  floating.spawn3D(obj, txt, kind);
 
   systems.score.add = baseAdd;
   updateHUD(); destroy(obj);
@@ -565,7 +555,8 @@ function end(){
 function boot(){
   const canvas=document.getElementById('c');
   engine=new Engine(THREE,canvas);
-  hud=new HUD(); floating=new FloatingFX();
+  hud=new HUD();
+  floating=new FloatingFX(engine);
   coach = new Coach();
 
   systems={
