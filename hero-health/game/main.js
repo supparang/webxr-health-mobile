@@ -1,3 +1,5 @@
+// game/main.js  — HERO HEALTH ACADEMY (อัปเดตครบ: Diff, Help รายโหมด, Hydration Meter + โทษน้ำมาก/น้อย, โทษเกินโควตาใน Plate, Floating Score, Power/Trap, Mission/Board)
+
 import { Engine } from './core/engine.js';
 import { HUD } from './ui/hud.js';
 import { Coach } from './ui/coach.js';
@@ -8,11 +10,14 @@ import { FeverSystem } from './systems/fever.js';
 import { PowerUpSystem } from './systems/powerups.js';
 import { MissionSystem } from './systems/missions.js';
 import { Leaderboard } from './systems/leaderboard.js';
+
+// โหมดเกม
 import * as M1 from './modes/goodjunk.js';
 import * as M2 from './modes/groups.js';
 import * as M3 from './modes/hydration.js';
 import * as M4 from './modes/plate.js';
 
+// ---------- Boot ----------
 const canvas = document.getElementById('c');
 const engine = new Engine(THREE, canvas);
 const hud = new HUD();
@@ -23,8 +28,11 @@ const sfx = {
   ding(){ const el=document.getElementById('sfx-ding'); try{ el.currentTime=0; el.play(); }catch{} },
   thud(){ const el=document.getElementById('sfx-thud'); try{ el.currentTime=0; el.play(); }catch{} },
   tick(){ const el=document.getElementById('sfx-tick'); try{ el.currentTime=0; el.play(); }catch{} },
+  fever(){ const el=document.getElementById('sfx-fever'); try{ el.currentTime=0; el.play(); }catch{} },
+  perfect(){ const el=document.getElementById('sfx-perfect'); try{ el.currentTime=0; el.play(); }catch{} },
 };
 
+// ---------- Systems ----------
 const systems = {
   score: new ScoreSystem(),
   fever: new FeverSystem(),
@@ -43,6 +51,7 @@ const DIFFS = {
   Hard:   { time:50, spawnBase:560, life:1900, trapRate:0.07, powerRate:0.06, hydWaterRate:0.55 },
 };
 
+// ---------- State ----------
 const state = {
   modeKey:'goodjunk',
   difficulty:'Normal',
@@ -52,6 +61,8 @@ const state = {
   ACTIVE:new Set(),
   lane:{},
   ctx:{goodHits:0, targetHitsTotal:0, bestStreak:0, currentStreak:0, waterHits:0, sweetMiss:0, perfectPlates:0, plateFills:0},
+  // ใช้สำหรับสื่อสารผลลัพธ์พิเศษจากบางโหมด (เช่น plate overfill)
+  __plateLast:null
 };
 
 // ---------- วิธีเล่นรายโหมด ----------
@@ -70,27 +81,26 @@ const HELP = {
   groups: `
     <h3>🍽️ จาน 5 หมู่ (Food Groups)</h3>
     <ul>
-      <li>เก็บเฉพาะ <b>หมวดเป้าหมาย 🎯</b> ที่โชว์บน HUD</li>
-      <li>เก็บถูกหมวด +7 | เก็บผิดหมวด −2</li>
-      <li>ครบ 3 ชิ้น → ระบบเปลี่ยนเป้าหมายใหม่</li>
-      <li>อ่านหมวดจาก HUD เสมอ ✅</li>
+      <li>เก็บเฉพาะ <b>หมวดเป้าหมาย 🎯</b> บน HUD</li>
+      <li>ถูกหมวด +7 | ผิดหมวด −2 | ครบ 3 ชิ้น → เปลี่ยนเป้าหมาย</li>
     </ul>
   `,
   hydration: `
     <h3>💧 สมดุลน้ำ (Hydration)</h3>
     <ul>
       <li>ดูมิเตอร์ 💧: โซน <b>พอดี 45–65%</b> ดีที่สุด</li>
-      <li>เก็บน้ำ 💧/🚰 เพิ่มเปอร์เซ็นต์ (พอดีได้คะแนนมากสุด)</li>
-      <li>เลี่ยงหวาน 🧋 (−3) และทำให้เปอร์เซ็นต์ลด</li>
-      <li><b>หากอยู่โซน "มากไป"</b> แล้วเก็บ 💧 เพิ่ม จะ <b>โดนลงโทษ</b> (ลดคะแนน/เวลา/คอมโบ)</li>
+      <li>น้ำ 💧/🚰 เพิ่มเปอร์เซ็นต์ (+คะแนนมากสุดเมื่ออยู่โซนพอดี)</li>
+      <li>หวาน 🧋 ลดเปอร์เซ็นต์ (−3)</li>
+      <li><b>ถ้าอยู่โซน “มากไป” แล้วเก็บน้ำ</b> → โดนลงโทษพิเศษ</li>
+      <li><b>ถ้าอยู่โซน “น้อยไป” แล้วเก็บหวาน</b> → โดนลงโทษพิเศษ</li>
     </ul>
   `,
   plate: `
     <h3>🍱 จัดจานสุขภาพ (Healthy Plate)</h3>
     <ul>
-      <li>เติมตามโควตาใน HUD: ธัญพืช ผัก โปรตีน ผลไม้ นม</li>
-      <li>ของที่ยังขาด +6 | ของเกิน +2</li>
-      <li><b>ครบจาน = PERFECT! 🔥 โบนัส +14</b></li>
+      <li>เติมโควตาใน HUD: ธัญพืช ผัก โปรตีน ผลไม้ นม</li>
+      <li>ของที่ยังขาด +6 | ครบจาน = PERFECT! +14</li>
+      <li><b>ถ้าเกินโควตา</b> → โดนลงโทษ: −2 คะแนน / −1s และคอมโบแตก</li>
     </ul>
   `
 };
@@ -102,7 +112,7 @@ function openHelpFor(modeKey){
   document.getElementById('help').style.display = 'flex';
 }
 
-// ---------- Lane ----------
+// ---------- Lanes ----------
 function setupLanes(){
   const X=[-1.1,-0.55,0,0.55,1.1], Y=[-0.2,0.0,0.18,0.32], Z=-2.2;
   state.lane={X,Y,Z, occupied:new Set(), cooldown:new Map(), last:null};
@@ -111,9 +121,14 @@ function now(){ return performance.now(); }
 function isAdj(r,c){ const last=state.lane.last; if(!last) return false; const [pr,pc]=last; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; }
 function pickLane(){
   const {X,Y,Z,occupied,cooldown}=state.lane;
-  const cand=[]; for(let r=0;r<Y.length;r++){ for(let c=0;c<X.length;c++){ const k=r+','+c,cd=cooldown.get(k)||0,free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); } }
-  if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)];
-  occupied.add(p.k); state.lane.last=[p.r,p.c]; return {x:X[p.c], y:1.6+Y[p.r], z:Z-0.1*Math.abs(p.c-2), key:p.k};
+  const cand=[]; for(let r=0;r<Y.length;r++){ for(let c=0;c<X.length;c++){
+    const k=r+','+c,cd=cooldown.get(k)||0,free=!occupied.has(k)&&now()>cd&&!isAdj(r,c);
+    if(free) cand.push({r,c,k});
+  } }
+  if(!cand.length) return null;
+  const p=cand[Math.floor(Math.random()*cand.length)];
+  occupied.add(p.k); state.lane.last=[p.r,p.c];
+  return {x:X[p.c], y:1.6+Y[p.r], z:Z-0.1*Math.abs(p.c-2), key:p.k};
 }
 function releaseLane(k){ const {occupied,cooldown}=state.lane; occupied.delete(k); cooldown.set(k, now()+800); }
 
@@ -129,15 +144,14 @@ const TRAP_ITEMS = [
   {type:'trap', kind:'bomb', char:'💣'},
   {type:'trap', kind:'bait', char:'🎭'}
 ];
+
 function maybeSpecialMeta(baseMeta){
   const roll=Math.random();
   const {trapRate, powerRate} = state.diffCfg || DIFFS['Normal'];
   if(roll < powerRate) return POWER_ITEMS[Math.floor(Math.random()*POWER_ITEMS.length)];
-  if(roll < powerRate + trapRate) return TRAP_ITEMS[Math.floor(Math.random()*TRAPS.length)];
+  if(roll < powerRate + trapRate) return TRAP_ITEMS[Math.floor(Math.random()*TRAP_ITEMS.length)];
   return baseMeta;
 }
-// fix TRAPS var name
-const TRAPS = TRAP_ITEMS;
 
 // ---------- Spawn ----------
 function spawnOnce(){
@@ -146,26 +160,23 @@ function spawnOnce(){
   // meta จากโหมด
   let meta = MODES[state.modeKey].pickMeta(state.difficulty, state);
 
-  // ปรับสัดส่วนน้ำชัดเจนตามความยากในโหมด Hydration
+  // Hydration: bias น้ำตามความยากให้ชัดเจน
   if(state.modeKey==='hydration'){
     const rate = (state.diffCfg && state.diffCfg.hydWaterRate) || 0.66;
     const water = Math.random() < rate;
     meta = { type:'hydra', water, char: water ? '💧' : '🧋' };
   }
 
-  // Power/Trap ตามความยาก
-  meta = ((roll)=>{
-    const {trapRate, powerRate}=state.diffCfg||DIFFS['Normal'];
-    if(roll < powerRate) return POWER_ITEMS[Math.floor(Math.random()*POWER_ITEMS.length)];
-    if(roll < powerRate + trapRate) return TRAPS[Math.floor(Math.random()*TRAPS.length)];
-    return meta;
-  })(Math.random());
+  // แทรก Power/Trap ตามโอกาสของความยาก
+  meta = maybeSpecialMeta(meta);
 
+  // สร้างอ็อบเจกต์
   const m = engine.makeBillboard(meta.char);
   m.position.set(lane.x,lane.y,lane.z);
   m.userData={lane:lane.key, meta};
   engine.group.add(m); state.ACTIVE.add(m);
 
+  // อายุไอคอนตามความยาก
   const life = (state.diffCfg && state.diffCfg.life) || 3000;
   m.userData.timer = setTimeout(()=>{ if(!m.parent) return;
     if(meta.type==='gj' && meta.good===false){ systems.score.add(1); }
@@ -174,39 +185,51 @@ function spawnOnce(){
     updateHUD(); destroy(m);
   }, life + Math.floor(Math.random()*500-250));
 }
+
 function destroy(obj){ if(obj.parent) obj.parent.remove(obj); state.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
 
 // ---------- Hit ----------
 function hit(obj){
   const meta=obj.userData.meta;
+
+  // ทำให้คะแนนคูณด้วย Fever/Boost ชั่วคราว
   const baseAdd = systems.score.add.bind(systems.score);
   systems.score.add = (base)=> baseAdd(base * systems.fever.scoreMul() * (1+systems.power.scoreBoost));
 
-  // ดำเนินการตามโหมด
+  // ผลตามโหมด
   MODES[state.modeKey].onHit(meta, systems, state, hud);
 
-  // --------- โทษพิเศษ: Hydration เกินแล้วเก็บน้ำเพิ่ม ---------
+  // ===== โทษพิเศษ Hydration =====
+  // A) อยู่ "มากไป" แล้วเก็บน้ำ → โทษ −4 และ −3s
   if(
     state.modeKey==='hydration' &&
     meta.type==='hydra' && meta.water===true &&
     (state.hydMax ?? 65) !== undefined &&
     state.hyd > (state.hydMax ?? 65)
   ){
-    // ลงโทษ: -4 คะแนน, ตัดคอมโบ, -3 วินาที, เอฟเฟกต์เตือน
     systems.score.add(-4);
     systems.score.bad();
     state.timeLeft = Math.max(0, state.timeLeft - 3);
     systems.fx.thud();
     floating.spawn3D(obj, '<b>Over-hydration! −4 / −3s</b>', 'bad');
+    state.ctx.currentStreak = 0;
   }
 
-  // mission counters
-  if(meta.type==='gj'){ if(meta.good){ state.ctx.goodHits++; state.ctx.currentStreak++; state.ctx.bestStreak=Math.max(state.ctx.bestStreak, state.ctx.currentStreak); } else { state.ctx.currentStreak=0; } }
-  if(meta.type==='groups'){ if(state.currentTarget && meta.group===state.currentTarget){ state.ctx.targetHitsTotal++; state.ctx.currentStreak++; state.ctx.bestStreak=Math.max(state.ctx.bestStreak, state.ctx.currentStreak); } else { state.ctx.currentStreak=0; } }
-  if(meta.type==='hydra'){ if(meta.water){ state.ctx.waterHits++; state.ctx.currentStreak++; state.ctx.bestStreak=Math.max(state.ctx.bestStreak, state.ctx.currentStreak); } else { state.ctx.currentStreak=0; } }
-  if(meta.type==='plate'){ state.ctx.plateFills++; state.ctx.currentStreak++; state.ctx.bestStreak=Math.max(state.ctx.bestStreak, state.ctx.currentStreak); }
+  // B) อยู่ "น้อยไป" แล้วเก็บหวาน → โทษ −2 และ −2s (คอมโบไม่หัก)
+  if(
+    state.modeKey==='hydration' &&
+    meta.type==='hydra' && meta.water===false
+  ){
+    const min = (state.hydMin ?? 45);
+    if (state.hyd < min){
+      systems.score.add(-2);
+      state.timeLeft = Math.max(0, state.timeLeft - 2);
+      systems.fx.thud();
+      floating.spawn3D(obj, '<b>Dehydrated! −2 / −2s</b>', 'bad');
+    }
+  }
 
-  // power-ups & traps
+  // ===== Power-ups & Traps =====
   if(meta.type==='power'){
     if(meta.kind==='slow'){ systems.power.apply('slow'); systems.fx.tick(); }
     if(meta.kind==='boost'){ systems.power.apply('boost'); systems.fx.ding(); }
@@ -218,29 +241,45 @@ function hit(obj){
     if(meta.kind==='bait'){ if(!systems.power.consumeShield()){ systems.score.add(-4); systems.score.bad(); systems.fever.onBad(); systems.fx.thud(); state.ctx.currentStreak=0; } }
   }
 
-  // floating feedback (ปกติ)
+  // ===== Floating feedback ปกติ =====
   const mult = systems.fever.scoreMul() * (1+systems.power.scoreBoost);
   const fmt = (v)=>`<b>${v>0?'+':''}${Math.round(v)}</b>`;
   let kind='good', txt='';
   if(meta.type==='gj'){ txt = meta.good? fmt(5*mult) : fmt(-2); kind = meta.good?'good':'bad'; }
   else if(meta.type==='groups'){ const ok=(state.currentTarget && meta.group===state.currentTarget); txt = ok? fmt(7*mult): fmt(-2); kind= ok?'good':'bad'; }
   else if(meta.type==='hydra'){ txt = meta.water? fmt(5*mult): fmt(-3); kind = meta.water?'good':'bad'; }
-  else if(meta.type==='plate'){ txt = fmt(6*mult); kind='good'; }
+  else if(meta.type==='plate'){
+    // รองรับโทษ "เกินโควตา" (ตั้ง flag จาก plate.js)
+    const over = state.__plateLast && state.__plateLast.overfill;
+    if(over){
+      const d = state.__plateLast.delta || -2;
+      txt = `<b>${d}</b>`; kind='bad';
+    }else{
+      txt = fmt(6*mult); kind='good';
+    }
+    state.__plateLast = null;
+  }
   else if(meta.type==='power'){ txt = meta.kind==='timeplus'? '<b>+5s</b>' : meta.kind==='timeminus'? '<b>-5s</b>' : meta.kind.toUpperCase(); kind = meta.kind==='timeminus'?'bad':'good'; }
   else if(meta.type==='trap'){ txt = meta.kind==='bomb'? fmt(-6):fmt(-4); kind='bad'; }
+
   floating.spawn3D(obj, txt, kind);
 
   if(systems.score.combo===3||systems.score.combo===5) coach.onCombo(systems.score.combo);
-  if(systems.fever.active){ try{ document.getElementById('sfx-fever').play(); }catch{} coach.onFever(); }
-  systems.score.add = baseAdd; // restore
+  if(systems.fever.active){ systems.fx.fever(); coach.onFever(); }
+
+  // คืนฟังก์ชันคะแนน
+  systems.score.add = baseAdd;
   updateHUD();
+
+  // ทำลายอ็อบเจกต์ที่โดน
+  destroy(obj);
 }
 
 // ---------- Input ----------
 function onClick(ev){
   if(!state.running || state.paused) return;
   const inter = engine.raycastFromClient(ev.clientX, ev.clientY);
-  if(inter.length){ const o=inter[0].object; hit(o); destroy(o); }
+  if(inter.length){ const o=inter[0].object; hit(o); }
 }
 
 // ---------- HUD / Timer / Loop ----------
@@ -261,15 +300,33 @@ function loop(){
 
   // Hydration: decay + HUD update (เฉพาะโหมดน้ำ)
   if(state.running && state.modeKey==='hydration'){
+    // ลดลงตามเวลาเล็กน้อย
     state.hyd = Math.max(0, Math.min(100, state.hyd - 0.0003 * dt * (systems.power.timeScale||1)));
+
+    // tick ~1s สำหรับอัปเดต HUD และให้รางวัลเมื่อรักษาพอดี
     if(!loop._hydTick) loop._hydTick=0;
     loop._hydTick += dt;
+
+    const min = (state.hydMin ?? 45), max = (state.hydMax ?? 65);
+    const z = state.hyd < min ? 'low' : (state.hyd > max ? 'high' : 'ok');
+
+    // สะสมเวลาอยู่ในโซนต่ำ เพื่อเตือนเป็นพัก ๆ
+    if(!loop._lowAccum) loop._lowAccum = 0;
+    if(z==='low'){ loop._lowAccum += dt; } else { loop._lowAccum = 0; }
+
     if(loop._hydTick > 1000){
       loop._hydTick = 0;
-      const min = (state.hydMin ?? 45), max = (state.hydMax ?? 65);
-      const z = state.hyd < min ? 'low' : (state.hyd > max ? 'high' : 'ok');
-      if(z==='ok'){ systems.score.add(1); } // ให้รางวัลเล็กน้อยเมื่อรักษาสมดุล
+      if(z==='ok'){ systems.score.add(1); } // ให้รางวัลเล็กน้อยเมื่อรักษาพอดี
       hud.setHydration(state.hyd, z);
+    }
+
+    // หากต่ำต่อเนื่อง ≥4s → ลงโทษเบา ๆ และเตือนโค้ช
+    if(loop._lowAccum >= 4000){
+      loop._lowAccum = 0;
+      systems.score.add(-1);
+      state.timeLeft = Math.max(0, state.timeLeft - 1);
+      systems.fx.thud();
+      try{ coach.say('น้ำน้อยไป ดื่มเพิ่มอีกหน่อย!'); }catch{}
     }
   }
 
@@ -306,6 +363,7 @@ function start(){
   state.timeLeft = state.diffCfg.time;
   spawnCount=0; systems.score.reset(); setupLanes();
   state.ctx={goodHits:0, targetHitsTotal:0, bestStreak:0, currentStreak:0, waterHits:0, sweetMiss:0, perfectPlates:0, plateFills:0};
+  state.__plateLast=null;
 
   systems.mission.roll(state.modeKey);
   const M = MODES[state.modeKey]; if(M.init) M.init(state, hud, state.difficulty);
@@ -323,7 +381,7 @@ function end(){
   const bonus = systems.mission.evaluate({...state.ctx, combo: systems.score.combo});
   if(bonus>0){ systems.score.score += bonus; }
   systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
-  coach.onEnd(); try{ document.getElementById('sfx-perfect').play(); }catch{}
+  coach.onEnd(); systems.fx.perfect();
   const t=document.getElementById('toast') || ( ()=>{const d=document.createElement('div'); d.id='toast'; d.style.cssText='position:fixed;left:50%;top:58px;transform:translateX(-50%);background:rgba(0,0,0,.45);border:1px solid #0ff;border-radius:10px;padding:6px 10px;color:#0ff;z-index:6'; document.body.appendChild(d); return d;})();
   t.textContent = `จบเกม | คะแนน: ${systems.score.score}` + (bonus>0?` + โบนัสมิชชัน ${bonus}`:'');
   t.style.display='block'; setTimeout(()=>t.style.display='none', 2600);
@@ -342,8 +400,8 @@ document.getElementById('menuBar').addEventListener('click', (e)=>{
 
   if(act==='diff'){
     state.difficulty = val;
-    state.diffCfg = DIFFS[state.difficulty] || DIFFS['Normal'];  // มีผลทันทีสำหรับของที่จะสปอนถัดไป
-    updateHUD();
+    state.diffCfg = DIFFS[state.difficulty] || DIFFS['Normal'];  // มีผลกับสปอน/ไอคอนถัดไปทันที
+    hud.setDiff(state.difficulty);
     return;
   }
 
@@ -368,7 +426,7 @@ document.getElementById('help').addEventListener('click',(e)=>{
 canvas.addEventListener('click', onClick);
 canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClick({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
 
-// ---------- Loop ----------
+// ---------- Render Loop ----------
 engine.startLoop(loop);
 
 // ---------- Error Box ----------
