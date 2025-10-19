@@ -1,5 +1,6 @@
-// ./game/main.js  — HERO HEALTH ACADEMY (Option C: smooth + debug-safety)
+// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach)
 import { Engine } from './core/engine.js';
+import { Coach } from './core/coach.js';
 
 // ====== GLOBALS & DEBUG ======
 const THREE = window?.THREE;
@@ -32,7 +33,6 @@ class HUD{
   setTime(v){ document.getElementById('time').textContent = v|0; }
   setDiff(v){ document.getElementById('difficulty').textContent = v; }
   setMode(v){ document.getElementById('modeName').textContent = v; }
-  // NEW: fever toggle
   fever(active){
     const el = document.getElementById('fever');
     if (el) el.style.display = active ? 'inline-block' : 'none';
@@ -60,9 +60,29 @@ class ScoreSystem{
   constructor(){ this.reset(); }
   reset(){ this.score=0; this.combo=0; this.bestCombo=0; }
   add(v){
-    this.score+=v;
-    if(v>0){ this.combo++; this.bestCombo=Math.max(this.bestCombo,this.combo); }
-    if(v<0){ this.combo=0; }
+    const before = this.combo;
+    this.score += v;
+
+    if (v > 0) {
+      this.combo++;
+      this.bestCombo = Math.max(this.bestCombo, this.combo);
+
+      // Coach: combo up
+      if (coach?.onCombo && this.combo !== before) coach.onCombo(this.combo);
+
+      // FEVER every 5 combo for 6s if not already active
+      if (this.combo > 0 && this.combo % 5 === 0 && !systems.fever.active) {
+        systems.fever.active = true;
+        systems.fever.timer = 6000;
+        coach?.onFever?.();
+      }
+    }
+
+    if (v < 0) {
+      this.combo = 0;
+      systems.fever.active = false;
+      systems.fever.timer = 0;
+    }
     return this.score;
   }
 }
@@ -196,6 +216,7 @@ const MODES={
         if(done){
           sys.score.add(14);
           state.ctx.perfectPlates=(state.ctx.perfectPlates||0)+1;
+          coach?.say?.('Perfect plate!'); // Coach
           state.plate={grain:0,veg:0,protein:0,fruit:0,dairy:0};
         }
       }else{
@@ -230,7 +251,7 @@ function renderPills(state){
 }
 
 // ====== GLOBAL STATE ======
-let engine,hud,floating,systems;
+let engine, hud, floating, systems, coach;
 const state={ modeKey:'goodjunk', difficulty:'Normal', diffCfg:DIFFS.Normal,
   running:false, paused:false, timeLeft:60, ACTIVE:new Set(), lane:{},
   ctx:{bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0},
@@ -415,15 +436,15 @@ function hit(obj){
 
   if(meta.type==='power'){
     state.ctx.powersUsed++;
-    if(meta.kind==='slow') systems.power.apply('slow');
-    if(meta.kind==='boost') systems.power.apply('boost');
-    if(meta.kind==='shield') systems.power.apply('shield');
-    if(meta.kind==='timeplus'){ state.timeLeft=Math.min(120,state.timeLeft+5); state.ctx.timePlus+=5; }
-    if(meta.kind==='timeminus'){ state.timeLeft=Math.max(0,state.timeLeft-5); state.ctx.timeMinus+=5; }
+    if(meta.kind==='slow'){ systems.power.apply('slow'); coach?.say?.('Slow time!'); }
+    if(meta.kind==='boost'){ systems.power.apply('boost'); coach?.say?.('Score boost!'); }
+    if(meta.kind==='shield'){ systems.power.apply('shield'); coach?.say?.('Shield up!'); }
+    if(meta.kind==='timeplus'){ state.timeLeft=Math.min(120,state.timeLeft+5); state.ctx.timePlus+=5; coach?.say?.('+5s'); }
+    if(meta.kind==='timeminus'){ state.timeLeft=Math.max(0,state.timeLeft-5); state.ctx.timeMinus+=5; coach?.say?.('-5s'); }
   }else if(meta.type==='trap'){
     state.ctx.trapsHit++;
-    if(meta.kind==='bomb'){ if(!systems.power.consumeShield()){ systems.score.add(-6); } }
-    if(meta.kind==='bait'){ if(!systems.power.consumeShield()){ systems.score.add(-4); } }
+    if(meta.kind==='bomb'){ if(!systems.power.consumeShield()){ systems.score.add(-6); coach?.say?.('Boom!'); } else { coach?.say?.('Blocked!'); } }
+    if(meta.kind==='bait'){ if(!systems.power.consumeShield()){ systems.score.add(-4); coach?.say?.('Baited…'); } else { coach?.say?.('Blocked!'); } }
   }
 
   const mult=(systems.fever.active?2:1)*(1+systems.power.scoreBoost);
@@ -521,8 +542,9 @@ function runTimer(){
 // ====== GAME STATE ======
 function start(){
   document.getElementById('help').style.display='none';
-  state.diffCfg=DIFFS[state.difficulty]||DIFFS.Normal;
+  if (coach?.onStart) coach.onStart(); // Coach
 
+  state.diffCfg=DIFFS[state.difficulty]||DIFFS.Normal;
   state.running=true; state.paused=false;
   state.timeLeft=state.diffCfg.time; spawnCount=0;
   systems.score.reset(); setupLanes();
@@ -552,6 +574,7 @@ function end(){
   document.getElementById('c').style.pointerEvents='none';
   const bonus=systems.mission.evaluate({...state.ctx, combo: systems.score.combo}); if(bonus>0){ systems.score.score+=bonus; }
   systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
+  if (coach?.onEnd) coach.onEnd(); // Coach
   presentResult(systems.score.score);
   // cleanup all active sprites
   [...state.ACTIVE].forEach(obj => destroy(obj));
@@ -563,6 +586,7 @@ function boot(){
   const canvas=document.getElementById('c');
   engine=new Engine(THREE,canvas);
   hud=new HUD(); floating=new FloatingFX();
+  coach = new Coach();
 
   systems={
     score:new ScoreSystem(),
