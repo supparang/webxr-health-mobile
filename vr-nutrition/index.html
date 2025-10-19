@@ -9,6 +9,41 @@
   html,body{margin:0;height:100%;background:var(--bg);overflow:hidden}
   canvas#c{position:fixed;inset:0;display:block;background:var(--bg);z-index:0}
 
+  /* Global celebratory overlay (flash + vignette) */
+  body.celebrate::before{
+    content:"";
+    position:fixed; inset:0; pointer-events:none; z-index:2147483646;
+    background:
+      radial-gradient(120% 120% at 50% 50%,
+        rgba(255,255,255,.55) 0%,
+        rgba(255,255,255,.25) 22%,
+        rgba(0,255,200,.18) 45%,
+        rgba(0,0,0,.0) 60%),
+      radial-gradient(140% 140% at 50% 50%, rgba(255,255,255,.28), rgba(0,0,0,0) 60%);
+    animation: flashPulse 650ms ease-out forwards;
+  }
+  @keyframes flashPulse{
+    0%{opacity:0}
+    10%{opacity:1}
+    45%{opacity:.65}
+    100%{opacity:0}
+  }
+  /* Screen shake (subtle) */
+  body.celebrate #c,
+  body.celebrate .hud,
+  body.celebrate #menuBar{
+    animation: screenshake 380ms ease-in-out both;
+  }
+  @keyframes screenshake{
+    0%{ transform:translate3d(0,0,0) }
+    20%{ transform:translate3d(2px,-2px,0) }
+    40%{ transform:translate3d(-2px,1px,0) }
+    60%{ transform:translate3d(1px,2px,0) }
+    80%{ transform:translate3d(-1px,-1px,0) }
+    100%{ transform:translate3d(0,0,0) }
+  }
+
+  /* HUD + Menu */
   .hud,#menuBar,#summary,.reticle,#errors,#vrSlot,#valueTip,#toast,#help{
     position:fixed; z-index:2147483600; color:var(--cy);
     font-family:system-ui,Segoe UI,Apple Color Emoji; text-shadow:0 0 8px rgba(0,255,255,.6)
@@ -21,8 +56,15 @@
   .pill{ display:inline-flex; align-items:center; gap:6px; padding:4px 8px;
          border:1px solid var(--cy); border-radius:12px; background:rgba(0,0,0,.35); }
   .pill .need{opacity:.85}
-  .pill.done{ opacity:.75; border-style:dashed }
   .pill .icon{min-width:18px; text-align:center}
+  /* ✅ เปลี่ยนเป็นสีเขียวเมื่อครบ */
+  .pill.done{
+    opacity:1;
+    border-color:#2ecc71 !important;
+    background:rgba(46,204,113,.22) !important;
+    color:#dbfff1;
+    box-shadow:0 0 12px rgba(46,204,113,.35) inset, 0 0 12px rgba(46,204,113,.25);
+  }
 
   #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
   .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
@@ -91,7 +133,7 @@
     <span id="targetBadge">—</span>
   </div>
 
-  <!-- 🍱 Plate tracker (เฉพาะโหมดจัดจานสุขภาพ) -->
+  <!-- 🍱 Plate tracker -->
   <div id="plateTracker">
     🍱 <span>โควตา</span>:
     <div class="pills" id="platePills"></div>
@@ -167,6 +209,7 @@
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
   const toast=$("#toast"), errEl=$("#errors");
 
+  /* ================= I18N ================= */
   const I18N={
     th:{score:"คะแนน", combo:"คอมโบ", time:"เวลา", best:"สถิติ", mode:"โหมด", diff:"ความยาก",
         start:"เริ่มเกม", pause:"พัก", restart:"เริ่มใหม่", howto:"วิธีเล่น", langBtn:"ไทย/English",
@@ -211,7 +254,7 @@
     updateTargetLabel();
   }
 
-  /* Audio */
+  /* ================ WebAudio ================ */
   let AC=null, master=null, muted=false;
   function audioInit(){ try{ AC = AC||new (window.AudioContext||window.webkitAudioContext)(); master = master||AC.createGain(); master.connect(AC.destination); master.gain.value= muted?0:0.22; }catch(e){} }
   function setMuted(on){ muted=on; if(!AC) audioInit(); if(master) master.gain.value = on?0:0.22; showToast(on?'Muted':'Sound on'); }
@@ -219,7 +262,34 @@
   function thud(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='triangle'; const t=AC.currentTime; o.frequency.setValueAtTime(220,t); o.frequency.exponentialRampToValueAtTime(110,t+0.12); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.25); o.start(t); o.stop(t+0.27); }
   function tick(){ if(!AC) audioInit(); if(!AC) return; const o=AC.createOscillator(), g=AC.createGain(); o.connect(g); g.connect(master); o.type='square'; const t=AC.currentTime; o.frequency.setValueAtTime(600,t); g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+0.06); o.start(t); o.stop(t+0.07); }
 
-  /* THREE/XR */
+  /* 🎉 ฉลองครบจาน: Flash + Shake + Vibration + Arp */
+  function celebratePlate(){
+    showToast('Plate Complete!');
+    // Flash + Shake
+    document.body.classList.add('celebrate');
+    setTimeout(()=>document.body.classList.remove('celebrate'), 700);
+
+    // Vibration
+    try{ if(navigator.vibrate) navigator.vibrate([35, 60, 35]); }catch(e){}
+
+    // Sound (C-major arpeggio)
+    if(!AC) audioInit();
+    if(!AC) return;
+    const t = AC.currentTime;
+    const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    freqs.forEach((f,i)=>{
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.connect(g); g.connect(master);
+      o.type='sine'; o.frequency.value=f;
+      const st = t + i*0.09, en = st + 0.26;
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.exponentialRampToValueAtTime(0.55, st+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, en);
+      o.start(st); o.stop(en);
+    });
+  }
+
+  /* ================ THREE/XR ================ */
   const canvas=$("#c");
   const renderer=new THREE.WebGLRenderer({canvas, antialias:true}); renderer.setClearColor(0x061018,1); renderer.xr.enabled=true;
   try{ const VRB=window.VRButton||(window.THREE&&window.THREE.VRButton); const vrEl=(VRB&&VRB.createButton)?VRB.createButton(renderer):null; if(vrEl){ $("#vrSlot")?.replaceWith(vrEl); } }catch(e){}
@@ -230,14 +300,14 @@
   function emojiTexture(char){ const s=128, cnv=document.createElement('canvas'); cnv.width=cnv.height=s; const ctx=cnv.getContext('2d'); ctx.font="100px system-ui, Apple Color Emoji, Segoe UI Emoji"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(char,s/2,s/2); const tex=new THREE.CanvasTexture(cnv); tex.needsUpdate=true; return tex; }
   function makeEmoji(char){ const tex=emojiTexture(char); const geo=new THREE.PlaneGeometry(0.5,0.5); const mat=new THREE.MeshBasicMaterial({map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false}); const m=new THREE.Mesh(geo,mat); m.lookAt(camera.position); return m; }
 
-  /* Lanes */
+  /* ================ Lanes ================ */
   const LANE_X=[-1.1,-0.55,0,0.55,1.1], LANE_Y=[-0.2,0.0,0.18,0.32], LANE_Z=-2.2;
   const occupied=new Set(), cooldown=new Map(); let lastLane=null; const now=()=>performance.now();
   const isAdj=(r,c)=>{ if(!lastLane) return false; const [pr,pc]=lastLane; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
   function pickLane(){ const cand=[]; for(let r=0;r<LANE_Y.length;r++){ for(let c=0;c<LANE_X.length;c++){ const k=r+','+c, cd=cooldown.get(k)||0, free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); }} if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); lastLane=[p.r,p.c]; return {x:LANE_X[p.c], y:1.6+LANE_Y[p.r], z:LANE_Z-0.1*Math.abs(p.c-2), key:p.k}; }
   function releaseLane(k){ occupied.delete(k); cooldown.set(k, now()+800); }
 
-  /* Library */
+  /* ================ Library ================ */
   const LIB={
     good:["🥦","🍎","🍌","🍅","🥕","🍇","🍗","🥛","🍠","🌽","🥬","🍊"],
     junk:["🍟","🍔","🍕","🌭","🍰","🍩","🧁","🥤","🍫"],
@@ -247,19 +317,17 @@
   };
   const groupsArr=['grains','protein','veggies','fruits','dairy'];
 
-  /* Game Core */
+  /* ================ Game Core ================ */
   const game={
     state:{ lang: uiState.lang,
       difficulty: localStorage.getItem('ng_diff') || 'Normal',
       mode: localStorage.getItem('ng_mode') || 'goodjunk',
       score:0, timeLeft:60, running:false, paused:false, combo:1, comboMax:1, best: parseInt(localStorage.getItem('ng_best')||'0'),
       hits:0, misses:0, specials:{time:0,fever:0,slow:0,bomb:0,shield:0}, fever:false, shield:false,
-      lastHydraBonus: 0
+      lastHydraBonus: 0 /* ✅ คูลดาวน์โบนัสเวลาในโหมดสมดุลน้ำ */
     },
     ACTIVE:new Set(), timers:{spawn:null,time:null,watch:null}, counters:{spawn:0,wd:0},
-    currentTarget:'grains', targetHits:0,
-    plateQuota:null,   /* เหลืออยู่ */
-    plateTarget:null   /* เป้าทั้งหมด (คงที่รอบนั้น) */
+    currentTarget:'grains', targetHits:0, plateQuota:null, plateTarget:null
   };
 
   function pickMeta(){
@@ -296,7 +364,7 @@
                                 (game.state.mode==='groups')? t('modeGroups') :
                                 (game.state.mode==='hydration')? t('modeHydra') : t('modePlate');
     $("#combo").textContent='x'+game.state.combo;
-    renderPlateTracker(); // อัปเดตทุกครั้ง
+    renderPlateTracker();
   }
   function groupDisplayKey(key){ return key==='grains'?'🍞':key==='protein'?'🍗':key==='veggies'?'🥦':key==='fruits'?'🍎':'🥛'; }
   function updateTargetLabel(){
@@ -343,6 +411,7 @@
   }
   const showToast=(msg,ms=1200)=>{ toast.textContent=msg; toast.style.display='block'; setTimeout(()=>toast.style.display='none',ms); };
 
+  /* Spawn / Destroy */
   function destroy(obj){ if(obj.parent) obj.parent.remove(obj); game.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
   function avoidHUD(mesh){ const p = toScreen(mesh.position); if(p.y < 90) mesh.position.y -= 0.14; }
   function spawn(){
@@ -362,12 +431,13 @@
     }, life + Math.floor(Math.random()*500-250));
   }
 
+  /* Scoring */
   function nextTarget(){ const arr=groupsArr.filter(x=>x!==game.currentTarget); game.currentTarget = arr[Math.floor(Math.random()*arr.length)]; updateTargetLabel(); }
   function resetPlateQuota(){
     const base={grains:2,veggies:2,protein:1,fruits:1,dairy:1};
     if(game.state.difficulty==='Hard') base.veggies=3;
     game.plateQuota = {...base};   // เหลืออยู่
-    game.plateTarget = {...base};  // เป้าทั้งหมดคงที่
+    game.plateTarget = {...base};  // เป้าคงที่
     renderPlateTracker();
   }
   function setFever(on){ game.state.fever=on; document.body.classList.toggle('fever', on); }
@@ -396,6 +466,7 @@
       const good=m.group===game.currentTarget; base=good?7:-2; delta = good? base*game.state.combo : base; positive=delta>0;
       if(good){ game.state.hits++; game.targetHits++; ding(); if(game.targetHits>=3){ nextTarget(); game.targetHits=0; } } else { thud(); comboBreak(); }
     }else if(game.state.mode==='hydration'){
+      /* ✅ ตัวเลือก A: +2s เมื่อคอมโบ %3==0 และห่างโบนัสก่อน >=5s */
       const good=m.hydra==='water'; base=good?5:-4; delta = good? base*game.state.combo : base; positive=delta>0;
       if(good){
         game.state.hits++; ding();
@@ -415,7 +486,9 @@
           positive=true; game.state.hits++; base=6; game.plateQuota[m.group]-=1;
           renderPlateTracker(); // อัปเดตตัวนับทันที
           if(Object.values(game.plateQuota).every(v=>v<=0)){
-            base+=14; resetPlateQuota(); showToast('Plate!'); // เริ่มจานใหม่พร้อมรีเซ็ตตัวนับ
+            base += 14;
+            celebratePlate();   // 🎉 เอฟเฟกต์ฉลองครบจาน (flash+shake+vibrate+sound)
+            resetPlateQuota();  // เริ่มจานใหม่
           }
           delta = base*game.state.combo; ding();
         }else{
@@ -454,7 +527,7 @@
     } else { gazeTarget=null; $("#ret").classList.remove('progress'); }
   }
 
-  /* Loops */
+  /* Loops (dynamic difficulty) */
   let spH=null, tmH=null, watchdogH=null, SPAWN_COUNT=0, WD=0;
   function loop(){
     if(!game.state.running||game.state.paused) return;
@@ -475,6 +548,7 @@
     updateHUD(); game.state.running=true; game.state.paused=false;
     setTimeout(spawn, 200); loop(); timer();
 
+    // watchdog กันค้าง
     clearTimeout(watchdogH); let seenT=game.state.timeLeft, seenS=SPAWN_COUNT;
     (function kick(){ const stuck=(seenT===game.state.timeLeft)||(seenS===SPAWN_COUNT); if(stuck){ WD++; clearTimeout(spH); clearTimeout(tmH); setTimeout(()=>{ spawn(); loop(); timer(); },150); } seenT=game.state.timeLeft; seenS=SPAWN_COUNT; watchdogH=setTimeout(kick,1200); })();
   }
@@ -493,7 +567,7 @@
     if(game.state.score>game.state.best){ game.state.best=game.state.score; localStorage.setItem('ng_best', String(game.state.best)); }
     saveModeStat();
 
-    // ถ้าอยู่โหมด plate: สรุปรายการ "ยังขาด"
+    // Plate missing summary
     let plateMissing = '';
     if(game.state.mode==='plate' && game.plateQuota && game.plateTarget){
       const names = I18N[uiState.lang]?.groupNames || {grains:'Grains',protein:'Protein',veggies:'Veggies',fruits:'Fruits',dairy:'Dairy'};
@@ -516,11 +590,13 @@
     $("#summary").style.display='flex';
   }
 
+  /* Resize & render */
   function resize(){ const w=innerWidth, h=innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
   addEventListener('resize', resize); resize();
   function renderLoop(){ const q=camera.quaternion; game.ACTIVE.forEach(m=>{ m.quaternion.copy(q); }); if(renderer.xr.isPresenting) handleGaze(); renderer.render(scene,camera); }
   renderer.setAnimationLoop(renderLoop);
 
+  /* UI API */
   const UI={ start: ()=> start(), pause: ()=> pause(), restart: ()=>{ game.state.running=false; game.state.paused=false; clearTimeout(spH); clearTimeout(tmH); SPAWN_COUNT=0; WD=0; start(); },
              setMode:(m)=>{ game.state.mode=m; localStorage.setItem('ng_mode',m); updateHUD(); updateTargetLabel(); if(m==='plate'){ resetPlateQuota(); } else { renderPlateTracker(); } },
              setDiff:(d)=>{ game.state.difficulty=d; localStorage.setItem('ng_diff',d); if(game.state.mode==='plate'){ resetPlateQuota(); } updateHUD(); },
@@ -529,6 +605,7 @@
              helpClose: ()=>{ document.getElementById('help').style.display='none'; } };
   window.UI=UI;
 
+  /* Bind menu */
   $("#menuBar").addEventListener('click',(e)=>{
     const btn=e.target.closest('button'); if(!btn) return;
     const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value');
@@ -539,21 +616,29 @@
     if(act in map) map[act](); else if(act==='mode') UI.setMode(val); else if(act==='diff') UI.setDiff(val);
   }, false);
 
+  /* delegate click ในหน้าสรุป */
   document.getElementById('summary').addEventListener('click', (e)=>{
     const btn = e.target.closest('button'); if(!btn) return;
-    const act = btn.getAttribute('data-action'); e.preventDefault(); e.stopPropagation();
-    if(act === 'help') UI.help(); else if(act === 'restart') UI.restart();
+    const act = btn.getAttribute('data-action');
+    e.preventDefault(); e.stopPropagation();
+    if(act === 'help') { UI.help(); }
+    else if(act === 'restart') { UI.restart(); }
   });
 
+  /* Help overlay close-on-bg */
   $("#help").addEventListener('click',(e)=>{ if(e.target.id==='help') UI.helpClose(); });
   $("#help").querySelector('[data-action=helpClose]').addEventListener('click', ()=>UI.helpClose());
 
+  /* First-run tutorial */
   if(!localStorage.getItem('ng_seenTutorial')){
     UI.help();
     setTimeout(()=>{ document.getElementById('help').style.display='none'; localStorage.setItem('ng_seenTutorial','1'); }, 4500);
   }
 
+  /* Init */
   applyLang(); updateHUD();
+
+  /* Errors surface */
   window.onerror=(msg,src,line,col)=>{ errEl.style.display='block'; errEl.textContent="Errors: "+msg+" @"+(src||'inline')+":"+line+":"+col; };
 })();
 </script>
