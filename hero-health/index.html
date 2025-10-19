@@ -98,12 +98,16 @@
     </div>
   </div>
 
-  <!-- Result Modal -->
+  <!-- Result Modal (อัปเดตให้มี Diff/Combo) -->
   <div id="result" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:12;align-items:center;justify-content:center">
     <div style="width:min(92vw,820px);max-height:86vh;overflow:auto;background:rgba(8,12,20,.96);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;font-family:'Prompt',system-ui">
       <h2 id="resTitle" style="margin:0 0 8px">สรุปผล</h2>
       <div id="resCore" style="margin:6px 0 10px">
-        คะแนน: <b id="resScore">0</b> | เวลาเหลือ: <b id="resTime">0</b>s | โหมด: <b id="resMode">-</b>
+        คะแนน: <b id="resScore">0</b> |
+        เวลาเหลือ: <b id="resTime">0</b>s |
+        โหมด: <b id="resMode">-</b> |
+        ความยาก: <b id="resDiff">-</b> |
+        คอมโบสูงสุด: <b id="resCombo">x1</b>
       </div>
       <div id="resBreakdown" style="line-height:1.6"></div>
       <div id="resTips" style="margin-top:10px;color:#aff"></div>
