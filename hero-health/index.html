@@ -11,7 +11,7 @@
     html,body{margin:0;height:100%;overflow:hidden;background:#000}
     body::before{content:"";position:fixed;inset:0;background:url('./assets/background.jpg') center/cover no-repeat fixed;filter:saturate(1.1) brightness(1.05);z-index:0;pointer-events:none}
     canvas#c{position:fixed;inset:0;display:block;background:transparent;z-index:1;pointer-events:none}
-    .brand{position:fixed;left:12px;top:10px;z-index:3;display:flex;gap:8px;align-items:center;color:#aee;font-family:var(--fontEN);text-shadow:0 0 10px rgba(0,255,255,.55)}
+    .brand{position:fixed;left:12px;top:10px;z-index:5;display:flex;gap:8px;align-items:center;color:#aee;font-family:var(--fontEN);text-shadow:0 0 10px rgba(0,255,255,.55)}
     .brand img{height:42px;filter:drop-shadow(0 0 10px rgba(0,255,255,.35))}
     .hud,#menuBar,#errors,#help,#result{position:fixed;z-index:4;color:#0ff;font-family:var(--fontEN);text-shadow:0 0 8px rgba(0,255,255,.6)}
     .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
@@ -26,11 +26,27 @@
     .pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
     .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35)}
     .pill.done{border-color:#2ecc71;background:rgba(46,204,113,.22);color:#dbfff1;box-shadow:0 0 12px rgba(46,204,113,.25) inset}
+
+    /* Settings Bar */
+    #settingsBar .btn, #settingsBar select{
+      border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);
+    }
   </style>
 </head>
 <body>
   <!-- Brand -->
   <div class="brand"><img src="./assets/logo.png" alt="logo"/><div>HERO HEALTH ACADEMY</div></div>
+
+  <!-- Settings Bar -->
+  <div id="settingsBar" style="position:fixed;right:10px;top:10px;z-index:6;display:flex;gap:8px;align-items:center">
+    <button id="langToggle" class="btn" type="button" title="Language">🇹🇭/🇬🇧</button>
+    <button id="soundToggle" class="btn" type="button" title="Sound">🔊</button>
+    <select id="gfxSelect" class="btn" title="Graphics" style="padding:8px 10px">
+      <option value="High">Graphics: High</option>
+      <option value="Medium">Graphics: Medium</option>
+      <option value="Low">Graphics: Low</option>
+    </select>
+  </div>
 
   <!-- Render Surface -->
   <canvas id="c"></canvas>
@@ -45,18 +61,18 @@
       <span id="fever" style="display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)">FEVER!</span>
     </div>
 
-    <!-- เป้าหมายโหมดจาน 5 หมู่ -->
+    <!-- 🎯 Food Groups target -->
     <div id="targetWrap">🎯 หมวดเป้าหมาย:
       <span id="targetBadge" style="border:1px solid #0ff;border-radius:10px;padding:2px 8px;background:rgba(0,0,0,.35)">—</span>
     </div>
 
-    <!-- โควตาโหมดจัดจาน -->
+    <!-- 🍱 Healthy Plate quota -->
     <div id="plateTracker">
       🍱 โควตา:
       <div class="pills" id="platePills"></div>
     </div>
 
-    <!-- มิเตอร์สมดุลน้ำ -->
+    <!-- 💧 Hydration meter -->
     <div id="hydroWrap" style="margin-top:6px;display:none">
       💧 สมดุลน้ำ:
       <span id="hydroLabel" style="margin-left:6px">—</span>
@@ -98,7 +114,7 @@
     </div>
   </div>
 
-  <!-- Result Modal (อัปเดตให้มี Diff/Combo) -->
+  <!-- Result Modal -->
   <div id="result" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:12;align-items:center;justify-content:center">
     <div style="width:min(92vw,820px);max-height:86vh;overflow:auto;background:rgba(8,12,20,.96);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;font-family:'Prompt',system-ui">
       <h2 id="resTitle" style="margin:0 0 8px">สรุปผล</h2>
@@ -122,7 +138,7 @@
   <div id="toast" style="display:none"></div>
 
   <!-- Landing: Hero Select -->
-  <div id="landing" style="position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient( circle at 50% 46%, rgba(10,20,30,.96), rgba(4,8,14,.98));">
+  <div id="landing" style="position:fixed;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;background:radial-gradient( circle at 50% 46%, rgba(10,20,30,.96), rgba(4,8,14,.98));">
     <div style="text-align:center;color:#bff;max-width:min(92vw,900px);padding:18px">
       <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-bottom:12px">
         <img src="./assets/logo.png" alt="logo" style="height:70px;filter:drop-shadow(0 0 12px rgba(0,255,255,.55))"/>
