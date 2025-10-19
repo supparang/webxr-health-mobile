@@ -1,70 +1,68 @@
-// core/engine.js
+// ใช้ VRButton แบบ ES Module (แก้ปัญหา "VRButton is not defined")
 import { VRButton } from 'https://unpkg.com/three@0.159.0/examples/jsm/webxr/VRButton.js';
 
 export class Engine{
   constructor(THREE, canvas){
-    // ...
-    document.body.appendChild(VRButton.createButton(this.renderer));
-    this.renderer.xr.enabled = true;
-  }
-  // ...
-}
-
-export class Engine {
-  constructor(THREE, canvas){
     this.THREE = THREE;
     this.canvas = canvas;
-    this.renderer = new THREE.WebGLRenderer({canvas, antialias:true});
-    this.renderer.setClearColor(0x000000, 0);
-    this.renderer.xr.enabled = true;
+
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(60, 2, 0.01, 100);
-    this.camera.position.set(0, 1.6, 2.8);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 100);
+    this.camera.position.set(0,1.6,0.5);
+    this.camera.lookAt(0,1.6,-1);
+
+    this.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.xr.enabled = true;
+    document.body.appendChild(VRButton.createButton(this.renderer));
+
     this.group = new THREE.Group();
     this.scene.add(this.group);
+
     this.raycaster = new THREE.Raycaster();
-    this.resize();
-    window.addEventListener('resize',()=>this.resize());
-    try{
-      const VRB = window.VRButton || (window.THREE && window.THREE.VRButton);
-      const vrEl = (VRB && VRB.createButton) ? VRB.createButton(this.renderer) : null;
-      if(vrEl){
-        const slot = document.createElement('div');
-        slot.style.position='fixed'; slot.style.right='8px'; slot.style.bottom='8px'; slot.style.zIndex=5;
-        slot.appendChild(vrEl); document.body.appendChild(slot);
-      }
-    }catch(e){}
+    this.mouse = new THREE.Vector2();
+
+    window.addEventListener('resize', ()=>this.onResize());
   }
-  resize(){
-    const w=innerWidth, h=innerHeight;
-    this.renderer.setSize(w,h,false);
-    this.camera.aspect=w/h;
+
+  onResize(){
+    this.camera.aspect = window.innerWidth/window.innerHeight;
     this.camera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
-  startLoop(draw){
+
+  startLoop(loopFn){
+    this._loop = loopFn || (()=>{});
     this.renderer.setAnimationLoop(()=>{
-      if(draw) draw();
+      this._loop();
       this.renderer.render(this.scene, this.camera);
     });
   }
-  makeEmojiTexture(char){
-    const s=128, c=document.createElement('canvas'); c.width=c.height=s;
-    const cx=c.getContext('2d'); cx.font="100px system-ui, 'Apple Color Emoji', 'Segoe UI Emoji'";
-    cx.textAlign='center'; cx.textBaseline='middle'; cx.fillText(char,s/2,s/2);
-    const tex=new this.THREE.CanvasTexture(c); tex.needsUpdate=true; return tex;
+
+  // Billboard emoji (CanvasTexture)
+  makeBillboard(text){
+    const size = 128;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = size;
+    const ctx = cvs.getContext('2d');
+    ctx.clearRect(0,0,size,size);
+    ctx.font = '96px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(text, size/2, size/2+8);
+    const tex = new this.THREE.CanvasTexture(cvs);
+    const mat = new this.THREE.SpriteMaterial({map:tex, transparent:true});
+    const sp  = new this.THREE.Sprite(mat);
+    sp.scale.set(0.35,0.35,0.35);
+    return sp;
   }
-  makeBillboard(char){
-    const tex=this.makeEmojiTexture(char);
-    const geo=new this.THREE.PlaneGeometry(0.5,0.5);
-    const mat=new this.THREE.MeshBasicMaterial({map:tex, transparent:true, side:this.THREE.DoubleSide, depthWrite:false});
-    const m=new this.THREE.Mesh(geo,mat); m.lookAt(this.camera.position); return m;
-  }
+
   raycastFromClient(x,y){
-    const rect=this.canvas.getBoundingClientRect();
-    const nx=(x-rect.left)/rect.width*2-1, ny=-(y-rect.top)/rect.height*2+1;
-    const v=new this.THREE.Vector2(nx,ny);
-    this.raycaster.setFromCamera(v, this.camera);
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((x-rect.left)/rect.width)*2-1;
+    this.mouse.y = -((y-rect.top)/rect.height)*2+1;
+    this.raycaster.setFromCamera(this.mouse, this.camera);
     return this.raycaster.intersectObjects(this.group.children, true);
   }
 }
