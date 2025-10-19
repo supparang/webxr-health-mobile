@@ -1,127 +1,151 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-<title>HERO HEALTH ACADEMY – Wave 2</title>
-<link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;700&family=Prompt:wght@400;600;700&display=swap" rel="stylesheet"/>
-<link rel="icon" href="./assets/logo.png"/>
-<style>
-:root{--bg:#061018;--cy:#0ff;--cy2:rgba(0,255,255,.12);--fontTH:'Prompt',system-ui;--fontEN:'Exo 2',system-ui}
-html,body{margin:0;height:100%;overflow:hidden;background:#000}
-body::before{content:"";position:fixed;inset:0;background:url('./assets/background.jpg') center/cover no-repeat fixed;filter:saturate(1.1) brightness(1.05);z-index:0;pointer-events:none}
-canvas#c{position:fixed;inset:0;display:block;background:transparent;z-index:1}
-.brand{position:fixed;left:12px;top:10px;z-index:3;display:flex;gap:8px;align-items:center;color:#aee;font-family:var(--fontEN);text-shadow:0 0 10px rgba(0,255,255,.55)}
-.brand img{height:42px;filter:drop-shadow(0 0 10px rgba(0,255,255,.35))}
-.hud,#menuBar,#errors,#help{position:fixed;z-index:4;color:#0ff;font-family:var(--fontEN);text-shadow:0 0 8px rgba(0,255,255,.6)}
-.hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
-  <div id="hydroWrap" style="margin-top:6px;display:none">
-  💧 สมดุลน้ำ:
-  <span id="hydroLabel" style="margin-left:6px">—</span>
-  <div style="height:10px;border:1px solid #0ff;border-radius:999px;background:rgba(0,0,0,.35);width:min(60vw,520px);margin:6px auto;position:relative;overflow:hidden">
-    <div id="hydroBar" style="height:100%;width:50%;background:linear-gradient(90deg,#09f,#0ff);opacity:.95"></div>
-    <!-- โซนพอดี (เป้า) -->
-    <div id="hydroOpt" style="position:absolute;top:0;bottom:0;left:45%;right:35%;border-left:1px dashed #ff0;border-right:1px dashed #ff0;opacity:.8"></div>
-  </div>
-</div>
-
-#menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
-.row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-.btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
-.btn:hover,.tag:hover{background:var(--cy2)}
-#errors{top:8px;right:8px;max-width:48ch;background:rgba(30,0,0,.85);padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb;display:none}
-#menuBar,#menuBar *{pointer-events:auto!important} canvas#c{pointer-events:none}
-#targetWrap{margin-top:6px;display:none}
-#plateTracker{display:none;margin-top:6px}
-.pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35)}
-.pill.done{border-color:#2ecc71;background:rgba(46,204,113,.22);color:#dbfff1;box-shadow:0 0 12px rgba(46,204,113,.25) inset}
-</style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+  <title>HERO HEALTH ACADEMY</title>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;700&family=Prompt:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="icon" href="./assets/logo.png"/>
+  <style>
+    :root{--bg:#061018;--cy:#0ff;--cy2:rgba(0,255,255,.12);--fontTH:'Prompt',system-ui;--fontEN:'Exo 2',system-ui}
+    html,body{margin:0;height:100%;overflow:hidden;background:#000}
+    body::before{content:"";position:fixed;inset:0;background:url('./assets/background.jpg') center/cover no-repeat fixed;filter:saturate(1.1) brightness(1.05);z-index:0;pointer-events:none}
+    canvas#c{position:fixed;inset:0;display:block;background:transparent;z-index:1;pointer-events:none}
+    .brand{position:fixed;left:12px;top:10px;z-index:3;display:flex;gap:8px;align-items:center;color:#aee;font-family:var(--fontEN);text-shadow:0 0 10px rgba(0,255,255,.55)}
+    .brand img{height:42px;filter:drop-shadow(0 0 10px rgba(0,255,255,.35))}
+    .hud,#menuBar,#errors,#help{position:fixed;z-index:4;color:#0ff;font-family:var(--fontEN);text-shadow:0 0 8px rgba(0,255,255,.6)}
+    .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
+    #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
+    .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+    .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
+    .btn:hover,.tag:hover{background:var(--cy2)}
+    #errors{top:8px;right:8px;max-width:48ch;background:rgba(30,0,0,.85);padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb;display:none}
+    #menuBar,#menuBar *{pointer-events:auto!important}
+    #targetWrap{margin-top:6px;display:none}
+    #plateTracker{display:none;margin-top:6px}
+    .pills{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35)}
+    .pill.done{border-color:#2ecc71;background:rgba(46,204,113,.22);color:#dbfff1;box-shadow:0 0 12px rgba(46,204,113,.25) inset}
+  </style>
 </head>
 <body>
-<div class="brand"><img src="./assets/logo.png" alt="logo"/><div>HERO HEALTH ACADEMY</div></div>
-<canvas id="c"></canvas>
+  <!-- Brand -->
+  <div class="brand"><img src="./assets/logo.png" alt="logo"/><div>HERO HEALTH ACADEMY</div></div>
 
-<div class="hud">
-  <div><span>คะแนน</span>: <span id="score">0</span> | <span>คอมโบ</span>: <span id="combo">x1</span> | <span>เวลา</span>: <span id="time">60</span>s | <span>สถิติ</span>: <span id="best">0</span>
-    <span id="fever" style="display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)">FEVER!</span>
-  </div>
-  <div><span>โหมด</span>: <span id="modeName">ดี vs ขยะ</span> | <span>ความยาก</span>: <span id="difficulty">ปกติ</span></div>
-  <div id="targetWrap">🎯 หมวดเป้าหมาย: <span id="targetBadge" style="border:1px solid #0ff;border-radius:10px;padding:2px 8px;background:rgba(0,0,0,.35)">—</span></div>
-  <div id="plateTracker">🍱 โควตา: <div class="pills" id="platePills"></div></div>
-</div>
+  <!-- Render Surface -->
+  <canvas id="c"></canvas>
 
-<div id="menuBar">
-  <div class="row">
-    <button class="tag" data-action="mode" data-value="goodjunk" type="button">🥗 ดี vs ขยะ</button>
-    <button class="tag" data-action="mode" data-value="groups" type="button">🍽️ จาน 5 หมู่</button>
-    <button class="tag" data-action="mode" data-value="hydration" type="button">💧 สมดุลน้ำ</button>
-    <button class="tag" data-action="mode" data-value="plate" type="button">🍱 จัดจานสุขภาพ</button>
-  </div>
-  <div class="row" style="margin:8px 0">
-    <button class="tag" data-action="diff" data-value="Easy" type="button">ง่าย</button>
-    <button class="tag" data-action="diff" data-value="Normal" type="button">ปกติ</button>
-    <button class="tag" data-action="diff" data-value="Hard" type="button">ยาก</button>
-  </div>
-  <div class="row">
-    <button class="btn" data-action="start" type="button">▶ เริ่มเกม</button>
-    <button class="btn" data-action="pause" type="button">⏸ พัก</button>
-    <button class="btn" data-action="restart" type="button">↻ เริ่มใหม่</button>
-    <button class="btn" data-action="help" type="button">❓ วิธีเล่น</button>
-  </div>
-</div>
-
-<div id="help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
-  <div style="background:rgba(8,12,20,.96);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,820px);max-height:86vh;overflow:auto">
-    <h2 style="font-family:var(--fontTH);margin:0 0 8px">วิธีเล่น (How to Play)</h2>
-    <div id="helpBody" style="font-family:var(--fontTH);line-height:1.55"></div>
-    <div style="margin-top:12px;text-align:right">
-      <button class="btn" data-action="helpClose" type="button">โอเค</button>
+  <!-- HUD -->
+  <div class="hud">
+    <div>
+      <span>คะแนน</span>: <span id="score">0</span> |
+      <span>คอมโบ</span>: <span id="combo">x1</span> |
+      <span>เวลา</span>: <span id="time">60</span>s |
+      <span>สถิติ</span>: <span id="best">0</span>
+      <span id="fever" style="display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)">FEVER!</span>
     </div>
-  </div>
-</div>
 
+    <!-- เป้าหมายโหมดจาน 5 หมู่ -->
+    <div id="targetWrap">🎯 หมวดเป้าหมาย:
+      <span id="targetBadge" style="border:1px solid #0ff;border-radius:10px;padding:2px 8px;background:rgba(0,0,0,.35)">—</span>
+    </div>
 
-<div id="toast" style="display:none"></div>
+    <!-- โควตาโหมดจัดจาน -->
+    <div id="plateTracker">
+      🍱 โควตา:
+      <div class="pills" id="platePills"></div>
+    </div>
 
-<!-- Landing + Coach HUD -->
-<div id="landing" style="position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient( circle at 50% 46%, rgba(10,20,30,.96), rgba(4,8,14,.98));">
-  <div style="text-align:center;color:#bff;max-width:min(92vw,900px);padding:18px">
-    <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-bottom:12px">
-      <img src="./assets/logo.png" alt="logo" style="height:70px;filter:drop-shadow(0 0 12px rgba(0,255,255,.55))"/>
-      <div style="font-family:var(--fontEN);font-weight:700;font-size:42px;letter-spacing:1px;text-shadow:0 0 16px rgba(0,255,255,.45),0 0 30px rgba(255,0,200,.25)">
-        HERO HEALTH ACADEMY
+    <!-- มิเตอร์สมดุลน้ำ -->
+    <div id="hydroWrap" style="margin-top:6px;display:none">
+      💧 สมดุลน้ำ:
+      <span id="hydroLabel" style="margin-left:6px">—</span>
+      <div style="height:10px;border:1px solid #0ff;border-radius:999px;background:rgba(0,0,0,.35);width:min(60vw,520px);margin:6px auto;position:relative;overflow:hidden">
+        <div id="hydroBar" style="height:100%;width:50%;background:linear-gradient(90deg,#09f,#0ff);opacity:.95"></div>
+        <div id="hydroOpt" style="position:absolute;top:0;bottom:0;left:45%;right:35%;border-left:1px dashed #ff0;border-right:1px dashed #ff0;opacity:.8"></div>
       </div>
     </div>
-    <div style="opacity:.9;margin-bottom:16px;font-family:var(--fontTH)">เกมฝึกพลังโภชนาการแนวฮีโร่ – เล่นสนุก เรียนรู้จริง พร้อมโหมด VR</div>
-    <div style="display:flex;gap:18px;justify-content:center;margin:16px 0 22px">
-      <div class="heroCard" data-hero="zane" style="cursor:pointer;border:1px solid #0ff;border-radius:14px;background:rgba(0,0,0,.35);padding:10px 16px">
-        <img src="./assets/hero_zane.png" style="height:88px"/>
-        <div style="font-family:var(--fontEN);font-weight:700">Zane</div>
-        <div style="font-family:var(--fontTH);opacity:.8">โค้ชเทคโนอัจฉริยะ</div>
-      </div>
-      <div class="heroCard" data-hero="luna" style="cursor:pointer;border:1px solid #f0f;border-radius:14px;background:rgba(0,0,0,.35);padding:10px 16px">
-        <img src="./assets/hero_luna.png" style="height:88px"/>
-        <div style="font-family:var(--fontEN);font-weight:700">Luna</div>
-        <div style="font-family:var(--fontTH);opacity:.8">โค้ชไซเบอร์ฉับไว</div>
-      </div>
-    </div>
-    <button id="startBtn" class="btn" style="font-family:var(--fontTH);font-size:18px">▶ START</button>
-    <div style="margin-top:10px;font-size:13px;opacity:.8">Powered by EatToPower Engine</div>
   </div>
-</div>
-<div id="coachHUD" style="position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:6;display:none;pointer-events:none">
-  <div id="coachText" style="font-family:var(--fontTH);font-weight:700;color:#cfe;letter-spacing:.3px;background:rgba(0,0,0,.35);border:1px solid #0ff;border-radius:12px;padding:6px 10px;text-shadow:0 0 10px rgba(0,255,255,.6)"></div>
-</div>
 
-<audio id="sfx-ding" src="./assets/ding.wav"></audio>
-<audio id="sfx-thud" src="./assets/thud.wav"></audio>
-<audio id="sfx-tick" src="./assets/tick.wav"></audio>
-<audio id="sfx-hero" src="./assets/hero_in.wav"></audio>
-<audio id="sfx-fever" src="./assets/fever_in.wav"></audio>
-<audio id="sfx-perfect" src="./assets/perfect.wav"></audio>
+  <!-- Menu -->
+  <div id="menuBar">
+    <div class="row">
+      <button class="tag" data-action="mode" data-value="goodjunk" type="button">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups" type="button">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="hydration" type="button">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="mode" data-value="plate" type="button">🍱 จัดจานสุขภาพ</button>
+    </div>
+    <div class="row" style="margin:8px 0">
+      <button class="tag" data-action="diff" data-value="Easy" type="button">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Normal" type="button">ปกติ</button>
+      <button class="tag" data-action="diff" data-value="Hard" type="button">ยาก</button>
+      <span style="color:#6ff;margin-left:8px;font-family:var(--fontEN)">Mode: <span id="modeName">ดี vs ขยะ</span> • Diff: <span id="difficulty">ปกติ</span></span>
+    </div>
+    <div class="row">
+      <button class="btn" data-action="start" type="button">▶ เริ่มเกม</button>
+      <button class="btn" data-action="pause" type="button">⏸ พัก</button>
+      <button class="btn" data-action="restart" type="button">↻ เริ่มใหม่</button>
+      <button class="btn" data-action="help" type="button">❓ วิธีเล่น</button>
+    </div>
+  </div>
 
-<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.159.0/examples/js/VRButton.js"></script>
-<script type="module" src="./game/main.js"></script>
-</body></html>
+  <!-- Help Popup -->
+  <div id="help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+    <div style="background:rgba(8,12,20,.96);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,820px);max-height:86vh;overflow:auto">
+      <h2 style="font-family:var(--fontTH);margin:0 0 8px">วิธีเล่น (How to Play)</h2>
+      <div id="helpBody" style="font-family:var(--fontTH);line-height:1.55"></div>
+      <div style="margin-top:12px;text-align:right"><button class="btn" data-action="helpClose" type="button">โอเค</button></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" style="display:none"></div>
+
+  <!-- Landing: Hero Select -->
+  <div id="landing" style="position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:radial-gradient( circle at 50% 46%, rgba(10,20,30,.96), rgba(4,8,14,.98));">
+    <div style="text-align:center;color:#bff;max-width:min(92vw,900px);padding:18px">
+      <div style="display:flex;gap:16px;justify-content:center;align-items:center;margin-bottom:12px">
+        <img src="./assets/logo.png" alt="logo" style="height:70px;filter:drop-shadow(0 0 12px rgba(0,255,255,.55))"/>
+        <div style="font-family:var(--fontEN);font-weight:700;font-size:42px;letter-spacing:1px;text-shadow:0 0 16px rgba(0,255,255,.45),0 0 30px rgba(255,0,200,.25)">
+          HERO HEALTH ACADEMY
+        </div>
+      </div>
+      <div style="opacity:.9;margin-bottom:16px;font-family:var(--fontTH)">เกมฝึกพลังโภชนาการแนวฮีโร่ – เล่นสนุก เรียนรู้จริง พร้อมโหมด VR</div>
+      <div style="display:flex;gap:18px;justify-content:center;margin:16px 0 22px">
+        <div class="heroCard" data-hero="zane" style="cursor:pointer;border:1px solid #0ff;border-radius:14px;background:rgba(0,0,0,.35);padding:10px 16px">
+          <img src="./assets/hero_zane.png" style="height:88px"/>
+          <div style="font-family:var(--fontEN);font-weight:700">Zane</div>
+          <div style="font-family:var(--fontTH);opacity:.8">โค้ชเทคโนอัจฉริยะ</div>
+        </div>
+        <div class="heroCard" data-hero="luna" style="cursor:pointer;border:1px solid #f0f;border-radius:14px;background:rgba(0,0,0,.35);padding:10px 16px">
+          <img src="./assets/hero_luna.png" style="height:88px"/>
+          <div style="font-family:var(--fontEN);font-weight:700">Luna</div>
+          <div style="font-family:var(--fontTH);opacity:.8">โค้ชไซเบอร์ฉับไว</div>
+        </div>
+      </div>
+      <button id="startBtn" class="btn" style="font-family:var(--fontTH);font-size:18px">▶ START</button>
+      <div style="margin-top:10px;font-size:13px;opacity:.8">Powered by EatToPower Engine</div>
+    </div>
+  </div>
+
+  <!-- Coach HUD -->
+  <div id="coachHUD" style="position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:6;display:none;pointer-events:none">
+    <div id="coachText" style="font-family:var(--fontTH);font-weight:700;color:#cfe;letter-spacing:.3px;background:rgba(0,0,0,.35);border:1px solid #0ff;border-radius:12px;padding:6px 10px;text-shadow:0 0 10px rgba(0,255,255,.6)"></div>
+  </div>
+
+  <!-- SFX -->
+  <audio id="sfx-ding" src="./assets/ding.wav"></audio>
+  <audio id="sfx-thud" src="./assets/thud.wav"></audio>
+  <audio id="sfx-tick" src="./assets/tick.wav"></audio>
+  <audio id="sfx-hero" src="./assets/hero_in.wav"></audio>
+  <audio id="sfx-fever" src="./assets/fever_in.wav"></audio>
+  <audio id="sfx-perfect" src="./assets/perfect.wav"></audio>
+
+  <!-- Three.js + VR -->
+  <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.159.0/examples/js/VRButton.js"></script>
+
+  <!-- Game -->
+  <script type="module" src="./game/main.js"></script>
+</body>
+</html>
