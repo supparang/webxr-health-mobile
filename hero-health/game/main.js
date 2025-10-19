@@ -1,4 +1,4 @@
-// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach)
+// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach + mode init patch)
 import { Engine } from './core/engine.js';
 import { Coach } from './core/coach.js';
 
@@ -515,7 +515,7 @@ function loop(){
       loop._hydTick=0;
       if(z==='ok'){ systems.score.add(1);}
       document.getElementById('hydroWrap').style.display='block';
-      hud.setHydration(state.hyd,z); // use existing HUD instance
+      hud.setHydration(state.hyd,z);
     }
     if(loop._lowAccum>=4000){
       loop._lowAccum=0; systems.score.add(-1);
@@ -551,9 +551,15 @@ function start(){
 
   state.ctx={bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0};
 
-  if(state.modeKey==='hydration') document.getElementById('hydroWrap').style.display='block'; else document.getElementById('hydroWrap').style.display='none';
-  if(state.modeKey!=='groups') document.getElementById('targetWrap').style.display='none';
-  if(state.modeKey!=='plate')  document.getElementById('plateTracker').style.display='none';
+  // reset HUD sections, let mode.init decide what to show
+  document.getElementById('hydroWrap').style.display='none';
+  document.getElementById('targetWrap').style.display='none';
+  document.getElementById('plateTracker').style.display='none';
+
+  // call mode init (sets targets, pills, hydration HUD, etc.)
+  if (typeof MODES[state.modeKey]?.init === 'function') {
+    MODES[state.modeKey].init(state, hud);
+  }
 
   updateHUD();
   setTimeout(spawnOnce,200);
