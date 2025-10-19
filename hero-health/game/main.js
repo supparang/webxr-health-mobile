@@ -46,7 +46,7 @@ const state = {
   ctx:{goodHits:0, targetHitsTotal:0, bestStreak:0, currentStreak:0, waterHits:0, sweetMiss:0, perfectPlates:0, plateFills:0},
 };
 
-// ========== วิธีเล่นรายโหมด ==========
+// ---------- วิธีเล่นรายโหมด ----------
 const HELP = {
   goodjunk: `
     <h3>🥗 ดี vs ขยะ (Healthy vs Junk)</h3>
@@ -71,9 +71,10 @@ const HELP = {
   hydration: `
     <h3>💧 สมดุลน้ำ (Hydration)</h3>
     <ul>
-      <li>เก็บน้ำ 💧 (+5)</li>
-      <li>เลี่ยงหวาน 🧋 (−3) | ปล่อยผ่านได้ (+1)</li>
-      <li>เข้า FEVER เร็วขึ้นเมื่อคอมโบต่อเนื่อง</li>
+      <li>ดูมิเตอร์ 💧: โซน <b>พอดี 45–65%</b> ดีที่สุด</li>
+      <li>เก็บน้ำ 💧/🚰 จะเพิ่มเปอร์เซ็นต์ (+5 คะแนนเมื่อพอดี)</li>
+      <li>เลี่ยงหวาน 🧋 (−3) และทำให้เปอร์เซ็นต์ลด</li>
+      <li>คอมโบช่วยเข้า FEVER ได้เร็วขึ้น</li>
     </ul>
   `,
   plate: `
@@ -86,7 +87,6 @@ const HELP = {
   `
 };
 
-// ฟังก์ชันเปิด "วิธีเล่นตามโหมด"
 function openHelpFor(modeKey){
   const key = modeKey || state.modeKey;
   const html = HELP[key] || '<p>เลือกโหมดเพื่อดูวิธีเล่น</p>';
@@ -94,7 +94,7 @@ function openHelpFor(modeKey){
   document.getElementById('help').style.display = 'flex';
 }
 
-// ---------- Lane & Spawn ----------
+// ---------- Lane ----------
 function setupLanes(){
   const X=[-1.1,-0.55,0,0.55,1.1], Y=[-0.2,0.0,0.18,0.32], Z=-2.2;
   state.lane={X,Y,Z, occupied:new Set(), cooldown:new Map(), last:null};
@@ -129,6 +129,7 @@ function maybeSpecialMeta(baseMeta){
   return baseMeta;
 }
 
+// ---------- Spawn ----------
 function spawnOnce(){
   const lane=pickLane(); if(!lane) return;
   let meta = MODES[state.modeKey].pickMeta(state.difficulty, state);
@@ -144,10 +145,9 @@ function spawnOnce(){
     updateHUD(); destroy(m);
   }, life + Math.floor(Math.random()*500-250));
 }
-
 function destroy(obj){ if(obj.parent) obj.parent.remove(obj); state.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
 
-// ---------- Scoring / Hit ----------
+// ---------- Hit ----------
 function hit(obj){
   const meta=obj.userData.meta;
   const baseAdd = systems.score.add.bind(systems.score);
@@ -212,6 +212,21 @@ function loop(){
   const ts=performance.now(); const dt=ts-lastTs; lastTs=ts;
   systems.fever.update(dt);
   systems.power.tick(dt);
+
+  // Hydration: decay + HUD update (เฉพาะโหมดน้ำ)
+  if(state.running && state.modeKey==='hydration'){
+    state.hyd = Math.max(0, Math.min(100, state.hyd - 0.0003 * dt * (systems.power.timeScale||1)));
+    if(!loop._hydTick) loop._hydTick=0;
+    loop._hydTick += dt;
+    if(loop._hydTick > 1000){
+      loop._hydTick = 0;
+      const min = (state.hydMin ?? 45), max = (state.hydMax ?? 65);
+      const z = state.hyd < min ? 'low' : (state.hyd > max ? 'high' : 'ok');
+      if(z==='ok'){ systems.score.add(1); } // ให้รางวัลเล็กน้อยเมื่อรักษาสมดุล
+      hud.setHydration(state.hyd, z);
+    }
+  }
+
   updateHUD();
 }
 
@@ -238,13 +253,21 @@ function start(){
   document.getElementById('help').style.display='none';
   state.running=true; state.paused=false; state.timeLeft=60; spawnCount=0; systems.score.reset(); setupLanes();
   state.ctx={goodHits:0, targetHitsTotal:0, bestStreak:0, currentStreak:0, waterHits:0, sweetMiss:0, perfectPlates:0, plateFills:0};
+
   systems.mission.roll(state.modeKey);
   const M = MODES[state.modeKey]; if(M.init) M.init(state, hud, state.difficulty);
+
+  // เปิด/ปิด HUD เฉพาะโหมด
+  if(state.modeKey!=='hydration'){ hud.hideHydration?.(); }
+  if(state.modeKey!=='groups') hud.hideTarget();
+  if(state.modeKey!=='plate') hud.hidePills();
+
   updateHUD(); setTimeout(spawnOnce,200); runSpawn(); runTimer();
   canvas.style.pointerEvents='auto';
 }
 function pause(){ if(!state.running) return; state.paused=!state.paused; if(!state.paused){ runSpawn(); runTimer(); } }
-function end(){ state.running=false; state.paused=false; clearTimeout(spawnTimer); clearTimeout(timeTimer); canvas.style.pointerEvents='none';
+function end(){
+  state.running=false; state.paused=false; clearTimeout(spawnTimer); clearTimeout(timeTimer); canvas.style.pointerEvents='none';
   const bonus = systems.mission.evaluate({...state.ctx, combo: systems.score.combo});
   if(bonus>0){ systems.score.score += bonus; }
   systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
@@ -257,9 +280,8 @@ function end(){ state.running=false; state.paused=false; clearTimeout(spawnTimer
 // ---------- Landing & Menu ----------
 bindLanding(()=>{
   coach.onStart();
-  // แสดงวิธีเล่นของโหมดปัจจุบันทันทีหลังปิด Landing
-  openHelpFor(state.modeKey);
-  // ผู้เล่นจะกด "▶ เริ่มเกม" ในเมนูเอง
+  openHelpFor(state.modeKey); // ปิด Landing แล้วแสดงวิธีเล่นของโหมดปัจจุบัน
+  // รอผู้เล่นกด ▶ เริ่มเกม จากเมนู
 }, coach);
 
 document.getElementById('menuBar').addEventListener('click', (e)=>{
@@ -273,6 +295,7 @@ document.getElementById('menuBar').addEventListener('click', (e)=>{
     state.modeKey=val;
     if(val!=='plate') document.getElementById('plateTracker').style.display='none';
     if(val!=='groups') document.getElementById('targetWrap').style.display='none';
+    if(val!=='hydration'){ hud.hideHydration?.(); }
     updateHUD();
   }
 }, false);
@@ -281,11 +304,11 @@ document.getElementById('help').addEventListener('click',(e)=>{
   if(e.target.getAttribute('data-action')==='helpClose' || e.target.id==='help') e.currentTarget.style.display='none';
 });
 
-// ---------- Input bindings ----------
+// ---------- Input ----------
 canvas.addEventListener('click', onClick);
 canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClick({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
 
-// ---------- Render Loop ----------
+// ---------- Loop ----------
 engine.startLoop(loop);
 
 // ---------- Error Box ----------
