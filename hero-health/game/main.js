@@ -46,6 +46,70 @@ const state = {
   ctx:{goodHits:0, targetHitsTotal:0, bestStreak:0, currentStreak:0, waterHits:0, sweetMiss:0, perfectPlates:0, plateFills:0},
 };
 
+// ========== วิธีเล่นรายโหมด ==========
+const HELP = {
+  goodjunk: `
+    <h3>🥗 ดี vs ขยะ (Healthy vs Junk)</h3>
+    <ul>
+      <li>เก็บ <b>อาหารดี</b> เช่น 🥦🍎 (+5)</li>
+      <li>อย่าเก็บ <b>ขยะ</b> เช่น 🍟🍔 (−2)</li>
+      <li>ปล่อยขยะไหลผ่านเองได้ (+1)</li>
+      <li>Power-ups: ⭐Boost, ⏳Slow, 🛡️Shield, ⏱±Time</li>
+      <li>Traps: 💣 ระเบิด (−6), 🎭 ตัวล่อ (−4)</li>
+      <li>คอมโบ + FEVER ช่วยคูณคะแนน 🔥</li>
+    </ul>
+  `,
+  groups: `
+    <h3>🍽️ จาน 5 หมู่ (Food Groups)</h3>
+    <ul>
+      <li>เก็บเฉพาะ <b>หมวดเป้าหมาย 🎯</b> ที่โชว์บน HUD</li>
+      <li>เก็บถูกหมวด +7 | เก็บผิดหมวด −2</li>
+      <li>ครบ 3 ชิ้น → ระบบเปลี่ยนเป้าหมายใหม่</li>
+      <li>อ่านหมวดจาก HUD เสมอ ✅</li>
+    </ul>
+  `,
+  hydration: `
+    <h3>💧 สมดุลน้ำ (Hydration)</h3>
+    <ul>
+      <li>เก็บน้ำ 💧 (+5)</li>
+      <li>เลี่ยงหวาน 🧋 (−3) | ปล่อยผ่านได้ (+1)</li>
+      <li>เข้า FEVER เร็วขึ้นเมื่อคอมโบต่อเนื่อง</li>
+    </ul>
+  `,
+  plate: `
+    <h3>🍱 จัดจานสุขภาพ (Healthy Plate)</h3>
+    <ul>
+      <li>เติมตามโควตาใน HUD: ธัญพืช ผัก โปรตีน ผลไม้ นม</li>
+      <li>ของที่ยังขาด +6 | ของเกิน +2</li>
+      <li><b>ครบจาน = PERFECT! 🔥 โบนัส +14</b></li>
+    </ul>
+  `
+};
+
+// ฟังก์ชันเปิด "วิธีเล่นตามโหมด"
+function openHelpFor(modeKey){
+  const key = modeKey || state.modeKey;
+  const html = HELP[key] || '<p>เลือกโหมดเพื่อดูวิธีเล่น</p>';
+  document.getElementById('helpBody').innerHTML = html;
+  document.getElementById('help').style.display = 'flex';
+}
+
+// ---------- Lane & Spawn ----------
+function setupLanes(){
+  const X=[-1.1,-0.55,0,0.55,1.1], Y=[-0.2,0.0,0.18,0.32], Z=-2.2;
+  state.lane={X,Y,Z, occupied:new Set(), cooldown:new Map(), last:null};
+}
+function now(){ return performance.now(); }
+function isAdj(r,c){ const last=state.lane.last; if(!last) return false; const [pr,pc]=last; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; }
+function pickLane(){
+  const {X,Y,Z,occupied,cooldown}=state.lane;
+  const cand=[]; for(let r=0;r<Y.length;r++){ for(let c=0;c<X.length;c++){ const k=r+','+c,cd=cooldown.get(k)||0,free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); } }
+  if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)];
+  occupied.add(p.k); state.lane.last=[p.r,p.c]; return {x:X[p.c], y:1.6+Y[p.r], z:Z-0.1*Math.abs(p.c-2), key:p.k};
+}
+function releaseLane(k){ const {occupied,cooldown}=state.lane; occupied.delete(k); cooldown.set(k, now()+800); }
+
+// ---------- Items & Specials ----------
 const POWER_ITEMS = [
   {type:'power', kind:'slow', char:'⏳'},
   {type:'power', kind:'boost', char:'⭐'},
@@ -65,20 +129,6 @@ function maybeSpecialMeta(baseMeta){
   return baseMeta;
 }
 
-function setupLanes(){
-  const X=[-1.1,-0.55,0,0.55,1.1], Y=[-0.2,0.0,0.18,0.32], Z=-2.2;
-  state.lane={X,Y,Z, occupied:new Set(), cooldown:new Map(), last:null};
-}
-function now(){ return performance.now(); }
-function isAdj(r,c){ const last=state.lane.last; if(!last) return false; const [pr,pc]=last; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; }
-function pickLane(){
-  const {X,Y,Z,occupied,cooldown}=state.lane;
-  const cand=[]; for(let r=0;r<Y.length;r++){ for(let c=0;c<X.length;c++){ const k=r+','+c,cd=cooldown.get(k)||0,free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k}); } }
-  if(!cand.length) return null; const p=cand[Math.floor(Math.random()*cand.length)];
-  occupied.add(p.k); state.lane.last=[p.r,p.c]; return {x:X[p.c], y:1.6+Y[p.r], z:Z-0.1*Math.abs(p.c-2), key:p.k};
-}
-function releaseLane(k){ const {occupied,cooldown}=state.lane; occupied.delete(k); cooldown.set(k, now()+800); }
-
 function spawnOnce(){
   const lane=pickLane(); if(!lane) return;
   let meta = MODES[state.modeKey].pickMeta(state.difficulty, state);
@@ -94,8 +144,10 @@ function spawnOnce(){
     updateHUD(); destroy(m);
   }, life + Math.floor(Math.random()*500-250));
 }
+
 function destroy(obj){ if(obj.parent) obj.parent.remove(obj); state.ACTIVE.delete(obj); releaseLane(obj.userData.lane); }
 
+// ---------- Scoring / Hit ----------
 function hit(obj){
   const meta=obj.userData.meta;
   const baseAdd = systems.score.add.bind(systems.score);
@@ -138,12 +190,14 @@ function hit(obj){
   updateHUD();
 }
 
+// ---------- Input ----------
 function onClick(ev){
   if(!state.running || state.paused) return;
   const inter = engine.raycastFromClient(ev.clientX, ev.clientY);
   if(inter.length){ const o=inter[0].object; hit(o); destroy(o); }
 }
 
+// ---------- HUD / Timer / Loop ----------
 function updateHUD(){
   hud.setScore(systems.score.score);
   hud.setCombo(systems.score.combo);
@@ -160,6 +214,7 @@ function loop(){
   systems.power.tick(dt);
   updateHUD();
 }
+
 function runSpawn(){
   if(!state.running || state.paused) return;
   spawnOnce(); spawnCount++;
@@ -178,6 +233,7 @@ function runTimer(){
   }, 1000);
 }
 
+// ---------- Game State ----------
 function start(){
   document.getElementById('help').style.display='none';
   state.running=true; state.paused=false; state.timeLeft=60; spawnCount=0; systems.score.reset(); setupLanes();
@@ -198,32 +254,43 @@ function end(){ state.running=false; state.paused=false; clearTimeout(spawnTimer
   t.style.display='block'; setTimeout(()=>t.style.display='none', 2600);
 }
 
-// UI
-bindLanding(()=>{ 
-   coach.onStart();                // โค้ชทักทายได้
-   // เปิดคู่มือรอบแรก (ถ้าต้องการ)
-   document.getElementById('help').style.display = 'flex';
-   // รอให้ผู้เล่นกดปุ่ม "▶ เริ่มเกม" ในเมนูด้านล่างเอง
- }, coach);
+// ---------- Landing & Menu ----------
+bindLanding(()=>{
+  coach.onStart();
+  // แสดงวิธีเล่นของโหมดปัจจุบันทันทีหลังปิด Landing
+  openHelpFor(state.modeKey);
+  // ผู้เล่นจะกด "▶ เริ่มเกม" ในเมนูเอง
+}, coach);
+
 document.getElementById('menuBar').addEventListener('click', (e)=>{
   const btn=e.target.closest('button'); if(!btn) return;
   const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value'); e.preventDefault(); e.stopPropagation();
   if(act==='start') start();
   else if(act==='pause') pause();
   else if(act==='restart'){ end(); start(); }
-  else if(act==='help'){ document.getElementById('help').style.display='flex'; }
-  else if(act==='mode'){ state.modeKey=val; if(val!=='plate') document.getElementById('plateTracker').style.display='none'; if(val!=='groups') document.getElementById('targetWrap').style.display='none'; updateHUD(); }
-  else if(act==='diff'){ state.difficulty=val; updateHUD(); }
+  else if(act==='help'){ openHelpFor(state.modeKey); }
+  else if(act==='mode'){
+    state.modeKey=val;
+    if(val!=='plate') document.getElementById('plateTracker').style.display='none';
+    if(val!=='groups') document.getElementById('targetWrap').style.display='none';
+    updateHUD();
+  }
 }, false);
+
 document.getElementById('help').addEventListener('click',(e)=>{
   if(e.target.getAttribute('data-action')==='helpClose' || e.target.id==='help') e.currentTarget.style.display='none';
 });
 
+// ---------- Input bindings ----------
 canvas.addEventListener('click', onClick);
 canvas.addEventListener('touchstart',(e)=>{ if(e.touches&&e.touches[0]) onClick({clientX:e.touches[0].clientX, clientY:e.touches[0].clientY}); }, {passive:true});
 
+// ---------- Render Loop ----------
 engine.startLoop(loop);
 
-// error box
-window.onerror=(msg,src,line,col)=>{ const box=document.getElementById('errors'); if(!box){ const d=document.createElement('div'); d.id='errors'; d.style.cssText='position:fixed;top:8px;right:8px;background:rgba(30,0,0,.85);color:#ffb;border:1px solid #f66;padding:6px 10px;border-radius:8px;z-index:9'; document.body.appendChild(d); }
-  const err=document.getElementById('errors'); err.style.display='block'; err.textContent='Errors: '+msg+' @'+(src||'inline')+':'+line+':'+col; };
+// ---------- Error Box ----------
+window.onerror=(msg,src,line,col)=>{
+  const mk=()=>{ const d=document.createElement('div'); d.id='errors'; d.style.cssText='position:fixed;top:8px;right:8px;background:rgba(30,0,0,.85);color:#ffb;border:1px solid #f66;padding:6px 10px;border-radius:8px;z-index:9'; document.body.appendChild(d); return d; };
+  (document.getElementById('errors')||mk()).textContent='Errors: '+msg+' @'+(src||'inline')+':'+line+':'+col;
+  (document.getElementById('errors')||mk()).style.display='block';
+};
