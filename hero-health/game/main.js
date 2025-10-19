@@ -199,7 +199,12 @@ function end(){ state.running=false; state.paused=false; clearTimeout(spawnTimer
 }
 
 // UI
-bindLanding(()=>{ coach.onStart(); start(); }, coach);
+bindLanding(()=>{ 
+   coach.onStart();                // โค้ชทักทายได้
+   // เปิดคู่มือรอบแรก (ถ้าต้องการ)
+   document.getElementById('help').style.display = 'flex';
+   // รอให้ผู้เล่นกดปุ่ม "▶ เริ่มเกม" ในเมนูด้านล่างเอง
+ }, coach);
 document.getElementById('menuBar').addEventListener('click', (e)=>{
   const btn=e.target.closest('button'); if(!btn) return;
   const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value'); e.preventDefault(); e.stopPropagation();
