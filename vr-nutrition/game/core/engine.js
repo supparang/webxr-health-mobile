@@ -1,4 +1,15 @@
 // core/engine.js
+import { VRButton } from 'https://unpkg.com/three@0.159.0/examples/jsm/webxr/VRButton.js';
+
+export class Engine{
+  constructor(THREE, canvas){
+    // ...
+    document.body.appendChild(VRButton.createButton(this.renderer));
+    this.renderer.xr.enabled = true;
+  }
+  // ...
+}
+
 export class Engine {
   constructor(THREE, canvas){
     this.THREE = THREE;
