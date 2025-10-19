@@ -36,9 +36,17 @@ const systems = {
 
 const MODES = { goodjunk:M1, groups:M2, hydration:M3, plate:M4 };
 
+// ---------- Difficulty presets ----------
+const DIFFS = {
+  Easy:   { time:70, spawnBase:820, life:4200, trapRate:0.03, powerRate:0.10, hydWaterRate:0.78 },
+  Normal: { time:60, spawnBase:700, life:3000, trapRate:0.05, powerRate:0.08, hydWaterRate:0.66 },
+  Hard:   { time:50, spawnBase:560, life:1900, trapRate:0.07, powerRate:0.06, hydWaterRate:0.55 },
+};
+
 const state = {
   modeKey:'goodjunk',
   difficulty:'Normal',
+  diffCfg: DIFFS['Normal'],
   running:false, paused:false,
   timeLeft:60,
   ACTIVE:new Set(),
@@ -72,9 +80,9 @@ const HELP = {
     <h3>💧 สมดุลน้ำ (Hydration)</h3>
     <ul>
       <li>ดูมิเตอร์ 💧: โซน <b>พอดี 45–65%</b> ดีที่สุด</li>
-      <li>เก็บน้ำ 💧/🚰 จะเพิ่มเปอร์เซ็นต์ (+5 คะแนนเมื่อพอดี)</li>
+      <li>เก็บน้ำ 💧/🚰 เพิ่มเปอร์เซ็นต์ (พอดีได้คะแนนมากสุด)</li>
       <li>เลี่ยงหวาน 🧋 (−3) และทำให้เปอร์เซ็นต์ลด</li>
-      <li>คอมโบช่วยเข้า FEVER ได้เร็วขึ้น</li>
+      <li><b>หากอยู่โซน "มากไป"</b> แล้วเก็บ 💧 เพิ่ม จะ <b>โดนลงโทษ</b> (ลดคะแนน/เวลา/คอมโบ)</li>
     </ul>
   `,
   plate: `
@@ -123,21 +131,42 @@ const TRAP_ITEMS = [
 ];
 function maybeSpecialMeta(baseMeta){
   const roll=Math.random();
-  const trapRate = systems.fever.active ? 0.03 : 0.05;
-  if(roll<0.08) return POWER_ITEMS[Math.floor(Math.random()*POWER_ITEMS.length)];
-  if(roll<0.08+trapRate) return TRAP_ITEMS[Math.floor(Math.random()*TRAP_ITEMS.length)];
+  const {trapRate, powerRate} = state.diffCfg || DIFFS['Normal'];
+  if(roll < powerRate) return POWER_ITEMS[Math.floor(Math.random()*POWER_ITEMS.length)];
+  if(roll < powerRate + trapRate) return TRAP_ITEMS[Math.floor(Math.random()*TRAPS.length)];
   return baseMeta;
 }
+// fix TRAPS var name
+const TRAPS = TRAP_ITEMS;
 
 // ---------- Spawn ----------
 function spawnOnce(){
   const lane=pickLane(); if(!lane) return;
+
+  // meta จากโหมด
   let meta = MODES[state.modeKey].pickMeta(state.difficulty, state);
-  meta = maybeSpecialMeta(meta);
-  const ch = meta.char;
-  const m = engine.makeBillboard(ch); m.position.set(lane.x,lane.y,lane.z); m.userData={lane:lane.key, meta};
+
+  // ปรับสัดส่วนน้ำชัดเจนตามความยากในโหมด Hydration
+  if(state.modeKey==='hydration'){
+    const rate = (state.diffCfg && state.diffCfg.hydWaterRate) || 0.66;
+    const water = Math.random() < rate;
+    meta = { type:'hydra', water, char: water ? '💧' : '🧋' };
+  }
+
+  // Power/Trap ตามความยาก
+  meta = ((roll)=>{
+    const {trapRate, powerRate}=state.diffCfg||DIFFS['Normal'];
+    if(roll < powerRate) return POWER_ITEMS[Math.floor(Math.random()*POWER_ITEMS.length)];
+    if(roll < powerRate + trapRate) return TRAPS[Math.floor(Math.random()*TRAPS.length)];
+    return meta;
+  })(Math.random());
+
+  const m = engine.makeBillboard(meta.char);
+  m.position.set(lane.x,lane.y,lane.z);
+  m.userData={lane:lane.key, meta};
   engine.group.add(m); state.ACTIVE.add(m);
-  const life= state.difficulty==='Hard'?1900: state.difficulty==='Easy'?4200:3000;
+
+  const life = (state.diffCfg && state.diffCfg.life) || 3000;
   m.userData.timer = setTimeout(()=>{ if(!m.parent) return;
     if(meta.type==='gj' && meta.good===false){ systems.score.add(1); }
     if(meta.type==='groups' && state.currentTarget && meta.group===state.currentTarget){ systems.score.bad(); }
@@ -152,7 +181,24 @@ function hit(obj){
   const meta=obj.userData.meta;
   const baseAdd = systems.score.add.bind(systems.score);
   systems.score.add = (base)=> baseAdd(base * systems.fever.scoreMul() * (1+systems.power.scoreBoost));
+
+  // ดำเนินการตามโหมด
   MODES[state.modeKey].onHit(meta, systems, state, hud);
+
+  // --------- โทษพิเศษ: Hydration เกินแล้วเก็บน้ำเพิ่ม ---------
+  if(
+    state.modeKey==='hydration' &&
+    meta.type==='hydra' && meta.water===true &&
+    (state.hydMax ?? 65) !== undefined &&
+    state.hyd > (state.hydMax ?? 65)
+  ){
+    // ลงโทษ: -4 คะแนน, ตัดคอมโบ, -3 วินาที, เอฟเฟกต์เตือน
+    systems.score.add(-4);
+    systems.score.bad();
+    state.timeLeft = Math.max(0, state.timeLeft - 3);
+    systems.fx.thud();
+    floating.spawn3D(obj, '<b>Over-hydration! −4 / −3s</b>', 'bad');
+  }
 
   // mission counters
   if(meta.type==='gj'){ if(meta.good){ state.ctx.goodHits++; state.ctx.currentStreak++; state.ctx.bestStreak=Math.max(state.ctx.bestStreak, state.ctx.currentStreak); } else { state.ctx.currentStreak=0; } }
@@ -172,7 +218,7 @@ function hit(obj){
     if(meta.kind==='bait'){ if(!systems.power.consumeShield()){ systems.score.add(-4); systems.score.bad(); systems.fever.onBad(); systems.fx.thud(); state.ctx.currentStreak=0; } }
   }
 
-  // floating feedback
+  // floating feedback (ปกติ)
   const mult = systems.fever.scoreMul() * (1+systems.power.scoreBoost);
   const fmt = (v)=>`<b>${v>0?'+':''}${Math.round(v)}</b>`;
   let kind='good', txt='';
@@ -233,7 +279,8 @@ function loop(){
 function runSpawn(){
   if(!state.running || state.paused) return;
   spawnOnce(); spawnCount++;
-  const base=700; const accel=Math.max(0.5,1-(spawnCount/120));
+  const base = (state.diffCfg && state.diffCfg.spawnBase) || 700;
+  const accel=Math.max(0.5,1-(spawnCount/120));
   const feverBoost = systems.fever.active ? 0.82 : 1.0;
   const next=Math.max(280, base*accel*feverBoost*systems.power.timeScale);
   spawnTimer=setTimeout(runSpawn, next);
@@ -251,13 +298,18 @@ function runTimer(){
 // ---------- Game State ----------
 function start(){
   document.getElementById('help').style.display='none';
-  state.running=true; state.paused=false; state.timeLeft=60; spawnCount=0; systems.score.reset(); setupLanes();
+
+  // ตั้งคอนฟิกความยาก
+  state.diffCfg = DIFFS[state.difficulty] || DIFFS['Normal'];
+
+  state.running=true; state.paused=false;
+  state.timeLeft = state.diffCfg.time;
+  spawnCount=0; systems.score.reset(); setupLanes();
   state.ctx={goodHits:0, targetHitsTotal:0, bestStreak:0, currentStreak:0, waterHits:0, sweetMiss:0, perfectPlates:0, plateFills:0};
 
   systems.mission.roll(state.modeKey);
   const M = MODES[state.modeKey]; if(M.init) M.init(state, hud, state.difficulty);
 
-  // เปิด/ปิด HUD เฉพาะโหมด
   if(state.modeKey!=='hydration'){ hud.hideHydration?.(); }
   if(state.modeKey!=='groups') hud.hideTarget();
   if(state.modeKey!=='plate') hud.hidePills();
@@ -287,6 +339,14 @@ bindLanding(()=>{
 document.getElementById('menuBar').addEventListener('click', (e)=>{
   const btn=e.target.closest('button'); if(!btn) return;
   const act=btn.getAttribute('data-action'); const val=btn.getAttribute('data-value'); e.preventDefault(); e.stopPropagation();
+
+  if(act==='diff'){
+    state.difficulty = val;
+    state.diffCfg = DIFFS[state.difficulty] || DIFFS['Normal'];  // มีผลทันทีสำหรับของที่จะสปอนถัดไป
+    updateHUD();
+    return;
+  }
+
   if(act==='start') start();
   else if(act==='pause') pause();
   else if(act==='restart'){ end(); start(); }
