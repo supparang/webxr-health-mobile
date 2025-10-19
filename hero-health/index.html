@@ -13,7 +13,7 @@
     canvas#c{position:fixed;inset:0;display:block;background:transparent;z-index:1;pointer-events:none}
     .brand{position:fixed;left:12px;top:10px;z-index:3;display:flex;gap:8px;align-items:center;color:#aee;font-family:var(--fontEN);text-shadow:0 0 10px rgba(0,255,255,.55)}
     .brand img{height:42px;filter:drop-shadow(0 0 10px rgba(0,255,255,.35))}
-    .hud,#menuBar,#errors,#help{position:fixed;z-index:4;color:#0ff;font-family:var(--fontEN);text-shadow:0 0 8px rgba(0,255,255,.6)}
+    .hud,#menuBar,#errors,#help,#result{position:fixed;z-index:4;color:#0ff;font-family:var(--fontEN);text-shadow:0 0 8px rgba(0,255,255,.6)}
     .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
     #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
     .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
@@ -90,11 +90,27 @@
   </div>
 
   <!-- Help Popup -->
-  <div id="help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
+  <div id="help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:11">
     <div style="background:rgba(8,12,20,.96);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,820px);max-height:86vh;overflow:auto">
       <h2 style="font-family:var(--fontTH);margin:0 0 8px">วิธีเล่น (How to Play)</h2>
       <div id="helpBody" style="font-family:var(--fontTH);line-height:1.55"></div>
       <div style="margin-top:12px;text-align:right"><button class="btn" data-action="helpClose" type="button">โอเค</button></div>
+    </div>
+  </div>
+
+  <!-- Result Modal -->
+  <div id="result" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:12;align-items:center;justify-content:center">
+    <div style="width:min(92vw,820px);max-height:86vh;overflow:auto;background:rgba(8,12,20,.96);border:1px solid #0ff;border-radius:16px;padding:18px 20px;color:#0ff;font-family:'Prompt',system-ui">
+      <h2 id="resTitle" style="margin:0 0 8px">สรุปผล</h2>
+      <div id="resCore" style="margin:6px 0 10px">
+        คะแนน: <b id="resScore">0</b> | เวลาเหลือ: <b id="resTime">0</b>s | โหมด: <b id="resMode">-</b>
+      </div>
+      <div id="resBreakdown" style="line-height:1.6"></div>
+      <div id="resTips" style="margin-top:10px;color:#aff"></div>
+      <div style="margin-top:12px;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+        <button class="btn" data-result="replay" type="button">↻ เล่นอีกครั้ง</button>
+        <button class="btn" data-result="home" type="button">🏠 หน้าหลัก</button>
+      </div>
     </div>
   </div>
 
