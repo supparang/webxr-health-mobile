@@ -62,12 +62,15 @@ canvas#c{position:fixed;inset:0;display:block;background:transparent;z-index:1}
 </div>
 
 <div id="help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center">
-  <div style="background:rgba(8,12,20,.96);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,760px)">
-    <h2 style="font-family:var(--fontTH)">วิธีเล่น</h2>
-    <div style="font-family:var(--fontTH)">คลิก/แตะ หรือจ้องใน VR (~0.7s) เก็บไอคอนตามกติกาโหมด</div>
-    <div style="margin-top:10px;text-align:right"><button class="btn" data-action="helpClose" type="button">โอเค</button></div>
+  <div style="background:rgba(8,12,20,.96);border:1px solid var(--cy);border-radius:16px;padding:18px 20px;color:#0ff;width:min(94vw,820px);max-height:86vh;overflow:auto">
+    <h2 style="font-family:var(--fontTH);margin:0 0 8px">วิธีเล่น (How to Play)</h2>
+    <div id="helpBody" style="font-family:var(--fontTH);line-height:1.55"></div>
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn" data-action="helpClose" type="button">โอเค</button>
+    </div>
   </div>
 </div>
+
 
 <div id="toast" style="display:none"></div>
 
