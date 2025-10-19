@@ -15,6 +15,16 @@ canvas#c{position:fixed;inset:0;display:block;background:transparent;z-index:1}
 .brand img{height:42px;filter:drop-shadow(0 0 10px rgba(0,255,255,.35))}
 .hud,#menuBar,#errors,#help{position:fixed;z-index:4;color:#0ff;font-family:var(--fontEN);text-shadow:0 0 8px rgba(0,255,255,.6)}
 .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
+  <div id="hydroWrap" style="margin-top:6px;display:none">
+  💧 สมดุลน้ำ:
+  <span id="hydroLabel" style="margin-left:6px">—</span>
+  <div style="height:10px;border:1px solid #0ff;border-radius:999px;background:rgba(0,0,0,.35);width:min(60vw,520px);margin:6px auto;position:relative;overflow:hidden">
+    <div id="hydroBar" style="height:100%;width:50%;background:linear-gradient(90deg,#09f,#0ff);opacity:.95"></div>
+    <!-- โซนพอดี (เป้า) -->
+    <div id="hydroOpt" style="position:absolute;top:0;bottom:0;left:45%;right:35%;border-left:1px dashed #ff0;border-right:1px dashed #ff0;opacity:.8"></div>
+  </div>
+</div>
+
 #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
 .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
