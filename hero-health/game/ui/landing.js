@@ -1,1 +1,0 @@
-export function bindLanding(onReady){ const btn=document.getElementById('startBtn'); const landing=document.getElementById('landing'); if(btn){ btn.addEventListener('click', ()=>{ landing.style.display='none'; try{ document.getElementById('sfx-hero').play(); }catch{} onReady&&onReady(); }); } }
