@@ -1,8 +1,13 @@
-// ./game/main.js  — HERO HEALTH ACADEMY (Option C + Coach + mode init patch) + external HUD/FX
+// ./game/main.js — HERO HEALTH ACADEMY (FEVER = A + B + C)
 import { Engine } from './core/engine.js';
 import { Coach } from './core/coach.js';
 import { HUD } from './core/hud.js';
 import { FloatingFX } from './core/fx.js';
+
+import * as GoodJunk   from './modes/goodjunk.js';
+import * as GroupsMode from './modes/groups.js';
+import * as Hydration  from './modes/hydration.js';
+import * as PlateMode  from './modes/plate.js';
 
 // ====== GLOBALS & DEBUG ======
 const THREE = window?.THREE;
@@ -10,12 +15,11 @@ if (!THREE) console.error('[HHA] THREE not found on window. Ensure three.min.js 
 
 const DEBUG = localStorage.getItem('hha_debug') === '1';
 const D = {
-  log: (...a) => { if (DEBUG) console.log('[HHA]', ...a); },
+  log:  (...a) => { if (DEBUG) console.log('[HHA]', ...a); },
   warn: (...a) => { if (DEBUG) console.warn('[HHA]', ...a); },
   err:  (...a) => console.error('[HHA]', ...a),
 };
 
-// Mark boot for index.html fallback
 window.__HHA_BOOT = true;
 
 // ====== SAFE HELPERS ======
@@ -39,38 +43,67 @@ class ScoreSystem{
     if (v > 0) {
       this.combo++;
       this.bestCombo = Math.max(this.bestCombo, this.combo);
-      if (coach?.onCombo && this.combo !== before) coach.onCombo(this.combo);
+
+      // (A) FEVER: ทุกคอมโบครบ 5 ถ้ายังไม่ติด ให้ติด 6 วิ
       if (this.combo > 0 && this.combo % 5 === 0 && !systems.fever.active) {
-        systems.fever.active = true;
-        systems.fever.timer = 6000;
+        systems.fever.activate(6000);
         coach?.onFever?.();
       }
     }
 
-    if (v < 0) {
-      this.combo = 0;
-      systems.fever.active = false;
-      systems.fever.timer = 0;
-    }
+    if (v < 0) this.bad();
     return this.score;
   }
+  // ใช้เมื่อทำพลาดหนัก ๆ
+  bad(){
+    this.combo = 0;
+    systems.fever.onBad();
+  }
 }
+
 class FeverSystem{
-  constructor(){ this.timer=0; this.active=false; }
-  scoreMul(){ return this.active?2:1; }
-  update(dt){ if(this.active){ this.timer-=dt; if(this.timer<=0){ this.active=false; } } }
-  onBad(){ this.active=false; }
+  constructor(){
+    this.timer = 0;
+    this.active = false;
+    this.charge = 0; // 0..100 for (B)
+  }
+  scoreMul(){ return this.active ? 2 : 1; }
+  update(dt){
+    if(this.active){
+      this.timer -= dt;
+      if(this.timer <= 0){ this.active = false; }
+    }
+  }
+  onBad(){ this.active = false; /* ไม่หัก charge เพื่อให้ยังลุ้นเปิดจากเกจได้ */ }
+  activate(ms=6000){
+    this.active = true;
+    this.timer = ms;
+    this.charge = 0; // ใช้เกจแล้วรีเซ็ต
+    hud?.fever?.(true);
+    systems.fx?.fever?.();
+  }
+  chargeBy(v){ // (B) เติมเกจจากเหตุการณ์ "เพอร์เฟกต์"
+    this.charge = Math.max(0, Math.min(100, this.charge + (v||0)));
+    // เกจเต็ม เปิด FEVER อัตโนมัติ
+    if (this.charge >= 100 && !this.active){
+      this.activate(6000);
+      coach?.onFever?.();
+    }
+  }
 }
+
 class PowerUpSystem{
   constructor(){ this.timeScale=1; this.scoreBoost=0; this._shield=0; }
   apply(k){
     if(k==='slow'){ this.timeScale=0.8; setTimeout(()=>this.timeScale=1,5000); }
     if(k==='boost'){ this.scoreBoost=0.5; setTimeout(()=>this.scoreBoost=0,5000); }
     if(k==='shield'){ this._shield=Math.min(2,this._shield+1); }
+    if(k==='fever'){  systems.fever.activate(6000); coach?.onFever?.(); } // (C)
   }
   tick(dt){}
   consumeShield(){ if(this._shield>0){ this._shield--; return true;} return false; }
 }
+
 class MissionSystem{ roll(mode){ this.goal={mode,target:30}; } evaluate(ctx){ return 0; } }
 class Leaderboard{
   submit(mode,diff,score){
@@ -107,117 +140,48 @@ const DIFFS={
   Hard:{time:50, spawnBase:560, life:1900, trapRate:0.07, powerRate:0.06, hydWaterRate:0.55}
 };
 
-// ====== MODES ======
+// ====== MODES (เชื่อมกับโมดูล) ======
 const MODES={
   goodjunk:{
-    pickMeta(){
-      const goods=['🥦','🍎','🍇','🥕','🍅','🌽','🥚'];
-      const junks=['🍔','🍟','🍕','🥤','🍩'];
-      const good=Math.random()<0.6;
-      return { type:'gj', good, char: good?rand(goods):rand(junks) };
-    },
-    onHit(meta, sys){ sys.score.add(meta.good?5:-2); }
+    pickMeta(state){ return GoodJunk.pickMeta(state.diffCfg, state); },
+    onHit(meta, sys){ return GoodJunk.onHit(meta, sys); }
   },
   groups:{
-    init(state){
-      state.currentTarget=rand(['grain','veg','protein','fruit','dairy']);
-      document.getElementById('targetWrap').style.display='block';
-      const Lb=labelGroups();
-      document.getElementById('targetBadge').textContent=Lb[state.currentTarget];
-    },
-    pickMeta(){
-      const G=groupsMap();
-      const k=rand(Object.keys(G));
-      return { type:'groups', group:k, char:rand(G[k]) };
-    },
+    init(state, hud){ return GroupsMode.init(state, hud, state.diffCfg); },
+    pickMeta(state){ return GroupsMode.pickMeta(state.diffCfg, state); },
     onHit(meta, sys, state){
-      const ok=state.currentTarget && meta.group===state.currentTarget;
-      if(ok){
-        sys.score.add(7);
-        state.ctx.targetHitsTotal=(state.ctx.targetHitsTotal||0)+1;
-        if((state.ctx.targetHitsTotal%3)===0){
-          const all=['grain','veg','protein','fruit','dairy'];
-          let next=state.currentTarget; while(next===state.currentTarget){ next=rand(all); }
-          state.currentTarget=next;
-          const Lb=labelGroups();
-          document.getElementById('targetBadge').textContent=Lb[next];
-        }
-      }else{
-        sys.score.add(-2);
+      const before = state.ctx.targetHitsTotal|0;
+      const r = GroupsMode.onHit(meta, sys, state);
+      // (B) ถ้าทำครบ 3 ชิ้นแล้วเปลี่ยนหมวด — ให้ชาร์จเกจ 50
+      if ((state.ctx.targetHitsTotal|0) > before && (state.ctx.targetHitsTotal % 3) === 0){
+        systems.fever.chargeBy(50);
       }
+      return r;
     }
   },
   hydration:{
-    init(state,hud){
-      state.hyd=50; state.hydMin=45; state.hydMax=65;
-      document.getElementById('hydroWrap').style.display='block';
-      hud.setHydration(state.hyd,'ok');
-    },
-    pickMeta(state){
-      const water=Math.random()<(state.diffCfg?.hydWaterRate??0.66);
-      return { type:'hydra', water, char:water?'💧':'🧋' };
-    },
-    onHit(meta, sys, state, hud){
-      if(meta.water){ state.hyd=Math.min(100,state.hyd+5); sys.score.add(5); state.ctx.waterHits=(state.ctx.waterHits||0)+1; }
-      else{ state.hyd=Math.max(0,state.hyd-6); sys.score.add(-3); state.ctx.sweetMiss=(state.ctx.sweetMiss||0)+1; }
-      const z=state.hyd<state.hydMin?'low':(state.hyd>state.hydMax?'high':'ok');
-      hud.setHydration(state.hyd,z);
-    }
+    init(state, hud){ return Hydration.init(state, hud); },
+    pickMeta(state){ return Hydration.pickMeta(state.diffCfg, state); },
+    onHit(meta, sys, state, hud){ return Hydration.onHit(meta, sys, state, hud); }
   },
   plate:{
-    init(state){
-      state.plate={grain:0,veg:0,protein:0,fruit:0,dairy:0};
-      document.getElementById('plateTracker').style.display='block';
-      renderPills(state);
-    },
-    pickMeta(){
-      const G=groupsMap();
-      const k=rand(Object.keys(G));
-      return { type:'plate', group:k, char:rand(G[k]) };
-    },
+    init(state, hud){ return PlateMode.init(state, hud); },
+    pickMeta(state){ return PlateMode.pickMeta(state.diffCfg, state); },
     onHit(meta, sys, state){
-      const QUOTA=quota();
-      const k=meta.group, need=QUOTA[k], cur=state.plate[k]||0;
-      if(cur<need){
-        state.plate[k]=cur+1; sys.score.add(6);
-        state.ctx.plateFills=(state.ctx.plateFills||0)+1;
-        const done=Object.keys(QUOTA).every(g=>state.plate[g]>=QUOTA[g]);
-        if(done){
-          sys.score.add(14);
-          state.ctx.perfectPlates=(state.ctx.perfectPlates||0)+1;
-          coach?.say?.('Perfect plate!');
-          state.plate={grain:0,veg:0,protein:0,fruit:0,dairy:0};
-        }
-      }else{
-        sys.score.add(-2); state.timeLeft=Math.max(0,(state.timeLeft||0)-1);
-        state.ctx.overfillCount=(state.ctx.overfillCount||0)+1;
+      const before = state.ctx.perfectPlates|0;
+      const r = PlateMode.onHit(meta, sys, state);
+      // (B) ถ้าได้ Perfect plate ให้ชาร์จเกจเต็มเปิด FEVER ทันที
+      if ((state.ctx.perfectPlates|0) > before){
+        systems.fever.chargeBy(100);
+        coach?.say?.('Perfect plate!');
       }
-      renderPills(state);
+      return r;
     }
   }
 };
 
-// ====== small utils ======
+// ====== utils ======
 const rand = a => a[Math.floor(Math.random()*a.length)];
-const groupsMap = () => ({grain:['🍞','🍚','🥖','🥨'],veg:['🥦','🥕','🥒','🥬'],protein:['🥩','🍗','🥚','🐟'],fruit:['🍎','🍌','🍇','🍊'],dairy:['🥛','🧀']});
-const labelGroups = () => (SETTINGS.lang==='TH'
-  ? {grain:'ธัญพืช',veg:'ผัก',protein:'โปรตีน',fruit:'ผลไม้',dairy:'นม'}
-  : {grain:'Grain',veg:'Vegetable',protein:'Protein',fruit:'Fruit',dairy:'Dairy'}
-);
-const quota = () => ({grain:2,veg:2,protein:1,fruit:1,dairy:1});
-
-function renderPills(state){
-  const pills=document.getElementById('platePills'); if(!pills) return;
-  pills.innerHTML='';
-  const QUOTA=quota();
-  const labels=labelGroups();
-  Object.keys(QUOTA).forEach(k=>{
-    const cur=state.plate?.[k]||0, need=QUOTA[k];
-    const el=document.createElement('div'); el.className='pill'+(cur>=need?' done':'');
-    el.textContent=`${labels[k]} ${cur}/${need}`;
-    pills.appendChild(el);
-  });
-}
 
 // ====== GLOBAL STATE ======
 let engine, hud, floating, systems, coach;
@@ -346,8 +310,17 @@ function pickLane(){
 }
 function releaseLane(k){ const {occupied,cooldown}=state.lane; occupied.delete(k); cooldown.set(k, now()+800); }
 
-const POWER_ITEMS=[{type:'power',kind:'slow',char:'⏳'},{type:'power',kind:'boost',char:'⭐'},{type:'power',kind:'shield',char:'🛡️'},{type:'power',kind:'timeplus',char:'⏱️➕'},{type:'power',kind:'timeminus',char:'⏱️➖'}];
+// เพิ่มไอเท็ม fever (C)
+const POWER_ITEMS=[
+  {type:'power',kind:'slow',char:'⏳'},
+  {type:'power',kind:'boost',char:'⭐'},
+  {type:'power',kind:'shield',char:'🛡️'},
+  {type:'power',kind:'timeplus',char:'⏱️➕'},
+  {type:'power',kind:'timeminus',char:'⏱️➖'},
+  {type:'power',kind:'fever',char:'🔥'}
+];
 const TRAP_ITEMS=[{type:'trap',kind:'bomb',char:'💣'},{type:'trap',kind:'bait',char:'🎭'}];
+
 function maybeSpecialMeta(base){
   const r=Math.random(), t=state.diffCfg?.trapRate??0.05, p=state.diffCfg?.powerRate??0.08;
   if(r<p) return rand(POWER_ITEMS);
@@ -357,11 +330,12 @@ function maybeSpecialMeta(base){
 
 function spawnOnce(){
   const lane=pickLane(); if(!lane) return;
-  let meta = MODES[state.modeKey].pickMeta(state);
-  if(state.modeKey==='hydration'){
-    const rate=state.diffCfg?.hydWaterRate??0.66;
-    const water=Math.random()<rate; meta={type:'hydra',water,char:water?'💧':'🧋'};
-  }
+  let meta;
+  if (state.modeKey==='goodjunk')  meta = GoodJunk.pickMeta(state.diffCfg, state);
+  if (state.modeKey==='groups')    meta = GroupsMode.pickMeta(state.diffCfg, state);
+  if (state.modeKey==='hydration') meta = Hydration.pickMeta(state.diffCfg, state);
+  if (state.modeKey==='plate')     meta = PlateMode.pickMeta(state.diffCfg, state);
+
   meta = maybeSpecialMeta(meta);
 
   const m=engine.makeBillboard(meta.char);
@@ -371,6 +345,7 @@ function spawnOnce(){
 
   const life=state.diffCfg?.life||3000;
   m.userData.timer=setTimeout(()=>{ if(!m.parent) return;
+    // auto-miss resolve
     if(meta.type==='gj' && meta.good===false){ systems.score.add(1); }
     if(meta.type==='groups'){ if(!(state.currentTarget && meta.group===state.currentTarget)){ state.ctx.groupWrong++; } }
     if(meta.type==='hydra' && meta.water===false){ systems.score.add(1); state.ctx.sweetMiss++; }
@@ -390,10 +365,15 @@ function destroy(obj){
 function hit(obj){
   const meta=obj.userData.meta;
   const baseAdd=systems.score.add.bind(systems.score);
-  systems.score.add=(v)=>baseAdd(v*(systems.fever.active?2:1)*(1+systems.power.scoreBoost));
+  systems.score.add=(v)=>baseAdd(v*systems.fever.scoreMul()*(1+systems.power.scoreBoost));
 
-  MODES[state.modeKey].onHit(meta, systems, state, hud);
+  // delegate to mode
+  if(state.modeKey==='goodjunk')   GoodJunk.onHit(meta, systems);
+  if(state.modeKey==='groups')     GroupsMode.onHit(meta, systems, state);
+  if(state.modeKey==='hydration')  Hydration.onHit(meta, systems, state, hud);
+  if(state.modeKey==='plate')      PlateMode.onHit(meta, systems, state);
 
+  // hydration penalties after hit
   if(state.modeKey==='hydration' && meta.type==='hydra' && meta.water===true && state.hyd>(state.hydMax||65)){
     systems.score.add(-4); state.timeLeft=Math.max(0,state.timeLeft-3); state.ctx.overHydPunish++; state.ctx.timeMinus+=3;
   }
@@ -401,20 +381,23 @@ function hit(obj){
     systems.score.add(-2); state.timeLeft=Math.max(0,state.timeLeft-2); state.ctx.lowSweetPunish++; state.ctx.timeMinus+=2;
   }
 
+  // specials
   if(meta.type==='power'){
     state.ctx.powersUsed++;
-    if(meta.kind==='slow'){ systems.power.apply('slow'); coach?.say?.('Slow time!'); }
-    if(meta.kind==='boost'){ systems.power.apply('boost'); coach?.say?.('Score boost!'); }
-    if(meta.kind==='shield'){ systems.power.apply('shield'); coach?.say?.('Shield up!'); }
+    if(meta.kind==='slow')      systems.power.apply('slow'),  coach?.say?.('Slow time!');
+    if(meta.kind==='boost')     systems.power.apply('boost'), coach?.say?.('Score boost!');
+    if(meta.kind==='shield')    systems.power.apply('shield'),coach?.say?.('Shield up!');
     if(meta.kind==='timeplus'){ state.timeLeft=Math.min(120,state.timeLeft+5); state.ctx.timePlus+=5; coach?.say?.('+5s'); }
     if(meta.kind==='timeminus'){ state.timeLeft=Math.max(0,state.timeLeft-5); state.ctx.timeMinus+=5; coach?.say?.('-5s'); }
+    if(meta.kind==='fever'){    systems.power.apply('fever'); } // (C)
   }else if(meta.type==='trap'){
     state.ctx.trapsHit++;
     if(meta.kind==='bomb'){ if(!systems.power.consumeShield()){ systems.score.add(-6); coach?.say?.('Boom!'); } else { coach?.say?.('Blocked!'); } }
     if(meta.kind==='bait'){ if(!systems.power.consumeShield()){ systems.score.add(-4); coach?.say?.('Baited…'); } else { coach?.say?.('Blocked!'); } }
   }
 
-  const mult=(systems.fever.active?2:1)*(1+systems.power.scoreBoost);
+  // floating text
+  const mult=systems.fever.scoreMul()*(1+systems.power.scoreBoost);
   const fmt=v=>`<b>${v>0?'+':''}${Math.round(v)}</b>`;
   let txt='', kind='good';
   if(meta.type==='gj'){ txt=meta.good?fmt(5*mult):fmt(-2); kind=meta.good?'good':'bad'; }
@@ -443,7 +426,7 @@ function updateHUD(){
   hud.setScore(sc); hud.setCombo(cb); hud.setTime(tl);
   hud.setDiff( diffName(safeDiffKey(state.difficulty)) );
   hud.setMode( modeName(safeModeKey(state.modeKey)) );
-  if (typeof hud.fever === 'function') hud.fever(!!systems?.fever?.active);
+  hud.fever?.(!!systems?.fever?.active);
 }
 function buildBreakdownAndTips(){
   const m=state.modeKey,c=state.ctx; let html='',tip='';
@@ -480,7 +463,7 @@ function loop(){
 
     if(loop._hydTick>1000){
       loop._hydTick=0;
-      if(z==='ok'){ systems.score.add(1);}
+      if(z==='ok'){ systems.score.add(1); }
       document.getElementById('hydroWrap').style.display='block';
       hud.setHydration(state.hyd,z);
     }
@@ -509,22 +492,22 @@ function runTimer(){
 // ====== GAME STATE ======
 function start(){
   document.getElementById('help').style.display='none';
-  if (coach?.onStart) coach.onStart();
+  coach = coach || new Coach();
+  coach?.onStart?.();
 
   state.diffCfg=DIFFS[state.difficulty]||DIFFS.Normal;
   state.running=true; state.paused=false;
   state.timeLeft=state.diffCfg.time; spawnCount=0;
-  systems.score.reset(); setupLanes();
+  systems.score.reset(); systems.fever.charge = 0; systems.fever.active=false; systems.fever.timer=0;
+  setupLanes();
 
   state.ctx={bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0};
 
+  // hide all mode-specific HUD then init current
   document.getElementById('hydroWrap').style.display='none';
   document.getElementById('targetWrap').style.display='none';
   document.getElementById('plateTracker').style.display='none';
-
-  if (typeof MODES[state.modeKey]?.init === 'function') {
-    MODES[state.modeKey].init(state, hud);
-  }
+  if (typeof MODES[state.modeKey]?.init === 'function') MODES[state.modeKey].init(state, hud);
 
   updateHUD();
   setTimeout(spawnOnce,200);
@@ -545,7 +528,7 @@ function end(){
   document.getElementById('c').style.pointerEvents='none';
   const bonus=systems.mission.evaluate({...state.ctx, combo: systems.score.combo}); if(bonus>0){ systems.score.score+=bonus; }
   systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
-  if (coach?.onEnd) coach.onEnd();
+  coach?.onEnd?.();
   presentResult(systems.score.score);
   [...state.ACTIVE].forEach(obj => destroy(obj));
   D.log('game end', {score:systems.score.score});
@@ -561,7 +544,7 @@ function boot(){
 
   systems={
     score:new ScoreSystem(),
-    fever:new FeverSystem(),
+    fever:new FeverSystem(), // << ใช้เวอร์ชัน A+B+C
     power:new PowerUpSystem(),
     mission:new MissionSystem(),
     board:new Leaderboard(),
@@ -574,7 +557,7 @@ function boot(){
     }
   };
 
-  document.getElementById('langToggle')?.addEventListener('click', ()=>{ SETTINGS.lang=SETTINGS.lang==='TH'?'EN':'TH'; applyLanguage(); renderPills(state); });
+  document.getElementById('langToggle')?.addEventListener('click', ()=>{ SETTINGS.lang=SETTINGS.lang==='TH'?'EN':'TH'; applyLanguage(); });
   document.getElementById('soundToggle')?.addEventListener('click', ()=>{ SETTINGS.sound=!SETTINGS.sound; applySound(); });
   document.getElementById('gfxSelect')?.addEventListener('change', (e)=>{ SETTINGS.quality=e.target.value||'High'; applyQuality(); });
 
