@@ -1,12 +1,50 @@
-<!doctype html><html lang="th"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Rhythm Boxer — Menu</title>
-<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1220;color:#e6f0ff;font-family:system-ui}
-.card{background:#0f172a;border:1px solid #1f2a44;border-radius:18px;box-shadow:0 10px 24px rgba(0,0,0,.35);padding:24px;max-width:640px}
-.row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}label{font-size:14px;color:#93c5fd}select,input{padding:10px 12px;border-radius:12px;border:1px solid #334155;background:#0b1324;color:#e5edff}
-button{padding:12px 16px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#10b981}</style></head><body>
-<div class="card"><h1>Rhythm Boxer</h1><p>คีย์บอร์ด: ←=ซ้าย, →=ขวา, Enter=Start</p>
-<div class="row"><div><label>เทมโป</label><br/><select id="tempo"><option value="easy">Easy (80)</option><option value="normal" selected>Normal (100)</option><option value="hard">Hard (120)</option></select></div>
-<div><label>โหมดคีย์บอร์ด</label><br/><select id="kb"><option value="on" selected>เปิด</option><option value="off">ปิด</option></select></div></div>
-<div class="row"><button onclick="go()">เริ่มเกม</button><button class="secondary" onclick="home()">กลับ Hub</button></div></div>
-<script>function go(){location.href=`play.html?tempo=${tempo.value}&kb=${kb.value}`}function home(){location.href='../hub/index.html'}document.addEventListener('keydown',e=>{if(e.key==='Enter')go(); if(e.key==='Escape')home();});</script>
-</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Rhythm Boxer</title>
+  <style>
+    html,body{margin:0;height:100%;background:#000}
+    .hud{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;padding:10px;z-index:10}
+    .hud button{padding:8px 12px;border-radius:10px;border:none}
+    #overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:9}
+    #overlay.hidden{display:none}
+    #overlay .panel{background:#111;color:#fff;padding:20px;border-radius:16px;min-width:280px;text-align:center}
+    #toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 12px;border-radius:12px;opacity:.9;font-family:monospace;z-index:20;display:none}
+  </style>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="../hub/core/state.js"></script>
+  <script src="../hub/core/router.js"></script>
+  <script src="../hub/core/i18n.js"></script>
+  <script src="../hub/core/audio.js"></script>
+  <script src="game.js" defer></script>
+</head>
+<body>
+  <div class="hud">
+    <button id="btnBack">⬅ Hub</button>
+    <button id="btnStart">▶ Start</button>
+    <button id="btnLang">EN/TH</button>
+    <button id="btnMute">🔈 Sound</button>
+    <div id="status" style="margin-left:auto;color:#fff;font-family:monospace"></div>
+  </div>
+  <div id="overlay">
+    <div class="panel">
+      <h3 id="overlayTitle">Ready?</h3>
+      <p id="overlayDesc">Press Start to begin</p>
+    </div>
+  </div>
+  <div id="toast"></div>
+
+  <a-scene renderer="colorManagement: true" background="color: #080818" embedded>
+    <a-entity id="rig">
+      <a-entity camera position="0 1.6 0"></a-entity>
+      <a-entity cursor="rayOrigin: mouse"></a-entity>
+    </a-entity>
+    <a-entity light="type:ambient; intensity:0.7"></a-entity>
+    <a-entity light="type:directional; intensity:1.0" position="1 2 0"></a-entity>
+    <a-plane rotation="-90 0 0" width="40" height="40" color="#222"></a-plane>
+    <a-entity id="gameRoot"></a-entity>
+  </a-scene>
+</body>
+</html>
