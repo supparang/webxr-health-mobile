@@ -183,9 +183,10 @@ function runTimer(){
 }
 
 // ===== RESULT BUILDER =====
+
 function buildResult(){
   const lang=L(), r=lang.result;
-  const accuracy = state.totals.hits>0 ? Math.round(100*state.totals.hits/max(1,state.totals.clicks)) : 0;
+  const accuracy = state.totals.hits>0 ? Math.round(100*state.totals.hits/Math.max(1,state.totals.clicks)) : 0;
   const parts = [
     `${r.mode}: <b>${lang.modes[state.modeKey]}</b>`,
     `${r.difficulty}: <b>${lang.diff[state.difficulty]}</b>`,
@@ -209,12 +210,22 @@ function buildResult(){
     bd = `<ul><li>Pieces filled: <b>${state.ctx.plateFills||0}</b></li><li>PERFECT plates: <b>${state.ctx.perfectPlates||0}</b></li><li>Overfills: <b>${state.ctx.overfillCount||0}</b></li></ul>`;
   }
 
-  // tips
+  // Rubric + grade
+  const rb = computeRubric();
+  const rubricHTML = `
+  <div style="margin-top:8px;border-top:1px dashed #0ff;padding-top:8px">
+    <div><b>Rubric</b> → Composite: <b>${rb.composite}</b> / 100 • Grade: <b>${rb.grade}</b></div>
+    <div style="font-size:0.95em;opacity:.9">
+      Accuracy <b>${rb.accuracyPct}%</b> • Objectives <b>${rb.objectivesPct}%</b> • Combo <b>${rb.comboPct}%</b> • Time <b>${rb.timePct}%</b> • Discipline <b>${rb.disciplinePct}%</b>
+    </div>
+  </div>`;
+
+  // Tips
   const tipsMapTH={goodjunk:'เล็งของดี เลี่ยงของขยะ',groups:'สังเกต 🎯 ที่ HUD ก่อนคลิก',hydration:'คุมมิเตอร์ที่ 45–65%',plate:'เติมตามโควตาให้ครบเพื่อโบนัส'};
   const tipsMapEN={goodjunk:'Aim for good, avoid junk',groups:'Watch the 🎯 target on HUD',hydration:'Keep meter within 45–65%',plate:'Fill each quota to earn bonus'};
   const tip = (state.L==='TH'?tipsMapTH:tipsMapEN)[state.modeKey]||'';
 
-  return {core,bd,tip};
+  return {core,bd:bd+rubricHTML,tip, rb};
 }
 
 // ===== GAME STATE =====
@@ -245,9 +256,14 @@ function end(){
   systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
   const lang=L();
   document.getElementById('resTitle').textContent=lang.result.title;
-  const {core,bd,tip}=buildResult();
+  const {core,bd,tip,rb}=buildResult();
   document.getElementById('resCore').innerHTML = core;
-  document.getElementById('resBreakdown').innerHTML = bd;
+  // career stats
+  const career = updateCareer(systems.score.score|0, rb);
+  const careerHTML = `<div style="margin-top:8px;border-top:1px dashed #0ff;padding-top:8px">
+    <b>Career Stats</b> — Sessions: <b>${career.sessions||1}</b> • Best Score: <b>${career.bestScore||0}</b> • Best Grade: <b>${career.bestGrade||'E'}</b> • Avg Accuracy: <b>${career.avgAccuracy||0}%</b>
+  </div>`;
+  document.getElementById('resBreakdown').innerHTML = bd + careerHTML;
   document.getElementById('resTips').textContent = lang.result.tips+': '+tip;
   document.getElementById('result').style.display='flex';
 }
