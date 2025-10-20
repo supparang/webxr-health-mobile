@@ -17,7 +17,7 @@
     .hud{left:50%;transform:translateX(-50%);top:10px;text-align:center}
     #menuBar{bottom:12px;left:50%;transform:translateX(-50%);text-align:center;max-width:min(96vw,1180px)}
     .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
-    .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:var(--cy);cursor:pointer;user-select:none}
+    .btn,.tag{display:inline-block;padding:10px 14px;border:1px solid var(--cy);border-radius:12px;background:rgba(0,0,0,.35);color:#0ff;cursor:pointer;user-select:none}
     .btn:hover,.tag:hover{background:var(--cy2)}
     #errors{top:8px;right:8px;max-width:48ch;background:rgba(30,0,0,.85);padding:6px 10px;border:1px solid #f66;border-radius:8px;color:#ffb;display:none}
     #menuBar,#menuBar *{pointer-events:auto!important}
@@ -48,16 +48,16 @@
 
   <div class="hud">
     <div>
-      คะแนน: <span id="score">0</span> |
-      คอมโบ: <span id="combo">x1</span> |
-      เวลา: <span id="time">60</span>s |
-      สถิติ: <span id="best">0</span>
+      <span class="lbl-score">คะแนน</span>: <span id="score">0</span> |
+      <span class="lbl-combo">คอมโบ</span>: <span id="combo">x1</span> |
+      <span class="lbl-time">เวลา</span>: <span id="time">60</span>s |
+      <span class="lbl-best">สถิติ</span>: <span id="best">0</span>
       <span id="fever" style="display:none;margin-left:8px;border:1px solid #ff3;border-radius:999px;padding:2px 10px;color:#ff3;text-shadow:0 0 10px rgba(255,240,0,.85)">FEVER!</span>
     </div>
-    <div id="targetWrap">🎯 หมวดเป้าหมาย: <span id="targetBadge" style="border:1px solid #0ff;border-radius:10px;padding:2px 8px;background:rgba(0,0,0,.35)">—</span></div>
-    <div id="plateTracker">🍱 โควตา: <div class="pills" id="platePills"></div></div>
+    <div id="targetWrap">🎯 <span class="lbl-target">หมวดเป้าหมาย</span>: <span id="targetBadge" style="border:1px solid #0ff;border-radius:10px;padding:2px 8px;background:rgba(0,0,0,.35)">—</span></div>
+    <div id="plateTracker">🍱 <span class="lbl-quota">โควตา</span>: <div class="pills" id="platePills"></div></div>
     <div id="hydroWrap" style="margin-top:6px">
-      💧 สมดุลน้ำ:
+      💧 <span class="lbl-hydro">สมดุลน้ำ</span>:
       <span id="hydroLabel" style="margin-left:6px">—</span>
       <div style="height:10px;border:1px solid #0ff;border-radius:999px;background:rgba(0,0,0,.35);width:min(60vw,520px);margin:6px auto;position:relative;overflow:hidden">
         <div id="hydroBar" style="height:100%;width:50%;background:linear-gradient(90deg,#09f,#0ff);opacity:.95"></div>
@@ -128,14 +128,5 @@
   <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.159.0/examples/js/VRButton.js" defer></script>
   <script type="module" src="./game/main.js"></script>
-
-  <script>
-    setTimeout(function(){
-      if(!window.__HHA_BOOT){
-        var L=document.getElementById('landing'); if(L) L.style.display='none';
-        console.warn('[HHA] Module not booted -> hide landing.');
-      }
-    }, 1200);
-  </script>
 </body>
 </html>
