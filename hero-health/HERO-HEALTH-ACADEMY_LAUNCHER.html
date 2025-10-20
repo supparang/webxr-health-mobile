@@ -1,0 +1,22 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>HERO HEALTH ACADEMY — Launcher</title>
+<link rel="icon" href="./assets/favicon.png"/>
+<style>html,body{height:100%;margin:0;background:#0a1220;color:#cfe;font-family:system-ui,Segoe UI,Roboto,Arial}
+.wrap{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:14px}
+.btn{padding:12px 18px;border:1px solid #23c4ff;border-radius:12px;background:rgba(0,0,0,.3);color:#8ee7ff;cursor:pointer}
+.btn:hover{background:rgba(35,196,255,.12)}
+</style></head><body>
+<div class="wrap">
+  <img src="./assets/logo.png" alt="logo" width="96" height="96"/>
+  <h1 style="margin:6px 0 2px">HERO HEALTH ACADEMY</h1>
+  <div style="opacity:.8">Cyber XR • VR | AI | Nutrition Training</div>
+  <button class="btn" id="launch">▶ Launch Fullscreen</button>
+  <a class="btn" href="./index.html">Open Standard Mode</a>
+</div>
+<script>
+document.getElementById('launch').onclick=()=>{
+  const w=open('./index.html','_blank'); if(!w) location.href='./index.html';
+};
+</script>
+</body></html>

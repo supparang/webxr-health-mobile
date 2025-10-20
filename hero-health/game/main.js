@@ -1,373 +1,214 @@
+
 import { Engine } from './core/engine.js';
 import { HUD } from './core/hud.js';
-import { FloatingFX } from './core/fx.js';
+import { Coach } from './core/coach.js';
+import { ScoreSystem } from './core/score.js';
 import { FeverSystem } from './core/fever.js';
 import { PowerUpSystem } from './core/powerup.js';
 import { MissionSystem } from './core/mission.js';
 import { Leaderboard } from './core/leaderboard.js';
-import { ScoreSystem } from './core/score.js';
-import { Coach } from './core/coach.js';
-
 import * as GJ from './modes/goodjunk.js';
-import * as GP from './modes/groups.js';
+import * as GR from './modes/groups.js';
 import * as HY from './modes/hydration.js';
 import * as PL from './modes/plate.js';
+import { FloatingFX } from './ui/floatingfx.js';
 
 const THREE = window?.THREE;
 window.__HHA_BOOT = true;
 
-// ===== Settings & I18N =====
-const SETTINGS={lang:'TH',sound:true,quality:'High'};
-const I18N={
-  TH:{brand:'HERO HEALTH ACADEMY',
-    modes:{goodjunk:'🥗 ดี vs ขยะ',groups:'🍽️ จาน 5 หมู่',hydration:'💧 สมดุลน้ำ',plate:'🍱 จัดจานสุขภาพ'},
-    diff:{Easy:'ง่าย',Normal:'ปกติ',Hard:'ยาก'},
-    labels:{score:'คะแนน',combo:'คอมโบ',time:'เวลา',best:'สถิติ',target:'หมวดเป้าหมาย',quota:'โควตา',hydro:'สมดุลน้ำ'},
-    buttons:{start:'▶ เริ่มเกม',pause:'⏸ พัก',restart:'↻ เริ่มใหม่',help:'❓ วิธีเล่น'},
-    result:{title:'สรุปผล',tips:'เคล็ดลับ',mode:'โหมด',difficulty:'ความยาก',timeLeft:'เวลาเหลือ',bestCombo:'คอมโบสูงสุด'},
-    misc:{ok:'พอดี',low:'น้อยไป',high:'มากไป'}
-  },
-  EN:{brand:'HERO HEALTH ACADEMY',
-    modes:{goodjunk:'🥗 Healthy vs Junk',groups:'🍽️ Food Groups',hydration:'💧 Hydration',plate:'🍱 Healthy Plate'},
-    diff:{Easy:'Easy',Normal:'Normal',Hard:'Hard'},
-    labels:{score:'Score',combo:'Combo',time:'Time',best:'Best',target:'Target',quota:'Quota',hydro:'Hydration'},
-    buttons:{start:'▶ Start',pause:'⏸ Pause',restart:'↻ Restart',help:'❓ Help'},
-    result:{title:'Results',tips:'Tips',mode:'Mode',difficulty:'Difficulty',timeLeft:'Time left',bestCombo:'Best combo'},
-    misc:{ok:'OK',low:'Low',high:'High'}
-  }
-};
-const DIFFS={
-  Easy:{time:70, spawnBase:820, life:4200, trapRate:0.03, powerRate:0.10, hydWaterRate:0.78},
-  Normal:{time:60, spawnBase:700, life:3000, trapRate:0.05, powerRate:0.08, hydWaterRate:0.66},
-  Hard:{time:50, spawnBase:560, life:1900, trapRate:0.07, powerRate:0.06, hydWaterRate:0.55}
-};
-const MODES = { goodjunk:GJ, groups:GP, hydration:HY, plate:PL };
+const LANGS=['TH','EN'];
+const SETTINGS={lang: (navigator.language||'th').toLowerCase().startsWith('th')?'TH':'EN', sound:true, quality:'High'};
+const DIFFS={ Easy:{time:70, spawnBase:820, life:4200, trapRate:0.03, powerRate:0.10, hydWaterRate:0.78},
+              Normal:{time:60, spawnBase:700, life:3000, trapRate:0.05, powerRate:0.08, hydWaterRate:0.66},
+              Hard:{time:50, spawnBase:560, life:1900, trapRate:0.07, powerRate:0.06, hydWaterRate:0.55} };
 
-// ===== State =====
-let engine,hud,floating,systems,coach;
+const MODES={ goodjunk:GJ, groups:GR, hydration:HY, plate:PL };
+
 const state={ modeKey:'goodjunk', difficulty:'Normal', diffCfg:DIFFS.Normal,
   running:false, paused:false, timeLeft:60, ACTIVE:new Set(), lane:{},
-  ctx:{}, hydMin:45,hydMax:65,hyd:50, L:'TH',
-  totals:{spawns:0, clicks:0, hits:0, misses:0, powers:0}
-};
+  ctx:{bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0},
+  hydMin:45,hydMax:65,hyd:50 };
 
-// ===== Helpers =====
-const L = () => I18N[state.L] || I18N.TH;
-const rand = a => a[Math.floor(Math.random()*a.length)];
+let engine, hud, floating, systems, coach;
+const L = ()=> SETTINGS.lang==='TH';
 
-// ===== HUD & UI =====
 function applyLanguage(){
-  const lang = L();
-  document.documentElement.lang = (state.L==='TH'?'th':'en');
-  document.querySelector('.brand div').textContent = lang.brand;
-  [['.lbl-score',lang.labels.score],['.lbl-combo',lang.labels.combo],['.lbl-time',lang.labels.time],['.lbl-best',lang.labels.best],['.lbl-target',lang.labels.target],['.lbl-quota',lang.labels.quota],['.lbl-hydro',lang.labels.hydro]].forEach(([sel,txt])=>{ const el=document.querySelector(sel); if(el) el.textContent=txt; });
-  Object.keys(L().modes).forEach(k=>{ const b=document.querySelector(`button[data-action="mode"][data-value="${k}"]`); if(b) b.textContent = L().modes[k]; });
-  ['Easy','Normal','Hard'].forEach(d=>{ const b=document.querySelector(`button[data-action="diff"][data-value="${d}"]`); if(b) b.textContent = L().diff[d]; });
-  document.getElementById('modeName').textContent = lang.modes[state.modeKey];
-  document.getElementById('difficulty').textContent = lang.diff[state.difficulty];
-  const btns=L().buttons;
-  const setText=(sel,txt)=>{ const el=document.querySelector(`button[data-action="${sel}"]`); if(el) el.textContent=txt; };
-  setText('start', btns.start); setText('pause', btns.pause); setText('restart', btns.restart); setText('help', btns.help);
+  document.querySelector('.brand div')?.replaceChildren('HERO HEALTH ACADEMY');
+  const map = (SETTINGS.lang==='TH'
+    ? { goodjunk:'🥗 ดี vs ขยะ', groups:'🍽️ จาน 5 หมู่', hydration:'💧 สมดุลน้ำ', plate:'🍱 จัดจานสุขภาพ',
+        start:'▶ เริ่มเกม', pause:'⏸ พัก', restart:'↻ เริ่มใหม่', help:'❓ วิธีเล่น',
+        diff:{Easy:'ง่าย',Normal:'ปกติ',Hard:'ยาก'}, helpTitle:'วิธีเล่น (How to Play)', resultTitle:'สรุปผล'}
+    : { goodjunk:'🥗 Healthy vs Junk', groups:'🍽️ Food Groups', hydration:'💧 Hydration', plate:'🍱 Healthy Plate',
+        start:'▶ Start', pause:'⏸ Pause', restart:'↻ Restart', help:'❓ Help',
+        diff:{Easy:'Easy',Normal:'Normal',Hard:'Hard'}, helpTitle:'How to Play', resultTitle:'Results'}
+  );
+  for(const k of ['goodjunk','groups','hydration','plate']){
+    const b=document.querySelector(`button[data-action="mode"][data-value="${k}"]`); if(b) b.textContent = map[k];
+  }
+  for(const d of ['Easy','Normal','Hard']){
+    const b=document.querySelector(`button[data-action="diff"][data-value="${d}"]`); if(b) b.textContent = map.diff[d];
+  }
+  const m=document.getElementById('modeName'); if(m){ m.textContent=map[state.modeKey]||state.modeKey; }
+  const df=document.getElementById('difficulty'); if(df){ df.textContent=map.diff[state.difficulty]; }
+  document.querySelector('button[data-action="start"]')?.replaceChildren(map.start);
+  document.querySelector('button[data-action="pause"]')?.replaceChildren(map.pause);
+  document.querySelector('button[data-action="restart"]')?.replaceChildren(map.restart);
+  document.querySelector('button[data-action="help"]')?.replaceChildren(map.help);
+  document.querySelector('#help h2')?.replaceChildren(map.helpTitle);
+  document.getElementById('resTitle')?.replaceChildren(map.resultTitle);
 }
-function applySound(){
-  const muted = !SETTINGS.sound;
-  document.querySelectorAll('audio').forEach(a=>a.muted=muted);
-  const btn=document.getElementById('soundToggle');
-  if(btn) btn.textContent = SETTINGS.sound ? '🔊' : '🔇';
-}
-function applyQuality(){
-  const q=SETTINGS.quality;
-  const dpr=q==='High'?(devicePixelRatio||1):q==='Medium'?Math.max(0.75,(devicePixelRatio||1)*0.75):0.5;
-  try{ engine.renderer.setPixelRatio(dpr); engine.onResize?.(); }catch{}
-  document.body.style.filter=(q==='Low')?'saturate(0.95) brightness(0.98)':(q==='Medium')?'saturate(1.0) brightness(1.0)':'';
-}
-function updateHUD(){
-  hud.setScore(systems?.score?.score||0);
-  hud.setCombo(systems?.score?.combo||1);
-  hud.setTime(state.timeLeft|0);
-  hud.setDiff(L().diff[state.difficulty]||state.difficulty);
-  hud.setMode(L().modes[state.modeKey]||state.modeKey);
-  hud.fever(!!systems?.fever?.active);
+function applySound(){ document.querySelectorAll('audio').forEach(a=>a.muted=!SETTINGS.sound); document.getElementById('soundToggle').textContent=SETTINGS.sound?'🔊':'🔇'; }
+function applyQuality(){ const q=SETTINGS.quality; const dpr=q==='High'?(devicePixelRatio||1):q==='Medium'?Math.max(0.75,(devicePixelRatio||1)*0.75):0.5; try{ engine.renderer.setPixelRatio(dpr); engine.onResize?.(); }catch{} }
+
+function openHelpFor(modeKey){
+  const isTH=L();
+  const common = isTH ? `• เลือกโหมด/ความยากแล้วกด ▶ เริ่มเกม<br/>• แตะ/คลิกไอคอนอาหารเพื่อเก็บคะแนน (เข้า VR ได้ถ้ารองรับ)`
+                      : `• Choose mode/difficulty then ▶ Start<br/>• Tap/Click food icons to score (VR supported where available)`;
+  const perTH = { goodjunk: '🥗 ดี vs ขยะ: เก็บของ “ดี” (+5) เลี่ยงของ “ขยะ” (−2)',
+                  groups: '🍽️ จาน 5 หมู่: ดู 🎯 หมวดเป้าหมายบน HUD แล้วเก็บให้ตรง (+7)',
+                  hydration:'💧 สมดุลน้ำ: คุม 45–65%; เก็บ 💧 (+5) เลี่ยง 🧋 (−3)',
+                  plate:'🍱 จัดจานสุขภาพ: เติมโควตาแต่ละหมวดให้ครบ ได้โบนัส' };
+  const perEN = { goodjunk:'🥗 Good vs Junk: pick “good” (+5), avoid junk (−2)',
+                  groups:'🍽️ Food Groups: watch 🎯 target, collect matching (+7)',
+                  hydration:'💧 Hydration: keep 45–65%; 💧 (+5), 🧋 (−3)',
+                  plate:'🍱 Healthy Plate: fill each quota; bonus on completion' };
+  const per = isTH? perTH: perEN;
+  document.getElementById('helpBody').innerHTML = common + '<br/><br/>' + per[modeKey];
+  document.getElementById('help').style.display='flex';
 }
 
-// ===== LANES / SPAWN =====
+document.addEventListener('click',(e)=>{
+  const btn=e.target.closest('#menuBar button'); if(!btn) return;
+  e.preventDefault(); e.stopPropagation();
+  const act=btn.getAttribute('data-action')||'', val=btn.getAttribute('data-value')||'';
+  if(act==='diff'){ state.difficulty=val; state.diffCfg=DIFFS[state.difficulty]; applyLanguage(); return; }
+  if(act==='mode'){ state.modeKey=val; applyLanguage(); return; }
+  if(act==='start') start();
+  else if(act==='pause') pause();
+  else if(act==='restart'){ end(); start(); }
+  else if(act==='help'){ openHelpFor(state.modeKey); }
+}, false);
+
+document.getElementById('help').addEventListener('click',(e)=>{
+  if(e.target.getAttribute('data-action')==='helpClose' || e.target.id==='help') e.currentTarget.style.display='none';
+});
+document.getElementById('result').addEventListener('click',(e)=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const a=b.getAttribute('data-result');
+  if(a==='replay'){ document.getElementById('result').style.display='none'; start(); }
+  if(a==='home'){ document.getElementById('result').style.display='none'; }
+});
+
+// lanes & spawn
 function setupLanes(){ const X=[-1.1,-0.55,0,0.55,1.1], Y=[-0.2,0.0,0.18,0.32], Z=-2.2; state.lane={X,Y,Z,occupied:new Set(),cooldown:new Map(),last:null}; }
 const now=()=>performance.now();
 const isAdj=(r,c)=>{ const last=state.lane.last; if(!last) return false; const [pr,pc]=last; return Math.abs(pr-r)<=1 && Math.abs(pc-c)<=1; };
 function pickLane(){
   const {X,Y,Z,occupied,cooldown}=state.lane; const cand=[];
   for(let r=0;r<Y.length;r++)for(let c=0;c<X.length;c++){
-    const k=r+','+c,cd=cooldown.get(k)||0,free=!occupied.has(k)&&now()>cd&&!isAdj(r,c);
-    if(free) cand.push({r,c,k});
+    const k=r+','+c,cd=cooldown.get(k)||0,free=!occupied.has(k)&&now()>cd&&!isAdj(r,c); if(free) cand.push({r,c,k});
   }
   if(!cand.length) return null;
-  const p=cand[Math.floor(Math.random()*cand.length)];
-  occupied.add(p.k); state.lane.last=[p.r,p.c];
+  const p=cand[Math.floor(Math.random()*cand.length)]; occupied.add(p.k); state.lane.last=[p.r,p.c];
   return {x:X[p.c],y:1.6+Y[p.r],z:Z-0.1*Math.abs(p.c-2),key:p.k};
 }
 function releaseLane(k){ const {occupied,cooldown}=state.lane; occupied.delete(k); cooldown.set(k, now()+800); }
-
 const POWER_ITEMS=[{type:'power',kind:'slow',char:'⏳'},{type:'power',kind:'boost',char:'⭐'},{type:'power',kind:'shield',char:'🛡️'}];
-function maybeSpecialMeta(base){
-  const r=Math.random(), p=state.diffCfg?.powerRate??0.08;
-  if(r<p) { state.totals.powers++; return POWER_ITEMS[Math.floor(Math.random()*POWER_ITEMS.length)]; }
-  return base;
-}
+function maybeSpecialMeta(base){ const r=Math.random(), p=state.diffCfg?.powerRate??0.08; if(r<p) return POWER_ITEMS[Math.floor(Math.random()*POWER_ITEMS.length)]; return base; }
 
 function spawnOnce(){
   const lane=pickLane(); if(!lane) return;
   let meta = MODES[state.modeKey].pickMeta(state.diffCfg,state);
   meta = maybeSpecialMeta(meta);
-  const m=engine.makeBillboard(meta.char);
-  m.position.set(lane.x,lane.y,lane.z);
-  m.userData={lane:lane.key,meta};
-  engine.group.add(m); state.ACTIVE.add(m); state.totals.spawns=(state.totals.spawns||0)+1; if(meta.type==='power'){ state.totals.powers=(state.totals.powers||0)+1; }
-  state.totals.spawns++;
+  const m=engine.makeBillboard(meta.char); m.position.set(lane.x,lane.y,lane.z);
+  m.userData={lane:lane.key,meta}; engine.group.add(m); state.ACTIVE.add(m);
   const life=state.diffCfg?.life||3000;
-  m.userData.timer=setTimeout(()=>{ if(!m.parent) return; destroy(m); state.totals.misses++; }, life + Math.floor(Math.random()*500-250));
+  m.userData.timer=setTimeout(()=>{ if(!m.parent) return; updateHUD(); destroy(m); }, life + Math.floor(Math.random()*500-250));
 }
 
-function destroy(obj){ if(obj.userData?.timer) { clearTimeout(obj.userData.timer); obj.userData.timer=null; } if(obj.parent) obj.parent.remove(obj); state.ACTIVE.delete(obj); if (obj.userData?.lane) releaseLane(obj.userData.lane); }
+function destroy(obj){ if(obj.userData?.timer) clearTimeout(obj.userData.timer); if(obj.parent) obj.parent.remove(obj); state.ACTIVE.delete(obj); if(obj.userData?.lane) releaseLane(obj.userData.lane); }
 
-// ===== HIT =====
 function hit(obj){
   const meta=obj.userData.meta;
   const baseAdd=systems.score.add.bind(systems.score);
   systems.score.add=(v)=>baseAdd(v*(systems.fever.active?2:1)*(1+systems.power.scoreBoost));
 
-  MODES[state.modeKey].onHit(meta, systems, state, hud);
+  if(MODES[state.modeKey].onHit) MODES[state.modeKey].onHit(meta, systems, state, hud);
 
-  if(meta.type==='power'){
-    if(meta.kind==='slow'){ systems.power.apply('slow'); coach?.onPower?.('slow'); }
-    if(meta.kind==='boost'){ systems.power.apply('boost'); coach?.onPower?.('boost'); }
-    if(meta.kind==='shield'){ systems.power.apply('shield'); coach?.onPower?.('shield'); }
-  }
+  if(meta.type==='power'){ state.ctx.powersUsed++; if(meta.kind==='slow') systems.power.apply('slow'); if(meta.kind==='boost') systems.power.apply('boost'); if(meta.kind==='shield') systems.power.apply('shield'); }
 
-  state.totals.hits++; state.totals.clicks++;
+  const mult=(systems.fever.active?2:1)*(1+systems.power.scoreBoost);
+  const fmt=v=>`<b>${v>0?'+':''}${Math.round(v)}</b>`;
+  let txt='', kind='good';
+  if(meta.type==='gj'){ txt=meta.good?fmt(5*mult):fmt(-2); kind=meta.good?'good':'bad'; }
+  else if(meta.type==='groups'){ txt=fmt(7*mult); }
+  else if(meta.type==='hydra'){ txt=meta.water?fmt(5*mult):fmt(-3); kind=meta.water?'good':'bad'; }
+  else if(meta.type==='plate'){ txt=fmt(6*mult); }
+  else if(meta.type==='power'){ txt=meta.kind.toUpperCase(); }
+  (floating ||= new FloatingFX(engine)).spawn3D(obj, txt, kind);
+
   systems.score.add = baseAdd;
   updateHUD(); destroy(obj);
 }
 
-// ===== INPUT =====
-function onCanvasClick(ev){
-  if(!state.running || state.paused) return;
+function onCanvasClick(ev){ if(!state.running || state.paused) return;
   const x=ev.clientX ?? (ev.touches&&ev.touches[0].clientX);
   const y=ev.clientY ?? (ev.touches&&ev.touches[0].clientY);
-  const inter=engine.raycastFromClient(x,y);
-  if(inter.length) hit(inter[0].object);
-  else state.totals.clicks++;
+  const inter=engine.raycastFromClient(x,y); if(inter.length) hit(inter[0].object);
 }
 
-// ===== LIVE RUBRIC HUD =====
-function updateRubricHUD(){
-  if(!state.running) return;
-  try{
-    const rb = computeRubric();
-    const host = document.getElementById('rubricHUD'); if(host) host.style.display='block';
-    const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = (typeof val==='number')? String(val): String(val||'0'); };
-    const wid = (id, p) => { const el=document.getElementById(id); if(el) el.style.width = Math.max(0,Math.min(100,p))+'%'; };
-    set('rubComposite', rb.composite|0);
-    set('rubGrade', rb.grade||'-');
-    set('rubAcc', (rb.accuracyPct|0)+'%'); wid('barAcc', rb.accuracyPct|0);
-    set('rubObj', (rb.objectivesPct|0)+'%'); wid('barObj', rb.objectivesPct|0);
-    set('rubCmb', (rb.comboPct|0)+'%'); wid('barCmb', rb.comboPct|0);
-    set('rubTim', (rb.timePct|0)+'%'); wid('barTim', rb.timePct|0);
-    set('rubDis', (rb.disciplinePct|0)+'%'); wid('barDis', rb.disciplinePct|0);
-  }catch(e){}
+function updateHUD(){
+  const sc=systems?.score?.score ?? 0, cb=systems?.score?.combo ?? 1, tl=state?.timeLeft ?? 0;
+  hud.setScore(sc); hud.setCombo(cb); hud.setTime(tl);
+  const diffName = (SETTINGS.lang==='TH'? {Easy:'ง่าย',Normal:'ปกติ',Hard:'ยาก'}:{Easy:'Easy',Normal:'Normal',Hard:'Hard'})[state.difficulty];
+  const modeName = (SETTINGS.lang==='TH'? {goodjunk:'🥗 ดี vs ขยะ',groups:'🍽️ จาน 5 หมู่',hydration:'💧 สมดุลน้ำ',plate:'🍱 จัดจานสุขภาพ'}:{goodjunk:'🥗 Healthy vs Junk',groups:'🍽️ Food Groups',hydration:'💧 Hydration',plate:'🍱 Healthy Plate'})[state.modeKey];
+  hud.setDiff(diffName); hud.setMode(modeName); if (typeof hud.fever === 'function') hud.fever(!!systems?.fever?.active);
 }
-let _rubT=0;
 
-// ===== LOOP / TIMER =====
+function presentResult(finalScore){
+  const isTH=L();
+  const core = `${isTH?'คะแนน':'Score'}: <b>${finalScore}</b> | ${isTH?'เวลาเหลือ':'Time Left'}: <b>${Math.max(0,state.timeLeft|0)}s</b> | ${isTH?'คอมโบสูงสุด':'Best Combo'}: <b>x${systems.score.bestCombo||systems.score.combo||1}</b>`;
+  document.getElementById('resCore').innerHTML = core;
+  const tip = isTH? 'คุมเป้าหมาย และเลี่ยงกับดัก' : 'Focus objectives, avoid traps';
+  document.getElementById('resTips').textContent = (isTH?'เคล็ดลับ':'Tips')+': '+tip;
+  document.getElementById('result').style.display='flex';
+}
+
 let spawnTimer=null,timeTimer=null,spawnCount=0,lastTs=performance.now();
-function loop(){
-  const ts=performance.now(), dt=ts-lastTs; lastTs=ts;
-  systems.fever.update(dt); systems.power.tick(dt);
-  if(state.running && state.modeKey==='hydration'){
-    state.hyd = Math.max(0, Math.min(100, state.hyd - 0.0003*dt*(systems.power.timeScale||1)));
-    const z=state.hyd<45?'low':(state.hyd>65?'high':'ok');
-    if(loop._lastHydZone!==z){ coach?.onHydrationZoneChange?.(z); loop._lastHydZone=z; }
-    hud.setHydration(state.hyd,z);
-  }
-  updateHUD(); _rubT+=dt; if(_rubT>500){ _rubT=0; updateRubricHUD(); }
-}
-function runSpawn(){
-  if(!state.running || state.paused) return;
-  spawnOnce(); spawnCount++;
-  const base=state.diffCfg?.spawnBase||700;
-  const next=Math.max(280, base*1.0*systems.power.timeScale);
-  spawnTimer=setTimeout(runSpawn,next);
-}
-function runTimer(){
-  if(!state.running || state.paused) return;
-  timeTimer=setTimeout(()=>{ state.timeLeft--; if(state.timeLeft<=0){ end(); } else runTimer(); updateHUD(); },1000);
-}
+function loop(){ const ts=performance.now(), dt=ts-lastTs; lastTs=ts; systems.fever.update(dt); systems.power.tick(dt); updateHUD(); }
+function runSpawn(){ if(!state.running || state.paused) return; spawnOnce(); spawnCount++; const base=state.diffCfg?.spawnBase||700; const accel=Math.max(0.5,1-(spawnCount/120)); const next=Math.max(280, base*accel*systems.power.timeScale); spawnTimer=setTimeout(runSpawn,next); }
+function runTimer(){ if(!state.running || state.paused) return; timeTimer=setTimeout(()=>{ state.timeLeft--; if(state.timeLeft<=0){ end(); } else runTimer(); updateHUD(); },1000); }
 
-// ===== RESULT BUILDER =====
-
-
-function buildResult(){
-  const isTH = (SETTINGS.lang==='TH');
-  const label = (th,en)=> isTH? th : en;
-  const modeLabel = (state.modeKey==='goodjunk'?label('🥗 ดี vs ขยะ','🥗 Healthy vs Junk'):
-                    state.modeKey==='groups'?label('🍽️ จาน 5 หมู่','🍽️ Food Groups'):
-                    state.modeKey==='hydration'?label('💧 สมดุลน้ำ','💧 Hydration'):
-                    label('🍱 จัดจานสุขภาพ','🍱 Healthy Plate'));
-  const diffLabel = (state.difficulty==='Easy'?label('ง่าย','Easy'):
-                     state.difficulty==='Hard'?label('ยาก','Hard'):
-                     label('ปกติ','Normal'));
-
-  const accuracy = state.totals.hits>0 ? Math.round(100*state.totals.hits/Math.max(1,state.totals.clicks)) : 0;
-  const parts = [
-    label('โหมด','Mode')+`: <b>${modeLabel}</b>`,
-    label('ความยาก','Difficulty')+`: <b>${diffLabel}</b>`,
-    label('คะแนน','Score')+`: <b>${systems.score.score|0}</b>`,
-    label('เวลาเหลือ','Time Left')+`: <b>${Math.max(0,state.timeLeft|0)}s</b>`,
-    label('คอมโบสูงสุด','Best Combo')+`: <b>x${systems.score.bestCombo||systems.score.combo||1}</b>`,
-    `Accuracy: <b>${accuracy}%</b> (hits ${state.totals.hits||0}/${state.totals.clicks||0})`
-  ];
-  const core = parts.join(' | ');
-
-  // per-mode breakdown
-  let bd = '';
-  if(state.modeKey==='goodjunk'){
-    bd = `<ul><li>${label('ของดี','Good hits')}: <b>${state.ctx.goodHits||0}</b></li><li>${label('ของขยะ','Junk hits')}: <b>${state.ctx.junkHits||0}</b></li><li>${label('Power-ups พบ','Power-ups seen')}: <b>${state.totals.powers||0}</b></li></ul>`;
-  }else if(state.modeKey==='groups'){
-    bd = `<ul><li>${label('ตรงหมวดเป้าหมาย','Target hits')}: <b>${state.ctx.targetHitsTotal||0}</b></li><li>${label('ผิดหมวด','Wrong group')}: <b>${state.ctx.groupWrong||0}</b></li></ul>`;
-  }else if(state.modeKey==='hydration'){
-    const zone = state.hyd<45?label('น้อย','Low'):(state.hyd>65?label('มาก','High'):label('พอดี','OK'));
-    bd = `<ul><li>${label('เก็บน้ำ','Water hits')}: <b>${state.ctx.waterHits||0}</b></li><li>${label('พลาดน้ำหวาน','Sugary misses')}: <b>${state.ctx.sweetHits||0}</b></li><li>${label('มิเตอร์สุดท้าย','Final meter')}: <b>${Math.round(state.hyd)}% (${zone})</b></li></ul>`;
-  }else if(state.modeKey==='plate'){
-    bd = `<ul><li>${label('เติมชิ้น','Pieces filled')}: <b>${state.ctx.plateFills||0}</b></li><li>PERFECT: <b>${state.ctx.perfectPlates||0}</b></li><li>${label('เกินโควตา','Overfills')}: <b>${state.ctx.overfillCount||0}</b></li></ul>`;
-  }
-
-  // Rubric
-  const rb = computeRubric();
-  const rubricHTML = `
-  <div style="margin-top:8px;border-top:1px dashed #0ff;padding-top:8px">
-    <div><b>Rubric</b> → Composite: <b>${rb.composite}</b> / 100 • Grade: <b>${rb.grade}</b></div>
-    <div style="font-size:0.95em;opacity:.9">
-      Accuracy <b>${rb.accuracyPct}%</b> • Objectives <b>${rb.objectivesPct}%</b> • Combo <b>${rb.comboPct}%</b> • Time <b>${rb.timePct}%</b> • Discipline <b>${rb.disciplinePct}%</b>
-    </div>
-  </div>`;
-
-  const tipMap = isTH
-    ? {goodjunk:'เล็งของดี เลี่ยงของขยะ',groups:'ดู 🎯 บน HUD ก่อนคลิก',hydration:'คุม 45–65% ให้เนียน',plate:'เติมตามโควตาให้ครบเพื่อโบนัส'}
-    : {goodjunk:'Aim for good, avoid junk',groups:'Watch 🎯 on HUD',hydration:'Keep 45–65% steady',plate:'Fill each quota for bonus'};
-  const tip = tipMap[state.modeKey] || (isTH?'สู้ ๆ':'Good luck');
-
-  return {core,bd:bd+rubricHTML,tip, rb};
-}
-
-
-  // Rubric + grade
-  const rb = computeRubric();
-  const rubricHTML = `
-  <div style="margin-top:8px;border-top:1px dashed #0ff;padding-top:8px">
-    <div><b>Rubric</b> → Composite: <b>${rb.composite}</b> / 100 • Grade: <b>${rb.grade}</b></div>
-    <div style="font-size:0.95em;opacity:.9">
-      Accuracy <b>${rb.accuracyPct}%</b> • Objectives <b>${rb.objectivesPct}%</b> • Combo <b>${rb.comboPct}%</b> • Time <b>${rb.timePct}%</b> • Discipline <b>${rb.disciplinePct}%</b>
-    </div>
-  </div>`;
-
-  // Tips
-  const tipsMapTH={goodjunk:'เล็งของดี เลี่ยงของขยะ',groups:'สังเกต 🎯 ที่ HUD ก่อนคลิก',hydration:'คุมมิเตอร์ที่ 45–65%',plate:'เติมตามโควตาให้ครบเพื่อโบนัส'};
-  const tipsMapEN={goodjunk:'Aim for good, avoid junk',groups:'Watch the 🎯 target on HUD',hydration:'Keep meter within 45–65%',plate:'Fill each quota to earn bonus'};
-  const tip = (state.L==='TH'?tipsMapTH:tipsMapEN)[state.modeKey]||'';
-
-  return {core,bd:bd+rubricHTML,tip, rb};
-}
-
-// ===== GAME STATE =====
-function resetCtx(){
-  state.ctx={bestStreak:0,currentStreak:0,goodHits:0,junkHits:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetHits:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0};
-  state.totals={spawns:0, clicks:0, hits:0, powers:0};
-  state.totals={spawns:0, clicks:0, hits:0, misses:0, powers:0};
-}
-function start(){ document.getElementById('help').style.display='none'; coach?.onStart?.(state.modeKey);
+function start(){
+  document.getElementById('help').style.display='none';
+  coach?.onStart?.(state.modeKey);
   state.diffCfg=DIFFS[state.difficulty]||DIFFS.Normal;
-  state.running=true; state.paused=false;
-  state.timeLeft=state.diffCfg.time; spawnCount=0; resetCtx();
+  state.running=true; state.paused=false; state.timeLeft=state.diffCfg.time; spawnCount=0;
   systems.score.reset(); setupLanes();
-  document.getElementById('hydroWrap').style.display='none';
-  document.getElementById('targetWrap').style.display='none';
-  document.getElementById('plateTracker').style.display='none';
-  if (MODES[state.modeKey].init) MODES[state.modeKey].init(state,hud,state.diffCfg);
+  state.ctx={bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0};
   updateHUD();
-  setTimeout(spawnOnce,200);
-  runSpawn(); runTimer();
+  setTimeout(spawnOnce,200); runSpawn(); runTimer();
   document.getElementById('c').style.pointerEvents='auto';
 }
 function pause(){ if(!state.running) return; state.paused=!state.paused; if(!state.paused){ runSpawn(); runTimer(); } }
 function end(){
-  state.running=false; state.paused=false;
-  clearTimeout(spawnTimer); clearTimeout(timeTimer);
-  document.getElementById('c').style.pointerEvents='none';
-  systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
-  const lang=L();
-  document.getElementById('resTitle').textContent=lang.result.title;
-  const {core,bd,tip,rb}=buildResult();
-  try{ coach?.onEnd?.(systems.score.score|0, rb, state); }catch{}
-  document.getElementById('resCore').innerHTML = core;
-  const career = updateCareer(systems.score.score|0, rb);
-  const careerHTML = `<div style="margin-top:8px;border-top:1px dashed #0ff;padding-top:8px">
-    <b>Career Stats</b> — Sessions: <b>${career.sessions||1}</b> • Best Score: <b>${career.bestScore||0}</b> • Best Grade: <b>${career.bestGrade||'E'}</b> • Avg Accuracy: <b>${career.avgAccuracy||0}%</b>
-  </div>`;
-  document.getElementById('resBreakdown').innerHTML = bd + careerHTML;
-  document.getElementById('resTips').textContent = lang.result.tips+': '+tip;
-  document.getElementById('result').style.display='flex';
+  state.running=false; state.paused=false; clearTimeout(spawnTimer); clearTimeout(timeTimer);
+  document.getElementById('c').style.pointerEvents='none'; systems.board.submit(state.modeKey, state.difficulty, systems.score.score);
+  coach?.onEnd?.(systems.score.score|0, null, state); presentResult(systems.score.score);
+  [...state.ACTIVE].forEach(obj => destroy(obj));
 }
 
-// ===== BOOT =====
 function boot(){
   const canvas=document.getElementById('c');
-  const THREEwin = window.THREE;
-  engine=new Engine(THREEwin,canvas);
-  hud=new HUD(); floating=new FloatingFX(engine); coach=new Coach({persona:'C5', lang:'L3'});
+  engine=new Engine(THREE,canvas); hud=new HUD(); floating=new FloatingFX(engine); coach = new Coach({ lang:'L3' });
   systems={ score:new ScoreSystem(), fever:new FeverSystem(), power:new PowerUpSystem(), mission:new MissionSystem(), board:new Leaderboard() };
-
-  document.getElementById('langToggle')?.addEventListener('click', ()=>{ state.L = state.L==='TH' ? 'EN' : 'TH'; SETTINGS.lang=state.L; applyLanguage(); });
+  document.getElementById('langToggle')?.addEventListener('click', ()=>{ SETTINGS.lang=SETTINGS.lang==='TH'?'EN':'TH'; applyLanguage(); });
   document.getElementById('soundToggle')?.addEventListener('click', ()=>{ SETTINGS.sound=!SETTINGS.sound; applySound(); });
   document.getElementById('gfxSelect')?.addEventListener('change', (e)=>{ SETTINGS.quality=e.target.value||'High'; applyQuality(); });
-
-  Object.keys(MODES).forEach(k=>{
-    document.querySelector(`button[data-action="mode"][data-value="${k}"]`)?.addEventListener('click', ()=>{ state.modeKey=k; document.getElementById('modeName').textContent=L().modes[k]; });
-  });
-  ['Easy','Normal','Hard'].forEach(d=>{
-    document.querySelector(`button[data-action="diff"][data-value="${d}"]`)?.addEventListener('click', ()=>{ state.difficulty=d; document.getElementById('difficulty').textContent=L().diff[d]; });
-  });
-
-  document.querySelector('button[data-action="start"]')?.addEventListener('click', start);
-  document.querySelector('button[data-action="pause"]')?.addEventListener('click', pause);
-  document.querySelector('button[data-action="restart"]')?.addEventListener('click', ()=>{ end(); start(); });
-  document.querySelector('button[data-action="help"]')?.addEventListener('click', ()=>{
-    const isTH = state.L==='TH';
-    const common = isTH
-      ? `• เลือกโหมด/ความยาก กด ▶ เริ่มเกม<br/>• แตะ/คลิกไอคอนอาหารเพื่อเก็บคะแนน<br/>• ⏸ พัก, ↻ เริ่มใหม่, 🇹🇭/🇬🇧 สลับภาษา, 🔊 ปิด/เปิดเสียง, Graphics ปรับคุณภาพ`
-      : `• Choose mode/difficulty, press ▶ Start<br/>• Tap/Click food icons to score<br/>• ⏸ Pause, ↻ Restart, 🇹🇭/🇬🇧 language, 🔊 sound, Graphics quality`;
-    const per = isTH
-      ? {goodjunk:'🥗 ดี vs ขยะ: เก็บของดี (+5) เลี่ยงของขยะ (−2)',
-         groups:'🍽️ จาน 5 หมู่: ดู 🎯 แล้วเก็บให้ตรง (+7)',
-         hydration:'💧 สมดุลน้ำ: คุม 45–65%; 💧 (+5), 🧋 (−3)',
-         plate:'🍱 จัดจานสุขภาพ: เติมโควตาแต่ละหมวดให้ครบ ได้โบนัส'}
-      : {goodjunk:'🥗 Good vs Junk: pick good (+5), avoid junk (−2)',
-         groups:'🍽️ Food Groups: watch 🎯 then collect matching (+7)',
-         hydration:'💧 Hydration: keep 45–65%; 💧 (+5), 🧋 (−3)',
-         plate:'🍱 Healthy Plate: fill quota of each group for bonus'};
-    document.getElementById('helpBody').innerHTML = common + '<br/><br/>' + (per[state.modeKey]||'');
-    document.getElementById('help').style.display='flex';
-  });
-  document.getElementById('help')?.addEventListener('click',(e)=>{ if(e.target.getAttribute('data-action')==='helpClose' || e.target.id==='help') e.currentTarget.style.display='none'; });
-  document.getElementById('result')?.addEventListener('click',(e)=>{
-    const b=e.target.closest('button'); if(!b) return; const a=b.getAttribute('data-result');
-    if(a==='replay'){ document.getElementById('result').style.display='none'; start(); }
-    if(a==='home'){ document.getElementById('result').style.display='none'; }
-  });
-
   const canvasEl=document.getElementById('c');
   canvasEl.addEventListener('click', onCanvasClick, {passive:true});
   canvasEl.addEventListener('touchstart', e=>{ const t=e.touches&&e.touches[0]; if(!t) return; onCanvasClick({clientX:t.clientX, clientY:t.clientY}); }, {passive:true});
-
-  engine.startLoop(loop);
-  applyLanguage(); applySound(); applyQuality();
+  engine.startLoop(loop); applyLanguage(); applySound(); applyQuality();
+  window.onerror=(m,s,l,c)=>{ const mk=()=>{ const d=document.getElementById('errors')||document.createElement('div'); d.id='errors'; d.style.cssText='position:fixed;top:8px;right:8px;background:rgba(30,0,0,.85);color:#ffb;border:1px solid #f66;padding:6px 10px;border-radius:8px;z-index:9999;max-width:60ch;white-space:pre-wrap'; if(!d.parentNode) document.body.appendChild(d); return d; }; const d=mk(); d.textContent='Errors: '+m+' @'+(s||'inline')+':'+l+':'+c; d.style.display='block'; };
 }
 if(document.readyState==='loading'){ window.addEventListener('DOMContentLoaded', boot); } else { boot(); }
