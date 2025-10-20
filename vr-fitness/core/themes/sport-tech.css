@@ -1,0 +1,25 @@
+:root{
+  --bg:#0b0f14; --panel:#111823; --accent:#00d0ff; --accent-2:#00ffa3; --text:#e6f2ff; --muted:#8aa2b2; --danger:#ff5577;
+}
+*{box-sizing:border-box}
+body{ margin:0; font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:var(--text);
+  background:radial-gradient(1200px 800px at 20% -10%, #0e1622 0%, #0b0f14 60%), var(--bg);}
+.header{ display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #1b2532;
+  background:#0c131d80; backdrop-filter: blur(6px);}
+.brand{font-weight:800; letter-spacing:.3px}
+.badge{padding:4px 10px; border:1px solid #1b2532; border-radius:999px; font-size:12px; color:var(--muted)}
+.container{max-width:1100px; margin:20px auto; padding:0 16px}
+.grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin:18px 0 32px}
+.card{ background:linear-gradient(180deg,#101a26 0%, #0c131d 100%); border:1px solid #1a2532; border-radius:16px; padding:16px; min-height:140px;
+  box-shadow:0 8px 30px #0007, inset 0 1px 0 #2a3a50;}
+.card h3{margin:4px 0 8px; font-size:18px}
+.card p{margin:0; color:var(--muted); font-size:14px; line-height:1.45}
+.btn{ appearance:none; border:1px solid #1a2532; background:linear-gradient(180deg,#0f1823,#0b111a); color:var(--text); padding:10px 14px;
+  border-radius:12px; font-weight:600; cursor:pointer; transition:transform .06s ease, border-color .2s ease, box-shadow .2s ease;}
+.btn:hover{transform:translateY(-1px); border-color:#274057; box-shadow:0 6px 18px #0008}
+.btn.accent{border-color:transparent; background:linear-gradient(90deg,var(--accent),var(--accent-2)); color:#00121a}
+.toolbar{display:flex; gap:10px}
+.footer{padding:14px 20px; border-top:1px solid #1b2532; color:var(--muted); font-size:12px; text-align:center}
+.kbd{font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace;
+  padding:1px 6px; border-radius:8px; background:#0d1721; border:1px solid #1c2837; color:#b8c7d6}
+.small{font-size:12px; color:var(--muted)}

@@ -1,0 +1,59 @@
+{
+  "projectName": "VR Fitness Academy",
+  "theme": "sport-tech",
+  "languages": [
+    "en",
+    "th"
+  ],
+  "defaultLang": "en",
+  "games": [
+    {
+      "id": "shadow-breaker",
+      "name": {
+        "en": "Shadow Breaker",
+        "th": "ชาโดว์เบรกเกอร์"
+      },
+      "desc": {
+        "en": "Slash or punch targets in time.",
+        "th": "ฟาด/ชกเป้าตามจังหวะ"
+      }
+    },
+    {
+      "id": "rhythm-boxer",
+      "name": {
+        "en": "Rhythm Boxer",
+        "th": "ริทึมบ็อกเซอร์"
+      },
+      "desc": {
+        "en": "Box to the beat and rack up combos.",
+        "th": "ชกตามจังหวะ เก็บคอมโบ"
+      }
+    },
+    {
+      "id": "jump-duck",
+      "name": {
+        "en": "Jump & Duck",
+        "th": "กระโดดและก้ม"
+      },
+      "desc": {
+        "en": "Move your body to dodge barriers.",
+        "th": "ขยับตัวหลบสิ่งกีดขวาง"
+      }
+    },
+    {
+      "id": "balance-hold",
+      "name": {
+        "en": "Balance Hold",
+        "th": "ทรงตัวค้าง"
+      },
+      "desc": {
+        "en": "Hold steady poses for points.",
+        "th": "ทรงท่าค้าง รับคะแนน"
+      }
+    }
+  ],
+  "audio": {
+    "bgm": "assets/sfx/bgm.wav",
+    "click": "assets/sfx/click.wav"
+  }
+}
