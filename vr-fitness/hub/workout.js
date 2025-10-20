@@ -1,4 +1,25 @@
 (function(){
+function showToast(msg){
+const t = $('toast');
+t.textContent = msg; t.style.display='block';
+clearTimeout(window.__t); window.__t = setTimeout(()=> t.style.display='none', 1400);
+}
+
+
+function startGame(){
+const s = APP.state;
+const cfgByDiff = { easy:{speed:0.8, spawn:1200}, normal:{speed:1.0, spawn:900}, hard:{speed:1.3, spawn:700} };
+const cfg = cfgByDiff[s.diff] || cfgByDiff.normal;
+const root = document.getElementById('gameRoot');
+while(root.firstChild) root.removeChild(root.firstChild);
+
+
+let alive = true;
+function spawn(){
+if (!alive) return;
+const el = document.createElement('a-sphere');
+el.setAttribute('radius', '0.25');
+el.setAttribute('color', s.game==='rhythm' ? '#39f' : s.game==='cardio' ? '#3f9' : '#f93');
 const x = (Math.random()*6-3).toFixed(2);
 const z = (-3 - Math.random()*4).toFixed(2);
 el.setAttribute('position', `${x} 1.4 ${z}`);
