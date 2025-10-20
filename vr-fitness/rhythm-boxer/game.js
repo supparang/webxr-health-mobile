@@ -1,3 +1,18 @@
+function cameraPos() {
+  const cam = document.querySelector("[camera]");
+  return cam ? cam.object3D.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3(0,1.6,0);
+}
+
+function isValidStrike(targetEl, { minZ = -1.0, maxDist = 0.9 } = {}) {
+  // เงื่อนไข: เป้าอยู่เลย z <= minZ (เข้ามาใกล้พอ) และระยะจากกล้องไม่เกิน maxDist
+  const p = new THREE.Vector3();
+  targetEl.object3D.getWorldPosition(p);
+  const cam = cameraPos();
+  const dz = p.z - cam.z;
+  const dist = p.distanceTo(cam);
+  return (p.z <= minZ) && (dist <= maxDist);
+}
+
 (function () {
   const $ = (id) => document.getElementById(id);
 
