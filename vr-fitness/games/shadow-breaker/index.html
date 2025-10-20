@@ -7,6 +7,16 @@
   <style>
     .ui {position: fixed; top: 12px; left: 12px; display:flex; gap:8px; z-index: 10;}
     .hud {position: fixed; right: 12px; top: 12px; padding: 8px 12px; border:1px solid #1a2532; background:#0c131d; border-radius: 10px; font-weight:700;}
+    .results {
+      position: fixed; inset: 0; display:none; align-items:center; justify-content:center;
+      background: rgba(4,8,12,.72); z-index: 20;
+    }
+    .panel {
+      background:#0c131d; border:1px solid #1a2532; border-radius:16px; padding:20px; width: 380px;
+      box-shadow:0 18px 60px #000c, inset 0 1px 0 #2a3a50;
+    }
+    .panel h2{margin:0 0 8px}
+    .row{display:flex; justify-content:space-between; margin:6px 0; color:#8aa2b2}
   </style>
 </head>
 <body>
@@ -15,15 +25,46 @@
     <button class="btn accent" id="startBtn" data-i18n="start">Start</button>
   </div>
   <div class="hud">
-    <span data-i18n="score">Score</span>: <b id="score">0</b> · <span data-i18n="time">Time</span>: <b id="time">60</b>s
+    <span data-i18n="score">Score</span>: <b id="score">0</b> · 
+    Combo: <b id="combo">0</b> · 
+    <span data-i18n="time">Time</span>: <b id="time">60</b>s
   </div>
+
+  <div class="results" id="results">
+    <div class="panel">
+      <h2 data-i18n="results">Results</h2>
+      <div class="row"><span>Score</span><b id="rScore">0</b></div>
+      <div class="row"><span>Max Combo</span><b id="rMaxCombo">0</b></div>
+      <div class="row"><span>Accuracy</span><b id="rAcc">0%</b></div>
+      <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
+        <button class="btn" id="backBtn" data-i18n="back">Back</button>
+        <button class="btn accent" id="replayBtn">Replay</button>
+      </div>
+    </div>
+  </div>
+
   <a-scene renderer="antialias: true; colorManagement: true" background="color: #0b0f14">
-    <a-entity position="0 1.6 0"><a-camera wasd-controls-enabled="false"></a-camera></a-entity>
+    <a-entity position="0 1.6 0">
+      <a-camera wasd-controls-enabled="false"></a-camera>
+    </a-entity>
+
+    <!-- Arena & floor -->
+    <a-plane position="0 0 -3" rotation="-90 0 0" width="8" height="6" color="#0e1622"></a-plane>
     <a-entity id="arena"></a-entity>
-    <a-entity laser-controls="hand: left"></a-entity>
-    <a-entity laser-controls="hand: right"></a-entity>
+
+    <!-- Hands/controllers with speed tracker -->
+    <a-entity id="leftHand" laser-controls="hand: left" hand-speed></a-entity>
+    <a-entity id="rightHand" laser-controls="hand: right" hand-speed></a-entity>
   </a-scene>
-  <script src="../../core/i18n.js"></script><script src="../../core/audio.js"></script><script src="../../core/engine.js"></script>
+
+  <script src="../../core/i18n.js"></script>
+  <script src="../../core/audio.js"></script>
+  <script src="../../core/engine.js"></script>
+  <script src="../../core/leaderboard.js"></script>
   <script src="game.js"></script>
-  <script>document.addEventListener('DOMContentLoaded',()=>{APP.loadConfig().then(()=>{APP.refreshTexts(); AudioBus.playBgm();});});</script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      APP.loadConfig().then(()=>{ APP.refreshTexts(); AudioBus.playBgm(); });
+    });
+  </script>
 </body></html>
