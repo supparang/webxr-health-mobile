@@ -182,14 +182,37 @@ function runTimer(){ if(!state.running || state.paused) return; timeTimer=setTim
 function start(){
   document.getElementById('help').style.display='none';
   coach?.onStart?.(state.modeKey);
+
   state.diffCfg=DIFFS[state.difficulty]||DIFFS.Normal;
-  state.running=true; state.paused=false; state.timeLeft=state.diffCfg.time; spawnCount=0;
+  state.running=true; state.paused=false;
+  state.timeLeft=state.diffCfg.time; spawnCount=0;
   systems.score.reset(); setupLanes();
-  state.ctx={bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0};
+
+  // reset ctx
+  state.ctx={
+    bestStreak:0,currentStreak:0,goodHits:0,junkCaught:0,
+    targetHitsTotal:0,groupWrong:0,waterHits:0,sweetMiss:0,
+    overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,
+    overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0
+  };
+
+  // ✅ เรียก init ของโหมด (สำคัญ!)
+  if (MODES[state.modeKey]?.init){
+    MODES[state.modeKey].init(state, hud, state.diffCfg);
+  }
+
+  // จัดการแสดง/ซ่อน UI ตามโหมด
+  document.getElementById('hydroWrap').style.display = (state.modeKey==='hydration'?'block':'none');
+  document.getElementById('targetWrap').style.display = (state.modeKey==='groups'   ?'block':'none');
+  document.getElementById('plateTracker').style.display= (state.modeKey==='plate'    ?'block':'none');
+
   updateHUD();
-  setTimeout(spawnOnce,200); runSpawn(); runTimer();
+  setTimeout(spawnOnce,200);
+  runSpawn(); runTimer();
+
   document.getElementById('c').style.pointerEvents='auto';
 }
+
 function pause(){ if(!state.running) return; state.paused=!state.paused; if(!state.paused){ runSpawn(); runTimer(); } }
 function end(){
   state.running=false; state.paused=false; clearTimeout(spawnTimer); clearTimeout(timeTimer);
