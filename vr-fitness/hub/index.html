@@ -1,26 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>VR Fitness — Hub</title>
+<style>
+:root{ --bg:#0b0b0b; --card:#151515; --txt:#eaeaea; --muted:#b6b6b6; }
+html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:20px}
+header{display:flex;gap:12px;align-items:center}
+h1{font-size:22px;margin:0}
+.pill{font-size:12px;color:#111;background:#8ef;padding:4px 8px;border-radius:999px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:16px}
+.card{background:var(--card);border-radius:16px;padding:14px;border:1px solid #222}
+.card h3{margin:6px 0 4px 0}
+.row{display:flex;gap:10px;align-items:center;margin-top:8px}
+select,button{background:#222;color:var(--txt);border:1px solid #333;border-radius:10px;padding:8px 10px}
+button.primary{background:#1e90ff;border-color:#1e90ff}
+.toolbar{display:flex;gap:8px;margin-top:12px}
+.right{margin-left:auto}
+.muted{color:var(--muted)}
+</style>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="core/state.js"></script>
+<script src="core/router.js"></script>
+<script src="core/i18n.js"></script>
+<script src="core/audio.js"></script>
+<script src="hub.js" defer></script>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1 id="title">VR Fitness — Hub</h1>
+<span class="pill" id="pill"></span>
+<div class="right toolbar">
+<button id="btnLang">EN/TH</button>
+<button id="btnMute">🔈 Sound</button>
+</div>
+</header>
 
-<!doctype html><html lang="th"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>VR Fitness Suite — Hub</title>
-<style>:root{--bg:#0b1220;--card:#0f172a;--stroke:#1f2a44;--txt:#e6f0ff;--muted:#93a3c5;--accent:#22c55e;--blue:#2563eb}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial}
-.wrap{max-width:980px;width:100%;padding:24px}.head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.card{background:var(--card);border:1px solid var(--stroke);border-radius:18px;padding:18px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
-.card h3{margin:0 0 8px;font-size:18px}.card p{margin:0 0 12px;color:#c7d2fe;font-size:14px;min-height:40px}button{padding:10px 14px;border:0;border-radius:12px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}
-.green{background:var(--accent)}footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}</style></head><body>
-<div class="wrap"><div class="head"><h1 style="margin:0">VR Fitness Suite</h1><div><button class="green" onclick="about()">How to Play</button></div></div>
+
+<p class="muted" id="desc">Choose a workout type, mode, and difficulty — then Start.</p>
+
+
 <div class="grid">
-  <div class="card"><h3>1) Shadow Breaker</h3><p>ตีเป้าลอย — เมาส์/VR/คีย์บอร์ด</p><button onclick="goto('../shadow-breaker/index.html')">Play</button></div>
-  <div class="card"><h3>2) Rhythm Boxer</h3><p>ชกตามจังหวะ — ซ้าย/ขวา</p><button onclick="goto('../rhythm-boxer/index.html')">Play</button></div>
-  <div class="card"><h3>3) Jump & Duck</h3><p>สูง/ต่ำ รีเฟลกซ์ไว</p><button onclick="goto('../jump-duck/index.html')">Play</button></div>
-  <div class="card"><h3>4) Balance Hold</h3><p>โฟกัสค้าง ทีละด่าน</p><button onclick="goto('../balance-hold/index.html')">Play</button></div>
-</div><footer>รองรับ มือถือ + VR + คีย์บอร์ด</footer></div>
-<script>
-function goto(u){location.href=u}
-function about(){alert("คีย์บอร์ดสากล: Enter=Start, Space=Action, P=Pause, Esc=Back\nShadow Breaker: ลูกศร ←→↑↓ หมุนมุมมอง\nRhythm Boxer: ←=ซ้าย, →=ขวา\nJump&Duck: ↑=HIGH, ↓=LOW\nBalance Hold: Space=เริ่ม/ค้าง")}
-document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowLeft') goto('../shadow-breaker/index.html');
-  if(e.key==='ArrowRight') goto('../rhythm-boxer/index.html');
-  if(e.key==='ArrowUp') goto('../jump-duck/index.html');
-  if(e.key==='ArrowDown') goto('../balance-hold/index.html');
-});
-</script></body></html>
+<div class="card" data-game="cardio">
+<h3>Cardio Blast</h3>
+<p class="muted">High‑tempo dodging & hits.</p>
+<div class="row">
+<label>Mode</label>
+<select class="selMode">
+<option value="timed">Timed (60s)</option>
+<option value="free">Free</option>
+</html>
