@@ -121,7 +121,7 @@ function spawnOnce(){
   const m=engine.makeBillboard(meta.char);
   m.position.set(lane.x,lane.y,lane.z);
   m.userData={lane:lane.key,meta};
-  engine.group.add(m); state.ACTIVE.add(m);
+  engine.group.add(m); state.ACTIVE.add(m); state.totals.spawns=(state.totals.spawns||0)+1; if(meta.type==='power'){ state.totals.powers=(state.totals.powers||0)+1; }
   state.totals.spawns++;
   const life=state.diffCfg?.life||3000;
   m.userData.timer=setTimeout(()=>{ if(!m.parent) return; destroy(m); state.totals.misses++; }, life + Math.floor(Math.random()*500-250));
@@ -158,6 +158,25 @@ function onCanvasClick(ev){
   else state.totals.clicks++;
 }
 
+// ===== LIVE RUBRIC HUD =====
+function updateRubricHUD(){
+  if(!state.running) return;
+  try{
+    const rb = computeRubric();
+    const host = document.getElementById('rubricHUD'); if(host) host.style.display='block';
+    const set = (id, val) => { const el=document.getElementById(id); if(el) el.textContent = (typeof val==='number')? String(val): String(val||'0'); };
+    const wid = (id, p) => { const el=document.getElementById(id); if(el) el.style.width = Math.max(0,Math.min(100,p))+'%'; };
+    set('rubComposite', rb.composite|0);
+    set('rubGrade', rb.grade||'-');
+    set('rubAcc', (rb.accuracyPct|0)+'%'); wid('barAcc', rb.accuracyPct|0);
+    set('rubObj', (rb.objectivesPct|0)+'%'); wid('barObj', rb.objectivesPct|0);
+    set('rubCmb', (rb.comboPct|0)+'%'); wid('barCmb', rb.comboPct|0);
+    set('rubTim', (rb.timePct|0)+'%'); wid('barTim', rb.timePct|0);
+    set('rubDis', (rb.disciplinePct|0)+'%'); wid('barDis', rb.disciplinePct|0);
+  }catch(e){}
+}
+let _rubT=0;
+
 // ===== LOOP / TIMER =====
 let spawnTimer=null,timeTimer=null,spawnCount=0,lastTs=performance.now();
 function loop(){
@@ -169,7 +188,7 @@ function loop(){
     if(loop._lastHydZone!==z){ coach?.onHydrationZoneChange?.(z); loop._lastHydZone=z; }
     hud.setHydration(state.hyd,z);
   }
-  updateHUD();
+  updateHUD(); _rubT+=dt; if(_rubT>500){ _rubT=0; updateRubricHUD(); }
 }
 function runSpawn(){
   if(!state.running || state.paused) return;
@@ -231,7 +250,8 @@ function buildResult(){
 
 // ===== GAME STATE =====
 function resetCtx(){
-  state.ctx={goodHits:0,junkHits:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetHits:0,plateFills:0,perfectPlates:0,overfillCount:0};
+  state.ctx={bestStreak:0,currentStreak:0,goodHits:0,junkHits:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetHits:0,overHydPunish:0,lowSweetPunish:0,plateFills:0,perfectPlates:0,overfillCount:0,trapsHit:0,powersUsed:0,timeMinus:0,timePlus:0};
+  state.totals={spawns:0, clicks:0, hits:0, powers:0};
   state.totals={spawns:0, clicks:0, hits:0, misses:0, powers:0};
 }
 function start(){ document.getElementById('help').style.display='none'; coach?.onStart?.(state.modeKey);
