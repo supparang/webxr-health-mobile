@@ -204,31 +204,60 @@ function runTimer(){
 
 // ===== RESULT BUILDER =====
 
+
 function buildResult(){
-  const lang=L(), r=lang.result;
+  const isTH = (SETTINGS.lang==='TH');
+  const label = (th,en)=> isTH? th : en;
+  const modeLabel = (state.modeKey==='goodjunk'?label('🥗 ดี vs ขยะ','🥗 Healthy vs Junk'):
+                    state.modeKey==='groups'?label('🍽️ จาน 5 หมู่','🍽️ Food Groups'):
+                    state.modeKey==='hydration'?label('💧 สมดุลน้ำ','💧 Hydration'):
+                    label('🍱 จัดจานสุขภาพ','🍱 Healthy Plate'));
+  const diffLabel = (state.difficulty==='Easy'?label('ง่าย','Easy'):
+                     state.difficulty==='Hard'?label('ยาก','Hard'):
+                     label('ปกติ','Normal'));
+
   const accuracy = state.totals.hits>0 ? Math.round(100*state.totals.hits/Math.max(1,state.totals.clicks)) : 0;
   const parts = [
-    `${r.mode}: <b>${lang.modes[state.modeKey]}</b>`,
-    `${r.difficulty}: <b>${lang.diff[state.difficulty]}</b>`,
-    `${lang.labels.score}: <b>${systems.score.score|0}</b>`,
-    `${r.timeLeft}: <b>${Math.max(0,state.timeLeft|0)}s</b>`,
-    `${r.bestCombo}: <b>x${systems.score.bestCombo||systems.score.combo||1}</b>`,
-    `Accuracy: <b>${accuracy}%</b> (hits ${state.totals.hits}/${state.totals.clicks})`
+    label('โหมด','Mode')+`: <b>${modeLabel}</b>`,
+    label('ความยาก','Difficulty')+`: <b>${diffLabel}</b>`,
+    label('คะแนน','Score')+`: <b>${systems.score.score|0}</b>`,
+    label('เวลาเหลือ','Time Left')+`: <b>${Math.max(0,state.timeLeft|0)}s</b>`,
+    label('คอมโบสูงสุด','Best Combo')+`: <b>x${systems.score.bestCombo||systems.score.combo||1}</b>`,
+    `Accuracy: <b>${accuracy}%</b> (hits ${state.totals.hits||0}/${state.totals.clicks||0})`
   ];
   const core = parts.join(' | ');
 
   // per-mode breakdown
   let bd = '';
   if(state.modeKey==='goodjunk'){
-    bd = `<ul><li>Good hits: <b>${state.ctx.goodHits||0}</b></li><li>Junk hits: <b>${state.ctx.junkHits||0}</b></li><li>Power-ups seen: <b>${state.totals.powers||0}</b></li></ul>`;
+    bd = `<ul><li>${label('ของดี','Good hits')}: <b>${state.ctx.goodHits||0}</b></li><li>${label('ของขยะ','Junk hits')}: <b>${state.ctx.junkHits||0}</b></li><li>${label('Power-ups พบ','Power-ups seen')}: <b>${state.totals.powers||0}</b></li></ul>`;
   }else if(state.modeKey==='groups'){
-    bd = `<ul><li>Target hits: <b>${state.ctx.targetHitsTotal||0}</b></li><li>Wrong group: <b>${state.ctx.groupWrong||0}</b></li></ul>`;
+    bd = `<ul><li>${label('ตรงหมวดเป้าหมาย','Target hits')}: <b>${state.ctx.targetHitsTotal||0}</b></li><li>${label('ผิดหมวด','Wrong group')}: <b>${state.ctx.groupWrong||0}</b></li></ul>`;
   }else if(state.modeKey==='hydration'){
-    const zone = state.hyd<45?lang.misc.low:(state.hyd>65?lang.misc.high:lang.misc.ok);
-    bd = `<ul><li>Water hits: <b>${state.ctx.waterHits||0}</b></li><li>Sugary misses: <b>${state.ctx.sweetHits||0}</b></li><li>Final meter: <b>${Math.round(state.hyd)}% (${zone})</b></li></ul>`;
+    const zone = state.hyd<45?label('น้อย','Low'):(state.hyd>65?label('มาก','High'):label('พอดี','OK'));
+    bd = `<ul><li>${label('เก็บน้ำ','Water hits')}: <b>${state.ctx.waterHits||0}</b></li><li>${label('พลาดน้ำหวาน','Sugary misses')}: <b>${state.ctx.sweetHits||0}</b></li><li>${label('มิเตอร์สุดท้าย','Final meter')}: <b>${Math.round(state.hyd)}% (${zone})</b></li></ul>`;
   }else if(state.modeKey==='plate'){
-    bd = `<ul><li>Pieces filled: <b>${state.ctx.plateFills||0}</b></li><li>PERFECT plates: <b>${state.ctx.perfectPlates||0}</b></li><li>Overfills: <b>${state.ctx.overfillCount||0}</b></li></ul>`;
+    bd = `<ul><li>${label('เติมชิ้น','Pieces filled')}: <b>${state.ctx.plateFills||0}</b></li><li>PERFECT: <b>${state.ctx.perfectPlates||0}</b></li><li>${label('เกินโควตา','Overfills')}: <b>${state.ctx.overfillCount||0}</b></li></ul>`;
   }
+
+  // Rubric
+  const rb = computeRubric();
+  const rubricHTML = `
+  <div style="margin-top:8px;border-top:1px dashed #0ff;padding-top:8px">
+    <div><b>Rubric</b> → Composite: <b>${rb.composite}</b> / 100 • Grade: <b>${rb.grade}</b></div>
+    <div style="font-size:0.95em;opacity:.9">
+      Accuracy <b>${rb.accuracyPct}%</b> • Objectives <b>${rb.objectivesPct}%</b> • Combo <b>${rb.comboPct}%</b> • Time <b>${rb.timePct}%</b> • Discipline <b>${rb.disciplinePct}%</b>
+    </div>
+  </div>`;
+
+  const tipMap = isTH
+    ? {goodjunk:'เล็งของดี เลี่ยงของขยะ',groups:'ดู 🎯 บน HUD ก่อนคลิก',hydration:'คุม 45–65% ให้เนียน',plate:'เติมตามโควตาให้ครบเพื่อโบนัส'}
+    : {goodjunk:'Aim for good, avoid junk',groups:'Watch 🎯 on HUD',hydration:'Keep 45–65% steady',plate:'Fill each quota for bonus'};
+  const tip = tipMap[state.modeKey] || (isTH?'สู้ ๆ':'Good luck');
+
+  return {core,bd:bd+rubricHTML,tip, rb};
+}
+
 
   // Rubric + grade
   const rb = computeRubric();
