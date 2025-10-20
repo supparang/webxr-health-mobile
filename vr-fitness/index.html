@@ -42,30 +42,82 @@
   <script src="core/ui.js"></script>
   <script src="core/leaderboard.js"></script>
 
+  <!-- Fallback: ถ้า config.json โหลดไม่ได้ ให้เรนเดอร์การ์ดเกมจาก DEFAULT_CFG ที่ฝังไว้ -->
   <script>
-    // Mute toggle
-    document.getElementById('muteBtn').addEventListener('click', ()=>{ AudioBus.mute(true); });
+    const DEFAULT_CFG = {
+      projectName: "VR Fitness Academy",
+      theme: "sport-tech",
+      languages: ["en","th"],
+      defaultLang: "en",
+      games: [
+        {id:"shadow-breaker", name:{en:"Shadow Breaker", th:"ชาโดว์เบรกเกอร์"}, desc:{en:"Slash or punch targets in time.", th:"ฟาด/ชกเป้าตามจังหวะ"}},
+        {id:"rhythm-boxer",  name:{en:"Rhythm Boxer",    th:"ริทึมบ็อกเซอร์"}, desc:{en:"Box to the beat and rack up combos.", th:"ชกตามจังหวะ เก็บคอมโบ"}},
+        {id:"jump-duck",     name:{en:"Jump & Duck",      th:"กระโดดและก้ม"}, desc:{en:"Move your body to dodge barriers.", th:"ขยับตัวหลบสิ่งกีดขวาง"}},
+        {id:"balance-hold",  name:{en:"Balance Hold",     th:"ทรงตัวค้าง"},    desc:{en:"Hold steady poses for points.", th:"ทรงท่าค้าง รับคะแนน"}}
+      ],
+      audio: { bgm: "assets/sfx/bgm.wav", click: "assets/sfx/click.wav" }
+    };
 
-    // Render recent results to the Hub
+    // ปุ่มเสียง
+    document.getElementById('muteBtn').addEventListener('click', ()=>{ try { AudioBus.mute(true); } catch(e){} });
+
+    // Leaderboard preview
     (function(){
       try {
         const list = Leaderboard.recent(8);
         const card = document.getElementById('lbCard');
         if (!list || list.length === 0) {
           card.innerHTML = '<div class="small">No scores yet</div>';
-          return;
+        } else {
+          const rows = list.map(e => {
+            const when = new Date(e.ts).toLocaleString();
+            const game = e.gameId || 'unknown';
+            const acc  = (e.accuracy != null ? (e.accuracy + '%') : '-');
+            return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #1a2532">
+              <div><b>${game}</b> · ${when}</div>
+              <div>Score <b>${e.score || 0}</b> · MaxCombo <b>${e.maxCombo || 0}</b> · Acc ${acc}</div>
+            </div>`;
+          }).join('');
+          card.innerHTML = rows;
         }
-        const rows = list.map(e => {
-          const when = new Date(e.ts).toLocaleString();
-          const game = e.gameId || 'unknown';
-          const acc  = (e.accuracy != null ? (e.accuracy + '%') : '-');
-          return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #1a2532">
-            <div><b>${game}</b> · ${when}</div>
-            <div>Score <b>${e.score || 0}</b> · MaxCombo <b>${e.maxCombo || 0}</b> · Acc ${acc}</div>
-          </div>`;
-        }).join('');
-        card.innerHTML = rows;
       } catch (e) {}
+    })();
+
+    // Fallback renderer: ถ้าผ่าน 600ms แล้วยังไม่มีการ์ดเกม ให้เรนเดอร์จาก DEFAULT_CFG ทันที
+    (function fallbackRender(){
+      setTimeout(() => {
+        const grid = document.getElementById('gameGrid');
+        if (grid && grid.children.length === 0) {
+          // กำหนดภาษาเริ่มต้น
+          const langSel = document.getElementById('langSel');
+          const LANG = (localStorage.getItem('lang') || DEFAULT_CFG.defaultLang || 'en');
+          if (langSel) langSel.value = LANG;
+
+          // แสดงการ์ดเกม
+          grid.innerHTML = DEFAULT_CFG.games.map(g => `
+            <div class="card">
+              <h3>${(g.name[LANG] || g.name.en)}</h3>
+              <p>${(g.desc[LANG] || g.desc.en)}</p>
+              <div style="margin-top:12px; display:flex; gap:8px">
+                <button class="btn accent" data-game="${g.id}">${LANG==='th'?'เล่น':'Play'}</button>
+                <a class="btn" href="games/${g.id}/index.html" target="_blank">${LANG==='th'?'เปิด':'Open'}</a>
+              </div>
+            </div>
+          `).join('');
+
+          // คลิกปุ่ม Play → ไปที่หน้าเกม
+          grid.querySelectorAll('button[data-game]').forEach(btn=>{
+            btn.addEventListener('click', e=>{
+              try { AudioBus.tap(); } catch(e){}
+              const id = e.currentTarget.dataset.game;
+              window.location.href = `games/${id}/index.html?mode=timed&diff=normal`;
+            });
+          });
+
+          // เล่น BGM ถ้ามี
+          try { AudioBus.load(DEFAULT_CFG); AudioBus.playBgm(); } catch(e){}
+        }
+      }, 600);
     })();
   </script>
 </body>
