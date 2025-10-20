@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Rhythm Boxer</title>
+  <title>Jump & Duck</title>
   <style>
     html,body{margin:0;height:100%;background:#000}
     .hud{position:fixed;top:0;left:0;right:0;display:flex;gap:8px;padding:10px;z-index:10}
@@ -46,13 +46,13 @@
   </div>
   <div id="toast"></div>
 
-  <a-scene renderer="colorManagement: true" background="color: #080818" embedded>
+  <a-scene renderer="colorManagement: true" background="color: #101010" embedded>
     <a-entity id="rig">
       <a-entity camera position="0 1.6 0"></a-entity>
       <a-entity cursor="rayOrigin: mouse"></a-entity>
     </a-entity>
     <a-entity light="type:ambient; intensity:0.7"></a-entity>
-    <a-entity light="type:directional; intensity:1.0" position="1 2 0"></a-entity>
+    <a-entity light="type:directional; intensity:0.9" position="1 2 0"></a-entity>
     <a-plane rotation="-90 0 0" width="40" height="40" color="#222"></a-plane>
     <a-entity id="gameRoot"></a-entity>
   </a-scene>
