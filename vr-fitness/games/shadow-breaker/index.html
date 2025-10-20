@@ -7,43 +7,27 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <link rel="stylesheet" href="../../core/themes/sport-tech.css"/>
   <style>
-    /* ===== VR Fitness Pro HUD ===== */
     .ui {position: fixed; top: 14px; left: 14px; display:flex; gap:10px; z-index: 1000;}
     .hud {position: fixed; right: 14px; top: 14px; z-index: 1000;}
     .stack {display:flex; flex-direction:column; gap:10px}
+    .chip{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1px solid #1a2532;
+      background:linear-gradient(180deg,#101a26,#0c131d);box-shadow:0 12px 28px #0008, inset 0 1px 0 #2a3a50;min-width:210px}
+    .chip .lbl{color:#8aa2b2;font-size:12px}.chip .val{font-weight:800;letter-spacing:.3px}.chip .unit{color:#8aa2b2;font-size:12px}
+    .chip.score .val{color:#00ffa3}.chip.combo .val{color:#00d0ff}.chip.time .val{color:#ffd166}.chip.kcal .val{color:#ff9c6b}.chip.hr .val{color:#ff6b6b}
+    .results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,8,12,.72);z-index:1100}
+    .panel{background:#0c131d;border:1px solid #1a2532;border-radius:16px;padding:20px;width:420px;box-shadow:0 18px 60px #000c,inset 0 1px 0 #2a3a50}
+    .panel h2{margin:0 0 10px}.row{display:flex;justify-content:space-between;margin:8px 0;color:#8aa2b2}.row b{color:#e6f2ff}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}.btnbar{margin-top:14px;display:flex;gap:8px;justify-content:flex-end}
 
-    .chip {
-      display:flex; align-items:center; gap:10px;
-      padding:10px 12px; border-radius:14px;
-      border:1px solid #1a2532;
-      background:linear-gradient(180deg,#101a26,#0c131d);
-      box-shadow:0 12px 28px #0008, inset 0 1px 0 #2a3a50;
-      min-width: 210px;
-    }
-    .chip .lbl {color:#8aa2b2; font-size:12px}
-    .chip .val {font-weight:800; letter-spacing:.3px}
-    .chip .unit {color:#8aa2b2; font-size:12px}
-
-    .chip.score   .val{color:#00ffa3}
-    .chip.combo   .val{color:#00d0ff}
-    .chip.time    .val{color:#ffd166}
-    .chip.kcal    .val{color:#ff9c6b}
-    .chip.hr      .val{color:#ff6b6b}
-
-    .helpers {display:flex; gap:10px}
-    .kbd {font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      padding:1px 6px; border-radius:8px; background:#0d1721; border:1px solid #1c2837; color:#b8c7d6}
-
-    /* Results overlay */
-    .results {position: fixed; inset: 0; display:none; align-items:center; justify-content:center;
-      background: rgba(4,8,12,.72); z-index: 1100;}
-    .panel {background:#0c131d; border:1px solid #1a2532; border-radius:16px; padding:20px; width: 420px;
-      box-shadow:0 18px 60px #000c, inset 0 1px 0 #2a3a50;}
-    .panel h2{margin:0 0 10px}
-    .row{display:flex; justify-content:space-between; margin:8px 0; color:#8aa2b2}
-    .row b{color:#e6f2ff}
-    .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px}
-    .btnbar{margin-top:14px; display:flex; gap:8px; justify-content:flex-end}
+    /* ===== Boss HP (HP4 Oni Rage Mode) ===== */
+    .bossbar{position:fixed;left:50%;top:10px;transform:translateX(-50%);width:min(820px,78vw);z-index:1050}
+    .bossbar .bossname{font-weight:900;letter-spacing:.6px;margin:0 0 6px 2px;color:#e6f2ff;text-shadow:0 0 10px #ff4266;}
+    .bossbar .bar{position:relative;width:100%;height:16px;border-radius:12px;border:1px solid #2a0e18;background:#150a0f;overflow:hidden;
+      box-shadow:0 10px 30px #0008,inset 0 1px 0 #3a1622}
+    .bossbar .bar span{position:absolute;left:0;top:0;height:100%;width:100%;
+      background:linear-gradient(90deg,#ff003c,#ff6b6b,#ffd166);box-shadow:inset 0 0 18px #ff426688;transition:width .18s ease,bfilter .18s ease}
+    .bossbar.rage .bar{border-color:#ff3355;background:#16070b;box-shadow:0 0 32px #ff335544, inset 0 1px 0 #57111f}
+    .bossbar.rage .bar span{background:linear-gradient(90deg,#ff0015,#ff005a,#ff8a00);filter:drop-shadow(0 0 10px #ff3355)}
   </style>
 </head>
 <body>
@@ -51,11 +35,7 @@
   <div class="ui">
     <a class="btn" href="../../index.html" data-i18n="back">Back</a>
     <button class="btn accent" id="startBtn" data-i18n="start">Start</button>
-    <div class="helpers">
-      <span class="kbd">PC: Click</span>
-      <span class="kbd">Mobile: Tap</span>
-      <span class="kbd">VR: Trigger</span>
-    </div>
+    <span class="kbd">PC: Click</span><span class="kbd">Mobile: Tap</span><span class="kbd">VR: Trigger</span>
   </div>
 
   <!-- Pro HUD (top-right) -->
@@ -64,10 +44,15 @@
       <div class="chip score"><div class="lbl" data-i18n="score">Score</div><div class="val" id="score">0</div></div>
       <div class="chip combo"><div class="lbl">Combo</div><div class="val" id="combo">0</div></div>
       <div class="chip time"><div class="lbl" data-i18n="time">Time</div><div class="val" id="time">60</div><div class="unit">s</div></div>
-      <!-- Fitness extensions (placeholders ready to wire later) -->
       <div class="chip kcal"><div class="lbl">Calories</div><div class="val" id="kcal">0</div><div class="unit">kcal</div></div>
       <div class="chip hr"><div class="lbl">Heart Rate</div><div class="val" id="hr">—</div><div class="unit">bpm</div></div>
     </div>
+  </div>
+
+  <!-- Boss HP -->
+  <div class="bossbar" id="bossBar" style="display:none">
+    <div class="bossname">RAZORFIST</div>
+    <div class="bar"><span id="bossHPFill" style="width:100%"></span></div>
   </div>
 
   <!-- Results -->
@@ -81,78 +66,43 @@
         <div class="row"><span>Time</span><b id="rTime">60s</b></div>
       </div>
       <div class="row" style="margin-top:6px"><span>Calories (est.)</span><b id="rKcal">0 kcal</b></div>
-      <div class="btnbar">
-        <button class="btn" id="backBtn" data-i18n="back">Back</button>
-        <button class="btn accent" id="replayBtn">Replay</button>
-      </div>
+      <div class="btnbar"><button class="btn" id="backBtn" data-i18n="back">Back</button><button class="btn accent" id="replayBtn">Replay</button></div>
     </div>
   </div>
 
   <a-scene renderer="antialias: true; colorManagement: true" background="color: #0b0f14">
-    <!-- PC / Mouse aiming (makes click work) -->
+    <!-- PC Mouse click support -->
     <a-entity cursor="rayOrigin: mouse" raycaster="objects: .sb-target, .clickable; far: 10"></a-entity>
 
     <!-- Camera rig -->
-    <a-entity position="0 1.6 0">
-      <a-camera wasd-controls-enabled="false"></a-camera>
-    </a-entity>
+    <a-entity position="0 1.6 0"><a-camera wasd-controls-enabled="false"></a-camera></a-entity>
 
-    <!-- Floor -->
+    <!-- Arena -->
     <a-plane position="0 0 -3" rotation="-90 0 0" width="8" height="6" color="#0e1622"></a-plane>
-
-    <!-- Target area -->
     <a-entity id="arena"></a-entity>
 
-    <!-- VR Controllers with hand-speed -->
+    <!-- VR Controllers -->
     <a-entity id="leftHand" laser-controls="hand: left" hand-speed></a-entity>
     <a-entity id="rightHand" laser-controls="hand: right" hand-speed></a-entity>
   </a-scene>
 
-  <!-- Core scripts -->
   <script src="../../core/i18n.js"></script>
   <script src="../../core/audio.js"></script>
   <script src="../../core/engine.js"></script>
   <script src="../../core/platform.js"></script>
   <script src="../../core/leaderboard.js"></script>
-
-  <!-- Game logic -->
   <script src="game.js"></script>
-
-  <!-- Wire up + Fitness placeholders -->
   <script>
     document.addEventListener('DOMContentLoaded', ()=>{
-      // Load shared config + start BGM
-      APP.loadConfig().then(()=>{
-        APP.refreshTexts();
-        AudioBus.playBgm();
-      });
-
-      // Reflect game end stats into extended results fields
-      // (game.js already fills rScore, rMaxCombo, rAcc and shows the #results panel)
-      // We add time + rough calories estimate here (simple placeholder).
-      const timeEl = document.getElementById('time');
-      const rTime  = document.getElementById('rTime');
-      const rKcal  = document.getElementById('rKcal');
-
-      // Observe when results are shown to copy time+estimate kcal
-      const obs = new MutationObserver(()=>{
-        if (document.getElementById('results').style.display === 'flex') {
-          // time left -> elapsed (60 - remaining)
-          const remaining = parseInt(timeEl.textContent || '0', 10);
-          const elapsed = 60 - (isNaN(remaining) ? 0 : remaining);
-          rTime.textContent = elapsed + 's';
-
-          // very rough estimate (placeholder): 6 kcal/min baseline * elapsed/60
-          const kcal = Math.round((6 * (elapsed/60)) * 10) / 10;
-          rKcal.textContent = kcal + ' kcal';
-          // Also reflect to HUD calories
-          const hudK = document.getElementById('kcal'); if (hudK) hudK.textContent = kcal;
-        }
-      });
-      obs.observe(document.getElementById('results'), { attributes:true, attributeFilter:['style'] });
-
-      // Buttons already bound in game.js (start/back/replay),
-      // HUD shows because it's fixed + high z-index.
+      APP.loadConfig().then(()=>{ APP.refreshTexts(); AudioBus.playBgm(); });
+      // Sync result extra info
+      const timeEl=document.getElementById('time'), rTime=document.getElementById('rTime'), rKcal=document.getElementById('rKcal');
+      const obs=new MutationObserver(()=>{
+        if(document.getElementById('results').style.display==='flex'){
+          const remaining=parseInt(timeEl.textContent||'0',10); const elapsed=60-(isNaN(remaining)?0:remaining);
+          rTime.textContent=elapsed+'s'; const kcal=Math.round((6*(elapsed/60))*10)/10; rKcal.textContent=kcal+' kcal';
+          const hudK=document.getElementById('kcal'); if(hudK) hudK.textContent=kcal;
+        }}); obs.observe(document.getElementById('results'),{attributes:true,attributeFilter:['style']});
     });
   </script>
 </body>
