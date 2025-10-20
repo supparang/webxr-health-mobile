@@ -1,5 +1,4 @@
-export class FloatingFX{
-  constructor(engine){ this.engine=engine; }
+export class FloatingFX{ constructor(engine){ this.engine=engine; }
   spawn3D(obj,html,kind){
     const d=document.createElement('div');
     d.style.cssText='position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-weight:700;color:'+(kind==='bad'?'#ff6':'#6f6')+';text-shadow:0 0 8px rgba(0,0,0,.6)';

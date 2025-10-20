@@ -1,10 +1,10 @@
 export const name='จาน 5 หมู่';
 const groups=[
-  {key:'grain',label:'ธัญพืช',icons:['🍞','🍚','🥖','🥨']},
-  {key:'veg',label:'ผัก',icons:['🥦','🥕','🥒','🥬']},
-  {key:'protein',label:'โปรตีน',icons:['🥩','🍗','🥚','🐟']},
-  {key:'fruit',label:'ผลไม้',icons:['🍎','🍌','🍇','🍊']},
-  {key:'dairy',label:'นม',icons:['🥛','🧀']}
+ {key:'grain',label:'ธัญพืช',icons:['🍞','🍚','🥖','🥨']},
+ {key:'veg',label:'ผัก',icons:['🥦','🥕','🥒','🥬']},
+ {key:'protein',label:'โปรตีน',icons:['🥩','🍗','🥚','🐟']},
+ {key:'fruit',label:'ผลไม้',icons:['🍎','🍌','🍇','🍊']},
+ {key:'dairy',label:'นม',icons:['🥛','🧀']}
 ];
 export function init(state,hud,diff){
   state.currentTarget=groups[Math.floor(Math.random()*groups.length)].key;
@@ -23,13 +23,12 @@ export function onHit(meta,systems,state){
     systems.score.add(7);
     state.ctx.targetHitsTotal=(state.ctx.targetHitsTotal||0)+1;
     if((state.ctx.targetHitsTotal % 3)===0){
-      const all=['grain','veg','protein','fruit','dairy']; let next=state.currentTarget;
+      const all=['grain','veg','protein','fruit','dairy'];
+      let next=state.currentTarget;
       while(next===state.currentTarget){ next=all[Math.floor(Math.random()*all.length)]; }
       state.currentTarget=next;
       const labels={grain:'ธัญพืช',veg:'ผัก',protein:'โปรตีน',fruit:'ผลไม้',dairy:'นม'};
       const badge=document.getElementById('targetBadge'); if(badge) badge.textContent=labels[next]||next;
     }
-  } else {
-    systems.score.add(-2);
-  }
+  } else { systems.score.add(-2);}
 }

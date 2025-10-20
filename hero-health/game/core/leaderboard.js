@@ -4,7 +4,7 @@ export class Leaderboard{
       const k='hha_board';
       const arr=JSON.parse(localStorage.getItem(k)||'[]');
       arr.push({t:Date.now(),mode,diff,score});
-      localStorage.setItem(k, JSON.stringify(arr.slice(-200)));
+      localStorage.setItem(k, JSON.stringify(arr).slice(0,200000));
     }catch{}
   }
 }
