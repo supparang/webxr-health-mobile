@@ -138,9 +138,9 @@ function hit(obj){
   MODES[state.modeKey].onHit(meta, systems, state, hud);
 
   if(meta.type==='power'){
-    if(meta.kind==='slow') systems.power.apply('slow');
-    if(meta.kind==='boost') systems.power.apply('boost');
-    if(meta.kind==='shield') systems.power.apply('shield');
+    if(meta.kind==='slow'){ systems.power.apply('slow'); coach?.onPower?.('slow'); }
+    if(meta.kind==='boost'){ systems.power.apply('boost'); coach?.onPower?.('boost'); }
+    if(meta.kind==='shield'){ systems.power.apply('shield'); coach?.onPower?.('shield'); }
   }
 
   state.totals.hits++; state.totals.clicks++;
@@ -166,6 +166,7 @@ function loop(){
   if(state.running && state.modeKey==='hydration'){
     state.hyd = Math.max(0, Math.min(100, state.hyd - 0.0003*dt*(systems.power.timeScale||1)));
     const z=state.hyd<45?'low':(state.hyd>65?'high':'ok');
+    if(loop._lastHydZone!==z){ coach?.onHydrationZoneChange?.(z); loop._lastHydZone=z; }
     hud.setHydration(state.hyd,z);
   }
   updateHUD();
@@ -233,8 +234,7 @@ function resetCtx(){
   state.ctx={goodHits:0,junkHits:0,targetHitsTotal:0,groupWrong:0,waterHits:0,sweetHits:0,plateFills:0,perfectPlates:0,overfillCount:0};
   state.totals={spawns:0, clicks:0, hits:0, misses:0, powers:0};
 }
-function start(){
-  document.getElementById('help').style.display='none';
+function start(){ document.getElementById('help').style.display='none'; coach?.onStart?.(state.modeKey);
   state.diffCfg=DIFFS[state.difficulty]||DIFFS.Normal;
   state.running=true; state.paused=false;
   state.timeLeft=state.diffCfg.time; spawnCount=0; resetCtx();
@@ -257,8 +257,8 @@ function end(){
   const lang=L();
   document.getElementById('resTitle').textContent=lang.result.title;
   const {core,bd,tip,rb}=buildResult();
+  try{ coach?.onEnd?.(systems.score.score|0, rb, state); }catch{}
   document.getElementById('resCore').innerHTML = core;
-  // career stats
   const career = updateCareer(systems.score.score|0, rb);
   const careerHTML = `<div style="margin-top:8px;border-top:1px dashed #0ff;padding-top:8px">
     <b>Career Stats</b> — Sessions: <b>${career.sessions||1}</b> • Best Score: <b>${career.bestScore||0}</b> • Best Grade: <b>${career.bestGrade||'E'}</b> • Avg Accuracy: <b>${career.avgAccuracy||0}%</b>
@@ -273,7 +273,7 @@ function boot(){
   const canvas=document.getElementById('c');
   const THREEwin = window.THREE;
   engine=new Engine(THREEwin,canvas);
-  hud=new HUD(); floating=new FloatingFX(engine); coach=new Coach();
+  hud=new HUD(); floating=new FloatingFX(engine); coach=new Coach({persona:'C5', lang:'L3'});
   systems={ score:new ScoreSystem(), fever:new FeverSystem(), power:new PowerUpSystem(), mission:new MissionSystem(), board:new Leaderboard() };
 
   document.getElementById('langToggle')?.addEventListener('click', ()=>{ state.L = state.L==='TH' ? 'EN' : 'TH'; SETTINGS.lang=state.L; applyLanguage(); });
