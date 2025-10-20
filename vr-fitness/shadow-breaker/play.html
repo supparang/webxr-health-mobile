@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Shadow Breaker</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    .hud { position:fixed; top:10px; left:10px; right:10px; display:flex; gap:10px; justify-content:space-between; 
+            font: 600 16px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.6); }
+    .pill { background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.18); padding:8px 12px; border-radius:999px; }
+    .footer { position:fixed; bottom:10px; left:10px; right:10px; text-align:center; color:#d8e6ff; opacity:.9 }
+    .footer kbd { background:#16203e; border:1px solid #2b3b6e; border-bottom-width:3px; padding:2px 6px; border-radius:6px; }
+  </style>
+  
+<audio id="bgm" src="./assets/bgm_combat.mp3" preload="auto"></audio>
+<audio id="hit" src="./assets/hit.wav" preload="auto"></audio>
+
+</head>
+<body>
+  <div class="hud">
+    <div class="pill" id="hudLeft">Shadow Breaker</div>
+    <div class="pill" id="hudCenter">Score: <span id="score">0</span></div>
+    <div class="pill" id="hudRight">Time: <span id="time">60</span>s</div>
+  </div>
+  <div class="footer" id="hint"></div>
+
+  <a-scene renderer="antialias: true; colorManagement: true" vr-mode-ui="enterVRButton: true">
+    <a-sky color="#0b0f1c"></a-sky>
+    <a-entity position="0 1.6 0" camera look-controls>
+      <a-entity cursor="fuse: true; fuseTimeout: 900" position="0 0 -0.8"
+                geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.008"
+                material="color: white; shader: flat"></a-entity>
+    </a-entity>
+    <a-entity id="game"></a-entity>
+  </a-scene>
+
+  <script src="./game.js"></script>
+  
+</body>
+</html>
