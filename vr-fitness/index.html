@@ -1,23 +1,72 @@
 <!doctype html>
-<html lang="en"><head>
-  <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>VR Fitness Academy · Sport Tech</title>
-  <link rel="stylesheet" href="core/themes/sport-tech.css"/></head>
+  <link rel="stylesheet" href="core/themes/sport-tech.css"/>
+</head>
 <body>
   <header class="header">
     <div class="brand">VR Fitness Academy</div>
     <div class="toolbar">
       <label class="small" for="langSel" data-i18n="language">Language</label>
-      <select id="langSel" class="btn"><option value="en">English</option><option value="th">ไทย</option></select>
+      <select id="langSel" class="btn">
+        <option value="en">English</option>
+        <option value="th">ไทย</option>
+      </select>
       <button class="btn" id="muteBtn">🔊</button>
     </div>
   </header>
+
   <main class="container">
     <h1 style="margin:12px 0 6px" data-i18n="hub_title">Choose your workout</h1>
     <div class="small" data-i18n="hub_sub">4 mini-games • scoring • BGM • results</div>
     <div class="grid" id="gameGrid" aria-live="polite"></div>
   </main>
-  <footer class="footer"><span>Sport Tech UI · <span class="kbd">ESC</span> to exit VR</span></footer>
-  <script src="core/i18n.js"></script><script src="core/audio.js"></script><script src="core/engine.js"></script><script src="core/ui.js"></script>
-  <script>document.getElementById('muteBtn').addEventListener('click',()=>{AudioBus.mute(true);});</script>
-</body></html>
+
+  <!-- Recent Results (central leaderboard preview) -->
+  <section class="container" id="lbSection">
+    <h2 style="margin:4px 0 10px">Recent Results</h2>
+    <div class="card" id="lbCard"><div class="small">No scores yet</div></div>
+  </section>
+
+  <footer class="footer">
+    <span>Sport Tech UI · <span class="kbd">ESC</span> to exit VR</span>
+  </footer>
+
+  <!-- Core scripts -->
+  <script src="core/i18n.js"></script>
+  <script src="core/audio.js"></script>
+  <script src="core/engine.js"></script>
+  <script src="core/ui.js"></script>
+  <script src="core/leaderboard.js"></script>
+
+  <script>
+    // Mute toggle
+    document.getElementById('muteBtn').addEventListener('click', ()=>{ AudioBus.mute(true); });
+
+    // Render recent results to the Hub
+    (function(){
+      try {
+        const list = Leaderboard.recent(8);
+        const card = document.getElementById('lbCard');
+        if (!list || list.length === 0) {
+          card.innerHTML = '<div class="small">No scores yet</div>';
+          return;
+        }
+        const rows = list.map(e => {
+          const when = new Date(e.ts).toLocaleString();
+          const game = e.gameId || 'unknown';
+          const acc  = (e.accuracy != null ? (e.accuracy + '%') : '-');
+          return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #1a2532">
+            <div><b>${game}</b> · ${when}</div>
+            <div>Score <b>${e.score || 0}</b> · MaxCombo <b>${e.maxCombo || 0}</b> · Acc ${acc}</div>
+          </div>`;
+        }).join('');
+        card.innerHTML = rows;
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>
