@@ -9,108 +9,105 @@
     window.__toastHold = setTimeout(() => (t.style.display = "none"), 1400);
   }
 
-  // Config ความยากสำหรับ Balance Hold
   function getConfig() {
     const diff = APP.state.diff || "normal";
     return diff === "easy"
-      ? { holdTime: 1200, spawn: 1800 }
+      ? { holdTime: 1200, spawn: 1800, points: 6 }
       : diff === "hard"
-      ? { holdTime: 700, spawn: 1000 }
-      : { holdTime: 900, spawn: 1400 };
+      ? { holdTime: 700, spawn: 1000, points: 10 }
+      : { holdTime: 900, spawn: 1400, points: 8 };
   }
 
-  // สร้าง "ด่านทรงตัว" แบบกดค้าง Hold
+  let running = false;
+
   function startGame() {
     const root = $("gameRoot");
     while (root.firstChild) root.removeChild(root.firstChild);
-
-    let running = true;
+    running = true;
 
     function spawnBalancePoint() {
       if (!running) return;
 
+      const cfg = getConfig();
       const point = document.createElement("a-sphere");
       point.setAttribute("radius", "0.28");
       point.setAttribute("color", "#fced13");
 
-      // สุ่มตำแหน่งด้านหน้า
       const x = (Math.random() * 4 - 2).toFixed(2);
       const y = (Math.random() * 1 + 1).toFixed(2);
-      point.setAttribute("position", `${x} ${y} -3`);
-
-      // ปล่อยออกมาทีละลูก
+      const z = -3;
+      point.setAttribute("position", `${x} ${y} ${z}`);
       root.appendChild(point);
 
-      // Animation ให้ดูเหมือนสั่นๆ ต้องประคอง
       point.setAttribute(
         "animation__pulse",
         "property: scale; dir: alternate; dur: 600; easing: easeInOutSine; loop: true; to: 1.2 1.2 1.2"
       );
 
-      // ต้องค้างให้ครบเวลาเพื่อให้หายไป
+      // กดครั้งเดียวเพื่อ "เริ่มถือ" (simulate hold)
+      let held = false, holdTimer = null;
       point.addEventListener("click", () => {
-        const hold = getConfig().holdTime;
-        setTimeout(() => {
-          try {
-            root.removeChild(point);
-          } catch (e) {}
-        }, hold);
+        if (held) return; // กันกดซ้ำ
+        held = true;
+        // ถือครบเวลา → ได้คะแนน และหายไป
+        holdTimer = setTimeout(() => {
+          try { root.removeChild(point); } catch (e) {}
+          APP.hud.hit(cfg.points);
+        }, cfg.holdTime);
       });
 
-      // spawn ต่อ
-      setTimeout(spawnBalancePoint, getConfig().spawn);
+      // กัน memory leak
+      point.addEventListener("removed", () => {
+        if (holdTimer) clearTimeout(holdTimer);
+      });
+
+      // สร้างเป้าต่อไป
+      setTimeout(spawnBalancePoint, cfg.spawn);
     }
 
     spawnBalancePoint();
-
-    // หยุดเมื่อออกหน้า
-    window.addEventListener(
-      "beforeunload",
-      () => {
-        running = false;
-      },
-      { once: true }
-    );
   }
 
   function bindUI() {
     const overlay = $("overlay");
     const status = $("status");
 
-    // กลับ Hub
-    $("btnBack").onclick = () => {
-      location.href = "../hub/index.html";
-    };
+    // ติดตั้ง HUD
+    APP.hud.mount("balance-hold", {
+      onRestart: () => {
+        startGame();
+      },
+    });
 
-    // เริ่มเกม
+    $("btnBack").onclick = () => (location.href = "../hub/index.html");
+
     $("btnStart").onclick = async () => {
-      try {
-        await APP.audio.init();
-      } catch (e) {}
-      APP.setState({ scene: "playing" });
+      try { await APP.audio.init(); } catch (e) {}
       overlay.classList.add("hidden");
-      startGame();
+      startGame();     // เริ่มสปอว์นเป้าทรงตัว
+      APP.hud.start(); // เริ่มจับเวลา/คะแนน
       toast("Hold steady!");
     };
 
-    // ภาษา
-    $("btnLang").onclick = () => {
+    $("btnLang").onclick = () =>
       APP.i18n.set(APP.i18n.current === "en" ? "th" : "en");
-    };
 
-    // ปิด/เปิดเสียง
     $("btnMute").onclick = () => {
       const muted = APP.audio.toggle();
       $("btnMute").textContent = muted ? "🔇 Muted" : "🔈 Sound";
     };
 
-    // สถานะ HUD
     function render() {
       const s = APP.state;
-      status.textContent = `mode:${s.mode} | diff:${s.diff} | lang:${s.lang}`;
+      status.textContent = `mode:${s.mode} | diff:${s.diff}`;
     }
     document.addEventListener("app:state-change", render);
     render();
+
+    // เมื่อ HUD ส่งสัญญาณจบเกม (หมดเวลา)
+    document.addEventListener("vrfit:game-end", () => {
+      running = false;
+    });
   }
 
   document.addEventListener("DOMContentLoaded", bindUI);
