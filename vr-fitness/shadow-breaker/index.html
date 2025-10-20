@@ -13,11 +13,21 @@
     #overlay .panel{background:#111;color:#fff;padding:20px;border-radius:16px;min-width:280px;text-align:center}
     #toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 12px;border-radius:12px;opacity:.9;font-family:monospace;z-index:20;display:none}
   </style>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Core (shared from hub) -->
   <script src="../hub/core/state.js"></script>
   <script src="../hub/core/router.js"></script>
   <script src="../hub/core/i18n.js"></script>
   <script src="../hub/core/audio.js"></script>
+
+  <!-- Phase 2: HUD & Utils -->
+  <script src="../hub/core/utils.js"></script>
+  <script src="../hub/core/hud.js"></script>
+
+  <!-- Game script -->
   <script src="game.js" defer></script>
 </head>
 <body>
