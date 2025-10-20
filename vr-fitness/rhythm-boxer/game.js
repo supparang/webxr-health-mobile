@@ -5,26 +5,26 @@
     const t = $("toast");
     t.textContent = msg;
     t.style.display = "block";
-    clearTimeout(window.__toastTimer);
-    window.__toastTimer = setTimeout(() => (t.style.display = "none"), 1400);
+    clearTimeout(window.__toastBeat);
+    window.__toastBeat = setTimeout(() => (t.style.display = "none"), 1400);
   }
 
-  // ตั้งค่าความยากของ Rhythm Boxer
+  // ความยากของ Rhythm Boxer
   function getConfig() {
     const diff = APP.state.diff || "normal";
     return diff === "easy"
-      ? { speed: 0.7, spawn: 1100 }
+      ? { speed: 0.8, spawn: 1100 }
       : diff === "hard"
       ? { speed: 1.4, spawn: 650 }
       : { speed: 1.0, spawn: 850 };
   }
 
-  // เริ่มเกม
+  let running = false;
+
   function startGame() {
     const root = $("gameRoot");
     while (root.firstChild) root.removeChild(root.firstChild);
-
-    let running = true;
+    running = true;
 
     function spawnBeat() {
       if (!running) return;
@@ -33,95 +33,82 @@
       beat.setAttribute("radius", "0.25");
       beat.setAttribute("color", "#39f");
 
-      // ตำแหน่งแบบแถวหน้า
+      // แถวหน้ากึ่งกลาง ซ้าย/ขวาแบบสุ่มเล็กน้อย
       const x = (Math.random() * 4 - 2).toFixed(2);
       const z = -4;
       beat.setAttribute("position", `${x} 1.4 ${z}`);
       root.appendChild(beat);
 
-      // Animation เคลื่อนเข้าหาผู้เล่น
       const { speed, spawn } = getConfig();
-      const duration = Math.max(350, 2600 / speed);
-      beat.setAttribute(
-        "animation",
-        `property: position; to: ${x} 1.4 -0.3; dur: ${duration}; easing: linear`
-      );
+      const dur = Math.max(320, 2600 / speed);
 
-      // Animation เต้นตามจังหวะ (pulse)
-      beat.setAttribute(
-        "animation__pulse",
-        "property: scale; dir: alternate; dur: 350; easing: easeInOutSine; loop: true; to: 1.3 1.3 1.3"
-      );
+      // เคลื่อนเข้าหาผู้เล่น + เต้นเป็นจังหวะ
+      beat.setAttribute("animation__move", `property: position; to: ${x} 1.4 -0.3; dur: ${dur}; easing: linear`);
+      beat.setAttribute("animation__pulse", "property: scale; dir: alternate; dur: 350; easing: easeInOutSine; loop: true; to: 1.3 1.3 1.3");
 
-      // คลิกเพื่อทำลาย
+      // โดน = คลิกทำลาย (ให้คะแนน)
       beat.classList.add("clickable");
       beat.addEventListener("click", () => {
-        try {
-          root.removeChild(beat);
-        } catch (e) {}
+        try { root.removeChild(beat); } catch (e) {}
+        APP.hud.hit(8); // แต้มพื้นฐาน 8 ต่อโน้ต
       });
 
-      // auto remove เมื่อจบอนิเมชัน
-      beat.addEventListener("animationcomplete", () => {
-        try {
-          root.removeChild(beat);
-        } catch (e) {}
+      // พลาด = มาถึงระยะ -0.3 แล้วไม่โดน
+      beat.addEventListener("animation__move-complete", () => {
+        try { root.removeChild(beat); } catch (e) {}
+        APP.hud.miss();
       });
 
-      // spawn ลูกต่อไปตาม diff
+      // สร้างลูกต่อไปตาม diff
       setTimeout(spawnBeat, spawn);
     }
 
     spawnBeat();
-
-    window.addEventListener(
-      "beforeunload",
-      () => {
-        running = false;
-      },
-      { once: true }
-    );
   }
 
   function bindUI() {
     const overlay = $("overlay");
     const status = $("status");
 
-    // ปุ่มย้อนกลับ
+    // ติดตั้ง HUD
+    APP.hud.mount("rhythm-boxer", {
+      onRestart: () => {
+        startGame();
+      },
+    });
+
     $("btnBack").onclick = () => {
       location.href = "../hub/index.html";
     };
 
-    // ปุ่มเริ่มเกม
     $("btnStart").onclick = async () => {
-      try {
-        await APP.audio.init();
-      } catch (e) {}
-      APP.setState({ scene: "playing" });
+      try { await APP.audio.init(); } catch (e) {}
       overlay.classList.add("hidden");
-      startGame();
+      startGame();     // เริ่มสปอว์น
+      APP.hud.start(); // เริ่มจับเวลา/คะแนน
       toast("Beat started!");
     };
 
-    // ปุ่มภาษา
     $("btnLang").onclick = () => {
       APP.i18n.set(APP.i18n.current === "en" ? "th" : "en");
     };
 
-    // ปุ่มเปิด-ปิดเสียง
     $("btnMute").onclick = () => {
       const mute = APP.audio.toggle();
       $("btnMute").textContent = mute ? "🔇 Muted" : "🔈 Sound";
     };
 
-    // แสดงสถานะบน HUD
     function render() {
       const s = APP.state;
-      status.textContent = `mode:${s.mode} | diff:${s.diff} | lang:${s.lang}`;
+      status.textContent = `mode:${s.mode} | diff:${s.diff}`;
     }
-
     document.addEventListener("app:state-change", render);
     render();
+
+    // จบเกมเมื่อหมดเวลา (HUD จะยิง event ให้)
+    document.addEventListener("vrfit:game-end", () => {
+      running = false;
+    });
   }
 
   document.addEventListener("DOMContentLoaded", bindUI);
