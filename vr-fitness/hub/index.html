@@ -1,55 +1,62 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>VR Fitness — Hub</title>
-<style>
-:root{ --bg:#0b0b0b; --card:#151515; --txt:#eaeaea; --muted:#b6b6b6; }
-html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
-.wrap{max-width:980px;margin:0 auto;padding:20px}
-header{display:flex;gap:12px;align-items:center}
-h1{font-size:22px;margin:0}
-.pill{font-size:12px;color:#111;background:#8ef;padding:4px 8px;border-radius:999px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:16px}
-.card{background:var(--card);border-radius:16px;padding:14px;border:1px solid #222}
-.card h3{margin:6px 0 4px 0}
-.row{display:flex;gap:10px;align-items:center;margin-top:8px}
-select,button{background:#222;color:var(--txt);border:1px solid #333;border-radius:10px;padding:8px 10px}
-button.primary{background:#1e90ff;border-color:#1e90ff}
-.toolbar{display:flex;gap:8px;margin-top:12px}
-.right{margin-left:auto}
-.muted{color:var(--muted)}
-</style>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<script src="core/state.js"></script>
-<script src="core/router.js"></script>
-<script src="core/i18n.js"></script>
-<script src="core/audio.js"></script>
-<script src="hub.js" defer></script>
-</head>
-<body>
-<div class="wrap">
-<header>
-<h1 id="title">VR Fitness — Hub</h1>
-<span class="pill" id="pill"></span>
-<div class="right toolbar">
-<button id="btnLang">EN/TH</button>
-<button id="btnMute">🔈 Sound</button>
+</select>
 </div>
-</header>
+<div class="toolbar">
+<button class="start primary">Start</button>
+</div>
+</div>
 
 
-<p class="muted" id="desc">Choose a workout type, mode, and difficulty — then Start.</p>
-
-
-<div class="grid">
-<div class="card" data-game="cardio">
-<h3>Cardio Blast</h3>
-<p class="muted">High‑tempo dodging & hits.</p>
+<div class="card" data-game="combat">
+<h3>Combat Drills</h3>
+<p class="muted">Strike targets, build combos.</p>
 <div class="row">
 <label>Mode</label>
 <select class="selMode">
 <option value="timed">Timed (60s)</option>
 <option value="free">Free</option>
+</select>
+</div>
+<div class="row">
+<label>Difficulty</label>
+<select class="selDiff">
+<option value="easy">Easy</option>
+<option value="normal" selected>Normal</option>
+<option value="hard">Hard</option>
+</select>
+</div>
+<div class="toolbar">
+<button class="start primary">Start</button>
+</div>
+</div>
+
+
+<div class="card" data-game="rhythm">
+<h3>Rhythm Flow</h3>
+<p class="muted">Move on the beat.</p>
+<div class="row">
+<label>Mode</label>
+<select class="selMode">
+<option value="timed">Timed (60s)</option>
+<option value="free">Free</option>
+</select>
+</div>
+<div class="row">
+<label>Difficulty</label>
+<select class="selDiff">
+<option value="easy">Easy</option>
+<option value="normal" selected>Normal</option>
+<option value="hard">Hard</option>
+</select>
+</div>
+<div class="toolbar">
+<button class="start primary">Start</button>
+</div>
+</div>
+</div>
+
+
+<p class="muted" style="margin-top:16px" id="status">state …</p>
+</div>
+</body>
 </html>
