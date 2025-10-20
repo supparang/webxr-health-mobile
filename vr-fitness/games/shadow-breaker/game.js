@@ -24,10 +24,14 @@
     tel_shock: new Audio('../../assets/sfx/tel_shock.wav'),
     tel_guard: new Audio('../../assets/sfx/tel_guard.wav'),
     boss_roar: new Audio('../../assets/sfx/boss_roar.wav'),
-    hp_hit: new Audio('../../assets/sfx/hp_hit.wav')
+    hp_hit: new Audio('../../assets/sfx/hp_hit.wav'),
+    tel_dash: new Audio('../../assets/sfx/tel_dash.wav'),
+    enrage: new Audio('../../assets/sfx/enrage.wav'),
+    success: new Audio('../../assets/sfx/success.wav')
   };
 
   function $(q){return document.querySelector(q);} function $el(id){return document.getElementById(id);}
+  function shake(){ const scn=document.querySelector('a-scene'); if(!scn) return; scn.classList.add('shake-scene'); setTimeout(()=>scn.classList.remove('shake-scene'), 250); }
 
   AFRAME.registerComponent('hand-speed',{schema:{speed:{type:'number',default:0}},init(){this.prev=null;this.prevT=performance.now();this.vel=new THREE.Vector3();},
     tick(){const p=this.el.object3D.getWorldPosition(new THREE.Vector3());const now=performance.now();
@@ -59,8 +63,10 @@
 
   const BOSS={active:false,hp:0,max:1000,rage:false,name:'RAZORFIST', anchor:null, phase:1, busy:false};
   function bossShowUI(show){ const bar=$el('bossBar'); if(!bar)return; bar.style.display=show?'block':'none'; }
-  function bossSetHP(h){ BOSS.hp=Math.max(0,Math.min(BOSS.max,h)); const fill=$el('bossHPFill'); if(fill){ fill.style.width=((BOSS.hp/BOSS.max)*100)+'%'; }
-    const bar=$el('bossBar'); if(bar){ const rageNow = (BOSS.hp/BOSS.max)<=0.33; if(rageNow!==BOSS.rage){ BOSS.rage=rageNow; bar.classList.toggle('rage', BOSS.rage); } } }
+  function bossSetHP(h){ const was=BOSS.hp; BOSS.hp=Math.max(0,Math.min(BOSS.max,h)); const fill=$el('bossHPFill'); if(fill){ fill.style.width=((BOSS.hp/BOSS.max)*100)+'%'; }
+    const bar=$el('bossBar'); if(bar){ const rageNow = (BOSS.hp/BOSS.max)<=0.33; if(rageNow!==BOSS.rage){ BOSS.rage=rageNow; bar.classList.toggle('rage', BOSS.rage); } }
+    if(BOSS.phase===1 && (BOSS.hp/BOSS.max)<=0.5){ enterPhase2(); }
+  }
   function bossBarHit(){ const bar=$el('bossBar'); if(!bar) return; bar.classList.add('hit'); setTimeout(()=>bar.classList.remove('hit'), 260); }
   function bossDamage(amount, pos){
     if(!BOSS.active) return;
@@ -90,21 +96,36 @@
 
   function bossSpawn(){ BOSS.active=true; BOSS.max=1000; BOSS.hp=BOSS.max; BOSS.rage=false; BOSS.phase=1; BOSS.busy=false; bossIntro_OP5(); setTimeout(bossLoop, 1200); }
 
-  const P1 = ['slash_cross','rapid_fist','guard_break']; let p1Index=0;
-  function bossLoop(){ if(!running || !BOSS.active || BOSS.busy) return; const pattern=P1[p1Index % P1.length]; p1Index++; if(pattern==='slash_cross') doSlashCross(); else if(pattern==='rapid_fist') doRapidFist(); else if(pattern==='guard_break') doGuardBreak(); }
+  // Phase 1 Pattern
+  const P1 = ['slash_cross','rapid_fist','guard_break']; let pIndex=0;
+  // Phase 2 Pattern
+  const P2 = ['shadow_dash','multi_slash','enrage_combo'];
+
+  function bossLoop(){
+    if(!running || !BOSS.active || BOSS.busy) return;
+    const arr = (BOSS.phase===1? P1 : P2);
+    const pattern = arr[pIndex % arr.length]; pIndex++;
+    if(pattern==='slash_cross') doSlashCross();
+    else if(pattern==='rapid_fist') doRapidFist();
+    else if(pattern==='guard_break') doGuardBreak();
+    else if(pattern==='shadow_dash') doShadowDash();
+    else if(pattern==='multi_slash') doMultiSlash();
+    else if(pattern==='enrage_combo') doEnrageCombo();
+  }
   function after(ms, fn){ return setTimeout(fn, ms); }
-  function playerHit(label='#ff5577'){ combo=0; onComboChange(); score = Math.max(0, score-5); $('#score').textContent=score; APP.badge('HIT!'); floatText('HIT', label, new THREE.Vector3(0,1.5,-2.2)); }
+  function playerHit(label='#ff5577'){ combo=0; onComboChange(); score = Math.max(0, score-5); $('#score').textContent=score; shake(); APP.badge('HIT!'); floatText('HIT', label, new THREE.Vector3(0,1.5,-2.2)); }
 
   function doSlashCross(){
     BOSS.busy=true; sfx.tel_slash.currentTime=0; sfx.tel_slash.play().catch(()=>{});
     const arena=$el('arena'); const guide=document.createElement('a-entity');
     guide.setAttribute('geometry','primitive: box; height: 0.04; width: 1.2; depth: 0.04');
-    guide.setAttribute('material','color: #ff3355; opacity: 0.8; transparent: true');
+    guide.setAttribute('material','color: #ff3355; opacity: 0.85; transparent: true');
     guide.setAttribute('rotation','0 0 -35'); guide.setAttribute('position','0 1.4 -2.2');
     guide.classList.add('clickable','boss-attack');
     guide.addEventListener('click', ()=>{ parry(guide); });
     arena.appendChild(guide);
-    after(900, ()=>{ if(!guide.parentNode){ finishAttack(); return; } playerHit(); guide.parentNode.removeChild(guide); finishAttack(); });
+    const window = BOSS.phase===1? 900 : 700;
+    after(window, ()=>{ if(!guide.parentNode){ finishAttack(); return; } playerHit(); guide.parentNode.removeChild(guide); finishAttack(); });
   }
   function parry(el){
     if(!el || !el.parentNode) return;
@@ -115,12 +136,12 @@
   }
 
   function doRapidFist(){
-    BOSS.busy=true; let hits=0;
-    const doOne = ()=>{
+    BOSS.busy=true; let count=0;
+    const next = ()=>{
       sfx.tel_shock.currentTime=0; sfx.tel_shock.play().catch(()=>{});
-      spawnShockwave( (done)=>{ hits++; if(hits<3){ after(450, doOne); } else { finishAttack(); } });
+      spawnShockwave( ()=>{ count++; if(count<(BOSS.phase===1?3:4)){ after(BOSS.phase===1?450:380, next); } else { finishAttack(); } } );
     };
-    doOne();
+    next();
   }
   function spawnShockwave(onDone){
     const ring=document.createElement('a-ring'); ring.classList.add('clickable','boss-attack');
@@ -128,10 +149,10 @@
     ring.setAttribute('material','color: #ffd166; opacity: 0.95; shader: flat');
     const arena=$el('arena'); arena.appendChild(ring);
     ring.addEventListener('click', ()=>{ floatText('BREAK','#00ffa3', ring.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(16, ring.object3D.getWorldPosition(new THREE.Vector3())); cleanup(); });
-    const start=performance.now();
+    const start=performance.now(), dur=BOSS.phase===1?700:560;
     function step(){
       if(!ring.parentNode) return;
-      const t=(performance.now()-start)/700;
+      const t=(performance.now()-start)/dur;
       const r=0.07 + t*0.9;
       ring.setAttribute('radius-inner', Math.max(0.01, r-0.02));
       ring.setAttribute('radius-outer', r);
@@ -150,14 +171,90 @@
     core.setAttribute('animation__in',{property:'scale', to:'1 1 1', dur:140, easing:'easeOutBack'});
     $el('arena').appendChild(core);
     core.addEventListener('click', ()=>{ bossDamage(10, core.object3D.getWorldPosition(new THREE.Vector3())); removeCore(); });
-    after(900, ()=>{ if(!core.parentNode){ finishAttack(); return; } playerHit('#ff3355'); removeCore(); });
+    after(BOSS.phase===1?900:750, ()=>{ if(!core.parentNode){ finishAttack(); return; } playerHit('#ff3355'); removeCore(); });
     function removeCore(){ core.parentNode && core.parentNode.removeChild(core); finishAttack(); }
   }
 
-  function finishAttack(){ BOSS.busy=false; after(550, bossLoop); }
+  // === Phase 2: Shadow Dash (dodge left/right) ===
+  function doShadowDash(){
+    BOSS.busy=true; sfx.tel_dash.currentTime=0; sfx.tel_dash.play().catch(()=>{});
+    const l=document.createElement('a-box'), r=document.createElement('a-box');
+    [l,r].forEach((b,i)=>{ b.classList.add('clickable','boss-attack'); b.setAttribute('width','0.5'); b.setAttribute('height','0.3'); b.setAttribute('depth','0.05');
+      b.setAttribute('color', i===0?'#00d0ff':'#00ffa3'); b.setAttribute('position', (i===0?'-0.9':'0.9')+' 1.0 -2.0'); $el('arena').appendChild(b); });
+    let dodged=false;
+    const onDodge = (box)=>{ if(dodged) return; dodged=true; floatText('DODGE','#9bd1ff', box.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12, box.object3D.getWorldPosition(new THREE.Vector3())); cleanup(); };
+    l.addEventListener('click', ()=>onDodge(l)); r.addEventListener('click', ()=>onDodge(r));
+    after(700, ()=>{ if(!dodged){ playerHit('#ff8844'); cleanup(); } });
+    function cleanup(){ l.parentNode && l.parentNode.removeChild(l); r.parentNode && r.parentNode.removeChild(r); finishAttack(); }
+  }
+
+  // === Phase 2: Multi-Slash (2 parries in sequence; shorter windows) ===
+  function doMultiSlash(){
+    BOSS.busy=true;
+    const seq=[-35, 35]; let idx=0;
+    const next=()=>{
+      sfx.tel_slash.currentTime=0; sfx.tel_slash.play().catch(()=>{});
+      const g=document.createElement('a-entity'); g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.2; depth: 0.04');
+      g.setAttribute('material','color: #ff3355; opacity: 0.85; transparent: true'); g.setAttribute('rotation','0 0 '+seq[idx]); g.setAttribute('position','0 1.35 -2.2');
+      g.classList.add('clickable','boss-attack'); $el('arena').appendChild(g);
+      let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(16, new THREE.Vector3(0,1.5,-3)); g.remove(); });
+      after(650, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit('#ff5577'); } idx++; if(idx<seq.length){ after(120, next); } else { finishAttack(); } });
+    }; next();
+  }
+
+  // === Phase 2: Enrage Combo (fast chain) ===
+  function doEnrageCombo(){
+    BOSS.busy=true; sfx.enrage.currentTime=0; sfx.enrage.play().catch(()=>{}); APP.badge('ENRAGE!');
+    // chain: slash -> shock -> guard core quick -> reward crystal
+    const seq=[
+      ()=>doSlashCrossQuick(()=>step()),
+      ()=>doShockQuick(()=>step()),
+      ()=>doGuardQuick(()=>step()),
+      ()=>vulnerability(()=>finishAttack())
+    ];
+    let i=0; function step(){ i++; if(i<seq.length){ seq[i](); } }
+    seq[0]();
+
+    function doSlashCrossQuick(done){
+      const arena=$el('arena'); const guide=document.createElement('a-entity');
+      guide.setAttribute('geometry','primitive: box; height: 0.04; width: 1.2; depth: 0.04');
+      guide.setAttribute('material','color: #ff3355; opacity: 0.9; transparent: true');
+      guide.setAttribute('rotation','0 0 -35'); guide.setAttribute('position','0 1.4 -2.2'); guide.classList.add('clickable');
+      arena.appendChild(guide); let ok=false; sfx.tel_slash.currentTime=0; sfx.tel_slash.play().catch(()=>{});
+      guide.addEventListener('click', ()=>{ ok=true; bossDamage(18, new THREE.Vector3(0,1.5,-3)); guide.remove(); done(); });
+      after(520, ()=>{ if(guide.parentNode){ guide.remove(); if(!ok) playerHit('#ff5577'); done(); } });
+    }
+    function doShockQuick(done){
+      sfx.tel_shock.currentTime=0; sfx.tel_shock.play().catch(()=>{});
+      const ring=document.createElement('a-ring'); ring.classList.add('clickable'); ring.setAttribute('position','0 1.2 -2.6');
+      ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07'); ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
+      $el('arena').appendChild(ring);
+      ring.addEventListener('click', ()=>{ bossDamage(14, ring.object3D.getWorldPosition(new THREE.Vector3())); ring.remove(); done(); });
+      const start=performance.now(), dur=500; (function step2(){ if(!ring.parentNode) return; const t=(performance.now()-start)/dur; const r=0.07 + t*0.9;
+        ring.setAttribute('radius-inner', Math.max(0.01, r-0.02)); ring.setAttribute('radius-outer', r); if(t>=1.0){ playerHit('#ff9c6b'); ring.remove(); done(); return;} requestAnimationFrame(step2);} )();
+    }
+    function doGuardQuick(done){
+      sfx.tel_guard.currentTime=0; sfx.tel_guard.play().catch(()=>{});
+      const core=document.createElement('a-sphere'); core.classList.add('clickable'); core.setAttribute('radius','0.18'); core.setAttribute('color','#ff6b6b'); core.setAttribute('position','0 1.15 -2.2');
+      core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale', to:'1 1 1', dur:120, easing:'easeOutBack'});
+      $el('arena').appendChild(core); let ok=false; core.addEventListener('click', ()=>{ ok=true; bossDamage(12, core.object3D.getWorldPosition(new THREE.Vector3())); core.remove(); done(); });
+      after(600, ()=>{ if(core.parentNode){ core.remove(); if(!ok) playerHit('#ff3355'); done(); } });
+    }
+    function vulnerability(done){
+      // reward - big damage if clicked
+      const gem=document.createElement('a-icosahedron'); gem.classList.add('clickable'); gem.setAttribute('position','0 1.6 -2.4');
+      gem.setAttribute('radius','0.18'); gem.setAttribute('color','#00ffa3'); $el('arena').appendChild(gem);
+      gem.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', gem.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(40, gem.object3D.getWorldPosition(new THREE.Vector3())); sfx.success.currentTime=0; sfx.success.play().catch(()=>{}); gem.remove(); done(); });
+      after(700, ()=>{ if(gem.parentNode){ gem.remove(); done(); } });
+    }
+  }
+
+  function finishAttack(){ BOSS.busy=false; after(520, bossLoop); }
+
+  function enterPhase2(){ BOSS.phase=2; APP.badge('Phase 2'); sfx.enrage.currentTime=0; sfx.enrage.play().catch(()=>{}); }
 
   function start(){ if(running) return; reset(); running=true;
-    spawnTimer=setInterval(spawnTarget, 850);
+    spawnTimer=setInterval(spawnTarget, 900);
     timer=setInterval(()=>{ timeLeft--; $('#time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
     setTimeout(bossSpawn, 900);
   }
