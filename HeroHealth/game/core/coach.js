@@ -1,4 +1,3 @@
-
 export class Coach{
   constructor(opts={}){ this.lang=opts.lang||'TH'; this.minGap=1200; this._last=0; }
   _sayRaw(t){ const now=performance.now(); if(now-this._last<this.minGap) return; this._last=now;

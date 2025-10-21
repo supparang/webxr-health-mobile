@@ -1,4 +1,3 @@
-
 export class HUD{
   setScore(v){ const e=document.getElementById('score'); if(e) e.textContent=v|0; }
   setCombo(v){ const e=document.getElementById('combo'); if(e) e.textContent='x'+(v||0); }

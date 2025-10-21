@@ -1,49 +1,6 @@
-
-export class SFX {
-  constructor({enabled=true, poolSize=4}={}){
-    this.enabled = enabled;
-    this.poolSize = poolSize;
-    this._unlocked = false;
-    this._pools = new Map();
-  }
-  _ensurePool(id){
-    if(this._pools.has(id)) return this._pools.get(id);
-    const base = document.getElementById(id);
-    if(!base) return null;
-    const pool = [base];
-    for(let i=1;i<this.poolSize;i++){
-      const clone = base.cloneNode(true);
-      clone.id = `${id}__${i}`;
-      clone.style.display='none';
-      base.parentNode.appendChild(clone);
-      pool.push(clone);
-    }
-    this._pools.set(id, pool);
-    return pool;
-  }
-  async unlock(){
-    if(this._unlocked) return;
-    this._unlocked = true;
-    for(const [, pool] of this._pools.entries()){
-      for(const a of pool){
-        try{
-          a.muted = false; a.volume = 1.0;
-          await a.play().then(()=>a.pause()).catch(()=>{});
-          a.currentTime = 0;
-        }catch{}
-      }
-    }
-  }
-  async play(id, {volume=1.0, rewind=true}={}){
-    if(!this.enabled) return;
-    const pool = this._ensurePool(id);
-    if(!pool || !pool.length) return;
-    let a = pool.find(x => x.paused); if(!a) a = pool[0];
-    try{
-      a.muted = false; a.volume = volume;
-      if(rewind) a.currentTime = 0;
-      const p = a.play(); if(p?.then) await p.catch(()=>{});
-    }catch{}
-  }
-  setEnabled(on){ this.enabled = !!on; }
-}
+export class SFX{ constructor({enabled=true,poolSize=4}={}){ this.enabled=enabled; this.poolSize=poolSize; this._unlocked=false; this._pools=new Map(); }
+  _ensurePool(id){ if(this._pools.has(id)) return this._pools.get(id); const base=document.getElementById(id); if(!base) return null; const pool=[base];
+    for(let i=1;i<this.poolSize;i++){ const clone=base.cloneNode(true); clone.id=`${id}__${i}`; clone.style.display='none'; base.parentNode.appendChild(clone); pool.push(clone);} this._pools.set(id,pool); return pool; }
+  async unlock(){ if(this._unlocked) return; this._unlocked=true; for(const [,pool] of this._pools.entries()){ for(const a of pool){ try{ a.muted=false; a.volume=1.0; await a.play().then(()=>a.pause()).catch(()=>{}); a.currentTime=0; }catch{} } } }
+  async play(id,{volume=1.0,rewind=true}={}){ if(!this.enabled) return; const pool=this._ensurePool(id); if(!pool||!pool.length) return; let a=pool.find(x=>x.paused); if(!a) a=pool[0]; try{ a.muted=false; a.volume=volume; if(rewind) a.currentTime=0; const p=a.play(); if(p?.then) await p.catch(()=>{});}catch{} }
+  setEnabled(on){ this.enabled=!!on; } }
