@@ -17,7 +17,7 @@ export function init(state,hud,diff){
 export function pickMeta(diff,state){
   const g=groups[Math.floor(Math.random()*groups.length)] || groups[3];
   const char=(g.icons||['🍎'])[Math.floor(Math.random()*((g.icons||['🍎']).length))];
-  return {type:'groups',group:g.key,char};
+  return {type:'groups',group=g.key,char};
 }
 export function onHit(meta,systems,state){
   const ok=state.currentTarget && meta.group===state.currentTarget;

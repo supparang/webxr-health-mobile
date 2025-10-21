@@ -20,9 +20,5 @@ export class MissionSystem{
     if(progress>=target){ this.completed=true; return true; }
     return false;
   }
-  status(){
-    if(!this.goal) return '🎯 ภารกิจ: -';
-    const n={score:'คะแนน',hits:'จำนวนเป้า',hydration:'ค่าน้ำ',perfectPlates:'จานสุขภาพ'}[this.goal.type];
-    return `🎯 ภารกิจ: ${n} ≥ ${this.goal.target}`;
-  }
+  status(){ if(!this.goal) return '🎯 ภารกิจ: -'; const n={score:'คะแนน',hits:'จำนวนเป้า',hydration:'ค่าน้ำ',perfectPlates:'จานสุขภาพ'}[this.goal.type]; return `🎯 ภารกิจ: ${n} ≥ ${this.goal.target}`; }
 }
