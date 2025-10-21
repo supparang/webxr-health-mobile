@@ -20,7 +20,15 @@
   <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
   <!-- โหลดเพียงครั้งเดียว (อย่าใส่ซ้ำบน <head>) -->
-  <script type="module" src="game/main.js?v=20251021a"></script>
+<script type="module">
+  window.__HHA_BOOT_OK = false;
+  import('game/main.js?v=20251021b')
+    .then(() => { window.__HHA_BOOT_OK = true; })
+    .catch(err => {
+      console.error('[Import failed]', err);
+      alert('โหลด main.js ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+    });
+</script>
 
   <!-- แจ้งถ้า main.js ไม่ได้รัน (มักเพราะ import ย่อย 404/พิมพ์ไม่ตรง) -->
   <script>
