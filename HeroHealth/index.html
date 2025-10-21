@@ -42,9 +42,19 @@
   <div id="fever" class="fever" style="display:none">FEVER!</div>
 </section>
 
-<div id="coachHUD" class="coach" style="display:none">
-  <div id="coachText">...</div>
+<!-- โค้ช (ไว้ท้าย <body> ก็ได้) -->
+<div id="coachHUD" style="display:none;position:fixed;left:50%;bottom:14vh;transform:translateX(-50%);
+  background:rgba(0,0,0,.7);padding:.45em .8em;border-radius:.6em;font-weight:700;z-index:90;pointer-events:none">
+  <span id="coachText">...</span>
 </div>
+
+<!-- เสียง: id ต้องตรงกับที่โค้ดเรียก -->
+<audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
+<audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
+<audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
+<audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
+<audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
+>
 
 <section id="menuBar" class="menu">
   <div class="row">
