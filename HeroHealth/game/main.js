@@ -1,5 +1,3 @@
-window.__HHA_BOOT_OK = true;
-
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine } from './core/engine.js'; import { HUD } from './core/hud.js'; import { SFX } from './core/sfx.js';
 import { Leaderboard } from './core/leaderboard.js'; import { MissionSystem } from './core/mission.js';
