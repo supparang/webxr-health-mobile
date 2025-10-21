@@ -1,11 +1,22 @@
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
-import { Engine } from './core/engine.js'; import { HUD } from './core/hud.js'; import { SFX } from './core/sfx.js';
-import { Leaderboard } from './core/leaderboard.js'; import { MissionSystem } from './core/mission.js';
-import { PowerUpSystem } from './core/powerup.js'; import { ScoreSystem } from './core/score.js';
-import { FloatingFX } from './core/fx.js'; import { Coach } from './core/coach.js';
-import * as goodjunk from './modes/goodjunk.js'; import * as groups from './modes/groups.js';
-import * as hydration from './modes/hydration.js'; import * as plate from './modes/plate.js';
-window.__HHA_BOOT_OK=true;
+import { Engine } from './core/engine.js';
+import { HUD } from './core/hud.js';
+import { SFX } from './core/sfx.js';
+import { Leaderboard } from './core/leaderboard.js';
+import { MissionSystem } from './core/mission.js';
+import { PowerUpSystem } from './core/powerup.js';
+import { ScoreSystem } from './core/score.js';
+import { FloatingFX } from './core/fx.js';
+import { Coach } from './core/coach.js';
+import * as goodjunk from './modes/goodjunk.js';
+import * as groups from './modes/groups.js';
+import * as hydration from './modes/hydration.js';
+import * as plate from './modes/plate.js';
+
+// ✅ ตอนนี้ค่อยใส่ได้
+window.__HHA_BOOT_OK = true;
+
+
 const MODES={goodjunk,groups,hydration,plate}; const DIFFS={Easy:{time:70,spawn:820,life:4200,hydWaterRate:.78},Normal:{time:60,spawn:700,life:3000,hydWaterRate:.66},Hard:{time:50,spawn:560,life:1900,hydWaterRate:.55}};
 const hud=new HUD(), sfx=new SFX({enabled:true,poolSize:4}), board=new Leaderboard(), mission=new MissionSystem(), power=new PowerUpSystem(), score=new ScoreSystem();
 const state={modeKey:'goodjunk',difficulty:'Normal',running:false,timeLeft:60,ACTIVE:new Set(),ctx:{},lang:(localStorage.getItem('hha_lang')||'TH'),gfx:(localStorage.getItem('hha_gfx')||'quality')};
