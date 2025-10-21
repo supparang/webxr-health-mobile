@@ -11,15 +11,17 @@ export class Coach {
   setLang(lang){ this.lang = lang; }
   setGap(ms){ this.minGap = Math.max(200, ms|0); }
 
-  _emit(html){
-    const box = document.getElementById('coachHUD');
-    const text = document.getElementById('coachText');
-    if(!box || !text) return;
-    text.innerHTML = html;
-    box.style.display = 'block';
-    clearTimeout(this._hideT);
-    this._hideT = setTimeout(()=>{ box.style.display='none'; }, this.autoHideMs);
-  }
+_emit(html){
+  const box = document.getElementById('coachHUD');
+  const text = document.getElementById('coachText');
+  if(!box || !text) return;
+  text.innerHTML = html;
+  box.style.display = 'block';
+  box.classList.remove('show'); void box.offsetWidth; box.classList.add('show'); // re-trigger anim
+  clearTimeout(this._hideT);
+  this._hideT = setTimeout(()=>{ box.style.display='none'; }, this.autoHideMs || 2000);
+}
+
 
   _sayRaw(t){
     const now = performance.now();
