@@ -31,12 +31,15 @@
 </script>
 
   <!-- แจ้งถ้า main.js ไม่ได้รัน (มักเพราะ import ย่อย 404/พิมพ์ไม่ตรง) -->
-  <script>
-  setTimeout(()=>{
-    if(!window.__HHA_BOOT_OK){
-      alert('⚠ main.js ไม่ได้รัน: ตรวจชื่อไฟล์/ตัวพิมพ์และพาธ import ย่อยใน game/main.js');
-    }
-  }, 1500);
-  </script>
+ <script type="module">
+  window.__HHA_BOOT_OK = false;
+  import('./game/main.js?v=20251021b')
+    .then(() => { window.__HHA_BOOT_OK = true; })
+    .catch(err => {
+      console.error('[Import failed]', err);
+      alert('โหลด main.js ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+    });
+</script>
+
 </body>
 </html>
