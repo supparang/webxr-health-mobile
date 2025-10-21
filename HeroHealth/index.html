@@ -2,29 +2,35 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Hero Health Academy</title>
-  <base href="/webxr-health-mobile/HeroHealth/">
-  <link rel="stylesheet" href="styles/game.css">
-  <script type="module" src="game/main.js?v=20251021a"></script>
+
+  <!-- ใช้พาธสัมพัทธ์ ปลอดภัยกับโครงสร้างโฟลเดอร์ -->
+  <link rel="stylesheet" href="./styles/game.css"/>
 </head>
 <body>
   <canvas id="c"></canvas>
 
   <!-- เมนูหลัก -->
-  <div id="menuBar">
+  <nav id="menuBar">
     <h1 id="brandTitle">HERO HEALTH ACADEMY</h1>
+
     <div class="btnRow">
-      <button data-action="mode" data-value="goodjunk">ดี vs ขยะ</button>
-      <button data-action="mode" data-value="groups">จาน 5 หมู่</button>
-      <button data-action="mode" data-value="hydration">สมดุลน้ำ</button>
-      <button data-action="mode" data-value="plate">จัดจานสุขภาพ</button>
+      <button class="modeBtn" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
+      <button class="modeBtn" data-action="mode" data-value="groups">🍽️ จาน 5 หมู่</button>
+      <button class="modeBtn" data-action="mode" data-value="hydration">💧 สมดุลน้ำ</button>
+      <button class="modeBtn" data-action="mode" data-value="plate">🍱 จัดจานสุขภาพ</button>
     </div>
+
     <div class="btnRow">
-      <button data-action="diff" data-value="Easy">ง่าย</button>
-      <button data-action="diff" data-value="Normal">ปกติ</button>
-      <button data-action="diff" data-value="Hard">ยาก</button>
+      <button class="diffBtn" data-action="diff" data-value="Easy">ง่าย</button>
+      <button class="diffBtn" data-action="diff" data-value="Normal">ปกติ</button>
+      <button class="diffBtn" data-action="diff" data-value="Hard">ยาก</button>
+      <span class="status">
+        โหมด: <b id="modeName">ดี vs ขยะ</b> • ความยาก: <b id="difficulty">ปกติ</b>
+      </span>
     </div>
+
     <div class="btnRow">
       <button id="btn_start" data-action="start">▶ เริ่มเกม</button>
       <button id="btn_pause" data-action="pause">⏸ พัก</button>
@@ -33,60 +39,56 @@
       <button id="langToggle">🌐 TH/EN</button>
       <button id="gfxToggle">🎛️ กราฟิก</button>
     </div>
-  </div>
+  </nav>
 
   <!-- HUD -->
-  <div id="hud">
-    <span id="scoreWrap">คะแนน: <b id="score">0</b></span> |
-    <span id="comboWrap">คอมโบ: <b id="combo">x0</b></span> |
-    <span id="timeWrap">เวลา: <b id="time">60</b>s</span>
-    <div id="targetWrap" style="display:none;">หมวด: <span id="targetBadge">-</span></div>
-    <div id="hydroWrap" style="display:none;">สมดุลน้ำ: <span id="hydroLabel">—</span>
+  <section id="hud">
+    <span>คะแนน: <b id="score">0</b></span> |
+    <span>คอมโบ: <b id="combo">x0</b></span> |
+    <span>เวลา: <b id="time">60</b>s</span>
+    <div id="targetWrap" style="display:none">🎯 หมวด: <span id="targetBadge">-</span></div>
+    <div id="plateTracker" style="display:none"><span id="platePills"></span></div>
+    <div id="hydroWrap" style="display:none">💧 สมดุลน้ำ: <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
-    <div id="plateTracker" style="display:none;"><div id="platePills"></div></div>
-    <div id="fever" style="display:none;">FEVER!</div>
-  </div>
+    <div id="fever" style="display:none">FEVER!</div>
+  </section>
 
   <!-- โค้ช -->
-  <div id="coachHUD"><span id="coachText"></span></div>
+  <div id="coachHUD" style="display:none"><span id="coachText">...</span></div>
 
-  <!-- หน้าคู่มือ -->
-  <div id="help">
-    <h2 id="h_help">วิธีเล่น</h2>
-    <p id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</p>
-    <button data-action="helpClose">โอเค</button>
+  <!-- วิธีเล่น -->
+  <div id="help" class="modal" style="display:none">
+    <div class="card">
+      <h2 id="h_help">วิธีเล่น</h2>
+      <p id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</p>
+      <button data-action="helpClose">โอเค</button>
+    </div>
   </div>
 
-  <!-- หน้าสรุป -->
-  <div id="result">
-    <h2 id="h_summary">สรุปผล</h2>
-    <div id="resCore"></div>
-    <div id="resBoard"></div>
-    <button data-result="replay">↻ เล่นอีกครั้ง</button>
-    <button data-result="home">🏠 หน้าหลัก</button>
+  <!-- สรุป -->
+  <div id="result" class="modal" style="display:none">
+    <div class="card">
+      <h2 id="h_summary">สรุปผล</h2>
+      <div id="resCore"></div>
+      <div id="resBoard"></div>
+      <button data-result="replay">↻ เล่นอีกครั้ง</button>
+      <button data-result="home">🏠 หน้าหลัก</button>
+    </div>
   </div>
 
-  <!-- เสียง -->
-  <audio id="sfx-good" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/tick.mp3"></audio>
+  <!-- SFX -->
+  <audio id="sfx-good" preload="auto" src="./assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad" preload="auto" src="./assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect" preload="auto" src="./assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick" preload="auto" src="./assets/sfx/tick.mp3"></audio>
 
-  <script type="module" src="/webxr-health-mobile/HeroHealth/game/main.js"></script>
+  <!-- สคริปต์หลัก -->
+  <script type="module" src="./game/main.js"></script>
 
+  <!-- แจ้งถ้า main.js ไม่ได้โหลด -->
   <script>
-    setTimeout(()=>{
-      if(!window.__HHA_BOOT_OK){
-        alert('⚠ main.js ไม่ได้โหลด ตรวจ path /webxr-health-mobile/HeroHealth/game/main.js');
-      }
-    },2000);
+    setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ alert('⚠ main.js ไม่ได้โหลด (ตรวจ path ./game/main.js และตัวพิมพ์เล็ก-ใหญ่)'); }},1500);
   </script>
-  <script>
-setTimeout(()=>{ if(!window.__HHA_BOOT_OK){
-  alert('main.js ไม่ได้โหลด: ตรวจ path/ตัวพิมพ์เล็กใหญ่ หรือใช้ ./game/main.js');
-}},1500);
-</script>
-
 </body>
 </html>
