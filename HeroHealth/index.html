@@ -8,73 +8,78 @@
 </head>
 <body>
   <header class="brand">
-    <div>HERO HEALTH ACADEMY</div>
+    <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
-    <button id="langToggle" class="btn">🇹🇭/🇬🇧</button>
+    <button id="langToggle" class="btn">🇹🇭 TH/EN</button>
+    <button id="gfxToggle" class="btn" title="Graphics">🎛️ กราฟิก: ปกติ</button>
     <button id="soundToggle" class="btn">🔊</button>
   </header>
 
   <canvas id="c"></canvas>
 
   <section class="hud">
-    <div>คะแนน: <b id="score">0</b> | คอมโบ: <b id="combo">x0</b> | เวลา: <b id="time">60</b>s</div>
-    <div id="targetWrap" style="display:none">🎯 หมวด: <span id="targetBadge">—</span></div>
-    <div id="plateTracker" style="display:none">🍱 โควตา: <span id="platePills"></span></div>
-    <div id="hydroWrap" style="display:none">💧 สมดุลน้ำ: <span id="hydroLabel">—</span>
+    <div><span id="t_score">คะแนน</span>: <b id="score">0</b> |
+      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
+      <span id="t_time">เวลา</span>: <b id="time">60</b>s</div>
+
+    <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
+    <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
+
+    <div id="hydroWrap" style="display:none">💧 <span id="t_hydro">สมดุลน้ำ</span>:
+      <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
     <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
   <!-- Coach HUD -->
-  <div id="coachHUD" class="coach" style="display:none">
-    <div id="coachText">...</div>
-  </div>
+  <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
   <!-- Menu -->
   <section id="menuBar" class="menu">
     <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="mode" data-value="hydration">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate">🍱 จัดจานสุขภาพ</button>
+      <button class="tag" data-action="mode" data-value="goodjunk" id="m_goodjunk">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups"    id="m_groups">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="mode" data-value="plate"     id="m_plate">🍱 จัดจานสุขภาพ</button>
     </div>
     <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard">ยาก</button>
-      <span class="modeLabel">Mode: <b id="modeName">ดี vs ขยะ</b> • Diff: <b id="difficulty">ปกติ</b></span>
+      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
+      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
+      <span class="modeLabel"><span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
+        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b></span>
     </div>
     <div class="row">
-      <button class="btn" data-action="start">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause">⏸ พัก</button>
-      <button class="btn" data-action="restart">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help">❓ วิธีเล่น</button>
+      <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
+      <button class="btn" data-action="pause"   id="btn_pause">⏸ พัก</button>
+      <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
+      <button class="btn" data-action="help"    id="btn_help">❓ วิธีเล่น</button>
     </div>
   </section>
 
   <!-- Help -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
-      <h3>วิธีเล่น</h3>
+      <h3 id="h_help">วิธีเล่น</h3>
       <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
-      <button class="btn" data-action="helpClose">โอเค</button>
+      <button class="btn" data-action="helpClose" id="btn_ok">โอเค</button>
     </div>
   </div>
 
   <!-- Result -->
   <div id="result" class="modal" style="display:none">
     <div class="card">
-      <h3>สรุปผล</h3>
+      <h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div>
       <div id="resBreakdown"></div>
       <div id="resBoard"></div>
-      <button class="btn" data-result="replay">↻ เล่นอีกครั้ง</button>
-      <button class="btn" data-result="home">🏠 หน้าหลัก</button>
+      <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
+      <button class="btn" data-result="home"   id="btn_home">🏠 หน้าหลัก</button>
     </div>
   </div>
 
-  <!-- SFX placeholders -->
+  <!-- SFX -->
   <audio id="sfx-good" preload="auto" src="./assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad" preload="auto" src="./assets/sfx/bad.mp3"></audio>
   <audio id="sfx-perfect" preload="auto" src="./assets/sfx/perfect.mp3"></audio>
