@@ -5,11 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Hero Health Academy</title>
 
-  <!-- ใช้ path absolute ให้ตรงกับโครงสร้างบน GitHub Pages -->
+  <!-- ใช้ absolute path ให้ตรงกับ GitHub Pages -->
   <link rel="stylesheet" href="/webxr-health-mobile/HeroHealth/styles/game.css"/>
 
   <style>
-    /* กันกรณี CSS ยังไม่โหลดทันเวลาที่เปิดหน้า */
     canvas#c{position:fixed;inset:0;pointer-events:none;z-index:0;}
     #menuBar,#hud,#help,#result,#coachHUD{position:fixed;z-index:50;}
     .item{position:fixed;font-size:3em;background:none;border:none;cursor:pointer;z-index:55;}
@@ -19,7 +18,7 @@
 <body>
   <canvas id="c"></canvas>
 
-  <!-- ------- UI: เมนู / HUD / โค้ช / โมดัล ------- -->
+  <!-- เมนูหลัก -->
   <div id="menuBar">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div>
@@ -46,6 +45,7 @@
     </div>
   </div>
 
+  <!-- HUD -->
   <div id="hud">
     <div>คะแนน: <span id="score">0</span> | คอมโบ: <span id="combo">x0</span> | เวลา: <span id="time">60</span>s</div>
     <div id="targetWrap" style="display:none">หมวด: <span id="targetBadge">-</span></div>
@@ -57,16 +57,19 @@
     <div id="fever" style="display:none">FEVER!</div>
   </div>
 
+  <!-- โค้ช -->
   <div id="coachHUD" style="display:none;bottom:12%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.5);padding:.5em 1em;border-radius:.5em;font-weight:bold;">
     <span id="coachText">...</span>
   </div>
 
+  <!-- วิธีเล่น -->
   <div id="help" style="display:none;inset:0;position:fixed;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;">
     <h2 id="h_help">วิธีเล่น</h2>
     <p id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</p>
     <button data-action="helpClose" id="btn_ok">โอเค</button>
   </div>
 
+  <!-- ผลลัพธ์ -->
   <div id="result" style="display:none;inset:0;position:fixed;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;flex-direction:column;">
     <h2 id="h_summary">สรุปผล</h2>
     <div id="resCore"></div>
@@ -75,17 +78,17 @@
     <button data-result="home" id="btn_home">🏠 หน้าหลัก</button>
   </div>
 
-  <!-- SFX -->
+  <!-- เสียง SFX -->
   <audio id="sfx-good" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/bad.mp3"></audio>
   <audio id="sfx-perfect" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/perfect.mp3"></audio>
   <audio id="sfx-tick" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup" preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/powerup.mp3"></audio>
 
-  <!-- ใช้ path absolute ป้องกัน base ผิด -->
+  <!-- main.js (module) -->
   <script type="module" src="/webxr-health-mobile/HeroHealth/game/main.js"></script>
 
-  <!-- แจ้งเตือนถ้า main.js ไม่ได้โหลด -->
+  <!-- ตรวจว่าโหลดสำเร็จ -->
   <script>
     setTimeout(()=>{
       if(!window.__HHA_BOOT_OK){
