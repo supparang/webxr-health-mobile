@@ -1,22 +1,182 @@
+/* ===============================
+   Hero Health Academy - styles
+   =============================== */
+:root{
+  --bg:#0a0b0f;
+  --bg2:#0e1020;
+  --fg:#e7f2ff;
+  --muted:#9db1c7;
+  --accent:#6cf;
+  --good:#5CFF9E;
+  --bad:#FF6F6F;
+  --neon:#00F0FF;
+  --card:#141829;
+  --btn:#1c2340;
+  --btn-hover:#27305a;
+  --hdr:#0f1223ee;
+  --z-hud: 40;
+  --z-menu: 45;
+  --z-items: 30;
+  --z-modal: 80;
+  --z-coach: 85;
+  --z-toast: 90;
+}
 
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#000;color:#9ff;font-family:system-ui}
-.brand{position:fixed;top:8px;left:8px;right:8px;display:flex;gap:8px;align-items:center;z-index:10}
-.brand .spacer{flex:1}
-.btn,.tag{border:1px solid #0ff;border-radius:10px;background:rgba(0,0,0,.4);color:#0ff;padding:8px 12px;cursor:pointer}
-.menu{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:50}
-.menu .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:6px 0}
-.hud{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:40;text-align:center}
-.bar{width:60vw;max-width:520px;height:10px;border:1px solid #0ff;border-radius:999px;margin:4px auto;background:rgba(0,0,0,.35)}
-#hydroBar{height:100%;width:50%;background:linear-gradient(90deg,#09f,#0ff)}
-.fever{margin-top:6px;border:1px solid #ff0;color:#ff0;padding:2px 8px;border-radius:999px;display:inline-block}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:60}
-.modal .card{background:rgba(10,20,30,.96);border:1px solid #0ff;border-radius:12px;padding:16px;color:#9ff;min-width:300px;max-width:90vw}
-.coach{position:fixed;left:50%;bottom:95px;transform:translateX(-50%);background:rgba(15,30,45,.85);border:1px solid #0ff;color:#cff;padding:8px 12px;border-radius:12px;z-index:45;box-shadow:0 0 12px rgba(0,255,255,.25)}
-canvas#c{position:fixed;inset:0;pointer-events:none;z-index:0}
-.item{position:fixed;transform:translate(-50%,-50%);font-size:28px;background:rgba(0,0,0,.35);border:1px solid #0ff;color:#cff;border-radius:12px;padding:8px 10px;cursor:pointer;z-index:55}
-.flash{animation:flash .3s ease-out} @keyframes flash{0%{filter:brightness(1.4)}100%{filter:brightness(1)}}
-#coachHUD { text-shadow:0 1px 2px #000; }
-#coachHUD.show { animation: coachPop .22s ease-out; }
-@keyframes coachPop { from{transform:translateX(-50%) scale(.9);opacity:.0}
-                      to  {transform:translateX(-50%) scale(1); opacity:1} }
+html,body{height:100%}
+body{
+  margin:0; background:
+    radial-gradient(1200px 600px at 50% 0%, #122 0%, transparent 60%),
+    linear-gradient(160deg, #090b14 0%, #0b0f1b 40%, #0a0b0f 100%);
+  color:var(--fg); font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
+  overflow:hidden;
+}
+
+/* ===== Canvas ===== */
+#c{
+  position:fixed; inset:0; width:100vw; height:100vh; display:block;
+  z-index: 1;      /* อยู่ใต้ HUD/เมนู/ปุ่ม */
+  pointer-events:none; /* กันแคนวาสบังปุ่ม */
+}
+
+/* ===== Header brand (คงไว้ แต่เบา) ===== */
+header.brand{
+  position:fixed; top:0; left:0; right:0; z-index: var(--z-hud);
+  display:flex; align-items:center; gap:8px; padding:8px 10px;
+  background:var(--hdr); backdrop-filter: blur(6px);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+header .spacer{flex:1}
+header .btn{
+  background:var(--btn); color:var(--fg); border:1px solid rgba(255,255,255,.12);
+  padding:6px 10px; border-radius:10px; cursor:pointer; font-weight:600;
+}
+header .btn:hover{ background:var(--btn-hover) }
+
+/* ===== HUD (บนจอ) ===== */
+.hud{
+  position:fixed; top:46px; left:12px; right:12px; z-index: var(--z-hud);
+  display:flex; flex-direction:column; gap:6px; font-weight:700;
+  text-shadow: 0 2px 10px rgba(0,0,0,.4);
+}
+.hud > div{ background:rgba(8,10,20,.35); border:1px solid rgba(255,255,255,.07); padding:6px 10px; border-radius:10px; }
+
+.fever{
+  display:none; padding:2px 8px; border-radius:8px; font-weight:900; letter-spacing:.5px;
+  background: linear-gradient(90deg,#ff8a00,#ff2770); color:#111; width:max-content;
+}
+
+/* Bar / Hydration / Fever */
+.bar{height:12px; background:#1a2236; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,.06)}
+.bar > div{height:100%; background: linear-gradient(90deg,#3dd6ff,#00ffa2)}
+.bar.slim{ height:8px; margin-top:6px; background:#222; border-radius:6px }
+#feverBar{ background:linear-gradient(90deg,#ff8a00,#ff2770); transition: width .15s ease }
+
+/* ===== Target / Plate HUD ===== */
+#targetWrap,#plateTracker,#hydroWrap{display:none}
+#targetBadge{ color: var(--accent); font-weight:900 }
+#platePills{ display:inline-flex; gap:6px; flex-wrap:wrap; }
+.pill{ background:#1a2440; border:1px solid rgba(255,255,255,.1); padding:2px 6px; border-radius:999px; font-weight:800 }
+.pill.done{ background:#0f2d22; color:#bfffe0; border-color: #2cffb8 }
+
+/* ===== โค้ช ===== */
+.coach{
+  position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
+  z-index: var(--z-coach);
+  display:none;
+}
+.coach .card, .coach > div{
+  background:rgba(14,18,38,.85);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px; padding:10px 14px; font-weight:900; font-size:18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+}
+#coachHUD.show{ animation: coachPop .2s ease-out }
+@keyframes coachPop{ from{transform:translate(-50%,10px) scale(.96); opacity:.0} to{transform:translate(-50%,0) scale(1); opacity:1} }
+
+/* ===== เมนู (ล่างจอ) ===== */
+.menu{
+  position:fixed; left:0; right:0; bottom:0; z-index: var(--z-menu);
+  background: linear-gradient(0deg, rgba(10,12,20,.92), rgba(10,12,20,.70));
+  border-top:1px solid rgba(255,255,255,.08);
+  padding:10px; display:flex; flex-direction:column; gap:10px;
+  backdrop-filter: blur(8px);
+}
+.menu .row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+.menu .modeLabel{ margin-left:auto; color:var(--muted); font-weight:700; }
+
+.btn,.tag{
+  background:var(--btn); color:var(--fg);
+  border:1px solid rgba(255,255,255,.12);
+  padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:800;
+}
+.btn:hover,.tag:hover{ background: var(--btn-hover) }
+
+/* ===== ไอเท็มเกม (ปุ่มลอย) ===== */
+.item{
+  position:fixed; z-index: var(--z-items);
+  font-size:28px; line-height:1; padding:8px 12px;
+  border:none; background: rgba(20,26,44,.65);
+  border-radius:12px; cursor:pointer;
+  box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 0 18px rgba(0,255,200,.05);
+  backdrop-filter: blur(2px);
+  transition: transform .12s ease, background .12s ease;
+}
+.item:hover{ transform: translateY(-2px) scale(1.03); background: rgba(24,32,60,.75) }
+.item:active{ transform: translateY(0) scale(.98) }
+
+/* ===== โมดัล (Help/Result) ===== */
+.modal{
+  position:fixed; inset:0; z-index: var(--z-modal);
+  background: rgba(0,0,0,.55); display:none;
+  align-items:center; justify-content:center; padding:20px;
+}
+.modal .card{
+  width:min(760px, 92vw); background:var(--card);
+  border:1px solid rgba(255,255,255,.12); border-radius:16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45);
+  padding:16px; color:var(--fg);
+}
+.modal .card h3{ margin:0 0 10px 0 }
+.modal .card pre{
+  background:#0c1224; color:#bfe6ff; border:1px solid rgba(255,255,255,.08);
+  padding:12px; border-radius:12px; max-height:42vh; overflow:auto; white-space:pre-wrap;
+}
+
+/* ===== Flash เวลาใกล้หมด ===== */
+body.flash .hud > div:first-child{
+  animation: timeFlash .7s infinite;
+}
+@keyframes timeFlash{
+  0%{ box-shadow:0 0 0 rgba(255,80,80,0)}
+  50%{ box-shadow:0 0 20px rgba(255,80,80,.45)}
+  100%{ box-shadow:0 0 0 rgba(255,80,80,0)}
+}
+
+/* ===== โหมด Fever พื้นหลัง ===== */
+body.fever-bg{
+  background:
+    radial-gradient(1200px 600px at 50% 0%, #1c0022 0%, transparent 60%),
+    linear-gradient(160deg, #140914 0%, #1a0b19 40%, #0a0b0f 100%);
+}
+
+/* ===== ปรับแต่งป้องกัน “คลิกไม่ติด” ===== */
+/* ห้ามมี overlay ใด ๆ ที่กิน pointer-events ทับเมนู/ปุ่ม */
+.modal, .menu, .hud, .coach, .item { pointer-events:auto; }
+#c { pointer-events:none; }   /* แคนวาสไม่รับอีเวนต์ */
+#bootWarn{ position:fixed; top:0; left:0; right:0; z-index:9999 }
+
+/* ===== Low GFX ===== */
+.low-gfx *{ text-shadow:none !important; box-shadow:none !important; backdrop-filter:none !important; }
+.low-gfx .item{ backdrop-filter:none; }
+.low-gfx .hud > div, .low-gfx .modal .card { border-color: rgba(255,255,255,.08) }
+
+/* ===== Responsive ===== */
+@media (max-width: 736px){
+  header.brand{ padding:6px 8px }
+  .hud{ top:44px; left:8px; right:8px }
+  .btn,.tag{ padding:7px 10px; border-radius:10px }
+  .item{ font-size:24px; padding:8px 10px }
+  .coach{ bottom:110px }
+  .menu{ padding:8px }
+}
