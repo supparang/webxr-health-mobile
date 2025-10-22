@@ -1,11 +1,23 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · game.js (Unified + Difficulties + Mouse/Touch Click + Production Patches)
+   Shadow Breaker · game.js (Null-Safe Removal + Difficulties + Mouse/Touch Click + Production Patches)
 */
 (function(){
   "use strict";
 
   // ---------- Helpers ----------
   const byId = (id)=>document.getElementById(id);
+
+  // Null-safe remover (prevents "removeChild of null" from A-Frame internals)
+  function safeRemove(el){
+    try{
+      if(!el) return;
+      // If already detached, skip
+      if(!el.isConnected && !el.parentNode){ return; }
+      if(el.parentNode){ el.parentNode.removeChild(el); }
+      else if(el.remove){ el.remove(); }
+    }catch(_e){}
+  }
+
   let timeouts=new Set();
   const after=(ms,fn)=>{ const id=setTimeout(()=>{timeouts.delete(id); try{fn();}catch(e){}},ms); timeouts.add(id); return id; };
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -159,7 +171,7 @@
     e.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:90,easing:'easeOutQuad'});
     e.setAttribute('animation__rise',{property:'position',to:`${p.x} ${p.y+0.6} ${p.z}`,dur:600,easing:'easeOutQuad'});
     e.setAttribute('animation__fade',{property:'opacity',to:0,dur:480,delay:160,easing:'linear'});
-    byId('arena').appendChild(e); setTimeout(()=>{ try{e.remove();}catch(_e){} },820);
+    byId('arena').appendChild(e); setTimeout(()=>safeRemove(e),820);
   }
 
   // ---------- Boss System ----------
@@ -263,10 +275,10 @@
     byId('arena').appendChild(g);
     g.addEventListener('click', ()=>{
       floatText('ARMOR -1','#ffd166', g.object3D.getWorldPosition(new THREE.Vector3()));
-      g.remove();
+      safeRemove(g);
       BOSS.armorShards = Math.max(0, BOSS.armorShards-1);
     });
-    after(dur(3000), ()=>{ if(g.parentNode){ g.remove(); playerHit(); } });
+    after(dur(3000), ()=>{ if(g && g.parentNode){ safeRemove(g); playerHit(); } });
   }
 
   // Mutators
@@ -347,9 +359,9 @@
       const p=g.object3D.getWorldPosition(new THREE.Vector3());
       floatText('CRIT +50','#ffcc00', p);
       bossDamage(50, p); scoreAdd(50);
-      g.remove();
+      safeRemove(g);
     });
-    after(dur(900), ()=>{ if(g.parentNode) g.remove(); });
+    after(dur(900), ()=>{ if(g && g.parentNode) safeRemove(g); });
   }
 
   function playerHit(){
@@ -375,7 +387,7 @@
       g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position',`0 ${y} -2.2`); g.classList.add('clickable','boss-attack');
       const t=document.createElement('a-entity'); t.setAttribute('text',{value:'/',color:'#02131b',align:'center',width:1.6}); t.setAttribute('position','0 0 0.03'); g.appendChild(t);
       byId('arena').appendChild(g);
-      g.addEventListener('click', ()=>{ floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(28,new THREE.Vector3(0,1.5,-3)); g.remove(); });
+      g.addEventListener('click', ()=>{ floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(28,new THREE.Vector3(0,1.5,-3)); safeRemove(g); });
       return g;
     };
     const main=makeSlash(-35,1.4);
@@ -383,7 +395,7 @@
     if(AFFIX_SPLIT_SLASH){ extras.push(makeSlash(35,1.46)); }
     if(AFFIX_PHANTOM){ if(RND()<0.5) extras.push(makeSlash(-15,1.32)); }
     after(dur(BOSS.phase===1?900:700), ()=>{
-      [main,...extras].forEach(g=>{ if(g.parentNode){ playerHit(); g.remove(); } }); finishAttack();
+      [main,...extras].forEach(g=>{ if(g && g.parentNode){ playerHit(); safeRemove(g); } }); finishAttack();
     });
   }
   function doRapidFist(){
@@ -396,11 +408,11 @@
     const ring=document.createElement('a-ring'); ring.classList.add('clickable','boss-attack');
     ring.setAttribute('position','0 1.2 -2.6'); ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07');
     ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat'); byId('arena').appendChild(ring);
-    ring.addEventListener('click', ()=>{ const p=ring.object3D.getWorldPosition(new THREE.Vector3()); floatText('BREAK','#00ffa3', p); bossDamage(16,p); ring.remove(); done&&done(); });
+    ring.addEventListener('click', ()=>{ const p=ring.object3D.getWorldPosition(new THREE.Vector3()); floatText('BREAK','#00ffa3', p); bossDamage(16,p); safeRemove(ring); done&&done(); });
     const start=performance.now(), T=dur(BOSS.phase===1?700:560);
-    (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/T; const r=0.07+t*0.9;
+    (function step(){ if(!ring || !ring.parentNode) return; const t=(performance.now()-start)/T; const r=0.07+t*0.9;
       ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r);
-      if(t>=1.0){ playerHit(); ring.remove(); done&&done(); return; } requestAnimationFrame(step);
+      if(t>=1.0){ playerHit(); safeRemove(ring); done&&done(); return; } requestAnimationFrame(step);
     })();
   }
   function doGuardBreak(){
@@ -409,8 +421,8 @@
     core.setAttribute('radius','0.2'); core.setAttribute('color','#ff6b6b'); core.setAttribute('position','0 1.1 -2.2');
     core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale', to:'1 1 1', dur:140, easing:'easeOutBack'});
     byId('arena').appendChild(core);
-    core.addEventListener('click', ()=>{ const p=core.object3D.getWorldPosition(new THREE.Vector3()); bossDamage(10,p); core.remove(); finishAttack(); });
-    after(dur(BOSS.phase===1?900:750), ()=>{ if(core.parentNode){ playerHit(); core.remove(); } finishAttack(); });
+    core.addEventListener('click', ()=>{ const p=core.object3D.getWorldPosition(new THREE.Vector3()); bossDamage(10,p); safeRemove(core); finishAttack(); });
+    after(dur(BOSS.phase===1?900:750), ()=>{ if(core && core.parentNode){ playerHit(); safeRemove(core); } finishAttack(); });
   }
   function doShadowDash(){
     BOSS.busy=true; play(SFX.tel_dash);
@@ -420,7 +432,7 @@
     let ok=false; const hit=(box)=>{ if(ok) return; ok=true; floatText('DODGE','#9bd1ff', box.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12,new THREE.Vector3(0,1.5,-3)); cleanup(); };
     l.addEventListener('click', ()=>hit(l)); r.addEventListener('click', ()=>hit(r));
     after(dur(700), ()=>{ if(!ok) playerHit(); cleanup(); });
-    function cleanup(){ [l,r].forEach(b=>b.parentNode&&b.parentNode.removeChild(b)); finishAttack(); }
+    function cleanup(){ [l,r].forEach(b=>b && b.parentNode && safeRemove(b)); finishAttack(); }
   }
   function doMultiSlash(){
     BOSS.busy=true; const seq=[-35,35]; let i=0;
@@ -428,8 +440,8 @@
       const g=document.createElement('a-entity'); g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.2; depth: 0.04');
       g.setAttribute('material','color: #5de1ff; opacity: 0.95; transparent: true'); g.setAttribute('rotation','0 0 '+seq[i]); g.setAttribute('position','0 1.35 -2.2');
       g.classList.add('clickable','boss-attack'); byId('arena').appendChild(g);
-      let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(16,new THREE.Vector3(0,1.5,-3)); g.remove(); });
-      after(dur(650), ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } i++; if(i<seq.length){ after(dur(120),next); } else { finishAttack(); } });
+      let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(16,new THREE.Vector3(0,1.5,-3)); safeRemove(g); });
+      after(dur(650), ()=>{ if(g && g.parentNode){ safeRemove(g); if(!ok) playerHit(); } i++; if(i<seq.length){ after(dur(120),next); } else { finishAttack(); } });
     })();
   }
   function doEnrageCombo(){
@@ -441,30 +453,30 @@
       const g=document.createElement('a-entity'); g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.2; depth: 0.04');
       g.setAttribute('material','color:#5de1ff;opacity:.95;transparent:true'); g.setAttribute('rotation','0 0 -35'); g.setAttribute('position','0 1.4 -2.2'); g.classList.add('clickable');
       byId('arena').appendChild(g); let ok=false; play(SFX.tel_slash);
-      g.addEventListener('click', ()=>{ ok=true; bossDamage(18,new THREE.Vector3(0,1.5,-3)); g.remove(); done(); });
-      after(dur(520), ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
+      g.addEventListener('click', ()=>{ ok=true; bossDamage(18,new THREE.Vector3(0,1.5,-3)); safeRemove(g); done(); });
+      after(dur(520), ()=>{ if(g && g.parentNode){ safeRemove(g); if(!ok) playerHit(); } done(); });
     }
     function qw(done){
       play(SFX.tel_shock);
       const ring=document.createElement('a-ring'); ring.classList.add('clickable'); ring.setAttribute('position','0 1.2 -2.6');
       ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07'); ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
       byId('arena').appendChild(ring);
-      ring.addEventListener('click', ()=>{ bossDamage(14, ring.object3D.getWorldPosition(new THREE.Vector3())); ring.remove(); done(); });
-      const start=performance.now(), T=dur(500); (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/T, r=0.07+t*0.9;
-        ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); ring.remove(); done(); return; } requestAnimationFrame(step);
+      ring.addEventListener('click', ()=>{ bossDamage(14, ring.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(ring); done(); });
+      const start=performance.now(), T=dur(500); (function step(){ if(!ring || !ring.parentNode) return; const t=(performance.now()-start)/T, r=0.07+t*0.9;
+        ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); safeRemove(ring); done(); return; } requestAnimationFrame(step);
       })();
     }
     function qg(done){
       play(SFX.tel_guard);
       const core=document.createElement('a-sphere'); core.classList.add('clickable'); core.setAttribute('radius','0.18'); core.setAttribute('color','#ff6b6b'); core.setAttribute('position','0 1.15 -2.2');
       core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:120,easing:'easeOutBack'});
-      byId('arena').appendChild(core); let ok=false; core.addEventListener('click', ()=>{ ok=true; bossDamage(12, core.object3D.getWorldPosition(new THREE.Vector3())); core.remove(); done(); });
-      after(dur(600), ()=>{ if(core.parentNode){ core.remove(); if(!ok) playerHit(); } done(); });
+      byId('arena').appendChild(core); let ok=false; core.addEventListener('click', ()=>{ ok=true; bossDamage(12, core.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(core); done(); });
+      after(dur(600), ()=>{ if(core && core.parentNode){ safeRemove(core); if(!ok) playerHit(); } done(); });
     }
     function gem(done){
       const g=document.createElement('a-icosahedron'); g.classList.add('clickable'); g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.18'); g.setAttribute('color','#00ffa3'); byId('arena').appendChild(g);
-      g.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); play(SFX.success); bossDamage(40, g.object3D.getWorldPosition(new THREE.Vector3())); g.remove(); done(); });
-      after(dur(700), ()=>{ if(g.parentNode){ g.remove(); } done(); });
+      g.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); play(SFX.success); bossDamage(40, g.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(g); done(); });
+      after(dur(700), ()=>{ if(g && g.parentNode){ safeRemove(g); } done(); });
     }
   }
 
@@ -488,15 +500,15 @@
       r.setAttribute('radius-inner','0.05'); r.setAttribute('radius-outer','0.07');
       r.setAttribute('material',`color:${x===safe?'#00ffa3':'#ffd166'};opacity:.9;shader:flat`);
       byId('arena').appendChild(r);
-      r.addEventListener('click', ()=>{ if(x!==safe){ doneCount++; } floatText('BREAK', x===safe?'#00ffa3':'#ffd166', r.object3D.getWorldPosition(new THREE.Vector3())); r.remove(); });
+      r.addEventListener('click', ()=>{ if(x!==safe){ doneCount++; } floatText('BREAK', x===safe?'#00ffa3':'#ffd166', r.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(r); });
 
       const start=performance.now(), T=dur(720);
       (function step(){
-        if(!r.parentNode) return;
+        if(!r || !r.parentNode) return;
         const t=(performance.now()-start)/T, base=0.07+t*0.9;
         r.setAttribute('radius-inner',Math.max(0.01,base-0.02));
         r.setAttribute('radius-outer',base);
-        if(t>=1){ if(r.parentNode) r.remove(); return; }
+        if(t>=1){ if(r.parentNode) safeRemove(r); return; }
         requestAnimationFrame(step);
       })();
     });
@@ -526,8 +538,8 @@
       g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position','0 1.38 -2.2'); g.classList.add('clickable','boss-attack');
       byId('arena').appendChild(g);
       if(AFFIX_PHANTOM && RND()<0.4){ const p=g.cloneNode(); p.object3D.position.y+=0.06; byId('arena').appendChild(p); }
-      let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#a899ff', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?18:16,new THREE.Vector3(0,1.5,-3)); g.remove(); });
-      after(dur(fast?520:650), ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } i++; if(i<count){ after(dur(100),doOne); } else { finishAttack(); } });
+      let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#a899ff', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?18:16,new THREE.Vector3(0,1.5,-3)); safeRemove(g); });
+      after(dur(fast?520:650), ()=>{ if(g && g.parentNode){ safeRemove(g); if(!ok) playerHit(); } i++; if(i<count){ after(dur(100),doOne); } else { finishAttack(); } });
     })();
   }
   function doLaserGrid(){
@@ -542,14 +554,14 @@
     play(SFX.tel_dash);
     const a=makeBeam(0,1.3,-15), b=makeBeam(0,1.5,15);
     let ca=false, cb=false;
-    if(window.EXTRA_BEAM){ const c=makeBeam(0,1.4,0); c.addEventListener('click', ()=>{ floatText('CUT','#5de1ff', c.object3D.getWorldPosition(new THREE.Vector3())); c.remove(); }); after(dur(800),()=>{ c.parentNode&&c.remove(); }); }
+    if(window.EXTRA_BEAM){ const c=makeBeam(0,1.4,0); c.addEventListener('click', ()=>{ floatText('CUT','#5de1ff', c.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(c); }); after(dur(800),()=>{ if(c && c.parentNode) safeRemove(c); }); }
     const ok=()=>{ if(ca && cb){ bossDamage(28,new THREE.Vector3(0,1.5,-3)); cleanup(); } };
-    a.addEventListener('click', ()=>{ ca=true; floatText('CUT','#5de1ff', a.object3D.getWorldPosition(new THREE.Vector3())); a.remove(); ok(); });
-    b.addEventListener('click', ()=>{ cb=true; floatText('CUT','#5de1ff', b.object3D.getWorldPosition(new THREE.Vector3())); b.remove(); ok(); });
+    a.addEventListener('click', ()=>{ ca=true; floatText('CUT','#5de1ff', a.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(a); ok(); });
+    b.addEventListener('click', ()=>{ cb=true; floatText('CUT','#5de1ff', b.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(b); ok(); });
     after(dur(800), ()=>{ cleanup(true); });
     function cleanup(timeout){
-      if(a.parentNode){ a.remove(); if(timeout && !ca) playerHit(); }
-      if(b.parentNode){ b.remove(); if(timeout && !cb) playerHit(); }
+      if(a && a.parentNode){ safeRemove(a); if(timeout && !ca) playerHit(); }
+      if(b && b.parentNode){ safeRemove(b); if(timeout && !cb) playerHit(); }
       finishAttack();
     }
   }
@@ -562,14 +574,14 @@
       o.setAttribute('radius','0.1'); o.setAttribute('color', fast?'#c9b6ff':'#a899ff');
       o.dataset.theta = (i/4)*Math.PI*2;
       byId('arena').appendChild(o); orbs.push(o);
-      o.addEventListener('click', ()=>{ floatText('BREAK', fast?'#c9b6ff':'#a899ff', o.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?12:10,center); o.remove(); });
+      o.addEventListener('click', ()=>{ floatText('BREAK', fast?'#c9b6ff':'#a899ff', o.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?12:10,center); safeRemove(o); });
     }
     const start=performance.now(), T=dur(fast?1800:(BOSS.phase===1?2600:2000));
     (function step(){
       const t=(performance.now()-start)/T;
       let alive=false;
       orbs.forEach((o,idx)=>{
-        if(!o.parentNode) return;
+        if(!o || !o.parentNode) return;
         alive=true;
         const theta = (+o.dataset.theta) + t* (fast?4.6:(BOSS.phase===1?2.5:3.6));
         const r = 0.5 + 0.2*Math.sin(t*4+idx);
@@ -577,7 +589,7 @@
         const y = center.y + Math.sin(theta)*r*0.6;
         o.setAttribute('position',`${x.toFixed(3)} ${y.toFixed(3)} ${center.z}`);
       });
-      if(t>=1){ orbs.forEach(o=>{ if(o.parentNode){ o.remove(); playerHit(); } }); finishAttack(); return; }
+      if(t>=1){ orbs.forEach(o=>{ if(o && o.parentNode){ safeRemove(o); playerHit(); } }); finishAttack(); return; }
       if(!alive){ finishAttack(); return; }
       requestAnimationFrame(step);
     })();
@@ -591,23 +603,23 @@
       const g=document.createElement('a-entity'); g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.25; depth: 0.04');
       g.setAttribute('material','color:#7a5cff;opacity:.95;transparent:true'); g.setAttribute('rotation','0 0 -30'); g.setAttribute('position','0 1.4 -2.2'); g.classList.add('clickable');
       byId('arena').appendChild(g); let ok=false; play(SFX.tel_slash);
-      g.addEventListener('click', ()=>{ ok=true; bossDamage(22,new THREE.Vector3(0,1.5,-3)); g.remove(); done(); });
-      after(dur(450), ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
+      g.addEventListener('click', ()=>{ ok=true; bossDamage(22,new THREE.Vector3(0,1.5,-3)); safeRemove(g); done(); });
+      after(dur(450), ()=>{ if(g && g.parentNode){ safeRemove(g); if(!ok) playerHit(); } done(); });
     }
     function qw(done){
       play(SFX.tel_shock);
       const ring=document.createElement('a-ring'); ring.classList.add('clickable'); ring.setAttribute('position','0 1.2 -2.6');
       ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07'); ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
       byId('arena').appendChild(ring);
-      ring.addEventListener('click', ()=>{ bossDamage(18, ring.object3D.getWorldPosition(new THREE.Vector3())); ring.remove(); done(); });
-      const start=performance.now(), T=dur(420); (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/T, r=0.07+t*0.9;
-        ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); ring.remove(); done(); return; } requestAnimationFrame(step);
+      ring.addEventListener('click', ()=>{ bossDamage(18, ring.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(ring); done(); });
+      const start=performance.now(), T=dur(420); (function step(){ if(!ring || !ring.parentNode) return; const t=(performance.now()-start)/T, r=0.07+t*0.9;
+        ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); safeRemove(ring); done(); return; } requestAnimationFrame(step);
       })();
     }
     function gem(done){
       const g=document.createElement('a-icosahedron'); g.classList.add('clickable'); g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.2'); g.setAttribute('color','#00ffa3'); byId('arena').appendChild(g);
-      g.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); play(SFX.success); bossDamage(60, g.object3D.getWorldPosition(new THREE.Vector3())); g.remove(); done(); });
-      after(dur(600), ()=>{ if(g.parentNode){ g.remove(); done(); } });
+      g.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); play(SFX.success); bossDamage(60, g.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(g); done(); });
+      after(dur(600), ()=>{ if(g && g.parentNode){ safeRemove(g); done(); } });
     }
   }
 
@@ -623,12 +635,12 @@
     const a=mk(-28,1.36), b=mk(28,1.44);
     let ca=false, cb=false;
     const ok=()=>{ if(ca && cb){ bossDamage(30,new THREE.Vector3(0,1.5,-3)); cleanup(); } };
-    a.addEventListener('click', ()=>{ ca=true; floatText('PARRY','#8cf5ff', a.object3D.getWorldPosition(new THREE.Vector3())); a.remove(); ok(); });
-    b.addEventListener('click', ()=>{ cb=true; floatText('PARRY','#8cf5ff', b.object3D.getWorldPosition(new THREE.Vector3())); b.remove(); ok(); });
+    a.addEventListener('click', ()=>{ ca=true; floatText('PARRY','#8cf5ff', a.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(a); ok(); });
+    b.addEventListener('click', ()=>{ cb=true; floatText('PARRY','#8cf5ff', b.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(b); ok(); });
     after(dur(560), ()=>{ cleanup(true); });
     function cleanup(timeout){
-      if(a.parentNode){ a.remove(); if(timeout && !ca) playerHit(); }
-      if(b.parentNode){ b.remove(); if(timeout && !cb) playerHit(); }
+      if(a && a.parentNode){ safeRemove(a); if(timeout && !ca) playerHit(); }
+      if(b && b.parentNode){ safeRemove(b); if(timeout && !cb) playerHit(); }
       finishAttack();
     }
   }
@@ -639,14 +651,14 @@
       const r=document.createElement('a-ring'); r.classList.add('clickable','boss-attack');
       const x = (i-1)*0.6; r.setAttribute('position',`${x} 1.15 -2.6`); r.setAttribute('radius-inner','0.05'); r.setAttribute('radius-outer','0.07');
       r.setAttribute('material','color:#ffd166;opacity:.95;shader:flat'); byId('arena').appendChild(r); rings.push(r);
-      r.addEventListener('click', ()=>{ floatText('BREAK','#ffd166', r.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12,new THREE.Vector3(0,1.5,-3)); r.remove(); });
+      r.addEventListener('click', ()=>{ floatText('BREAK','#ffd166', r.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12,new THREE.Vector3(0,1.5,-3)); safeRemove(r); });
     }
     const start=performance.now(), T=dur(680);
     (function step(){
       const t=(performance.now()-start)/T;
-      rings.forEach((r,idx)=>{ if(!r.parentNode) return; const base=0.07+t*0.9, off=idx*0.02;
+      rings.forEach((r,idx)=>{ if(!r || !r.parentNode) return; const base=0.07+t*0.9, off=idx*0.02;
         const R=base+off; r.setAttribute('radius-inner',Math.max(0.01,R-0.02)); r.setAttribute('radius-outer',R); });
-      if(t>=1){ const broken = rings.filter(r=>!r.parentNode).length; if(broken<2) playerHit(); rings.forEach(r=>r.parentNode&&r.remove()); finishAttack(); return; }
+      if(t>=1){ const broken = rings.filter(r=>!r.parentNode).length; if(broken<2) playerHit(); rings.forEach(r=>r && r.parentNode && safeRemove(r)); finishAttack(); return; }
       requestAnimationFrame(step);
     })();
   }
@@ -657,24 +669,24 @@
 
     function ms(done){ play(SFX.tel_slash);
       const a=mk(-26,1.36), b=mk(26,1.44); let ca=false, cb=false;
-      a.addEventListener('click', ()=>{ ca=true; a.remove(); ok(); });
-      b.addEventListener('click', ()=>{ cb=true; b.remove(); ok(); });
+      a.addEventListener('click', ()=>{ ca=true; safeRemove(a); ok(); });
+      b.addEventListener('click', ()=>{ cb=true; safeRemove(b); ok(); });
       after(dur(420), ()=>{ if(!ca||!cb) playerHit(); done(); });
       function mk(rot,y){ const g=document.createElement('a-entity'); g.classList.add('clickable'); g.setAttribute('geometry','primitive: box; height:0.04;width:1.25;depth:0.04'); g.setAttribute('material','color:#8cf5ff;opacity:.95;transparent:true'); g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position',`0 ${y} -2.2`); byId('arena').appendChild(g); return g; }
       function ok(){ if(ca&&cb){ bossDamage(26,new THREE.Vector3(0,1.5,-3)); done(); } }
     }
     function lg(done){
       const a=beam(0,1.32,-14), b=beam(0,1.48,14); let ca=false, cb=false;
-      a.addEventListener('click', ()=>{ ca=true; a.remove(); ok(); });
-      b.addEventListener('click', ()=>{ cb=true; b.remove(); ok(); });
+      a.addEventListener('click', ()=>{ ca=true; safeRemove(a); ok(); });
+      b.addEventListener('click', ()=>{ cb=true; safeRemove(b); ok(); });
       after(dur(620), ()=>{ if(!ca||!cb) playerHit(); done(); });
       function beam(x,y,rot){ const e=document.createElement('a-entity'); e.classList.add('clickable'); e.setAttribute('geometry','primitive: box; height:.035;width:1.4;depth:.03'); e.setAttribute('material','color:#5de1ff;opacity:.95;transparent:true'); e.setAttribute('position',`${x} ${y} -2.2`); e.setAttribute('rotation',`0 0 ${rot}`); byId('arena').appendChild(e); return e; }
       function ok(){ if(ca&&cb){ bossDamage(28,new THREE.Vector3(0,1.5,-3)); done(); } }
     }
     function vg(done){
       const g=document.createElement('a-icosahedron'); g.classList.add('clickable'); g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.2'); g.setAttribute('color','#00ffa3'); byId('arena').appendChild(g);
-      g.addEventListener('click', ()=>{ bossDamage(70, g.object3D.getWorldPosition(new THREE.Vector3())); g.remove(); done(); });
-      after(dur(520), ()=>{ if(g.parentNode){ g.remove(); } done(); });
+      g.addEventListener('click', ()=>{ bossDamage(70, g.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(g); done(); });
+      after(dur(520), ()=>{ if(g && g.parentNode){ safeRemove(g); } done(); });
     }
   }
 
@@ -685,7 +697,7 @@
     z.setAttribute('color','#ff3355'); z.setAttribute('position','0 0.9 -2.2');
     z.classList.add('clickable'); byId('arena').appendChild(z);
     z.addEventListener('click', ()=>{ floatText('SAFE ZONE','#00ffa3', z.object3D.getWorldPosition(new THREE.Vector3())); z.setAttribute('color','#00ffa3'); bossDamage(10, new THREE.Vector3(0,1.5,-3)); });
-    after(dur(3000), ()=>z.parentNode&&z.remove());
+    after(dur(3000), ()=>{ if(z && z.parentNode) safeRemove(z); });
   }
 
   // ---------- Targets & Hits ----------
@@ -748,12 +760,12 @@
     const p=target.object3D.getWorldPosition(new THREE.Vector3());
     const comp=target.components['sb-target']; const spec=TYPES.find(x=>x.id===(comp?.data?.type))||TYPES[0];
     clearTimeout(comp?.dieTimer); target.setAttribute('animation__out',{property:'scale',to:'0.001 0.001 0.001',dur:120,easing:'easeInBack'});
-    setTimeout(()=>target.remove(),130);
+    setTimeout(()=>safeRemove(target),130);
     applyScore(info.kind||info.type, info.method||info.type, p, spec);
     try{ window.AudioBus?.tap?.(); }catch(_e){}
   }
   function miss(target){
-    if(target && target.parentNode){ const p=target.object3D.getWorldPosition(new THREE.Vector3()); target.remove(); applyScore('miss','timeout', p, TYPES[0]); }
+    if(target && target.parentNode){ const p=target.object3D.getWorldPosition(new THREE.Vector3()); safeRemove(target); applyScore('miss','timeout', p, TYPES[0]); }
     else { combo=0; onComboChange(); }
   }
   function checkSlashHits(){
@@ -775,7 +787,10 @@
   const CHEEV={ noHit:true, combo50:false, under90s:false };
 
   // ---------- Game flow ----------
-  function clearArena(){ const a=byId('arena'); Array.from(a.children).forEach(c=>{ try{c.remove();}catch(_e){} }); }
+  function clearArena(){
+    const a=byId('arena');
+    Array.from(a.children).forEach(c=>safeRemove(c));
+  }
   function start(){
     if(running) return;
     const key = getDiffKey(); D = DIFFS[key] || DIFFS.normal;
@@ -886,6 +901,10 @@
       requestAnimationFrame(waitAF);
     })();
     window.addEventListener('error', e=>{ if(!document.getElementById('fatal')) showFatal('JS error: '+(e.message||'unknown')); });
+    window.addEventListener('beforeunload', ()=>{
+      try{ clearInterval(timer); clearInterval(spawnTimer); }catch(_){}
+      try{ timeouts.forEach(clearTimeout); timeouts.clear(); }catch(_){}
+    });
   })();
 
   // iOS audio unlock
