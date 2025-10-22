@@ -3,122 +3,138 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VR Fitness Academy · Sport Tech</title>
-  <link rel="stylesheet" href="core/themes/sport-tech.css"/>
+  <title>Shadow Breaker · VR Fitness Academy</title>
+
+  <!-- A-Frame (must have or you get a white page) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    :root{--ink:#e6f1ff;--mut:#8aa2b2;--bg:#0b1119;--card:#0e1622;--line:#1a2532;--accent:#00d0ff;}
+    html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+    .hud{position:fixed;inset:auto 0 0 0;display:flex;justify-content:center;gap:22px;padding:10px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.45))}
+    .hud .pill{background:rgba(15,23,32,.8);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600}
+    .mut{color:var(--mut)}
+    .top-right{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:1001}
+    .btn{background:#0e1622;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:8px 12px;cursor:pointer}
+    .btn:hover{background:#13202d}
+    /* Boss HP bar */
+    #bossBar{position:fixed;left:50%;top:10px;transform:translateX(-50%);width:min(720px,90vw);height:14px;border:1px solid var(--line);border-radius:10px;background:#0c131d;display:none;z-index:1002;overflow:hidden}
+    #bossHPFill{height:100%;width:100%;background:linear-gradient(90deg,#ff5577,#ff9c6b)}
+    #bossBar.rage #bossHPFill{background:linear-gradient(90deg,#ff2244,#ffcc00)}
+    @keyframes bossbar-hit {0%{transform:translateX(-50%) translateX(0)}25%{transform:translateX(-50%) translateX(-6px)}50%{transform:translateX(-50%) translateX(6px)}75%{transform:translateX(-50%) translateX(-3px)}100%{transform:translateX(-50%) translateX(0)}}
+    .bossbar.hit{animation:bossbar-hit 240ms ease}
+
+    /* Results modal */
+    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1200}
+    #results .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:260px}
+    #results .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
+    #results .row:last-child{border-bottom:none}
+
+    /* Screen shake (when player hit) */
+    @keyframes screenshake {0%{transform:translate(0,0)}20%{transform:translate(-4px,2px)}40%{transform:translate(3px,-3px)}60%{transform:translate(-3px,4px)}80%{transform:translate(2px,-2px)}100%{transform:translate(0,0)}}
+    .shake-scene{animation:screenshake 240ms ease}
+
+    /* Story Overlay */
+    .story-overlay{position:fixed;inset:0;background:rgba(7,10,14,.88);display:none;z-index:1300;align-items:center;justify-content:center}
+    .story-card{background:#0c131d;border:1px solid #1a2532;border-radius:16px;width:min(720px,90vw);padding:18px;box-shadow:0 18px 60px #000c}
+    .story-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .story-cell{border:1px solid #243447;border-radius:12px;padding:10px;background:#0f1822;cursor:pointer}
+    .story-cell:hover{background:#13202d}
+    .badge{display:inline-block;padding:2px 8px;border:1px solid #2a3a50;border-radius:999px;background:#0e1622;margin-left:6px;font-size:12px;color:#8aa2b2}
+  </style>
 </head>
 <body>
-  <header class="header">
-    <div class="brand">VR Fitness Academy</div>
-    <div class="toolbar">
-      <label class="small" for="langSel" data-i18n="language">Language</label>
-      <select id="langSel" class="btn">
-        <option value="en">English</option>
-        <option value="th">ไทย</option>
-      </select>
-      <button class="btn" id="muteBtn">🔊</button>
+
+  <!-- top buttons + boss bar -->
+  <div class="top-right">
+    <button id="backBtn" class="btn">⟵ Hub</button>
+    <button id="startBtn" class="btn">Start</button>
+    <button id="replayBtn" class="btn">Replay</button>
+  </div>
+  <div id="bossBar" class="bossbar"><div id="bossHPFill"></div></div>
+
+  <!-- HUD bottom -->
+  <div class="hud">
+    <div class="pill">Score <span id="score">0</span></div>
+    <div class="pill">Combo <span id="combo">0</span></div>
+    <div class="pill">Time <span id="time">60</span>s</div>
+    <div class="pill mut">Kcal <span id="kcal">0.0</span></div>
+    <div class="pill mut">HR <span id="hr">--</span></div>
+  </div>
+
+  <!-- Results modal -->
+  <div id="results">
+    <div class="card">
+      <h3 style="margin:4px 0 8px">Results</h3>
+      <div class="row"><div>Total Score</div><b id="rScore">0</b></div>
+      <div class="row"><div>Max Combo</div><b id="rMaxCombo">0</b></div>
+      <div class="row"><div>Accuracy</div><b id="rAcc">0%</b></div>
+      <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end">
+        <button class="btn" id="closeRes">Close</button>
+      </div>
     </div>
-  </header>
+  </div>
 
-  <main class="container">
-    <h1 style="margin:12px 0 6px" data-i18n="hub_title">Choose your workout</h1>
-    <div class="small" data-i18n="hub_sub">4 mini-games • scoring • BGM • results</div>
-    <div class="grid" id="gameGrid" aria-live="polite"></div>
-  </main>
+  <!-- Story / HIIT overlay -->
+  <div class="story-overlay" id="storyOverlay">
+    <div class="story-card">
+      <h2>Story Mode <span class="badge">Chapter Select</span></h2>
+      <div class="story-grid">
+        <div class="story-cell" onclick="Story.applySelection({mode:'story', chapter:1, difficulty:'normal', hiit:false})">
+          <b>Chapter 1: Hell Trainer</b>
+          <div style="color:#8aa2b2;font-size:12px">Boss: RazorFist • Phase 1–2</div>
+        </div>
+        <div class="story-cell" onclick="Story.applySelection({mode:'hiit', chapter:0, difficulty:'normal', hiit:true})">
+          <b>HIIT Mode (5 min)</b>
+          <div style="color:#8aa2b2;font-size:12px">Intervals: 30s on / 30s off</div>
+        </div>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
+        <button class="btn" onclick="Story.close()">Close</button>
+      </div>
+    </div>
+  </div>
 
-  <!-- Recent Results (central leaderboard preview) -->
-  <section class="container" id="lbSection">
-    <h2 style="margin:4px 0 10px">Recent Results</h2>
-    <div class="card" id="lbCard"><div class="small">No scores yet</div></div>
-  </section>
+  <!-- Scene -->
+  <a-scene renderer="colorManagement: true" cursor="rayOrigin: mouse">
+    <!-- camera + mouse cursor for desktop; on mobile/VR จะใช้ controller เอง -->
+    <a-entity id="rig">
+      <a-entity id="camera" camera position="0 1.6 0" look-controls>
+        <a-cursor fuse="false" raycaster="objects: .clickable"></a-cursor>
+      </a-entity>
+    </a-entity>
 
-  <footer class="footer">
-    <span>Sport Tech UI · <span class="kbd">ESC</span> to exit VR</span>
-  </footer>
+    <!-- “hands” proxy (เราตรวจความเร็วเพื่อเช็ค slash) -->
+    <a-entity id="leftHand"  hand-speed position="-0.2 1.3 -0.6"></a-entity>
+    <a-entity id="rightHand" hand-speed position="0.2 1.3 -0.6"></a-entity>
 
-  <!-- Core scripts -->
-  <script src="core/i18n.js"></script>
-  <script src="core/audio.js"></script>
-  <script src="core/engine.js"></script>
-  <script src="core/ui.js"></script>
-  <script src="core/leaderboard.js"></script>
+    <!-- เวทีให้สปอนเป้า/บอส -->
+    <a-entity id="arena" position="0 0 0"></a-entity>
 
-  <!-- Fallback: ถ้า config.json โหลดไม่ได้ ให้เรนเดอร์การ์ดเกมจาก DEFAULT_CFG ที่ฝังไว้ -->
+    <a-sky color="#02070d"></a-sky>
+    <a-entity light="type:ambient; intensity:0.6; color:#bcdcff"></a-entity>
+    <a-entity light="type:directional; intensity:0.9" position="0 2 1"></a-entity>
+  </a-scene>
+
+  <!-- Core/Hub helpers (ใช้แล้วใน game.js) -->
+  <script src="../../core/i18n.js"></script>
+  <script src="../../core/audio.js"></script>
+  <script src="../../core/engine.js"></script>
+  <script src="../../core/ui.js"></script>
+  <script src="../../core/leaderboard.js"></script>
+
+  <!-- Story helper -->
+  <script src="../../core/story.js"></script>
+
+  <!-- Game logic -->
+  <script src="./game.js"></script>
+
   <script>
-    const DEFAULT_CFG = {
-      projectName: "VR Fitness Academy",
-      theme: "sport-tech",
-      languages: ["en","th"],
-      defaultLang: "en",
-      games: [
-        {id:"shadow-breaker", name:{en:"Shadow Breaker", th:"ชาโดว์เบรกเกอร์"}, desc:{en:"Slash or punch targets in time.", th:"ฟาด/ชกเป้าตามจังหวะ"}},
-        {id:"rhythm-boxer",  name:{en:"Rhythm Boxer",    th:"ริทึมบ็อกเซอร์"}, desc:{en:"Box to the beat and rack up combos.", th:"ชกตามจังหวะ เก็บคอมโบ"}},
-        {id:"jump-duck",     name:{en:"Jump & Duck",      th:"กระโดดและก้ม"}, desc:{en:"Move your body to dodge barriers.", th:"ขยับตัวหลบสิ่งกีดขวาง"}},
-        {id:"balance-hold",  name:{en:"Balance Hold",     th:"ทรงตัวค้าง"},    desc:{en:"Hold steady poses for points.", th:"ทรงท่าค้าง รับคะแนน"}}
-      ],
-      audio: { bgm: "assets/sfx/bgm.wav", click: "assets/sfx/click.wav" }
-    };
-
-    // ปุ่มเสียง
-    document.getElementById('muteBtn').addEventListener('click', ()=>{ try { AudioBus.mute(true); } catch(e){} });
-
-    // Leaderboard preview
-    (function(){
-      try {
-        const list = Leaderboard.recent(8);
-        const card = document.getElementById('lbCard');
-        if (!list || list.length === 0) {
-          card.innerHTML = '<div class="small">No scores yet</div>';
-        } else {
-          const rows = list.map(e => {
-            const when = new Date(e.ts).toLocaleString();
-            const game = e.gameId || 'unknown';
-            const acc  = (e.accuracy != null ? (e.accuracy + '%') : '-');
-            return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #1a2532">
-              <div><b>${game}</b> · ${when}</div>
-              <div>Score <b>${e.score || 0}</b> · MaxCombo <b>${e.maxCombo || 0}</b> · Acc ${acc}</div>
-            </div>`;
-          }).join('');
-          card.innerHTML = rows;
-        }
-      } catch (e) {}
-    })();
-
-    // Fallback renderer: ถ้าผ่าน 600ms แล้วยังไม่มีการ์ดเกม ให้เรนเดอร์จาก DEFAULT_CFG ทันที
-    (function fallbackRender(){
-      setTimeout(() => {
-        const grid = document.getElementById('gameGrid');
-        if (grid && grid.children.length === 0) {
-          // กำหนดภาษาเริ่มต้น
-          const langSel = document.getElementById('langSel');
-          const LANG = (localStorage.getItem('lang') || DEFAULT_CFG.defaultLang || 'en');
-          if (langSel) langSel.value = LANG;
-
-          // แสดงการ์ดเกม
-          grid.innerHTML = DEFAULT_CFG.games.map(g => `
-            <div class="card">
-              <h3>${(g.name[LANG] || g.name.en)}</h3>
-              <p>${(g.desc[LANG] || g.desc.en)}</p>
-              <div style="margin-top:12px; display:flex; gap:8px">
-                <button class="btn accent" data-game="${g.id}">${LANG==='th'?'เล่น':'Play'}</button>
-                <a class="btn" href="games/${g.id}/index.html" target="_blank">${LANG==='th'?'เปิด':'Open'}</a>
-              </div>
-            </div>
-          `).join('');
-
-          // คลิกปุ่ม Play → ไปที่หน้าเกม
-          grid.querySelectorAll('button[data-game]').forEach(btn=>{
-            btn.addEventListener('click', e=>{
-              try { AudioBus.tap(); } catch(e){}
-              const id = e.currentTarget.dataset.game;
-              window.location.href = `games/${id}/index.html?mode=timed&diff=normal`;
-            });
-          });
-
-          // เล่น BGM ถ้ามี
-          try { AudioBus.load(DEFAULT_CFG); AudioBus.playBgm(); } catch(e){}
-        }
-      }, 600);
-    })();
+    // Basic bindings
+    document.getElementById('backBtn').onclick = ()=>{ location.href='../../index.html'; };
+    document.getElementById('closeRes').onclick = ()=>{ document.getElementById('results').style.display='none'; };
+    // เปิด Story Overlay แบบเร็ว: คลิกขวาที่ Start (กันพลาดบนมือถือ/VR)
+    document.getElementById('startBtn').addEventListener('contextmenu', (e)=>{ e.preventDefault(); Story && Story.open(); });
   </script>
 </body>
 </html>
