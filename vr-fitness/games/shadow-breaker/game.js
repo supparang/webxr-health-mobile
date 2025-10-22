@@ -7,17 +7,19 @@
   const APPX={ badge:(t)=>{ if(window.APP?.badge) APP.badge(t); else console.log('[BADGE]',t); }, t:(k)=>window.APP?.t?APP.t(k):k };
   const getQuery=(k)=>new URLSearchParams(location.search).get(k);
 
-  // ---------- Difficulty ----------
-  // อ่านความยากจาก Story Overlay (ถ้ามี) หรือ query ?diff=..., ค่าปริยาย normal
-  const DIFF = (window.APP?.story?.difficulty) || (getQuery('diff')||'normal');
-  // ตัวคูณความยาก (HP, หน้าต่างเวลาท่า, คะแนน, ดาเมจ)
+  // ---------- Difficulty (อ่านทุกครั้งตอนเริ่มเกม) ----------
+  function getDiffKey(){
+    const q = getQuery('diff');
+    const ls = localStorage.getItem('sb_diff');
+    return (window.APP?.story?.difficulty) || q || ls || 'normal';
+  }
   const DIFFS = {
-    easy:   { hp:0.85, atkWin:1.15, dmgMul:0.9,  chainMin:10, spawnInt:950, scoreMul:0.9, title:'EASY'   },
-    normal: { hp:1.00, atkWin:1.00, dmgMul:1.0,  chainMin:15, spawnInt:900, scoreMul:1.0, title:'NORMAL' },
-    hard:   { hp:1.20, atkWin:0.90, dmgMul:1.1,  chainMin:20, spawnInt:820, scoreMul:1.1, title:'HARD'   },
-    final:  { hp:1.35, atkWin:0.85, dmgMul:1.2,  chainMin:25, spawnInt:780, scoreMul:1.2, title:'FINAL'  }
+    easy:   { hp:0.85, atkWin:1.15, dmgMul:0.9,  chainMin:10, spawnInt:950, scoreMul:0.9,  title:'EASY'   },
+    normal: { hp:1.00, atkWin:1.00, dmgMul:1.0,  chainMin:15, spawnInt:900, scoreMul:1.0,  title:'NORMAL' },
+    hard:   { hp:1.20, atkWin:0.90, dmgMul:1.1,  chainMin:20, spawnInt:820, scoreMul:1.1,  title:'HARD'   },
+    final:  { hp:1.35, atkWin:0.85, dmgMul:1.2,  chainMin:25, spawnInt:780, scoreMul:1.2,  title:'FINAL'  }
   };
-  const D = DIFFS[DIFF] || DIFFS.normal;
+  let D = DIFFS.normal;
 
   // ---------- State ----------
   let running=false, timer=null, spawnTimer=null;
@@ -25,10 +27,9 @@
   let CURRENT_BOSS = 0;
 
   // ---------- Chain rule ----------
-  const CHAIN_RULE = { minTimeLeft: D.chainMin };
+  let CHAIN_RULE = { minTimeLeft: 15 };
 
   // ---------- Boss roster ----------
-  // แพทเทิร์นพื้นฐาน (บอส 1–3 จากเวอร์ชันก่อน) + เพิ่มบอส 4: Void Emperor
   const BOSSES_ALL = [
     { id:'RazorFist', title:'RAZORFIST', baseHP:1000, color:'#ff3355',
       P1:['slash_cross','rapid_fist','guard_break'],
@@ -43,18 +44,17 @@
       P2:['orb_spiral','blade_storm_fast','rage_finale']
     },
     { id:'VoidEmperor', title:'VOID EMPEROR', baseHP:1800, color:'#8cf5ff',
-      // Final Boss: หน้าต่างแคบ, โจมตีซ้อน, บังคับตอบสนองเร็ว
       P1:['mirror_slash','doom_rings','laser_grid'],
       P2:['blade_storm_fast','orb_spiral_fast','void_finale']
     }
   ];
-  // เลือก roster ตามความยาก
-  const ROSTER = (function(){
-    if(DIFF==='easy')   return [BOSSES_ALL[0]];
-    if(DIFF==='normal') return [BOSSES_ALL[0], BOSSES_ALL[1]];
-    if(DIFF==='hard')   return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2]];
-    return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2], BOSSES_ALL[3]]; // final
-  })();
+  function makeRoster(diffKey){
+    if(diffKey==='easy')   return [BOSSES_ALL[0]];
+    if(diffKey==='normal') return [BOSSES_ALL[0], BOSSES_ALL[1]];
+    if(diffKey==='hard')   return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2]];
+    return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2], BOSSES_ALL[3]];
+  }
+  let ROSTER = makeRoster('normal');
 
   // ---------- Targets ----------
   const TYPES=[
@@ -73,7 +73,7 @@
   };
   const ANGLE_TOL=0.55;
 
-  // ---------- SFX (safe) ----------
+  // ---------- SFX ----------
   const SFXN=(p)=>{ const a=new Audio(p); a.onerror=()=>{}; return a; };
   const SFX={
     slash:SFXN('../../assets/sfx/slash.wav'),
@@ -152,7 +152,7 @@
 
     bossShowUI(true); bossSetHP(BOSS.max);
     try{ SFX.boss_roar.currentTime=0; SFX.boss_roar.play(); }catch(e){}
-    APPX.badge((BOSS.name||'BOSS') + ' · ' + (DIFFS[DIFF]?.title || 'NORMAL'));
+    APPX.badge((BOSS.name||'BOSS') + ' · ' + (DIFFS[getDiffKey()]?.title || 'NORMAL'));
   }
 
   function bossSpawn(index=0){
@@ -222,7 +222,7 @@
     const scn=document.querySelector('a-scene'); if(scn){ scn.classList.add('shake-scene'); setTimeout(()=>scn.classList.remove('shake-scene'), 240); }
   }
 
-  // --- Moves: บอส 1–2 (จากเวอร์ชันก่อน ปรับเวลาตาม D.atkWin) ---
+  // --- Moves: บอส 1–2 ---
   function doSlashCross(){
     BOSS.busy=true; try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
     const g=document.createElement('a-entity');
@@ -426,7 +426,6 @@
   }
 
   // --- Final Boss specials ---
-  // Mirror Slash: สองเส้นตัดพร้อมกัน ต้องพารี่ให้ครบ
   function doMirrorSlash(){
     BOSS.busy=true;
     const mk=(rot, y)=>{ const g=document.createElement('a-entity');
@@ -447,7 +446,6 @@
       finishAttack();
     }
   }
-  // Doom Rings: ช็อกเวฟ 3 วงพร้อมกัน ต้องแตกอย่างน้อย 2
   function doDoomRings(){
     BOSS.busy=true;
     const rings=[];
@@ -466,7 +464,6 @@
       requestAnimationFrame(step);
     })();
   }
-  // Void Finale: QTE ปิดเกมเร็วมาก (Slash→Grid→Gem)
   function doVoidFinale(){
     BOSS.busy=true; try{ SFX.enrage.currentTime=0; SFX.enrage.play(); }catch(e){} APPX.badge('VOID FINALE!');
     const seq=[()=>ms(()=>step()), ()=>lg(()=>step()), ()=>vg(()=>finishAttack())];
@@ -571,6 +568,13 @@
   function clearArena(){ const a=byId('arena'); Array.from(a.children).forEach(c=>c.remove()); }
   function start(){
     if(running) return;
+    // refresh difficulty & roster every start
+    const key = getDiffKey(); D = DIFFS[key] || DIFFS.normal;
+    ROSTER = makeRoster(key);
+    CHAIN_RULE = { minTimeLeft: D.chainMin };
+    // UI reflect difficulty in Results box
+    const rDiff = byId('rDiff'); if(rDiff) rDiff.textContent = (DIFFS[key]?.title || 'NORMAL');
+
     reset(); running=true;
     spawnTimer=setInterval(spawnTarget, D.spawnInt);
     timer=setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
@@ -583,9 +587,10 @@
   function end(){
     running=false; clearInterval(timer); clearInterval(spawnTimer); bossShowUI(false);
     const acc=spawns? Math.round((hits/spawns)*100):0;
-    byId('rScore').textContent=Math.round(score*D.scoreMul); byId('rMaxCombo').textContent=maxCombo; byId('rAcc').textContent=acc+'%';
-    byId('results').style.display='flex'; APPX.badge(APPX.t('results')+': '+Math.round(score*D.scoreMul));
-    try{ window.Leaderboard?.postResult?.('shadow-breaker',{score:Math.round(score*D.scoreMul),maxCombo,accuracy:acc,diff:DIFF}); }catch(e){}
+    const diffKey = getDiffKey(); const finalScore = Math.round(score*D.scoreMul);
+    byId('rScore').textContent=finalScore; byId('rMaxCombo').textContent=maxCombo; byId('rAcc').textContent=acc+'%';
+    byId('results').style.display='flex'; APPX.badge(APPX.t('results')+': '+finalScore);
+    try{ window.Leaderboard?.postResult?.('shadow-breaker',{score:finalScore,maxCombo,accuracy:acc,diff:diffKey}); }catch(e){}
   }
 
   // ---------- Buttons ----------
