@@ -1,39 +1,60 @@
-/* Shadow Breaker · game.js (Boss chain 1→2→3) */
+/* Shadow Breaker · game.js (Difficulties + Final Boss) */
 (function(){
   // ---------- Helpers ----------
-  const $ = (q)=>document.querySelector(q);
   const byId = (id)=>document.getElementById(id);
   const after = (ms, fn)=>setTimeout(fn, ms);
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const APPX={ badge:(t)=>{ if(window.APP?.badge) APP.badge(t); else console.log('[BADGE]',t); }, t:(k)=>window.APP?.t?APP.t(k):k };
+  const getQuery=(k)=>new URLSearchParams(location.search).get(k);
+
+  // ---------- Difficulty ----------
+  // อ่านความยากจาก Story Overlay (ถ้ามี) หรือ query ?diff=..., ค่าปริยาย normal
+  const DIFF = (window.APP?.story?.difficulty) || (getQuery('diff')||'normal');
+  // ตัวคูณความยาก (HP, หน้าต่างเวลาท่า, คะแนน, ดาเมจ)
+  const DIFFS = {
+    easy:   { hp:0.85, atkWin:1.15, dmgMul:0.9,  chainMin:10, spawnInt:950, scoreMul:0.9, title:'EASY'   },
+    normal: { hp:1.00, atkWin:1.00, dmgMul:1.0,  chainMin:15, spawnInt:900, scoreMul:1.0, title:'NORMAL' },
+    hard:   { hp:1.20, atkWin:0.90, dmgMul:1.1,  chainMin:20, spawnInt:820, scoreMul:1.1, title:'HARD'   },
+    final:  { hp:1.35, atkWin:0.85, dmgMul:1.2,  chainMin:25, spawnInt:780, scoreMul:1.2, title:'FINAL'  }
+  };
+  const D = DIFFS[DIFF] || DIFFS.normal;
 
   // ---------- State ----------
   let running=false, timer=null, spawnTimer=null;
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
-
-  // ---------- Chain rule ----------
-  const CHAIN_RULE = { minTimeLeft: 15 }; // เหลือเวลาเท่านี้ขึ้นไป จึงไปบอสถัดไป
   let CURRENT_BOSS = 0;
 
+  // ---------- Chain rule ----------
+  const CHAIN_RULE = { minTimeLeft: D.chainMin };
+
   // ---------- Boss roster ----------
-  const BOSSES = [
-    {
-      id:'RazorFist', title:'RAZORFIST', maxHP:1000, color:'#ff3355',
+  // แพทเทิร์นพื้นฐาน (บอส 1–3 จากเวอร์ชันก่อน) + เพิ่มบอส 4: Void Emperor
+  const BOSSES_ALL = [
+    { id:'RazorFist', title:'RAZORFIST', baseHP:1000, color:'#ff3355',
       P1:['slash_cross','rapid_fist','guard_break'],
       P2:['shadow_dash','multi_slash','enrage_combo']
     },
-    {
-      id:'AshOni', title:'ASH ONI', maxHP:1200, color:'#ffa133',
+    { id:'AshOni', title:'ASH ONI', baseHP:1200, color:'#ffa133',
       P1:['shadow_dash','guard_break','rapid_fist'],
       P2:['multi_slash','ground_shock','enrage_combo_fast']
     },
-    {
-      id:'Nightblade', title:'NIGHTBLADE', maxHP:1400, color:'#7a5cff',
-      // บอส 3 เน้น pattern กวาดสนามและล่อให้พลาด
+    { id:'Nightblade', title:'NIGHTBLADE', baseHP:1400, color:'#7a5cff',
       P1:['blade_storm','laser_grid','guard_break'],
       P2:['orb_spiral','blade_storm_fast','rage_finale']
+    },
+    { id:'VoidEmperor', title:'VOID EMPEROR', baseHP:1800, color:'#8cf5ff',
+      // Final Boss: หน้าต่างแคบ, โจมตีซ้อน, บังคับตอบสนองเร็ว
+      P1:['mirror_slash','doom_rings','laser_grid'],
+      P2:['blade_storm_fast','orb_spiral_fast','void_finale']
     }
   ];
+  // เลือก roster ตามความยาก
+  const ROSTER = (function(){
+    if(DIFF==='easy')   return [BOSSES_ALL[0]];
+    if(DIFF==='normal') return [BOSSES_ALL[0], BOSSES_ALL[1]];
+    if(DIFF==='hard')   return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2]];
+    return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2], BOSSES_ALL[3]]; // final
+  })();
 
   // ---------- Targets ----------
   const TYPES=[
@@ -72,7 +93,7 @@
   };
 
   // ---------- HUD ----------
-  function updateHUD(){ byId('score').textContent=score; byId('combo').textContent=combo; byId('time').textContent=timeLeft; }
+  function updateHUD(){ byId('score').textContent=Math.round(score*D.scoreMul); byId('combo').textContent=combo; byId('time').textContent=timeLeft; }
   function onComboChange(){
     byId('combo').textContent=combo;
     if(combo>0 && combo%10===0){ try{ SFX.combo.currentTime=0; SFX.combo.play(); }catch(e){} APPX.badge('Combo x'+(1+Math.floor(combo/10))); }
@@ -110,7 +131,7 @@
   function bossDamage(amount,pos){
     if(!BOSS.active) return;
     const armor = BOSS.rage ? 0.1 : 0.2;
-    const final = Math.max(1, Math.round(amount*(1-armor)));
+    const final = Math.max(1, Math.round(amount*(1-armor)*D.dmgMul));
     try{ SFX.hp_hit.currentTime=0; SFX.hp_hit.play(); }catch(e){}
     bossSetHP(BOSS.hp - final);
   }
@@ -131,12 +152,14 @@
 
     bossShowUI(true); bossSetHP(BOSS.max);
     try{ SFX.boss_roar.currentTime=0; SFX.boss_roar.play(); }catch(e){}
-    APPX.badge(BOSS.name || 'BOSS');
+    APPX.badge((BOSS.name||'BOSS') + ' · ' + (DIFFS[DIFF]?.title || 'NORMAL'));
   }
 
   function bossSpawn(index=0){
-    const cfg = BOSSES[index] || BOSSES[0];
-    BOSS.active=true; BOSS.max=cfg.maxHP; BOSS.hp=cfg.maxHP; BOSS.rage=false; BOSS.phase=1; BOSS.busy=false;
+    const cfg = ROSTER[index] || ROSTER[0];
+    BOSS.active=true;
+    BOSS.max=Math.round(cfg.baseHP*D.hp);
+    BOSS.hp=BOSS.max; BOSS.rage=false; BOSS.phase=1; BOSS.busy=false;
     BOSS.name=cfg.title; BOSS.color=cfg.color; BOSS.P1=cfg.P1.slice(); BOSS.P2=cfg.P2.slice();
     bossIntro(); pIndex=0; after(1000, bossLoop);
   }
@@ -146,7 +169,7 @@
     floatText('BOSS DEFEATED','#00ffa3', new THREE.Vector3(0,1.6,-2.3));
     score += 250; updateHUD();
 
-    const lastBoss = (CURRENT_BOSS >= BOSSES.length-1);
+    const lastBoss = (CURRENT_BOSS >= ROSTER.length-1);
     const canChain = (!lastBoss && timeLeft >= CHAIN_RULE.minTimeLeft);
 
     if(canChain){
@@ -183,10 +206,15 @@
       'blade_storm_fast':()=>doBladeStorm(true),
       'laser_grid':doLaserGrid,
       'orb_spiral':doOrbSpiral,
-      'rage_finale':doRageFinale
+      'rage_finale':doRageFinale,
+      // final boss
+      'mirror_slash':doMirrorSlash,
+      'doom_rings':doDoomRings,
+      'orb_spiral_fast':()=>doOrbSpiral(true),
+      'void_finale':doVoidFinale
     }[pattern]||(()=>{ BOSS.busy=false; }))();
   }
-  function finishAttack(){ BOSS.busy=false; after(520, bossLoop); }
+  function finishAttack(){ BOSS.busy=false; after(520*D.atkWin, bossLoop); }
   function playerHit(){
     combo=0; onComboChange();
     score=Math.max(0,score-5); updateHUD();
@@ -194,7 +222,7 @@
     const scn=document.querySelector('a-scene'); if(scn){ scn.classList.add('shake-scene'); setTimeout(()=>scn.classList.remove('shake-scene'), 240); }
   }
 
-  // --- Moves (Phase 1/2 ใช้ของบอสก่อนหน้า) ---
+  // --- Moves: บอส 1–2 (จากเวอร์ชันก่อน ปรับเวลาตาม D.atkWin) ---
   function doSlashCross(){
     BOSS.busy=true; try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
     const g=document.createElement('a-entity');
@@ -203,12 +231,12 @@
     g.setAttribute('rotation','0 0 -35'); g.setAttribute('position','0 1.4 -2.2'); g.classList.add('clickable','boss-attack');
     g.addEventListener('click', ()=>{ floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(28,new THREE.Vector3(0,1.5,-3)); g.remove(); finishAttack(); });
     byId('arena').appendChild(g);
-    after(BOSS.phase===1?900:700, ()=>{ if(g.parentNode){ playerHit(); g.remove(); } finishAttack(); });
+    after((BOSS.phase===1?900:700)*D.atkWin, ()=>{ if(g.parentNode){ playerHit(); g.remove(); } finishAttack(); });
   }
   function doRapidFist(){
     BOSS.busy=true; let count=0;
     const next=()=>{ try{ SFX.tel_shock.currentTime=0; SFX.tel_shock.play(); }catch(e){}
-      spawnShockwave(()=>{ count++; if(count<(BOSS.phase===1?3:4)){ after(BOSS.phase===1?450:380,next);} else { finishAttack(); } });
+      spawnShockwave(()=>{ count++; if(count<(BOSS.phase===1?3:4)){ after((BOSS.phase===1?450:380)*D.atkWin,next);} else { finishAttack(); } });
     }; next();
   }
   function spawnShockwave(done){
@@ -216,7 +244,7 @@
     ring.setAttribute('position','0 1.2 -2.6'); ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07');
     ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat'); byId('arena').appendChild(ring);
     ring.addEventListener('click', ()=>{ const p=ring.object3D.getWorldPosition(new THREE.Vector3()); floatText('BREAK','#00ffa3', p); bossDamage(16,p); ring.remove(); done&&done(); });
-    const start=performance.now(), dur=(BOSS.phase===1?700:560);
+    const start=performance.now(), dur=(BOSS.phase===1?700:560)*D.atkWin;
     (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/dur; const r=0.07+t*0.9;
       ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r);
       if(t>=1.0){ playerHit(); ring.remove(); done&&done(); return; } requestAnimationFrame(step);
@@ -229,7 +257,7 @@
     core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale', to:'1 1 1', dur:140, easing:'easeOutBack'});
     byId('arena').appendChild(core);
     core.addEventListener('click', ()=>{ const p=core.object3D.getWorldPosition(new THREE.Vector3()); bossDamage(10,p); core.remove(); finishAttack(); });
-    after(BOSS.phase===1?900:750, ()=>{ if(core.parentNode){ playerHit(); core.remove(); } finishAttack(); });
+    after((BOSS.phase===1?900:750)*D.atkWin, ()=>{ if(core.parentNode){ playerHit(); core.remove(); } finishAttack(); });
   }
   function doShadowDash(){
     BOSS.busy=true; try{ SFX.tel_dash.currentTime=0; SFX.tel_dash.play(); }catch(e){}
@@ -238,7 +266,7 @@
       b.setAttribute('color', i===0?'#00d0ff':'#00ffa3'); b.setAttribute('position', (i===0?'-0.9':'0.9')+' 1.0 -2.0'); byId('arena').appendChild(b); });
     let ok=false; const hit=(box)=>{ if(ok) return; ok=true; floatText('DODGE','#9bd1ff', box.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12,new THREE.Vector3(0,1.5,-3)); cleanup(); };
     l.addEventListener('click', ()=>hit(l)); r.addEventListener('click', ()=>hit(r));
-    after(700, ()=>{ if(!ok) playerHit(); cleanup(); });
+    after(700*D.atkWin, ()=>{ if(!ok) playerHit(); cleanup(); });
     function cleanup(){ [l,r].forEach(b=>b.parentNode&&b.parentNode.removeChild(b)); finishAttack(); }
   }
   function doMultiSlash(){
@@ -248,7 +276,7 @@
       g.setAttribute('material','color: #ff3355; opacity: 0.85; transparent: true'); g.setAttribute('rotation','0 0 '+seq[i]); g.setAttribute('position','0 1.35 -2.2');
       g.classList.add('clickable','boss-attack'); byId('arena').appendChild(g);
       let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(16,new THREE.Vector3(0,1.5,-3)); g.remove(); });
-      after(650, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } i++; if(i<seq.length){ after(120,next); } else { finishAttack(); } });
+      after(650*D.atkWin, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } i++; if(i<seq.length){ after(120*D.atkWin,next); } else { finishAttack(); } });
     }; next();
   }
   function doEnrageCombo(){
@@ -261,7 +289,7 @@
       g.setAttribute('material','color:#ff3355;opacity:.9;transparent:true'); g.setAttribute('rotation','0 0 -35'); g.setAttribute('position','0 1.4 -2.2'); g.classList.add('clickable');
       byId('arena').appendChild(g); let ok=false; try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
       g.addEventListener('click', ()=>{ ok=true; bossDamage(18,new THREE.Vector3(0,1.5,-3)); g.remove(); done(); });
-      after(520, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
+      after(520*D.atkWin, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
     }
     function qw(done){
       try{ SFX.tel_shock.currentTime=0; SFX.tel_shock.play(); }catch(e){}
@@ -269,7 +297,7 @@
       ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07'); ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
       byId('arena').appendChild(ring);
       ring.addEventListener('click', ()=>{ bossDamage(14, ring.object3D.getWorldPosition(new THREE.Vector3())); ring.remove(); done(); });
-      const start=performance.now(), dur=500; (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/dur, r=0.07+t*0.9;
+      const start=performance.now(), dur=500*D.atkWin; (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/dur, r=0.07+t*0.9;
         ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); ring.remove(); done(); return; } requestAnimationFrame(step);
       })();
     }
@@ -278,12 +306,12 @@
       const core=document.createElement('a-sphere'); core.classList.add('clickable'); core.setAttribute('radius','0.18'); core.setAttribute('color','#ff6b6b'); core.setAttribute('position','0 1.15 -2.2');
       core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:120,easing:'easeOutBack'});
       byId('arena').appendChild(core); let ok=false; core.addEventListener('click', ()=>{ ok=true; bossDamage(12, core.object3D.getWorldPosition(new THREE.Vector3())); core.remove(); done(); });
-      after(600, ()=>{ if(core.parentNode){ core.remove(); if(!ok) playerHit(); } done(); });
+      after(600*D.atkWin, ()=>{ if(core.parentNode){ core.remove(); if(!ok) playerHit(); } done(); });
     }
     function gem(done){
       const g=document.createElement('a-icosahedron'); g.classList.add('clickable'); g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.18'); g.setAttribute('color','#00ffa3'); byId('arena').appendChild(g);
       g.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); try{ SFX.success.currentTime=0; SFX.success.play(); }catch(e){} bossDamage(40, g.object3D.getWorldPosition(new THREE.Vector3())); g.remove(); done(); });
-      after(700, ()=>{ if(g.parentNode){ g.remove(); } done(); });
+      after(700*D.atkWin, ()=>{ if(g.parentNode){ g.remove(); } done(); });
     }
   }
 
@@ -291,16 +319,15 @@
   function doGroundShock(){
     BOSS.busy=true; let c=0;
     const next=()=>{ try{ SFX.tel_shock.currentTime=0; SFX.tel_shock.play(); }catch(e){}
-      spawnShockwave(()=>{ c++; if(c<5){ after(300,next);} else { finishAttack(); } });
+      spawnShockwave(()=>{ c++; if(c<5){ after(300*D.atkWin,next);} else { finishAttack(); } });
     }; next();
   }
   function doEnrageComboFast(){
     const saveP2=BOSS.P2; const tmp=['multi_slash','ground_shock']; BOSS.P2=tmp;
-    doEnrageCombo(); after(2000, ()=>{ BOSS.P2=saveP2; });
+    doEnrageCombo(); after(2000*D.atkWin, ()=>{ BOSS.P2=saveP2; });
   }
 
   // --- Boss 3 specials ---
-  // 1) Blade Storm: สุ่มเส้น slash 3–4 เส้นต่อเนื่องให้พารี่
   function doBladeStorm(fast=false){
     BOSS.busy=true;
     const count = fast? 4 : 3;
@@ -314,12 +341,10 @@
       g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position','0 1.38 -2.2'); g.classList.add('clickable','boss-attack');
       byId('arena').appendChild(g);
       let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#a899ff', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?18:16,new THREE.Vector3(0,1.5,-3)); g.remove(); });
-      after(fast?520:650, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } i++; if(i<count){ after(100,doOne); } else { finishAttack(); } });
+      after((fast?520:650)*D.atkWin, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } i++; if(i<count){ after(100*D.atkWin,doOne); } else { finishAttack(); } });
     };
     doOne();
   }
-
-  // 2) Laser Grid: สร้าง “ตะแกรง” 2 เส้นให้คลิกตัด (ต้องโดนทั้งคู่)
   function doLaserGrid(){
     BOSS.busy=true;
     const makeBeam=(x,y,rot)=>{
@@ -335,49 +360,42 @@
     const ok=()=>{ if(ca && cb){ bossDamage(28,new THREE.Vector3(0,1.5,-3)); cleanup(); } };
     a.addEventListener('click', ()=>{ ca=true; floatText('CUT','#5de1ff', a.object3D.getWorldPosition(new THREE.Vector3())); a.remove(); ok(); });
     b.addEventListener('click', ()=>{ cb=true; floatText('CUT','#5de1ff', b.object3D.getWorldPosition(new THREE.Vector3())); b.remove(); ok(); });
-    after(800, ()=>{ cleanup(true); });
+    after(800*D.atkWin, ()=>{ cleanup(true); });
     function cleanup(timeout){
       if(a.parentNode){ a.remove(); if(timeout && !ca) playerHit(); }
       if(b.parentNode){ b.remove(); if(timeout && !cb) playerHit(); }
       finishAttack();
     }
   }
-
-  // 3) Orb Spiral: ลูกแก้ว 4 เม็ดโคจรรอบศูนย์ ต้องกดให้หมด
-  function doOrbSpiral(){
+  function doOrbSpiral(fast=false){
     BOSS.busy=true;
     const center=new THREE.Vector3(0,1.4,-2.3);
     const orbs=[];
     for(let i=0;i<4;i++){
       const o=document.createElement('a-sphere'); o.classList.add('clickable','boss-attack');
-      o.setAttribute('radius','0.1'); o.setAttribute('color','#a899ff');
+      o.setAttribute('radius','0.1'); o.setAttribute('color', fast?'#c9b6ff':'#a899ff');
       o.dataset.theta = (i/4)*Math.PI*2;
       byId('arena').appendChild(o); orbs.push(o);
-      o.addEventListener('click', ()=>{ floatText('BREAK','#a899ff', o.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(10,center); o.remove(); });
+      o.addEventListener('click', ()=>{ floatText('BREAK', fast?'#c9b6ff':'#a899ff', o.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?12:10,center); o.remove(); });
     }
-    const start=performance.now(), dur=BOSS.phase===1?2600:2000;
+    const start=performance.now(), dur=(fast?1800: (BOSS.phase===1?2600:2000))*D.atkWin;
     (function step(){
       const t=(performance.now()-start)/dur;
       let alive=false;
       orbs.forEach((o,idx)=>{
         if(!o.parentNode) return;
         alive=true;
-        const theta = (+o.dataset.theta) + t* (BOSS.phase===1?2.5:3.6);
+        const theta = (+o.dataset.theta) + t* (fast?4.6:(BOSS.phase===1?2.5:3.6));
         const r = 0.5 + 0.2*Math.sin(t*4+idx);
         const x = center.x + Math.cos(theta)*r;
         const y = center.y + Math.sin(theta)*r*0.6;
         o.setAttribute('position',`${x.toFixed(3)} ${y.toFixed(3)} ${center.z}`);
       });
-      if(t>=1){ // หมดเวลา
-        orbs.forEach(o=>{ if(o.parentNode){ o.remove(); playerHit(); } });
-        finishAttack(); return;
-      }
+      if(t>=1){ orbs.forEach(o=>{ if(o.parentNode){ o.remove(); playerHit(); } }); finishAttack(); return; }
       if(!alive){ finishAttack(); return; }
       requestAnimationFrame(step);
     })();
   }
-
-  // 4) Rage Finale: QTE เร็วปิดฉาก (Slash→Shock→Gem) โหดกว่าปกติ
   function doRageFinale(){
     BOSS.busy=true; try{ SFX.enrage.currentTime=0; SFX.enrage.play(); }catch(e){} APPX.badge('FINAL RAGE!');
     const seq=[()=>qs(()=>step()), ()=>qw(()=>step()), ()=>gem(()=>finishAttack(true))];
@@ -388,7 +406,7 @@
       g.setAttribute('material','color:#7a5cff;opacity:.95;transparent:true'); g.setAttribute('rotation','0 0 -30'); g.setAttribute('position','0 1.4 -2.2'); g.classList.add('clickable');
       byId('arena').appendChild(g); let ok=false; try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
       g.addEventListener('click', ()=>{ ok=true; bossDamage(22,new THREE.Vector3(0,1.5,-3)); g.remove(); done(); });
-      after(450, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
+      after(450*D.atkWin, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
     }
     function qw(done){
       try{ SFX.tel_shock.currentTime=0; SFX.tel_shock.play(); }catch(e){}
@@ -396,14 +414,85 @@
       ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07'); ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
       byId('arena').appendChild(ring);
       ring.addEventListener('click', ()=>{ bossDamage(18, ring.object3D.getWorldPosition(new THREE.Vector3())); ring.remove(); done(); });
-      const start=performance.now(), dur=420; (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/dur, r=0.07+t*0.9;
+      const start=performance.now(), dur=420*D.atkWin; (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/dur, r=0.07+t*0.9;
         ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); ring.remove(); done(); return; } requestAnimationFrame(step);
       })();
     }
     function gem(done){
       const g=document.createElement('a-icosahedron'); g.classList.add('clickable'); g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.2'); g.setAttribute('color','#00ffa3'); byId('arena').appendChild(g);
       g.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); try{ SFX.success.currentTime=0; SFX.success.play(); }catch(e){} bossDamage(60, g.object3D.getWorldPosition(new THREE.Vector3())); g.remove(); done(); });
-      after(600, ()=>{ if(g.parentNode){ g.remove(); done(); } });
+      after(600*D.atkWin, ()=>{ if(g.parentNode){ g.remove(); done(); } });
+    }
+  }
+
+  // --- Final Boss specials ---
+  // Mirror Slash: สองเส้นตัดพร้อมกัน ต้องพารี่ให้ครบ
+  function doMirrorSlash(){
+    BOSS.busy=true;
+    const mk=(rot, y)=>{ const g=document.createElement('a-entity');
+      g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.25; depth: 0.04');
+      g.setAttribute('material','color:#8cf5ff;opacity:.95;transparent:true');
+      g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position',`0 ${y} -2.2`);
+      g.classList.add('clickable','boss-attack'); byId('arena').appendChild(g); return g; };
+    try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
+    const a=mk(-28,1.36), b=mk(28,1.44);
+    let ca=false, cb=false;
+    const ok=()=>{ if(ca && cb){ bossDamage(30,new THREE.Vector3(0,1.5,-3)); cleanup(); } };
+    a.addEventListener('click', ()=>{ ca=true; floatText('PARRY','#8cf5ff', a.object3D.getWorldPosition(new THREE.Vector3())); a.remove(); ok(); });
+    b.addEventListener('click', ()=>{ cb=true; floatText('PARRY','#8cf5ff', b.object3D.getWorldPosition(new THREE.Vector3())); b.remove(); ok(); });
+    after(560*D.atkWin, ()=>{ cleanup(true); });
+    function cleanup(timeout){
+      if(a.parentNode){ a.remove(); if(timeout && !ca) playerHit(); }
+      if(b.parentNode){ b.remove(); if(timeout && !cb) playerHit(); }
+      finishAttack();
+    }
+  }
+  // Doom Rings: ช็อกเวฟ 3 วงพร้อมกัน ต้องแตกอย่างน้อย 2
+  function doDoomRings(){
+    BOSS.busy=true;
+    const rings=[];
+    for(let i=0;i<3;i++){
+      const r=document.createElement('a-ring'); r.classList.add('clickable','boss-attack');
+      const x = (i-1)*0.6; r.setAttribute('position',`${x} 1.15 -2.6`); r.setAttribute('radius-inner','0.05'); r.setAttribute('radius-outer','0.07');
+      r.setAttribute('material','color:#ffd166;opacity:.95;shader:flat'); byId('arena').appendChild(r); rings.push(r);
+      r.addEventListener('click', ()=>{ floatText('BREAK','#ffd166', r.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12,new THREE.Vector3(0,1.5,-3)); r.remove(); });
+    }
+    const start=performance.now(), dur=680*D.atkWin;
+    (function step(){
+      const t=(performance.now()-start)/dur;
+      rings.forEach((r,idx)=>{ if(!r.parentNode) return; const base=0.07+t*0.9, off=idx*0.02;
+        const R=base+off; r.setAttribute('radius-inner',Math.max(0.01,R-0.02)); r.setAttribute('radius-outer',R); });
+      if(t>=1){ const broken = rings.filter(r=>!r.parentNode).length; if(broken<2) playerHit(); rings.forEach(r=>r.parentNode&&r.remove()); finishAttack(); return; }
+      requestAnimationFrame(step);
+    })();
+  }
+  // Void Finale: QTE ปิดเกมเร็วมาก (Slash→Grid→Gem)
+  function doVoidFinale(){
+    BOSS.busy=true; try{ SFX.enrage.currentTime=0; SFX.enrage.play(); }catch(e){} APPX.badge('VOID FINALE!');
+    const seq=[()=>ms(()=>step()), ()=>lg(()=>step()), ()=>vg(()=>finishAttack())];
+    let j=0; function step(){ j++; if(j<seq.length) seq[j](); } seq[0]();
+
+    function ms(done){ // mirror slash เร็ว
+      try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
+      const a=mk(-26,1.36), b=mk(26,1.44); let ca=false, cb=false;
+      a.addEventListener('click', ()=>{ ca=true; a.remove(); ok(); });
+      b.addEventListener('click', ()=>{ cb=true; b.remove(); ok(); });
+      after(420*D.atkWin, ()=>{ if(!ca||!cb) playerHit(); done(); });
+      function mk(rot,y){ const g=document.createElement('a-entity'); g.classList.add('clickable'); g.setAttribute('geometry','primitive: box; height:0.04;width:1.25;depth:0.04'); g.setAttribute('material','color:#8cf5ff;opacity:.95;transparent:true'); g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position',`0 ${y} -2.2`); byId('arena').appendChild(g); return g; }
+      function ok(){ if(ca&&cb){ bossDamage(26,new THREE.Vector3(0,1.5,-3)); done(); } }
+    }
+    function lg(done){ // laser grid เร็ว
+      const a=beam(0,1.32,-14), b=beam(0,1.48,14); let ca=false, cb=false;
+      a.addEventListener('click', ()=>{ ca=true; a.remove(); ok(); });
+      b.addEventListener('click', ()=>{ cb=true; b.remove(); ok(); });
+      after(620*D.atkWin, ()=>{ if(!ca||!cb) playerHit(); done(); });
+      function beam(x,y,rot){ const e=document.createElement('a-entity'); e.classList.add('clickable'); e.setAttribute('geometry','primitive: box; height:.035;width:1.4;depth:.03'); e.setAttribute('material','color:#5de1ff;opacity:.95;transparent:true'); e.setAttribute('position',`${x} ${y} -2.2`); e.setAttribute('rotation',`0 0 ${rot}`); byId('arena').appendChild(e); return e; }
+      function ok(){ if(ca&&cb){ bossDamage(28,new THREE.Vector3(0,1.5,-3)); done(); } }
+    }
+    function vg(done){ // final gem สั้น
+      const g=document.createElement('a-icosahedron'); g.classList.add('clickable'); g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.2'); g.setAttribute('color','#00ffa3'); byId('arena').appendChild(g);
+      g.addEventListener('click', ()=>{ bossDamage(70, g.object3D.getWorldPosition(new THREE.Vector3())); g.remove(); done(); });
+      after(520*D.atkWin, ()=>{ if(g.parentNode){ g.remove(); } done(); });
     }
   }
 
@@ -442,7 +531,7 @@
     let base=0, dmg=0;
     if(method==='laser'){ base=10; dmg=6; } else { if(kind==='perfect'){ base=spec.basePerfect; dmg=18; } else { base=spec.baseGood; dmg=10; } }
     if(spec.id==='heavy') dmg+=6;
-    score += base*mult; hits++; updateHUD(); onComboChange();
+    score += (base*mult); hits++; updateHUD(); onComboChange();
     if(method==='laser'){ try{ SFX.laser.currentTime=0; SFX.laser.play(); }catch(e){} floatText('GOOD','#9bd1ff',pos); }
     else if(spec.id==='heavy'){ try{ SFX.heavy.currentTime=0; SFX.heavy.play(); }catch(e){} floatText(kind==='perfect'?'HEAVY PERFECT':'HEAVY','#ff9c6b',pos); }
     else if(kind==='perfect'){ try{ SFX.perfect.currentTime=0; SFX.perfect.play(); }catch(e){} floatText('PERFECT','#00ffa3',pos); }
@@ -483,7 +572,7 @@
   function start(){
     if(running) return;
     reset(); running=true;
-    spawnTimer=setInterval(spawnTarget, 900);
+    spawnTimer=setInterval(spawnTarget, D.spawnInt);
     timer=setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
     CURRENT_BOSS=0; after(900, ()=>bossSpawn(CURRENT_BOSS));
   }
@@ -494,9 +583,9 @@
   function end(){
     running=false; clearInterval(timer); clearInterval(spawnTimer); bossShowUI(false);
     const acc=spawns? Math.round((hits/spawns)*100):0;
-    byId('rScore').textContent=score; byId('rMaxCombo').textContent=maxCombo; byId('rAcc').textContent=acc+'%';
-    byId('results').style.display='flex'; APPX.badge(APPX.t('results')+': '+score);
-    try{ window.Leaderboard?.postResult?.('shadow-breaker',{score,maxCombo,accuracy:acc}); }catch(e){}
+    byId('rScore').textContent=Math.round(score*D.scoreMul); byId('rMaxCombo').textContent=maxCombo; byId('rAcc').textContent=acc+'%';
+    byId('results').style.display='flex'; APPX.badge(APPX.t('results')+': '+Math.round(score*D.scoreMul));
+    try{ window.Leaderboard?.postResult?.('shadow-breaker',{score:Math.round(score*D.scoreMul),maxCombo,accuracy:acc,diff:DIFF}); }catch(e){}
   }
 
   // ---------- Buttons ----------
