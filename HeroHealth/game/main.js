@@ -43,7 +43,6 @@ const state = {
 const eng = new Engine(THREE, document.getElementById('c'));
 const fx  = new FloatingFX(eng);
 const coach = new Coach({ lang: state.lang });
-
 const $ = (s)=>document.querySelector(s);
 
 // ===== I18N (รวมวิธีเล่นรายโหมด) =====
@@ -145,7 +144,7 @@ function applyGFX(){
 function applySound(){
   const L = I18N[state.lang];
   sfx.setEnabled?.(state.soundOn);
-  if(!sfx.setEnabled) sfx.enabled = state.soundOn;
+  if(!sfx.setEnabled) sfx.enabled = state.soundOn; // เผื่อเวอร์ชันเก่า
   $('#soundToggle') && ($('#soundToggle').textContent = state.soundOn ? L.sound.on : L.sound.off);
   localStorage.setItem('hha_sound', state.soundOn ? '1' : '0');
 }
@@ -163,7 +162,10 @@ function updateHUD(){
 
 // ===== เกมเพลย์หลัก =====
 function spawnOnce(diff){
-  const meta = MODES[state.modeKey].pickMeta(diff, state);
+  const mode = MODES[state.modeKey];
+  if(!mode) return;
+
+  const meta = mode.pickMeta(diff, state);
   const el = document.createElement('button');
   el.className = 'item';
   el.textContent = meta.char || '?';
@@ -174,7 +176,7 @@ function spawnOnce(diff){
   el.style.top  = (topMin + Math.random()*(topMax - topMin)) + 'vh';
 
   el.onclick = () => {
-    MODES[state.modeKey].onHit(meta, {score, sfx, power, fx}, state, hud);
+    mode.onHit(meta, {score, sfx, power, fx}, state, hud);
     state.ctx.hits = (state.ctx.hits||0) + 1;
 
     if(meta.good || meta.ok){ coach.onGood(); try{ sfx.play('sfx-good'); }catch{}; }
@@ -231,7 +233,7 @@ function end(silent=false){
     try{ board.submit(state.modeKey, state.difficulty, score.score); }catch{}
     const top = (board.getTop?.(5) || []).map((r,i)=>`${i+1}. ${r.mode} • ${r.diff} – ${r.score}`).join('<br>');
     $('#resCore') && ($('#resCore').innerHTML = `${L.score}: <b>${score.score}</b> | ${L.mode}: <b>${L.modes[state.modeKey]}</b>`);
-    $('#resBoard') && ($('#resBoard').innerHTML = `<h4>🏆 TOP</h4>${top}`);
+    $('#resBoard') && ($('#resBoard').innerHTML  = `<h4>🏆 TOP</h4>${top}`);
     $('#result') && ($('#result').style.display = 'flex');
     coach.onEnd(score.score, score.score>=200?'A':(score.score>=120?'B':'C'));
   }
@@ -252,7 +254,8 @@ function tick(){
 }
 
 // ===== อีเวนต์เมนู/ปุ่ม =====
-// ปลดล็อกเสียงรอบแรก (กัน autoplay block)
+
+// ปลดล็อกเสียงครั้งแรก (กัน autoplay block)
 ['pointerdown','touchstart','keydown'].forEach(ev=>{
   window.addEventListener(ev, ()=>sfx.unlock(), { once:true, passive:true });
 });
@@ -306,6 +309,7 @@ document.getElementById('gfxToggle')?.addEventListener('click', ()=>{
 document.getElementById('soundToggle')?.addEventListener('click', ()=>{
   state.soundOn = !state.soundOn;
   applySound();
+  if(state.soundOn){ try{ sfx.play('sfx-good',{volume:0.9}); }catch{} }
 });
 
 // ===== บูตครั้งแรก =====
