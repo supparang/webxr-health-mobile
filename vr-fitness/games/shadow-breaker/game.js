@@ -126,23 +126,24 @@
   };
   const ANGLE_TOL=0.55;
 
-  // ---------- SFX ----------
-  const SFXN=(p)=>{ const a=new Audio(p); a.onerror=()=>{}; return a; };
+  // ---------- Assets base + SFX (absolute paths) ----------
+  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
+  const SFXN=(p)=>{ const a=new Audio(p); a.onerror=()=>console.warn('SFX not found:',p); return a; };
   const SFX={
-    slash:SFXN('../../assets/sfx/slash.wav'),
-    laser:SFXN('../../assets/sfx/laser.wav'),
-    perfect:SFXN('../../assets/sfx/perfect.wav'),
-    miss:SFXN('../../assets/sfx/miss.wav'),
-    heavy:SFXN('../../assets/sfx/heavy.wav'),
-    combo:SFXN('../../assets/sfx/combo.wav'),
-    hp_hit:SFXN('../../assets/sfx/hp_hit.wav'),
-    boss_roar:SFXN('../../assets/sfx/boss_roar.wav'),
-    tel_slash:SFXN('../../assets/sfx/tel_slash.wav'),
-    tel_shock:SFXN('../../assets/sfx/tel_shock.wav'),
-    tel_guard:SFXN('../../assets/sfx/tel_guard.wav'),
-    tel_dash:SFXN('../../assets/sfx/tel_dash.wav'),
-    enrage:SFXN('../../assets/sfx/enrage.wav'),
-    success:SFXN('../../assets/sfx/success.wav')
+    slash:SFXN(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    laser:SFXN(`${ASSET_BASE}/assets/sfx/laser.wav`),
+    perfect:SFXN(`${ASSET_BASE}/assets/sfx/perfect.wav`),
+    miss:SFXN(`${ASSET_BASE}/assets/sfx/miss.wav`),
+    heavy:SFXN(`${ASSET_BASE}/assets/sfx/heavy.wav`),
+    combo:SFXN(`${ASSET_BASE}/assets/sfx/combo.wav`),
+    hp_hit:SFXN(`${ASSET_BASE}/assets/sfx/hp_hit.wav`),
+    boss_roar:SFXN(`${ASSET_BASE}/assets/sfx/boss_roar.wav`),
+    tel_slash:SFXN(`${ASSET_BASE}/assets/sfx/tel_slash.wav`),
+    tel_shock:SFXN(`${ASSET_BASE}/assets/sfx/tel_shock.wav`),
+    tel_guard:SFXN(`${ASSET_BASE}/assets/sfx/tel_guard.wav`),
+    tel_dash:SFXN(`${ASSET_BASE}/assets/sfx/tel_dash.wav`),
+    enrage:SFXN(`${ASSET_BASE}/assets/sfx/enrage.wav`),
+    success:SFXN(`${ASSET_BASE}/assets/sfx/success.wav`)
   };
 
   // ---------- HUD ----------
@@ -685,7 +686,7 @@
   }
   function doVoidFinale(){
     BOSS.busy=true; play(SFX.enrage); APPX.badge('VOID FINALE!');
-    const seq=[()=>ms(()=>step()), ()=>lg(()=>step()), ()=>vg(()=>finishAttack())];
+    const seq=[)=>ms(()=>step()), ()=>lg(()=>step()), ()=>vg(()=>finishAttack())];
     let j=0; function step(){ j++; if(j<seq.length) seq[j](); } seq[0]();
 
     function ms(done){ play(SFX.tel_slash);
@@ -902,7 +903,7 @@
   document.addEventListener('DOMContentLoaded', ()=>{
     byId('startBtn')?.addEventListener('click', start);
     byId('replayBtn')?.addEventListener('click', start);
-    byId('backBtn')?.addEventListener('click', ()=>{ window.location.href='../../index.html'; });
+    byId('backBtn')?.addEventListener('click', ()=>{ window.location.href = `${ASSET_BASE}/vr-fitness/index.html`; });
     byId('pauseBtn')?.addEventListener('click', togglePause);
     byId('bankBtn')?.addEventListener('click', bankNow);
   });
