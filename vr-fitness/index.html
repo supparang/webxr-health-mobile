@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>VR Fitness Academy · Hub</title>
 
-  <!-- Inline Sport Tech theme (ลดปัญหา 404) -->
+  <!-- Inline Sport Tech theme -->
   <style>
     :root{
       --bg:#0b1119; --ink:#e6f1ff; --mut:#8aa2b2; --line:#1a2532; --card:#0e1622; --accent:#00d0ff; --accent2:#00ffa3;
@@ -31,7 +31,6 @@
     .kbd{display:inline-block;background:#0e1622;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
     a.card-link{color:inherit;text-decoration:none}
     .soon{opacity:.65}
-    /* Recent results */
     #lbCard > .row{border-bottom:1px dashed var(--line);padding:6px 0}
     #lbCard > .row:last-child{border-bottom:none}
     @media (hover:hover){ .card:hover{transform:translateY(-1px);transition:transform .12s ease;} }
@@ -67,7 +66,7 @@
     <span>Sport Tech UI · <span class="kbd">ESC</span> to exit VR</span>
   </footer>
 
-  <!-- Core helpers (ถ้ามีในโปรเจกต์เดิม จะใช้งานได้ทันที) -->
+  <!-- Core helpers (optional) -->
   <script src="core/i18n.js"></script>
   <script src="core/audio.js"></script>
   <script src="core/engine.js"></script>
@@ -75,141 +74,85 @@
   <script src="core/leaderboard.js"></script>
 
   <script>
-  // --- Config: รายการเกมบน Hub ---
+  // --- Config: Games on Hub ---
   const GAMES = [
     {
       id: 'shadow-breaker',
       title: 'Shadow Breaker',
-      sub: 'Boss phases · slash/parry · leaderboard',
+      sub: 'Boss chain · difficulty · leaderboard',
       path: 'games/shadow-breaker/index.html',
       tags: ['Combat','HIIT','Boss'],
       thumb: 'SB'
     },
-    {
-      id: 'rhythm-punch',
-      title: 'Rhythm Punch',
-      sub: 'Beat timing · jab/cross · streak',
-      path: null, // ยังไม่พร้อม → Coming Soon
-      tags: ['Rhythm','Arms'],
-      thumb: 'RP',
-      soon: true
-    },
-    {
-      id: 'target-sprint',
-      title: 'Target Sprint',
-      sub: 'Aim + move · accuracy gates',
-      path: null,
-      tags: ['Cardio','Accuracy'],
-      thumb: 'TS',
-      soon: true
-    },
-    {
-      id: 'calorie-dodge',
-      title: 'Calorie Dodge',
-      sub: 'Dodge lanes · burn meter',
-      path: null,
-      tags: ['Dodge','Core'],
-      thumb: 'CD',
-      soon: true
-    }
+    { id:'rhythm-punch', title:'Rhythm Punch', sub:'Beat timing · jab/cross', path:null, tags:['Rhythm','Arms'], thumb:'RP', soon:true },
+    { id:'target-sprint', title:'Target Sprint', sub:'Aim + move · accuracy', path:null, tags:['Cardio','Accuracy'], thumb:'TS', soon:true },
+    { id:'calorie-dodge', title:'Calorie Dodge', sub:'Dodge lanes · burn', path:null, tags:['Dodge','Core'], thumb:'CD', soon:true }
   ];
 
-  // --- แปลสองภาษาเล็ก ๆ ---
+  // --- i18n ---
   const I18N = {
     en: { language:'Language', hub_title:'Choose your workout', hub_sub:'Mini-games · scoring · BGM · results', coming:'Coming soon' },
     th: { language:'ภาษา', hub_title:'เลือกการออกกำลังกายของคุณ', hub_sub:'มินิเกม · ทำคะแนน · เพลงประกอบ · สรุปผล', coming:'เร็ว ๆ นี้' }
   };
+  function getLang(){ const q=new URLSearchParams(location.search); return q.get('lang')||localStorage.getItem('hub_lang')||'en'; }
+  function applyI18n(lang){ const d=I18N[lang]||I18N.en; document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; }); }
 
-  // ดึงภาษาจาก ?lang= หรือจาก select
-  function getLang(){
-    const q = new URLSearchParams(location.search);
-    return q.get('lang') || localStorage.getItem('hub_lang') || 'en';
-  }
-  function applyI18n(lang){
-    const dict = I18N[lang] || I18N.en;
-    document.querySelectorAll('[data-i18n]').forEach(el=>{
-      const k = el.getAttribute('data-i18n');
-      if (dict[k]) el.textContent = dict[k];
-    });
-  }
-
-  // --- สร้าง Grid รายการเกม ---
+  // --- Render grid ---
   function renderGrid(){
-    const grid = document.getElementById('gameGrid');
-    const lang = getLang();
-    const comingLabel = (I18N[lang]||I18N.en).coming;
+    const grid=document.getElementById('gameGrid'); const lang=getLang(); const coming=(I18N[lang]||I18N.en).coming;
     grid.innerHTML = GAMES.map(g=>{
-      const tags = (g.tags||[]).map(t=>`<span class="pill">${t}</span>`).join(' ');
-      const soon = g.soon || !g.path;
-      const cardInner = `
+      const tags=(g.tags||[]).map(t=>`<span class="pill">${t}</span>`).join(' ');
+      const soon=g.soon||!g.path;
+      const card = `
         <div class="thumb">${g.thumb||''}</div>
         <div class="meta">
-          <div class="row"><b>${g.title}</b>${soon? `<span class="pill soon">${comingLabel}</span>`:''}</div>
+          <div class="row"><b>${g.title}</b>${soon? `<span class="pill soon">${coming}</span>`:''}</div>
           <div class="small mut">${g.sub||''}</div>
           <div class="row"><div class="mut small">#${g.id}</div><div>${tags}</div></div>
         </div>`;
-      if (soon){
-        return `<div class="card soon" role="button" aria-disabled="true" tabindex="-1" title="${comingLabel}">${cardInner}</div>`;
-      } else {
-        return `<a class="card card-link" href="${g.path}" role="link" aria-label="${g.title}">${cardInner}</a>`;
-      }
+      return soon
+        ? `<div class="card soon" aria-disabled="true" title="${coming}">${card}</div>`
+        : `<a class="card card-link" href="${g.path}">${card}</a>`;
     }).join('');
   }
 
-  // --- Recent Results จาก Leaderboard (ถ้ามี) ---
+  // --- Recent Results ---
   function renderRecent(){
-    const card = document.getElementById('lbCard');
+    const card=document.getElementById('lbCard');
     try{
-      if (!window.Leaderboard || !Leaderboard.recent) throw 0;
-      const list = Leaderboard.recent(8);
-      if (!list || list.length===0){ card.innerHTML = '<div class="small" style="padding:10px">No scores yet</div>'; return; }
+      if(!window.Leaderboard?.recent) throw 0;
+      const list=Leaderboard.recent(8);
+      if(!list||list.length===0){ card.innerHTML='<div class="small" style="padding:10px">No scores yet</div>'; return; }
       card.innerHTML = list.map(e=>{
-        const when = new Date(e.ts).toLocaleString();
-        const game = e.gameId || 'unknown';
-        const acc  = (e.accuracy!=null ? (e.accuracy + '%') : '-');
-        return `<div class="row"><div><b>${game}</b> · ${when}</div><div>Score <b>${e.score||0}</b> · MaxCombo <b>${e.maxCombo||0}</b> · Acc ${acc}</div></div>`;
+        const when=new Date(e.ts).toLocaleString();
+        const game=e.gameId||'unknown';
+        const acc=(e.accuracy!=null?(e.accuracy+'%'):'-');
+        const diff=e.diff?(' · '+e.diff.toUpperCase()):'';
+        return `<div class="row"><div><b>${game}</b>${diff} · ${when}</div><div>Score <b>${e.score||0}</b> · MaxCombo <b>${e.maxCombo||0}</b> · Acc ${acc}</div></div>`;
       }).join('');
-    }catch(e){
-      card.innerHTML = '<div class="small" style="padding:10px">No scores yet</div>';
-    }
+    }catch(e){ card.innerHTML='<div class="small" style="padding:10px">No scores yet</div>'; }
   }
 
-  // --- เสียง / ปุ่ม mute ---
+  // --- Audio mute ---
   function tryAudioInit(){
-    if (!window.AudioBus) return;
-    // default unmuted; click = toggle
-    const btn = document.getElementById('muteBtn');
+    if(!window.AudioBus) return;
+    const btn=document.getElementById('muteBtn');
     btn.addEventListener('click', ()=>{
       const muted = AudioBus.toggleMute ? AudioBus.toggleMute() : AudioBus.mute(true);
       btn.textContent = (muted ? '🔇' : '🔊');
     });
-    // ถ้ามี state mute ใน localStorage แสดงสัญลักษณ์ให้ตรง
     try{
-      const muted = localStorage.getItem('audio_muted') === '1';
-      if (muted && AudioBus.mute) AudioBus.mute(true);
+      const muted = localStorage.getItem('audio_muted')==='1';
+      if(muted && AudioBus.mute) AudioBus.mute(true);
       btn.textContent = (muted ? '🔇' : '🔊');
     }catch(e){}
   }
 
-  // --- Main ---
   document.addEventListener('DOMContentLoaded', ()=>{
-    // I18N
-    const lang = getLang();
-    const sel = document.getElementById('langSel');
-    sel.value = lang;
-    sel.addEventListener('change', ()=>{
-      localStorage.setItem('hub_lang', sel.value);
-      applyI18n(sel.value);
-      renderGrid();
-    });
+    const lang=getLang(); const sel=document.getElementById('langSel');
+    sel.value=lang; sel.addEventListener('change', ()=>{ localStorage.setItem('hub_lang', sel.value); applyI18n(sel.value); renderGrid(); });
     applyI18n(lang);
-
-    // Render games & recent
-    renderGrid();
-    renderRecent();
-
-    // Audio button
-    tryAudioInit();
+    renderGrid(); renderRecent(); tryAudioInit();
   });
   </script>
 </body>
