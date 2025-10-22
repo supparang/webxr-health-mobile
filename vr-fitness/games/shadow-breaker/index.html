@@ -4,16 +4,14 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shadow Breaker · VR Fitness Academy</title>
-
-  <!-- A-Frame (โหลดก่อนทุกอย่าง) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
   <style>
     :root{--ink:#e6f1ff;--mut:#8aa2b2;--bg:#0b1119;--card:#0e1622;--line:#1a2532}
     html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
     .top-right{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:1001}
     .btn{background:#0e1622;border:1px solid #1a2532;border-radius:10px;color:var(--ink);padding:8px 12px;cursor:pointer}
     .btn:hover{background:#13202d}
+    select.btn{appearance:none}
     .hud{position:fixed;inset:auto 0 0 0;display:flex;justify-content:center;gap:22px;padding:10px;
          background:linear-gradient(180deg,transparent,rgba(0,0,0,.45));z-index:1000}
     .pill{background:rgba(15,23,32,.8);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600}
@@ -22,42 +20,41 @@
              border-radius:10px;background:#0c131d;display:none;z-index:1002;overflow:hidden}
     #bossHPFill{height:100%;width:100%;background:linear-gradient(90deg,#ff5577,#ff9c6b)}
     #bossBar.rage #bossHPFill{background:linear-gradient(90deg,#ff2244,#ffcc00)}
-    @keyframes bossbar-hit {0%{transform:translateX(-50%) translateX(0)}25%{transform:translateX(-50%) translateX(-6px)}50%{transform:translateX(-50%) translateX(6px)}75%{transform:translateX(-50%) translateX(-3px)}100%{transform:translateX(-50%) translateX(0)}
-    }
+    @keyframes bossbar-hit {0%{transform:translateX(-50%) translateX(0)}25%{transform:translateX(-50%) translateX(-6px)}50%{transform:translateX(-50%) translateX(6px)}75%{transform:translateX(-50%) translateX(-3px)}100%{transform:translateX(-50%) translateX(0)}}
     .bossbar.hit{animation:bossbar-hit 240ms ease}
-    /* Results modal */
     #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1200}
     #results .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:260px}
     #results .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
     #results .row:last-child{border-bottom:none}
-    /* Loading/Errors overlay (กันหน้าขาว) */
     #overlay{position:fixed;inset:0;background:#0b1119;display:flex;align-items:center;justify-content:center;z-index:2000}
     #overlay .box{background:#0e1622;border:1px solid #1a2532;border-radius:12px;padding:14px 16px;max-width:90vw}
     #err{color:#ffb4c0;font-size:12px;margin-top:6px;white-space:pre-wrap}
-    /* Screen shake */
     @keyframes screenshake {0%{transform:translate(0,0)}20%{transform:translate(-4px,2px)}40%{transform:translate(3px,-3px)}60%{transform:translate(-3px,4px)}80%{transform:translate(2px,-2px)}100%{transform:translate(0,0)}}
     .shake-scene{animation:screenshake 240ms ease}
   </style>
 </head>
 <body>
 
-  <!-- Safe overlay -->
-  <div id="overlay">
-    <div class="box">
-      <b>Loading Shadow Breaker…</b>
-      <div id="err" style="display:none"></div>
-    </div>
-  </div>
+  <!-- Loading/Errors -->
+  <div id="overlay"><div class="box"><b>Loading Shadow Breaker…</b><div id="err" style="display:none"></div></div></div>
 
-  <!-- top buttons + boss bar -->
+  <!-- Controls -->
   <div class="top-right">
     <button id="backBtn" class="btn">⟵ Hub</button>
+    <select id="diffSel" class="btn" title="Difficulty">
+      <option value="easy">Easy</option>
+      <option value="normal" selected>Normal</option>
+      <option value="hard">Hard</option>
+      <option value="final">Final</option>
+    </select>
     <button id="startBtn" class="btn">Start</button>
     <button id="replayBtn" class="btn">Replay</button>
   </div>
+
+  <!-- Boss bar -->
   <div id="bossBar" class="bossbar"><div id="bossHPFill"></div></div>
 
-  <!-- HUD bottom -->
+  <!-- HUD -->
   <div class="hud">
     <div class="pill">Score <span id="score">0</span></div>
     <div class="pill">Combo <span id="combo">0</span></div>
@@ -66,13 +63,14 @@
     <div class="pill mut">HR <span id="hr">--</span></div>
   </div>
 
-  <!-- Results modal -->
+  <!-- Results -->
   <div id="results">
     <div class="card">
       <h3 style="margin:4px 0 8px">Results</h3>
       <div class="row"><div>Total Score</div><b id="rScore">0</b></div>
       <div class="row"><div>Max Combo</div><b id="rMaxCombo">0</b></div>
       <div class="row"><div>Accuracy</div><b id="rAcc">0%</b></div>
+      <div class="row"><div>Difficulty</div><b id="rDiff">NORMAL</b></div>
       <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end">
         <button class="btn" id="closeRes">Close</button>
       </div>
@@ -94,7 +92,7 @@
     <a-entity light="type:directional; intensity:0.9" position="0 2 1"></a-entity>
   </a-scene>
 
-  <!-- Optional core helpers (ไม่มีก็ยังเล่นได้) -->
+  <!-- Safe loaders for optional cores -->
   <script>
     function loadScript(src, onload){
       const s=document.createElement('script'); s.src=src; s.defer=true;
@@ -118,10 +116,26 @@
           onerror="logErr('Failed to load: ./game.js');"></script>
 
   <script>
-    // Minimal safety bindings
+    // Hub back
     document.getElementById('backBtn').onclick = ()=>{ location.href='../../index.html'; };
     document.getElementById('closeRes').onclick = ()=>{ document.getElementById('results').style.display='none'; };
-    // ถ้าเกมยังไม่ลบ overlay ภายใน 2s ให้ซ่อนเองแต่คงข้อความ error ไว้
+
+    // Difficulty bridge → game.js (อ่านตอนกดปุ่ม)
+    const diffSel = document.getElementById('diffSel');
+    const saved = localStorage.getItem('sb_diff') || 'normal';
+    diffSel.value = saved;
+    diffSel.addEventListener('change', ()=>localStorage.setItem('sb_diff', diffSel.value));
+    function setDiffOnApp(){
+      window.APP = window.APP || {};
+      APP.story = APP.story || {};
+      APP.story.difficulty = diffSel.value || 'normal';
+      const rDiff = document.getElementById('rDiff');
+      if (rDiff) rDiff.textContent = (diffSel.value || 'normal').toUpperCase();
+    }
+    document.getElementById('startBtn').addEventListener('click', setDiffOnApp);
+    document.getElementById('replayBtn').addEventListener('click', setDiffOnApp);
+
+    // Safety: auto-hide overlay if game.js ยังไม่ปิดเอง
     setTimeout(()=>{ const ov=document.getElementById('overlay'); if(ov) ov.style.display='none'; }, 2000);
   </script>
 </body>
