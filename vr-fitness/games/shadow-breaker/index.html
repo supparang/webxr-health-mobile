@@ -4,11 +4,11 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Shadow Breaker · VR Fitness</title>
-  
-  <!-- บอก game.js ว่าฐานพาธอยู่ตรงไหน -->
+
+  <!-- บอก game.js ว่าฐานพาธอยู่ตรงไหน (GitHub Pages) -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
-  <!-- A-Frame (CDN) + crossorigin เพื่อให้เห็นสแต็กจริงเวลาพัง -->
+  <!-- A-Frame (CDN) + crossorigin เพื่อได้ stacktrace จริงเวลา error -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
@@ -26,6 +26,22 @@
 </head>
 <body>
   <a-scene renderer="colorManagement: true">
+    <!-- กล้อง + เมาส์เคอร์เซอร์ + raycaster จิ้มเฉพาะ .clickable -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity
+        id="cam"
+        camera
+        look-controls
+        cursor="rayOrigin: mouse"
+        raycaster="objects: .clickable; interval: 0; far: 100">
+      </a-entity>
+    </a-entity>
+
+    <!-- แสงพื้นฐาน ให้โมเดล/ชิ้นส่วน HP/หน้ากากเห็นชัดขึ้น -->
+    <a-entity light="type: ambient; color: #ffffff; intensity: 0.45"></a-entity>
+    <a-entity light="type: directional; color: #ffffff; intensity: 0.55" position="1 2 1"></a-entity>
+
+    <!-- สนาม/มือ/ฉาก -->
     <a-entity id="arena" position="0 0 0"></a-entity>
     <a-entity id="leftHand"  hand-speed position="-0.4 1.2 -1"></a-entity>
     <a-entity id="rightHand" hand-speed position="0.4 1.2 -1"></a-entity>
@@ -64,7 +80,7 @@
     <button class="btn" id="bankBtn">Bank</button>
   </div>
 
-  <!-- Core (หากจำเป็น) -->
+  <!-- Core -->
   <script src="/webxr-health-mobile/vr-fitness/core/i18n.js" defer></script>
   <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
   <script src="/webxr-health-mobile/vr-fitness/core/engine.js" defer></script>
@@ -74,10 +90,9 @@
   <!-- Game -->
   <script src="/webxr-health-mobile/vr-fitness/games/shadow-breaker/game.js" defer></script>
 
-  <!-- Diagnostic: แสดงเออร์เรอร์ละเอียด (ไฟล์/บรรทัด) -->
+  <!-- Diagnostic: แสดงเออร์เรอร์ละเอียด (ไฟล์/ไลน์) -->
   <script>
     window.addEventListener('error', function(e){
-      // ถ้า cross-origin จะได้ "Script error." ให้โชว์ไฟล์/ไลน์ถ้ามี
       const msg = (e.message || 'unknown') + (e.filename? (' @ ' + e.filename + ':' + (e.lineno||0) + ':' + (e.colno||0)) : '');
       let o=document.getElementById('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
         Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
@@ -85,65 +100,56 @@
       o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre><p>ตรวจพาธสคริปต์/ไฟล์ และลองรีโหลด</p></div>';
     });
   </script>
-  <!-- Difficulty Dropdown (Shadow Breaker) -->
-<div id="diffDock" style="
-  position:fixed; right:12px; bottom:12px; z-index:9999;
-  display:flex; align-items:center; gap:8px;
-  background:rgba(10,16,24,.75); backdrop-filter:saturate(1.1) blur(4px);
-  border:1px solid rgba(255,255,255,.08); border-radius:12px;
-  padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
-  <label for="diffSel" style="opacity:.9; letter-spacing:.3px;">Difficulty</label>
-  <select id="diffSel" style="
-    appearance:none; -webkit-appearance:none; -moz-appearance:none;
-    background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.12);
-    border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
-    <option value="easy">Easy</option>
-    <option value="normal">Normal</option>
-    <option value="hard">Hard</option>
-    <option value="final">Final</option>
-  </select>
-  <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
-</div>
 
-<script>
-  (function(){
-    const getQ = (k)=> new URLSearchParams(location.search).get(k);
-    const DIFF_KEYS = { easy:1, normal:1, hard:1, final:1 };
+  <!-- Difficulty Dropdown -->
+  <div id="diffDock" style="
+    position:fixed; right:12px; bottom:12px; z-index:9999;
+    display:flex; align-items:center; gap:8px;
+    background:rgba(10,16,24,.75); backdrop-filter:saturate(1.1) blur(4px);
+    border:1px solid rgba(255,255,255,.08); border-radius:12px;
+    padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
+    <label for="diffSel" style="opacity:.9; letter-spacing:.3px;">Difficulty</label>
+    <select id="diffSel" style="
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.12);
+      border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
+      <option value="easy">Easy</option>
+      <option value="normal">Normal</option>
+      <option value="hard">Hard</option>
+      <option value="final">Final</option>
+    </select>
+    <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
+  </div>
+  <script>
+    (function(){
+      const getQ = (k)=> new URLSearchParams(location.search).get(k);
+      const DIFF_KEYS = { easy:1, normal:1, hard:1, final:1 };
+      const current =
+        getQ('diff') ||
+        localStorage.getItem('sb_diff') ||
+        (window.APP && APP.story && APP.story.difficulty) ||
+        'normal';
+      const sel = document.getElementById('diffSel');
+      sel.value = DIFF_KEYS[current] ? current : 'normal';
+      sel.addEventListener('change', function(e){
+        const v = e.target.value;
+        try { localStorage.setItem('sb_diff', v); } catch(_){}
+        const url = new URL(location.href);
+        url.searchParams.set('diff', v);
+        location.href = url.pathname + '?' + url.searchParams.toString();
+      }, { passive: true });
+      document.addEventListener('keydown', function(ev){
+        if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')) sel.focus();
+      });
+    })();
+  </script>
 
-    // อ่านค่าปัจจุบันจาก URL → localStorage → APP.story
-    const current =
-      getQ('diff') ||
-      localStorage.getItem('sb_diff') ||
-      (window.APP && APP.story && APP.story.difficulty) ||
-      'normal';
-
-    const sel = document.getElementById('diffSel');
-    sel.value = DIFF_KEYS[current] ? current : 'normal';
-
-    // เปลี่ยนแล้วบันทึก + รีโหลดเกมด้วยพารามิเตอร์ ?diff=
-    sel.addEventListener('change', function(e){
-      const v = e.target.value;
-      try { localStorage.setItem('sb_diff', v); } catch(_){}
-      const url = new URL(location.href);
-      url.searchParams.set('diff', v);
-      // รีโหลดเพียงหน้าเกม (รักษา path เดิม + query ใหม่)
-      location.href = url.pathname + '?' + url.searchParams.toString();
-    }, { passive: true });
-
-    // เข้าถึงด้วยคีย์บอร์ด: กด Alt+D โฟกัสดรอปดาวน์
-    document.addEventListener('keydown', function(ev){
-      if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')) {
-        sel.focus();
-      }
+  <!-- ปุ่มทดสอบเสียง (ดีบักพาธ SFX) -->
+  <button id="sfxTest" style="position:fixed; left:12px; bottom:12px; z-index:9999;">🔊 Test SFX</button>
+  <script>
+    document.getElementById('sfxTest').addEventListener('click', ()=>{
+      try { SFX?.slash?.play(); } catch(e) { console.warn(e); }
     });
-  })();
-</script>
-<button id="sfxTest" style="position:fixed; left:12px; bottom:12px; z-index:9999;">🔊 Test SFX</button>
-<script>
-  document.getElementById('sfxTest').addEventListener('click', ()=>{
-    try { SFX?.slash?.play(); } catch(e) { console.warn(e); }
-  });
-</script>
-
+  </script>
 </body>
 </html>
