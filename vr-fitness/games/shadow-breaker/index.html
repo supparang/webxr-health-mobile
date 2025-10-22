@@ -1,23 +1,128 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Shadow Breaker</title><style></style><link rel="stylesheet" href="../../core/story.css"/>
-</head><body><a-scene></a-scene>
-  <div class="story-overlay" id="storyOverlay">
-    <div class="story-card">
-      <h2>Story Mode <span class="badge">Chapter Select</span></h2>
-      <div class="story-grid">
-        <div class="story-cell" onclick="Story.applySelection({mode:'story', chapter:1, difficulty:'normal', hiit:false})">
-          <b>Chapter 1: Hell Trainer</b>
-          <div class="story-meta">Boss: RazorFist • Phase 1–2</div>
-        </div>
-        <div class="story-cell" onclick="Story.applySelection({mode:'hiit', chapter:0, difficulty:'normal', hiit:true})">
-          <b>HIIT Mode (5 min)</b>
-          <div class="story-meta">Intervals: 30s on / 30s off</div>
-        </div>
-      </div>
-      <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
-        <button class="btn" onclick="Story.close()">Close</button>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Shadow Breaker · VR Fitness Academy</title>
+
+  <!-- A-Frame (โหลดก่อนทุกอย่าง) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    :root{--ink:#e6f1ff;--mut:#8aa2b2;--bg:#0b1119;--card:#0e1622;--line:#1a2532}
+    html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+    .top-right{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:1001}
+    .btn{background:#0e1622;border:1px solid #1a2532;border-radius:10px;color:var(--ink);padding:8px 12px;cursor:pointer}
+    .btn:hover{background:#13202d}
+    .hud{position:fixed;inset:auto 0 0 0;display:flex;justify-content:center;gap:22px;padding:10px;
+         background:linear-gradient(180deg,transparent,rgba(0,0,0,.45));z-index:1000}
+    .pill{background:rgba(15,23,32,.8);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600}
+    .mut{color:var(--mut)}
+    #bossBar{position:fixed;left:50%;top:10px;transform:translateX(-50%);width:min(720px,90vw);height:14px;border:1px solid var(--line);
+             border-radius:10px;background:#0c131d;display:none;z-index:1002;overflow:hidden}
+    #bossHPFill{height:100%;width:100%;background:linear-gradient(90deg,#ff5577,#ff9c6b)}
+    #bossBar.rage #bossHPFill{background:linear-gradient(90deg,#ff2244,#ffcc00)}
+    @keyframes bossbar-hit {0%{transform:translateX(-50%) translateX(0)}25%{transform:translateX(-50%) translateX(-6px)}50%{transform:translateX(-50%) translateX(6px)}75%{transform:translateX(-50%) translateX(-3px)}100%{transform:translateX(-50%) translateX(0)}
+    }
+    .bossbar.hit{animation:bossbar-hit 240ms ease}
+    /* Results modal */
+    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1200}
+    #results .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:260px}
+    #results .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
+    #results .row:last-child{border-bottom:none}
+    /* Loading/Errors overlay (กันหน้าขาว) */
+    #overlay{position:fixed;inset:0;background:#0b1119;display:flex;align-items:center;justify-content:center;z-index:2000}
+    #overlay .box{background:#0e1622;border:1px solid #1a2532;border-radius:12px;padding:14px 16px;max-width:90vw}
+    #err{color:#ffb4c0;font-size:12px;margin-top:6px;white-space:pre-wrap}
+    /* Screen shake */
+    @keyframes screenshake {0%{transform:translate(0,0)}20%{transform:translate(-4px,2px)}40%{transform:translate(3px,-3px)}60%{transform:translate(-3px,4px)}80%{transform:translate(2px,-2px)}100%{transform:translate(0,0)}}
+    .shake-scene{animation:screenshake 240ms ease}
+  </style>
+</head>
+<body>
+
+  <!-- Safe overlay -->
+  <div id="overlay">
+    <div class="box">
+      <b>Loading Shadow Breaker…</b>
+      <div id="err" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- top buttons + boss bar -->
+  <div class="top-right">
+    <button id="backBtn" class="btn">⟵ Hub</button>
+    <button id="startBtn" class="btn">Start</button>
+    <button id="replayBtn" class="btn">Replay</button>
+  </div>
+  <div id="bossBar" class="bossbar"><div id="bossHPFill"></div></div>
+
+  <!-- HUD bottom -->
+  <div class="hud">
+    <div class="pill">Score <span id="score">0</span></div>
+    <div class="pill">Combo <span id="combo">0</span></div>
+    <div class="pill">Time <span id="time">60</span>s</div>
+    <div class="pill mut">Kcal <span id="kcal">0.0</span></div>
+    <div class="pill mut">HR <span id="hr">--</span></div>
+  </div>
+
+  <!-- Results modal -->
+  <div id="results">
+    <div class="card">
+      <h3 style="margin:4px 0 8px">Results</h3>
+      <div class="row"><div>Total Score</div><b id="rScore">0</b></div>
+      <div class="row"><div>Max Combo</div><b id="rMaxCombo">0</b></div>
+      <div class="row"><div>Accuracy</div><b id="rAcc">0%</b></div>
+      <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end">
+        <button class="btn" id="closeRes">Close</button>
       </div>
     </div>
   </div>
 
-  <script src="../../core/story.js"></script>
-</body></html>
+  <!-- Scene -->
+  <a-scene renderer="colorManagement: true" cursor="rayOrigin: mouse">
+    <a-entity id="rig">
+      <a-entity id="camera" camera position="0 1.6 0" look-controls>
+        <a-cursor fuse="false" raycaster="objects: .clickable"></a-cursor>
+      </a-entity>
+    </a-entity>
+    <a-entity id="leftHand"  hand-speed position="-0.2 1.3 -0.6"></a-entity>
+    <a-entity id="rightHand" hand-speed position="0.2 1.3 -0.6"></a-entity>
+    <a-entity id="arena" position="0 0 0"></a-entity>
+    <a-sky color="#02070d"></a-sky>
+    <a-entity light="type:ambient; intensity:0.6; color:#bcdcff"></a-entity>
+    <a-entity light="type:directional; intensity:0.9" position="0 2 1"></a-entity>
+  </a-scene>
+
+  <!-- Optional core helpers (ไม่มีก็ยังเล่นได้) -->
+  <script>
+    function loadScript(src, onload){
+      const s=document.createElement('script'); s.src=src; s.defer=true;
+      s.onload=()=>onload&&onload();
+      s.onerror=()=>logErr('Failed to load: '+src);
+      document.body.appendChild(s);
+    }
+    function logErr(msg){
+      const e=document.getElementById('err'); e.style.display='block'; e.textContent += (e.textContent?'\n':'') + msg;
+      console.warn(msg);
+    }
+  </script>
+  <script>loadScript('../../core/i18n.js');</script>
+  <script>loadScript('../../core/audio.js');</script>
+  <script>loadScript('../../core/engine.js');</script>
+  <script>loadScript('../../core/ui.js');</script>
+  <script>loadScript('../../core/leaderboard.js');</script>
+
+  <!-- Game logic -->
+  <script src="./game.js" defer onload="document.getElementById('overlay').style.display='none';"
+          onerror="logErr('Failed to load: ./game.js');"></script>
+
+  <script>
+    // Minimal safety bindings
+    document.getElementById('backBtn').onclick = ()=>{ location.href='../../index.html'; };
+    document.getElementById('closeRes').onclick = ()=>{ document.getElementById('results').style.display='none'; };
+    // ถ้าเกมยังไม่ลบ overlay ภายใน 2s ให้ซ่อนเองแต่คงข้อความ error ไว้
+    setTimeout(()=>{ const ov=document.getElementById('overlay'); if(ov) ov.style.display='none'; }, 2000);
+  </script>
+</body>
+</html>
