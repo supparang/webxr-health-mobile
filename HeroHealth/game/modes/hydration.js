@@ -1,4 +1,3 @@
-// ./game/modes/hydration.js
 export const name = 'สมดุลน้ำ';
 
 export function init(state, hud, diff){
@@ -7,7 +6,6 @@ export function init(state, hud, diff){
   state.hydMax = 65;
   state.hydWaterLockUntil = 0; // ล็อกเก็บน้ำชั่วคราว
   state.hydSweetLockUntil = 0; // ล็อกเก็บของหวานชั่วคราว
-
   const wrap = document.getElementById('hydroWrap');
   if (wrap) wrap.style.display = 'block';
   hud.setHydration(state.hyd, 'ok');
@@ -21,39 +19,34 @@ export function pickMeta(diff, state){
 
 export function onHit(meta, systems, state, hud){
   if(meta.type !== 'hydra') return;
-
   const now = performance?.now ? performance.now() : Date.now();
   const zoneBefore = state.hyd < state.hydMin ? 'low' : (state.hyd > state.hydMax ? 'high' : 'ok');
 
-  // กันสแปมเมื่อโดนล็อก
+  // LOCK กันสแปม
   if (meta.water && now < (state.hydWaterLockUntil||0)) { systems.fx?.spawn3D(null,'LOCK','bad'); return; }
   if (!meta.water && now < (state.hydSweetLockUntil||0)) { systems.fx?.spawn3D(null,'LOCK','bad'); return; }
 
   if (meta.water) {
     if (zoneBefore === 'high') {
-      // น้ำเกินแล้วยังเก็บน้ำ → โทษหนัก
       systems.score.add(-5);
       state.timeLeft = Math.max(0, (state.timeLeft||0) - 2);
       systems.fx?.spawn3D(null, 'Overflow -5 • -2s', 'bad');
       systems.sfx?.play?.('sfx-bad');
       state.hydWaterLockUntil = now + 1500;
-      // ไม่เพิ่มน้ำในกรณีเกิน
     } else {
       state.hyd = Math.min(100, state.hyd + 5);
       systems.score.add(5);
       systems.fx?.spawn3D?.(null, '+5', 'good');
       systems.sfx?.play?.('sfx-good');
     }
-  } else {
-    // เลือกของหวาน
+  } else { // sweet
     if (zoneBefore === 'low') {
-      // น้ำน้อยแล้วยังเก็บของหวาน → โทษหนัก
       systems.score.add(-5);
       state.timeLeft = Math.max(0, (state.timeLeft||0) - 2);
       systems.fx?.spawn3D(null, 'Dehydrated -5 • -2s', 'bad');
       systems.sfx?.play?.('sfx-bad');
       state.hydSweetLockUntil = now + 1500;
-      state.hyd = Math.max(0, state.hyd - 6); // ตอกย้ำผล
+      state.hyd = Math.max(0, state.hyd - 6);
     } else {
       state.hyd = Math.max(0, state.hyd - 6);
       systems.score.add(-3);
