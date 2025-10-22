@@ -1,126 +1,138 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- ให้พาธทุกอย่างอิงจากโฟลเดอร์ HeroHealth -->
+  <!-- ปรับตามโฮสต์จริงของคุณ -->
   <base href="/webxr-health-mobile/HeroHealth/">
-  <link rel="stylesheet" href="styles/game.css">
+
+  <link rel="stylesheet" href="styles/game.css" />
+  <script type="module" src="game/main.js"></script>
 </head>
 <body>
-<header class="brand">
-  <div id="brandTitle">HERO HEALTH ACADEMY</div>
-  <div class="spacer"></div>
-  <button id="langToggle" class="btn">🇹🇭 TH/EN</button>
-  <button id="gfxToggle" class="btn">🎛️ กราฟิก: ปกติ</button>
-  <button id="soundToggle" class="btn">🔊</button>
-</header>
+  <!-- Brand / Toggles -->
+  <header class="brand">
+    <div id="brandTitle">HERO HEALTH ACADEMY</div>
+    <div class="spacer"></div>
+    <button id="langToggle" class="btn">🇹🇭 TH/EN</button>
+    <button id="gfxToggle" class="btn">🎛️ กราฟิก: ปกติ</button>
+    <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
+  </header>
 
-<canvas id="c"></canvas>
+  <!-- Render Surface -->
+  <canvas id="c"></canvas>
 
-<section class="hud">
-  <div><span id="t_score">คะแนน</span>: <b id="score">0</b> | 
-  <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> | 
-  <span id="t_time">เวลา</span>: <b id="time">60</b>s</div>
+  <!-- HUD (คะแนน/คอมโบ/เวลา + Fever Bar + Target + Plate + Hydration) -->
+  <section class="hud">
+    <div>
+      <span id="t_score">คะแนน</span>: <b id="score">0</b> |
+      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
+      <span id="t_time">เวลา</span>: <b id="time">60</b>s
+    </div>
 
-  <div id="targetWrap" style="display:none">🎯 
-    <span id="t_target">หมวด</span>: <span id="targetBadge">—</span>
+    <!-- Fever Progress Bar -->
+    <div id="feverBarWrap" class="bar slim">
+      <div id="feverBar" style="width:0%"></div>
+    </div>
+
+    <!-- เป้าหมายหมวดอาหาร (โหมด groups/plate) -->
+    <div id="targetWrap" style="display:none">
+      🎯 <span id="t_target">หมวด</span>:
+      <span id="targetBadge">—</span>
+    </div>
+
+    <!-- โควตาอาหาร (โหมด plate) -->
+    <div id="plateTracker" style="display:none">
+      🍱 <span id="t_quota">โควตา</span>:
+      <span id="platePills"></span>
+    </div>
+
+    <!-- สมดุลน้ำ (โหมด hydration) -->
+    <div id="hydroWrap" style="display:none">
+      💧 <span id="t_hydro">สมดุลน้ำ</span>:
+      <span id="hydroLabel">—</span>
+      <div class="bar"><div id="hydroBar"></div></div>
+    </div>
+
+    <!-- Fever Label -->
+    <div id="fever" class="fever" style="display:none">FEVER!</div>
+  </section>
+
+  <!-- โค้ช (ข้อความแนะนำ/ให้กำลังใจ) -->
+  <div id="coachHUD" class="coach" style="display:none">
+    <div id="coachText">...</div>
   </div>
 
-  <div id="plateTracker" style="display:none">🍱 
-    <span id="t_quota">โควตา</span>: <span id="platePills"></span>
+  <!-- เมนูล่างจอ -->
+  <section id="menuBar" class="menu">
+    <div class="row">
+      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups"    id="m_groups">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="mode" data-value="plate"     id="m_plate">🍱 จัดจานสุขภาพ</button>
+    </div>
+
+    <div class="row">
+      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
+      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
+
+      <span class="modeLabel">
+        <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
+        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
+      </span>
+    </div>
+
+    <div class="row">
+      <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
+      <button class="btn" data-action="pause"   id="btn_pause">⏸ พัก</button>
+      <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
+      <button class="btn" data-action="help"    id="btn_help">❓ วิธีเล่น</button>
+    </div>
+  </section>
+
+  <!-- Help Modal -->
+  <div id="help" class="modal" style="display:none">
+    <div class="card">
+      <h3 id="h_help">วิธีเล่น</h3>
+      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
+      <button class="btn" data-action="helpClose" id="btn_ok">โอเค</button>
+    </div>
   </div>
 
-  <div id="hydroWrap" style="display:none">💧 
-    <span id="t_hydro">สมดุลน้ำ</span>: 
-    <span id="hydroLabel">—</span>
-    <div class="bar"><div id="hydroBar"></div></div>
+  <!-- Result Modal -->
+  <div id="result" class="modal" style="display:none">
+    <div class="card">
+      <h3 id="h_summary">สรุปผล</h3>
+      <div id="resCore"></div>
+      <div id="resBreakdown"></div>
+      <div id="resBoard"></div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
+        <button class="btn" data-result="home"   id="btn_home">🏠 หน้าหลัก</button>
+      </div>
+    </div>
   </div>
 
-  <div id="fever" class="fever" style="display:none">FEVER!</div>
-</section>
+  <!-- SFX (ต้องมี id ตาม SFX class ใช้) -->
+  <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
 
-<!-- โค้ช (ไว้ท้าย <body> ก็ได้) -->
-<div id="coachHUD" style="display:none;position:fixed;left:50%;bottom:14vh;transform:translateX(-50%);
-  background:rgba(0,0,0,.7);padding:.45em .8em;border-radius:.6em;font-weight:700;z-index:90;pointer-events:none">
-  <span id="coachText">...</span>
-</div>
-
-<!-- เสียง: id ต้องตรงกับที่โค้ดเรียก -->
-<audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
-<audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
-<audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
-<audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
-<audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
->
-
-<section id="menuBar" class="menu">
-  <div class="row">
-    <button class="tag" data-action="mode" data-value="goodjunk" id="m_goodjunk">🥗 ดี vs ขยะ</button>
-    <button class="tag" data-action="mode" data-value="groups" id="m_groups">🍽️ จาน 5 หมู่</button>
-    <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
-    <button class="tag" data-action="mode" data-value="plate" id="m_plate">🍱 จัดจานสุขภาพ</button>
-  </div>
-
-  <div class="row">
-    <button class="tag" data-action="diff" data-value="Easy" id="d_easy">ง่าย</button>
-    <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
-    <button class="tag" data-action="diff" data-value="Hard" id="d_hard">ยาก</button>
-    <span class="modeLabel">
-      <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> • 
-      <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
-    </span>
-  </div>
-
-  <div class="row">
-    <button class="btn" data-action="start" id="btn_start">▶ เริ่มเกม</button>
-    <button class="btn" data-action="pause" id="btn_pause">⏸ พัก</button>
-    <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
-    <button class="btn" data-action="help" id="btn_help">❓ วิธีเล่น</button>
-  </div>
-</section>
-
-<!-- หน้าช่วยเหลือ -->
-<div id="help" class="modal" style="display:none">
-  <div class="card">
-    <h3 id="h_help">วิธีเล่น</h3>
-    <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
-    <button class="btn" data-action="helpClose" id="btn_ok">โอเค</button>
-  </div>
-</div>
-
-<!-- หน้าสรุป -->
-<div id="result" class="modal" style="display:none">
-  <div class="card">
-    <h3 id="h_summary">สรุปผล</h3>
-    <div id="resCore"></div>
-    <div id="resBreakdown"></div>
-    <div id="resBoard"></div>
-    <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
-    <button class="btn" data-result="home" id="btn_home">🏠 หน้าหลัก</button>
-  </div>
-</div>
-
-<!-- เสียงประกอบ -->
-<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3" playsinline></audio>
-<audio id="sfx-bad"  preload="auto" src="assets/sfx/bad.mp3"  playsinline></audio>
-<audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3" playsinline></audio>
-<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3" playsinline></audio>
-<audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3" playsinline></audio>
-
-
-<!-- โหลด main.js แบบ dynamic import -->
-<script type="module">
-  window.__HHA_BOOT_OK = false;
-  import('./game/main.js?v=20251021b')
-    .then(() => { window.__HHA_BOOT_OK = true; })
-    .catch(err => {
-      console.error('[Import failed]', err);
-      alert('โหลด main.js ไม่สำเร็จ: ' + (err && err.message ? err.message : err));
-    });
-</script>
-
+  <!-- แจ้งเตือนเมื่อ main.js ไม่โหลด -->
+  <script>
+    (function(){
+      const w=document.createElement('div');
+      w.id='bootWarn';
+      w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;display:none';
+      w.textContent='โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js';
+      document.body.appendChild(w);
+      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2000);
+    })();
+  </script>
 </body>
 </html>
