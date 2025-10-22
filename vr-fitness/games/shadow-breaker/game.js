@@ -1,4 +1,10 @@
-/* Shadow Breaker · game.js (Unified + 10 Fun Boosters) */
+/* games/shadow-breaker/game.js
+   Shadow Breaker · game.js (Unified + 10 Fun Boosters + Production Patches)
+   - Includes: Mutators, Fever, Boss Affix, Micro-Quest, Daily Seed RNG, Combo Bank,
+               Stances, Hazard, Achievements/Stars, Adaptive Fairness + Colorblind-safe + SFX mix cap
+   - Production patches: A-Frame guard + error overlay, Mobile audio unlock (iOS),
+                         HUD status badge, WebXR helper button, visibility pause guards
+*/
 (function(){
   // ---------- Helpers ----------
   const byId = (id)=>document.getElementById(id);
@@ -68,7 +74,6 @@
   }
   let seed=dailySeed();
   function rnd(){ seed=(seed*1664525+1013904223)>>>0; return (seed&0x7fffffff)/0x80000000; }
-  // deterministic random pick helper
   const RND=()=>rnd();
 
   // Duration helper (รวม difficulty + stance + mutator + adaptive)
@@ -147,6 +152,7 @@
     if(combo>0 && combo%10===0){ play(SFX.combo); APPX.badge('Combo x'+(1+Math.floor(combo/10))); }
     if(combo>maxCombo) maxCombo=combo;
     if(combo>=25) tryFever();
+    if(combo>=50) CHEEV.combo50=true;
   }
   function setPhaseLabel(n){ const el=byId('phaseLabel'); if(el) el.textContent='Phase '+n; }
 
@@ -900,4 +906,66 @@
     byId('pauseBtn')?.addEventListener('click', togglePause);
     byId('bankBtn')?.addEventListener('click', bankNow);
   });
+
+  /* =======================
+     PRODUCTION PATCHES
+     1) Guard A-Frame + Error Overlay
+     2) Mobile Audio Unlock (iOS)
+     3) HUD Status (Fever/Mutator/Stance)
+     4) WebXR Helper Button
+     ======================= */
+
+  // 1) Guard A-Frame + Error Overlay (กันหน้าขาว)
+  (function bootGuards(){
+    function showFatal(msg){
+      let o=document.getElementById('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
+        Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
+          display:'grid',placeItems:'center',font:'14px/1.5 system-ui',zIndex:99999}); document.body.appendChild(o);}
+      o.innerHTML = '<div style="max-width:720px;padding:20px;text-align:center">'+
+        '<h2>⚠️ Can’t start VR scene</h2><p>'+msg+'</p>'+
+        '<p class="small">Check scripts/CORS/paths and reload.</p></div>';
+    }
+    let tries=0; (function waitAF(){
+      if(window.AFRAME && document.querySelector('a-scene')) return;
+      tries++;
+      if(tries>120){ showFatal('A-Frame scene not found or failed to load (timeout).'); return; }
+      requestAnimationFrame(waitAF);
+    })();
+    window.addEventListener('error', e=>{ if(!document.getElementById('fatal')) showFatal('JS error: '+(e.message||'unknown')); });
+  })();
+
+  // 2) Mobile Audio Unlock (iOS)
+  (function unlockAudio(){
+    let unlocked=false, ctx = (window.AudioContext||window.webkitAudioContext)? new (window.AudioContext||window.webkitAudioContext)() : null;
+    function resume(){
+      if(unlocked || !ctx) return;
+      ctx.resume?.(); unlocked = ctx.state==='running';
+    }
+    ['touchstart','pointerdown','mousedown','keydown'].forEach(ev=>document.addEventListener(ev, resume, {once:true, passive:true}));
+  })();
+
+  // 3) HUD สถานะเสริม (Fever/Mutator/Stance)
+  (function hudStatus(){
+    const box=document.createElement('div');
+    Object.assign(box.style,{position:'fixed',top:'8px',right:'8px',background:'rgba(0,0,0,.35)',color:'#e6f7ff',
+      padding:'6px 8px',borderRadius:'10px',font:'600 12px system-ui',zIndex:9999});
+    box.id='hudStatus'; document.body.appendChild(box);
+    function render(){
+      const mods=[]; if(window.PERFECT_BONUS) mods.push('Perf+'+window.PERFECT_BONUS);
+      if(window.EXTRA_BEAM) mods.push('+Beam');
+      box.textContent = `${fever?'FEVER ':''}${(ST.title||'')}${mods.length?' · '+mods.join(', '):''}`;
+    }
+    setInterval(render, 400);
+  })();
+
+  // 4) WebXR Fallback ปุ่มเข้า/ออก
+  (function xrButton(){
+    const scene=()=>document.querySelector('a-scene');
+    const btn=document.createElement('button');
+    btn.textContent='Enter VR';
+    Object.assign(btn.style,{position:'fixed',bottom:'12px',right:'12px',zIndex:9999, padding:'8px 12px', borderRadius:'10px', border:'0', background:'#0e2233', color:'#e6f7ff', cursor:'pointer'});
+    document.body.appendChild(btn);
+    btn.addEventListener('click', ()=>{ try{ scene()?.enterVR?.(); }catch(e){ console.warn(e); } });
+  })();
+
 })();
