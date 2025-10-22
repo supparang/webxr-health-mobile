@@ -1,5 +1,5 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · game.js (Unified + Difficulties + Mouse Click + Production Patches)
+   Shadow Breaker · game.js (Unified + Difficulties + Mouse/Touch Click + Production Patches)
 */
 (function(){
   "use strict";
@@ -269,7 +269,7 @@
     after(dur(3000), ()=>{ if(g.parentNode){ g.remove(); playerHit(); } });
   }
 
-  // Mutators (สุ่มข้อจำกัด/บัฟเล็กๆ)
+  // Mutators
   const MUTATORS=[
     {id:'perfect_plus', name:'Perfect+2', apply:()=>{ window.PERFECT_BONUS=2; }},
     {id:'tight_parry',  name:'Tight Parry', apply:()=>{ window.PARRY_WINDOW=0.85; }},
@@ -811,6 +811,9 @@
     const starEl=byId('rStars'); if(starEl) starEl.textContent='★'.repeat(star)+ '☆'.repeat(3-star);
     byId('results').style.display='flex'; APPX.badge(APPX.t('results')+': '+finalScore);
     try{ window.Leaderboard?.postResult?.('shadow-breaker',{score:finalScore,maxCombo,accuracy:spawns?Math.round((hits/spawns)*100):0,diff:getDiffKey(),stars:star,stance:ST.title}); }catch(_e){}
+
+    // ปิด / ซ่อน widget เสริม เพื่อประหยัดแบต/CPU บนมือถือ
+    try { const hs = byId('hudStatus'); if (hs) hs.style.display='none'; } catch(_e){}
   }
 
   function togglePause(){
@@ -909,31 +912,33 @@
     setInterval(render, 400);
   })();
 
-  // ปุ่ม Enter VR (เดสก์ท็อป)
+  // ปุ่ม Enter VR (กันซ้ำ)
   (function xrButton(){
+    if (document.getElementById('enterVRBtn')) return;
     const btn=document.createElement('button');
+    btn.id='enterVRBtn';
     btn.textContent='Enter VR';
     Object.assign(btn.style,{position:'fixed',bottom:'12px',right:'12px',zIndex:9999, padding:'8px 12px', borderRadius:'10px', border:'0', background:'#0e2233', color:'#e6f7ff', cursor:'pointer'});
     document.body.appendChild(btn);
     btn.addEventListener('click', ()=>{ try{ const sc=document.querySelector('a-scene'); sc?.enterVR?.(); }catch(e){ console.warn(e); } });
   })();
 
-  // ------- Mouse Raycast Fallback (บางเบราว์เซอร์) -------
-  (function installMouseRaycast(){
+  // ------- Mouse & Touch Raycast (เดสก์ท็อป/มือถือ) -------
+  (function installPointerRaycast(){
     const sceneEl = document.querySelector('a-scene');
     if (!sceneEl) return;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    function shoot(e){
+    function pick(clientX, clientY){
       const cam = sceneEl.camera;
       if (!cam) return;
-      mouse.x =  (e.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      mouse.x =  (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, cam);
       const clickable = Array.from(document.querySelectorAll('.clickable'))
-        .map(el => el.object3D).filter(o => !!o);
+        .map(el => el.object3D).filter(Boolean);
       const objects = [];
       clickable.forEach(o => o.traverse(child => objects.push(child)));
 
@@ -944,7 +949,11 @@
         if (obj && obj.el){ obj.el.emit('click'); }
       }
     }
-    window.addEventListener('mousedown', shoot, {passive:true});
+    window.addEventListener('mousedown', e => pick(e.clientX, e.clientY), {passive:true});
+    window.addEventListener('touchstart', e => {
+      const t = e.touches && e.touches[0]; if (!t) return;
+      pick(t.clientX, t.clientY);
+    }, {passive:true});
   })();
 
 })();
