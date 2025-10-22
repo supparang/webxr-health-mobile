@@ -1,0 +1,9 @@
+
+.story-overlay{position:fixed;inset:0;background:rgba(7,10,14,.88);display:none;z-index:1200;align-items:center;justify-content:center}
+.story-card{background:#0c131d;border:1px solid #1a2532;border-radius:16px;width:min(720px,90vw);padding:18px 18px 14px;box-shadow:0 18px 60px #000c}
+.story-card h2{margin:0 0 8px}
+.story-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.story-cell{border:1px solid #243447;border-radius:12px;padding:10px;background:#0f1822;cursor:pointer}
+.story-cell:hover{background:#13202d}
+.story-meta{color:#8aa2b2;font-size:12px;margin-top:4px}
+.badge{display:inline-block;padding:2px 8px;border:1px solid #2a3a50;border-radius:999px;background:#0e1622;margin-left:6px;font-size:12px;color:#8aa2b2}
