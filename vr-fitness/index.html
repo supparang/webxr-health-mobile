@@ -3,138 +3,214 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Shadow Breaker · VR Fitness Academy</title>
+  <title>VR Fitness Academy · Hub</title>
 
-  <!-- A-Frame (must have or you get a white page) -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
+  <!-- Inline Sport Tech theme (ลดปัญหา 404) -->
   <style>
-    :root{--ink:#e6f1ff;--mut:#8aa2b2;--bg:#0b1119;--card:#0e1622;--line:#1a2532;--accent:#00d0ff;}
-    html,body{margin:0;height:100%;background:#000;color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
-    .hud{position:fixed;inset:auto 0 0 0;display:flex;justify-content:center;gap:22px;padding:10px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.45))}
-    .hud .pill{background:rgba(15,23,32,.8);border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-weight:600}
-    .mut{color:var(--mut)}
-    .top-right{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:1001}
-    .btn{background:#0e1622;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:8px 12px;cursor:pointer}
+    :root{
+      --bg:#0b1119; --ink:#e6f1ff; --mut:#8aa2b2; --line:#1a2532; --card:#0e1622; --accent:#00d0ff; --accent2:#00ffa3;
+    }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+    .header,.footer{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);background:#0c131d}
+    .footer{border-top:1px solid var(--line);border-bottom:none;justify-content:center;gap:10px;color:var(--mut)}
+    .brand{font-weight:800;letter-spacing:.3px}
+    .toolbar{display:flex;gap:8px;align-items:center}
+    .btn,.select{background:#0e1622;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:8px 10px;cursor:pointer}
+    .select{appearance:none}
     .btn:hover{background:#13202d}
-    /* Boss HP bar */
-    #bossBar{position:fixed;left:50%;top:10px;transform:translateX(-50%);width:min(720px,90vw);height:14px;border:1px solid var(--line);border-radius:10px;background:#0c131d;display:none;z-index:1002;overflow:hidden}
-    #bossHPFill{height:100%;width:100%;background:linear-gradient(90deg,#ff5577,#ff9c6b)}
-    #bossBar.rage #bossHPFill{background:linear-gradient(90deg,#ff2244,#ffcc00)}
-    @keyframes bossbar-hit {0%{transform:translateX(-50%) translateX(0)}25%{transform:translateX(-50%) translateX(-6px)}50%{transform:translateX(-50%) translateX(6px)}75%{transform:translateX(-50%) translateX(-3px)}100%{transform:translateX(-50%) translateX(0)}}
-    .bossbar.hit{animation:bossbar-hit 240ms ease}
-
-    /* Results modal */
-    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:1200}
-    #results .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:260px}
-    #results .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
-    #results .row:last-child{border-bottom:none}
-
-    /* Screen shake (when player hit) */
-    @keyframes screenshake {0%{transform:translate(0,0)}20%{transform:translate(-4px,2px)}40%{transform:translate(3px,-3px)}60%{transform:translate(-3px,4px)}80%{transform:translate(2px,-2px)}100%{transform:translate(0,0)}}
-    .shake-scene{animation:screenshake 240ms ease}
-
-    /* Story Overlay */
-    .story-overlay{position:fixed;inset:0;background:rgba(7,10,14,.88);display:none;z-index:1300;align-items:center;justify-content:center}
-    .story-card{background:#0c131d;border:1px solid #1a2532;border-radius:16px;width:min(720px,90vw);padding:18px;box-shadow:0 18px 60px #000c}
-    .story-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-    .story-cell{border:1px solid #243447;border-radius:12px;padding:10px;background:#0f1822;cursor:pointer}
-    .story-cell:hover{background:#13202d}
-    .badge{display:inline-block;padding:2px 8px;border:1px solid #2a3a50;border-radius:999px;background:#0e1622;margin-left:6px;font-size:12px;color:#8aa2b2}
+    .small{color:var(--mut);font-size:12px}
+    .container{max-width:1100px;margin:0 auto;padding:12px}
+    h1{margin:14px 0 6px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+    .thumb{height:120px;background:linear-gradient(135deg,#0d1b2a,#0f2435);display:flex;align-items:center;justify-content:center;font-weight:700;color:#96d0ff}
+    .meta{padding:10px;display:flex;flex-direction:column;gap:6px}
+    .row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+    .pill{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:12px;color:#b9d1e6}
+    .mut{color:var(--mut)}
+    .kbd{display:inline-block;background:#0e1622;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+    a.card-link{color:inherit;text-decoration:none}
+    .soon{opacity:.65}
+    /* Recent results */
+    #lbCard > .row{border-bottom:1px dashed var(--line);padding:6px 0}
+    #lbCard > .row:last-child{border-bottom:none}
+    @media (hover:hover){ .card:hover{transform:translateY(-1px);transition:transform .12s ease;} }
   </style>
 </head>
 <body>
-
-  <!-- top buttons + boss bar -->
-  <div class="top-right">
-    <button id="backBtn" class="btn">⟵ Hub</button>
-    <button id="startBtn" class="btn">Start</button>
-    <button id="replayBtn" class="btn">Replay</button>
-  </div>
-  <div id="bossBar" class="bossbar"><div id="bossHPFill"></div></div>
-
-  <!-- HUD bottom -->
-  <div class="hud">
-    <div class="pill">Score <span id="score">0</span></div>
-    <div class="pill">Combo <span id="combo">0</span></div>
-    <div class="pill">Time <span id="time">60</span>s</div>
-    <div class="pill mut">Kcal <span id="kcal">0.0</span></div>
-    <div class="pill mut">HR <span id="hr">--</span></div>
-  </div>
-
-  <!-- Results modal -->
-  <div id="results">
-    <div class="card">
-      <h3 style="margin:4px 0 8px">Results</h3>
-      <div class="row"><div>Total Score</div><b id="rScore">0</b></div>
-      <div class="row"><div>Max Combo</div><b id="rMaxCombo">0</b></div>
-      <div class="row"><div>Accuracy</div><b id="rAcc">0%</b></div>
-      <div style="display:flex; gap:8px; margin-top:10px; justify-content:flex-end">
-        <button class="btn" id="closeRes">Close</button>
-      </div>
+  <header class="header">
+    <div class="brand">VR Fitness Academy</div>
+    <div class="toolbar">
+      <label class="small" for="langSel" data-i18n="language">Language</label>
+      <select id="langSel" class="select">
+        <option value="en">English</option>
+        <option value="th">ไทย</option>
+      </select>
+      <button class="btn" id="muteBtn" title="Mute/Unmute">🔊</button>
     </div>
-  </div>
+  </header>
 
-  <!-- Story / HIIT overlay -->
-  <div class="story-overlay" id="storyOverlay">
-    <div class="story-card">
-      <h2>Story Mode <span class="badge">Chapter Select</span></h2>
-      <div class="story-grid">
-        <div class="story-cell" onclick="Story.applySelection({mode:'story', chapter:1, difficulty:'normal', hiit:false})">
-          <b>Chapter 1: Hell Trainer</b>
-          <div style="color:#8aa2b2;font-size:12px">Boss: RazorFist • Phase 1–2</div>
-        </div>
-        <div class="story-cell" onclick="Story.applySelection({mode:'hiit', chapter:0, difficulty:'normal', hiit:true})">
-          <b>HIIT Mode (5 min)</b>
-          <div style="color:#8aa2b2;font-size:12px">Intervals: 30s on / 30s off</div>
-        </div>
-      </div>
-      <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end">
-        <button class="btn" onclick="Story.close()">Close</button>
-      </div>
-    </div>
-  </div>
+  <main class="container">
+    <h1 data-i18n="hub_title">Choose your workout</h1>
+    <div class="small" data-i18n="hub_sub">Mini-games · scoring · BGM · results</div>
 
-  <!-- Scene -->
-  <a-scene renderer="colorManagement: true" cursor="rayOrigin: mouse">
-    <!-- camera + mouse cursor for desktop; on mobile/VR จะใช้ controller เอง -->
-    <a-entity id="rig">
-      <a-entity id="camera" camera position="0 1.6 0" look-controls>
-        <a-cursor fuse="false" raycaster="objects: .clickable"></a-cursor>
-      </a-entity>
-    </a-entity>
+    <div class="grid" id="gameGrid" aria-live="polite"></div>
+  </main>
 
-    <!-- “hands” proxy (เราตรวจความเร็วเพื่อเช็ค slash) -->
-    <a-entity id="leftHand"  hand-speed position="-0.2 1.3 -0.6"></a-entity>
-    <a-entity id="rightHand" hand-speed position="0.2 1.3 -0.6"></a-entity>
+  <!-- Recent Results -->
+  <section class="container" id="lbSection">
+    <h2 style="margin:10px 0 10px">Recent Results</h2>
+    <div class="card" id="lbCard"><div class="small" style="padding:10px">No scores yet</div></div>
+  </section>
 
-    <!-- เวทีให้สปอนเป้า/บอส -->
-    <a-entity id="arena" position="0 0 0"></a-entity>
+  <footer class="footer">
+    <span>Sport Tech UI · <span class="kbd">ESC</span> to exit VR</span>
+  </footer>
 
-    <a-sky color="#02070d"></a-sky>
-    <a-entity light="type:ambient; intensity:0.6; color:#bcdcff"></a-entity>
-    <a-entity light="type:directional; intensity:0.9" position="0 2 1"></a-entity>
-  </a-scene>
-
-  <!-- Core/Hub helpers (ใช้แล้วใน game.js) -->
-  <script src="../../core/i18n.js"></script>
-  <script src="../../core/audio.js"></script>
-  <script src="../../core/engine.js"></script>
-  <script src="../../core/ui.js"></script>
-  <script src="../../core/leaderboard.js"></script>
-
-  <!-- Story helper -->
-  <script src="../../core/story.js"></script>
-
-  <!-- Game logic -->
-  <script src="./game.js"></script>
+  <!-- Core helpers (ถ้ามีในโปรเจกต์เดิม จะใช้งานได้ทันที) -->
+  <script src="core/i18n.js"></script>
+  <script src="core/audio.js"></script>
+  <script src="core/engine.js"></script>
+  <script src="core/ui.js"></script>
+  <script src="core/leaderboard.js"></script>
 
   <script>
-    // Basic bindings
-    document.getElementById('backBtn').onclick = ()=>{ location.href='../../index.html'; };
-    document.getElementById('closeRes').onclick = ()=>{ document.getElementById('results').style.display='none'; };
-    // เปิด Story Overlay แบบเร็ว: คลิกขวาที่ Start (กันพลาดบนมือถือ/VR)
-    document.getElementById('startBtn').addEventListener('contextmenu', (e)=>{ e.preventDefault(); Story && Story.open(); });
+  // --- Config: รายการเกมบน Hub ---
+  const GAMES = [
+    {
+      id: 'shadow-breaker',
+      title: 'Shadow Breaker',
+      sub: 'Boss phases · slash/parry · leaderboard',
+      path: 'games/shadow-breaker/index.html',
+      tags: ['Combat','HIIT','Boss'],
+      thumb: 'SB'
+    },
+    {
+      id: 'rhythm-punch',
+      title: 'Rhythm Punch',
+      sub: 'Beat timing · jab/cross · streak',
+      path: null, // ยังไม่พร้อม → Coming Soon
+      tags: ['Rhythm','Arms'],
+      thumb: 'RP',
+      soon: true
+    },
+    {
+      id: 'target-sprint',
+      title: 'Target Sprint',
+      sub: 'Aim + move · accuracy gates',
+      path: null,
+      tags: ['Cardio','Accuracy'],
+      thumb: 'TS',
+      soon: true
+    },
+    {
+      id: 'calorie-dodge',
+      title: 'Calorie Dodge',
+      sub: 'Dodge lanes · burn meter',
+      path: null,
+      tags: ['Dodge','Core'],
+      thumb: 'CD',
+      soon: true
+    }
+  ];
+
+  // --- แปลสองภาษาเล็ก ๆ ---
+  const I18N = {
+    en: { language:'Language', hub_title:'Choose your workout', hub_sub:'Mini-games · scoring · BGM · results', coming:'Coming soon' },
+    th: { language:'ภาษา', hub_title:'เลือกการออกกำลังกายของคุณ', hub_sub:'มินิเกม · ทำคะแนน · เพลงประกอบ · สรุปผล', coming:'เร็ว ๆ นี้' }
+  };
+
+  // ดึงภาษาจาก ?lang= หรือจาก select
+  function getLang(){
+    const q = new URLSearchParams(location.search);
+    return q.get('lang') || localStorage.getItem('hub_lang') || 'en';
+  }
+  function applyI18n(lang){
+    const dict = I18N[lang] || I18N.en;
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const k = el.getAttribute('data-i18n');
+      if (dict[k]) el.textContent = dict[k];
+    });
+  }
+
+  // --- สร้าง Grid รายการเกม ---
+  function renderGrid(){
+    const grid = document.getElementById('gameGrid');
+    const lang = getLang();
+    const comingLabel = (I18N[lang]||I18N.en).coming;
+    grid.innerHTML = GAMES.map(g=>{
+      const tags = (g.tags||[]).map(t=>`<span class="pill">${t}</span>`).join(' ');
+      const soon = g.soon || !g.path;
+      const cardInner = `
+        <div class="thumb">${g.thumb||''}</div>
+        <div class="meta">
+          <div class="row"><b>${g.title}</b>${soon? `<span class="pill soon">${comingLabel}</span>`:''}</div>
+          <div class="small mut">${g.sub||''}</div>
+          <div class="row"><div class="mut small">#${g.id}</div><div>${tags}</div></div>
+        </div>`;
+      if (soon){
+        return `<div class="card soon" role="button" aria-disabled="true" tabindex="-1" title="${comingLabel}">${cardInner}</div>`;
+      } else {
+        return `<a class="card card-link" href="${g.path}" role="link" aria-label="${g.title}">${cardInner}</a>`;
+      }
+    }).join('');
+  }
+
+  // --- Recent Results จาก Leaderboard (ถ้ามี) ---
+  function renderRecent(){
+    const card = document.getElementById('lbCard');
+    try{
+      if (!window.Leaderboard || !Leaderboard.recent) throw 0;
+      const list = Leaderboard.recent(8);
+      if (!list || list.length===0){ card.innerHTML = '<div class="small" style="padding:10px">No scores yet</div>'; return; }
+      card.innerHTML = list.map(e=>{
+        const when = new Date(e.ts).toLocaleString();
+        const game = e.gameId || 'unknown';
+        const acc  = (e.accuracy!=null ? (e.accuracy + '%') : '-');
+        return `<div class="row"><div><b>${game}</b> · ${when}</div><div>Score <b>${e.score||0}</b> · MaxCombo <b>${e.maxCombo||0}</b> · Acc ${acc}</div></div>`;
+      }).join('');
+    }catch(e){
+      card.innerHTML = '<div class="small" style="padding:10px">No scores yet</div>';
+    }
+  }
+
+  // --- เสียง / ปุ่ม mute ---
+  function tryAudioInit(){
+    if (!window.AudioBus) return;
+    // default unmuted; click = toggle
+    const btn = document.getElementById('muteBtn');
+    btn.addEventListener('click', ()=>{
+      const muted = AudioBus.toggleMute ? AudioBus.toggleMute() : AudioBus.mute(true);
+      btn.textContent = (muted ? '🔇' : '🔊');
+    });
+    // ถ้ามี state mute ใน localStorage แสดงสัญลักษณ์ให้ตรง
+    try{
+      const muted = localStorage.getItem('audio_muted') === '1';
+      if (muted && AudioBus.mute) AudioBus.mute(true);
+      btn.textContent = (muted ? '🔇' : '🔊');
+    }catch(e){}
+  }
+
+  // --- Main ---
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // I18N
+    const lang = getLang();
+    const sel = document.getElementById('langSel');
+    sel.value = lang;
+    sel.addEventListener('change', ()=>{
+      localStorage.setItem('hub_lang', sel.value);
+      applyI18n(sel.value);
+      renderGrid();
+    });
+    applyI18n(lang);
+
+    // Render games & recent
+    renderGrid();
+    renderRecent();
+
+    // Audio button
+    tryAudioInit();
+  });
   </script>
 </body>
 </html>
