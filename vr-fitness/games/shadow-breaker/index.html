@@ -85,5 +85,59 @@
       o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre><p>ตรวจพาธสคริปต์/ไฟล์ และลองรีโหลด</p></div>';
     });
   </script>
+  <!-- Difficulty Dropdown (Shadow Breaker) -->
+<div id="diffDock" style="
+  position:fixed; right:12px; bottom:12px; z-index:9999;
+  display:flex; align-items:center; gap:8px;
+  background:rgba(10,16,24,.75); backdrop-filter:saturate(1.1) blur(4px);
+  border:1px solid rgba(255,255,255,.08); border-radius:12px;
+  padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
+  <label for="diffSel" style="opacity:.9; letter-spacing:.3px;">Difficulty</label>
+  <select id="diffSel" style="
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.12);
+    border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
+    <option value="easy">Easy</option>
+    <option value="normal">Normal</option>
+    <option value="hard">Hard</option>
+    <option value="final">Final</option>
+  </select>
+  <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
+</div>
+
+<script>
+  (function(){
+    const getQ = (k)=> new URLSearchParams(location.search).get(k);
+    const DIFF_KEYS = { easy:1, normal:1, hard:1, final:1 };
+
+    // อ่านค่าปัจจุบันจาก URL → localStorage → APP.story
+    const current =
+      getQ('diff') ||
+      localStorage.getItem('sb_diff') ||
+      (window.APP && APP.story && APP.story.difficulty) ||
+      'normal';
+
+    const sel = document.getElementById('diffSel');
+    sel.value = DIFF_KEYS[current] ? current : 'normal';
+
+    // เปลี่ยนแล้วบันทึก + รีโหลดเกมด้วยพารามิเตอร์ ?diff=
+    sel.addEventListener('change', function(e){
+      const v = e.target.value;
+      try { localStorage.setItem('sb_diff', v); } catch(_){}
+      const url = new URL(location.href);
+      url.searchParams.set('diff', v);
+      // รีโหลดเพียงหน้าเกม (รักษา path เดิม + query ใหม่)
+      location.href = url.pathname + '?' + url.searchParams.toString();
+    }, { passive: true });
+
+    // เข้าถึงด้วยคีย์บอร์ด: กด Alt+D โฟกัสดรอปดาวน์
+    document.addEventListener('keydown', function(ev){
+      if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')) {
+        sel.focus();
+      }
+    });
+  })();
+</script>
+
 </body>
 </html>
