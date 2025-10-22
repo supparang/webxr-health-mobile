@@ -1,4 +1,4 @@
-/* Shadow Breaker · game.js (Boss chaining: beat Boss 1 within time → auto-load Boss 2) */
+/* Shadow Breaker · game.js (Boss chain 1→2→3) */
 (function(){
   // ---------- Helpers ----------
   const $ = (q)=>document.querySelector(q);
@@ -11,11 +11,11 @@
   let running=false, timer=null, spawnTimer=null;
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
 
-  // ---------- Chain rule (เปลี่ยนได้) ----------
-  const CHAIN_RULE = { minTimeLeft: 15 }; // วินาทีที่ต้องเหลือเพื่อไปบอส 2
+  // ---------- Chain rule ----------
+  const CHAIN_RULE = { minTimeLeft: 15 }; // เหลือเวลาเท่านี้ขึ้นไป จึงไปบอสถัดไป
   let CURRENT_BOSS = 0;
 
-  // ---------- Boss roster (เพิ่ม/แก้บอสได้ที่นี่) ----------
+  // ---------- Boss roster ----------
   const BOSSES = [
     {
       id:'RazorFist', title:'RAZORFIST', maxHP:1000, color:'#ff3355',
@@ -24,9 +24,14 @@
     },
     {
       id:'AshOni', title:'ASH ONI', maxHP:1200, color:'#ffa133',
-      // เปลี่ยนลำดับ/สไตล์ให้ต่างจากบอสแรก
       P1:['shadow_dash','guard_break','rapid_fist'],
-      P2:['multi_slash','ground_shock','enrage_combo_fast'] // มีท่าใหม่ ground_shock+เวอร์ชันเร็ว
+      P2:['multi_slash','ground_shock','enrage_combo_fast']
+    },
+    {
+      id:'Nightblade', title:'NIGHTBLADE', maxHP:1400, color:'#7a5cff',
+      // บอส 3 เน้น pattern กวาดสนามและล่อให้พลาด
+      P1:['blade_storm','laser_grid','guard_break'],
+      P2:['orb_spiral','blade_storm_fast','rage_finale']
     }
   ];
 
@@ -73,7 +78,7 @@
     if(combo>0 && combo%10===0){ try{ SFX.combo.currentTime=0; SFX.combo.play(); }catch(e){} APPX.badge('Combo x'+(1+Math.floor(combo/10))); }
   }
 
-  // ---------- Floating text ----------
+  // ---------- Float text ----------
   function floatText(text, color, pos){
     const e=document.createElement('a-entity'), p=pos.clone(); p.y+=0.2;
     e.setAttribute('text',{value:text,color,align:'center',width:2.6});
@@ -116,7 +121,7 @@
     anchor.setAttribute('id','bossAnchor');
     anchor.setAttribute('position','0 1.5 -3');
 
-    // Oni placeholder (เปลี่ยนสีตามบอส)
+    // Oni placeholder (สีตามบอส)
     const head=document.createElement('a-sphere'); head.setAttribute('radius','0.35'); head.setAttribute('color','#1a1a1a'); head.setAttribute('position','0 0 0');
     const mask=document.createElement('a-box'); mask.setAttribute('depth','0.06'); mask.setAttribute('width','0.55'); mask.setAttribute('height','0.45'); mask.setAttribute('color',BOSS.color||'#ff3355'); mask.setAttribute('position','0 0 0.25');
     const hornL=document.createElement('a-cone'); hornL.setAttribute('radius-bottom','0.06'); hornL.setAttribute('radius-top','0.01'); hornL.setAttribute('height','0.28'); hornL.setAttribute('color','#ff8844'); hornL.setAttribute('rotation','-18 0 28'); hornL.setAttribute('position','-0.2 0.18 0.16');
@@ -147,13 +152,10 @@
     if(canChain){
       APPX.badge('Qualified! Next Boss…');
       CURRENT_BOSS++;
-      // เคลียร์สนาม แล้วเรียกบอสถัดไปโดยไม่รีเซ็ตเวลา/คะแนน
       clearArena(); bossShowUI(false);
       after(900, ()=>{ bossShowUI(true); bossSpawn(CURRENT_BOSS); });
       return;
     }
-
-    // ไม่เข้าเงื่อนไขต่อบอส → จบเกมตามปกติ
     end();
   }
 
@@ -166,15 +168,22 @@
     const arr = (BOSS.phase===1? BOSS.P1 : BOSS.P2);
     const pattern = arr[pIndex % arr.length]; pIndex++;
     ({
+      // base
       'slash_cross':doSlashCross,
       'rapid_fist':doRapidFist,
       'guard_break':doGuardBreak,
       'shadow_dash':doShadowDash,
       'multi_slash':doMultiSlash,
       'enrage_combo':doEnrageCombo,
-      // Boss 2 เฉพาะ:
+      // boss 2
       'ground_shock':doGroundShock,
-      'enrage_combo_fast':doEnrageComboFast
+      'enrage_combo_fast':doEnrageComboFast,
+      // boss 3
+      'blade_storm':doBladeStorm,
+      'blade_storm_fast':()=>doBladeStorm(true),
+      'laser_grid':doLaserGrid,
+      'orb_spiral':doOrbSpiral,
+      'rage_finale':doRageFinale
     }[pattern]||(()=>{ BOSS.busy=false; }))();
   }
   function finishAttack(){ BOSS.busy=false; after(520, bossLoop); }
@@ -185,7 +194,7 @@
     const scn=document.querySelector('a-scene'); if(scn){ scn.classList.add('shake-scene'); setTimeout(()=>scn.classList.remove('shake-scene'), 240); }
   }
 
-  // --- Moves (Phase 1/2) ---
+  // --- Moves (Phase 1/2 ใช้ของบอสก่อนหน้า) ---
   function doSlashCross(){
     BOSS.busy=true; try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
     const g=document.createElement('a-entity');
@@ -217,7 +226,7 @@
     BOSS.busy=true; try{ SFX.tel_guard.currentTime=0; SFX.tel_guard.play(); }catch(e){}
     const core=document.createElement('a-sphere'); core.classList.add('clickable','boss-attack');
     core.setAttribute('radius','0.2'); core.setAttribute('color','#ff6b6b'); core.setAttribute('position','0 1.1 -2.2');
-    core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:140,easing:'easeOutBack'});
+    core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale', to:'1 1 1', dur:140, easing:'easeOutBack'});
     byId('arena').appendChild(core);
     core.addEventListener('click', ()=>{ const p=core.object3D.getWorldPosition(new THREE.Vector3()); bossDamage(10,p); core.remove(); finishAttack(); });
     after(BOSS.phase===1?900:750, ()=>{ if(core.parentNode){ playerHit(); core.remove(); } finishAttack(); });
@@ -247,14 +256,14 @@
     const seq=[()=>qs(()=>step()), ()=>qw(()=>step()), ()=>qg(()=>step()), ()=>gem(()=>finishAttack())];
     let j=0; function step(){ j++; if(j<seq.length) seq[j](); } seq[0]();
 
-    function qs(done){ // quick slash
+    function qs(done){
       const g=document.createElement('a-entity'); g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.2; depth: 0.04');
       g.setAttribute('material','color:#ff3355;opacity:.9;transparent:true'); g.setAttribute('rotation','0 0 -35'); g.setAttribute('position','0 1.4 -2.2'); g.classList.add('clickable');
       byId('arena').appendChild(g); let ok=false; try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
       g.addEventListener('click', ()=>{ ok=true; bossDamage(18,new THREE.Vector3(0,1.5,-3)); g.remove(); done(); });
       after(520, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
     }
-    function qw(done){ // quick shock
+    function qw(done){
       try{ SFX.tel_shock.currentTime=0; SFX.tel_shock.play(); }catch(e){}
       const ring=document.createElement('a-ring'); ring.classList.add('clickable'); ring.setAttribute('position','0 1.2 -2.6');
       ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07'); ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
@@ -264,7 +273,7 @@
         ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); ring.remove(); done(); return; } requestAnimationFrame(step);
       })();
     }
-    function qg(done){ // quick guard
+    function qg(done){
       try{ SFX.tel_guard.currentTime=0; SFX.tel_guard.play(); }catch(e){}
       const core=document.createElement('a-sphere'); core.classList.add('clickable'); core.setAttribute('radius','0.18'); core.setAttribute('color','#ff6b6b'); core.setAttribute('position','0 1.15 -2.2');
       core.setAttribute('scale','0.001 0.001 0.001'); core.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:120,easing:'easeOutBack'});
@@ -280,18 +289,122 @@
 
   // --- Boss 2 specials ---
   function doGroundShock(){
-    // วงแหวนพุ่งขึ้นจากพื้น 5 ลูกเร็วขึ้น
     BOSS.busy=true; let c=0;
     const next=()=>{ try{ SFX.tel_shock.currentTime=0; SFX.tel_shock.play(); }catch(e){}
       spawnShockwave(()=>{ c++; if(c<5){ after(300,next);} else { finishAttack(); } });
     }; next();
   }
   function doEnrageComboFast(){
-    // เหมือน enrage แต่เวลาสั้นลง
     const saveP2=BOSS.P2; const tmp=['multi_slash','ground_shock']; BOSS.P2=tmp;
-    doEnrageCombo(); // ใช้ของเดิมแต่ pattern pool ถูกบีบ
-    // คืนค่าหลังจบ (รอจังหวะ finishAttack เรียก bossLoop ต่อไป)
-    after(2000, ()=>{ BOSS.P2=saveP2; });
+    doEnrageCombo(); after(2000, ()=>{ BOSS.P2=saveP2; });
+  }
+
+  // --- Boss 3 specials ---
+  // 1) Blade Storm: สุ่มเส้น slash 3–4 เส้นต่อเนื่องให้พารี่
+  function doBladeStorm(fast=false){
+    BOSS.busy=true;
+    const count = fast? 4 : 3;
+    let i=0;
+    const doOne=()=>{
+      try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
+      const rot = (-50 + Math.random()*100).toFixed(0);
+      const g=document.createElement('a-entity');
+      g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.25; depth: 0.04');
+      g.setAttribute('material','color:#7a5cff; opacity:0.9; transparent:true');
+      g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position','0 1.38 -2.2'); g.classList.add('clickable','boss-attack');
+      byId('arena').appendChild(g);
+      let ok=false; g.addEventListener('click', ()=>{ ok=true; floatText('PARRY','#a899ff', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?18:16,new THREE.Vector3(0,1.5,-3)); g.remove(); });
+      after(fast?520:650, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } i++; if(i<count){ after(100,doOne); } else { finishAttack(); } });
+    };
+    doOne();
+  }
+
+  // 2) Laser Grid: สร้าง “ตะแกรง” 2 เส้นให้คลิกตัด (ต้องโดนทั้งคู่)
+  function doLaserGrid(){
+    BOSS.busy=true;
+    const makeBeam=(x,y,rot)=>{
+      const b=document.createElement('a-entity');
+      b.setAttribute('geometry','primitive: box; height: 0.035; width: 1.4; depth: 0.03');
+      b.setAttribute('material','color:#5de1ff; opacity:0.9; transparent:true');
+      b.setAttribute('position',`${x} ${y} -2.2`); b.setAttribute('rotation',`0 0 ${rot}`);
+      b.classList.add('clickable','boss-attack'); byId('arena').appendChild(b); return b;
+    };
+    try{ SFX.tel_dash.currentTime=0; SFX.tel_dash.play(); }catch(e){}
+    const a=makeBeam(0,1.3,-15), b=makeBeam(0,1.5,15);
+    let ca=false, cb=false;
+    const ok=()=>{ if(ca && cb){ bossDamage(28,new THREE.Vector3(0,1.5,-3)); cleanup(); } };
+    a.addEventListener('click', ()=>{ ca=true; floatText('CUT','#5de1ff', a.object3D.getWorldPosition(new THREE.Vector3())); a.remove(); ok(); });
+    b.addEventListener('click', ()=>{ cb=true; floatText('CUT','#5de1ff', b.object3D.getWorldPosition(new THREE.Vector3())); b.remove(); ok(); });
+    after(800, ()=>{ cleanup(true); });
+    function cleanup(timeout){
+      if(a.parentNode){ a.remove(); if(timeout && !ca) playerHit(); }
+      if(b.parentNode){ b.remove(); if(timeout && !cb) playerHit(); }
+      finishAttack();
+    }
+  }
+
+  // 3) Orb Spiral: ลูกแก้ว 4 เม็ดโคจรรอบศูนย์ ต้องกดให้หมด
+  function doOrbSpiral(){
+    BOSS.busy=true;
+    const center=new THREE.Vector3(0,1.4,-2.3);
+    const orbs=[];
+    for(let i=0;i<4;i++){
+      const o=document.createElement('a-sphere'); o.classList.add('clickable','boss-attack');
+      o.setAttribute('radius','0.1'); o.setAttribute('color','#a899ff');
+      o.dataset.theta = (i/4)*Math.PI*2;
+      byId('arena').appendChild(o); orbs.push(o);
+      o.addEventListener('click', ()=>{ floatText('BREAK','#a899ff', o.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(10,center); o.remove(); });
+    }
+    const start=performance.now(), dur=BOSS.phase===1?2600:2000;
+    (function step(){
+      const t=(performance.now()-start)/dur;
+      let alive=false;
+      orbs.forEach((o,idx)=>{
+        if(!o.parentNode) return;
+        alive=true;
+        const theta = (+o.dataset.theta) + t* (BOSS.phase===1?2.5:3.6);
+        const r = 0.5 + 0.2*Math.sin(t*4+idx);
+        const x = center.x + Math.cos(theta)*r;
+        const y = center.y + Math.sin(theta)*r*0.6;
+        o.setAttribute('position',`${x.toFixed(3)} ${y.toFixed(3)} ${center.z}`);
+      });
+      if(t>=1){ // หมดเวลา
+        orbs.forEach(o=>{ if(o.parentNode){ o.remove(); playerHit(); } });
+        finishAttack(); return;
+      }
+      if(!alive){ finishAttack(); return; }
+      requestAnimationFrame(step);
+    })();
+  }
+
+  // 4) Rage Finale: QTE เร็วปิดฉาก (Slash→Shock→Gem) โหดกว่าปกติ
+  function doRageFinale(){
+    BOSS.busy=true; try{ SFX.enrage.currentTime=0; SFX.enrage.play(); }catch(e){} APPX.badge('FINAL RAGE!');
+    const seq=[()=>qs(()=>step()), ()=>qw(()=>step()), ()=>gem(()=>finishAttack(true))];
+    let j=0; function step(){ j++; if(j<seq.length) seq[j](); } seq[0]();
+
+    function qs(done){
+      const g=document.createElement('a-entity'); g.setAttribute('geometry','primitive: box; height: 0.04; width: 1.25; depth: 0.04');
+      g.setAttribute('material','color:#7a5cff;opacity:.95;transparent:true'); g.setAttribute('rotation','0 0 -30'); g.setAttribute('position','0 1.4 -2.2'); g.classList.add('clickable');
+      byId('arena').appendChild(g); let ok=false; try{ SFX.tel_slash.currentTime=0; SFX.tel_slash.play(); }catch(e){}
+      g.addEventListener('click', ()=>{ ok=true; bossDamage(22,new THREE.Vector3(0,1.5,-3)); g.remove(); done(); });
+      after(450, ()=>{ if(g.parentNode){ g.remove(); if(!ok) playerHit(); } done(); });
+    }
+    function qw(done){
+      try{ SFX.tel_shock.currentTime=0; SFX.tel_shock.play(); }catch(e){}
+      const ring=document.createElement('a-ring'); ring.classList.add('clickable'); ring.setAttribute('position','0 1.2 -2.6');
+      ring.setAttribute('radius-inner','0.05'); ring.setAttribute('radius-outer','0.07'); ring.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
+      byId('arena').appendChild(ring);
+      ring.addEventListener('click', ()=>{ bossDamage(18, ring.object3D.getWorldPosition(new THREE.Vector3())); ring.remove(); done(); });
+      const start=performance.now(), dur=420; (function step(){ if(!ring.parentNode) return; const t=(performance.now()-start)/dur, r=0.07+t*0.9;
+        ring.setAttribute('radius-inner',Math.max(0.01,r-0.02)); ring.setAttribute('radius-outer',r); if(t>=1.0){ playerHit(); ring.remove(); done(); return; } requestAnimationFrame(step);
+      })();
+    }
+    function gem(done){
+      const g=document.createElement('a-icosahedron'); g.classList.add('clickable'); g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.2'); g.setAttribute('color','#00ffa3'); byId('arena').appendChild(g);
+      g.addEventListener('click', ()=>{ floatText('CRITICAL!','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); try{ SFX.success.currentTime=0; SFX.success.play(); }catch(e){} bossDamage(60, g.object3D.getWorldPosition(new THREE.Vector3())); g.remove(); done(); });
+      after(600, ()=>{ if(g.parentNode){ g.remove(); done(); } });
+    }
   }
 
   // ---------- Targets & Hits ----------
