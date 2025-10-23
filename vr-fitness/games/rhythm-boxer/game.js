@@ -1,509 +1,198 @@
-/* games/rhythm-boxer/game.js
- * Rhythm Boxer – vNext (15 features pack)
- * - Fever + Dynamic Speed Scale + Random Lane Challenge
- * - Power-Up Notes + Life Gauge + Lighting Pulse + Skins
- * - Hit Sparks + Haptics + Cheer/Coach + Badges/EXP
- * - Leaderboard Hook + Daily Missions + Song Unlock Tree
- * - Stats Dashboard
- * - Mouse/Touch Raycast; Back to Hub fixed
- */
-(function(){
-  "use strict";
+/* ===== RHYTHM SPEED+TIMER PATCH (drop-in) =====
+   - เริ่มช้า → เร็วขึ้นตามเวลา + คอมโบ (easing)
+   - สแปว์นโน้ตเริ่มห่าง → ถี่ขึ้นอัตโนมัติ
+   - เวลานับถอยหลังเดินจริง + จบเกมเมื่อหมดเวลา
+   ใช้ร่วมกับตัวแปร/ฟังก์ชันเดิม: running, combo, endGame(), spawnNote(), moveAllNotes(dt), hit detection, etc.
+*/
 
-  // ---------- Utils ----------
-  const $ = (id)=>document.getElementById(id);
-  const clamp = (n,a,b)=>Math.max(a, Math.min(b, n));
-  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'') || '/webxr-health-mobile/vr-fitness';
-  const HUB_URL = 'https://supparang.github.io/webxr-health-mobile/vr-fitness/';
-  const now = ()=>performance.now();
+// ---------- Config ----------
+const GAME_DURATION_SEC = 90;        // ระยะเวลาเล่นทั้งเพลง (แก้ได้)
+const SPEED = {
+  base: 0.35,                        // ความเร็วเริ่มต้น (ช้า)
+  max:  1.25,                        // ความเร็วสูงสุด (จะไต่ไปเรื่อย ๆ)
+  rampSec: 75,                       // ใช้เวลา ~กี่วินาทีถึงโซนเร็ว
+  rampCombo: 120,                    // คอมโบมีผลเร่งด้วย (ถึง ~120 จะช่วยให้เร็วขึ้น)
+};
 
-  // ---------- Audio & Haptics ----------
-  const SFX = {
-    good: new Audio(`${ASSET_BASE}/assets/sfx/rb_good.wav`),
-    perfect: new Audio(`${ASSET_BASE}/assets/sfx/rb_perfect.wav`),
-    miss: new Audio(`${ASSET_BASE}/assets/sfx/rb_miss.wav`),
-    cheer: new Audio(`${ASSET_BASE}/assets/sfx/rb_cheer.wav`),
-    coach1: new Audio(`${ASSET_BASE}/assets/sfx/coach_keepgoing.wav`),
-    coach2: new Audio(`${ASSET_BASE}/assets/sfx/coach_nice.wav`),
-    power: new Audio(`${ASSET_BASE}/assets/sfx/rb_power.wav`),
-    fever: new Audio(`${ASSET_BASE}/assets/sfx/rb_fever.wav`),
-    pulse: new Audio(`${ASSET_BASE}/assets/sfx/metronome.wav`),
-  };
-  const play = (a)=>{ try{ a.currentTime = 0; a.play(); }catch{} };
-  const vibrate = (ms=20)=>{ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch{} };
+const SPAWN = {
+  baseInterval: 1050,                // ช่วงเวลาสแปว์นเริ่มต้น (โน้ตห่าง)
+  minInterval:  420,                 // ถี่สุดที่อนุญาต
+  easeInAfterSec: 50,                // เริ่มเร่งความถี่ราววินาทีที่ 50
+};
 
-  // ---------- Game State ----------
-  let running=false, paused=false, timer=null, spawner=null;
-  let bpm = 110, offsetMs = 0, songLen = 75_000;
-  let baseSpeed = 0.9;        // px/ms (จะปรับด้วย difficulty และ dynamic scale)
-  let speedMul = 1.0;         // dynamic speed scale (ข้อ 2)
-  let spawnGap = 520;         // ms (จะไหลเพิ่มความถี่เรื่อยๆ)
-  let spawnEaseTimer = 0;     // คุมการค่อยๆ ถี่ขึ้น (ข้อ feedback)
-  let score=0, combo=0, maxCombo=0, total=0, hits=0, perfects=0, goods=0, misses=0;
-  let fever=false, feverEnd=0;
-  let life=100;               // ข้อ 5: Life Gauge
-  let laneMissingCooldown = 0;// ข้อ 3: Random Lane Challenge
-  let exp = +localStorage.getItem('rb_exp')||0;  // ข้อ 11
-  let envSkin = localStorage.getItem('rb_skin')||'neon'; // ข้อ 7
-  let diffKey = localStorage.getItem('rb_diff')||'standard'; // beginner/standard/challenge (จากเมนูหน้า index)
+// ---------- State ----------
+let startTime = 0;
+let lastFrame = 0;
+let elapsedSec = 0;
+let nextSpawnAt = 0;                 // timestamp (ms) สำหรับสแปว์นถัดไป
+let currentSpeed = SPEED.base;       // ความเร็วตกของโน้ต (หน่วยตามซีน)
+let timeLeft = GAME_DURATION_SEC;
 
-  const DIFF = {
-    beginner:  {speed:0.75, gap:700, feverCombo:20, hpLoss:9, hpGain:2},
-    standard:  {speed:0.95, gap:560, feverCombo:24, hpLoss:11, hpGain:2},
-    challenge: {speed:1.15, gap:460, feverCombo:28, hpLoss:13, hpGain:1},
-  };
-  let D = DIFF[diffKey] || DIFF.standard;
+// อ้างอิง DOM (ถ้าชื่อ id ต่าง ให้แก้ตรงนี้)
+const timeEl  = document.getElementById('time');   // <span id="time">…</span>
+const scoreEl = document.getElementById('score');
+const comboEl = document.getElementById('combo');
 
-  // UI bindings (จำเป็นต้องมีใน index.html)
-  // #startBtn, #pauseBtn, #endBtn, #backBtn, #songSel, #skinSel, #diffSel, #hitLine, #hud*, #results*
-  const scene = document.querySelector('a-scene');
+// ---------- Ease helpers ----------
+function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+function easeInOut(t){ // 0..1 → 0..1
+  return t<.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
+}
 
-  // ---------- Lanes & Notes ----------
-  const LANES = [-0.9, -0.3, 0.3, 0.9]; // x positions
-  const LANE_CLR = ['#5de1ff','#ff7aa2','#ffd166','#7affc4']; // สีของ note หลากสี (ข้อเพิ่มสี)
-  const HIT_Z = -2.2;
-  const HIT_Y = 1.05; // เส้น Hit line
-  const NOTE_SIZE = 0.22; // ให้ใหญ่ขึ้นตามคำขอ
-  const HIT_WIN_PERF = 140; // ms
-  const HIT_WIN_GOOD = 260; // ms
-  const HIT_FORGIVENESS_X = 0.42; // ช่วยเล็ง (Hit Assist)
+// ---------- Speed / Spawn compute ----------
+function computeSpeedFactor(){
+  // factor จากเวลา
+  const tf = clamp(elapsedSec / SPEED.rampSec, 0, 1);
+  // factor จากคอมโบ (เร่งขึ้นเล็กน้อย)
+  const cf = clamp((combo || 0) / SPEED.rampCombo, 0, 1);
+  // รวมและทำ easing
+  return easeInOut(clamp(tf + cf*0.6, 0, 1));
+}
 
-  const pool = new Set(); // เก็บโน้ต active
+function updateSpeedAndSpawnPlan(nowMs){
+  // ความเร็วตกของโน้ต (เริ่มช้า → เร็วขึ้น)
+  const f = computeSpeedFactor();
+  currentSpeed = SPEED.base + (SPEED.max - SPEED.base) * f;
 
-  // ---------- Songs & Unlock Tree (ข้อ 14) ----------
-  // ปลดเพลงตาม EXP สะสม (ตัวอย่าง)
-  const SONGS = [
-    { id:'intro_gym',  name:'Intro Gym',   src:`${ASSET_BASE}/assets/music/intro_gym.mp3`,  bpm:100, offset:80,  needExp:0,   len:60_000 },
-    { id:'neon_pulse', name:'Neon Pulse',  src:`${ASSET_BASE}/assets/music/neon_pulse.mp3`, bpm:118, offset:90,  needExp:50,  len:75_000 },
-    { id:'sky_drive',  name:'Sky Drive',   src:`${ASSET_BASE}/assets/music/sky_drive.mp3`,  bpm:132, offset:110, needExp:140, len:90_000 },
-  ];
-  function availableSongs(){ return SONGS.filter(s=>exp>=s.needExp); }
-
-  let music = null;
-  function loadSongById(id){
-    const s = SONGS.find(x=>x.id===id) || SONGS[0];
-    if(music){ try{ music.pause(); }catch{} }
-    music = new Audio(s.src); music.onended = end; music.volume = 0.9;
-    bpm = s.bpm; offsetMs = s.offset; songLen=s.len;
-    // ปรับ spawn จาก diff และเริ่มค่อยๆถี่ขึ้น
-    D = DIFF[diffKey] || DIFF.standard;
-    baseSpeed = D.speed;
-    spawnGap = D.gap;
-    spawnEaseTimer = 0;
-    $('songNow') && ( $('songNow').textContent = s.name + (exp<s.needExp? ' (LOCKED)':'') );
+  // คำนวณ interval สแปว์น (เริ่มห่าง → ถี่ขึ้น)
+  let interval = SPAWN.baseInterval;
+  if (elapsedSec >= SPAWN.easeInAfterSec) {
+    const p = clamp((elapsedSec - SPAWN.easeInAfterSec) / (SPEED.rampSec - SPAWN.easeInAfterSec + 1e-6), 0, 1);
+    interval = SPAWN.baseInterval - (SPAWN.baseInterval - SPAWN.minInterval) * easeInOut(p);
   }
-
-  // ---------- Lighting Pulse (ข้อ 6) ----------
-  let lastBeat=0, beatMs=600; // จะอัปเดตจาก bpm
-  function pulse(){
-    try{
-      const bg = $('arenaPulse');
-      if(!bg) return;
-      bg.emit('pulse');
-      play(SFX.pulse);
-    }catch{}
+  // ตั้งการสแปว์นครั้งถัดไปถ้าถึงเวลา
+  if (nowMs >= nextSpawnAt) {
+    // เริ่มเกมช่วงแรกให้ห่างจริง ๆ: 10 วินาทีแรกสแปว์นช้ากว่าปกติอีกหน่อย
+    const earlyMul = elapsedSec < 10 ? 1.25 : 1.0;
+    nextSpawnAt = nowMs + interval * earlyMul;
+    spawnNote(); // <-- ใช้ตัวสร้างโน้ตเดิมของเกม
   }
+}
 
-  // ---------- Fever & Dynamic speed (ข้อ 1,2) ----------
-  function tryFever(){
-    if(fever) return;
-    const need = D.feverCombo;
-    if(combo>=need){
-      fever = true;
-      feverEnd = now() + 8000;
-      play(SFX.fever);
-      $('feverTag') && ( $('feverTag').style.display='inline-block' );
+// ---------- เวลา / HUD ----------
+function updateHUD(){
+  if (scoreEl) scoreEl.textContent = (window.score|0);
+  if (comboEl) comboEl.textContent = (window.combo|0);
+  if (timeEl)  timeEl.textContent  = timeLeft|0;
+}
+
+function updateTimer(){
+  const remain = Math.max(0, GAME_DURATION_SEC - Math.floor(elapsedSec));
+  if (remain !== timeLeft){
+    timeLeft = remain;
+    if (timeEl) timeEl.textContent = timeLeft;
+  }
+  if (timeLeft <= 0){
+    endGame?.();  // เรียกฟังก์ชันจบเกมเดิม
+    running = false;
+  }
+}
+
+// ---------- Main Loop ----------
+function mainLoop(ts){
+  if (!running) return;
+  if (!lastFrame){ lastFrame = ts; }
+  const dt = (ts - lastFrame) / 1000;
+  lastFrame = ts;
+
+  // อัปเดตเวลาผ่านไป
+  elapsedSec = (ts - startTime) / 1000;
+
+  // อัปเดต speed+แผนสแปว์น
+  updateSpeedAndSpawnPlan(ts);
+
+  // ขยับโน้ตทั้งหมดด้วยความเร็วใหม่ (ต้องให้ moveAllNotes อ่าน currentSpeed)
+  moveAllNotes(dt, currentSpeed);
+
+  // อัปเดตเวลา/คะแนนบน HUD
+  updateTimer();
+  updateHUD();
+
+  requestAnimationFrame(mainLoop);
+}
+
+// ---------- Hooks เข้ากับระบบเดิม ----------
+window.RB = window.RB || {};
+// เริ่มเกม / เริ่มเพลง
+window.RB.start = function(){
+  // reset state เดิมของเกมคุณให้เรียบร้อยก่อน (เช่น ล้างโน้ต/คะแนน/คอมโบ ฯลฯ)
+  // ... resetGameState() ...
+  running   = true;
+  startTime = performance.now();
+  lastFrame = 0;
+  elapsedSec= 0;
+  timeLeft  = GAME_DURATION_SEC;
+  nextSpawnAt = startTime + 600; // หน่วงเล็กน้อยก่อนสแปว์นแรก
+  updateHUD();
+  requestAnimationFrame(mainLoop);
+};
+
+// หยุด/พักเกม (ถ้าเกมคุณมีปุ่ม Pause/Resume)
+window.RB.pause = function(){
+  running = false;
+};
+window.RB.resume = function(){
+  if (timeLeft <= 0) return; // หมดเวลาแล้วไม่ resume
+  if (!running){
+    running = true;
+    // ทำให้ lastFrame ทันสมัย เพื่อไม่ให้ dt กระโดด
+    lastFrame = performance.now();
+    requestAnimationFrame(mainLoop);
+  }
+};
+
+// ---------- ตัวอย่าง moveAllNotes(dt, speed) แบบปลอดภัย ----------
+// ถ้าโค้ดเดิมของคุณมีอยู่แล้ว ให้แก้ให้รับ speed และคูณ dt
+function moveAllNotes(dt, fallSpeed){
+  // สมมติเราจัดเก็บรายการโน้ตใน window.notes = [{el, y, lane, hit}, ...]
+  const arr = window.notes || [];
+  const HIT_Y = 0.0;           // y ของเส้น HIT LINE
+  const MISS_BELOW = -0.4;     // ต่ำกว่านี้ถือว่าพลาด
+
+  for (let i=0;i<arr.length;i++){
+    const n = arr[i];
+    if (!n || !n.el) continue;
+    // ตกลงตามความเร็ว (เริ่มจะช้า → เร็วขึ้น)
+    n.y -= fallSpeed * dt;
+
+    // อัปเดตตำแหน่งจริง
+    n.el.setAttribute('position', `${n.x} ${n.y.toFixed(3)} ${n.z}`);
+
+    // เช็ค miss
+    if (!n.hit && n.y < MISS_BELOW){
+      n.hit = true;
+      // เรียกระบบ MISS เดิมของเกม
+      onMiss?.(n);
+      // ลบ object ออกจากฉาก
+      try{ n.el.parentNode && n.el.parentNode.removeChild(n.el); }catch{}
     }
   }
-  function tickFever(){
-    if(!fever) return;
-    if(now()>feverEnd){
-      fever=false;
-      $('feverTag') && ( $('feverTag').style.display='none' );
-    }
-  }
-  function tickSpeedScale(){
-    // ถ้า perfect/good ต่อเนื่อง ยก speedMul ทีละนิดจน max 1.25, ถ้าพลาดค่อยลด
-    if(combo>0 && combo%10===0) speedMul = clamp(speedMul+0.03, 1.0, 1.25);
-    if(misses>0 && combo===0)   speedMul = clamp(speedMul-0.04, 0.9, 1.25);
-  }
+}
 
-  // ---------- Random Lane Challenge (ข้อ 3) ----------
-  function maybeRandomLaneSkip(){
-    if(laneMissingCooldown>0){ laneMissingCooldown--; return null; }
-    if(Math.random()<0.14){
-      laneMissingCooldown = 12;
-      return Math.floor(Math.random()*LANES.length); // lane index ที่จะเว้น
-    }
-    return null;
-  }
+// ---------- ตัวอย่าง spawnNote() เริ่มห่าง ๆ ----------
+// ถ้าโค้ดเดิมของคุณมีอยู่แล้วใช้ต่อได้เลย
+// ให้แน่ใจว่าโน้ตเกิดด้วย y เริ่มสูงพอ (เช่น 2.0) แล้วปล่อยตกลงมาที่ HIT_Y=0
+function spawnNote(){
+  // ตัวอย่างแบบง่าย: สุ่มเลน 0..3
+  const lane = Math.floor(Math.random()*4);
+  const xPos = (-1.2 + lane*0.8);  // ตำแหน่ง x ตามเลน
+  const note = document.createElement('a-cylinder');
+  note.setAttribute('radius','0.14');
+  note.setAttribute('height','0.08');
+  note.setAttribute('color', pickNoteColor());
+  note.classList.add('rb-note','clickable');
+  note.setAttribute('position', `${xPos} 2.0 -2.2`);
+  document.getElementById('arena').appendChild(note);
 
-  // ---------- Power-Up Notes (ข้อ 4) ----------
-  // โอกาสเล็กน้อยจะเป็น note ทอง ให้โบนัสคะแนน/ฟื้นพลัง
-  function rollPowerNote(){ return Math.random()<0.08; }
+  const n = { el:note, x:xPos, y:2.0, z:-2.2, lane, hit:false };
+  window.notes = window.notes || [];
+  window.notes.push(n);
+}
 
-  // ---------- Create Note ----------
-  function createNote(laneIdx, tSpawn){
-    const x = LANES[laneIdx];
-    const col = LANE_CLR[laneIdx % LANE_CLR.length];
-    const power = rollPowerNote();
-    const el = document.createElement(power? 'a-octahedron':'a-sphere');
-    el.classList.add('note','clickable');
-    el.setAttribute('radius', NOTE_SIZE);
-    el.setAttribute('color', power? '#ffd54a': col);
-    el.setAttribute('position', `${x} ${HIT_Y+2.6} ${HIT_Z}`);
-    el.dataset.lane = laneIdx;
-    el.dataset.spawn = tSpawn;
-    el.dataset.power = power? '1':'0';
-    el.dataset.hit = '0';
-    $('arena').appendChild(el);
-    pool.add(el);
-  }
+// สีโน้ตหลายสี สุ่มสวย ๆ
+function pickNoteColor(){
+  const palette = ['#00d0ff','#a3ff3b','#ffd166','#ff6b6b','#a899ff','#00ffa3'];
+  return palette[Math.floor(Math.random()*palette.length)];
+}
 
-  // ---------- Spawner (เริ่มห่างๆ แล้วค่อยถี่ขึ้น) ----------
-  function spawnLoop(){
-    if(!running) return;
-    const t = now();
-    const skipLane = maybeRandomLaneSkip();
-    // สุ่ม 1–2 โน้ต/ชุด แต่ไม่ชน lane ที่ถูกปิด
-    let count = (Math.random()<0.35?2:1);
-    const lanes = [0,1,2,3].filter(i=>i!==skipLane);
-    for(let i=0;i<count;i++){
-      if(lanes.length===0) break;
-      const idx = lanes.splice(Math.floor(Math.random()*lanes.length),1)[0];
-      createNote(idx, t);
-    }
-    // ค่อยๆ ทำให้ถี่ขึ้น (เริ่มห่างมาก)
-    spawnEaseTimer += spawnGap;
-    if(spawnGap>320) spawnGap -= 8; // ลดทีละนิด (ปล่อยโน้ตถี่ขึ้น)
-    spawner = setTimeout(spawnLoop, spawnGap);
-  }
-
-  // ---------- Move Notes ----------
-  function tickNotes(dt){
-    const speed = baseSpeed * speedMul * (fever?1.12:1.0);
-    const arr=[...pool];
-    for(const el of arr){
-      if(!el.parentNode){ pool.delete(el); continue; }
-      const p = el.object3D.position;
-      // เคลื่อน “ลง” ตามแกน Y เข้าหา HIT_Y
-      p.y = p.y - speed*(dt/16.666);
-      el.object3D.position.set(p.x, p.y, p.z);
-
-      // เลยเส้น HIT?
-      if(p.y <= HIT_Y-0.12 && el.dataset.hit!=='1'){
-        // MISS
-        el.dataset.hit='1';
-        onHit(el, 'miss');
-      }
-      // เก็บของที่พ้นจอ
-      if(p.y < (HIT_Y-1.8)){
-        try{ el.parentNode.removeChild(el); }catch{}
-        pool.delete(el);
-      }
-    }
-  }
-
-  // ---------- Hit Detection (เมาส์/ทัช) ----------
-  // ใช้ raycaster + window detection (เวลา & ระยะ X)
-  const raycaster = new THREE.Raycaster();
-  const mouse = new THREE.Vector2();
-  function pick(clientX, clientY){
-    if(!running) return;
-    const cam = scene?.camera; if(!cam) return;
-    mouse.x =  (clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-    raycaster.setFromCamera(mouse, cam);
-
-    const objs = [];
-    document.querySelectorAll('.note').forEach(n=>{
-      if(n.object3D) n.object3D.traverse(o=>objs.push(o));
-    });
-    const hits = raycaster.intersectObjects(objs, true);
-    if(hits.length){
-      let o=hits[0].object; while(o && !o.el) o=o.parent;
-      if(o && o.el){ judgeHit(o.el); }
-    }else{
-      // ไม่มี intersect ให้ลองใช้ Hit Assist หา note ใกล้ hit line สุดบน lane ที่ตรง X
-      const cand = nearestNoteByX();
-      if(cand) judgeHit(cand);
-    }
-  }
-  window.addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
-  window.addEventListener('touchstart', e=>{
-    const t = e.touches?.[0]; if(!t) return;
-    pick(t.clientX, t.clientY);
-  }, {passive:true});
-
-  function nearestNoteByX(){
-    let best=null, bestDY=999;
-    for(const el of pool){
-      if(el.dataset.hit==='1') continue;
-      const p = el.object3D.position;
-      const dy = Math.abs(p.y - HIT_Y);
-      if(dy < bestDY && dy < 0.42) { // หน้าต่างกว้างขึ้น
-        best = el; bestDY = dy;
-      }
-    }
-    return best;
-  }
-
-  function judgeHit(el){
-    if(!el || el.dataset.hit==='1') return;
-    const p = el.object3D.position;
-    const dy = Math.abs(p.y - HIT_Y);
-    const dx = Math.abs(p.x - LANES[+el.dataset.lane]);
-
-    // Hit Assist: อนุญาต dx กว้างขึ้น และ Perfect/Good ตามเวลา
-    if(dx>HIT_FORGIVENESS_X){ return; } // ไกลเกิน
-    const tNow = now();
-    const tSpawn = +el.dataset.spawn || (tNow - offsetMs);
-    const tDiff = Math.abs( (tNow - tSpawn) - offsetMs ); // ประมาณการ
-
-    let kind='good';
-    if(tDiff <= HIT_WIN_PERF) kind='perfect';
-    else if(tDiff <= HIT_WIN_GOOD) kind='good';
-    else kind='miss';
-
-    onHit(el, kind);
-  }
-
-  // ---------- On Hit ----------
-  function sparkAt(el, kind){
-    // Hit Sparks FX (ข้อ 9)
-    const e=document.createElement('a-entity');
-    const p=el.object3D.getWorldPosition(new THREE.Vector3());
-    e.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
-    e.setAttribute('text', {value: kind==='perfect'?'PERFECT':(kind==='good'?'GOOD':'MISS'), color: kind==='perfect'?'#00ffa3': (kind==='good'?'#9bd1ff':'#ff6688'), align:'center', width: 2.6});
-    e.setAttribute('scale','0.001 0.001 0.001');
-    e.setAttribute('animation__in','property: scale; to: 1 1 1; dur: 100; easing: easeOutBack');
-    e.setAttribute('animation__up','property: position; to: '+`${p.x} ${p.y+0.5} ${p.z}`+'; dur: 600; easing: easeOutQuad');
-    e.setAttribute('animation__fade','property: opacity; to: 0; dur: 500; delay: 120; easing: linear');
-    $('arena').appendChild(e);
-    setTimeout(()=>{ try{ e.parentNode && e.parentNode.removeChild(e);}catch{} }, 820);
-  }
-
-  function onHit(el, kind){
-    el.dataset.hit='1';
-    try{ el.parentNode && el.parentNode.removeChild(el); }catch{}
-    pool.delete(el);
-
-    total++;
-    let add=0;
-    const power = el.dataset.power==='1';
-
-    if(kind==='miss'){
-      misses++; combo=0;
-      life = clamp(life - D.hpLoss, 0, 100);
-      play(SFX.miss); vibrate(40);
-    }else{
-      hits++; combo++; maxCombo = Math.max(maxCombo, combo);
-      if(kind==='perfect'){ perfects++; add = 150; play(SFX.perfect);
-      } else { goods++; add = 80; play(SFX.good); }
-      life = clamp(life + D.hpGain + (power?4:0), 0, 100);
-      if(power) play(SFX.power);
-      if(combo>0 && combo%25===0){ play(SFX.cheer); (Math.random()<.5?play(SFX.coach1):play(SFX.coach2)); }
-      if(combo>=D.feverCombo) tryFever();
-      tickSpeedScale();
-    }
-
-    if(fever && kind!=='miss') add = Math.round(add*1.5);
-    score += add;
-    updateHUD();
-    sparkAt(el, kind);
-
-    // Lighting Pulse sync (เบา ๆ เมื่อโดน)
-    pulse();
-
-    // Haptics
-    if(kind==='perfect') vibrate(25);
-    else if(kind==='good') vibrate(15);
-  }
-
-  // ---------- HUD ----------
-  function updateHUD(){
-    $('score') && ( $('score').textContent = score );
-    $('combo') && ( $('combo').textContent = combo );
-    $('life')  && ( $('life').style.width = life+'%' );
-    $('acc')   && ( $('acc').textContent = total? Math.round(hits/total*100)+'%':'0%' );
-  }
-
-  // ---------- Daily Missions (ข้อ 13) ----------
-  // ตัวอย่าง: Perfect >= 60, Combo >= 40, Accuracy >= 90%
-  function todayKey(){
-    const d=new Date(); return `${d.getUTCFullYear()}-${d.getUTCMonth()+1}-${d.getUTCDate()}`;
-  }
-  let mission = JSON.parse(localStorage.getItem('rb_mission')||'null');
-  if(!mission || mission.date!==todayKey()){
-    mission = { date: todayKey(), needPerfect: 60, needCombo: 40, needAcc: 90, done:false };
-    localStorage.setItem('rb_mission', JSON.stringify(mission));
-  }
-
-  // ---------- Leaderboard Hook (ข้อ 12) ----------
-  function postLeaderboard(payload){
-    try{ window.Leaderboard?.postResult?.('rhythm-boxer', payload); }catch{}
-  }
-
-  // ---------- Results + EXP (ข้อ 11 & 15) ----------
-  function showResults(){
-    const acc = total? Math.round(hits/total*100):0;
-    const star = (acc>=95?3: acc>=85?2: acc>=70?1:0) + (maxCombo>=60?1:0) + (fever?1:0);
-    $('rScore').textContent = score;
-    $('rAcc').textContent = acc+'%';
-    $('rMaxCombo').textContent = maxCombo;
-    $('rStars').textContent = '★'.repeat(Math.min(5,star)) + '☆'.repeat(Math.max(0,5-star));
-    $('results').style.display='flex';
-
-    // Stats Dashboard (ย่อ): แสดงสรุป
-    $('rDetail').textContent = `Perfect ${perfects} · Good ${goods} · Miss ${misses}`;
-
-    // EXP
-    const getExp = Math.max(5, Math.round(score/400)) + (star>=3?15:0);
-    exp += getExp;
-    localStorage.setItem('rb_exp', exp);
-    $('rEXP').textContent = `+${getExp} EXP (Total ${exp})`;
-
-    // Daily mission
-    if(!mission.done){
-      const ok = perfects>=mission.needPerfect && maxCombo>=mission.needCombo && acc>=mission.needAcc;
-      if(ok){ mission.done=true; localStorage.setItem('rb_mission', JSON.stringify(mission)); $('rMission').textContent='Daily Mission: DONE ✅'; }
-      else { $('rMission').textContent=`Daily Mission: Perfect≥${mission.needPerfect}, Combo≥${mission.needCombo}, Acc≥${mission.needAcc}%`; }
-    }else{
-      $('rMission').textContent='Daily Mission: DONE ✅';
-    }
-
-    // Leaderboard
-    postLeaderboard({ score, acc, maxCombo, diff:diffKey });
-  }
-
-  // ---------- Flow ----------
-  let lastT=0;
-  function loop(t){
-    if(!running || paused) { lastT=t; requestAnimationFrame(loop); return; }
-    const dt = (t - lastT)||16.666; lastT=t;
-    tickNotes(dt);
-    tickFever();
-
-    // beat pulse
-    if(t - lastBeat >= beatMs){
-      lastBeat = t;
-      pulse();
-    }
-    requestAnimationFrame(loop);
-  }
-
-  function start(){
-    if(running) return;
-    // อ่านเมนู
-    diffKey = $('diffSel')?.value || diffKey;
-    localStorage.setItem('rb_diff', diffKey);
-    const sId = $('songSel')?.value || availableSongs()[0]?.id || SONGS[0].id;
-    loadSongById(sId);
-
-    // เตรียมค่า
-    score=0; combo=0; maxCombo=0; total=0; hits=0; perfects=0; goods=0; misses=0;
-    life=100; speedMul=1.0; fever=false; $('feverTag')&&( $('feverTag').style.display='none');
-
-    // HUD
-    $('results').style.display='none';
-    updateHUD();
-
-    // ปรับ beatMs
-    beatMs = 60000 / bpm;
-
-    // เริ่มเพลงด้วย offset
-    setTimeout(()=>{ try{ music?.play(); }catch{} }, Math.max(0, offsetMs));
-
-    running=true; paused=false;
-    // ลบโน้ตเดิม
-    [...pool].forEach(n=>{ try{ n.parentNode && n.parentNode.removeChild(n);}catch{} pool.delete(n); });
-
-    // เริ่ม spawn (เริ่มห่าง)
-    spawner && clearTimeout(spawner);
-    spawner = setTimeout(spawnLoop, 600);
-
-    // Timer จบเพลง
-    timer && clearTimeout(timer);
-    timer = setTimeout(end, songLen + 1000);
-
-    requestAnimationFrame(loop);
-  }
-
-  function end(){
-    if(!running) return;
-    running=false; paused=false;
-    try{ music?.pause(); }catch{}
-    spawner && clearTimeout(spawner); timer && clearTimeout(timer);
-    // ล้างโน้ต
-    [...pool].forEach(n=>{ try{ n.parentNode && n.parentNode.removeChild(n);}catch{} pool.delete(n); });
-    showResults();
-  }
-
-  function togglePause(){
-    if(!running) return;
-    paused = !paused;
-    $('pauseBtn') && ($('pauseBtn').textContent = paused? 'Resume':'Pause');
-    try{ if(music){ paused? music.pause(): music.play(); } }catch{}
-  }
-
-  // ---------- UI Wiring ----------
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // สกิน (ข้อ 7)
-    const sEl = $('skinSel'); if(sEl){
-      sEl.value = envSkin;
-      sEl.addEventListener('change', e=>{
-        envSkin = e.target.value;
-        localStorage.setItem('rb_skin', envSkin);
-        applySkin();
-      }, {passive:true});
-      applySkin();
-    }
-
-    // เพลง (ปลดล็อกตาม EXP)
-    const songSel = $('songSel');
-    if(songSel){
-      songSel.innerHTML = '';
-      SONGS.forEach(s=>{
-        const o=document.createElement('option');
-        o.value = s.id;
-        o.textContent = exp>=s.needExp? s.name : `${s.name} 🔒(EXP ${s.needExp})`;
-        o.disabled = exp < s.needExp;
-        songSel.appendChild(o);
-      });
-    }
-
-    $('diffSel') && ( $('diffSel').value = diffKey );
-
-    $('startBtn')?.addEventListener('click', start);
-    $('pauseBtn')?.addEventListener('click', togglePause);
-    $('endBtn')?.addEventListener('click', end);
-    $('backBtn')?.addEventListener('click', ()=>{ window.location.href = HUB_URL; });
-
-    // ให้ปุ่มคลิกได้แน่นอน
-    ['startBtn','pauseBtn','endBtn','backBtn','songSel','diffSel','skinSel'].forEach(id=>{
-      if($(id)){ $(id).style.pointerEvents='auto'; $(id).tabIndex=0; }
-    });
-  });
-
-  function applySkin(){
-    // เปลี่ยนสีพื้นหลัง/สภาพแวดล้อม
-    const bg = $('arenaBG');
-    if(!bg) return;
-    const map = {
-      neon:  '#09131c',
-      space: '#0a0b14',
-      gym:   '#0f1214'
-    };
-    bg.setAttribute('color', map[envSkin]||'#0a0b14');
-  }
-
-  // ---------- Hit Line (เขียวเรืองแสง)
-  // ใส่ไว้ใน index แล้ว: <a-box id="hitLine">
-  const hitLine = $('hitLine');
-  if(hitLine){
-    hitLine.setAttribute('color', '#00ff88');
-    hitLine.setAttribute('material', 'emissive: #00ff88; emissiveIntensity: 0.9; opacity: 0.66; transparent: true');
-    hitLine.setAttribute('position', `0 ${HIT_Y} ${HIT_Z}`);
-  }
-
-})();
+/* ===== END PATCH ===== */
