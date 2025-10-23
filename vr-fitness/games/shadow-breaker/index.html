@@ -143,13 +143,5 @@
       });
     })();
   </script>
-
-  <!-- ปุ่มทดสอบเสียง (ดีบักพาธ SFX) -->
-  <button id="sfxTest" style="position:fixed; left:12px; bottom:12px; z-index:9999;">🔊 Test SFX</button>
-  <script>
-    document.getElementById('sfxTest').addEventListener('click', ()=>{
-      try { SFX?.slash?.play(); } catch(e) { console.warn(e); }
-    });
-  </script>
 </body>
 </html>
