@@ -74,6 +74,14 @@
     }
     @keyframes floatUp { from{opacity:0; transform:translate(-50%,18px)} to{opacity:1; transform:translate(-50%,-10px)} }
   </style>
+  <style>
+  /* ให้กลุ่ม UI และปุ่มทุกตัว “รับคลิก” ชนะเลเยอร์อื่น */
+  #uiDock, #uiDock * { pointer-events: auto !important; }
+  #results, #results * { pointer-events: auto !important; }
+  /* กัน A-Frame canvas กลบคลิกบน UI */
+  canvas.a-canvas { pointer-events: auto; }
+</style>
+
 </head>
 <body>
   <a-scene renderer="colorManagement:true">
