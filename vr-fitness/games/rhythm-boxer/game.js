@@ -1,4 +1,4 @@
-/* Rhythm Boxer · Fixed Syntax + Mouse/Touch Hit + Slow→Fast Ramp */
+/* Rhythm Boxer · Ultra Slow Start + Gentle Ramp + Mouse/Touch Hit */
 (function(){
   "use strict";
 
@@ -12,12 +12,12 @@
   }
   function safeRemove(el){ try{ el?.parentNode?.removeChild(el); }catch(_e){} }
 
-  // ---------- Difficulty ----------
+  // ---------- Difficulty (ช้าอย่างเห็นได้ชัด + เร่งช้า ๆ) ----------
   const DIFF = {
-    easy:   { spawn:620, speed:1.00, ramp:1.0000, name:'EASY' },
-    normal: { spawn:560, speed:1.10, ramp:1.0006, name:'NORMAL' },
-    hard:   { spawn:520, speed:1.18, ramp:1.0010, name:'HARD' },
-    final:  { spawn:480, speed:1.25, ramp:1.0014, name:'FINAL' },
+    easy:   { spawn:1000, speed:0.58, ramp:1.0000, name:'EASY'   }, // ช้ามาก แทบไม่เร่ง
+    normal: { spawn:920,  speed:0.62, ramp:1.0003, name:'NORMAL' }, // ช้า + ค่อยเร่งเล็กน้อย
+    hard:   { spawn:850,  speed:0.70, ramp:1.0006, name:'HARD'   }, // ยังช้า แต่เริ่มเร่งขึ้น
+    final:  { spawn:780,  speed:0.78, ramp:1.0009, name:'FINAL'  }, // ช้า แล้วค่อย ๆ เร่ง
   };
   function getDiffKey(){
     return new URLSearchParams(location.search).get('diff') ||
@@ -45,16 +45,18 @@
   let running=false, paused=false;
   let score=0, combo=0, maxCombo=0, timeLeft=60;
   let spawnTimer=null, secondTimer=null;
-  let speedMul=0.75;
+  let speedMul=0.55;                // เริ่ม “ช้ามาก”
+  const MAX_SPEED_MUL=1.0;          // ไม่ให้เร็วทะลุไปไกล
+  const BASE_DROP=0.0016;           // ค่าคงที่การตกของโน้ต “ช้า” ลง
 
   function hud(){
-    $('sc').textContent=score;
-    $('cb').textContent=combo;
-    $('tm').textContent=timeLeft;
+    if($('sc')) $('sc').textContent=score;
+    if($('cb')) $('cb').textContent=combo;
+    if($('tm')) $('tm').textContent=timeLeft;
   }
 
-  // ---------- Judgement ----------
-  const JUDGE={ perfect:0.10, good:0.22 };
+  // ---------- Judgement (กว้างขึ้น เล่นง่ายช่วงแรก) ----------
+  const JUDGE={ perfect:0.14, good:0.30 };
   function judgeAndRemove(root){
     if(!root||!root.parentNode)return;
     const pos=root.getAttribute('position');
@@ -75,7 +77,7 @@
   function onMiss(){ combo=0; play(SFX.miss); hud(); }
 
   // ---------- Beat ----------
-  function makeBeat(lane,y0=0.75,spdMul=1){
+  function makeBeat(lane,y0=0.85,spdMul=1){
     const lanes=$('lanes'); if(!lanes)return;
     const root=document.createElement('a-entity');
     root.classList.add('beat','clickable');
@@ -87,12 +89,14 @@
     vis.setAttribute('color',lane===0?'#7a5cff':(lane<0?'#00d0ff':'#ffd166'));
     root.appendChild(vis);
 
+    // ฮิตบ็อกซ์กว้างขึ้นให้กดโดนง่าย
     const col=document.createElement('a-sphere');
-    col.setAttribute('radius','0.25');
+    col.setAttribute('radius','0.28');
     col.setAttribute('material','opacity:0.001;transparent:true;color:#000');
     root.appendChild(col);
 
-    const spd=0.0032*D.speed*speedMul*spdMul;
+    // ความเร็วตกของโน้ต (ช้ามาก + ปรับตาม diff/ramp)
+    const spd=BASE_DROP*D.speed*speedMul*spdMul;
     const born=performance.now();
 
     function step(){
@@ -100,7 +104,7 @@
       const t=performance.now()-born;
       const y=y0-t*spd;
       root.setAttribute('position',`${lane*0.9} ${y.toFixed(3)} 0`);
-      if(y<=-0.78){ safeRemove(root); onMiss(); return; }
+      if(y<=-0.82){ safeRemove(root); onMiss(); return; }
       requestAnimationFrame(step);
     }
     root.addEventListener('click',()=>judgeAndRemove(root));
@@ -121,21 +125,28 @@
     D=DIFF[key]||DIFF.normal;
     localStorage.setItem('rb_diff',key);
 
-    running=true;paused=false;score=0;combo=0;maxCombo=0;timeLeft=60;speedMul=0.75;
-    $('pauseBtn').disabled=false; hud();
+    running=true;paused=false;score=0;combo=0;maxCombo=0;timeLeft=60;
+    speedMul=0.55; // reset ให้ช้าเสมอ
+    if($('pauseBtn')) $('pauseBtn').disabled=false;
+    hud();
+
     const song=$('songSel')?.value||'intro';
     const chart=songScript(song);
+    let spawnIdx=0;
 
     spawnTimer=setInterval(()=>{
       if(!running||paused)return;
-      chart();
+      chart(spawnIdx++);
     },D.spawn);
 
     secondTimer=setInterval(()=>{
       if(!running||paused)return;
       timeLeft--;
       if(timeLeft<=0){end();return;}
-      speedMul*=D.ramp;
+      // เร่ง “ช้ามาก” เพิ่มทุก 5 วินาทีเท่านั้น
+      if(timeLeft%5===0){
+        speedMul=Math.min(MAX_SPEED_MUL, speedMul*D.ramp);
+      }
       hud();
     },1000);
 
@@ -146,7 +157,7 @@
     running=false;
     clearInterval(spawnTimer); clearInterval(secondTimer);
     spawnTimer=null;secondTimer=null;
-    $('pauseBtn').disabled=true;
+    if($('pauseBtn')) $('pauseBtn').disabled=true;
     ping(`RESULT: ${score} · Combo ${maxCombo}`,'#00ffa3');
     const lanes=$('lanes');
     if(lanes) Array.from(lanes.children).forEach(safeRemove);
@@ -189,10 +200,10 @@
         o?.el?.emit('click');
       }
     }
-    window.addEventListener('pointerdown',e=>pick(e.clientX,e.clientY));
+    window.addEventListener('pointerdown',e=>pick(e.clientX,e.clientY), {passive:true});
     window.addEventListener('touchstart',e=>{
       const t=e.touches?.[0];if(t)pick(t.clientX,t.clientY);
-    });
+    }, {passive:true});
   })();
 
   window.addEventListener('beforeunload',()=>{
