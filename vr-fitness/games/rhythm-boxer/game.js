@@ -1,16 +1,16 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · คลิกได้จริง · เริ่มช้าแล้วค่อยเร็ว · เส้น HIT LINE · Good/Miss/Perfect · Back to Hub ถูกต้อง
+   Rhythm Boxer · Click works (UI & Raycast) · Slow start then ramp · Visible HIT LINE · Back to Hub OK
 */
 (function(){
   "use strict";
 
   // ---------- Helpers ----------
   const $ = (id)=>document.getElementById(id);
-  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
+  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
-  // ---------- Audio ----------
+  // ---------- SFX ----------
   const SFX = {
     good: new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
     perfect: new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
@@ -20,30 +20,30 @@
   };
   Object.values(SFX).forEach(a=>{ a.preload='auto'; a.crossOrigin='anonymous'; });
 
+  // ---------- Music ----------
   let music = new Audio(); music.crossOrigin='anonymous'; music.preload='auto';
 
-  // ---------- Game State ----------
+  // ---------- State ----------
   const RB = window.RB = (window.RB||{});
   RB.running=false; RB.paused=false;
 
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
-  let timer=null, spawnTimer=null;
+  let timer=null, spawnTimer=null, accelRAF=null;
+
+  // ความเร็ว/ความถี่ (เริ่มช้า)
   let speedPreset='standard';
-  let spawnInt=1200; // จะปรับตาม preset และจะลดลงเรื่อย ๆ
-  let fallSpeed=0.6; // เริ่มช้า (m/s) — จะเพิ่มทีละน้อย
-  let accelEvery=4000; // ms ปรับความเร็วทุก ๆ นี้
+  let fallSpeed=0.7;     // m/s เริ่มช้า
+  let spawnInt=1100;     // ms เริ่มห่าง
+  let accelEvery=4000;   // ms เพิ่มความเร็วทุก ๆ N วิ
   let lastAccel=0;
 
-  // NOTE Spec
-  const COLORS=["#00d0ff","#ffd166","#ff6b6b","#00ffa3","#a899ff"];
-  const NOTE_SIZE=0.16; // ใหญ่ขึ้น
-  const HIT_Y=1.1; // y ของเส้น hit line
-  const HIT_WIN_GOOD=0.16; // ระยะ y windows
-  const HIT_WIN_PERF=0.08;
+  // Note spec
+  const COLORS=["#00d0ff","#ffd166","#ff6b6b","#00ffa3","#a899ff","#ff9c6b"];
+  const NOTE_SIZE=0.18; // ใหญ่ขึ้นชัด
+  const HIT_Y=1.1;
+  const HIT_WIN_GOOD=0.17;
+  const HIT_WIN_PERF=0.09;
 
-  function badge(t){ try{ console.log('[RB]',t);}catch(_e){} }
-
-  // ---------- UI ----------
   function updateHUD(){
     $('hudScore').textContent = score;
     $('hudCombo').textContent = combo;
@@ -64,9 +64,9 @@
   // ---------- Notes ----------
   function spawnNote(){
     spawns++;
-    const x = (Math.random()*2.4 - 1.2).toFixed(2);
+    const x = (Math.random()*2.2 - 1.1).toFixed(2);
     const z = -2.3;
-    const yStart = 2.7; // สูงกว่าหน่อย
+    const yStart = 2.7;
     const shape = Math.random()<0.5 ? 'a-sphere' : 'a-box';
     const c = COLORS[Math.floor(Math.random()*COLORS.length)];
 
@@ -88,12 +88,11 @@
     el.addEventListener('click', ()=>{ if(me.alive) onHit(el); });
 
     function step(){
-      if(!me.alive) return;
+      if(!me.alive || !RB.running) return;
       const dt = (performance.now()-start)/1000;
       const y = yStart - dt*fallSpeed;
       el.setAttribute('position', `${x} ${y.toFixed(3)} ${z}`);
-      // ผ่าน HIT LINE แล้ว?
-      if(y <= HIT_Y - HIT_WIN_GOOD*1.2){
+      if(y <= HIT_Y - HIT_WIN_GOOD*1.3){
         me.alive=false;
         try{ el.remove(); }catch(_){}
         onMiss(new THREE.Vector3(parseFloat(x),HIT_Y,z));
@@ -105,7 +104,7 @@
   }
 
   function onHit(el){
-    // วัดจากระยะ y ใกล้เส้น HIT LINE
+    if(!RB.running) return;
     const p = el.object3D.getWorldPosition(new THREE.Vector3());
     const dy = Math.abs(p.y - HIT_Y);
     let quality='good';
@@ -114,13 +113,11 @@
     else quality='miss';
 
     try{ el.remove(); }catch(_){}
-    if(quality==='miss'){
-      onMiss(p); return;
-    }
+    if(quality==='miss'){ onMiss(p); return; }
+
     hits++;
     combo++; maxCombo=Math.max(maxCombo, combo);
-    let add = (quality==='perfect'? 20 : 10);
-    score += add;
+    score += (quality==='perfect'? 20 : 10);
     (quality==='perfect'? SFX.perfect : SFX.good).play();
     floatText(quality.toUpperCase(), quality==='perfect' ? '#00ffa3' : '#00d0ff', p);
     if(combo>0 && combo%10===0){ SFX.combo.play(); }
@@ -136,51 +133,57 @@
   }
 
   // ---------- Flow ----------
+  function setBaseByPreset(){
+    if(speedPreset==='beginner'){
+      fallSpeed=0.55; spawnInt=1500; accelEvery=4500;
+    }else if(speedPreset==='challenge'){
+      fallSpeed=0.85; spawnInt=950; accelEvery=3500;
+    }else{
+      fallSpeed=0.7;  spawnInt=1200; accelEvery=4000;
+    }
+  }
+  function presetName(v){ return v==='beginner'?'Beginner':v==='challenge'?'Challenge':'Standard'; }
+
   function start(){
     if(RB.running) return;
     RB.running=true; RB.paused=false;
     score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=60;
-    // ตั้งค่าเริ่มช้า แล้วค่อยเร็ว
+
     setBaseByPreset();
-    fallSpeed = presetFall(speedPreset); // เริ่มช้า
-    spawnInt = presetSpawn(speedPreset); // เริ่มห่าง
-    lastAccel = performance.now();
+    $('hudSpeed').textContent = presetName(speedPreset);
     updateHUD();
 
     // เวลาเดิน
     timer = setInterval(()=>{ timeLeft--; $('hudTime').textContent=timeLeft; if(timeLeft<=0) endGame(); }, 1000);
 
-    // สุ่มโน้ต
+    // สปอว์นทันที 1 ตัว และตั้ง interval
+    spawnNote();
     spawnTimer = setInterval(spawnNote, spawnInt);
 
-    // เร่งความเร็วทีละนิด
-    tickAccel();
+    // เร่งทีละน้อย
+    lastAccel = performance.now();
+    const accelTick = ()=>{
+      if(!RB.running) return;
+      const now=performance.now();
+      if(now - lastAccel >= accelEvery){
+        lastAccel = now;
+        fallSpeed = clamp(fallSpeed + 0.06, 0.45, 2.2);
+        spawnInt = clamp(spawnInt - 60, 420, 2400);
+        clearInterval(spawnTimer);
+        spawnTimer = setInterval(spawnNote, spawnInt);
+      }
+      accelRAF = requestAnimationFrame(accelTick);
+    };
+    accelTick();
 
-    // เพลง
     playSelectedSong();
-    badge('Start');
-  }
-
-  function tickAccel(){
-    if(!RB.running) return;
-    const now = performance.now();
-    if(now - lastAccel >= accelEvery){
-      lastAccel = now;
-      // เร่งทีละน้อย: เร่งตกลง (เร็วขึ้น) และลดช่วง spawn
-      fallSpeed = clamp(fallSpeed + 0.06, 0.45, 2.2);
-      spawnInt = clamp(spawnInt - 60, 420, 2000);
-      // รีเซ็ต interval spawn
-      clearInterval(spawnTimer);
-      spawnTimer = setInterval(spawnNote, spawnInt);
-      badge(`Accel → fall:${fallSpeed.toFixed(2)} spawnInt:${spawnInt}`);
-    }
-    requestAnimationFrame(tickAccel);
   }
 
   function pause(){
     if(!RB.running || RB.paused) return;
     RB.paused=true;
     clearInterval(timer); clearInterval(spawnTimer);
+    if(accelRAF){ cancelAnimationFrame(accelRAF); accelRAF=null; }
     music.pause();
   }
   function resume(){
@@ -188,6 +191,20 @@
     RB.paused=false;
     timer = setInterval(()=>{ timeLeft--; $('hudTime').textContent=timeLeft; if(timeLeft<=0) endGame(); }, 1000);
     spawnTimer = setInterval(spawnNote, spawnInt);
+    lastAccel = performance.now();
+    const accelTick = ()=>{
+      if(!RB.running || RB.paused) return;
+      const now=performance.now();
+      if(now - lastAccel >= accelEvery){
+        lastAccel = now;
+        fallSpeed = clamp(fallSpeed + 0.06, 0.45, 2.2);
+        spawnInt = clamp(spawnInt - 60, 420, 2400);
+        clearInterval(spawnTimer);
+        spawnTimer = setInterval(spawnNote, spawnInt);
+      }
+      accelRAF = requestAnimationFrame(accelTick);
+    };
+    accelTick();
     music.play().catch(()=>{});
   }
 
@@ -195,9 +212,10 @@
     if(!RB.running) return;
     RB.running=false; RB.paused=false;
     clearInterval(timer); clearInterval(spawnTimer);
+    if(accelRAF){ cancelAnimationFrame(accelRAF); accelRAF=null; }
     try{ music.pause(); }catch(_){}
 
-    // ล้างโน้ตค้าง
+    // ล้างโน้ต
     Array.from(document.querySelectorAll('.rb-note')).forEach(n=>{ try{ n.remove(); }catch(_){} });
 
     const acc = spawns? Math.round((hits/spawns)*100) : 0;
@@ -205,14 +223,12 @@
     $('rScore').textContent = score;
     $('rMaxCombo').textContent = maxCombo;
     $('rAcc').textContent = acc+'%';
-    $('results').style.display='flex';
+    $('results').style.display='grid';
     SFX.ui.play();
-    badge('End');
   }
 
-  // ---------- Music ----------
   function playSelectedSong(){
-    const opt = $('#songSel')?.selectedOptions?.[0];
+    const opt = $('songSel')?.selectedOptions?.[0];
     const url = opt?.value;
     const title = opt?.dataset?.title || opt?.textContent || '—';
     $('hudSong').textContent = title || '—';
@@ -220,25 +236,16 @@
     try{
       music.src = url;
       music.currentTime = 0;
-      music.play().catch(()=>{ /* ผู้ใช้ยังไม่กด interaction */ });
+      music.play().catch(()=>{ /* ต้องมี interaction บางเบราเซอร์ */ });
     }catch(_e){}
   }
 
-  // ---------- Presets ----------
-  function setSpeed(v){ speedPreset = (v||'standard'); updateHUD(); }
-  function setBaseByPreset(){
-    if(speedPreset==='beginner'){
-      fallSpeed=0.55; spawnInt=1400; accelEvery=4500;
-    }else if(speedPreset==='challenge'){
-      fallSpeed=0.85; spawnInt=900; accelEvery=3500;
-    }else{ // standard
-      fallSpeed=0.7; spawnInt=1100; accelEvery=4000;
-    }
+  function setSpeed(v){
+    speedPreset = (v||'standard');
+    $('hudSpeed').textContent = presetName(speedPreset);
   }
-  function presetFall(v){ return v==='beginner'?0.55 : v==='challenge'?0.85 : 0.7; }
-  function presetSpawn(v){ return v==='beginner'?1400: v==='challenge'?900 : 1100; }
 
-  // ---------- Export ให้ปุ่มเรียก ----------
+  // ---------- Export ----------
   RB.start = start;
   RB.pause = pause;
   RB.resume = resume;
@@ -246,28 +253,89 @@
   RB.playSelectedSong = playSelectedSong;
   RB.setSpeed = setSpeed;
 
-  // ---------- Safety ----------
-  window.addEventListener('beforeunload', ()=>{
-    try{ clearInterval(timer); clearInterval(spawnTimer); }catch(_){}
-  });
-
-  // ---------- Enter VR ปุ่มกลางล่าง (กันซ้ำ) ----------
-  (function xrButton(){
-    if (document.getElementById('enterVRBtn')) return;
-    const btn=document.createElement('button');
-    btn.id='enterVRBtn';
-    btn.textContent='Enter VR';
-    Object.assign(btn.style,{
-      position:'fixed', left:'50%', transform:'translateX(-50%)',
-      bottom:'12px', zIndex:2147483647,
-      padding:'8px 12px', borderRadius:'10px', border:'0',
-      background:'#0e2233', color:'#e6f7ff', cursor:'pointer'
+  // ---------- Wire UI (หลัง DOM & A-Frame พร้อม) ----------
+  function blockBubble(el){
+    if(!el) return;
+    el.style.pointerEvents='auto';
+    ['pointerdown','mousedown','touchstart','click','pointerup','mouseup','touchend'].forEach(ev=>{
+      el.addEventListener(ev, (e)=>{ e.stopPropagation(); e.stopImmediatePropagation?.(); }, {capture:true});
     });
-    document.body.appendChild(btn);
-    btn.addEventListener('click', ()=>{ try{ const sc=document.querySelector('a-scene'); sc?.enterVR?.(); }catch(e){ console.warn(e); } });
-  })();
+  }
 
-  // ---------- iOS Audio Unlock ----------
+  function wireUI(){
+    const s=$('btnStart'), p=$('btnPause'), e=$('btnEnd'),
+          replay=$('replayBtn'), back=$('backBtn'),
+          songSel=$('songSel'), speedSel=$('speedSel');
+
+    [s,p,e,replay,back,songSel,speedSel,$('uiDock'),$('results'),$('hudTopRight')].forEach(blockBubble);
+
+    s?.addEventListener('click', ()=> start());
+    p?.addEventListener('click', ()=>{
+      if(!RB.running) return;
+      if(!RB.paused){ pause();  p.textContent='Resume'; }
+      else          { resume(); p.textContent='Pause'; }
+    });
+    e?.addEventListener('click', ()=> endGame());
+    replay?.addEventListener('click', ()=>{ $('results').style.display='none'; start(); });
+    back?.addEventListener('click', ()=>{ location.href=HUB_URL; });
+
+    songSel?.addEventListener('change', ()=> playSelectedSong());
+    speedSel?.addEventListener('change', ()=> setSpeed(speedSel.value));
+  }
+
+  function installPointerRaycast(){
+    const scn = document.querySelector('a-scene');
+    if(!scn) return;
+    const ready = ()=>{
+      const raycaster = new THREE.Raycaster();
+      const v2 = new THREE.Vector2();
+      function pick(x,y){
+        const cam = scn.camera; if(!cam) return;
+        v2.x =  (x / innerWidth) * 2 - 1;
+        v2.y = -(y / innerHeight) * 2 + 1;
+        raycaster.setFromCamera(v2, cam);
+        const clickable = Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
+        const objs=[]; clickable.forEach(o=>o.traverse(c=>objs.push(c)));
+        const hits = raycaster.intersectObjects(objs, true);
+        if(hits && hits.length){
+          let o = hits[0].object;
+          while(o && !o.el) o = o.parent;
+          if(o && o.el) o.el.emit('click');
+        }
+      }
+      addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
+      addEventListener('touchstart', e=>{ const t=e.touches?.[0]; if(t) pick(t.clientX,t.clientY); }, {passive:true});
+    };
+    if (scn.hasLoaded) ready(); else scn.addEventListener('loaded', ready, {once:true});
+  }
+
+  function boot(){
+    // ปุ่ม Enter VR กลางล่าง
+    if (!document.getElementById('enterVRBtn')){
+      const btn=document.createElement('button');
+      btn.id='enterVRBtn';
+      btn.textContent='Enter VR';
+      Object.assign(btn.style,{
+        position:'fixed', left:'50%', transform:'translateX(-50%)',
+        bottom:'12px', zIndex:2147483647,
+        padding:'8px 12px', borderRadius:'10px', border:'0',
+        background:'#0e2233', color:'#e6f7ff', cursor:'pointer'
+      });
+      document.body.appendChild(btn);
+      btn.addEventListener('click', ()=>{ try{ const sc=document.querySelector('a-scene'); sc?.enterVR?.(); }catch(e){ console.warn(e); } });
+    }
+
+    wireUI();
+    installPointerRaycast();
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  }else{
+    boot();
+  }
+
+  // iOS audio unlock
   (function unlockAudio(){
     let unlocked=false, Ctx=(window.AudioContext||window.webkitAudioContext);
     let ctx = Ctx? new Ctx() : null;
