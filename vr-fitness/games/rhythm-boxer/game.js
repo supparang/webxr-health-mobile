@@ -1,109 +1,95 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · game.js
-   - Warmup → ค่อยๆถี่ขึ้น
-   - Mouse/Touch raycast คลิกได้จริง
-   - วิ่งช้าก่อน แล้วค่อยเร่งตาม diff
-   - เอฟเฟกต์เวลา Hit (flash + ring + particles)
-   - เพลงเล่นตาม offset
-   - มีตัวจับเวลา (Time) และปุ่ม End ใช้งานได้
-   - กลับ Hub ถูกที่
+   Rhythm Boxer – คลิกได้จริง / Timer ชัด / เลือกเพลงได้ / Back to Hub ตรง
 */
 (function(){
   "use strict";
 
-  // ---------- Basics ----------
+  // ---------- helpers ----------
   const $ = (id)=>document.getElementById(id);
-  const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-  const after = (ms,fn)=>setTimeout(fn,ms);
-  const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
-  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
-  const scene = document.querySelector('a-scene');
+  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+  const ASSET_BASE=(document.querySelector('meta[name="asset-base"]')?.content||'').replace(/\/+$/,'');
+  const HUB_URL="https://supparang.github.io/webxr-health-mobile/vr-fitness/";
+  const scene=document.querySelector('a-scene');
 
   function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){} }
 
-  // ---------- Difficulty (เริ่มช้า → เร็วขึ้นเล็กน้อย) ----------
-  const DIFF = {
+  // ---------- difficulty ----------
+  const DIFF={
     beginner : { start:2600, step:90,  minSpawn:1100, speedMul:0.82, judgeMul:1.55, time:75 },
     standard : { start:2100, step:70,  minSpawn:820,  speedMul:1.00, judgeMul:1.10, time:80 },
     challenge: { start:1800, step:60,  minSpawn:640,  speedMul:1.18, judgeMul:0.95, time:85 }
   };
-  let diffKey = new URLSearchParams(location.search).get('diff') || 'standard';
-  if(!DIFF[diffKey]) diffKey = 'standard';
+  let diffKey=new URLSearchParams(location.search).get('diff')||'standard';
+  if(!DIFF[diffKey]) diffKey='standard';
 
-  // ---------- Songs ----------
-  const SONGS = [
+  // ---------- songs ----------
+  const SONGS=[
     { id:'training', title:'Training Beat', src:`${ASSET_BASE||'.'}/assets/music/training.mp3`, bpm:120, offset:200 },
     { id:'flow',     title:'Flow Runner',   src:`${ASSET_BASE||'.'}/assets/music/flow.mp3`,     bpm:132, offset:160 },
     { id:'charge',   title:'Charge Up',     src:`${ASSET_BASE||'.'}/assets/music/charge.mp3`,   bpm:145, offset:120 },
   ];
-  let currentSong = SONGS[0];
+  let currentSong=SONGS[0];
 
-  // ---------- State ----------
+  // ---------- state ----------
   let running=false, paused=false;
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, accuracy=0;
-  let spawnTimer=null, accelTimer=null, secondTimer=null;
-  let spawnInterval = DIFF[diffKey].start;
-  let judgeMul = DIFF[diffKey].judgeMul;
-  let speedMul = DIFF[diffKey].speedMul;
-  let timeLeft = DIFF[diffKey].time;
+  let spawnInterval=DIFF[diffKey].start, judgeMul=DIFF[diffKey].judgeMul, speedMul=DIFF[diffKey].speedMul;
+  let timeLeft=DIFF[diffKey].time;
   let gameStartAt=0;
+  let spawnTimer=null, accelTimer=null, secondTimer=null;
   let audio=null;
 
-  // ---------- Arena & Hit line ----------
+  // ---------- arena & hit line ----------
   const ARENA = $('arena') || (()=>{
     const a=document.createElement('a-entity'); a.id='arena'; a.setAttribute('position','0 0 0'); scene?.appendChild(a); return a;
   })();
-  const HIT_Y = 0.9;
+  const HIT_Y=0.9;
 
   (function ensureHitLine(){
     if ($('hitLine')) return;
-    const line = document.createElement('a-plane');
+    const line=document.createElement('a-plane');
     line.id='hitLine';
     line.setAttribute('position',`0 ${HIT_Y} -2.4`);
-    line.setAttribute('width','3.2');
-    line.setAttribute('height','0.02');
+    line.setAttribute('width','3.2'); line.setAttribute('height','0.02');
     line.setAttribute('material','color:#00ff88; emissive:#00ff88; emissiveIntensity:1; opacity:0.95; transparent:true; shader:standard');
     line.classList.add('clickable');
     line.setAttribute('animation__pulse','property:scale; dir:alternate; to:1.02 1.2 1; dur:900; loop:true; easing:easeInOutSine');
     ARENA.appendChild(line);
   })();
 
-  // ---------- Notes ----------
-  const COLORS = ['#00d0ff','#ffd166','#ff6b6b','#9bff9b','#b07aff','#ffa7d1'];
-  const SHAPES = ['a-sphere','a-box','a-octahedron'];
-  const LANES_X = [-1.2,-0.4,0.4,1.2];
-  const NOTE_SIZE = 0.28;
-  const BASE_FALL_SPEED = 0.50; // slow base → อ่านจังหวะง่าย
+  // ---------- visuals ----------
+  const COLORS=['#00d0ff','#ffd166','#ff6b6b','#9bff9b','#b07aff','#ffa7d1'];
+  const SHAPES=['a-sphere','a-box','a-octahedron'];
+  const LANES_X=[-1.2,-0.4,0.4,1.2];
+  const NOTE_SIZE=0.30;
+  const BASE_FALL_SPEED=0.50; // เริ่มช้า อ่านง่าย
 
   function makeNote(){
-    const lane = Math.floor(Math.random()*LANES_X.length);
-    const kind = Math.floor(Math.random()*SHAPES.length);
-    const color = COLORS[(Math.random()*COLORS.length)|0];
-    const el = document.createElement(SHAPES[kind]);
-
+    const lane=Math.floor(Math.random()*LANES_X.length);
+    const kind=Math.floor(Math.random()*SHAPES.length);
+    const color=COLORS[(Math.random()*COLORS.length)|0];
+    const el=document.createElement(SHAPES[kind]);
     el.classList.add('note','clickable');
     el.setAttribute('position',`${LANES_X[lane]} 2.5 -2.4`);
     if (SHAPES[kind]==='a-sphere') el.setAttribute('radius', NOTE_SIZE);
     if (SHAPES[kind]==='a-box')     el.setAttribute('width', NOTE_SIZE*1.2), el.setAttribute('height', NOTE_SIZE*1.2), el.setAttribute('depth', NOTE_SIZE*1.2);
     if (SHAPES[kind]==='a-octahedron') el.setAttribute('radius', NOTE_SIZE);
-    el.setAttribute('material',`color:${color}; emissive:${color}; emissiveIntensity:0.5; metalness:0.2; roughness:0.4`);
-    el.dataset.lane = lane;
-    el.dataset.speed = BASE_FALL_SPEED*speedMul;
-    el.dataset.alive='1';
-    el.addEventListener('click', ()=>tryHit(el,'mouse'));
+    el.setAttribute('material',`color:${color}; emissive:${color}; emissiveIntensity:0.55; metalness:0.2; roughness:0.4`);
+    el.dataset.lane=lane; el.dataset.speed=BASE_FALL_SPEED*speedMul; el.dataset.alive='1';
+    el.addEventListener('click', ()=>tryHit(el));  // ให้ตัวโน้ตรับคลิกด้วย
     ARENA.appendChild(el);
     spawns++;
     return el;
   }
 
-  // per-frame move
+  // ---------- per-frame ----------
   AFRAME.registerSystem('rb-loop',{
     tick(){
       if(!running || paused) return;
-      const notes = Array.from(ARENA.querySelectorAll('.note'));
+      const notes=Array.from(ARENA.querySelectorAll('.note'));
       for(const n of notes){
         if(n.dataset.alive!=='1') continue;
-        const p = n.object3D.position;
+        const p=n.object3D.position;
         p.y -= (+n.dataset.speed||BASE_FALL_SPEED)*0.016;
         if(p.y < HIT_Y-0.2){
           n.dataset.alive='0';
@@ -114,8 +100,8 @@
     }
   });
 
-  // ---------- Pointer Raycast (mouse/touch) ----------
-  (function installPointerRaycast(){
+  // ---------- pointer raycast (mouse/touch คลิกได้จริง) ----------
+  ;(function installPointerRaycast(){
     if(!scene || !THREE) return;
     const raycaster=new THREE.Raycaster();
     const mouse=new THREE.Vector2();
@@ -131,8 +117,8 @@
     window.addEventListener('touchstart', e=>{ const t=e.touches?.[0]; if(t) pick(t.clientX,t.clientY); }, {passive:true});
   })();
 
-  // ---------- SFX & Music ----------
-  const SFX = {
+  // ---------- audio ----------
+  const SFX={
     good:    new Audio(`${ASSET_BASE||'.'}/assets/sfx/good.wav`),
     perfect: new Audio(`${ASSET_BASE||'.'}/assets/sfx/perfect.wav`),
     miss:    new Audio(`${ASSET_BASE||'.'}/assets/sfx/miss.wav`),
@@ -142,11 +128,11 @@
   };
   function play(a){ try{ a.currentTime=0; a.play(); }catch(_e){} }
   function setSong(song){ try{ audio?.pause?.(); }catch(_){}
-    audio = new Audio(song.src); audio.loop=false; }
+    audio=new Audio(song.src); audio.loop=false; }
 
-  // ---------- Hit effects ----------
+  // ---------- FX ----------
   function flashHitLine(){
-    const line = $('hitLine'); if(!line) return;
+    const line=$('hitLine'); if(!line) return;
     line.setAttribute('animation__flash','property:material.emissiveIntensity;from:1;to:2.2;dur:90;dir:alternate;loop:2;easing:easeOutQuad');
   }
   function ringBurst(pos){
@@ -166,23 +152,57 @@
       requestAnimationFrame(step);
     })();
   }
-  function particles(pos, color='#00ffa3'){
+  function particles(pos,color='#00ffa3'){
     for(let i=0;i<8;i++){
       const p=document.createElement('a-sphere');
-      p.setAttribute('radius','0.015');
-      p.setAttribute('color',color);
-      p.setAttribute('position',`${pos.x} ${HIT_Y} ${pos.z}`);
-      ARENA.appendChild(p);
+      p.setAttribute('radius','0.015'); p.setAttribute('color',color);
+      p.setAttribute('position',`${pos.x} ${HIT_Y} ${pos.z}`); ARENA.appendChild(p);
       const dx=(Math.random()-0.5)*0.6, dy=0.2+Math.random()*0.5;
-      const start=performance.now(), DUR=420;
+      const t0=performance.now(), DUR=420;
       (function step(){
-        const t=(performance.now()-start)/DUR;
+        const t=(performance.now()-t0)/DUR;
         if(t>=1){ safeRemove(p); return; }
         p.setAttribute('position',`${(pos.x+dx*t).toFixed(3)} ${(HIT_Y+dy*t-0.3*t*t).toFixed(3)} ${pos.z}`);
         p.setAttribute('opacity',`${1-t}`);
         requestAnimationFrame(step);
       })();
     }
+  }
+
+  // ---------- judge / score ----------
+  function tryHit(note){
+    if(!note || note.dataset.alive!=='1') return;
+    const py=note.object3D.position.y;
+    const dy=Math.abs(py-HIT_Y);
+    const perfWin=0.08*judgeMul;
+    const goodWin=0.16*judgeMul;
+    let rank=null;
+    if(dy<=perfWin) rank='perfect';
+    else if(dy<=goodWin) rank='good';
+    else return;
+
+    note.dataset.alive='0';
+    const pos=note.object3D.getWorldPosition(new THREE.Vector3());
+    safeRemove(note);
+    registerResult(rank,pos);
+  }
+
+  function registerResult(kind,pos){
+    if(kind==='miss'){
+      combo=0; play(SFX.miss);
+      floatText('MISS','#ff5577', pos||new THREE.Vector3(0,HIT_Y,-2.4));
+      updateHUD(); return;
+    }
+    hits++; combo++; if(combo>maxCombo) maxCombo=combo;
+    let add=0; let col;
+    if(kind==='perfect'){ add=32; col='#00ffa3'; play(SFX.perfect); }
+    else { add=18; col='#00d0ff'; play(SFX.good); }
+    score += add + Math.floor(combo*0.8);
+    accuracy = spawns? Math.round((hits/spawns)*100) : 0;
+    play(SFX.hitflash); flashHitLine(); ringBurst(pos||new THREE.Vector3(0,HIT_Y,-2.4)); particles(pos||new THREE.Vector3(0,HIT_Y,-2.4), col);
+    floatText(kind.toUpperCase(), col, pos||new THREE.Vector3(0,HIT_Y,-2.4));
+    if(combo>0 && combo%10===0) play(SFX.combo);
+    updateHUD();
   }
 
   function floatText(text,color,pos){
@@ -194,117 +214,67 @@
     e.setAttribute('animation__rise',`property:position;to:${pos.x} ${pos.y+0.66} ${pos.z};dur:700;easing:easeOutQuad`);
     e.setAttribute('animation__fade','property:opacity;to:0;dur:500;delay:180;easing:linear');
     ARENA.appendChild(e);
-    after(900, ()=>safeRemove(e));
-  }
-
-  // ---------- Judge / Score ----------
-  function tryHit(note){
-    if (!note || note.dataset.alive!=='1') return;
-    const py = note.object3D.position.y;
-    const dy = Math.abs(py - HIT_Y);
-    const perfWin = 0.08 * judgeMul;
-    const goodWin = 0.16 * judgeMul;
-
-    let rank = null;
-    if (dy <= perfWin) rank='perfect';
-    else if (dy <= goodWin) rank='good';
-    else return;
-
-    note.dataset.alive='0';
-    const pos = note.object3D.getWorldPosition(new THREE.Vector3());
-    safeRemove(note);
-    registerResult(rank, pos);
-  }
-
-  function registerResult(kind, pos){
-    if(kind==='miss'){
-      combo=0; play(SFX.miss);
-      floatText('MISS','#ff5577', pos||new THREE.Vector3(0,HIT_Y,-2.4));
-      updateHUD(); return;
-    }
-    hits++; combo++; if(combo>maxCombo) maxCombo=combo;
-
-    let add=0; let col;
-    if(kind==='perfect'){ add=32; col='#00ffa3'; play(SFX.perfect); }
-    else { add=18; col='#00d0ff'; play(SFX.good); }
-
-    score += add + Math.floor(combo*0.8);
-    accuracy = spawns ? Math.round((hits/spawns)*100) : 0;
-
-    // FX
-    play(SFX.hitflash);
-    flashHitLine();
-    ringBurst(pos||new THREE.Vector3(0,HIT_Y,-2.4));
-    particles(pos||new THREE.Vector3(0,HIT_Y,-2.4), col);
-    floatText(kind.toUpperCase(), col, pos||new THREE.Vector3(0,HIT_Y,-2.4));
-
-    if(combo>0 && combo%10===0) play(SFX.combo);
-    updateHUD();
+    setTimeout(()=>safeRemove(e), 900);
   }
 
   function updateHUD(){
-    if($('score')) $('score').textContent = score;
-    if($('combo')) $('combo').textContent = combo;
-    if($('acc'))   $('acc').textContent   = (accuracy||0)+'%';
-    if($('time'))  $('time').textContent  = timeLeft;
+    $('score') && ($('score').textContent=score);
+    $('combo') && ($('combo').textContent=combo);
+    $('acc')   && ($('acc').textContent=(accuracy||0)+'%');
+    $('time')  && ($('time').textContent=timeLeft);
   }
 
-  // ---------- Spawning (เริ่มห่างมาก → ค่อยๆถี่) ----------
+  // ---------- spawning (เริ่มห่าง → ค่อยๆถี่) ----------
   function spawnOne(){ if(!running || paused) return; makeNote(); }
   function startSpawning(){
     clearInterval(spawnTimer);
-    spawnTimer = setInterval(spawnOne, spawnInterval);
+    spawnTimer=setInterval(spawnOne, spawnInterval);
 
     clearInterval(accelTimer);
-    accelTimer = setInterval(()=>{
+    accelTimer=setInterval(()=>{
       if(!running || paused) return;
-      const d = DIFF[diffKey];
-      const elapsed = Math.max(0, performance.now()-gameStartAt);
-      const rampTime = Math.min(850, (elapsed/1000)*50);     // นิ่มขึ้น
-      const comboBoost = clamp(combo*5, 0, 160);             // ไม่ดุเกิน
-      const target = Math.max(d.minSpawn, d.start - rampTime - comboBoost);
-      const step = Math.max(18, d.step - 12);
-      spawnInterval = Math.max(target, spawnInterval - step);
+      const d=DIFF[diffKey];
+      const elapsed=Math.max(0,performance.now()-gameStartAt);
+      const rampTime=Math.min(900,(elapsed/1000)*50);
+      const comboBoost=clamp(combo*5,0,160);
+      const target=Math.max(d.minSpawn,d.start-rampTime-comboBoost);
+      const step=Math.max(18,d.step-12);
+      spawnInterval=Math.max(target, spawnInterval-step);
       clearInterval(spawnTimer);
-      spawnTimer = setInterval(spawnOne, spawnInterval);
+      spawnTimer=setInterval(spawnOne, spawnInterval);
     }, 7000);
   }
-
   function clearNotes(){ Array.from(ARENA.querySelectorAll('.note')).forEach(n=>safeRemove(n)); }
 
   function applyDiff(){
     const d=DIFF[diffKey];
     spawnInterval=d.start; judgeMul=d.judgeMul; speedMul=d.speedMul; timeLeft=d.time;
-    if($('diffLabel')) $('diffLabel').textContent = diffKey.toUpperCase();
+    $('diffLabel') && ($('diffLabel').textContent=diffKey.toUpperCase());
     updateHUD();
   }
 
-  // ---------- Game Flow ----------
+  // ---------- flow ----------
   function start(){
     if(running) return;
     running=true; paused=false;
     score=0; combo=0; maxCombo=0; hits=0; spawns=0; accuracy=0;
     applyDiff(); clearNotes(); updateHUD();
 
-    // set & play song with offset
     setSong(currentSong);
-    const ms = Math.max(0, currentSong.offset||0);
-    after(ms, ()=>{ try{ audio.play(); }catch(_e){} });
+    const ms=Math.max(0,currentSong.offset||0);
+    setTimeout(()=>{ try{ audio.play(); }catch(_e){} }, ms);
 
-    // warmup before spawn
-    gameStartAt = performance.now();
-    after(ms + 1200, startSpawning);
+    gameStartAt=performance.now();
+    setTimeout(startSpawning, ms+1200);
 
-    // second timer (Time)
     clearInterval(secondTimer);
-    secondTimer = setInterval(()=>{
+    secondTimer=setInterval(()=>{
       if(!running || paused) return;
       timeLeft--; if(timeLeft<=0){ timeLeft=0; updateHUD(); end(); return; }
       updateHUD();
-    }, 1000);
+    },1000);
 
-    // ซ่อนผลลัพธ์ (ถ้ามีเปิดค้าง)
-    if($('results')) $('results').style.display='none';
+    $('results') && ( $('results').style.display='none' );
   }
 
   function end(){
@@ -313,44 +283,46 @@
     try{ audio?.pause?.(); }catch(_){}
     clearInterval(spawnTimer); clearInterval(accelTimer); clearInterval(secondTimer);
 
-    if($('rScore')) $('rScore').textContent=score;
-    if($('rMaxCombo')) $('rMaxCombo').textContent=maxCombo;
-    if($('rAcc')) $('rAcc').textContent=(accuracy||0)+'%';
-    if($('results')) $('results').style.display='flex';
+    $('rScore') && ( $('rScore').textContent=score );
+    $('rMaxCombo') && ( $('rMaxCombo').textContent=maxCombo );
+    $('rAcc') && ( $('rAcc').textContent=(accuracy||0)+'%' );
+    $('results') && ( $('results').style.display='flex' );
   }
 
-  // ---------- UI ----------
+  // ---------- UI wiring ----------
   document.addEventListener('DOMContentLoaded', ()=>{
     $('startBtn')?.addEventListener('click', start);
     $('pauseBtn')?.addEventListener('click', ()=>{
       if(!running) return;
       paused=!paused;
       if(paused){ try{ audio?.pause?.(); }catch(_){}
-      } else { try{ audio?.play?.(); }catch(_){} }
+      } else { try{ audio?.play?.(); }catch(_e){} }
     });
-    $('endBtn')?.addEventListener('click', end);           // ✅ ปุ่ม End ทำงาน
-    $('replayBtn')?.addEventListener('click', ()=>{ if($('results')) $('results').style.display='none'; start(); });
+    $('endBtn')?.addEventListener('click', end);
+    $('replayBtn')?.addEventListener('click', ()=>{ $('results')&&( $('results').style.display='none' ); start(); });
+
+    // ✅ Back to Hub ทำงานแน่นอน
     $('backBtn')?.addEventListener('click', ()=>{ location.href = HUB_URL; });
 
     $('songSel')?.addEventListener('change', e=>{
-      const s = SONGS.find(x=>x.id===e.target.value);
-      if(s) currentSong = s;
+      const s=SONGS.find(x=>x.id===e.target.value);
+      if(s) currentSong=s;
     });
     $('speedSel')?.addEventListener('change', e=>{
       const v=e.target.value; if(DIFF[v]){ diffKey=v; applyDiff(); }
     });
 
-    // init HUD
-    updateHUD();
+    // sync ค่าเริ่มต้นใน dropdown ตาม URL diff (ถ้ามี)
+    if($('speedSel')) $('speedSel').value = diffKey;
   });
 
-  // ---------- Keyboard quick play ----------
+  // ---------- keyboard quick play ----------
   document.addEventListener('keydown',(e)=>{
-    if(e.key==='Enter'){ start(); }
-    if(e.key==='Escape'){ end(); }
+    if(e.key==='Enter') start();
+    if(e.key==='Escape') end();
     if(!running || paused) return;
     if(e.key===' ' || e.key==='f' || e.key==='j'){
-      const notes = Array.from(ARENA.querySelectorAll('.note')).filter(n=>n.dataset.alive==='1');
+      const notes=Array.from(ARENA.querySelectorAll('.note')).filter(n=>n.dataset.alive==='1');
       if(!notes.length) return;
       notes.sort((a,b)=>Math.abs(a.object3D.position.y-HIT_Y)-Math.abs(b.object3D.position.y-HIT_Y));
       tryHit(notes[0]);
@@ -358,7 +330,7 @@
     }
   });
 
-  // ---------- Safety ----------
+  // ---------- safety ----------
   window.addEventListener('beforeunload', ()=>{
     try{ clearInterval(spawnTimer); clearInterval(accelTimer); clearInterval(secondTimer); }catch(_){}
   });
