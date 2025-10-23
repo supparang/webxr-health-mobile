@@ -1,169 +1,102 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · UI Always Clickable (force-top CSS + capture handlers + canvas shield) + steady spawns
+   Rhythm Boxer · คลิกได้จริง · เริ่มช้าแล้วค่อยเร็ว · เส้น HIT LINE · Good/Miss/Perfect · Back to Hub ถูกต้อง
 */
 (function(){
   "use strict";
 
+  // ---------- Helpers ----------
   const $ = (id)=>document.getElementById(id);
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
+  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
-  // Inject hard CSS to ensure UI clicks win over A-Frame canvas
-  (function injectCSS(){
-    const css = `
-      #uiDock, #uiDock * { pointer-events:auto !important; z-index:2147483647 !important; }
-      #results, #results * { pointer-events:auto !important; z-index:2147483647 !important; }
-      /* put UI on top visually too */
-      #uiDock, #results { position:fixed !important; }
-      /* stop canvas from eating pointer events on desktop & mobile */
-      canvas.a-canvas { pointer-events:none !important; }
-    `;
-    const tag=document.createElement('style'); tag.id='rbForceUIClicks'; tag.textContent=css;
-    document.head.appendChild(tag);
-  })();
-
-  function toast(msg, color='#ffd166'){
-    let el = $('rbToast');
-    if(!el){
-      el = document.createElement('div'); el.id='rbToast';
-      Object.assign(el.style,{
-        position:'fixed', left:'50%', top:'10px', transform:'translateX(-50%)',
-        background:'rgba(10,16,24,.88)', color:'#e6f7ff', border:'1px solid rgba(255,255,255,.1)',
-        padding:'8px 12px', borderRadius:'10px', font:'600 13px system-ui', zIndex:2147483647,
-        transition:'opacity .2s, transform .2s', opacity:'0', pointerEvents:'none'
-      });
-      document.body.appendChild(el);
-    }
-    el.style.color=color; el.textContent = String(msg);
-    el.style.opacity='1'; el.style.transform='translateX(-50%) scale(1.02)';
-    setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%)'; }, 1200);
-  }
-
-  const RB = window.RB = { running:false, paused:false, sceneReady:false };
-  let score=0, combo=0, maxCombo=0, hits=0, notes=0, timeLeft=60;
-
-  // pacing
-  let spawnTimer=null, timeTimer=null, speedPreset='standard';
-  let spawnInterval=1600;
-  const minIntervalByPreset   = { beginner:900,  standard:650,  challenge:520  };
-  const startIntervalByPreset = { beginner:1800, standard:1600, challenge:1300 };
-  const accelEveryN = 6;
-  const accelStep   = 70;
-  let sinceAccel = 0;
-
-  // lane / notes
-  const ySpawn  = 2.6;
-  const yTarget = 1.0;
-  const zLane   = -3.0;
-  const noteColors = ['#2cd1ff','#ff7a7a','#ffd166','#00ffa3','#a899ff'];
-  const noteShapes = ['a-sphere','a-box','a-icosahedron','a-dodecahedron'];
-
-  // SFX
+  // ---------- Audio ----------
   const SFX = {
-    good:    new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    good: new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
     perfect: new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
-    miss:    new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`)
+    miss: new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
+    combo: new Audio(`${ASSET_BASE}/assets/sfx/combo.wav`),
+    ui: new Audio(`${ASSET_BASE}/assets/sfx/success.wav`)
   };
-  Object.values(SFX).forEach(a=>{ a.preload='auto'; a.volume=0.95; });
+  Object.values(SFX).forEach(a=>{ a.preload='auto'; a.crossOrigin='anonymous'; });
 
-  function cap(s){ return s? s.charAt(0).toUpperCase()+s.slice(1) : s; }
-  function updHUD(){
-    $('hudScore') && ($('hudScore').textContent = score);
-    $('hudCombo') && ($('hudCombo').textContent = combo);
-    $('hudTime')  && ($('hudTime').textContent  = timeLeft);
-    $('hudSpeed') && ($('hudSpeed').textContent = cap(speedPreset));
+  let music = new Audio(); music.crossOrigin='anonymous'; music.preload='auto';
+
+  // ---------- Game State ----------
+  const RB = window.RB = (window.RB||{});
+  RB.running=false; RB.paused=false;
+
+  let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
+  let timer=null, spawnTimer=null;
+  let speedPreset='standard';
+  let spawnInt=1200; // จะปรับตาม preset และจะลดลงเรื่อย ๆ
+  let fallSpeed=0.6; // เริ่มช้า (m/s) — จะเพิ่มทีละน้อย
+  let accelEvery=4000; // ms ปรับความเร็วทุก ๆ นี้
+  let lastAccel=0;
+
+  // NOTE Spec
+  const COLORS=["#00d0ff","#ffd166","#ff6b6b","#00ffa3","#a899ff"];
+  const NOTE_SIZE=0.16; // ใหญ่ขึ้น
+  const HIT_Y=1.1; // y ของเส้น hit line
+  const HIT_WIN_GOOD=0.16; // ระยะ y windows
+  const HIT_WIN_PERF=0.08;
+
+  function badge(t){ try{ console.log('[RB]',t);}catch(_e){} }
+
+  // ---------- UI ----------
+  function updateHUD(){
+    $('hudScore').textContent = score;
+    $('hudCombo').textContent = combo;
+    $('hudTime').textContent = timeLeft;
+    $('hudSpeed').textContent = speedPreset[0].toUpperCase()+speedPreset.slice(1);
   }
-  function floatWord(text, color){
-    const el = document.createElement('div');
-    Object.assign(el.style,{
-      position:'fixed', left:'50%', bottom:'28%', transform:'translateX(-50%)',
-      font:'700 22px system-ui', color:color||'#2cff88', textShadow:'0 2px 8px rgba(0,0,0,.5)',
-      zIndex:2147483646, pointerEvents:'none'
-    });
-    el.textContent=text; document.body.appendChild(el);
-    setTimeout(()=>{ try{ el.remove(); }catch(_e){} }, 900);
-  }
-
-  function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){} }
-
-  async function ensureSceneAndArena(){
-    const maxWait = 4000, t0 = performance.now();
-    while (!(window.AFRAME && document.querySelector('a-scene'))){
-      if (performance.now()-t0 > maxWait){ break; }
-      await new Promise(r=>requestAnimationFrame(r));
-    }
-    if (!document.querySelector('a-scene')){
-      const sc = document.createElement('a-scene'); document.body.prepend(sc);
-    }
-    const scn = document.querySelector('a-scene');
-    await new Promise(res=>{
-      if (scn && scn.hasLoaded) return res();
-      scn?.addEventListener('loaded', res, {once:true});
-      setTimeout(res, 1200);
-    });
-    if (!$('arena')){
-      const e = document.createElement('a-entity');
-      e.setAttribute('id','arena');
-      e.setAttribute('position','0 0 0');
-      document.querySelector('a-scene').appendChild(e);
-    }
-    RB.sceneReady = true;
+  function floatText(text,color,pos){
+    const e=document.createElement('a-entity'), p=pos.clone(); p.y+=0.22;
+    e.setAttribute('text',{value:text,color,align:'center',width:2.6});
+    e.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
+    e.setAttribute('scale','0.001 0.001 0.001');
+    e.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:90,easing:'easeOutQuad'});
+    e.setAttribute('animation__rise',{property:'position',to:`${p.x} ${p.y+0.6} ${p.z}`,dur:600,easing:'easeOutQuad'});
+    e.setAttribute('animation__fade',{property:'opacity',to:0,dur:480,delay:160,easing:'linear'});
+    $('arena').appendChild(e); setTimeout(()=>{ try{e.remove();}catch(_e){} },820);
   }
 
   // ---------- Notes ----------
   function spawnNote(){
-    if (!RB.running || RB.paused) return;
-    if (!$('arena')) return;
-    notes++; sinceAccel++;
+    spawns++;
+    const x = (Math.random()*2.4 - 1.2).toFixed(2);
+    const z = -2.3;
+    const yStart = 2.7; // สูงกว่าหน่อย
+    const shape = Math.random()<0.5 ? 'a-sphere' : 'a-box';
+    const c = COLORS[Math.floor(Math.random()*COLORS.length)];
 
-    const x = (Math.random()*3.0 - 1.5).toFixed(2);
-    const color = noteColors[(notes)%noteColors.length];
-    const shape = noteShapes[(Math.random()*noteShapes.length)|0];
-
-    const el = document.createElement(shape);
-    el.classList.add('note','clickable');
-    el.setAttribute('color', color);
-    el.setAttribute('radius', '0.24');
-    el.setAttribute('depth',  '0.5');
-    el.setAttribute('width',  '0.5');
-    el.setAttribute('height', '0.5');
-    el.setAttribute('position', `${x} ${ySpawn} ${zLane}`);
-    el.dataset.spawn = performance.now();
-    el.dataset.hit = '0';
+    const el=document.createElement(shape);
+    el.classList.add('clickable','rb-note');
+    if(shape==='a-sphere'){
+      el.setAttribute('radius', NOTE_SIZE);
+    }else{
+      el.setAttribute('width', NOTE_SIZE*1.8);
+      el.setAttribute('height', NOTE_SIZE*1.8);
+      el.setAttribute('depth', NOTE_SIZE*1.8);
+    }
+    el.setAttribute('material', `color:${c}; opacity:0.95; transparent:true; metalness:0.1; roughness:0.4`);
+    el.setAttribute('position', `${x} ${yStart} ${z}`);
     $('arena').appendChild(el);
 
-    el.addEventListener('click', ()=>{ tryHit(el); });
+    const start=performance.now();
+    const me = {el, alive:true};
+    el.addEventListener('click', ()=>{ if(me.alive) onHit(el); });
 
-    const startFall = ()=>fallLoop(el);
-    if (el.hasLoaded) startFall();
-    else el.addEventListener('loaded', startFall, {once:true});
-
-    if (sinceAccel >= accelEveryN){
-      sinceAccel = 0;
-      spawnInterval = Math.max(minIntervalByPreset[speedPreset], spawnInterval - accelStep);
-      restartSpawner();
-    }
-  }
-
-  function fallLoop(el){
-    let lastT = performance.now();
-    const speed = 0.60; // เริ่มช้า
-
-    function step(now){
-      if (!el.parentNode) return;
-      if (!RB.running){ safeRemove(el); return; }
-      if (RB.paused){ requestAnimationFrame(step); return; }
-
-      const dt = Math.min(80, now - lastT) / 1000;
-      lastT = now;
-
-      const p = el.object3D.position;
-      p.y -= speed * dt;
-      el.setAttribute('position', `${p.x.toFixed(3)} ${p.y.toFixed(3)} ${zLane}`);
-
-      if (p.y <= yTarget){
-        if (el.dataset.hit !== '1'){ doMiss(); }
-        safeRemove(el);
+    function step(){
+      if(!me.alive) return;
+      const dt = (performance.now()-start)/1000;
+      const y = yStart - dt*fallSpeed;
+      el.setAttribute('position', `${x} ${y.toFixed(3)} ${z}`);
+      // ผ่าน HIT LINE แล้ว?
+      if(y <= HIT_Y - HIT_WIN_GOOD*1.2){
+        me.alive=false;
+        try{ el.remove(); }catch(_){}
+        onMiss(new THREE.Vector3(parseFloat(x),HIT_Y,z));
         return;
       }
       requestAnimationFrame(step);
@@ -171,230 +104,178 @@
     requestAnimationFrame(step);
   }
 
-  // timing window — wide + hit assist
-  function tryHit(el){
-    if (!el || el.dataset.hit === '1') return;
-    const t = performance.now() - (+el.dataset.spawn);
-    const travelMs = ((ySpawn - yTarget) / 0.60) * 1000; // ต้องตรงกับ speed
-    const diff = Math.abs(t - travelMs);
+  function onHit(el){
+    // วัดจากระยะ y ใกล้เส้น HIT LINE
+    const p = el.object3D.getWorldPosition(new THREE.Vector3());
+    const dy = Math.abs(p.y - HIT_Y);
+    let quality='good';
+    if(dy <= HIT_WIN_PERF) quality='perfect';
+    else if(dy <= HIT_WIN_GOOD) quality='good';
+    else quality='miss';
 
-    if (diff <= 150){
-      el.dataset.hit='1'; doPerfect(); safeRemove(el);
-    } else if (diff <= 320){
-      el.dataset.hit='1'; doGood();    safeRemove(el);
-    } else {
-      const py = el.object3D?.position?.y ?? 9;
-      if (Math.abs(py - yTarget) <= 0.18){
-        el.dataset.hit='1'; doGood(); safeRemove(el);
-      }
+    try{ el.remove(); }catch(_){}
+    if(quality==='miss'){
+      onMiss(p); return;
     }
+    hits++;
+    combo++; maxCombo=Math.max(maxCombo, combo);
+    let add = (quality==='perfect'? 20 : 10);
+    score += add;
+    (quality==='perfect'? SFX.perfect : SFX.good).play();
+    floatText(quality.toUpperCase(), quality==='perfect' ? '#00ffa3' : '#00d0ff', p);
+    if(combo>0 && combo%10===0){ SFX.combo.play(); }
+    updateHUD();
   }
 
-  function doGood(){ combo++; hits++; score+=10; if (combo>maxCombo) maxCombo=combo; SFX.good.currentTime=0; SFX.good.play().catch(()=>{}); updHUD(); floatWord('GOOD', '#2cd1ff'); }
-  function doPerfect(){ combo++; hits++; score+=22; if (combo>maxCombo) maxCombo=combo; SFX.perfect.currentTime=0; SFX.perfect.play().catch(()=>{}); updHUD(); floatWord('PERFECT', '#00ffa3'); }
-  function doMiss(){ combo=0; SFX.miss.currentTime=0; SFX.miss.play().catch(()=>{}); updHUD(); floatWord('MISS', '#ff6b6b'); }
+  function onMiss(p){
+    combo=0;
+    score = Math.max(0, score-3);
+    SFX.miss.play();
+    floatText('MISS','#ff5577', p);
+    updateHUD();
+  }
+
+  // ---------- Flow ----------
+  function start(){
+    if(RB.running) return;
+    RB.running=true; RB.paused=false;
+    score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=60;
+    // ตั้งค่าเริ่มช้า แล้วค่อยเร็ว
+    setBaseByPreset();
+    fallSpeed = presetFall(speedPreset); // เริ่มช้า
+    spawnInt = presetSpawn(speedPreset); // เริ่มห่าง
+    lastAccel = performance.now();
+    updateHUD();
+
+    // เวลาเดิน
+    timer = setInterval(()=>{ timeLeft--; $('hudTime').textContent=timeLeft; if(timeLeft<=0) endGame(); }, 1000);
+
+    // สุ่มโน้ต
+    spawnTimer = setInterval(spawnNote, spawnInt);
+
+    // เร่งความเร็วทีละนิด
+    tickAccel();
+
+    // เพลง
+    playSelectedSong();
+    badge('Start');
+  }
+
+  function tickAccel(){
+    if(!RB.running) return;
+    const now = performance.now();
+    if(now - lastAccel >= accelEvery){
+      lastAccel = now;
+      // เร่งทีละน้อย: เร่งตกลง (เร็วขึ้น) และลดช่วง spawn
+      fallSpeed = clamp(fallSpeed + 0.06, 0.45, 2.2);
+      spawnInt = clamp(spawnInt - 60, 420, 2000);
+      // รีเซ็ต interval spawn
+      clearInterval(spawnTimer);
+      spawnTimer = setInterval(spawnNote, spawnInt);
+      badge(`Accel → fall:${fallSpeed.toFixed(2)} spawnInt:${spawnInt}`);
+    }
+    requestAnimationFrame(tickAccel);
+  }
+
+  function pause(){
+    if(!RB.running || RB.paused) return;
+    RB.paused=true;
+    clearInterval(timer); clearInterval(spawnTimer);
+    music.pause();
+  }
+  function resume(){
+    if(!RB.running || !RB.paused) return;
+    RB.paused=false;
+    timer = setInterval(()=>{ timeLeft--; $('hudTime').textContent=timeLeft; if(timeLeft<=0) endGame(); }, 1000);
+    spawnTimer = setInterval(spawnNote, spawnInt);
+    music.play().catch(()=>{});
+  }
+
+  function endGame(){
+    if(!RB.running) return;
+    RB.running=false; RB.paused=false;
+    clearInterval(timer); clearInterval(spawnTimer);
+    try{ music.pause(); }catch(_){}
+
+    // ล้างโน้ตค้าง
+    Array.from(document.querySelectorAll('.rb-note')).forEach(n=>{ try{ n.remove(); }catch(_){} });
+
+    const acc = spawns? Math.round((hits/spawns)*100) : 0;
+    $('rSong').textContent = $('hudSong').textContent || '—';
+    $('rScore').textContent = score;
+    $('rMaxCombo').textContent = maxCombo;
+    $('rAcc').textContent = acc+'%';
+    $('results').style.display='flex';
+    SFX.ui.play();
+    badge('End');
+  }
 
   // ---------- Music ----------
-  let currentAudio = null;
   function playSelectedSong(){
-    const sel = $('songSel');
-    const v = sel?.value || 'none';
-    const title = sel?.selectedOptions?.[0]?.dataset?.title || '—';
-    $('hudSong') && ($('hudSong').textContent = title);
-    $('rSong')   && ($('rSong').textContent   = title);
+    const opt = $('#songSel')?.selectedOptions?.[0];
+    const url = opt?.value;
+    const title = opt?.dataset?.title || opt?.textContent || '—';
+    $('hudSong').textContent = title || '—';
+    if(!url || url==='none'){ try{ music.pause(); }catch(_){ } return; }
+    try{
+      music.src = url;
+      music.currentTime = 0;
+      music.play().catch(()=>{ /* ผู้ใช้ยังไม่กด interaction */ });
+    }catch(_e){}
+  }
 
-    stopSong();
-    if (v && v!=='none'){
-      currentAudio = new Audio(v);
-      currentAudio.crossOrigin = "anonymous";
-      currentAudio.volume = 0.9;
-      currentAudio.play().catch(()=>{ toast('Autoplay blocked — แตะ Start อีกครั้ง', '#ff7a7a'); });
+  // ---------- Presets ----------
+  function setSpeed(v){ speedPreset = (v||'standard'); updateHUD(); }
+  function setBaseByPreset(){
+    if(speedPreset==='beginner'){
+      fallSpeed=0.55; spawnInt=1400; accelEvery=4500;
+    }else if(speedPreset==='challenge'){
+      fallSpeed=0.85; spawnInt=900; accelEvery=3500;
+    }else{ // standard
+      fallSpeed=0.7; spawnInt=1100; accelEvery=4000;
     }
   }
-  function stopSong(){ try{ if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; } }catch(_e){} }
+  function presetFall(v){ return v==='beginner'?0.55 : v==='challenge'?0.85 : 0.7; }
+  function presetSpawn(v){ return v==='beginner'?1400: v==='challenge'?900 : 1100; }
 
-  // ---------- Game Flow ----------
-  async function start(){
-    if (RB.running) return;
-    if (!RB.sceneReady){ await ensureSceneAndArena(); }
-    RB.running = true; RB.paused=false;
+  // ---------- Export ให้ปุ่มเรียก ----------
+  RB.start = start;
+  RB.pause = pause;
+  RB.resume = resume;
+  RB.endGame = endGame;
+  RB.playSelectedSong = playSelectedSong;
+  RB.setSpeed = setSpeed;
 
-    $('results') && ( $('results').style.display='none' );
-
-    score=0; combo=0; maxCombo=0; hits=0; notes=0; timeLeft=60; sinceAccel=0;
-    spawnInterval = startIntervalByPreset[speedPreset] || 1600;
-
-    updHUD();
-
-    spawnNote();
-    setTimeout(spawnNote, Math.min(500, spawnInterval/2));
-
-    restartSpawner();
-
-    timeTimer = setInterval(()=>{
-      if (!RB.running || RB.paused) return;
-      timeLeft--; $('hudTime') && ($('hudTime').textContent=timeLeft);
-      if (timeLeft<=0) endGame();
-    }, 1000);
-
-    playSelectedSong();
-  }
-
-  function restartSpawner(){
-    if (spawnTimer) clearInterval(spawnTimer);
-    spawnTimer = setInterval(()=>{ if(RB.running && !RB.paused) spawnNote(); }, spawnInterval);
-  }
-
-  function pause(){ if (!RB.running || RB.paused) return; RB.paused = true; }
-  function resume(){ if (!RB.running || !RB.paused) return; RB.paused = false; }
-  function endGame(){
-    RB.running=false; RB.paused=false;
-    if (spawnTimer) clearInterval(spawnTimer);
-    if (timeTimer)  clearInterval(timeTimer);
-    $('rScore')    && ($('rScore').textContent = score);
-    $('rMaxCombo') && ($('rMaxCombo').textContent = maxCombo);
-    const acc = notes ? Math.round((hits/notes)*100) : 0;
-    $('rAcc')      && ($('rAcc').textContent = acc+'%');
-    $('results')   && ( $('results').style.display='flex' );
-    stopSong();
-  }
-  RB.start=start; RB.pause=pause; RB.resume=resume;
-
-  // ---------- Strong UI click shield ----------
-  let overUI = false;
-  function markOver(el){
-    if(!el) return;
-    const on = ()=>{ overUI = true; };
-    const off= ()=>{ overUI = false; };
-    ['pointerenter','mouseenter','touchstart'].forEach(ev=> el.addEventListener(ev, on));
-    ['pointerleave','mouseleave','touchend','touchcancel'].forEach(ev=> el.addEventListener(ev, off));
-  }
-  function blockBubble(el){
-    if(!el) return;
-    el.style.pointerEvents = 'auto';
-    ['pointerdown','mousedown','touchstart','click','pointerup','mouseup','touchend'].forEach(ev=>{
-      el.addEventListener(ev, (e)=>{
-        e.stopPropagation();
-        e.stopImmediatePropagation?.();
-      }, {capture:true});
-    });
-    markOver(el);
-  }
-  // Global capture guard — if event begins on UI, stop it before A-Frame sees it
-  ['pointerdown','mousedown','touchstart','click'].forEach(ev=>{
-    document.addEventListener(ev, (e)=>{
-      const t = e.target;
-      if (t && (t.closest?.('#uiDock') || t.closest?.('#results'))){
-        e.stopPropagation();
-        e.stopImmediatePropagation?.();
-      }
-    }, {capture:true});
+  // ---------- Safety ----------
+  window.addEventListener('beforeunload', ()=>{
+    try{ clearInterval(timer); clearInterval(spawnTimer); }catch(_){}
   });
 
-  function attachButtons(){
-    const startBtn=$('btnStart'), pauseBtn=$('btnPause'), endBtn=$('btnEnd');
-    const songSel = $('songSel'); const speedSel = $('speedSel');
-    [startBtn,pauseBtn,endBtn,songSel,speedSel,$('uiDock'),$('results')].forEach(blockBubble);
-
-    startBtn && startBtn.addEventListener('click', ()=>{ start(); if(pauseBtn) pauseBtn.textContent='Pause'; });
-    pauseBtn && pauseBtn.addEventListener('click', ()=>{
-      if (!RB.running) return;
-      if (!RB.paused){ pause();  pauseBtn.textContent='Resume'; }
-      else           { resume(); pauseBtn.textContent='Pause'; }
+  // ---------- Enter VR ปุ่มกลางล่าง (กันซ้ำ) ----------
+  (function xrButton(){
+    if (document.getElementById('enterVRBtn')) return;
+    const btn=document.createElement('button');
+    btn.id='enterVRBtn';
+    btn.textContent='Enter VR';
+    Object.assign(btn.style,{
+      position:'fixed', left:'50%', transform:'translateX(-50%)',
+      bottom:'12px', zIndex:2147483647,
+      padding:'8px 12px', borderRadius:'10px', border:'0',
+      background:'#0e2233', color:'#e6f7ff', cursor:'pointer'
     });
-    endBtn && endBtn.addEventListener('click', ()=> endGame());
-
-    songSel && songSel.addEventListener('change', ()=>{
-      if (RB.running){ playSelectedSong(); }
-      else{
-        const title = songSel?.selectedOptions?.[0]?.dataset?.title || '—';
-        $('hudSong') && ($('hudSong').textContent = title);
-        $('rSong')   && ($('rSong').textContent   = title);
-      }
-    });
-
-    speedSel && speedSel.addEventListener('change', ()=>{
-      speedPreset = speedSel.value || 'standard';
-      $('hudSpeed') && ($('hudSpeed').textContent = cap(speedPreset));
-      if (RB.running){
-        spawnInterval = Math.max(minIntervalByPreset[speedPreset], spawnInterval);
-        restartSpawner();
-      }
-    });
-
-    $('replayBtn') && $('replayBtn').addEventListener('click', ()=>{
-      $('results') && ( $('results').style.display='none' );
-      start();
-    });
-    $('backBtn') && $('backBtn').addEventListener('click', ()=>{
-      window.location.href = HUB_URL;
-    });
-  }
-
-  // Self-heal: move UI containers to the end of <body> so they are above canvas in DOM
-  function elevateUI(){
-    ['uiDock','results'].forEach(id=>{
-      const el=$(id);
-      if (el && el.parentNode !== document.body){
-        document.body.appendChild(el);
-      }
-      if (el){
-        el.style.position='fixed';
-        el.style.zIndex='2147483647';
-        el.style.pointerEvents='auto';
-      }
-    });
-  }
-
-  // Pointer Raycast (skip when over UI)
-  ;(function installPointerRaycast(){
-    const sceneEl = document.querySelector('a-scene');
-    if (!sceneEl){ return; }
-    const ready = ()=>{
-      const raycaster = new THREE.Raycaster();
-      const mouse = new THREE.Vector2();
-      function pick(clientX, clientY){
-        if (overUI) return;
-        const topEl = document.elementFromPoint(clientX, clientY);
-        if (topEl && (topEl.closest('#uiDock') || topEl.closest('#results'))) return;
-
-        const cam = sceneEl.camera; if (!cam) return;
-        mouse.x =  (clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, cam);
-        const clickable = Array.from(document.querySelectorAll('.clickable'))
-          .map(el => el.object3D).filter(Boolean);
-        const objects = [];
-        clickable.forEach(o => o.traverse(child => objects.push(child)));
-        const hits = raycaster.intersectObjects(objects, true);
-        if (hits && hits.length){
-          let obj = hits[0].object;
-          while (obj && !obj.el) obj = obj.parent;
-          if (obj && obj.el){ obj.el.emit('click'); }
-        }
-      }
-      window.addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
-      window.addEventListener('touchstart', e=>{
-        const t = e.touches && e.touches[0]; if (!t) return;
-        pick(t.clientX, t.clientY);
-      }, {passive:true});
-    };
-    if (sceneEl.hasLoaded) ready();
-    else sceneEl.addEventListener('loaded', ready, {once:true});
+    document.body.appendChild(btn);
+    btn.addEventListener('click', ()=>{ try{ const sc=document.querySelector('a-scene'); sc?.enterVR?.(); }catch(e){ console.warn(e); } });
   })();
 
-  function boot(){
-    elevateUI();
-    attachButtons();
-    ensureSceneAndArena();
-
-    speedPreset = ($('speedSel')?.value)||'standard';
-    $('hudSpeed') && ($('hudSpeed').textContent = cap(speedPreset));
-    updHUD();
-  }
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot);
-  }else boot();
+  // ---------- iOS Audio Unlock ----------
+  (function unlockAudio(){
+    let unlocked=false, Ctx=(window.AudioContext||window.webkitAudioContext);
+    let ctx = Ctx? new Ctx() : null;
+    function resume(){
+      if(unlocked || !ctx) return;
+      ctx.resume?.(); unlocked = (ctx.state==='running');
+    }
+    ['touchstart','pointerdown','mousedown','keydown'].forEach(ev=>document.addEventListener(ev, resume, {once:true, passive:true}));
+  })();
 
 })();
