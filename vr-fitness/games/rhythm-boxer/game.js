@@ -1,5 +1,5 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · Guaranteed Spawn on Start + Scene/Arena Ready + Slow→Faster spawn + Clickable UI
+   Rhythm Boxer · Click-Fix (UI always clickable) + Raycast shield + Guaranteed spawns
 */
 (function(){
   "use strict";
@@ -8,7 +8,7 @@
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
 
-  // ---------- Toast (debug/helper) ----------
+  // ---------- Toast ----------
   function toast(msg, color='#ffd166'){
     let el = $('rbToast');
     if(!el){
@@ -16,8 +16,8 @@
       Object.assign(el.style,{
         position:'fixed', left:'50%', top:'10px', transform:'translateX(-50%)',
         background:'rgba(10,16,24,.88)', color:'#e6f7ff', border:'1px solid rgba(255,255,255,.1)',
-        padding:'8px 12px', borderRadius:'10px', font:'600 13px system-ui', zIndex:99999,
-        transition:'opacity .2s, transform .2s', opacity:'0'
+        padding:'8px 12px', borderRadius:'10px', font:'600 13px system-ui', zIndex:2147483647,
+        transition:'opacity .2s, transform .2s', opacity:'0', pointerEvents:'none'
       });
       document.body.appendChild(el);
     }
@@ -26,11 +26,11 @@
     setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%)'; }, 1200);
   }
 
-  // ---------- Global State ----------
+  // ---------- State ----------
   const RB = window.RB = { running:false, paused:false, sceneReady:false };
   let score=0, combo=0, maxCombo=0, hits=0, notes=0, timeLeft=60;
 
-  // spawn pacing
+  // pacing
   let spawnTimer=null, timeTimer=null, speedPreset='standard';
   let spawnInterval=1600;
   const minIntervalByPreset   = { beginner:900,  standard:650,  challenge:520  };
@@ -39,14 +39,14 @@
   const accelStep   = 70;
   let sinceAccel = 0;
 
-  // note visuals/placement
+  // lane / notes
   const ySpawn  = 2.6;
   const yTarget = 1.0;
   const zLane   = -3.0;
   const noteColors = ['#2cd1ff','#ff7a7a','#ffd166','#00ffa3','#a899ff'];
   const noteShapes = ['a-sphere','a-box','a-icosahedron','a-dodecahedron'];
 
-  // ---------- SFX ----------
+  // SFX
   const SFX = {
     good:    new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
     perfect: new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
@@ -55,7 +55,7 @@
   Object.values(SFX).forEach(a=>{ a.preload='auto'; a.volume=0.95; });
 
   // ---------- HUD ----------
-  const cap = s => (s?.charAt(0).toUpperCase()+s.slice(1));
+  function cap(s){ return s? s.charAt(0).toUpperCase()+s.slice(1) : s; }
   function updHUD(){
     $('hudScore') && ($('hudScore').textContent = score);
     $('hudCombo') && ($('hudCombo').textContent = combo);
@@ -64,16 +64,12 @@
   }
   function floatWord(text, color){
     const el = document.createElement('div');
-    el.className='float';
-    el.style.position='fixed';
-    el.style.left='50%';
-    el.style.bottom='28%';
-    el.style.transform='translateX(-50%)';
-    el.style.font='700 22px system-ui';
-    el.style.color=color||'#2cff88';
-    el.style.textShadow='0 2px 8px rgba(0,0,0,.5)';
-    el.textContent=text;
-    document.body.appendChild(el);
+    Object.assign(el.style,{
+      position:'fixed', left:'50%', bottom:'28%', transform:'translateX(-50%)',
+      font:'700 22px system-ui', color:color||'#2cff88', textShadow:'0 2px 8px rgba(0,0,0,.5)',
+      zIndex:2147483646, pointerEvents:'none'
+    });
+    el.textContent=text; document.body.appendChild(el);
     setTimeout(()=>{ try{ el.remove(); }catch(_e){} }, 900);
   }
 
@@ -81,28 +77,20 @@
   function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){} }
 
   async function ensureSceneAndArena(){
-    // wait AFRAME + <a-scene>
-    const maxWait = 4000;
-    const t0 = performance.now();
+    const maxWait = 4000, t0 = performance.now();
     while (!(window.AFRAME && document.querySelector('a-scene'))){
       if (performance.now()-t0 > maxWait){ toast('A-Frame scene not ready', '#ff7a7a'); break; }
       await new Promise(r=>requestAnimationFrame(r));
     }
-    const scene = document.querySelector('a-scene');
-    if (!scene){
-      // สร้างฉากขั้นต่ำให้ทันที (กันหน้าไม่ได้ใส่ไว้)
+    if (!document.querySelector('a-scene')){
       const sc = document.createElement('a-scene'); document.body.appendChild(sc);
     }
-
-    // wait scene loaded
     const scn = document.querySelector('a-scene');
     await new Promise(res=>{
       if (scn && scn.hasLoaded) return res();
       scn?.addEventListener('loaded', res, {once:true});
       setTimeout(res, 1500);
     });
-
-    // ensure arena
     if (!$('arena')){
       const e = document.createElement('a-entity');
       e.setAttribute('id','arena');
@@ -116,8 +104,7 @@
   function spawnNote(){
     if (!RB.running || RB.paused) return;
     if (!$('arena')){ toast('arena not found', '#ff7a7a'); return; }
-    notes++;
-    sinceAccel++;
+    notes++; sinceAccel++;
 
     const x = (Math.random()*3.0 - 1.5).toFixed(2);
     const color = noteColors[(notes)%noteColors.length];
@@ -126,11 +113,10 @@
     const el = document.createElement(shape);
     el.classList.add('note','clickable');
     el.setAttribute('color', color);
-    // ใหญ่ขึ้น
-    el.setAttribute('radius', '0.18');
-    el.setAttribute('depth',  '0.36');
-    el.setAttribute('width',  '0.36');
-    el.setAttribute('height', '0.36');
+    el.setAttribute('radius', '0.22');
+    el.setAttribute('depth',  '0.42');
+    el.setAttribute('width',  '0.42');
+    el.setAttribute('height', '0.42');
     el.setAttribute('position', `${x} ${ySpawn} ${zLane}`);
     el.dataset.spawn = performance.now();
     el.dataset.hit = '0';
@@ -142,17 +128,16 @@
     if (el.hasLoaded) startFall();
     else el.addEventListener('loaded', startFall, {once:true});
 
-    // เร่งความถี่ค่อยๆ
     if (sinceAccel >= accelEveryN){
       sinceAccel = 0;
       spawnInterval = Math.max(minIntervalByPreset[speedPreset], spawnInterval - accelStep);
-      restartSpawner(); // ใช้ค่าใหม่ทันที
+      restartSpawner();
     }
   }
 
   function fallLoop(el){
     let lastT = performance.now();
-    const speed = 0.65; // m/s
+    const speed = 0.60; // ช้าลงอีกนิด
 
     function step(now){
       if (!el.parentNode) return;
@@ -176,39 +161,28 @@
     requestAnimationFrame(step);
   }
 
-  // timing window — perfect ±130ms, good ±260ms + hit assist ระยะ
+  // timing window — wide + hit assist
   function tryHit(el){
     if (!el || el.dataset.hit === '1') return;
     const t = performance.now() - (+el.dataset.spawn);
-    const ideal = 3800; // ~เวลาเดินทางจาก y=2.6 → 1.0 ที่ speed=0.65
-    const diff = Math.abs(t - ideal);
+    const travelMs = ((ySpawn - yTarget) / 0.60) * 1000; // ต้องตรงกับ speed ใน fallLoop
+    const diff = Math.abs(t - travelMs);
 
-    if (diff <= 130){
+    if (diff <= 150){
       el.dataset.hit='1'; doPerfect(); safeRemove(el);
-    } else if (diff <= 260){
+    } else if (diff <= 320){
       el.dataset.hit='1'; doGood();    safeRemove(el);
     } else {
       const py = el.object3D?.position?.y ?? 9;
-      if (Math.abs(py - yTarget) <= 0.12){
+      if (Math.abs(py - yTarget) <= 0.16){
         el.dataset.hit='1'; doGood(); safeRemove(el);
       }
     }
   }
 
-  function doGood(){
-    combo++; hits++; score+=10; if (combo>maxCombo) maxCombo=combo;
-    SFX.good.currentTime=0; SFX.good.play().catch(()=>{});
-    updHUD(); floatWord('GOOD', '#2cd1ff');
-  }
-  function doPerfect(){
-    combo++; hits++; score+=22; if (combo>maxCombo) maxCombo=combo;
-    SFX.perfect.currentTime=0; SFX.perfect.play().catch(()=>{});
-    updHUD(); floatWord('PERFECT', '#00ffa3');
-  }
-  function doMiss(){
-    combo=0; SFX.miss.currentTime=0; SFX.miss.play().catch(()=>{});
-    updHUD(); floatWord('MISS', '#ff6b6b');
-  }
+  function doGood(){ combo++; hits++; score+=10; if (combo>maxCombo) maxCombo=combo; SFX.good.currentTime=0; SFX.good.play().catch(()=>{}); updHUD(); floatWord('GOOD', '#2cd1ff'); }
+  function doPerfect(){ combo++; hits++; score+=22; if (combo>maxCombo) maxCombo=combo; SFX.perfect.currentTime=0; SFX.perfect.play().catch(()=>{}); updHUD(); floatWord('PERFECT', '#00ffa3'); }
+  function doMiss(){ combo=0; SFX.miss.currentTime=0; SFX.miss.play().catch(()=>{}); updHUD(); floatWord('MISS', '#ff6b6b'); }
 
   // ---------- Music ----------
   let currentAudio = null;
@@ -232,11 +206,12 @@
   // ---------- Game Flow ----------
   async function start(){
     if (RB.running) return;
-    // รอ scene + arena ให้พร้อมก่อน
     if (!RB.sceneReady){ await ensureSceneAndArena(); }
-    if (!$('arena')){ toast('No arena to spawn notes', '#ff7a7a'); return; }
-
     RB.running = true; RB.paused=false;
+
+    // ถ้า results ยังค้างทับ ให้ซ่อน
+    if ($('results')) $('results').style.display='none';
+
     score=0; combo=0; maxCombo=0; hits=0; notes=0; timeLeft=60; sinceAccel=0;
     spawnInterval = startIntervalByPreset[speedPreset] || 1600;
 
@@ -277,41 +252,50 @@
   }
   RB.start=start; RB.pause=pause; RB.resume=resume;
 
-  // ---------- UI: block bubble + handlers ----------
+  // ---------- UI shield & handlers ----------
+  let overUI = false;
+  function markOver(el){
+    if(!el) return;
+    const on = ()=>{ overUI = true; };
+    const off= ()=>{ overUI = false; };
+    ['pointerenter','mouseenter','touchstart'].forEach(ev=> el.addEventListener(ev, on));
+    ['pointerleave','mouseleave','touchend','touchcancel'].forEach(ev=> el.addEventListener(ev, off));
+  }
   function blockBubble(el){
     if(!el) return;
+    el.style.pointerEvents = 'auto'; // บังคับเปิดรับคลิก
     ['pointerdown','pointerup','touchstart','touchend','mousedown','mouseup','click'].forEach(ev=>{
       el.addEventListener(ev, e=>{
         e.stopPropagation();
         e.stopImmediatePropagation && e.stopImmediatePropagation();
       }, {capture:true});
     });
+    markOver(el);
   }
-  function initUI(){
-    const dock  = $('uiDock');
+
+  function attachButtons(){
     const startBtn=$('btnStart'), pauseBtn=$('btnPause'), endBtn=$('btnEnd');
     const songSel = $('songSel'); const speedSel = $('speedSel');
+    [startBtn,pauseBtn,endBtn,songSel,speedSel].forEach(blockBubble);
 
-    [dock,startBtn,pauseBtn,endBtn,songSel,speedSel].forEach(blockBubble);
-
-    startBtn?.addEventListener('click', ()=>{ start(); pauseBtn.textContent='Pause'; });
-    pauseBtn?.addEventListener('click', ()=>{
+    startBtn && startBtn.addEventListener('click', ()=>{ start(); if(pauseBtn) pauseBtn.textContent='Pause'; });
+    pauseBtn && pauseBtn.addEventListener('click', ()=>{
       if (!RB.running) return;
       if (!RB.paused){ pause();  pauseBtn.textContent='Resume'; }
       else           { resume(); pauseBtn.textContent='Pause'; }
     });
-    endBtn?.addEventListener('click', ()=> endGame());
+    endBtn && endBtn.addEventListener('click', ()=> endGame());
 
-    songSel?.addEventListener('change', ()=>{
+    songSel && songSel.addEventListener('change', ()=>{
       if (RB.running){ playSelectedSong(); }
       else{
         const title = songSel?.selectedOptions?.[0]?.dataset?.title || '—';
         $('hudSong') && ($('hudSong').textContent = title);
-        $('rSong')   && ($('rSong').textContent = title);
+        $('rSong')   && ($('rSong').textContent   = title);
       }
     });
 
-    speedSel?.addEventListener('change', ()=>{
+    speedSel && speedSel.addEventListener('change', ()=>{
       speedPreset = speedSel.value || 'standard';
       $('hudSpeed') && ($('hudSpeed').textContent = cap(speedPreset));
       if (RB.running){
@@ -320,32 +304,38 @@
       }
     });
 
-    $('replayBtn')?.addEventListener('click', ()=>{
+    $('replayBtn') && $('replayBtn').addEventListener('click', ()=>{
       $('results') && ( $('results').style.display='none' );
       start();
     });
-    $('backBtn')?.addEventListener('click', ()=>{
+    $('backBtn') && $('backBtn').addEventListener('click', ()=>{
       window.location.href = HUB_URL;
     });
 
-    $('enterVRBtn')?.addEventListener('click', ()=>{
-      try{ document.querySelector('a-scene')?.enterVR?.(); }catch(_e){}
-    });
+    // กันทั้งกลุ่ม
+    blockBubble($('uiDock'));
+    blockBubble($('results'));
   }
 
-  // ---------- Pointer Raycast (ignore UI) ----------
+  // self-heal: ถ้าปุ่ม/เมนูยังไม่พร้อม ให้ลอง attach ใหม่ทุก 500ms จนติด
+  const healInt = setInterval(()=>{
+    const ok = $('btnStart') && $('btnPause') && $('btnEnd') && $('songSel') && $('speedSel');
+    if (ok){ attachButtons(); clearInterval(healInt); }
+  }, 500);
+
+  // ---------- Pointer Raycast (skip when over UI) ----------
   ;(function installPointerRaycast(){
-    function overUIDockAt(x,y){
-      const el = document.elementFromPoint(x,y);
-      return !!(el && el.closest && el.closest('#uiDock'));
-    }
     const sceneEl = document.querySelector('a-scene');
     if (!sceneEl){ return; }
     const ready = ()=>{
       const raycaster = new THREE.Raycaster();
       const mouse = new THREE.Vector2();
       function pick(clientX, clientY){
-        if (overUIDockAt(clientX, clientY)) return;
+        if (overUI) return; // สำคัญ: เมาส์/นิ้วอยู่บน UI → ห้ามยิง ray
+        // ป้องกันกรณี elementFromPoint ตรวจอีกชั้น
+        const topEl = document.elementFromPoint(clientX, clientY);
+        if (topEl && (topEl.closest('#uiDock') || topEl.closest('#results'))) return;
+
         const cam = sceneEl.camera; if (!cam) return;
         mouse.x =  (clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(clientY / window.innerHeight) * 2 + 1;
@@ -374,14 +364,21 @@
 
   // ---------- Boot ----------
   function boot(){
+    // บังคับ UI รับคลิก + วางหน้าบนสุด
+    ['uiDock','results'].forEach(id=>{
+      const el = $(id);
+      if (el){
+        el.style.position = el.style.position || 'fixed';
+        el.style.zIndex = '2147483646';
+        el.style.pointerEvents = 'auto';
+      }
+    });
+
     speedPreset = ($('speedSel')?.value)||'standard';
     $('hudSpeed') && ($('hudSpeed').textContent = cap(speedPreset));
     updHUD();
-    initUI();
-    // เตรียม scene/arena ล่วงหน้า เพื่อลดอาการรอ
-    ensureSceneAndArena().then(()=>{
-      if (!$('arena')) toast('Arena auto-created', '#00ffa3');
-    });
+    attachButtons();
+    ensureSceneAndArena();
   }
   if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', boot);
