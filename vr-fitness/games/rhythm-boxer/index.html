@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- ชี้ฐานพาธสำหรับโหลด asset/sfx -->
+  <!-- ให้เกมรู้ฐานพาธสำหรับ asset -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
   <!-- A-Frame -->
@@ -13,67 +13,60 @@
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    :root{
-      --ui-bg: rgba(4,10,18,.75);
-      --ui-fg: #e6f7ff;
-      --ui-ac: #00d0ff;
+    :root { --ui-bg: rgba(10,16,24,.75); --ui-border: rgba(255,255,255,.08); }
+    body { background:#070b10; }
+    .btn{ padding:8px 12px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer; font:600 12px system-ui; }
+    .btn:active{ transform:translateY(1px); }
+    #hud{position:fixed;left:12px;top:12px;background:rgba(0,0,0,.35);color:#e6f7ff;padding:6px 10px;border-radius:10px;font:600 13px system-ui;z-index:10}
+    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:#e6f7ff;z-index:20}
+    .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px 16px;min-width:300px}
+    /* Enter VR กลางล่าง */
+    #enterVRBtn{
+      position:fixed; left:50%; transform:translateX(-50%);
+      bottom:12px; z-index:9999; padding:8px 16px;
+      border:0; border-radius:12px; background:#0e2233; color:#e6f7ff; font:600 12px system-ui;
+      box-shadow:0 6px 20px rgba(0,0,0,.4);
     }
-    body{background:#060b12;color:var(--ui-fg);font:600 14px/1.35 system-ui}
-    .btn{padding:8px 12px;border:0;border-radius:12px;background:#0e2233;color:#e6f7ff;cursor:pointer}
-    .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px 16px}
-    #hud{position:fixed;left:8px;top:8px;background:rgba(0,0,0,.35);color:#e6f7ff;padding:6px 10px;border-radius:10px;font:600 13px system-ui;z-index:10}
-    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:#e6f7ff;z-index:12}
-    #toast{position:fixed;left:50%;top:12px;transform:translateX(-50%);background:rgba(10,12,16,.9);color:#ffcc00;padding:8px 12px;border-radius:10px;font:600 14px/1.1 system-ui;z-index:14;opacity:0;transition:opacity .2s, transform .2s}
-    #feverBar{position:fixed;left:50%;top:8px;transform:translateX(-50%);width:60%;height:10px;border-radius:10px;background:#0b1118;border:1px solid #203446;overflow:hidden;display:none;z-index:10}
-    #feverFill{height:100%;width:0;background:#ffd166}
-    #mission{position:fixed;right:8px;top:8px;background:rgba(0,0,0,.35);padding:6px 10px;border-radius:10px;font:600 12px system-ui;z-index:10}
-    #diffDock, #songDock{position:fixed;right:12px;bottom:12px;z-index:11;background:var(--ui-bg);backdrop-filter:saturate(1.1) blur(4px);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;color:var(--ui-fg);display:flex;align-items:center;gap:8px}
-    #songDock{right:auto;left:12px}
-    select{appearance:none;background:#0e2233;color:#e6f7ff;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 28px 6px 10px;font:600 12px system-ui;cursor:pointer}
-    #enterVRBtn{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:11;padding:10px 16px;border-radius:12px;border:0;background:#0e2233;color:#e6f7ff;cursor:pointer}
-    #ctrls{position:fixed;bottom:12px;right:12px;display:flex;gap:8px;z-index:11}
-    .shake-scene{animation:shake .24s linear} @keyframes shake{25%{transform:translateX(2px)} 50%{transform:translateX(-2px)} 75%{transform:translateX(2px)}}
   </style>
 </head>
 <body>
   <a-scene renderer="colorManagement: true">
+    <!-- เวที -->
     <a-entity id="arena" position="0 0 0"></a-entity>
 
-    <!-- Lanes (4 ช่อง) -->
-    <a-entity id="lanes" position="0 1.4 -2.6">
-      <a-box position="-1.0 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
-      <a-box position="-0.33 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
-      <a-box position="0.33 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
-      <a-box position="1.0 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
+    <!-- 3 เลน (ซ้าย/กลาง/ขวา) -->
+    <a-entity id="lanes" position="0 1.2 -2.6">
+      <a-box position="-0.9 0 0"  depth="0.04" height="1.6" width="0.38" color="#0a0f14" opacity="0.55"></a-box>
+      <a-box position="0 0 0"     depth="0.04" height="1.6" width="0.38" color="#0a0f14" opacity="0.55"></a-box>
+      <a-box position="0.9 0 0"   depth="0.04" height="1.6" width="0.38" color="#0a0f14" opacity="0.55"></a-box>
+      <!-- target line -->
+      <a-box id="targetLine" position="0 -0.78 0.02" depth="0.02" height="0.02" width="3.0" color="#2d7bff" opacity="0.85"></a-box>
     </a-entity>
 
-    <!-- Target bar -->
-    <a-box id="targetBar" position="0 1.2 -2.6" width="3.2" height="0.02" depth="0.04" color="#203446"></a-box>
+    <!-- มือ (จำลองเมาส์) -->
+    <a-entity id="rightHand" position="0.4 1.2 -1"></a-entity>
+
+    <!-- ฉากหลังนิดหน่อย -->
+    <a-entity position="0 1.6 -3">
+      <a-plane width="6" height="3" color="#0a0f14" opacity="0.65"></a-plane>
+    </a-entity>
   </a-scene>
 
   <!-- HUD -->
   <div id="hud">
     <div>Score: <span id="score">0</span></div>
-    <div>Combo: <span id="combo">0</span> · Acc: <span id="acc">0%</span></div>
-    <div>Time: <span id="time">0</span>s · <span id="phase">Normal</span></div>
+    <div>Combo: <span id="combo">0</span></div>
+    <div>Time: <span id="time">60</span>s</div>
   </div>
 
-  <!-- Fever Bar -->
-  <div id="feverBar"><div id="feverFill"></div></div>
-
-  <!-- Mission -->
-  <div id="mission">Mission: —</div>
-
-  <!-- Results -->
+  <!-- ผลลัพธ์ -->
   <section id="results">
-    <div class="card" style="min-width:320px">
+    <div class="card">
       <h3 style="margin:0 0 8px">RESULTS</h3>
-      <div style="margin-bottom:8px">Song: <b id="rSong">—</b></div>
-      <div>Diff: <b id="rDiff">NORMAL</b> · Stars: <b id="rStars">☆☆☆</b></div>
+      <div>Song: <b id="rSong">-</b></div>
       <div>Score: <b id="rScore">0</b></div>
       <div>Max Combo: <b id="rMaxCombo">0</b></div>
       <div>Accuracy: <b id="rAcc">0%</b></div>
-      <div>Mission: <b id="rMission">—</b></div>
       <div style="margin-top:10px; display:flex; gap:8px">
         <button class="btn" id="replayBtn">Replay</button>
         <button class="btn" id="backBtn">Back to Hub</button>
@@ -81,53 +74,72 @@
     </div>
   </section>
 
-  <!-- คอนโทรลหลัก -->
-  <div id="ctrls">
-    <button class="btn" id="startBtn">Start</button>
-    <button class="btn" id="pauseBtn">Pause</button>
-  </div>
-
-  <!-- ปุ่ม Enter VR (กึ่งกลางล่าง) -->
-  <button id="enterVRBtn">Enter VR</button>
-
-  <!-- Dropdown เพลง -->
-  <div id="songDock">
-    <label for="songSel">Song</label>
-    <select id="songSel">
-      <option value="neo">NEO (128 BPM)</option>
-      <option value="rush">RUSH (142 BPM)</option>
-      <option value="zen">ZEN (110 BPM)</option>
+  <!-- Song Dock + ปุ่ม Start/Pause (ย้ายมาชิดกัน) -->
+  <div id="songDock" style="
+    position:fixed; left:12px; bottom:12px; z-index:9999;
+    display:flex; align-items:center; gap:10px;
+    background:var(--ui-bg); backdrop-filter:saturate(1.1) blur(4px);
+    border:1px solid var(--ui-border); border-radius:12px;
+    padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
+    <label for="songSel" style="opacity:.9;">Song</label>
+    <select id="songSel" style="
+      appearance:none; background:#0e2233; color:#e6f7ff;
+      border:1px solid rgba(255,255,255,.12); border-radius:10px;
+      padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
+      <option value="tutorial">Tutorial</option>
+      <option value="neo-run" selected>Neo Run</option>
+      <option value="skyline">Skyline</option>
+      <option value="rush">Rush</option>
     </select>
-    <span aria-hidden="true" style="margin-left:-22px;pointer-events:none;">▼</span>
+    <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
+
+    <div id="playControls" style="display:flex; gap:8px; margin-left:6px;">
+      <button class="btn" id="startBtn" type="button">Start</button>
+      <button class="btn" id="pauseBtn" type="button">Pause</button>
+    </div>
   </div>
 
-  <!-- Dropdown ความยาก -->
-  <div id="diffDock">
-    <label for="diffSel">Difficulty</label>
-    <select id="diffSel">
+  <!-- Difficulty Dock (ขวาล่าง ยกขึ้นนิดหน่อยไม่ชน Song Dock) -->
+  <div id="diffDock" style="
+    position:fixed; right:12px; bottom:72px; z-index:9999;
+    display:flex; align-items:center; gap:8px;
+    background:var(--ui-bg); backdrop-filter:saturate(1.1) blur(4px);
+    border:1px solid var(--ui-border); border-radius:12px;
+    padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
+    <label for="diffSel" style="opacity:.9;">Difficulty</label>
+    <select id="diffSel" style="
+      appearance:none; background:#0e2233; color:#e6f7ff;
+      border:1px solid rgba(255,255,255,.12); border-radius:10px;
+      padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
       <option value="easy">Easy</option>
       <option value="normal" selected>Normal</option>
       <option value="hard">Hard</option>
       <option value="final">Final</option>
     </select>
-    <span aria-hidden="true" style="margin-left:-22px;pointer-events:none;">▼</span>
+    <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
   </div>
 
+  <!-- ปุ่ม Enter VR อยู่กลางล่าง -->
+  <button id="enterVRBtn" type="button">Enter VR</button>
+
   <!-- Core (ถ้ามี) -->
+  <script src="/webxr-health-mobile/vr-fitness/core/i18n.js" defer></script>
   <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
+  <script src="/webxr-health-mobile/vr-fitness/core/engine.js" defer></script>
+  <script src="/webxr-health-mobile/vr-fitness/core/ui.js" defer></script>
   <script src="/webxr-health-mobile/vr-fitness/core/leaderboard.js" defer></script>
 
-  <!-- เกม -->
+  <!-- Game -->
   <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
 
-  <!-- Error Overlay -->
+  <!-- แสดง error รายงานไฟล์/ไลน์ -->
   <script>
     window.addEventListener('error', function(e){
-      const msg = (e.message||'unknown') + (e.filename? (' @ ' + e.filename + ':' + (e.lineno||0) + ':' + (e.colno||0)) : '');
+      const msg = (e.message||'unknown') + (e.filename?(' @ '+e.filename+':'+(e.lineno||0)+':'+(e.colno||0)):'');
       let o=document.getElementById('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
         Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
           display:'grid',placeItems:'center',font:'14px/1.5 system-ui',zIndex:99999}); document.body.appendChild(o);}
-      o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre><p>ตรวจพาธ/ไฟล์ แล้วลองรีโหลด</p></div>';
+      o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre></div>';
     });
   </script>
 </body>
