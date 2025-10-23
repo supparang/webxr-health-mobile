@@ -1,198 +1,343 @@
-/* ===== RHYTHM SPEED+TIMER PATCH (drop-in) =====
-   - เริ่มช้า → เร็วขึ้นตามเวลา + คอมโบ (easing)
-   - สแปว์นโน้ตเริ่มห่าง → ถี่ขึ้นอัตโนมัติ
-   - เวลานับถอยหลังเดินจริง + จบเกมเมื่อหมดเวลา
-   ใช้ร่วมกับตัวแปร/ฟังก์ชันเดิม: running, combo, endGame(), spawnNote(), moveAllNotes(dt), hit detection, etc.
+/* games/rhythm-boxer/game.js
+   Rhythm Boxer · คลิกได้แน่นอน (กัน raycast ทับปุ่ม) · เริ่มช้าแล้วค่อยเร็วขึ้น ·
+   Lane line + Hitline เรืองแสง · Good/Perfect/Miss + SFX · Back to hub ถูกพาธ
 */
+(function(){
+  "use strict";
 
-// ---------- Config ----------
-const GAME_DURATION_SEC = 90;        // ระยะเวลาเล่นทั้งเพลง (แก้ได้)
-const SPEED = {
-  base: 0.35,                        // ความเร็วเริ่มต้น (ช้า)
-  max:  1.25,                        // ความเร็วสูงสุด (จะไต่ไปเรื่อย ๆ)
-  rampSec: 75,                       // ใช้เวลา ~กี่วินาทีถึงโซนเร็ว
-  rampCombo: 120,                    // คอมโบมีผลเร่งด้วย (ถึง ~120 จะช่วยให้เร็วขึ้น)
-};
+  const $ = (id)=>document.getElementById(id);
+  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
 
-const SPAWN = {
-  baseInterval: 1050,                // ช่วงเวลาสแปว์นเริ่มต้น (โน้ตห่าง)
-  minInterval:  420,                 // ถี่สุดที่อนุญาต
-  easeInAfterSec: 50,                // เริ่มเร่งความถี่ราววินาทีที่ 50
-};
+  // -------- State --------
+  const RB = window.RB = { running:false, paused:false };
+  let score=0, combo=0, maxCombo=0, hits=0, notes=0, timeLeft=60;
+  let spawnTimer=null, timeTimer=null, speedPreset='standard';
+  let spawnInterval=1600;          // เริ่มช้ามาก
+  const minIntervalByPreset = { beginner:900, standard:650, challenge:520 };
+  const startIntervalByPreset = { beginner:1800, standard:1600, challenge:1300 };
+  const accelEveryN = 6;           // ทุก 6 ตัว ลด interval ที
+  const accelStep   = 70;          // ลดทีละ 70ms
+  let sinceAccel = 0;
 
-// ---------- State ----------
-let startTime = 0;
-let lastFrame = 0;
-let elapsedSec = 0;
-let nextSpawnAt = 0;                 // timestamp (ms) สำหรับสแปว์นถัดไป
-let currentSpeed = SPEED.base;       // ความเร็วตกของโน้ต (หน่วยตามซีน)
-let timeLeft = GAME_DURATION_SEC;
+  // -------- SFX --------
+  const SFX = {
+    good: new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    perfect: new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
+    miss: new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
+    hit: new Audio(`${ASSET_BASE}/assets/sfx/heavy.wav`)
+  };
+  Object.values(SFX).forEach(a=>a.preload='auto');
 
-// อ้างอิง DOM (ถ้าชื่อ id ต่าง ให้แก้ตรงนี้)
-const timeEl  = document.getElementById('time');   // <span id="time">…</span>
-const scoreEl = document.getElementById('score');
-const comboEl = document.getElementById('combo');
-
-// ---------- Ease helpers ----------
-function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-function easeInOut(t){ // 0..1 → 0..1
-  return t<.5 ? 2*t*t : 1 - Math.pow(-2*t+2, 2)/2;
-}
-
-// ---------- Speed / Spawn compute ----------
-function computeSpeedFactor(){
-  // factor จากเวลา
-  const tf = clamp(elapsedSec / SPEED.rampSec, 0, 1);
-  // factor จากคอมโบ (เร่งขึ้นเล็กน้อย)
-  const cf = clamp((combo || 0) / SPEED.rampCombo, 0, 1);
-  // รวมและทำ easing
-  return easeInOut(clamp(tf + cf*0.6, 0, 1));
-}
-
-function updateSpeedAndSpawnPlan(nowMs){
-  // ความเร็วตกของโน้ต (เริ่มช้า → เร็วขึ้น)
-  const f = computeSpeedFactor();
-  currentSpeed = SPEED.base + (SPEED.max - SPEED.base) * f;
-
-  // คำนวณ interval สแปว์น (เริ่มห่าง → ถี่ขึ้น)
-  let interval = SPAWN.baseInterval;
-  if (elapsedSec >= SPAWN.easeInAfterSec) {
-    const p = clamp((elapsedSec - SPAWN.easeInAfterSec) / (SPEED.rampSec - SPAWN.easeInAfterSec + 1e-6), 0, 1);
-    interval = SPAWN.baseInterval - (SPAWN.baseInterval - SPAWN.minInterval) * easeInOut(p);
+  // -------- HUD --------
+  function updHUD(){
+    $('hudScore').textContent = score;
+    $('hudCombo').textContent = combo;
+    $('hudTime').textContent  = timeLeft;
+    $('hudSpeed').textContent = cap(speedPreset);
   }
-  // ตั้งการสแปว์นครั้งถัดไปถ้าถึงเวลา
-  if (nowMs >= nextSpawnAt) {
-    // เริ่มเกมช่วงแรกให้ห่างจริง ๆ: 10 วินาทีแรกสแปว์นช้ากว่าปกติอีกหน่อย
-    const earlyMul = elapsedSec < 10 ? 1.25 : 1.0;
-    nextSpawnAt = nowMs + interval * earlyMul;
-    spawnNote(); // <-- ใช้ตัวสร้างโน้ตเดิมของเกม
+  const cap = s => (s?.charAt(0).toUpperCase()+s.slice(1));
+
+  function floatWord(text, color){
+    const el = document.createElement('div');
+    el.className='float';
+    el.style.color=color || '#2cff88';
+    el.textContent=text;
+    document.body.appendChild(el);
+    setTimeout(()=>{ try{ el.remove(); }catch(_e){} }, 900);
   }
-}
 
-// ---------- เวลา / HUD ----------
-function updateHUD(){
-  if (scoreEl) scoreEl.textContent = (window.score|0);
-  if (comboEl) comboEl.textContent = (window.combo|0);
-  if (timeEl)  timeEl.textContent  = timeLeft|0;
-}
+  // -------- Notes --------
+  // spawn ที่ตำแหน่งสุ่มในแนว X และตกลงมาตามแกน Y ไปยัง yTarget ≈ 1.0 (ตรงกับ lane/hitline)
+  const ySpawn = 2.6;
+  const yTarget = 1.0;
+  const zLane   = -3.0;
+  const noteColors = ['#2cd1ff','#ff7a7a','#ffd166','#00ffa3','#a899ff'];
+  const noteShapes = ['a-sphere','a-box','a-icosahedron','a-dodecahedron'];
 
-function updateTimer(){
-  const remain = Math.max(0, GAME_DURATION_SEC - Math.floor(elapsedSec));
-  if (remain !== timeLeft){
-    timeLeft = remain;
-    if (timeEl) timeEl.textContent = timeLeft;
-  }
-  if (timeLeft <= 0){
-    endGame?.();  // เรียกฟังก์ชันจบเกมเดิม
-    running = false;
-  }
-}
+  function spawnNote(){
+    if (!RB.running || RB.paused) return;
+    notes++;
+    sinceAccel++;
 
-// ---------- Main Loop ----------
-function mainLoop(ts){
-  if (!running) return;
-  if (!lastFrame){ lastFrame = ts; }
-  const dt = (ts - lastFrame) / 1000;
-  lastFrame = ts;
+    const x = (Math.random()*3.0 - 1.5).toFixed(2);
+    const color = noteColors[(notes)%noteColors.length];
+    const shape = noteShapes[(Math.random()*noteShapes.length)|0];
 
-  // อัปเดตเวลาผ่านไป
-  elapsedSec = (ts - startTime) / 1000;
+    const el = document.createElement(shape);
+    el.classList.add('note','clickable');
+    el.setAttribute('color', color);
+    el.setAttribute('radius', '0.14');
+    el.setAttribute('depth',  '0.28');
+    el.setAttribute('width',  '0.28');
+    el.setAttribute('height', '0.28');
+    el.setAttribute('position', `${x} ${ySpawn} ${zLane}`);
+    el.dataset.spawn = performance.now();
+    el.dataset.hit = '0';
+    $('arena').appendChild(el);
 
-  // อัปเดต speed+แผนสแปว์น
-  updateSpeedAndSpawnPlan(ts);
+    // คลิกเมาส์/ทัช: ตรวจ timing window (กว้างขึ้น)
+    el.addEventListener('click', ()=>{
+      tryHit(el);
+    });
 
-  // ขยับโน้ตทั้งหมดด้วยความเร็วใหม่ (ต้องให้ moveAllNotes อ่าน currentSpeed)
-  moveAllNotes(dt, currentSpeed);
+    // ตกลงมาเองด้วย requestAnimationFrame
+    const speed = 0.65; // หน่วย: m/s (ช้าก่อน)
+    function step(){
+      if (!el.parentNode) return;
+      if (!RB.running) { safeRemove(el); return; }
+      const p = el.object3D.position;
+      const dt = 1/60; // step คงที่พอ
+      p.y -= speed * dt;
+      el.setAttribute('position', `${p.x.toFixed(3)} ${p.y.toFixed(3)} ${zLane}`);
 
-  // อัปเดตเวลา/คะแนนบน HUD
-  updateTimer();
-  updateHUD();
+      if (p.y <= yTarget){
+        // ถ้ายังไม่โดนคลิก ถือว่า MISS แล้วลบ
+        if (el.dataset.hit !== '1'){
+          doMiss();
+        }
+        safeRemove(el);
+        return;
+      }
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
 
-  requestAnimationFrame(mainLoop);
-}
-
-// ---------- Hooks เข้ากับระบบเดิม ----------
-window.RB = window.RB || {};
-// เริ่มเกม / เริ่มเพลง
-window.RB.start = function(){
-  // reset state เดิมของเกมคุณให้เรียบร้อยก่อน (เช่น ล้างโน้ต/คะแนน/คอมโบ ฯลฯ)
-  // ... resetGameState() ...
-  running   = true;
-  startTime = performance.now();
-  lastFrame = 0;
-  elapsedSec= 0;
-  timeLeft  = GAME_DURATION_SEC;
-  nextSpawnAt = startTime + 600; // หน่วงเล็กน้อยก่อนสแปว์นแรก
-  updateHUD();
-  requestAnimationFrame(mainLoop);
-};
-
-// หยุด/พักเกม (ถ้าเกมคุณมีปุ่ม Pause/Resume)
-window.RB.pause = function(){
-  running = false;
-};
-window.RB.resume = function(){
-  if (timeLeft <= 0) return; // หมดเวลาแล้วไม่ resume
-  if (!running){
-    running = true;
-    // ทำให้ lastFrame ทันสมัย เพื่อไม่ให้ dt กระโดด
-    lastFrame = performance.now();
-    requestAnimationFrame(mainLoop);
-  }
-};
-
-// ---------- ตัวอย่าง moveAllNotes(dt, speed) แบบปลอดภัย ----------
-// ถ้าโค้ดเดิมของคุณมีอยู่แล้ว ให้แก้ให้รับ speed และคูณ dt
-function moveAllNotes(dt, fallSpeed){
-  // สมมติเราจัดเก็บรายการโน้ตใน window.notes = [{el, y, lane, hit}, ...]
-  const arr = window.notes || [];
-  const HIT_Y = 0.0;           // y ของเส้น HIT LINE
-  const MISS_BELOW = -0.4;     // ต่ำกว่านี้ถือว่าพลาด
-
-  for (let i=0;i<arr.length;i++){
-    const n = arr[i];
-    if (!n || !n.el) continue;
-    // ตกลงตามความเร็ว (เริ่มจะช้า → เร็วขึ้น)
-    n.y -= fallSpeed * dt;
-
-    // อัปเดตตำแหน่งจริง
-    n.el.setAttribute('position', `${n.x} ${n.y.toFixed(3)} ${n.z}`);
-
-    // เช็ค miss
-    if (!n.hit && n.y < MISS_BELOW){
-      n.hit = true;
-      // เรียกระบบ MISS เดิมของเกม
-      onMiss?.(n);
-      // ลบ object ออกจากฉาก
-      try{ n.el.parentNode && n.el.parentNode.removeChild(n.el); }catch{}
+    // ค่อยๆ ถี่ขึ้น
+    if (sinceAccel >= accelEveryN){
+      sinceAccel = 0;
+      spawnInterval = Math.max(minIntervalByPreset[speedPreset], spawnInterval - accelStep);
+      restartSpawner(); // ใช้ค่าใหม่ทันที
     }
   }
-}
 
-// ---------- ตัวอย่าง spawnNote() เริ่มห่าง ๆ ----------
-// ถ้าโค้ดเดิมของคุณมีอยู่แล้วใช้ต่อได้เลย
-// ให้แน่ใจว่าโน้ตเกิดด้วย y เริ่มสูงพอ (เช่น 2.0) แล้วปล่อยตกลงมาที่ HIT_Y=0
-function spawnNote(){
-  // ตัวอย่างแบบง่าย: สุ่มเลน 0..3
-  const lane = Math.floor(Math.random()*4);
-  const xPos = (-1.2 + lane*0.8);  // ตำแหน่ง x ตามเลน
-  const note = document.createElement('a-cylinder');
-  note.setAttribute('radius','0.14');
-  note.setAttribute('height','0.08');
-  note.setAttribute('color', pickNoteColor());
-  note.classList.add('rb-note','clickable');
-  note.setAttribute('position', `${xPos} 2.0 -2.2`);
-  document.getElementById('arena').appendChild(note);
+  // timing window (ms) กว้างขึ้นให้คลิกง่าย: perfect ±130ms, good ±220ms
+  function tryHit(el){
+    if (!el || el.dataset.hit === '1') return;
+    const t = performance.now() - (+el.dataset.spawn);
+    // เวลาเดินทางจาก ySpawn → yTarget ≈ (ySpawn - yTarget)/speed ≈ ~2.46/0.65 ≈ 3784 ms
+    // เรา normalize โดยสมมุติจังหวะเหมือน note ถึงที่ yTarget ณ ~3800ms หลัง spawn
+    const ideal = 3800;
+    const diff = Math.abs(t - ideal);
 
-  const n = { el:note, x:xPos, y:2.0, z:-2.2, lane, hit:false };
-  window.notes = window.notes || [];
-  window.notes.push(n);
-}
+    if (diff <= 130){
+      el.dataset.hit='1'; doPerfect(); safeRemove(el);
+    } else if (diff <= 220){
+      el.dataset.hit='1'; doGood();    safeRemove(el);
+    } else {
+      // ยังไม่ถือว่าพลาด ปล่อยไว้ตกต่อ
+      // แต่เพิ่ม "Hit Assist": ถ้าคลิกถูก y ใกล้ hitline มากๆ ให้ GOOD เลย
+      const py = el.object3D.position.y;
+      if (Math.abs(py - yTarget) <= 0.08){
+        el.dataset.hit='1'; doGood(); safeRemove(el);
+      }
+    }
+  }
 
-// สีโน้ตหลายสี สุ่มสวย ๆ
-function pickNoteColor(){
-  const palette = ['#00d0ff','#a3ff3b','#ffd166','#ff6b6b','#a899ff','#00ffa3'];
-  return palette[Math.floor(Math.random()*palette.length)];
-}
+  function doGood(){
+    combo++; hits++; score+=10; if (combo>maxCombo) maxCombo=combo;
+    SFX.good.currentTime=0; SFX.good.play().catch(()=>{});
+    updHUD();
+    floatWord('GOOD', '#2cd1ff');
+  }
+  function doPerfect(){
+    combo++; hits++; score+=22; if (combo>maxCombo) maxCombo=combo;
+    SFX.perfect.currentTime=0; SFX.perfect.play().catch(()=>{});
+    updHUD();
+    floatWord('PERFECT', '#00ffa3');
+  }
+  function doMiss(){
+    combo=0; SFX.miss.currentTime=0; SFX.miss.play().catch(()=>{});
+    updHUD();
+    floatWord('MISS', '#ff6b6b');
+  }
 
-/* ===== END PATCH ===== */
+  function safeRemove(el){
+    try{
+      if(!el) return;
+      if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.();
+    }catch(_e){}
+  }
+
+  // -------- Game Flow --------
+  function start(){
+    if (RB.running) return;
+    RB.running = true; RB.paused=false;
+    score=0; combo=0; maxCombo=0; hits=0; notes=0; timeLeft=60; sinceAccel=0;
+
+    // ตั้งค่า interval ตามพรีเซ็ต
+    spawnInterval = startIntervalByPreset[speedPreset];
+
+    updHUD();
+    restartSpawner();
+    timeTimer = setInterval(()=>{
+      if (!RB.running || RB.paused) return;
+      timeLeft--; $('hudTime').textContent=timeLeft;
+      if (timeLeft<=0) endGame();
+    }, 1000);
+
+    // เล่นเพลง (ถ้ามี)
+    playSelectedSong();
+  }
+
+  function restartSpawner(){
+    if (spawnTimer) clearInterval(spawnTimer);
+    spawnTimer = setInterval(()=>{ if(RB.running && !RB.paused) spawnNote(); }, spawnInterval);
+  }
+
+  function pause(){
+    if (!RB.running || RB.paused) return;
+    RB.paused = true;
+  }
+  function resume(){
+    if (!RB.running || !RB.paused) return;
+    RB.paused = false;
+  }
+  function endGame(){
+    RB.running=false; RB.paused=false;
+    if (spawnTimer) clearInterval(spawnTimer);
+    if (timeTimer)  clearInterval(timeTimer);
+    // เก็บสถิติ
+    $('rScore').textContent = score;
+    $('rMaxCombo').textContent = maxCombo;
+    const acc = notes ? Math.round((hits/notes)*100) : 0;
+    $('rAcc').textContent = acc+'%';
+    $('results').style.display='flex';
+    stopSong();
+  }
+
+  RB.start = start; RB.pause=pause; RB.resume=resume;
+
+  // -------- Music (เลือกเพลง) --------
+  let currentAudio = null;
+  function playSelectedSong(){
+    const sel = $('songSel');
+    const v = sel?.value || 'none';
+    const title = sel?.selectedOptions?.[0]?.dataset?.title || '—';
+    $('hudSong').textContent = title;
+    $('rSong').textContent = title;
+
+    stopSong();
+    if (v && v!=='none'){
+      currentAudio = new Audio(v);
+      currentAudio.volume = 0.9;
+      currentAudio.play().catch(()=>{});
+    }
+  }
+  function stopSong(){
+    try{
+      if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
+    }catch(_e){}
+  }
+
+  // -------- Buttons & UI (กันคลิกทะลุฉาก) --------
+  function blockBubble(el){
+    if(!el) return;
+    ['pointerdown','pointerup','touchstart','touchend','mousedown','mouseup','click'].forEach(ev=>{
+      el.addEventListener(ev, e=>{
+        e.stopPropagation();
+        e.stopImmediatePropagation && e.stopImmediatePropagation();
+      }, {capture:true});
+    });
+  }
+
+  function initUI(){
+    const dock  = $('uiDock');
+    const startBtn=$('btnStart'), pauseBtn=$('btnPause'), endBtn=$('btnEnd');
+    const songSel = $('songSel'); const speedSel = $('speedSel');
+
+    [dock,startBtn,pauseBtn,endBtn,songSel,speedSel].forEach(blockBubble);
+
+    startBtn?.addEventListener('click', ()=>{ start(); pauseBtn.textContent='Pause'; });
+    pauseBtn?.addEventListener('click', ()=>{
+      if (!RB.running) return;
+      if (!RB.paused){ pause();  pauseBtn.textContent='Resume'; }
+      else           { resume(); pauseBtn.textContent='Pause'; }
+    });
+    endBtn?.addEventListener('click', ()=> endGame());
+
+    songSel?.addEventListener('change', ()=>{
+      if (RB.running){ playSelectedSong(); }
+      else{
+        const title = songSel?.selectedOptions?.[0]?.dataset?.title || '—';
+        $('hudSong').textContent = title; $('rSong').textContent = title;
+      }
+    });
+
+    speedSel?.addEventListener('change', ()=>{
+      speedPreset = speedSel.value || 'standard';
+      $('hudSpeed').textContent = cap(speedPreset);
+      // รีเซ็ตจังหวะให้ตรงพรีเซ็ตเมื่อกดเริ่มใหม่
+      if (RB.running){
+        // ใช้ค่าปัจจุบันแต่ clamp ด้วย min/max ใหม่
+        spawnInterval = Math.max(minIntervalByPreset[speedPreset], spawnInterval);
+        restartSpawner();
+      }
+    });
+
+    // ปุ่มผลลัพธ์
+    $('replayBtn')?.addEventListener('click', ()=>{
+      $('results').style.display='none';
+      start();
+    });
+    $('backBtn')?.addEventListener('click', ()=>{
+      // กลับ Hub ที่ถูกต้อง
+      window.location.href = 'https://supparang.github.io/webxr-health-mobile/vr-fitness/';
+    });
+
+    // ปุ่ม Enter VR (กลางล่าง)
+    $('enterVRBtn')?.addEventListener('click', ()=>{
+      try{ document.querySelector('a-scene')?.enterVR?.(); }catch(_e){}
+    });
+  }
+
+  // -------- Mouse/Touch Raycast (ข้าม UI เสมอ) --------
+  (function installPointerRaycast(){
+    function overUIDockAt(x,y){
+      const el = document.elementFromPoint(x,y);
+      return !!(el && el.closest && el.closest('#uiDock'));
+    }
+    const sceneEl = document.querySelector('a-scene');
+    if (!sceneEl || !window.THREE) return;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function pick(clientX, clientY){
+      if (overUIDockAt(clientX, clientY)) return;
+      const cam = sceneEl.camera; if (!cam) return;
+      mouse.x =  (clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, cam);
+      const clickable = Array.from(document.querySelectorAll('.clickable'))
+        .map(el => el.object3D).filter(Boolean);
+      const objects = [];
+      clickable.forEach(o => o.traverse(child => objects.push(child)));
+      const hits = raycaster.intersectObjects(objects, true);
+      if (hits && hits.length){
+        let obj = hits[0].object;
+        while (obj && !obj.el) obj = obj.parent;
+        if (obj && obj.el){ obj.el.emit('click'); }
+      }
+    }
+    window.addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
+    window.addEventListener('touchstart', e=>{
+      const t = e.touches && e.touches[0]; if (!t) return;
+      pick(t.clientX, t.clientY);
+    }, {passive:true});
+  })();
+
+  // -------- Boot --------
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=>{
+      speedPreset = ($('speedSel')?.value)||'standard';
+      $('hudSpeed').textContent = cap(speedPreset);
+      updHUD();
+      initUI();
+    });
+  }else{
+    speedPreset = ($('speedSel')?.value)||'standard';
+    $('hudSpeed').textContent = cap(speedPreset);
+    updHUD();
+    initUI();
+  }
+})();
