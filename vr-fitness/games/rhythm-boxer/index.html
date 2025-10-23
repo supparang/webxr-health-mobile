@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- ให้เกมรู้ฐานพาธสำหรับ asset -->
+  <!-- เป้าหมายพาธหลักของแอสเซ็ต -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
   <!-- A-Frame -->
@@ -13,133 +13,117 @@
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    :root { --ui-bg: rgba(10,16,24,.75); --ui-border: rgba(255,255,255,.08); }
-    body { background:#070b10; }
-    .btn{ padding:8px 12px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer; font:600 12px system-ui; }
-    .btn:active{ transform:translateY(1px); }
-    #hud{position:fixed;left:12px;top:12px;background:rgba(0,0,0,.35);color:#e6f7ff;padding:6px 10px;border-radius:10px;font:600 13px system-ui;z-index:10}
-    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:#e6f7ff;z-index:20}
-    .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px 16px;min-width:300px}
-    /* Enter VR กลางล่าง */
+    body{background:#05090f;color:#e6f7ff;font-family:system-ui,Segoe UI,Arial}
+    /* แถบควบคุมด้านบน */
+    #topbar{
+      position:fixed;left:12px;right:12px;top:10px;z-index:9999;
+      display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+      background:rgba(10,16,24,.75);backdrop-filter:saturate(1.1) blur(4px);
+      border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;
+    }
+    #topbar label{opacity:.9;font-weight:700;font-size:12px;letter-spacing:.3px}
+    .sel, .btn{
+      appearance:none;-webkit-appearance:none;-moz-appearance:none;
+      background:#0e2233;color:#e6f7ff;border:1px solid rgba(255,255,255,.12);
+      border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;
+    }
+    .btn{border:0}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    /* HUD */
+    #hud{
+      position:fixed;right:12px;top:10px;z-index:9998;
+      background:rgba(0,0,0,.35);padding:6px 10px;border-radius:10px;
+      font-weight:700;font-size:13px;line-height:1.2;pointer-events:none;
+    }
+    /* เส้น Hit line */
+    #hitline{
+      position:fixed;left:50%;transform:translateX(-50%);
+      bottom:22%;width:70%;height:2px;background:linear-gradient(90deg,#203446,transparent,#203446);
+      opacity:.75;pointer-events:none;
+    }
+    /* พื้นที่แสดงผลเกม ไม่บังคลิก */
+    #overlay{position:fixed;inset:0;pointer-events:none}
+    /* Toast */
+    #toast{
+      position:fixed;left:50%;transform:translateX(-50%);
+      top:52px;background:rgba(10,12,16,.9);color:#ffcc00;padding:8px 12px;border-radius:10px;
+      font:600 14px/1.1 system-ui,Arial;z-index:10000;letter-spacing:.4px;opacity:0;transition:.2s;
+    }
+    /* Enter VR ให้อยู่กลางล่าง */
     #enterVRBtn{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:12px; z-index:9999; padding:8px 16px;
-      border:0; border-radius:12px; background:#0e2233; color:#e6f7ff; font:600 12px system-ui;
-      box-shadow:0 6px 20px rgba(0,0,0,.4);
+      position:fixed;left:50%;bottom:12px;transform:translateX(-50%);
+      z-index:9999;padding:10px 14px;border-radius:12px;border:0;background:#0e2233;color:#e6f7ff;cursor:pointer;
+      font-weight:800
     }
   </style>
 </head>
 <body>
-  <a-scene renderer="colorManagement: true">
-    <!-- เวที -->
-    <a-entity id="arena" position="0 0 0"></a-entity>
-
-    <!-- 3 เลน (ซ้าย/กลาง/ขวา) -->
-    <a-entity id="lanes" position="0 1.2 -2.6">
-      <a-box position="-0.9 0 0"  depth="0.04" height="1.6" width="0.38" color="#0a0f14" opacity="0.55"></a-box>
-      <a-box position="0 0 0"     depth="0.04" height="1.6" width="0.38" color="#0a0f14" opacity="0.55"></a-box>
-      <a-box position="0.9 0 0"   depth="0.04" height="1.6" width="0.38" color="#0a0f14" opacity="0.55"></a-box>
-      <!-- target line -->
-      <a-box id="targetLine" position="0 -0.78 0.02" depth="0.02" height="0.02" width="3.0" color="#2d7bff" opacity="0.85"></a-box>
-    </a-entity>
-
-    <!-- มือ (จำลองเมาส์) -->
-    <a-entity id="rightHand" position="0.4 1.2 -1"></a-entity>
-
-    <!-- ฉากหลังนิดหน่อย -->
-    <a-entity position="0 1.6 -3">
-      <a-plane width="6" height="3" color="#0a0f14" opacity="0.65"></a-plane>
-    </a-entity>
-  </a-scene>
-
-  <!-- HUD -->
-  <div id="hud">
-    <div>Score: <span id="score">0</span></div>
-    <div>Combo: <span id="combo">0</span></div>
-    <div>Time: <span id="time">60</span>s</div>
-  </div>
-
-  <!-- ผลลัพธ์ -->
-  <section id="results">
-    <div class="card">
-      <h3 style="margin:0 0 8px">RESULTS</h3>
-      <div>Song: <b id="rSong">-</b></div>
-      <div>Score: <b id="rScore">0</b></div>
-      <div>Max Combo: <b id="rMaxCombo">0</b></div>
-      <div>Accuracy: <b id="rAcc">0%</b></div>
-      <div style="margin-top:10px; display:flex; gap:8px">
-        <button class="btn" id="replayBtn">Replay</button>
-        <button class="btn" id="backBtn">Back to Hub</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Song Dock + ปุ่ม Start/Pause (ย้ายมาชิดกัน) -->
-  <div id="songDock" style="
-    position:fixed; left:12px; bottom:12px; z-index:9999;
-    display:flex; align-items:center; gap:10px;
-    background:var(--ui-bg); backdrop-filter:saturate(1.1) blur(4px);
-    border:1px solid var(--ui-border); border-radius:12px;
-    padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
-    <label for="songSel" style="opacity:.9;">Song</label>
-    <select id="songSel" style="
-      appearance:none; background:#0e2233; color:#e6f7ff;
-      border:1px solid rgba(255,255,255,.12); border-radius:10px;
-      padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
-      <option value="tutorial">Tutorial</option>
-      <option value="neo-run" selected>Neo Run</option>
-      <option value="skyline">Skyline</option>
-      <option value="rush">Rush</option>
+  <!-- แถบควบคุม -->
+  <div id="topbar">
+    <label for="songSel">Song</label>
+    <select id="songSel" class="sel">
+      <option value="intro">Intro Groove (60s)</option>
+      <option value="rush">Rush Combo (60s)</option>
+      <option value="boss">Boss Drive (60s)</option>
     </select>
-    <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
 
-    <div id="playControls" style="display:flex; gap:8px; margin-left:6px;">
-      <button class="btn" id="startBtn" type="button">Start</button>
-      <button class="btn" id="pauseBtn" type="button">Pause</button>
-    </div>
-  </div>
-
-  <!-- Difficulty Dock (ขวาล่าง ยกขึ้นนิดหน่อยไม่ชน Song Dock) -->
-  <div id="diffDock" style="
-    position:fixed; right:12px; bottom:72px; z-index:9999;
-    display:flex; align-items:center; gap:8px;
-    background:var(--ui-bg); backdrop-filter:saturate(1.1) blur(4px);
-    border:1px solid var(--ui-border); border-radius:12px;
-    padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
-    <label for="diffSel" style="opacity:.9;">Difficulty</label>
-    <select id="diffSel" style="
-      appearance:none; background:#0e2233; color:#e6f7ff;
-      border:1px solid rgba(255,255,255,.12); border-radius:10px;
-      padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
+    <label for="diffSel">Difficulty</label>
+    <select id="diffSel" class="sel">
       <option value="easy">Easy</option>
       <option value="normal" selected>Normal</option>
       <option value="hard">Hard</option>
       <option value="final">Final</option>
     </select>
-    <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
+
+    <button id="startBtn" class="btn">Start</button>
+    <button id="pauseBtn" class="btn" disabled>Pause</button>
   </div>
 
-  <!-- ปุ่ม Enter VR อยู่กลางล่าง -->
-  <button id="enterVRBtn" type="button">Enter VR</button>
+  <!-- HUD -->
+  <div id="hud">
+    <div>Score: <span id="sc">0</span></div>
+    <div>Combo: <span id="cb">0</span></div>
+    <div>Time: <span id="tm">60</span>s</div>
+  </div>
 
-  <!-- Core (ถ้ามี) -->
-  <script src="/webxr-health-mobile/vr-fitness/core/i18n.js" defer></script>
+  <!-- เส้น hit line อิงตำแหน่ง y -->
+  <div id="hitline"></div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- A-Frame Scene -->
+  <a-scene renderer="colorManagement: true">
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity camera look-controls="enabled:false"></a-entity>
+    </a-entity>
+
+    <!-- เวที -->
+    <a-plane position="0 1.2 -2.2" width="3.2" height="2.2" color="#0a0f14" opacity="0.75"></a-plane>
+
+    <!-- ลู่ซ้าย กลาง ขวา -->
+    <a-entity id="lanes" position="0 0 -2.2"></a-entity>
+    <a-entity position="-0.9 0 -2.2"><a-box width="0.02" height="1.6" depth="0.01" color="#163042"></a-box></a-entity>
+    <a-entity position="0 0 -2.2"><a-box width="0.02" height="1.6" depth="0.01" color="#163042"></a-box></a-entity>
+    <a-entity position="0.9 0 -2.2"><a-box width="0.02" height="1.6" depth="0.01" color="#163042"></a-box></a-entity>
+  </a-scene>
+
+  <!-- ปุ่ม Enter VR (กลางล่าง) -->
+  <button id="enterVRBtn">Enter VR</button>
+
+  <!-- Core (optional) -->
   <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
-  <script src="/webxr-health-mobile/vr-fitness/core/engine.js" defer></script>
-  <script src="/webxr-health-mobile/vr-fitness/core/ui.js" defer></script>
-  <script src="/webxr-health-mobile/vr-fitness/core/leaderboard.js" defer></script>
 
   <!-- Game -->
   <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
 
-  <!-- แสดง error รายงานไฟล์/ไลน์ -->
+  <!-- Error overlay แบบละเอียด -->
   <script>
     window.addEventListener('error', function(e){
-      const msg = (e.message||'unknown') + (e.filename?(' @ '+e.filename+':'+(e.lineno||0)+':'+(e.colno||0)):'');
-      let o=document.getElementById('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
-        Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
-          display:'grid',placeItems:'center',font:'14px/1.5 system-ui',zIndex:99999}); document.body.appendChild(o);}
-      o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre></div>';
+      const t=document.getElementById('toast');
+      t.textContent = (e.message||'Script error') + (e.filename? (' @ '+e.filename+':'+(e.lineno||0)+':'+(e.colno||0)):'');
+      t.style.opacity='1'; t.style.transform='translateX(-50%) scale(1.02)';
+      setTimeout(()=>{t.style.opacity='0'; t.style.transform='translateX(-50%) scale(1)';}, 2000);
     });
   </script>
 </body>
