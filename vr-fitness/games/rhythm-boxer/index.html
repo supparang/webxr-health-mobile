@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- บอก game.js ว่าฐานพาธอยู่ตรงไหน -->
+  <!-- ชี้ฐานพาธให้เกมรู้ -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
   <!-- A-Frame -->
@@ -13,24 +13,21 @@
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    /* ให้แคนวาสของ A-Frame ไม่กินคลิก เพื่อให้ปุ่ม UI คลิกได้ */
     a-scene, a-scene canvas { position:fixed; inset:0; }
+    /* ปล่อยให้ UI คลิกได้ */
     a-scene canvas { pointer-events:none !important; }
+    .ui-layer { position:fixed; z-index:9999; pointer-events:auto; user-select:none; }
 
-    /* ชั้น UI ทั้งหมดให้คลิกได้ */
-    .ui-layer { position:fixed; inset:auto; z-index:9999; pointer-events:auto; user-select:none; }
-
-    /* HUD ขวาบน (ย้ายลงมาเลี่ยงชนขอบ) */
+    /* HUD ขวาบน (เลื่อนลงนิดหนึ่งกันชน) */
     #rbHUD {
-      top: 10px; right: 10px; left:auto; bottom:auto;
+      top: 12px; right: 12px;
       background: rgba(0,0,0,.35); color:#e6f7ff;
       padding:8px 10px; border-radius:10px; font:600 12px system-ui;
     }
 
-    /* Dock ปุ่ม + ความเร็ว (มุมขวาล่าง) */
+    /* DOCK ปุ่ม ขวาล่าง */
     #rbDock {
-      right: 12px; bottom: 12px; left:auto; top:auto;
-      display:flex; align-items:center; gap:8px;
+      right: 12px; bottom: 12px; display:flex; gap:8px; align-items:center;
       background: rgba(10,16,24,.75); backdrop-filter:saturate(1.1) blur(4px);
       border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:8px 10px;
       color:#e6f7ff; font:600 12px system-ui;
@@ -45,7 +42,7 @@
       padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;
     }
 
-    /* หน้าผลลัพธ์ */
+    /* RESULT OVERLAY */
     #rbResults {
       position:fixed; inset:0; display:none; align-items:center; justify-content:center;
       background: rgba(0,0,0,.55); color:#e6f7ff; z-index:9999; pointer-events:auto;
@@ -54,21 +51,20 @@
   </style>
 </head>
 <body>
-  <!-- ฉาก A-Frame -->
+  <!-- ฉาก -->
   <a-scene renderer="colorManagement:true">
     <a-entity id="rbArena" position="0 0 0"></a-entity>
-    <!-- กล้องพื้นฐาน -->
     <a-entity camera look-controls position="0 1.6 0"></a-entity>
   </a-scene>
 
-  <!-- HUD ขวาบน -->
+  <!-- HUD -->
   <div id="rbHUD" class="ui-layer">
     <div>Score: <span id="rbScore">0</span></div>
     <div>Combo: <span id="rbCombo">0</span> · Acc: <span id="rbAcc">0%</span></div>
     <div>Time: <span id="rbTime">60s</span></div>
   </div>
 
-  <!-- Dock ปุ่ม + ความเร็ว (Start/Pause/Replay/Back + Speed) -->
+  <!-- ปุ่มควบคุม -->
   <div id="rbDock" class="ui-layer">
     <label for="speedSelRB" style="opacity:.9;letter-spacing:.3px;">Speed</label>
     <select id="speedSelRB">
@@ -82,8 +78,8 @@
     <button class="btn" id="rbBack">Back to Hub</button>
   </div>
 
-  <!-- หน้าผลลัพธ์ -->
-  <section id="rbResults" class="ui-layer" style="inset:0">
+  <!-- ผลลัพธ์ -->
+  <section id="rbResults" class="ui-layer">
     <div class="card">
       <h3 style="margin:0 0 8px">RESULTS</h3>
       <div>Score: <b id="rbResScore">0</b></div>
@@ -99,7 +95,6 @@
   <!-- เกม -->
   <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
 
-  <!-- ปุ่มใน Results ให้คลิกได้ -->
   <script>
     document.addEventListener('DOMContentLoaded', ()=>{
       const $ = (id)=>document.getElementById(id);
