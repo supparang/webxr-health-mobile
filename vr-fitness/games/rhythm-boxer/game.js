@@ -1,356 +1,435 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · game.js (Hit-Assist + Wider Timing Window + Multi-Color Notes + Lane/Hit Lines)
+   Rhythm Boxer · game.js (Lane Lines + Hit Line Glow + Raycast Click/Touch + Hit-Assist + 3 Speeds + Stable Buttons)
 */
 (function(){
   "use strict";
 
-  // ---------- Helpers ----------
-  const byId = (id)=>document.getElementById(id);
-  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+  // ===== Helpers ============================================================
+  const $ = (id)=>document.getElementById(id);
+  const q = (sel)=>document.querySelector(sel);
+  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
+  function safeRemove(el){
+    try{
+      if(!el) return;
+      if(!el.isConnected && !el.parentNode) return;
+      if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.();
+    }catch(_){}
+  }
+  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+  function rng(){ return Math.random(); }
+  function pick(arr){ return arr[Math.floor(rng()*arr.length)]; }
   const getQ=(k)=>new URLSearchParams(location.search).get(k);
-  const ASSET_BASE=(document.querySelector('meta[name="asset-base"]')?.content||'').replace(/\/+$/,'');
-  const HUB_URL = `${location.origin}/webxr-health-mobile/vr-fitness/`;
 
-  // Safe remove to avoid "removeChild of null"
-  function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_){} }
+  // ===== Scene / Layout =====================================================
+  const ARENA_ID = 'rbArena';
+  const Z_POS   = -3.0;                 // z ที่เลน/โน้ต/ฮิตไลน์อยู่
+  const LANES   = [-0.9, 0, 0.9];       // x ของเลน 0..2
+  const HIT_Y   = 1.00;                 // y ตำแหน่งฮิต
+  const TOP_Y   = 2.3;                  // y spawn โน้ต
+  const NOTE_Z  = Z_POS;
 
-  // ---------- Audio ----------
-  const SFX = {
-    hitP:  new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
-    hitG:  new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
-    assist:new Audio(`${ASSET_BASE}/assets/sfx/laser.wav`),
-    miss:  new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
-    combo: new Audio(`${ASSET_BASE}/assets/sfx/combo.wav`),
-    ui:    new Audio(`${ASSET_BASE}/assets/sfx/success.wav`)
-  };
-  Object.values(SFX).forEach(a=>a.onerror=()=>{ /* ignore missing */ });
-
-  // ---------- Difficulty / Speed profiles ----------
+  // ===== Speed Profiles =====================================================
   const SPEEDS = {
-    beginner: { baseSpeed: 0.42, accel: 0.00012,  window: 0.26, perfect: 0.12, assistLaneTol: 1, assistWindow: 0.32 },
-    standard: { baseSpeed: 0.56, accel: 0.00018,  window: 0.22, perfect: 0.10, assistLaneTol: 1, assistWindow: 0.28 },
-    challenge:{ baseSpeed: 0.72, accel: 0.00024,  window: 0.18, perfect: 0.08, assistLaneTol: 1, assistWindow: 0.24 }
+    beginner: { baseSpeed: 0.42, accel: 0.00012, window: 0.30, perfect: 0.14, assistLaneTol: 1.00, assistWindow: 0.36 },
+    standard: { baseSpeed: 0.56, accel: 0.00018, window: 0.26, perfect: 0.12, assistLaneTol: 0.95, assistWindow: 0.32 },
+    challenge:{ baseSpeed: 0.72, accel: 0.00024, window: 0.22, perfect: 0.10, assistLaneTol: 0.90, assistWindow: 0.28 }
   };
   function getSpeedKey(){
-    const q=getQ('speed')||getQ('diff'); // allow ?diff=
-    const ls=localStorage.getItem('rb_speed');
-    const story=window.APP?.story?.difficulty;
-    const key=(q||ls||story||'standard').toLowerCase();
-    return (key==='beginner'||key==='challenge')?key:'standard';
+    const q = getQ('speed') || localStorage.getItem('rb_speed');
+    return (q && SPEEDS[q]) ? q : 'standard';
   }
-  let CFG=SPEEDS.standard;
+  let CFG = SPEEDS[getSpeedKey()];
 
-  // ---------- Scene constants ----------
-  const LANES = [ -0.8, 0, 0.8 ];  // x-positions
-  const SPAWN_Y = 2.2;
-  const HIT_Y   = 0.95;            // where to hit
-  const MISS_Y  = 0.72;            // lower than this without hit => miss
-  const Z_POS   = -2.2;
+  // ===== State ==============================================================
+  let running=false, paused=false;
+  let t0=0, lastT=0, timerHUD=null, spawnIv=null;
+  let score=0, combo=0, maxCombo=0, hitCount=0, totalNotes=0;
+  let levelTime=60; // วินาทีต่อเพลง (เดโม่)
+  let elapsed=0;
 
-  // Note visuals
-  const NOTE_COLORS = ['#11e1ff','#00ffa3','#ffd166','#ff6b6b','#a899ff','#8cf5ff'];
-  const SHAPES = ['a-sphere','a-box','a-tetrahedron']; // rotate for variety
+  // โน้ต: { lane:0..2, y:number, spd:number, color:string, el:a-entity }
+  const notes = [];
 
-  // ---------- Game state ----------
-  let running=false, paused=false, rafId=0, startT=0;
-  let notes=[];         // { lane, y, speed, el, bornAt, color }
-  let score=0, combo=0, maxCombo=0, hitCount=0, missCount=0, spawned=0;
-  let speedMul=1;
+  // ===== SFX ================================================================
+  const SFX = {
+    hitP: new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
+    hitG: new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    assist: new Audio(`${ASSET_BASE}/assets/sfx/laser.wav`),
+    miss: new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
+    combo: new Audio(`${ASSET_BASE}/assets/sfx/combo.wav`),
+    start: new Audio(`${ASSET_BASE}/assets/sfx/success.wav`),
+    pause: new Audio(`${ASSET_BASE}/assets/sfx/tel_guard.wav`)
+  };
+  Object.values(SFX).forEach(a=>{ a.crossOrigin="anonymous"; a.preload="auto"; });
 
-  // ---------- HUD ----------
+  // ===== UI ================================================================
   function updateHUD(){
-    byId('rbScore')?.setAttribute('value', `Score: ${score}`);
-    byId('rbCombo')?.setAttribute('value', `Combo: ${combo}`);
+    const acc = totalNotes ? Math.round((hitCount/totalNotes)*100) : 0;
+    $('rbScore') && ( $('rbScore').textContent = score );
+    $('rbCombo') && ( $('rbCombo').textContent = combo );
+    $('rbAcc')   && ( $('rbAcc').textContent   = acc + '%' );
+    $('rbTime')  && ( $('rbTime').textContent  = Math.max(0, Math.ceil(levelTime - elapsed)) + 's' );
   }
-  function flashHitLine(kind){
-    const hl=byId('rbHitLine');
-    if(!hl) return;
-    const c = kind==='perfect' ? '#00ffa3' : (kind==='assist' ? '#9bd1ff' : '#ffd166');
-    hl.setAttribute('material',`color:${c};opacity:0.95;emissive:${c};emissiveIntensity:0.6;shader:standard;transparent:true`);
-    clearTimeout(hl._t);
-    hl._t=setTimeout(()=>{
-      hl.setAttribute('material','color:#21d07a;opacity:0.85;emissive:#21d07a;emissiveIntensity:0.45;shader:standard;transparent:true');
-    },120);
+  function showResults(){
+    const acc = totalNotes ? Math.round((hitCount/totalNotes)*100) : 0;
+    $('rbResScore') && ( $('rbResScore').textContent = score );
+    $('rbResCombo') && ( $('rbResCombo').textContent = maxCombo );
+    $('rbResAcc')   && ( $('rbResAcc').textContent   = acc + '%' );
+    $('rbResults') && ( $('rbResults').style.display = 'flex' );
+  }
+  function hideResults(){ $('rbResults') && ( $('rbResults').style.display = 'none' ); }
+
+  // ===== Build Lanes / Hit Line ============================================
+  function ensureArena(){
+    if($(ARENA_ID)) return $(ARENA_ID);
+    const a = document.createElement('a-entity');
+    a.setAttribute('id', ARENA_ID);
+    a.setAttribute('position', `0 0 0`);
+    q('a-scene').appendChild(a);
+    return a;
   }
 
-  // ---------- Build static lane / hit lines ----------
-  function buildRails(){
-    const arena=byId('arena'); if(!arena) return;
+  function buildLanes(){
+    const arena = ensureArena();
 
-    // Clear previous rails
-    ['rbLane0','rbLane1','rbLane2','rbHitLine','rbHUDScore','rbHUDCombo'].forEach(id=>{
-      const el=byId(id); if(el) safeRemove(el);
+    // clear previous
+    Array.from(arena.children).forEach(c=>{
+      if(c.dataset?.rb === 'lane' || c.dataset?.rb === 'hitline') safeRemove(c);
     });
 
-    // Lane guideline lines (faint)
+    // Lane lines (เส้นแนวตั้ง)
     LANES.forEach((x,i)=>{
-      const line=document.createElement('a-entity'); line.id=`rbLane${i}`;
-      line.setAttribute('geometry','primitive: box; width: 0.04; height: 2.0; depth: 0.01');
-      line.setAttribute('material','color:#0e2233;opacity:0.35;transparent:true');
-      line.setAttribute('position',`${x} ${(SPAWN_Y+MISS_Y)/2} ${Z_POS}`);
+      const line = document.createElement('a-entity');
+      line.dataset.rb='lane';
+      line.setAttribute('geometry','primitive: box; width: 0.04; height: 2.4; depth: 0.02');
+      line.setAttribute('material','color: #223a50; opacity: 0.85; transparent: true');
+      line.setAttribute('position', `${x} 1.6 ${Z_POS}`);
       arena.appendChild(line);
+
+      // หมุดที่ใต้ฮิตไลน์ (เล็กๆ)
+      const peg = document.createElement('a-entity');
+      peg.dataset.rb='lane';
+      peg.setAttribute('geometry','primitive: box; width: 0.12; height: 0.06; depth: 0.02');
+      peg.setAttribute('material','color: #294b66; opacity: 0.95; transparent: true');
+      peg.setAttribute('position', `${x} ${HIT_Y-0.06} ${Z_POS}`);
+      arena.appendChild(peg);
     });
 
-    // Glowing HIT LINE (green)
-    const hit=document.createElement('a-entity'); hit.id='rbHitLine';
-    hit.setAttribute('geometry','primitive: box; width: 2.6; height: 0.03; depth: 0.01');
-    hit.setAttribute('material','color:#21d07a;opacity:0.85;emissive:#21d07a;emissiveIntensity:0.45;shader:standard;transparent:true');
-    hit.setAttribute('position',`0 ${HIT_Y} ${Z_POS}`);
-    byId('arena').appendChild(hit);
-
-    // HUD (A-Frame text soไม่โดน DOM บัง)
-    const hudScore=document.createElement('a-entity');
-    hudScore.id='rbHUDScore';
-    hudScore.setAttribute('text',{value:'Score: 0', color:'#e6f7ff', align:'right', width:3.6});
-    hudScore.setAttribute('position',`1.35 2.25 ${Z_POS}`);
-    arena.appendChild(hudScore);
-
-    const hudCombo=document.createElement('a-entity');
-    hudCombo.id='rbHUDCombo';
-    hudCombo.setAttribute('text',{value:'Combo: 0', color:'#e6f7ff', align:'right', width:3.6});
-    hudCombo.setAttribute('position',`1.35 2.05 ${Z_POS}`);
-    arena.appendChild(hudCombo);
-
-    // Map HUD ids for easy update
-    hudScore.setAttribute('id','rbScore');
-    hudCombo.setAttribute('id','rbCombo');
+    // HIT LINE (เรืองแสง)
+    const hit = document.createElement('a-entity');
+    hit.dataset.rb='hitline';
+    hit.setAttribute('geometry','primitive: box; width: 3.0; height: 0.03; depth: 0.02');
+    hit.setAttribute('material','color: #00ff8a; opacity: 0.9; emissive: #00ff8a; emissiveIntensity: 0.7; transparent: true');
+    hit.setAttribute('position', `0 ${HIT_Y} ${Z_POS}`);
+    hit.setAttribute('animation__pulse','property: material.emissiveIntensity; dir: alternate; to: 1.0; loop: true; dur: 600; easing: easeInOutSine');
+    ensureArena().appendChild(hit);
   }
 
-  // ---------- Spawning ----------
-  function spawnNote(){
-    const lane = Math.floor(Math.random()*LANES.length);
-    const shape = SHAPES[Math.floor(Math.random()*SHAPES.length)];
-    const color = NOTE_COLORS[Math.floor(Math.random()*NOTE_COLORS.length)];
+  function flashHitLine(kind){
+    const hit = Array.from(ensureArena().children).find(c=>c.dataset?.rb==='hitline');
+    if(!hit) return;
+    const col = (kind==='perfect') ? '#20ffa0' : (kind==='good' ? '#a0ffea' : '#ffe37a');
+    hit.setAttribute('material', `color:${col}; emissive:${col}; emissiveIntensity:1; opacity:0.95; transparent:true`);
+    setTimeout(()=> hit.setAttribute('material','color:#00ff8a; emissive:#00ff8a; emissiveIntensity:0.7; opacity:0.9; transparent:true'), 120);
+  }
 
-    const el=document.createElement(shape);
-    el.setAttribute('position',`${LANES[lane]} ${SPAWN_Y} ${Z_POS}`);
-    el.setAttribute('scale','0.22 0.22 0.22');
-    el.setAttribute('material',`color:${color};emissive:${color};emissiveIntensity:0.25;metalness:0.1;roughness:0.8`);
+  // ===== Note Factory =======================================================
+  const NOTE_SHAPES = ['a-sphere','a-box','a-tetrahedron','a-octahedron'];
+  const NOTE_COLORS = ['#00d0ff','#ffd166','#ff6b6b','#00ffa3','#a899ff'];
+
+  function spawnNote(lane, speedMul=1){
+    const arena = ensureArena();
+    const elTag = pick(NOTE_SHAPES);
+    const el = document.createElement(elTag);
+
+    const color = pick(NOTE_COLORS);
     el.classList.add('rb-note','clickable');
-    if(shape!=='a-sphere'){
-      // rotate non-sphere for visual flair
-      el.setAttribute('animation__rot','property: rotation; to: 0 360 0; loop: true; dur: 2600; easing: linear');
-    }
-    byId('arena').appendChild(el);
+    el.setAttribute('color', color);
+    el.setAttribute('position', `${LANES[lane]} ${TOP_Y} ${NOTE_Z}`);
+    // ขนาด/รูปร่าง
+    if(elTag==='a-sphere') el.setAttribute('radius','0.12');
+    else if(elTag==='a-box') el.setAttribute('depth','0.16'), el.setAttribute('width','0.16'), el.setAttribute('height','0.16');
+    else el.setAttribute('radius','0.12');
 
-    const speed = CFG.baseSpeed * speedMul; // world units per second (y-axis downward)
-    notes.push({lane, y:SPAWN_Y, speed, el, bornAt:performance.now(), color});
-    spawned++;
+    arena.appendChild(el);
+
+    // ความเร็วเฉพาะโน้ต
+    const spd = (CFG.baseSpeed + elapsed*CFG.accel) * speedMul;
+
+    notes.push({ lane, y: TOP_Y, spd, color, el });
+    totalNotes++;
   }
 
-  // ---------- Judge ----------
-  function judgeHit(inputLane){
-    if(!running || paused) return;
-
-    // find closest note by |y - HIT_Y| within main window in preferred lane
-    let best=null, bestDy=Infinity, bestIdx=-1, bestLaneDiff=Infinity, bestKind='';
-
-    const now=performance.now();
-    for(let i=0;i<notes.length;i++){
-      const n=notes[i];
-      // skip already below miss line or too high
-      if(n.y < MISS_Y-0.05 || n.y > SPAWN_Y+0.05) continue;
-
-      const dy = Math.abs(n.y - HIT_Y);
-      const laneDiff = Math.abs(n.lane - inputLane);
-
-      // perfect/good in same lane
-      if(laneDiff===0 && dy <= CFG.window){
-        if(dy<bestDy){ best=n; bestDy=dy; bestIdx=i; bestLaneDiff=0; bestKind = (dy<=CFG.perfect?'perfect':'good'); }
-      }
-
-      // assist: adjacent lane within a slightly larger window
-      if(laneDiff>0 && laneDiff<=CFG.assistLaneTol && dy <= CFG.assistWindow){
-        // prefer same-lane matches; else allow assist if no better found
-        if(bestLaneDiff>0){ // only if not already found same-lane candidate
-          if(dy<bestDy){ best=n; bestDy=dy; bestIdx=i; bestLaneDiff=laneDiff; bestKind='assist'; }
-        }
-      }
-    }
-
-    if(best){
-      // score
-      let add=0;
-      if(bestKind==='perfect'){ add=120; SFX.hitP.play().catch(()=>{}); combo+=1; }
-      else if(bestKind==='good'){ add=80; SFX.hitG.play().catch(()=>{}); combo+=1; }
-      else { add=60; SFX.assist.play().catch(()=>{}); combo=Math.max(0, combo+1); }
-
-      if(combo>0 && combo%10===0){ try{ SFX.combo.play(); }catch(_){ } }
-
-      score += add + Math.floor(combo*1.5);
-      hitCount++;
-      updateHUD();
-      flashHitLine(bestKind);
-
-      // pop animation + remove
-      best.el.setAttribute('animation__out','property: scale; to: 0.001 0.001 0.001; dur: 100; easing: easeInBack');
-      const rm=best.el; setTimeout(()=>safeRemove(rm), 110);
-      notes.splice(bestIdx,1);
+  // สุ่มสไตล์สปอน
+  function spawnPattern(){
+    // 55% single, 30% double, 15% stream
+    const r = rng();
+    if(r < 0.55){
+      spawnNote(Math.floor(rng()*3));
+    }else if(r < 0.85){
+      let a=Math.floor(rng()*3), b=Math.floor(rng()*3);
+      if(a===b) b=(b+1)%3;
+      spawnNote(a); spawnNote(b, 1.04);
     }else{
-      // whiff
-      combo=0;
-      updateHUD();
-      try{ SFX.miss.play(); }catch(_){}
-      flashHitLine('miss');
+      const base = Math.floor(rng()*3);
+      spawnNote(base);
+      setTimeout(()=>spawnNote((base+1)%3, 1.05), 120);
+      setTimeout(()=>spawnNote((base+2)%3, 1.10), 240);
     }
   }
 
-  // ---------- Loop ----------
-  function tick(){
-    const now=performance.now();
-    const dt = Math.min(0.05, (now - startT)/1000); // clamp large dt
-    startT = now;
-    if(!running || paused){ rafId=requestAnimationFrame(tick); return; }
-
-    // mild acceleration over time
-    speedMul += CFG.accel;
+  // ===== Game Loop ==========================================================
+  function tick(ts){
+    if(!running || paused) return;
+    if(!t0){ t0=ts; lastT=ts; requestAnimationFrame(tick); return; }
+    const dt = (ts - lastT)/1000;
+    lastT = ts;
+    elapsed = (ts - t0)/1000;
 
     // move notes
     for(let i=notes.length-1;i>=0;i--){
-      const n=notes[i];
-      n.y -= n.speed * dt;
-      if(n.el?.object3D) n.el.object3D.position.y = n.y;
+      const n = notes[i];
+      n.y -= n.spd * dt;
+      if(n.el) n.el.setAttribute('position', `${LANES[n.lane]} ${n.y.toFixed(3)} ${NOTE_Z}`);
 
-      // miss check
-      if(n.y <= MISS_Y){
-        // missed
-        try{ SFX.miss.play(); }catch(_){}
-        missCount++;
-        combo=0;
-        updateHUD();
-        safeRemove(n.el);
-        notes.splice(i,1);
+      // miss (ผ่าน hit line ลงไป)
+      if(n.y < HIT_Y - 0.40){
+        missNote(i);
       }
     }
 
-    // basic spawn pacing: every ~380–520ms depending on speed
-    spawnBudget+=dt;
-    const spawnInt = clamp(0.42 - (speedMul-1)*0.08, 0.24, 0.50); // seconds
-    while(spawnBudget >= spawnInt){
-      spawnBudget -= spawnInt;
-      spawnNote();
+    // end by time
+    if(elapsed >= levelTime){
+      end();
+      return;
     }
 
-    rafId=requestAnimationFrame(tick);
+    requestAnimationFrame(tick);
   }
-  let spawnBudget=0;
 
-  // ---------- Controls ----------
-  const laneFromX = x=>{
-    const w = window.innerWidth;
-    const seg = w/3;
-    if(x<seg) return 0;
-    if(x<2*seg) return 1;
-    return 2;
-  };
+  function missNote(index){
+    const n = notes[index];
+    if(!n) return;
+    try{ SFX.miss.play(); }catch(_){}
+    flashHitLine('miss');
+    combo = 0;
+    if(n.el){
+      n.el.setAttribute('material','color:#ff3355; opacity:0.7; transparent:true');
+      n.el.setAttribute('animation__out','property: scale; to: 0.001 0.001 0.001; dur: 120; easing: easeInBack');
+      const rm=n.el; setTimeout(()=>safeRemove(rm), 130);
+    }
+    notes.splice(index,1);
+    updateHUD();
+  }
+
+  // ===== Judging ============================================================
+  function judgeHit(lane){
+    if(!running || paused) return;
+
+    // หาโน้ตในเลนนี้ที่ใกล้ HIT_Y ที่สุด
+    let bestIdx = -1, bestDy = 9e9;
+    for(let i=0;i<notes.length;i++){
+      const n = notes[i];
+      if(n.lane !== lane) continue;
+      const dy = Math.abs(n.y - HIT_Y);
+      if(dy < bestDy) { bestDy = dy; bestIdx = i; }
+    }
+
+    if(bestIdx===-1){
+      // ไม่มีโน้ตในเลน — ลอง assist: โน้ตเลนข้างเคียงภายใน assistWindow
+      let aid = -1, ady = 9e9;
+      for(let i=0;i<notes.length;i++){
+        const n = notes[i];
+        if(Math.abs(n.lane - lane) > CFG.assistLaneTol) continue;
+        const dy = Math.abs(n.y - HIT_Y);
+        if(dy < CFG.assistWindow && dy < ady){ ady = dy; aid = i; }
+      }
+      if(aid>=0){
+        hitNote(aid, ady, true);
+        return;
+      }
+      // whiff
+      try{ SFX.miss.play(); }catch(_){}
+      combo = 0; updateHUD(); flashHitLine('miss');
+      return;
+    }
+    hitNote(bestIdx, bestDy, false);
+  }
+
+  function hitNote(index, dy, assisted){
+    const n = notes[index];
+    const kind = (dy <= CFG.perfect) ? 'perfect' : (dy <= CFG.window ? 'good' : 'late');
+
+    let add=0;
+    if(kind==='perfect'){ add = 120; try{SFX.hitP.play();}catch(_){}; combo+=1; }
+    else if(kind==='good'){ add = 80;  try{SFX.hitG.play();}catch(_){}; combo+=1; }
+    else { add = assisted ? 60 : 40; try{SFX.assist.play();}catch(_){}; combo = Math.max(0, combo+1); }
+
+    if(combo>0 && combo%10===0){ try{ SFX.combo.play(); }catch(_){ } }
+
+    score += add + Math.floor(combo * 1.5);
+    hitCount++; if(combo>maxCombo) maxCombo=combo;
+    updateHUD();
+    flashHitLine(kind);
+
+    if(n.el){
+      n.el.setAttribute('animation__out','property: scale; to: 0.001 0.001 0.001; dur: 90; easing: easeInBack');
+      const rm=n.el; setTimeout(()=>safeRemove(rm), 100);
+    }
+    notes.splice(index,1);
+  }
+
+  // ===== Input: Ray-based picking (mouse/touch) =============================
+  const raycaster = new THREE.Raycaster();
+  const pointerNDC = new THREE.Vector2();
+
+  function laneFromPointer(clientX, clientY){
+    const sceneEl = q('a-scene'); const cam = sceneEl?.camera;
+    if(!cam){
+      const seg = window.innerWidth/3;
+      return (clientX<seg)?0:(clientX<2*seg?1:2);
+    }
+    pointerNDC.x =  (clientX / window.innerWidth) * 2 - 1;
+    pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(pointerNDC, cam);
+
+    const origin = raycaster.ray.origin.clone();
+    const dir    = raycaster.ray.direction.clone();
+    const t = (Z_POS - origin.z) / dir.z;
+    const p = origin.add(dir.multiplyScalar(t));
+    let bestLane=0, bestDx=Infinity;
+    for(let i=0;i<LANES.length;i++){
+      const dx = Math.abs(p.x - LANES[i]);
+      if(dx < bestDx){ bestDx=dx; bestLane=i; }
+    }
+    return bestLane;
+  }
+
+  function pickNoteAtPointer(clientX, clientY){
+    const sceneEl=q('a-scene'); const cam=sceneEl?.camera;
+    if(!cam) return null;
+
+    pointerNDC.x =  (clientX / window.innerWidth) * 2 - 1;
+    pointerNDC.y = -(clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(pointerNDC, cam);
+
+    const objs=[];
+    notes.forEach(n=>{ if(n.el?.object3D) n.el.object3D.traverse(child=>objs.push(child)); });
+    const hits = raycaster.intersectObjects(objs, true);
+    if(!hits.length) return null;
+
+    let obj=hits[0].object;
+    while(obj && !obj.el) obj=obj.parent;
+    if(!obj?.el) return null;
+    const idx = notes.findIndex(n=>n.el===obj.el);
+    return idx>=0 ? { index: idx, dy: Math.abs(notes[idx].y - HIT_Y) } : null;
+  }
+
   function bindInput(){
-    window.addEventListener('mousedown', e=>judgeHit(laneFromX(e.clientX)), {passive:true});
+    const onPointer=(cx,cy)=>{
+      // 1) ถ้าโดนตัวโน้ตตรงๆ => assist ที่แม่นมาก
+      const picked = pickNoteAtPointer(cx,cy);
+      if(picked){
+        hitNote(picked.index, picked.dy, true);
+        return;
+      }
+      // 2) หาเลนจากตำแหน่งโลก แล้ว judge
+      judgeHit(laneFromPointer(cx,cy));
+    };
+
+    window.addEventListener('mousedown', e=>onPointer(e.clientX, e.clientY), {passive:true});
     window.addEventListener('touchstart', e=>{
       const t=e.touches?.[0]; if(!t) return;
-      judgeHit(laneFromX(t.clientX));
+      onPointer(t.clientX, t.clientY);
     }, {passive:true});
 
-    // Keyboard (A / S / D)
+    // Keyboard (A / S / D / Space)
     window.addEventListener('keydown', e=>{
       if(e.repeat) return;
       if(e.key==='a'||e.key==='A') judgeHit(0);
-      if(e.key==='s'||e.key==='S') judgeHit(1);
+      if(e.key==='s'||e.key==='S'||e.key===' ') judgeHit(1);
       if(e.key==='d'||e.key==='D') judgeHit(2);
-      if(e.key===' ') judgeHit(1);
     });
   }
 
-  // ---------- Game flow ----------
+  // ===== Flow ===============================================================
+  function reset(){
+    // clear notes
+    for(let i=notes.length-1;i>=0;i--){
+      const n=notes[i];
+      if(n.el) safeRemove(n.el);
+      notes.pop();
+    }
+    score=0; combo=0; maxCombo=0; hitCount=0; totalNotes=0;
+    elapsed=0; t0=0; lastT=0;
+    updateHUD();
+    hideResults();
+    buildLanes();
+  }
+
   function start(){
     if(running) return;
-    // read speed profile
-    const k=getSpeedKey();
-    CFG = SPEEDS[k] || SPEEDS.standard;
-    localStorage.setItem('rb_speed', k);
+    // read speed from dropdown (ถ้ามี)
+    const sel = $('speedSelRB'); 
+    const key = (sel && SPEEDS[sel.value]) ? sel.value : getSpeedKey();
+    CFG = SPEEDS[key]; localStorage.setItem('rb_speed', key);
 
-    // Reset
-    notes.forEach(n=>safeRemove(n.el)); notes.length=0;
-    score=0; combo=0; maxCombo=0; hitCount=0; missCount=0; spawned=0;
-    speedMul=1; spawnBudget=0;
-    updateHUD();
-
-    // UI states
-    const res=byId('rbResults'); if(res) res.style.display='none';
-
+    reset();
     running=true; paused=false;
-    SFX.ui.play?.();
+    try{ SFX.start.play(); }catch(_){}
+
+    // spawn schedule
+    if(spawnIv) clearInterval(spawnIv);
+    spawnIv = setInterval(spawnPattern, 560);
+
+    // HUD time tick
+    if(timerHUD) clearInterval(timerHUD);
+    timerHUD = setInterval(()=>{ elapsed += 1; updateHUD(); if(elapsed>=levelTime) end(); }, 1000);
+
+    requestAnimationFrame(tick);
   }
-  function pauseToggle(){
+
+  function togglePause(){
     if(!running) return;
-    paused=!paused;
-    // small UI ping via hitline color
-    flashHitLine(paused ? 'miss' : 'good');
+    paused = !paused;
+    try{ SFX.pause.play(); }catch(_){}
+    $('rbPause') && ( $('rbPause').textContent = paused ? 'Resume' : 'Pause' );
+    if(!paused) requestAnimationFrame(tick);
   }
+
   function end(){
+    if(!running) return;
     running=false; paused=false;
-    // show results overlay (DOM)
-    const el=byId('rbResults');
-    if(el){
-      byId('rbFinalScore').textContent = score;
-      byId('rbFinalAcc').textContent   = spawned? Math.round(hitCount/spawned*100)+'%' : '0%';
-      el.style.display='flex';
-    }
+    clearInterval(spawnIv); clearInterval(timerHUD);
+    spawnIv=null; timerHUD=null;
+    showResults();
   }
 
-  // ---------- Buttons (DOM) ----------
-  function wireButtons(){
-    byId('rbStartBtn')?.addEventListener('click', ()=>{ start(); }, {passive:true});
-    byId('rbPauseBtn')?.addEventListener('click', ()=>{ pauseToggle(); }, {passive:true});
-    byId('rbBackBtn')?.addEventListener('click', ()=>{ location.href = HUB_URL; }, {passive:true});
-
-    // speed dropdown (if exists)
-    const sel=byId('rbSpeedSel');
-    if(sel){
-      sel.value = getSpeedKey();
-      sel.addEventListener('change', e=>{
-        try{ localStorage.setItem('rb_speed', e.target.value); }catch(_){}
-        // quick restart to apply speed
-        start();
-      }, {passive:true});
-    }
+  function backToHub(){
+    // กลับฮับที่ถูกต้อง
+    const url = `${ASSET_BASE}/vr-fitness/`;
+    window.location.href = url;
   }
 
-  // ---------- Boot ----------
-  function ensureScene(){
-    let tries=0;
-    (function wait(){
-      const sc=document.querySelector('a-scene');
-      if(window.AFRAME && sc){
-        buildRails();
-        bindInput();
-        wireButtons();
-        startT=performance.now();
-        rafId=requestAnimationFrame(tick);
-        return;
-      }
-      tries++;
-      if(tries>240){
-        const msg='A-Frame scene not found. Check scripts/CORS/paths and reload.';
-        console.error(msg);
-        const o=document.createElement('div');
-        Object.assign(o.style,{position:'fixed',inset:'0',display:'grid',placeItems:'center',
-          background:'#0b1118',color:'#ffb4b4',zIndex:99999,font:'14px/1.5 system-ui'});
-        o.innerHTML=`<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre>${msg}</pre></div>`;
-        document.body.appendChild(o);
-        return;
-      }
-      requestAnimationFrame(wait);
-    })();
-  }
+  // ===== Buttons / Init =====================================================
+  document.addEventListener('DOMContentLoaded', ()=>{
+    $('rbStart')  && $('rbStart').addEventListener('click', start);
+    $('rbPause')  && $('rbPause').addEventListener('click', togglePause);
+    $('rbReplay') && $('rbReplay').addEventListener('click', start);
+    $('rbBack')   && $('rbBack').addEventListener('click', backToHub);
 
-  // Expose minimal API (optional)
-  window.RB = { start, pause:pauseToggle, end,
-    setSpeed:(k)=>{ if(SPEEDS[k]){ localStorage.setItem('rb_speed',k); } }
-  };
+    // ป้องกันปุ่มโดน overlay ทับ
+    const btnDock = $('rbDock');
+    if(btnDock){ btnDock.style.pointerEvents = 'auto'; }
 
-  // Auto end after a song-length (e.g., 95s) if index.html doesn't manage it
-  setTimeout(()=>{ if(running) end(); }, 95000);
+    buildLanes();
+    bindInput();
+    updateHUD();
+  });
 
-  document.addEventListener('DOMContentLoaded', ensureScene, {once:true});
+  // ===== Safety / Unload ====================================================
+  window.addEventListener('beforeunload', ()=>{
+    try{ clearInterval(spawnIv); clearInterval(timerHUD); }catch(_){}
+  });
 
 })();
