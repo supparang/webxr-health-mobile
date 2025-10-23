@@ -1,10 +1,9 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · Click works (UI & Raycast) · Slow start then ramp · Visible HIT LINE · Back to Hub OK
+   Rhythm Boxer · Cursor(mouse) คลิกติดแน่ · เริ่มช้าแล้วเร่ง · HUD/ปุ่มทำงานครบ · Back to Hub ถูกที่
 */
 (function(){
   "use strict";
 
-  // ---------- Helpers ----------
   const $ = (id)=>document.getElementById(id);
   const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
@@ -30,19 +29,19 @@
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
   let timer=null, spawnTimer=null, accelRAF=null;
 
-  // ความเร็ว/ความถี่ (เริ่มช้า)
+  // ความเร็ว: เริ่มช้า แล้วค่อยเร่งขึ้น
   let speedPreset='standard';
-  let fallSpeed=0.7;     // m/s เริ่มช้า
-  let spawnInt=1100;     // ms เริ่มห่าง
-  let accelEvery=4000;   // ms เพิ่มความเร็วทุก ๆ N วิ
+  let fallSpeed=0.7;     // m/s (เริ่มช้า)
+  let spawnInt=1200;     // ms (เริ่มห่าง)
+  let accelEvery=4000;   // ทุก ๆ N ms จะเร่ง
   let lastAccel=0;
 
   // Note spec
   const COLORS=["#00d0ff","#ffd166","#ff6b6b","#00ffa3","#a899ff","#ff9c6b"];
-  const NOTE_SIZE=0.18; // ใหญ่ขึ้นชัด
+  const NOTE_SIZE=0.2; // ใหญ่ขึ้น
   const HIT_Y=1.1;
-  const HIT_WIN_GOOD=0.17;
-  const HIT_WIN_PERF=0.09;
+  const HIT_WIN_GOOD=0.19;
+  const HIT_WIN_PERF=0.10;
 
   function updateHUD(){
     $('hudScore').textContent = score;
@@ -83,16 +82,19 @@
     el.setAttribute('position', `${x} ${yStart} ${z}`);
     $('arena').appendChild(el);
 
+    // รองรับทั้ง cursor 'click' และ 'mousedown'
+    const hitHandler=()=>{ onHit(el); };
+    el.addEventListener('click', hitHandler);
+    el.addEventListener('mousedown', hitHandler);
+
     const start=performance.now();
     const me = {el, alive:true};
-    el.addEventListener('click', ()=>{ if(me.alive) onHit(el); });
-
     function step(){
       if(!me.alive || !RB.running) return;
       const dt = (performance.now()-start)/1000;
       const y = yStart - dt*fallSpeed;
       el.setAttribute('position', `${x} ${y.toFixed(3)} ${z}`);
-      if(y <= HIT_Y - HIT_WIN_GOOD*1.3){
+      if(y <= HIT_Y - HIT_WIN_GOOD*1.35){
         me.alive=false;
         try{ el.remove(); }catch(_){}
         onMiss(new THREE.Vector3(parseFloat(x),HIT_Y,z));
@@ -107,6 +109,7 @@
     if(!RB.running) return;
     const p = el.object3D.getWorldPosition(new THREE.Vector3());
     const dy = Math.abs(p.y - HIT_Y);
+
     let quality='good';
     if(dy <= HIT_WIN_PERF) quality='perfect';
     else if(dy <= HIT_WIN_GOOD) quality='good';
@@ -135,19 +138,24 @@
   // ---------- Flow ----------
   function setBaseByPreset(){
     if(speedPreset==='beginner'){
-      fallSpeed=0.55; spawnInt=1500; accelEvery=4500;
+      fallSpeed=0.55; spawnInt=1600; accelEvery=5000;
     }else if(speedPreset==='challenge'){
-      fallSpeed=0.85; spawnInt=950; accelEvery=3500;
-    }else{
+      fallSpeed=0.9;  spawnInt=900;  accelEvery=3500;
+    }else{ // standard
       fallSpeed=0.7;  spawnInt=1200; accelEvery=4000;
     }
   }
   function presetName(v){ return v==='beginner'?'Beginner':v==='challenge'?'Challenge':'Standard'; }
 
+  function clearNotes(){
+    Array.from(document.querySelectorAll('.rb-note')).forEach(n=>{ try{ n.remove(); }catch(_){} });
+  }
+
   function start(){
     if(RB.running) return;
     RB.running=true; RB.paused=false;
     score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=60;
+    clearNotes();
 
     setBaseByPreset();
     $('hudSpeed').textContent = presetName(speedPreset);
@@ -156,11 +164,11 @@
     // เวลาเดิน
     timer = setInterval(()=>{ timeLeft--; $('hudTime').textContent=timeLeft; if(timeLeft<=0) endGame(); }, 1000);
 
-    // สปอว์นทันที 1 ตัว และตั้ง interval
+    // สปอว์นทันที + ตั้ง interval
     spawnNote();
     spawnTimer = setInterval(spawnNote, spawnInt);
 
-    // เร่งทีละน้อย
+    // เร่งทีละนิดเป็นช่วง ๆ
     lastAccel = performance.now();
     const accelTick = ()=>{
       if(!RB.running) return;
@@ -184,7 +192,7 @@
     RB.paused=true;
     clearInterval(timer); clearInterval(spawnTimer);
     if(accelRAF){ cancelAnimationFrame(accelRAF); accelRAF=null; }
-    music.pause();
+    try{ music.pause(); }catch(_){}
   }
   function resume(){
     if(!RB.running || !RB.paused) return;
@@ -214,9 +222,7 @@
     clearInterval(timer); clearInterval(spawnTimer);
     if(accelRAF){ cancelAnimationFrame(accelRAF); accelRAF=null; }
     try{ music.pause(); }catch(_){}
-
-    // ล้างโน้ต
-    Array.from(document.querySelectorAll('.rb-note')).forEach(n=>{ try{ n.remove(); }catch(_){} });
+    clearNotes();
 
     const acc = spawns? Math.round((hits/spawns)*100) : 0;
     $('rSong').textContent = $('hudSong').textContent || '—';
@@ -236,7 +242,7 @@
     try{
       music.src = url;
       music.currentTime = 0;
-      music.play().catch(()=>{ /* ต้องมี interaction บางเบราเซอร์ */ });
+      music.play().catch(()=>{ /* บางเบราว์เซอร์ต้องคลิกก่อน */ });
     }catch(_e){}
   }
 
@@ -245,29 +251,11 @@
     $('hudSpeed').textContent = presetName(speedPreset);
   }
 
-  // ---------- Export ----------
-  RB.start = start;
-  RB.pause = pause;
-  RB.resume = resume;
-  RB.endGame = endGame;
-  RB.playSelectedSong = playSelectedSong;
-  RB.setSpeed = setSpeed;
-
-  // ---------- Wire UI (หลัง DOM & A-Frame พร้อม) ----------
-  function blockBubble(el){
-    if(!el) return;
-    el.style.pointerEvents='auto';
-    ['pointerdown','mousedown','touchstart','click','pointerup','mouseup','touchend'].forEach(ev=>{
-      el.addEventListener(ev, (e)=>{ e.stopPropagation(); e.stopImmediatePropagation?.(); }, {capture:true});
-    });
-  }
-
+  // ---------- Wire UI ----------
   function wireUI(){
     const s=$('btnStart'), p=$('btnPause'), e=$('btnEnd'),
           replay=$('replayBtn'), back=$('backBtn'),
           songSel=$('songSel'), speedSel=$('speedSel');
-
-    [s,p,e,replay,back,songSel,speedSel,$('uiDock'),$('results'),$('hudTopRight')].forEach(blockBubble);
 
     s?.addEventListener('click', ()=> start());
     p?.addEventListener('click', ()=>{
@@ -281,52 +269,21 @@
 
     songSel?.addEventListener('change', ()=> playSelectedSong());
     speedSel?.addEventListener('change', ()=> setSpeed(speedSel.value));
-  }
 
-  function installPointerRaycast(){
-    const scn = document.querySelector('a-scene');
-    if(!scn) return;
-    const ready = ()=>{
-      const raycaster = new THREE.Raycaster();
-      const v2 = new THREE.Vector2();
-      function pick(x,y){
-        const cam = scn.camera; if(!cam) return;
-        v2.x =  (x / innerWidth) * 2 - 1;
-        v2.y = -(y / innerHeight) * 2 + 1;
-        raycaster.setFromCamera(v2, cam);
-        const clickable = Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
-        const objs=[]; clickable.forEach(o=>o.traverse(c=>objs.push(c)));
-        const hits = raycaster.intersectObjects(objs, true);
-        if(hits && hits.length){
-          let o = hits[0].object;
-          while(o && !o.el) o = o.parent;
-          if(o && o.el) o.el.emit('click');
-        }
-      }
-      addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
-      addEventListener('touchstart', e=>{ const t=e.touches?.[0]; if(t) pick(t.clientX,t.clientY); }, {passive:true});
-    };
-    if (scn.hasLoaded) ready(); else scn.addEventListener('loaded', ready, {once:true});
+    // ปุ่ม Enter VR (กลางล่าง)
+    $('enterVRBtn')?.addEventListener('click', ()=>{
+      try{ document.querySelector('a-scene')?.enterVR?.(); }catch(_){}
+    });
+
+    // ช็อตคัตคีย์: Space = Start/Resume, Esc = End
+    addEventListener('keydown', (ev)=>{
+      if(ev.code==='Space'){ ev.preventDefault(); if(!RB.running) start(); else if(RB.paused) resume(); else pause(); }
+      if(ev.code==='Escape'){ endGame(); }
+    });
   }
 
   function boot(){
-    // ปุ่ม Enter VR กลางล่าง
-    if (!document.getElementById('enterVRBtn')){
-      const btn=document.createElement('button');
-      btn.id='enterVRBtn';
-      btn.textContent='Enter VR';
-      Object.assign(btn.style,{
-        position:'fixed', left:'50%', transform:'translateX(-50%)',
-        bottom:'12px', zIndex:2147483647,
-        padding:'8px 12px', borderRadius:'10px', border:'0',
-        background:'#0e2233', color:'#e6f7ff', cursor:'pointer'
-      });
-      document.body.appendChild(btn);
-      btn.addEventListener('click', ()=>{ try{ const sc=document.querySelector('a-scene'); sc?.enterVR?.(); }catch(e){ console.warn(e); } });
-    }
-
     wireUI();
-    installPointerRaycast();
   }
 
   if(document.readyState==='loading'){
