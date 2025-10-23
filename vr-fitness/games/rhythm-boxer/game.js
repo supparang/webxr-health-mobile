@@ -1,5 +1,5 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · mouse/touch click fix + Start/Pause near Song + Enter VR center + difficulties
+   Rhythm Boxer · null-safe DOM + mouse/touch click + Start/Pause near Song + Enter VR center + difficulties
 */
 (function(){
   "use strict";
@@ -8,12 +8,14 @@
   const $ = (id)=>document.getElementById(id);
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const getQ = (k)=> new URLSearchParams(location.search).get(k);
-  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
-  // Safe remove
+  // Null-safe remove
   function safeRemove(el){
-    try{ if(!el) return; if(!el.isConnected && !el.parentNode) return;
-      if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.();
+    try{
+      if(!el) return;
+      if(!el.isConnected && !el.parentNode) return;
+      if(el.parentNode) el.parentNode.removeChild(el);
+      else el.remove?.();
     }catch(_){}
   }
 
@@ -28,16 +30,14 @@
     hard:   { speed:1.15, len:70, spawn:520, scoreMul:1.1,  title:'HARD'   },
     final:  { speed:1.28, len:80, spawn:470, scoreMul:1.2,  title:'FINAL'  }
   };
-  function getDiffKey(){
-    return getQ('diff') || localStorage.getItem('rb_diff') || 'normal';
-  }
+  function getDiffKey(){ return getQ('diff') || localStorage.getItem('rb_diff') || 'normal'; }
   let D = DIFFS.normal;
 
   // ---------- SFX ----------
   const SFX = {
-    hit: new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
-    good: new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
-    miss: new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
+    hit:   new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
+    good:  new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    miss:  new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
     combo: new Audio(`${ASSET_BASE}/assets/sfx/combo.wav`),
     start: new Audio(`${ASSET_BASE}/assets/sfx/enrage.wav`)
   };
@@ -45,7 +45,7 @@
   function play(a,guard=90){ try{
     const now = performance.now(); if(lastPlay.get(a)&&now-lastPlay.get(a)<guard) return;
     a.currentTime=0; lastPlay.set(a,now); a.play();
-  }catch(e){} }
+  }catch(_e){} }
 
   // ---------- State ----------
   let running=false, paused=false, timer=null, spawner=null;
@@ -53,9 +53,10 @@
   let songKey = 'neo-run';
 
   function updateHUD(){
-    $('score').textContent = Math.round(score*D.scoreMul);
-    $('combo').textContent = combo;
-    $('time').textContent = timeLeft;
+    const s=$('score'), c=$('combo'), t=$('time');
+    if(s) s.textContent = Math.round(score*D.scoreMul);
+    if(c) c.textContent = combo;
+    if(t) t.textContent = timeLeft;
   }
   function addScore(v){
     score += v; if(combo>maxCombo) maxCombo=combo; updateHUD();
@@ -63,12 +64,13 @@
 
   // ---------- Beat objects ----------
   function makeBeat(lane){ // lane: -1,0,1
+    const lanes = $('lanes'); if(!lanes) return;
     const e=document.createElement('a-sphere');
     e.classList.add('beat','clickable');
     e.setAttribute('radius','0.12');
     e.setAttribute('color', lane===0?'#7a5cff':(lane<0?'#00d0ff':'#ffd166'));
     e.setAttribute('position', `${lane*0.9} 0.75 0`);
-    $('lanes').appendChild(e);
+    lanes.appendChild(e);
     const spd = 0.0032 * D.speed; // world units per ms (ลงด้านล่าง)
     const born = performance.now();
 
@@ -90,9 +92,11 @@
 
   function judgeAndRemove(e){
     if(!e || !e.parentNode) return;
+    const lanes = $('lanes'); if(!lanes) return;
     // ตัดสินจากระยะห่างจากเส้น target (y=-0.78)
     const p = e.object3D.getWorldPosition(new THREE.Vector3());
-    const dy = Math.abs(p.y - ( $('lanes').object3D.getWorldPosition(new THREE.Vector3()).y - 0.78 ));
+    const baseY = lanes.object3D.getWorldPosition(new THREE.Vector3()).y - 0.78;
+    const dy = Math.abs(p.y - baseY);
     safeRemove(e);
     if (dy < 0.05){ // perfect
       combo++; play(SFX.hit); addScore(30);
@@ -115,6 +119,7 @@
   }
 
   function spawnFloat(text, color, pos){
+    const arena = $('arena'); if(!arena) return;
     const e=document.createElement('a-entity'), p=pos.clone();
     e.setAttribute('text',{value:text,color,align:'center',width:2.2});
     e.setAttribute('position',`${p.x} ${Math.max(0.1,p.y)} ${p.z}`);
@@ -122,7 +127,7 @@
     e.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:90,easing:'easeOutQuad'});
     e.setAttribute('animation__rise',{property:'position',to:`${p.x} ${p.y+0.5} ${p.z}`,dur:520,easing:'easeOutQuad'});
     e.setAttribute('animation__fade',{property:'opacity',to:0,dur:430,delay:120,easing:'linear'});
-    $('arena').appendChild(e); setTimeout(()=>safeRemove(e),760);
+    arena.appendChild(e); setTimeout(()=>safeRemove(e),760);
   }
 
   // ---------- Song / pattern ----------
@@ -135,7 +140,7 @@
 
   function loadSong(key){
     songKey = SONGS[key] ? key : 'neo-run';
-    $('rSong').textContent = songKey;
+    const rSong=$('rSong'); if(rSong) rSong.textContent = songKey;
   }
 
   // ---------- Game flow ----------
@@ -144,7 +149,7 @@
     // diff
     const dk = $('diffSel')?.value || getDiffKey();
     D = DIFFS[dk] || DIFFS.normal;
-    localStorage.setItem('rb_diff', dk);
+    try{ localStorage.setItem('rb_diff', dk); }catch(_){}
 
     // song
     const sk = $('songSel')?.value || getQ('song') || 'neo-run';
@@ -164,18 +169,18 @@
 
     timer = setInterval(()=>{
       if(!running || paused) return;
-      timeLeft--; $('time').textContent=timeLeft;
+      timeLeft--; const t=$('time'); if(t) t.textContent=timeLeft;
       if(timeLeft<=0){ end(); }
     }, 1000);
   }
 
   function reset(){
     score=0; combo=0; maxCombo=0; hits=0; total=0; timeLeft=D.len;
-    $('results').style.display='none';
+    const res=$('results'); if(res) res.style.display='none';
     // ล้างบีตที่ค้าง
     try{
-      const arena = $('lanes');
-      Array.from(arena.querySelectorAll('.beat')).forEach(safeRemove);
+      const lanes = $('lanes');
+      if(lanes) Array.from(lanes.querySelectorAll('.beat')).forEach(safeRemove);
     }catch(_){}
     updateHUD();
   }
@@ -186,10 +191,11 @@
     try{ clearInterval(timer); }catch(_){}
     // คำนวณ accuracy
     const acc = total? Math.round((hits/total)*100) : 0;
-    $('rScore').textContent = Math.round(score*D.scoreMul);
-    $('rMaxCombo').textContent = maxCombo;
-    $('rAcc').textContent = acc+'%';
-    $('results').style.display='flex';
+    const r1=$('rScore'), r2=$('rMaxCombo'), r3=$('rAcc');
+    if(r1) r1.textContent = Math.round(score*D.scoreMul);
+    if(r2) r2.textContent = maxCombo;
+    if(r3) r3.textContent = acc+'%';
+    const res=$('results'); if(res) res.style.display='flex';
     try{ window.Leaderboard?.postResult?.('rhythm-boxer',{
       score:Math.round(score*D.scoreMul),
       maxCombo, accuracy:acc, diff:getDiffKey(), song:songKey
@@ -197,11 +203,10 @@
   }
 
   function togglePause(){
-    if(!running) return;
-    paused=!paused;
+    if(!running) return; paused=!paused;
   }
 
-  // ---------- Pointer Raycast (เมาส์/ทัชให้คลิกได้ทุกเบราว์เซอร์) ----------
+  // ---------- Pointer Raycast (เมาส์/ทัช) ----------
   (function pointerRaycast(){
     const sceneEl = document.querySelector('a-scene');
     if (!sceneEl) return;
@@ -235,13 +240,13 @@
     $('pauseBtn')?.addEventListener('click', togglePause);
     $('replayBtn')?.addEventListener('click', startGame);
     $('backBtn')?.addEventListener('click', ()=>{
-      // กลับ Hub ที่ถูกต้อง
       const base = ASSET_BASE || '/webxr-health-mobile/vr-fitness';
       location.href = `${base}/`;
     });
     $('songSel')?.addEventListener('change', (e)=> loadSong(e.target.value));
     $('diffSel')?.addEventListener('change', (e)=>{
-      const v=e.target.value; localStorage.setItem('rb_diff', v);
+      const v=e.target.value;
+      try{ localStorage.setItem('rb_diff', v); }catch(_){}
       const url = new URL(location.href);
       url.searchParams.set('diff', v);
       history.replaceState(null,'', url.pathname + '?' + url.searchParams.toString());
