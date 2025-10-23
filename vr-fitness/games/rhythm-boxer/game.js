@@ -1,5 +1,5 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · HIT LINE always-visible (additive glow, depthTest off) + lanes + correct hub return
+   Rhythm Boxer · Multicolor + Multi-shape Notes (box/sphere/tetra/pyramid) + neon HIT LINE + lanes + correct hub return
 */
 (function(){
   "use strict";
@@ -42,9 +42,23 @@
   const HIT_Y  = 1.05;
   const NOTE_SIZE = 0.16;
 
+  // Color palette (high-contrast neon)
+  const NOTE_COLORS = [
+    '#00ff88', '#5de1ff', '#ff7ad9', '#ffd166', '#a3ff00', '#7a5cff', '#ff6b6b'
+  ];
+  let colorCursor = 0;
+
+  // Note shapes (with small variations)
+  const SHAPES = [
+    {tag:'a-sphere', apply:(el)=>{ el.setAttribute('radius', NOTE_SIZE); }},
+    {tag:'a-box',    apply:(el)=>{ el.setAttribute('depth', NOTE_SIZE*1.2); el.setAttribute('height', NOTE_SIZE*1.2); el.setAttribute('width', NOTE_SIZE*1.2); }},
+    {tag:'a-tetrahedron', apply:(el)=>{ el.setAttribute('radius', NOTE_SIZE*1.05); }},
+    {tag:'a-octahedron',  apply:(el)=>{ el.setAttribute('radius', NOTE_SIZE*1.05); }}
+  ];
+
   const DIFFS = {
-    beginner :{name:'BEGINNER' ,baseSpeed:0.55,accel:0.00035,window:0.19,spawnMin:620,spawnMax:760},
-    standard :{name:'STANDARD' ,baseSpeed:0.82,accel:0.00055,window:0.16,spawnMin:520,spawnMax:680},
+    beginner :{name:'BEGINNER' ,baseSpeed:0.50,accel:0.00030,window:0.22,spawnMin:680,spawnMax:840},
+    standard :{name:'STANDARD' ,baseSpeed:0.80,accel:0.00055,window:0.16,spawnMin:520,spawnMax:680},
     challenge:{name:'CHALLENGE',baseSpeed:1.05,accel:0.00085,window:0.12,spawnMin:440,spawnMax:580}
   };
   let DIFF = DIFFS.standard;
@@ -66,7 +80,7 @@
     const arena = $('arena'); if(!arena) return;
     Array.from(arena.querySelectorAll('.rb-lane,.rb-hitline,.rb-hitglow,.rb-hitrim,.rb-lbl')).forEach(safeRemove);
 
-    // Ambient light to keep emissive visible even with colorManagement
+    // Ambient light for emissive
     if(!arena.querySelector('.rb-amb')){
       const amb=document.createElement('a-entity'); amb.classList.add('rb-amb');
       amb.setAttribute('light','type: ambient; color: #88ffaa; intensity: 0.25');
@@ -89,7 +103,7 @@
         'transparent: true',
         'roughness: 1.0',
         'metalness: 0.0',
-        'depthTest: false'        // draw on top
+        'depthTest: false'
       ].join('; '));
       arena.appendChild(lane);
     });
@@ -99,7 +113,7 @@
     hit.id='rb_hit_core';
     hit.classList.add('rb-hitline');
     hit.setAttribute('width',3.0);
-    hit.setAttribute('height',0.06);                      // thicker for visibility
+    hit.setAttribute('height',0.06);
     hit.setAttribute('depth',0.001);
     hit.setAttribute('position',`0 ${HIT_Y} ${LANE_Z}`);
     hit.setAttribute('material',[
@@ -111,12 +125,12 @@
       'metalness: 0.0',
       'transparent: true',
       'opacity: 0.98',
-      'depthTest: false',         // always on top
-      'blending: additive'        // glow additively
+      'depthTest: false',
+      'blending: additive'
     ].join('; '));
     arena.appendChild(hit);
 
-    // Rim (thin white lines above/below)
+    // Rim lines
     const mkRim = (dy)=>{
       const r=document.createElement('a-box');
       r.classList.add('rb-hitrim');
@@ -130,7 +144,7 @@
     arena.appendChild(mkRim(0.045));
     arena.appendChild(mkRim(-0.045));
 
-    // Glow plane (soft halo)
+    // Glow plane
     const halo=document.createElement('a-plane');
     halo.classList.add('rb-hitglow');
     halo.setAttribute('width',3.4);
@@ -149,7 +163,7 @@
     halo.setAttribute('animation__sc','property: scale; to: 1.03 1.15 1; dir: alternate; loop: true; dur: 900; easing: easeInOutSine');
     arena.appendChild(halo);
 
-    // Label “HIT LINE”
+    // Label
     const txt=document.createElement('a-entity');
     txt.classList.add('rb-lbl');
     txt.setAttribute('text',{value:'HIT LINE',color:'#00ff88',align:'center',width:3});
@@ -161,14 +175,49 @@
   function spawnNote(){
     if(!running||paused) return;
     const arena=$('arena'); if(!arena) return;
+
     const lane=Math.floor(Math.random()*LANE_X.length);
-    const el=document.createElement('a-sphere');
+    const shape = SHAPES[Math.floor(Math.random()*SHAPES.length)];
+    const color = NOTE_COLORS[colorCursor++ % NOTE_COLORS.length];
+
+    const el=document.createElement(shape.tag);
     el.classList.add('rb-note','clickable');
-    el.setAttribute('radius',NOTE_SIZE);
-    el.setAttribute('position',`${LANE_X[lane]} ${HIT_Y+1.8} ${LANE_Z}`);
-    el.setAttribute('material','shader: standard; color: #5de1ff; emissive: #5de1ff; emissiveIntensity: 0.7; metalness: 0; roughness: 1;');
+    shape.apply(el);
+
+    el.setAttribute('position',`${LANE_X[lane]} ${HIT_Y+1.9} ${LANE_Z}`);
+    // Neon material
+    el.setAttribute('material',[
+      'shader: standard',
+      `color: ${color}`,
+      `emissive: ${color}`,
+      'emissiveIntensity: 0.9',
+      'metalness: 0',
+      'roughness: 1'
+    ].join('; '));
+
+    // Spin + pulse to give life
+    el.setAttribute('animation__spin','property: rotation; to: 0 360 0; loop: true; dur: 1600; easing: linear');
+    el.setAttribute('animation__pulse','property: scale; to: 1.15 1.15 1.15; dir: alternate; loop: true; dur: 420; easing: easeInOutSine');
+
+    // Soft trail (billboard plane)
+    const trail=document.createElement('a-plane');
+    trail.setAttribute('width',NOTE_SIZE*1.2);
+    trail.setAttribute('height',NOTE_SIZE*2.4);
+    trail.setAttribute('position','0 0 0.001');
+    trail.setAttribute('rotation','-90 0 0');
+    trail.setAttribute('material',[
+      `color: ${color}`,
+      'shader: flat',
+      'transparent: true',
+      'opacity: 0.28',
+      'blending: additive',
+      'side: double'
+    ].join('; '));
+    el.appendChild(trail);
+
     arena.appendChild(el);
-    const n={el,lane,y:HIT_Y+1.8,speed:speed};
+
+    const n={el,lane,y:HIT_Y+1.9,speed:speed};
     notes.push(n); total++;
   }
 
@@ -192,6 +241,7 @@
       const add=(kind==='perfect'?100:50); score+=add; hitCount++;
       (kind==='perfect'?SFX.hit:SFX.good).play();
       feedback(kind==='perfect'?'PERFECT':'GOOD',kind==='perfect'?'#00ff88':'#9bd1ff');
+      if(combo>0 && combo%10===0) SFX.combo.play();
     }
     const idx=notes.indexOf(n); if(idx>-1) notes.splice(idx,1);
     hudUpdate();
@@ -227,7 +277,7 @@
       n.el.setAttribute('position',`${LANE_X[n.lane]} ${n.y.toFixed(3)} ${LANE_Z}`);
       if(n.y<=HIT_Y-0.18){ registerHit('miss',n); }
     }
-    speed+=DIFF.accel;
+    speed+=DIFF.accel; // gradual difficulty ramp
     requestAnimationFrame(tick);
   }
 
@@ -235,13 +285,14 @@
   let timer=null;
   function startGame(){
     if(running) return;
-    running=true;paused=false;over=false;score=0;combo=0;maxCombo=0;total=0;hitCount=0;speed=DIFF.baseSpeed;timeLeft=60;
+    running=true;paused=false;over=false;score=0;combo=0;maxCombo=0;total=0;hitCount=0;speed=DIFF.baseSpeed;timeLeft=60;colorCursor=0;
     hudUpdate();
     notes.splice(0);
-    createLanes();                               // ensure visible even if replays
+    createLanes();
     toast(`Start · ${DIFF.name}`);
     SFX.start.play();
     lastTick=0;requestAnimationFrame(tick);
+
     const jitter=()=>Math.floor(DIFF.spawnMin+Math.random()*(DIFF.spawnMax-DIFF.spawnMin));
     spawnTimer=setInterval(spawnNote,jitter());
     timer=setInterval(()=>{if(paused)return;timeLeft--;hudUpdate();if(timeLeft<=0)endGame();},1000);
@@ -253,7 +304,7 @@
     if(!running)return;running=false;over=true;paused=false;
     clearInterval(timer);clearInterval(spawnTimer);
     const acc=total?Math.round((hitCount/total)*100):0;
-    const star=(combo>=30?1:0)+(acc>=80?1:0)+(score>=2000?1:0);
+    const star=(maxCombo>=30?1:0)+(acc>=80?1:0)+(score>=2000?1:0);
     let p=$('rb_results');
     if(!p){
       p=document.createElement('section');p.id='rb_results';
@@ -283,7 +334,7 @@
 
   // ===== Input =====
   document.addEventListener('DOMContentLoaded',()=>{
-    // Draw lanes immediately so the HIT LINE is visible before pressing Start
+    // Draw lanes immediately so the HIT LINE is visible pre-start
     createLanes();
 
     $('startBtn')?.addEventListener('click',startGame);
@@ -304,8 +355,7 @@
     if(e.key==='a'||e.key==='A'||e.key==='ArrowLeft'){judgeHit(0);return;}
     if(e.key==='s'||e.key==='S'||e.key==='ArrowDown'){judgeHit(1);return;}
     if(e.key==='d'||e.key==='D'||e.key==='ArrowRight'){judgeHit(2);return;}
-    // quick redraw if needed
-    if(e.key==='r' || e.key==='R'){ createLanes(); }
+    if(e.key==='r'||e.key==='R'){createLanes();}
   });
 
   (function pointer(){
