@@ -1,312 +1,427 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · game.js (Speed Profiles + Mouse/Touch Click + Safe DOM + Gradual Ramp)
+   Rhythm Boxer · Full game.js (Lane Falling Notes + Scoring + SFX + Results + Pointer Click Fix)
 */
 (function(){
   "use strict";
 
   // ---------- Helpers ----------
-  const $ = (id)=>document.getElementById(id);
-  const q = (sel)=>document.querySelector(sel);
-  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
+  const byId = (id)=>document.getElementById(id);
   const getQ = (k)=> new URLSearchParams(location.search).get(k);
+  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 
-  // UI ping
-  function toast(msg, color='#ffd166'){
-    let el = $('rb_toast');
+  // Null-safe remover to avoid A-Frame "removeChild of null"
+  function safeRemove(el){
+    try{
+      if(!el) return;
+      if(!el.isConnected && !el.parentNode) return;
+      if(el.parentNode) el.parentNode.removeChild(el);
+      else if(el.remove) el.remove();
+    }catch(_e){}
+  }
+
+  // Toast/ping
+  function pingUI(msg,color='#ffcc00'){
+    let el=byId('toast');
     if(!el){
-      el = document.createElement('div'); el.id='rb_toast';
-      Object.assign(el.style,{position:'fixed',left:'50%',top:'12px',transform:'translateX(-50%)',
-        background:'rgba(10,16,24,.9)',color:color,padding:'8px 12px',borderRadius:'10px',
-        font:'600 13px system-ui',zIndex:9999,opacity:'0',transition:'opacity .2s, transform .2s'});
-      document.body.appendChild(el);
+      el=document.createElement('div'); el.id='toast'; document.body.appendChild(el);
+      Object.assign(el.style,{position:'fixed', left:'50%', top:'12px', transform:'translateX(-50%)',
+        background:'rgba(10,12,16,.9)', color:'#ffcc00', padding:'8px 12px',
+        borderRadius:'10px', font:'600 14px/1.1 system-ui,Arial', zIndex:9999,
+        letterSpacing:'0.4px', transition:'opacity .2s, transform .2s', opacity:'0'});
     }
     el.style.color=color; el.textContent=msg; el.style.opacity='1'; el.style.transform='translateX(-50%) scale(1.02)';
     setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) scale(1)'; }, 900);
   }
 
-  // ---------- Speed Profiles ----------
-  // ตั้งค่าพฤติกรรมความเร็วตามโปรไฟล์
-  const SPEED_PROFILES = {
-    beginner : { title:'Beginner',  speedMul:0.45, ramp:1.00025, MAX_SPEED_MUL:0.80 },
-    standard : { title:'Standard',  speedMul:0.55, ramp:1.00055, MAX_SPEED_MUL:0.95 },
-    challenge: { title:'Challenge', speedMul:0.65, ramp:1.00120, MAX_SPEED_MUL:1.10 }
-  };
-  let SPEED = SPEED_PROFILES.standard;
-
-  function applySpeedProfile(key){
-    SPEED = SPEED_PROFILES[key] || SPEED_PROFILES.standard;
-    try{ localStorage.setItem('rb_speed', key); }catch(_e){}
-    toast('Speed: '+SPEED.title, '#9bd1ff');
-  }
-
-  // อ่านจาก URL ?speed= หรือ localStorage
-  (function bootSpeed(){
-    const urlSpeed = (getQ('speed')||'').toLowerCase();
-    const saved = (localStorage.getItem('rb_speed')||'').toLowerCase();
-    const pick = urlSpeed || saved || 'standard';
-    applySpeedProfile(pick);
-  })();
-
   // ---------- SFX ----------
   const SFXN=(p)=>{ const a=new Audio(p); a.onerror=()=>console.warn('SFX not found:',p); return a; };
   const SFX={
-    hit:SFXN(`${ASSET_BASE}/assets/sfx/perfect.wav`),
+    good:SFXN(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    perfect:SFXN(`${ASSET_BASE}/assets/sfx/perfect.wav`),
     miss:SFXN(`${ASSET_BASE}/assets/sfx/miss.wav`),
-    whoosh:SFXN(`${ASSET_BASE}/assets/sfx/slash.wav`),
-    ready:SFXN(`${ASSET_BASE}/assets/sfx/success.wav`)
+    combo:SFXN(`${ASSET_BASE}/assets/sfx/combo.wav`),
+    click:SFXN(`${ASSET_BASE}/assets/sfx/laser.wav`),
+    success:SFXN(`${ASSET_BASE}/assets/sfx/success.wav`)
   };
-  function play(a){ try{ a.currentTime=0; a.play(); }catch(_e){} }
+  const lastPlay=new Map();
+  function play(a,guardMs=90){ try{
+    const now=performance.now(); if(lastPlay.get(a)&&now-lastPlay.get(a)<guardMs) return;
+    a.currentTime=0; lastPlay.set(a,now); if(a.paused) a.play();
+  }catch(_e){} }
 
-  // ---------- Game State ----------
-  let running=false, paused=false;
-  let timer=null, spawnTimer=null, rampTimer=null;
-  let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=90;
-  let speedMul = SPEED.speedMul;      // ตัวคูณความเร็วเริ่มต้น (ตกช้า/เร็ว)
-  let MAX_SPEED_MUL = SPEED.MAX_SPEED_MUL;
-  let ramp = SPEED.ramp;              // เร่งความเร็วทีละนิด
-  const NOTE_BASE_INTERVAL = 920;     // ยิ่งสูงยิ่งช้า (ms)
+  // ---------- Lane Falling Notes ----------
+  const LANES = [-0.9, 0, 0.9];  // X ของแต่ละเลน
+  const START_Y = 2.4;           // จุดเกิดด้านบน
+  const HIT_LINE_Y = 1.05;       // เส้นฮิต
+  const Z = -2.2;
 
-  // ---------- Hands (วัดความเร็วเคลื่อนไหว) ----------
-  AFRAME.registerComponent('rb-hand',{
-    schema:{speed:{type:'number',default:0}},
-    init(){ this.prev=null; this.prevT=performance.now(); this.vel=new THREE.Vector3(); },
-    tick(){
-      const p=this.el.object3D.getWorldPosition(new THREE.Vector3()), now=performance.now();
-      if(this.prev){
-        const dt=(now-this.prevT)/1000;
-        if(dt>0){
-          this.vel.set((p.x-this.prev.x)/dt,(p.y-this.prev.y)/dt,(p.z-this.prev.z)/dt);
-          this.data.speed=this.vel.length();
-        }
-      }
-      this.prev=p.clone(); this.prevT=now;
-    }
-  });
+  // เวลาฮิต (ตามความเร็ว) — คิดจากระยะใกล้เส้นฮิต
+  const BASE_HIT_WINDOW = 0.12;      // วินาที
+  const PERFECT_PORTION = 0.5;
 
-  // ---------- Targets ----------
-  const HIT_R=0.42, HIT_R_PERF=0.30, SPEED_GOOD=1.2, SPEED_PERF=2.0;
+  // ความเร็ว & บีต
+  let speedProfile = 'standard';      // beginner | standard | challenge
+  let rbSpeedMul = 1.0;               // ปรับตามโปรไฟล์
+  let songKey = 'club';               // training | club | rush
+  let songBPM = 120;
 
-  function spawnNote(){
-    spawns++;
-    const el=document.createElement('a-sphere');
-    const x=(Math.random()*3.0-1.5).toFixed(2);
-    const y=(Math.random()*1.4 + 1.0).toFixed(2);
-    const z=(-2.2 - Math.random()*0.6).toFixed(2);
-    el.classList.add('rb-note','clickable');
-    el.setAttribute('radius','0.12');
-    el.setAttribute('color','#7ae1ff');
-    el.setAttribute('position',`${x} ${y} ${z}`);
-    // อายุโน้ต (ยิ่งเร็ว ยิ่งอายุน้อย)
-    const life = Math.max(850, NOTE_BASE_INTERVAL * (1.0/speedMul));
-    el.dataset.expire = (performance.now() + life).toString();
-    $('arena').appendChild(el);
+  // การเกิดโน้ต
+  let spawnTimer = null;
+  let beatSec = 0.5; // 1/2 beat spawn
+  let spawnInterval = 0.3; // seconds
 
-    // คลิก/แตะ
-    el.addEventListener('click', ()=>{
-      registerHit(el, 'laser');
+  // ตกลง
+  let fallSpeed = 0.88; // หน่วย y/sec
+  const fallAcc = 0.02; // ค่อย ๆ เร่ง สูงสุด +40%
+
+  // ---------- State ----------
+  let running=false, paused=false, over=false;
+  let score=0, combo=0, maxCombo=0;
+  let totalNotes=0, hitNotes=0, perfects=0, goods=0, misses=0;
+  let startedAt = 0;
+  let durationSec = 60; // ความยาวเพลง (กำหนดคร่าว ๆ)
+
+  // HUD อ้างอิง id ถ้ามีก็ใช้
+  function updateHUD(){
+    const acc = totalNotes? Math.round((hitNotes/totalNotes)*100) : 0;
+    if(byId('score')) byId('score').textContent = score;
+    if(byId('combo')) byId('combo').textContent = combo;
+    if(byId('time'))  byId('time').textContent  = Math.max(0, Math.ceil(getTimeLeft()));
+    if(byId('rbAcc')) byId('rbAcc').textContent = acc+'%';
+  }
+
+  function getTimeLeft(){
+    if(!startedAt) return durationSec;
+    const t = (performance.now()-startedAt)/1000;
+    return clamp(durationSec - t, 0, durationSec);
+  }
+
+  // ใช้เก็บ/เดินรายการโน้ต
+  const activeNotes = new Set();
+
+  // เกิดโน้ต 1 อัน ในเลนสุ่ม
+  function spawnLaneNote(){
+    const laneX = LANES[Math.floor(Math.random()*LANES.length)];
+    const note = document.createElement('a-box');
+    note.classList.add('note','clickable');
+    note.setAttribute('color', '#00d0ff');
+    note.setAttribute('depth', '0.06');
+    note.setAttribute('width', '0.26');
+    note.setAttribute('height','0.26');
+    note.setAttribute('position', `${laneX} ${START_Y} ${Z}`);
+    note.dataset.spawnT = performance.now()/1000;
+    note.dataset.laneX = laneX;
+    note.dataset.hit = '0';
+    byId('arena')?.appendChild(note);
+    activeNotes.add(note);
+    totalNotes++;
+
+    // กด/แตะเพื่อฮิต
+    note.addEventListener('click', ()=>{
+      tryHit(note);
     });
   }
 
-  function registerHit(target, method){
-    if(!target || !target.parentNode) return;
-    const pos = target.object3D.getWorldPosition(new THREE.Vector3());
-    safeRemove(target);
-    combo++;
-    if(combo>maxCombo) maxCombo=combo;
-    hits++;
-    let base = (method==='laser') ? 12 : 10;
-    score += base;
-    updateHUD();
-    play(SFX.hit);
-    floatText('HIT','#00ffa3', pos);
+  // อัปเดตทุกเฟรม
+  let _lastT = performance.now()/1000;
+  function updateFalling(){
+    if(!running || paused || over){ requestAnimationFrame(updateFalling); return; }
+
+    const now = performance.now()/1000;
+    const dt = Math.min(0.033, now - _lastT);
+    _lastT = now;
+
+    // เร่ง fallSpeed ขึ้นทีละน้อย (จำกัดเพดาน +40% จากค่าตั้งต้นตามโปรไฟล์)
+    const base = 0.88 * rbSpeedMul;
+    const maxV = base * 1.4;
+    fallSpeed = clamp(fallSpeed + dt*fallAcc, base, maxV);
+
+    activeNotes.forEach(note=>{
+      if(!note.parentNode){ activeNotes.delete(note); return; }
+      const p = note.object3D.position;
+      p.y -= fallSpeed * dt;
+      note.object3D.position.set(p.x, p.y, p.z);
+
+      // เลยเส้นฮิต -> MISS แล้วลบ
+      if (p.y < HIT_LINE_Y - 0.2){
+        applyMiss(note);
+        safeRemove(note);
+        activeNotes.delete(note);
+      }
+    });
+
+    // จบเพลง
+    if(getTimeLeft()<=0){
+      endGame();
+      return;
+    }
+
+    requestAnimationFrame(updateFalling);
   }
 
-  function miss(target){
-    if(target && target.parentNode){
-      const pos = target.object3D.getWorldPosition(new THREE.Vector3());
-      safeRemove(target);
-      combo=0; play(SFX.miss); floatText('MISS','#ff5577', pos); updateHUD();
+  function tryHit(note){
+    if(!note || note.dataset.hit==='1') return;
+    const y = note.object3D.position.y;
+    const distY = Math.abs(y - HIT_LINE_Y);
+
+    // window ผูกกับความเร็วตก (เร็ว = เวลากว้างแคบลงทางสัดส่วนเดิม)
+    const windowT = BASE_HIT_WINDOW; // วินาที
+    const ok = (distY <= fallSpeed * windowT);
+    if(ok){
+      note.dataset.hit='1';
+      const perfectCut = fallSpeed * windowT * PERFECT_PORTION;
+      const grade = (distY <= perfectCut) ? 'perfect' : 'good';
+      applyHit(note, grade);
+      safeRemove(note);
+      activeNotes.delete(note);
     }else{
-      combo=0; updateHUD();
+      // ตีเร็ว/ช้าเกิน ให้ตกต่อ
+      // hint: ping เล็ก ๆ ได้ ถ้าต้องการ
     }
   }
 
-  // ตรวจจับด้วยมือ (ตีโดยไม่ต้องคลิก)
-  function checkHandHits(){
-    if(!running) return;
-    const arena = $('arena');
-    const notes = Array.from(arena.querySelectorAll('.rb-note'));
-    if(notes.length===0) return;
+  // ---------- Score ----------
+  function applyHit(note, grade){
+    combo++;
+    if(combo%10===0) play(SFX.combo);
+    if(combo>maxCombo) maxCombo=combo;
 
-    const lh=$('leftHand'), rh=$('rightHand');
-    const lc=lh?.components['rb-hand'], rc=rh?.components['rb-hand'];
-    const ls=lc?.data?.speed||0, rs=rc?.data?.speed||0;
-    const lv=lc?.vel||new THREE.Vector3(), rv=rc?.vel||new THREE.Vector3();
-    const lp=lh?.object3D.getWorldPosition(new THREE.Vector3())||new THREE.Vector3();
-    const rp=rh?.object3D.getWorldPosition(new THREE.Vector3())||new THREE.Vector3();
+    const p = note.object3D.getWorldPosition(new THREE.Vector3());
+    let base = 0;
+    if(grade==='perfect'){ base=20; perfects++; play(SFX.perfect); floatText('PERFECT','#00ffa3', p); }
+    else { base=12; goods++; play(SFX.good); floatText('GOOD','#9bd1ff', p); }
 
-    for(const n of notes){
-      if(!n.getAttribute('visible')) continue;
-      const pos=n.object3D.getWorldPosition(new THREE.Vector3());
-      const dl=lp.distanceTo(pos), dr=rp.distanceTo(pos);
-      if(ls>=SPEED_GOOD && dl<=HIT_R){ registerHit(n,'slash'); continue; }
-      if(rs>=SPEED_GOOD && dr<=HIT_R){ registerHit(n,'slash'); continue; }
-      // หมดอายุ = MISS
-      if(performance.now() > (+n.dataset.expire || 0)){ miss(n); }
-    }
+    // คอมโบช่วย: +1 ต่อทุก ๆ 10 คอมโบ
+    const comboBonus = Math.floor(combo/10);
+    score += base + comboBonus;
+
+    hitNotes++;
+    updateHUD();
   }
-  AFRAME.registerSystem('rb-loop',{tick(){ checkHandHits(); }});
+
+  function applyMiss(note){
+    misses++;
+    combo=0;
+    play(SFX.miss);
+    const p = note?.object3D?.getWorldPosition?.(new THREE.Vector3()) || new THREE.Vector3(0,1.1,-2.2);
+    floatText('MISS','#ff5577', p);
+    updateHUD();
+  }
 
   // ---------- Float text ----------
-  function floatText(text,color,pos){
-    const e=document.createElement('a-entity'), p=pos.clone(); p.y+=0.22;
-    e.setAttribute('text',{value:text,color,align:'center',width:2.2});
+  function floatText(text, color, pos){
+    const e=document.createElement('a-entity'), p=pos.clone(); p.y+=0.18;
+    e.setAttribute('text',{value:text,color,align:'center',width:2.6});
     e.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
     e.setAttribute('scale','0.001 0.001 0.001');
     e.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:90,easing:'easeOutQuad'});
-    e.setAttribute('animation__rise',{property:'position',to:`${p.x} ${p.y+0.5} ${p.z}`,dur:560,easing:'easeOutQuad'});
-    e.setAttribute('animation__fade',{property:'opacity',to:0,dur:420,delay:160,easing:'linear'});
-    $('arena').appendChild(e); setTimeout(()=>safeRemove(e),820);
-  }
-  function safeRemove(el){ try{ if(!el) return; if(el.parentNode){ el.parentNode.removeChild(el); } else if(el.remove){ el.remove(); } }catch(_e){} }
-
-  // ---------- Game flow ----------
-  function updateHUD(){
-    $('score').textContent = score;
-    $('combo').textContent = combo;
-    $('time').textContent  = timeLeft;
+    e.setAttribute('animation__rise',{property:'position',to:`${p.x} ${p.y+0.55} ${p.z}`,dur:520,easing:'easeOutQuad'});
+    e.setAttribute('animation__fade',{property:'opacity',to:0,dur:420,delay:120,easing:'linear'});
+    byId('arena')?.appendChild(e);
+    setTimeout(()=>safeRemove(e),780);
   }
 
+  // ---------- Game Flow ----------
   function clearArena(){
-    const a=$('arena');
-    Array.from(a.children).forEach(ch=>safeRemove(ch));
+    const a=byId('arena'); if(!a) return;
+    Array.from(a.children).forEach(c=>safeRemove(c));
   }
 
-  function start(){
+  function computeSongSettings(){
+    // Speed profile
+    const selSpeed = (byId('speedSel')?.value || getQ('speed') || 'standard').toLowerCase();
+    speedProfile = ['beginner','standard','challenge'].includes(selSpeed) ? selSpeed : 'standard';
+    rbSpeedMul = (speedProfile==='beginner')?0.75 : (speedProfile==='challenge')?1.25 : 1.0;
+
+    // Song
+    const selSong = (byId('songSel')?.value || getQ('song') || 'club').toLowerCase();
+    songKey = ['training','club','rush'].includes(selSong)? selSong : 'club';
+    songBPM = (songKey==='training')?100 : (songKey==='rush')?140 : 120;
+
+    // Duration (แบบง่าย)
+    durationSec = (songKey==='training')? 55 : (songKey==='rush')? 70 : 60;
+
+    // Spawn interval ตาม BPM (1/2 beat, ช้าสุด 0.28s)
+    beatSec = 60 / songBPM;
+    spawnInterval = Math.max(beatSec*0.5, 0.28);
+
+    // ตกเริ่มต้น: ช้า แล้วค่อยเร่ง
+    fallSpeed = 0.88 * rbSpeedMul;
+  }
+
+  function startSpawner(){
+    stopSpawner();
+    spawnTimer = setInterval(spawnLaneNote, spawnInterval*1000);
+  }
+  function stopSpawner(){
+    if(spawnTimer) clearInterval(spawnTimer), spawnTimer=null;
+  }
+
+  function startGame(){
     if(running) return;
-    // sync โปรไฟล์ล่าสุดจาก select (ถ้าเปลี่ยน)
-    const sel = $('speedSel');
-    if(sel){ applySpeedProfile(sel.value); }
+    running=true; paused=false; over=false;
 
-    running=true; paused=false;
-    score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=90;
-    speedMul = SPEED.speedMul;
-    MAX_SPEED_MUL = SPEED.MAX_SPEED_MUL;
-    ramp = SPEED.ramp;
+    // reset
+    score=0; combo=0; maxCombo=0;
+    totalNotes=0; hitNotes=0; perfects=0; goods=0; misses=0;
+    clearArena();
 
-    clearArena(); updateHUD(); play(SFX.ready);
+    // settings
+    computeSongSettings();
+    startedAt = performance.now();
+    updateHUD();
 
-    // spawn
-    spawnTimer = setInterval(spawnNote, Math.max(520, NOTE_BASE_INTERVAL * (1.0/speedMul)));
-    // timer
-    timer = setInterval(()=>{
-      if(!paused){
-        timeLeft--;
-        $('time').textContent=timeLeft;
-        if(timeLeft<=0){ end(); }
-      }
-    },1000);
+    // fire
+    startSpawner();
+    requestAnimationFrame(updateFalling);
 
-    // เร่งความเร็วทีละน้อย ทุก 5 วินาที
-    rampTimer = setInterval(()=>{
-      if(!paused){
-        speedMul = clamp(speedMul*ramp, 0.35, MAX_SPEED_MUL);
-      }
-    }, 5000);
+    // UI
+    pingUI('START','#00ffa3');
+    if(byId('results')) byId('results').style.display='none';
   }
 
-  function end(){
-    running=false;
-    try{ clearInterval(timer); clearInterval(spawnTimer); clearInterval(rampTimer); }catch(_){}
-    // สรุปผล
-    const acc = spawns? Math.round((hits/spawns)*100) : 0;
-    $('rScore').textContent = score;
-    $('rMaxCombo').textContent = maxCombo;
-    $('rAcc').textContent = acc + '%';
-    $('results').style.display='flex';
-    // บันทึกลีดเดอร์บอร์ด (ถ้ามี)
-    try{ window.Leaderboard?.postResult?.('rhythm-boxer',{score,maxCombo,accuracy:acc,speed:SPEED.title}); }catch(_){}
+  function endGame(){
+    if(over) return;
+    over=true; running=false; stopSpawner();
+
+    // เก็บสถิติ
+    const acc = totalNotes? Math.round((hitNotes/totalNotes)*100) : 0;
+    const resultsEl = byId('results');
+    if(resultsEl){
+      // พยายามแมป id ทั่วไป
+      const rScore = byId('rScore');
+      const rAcc   = byId('rAcc');
+      const rCombo = byId('rMaxCombo');
+      const rNote  = byId('rNotes');
+      const rPerf  = byId('rPerfect');
+      const rGood  = byId('rGood');
+      const rMiss  = byId('rMiss');
+      if(rScore) rScore.textContent = score;
+      if(rAcc)   rAcc.textContent   = acc+'%';
+      if(rCombo) rCombo.textContent = maxCombo;
+      if(rNote)  rNote.textContent  = totalNotes;
+      if(rPerf)  rPerf.textContent  = perfects;
+      if(rGood)  rGood.textContent  = goods;
+      if(rMiss)  rMiss.textContent  = misses;
+      resultsEl.style.display='flex';
+    }
+    play(SFX.success);
+    pingUI('RESULTS','#ffd166');
   }
 
   function togglePause(){
-    if(!running) return;
-    paused = !paused;
-    toast(paused?'PAUSED':'RESUMED', paused?'#ffd166':'#00ffa3');
+    if(!running || over) return;
+    paused=!paused;
+    if(paused){
+      stopSpawner();
+      pingUI('PAUSED','#ffd166');
+    }else{
+      // resume
+      computeSongSettings(); // เผื่อผู้เล่นเปลี่ยนเพลง/สปีดระหว่างพัก
+      startSpawner();
+      _lastT = performance.now()/1000;
+      requestAnimationFrame(updateFalling);
+      pingUI('RESUME','#00ffa3');
+    }
   }
 
-  // ---------- Pointer (mouse/touch) raycast คลิกเป้าหมาย ----------
-  (function pointerRay(){
-    const scene = q('a-scene');
-    if(!scene) return;
+  // ---------- Pointer Raycast (mouse/touch) ----------
+  (function installPointerRaycast(){
+    const sceneEl = document.querySelector('a-scene');
+    if (!sceneEl) return;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+
     function pick(clientX, clientY){
-      const cam = scene.camera; if(!cam) return;
+      const cam = sceneEl.camera;
+      if (!cam) return;
       mouse.x =  (clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+
       raycaster.setFromCamera(mouse, cam);
       const clickable = Array.from(document.querySelectorAll('.clickable'))
         .map(el => el.object3D).filter(Boolean);
-      const objs = []; clickable.forEach(o=>o.traverse(ch=>objs.push(ch)));
-      const hits = raycaster.intersectObjects(objs, true);
-      if(hits && hits.length){
+      const objects = [];
+      clickable.forEach(o => o.traverse(child => objects.push(child)));
+
+      const hits = raycaster.intersectObjects(objects, true);
+      if (hits && hits.length){
         let obj = hits[0].object;
-        while(obj && !obj.el) obj = obj.parent;
-        if(obj && obj.el){ obj.el.emit('click'); }
+        while (obj && !obj.el) obj = obj.parent;
+        if (obj && obj.el){ obj.el.emit('click'); }
       }
     }
-    window.addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
-    window.addEventListener('touchstart', e=>{
-      const t=e.touches && e.touches[0]; if(!t) return;
+    window.addEventListener('mousedown', e => pick(e.clientX, e.clientY), {passive:true});
+    window.addEventListener('touchstart', e => {
+      const t = e.touches && e.touches[0]; if (!t) return;
       pick(t.clientX, t.clientY);
     }, {passive:true});
   })();
 
-  // ---------- Mouse move -> ขยับมือขวา (เดสก์ท็อป) ----------
-  document.addEventListener('mousemove', e=>{
-    const x=(e.clientX/window.innerWidth - .5)*3.0;
-    const y=(1 - e.clientY/window.innerHeight)*2 + .6;
-    const h=$('rightHand'); if(h) h.setAttribute('position', `${x.toFixed(2)} ${y.toFixed(2)} -1`);
-  }, {passive:true});
-
-  // ---------- DOM bindings ----------
+  // ---------- Buttons / Wiring ----------
   document.addEventListener('DOMContentLoaded', ()=>{
-    $('startBtn')?.addEventListener('click', start);
-    $('replayBtn')?.addEventListener('click', ()=>{ $('results').style.display='none'; start(); });
-    $('pauseBtn')?.addEventListener('click', togglePause);
+    // ปุ่ม UI ต้องเป็นปุ่ม HTML ปกติ (DOM) อย่าวางใน a-scene เพื่อให้คลิกได้แน่นอน
+    const startBtn = byId('startBtn');
+    const pauseBtn = byId('pauseBtn');
+    const replayBtn = byId('replayBtn');
+    const backBtn = byId('backBtn');
 
-    // กลับ Hub
-    $('backBtn')?.addEventListener('click', ()=>{
-      // กลับหน้า Hub root ตามโครงโปรเจกต์
-      window.location.href = `${ASSET_BASE}/vr-fitness/`;
+    startBtn?.addEventListener('click', ()=>{ play(SFX.click); startGame(); });
+    pauseBtn?.addEventListener('click', ()=>{ play(SFX.click); togglePause(); });
+    replayBtn?.addEventListener('click', ()=>{ play(SFX.click); startGame(); });
+
+    backBtn?.addEventListener('click', ()=>{
+      play(SFX.click);
+      // กลับสู่ Hub (ฐานจาก meta asset-base)
+      const hub = `${ASSET_BASE}/vr-fitness/`;
+      try{ window.location.href = hub; }catch(_){ location.assign(hub); }
     });
 
-    // เลือกเพลง: ยังไม่ผูกเสียงจริง (placeholder)
-    $('songSel')?.addEventListener('change', ()=>{
-      toast('Song: '+$('songSel').value, '#e6f7ff');
+    // ถ้าเปลี่ยนเพลง/ความเร็วขณะพัก ให้รีคอมพิวต์
+    byId('songSel')?.addEventListener('change', ()=>{
+      if(!running || paused){ computeSongSettings(); pingUI('Song set'); }
+    });
+    byId('speedSel')?.addEventListener('change', ()=>{
+      if(!running || paused){ computeSongSettings(); pingUI('Speed set'); }
     });
 
-    // เลือก Speed Profile
-    const speedSel = $('speedSel');
-    if(speedSel){
-      // set ค่าเริ่มจาก URL/LS
-      const saved = (localStorage.getItem('rb_speed')||'standard');
-      if(['beginner','standard','challenge'].includes(saved)) speedSel.value = saved;
-      speedSel.addEventListener('change', ()=>{
-        applySpeedProfile(speedSel.value);
-      });
+    // อัปเดต HUD ตอนแรก
+    updateHUD();
+  });
+
+  // ---------- iOS audio unlock ----------
+  (function unlockAudio(){
+    let unlocked=false, ctx = (window.AudioContext||window.webkitAudioContext)? new (window.AudioContext||window.webkitAudioContext)() : null;
+    function resume(){
+      if(unlocked || !ctx) return;
+      ctx.resume?.(); unlocked = ctx.state==='running';
     }
+    ['touchstart','pointerdown','mousedown','keydown'].forEach(ev=>document.addEventListener(ev, resume, {once:true, passive:true}));
+  })();
 
-    // Enter VR (กลางล่าง)
-    $('enterVRBtn')?.addEventListener('click', ()=>{
-      try{ q('a-scene')?.enterVR?.(); }catch(e){ console.warn(e); }
+  // ---------- Safety / Fatal UI ----------
+  (function bootGuards(){
+    function showFatal(msg){
+      let o=byId('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
+        Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
+          display:'grid',placeItems:'center',font:'14px/1.5 system-ui',zIndex:99999}); document.body.appendChild(o);}
+      o.innerHTML = '<div style="max-width:720px;padding:20px;text-align:center">'+
+        '<h2>⚠️ Can’t start VR scene</h2><p>'+msg+'</p>'+
+        '<p class="small">Check scripts/CORS/paths and reload.</p></div>';
+    }
+    let tries=0; (function waitAF(){
+      if(window.AFRAME && document.querySelector('a-scene')) return;
+      tries++;
+      if(tries>120){ showFatal('A-Frame scene not found or failed to load (timeout).'); return; }
+      requestAnimationFrame(waitAF);
+    })();
+    window.addEventListener('error', e=>{
+      if(!byId('fatal')) showFatal('JS error: '+(e.message||'unknown'));
     });
-  });
-
-  // ---------- Safety / cleanup ----------
-  window.addEventListener('beforeunload', ()=>{
-    try{ clearInterval(timer); clearInterval(spawnTimer); clearInterval(rampTimer); }catch(_){}
-  });
+    window.addEventListener('beforeunload', ()=>{
+      try{ stopSpawner(); }catch(_){}
+    });
+  })();
 
 })();
