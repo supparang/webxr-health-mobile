@@ -5,112 +5,81 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- บอกสคริปต์ว่าฐาน asset อยู่ไหน -->
+  <!-- บอก path สินทรัพย์ให้เกมรู้ -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
-  <style>
-    :root{
-      --ui-bg: rgba(10,16,24,.75);
-      --ui-br: 12px;
-      --ui-bd: 1px solid rgba(255,255,255,.08);
-      --ui-fg: #e6f7ff;
-      --btn-bg:#0e2233;
+  <style id="rbForceUIClicks">
+    /* ให้ UI ชนะทุกอย่าง และกัน canvas กินคลิก */
+    #uiDock, #uiDock * { pointer-events:auto !important; z-index:2147483647 !important; }
+    #results, #results * { pointer-events:auto !important; z-index:2147483647 !important; }
+    #uiDock, #results {
+      position:fixed !important; left:8px; bottom:12px;
+      display:flex; gap:8px; align-items:center;
+      background:rgba(10,16,24,.80); color:#e6f7ff;
+      padding:8px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.08);
+      font:600 12px system-ui;
     }
-    body{background:#000;}
-    /* HUD มุมขวาบน (ลอยเหนือฉากแน่นอน) */
-    #hud{position:fixed;right:8px;top:8px;z-index:2147483000;
-      background:rgba(0,0,0,.35);color:var(--ui-fg);padding:8px 10px;border-radius:10px;
-      font:600 13px system-ui;pointer-events:none}
-    #hud b{font-weight:800}
-
-    /* เส้น hit line แสดงด้านหน้า */
-    .hitline{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:22%; width:min(620px,84vw); height:4px;
-      background:linear-gradient(90deg, transparent, #2cff88 20%, #2cff88 80%, transparent);
-      box-shadow: 0 0 10px #2cff88, 0 0 20px #2cff88;
-      opacity:.95; z-index:2147482000; pointer-events:none;
-      border-radius:4px;
+    canvas.a-canvas { pointer-events:none !important; }
+    #hudTopRight{
+      position:fixed; top:8px; right:8px; z-index:2147483647;
+      background:rgba(0,0,0,.4); color:#e6f7ff; padding:6px 10px; border-radius:10px; font:600 12px system-ui;
     }
-
-    /* Dock ควบคุม + ตัวเลือกเพลง/ความเร็ว (ซ้ายล่าง) */
-    .ui-dock{
-      position:fixed; left:12px; bottom:12px; z-index:2147483647;
-      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
-      padding:8px; background:var(--ui-bg); border:var(--ui-bd); border-radius:var(--ui-br);
-      backdrop-filter:saturate(1.1) blur(4px);
-    }
-    .ui-dock .btn{
-      padding:8px 12px; border:0; border-radius:10px; background:var(--btn-bg); color:var(--ui-fg);
-      font:600 13px system-ui; cursor:pointer;
-    }
-    .ui-dock select{
-      appearance:none; background:#0b2233; color:var(--ui-fg);
-      border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:6px 10px; font:600 12px system-ui;
-    }
-
-    /* ปุ่ม Enter VR กลางล่าง */
-    #enterVRBtn{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:12px; z-index:2147483200; padding:10px 14px;
-      border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer; font:600 14px system-ui;
-    }
-
-    /* หน้าผลลัพธ์ */
-    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:#e6f7ff;z-index:2147483001}
-    .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px 16px;min-width:300px}
-    .btn{padding:8px 12px;border:0;border-radius:10px;background:#0e2233;color:#e6f7ff;cursor:pointer}
-
-    /* ข้อความลอย GOOD/PERFECT/MISS */
-    .float{
-      position:fixed; left:50%; transform:translateX(-50%);
-      bottom:calc(22% + 18px); z-index:2147482100;
-      font:800 28px system-ui; letter-spacing:.4px; text-shadow:0 0 14px rgba(0,0,0,.6);
-      animation:floatUp .9s ease-out forwards;
-    }
-    @keyframes floatUp { from{opacity:0; transform:translate(-50%,18px)} to{opacity:1; transform:translate(-50%,-10px)} }
+    .btn{padding:6px 10px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer}
+    .card{background:#0b1118; border:1px solid #203446; border-radius:12px; padding:14px 16px}
   </style>
-  <style>
-  /* ให้กลุ่ม UI และปุ่มทุกตัว “รับคลิก” ชนะเลเยอร์อื่น */
-  #uiDock, #uiDock * { pointer-events: auto !important; }
-  #results, #results * { pointer-events: auto !important; }
-  /* กัน A-Frame canvas กลบคลิกบน UI */
-  canvas.a-canvas { pointer-events: auto; }
-</style>
-
 </head>
 <body>
-  <a-scene renderer="colorManagement:true">
+  <!-- SCENE -->
+  <a-scene renderer="colorManagement: true">
     <a-entity id="arena" position="0 0 0"></a-entity>
 
-    <!-- กล้อง -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity camera look-controls wasd-controls position="0 0 0"></a-entity>
-    </a-entity>
-
-    <!-- เส้นเลน (แนวนอนด้านหน้า, ใช้ช่วยเล็งในฉากด้วย) -->
-    <a-entity id="laneLines" position="0 1.0 -3">
-      <a-plane width="3.2" height="0.02" color="#2cff88" opacity="0.9"></a-plane>
+    <!-- เส้น HIT LINE (เขียวเรืองแสง) -->
+    <a-entity id="hitLine"
+      geometry="primitive: box; width: 2.6; height: 0.02; depth: 0.02"
+      material="color: #00ff88; emissive: #00ff88; emissiveIntensity: 0.6; opacity:0.95; transparent:true"
+      position="0 1.1 -2.3">
     </a-entity>
   </a-scene>
 
-  <!-- HUD -->
-  <div id="hud">
-    <div>Song: <b id="hudSong">—</b></div>
-    <div>Speed: <b id="hudSpeed">Standard</b> · Score: <b id="hudScore">0</b></div>
-    <div>Combo: <b id="hudCombo">0</b> · Time: <b id="hudTime">60</b>s</div>
+  <!-- HUD มุมขวาบน (ไม่โดนบัง) -->
+  <div id="hudTopRight">
+    Song: <b id="hudSong">—</b> ·
+    Score: <b id="hudScore">0</b> ·
+    Combo: <b id="hudCombo">0</b> ·
+    Time: <b id="hudTime">60</b> ·
+    Speed: <b id="hudSpeed">Standard</b>
   </div>
 
-  <!-- เส้น HIT LINE เรืองแสง (หน้าจอ) -->
-  <div id="hitline" class="hitline" aria-hidden="true"></div>
+  <!-- UI Control (อยู่นอก a-scene) -->
+  <div id="uiDock">
+    <label>Song</label>
+    <select id="songSel">
+      <option value="none" data-title="— Select —">— Select —</option>
+      <!-- ตัวอย่างเพลง (แก้ URL ได้ตามจริง) -->
+      <option value="/webxr-health-mobile/vr-fitness/assets/music/runforward.mp3" data-title="Run Forward (Kevin MacLeod)">Run Forward</option>
+      <option value="/webxr-health-mobile/vr-fitness/assets/music/liftoff.mp3" data-title="Liftoff (Vercetty)">Liftoff</option>
+      <option value="/webxr-health-mobile/vr-fitness/assets/music/sparkwalk.mp3" data-title="Spark Walk (Scott Holmes)">Spark Walk</option>
+    </select>
+
+    <label>Mode</label>
+    <select id="speedSel">
+      <option value="beginner">Beginner</option>
+      <option value="standard" selected>Standard</option>
+      <option value="challenge">Challenge</option>
+    </select>
+
+    <button class="btn" id="btnStart">Start</button>
+    <button class="btn" id="btnPause">Pause</button>
+    <button class="btn" id="btnEnd">End</button>
+  </div>
 
   <!-- Results -->
-  <section id="results">
-    <div class="card">
+  <section id="results" style="display:none">
+    <div class="card" style="min-width:300px">
       <h3 style="margin:0 0 8px">RESULTS</h3>
       <div>Song: <b id="rSong">—</b></div>
       <div>Score: <b id="rScore">0</b></div>
@@ -123,36 +92,89 @@
     </div>
   </section>
 
-  <!-- UI Dock -->
-  <div id="uiDock" class="ui-dock" aria-label="Rhythm Boxer Controls">
-    <label style="color:#9bd1ff;font:600 12px system-ui">Song</label>
-    <select id="songSel">
-      <option value="none">— Select —</option>
-      <!-- สมมุติไฟล์ในโปรเจกต์ (เปลี่ยนชื่อไฟล์ให้ตรงของจริง) -->
-      <option value="assets/music/track1.mp3" data-title="Training Day" data-bpm="110" data-offset="0.15">Training Day (110 BPM)</option>
-      <option value="assets/music/track2.mp3" data-title="Sprint Jam"   data-bpm="128" data-offset="0.12">Sprint Jam (128 BPM)</option>
-      <option value="assets/music/track3.mp3" data-title="Final Push"   data-bpm="142" data-offset="0.10">Final Push (142 BPM)</option>
-    </select>
+  <!-- ตัวดักคลิก + Raycast + ผูกปุ่ม -->
+  <script>
+  (function(){
+    const $ = (id)=>document.getElementById(id);
+    const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
 
-    <label style="color:#9bd1ff;font:600 12px system-ui">Speed</label>
-    <select id="speedSel">
-      <option value="beginner">Beginner</option>
-      <option value="standard" selected>Standard</option>
-      <option value="challenge">Challenge</option>
-    </select>
+    function blockBubble(el){
+      if(!el) return;
+      el.style.pointerEvents='auto';
+      ['pointerdown','mousedown','touchstart','click','pointerup','mouseup','touchend'].forEach(ev=>{
+        el.addEventListener(ev, (e)=>{ e.stopPropagation(); e.stopImmediatePropagation?.(); }, {capture:true});
+      });
+    }
+    function elevateUI(){
+      ['uiDock','results','hudTopRight'].forEach(id=>{
+        const el=$(id);
+        if(!el) return;
+        if(el.parentNode !== document.body) document.body.appendChild(el);
+        el.style.zIndex='2147483647';
+        el.style.pointerEvents='auto';
+        blockBubble(el);
+      });
+    }
 
-    <button id="btnStart" class="btn" type="button">Start</button>
-    <button id="btnPause" class="btn" type="button">Pause</button>
-    <button id="btnEnd"   class="btn" type="button">End</button>
-  </div>
+    function wireButtons(){
+      const s=$('btnStart'), p=$('btnPause'), e=$('btnEnd'),
+            replay=$('replayBtn'), back=$('backBtn'),
+            songSel=$('songSel'), speedSel=$('speedSel');
 
-  <!-- ปุ่ม Enter VR กลางล่าง -->
-  <button id="enterVRBtn" type="button">Enter VR</button>
+      [s,p,e,replay,back,songSel,speedSel,$('uiDock'),$('results')].forEach(blockBubble);
 
-  <!-- Core (ถ้ามีในโปรเจกต์) -->
-  <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
+      s?.addEventListener('click', ()=> window.RB?.start?.());
+      p?.addEventListener('click', ()=>{
+        if(!window.RB) return;
+        if(!RB.running){ return; }
+        if(!RB.paused){ RB.pause();  p.textContent='Resume'; }
+        else          { RB.resume(); p.textContent='Pause'; }
+      });
+      e?.addEventListener('click', ()=> window.RB?.endGame?.());
+      replay?.addEventListener('click', ()=>{ $('results').style.display='none'; window.RB?.start?.(); });
+      back?.addEventListener('click', ()=>{ location.href=HUB_URL; });
 
-  <!-- Game -->
-  <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
+      songSel?.addEventListener('change', ()=> window.RB?.playSelectedSong?.());
+      speedSel?.addEventListener('change', ()=> window.RB?.setSpeed?.(speedSel.value));
+    }
+
+    function installPointerRaycast(){
+      const scn = document.querySelector('a-scene');
+      if(!scn) return;
+      const ready = ()=>{
+        const raycaster = new THREE.Raycaster();
+        const v2 = new THREE.Vector2();
+        function pick(x,y){
+          const cam = scn.camera; if(!cam) return;
+          v2.x =  (x / innerWidth) * 2 - 1;
+          v2.y = -(y / innerHeight) * 2 + 1;
+          raycaster.setFromCamera(v2, cam);
+          const clickable = Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
+          const objs=[]; clickable.forEach(o=>o.traverse(c=>objs.push(c)));
+          const hits = raycaster.intersectObjects(objs, true);
+          if(hits && hits.length){
+            let o = hits[0].object;
+            while(o && !o.el) o = o.parent;
+            if(o && o.el) o.el.emit('click');
+          }
+        }
+        addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
+        addEventListener('touchstart', e=>{ const t=e.touches?.[0]; if(t) pick(t.clientX,t.clientY); }, {passive:true});
+      };
+      if (scn.hasLoaded) ready(); else scn.addEventListener('loaded', ready, {once:true});
+    }
+
+    function boot(){
+      elevateUI();
+      wireButtons();
+      installPointerRaycast();
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+  })();
+  </script>
+
+  <!-- เกม -->
+  <script src="./game.js" defer></script>
 </body>
 </html>
