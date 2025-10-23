@@ -5,123 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- บอก game.js ว่าฐานพาธอยู่ตรงไหน (ปรับตามโฮสต์จริง) -->
+  <!-- ชี้ base ของ asset ให้ game.js ใช้หาไฟล์เสียง/สกิน -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
-  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
-
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
+
   <style>
-    body{background:#050a0f;color:#e6f7ff}
-    #hud{
-      position:fixed;left:10px;top:10px;z-index:9998;
-      background:rgba(0,0,0,.35);padding:6px 10px;border-radius:10px;
-      font:600 12px system-ui
+    /* UI Overlay */
+    .hud, .dock, #results, #topRight {
+      position:fixed; z-index: 9999; color:#e6f7ff; font:600 13px/1.2 system-ui;
     }
-    #results{
-      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
-      background:rgba(0,0,0,.65);z-index:9999;color:#e6f7ff
-    }
-    .card{background:#0b1118;border:1px solid #1b2f41;border-radius:12px;padding:14px 16px;min-width:320px}
-    .btn{
-      padding:8px 12px;border:0;border-radius:10px;background:#0e2233;color:#e6f7ff;cursor:pointer
-    }
-    #dock{
-      position:fixed;left:50%;bottom:12px;transform:translateX(-50%);
-      display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;
-      background:rgba(9,16,24,.75);backdrop-filter:blur(6px) saturate(1.1);
-      border:1px solid rgba(255,255,255,.08);padding:8px 10px;border-radius:12px;z-index:9999
-    }
-    select{
-      appearance:none;background:#0e2233;color:#e6f7ff;border:1px solid rgba(255,255,255,.12);
-      border-radius:10px;padding:6px 28px 6px 10px;font:600 12px system-ui;cursor:pointer
-    }
-    .selWrap{position:relative}
-    .selWrap > span{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.8}
-    #enterVRBtn{
-      position:fixed;left:50%;bottom:64px;transform:translateX(-50%);
-      z-index:9999;padding:10px 14px;border-radius:12px;border:0;background:#0e2233;color:#e6f7ff;cursor:pointer
-    }
-    /* เส้น HIT LINE จะถูกวาดใน scene (สีเขียวเรืองแสง) */
+    .hud{ left:12px; top:12px; background:rgba(0,0,0,.35); padding:8px 10px; border-radius:12px }
+    .dock{ right:12px; bottom:12px; background:rgba(10,16,24,.75); backdrop-filter:saturate(1.1) blur(4px);
+           border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px; display:flex; gap:8px; align-items:center }
+    .btn{ padding:8px 12px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer }
+    .sel{ appearance:none; background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.12);
+          border-radius:10px; padding:6px 10px; font:600 12px system-ui; cursor:pointer }
+    #results{ inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6) }
+    #results .card{ min-width:320px; background:#0b1118; border:1px solid #203446; border-radius:12px; padding:16px }
+    #topRight{ right:12px; top:12px; background:rgba(0,0,0,.35); padding:6px 8px; border-radius:10px }
+
+    /* ให้ UI คลิกทะลุ a-scene ได้แน่ ๆ */
+    .hud, .dock, #results, #topRight, .card, .btn, .sel { pointer-events: auto }
+    a-scene, canvas { pointer-events: auto }
   </style>
 </head>
 <body>
-  <a-scene renderer="colorManagement:true">
+  <a-scene renderer="colorManagement: true">
     <a-entity id="arena" position="0 0 0"></a-entity>
-    <!-- กล้องเริ่มต้น -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity camera look-controls></a-entity>
-    </a-entity>
   </a-scene>
 
-  <!-- HUD -->
-  <div id="hud">
+  <!-- HUD ซ้ายบน -->
+  <div class="hud" id="hud">
     <div>Score: <span id="score">0</span></div>
     <div>Combo: <span id="combo">0</span> · Acc: <span id="acc">0%</span></div>
-    <div>Diff: <span id="diffNow">NORMAL</span> · Speed: <span id="spdNow">Standard</span></div>
-    <div>Song: <span id="songNow">—</span></div>
+    <div>Time: <span id="time">0</span>s</div>
   </div>
 
-  <!-- Controls Dock -->
-  <div id="dock">
-    <div class="selWrap">
-      <label for="diffSel" style="font:600 12px system-ui;opacity:.9;margin-right:4px">Difficulty</label>
-      <select id="diffSel">
-        <option value="easy">Easy</option>
-        <option value="normal">Normal</option>
-        <option value="hard">Hard</option>
-        <option value="final">Final</option>
-      </select><span>▼</span>
-    </div>
+  <!-- ขวาบน: โชว์ diff -->
+  <div id="topRight">Mode: <b id="diffLabel">STANDARD</b></div>
 
-    <div class="selWrap">
-      <label for="speedSel" style="font:600 12px system-ui;opacity:.9;margin:0 4px 0 8px">Speed</label>
-      <select id="speedSel">
-        <option value="beginner">Beginner</option>
-        <option value="standard">Standard</option>
-        <option value="challenge">Challenge</option>
-      </select><span>▼</span>
-    </div>
+  <!-- แถบควบคุมขวาล่าง (วาง Start/Pause/End และตัวเลือกเพลง/สปีด) -->
+  <div class="dock" id="dock">
+    <label>Song</label>
+    <select id="songSel" class="sel">
+      <option value="training">Training Beat</option>
+      <option value="flow">Flow Runner</option>
+      <option value="charge">Charge Up</option>
+    </select>
 
-    <div class="selWrap">
-      <label for="songSel" style="font:600 12px system-ui;opacity:.9;margin:0 4px 0 8px">Song</label>
-      <select id="songSel">
-        <!-- จะเติมด้วย JS ตาม SONGS -->
-      </select><span>▼</span>
-    </div>
+    <label>Speed</label>
+    <select id="speedSel" class="sel">
+      <option value="beginner">Beginner</option>
+      <option value="standard" selected>Standard</option>
+      <option value="challenge">Challenge</option>
+    </select>
 
     <button class="btn" id="startBtn">Start</button>
     <button class="btn" id="pauseBtn">Pause</button>
     <button class="btn" id="endBtn">End</button>
-    <button class="btn" id="backBtn">Back to Hub</button>
   </div>
 
-  <!-- ผลลัพธ์ -->
+  <!-- ผลลัพธ์หลังจบ -->
   <section id="results">
     <div class="card">
-      <h3 style="margin:0 0 8px">RESULTS</h3>
-      <div>Song: <b id="rSong">-</b></div>
+      <h3 style="margin:0 0 10px">RESULTS</h3>
       <div>Score: <b id="rScore">0</b></div>
-      <div>Max Combo: <b id="rCombo">0</b></div>
+      <div>Max Combo: <b id="rMaxCombo">0</b></div>
       <div>Accuracy: <b id="rAcc">0%</b></div>
-      <div>Stars: <b id="rStars">☆☆☆</b></div>
-      <div style="display:flex;gap:8px;margin-top:10px">
+      <div style="margin-top:12px; display:flex; gap:8px">
         <button class="btn" id="replayBtn">Replay</button>
-        <button class="btn" id="hubBtn">Back to Hub</button>
+        <button class="btn" id="backBtn">Back to Hub</button>
       </div>
     </div>
   </section>
 
+  <!-- core (optional) -->
+  <script src="/webxr-health-mobile/vr-fitness/core/i18n.js" defer></script>
+  <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
+
   <!-- เกม -->
   <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
 
-  <!-- ปุ่ม Enter VR กลางล่าง -->
-  <button id="enterVRBtn">Enter VR</button>
+  <!-- แสดง error ชัดๆ เมื่อพัง -->
   <script>
-    document.getElementById('enterVRBtn').addEventListener('click', ()=>{
-      try{ document.querySelector('a-scene')?.enterVR?.(); }catch(e){ console.warn(e); }
-    }, {passive:true});
+    window.addEventListener('error', (e)=>{
+      const msg = (e.message||'Script error') + (e.filename?(' @ '+e.filename+':'+(e.lineno||0)+':'+(e.colno||0)):'');
+      let o=document.getElementById('fatal');
+      if(!o){ o=document.createElement('div'); o.id='fatal';
+        Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',display:'grid',placeItems:'center',zIndex:99999});
+        document.body.appendChild(o);
+      }
+      o.innerHTML = '<div style="max-width:720px;padding:20px;text-align:center"><h3>⚠️ JS Error</h3><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre></div>';
+    });
   </script>
 </body>
 </html>
