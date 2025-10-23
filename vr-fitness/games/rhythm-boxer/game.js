@@ -1,275 +1,378 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · game.js (Fix UI Clicks: stop ray on UI, z-index/pointer-events, touch-action; Hit-Line Glow + Judge + Hit-Assist + Speed Ramp + Safe Remove + Back-to-Hub fix)
+   Rhythm Boxer · A-Frame (Full) — slower start → ramp up, big colorful notes, neon HIT LINE, Good/Perfect/Miss, SFX, buttons clickable, correct Hub link
 */
-(function () {
+(function(){
   "use strict";
 
-  // ===== Helpers
-  const byId = (id) => document.getElementById(id);
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const RND = () => Math.random();
-  function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else if(el.remove) el.remove(); }catch(_){} }
-
-  // Paths
+  // -------------------- Paths / Config --------------------
+  const byId = (id)=>document.getElementById(id);
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
-  const HUB_URL = `${ASSET_BASE}/vr-fitness/`;
+  // กลับ Hub ให้ถูกต้อง
+  const HUB_URL = ASSET_BASE + '/';
 
-  // ===== Audio
+  // Scene / lanes
+  const LANES = [-1.2, -0.4, 0.4, 1.2]; // 4 lanes (X)
+  const HIT_LINE_Y = 1.0;               // เส้นกด
+  const SPAWN_Y = 3.0;                  // เริ่มตก
+  const NOTE_RADIUS = 0.25;             // ใหญ่ขึ้น
+  const NOTE_COLORS = ['#00e5ff','#ff7a66','#ffd166','#8cff66','#c792ea','#00ffa3'];
+  const SPEED_BASE = 0.75;              // เริ่มช้า
+  const SPEED_MAX  = 2.2;               // เร็วสุดเมื่อ ramp เต็ม
+  const RAMP_SECS  = 60;                // ค่อย ๆ เร่งใน 60s
+  const HIT_WINDOW = { perfect: 0.18, good: 0.30 }; // หน้าต่างตรวจจับ (กว้างขึ้น)
+  const MOUSE_AIM_ASSIST = 0.28;        // Raycast tolerance กดใกล้ ๆ ก็ได้
+  const START_GAP = 900;                // เริ่มห่าง ๆ
+  const END_GAP   = 340;                // ค่อย ๆ ถี่ลง
+  const GAP_RAMP_SECS = 60;             // ปรับความถี่ใน 60s
+
+  // Difficulty map (Beginner / Standard / Challenge)
+  const DIFF_PRESET = {
+    beginner: { speedMul: 0.85, windowMul: 1.25, rampSecs: 80 },
+    standard: { speedMul: 1.00, windowMul: 1.00, rampSecs: 60 },
+    challenge:{ speedMul: 1.15, windowMul: 0.85, rampSecs: 45 }
+  };
+
+  // Speed version (Beginner / Standard / Challenge) จากเมนูหรือ query
+  const url = new URL(location.href);
+  const SPEED_VER = (url.searchParams.get('speed') || localStorage.getItem('rb_speed') || 'standard').toLowerCase();
+  const PRESET = DIFF_PRESET[SPEED_VER] || DIFF_PRESET.standard;
+
+  // Difficulty (เพลง) easy/normal/hard/final เหมือน Shadow Breaker (optional)
+  const DIFF_KEY = (url.searchParams.get('diff') || localStorage.getItem('rb_diff') || 'normal').toLowerCase();
+
+  // SFX
   const SFXN = (p)=>{ const a=new Audio(p); a.onerror=()=>console.warn('SFX not found:',p); return a; };
   const SFX = {
-    hit: SFXN(`${ASSET_BASE}/assets/sfx/slash.wav`),
-    perfect: SFXN(`${ASSET_BASE}/assets/sfx/perfect.wav`),
-    miss: SFXN(`${ASSET_BASE}/assets/sfx/miss.wav`),
-    good: SFXN(`${ASSET_BASE}/assets/sfx/laser.wav`),
-    combo: SFXN(`${ASSET_BASE}/assets/sfx/combo.wav`),
-    ui: SFXN(`${ASSET_BASE}/assets/sfx/success.wav`),
+    hitGood:    SFXN(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    hitPerfect: SFXN(`${ASSET_BASE}/assets/sfx/perfect.wav`),
+    miss:       SFXN(`${ASSET_BASE}/assets/sfx/miss.wav`),
+    start:      SFXN(`${ASSET_BASE}/assets/sfx/success.wav`),
+    combo:      SFXN(`${ASSET_BASE}/assets/sfx/combo.wav`)
   };
-  const lastPlay = new Map();
-  function play(a, guardMs=80){ try{ const now=performance.now(); if(lastPlay.get(a)&&now-lastPlay.get(a)<guardMs) return; a.currentTime=0; lastPlay.set(a,now); if(a.paused) a.play(); }catch(_){} }
 
-  // ===== State
+  // -------------------- State --------------------
   let running=false, paused=false;
-  let spawnTimer=null, secTimer=null;
-  let score=0, combo=0, maxCombo=0, timeLeft=60;
+  let score=0, combo=0, maxCombo=0, total=0, hitCount=0;
+  let spawnTimer=null, secondTimer=null, tStart=0;
+  let sceneEl=null, hitLineEl=null;
+  let rngSeed = Date.now()>>>0;
 
-  const notes=[]; // {el, speed, judged}
-  const COLORS=["#20ffa0","#9bd1ff","#ffd166","#ff6b6b","#a899ff"];
-  let colorIndex=0;
-
-  const HIT_Y=1.00;
-  let hitLine=null;
-
-  // Speed profiles
-  const SPEED_MODE={
-    beginner:  {fall:0.72, spawn:1100, rampEachSec:0.0008, title:'Beginner'},
-    standard:  {fall:0.90, spawn:900,  rampEachSec:0.0012, title:'Standard'},
-    challenge: {fall:1.05, spawn:760,  rampEachSec:0.0018, title:'Challenge'},
-  };
-  let SP=SPEED_MODE.standard, speedMul=1.0;
-
-  // Judge window (กว้างขึ้น)
-  const JUDGE={ perfect:0.12, good:0.22, late:0.30 };
-
-  // ===== UI
-  function updateHUD(){ byId('score')&&(byId('score').textContent=score); byId('combo')&&(byId('combo').textContent=combo); byId('time')&&(byId('time').textContent=timeLeft); }
-  function badge(msg){
-    let el=byId('rbToast'); if(!el){ el=document.createElement('div'); el.id='rbToast';
-      Object.assign(el.style,{position:'fixed',left:'50%',top:'10px',transform:'translateX(-50%)',background:'rgba(10,16,24,.8)',color:'#e6f7ff',font:'700 13px system-ui',padding:'8px 12px',borderRadius:'12px',zIndex:'10020',opacity:'0',transition:'opacity .12s, transform .12s'}); document.body.appendChild(el); }
-    el.textContent=msg; el.style.opacity='1'; el.style.transform='translateX(-50%) scale(1.03)'; clearTimeout(el._t); el._t=setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) scale(1)'; }, 900);
+  // -------------------- Utils --------------------
+  function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+  function RND(){
+    rngSeed = (rngSeed*1664525 + 1013904223)>>>0;
+    return (rngSeed & 0x7fffffff)/0x80000000;
   }
-  function ensureJudgeUI(){
-    let box=document.getElementById('rbJudge'); if(box) return box;
-    box=document.createElement('div'); box.id='rbJudge';
-    Object.assign(box.style,{position:'fixed',left:'50%',top:'18%',transform:'translateX(-50%)',color:'#e6f7ff',font:'900 42px/1.0 system-ui, Arial',letterSpacing:'1px',padding:'6px 14px',borderRadius:'12px',background:'rgba(0,0,0,.25)',textShadow:'0 2px 8px rgba(0,0,0,.45)',opacity:'0',transition:'opacity .12s, transform .12s',zIndex:10020,pointerEvents:'none'}); document.body.appendChild(box); return box;
+  function ramp01(){
+    const t = (performance.now() - tStart)/1000;
+    return clamp(t / (PRESET.rampSecs || RAMP_SECS), 0, 1);
   }
-  function showJudge(kind){
-    const box=ensureJudgeUI();
-    const map={perfect:['PERFECT','#20ffa0'], good:['GOOD','#9bd1ff'], miss:['MISS','#ff5577'], late:['LATE','#ffd166']};
-    const [txt,col]=map[kind]||map.good;
-    box.textContent=txt; box.style.color=col; box.style.opacity='1'; box.style.transform='translateX(-50%) scale(1.04)'; clearTimeout(box._t);
-    box._t=setTimeout(()=>{ box.style.opacity='0'; box.style.transform='translateX(-50%) scale(1.0)'; },420);
+  function speedNow(){
+    const r = ramp01();
+    const s = SPEED_BASE + (SPEED_MAX - SPEED_BASE)*r;
+    return s * (PRESET.speedMul || 1);
+  }
+  function gapNow(){
+    const r = clamp((performance.now()-tStart)/1000 / (GAP_RAMP_SECS), 0, 1);
+    const gap = START_GAP + (END_GAP - START_GAP)*r;
+    return Math.max(220, gap);
+  }
+  function windowNow(){
+    const mul = PRESET.windowMul || 1;
+    return { perfect: HIT_WINDOW.perfect*mul, good: HIT_WINDOW.good*mul };
+  }
+  function addScore(val){ score += Math.round(val); updateHUD(); }
+  function setBadge(msg){
+    let el = byId('toast'); if(!el){
+      el=document.createElement('div'); el.id='toast'; document.body.appendChild(el);
+      Object.assign(el.style,{position:'fixed',left:'50%',top:'10px',transform:'translateX(-50%)',background:'rgba(0,0,0,.7)',color:'#e6f7ff',padding:'8px 12px',borderRadius:'10px',font:'600 13px system-ui',zIndex:9999});
+    }
+    el.textContent = msg; el.style.opacity='1';
+    setTimeout(()=>{ el.style.opacity='0.0'; }, 800);
   }
 
-  // ===== Hit Line
-  function ensureHitLine(){
-    if(hitLine && hitLine.parentNode) return hitLine;
-    const arena=byId('arena'); if(!arena) return null;
-    const line=document.createElement('a-entity');
-    line.setAttribute('geometry','primitive: box; width: 2.8; height: 0.02; depth: 0.02');
-    line.setAttribute('material','color:#20ffa0; opacity:0.95; emissive:#20ffa0; emissiveIntensity:0.85; transparent:true');
-    line.setAttribute('position',`0 ${HIT_Y} -2.2`);
-    line.setAttribute('animation__pulse','property: scale; dir: alternate; to: 1.02 1.2 1.02; loop: true; dur: 850; easing: easeInOutSine');
-    arena.appendChild(line); hitLine=line; return line;
+  // -------------------- HUD --------------------
+  function updateHUD(){
+    byId('score') && (byId('score').textContent = score);
+    byId('combo') && (byId('combo').textContent = combo);
+    byId('acc')   && (byId('acc').textContent   = total ? (Math.round(hitCount/total*100)+'%') : '0%');
+    byId('diffNow') && (byId('diffNow').textContent = DIFF_KEY.toUpperCase());
+    byId('spdNow')  && (byId('spdNow').textContent  = (SPEED_VER.charAt(0).toUpperCase()+SPEED_VER.slice(1)));
   }
-  function flashHitLine(kind){
-    const ln=ensureHitLine(); if(!ln) return;
-    const c= kind==='perfect'?'#20ffa0':(kind==='miss'?'#ff5577':'#9bd1ff');
-    ln.setAttribute('material',`color:${c}; opacity:1; emissive:${c}; emissiveIntensity:1.1; transparent:true`);
-    setTimeout(()=>{ ln.setAttribute('material','color:#20ffa0; opacity:0.95; emissive:#20ffa0; emissiveIntensity:0.85; transparent:true'); },120);
+  function onComboChange(){
+    if(combo>0 && combo%10===0){ SFX.combo.play?.(); setBadge('Combo x'+(1+Math.floor(combo/10))); }
+    if(combo>maxCombo) maxCombo = combo;
   }
 
-  // ===== Notes
-  function spawnNote(){
-    const arena=byId('arena'); if(!arena) return;
-    const x=(RND()*2.6-1.3).toFixed(2), y=2.2, z=-2.2;
-    const el=document.createElement('a-sphere');
-    const color=COLORS[colorIndex++%COLORS.length];
-    el.classList.add('rb-note','clickable');
-    el.setAttribute('radius','0.16');
-    el.setAttribute('material',`color:${color}; metalness:.2; roughness:.35; emissive:${color}; emissiveIntensity:.25`);
-    el.setAttribute('position',`${x} ${y} ${z}`);
-    arena.appendChild(el);
-    notes.push({ el, speed: SP.fall*speedMul, judged:false });
-  }
-  function missNote(i){
-    const n=notes[i]; if(!n) return;
-    n.judged=true; showJudge('miss'); flashHitLine('miss'); play(SFX.miss);
-    combo=0; updateHUD(); safeRemove(n.el);
-  }
-  function applyHit(i,kind){
-    const n=notes[i]; if(!n) return; n.judged=true;
-    if(kind==='perfect'){ score+=30; play(SFX.perfect); }
-    else if(kind==='good'){ score+=18; play(SFX.good); }
-    else { score+=8; play(SFX.hit); }
-    combo++; if(combo>maxCombo) maxCombo=combo; updateHUD();
-    showJudge(kind); flashHitLine(kind); safeRemove(n.el);
-  }
-  function judgeFromDy(dy){
-    if(dy<=JUDGE.perfect) return 'perfect';
-    if(dy<=JUDGE.good) return 'good';
-    if(dy<=JUDGE.late) return 'late';
-    return 'miss';
+  // -------------------- A-Frame components --------------------
+  // หมายเหตุ: ปุ่ม DOM อยู่บน overlay จะคลิกได้เพราะ z-index สูงและ pointer-events เปิด
+  function ensureScene(){
+    sceneEl = document.querySelector('a-scene');
+    if(!sceneEl){ console.warn('No a-scene found'); }
   }
 
-  // ===== Loop
-  function loopMove(){
+  // เส้น HIT LINE เรืองแสงสีเขียว
+  function buildHitLine(){
+    if(!sceneEl) return;
+    const g = document.createElement('a-entity');
+    g.setAttribute('id','hitLine');
+    g.setAttribute('position', `0 ${HIT_LINE_Y} -2.4`);
+    g.setAttribute('geometry', 'primitive: plane; width: 3.0; height: 0.02');
+    g.setAttribute('material','color:#00ffa3; opacity:.85; shader:flat');
+    g.setAttribute('animation__glow','property: material.opacity; dir: alternate; to: 1; loop: true; dur: 650; easing: easeInOutSine');
+    sceneEl.appendChild(g);
+    hitLineEl = g;
+  }
+
+  // ผัง Lane ที่พื้น (มีแค่เส้น hit line เท่านั้นตามที่ขอ)
+  // — ไม่วาดแกนแนวตั้ง เพื่อให้โล่งตา
+
+  // โน้ตที่ตกลงมา
+  AFRAME.registerComponent('rb-note',{
+    schema:{ lane:{type:'int',default:0}, speed:{type:'number',default:1}, spawn:{type:'number',default:0}, color:{type:'string',default:'#00e5ff'}, shape:{type:'string',default:'circle'} },
+    init(){
+      const el=this.el, d=this.data;
+      // รูปทรงใหญ่ขึ้นและหลายสี
+      if(d.shape==='diamond'){
+        el.setAttribute('geometry',{primitive:'octahedron', radius: NOTE_RADIUS});
+      }else{
+        el.setAttribute('geometry',{primitive:'sphere', radius: NOTE_RADIUS});
+      }
+      el.setAttribute('material',{color:d.color, opacity:0.95, shader:'flat'});
+      el.setAttribute('class','rb-note clickable');
+      // ตำแหน่งเริ่ม
+      el.setAttribute('position', `${LANES[d.lane] || 0} ${SPAWN_Y} -2.4`);
+      // เงาเล็กน้อย
+      el.setAttribute('animation__in','property: scale; to: 1 1 1; dur: 140; easing: easeOutBack');
+      // คำสั่งคลิก (raycast ด้วยเมาส์/ทัช)
+      el.addEventListener('click', ()=>{ tryHit(el,true); });
+      this.dead=false;
+    },
+    tick(time,dt){
+      if(this.dead) return;
+      const el=this.el, d=this.data;
+      const pos = el.object3D.position;
+      const s = d.speed || 1;
+      pos.y -= (s * (dt/1000));
+      if(pos.y <= HIT_LINE_Y - 0.8){ // เลยหน้าต่างแล้วถือว่า miss
+        miss(el);
+        this.dead=true;
+        el.parentNode && el.parentNode.removeChild(el);
+      }
+    }
+  });
+
+  // -------------------- Spawner --------------------
+  function spawnOne(){
     if(!running || paused) return;
-    for(let i=notes.length-1;i>=0;i--){
-      const n=notes[i]; if(!n||!n.el||n.judged) continue;
-      const o=n.el.object3D.position;
-      o.y -= 0.014 * n.speed; // ความเร็วตก
-      n.el.object3D.position.set(o.x,o.y,o.z);
-      if(o.y < HIT_Y-0.4 && !n.judged){ missNote(i); }
+    total++;
+    const lane = (Math.random()*LANES.length)|0;
+    // รูปทรงสลับ
+    const shape = (RND()<0.5) ? 'circle' : 'diamond';
+    const col   = NOTE_COLORS[(Math.random()*NOTE_COLORS.length)|0];
+
+    const note = document.createElement('a-entity');
+    sceneEl.appendChild(note);
+    note.setAttribute('rb-note',{
+      lane,
+      speed: speedNow(),
+      spawn: performance.now(),
+      color: col,
+      shape
+    });
+  }
+  function scheduleSpawn(){
+    if(spawnTimer) clearTimeout(spawnTimer);
+    const gap = gapNow();
+    spawnTimer = setTimeout(()=>{
+      spawnOne();
+      scheduleSpawn();
+    }, gap);
+  }
+
+  // -------------------- Hit detection (assist) --------------------
+  function tryHit(el, byClick=false){
+    if(!el || !el.parentNode) return;
+    const pos = el.object3D.position;
+    const laneX = pos.x;
+    // วัดระยะจาก HIT LINE (แกน Y)
+    const dy = Math.abs(pos.y - HIT_LINE_Y);
+    const W  = windowNow();
+    // ช่วยเล็งด้วย mouse: อนุญาต offset x เล็กน้อย
+    if(byClick){
+      // ok
     }
-    requestAnimationFrame(loopMove);
-  }
-  function startSpawn(){
-    const base=SP.spawn;
-    const interval=clamp(Math.round(base / speedMul), 500, 1400);
-    clearInterval(spawnTimer);
-    spawnTimer=setInterval(spawnNote, interval);
-  }
-
-  // ===== Start/Pause/End
-  function resetGame(){
-    clearInterval(spawnTimer); clearInterval(secTimer);
-    const arena=byId('arena');
-    if(arena){ Array.from(arena.querySelectorAll('.rb-note')).forEach(safeRemove); safeRemove(hitLine); hitLine=null; }
-    notes.length=0; score=0; combo=0; maxCombo=0; timeLeft=60; speedMul=1.0; updateHUD();
-    const res=byId('results'); if(res) res.style.display='none';
-  }
-  function startGame(){
-    if(running) return; running=true; paused=false;
-    const sel=byId('speedSel'); const key=(sel&&sel.value)||'standard';
-    SP=SPEED_MODE[key]||SPEED_MODE.standard;
-    resetGame(); ensureHitLine(); badge(`Start · ${SP.title}`); play(SFX.ui);
-    secTimer=setInterval(()=>{ if(!running||paused) return; timeLeft--; speedMul=clamp(speedMul+SP.rampEachSec,1.0,2.0); startSpawn(); updateHUD(); if(timeLeft<=0) endGame(); },1000);
-    startSpawn(); requestAnimationFrame(loopMove);
-  }
-  function pauseGame(){
-    if(!running) return; paused=!paused; badge(paused?'Paused':'Resume'); play(SFX.ui);
-    if(paused) clearInterval(spawnTimer); else { startSpawn(); requestAnimationFrame(loopMove); }
-  }
-  function endGame(){
-    running=false; clearInterval(spawnTimer); clearInterval(secTimer);
-    const res=byId('results'); if(res) res.style.display='flex';
-    byId('rScore')&&(byId('rScore').textContent=score);
-    byId('rMaxCombo')&&(byId('rMaxCombo').textContent=maxCombo);
-    const total=Math.max(1, notes.length); const acc=Math.max(0, Math.min(100, Math.round((score/(total*30))*100)));
-    byId('rAcc')&&(byId('rAcc').textContent = acc+'%'); play(SFX.ui);
-  }
-
-  // ===== Pointer Raycast (Mouse/Touch) — ป้องกัน “กินคลิก” บน UI
-  (function installPointer(){
-    const sceneEl=document.querySelector('a-scene'); if(!sceneEl) return;
-    const raycaster=new THREE.Raycaster(); const mouse=new THREE.Vector2();
-
-    function isClickOnUI(target){
-      return !!(target && (target.closest('.ui') || target.closest('button') || target.closest('select') || target.id==='rbToast' || target.id==='rbJudge'));
+    if(dy <= W.perfect){
+      onHit('perfect', el);
+    }else if(dy <= W.good){
+      onHit('good', el);
+    }else{
+      // ถ้าคลิกเร็วไปช้าไปแต่ยังใกล้ ๆ ให้เป็น GOOD (assist)
+      if(dy <= W.good + 0.08){
+        onHit('good', el);
+      }else{
+        // miss by click (ไม่เก็บ miss ทันที ให้ผู้เล่นเล็งใหม่)
+        setBadge('Too Early/Late');
+      }
     }
+  }
+  function miss(el){
+    combo = 0; onComboChange(); SFX.miss.play?.();
+    textFloat('MISS', '#ff5577', el.object3D.position);
+  }
+  function onHit(kind, el){
+    if(!el || !el.parentNode) return;
+    if(kind==='perfect'){ SFX.hitPerfect.play?.(); addScore(100); combo++; onComboChange(); textFloat('PERFECT','#00ffa3', el.object3D.position); }
+    else { SFX.hitGood.play?.(); addScore(50); combo++; onComboChange(); textFloat('GOOD','#9bd1ff', el.object3D.position); }
+    hitCount++;
+    el.parentNode && el.parentNode.removeChild(el);
+  }
+
+  // -------------------- Visual helpers --------------------
+  function textFloat(txt, color, worldPos){
+    const e=document.createElement('a-entity');
+    const p = worldPos.clone ? worldPos.clone() : new THREE.Vector3(worldPos.x,worldPos.y,worldPos.z);
+    p.y += 0.15;
+    e.setAttribute('text',{value:txt,color,align:'center',width:2.2});
+    e.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+    e.setAttribute('scale','0.001 0.001 0.001');
+    e.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:90,easing:'easeOutQuad'});
+    e.setAttribute('animation__up',{property:'position',to:`${p.x} ${p.y+0.4} ${p.z}`,dur:550,easing:'easeOutQuad'});
+    e.setAttribute('animation__fade',{property:'opacity',to:0,dur:450,delay:120,easing:'linear'});
+    sceneEl.appendChild(e);
+    setTimeout(()=>{ e.parentNode && e.parentNode.removeChild(e); }, 820);
+  }
+
+  // -------------------- Pointer Raycast (mouse/touch) --------------------
+  function installPointerRaycast(){
+    if(!sceneEl) return;
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
 
     function pick(clientX, clientY){
-      const cam=sceneEl.camera; if(!cam) return [];
-      mouse.x = (clientX / window.innerWidth) * 2 - 1;
+      if(!sceneEl?.camera) return;
+      mouse.x =  (clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(mouse, cam);
-      const clickable=Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
+      raycaster.setFromCamera(mouse, sceneEl.camera);
+      const clickable = Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
       const objects=[]; clickable.forEach(o=>o.traverse(c=>objects.push(c)));
-      return raycaster.intersectObjects(objects, true);
-    }
-
-    function hitAssistFromScreen(x, y){
-      // ยิง ray ก่อน
-      const hits=pick(x,y);
-      // เลือกโน้ตที่ใกล้ HIT_Y ที่สุดจากผล ray
-      let bestIdx=-1, bestDy=1e9;
-      for(const h of hits){
-        let obj=h.object; while(obj && !obj.el) obj=obj.parent;
-        if(!obj||!obj.el||!obj.el.classList.contains('rb-note')) continue;
-        const idx=notes.findIndex(it=>it.el===obj.el); if(idx<0||notes[idx].judged) continue;
-        const pos=obj.el.object3D.getWorldPosition(new THREE.Vector3());
-        const dy=Math.abs(pos.y - HIT_Y);
-        if(dy<bestDy){ bestDy=dy; bestIdx=idx; }
-      }
-      // ไม่เจอจาก ray → ช่วยหาใกล้สุดทั้งฉาก
-      if(bestIdx<0){
-        for(let i=0;i<notes.length;i++){
-          const n=notes[i]; if(!n||!n.el||n.judged) continue;
-          const p=n.el.object3D.getWorldPosition(new THREE.Vector3());
-          const dy=Math.abs(p.y - HIT_Y);
-          if(dy<bestDy){ bestDy=dy; bestIdx=i; }
+      const hits = raycaster.intersectObjects(objects,true);
+      if(hits && hits.length){
+        let obj=hits[0].object;
+        while(obj && !obj.el) obj=obj.parent;
+        if(obj?.el){
+          obj.el.emit('click');
         }
       }
-      if(bestIdx>=0){
-        const kind=judgeFromDy(bestDy);
-        if(kind!=='miss') applyHit(bestIdx, kind);
-      }
     }
-
-    window.addEventListener('mousedown', (e)=>{
-      if(isClickOnUI(e.target)) return;         // <— สำคัญ: ถ้าเป็นปุ่ม/เมนู ให้ผ่านไป
-      if(!running||paused) return;
-      hitAssistFromScreen(e.clientX, e.clientY);
-    }, {passive:true});
-
-    window.addEventListener('touchstart', (e)=>{
-      const t=e.touches && e.touches[0]; if(!t) return;
-      const target = document.elementFromPoint(t.clientX, t.clientY);
-      if(isClickOnUI(target)) return;           // <— กัน UI โดน ray
-      if(!running||paused) return;
-      hitAssistFromScreen(t.clientX, t.clientY);
-    }, {passive:true});
-  })();
-
-  // ===== Buttons
-  function wireButtons(){
-    byId('startBtn')?.addEventListener('click', startGame, {passive:true});
-    byId('pauseBtn')?.addEventListener('click', pauseGame, {passive:true});
-    byId('replayBtn')?.addEventListener('click', startGame, {passive:true});
-    byId('backBtn')?.addEventListener('click', ()=>{ window.location.href = HUB_URL; }, {passive:true});
-    byId('speedSel')?.addEventListener('change', ()=>{
-      const sel=byId('speedSel'); const key=(sel&&sel.value)||'standard'; const title=(SPEED_MODE[key]?.title)||'Standard';
-      badge(`Speed: ${title}`); play(SFX.ui);
-    }, {passive:true});
+    window.addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
+    window.addEventListener('touchstart', e=>{ const t=e.touches&&e.touches[0]; if(!t) return; pick(t.clientX, t.clientY); }, {passive:true});
   }
 
-  // ===== Enter VR กลางล่าง
-  (function mountVRButton(){
-    if(document.getElementById('enterVRBtn')) return;
-    const btn=document.createElement('button'); btn.id='enterVRBtn';
-    btn.textContent='Enter VR';
-    Object.assign(btn.style,{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:'12px',zIndex:10010,padding:'8px 12px',borderRadius:'10px',border:'0',background:'#0e2233',color:'#e6f7ff',cursor:'pointer',touchAction:'manipulation'});
-    btn.classList.add('ui');
-    document.body.appendChild(btn);
-    btn.addEventListener('click', ()=>{ try{ const sc=document.querySelector('a-scene'); sc?.enterVR?.(); }catch(e){ console.warn(e); } }, {passive:true});
-  })();
+  // -------------------- Flow --------------------
+  function startGame(){
+    if(running) return;
+    running=true; paused=false;
+    score=0; combo=0; maxCombo=0; total=0; hitCount=0;
+    tStart = performance.now();
+    updateHUD();
+    SFX.start.play?.();
 
-  // ===== Lifecycle
+    // เคลียร์ของเดิม
+    clearNotes();
+
+    // ตั้งค่า Hit line (ถ้ายังไม่มี)
+    if(!byId('hitLine')) buildHitLine();
+
+    scheduleSpawn();
+    if(secondTimer) clearInterval(secondTimer);
+    secondTimer = setInterval(()=>{ updateHUD(); },500);
+  }
+  function pauseGame(){
+    if(!running) return;
+    paused = !paused;
+    if(paused){
+      setBadge('PAUSED');
+    }else{
+      setBadge('RESUME');
+      // ปรับเวลาถัดไป
+      scheduleSpawn();
+    }
+  }
+  function endGame(){
+    if(!running) return;
+    running=false; paused=false;
+    if(spawnTimer) clearTimeout(spawnTimer);
+    if(secondTimer) clearInterval(secondTimer);
+
+    // โชว์ผล
+    const acc = total ? Math.round(hitCount/total*100) : 0;
+    const stars = (acc>=95?3: acc>=85?2: acc>=70?1: 0);
+    const rBox = byId('results');
+    if(rBox){
+      byId('rScore')  && (byId('rScore').textContent = score);
+      byId('rCombo')  && (byId('rCombo').textContent = maxCombo);
+      byId('rAcc')    && (byId('rAcc').textContent = acc+'%');
+      byId('rStars')  && (byId('rStars').textContent = '★'.repeat(stars)+'☆'.repeat(3-stars));
+      rBox.style.display = 'flex';
+    }
+  }
+  function clearNotes(){
+    const notes = document.querySelectorAll('.rb-note');
+    notes.forEach(n=>{ n.parentNode && n.parentNode.removeChild(n); });
+  }
+
+  // -------------------- Buttons (DOM) --------------------
+  function wireButtons(){
+    // ให้อยู่ด้านบนสุดและคลิกได้
+    const dock = byId('dock'); if(dock){
+      dock.style.zIndex = '9999';
+      dock.style.pointerEvents = 'auto';
+    }
+    byId('startBtn')?.addEventListener('click', startGame, {passive:true});
+    byId('pauseBtn')?.addEventListener('click', pauseGame, {passive:true});
+    byId('endBtn')?.addEventListener('click', endGame, {passive:true});
+    byId('backBtn')?.addEventListener('click', ()=>{ window.location.href = HUB_URL; }, {passive:true});
+    // เมนู “Speed Version”
+    const sel = byId('speedSel');
+    if(sel){
+      sel.value = (SPEED_VER==='beginner'||SPEED_VER==='standard'||SPEED_VER==='challenge')?SPEED_VER:'standard';
+      sel.onchange = (e)=>{
+        const v = e.target.value;
+        try{ localStorage.setItem('rb_speed', v); }catch(_){}
+        const u = new URL(location.href); u.searchParams.set('speed', v);
+        location.href = u.pathname + '?' + u.searchParams.toString();
+      };
+    }
+    // เมนู “diff”
+    const dsel = byId('diffSel');
+    if(dsel){
+      dsel.value = DIFF_KEY;
+      dsel.onchange = (e)=>{
+        const v = e.target.value;
+        try{ localStorage.setItem('rb_diff', v); }catch(_){}
+        const u = new URL(location.href); u.searchParams.set('diff', v);
+        location.href = u.pathname + '?' + u.searchParams.toString();
+      };
+    }
+  }
+
+  // -------------------- Boot --------------------
   document.addEventListener('DOMContentLoaded', ()=>{
-    wireButtons(); ensureHitLine(); updateHUD();
+    ensureScene();
+    // HUD safe area: ย้าย HUD ลงล่าง-ซ้ายหน่อย กันโดนบัง
+    const hud = byId('hud');
+    if(hud){
+      hud.style.position='fixed';
+      hud.style.left='10px';
+      hud.style.top='10px';
+      hud.style.zIndex='9998';
+      hud.style.pointerEvents='none';
+    }
+    wireButtons();
+    buildHitLine();
+    installPointerRaycast();
+    updateHUD();
   });
-  document.addEventListener('keydown',(e)=>{
-    if(e.key===' '||e.key==='Enter'){
-      // ช่วย hit กลางจอ (แต่ไม่ไปกิน UI)
-      const x=window.innerWidth/2, y=(window.innerHeight*3)/4;
-      const target=document.elementFromPoint(x,y);
-      if(target && (target.closest('.ui')||target.closest('button')||target.closest('select'))) return;
-      if(!running||paused) return;
-      // ยิงช่วย
-      const ev=new MouseEvent('mousedown',{clientX:x,clientY:y});
-      window.dispatchEvent(ev);
-    } else if(e.key==='p'||e.key==='P'){ pauseGame(); }
-    else if(e.key==='s'||e.key==='S'){ startGame(); }
-  });
-  window.addEventListener('beforeunload', ()=>{ try{ clearInterval(spawnTimer); clearInterval(secTimer); }catch(_){} });
+
 })();
