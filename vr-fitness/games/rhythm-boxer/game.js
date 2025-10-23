@@ -1,9 +1,8 @@
 /* games/rhythm-boxer/game.js
    Rhythm Boxer · game.js
-   - ลดความถี่การเกิดโน้ต (ห่างขึ้น)
-   - ตัดเส้นแกนแนวตั้ง เหลือเฉพาะ Hit Line สีเขียวเรืองแสง
-   - โน้ตใหญ่ขึ้น + สี/ทรงหลากหลาย + glow
-   - ปุ่ม Back กลับ Hub ที่ /webxr-health-mobile/vr-fitness/
+   - เริ่มโน้ต “ห่างมาก ๆ” แล้วค่อย ๆ ถี่ขึ้นแบบไหลลื่น (dynamic spawn ramp)
+   - ปุ่ม Back กลับ Hub ที่ URL ตรงเป๊ะ
+   - คง Hit Line เรืองแสง / โน้ตใหญ่ สีสัน / เมาส์-ทัชเลือกเลน + Raycast
 */
 (function(){
   "use strict";
@@ -11,24 +10,26 @@
   const $ = (id)=>document.getElementById(id);
   const q = (sel)=>document.querySelector(sel);
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
+  const HUB_URL = 'https://supparang.github.io/webxr-health-mobile/vr-fitness/';
   function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_){ } }
 
   // --------- พื้นที่เล่น ----------
   const ARENA_ID='rbArena', Z_POS=-3, LANES=[-0.9,0,0.9], HIT_Y=1.0, TOP_Y=2.4, NOTE_Z=Z_POS;
 
-  // --------- ความเร็ว (ช้าลง + ห่างขึ้น) ----------
+  // --------- ความเร็ว & ความถี่ (เริ่มห่างมาก ๆ -> ถี่ขึ้น) ----------
   const SPEEDS={
-    beginner:{ baseSpeed:0.34, accel:0.00010, window:0.34, perfect:0.16, assistLaneTol:1.00, assistWindow:0.40, spawn:820 },
-    standard:{ baseSpeed:0.46, accel:0.00016, window:0.30, perfect:0.14, assistLaneTol:0.95, assistWindow:0.36, spawn:720 },
-    challenge:{baseSpeed:0.60, accel:0.00022, window:0.26, perfect:0.12, assistLaneTol:0.90, assistWindow:0.32, spawn:640 }
+    beginner:{ baseSpeed:0.28, accel:0.00008, window:0.38, perfect:0.18, assistLaneTol:1.15, assistWindow:0.48, spawnStart:2000, spawnMin:900 },
+    standard:{ baseSpeed:0.38, accel:0.00012, window:0.34, perfect:0.16, assistLaneTol:1.05, assistWindow:0.42, spawnStart:1800, spawnMin:780 },
+    challenge:{baseSpeed:0.50, accel:0.00018, window:0.30, perfect:0.14, assistLaneTol:1.00, assistWindow:0.36, spawnStart:1600, spawnMin:650 }
   };
+  const LEVEL_TIME = 60; // วินาที
   const getQ=(k)=>new URLSearchParams(location.search).get(k);
   function getSpeedKey(){ const q=getQ('speed')||localStorage.getItem('rb_speed'); return (q&&SPEEDS[q])?q:'standard'; }
   let CFG=SPEEDS[getSpeedKey()];
 
   // --------- สถานะเกม ----------
-  let running=false, paused=false, t0=0, lastT=0, timerHUD=null, spawnIv=null;
-  let score=0, combo=0, maxCombo=0, hitCount=0, totalNotes=0, levelTime=60, elapsed=0;
+  let running=false, paused=false, t0=0, lastT=0, timerHUD=null, spawnTO=null;
+  let score=0, combo=0, maxCombo=0, hitCount=0, totalNotes=0, elapsed=0;
   const notes=[];
 
   // --------- เสียง ----------
@@ -53,7 +54,7 @@
     $('rbScore')&&( $('rbScore').textContent=score );
     $('rbCombo')&&( $('rbCombo').textContent=combo );
     $('rbAcc')&&( $('rbAcc').textContent=acc+'%' );
-    $('rbTime')&&( $('rbTime').textContent=Math.max(0,Math.ceil(levelTime-elapsed))+'s' );
+    $('rbTime')&&( $('rbTime').textContent=Math.max(0,Math.ceil(LEVEL_TIME-elapsed))+'s' );
   }
   function showResults(){
     const acc = totalNotes ? Math.round((hitCount/totalNotes)*100) : 0;
@@ -64,7 +65,7 @@
   }
   function hideResults(){ $('rbResults')&&( $('rbResults').style.display='none' ); }
 
-  // --------- วาด Hit Line (ไม่มีแกนตั้ง) ----------
+  // --------- วาด Hit Line ----------
   function buildHitLine(){
     const arena=ensureArena();
     // ล้างของเดิม
@@ -88,7 +89,7 @@
     setTimeout(()=>hit.setAttribute('material','color:#00ff8a; emissive:#00ff8a; emissiveIntensity:.8; opacity:.9; transparent:true'),120);
   }
 
-  // --------- โน้ต (ใหญ่ขึ้น + glow) ----------
+  // --------- โน้ต (ใหญ่ + สีสัน) ----------
   const NOTE_SHAPES=['a-sphere','a-box','a-tetrahedron','a-octahedron'];
   const NOTE_COLORS=['#00d0ff','#ffd166','#ff6b6b','#00ffa3','#a899ff','#8cf5ff','#ff9cf2'];
   function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
@@ -114,23 +115,52 @@
     notes.push({lane, y:TOP_Y, spd, el}); totalNotes++;
   }
 
-  // รูปแบบการเกิด (ลดความแน่น)
+  // รูปแบบเกิด: ต้นเกมปล่อยเดี่ยวเท่านั้น -> กลางเกมเริ่มคู่ -> ท้ายเกมค่อยมี 3 ตัว
   function spawnPattern(){
+    const t = elapsed;
+    if (t < 12){
+      spawnNote(Math.floor(Math.random()*3));
+      return;
+    }
+    if (t < 25){
+      const r=Math.random();
+      if(r<0.80){ spawnNote(Math.floor(Math.random()*3)); }
+      else {
+        let a=Math.floor(Math.random()*3), b=(a+1+Math.floor(Math.random()*2))%3;
+        spawnNote(a); setTimeout(()=>spawnNote(b,1.02), 100);
+      }
+      return;
+    }
+    // ท้ายเกม: มีทั้งเดี่ยว/คู่/สเต็ป 3 แต่ยังไม่ถี่มาก เพราะเราคุมด้วย interval ที่ลดลงอยู่แล้ว
     const r=Math.random();
-    if(r<.60){
-      // เดี่ยว
+    if(r<.55){
       spawnNote(Math.floor(Math.random()*3));
     }else if(r<.90){
-      // คู่ (ชิดเวลา)
       let a=Math.floor(Math.random()*3), b=(a+1+Math.floor(Math.random()*2))%3;
       spawnNote(a); setTimeout(()=>spawnNote(b,1.02), 90);
     }else{
-      // 3 ตัว สเต็ป (เว้นช่วง)
       const base=Math.floor(Math.random()*3);
       spawnNote(base);
       setTimeout(()=>spawnNote((base+1)%3,1.03),140);
       setTimeout(()=>spawnNote((base+2)%3,1.05),280);
     }
+  }
+
+  // --------- สเกจูลแบบเว้นช่วงไดนามิก (เริ่มห่าง -> ถี่ขึ้น) ----------
+  function currentSpawnInterval(){
+    // ลดลงเชิงเส้นตามเวลา จนถึงค่าต่ำสุด
+    const rampPerSec = (CFG.spawnStart - CFG.spawnMin) / LEVEL_TIME;
+    const ms = Math.max(CFG.spawnMin, Math.floor(CFG.spawnStart - rampPerSec * elapsed));
+    return ms;
+  }
+  function scheduleNextSpawn(){
+    if(!running || paused) return;
+    clearTimeout(spawnTO);
+    spawnTO = setTimeout(()=>{
+      if(!running || paused) return;
+      spawnPattern();
+      scheduleNextSpawn();
+    }, currentSpawnInterval());
   }
 
   // --------- เกมลูป ----------
@@ -155,10 +185,10 @@
       const n=notes[i];
       n.y-=n.spd*dt;
       n.el?.setAttribute('position',`${LANES[n.lane]} ${n.y.toFixed(3)} ${NOTE_Z}`);
-      if(n.y < HIT_Y - .45) missNote(i); // ผิดพลาดเมื่อเลยขอบล่าง
+      if(n.y < HIT_Y - .45) missNote(i);
     }
 
-    if(elapsed>=levelTime){ end(); return; }
+    if(elapsed>=LEVEL_TIME){ end(); return; }
     requestAnimationFrame(tick);
   }
 
@@ -251,6 +281,7 @@
     for(let i=notes.length-1;i>=0;i--){ const n=notes[i]; if(n.el) safeRemove(n.el); notes.pop(); }
     score=0; combo=0; maxCombo=0; hitCount=0; totalNotes=0; elapsed=0; t0=0; lastT=0;
     updateHUD(); hideResults(); buildHitLine();
+    clearTimeout(spawnTO); spawnTO=null;
   }
   function start(){
     if(running) return;
@@ -258,23 +289,24 @@
     CFG=SPEEDS[key]; localStorage.setItem('rb_speed', key);
 
     reset(); running=true; paused=false; try{SFX.start.play();}catch(_){}
-    if(spawnIv) clearInterval(spawnIv); spawnIv=setInterval(spawnPattern, CFG.spawn);
     if(timerHUD) clearInterval(timerHUD);
-    timerHUD=setInterval(()=>{ elapsed+=1; updateHUD(); if(elapsed>=levelTime) end(); },1000);
+    timerHUD=setInterval(()=>{ elapsed=Math.min(LEVEL_TIME, elapsed+1); updateHUD(); if(elapsed>=LEVEL_TIME) end(); },1000);
+    scheduleNextSpawn();
     requestAnimationFrame(tick);
   }
   function togglePause(){
     if(!running) return;
     paused=!paused; try{SFX.pause.play();}catch(_){}
     $('rbPause')&&( $('rbPause').textContent=paused?'Resume':'Pause' );
-    if(!paused) requestAnimationFrame(tick);
+    if(paused){ clearTimeout(spawnTO); spawnTO=null; }
+    else { scheduleNextSpawn(); requestAnimationFrame(tick); }
   }
   function end(){
     if(!running) return; running=false; paused=false;
-    clearInterval(spawnIv); clearInterval(timerHUD); spawnIv=null; timerHUD=null;
+    clearTimeout(spawnTO); clearInterval(timerHUD); spawnTO=null; timerHUD=null;
     showResults();
   }
-  function backToHub(){ window.location.href = `${ASSET_BASE}/vr-fitness/`; }
+  function backToHub(){ window.location.href = HUB_URL; }
 
   document.addEventListener('DOMContentLoaded', ()=>{
     // ให้ UI คลิกได้แน่นอน
@@ -289,5 +321,5 @@
     updateHUD();
   });
 
-  window.addEventListener('beforeunload', ()=>{ try{ clearInterval(spawnIv); clearInterval(timerHUD); }catch(_){} });
+  window.addEventListener('beforeunload', ()=>{ try{ clearTimeout(spawnTO); clearInterval(timerHUD); }catch(_){} });
 })();
