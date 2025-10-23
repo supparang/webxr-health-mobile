@@ -877,12 +877,15 @@
 
   // ---------- Buttons ----------
   document.addEventListener('DOMContentLoaded', ()=>{
-    byId('startBtn')?.addEventListener('click', start);
-    byId('replayBtn')?.addEventListener('click', start);
-    byId('backBtn')?.addEventListener('click', ()=>{ window.location.href = `${ASSET_BASE}/vr-fitness/index.html`; });
-    byId('pauseBtn')?.addEventListener('click', togglePause);
-    byId('bankBtn')?.addEventListener('click', bankNow);
+  byId('startBtn')?.addEventListener('click', start);
+  byId('replayBtn')?.addEventListener('click', start);
+  byId('backBtn')?.addEventListener('click', ()=>{
+    window.location.assign(HUB_URL);
   });
+  byId('pauseBtn')?.addEventListener('click', togglePause);
+  byId('bankBtn')?.addEventListener('click', bankNow);
+});
+
 
   // ===== Production patches =====
   (function bootGuards(){
