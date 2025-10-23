@@ -1,5 +1,5 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · game.js (Null-Safe Removal + Difficulties + Mouse/Touch Click + Production Patches)
+   Shadow Breaker · game.js (Null-Safe Removal + Difficulties + Mouse/Touch Click + Production Patches + Hub URL Fix)
 */
 (function(){
   "use strict";
@@ -11,7 +11,6 @@
   function safeRemove(el){
     try{
       if(!el) return;
-      // If already detached, skip
       if(!el.isConnected && !el.parentNode){ return; }
       if(el.parentNode){ el.parentNode.removeChild(el); }
       else if(el.remove){ el.remove(); }
@@ -24,6 +23,8 @@
   const APPX={ badge:(t)=>{ if(window.APP?.badge) APP.badge(t); else console.log('[BADGE]',t); }, t:(k)=>window.APP?.t?APP.t(k):k };
   const getQuery=(k)=>new URLSearchParams(location.search).get(k);
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
+  // ✅ Hub URL (fixed)
+  const HUB_URL = (ASSET_BASE || '/webxr-health-mobile/vr-fitness').replace(/\/+$/,'') + '/';
 
   // SFX anti-spam
   const lastPlay=new Map();
@@ -37,7 +38,7 @@
     if(!el){
       el=document.createElement('div'); el.id='toast'; document.body.appendChild(el);
       Object.assign(el.style,{position:'fixed', left:'50%', top:'12px', transform:'translateX(-50%)',
-        background:'rgba(10,12,16,.9)', color:'#ffcc00', padding:'8px 12px',
+        background:'rgba(10,12,16,.9)', color:color, padding:'8px 12px',
         borderRadius:'10px', font:'600 14px/1.1 system-ui,Arial', zIndex:9999,
         letterSpacing:'0.4px', transition:'opacity .2s, transform .2s', opacity:'0'});
     }
@@ -877,15 +878,12 @@
 
   // ---------- Buttons ----------
   document.addEventListener('DOMContentLoaded', ()=>{
-  byId('startBtn')?.addEventListener('click', start);
-  byId('replayBtn')?.addEventListener('click', start);
-  byId('backBtn')?.addEventListener('click', ()=>{
-    window.location.assign(HUB_URL);
+    byId('startBtn')?.addEventListener('click', start);
+    byId('replayBtn')?.addEventListener('click', start);
+    byId('backBtn')?.addEventListener('click', ()=>{ window.location.assign(HUB_URL); });
+    byId('pauseBtn')?.addEventListener('click', togglePause);
+    byId('bankBtn')?.addEventListener('click', bankNow);
   });
-  byId('pauseBtn')?.addEventListener('click', togglePause);
-  byId('bankBtn')?.addEventListener('click', bankNow);
-});
-
 
   // ===== Production patches =====
   (function bootGuards(){
