@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- เป้าหมายพาธหลักของแอสเซ็ต -->
+  <!-- ชี้ base ให้ game.js หา asset ถูก -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
   <!-- A-Frame -->
@@ -13,118 +13,80 @@
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    body{background:#05090f;color:#e6f7ff;font-family:system-ui,Segoe UI,Arial}
-    /* แถบควบคุมด้านบน */
-    #topbar{
-      position:fixed;left:12px;right:12px;top:10px;z-index:9999;
-      display:flex;gap:10px;align-items:center;flex-wrap:wrap;
-      background:rgba(10,16,24,.75);backdrop-filter:saturate(1.1) blur(4px);
-      border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;
-    }
-    #topbar label{opacity:.9;font-weight:700;font-size:12px;letter-spacing:.3px}
-    .sel, .btn{
-      appearance:none;-webkit-appearance:none;-moz-appearance:none;
-      background:#0e2233;color:#e6f7ff;border:1px solid rgba(255,255,255,.12);
-      border-radius:10px;padding:8px 12px;font-weight:700;font-size:12px;cursor:pointer;
-    }
-    .btn{border:0}
-    .btn[disabled]{opacity:.5;cursor:not-allowed}
-    /* HUD */
-    #hud{
-      position:fixed;right:12px;top:10px;z-index:9998;
-      background:rgba(0,0,0,.35);padding:6px 10px;border-radius:10px;
-      font-weight:700;font-size:13px;line-height:1.2;pointer-events:none;
-    }
-    /* เส้น Hit line */
-    #hitline{
-      position:fixed;left:50%;transform:translateX(-50%);
-      bottom:22%;width:70%;height:2px;background:linear-gradient(90deg,#203446,transparent,#203446);
-      opacity:.75;pointer-events:none;
-    }
-    /* พื้นที่แสดงผลเกม ไม่บังคลิก */
-    #overlay{position:fixed;inset:0;pointer-events:none}
-    /* Toast */
-    #toast{
-      position:fixed;left:50%;transform:translateX(-50%);
-      top:52px;background:rgba(10,12,16,.9);color:#ffcc00;padding:8px 12px;border-radius:10px;
-      font:600 14px/1.1 system-ui,Arial;z-index:10000;letter-spacing:.4px;opacity:0;transition:.2s;
-    }
-    /* Enter VR ให้อยู่กลางล่าง */
-    #enterVRBtn{
-      position:fixed;left:50%;bottom:12px;transform:translateX(-50%);
-      z-index:9999;padding:10px 14px;border-radius:12px;border:0;background:#0e2233;color:#e6f7ff;cursor:pointer;
-      font-weight:800
-    }
+    body { background:#0b1118; color:#e6f7ff; }
+    .hud { position:fixed; left:8px; top:8px; background:rgba(0,0,0,.35); padding:8px 10px; border-radius:10px; font:600 13px system-ui; z-index:10 }
+    .dock { position:fixed; right:12px; top:12px; display:flex; gap:8px; align-items:center; z-index:20 }
+    .card { background:#0b1118; border:1px solid #203446; border-radius:12px; padding:10px 12px; display:flex; gap:8px; align-items:center }
+    select, button { background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:6px 10px; font:600 12px system-ui; cursor:pointer }
+    #enterVRBtn { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:50; padding:10px 14px; border-radius:12px; border:0; background:#0e2233; color:#e6f7ff; cursor:pointer; }
+    #results { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:40; }
+    .btn { padding:8px 12px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer }
   </style>
 </head>
 <body>
-  <!-- แถบควบคุม -->
-  <div id="topbar">
-    <label for="songSel">Song</label>
-    <select id="songSel" class="sel">
-      <option value="intro">Intro Groove (60s)</option>
-      <option value="rush">Rush Combo (60s)</option>
-      <option value="boss">Boss Drive (60s)</option>
-    </select>
 
-    <label for="diffSel">Difficulty</label>
-    <select id="diffSel" class="sel">
-      <option value="easy">Easy</option>
-      <option value="normal" selected>Normal</option>
-      <option value="hard">Hard</option>
-      <option value="final">Final</option>
-    </select>
+  <a-scene renderer="colorManagement:true">
+    <a-entity id="arena" position="0 0 0"></a-entity>
+    <a-entity id="leftHand"  rb-hand position="-0.35 1.2 -1"></a-entity>
+    <a-entity id="rightHand" rb-hand position="0.35 1.2 -1"></a-entity>
 
-    <button id="startBtn" class="btn">Start</button>
-    <button id="pauseBtn" class="btn" disabled>Pause</button>
-  </div>
-
-  <!-- HUD -->
-  <div id="hud">
-    <div>Score: <span id="sc">0</span></div>
-    <div>Combo: <span id="cb">0</span></div>
-    <div>Time: <span id="tm">60</span>s</div>
-  </div>
-
-  <!-- เส้น hit line อิงตำแหน่ง y -->
-  <div id="hitline"></div>
-
-  <!-- Toast -->
-  <div id="toast"></div>
-
-  <!-- A-Frame Scene -->
-  <a-scene renderer="colorManagement: true">
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity camera look-controls="enabled:false"></a-entity>
+    <!-- พื้นหลังเบา ๆ -->
+    <a-entity position="0 1.5 -3">
+      <a-plane width="6" height="3" color="#0a0f14" opacity="0.65"></a-plane>
     </a-entity>
-
-    <!-- เวที -->
-    <a-plane position="0 1.2 -2.2" width="3.2" height="2.2" color="#0a0f14" opacity="0.75"></a-plane>
-
-    <!-- ลู่ซ้าย กลาง ขวา -->
-    <a-entity id="lanes" position="0 0 -2.2"></a-entity>
-    <a-entity position="-0.9 0 -2.2"><a-box width="0.02" height="1.6" depth="0.01" color="#163042"></a-box></a-entity>
-    <a-entity position="0 0 -2.2"><a-box width="0.02" height="1.6" depth="0.01" color="#163042"></a-box></a-entity>
-    <a-entity position="0.9 0 -2.2"><a-box width="0.02" height="1.6" depth="0.01" color="#163042"></a-box></a-entity>
   </a-scene>
 
-  <!-- ปุ่ม Enter VR (กลางล่าง) -->
+  <!-- HUD สรุปคะแนน -->
+  <div class="hud">
+    <div>Score: <span id="score">0</span></div>
+    <div>Combo: <span id="combo">0</span></div>
+    <div>Time: <span id="time">90</span>s</div>
+  </div>
+
+  <!-- Dock: เลือกเพลง + ความเร็ว + ปุ่ม Start/Pause -->
+  <div class="dock">
+    <div class="card">
+      <label for="songSel">Song</label>
+      <select id="songSel">
+        <option value="training">Training (100 BPM)</option>
+        <option value="club">Club (120 BPM)</option>
+        <option value="rush">Rush (140 BPM)</option>
+      </select>
+
+      <label for="speedSel">Speed</label>
+      <select id="speedSel" title="Rhythm Speed Profile">
+        <option value="beginner">Beginner</option>
+        <option value="standard" selected>Standard</option>
+        <option value="challenge">Challenge</option>
+      </select>
+
+      <button id="startBtn" class="btn">Start</button>
+      <button id="pauseBtn" class="btn">Pause</button>
+    </div>
+  </div>
+
+  <!-- ปุ่ม Enter VR (กึ่งกลางล่าง) -->
   <button id="enterVRBtn">Enter VR</button>
 
-  <!-- Core (optional) -->
+  <!-- หน้าสรุปผล -->
+  <section id="results">
+    <div class="card" style="min-width:300px; flex-direction:column; align-items:stretch">
+      <h3 style="margin:0 0 8px">RESULTS</h3>
+      <div>Score: <b id="rScore">0</b></div>
+      <div>Max Combo: <b id="rMaxCombo">0</b></div>
+      <div>Accuracy: <b id="rAcc">0%</b></div>
+      <div style="margin-top:10px; display:flex; gap:8px">
+        <button class="btn" id="replayBtn">Replay</button>
+        <button class="btn" id="backBtn">Back to Hub</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core (ถ้ามีใช้งานที่ hub) -->
   <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
+  <script src="/webxr-health-mobile/vr-fitness/core/leaderboard.js" defer></script>
 
-  <!-- Game -->
+  <!-- เกม -->
   <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
-
-  <!-- Error overlay แบบละเอียด -->
-  <script>
-    window.addEventListener('error', function(e){
-      const t=document.getElementById('toast');
-      t.textContent = (e.message||'Script error') + (e.filename? (' @ '+e.filename+':'+(e.lineno||0)+':'+(e.colno||0)):'');
-      t.style.opacity='1'; t.style.transform='translateX(-50%) scale(1.02)';
-      setTimeout(()=>{t.style.opacity='0'; t.style.transform='translateX(-50%) scale(1)';}, 2000);
-    });
-  </script>
 </body>
 </html>
