@@ -1,5 +1,5 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · Click-Fix (UI always clickable) + Raycast shield + Guaranteed spawns
+   Rhythm Boxer · UI Always Clickable (force-top CSS + capture handlers + canvas shield) + steady spawns
 */
 (function(){
   "use strict";
@@ -8,7 +8,20 @@
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
 
-  // ---------- Toast ----------
+  // Inject hard CSS to ensure UI clicks win over A-Frame canvas
+  (function injectCSS(){
+    const css = `
+      #uiDock, #uiDock * { pointer-events:auto !important; z-index:2147483647 !important; }
+      #results, #results * { pointer-events:auto !important; z-index:2147483647 !important; }
+      /* put UI on top visually too */
+      #uiDock, #results { position:fixed !important; }
+      /* stop canvas from eating pointer events on desktop & mobile */
+      canvas.a-canvas { pointer-events:none !important; }
+    `;
+    const tag=document.createElement('style'); tag.id='rbForceUIClicks'; tag.textContent=css;
+    document.head.appendChild(tag);
+  })();
+
   function toast(msg, color='#ffd166'){
     let el = $('rbToast');
     if(!el){
@@ -26,7 +39,6 @@
     setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%)'; }, 1200);
   }
 
-  // ---------- State ----------
   const RB = window.RB = { running:false, paused:false, sceneReady:false };
   let score=0, combo=0, maxCombo=0, hits=0, notes=0, timeLeft=60;
 
@@ -54,7 +66,6 @@
   };
   Object.values(SFX).forEach(a=>{ a.preload='auto'; a.volume=0.95; });
 
-  // ---------- HUD ----------
   function cap(s){ return s? s.charAt(0).toUpperCase()+s.slice(1) : s; }
   function updHUD(){
     $('hudScore') && ($('hudScore').textContent = score);
@@ -73,23 +84,22 @@
     setTimeout(()=>{ try{ el.remove(); }catch(_e){} }, 900);
   }
 
-  // ---------- Safe helpers ----------
   function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){} }
 
   async function ensureSceneAndArena(){
     const maxWait = 4000, t0 = performance.now();
     while (!(window.AFRAME && document.querySelector('a-scene'))){
-      if (performance.now()-t0 > maxWait){ toast('A-Frame scene not ready', '#ff7a7a'); break; }
+      if (performance.now()-t0 > maxWait){ break; }
       await new Promise(r=>requestAnimationFrame(r));
     }
     if (!document.querySelector('a-scene')){
-      const sc = document.createElement('a-scene'); document.body.appendChild(sc);
+      const sc = document.createElement('a-scene'); document.body.prepend(sc);
     }
     const scn = document.querySelector('a-scene');
     await new Promise(res=>{
       if (scn && scn.hasLoaded) return res();
       scn?.addEventListener('loaded', res, {once:true});
-      setTimeout(res, 1500);
+      setTimeout(res, 1200);
     });
     if (!$('arena')){
       const e = document.createElement('a-entity');
@@ -103,7 +113,7 @@
   // ---------- Notes ----------
   function spawnNote(){
     if (!RB.running || RB.paused) return;
-    if (!$('arena')){ toast('arena not found', '#ff7a7a'); return; }
+    if (!$('arena')) return;
     notes++; sinceAccel++;
 
     const x = (Math.random()*3.0 - 1.5).toFixed(2);
@@ -113,10 +123,10 @@
     const el = document.createElement(shape);
     el.classList.add('note','clickable');
     el.setAttribute('color', color);
-    el.setAttribute('radius', '0.22');
-    el.setAttribute('depth',  '0.42');
-    el.setAttribute('width',  '0.42');
-    el.setAttribute('height', '0.42');
+    el.setAttribute('radius', '0.24');
+    el.setAttribute('depth',  '0.5');
+    el.setAttribute('width',  '0.5');
+    el.setAttribute('height', '0.5');
     el.setAttribute('position', `${x} ${ySpawn} ${zLane}`);
     el.dataset.spawn = performance.now();
     el.dataset.hit = '0';
@@ -137,7 +147,7 @@
 
   function fallLoop(el){
     let lastT = performance.now();
-    const speed = 0.60; // ช้าลงอีกนิด
+    const speed = 0.60; // เริ่มช้า
 
     function step(now){
       if (!el.parentNode) return;
@@ -165,7 +175,7 @@
   function tryHit(el){
     if (!el || el.dataset.hit === '1') return;
     const t = performance.now() - (+el.dataset.spawn);
-    const travelMs = ((ySpawn - yTarget) / 0.60) * 1000; // ต้องตรงกับ speed ใน fallLoop
+    const travelMs = ((ySpawn - yTarget) / 0.60) * 1000; // ต้องตรงกับ speed
     const diff = Math.abs(t - travelMs);
 
     if (diff <= 150){
@@ -174,7 +184,7 @@
       el.dataset.hit='1'; doGood();    safeRemove(el);
     } else {
       const py = el.object3D?.position?.y ?? 9;
-      if (Math.abs(py - yTarget) <= 0.16){
+      if (Math.abs(py - yTarget) <= 0.18){
         el.dataset.hit='1'; doGood(); safeRemove(el);
       }
     }
@@ -209,15 +219,13 @@
     if (!RB.sceneReady){ await ensureSceneAndArena(); }
     RB.running = true; RB.paused=false;
 
-    // ถ้า results ยังค้างทับ ให้ซ่อน
-    if ($('results')) $('results').style.display='none';
+    $('results') && ( $('results').style.display='none' );
 
     score=0; combo=0; maxCombo=0; hits=0; notes=0; timeLeft=60; sinceAccel=0;
     spawnInterval = startIntervalByPreset[speedPreset] || 1600;
 
     updHUD();
 
-    // สร้างโน้ตทันที 2 ตัวแรก
     spawnNote();
     setTimeout(spawnNote, Math.min(500, spawnInterval/2));
 
@@ -252,7 +260,7 @@
   }
   RB.start=start; RB.pause=pause; RB.resume=resume;
 
-  // ---------- UI shield & handlers ----------
+  // ---------- Strong UI click shield ----------
   let overUI = false;
   function markOver(el){
     if(!el) return;
@@ -263,20 +271,30 @@
   }
   function blockBubble(el){
     if(!el) return;
-    el.style.pointerEvents = 'auto'; // บังคับเปิดรับคลิก
-    ['pointerdown','pointerup','touchstart','touchend','mousedown','mouseup','click'].forEach(ev=>{
-      el.addEventListener(ev, e=>{
+    el.style.pointerEvents = 'auto';
+    ['pointerdown','mousedown','touchstart','click','pointerup','mouseup','touchend'].forEach(ev=>{
+      el.addEventListener(ev, (e)=>{
         e.stopPropagation();
-        e.stopImmediatePropagation && e.stopImmediatePropagation();
+        e.stopImmediatePropagation?.();
       }, {capture:true});
     });
     markOver(el);
   }
+  // Global capture guard — if event begins on UI, stop it before A-Frame sees it
+  ['pointerdown','mousedown','touchstart','click'].forEach(ev=>{
+    document.addEventListener(ev, (e)=>{
+      const t = e.target;
+      if (t && (t.closest?.('#uiDock') || t.closest?.('#results'))){
+        e.stopPropagation();
+        e.stopImmediatePropagation?.();
+      }
+    }, {capture:true});
+  });
 
   function attachButtons(){
     const startBtn=$('btnStart'), pauseBtn=$('btnPause'), endBtn=$('btnEnd');
     const songSel = $('songSel'); const speedSel = $('speedSel');
-    [startBtn,pauseBtn,endBtn,songSel,speedSel].forEach(blockBubble);
+    [startBtn,pauseBtn,endBtn,songSel,speedSel,$('uiDock'),$('results')].forEach(blockBubble);
 
     startBtn && startBtn.addEventListener('click', ()=>{ start(); if(pauseBtn) pauseBtn.textContent='Pause'; });
     pauseBtn && pauseBtn.addEventListener('click', ()=>{
@@ -311,19 +329,24 @@
     $('backBtn') && $('backBtn').addEventListener('click', ()=>{
       window.location.href = HUB_URL;
     });
-
-    // กันทั้งกลุ่ม
-    blockBubble($('uiDock'));
-    blockBubble($('results'));
   }
 
-  // self-heal: ถ้าปุ่ม/เมนูยังไม่พร้อม ให้ลอง attach ใหม่ทุก 500ms จนติด
-  const healInt = setInterval(()=>{
-    const ok = $('btnStart') && $('btnPause') && $('btnEnd') && $('songSel') && $('speedSel');
-    if (ok){ attachButtons(); clearInterval(healInt); }
-  }, 500);
+  // Self-heal: move UI containers to the end of <body> so they are above canvas in DOM
+  function elevateUI(){
+    ['uiDock','results'].forEach(id=>{
+      const el=$(id);
+      if (el && el.parentNode !== document.body){
+        document.body.appendChild(el);
+      }
+      if (el){
+        el.style.position='fixed';
+        el.style.zIndex='2147483647';
+        el.style.pointerEvents='auto';
+      }
+    });
+  }
 
-  // ---------- Pointer Raycast (skip when over UI) ----------
+  // Pointer Raycast (skip when over UI)
   ;(function installPointerRaycast(){
     const sceneEl = document.querySelector('a-scene');
     if (!sceneEl){ return; }
@@ -331,8 +354,7 @@
       const raycaster = new THREE.Raycaster();
       const mouse = new THREE.Vector2();
       function pick(clientX, clientY){
-        if (overUI) return; // สำคัญ: เมาส์/นิ้วอยู่บน UI → ห้ามยิง ray
-        // ป้องกันกรณี elementFromPoint ตรวจอีกชั้น
+        if (overUI) return;
         const topEl = document.elementFromPoint(clientX, clientY);
         if (topEl && (topEl.closest('#uiDock') || topEl.closest('#results'))) return;
 
@@ -362,23 +384,14 @@
     else sceneEl.addEventListener('loaded', ready, {once:true});
   })();
 
-  // ---------- Boot ----------
   function boot(){
-    // บังคับ UI รับคลิก + วางหน้าบนสุด
-    ['uiDock','results'].forEach(id=>{
-      const el = $(id);
-      if (el){
-        el.style.position = el.style.position || 'fixed';
-        el.style.zIndex = '2147483646';
-        el.style.pointerEvents = 'auto';
-      }
-    });
+    elevateUI();
+    attachButtons();
+    ensureSceneAndArena();
 
     speedPreset = ($('speedSel')?.value)||'standard';
     $('hudSpeed') && ($('hudSpeed').textContent = cap(speedPreset));
     updHUD();
-    attachButtons();
-    ensureSceneAndArena();
   }
   if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', boot);
