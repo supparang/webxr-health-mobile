@@ -3,157 +3,65 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VR Fitness Academy · Hub</title>
+  <title>VR Fitness · Hub</title>
 
-  <!-- Inline Sport Tech theme -->
+  <!-- ให้เกมรู้ฐานพาธ -->
+  <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
+
+  <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    :root{
-      --bg:#0b1119; --ink:#e6f1ff; --mut:#8aa2b2; --line:#1a2532; --card:#0e1622; --accent:#00d0ff; --accent2:#00ffa3;
-    }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
-    .header,.footer{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);background:#0c131d}
-    .footer{border-top:1px solid var(--line);border-bottom:none;justify-content:center;gap:10px;color:var(--mut)}
-    .brand{font-weight:800;letter-spacing:.3px}
-    .toolbar{display:flex;gap:8px;align-items:center}
-    .btn,.select{background:#0e1622;border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:8px 10px;cursor:pointer}
-    .select{appearance:none}
-    .btn:hover{background:#13202d}
-    .small{color:var(--mut);font-size:12px}
-    .container{max-width:1100px;margin:0 auto;padding:12px}
-    h1{margin:14px 0 6px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
-    .thumb{height:120px;background:linear-gradient(135deg,#0d1b2a,#0f2435);display:flex;align-items:center;justify-content:center;font-weight:700;color:#96d0ff}
-    .meta{padding:10px;display:flex;flex-direction:column;gap:6px}
-    .row{display:flex;justify-content:space-between;gap:8px;align-items:center}
-    .pill{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:999px;padding:2px 8px;font-size:12px;color:#b9d1e6}
-    .mut{color:var(--mut)}
-    .kbd{display:inline-block;background:#0e1622;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
-    a.card-link{color:inherit;text-decoration:none}
-    .soon{opacity:.65}
-    #lbCard > .row{border-bottom:1px dashed var(--line);padding:6px 0}
-    #lbCard > .row:last-child{border-bottom:none}
-    @media (hover:hover){ .card:hover{transform:translateY(-1px);transition:transform .12s ease;} }
+    body{margin:0;background:#070b10;color:#e6f7ff;font:14px/1.4 system-ui}
+    header{padding:16px 12px;border-bottom:1px solid #203446}
+    h1{margin:0;font:700 18px system-ui}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:12px}
+    .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px;color:#e6f7ff;text-decoration:none;display:flex;flex-direction:column;gap:8px}
+    .btn{padding:8px 12px;border:0;border-radius:10px;background:#0e2233;color:#e6f7ff;cursor:pointer}
+    .sub{opacity:.8}
   </style>
 </head>
 <body>
-  <header class="header">
-    <div class="brand">VR Fitness Academy</div>
-    <div class="toolbar">
-      <label class="small" for="langSel" data-i18n="language">Language</label>
-      <select id="langSel" class="select">
-        <option value="en">English</option>
-        <option value="th">ไทย</option>
-      </select>
-      <button class="btn" id="muteBtn" title="Mute/Unmute">🔊</button>
-    </div>
+  <header>
+    <h1>VR Fitness · Hub</h1>
   </header>
 
-  <main class="container">
-    <h1 data-i18n="hub_title">Choose your workout</h1>
-    <div class="small" data-i18n="hub_sub">Mini-games · scoring · BGM · results</div>
+  <section class="grid" id="gamesGrid">
+    <!-- Shadow Breaker -->
+    <a id="link-sb" class="card" href="#">
+      <strong style="font-size:16px">Shadow Breaker</strong>
+      <span id="sbDiffBadge" class="sub" style="font-weight:600">Diff: NORMAL</span>
+      <span class="sub">บอสแพทเทิร์น + พาร์รี · เมาส์/ทัชคลิกได้ · VR พร้อม</span>
+      <button class="btn" type="button">Play</button>
+    </a>
 
-    <div class="grid" id="gameGrid" aria-live="polite"></div>
-  </main>
-
-  <!-- Recent Results -->
-  <section class="container" id="lbSection">
-    <h2 style="margin:10px 0 10px">Recent Results</h2>
-    <div class="card" id="lbCard"><div class="small" style="padding:10px">No scores yet</div></div>
+    <!-- Rhythm Box -->
+    <a id="link-rb" class="card" href="#">
+      <strong style="font-size:16px">Rhythm Box</strong>
+      <span id="rbDiffBadge" class="sub" style="font-weight:600">Diff: NORMAL</span>
+      <span class="sub">กดตามจังหวะ · คอมโบ/Fever · เมาส์/ทัชคลิกได้ · VR พร้อม</span>
+      <button class="btn" type="button">Play</button>
+    </a>
   </section>
 
-  <footer class="footer">
-    <span>Sport Tech UI · <span class="kbd">ESC</span> to exit VR</span>
-  </footer>
-
-  <!-- Core helpers (optional) -->
-  <script src="core/i18n.js"></script>
-  <script src="core/audio.js"></script>
-  <script src="core/engine.js"></script>
-  <script src="core/ui.js"></script>
-  <script src="core/leaderboard.js"></script>
-
   <script>
-  // --- Config: Games on Hub ---
-  const GAMES = [
-    {
-      id: 'shadow-breaker',
-      title: 'Shadow Breaker',
-      sub: 'Boss chain · difficulty · leaderboard',
-      path: 'games/shadow-breaker/index.html',
-      tags: ['Combat','HIIT','Boss'],
-      thumb: 'SB'
-    },
-    { id:'rhythm-punch', title:'Rhythm Punch', sub:'Beat timing · jab/cross', path:null, tags:['Rhythm','Arms'], thumb:'RP', soon:true },
-    { id:'target-sprint', title:'Target Sprint', sub:'Aim + move · accuracy', path:null, tags:['Cardio','Accuracy'], thumb:'TS', soon:true },
-    { id:'calorie-dodge', title:'Calorie Dodge', sub:'Dodge lanes · burn', path:null, tags:['Dodge','Core'], thumb:'CD', soon:true }
-  ];
+    (function(){
+      const BASE = document.querySelector('meta[name="asset-base"]')?.content?.replace(/\/+$/,'') || '';
 
-  // --- i18n ---
-  const I18N = {
-    en: { language:'Language', hub_title:'Choose your workout', hub_sub:'Mini-games · scoring · BGM · results', coming:'Coming soon' },
-    th: { language:'ภาษา', hub_title:'เลือกการออกกำลังกายของคุณ', hub_sub:'มินิเกม · ทำคะแนน · เพลงประกอบ · สรุปผล', coming:'เร็ว ๆ นี้' }
-  };
-  function getLang(){ const q=new URLSearchParams(location.search); return q.get('lang')||localStorage.getItem('hub_lang')||'en'; }
-  function applyI18n(lang){ const d=I18N[lang]||I18N.en; document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; }); }
+      const sbDiff = localStorage.getItem('sb_diff') || 'normal';
+      const rbDiff = localStorage.getItem('rb_diff') || 'normal';
+      const label = k => ({easy:'EASY',normal:'NORMAL',hard:'HARD',final:'FINAL'})[k] || 'NORMAL';
 
-  // --- Render grid ---
-  function renderGrid(){
-    const grid=document.getElementById('gameGrid'); const lang=getLang(); const coming=(I18N[lang]||I18N.en).coming;
-    grid.innerHTML = GAMES.map(g=>{
-      const tags=(g.tags||[]).map(t=>`<span class="pill">${t}</span>`).join(' ');
-      const soon=g.soon||!g.path;
-      const card = `
-        <div class="thumb">${g.thumb||''}</div>
-        <div class="meta">
-          <div class="row"><b>${g.title}</b>${soon? `<span class="pill soon">${coming}</span>`:''}</div>
-          <div class="small mut">${g.sub||''}</div>
-          <div class="row"><div class="mut small">#${g.id}</div><div>${tags}</div></div>
-        </div>`;
-      return soon
-        ? `<div class="card soon" aria-disabled="true" title="${coming}">${card}</div>`
-        : `<a class="card card-link" href="${g.path}">${card}</a>`;
-    }).join('');
-  }
+      const sbURL = `${BASE}/games/shadow-breaker/?diff=${encodeURIComponent(sbDiff)}`;
+      const rbURL = `${BASE}/games/rhythm-box/?diff=${encodeURIComponent(rbDiff)}`;
 
-  // --- Recent Results ---
-  function renderRecent(){
-    const card=document.getElementById('lbCard');
-    try{
-      if(!window.Leaderboard?.recent) throw 0;
-      const list=Leaderboard.recent(8);
-      if(!list||list.length===0){ card.innerHTML='<div class="small" style="padding:10px">No scores yet</div>'; return; }
-      card.innerHTML = list.map(e=>{
-        const when=new Date(e.ts).toLocaleString();
-        const game=e.gameId||'unknown';
-        const acc=(e.accuracy!=null?(e.accuracy+'%'):'-');
-        const diff=e.diff?(' · '+e.diff.toUpperCase()):'';
-        return `<div class="row"><div><b>${game}</b>${diff} · ${when}</div><div>Score <b>${e.score||0}</b> · MaxCombo <b>${e.maxCombo||0}</b> · Acc ${acc}</div></div>`;
-      }).join('');
-    }catch(e){ card.innerHTML='<div class="small" style="padding:10px">No scores yet</div>'; }
-  }
+      const sbA = document.getElementById('link-sb');
+      const rbA = document.getElementById('link-rb');
+      if (sbA) { sbA.href = sbURL; sbA.querySelector('#sbDiffBadge').textContent = 'Diff: ' + label(sbDiff); }
+      if (rbA) { rbA.href = rbURL; rbA.querySelector('#rbDiffBadge').textContent = 'Diff: ' + label(rbDiff); }
 
-  // --- Audio mute ---
-  function tryAudioInit(){
-    if(!window.AudioBus) return;
-    const btn=document.getElementById('muteBtn');
-    btn.addEventListener('click', ()=>{
-      const muted = AudioBus.toggleMute ? AudioBus.toggleMute() : AudioBus.mute(true);
-      btn.textContent = (muted ? '🔇' : '🔊');
-    });
-    try{
-      const muted = localStorage.getItem('audio_muted')==='1';
-      if(muted && AudioBus.mute) AudioBus.mute(true);
-      btn.textContent = (muted ? '🔇' : '🔊');
-    }catch(e){}
-  }
-
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const lang=getLang(); const sel=document.getElementById('langSel');
-    sel.value=lang; sel.addEventListener('change', ()=>{ localStorage.setItem('hub_lang', sel.value); applyI18n(sel.value); renderGrid(); });
-    applyI18n(lang);
-    renderGrid(); renderRecent(); tryAudioInit();
-  });
+      // ให้ปุ่ม Play ข้างในลิงก์ทำงานชัวร์
+      sbA?.querySelector('button')?.addEventListener('click', (e)=>{ e.preventDefault(); location.href = sbURL; });
+      rbA?.querySelector('button')?.addEventListener('click', (e)=>{ e.preventDefault(); location.href = rbURL; });
+    })();
   </script>
 </body>
 </html>
