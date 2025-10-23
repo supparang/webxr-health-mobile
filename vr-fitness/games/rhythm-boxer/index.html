@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- บอก path สินทรัพย์ให้เกมรู้ -->
+  <!-- base path ให้เกมรู้ที่อยู่ asset -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
   <!-- A-Frame -->
@@ -13,22 +13,24 @@
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    /* บังคับให้ UI คลิกได้เหนือแคนวาส */
-    #uiDock, #results, #hudTopRight { position:fixed; z-index:2147483647 !important; pointer-events:auto !important; }
-    #uiDock * , #results * , #hudTopRight * { pointer-events:auto !important; }
-    canvas.a-canvas { pointer-events:none !important; } /* กันฉากกินคลิก */
+    :root { --hud-bg: rgba(10,16,24,.80); --hud-bd: rgba(255,255,255,.08); }
+    body { margin:0; background:#05090f; color:#e6f7ff; font:600 12px system-ui; }
+
+    /* UI เหนือฉาก แต่ไม่กินคลิกของฉากถ้าอยู่นอกพื้นที่ปุ่ม */
+    #uiDock, #results, #hudTopRight, #enterVRBtn { position:fixed; z-index:9999; }
+    #uiDock * , #results * , #hudTopRight * , #enterVRBtn { pointer-events:auto; }
 
     #uiDock{
       left:8px; bottom:12px; display:flex; gap:8px; align-items:center;
-      background:rgba(10,16,24,.80); color:#e6f7ff; padding:8px 10px;
-      border-radius:12px; border:1px solid rgba(255,255,255,.08); font:600 12px system-ui;
+      background:var(--hud-bg); border:1px solid var(--hud-bd);
+      padding:8px 10px; border-radius:12px;
     }
     #hudTopRight{
-      top:8px; right:8px; background:rgba(0,0,0,.4); color:#e6f7ff;
-      padding:6px 10px; border-radius:10px; font:600 12px system-ui;
+      top:8px; right:8px; background:var(--hud-bg);
+      border:1px solid var(--hud-bd); padding:6px 10px; border-radius:10px;
     }
-    .btn{padding:6px 10px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer}
-    .card{background:#0b1118; border:1px solid #203446; border-radius:12px; padding:14px 16px}
+    .btn{ padding:6px 10px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer }
+    .card{ background:#0b1118; border:1px solid #203446; border-radius:12px; padding:14px 16px }
   </style>
 </head>
 <body>
@@ -39,12 +41,18 @@
     <!-- เส้น HIT LINE (เขียวเรืองแสง) -->
     <a-entity id="hitLine"
       geometry="primitive: box; width: 2.6; height: 0.02; depth: 0.02"
-      material="color: #00ff88; emissive: #00ff88; emissiveIntensity: 0.8; opacity:0.95; transparent:true"
+      material="color: #00ff88; emissive: #00ff88; emissiveIntensity: 0.85; opacity:0.95; transparent:true"
       position="0 1.1 -2.3">
+    </a-entity>
+
+    <!-- cursor เมาส์/ทัช สำหรับคลิก .clickable ในฉาก -->
+    <a-entity id="mouseCursor"
+      cursor="rayOrigin: mouse"
+      raycaster="objects: .clickable; interval: 0">
     </a-entity>
   </a-scene>
 
-  <!-- HUD มุมขวาบน -->
+  <!-- HUD ขวาบน (ไม่ให้โดนบังแล้ว) -->
   <div id="hudTopRight">
     Song: <b id="hudSong">—</b> ·
     Score: <b id="hudScore">0</b> ·
@@ -58,7 +66,6 @@
     <label>Song</label>
     <select id="songSel" style="min-width:200px">
       <option value="none" data-title="— Select —">— Select —</option>
-      <!-- ปรับให้ตรงกับไฟล์จริงในโปรเจ็กต์คุณ -->
       <option value="/webxr-health-mobile/vr-fitness/assets/music/runforward.mp3" data-title="Run Forward (Kevin MacLeod)">Run Forward</option>
       <option value="/webxr-health-mobile/vr-fitness/assets/music/liftoff.mp3" data-title="Liftoff (Vercetty)">Liftoff</option>
       <option value="/webxr-health-mobile/vr-fitness/assets/music/sparkwalk.mp3" data-title="Spark Walk (Scott Holmes)">Spark Walk</option>
@@ -90,6 +97,12 @@
       </div>
     </div>
   </section>
+
+  <!-- ปุ่ม Enter VR ตรงกลางล่าง -->
+  <button id="enterVRBtn"
+    style="left:50%; transform:translateX(-50%); bottom:12px; padding:8px 12px; border-radius:10px; border:0; background:#0e2233; color:#e6f7ff; cursor:pointer;">
+    Enter VR
+  </button>
 
   <!-- เกม -->
   <script src="./game.js" defer></script>
