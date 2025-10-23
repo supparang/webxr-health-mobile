@@ -1,6 +1,6 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · คลิกได้แน่นอน (กัน raycast ทับปุ่ม) · เริ่มช้าแล้วค่อยเร็วขึ้น ·
-   Lane line + Hitline เรืองแสง · Good/Perfect/Miss + SFX · Back to hub ถูกพาธ
+   Rhythm Boxer · Fix: Start แล้วมีโน้ตวิ่งทันที · รอ 'loaded' ก่อนเริ่มตก · เริ่มช้าแล้วค่อยเร็ว
+   UI คลิกได้, Hitline/Good/Perfect/Miss/SFX, Back-to-Hub ถูกต้อง
 */
 (function(){
   "use strict";
@@ -13,30 +13,35 @@
   let score=0, combo=0, maxCombo=0, hits=0, notes=0, timeLeft=60;
   let spawnTimer=null, timeTimer=null, speedPreset='standard';
   let spawnInterval=1600;          // เริ่มช้ามาก
-  const minIntervalByPreset = { beginner:900, standard:650, challenge:520 };
+  const minIntervalByPreset   = { beginner:900,  standard:650,  challenge:520  };
   const startIntervalByPreset = { beginner:1800, standard:1600, challenge:1300 };
   const accelEveryN = 6;           // ทุก 6 ตัว ลด interval ที
   const accelStep   = 70;          // ลดทีละ 70ms
   let sinceAccel = 0;
 
+  // พิกัด/รูปร่างโน้ต
+  const ySpawn  = 2.6;
+  const yTarget = 1.0;
+  const zLane   = -3.0;
+  const noteColors = ['#2cd1ff','#ff7a7a','#ffd166','#00ffa3','#a899ff'];
+  const noteShapes = ['a-sphere','a-box','a-icosahedron','a-dodecahedron'];
+
   // -------- SFX --------
   const SFX = {
-    good: new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    good:    new Audio(`${ASSET_BASE}/assets/sfx/slash.wav`),
     perfect: new Audio(`${ASSET_BASE}/assets/sfx/perfect.wav`),
-    miss: new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
-    hit: new Audio(`${ASSET_BASE}/assets/sfx/heavy.wav`)
+    miss:    new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`)
   };
-  Object.values(SFX).forEach(a=>a.preload='auto');
+  Object.values(SFX).forEach(a=>{ a.preload='auto'; a.volume=0.95; });
 
   // -------- HUD --------
+  const cap = s => (s?.charAt(0).toUpperCase()+s.slice(1));
   function updHUD(){
     $('hudScore').textContent = score;
     $('hudCombo').textContent = combo;
     $('hudTime').textContent  = timeLeft;
     $('hudSpeed').textContent = cap(speedPreset);
   }
-  const cap = s => (s?.charAt(0).toUpperCase()+s.slice(1));
-
   function floatWord(text, color){
     const el = document.createElement('div');
     el.className='float';
@@ -47,13 +52,6 @@
   }
 
   // -------- Notes --------
-  // spawn ที่ตำแหน่งสุ่มในแนว X และตกลงมาตามแกน Y ไปยัง yTarget ≈ 1.0 (ตรงกับ lane/hitline)
-  const ySpawn = 2.6;
-  const yTarget = 1.0;
-  const zLane   = -3.0;
-  const noteColors = ['#2cd1ff','#ff7a7a','#ffd166','#00ffa3','#a899ff'];
-  const noteShapes = ['a-sphere','a-box','a-icosahedron','a-dodecahedron'];
-
   function spawnNote(){
     if (!RB.running || RB.paused) return;
     notes++;
@@ -65,42 +63,24 @@
 
     const el = document.createElement(shape);
     el.classList.add('note','clickable');
+    // ขนาดใหญ่ขึ้น มองง่าย
     el.setAttribute('color', color);
-    el.setAttribute('radius', '0.14');
-    el.setAttribute('depth',  '0.28');
-    el.setAttribute('width',  '0.28');
-    el.setAttribute('height', '0.28');
+    el.setAttribute('radius', '0.17');
+    el.setAttribute('depth',  '0.34');
+    el.setAttribute('width',  '0.34');
+    el.setAttribute('height', '0.34');
     el.setAttribute('position', `${x} ${ySpawn} ${zLane}`);
     el.dataset.spawn = performance.now();
     el.dataset.hit = '0';
     $('arena').appendChild(el);
 
     // คลิกเมาส์/ทัช: ตรวจ timing window (กว้างขึ้น)
-    el.addEventListener('click', ()=>{
-      tryHit(el);
-    });
+    el.addEventListener('click', ()=>{ tryHit(el); });
 
-    // ตกลงมาเองด้วย requestAnimationFrame
-    const speed = 0.65; // หน่วย: m/s (ช้าก่อน)
-    function step(){
-      if (!el.parentNode) return;
-      if (!RB.running) { safeRemove(el); return; }
-      const p = el.object3D.position;
-      const dt = 1/60; // step คงที่พอ
-      p.y -= speed * dt;
-      el.setAttribute('position', `${p.x.toFixed(3)} ${p.y.toFixed(3)} ${zLane}`);
-
-      if (p.y <= yTarget){
-        // ถ้ายังไม่โดนคลิก ถือว่า MISS แล้วลบ
-        if (el.dataset.hit !== '1'){
-          doMiss();
-        }
-        safeRemove(el);
-        return;
-      }
-      requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
+    // เริ่ม "ตก" หลัง A-Frame โหลด entity แล้ว (กัน object3D ยังไม่พร้อม)
+    const startFall = ()=>fallLoop(el);
+    if (el.hasLoaded) startFall();
+    else el.addEventListener('loaded', startFall, {once:true});
 
     // ค่อยๆ ถี่ขึ้น
     if (sinceAccel >= accelEveryN){
@@ -110,24 +90,49 @@
     }
   }
 
-  // timing window (ms) กว้างขึ้นให้คลิกง่าย: perfect ±130ms, good ±220ms
+  // ตกด้วย rAF (คำนวณ dt จริง)
+  function fallLoop(el){
+    let lastT = performance.now();
+    const speed = 0.65; // m/s ช้าก่อน แล้วเพิ่มความถี่ spawn เอา
+
+    function step(now){
+      if (!el.parentNode) return;
+      if (!RB.running) { safeRemove(el); return; }
+      if (RB.paused) { requestAnimationFrame(step); return; }
+
+      const dt = Math.min(80, now - lastT) / 1000; // cap 80ms กันกระตุก
+      lastT = now;
+
+      const p = el.object3D.position;
+      p.y -= speed * dt;
+      el.setAttribute('position', `${p.x.toFixed(3)} ${p.y.toFixed(3)} ${zLane}`);
+
+      if (p.y <= yTarget){
+        if (el.dataset.hit !== '1'){ doMiss(); }
+        safeRemove(el);
+        return;
+      }
+      requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // timing window (ms) กว้างขึ้น: perfect ±130, good ±240 (+assists ตามระยะ)
   function tryHit(el){
     if (!el || el.dataset.hit === '1') return;
     const t = performance.now() - (+el.dataset.spawn);
-    // เวลาเดินทางจาก ySpawn → yTarget ≈ (ySpawn - yTarget)/speed ≈ ~2.46/0.65 ≈ 3784 ms
-    // เรา normalize โดยสมมุติจังหวะเหมือน note ถึงที่ yTarget ณ ~3800ms หลัง spawn
+    // เวลาถึงเป้าโดยประมาณ ~3800ms หลัง spawn (คำนวณจาก y ระยะ/ความเร็ว)
     const ideal = 3800;
     const diff = Math.abs(t - ideal);
 
     if (diff <= 130){
       el.dataset.hit='1'; doPerfect(); safeRemove(el);
-    } else if (diff <= 220){
+    } else if (diff <= 240){
       el.dataset.hit='1'; doGood();    safeRemove(el);
     } else {
-      // ยังไม่ถือว่าพลาด ปล่อยไว้ตกต่อ
-      // แต่เพิ่ม "Hit Assist": ถ้าคลิกถูก y ใกล้ hitline มากๆ ให้ GOOD เลย
-      const py = el.object3D.position.y;
-      if (Math.abs(py - yTarget) <= 0.08){
+      // Hit Assist: ถ้าโน้ตอยู่ใกล้ yTarget มากๆ ขณะคลิก ให้ GOOD
+      const py = el.object3D?.position?.y ?? 9;
+      if (Math.abs(py - yTarget) <= 0.10){
         el.dataset.hit='1'; doGood(); safeRemove(el);
       }
     }
@@ -136,26 +141,20 @@
   function doGood(){
     combo++; hits++; score+=10; if (combo>maxCombo) maxCombo=combo;
     SFX.good.currentTime=0; SFX.good.play().catch(()=>{});
-    updHUD();
-    floatWord('GOOD', '#2cd1ff');
+    updHUD(); floatWord('GOOD', '#2cd1ff');
   }
   function doPerfect(){
     combo++; hits++; score+=22; if (combo>maxCombo) maxCombo=combo;
     SFX.perfect.currentTime=0; SFX.perfect.play().catch(()=>{});
-    updHUD();
-    floatWord('PERFECT', '#00ffa3');
+    updHUD(); floatWord('PERFECT', '#00ffa3');
   }
   function doMiss(){
     combo=0; SFX.miss.currentTime=0; SFX.miss.play().catch(()=>{});
-    updHUD();
-    floatWord('MISS', '#ff6b6b');
+    updHUD(); floatWord('MISS', '#ff6b6b');
   }
 
   function safeRemove(el){
-    try{
-      if(!el) return;
-      if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.();
-    }catch(_e){}
+    try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){}
   }
 
   // -------- Game Flow --------
@@ -168,14 +167,18 @@
     spawnInterval = startIntervalByPreset[speedPreset];
 
     updHUD();
+    // สร้างโน้ตทันที 2 ตัวแรก เพื่อให้เห็นว่าเกมเริ่มแล้ว (ไม่ต้องรอรอบ setInterval)
+    spawnNote();
+    setTimeout(spawnNote, Math.min(500, spawnInterval/2));
+
     restartSpawner();
+
     timeTimer = setInterval(()=>{
       if (!RB.running || RB.paused) return;
       timeLeft--; $('hudTime').textContent=timeLeft;
       if (timeLeft<=0) endGame();
     }, 1000);
 
-    // เล่นเพลง (ถ้ามี)
     playSelectedSong();
   }
 
@@ -184,19 +187,12 @@
     spawnTimer = setInterval(()=>{ if(RB.running && !RB.paused) spawnNote(); }, spawnInterval);
   }
 
-  function pause(){
-    if (!RB.running || RB.paused) return;
-    RB.paused = true;
-  }
-  function resume(){
-    if (!RB.running || !RB.paused) return;
-    RB.paused = false;
-  }
+  function pause(){ if (!RB.running || RB.paused) return; RB.paused = true; }
+  function resume(){ if (!RB.running || !RB.paused) return; RB.paused = false; }
   function endGame(){
     RB.running=false; RB.paused=false;
     if (spawnTimer) clearInterval(spawnTimer);
     if (timeTimer)  clearInterval(timeTimer);
-    // เก็บสถิติ
     $('rScore').textContent = score;
     $('rMaxCombo').textContent = maxCombo;
     const acc = notes ? Math.round((hits/notes)*100) : 0;
@@ -204,10 +200,9 @@
     $('results').style.display='flex';
     stopSong();
   }
+  RB.start=start; RB.pause=pause; RB.resume=resume;
 
-  RB.start = start; RB.pause=pause; RB.resume=resume;
-
-  // -------- Music (เลือกเพลง) --------
+  // -------- Music --------
   let currentAudio = null;
   function playSelectedSong(){
     const sel = $('songSel');
@@ -223,11 +218,7 @@
       currentAudio.play().catch(()=>{});
     }
   }
-  function stopSong(){
-    try{
-      if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; }
-    }catch(_e){}
-  }
+  function stopSong(){ try{ if(currentAudio){ currentAudio.pause(); currentAudio.currentTime=0; currentAudio=null; } }catch(_e){} }
 
   // -------- Buttons & UI (กันคลิกทะลุฉาก) --------
   function blockBubble(el){
@@ -239,7 +230,6 @@
       }, {capture:true});
     });
   }
-
   function initUI(){
     const dock  = $('uiDock');
     const startBtn=$('btnStart'), pauseBtn=$('btnPause'), endBtn=$('btnEnd');
@@ -266,32 +256,27 @@
     speedSel?.addEventListener('change', ()=>{
       speedPreset = speedSel.value || 'standard';
       $('hudSpeed').textContent = cap(speedPreset);
-      // รีเซ็ตจังหวะให้ตรงพรีเซ็ตเมื่อกดเริ่มใหม่
       if (RB.running){
-        // ใช้ค่าปัจจุบันแต่ clamp ด้วย min/max ใหม่
         spawnInterval = Math.max(minIntervalByPreset[speedPreset], spawnInterval);
         restartSpawner();
       }
     });
 
-    // ปุ่มผลลัพธ์
     $('replayBtn')?.addEventListener('click', ()=>{
       $('results').style.display='none';
       start();
     });
     $('backBtn')?.addEventListener('click', ()=>{
-      // กลับ Hub ที่ถูกต้อง
       window.location.href = 'https://supparang.github.io/webxr-health-mobile/vr-fitness/';
     });
 
-    // ปุ่ม Enter VR (กลางล่าง)
     $('enterVRBtn')?.addEventListener('click', ()=>{
       try{ document.querySelector('a-scene')?.enterVR?.(); }catch(_e){}
     });
   }
 
   // -------- Mouse/Touch Raycast (ข้าม UI เสมอ) --------
-  (function installPointerRaycast(){
+  ;(function installPointerRaycast(){
     function overUIDockAt(x,y){
       const el = document.elementFromPoint(x,y);
       return !!(el && el.closest && el.closest('#uiDock'));
@@ -327,17 +312,14 @@
   })();
 
   // -------- Boot --------
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', ()=>{
-      speedPreset = ($('speedSel')?.value)||'standard';
-      $('hudSpeed').textContent = cap(speedPreset);
-      updHUD();
-      initUI();
-    });
-  }else{
+  function boot(){
     speedPreset = ($('speedSel')?.value)||'standard';
     $('hudSpeed').textContent = cap(speedPreset);
     updHUD();
     initUI();
   }
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  }else boot();
+
 })();
