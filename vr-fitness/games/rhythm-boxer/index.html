@@ -1,92 +1,209 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
-  <!-- ชี้ base ให้ game.js หา asset ถูก -->
+  <!-- บอกเกมให้รู้ฐานพาธ (อย่ามี / ท้ายสุดใน game.js) -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
 
+  <!-- Theme -->
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
+
   <style>
-    body { background:#0b1118; color:#e6f7ff; }
-    .hud { position:fixed; left:8px; top:8px; background:rgba(0,0,0,.35); padding:8px 10px; border-radius:10px; font:600 13px system-ui; z-index:10 }
-    .dock { position:fixed; right:12px; top:12px; display:flex; gap:8px; align-items:center; z-index:20 }
-    .card { background:#0b1118; border:1px solid #203446; border-radius:12px; padding:10px 12px; display:flex; gap:8px; align-items:center }
-    select, button { background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:6px 10px; font:600 12px system-ui; cursor:pointer }
-    #enterVRBtn { position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:50; padding:10px 14px; border-radius:12px; border:0; background:#0e2233; color:#e6f7ff; cursor:pointer; }
-    #results { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:40; }
-    .btn { padding:8px 12px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer }
+    :root{ color-scheme:dark; }
+    body{ margin:0; background:#0b1118; color:#e6f7ff; overflow:hidden; font:600 13px system-ui,Segoe UI,Arial; }
+
+    /* ให้แคนวาสของ A-Frame ไม่รับคลิก เพื่อให้ UI ด้านบนคลิกได้แน่นอน */
+    .a-canvas, a-scene canvas{ pointer-events:none !important; }
+
+    /* HUD ซ้ายบน */
+    .hud{
+      position:fixed; left:8px; top:8px; z-index:60;
+      background:rgba(0,0,0,.35); padding:8px 10px; border-radius:10px;
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .hud b{ font-weight:800; }
+
+    /* กล่องผลลัพธ์ */
+    #results{
+      position:fixed; inset:0; display:none; z-index:90;
+      align-items:center; justify-content:center; background:rgba(0,0,0,.6);
+    }
+    .card{ background:#0b1118; border:1px solid #203446; border-radius:12px; padding:14px 16px; box-shadow:0 10px 30px rgba(0,0,0,.4); }
+
+    /* Dock มุมขวาล่าง */
+    .dock{
+      position:fixed; right:12px; bottom:72px; z-index:80;
+      display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+      pointer-events:auto; /* ต้องประกาศชัด */
+    }
+    .dock .panel{
+      background:rgba(10,16,24,.85); backdrop-filter:saturate(1.1) blur(4px);
+      border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 12px;
+      display:flex; flex-direction:column; gap:6px; min-width:240px;
+    }
+    label{ opacity:.9; letter-spacing:.3px; }
+    select, button{
+      background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.12);
+      border-radius:10px; padding:8px 12px; font:600 12px system-ui; cursor:pointer;
+      pointer-events:auto;
+    }
+    .row{ display:flex; gap:8px; align-items:center; }
+    .row > *{ flex:1; }
+
+    /* ปุ่ม Enter VR กลางล่าง */
+    #enterVRBtn{
+      position:fixed; left:50%; transform:translateX(-50%); bottom:12px; z-index:85;
+      padding:10px 14px; border-radius:12px; border:0; background:#0e2233; color:#e6f7ff; cursor:pointer;
+      box-shadow:0 8px 22px rgba(0,0,0,.45);
+    }
+
+    /* แถบ Boss/เพลง (ถ้ามี) */
+    #bossBar{position:fixed;left:50%;top:8px;transform:translateX(-50%);width:60%;height:14px;background:#0b1118;border:1px solid #193044;border-radius:10px;display:none;z-index:70}
+    #bossHPFill{height:100%;width:100%;background:#ff3355;border-radius:10px}
+
+    /* เอฟเฟกต์สั่น */
+    .shake-scene{ animation:shake .24s linear; }
+    @keyframes shake{25%{transform:translateX(2px)}50%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
   </style>
 </head>
 <body>
 
-  <a-scene renderer="colorManagement:true">
+  <!-- ฉากหลัก -->
+  <a-scene renderer="colorManagement: true">
     <a-entity id="arena" position="0 0 0"></a-entity>
-    <a-entity id="leftHand"  rb-hand position="-0.35 1.2 -1"></a-entity>
-    <a-entity id="rightHand" rb-hand position="0.35 1.2 -1"></a-entity>
-
-    <!-- พื้นหลังเบา ๆ -->
+    <a-entity id="leftHand"  hand-speed position="-0.4 1.2 -1"></a-entity>
+    <a-entity id="rightHand" hand-speed position="0.4 1.2 -1"></a-entity>
+    <!-- พื้นหลังเวที -->
     <a-entity position="0 1.5 -3">
       <a-plane width="6" height="3" color="#0a0f14" opacity="0.65"></a-plane>
     </a-entity>
   </a-scene>
 
-  <!-- HUD สรุปคะแนน -->
-  <div class="hud">
-    <div>Score: <span id="score">0</span></div>
-    <div>Combo: <span id="combo">0</span></div>
-    <div>Time: <span id="time">90</span>s</div>
+  <!-- HUD -->
+  <div class="hud" id="hudBox">
+    <div>Score: <b id="score">0</b></div>
+    <div>Combo: <b id="combo">0</b></div>
+    <div>Time: <b id="time">60</b>s</div>
   </div>
 
-  <!-- Dock: เลือกเพลง + ความเร็ว + ปุ่ม Start/Pause -->
-  <div class="dock">
-    <div class="card">
-      <label for="songSel">Song</label>
-      <select id="songSel">
-        <option value="training">Training (100 BPM)</option>
-        <option value="club">Club (120 BPM)</option>
-        <option value="rush">Rush (140 BPM)</option>
-      </select>
+  <!-- แถบสถานะ/พลัง (ถ้าเพลง/โหมดต้องใช้) -->
+  <div id="bossBar"><div id="bossHPFill"></div></div>
 
-      <label for="speedSel">Speed</label>
-      <select id="speedSel" title="Rhythm Speed Profile">
-        <option value="beginner">Beginner</option>
-        <option value="standard" selected>Standard</option>
-        <option value="challenge">Challenge</option>
-      </select>
-
-      <button id="startBtn" class="btn">Start</button>
-      <button id="pauseBtn" class="btn">Pause</button>
-    </div>
-  </div>
-
-  <!-- ปุ่ม Enter VR (กึ่งกลางล่าง) -->
-  <button id="enterVRBtn">Enter VR</button>
-
-  <!-- หน้าสรุปผล -->
+  <!-- ผลลัพธ์ -->
   <section id="results">
-    <div class="card" style="min-width:300px; flex-direction:column; align-items:stretch">
+    <div class="card" style="min-width:300px">
       <h3 style="margin:0 0 8px">RESULTS</h3>
+      <div style="margin-bottom:8px">Mode: <b id="rMode">STANDARD</b> · Speed: <b id="rSpeed">STANDARD</b></div>
       <div>Score: <b id="rScore">0</b></div>
       <div>Max Combo: <b id="rMaxCombo">0</b></div>
       <div>Accuracy: <b id="rAcc">0%</b></div>
       <div style="margin-top:10px; display:flex; gap:8px">
-        <button class="btn" id="replayBtn">Replay</button>
-        <button class="btn" id="backBtn">Back to Hub</button>
+        <button id="replayBtn">Replay</button>
+        <button id="backBtn">Back to Hub</button>
       </div>
     </div>
   </section>
 
-  <!-- Core (ถ้ามีใช้งานที่ hub) -->
+  <!-- Dock (มุมขวาล่าง) -->
+  <div class="dock" id="dock">
+    <div class="panel">
+      <div class="row">
+        <label for="songSel" style="flex:0 0 auto; width:70px;">Song</label>
+        <select id="songSel">
+          <option value="training">Training (100 BPM)</option>
+          <option value="club">Club (120 BPM)</option>
+          <option value="rush">Rush (140 BPM)</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="speedSel" style="flex:0 0 auto; width:70px;">Speed</label>
+        <select id="speedSel">
+          <option value="beginner">Beginner</option>
+          <option value="standard" selected>Standard</option>
+          <option value="challenge">Challenge</option>
+        </select>
+      </div>
+
+      <div class="row" style="margin-top:6px;">
+        <button id="startBtn">▶ Start</button>
+        <button id="pauseBtn">⏸ Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enter VR กลางล่าง -->
+  <button id="enterVRBtn" type="button">Enter VR</button>
+
+  <!-- Core (ถ้ามีระบบกลาง) -->
+  <script src="/webxr-health-mobile/vr-fitness/core/i18n.js" defer></script>
   <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
+  <script src="/webxr-health-mobile/vr-fitness/core/engine.js" defer></script>
+  <script src="/webxr-health-mobile/vr-fitness/core/ui.js" defer></script>
   <script src="/webxr-health-mobile/vr-fitness/core/leaderboard.js" defer></script>
 
-  <!-- เกม -->
+  <!-- Rhythm Boxer -->
   <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
+
+  <!-- ปุ่ม/ลิงก์ระบบ -->
+  <script>
+    (function(){
+      const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
+      const HUB_URL = `${ASSET_BASE}/`;
+
+      // ปุ่ม Back ไป Hub (ผลลัพธ์)
+      document.addEventListener('DOMContentLoaded', ()=>{
+        const back = document.getElementById('backBtn');
+        if(back){
+          back.addEventListener('click', ()=>{ location.href = HUB_URL; }, {passive:true});
+        }
+      });
+
+      // ปุ่ม Enter VR ให้อยู่กลางล่าง และเรียก scene.enterVR()
+      document.getElementById('enterVRBtn')?.addEventListener('click', ()=>{
+        try{
+          const sc = document.querySelector('a-scene');
+          sc && sc.enterVR && sc.enterVR();
+        }catch(e){ console.warn(e); }
+      });
+
+      // ป้องกัน “ปุ่มกดไม่ได้” — ให้ dock/hud รับอีเวนต์แน่ ๆ
+      const hud = document.getElementById('hudBox');
+      const dock = document.getElementById('dock');
+      [hud,dock].forEach(el=>{
+        if(el){
+          el.style.pointerEvents = 'auto';
+        }
+      });
+
+      // ใส่ title ผลลัพธ์เบื้องต้น
+      const speedSel = document.getElementById('speedSel');
+      if(speedSel){
+        speedSel.addEventListener('change', ()=>{
+          try{ localStorage.setItem('rb_speed', speedSel.value); }catch(_){}
+        });
+        try{
+          const saved = localStorage.getItem('rb_speed');
+          if(saved) speedSel.value = saved;
+        }catch(_){}
+      }
+    })();
+
+    // แสดงข้อความ error ให้เห็นไฟล์/บรรทัด (ไม่โดน CORS กลบ)
+    window.addEventListener('error', function(e){
+      const msg = (e.message || 'unknown') + (e.filename? (' @ ' + e.filename + ':' + (e.lineno||0) + ':' + (e.colno||0)) : '');
+      let o=document.getElementById('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
+        Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
+          display:'grid',placeItems:'center',font:'14px/1.5 system-ui',zIndex:99999}); document.body.appendChild(o);}
+      o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+
+        '</pre><p>ตรวจพาธสคริปต์/ไฟล์ และลองรีโหลด</p></div>';
+    });
+  </script>
 </body>
 </html>
