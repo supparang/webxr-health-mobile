@@ -3,64 +3,115 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VR Fitness · Hub</title>
-
-  <!-- ให้เกมรู้ฐานพาธ -->
-  <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
-
-  <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
+  <title>VR Fitness Academy · Sport Tech</title>
+  <link rel="stylesheet" href="core/themes/sport-tech.css"/>
   <style>
     body{margin:0;background:#070b10;color:#e6f7ff;font:14px/1.4 system-ui}
-    header{padding:16px 12px;border-bottom:1px solid #203446}
-    h1{margin:0;font:700 18px system-ui}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;padding:12px}
-    .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px;color:#e6f7ff;text-decoration:none;display:flex;flex-direction:column;gap:8px}
+    .header,.footer{padding:12px 18px;display:flex;justify-content:space-between;align-items:center;background:#0b1118;border-bottom:1px solid #203446}
+    .brand{font-weight:700;font-size:18px;color:#00ffa3}
+    .container{padding:16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:10px}
+    .game-card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px;color:#e6f7ff;text-decoration:none;display:flex;flex-direction:column;justify-content:space-between;transition:transform .15s}
+    .game-card:hover{transform:translateY(-3px)}
     .btn{padding:8px 12px;border:0;border-radius:10px;background:#0e2233;color:#e6f7ff;cursor:pointer}
-    .sub{opacity:.8}
   </style>
 </head>
 <body>
-  <header>
-    <h1>VR Fitness · Hub</h1>
+  <header class="header">
+    <div class="brand">VR Fitness Academy</div>
+    <div>
+      <select id="langSel" class="btn">
+        <option value="en">English</option>
+        <option value="th">ไทย</option>
+      </select>
+      <button class="btn" id="muteBtn">🔊</button>
+    </div>
   </header>
 
-  <section class="grid" id="gamesGrid">
-    <!-- Shadow Breaker -->
-    <a id="link-sb" class="card" href="#">
-      <strong style="font-size:16px">Shadow Breaker</strong>
-      <span id="sbDiffBadge" class="sub" style="font-weight:600">Diff: NORMAL</span>
-      <span class="sub">บอสแพทเทิร์น + พาร์รี · เมาส์/ทัชคลิกได้ · VR พร้อม</span>
-      <button class="btn" type="button">Play</button>
-    </a>
+  <main class="container">
+    <h1>Choose your workout</h1>
+    <p style="opacity:.8;margin-bottom:14px">4 mini-games • scoring • VR/PC/Mobile compatible</p>
 
-    <!-- Rhythm Box -->
-    <a id="link-rb" class="card" href="#">
-      <strong style="font-size:16px">Rhythm Box</strong>
-      <span id="rbDiffBadge" class="sub" style="font-weight:600">Diff: NORMAL</span>
-      <span class="sub">กดตามจังหวะ · คอมโบ/Fever · เมาส์/ทัชคลิกได้ · VR พร้อม</span>
-      <button class="btn" type="button">Play</button>
-    </a>
-  </section>
+    <div class="grid" id="gameGrid">
+      <!-- Shadow Breaker -->
+      <a id="link-sb" class="game-card" href="#">
+        <div>
+          <h3>Shadow Breaker</h3>
+          <p>บอสแพทเทิร์น + พาร์รี / เมาส์ - ทัชคลิกได้ / VR พร้อม</p>
+        </div>
+        <div>
+          <span id="sbDiffBadge" style="font-size:13px;opacity:.8">Diff: NORMAL</span><br>
+          <button class="btn" style="margin-top:8px">Play</button>
+        </div>
+      </a>
+
+      <!-- Rhythm Boxer -->
+      <a id="link-rb" class="game-card" href="#">
+        <div>
+          <h3>Rhythm Boxer</h3>
+          <p>กดตามจังหวะ / คอมโบ – Fever / เมาส์ - ทัชคลิกได้ / VR พร้อม</p>
+        </div>
+        <div>
+          <span id="rbDiffBadge" style="font-size:13px;opacity:.8">Diff: NORMAL</span><br>
+          <button class="btn" style="margin-top:8px">Play</button>
+        </div>
+      </a>
+
+      <!-- เพิ่มเกมอื่น ๆ ได้ที่นี่ -->
+    </div>
+  </main>
+
+  <footer class="footer">
+    <span>Sport Tech UI · Press ESC to exit VR</span>
+  </footer>
+
+  <!-- Core scripts -->
+  <script src="core/i18n.js"></script>
+  <script src="core/audio.js"></script>
+  <script src="core/engine.js"></script>
+  <script src="core/ui.js"></script>
+  <script src="core/leaderboard.js"></script>
 
   <script>
-    (function(){
-      const BASE = document.querySelector('meta[name="asset-base"]')?.content?.replace(/\/+$/,'') || '';
+    // ตั้งค่าเสียงปิด/เปิด
+    document.getElementById('muteBtn').addEventListener('click', ()=>{ 
+      try { AudioBus.mute(true); }catch(_){}
+    });
 
+    // ---------- เข้าสู่เกม ----------
+    (function(){
+      const BASE = '/webxr-health-mobile/vr-fitness';
       const sbDiff = localStorage.getItem('sb_diff') || 'normal';
       const rbDiff = localStorage.getItem('rb_diff') || 'normal';
-      const label = k => ({easy:'EASY',normal:'NORMAL',hard:'HARD',final:'FINAL'})[k] || 'NORMAL';
+      const show = k => ({easy:'EASY',normal:'NORMAL',hard:'HARD',final:'FINAL'})[k] || 'NORMAL';
 
+      // อัปเดต URL + ป้าย Diff
       const sbURL = `${BASE}/games/shadow-breaker/?diff=${encodeURIComponent(sbDiff)}`;
-      const rbURL = `${BASE}/games/rhythm-box/?diff=${encodeURIComponent(rbDiff)}`;
+      const rbURL = `${BASE}/games/rhythm-boxer/?diff=${encodeURIComponent(rbDiff)}`;
 
-      const sbA = document.getElementById('link-sb');
-      const rbA = document.getElementById('link-rb');
-      if (sbA) { sbA.href = sbURL; sbA.querySelector('#sbDiffBadge').textContent = 'Diff: ' + label(sbDiff); }
-      if (rbA) { rbA.href = rbURL; rbA.querySelector('#rbDiffBadge').textContent = 'Diff: ' + label(rbDiff); }
+      const sbA=document.getElementById('link-sb');
+      const rbA=document.getElementById('link-rb');
+      const sbBadge=document.getElementById('sbDiffBadge');
+      const rbBadge=document.getElementById('rbDiffBadge');
+      if(sbA){sbA.href=sbURL; sbA.querySelector('button').onclick=(e)=>{e.preventDefault();location.href=sbURL;}; sbBadge.textContent='Diff: '+show(sbDiff);}
+      if(rbA){rbA.href=rbURL; rbA.querySelector('button').onclick=(e)=>{e.preventDefault();location.href=rbURL;}; rbBadge.textContent='Diff: '+show(rbDiff);}
+    })();
 
-      // ให้ปุ่ม Play ข้างในลิงก์ทำงานชัวร์
-      sbA?.querySelector('button')?.addEventListener('click', (e)=>{ e.preventDefault(); location.href = sbURL; });
-      rbA?.querySelector('button')?.addEventListener('click', (e)=>{ e.preventDefault(); location.href = rbURL; });
+    // ---------- แสดงคะแนนล่าสุด ----------
+    (function(){
+      try{
+        const list = Leaderboard?.recent?.(8) || [];
+        const grid = document.getElementById('gameGrid');
+        if(!list.length)return;
+        const box=document.createElement('div');
+        box.innerHTML='<h2>Recent Results</h2>'+list.map(e=>{
+          const when=new Date(e.ts).toLocaleString();
+          const game=e.gameId||'unknown';
+          const acc=(e.accuracy!=null?(e.accuracy+'%'):'-');
+          return `<div style="font:12px system-ui;opacity:.8">${when} – <b>${game}</b> · Score <b>${e.score||0}</b> · Combo ${e.maxCombo||0} · Acc ${acc}</div>`;
+        }).join('');
+        grid.after(box);
+      }catch(_){}
     })();
   </script>
 </body>
