@@ -1,90 +1,134 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Rhythm Boxer · VR Fitness</title>
 
+  <!-- ชี้ฐานพาธสำหรับโหลด asset/sfx -->
   <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
 
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
-  <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
 
+  <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    body{margin:0;background:#070b10;color:#e6f7ff;font:14px/1.4 system-ui}
-    #hud{position:fixed;left:8px;top:8px;background:rgba(0,0,0,.35);color:#e6f7ff;padding:6px 10px;border-radius:10px;font:600 13px system-ui;z-index:10010}
-    .btn{padding:8px 12px;border:0;border-radius:10px;background:#0e2233;color:#e6f7ff;cursor:pointer}
+    :root{
+      --ui-bg: rgba(4,10,18,.75);
+      --ui-fg: #e6f7ff;
+      --ui-ac: #00d0ff;
+    }
+    body{background:#060b12;color:var(--ui-fg);font:600 14px/1.35 system-ui}
+    .btn{padding:8px 12px;border:0;border-radius:12px;background:#0e2233;color:#e6f7ff;cursor:pointer}
     .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px 16px}
+    #hud{position:fixed;left:8px;top:8px;background:rgba(0,0,0,.35);color:#e6f7ff;padding:6px 10px;border-radius:10px;font:600 13px system-ui;z-index:10}
+    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:#e6f7ff;z-index:12}
+    #toast{position:fixed;left:50%;top:12px;transform:translateX(-50%);background:rgba(10,12,16,.9);color:#ffcc00;padding:8px 12px;border-radius:10px;font:600 14px/1.1 system-ui;z-index:14;opacity:0;transition:opacity .2s, transform .2s}
+    #feverBar{position:fixed;left:50%;top:8px;transform:translateX(-50%);width:60%;height:10px;border-radius:10px;background:#0b1118;border:1px solid #203446;overflow:hidden;display:none;z-index:10}
+    #feverFill{height:100%;width:0;background:#ffd166}
+    #mission{position:fixed;right:8px;top:8px;background:rgba(0,0,0,.35);padding:6px 10px;border-radius:10px;font:600 12px system-ui;z-index:10}
+    #diffDock, #songDock{position:fixed;right:12px;bottom:12px;z-index:11;background:var(--ui-bg);backdrop-filter:saturate(1.1) blur(4px);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:8px 10px;color:var(--ui-fg);display:flex;align-items:center;gap:8px}
+    #songDock{right:auto;left:12px}
+    select{appearance:none;background:#0e2233;color:#e6f7ff;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 28px 6px 10px;font:600 12px system-ui;cursor:pointer}
+    #enterVRBtn{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:11;padding:10px 16px;border-radius:12px;border:0;background:#0e2233;color:#e6f7ff;cursor:pointer}
+    #ctrls{position:fixed;bottom:12px;right:12px;display:flex;gap:8px;z-index:11}
+    .shake-scene{animation:shake .24s linear} @keyframes shake{25%{transform:translateX(2px)} 50%{transform:translateX(-2px)} 75%{transform:translateX(2px)}}
   </style>
 </head>
 <body>
-  <a-scene renderer="colorManagement:true">
+  <a-scene renderer="colorManagement: true">
     <a-entity id="arena" position="0 0 0"></a-entity>
-    <a-entity position="0 1.5 -3">
-      <a-plane width="6" height="3" color="#0a0f14" opacity="0.65"></a-plane>
+
+    <!-- Lanes (4 ช่อง) -->
+    <a-entity id="lanes" position="0 1.4 -2.6">
+      <a-box position="-1.0 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
+      <a-box position="-0.33 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
+      <a-box position="0.33 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
+      <a-box position="1.0 0 0" depth="0.04" height="0.02" width="0.4" color="#14202b"></a-box>
     </a-entity>
+
+    <!-- Target bar -->
+    <a-box id="targetBar" position="0 1.2 -2.6" width="3.2" height="0.02" depth="0.04" color="#203446"></a-box>
   </a-scene>
 
+  <!-- HUD -->
   <div id="hud">
     <div>Score: <span id="score">0</span></div>
-    <div>Combo: <span id="combo">0</span></div>
-    <div>Time: <span id="time">60</span>s</div>
+    <div>Combo: <span id="combo">0</span> · Acc: <span id="acc">0%</span></div>
+    <div>Time: <span id="time">0</span>s · <span id="phase">Normal</span></div>
   </div>
 
-  <div style="position:fixed;left:12px;bottom:12px;display:flex;gap:8px;z-index:10040">
-    <button class="btn" id="startBtn">Start</button>
-    <button class="btn" id="pauseBtn">Pause</button>
-    <button class="btn" id="bankBtn">Bank</button>
-  </div>
+  <!-- Fever Bar -->
+  <div id="feverBar"><div id="feverFill"></div></div>
 
-  <section id="results" style="display:none;position:fixed;inset:0;z-index:10035;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:#e6f7ff">
-    <div class="card" style="min-width:300px">
+  <!-- Mission -->
+  <div id="mission">Mission: —</div>
+
+  <!-- Results -->
+  <section id="results">
+    <div class="card" style="min-width:320px">
       <h3 style="margin:0 0 8px">RESULTS</h3>
-      <div>Diff: <b id="rDiff">NORMAL</b></div>
+      <div style="margin-bottom:8px">Song: <b id="rSong">—</b></div>
+      <div>Diff: <b id="rDiff">NORMAL</b> · Stars: <b id="rStars">☆☆☆</b></div>
       <div>Score: <b id="rScore">0</b></div>
       <div>Max Combo: <b id="rMaxCombo">0</b></div>
       <div>Accuracy: <b id="rAcc">0%</b></div>
-      <div style="margin-top:10px;display:flex;gap:8px">
+      <div>Mission: <b id="rMission">—</b></div>
+      <div style="margin-top:10px; display:flex; gap:8px">
         <button class="btn" id="replayBtn">Replay</button>
         <button class="btn" id="backBtn">Back to Hub</button>
       </div>
     </div>
   </section>
 
-  <div id="diffDock" style="
-    position:fixed; right:12px; bottom:12px; z-index:1000;
-    display:flex; align-items:center; gap:8px;
-    background:rgba(10,16,24,.75); backdrop-filter:saturate(1.1) blur(4px);
-    border:1px solid rgba(255,255,255,.08); border-radius:12px;
-    padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
-    <label for="diffSel" style="opacity:.9; letter-spacing:.3px;">Difficulty</label>
-    <select id="diffSel" style="
-      appearance:none; background:#0e2233; color:#e6f7ff;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
+  <!-- คอนโทรลหลัก -->
+  <div id="ctrls">
+    <button class="btn" id="startBtn">Start</button>
+    <button class="btn" id="pauseBtn">Pause</button>
+  </div>
+
+  <!-- ปุ่ม Enter VR (กึ่งกลางล่าง) -->
+  <button id="enterVRBtn">Enter VR</button>
+
+  <!-- Dropdown เพลง -->
+  <div id="songDock">
+    <label for="songSel">Song</label>
+    <select id="songSel">
+      <option value="neo">NEO (128 BPM)</option>
+      <option value="rush">RUSH (142 BPM)</option>
+      <option value="zen">ZEN (110 BPM)</option>
+    </select>
+    <span aria-hidden="true" style="margin-left:-22px;pointer-events:none;">▼</span>
+  </div>
+
+  <!-- Dropdown ความยาก -->
+  <div id="diffDock">
+    <label for="diffSel">Difficulty</label>
+    <select id="diffSel">
       <option value="easy">Easy</option>
       <option value="normal" selected>Normal</option>
       <option value="hard">Hard</option>
       <option value="final">Final</option>
     </select>
-    <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
+    <span aria-hidden="true" style="margin-left:-22px;pointer-events:none;">▼</span>
   </div>
 
+  <!-- Core (ถ้ามี) -->
+  <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
+  <script src="/webxr-health-mobile/vr-fitness/core/leaderboard.js" defer></script>
+
+  <!-- เกม -->
   <script src="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/game.js" defer></script>
 
+  <!-- Error Overlay -->
   <script>
-    (function(){
-      const getQ=(k)=>new URLSearchParams(location.search).get(k);
-      const sel=document.getElementById('diffSel');
-      const q=getQ('diff')||localStorage.getItem('rb_diff')||'normal';
-      sel.value = ({easy:1,normal:1,hard:1,final:1}[q]?q:'normal');
-      sel.addEventListener('change', e=>{
-        const v=e.target.value;
-        try{ localStorage.setItem('rb_diff', v); }catch(_){}
-        const url=new URL(location.href); url.searchParams.set('diff', v);
-        location.href = url.pathname + '?' + url.searchParams.toString();
-      });
-    })();
+    window.addEventListener('error', function(e){
+      const msg = (e.message||'unknown') + (e.filename? (' @ ' + e.filename + ':' + (e.lineno||0) + ':' + (e.colno||0)) : '');
+      let o=document.getElementById('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
+        Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
+          display:'grid',placeItems:'center',font:'14px/1.5 system-ui',zIndex:99999}); document.body.appendChild(o);}
+      o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre><p>ตรวจพาธ/ไฟล์ แล้วลองรีโหลด</p></div>';
+    });
   </script>
 </body>
 </html>
