@@ -1,369 +1,366 @@
 /* games/rhythm-boxer/game.js
-   Rhythm Boxer · game.js (Warmup spawn → gradually denser, wide hit window early, mouse/touch clickable, HUD, results, back-to-hub fixed)
+   Rhythm Boxer · game.js
+   - Warmup → ค่อยๆถี่ขึ้น
+   - Mouse/Touch raycast คลิกได้จริง
+   - วิ่งช้าก่อน แล้วค่อยเร่งตาม diff
+   - เอฟเฟกต์เวลา Hit (flash + ring + particles)
+   - เพลงเล่นตาม offset
+   - มีตัวจับเวลา (Time) และปุ่ม End ใช้งานได้
+   - กลับ Hub ถูกที่
 */
 (function(){
   "use strict";
 
-  // ---------- Helpers ----------
+  // ---------- Basics ----------
   const $ = (id)=>document.getElementById(id);
   const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
   const after = (ms,fn)=>setTimeout(fn,ms);
   const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
-
-  // A-Frame/THREE handles
+  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
   const scene = document.querySelector('a-scene');
 
-  // ---------- Difficulty presets (start sparse → ramp gently) ----------
-  const DIFF_PRESET = {
-    beginner : { start:2400, step:80,  minSpawn:900, speedMul:0.86, judgeMul:1.45 },
-    standard : { start:2000, step:70,  minSpawn:720, speedMul:1.00, judgeMul:1.10 },
-    challenge: { start:1700, step:60,  minSpawn:560, speedMul:1.18, judgeMul:0.95 }
-  };
-  let diffKey = (new URLSearchParams(location.search).get('diff')) || 'standard';
-  if (!DIFF_PRESET[diffKey]) diffKey = 'standard';
+  function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){} }
 
-  // ---------- Song config ----------
+  // ---------- Difficulty (เริ่มช้า → เร็วขึ้นเล็กน้อย) ----------
+  const DIFF = {
+    beginner : { start:2600, step:90,  minSpawn:1100, speedMul:0.82, judgeMul:1.55, time:75 },
+    standard : { start:2100, step:70,  minSpawn:820,  speedMul:1.00, judgeMul:1.10, time:80 },
+    challenge: { start:1800, step:60,  minSpawn:640,  speedMul:1.18, judgeMul:0.95, time:85 }
+  };
+  let diffKey = new URLSearchParams(location.search).get('diff') || 'standard';
+  if(!DIFF[diffKey]) diffKey = 'standard';
+
+  // ---------- Songs ----------
   const SONGS = [
-    { id:'training', title:'Training Beat', src:'./assets/music/training.mp3', bpm:120, offset:200 },
-    { id:'flow',     title:'Flow Runner',   src:'./assets/music/flow.mp3',     bpm:132, offset:160 },
-    { id:'charge',   title:'Charge Up',     src:'./assets/music/charge.mp3',   bpm:145, offset:120 }
+    { id:'training', title:'Training Beat', src:`${ASSET_BASE||'.'}/assets/music/training.mp3`, bpm:120, offset:200 },
+    { id:'flow',     title:'Flow Runner',   src:`${ASSET_BASE||'.'}/assets/music/flow.mp3`,     bpm:132, offset:160 },
+    { id:'charge',   title:'Charge Up',     src:`${ASSET_BASE||'.'}/assets/music/charge.mp3`,   bpm:145, offset:120 },
   ];
   let currentSong = SONGS[0];
 
   // ---------- State ----------
   let running=false, paused=false;
-  let score=0, combo=0, maxCombo=0, hits=0, spawns=0;
-  let accuracy=0;
-  let spawnTimer=null, accelInterval=null, gameStartAt=0;
-  let spawnInterval = DIFF_PRESET[diffKey].start;
-  let judgeMul = DIFF_PRESET[diffKey].judgeMul;
-  let speedMul = DIFF_PRESET[diffKey].speedMul;
+  let score=0, combo=0, maxCombo=0, hits=0, spawns=0, accuracy=0;
+  let spawnTimer=null, accelTimer=null, secondTimer=null;
+  let spawnInterval = DIFF[diffKey].start;
+  let judgeMul = DIFF[diffKey].judgeMul;
+  let speedMul = DIFF[diffKey].speedMul;
+  let timeLeft = DIFF[diffKey].time;
+  let gameStartAt=0;
   let audio=null;
 
-  // ---------- Lane + Hit line ----------
+  // ---------- Arena & Hit line ----------
   const ARENA = $('arena') || (()=>{
-    const a = document.createElement('a-entity'); a.setAttribute('id','arena'); a.setAttribute('position','0 0 0');
-    scene?.appendChild(a); return a;
+    const a=document.createElement('a-entity'); a.id='arena'; a.setAttribute('position','0 0 0'); scene?.appendChild(a); return a;
   })();
+  const HIT_Y = 0.9;
 
-  // hit line (glow green)
-  const HIT_Y = 0.9; // world y where player should click
   (function ensureHitLine(){
+    if ($('hitLine')) return;
     const line = document.createElement('a-plane');
-    line.setAttribute('id','hitLine');
-    line.setAttribute('position', `0 ${HIT_Y} -2.4`);
+    line.id='hitLine';
+    line.setAttribute('position',`0 ${HIT_Y} -2.4`);
     line.setAttribute('width','3.2');
     line.setAttribute('height','0.02');
-    line.setAttribute('material','color:#00ff88; emissive:#00ff88; emissiveIntensity:0.9; opacity:0.95; transparent:true; shader:standard');
+    line.setAttribute('material','color:#00ff88; emissive:#00ff88; emissiveIntensity:1; opacity:0.95; transparent:true; shader:standard');
     line.classList.add('clickable');
-    ARENA.appendChild(line);
-    // subtle pulse
     line.setAttribute('animation__pulse','property:scale; dir:alternate; to:1.02 1.2 1; dur:900; loop:true; easing:easeInOutSine');
+    ARENA.appendChild(line);
   })();
 
-  // ---------- Notes (falling) ----------
-  const COLORS = ['#00d0ff','#ffd166','#ff6b6b','#9bff9b','#b07aff'];
+  // ---------- Notes ----------
+  const COLORS = ['#00d0ff','#ffd166','#ff6b6b','#9bff9b','#b07aff','#ffa7d1'];
   const SHAPES = ['a-sphere','a-box','a-octahedron'];
-  const LANES_X = [-1.2,-0.4,0.4,1.2]; // 4 lanes
-  const NOTE_SIZE = 0.25;
-  const BASE_FALL_SPEED = 0.55; // world units per 100ms (will scale with speedMul)
+  const LANES_X = [-1.2,-0.4,0.4,1.2];
+  const NOTE_SIZE = 0.28;
+  const BASE_FALL_SPEED = 0.50; // slow base → อ่านจังหวะง่าย
 
   function makeNote(){
     const lane = Math.floor(Math.random()*LANES_X.length);
     const kind = Math.floor(Math.random()*SHAPES.length);
-    const el = document.createElement(SHAPES[kind]);
     const color = COLORS[(Math.random()*COLORS.length)|0];
+    const el = document.createElement(SHAPES[kind]);
 
     el.classList.add('note','clickable');
-    el.setAttribute('position', `${LANES_X[lane]} 2.4 -2.4`);
-    el.setAttribute('color', color);
+    el.setAttribute('position',`${LANES_X[lane]} 2.5 -2.4`);
     if (SHAPES[kind]==='a-sphere') el.setAttribute('radius', NOTE_SIZE);
-    if (SHAPES[kind]==='a-box') { el.setAttribute('width', NOTE_SIZE*1.2); el.setAttribute('height', NOTE_SIZE*1.2); el.setAttribute('depth', NOTE_SIZE*1.2); }
+    if (SHAPES[kind]==='a-box')     el.setAttribute('width', NOTE_SIZE*1.2), el.setAttribute('height', NOTE_SIZE*1.2), el.setAttribute('depth', NOTE_SIZE*1.2);
     if (SHAPES[kind]==='a-octahedron') el.setAttribute('radius', NOTE_SIZE);
-
-    // faint glow
-    el.setAttribute('material', `color:${color}; emissive:${color}; emissiveIntensity:0.4; metalness:0.2; roughness:0.4`);
-
-    // attach runtime data
+    el.setAttribute('material',`color:${color}; emissive:${color}; emissiveIntensity:0.5; metalness:0.2; roughness:0.4`);
     el.dataset.lane = lane;
     el.dataset.speed = BASE_FALL_SPEED*speedMul;
-    el.dataset.alive = '1';
-
-    // click handler (mouse/touch)
-    el.addEventListener('click', ()=> tryHit(el, 'mouse'));
-
+    el.dataset.alive='1';
+    el.addEventListener('click', ()=>tryHit(el,'mouse'));
     ARENA.appendChild(el);
     spawns++;
     return el;
   }
 
-  // smooth movement per-frame
+  // per-frame move
   AFRAME.registerSystem('rb-loop',{
     tick(){
-      if (!running || paused) return;
-      const now = performance.now();
+      if(!running || paused) return;
       const notes = Array.from(ARENA.querySelectorAll('.note'));
-      for (const n of notes){
-        if (n.dataset.alive!=='1') continue;
+      for(const n of notes){
+        if(n.dataset.alive!=='1') continue;
         const p = n.object3D.position;
-        const v = (+n.dataset.speed)||BASE_FALL_SPEED;
-        p.y -= v*0.016; // approx per-frame @60fps
-
-        // miss if passed hit line
-        if (p.y < HIT_Y-0.18){
-          n.dataset.alive = '0';
+        p.y -= (+n.dataset.speed||BASE_FALL_SPEED)*0.016;
+        if(p.y < HIT_Y-0.2){
+          n.dataset.alive='0';
           safeRemove(n);
           registerResult('miss', p);
         }
       }
-      // update HUD debug (optional)
-      if (_DBG && $('debugBox')) $('debugBox').textContent = `spawn ${spawnInterval}ms, speedMul ${speedMul.toFixed(2)} combo ${combo} score ${score}`;
     }
   });
 
-  function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){} }
-
-  // ---------- Hit detection ----------
-  function tryHit(note, method){
-    if (!note || note.dataset.alive!=='1') return;
-    const py = note.object3D.position.y;
-    const lane = +note.dataset.lane;
-
-    // time window (wider on beginner/early)
-    const baseWin = 0.16 * judgeMul;  // GOOD ±win, PERFECT tighter
-    const perfWin = 0.08 * judgeMul;
-
-    const dy = Math.abs(py - HIT_Y);
-    let rank = null;
-    if (dy <= perfWin) rank = 'perfect';
-    else if (dy <= baseWin) rank = 'good';
-
-    if (!rank) return; // too far from hit line
-
-    // success → remove & score
-    note.dataset.alive = '0';
-    const pos = note.object3D.getWorldPosition(new THREE.Vector3());
-    safeRemove(note);
-    registerResult(rank, pos);
-  }
-
-  // allow clicking on the hit line area (raycast)
+  // ---------- Pointer Raycast (mouse/touch) ----------
   (function installPointerRaycast(){
-    if (!scene || !THREE) return;
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    function pick(clientX, clientY){
-      const cam = scene.camera; if (!cam) return;
-      mouse.x =  (clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+    if(!scene || !THREE) return;
+    const raycaster=new THREE.Raycaster();
+    const mouse=new THREE.Vector2();
+    function pick(x,y){
+      const cam=scene.camera; if(!cam) return;
+      mouse.x=(x/window.innerWidth)*2-1; mouse.y=-(y/window.innerHeight)*2+1;
       raycaster.setFromCamera(mouse, cam);
-
-      const objs = [];
-      const clickable = Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
-      clickable.forEach(o=>o.traverse(child=>objs.push(child)));
-      const hits = raycaster.intersectObjects(objs,true);
-      if (hits && hits.length){
-        let obj = hits[0].object;
-        while (obj && !obj.el) obj = obj.parent;
-        obj?.el?.emit('click');
-      }
+      const objs=[]; Array.from(document.querySelectorAll('.clickable')).map(e=>e.object3D).filter(Boolean).forEach(o=>o.traverse(c=>objs.push(c)));
+      const hits=raycaster.intersectObjects(objs,true);
+      if(hits && hits.length){ let o=hits[0].object; while(o && !o.el) o=o.parent; o?.el?.emit('click'); }
     }
     window.addEventListener('mousedown', e=>pick(e.clientX,e.clientY), {passive:true});
     window.addEventListener('touchstart', e=>{ const t=e.touches?.[0]; if(t) pick(t.clientX,t.clientY); }, {passive:true});
   })();
 
-  // ---------- Scoring / SFX / HUD ----------
+  // ---------- SFX & Music ----------
   const SFX = {
-    good: new Audio('./assets/sfx/good.wav'),
-    perfect: new Audio('./assets/sfx/perfect.wav'),
-    miss: new Audio('./assets/sfx/miss.wav'),
-    combo: new Audio('./assets/sfx/combo.wav'),
-    click: new Audio('./assets/sfx/click.wav'),
+    good:    new Audio(`${ASSET_BASE||'.'}/assets/sfx/good.wav`),
+    perfect: new Audio(`${ASSET_BASE||'.'}/assets/sfx/perfect.wav`),
+    miss:    new Audio(`${ASSET_BASE||'.'}/assets/sfx/miss.wav`),
+    combo:   new Audio(`${ASSET_BASE||'.'}/assets/sfx/combo.wav`),
+    click:   new Audio(`${ASSET_BASE||'.'}/assets/sfx/click.wav`),
+    hitflash:new Audio(`${ASSET_BASE||'.'}/assets/sfx/laser.wav`)
   };
   function play(a){ try{ a.currentTime=0; a.play(); }catch(_e){} }
+  function setSong(song){ try{ audio?.pause?.(); }catch(_){}
+    audio = new Audio(song.src); audio.loop=false; }
+
+  // ---------- Hit effects ----------
+  function flashHitLine(){
+    const line = $('hitLine'); if(!line) return;
+    line.setAttribute('animation__flash','property:material.emissiveIntensity;from:1;to:2.2;dur:90;dir:alternate;loop:2;easing:easeOutQuad');
+  }
+  function ringBurst(pos){
+    const r=document.createElement('a-ring');
+    r.setAttribute('position',`${pos.x} ${HIT_Y} ${pos.z}`);
+    r.setAttribute('radius-inner','0.01'); r.setAttribute('radius-outer','0.02');
+    r.setAttribute('material','color:#00ffcc;opacity:0.95;shader:flat');
+    ARENA.appendChild(r);
+    const t0=performance.now(), DUR=420;
+    (function step(){
+      const t=(performance.now()-t0)/DUR;
+      if(t>=1){ safeRemove(r); return; }
+      const ro=0.02+0.35*t;
+      r.setAttribute('radius-inner',Math.max(0.01,ro-0.02));
+      r.setAttribute('radius-outer',ro);
+      r.setAttribute('material',`color:#00ffcc;opacity:${1-t};shader:flat`);
+      requestAnimationFrame(step);
+    })();
+  }
+  function particles(pos, color='#00ffa3'){
+    for(let i=0;i<8;i++){
+      const p=document.createElement('a-sphere');
+      p.setAttribute('radius','0.015');
+      p.setAttribute('color',color);
+      p.setAttribute('position',`${pos.x} ${HIT_Y} ${pos.z}`);
+      ARENA.appendChild(p);
+      const dx=(Math.random()-0.5)*0.6, dy=0.2+Math.random()*0.5;
+      const start=performance.now(), DUR=420;
+      (function step(){
+        const t=(performance.now()-start)/DUR;
+        if(t>=1){ safeRemove(p); return; }
+        p.setAttribute('position',`${(pos.x+dx*t).toFixed(3)} ${(HIT_Y+dy*t-0.3*t*t).toFixed(3)} ${pos.z}`);
+        p.setAttribute('opacity',`${1-t}`);
+        requestAnimationFrame(step);
+      })();
+    }
+  }
 
   function floatText(text,color,pos){
     const e=document.createElement('a-entity');
     e.setAttribute('text',{value:text,color,align:'center',width:2.6});
-    e.setAttribute('position',`${pos.x} ${pos.y+0.18} ${pos.z}`);
+    e.setAttribute('position',`${pos.x} ${pos.y+0.22} ${pos.z}`);
     e.setAttribute('scale','0.001 0.001 0.001');
     e.setAttribute('animation__in','property:scale;to:1 1 1;dur:120;easing:easeOutBack');
-    e.setAttribute('animation__rise',`property:position;to:${pos.x} ${pos.y+0.6} ${pos.z};dur:700;easing:easeOutQuad`);
+    e.setAttribute('animation__rise',`property:position;to:${pos.x} ${pos.y+0.66} ${pos.z};dur:700;easing:easeOutQuad`);
     e.setAttribute('animation__fade','property:opacity;to:0;dur:500;delay:180;easing:linear');
     ARENA.appendChild(e);
     after(900, ()=>safeRemove(e));
   }
 
-  function registerResult(kind, pos){
-    if (kind==='miss'){
-      combo=0;
-      play(SFX.miss);
-      floatText('MISS','#ff5577', pos||new THREE.Vector3(0,HIT_Y,-2.4));
-      updateHUD();
-      return;
-    }
-    hits++;
-    combo++;
-    if (combo>maxCombo) maxCombo=combo;
+  // ---------- Judge / Score ----------
+  function tryHit(note){
+    if (!note || note.dataset.alive!=='1') return;
+    const py = note.object3D.position.y;
+    const dy = Math.abs(py - HIT_Y);
+    const perfWin = 0.08 * judgeMul;
+    const goodWin = 0.16 * judgeMul;
 
-    let add=0;
-    if (kind==='perfect'){ add=30; play(SFX.perfect); floatText('PERFECT','#00ffa3', pos); }
-    else { add=18; play(SFX.good); floatText('GOOD','#00d0ff', pos); }
+    let rank = null;
+    if (dy <= perfWin) rank='perfect';
+    else if (dy <= goodWin) rank='good';
+    else return;
+
+    note.dataset.alive='0';
+    const pos = note.object3D.getWorldPosition(new THREE.Vector3());
+    safeRemove(note);
+    registerResult(rank, pos);
+  }
+
+  function registerResult(kind, pos){
+    if(kind==='miss'){
+      combo=0; play(SFX.miss);
+      floatText('MISS','#ff5577', pos||new THREE.Vector3(0,HIT_Y,-2.4));
+      updateHUD(); return;
+    }
+    hits++; combo++; if(combo>maxCombo) maxCombo=combo;
+
+    let add=0; let col;
+    if(kind==='perfect'){ add=32; col='#00ffa3'; play(SFX.perfect); }
+    else { add=18; col='#00d0ff'; play(SFX.good); }
 
     score += add + Math.floor(combo*0.8);
-    accuracy = spawns ? Math.round( (hits/spawns) * 100 ) : 0;
+    accuracy = spawns ? Math.round((hits/spawns)*100) : 0;
 
-    if (combo>0 && combo%10===0) play(SFX.combo);
+    // FX
+    play(SFX.hitflash);
+    flashHitLine();
+    ringBurst(pos||new THREE.Vector3(0,HIT_Y,-2.4));
+    particles(pos||new THREE.Vector3(0,HIT_Y,-2.4), col);
+    floatText(kind.toUpperCase(), col, pos||new THREE.Vector3(0,HIT_Y,-2.4));
+
+    if(combo>0 && combo%10===0) play(SFX.combo);
     updateHUD();
   }
 
   function updateHUD(){
-    $('score') && ( $('score').textContent = score );
-    $('combo') && ( $('combo').textContent = combo );
-    $('acc')   && ( $('acc').textContent   = (accuracy||0)+'%' );
+    if($('score')) $('score').textContent = score;
+    if($('combo')) $('combo').textContent = combo;
+    if($('acc'))   $('acc').textContent   = (accuracy||0)+'%';
+    if($('time'))  $('time').textContent  = timeLeft;
   }
 
-  // ---------- Spawning control (warmup → adaptive densify) ----------
-  function spawnOne(){ if (!running || paused) return; makeNote(); }
-
+  // ---------- Spawning (เริ่มห่างมาก → ค่อยๆถี่) ----------
+  function spawnOne(){ if(!running || paused) return; makeNote(); }
   function startSpawning(){
     clearInterval(spawnTimer);
     spawnTimer = setInterval(spawnOne, spawnInterval);
 
-    clearInterval(accelInterval);
-    accelInterval = setInterval(()=>{
-      if (!running || paused) return;
-      applyAdaptiveInterval();
-    }, 7000); // every 7s: small nudge
+    clearInterval(accelTimer);
+    accelTimer = setInterval(()=>{
+      if(!running || paused) return;
+      const d = DIFF[diffKey];
+      const elapsed = Math.max(0, performance.now()-gameStartAt);
+      const rampTime = Math.min(850, (elapsed/1000)*50);     // นิ่มขึ้น
+      const comboBoost = clamp(combo*5, 0, 160);             // ไม่ดุเกิน
+      const target = Math.max(d.minSpawn, d.start - rampTime - comboBoost);
+      const step = Math.max(18, d.step - 12);
+      spawnInterval = Math.max(target, spawnInterval - step);
+      clearInterval(spawnTimer);
+      spawnTimer = setInterval(spawnOne, spawnInterval);
+    }, 7000);
   }
 
-  function applyAdaptiveInterval(){
-    const d = DIFF_PRESET[diffKey] || DIFF_PRESET.standard;
-    const elapsed = Math.max(0, performance.now() - gameStartAt);
-
-    const rampTime = Math.min(700, (elapsed/1000) * 40); // softer ramp by time
-    const comboNudge = clamp(combo * 6, 0, 180);         // gentle combo effect
-    const target = Math.max(d.minSpawn, d.start - rampTime - comboNudge);
-
-    const step = Math.max(20, d.step - 10);
-    spawnInterval = Math.max(target, spawnInterval - step);
-
-    clearInterval(spawnTimer);
-    spawnTimer = setInterval(spawnOne, spawnInterval);
-  }
-
-  // ---------- Game flow ----------
-  function makeSongAudio(src){
-    try{ audio?.pause?.(); }catch(_){}
-    audio = new Audio(src);
-    audio.loop = false;
-  }
-
-  function clearNotes(){
-    Array.from(ARENA.querySelectorAll('.note')).forEach(n=>safeRemove(n));
-  }
+  function clearNotes(){ Array.from(ARENA.querySelectorAll('.note')).forEach(n=>safeRemove(n)); }
 
   function applyDiff(){
-    const d = DIFF_PRESET[diffKey] || DIFF_PRESET.standard;
-    spawnInterval = d.start;
-    judgeMul = d.judgeMul;
-    speedMul = d.speedMul;
-    $('diffLabel') && ( $('diffLabel').textContent = diffKey.toUpperCase() );
+    const d=DIFF[diffKey];
+    spawnInterval=d.start; judgeMul=d.judgeMul; speedMul=d.speedMul; timeLeft=d.time;
+    if($('diffLabel')) $('diffLabel').textContent = diffKey.toUpperCase();
+    updateHUD();
   }
 
+  // ---------- Game Flow ----------
   function start(){
-    if (running) return;
-    running = true; paused=false;
-    applyDiff();
-    clearNotes();
+    if(running) return;
+    running=true; paused=false;
     score=0; combo=0; maxCombo=0; hits=0; spawns=0; accuracy=0;
-    updateHUD();
+    applyDiff(); clearNotes(); updateHUD();
 
-    // music
-    makeSongAudio(currentSong.src);
-    const musicDelay = Math.max(0, currentSong.offset||0);
-    after(musicDelay, ()=>{ try{ audio.play(); }catch(_e){} });
+    // set & play song with offset
+    setSong(currentSong);
+    const ms = Math.max(0, currentSong.offset||0);
+    after(ms, ()=>{ try{ audio.play(); }catch(_e){} });
 
     // warmup before spawn
     gameStartAt = performance.now();
-    const WARMUP_MS = 1400;
-    after(musicDelay + WARMUP_MS, startSpawning);
+    after(ms + 1200, startSpawning);
+
+    // second timer (Time)
+    clearInterval(secondTimer);
+    secondTimer = setInterval(()=>{
+      if(!running || paused) return;
+      timeLeft--; if(timeLeft<=0){ timeLeft=0; updateHUD(); end(); return; }
+      updateHUD();
+    }, 1000);
+
+    // ซ่อนผลลัพธ์ (ถ้ามีเปิดค้าง)
+    if($('results')) $('results').style.display='none';
   }
 
-  function stopToResult(){
+  function end(){
+    if(!running) return;
     running=false; paused=false;
-    clearInterval(spawnTimer); clearInterval(accelInterval);
     try{ audio?.pause?.(); }catch(_){}
-    $('results') && ( $('results').style.display='flex' );
-    $('rScore') && ( $('rScore').textContent = score );
-    $('rMaxCombo') && ( $('rMaxCombo').textContent = maxCombo );
-    $('rAcc') && ( $('rAcc').textContent = (accuracy||0)+'%' );
+    clearInterval(spawnTimer); clearInterval(accelTimer); clearInterval(secondTimer);
+
+    if($('rScore')) $('rScore').textContent=score;
+    if($('rMaxCombo')) $('rMaxCombo').textContent=maxCombo;
+    if($('rAcc')) $('rAcc').textContent=(accuracy||0)+'%';
+    if($('results')) $('results').style.display='flex';
   }
 
-  function end(){ stopToResult(); }
-
-  // ---------- UI wiring ----------
+  // ---------- UI ----------
   document.addEventListener('DOMContentLoaded', ()=>{
     $('startBtn')?.addEventListener('click', start);
     $('pauseBtn')?.addEventListener('click', ()=>{
-      if (!running) return;
-      paused = !paused;
-      if (paused){ try{ audio?.pause?.(); }catch(_){}; }
-      else { try{ audio?.play?.(); }catch(_){}; }
+      if(!running) return;
+      paused=!paused;
+      if(paused){ try{ audio?.pause?.(); }catch(_){}
+      } else { try{ audio?.play?.(); }catch(_){} }
     });
+    $('endBtn')?.addEventListener('click', end);           // ✅ ปุ่ม End ทำงาน
+    $('replayBtn')?.addEventListener('click', ()=>{ if($('results')) $('results').style.display='none'; start(); });
     $('backBtn')?.addEventListener('click', ()=>{ location.href = HUB_URL; });
-    $('replayBtn')?.addEventListener('click', ()=>{ $('results')&&( $('results').style.display='none'); start(); });
 
-    // song selector (if exists)
     $('songSel')?.addEventListener('change', e=>{
-      const id = e.target.value;
-      const s = SONGS.find(x=>x.id===id);
-      if (s) currentSong = s;
+      const s = SONGS.find(x=>x.id===e.target.value);
+      if(s) currentSong = s;
     });
-    // diff selector (if exists)
     $('speedSel')?.addEventListener('change', e=>{
-      const v = e.target.value;
-      if (DIFF_PRESET[v]) diffKey = v;
+      const v=e.target.value; if(DIFF[v]){ diffKey=v; applyDiff(); }
     });
 
-    // ensure result overlay hide at load
-    $('results') && ( $('results').style.display='none' );
-
-    // (optional) debug widget
-    const dbg = document.createElement('div');
-    dbg.id='debugBox';
-    Object.assign(dbg.style,{position:'fixed',right:'8px',top:'8px',padding:'6px 8px',background:'rgba(0,0,0,.35)',color:'#e6f7ff',font:'600 12px system-ui',borderRadius:'8px',pointerEvents:'none',zIndex:9999,display:'none'});
-    document.body.appendChild(dbg);
+    // init HUD
+    updateHUD();
   });
 
-  // ---------- Keyboard fallback ----------
-  document.addEventListener('keydown', (e)=>{
-    if (!running || paused) return;
-    if (e.key===' ' || e.key==='f' || e.key==='j'){
-      // pick nearest note around hit line in any lane
+  // ---------- Keyboard quick play ----------
+  document.addEventListener('keydown',(e)=>{
+    if(e.key==='Enter'){ start(); }
+    if(e.key==='Escape'){ end(); }
+    if(!running || paused) return;
+    if(e.key===' ' || e.key==='f' || e.key==='j'){
       const notes = Array.from(ARENA.querySelectorAll('.note')).filter(n=>n.dataset.alive==='1');
-      if (!notes.length) return;
-      notes.sort((a,b)=>{
-        const da = Math.abs(a.object3D.position.y - HIT_Y);
-        const db = Math.abs(b.object3D.position.y - HIT_Y);
-        return da-db;
-      });
-      tryHit(notes[0], 'key');
+      if(!notes.length) return;
+      notes.sort((a,b)=>Math.abs(a.object3D.position.y-HIT_Y)-Math.abs(b.object3D.position.y-HIT_Y));
+      tryHit(notes[0]);
       play(SFX.click);
     }
-    if (e.key==='Escape'){ end(); }
   });
 
   // ---------- Safety ----------
   window.addEventListener('beforeunload', ()=>{
-    try{ clearInterval(spawnTimer); clearInterval(accelInterval); }catch(_){}
-  });
-
-  // ---------- Debug toggle ----------
-  let _DBG=false;
-  document.addEventListener('keydown', e=>{
-    if (e.key==='`'){ _DBG=!_DBG; if ($('debugBox')) $('debugBox').style.display=_DBG?'block':'none'; }
+    try{ clearInterval(spawnTimer); clearInterval(accelTimer); clearInterval(secondTimer); }catch(_){}
   });
 
 })();
