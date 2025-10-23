@@ -12,21 +12,20 @@
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
 
   <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
-  <style id="rbForceUIClicks">
-    /* ให้ UI ชนะทุกอย่าง และกัน canvas กินคลิก */
-    #uiDock, #uiDock * { pointer-events:auto !important; z-index:2147483647 !important; }
-    #results, #results * { pointer-events:auto !important; z-index:2147483647 !important; }
-    #uiDock, #results {
-      position:fixed !important; left:8px; bottom:12px;
-      display:flex; gap:8px; align-items:center;
-      background:rgba(10,16,24,.80); color:#e6f7ff;
-      padding:8px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.08);
-      font:600 12px system-ui;
+  <style>
+    /* บังคับให้ UI คลิกได้เหนือแคนวาส */
+    #uiDock, #results, #hudTopRight { position:fixed; z-index:2147483647 !important; pointer-events:auto !important; }
+    #uiDock * , #results * , #hudTopRight * { pointer-events:auto !important; }
+    canvas.a-canvas { pointer-events:none !important; } /* กันฉากกินคลิก */
+
+    #uiDock{
+      left:8px; bottom:12px; display:flex; gap:8px; align-items:center;
+      background:rgba(10,16,24,.80); color:#e6f7ff; padding:8px 10px;
+      border-radius:12px; border:1px solid rgba(255,255,255,.08); font:600 12px system-ui;
     }
-    canvas.a-canvas { pointer-events:none !important; }
     #hudTopRight{
-      position:fixed; top:8px; right:8px; z-index:2147483647;
-      background:rgba(0,0,0,.4); color:#e6f7ff; padding:6px 10px; border-radius:10px; font:600 12px system-ui;
+      top:8px; right:8px; background:rgba(0,0,0,.4); color:#e6f7ff;
+      padding:6px 10px; border-radius:10px; font:600 12px system-ui;
     }
     .btn{padding:6px 10px; border:0; border-radius:10px; background:#0e2233; color:#e6f7ff; cursor:pointer}
     .card{background:#0b1118; border:1px solid #203446; border-radius:12px; padding:14px 16px}
@@ -40,12 +39,12 @@
     <!-- เส้น HIT LINE (เขียวเรืองแสง) -->
     <a-entity id="hitLine"
       geometry="primitive: box; width: 2.6; height: 0.02; depth: 0.02"
-      material="color: #00ff88; emissive: #00ff88; emissiveIntensity: 0.6; opacity:0.95; transparent:true"
+      material="color: #00ff88; emissive: #00ff88; emissiveIntensity: 0.8; opacity:0.95; transparent:true"
       position="0 1.1 -2.3">
     </a-entity>
   </a-scene>
 
-  <!-- HUD มุมขวาบน (ไม่โดนบัง) -->
+  <!-- HUD มุมขวาบน -->
   <div id="hudTopRight">
     Song: <b id="hudSong">—</b> ·
     Score: <b id="hudScore">0</b> ·
@@ -54,12 +53,12 @@
     Speed: <b id="hudSpeed">Standard</b>
   </div>
 
-  <!-- UI Control (อยู่นอก a-scene) -->
+  <!-- UI Control -->
   <div id="uiDock">
     <label>Song</label>
-    <select id="songSel">
+    <select id="songSel" style="min-width:200px">
       <option value="none" data-title="— Select —">— Select —</option>
-      <!-- ตัวอย่างเพลง (แก้ URL ได้ตามจริง) -->
+      <!-- ปรับให้ตรงกับไฟล์จริงในโปรเจ็กต์คุณ -->
       <option value="/webxr-health-mobile/vr-fitness/assets/music/runforward.mp3" data-title="Run Forward (Kevin MacLeod)">Run Forward</option>
       <option value="/webxr-health-mobile/vr-fitness/assets/music/liftoff.mp3" data-title="Liftoff (Vercetty)">Liftoff</option>
       <option value="/webxr-health-mobile/vr-fitness/assets/music/sparkwalk.mp3" data-title="Spark Walk (Scott Holmes)">Spark Walk</option>
@@ -78,7 +77,7 @@
   </div>
 
   <!-- Results -->
-  <section id="results" style="display:none">
+  <section id="results" style="display:none; inset:0; place-items:center; background:rgba(0,0,0,.6);">
     <div class="card" style="min-width:300px">
       <h3 style="margin:0 0 8px">RESULTS</h3>
       <div>Song: <b id="rSong">—</b></div>
@@ -91,88 +90,6 @@
       </div>
     </div>
   </section>
-
-  <!-- ตัวดักคลิก + Raycast + ผูกปุ่ม -->
-  <script>
-  (function(){
-    const $ = (id)=>document.getElementById(id);
-    const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
-
-    function blockBubble(el){
-      if(!el) return;
-      el.style.pointerEvents='auto';
-      ['pointerdown','mousedown','touchstart','click','pointerup','mouseup','touchend'].forEach(ev=>{
-        el.addEventListener(ev, (e)=>{ e.stopPropagation(); e.stopImmediatePropagation?.(); }, {capture:true});
-      });
-    }
-    function elevateUI(){
-      ['uiDock','results','hudTopRight'].forEach(id=>{
-        const el=$(id);
-        if(!el) return;
-        if(el.parentNode !== document.body) document.body.appendChild(el);
-        el.style.zIndex='2147483647';
-        el.style.pointerEvents='auto';
-        blockBubble(el);
-      });
-    }
-
-    function wireButtons(){
-      const s=$('btnStart'), p=$('btnPause'), e=$('btnEnd'),
-            replay=$('replayBtn'), back=$('backBtn'),
-            songSel=$('songSel'), speedSel=$('speedSel');
-
-      [s,p,e,replay,back,songSel,speedSel,$('uiDock'),$('results')].forEach(blockBubble);
-
-      s?.addEventListener('click', ()=> window.RB?.start?.());
-      p?.addEventListener('click', ()=>{
-        if(!window.RB) return;
-        if(!RB.running){ return; }
-        if(!RB.paused){ RB.pause();  p.textContent='Resume'; }
-        else          { RB.resume(); p.textContent='Pause'; }
-      });
-      e?.addEventListener('click', ()=> window.RB?.endGame?.());
-      replay?.addEventListener('click', ()=>{ $('results').style.display='none'; window.RB?.start?.(); });
-      back?.addEventListener('click', ()=>{ location.href=HUB_URL; });
-
-      songSel?.addEventListener('change', ()=> window.RB?.playSelectedSong?.());
-      speedSel?.addEventListener('change', ()=> window.RB?.setSpeed?.(speedSel.value));
-    }
-
-    function installPointerRaycast(){
-      const scn = document.querySelector('a-scene');
-      if(!scn) return;
-      const ready = ()=>{
-        const raycaster = new THREE.Raycaster();
-        const v2 = new THREE.Vector2();
-        function pick(x,y){
-          const cam = scn.camera; if(!cam) return;
-          v2.x =  (x / innerWidth) * 2 - 1;
-          v2.y = -(y / innerHeight) * 2 + 1;
-          raycaster.setFromCamera(v2, cam);
-          const clickable = Array.from(document.querySelectorAll('.clickable')).map(el=>el.object3D).filter(Boolean);
-          const objs=[]; clickable.forEach(o=>o.traverse(c=>objs.push(c)));
-          const hits = raycaster.intersectObjects(objs, true);
-          if(hits && hits.length){
-            let o = hits[0].object;
-            while(o && !o.el) o = o.parent;
-            if(o && o.el) o.el.emit('click');
-          }
-        }
-        addEventListener('mousedown', e=>pick(e.clientX, e.clientY), {passive:true});
-        addEventListener('touchstart', e=>{ const t=e.touches?.[0]; if(t) pick(t.clientX,t.clientY); }, {passive:true});
-      };
-      if (scn.hasLoaded) ready(); else scn.addEventListener('loaded', ready, {once:true});
-    }
-
-    function boot(){
-      elevateUI();
-      wireButtons();
-      installPointerRaycast();
-    }
-    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
-    else boot();
-  })();
-  </script>
 
   <!-- เกม -->
   <script src="./game.js" defer></script>
