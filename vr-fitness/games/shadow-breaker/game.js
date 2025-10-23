@@ -1,5 +1,5 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · game.js (Null-Safe Removal + Difficulties + Mouse/Touch Click + Production Patches + Hub URL Fix)
+   Shadow Breaker · game.js (Null-Safe Removal + Difficulties + Mouse/Touch Click + Stance Toggle + Centered Enter VR + Production Patches)
 */
 (function(){
   "use strict";
@@ -7,7 +7,7 @@
   // ---------- Helpers ----------
   const byId = (id)=>document.getElementById(id);
 
-  // Null-safe remover (prevents "removeChild of null" from A-Frame internals)
+  // Null-safe remover (ป้องกัน A-Frame ภายในเรียก removeChild กับ parent ที่หายไป)
   function safeRemove(el){
     try{
       if(!el) return;
@@ -23,8 +23,6 @@
   const APPX={ badge:(t)=>{ if(window.APP?.badge) APP.badge(t); else console.log('[BADGE]',t); }, t:(k)=>window.APP?.t?APP.t(k):k };
   const getQuery=(k)=>new URLSearchParams(location.search).get(k);
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
-  // ✅ Hub URL (fixed)
-  const HUB_URL = (ASSET_BASE || '/webxr-health-mobile/vr-fitness').replace(/\/+$/,'') + '/';
 
   // SFX anti-spam
   const lastPlay=new Map();
@@ -38,7 +36,7 @@
     if(!el){
       el=document.createElement('div'); el.id='toast'; document.body.appendChild(el);
       Object.assign(el.style,{position:'fixed', left:'50%', top:'12px', transform:'translateX(-50%)',
-        background:'rgba(10,12,16,.9)', color:color, padding:'8px 12px',
+        background:'rgba(10,12,16,.9)', color:'#ffcc00', padding:'8px 12px',
         borderRadius:'10px', font:'600 14px/1.1 system-ui,Arial', zIndex:9999,
         letterSpacing:'0.4px', transition:'opacity .2s, transform .2s', opacity:'0'});
     }
@@ -148,7 +146,9 @@
     tel_guard:SFXN(`${ASSET_BASE}/assets/sfx/tel_guard.wav`),
     tel_dash:SFXN(`${ASSET_BASE}/assets/sfx/tel_dash.wav`),
     enrage:SFXN(`${ASSET_BASE}/assets/sfx/enrage.wav`),
-    success:SFXN(`${ASSET_BASE}/assets/sfx/success.wav`)
+    success:SFXN(`${ASSET_BASE}/assets/sfx/success.wav`),
+    // NEW: stance toggle sfx
+    stance:SFXN(`${ASSET_BASE}/assets/sfx/stance.wav`)
   };
 
   // ---------- HUD ----------
@@ -828,7 +828,7 @@
     byId('results').style.display='flex'; APPX.badge(APPX.t('results')+': '+finalScore);
     try{ window.Leaderboard?.postResult?.('shadow-breaker',{score:finalScore,maxCombo,accuracy:spawns?Math.round((hits/spawns)*100):0,diff:getDiffKey(),stars:star,stance:ST.title}); }catch(_e){}
 
-    // ปิด / ซ่อน widget เสริม เพื่อประหยัดแบต/CPU บนมือถือ
+    // ปิด / ซ่อน widget เสริม
     try { const hs = byId('hudStatus'); if (hs) hs.style.display='none'; } catch(_e){}
   }
 
@@ -860,6 +860,7 @@
     }
     if(e.key==='p' || e.key==='P') togglePause();
     if(e.key==='b' || e.key==='B') bankNow();
+    if(e.key==='t' || e.key==='T') toggleStance(); // คีย์ลัดสลับท่า
   });
 
   // เมาส์ขยับ = ขยับมือขวา (โหมดเดสก์ท็อป)
@@ -874,15 +875,48 @@
 
   function bankNow(){ const add=Math.floor(combo*3); bank+=add; APPX.badge('Bank +'+add); combo=0; onComboChange(); updateHUD(); }
 
-  window.sbSetStance=(k)=>{ if(STANCES[k]) ST=STANCES[k]; };
+  // ---------- Stance: apply/toggle ----------
+  function applyStance(k){
+    if(!STANCES[k]) return;
+    ST = STANCES[k];
+    APPX.badge(`Stance: ${ST.title}`);
+    try { play(SFX.stance, 1); } catch(_) {}
+    ['leftHand','rightHand'].forEach(id=>{
+      const h = byId(id);
+      if(!h) return;
+      h.setAttribute('animation__stance_in', {property:'scale', to:'1.07 1.07 1.07', dur:90, easing:'easeOutQuad'});
+      setTimeout(()=>h.setAttribute('animation__stance_out',{property:'scale', to:'1 1 1', dur:90, easing:'easeInQuad'}), 100);
+    });
+  }
+  function toggleStance(){ applyStance(ST===STANCES.swift ? 'power' : 'swift'); }
+  window.sbSetStance=(k)=>applyStance(k);
 
   // ---------- Buttons ----------
   document.addEventListener('DOMContentLoaded', ()=>{
     byId('startBtn')?.addEventListener('click', start);
     byId('replayBtn')?.addEventListener('click', start);
-    byId('backBtn')?.addEventListener('click', ()=>{ window.location.assign(HUB_URL); });
+    // กลับ Hub → แก้เส้นทางให้ถูกต้อง (root ของ vr-fitness)
+    byId('backBtn')?.addEventListener('click', ()=>{ window.location.href = `${ASSET_BASE}/`; });
     byId('pauseBtn')?.addEventListener('click', togglePause);
     byId('bankBtn')?.addEventListener('click', bankNow);
+
+    // ปุ่มสลับท่าใน HUD (เหนือ Enter VR)
+    if(!byId('stanceBtn')){
+      const btn = document.createElement('button');
+      btn.id = 'stanceBtn';
+      btn.textContent = 'Stance: Swift';
+      Object.assign(btn.style,{
+        position:'fixed', left:'50%', transform:'translateX(-50%)',
+        bottom:'56px', zIndex:9999,
+        padding:'8px 12px', borderRadius:'10px', border:'0',
+        background:'#13324a', color:'#e6f7ff', cursor:'pointer',
+        font:'600 12px system-ui'
+      });
+      document.body.appendChild(btn);
+      const refreshLabel = ()=> btn.textContent = `Stance: ${ST.title}`;
+      btn.addEventListener('click', ()=>{ toggleStance(); refreshLabel(); });
+      setInterval(refreshLabel, 400);
+    }
   });
 
   // ===== Production patches =====
@@ -932,13 +966,19 @@
     setInterval(render, 400);
   })();
 
-  // ปุ่ม Enter VR (กันซ้ำ)
+  // ปุ่ม Enter VR (จัดกลางล่าง)
   (function xrButton(){
-    if (document.getElementById('enterVRBtn')) return;
+    if (byId('enterVRBtn')) return;
     const btn=document.createElement('button');
     btn.id='enterVRBtn';
     btn.textContent='Enter VR';
-    Object.assign(btn.style,{position:'fixed',bottom:'12px',right:'12px',zIndex:9999, padding:'8px 12px', borderRadius:'10px', border:'0', background:'#0e2233', color:'#e6f7ff', cursor:'pointer'});
+    Object.assign(btn.style,{
+      position:'fixed', left:'50%', transform:'translateX(-50%)',
+      bottom:'12px', zIndex:9999,
+      padding:'8px 12px', borderRadius:'10px', border:'0',
+      background:'#0e2233', color:'#e6f7ff', cursor:'pointer',
+      font:'600 12px system-ui'
+    });
     document.body.appendChild(btn);
     btn.addEventListener('click', ()=>{ try{ const sc=document.querySelector('a-scene'); sc?.enterVR?.(); }catch(e){ console.warn(e); } });
   })();
@@ -976,4 +1016,4 @@
     }, {passive:true});
   })();
 
-})();
+})(); 
