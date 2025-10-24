@@ -656,5 +656,97 @@
     }
   }catch(_){}
 })();
+/* ===== Difficulty Dock (Easy / Normal / Hard / Final) — Shadow Breaker ===== */
+(function installDifficultyDock(){
+  // กันทำซ้ำ
+  if (document.getElementById('sbDiffDock')) return;
+
+  // อ่านพารามิเตอร์จาก URL
+  function getQ(k){ return new URLSearchParams(location.search).get(k); }
+
+  // หา diff ปัจจุบันจาก URL → localStorage → APP.story → 'normal'
+  const DIFF_KEYS = { easy:1, normal:1, hard:1, final:1 };
+  const current =
+    getQ('diff') ||
+    (function(){ try{return localStorage.getItem('sb_diff');}catch(_){ return null; } })() ||
+    (window.APP && APP.story && APP.story.difficulty) ||
+    'normal';
+
+  const picked = DIFF_KEYS[current] ? current : 'normal';
+
+  // สไตล์ลอยมุมขวาล่าง (อยู่คนละก้อนกับปุ่ม VR / HUD)
+  const css = `
+    #sbDiffDock{
+      position:fixed; right:12px; bottom:12px; z-index:99999;
+      display:flex; align-items:center; gap:8px;
+      background:rgba(10,16,24,.78); backdrop-filter:saturate(1.1) blur(4px);
+      border:1px solid rgba(255,255,255,.08); border-radius:12px;
+      padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;
+    }
+    #sbDiffDock label{opacity:.9; letter-spacing:.3px;}
+    #sbDiffSel{
+      appearance:none; -webkit-appearance:none; -moz-appearance:none;
+      background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.14);
+      border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;
+    }
+    #sbDiffDock .chev{margin-left:-22px; pointer-events:none; user-select:none;}
+    @media (max-width: 560px){
+      #sbDiffDock{ right:8px; bottom:8px; padding:6px 8px; }
+      #sbDiffSel{ padding:6px 26px 6px 8px; }
+    }
+  `;
+  const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
+
+  // วาด UI
+  const dock = document.createElement('div');
+  dock.id = 'sbDiffDock';
+  dock.innerHTML = `
+    <label for="sbDiffSel" title="เลือกความยาก (Alt+D)">Difficulty</label>
+    <select id="sbDiffSel" aria-label="Difficulty">
+      <option value="easy">Easy</option>
+      <option value="normal">Normal</option>
+      <option value="hard">Hard</option>
+      <option value="final">Final</option>
+    </select>
+    <span class="chev">▼</span>
+  `;
+  document.body.appendChild(dock);
+
+  const sel = dock.querySelector('#sbDiffSel');
+  sel.value = picked;
+
+  // เมื่อเปลี่ยน: บันทึกลง localStorage + อัปเดต URL (?diff=) แล้วรีโหลด
+  sel.addEventListener('change', function(e){
+    const v = e.target.value;
+    try{ localStorage.setItem('sb_diff', v); }catch(_){}
+    // อัปเดต APP.story ถ้ามี (ช่วยกรณีเกมอ่านจากที่นี่)
+    try{ if(window.APP){ APP.story = APP.story || {}; APP.story.difficulty = v; } }catch(_){}
+    const url = new URL(location.href);
+    url.searchParams.set('diff', v);
+    // รีโหลดเฉพาะ path ปัจจุบัน + query ใหม่ เพื่อให้ start() ดึง diff ล่าสุด
+    location.href = url.pathname + '?' + url.searchParams.toString();
+  }, { passive:true });
+
+  // ช็อตคัต Alt+D โฟกัสดรอปดาวน์
+  document.addEventListener('keydown', function(ev){
+    if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')){
+      sel.focus();
+    }
+  });
+
+  // อัปเดต HUD/Results ถ้ามี element เหล่านี้แล้ว (เผื่อเปิดหน้าไว้)
+  function reflectLabels(){
+    const titleMap = {easy:'EASY', normal:'NORMAL', hard:'HARD', final:'FINAL'};
+    const label = titleMap[picked] || 'NORMAL';
+    const rDiff = document.getElementById('rDiff');
+    if (rDiff){
+      // ต่อท้าย Stance ถ้ามีใน HUD เดิม
+      const stance = (window.ST && ST.title) ? ` · ${ST.title}` : '';
+      rDiff.textContent = `${label}${stance}`;
+    }
+  }
+  try{ reflectLabels(); }catch(_){}
+
+})();
 
 })();
