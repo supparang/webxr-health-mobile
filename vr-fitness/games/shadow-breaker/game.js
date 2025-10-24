@@ -1,16 +1,14 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker (Classic feel kept) + Difficulty/Assist + Boss Names + Punch Pads + Coach Tips
-   + NEW:
-     1) Early-Ease 15s แรก (spawn interval +10–15%)
-     2) Cheer SFX milestones (combo 10/20/30)
-     3) Micro-goals (สุ่มทุก ~30s) แสดงบน HUD มีเวลาทำ 10s
-     4) VFX flash หน้ากากบอส 120ms เมื่อโดนดาเมจ
-     5) Soft-end: หมดเวลาแล้วหน่วง 1s ให้กวาดเป้าสุดท้ายก่อนจบ
-
-   โน้ต:
+   Shadow Breaker (Classic feel kept)
+   - Difficulty/Assist + Boss Names + Punch Pads + Coach Tips
    - ไม่หักคะแนนจากการ “ไม่กด”
    - Bomb = เมื่อ "กด" จะตัดคอมโบทันที (ไม่มีลดสกอร์)
    - ดาว 5 ระดับ (★ 0–5) ในสรุปผล
+   - NEW:
+     • Match length by difficulty (Easy=90s / Normal=85s / Hard=80s / Final=75s)
+     • Tutorial (first play only) แบบสั้น: “ชก Pad เดโม 3 ครั้ง” แล้วเข้าเกม
+     • 5s Count-down overlay ก่อนเริ่ม (ทุกครั้ง)
+     • คงฟีเจอร์ก่อนหน้า: Early-Ease 15s, Cheer SFX, Micro-goals, VFX flash, Soft-end
 */
 (function(){
   "use strict";
@@ -57,7 +55,7 @@
     success:   new Audio(`${ASSET_BASE}/assets/sfx/success.wav`),
     ui:        new Audio(`${ASSET_BASE}/assets/sfx/success.wav`),
     boom:      new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`),
-    cheer:     new Audio(`${ASSET_BASE}/assets/sfx/combo.wav`) // ใช้เสียงคอมโบเป็น Cheer
+    cheer:     new Audio(`${ASSET_BASE}/assets/sfx/combo.wav`)
   };
   Object.values(SFX).forEach(a=>{ try{ a.preload='auto'; a.crossOrigin='anonymous'; }catch(_){} });
 
@@ -80,10 +78,10 @@
   function getQ(k){ return new URLSearchParams(location.search).get(k); }
 
   const DIFFS = {
-    easy:   { bossHP:0.60, padSpawn:1.50, padLife:1.60, attackTime:1.45, feverAt:15, bombRate:0.00, delayScale:1.25, title:'EASY'   },
-    normal: { bossHP:1.00, padSpawn:1.00, padLife:1.00, attackTime:1.00, feverAt:25, bombRate:0.12, delayScale:1.00, title:'NORMAL' },
-    hard:   { bossHP:1.20, padSpawn:0.85, padLife:0.90, attackTime:0.90, feverAt:25, bombRate:0.18, delayScale:0.95, title:'HARD'   },
-    final:  { bossHP:1.35, padSpawn:0.78, padLife:0.85, attackTime:0.85, feverAt:25, bombRate:0.22, delayScale:0.90, title:'FINAL'  }
+    easy:   { bossHP:0.60, padSpawn:1.50, padLife:1.60, attackTime:1.45, feverAt:15, bombRate:0.00, delayScale:1.25, title:'EASY',   matchSec:90 },
+    normal: { bossHP:1.00, padSpawn:1.00, padLife:1.00, attackTime:1.00, feverAt:25, bombRate:0.12, delayScale:1.00, title:'NORMAL', matchSec:85 },
+    hard:   { bossHP:1.20, padSpawn:0.85, padLife:0.90, attackTime:0.90, feverAt:25, bombRate:0.18, delayScale:0.95, title:'HARD',   matchSec:80 },
+    final:  { bossHP:1.35, padSpawn:0.78, padLife:0.85, attackTime:0.85, feverAt:25, bombRate:0.22, delayScale:0.90, title:'FINAL',  matchSec:75 }
   };
   let DIFF = DIFFS.normal;
   const ASSIST = (getQ('assist')==='1');
@@ -101,53 +99,23 @@
   function applyDifficulty(){
     const key = getDiffKey();
     DIFF = DIFFS[key] || DIFFS.normal;
-
-    // ปรับฐานของ Punch Pad
     padSpawnIntBase = Math.round(1500 * DIFF.padSpawn);
     padLifeBase     = Math.round(1200 * DIFF.padLife);
-
-    // HUD
-    const rDiff = byId('rDiff');
-    if (rDiff){ rDiff.textContent = (DIFF.title||'NORMAL'); }
+    const rDiff = byId('rDiff'); if (rDiff){ rDiff.textContent = (DIFF.title||'NORMAL'); }
   }
 
-  // ปรับช่วงเวลาโจมตีบอส/แพทเทิร์น (ยืดบน Easy)
-  function Tm(ms){
-    let t = ms * DIFF.attackTime;
-    if (ASSIST) t *= 1.15;
-    return Math.round(t);
-  }
-  // ปรับดีเลย์ก่อนโจมตีถัดไป
-  function nextDelayScale(ms){
-    let t = ms * DIFF.delayScale;
-    if (ASSIST) t *= 1.10;
-    return Math.round(t);
-  }
+  function Tm(ms){ let t = ms * DIFF.attackTime; if (ASSIST) t *= 1.15; return Math.round(t); }
+  function nextDelayScale(ms){ let t = ms * DIFF.delayScale; if (ASSIST) t *= 1.10; return Math.round(t); }
 
   // ------------------ State ------------------
-  let running=false, paused=false;
-  let timer=null;
-  let padTimer=null;
-  let coachHypeTimer=null;
-
-  let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
-  let startTimeMs=0;
-  let feverUntil = 0;
-  let bossDown = false;
-
-  // Soft-end
-  let softEnding=false;
-  let softEndTO=null;
+  let running=false, paused=false, starting=false;
+  let timer=null, padTimer=null, coachHypeTimer=null;
+  let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=85;
+  let startTimeMs=0, feverUntil=0, bossDown=false;
+  let softEnding=false, softEndTO=null;
 
   // Micro-goals
-  let goalActive=false;
-  let goalTO=null;
-  let goalEndsAt=0;
-  let lastGoalStart=0;
-  let goalTarget=0;
-  let goalType='points'; // 'points' | 'hits'
-  let goalBaselineScore=0;
-  let goalProgressHits=0;
+  let goalActive=false, goalTO=null, goalEndsAt=0, lastGoalStart=0, goalTarget=0, goalType='points', goalBaselineScore=0, goalProgressHits=0;
 
   // Boss Roster
   const BOSSES = [
@@ -157,9 +125,9 @@
     { id:'VoidEmperor', title:'VOID EMPEROR', color:'#8cf5ff', baseHP:1800 }
   ];
   let bossIndex = 0;
-
   const BOSS = { active:false, busy:false, phase:1, hp:0, max:1000, name:'', color:'#ff3355' };
 
+  // HUD tweaks
   function applyHudToggles(){
     if(FX.hudReadable || FX.accessibility){
       const hud = byId('hud');
@@ -168,18 +136,40 @@
     if(FX.accessibility){
       const bossBar=byId('bossBar'); if(bossBar){ bossBar.style.borderColor='#fff'; bossBar.style.background='#000'; }
     }
-    // Micro-goal HUD element
     if(!byId('microGoal')){
       const mg=document.createElement('div');
       mg.id='microGoal';
-      Object.assign(mg.style,{
-        position:'fixed', left:'50%', transform:'translateX(-50%)',
-        top:'10px', zIndex:9999, background:'rgba(8,14,22,.85)',
-        color:'#e6f7ff', padding:'6px 10px', border:'1px solid #234',
-        borderRadius:'10px', font:'700 12px system-ui', display:'none'
-      });
+      Object.assign(mg.style,{ position:'fixed', left:'50%', transform:'translateX(-50%)',
+        top:'10px', zIndex:9999, background:'rgba(8,14,22,.85)', color:'#e6f7ff', padding:'6px 10px',
+        border:'1px solid #234', borderRadius:'10px', font:'700 12px system-ui', display:'none' });
       mg.innerHTML = '<span id="mgText"></span> <span id="mgTimer" style="opacity:.9"></span>';
       document.body.appendChild(mg);
+    }
+    // Countdown overlay
+    if(!byId('sbCountdown')){
+      const c=document.createElement('div'); c.id='sbCountdown';
+      Object.assign(c.style,{ position:'fixed', inset:'0', display:'none', alignItems:'center', justifyContent:'center',
+        background:'rgba(0,0,0,.55)', color:'#e6f7ff', font:'900 56px/1 system-ui', zIndex:99999, textShadow:'0 4px 18px rgba(0,0,0,.65)' });
+      c.innerHTML = '<div id="sbCountdownNum">5</div>';
+      document.body.appendChild(c);
+    }
+    // Tutorial overlay (first play)
+    if(!byId('sbTut')){
+      const t=document.createElement('div'); t.id='sbTut';
+      Object.assign(t.style,{ position:'fixed', inset:'0', display:'none', alignItems:'center', justifyContent:'center',
+        background:'rgba(0,0,0,.65)', color:'#e6f7ff', zIndex:99998 });
+      t.innerHTML = `
+        <div style="background:#0b1118;border:1px solid #213546;border-radius:14px;padding:16px 18px;max-width:720px;width:92vw">
+          <h3 style="margin:0 0 8px;font:800 18px system-ui;color:#9bd1ff">Tutorial · Shadow Breaker</h3>
+          <p style="margin:4px 0 10px;font:600 13px system-ui;color:#d9f3ff">
+            แตะ/คลิก <b>เป้าเดโม</b> ให้ครบ <b>3 ครั้ง</b> เพื่อเริ่มเกมจริง
+          </p>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button id="sbTutSkip" style="padding:8px 12px;border-radius:10px;border:1px solid #2a465c;background:transparent;color:#a8cfe6;font:700 12px system-ui">Skip</button>
+            <button id="sbTutStart" style="padding:8px 12px;border-radius:10px;border:0;background:#0e2233;color:#e6f7ff;font:700 12px system-ui">Start Practice</button>
+          </div>
+        </div>`;
+      document.body.appendChild(t);
     }
   }
 
@@ -189,83 +179,18 @@
     if(!goalActive){ box.style.display='none'; return; }
     const remain = Math.max(0, Math.ceil((goalEndsAt - performance.now())/1000));
     if(t && tm){
-      const txt = goalType==='points'
-        ? `Micro-goal: เก็บให้ถึง ${goalTarget} คะแนน!`
-        : `Micro-goal: ชกให้โดน ${goalTarget} ครั้ง!`;
+      const txt = goalType==='points' ? `Micro-goal: เก็บให้ถึง ${goalTarget} คะแนน!` : `Micro-goal: ชกให้โดน ${goalTarget} ครั้ง!`;
       t.textContent = txt + ' ';
       tm.textContent = `(${remain}s)`;
     }
     box.style.display='block';
   }
 
-  function trySpawnMicroGoal(){
-    if(goalActive) return;
-    // สุ่มทุก ~30s (เริ่มหลังผ่าน 15s แรก)
-    const elapsed = (performance.now()-startTimeMs)/1000;
-    if(elapsed < 15) return;
-    if(performance.now() - lastGoalStart < 28_000) return;
-
-    goalActive=true;
-    lastGoalStart = performance.now();
-    goalEndsAt    = performance.now() + 10_000; // 10s challenge
-    goalType = (Math.random()<0.55) ? 'points' : 'hits';
-    if(goalType==='points'){
-      // โหมดง่ายให้เป้าต่ำกว่า
-      const base = (getDiffKey()==='easy') ? 40 : 60;
-      goalTarget = base + Math.floor(Math.random()*25); // 40–85 หรือ 60–85
-      goalBaselineScore = score;
-    }else{
-      goalTarget = (getDiffKey()==='easy') ? 4 : 6; // hits ภายใน 10s
-      goalProgressHits = 0;
-    }
-    updateMicroGoalHUD();
-
-    // หมดเวลา goal
-    clearTimeout(goalTO);
-    goalTO = setTimeout(()=>{
-      // ประเมินผล
-      let success=false;
-      if(goalType==='points'){
-        const gained = score - goalBaselineScore;
-        success = (gained >= goalTarget);
-      }else{
-        success = (goalProgressHits >= goalTarget);
-      }
-      const box=byId('microGoal');
-      if(success){
-        score += 50; // โบนัสเล็กน้อย
-        updateHUD();
-        if(box){ box.style.background='rgba(7,32,20,.9)'; box.style.borderColor='#2a5'; }
-        sfxPlay(SFX.success,150,1);
-      }else{
-        if(box){ box.style.background='rgba(32,10,10,.9)'; box.style.borderColor='#522'; }
-        sfxPlay(SFX.miss,150,1);
-      }
-      setTimeout(()=>{
-        goalActive=false;
-        if(box){ box.style.display='none'; box.style.background='rgba(8,14,22,.85)'; box.style.borderColor='#234'; }
-      }, 900);
-    }, 10_000);
-  }
-
   function scoringMul(){ return (FX.feverMode && performance.now()<feverUntil)? 1.5 : 1.0; }
   function onComboChanged(){
-    // Cheer milestones
-    if([10,20,30].includes(combo)){
-      sfxPlay(SFX.cheer,160,1);
-      try{ window.APP?.badge?.('Crowd Cheer! Combo '+combo); }catch(_){}
-    }
-    if(FX.comboBadges && combo>0 && combo%10===0){
-      try{ window.APP?.badge?.('Combo x'+(combo/10)); }catch(_){ console.log('Combo', combo); }
-      sfxPlay(SFX.combo,150,0.9);
-    }
-    if(FX.feverMode && combo>= (DIFF.feverAt||25)){
-      const oldFever = feverUntil;
-      feverUntil = performance.now()+8000;
-      if(performance.now()>oldFever){
-        try{ window.APP?.badge?.('FEVER!'); }catch(_){}
-      }
-    }
+    if([10,20,30].includes(combo)){ sfxPlay(SFX.cheer,160,1); try{ window.APP?.badge?.('Crowd Cheer! Combo '+combo); }catch(_){} }
+    if(FX.comboBadges && combo>0 && combo%10===0){ try{ window.APP?.badge?.('Combo x'+(combo/10)); }catch(_){ } sfxPlay(SFX.combo,150,0.9); }
+    if(FX.feverMode && combo>= (DIFF.feverAt||25)){ const old=feverUntil; feverUntil = performance.now()+8000; if(performance.now()>old){ try{ window.APP?.badge?.('FEVER!'); }catch(_){ } } }
     if(combo>maxCombo) maxCombo=combo;
   }
 
@@ -302,12 +227,7 @@
     byId('arena').appendChild(e); setTimeout(()=>safeRemove(e),820);
   }
 
-  function updateHUD(){
-    byId('score').textContent = Math.round(score);
-    byId('combo').textContent = combo;
-    byId('time').textContent  = timeLeft;
-    updateMicroGoalHUD();
-  }
+  function updateHUD(){ byId('score').textContent = Math.round(score); byId('combo').textContent = combo; byId('time').textContent  = timeLeft; updateMicroGoalHUD(); }
   function setPhase(n){ const el=byId('phaseLabel'); if(el) el.textContent='Phase '+n; }
 
   // ---------- Boss Anchor: singleton ----------
@@ -422,7 +342,7 @@
     };
     r.addEventListener('click', ()=>{
       if(hit) return; hit=true;
-      const p=r.object3D.getWorldPosition(new THREE.Vector3());
+      const p=r.object3D.getWorldPosition(new THREE.Vector3>());
       floatText('BREAK','#00ffa3',p);
       combo++; onComboChanged(); hits++; score+=Math.round(14*scoringMul()); updateHUD();
       resetIgnore('ring');
@@ -451,7 +371,7 @@
     };
     g.addEventListener('click', ()=>{
       if(ok) return; ok=true;
-      const p=g.object3D.getWorldPosition(new THREE.Vector3());
+      const p=g.object3D.getWorldPosition(new THREE.Vector3>());
       floatText('PARRY','#00d0ff',p);
       combo++; onComboChanged(); hits++; score+=Math.round(12*scoringMul()); updateHUD();
       resetIgnore('blade');
@@ -476,7 +396,7 @@
     };
     g.addEventListener('click', ()=>{
       if(grabbed) return; grabbed=true;
-      const p=g.object3D.getWorldPosition(new THREE.Vector3());
+      const p=g.object3D.getWorldPosition(new THREE.Vector3>());
       floatText('CRITICAL!','#00ffa3',p);
       sfxPlay(SFX.success,130,1.0);
       combo++; onComboChanged(); hits++; score+=Math.round(22*scoringMul()); updateHUD();
@@ -500,17 +420,11 @@
   let padSpawnIntBase = 1500;
   let padLifeBase     = 1200;
 
-  function isEarly15s(){
-    const t = performance.now() - startTimeMs;
-    return t < 15000; // 15s แรก
-  }
+  function isEarly15s(){ return (performance.now() - startTimeMs) < 15000; }
 
   function nextPadInterval(){
     let base = padSpawnIntBase;
-    // Early-Ease: ช่วง 15 วิแรก ให้ช้าลง ~+10–15%
-    if(isEarly15s()){
-      base = Math.round(base * (1.10 + Math.random()*0.05));
-    }
+    if(isEarly15s()){ base = Math.round(base * (1.10 + Math.random()*0.05)); }
     if(!FX.gentleCurve) return base;
     const sec=(performance.now()-window.__sbStartT)/1000;
     const ease=Math.min(1, sec/40);
@@ -524,12 +438,11 @@
   }
 
   function spawnPad(){
-    if(!running) return;
+    if(!running || starting) return;
 
     let pool;
-    if (DIFF === DIFFS.easy){
-      pool = PAD_SPEC.filter(p=>!p.bomb);
-    } else {
+    if (DIFF === DIFFS.easy) pool = PAD_SPEC.filter(p=>!p.bomb);
+    else {
       const includeBomb = Math.random() < (DIFF.bombRate||0);
       pool = includeBomb ? PAD_SPEC : PAD_SPEC.filter(p=>!p.bomb);
     }
@@ -541,19 +454,12 @@
 
     let el;
     if(spec.shape==='box'){
-      el = document.createElement('a-box');
-      const s = spec.size || 0.36;
-      el.setAttribute('width', s); el.setAttribute('height', s); el.setAttribute('depth', s);
+      el = document.createElement('a-box'); const s = spec.size || 0.36; el.setAttribute('width', s); el.setAttribute('height', s); el.setAttribute('depth', s);
     }else if(spec.shape==='icosa'){
-      el = document.createElement('a-icosahedron');
-      el.setAttribute('radius', spec.r || 0.18);
+      el = document.createElement('a-icosahedron'); el.setAttribute('radius', spec.r || 0.18);
     }else if(spec.shape==='sphere'){
-      el = document.createElement('a-sphere');
-      el.setAttribute('radius', spec.r || 0.20);
-    }else{
-      el = document.createElement('a-entity');
-      el.setAttribute('geometry', `primitive: circle; radius: ${spec.radius||0.24}; segments: ${spec.seg||32}`);
-    }
+      el = document.createElement('a-sphere'); el.setAttribute('radius', spec.r || 0.20);
+    }else{ el = document.createElement('a-entity'); el.setAttribute('geometry', `primitive: circle; radius: ${spec.radius||0.24}; segments: ${spec.seg||32}`); }
 
     el.classList.add('clickable','sb-pad');
     el.setAttribute('position', `${x} ${y} ${z}`);
@@ -575,11 +481,7 @@
     byId('arena').appendChild(el);
 
     let clicked=false;
-    const killT = setTimeout(()=>{
-      if(clicked) return;
-      coachTipOnce('pad');    // ไม่หักคะแนนถ้าไม่กด
-      safeRemove(el);
-    }, nextPadLife());
+    const killT = setTimeout(()=>{ if(clicked) return; coachTipOnce('pad'); safeRemove(el); }, nextPadLife());
 
     const onClick = ()=>{
       if(clicked) return; clicked=true;
@@ -594,14 +496,10 @@
         return;
       }
 
-      hits++;
-      combo++; onComboChanged();
+      hits++; combo++; onComboChanged();
       const add = Math.round((spec.score||10) * scoringMul());
       score += add;
-
-      // micro-goal hits/points
       if(goalActive && goalType==='hits') goalProgressHits++;
-
       updateHUD();
       floatText('HIT +'+add,(spec.color||'#00d0ff'),p);
       sfxPlay(SFX.slash,120,1.0);
@@ -623,7 +521,7 @@
     if (bossIndex < BOSSES.length){
       setTimeout(()=>spawnBossByIndex(bossIndex), 900);
     } else {
-      requestEnd(); // ใช้ soft-end หากเหลือวัตถุจ่อหน้าจอ
+      requestEnd();
     }
   }
 
@@ -639,46 +537,115 @@
     setTimeout(scheduleNext, 700);
   }
 
+  // ------------------ Tutorial-first-play (สั้น) ------------------
+  function hasSeenTutorial(){ try{ return !!localStorage.getItem('sb_tut_done'); }catch(_){ return false; } }
+  function markTutorialDone(){ try{ localStorage.setItem('sb_tut_done','1'); }catch(_){} }
+
+  function runTutorialThenCountdown(){
+    const tut=byId('sbTut'); if(!tut){ doCountdownAndPlay(); return; }
+    tut.style.display='flex';
+    const arena = byId('arena');
+
+    let hitCount = 0, demoEl=null;
+    function spawnDemoPad(){
+      safeRemove(demoEl);
+      demoEl = document.createElement('a-entity');
+      demoEl.classList.add('clickable');
+      demoEl.setAttribute('geometry','primitive: circle; radius: 0.28; segments: 24');
+      demoEl.setAttribute('material','color:#00ffa3; opacity:0.95; transparent:true;');
+      demoEl.setAttribute('position','0 1.3 -2.2');
+      arena.appendChild(demoEl);
+      const collider=document.createElement('a-entity');
+      collider.setAttribute('geometry','primitive: circle; radius: 0.36; segments: 24');
+      collider.setAttribute('material','color:#fff; opacity:0.001; transparent:true');
+      collider.classList.add('clickable');
+      demoEl.appendChild(collider);
+      const onHit=()=>{
+        hitCount++;
+        floatText('OK','#00ffa3', demoEl.object3D.getWorldPosition(new THREE.Vector3()));
+        sfxPlay(SFX.success,120,1);
+        safeRemove(demoEl);
+        if(hitCount>=3){ finish(); } else { setTimeout(spawnDemoPad, 300); }
+      };
+      demoEl.addEventListener('click', onHit);
+      demoEl.addEventListener('mousedown', onHit);
+      collider.addEventListener('click', ()=> demoEl.emit('click'));
+      collider.addEventListener('mousedown', ()=> demoEl.emit('click'));
+    }
+
+    function finish(){
+      markTutorialDone();
+      tut.style.display='none';
+      doCountdownAndPlay();
+    }
+
+    byId('sbTutStart').onclick = ()=>{ spawnDemoPad(); };
+    byId('sbTutSkip').onclick  = ()=>{ markTutorialDone(); tut.style.display='none'; doCountdownAndPlay(); };
+  }
+
+  // ------------------ 5s Count-down ------------------
+  function doCountdownAndPlay(){
+    const cd=byId('sbCountdown'), num=byId('sbCountdownNum');
+    if(!cd || !num){ actuallyStartPlay(); return; }
+    starting=true;
+    cd.style.display='flex';
+    let n=5; num.textContent = n;
+    const tick=()=>{
+      if(n<=0){ cd.style.display='none'; starting=false; actuallyStartPlay(); return; }
+      num.textContent = n;
+      sfxPlay(SFX.ui,140,1);
+      n--;
+      setTimeout(tick, 1000);
+    };
+    setTimeout(tick, 0);
+  }
+
   // ------------------ Game flow ------------------
   function clearArena(){ const a=byId('arena'); Array.from(a.children).forEach(c=>safeRemove(c)); }
 
   function start(){
+    if(running || starting) return;
+    applyDifficulty();
+    // เซ็ตเวลาแมตช์ตามโหมด
+    timeLeft = clamp(DIFF.matchSec|0, 60, 120); // safety
+    updateHUD();
+
+    // Tutorial-first-play?
+    if(!hasSeenTutorial()){ runTutorialThenCountdown(); }
+    else { doCountdownAndPlay(); }
+  }
+
+  function actuallyStartPlay(){
     if(running) return;
     running=true; paused=false;
     window.__sbStartT = performance.now();
     startTimeMs = performance.now();
-    score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=60; feverUntil=0; bossDown=false;
+    score=0; combo=0; maxCombo=0; hits=0; spawns=0; feverUntil=0; bossDown=false;
     softEnding=false; clearTimeout(softEndTO);
+    goalActive=false; clearTimeout(goalTO);
 
     byId('results').style.display='none';
-    applyDifficulty();
     updateHUD(); bossShowUI(false); clearArena();
-    // เริ่มที่บอสตัวแรก
-    bossIndex = 0;
+
+    bossIndex = 0; // เริ่มที่บอสตัวแรก
     spawnBossByIndex(bossIndex);
 
-    // นาฬิกาหลัก (ตรวจ micro-goal ด้วย)
     clearInterval(timer);
     timer = setInterval(()=>{
       if(!running) return;
-      timeLeft--;
-      byId('time').textContent=timeLeft;
-      trySpawnMicroGoal(); // โอกาสเกิด goal
-      updateHUD();
-      if(timeLeft<=0) requestEnd(); // soft-end
+      timeLeft--; byId('time').textContent=timeLeft;
+      trySpawnMicroGoal(); updateHUD();
+      if(timeLeft<=0) requestEnd();
     },1000);
 
-    // สปอว์น pads ต่อเนื่อง
     const tickSpawn = ()=>{
       if(!running || paused) return;
       spawnPad();
       const next = nextPadInterval();
       padTimer = setTimeout(tickSpawn, next);
     };
-    clearTimeout(padTimer);
-    tickSpawn();
+    clearTimeout(padTimer); tickSpawn();
 
-    // Coach hype เป็นระยะ
     clearInterval(coachHypeTimer);
     coachHypeTimer = setInterval(()=>{
       if(!running) return;
@@ -696,6 +663,39 @@
     }, 12000);
   }
 
+  // Micro-goals
+  function trySpawnMicroGoal(){
+    if(goalActive) return;
+    const elapsed = (performance.now()-startTimeMs)/1000;
+    if(elapsed < 15) return;
+    if(performance.now() - lastGoalStart < 28_000) return;
+
+    goalActive=true;
+    lastGoalStart = performance.now();
+    goalEndsAt    = performance.now() + 10_000;
+    goalType = (Math.random()<0.55) ? 'points' : 'hits';
+    if(goalType==='points'){
+      const base = (getDiffKey()==='easy') ? 40 : 60;
+      goalTarget = base + Math.floor(Math.random()*25);
+      goalBaselineScore = score;
+    }else{
+      goalTarget = (getDiffKey()==='easy') ? 4 : 6;
+      goalProgressHits = 0;
+    }
+    updateMicroGoalHUD();
+
+    clearTimeout(goalTO);
+    goalTO = setTimeout(()=>{
+      let success=false;
+      if(goalType==='points'){ success = (score - goalBaselineScore) >= goalTarget; }
+      else{ success = (goalProgressHits >= goalTarget); }
+      const box=byId('microGoal');
+      if(success){ score += 50; updateHUD(); if(box){ box.style.background='rgba(7,32,20,.9)'; box.style.borderColor='#2a5'; } sfxPlay(SFX.success,150,1); }
+      else{ if(box){ box.style.background='rgba(32,10,10,.9)'; box.style.borderColor='#522'; } sfxPlay(SFX.miss,150,1); }
+      setTimeout(()=>{ goalActive=false; if(box){ box.style.display='none'; box.style.background='rgba(8,14,22,.85)'; box.style.borderColor='#234'; } }, 900);
+    }, 10_000);
+  }
+
   // ดาว 5 ระดับ
   function computeStars(){
     let s = 0;
@@ -707,18 +707,14 @@
     return clamp(s,0,5);
   }
 
-  // Soft-end: ขอจบ (หน่วง 1s ให้กวาดเป้าท้าย ๆ)
+  // Soft-end
   function requestEnd(){
     if(!running) return;
     if(softEnding) return;
     softEnding=true;
-
-    // หยุดสปอว์น/แพทเทิร์นใหม่ แต่ยังให้คลิกของที่ค้างอยู่ได้
     try{ clearTimeout(padTimer); }catch(_){}
     try{ clearTimeout(window.__sbNextTO); }catch(_){}
     try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
-
-    // 1 วิเก็บกวาดสุดท้าย
     softEndTO = setTimeout(finalizeEnd, 1000);
   }
 
@@ -744,10 +740,7 @@
 
     if(FX.richResults){
       let extra = byId('rExtra');
-      if(!extra){
-        extra = document.createElement('div'); extra.id='rExtra'; extra.style.marginTop='8px';
-        byId('results').querySelector('.card')?.appendChild(extra);
-      }
+      if(!extra){ extra = document.createElement('div'); extra.id='rExtra'; extra.style.marginTop='8px'; byId('results').querySelector('.card')?.appendChild(extra); }
       extra.innerHTML = `Time Left: <b>${Math.max(0,timeLeft)}s</b>`;
     }
 
@@ -755,27 +748,7 @@
     sfxPlay(SFX.ui,140,1);
   }
 
-  function togglePause(){
-    if(!running) return;
-    paused=!paused;
-    if(paused){
-      clearInterval(timer);
-      try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
-      try{ clearTimeout(padTimer); }catch(_){}
-      try{ window.APP?.badge?.('Paused'); }catch(_){}
-    }else{
-      timer = setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; trySpawnMicroGoal(); updateHUD(); if(timeLeft<=0) requestEnd(); },1000);
-      const next = nextPadInterval();
-      padTimer = setTimeout(function tick(){ if(!running||paused) return; spawnPad(); padTimer=setTimeout(tick,nextPadInterval()); }, next);
-      try{ window.APP?.badge?.('Resume'); }catch(_){}
-    }
-  }
-
-  function bankNow(){
-    const add=Math.floor(combo*3);
-    score+=add; combo=0; updateHUD();
-    try{ window.APP?.badge?.('Bank +'+add); }catch(_){}
-  }
+  function bankNow(){ const add=Math.floor(combo*3); score+=add; combo=0; updateHUD(); try{ window.APP?.badge?.('Bank +'+add); }catch(_){ } }
 
   // ------------------ Mouse raycast fallback ------------------
   (function pointerRaycast(){
@@ -804,13 +777,22 @@
   function wire(){
     byId('startBtn')?.addEventListener('click', start);
     byId('replayBtn')?.addEventListener('click', ()=>{ byId('results').style.display='none'; start(); });
-    byId('pauseBtn')?.addEventListener('click', togglePause);
+    byId('pauseBtn')?.addEventListener('click', ()=>{ if(!running) return; paused=!paused;
+      if(paused){ clearInterval(timer); try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
+        try{ clearTimeout(padTimer); }catch(_){} try{ window.APP?.badge?.('Paused'); }catch(_){}
+      }else{
+        timer = setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; trySpawnMicroGoal(); updateHUD(); if(timeLeft<=0) requestEnd(); },1000);
+        const next = nextPadInterval();
+        padTimer = setTimeout(function tick(){ if(!running||paused) return; spawnPad(); padTimer=setTimeout(tick,nextPadInterval()); }, next);
+        try{ window.APP?.badge?.('Resume'); }catch(_){}
+      }
+    });
     byId('bankBtn')?.addEventListener('click', bankNow);
     byId('backBtn')?.addEventListener('click', ()=>{ location.href = HUB_URL; });
     byId('enterVRBtn')?.addEventListener('click', ()=>{ try{ document.querySelector('a-scene')?.enterVR?.(); }catch(_){} });
 
     addEventListener('keydown', (ev)=>{
-      if(ev.code==='Space'){ ev.preventDefault(); if(!running) start(); else togglePause(); }
+      if(ev.code==='Space'){ ev.preventDefault(); if(!running && !starting) start(); else if(running) { const e=new Event('click'); byId('pauseBtn')?.dispatchEvent(e); } }
       if(ev.code==='Escape'){ requestEnd(); }
       if(ev.key==='`'){ const d=byId('debug'); if(d) d.style.display = d.style.display==='none'?'block':'none'; }
     });
@@ -831,7 +813,7 @@
     });
   }
 
-  /* ===== How to Play (Shadow Breaker) ===== */
+  /* ===== How to Play (Quick) ===== */
   ;(function installHowTo(){
     const css = `
     #sbHelpBtn{position:fixed;left:160px;bottom:12px;z-index:9999;padding:8px 12px;border-radius:10px;border:0;background:#123047;color:#e6f7ff;font:600 12px system-ui;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}
@@ -839,14 +821,12 @@
     #sbHowTo{position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65)}
     #sbHowTo .card{width:min(820px,92vw);max-height:86vh;overflow:auto;background:#0b1118;border:1px solid #213546;border-radius:14px;padding:16px 18px;color:#e6f7ff;box-shadow:0 10px 30px rgba(0,0,0,.45)}
     #sbHowTo h2{margin:0 0 8px;font:800 18px/1.2 system-ui;letter-spacing:.3px}
-    #sbHowTo h3{margin:14px 0 6px;font:700 14px/1.25 system-ui;color:#9bd1ff}
     #sbHowTo p, #sbHowTo li{font:500 13px/1.5 system-ui;color:#d9f3ff}
-    #sbHowTo .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
     #sbHowTo .cta{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
     #sbHowTo .btn{padding:8px 12px;border-radius:10px;border:0;font:700 12px system-ui;cursor:pointer}
     #sbHowTo .btn.primary{background:#0e2233;color:#e6f7ff}
     #sbHowTo .btn.ghost{background:transparent;color:#a8cfe6;border:1px solid #2a465c}
-    @media (max-width:720px){ #sbHowTo .grid{grid-template-columns:1fr} #sbHelpBtn{left:12px;bottom:54px} }
+    @media (max-width:720px){ #sbHelpBtn{left:12px;bottom:54px} }
     `;
     const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
 
@@ -859,53 +839,11 @@
     wrap.innerHTML = `
       <div class="card" role="dialog" aria-labelledby="sbHowToTitle" aria-modal="true">
         <h2 id="sbHowToTitle">วิธีการเล่น · Shadow Breaker</h2>
-        <div class="grid">
-          <div>
-            <h3>เป้าหมาย</h3>
-            <ul>
-              <li>ป้องกัน/สวน “ท่าบอส” (ดาบ / วงแหวน / เพชร ฯลฯ)</li>
-              <li>ชกเป้า (วงกลม/สามเหลี่ยม/สี่เหลี่ยม/ห้าเหลี่ยม/หกเหลี่ยม/เพชร) เพื่อลด HP บอส</li>
-              <li>เลี่ยง <b>ระเบิด</b> — กดแล้วคอมโบจะถูกรีเซ็ต</li>
-            </ul>
-
-            <h3>การควบคุม</h3>
-            <ul>
-              <li><b>เดสก์ท็อป:</b> คลิกซ้าย = ชก/พารี/ทำลาย</li>
-              <li><b>มือถือ/VR:</b> แตะหน้าจอหรือจิ้มคอนโทรลเลอร์</li>
-              <li><b>คีย์ลัด:</b> Space = Start/Pause, Esc = End, B = Bank</li>
-            </ul>
-
-            <h3>คะแนน & คอมโบ</h3>
-            <ul>
-              <li>Perfect > Good (คะแนน/ดาเมจมากกว่า)</li>
-              <li>ไม่กด = ไม่หักคะแนน (เฉพาะ Shadow Breaker)</li>
-              <li>Bomb: กดแล้วคอมโบจะ 0</li>
-              <li>Fever: คอมโบถึงเกณฑ์ (Easy=15 / อื่นๆ=25) ได้ x1.5</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3>บอส & แพทเทิร์น</h3>
-            <ul>
-              <li>ดาบ (Slash): คลิกเพื่อพารี</li>
-              <li>วงแหวน (Ring): กดก่อนหมดเวลา</li>
-              <li>เพชร (Core): แตะด่วนเพื่อคริติคอล</li>
-            </ul>
-
-            <h3>Bank</h3>
-            <ul>
-              <li>คอมโบสะสม = กด Bank เพื่อเก็บเป็นคะแนนถาวร</li>
-              <li>ถ้าโดน Bomb ก่อนแบงก์ คอมโบจะหาย</li>
-            </ul>
-
-            <h3>ปรับความยาก</h3>
-            <ul>
-              <li>ใช้มุมขวาล่าง (Difficulty Dock) หรือ URL <code>?diff=easy</code></li>
-              <li>Assist เพิ่มช่วยเล็ง/เวลา: <code>?assist=1</code></li>
-            </ul>
-          </div>
-        </div>
-
+        <ul>
+          <li>ชกเป้าหลากรูปทรงเพื่อลด HP บอส • เลี่ยง Bomb (รีเซ็ตคอมโบ)</li>
+          <li>Space = Start/Pause, Esc = End, B = Bank</li>
+          <li>คอมโบ 25+ = Fever x1.5 · มี Cheer SFX ที่ 10/20/30</li>
+        </ul>
         <div class="cta">
           <button class="btn ghost" id="sbHowToClose">Close</button>
           <button class="btn primary" id="sbHowToStart">Start Now</button>
@@ -920,7 +858,6 @@
     wrap.addEventListener('click', (e)=>{ if(e.target===wrap) closeHowTo(); });
     wrap.querySelector('#sbHowToClose').addEventListener('click', closeHowTo);
     wrap.querySelector('#sbHowToStart').addEventListener('click', ()=>{ closeHowTo(); byId('startBtn')?.click(); });
-    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && wrap.style.display==='flex') closeHowTo(); });
 
     try{
       const KEY='sb_seenHowTo_v1';
@@ -952,13 +889,11 @@
         border:1px solid rgba(255,255,255,.08); border-radius:12px;
         padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;
       }
-      #sbDiffDock label{opacity:.9; letter-spacing:.3px;}
       #sbDiffSel{
         appearance:none; background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.14);
         border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;
       }
-      #sbDiffDock .chev{margin-left:-22px; pointer-events:none; user-select:none;}
-      @media (max-width:560px){ #sbDiffDock{ right:8px; bottom:8px; padding:6px 8px; } #sbDiffSel{ padding:6px 26px 6px 8px; } }
+      .chev{margin-left:-22px; pointer-events:none; user-select:none;}
     `;
     const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
 
@@ -987,9 +922,7 @@
       location.href = url.pathname + '?' + url.searchParams.toString();
     }, { passive:true });
 
-    document.addEventListener('keydown', function(ev){
-      if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')) sel.focus();
-    });
+    document.addEventListener('keydown', (ev)=>{ if ((ev.altKey||ev.metaKey) && (ev.key==='d'||ev.key==='D')) sel.focus(); });
   })();
 
 })();
