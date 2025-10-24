@@ -1,1246 +1,190 @@
-/* games/shadow-breaker/game.js
-   Shadow Breaker · game.js (15 FUN/CHALLENGE FEATURES • Difficulties • Mouse/Touch Click • Safe DOM • Fixed HUB • Center VR)
+/* ===== Shadow Breaker · Coach Add-on (DOM-driven, no core edits) =====
+   - ติดตั้งโค้ชโดยอ่านค่า HUD (#combo, #time, #phaseLabel, #hudStatus, #results)
+   - ทริกเกอร์: เริ่มเกม, คอมโบ 5/10/20/30, พลาดติดกัน, Fever, เข้า Phase 2, ใกล้หมดเวลา, จบเกม
+   - ใช้ได้เลยโดยวางต่อท้าย game.js เดิม (ไม่แก้ฟังก์ชันหลัก)
 */
-(function () {
+(function(){
   "use strict";
 
-  // ---------- Helpers ----------
-  const byId = (id) => document.getElementById(id);
-  const q = (sel) => document.querySelector(sel);
-  const qAll = (sel) => Array.from(document.querySelectorAll(sel));
+  // ---------- helpers ----------
+  const $ = (id)=>document.getElementById(id);
+  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
+  const safeNum = (v, d=0)=>{ const n = parseInt(v,10); return isNaN(n)?d:n; };
+  const nowms = ()=> performance.now();
 
-  // Null-safe remove (prevents removeChild-of-null inside A-Frame internals)
-  function safeRemove(el) {
-    try {
-      if (!el) return;
-      if (!el.isConnected && !el.parentNode) return;
-      if (el.parentNode) el.parentNode.removeChild(el);
-      else el.remove?.();
-    } catch (_e) {}
+  // ---------- coach UI ----------
+  function installCoachUI(){
+    if (document.getElementById('sbCoachBox')) return;
+    const box=document.createElement('div'); box.id='sbCoachBox';
+    Object.assign(box.style,{
+      position:'fixed', left:'12px', bottom:'12px', zIndex:9999,
+      display:'flex', gap:'8px', alignItems:'center',
+      background:'rgba(6,14,24,.82)', border:'1px solid rgba(0,255,170,.25)',
+      color:'#dff', padding:'8px 10px', borderRadius:'12px', maxWidth:'56vw',
+      font:'600 13px/1.25 system-ui,Segoe UI,Arial'
+    });
+    const avatar=document.createElement('div');
+    Object.assign(avatar.style,{
+      width:'36px', height:'36px', borderRadius:'50%',
+      background:'radial-gradient(#00c9a7,#006b62)', boxShadow:'0 0 12px rgba(0,255,200,.45) inset'
+    });
+    const text=document.createElement('div'); text.id='sbCoachText'; text.textContent='พร้อมลุย!';
+    box.appendChild(avatar); box.appendChild(text);
+    document.body.appendChild(box);
   }
+  installCoachUI();
 
-  let timeouts = new Set();
-  const after = (ms, fn) => {
-    const id = setTimeout(() => {
-      timeouts.delete(id);
-      try { fn(); } catch (_e) {}
-    }, ms);
-    timeouts.add(id);
-    return id;
-  };
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const APPX = {
-    badge: (t) => { if (window.APP?.badge) APP.badge(t); else console.log("[BADGE]", t); },
-    t: (k) => window.APP?.t ? APP.t(k) : k,
-  };
-  const getQuery = (k) => new URLSearchParams(location.search).get(k) || undefined;
-
-  // Paths
-  const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || "").replace(/\/+$/, "");
-  const HUB_URL = `${ASSET_BASE}/`; // ← fixed hub path
-
-  // ---------- Audio ----------
-  const lastPlay = new Map();
-  function play(a, guardMs = 110) {
-    try {
-      const now = performance.now();
-      if (lastPlay.get(a) && now - lastPlay.get(a) < guardMs) return;
-      a.currentTime = 0;
-      lastPlay.set(a, now);
-      if (a.paused) a.play();
-    } catch (_e) {}
+  // ---------- SFX (optional; ถ้าไม่มีไฟล์ จะข้ามแบบเงียบ ๆ) ----------
+  function S(p){ try{ const a=new Audio(p); a.preload='auto'; a.crossOrigin='anonymous'; return a; }catch(_){ return {play(){} }; }
   }
-  const SFXN = (p) => { const a = new Audio(p); a.onerror = () => console.warn("SFX not found:", p); return a; };
   const SFX = {
-    slash: SFXN(`${ASSET_BASE}/assets/sfx/slash.wav`),
-    laser: SFXN(`${ASSET_BASE}/assets/sfx/laser.wav`),
-    perfect: SFXN(`${ASSET_BASE}/assets/sfx/perfect.wav`),
-    miss: SFXN(`${ASSET_BASE}/assets/sfx/miss.wav`),
-    heavy: SFXN(`${ASSET_BASE}/assets/sfx/heavy.wav`),
-    combo: SFXN(`${ASSET_BASE}/assets/sfx/combo.wav`),
-    hp_hit: SFXN(`${ASSET_BASE}/assets/sfx/hp_hit.wav`),
-    boss_roar: SFXN(`${ASSET_BASE}/assets/sfx/boss_roar.wav`),
-    tel_slash: SFXN(`${ASSET_BASE}/assets/sfx/tel_slash.wav`),
-    tel_shock: SFXN(`${ASSET_BASE}/assets/sfx/tel_shock.wav`),
-    tel_guard: SFXN(`${ASSET_BASE}/assets/sfx/tel_guard.wav`),
-    tel_dash: SFXN(`${ASSET_BASE}/assets/sfx/tel_dash.wav`),
-    enrage: SFXN(`${ASSET_BASE}/assets/sfx/enrage.wav`),
-    success: SFXN(`${ASSET_BASE}/assets/sfx/success.wav`),
-    hyper: SFXN(`${ASSET_BASE}/assets/sfx/hyper.wav`),
-    overheat: SFXN(`${ASSET_BASE}/assets/sfx/overheat.wav`),
-    reward: SFXN(`${ASSET_BASE}/assets/sfx/reward.wav`),
-    fake: SFXN(`${ASSET_BASE}/assets/sfx/fake_alert.wav`),
+    go:    S(`${ASSET_BASE}/assets/sfx/coach_go.mp3`),
+    nice:  S(`${ASSET_BASE}/assets/sfx/coach_nice.mp3`),
+    warn:  S(`${ASSET_BASE}/assets/sfx/coach_warn.mp3`),
+    fever: S(`${ASSET_BASE}/assets/sfx/coach_fever.mp3`),
+    boss:  S(`${ASSET_BASE}/assets/sfx/coach_boss.mp3`),
+    end:   S(`${ASSET_BASE}/assets/sfx/coach_end.mp3`),
+    crowd10: S(`${ASSET_BASE}/assets/sfx/crowd10.mp3`),
+    crowd20: S(`${ASSET_BASE}/assets/sfx/crowd20.mp3`)
   };
 
-  // ---------- UI ping ----------
-  function pingUI(msg, color = "#ffcc00") {
-    let el = byId("toast");
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "toast";
-      document.body.appendChild(el);
-      Object.assign(el.style, {
-        position: "fixed", left: "50%", top: "12px", transform: "translateX(-50%)",
-        background: "rgba(10,12,16,.9)", color: "#ffcc00", padding: "8px 12px",
-        borderRadius: "10px", font: "600 14px/1.1 system-ui,Arial", zIndex: 9999,
-        letterSpacing: "0.4px", transition: "opacity .2s, transform .2s", opacity: "0"
-      });
-    }
-    el.style.color = color; el.textContent = msg; el.style.opacity = "1";
-    el.style.transform = "translateX(-50%) scale(1.02)";
-    setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateX(-50%) scale(1)"; }, 900);
-  }
-
-  // ---------- Difficulty ----------
-  function getDiffKey() {
-    const q = getQuery("diff");
-    const ls = localStorage.getItem("sb_diff");
-    return (window.APP?.story?.difficulty) || q || ls || "normal";
-  }
-  const DIFFS = {
-    easy: { hp: .85, atkWin: 1.15, dmgMul: .9, chainMin: 10, spawnInt: 950, scoreMul: .9, title: "EASY" },
-    normal: { hp: 1.0, atkWin: 1.0, dmgMul: 1.0, chainMin: 15, spawnInt: 900, scoreMul: 1.0, title: "NORMAL" },
-    hard: { hp: 1.2, atkWin: .9, dmgMul: 1.1, chainMin: 20, spawnInt: 820, scoreMul: 1.1, title: "HARD" },
-    final: { hp: 1.35, atkWin: .85, dmgMul: 1.2, chainMin: 25, spawnInt: 780, scoreMul: 1.2, title: "FINAL" }
-  };
-  let D = DIFFS.normal;
-
-  // ---------- State ----------
-  let running = false, paused = false, timer = null, spawnTimer = null;
-  let score = 0, combo = 0, maxCombo = 0, hits = 0, spawns = 0, timeLeft = 60, bank = 0;
-  let CURRENT_BOSS = 0, survivedStreak = 0, addedTimeThisPhase = 0;
-  let fever = false, feverT = 0, hyper = false;
-  let MQ = null;                       // micro quest (legacy)
-  let QuestChain = null;               // (3) Perfect Quest Chain
-  let AFFIX_SPLIT_SLASH = false, AFFIX_PHANTOM = false;
-  let ADAPT = 1;                       // adaptive
-  let OVERHEAT = 0;                    // (5) overheat 0..100
-  let MODE = (getQuery("mode") || "standard"); // (14) endurance / bossrush / standard
-  const COMFORT = !!(+getQuery("comfort") || 0); // (11)
-  const LEFTY = !!(+getQuery("lefty") || 0);     // (11)
-  const DAILY = !!(+getQuery("daily") || 0);     // (10)
-  const STANCES = { power: { dmg: 1.2, parry: .9, title: "POWER" }, swift: { dmg: .9, parry: 1.1, title: "SWIFT" } };
-  let ST = STANCES.swift;
-  window.PERFECT_BONUS = 0; window.PARRY_WINDOW = 1; window.TIME_SCALE = 1; window.EXTRA_BEAM = false;
-
-  // RNG (daily)
-  function dailySeed() {
-    const d = new Date(); const key = `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
-    let s = 0; for (const c of key) { s = (s * 131 + c.charCodeAt(0)) >>> 0; } return s >>> 0;
-  }
-  let seed = dailySeed();
-  function RND() { seed = (seed * 1664525 + 1013904223) >>> 0; return (seed & 0x7fffffff) / 0x80000000; }
-
-  const dur = (ms) => ms * D.atkWin * (ST.parry || 1) * (window.PARRY_WINDOW || 1) * (window.TIME_SCALE || 1) * (COMFORT ? 1.15 : 1) * ADAPT;
-
-  // Chain rule
-  let CHAIN_RULE = { minTimeLeft: 15 };
-
-  // ---------- Boss roster ----------
-  const BOSSES_ALL = [
-    { id: "RazorFist", title: "RAZORFIST", baseHP: 1000, color: "#ff3355", P1: ["slash_cross", "rapid_fist", "guard_break"], P2: ["shadow_dash", "multi_slash", "enrage_combo"] },
-    { id: "AshOni", title: "ASH ONI", baseHP: 1200, color: "#ffa133", P1: ["shadow_dash", "guard_break", "rapid_fist"], P2: ["multi_slash", "ground_shock", "enrage_combo_fast"] },
-    { id: "Nightblade", title: "NIGHTBLADE", baseHP: 1400, color: "#7a5cff", P1: ["blade_storm", "laser_grid", "guard_break"], P2: ["orb_spiral", "blade_storm_fast", "rage_finale"] },
-    { id: "VoidEmperor", title: "VOID EMPEROR", baseHP: 1800, color: "#8cf5ff", P1: ["mirror_slash", "doom_rings", "laser_grid"], P2: ["blade_storm_fast", "orb_spiral_fast", "void_finale"] }
-  ];
-  function makeRoster(diffKey) {
-    if (MODE === "bossrush") return BOSSES_ALL.slice(0, diffKey === "final" ? 4 : 3);
-    if (diffKey === "easy") return [BOSSES_ALL[0]];
-    if (diffKey === "normal") return [BOSSES_ALL[0], BOSSES_ALL[1]];
-    if (diffKey === "hard") return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2]];
-    return [BOSSES_ALL[0], BOSSES_ALL[1], BOSSES_ALL[2], BOSSES_ALL[3]];
-  }
-  let ROSTER = makeRoster("normal");
-
-  // ---------- Targets ----------
-  const TYPES = [
-    { id: "basic", color: "#00d0ff", baseGood: 20, basePerfect: 30, life: 2200, req: "any", icon: "◆" },
-    { id: "heavy", color: "#ff6b6b", baseGood: 40, basePerfect: 60, life: 2600, req: "angle", angle: "diag_lr", icon: "⬥" },
-    { id: "fast", color: "#ffd166", baseGood: 28, basePerfect: 40, life: 1400, req: "any", icon: "⬢" },
-    { id: "bonus", color: "#00ffa3", baseGood: 0, basePerfect: 0, life: 2200, req: "any", bonus: "time+5", icon: "✚" },
-    // (12) Shielded & Mirror
-    { id: "shield", color: "#8aa3ff", baseGood: 10, basePerfect: 25, life: 2600, req: "shield", icon: "🛡" },
-    { id: "mirror", color: "#d9a6ff", baseGood: 20, basePerfect: 35, life: 2400, req: "mirror", icon: "◎" },
-    // (6) Gesture target
-    { id: "gesture", color: "#9bffcc", baseGood: 22, basePerfect: 32, life: 2200, req: "gesture", icon: "↗" },
-  ];
-  const SLASH_SPEED_GOOD = 1.4, SLASH_SPEED_PERFECT = 2.2;
-  const HIT_DISTANCE_GOOD = 0.46, HIT_DISTANCE_PERFECT = 0.34;
-  const ANGLES = {
-    diag_lr: new THREE.Vector3(1, 0, -1).normalize(),
-    diag_rl: new THREE.Vector3(-1, 0, -1).normalize(),
-    updown: new THREE.Vector3(0, -1, -1).normalize(),
-    downup: new THREE.Vector3(0, 1, -1).normalize()
-  };
-  const ANGLE_TOL = 0.55;
-
-  // ---------- HUD ----------
-  function updateHUD() {
-    byId("score").textContent = Math.round((score + bank) * D.scoreMul);
-    byId("combo").textContent = combo;
-    byId("time").textContent = timeLeft;
-    if (byId("overheatBar")) byId("overheatBar").style.width = `${OVERHEAT}%`;
-    if (byId("feverTag")) {
-      byId("feverTag").textContent = hyper ? "HYPER" : (fever ? "FEVER" : "");
-      byId("feverTag").style.display = (fever || hyper) ? "inline-block" : "none";
-    }
-  }
-  function onComboChange() {
-    byId("combo").textContent = combo;
-    if (combo > 0 && combo % 10 === 0) { play(SFX.combo); APPX.badge("Combo x" + (1 + Math.floor(combo / 10))); }
-    if (combo > maxCombo) maxCombo = combo;
-    if (combo >= 30) tryFever();
-    if (combo >= 50) CHEEV.combo50 = true;
-  }
-  function setPhaseLabel(n) { const el = byId("phaseLabel"); if (el) el.textContent = "Phase " + n; }
-  function scoreAdd(v) {
-    let mul = fever ? 1.5 : 1;
-    if (hyper) mul = 2.0;
-    score += Math.round(v * mul);
-    OVERHEAT = Math.min(100, OVERHEAT + Math.min(8, 3 + v / 30)); // (5) build heat
-    updateHUD();
-  }
-
-  // Float text
-  function floatText(text, color, pos) {
-    const e = document.createElement("a-entity"), p = pos.clone(); p.y += 0.2;
-    e.setAttribute("text", { value: text, color, align: "center", width: 2.6 });
-    e.setAttribute("position", `${p.x} ${p.y} ${p.z}`);
-    e.setAttribute("scale", "0.001 0.001 0.001");
-    e.setAttribute("animation__in", { property: "scale", to: "1 1 1", dur: 90, easing: "easeOutQuad" });
-    e.setAttribute("animation__rise", { property: "position", to: `${p.x} ${p.y + 0.6} ${p.z}`, dur: 600, easing: "easeOutQuad" });
-    e.setAttribute("animation__fade", { property: "opacity", to: 0, dur: 480, delay: 160, easing: "linear" });
-    byId("arena").appendChild(e);
-    setTimeout(() => safeRemove(e), 820);
-  }
-
-  // ---------- Boss System ----------
-  const BOSS = { active: false, hp: 0, max: 1000, rage: false, phase: 1, busy: false, anchor: null, name: "", color: "#ff3355", P1: [], P2: [], armorShards: 0 };
-  function bossShowUI(show) { const bar = byId("bossBar"); if (bar) bar.style.display = show ? "block" : "none"; }
-  function bossSetHP(h) {
-    const was = BOSS.hp;
-    BOSS.hp = clamp(h, 0, BOSS.max);
-    const fill = byId("bossHPFill"); if (fill) fill.style.width = ((BOSS.hp / BOSS.max) * 100) + "%";
-    const bar = byId("bossBar");
-    if (bar) {
-      const rageNow = (BOSS.hp / BOSS.max) <= 0.33;
-      if (rageNow !== BOSS.rage) { BOSS.rage = rageNow; bar.classList.toggle("rage", BOSS.rage); }
-      bar.classList.add("hit"); setTimeout(() => bar.classList.remove("hit"), 240);
-    }
-    if (BOSS.phase === 1 && (BOSS.hp / BOSS.max) <= 0.5) enterPhase2();
-    if (BOSS.hp <= 0 && was > 0) onBossDefeated();
-  }
-  function bossDamage(amount, pos) {
-    if (!BOSS.active) return;
-    const armorPhase = (BOSS.phase === 2 && BOSS.armorShards > 0) ? 0.3 : 1.0;
-    const armorBase = BOSS.rage ? 0.1 : 0.2;
-    const final = Math.max(1, Math.round(amount * (ST.dmg || 1) * (1 - armorBase) * armorPhase * D.dmgMul));
-    play(SFX.hp_hit); bossSetHP(BOSS.hp - final);
-  }
-  function bossIntro() {
-    const arena = byId("arena");
-    const anchor = document.createElement("a-entity");
-    anchor.setAttribute("id", "bossAnchor");
-    anchor.setAttribute("position", "0 1.5 -3");
-    const head = document.createElement("a-sphere"); head.setAttribute("radius", "0.35"); head.setAttribute("color", "#1a1a1a"); head.setAttribute("position", "0 0 0");
-    const mask = document.createElement("a-box"); mask.setAttribute("depth", "0.06"); mask.setAttribute("width", "0.55"); mask.setAttribute("height", "0.45"); mask.setAttribute("color", BOSS.color || "#ff3355"); mask.setAttribute("position", "0 0 0.25");
-    const hornL = document.createElement("a-cone"); hornL.setAttribute("radius-bottom", "0.06"); hornL.setAttribute("radius-top", "0.01"); hornL.setAttribute("height", "0.28"); hornL.setAttribute("color", "#ff8844"); hornL.setAttribute("rotation", "-18 0 28"); hornL.setAttribute("position", "-0.2 0.18 0.16");
-    const hornR = document.createElement("a-cone"); hornR.setAttribute("radius-bottom", "0.06"); hornR.setAttribute("radius-top", "0.01"); hornR.setAttribute("height", "0.28"); hornR.setAttribute("color", "#ff8844"); hornR.setAttribute("rotation", "-18 0 -28"); hornR.setAttribute("position", "0.2 0.18 0.16");
-    anchor.appendChild(head); anchor.appendChild(mask); anchor.appendChild(hornL); anchor.appendChild(hornR);
-    arena.appendChild(anchor); BOSS.anchor = anchor;
-
-    bossShowUI(true); bossSetHP(BOSS.max);
-    play(SFX.boss_roar);
-    APPX.badge((BOSS.name || "BOSS") + " · " + (DIFFS[getDiffKey()]?.title || "NORMAL") + " · " + (ST.title || "")); setPhaseLabel(1);
-  }
-  function applyBossAffix() {
-    AFFIX_SPLIT_SLASH = false; AFFIX_PHANTOM = false;
-    const roll = RND();
-    if (roll < 0.5) { AFFIX_SPLIT_SLASH = true; APPX.badge("Affix: Split Slash"); }
-    else { AFFIX_PHANTOM = true; APPX.badge("Affix: Phantoms"); }
-  }
-  function bossSpawn(index = 0) {
-    const cfg = ROSTER[index] || ROSTER[0];
-    BOSS.active = true;
-    BOSS.max = Math.round(cfg.baseHP * D.hp);
-    BOSS.hp = BOSS.max; BOSS.rage = false; BOSS.phase = 1; BOSS.busy = false; BOSS.armorShards = 0;
-    BOSS.name = cfg.title; BOSS.color = cfg.color; BOSS.P1 = cfg.P1.slice(); BOSS.P2 = cfg.P2.slice();
-    if (MODE === "bossrush") { BOSS.P1 = cfg.P1.slice(0, 2); BOSS.P2 = cfg.P2.slice(0, 2); }
-    bossIntro(); pIndex = 0; lastPattern = "";
-    if (index >= 1) applyBossAffix();
-    after(900, bossLoop);
-  }
-  function onBossDefeated() {
-    BOSS.active = false;
-    floatText("BOSS DEFEATED", "#00ffa3", new THREE.Vector3(0, 1.6, -2.3));
-    scoreAdd(250);
-    survivedStreak = 0;
-
-    // (1) Card reward
-    showCardReward(() => {
-      // Continue chain
-      const lastBoss = (CURRENT_BOSS >= ROSTER.length - 1);
-      const canChain = (!lastBoss && timeLeft >= CHAIN_RULE.minTimeLeft) || MODE === "endurance" || MODE === "bossrush";
-      if (canChain) {
-        APPX.badge("Next Boss…");
-        CURRENT_BOSS++;
-        clearArena(); bossShowUI(false);
-        after(900, () => { bossShowUI(true); bossSpawn(CURRENT_BOSS % ROSTER.length); });
-        return;
+  // ---------- coach speak queue ----------
+  const coachQ=[]; let coachBusy=false; let lastCoachAt=0;
+  function coachSay(msg, sfx=null, ttl=2100){
+    const t=nowms();
+    // กันสแปม: เว้นอย่างน้อย 600ms
+    if (t - lastCoachAt < 600){ coachQ.push({msg,sfx,ttl}); return; }
+    lastCoachAt = t;
+    const el = $('sbCoachText'); if(!el) return;
+    el.textContent = msg;
+    try{ sfx && sfx.play && sfx.play(); }catch(_){}
+    if (coachBusy) return;
+    coachBusy = true;
+    setTimeout(()=>{
+      coachBusy = false;
+      if (coachQ.length){
+        const n = coachQ.shift();
+        coachSay(n.msg, n.sfx, n.ttl);
       }
-      end();
-    });
-  }
-  function enterPhase2() {
-    BOSS.phase = 2;
-    addedTimeThisPhase = 0;
-    APPX.badge("Phase 2"); play(SFX.enrage); setPhaseLabel(2);
-    BOSS.armorShards = 2;
-    spawnArmorShard(new THREE.Vector3(-0.5, 1.55, -2.3));
-    spawnArmorShard(new THREE.Vector3(0.5, 1.45, -2.3));
-    if (RND() < 0.35) after(dur(500), spawnHazard);
-    // (13) short skill drill interlude chance
-    if (RND() < 0.25) after(dur(200), () => skillDrill(5, 10, 1800));
-  }
-  function spawnArmorShard(pos) {
-    const g = document.createElement("a-icosahedron");
-    g.classList.add("clickable", "boss-attack");
-    g.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
-    g.setAttribute("radius", "0.16"); g.setAttribute("color", "#ffd166");
-    g.setAttribute("animation__pulse", "property: scale; dir: alternate; to: 1.15 1.15 1.15; loop: true; dur: 380; easing: easeInOutSine");
-    byId("arena").appendChild(g);
-    g.addEventListener("click", () => {
-      floatText("ARMOR -1", "#ffd166", g.object3D.getWorldPosition(new THREE.Vector3()));
-      safeRemove(g);
-      BOSS.armorShards = Math.max(0, BOSS.armorShards - 1);
-    });
-    after(dur(3000), () => { if (g && g.parentNode) { safeRemove(g); playerHit(); } });
+    }, ttl);
   }
 
-  // (2) Bank: interest + risk
-  let bankTicker = null;
-  function startBankInterest() {
-    clearInterval(bankTicker);
-    bankTicker = setInterval(() => {
-      if (!running) return;
-      const add = Math.floor(bank * 0.10);
-      if (add > 0) { bank += add; APPX.badge(`Bank +${add} (interest)`); updateHUD(); }
-    }, 15000);
+  // ---------- DOM watchers ----------
+  let lastCombo = 0;
+  let missStreak = 0;
+  let lastPhase = '1';
+  let feverWasOn = false;
+  let running = false;      // เดาว่ากำลังเล่นจาก HUD
+  let lastTime = 0;
+  let startedOnce = false;  // กันพูดซ้ำตอนเริ่ม
+  let resultsShown = false;
+
+  function isResultsVisible(){
+    const r = $('results'); if(!r) return false;
+    return (getComputedStyle(r).display!=='none');
+  }
+  function isFeverOn(){
+    // เกมหลักมี HUD เสริม: ถ้าขึ้นคำว่า FEVER ในกล่องมุมขวาบน
+    const hs = $('hudStatus'); if(!hs) return false;
+    return /\bFEVER\b/i.test(hs.textContent||'');
+  }
+  function readCombo(){ return safeNum(($('combo')?.textContent||'0'), 0); }
+  function readTime(){ return safeNum(($('time')?.textContent||'0'), 0); }
+  function readPhase(){ return ( $('phaseLabel')?.textContent || 'Phase 1' ).replace(/^\D+/,'') || '1'; }
+
+  // ---------- reactions ----------
+  function onStart(){
+    coachSay('เริ่มจากช้า ๆ โฟกัสจังหวะและเส้นเตือน!', SFX.go, 2400);
+  }
+  function onComboMilestone(c){
+    if (c===5)  coachSay('ดีมาก! จังหวะมาแล้ว!', SFX.nice);
+    if (c===10){ coachSay('สุดยอด! รักษาความต่อเนื่อง!', SFX.nice); try{SFX.crowd10.play();}catch(_){} }
+    if (c===20){ coachSay('อย่างเทพ! อย่าพลาดนะ!', SFX.nice, 1800); try{SFX.crowd20.play();}catch(_){} }
+    if (c===30){ coachSay('โฟกัส! คอมโบสูงมากแล้ว!', SFX.nice, 1800); }
+  }
+  function onMiss(){
+    missStreak++;
+    if (missStreak===2) coachSay('ช้าไปนิด ลองตัดเร็วขึ้น!', SFX.warn);
+    if (missStreak>=4) coachSay('ลองขยับมือตามแนวสลาชให้ชัด ๆ!', SFX.warn, 2600);
+  }
+  function onHit(){
+    // รีเซ็ต streak เมื่อคอมโบเพิ่ม
+    missStreak = 0;
+  }
+  function onFeverOn(){ coachSay('FEVER มาแล้ว! แต้มคูณ โกยให้สุด!', SFX.fever, 1800); }
+  function onPhase2(){ coachSay('Phase 2! ล็อคจังหวะให้แน่น ระวังท่าพิเศษ!', SFX.boss, 2200); }
+  function onLowTime(){ coachSay('เหลือเวลาไม่มาก เร่งมือ!', SFX.warn, 1500); }
+  function onEnd(gradeText){
+    // gradeText: สรุปจากหน้าผลลัพธ์ (ถ้ามี)
+    coachSay(`จบเกมแล้ว! ${gradeText||''}`.trim(), SFX.end, 2200);
   }
 
-  // (3) Perfect Quest Chain
-  function startQuestChain() { QuestChain = { stage: 0, need: 3, done: 0, until: performance.now() + 14000 }; APPX.badge("QUEST: Perfect x3"); }
-  function tickQuestChain() {
-    if (!QuestChain) return;
-    if (performance.now() > QuestChain.until) { APPX.badge("QUEST Fail"); QuestChain = null; return; }
-  }
-  setInterval(tickQuestChain, 400);
-
-  function onPerfect() {
-    if (MQ) { MQ.done++; if (MQ.done >= MQ.need) { timeLeft = Math.min(99, timeLeft + 5); byId("time").textContent = timeLeft; APPX.badge("OBJ Clear +5s"); MQ = null; } }
-    if (QuestChain) {
-      QuestChain.done++;
-      if (QuestChain.done >= QuestChain.need) {
-        // reward
-        timeLeft = Math.min(99, timeLeft + 5);
-        APPX.badge("QUEST +5s"); play(SFX.success);
-        // next stage
-        QuestChain.stage++;
-        const order = [5, 7, 9];
-        if (QuestChain.stage < order.length) {
-          QuestChain.need = order[QuestChain.stage];
-          QuestChain.done = 0;
-          QuestChain.until = performance.now() + 16000;
-          APPX.badge(`QUEST: Perfect x${QuestChain.need}`);
-        } else { QuestChain = null; }
-      }
-    }
-  }
-
-  // (4) Fake Telegraph chance helper
-  function maybeFakeTelegraph(prob = 0.2) {
-    if (RND() < prob) { play(SFX.fake); return true; }
-    return false;
-  }
-
-  // Fever + Hyper (8)
-  function tryFever() {
-    if (!fever && combo >= 30) {
-      fever = true; hyper = false; feverT = performance.now() + 8000;
-      APPX.badge("FEVER!"); pingUI("FEVER x1.5", "#ffd166");
-      byId("feverTag")?.classList.add("glow");
-    }
-  }
-  function tickFever() {
-    if (fever && !hyper && performance.now() < feverT && CHEEV.lastPerfectStamp && (performance.now() - CHEEV.lastPerfectStamp < 1600) && combo % 10 === 0) {
-      // chain of perfects inside fever → chance hyper
-      if (RND() < 0.35) {
-        hyper = true; feverT += 4000;
-        APPX.badge("HYPER FEVER!"); pingUI("HYPER x2.0", "#ffed66"); play(SFX.hyper);
-      }
-    }
-    if (fever && performance.now() > feverT) {
-      fever = false; hyper = false; APPX.badge("Fever End"); byId("feverTag")?.classList.remove("glow");
-    }
-  }
-  setInterval(tickFever, 150);
-
-  // Legacy Micro-Quest (kept)
-  function spawnMicroQuest() { MQ = { need: 5, done: 0, until: performance.now() + 8000 }; APPX.badge("OBJ: PERFECT x5!"); }
-  setInterval(() => { if (!running) return; if (!MQ && RND() < 0.03) spawnMicroQuest(); if (MQ && performance.now() > MQ.until) { APPX.badge("OBJ Fail"); MQ = null; } }, 1000);
-
-  // ---------- Boss patterns ----------
-  let pIndex = 0, lastPattern = "";
-  function pickPattern(arr) {
-    let p = arr[pIndex % arr.length]; pIndex++;
-    if (p === lastPattern) { p = arr[(pIndex) % arr.length]; pIndex++; }
-    lastPattern = p; return p;
-  }
-  function bossLoop() {
-    if (!running || !BOSS.active || BOSS.busy) return;
-    const arr = (BOSS.phase === 1 ? BOSS.P1 : BOSS.P2);
-    const pattern = pickPattern(arr);
-    ({
-      "slash_cross": doSlashCross,
-      "rapid_fist": doRapidFist,
-      "guard_break": doGuardBreak,
-      "shadow_dash": doShadowDash,
-      "multi_slash": doMultiSlash,
-      "enrage_combo": doEnrageCombo,
-      // boss 2
-      "ground_shock": doGroundShock,
-      "enrage_combo_fast": doEnrageComboFast,
-      // boss 3
-      "blade_storm": doBladeStorm,
-      "blade_storm_fast": () => doBladeStorm(true),
-      "laser_grid": doLaserGrid,
-      "orb_spiral": doOrbSpiral,
-      "rage_finale": doRageFinale,
-      // final boss
-      "mirror_slash": doMirrorSlash,
-      "doom_rings": doDoomRings,
-      "orb_spiral_fast": () => doOrbSpiral(true),
-      "void_finale": doVoidFinale
-    }[pattern] || (() => { BOSS.busy = false; }))();
-  }
-  function finishAttack() {
-    if (BOSS.phase === 2) {
-      survivedStreak++;
-      if (survivedStreak >= 3) { survivedStreak = 0; spawnOverheatCore(); }
-    }
-    const accel = (BOSS.phase === 2 ? 0.85 : 1);
-    BOSS.busy = false; after(dur(520 * accel), bossLoop);
-  }
-  function spawnOverheatCore() {
-    const g = document.createElement("a-icosahedron");
-    g.classList.add("clickable");
-    g.setAttribute("position", "0 1.62 -2.35"); g.setAttribute("radius", "0.22"); g.setAttribute("color", "#ffcc00");
-    byId("arena").appendChild(g);
-    pingUI("OVERHEAT!", "#ffcc00"); floatText("OVERHEAT!", "#ffcc00", new THREE.Vector3(0, 1.6, -2.35));
-    g.addEventListener("click", () => {
-      const p = g.object3D.getWorldPosition(new THREE.Vector3());
-      floatText("CRIT +50", "#ffcc00", p);
-      bossDamage(50, p); scoreAdd(50);
-      safeRemove(g);
-    });
-    after(dur(900), () => { if (g && g.parentNode) safeRemove(g); });
-  }
-  function playerHit() {
-    ADAPT = Math.min(1.3, ADAPT * 1.06);
-    setTimeout(() => { ADAPT = Math.max(1, ADAPT * 0.98); }, 1200);
-
-    // (2) Bank risk
-    if (bank > 0) { const cut = Math.floor(bank * 0.5); bank -= cut; APPX.badge(`Bank lost -${cut}`); }
-
-    survivedStreak = 0;
-    if (fever) { fever = false; hyper = false; APPX.badge("Fever Lost"); }
-    CHEEV.noHit = false;
-    combo = 0; onComboChange();
-    score = Math.max(0, score - 5); updateHUD();
-    APPX.badge("HIT!");
-    const scn = q("a-scene"); if (scn) { scn.classList.add("shake-scene"); setTimeout(() => scn.classList.remove("shake-scene"), 240); }
-  }
-
-  // --- Moves (with small "fake telegraph" chance) ---
-  function doSlashCross() {
-    BOSS.busy = true; const fake = maybeFakeTelegraph(0.18); play(SFX.tel_slash);
-    const mk = (rot, y = 1.4) => {
-      const g = document.createElement("a-entity");
-      g.setAttribute("geometry", "primitive: box; height: 0.04; width: 1.2; depth: 0.04");
-      g.setAttribute("material", "color:#5de1ff;opacity:.95;transparent:true");
-      g.setAttribute("rotation", `0 0 ${rot}`); g.setAttribute("position", `0 ${y} -2.2`); g.classList.add("clickable", "boss-attack");
-      byId("arena").appendChild(g);
-      g.addEventListener("click", () => { if (fake) { playerHit(); safeRemove(g); return; } floatText("PARRY", "#00ffa3", g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(28, new THREE.Vector3(0, 1.5, -3)); safeRemove(g); });
-      return g;
-    };
-    const main = mk(-35, 1.4);
-    const extras = [];
-    if (AFFIX_SPLIT_SLASH) extras.push(mk(35, 1.46));
-    if (AFFIX_PHANTOM && RND() < 0.5) extras.push(mk(-15, 1.32));
-    after(dur(BOSS.phase === 1 ? 900 : 700), () => {
-      [main, ...extras].forEach(g => { if (g && g.parentNode) { playerHit(); safeRemove(g); } }); finishAttack();
-    });
-  }
-  function doRapidFist() {
-    BOSS.busy = true; let count = 0;
-    (function next() {
-      play(SFX.tel_shock);
-      spawnShockwave(() => { count++; if (count < (BOSS.phase === 1 ? 3 : 4)) { after(dur(BOSS.phase === 1 ? 450 : 380), next); } else { finishAttack(); } });
-    })();
-  }
-  function spawnShockwave(done) {
-    const ring = document.createElement("a-ring"); ring.classList.add("clickable", "boss-attack");
-    ring.setAttribute("position", "0 1.2 -2.6"); ring.setAttribute("radius-inner", "0.05"); ring.setAttribute("radius-outer", "0.07");
-    ring.setAttribute("material", "color:#ffd166;opacity:.95;shader:flat"); byId("arena").appendChild(ring);
-    ring.addEventListener("click", () => { const p = ring.object3D.getWorldPosition(new THREE.Vector3()); floatText("BREAK", "#00ffa3", p); bossDamage(16, p); safeRemove(ring); done && done(); });
-    const start = performance.now(), T = dur(BOSS.phase === 1 ? 700 : 560);
-    (function step() {
-      if (!ring || !ring.parentNode) return; const t = (performance.now() - start) / T; const r = 0.07 + t * 0.9;
-      ring.setAttribute("radius-inner", Math.max(0.01, r - 0.02)); ring.setAttribute("radius-outer", r);
-      if (t >= 1.0) { playerHit(); safeRemove(ring); done && done(); return; } requestAnimationFrame(step);
-    })();
-  }
-  function doGuardBreak() {
-    BOSS.busy = true; play(SFX.tel_guard);
-    const core = document.createElement("a-sphere"); core.classList.add("clickable", "boss-attack");
-    core.setAttribute("radius", "0.2"); core.setAttribute("color", "#ff6b6b"); core.setAttribute("position", "0 1.1 -2.2");
-    core.setAttribute("scale", "0.001 0.001 0.001"); core.setAttribute("animation__in", { property: "scale", to: "1 1 1", dur: 140, easing: "easeOutBack" });
-    byId("arena").appendChild(core);
-    core.addEventListener("click", () => { const p = core.object3D.getWorldPosition(new THREE.Vector3()); bossDamage(10, p); safeRemove(core); finishAttack(); });
-    after(dur(BOSS.phase === 1 ? 900 : 750), () => { if (core && core.parentNode) { playerHit(); safeRemove(core); } finishAttack(); });
-  }
-  function doShadowDash() {
-    BOSS.busy = true; play(SFX.tel_dash);
-    const l = document.createElement("a-box"), r = document.createElement("a-box");
-    [l, r].forEach((b, i) => {
-      b.classList.add("clickable", "boss-attack"); b.setAttribute("width", "0.5"); b.setAttribute("height", "0.3"); b.setAttribute("depth", "0.05");
-      b.setAttribute("color", i === 0 ? "#00d0ff" : "#00ffa3"); b.setAttribute("position", (i === 0 ? "-0.9" : "0.9") + " 1.0 -2.0"); byId("arena").appendChild(b);
-    });
-    let ok = false; const hit = (box) => { if (ok) return; ok = true; floatText("DODGE", "#9bd1ff", box.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12, new THREE.Vector3(0, 1.5, -3)); cleanup(); };
-    l.addEventListener("click", () => hit(l)); r.addEventListener("click", () => hit(r));
-    after(dur(700), () => { if (!ok) playerHit(); cleanup(); });
-    function cleanup() { [l, r].forEach(b => b && b.parentNode && safeRemove(b)); finishAttack(); }
-  }
-  function doMultiSlash() {
-    BOSS.busy = true; const seq = [-35, 35]; let i = 0;
-    (function next() {
-      play(SFX.tel_slash);
-      const g = document.createElement("a-entity"); g.setAttribute("geometry", "primitive: box; height: 0.04; width: 1.2; depth: 0.04");
-      g.setAttribute("material", "color:#5de1ff;opacity:.95;transparent:true"); g.setAttribute("rotation", "0 0 " + seq[i]); g.setAttribute("position", "0 1.35 -2.2");
-      g.classList.add("clickable", "boss-attack"); byId("arena").appendChild(g);
-      let ok = false; g.addEventListener("click", () => { ok = true; floatText("PARRY", "#00ffa3", g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(16, new THREE.Vector3(0, 1.5, -3)); safeRemove(g); });
-      after(dur(650), () => { if (g && g.parentNode) { safeRemove(g); if (!ok) playerHit(); } i++; if (i < seq.length) { after(dur(120), next); } else { finishAttack(); } });
-    })();
-  }
-  function doEnrageCombo() {
-    BOSS.busy = true; play(SFX.enrage); APPX.badge("ENRAGE!");
-    const seq = [() => qs(() => step()), () => qw(() => step()), () => qg(() => step()), () => gem(() => finishAttack())];
-    let j = 0; function step() { j++; if (j < seq.length) seq[j](); } seq[0]();
-    function qs(done) {
-      const g = document.createElement("a-entity"); g.setAttribute("geometry", "primitive: box; height: 0.04; width: 1.2; depth: 0.04");
-      g.setAttribute("material", "color:#5de1ff;opacity:.95;transparent:true"); g.setAttribute("rotation", "0 0 -35"); g.setAttribute("position", "0 1.4 -2.2"); g.classList.add("clickable");
-      byId("arena").appendChild(g); let ok = false; play(SFX.tel_slash);
-      g.addEventListener("click", () => { ok = true; bossDamage(18, new THREE.Vector3(0, 1.5, -3)); safeRemove(g); done(); });
-      after(dur(520), () => { if (g && g.parentNode) { safeRemove(g); if (!ok) playerHit(); } done(); });
-    }
-    function qw(done) {
-      play(SFX.tel_shock);
-      const ring = document.createElement("a-ring"); ring.classList.add("clickable"); ring.setAttribute("position", "0 1.2 -2.6");
-      ring.setAttribute("radius-inner", "0.05"); ring.setAttribute("radius-outer", "0.07"); ring.setAttribute("material", "color:#ffd166;opacity:.95;shader:flat");
-      byId("arena").appendChild(ring);
-      ring.addEventListener("click", () => { bossDamage(14, ring.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(ring); done(); });
-      const start = performance.now(), T = dur(500); (function step() {
-        if (!ring || !ring.parentNode) return; const t = (performance.now() - start) / T, r = 0.07 + t * 0.9;
-        ring.setAttribute("radius-inner", Math.max(0.01, r - 0.02)); ring.setAttribute("radius-outer", r); if (t >= 1.0) { playerHit(); safeRemove(ring); done(); return; } requestAnimationFrame(step);
-      })();
-    }
-    function qg(done) {
-      play(SFX.tel_guard);
-      const core = document.createElement("a-sphere"); core.classList.add("clickable"); core.setAttribute("radius", "0.18"); core.setAttribute("color", "#ff6b6b"); core.setAttribute("position", "0 1.15 -2.2");
-      core.setAttribute("scale", "0.001 0.001 0.001"); core.setAttribute("animation__in", { property: "scale", to: "1 1 1", dur: 120, easing: "easeOutBack" });
-      byId("arena").appendChild(core); let ok = false; core.addEventListener("click", () => { ok = true; bossDamage(12, core.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(core); done(); });
-      after(dur(600), () => { if (core && core.parentNode) { safeRemove(core); if (!ok) playerHit(); } done(); });
-    }
-    function gem(done) {
-      const g = document.createElement("a-icosahedron"); g.classList.add("clickable"); g.setAttribute("position", "0 1.6 -2.4"); g.setAttribute("radius", "0.18"); g.setAttribute("color", "#00ffa3"); byId("arena").appendChild(g);
-      g.addEventListener("click", () => { floatText("CRITICAL!", "#00ffa3", g.object3D.getWorldPosition(new THREE.Vector3())); play(SFX.success); bossDamage(40, g.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(g); done(); });
-      after(dur(700), () => { if (g && g.parentNode) { safeRemove(g); } done(); });
-    }
-  }
-  function doGroundShock() {
-    if (BOSS.phase === 2) return doGroundShockP2();
-    BOSS.busy = true; let c = 0;
-    (function next() {
-      play(SFX.tel_shock);
-      spawnShockwave(() => { c++; if (c < 5) { after(dur(300), next); } else { finishAttack(); } });
-    })();
-  }
-  function doGroundShockP2() {
-    BOSS.busy = true;
-    const lanes = [-0.8, 0, 0.8];
-    let safe = lanes[Math.floor(RND() * lanes.length)];
-    let doneCount = 0, need = 2;
-
-    function paint() {
-      lanes.forEach(x => {
-        const r = document.createElement("a-ring"); r.classList.add("clickable", "boss-attack");
-        r.setAttribute("position", `${x} 1.15 -2.6`);
-        r.setAttribute("radius-inner", "0.05"); r.setAttribute("radius-outer", "0.07");
-        r.setAttribute("material", `color:${x === safe ? "#00ffa3" : "#ffd166"};opacity:.9;shader:flat`);
-        byId("arena").appendChild(r);
-        r.addEventListener("click", () => { if (x !== safe) { doneCount++; } floatText("BREAK", x === safe ? "#00ffa3" : "#ffd166", r.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(r); });
-        const start = performance.now(), T = dur(720);
-        (function step() {
-          if (!r || !r.parentNode) return;
-          const t = (performance.now() - start) / T, base = 0.07 + t * 0.9;
-          r.setAttribute("radius-inner", Math.max(0.01, base - 0.02));
-          r.setAttribute("radius-outer", base);
-          if (t >= 1) { if (r.parentNode) safeRemove(r); return; }
-          requestAnimationFrame(step);
-        })();
-      });
-    }
-    paint();
-    // (9) safe lane swap
-    const swap = after(dur(2000), () => { safe = lanes[(lanes.indexOf(safe) + 1) % lanes.length]; paint(); });
-    after(dur(760 + 2000), () => { clearTimeout(swap); if (doneCount < need) playerHit(); else bossDamage(22, new THREE.Vector3(0, 1.5, -3)); finishAttack(); });
-  }
-  function doEnrageComboFast() { const save = BOSS.P2; BOSS.P2 = ["multi_slash", "ground_shock"]; doEnrageCombo(); after(dur(2000), () => { BOSS.P2 = save; }); }
-  function doBladeStorm(fast = false) {
-    BOSS.busy = true;
-    const count = fast ? 4 : 3; let i = 0;
-    (function stepOne() {
-      play(SFX.tel_slash);
-      const rot = (-50 + RND() * 100).toFixed(0);
-      const g = document.createElement("a-entity");
-      g.setAttribute("geometry", "primitive: box; height: 0.04; width: 1.25; depth: 0.04");
-      g.setAttribute("material", "color:#7a5cff;opacity:.9;transparent:true");
-      g.setAttribute("rotation", `0 0 ${rot}`); g.setAttribute("position", "0 1.38 -2.2"); g.classList.add("clickable", "boss-attack");
-      byId("arena").appendChild(g);
-      if (AFFIX_PHANTOM && RND() < 0.4) { const p = g.cloneNode(); p.object3D.position.y += 0.06; byId("arena").appendChild(p); }
-      let ok = false; g.addEventListener("click", () => { ok = true; floatText("PARRY", "#a899ff", g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast ? 18 : 16, new THREE.Vector3(0, 1.5, -3)); safeRemove(g); });
-      after(dur(fast ? 520 : 650), () => { if (g && g.parentNode) { safeRemove(g); if (!ok) playerHit(); } i++; if (i < count) after(dur(100), stepOne); else finishAttack(); });
-    })();
-  }
-  function doLaserGrid() {
-    BOSS.busy = true;
-    const mk = (x, y, rot) => {
-      const b = document.createElement("a-entity");
-      b.setAttribute("geometry", "primitive: box; height:.035;width:1.4;depth:.03");
-      b.setAttribute("material", "color:#5de1ff;opacity:.9;transparent:true");
-      b.setAttribute("position", `${x} ${y} -2.2`); b.setAttribute("rotation", `0 0 ${rot}`);
-      b.classList.add("clickable", "boss-attack"); byId("arena").appendChild(b); return b;
-    };
-    play(SFX.tel_dash);
-    const a = mk(0, 1.3, -15), b = mk(0, 1.5, 15);
-    let ca = false, cb = false;
-    if (window.EXTRA_BEAM) { const c = mk(0, 1.4, 0); c.addEventListener("click", () => { floatText("CUT", "#5de1ff", c.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(c); }); after(dur(800), () => { if (c && c.parentNode) safeRemove(c); }); }
-    const ok = () => { if (ca && cb) { bossDamage(28, new THREE.Vector3(0, 1.5, -3)); cleanup(); } };
-    a.addEventListener("click", () => { ca = true; floatText("CUT", "#5de1ff", a.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(a); ok(); });
-    b.addEventListener("click", () => { cb = true; floatText("CUT", "#5de1ff", b.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(b); ok(); });
-    after(dur(800), () => cleanup(true));
-    function cleanup(timeout) {
-      if (a && a.parentNode) { safeRemove(a); if (timeout && !ca) playerHit(); }
-      if (b && b.parentNode) { safeRemove(b); if (timeout && !cb) playerHit(); }
-      finishAttack();
-    }
-  }
-  function doOrbSpiral(fast = false) {
-    BOSS.busy = true;
-    const center = new THREE.Vector3(0, 1.4, -2.3);
-    const orbs = [];
-    for (let i = 0; i < 4; i++) {
-      const o = document.createElement("a-sphere"); o.classList.add("clickable", "boss-attack");
-      o.setAttribute("radius", "0.1"); o.setAttribute("color", fast ? "#c9b6ff" : "#a899ff");
-      o.dataset.theta = (i / 4) * Math.PI * 2;
-      byId("arena").appendChild(o); orbs.push(o);
-      o.addEventListener("click", () => { floatText("BREAK", fast ? "#c9b6ff" : "#a899ff", o.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast ? 12 : 10, center); safeRemove(o); });
-    }
-    const start = performance.now(), T = dur(fast ? 1800 : (BOSS.phase === 1 ? 2600 : 2000));
-    (function step() {
-      const t = (performance.now() - start) / T;
-      let alive = false;
-      orbs.forEach((o, idx) => {
-        if (!o || !o.parentNode) return;
-        alive = true;
-        const theta = (+o.dataset.theta) + t * (fast ? 4.6 : (BOSS.phase === 1 ? 2.5 : 3.6));
-        const r = 0.5 + 0.2 * Math.sin(t * 4 + idx);
-        const x = center.x + Math.cos(theta) * r;
-        const y = center.y + Math.sin(theta) * r * 0.6;
-        o.setAttribute("position", `${x.toFixed(3)} ${y.toFixed(3)} ${center.z}`);
-      });
-      if (t >= 1) { orbs.forEach(o => { if (o && o.parentNode) { safeRemove(o); playerHit(); } }); finishAttack(); return; }
-      if (!alive) { finishAttack(); return; }
-      requestAnimationFrame(step);
-    })();
-  }
-  function doRageFinale() {
-    BOSS.busy = true; play(SFX.enrage); APPX.badge("FINAL RAGE!");
-    const seq = [() => qs(() => step()), () => qw(() => step()), () => gem(() => finishAttack(true))];
-    let j = 0; function step() { j++; if (j < seq.length) seq[j](); } seq[0]();
-    function qs(done) {
-      const g = document.createElement("a-entity"); g.setAttribute("geometry", "primitive: box; height: 0.04; width: 1.25; depth: 0.04");
-      g.setAttribute("material", "color:#7a5cff;opacity:.95;transparent:true"); g.setAttribute("rotation", "0 0 -30"); g.setAttribute("position", "0 1.4 -2.2"); g.classList.add("clickable");
-      byId("arena").appendChild(g); let ok = false; play(SFX.tel_slash);
-      g.addEventListener("click", () => { ok = true; bossDamage(22, new THREE.Vector3(0, 1.5, -3)); safeRemove(g); done(); });
-      after(dur(450), () => { if (g && g.parentNode) { safeRemove(g); if (!ok) playerHit(); } done(); });
-    }
-    function qw(done) {
-      play(SFX.tel_shock);
-      const ring = document.createElement("a-ring"); ring.classList.add("clickable"); ring.setAttribute("position", "0 1.2 -2.6");
-      ring.setAttribute("radius-inner", "0.05"); ring.setAttribute("radius-outer", "0.07"); ring.setAttribute("material", "color:#ffd166;opacity:.95;shader:flat");
-      byId("arena").appendChild(ring);
-      ring.addEventListener("click", () => { bossDamage(18, ring.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(ring); done(); });
-      const start = performance.now(), T = dur(420); (function step() {
-        if (!ring || !ring.parentNode) return; const t = (performance.now() - start) / T, r = 0.07 + t * 0.9;
-        ring.setAttribute("radius-inner", Math.max(0.01, r - 0.02)); ring.setAttribute("radius-outer", r); if (t >= 1.0) { playerHit(); safeRemove(ring); done(); return; } requestAnimationFrame(step);
-      })();
-    }
-    function gem(done) {
-      const g = document.createElement("a-icosahedron"); g.classList.add("clickable"); g.setAttribute("position", "0 1.6 -2.4"); g.setAttribute("radius", "0.2"); g.setAttribute("color", "#00ffa3"); byId("arena").appendChild(g);
-      g.addEventListener("click", () => { floatText("CRITICAL!", "#00ffa3", g.object3D.getWorldPosition(new THREE.Vector3())); play(SFX.success); bossDamage(60, g.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(g); done(); });
-      after(dur(600), () => { if (g && g.parentNode) { safeRemove(g); done(); } });
-    }
-  }
-  function doMirrorSlash() {
-    BOSS.busy = true;
-    const mk = (rot, y) => { const g = document.createElement("a-entity");
-      g.setAttribute("geometry", "primitive: box; height: 0.04; width: 1.25; depth: 0.04");
-      g.setAttribute("material", "color:#8cf5ff;opacity:.95;transparent:true");
-      g.setAttribute("rotation", `0 0 ${rot}`); g.setAttribute("position", `0 ${y} -2.2`);
-      g.classList.add("clickable", "boss-attack"); byId("arena").appendChild(g); return g; };
-    play(SFX.tel_slash);
-    const a = mk(-28, 1.36), b = mk(28, 1.44);
-    let ca = false, cb = false;
-    const ok = () => { if (ca && cb) { bossDamage(30, new THREE.Vector3(0, 1.5, -3)); cleanup(); } };
-    a.addEventListener("click", () => { ca = true; floatText("PARRY", "#8cf5ff", a.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(a); ok(); });
-    b.addEventListener("click", () => { cb = true; floatText("PARRY", "#8cf5ff", b.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(b); ok(); });
-    after(dur(560), () => cleanup(true));
-    function cleanup(timeout) {
-      if (a && a.parentNode) { safeRemove(a); if (timeout && !ca) playerHit(); }
-      if (b && b.parentNode) { safeRemove(b); if (timeout && !cb) playerHit(); }
-      finishAttack();
-    }
-  }
-  function doDoomRings() {
-    BOSS.busy = true;
-    const rings = [];
-    for (let i = 0; i < 3; i++) {
-      const r = document.createElement("a-ring"); r.classList.add("clickable", "boss-attack");
-      const x = (i - 1) * 0.6; r.setAttribute("position", `${x} 1.15 -2.6`); r.setAttribute("radius-inner", "0.05"); r.setAttribute("radius-outer", "0.07");
-      r.setAttribute("material", "color:#ffd166;opacity:.95;shader:flat"); byId("arena").appendChild(r); rings.push(r);
-      r.addEventListener("click", () => { floatText("BREAK", "#ffd166", r.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(12, new THREE.Vector3(0, 1.5, -3)); safeRemove(r); });
-    }
-    const start = performance.now(), T = dur(680);
-    (function step() {
-      const t = (performance.now() - start) / T;
-      rings.forEach((r, idx) => { if (!r || !r.parentNode) return; const base = 0.07 + t * 0.9, off = idx * 0.02;
-        const R = base + off; r.setAttribute("radius-inner", Math.max(0.01, R - 0.02)); r.setAttribute("radius-outer", R); });
-      if (t >= 1) { const broken = rings.filter(r => !r.parentNode).length; if (broken < 2) playerHit(); rings.forEach(r => r && r.parentNode && safeRemove(r)); finishAttack(); return; }
-      requestAnimationFrame(step);
-    })();
-  }
-  function doVoidFinale() {
-    BOSS.busy = true; play(SFX.enrage); APPX.badge("VOID FINALE!");
-    const seq = [() => ms(() => step()), () => lg(() => step()), () => vg(() => finishAttack())];
-    let j = 0; function step() { j++; if (j < seq.length) seq[j](); } seq[0]();
-    function ms(done) { play(SFX.tel_slash);
-      const a = mk(-26, 1.36), b = mk(26, 1.44); let ca = false, cb = false;
-      a.addEventListener("click", () => { ca = true; safeRemove(a); ok(); });
-      b.addEventListener("click", () => { cb = true; safeRemove(b); ok(); });
-      after(dur(420), () => { if (!ca || !cb) playerHit(); done(); });
-      function mk(rot, y) { const g = document.createElement("a-entity"); g.classList.add("clickable"); g.setAttribute("geometry", "primitive: box; height:.04;width:1.25;depth:.04"); g.setAttribute("material", "color:#8cf5ff;opacity:.95;transparent:true"); g.setAttribute("rotation", `0 0 ${rot}`); g.setAttribute("position", `0 ${y} -2.2`); byId("arena").appendChild(g); return g; }
-      function ok() { if (ca && cb) { bossDamage(26, new THREE.Vector3(0, 1.5, -3)); done(); } }
-    }
-    function lg(done) {
-      const a = beam(0, 1.32, -14), b = beam(0, 1.48, 14); let ca = false, cb = false;
-      a.addEventListener("click", () => { ca = true; safeRemove(a); ok(); });
-      b.addEventListener("click", () => { cb = true; safeRemove(b); ok(); });
-      after(dur(620), () => { if (!ca || !cb) playerHit(); done(); });
-      function beam(x, y, rot) { const e = document.createElement("a-entity"); e.classList.add("clickable"); e.setAttribute("geometry", "primitive: box; height:.035;width:1.4;depth:.03"); e.setAttribute("material", "color:#5de1ff;opacity:.95;transparent:true"); e.setAttribute("position", `${x} ${y} -2.2`); e.setAttribute("rotation", `0 0 ${rot}`); byId("arena").appendChild(e); return e; }
-      function ok() { if (ca && cb) { bossDamage(28, new THREE.Vector3(0, 1.5, -3)); done(); } }
-    }
-    function vg(done) {
-      const g = document.createElement("a-icosahedron"); g.classList.add("clickable"); g.setAttribute("position", "0 1.6 -2.4"); g.setAttribute("radius", "0.2"); g.setAttribute("color", "#00ffa3"); byId("arena").appendChild(g);
-      g.addEventListener("click", () => { bossDamage(70, g.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(g); done(); });
-      after(dur(520), () => { if (g && g.parentNode) { safeRemove(g); } done(); });
-    }
-  }
-
-  // ---------- Hazards ----------
-  function spawnHazard() {
-    const z = document.createElement("a-cylinder");
-    z.setAttribute("radius", "0.5"); z.setAttribute("height", "0.02");
-    z.setAttribute("color", "#ff3355"); z.setAttribute("position", "0 0.9 -2.2");
-    z.classList.add("clickable"); byId("arena").appendChild(z);
-    z.addEventListener("click", () => { floatText("SAFE ZONE", "#00ffa3", z.object3D.getWorldPosition(new THREE.Vector3())); z.setAttribute("color", "#00ffa3"); bossDamage(10, new THREE.Vector3(0, 1.5, -3)); });
-    after(dur(3000), () => { if (z && z.parentNode) safeRemove(z); });
-  }
-
-  // ---------- Targets & Hits ----------
-  AFRAME.registerComponent("hand-speed", {
-    schema: { speed: { type: "number", default: 0 } },
-    init() { this.prev = null; this.prevT = performance.now(); this.vel = new THREE.Vector3(); },
-    tick() {
-      const p = this.el.object3D.getWorldPosition(new THREE.Vector3()), now = performance.now();
-      if (this.prev) {
-        const dt = (now - this.prevT) / 1000;
-        if (dt > 0) { this.vel.set((p.x - this.prev.x) / dt, (p.y - this.prev.y) / dt, (p.z - this.prev.z) / dt); this.data.speed = this.vel.length(); }
-      }
-      this.prev = p.clone(); this.prevT = now;
-    }
-  });
-
-  AFRAME.registerComponent("sb-target", {
-    schema: { type: { default: "basic" }, req: { default: "any" }, angle: { default: "" } },
-    init() {
-      const el = this.el; el.classList.add("sb-target", "clickable"); el.setAttribute("scale", "0.001 0.001 0.001");
-      el.setAttribute("animation__in", { property: "scale", to: "1 1 1", dur: 160, easing: "easeOutBack" });
-      const spec = TYPES.find(x => x.id === this.data.type) || TYPES[0]; el.setAttribute("color", spec.color);
-      const label = document.createElement("a-entity"); label.setAttribute("text", { value: spec.icon || "•", color: "#02131b", align: "center", width: 1.8 }); label.setAttribute("position", "0 0 0.03"); el.appendChild(label);
-
-      // Shielded indicator
-      if (spec.req === "shield") { const sh = document.createElement("a-torus"); sh.setAttribute("radius", "0.24"); sh.setAttribute("radius-tubular", "0.01"); sh.setAttribute("color", "#8aa3ff"); el.appendChild(sh); el.dataset.shield = "1"; }
-
-      // Mirror indicator
-      if (spec.req === "mirror") { const m = document.createElement("a-ring"); m.setAttribute("radius-inner", "0.09"); m.setAttribute("radius-outer", "0.12"); m.setAttribute("color", "#d9a6ff"); el.appendChild(m); }
-
-      // Gesture guide
-      if (spec.req === "gesture") {
-        const g = document.createElement("a-entity");
-        g.setAttribute("geometry", "primitive: box; height:0.03;width:0.7;depth:0.03");
-        g.setAttribute("material", "color:#9bffcc;opacity:.7;transparent:true");
-        g.setAttribute("rotation", "0 0 -35");
-        el.appendChild(g);
-      }
-
-      this.dieTimer = setTimeout(() => { miss(el); }, (spec.life || 2200) * (COMFORT ? 1.1 : 1));
-      el.addEventListener("click", () => registerHit(el, { type: "laser" }));
-      if (spec.req === "angle") {
-        const dir = ANGLES[spec.angle] || ANGLES.diag_lr;
-        const rotY = Math.atan2(dir.x, -dir.z) * 180 / Math.PI, rotX = Math.asin(dir.y) * 180 / Math.PI;
-        const g = document.createElement("a-entity"); g.setAttribute("geometry", "primitive: box; height:0.03;width:0.7;depth:0.03");
-        g.setAttribute("material", "color:#ffffff;opacity:.55;transparent:true"); g.setAttribute("rotation", `${rotX} ${rotY} 0`); el.appendChild(g);
-      }
-    },
-    remove() { clearTimeout(this.dieTimer); }
-  });
-
-  function spawnTarget() {
-    if (MODE === "bossrush") return; // no small targets in bossrush
-    spawns++;
-    // (10) daily challenge tweaks
-    let spec = pickType();
-    if (DAILY) {
-      if (seed % 2 === 0 && RND() < 0.3) spec = TYPES[2]; // more fast
-      if ((seed >> 1) % 3 === 0 && RND() < 0.15) spec = TYPES[4]; // shielded
-    }
-    const el = document.createElement(RND() < 0.5 ? "a-box" : "a-sphere");
-    const x = (RND() * 3.2 - 1.6).toFixed(2), y = (RND() * 1.6 + 1.0).toFixed(2), z = (RND() * -2.0 - 1.8).toFixed(2);
-    el.setAttribute("position", `${x} ${y} ${z}`); el.setAttribute("sb-target", { type: spec.id, req: spec.req, angle: (spec.angle || "") }); byId("arena").appendChild(el);
-  }
-  function pickType() {
-    const r = RND();
-    if (r < 0.45) return TYPES[0];
-    if (r < 0.64) return TYPES[2];
-    if (r < 0.80) return TYPES[1];
-    if (r < 0.88) return TYPES[4]; // shield
-    if (r < 0.94) return TYPES[5]; // mirror
-    if (r < 0.985) return TYPES[6]; // gesture
-    return TYPES[3];
-  }
-
-  function dirMatches(v, spec) {
-    if (spec.req !== "angle") return true;
-    const want = ANGLES[spec.angle] || ANGLES.diag_lr; const vv = v.clone().normalize();
-    return vv.dot(want) >= ANGLE_TOL;
-  }
-  function applyScore(kind, method, pos, spec) {
-    if (kind === "miss") { combo = 0; onComboChange(); play(SFX.miss); floatText("MISS", "#ff5577", pos); return; }
-    combo++; onComboChange();
-    let base = 0, dmg = 0;
-
-    if (method === "laser") {
-      // shielded must be lasered first
-      if (spec.req === "shield" && thisTarget && thisTarget.dataset && thisTarget.dataset.shield === "1") {
-        base = 0; dmg = 0; thisTarget.dataset.shield = "0"; floatText("SHIELD OFF", "#8aa3ff", pos); play(SFX.laser); updateHUD(); return;
-      }
-      base = 10; dmg = 6;
-    } else {
-      if (spec.req === "gesture") { base = 28; dmg = 16; }
-      else if (kind === "perfect") { base = spec.basePerfect + (window.PERFECT_BONUS || 0); dmg = 18; onPerfect(); CHEEV.lastPerfectStamp = performance.now(); }
-      else { base = spec.baseGood; dmg = 10; }
-    }
-    if (spec.id === "heavy") dmg += 6;
-    if (spec.req === "mirror") { base += 8; dmg += 8; }
-
-    scoreAdd(base);
-    hits++; updateHUD();
-
-    if (method === "laser") { play(SFX.laser); floatText("GOOD", "#9bd1ff", pos); }
-    else if (spec.id === "heavy") { play(SFX.heavy); floatText(kind === "perfect" ? "HEAVY PERFECT" : "HEAVY", "#ff9c6b", pos); }
-    else if (kind === "perfect") { play(SFX.perfect); floatText("PERFECT", "#00ffa3", pos); }
-    else { play(SFX.slash); floatText("GOOD", "#00d0ff", pos); }
-
-    // Phase 2 time drip on perfect
-    if (BOSS.phase === 2 && kind === "perfect" && method !== "laser" && addedTimeThisPhase < 12) {
-      timeLeft = Math.min(99, timeLeft + 1); addedTimeThisPhase++; byId("time").textContent = timeLeft; floatText("+1s", "#00ffa3", pos);
-    }
-    if (spec.bonus === "time+5") { timeLeft = Math.min(99, timeLeft + 5); byId("time").textContent = timeLeft; floatText("+5s", "#00ffa3", pos); }
-    bossDamage(dmg, pos);
-  }
-
-  let thisTarget = null; // local ref for shield check in applyScore
-  function registerHit(target, info) {
-    if (!target.getAttribute("visible")) return;
-    thisTarget = target;
-    const p = target.object3D.getWorldPosition(new THREE.Vector3());
-    const comp = target.components["sb-target"]; const spec = TYPES.find(x => x.id === (comp?.data?.type)) || TYPES[0];
-
-    // Mirror requires "both hands" quick-double tap
-    if (spec.req === "mirror" && info.type === "slash" && !target.dataset._mir) {
-      target.dataset._mir = "1";
-      // wait for second hand slash shortly
-      setTimeout(() => { if (target && target.parentNode) { // time out → cancel → count MISS
-        safeRemove(target); applyScore("miss", "timeout", p, spec);
-      } }, 240);
-      return;
+  // ---------- main poller ----------
+  setInterval(()=>{
+    // สถานะจบเกม
+    const rVisible = isResultsVisible();
+    if (rVisible && !resultsShown){
+      resultsShown = true;
+      // ดึงคะแนนสรุป (ถ้ามี)
+      const acc = $('rAcc')?.textContent || '';
+      const sc  = $('rScore')?.textContent || '';
+      onEnd(`คะแนน ${sc} · ACC ${acc}`);
+    } else if (!rVisible){
+      resultsShown = false;
     }
 
-    clearTimeout(comp?.dieTimer);
-    target.setAttribute("animation__out", { property: "scale", to: "0.001 0.001 0.001", dur: 120, easing: "easeInBack" });
-    setTimeout(() => safeRemove(target), 130);
-    applyScore(info.kind || info.type, info.method || info.type, p, spec);
-    try { window.AudioBus?.tap?.(); } catch (_e) { }
-  }
-  function miss(target) {
-    if (target && target.parentNode) { const p = target.object3D.getWorldPosition(new THREE.Vector3()); safeRemove(target); applyScore("miss", "timeout", p, TYPES[0]); }
-    else { combo = 0; onComboChange(); }
-  }
+    // เวลา / เริ่มเกม
+    const t = readTime();
+    const combo = readCombo();
+    const phase = readPhase();
+    const feverNow = isFeverOn();
 
-  function checkSlashHits() {
+    // เดาว่า "เริ่มเล่น" เมื่อ time จาก 0/ว่าง กลายเป็น >0 และหน้า results ยังไม่โชว์
+    const hasArena = !!document.getElementById('arena');
+    const inPlay = hasArena && !rVisible && t>0;
+    if (inPlay && !running){
+      running = true;
+      startedOnce = true;
+      lastTime = t;
+      onStart();
+    } else if (!inPlay && running){
+      running = false;
+      missStreak = 0;
+      lastCombo = 0;
+    }
+
     if (!running) return;
-    const arena = byId("arena"); const targets = Array.from(arena.querySelectorAll(".sb-target")); if (targets.length === 0) return;
-    const lE = LEFTY ? byId("rightHand") : byId("leftHand");
-    const rE = LEFTY ? byId("leftHand") : byId("rightHand");
-    const lc = lE?.components["hand-speed"], rc = rE?.components["hand-speed"];
-    const ls = lc?.data?.speed || 0, rs = rc?.data?.speed || 0; const lv = lc?.vel || new THREE.Vector3(), rv = rc?.vel || new THREE.Vector3();
-    const lp = lE?.object3D.getWorldPosition(new THREE.Vector3()) || new THREE.Vector3(), rp = rE?.object3D.getWorldPosition(new THREE.Vector3()) || new THREE.Vector3();
 
-    for (const t of targets) {
-      if (!t.getAttribute("visible")) continue; const comp = t.components["sb-target"]; const spec = TYPES.find(x => x.id === (comp?.data?.type)) || TYPES[0];
-      const pos = t.object3D.getWorldPosition(new THREE.Vector3()); const dl = lp.distanceTo(pos), dr = rp.distanceTo(pos);
+    // time decreasing -> แจ้งเตือนเมื่อเหลือน้อย
+    if (t !== lastTime){
+      if (t===20 || t===10) onLowTime();
+      lastTime = t;
+    }
 
-      // gesture requires left-to-right high-speed vector (roughly)
-      if (spec.req === "gesture") {
-        if (rs >= 1.6 && Math.abs(rv.y) < 1.2 && rv.x > 1.4 && dr <= 0.55) { registerHit(t, { type: "slash", kind: "good" }); continue; }
-        if (ls >= 1.6 && Math.abs(lv.y) < 1.2 && lv.x > 1.4 && dl <= 0.55) { registerHit(t, { type: "slash", kind: "good" }); continue; }
+    // fever detect (edge: off -> on)
+    if (!feverWasOn && feverNow){
+      onFeverOn();
+    }
+    feverWasOn = feverNow;
+
+    // phase change
+    if (phase !== lastPhase){
+      if (String(phase)==='2') onPhase2();
+      lastPhase = phase;
+    }
+
+    // combo logic: เพิ่ม/ลด
+    if (combo !== lastCombo){
+      if (combo > lastCombo){
+        // เพิ่มคอมโบ = โดนโน้ต
+        onHit();
+        if ([5,10,20,30].includes(combo)) onComboMilestone(combo);
+      } else {
+        // ลดลง (เช่น กลายเป็น 0) = พลาด
+        if (combo===0 && lastCombo>0) onMiss();
       }
-
-      if (ls >= SLASH_SPEED_GOOD && dl <= HIT_DISTANCE_GOOD && dirMatches(lv, spec)) {
-        const k = (ls >= SLASH_SPEED_PERFECT && dl <= HIT_DISTANCE_PERFECT) ? "perfect" : "good"; registerHit(t, { type: "slash", kind: k }); continue;
-      }
-      if (rs >= SLASH_SPEED_GOOD && dr <= HIT_DISTANCE_GOOD && dirMatches(rv, spec)) {
-        const k = (rs >= SLASH_SPEED_PERFECT && dr <= HIT_DISTANCE_PERFECT) ? "perfect" : "good"; registerHit(t, { type: "slash", kind: k }); continue;
-      }
+      lastCombo = combo;
     }
-  }
-  AFRAME.registerSystem("sb-loop", { tick() { checkSlashHits(); if (OVERHEAT >= 100) triggerOverheatBreak(); } });
-
-  // (5) Overheat → Break Time
-  let breaking = false;
-  function triggerOverheatBreak() {
-    if (breaking) return;
-    breaking = true; OVERHEAT = 0; play(SFX.overheat); pingUI("BREAK TIME!", "#ffcc00");
-    const old = window.TIME_SCALE; window.TIME_SCALE = 0.6;
-    setTimeout(() => { window.TIME_SCALE = old; breaking = false; }, 2000);
-  }
-
-  // ---------- Achievements ----------
-  const CHEEV = { noHit: true, combo50: false, under90s: false, lastPerfectStamp: 0 };
-
-  // ---------- Game flow ----------
-  function clearArena() { const a = byId("arena"); Array.from(a.children).forEach(c => safeRemove(c)); }
-  function start() {
-    if (running) return;
-    const key = getDiffKey(); D = DIFFS[key] || DIFFS.normal;
-    localStorage.setItem("sb_diff", key);
-    ROSTER = makeRoster(key);
-    CHAIN_RULE = { minTimeLeft: D.chainMin };
-    const rDiff = byId("rDiff"); if (rDiff) rDiff.textContent = (DIFFS[key]?.title || "NORMAL") + " · " + (ST.title || "");
-
-    window.PERFECT_BONUS = 0; window.PARRY_WINDOW = 1; window.TIME_SCALE = 1; window.EXTRA_BEAM = false;
-
-    // (10) Daily Challenge modifiers
-    if (DAILY) {
-      if ((seed & 1) === 1) { timeLeft = 40; }
-      if ((seed >> 2) % 2 === 1) { window.EXTRA_BEAM = true; }
-    }
-
-    // Mutators small (legacy)
-    rollMutators(1);
-
-    reset(); running = true;
-    spawnTimer = setInterval(spawnTarget, Math.max(380, D.spawnInt * (window.TIME_SCALE || 1)));
-    timer = setInterval(() => { timeLeft--; byId("time").textContent = timeLeft; if (timeLeft <= 0) end(); }, 1000);
-    CURRENT_BOSS = 0; after(dur(900), () => bossSpawn(CURRENT_BOSS));
-
-    startBankInterest();         // (2)
-    startQuestChain();           // (3)
-  }
-  function reset() {
-    score = 0; bank = 0; combo = 0; maxCombo = 0; hits = 0; spawns = 0; timeLeft = timeLeft || 60; updateHUD();
-    survivedStreak = 0; addedTimeThisPhase = 0; fever = false; hyper = false; MQ = null; AFFIX_SPLIT_SLASH = false; AFFIX_PHANTOM = false; ADAPT = 1; OVERHEAT = 0;
-    CHEEV.noHit = true; CHEEV.combo50 = false; CHEEV.under90s = false; QuestChain = null;
-    byId("results").style.display = "none"; bossShowUI(false); clearArena();
-    setPhaseLabel(1);
-    const hs = byId("hudStatus"); if (hs) hs.style.display = "block";
-  }
-  function end() {
-    running = false; clearInterval(timer); clearInterval(spawnTimer);
-    timeouts.forEach(clearTimeout); timeouts.clear();
-    bossShowUI(false);
-    CHEEV.combo50 = CHEEV.combo50 || (maxCombo >= 50);
-    CHEEV.under90s = (timeLeft >= 10);
-    let star = (CHEEV.noHit ? 1 : 0) + (CHEEV.combo50 ? 1 : 0) + (CHEEV.under90s ? 1 : 0);
-    const finalScore = Math.round((score + bank) * (1 + 0.05 * star) * D.scoreMul);
-    byId("rScore").textContent = finalScore; byId("rMaxCombo").textContent = maxCombo; byId("rAcc").textContent = spawns ? Math.round((hits / spawns) * 100) + "%" : "0%";
-    const starEl = byId("rStars"); if (starEl) starEl.textContent = "★".repeat(star) + "☆".repeat(3 - star);
-    byId("results").style.display = "flex"; APPX.badge(APPX.t("results") + ": " + finalScore);
-    try { window.Leaderboard?.postResult?.("shadow-breaker", { score: finalScore, maxCombo, accuracy: spawns ? Math.round((hits / spawns) * 100) : 0, diff: getDiffKey(), stars: star, stance: ST.title, daily: DAILY, mode: MODE }); } catch (_e) { }
-
-    // (15) Cosmetic rewards
-    try {
-      const key = "sb_cosmetic";
-      const cur = JSON.parse(localStorage.getItem(key) || "{}");
-      if (star >= 1) cur.hand = "neon-blue";
-      if (star >= 2) cur.trail = "ion";
-      if (star >= 3) cur.sword = "glow";
-      localStorage.setItem(key, JSON.stringify(cur));
-    } catch (_e) { }
-
-    try { const hs = byId("hudStatus"); if (hs) hs.style.display = "none"; } catch (_e) { }
-  }
-
-  function togglePause() {
-    if (!running) return;
-    paused = !paused;
-    if (paused) { clearInterval(timer); clearInterval(spawnTimer); APPX.badge("Paused"); pingUI("PAUSED", "#ffd166"); }
-    else {
-      timer = setInterval(() => { timeLeft--; byId("time").textContent = timeLeft; if (timeLeft <= 0) end(); }, 1000);
-      spawnTimer = setInterval(spawnTarget, Math.max(380, D.spawnInt * (window.TIME_SCALE || 1))); APPX.badge("Resume"); pingUI("RESUME", "#00ffa3");
-    }
-  }
-
-  document.addEventListener("visibilitychange", () => {
-    if (!running) return;
-    if (document.hidden) { clearInterval(timer); clearInterval(spawnTimer); }
-    else if (!paused) {
-      timer = setInterval(() => { timeLeft--; byId("time").textContent = timeLeft; if (timeLeft <= 0) end(); }, 1000);
-      spawnTimer = setInterval(spawnTarget, Math.max(380, D.spawnInt * (window.TIME_SCALE || 1)));
-    }
-  });
-
-  // Debug / hotkeys
-  let DBG = false; document.addEventListener("keydown", e => {
-    if (e.key === "`") {
-      DBG = !DBG; let box = byId("debug");
-      if (!box) { box = document.createElement("div"); box.id = "debug"; document.body.appendChild(box);
-        Object.assign(box.style, { position: "fixed", bottom: "10px", left: "50%", transform: "translateX(-50%)", background: "rgba(0,0,0,.6)", color: "#0ff", padding: "6px 10px", borderRadius: "8px", font: "12px/1.2 monospace", zIndex: 9999 }); }
-      box.style.display = DBG ? "block" : "none";
-      if (DBG) { box.textContent = `Boss:${BOSS.name} P${BOSS.phase} HP:${BOSS.hp}/${BOSS.max} Combo:${combo} Time:${timeLeft} Fever:${fever ? (hyper ? "HYPER" : "ON") : "OFF"} Bank:${bank} ADAPT:${ADAPT.toFixed(2)} Heat:${OVERHEAT}`; }
-    }
-    if (e.key === "p" || e.key === "P") togglePause();
-    if (e.key === "b" || e.key === "B") bankNow();
-  });
-
-  // Desktop hand proxy
-  document.addEventListener("mousemove", e => {
-    const x = (e.clientX / window.innerWidth - .5) * 3.2;
-    const y = (1 - e.clientY / window.innerHeight) * 2 + .6;
-    const h = byId("rightHand"); if (h) h.setAttribute("position", `${x.toFixed(2)} ${y.toFixed(2)} -1`);
-  }, { passive: true });
-  ["mousedown", "touchstart"].forEach(ev => document.addEventListener(ev, () => {
-    const rh = byId("rightHand")?.components["hand-speed"]; if (rh) { rh.vel.set(3, 0, -2); rh.data.speed = 3.6; }
-  }, { passive: true }));
-
-  // Bank button
-  function bankNow() {
-    const add = Math.floor(combo * 3);
-    bank += add; APPX.badge("Bank +" + add);
-    combo = 0; onComboChange(); updateHUD();
-  }
-
-  // Stance API
-  window.sbSetStance = (k) => { if (STANCES[k]) ST = STANCES[k]; };
-
-  // ---------- Buttons ----------
-  document.addEventListener("DOMContentLoaded", () => {
-    byId("startBtn")?.addEventListener("click", start);
-    byId("replayBtn")?.addEventListener("click", start);
-    byId("backBtn")?.addEventListener("click", () => { window.location.href = HUB_URL; }); // fixed to hub root
-    byId("pauseBtn")?.addEventListener("click", togglePause);
-    byId("bankBtn")?.addEventListener("click", bankNow);
-
-    // HUD extras (fever/overheat bar)
-    if (!byId("feverTag")) {
-      const tag = document.createElement("span");
-      tag.id = "feverTag";
-      Object.assign(tag.style, { marginLeft: "6px", padding: "2px 6px", borderRadius: "8px", background: "rgba(255,215,0,.18)", color: "#ffe27a", display: "none" });
-      byId("hud")?.appendChild(tag);
-    }
-    if (!byId("overheatWrap")) {
-      const w = document.createElement("div"); w.id = "overheatWrap";
-      Object.assign(w.style, { position: "fixed", left: "50%", bottom: "56px", transform: "translateX(-50%)", width: "55%", height: "6px", background: "rgba(255,255,255,.08)", borderRadius: "10px", zIndex: 9999 });
-      const f = document.createElement("div"); f.id = "overheatBar";
-      Object.assign(f.style, { height: "100%", width: "0%", background: "linear-gradient(90deg,#ffd166,#ff6b6b)", borderRadius: "10px" });
-      w.appendChild(f); document.body.appendChild(w);
-    }
-  });
-
-  // ===== Production patches =====
-  (function bootGuards() {
-    function showFatal(msg) {
-      let o = byId("fatal"); if (!o) { o = document.createElement("div"); o.id = "fatal";
-        Object.assign(o.style, { position: "fixed", inset: "0", background: "#0b1118", color: "#ffb4b4", display: "grid", placeItems: "center", font: "14px/1.5 system-ui", zIndex: 99999 }); document.body.appendChild(o); }
-      o.innerHTML = '<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ Can’t start VR scene</h2><p>' + msg + '</p><p class="small">Check scripts/CORS/paths and reload.</p></div>';
-    }
-    let tries = 0; (function waitAF() {
-      if (window.AFRAME && document.querySelector("a-scene")) return;
-      tries++;
-      if (tries > 120) { showFatal("A-Frame scene not found or failed to load (timeout)."); return; }
-      requestAnimationFrame(waitAF);
-    })();
-    window.addEventListener("error", e => { if (!byId("fatal")) showFatal("JS error: " + (e.message || "unknown")); });
-    window.addEventListener("beforeunload", () => {
-      try { clearInterval(timer); clearInterval(spawnTimer); } catch (_) { }
-      try { timeouts.forEach(clearTimeout); timeouts.clear(); } catch (_) { }
-    });
-  })();
-
-  // iOS audio unlock
-  (function unlockAudio() {
-    let unlocked = false, ctx = (window.AudioContext || window.webkitAudioContext) ? new (window.AudioContext || window.webkitAudioContext)() : null;
-    function resume() {
-      if (unlocked || !ctx) return;
-      ctx.resume?.(); unlocked = ctx.state === "running";
-    }
-    ["touchstart", "pointerdown", "mousedown", "keydown"].forEach(ev => document.addEventListener(ev, resume, { once: true, passive: true }));
-  })();
-
-  // HUD status (stance/mods/fever)
-  (function hudStatus() {
-    const box = document.createElement("div");
-    Object.assign(box.style, { position: "fixed", top: "8px", right: "8px", background: "rgba(0,0,0,.35)", color: "#e6f7ff", padding: "6px 8px", borderRadius: "10px", font: "600 12px system-ui", zIndex: 9999 });
-    box.id = "hudStatus"; document.body.appendChild(box);
-    function render() {
-      const mods = []; if (window.PERFECT_BONUS) mods.push("Perf+" + window.PERFECT_BONUS);
-      if (window.EXTRA_BEAM) mods.push("+Beam");
-      if (DAILY) mods.push("Daily");
-      if (MODE !== "standard") mods.push(MODE);
-      box.textContent = `${hyper ? "HYPER " : (fever ? "FEVER " : "")}${(ST.title || "")}${mods.length ? " · " + mods.join(", ") : ""}`;
-    }
-    setInterval(render, 400);
-  })();
-
-  // Enter VR button (center-bottom)
-  (function xrButton() {
-    if (byId("enterVRBtn")) return;
-    const btn = document.createElement("button");
-    btn.id = "enterVRBtn";
-    btn.textContent = "Enter VR";
-    Object.assign(btn.style, {
-      position: "fixed", left: "50%", bottom: "12px", transform: "translateX(-50%)",
-      zIndex: 9999, padding: "10px 16px", borderRadius: "12px", border: "0",
-      background: "#0e2233", color: "#e6f7ff", cursor: "pointer", font: "600 14px system-ui"
-    });
-    document.body.appendChild(btn);
-    btn.addEventListener("click", () => { try { const sc = document.querySelector("a-scene"); sc?.enterVR?.(); } catch (e) { console.warn(e); } });
-  })();
-
-  // Pointer raycast (mouse/touch)
-  (function installPointerRaycast() {
-    const sceneEl = document.querySelector("a-scene");
-    if (!sceneEl) return;
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-    function pick(clientX, clientY) {
-      const cam = sceneEl.camera; if (!cam) return;
-      mouse.x = (clientX / window.innerWidth) * 2 - 1;
-      mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-      raycaster.setFromCamera(mouse, cam);
-      const clickable = qAll(".clickable").map(el => el.object3D).filter(Boolean);
-      const objects = []; clickable.forEach(o => o.traverse(child => objects.push(child)));
-      const hits = raycaster.intersectObjects(objects, true);
-      if (hits && hits.length) {
-        let obj = hits[0].object;
-        while (obj && !obj.el) obj = obj.parent;
-        if (obj && obj.el) { obj.el.emit("click"); }
-      }
-    }
-    window.addEventListener("mousedown", e => pick(e.clientX, e.clientY), { passive: true });
-    window.addEventListener("touchstart", e => { const t = e.touches && e.touches[0]; if (!t) return; pick(t.clientX, t.clientY); }, { passive: true });
-  })();
-
-  // Mutators (small buffs)
-  const MUTATORS = [
-    { id: "perfect_plus", name: "Perfect+2", apply: () => { window.PERFECT_BONUS = 2; } },
-    { id: "tight_parry", name: "Tight Parry", apply: () => { window.PARRY_WINDOW = .85; } },
-    { id: "fast_time", name: "Fast Time", apply: () => { window.TIME_SCALE = .9; } },
-    { id: "extra_beam", name: "+1 Beam", apply: () => { window.EXTRA_BEAM = true; } },
-  ];
-  function rollMutators(n = 1) {
-    const picks = []; const pool = [...MUTATORS];
-    while (picks.length < n && pool.length) { const i = Math.floor(RND() * pool.length); picks.push(pool.splice(i, 1)[0]); }
-    picks.forEach(m => m.apply()); APPX.badge("MOD: " + picks.map(m => m.name).join(", "));
-  }
-
-  // (13) Skill Drill Interlude
-  function skillDrill(count = 5, reward = 8, ms = 1500) {
-    const pos = new THREE.Vector3(0, 1.45, -2.2);
-    let left = count;
-    const launch = () => {
-      const g = document.createElement("a-entity");
-      g.classList.add("clickable");
-      g.setAttribute("geometry", "primitive: box; height:.03;width:0.7;depth:.03");
-      g.setAttribute("material", "color:#66ffec;opacity:.95;transparent:true");
-      g.setAttribute("rotation", `0 0 ${-40 + Math.floor(RND() * 80)}`); g.setAttribute("position", `${(-0.8 + RND() * 1.6).toFixed(2)} ${(1.1 + RND() * .6).toFixed(2)} -2.2`);
-      byId("arena").appendChild(g);
-      g.addEventListener("click", () => { safeRemove(g); left--; if (left <= 0) { timeLeft = Math.min(99, timeLeft + reward); updateHUD(); APPX.badge(`Drill +${reward}s`); } else launch(); });
-      after(dur(ms), () => { if (g && g.parentNode) { safeRemove(g); playerHit(); } });
-    };
-    launch();
-  }
-
-  // (1) Card Reward System
-  function showCardReward(done) {
-    const wrapId = "cardRewardWrap";
-    if (byId(wrapId)) safeRemove(byId(wrapId));
-    const W = document.createElement("div");
-    W.id = wrapId;
-    Object.assign(W.style, {
-      position: "fixed", inset: "0", background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center",
-      zIndex: 99999, color: "#e6f7ff", font: "600 14px system-ui"
-    });
-    const card = (title, desc, fn) => {
-      const c = document.createElement("button");
-      Object.assign(c.style, {
-        background: "#0b1118", border: "1px solid #203446", borderRadius: "12px", padding: "14px 16px",
-        color: "#e6f7ff", cursor: "pointer", width: "220px"
-      });
-      c.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${title}</div><div style="opacity:.8">${desc}</div>`;
-      c.onclick = () => { try { fn(); play(SFX.reward); } catch (_) { } safeRemove(W); done?.(); };
-      return c;
-    };
-    const box = document.createElement("div");
-    box.style.display = "flex"; box.style.gap = "12px"; box.style.flexWrap = "wrap"; box.style.justifyContent = "center";
-    box.appendChild(card("Power Up", "เพิ่มพลังโจมตี +10%", () => { ST = { ...ST, dmg: (ST.dmg || 1) * 1.10, title: ST.title }; }));
-    box.appendChild(card("Slow Motion", "เวลาท่าบอสช้าลง 10%", () => { window.TIME_SCALE *= 0.9; }));
-    box.appendChild(card("Score Boost", "คูณคะแนนต่อเฟส x1.3", () => { D = { ...D, scoreMul: D.scoreMul * 1.3 }; }));
-    const ctn = document.createElement("div");
-    ctn.style.background = "#0b1118"; ctn.style.border = "1px solid #203446"; ctn.style.borderRadius = "12px"; ctn.style.padding = "16px";
-    ctn.innerHTML = `<div style="font-size:16px;margin-bottom:8px">เลือกการ์ดรางวัล 1 ใบ</div>`;
-    ctn.appendChild(box); W.appendChild(ctn); document.body.appendChild(W);
-  }
+  }, 250);
 
 })();
