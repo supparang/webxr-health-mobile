@@ -1,9 +1,7 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker (Classic feel kept) + Punch Pads (Circle/Triangle/Square/Pentagon/Hexagon/Diamond/Bomb)
-   - ไม่หักคะแนนจากการไม่กด
-   - Bomb = เมื่อ "กด" จะตัดคอมโบทันที (ไม่มีลดสกอร์)
-   - ผลสรุปท้ายเกม: ให้ดาว 5 ระดับ (★ 0–5)
-   - เพิ่ม "Coach" กระตุ้นตลอดเกม (มุมล่างซ้าย ถัดจาก Bank) + tips อัตโนมัติ
+   Shadow Breaker (Classic feel kept) + Punch Pads + Coach + Boss Name HUD
+   - แสดงชื่อบอสทั้งบนฉาก (ป้ายลอย) และบน HUD ด้านบนกลาง
+   - ไม่หักคะแนนจากการไม่กด / Bomb รีเซ็ตคอมโบ / สรุปผล 5 ดาว
 */
 (function(){
   "use strict";
@@ -78,7 +76,8 @@
   let bossDown = false;  // ใช้สำหรับคำนวนดาว 5 ระดับ
   let coachHypeTimer = null; // โค้ชปลุกใจระหว่างเกม
 
-  const BOSS = { active:false, busy:false, phase:1, hp:0, max:1000, name:'RAZOR', color:'#ff3355' };
+  // ตั้งชื่อบอสได้ที่นี่ (ถ้าจะสลับหลายตัวภายหลังค่อยอ่านจาก roster)
+  const BOSS = { active:false, busy:false, phase:1, hp:0, max:1000, name:'RAZORFIST', color:'#ff3355' };
 
   function applyHudToggles(){
     if(FX.hudReadable || FX.accessibility){
@@ -95,7 +94,6 @@
     if(FX.comboBadges && combo>0 && combo%10===0){
       try{ window.APP?.badge?.('Combo x'+(combo/10)); }catch(_){ console.log('Combo', combo); }
       sfxPlay(SFX.combo,150,0.9);
-      // Coach cheer on milestones
       try{
         if(combo===10) COACH?.say?.("เริ่มติดไฟแล้ว! (10+)", "good", true);
         if(combo===20) COACH?.say?.("สวย! รักษาความต่อเนื่อง!", "good");
@@ -123,7 +121,7 @@
                : kind==='core' ? 'เพชร: แตะทันทีเพื่อคอมโบ'
                : 'Pad: แตะภายในเวลาที่กำหนด';
       COACH?.say?.(msg, 'warn', true);
-      _ignoreStreak[kind]=0; // รีเซ็ตหลังแนะนำ
+      _ignoreStreak[kind]=0;
     }
   }
   function resetIgnore(kind){ _ignoreStreak[kind]=0; }
@@ -146,11 +144,35 @@
   }
   function setPhase(n){ const el=byId('phaseLabel'); if(el) el.textContent='Phase '+n; }
 
+  // ---------- Boss Name HUD ----------
+  function ensureBossNameHUD(){
+    if (byId('bossNameHUD')) return byId('bossNameHUD');
+    const el = document.createElement('div');
+    el.id = 'bossNameHUD';
+    Object.assign(el.style, {
+      position:'fixed', top:'10px', left:'50%', transform:'translateX(-50%)',
+      padding:'6px 10px', borderRadius:'10px',
+      background:'rgba(10,16,24,.85)', color:'#e6f7ff',
+      border:'1px solid rgba(255,255,255,.12)', font:'800 13px system-ui',
+      letterSpacing:'1px', zIndex: 9999
+    });
+    document.body.appendChild(el);
+    return el;
+  }
+  function setBossNameHUD(name, phase){
+    const el = ensureBossNameHUD();
+    el.textContent = `${name || 'BOSS'} · Phase ${phase||1}`;
+  }
+  function removeBossNameHUD(){
+    const el=byId('bossNameHUD'); if(el) try{ el.remove(); }catch(_){}
+  }
+
   // ------------------ Boss UI ------------------
   function bossShowUI(s){ const bar=byId('bossBar'); if(bar) bar.style.display=s?'block':'none'; }
   function bossSetHP(v){
     const was=BOSS.hp; BOSS.hp=clamp(v,0,BOSS.max);
     const fill=byId('bossHPFill'); if(fill) fill.style.width=((BOSS.hp/BOSS.max)*100)+'%';
+    setBossNameHUD(BOSS.name, BOSS.phase);
     if(BOSS.phase===1 && BOSS.hp<=BOSS.max*0.5) enterPhase2();
     if(BOSS.hp<=0 && was>0) onBossDefeated();
   }
@@ -162,13 +184,28 @@
   }
   function bossIntro(){
     const arena=byId('arena');
+
+    // Anchor + head/mask
     const a=document.createElement('a-entity'); a.id='bossAnchor'; a.setAttribute('position','0 1.5 -3');
     const head=document.createElement('a-sphere'); head.setAttribute('radius','0.35'); head.setAttribute('color','#1a1a1a'); head.setAttribute('position','0 0 0');
     const mask=document.createElement('a-box'); mask.setAttribute('depth','0.06'); mask.setAttribute('width','0.55'); mask.setAttribute('height','0.45'); mask.setAttribute('color',BOSS.color); mask.setAttribute('position','0 0 0.25');
-    a.appendChild(head); a.appendChild(mask); arena.appendChild(a);
+    a.appendChild(head); a.appendChild(mask);
+
+    // 🔹 ชื่อบอสบนฉาก (ป้ายลอย)
+    const name3D = document.createElement('a-entity');
+    name3D.setAttribute('text', {value: (BOSS.name||'BOSS'), color:'#9bd1ff', align:'center', width: 4});
+    name3D.setAttribute('position','0 0.55 0.05');
+    name3D.setAttribute('scale','1 1 1');
+    a.appendChild(name3D);
+
+    arena.appendChild(a);
+
+    // HUD + roar
     sfxPlay(SFX.boss_roar,200,0.9);
-    bossShowUI(true); bossSetHP(BOSS.max); setPhase(1);
-    COACH?.say?.("พร้อมลุย! เริ่มเฟส 1", "good");
+    bossShowUI(true); BOSS.max=1000; BOSS.hp=BOSS.max; BOSS.phase=1; setPhase(1);
+    setBossNameHUD(BOSS.name, BOSS.phase);
+
+    COACH?.say?.(`พร้อมลุย! พบกับ ${BOSS.name}`, "good");
   }
 
   // ------------------ Boss patterns ------------------
@@ -224,7 +261,7 @@
     };
     r.addEventListener('click', ()=>{
       if(hit) return; hit=true;
-      const p=r.object3D.getWorldPosition(new THREE.Vector3());
+      const p=r.object3D.getWorldPosition(new THREE.Vector3()));
       floatText('BREAK','#00ffa3',p);
       combo++; onComboChanged(); hits++; score+=Math.round(14*scoringMul()); updateHUD();
       resetIgnore('ring');
@@ -398,12 +435,14 @@
   // ------------------ Boss flow ------------------
   function enterPhase2(){
     BOSS.phase=2; setPhase(2);
+    setBossNameHUD(BOSS.name, BOSS.phase);
     try{ window.APP?.badge?.('Phase 2'); }catch(_){}
     COACH?.say?.("Phase 2! รูปแบบเริ่มดุขึ้น ระวังจังหวะหลอก!", "warn", true);
   }
   function onBossDefeated(){
     bossDown = true;
     BOSS.active=false; floatText('BOSS DEFEATED','#00ffa3', new THREE.Vector3(0,1.6,-2.4));
+    removeBossNameHUD();
     score+=250; updateHUD(); end();
   }
 
@@ -423,7 +462,6 @@
     timer = setInterval(()=>{
       timeLeft--;
       byId('time').textContent=timeLeft;
-      // Rush Phase 10 วิท้ายของ Phase 2
       if (BOSS.phase===2 && timeLeft===10) COACH?.say?.("Rush Phase! 10 วิสุดท้าย เร่งมือ!", "warn", true);
       if(timeLeft<=0) end();
     },1000);
@@ -438,21 +476,19 @@
     };
     tickSpawn();
 
-    // โค้ชปลุกใจระหว่างเกมทุก ~12 วิ (สุ่ม 50%)
     coachHypeTimer = setInterval(()=>{
       if(!running) return;
       if(Math.random()<0.5) COACH?.say?.("ดีมาก! จังหวะกำลังมา!", "good");
     }, 12000);
   }
 
-  // ---- ดาว 5 ระดับ (0–5) ----
   function computeStars(){
     let s = 0;
-    if(bossDown) s += 1;                     // ชนะบอส
-    if(maxCombo >= 15) s += 1;               // คอมโบระดับเริ่มต้น
-    if(maxCombo >= 30) s += 1;               // คอมโบสูง
-    if(score >= 300) s += 1;                 // สกอร์รวม
-    if(timeLeft >= 10) s += 1;               // จบด้วยเวลาเหลือ
+    if(bossDown) s += 1;
+    if(maxCombo >= 15) s += 1;
+    if(maxCombo >= 30) s += 1;
+    if(score >= 300) s += 1;
+    if(timeLeft >= 10) s += 1;
     return clamp(s,0,5);
   }
 
@@ -464,13 +500,13 @@
     try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
     try{ clearInterval(coachHypeTimer); }catch(_){}
     bossShowUI(false);
+    removeBossNameHUD();
 
     const acc = maxCombo>0 ? Math.min(100, Math.round((hits/(hits+_ignoreStreak.ring+_ignoreStreak.blade+_ignoreStreak.core+_ignoreStreak.pad+1))*100)) : 0;
     byId('rScore').textContent = Math.round(score);
     byId('rMaxCombo').textContent = maxCombo;
     byId('rAcc').textContent = acc + '%';
 
-    // ★★★★★ (5 ระดับ)
     const stars = computeStars();
     const rStars = byId('rStars');
     if(rStars){ rStars.textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars); }
@@ -481,12 +517,11 @@
         extra = document.createElement('div'); extra.id='rExtra'; extra.style.marginTop='8px';
         byId('results').querySelector('.card')?.appendChild(extra);
       }
-      extra.innerHTML = `Time Left: <b>${timeLeft}s</b>`;
+      extra.innerHTML = `Boss: <b>${BOSS.name}</b> · Time Left: <b>${timeLeft}s</b>`;
     }
 
     byId('results').style.display='flex';
     sfxPlay(SFX.ui,140,1);
-    // Coach summary
     COACH?.say?.(stars>=3 ? "สุดยอด! ฟอร์มแจ่มมาก!" : "เยี่ยม! รอบหน้าลองรักษาคอมโบนานขึ้น", "good", true);
   }
 
@@ -567,190 +602,6 @@
     });
   }
 
-  /* ===== How to Play (Shadow Breaker) · inline UI ===== */
-  (function installHowTo(){
-    const css = `
-    #sbHelpBtn{position:fixed;left:160px;bottom:12px;z-index:9999;padding:8px 12px;border-radius:10px;border:0;background:#123047;color:#e6f7ff;font:600 12px system-ui;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}
-    #sbHelpBtn:hover{filter:brightness(1.1)}
-    #sbHowTo{position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65)}
-    #sbHowTo .card{width:min(820px,92vw);max-height:86vh;overflow:auto;background:#0b1118;border:1px solid #213546;border-radius:14px;padding:16px 18px;color:#e6f7ff;box-shadow:0 10px 30px rgba(0,0,0,.45)}
-    #sbHowTo h2{margin:0 0 8px;font:800 18px/1.2 system-ui;letter-spacing:.3px}
-    #sbHowTo h3{margin:14px 0 6px;font:700 14px/1.25 system-ui;color:#9bd1ff}
-    #sbHowTo p, #sbHowTo li{font:500 13px/1.5 system-ui;color:#d9f3ff}
-    #sbHowTo .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-    #sbHowTo .cta{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-    #sbHowTo .btn{padding:8px 12px;border-radius:10px;border:0;font:700 12px system-ui;cursor:pointer}
-    #sbHowTo .btn.primary{background:#0e2233;color:#e6f7ff}
-    #sbHowTo .btn.ghost{background:transparent;color:#a8cfe6;border:1px solid #2a465c}
-    @media (max-width:720px){ #sbHowTo .grid{grid-template-columns:1fr} #sbHelpBtn{left:12px;bottom:54px} }
-    `;
-    const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
-
-    const btn = document.createElement('button');
-    btn.id = 'sbHelpBtn';
-    btn.type = 'button';
-    btn.textContent = '❓ How to Play';
-    document.body.appendChild(btn);
-
-    const wrap = document.createElement('section');
-    wrap.id = 'sbHowTo';
-    wrap.innerHTML = `
-      <div class="card" role="dialog" aria-labelledby="sbHowToTitle" aria-modal="true">
-        <h2 id="sbHowToTitle">วิธีการเล่น · Shadow Breaker</h2>
-        <div class="grid">
-          <div>
-            <h3>เป้าหมาย</h3>
-            <ul>
-              <li>ป้องกัน/สวน “ท่าบอส” (ดาบ / วงแหวน / เพชร ฯลฯ)</li>
-              <li>ชกรูปทรงเป้า (วงกลม/สามเหลี่ยม/สี่เหลี่ยม/ห้าเหลี่ยม/หกเหลี่ยม) เพื่อเก็บคะแนนและลด HP บอส</li>
-              <li>เลี่ยง <b>ระเบิด</b> (Bomb) — ชนแล้วคอมโบจะถูกรีเซ็ต</li>
-            </ul>
-
-            <h3>การควบคุม</h3>
-            <ul>
-              <li><b>เดสก์ท็อป:</b> เมาส์ขยับ = มือขวา | คลิกซ้าย = ชก/พารี/ทำลาย</li>
-              <li><b>มือถือ/VR:</b> แตะหน้าจอหรือจิ้มคอนโทรลเลอร์บนเป้า</li>
-              <li><b>คีย์ลัด:</b> <code>P</code> = Pause/Resume, <code>B</code> = Bank, <code>\`</code> = Debug</li>
-            </ul>
-
-            <h3>คะแนน & คอมโบ</h3>
-            <ul>
-              <li><b>Perfect</b> ให้คะแนนสูงสุด</li>
-              <li><b>Good</b> ได้คะแนนปกติ</li>
-              <li><b>ไม่กด = ไม่หักคะแนน</b> (คอมโบไม่ขาด เว้นแต่โดน <b>Bomb</b>)</li>
-              <li>คอมโบทุก ๆ 10 ครั้งมีเชียร์ + แบดจ์</li>
-              <li><b>Fever</b>: คอมโบ 25+ เปิด x1.5 สำหรับ Punch Pad</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3>บอส & แพทเทิร์น</h3>
-            <ul>
-              <li><b>ดาบ</b>: คลิกชิ้นดาบเพื่อพารี</li>
-              <li><b>วงแหวน</b>: กดทำลายก่อนขยายจนหมดเวลา</li>
-              <li><b>เพชร</b>: เป้าโบนัส/คริติคอล</li>
-              <li><b>Rush Phase</b> (10 วิ ท้ายเฟส 2): รูปแบบเร็วขึ้นสั้น ๆ</li>
-            </ul>
-
-            <h3>Bank</h3>
-            <ul>
-              <li>คอมโบสะสม → กด Bank เก็บแต้มถาวร</li>
-              <li>ถ้าโดน Bomb ก่อนกด Bank คอมโบจะหลุด</li>
-            </ul>
-
-            <h3>การปรับแต่ง</h3>
-            <ul>
-              <li><b>Difficulty</b>: ปรับได้ที่มุมขวาล่าง</li>
-              <li><b>Accessibility</b>: สีคอนทราสต์สูง + HUD ตัวใหญ่ขึ้น</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="cta">
-          <button class="btn ghost" id="sbHowToClose">Close</button>
-          <button class="btn primary" id="sbHowToStart">Start Now</button>
-        </div>
-      </div>`;
-    document.body.appendChild(wrap);
-
-    function openHowTo(){ wrap.style.display = 'flex'; }
-    function closeHowTo(){ wrap.style.display = 'none'; }
-
-    btn.addEventListener('click', openHowTo);
-    wrap.addEventListener('click', (e)=>{ if(e.target===wrap) closeHowTo(); });
-    wrap.querySelector('#sbHowToClose').addEventListener('click', closeHowTo);
-    wrap.querySelector('#sbHowToStart').addEventListener('click', ()=>{ closeHowTo(); byId('startBtn')?.click(); });
-    window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && wrap.style.display==='flex') closeHowTo(); });
-
-    try{
-      const KEY='sb_seenHowTo_v1';
-      if(!localStorage.getItem(KEY)){
-        setTimeout(openHowTo, 300);
-        localStorage.setItem(KEY,'1');
-      }
-    }catch(_){}
-
-    try{
-      if (FX.hudReadable || FX.accessibility){
-        const hud = document.getElementById('hud');
-        if(hud){ hud.style.fontSize = '15px'; hud.style.filter = 'contrast(1.15)'; }
-      }
-    }catch(_){}
-  })();
-
-  /* ===== Difficulty Dock (Easy / Normal / Hard / Final) ===== */
-  (function installDifficultyDock(){
-    if (document.getElementById('sbDiffDock')) return;
-    function getQ(k){ return new URLSearchParams(location.search).get(k); }
-    const DIFF_KEYS = { easy:1, normal:1, hard:1, final:1 };
-    const current =
-      getQ('diff') ||
-      (function(){ try{return localStorage.getItem('sb_diff');}catch(_){ return null; } })() ||
-      (window.APP && APP.story && APP.story.difficulty) ||
-      'normal';
-    const picked = DIFF_KEYS[current] ? current : 'normal';
-
-    const css = `
-      #sbDiffDock{
-        position:fixed; right:12px; bottom:12px; z-index:99999;
-        display:flex; align-items:center; gap:8px;
-        background:rgba(10,16,24,.78); backdrop-filter:saturate(1.1) blur(4px);
-        border:1px solid rgba(255,255,255,.08); border-radius:12px;
-        padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;
-      }
-      #sbDiffDock label{opacity:.9; letter-spacing:.3px;}
-      #sbDiffSel{
-        appearance:none; -webkit-appearance:none; -moz-appearance:none;
-        background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.14);
-        border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;
-      }
-      #sbDiffDock .chev{margin-left:-22px; pointer-events:none; user-select:none;}
-      @media (max-width: 560px){
-        #sbDiffDock{ right:8px; bottom:8px; padding:6px 8px; }
-        #sbDiffSel{ padding:6px 26px 6px 8px; }
-      }`;
-    const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
-
-    const dock = document.createElement('div');
-    dock.id = 'sbDiffDock';
-    dock.innerHTML = `
-      <label for="sbDiffSel" title="เลือกความยาก (Alt+D)">Difficulty</label>
-      <select id="sbDiffSel" aria-label="Difficulty">
-        <option value="easy">Easy</option>
-        <option value="normal">Normal</option>
-        <option value="hard">Hard</option>
-        <option value="final">Final</option>
-      </select>
-      <span class="chev">▼</span>`;
-    document.body.appendChild(dock);
-
-    const sel = dock.querySelector('#sbDiffSel');
-    sel.value = picked;
-    sel.addEventListener('change', function(e){
-      const v = e.target.value;
-      try{ localStorage.setItem('sb_diff', v); }catch(_){}
-      try{ if(window.APP){ APP.story = APP.story || {}; APP.story.difficulty = v; } }catch(_){}
-      const url = new URL(location.href);
-      url.searchParams.set('diff', v);
-      location.href = url.pathname + '?' + url.searchParams.toString();
-    }, { passive:true });
-
-    document.addEventListener('keydown', function(ev){
-      if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')) sel.focus();
-    });
-
-    function reflectLabels(){
-      const titleMap = {easy:'EASY', normal:'NORMAL', hard:'HARD', final:'FINAL'};
-      const label = titleMap[picked] || 'NORMAL';
-      const rDiff = document.getElementById('rDiff');
-      if (rDiff){
-        const stance = (window.ST && ST.title) ? ` · ${ST.title}` : '';
-        rDiff.textContent = `${label}${stance}`;
-      }
-    }
-    try{ reflectLabels(); }catch(_){}
-  })();
-
   /* ===== Coach Dock (มุมล่างซ้าย ถัดจาก Bank) ===== */
   (function installCoach(){
     if (document.getElementById('coachDock')) return;
@@ -801,4 +652,4 @@
     };
   })();
 
-})(); 
+})();
