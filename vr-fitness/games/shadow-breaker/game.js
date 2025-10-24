@@ -605,5 +605,133 @@
     `;
     const s=document.createElement('style'); s.textContent=css; document.head.appendChild(s);
   })();
+/* === Coach HUD · bottom-left, next to Bank (Shadow Breaker) ================= */
+(function installCoachDock(){
+  // หา element ช่วย
+  const $ = (id)=>document.getElementById(id);
+
+  // กล่อง + สไตล์
+  function createCoach(){
+    if (document.getElementById('coachDock')) return document.getElementById('coachDock');
+
+    const dock = document.createElement('div');
+    dock.id = 'coachDock';
+    Object.assign(dock.style, {
+      position:'fixed',
+      bottom:'12px', left:'12px',
+      display:'flex', alignItems:'center', gap:'8px',
+      padding:'8px 10px',
+      background:'rgba(7,12,18,.75)',
+      border:'1px solid rgba(255,255,255,.08)',
+      borderRadius:'12px',
+      color:'#e6f7ff',
+      font:'600 12px/1.2 system-ui',
+      zIndex: 9999,
+      pointerEvents: 'none',         // สำคัญ: ไม่บังการคลิกปุ่ม/ฉาก
+      maxWidth:'42vw'
+    });
+
+    const avatar = document.createElement('div');
+    avatar.textContent = '🥊';
+    Object.assign(avatar.style, {fontSize:'16px', filter:'drop-shadow(0 1px 0 rgba(0,0,0,.35))'});
+
+    const msg = document.createElement('div');
+    msg.id = 'coachMsg';
+    Object.assign(msg.style, {
+      opacity: .96,
+      textShadow:'0 1px 0 #000',
+      letterSpacing: '.2px'
+    });
+    msg.textContent = 'พร้อมลุย! กด Start แล้วโฟกัสที่สัญญาณเตือนของบอสนะ';
+
+    dock.appendChild(avatar);
+    dock.appendChild(msg);
+    document.body.appendChild(dock);
+    return dock;
+  }
+
+  // จัดตำแหน่ง “ชิดขวา” ของปุ่ม Bank ถ้ามี
+  function positionCoach(){
+    const dock = document.getElementById('coachDock') || createCoach();
+    const bank = document.getElementById('bankBtn');
+
+    if (!bank){
+      // ไม่มีปุ่ม Bank → ยึดมุมล่างซ้ายปกติ
+      Object.assign(dock.style, {left:'12px', bottom:'12px', transform:''});
+      return;
+    }
+
+    const r = bank.getBoundingClientRect();
+    const left = Math.max(12, Math.round(r.right + 8));
+    const bottom = Math.max(12, Math.round(window.innerHeight - r.bottom));
+    Object.assign(dock.style, {left:left+'px', bottom:bottom+'px', transform:''});
+  }
+
+  // API สำหรับเรียกจากเกม
+  function coachSay(text, tone='info'){
+    const box = document.getElementById('coachDock') || createCoach();
+    const msg = document.getElementById('coachMsg');
+    if (!msg) return;
+    msg.textContent = text;
+
+    // โทนสีสั้น ๆ
+    const toneColor = {
+      info:'#e6f7ff',
+      good:'#00ffa3',
+      warn:'#ffd166',
+      bad:'#ff6b6b'
+    }[tone] || '#e6f7ff';
+
+    box.style.borderColor = tone==='warn' ? 'rgba(255,209,102,.45)'
+                        : tone==='bad'  ? 'rgba(255,107,107,.45)'
+                        : tone==='good' ? 'rgba(0,255,163,.35)'
+                                         : 'rgba(255,255,255,.08)';
+    box.style.color = toneColor;
+
+    // แอนิเมชันเล็ก ๆ
+    box.animate(
+      [{transform:'translateY(0)'},{transform:'translateY(-2px)'},{transform:'translateY(0)'}],
+      {duration:260, easing:'ease-out'}
+    );
+  }
+
+  // ติดตั้ง + ติดตามขนาด/เลย์เอาต์
+  function boot(){
+    createCoach();
+    positionCoach();
+    // รีตำแหน่งเมื่อมีการ resize/scroll/font load/ปุ่มโผล่ช้า
+    ['resize','scroll'].forEach(ev=>window.addEventListener(ev, positionCoach, {passive:true}));
+    // Reposition ซ้ำ ๆ ช่วงแรกเผื่อปุ่ม Bank เพิ่งเรนเดอร์
+    let tries = 0; const i = setInterval(()=>{ positionCoach(); tries++; if(tries>20) clearInterval(i); }, 150);
+
+    // เผยแพร่ API
+    window.coachSay = coachSay;
+
+    // ข้อความหมุนเวียนเบื้องต้น (จะไม่แย่งพื้นที่คลิก เพราะ pointer-events:none)
+    const tips = [
+      'เคล็ดลับ: วงแหวนให้คลิกที่ “ขอบ” ตอนกำลังขยาย',
+      'ถ้าเห็นดาบคู่ ให้คลิกให้ครบทั้งสองอัน',
+      'Fever Punch Pads จะให้ x1.5 รีบชกตอนเรืองแสง',
+      'โดนบอสตี อย่าตกใจ—ตั้งคอมโบใหม่แล้วลุยต่อ!'
+    ];
+    let idx=0;
+    setInterval(()=>{
+      // ไม่กวนถ้าผู้เล่นกำลังสู้: โชว์เบา ๆ พอเตือน
+      coachSay(tips[idx%tips.length], 'info'); idx++;
+      positionCoach();
+    }, 9000);
+  }
+
+  if (document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+
+  // รีโปซิชันเมื่อปุ่ม Bank เปลี่ยนเลย์เอาต์ (บางธีมโหลดช้า)
+  const obs = new MutationObserver(()=>positionCoach());
+  obs.observe(document.documentElement, {subtree:true, attributes:true, childList:true});
+
+})();
 
 })();
