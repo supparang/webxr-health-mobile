@@ -7,6 +7,7 @@
    - Match length by difficulty (Easy=90s / Normal=85s / Hard=80s / Final=75s)
    - Tutorial-first-play (สั้น) + 5s Count-down
    - Early-Ease 15s, Cheer SFX, Micro-goals, VFX flash, Soft-end
+   - Analytics เล็ก ๆ + Save/Load โปรไฟล์ (Stats/Export/Import)
 */
 (function(){
   "use strict";
@@ -198,6 +199,7 @@
       if(performance.now()>old){ /* badge optional */ }
     }
     if(combo>maxCombo) maxCombo=combo;
+    try{ SBAnalytics && SBAnalytics.event && SBAnalytics.event('combo',{value:combo}); }catch(_){}
   }
 
   var _ignoreStreak = { ring:0, blade:0, core:0, pad:0 };
@@ -351,7 +353,7 @@
     }
     r.addEventListener('click', function(){
       if(hit) return; hit=true;
-      var p=r.object3D.getWorldPosition(new THREE.Vector3());
+      var p=r.object3D.getWorldPosition(new THREE.Vector3()));
       floatText('BREAK','#00ffa3',p);
       combo++; onComboChanged(); hits++; score+=Math.round(14*scoringMul()); updateHUD();
       resetIgnore('ring');
@@ -504,6 +506,7 @@
         combo = 0; onComboChanged(); updateHUD();
         floatText('BOMB! Combo reset','#ff7766',p);
         sfxPlay(SFX.boom,120,1.0);
+        try{ SBAnalytics && SBAnalytics.event && SBAnalytics.event('bombHit'); }catch(_){}
         return;
       }
 
@@ -516,6 +519,7 @@
       sfxPlay(SFX.slash,120,1.0);
       bossDamage(spec.dmg||10, p);
       resetIgnore('pad');
+      try{ SBAnalytics && SBAnalytics.event && SBAnalytics.event('padHit'); }catch(_){}
     }
     el.addEventListener('click', onClick);
     el.addEventListener('mousedown', onClick);
@@ -540,6 +544,8 @@
     BOSS.max   = Math.round(cfg.baseHP * DIFF.bossHP);
     BOSS.hp    = BOSS.max;
     bossIntro();
+    setBossNameLabel(BOSS.name||'BOSS');
+    try{ SBAnalytics && SBAnalytics.onBoss && SBAnalytics.onBoss(BOSS.name); }catch(_){}
     setTimeout(scheduleNext, 700);
   }
 
@@ -607,7 +613,7 @@
   }
 
   // ------------------ Game flow ------------------
-  function clearArena(){ var a=byId('arena'); var kids=a ? a.children : []; var arr=Array.prototype.slice.call(kids); arr.forEach(function(c){ safeRemove(c); }); }
+  function clearArena(){ var a=byId('arena'); if(!a) return; var kids=a.children; var arr=[]; for(var i=0;i<kids.length;i++) arr.push(kids[i]); arr.forEach(function(c){ safeRemove(c); }); }
 
   function start(){
     if(running || starting) return;
@@ -631,6 +637,11 @@
     updateHUD(); bossShowUI(false); clearArena();
 
     bossIndex = 0; // เริ่มที่บอสตัวแรก
+    // Analytics start hook
+    try{
+      var diffKeyNow = getDiffKey();
+      SBAnalytics && SBAnalytics.onStart && SBAnalytics.onStart({diffKey: diffKeyNow, bossName: BOSSES[0].title});
+    }catch(_){}
     spawnBossByIndex(bossIndex);
 
     clearInterval(timer);
@@ -751,11 +762,22 @@
 
     byId('results').style.display='flex';
     sfxPlay(SFX.ui,140,1);
+
+    // Analytics end hook
+    try{
+      SBAnalytics && SBAnalytics.onEnd && SBAnalytics.onEnd({
+        score: Math.round(score),
+        combo: maxCombo,
+        stars: stars,
+        cleared: !!bossDown
+      });
+    }catch(_){}
   }
 
   function bankNow(){
     var add=Math.floor(combo*3);
     score+=add; combo=0; updateHUD();
+    try{ SBAnalytics && SBAnalytics.event && SBAnalytics.event('bank'); }catch(_){}
   }
 
   // ------------------ Mouse raycast fallback ------------------
@@ -947,6 +969,174 @@
     document.addEventListener('keydown', function(ev){
       if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')){ sel.focus(); }
     });
+  })();
+
+})(); 
+
+/* ===== SB Analytics & Profile (drop-in, hooks wired) ===== */
+(function(){
+  if (window.SBAnalytics) return;
+
+  var LS_KEY = 'sb_profile_v1';
+  var LS_RUN = 'sb_recent_runs_v1';
+  var MAX_RECENT = 15;
+
+  function nowISO(){ return new Date().toISOString(); }
+  function loadJSON(k, fallback){
+    try{ var s=localStorage.getItem(k); return s? JSON.parse(s): fallback; }catch(_){ return fallback; }
+  }
+  function saveJSON(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){} }
+
+  function blankProfile(){
+    return {
+      version:1,
+      created: nowISO(),
+      lastPlayed: null,
+      plays: 0,
+      clears: 0,
+      timePlayedSec: 0,
+      bestScore: 0,
+      bestCombo: 0,
+      bestStars: 0,
+      bestByDiff: {
+        easy:   {score:0, combo:0, stars:0},
+        normal: {score:0, combo:0, stars:0},
+        hard:   {score:0, combo:0, stars:0},
+        final:  {score:0, combo:0, stars:0}
+      },
+      bossClears: { RAZORFIST:0, 'ASH ONI':0, NIGHTBLADE:0, 'VOID EMPEROR':0 },
+      totals: { bankPresses:0, padHits:0, bombHits:0 }
+    };
+  }
+  function ensureProfile(){
+    var p = loadJSON(LS_KEY, null);
+    if(!p){ p=blankProfile(); saveJSON(LS_KEY,p); }
+    p.bestByDiff = p.bestByDiff || blankProfile().bestByDiff;
+    p.bossClears = p.bossClears || blankProfile().bossClears;
+    p.totals     = p.totals     || blankProfile().totals;
+    return p;
+  }
+  function updateBests(p, diffKey, score, combo, stars){
+    if (score > p.bestScore) p.bestScore = score;
+    if (combo > p.bestCombo) p.bestCombo = combo;
+    if (stars > p.bestStars) p.bestStars = stars;
+    var slot = p.bestByDiff[diffKey] || (p.bestByDiff[diffKey]={score:0,combo:0,stars:0});
+    if (score > slot.score) slot.score = score;
+    if (combo > slot.combo) slot.combo = combo;
+    if (stars > slot.stars) slot.stars = stars;
+  }
+
+  var RUN = { startedAt:null, diffKey:'normal', bossName:null, cleared:false, score:0, combo:0, stars:0, duration:0 };
+
+  function recordRunEnd(){
+    var p = ensureProfile();
+    p.lastPlayed = nowISO();
+    p.plays += 1;
+    if (RUN.cleared && RUN.bossName) {
+      p.clears += 1;
+      p.bossClears[RUN.bossName] = (p.bossClears[RUN.bossName]||0) + 1;
+    }
+    if (RUN.startedAt){ RUN.duration = Math.max(0, Math.round((Date.now()-RUN.startedAt)/1000)); p.timePlayedSec += RUN.duration; }
+    updateBests(p, RUN.diffKey, RUN.score|0, RUN.combo|0, RUN.stars|0);
+    saveJSON(LS_KEY, p);
+
+    var rec = loadJSON(LS_RUN, []);
+    rec.unshift({ t: nowISO(), diff: RUN.diffKey, boss: RUN.bossName||'—', cleared: !!RUN.cleared, score: RUN.score|0, combo: RUN.combo|0, stars: RUN.stars|0, dur: RUN.duration|0 });
+    if(rec.length>MAX_RECENT) rec.length=MAX_RECENT;
+    saveJSON(LS_RUN, rec);
+  }
+
+  window.SBAnalytics = {
+    onStart: function(o){ o=o||{}; RUN.startedAt=Date.now(); RUN.diffKey=o.diffKey||'normal'; RUN.bossName=o.bossName||RUN.bossName; RUN.cleared=false; RUN.score=0; RUN.combo=0; RUN.stars=0; RUN.duration=0; },
+    onBoss:  function(name){ RUN.bossName=name||RUN.bossName; },
+    onEnd:   function(o){ o=o||{}; if(typeof o.score==='number') RUN.score=o.score; if(typeof o.combo==='number') RUN.combo=o.combo; if(typeof o.stars==='number') RUN.stars=o.stars; RUN.cleared=!!o.cleared; recordRunEnd(); },
+    event:   function(type,payload){ payload=payload||{}; var p=ensureProfile(); if(type==='bank') p.totals.bankPresses++; if(type==='padHit') p.totals.padHits++; if(type==='bombHit') p.totals.bombHits++; saveJSON(LS_KEY,p); if(type==='combo' && payload.value && (payload.value===10||payload.value===20||payload.value===30)){ try{ window.APP && APP.badge && APP.badge('CHEER! Combo '+payload.value); }catch(_){}} },
+    getProfile: function(){ return ensureProfile(); },
+    resetProfile: function(){ try{ localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_RUN); }catch(_){} },
+    recent: function(){ return loadJSON(LS_RUN, []); }
+  };
+
+  // ---- Stats UI (ปุ่ม 📊) ----
+  (function(){
+    var css = ''+
+      '#sbStatsBtn{position:fixed;left:260px;bottom:12px;z-index:9999;padding:8px 12px;border-radius:10px;border:0;background:#0f2536;color:#e6f7ff;font:700 12px system-ui;cursor:pointer}'+
+      '#sbStats{position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}'+
+      '#sbStats .card{width:min(900px,94vw);max-height:85vh;overflow:auto;background:#0b1118;border:1px solid #213546;border-radius:14px;padding:16px;color:#e6f7ff;box-shadow:0 10px 30px rgba(0,0,0,.45)}'+
+      '#sbStats h2{margin:0 0 8px;font:800 18px/1.2 system-ui}'+
+      '#sbStats table{width:100%;border-collapse:collapse;margin-top:8px}'+
+      '#sbStats th,#sbStats td{border-bottom:1px solid #1c3142;padding:6px 8px;font:600 12px system-ui}'+
+      '#sbStats .row{display:flex;gap:14px;flex-wrap:wrap}'+
+      '#sbStats .box{flex:1 1 260px;padding:10px;border:1px solid #213546;border-radius:10px;background:#0f1722}'+
+      '#sbStats .cta{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}'+
+      '#sbStats .btn{padding:8px 12px;border-radius:10px;border:0;font:700 12px system-ui;cursor:pointer}'+
+      '#sbStats .btn.primary{background:#0e2233;color:#e6f7ff}'+
+      '#sbStats .btn.warn{background:#3b0a0a;color:#ffdcdc}'+
+      '#sbStats textarea{width:100%;min-height:120px;background:#0b1118;color:#d9f3ff;border:1px solid #213546;border-radius:10px;padding:8px;font:600 12px/1.4 ui-monospace,Consolas,monospace}'+
+      '@media (max-width:720px){ #sbStatsBtn{left:12px;bottom:96px} }';
+    var style = document.createElement('style'); style.textContent=css; document.head.appendChild(style);
+
+    var btn = document.createElement('button'); btn.id='sbStatsBtn'; btn.textContent='📊 Stats'; document.body.appendChild(btn);
+    var wrap = document.createElement('section'); wrap.id='sbStats'; wrap.innerHTML = ''+
+      '<div class="card">'+
+      '  <h2>สถิติ & โปรไฟล์ผู้เล่น</h2>'+
+      '  <div class="row" id="sbStatsSummary"></div>'+
+      '  <h3 style="margin:10px 0 4px">Recent Runs</h3>'+
+      '  <table id="sbStatsRecent"><thead><tr><th>เวลา</th><th>โหมด</th><th>บอส</th><th>เคลียร์</th><th>สกอร์</th><th>คอมโบ</th><th>★</th><th>ระยะเวลา</th></tr></thead><tbody></tbody></table>'+
+      '  <h3 style="margin:10px 0 4px">Export / Import</h3>'+
+      '  <textarea id="sbExportBox" placeholder="โปรไฟล์จะปรากฏที่นี่…"></textarea>'+
+      '  <div class="cta">'+
+      '    <button class="btn primary" id="sbDoExport">Export</button>'+
+      '    <button class="btn primary" id="sbDoImport">Import</button>'+
+      '    <button class="btn warn" id="sbReset">Reset Profile</button>'+
+      '    <button class="btn" id="sbClose">Close</button>'+
+      '  </div>'+
+      '</div>';
+    document.body.appendChild(wrap);
+
+    function render(){
+      var p = SBAnalytics.getProfile();
+      var r = SBAnalytics.recent();
+      var sum = document.getElementById('sbStatsSummary');
+      sum.innerHTML = ''+
+        '<div class="box"><b>เล่นทั้งหมด</b><div>'+p.plays+'</div></div>'+
+        '<div class="box"><b>เคลียร์</b><div>'+p.clears+'</div></div>'+
+        '<div class="box"><b>เวลารวม</b><div>'+Math.round(p.timePlayedSec/60)+' นาที</div></div>'+
+        '<div class="box"><b>Best Score</b><div>'+p.bestScore+'</div></div>'+
+        '<div class="box"><b>Best Combo</b><div>'+p.bestCombo+'</div></div>'+
+        '<div class="box"><b>Best Stars</b><div>'+p.bestStars+' ★</div></div>'+
+        '<div class="box"><b>Bank ทั้งหมด</b><div>'+p.totals.bankPresses+'</div></div>'+
+        '<div class="box"><b>Pad Hits</b><div>'+p.totals.padHits+'</div></div>'+
+        '<div class="box"><b>Bomb Hits</b><div>'+p.totals.bombHits+'</div></div>';
+      var tb = document.querySelector('#sbStatsRecent tbody');
+      tb.innerHTML = r.map(function(x){
+        var dt = (x.t||'').split('T'); var d=dt[0]||'', tt=(dt[1]||'').slice(0,8);
+        return '<tr>'+
+          '<td>'+d+' '+tt+'</td>'+
+          '<td>'+x.diff+'</td>'+
+          '<td>'+x.boss+'</td>'+
+          '<td>'+(x.cleared?'✓':'')+'</td>'+
+          '<td>'+x.score+'</td>'+
+          '<td>'+x.combo+'</td>'+
+          '<td>'+x.stars+'</td>'+
+          '<td>'+(x.dur||0)+'s</td>'+
+        '</tr>';
+      }).join('');
+      document.getElementById('sbExportBox').value = JSON.stringify({profile:p, recent:r}, null, 2);
+    }
+
+    btn.onclick = function(){ render(); wrap.style.display='flex'; };
+    wrap.addEventListener('click', function(e){ if(e.target===wrap) wrap.style.display='none'; });
+    wrap.querySelector('#sbClose').onclick = function(){ wrap.style.display='none'; };
+    wrap.querySelector('#sbDoExport').onclick = function(){ render(); };
+    wrap.querySelector('#sbReset').onclick = function(){ SBAnalytics.resetProfile(); render(); };
+    wrap.querySelector('#sbDoImport').onclick = function(){
+      try{
+        var obj = JSON.parse(document.getElementById('sbExportBox').value||'{}');
+        if (obj.profile) localStorage.setItem(LS_KEY, JSON.stringify(obj.profile));
+        if (obj.recent)  localStorage.setItem(LS_RUN, JSON.stringify(obj.recent));
+        render();
+      }catch(e){ alert('Import ไม่สำเร็จ: JSON ไม่ถูกต้อง'); }
+    };
   })();
 
 })();
