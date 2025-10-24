@@ -1,5 +1,10 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · game.js (4 แพตช์รวมครบ: ensureArena + watchdog + flow-safe combo + raycast รอกล้อง)
+   Shadow Breaker · game.js (Extra Punch Targets + Full Result Summary + Safe Flow + Mouse/Touch Raycast)
+   - เพิ่ม “เป้าให้ชก (Punch Pads)” โผล่มาเป็นระยะเพื่อเพิ่มความสนุก/ท้าทาย กดได้ทั้งเมาส์/ทัช/VR cursor
+   - เป้าแบ่งปกติ/ทอง (ทองให้ +เวลา) มีอายุ ถ้าพลาด = MISS
+   - นับสถิติ hits/spawns เพื่อคำนวณ Accuracy จริง
+   - จบเกมมีสรุปครบ: Score / Max Combo / Accuracy / เวลา / บอสที่โค่น / ดาว (3 เงื่อนไข)
+   - ปลอดภัยจาก removeChild-of-null, มีกล้องก่อน raycast, ปุ่ม Start/Pause/End/Back-to-hub ใช้ได้
 */
 (function(){
   "use strict";
@@ -9,15 +14,13 @@
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
   const getQuery=(k)=>new URLSearchParams(location.search).get(k);
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
-  const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
+  const HUB_URL    = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
 
-  // ป้าย / แปล (fallback เป็น console)
   const APPX = {
     badge:(t)=>{ if(window.APP?.badge) APP.badge(t); else console.log('[BADGE]',t); },
     t:(k)=>window.APP?.t?APP.t(k):k
   };
 
-  // Null-safe remover (กัน removeChild of null จากภายใน A-Frame)
   function safeRemove(el){
     try{
       if(!el) return;
@@ -27,14 +30,15 @@
     }catch(_){}
   }
 
-  // Timer helpers
   const timeouts = new Set();
   function after(ms, fn){
     const id = setTimeout(()=>{ timeouts.delete(id); try{ fn(); }catch(_e){} }, ms);
     timeouts.add(id); return id;
   }
+  function clearAllAsync(){
+    try{ timeouts.forEach(clearTimeout); timeouts.clear(); }catch(_){}
+  }
 
-  // ให้แน่ใจว่า #arena มีเสมอ (ถ้าไม่มีก็สร้างให้)
   function ensureArena(){
     let arena = byId('arena');
     if (!arena){
@@ -51,18 +55,18 @@
   // ---------- SFX ----------
   const sfx = (p)=>{ const a=new Audio(p); a.preload='auto'; a.crossOrigin='anonymous'; return a; };
   const SFX = {
-    slash: sfx(`${ASSET_BASE}/assets/sfx/slash.wav`),
-    perfect: sfx(`${ASSET_BASE}/assets/sfx/perfect.wav`),
-    miss: sfx(`${ASSET_BASE}/assets/sfx/miss.wav`),
-    combo: sfx(`${ASSET_BASE}/assets/sfx/combo.wav`),
-    hp_hit: sfx(`${ASSET_BASE}/assets/sfx/hp_hit.wav`),
-    boss_roar: sfx(`${ASSET_BASE}/assets/sfx/boss_roar.wav`),
-    tel_slash: sfx(`${ASSET_BASE}/assets/sfx/tel_slash.wav`),
-    tel_shock: sfx(`${ASSET_BASE}/assets/sfx/tel_shock.wav`),
-    tel_guard: sfx(`${ASSET_BASE}/assets/sfx/tel_guard.wav`),
+    slash:    sfx(`${ASSET_BASE}/assets/sfx/slash.wav`),
+    perfect:  sfx(`${ASSET_BASE}/assets/sfx/perfect.wav`),
+    miss:     sfx(`${ASSET_BASE}/assets/sfx/miss.wav`),
+    combo:    sfx(`${ASSET_BASE}/assets/sfx/combo.wav`),
+    hp_hit:   sfx(`${ASSET_BASE}/assets/sfx/hp_hit.wav`),
+    boss_roar:sfx(`${ASSET_BASE}/assets/sfx/boss_roar.wav`),
+    tel_slash:sfx(`${ASSET_BASE}/assets/sfx/tel_slash.wav`),
+    tel_shock:sfx(`${ASSET_BASE}/assets/sfx/tel_shock.wav`),
+    tel_guard:sfx(`${ASSET_BASE}/assets/sfx/tel_guard.wav`),
     tel_dash: sfx(`${ASSET_BASE}/assets/sfx/tel_dash.wav`),
-    enrage: sfx(`${ASSET_BASE}/assets/sfx/enrage.wav`),
-    success: sfx(`${ASSET_BASE}/assets/sfx/success.wav`)
+    enrage:   sfx(`${ASSET_BASE}/assets/sfx/enrage.wav`),
+    success:  sfx(`${ASSET_BASE}/assets/sfx/success.wav`)
   };
 
   // ---------- Difficulty ----------
@@ -72,34 +76,27 @@
     return (window.APP?.story?.difficulty) || q || ls || 'normal';
   }
   const DIFFS = {
-    easy:   { hp:0.85, atkWin:1.15, dmgMul:0.9,  spawnInt:950, scoreMul:0.9,  title:'EASY'   },
-    normal: { hp:1.00, atkWin:1.00, dmgMul:1.0,  spawnInt:900, scoreMul:1.0,  title:'NORMAL' },
-    hard:   { hp:1.20, atkWin:0.90, dmgMul:1.1,  spawnInt:820, scoreMul:1.1,  title:'HARD'   },
-    final:  { hp:1.35, atkWin:0.85, dmgMul:1.2,  spawnInt:780, scoreMul:1.2,  title:'FINAL'  }
+    easy:   { hp:0.85, atkWin:1.15, dmgMul:0.9,  spawnInt:950, scoreMul:0.9,  title:'EASY'   , chainMin:10 },
+    normal: { hp:1.00, atkWin:1.00, dmgMul:1.0,  spawnInt:900, scoreMul:1.0,  title:'NORMAL' , chainMin:15 },
+    hard:   { hp:1.20, atkWin:0.90, dmgMul:1.1,  spawnInt:820, scoreMul:1.1,  title:'HARD'   , chainMin:20 },
+    final:  { hp:1.35, atkWin:0.85, dmgMul:1.2,  spawnInt:780, scoreMul:1.2,  title:'FINAL'  , chainMin:25 }
   };
   let D = DIFFS.normal;
   const dur = (ms)=> ms * D.atkWin;
 
   // ---------- State ----------
   let running=false, paused=false;
-  let timer=null, spawnTimer=null;
-  let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
-  let CURRENT_BOSS=0;
+  let timer=null;
+  let score=0, combo=0, maxCombo=0, timeLeft=60;
 
-  // ---------- HUD ----------
-  function updateHUD(){
-    byId('score') && (byId('score').textContent = Math.round(score*D.scoreMul));
-    byId('combo') && (byId('combo').textContent = combo);
-    byId('time')  && (byId('time').textContent  = timeLeft);
-  }
-  function setPhaseLabel(n){ const el=byId('phaseLabel'); if(el) el.textContent='Phase '+n; }
-  function onComboChange(){
-    byId('combo') && (byId('combo').textContent=combo);
-    if(combo>0 && combo%10===0){ SFX.combo.play(); APPX.badge('Combo x'+(1+Math.floor(combo/10))); }
-    if(combo>maxCombo) maxCombo=combo;
-  }
+  // punch targets stats
+  let hits=0, spawns=0;
+  let extraSpawnTimer=null;          // สุ่ม “เป้าให้ชก” เป็นระยะ
+  let extraSpawnInt=1400;            // เริ่มไม่ถี่
+  let extraLife=1800;                // อายุเป้า
+  let defeatedBoss=0;                // นับบอสที่ผ่าน
 
-  // ---------- Boss System ----------
+  // Boss core
   const BOSSES_ALL = [
     { id:'RazorFist',   title:'RAZORFIST',   baseHP:1000, color:'#ff3355',
       P1:['slash_cross','rapid_fist','guard_break'], P2:['shadow_dash','multi_slash','enrage_combo'] },
@@ -117,9 +114,36 @@
     return BOSSES_ALL.slice();
   }
   let ROSTER = makeRoster('normal');
+  let CURRENT_BOSS=0;
 
   const BOSS={active:false,hp:0,max:1,rage:false,phase:1,busy:false,name:'',color:'#ff3355',P1:[],P2:[],_patternStartedAt:0};
 
+  // ---------- HUD ----------
+  function updateHUD(){
+    byId('score') && (byId('score').textContent = Math.round(score*D.scoreMul));
+    byId('combo') && (byId('combo').textContent = combo);
+    byId('time')  && (byId('time').textContent  = timeLeft);
+  }
+  function setPhaseLabel(n){ const el=byId('phaseLabel'); if(el) el.textContent='Phase '+n; }
+  function onComboChange(){
+    byId('combo') && (byId('combo').textContent=combo);
+    if(combo>0 && combo%10===0){ SFX.combo.play(); APPX.badge('Combo x'+(1+Math.floor(combo/10))); }
+    if(combo>maxCombo) maxCombo=combo;
+  }
+
+  // ---------- UI toast ----------
+  function floatText(text, color, pos){
+    const e=document.createElement('a-entity'), p=pos.clone(); p.y+=0.2;
+    e.setAttribute('text',{value:text,color,align:'center',width:2.6});
+    e.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
+    e.setAttribute('scale','0.001 0.001 0.001');
+    e.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:90,easing:'easeOutQuad'});
+    e.setAttribute('animation__rise',{property:'position',to:`${p.x} ${p.y+0.6} ${p.z}`,dur:600,easing:'easeOutQuad'});
+    e.setAttribute('animation__fade',{property:'opacity',to:0,dur:480,delay:160,easing:'linear'});
+    ensureArena().appendChild(e); setTimeout(()=>safeRemove(e),820);
+  }
+
+  // ---------- Boss UI ----------
   function bossShowUI(show){ const bar=byId('bossBar'); if(bar) bar.style.display=show?'block':'none'; }
   function bossSetHP(h){
     const was=BOSS.hp;
@@ -138,7 +162,7 @@
     const anchor=document.createElement('a-entity');
     anchor.id='bossAnchor';
     anchor.setAttribute('position','0 1.5 -3');
-    // หัว + หน้ากากแบบง่าย
+
     const head=document.createElement('a-sphere'); head.setAttribute('radius','0.35'); head.setAttribute('color','#1a1a1a');
     const mask=document.createElement('a-box');    mask.setAttribute('width','0.55'); mask.setAttribute('height','0.45'); mask.setAttribute('depth','0.06'); mask.setAttribute('color',BOSS.color);
     mask.setAttribute('position','0 0 0.25');
@@ -166,30 +190,26 @@
 
   function onBossDefeated(){
     BOSS.active=false;
+    defeatedBoss++;
     floatText('BOSS DEFEATED','#00ffa3', new THREE.Vector3(0,1.6,-2.3));
     score += 250; updateHUD();
-    end(); // จบเกมเมื่อชนะบอสชุดสุดท้าย (ย่น logic เพื่อความชัด)
+
+    // ต่อบอสถัดไปถ้ามีและเวลาเหลือ
+    const lastBoss = (CURRENT_BOSS >= ROSTER.length-1);
+    if(!lastBoss && timeLeft >= (DIFFS[getDiffKey()]?.chainMin||15)){
+      CURRENT_BOSS++;
+      // ล้าง anchor/arena minimal
+      const a=ensureArena(); Array.from(a.children).forEach(c=>safeRemove(c));
+      bossShowUI(false);
+      after(600, ()=>{ bossShowUI(true); bossSpawn(CURRENT_BOSS); });
+    }else{
+      end(); // จบถ้าไม่มีต่อ
+    }
   }
 
-  // ---------- Floating text ----------
-  function floatText(text, color, pos){
-    const e=document.createElement('a-entity'), p=pos.clone(); p.y+=0.2;
-    e.setAttribute('text',{value:text,color,align:'center',width:2.6});
-    e.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
-    e.setAttribute('scale','0.001 0.001 0.001');
-    e.setAttribute('animation__in',{property:'scale',to:'1 1 1',dur:90,easing:'easeOutQuad'});
-    e.setAttribute('animation__rise',{property:'position',to:`${p.x} ${p.y+0.6} ${p.z}`,dur:600,easing:'easeOutQuad'});
-    e.setAttribute('animation__fade',{property:'opacity',to:0,dur:480,delay:160,easing:'linear'});
-    ensureArena().appendChild(e); setTimeout(()=>safeRemove(e),820);
-  }
+  // ---------- Patterns ----------
+  function finishAttack(){ BOSS.busy=false; after(dur(520), bossLoop); }
 
-  // ---------- Patterns (ย่อให้ครบ loop) ----------
-  function finishAttack(){
-    BOSS.busy=false;
-    after(dur(520), bossLoop);
-  }
-
-  // ท่าพื้นฐาน: สร้าง object คลิกได้ แล้ว timeout = โดน
   function doSlashCross(done){
     BOSS.busy=true; SFX.tel_slash.play();
     const g=document.createElement('a-entity');
@@ -218,9 +238,7 @@
 
   function doRapidFist(done){
     BOSS.busy=true; let c=0, need=(BOSS.phase===1?3:4);
-    (function next(){
-      spawnShockwave(()=>{ c++; if(c<need) after(dur(300),next); else done&&done(); });
-    })();
+    (function next(){ spawnShockwave(()=>{ c++; if(c<need) after(dur(300),next); else done&&done(); }); })();
   }
 
   function doGuardBreak(done){
@@ -246,7 +264,6 @@
     function cleanup(){ [L,R].forEach(b=>b && b.parentNode && safeRemove(b)); done&&done(); }
   }
 
-  // คอมโบแบบ flow-safe (ทุกขั้นส่ง callback ต่อ)
   function doMultiSlash(done){
     BOSS.busy=true;
     const seq=[-35,35]; let i=0;
@@ -275,7 +292,6 @@
 
   function doGroundShock(done){
     if(BOSS.phase===2){
-      // เวอร์ชันเร่ง
       let c=0; const lanes=[-0.8,0,0.8], safe=lanes[Math.floor(Math.random()*lanes.length)];
       lanes.forEach(x=>{
         const r=document.createElement('a-ring'); r.classList.add('clickable','boss-attack');
@@ -288,13 +304,11 @@
       });
       after(dur(760), ()=>{ if(c>=2) bossDamage(22); else playerHit(); done&&done(); });
     }else{
-      // ปกติ
       let c=0; let need=5;
       (function next(){ spawnShockwave(()=>{ c++; if(c<need) after(dur(300),next); else done&&done(); }); })();
     }
   }
 
-  // รวมเป็นตารางเรียกใช้ง่าย
   const PATTERNS = {
     'slash_cross': doSlashCross,
     'rapid_fist':  doRapidFist,
@@ -303,7 +317,7 @@
     'multi_slash': doMultiSlash,
     'enrage_combo': doEnrageCombo,
     'ground_shock': doGroundShock,
-    'enrage_combo_fast': doEnrageCombo // ใช้ชุดเดียวแต่เร็วขึ้นจาก phase
+    'enrage_combo_fast': doEnrageCombo
   };
 
   let pIndex=0, lastPattern='';
@@ -313,18 +327,15 @@
     lastPattern = p; return p;
   }
 
-  // Watchdog กัน pattern ค้าง
   function bossLoop(){
     if(!running || !BOSS.active || BOSS.busy) return;
     const arr = (BOSS.phase===1? BOSS.P1 : BOSS.P2);
     const p = pickPattern(arr);
-    const fn = PATTERNS[p] || (cb=>{ cb&&cb(); });
+    const fn = PATTERNS[p] || (cb=>cb&&cb());
     BOSS.busy = true; BOSS._patternStartedAt = performance.now();
-    fn(()=>{ // ทุกท่าต้องเรียก done() → มารวม finishAttack ที่นี่
-      finishAttack();
-    });
+    fn(()=>{ finishAttack(); });
 
-    // ถ้า 5.2 วินาทีแล้วยังไม่จบ ให้จบเอง (กันค้าง)
+    // watchdog กันท่าค้าง
     setTimeout(()=>{
       if(!running || !BOSS.active) return;
       const elapsed = performance.now() - (BOSS._patternStartedAt||0);
@@ -333,6 +344,76 @@
         finishAttack();
       }
     }, 5300);
+  }
+
+  // ---------- Bonus Punch Pads (เป้าให้ชก) ----------
+  const PAD_COLORS = ['#00d0ff','#ffd166','#ff6b6b','#00ffa3','#a899ff','#ff9c6b'];
+  function spawnPunchPad(){
+    if(!running) return;
+    spawns++;
+    const x = (Math.random()*3.0 - 1.5).toFixed(2);
+    const y = (Math.random()*1.0 + 1.0).toFixed(2);
+    const z = (Math.random()*-1.0 - 1.8).toFixed(2);
+
+    const gold = Math.random() < 0.18; // เป้าทอง
+    const shape = Math.random()<0.6 ? 'a-sphere' : 'a-box';
+    const el = document.createElement(shape);
+    el.classList.add('clickable','sb-pad');
+
+    if(shape==='a-sphere') el.setAttribute('radius', 0.18);
+    else { el.setAttribute('width',0.28); el.setAttribute('height',0.28); el.setAttribute('depth',0.28); }
+
+    const col = gold ? '#ffd700' : PAD_COLORS[Math.floor(Math.random()*PAD_COLORS.length)];
+    el.setAttribute('material', `color:${col}; opacity:0.95; transparent:true; metalness:${gold?0.4:0.15}; roughness:0.35`);
+    el.setAttribute('position', `${x} ${y} ${z}`);
+    ensureArena().appendChild(el);
+
+    const born=performance.now(); let dead=false;
+    const doHit=()=>{
+      if(dead) return; dead=true;
+      try{ safeRemove(el); }catch(_){}
+      const p = new THREE.Vector3(parseFloat(x),parseFloat(y),parseFloat(z));
+      // วัดคุณภาพจากความไวในการกด (เร็ว = perfect)
+      const dt = performance.now()-born;
+      const quality = (dt<=180)?'perfect':(dt<=400)?'good':'good';
+      if(quality==='perfect'){ score+=20; SFX.perfect.play(); floatText('PERFECT','#00ffa3',p); }
+      else { score+=10; SFX.slash.play(); floatText('GOOD','#00d0ff',p); }
+      if(gold){ timeLeft=Math.min(99, timeLeft+2); byId('time') && (byId('time').textContent=timeLeft); floatText('+2s','#ffd166',p); }
+
+      hits++; combo++; onComboChange(); updateHUD();
+    };
+    el.addEventListener('click', doHit);
+    el.addEventListener('mousedown', doHit);
+
+    after(extraLife, ()=>{
+      if(dead) return;
+      dead=true;
+      safeRemove(el);
+      // MISS
+      const p = new THREE.Vector3(parseFloat(x),parseFloat(y),parseFloat(z));
+      combo=0; onComboChange();
+      score=Math.max(0,score-3);
+      SFX.miss.play(); floatText('MISS','#ff5577', p);
+      updateHUD();
+    });
+  }
+
+  function startPadSpawning(){
+    stopPadSpawning();
+    spawnPunchPad(); // spawn ทันที 1 อัน
+    extraSpawnTimer = setInterval(()=>{
+      // ค่อย ๆ ถี่ขึ้นเล็กน้อยเมื่อคอมโบเพิ่ม (แต่อย่าโหด)
+      const step = Math.max(0, Math.min(600, Math.floor(combo*3)));
+      const nextInt = clamp(extraSpawnInt - step, 650, 2200);
+      clearInterval(extraSpawnTimer);
+      spawnPunchPad();
+      extraSpawnTimer = setInterval(spawnPunchPad, nextInt);
+    }, extraSpawnInt);
+  }
+  function stopPadSpawning(){
+    if(extraSpawnTimer){ clearInterval(extraSpawnTimer); extraSpawnTimer=null; }
+    // ล้าง pads ที่หลงเหลือ
+    document.querySelectorAll('.sb-pad').forEach(p=>safeRemove(p));
   }
 
   // ---------- Player feedback ----------
@@ -346,7 +427,9 @@
 
   // ---------- Game flow ----------
   function reset(){
-    score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=60; updateHUD();
+    score=0; combo=0; maxCombo=0; timeLeft=60; updateHUD();
+    hits=0; spawns=0; defeatedBoss=0;
+
     byId('results') && (byId('results').style.display='none');
     bossShowUI(false);
     const a=ensureArena(); Array.from(a.children).forEach(c=>safeRemove(c));
@@ -361,23 +444,41 @@
     ROSTER = makeRoster(key);
     byId('rDiff') && (byId('rDiff').textContent = (DIFFS[key]?.title||'NORMAL'));
 
+    // ตั้งค่าความถี่และอายุเป้าตามระดับ
+    if(key==='easy'){ extraSpawnInt=1550; extraLife=1900; }
+    else if(key==='hard'){ extraSpawnInt=1200; extraLife=1600; }
+    else if(key==='final'){ extraSpawnInt=1100; extraLife=1500; }
+    else { extraSpawnInt=1400; extraLife=1800; }
+
     reset(); running=true; paused=false;
 
     timer=setInterval(()=>{ timeLeft--; byId('time') && (byId('time').textContent=timeLeft); if(timeLeft<=0) end(); },1000);
 
-    CURRENT_BOSS=0; after(dur(900), ()=>bossSpawn(CURRENT_BOSS));
+    CURRENT_BOSS=0;
+    startPadSpawning();
+    after(dur(900), ()=>bossSpawn(CURRENT_BOSS));
   }
 
   function end(){
     running=false; paused=false;
-    clearInterval(timer); clearInterval(spawnTimer);
-    timeouts.forEach(clearTimeout); timeouts.clear();
+    clearInterval(timer);
+    stopPadSpawning();
+    clearAllAsync();
     bossShowUI(false);
 
+    // ผลลัพธ์เต็ม
     const finalScore = Math.round(score*D.scoreMul);
-    byId('rScore') && (byId('rScore').textContent=finalScore);
+    const acc = spawns? Math.round((hits/spawns)*100) : 0;
+    const stars =
+      (acc>=85?1:0) + (maxCombo>=50?1:0) + (timeLeft>=10?1:0);
+
+    byId('rScore')    && (byId('rScore').textContent=finalScore);
     byId('rMaxCombo') && (byId('rMaxCombo').textContent=maxCombo);
-    byId('rAcc') && (byId('rAcc').textContent='—');
+    byId('rAcc')      && (byId('rAcc').textContent=acc+'%');
+    byId('rTime')     && (byId('rTime').textContent=(60-timeLeft)+'s');
+    byId('rBosses')   && (byId('rBosses').textContent=defeatedBoss + '/' + ROSTER.length);
+    const starEl=byId('rStars'); if(starEl) starEl.textContent='★'.repeat(stars) + '☆'.repeat(3-stars);
+
     byId('results') && (byId('results').style.display='flex');
     APPX.badge(APPX.t('results')+': '+finalScore);
   }
@@ -385,8 +486,15 @@
   function togglePause(){
     if(!running) return;
     paused=!paused;
-    if(paused){ clearInterval(timer); APPX.badge('Paused'); }
-    else{ timer=setInterval(()=>{ timeLeft--; byId('time') && (byId('time').textContent=timeLeft); if(timeLeft<=0) end(); },1000); APPX.badge('Resume'); }
+    if(paused){
+      clearInterval(timer);
+      stopPadSpawning();
+      APPX.badge('Paused');
+    }else{
+      timer=setInterval(()=>{ timeLeft--; byId('time') && (byId('time').textContent=timeLeft); if(timeLeft<=0) end(); },1000);
+      startPadSpawning();
+      APPX.badge('Resume');
+    }
   }
 
   // ---------- Wire UI ----------
@@ -397,7 +505,6 @@
     byId('pauseBtn')?.addEventListener('click', togglePause);
     byId('bankBtn')?.addEventListener('click', ()=>{ combo=0; onComboChange(); APPX.badge('Banked'); });
 
-    // ช็อตคัตคีย์
     addEventListener('keydown', (ev)=>{
       if(ev.key==='p' || ev.key==='P') togglePause();
       if(ev.key===' ') { ev.preventDefault(); if(!running) start(); else togglePause(); }
@@ -411,7 +518,7 @@
   }
 
   // ---------- Mouse/Touch Raycast (รอกล้องก่อน) ----------
-  (function installPointerRaycast(){
+  ;(function installPointerRaycast(){
     const sceneEl = document.querySelector('a-scene');
     if (!sceneEl) return;
     let tries=0;
@@ -429,7 +536,6 @@
         mouse.x =  (clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, sceneEl.camera);
-
         const objects=[];
         document.querySelectorAll('.clickable').forEach(el=> el.object3D?.traverse(o=>objects.push(o)));
         const hits = raycaster.intersectObjects(objects, true);
@@ -444,7 +550,7 @@
   })();
 
   // ---------- iOS Audio Unlock ----------
-  (function unlockAudio(){
+  ;(function unlockAudio(){
     let unlocked=false, Ctx=(window.AudioContext||window.webkitAudioContext);
     const ctx = Ctx? new Ctx():null;
     function resume(){
@@ -454,8 +560,8 @@
     ['touchstart','pointerdown','mousedown','keydown'].forEach(ev=>document.addEventListener(ev, resume, {once:true, passive:true}));
   })();
 
-  // ---------- Tiny CSS shake (ถ้ายังไม่มี) ----------
-  (function injectShake(){
+  // ---------- Tiny CSS shake ----------
+  ;(function injectShake(){
     if(document.getElementById('sb-shake-style')) return;
     const css = `
       .shake-scene{ animation:sbshake .24s linear; }
