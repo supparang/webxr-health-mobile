@@ -1,5 +1,6 @@
 /* games/shadow-breaker/game.js
    Shadow Breaker · game.js (1–15 patches + Rush Phase + Fever Pads + Coach Tips + Accessibility)
+   + FIX: define doShadowDash()
 */
 (function(){
   "use strict";
@@ -65,7 +66,6 @@
     if(combo>maxCombo) maxCombo=combo;
     byId('combo')&&(byId('combo').textContent=combo);
     if(combo>0 && combo%10===0) play(SFX.combo);
-    // Fever Pads เมื่อคอมโบ ≥ 25 (เฉพาะ Punch Pad)
     if(combo>=25 && !feverPads){ feverPads=true; ping('FEVER PADS x1.5','#00ffa3'); setTimeout(()=>feverPads=false, 12000); }
   }
   function setPhaseLabel(n){ const el=byId('phaseLabel'); if(el) el.textContent='Phase '+n; }
@@ -140,7 +140,7 @@
     bossShowUI(true); bossSetHP(BOSS.max); play(SFX.boss_roar); setPhaseLabel(1);
   }
 
-  // --------- Punch Pads (เพื่อความสนุก/ท้าทายข้อ 5/6/7/11/13/14/15) ----------
+  // --------- Punch Pads ----------
   const PAD_COLORS=['#00d0ff','#ffd166','#ff6b6b','#00ffa3','#a899ff'];
   function spawnPad(){
     if(!running) return;
@@ -156,19 +156,17 @@
     if(feverPads) pad.setAttribute('material','emissive:#fff; emissiveIntensity:0.3;');
     byId('arena').appendChild(pad);
 
-    // เตือนก่อนหมดอายุ (ข้อ 6)
     const life = clamp(1400 - Math.min(600, combo*8), 700, 1600);
     pad.setAttribute('animation__blink',`property: material.opacity; dir: alternate; to: .4; loop: true; dur: 160; delay: ${life-520}`);
 
-    // กัน “คลิกรัว” + กันตามด้วย MISS (ข้อ 1/2/8)
     let missT = setTimeout(()=>{ if(pad.dataset.hit==='1') return; softMiss(pad); }, life);
     const hit=()=>{
       if(pad.dataset.hit==='1') return; pad.dataset.hit='1'; clearTimeout(missT);
       let p=pad.object3D.getWorldPosition(new THREE.Vector3());
-      const isPerfect = true; // pad ไม่อิงหน้าต่างมุม ให้ perfect ทั้งหมดเพื่อจังหวะสนุก
+      const isPerfect = true;
       hits++; combo++; onComboChange();
-      let gain = isGold ? (isPerfect? 26:18) : (isPerfect? 18:10);
-      if(feverPads) gain=Math.round(gain*1.5); // Extra: Fever Pads (เฉพาะ Pad)
+      let gain = isGold ? 26 : 18;
+      if(feverPads) gain=Math.round(gain*1.5);
       score+=gain; if(isGold){ timeLeft=Math.min(99,timeLeft+2); }
       play(isPerfect?SFX.perfect:SFX.slash);
       floatText(isGold?'GOLD!':'HIT', isGold?'#ffd166':'#00d0ff', p);
@@ -180,17 +178,15 @@
   }
   function rainbow(){ const t=performance.now()/280; const r=Math.sin(t)*127+128, g=Math.sin(t+2)*127+128, b=Math.sin(t+4)*127+128; return `rgb(${r|0},${g|0},${b|0})`; }
 
-  // ----- Miss / Combo shield (ข้อ 14) -----
+  // ----- Miss / Combo shield -----
   let comboShield=0;
   function softMiss(el){
-    // ถ้ามีชิลด์ ให้กัน MISS 1 ครั้ง
     if(comboShield>0){ comboShield=0; floatText('COMBO SHIELD','#9bd1ff', el.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(el); return; }
     hardMiss(el);
   }
   function hardMiss(el){
     try{ safeRemove(el); }catch(_){}
     combo=0; onComboChange(); score=Math.max(0,score-5); play(SFX.miss);
-    // Coach: เก็บสถิติ (ข้อ Coach Tips)
     coachTrack('miss:any');
     updateHUD();
   }
@@ -208,7 +204,6 @@
   }
   function bossLoop(){
     if(!running || !BOSS.active || BOSS.busy) return;
-    // Rush Phase: 10s ท้ายของ Phase 2 (ข้อ Extra 1)
     if(BOSS.phase===2 && !rushPhase && timeLeft<=10){ rushPhase=true; rushUntil=performance.now()+10000; ping('RUSH PHASE!','#ff7a33'); }
     if(rushPhase && performance.now()>rushUntil){ rushPhase=false; ping('Rush Cooldown','#9bd1ff'); }
 
@@ -218,7 +213,7 @@
       'slash_cross':doSlashCross,
       'rapid_fist':doRapidFist,
       'guard_break':doGuardBreak,
-      'shadow_dash':doShadowDash,
+      'shadow_dash':doShadowDash,           // ← FIX: now defined below
       'multi_slash':doMultiSlash,
       'enrage_combo':doEnrageCombo,
       'ground_shock':doGroundShock,
@@ -237,30 +232,31 @@
 
   function finishAttack(){
     if(BOSS.phase===2){ survivedStreak++; if(survivedStreak>=3){ survivedStreak=0; spawnPad(); } }
-    // คูลดาวน์ต่างกันตามเฟส (ข้อ 3)
     const cd=(BOSS.phase===1? 560: 420);
     BOSS.busy=false; setTimeout(bossLoop, dur(cd));
   }
 
-  // ---- ตัวอย่างบางแพตเทิร์น (ย่อให้อ่านง่าย แต่ครบเงื่อนไขหลัก) ----
+  // ---- Patterns ----
   function doSlashCross(){
     BOSS.busy=true; play(SFX.tel_slash);
     const mk=(rot,y)=>{ const g=document.createElement('a-entity'); g.classList.add('clickable','boss-attack');
       g.setAttribute('geometry','primitive: box; height:.04;width:1.2;depth:.04');
       g.setAttribute('material','color:#5de1ff;opacity:.95;transparent:true');
-      g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position',`0 ${y} -2.2`);
+      g.setAttribute('rotation',`0 0 ${rot}`); g.setAttribute('position','0 ${y} -2.2');
       byId('arena').appendChild(g); return g; };
     const a=mk(-35,1.4), b=(RND()<0.5? mk(35,1.46):null);
     let ok=0, need=b?2:1;
     function hit(g){ if(g.dataset.hit==='1') return; g.dataset.hit='1'; ok++; floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(18); safeRemove(g); }
     a.addEventListener('click',()=>hit(a)); b&&b.addEventListener('click',()=>hit(b));
     setTimeout(()=>{ if(a.parentNode&&!a.dataset.hit) hardMiss(a); if(b&&b.parentNode&&!b.dataset.hit) hardMiss(b);
-      if(ok>=need){} finishAttack();
+      finishAttack();
     }, dur(720));
   }
+
   function doRapidFist(){ BOSS.busy=true; let n=0, total=(BOSS.phase===1?3:4);
-    (function next(){ play(SFX.tel_shock); spawnRing((ok)=>{ n++; if(n<total) setTimeout(next, dur(380)); else finishAttack(); }, (BOSS.phase===1?700:560)); })();
+    (function next(){ play(SFX.tel_shock); spawnRing(()=>{ n++; if(n<total) setTimeout(next, dur(380)); else finishAttack(); }, (BOSS.phase===1?700:560)); })();
   }
+
   function spawnRing(done,T=600){
     const r=document.createElement('a-ring'); r.classList.add('clickable','boss-attack');
     r.setAttribute('position','0 1.18 -2.6'); r.setAttribute('radius-inner','0.05'); r.setAttribute('radius-outer','0.07');
@@ -268,6 +264,7 @@
     let missT=setTimeout(()=>{ if(r.dataset.hit==='1') return; coachTrack('miss:ring'); hardMiss(r); done&&done(false); }, dur(T));
     r.addEventListener('click', ()=>{ if(r.dataset.hit==='1') return; r.dataset.hit='1'; clearTimeout(missT); floatText('BREAK','#ffd166',r.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(16); safeRemove(r); done&&done(true); });
   }
+
   function doGuardBreak(){
     BOSS.busy=true; play(SFX.tel_guard);
     const core=document.createElement('a-sphere'); core.classList.add('clickable','boss-attack');
@@ -276,22 +273,38 @@
     let missT=setTimeout(()=>{ if(core.dataset.hit==='1') return; hardMiss(core); finishAttack(); }, dur(750));
     core.addEventListener('click', ()=>{ if(core.dataset.hit==='1') return; core.dataset.hit='1'; clearTimeout(missT); bossDamage(12); safeRemove(core); finishAttack(); });
   }
-  function doLaserGrid(){
-    BOSS.busy=true; play(SFX.tel_slash);
-    const beam=(rot,y)=>{ const b=document.createElement('a-entity'); b.classList.add('clickable','boss-attack');
-      b.setAttribute('geometry','primitive: box; height:.035;width:1.4;depth:.03');
-      b.setAttribute('material','color:#5de1ff;opacity:.95;transparent:true');
-      b.setAttribute('rotation',`0 0 ${rot}`); b.setAttribute('position',`0 ${y} -2.2`); byId('arena').appendChild(b); return b; };
-    const a=beam(-15,1.32), b=beam(15,1.48);
-    let ok=0; const need=2;
-    [a,b].forEach(e=>e.addEventListener('click',()=>{ if(e.dataset.hit==='1') return; e.dataset.hit='1'; ok++; floatText('CUT','#5de1ff',e.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(e); }));
-    setTimeout(()=>{ // Partial credit (ข้อ 4)
-      if(ok===need) bossDamage(28);
-      else if(ok===1) bossDamage(12);
-      else hardMiss(a);
-      [a,b].forEach(e=>safeRemove(e)); finishAttack();
-    }, dur(800));
+
+  // >>> FIXED / ADDED <<<
+  function doShadowDash(){
+    // ผู้เล่นต้อง “เลือกทาง” อย่างรวดเร็ว (ซ้าย/ขวา) กดถูก = DODGE + ดาเมจเล็กน้อย, ไม่กดหรือลังเล = MISS
+    BOSS.busy=true; play(SFX.tel_shock);
+    const makeBox=(x,color)=>{ const b=document.createElement('a-box'); b.classList.add('clickable','boss-attack');
+      b.setAttribute('width','0.55'); b.setAttribute('height','0.32'); b.setAttribute('depth','0.05');
+      b.setAttribute('position',`${x} 1.0 -2.0`); b.setAttribute('color', color);
+      byId('arena').appendChild(b); return b; };
+    const left = makeBox(-0.9,'#00d0ff');
+    const right= makeBox( 0.9,'#00ffa3');
+
+    let clicked=false;
+    function hit(box){
+      if(clicked) return; clicked=true;
+      floatText('DODGE', '#9bd1ff', box.object3D.getWorldPosition(new THREE.Vector3()));
+      bossDamage(12);
+      safeRemove(left); safeRemove(right);
+      finishAttack();
+    }
+    left.addEventListener('click', ()=>hit(left));
+    right.addEventListener('click',()=>hit(right));
+
+    setTimeout(()=>{
+      if(!clicked){ // ไม่เลือกทัน = MISS
+        hardMiss(left);
+        safeRemove(left); safeRemove(right);
+      }
+      finishAttack();
+    }, dur(700));
   }
+  // <<< /FIXED >>>
 
   function doMultiSlash(){ BOSS.busy=true; let i=0, seq=[-35,35];
     (function next(){
@@ -335,16 +348,29 @@
       g.addEventListener('click',()=>{ if(g.dataset.hit==='1') return; g.dataset.hit='1'; clearTimeout(missT); bossDamage(fast?18:16); safeRemove(g); i++; if(i<count) setTimeout(one, dur(110)); else finishAttack(); });
     })();
   }
-  function doOrbSpiral(fast=false){ // ย่อ: ให้เป็น 4 ลูก หมดเวลา = MISS
-    BOSS.busy=true; const center=new THREE.Vector3(0,1.4,-2.3); const orbs=[];
-    for(let i=0;i<4;i++){ const o=document.createElement('a-sphere'); o.classList.add('clickable','boss-attack'); o.setAttribute('radius','0.1'); o.setAttribute('color', fast?'#c9b6ff':'#a899ff'); byId('arena').appendChild(o);
+
+  function doLaserGrid(){
+    BOSS.busy=true; play(SFX.tel_slash);
+    const beam=(rot,y)=>{ const b=document.createElement('a-entity'); b.classList.add('clickable','boss-attack');
+      b.setAttribute('geometry','primitive: box; height:.035;width:1.4;depth:.03');
+      b.setAttribute('material','color:#5de1ff;opacity:.95;transparent:true');
+      b.setAttribute('rotation',`0 0 ${rot}`); b.setAttribute('position',`0 ${y} -2.2`); byId('arena').appendChild(b); return b; };
+    const a=beam(-15,1.32), b=beam(15,1.48);
+    let ok=0; const need=2;
+    [a,b].forEach(e=>e.addEventListener('click',()=>{ if(e.dataset.hit==='1') return; e.dataset.hit='1'; ok++; floatText('CUT','#5de1ff',e.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(e); }));
+    setTimeout(()=>{ if(ok===need) bossDamage(28); else if(ok===1) bossDamage(12); else hardMiss(a);
+      [a,b].forEach(e=>safeRemove(e)); finishAttack();
+    }, dur(800));
+  }
+
+  function doOrbSpiral(fast=false){
+    BOSS.busy=true; const orbs=[]; for(let i=0;i<4;i++){ const o=document.createElement('a-sphere'); o.classList.add('clickable','boss-attack'); o.setAttribute('radius','0.1'); o.setAttribute('color', fast?'#c9b6ff':'#a899ff'); byId('arena').appendChild(o);
       orbs.push(o); o.addEventListener('click',()=>{ if(o.dataset.hit==='1') return; o.dataset.hit='1'; floatText('BREAK','#a899ff',o.object3D.getWorldPosition(new THREE.Vector3())); bossDamage(fast?12:10); safeRemove(o); }); }
     const start=performance.now(), T=dur(fast?1600:2000);
     (function step(){
       let alive=false; const t=(performance.now()-start)/T, w=fast?4.6:3.0; const r=0.55+0.2*Math.sin(t*4);
       orbs.forEach((o,j)=>{ if(!o.parentNode) return; alive=true; const th=(j/4)*Math.PI*2 + t*w; const x=Math.cos(th)*r, y=1.4+Math.sin(th)*r*0.6; o.setAttribute('position',`${x.toFixed(3)} ${y.toFixed(3)} -2.3`); });
-      if(t>=1){ if(alive) hardMiss(byId('arena')); finishAttack(); return; }
-      requestAnimationFrame(step);
+      if(t>=1){ if(alive) hardMiss(byId('arena')); finishAttack(); return; } requestAnimationFrame(step);
     })();
   }
 
@@ -383,7 +409,6 @@
   // ---------- Phase / Result ----------
   function enterPhase2(){
     BOSS.phase=2; survivedStreak=0; addedTimeP2=0; setPhaseLabel(2); play(SFX.enrage); ping('Phase 2','#ffd166');
-    // ต้องยิงเกราะ 2 ชิ้น
     spawnArmorShard(new THREE.Vector3(-0.5,1.55,-2.3)); spawnArmorShard(new THREE.Vector3(0.5,1.45,-2.3));
   }
   function spawnArmorShard(pos){
@@ -395,10 +420,8 @@
     g.addEventListener('click',()=>{ if(g.dataset.hit==='1') return; g.dataset.hit='1'; clearTimeout(missT); floatText('ARMOR -1','#ffd166', g.object3D.getWorldPosition(new THREE.Vector3())); safeRemove(g); BOSS.armorShards=Math.max(0,(BOSS.armorShards||2)-1); });
   }
   function onBossDefeated(){
-    // โบนัสเวลาถ้า Phase 2 และไม่โดน HIT นาน ๆ (ข้อ 13)
     if(BOSS.phase===2 && combo>=15){ timeLeft=Math.min(99,timeLeft+5); updateHUD(); }
     BOSS.active=false; floatText('BOSS DEFEATED','#00ffa3', new THREE.Vector3(0,1.6,-2.3)); score+=250; updateHUD();
-    // ไปบอสถัดไปถ้าเวลาเหลือ (chain rule)
     const last=(CURRENT_BOSS>=ROSTER.length-1), canChain=(!last && timeLeft>=D.chainMin);
     if(canChain){ CURRENT_BOSS++; clearArena(); bossShowUI(false); setTimeout(()=>{ bossShowUI(true); bossSpawn(CURRENT_BOSS); }, 900); return; }
     end();
@@ -412,8 +435,6 @@
     if(running) return;
     const key=getDiffKey(); D=DIFFS[key]||DIFFS.normal; localStorage.setItem('sb_diff', key);
     ROSTER=makeRoster(key);
-
-    // เวลาเกม (ข้อ 15) – ตัดสั้นบนมือถือ
     timeLeft=/Mobi|Android/i.test(navigator.userAgent)? 50:60;
 
     score=0; bank=0; combo=0; maxCombo=0; hits=0; spawns=0; fever=false; feverPads=false; comboShield=0;
@@ -421,9 +442,7 @@
     byId('results').style.display='none'; bossShowUI(false); clearArena(); setPhaseLabel(1); updateHUD();
 
     running=true; paused=false;
-    // สปอว์น Punch Pad ตามคอมโบ (ข้อ 5)
     schedulePads();
-
     timer=setInterval(()=>{ timeLeft--; updateHUD(); if(timeLeft<=0) end(); },1000);
 
     CURRENT_BOSS=0; setTimeout(()=>bossSpawn(CURRENT_BOSS), dur(900));
@@ -432,10 +451,8 @@
   function schedulePads(){
     if(!running) return;
     spawnPad();
-    // เว้นช่วงเริ่ม "ห่าง" แล้วค่อยถี่ขึ้นตามคอมโบ (ข้อ 5)
     const base=1500, ramp=Math.min(700, combo*6), next=clamp(base-ramp, 700, 2000);
     spawnTimer=setTimeout(schedulePads, next);
-    // คอมโบชิลด์เมื่อครบ 8 ครั้ง (ข้อ 14)
     if(combo===8) comboShield=1;
   }
 
@@ -455,18 +472,16 @@
     byId('rMaxCombo').textContent=maxCombo;
     byId('rAcc').textContent=acc+'%';
     byId('rDiff').textContent=(DIFFS[getDiffKey()]?.title||'NORMAL')+' · '+(ST.title||'');
-    // Stars (ง่ายๆ: noHit/50 combo/เวลาเหลือ)
     const star = (acc>=80?1:0)+(maxCombo>=50?1:0)+(timeLeft>=10?1:0);
     byId('rStars').textContent='★'.repeat(star)+'☆'.repeat(3-star);
     byId('results').style.display='flex';
     play(SFX.ui);
   }
 
-  // ---------- Coach Tips (Extra 3) ----------
+  // ---------- Coach Tips ----------
   const coach={ ringMissStreak:0, lastMsgAt:0 };
   function coachTrack(tag){
-    if(tag==='miss:ring'){ coach.ringMissStreak++; } else if(tag==='miss:any'){ /* ไม่ reset ringStreak */ }
-    // ทิปเมื่อพลาดวงแหวน 3 ครั้งติด
+    if(tag==='miss:ring'){ coach.ringMissStreak++; } else if(tag==='miss:any'){ /* keep */ }
     if(coach.ringMissStreak>=3 && performance.now()-coach.lastMsgAt>2000){
       coach.lastMsgAt=performance.now(); coach.ringMissStreak=0;
       showCoach('เคล็ดลับ: วงแหวนจะขยายออก–กดให้ก่อนเต็มวงเล็กน้อย!');
@@ -479,7 +494,7 @@
     box.textContent='🎧 Coach: '+msg;
   }
 
-  // ---------- Accessibility (Extra 4) ----------
+  // ---------- Accessibility ----------
   function applyAccessibility(on){
     accessibility=!!on;
     const hud=byId('hud'); if(!hud) return;
@@ -496,10 +511,8 @@
     byId('bankBtn')?.addEventListener('click', bankNow);
     byId('backBtn')?.addEventListener('click', ()=>{ location.href=HUB_URL; });
 
-    // Accessibility toggle (กด Alt+A)
     addEventListener('keydown', (e)=>{ if((e.altKey||e.metaKey)&& (e.key==='a'||e.key==='A')){ applyAccessibility(!accessibility); ping(accessibility?'Accessibility ON':'Accessibility OFF','#e6f7ff'); } });
 
-    // Enter VR (กลางล่าง)
     let btn=document.getElementById('enterVRBtn');
     if(!btn){ btn=document.createElement('button'); btn.id='enterVRBtn'; btn.textContent='Enter VR';
       Object.assign(btn.style,{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:'12px',zIndex:9999,padding:'8px 12px',borderRadius:'10px',border:'0',background:'#0e2233',color:'#e6f7ff',cursor:'pointer'});
@@ -507,9 +520,7 @@
     }
     btn.addEventListener('click', ()=>{ try{ document.querySelector('a-scene')?.enterVR?.(); }catch(_){}});
 
-    // Mouse raycast (เดสก์ท็อป)
     installPointerRaycast();
-    // Easy: beat guide เสริม (ข้อ 12)
     if(getDiffKey()==='easy') installBeatGuide();
   });
 
@@ -534,7 +545,6 @@
     byId('arena').appendChild(ring);
   }
 
-  // ---------- FloatText ----------
   function floatText(text,color,pos){
     const e=document.createElement('a-entity'), p=pos?.clone?.()||new THREE.Vector3(0,1.5,-2.3); p.y+=0.2;
     e.setAttribute('text',{value:text,color,align:'center',width:2.6});
@@ -545,14 +555,12 @@
     byId('arena').appendChild(e); setTimeout(()=>safeRemove(e),820);
   }
 
-  // ---------- iOS Audio unlock ----------
   (function unlockAudio(){
     let unlocked=false, Ctx=(window.AudioContext||window.webkitAudioContext), ctx=Ctx? new Ctx(): null;
     function resume(){ if(unlocked||!ctx) return; ctx.resume?.(); unlocked=(ctx.state==='running'); }
     ['touchstart','pointerdown','mousedown','keydown'].forEach(ev=>addEventListener(ev,resume,{once:true,passive:true}));
   })();
 
-  // ---------- Style: high-contrast class ----------
   const style=document.createElement('style');
   style.textContent=`
     .sb-high-contrast #hud { background: rgba(0,0,0,.55)!important; color:#fff!important; text-shadow:0 1px 0 rgba(0,0,0,.2); }
@@ -560,7 +568,6 @@
   `;
   document.head.appendChild(style);
 
-  // ---------- Public (optional) ----------
   window.sbSetStance=(k)=>{ if(k==='power') ST={title:'POWER',dmg:1.2,parry:0.9}; else ST={title:'SWIFT',dmg:0.9,parry:1.1}; };
 
 })();
