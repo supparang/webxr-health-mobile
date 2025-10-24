@@ -532,5 +532,129 @@
       try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
     });
   }
+/* ===== How to Play (Shadow Breaker) · inline UI ===== */
+(function installHowTo(){
+  // ---- Styles ----
+  const css = `
+  #sbHelpBtn{position:fixed;left:160px;bottom:12px;z-index:9999;padding:8px 12px;border-radius:10px;border:0;background:#123047;color:#e6f7ff;font:600 12px system-ui;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+  #sbHelpBtn:hover{filter:brightness(1.1)}
+  #sbHowTo{position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65)}
+  #sbHowTo .card{width:min(820px,92vw);max-height:86vh;overflow:auto;background:#0b1118;border:1px solid #213546;border-radius:14px;padding:16px 18px;color:#e6f7ff;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  #sbHowTo h2{margin:0 0 8px;font:800 18px/1.2 system-ui;letter-spacing:.3px}
+  #sbHowTo h3{margin:14px 0 6px;font:700 14px/1.25 system-ui;color:#9bd1ff}
+  #sbHowTo p, #sbHowTo li{font:500 13px/1.5 system-ui;color:#d9f3ff}
+  #sbHowTo .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  #sbHowTo .cta{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  #sbHowTo .btn{padding:8px 12px;border-radius:10px;border:0;font:700 12px system-ui;cursor:pointer}
+  #sbHowTo .btn.primary{background:#0e2233;color:#e6f7ff}
+  #sbHowTo .btn.ghost{background:transparent;color:#a8cfe6;border:1px solid #2a465c}
+  @media (max-width:720px){ #sbHowTo .grid{grid-template-columns:1fr} #sbHelpBtn{left:12px;bottom:54px} }
+  `;
+  const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
+
+  // ---- Button (วางถัดจาก Bank – มุมล่างซ้าย) ----
+  const btn = document.createElement('button');
+  btn.id = 'sbHelpBtn';
+  btn.type = 'button';
+  btn.textContent = '❓ How to Play';
+  document.body.appendChild(btn);
+
+  // ---- Modal ----
+  const wrap = document.createElement('section');
+  wrap.id = 'sbHowTo';
+  wrap.innerHTML = `
+    <div class="card" role="dialog" aria-labelledby="sbHowToTitle" aria-modal="true">
+      <h2 id="sbHowToTitle">วิธีการเล่น · Shadow Breaker</h2>
+      <div class="grid">
+        <div>
+          <h3>เป้าหมาย</h3>
+          <ul>
+            <li>ป้องกัน/สวน “ท่าบอส” ที่โผล่ตรงหน้า (ดาบ / วงแหวน / เลเซอร์ / เพชร ฯลฯ)</li>
+            <li>ชกรูปทรงเป้า (วงกลม/สามเหลี่ยม/สี่เหลี่ยม/ห้าเหลี่ยม/หกเหลี่ยม) เพื่อเก็บคะแนนและลด HP บอส</li>
+            <li>เลี่ยง <b>ระเบิด</b> (Bomb) — ชนแล้วคอมโบจะถูกรีเซ็ต</li>
+          </ul>
+
+          <h3>การควบคุม</h3>
+          <ul>
+            <li><b>เดสก์ท็อป:</b> เมาส์ขยับ = มือขวา | คลิกซ้าย = ชก/พารี/ทำลาย</li>
+            <li><b>มือถือ/VR:</b> แตะหน้าจอหรือจิ้มคอนโทรลเลอร์บนเป้า</li>
+            <li><b>คีย์ลัด:</b> <code>P</code> = Pause/Resume, <code>B</code> = Bank, <code>\`</code> = Debug</li>
+          </ul>
+
+          <h3>คะแนน & คอมโบ</h3>
+          <ul>
+            <li><b>Perfect</b> ให้คะแนนสูงสุดและเสริมดาเมจ</li>
+            <li><b>Good</b> ได้คะแนนปกติ</li>
+            <li><b>Miss</b> <u>ไม่หักคะแนน</u> (เฉพาะไม่ได้คลิก) แต่คอมโบจะรีเซ็ตเมื่อโดนระเบิดเท่านั้น</li>
+            <li>คอมโบทุก ๆ 10 ครั้งมีแบดจ์และเสียงเชียร์</li>
+            <li><b>Fever</b>: คอมโบ 25+ เปิด x1.5 สำหรับ Punch Pad</li>
+          </ul>
+        </div>
+
+        <div>
+          <h3>บอส & แพทเทิร์น</h3>
+          <ul>
+            <li><b>ดาบ/Slash</b>: คลิกชิ้นดาบเพื่อพารี</li>
+            <li><b>วงแหวน</b>: กดทำลายก่อนขยายจนพ้นเวลา (มีแอนิเมชัน “ขยายออก” ให้เห็นชัด)</li>
+            <li><b>เลเซอร์</b>: ตัดลำแสงให้ครบก่อนหมดเวลา</li>
+            <li><b>เพชร</b>: ชิ้นเป้าโบนัส/คริติคอล</li>
+            <li><b>Rush Phase</b> (10 วิ ท้ายเฟส 2): รูปแบบเร็วขึ้นสั้น ๆ แล้วคูลดาวน์</li>
+          </ul>
+
+          <h3>ระบบธนาคาร (Bank)</h3>
+          <ul>
+            <li>คอมโบสะสม = แต้มพิเศษกด <b>Bank</b> เพื่อเก็บเป็นคะแนนถาวร</li>
+            <li>ถ้าโดนระเบิดก่อนกด Bank คอมโบจะหลุด (เสียจังหวะ)</li>
+          </ul>
+
+          <h3>การปรับแต่ง</h3>
+          <ul>
+            <li><b>Difficulty</b> เลือกจากดรอปดาวน์ด้านขวาล่าง</li>
+            <li><b>Accessibility</b>: สีคอนทราสต์สูง + ขยายฟอนต์ HUD (+15%) เปิดอยู่แล้ว</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="cta">
+        <button class="btn ghost" id="sbHowToClose">Close</button>
+        <button class="btn primary" id="sbHowToStart">Start Now</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  // ---- Wire events ----
+  function openHowTo(){ wrap.style.display = 'flex'; }
+  function closeHowTo(){ wrap.style.display = 'none'; }
+
+  btn.addEventListener('click', openHowTo);
+  wrap.addEventListener('click', (e)=>{ if(e.target===wrap) closeHowTo(); });
+  wrap.querySelector('#sbHowToClose').addEventListener('click', closeHowTo);
+  wrap.querySelector('#sbHowToStart').addEventListener('click', ()=>{
+    closeHowTo();
+    // เรียกปุ่มเริ่มเกมที่มีอยู่แล้ว
+    try{ document.getElementById('startBtn')?.click(); }catch(_){}
+  });
+  window.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && wrap.style.display==='flex') closeHowTo(); });
+
+  // ---- แสดงอัตโนมัติรอบแรก ----
+  try{
+    const KEY='sb_seenHowTo_v1';
+    if(!localStorage.getItem(KEY)){
+      setTimeout(openHowTo, 300);
+      localStorage.setItem(KEY,'1');
+    }
+  }catch(_){}
+
+  // ---- ปรับ HUD ให้อ่านง่าย (ถ้าเปิด switch ไว้) ----
+  try{
+    if (window.FX?.hudReadable || window.FX?.accessibility){
+      const hud = document.getElementById('hud');
+      if(hud){
+        hud.style.fontSize = '15px';
+        hud.style.filter = 'contrast(1.15)';
+      }
+    }
+  }catch(_){}
+})();
 
 })();
