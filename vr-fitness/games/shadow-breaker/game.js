@@ -1,13 +1,6 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · Boss Action จัดเต็ม + เป้าอยู่กับที่ (กดตามเวลา) + รูปทรงหลากหลาย + บอมบ์/เพชร/ดาบ/วงแหวน
-   - เป้า “Punch Pad” อยู่กับที่ ใช้ timing window ตัดสิน (เริ่มช้าแล้วค่อยถี่ขึ้น)
-   - Boss Patterns:
-       • วงแหวนขยาย (Ring Expand) — ต้องกดแตกก่อนสุดขอบ
-       • ดาบฟาด (Sword Slash) — ต้องกด Parry ที่คานแสง
-       • เพชร (Diamond Core) — CRIT คะแนนเยอะ
-       • ระเบิด (Bomb) — ห้ามกด! ถ้ากดลบคะแนน/คอมโบ และหน้าจอสะเทือน
-   - เป้าหลากทรง/สี: กลม, สี่เหลี่ยม, สามเหลี่ยม, ห้า/หกเหลี่ยม แบบกดติดง่าย (proxy collider)
-   - เมาส์/ทัช Raycast ทนทาน + ปุ่ม Start/Pause/End/Back ใช้ได้จริง
+   Shadow Breaker · Boss Action + Punch Pads (อยู่กับที่) + รูปทรงหลากหลาย + บอมบ์/เพชร/ดาบ/วงแหวน
+   + โค้ช (Coach) มุมซ้ายล่าง ไม่บังปุ่ม — ให้คำแนะนำสั้น ๆ ตามสถานการณ์
 */
 (function(){
   "use strict";
@@ -58,6 +51,61 @@
 
   // Boss
   const BOSS={active:false, busy:false, hp:0, max:1200, phase:1, name:'RAZORFIST', color:'#ff3355'};
+
+  // ---------- Coach ----------
+  let coachBox=null, coachTimer=null, coachMuteUntil=0;
+  const coachState = {
+    ringMissStreak:0,
+    slashMissStreak:0,
+    bombHitStreak:0,
+    padLateStreak:0,
+    lastTip:"",
+  };
+  function installCoach(){
+    if(coachBox) return;
+    coachBox = document.createElement('div');
+    coachBox.id='coachBox';
+    Object.assign(coachBox.style,{
+      position:'fixed', left:'12px', bottom:'12px', zIndex:9999,
+      maxWidth:'52vw', color:'#e6f7ff', background:'rgba(10,16,22,.55)',
+      padding:'8px 10px', borderRadius:'12px', font:'600 13px/1.35 system-ui,Arial',
+      boxShadow:'0 6px 18px rgba(0,0,0,.25)', backdropFilter:'blur(4px)',
+      pointerEvents:'none',  // สำคัญ: ไม่บังการคลิกเกม
+      opacity:'0', transition:'opacity .2s ease'
+    });
+    document.body.appendChild(coachBox);
+  }
+  function coachSay(msg, time=1300){
+    if(!coachBox) installCoach();
+    const t=now();
+    if(t<coachMuteUntil) return;        // กันสแปม
+    if(msg===coachState.lastTip && t<(coachMuteUntil-400)) return;
+    coachState.lastTip = msg;
+    coachBox.textContent = '🗣️ ' + msg;
+    coachBox.style.opacity='1';
+    clearTimeout(coachTimer);
+    coachTimer = setTimeout(()=>{ coachBox.style.opacity='0'; }, time);
+    coachMuteUntil = t + Math.max(1000, time);
+  }
+  function coachOnStart(){ coachSay('เริ่มช้า ๆ โฟกัสที่วง HIT ขาวก่อน!', 1600); }
+  function coachOnCombo(n){
+    if(n===10) coachSay('ดีมาก! จังหวะกำลังมา 💥');
+    if(n===25) coachSay('เฟิร์ม! คอมโบแรง จงรักษารีธึ่มไว้! 🔥', 1500);
+    if(n===50) coachSay('สุดยอด! คุณคุมเกมได้แล้ว! ⚡', 1500);
+  }
+  function coachOnMissType(type, late=false){
+    if(type==='ring'){ coachState.ringMissStreak++; if(coachState.ringMissStreak>=3) coachSay('เคล็ดลับวงแหวน: แตะก่อนถึงขอบสุด ~0.6 วิจากเกิด'); }
+    else coachState.ringMissStreak=0;
+
+    if(type==='slash'){ coachState.slashMissStreak++; if(coachState.slashMissStreak>=3) coachSay('Parry ดาบ: รอให้คานแสงนิ่งแล้วแตะเร็ว ๆ'); }
+    else coachState.slashMissStreak=0;
+
+    if(type==='bomb'){ coachState.bombHitStreak++; if(coachState.bombHitStreak>=2) coachSay('ลูกบอลแดง = ห้ามแตะ! หลบแล้วรางวัลจะตามมา'); }
+    else coachState.bombHitStreak=0;
+
+    if(late){ coachState.padLateStreak++; if(coachState.padLateStreak>=3) coachSay('ช้าไปนิด! ลองแตะเร็วกว่าที่เคย ~0.1-0.2 วิ'); }
+    else coachState.padLateStreak=0;
+  }
 
   // ---------- HUD ----------
   function updateHUD(){
@@ -130,12 +178,11 @@
       t.setAttribute('material',`color:${color}; opacity:.96; side:double`);
       el.appendChild(t);
     } else if(type==='pentagon' || type==='hexagon'){
-      // ใช้แผ่น cylinder แบน ๆ พร้อม segmentsRadial 5/6 แล้วหมุนให้หันหน้า
       const seg = (type==='pentagon')?5:6;
       const c=document.createElement('a-entity');
       c.setAttribute('geometry', `primitive: cylinder; radius:${size*1.15}; height:0.02; segmentsRadial:${seg}`);
       c.setAttribute('material', `color:${color}; metalness:.05; roughness:.45`);
-      c.setAttribute('rotation','90 0 0'); // ทำให้แบนหันหน้าหาผู้เล่น
+      c.setAttribute('rotation','90 0 0');
       el.appendChild(c);
     }
     return el;
@@ -194,7 +241,7 @@
       const ro = size*1.12 * (0.6 + 0.4*k);
       ring.setAttribute('geometry', `primitive: ring; radiusInner:${ri}; radiusOuter:${ro}`);
       if(t >= LIFE){
-        dead=true; killPad(pad); onMiss(new THREE.Vector3(x, PAD_Y, PAD_Z)); return;
+        dead=true; killPad(pad); onMiss(new THREE.Vector3(x, PAD_Y, PAD_Z), 'pad', /*late*/true); return;
       }
       requestAnimationFrame(tick);
     })();
@@ -205,8 +252,9 @@
     const t=now()-born, dt=Math.abs(t-MID);
     let q='miss'; if(dt<=WIN_P) q='perfect'; else if(dt<=WIN_G) q='good';
     const p = pad.object3D.getWorldPosition(new THREE.Vector3());
+    const late = (t>MID);
     killPad(pad);
-    if(q==='miss'){ onMiss(p); return; }
+    if(q==='miss'){ onMiss(p,'pad',late); return; }
     hits++; combo++; maxCombo=Math.max(maxCombo,combo);
     score += (q==='perfect'? 20 : 12);
     play(q==='perfect'?SFX.perfect:SFX.good);
@@ -214,14 +262,15 @@
     if(combo>0 && combo%10===0) play(SFX.combo);
     bossDamage(q==='perfect'?16:10);
     updateHUD();
+    coachOnCombo(combo);
   }
   function killPad(pad){ try{ padAlive.delete(pad); pad.replaceWith(pad.cloneNode(false)); }catch(_){}
     safeRemove(pad); }
-  function onMiss(p){
+  function onMiss(p, type='pad', late=false){
     combo=0; score=Math.max(0,score-4);
     play(SFX.miss); floatText('MISS','#ff5577', p||new THREE.Vector3(0,PAD_Y,PAD_Z)); updateHUD();
-    // สั่นฉากเล็ก ๆ
     const sc=document.querySelector('a-scene'); if(sc){ sc.classList.add('shake-scene'); setTimeout(()=>sc.classList.remove('shake-scene'), 240); }
+    coachOnMissType(type, late);
   }
 
   // ---------- Boss Patterns ----------
@@ -257,7 +306,7 @@
       const t=now()-born; const base=0.07+(t/LIFE)*0.95;
       ring.setAttribute('radius-inner',Math.max(0.01,base-0.02));
       ring.setAttribute('radius-outer',base);
-      if(t>=LIFE){ if(ring.parentNode){ safeRemove(ring); onMiss(new THREE.Vector3(x,y,z)); } return done(); }
+      if(t>=LIFE){ if(ring.parentNode){ safeRemove(ring); onMiss(new THREE.Vector3(x,y,z),'ring'); } return done(); }
       requestAnimationFrame(step);
     })();
   }
@@ -277,7 +326,7 @@
       floatText('PARRY','#00ffa3', slash.object3D.getWorldPosition(new THREE.Vector3()));
       bossDamage(22); safeRemove(slash); done(); };
     slash.addEventListener('click',hit); slash.addEventListener('mousedown',hit); slash.addEventListener('touchstart',hit,{passive:true});
-    setTimeout(()=>{ if(slash.parentNode){ safeRemove(slash); if(!ok) onMiss(new THREE.Vector3(0,y,-2.2)); } done(); }, 560);
+    setTimeout(()=>{ if(slash.parentNode){ safeRemove(slash); if(!ok) onMiss(new THREE.Vector3(0,y,-2.2),'slash'); } done(); }, 560);
   }
 
   // เพชร CRIT
@@ -287,7 +336,7 @@
     g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.18'); g.setAttribute('color','#00ffa3');
     byId('arena').appendChild(g);
     const hit=()=>{ const p=g.object3D.getWorldPosition(new THREE.Vector3());
-      floatText('CRITICAL +60','#00ffa3', p); score+=40; bossDamage(60); safeRemove(g); updateHUD(); done(); };
+      floatText('CRITICAL +60','#00ffa3', p); score+=40; bossDamage(60); updateHUD(); safeRemove(g); done(); };
     g.addEventListener('click',hit); g.addEventListener('mousedown',hit); g.addEventListener('touchstart',hit,{passive:true});
     setTimeout(()=>{ if(g.parentNode) safeRemove(g); done(); }, 800);
   }
@@ -305,6 +354,7 @@
       floatText('BOMB! -10','#ff5577', b.object3D.getWorldPosition(new THREE.Vector3()));
       combo=0; score=Math.max(0,score-10); updateHUD(); safeRemove(b);
       const sc=document.querySelector('a-scene'); if(sc){ sc.classList.add('shake-scene'); setTimeout(()=>sc.classList.remove('shake-scene'), 360); }
+      coachOnMissType('bomb', false);
       done();
     };
     b.addEventListener('click',punish); b.addEventListener('mousedown',punish); b.addEventListener('touchstart',punish,{passive:true});
@@ -350,6 +400,9 @@
 
     // Boss pattern loop
     bossTimer = setInterval(bossLoop, D.bossGap);
+
+    // Coach
+    coachOnStart();
   }
 
   function end(){
@@ -365,6 +418,7 @@
     byId('rAcc') && (byId('rAcc').textContent = (spawns? Math.round((hits/spawns)*100):0) + '%');
     byId('results') && (byId('results').style.display='flex');
     play(SFX.ui);
+    coachSay('สรุปผลออกแล้ว ลองรีเพลย์เพื่อแก้จุดพลาดเมื่อกี้!', 1600);
   }
 
   function togglePause(){
@@ -373,6 +427,7 @@
     if(paused){
       clearInterval(timer); clearInterval(spawnTimer); clearInterval(bossTimer);
       if(accelRAF){ cancelAnimationFrame(accelRAF); accelRAF=null; }
+      coachSay('พักหายใจสั้น ๆ แล้วไปต่อ!', 1000);
     }else{
       timer = setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); }, 1000);
       spawnTimer = setInterval(spawnPadStatic, D.spawnInt);
@@ -393,6 +448,7 @@
         accelRAF = requestAnimationFrame(accelTick);
       };
       accelTick();
+      coachSay('ลุยต่อ!', 800);
     }
   }
 
@@ -437,7 +493,7 @@
   function boot(){
     const key=getDiffKey(); D = DIFFS[key] || DIFFS.normal;
     updateHUD(); bossShowUI(false);
-    wireUI(); installPointerRaycast();
+    installCoach(); wireUI(); installPointerRaycast();
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
