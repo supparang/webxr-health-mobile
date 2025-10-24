@@ -427,7 +427,7 @@
       hit.setAttribute('radius', rHit.toFixed(3));
 
       if(t>=1.0){
-        const p=ring.object3D.getWorldPosition(new THREE.Vector3()));
+        const p=ring.object3D.getWorldPosition(new THREE.Vector3());
         if(!doneOnce){ playerHit(); onDone && onDone(false, p); }
         safeRemove(ring); safeRemove(hit);
         return;
