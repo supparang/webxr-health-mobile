@@ -19,12 +19,12 @@
     sfxNormalize:    false, // [4] จัดวอลุ่ม + กันสแปมเสียง
     hudReadable:     false, // [5] HUD ใหญ่ขึ้นเล็กน้อย
     gentleCurve:     false, // [6] โค้งความเร็ว/ดีเลย์นุ่มขึ้น (ค่อย ๆ เร็ว)
-    fairScheduler:   true, // [7] กันสุ่มแพทเทิร์นซ้ำติดกัน
-    comboBadges:     true, // [8] ป๊อปอัปทุกคอมโบ x10
-    feverMode:       true, // [9] ช่วงคูณคะแนนเมื่อคอมโบสูง
-    accessibility:   true, // [11] High contrast + HUD +15%
-    richResults:     true, // [12] สรุปผลละเอียด
-    coachTips:       true, // [13] โค้ชให้คำใบ้เมื่อ “ละเลยชนิดเดิม 3 ครั้งติด”
+    fairScheduler:   false, // [7] กันสุ่มแพทเทิร์นซ้ำติดกัน
+    comboBadges:     false, // [8] ป๊อปอัปทุกคอมโบ x10
+    feverMode:       false, // [9] ช่วงคูณคะแนนเมื่อคอมโบสูง
+    accessibility:   false, // [11] High contrast + HUD +15%
+    richResults:     false, // [12] สรุปผลละเอียด
+    coachTips:       false, // [13] โค้ชให้คำใบ้เมื่อ “ละเลยชนิดเดิม 3 ครั้งติด”
     safetyCleanup:   true   // [14] null-safe + clear interval/rAF ตอนออก
   };
 
