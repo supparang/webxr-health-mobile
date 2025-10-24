@@ -14,11 +14,11 @@
 
   // Feature switches (ALL OFF by default to keep classic)
   const FX = {
-    pacingSmooth:    true, // [1] rAF pacing (ลื่นขึ้น)
-    pointerHitBoost: true, // [2] ขยายพื้นที่ฮิตเล็กน้อยของเป้าคลิก
-    sfxNormalize:    true, // [4] จัดวอลุ่ม + กันสแปมเสียง
-    hudReadable:     true, // [5] HUD ใหญ่ขึ้นเล็กน้อย
-    gentleCurve:     true, // [6] โค้งความเร็ว/ดีเลย์นุ่มขึ้น (ค่อย ๆ เร็ว)
+    pacingSmooth:    false, // [1] rAF pacing (ลื่นขึ้น)
+    pointerHitBoost: false, // [2] ขยายพื้นที่ฮิตเล็กน้อยของเป้าคลิก
+    sfxNormalize:    false, // [4] จัดวอลุ่ม + กันสแปมเสียง
+    hudReadable:     false, // [5] HUD ใหญ่ขึ้นเล็กน้อย
+    gentleCurve:     false, // [6] โค้งความเร็ว/ดีเลย์นุ่มขึ้น (ค่อย ๆ เร็ว)
     fairScheduler:   true, // [7] กันสุ่มแพทเทิร์นซ้ำติดกัน
     comboBadges:     true, // [8] ป๊อปอัปทุกคอมโบ x10
     feverMode:       true, // [9] ช่วงคูณคะแนนเมื่อคอมโบสูง
