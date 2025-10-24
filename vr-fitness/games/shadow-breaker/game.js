@@ -1,8 +1,9 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · เพิ่ม “Punch Pads” ให้ชกจริง + ฮิตง่ายขึ้น + สปอว์นต่อเนื่อง + เมาส์/ทัชคลิกโดนแน่
-   - มีทั้งลวดลายบอส (วงแหวน/ดาบกากบาท) และเป้าชก (Pads) สลับกัน
-   - เริ่มช้า สปอว์นห่าง แล้วค่อยเร่ง
-   - โดน = GOOD / PERFECT + เสียงเอฟเฟกต์ + สะสมคอมโบ + ลด HP บอส
+   Shadow Breaker · “คลิกไม่โดน” แก้ครบ:
+   - ฮิตบ็อกซ์ใหญ่ขึ้นมาก (Pads + Rings มี collider โปร่งใส)
+   - หน้าต่างกว้างขึ้น (GOOD/PERFECT)
+   - ระบบ raycast รอให้กล้องพร้อมก่อน และดับเบิลการตรวจ (parent + proxy)
+   - วงแหวนกดติดจริง & ดาบกากบาทกดติดจริง
 */
 (function(){
   "use strict";
@@ -14,7 +15,6 @@
   const ASSET_BASE=(document.querySelector('meta[name="asset-base"]')?.content||'').replace(/\/+$/,'');
   const HUB_URL="https://supparang.github.io/webxr-health-mobile/vr-fitness/";
 
-  // Null-safe remove
   function safeRemove(el){ try{ if(!el) return; if(el.parentNode) el.parentNode.removeChild(el); else el.remove?.(); }catch(_e){} }
 
   // ---------- Audio ----------
@@ -31,14 +31,14 @@
   };
   Object.values(SFX).forEach(a=>{ try{ a.preload='auto'; a.crossOrigin='anonymous'; }catch(_e){} });
   const lastPlay=new Map();
-  function play(a,guardMs=90){ try{ const now=performance.now(); if(lastPlay.get(a)&&now-lastPlay.get(a)<guardMs) return; a.currentTime=0; lastPlay.set(a,now); a.play(); }catch(_e){} }
+  function play(a,guardMs=80){ try{ const now=performance.now(); if(lastPlay.get(a)&&now-lastPlay.get(a)<guardMs) return; a.currentTime=0; lastPlay.set(a,now); a.play(); }catch(_e){} }
 
   // ---------- Difficulty / timing ----------
   const DIFFS = {
-    easy:   { hp:0.9,  atkWin:1.10, title:'EASY',   padSpawn:1100, padSpeed:0.55 },
-    normal: { hp:1.0,  atkWin:1.00, title:'NORMAL', padSpawn:950,  padSpeed:0.65 },
-    hard:   { hp:1.15, atkWin:0.92, title:'HARD',   padSpawn:820,  padSpeed:0.78 },
-    final:  { hp:1.25, atkWin:0.88, title:'FINAL',  padSpawn:760,  padSpeed:0.88 },
+    easy:   { hp:0.9,  atkWin:1.10, title:'EASY',   padSpawn:1200, padSpeed:0.50 },
+    normal: { hp:1.0,  atkWin:1.00, title:'NORMAL', padSpawn:1000, padSpeed:0.62 },
+    hard:   { hp:1.15, atkWin:0.92, title:'HARD',   padSpawn:850,  padSpeed:0.78 },
+    final:  { hp:1.25, atkWin:0.88, title:'FINAL',  padSpawn:780,  padSpeed:0.88 },
   };
   function getDiffKey(){
     return (window.APP?.story?.difficulty) || getQuery('diff') || localStorage.getItem('sb_diff') || 'normal';
@@ -60,14 +60,14 @@
   }
 
   // ---------- Game/Boss state ----------
-  let running=false, paused=false, timer=null, padTimer=null, accelRAF=null;
+  let running=false, paused=false, timer=null, padTimer=null, accelRAF=null, sceneReady=false;
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
 
   const BOSS = { active:false, busy:false, hp:0, max:1000, phase:1, rage:false, name:'', color:'#ff3355' };
   let pIndex=0, lastPattern='', survivedStreak=0;
 
   const ROSTER = [
-    { id:'RazorFist', title:'RAZORFIST', baseHP:1000, color:'#ff3355',
+    { id:'RazorFist', title:'RAZORFIST', baseHP:900, color:'#ff3355',
       P1:['pads','ground_shock','slash_cross','pads'], P2:['pads','slash_cross','ground_shock','pads'] }
   ];
 
@@ -106,8 +106,7 @@
     BOSS.phase=2; survivedStreak=0;
     const ph=byId('phaseLabel'); if(ph) ph.textContent='Phase 2';
     floatText('PHASE 2','#00ffa3', new THREE.Vector3(0,1.6,-2.3));
-    // เร่งสปอว์น Pads เล็กน้อย
-    padSpawnInterval = clamp(padSpawnInterval - 120, 420, 2400);
+    padSpawnInterval = clamp(padSpawnInterval - 140, 420, 2400);
     restartPadTimer();
   }
 
@@ -115,7 +114,7 @@
     BOSS.active=false; BOSS.busy=false;
     floatText('BOSS DEFEATED','#00ffa3', new THREE.Vector3(0,1.6,-2.3));
     score += 250; updateHUD();
-    end(); // จบรอบนี้
+    end(); // finish round
   }
 
   // ---------- Patterns ----------
@@ -125,33 +124,44 @@
     lastPattern=p; return p;
   }
 
-  // วงแหวนขยายด้วย RAF
-  function spawnRing(done, T = 600){
+  // ====== CLICKABLE RING (with invisible collider) ======
+  function spawnRing(done, T = 680){
+    const arena=byId('arena');
     const r = document.createElement('a-ring');
     r.classList.add('clickable','boss-attack');
     r.setAttribute('position','0 1.18 -2.6');
-    r.setAttribute('radius-inner','0.05');
-    r.setAttribute('radius-outer','0.07');
+    r.setAttribute('radius-inner','0.08');
+    r.setAttribute('radius-outer','0.12');
     r.setAttribute('material','color:#ffd166;opacity:.95;shader:flat');
-    byId('arena').appendChild(r);
+    arena.appendChild(r);
+
+    // โปรย collider ใหญ่ (กดง่าย) – โปร่งใส
+    const proxy=document.createElement('a-circle');
+    proxy.classList.add('clickable');
+    proxy.setAttribute('radius','0.42');
+    proxy.setAttribute('material','color:#fff;opacity:0.001;transparent:true');
+    proxy.setAttribute('position','0 0 0.001'); // ซ้อนหน้าเล็กน้อย
+    r.appendChild(proxy);
 
     let clicked = false;
-    r.addEventListener('click', ()=> {
+    const clickFn=()=> {
       if (clicked) return;
       clicked = true;
       floatText('BREAK','#ffd166',r.object3D.getWorldPosition(new THREE.Vector3()));
       bossDamage(16);
       safeRemove(r);
       done && done(true);
-    });
+    };
+    r.addEventListener('click', clickFn);
+    proxy.addEventListener('click', clickFn);
 
     const start = performance.now();
     const total = dur(T);
     (function step(){
       if (!r.parentNode) return;
       const t = clamp((performance.now() - start)/total, 0, 1);
-      const base = 0.07 + t * 0.9;
-      r.setAttribute('radius-inner', Math.max(0.01, base - 0.02));
+      const base = 0.12 + t * 0.95; // ใหญ่ขึ้นชัดเจน
+      r.setAttribute('radius-inner', Math.max(0.02, base - 0.035));
       r.setAttribute('radius-outer', base);
       if (t >= 1){
         if(!clicked){ hardMiss(r); safeRemove(r); done && done(false); }
@@ -161,49 +171,55 @@
     })();
   }
 
-  // ท่า: Ground Shock
   function doGroundShock(){
     BOSS.busy=true; play(SFX.tel_shock);
     let c=0, need=(BOSS.phase===1?3:4);
     (function next(){
-      spawnRing((ok)=>{ c += ok?1:0; if(c<need){ setTimeout(next, dur(220)); } else { finishAttack(); } }, BOSS.phase===1?700:560);
+      spawnRing((ok)=>{ c += ok?1:0; if(c<need){ setTimeout(next, dur(220)); } else { finishAttack(); } }, BOSS.phase===1?720:600);
     })();
   }
 
-  // ท่า: Slash Cross (ดาบกากบาท)
+  // ====== CLICKABLE CROSS (two wide bars + proxy) ======
   function doSlashCross(){
     BOSS.busy = true; play(SFX.tel_slash);
     const makeSlash = (rot, y) => {
       const g = document.createElement('a-entity');
       g.classList.add('clickable','boss-attack');
-      g.setAttribute('geometry','primitive: box; height:.04; width:1.2; depth:.04');
+      g.setAttribute('geometry','primitive: box; height:.06; width:1.35; depth:.05'); // หนาขึ้น
       g.setAttribute('material','color:#5de1ff; opacity:.95; transparent:true');
       g.setAttribute('rotation',`0 0 ${rot}`);
       g.setAttribute('position',`0 ${y} -2.2`);
+      // proxy โป่งใส
+      const proxy = document.createElement('a-box');
+      proxy.classList.add('clickable');
+      proxy.setAttribute('width','1.45'); proxy.setAttribute('height','0.16'); proxy.setAttribute('depth','0.01');
+      proxy.setAttribute('material','color:#fff;opacity:0.001;transparent:true');
+      g.appendChild(proxy);
       byId('arena').appendChild(g);
-      return g;
+      return {g,proxy};
     };
-    const a = makeSlash(-35, 1.40);
-    const b = makeSlash( 35, 1.46);
+    const {g:a,proxy:pa} = makeSlash(-35, 1.40);
+    const {g:b,proxy:pb} = makeSlash( 35, 1.46);
     let cleared = 0;
-    function hit(g){
-      if (g.dataset.hit === '1') return;
-      g.dataset.hit = '1';
+    function hit(el){
+      const host = el === a || el === pa ? a : b;
+      if (host.dataset.hit === '1') return;
+      host.dataset.hit = '1';
       cleared++;
-      floatText('PARRY','#00ffa3', g.object3D.getWorldPosition(new THREE.Vector3()));
+      floatText('PARRY','#00ffa3', host.object3D.getWorldPosition(new THREE.Vector3()));
       bossDamage(18);
-      safeRemove(g);
+      safeRemove(host);
     }
-    a.addEventListener('click', ()=>hit(a));
-    b.addEventListener('click', ()=>hit(b));
+    a.addEventListener('click', ()=>hit(a)); pa.addEventListener('click', ()=>hit(pa));
+    b.addEventListener('click', ()=>hit(b)); pb.addEventListener('click', ()=>hit(pb));
     setTimeout(()=>{
       if (a.parentNode && a.dataset.hit!=='1') hardMiss(a), safeRemove(a);
       if (b.parentNode && b.dataset.hit!=='1') hardMiss(b), safeRemove(b);
       finishAttack();
-    }, dur(720));
+    }, dur(760));
   }
 
-  // ลูปของบอส
+  // ---------- Boss loop ----------
   function bossLoop(){
     if(!running || !BOSS.active || BOSS.busy) return;
     const cfg = ROSTER[0];
@@ -219,37 +235,32 @@
   function finishAttack(){
     if (BOSS.phase === 2) {
       survivedStreak++;
-      if (survivedStreak >= 3) { survivedStreak = 0; /* hook พิเศษในอนาคต */ }
+      if (survivedStreak >= 3) { survivedStreak = 0; /* future hook */ }
     }
     BOSS.busy=false;
     setTimeout(bossLoop, dur(BOSS.phase===2?420:560));
   }
 
-  // ---------- Punch Pads (เป้าชกให้โดนจริง) ----------
-  const PAD_COLORS = ['#00d0ff','#ffd166','#ff6b6b','#00ffa3','#a899ff'];
-  const PAD_SIZE = 0.26;            // ใหญ่ขึ้นให้กดง่าย
-  const PAD_HIT_GOOD = 0.22;        // window กว้างขึ้น
-  const PAD_HIT_PERF = 0.12;
-  const PAD_HIT_Y = 1.15;           // เส้น Hit Line กลางหน้า
+  // ---------- Punch Pads (ใหญ่ขึ้น + hit window กว้าง + collider โปร่งใส) ----------
+  const PAD_COLORS = ['#00d0ff','#ffd166','#ff6b6b','#00ffa3','#a899ff','#ff9c6b'];
+  const PAD_SIZE = 0.34;            // ใหญ่ขึ้นเยอะ
+  const PAD_HIT_GOOD = 0.28;        // หน้าต่างกว้าง
+  const PAD_HIT_PERF = 0.16;
+  const PAD_HIT_Y = 1.15;
 
-  let padSpeed = 0.65;              // m/s
+  let padSpeed = 0.62;              // m/s
   let padSpawnInterval = 1000;      // ms
   let lastAccel = 0;
   let padAlive = new Set();
 
-  function doPadBurst(){
-    // แค่ประกาศว่าช่วงนี้ให้ “Pads system” ทำงานต่อเนื่อง แล้วปล่อยลูปบอสเดินต่อ
-    // ตัว pads จะสปอว์นพื้นหลังไปเรื่อย ๆ อยู่แล้ว
-    setTimeout(finishAttack, dur(300));
-  }
+  function doPadBurst(){ setTimeout(finishAttack, dur(300)); }
 
   function spawnPad(){
     if(!running) return;
     spawns++;
 
-    // ตำแหน่งแบบ lane 3 ช่อง (-0.8, 0, 0.8) + สุ่มเล็กน้อย
     const lanes = [-0.85, 0, 0.85];
-    const x = (lanes[Math.floor(Math.random()*lanes.length)] + (Math.random()*0.18-0.09)).toFixed(2);
+    const x = (lanes[Math.floor(Math.random()*lanes.length)] + (Math.random()*0.16-0.08)).toFixed(2);
     const z = -2.25;
     const yStart = 2.6;
     const color = PAD_COLORS[Math.floor(Math.random()*PAD_COLORS.length)];
@@ -259,32 +270,40 @@
     pad.setAttribute('geometry', `primitive: circle; radius: ${PAD_SIZE}`);
     pad.setAttribute('material', `color:${color}; opacity:0.96; transparent:true; metalness:0.05; roughness:0.45`);
     pad.setAttribute('position', `${x} ${yStart} ${z}`);
+
     // Halo
     const halo=document.createElement('a-entity');
     halo.setAttribute('geometry', `primitive: ring; radiusInner:${PAD_SIZE*0.78}; radiusOuter:${PAD_SIZE*1.15}`);
     halo.setAttribute('material', `color:#ffffff; opacity:0.25; transparent:true`);
     pad.appendChild(halo);
 
+    // Proxy collider (โปร่งใส ใหญ่) – เพื่อให้ ray ชนง่าย
+    const proxy=document.createElement('a-circle');
+    proxy.classList.add('clickable');
+    proxy.setAttribute('radius', PAD_SIZE*1.3);
+    proxy.setAttribute('material','color:#fff;opacity:0.001;transparent:true');
+    proxy.setAttribute('position','0 0 0.001');
+    pad.appendChild(proxy);
+
     byId('arena').appendChild(pad);
     padAlive.add(pad);
 
-    // คลิก = ยิง event hit
     const hitHandler=()=>onPadHit(pad);
     pad.addEventListener('click', hitHandler);
+    proxy.addEventListener('click', hitHandler);
     pad.addEventListener('mousedown', hitHandler);
+    proxy.addEventListener('mousedown', hitHandler);
 
     const born = performance.now();
     let alive = true;
 
-    // ตกลงด้วย RAF
     (function step(){
       if(!alive || !running) return;
       const t = (performance.now()-born)/1000;
       const y = yStart - t*padSpeed;
       pad.setAttribute('position', `${x} ${y.toFixed(3)} ${z}`);
 
-      // ผ่าน Window ล่างสุด => MISS
-      if(y <= PAD_HIT_Y - PAD_HIT_GOOD*1.4){
+      if(y <= PAD_HIT_Y - PAD_HIT_GOOD*1.45){
         alive=false;
         killPad(pad);
         onMiss(new THREE.Vector3(parseFloat(x), PAD_HIT_Y, z));
@@ -296,8 +315,7 @@
 
   function onPadHit(pad){
     if(!running) return;
-    // ป้องกัน “Perfect/Good แล้วต่อด้วย Miss ในโน้ตเดียว” ด้วยธง handled
-    if(pad.dataset.handled==='1') return;
+    if(pad.dataset.handled==='1') return; // กัน “Perfect/Good + Miss ในโน้ตเดียว”
     pad.dataset.handled='1';
 
     const p = pad.object3D.getWorldPosition(new THREE.Vector3());
@@ -318,7 +336,6 @@
     floatText(quality.toUpperCase(), quality==='perfect' ? '#00ffa3' : '#00d0ff', p);
     if(combo>0 && combo%10===0){ play(SFX.combo); }
 
-    // ทำดาเมจกับบอสเล็กน้อยตอนชกโดน
     bossDamage(quality==='perfect'? 14 : 8);
 
     updateHUD();
@@ -327,8 +344,7 @@
   function killPad(pad){
     try{
       padAlive.delete(pad);
-      pad.removeEventListener('click', onPadHit);
-      pad.removeEventListener('mousedown', onPadHit);
+      pad.replaceWith(pad.cloneNode(false)); // ตัด event listeners รวดเร็ว
     }catch(_){}
     safeRemove(pad);
   }
@@ -348,7 +364,6 @@
 
   // ---------- Flow ----------
   function playerHit(){
-    // ใช้ตอนพลาดจากแพทเทิร์นบอส
     onMiss(new THREE.Vector3(0, PAD_HIT_Y,-2.2));
     const scn=document.querySelector('a-scene'); scn?.classList?.add('shake-scene');
     setTimeout(()=>scn?.classList?.remove('shake-scene'), 240);
@@ -367,26 +382,22 @@
     bossShowUI(false);
     clearPads();
 
-    // เวลาเดิน
     timer=setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
 
-    // บอส
     const cfg=ROSTER[0];
     BOSS.active=true; BOSS.busy=false; BOSS.phase=1; BOSS.rage=false;
     BOSS.max=Math.round(cfg.baseHP * D.hp); BOSS.hp=BOSS.max; BOSS.name=cfg.title; BOSS.color=cfg.color;
     bossIntro(); pIndex=0; lastPattern=''; survivedStreak=0;
 
-    // เริ่มสปอว์น Pads
     restartPadTimer();
 
-    // ค่อย ๆ เร่ง: ทุก 4s เพิ่มความเร็ว / ลดช่วงสปอว์น
     lastAccel = performance.now();
     const accelTick = ()=>{
       if(!running) return;
       const now=performance.now();
       if(now - lastAccel >= 4000){
         lastAccel = now;
-        padSpeed = clamp(padSpeed + 0.05, 0.45, 1.6);
+        padSpeed = clamp(padSpeed + 0.06, 0.45, 1.6);
         padSpawnInterval = clamp(padSpawnInterval - 60, 420, 2400);
         restartPadTimer();
       }
@@ -394,8 +405,7 @@
     };
     accelTick();
 
-    // ลูปบอส
-    setTimeout(bossLoop, dur(900));
+    setTimeout(bossLoop, dur(800));
   }
 
   function restartPadTimer(){
@@ -433,7 +443,7 @@
         const now=performance.now();
         if(now - lastAccel >= 4000){
           lastAccel = now;
-          padSpeed = clamp(padSpeed + 0.05, 0.45, 1.6);
+          padSpeed = clamp(padSpeed + 0.06, 0.45, 1.6);
           padSpawnInterval = clamp(padSpawnInterval - 60, 420, 2400);
           restartPadTimer();
         }
@@ -461,19 +471,34 @@
     });
   }
 
-  // ---------- Mouse/Touch raycast: ให้คลิก a-entity โดนแน่ ----------
+  // ---------- Pointer Raycast (รอ scene พร้อม + proxy friendly) ----------
   function installPointerRaycast(){
     const sceneEl=document.querySelector('a-scene'); if(!sceneEl) return;
     const ray=new THREE.Raycaster(); const mouse=new THREE.Vector2();
+    let cam=null;
+
+    function readyCam(){ cam = sceneEl.camera || null; return !!cam; }
+    if(sceneEl.hasLoaded || sceneEl.renderer){ sceneReady = true; readyCam(); }
+    else sceneEl.addEventListener('loaded', ()=>{ sceneReady=true; readyCam(); });
+
     function shoot(clientX, clientY){
-      const cam=sceneEl.camera; if(!cam) return;
+      if(!sceneReady || !readyCam()) return;
       mouse.x=(clientX/window.innerWidth)*2-1;
       mouse.y=-(clientY/window.innerHeight)*2+1;
       ray.setFromCamera(mouse,cam);
-      const objs=[]; Array.from(document.querySelectorAll('.clickable')).forEach(el=>el.object3D?.traverse(n=>objs.push(n)));
+
+      const objs=[];
+      Array.from(document.querySelectorAll('.clickable')).forEach(el=>el.object3D?.traverse(n=>objs.push(n)));
       const hitsArr=ray.intersectObjects(objs,true);
       if(hitsArr?.length){
-        let o=hitsArr[0].object; while(o && !o.el) o=o.parent; if(o?.el) o.el.emit('click');
+        // เลือกชนชิ้นแรกที่ “มองเห็นได้” (หลีกเลี่ยงชิ้นเล็ก ๆ)
+        let idx=0;
+        while(idx<hitsArr.length){
+          let o=hitsArr[idx].object;
+          while(o && !o.el) o=o.parent;
+          if(o?.el){ o.el.emit('click'); break; }
+          idx++;
+        }
       }
     }
     addEventListener('mousedown',(e)=>shoot(e.clientX,e.clientY),{passive:true});
