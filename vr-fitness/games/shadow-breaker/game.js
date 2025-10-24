@@ -1,7 +1,8 @@
 /* games/shadow-breaker/game.js
    Shadow Breaker (Classic feel kept) + Punch Pads (Circle/Triangle/Square/Pentagon/Hexagon/Diamond/Bomb)
-   - ไม่หักคะแนนจากการไม่กด (ตามที่ขอ)
+   - ไม่หักคะแนนจากการไม่กด
    - Bomb = เมื่อ "กด" จะตัดคอมโบทันที (ไม่มีลดสกอร์)
+   - ผลสรุปท้ายเกม: ให้ดาว 5 ระดับ (★ 0–5)
 */
 (function(){
   "use strict";
@@ -12,23 +13,22 @@
   const HUB_URL = "https://supparang.github.io/webxr-health-mobile/vr-fitness/";
   const ASSET_BASE = (document.querySelector('meta[name="asset-base"]')?.content || '').replace(/\/+$/,'');
 
-  // Feature switches (ALL OFF by default to keep classic)
+  // Feature switches
   const FX = {
-    pacingSmooth:    false, // rAF pacing (ลื่นขึ้น)
-    pointerHitBoost: true,  // ขยายพื้นที่ฮิตเล็กน้อยของเป้าคลิก (เปิดไว้เพื่อให้คลิกติดง่าย)
-    sfxNormalize:    true,  // จัดวอลุ่ม + กันสแปมเสียง
-    hudReadable:     false, // HUD ใหญ่ขึ้นเล็กน้อย
-    gentleCurve:     true,  // โค้งความเร็ว/ดีเลย์ ค่อย ๆ เร็ว
-    fairScheduler:   true,  // กันสุ่มแพทเทิร์นซ้ำติดกัน
-    comboBadges:     true,  // ป๊อปอัปทุกคอมโบ x10
-    feverMode:       true,  // ช่วงคูณคะแนนเมื่อคอมโบสูง
-    accessibility:   false, // High contrast + HUD +15%
-    richResults:     true,  // สรุปผลละเอียด
-    coachTips:       true,  // โค้ชให้คำใบ้เมื่อ “ละเลยชนิดเดิม 3 ครั้งติด”
-    safetyCleanup:   true   // null-safe + clear interval/rAF ตอนออก
+    pacingSmooth:    false,
+    pointerHitBoost: true,
+    sfxNormalize:    true,
+    hudReadable:     false,
+    gentleCurve:     true,
+    fairScheduler:   true,
+    comboBadges:     true,
+    feverMode:       true,
+    accessibility:   false,
+    richResults:     true,
+    coachTips:       true,
+    safetyCleanup:   true
   };
 
-  // ------ Null-safe remove ------
   function safeRemove(el){ try{
     if(!el) return;
     if(!el.isConnected && !el.parentNode) return;
@@ -53,16 +53,13 @@
   };
   Object.values(SFX).forEach(a=>{ try{ a.preload='auto'; a.crossOrigin='anonymous'; }catch(_){} });
 
-  // SFX normalize helper
   const _sfxLastPlay = new Map();
   function playSfx(a, guardMs=120, vol=1){
     try{
-      if(FX.sfxNormalize){
-        const now=performance.now();
-        if(_sfxLastPlay.get(a) && now - _sfxLastPlay.get(a) < guardMs) return;
-        _sfxLastPlay.set(a, now);
-        a.volume = vol;
-      }
+      const now=performance.now();
+      if(_sfxLastPlay.get(a) && now - _sfxLastPlay.get(a) < guardMs) return;
+      _sfxLastPlay.set(a, now);
+      a.volume = vol;
       a.currentTime=0; a.play();
     }catch(_){}
   }
@@ -73,14 +70,14 @@
 
   // ------------------ State ------------------
   let running=false, paused=false;
-  let timer=null;            // ตัวจับเวลาเกม
-  let padTimer=null;         // ตัวสปอว์น Punch Pads
+  let timer=null;
+  let padTimer=null;
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
   let feverUntil = 0;
+  let bossDown = false;  // ใช้สำหรับคำนวนดาว 5 ระดับ
 
   const BOSS = { active:false, busy:false, phase:1, hp:0, max:1000, name:'RAZOR', color:'#ff3355' };
 
-  // HUD apply
   function applyHudToggles(){
     if(FX.hudReadable || FX.accessibility){
       const hud = byId('hud');
@@ -91,7 +88,6 @@
     }
   }
 
-  // Fever + combo badges
   function scoringMul(){ return (FX.feverMode && performance.now()<feverUntil)? 1.5 : 1.0; }
   function onComboChanged(){
     if(FX.comboBadges && combo>0 && combo%10===0){
@@ -102,7 +98,6 @@
     if(combo>maxCombo) maxCombo=combo;
   }
 
-  // Coach tips
   const _ignoreStreak = { ring:0, blade:0, core:0, pad:0 };
   function coachTipOnce(kind){
     if(!FX.coachTips) return;
@@ -125,7 +120,6 @@
   }
   function resetIgnore(kind){ _ignoreStreak[kind]=0; }
 
-  // Float text
   function floatText(text, color, pos){
     const e=document.createElement('a-entity'), p=pos.clone(); p.y+=0.2;
     e.setAttribute('text',{value:text,color,align:'center',width:2.6});
@@ -137,7 +131,6 @@
     byId('arena').appendChild(e); setTimeout(()=>safeRemove(e),820);
   }
 
-  // HUD
   function updateHUD(){
     byId('score').textContent = Math.round(score);
     byId('combo').textContent = combo;
@@ -159,7 +152,6 @@
     bossSetHP(BOSS.hp - final);
     if(pos) floatText('-'+final,'#ffccdd',pos);
   }
-
   function bossIntro(){
     const arena=byId('arena');
     const a=document.createElement('a-entity'); a.id='bossAnchor'; a.setAttribute('position','0 1.5 -3');
@@ -170,7 +162,7 @@
     bossShowUI(true); bossSetHP(BOSS.max); setPhase(1);
   }
 
-  // ------------------ Patterns (ring / blade / core) ------------------
+  // ------------------ Boss patterns ------------------
   let _lastPattern = '';
   function pickPattern(){
     const pool=['ring','blade','core'];
@@ -205,7 +197,6 @@
     window.__sbNextTO = setTimeout(scheduleNext, nextDelay(delay));
   }
 
-  // ---- Ring (คลิกเมื่อวงขยายเกือบสุด) ----
   function doRing(){
     sfxPlay(SFX.tel_shock,120,1.0);
     const r=document.createElement('a-ring'); r.classList.add('clickable','boss-attack');
@@ -234,7 +225,6 @@
     step();
   }
 
-  // ---- Blade (เส้นดาบให้แตะเร็ว ๆ) ----
   function doBlade(){
     sfxPlay(SFX.tel_slash,120,1.0);
     const g=document.createElement('a-entity'); g.classList.add('clickable','boss-attack');
@@ -245,7 +235,7 @@
     byId('arena').appendChild(g);
     let ok=false;
     const T=560; const t0=performance.now();
-    const timer=( )=>{
+    const timer=()=>{
       if(!g.parentNode || !running) return;
       if(performance.now()-t0 >= T){
         if(!ok){ coachTipOnce('blade'); } safeRemove(g); doneAttack(520); return;
@@ -264,7 +254,6 @@
     timer();
   }
 
-  // ---- Core (เพชรโบนัส) ----
   function doCore(){
     const g=document.createElement('a-icosahedron'); g.classList.add('clickable','boss-attack');
     g.setAttribute('position','0 1.6 -2.4'); g.setAttribute('radius','0.18'); g.setAttribute('color','#00ffa3');
@@ -291,8 +280,7 @@
     timer();
   }
 
-  // ------------------ Punch Pads (ใหม่) ------------------
-  // รูปแบบ: circle / triangle / square / pentagon / hexagon / diamond / bomb
+  // ------------------ Punch Pads ------------------
   const PAD_SPEC = [
     { id:'circle',   color:'#00d0ff', shape:'circle',   seg:32,   radius:0.22,   score:10,  dmg:10 },
     { id:'triangle', color:'#ffd166', shape:'circle',   seg:3,    radius:0.26,   score:12,  dmg:12 },
@@ -302,9 +290,8 @@
     { id:'diamond',  color:'#c0ffee', shape:'icosa',    r:0.19,                score:22,  dmg:18 },
     { id:'bomb',     color:'#222222', shape:'sphere',   r:0.20,  emissive:'#ff4444', score:0,  dmg:0, bomb:true }
   ];
-  let padSpawnIntBase = 1500;   // เริ่มห่าง
-  let padLifeBase     = 1200;   // อยู่รอประมาณ 1.2s
-  let _padLastSpawn   = 0;
+  let padSpawnIntBase = 1500;
+  let padLifeBase     = 1200;
 
   function nextPadInterval(){
     if(!FX.gentleCurve) return padSpawnIntBase;
@@ -321,9 +308,7 @@
 
   function spawnPad(){
     if(!running) return;
-    _padLastSpawn = performance.now();
 
-    // random spec (เพิ่มน้ำหนักให้ non-bomb)
     const pool = [...PAD_SPEC, ...PAD_SPEC.filter(p=>!p.bomb), ...PAD_SPEC.filter(p=>!p.bomb)];
     const spec = pool[Math.floor(Math.random()*pool.length)];
 
@@ -342,7 +327,7 @@
     }else if(spec.shape==='sphere'){
       el = document.createElement('a-sphere');
       el.setAttribute('radius', spec.r || 0.20);
-    }else{ // circle w/ segments (tri/penta/hexa…)
+    }else{
       el = document.createElement('a-entity');
       el.setAttribute('geometry', `primitive: circle; radius: ${spec.radius||0.24}; segments: ${spec.seg||32}`);
     }
@@ -354,11 +339,10 @@
       : `color:${spec.color}; metalness:0.1; roughness:0.4;`;
     el.setAttribute('material', mat + ' opacity:0.95; transparent:true');
 
-    // ขยายฮิตบ็อกซ์ไว้นิดนึง (pointerHitBoost)
     if(FX.pointerHitBoost){
       const collider = document.createElement('a-entity');
       collider.setAttribute('geometry','primitive: circle; radius: 0.32; segments: 24');
-      collider.setAttribute('material','color:#ffffff; opacity:0.001; transparent:true'); // แทบมองไม่เห็น
+      collider.setAttribute('material','color:#ffffff; opacity:0.001; transparent:true');
       collider.classList.add('clickable');
       el.appendChild(collider);
       collider.addEventListener('click', ()=> el.emit('click'));
@@ -370,8 +354,7 @@
     let clicked=false;
     const killT = setTimeout(()=>{
       if(clicked) return;
-      // ไม่หักคะแนนกรณีไม่กด
-      coachTipOnce('pad');
+      coachTipOnce('pad');    // ไม่หักคะแนนถ้าไม่กด
       safeRemove(el);
     }, nextPadLife());
 
@@ -382,14 +365,12 @@
       safeRemove(el);
 
       if(spec.bomb){
-        // Bomb: กดแล้วตัดคอมโบทันที ไม่มีลบสกอร์
         combo = 0; onComboChanged(); updateHUD();
         floatText('BOMB! Combo reset','#ff7766',p);
         sfxPlay(SFX.boom,120,1.0);
         return;
       }
 
-      // ปกติ: เพิ่มคอมโบ + สกอร์ + ทำดาเมจเล็กน้อย
       hits++;
       combo++; onComboChanged();
       const add = Math.round((spec.score||10) * scoringMul());
@@ -407,6 +388,7 @@
   // ------------------ Boss flow ------------------
   function enterPhase2(){ BOSS.phase=2; setPhase(2); try{ window.APP?.badge?.('Phase 2'); }catch(_){} }
   function onBossDefeated(){
+    bossDown = true;
     BOSS.active=false; floatText('BOSS DEFEATED','#00ffa3', new THREE.Vector3(0,1.6,-2.4));
     score+=250; updateHUD(); end();
   }
@@ -418,19 +400,16 @@
     if(running) return;
     running=true; paused=false;
     window.__sbStartT = performance.now();
-    score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=60; feverUntil=0;
+    score=0; combo=0; maxCombo=0; hits=0; spawns=0; timeLeft=60; feverUntil=0; bossDown=false;
     byId('results').style.display='none';
     updateHUD(); bossShowUI(false); clearArena();
     BOSS.active=true; BOSS.busy=false; BOSS.phase=1; BOSS.max=1000; BOSS.hp=BOSS.max;
     bossIntro();
 
-    // เวลาเกม
     timer = setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
 
-    // เริ่มแพทเทิร์นบอส
     setTimeout(scheduleNext, 700);
 
-    // เริ่มสปอว์น Punch Pads
     const tickSpawn = ()=>{
       if(!running) return;
       spawnPad();
@@ -438,6 +417,17 @@
       padTimer = setTimeout(tickSpawn, next);
     };
     tickSpawn();
+  }
+
+  // ---- ดาว 5 ระดับ (0–5) ----
+  function computeStars(){
+    let s = 0;
+    if(bossDown) s += 1;                     // ชนะบอส
+    if(maxCombo >= 15) s += 1;               // คอมโบระดับเริ่มต้น
+    if(maxCombo >= 30) s += 1;               // คอมโบสูง
+    if(score >= 300) s += 1;                 // สกอร์รวม
+    if(timeLeft >= 10) s += 1;               // จบด้วยเวลาเหลือ
+    return clamp(s,0,5);
   }
 
   function end(){
@@ -452,6 +442,11 @@
     byId('rScore').textContent = Math.round(score);
     byId('rMaxCombo').textContent = maxCombo;
     byId('rAcc').textContent = acc + '%';
+
+    // ★★★★★ (5 ระดับ)
+    const stars = computeStars();
+    const rStars = byId('rStars');
+    if(rStars){ rStars.textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars); }
 
     if(FX.richResults){
       let extra = byId('rExtra');
@@ -475,7 +470,6 @@
       try{ window.APP?.badge?.('Paused'); }catch(_){}
     }else{
       timer = setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
-      // resume pad spawn
       const next = nextPadInterval();
       padTimer = setTimeout(function tick(){ if(!running||paused) return; spawnPad(); padTimer=setTimeout(tick,nextPadInterval()); }, next);
       try{ window.APP?.badge?.('Resume'); }catch(_){}
@@ -520,7 +514,6 @@
     byId('backBtn')?.addEventListener('click', ()=>{ location.href = HUB_URL; });
     byId('enterVRBtn')?.addEventListener('click', ()=>{ try{ document.querySelector('a-scene')?.enterVR?.(); }catch(_){} });
 
-    // Hotkeys
     addEventListener('keydown', (ev)=>{
       if(ev.code==='Space'){ ev.preventDefault(); if(!running) start(); else togglePause(); }
       if(ev.code==='Escape'){ end(); }
@@ -528,7 +521,6 @@
     });
   }
 
-  // ------------------ Boot & Safety ------------------
   function boot(){ wire(); updateHUD(); applyHudToggles(); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 
