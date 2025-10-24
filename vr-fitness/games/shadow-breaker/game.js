@@ -1,7 +1,7 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker (Classic feel kept) + FX toggles (1,2,4,5,6,7,8,9,11,12,13,14)
-   - ค่าเริ่มต้น: ปิดทั้งหมด (= เล่นเหมือนเดิม)
-   - เปิดใช้: ตั้งค่าในอ็อบเจ็กต์ FX ด้านล่าง
+   Shadow Breaker (Classic feel kept) + Punch Pads (Circle/Triangle/Square/Pentagon/Hexagon/Diamond/Bomb)
+   - ไม่หักคะแนนจากการไม่กด (ตามที่ขอ)
+   - Bomb = เมื่อ "กด" จะตัดคอมโบทันที (ไม่มีลดสกอร์)
 */
 (function(){
   "use strict";
@@ -14,18 +14,18 @@
 
   // Feature switches (ALL OFF by default to keep classic)
   const FX = {
-    pacingSmooth:    false, // [1] rAF pacing (ลื่นขึ้น)
-    pointerHitBoost: false, // [2] ขยายพื้นที่ฮิตเล็กน้อยของเป้าคลิก
-    sfxNormalize:    false, // [4] จัดวอลุ่ม + กันสแปมเสียง
-    hudReadable:     false, // [5] HUD ใหญ่ขึ้นเล็กน้อย
-    gentleCurve:     false, // [6] โค้งความเร็ว/ดีเลย์นุ่มขึ้น (ค่อย ๆ เร็ว)
-    fairScheduler:   false, // [7] กันสุ่มแพทเทิร์นซ้ำติดกัน
-    comboBadges:     false, // [8] ป๊อปอัปทุกคอมโบ x10
-    feverMode:       false, // [9] ช่วงคูณคะแนนเมื่อคอมโบสูง
-    accessibility:   false, // [11] High contrast + HUD +15%
-    richResults:     false, // [12] สรุปผลละเอียด
-    coachTips:       false, // [13] โค้ชให้คำใบ้เมื่อ “ละเลยชนิดเดิม 3 ครั้งติด”
-    safetyCleanup:   true   // [14] null-safe + clear interval/rAF ตอนออก
+    pacingSmooth:    false, // rAF pacing (ลื่นขึ้น)
+    pointerHitBoost: true,  // ขยายพื้นที่ฮิตเล็กน้อยของเป้าคลิก (เปิดไว้เพื่อให้คลิกติดง่าย)
+    sfxNormalize:    true,  // จัดวอลุ่ม + กันสแปมเสียง
+    hudReadable:     false, // HUD ใหญ่ขึ้นเล็กน้อย
+    gentleCurve:     true,  // โค้งความเร็ว/ดีเลย์ ค่อย ๆ เร็ว
+    fairScheduler:   true,  // กันสุ่มแพทเทิร์นซ้ำติดกัน
+    comboBadges:     true,  // ป๊อปอัปทุกคอมโบ x10
+    feverMode:       true,  // ช่วงคูณคะแนนเมื่อคอมโบสูง
+    accessibility:   false, // High contrast + HUD +15%
+    richResults:     true,  // สรุปผลละเอียด
+    coachTips:       true,  // โค้ชให้คำใบ้เมื่อ “ละเลยชนิดเดิม 3 ครั้งติด”
+    safetyCleanup:   true   // null-safe + clear interval/rAF ตอนออก
   };
 
   // ------ Null-safe remove ------
@@ -48,7 +48,8 @@
     tel_slash: new Audio(`${ASSET_BASE}/assets/sfx/tel_slash.wav`),
     tel_shock: new Audio(`${ASSET_BASE}/assets/sfx/tel_shock.wav`),
     success:   new Audio(`${ASSET_BASE}/assets/sfx/success.wav`),
-    ui:        new Audio(`${ASSET_BASE}/assets/sfx/success.wav`)
+    ui:        new Audio(`${ASSET_BASE}/assets/sfx/success.wav`),
+    boom:      new Audio(`${ASSET_BASE}/assets/sfx/miss.wav`)
   };
   Object.values(SFX).forEach(a=>{ try{ a.preload='auto'; a.crossOrigin='anonymous'; }catch(_){} });
 
@@ -72,7 +73,8 @@
 
   // ------------------ State ------------------
   let running=false, paused=false;
-  let timer=null, spawnTimer=null; // สำหรับเป้าทั่วไป (เกมเวอร์ชันเดิมไม่มีวิ่งถาวร—ใช้บอสลูป)
+  let timer=null;            // ตัวจับเวลาเกม
+  let padTimer=null;         // ตัวสปอว์น Punch Pads
   let score=0, combo=0, maxCombo=0, hits=0, spawns=0, timeLeft=60;
   let feverUntil = 0;
 
@@ -101,14 +103,15 @@
   }
 
   // Coach tips
-  const _ignoreStreak = { ring:0, blade:0, core:0 };
+  const _ignoreStreak = { ring:0, blade:0, core:0, pad:0 };
   function coachTipOnce(kind){
     if(!FX.coachTips) return;
     _ignoreStreak[kind] = (_ignoreStreak[kind]||0) + 1;
     if(_ignoreStreak[kind]===3){
       const msg = kind==='ring' ? 'โฟกัสตอนวงแหวนขยายเกือบสุด'
                : kind==='blade' ? 'ดาบ: แตะทันทีหลังสัญญาณ'
-               : 'เพชร: แตะทันทีที่โผล่เพื่อคอมโบ';
+               : kind==='core' ? 'เพชร: แตะทันทีเพื่อคอมโบ'
+               : 'Pad: แตะภายในเวลาที่กำหนด';
       let t=byId('coachTip');
       if(!t){
         t=document.createElement('div'); t.id='coachTip';
@@ -168,7 +171,6 @@
   }
 
   // ------------------ Patterns (ring / blade / core) ------------------
-  // Fair scheduler
   let _lastPattern = '';
   function pickPattern(){
     const pool=['ring','blade','core'];
@@ -181,7 +183,6 @@
     _lastPattern=p; return p;
   }
 
-  // Gentle pacing
   window.__sbStartT = 0;
   function nextDelay(base){
     if(!FX.gentleCurve) return base;
@@ -204,7 +205,7 @@
     window.__sbNextTO = setTimeout(scheduleNext, nextDelay(delay));
   }
 
-  // ---- Ring (คลิกเมื่อวงขยายใกล้เต็ม) ----
+  // ---- Ring (คลิกเมื่อวงขยายเกือบสุด) ----
   function doRing(){
     sfxPlay(SFX.tel_shock,120,1.0);
     const r=document.createElement('a-ring'); r.classList.add('clickable','boss-attack');
@@ -290,6 +291,119 @@
     timer();
   }
 
+  // ------------------ Punch Pads (ใหม่) ------------------
+  // รูปแบบ: circle / triangle / square / pentagon / hexagon / diamond / bomb
+  const PAD_SPEC = [
+    { id:'circle',   color:'#00d0ff', shape:'circle',   seg:32,   radius:0.22,   score:10,  dmg:10 },
+    { id:'triangle', color:'#ffd166', shape:'circle',   seg:3,    radius:0.26,   score:12,  dmg:12 },
+    { id:'square',   color:'#ff6b6b', shape:'box',      size:0.4,               score:12,  dmg:12 },
+    { id:'pentagon', color:'#a899ff', shape:'circle',   seg:5,    radius:0.26,   score:14,  dmg:14 },
+    { id:'hexagon',  color:'#00ffa3', shape:'circle',   seg:6,    radius:0.26,   score:16,  dmg:14 },
+    { id:'diamond',  color:'#c0ffee', shape:'icosa',    r:0.19,                score:22,  dmg:18 },
+    { id:'bomb',     color:'#222222', shape:'sphere',   r:0.20,  emissive:'#ff4444', score:0,  dmg:0, bomb:true }
+  ];
+  let padSpawnIntBase = 1500;   // เริ่มห่าง
+  let padLifeBase     = 1200;   // อยู่รอประมาณ 1.2s
+  let _padLastSpawn   = 0;
+
+  function nextPadInterval(){
+    if(!FX.gentleCurve) return padSpawnIntBase;
+    const sec=(performance.now()-window.__sbStartT)/1000;
+    const ease=Math.min(1, sec/40);
+    return Math.max(700, Math.round(padSpawnIntBase*(1-0.35*ease)));
+  }
+  function nextPadLife(){
+    if(!FX.gentleCurve) return padLifeBase;
+    const sec=(performance.now()-window.__sbStartT)/1000;
+    const ease=Math.min(1, sec/40);
+    return Math.max(800, Math.round(padLifeBase*(1-0.2*ease)));
+  }
+
+  function spawnPad(){
+    if(!running) return;
+    _padLastSpawn = performance.now();
+
+    // random spec (เพิ่มน้ำหนักให้ non-bomb)
+    const pool = [...PAD_SPEC, ...PAD_SPEC.filter(p=>!p.bomb), ...PAD_SPEC.filter(p=>!p.bomb)];
+    const spec = pool[Math.floor(Math.random()*pool.length)];
+
+    const x = (Math.random()*2.2 - 1.1).toFixed(2);
+    const y = (Math.random()*0.7 + 1.1).toFixed(2);
+    const z = -2.3;
+
+    let el;
+    if(spec.shape==='box'){
+      el = document.createElement('a-box');
+      const s = spec.size || 0.36;
+      el.setAttribute('width', s); el.setAttribute('height', s); el.setAttribute('depth', s);
+    }else if(spec.shape==='icosa'){
+      el = document.createElement('a-icosahedron');
+      el.setAttribute('radius', spec.r || 0.18);
+    }else if(spec.shape==='sphere'){
+      el = document.createElement('a-sphere');
+      el.setAttribute('radius', spec.r || 0.20);
+    }else{ // circle w/ segments (tri/penta/hexa…)
+      el = document.createElement('a-entity');
+      el.setAttribute('geometry', `primitive: circle; radius: ${spec.radius||0.24}; segments: ${spec.seg||32}`);
+    }
+
+    el.classList.add('clickable','sb-pad');
+    el.setAttribute('position', `${x} ${y} ${z}`);
+    const mat = spec.bomb
+      ? `color:${spec.color}; metalness:0.2; roughness:0.5; emissive:${spec.emissive||'#aa0000'}; emissiveIntensity:0.6;`
+      : `color:${spec.color}; metalness:0.1; roughness:0.4;`;
+    el.setAttribute('material', mat + ' opacity:0.95; transparent:true');
+
+    // ขยายฮิตบ็อกซ์ไว้นิดนึง (pointerHitBoost)
+    if(FX.pointerHitBoost){
+      const collider = document.createElement('a-entity');
+      collider.setAttribute('geometry','primitive: circle; radius: 0.32; segments: 24');
+      collider.setAttribute('material','color:#ffffff; opacity:0.001; transparent:true'); // แทบมองไม่เห็น
+      collider.classList.add('clickable');
+      el.appendChild(collider);
+      collider.addEventListener('click', ()=> el.emit('click'));
+      collider.addEventListener('mousedown', ()=> el.emit('click'));
+    }
+
+    byId('arena').appendChild(el);
+
+    let clicked=false;
+    const killT = setTimeout(()=>{
+      if(clicked) return;
+      // ไม่หักคะแนนกรณีไม่กด
+      coachTipOnce('pad');
+      safeRemove(el);
+    }, nextPadLife());
+
+    const onClick = ()=>{
+      if(clicked) return; clicked=true;
+      clearTimeout(killT);
+      const p = el.object3D.getWorldPosition(new THREE.Vector3());
+      safeRemove(el);
+
+      if(spec.bomb){
+        // Bomb: กดแล้วตัดคอมโบทันที ไม่มีลบสกอร์
+        combo = 0; onComboChanged(); updateHUD();
+        floatText('BOMB! Combo reset','#ff7766',p);
+        sfxPlay(SFX.boom,120,1.0);
+        return;
+      }
+
+      // ปกติ: เพิ่มคอมโบ + สกอร์ + ทำดาเมจเล็กน้อย
+      hits++;
+      combo++; onComboChanged();
+      const add = Math.round((spec.score||10) * scoringMul());
+      score += add;
+      updateHUD();
+      floatText('HIT +'+add,(spec.color||'#00d0ff'),p);
+      sfxPlay(SFX.slash,120,1.0);
+      bossDamage(spec.dmg||10, p);
+      resetIgnore('pad');
+    };
+    el.addEventListener('click', onClick);
+    el.addEventListener('mousedown', onClick);
+  }
+
   // ------------------ Boss flow ------------------
   function enterPhase2(){ BOSS.phase=2; setPhase(2); try{ window.APP?.badge?.('Phase 2'); }catch(_){} }
   function onBossDefeated(){
@@ -310,22 +424,31 @@
     BOSS.active=true; BOSS.busy=false; BOSS.phase=1; BOSS.max=1000; BOSS.hp=BOSS.max;
     bossIntro();
 
-    // นับเวลาถอยหลัง
+    // เวลาเกม
     timer = setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
 
-    // เริ่มลูปบอส
+    // เริ่มแพทเทิร์นบอส
     setTimeout(scheduleNext, 700);
+
+    // เริ่มสปอว์น Punch Pads
+    const tickSpawn = ()=>{
+      if(!running) return;
+      spawnPad();
+      const next = nextPadInterval();
+      padTimer = setTimeout(tickSpawn, next);
+    };
+    tickSpawn();
   }
 
   function end(){
     running=false; paused=false;
     try{ clearInterval(timer); }catch(_){}
-    try{ clearInterval(spawnTimer); }catch(_){}
+    try{ clearTimeout(padTimer); }catch(_){}
     try{ clearTimeout(window.__sbNextTO); }catch(_){}
     try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
     bossShowUI(false);
 
-    const acc = (hits>0 || spawns>0) ? Math.round((hits/(hits+(_ignoreStreak.ring+_ignoreStreak.blade+_ignoreStreak.core))) * 100) : 0;
+    const acc = maxCombo>0 ? Math.min(100, Math.round((hits/(hits+_ignoreStreak.ring+_ignoreStreak.blade+_ignoreStreak.core+_ignoreStreak.pad+1))*100)) : 0;
     byId('rScore').textContent = Math.round(score);
     byId('rMaxCombo').textContent = maxCombo;
     byId('rAcc').textContent = acc + '%';
@@ -348,9 +471,13 @@
     paused=!paused;
     if(paused){
       clearInterval(timer); try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
+      try{ clearTimeout(padTimer); }catch(_){}
       try{ window.APP?.badge?.('Paused'); }catch(_){}
     }else{
       timer = setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
+      // resume pad spawn
+      const next = nextPadInterval();
+      padTimer = setTimeout(function tick(){ if(!running||paused) return; spawnPad(); padTimer=setTimeout(tick,nextPadInterval()); }, next);
       try{ window.APP?.badge?.('Resume'); }catch(_){}
     }
   }
@@ -408,7 +535,7 @@
   if(FX.safetyCleanup){
     window.addEventListener('beforeunload', ()=>{
       try{ clearInterval(timer); }catch(_){}
-      try{ clearInterval(spawnTimer); }catch(_){}
+      try{ clearTimeout(padTimer); }catch(_){}
       try{ clearTimeout(window.__sbNextTO); }catch(_){}
       try{ cancelAnimationFrame(window.__sbRaf); }catch(_){}
     });
