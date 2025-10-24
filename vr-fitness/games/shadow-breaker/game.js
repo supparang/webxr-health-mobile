@@ -6,6 +6,104 @@
 */
 (function(){
   "use strict";
+// --- วางไว้ใกล้ ๆ helper อื่น ๆ ---
+function clearBossAnchor(){
+  const old = document.getElementById('bossAnchor');
+  if (old) try{ old.parentNode && old.parentNode.removeChild(old); }catch(_){}
+}
+
+// ------------------ Boss UI ------------------
+function bossShowUI(s){ const bar=byId('bossBar'); if(bar) bar.style.display=s?'block':'none'; }
+function bossSetHP(v){
+  const was=BOSS.hp; BOSS.hp=clamp(v,0,BOSS.max);
+  const fill=byId('bossHPFill'); if(fill) fill.style.width=((BOSS.hp/BOSS.max)*100)+'%';
+  if(BOSS.phase===1 && BOSS.hp<=BOSS.max*0.5) enterPhase2();
+  if(BOSS.hp<=0 && was>0) onBossDefeated();
+}
+function bossDamage(amount, pos){
+  const final = Math.max(1, Math.round(amount * scoringMul()));
+  sfxPlay(SFX.hp_hit,90,0.95);
+  bossSetHP(BOSS.hp - final);
+  if(pos) floatText('-'+final,'#ffccdd',pos);
+}
+
+// ✅ ปรับให้เคลียร์ anchor เก่าก่อน แล้วค่อยสร้าง/อัปเดตใหม่
+function bossIntro(){
+  // ลบของเก่าก่อนป้องกัน label ซ้อน
+  clearBossAnchor();
+
+  const arena=byId('arena');
+  const a=document.createElement('a-entity'); 
+  a.id='bossAnchor'; 
+  a.setAttribute('position','0 1.5 -3');
+
+  // หน้ากาก/หัว (placeholder)
+  const head=document.createElement('a-sphere'); 
+  head.setAttribute('radius','0.35'); 
+  head.setAttribute('color','#1a1a1a'); 
+  head.setAttribute('position','0 0 0');
+
+  const mask=document.createElement('a-box'); 
+  mask.setAttribute('depth','0.06'); 
+  mask.setAttribute('width','0.55'); 
+  mask.setAttribute('height','0.45'); 
+  mask.setAttribute('color',BOSS.color); 
+  mask.setAttribute('position','0 0 0.25');
+
+  // ชื่อบอส (ทำให้เป็นชิ้นเดียวและมี id ชัดเจน)
+  const nameLabel=document.createElement('a-entity');
+  nameLabel.id = 'bossNameLabel';
+  nameLabel.setAttribute('text',{value:BOSS.name||'BOSS', color:'#e6f7ff', align:'center', width:3.2});
+  nameLabel.setAttribute('position','0 0.62 0.1');
+
+  a.appendChild(head); 
+  a.appendChild(mask); 
+  a.appendChild(nameLabel);
+  arena.appendChild(a);
+
+  sfxPlay(SFX.boss_roar,200,0.9);
+  bossShowUI(true); 
+  bossSetHP(BOSS.max); 
+  setPhase(1);
+
+  const rBoss = byId('rBoss');
+  if(rBoss){ rBoss.textContent = BOSS.name||'BOSS'; }
+}
+
+// ------------------ Boss flow ------------------
+function onBossDefeated(){
+  bossDown = true;
+  BOSS.active=false; 
+  floatText('BOSS DEFEATED','#00ffa3', new THREE.Vector3(0,1.6,-2.4));
+  score+=250; updateHUD();
+
+  // เคลียร์ anchor ทิ้งก่อนขยับไปบอสถัดไป
+  clearBossAnchor();
+
+  bossIndex++;
+  if (bossIndex < BOSSES.length){
+    setTimeout(()=>spawnBossByIndex(bossIndex), 900);
+  } else {
+    end();
+  }
+}
+
+function spawnBossByIndex(i){
+  if (i >= BOSSES.length) { end(); return; }
+
+  // เคลียร์ anchor เผื่อมีหลงเหลือ (กันซ้อน 100%)
+  clearBossAnchor();
+
+  const cfg = BOSSES[i];
+  BOSS.active=true; BOSS.busy=false; BOSS.phase=1;
+  BOSS.name = cfg.title;
+  BOSS.color= cfg.color;
+  BOSS.max  = Math.round(cfg.baseHP * DIFF.bossHP);
+  BOSS.hp   = BOSS.max;
+
+  bossIntro();
+  setTimeout(scheduleNext, 700);
+}
 
   // ------------------ Helpers & Globals ------------------
   const byId   = (id)=>document.getElementById(id);
