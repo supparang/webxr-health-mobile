@@ -1,5 +1,5 @@
 /* games/shadow-breaker/game.js
-   Shadow Breaker · game.js (FULL) — No-MISS for idle targets + Easier Ring Click + Boss actions + Mouse/Touch/Pointer
+   Shadow Breaker · game.js (FULL) — No-MISS for idle targets + Easier Ring Click + Boss actions + Bomb target that CUTS COMBO
 */
 (function(){
   "use strict";
@@ -121,7 +121,9 @@
     {id:'basic', color:'#00d0ff', baseGood:20, basePerfect:30, life:2200, req:'any', icon:'◆'},
     {id:'heavy', color:'#ff6b6b', baseGood:40, basePerfect:60, life:2600, req:'angle', angle:'diag_lr', icon:'⬥'},
     {id:'fast',  color:'#ffd166', baseGood:28, basePerfect:40, life:1400, req:'any', icon:'⬢'},
-    {id:'bonus', color:'#00ffa3', baseGood:0,  basePerfect:0,  life:2200, req:'any', bonus:'time+5', icon:'✚'}
+    {id:'bonus', color:'#00ffa3', baseGood:0,  basePerfect:0,  life:2200, req:'any', bonus:'time+5', icon:'✚'},
+    // NEW: Bomb target (ตัดคอมโบทันทีที่โดน) — ไม่ลงโทษถ้าไม่แตะ
+    {id:'bomb',  color:'#222222', baseGood:0,  basePerfect:0,  life:2200, req:'any', bomb:true, icon:'💣'}
   ];
   const SLASH_SPEED_GOOD=1.4, SLASH_SPEED_PERFECT=2.2;
   const HIT_DISTANCE_GOOD=0.46, HIT_DISTANCE_PERFECT=0.34;
@@ -149,7 +151,9 @@
     tel_guard:SFXN(`${ASSET_BASE}/assets/sfx/tel_guard.wav`),
     tel_dash:SFXN(`${ASSET_BASE}/assets/sfx/tel_dash.wav`),
     enrage:SFXN(`${ASSET_BASE}/assets/sfx/enrage.wav`),
-    success:SFXN(`${ASSET_BASE}/assets/sfx/success.wav`)
+    success:SFXN(`${ASSET_BASE}/assets/sfx/success.wav`),
+    // extra cue for bomb
+    bomb:SFXN(`${ASSET_BASE}/assets/sfx/bomb.wav`)
   };
 
   // ---------- HUD ----------
@@ -423,7 +427,7 @@
       hit.setAttribute('radius', rHit.toFixed(3));
 
       if(t>=1.0){
-        const p=ring.object3D.getWorldPosition(new THREE.Vector3());
+        const p=ring.object3D.getWorldPosition(new THREE.Vector3()));
         if(!doneOnce){ playerHit(); onDone && onDone(false, p); }
         safeRemove(ring); safeRemove(hit);
         return;
@@ -680,14 +684,12 @@
   }
   function doDoomRings(){
     BOSS.busy=true;
-    const rings=[];
     for(let i=0;i<3;i++){
       const x = (i-1)*0.6;
       makeRingWithHitbox(x, 1.15, '#ffd166', 680, (hit,p)=>{
         if(hit){ bossDamage(12,new THREE.Vector3(0,1.5,-3)); }
       });
     }
-    // ให้เวลารวมหมดแล้วค่อยเช็ค
     after(dur(700), ()=>{ finishAttack(); });
   }
   function doVoidFinale(){
@@ -755,14 +757,27 @@
     const x=(RND()*3.2-1.6).toFixed(2), y=(RND()*1.6+1.0).toFixed(2), z=(RND()*-2.0-1.8).toFixed(2);
     el.setAttribute('position',`${x} ${y} ${z}`); el.setAttribute('sb-target',{type:spec.id,req:spec.req,angle:(spec.angle||'')}); byId('arena').appendChild(el);
   }
-  function pickType(){ const r=RND(); if(r<0.55) return TYPES[0]; if(r<0.72) return TYPES[2]; if(r<0.92) return TYPES[1]; return TYPES[3]; }
+  // ปรับความน่าจะเป็นให้มี Bomb ~8%
+  function pickType(){ 
+    const r=RND(); 
+    if(r<0.50) return TYPES[0];       // basic
+    if(r<0.68) return TYPES[2];       // fast
+    if(r<0.90) return TYPES[1];       // heavy
+    if(r<0.98) return TYPES[3];       // bonus
+    return TYPES[4];                  // bomb (≈2%) – แนะนำเพิ่มได้ถึง ~8% ถ้าต้องการโหมดโหด: เปลี่ยนเงื่อนไขสุดท้ายเป็น r<0.92
+  }
 
   function dirMatches(v,spec){ if(spec.req!=='angle') return true; const want=ANGLES[spec.angle]||ANGLES.diag_lr; const vv=v.clone().normalize(); return vv.dot(want)>=ANGLE_TOL; }
 
-  // >>> No-penalty MISS for idle targets <<<
+  // >>> No-penalty MISS for idle targets (ยกเว้น Bomb จะลงโทษเฉพาะตอนโดนเท่านั้น) <<<
   function applyScore(kind, method, pos, spec){
+    if(spec?.bomb){
+      // ระเบิด: โดนแล้วตัดคอมโบทันที ไม่ได้คะแนน ไม่ดาเมจบอส
+      handleBombHit(pos);
+      return;
+    }
     if(kind==='miss'){ 
-      // ไม่แสดง MISS/ไม่ตัดคอมโบ/ไม่ลดคะแนน เมื่อ "ไม่คลิก" เป้าธรรมดา
+      // ไม่แสดง MISS/ไม่ตัดคอมโบ/ไม่ลดคะแนน เมื่อ "ไม่คลิก" เป้าธรรมดา (ไม่รวมบอมบ์)
       return; 
     }
     combo++; onComboChange();
@@ -789,17 +804,35 @@
     if(spec.bonus==='time+5'){ timeLeft=Math.min(99,timeLeft+5); byId('time').textContent=timeLeft; floatText('+5s','#00ffa3',pos); }
     bossDamage(dmg, pos);
   }
+
+  function handleBombHit(pos){
+    // หั่นคอมโบทันที (เช่น -10 หรือเหลือ 0)
+    const cut = Math.min(10, combo);
+    combo = Math.max(0, combo - 10);
+    onComboChange();
+    play(SFX.bomb || SFX.miss);
+    floatText(`BOMB! -${cut} COMBO`, '#ff3355', pos);
+    // เขย่าจอเล็กน้อย
+    const scn=document.querySelector('a-scene'); if(scn){ scn.classList.add('shake-scene'); setTimeout(()=>scn.classList.remove('shake-scene'), 260); }
+    // ห้ามเพิ่มคะแนน/ห้ามดาเมจบอส
+    updateHUD();
+  }
+
   function registerHit(target, info){
     if(!target.getAttribute('visible')) return;
     const p=target.object3D.getWorldPosition(new THREE.Vector3());
     const comp=target.components['sb-target']; const spec=TYPES.find(x=>x.id===(comp?.data?.type))||TYPES[0];
     clearTimeout(comp?.dieTimer); target.setAttribute('animation__out',{property:'scale',to:'0.001 0.001 0.001',dur:120,easing:'easeInBack'});
     setTimeout(()=>safeRemove(target),130);
+
+    // ถ้าเป็นระเบิด ให้ตัดคอมโบและจบ
+    if(spec.bomb){ handleBombHit(p); return; }
+
     applyScore(info.kind||info.type, info.method||info.type, p, spec);
     try{ window.AudioBus?.tap?.(); }catch(_e){}
   }
   function miss(target){
-    // เป้าธรรมดาหายไปเฉย ๆ (no-penalty)
+    // เป้าธรรมดาหายไปเฉย ๆ (no-penalty) / บอมบ์ก็ไม่ลงโทษถ้าไม่แตะ
     if(target && target.parentNode){ safeRemove(target); }
   }
 
@@ -838,7 +871,7 @@
     rollMutators(1);
 
     reset(); running=true;
-    spawnTimer=setInterval(spawnTarget, Math.max(380, D.spawnInt*(window.TIME_SCALE||1)));
+    spawnTimer=setInterval(spawnTarget, Math.max(420, D.spawnInt*(window.TIME_SCALE||1))); // เล็กน้อยช้าลงให้ชัด
     timer=setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
     CURRENT_BOSS=0; after(dur(900), ()=>bossSpawn(CURRENT_BOSS));
   }
@@ -871,7 +904,7 @@
     if(paused){ clearInterval(timer); clearInterval(spawnTimer); APPX.badge('Paused'); pingUI('PAUSED','#ffd166'); }
     else {
       timer=setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
-      spawnTimer=setInterval(spawnTarget, Math.max(380, D.spawnInt*(window.TIME_SCALE||1))); APPX.badge('Resume'); pingUI('RESUME','#00ffa3');
+      spawnTimer=setInterval(spawnTarget, Math.max(420, D.spawnInt*(window.TIME_SCALE||1))); APPX.badge('Resume'); pingUI('RESUME','#00ffa3');
     }
   }
 
@@ -880,7 +913,7 @@
     if(document.hidden){ clearInterval(timer); clearInterval(spawnTimer); }
     else if(!paused){
       timer=setInterval(()=>{ timeLeft--; byId('time').textContent=timeLeft; if(timeLeft<=0) end(); },1000);
-      spawnTimer=setInterval(spawnTarget, Math.max(380, D.spawnInt*(window.TIME_SCALE||1)));
+      spawnTimer=setInterval(spawnTarget, Math.max(420, D.spawnInt*(window.TIME_SCALE||1)));
     }
   });
 
