@@ -15,15 +15,15 @@
 
   // Feature switches
   const FX = {
-    pacingSmooth:    false,
+    pacingSmooth:    true,
     pointerHitBoost: true,
     sfxNormalize:    true,
-    hudReadable:     false,
+    hudReadable:     true,
     gentleCurve:     true,
     fairScheduler:   true,
     comboBadges:     true,
     feverMode:       true,
-    accessibility:   false,
+    accessibility:   true,
     richResults:     true,
     coachTips:       true,
     safetyCleanup:   true
