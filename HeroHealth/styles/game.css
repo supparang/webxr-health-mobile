@@ -1,173 +1,31 @@
-/* ===============================
-   Hero Health Academy - Stage 1
-   =============================== */
-:root{
-  --bg:#0a0b0f;
-  --fg:#e7f2ff;
-  --muted:#9db1c7;
-  --accent:#6cf;
-  --good:#5CFF9E;
-  --bad:#FF6F6F;
-  --card:#141829;
-  --btn:#1c2340;
-  --btn-hover:#27305a;
-  --hdr:#0f1223ee;
-  --z-hud: 60;
-  --z-menu: 65;
-  --z-items: 40;
-  --z-modal: 90;
-  --z-coach: 95;
+/* ===== Hydration HUD Actions ===== */
+.hud-actions{
+  display:flex; gap:10px; align-items:center;
+  background: rgba(8,10,20,.42);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px; padding:8px; width:max-content;
 }
-
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;
-  background:
-    radial-gradient(1200px 600px at 50% 0%, #122 0%, transparent 60%),
-    linear-gradient(160deg, #090b14 0%, #0b0f1b 40%, #0a0b0f 100%);
-  color:var(--fg);
-  font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
-  overflow:hidden;
+.hud-action{
+  position:relative; width:56px; height:56px; border-radius:50%;
+  background:#101627; border:1px solid rgba(255,255,255,.16);
+  cursor:pointer; outline:none;
+  display:grid; place-items:center; font-weight:900;
+  color:#e8f3ff;
 }
-
-/* ===== Canvas: อยู่ใต้ UI เสมอ ===== */
-#c{
-  position:fixed; inset:0; width:100vw; height:100vh; display:block;
-  z-index: 1;
-  pointer-events:none; /* กันแคนวาสบังปุ่ม */
+.hud-action .label{ position:absolute; inset:0; display:grid; place-items:center; font-size:18px; z-index:2 }
+.hud-action .cd{
+  position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-radius:50%;
+  background:#0e1224; border:1px solid rgba(255,255,255,.18); font-size:12px;
+  display:grid; place-items:center; z-index:3;
 }
-
-/* ===== Header ===== */
-header.brand{
-  position:fixed; top:0; left:0; right:0; z-index: var(--z-hud);
-  display:flex; align-items:center; gap:8px; padding:8px 10px;
-  background:var(--hdr); backdrop-filter: blur(6px);
-  border-bottom:1px solid rgba(255,255,255,.06);
+.hud-action .ring{
+  --pct: 0; /* 0..1 */
+  position:absolute; inset:-2px; border-radius:50%;
+  background: conic-gradient(#39d0ff calc(var(--pct)*1turn), rgba(255,255,255,.08) 0);
+  -webkit-mask: radial-gradient(circle 22px at center, transparent 35px, black 36px);
+          mask: radial-gradient(circle 22px at center, transparent 35px, black 36px);
+  z-index:1;
 }
-header .spacer{flex:1}
-header .btn{
-  background:var(--btn); color:var(--fg); border:1px solid rgba(255,255,255,.12);
-  padding:6px 10px; border-radius:10px; cursor:pointer; font-weight:700;
-}
-header .btn:hover{ background:var(--btn-hover) }
-
-/* ===== HUD (อ่านง่ายขึ้น) ===== */
-.hud{
-  position:fixed; top:52px; left:12px; right:12px; z-index: var(--z-hud);
-  display:flex; flex-direction:column; gap:8px; font-weight:900;
-  text-shadow: 0 2px 10px rgba(0,0,0,.6);
-}
-.hud .hud-line{
-  background:rgba(8,10,20,.62);
-  border:1px solid rgba(255,255,255,.15);
-  padding:8px 12px; border-radius:12px;
-  font-size: clamp(16px, 2.8vw, 20px);
-}
-.fever{
-  display:none; padding:2px 8px; border-radius:8px; font-weight:900; letter-spacing:.5px;
-  background: linear-gradient(90deg,#ff8a00,#ff2770); color:#111; width:max-content;
-}
-.bar{height:12px; background:#1a2236; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,.08)}
-.bar > div{height:100%; background: linear-gradient(90deg,#3dd6ff,#00ffa2)}
-.bar.slim{ height:8px; margin-top:6px; background:#222; border-radius:6px }
-#feverBar{ background:linear-gradient(90deg,#ff8a00,#ff2770); transition: width .15s ease }
-
-/* ===== Target / Plate / Hydration ===== */
-#targetWrap,#plateTracker,#hydroWrap{display:none}
-#targetBadge{ color: var(--accent); font-weight:900 }
-#platePills{ display:inline-flex; gap:6px; flex-wrap:wrap; }
-.pill{ background:#1a2440; border:1px solid rgba(255,255,255,.1); padding:2px 6px; border-radius:999px; font-weight:800 }
-.pill.done{ background:#0f2d22; color:#bfffe0; border-color: #2cffb8 }
-
-/* ===== โค้ช ===== */
-.coach{
-  position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
-  z-index: var(--z-coach);
-  display:none;
-}
-.coach > div{
-  background:rgba(14,18,38,.88);
-  border:1px solid rgba(255,255,255,.18);
-  border-radius:14px; padding:10px 14px; font-weight:900; font-size:18px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
-}
-#coachHUD.show{ display:block; }
-
-/* ===== เมนูล่างซ้าย ===== */
-.menu{
-  position:fixed; left:10px; bottom:10px; z-index: var(--z-menu);
-  background: linear-gradient(0deg, rgba(10,12,20,.92), rgba(10,12,20,.70));
-  border:1px solid rgba(255,255,255,.12);
-  padding:10px; display:flex; flex-direction:column; gap:10px;
-  backdrop-filter: blur(8px); border-radius:12px;
-  max-width:min(560px, 90vw);
-}
-.menu .row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-.menu .modeLabel{
-  margin-left:auto; color:#fff; font-weight:900;
-  padding:4px 8px; border-radius:8px; background: rgba(0,0,0,.45);
-  text-shadow: 0 2px 6px rgba(0,0,0,.75);
-}
-.btn,.tag{
-  background:var(--btn); color:var(--fg);
-  border:1px solid rgba(255,255,255,.18);
-  padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:800;
-}
-.btn:hover,.tag:hover{ background: var(--btn-hover) }
-
-/* ===== ไอเท็มเกม (ปุ่มลอย) ===== */
-.item{
-  position:fixed; z-index: var(--z-items);
-  font-size: clamp(34px, 5.6vw, 60px); line-height:1; padding:8px 12px;
-  border:none; background: rgba(20,26,44,.65);
-  border-radius:14px; cursor:pointer;
-  box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 0 18px rgba(0,255,200,.05);
-  backdrop-filter: blur(2px);
-  transition: transform .12s ease, background .12s ease;
-  min-width: 60px; min-height: 60px;
-}
-.item:hover{ transform: translateY(-2px) scale(1.03); background: rgba(24,32,60,.75) }
-.item:active{ transform: translateY(0) scale(.98) }
-
-/* ===== โมดัล ===== */
-.modal{
-  position:fixed; inset:0; z-index: var(--z-modal);
-  background: rgba(0,0,0,.55); display:none;
-  align-items:center; justify-content:center; padding:20px;
-}
-.modal .card{
-  width:min(760px, 92vw); background:var(--card);
-  border:1px solid rgba(255,255,255,.18); border-radius:16px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.45);
-  padding:16px; color:var(--fg);
-}
-.modal .card h3{ margin:0 0 10px 0 }
-.modal .card pre{
-  background:#0c1224; color:#bfe6ff; border:1px solid rgba(255,255,255,.08);
-  padding:12px; border-radius:12px; max-height:42vh; overflow:auto; white-space:pre-wrap;
-}
-
-/* ===== Flash เวลาใกล้หมด ===== */
-body.flash .hud .hud-line{ animation: timeFlash .7s infinite; }
-@keyframes timeFlash{ 0%{ box-shadow:0 0 0 rgba(255,80,80,0)} 50%{ box-shadow:0 0 20px rgba(255,80,80,.45)} 100%{ box-shadow:0 0 0 rgba(255,80,80,0)} }
-
-/* ===== Fever BG ===== */
-body.fever-bg{
-  background:
-    radial-gradient(1200px 600px at 50% 0%, #1c0022 0%, transparent 60%),
-    linear-gradient(160deg, #140914 0%, #1a0b19 40%, #0a0b0f 100%);
-}
-
-/* ===== ความแน่ใจว่า คลิกได้ ===== */
-.modal, .menu, .hud, .coach, .item { pointer-events:auto; }
-#c { pointer-events:none; }
-
-/* ===== Responsive ===== */
-@media (max-width: 736px){
-  header.brand{ padding:6px 8px }
-  .hud{ top:46px; left:8px; right:8px }
-  .btn,.tag{ padding:7px 10px; border-radius:10px }
-  .coach{ bottom:110px }
-  .menu{ padding:8px }
+.hud-action:disabled{
+  opacity:.6; cursor:not-allowed;
 }
