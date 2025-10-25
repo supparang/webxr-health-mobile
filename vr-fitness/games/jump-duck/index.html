@@ -19,6 +19,16 @@
       </div>
     </div>
     <div class="row">
+      <label>Mode</label>
+      <div class="btns">
+        <button data-mode="classic" class="primary">Classic</button>
+        <button data-mode="speed">Speed&nbsp;Rush</button>
+        <button data-mode="endurance">Endurance</button>
+        <button data-mode="zen">Zen</button>
+        <button data-mode="boss">Boss</button>
+      </div>
+    </div>
+    <div class="row">
       <label>Theme</label>
       <div class="btns">
         <button data-theme="forest" class="primary">Forest</button>
@@ -42,7 +52,7 @@
   <div id="hud" class="panel">
     <div class="hud-grid">
       <div>Score: <span id="score">0</span></div>
-      <div>Time: <span id="timer">90</span>s</div>
+      <div>Time: <span id="timer">90</span>s</div><div>Mult: <span id="mult">x1.0</span></div>
       <div class="fever">
         <div id="feverBarWrap"><div id="feverBar"></div></div>
       </div>
@@ -86,6 +96,8 @@
     <a-plane id="ground" rotation="-90 0 0" width="30" height="200" position="0 0 -20" color="#6ac36a"></a-plane>
 
     <a-entity id="coach" position="0 2 -2" text="value: Jump or Duck!; color: #222; align: center; width: 4;"></a-entity>
+    <a-entity id="envLight" light="type: ambient; intensity: 1.0; color: #ffffff"></a-entity>
+    <a-entity id="dirLight" position="1 3 -2" light="type: directional; intensity: 0.6; castShadow: false; color: #ffffff"></a-entity>
     <a-entity id="obstacles"></a-entity>
 
     <a-entity camera look-controls position="0 1.6 0">

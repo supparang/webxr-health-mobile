@@ -31,3 +31,6 @@ button.start { width: 100%; font-size:16px; padding:12px; }
 a-scene, canvas.a-canvas { z-index: 0; position: relative; }
 /* When menus are open, prevent the A-Frame canvas from eating clicks/taps */
 body.menu-open canvas.a-canvas { pointer-events: none !important; }
+
+/* Multiplier text emphasis */
+#mult{font-weight:700}

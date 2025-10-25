@@ -8,6 +8,7 @@
   const scoreEl = document.getElementById('score');
   const timerEl = document.getElementById('timer');
   const feverBar = document.getElementById('feverBar');
+  const multEl = document.getElementById('mult');
 
   const rScore = document.getElementById('rScore');
   const rStreak = document.getElementById('rStreak');
@@ -19,27 +20,14 @@
   const obstaclesRoot = document.getElementById('obstacles');
   const sky = document.getElementById('sky');
   const ground = document.getElementById('ground');
+  const envLight = document.getElementById('envLight');
+  const dirLight = document.getElementById('dirLight');
 
   const btnStart = document.getElementById('start');
   const btnRetry = document.getElementById('retry');
   const btnHome = document.getElementById('home');
   const toggleBgmBtn = document.getElementById('toggleBgm');
   const toggleCoachBtn = document.getElementById('toggleCoach');
-  function resetToMenu(){
-    stopTicker();
-    // stop timers & audio
-    try{ if(gameTimerId) clearInterval(gameTimerId); }catch(e){}
-    try{ if(spawnerId) clearInterval(spawnerId); }catch(e){}
-    try{ sfx.bgm.pause(); }catch(e){}
-    // reset state
-    state = "idle";
-    // clear obstacles
-    if(obstaclesRoot) obstaclesRoot.innerHTML = "";
-    // show menu
-    hide(result);
-    show(menu);
-  }
-
 
   // Audio
   const sfx = {
@@ -60,13 +48,29 @@
   let state = "idle"; // idle | playing | ended
   let diff = "normal";
   let theme = "forest";
+  let mode = "classic"; // classic | speed | endurance | zen | boss
 
+  // Core stats
   let score = 0, timeLeft = 90, fever = 0;
-  let gameEndAt = 0; let tickerId = null;
   let streak = 0, bestStreak = 0;
   let hitCount = 0, missCount = 0;
+
+  // Combo / Multiplier
+  let multiplier = 1.0;
+  function calcMultiplier(){
+    if(streak >= 30) return 2.5;
+    if(streak >= 20) return 2.0;
+    if(streak >= 10) return 1.5;
+    return 1.0;
+  }
+
+  // Obstacles
   let spawnTimer = 0, spawnInterval = 1800;
   let gameTimerId = null, spawnerId = null;
+  let gameEndAt = 0; let tickerId = null;
+
+  // Action flags
+  let jumping=false, ducking=false, dashingL=false, dashingR=false, actedAt=0;
 
   function setTheme(name){
     theme = name;
@@ -80,7 +84,17 @@
     if(name==="easy"){ timeLeft = 90; spawnInterval = 2200; }
     if(name==="normal"){ timeLeft = 85; spawnInterval = 1700; }
     if(name==="hard"){ timeLeft = 80; spawnInterval = 1200; }
+    // mode overrides will adjust later
     return timeLeft;
+  }
+
+  function setMode(name){
+    mode = name;
+    if(name==="classic"){ /* keep diff */ }
+    if(name==="speed"){ /* Speed Rush */ spawnInterval = Math.max(900, spawnInterval-500); timeLeft = 60; }
+    if(name==="endurance"){ spawnInterval = spawnInterval + 400; timeLeft = 180; }
+    if(name==="zen"){ spawnInterval = spawnInterval + 600; timeLeft = 120; }
+    if(name==="boss"){ timeLeft = Math.max(70, timeLeft); /* last 60s boss */ }
   }
 
   // UI interactions
@@ -88,6 +102,7 @@
     const t = e.target;
     if(t.dataset.diff){ setDiff(t.dataset.diff); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
     if(t.dataset.theme){ setTheme(t.dataset.theme); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
+    if(t.dataset.mode){ setMode(t.dataset.mode); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
   });
 
   toggleBgmBtn.addEventListener('click', ()=>{
@@ -110,7 +125,13 @@
   function show(el){ el.classList.add('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.add('menu-open'); } }
   function hide(el){ el.classList.remove('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.remove('menu-open'); } }
 
-  
+  function updateHUD(){
+    scoreEl.textContent = String(score);
+    timerEl.textContent = String(timeLeft);
+    feverBar.style.width = `${fever}%`;
+    multEl.textContent = `x${multiplier.toFixed(1)}`;
+  }
+
   function startTicker(){
     stopTicker();
     tickerId = setInterval(()=>{
@@ -118,48 +139,46 @@
       const now = Date.now();
       const remainingMs = Math.max(0, gameEndAt - now);
       const sec = Math.ceil(remainingMs/1000);
-      // prevent accidental increases
       if(sec <= timeLeft){ timeLeft = sec; }
       updateHUD();
+      dynamicEnvironmentTick();
       if(remainingMs<=0){ endGame(); }
     }, 200);
   }
   function stopTicker(){ if(tickerId){ clearInterval(tickerId); tickerId=null; } }
-
-  function updateHUD(){
-    scoreEl.textContent = String(score);
-    timerEl.textContent = String(timeLeft);
-    feverBar.style.width = `${fever}%`;
-  }
 
   function startGame(){
     if(state!=="idle" && state!=="ended") return;
     state="playing";
     hide(menu);
     show(hud);
+
+    // Reset stats
     score=0; fever=0; streak=0; bestStreak=0; hitCount=0; missCount=0;
+    multiplier = 1.0; actedAt = 0;
     obstaclesRoot.innerHTML = "";
-    updateHUD();
-    // ensure timers reflect current difficulty
+
+    // apply diff & mode
     setDiff(diff);
+    setMode(mode);
+
     speakCoach("Ready! Let's go!");
     sfx.coachReady.currentTime = 0; if(audioEnabled) sfx.coachReady.play();
     if(audioEnabled){ try { sfx.bgm.currentTime=0; sfx.bgm.play(); } catch(e){} }
 
-    // countdown
-    if(gameTimerId) clearInterval(gameTimerId);
-    gameTimerId = setInterval(()=>{
-      if(state!=="playing") { clearInterval(gameTimerId); return; }
-      timeLeft--;
-      if(timeLeft<=0){ endGame(); }
-      updateHUD();
-    // ensure timers reflect current difficulty
-    setDiff(diff);
-    }, 1000);
+    // countdown (timestamp-based)
+    const durSec = timeLeft;
+    gameEndAt = Date.now() + durSec*1000;
+    startTicker();
 
     // spawner
     if(spawnerId) clearInterval(spawnerId);
     spawnerId = setInterval(spawnObstacle, spawnInterval);
+
+    // boss phase: last 60s become boss pattern
+    if(mode==="boss"){
+      setTimeout(()=>{ speakCoach("Boss challenge! Survive the final minute!"); }, Math.max(0,(durSec-60))*1000);
+    }
   }
 
   function endGame(){
@@ -178,86 +197,166 @@
     rScore.textContent = String(score);
     rStreak.textContent = String(bestStreak);
     rAcc.textContent = acc + "%";
+
+    // Rank by score & accuracy
+    let rank = "C";
+    if(acc>=50 && score>=300) rank = "B";
+    if(acc>=70 && score>=600) rank = "A";
+    if(acc>=85 && score>=900) rank = "S";
+    // Stars by score
     let star = 1;
     if(score>200) star=2;
     if(score>400) star=3;
     if(score>650) star=4;
     if(score>900) star=5;
-    starsEl.textContent = "★".repeat(star) + "☆".repeat(5-star);
+    starsEl.textContent = `Rank ${rank} · ` + "★".repeat(star) + "☆".repeat(5-star);
+
     show(result);
-    speakCoach(`Finished! Score ${score}. Accuracy ${acc} percent. Great job!`);
+    speakCoach(`Finished! Rank ${rank}. Score ${score}. Accuracy ${acc} percent. Great job!`);
   }
 
-  // Spawn / mechanics
-  let jumping=false, ducking=false;
+  function resetToMenu(){
+    stopTicker();
+    try{ if(gameTimerId) clearInterval(gameTimerId); }catch(e){}
+    try{ if(spawnerId) clearInterval(spawnerId); }catch(e){}
+    try{ sfx.bgm.pause(); }catch(e){}
+    state = "idle";
+    if(obstaclesRoot) obstaclesRoot.innerHTML = "";
+    hide(result);
+    show(menu);
+  }
+
+  // Controls (keyboard)
   window.addEventListener('keydown', (e)=>{
     if(state!=="playing") return;
     if(e.key==="ArrowUp"||e.key==="w"||e.key===" "){ doJump(); }
     if(e.key==="ArrowDown"||e.key==="s"||e.key==="Control"){ doDuck(); }
+    if(e.key==="ArrowLeft"||e.key==="a"){ doDashL(); }
+    if(e.key==="ArrowRight"||e.key==="d"){ doDashR(); }
   });
 
-  function doJump(){
-    jumping = true;
-    setTimeout(()=> jumping=false, 650);
-    coachText.setAttribute("text","value","Jump!");
-  }
-  function doDuck(){
-    ducking = true;
-    setTimeout(()=> ducking=false, 650);
-    coachText.setAttribute("text","value","Duck!");
-  }
+  function doJump(){ jumping = true; actedAt = Date.now(); setTimeout(()=> jumping=false, 650); coachText.setAttribute("text","value","Jump!"); }
+  function doDuck(){ ducking = true; actedAt = Date.now(); setTimeout(()=> ducking=false, 650); coachText.setAttribute("text","value","Duck!"); }
+  function doDashL(){ dashingL = true; actedAt = Date.now(); setTimeout(()=> dashingL=false, 650); coachText.setAttribute("text","value","Dash Left!"); }
+  function doDashR(){ dashingR = true; actedAt = Date.now(); setTimeout(()=> dashingR=false, 650); coachText.setAttribute("text","value","Dash Right!"); }
 
+  // Spawn / mechanics
   function spawnObstacle(){
     if(state!=="playing") return;
-    // pick type
-    const type = Math.random()>0.5 ? "jump" : "duck";
-    const obs = document.createElement('a-box');
-    obs.setAttribute('depth', 0.6);
-    obs.setAttribute('width', 1.6);
-    obs.setAttribute('height', type==="jump" ? 0.45 : 1.2);
-    obs.setAttribute('material', `src: ${type==="jump" ? "#tx-jump" : "#tx-duck"}`);
-    const y = (type==="jump") ? 0.35 : 1.1;
-    obs.setAttribute('position', `0 ${y} -18`);
+
+    // Pick type with weights
+    const types = ["jump","duck","dashL","dashR","ring","bomb"];
+    const weights = [0.28,0.28,0.16,0.16,0.07,0.05];
+    const r = Math.random();
+    let cum=0, type=types[0];
+    for(let i=0;i<types.length;i++){ cum += weights[i]; if(r<=cum){ type=types[i]; break; } }
+
+    // Boss pattern: faster mix
+    let localDur = (diff==="easy")? 2500 : (diff==="normal")? 2000 : 1500;
+    if(mode==="speed") localDur = Math.max(900, localDur-600);
+    if(mode==="endurance") localDur = localDur + 300;
+    if(mode==="boss" && timeLeft<=60){ localDur = Math.max(800, localDur-500); }
+
+    const obs = document.createElement(type==="ring" ? 'a-torus' : 'a-box');
+    let y = 0.35, height = 0.45, width = 1.6, depth = 0.6;
+    if(type==="duck"){ y = 1.1; height = 1.2; }
+    if(type==="dashL" || type==="dashR"){ y = 0.9; height = 0.7; width = 1.0; }
+    if(type==="ring"){ y = 1.1; }
+    obs.setAttribute('depth', depth);
+    obs.setAttribute('width', width);
+    obs.setAttribute('height', height);
+    if(type==="jump") obs.setAttribute('material', 'src: #tx-jump');
+    if(type==="duck") obs.setAttribute('material', 'src: #tx-duck');
+    if(type==="dashL") obs.setAttribute('color', '#f59e0b');
+    if(type==="dashR") obs.setAttribute('color', '#3b82f6');
+    if(type==="ring") obs.setAttribute('radius', 0.9), obs.setAttribute('radius-tubular', 0.05), obs.setAttribute('color', '#22d3ee');
+    if(type==="bomb") obs.setAttribute('color', '#111'); obs.setAttribute('height',0.7); y=0.9;
+
+    let x = 0;
+    if(type==="dashL") x = -1.2;
+    if(type==="dashR") x = +1.2;
+    obs.setAttribute('position', `${x} ${y} -18`);
     obstaclesRoot.appendChild(obs);
 
-    const dur = (diff==="easy")? 2500 : (diff==="normal")? 2000 : 1500;
     obs.setAttribute('animation', {
       property: 'position',
-      to: `0 ${y} 0.3`,
-      dur: dur,
+      to: `${x} ${y} 0.3`,
+      dur: localDur,
       easing: 'linear',
       loop: false
     });
 
-    setTimeout(()=> checkCollision(obs, type), dur-200);
+    setTimeout(()=> checkCollision(obs, type, x, y), localDur-180);
   }
 
-  function checkCollision(obs, type){
+  function checkCollision(obs, type, x, y){
     if(state!=="playing") return;
-    const success = (type==="jump" && jumping) || (type==="duck" && ducking);
+    const now = Date.now();
+    const actedRecently = (now - actedAt) <= 500; // 0.5s reaction window
+
+    let success = false;
+    if(type==="jump") success = jumping;
+    else if(type==="duck") success = ducking;
+    else if(type==="dashL") success = dashingL;
+    else if(type==="dashR") success = dashingR;
+    else if(type==="ring") success = jumping && actedRecently; // precise jump within window
+    else if(type==="bomb") success = !actedRecently; // do nothing near bomb
+
+    if(mode==="zen"){
+      // Zen: no score, only coach guidance
+      if(success){ speakCoach("Nice and steady."); }
+      else { speakCoach("Breathe. Try again."); }
+      obs.remove(); updateHUD(); return;
+    }
+
     if(success){
       hitCount++;
       streak++;
       if(streak>bestStreak) bestStreak=streak;
-      score += 10 + Math.floor(streak/5)*5;
-      fever = Math.min(100, fever+8);
+      multiplier = calcMultiplier();
+      let base = 10;
+      if(type==="ring") base = 20;
+      if(type==="bomb") base = 15; // reward for restraint
+      score += Math.floor(base * multiplier);
+      fever = Math.min(100, fever + (type==="ring"?12:8));
       if(audioEnabled){ sfx.hit.currentTime=0; sfx.hit.play(); }
-      if(streak%10===0){ speakCoach("Awesome streak! Keep it up!"); }
+      if(streak===10) speakCoach("Great flow! Multiplier up!");
+      if(streak===20) speakCoach("Unstoppable combo!");
+      if(streak>0 && streak%10===0) speakCoach(`Streak ${streak}! Keep going!`);
       if(fever===100){ if(audioEnabled){ sfx.fever.currentTime=0; sfx.fever.play(); } speakCoach("Fever mode! Go go go!"); }
     }else{
       missCount++;
       streak=0;
+      multiplier = calcMultiplier();
       fever = Math.max(0, fever-15);
       if(audioEnabled){ sfx.miss.currentTime=0; sfx.miss.play(); }
-      speakCoach("Miss!");
+      speakCoach(type==="bomb" ? "Boom! Wait next time!" : "Miss! Focus on the next one!");
     }
     obs.remove();
     updateHUD();
-    // ensure timers reflect current difficulty
-    setDiff(diff);
   }
 
-  // Adaptive coach via Web Speech API
+  // Adaptive coach situational cues every few seconds
+  setInterval(()=>{
+    if(state!=="playing" || !coachEnabled) return;
+    if(timeLeft<=10){ speakCoach("Final 10 seconds, give it all!"); return; }
+    if(missCount>=3 && hitCount<5){ speakCoach("Reset your rhythm. One by one!"); }
+  }, 5000);
+
+  // Dynamic environment tick: day-night cycle intensity
+  function dynamicEnvironmentTick(){
+    if(!envLight || !dirLight) return;
+    const total =  Math.max(1, (diff==="hard"?80:(diff==="normal"?85:90)));
+    const t = (total-timeLeft)/total; // 0..1
+    // simple sinusoid for ambient
+    const amb = 0.8 + 0.2*Math.sin(t*2*Math.PI);
+    envLight.setAttribute('light', `type: ambient; intensity: ${amb.toFixed(2)}; color: #ffffff`);
+    // directional simulating sun angle
+    const dirInt = (theme==="space")? 0.4 : 0.6 + 0.2*Math.cos(t*2*Math.PI);
+    dirLight.setAttribute('light', `type: directional; intensity: ${dirInt.toFixed(2)}; color: #ffffff`);
+  }
+
+  // Speech
   function speakCoach(text){
     if(!coachEnabled) return;
     coachText.setAttribute("text","value", text);
@@ -268,7 +367,6 @@
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(u);
       }else{
-        // fallback: small cue
         if(audioEnabled){ sfx.coachGood.currentTime=0; sfx.coachGood.play(); }
       }
     }catch(e){ /* ignore */}
@@ -276,8 +374,10 @@
 
   // Initialize defaults
   setDiff("normal");
+  setMode("classic");
   setTheme("forest");
   show(menu);
-  coachText.setAttribute("text","value","Pick difficulty & theme, then Start!");
+  document.body.classList.add('menu-open');
+  coachText.setAttribute("text","value","Pick difficulty, mode & theme, then Start!");
 
 })();
