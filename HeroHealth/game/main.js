@@ -1,102 +1,222 @@
 // ===== Boot flag =====
 window.__HHA_BOOT_OK = true;
 
-// ===== Tiny self-contained game (no outside deps) =====
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>document.querySelectorAll(s);
+// ===== Imports =====
+import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+import { Engine } from './core/engine.js';
+import { HUD } from './core/hud.js';
+import { SFX } from './core/sfx.js';
+import { PowerUpSystem } from './core/powerup.js';
+import { ScoreSystem } from './core/score.js';
+import { FloatingFX } from './core/fx.js';
+import { Coach } from './core/coach.js';
 
-// เก็บสถานะโหมด/ความยากไว้ให้ index ใช้ได้
-window.__HHA_STATE = { modeKey:'goodjunk', difficulty:'Normal' };
+import * as goodjunk from './modes/goodjunk.js';
+import * as groups    from './modes/groups.js';
+import * as hydration from './modes/hydration.js';
+import * as plate     from './modes/plate.js';
 
-// กัน canvas บังคลิก
-const c = document.getElementById('c');
-if (c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+// ===== Utils =====
+const qs = (s)=>document.querySelector(s);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-// สถานะเกมย่อย
-let running=false, timeLeft=60, score=0, combo=0, bestCombo=0;
-let spawnId=0, tickId=0;
+// ===== Systems =====
+const MODES = { goodjunk, groups, hydration, plate };
+const hud   = new HUD();
+const sfx   = new SFX({ enabled:true, poolSize:6 });
+const power = new PowerUpSystem();
+const score = new ScoreSystem();
+const eng   = new Engine(THREE, document.getElementById('c'));
+const fx    = new FloatingFX(eng);
+const coach = new Coach({ lang:'TH' });
 
-// HUD helpers
-function setHUD(){
-  const sc=$('#score'), cb=$('#combo'), tm=$('#time');
-  if(sc) sc.textContent = score|0;
-  if(cb) cb.textContent = 'x'+(combo|0);
-  if(tm) tm.textContent = timeLeft|0;
+// ป้องกัน canvas บังคลิก
+const c = document.getElementById('c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+
+// ===== State =====
+let state = {
+  modeKey: 'goodjunk',
+  difficulty: 'Normal',
+  running: false,
+  timeLeft: 60,
+  fever: false,
+  ctx: { hits:0, miss:0 }
+};
+window.__HHA_STATE = state; // ให้ index ใช้อ่านโหมดปัจจุบันได้
+
+const DIFFS = {
+  Easy:   { time:70, spawn:850, life:4200 },
+  Normal: { time:60, spawn:700, life:3000 },
+  Hard:   { time:50, spawn:560, life:1900 }
+};
+
+// ===== HUD =====
+function updateHUD(){
+  const sc=qs('#score'), cb=qs('#combo'), tm=qs('#time');
+  if(sc) sc.textContent = score.score|0;
+  if(cb) cb.textContent = 'x'+(score.combo||0);
+  if(tm) tm.textContent = state.timeLeft|0;
 }
-function setStatus(){
+function updateStatus(){
   const map = { goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ' };
-  const el = $('#statusLine');
-  if(el) el.textContent = `โหมด: ${map[window.__HHA_STATE.modeKey] || window.__HHA_STATE.modeKey} • ความยาก: ${window.__HHA_STATE.difficulty}`;
+  const el = qs('#statusLine');
+  if (el) el.textContent = `โหมด: ${map[state.modeKey]||state.modeKey} • ความยาก: ${state.difficulty}`;
 }
 
-// ไอเท็มคลิก (จำลอง)
+// ===== DOM Pool (.item) =====
+const pool=[]; const POOL_MAX=64;
+function makeItem(){
+  const b=document.createElement('button');
+  b.className='item';
+  b.style.position='fixed';
+  b.style.zIndex='220';
+  b.style.minWidth='60px';
+  b.style.minHeight='60px';
+  b.style.pointerEvents='auto';
+  return b;
+}
+function getItem(){ return pool.pop() || makeItem(); }
+function freeItem(el){ el.onclick=null; el.remove(); if(pool.length<POOL_MAX) pool.push(el); }
+
+// วางตำแหน่ง (เว้นหัว/เมนู)
 function place(el){
   el.style.left = (8 + Math.random()*84) + 'vw';
   el.style.top  = (18 + Math.random()*70) + 'vh';
+  // ลอยนิด ๆ
+  el.animate(
+    [{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],
+    {duration:1200,iterations:Infinity}
+  );
 }
-function spawn(){
-  if(!running) return;
-  const b=document.createElement('button');
-  b.className='item';
-  // 70% ดี / 30% ขยะ
-  const isGood = Math.random() < 0.7;
-  b.textContent = isGood ? '🥦' : '🍔';
-  b.style.position='fixed'; b.style.zIndex='220';
-  b.style.minWidth='56px'; b.style.minHeight='56px';
-  place(b);
-  b.onclick=()=>{
-    if(isGood){ score+=5; combo++; } else { score=Math.max(0, score-3); combo=0; }
-    bestCombo = Math.max(bestCombo, combo);
-    setHUD();
-    b.remove();
+
+// ===== Spawner =====
+function spawn(diff){
+  const mode = MODES[state.modeKey];
+  let meta = null;
+
+  if (mode?.pickMeta){
+    meta = mode.pickMeta(diff, state);
+  } else {
+    // fallback ทดสอบ
+    meta = { char:'🍎', good:true, life: diff.life || 2500, onHitScore:5 };
+  }
+
+  const el = getItem();
+  el.textContent = meta.char || '🟢';
+  place(el);
+
+  el.onclick = ()=>{
+    if (mode?.onHit){
+      mode.onHit(meta, {score,sfx,fx,power,coach}, state, hud);
+    } else {
+      score.add?.(meta.onHitScore || 5);
+      fx.popText?.(`+${meta.onHitScore||5}`, { color:'#7fffd4' });
+      sfx.good?.();
+    }
+    updateHUD();
+    freeItem(el);
   };
-  document.body.appendChild(b);
-  setTimeout(()=>b.remove(), 2600);
-  spawnId = setTimeout(spawn, 700);
+
+  document.body.appendChild(el);
+  setTimeout(()=>freeItem(el), meta.life || diff.life || 2500);
 }
+
+// ===== Loops =====
+let timers={ tick:0, spawn:0 };
 
 function tick(){
-  if(!running) return;
-  timeLeft--; setHUD();
-  if(timeLeft<=0){ end(); return; }
-  tickId = setTimeout(tick, 1000);
+  if(!state.running) return;
+  state.timeLeft--; updateHUD();
+
+  // per-mode tick
+  try{
+    MODES[state.modeKey]?.tick?.(state, {score,fx,sfx,power,coach}, hud);
+  }catch(e){ console.warn('[mode.tick error]', e); }
+
+  // หมดเวลา
+  if(state.timeLeft<=0){ end(); return; }
+  timers.tick = setTimeout(tick, 1000);
 }
 
+function loop(){
+  if(!state.running) return;
+  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  spawn(diff);
+  const next = clamp(diff.spawn*(power.timeScale||1), 220, 2400);
+  timers.spawn = setTimeout(loop, next);
+}
+
+// ===== Start / End =====
 export function start(){
   end(true);
-  running=true; timeLeft=60; score=0; combo=0; bestCombo=0; setHUD(); setStatus();
-  // แสดง/ซ่อน HUD เฉพาะโหมดสมดุลน้ำ
-  const hw = $('#hydroWrap'); if(hw) hw.style.display = (window.__HHA_STATE.modeKey==='hydration') ? 'block' : 'none';
-  spawn(); tick();
+  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  state.running = true;
+  state.timeLeft = diff.time;
+  state.ctx = { hits:0, miss:0 };
+  state.fever = false;
+
+  score.reset(); power.reset?.(); hud.reset?.();
+
+  // แสดง HUD เฉพาะโหมด
+  hud.hideHydration?.(); hud.hideTarget?.(); hud.hidePills?.();
+  if (state.modeKey==='hydration') hud.showHydration?.();
+  if (state.modeKey==='groups' || state.modeKey==='plate') hud.showTarget?.();
+  if (state.modeKey==='plate') hud.showPills?.();
+
+  // init โหมด
+  try{
+    MODES[state.modeKey]?.init?.(state, hud, diff);
+  }catch(e){ console.warn('[mode.init error]', e); }
+
+  updateStatus(); updateHUD();
+  coach.say(state.modeKey==='hydration' ? 'รักษา 💧 45–65%!' : 'เริ่มเกม!');
+
+  tick(); loop();
 }
 
 export function end(silent=false){
-  running=false; clearTimeout(spawnId); clearTimeout(tickId);
-  $$('.item').forEach(el=>el.remove());
-  // ล้าง HUD โหมดเฉพาะ
-  const hw = $('#hydroWrap'); if(hw) hw.style.display='none';
-  if(!silent){
-    const core=$('#resCore');
-    if(core) core.innerHTML = `<p>คะแนน: <b>${score}</b></p><p>คอมโบสูงสุด: <b>x${bestCombo}</b></p>`;
-    $('#result')?.style && ($('#result').style.display='flex');
+  state.running=false;
+  clearTimeout(timers.tick); clearTimeout(timers.spawn);
+
+  // เก็บกวาด HUD เฉพาะโหมด (กันค้าง)
+  try{
+    hud.hideHydration?.();
+    hud.hideTarget?.();
+    hud.hidePills?.();
+    document.body.classList.remove('fever-bg');
+  }catch{}
+
+  if (!silent){
+    const core=qs('#resCore');
+    if(core) core.innerHTML = `
+      <p>คะแนน: <b>${score.score|0}</b></p>
+      <p>คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>`;
+    const res=qs('#result'); if(res) res.style.display='flex';
+    coach.say('เยี่ยมมาก!');
   }
 }
 
-// ปุ่มเมนู
-document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('#menuBar button'); if(!btn) return;
+// ===== Menu wiring =====
+document.addEventListener('click',(e)=>{
+  const btn=e.target.closest('#menuBar button'); if(!btn) return;
   const a=btn.dataset.action, v=btn.dataset.value;
-  if(a==='mode'){ window.__HHA_STATE.modeKey = v; setStatus(); }
-  if(a==='diff'){ window.__HHA_STATE.difficulty = v; setStatus(); }
+  if(a==='mode'){ state.modeKey=v; updateStatus(); }
+  if(a==='diff'){ state.difficulty=v; updateStatus(); }
   if(a==='start') start();
-  if(a==='pause'){ running=!running; if(running){ spawn(); tick(); } }
+  if(a==='pause'){ state.running=!state.running; if(state.running){ tick(); loop(); } }
   if(a==='restart'){ end(true); start(); }
-  if(a==='help'){ document.getElementById('help').style.display='flex'; }
+  if(a==='help'){ const h=qs('#help'); if(h) h.style.display='flex'; }
 });
-document.getElementById('btn_ok')?.addEventListener('click', ()=> document.getElementById('help').style.display='none');
-document.getElementById('btn_replay')?.addEventListener('click', ()=>{ document.getElementById('result').style.display='none'; start(); });
-document.getElementById('btn_home')  ?.addEventListener('click', ()=>{ document.getElementById('result').style.display='none'; });
 
-// ตั้งค่าเริ่มต้น
-setHUD(); setStatus();
-console.log('[HHA test main.js] loaded & running');
+// Help/Result
+qs('#btn_ok')?.addEventListener('click',()=>qs('#help').style.display='none');
+qs('#btn_replay')?.addEventListener('click',()=>{ qs('#result').style.display='none'; start(); });
+qs('#btn_home')?.addEventListener('click',()=>{ qs('#result').style.display='none'; });
+
+// ===== ปลดล็อกเสียงจาก gesture แรก =====
+['pointerdown','touchstart','keydown'].forEach(ev=>{
+  window.addEventListener(ev, ()=>sfx.unlock(), {once:true, passive:true});
+});
+
+// ===== Debug =====
+console.log('[HHA] Modes loaded =', Object.keys(MODES));
