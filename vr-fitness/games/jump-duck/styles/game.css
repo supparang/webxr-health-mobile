@@ -36,3 +36,12 @@ body.menu-open canvas.a-canvas { pointer-events: none !important; }
 #mult{font-weight:700}
 
 .hud-power{margin-top:6px;font-size:12px;opacity:.85}
+
+.pu-buttons{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap }
+.pu-buttons button{ padding:6px 10px; font-size:12px; border-radius:8px }
+#fxFlash{
+  position:fixed; inset:0; background: radial-gradient(circle at 50% 50%, rgba(255,235,59,0.25), rgba(255,0,0,0.15), rgba(0,0,0,0.0) 70%);
+  opacity:0; pointer-events:none; transition: opacity 120ms ease;
+  z-index: 5;
+}
+#fxFlash.show{ opacity:1; }

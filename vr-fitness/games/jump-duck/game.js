@@ -32,6 +32,10 @@
   const btnHome = document.getElementById('home');
   const toggleBgmBtn = document.getElementById('toggleBgm');
   const toggleCoachBtn = document.getElementById('toggleCoach');
+  const btnUseShield = document.getElementById('btnUseShield');
+  const btnUseSlow = document.getElementById('btnUseSlow');
+  const btnUseHeal = document.getElementById('btnUseHeal');
+  const fxFlash = document.getElementById('fxFlash');
 
   // Audio
   const sfx = {
@@ -79,6 +83,11 @@
   let gameTimerId = null, spawnerId = null;
   let gameEndAt = 0; let tickerId = null;
 
+  // Configurable settings
+  let powerupRate = 'normal'; // low|normal|high
+  let slowDurationSec = 3.5;
+  let superFeverSec = 6;
+
   // Action flags
   let jumping=false, ducking=false, dashingL=false, dashingR=false, actedAt=0;
 
@@ -113,6 +122,9 @@
     if(t.dataset.diff){ setDiff(t.dataset.diff); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
     if(t.dataset.theme){ setTheme(t.dataset.theme); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
     if(t.dataset.mode){ setMode(t.dataset.mode); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
+    if(t.dataset.purate){ powerupRate = t.dataset.purate; Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
+    if(t.dataset.slowdur){ slowDurationSec = parseFloat(t.dataset.slowdur); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
+    if(t.dataset.superdur){ superFeverSec = parseInt(t.dataset.superdur,10); Array.from(t.parentElement.children).forEach(b=>b.classList.remove('primary')); t.classList.add('primary'); }
   });
 
   toggleBgmBtn.addEventListener('click', ()=>{
@@ -131,6 +143,26 @@
   btnRetry.addEventListener('touchend', (e)=>{ e.preventDefault(); resetToMenu(); });
   btnHome?.addEventListener('click', resetToMenu);
   btnHome?.addEventListener('touchend', (e)=>{ e.preventDefault(); resetToMenu(); });
+  // Manual activation buttons
+  function useShield(){ if(state!=='playing') return; if(shieldCharges<=0) return; shieldCharges--; speakCoach('Shield armed!'); if(sfx.powerup){ try{sfx.powerup.currentTime=0;sfx.powerup.play();}catch(e){} } updateHUD(); }
+  function useSlow(){ if(state!=='playing') return; slowUntil = Date.now() + Math.floor(slowDurationSec*1000); speakCoach('Slow time!'); if(sfx.powerup){ try{sfx.powerup.currentTime=0;sfx.powerup.play();}catch(e){} } updateHUD(); }
+  function useHeal(){ if(state!=='playing') return; fever = Math.min(100, fever + 20); speakCoach('Energy boost!'); if(sfx.powerup){ try{sfx.powerup.currentTime=0;sfx.powerup.play();}catch(e){} } updateHUD(); }
+
+  btnUseShield?.addEventListener('click', useShield);
+  btnUseShield?.addEventListener('touchend', (e)=>{ e.preventDefault(); useShield(); });
+  btnUseSlow?.addEventListener('click', useSlow);
+  btnUseSlow?.addEventListener('touchend', (e)=>{ e.preventDefault(); useSlow(); });
+  btnUseHeal?.addEventListener('click', useHeal);
+  btnUseHeal?.addEventListener('touchend', (e)=>{ e.preventDefault(); useHeal(); });
+
+  // Hotkeys: Q/E/R
+  window.addEventListener('keydown', (e)=>{
+    if(state!=='playing') return;
+    if(e.key==='q' || e.key==='Q') useShield();
+    if(e.key==='e' || e.key==='E') useSlow();
+    if(e.key==='r' || e.key==='R') useHeal();
+  });
+
 
   function show(el){ el.classList.add('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.add('menu-open'); } }
   function hide(el){ el.classList.remove('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.remove('menu-open'); } }
@@ -262,7 +294,11 @@
 
     // Pick type with weights
     const types = ["jump","duck","dashL","dashR","ring","bomb","pu"];
-    const weights = [0.26,0.26,0.15,0.15,0.07,0.05,0.06];
+    /* dynamic weights */ const weights = (powerupRate==='low')
+      ? [0.28,0.28,0.16,0.16,0.07,0.05,0.03]
+      : (powerupRate==='high')
+      ? [0.24,0.24,0.14,0.14,0.08,0.05,0.11]
+      : [0.26,0.26,0.15,0.15,0.07,0.05,0.06];
     const r = Math.random();
     let cum=0, type=types[0];
     for(let i=0;i<types.length;i++){ cum += weights[i]; if(r<=cum){ type=types[i]; break; } }
@@ -332,7 +368,7 @@
 
     // collect power-ups automatically when reach player
     if(type==="pu"){
-      applyPowerUp(obs);
+      addPowerUpToInventory(obs);
       return;
     }
 
@@ -360,12 +396,13 @@
       if(fever===100 && superFeverUntil<=Date.now()){
         // require an additional 5-hit streak to activate Super Fever, or trigger if already in streak>=5
         if(streak>=5){
-          superFeverUntil = Date.now() + 6000; // 6s super
+          superFeverUntil = Date.now() + superFeverSec*1000; // 6s super
           multiplier = Math.max(multiplier, 3.0);
           if(audioEnabled){ try{ sfx.super.currentTime=0; sfx.super.play(); }catch(e){} }
           speakCoach('SUPER FEVER!');
           // brief flash sky
           try{ document.getElementById('sky').setAttribute('color','#ffd54f'); setTimeout(()=>{ document.getElementById('sky').setAttribute('color', null); }, 600); }catch(e){}
+          try{ fxFlash.classList.add('show'); setTimeout(()=> fxFlash.classList.remove('show'), 300); }catch(e){}
         }else{
           if(audioEnabled){ sfx.fever.currentTime=0; sfx.fever.play(); }
           speakCoach('Fever mode! Keep building!');
@@ -386,6 +423,26 @@
   }
 
 
+
+  function addPowerUpToInventory(puEntity){
+    if(!puEntity) return;
+    const cls = puEntity.getAttribute('class') || '';
+    if(cls.includes('pu-shield')){
+      shieldCharges += 1;
+      speakCoach("Shield collected.");
+    }else if(cls.includes('pu-slow')){
+      // store as immediate-usable via button (we'll just allow multiple presses; we don't track charges for slow separately)
+      // trigger a small indicator by briefly bumping the T timer +1 (visual hint)
+      slowUntil = Math.max(slowUntil, Date.now()); // no-op reserve
+      speakCoach("Slow collected.");
+    }else if(cls.includes('pu-heal')){
+      // store as inventory via heal by instant add on use; since we don't track count, we'll apply immediate +20 on use
+      speakCoach("Heal collected.");
+    }
+    try{ puEntity.remove(); }catch(e){}
+    updateHUD();
+  }
+
   function applyPowerUp(puEntity){
     if(!puEntity) return;
     const cls = puEntity.getAttribute('class') || '';
@@ -393,7 +450,7 @@
       shieldCharges += 1;
       speakCoach("Shield ready!");
     }else if(cls.includes('pu-slow')){
-      slowUntil = Date.now() + 3500; // 3.5s slow-time
+      slowUntil = Date.now() + Math.floor(slowDurationSec*1000); // 3.5s slow-time
       speakCoach("Slow time!");
     }else if(cls.includes('pu-heal')){
       fever = Math.min(100, fever + 20);

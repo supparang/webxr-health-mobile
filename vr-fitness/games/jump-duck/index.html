@@ -37,6 +37,25 @@
       </div>
     </div>
     <div class="row">
+      <label>Power‑Ups</label>
+      <div class="btns">
+        <button data-purate="low">Spawn: Low</button>
+        <button data-purate="normal" class="primary">Spawn: Normal</button>
+        <button data-purate="high">Spawn: High</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Durations</label>
+      <div class="btns">
+        <button data-slowdur="2.5">Slow 2.5s</button>
+        <button data-slowdur="3.5" class="primary">Slow 3.5s</button>
+        <button data-slowdur="5.0">Slow 5s</button>
+        <button data-superdur="5">SuperF 5s</button>
+        <button data-superdur="6" class="primary">SuperF 6s</button>
+        <button data-superdur="8">SuperF 8s</button>
+      </div>
+    </div>
+    <div class="row">
       <label>Audio</label>
       <div class="btns">
         <button id="toggleBgm">BGM: On</button>
@@ -57,7 +76,13 @@
         <div id="feverBarWrap"><div id="feverBar"></div></div>
       </div>
     </div>
-    <div id="hudPower" class="hud-power">PU: <span id="puShield">S:0</span> · <span id="puSlow">T:0</span> · <span id="puHeal">H:0</span> · <span id="puSuper">SF:0</span></div>
+    <div id="hudPower" class="hud-power">PU: <span id="puShield">S:0</span> · <span id="puSlow">T:0</span> · <span id="puHeal">H:0</span> · <span id="puSuper">SF:0</span>
+        <div class="pu-buttons">
+          <button id="btnUseShield" title="Q">Use Shield</button>
+          <button id="btnUseSlow" title="E">Use Slow</button>
+          <button id="btnUseHeal" title="R">Use Heal</button>
+        </div>
+      </div>
   </div>
 
   <div id="result" class="panel">
@@ -112,5 +137,6 @@
   </a-scene>
 
   <script src="game.js"></script>
+<div id="fxFlash"></div>
 </body>
 </html>
