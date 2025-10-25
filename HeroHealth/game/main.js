@@ -1,14 +1,14 @@
-// บอกหน้า index ว่าบูตสำเร็จ (จะถูกเช็คโดย loader)
+// บอกหน้า index ว่าเริ่มบูต (จะถูกเช็คโดย loader)
 window.__HHA_BOOT_OK = true;
 
-// กันโหลดซ้ำกรณีมีคนเผลอแปะ <script> ซ้ำในหน้าเดียว
+// กันโหลดซ้ำ (ป้องกัน error 'already been declared')
 if (window.__HHA_MAIN_ALREADY_MOUNTED) {
-  console.warn('[HHA] main.js duplicated load — skipped');
-  // return โดยไม่ทำอะไรต่อ ป้องกัน 'already been declared'
+  console.warn('[HHA] Duplicate main.js load — skipped');
+  // หยุดไม่รันซ้ำ
 } else {
   window.__HHA_MAIN_ALREADY_MOUNTED = true;
 
-  // ===== Imports (ต้อง relative จาก /HeroHealth/game/) =====
+  // ===== Imports (relative จาก /HeroHealth/game/) =====
   import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
   import { Engine }       from './core/engine.js';
   import { HUD }          from './core/hud.js';
@@ -23,5 +23,5 @@ if (window.__HHA_MAIN_ALREADY_MOUNTED) {
   import * as hydration from './modes/hydration.js';
   import * as plate     from './modes/plate.js';
 
-  // …โค้ดเกมของคุณต่อจากนี้…
+  // …โค้ดเกมเดิมของคุณทั้งหมดตามปกติ…
 }
