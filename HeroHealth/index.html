@@ -1,111 +1,63 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hero Health Academy</title>
+<!-- Loader: พยายาม import ทีละ URL และโชว์สาเหตุถ้า fail -->
+<script type="module">
+  // อย่าเปลี่ยนลำดับ/อย่าวาง script main.js อื่น ๆ ซ้ำอีก
+  const warnEl = (() => {
+    const el = document.getElementById('bootWarn') || (() => {
+      const d = document.createElement('div');
+      d.id='bootWarn';
+      d.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;white-space:pre-wrap';
+      document.body.appendChild(d);
+      return d;
+    })();
+    const show = (msg) => { el.textContent = msg; el.style.display = 'block'; };
+    const hide = () => { el.style.display = 'none'; };
+    return {show, hide};
+  })();
 
-  <!-- base เดิมคงไว้ได้ แต่เราไม่พึ่ง base ในการโหลด main.js อีกต่อไป -->
-  <base href="/webxr-health-mobile/HeroHealth/">
+  // ป้องกันโหลดซ้ำ
+  if (window.__HHA_MAIN_ATTEMPTED) {
+    console.warn('[HHA] main loader already attempted; skip duplicate');
+  } else {
+    window.__HHA_MAIN_ATTEMPTED = true;
 
-  <link rel="stylesheet" href="styles/game.css" />
-  <style>
-    #c{position:fixed;inset:0;z-index:1;pointer-events:none}
-    .hud,.menu,.modal,.coach,.item{z-index:200;pointer-events:auto}
-    .hud{font-size:18px;font-weight:800;text-shadow:0 2px 6px #000}
-    .item{font-size: clamp(44px, 6vw, 72px)}
-    #statusLine{
-      position:fixed;top:76px;left:50%;transform:translateX(-50%);
-      background:rgba(0,0,0,.45);color:#fff;padding:6px 12px;border-radius:10px;
-      font-weight:900;z-index:300
+    const tries = [
+      'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live',
+      'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js',
+      '/webxr-health-mobile/HeroHealth/game/main.js',
+      'game/main.js'
+    ];
+
+    let ok = false, lastErr = null;
+    for (const url of tries) {
+      try {
+        await import(url);
+        ok = true;
+        break;
+      } catch (err) {
+        lastErr = err;
+        console.warn('[HHA] import fail:', url, err);
+      }
     }
-    #bootWarn{
-      position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;
-      padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap
-    }
-  </style>
-</head>
-<body>
-  <div id="bootWarn">⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ URL main.js?v=live</div>
 
-  <!-- Header -->
-  <header class="brand">
-    <div id="brandTitle">HERO HEALTH ACADEMY</div>
-    <div class="spacer"></div>
-    <button id="langToggle" class="btn">🇹🇭 TH/EN</button>
-    <button id="gfxToggle" class="btn">🎛️ กราฟิก: ปกติ</button>
-    <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
-  </header>
+    // main.js ที่ถูกต้องจะ set flag นี้เอง
+    setTimeout(() => {
+      if (ok && window.__HHA_BOOT_OK === true) return;
+      const detail = (lastErr && (lastErr.message || String(lastErr))) || 'unknown';
+      warnEl.show(
+`⚠️ โหลดสคริปต์ไม่สำเร็จ
 
-  <!-- Canvas -->
-  <canvas id="c"></canvas>
+ลอง URL เหล่านี้แล้วไม่สำเร็จ:
+- https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live
+- https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js
+- /webxr-health-mobile/HeroHealth/game/main.js
+- game/main.js
 
-  <!-- HUD (ตัดมาเฉพาะที่จำเป็น เพื่อโฟกัสปัญหาสคริปต์ก่อน) -->
-  <section class="hud">
-    <div>คะแนน: <b id="score">0</b> | คอมโบ: <b id="combo">x0</b> | เวลา: <b id="time">60</b>s</div>
-    <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
-    <div id="missionLine" style="display:none; font-weight:800;">—</div>
-  </section>
-  <div id="statusLine">โหมด: ดี vs ขยะ • ความยาก: ปกติ</div>
+สาเหตุล่าสุด: ${detail}
 
-  <!-- Coach -->
-  <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
-
-  <!-- Menu -->
-  <section id="menuBar" class="menu">
-    <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="mode" data-value="hydration">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate">🍱 จัดจานสุขภาพ</button>
-    </div>
-    <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard">ยาก</button>
-    </div>
-    <div class="row">
-      <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause"   id="btn_pause">⏸ พัก</button>
-      <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help"    id="btn_help">❓ วิธีเล่น</button>
-    </div>
-  </section>
-
-  <!-- Help -->
-  <div id="help" class="modal" style="display:none">
-    <div class="card">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
-      <button class="btn" id="btn_ok">โอเค</button>
-    </div>
-  </div>
-
-  <!-- Result -->
-  <div id="result" class="modal" style="display:none">
-    <div class="card">
-      <h3>สรุปผล</h3>
-      <div id="resCore"></div>
-      <div style="margin-top:12px;display:flex;gap:8px;">
-        <button class="btn" id="btn_replay">↻ เล่นอีกครั้ง</button>
-        <button class="btn" id="btn_home">🏠 หน้าหลัก</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- SFX -->
-  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
-
-  <!-- ✅ โหลด main.js “ครั้งเดียวเท่านั้น” ด้วย URL ตายตัว -->
-  <script type="module" src="https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live"></script>
-
-  <!-- Fallback: โชว์ bootWarn ถ้า main.js ไม่ได้เซ็ต flag -->
-  <script>
-    setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ document.getElementById('bootWarn').style.display='block'; } }, 1500);
-  </script>
-</body>
-</html>
+Tips:
+• ตรวจว่ามีไฟล์ /HeroHealth/game/main.js จริง (ตัวพิมพ์ตรง)
+• เปิด Network tab ดูสถานะ main.js ต้อง 200 และ MIME เป็น javascript
+• ถ้าเป็น SyntaxError ให้เปิด Console ดูบรรทัดที่พัง แล้วแก้ใน main.js`);
+    }, 200); // รอให้ main.js ตั้ง BOOT_OK
+  }
+</script>
