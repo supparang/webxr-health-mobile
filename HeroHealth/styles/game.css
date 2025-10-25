@@ -58,4 +58,33 @@ html,body{height:100%;margin:0;overflow:hidden;}
 }
 .hs-card h4{ margin:0 0 6px 0; display:flex; align-items:center; gap:8px; }
 .hs-card ul{ margin:6px 0 0 18px; padding:0; }
+/* ====== Modal layout (ศูนย์กลางหน้าจอ) ====== */
+.modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: none;
+  align-items: center;   /* จัดแนวตั้ง */
+  justify-content: center; /* จัดแนวนอน */
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
 
+/* กล่องข้อความภายในโมดัล */
+.modal .card {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 640px;
+  width: 90%;
+  color: white;
+  box-shadow: 0 0 20px rgba(0,0,0,0.3);
+  backdrop-filter: blur(6px);
+}
+
+/* ปุ่มปิด / ตัวอักษรในโมดัล */
+#help h3, #help p, #help ul {
+  text-align: left;
+  line-height: 1.5;
+}
