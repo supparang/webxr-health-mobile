@@ -1,65 +1,50 @@
-/* ===============================
-   HERO HEALTH ACADEMY – UI Layout
-   =============================== */
-
-/* Reset & Base */
-* {
-  box-sizing: border-box;
-  font-family: 'Sarabun', sans-serif;
-  user-select: none;
-}
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at center, #0b0b1a, #000);
-  color: #fff;
-  overflow: hidden;
-}
-
-/* ===============================
-   Canvas (3D Scene)
-   =============================== */
+/* ===== Fix: canvas ไม่บังปุ่ม ===== */
 #c {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: transparent;
   z-index: 1 !important;
   pointer-events: none !important;
 }
 
-/* ===============================
-   Header / Toolbar
-   =============================== */
-header.brand {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%;
-  height: 48px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  z-index: 200 !important;
-}
-header .btn {
-  margin-left: 8px;
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.25);
-  color: #fff;
-  border-radius: 8px;
-  padding: 4px 10px;
-  cursor: pointer;
-  font-weight: 600;
-}
-header .btn:hover {
-  background: rgba(255,255,255,0.25);
+/* ===== HUD/เมนู/โมดัล ต้องคลิกได้ ===== */
+.hud, .menu, .modal, .coach, .item {
+  z-index: 100 !important;
+  pointer-events: auto !important;
 }
 
-/* ===============================
-   HUD
-   =================
+/* ===== เมนูล่างซ้าย ===== */
+.menu {
+  position: fixed !important;
+  left: max(10px, env(safe-area-inset-left)) !important;
+  bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  top: auto !important;
+  transform: none !important;
+
+  width: auto !important;
+  max-width: 48vw;
+  background: rgba(10,12,20,0.9);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* แถวในเมนูให้เรียงแนวตั้งกระชับพื้นที่ */
+.menu .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-start;
+}
+
+/* ปุ่มให้กดง่ายขึ้น */
+.menu .btn, .menu .tag {
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* มือถือให้เมนูกว้างขึ้นนิด */
+@media (max-width: 736px) {
+  .menu { max-width: 88vw; }
+}
