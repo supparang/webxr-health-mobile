@@ -40,7 +40,7 @@ let state = {
   ctx:{ hits:0, miss:0 }
 };
 
-// ===== Difficulty (ปรับให้ออกช้าลง + อายุยาวขึ้น) =====
+// ===== Difficulty (ช้าลงนิด + อายุยาวขึ้น) =====
 const DIFFS = {
   Easy:   { time:70, spawn:900, life:5000 },
   Normal: { time:60, spawn:780, life:3800 },
@@ -54,6 +54,7 @@ const MODE_NAME_TH = {
   plate:'จัดจานสุขภาพ'
 };
 
+// ===== Body state (ใช้จัดเลเยอร์/ซ่อนเมนูระหว่างเล่น) =====
 function setBodyState(name){
   const b=document.body;
   b.classList.remove('state-menu','state-playing','state-paused','state-result');
@@ -72,7 +73,7 @@ function updateStatusLine(){
   el.textContent = `โหมด: ${MODE_NAME_TH[state.modeKey]||state.modeKey} • ความยาก: ${state.difficulty}`;
 }
 
-// ===== Item Pool =====
+// ===== Item Pool (ไอคอนใหญ่ คลิกง่าย) =====
 const _pool=[]; const POOL_MAX=64;
 function createItem(){
   const b=document.createElement('button');
@@ -98,7 +99,7 @@ function place(el){
   );
 }
 
-// ===== Spawner (เรียกโหมด แต่มี guard เรื่องสปีด/อายุ) =====
+// ===== Spawner =====
 function spawnOnce(diff){
   const mode = MODES[state.modeKey]; if(!mode || !mode.pickMeta) return;
   const meta = mode.pickMeta(diff, state);
@@ -109,8 +110,8 @@ function spawnOnce(diff){
   el.onclick = ()=>{
     mode.onHit?.(meta, {score, sfx, fx, power, coach}, state, hud);
     state.ctx.hits = (state.ctx.hits||0) + 1;
-    releaseItemEl(el);
     updateHUD();
+    releaseItemEl(el);
   };
 
   document.body.appendChild(el);
@@ -159,7 +160,9 @@ export function start(){
   state.ctx={hits:0, miss:0}; state.fever=false;
 
   score.reset(); power.reset?.(); hud.reset?.();
-  forceUILayers(); updateStatusLine();
+
+  forceUILayers();           // กัน overlay บังคลิก
+  updateStatusLine();
   setBodyState('playing');
 
   MODES[state.modeKey]?.init?.(state, hud, diff);
@@ -167,6 +170,7 @@ export function start(){
   coach.say('เริ่มเกม!');
   tick(); spawnLoop();
 }
+
 function tick(){
   if(!state.running) return;
   state.timeLeft--; updateHUD();
@@ -174,6 +178,7 @@ function tick(){
   if(state.timeLeft<=0){ end(); return; }
   timers.tick = setTimeout(tick, 1000);
 }
+
 export function end(silent=false){
   state.running=false;
   clearTimeout(timers.spawn); clearTimeout(timers.tick);
@@ -186,7 +191,7 @@ export function end(silent=false){
       <p>ความยาก: <b>${state.difficulty}</b></p>
       <p>คะแนน: <b>${score.score|0}</b> • คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>
     `);
-    const res=qs('#result'); if(res) res.style.display='flex';
+    const res=qs('#result'); if(res) { res.style.display='flex'; res.style.pointerEvents='auto'; }
     coach.say('เยี่ยมมาก!');
   }else{
     setBodyState('menu');
@@ -211,6 +216,54 @@ document.addEventListener('click', (e)=>{
 qs('#btn_ok')?.addEventListener('click', ()=>{ qs('#help').style.display='none'; });
 qs('#btn_home')?.addEventListener('click', ()=>{ qs('#result').style.display='none'; setBodyState('menu'); });
 
+// ===== Result / Replay handlers (แก้ให้คลิกได้ชัวร์) =====
+(function wireResultButtons(){
+  const res = document.getElementById('result');
+  if (!res) return;
+
+  res.addEventListener('click', (e)=>{
+    const btn = e.target.closest('[data-result]');
+    if (!btn) return;
+    const a = btn.getAttribute('data-result');
+
+    if (a === 'replay') {
+      hideResultModal();
+
+      if (window.__replayLock) return;
+      window.__replayLock = true;
+
+      try { clearTimeout(timers.spawn); clearTimeout(timers.tick); } catch {}
+      try { document.querySelectorAll('.item').forEach(el=>el.remove()); } catch {}
+      state.running = false;
+
+      setTimeout(()=>{ 
+        try { document.body.classList.remove('state-result'); document.body.classList.add('state-menu'); } catch {}
+        start(); 
+        window.__replayLock = false; 
+      }, 60);
+    }
+
+    if (a === 'home') {
+      hideResultModal();
+      try { document.body.classList.remove('state-result'); document.body.classList.add('state-menu'); } catch {}
+      setTimeout(()=>document.getElementById('btn_start')?.focus?.(), 50);
+    }
+  });
+
+  window.addEventListener('keydown', (e)=>{
+    if (res.style.display === 'flex' && (e.key === 'Enter' || e.key === ' ')) {
+      const replay = res.querySelector('[data-result="replay"]');
+      if (replay) replay.click();
+    }
+  });
+
+  function hideResultModal(){
+    res.style.display = 'none';
+    res.style.pointerEvents = 'none';
+    setTimeout(()=>{ res.style.pointerEvents = ''; }, 0);
+  }
+})();
+
 // ===== UI safety: HUD/เมนูคลิกได้เสมอ =====
 function forceUILayers(){
   const c=document.getElementById('c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
@@ -229,5 +282,5 @@ updateStatusLine();
   window.addEventListener(ev, ()=>{ try{ document.getElementById('bgm-main')?.play(); }catch{} }, {once:true, passive:true});
 });
 
-// Expose (ถ้าจำเป็น)
+// Expose (เผื่อเรียกจากสคริปต์อื่น)
 window.start=start; window.end=end;
