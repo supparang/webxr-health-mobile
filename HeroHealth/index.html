@@ -10,13 +10,13 @@
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
+
   <!-- ใช้ bootloader แบบ dynamic import + fallback แทนการชี้ตรง -->
   <script type="module">
     // ----- HHA Bootloader (resilient) -----
     window.__HHA_BOOT_OK = false;
 
     const candidates = [];
-    // ลองอิงตาม <base>, ตามตำแหน่งไฟล์ปัจจุบัน, และ URL คงที่ของ GitHub Pages
     const baseURIs = [
       document.baseURI,
       new URL('./', location.href).href,
@@ -37,7 +37,6 @@
     let lastErr = null;
     for (const url of candidates) {
       try {
-        // กัน cache ระหว่างทดสอบ
         const withBust = url.includes('?') ? url + '&cb=' + Date.now() : url + '?cb=' + Date.now();
         await import(withBust);
         loaded = true;
@@ -139,21 +138,22 @@
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
       <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
+      <!-- 📘 ปุ่มคู่มือรวม (Help Scene) ย้ายมาอยู่ในแถวปุ่มหลัก -->
+      <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
   </section>
 
   <!-- Help Modal -->
-  <div id="help" class="modal" style="display:none">
+  <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
       <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
       <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
     </div>
   </div>
-<button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
 
   <!-- Result Modal -->
-  <div id="result" class="modal" style="display:none">
+  <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
     <div class="card">
       <h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div>
@@ -163,6 +163,17 @@
         <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
         <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Help Scene (รวมทุกเกม) -->
+  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="hs_title">
+    <div class="card" style="max-width:960px; width:90%;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h3 id="hs_title" style="margin:0">คู่มือรวม</h3>
+        <button class="btn" data-action="helpSceneClose" id="btn_helpSceneClose" type="button">✖ ปิด</button>
+      </div>
+      <div id="hs_body" class="hs-grid" style="margin-top:12px;"></div>
     </div>
   </div>
 
@@ -191,16 +202,5 @@
       จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
     </div>
   </noscript>
-  <!-- Help Scene (รวมทุกเกม) -->
-<div id="helpScene" class="modal" style="display:none">
-  <div class="card" style="max-width:960px; width:90%;">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-      <h3 id="hs_title" style="margin:0">คู่มือรวม</h3>
-      <button class="btn" data-action="helpSceneClose" id="btn_helpSceneClose" type="button">✖ ปิด</button>
-    </div>
-    <div id="hs_body" class="hs-grid" style="margin-top:12px;"></div>
-  </div>
-</div>
-
 </body>
 </html>
