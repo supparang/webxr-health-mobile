@@ -26,6 +26,7 @@
   const toggleBgmBtn = document.getElementById('toggleBgm');
   const toggleCoachBtn = document.getElementById('toggleCoach');
   function resetToMenu(){
+    stopTicker();
     // stop timers & audio
     try{ if(gameTimerId) clearInterval(gameTimerId); }catch(e){}
     try{ if(spawnerId) clearInterval(spawnerId); }catch(e){}
@@ -61,6 +62,7 @@
   let theme = "forest";
 
   let score = 0, timeLeft = 90, fever = 0;
+  let gameEndAt = 0; let tickerId = null;
   let streak = 0, bestStreak = 0;
   let hitCount = 0, missCount = 0;
   let spawnTimer = 0, spawnInterval = 1800;
@@ -78,6 +80,7 @@
     if(name==="easy"){ timeLeft = 90; spawnInterval = 2200; }
     if(name==="normal"){ timeLeft = 85; spawnInterval = 1700; }
     if(name==="hard"){ timeLeft = 80; spawnInterval = 1200; }
+    return timeLeft;
   }
 
   // UI interactions
@@ -106,6 +109,22 @@
 
   function show(el){ el.classList.add('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.add('menu-open'); } }
   function hide(el){ el.classList.remove('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.remove('menu-open'); } }
+
+  
+  function startTicker(){
+    stopTicker();
+    tickerId = setInterval(()=>{
+      if(state!=="playing") return;
+      const now = Date.now();
+      const remainingMs = Math.max(0, gameEndAt - now);
+      const sec = Math.ceil(remainingMs/1000);
+      // prevent accidental increases
+      if(sec <= timeLeft){ timeLeft = sec; }
+      updateHUD();
+      if(remainingMs<=0){ endGame(); }
+    }, 200);
+  }
+  function stopTicker(){ if(tickerId){ clearInterval(tickerId); tickerId=null; } }
 
   function updateHUD(){
     scoreEl.textContent = String(score);
@@ -146,6 +165,7 @@
   function endGame(){
     state="ended";
     clearInterval(gameTimerId); clearInterval(spawnerId);
+    stopTicker();
     if(audioEnabled) sfx.bgm.pause();
     showResult();
   }
