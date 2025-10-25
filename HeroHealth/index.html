@@ -5,43 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- Base path สำหรับ GitHub Pages -->
+  <!-- ✅ Base path สำหรับ GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
-  <!-- Styles -->
   <link rel="stylesheet" href="styles/game.css" />
+
+  <style>
+    /* ป้องกัน canvas บังปุ่ม */
+    #c { pointer-events:none; z-index:1; }
+    .hud, .menu, .modal, .coach, .item {
+      z-index:100;
+      pointer-events:auto;
+    }
+    .menu {
+      position:fixed; bottom:12px; left:12px; background:rgba(10,10,25,.85);
+      border-radius:12px; padding:10px; backdrop-filter:blur(8px);
+    }
+    .btn,.tag {
+      background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
+      color:#fff; border-radius:10px; cursor:pointer; font-weight:700;
+    }
+    .btn:hover { background:rgba(255,255,255,.25); }
+    .hud-line { background:rgba(0,0,0,.5); border-radius:8px; padding:6px 10px; }
+  </style>
 </head>
+
 <body>
-  <!-- Header -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
     <button id="langToggle" class="btn">🇹🇭 TH/EN</button>
-    <button id="gfxToggle" class="btn">🎛️ กราฟิก: ปกติ</button>
-    <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
+    <button id="gfxToggle" class="btn">🎛️ กราฟิก</button>
+    <button id="soundToggle" class="btn">🔊 เสียง</button>
   </header>
 
   <canvas id="c"></canvas>
 
-  <!-- HUD -->
   <section class="hud">
-    <div>
-      <span id="t_score">คะแนน</span>: <b id="score">0</b> |
-      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
-      <span id="t_time">เวลา</span>: <b id="time">60</b>s
+    <div class="hud-line">
+      คะแนน <b id="score">0</b> | คอมโบ <b id="combo">x0</b> | เวลา <b id="time">60</b>s
     </div>
-    <div id="feverBarWrap" class="bar slim">
-      <div id="feverBar" style="width:0%"></div>
-    </div>
-    <div id="missionLine" style="display:none; font-weight:800;">—</div>
+    <div id="missionLine" style="display:none; font-weight:700;">—</div>
+    <div id="targetWrap" style="display:none;">🎯 <span id="targetBadge">—</span></div>
+    <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
+    <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
-  <!-- Coach -->
-  <div id="coachHUD" class="coach" style="display:none">
-    <div id="coachText">...</div>
-  </div>
+  <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
-  <!-- Menu -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
@@ -58,20 +69,43 @@
       <button class="btn" data-action="start" id="btn_start">▶ เริ่มเกม</button>
       <button class="btn" data-action="pause" id="btn_pause">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
+      <button class="btn" data-action="help" id="btn_help">❓ วิธีเล่น</button>
     </div>
   </section>
 
-  <!-- Result -->
-  <div id="result" class="modal" style="display:none">
+  <div id="help" class="modal" style="display:none">
     <div class="card">
-      <h3 id="h_summary">สรุปผล</h3>
-      <div id="resCore"></div>
-      <button class="btn" data-result="replay">↻ เล่นอีกครั้ง</button>
-      <button class="btn" data-result="home">🏠 หน้าหลัก</button>
+      <h3>วิธีเล่น</h3>
+      <pre>เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
+      <button class="btn" id="btn_ok">โอเค</button>
     </div>
   </div>
 
-  <!-- Boot Loader -->
-  <script type="module" src="game/boot.js"></script>
+  <div id="result" class="modal" style="display:none">
+    <div class="card">
+      <h3>สรุปผล</h3>
+      <div id="resCore"></div>
+      <button class="btn" id="btn_home">🏠 กลับเมนู</button>
+    </div>
+  </div>
+
+  <!-- ✅ โหลดเกมหลัก -->
+  <script type="module" src="game/main.js"></script>
+
+  <!-- ✅ แจ้งเตือนเมื่อ main.js ไม่โหลด -->
+  <script>
+  (function(){
+    const warn=document.createElement('div');
+    warn.id='bootWarn';
+    warn.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
+    Object.assign(warn.style,{
+      position:'fixed',top:0,left:0,right:0,
+      background:'#b00020',color:'#fff',
+      padding:'10px',fontWeight:'700',display:'none',zIndex:9999
+    });
+    document.body.appendChild(warn);
+    setTimeout(()=>{ if(!window.__HHA_BOOT_OK) warn.style.display='block'; },2000);
+  })();
+  </script>
 </body>
 </html>
