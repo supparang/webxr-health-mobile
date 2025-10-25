@@ -1,153 +1,197 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hero Health Academy</title>
+// ===== Boot flag =====
+window.__HHA_BOOT_OK = true;
 
-  <!-- GitHub Pages base (โฟลเดอร์ HeroHealth) -->
-  <base href="/webxr-health-mobile/HeroHealth/">
+// ===== Imports =====
+import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+import { Engine } from './core/engine.js';
+import { HUD } from './core/hud.js';
+import { SFX } from './core/sfx.js';
+import { PowerUpSystem } from './core/powerup.js';
+import { ScoreSystem } from './core/score.js';
+import { FloatingFX } from './core/fx.js';
+import { Coach } from './core/coach.js';
 
-  <link rel="stylesheet" href="styles/game.css" />
+import * as goodjunk from './modes/goodjunk.js';
+import * as groups from './modes/groups.js';
+import * as hydration from './modes/hydration.js';
+import * as plate from './modes/plate.js';
 
-  <!-- เสริมเลเยอร์/ตำแหน่งให้ HUD ชัดเจน & กัน canvas บังคลิก -->
-  <style>
-    /* อย่าให้ canvas บังคลิก */
-    #c { pointer-events: none; z-index: 1; }
+// ===== Utils =====
+const qs = (s)=>document.querySelector(s);
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-    /* HUD ตรึงมุมซ้ายบน */
-    .hud{
-      position: fixed; top: 56px; left: 12px;
-      display: flex; flex-direction: column; gap: 8px;
-      z-index: 120; text-shadow: 0 2px 8px rgba(0,0,0,.6);
-    }
-    .hud-line, #statusLine{
-      background: rgba(8,10,20,.62);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 10px; padding: 8px 12px;
-      font-weight: 900; color: #fff;
-    }
+// ===== Systems =====
+const MODES = { goodjunk, groups, hydration, plate };
+const hud   = new HUD();
+const sfx   = new SFX({ enabled:true, poolSize:6 });
+const power = new PowerUpSystem();
+const score = new ScoreSystem();
+const fx    = new FloatingFX(new Engine(THREE, document.getElementById('c')));
+const coach = new Coach({ lang:'TH' });
 
-    /* เมนูตรึงล่างซ้าย */
-    .menu{
-      position: fixed; bottom: 12px; left: 12px; right: auto;
-      background: rgba(10,10,25,.90);
-      border-radius: 12px; padding: 10px;
-      backdrop-filter: blur(8px);
-      z-index: 110;
-    }
-    .btn,.tag{
-      background: rgba(255,255,255,.1);
-      border: 1px solid rgba(255,255,255,.2);
-      color: #fff; border-radius: 10px; cursor: pointer; font-weight: 700;
-    }
-    .btn:hover,.tag:hover{ background: rgba(255,255,255,.25); }
+// ===== State =====
+let state = {
+  modeKey:'goodjunk',
+  difficulty:'Normal',
+  running:false,
+  timeLeft:60,
+  fever:false,
+  ctx:{hits:0,miss:0}
+};
 
-    /* ให้ชั้น UI คลิกได้แน่ ๆ */
-    .item, .menu, .hud, .modal, .coach { pointer-events:auto; }
-  </style>
-</head>
-<body>
-  <!-- Header -->
-  <header class="brand">
-    <div id="brandTitle">HERO HEALTH ACADEMY</div>
-    <div class="spacer"></div>
-    <button id="langToggle" class="btn">🇹🇭 TH/EN</button>
-    <button id="gfxToggle" class="btn">🎛️ กราฟิก</button>
-    <button id="soundToggle" class="btn">🔊 เสียง</button>
-  </header>
+const DIFFS = {
+  Easy:{   time:70, spawn:850, life:4200 },
+  Normal:{ time:60, spawn:700, life:3000 },
+  Hard:{   time:50, spawn:550, life:1900 }
+};
 
-  <!-- Canvas -->
-  <canvas id="c"></canvas>
+// ===== Names (TH) =====
+const MODE_NAME_TH = {
+  goodjunk: 'ดี vs ขยะ',
+  groups: 'จาน 5 หมู่',
+  hydration: 'สมดุลน้ำ',
+  plate: 'จัดจานสุขภาพ'
+};
 
-  <!-- HUD (มุมซ้ายบน) -->
-  <section class="hud">
-    <!-- ป้ายโหมด/ความยาก -->
-    <div id="statusLine">โหมด: — • ความยาก: —</div>
+// ===== HUD helpers =====
+function updateHUD(){
+  const sc=qs('#score'), cb=qs('#combo'), tm=qs('#time');
+  if(sc) sc.textContent = score.score|0;
+  if(cb) cb.textContent = 'x'+(score.combo||0);
+  if(tm) tm.textContent = state.timeLeft|0;
+}
+function updateStatusLine(){
+  const el = qs('#statusLine');
+  if(!el) return;
+  const modeName = MODE_NAME_TH[state.modeKey] || state.modeKey;
+  el.textContent = `โหมด: ${modeName} • ความยาก: ${state.difficulty}`;
+}
 
-    <!-- คะแนน/คอมโบ/เวลา -->
-    <div class="hud-line">
-      คะแนน <b id="score">0</b> | คอมโบ <b id="combo">x0</b> | เวลา <b id="time">60</b>s
-    </div>
+// ===== Item Pool =====
+const _pool=[]; const POOL_MAX=48;
+function createItem(){
+  const b=document.createElement('button');
+  b.className='item'; b.type='button';
+  b.style.position='fixed';
+  b.style.zIndex='120';        // สูงกว่า canvas/พื้นหลัง
+  b.style.minWidth='48px'; b.style.minHeight='48px';
+  b.style.pointerEvents='auto';
+  return b;
+}
+function getItemEl(){ return _pool.pop() || createItem(); }
+function releaseItemEl(el){ el.onclick=null; el.remove(); if(_pool.length<POOL_MAX)_pool.push(el); }
 
-    <!-- Mission / Target -->
-    <div id="missionLine" style="display:none; font-weight:700;">—</div>
-    <div id="targetWrap" style="display:none;">🎯 <span id="targetBadge">—</span></div>
+// ===== Spawner =====
+function place(el,diff){
+  el.style.left=(8+Math.random()*84)+'vw';
+  el.style.top =(18+Math.random()*70)+'vh';  // เว้นหัว/เมนู
+  el.animate(
+    [{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],
+    {duration:1200,iterations:Infinity}
+  );
+}
+function spawnOnce(diff){
+  const mode = MODES[state.modeKey];
+  if(!mode || !mode.pickMeta){ return; }
+  const meta = mode.pickMeta(diff,state);
 
-    <!-- Fever bar -->
-    <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
-    <div id="fever" class="fever" style="display:none">FEVER!</div>
-  </section>
+  const el = getItemEl();
+  el.textContent = meta.char || '?';
+  place(el,diff);
 
-  <!-- Coach -->
-  <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
+  el.onclick = ()=>{ 
+    mode.onHit?.(meta,{score,sfx,fx,power,coach},state,hud);
+    releaseItemEl(el);
+    updateHUD();
+  };
 
-  <!-- เมนู -->
-  <section id="menuBar" class="menu">
-    <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups"    id="m_groups">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate"     id="m_plate">🍱 จัดจานสุขภาพ</button>
-    </div>
-    <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
-    </div>
-    <div class="row">
-      <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause"   id="btn_pause">⏸ พัก</button>
-      <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help"    id="btn_help">❓ วิธีเล่น</button>
-    </div>
-  </section>
+  document.body.appendChild(el);
+  setTimeout(()=>releaseItemEl(el), meta.life || diff.life);
+}
 
-  <!-- Help -->
-  <div id="help" class="modal" style="display:none">
-    <div class="card">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
-      <button class="btn" id="btn_ok">โอเค</button>
-    </div>
-  </div>
+const timers={spawn:0,tick:0};
+function spawnLoop(){
+  if(!state.running)return;
+  const base=DIFFS[state.difficulty];
+  const next=clamp(base.spawn*(power.timeScale||1),240,2500);
+  spawnOnce(base);
+  timers.spawn=setTimeout(spawnLoop,next);
+}
 
-  <!-- Result -->
-  <div id="result" class="modal" style="display:none">
-    <div class="card">
-      <h3>สรุปผล</h3>
-      <div id="resCore"></div>
-      <button class="btn" id="btn_home">🏠 กลับเมนู</button>
-    </div>
-  </div>
+// ===== Game Loop =====
+export function start(opt={}){
+  end(true);
+  const diff=DIFFS[state.difficulty] || DIFFS.Normal;
+  state.running=true; state.timeLeft=diff.time; score.reset();
 
-  <!-- SFX / BGM -->
-  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
-  <audio id="bgm-main"     preload="auto" src="assets/bgm/stage1.mp3" loop></audio>
+  // ให้ HUD/Status โผล่ชัดและอยู่บนสุดเสมอ
+  forceUILayers();
+  updateStatusLine();
 
-  <!-- เกมหลัก -->
-  <script type="module" src="game/main.js"></script>
-  <!-- UI Controller (How-to-Play + Tutorial + robust bindings) -->
-  <script type="module" src="game/ui.js"></script>
+  // init โหมด + อัปเดต HUD
+  MODES[state.modeKey]?.init?.(state,hud,diff);
+  updateHUD();
+  coach.say('เริ่มเกม!');
 
-  <!-- bootWarn: แจ้งถ้า main.js ไม่โหลด -->
-  <script>
-    (function(){
-      const warn=document.createElement('div');
-      warn.id='bootWarn';
-      warn.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
-      Object.assign(warn.style,{
-        position:'fixed',top:0,left:0,right:0,
-        background:'#b00020',color:'#fff',
-        padding:'10px',fontWeight:'700',display:'none',zIndex:9999
-      });
-      document.body.appendChild(warn);
-      setTimeout(()=>{ if(!window.__HHA_BOOT_OK) warn.style.display='block'; },2000);
-    })();
-  </script>
-</body>
-</html>
+  // main loop
+  tick(); spawnLoop();
+}
+function tick(){
+  if(!state.running)return;
+  state.timeLeft--; updateHUD();
+  MODES[state.modeKey]?.tick?.(state,{score,fx,sfx,power,coach},hud);
+  if(state.timeLeft<=0){ end(); return; }
+  timers.tick=setTimeout(tick,1000);
+}
+export function end(silent=false){
+  state.running=false; clearTimeout(timers.spawn); clearTimeout(timers.tick);
+  if(!silent){
+    const core=qs('#resCore');
+    if(core) core.innerHTML = `
+      <p>โหมด: <b>${MODE_NAME_TH[state.modeKey]||state.modeKey}</b></p>
+      <p>ความยาก: <b>${state.difficulty}</b></p>
+      <p>คะแนน: <b>${score.score|0}</b> • คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>`;
+    const res=qs('#result'); if(res) res.style.display='flex';
+    coach.say('เยี่ยมมาก!');
+  }
+}
+
+// ===== Events (เมนู) =====
+document.addEventListener('click',(e)=>{
+  const btn=e.target.closest('#menuBar button'); if(!btn)return;
+  const a=btn.dataset.action,v=btn.dataset.value;
+  if(a==='mode'){ state.modeKey=v; updateStatusLine(); }
+  if(a==='diff'){ state.difficulty=v; updateStatusLine(); }
+  if(a==='start') start();
+  if(a==='pause'){ state.running=!state.running; if(state.running){tick();spawnLoop();}}
+  if(a==='restart'){ end(true); start(); }
+  if(a==='help'){ const h=qs('#help'); if(h) h.style.display='flex'; }
+});
+qs('#btn_ok')?.addEventListener('click',()=>qs('#help').style.display='none');
+qs('#btn_home')?.addEventListener('click',()=>qs('#result').style.display='none');
+
+// ===== Expose setters for ui.js sync (optional but helpful) =====
+window.setMode = (k)=>{ if(k){ state.modeKey=k; updateStatusLine(); } };
+window.setDifficulty = (d)=>{ if(d){ state.difficulty=d; updateStatusLine(); } };
+
+// ===== Keep HUD above & clickable =====
+function forceUILayers(){
+  const c=document.getElementById('c');
+  if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+  ['hud','menu','modal','coach','item'].forEach(cls=>{
+    document.querySelectorAll('.'+cls).forEach(el=>{
+      el.style.pointerEvents='auto';
+      el.style.zIndex = Math.max(120, parseInt(getComputedStyle(el).zIndex||'0',10));
+    });
+  });
+}
+forceUILayers();
+updateStatusLine(); // อัปเดตครั้งแรกที่ยังไม่เริ่มเกม
+
+// ===== Unlock audio/BGM on first gesture (สำหรับ mobile/browser policy) =====
+window.addEventListener('pointerdown', () => {
+  try { document.getElementById('sfx-good')?.play()?.catch(()=>{}); } catch {}
+  try { document.getElementById('bgm-main')?.play()?.catch(()=>{}); } catch {}
+}, { once: true, passive: true });
+
+window.start=start; window.end=end;
