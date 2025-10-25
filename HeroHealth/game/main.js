@@ -64,14 +64,17 @@ function updateHUD(){
   if(tEl) tEl.textContent = state.timeLeft|0;
 }
 
-// ===== DOM pool for .item (สิ่งที่วิ่งออกมาให้คลิก) =====
-const _pool=[]; const POOL_MAX=48;
+// ===== SAFE SPAWNER (items that appear to click) =====
+
+// DOM pool (.item)
+const _pool=[]; const POOL_MAX=64;
 function createItem(){
   const b=document.createElement('button');
   b.className='item'; b.type='button';
-  b.style.position='fixed'; b.style.zIndex='100';    // อยู่บน canvas
-  b.style.minWidth='48px'; b.style.minHeight='48px';
+  b.style.position='fixed';
+  b.style.zIndex='999';               // สูงมาก กัน overlay ทับ
   b.style.pointerEvents='auto';
+  b.style.minWidth='56px'; b.style.minHeight='56px';
   return b;
 }
 function getItemEl(){ return _pool.pop() || createItem(); }
@@ -81,85 +84,77 @@ function releaseItemEl(el){
   if(_pool.length<POOL_MAX) _pool.push(el);
 }
 
-// ===== Spawner =====
-function spawnOnce(diff){
+// วางให้ไม่ชนหัว/เมนู
+function place(el){
+  const topSafe  = 14;   // % เว้น header
+  const botSafe  = 26;   // % เว้นเมนู
+  const y = topSafe + Math.random()*(100 - topSafe - botSafe);
+  const x = 6 + Math.random()*88;
+  el.style.top  = y + 'vh';
+  el.style.left = x + 'vw';
+  el.animate(
+    [{transform:'translateY(0)'},{transform:'translateY(-8px)'},{transform:'translateY(0)'}],
+    {duration:1200,iterations:Infinity}
+  );
+}
+
+// หยิบ meta แบบกันพัง
+function safePickMeta(){
   const mode = MODES[state.modeKey];
-  if(!mode || !mode.pickMeta){ 
-    // fallback test meta
-    const el = getItemEl();
-    el.textContent = '🍎';
-    place(el, diff);
-    el.onclick = ()=>{ score.add?.(5); fx.popText?.('+5',{color:'#7fffd4'}); updateHUD(); releaseItemEl(el); };
-    document.body.appendChild(el);
-    setTimeout(()=> el.isConnected && releaseItemEl(el), diff.life||2500);
-    return;
+  if (!mode || typeof mode.pickMeta!=='function') return {char:'🍎', good:true, life:2200};
+  try{
+    const m = mode.pickMeta(DIFFS[state.difficulty]||DIFFS.Normal, state);
+    if (!m || typeof m!=='object') throw new Error('invalid meta');
+    if (!m.char) m.char = '🍏';
+    if (typeof m.life!=='number') m.life = 2200;
+    return m;
+  }catch(err){
+    console.warn('[pickMeta error]', err);
+    return {char:'🍉', good:true, life:2200};
   }
+}
 
-  const meta = mode.pickMeta(diff, state);      // ต้องคืน {char, good|ok, ...}
+function spawnOnce(){
+  if(!state.running) return;
+
+  const meta = safePickMeta();
   const el = getItemEl();
-  el.textContent = meta.char || '?';
+  el.textContent = meta.char;
 
-  place(el, diff);
+  place(el);
 
   el.onclick = () => {
-    // ป้องกันสแปมคลิกเร็วเกิน
-    const t=now(); spawnOnce.__lc = spawnOnce.__lc||0;
-    if(t - spawnOnce.__lc < 120) return;
-    spawnOnce.__lc = t;
-
-    mode.onHit?.(meta, {score, sfx, power, fx}, state, hud);
-    state.ctx.hits = (state.ctx.hits||0) + 1;
-
-    if(meta.good || meta.ok){ coach.onGood?.(); sfx.good(); }
-    else { coach.onBad?.(state.modeKey); sfx.bad(); }
-
+    try{
+      MODES[state.modeKey]?.onHit?.(meta, {score, sfx, power, fx}, state, hud);
+    }catch(err){
+      console.warn('[onHit error]', err);
+      score.add?.(5); fx.popText?.('+5',{color:'#7fffd4'});
+    }
     updateHUD();
     releaseItemEl(el);
   };
 
   document.body.appendChild(el);
-  setTimeout(()=>{ if(el.isConnected) releaseItemEl(el); }, (diff.life||2500));
+
+  const lifeMs = Math.max(600, meta.life|0);
+  setTimeout(()=>{ if(el.isConnected) releaseItemEl(el); }, lifeMs);
 }
 
-// วางตำแหน่งแบบเว้นขอบบน(หัว)และล่าง(เมนู)
-function place(el, diff){
-  const topSafePct = 14;     // เว้นจาก header
-  const bottomSafePct = 24;  // เว้นจากเมนู
-  const topMin = topSafePct, topMax = 100 - bottomSafePct;
-
-  el.style.left = (8 + Math.random()*84) + 'vw';
-  el.style.top  = (topMin + Math.random()*(topMax - topMin)) + 'vh';
-
-  // ความเร็วเคลื่อนที่เล็กๆ (optional เคลื่อนนิดหน่อย)
-  el.animate(
-    [{ transform:'translateY(0)' }, { transform:'translateY(-6px)' }, { transform:'translateY(0)' }],
-    { duration: 1200, iterations: Infinity }
-  );
-}
-
-const timers = { spawn:0, tick:0 };
-
+let _spTimer=null;
 function spawnLoop(){
   if(!state.running) return;
-
   const base = DIFFS[state.difficulty] || DIFFS.Normal;
-  const hits = state.ctx.hits||0, miss=state.ctx.miss||0;
-  const acc  = hits>0 ? (hits/Math.max(1,hits+miss)) : 1;
-  const tune = acc>0.80 ? 0.90 : (acc<0.50 ? 1.10 : 1.00);
-
-  const dyn = {
-    ...base,
-    spawn: clamp(Math.round(base.spawn*tune), 240, 2000),
-    life:  clamp(Math.round(base.life /tune),  800, 8000)
-  };
-
-  spawnOnce(dyn);
-
-  // ยิ่งคะแนนสูง ยิ่งถี่ขึ้นเล็กน้อย
-  const accel = Math.max(0.5, 1 - (score.score/400));
-  const next  = Math.max(200, dyn.spawn * accel * (power.timeScale || 1));
-  timers.spawn = setTimeout(spawnLoop, next);
+  const accel = Math.max(0.55, 1 - (score.score/500));
+  const next  = Math.max(220, (base.spawn||700) * accel * (power.timeScale||1));
+  spawnOnce();
+  _spTimer = setTimeout(spawnLoop, next);
 }
+
+// for quick debugging in console
+window.__spawnTest = function(n=6){
+  let i=0; const id=setInterval(()=>{ if(i++>=n){clearInterval(id);return;} spawnOnce(); }, 180);
+  console.info('[__spawnTest]', n);
+};
 
 // ===== Start / Loop / End =====
 export function start(opt={}){
@@ -184,7 +179,8 @@ export function start(opt={}){
   updateHUD();
 
   // main tick + spawn
-  tick(); spawnLoop();
+  tick();
+  spawnLoop(); // ✅ สำคัญมาก ต้องมี
 }
 window.start = start;
 
@@ -199,12 +195,12 @@ function tick(){
   // หมดเวลา
   if(state.timeLeft<=0){ end(); return; }
 
-  timers.tick = setTimeout(tick, 1000);
+  setTimeout(tick, 1000);
 }
 
 export function end(silent=false){
   state.running=false;
-  clearTimeout(timers.spawn); clearTimeout(timers.tick);
+  clearTimeout(_spTimer);
 
   // ซ่อน Hydration actions เมื่อจบ
   const hydUI=document.getElementById('hydrationActions');
@@ -227,10 +223,22 @@ document.addEventListener('click', (e)=>{
   const a = btn.getAttribute('data-action');
   const v = btn.getAttribute('data-value');
 
-  if(a==='mode'){ state.modeKey = v; }
-  if(a==='diff'){ state.difficulty = v; }
+  if(a==='mode'){
+    state.modeKey = v;
+    // อัปเดต label ให้ชัด
+    const mapTH = { goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ' };
+    document.getElementById('modeName')?.textContent = mapTH[v] || v;
+  }
+  if(a==='diff'){
+    state.difficulty = v;
+    const mapTH = { Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก' };
+    document.getElementById('difficulty')?.textContent = mapTH[v] || v;
+  }
   if(a==='start'){ if(window.preStartFlow) window.preStartFlow(); else start({demoPassed:true}); }
-  if(a==='pause'){ state.running = !state.running; if(state.running){ tick(); spawnLoop(); } }
+  if(a==='pause'){
+    state.running = !state.running;
+    if(state.running){ tick(); spawnLoop(); }
+  }
   if(a==='restart'){ end(true); start({demoPassed:true}); }
   if(a==='help'){ /* help handled in ui.js */ }
 });
