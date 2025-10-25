@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- ปรับตามโฮสต์จริงของคุณ -->
+  <!-- ปรับตามโฮสต์จริง -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
@@ -24,7 +24,7 @@
   <!-- Render Surface -->
   <canvas id="c"></canvas>
 
-  <!-- HUD (คะแนน/คอมโบ/เวลา + Fever Bar + Target + Plate + Hydration) -->
+  <!-- HUD -->
   <section class="hud">
     <div>
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
@@ -37,19 +37,22 @@
       <div id="feverBar" style="width:0%"></div>
     </div>
 
-    <!-- เป้าหมายหมวดอาหาร (โหมด groups/plate) -->
+    <!-- ✅ ภารกิจสุ่มต่อรอบ -->
+    <div id="missionLine" style="display:none; font-weight:800;">—</div>
+
+    <!-- เป้าหมายหมวดอาหาร -->
     <div id="targetWrap" style="display:none">
       🎯 <span id="t_target">หมวด</span>:
       <span id="targetBadge">—</span>
     </div>
 
-    <!-- โควตาอาหาร (โหมด plate) -->
+    <!-- โควตาอาหาร / จัดจานสุขภาพ -->
     <div id="plateTracker" style="display:none">
       🍱 <span id="t_quota">โควตา</span>:
       <span id="platePills"></span>
     </div>
 
-    <!-- สมดุลน้ำ (โหมด hydration) -->
+    <!-- สมดุลน้ำ -->
     <div id="hydroWrap" style="display:none">
       💧 <span id="t_hydro">สมดุลน้ำ</span>:
       <span id="hydroLabel">—</span>
@@ -60,7 +63,7 @@
     <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
-  <!-- โค้ช (ข้อความแนะนำ/ให้กำลังใจ) -->
+  <!-- โค้ช -->
   <div id="coachHUD" class="coach" style="display:none">
     <div id="coachText">...</div>
   </div>
@@ -116,14 +119,14 @@
     </div>
   </div>
 
-  <!-- SFX (ต้องมี id ตาม SFX class ใช้) -->
+  <!-- SFX -->
   <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
   <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
   <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
 
-  <!-- แจ้งเตือนเมื่อ main.js ไม่โหลด -->
+  <!-- เตือนเมื่อ main.js ไม่โหลด -->
   <script>
     (function(){
       const w=document.createElement('div');
