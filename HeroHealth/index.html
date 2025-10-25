@@ -5,34 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- ✅ Base Path สำหรับ GitHub Pages -->
+  <!-- (ยังคง base เดิมไว้ได้ แต่เราไม่พึ่ง base ในการโหลด main.js แล้ว) -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
-  <!-- ✅ Styles -->
   <link rel="stylesheet" href="styles/game.css" />
-
   <style>
-    /* ===== HUD + MENU ให้ชัดขึ้นและอยู่บนสุดเสมอ ===== */
-    #c { pointer-events: none; z-index: 1; position: fixed; inset: 0; }
-    .hud, .menu, .coach, .modal { pointer-events: auto; z-index: 200; }
-    .hud {
-      font-size: 18px; font-weight: 800;
-      background: rgba(0,0,0,0.3); border-radius: 10px;
-      padding: 6px 10px; text-shadow: 0 2px 6px #000;
-    }
-    .menu { bottom: 10px; left: 10px; right: auto; max-width: 500px; }
-    .item { font-size: 48px !important; }
-    #statusLine {
-      position: fixed; top: 80px; left: 50%;
-      transform: translateX(-50%);
-      background: rgba(0,0,0,0.4);
-      border-radius: 8px; padding: 6px 12px;
-      font-weight: 900; color: #fff; z-index: 300;
+    /* กัน canvas บังคลิก + ดัน HUD/เมนูให้อยู่บนสุดให้ชัด */
+    #c{position:fixed;inset:0;z-index:1;pointer-events:none}
+    .hud,.menu,.modal,.coach,.item{z-index:200;pointer-events:auto}
+    .hud{font-size:18px;font-weight:800;text-shadow:0 2px 6px #000}
+    .item{font-size:48px}
+    #statusLine{
+      position:fixed;top:76px;left:50%;transform:translateX(-50%);
+      background:rgba(0,0,0,.45);color:#fff;padding:6px 12px;border-radius:10px;
+      font-weight:900;z-index:300
     }
   </style>
 </head>
 <body>
-  <!-- Header -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
@@ -41,30 +31,18 @@
     <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
   </header>
 
-  <!-- Canvas -->
   <canvas id="c"></canvas>
 
-  <!-- HUD -->
   <section class="hud">
-    <div>
-      คะแนน: <b id="score">0</b> |
-      คอมโบ: <b id="combo">x0</b> |
-      เวลา: <b id="time">60</b>s
-    </div>
-    <div id="feverBarWrap" class="bar slim">
-      <div id="feverBar" style="width:0%"></div>
-    </div>
+    <div>คะแนน: <b id="score">0</b> | คอมโบ: <b id="combo">x0</b> | เวลา: <b id="time">60</b>s</div>
+    <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
     <div id="missionLine" style="display:none;">—</div>
   </section>
 
   <div id="statusLine">โหมด: ดี vs ขยะ • ความยาก: ปกติ</div>
 
-  <!-- Coach -->
-  <div id="coachHUD" class="coach" style="display:none">
-    <div id="coachText">...</div>
-  </div>
+  <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
-  <!-- Menu -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
@@ -85,43 +63,48 @@
     </div>
   </section>
 
-  <!-- Help Modal -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
-      <h3>วิธีเล่น</h3>
+      <h3 id="h_help">วิธีเล่น</h3>
       <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
-      <button id="btn_ok" class="btn">โอเค</button>
+      <button class="btn" id="btn_ok">โอเค</button>
     </div>
   </div>
 
-  <!-- Result Modal -->
   <div id="result" class="modal" style="display:none">
     <div class="card">
       <h3>สรุปผล</h3>
       <div id="resCore"></div>
-      <div style="margin-top:12px; display:flex; gap:8px;">
-        <button id="btn_replay" class="btn">↻ เล่นอีกครั้ง</button>
-        <button id="btn_home" class="btn">🏠 หน้าหลัก</button>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn" id="btn_replay">↻ เล่นอีกครั้ง</button>
+        <button class="btn" id="btn_home">🏠 หน้าหลัก</button>
       </div>
     </div>
   </div>
 
-  <!-- Sound -->
+  <!-- SFX -->
   <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
   <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-  <!-- Scripts -->
-  <script type="module" src="game/main.js"></script>
+  <!-- ✅ โหลด main.js ด้วย URL เต็ม เพื่อกันพลาด base -->
+  <script type="module" src="https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js"></script>
 
-  <!-- Fallback -->
+  <!-- Fallback แจ้ง error + log URL ที่ browser แกะ -->
   <script>
     (function(){
       const w=document.createElement('div');
+      w.id='bootWarn';
+      w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;display:none';
       w.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
-      w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px;font-weight:700;display:none;z-index:9999';
       document.body.appendChild(w);
-      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } },2000);
+      setTimeout(()=>{
+        if(!window.__HHA_BOOT_OK){
+          w.style.display='block';
+          console.warn('[BootWarn] baseURI =', document.baseURI);
+          console.warn('[BootWarn] expected =', 'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js');
+        }
+      }, 2000);
     })();
   </script>
     <!-- เพิ่มระบบ “วิธีเล่นต่อโหมด” -->
