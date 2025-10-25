@@ -14,19 +14,16 @@ const GROUPS = {
 const GROUP_KEYS = Object.keys(GROUPS);
 const pick = (arr)=>arr[(Math.random()*arr.length)|0];
 
-// ระยะเวลาพาวเวอร์อัป
 const DUAL_DURATION   = { Easy:10, Normal:12, Hard:14 }; // วินาที
-const SCOREX2_SECONDS = 7;                                // วินาที
-const FREEZE_SECONDS  = 2;                                // วินาที
+const SCOREX2_SECONDS = 7;
+const FREEZE_SECONDS  = 2;
 
-// โอกาสเกิด power-up ต่อสแปวน์ 1 ครั้ง (รวมทุกชนิด)
 const POWERUP_RATE  = { Easy:0.09, Normal:0.11, Hard:0.13 };
-// สัดส่วนสุ่มแต่ละชนิดภายใน POWERUP_RATE
 const POWERUP_MIX = [
-  { type:'powerup_dual',       weight:4, icon:'✨' },
+  { type:'powerup_dual',       weight:4, icon:'✨'  },
   { type:'powerup_scorex2',    weight:3, icon:'✖️2' },
-  { type:'powerup_freeze',     weight:2, icon:'🧊' },
-  { type:'powerup_rotate_now', weight:2, icon:'🔄' },
+  { type:'powerup_freeze',     weight:2, icon:'🧊'  },
+  { type:'powerup_rotate_now', weight:2, icon:'🔄'  },
 ];
 
 /* =========================
@@ -43,7 +40,6 @@ function setTargetHUD(state, hud){
   let text = keys.map(k=>labelOf(k, lang)).join(' + ');
   if (!text) text = '—';
 
-  // ต่อท้ายสถานะพาวเวอร์อัปบนป้ายเดียวกันเพื่อเป็น “เกจข้อความ”
   const tags = [];
   if (gctx.dualRemain>0)    tags.push(`DUAL ${pad(gctx.dualRemain)}s`);
   if (gctx.scorex2Remain>0) tags.push(`x2 ${pad(gctx.scorex2Remain)}s`);
@@ -68,22 +64,18 @@ function rotateSingleTarget(exceptA, exceptB){
   return pick(pool.length?pool:GROUP_KEYS);
 }
 function targetChanceByDiff(diffKey){
-  if(diffKey==='Easy')   return 0.45;
-  if(diffKey==='Hard')   return 0.65;
+  if(diffKey==='Easy') return 0.45;
+  if(diffKey==='Hard') return 0.65;
   return 0.55;
 }
 function isOnTarget(groupKey, gctx){
   return groupKey === gctx.target1 || (!!gctx.target2 && groupKey === gctx.target2);
 }
 function pad(n){ n|=0; return n<10?('0'+n):(''+n); }
-
-// สุ่มชนิด power-up ตามสัดส่วน
 function rollPowerup(){
   const total = POWERUP_MIX.reduce((s,x)=>s+x.weight,0);
   let r = Math.random()*total;
-  for (const it of POWERUP_MIX){
-    if ((r-=it.weight) <= 0) return it;
-  }
+  for (const it of POWERUP_MIX){ if ((r-=it.weight) <= 0) return it; }
   return POWERUP_MIX[0];
 }
 
@@ -93,14 +85,12 @@ function rollPowerup(){
 export function init(state, hud, diff){
   state.ctx = state.ctx || {};
   state.ctx.groups = {
-    target1: rotateSingleTarget(), // สุ่มเป้าแรก
+    target1: rotateSingleTarget(),
     target2: null,
     targetHits: 0,
-    // timers
     dualRemain: 0,
     scorex2Remain: 0,
     freezeRemain: 0,
-    // mission (45s window)
     mission: newMissionWindow(state)
   };
   setTargetHUD(state, hud);
@@ -125,16 +115,16 @@ export function tick(state, sys, hud){
     }
   }
 
-  // ===== Timers: Dual / Scorex2 / Freeze =====
+  // ===== Timers =====
   let needUpdateHUD = false;
 
-  if (gctx.dualRemain > 0){ gctx.dualRemain--; needUpdateHUD = true;
+  if (gctx.dualRemain > 0){
+    gctx.dualRemain--; needUpdateHUD = true;
     if (gctx.dualRemain === 0){ gctx.target2 = null; coach?.say?.(state.lang==='TH'?'หมดพลัง Dual':'Dual over'); }
   }
   if (gctx.scorex2Remain > 0){ gctx.scorex2Remain--; needUpdateHUD = true; }
-  if (gctx.freezeRemain > 0){ 
-    gctx.freezeRemain--; needUpdateHUD = true; 
-    // เมื่อ freeze เหลือ 0 → คืน timeScale
+  if (gctx.freezeRemain > 0){
+    gctx.freezeRemain--; needUpdateHUD = true;
     if (gctx.freezeRemain === 0 && power){
       power.timeScale = 1;
       coach?.say?.(state.lang==='TH'?'เลิก Freeze':'Freeze over');
@@ -147,7 +137,8 @@ export function tick(state, sys, hud){
 
 export function pickMeta(diff, state){
   const gctx = state.ctx?.groups || {};
-  // ลุ้น power-up
+
+  // power-up roll
   if (Math.random() < (POWERUP_RATE[state.difficulty] || 0.1)){
     const p = rollPowerup();
     return {
@@ -157,7 +148,7 @@ export function pickMeta(diff, state){
     };
   }
 
-  // ไอเท็มอาหาร
+  // food item
   const useDual = !!gctx.target2;
   const wantTarget = Math.random() < targetChanceByDiff(state.difficulty);
 
@@ -173,10 +164,7 @@ export function pickMeta(diff, state){
   const char = pick(GROUPS[groupKey].em);
   const life = (diff?.life ?? 3000);
   return {
-    type:'food',
-    char,
-    life,
-    groupKey,
+    type:'food', char, life, groupKey,
     good: isOnTarget(groupKey, gctx)
   };
 }
@@ -186,13 +174,13 @@ export function onHit(meta, sys, state, hud){
   const lang = state.lang || 'TH';
   const gctx = state.ctx?.groups;
 
-  // ===== Power-ups =====
+  // ==== power-ups ====
   if (meta.type === 'powerup_dual'){
     gctx.target2 = rotateSingleTarget(gctx.target1);
     gctx.dualRemain = DUAL_DURATION[state.difficulty] || 12;
     setTargetHUD(state, hud);
     fx?.popText?.('DUAL TARGET!', { color:'#ffd54a' });
-    sfx?.power?.(); coach?.say?.(lang==='TH'?'เป้า ×2 ชั่วคราว!':'Dual targets!');
+    sfx?.powerup?.(); coach?.say?.(lang==='TH'?'เป้า ×2 ชั่วคราว!':'Dual targets!');
     score?.add?.(3);
     return;
   }
@@ -200,20 +188,18 @@ export function onHit(meta, sys, state, hud){
     gctx.scorex2Remain = SCOREX2_SECONDS;
     setTargetHUD(state, hud);
     fx?.popText?.('SCORE ×2', { color:'#b0ff66' });
-    sfx?.power?.(); coach?.say?.(lang==='TH'?'คะแนน x2 ชั่วคราว!':'Score x2!');
+    sfx?.powerup?.(); coach?.say?.(lang==='TH'?'คะแนน x2 ชั่วคราว!':'Score x2!');
     return;
   }
   if (meta.type === 'powerup_freeze'){
     gctx.freezeRemain = FREEZE_SECONDS;
-    // ชะลอสแปวน์โดยใช้ power.timeScale (main.js ใช้ตัวนี้คูณ interval แล้ว)
-    if (power) power.timeScale = 99;   // แทบหยุดเกิดสิ่งของ 2 วิ
+    if (power) power.timeScale = 99; // ชะลอการ spawn ชั่วคราว
     setTargetHUD(state, hud);
     fx?.popText?.('FREEZE!', { color:'#66e0ff' });
-    sfx?.power?.(); coach?.say?.(lang==='TH'?'แช่แข็ง!':'Freeze!');
+    sfx?.powerup?.(); coach?.say?.(lang==='TH'?'แช่แข็ง!':'Freeze!');
     return;
   }
   if (meta.type === 'powerup_rotate_now'){
-    // เปลี่ยน target ทันที (ถ้ามี dual, หมุนเฉพาะ target1)
     gctx.target1 = rotateSingleTarget(gctx.target1, gctx.target2);
     setTargetHUD(state, hud);
     fx?.popText?.('ROTATE!', { color:'#ffdd66' });
@@ -221,12 +207,9 @@ export function onHit(meta, sys, state, hud){
     return;
   }
 
-  // ===== Food =====
-  if (meta.type !== 'food'){
-    score?.add?.(1); fx?.popText?.('+1', { color:'#8ff' }); return;
-  }
+  // ==== food ====
+  if (meta.type !== 'food'){ score?.add?.(1); fx?.popText?.('+1', { color:'#8ff' }); return; }
 
-  // ค่าคูณคะแนน (หากมี)
   const mul = (gctx.scorex2Remain>0) ? 2 : 1;
 
   if (meta.good){
@@ -236,14 +219,11 @@ export function onHit(meta, sys, state, hud){
     fx?.popText?.(`+${add}`, { color: mul>1 ? '#ccff88' : '#7fffd4' });
     sfx?.good?.();
     coach?.say?.(lang==='TH'?'เข้าเป้า!':'On target!');
-
-    // นับเพื่อหมุนเป้า
     gctx.targetHits = (gctx.targetHits||0) + 1;
+
     if (gctx.mission && !gctx.mission.done && gctx.mission.kind==='collect_target'){
       gctx.mission.progress++;
     }
-
-    // ทุก 3 ชิ้นเข้าเป้า -> หมุน target1 (target2 คงเดิมถ้า dual ยังทำงาน)
     if (gctx.targetHits >= 3){
       gctx.target1 = rotateSingleTarget(gctx.target1, gctx.target2);
       gctx.targetHits = 0;
@@ -252,7 +232,7 @@ export function onHit(meta, sys, state, hud){
     return;
   }
 
-  // ถูกหมู่แต่ไม่ใช่เป้า
+  // ถูกหมวดแต่ไม่ใช่เป้า
   if (GROUPS[meta.groupKey]){
     const add = 2 * mul;
     score?.add?.(add);
@@ -276,14 +256,7 @@ export function onHit(meta, sys, state, hud){
 function newMissionWindow(state){
   const byDiff = { Easy: 6, Normal: 8, Hard: 10 };
   const need = byDiff[state.difficulty] ?? 8;
-  return {
-    kind: 'collect_target',
-    need,
-    progress: 0,
-    remain: 45,
-    done: false,
-    fail: false
-  };
+  return { kind:'collect_target', need, progress:0, remain:45, done:false, fail:false };
 }
 function updateMissionHUD(state){
   const gctx = state.ctx?.groups;
@@ -297,13 +270,14 @@ function updateMissionHUD(state){
   const lbl = lang==='TH' ? 'ตรงเป้า' : 'on target';
   setMissionLine(`🎯 ${lbl} ${m.progress}/${m.need} • ${m.remain|0}s`);
 }
-// สมมติว่ามี init/pickMeta/onHit/tick ของเดิมอยู่แล้ว
 
+/* =========================
+   5) Cleanup (optional)
+   ========================= */
 export function cleanup(state, hud){
-  try{ hud.hideTarget?.(); }catch{}
-  const badge = document.getElementById('targetBadge');
-  if (badge) badge.textContent = '—';
-  if (state && state.ctx){
+  try{ hud?.hideTarget?.(); }catch{}
+  const badge = document.getElementById('targetBadge'); if (badge) badge.textContent = '—';
+  if (state?.ctx){
     state.ctx.target = null;
     state.ctx.targetHitsTotal = 0;
     state.ctx.wrongGroup = 0;
