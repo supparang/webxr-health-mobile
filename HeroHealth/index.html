@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- base ยังอยู่เพื่อ asset อื่น ๆ แต่ loader ใหม่นี้ไม่พึ่ง base -->
   <base href="/webxr-health-mobile/HeroHealth/">
-
   <link rel="stylesheet" href="styles/game.css" />
 
   <style>
@@ -15,14 +13,13 @@
     .hud,.menu,.modal,.coach,.item{z-index:200;pointer-events:auto}
     .hud{font-size:18px;font-weight:800;text-shadow:0 2px 6px #000}
     .item{font-size:56px;min-width:56px;min-height:56px}
-    #statusLine{
-      position:fixed;top:76px;left:50%;transform:translateX(-50%);
+    #statusLine{position:fixed;top:76px;left:50%;transform:translateX(-50%);
       background:rgba(0,0,0,.45);color:#fff;padding:6px 12px;border-radius:10px;
-      font-weight:900;z-index:300
-    }
-    /* แถบเตือน */
+      font-weight:900;z-index:300}
     #bootWarn{position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;
       padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap}
+    #devStub{position:fixed;left:12px;bottom:12px;background:#242a;color:#fff;
+      border:1px solid #444;padding:10px 12px;border-radius:10px;z-index:950;display:none}
   </style>
 </head>
 <body>
@@ -40,8 +37,6 @@
     <div>คะแนน: <b id="score">0</b> | คอมโบ: <b id="combo">x0</b> | เวลา: <b id="time">60</b>s</div>
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
     <div id="missionLine" style="display:none;">—</div>
-
-    <!-- ส่วนเสริมของโหมด -->
     <div id="targetWrap" style="display:none"></div>
     <div id="plateTracker" style="display:none"></div>
     <div id="hydroWrap" style="display:none">
@@ -65,6 +60,7 @@
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
       <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
+      <span class="modeLabel"><span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> • <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b></span>
     </div>
     <div class="row">
       <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
@@ -93,36 +89,35 @@
     </div>
   </div>
 
-  <!-- SFX -->
-  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
+  <audio id="sfx-good"    preload="auto" src="assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"     preload="auto" src="assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-  <!-- แถบเตือน -->
-  <div id="bootWarn">⚠️ โหลดสคริปต์ไม่สำเร็จ: กำลังลอง URL อื่น…</div>
+  <div id="bootWarn"></div>
+  <div id="devStub">⚠️ โหมดฉุกเฉิน: main.js ไม่ได้ถูกเสิร์ฟจาก Pages<br>UI/ปุ่ม/วิธีเล่นทำงานแบบจำลองชั่วคราว</div>
 
-  <!-- 🔁 Dynamic loader: ลองหลาย URL เพื่อให้แน่ใจว่า main.js เข้าถึงได้ -->
+  <!-- Loader: ลองหลายที่ + เปิด dev stub ถ้าไม่พบ -->
   <script type="module">
     (async () => {
-      // รีเซ็ต flag (main.js จะตั้งให้เป็น true ทันทีที่รัน)
       window.__HHA_BOOT_OK = false;
-
-      const candidates = [
-        // Absolute (ทางหลักที่ควรใช้บน GitHub Pages)
-        'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js',
-        // Relative (เผื่อเปิดผ่าน live server/โฮสต์อื่น)
-        'game/main.js',
-        './game/main.js',
-        '/webxr-health-mobile/HeroHealth/game/main.js'
-      ];
-
       const tried = [];
+      const candidates = [
+        // ตำแหน่งที่ควรมีจริง
+        'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js',
+        // ทางเลือกทั่วไป
+        'game/main.js','./game/main.js','/webxr-health-mobile/HeroHealth/game/main.js',
+        // ชื่อทางเลือก
+        'game/index.js','game/bundle.js','game/main.mjs','game/app.js',
+        // โครงสร้าง build ทั่วไป
+        'dist/main.js','dist/assets/index.js','assets/index.js'
+      ];
+      const warn = document.getElementById('bootWarn');
+
       for (const url of candidates) {
         try {
           tried.push(url);
-          await import(url + '?v=' + Date.now()); // bust cache
-          // สำเร็จ: ให้ซ่อนแจ้งเตือนแล้วจบ loop
-          document.getElementById('bootWarn').style.display = 'none';
+          await import(url + '?v=' + Date.now());
+          warn.style.display = 'none';
           console.log('[Loader] OK:', url);
           return;
         } catch (e) {
@@ -130,13 +125,60 @@
         }
       }
 
-      // ถ้าถึงตรงนี้คือโหลดไม่ได้ทุกทาง -> แสดงรายละเอียด debug
-      const warn = document.getElementById('bootWarn');
+      // ถ้าไม่มีไฟล์จริง -> เปิด dev stub ให้ใช้งานได้บางส่วน
+      warn.textContent = '⚠️ โหลดสคริปต์ไม่สำเร็จ\nลอง URL เหล่านี้แล้วไม่สำเร็จ:\n- ' + tried.join('\n- ') + '\nโปรดตรวจสอบพาธ/ตัวพิมพ์ใหญ่-เล็ก และว่าถูก publish จริงบน Pages';
       warn.style.display = 'block';
-      warn.textContent =
-        '⚠️ โหลดสคริปต์ไม่สำเร็จ\n' +
-        'ลอง URL เหล่านี้แล้วไม่สำเร็จ:\n- ' + tried.join('\n- ') +
-        '\nโปรดตรวจสอบว่าไฟล์อยู่ที่ path นั้นจริง (ตัวพิมพ์เล็ก/ใหญ่ต้องตรง) และเปิดด้วย HTTPS';
+      document.getElementById('devStub').style.display='block';
+
+      // === Dev stub: ทำให้ Start/Help/Replay ใช้งานได้ และมีของให้คลิกเล่นชั่วคราว ===
+      const $ = (s)=>document.querySelector(s);
+      const $$= (s)=>document.querySelectorAll(s);
+      let running=false, timeLeft=60, score=0, combo=0, spawnId=0, tickId=0;
+
+      function setHUD(){ $('#score').textContent=score; $('#combo').textContent='x'+combo; $('#time').textContent=timeLeft; }
+      function place(el){ el.style.left=(8+Math.random()*84)+'vw'; el.style.top=(18+Math.random()*70)+'vh'; }
+      function spawn(){
+        if(!running) return;
+        const b=document.createElement('button');
+        b.className='item'; b.textContent=Math.random()<0.7?'🍎':'🍔';
+        b.style.position='fixed'; b.style.zIndex='220';
+        b.style.minWidth='56px'; b.style.minHeight='56px';
+        place(b);
+        b.onclick=()=>{ if(b.textContent==='🍎'){ score+=5; combo++; } else { score-=3; combo=0; } setHUD(); b.remove(); };
+        document.body.appendChild(b);
+        setTimeout(()=>b.remove(), 2800);
+        spawnId=setTimeout(spawn, 700);
+      }
+      function tick(){
+        if(!running) return;
+        timeLeft--; setHUD();
+        if(timeLeft<=0){ end(); return; }
+        tickId=setTimeout(tick,1000);
+      }
+      function start(){
+        end(true); running=true; timeLeft=60; score=0; combo=0; setHUD(); spawn(); tick();
+        $('#statusLine').textContent='โหมด: (dev stub) • ความยาก: ปกติ';
+      }
+      function end(silent=false){
+        running=false; clearTimeout(spawnId); clearTimeout(tickId);
+        $$('.item').forEach(el=>el.remove());
+        if(!silent){ $('#resCore').innerHTML=`<p>(dev stub)</p><p>คะแนน: <b>${score}</b> • คอมโบ: <b>x${combo}</b></p>`; $('#result').style.display='flex'; }
+      }
+
+      document.addEventListener('click',(e)=>{
+        const btn=e.target.closest('#menuBar button'); if(!btn) return;
+        const a=btn.dataset.action;
+        if(a==='start') start();
+        if(a==='pause'){ running=!running; if(running){ spawn(); tick(); } }
+        if(a==='restart'){ start(); }
+        if(a==='help'){ $('#help').style.display='flex'; }
+      });
+      $('#btn_ok')?.addEventListener('click',()=>$('#help').style.display='none'));
+      $('#btn_replay')?.addEventListener('click',()=>{ $('#result').style.display='none'; start(); });
+      $('#btn_home')?.addEventListener('click',()=>{ $('#result').style.display='none'; });
+
+      // ป้องกัน canvas บังคลิก
+      const c=document.getElementById('c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
     })();
   </script>
 </body>
