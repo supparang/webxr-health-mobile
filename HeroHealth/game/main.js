@@ -18,7 +18,6 @@ import * as plate from './modes/plate.js';
 
 // ===== Utils =====
 const qs = (s)=>document.querySelector(s);
-const now = ()=>performance.now?.() ?? Date.now();
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
 // ===== Systems =====
@@ -42,19 +41,35 @@ const DIFFS = {
   Hard:{ time:50, spawn:550, life:1900 }
 };
 
-// ===== HUD =====
+// ===== Names (TH) =====
+const MODE_NAME_TH = {
+  goodjunk: 'ดี vs ขยะ',
+  groups: 'จาน 5 หมู่',
+  hydration: 'สมดุลน้ำ',
+  plate: 'จัดจานสุขภาพ'
+};
+
+// ===== HUD helpers =====
 function updateHUD(){
-  qs('#score').textContent = score.score|0;
-  qs('#combo').textContent = 'x'+(score.combo||0);
-  qs('#time').textContent = state.timeLeft|0;
+  const sc=qs('#score'), cb=qs('#combo'), tm=qs('#time');
+  if(sc) sc.textContent = score.score|0;
+  if(cb) cb.textContent = 'x'+(score.combo||0);
+  if(tm) tm.textContent = state.timeLeft|0;
+}
+function updateStatusLine(){
+  const el = qs('#statusLine');
+  if(!el) return;
+  const modeName = MODE_NAME_TH[state.modeKey] || state.modeKey;
+  el.textContent = `โหมด: ${modeName} • ความยาก: ${state.difficulty}`;
 }
 
-// ===== Item =====
+// ===== Item Pool =====
 const _pool=[]; const POOL_MAX=48;
 function createItem(){
   const b=document.createElement('button');
   b.className='item'; b.type='button';
-  b.style.position='fixed'; b.style.zIndex='100';
+  b.style.position='fixed';
+  b.style.zIndex='120';        // สูงกว่า canvas/พื้นหลัง
   b.style.minWidth='48px'; b.style.minHeight='48px';
   b.style.pointerEvents='auto';
   return b;
@@ -63,26 +78,29 @@ function getItemEl(){ return _pool.pop() || createItem(); }
 function releaseItemEl(el){ el.onclick=null; el.remove(); if(_pool.length<POOL_MAX)_pool.push(el); }
 
 // ===== Spawner =====
+function place(el,diff){
+  el.style.left=(8+Math.random()*84)+'vw';
+  el.style.top =(18+Math.random()*70)+'vh';  // เว้นหัว/เมนู
+  el.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],
+             {duration:1200,iterations:Infinity});
+}
 function spawnOnce(diff){
   const mode = MODES[state.modeKey];
-  if(!mode || !mode.pickMeta){ console.warn('no pickMeta'); return; }
+  if(!mode || !mode.pickMeta){ return; }
   const meta = mode.pickMeta(diff,state);
+
   const el = getItemEl();
   el.textContent = meta.char || '?';
   place(el,diff);
+
   el.onclick = ()=>{ 
     mode.onHit?.(meta,{score,sfx,fx,power,coach},state,hud);
     releaseItemEl(el);
     updateHUD();
   };
+
   document.body.appendChild(el);
-  setTimeout(()=>releaseItemEl(el),meta.life||diff.life);
-}
-function place(el,diff){
-  el.style.left=(8+Math.random()*84)+'vw';
-  el.style.top =(16+Math.random()*70)+'vh';
-  el.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],
-             {duration:1200,iterations:Infinity});
+  setTimeout(()=>releaseItemEl(el), meta.life || diff.life);
 }
 
 const timers={spawn:0,tick:0};
@@ -97,10 +115,15 @@ function spawnLoop(){
 // ===== Game Loop =====
 export function start(opt={}){
   end(true);
-  const diff=DIFFS[state.difficulty];
+  const diff=DIFFS[state.difficulty] || DIFFS.Normal;
   state.running=true; state.timeLeft=diff.time; score.reset();
+  // ให้ HUD/Status โผล่ชัดและอยู่บนสุดเสมอ
+  forceUILayers();
+  updateStatusLine();
+
   MODES[state.modeKey]?.init?.(state,hud,diff);
-  updateHUD(); coach.say('เริ่มเกม!'); tick(); spawnLoop();
+  updateHUD(); coach.say('เริ่มเกม!');
+  tick(); spawnLoop();
 }
 function tick(){
   if(!state.running)return;
@@ -112,28 +135,42 @@ function tick(){
 export function end(silent=false){
   state.running=false; clearTimeout(timers.spawn); clearTimeout(timers.tick);
   if(!silent){
-    qs('#resCore').innerHTML=`<p>คะแนน: <b>${score.score|0}</b></p>`;
-    qs('#result').style.display='flex';
+    const core=qs('#resCore');
+    if(core) core.innerHTML = `<p>โหมด: <b>${MODE_NAME_TH[state.modeKey]||state.modeKey}</b></p>
+                               <p>ความยาก: <b>${state.difficulty}</b></p>
+                               <p>คะแนน: <b>${score.score|0}</b> • คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>`;
+    const res=qs('#result'); if(res) res.style.display='flex';
     coach.say('เยี่ยมมาก!');
   }
 }
 
-// ===== Event Bindings =====
+// ===== Events =====
 document.addEventListener('click',(e)=>{
   const btn=e.target.closest('#menuBar button'); if(!btn)return;
   const a=btn.dataset.action,v=btn.dataset.value;
-  if(a==='mode')state.modeKey=v;
-  if(a==='diff')state.difficulty=v;
-  if(a==='start')start();
+  if(a==='mode'){ state.modeKey=v; updateStatusLine(); }
+  if(a==='diff'){ state.difficulty=v; updateStatusLine(); }
+  if(a==='start') start();
   if(a==='pause'){ state.running=!state.running; if(state.running){tick();spawnLoop();}}
   if(a==='restart'){ end(true); start(); }
-  if(a==='help')qs('#help').style.display='flex';
+  if(a==='help'){ const h=qs('#help'); if(h) h.style.display='flex'; }
 });
 qs('#btn_ok')?.addEventListener('click',()=>qs('#help').style.display='none');
 qs('#btn_home')?.addEventListener('click',()=>qs('#result').style.display='none');
 
-// ===== Prevent Canvas Overlay =====
-const c=document.getElementById('c');
-if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+// ===== Keep HUD above & clickable =====
+function forceUILayers(){
+  const c=document.getElementById('c');
+  if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+  // ย้ำชั้น UI ทั้งหมด
+  ['hud','menu','modal','coach','item'].forEach(cls=>{
+    document.querySelectorAll('.'+cls).forEach(el=>{
+      el.style.pointerEvents='auto';
+      el.style.zIndex = Math.max(120, parseInt(getComputedStyle(el).zIndex||'0',10));
+    });
+  });
+}
+forceUILayers();
+updateStatusLine(); // อัปเดตครั้งแรกที่ยังไม่เริ่มเกม
 
 window.start=start; window.end=end;
