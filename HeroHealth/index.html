@@ -190,5 +190,16 @@
       จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
     </div>
   </noscript>
+  <!-- Help Scene (รวมทุกเกม) -->
+<div id="helpScene" class="modal" style="display:none">
+  <div class="card" style="max-width:960px; width:90%;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <h3 id="hs_title" style="margin:0">คู่มือรวม</h3>
+      <button class="btn" data-action="helpSceneClose" id="btn_helpSceneClose" type="button">✖ ปิด</button>
+    </div>
+    <div id="hs_body" class="hs-grid" style="margin-top:12px;"></div>
+  </div>
+</div>
+
 </body>
 </html>
