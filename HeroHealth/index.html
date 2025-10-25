@@ -5,56 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
+  <!-- ชี้โฟลเดอร์ HeroHealth บน GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
   <link rel="stylesheet" href="styles/game.css" />
 
   <style>
-    #c { pointer-events: none; z-index: 1; }
+    /* Canvas ไม่บังคลิก */
+    #c { pointer-events:none; z-index:1; }
 
-    /* HUD ตรึงมุมซ้ายบน */
+    /* HUD มุมซ้ายบน ชัด */
     .hud{
-      position: fixed; top: 56px; left: 12px;
-      display: flex; flex-direction: column; gap: 8px;
-      z-index: 120; text-shadow: 0 2px 8px rgba(0,0,0,.6);
+      position:fixed; top:56px; left:12px;
+      display:flex; flex-direction:column; gap:8px;
+      z-index:120; text-shadow:0 2px 8px rgba(0,0,0,.6);
     }
-    .hud-line, #statusLine{
-      background: rgba(8,10,20,.62);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 10px; padding: 8px 12px;
-      font-weight: 900; color: #fff;
+    .hud-line,#statusLine{
+      background:rgba(8,10,20,.62);
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:10px; padding:8px 12px; font-weight:900; color:#fff;
     }
 
     /* เมนูตรึงล่างซ้าย */
     .menu{
-      position: fixed; bottom: 12px; left: 12px; right: auto;
-      background: rgba(10,10,25,.90);
-      border-radius: 12px; padding: 10px;
-      backdrop-filter: blur(8px);
-      z-index: 110;
+      position:fixed; bottom:12px; left:12px; right:auto;
+      background:rgba(10,10,25,.90); border-radius:12px; padding:10px;
+      backdrop-filter:blur(8px); z-index:110; transition:.25s ease;
     }
+    /* ซ่อนเมนูระหว่างเล่น เพื่อนไม่ให้บังการคลิก */
+    body.state-playing .menu{
+      opacity:0; pointer-events:none; transform:translateY(8px) scale(.98);
+    }
+    body.state-menu .menu,
+    body.state-paused .menu,
+    body.state-result .menu{
+      opacity:1; pointer-events:auto; transform:none;
+    }
+
     .btn,.tag{
-      background: rgba(255,255,255,.1);
-      border: 1px solid rgba(255,255,255,.2);
-      color: #fff; border-radius: 10px; cursor: pointer; font-weight: 700;
-      padding: 10px 14px;
+      background:rgba(255,255,255,.1);
+      border:1px solid rgba(255,255,255,.2);
+      color:#fff; border-radius:10px; cursor:pointer; font-weight:700;
+      padding:10px 14px;
     }
-    .btn:hover,.tag:hover{ background: rgba(255,255,255,.25); }
+    .btn:hover,.tag:hover{ background:rgba(255,255,255,.25); }
 
-    /* เพิ่มขนาด icon สิ่งของ (item) ให้ใหญ่ขึ้น */
+    /* ไอคอน item ให้ใหญ่ชัด */
     .item{
-      font-size: clamp(40px, 5.8vw, 72px) !important;
-      min-width: 70px !important;
-      min-height: 70px !important;
-      padding: 12px !important;
-      border-radius: 16px !important;
-      background: rgba(255,255,255,0.1);
+      font-size:clamp(42px,6vw,78px); min-width:72px; min-height:72px;
+      padding:12px; border-radius:16px; background:rgba(255,255,255,.10);
+      z-index:120; pointer-events:auto;
     }
 
-    /* ให้คลิกได้แน่ ๆ */
-    .item, .menu, .hud, .modal, .coach { pointer-events:auto; }
+    /* ===== Modals กลางจอ ชัด และ z-index สูง ===== */
+    .modal{
+      position:fixed; inset:0; display:none;
+      align-items:center; justify-content:center; padding:20px;
+      background:rgba(0,0,0,.55); z-index:999;  /* สูงกว่า HUD/เมนู */
+    }
+    .modal .card{
+      width:min(820px,92vw); background:rgba(18,22,44,.96);
+      border:1px solid rgba(255,255,255,.18);
+      border-radius:16px; padding:18px; color:#fff;
+      box-shadow:0 20px 60px rgba(0,0,0,.45);
+    }
+    .modal .card h3{ margin:0 0 10px 0; font-size:22px; }
+    .modal .card pre{
+      background:#0c1224; color:#cfe7ff; border:1px solid rgba(255,255,255,.12);
+      padding:14px; border-radius:12px; max-height:46vh; overflow:auto; white-space:pre-wrap; font-size:16px;
+    }
   </style>
 </head>
-<body>
+<body class="state-menu">
+  <!-- Header -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
@@ -63,21 +85,23 @@
     <button id="soundToggle" class="btn">🔊 เสียง</button>
   </header>
 
+  <!-- Canvas -->
   <canvas id="c"></canvas>
 
+  <!-- HUD -->
   <section class="hud">
     <div id="statusLine">โหมด: — • ความยาก: —</div>
-    <div class="hud-line">
-      คะแนน <b id="score">0</b> | คอมโบ <b id="combo">x0</b> | เวลา <b id="time">60</b>s
-    </div>
+    <div class="hud-line">คะแนน <b id="score">0</b> | คอมโบ <b id="combo">x0</b> | เวลา <b id="time">60</b>s</div>
     <div id="missionLine" style="display:none; font-weight:700;">—</div>
     <div id="targetWrap" style="display:none;">🎯 <span id="targetBadge">—</span></div>
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
     <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
+  <!-- Coach -->
   <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
+  <!-- เมนู -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
@@ -98,21 +122,27 @@
     </div>
   </section>
 
-  <!-- Help Modal -->
+  <!-- Help -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
       <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
-      <button class="btn" id="btn_ok">โอเค</button>
+      <div style="display:flex; gap:8px; margin-top:10px;">
+        <button class="btn" id="btn_ok">พร้อมลุย!</button>
+        <button class="btn" id="btn_help_close">ปิด</button>
+      </div>
     </div>
   </div>
 
-  <!-- Result Modal -->
+  <!-- Result -->
   <div id="result" class="modal" style="display:none">
     <div class="card">
       <h3>สรุปผล</h3>
       <div id="resCore"></div>
-      <button class="btn" id="btn_home">🏠 กลับเมนู</button>
+      <div style="margin-top:10px; display:flex; gap:8px;">
+        <button class="btn" id="btn_home">🏠 กลับเมนู</button>
+        <button class="btn" id="btn_replay">↻ เล่นอีกครั้ง</button>
+      </div>
     </div>
   </div>
 
@@ -128,16 +158,15 @@
   <script type="module" src="game/main.js"></script>
   <script type="module" src="game/ui.js"></script>
 
-  <!-- Boot warn -->
+  <!-- bootWarn -->
   <script>
     (function(){
       const warn=document.createElement('div');
       warn.id='bootWarn';
       warn.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
       Object.assign(warn.style,{
-        position:'fixed',top:0,left:0,right:0,
-        background:'#b00020',color:'#fff',
-        padding:'10px',fontWeight:'700',display:'none',zIndex:9999
+        position:'fixed',top:0,left:0,right:0,background:'#b00020',color:'#fff',
+        padding:'10px',fontWeight:'700',display:'none',zIndex:10000
       });
       document.body.appendChild(warn);
       setTimeout(()=>{ if(!window.__HHA_BOOT_OK) warn.style.display='block'; },2000);
