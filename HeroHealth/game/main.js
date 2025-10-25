@@ -1,4 +1,4 @@
-// Hero Health Academy - main.js (hardened)
+// Hero Health Academy - main.js (fix: no optional chaining with new)
 window.__HHA_BOOT_OK = true;
 
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
@@ -60,23 +60,27 @@ const hud   = new HUD();
 const sfx   = new SFX();
 const score = new ScoreSystem();
 const power = new PowerUpSystem();
-const coach = new Coach?.({ lang: state.lang }) ?? { onStart(){}, onEnd(){}, lang:state.lang };
-const eng   = new Engine?.(THREE, document.getElementById('c')) ?? {};
+
+// ✅ แก้ตรงนี้: ห้ามใช้ optional chaining กับ new
+let coach;
+try { coach = new Coach({ lang: state.lang }); }
+catch { coach = { onStart(){}, onEnd(){}, lang: state.lang }; }
+
+let eng;
+try { eng = new Engine(THREE, document.getElementById('c')); }
+catch { eng = {}; }
 
 function t(){ return i18n[state.lang] || i18n.TH; }
 function safeTimeScale(){ return Number.isFinite(power?.timeScale) && power.timeScale>0 ? power.timeScale : 1; }
 
 function applyLang(){
-  // HUD labels
   $('#t_score')?.replaceChildren(t().score);
   $('#t_combo')?.replaceChildren(t().combo);
   $('#t_time')?.replaceChildren(t().time);
-  // mode/diff labels/values
   $('#t_mode')?.replaceChildren(t().mode);
   $('#t_diff')?.replaceChildren(t().diff);
   $('#modeName')?.replaceChildren(t().names[state.modeKey] || state.modeKey);
   $('#difficulty')?.replaceChildren(t().diffs[state.difficulty] || state.difficulty);
-  // help modal
   $('#h_help')?.replaceChildren(t().helpTitle);
   $('#helpBody')?.replaceChildren(t().helpBody);
   $('#btn_replay')?.replaceChildren('↻ ' + t().replay);
@@ -140,7 +144,6 @@ function start(){
   tick();
   spawnLoop();
 
-  // ปรับคุณภาพเรนเดอร์
   try{
     if(eng?.renderer){
       eng.renderer.setPixelRatio(state.gfx==='low' ? 0.75 : (window.devicePixelRatio||1));
