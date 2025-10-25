@@ -1,4 +1,4 @@
-// ===== Boot flag (ให้ fallback หายเมื่อไฟล์นี้รัน) =====
+// ===== Boot flag =====
 window.__HHA_BOOT_OK = true;
 
 // ===== Imports =====
@@ -17,9 +17,9 @@ import * as hydration from './modes/hydration.js';
 import * as plate     from './modes/plate.js';
 
 // ===== Utils =====
-const qs=(s)=>document.querySelector(s);
-const qsa=(s)=>Array.from(document.querySelectorAll(s));
-const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const qs = (s)=>document.querySelector(s);
+const qsa = (s)=>Array.from(document.querySelectorAll(s));
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
 // ===== Systems =====
 const MODES = { goodjunk, groups, hydration, plate };
@@ -31,30 +31,21 @@ const eng   = new Engine(THREE, document.getElementById('c'));
 const fx    = new FloatingFX(eng);
 const coach = new Coach({ lang:'TH' });
 
-// ===== Canvas must not block clicks =====
-(function forceUILayers(){
-  const c=document.getElementById('c');
-  if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
-  ['hud','menu','modal','coach','item'].forEach(cls=>{
-    qsa('.'+cls).forEach(el=>{
-      el.style.pointerEvents='auto';
-      const z=parseInt(getComputedStyle(el).zIndex||'0',10);
-      if(z<120) el.style.zIndex='200';
-    });
-  });
-})();
+// กัน canvas บังคลิก
+const c = document.getElementById('c');
+if (c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
 
-// ===== State =====
-let state={
-  modeKey:'goodjunk',
-  difficulty:'Normal',
-  running:false,
-  timeLeft:60,
-  ctx:{hits:0,miss:0}
+// ===== State (export ไว้ให้ index ใช้โชว์ help ตามโหมดได้) =====
+export const __HHA_STATE = {
+  modeKey: 'goodjunk',
+  difficulty: 'Normal',
+  running: false,
+  timeLeft: 60,
+  ctx: { hits:0, miss:0 }
 };
+window.__HHA_STATE = __HHA_STATE;
 
-// Difficulty
-const DIFFS={
+const DIFFS = {
   Easy:   { time:70, spawn:850, life:4200 },
   Normal: { time:60, spawn:700, life:3000 },
   Hard:   { time:50, spawn:560, life:1900 }
@@ -62,38 +53,29 @@ const DIFFS={
 
 // ===== HUD =====
 function updateHUD(){
-  const sc=qs('#score'), cb=qs('#combo'), tm=qs('#time');
-  if(sc) sc.textContent = score.score|0;
-  if(cb) cb.textContent = 'x'+(score.combo||0);
-  if(tm) tm.textContent = state.timeLeft|0;
+  qs('#score') && (qs('#score').textContent = score.score|0);
+  qs('#combo') && (qs('#combo').textContent = 'x'+(score.combo||0));
+  qs('#time')  && (qs('#time').textContent  = __HHA_STATE.timeLeft|0);
 }
 function updateStatus(){
-  const map={ goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ' };
-  const el=qs('#statusLine');
-  if(el) el.textContent=`โหมด: ${map[state.modeKey]||state.modeKey} • ความยาก: ${state.difficulty}`;
+  const map = { goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ' };
+  const el = qs('#statusLine');
+  if (el) el.textContent = `โหมด: ${map[__HHA_STATE.modeKey]||__HHA_STATE.modeKey} • ความยาก: ${__HHA_STATE.difficulty}`;
 }
 
-// ===== Help text per-mode (TH/EN แบบย่อ) =====
-function currentLang(){ return /TH/.test(qs('#langToggle')?.textContent||'TH')?'TH':'EN'; }
-function howToText(mode,lang){
-  const T={
-    TH:{
-      goodjunk:'เก็บอาหารดี 🥦🍎 หลีกเลี่ยงของขยะ 🍔🍟🥤 • คอมโบเพิ่มคะแนน • มีภารกิจย่อยระหว่างเล่น',
-      groups:'ดู 🎯 หมวดบน HUD แล้วเก็บให้ตรง • ถูก +7 ผิด -2 • เปลี่ยนหมวดทุก ~10s หรือครบ 3 ครั้ง',
-      hydration:'รักษา 💧 45–65% • น้ำเปล่าเพิ่ม/หวานลด • >65 ดื่มหวาน = ได้คะแนน, <45 ดื่มหวาน = หักคะแนน',
-      plate:'เติมโควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1 • ครบทั้งหมดได้โบนัส “Perfect Plate”'
-    },
-    EN:{
-      goodjunk:'Collect healthy 🥦🍎, avoid junk 🍔🍟🥤 • Combo boosts score • Micro missions during play',
-      groups:'Match the 🎯 group on HUD • Right +7 Wrong -2 • Rotates every ~10s or 3 hits',
-      hydration:'Keep 💧 45–65% • Water↑ / Sugary↓ • >65 +sugary = bonus, <45 +sugary = penalty',
-      plate:'Fill quotas: Grain2 Veg2 Protein1 Fruit1 Dairy1 • All complete = “Perfect Plate” bonus'
-    }
+// ===== Help text (สั้น) =====
+function langTH(){ return true; }
+function howToText(mode){
+  const TH={
+    goodjunk:'เก็บอาหารดี 🥦🍎 หลีกเลี่ยงของขยะ 🍔🍟🥤 • คอมโบเพิ่มคะแนน • มีภารกิจย่อย',
+    groups:'ดู 🎯 หมวดบน HUD แล้วเก็บให้ตรง • ถูก +7 ผิด −2 • เปลี่ยนหมวดทุก ~10s หรือครบ 3 ครั้ง',
+    hydration:'รักษา 💧 45–65% • น้ำเปล่าเพิ่ม/หวานลด • >65 ดื่มหวาน = ได้คะแนน, <45 ดื่มหวาน = หักคะแนน',
+    plate:'โควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1 • ครบทั้งหมด = Perfect Plate'
   };
-  return (T[lang||'TH'][mode] || T[lang||'TH'].goodjunk);
+  return TH[mode] || TH.goodjunk;
 }
 
-// ===== Item Pool (.item) =====
+// ===== Item Pool =====
 const pool=[]; const POOL_MAX=64;
 function makeItem(){
   const b=document.createElement('button');
@@ -105,32 +87,31 @@ function makeItem(){
   b.style.pointerEvents='auto';
   return b;
 }
-function getItem(){ return pool.pop()||makeItem(); }
+function getItem(){ return pool.pop() || makeItem(); }
 function freeItem(el){ el.onclick=null; el.remove(); if(pool.length<POOL_MAX) pool.push(el); }
 
-// วางตำแหน่ง (เว้นหัว/เมนู)
 function place(el){
-  el.style.left=(8+Math.random()*84)+'vw';
-  el.style.top =(18+Math.random()*70)+'vh';
+  el.style.left = (8 + Math.random()*84) + 'vw';
+  el.style.top  = (18 + Math.random()*70) + 'vh';
 }
 
 // ===== Spawner =====
 function spawn(diff){
-  const mode=MODES[state.modeKey];
-  let meta=null;
-  if(mode?.pickMeta){ meta=mode.pickMeta(diff,state); }
-  else { meta={ char:'🍎', good:true, life: diff.life||2500, onHitScore:5 }; }
+  const mode = MODES[__HHA_STATE.modeKey];
+  let meta = null;
+  if(mode?.pickMeta){ meta = mode.pickMeta(diff, __HHA_STATE); }
+  else { meta = { char:'🍎', good:true, life:diff.life||2500, onHitScore:5 }; }
 
-  const el=getItem();
-  el.textContent=meta.char||'🟢';
+  const el = getItem();
+  el.textContent = meta.char || '🟢';
   place(el);
 
-  el.onclick=()=>{
+  el.onclick = ()=>{
     if(mode?.onHit){
-      mode.onHit(meta,{score,sfx,fx,power,coach},state,hud);
+      mode.onHit(meta, {score,sfx,fx,power,coach}, __HHA_STATE, hud);
     }else{
       score.add?.(meta.onHitScore||5);
-      fx.popText?.(`+${meta.onHitScore||5}`,{color:'#7fffd4'});
+      fx.popText?.(`+${meta.onHitScore||5}`, { color:'#7fffd4' });
       sfx.good?.();
     }
     updateHUD();
@@ -138,61 +119,57 @@ function spawn(diff){
   };
 
   document.body.appendChild(el);
-  setTimeout(()=>freeItem(el), meta.life||diff.life||2500);
+  setTimeout(()=>freeItem(el), meta.life || diff.life || 2500);
 }
 
 // ===== Loops =====
 let timers={tick:0,spawn:0};
-
 function tick(){
-  if(!state.running) return;
-  state.timeLeft--; updateHUD();
-  MODES[state.modeKey]?.tick?.(state,{score,fx,sfx,power,coach},hud);
-  if(state.timeLeft<=0){ end(); return; }
-  timers.tick=setTimeout(tick,1000);
+  if(!__HHA_STATE.running) return;
+  __HHA_STATE.timeLeft--; updateHUD();
+  MODES[__HHA_STATE.modeKey]?.tick?.(__HHA_STATE, {score,fx,sfx,power,coach}, hud);
+  if(__HHA_STATE.timeLeft<=0){ end(); return; }
+  timers.tick = setTimeout(tick, 1000);
 }
 function loop(){
-  if(!state.running) return;
-  const diff=DIFFS[state.difficulty]||DIFFS.Normal;
+  if(!__HHA_STATE.running) return;
+  const diff = DIFFS[__HHA_STATE.difficulty] || DIFFS.Normal;
   spawn(diff);
-  const next=clamp(diff.spawn*(power.timeScale||1),240,2400);
-  timers.spawn=setTimeout(loop,next);
+  const next = clamp(diff.spawn*(power.timeScale||1), 240, 2400);
+  timers.spawn = setTimeout(loop, next);
 }
 
 // ===== Start / End =====
 export function start(){
   end(true);
-  const diff=DIFFS[state.difficulty]||DIFFS.Normal;
-  state.running=true;
-  state.timeLeft=diff.time;
-  state.ctx={hits:0,miss:0};
+  const diff = DIFFS[__HHA_STATE.difficulty] || DIFFS.Normal;
 
-  // reset systems & HUD
+  __HHA_STATE.running = true;
+  __HHA_STATE.timeLeft = diff.time;
+  __HHA_STATE.ctx = { hits:0, miss:0 };
+
   score.reset(); power.reset?.(); hud.reset?.();
 
-  // show HUD/status
   updateStatus(); updateHUD();
 
-  // init per mode
-  MODES[state.modeKey]?.init?.(state,hud,diff);
+  MODES[__HHA_STATE.modeKey]?.init?.(__HHA_STATE, hud, diff);
 
-  // coach tip (สั้นๆ)
-  coach.say(howToText(state.modeKey, currentLang()));
+  coach.say(howToText(__HHA_STATE.modeKey, langTH()?'TH':'EN'));
 
   tick(); loop();
 }
 
 export function end(silent=false){
-  state.running=false;
+  __HHA_STATE.running=false;
   clearTimeout(timers.tick); clearTimeout(timers.spawn);
 
-  // เคลียร์ .item ที่ยังค้าง
+  // ล้าง .item ค้างทั้งหมด
   qsa('.item').forEach(el=>el.remove());
 
-  // per-mode cleanup (ปิด interval/ซ่อน HUD เฉพาะโหมด)
-  try{ MODES[state.modeKey]?.cleanup?.(state,hud); }catch{}
+  // cleanup ต่อโหมดถ้ามี
+  try{ MODES[__HHA_STATE.modeKey]?.cleanup?.(__HHA_STATE, hud); }catch{}
 
-  // เก็บกวาด HUD ทั่วไปกันค้าง
+  // ซ่อน HUD เฉพาะโหมด กันค้าง
   hud.hideHydration?.();
   hud.hideTarget?.();
   hud.hidePills?.();
@@ -201,8 +178,8 @@ export function end(silent=false){
   if(!silent){
     const core=qs('#resCore');
     if(core) core.innerHTML = `
-      <p>โหมด: <b>${({goodjunk:'ดี vs ขยะ',groups:'จาน 5 หมู่',hydration:'สมดุลน้ำ',plate:'จัดจานสุขภาพ'})[state.modeKey]||state.modeKey}</b></p>
-      <p>ความยาก: <b>${state.difficulty}</b></p>
+      <p>โหมด: <b>${({goodjunk:'ดี vs ขยะ',groups:'จาน 5 หมู่',hydration:'สมดุลน้ำ',plate:'จัดจานสุขภาพ'})[__HHA_STATE.modeKey]||__HHA_STATE.modeKey}</b></p>
+      <p>ความยาก: <b>${__HHA_STATE.difficulty}</b></p>
       <p>คะแนน: <b>${score.score|0}</b> • คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>`;
     qs('#result')?.style && (qs('#result').style.display='flex');
     coach.say('เยี่ยมมาก!');
@@ -210,22 +187,23 @@ export function end(silent=false){
 }
 
 // ===== Menu wiring =====
-document.addEventListener('click',(e)=>{
-  const btn=e.target.closest('#menuBar button'); if(!btn) return;
-  const a=btn.dataset.action, v=btn.dataset.value;
-  if(a==='mode'){ state.modeKey=v; updateStatus(); }
-  if(a==='diff'){ state.difficulty=v; updateStatus(); }
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('#menuBar button'); if(!btn) return;
+  const a = btn.dataset.action, v = btn.dataset.value;
+  if(a==='mode'){ __HHA_STATE.modeKey = v; updateStatus(); }
+  if(a==='diff'){ __HHA_STATE.difficulty = v; updateStatus(); }
   if(a==='start') start();
-  if(a==='pause'){ state.running=!state.running; if(state.running){ tick(); loop(); } }
+  if(a==='pause'){ __HHA_STATE.running=!__HHA_STATE.running; if(__HHA_STATE.running){ tick(); loop(); } }
   if(a==='restart'){ end(true); start(); }
   if(a==='help'){
-    const body=qs('#helpBody'); if(body){ body.textContent = howToText(state.modeKey, currentLang()); }
+    const body=qs('#helpBody'); if(body) body.textContent = howToText(__HHA_STATE.modeKey);
     const h=qs('#help'); if(h) h.style.display='flex';
   }
 });
-qs('#btn_ok')?.addEventListener('click',()=>qs('#help').style.display='none');
-qs('#btn_replay')?.addEventListener('click',()=>{ qs('#result').style.display='none'; start(); });
-qs('#btn_home')?.addEventListener('click',()=>{ qs('#result').style.display='none'; });
+
+qs('#btn_ok')?.addEventListener('click', ()=> qs('#help').style.display='none');
+qs('#btn_replay')?.addEventListener('click', ()=>{ qs('#result').style.display='none'; start(); });
+qs('#btn_home')  ?.addEventListener('click', ()=>{ qs('#result').style.display='none'; });
 
 // ===== Unlock audio on first gesture =====
 ['pointerdown','touchstart','keydown'].forEach(ev=>{
@@ -234,4 +212,4 @@ qs('#btn_home')?.addEventListener('click',()=>{ qs('#result').style.display='non
 
 // ===== Debug =====
 console.log('[HHA] Modes loaded =', Object.keys(MODES));
-updateStatus(); // แสดงโหมด/ความยาก ตั้งแต่ยังไม่เริ่ม
+updateStatus();  // แสดงสถานะตั้งแต่ยังไม่เริ่ม
