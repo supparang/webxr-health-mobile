@@ -215,7 +215,21 @@ async function startFlow(){
 }
 
 // ===== Buttons =====
-$('#btn_start')?.addEventListener('click', ()=>{ vibrate(12); startFlow(); });
+(function bindStartStrong(){
+  const b = document.getElementById('btn_start');
+  if (!b) return;
+  // ล้างแล้ว bind ใหม่
+  const clone = b.cloneNode(true);
+  b.parentNode.replaceChild(clone, b);
+  clone.addEventListener('click', (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    // ใช้ startFlow ของ ui.js ถ้ามี
+    if (typeof startFlow === 'function') startFlow();
+    else if (window.preStartFlow) window.preStartFlow();
+    else if (window.HHA?.startGame) window.HHA.startGame({demoPassed:true});
+    else if (window.start) window.start({demoPassed:true});
+  }, {capture:true});
+})();
 $('#btn_restart')?.addEventListener('click', ()=>{ vibrate(18); if(window.end) window.end(true); startFlow(); });
 $('#btn_pause')?.addEventListener('click', ()=>{ vibrate(12); /* main.js รับไปจัดการต่อ */ });
 
