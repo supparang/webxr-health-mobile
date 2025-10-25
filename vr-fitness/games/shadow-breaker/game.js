@@ -59,7 +59,12 @@
     boom:      new Audio(ASSET_BASE+"/assets/sfx/miss.wav"),
     cheer:     new Audio(ASSET_BASE+"/assets/sfx/combo.wav")
   };
-  try{ Object.keys(SFX).forEach(function(k){ SFX[k].preload='auto'; SFX[k].crossOrigin='anonymous'; }); }catch(_){}
+try {
+  Object.keys(SFX).forEach(function(k){
+    SFX[k].preload = 'auto';
+    SFX[k].crossOrigin = 'anonymous';
+  });
+} catch(_) {}
 
   var _sfxLastPlay = new Map();
   function playSfx(a, guardMs, vol){
