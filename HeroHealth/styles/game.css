@@ -110,3 +110,7 @@ html,body{height:100%;margin:0;overflow:hidden;}
     font-size: 72px;         /* ใหญ่พิเศษสำหรับมือถือ */
   }
 }
+.item {
+  text-shadow: 0 0 6px rgba(0,0,0,0.4);
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
+}
