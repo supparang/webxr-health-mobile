@@ -24,3 +24,10 @@ button.start { width: 100%; font-size:16px; padding:12px; }
 @media (max-width: 520px){
   #menu h1 { font-size:22px; }
 }
+
+
+/* Ensure HTML UI is always clickable over the WebGL canvas */
+.panel { pointer-events: auto; }
+a-scene, canvas.a-canvas { z-index: 0; position: relative; }
+/* When menus are open, prevent the A-Frame canvas from eating clicks/taps */
+body.menu-open canvas.a-canvas { pointer-events: none !important; }

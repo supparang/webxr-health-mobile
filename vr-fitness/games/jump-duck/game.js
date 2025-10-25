@@ -84,11 +84,14 @@
   });
 
   btnStart.addEventListener('click', startGame);
+  btnStart.addEventListener('touchend', (e)=>{ e.preventDefault(); startGame(); });
   btnRetry.addEventListener('click', ()=>{ hide(result); show(menu); });
+  btnRetry.addEventListener('touchend', (e)=>{ e.preventDefault(); hide(result); show(menu); });
   btnHome?.addEventListener('click', ()=>{ hide(result); show(menu); });
+  btnHome?.addEventListener('touchend', (e)=>{ e.preventDefault(); hide(result); show(menu); });
 
-  function show(el){ el.classList.add('show'); }
-  function hide(el){ el.classList.remove('show'); }
+  function show(el){ el.classList.add('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.add('menu-open'); } }
+  function hide(el){ el.classList.remove('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.remove('menu-open'); } }
 
   function updateHUD(){
     scoreEl.textContent = String(score);
