@@ -1,10 +1,5 @@
-// Hero Health Academy - main.js (2025-10-25, layout-safe)
-// - จัดพื้นที่เล่นให้อยู่ระหว่าง header กับเมนู (relayout + safe spawn box)
-// - Pause/Resume จริง (หยุดทั้ง tick และ spawn)
-// - ใช้ TTL จาก meta.life (ถ้าไม่มีจะ fallback diff.life)
-// - i18n TH/EN สำหรับ HUD/Help
-// - cleanup โหมดก่อนหน้าเมื่อสลับ
-// - ปลอด "Invalid optional chain from new expression"
+// Hero Health Academy - main.js (layout-safe + contextual help + help scene)
+// Updated: 2025-10-25
 
 window.__HHA_BOOT_OK = true;
 
@@ -33,19 +28,103 @@ const byAction = (el)=>el?.closest?.('[data-action]');
 const i18n = {
   TH: {
     mode: 'โหมด', diff: 'ความยาก', score: 'คะแนน', combo: 'คอมโบ', time: 'เวลา',
-    helpTitle: 'วิธีเล่น',
-    helpBody: 'เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก',
+    helpTitle: 'วิธีเล่น', helpBody: 'เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก',
     replay: 'เล่นอีกครั้ง', home: 'หน้าหลัก',
     names: { goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ' },
     diffs: { Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก' }
   },
   EN: {
     mode: 'Mode', diff: 'Difficulty', score: 'Score', combo: 'Combo', time: 'Time',
-    helpTitle: 'How to Play',
-    helpBody: 'Pick a mode → Collect correct items → Avoid traps',
+    helpTitle: 'How to Play', helpBody: 'Pick a mode → Collect correct items → Avoid traps',
     replay: 'Replay', home: 'Home',
     names: { goodjunk:'Good vs Trash', groups:'Food Groups', hydration:'Hydration', plate:'Healthy Plate' },
     diffs: { Easy:'Easy', Normal:'Normal', Hard:'Hard' }
+  }
+};
+
+// ---------- Help Texts ----------
+const HELP = {
+  TH: {
+    titles: {
+      goodjunk: 'วิธีเล่น: ดี vs ขยะ',
+      groups:   'วิธีเล่น: จาน 5 หมู่',
+      hydration:'วิธีเล่น: สมดุลน้ำ',
+      plate:    'วิธีเล่น: จัดจานสุขภาพ',
+      scene:    'คู่มือรวม'
+    },
+    bodies: {
+      goodjunk: [
+        'แตะ/คลิกอาหารที่ดีต่อสุขภาพ (เช่น 🥦 🍎 🥕 🥗)',
+        'หลีกเลี่ยงอาหารขยะ (เช่น 🍔 🍟 🍩 🥤)',
+        'เก็บถูกต่อเนื่องเพื่อสะสมคอมโบและคะแนน',
+        'ความแม่นยิ่งดี ไอเท็มจะหายช้าลง (ปรับตามฝีมือ)'
+      ],
+      groups: [
+        'ดูหมวด “เป้าหมาย” บน HUD แล้วเก็บให้ตรงเพื่อคะแนนสูงสุด',
+        'พลาดหมวดจะถูกหักคะแนน',
+        'มีภารกิจเวลา 45 วินาที (เก็บให้ครบเพื่อผ่าน)',
+        'Power-ups: ✨ Dual (สองเป้า), ✖️2 (คะแนน x2), 🧊 Freeze, 🔄 Rotate'
+      ],
+      hydration: [
+        'คุมแถบ 💧 ให้อยู่ช่วง 45–65%',
+        'เก็บ 💧 น้ำเปล่า (+10), 🥛 นม (+8)',
+        'เลี่ยง 🥤 น้ำหวาน (-15), ☕ กาแฟ (-10)',
+        'ระดับน้ำจะลดลงเล็กน้อยทุกวินาที'
+      ],
+      plate: [
+        'เติมโควตา: ธัญพืช 2 • ผัก 2 • โปรตีน 1 • ผลไม้ 1 • นม 1',
+        'ครบทั้งจาน = PERFECT +14 และเริ่มจานใหม่',
+        'เกินโควตา จะ -2 คะแนน และ -1 วินาทีเวลา',
+        'ดูป้าย “หมวดที่ยังขาด” บน HUD ช่วยนำทาง'
+      ]
+    },
+    sceneCards: [
+      { icon:'🥗', title:'ดี vs ขยะ', key:'goodjunk' },
+      { icon:'🍽️', title:'จาน 5 หมู่', key:'groups' },
+      { icon:'💧', title:'สมดุลน้ำ', key:'hydration' },
+      { icon:'🍱', title:'จัดจานสุขภาพ', key:'plate' }
+    ]
+  },
+  EN: {
+    titles: {
+      goodjunk: 'How to Play: Good vs Trash',
+      groups:   'How to Play: Food Groups',
+      hydration:'How to Play: Hydration',
+      plate:    'How to Play: Healthy Plate',
+      scene:    'Guide'
+    },
+    bodies: {
+      goodjunk: [
+        'Tap/click healthy foods (e.g., 🥦 🍎 🥕 🥗).',
+        'Avoid junk foods (e.g., 🍔 🍟 🍩 🥤).',
+        'Chain correct hits to build combo and score.',
+        'Better accuracy = items last longer (adaptive).'
+      ],
+      groups: [
+        'Watch the target group(s) on HUD; collect to score high.',
+        'Wrong group reduces score.',
+        '45s mission: meet the quota to complete.',
+        'Power-ups: ✨ Dual, ✖️2 Score x2, 🧊 Freeze, 🔄 Rotate'
+      ],
+      hydration: [
+        'Keep 💧 between 45–65%.',
+        'Collect 💧 Water (+10), 🥛 Milk (+8).',
+        'Avoid 🥤 Sugary (-15), ☕ Coffee (-10).',
+        'Hydration slowly decreases over time.'
+      ],
+      plate: [
+        'Fill quotas: Grain 2 • Veg 2 • Protein 1 • Fruit 1 • Dairy 1.',
+        'Complete plate = PERFECT +14 and reset.',
+        'Exceeding a quota: -2 pts and -1s.',
+        'HUD shows which group is most needed.'
+      ]
+    },
+    sceneCards: [
+      { icon:'🥗', title:'Good vs Trash', key:'goodjunk' },
+      { icon:'🍽️', title:'Food Groups', key:'groups' },
+      { icon:'💧', title:'Hydration', key:'hydration' },
+      { icon:'🍱', title:'Healthy Plate', key:'plate' }
+    ]
   }
 };
 
@@ -127,6 +206,46 @@ function updateHUD(){
 function clearTimers(){
   if (state.spawnTimer){ clearTimeout(state.spawnTimer); state.spawnTimer = null; }
   if (state.tickTimer){ clearTimeout(state.tickTimer); state.tickTimer = null; }
+}
+
+// ---------- Help rendering ----------
+function renderHelpModalFor(modeKey){
+  const lang = state.lang;
+  const t = HELP[lang] || HELP.TH;
+  const title = t.titles[modeKey] || (T(lang).helpTitle);
+  const lines = t.bodies[modeKey] || [T(lang).helpBody];
+
+  const h = document.getElementById('h_help');
+  const body = document.getElementById('helpBody');
+  if (h) h.textContent = title;
+  if (body){
+    body.innerHTML = lines.map(l=>`• ${l}`).join('\n');
+  }
+}
+
+function openHelpScene(){
+  const lang = state.lang;
+  const t = HELP[lang] || HELP.TH;
+  const host = document.getElementById('helpScene');
+  const title = document.getElementById('hs_title');
+  const body = document.getElementById('hs_body');
+  if (title) title.textContent = t.titles.scene;
+
+  if (body){
+    body.innerHTML = t.sceneCards.map(card=>{
+      const lines = (t.bodies[card.key] || []).map(li=>`<li>${li}</li>`).join('');
+      return `
+        <div class="hs-card">
+          <h4><span style="font-size:20px">${card.icon}</span> ${card.title}</h4>
+          <ul>${lines}</ul>
+        </div>`;
+    }).join('');
+  }
+  if (host) host.style.display = 'flex';
+}
+function closeHelpScene(){
+  const host = document.getElementById('helpScene');
+  if (host) host.style.display = 'none';
 }
 
 // ---------- Game flow ----------
@@ -288,6 +407,10 @@ document.addEventListener('pointerup', (e)=>{
     state.lastModeKey = state.modeKey;
     state.modeKey = v;
     applyUI(); applyLang();
+    // ถ้า Help Modal เปิดอยู่ ให้รีเรนเดอร์ตามโหมดใหม่
+    if (document.getElementById('help')?.style.display === 'block'){
+      renderHelpModalFor(state.modeKey);
+    }
     if (state.running){ start(); } // รีสตาร์ทด้วยโหมดใหม่ทันที
   } else if(a==='diff'){
     state.difficulty = v; applyUI();
@@ -300,9 +423,14 @@ document.addEventListener('pointerup', (e)=>{
   } else if(a==='restart'){
     end(true); start();
   } else if(a==='help'){
-    $('#help').style.display = 'block';
+    renderHelpModalFor(state.modeKey);
+    document.getElementById('help').style.display = 'block';
   } else if(a==='helpClose'){
-    $('#help').style.display = 'none';
+    document.getElementById('help').style.display = 'none';
+  } else if(a==='helpScene'){
+    openHelpScene();
+  } else if(a==='helpSceneClose'){
+    closeHelpScene();
   }
 }, {passive:true});
 
@@ -318,6 +446,13 @@ $('#langToggle')?.addEventListener('click', ()=>{
   localStorage.setItem('hha_lang', state.lang);
   coach.lang = state.lang;
   applyLang();
+  // ถ้า Help เปิดอยู่ ให้ปรับภาษาทันที
+  if (document.getElementById('help')?.style.display === 'block'){
+    renderHelpModalFor(state.modeKey);
+  }
+  if (document.getElementById('helpScene')?.style.display === 'flex'){
+    openHelpScene(); // re-render ด้วยภาษาปัจจุบัน
+  }
 }, {passive:true});
 
 $('#gfxToggle')?.addEventListener('click', ()=>{
