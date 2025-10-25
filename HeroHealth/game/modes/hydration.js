@@ -1,17 +1,15 @@
 // game/modes/hydration.js
 // โหมด: สมดุลน้ำ 💧 ช่วงเหมาะสม 45–65%
-
 // ใช้ HUD เดิมจาก index.html: #hydroWrap, #hydroBar, #hydroLabel
-// ไม่สร้าง DOM ใหม่ เพื่อเลี่ยงซ้ำและทำงานร่วมกับ hud.show/hide
+// onHit จะ return 'good' | 'ok' | 'bad' เพื่อให้ main.js จัดการคะแนน/คอมโบ/ฟีเวอร์
 
 export function init(state, hud, diff){
   state.ctx = state.ctx || {};
-  // ใช้ตัวแปรใน ctx เพื่อไม่ชนกับโหมดอื่น
-  state.ctx.hyd = 55;              // เริ่มที่ 55%
-  state.ctx.hydMin = 45;           // ช่วงเหมาะสม
+  state.ctx.hyd    = 55;  // เริ่มที่ 55%
+  state.ctx.hydMin = 45;  // ช่วงเหมาะสม
   state.ctx.hydMax = 65;
 
-  // แสดง HUD น้ำ
+  // โชว์ HUD น้ำ (ใช้ของเดิม)
   try{ hud?.showHydration?.(); }catch{}
   updateBar(state.ctx.hyd);
   setHydroLabel(state.lang, state.ctx.hyd);
@@ -26,34 +24,30 @@ export function pickMeta(diff, state){
     { char:'☕', effect:-10 }  // กาแฟเข้ม/หวาน
   ];
   const meta = drinks[(Math.random()*drinks.length)|0];
-  meta.life = diff?.life ?? 3000; // เคารพ TTL จาก diff
+  meta.life = diff?.life ?? 3000; // TTL เคารพ diff
   return meta;
 }
 
 export function onHit(meta, sys, state, hud){
-  const { score, sfx, fx } = sys || {};
+  const { sfx } = sys || {};
   const ctx = state.ctx || {};
   const before = ctx.hyd ?? 55;
 
-  // ปรับค่า hydration และ clamp 0–100
+  // ปรับ hydration และ clamp 0–100
   ctx.hyd = Math.max(0, Math.min(100, before + (meta.effect||0)));
   updateBar(ctx.hyd);
   setHydroLabel(state.lang, ctx.hyd);
 
-  // ให้คะแนน:
-  // - ดื่มดี (บวก) ได้ +5 (+7 ถ้าหลังดื่มเข้าโซน 45–65)
-  // - ดื่มไม่ดี (ลบ) ได้ -3 (-5 ถ้าหลังดื่มออกนอกโซน)
+  // ตัดสินผลลัพธ์ให้ระบบกลาง:
+  // - ดื่มดี (effect>0): ถ้า "หลังดื่ม" อยู่ในโซน → 'good' ไม่งั้น 'ok'
+  // - ดื่มแย่ (effect<=0): ถ้า "หลังดื่ม" ยังอยู่ในโซน → 'ok' ไม่งั้น 'bad'
   const inZoneAfter = (ctx.hyd >= ctx.hydMin && ctx.hyd <= ctx.hydMax);
   if ((meta.effect||0) > 0){
-    const add = inZoneAfter ? 7 : 5;
-    score?.add?.(add);
-    fx?.popText?.(`+${add}`, { color: inZoneAfter ? '#7fffd4' : '#bde0ff' });
-    sfx?.good?.();
-  }else{
-    const add = inZoneAfter ? -3 : -5;
-    score?.add?.(add);
-    fx?.popText?.(`${add}`, { color:'#ff9b9b' });
-    sfx?.bad?.();
+    try{ sfx?.good?.(); }catch{}
+    return inZoneAfter ? 'good' : 'ok';
+  } else {
+    try{ sfx?.bad?.(); }catch{}
+    return inZoneAfter ? 'ok' : 'bad';
   }
 }
 
@@ -72,9 +66,9 @@ function updateBar(val){
   const p = Math.round(val);
   bar.style.width = p + '%';
   // สีตามระดับ
-  let color = '#4FC3F7';     // ปกติ
-  if (p < 45) color = '#E53935';     // ต่ำไป = แดง
-  else if (p > 65) color = '#FFB300';// สูงไป = เหลือง
+  let color = '#4FC3F7';          // ปกติ
+  if (p < 45) color = '#E53935';  // ต่ำไป = แดง
+  else if (p > 65) color = '#FFB300'; // สูงไป = เหลือง
   bar.style.background = color;
 }
 
@@ -82,8 +76,7 @@ function setHydroLabel(lang='TH', val){
   const el = document.getElementById('hydroLabel');
   if (!el) return;
   const p = Math.round(val);
-  const text = lang==='EN' ? `Hydration ${p}%` : `สมดุลน้ำ ${p}%`;
-  el.textContent = text;
+  el.textContent = (lang==='EN') ? `Hydration ${p}%` : `สมดุลน้ำ ${p}%`;
   const wrap = document.getElementById('hydroWrap');
   if (wrap) wrap.style.display = 'block';
 }
