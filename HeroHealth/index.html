@@ -5,28 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- base ตาม repo; ไม่พึ่ง base เพื่อโหลด main.js แต่คงไว้ได้ -->
+  <!-- ใช้ base ได้ แต่โหลด main.js ด้วย URL เต็มเพื่อกันเพี้ยน -->
   <base href="/webxr-health-mobile/HeroHealth/">
+
   <link rel="stylesheet" href="styles/game.css" />
 
+  <!-- UI overrides ให้คลิกได้ชัวร์ + อ่านง่าย -->
   <style>
-    /* กัน canvas บังคลิก + ดัน HUD/เมนูให้อยู่บนสุดให้ชัด */
-    #c{position:fixed;inset:0;z-index:1;pointer-events:none}
-    .hud,.menu,.modal,.coach,.item{z-index:200;pointer-events:auto}
-    .hud{font-size:18px;font-weight:800;text-shadow:0 2px 6px #000}
-    .item{font-size:56px;min-width:56px;min-height:56px}
+    /* แคนวาสห้ามบังคลิก */
+    #c{position:fixed; inset:0; z-index:1; pointer-events:none}
 
-    /* แถบบอกสถานะโหมด/ความยาก */
-    #statusLine{
-      position:fixed;top:76px;left:50%;transform:translateX(-50%);
-      background:rgba(0,0,0,.45);color:#fff;padding:6px 12px;border-radius:10px;
-      font-weight:900;z-index:300
+    /* ชั้น UI บังคับอยู่บนสุดและคลิกได้ */
+    .hud,.menu,.modal,.coach,.item{z-index:220; pointer-events:auto}
+    .hud{font-size:18px; font-weight:800; text-shadow:0 2px 6px #000}
+    .item{
+      font-size: clamp(44px, 6vw, 70px);
+      min-width: 60px; min-height: 60px;
     }
 
-    /* แจ้งเตือนโหลดสคริปต์ไม่สำเร็จ */
-    #bootWarn{
-      position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;
-      padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap
+    /* สถานะโหมด/ความยาก ติดกลางบน อ่านง่าย */
+    #statusLine{
+      position:fixed; top:68px; left:50%; transform:translateX(-50%);
+      background:rgba(0,0,0,.45); color:#fff;
+      padding:6px 12px; border-radius:10px; font-weight:900; z-index:300
+    }
+
+    /* เมนูมุมล่างซ้าย ไม่บังพื้นที่เล่น */
+    #menuBar{
+      position:fixed; left:10px; bottom:10px; top:auto; transform:none; width:auto; max-width:50vw;
+      background: linear-gradient(0deg, rgba(10,12,20,.92), rgba(10,12,20,.72));
+      border-radius:12px; padding:10px; backdrop-filter: blur(6px);
+    }
+    .menu .row{ gap:8px; }
+    .btn,.tag{ cursor:pointer; font-weight:800; border-radius:12px }
+
+    /* How-to-Play modal ให้อ่านง่าย */
+    .modal .card{
+      background: rgba(20,24,44,.95);
+      border-radius: 16px; border: 1px solid rgba(255,255,255,.15);
     }
   </style>
 </head>
@@ -45,22 +61,28 @@
 
   <!-- HUD -->
   <section class="hud">
-    <div>คะแนน: <b id="score">0</b> | คอมโบ: <b id="combo">x0</b> | เวลา: <b id="time">60</b>s</div>
+    <div>
+      <span id="t_score">คะแนน</span>: <b id="score">0</b> |
+      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
+      <span id="t_time">เวลา</span>: <b id="time">60</b>s
+    </div>
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
 
-    <!-- Hydration bar (ใช้ในโหมดสมดุลน้ำ) -->
-    <div id="hydroWrap" style="display:none">
-      💧 สมดุลน้ำ: <span id="hydroLabel">—</span>
-      <div class="bar"><div id="hydroBar" style="width:50%"></div></div>
+    <!-- Mission / Target / Hydration / Plate -->
+    <div id="missionLine" style="display:none; font-weight:800;">—</div>
+    <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
+    <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
+    <div id="hydroWrap" style="display:none">💧 <span id="t_hydro">สมดุลน้ำ</span>: <span id="hydroLabel">—</span>
+      <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
-    <!-- Mission / Tips -->
-    <div id="missionLine" style="display:none;">—</div>
+    <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
+  <!-- สถานะโหมด/ความยาก -->
   <div id="statusLine">โหมด: ดี vs ขยะ • ความยาก: ปกติ</div>
 
-  <!-- Coach -->
+  <!-- Coach bubble -->
   <div id="coachHUD" class="coach" style="display:none">
     <div id="coachText">...</div>
   </div>
@@ -77,7 +99,10 @@
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
       <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
-      <span class="modeLabel"><span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> • <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b></span>
+      <span class="modeLabel">
+        <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
+        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
+      </span>
     </div>
     <div class="row">
       <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
@@ -87,7 +112,7 @@
     </div>
   </section>
 
-  <!-- Help -->
+  <!-- Help Modal -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
@@ -96,12 +121,12 @@
     </div>
   </div>
 
-  <!-- Result -->
+  <!-- Result Modal -->
   <div id="result" class="modal" style="display:none">
     <div class="card">
       <h3>สรุปผล</h3>
       <div id="resCore"></div>
-      <div style="margin-top:12px;display:flex;gap:8px;">
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn" id="btn_replay">↻ เล่นอีกครั้ง</button>
         <button class="btn" id="btn_home">🏠 หน้าหลัก</button>
       </div>
@@ -109,59 +134,85 @@
   </div>
 
   <!-- SFX -->
-  <audio id="sfx-good"    preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"     preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
+  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-  <div id="bootWarn"></div>
-
-  <!-- โหลด main.js ด้วย URL เต็ม (กันพลาดเรื่อง base) -->
+  <!-- โหลด main.js ด้วย URL เต็ม + กันแคช -->
   <script type="module">
-    // ถ้าไฟล์อยู่จริงที่ URL นี้ การ import จะสำเร็จ และ main.js จะตั้ง __HHA_BOOT_OK=true
-    const ABS = 'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js';
+    const MAIN = 'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js';
     try{
-      await import(ABS + '?v=' + Date.now());
+      await import(MAIN + '?v=' + Date.now());
     }catch(e){
-      console.warn('[import fail]', ABS, e);
-    }finally{
-      // ถ้า main.js ไม่ได้ตั้ง flag -> แสดงแจ้งเตือน
-      const w = document.getElementById('bootWarn');
-      if(!window.__HHA_BOOT_OK){
-        w.textContent = 
-`⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href
-ลอง URL แล้วไม่สำเร็จ:
-- ${ABS}
-- game/main.js
-- ./game/main.js
-- /webxr-health-mobile/HeroHealth/game/main.js
-โปรดตรวจสอบว่าไฟล์อยู่ที่ path นั้นจริง (ตัวพิมพ์เล็ก/ใหญ่ต้องตรง) และถูก publish ใน branch ที่ Pages ใช้`;
-        w.style.display='block';
-      }
+      console.error('[Import main.js failed]', e);
     }
   </script>
 
-  <!-- ปุ่ม Help: อธิบายวิธีเล่นต่อโหมด -->
+  <!-- Fallback ถ้า main.js ไม่บูต -->
+  <script>
+    (function(){
+      const w=document.createElement('div');
+      w.id='bootWarn';
+      w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;display:none';
+      w.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
+      document.body.appendChild(w);
+      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2000);
+    })();
+  </script>
+
+  <!-- HOWTO ต่อโหมด (TH/EN) -->
   <script>
     const HOWTO = {
-      TH: {
+      TH:{
         goodjunk:`🎯 โหมดดี vs ขยะ
 เก็บอาหารที่ดี 🥦🍎 หลีกเลี่ยงของขยะ 🍔🍟🥤
-ต่อคอมโบได้โบนัส x2/x4/x8 และอาจเข้า Fever`,
+ต่อคอมโบได้โบนัส x2/x4/x8 และจะเข้าสู่โหมด Fever!`,
         groups:`🍽️ โหมดจาน 5 หมู่
-เก็บอาหารให้ตรงหมวดที่ HUD ระบุ — ถูก +7, ผิด –2`,
+เก็บอาหารให้ตรงหมวดที่ HUD ระบุ (ผลไม้/ผัก/โปรตีน/ธัญพืช/นม)
+ถูก +7 ผิด –2 เป้าหมายเปลี่ยนทุก ~10 วิ หรือทุก 3 ครั้งที่ถูก`,
         hydration:`💧 โหมดสมดุลน้ำ
-รักษาค่า 45–65%
+รักษาค่าความสมดุล 45–65%
 น้ำเปล่า = เพิ่ม / น้ำหวานหรือกาแฟ = ลด
->65 ดื่มหวาน = ได้คะแนน, <45 ดื่มหวาน = หักคะแนน
-ปุ่ม N=Normalize (55%) cd 25s • G=Guard 5s`,
+ถ้า >65 แล้วยังดื่ม น้ำหวาน = ได้คะแนน
+ถ้า <45 แล้วดื่ม น้ำหวาน = หักคะแนน
+ปุ่ม N = Normalize (55%) cd 25s • G = Guard 5s`,
         plate:`🍱 โหมดจัดจานสุขภาพ
-เติมโควตาให้ครบ 5 หมู่ (2/2/1/1/1) เพื่อโบนัส Perfect Plate`
+จัดอาหารให้ครบ 5 หมู่ (ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1)
+ครบทั้งหมด “Perfect Plate!” ได้โบนัสสูง`
+      },
+      EN:{
+        goodjunk:`🎯 Good vs Junk
+Collect healthy foods 🥦🍎; avoid junk 🍔🍟🥤
+Chain combos for x2/x4/x8 and Fever!`,
+        groups:`🍽️ 5 Food Groups
+Collect the item matching the HUD target (Fruit/Veg/Protein/Grain/Dairy)
+Right +7, Wrong –2; target rotates every ~10s or after 3 hits`,
+        hydration:`💧 Hydration Balance
+Keep hydration 45–65%
+Water increases / Sugary/Coffee decreases
+If >65 then sugary = +score; if <45 then sugary = -score
+Keys: N = Normalize (55%) cd 25s • G = Guard 5s`,
+        plate:`🍱 Healthy Plate
+Fill all 5 groups (Grain2 Veg2 Protein1 Fruit1 Dairy1)
+Complete for “Perfect Plate” bonus`
       }
     };
+
+    function currentMode(){
+      const active = document.querySelector('.tag[data-action="mode"].active');
+      if(active) return active.dataset.value;
+      return (window.__HHA_STATE?.modeKey) || 'goodjunk';
+    }
+    function currentLang(){
+      return /TH/.test(document.getElementById('langToggle')?.textContent||'TH') ? 'TH' : 'EN';
+    }
     document.getElementById('btn_help')?.addEventListener('click', ()=>{
-      const mode = document.querySelector('.tag[data-action="mode"].active')?.dataset.value || (window.__HHA_STATE?.modeKey ?? 'goodjunk');
+      const lang = currentLang();
+      const mode = currentMode();
       const body = document.getElementById('helpBody');
-      body.textContent = (HOWTO.TH[mode] || HOWTO.TH.goodjunk);
+      body.textContent = (HOWTO[lang][mode] || HOWTO[lang].goodjunk);
       document.getElementById('help').style.display='flex';
     });
     document.getElementById('btn_ok')?.addEventListener('click', ()=> document.getElementById('help').style.display='none');
