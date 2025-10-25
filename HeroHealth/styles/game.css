@@ -190,3 +190,18 @@ body.fever-bg{
   letter-spacing: .2px;
   color: var(--fg);
 }
+/* Mission line: ไอคอนสถานะ + ellipsis */
+#missionLine{
+  background: rgba(8,10,20,.35);
+  border: 1px solid rgba(255,255,255,.07);
+  padding: 6px 10px; border-radius: 10px;
+  font-weight: 800; letter-spacing: .2px;
+  max-width: 720px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Tap target & mobile comfort */
+.item{ min-width:40px; min-height:40px; touch-action: manipulation; }
+.item:active{ transform: translateY(0) scale(.96) }
+
+/* Safe overlays */
+#c{ pointer-events:none; } /* แคนวาสไม่บังคลิก */
