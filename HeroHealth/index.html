@@ -243,5 +243,31 @@
       });
     })();
   </script>
+  <script>
+(function(){
+  function show(msg){
+    const w = document.getElementById('bootWarn') || (()=>{
+      const d=document.createElement('div');
+      d.id='bootWarn';
+      d.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;';
+      document.body.appendChild(d);
+      return d;
+    })();
+    w.textContent = '⚠️ main.js error: ' + msg;
+    w.style.display='block';
+    console.error('[main.js error]', msg);
+  }
+  window.addEventListener('error', (e)=>{
+    if(String(e?.filename||'').includes('/game/main.js') || String(e?.message||'').includes('import')){
+      show(e.message || 'module error');
+    }
+  });
+  window.addEventListener('unhandledrejection', (e)=>{
+    const m = (e.reason && (e.reason.stack||e.reason.message)) || e.reason || 'unhandled rejection';
+    show(m);
+  });
+})();
+</script>
+
 </body>
 </html>
