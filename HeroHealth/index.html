@@ -132,5 +132,45 @@
       setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2000);
     })();
   </script>
+  <script>
+(function safeStartBridge(){
+  function ensureLayers(){
+    const c = document.getElementById('c');
+    if (c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+    // ทำให้ชั้น UI คลิกได้เสมอ
+    ['hud','menu','modal','coach','item'].forEach(cls=>{
+      document.querySelectorAll('.'+cls).forEach(el=>{
+        el.style.pointerEvents='auto';
+        el.style.zIndex = Math.max(100, parseInt(getComputedStyle(el).zIndex||'0',10));
+      });
+    });
+  }
+  function bindStart(){
+    const b = document.getElementById('btn_start');
+    if (!b) return;
+    // ล้าง handler เก่า แล้ว bind ใหม่ที่ strong กว่า
+    const clone = b.cloneNode(true);
+    b.parentNode.replaceChild(clone, b);
+    clone.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      try{
+        if (window.preStartFlow) window.preStartFlow();
+        else if (window.HHA?.startGame) window.HHA.startGame({demoPassed:true});
+        else if (window.start) window.start({demoPassed:true});
+      }catch(err){ console.error('[Start Bridge error]', err); }
+    }, {capture:true});
+  }
+  function probe(){
+    const b = document.getElementById('btn_start'); if(!b) return;
+    const r = b.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const top = document.elementsFromPoint(cx,cy)[0];
+    if (top!==b) console.warn('[Overlay over Start]', top);
+  }
+  const boot = ()=>{ ensureLayers(); bindStart(); setTimeout(()=>{ensureLayers(); bindStart(); probe();}, 400); };
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+
 </body>
 </html>
