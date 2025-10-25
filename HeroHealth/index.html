@@ -5,32 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- ✅ Base path สำหรับ GitHub Pages -->
+  <!-- GitHub Pages base -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
 
+  <!-- เสริมเลเยอร์/ตำแหน่งให้ HUD อยู่มุมซ้ายบนชัดเจน -->
   <style>
-    /* ป้องกัน canvas บังปุ่ม */
-    #c { pointer-events:none; z-index:1; }
-    .hud, .menu, .modal, .coach, .item {
-      z-index:100;
-      pointer-events:auto;
+    /* อย่าให้ canvas บังคลิก */
+    #c { pointer-events: none; z-index: 1; }
+
+    /* HUD ตรึงมุมซ้ายบนชัด ๆ */
+    .hud{
+      position: fixed; top: 56px; left: 12px; right: auto;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 120; /* สูงกว่าเมนู/ฉาก */
+      text-shadow: 0 2px 8px rgba(0,0,0,.6);
     }
-    .menu {
-      position:fixed; bottom:12px; left:12px; background:rgba(10,10,25,.85);
-      border-radius:12px; padding:10px; backdrop-filter:blur(8px);
+    .hud-line, #statusLine{
+      background: rgba(8,10,20,.62);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 900; color: #fff;
     }
-    .btn,.tag {
-      background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.2);
-      color:#fff; border-radius:10px; cursor:pointer; font-weight:700;
+
+    /* เมนูตรึงล่างซ้าย แต่ z-index ต่ำกว่า HUD นิดนึง */
+    .menu{
+      position: fixed; bottom: 12px; left: 12px; right: auto;
+      background: rgba(10,10,25,.90); border-radius: 12px; padding: 10px;
+      backdrop-filter: blur(8px);
+      z-index: 110;
     }
-    .btn:hover { background:rgba(255,255,255,.25); }
-    .hud-line { background:rgba(0,0,0,.5); border-radius:8px; padding:6px 10px; }
+    .btn,.tag{
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.2);
+      color: #fff; border-radius: 10px; cursor: pointer; font-weight: 700;
+    }
+    .btn:hover,.tag:hover{ background: rgba(255,255,255,.25); }
   </style>
 </head>
-
 <body>
+  <!-- Header -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
@@ -39,20 +55,32 @@
     <button id="soundToggle" class="btn">🔊 เสียง</button>
   </header>
 
+  <!-- Canvas -->
   <canvas id="c"></canvas>
 
+  <!-- HUD (มุมซ้ายบน) -->
   <section class="hud">
+    <!-- 🔹 บรรทัดแสดงโหมด/ความยาก (ใหม่) -->
+    <div id="statusLine">โหมด: — • ความยาก: —</div>
+
+    <!-- คะแนน/คอมโบ/เวลา -->
     <div class="hud-line">
       คะแนน <b id="score">0</b> | คอมโบ <b id="combo">x0</b> | เวลา <b id="time">60</b>s
     </div>
+
+    <!-- Mission / Target -->
     <div id="missionLine" style="display:none; font-weight:700;">—</div>
     <div id="targetWrap" style="display:none;">🎯 <span id="targetBadge">—</span></div>
+
+    <!-- Fever bar -->
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
     <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
+  <!-- Coach bubble -->
   <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
+  <!-- เมนู -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
@@ -73,6 +101,7 @@
     </div>
   </section>
 
+  <!-- Help -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
       <h3>วิธีเล่น</h3>
@@ -81,6 +110,7 @@
     </div>
   </div>
 
+  <!-- Result -->
   <div id="result" class="modal" style="display:none">
     <div class="card">
       <h3>สรุปผล</h3>
@@ -89,23 +119,23 @@
     </div>
   </div>
 
-  <!-- ✅ โหลดเกมหลัก -->
+  <!-- main.js -->
   <script type="module" src="game/main.js"></script>
 
-  <!-- ✅ แจ้งเตือนเมื่อ main.js ไม่โหลด -->
+  <!-- bootWarn: แจ้งถ้า main.js ไม่โหลด -->
   <script>
-  (function(){
-    const warn=document.createElement('div');
-    warn.id='bootWarn';
-    warn.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
-    Object.assign(warn.style,{
-      position:'fixed',top:0,left:0,right:0,
-      background:'#b00020',color:'#fff',
-      padding:'10px',fontWeight:'700',display:'none',zIndex:9999
-    });
-    document.body.appendChild(warn);
-    setTimeout(()=>{ if(!window.__HHA_BOOT_OK) warn.style.display='block'; },2000);
-  })();
+    (function(){
+      const warn=document.createElement('div');
+      warn.id='bootWarn';
+      warn.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
+      Object.assign(warn.style,{
+        position:'fixed',top:0,left:0,right:0,
+        background:'#b00020',color:'#fff',
+        padding:'10px',fontWeight:'700',display:'none',zIndex:9999
+      });
+      document.body.appendChild(warn);
+      setTimeout(()=>{ if(!window.__HHA_BOOT_OK) warn.style.display='block'; },2000);
+    })();
   </script>
 </body>
 </html>
