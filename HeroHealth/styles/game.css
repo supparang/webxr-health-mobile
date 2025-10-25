@@ -1,50 +1,41 @@
-/* ===== Fix: canvas ไม่บังปุ่ม ===== */
-#c {
-  z-index: 1 !important;
-  pointer-events: none !important;
-}
+/* --- กัน canvas บังปุ่ม/HUD --- */
+#c { z-index: 1 !important; pointer-events: none !important; }
 
-/* ===== HUD/เมนู/โมดัล ต้องคลิกได้ ===== */
+/* --- HUD/เมนู/โมดัล ต้องอยู่บนและคลิกได้ --- */
 .hud, .menu, .modal, .coach, .item {
   z-index: 100 !important;
-  pointer-events: auto !important;
+  pointer-events: auto;
 }
 
-/* ===== เมนูล่างซ้าย ===== */
-.menu {
+/* --- ให้ Coach โชว์เมื่อมี class .show --- */
+.coach.show { display: block !important; }
+
+/* --- ทำให้ HUD อ่านง่ายขึ้น --- */
+.hud > div {
+  background: rgba(8,10,20,.55) !important;
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+/* --- ทำให้แถบ “โหมด/ความยาก” ชัดขึ้น --- */
+.menu .modeLabel{
+  color: #fff !important;
+  font-weight: 900;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.35);
+  text-shadow: 0 2px 6px rgba(0,0,0,.6);
+}
+
+/* --- ย้ายเมนูไปล่างซ้ายให้แน่นอน --- */
+#menuBar{
   position: fixed !important;
-  left: max(10px, env(safe-area-inset-left)) !important;
-  bottom: max(10px, env(safe-area-inset-bottom)) !important;
+  left: 10px !important;
+  bottom: 10px !important;
   top: auto !important;
   transform: none !important;
-
   width: auto !important;
   max-width: 48vw;
   background: rgba(10,12,20,0.9);
   border-radius: 12px;
   padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* แถวในเมนูให้เรียงแนวตั้งกระชับพื้นที่ */
-.menu .row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-start;
-}
-
-/* ปุ่มให้กดง่ายขึ้น */
-.menu .btn, .menu .tag {
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-/* มือถือให้เมนูกว้างขึ้นนิด */
-@media (max-width: 736px) {
-  .menu { max-width: 88vw; }
 }
