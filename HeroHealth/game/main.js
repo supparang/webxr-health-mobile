@@ -1,8 +1,7 @@
-// ===== Boot flag (for index bootWarn) =====
+// ===== Boot flag (ซ่อนแบนเนอร์เตือนถ้าไฟล์นี้รันสำเร็จ) =====
 window.__HHA_BOOT_OK = true;
 
-// ===== Imports (ตรงตามโครงสร้าง HeroHealth/game/*) =====
-// อยู่ที่ HeroHealth/game/main.js  → ต้อง import แบบ ./core/* และ ./modes/*
+// ===== Imports (ตำแหน่งนี้คือ HeroHealth/game/main.js → ใช้ ./core/*, ./modes/*) =====
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine }        from './core/engine.js';
 import { HUD }           from './core/hud.js';
@@ -19,7 +18,7 @@ import * as groups    from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
 import * as plate     from './modes/plate.js';
 
-// ===== Short helpers =====
+// ===== Helpers =====
 const qs = (s)=>document.querySelector(s);
 const setText = (sel, txt)=>{ const el=qs(sel); if(el) el.textContent = txt; };
 const now = ()=>performance.now?.() ?? Date.now();
@@ -36,7 +35,6 @@ const board = new Leaderboard();
 const mission = new MissionSystem();
 const power = new PowerUpSystem();
 const score = new ScoreSystem();
-// const prog  = new Progression();
 const eng = new Engine(THREE, document.getElementById('c'));
 const fx  = new FloatingFX(eng);
 const coach = new Coach({ lang: 'TH' });
@@ -68,19 +66,17 @@ const timers = { spawn:0, tick:0 };
 let feverCharge = 0;
 const FEVER_REQ = 10;
 
-// ===== I18N (ย่อเฉพาะที่ใช้ในสรุปผล/ปุ่ม) =====
+// ===== I18N (ย่อเฉพาะที่ใช้) =====
 const I18N = {
-  TH:{
-    brand:'HERO HEALTH ACADEMY', score:'คะแนน', combo:'คอมโบ', time:'เวลา',
-    mode:'โหมด', diff:'ความยาก',
-    modes:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
-    diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'},
+  TH:{ score:'คะแนน', combo:'คอมโบ', time:'เวลา',
+      mode:'โหมด', diff:'ความยาก',
+      modes:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
+      diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'},
   },
-  EN:{
-    brand:'HERO HEALTH ACADEMY', score:'Score', combo:'Combo', time:'Time',
-    mode:'Mode', diff:'Difficulty',
-    modes:{goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate'},
-    diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'},
+  EN:{ score:'Score', combo:'Combo', time:'Time',
+      mode:'Mode', diff:'Difficulty',
+      modes:{goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate'},
+      diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'},
   }
 };
 const L = ()=> (I18N[state.lang] || I18N.TH);
@@ -121,7 +117,7 @@ if (typeof score.setHandlers === 'function') {
   });
 }
 
-// ===== Spawn / Loop =====
+// ===== Spawner =====
 function spawnOnce(diff){
   const mode = MODES[state.modeKey]; if(!mode) return;
   const meta = mode.pickMeta(diff, state);
@@ -129,6 +125,7 @@ function spawnOnce(diff){
   const el = document.createElement('button');
   el.className='item'; el.type='button';
   el.textContent = meta.char || '?';
+
   // safe area (กันชนเมนูด้านล่าง)
   const topSafe = 12, bottomSafe = 18;
   const topMin = topSafe, topMax = 100 - bottomSafe;
@@ -168,7 +165,7 @@ function spawnLoop(){
 }
 
 // ===== Start / End / Tick =====
-function start(){
+export function start(){
   end(true);
   // reset HUD sections
   hud.hideHydration(); hud.hideTarget(); hud.hidePills();
@@ -200,7 +197,7 @@ function end(silent=false){
   document.body.classList.remove('fever-bg'); feverCharge=0; hud.setFeverProgress?.(0);
 
   if(!silent){
-    // Leaderboard + summary HTML ให้กับ UI Controller
+    // Leaderboard + summary HTML ให้กับ UI ภายนอกถ้ามี
     try{board.submit(state.modeKey,state.difficulty,score.score);}catch{}
     const top=(board.getTop?.(5)||[]).map((r,i)=>`${i+1}. ${r.mode} • ${r.diff} – ${r.score}`).join('<br>');
     const label = L();
@@ -210,7 +207,6 @@ function end(silent=false){
       ${label.diff}: <b>${label.diffs[state.difficulty]}</b>
       <div style="margin-top:8px"><h4>🏆 TOP</h4>${top}</div>
     `.trim();
-    // ส่งให้ HHA.onEnd()
     HHA.__onEnd?.(summaryHTML);
   }
 }
@@ -220,7 +216,6 @@ function tick(){
   state.timeLeft--;
   updateHUD();
 
-  // mission per-second
   if (state.mission){
     state.mission.remainSec = Math.max(0, state.mission.remainSec - 1);
     mission.evaluate(state, score, (res)=>{
@@ -239,7 +234,6 @@ function tick(){
     }
   }
 
-  // streak decay
   if ((state.timeLeft % 3 === 0) && score.combo > 0) {
     score.combo--; hud.setCombo?.(score.combo);
   }
@@ -251,20 +245,18 @@ function tick(){
   timers.tick = setTimeout(tick, 1000);
 }
 
-// ===== Public HHA API for external UI Controller =====
+// ===== Public HHA API (ให้ index หรือ UI ภายนอกเรียกได้) =====
 const HHA = (window.HHA = window.HHA || {});
 HHA.__onEnd = null;
 HHA.onEnd = (cb)=>{ HHA.__onEnd = typeof cb==='function' ? cb : null; };
 HHA.startGame = (opt={})=>{
-  // controller อาจส่ง {demoPassed:true}
   if(opt.demoPassed) start();
-  else start(); // ถ้ามี preStartFlow แทรกก่อนเริ่มจริง คุณสามารถเรียกที่นี่ได้
+  else start();
 };
 HHA.pause = ()=>{ state.running=false; };
 HHA.resume = ()=>{
   if(!state.running){
     state.running=true;
-    // ป้องกันกรณี loop ไม่ถูกตั้ง
     clearTimeout(timers.tick); timers.tick = 0;
     clearTimeout(timers.spawn); timers.spawn = 0;
     tick(); spawnLoop();
@@ -272,7 +264,7 @@ HHA.resume = ()=>{
 };
 HHA.restart = ()=>{ end(true); start(); };
 
-// ===== Quality-of-life: เสียง / กราฟิก / ภาษา =====
+// ===== QoL: กราฟิก/เสียง/ภาษา =====
 function applyGFX(){
   if(state.gfx==='low'){
     eng.renderer.setPixelRatio(0.75);
@@ -288,7 +280,7 @@ function applySound(){
   localStorage.setItem('hha_sound', state.soundOn ? '1' : '0');
 }
 
-// ===== Events (เสียง, visibility, tooltip) =====
+// ===== Events =====
 ['pointerdown','touchstart','keydown'].forEach(ev=>{
   window.addEventListener(ev, ()=>sfx.unlock(), {once:true, passive:true});
 });
@@ -300,34 +292,16 @@ document.getElementById('missionLine')?.addEventListener('click', ()=>{
   fx.spawn3D?.(null, txt, 'good');
 });
 
-// ===== Ensure UI clickable & menu bottom-left (backup if CSS late) =====
-function __fixLayersAndMenuPos() {
-  const c = document.getElementById('c');
-  if (c) { c.style.pointerEvents = 'none'; c.style.zIndex = '1'; }
-  ['hud','menu','modal','coach','item'].forEach(cls => {
-    document.querySelectorAll('.' + cls).forEach(el => {
-      el.style.pointerEvents = 'auto';
-      el.style.zIndex = '100';
-    });
-  });
-  const menu = document.getElementById('menuBar');
-  if (menu) {
-    Object.assign(menu.style, {
-      position: 'fixed',
-      left: '10px',
-      bottom: '10px',
-      top: 'auto',
-      transform: 'none',
-      width: 'auto',
-      maxWidth: '48vw'
-    });
-  }
-}
-
 // ===== Boot =====
 applyGFX(); applySound(); updateHUD();
 window.addEventListener('DOMContentLoaded', ()=>{
-  __fixLayersAndMenuPos();
-  setTimeout(__fixLayersAndMenuPos, 400);
+  // กัน overlay และบังคับ HUD โผล่ ในกรณี CSS โหลดช้า
+  const c = document.getElementById('c');
+  if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+  const hudEl = document.querySelector('.hud');
+  if(hudEl){ hudEl.style.display='flex'; hudEl.style.visibility='visible'; hudEl.style.opacity='1'; }
   console.log('✅ main.js ready (HHA API exposed)');
 });
+
+// ===== Optional export for direct start() fallback in index hardFix =====
+export default { start };
