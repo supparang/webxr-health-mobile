@@ -22,23 +22,27 @@ const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
 // ===== Systems =====
 const MODES = { goodjunk, groups, hydration, plate };
-const hud = new HUD();
-const sfx = new SFX({ enabled:true, poolSize:6 });
+const hud   = new HUD();
+const sfx   = new SFX({ enabled:true, poolSize:6 });
 const power = new PowerUpSystem();
 const score = new ScoreSystem();
-const fx = new FloatingFX(new Engine(THREE, document.getElementById('c')));
+const fx    = new FloatingFX(new Engine(THREE, document.getElementById('c')));
 const coach = new Coach({ lang:'TH' });
 
 // ===== State =====
 let state = {
-  modeKey:'goodjunk', difficulty:'Normal',
-  running:false, timeLeft:60, fever:false, ctx:{hits:0,miss:0}
+  modeKey:'goodjunk',
+  difficulty:'Normal',
+  running:false,
+  timeLeft:60,
+  fever:false,
+  ctx:{hits:0,miss:0}
 };
 
 const DIFFS = {
-  Easy:{ time:70, spawn:850, life:4200 },
+  Easy:{   time:70, spawn:850, life:4200 },
   Normal:{ time:60, spawn:700, life:3000 },
-  Hard:{ time:50, spawn:550, life:1900 }
+  Hard:{   time:50, spawn:550, life:1900 }
 };
 
 // ===== Names (TH) =====
@@ -81,8 +85,10 @@ function releaseItemEl(el){ el.onclick=null; el.remove(); if(_pool.length<POOL_M
 function place(el,diff){
   el.style.left=(8+Math.random()*84)+'vw';
   el.style.top =(18+Math.random()*70)+'vh';  // เว้นหัว/เมนู
-  el.animate([{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],
-             {duration:1200,iterations:Infinity});
+  el.animate(
+    [{transform:'translateY(0)'},{transform:'translateY(-6px)'},{transform:'translateY(0)'}],
+    {duration:1200,iterations:Infinity}
+  );
 }
 function spawnOnce(diff){
   const mode = MODES[state.modeKey];
@@ -117,12 +123,17 @@ export function start(opt={}){
   end(true);
   const diff=DIFFS[state.difficulty] || DIFFS.Normal;
   state.running=true; state.timeLeft=diff.time; score.reset();
+
   // ให้ HUD/Status โผล่ชัดและอยู่บนสุดเสมอ
   forceUILayers();
   updateStatusLine();
 
+  // init โหมด + อัปเดต HUD
   MODES[state.modeKey]?.init?.(state,hud,diff);
-  updateHUD(); coach.say('เริ่มเกม!');
+  updateHUD();
+  coach.say('เริ่มเกม!');
+
+  // main loop
   tick(); spawnLoop();
 }
 function tick(){
@@ -136,15 +147,16 @@ export function end(silent=false){
   state.running=false; clearTimeout(timers.spawn); clearTimeout(timers.tick);
   if(!silent){
     const core=qs('#resCore');
-    if(core) core.innerHTML = `<p>โหมด: <b>${MODE_NAME_TH[state.modeKey]||state.modeKey}</b></p>
-                               <p>ความยาก: <b>${state.difficulty}</b></p>
-                               <p>คะแนน: <b>${score.score|0}</b> • คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>`;
+    if(core) core.innerHTML = `
+      <p>โหมด: <b>${MODE_NAME_TH[state.modeKey]||state.modeKey}</b></p>
+      <p>ความยาก: <b>${state.difficulty}</b></p>
+      <p>คะแนน: <b>${score.score|0}</b> • คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>`;
     const res=qs('#result'); if(res) res.style.display='flex';
     coach.say('เยี่ยมมาก!');
   }
 }
 
-// ===== Events =====
+// ===== Events (เมนู) =====
 document.addEventListener('click',(e)=>{
   const btn=e.target.closest('#menuBar button'); if(!btn)return;
   const a=btn.dataset.action,v=btn.dataset.value;
@@ -158,11 +170,14 @@ document.addEventListener('click',(e)=>{
 qs('#btn_ok')?.addEventListener('click',()=>qs('#help').style.display='none');
 qs('#btn_home')?.addEventListener('click',()=>qs('#result').style.display='none');
 
+// ===== Expose setters for ui.js sync (optional but helpful) =====
+window.setMode = (k)=>{ if(k){ state.modeKey=k; updateStatusLine(); } };
+window.setDifficulty = (d)=>{ if(d){ state.difficulty=d; updateStatusLine(); } };
+
 // ===== Keep HUD above & clickable =====
 function forceUILayers(){
   const c=document.getElementById('c');
   if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
-  // ย้ำชั้น UI ทั้งหมด
   ['hud','menu','modal','coach','item'].forEach(cls=>{
     document.querySelectorAll('.'+cls).forEach(el=>{
       el.style.pointerEvents='auto';
@@ -172,5 +187,11 @@ function forceUILayers(){
 }
 forceUILayers();
 updateStatusLine(); // อัปเดตครั้งแรกที่ยังไม่เริ่มเกม
+
+// ===== Unlock audio/BGM on first gesture (สำหรับ mobile/browser policy) =====
+window.addEventListener('pointerdown', () => {
+  try { document.getElementById('sfx-good')?.play()?.catch(()=>{}); } catch {}
+  try { document.getElementById('bgm-main')?.play()?.catch(()=>{}); } catch {}
+}, { once: true, passive: true });
 
 window.start=start; window.end=end;
