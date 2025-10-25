@@ -1,65 +1,194 @@
-<!-- Loader: import main.js แบบเดี่ยว มี fallback และข้อความดีบั๊ก -->
-<script type="module">
-  // กันโหลดซ้ำ
-  if (window.__HHA_MAIN_ATTEMPTED) {
-    console.warn('[HHA] main loader already attempted; skip duplicate');
-  } else {
-    window.__HHA_MAIN_ATTEMPTED = true;
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hero Health Academy</title>
 
-    const ABS = 'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live';
-    const REL = './game/main.js'; // ✅ ตัวระบุที่ถูกต้อง (มี ./)
+  <!-- ถ้าโฮสต์ที่ GitHub Pages แบบ user site: https://supparang.github.io/webxr-health-mobile/HeroHealth/ -->
+  <!-- ให้คง base แบบ absolute path ไว้ (ต้องมี "/" ปิดท้าย) -->
+  <base href="/webxr-health-mobile/HeroHealth/">
 
-    const warn = (() => {
-      let el = document.getElementById('bootWarn');
-      if (!el) {
-        el = document.createElement('div');
-        el.id = 'bootWarn';
-        el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;white-space:pre-wrap;display:none';
-        document.body.appendChild(el);
-      }
-      return {
-        show(msg){ el.textContent = msg; el.style.display = 'block'; },
-        hide(){ el.style.display = 'none'; }
-      };
-    })();
+  <link rel="stylesheet" href="styles/game.css" />
+  <!-- ใช้ bootloader แบบ dynamic import + fallback แทนการชี้ตรง -->
+  <script type="module">
+    // ----- HHA Bootloader (resilient) -----
+    window.__HHA_BOOT_OK = false;
 
-    let lastErr = null;
-    let ok = false;
-
-    // 1) ลอง absolute URL ที่ยืนยันว่าใช้ได้
-    try {
-      await import(ABS);
-      ok = true;
-    } catch (e1) {
-      lastErr = e1;
-      console.warn('[HHA] import fail ABS:', ABS, e1);
-      // 2) สำรอง: path สัมพัทธ์จาก index.html
-      try {
-        await import(REL);
-        ok = true;
-      } catch (e2) {
-        lastErr = e2;
-        console.warn('[HHA] import fail REL:', REL, e2);
+    const candidates = [];
+    // ลองอิงตาม <base>, ตามตำแหน่งไฟล์ปัจจุบัน, และ URL คงที่ของ GitHub Pages
+    const baseURIs = [
+      document.baseURI,
+      new URL('./', location.href).href,
+      'https://supparang.github.io/webxr-health-mobile/HeroHealth/'
+    ];
+    const paths = [
+      'game/main.js?v=live',
+      'game/main.js',
+      './game/main.js'
+    ];
+    for (const b of baseURIs) {
+      for (const p of paths) {
+        candidates.push(new URL(p, b).href);
       }
     }
 
-    // รอให้ main.js ตั้ง flag แล้วค่อยตัดสิน
-    setTimeout(() => {
-      if (ok && window.__HHA_BOOT_OK === true) return;
-      const detail = (lastErr && (lastErr.message || String(lastErr))) || 'unknown';
-      warn.show(
-`⚠️ โหลดสคริปต์ไม่สำเร็จ
+    let loaded = false;
+    let lastErr = null;
+    for (const url of candidates) {
+      try {
+        // กัน cache ระหว่างทดสอบ
+        const withBust = url.includes('?') ? url + '&cb=' + Date.now() : url + '?cb=' + Date.now();
+        await import(withBust);
+        loaded = true;
+        window.__HHA_BOOT_OK = true;
+        console.info('[HHA] boot ok via', url);
+        break;
+      } catch (e) {
+        lastErr = e;
+        console.warn('[HHA] boot try fail:', url, e);
+      }
+    }
 
-พยายาม:
-- ${ABS}
-- ${REL}
+    if (!loaded) {
+      const w = document.getElementById('bootWarn');
+      if (w) {
+        w.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: ' +
+                        (lastErr && (lastErr.message || lastErr.toString()));
+        w.style.display = 'block';
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- Brand / Toggles -->
+  <header class="brand">
+    <div id="brandTitle">HERO HEALTH ACADEMY</div>
+    <div class="spacer"></div>
+    <button id="langToggle"   class="btn" type="button">🇹🇭 TH/EN</button>
+    <button id="gfxToggle"    class="btn" type="button">🎛️ กราฟิก: ปกติ</button>
+    <button id="soundToggle"  class="btn" type="button">🔊 เสียง: เปิด</button>
+  </header>
 
-สาเหตุล่าสุด: ${detail}
+  <!-- Render Surface -->
+  <canvas id="c"></canvas>
 
-Tips:
-• ตรวจว่ามีไฟล์ /HeroHealth/game/main.js จริง (ตัวพิมพ์ตรง)
-• Network: สถานะ 200 และ MIME = javascript
-• ถ้าเป็น SyntaxError ให้ดู Console บรรทัดที่พังใน main.js`);
-    }, 200);
-  }
-</script>
+  <!-- HUD (คะแนน/คอมโบ/เวลา + Fever Bar + Target + Plate + Hydration) -->
+  <section class="hud">
+    <div>
+      <span id="t_score">คะแนน</span>: <b id="score">0</b> |
+      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
+      <span id="t_time">เวลา</span>: <b id="time">60</b>s
+    </div>
+
+    <!-- Fever Progress Bar -->
+    <div id="feverBarWrap" class="bar slim">
+      <div id="feverBar" style="width:0%"></div>
+    </div>
+
+    <!-- เป้าหมายหมวดอาหาร (โหมด groups/plate) -->
+    <div id="targetWrap" style="display:none">
+      🎯 <span id="t_target">หมวด</span>:
+      <span id="targetBadge">—</span>
+    </div>
+
+    <!-- โควตาอาหาร (โหมด plate) -->
+    <div id="plateTracker" style="display:none">
+      🍱 <span id="t_quota">โควตา</span>:
+      <span id="platePills"></span>
+    </div>
+
+    <!-- สมดุลน้ำ (โหมด hydration) -->
+    <div id="hydroWrap" style="display:none">
+      💧 <span id="t_hydro">สมดุลน้ำ</span>:
+      <span id="hydroLabel">—</span>
+      <div class="bar"><div id="hydroBar"></div></div>
+    </div>
+
+    <!-- Fever Label -->
+    <div id="fever" class="fever" style="display:none">FEVER!</div>
+  </section>
+
+  <!-- โค้ช (ข้อความแนะนำ/ให้กำลังใจ) -->
+  <div id="coachHUD" class="coach" style="display:none">
+    <div id="coachText">...</div>
+  </div>
+
+  <!-- เมนูล่างจอ -->
+  <section id="menuBar" class="menu">
+    <div class="row">
+      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="mode" data-value="plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
+    </div>
+
+    <div class="row">
+      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
+      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard"   type="button">ยาก</button>
+
+      <span class="modeLabel">
+        <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
+        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
+      </span>
+    </div>
+
+    <div class="row">
+      <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
+      <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
+      <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
+      <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
+    </div>
+  </section>
+
+  <!-- Help Modal -->
+  <div id="help" class="modal" style="display:none">
+    <div class="card">
+      <h3 id="h_help">วิธีเล่น</h3>
+      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
+      <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
+    </div>
+  </div>
+
+  <!-- Result Modal -->
+  <div id="result" class="modal" style="display:none">
+    <div class="card">
+      <h3 id="h_summary">สรุปผล</h3>
+      <div id="resCore"></div>
+      <div id="resBreakdown"></div>
+      <div id="resBoard"></div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
+        <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SFX (ต้องมี id ตรงกับที่ main.js เรียกใช้) -->
+  <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
+
+  <!-- แจ้งเตือนเมื่อ main.js ไม่โหลด -->
+  <script>
+    (function(){
+      const w=document.createElement('div');
+      w.id='bootWarn';
+      w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;display:none';
+      w.textContent='โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js';
+      document.body.appendChild(w);
+      // ถ้า bootloader ด้านบนตั้ง __HHA_BOOT_OK แล้ว ข้อความนี้จะไม่แสดง
+      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2200);
+    })();
+  </script>
+
+  <noscript>
+    <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000">
+      จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
+    </div>
+  </noscript>
+</body>
+</html>
