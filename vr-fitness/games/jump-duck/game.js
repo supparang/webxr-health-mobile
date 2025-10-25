@@ -25,6 +25,20 @@
   const btnHome = document.getElementById('home');
   const toggleBgmBtn = document.getElementById('toggleBgm');
   const toggleCoachBtn = document.getElementById('toggleCoach');
+  function resetToMenu(){
+    // stop timers & audio
+    try{ if(gameTimerId) clearInterval(gameTimerId); }catch(e){}
+    try{ if(spawnerId) clearInterval(spawnerId); }catch(e){}
+    try{ sfx.bgm.pause(); }catch(e){}
+    // reset state
+    state = "idle";
+    // clear obstacles
+    if(obstaclesRoot) obstaclesRoot.innerHTML = "";
+    // show menu
+    hide(result);
+    show(menu);
+  }
+
 
   // Audio
   const sfx = {
@@ -85,10 +99,10 @@
 
   btnStart.addEventListener('click', startGame);
   btnStart.addEventListener('touchend', (e)=>{ e.preventDefault(); startGame(); });
-  btnRetry.addEventListener('click', ()=>{ hide(result); show(menu); });
-  btnRetry.addEventListener('touchend', (e)=>{ e.preventDefault(); hide(result); show(menu); });
-  btnHome?.addEventListener('click', ()=>{ hide(result); show(menu); });
-  btnHome?.addEventListener('touchend', (e)=>{ e.preventDefault(); hide(result); show(menu); });
+  btnRetry.addEventListener('click', resetToMenu);
+  btnRetry.addEventListener('touchend', (e)=>{ e.preventDefault(); resetToMenu(); });
+  btnHome?.addEventListener('click', resetToMenu);
+  btnHome?.addEventListener('touchend', (e)=>{ e.preventDefault(); resetToMenu(); });
 
   function show(el){ el.classList.add('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.add('menu-open'); } }
   function hide(el){ el.classList.remove('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.remove('menu-open'); } }
@@ -100,13 +114,15 @@
   }
 
   function startGame(){
-    if(state!=="idle") return;
+    if(state!=="idle" && state!=="ended") return;
     state="playing";
     hide(menu);
     show(hud);
     score=0; fever=0; streak=0; bestStreak=0; hitCount=0; missCount=0;
     obstaclesRoot.innerHTML = "";
     updateHUD();
+    // ensure timers reflect current difficulty
+    setDiff(diff);
     speakCoach("Ready! Let's go!");
     sfx.coachReady.currentTime = 0; if(audioEnabled) sfx.coachReady.play();
     if(audioEnabled){ try { sfx.bgm.currentTime=0; sfx.bgm.play(); } catch(e){} }
@@ -118,6 +134,8 @@
       timeLeft--;
       if(timeLeft<=0){ endGame(); }
       updateHUD();
+    // ensure timers reflect current difficulty
+    setDiff(diff);
     }, 1000);
 
     // spawner
@@ -215,6 +233,8 @@
     }
     obs.remove();
     updateHUD();
+    // ensure timers reflect current difficulty
+    setDiff(diff);
   }
 
   // Adaptive coach via Web Speech API
