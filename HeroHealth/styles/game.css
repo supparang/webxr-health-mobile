@@ -205,3 +205,18 @@ body.fever-bg{
 
 /* Safe overlays */
 #c{ pointer-events:none; } /* แคนวาสไม่บังคลิก */
+
+/* --- App states to hide menu overlay during play/demo --- */
+body.state-playing #menuBar,
+body.state-demo    #menuBar { display: none !important; }
+
+/* prevent canvas from eating clicks while in overlays */
+body.state-menu  #c,
+body.state-help  #c,
+body.state-result #c { pointer-events: none; }
+
+/* fade helpers */
+.fade-enter { opacity: 0; }
+.fade-enter.fade-show { opacity: 1; transition: opacity .25s ease; }
+.fade-leave { opacity: 1; }
+.fade-leave.fade-hide { opacity: 0; transition: opacity .25s ease; }

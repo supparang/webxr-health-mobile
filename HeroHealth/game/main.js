@@ -122,10 +122,14 @@ const I18N = {
     sound:{on:'🔊 เสียง: เปิด', off:'🔇 เสียง: ปิด'},
     helpTitle:'วิธีเล่น',
     helpBody:{
-      goodjunk:'เก็บอาหารดี (🥦🍎) หลีกเลี่ยงของขยะ (🍔🍟🥤)\nคลิก/แตะ/จ้อง เพื่อเก็บคะแนน',
-      groups:'ดู 🎯 เป้าหมายบน HUD แล้วเก็บให้ตรงหมวด\nถูก +7 ผิด -2 (ครบ 3 จะเปลี่ยนหมวด)',
-      hydration:'รักษาแถบน้ำ 45–65%\n💧 +5 / 🧋 -6 • น้ำสูง+ดื่มน้ำ หรือ น้ำต่ำ+ดื่มหวาน = โทษหนัก',
-      plate:'เติมโควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1\nครบ +14 • เกินโควตา -1s'
+      goodjunk:'เก็บอาหารดี (🥦🍎) หลีกเลี่ยงของขยะ (🍔🍟🥤)
+คลิก/แตะ/จ้อง เพื่อเก็บคะแนน',
+      groups:'ดู 🎯 เป้าหมายบน HUD แล้วเก็บให้ตรงหมวด
+ถูก +7 ผิด -2 (ครบ 3 จะเปลี่ยนหมวด)',
+      hydration:'รักษาแถบน้ำ 45–65%
+💧 +5 / 🧋 -6 • น้ำสูง+ดื่มน้ำ หรือ น้ำต่ำ+ดื่มหวาน = โทษหนัก',
+      plate:'เติมโควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1
+ครบ +14 • เกินโควตา -1s'
     },
     summary:'สรุปผล'
   },
@@ -141,10 +145,14 @@ const I18N = {
     sound:{on:'🔊 Sound: On', off:'🔇 Sound: Off'},
     helpTitle:'How to Play',
     helpBody:{
-      goodjunk:'Collect healthy (🥦🍎), avoid junk (🍔🍟🥤)\nClick/Tap/Gaze to score.',
-      groups:'Follow 🎯 target group on HUD.\nRight +7, wrong -2 (every 3 hits target rotates)',
-      hydration:'Keep hydration 45–65%.\n💧 +5 / 🧋 -6 • High+💧 or Low+🧋 = heavy penalty',
-      plate:'Fill quotas: Grain2 Veg2 Protein1 Fruit1 Dairy1\nPerfect +14 • Overfill -1s'
+      goodjunk:'Collect healthy (🥦🍎), avoid junk (🍔🍟🥤)
+Click/Tap/Gaze to score.',
+      groups:'Follow 🎯 target group on HUD.
+Right +7, wrong -2 (every 3 hits target rotates)',
+      hydration:'Keep hydration 45–65%.
+💧 +5 / 🧋 -6 • High+💧 or Low+🧋 = heavy penalty',
+      plate:'Fill quotas: Grain2 Veg2 Protein1 Fruit1 Dairy1
+Perfect +14 • Overfill -1s'
     },
     summary:'Summary'
   }
@@ -295,6 +303,7 @@ function spawnLoop(){
 
 // ===== Start / End / Tick =====
 function start(){
+  setAppState('playing');
   end(true);
   hud.hideHydration(); hud.hideTarget(); hud.hidePills();
 
@@ -332,7 +341,7 @@ function end(silent=false){
     const list=(board.getTop?.(5)||[]).map((r,i)=>`${i+1}. ${r.mode} • ${r.diff} – ${r.score}`).join('<br>');
     const core=qs('#resCore'); if(core) core.innerHTML=`${L.score}: <b>${score.score}</b> | ${L.mode}: <b>${L.modes[state.modeKey]}</b>`;
     const boardEl=qs('#resBoard'); if(boardEl) boardEl.innerHTML=`<h4>🏆 TOP</h4>${list}`;
-    show('#result',true); coach.onEnd?.(score.score, score.score>=200?'A':(score.score>=120?'B':'C'));
+    setAppState('result'); const res=document.getElementById('result'); res && fadeShow(res); coach.onEnd?.(score.score, score.score>=200?'A':(score.score>=120?'B':'C'));
     setTimeout(focusBtnStart, 100);
   }
 }
@@ -396,24 +405,24 @@ document.addEventListener('click', (e)=>{
 
   if(a==='mode'){ state.modeKey = v; applyLang(); }
   if(a==='diff'){ state.difficulty = v; applyLang(); }
-  if(a==='start') start();
+  if(a==='start') preStartFlow();
   if(a==='pause') state.running = !state.running;
-  if(a==='restart'){ end(true); start(); }
+  if(a==='restart'){ end(true); setAppState('menu'); start(); setAppState('playing'); }
   if(a==='help'){
     const help = qs('#help');
     const body = qs('#helpBody');
-    if(help && body){ body.textContent = modeHelpText(); help.style.display = 'flex'; }
+    if(help && body){ body.textContent = modeHelpText(); setAppState('help'); fadeShow(help); }
   }
 });
 
 // ปิด Help / Result + คืนโฟกัส
 document.getElementById('help')?.addEventListener('click',(e)=>{
-  if(e.target.matches('[data-action="helpClose"], #help')){ e.currentTarget.style.display='none'; setTimeout(focusBtnStart,50); }
+  if(e.target.matches('[data-action="helpClose"], #help')){ fadeHide(e.currentTarget); setAppState('menu'); setTimeout(focusBtnStart,50); }
 });
 document.getElementById('result')?.addEventListener('click',(e)=>{
   const a=e.target.getAttribute('data-result');
-  if(a==='replay'){ e.currentTarget.style.display='none'; start(); }
-  if(a==='home'){ e.currentTarget.style.display='none'; setTimeout(focusBtnStart,50); }
+  if(a==='replay'){ fadeHide(e.currentTarget); setAppState('playing'); start(); }
+  if(a==='home'){   fadeHide(e.currentTarget); setAppState('menu'); setTimeout(focusBtnStart,50); }
 });
 
 // สลับภาษา/กราฟิก/เสียง
@@ -469,3 +478,43 @@ applyLang(); applyGFX(); applySound();
   }
   requestAnimationFrame(loop);
 })();
+
+// ---------- UI State & Fade helpers (appended) ----------
+let __appState = 'menu'; // 'menu' | 'help' | 'demo' | 'playing' | 'result'
+function setAppState(next){
+  __appState = next;
+  document.body.classList.remove('state-menu','state-help','state-demo','state-playing','state-result');
+  document.body.classList.add(`state-${next}`);
+}
+function fadeShow(el){ el.classList.remove('fade-leave','fade-hide'); el.classList.add('fade-enter'); el.style.display='flex'; requestAnimationFrame(()=>el.classList.add('fade-show')); }
+function fadeHide(el){ el.classList.remove('fade-enter','fade-show'); el.classList.add('fade-leave','fade-hide'); el.addEventListener('transitionend',()=>{ el.style.display='none'; el.classList.remove('fade-leave','fade-hide'); }, {once:true}); }
+const wait = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+async function preStartFlow(){
+  // Show Help once per browser
+  if (!localStorage.getItem('hha_seen_help')) {
+    const help = qs('#help'); const body = qs('#helpBody');
+    if (help && body){
+      body.textContent = modeHelpText();
+      setAppState('help'); fadeShow(help);
+      await new Promise(res=>{
+        const okBtn=document.getElementById('btn_ok');
+        const close=()=>{ okBtn?.removeEventListener('click',close); fadeHide(help); setTimeout(res,180); };
+        okBtn?.addEventListener('click', close);
+        help.addEventListener('click', (e)=>{ if(e.target===help) close(); });
+      });
+      localStorage.setItem('hha_seen_help','1');
+    }
+  }
+
+  // Demo countdown
+  setAppState('demo');
+  fx.spawn3D?.(null,'3','good'); playSFX('sfx-tick'); await wait(650);
+  fx.spawn3D?.(null,'2','good'); playSFX('sfx-tick'); await wait(650);
+  fx.spawn3D?.(null,'1','good'); playSFX('sfx-tick'); await wait(650);
+  coach.say?.(state.lang==='TH' ? 'แตะ/คลิกเพื่อเก็บที่ถูกต้อง!' : 'Tap/Click the correct ones!');
+
+  await wait(450);
+  setAppState('playing');
+  start();
+}
