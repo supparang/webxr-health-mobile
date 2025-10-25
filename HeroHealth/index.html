@@ -1,63 +1,65 @@
-<!-- Loader: พยายาม import ทีละ URL และโชว์สาเหตุถ้า fail -->
+<!-- Loader: import main.js แบบเดี่ยว มี fallback และข้อความดีบั๊ก -->
 <script type="module">
-  // อย่าเปลี่ยนลำดับ/อย่าวาง script main.js อื่น ๆ ซ้ำอีก
-  const warnEl = (() => {
-    const el = document.getElementById('bootWarn') || (() => {
-      const d = document.createElement('div');
-      d.id='bootWarn';
-      d.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;white-space:pre-wrap';
-      document.body.appendChild(d);
-      return d;
-    })();
-    const show = (msg) => { el.textContent = msg; el.style.display = 'block'; };
-    const hide = () => { el.style.display = 'none'; };
-    return {show, hide};
-  })();
-
-  // ป้องกันโหลดซ้ำ
+  // กันโหลดซ้ำ
   if (window.__HHA_MAIN_ATTEMPTED) {
     console.warn('[HHA] main loader already attempted; skip duplicate');
   } else {
     window.__HHA_MAIN_ATTEMPTED = true;
 
-    const tries = [
-      'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live',
-      'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js',
-      '/webxr-health-mobile/HeroHealth/game/main.js',
-      'game/main.js'
-    ];
+    const ABS = 'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live';
+    const REL = './game/main.js'; // ✅ ตัวระบุที่ถูกต้อง (มี ./)
 
-    let ok = false, lastErr = null;
-    for (const url of tries) {
+    const warn = (() => {
+      let el = document.getElementById('bootWarn');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'bootWarn';
+        el.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;white-space:pre-wrap;display:none';
+        document.body.appendChild(el);
+      }
+      return {
+        show(msg){ el.textContent = msg; el.style.display = 'block'; },
+        hide(){ el.style.display = 'none'; }
+      };
+    })();
+
+    let lastErr = null;
+    let ok = false;
+
+    // 1) ลอง absolute URL ที่ยืนยันว่าใช้ได้
+    try {
+      await import(ABS);
+      ok = true;
+    } catch (e1) {
+      lastErr = e1;
+      console.warn('[HHA] import fail ABS:', ABS, e1);
+      // 2) สำรอง: path สัมพัทธ์จาก index.html
       try {
-        await import(url);
+        await import(REL);
         ok = true;
-        break;
-      } catch (err) {
-        lastErr = err;
-        console.warn('[HHA] import fail:', url, err);
+      } catch (e2) {
+        lastErr = e2;
+        console.warn('[HHA] import fail REL:', REL, e2);
       }
     }
 
-    // main.js ที่ถูกต้องจะ set flag นี้เอง
+    // รอให้ main.js ตั้ง flag แล้วค่อยตัดสิน
     setTimeout(() => {
       if (ok && window.__HHA_BOOT_OK === true) return;
       const detail = (lastErr && (lastErr.message || String(lastErr))) || 'unknown';
-      warnEl.show(
+      warn.show(
 `⚠️ โหลดสคริปต์ไม่สำเร็จ
 
-ลอง URL เหล่านี้แล้วไม่สำเร็จ:
-- https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live
-- https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js
-- /webxr-health-mobile/HeroHealth/game/main.js
-- game/main.js
+พยายาม:
+- ${ABS}
+- ${REL}
 
 สาเหตุล่าสุด: ${detail}
 
 Tips:
 • ตรวจว่ามีไฟล์ /HeroHealth/game/main.js จริง (ตัวพิมพ์ตรง)
-• เปิด Network tab ดูสถานะ main.js ต้อง 200 และ MIME เป็น javascript
-• ถ้าเป็น SyntaxError ให้เปิด Console ดูบรรทัดที่พัง แล้วแก้ใน main.js`);
-    }, 200); // รอให้ main.js ตั้ง BOOT_OK
+• Network: สถานะ 200 และ MIME = javascript
+• ถ้าเป็น SyntaxError ให้ดู Console บรรทัดที่พังใน main.js`);
+    }, 200);
   }
 </script>
