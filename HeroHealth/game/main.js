@@ -1,4 +1,11 @@
-// Hero Health Academy - main.js (fix: no optional chaining with new)
+// Hero Health Academy - main.js (2025-10-25)
+// - Pause/Resume จริง (หยุดทั้ง tick และ spawn)
+// - i18n TH/EN สำหรับ HUD/Help
+// - ใช้ TTL จาก meta.life (ถ้าไม่มีจะ fallback diff.life)
+// - power.timeScale ปลอดภัย (ดีฟอลต์ 1)
+// - cleanup โหมดก่อนหน้าเมื่อสลับ
+// - ปลอด "Invalid optional chain from new expression"
+
 window.__HHA_BOOT_OK = true;
 
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
@@ -42,6 +49,9 @@ const i18n = {
   }
 };
 
+function T(lang){ return i18n[lang] || i18n.TH; }
+function safeTimeScale(power){ return Number.isFinite(power?.timeScale) && power.timeScale>0 ? power.timeScale : 1; }
+
 const state = {
   modeKey: 'goodjunk',
   difficulty: 'Normal',
@@ -53,43 +63,44 @@ const state = {
   ACTIVE: new Set(),
   ctx: {},
   spawnTimer: null,
-  tickTimer: null
+  tickTimer: null,
+  lastModeKey: null
 };
 
+// Core systems
 const hud   = new HUD();
 const sfx   = new SFX();
 const score = new ScoreSystem();
 const power = new PowerUpSystem();
 
-// ✅ แก้ตรงนี้: ห้ามใช้ optional chaining กับ new
 let coach;
 try { coach = new Coach({ lang: state.lang }); }
-catch { coach = { onStart(){}, onEnd(){}, lang: state.lang }; }
+catch { coach = { onStart(){}, onEnd(){}, say(){}, lang: state.lang }; }
 
 let eng;
 try { eng = new Engine(THREE, document.getElementById('c')); }
 catch { eng = {}; }
 
-function t(){ return i18n[state.lang] || i18n.TH; }
-function safeTimeScale(){ return Number.isFinite(power?.timeScale) && power.timeScale>0 ? power.timeScale : 1; }
-
+// ---------- UI helpers ----------
 function applyLang(){
-  $('#t_score')?.replaceChildren(t().score);
-  $('#t_combo')?.replaceChildren(t().combo);
-  $('#t_time')?.replaceChildren(t().time);
-  $('#t_mode')?.replaceChildren(t().mode);
-  $('#t_diff')?.replaceChildren(t().diff);
-  $('#modeName')?.replaceChildren(t().names[state.modeKey] || state.modeKey);
-  $('#difficulty')?.replaceChildren(t().diffs[state.difficulty] || state.difficulty);
-  $('#h_help')?.replaceChildren(t().helpTitle);
-  $('#helpBody')?.replaceChildren(t().helpBody);
-  $('#btn_replay')?.replaceChildren('↻ ' + t().replay);
-  $('#btn_home')?.replaceChildren('🏠 ' + t().home);
+  const t = T(state.lang);
+  $('#t_score')?.replaceChildren(t.score);
+  $('#t_combo')?.replaceChildren(t.combo);
+  $('#t_time')?.replaceChildren(t.time);
+  $('#t_mode')?.replaceChildren(t.mode);
+  $('#t_diff')?.replaceChildren(t.diff);
+  $('#modeName')?.replaceChildren(t.names[state.modeKey] || state.modeKey);
+  $('#difficulty')?.replaceChildren(t.diffs[state.difficulty] || state.difficulty);
+  $('#h_help')?.replaceChildren(t.helpTitle);
+  $('#helpBody')?.replaceChildren(t.helpBody);
+  $('#btn_replay')?.replaceChildren('↻ ' + t.replay);
+  $('#btn_home')?.replaceChildren('🏠 ' + t.home);
 }
 
 function applyUI(){
-  $('#modeName').textContent = (t().names[state.modeKey] || state.modeKey);
-  $('#difficulty').textContent = (t().diffs[state.difficulty] || state.difficulty);
+  const t = T(state.lang);
+  $('#modeName').textContent = (t.names[state.modeKey] || state.modeKey);
+  $('#difficulty').textContent = (t.diffs[state.difficulty] || state.difficulty);
 }
 
 function hideNonModeHUD(){
@@ -109,6 +120,7 @@ function clearTimers(){
   if (state.tickTimer){ clearTimeout(state.tickTimer); state.tickTimer = null; }
 }
 
+// ---------- Game flow ----------
 function pauseGame(){
   if(!state.running || state.paused) return;
   state.paused = true;
@@ -123,27 +135,36 @@ function resumeGame(){
 }
 
 function start(){
+  // cleanup โหมดเดิมก่อน (ถ้ามี)
+  if (state.lastModeKey){
+    try{ MODES[state.lastModeKey]?.cleanup?.(state, hud); }catch{}
+  }
   end(true);
+
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
   state.running = true;
   state.paused = false;
   state.timeLeft = diff.time;
   state.ctx = { hits:0, perfectPlates:0, hyd:50 };
+
   score.reset?.();
   hideNonModeHUD();
 
   const mode = MODES[state.modeKey];
-  mode?.init?.(state, hud, diff);
+  try{ mode?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init error:', e); }
 
   if(state.modeKey!=='hydration') hud.hideHydration?.();
   if(state.modeKey!=='groups' && state.modeKey!=='plate') hud.hideTarget?.();
   if(state.modeKey!=='plate') hud.hidePills?.();
 
+  coach.lang = state.lang;
   coach.onStart?.(state.modeKey);
+
   updateHUD();
   tick();
   spawnLoop();
 
+  // render quality
   try{
     if(eng?.renderer){
       eng.renderer.setPixelRatio(state.gfx==='low' ? 0.75 : (window.devicePixelRatio||1));
@@ -157,9 +178,12 @@ function end(silent=false){
   state.paused = false;
   clearTimers();
   hideNonModeHUD();
+
+  // cleanup โหมดปัจจุบัน
+  try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
+
   if(wasRunning && !silent){
-    const resEl = $('#result');
-    if(resEl) resEl.style.display = 'flex';
+    $('#result')?.style && ( $('#result').style.display = 'flex' );
     coach.onEnd?.(score.score,{ grade:'A', accuracyPct:95 });
   }
 }
@@ -170,18 +194,21 @@ function spawnOnce(diff){
   const mode = MODES[state.modeKey];
   if(!mode){ console.warn('[HHA] Unknown mode:', state.modeKey); return; }
 
-  const meta = mode.pickMeta?.(diff, state) || {};
+  let meta = {};
+  try{ meta = mode.pickMeta?.(diff, state) || {}; }catch(e){ console.error('[HHA] pickMeta error:', e); }
+
   const el = document.createElement('button');
   el.className = 'item';
   el.type = 'button';
-  el.textContent = meta.char || '❓';
+  el.textContent = meta.char ?? '❓';
   el.style.left = (10 + Math.random()*80) + 'vw';
   el.style.top  = (20 + Math.random()*60) + 'vh';
 
   el.addEventListener('click', (ev)=>{
     ev.stopPropagation();
     try{
-      mode.onHit?.(meta, {score, sfx, power}, state, hud);
+      const sys = { score, sfx, power, coach, fx: eng?.fx };
+      mode.onHit?.(meta, sys, state, hud);
       state.ctx.hits = (state.ctx.hits||0) + 1;
       el.remove();
     }catch(err){
@@ -191,22 +218,33 @@ function spawnOnce(diff){
   }, {passive:true});
 
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(), diff.life);
+
+  // ใช้ TTL จาก meta.life ถ้ามี
+  const ttl = Math.max(600, Number.isFinite(meta.life) ? meta.life : (diff.life || 2500));
+  setTimeout(()=>el.remove(), ttl);
 }
 
 function spawnLoop(){
   if(!state.running || state.paused) return;
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
   spawnOnce(diff);
-  const ts = safeTimeScale();
+  const ts = safeTimeScale(power);
   const next = Math.max(220, Math.floor(diff.spawn * ts));
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
 function tick(){
   if(!state.running || state.paused) return;
+
+  // เรียก tick ของโหมด (เช่น groups ใช้ mission/countdown ภายใน)
+  try{
+    const sys = { score, sfx, power, coach, fx: eng?.fx };
+    MODES[state.modeKey]?.tick?.(state, sys, hud);
+  }catch(e){ console.error('[HHA] mode.tick error:', e); }
+
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
+
   if(state.timeLeft<=0){ end(); return; }
   if(state.timeLeft<=10){
     try{ document.getElementById('sfx-tick')?.play()?.catch(()=>{}); }catch{}
@@ -214,7 +252,7 @@ function tick(){
   state.tickTimer = setTimeout(tick, 1000);
 }
 
-/* ---------- Event Binding ---------- */
+// ---------- Event Binding ----------
 document.addEventListener('pointerup', (e)=>{
   const btn = byAction(e.target);
   if(!btn) return;
@@ -222,9 +260,18 @@ document.addEventListener('pointerup', (e)=>{
   const v = btn.getAttribute('data-value');
 
   if(a==='mode'){
-    state.modeKey = v; applyUI(); applyLang();
+    state.lastModeKey = state.modeKey;
+    state.modeKey = v;
+    applyUI(); applyLang();
+    // สลับโหมดขณะเล่น: restart โหมดใหม่ด้วย diff เดิม
+    if (state.running){
+      start();
+    }
   } else if(a==='diff'){
     state.difficulty = v; applyUI();
+    if (state.running){
+      start();
+    }
   } else if(a==='start'){
     start();
   } else if(a==='pause'){
@@ -245,7 +292,7 @@ document.getElementById('result')?.addEventListener('click',(e)=>{
   if(a==='home'){ e.currentTarget.style.display='none'; }
 }, {passive:true});
 
-// Toggle: language & graphics
+// Toggles
 $('#langToggle')?.addEventListener('click', ()=>{
   state.lang = state.lang==='TH' ? 'EN' : 'TH';
   localStorage.setItem('hha_lang', state.lang);
@@ -270,7 +317,7 @@ window.addEventListener('pointerdown', ()=>sfx.unlock?.(), {once:true, passive:t
 window.addEventListener('blur',  ()=>pauseGame());
 window.addEventListener('focus', ()=>resumeGame());
 
-// Boot apply
+// ---------- Boot ----------
 applyLang();
 applyUI();
 updateHUD();
