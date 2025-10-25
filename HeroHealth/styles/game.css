@@ -114,3 +114,51 @@ html,body{height:100%;margin:0;overflow:hidden;}
   text-shadow: 0 0 6px rgba(0,0,0,0.4);
   filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
 }
+/* ===== Fever Bar เอฟเฟกต์ ===== */
+#feverBarWrap { position: relative; overflow: hidden; }
+#feverBar {
+  height: 8px;
+  background: linear-gradient(90deg,#ffd54a,#ff8a00);
+  box-shadow: 0 0 8px rgba(255,168,0,.6);
+  transition: width .18s ease;
+}
+#fever.pulse {
+  animation: feverPulse .9s infinite;
+  color: #ffecb3;
+  text-shadow: 0 0 8px rgba(255,210,64,.9);
+  font-weight: 900;
+}
+@keyframes feverPulse {
+  0%,100% { transform: scale(1); opacity: 1; }
+  50%     { transform: scale(1.1); opacity: .85; }
+}
+
+/* ===== Float Text (ตัวเลขลอย) ===== */
+.floatText{
+  position: fixed;
+  pointer-events: none;
+  transform: translate(-50%,-50%);
+  font-weight: 900;
+  color: #7fffd4;
+  text-shadow: 0 1px 6px rgba(0,0,0,.35);
+  animation: floatUp .8s ease forwards;
+  z-index: 120;
+}
+@keyframes floatUp{
+  0%   { opacity: 0; transform: translate(-50%,-20%) scale(.9); }
+  10%  { opacity: 1; transform: translate(-50%,-40%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%,-100px) scale(1.05); }
+}
+
+/* ===== Screen Shake ===== */
+#c.shake, body.shake { animation: shake .22s linear 1; }
+@keyframes shake {
+  0%  { transform: translate(0,0); }
+  25% { transform: translate(3px,-3px); }
+  50% { transform: translate(-3px,2px); }
+  75% { transform: translate(2px,3px); }
+  100%{ transform: translate(0,0); }
+}
+
+/* เมื่ออยู่ใน Fever แล้วกดโดนไอเท็ม */
+.item.feverHit { filter: drop-shadow(0 0 10px rgba(255,168,0,.8)); }
