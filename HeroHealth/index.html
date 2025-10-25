@@ -124,5 +124,58 @@
       setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } },2000);
     })();
   </script>
+    <!-- เพิ่มระบบ “วิธีเล่นต่อโหมด” -->
+  <script>
+  const HOWTO = {
+    TH: {
+      goodjunk:`🎯 โหมดดี vs ขยะ  
+เก็บอาหารที่ดี 🥦🍎 หลีกเลี่ยงของขยะ 🍔🍟🥤  
+ต่อคอมโบได้โบนัส x2 x4 x8 และจะเข้าสู่โหมด Fever!`,
+      groups:`🍽️ โหมดจาน 5 หมู่  
+เก็บอาหารให้ตรงหมวดที่ HUD ระบุ (เช่น ผลไม้ / โปรตีน / ผัก)  
+ถูก +7 ผิด –2 ทุก 10 วินาทีจะเปลี่ยนหมวดเป้าหมาย`,
+      hydration:`💧 โหมดสมดุลน้ำ  
+รักษาค่าความสมดุล 45–65 %  
+น้ำเปล่า = เพิ่ม / น้ำหวานหรือกาแฟ = ลด  
+ถ้า >65 แล้วยังดื่ม น้ำหวาน = ได้คะแนน  
+ถ้า <45 แล้วดื่ม น้ำหวาน = หักคะแนน  
+ปุ่ม N = Normalize (55 %) คูลดาวน์ 25 s  
+ปุ่ม G = Guard 5 s`,
+      plate:`🍱 โหมดจัดจานสุขภาพ  
+จัดอาหารให้ครบ 5 หมู่ (ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1)  
+ครบทั้งหมด “Perfect Plate!” ได้โบนัสสูง`
+    },
+    EN: {
+      goodjunk:`🎯 Good vs Junk  
+Collect healthy foods 🥦🍎 and avoid junk 🍔🍟🥤  
+Chain combos for x2/x4/x8 bonus and Fever mode!`,
+      groups:`🍽️ 5 Food Groups  
+Collect the food matching the HUD target group  
+Right +7 / Wrong –2 — changes target every 10 s`,
+      hydration:`💧 Hydration Balance  
+Keep your hydration 45–65 %  
+Water increases / Sugary or coffee drinks decrease  
+If >65 and choose sugary → gain score  
+If <45 and choose sugary → lose score  
+Keys: N = Normalize (55 %) cd 25 s • G = Guard 5 s`,
+      plate:`🍱 Healthy Plate  
+Fill all 5 food groups (2 grains, 2 veg, 1 protein, 1 fruit, 1 dairy)  
+Complete for a Perfect Plate bonus!`
+    }
+  };
+
+  document.getElementById('btn_help')?.addEventListener('click', ()=>{
+    const lang = /TH/.test(document.getElementById('langToggle')?.textContent||'') ? 'TH':'EN';
+    const mode = document.querySelector('.tag[data-action="mode"].active')?.dataset.value ||
+                 (window.state?.modeKey || 'goodjunk');
+    const body = document.getElementById('helpBody');
+    body.textContent = (HOWTO[lang][mode] || HOWTO[lang].goodjunk);
+    document.getElementById('help').style.display='flex';
+  });
+  document.getElementById('btn_ok')?.addEventListener('click',()=>{
+    document.getElementById('help').style.display='none';
+  });
+  </script>
+
 </body>
 </html>
