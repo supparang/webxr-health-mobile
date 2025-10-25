@@ -1,7 +1,7 @@
 // ===== Boot flag (ซ่อนแบนเนอร์เตือนถ้าไฟล์นี้รันสำเร็จ) =====
 window.__HHA_BOOT_OK = true;
 
-// ===== Imports (ตำแหน่งนี้คือ HeroHealth/game/main.js → ใช้ ./core/*, ./modes/*) =====
+// ===== Imports (ตำแหน่งไฟล์นี้คือ HeroHealth/game/main.js) =====
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine }        from './core/engine.js';
 import { HUD }           from './core/hud.js';
@@ -81,11 +81,16 @@ const I18N = {
 };
 const L = ()=> (I18N[state.lang] || I18N.TH);
 
+// ===== HUD text update =====
 function updateHUD(){
   setText('#score', score.score|0);
   setText('#combo', 'x' + (score.combo||0));
   setText('#time',  state.timeLeft|0);
+  setText('#modeName',  L().modes[state.modeKey]);
+  setText('#difficulty', L().diffs[state.difficulty]);
 }
+
+// ===== Mission HUD line =====
 function setMissionLine(text, showLine=true){
   const el = document.getElementById('missionLine');
   if(!el) return;
@@ -119,7 +124,7 @@ if (typeof score.setHandlers === 'function') {
 
 // ===== Spawner =====
 function spawnOnce(diff){
-  const mode = MODES[state.modeKey]; if(!mode) return;
+  const mode = getActiveMode();
   const meta = mode.pickMeta(diff, state);
 
   const el = document.createElement('button');
@@ -177,7 +182,7 @@ export function start(){
   // hydration reset
   state.hyd=50; state.hydMin=45; state.hydMax=65;
 
-  MODES[state.modeKey].init?.(state, hud, diff);
+  getActiveMode().init?.(state, hud, diff);
   if(state.modeKey!=='hydration') hud.hideHydration();
   if(state.modeKey!=='groups' && state.modeKey!=='plate') hud.hideTarget();
   if(state.modeKey!=='plate') hud.hidePills();
@@ -245,24 +250,79 @@ function tick(){
   timers.tick = setTimeout(tick, 1000);
 }
 
+// ===== Mode/Diff setters + Safe fallback =====
+function getActiveMode(){
+  const m = MODES[state.modeKey];
+  if(!m || typeof m.pickMeta!=='function' || typeof m.onHit!=='function'){
+    // Fallback ไป goodjunk พร้อมแจ้งเตือน
+    if(state.modeKey!=='goodjunk'){
+      coach.say?.('โหมดนี้ยังไม่พร้อม ใช้ “ดี vs ขยะ” แทนก่อนนะ');
+    }
+    state.modeKey='goodjunk';
+    updateHUD();
+    return MODES.goodjunk;
+  }
+  return m;
+}
+function setMode(key){
+  if(!MODES[key]){ coach.say?.('โหมดนี้ยังไม่พร้อม'); return; }
+  state.modeKey = key;
+  updateHUD();
+}
+function setDifficulty(name){
+  if(!DIFFS[name]) return;
+  state.difficulty = name;
+  updateHUD();
+}
+
+// ===== Events: ปุ่มทั้งหมดบนเมนู/โมดัล =====
+function bindAllButtons(){
+  // Delegation เผื่อมีปุ่มเพิ่มในอนาคต
+  document.addEventListener('click', (e)=>{
+    const b = e.target.closest('button'); if(!b) return;
+
+    // Result modal buttons
+    if(b.matches('#btn_replay')){ e.preventDefault(); end(true); start(); return; }
+    if(b.matches('#btn_home')){ e.preventDefault(); end(true); return; }
+
+    // Help modal
+    if(b.matches('#btn_ok')){ qs('#help')?.style && (qs('#help').style.display='none'); return; }
+
+    // Menu bar actions
+    const action = b.getAttribute('data-action');
+    const value  = b.getAttribute('data-value');
+    if(!action) return;
+
+    if(action==='mode'){ setMode(value); playSFX('sfx-good',{volume:.5}); return; }
+    if(action==='diff'){ setDifficulty(value); playSFX('sfx-good',{volume:.5}); return; }
+    if(action==='start'){ start(); return; }
+    if(action==='pause'){
+      state.running = !state.running;
+      if(state.running){ tick(); spawnLoop(); coach.say?.('เล่นต่อ'); }
+      else{ coach.say?.('พักเกม'); }
+      return;
+    }
+    if(action==='restart'){ end(true); start(); return; }
+    if(action==='help'){
+      const help=qs('#help'); if(help) help.style.display='flex';
+      return;
+    }
+  });
+
+  // ปิด help เมื่อคลิกพื้นดำ
+  qs('#help')?.addEventListener('click',(e)=>{ if(e.target.id==='help'){ e.currentTarget.style.display='none'; } });
+  // ปิด result เมื่อคลิกพื้นดำ
+  qs('#result')?.addEventListener('click',(e)=>{ if(e.target.id==='result'){ e.currentTarget.style.display='none'; } });
+}
+
 // ===== Public HHA API (ให้ index หรือ UI ภายนอกเรียกได้) =====
 const HHA = (window.HHA = window.HHA || {});
 HHA.__onEnd = null;
 HHA.onEnd = (cb)=>{ HHA.__onEnd = typeof cb==='function' ? cb : null; };
-HHA.startGame = (opt={})=>{
-  if(opt.demoPassed) start();
-  else start();
-};
-HHA.pause = ()=>{ state.running=false; };
-HHA.resume = ()=>{
-  if(!state.running){
-    state.running=true;
-    clearTimeout(timers.tick); timers.tick = 0;
-    clearTimeout(timers.spawn); timers.spawn = 0;
-    tick(); spawnLoop();
-  }
-};
-HHA.restart = ()=>{ end(true); start(); };
+HHA.startGame = (opt={})=>{ start(); };
+HHA.pause  = ()=>{ state.running=false; };
+HHA.resume = ()=>{ if(!state.running){ state.running=true; tick(); spawnLoop(); } };
+HHA.restart= ()=>{ end(true); start(); };
 
 // ===== QoL: กราฟิก/เสียง/ภาษา =====
 function applyGFX(){
@@ -280,28 +340,24 @@ function applySound(){
   localStorage.setItem('hha_sound', state.soundOn ? '1' : '0');
 }
 
-// ===== Events =====
+// ===== Unlock audio & visibility pause =====
 ['pointerdown','touchstart','keydown'].forEach(ev=>{
   window.addEventListener(ev, ()=>sfx.unlock(), {once:true, passive:true});
 });
 document.addEventListener('visibilitychange', ()=>{
   if (document.hidden && state.running) state.running=false;
 });
-document.getElementById('missionLine')?.addEventListener('click', ()=>{
-  const txt = state.mission ? `${mission.describe(state.mission)} • ${state.mission.remainSec|0}s` : '—';
-  fx.spawn3D?.(null, txt, 'good');
-});
 
 // ===== Boot =====
-applyGFX(); applySound(); updateHUD();
+applyGFX(); applySound(); bindAllButtons(); updateHUD();
+
+// บังคับให้ HUD โผล่/อ่านได้ชัดแม้ CSS มาช้า
 window.addEventListener('DOMContentLoaded', ()=>{
-  // กัน overlay และบังคับ HUD โผล่ ในกรณี CSS โหลดช้า
-  const c = document.getElementById('c');
-  if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+  const c = document.getElementById('c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
   const hudEl = document.querySelector('.hud');
   if(hudEl){ hudEl.style.display='flex'; hudEl.style.visibility='visible'; hudEl.style.opacity='1'; }
-  console.log('✅ main.js ready (HHA API exposed)');
+  console.log('✅ main.js ready (all buttons bound, modes/diff switchable with safe fallback)');
 });
 
-// ===== Optional export for direct start() fallback in index hardFix =====
+// ===== Optional export for direct start() fallback =====
 export default { start };
