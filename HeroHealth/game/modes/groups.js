@@ -297,3 +297,15 @@ function updateMissionHUD(state){
   const lbl = lang==='TH' ? 'ตรงเป้า' : 'on target';
   setMissionLine(`🎯 ${lbl} ${m.progress}/${m.need} • ${m.remain|0}s`);
 }
+// สมมติว่ามี init/pickMeta/onHit/tick ของเดิมอยู่แล้ว
+
+export function cleanup(state, hud){
+  try{ hud.hideTarget?.(); }catch{}
+  const badge = document.getElementById('targetBadge');
+  if (badge) badge.textContent = '—';
+  if (state && state.ctx){
+    state.ctx.target = null;
+    state.ctx.targetHitsTotal = 0;
+    state.ctx.wrongGroup = 0;
+  }
+}
