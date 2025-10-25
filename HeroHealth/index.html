@@ -81,7 +81,7 @@
     </div>
 
     <!-- Fever Progress Bar -->
-    <div id="feverBarWrap" class="bar slim">
+    <div id="feverBarWrap" class="bar slim" aria-label="Fever progress">
       <div id="feverBar" style="width:0%"></div>
     </div>
 
@@ -90,6 +90,9 @@
       🎯 <span id="t_target">หมวด</span>:
       <span id="targetBadge">—</span>
     </div>
+
+    <!-- ✅ บรรทัดภารกิจ (เพิ่มใหม่) -->
+    <div id="missionLine" style="display:none; font-weight:700; margin-top:6px;"></div>
 
     <!-- โควตาอาหาร (โหมด plate) -->
     <div id="plateTracker" style="display:none">
@@ -109,7 +112,7 @@
   </section>
 
   <!-- โค้ช (ข้อความแนะนำ/ให้กำลังใจ) -->
-  <div id="coachHUD" class="coach" style="display:none">
+  <div id="coachHUD" class="coach" style="display:none" aria-live="polite">
     <div id="coachText">...</div>
   </div>
 
@@ -138,7 +141,7 @@
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
       <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
-      <!-- 📘 ปุ่มคู่มือรวม (Help Scene) ย้ายมาอยู่ในแถวปุ่มหลัก -->
+      <!-- 📘 ปุ่มคู่มือรวม (Help Scene) -->
       <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
   </section>
