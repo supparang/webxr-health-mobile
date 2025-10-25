@@ -34,3 +34,5 @@ body.menu-open canvas.a-canvas { pointer-events: none !important; }
 
 /* Multiplier text emphasis */
 #mult{font-weight:700}
+
+.hud-power{margin-top:6px;font-size:12px;opacity:.85}

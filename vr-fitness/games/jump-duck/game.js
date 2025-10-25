@@ -9,6 +9,10 @@
   const timerEl = document.getElementById('timer');
   const feverBar = document.getElementById('feverBar');
   const multEl = document.getElementById('mult');
+  const puShieldEl = document.getElementById('puShield');
+  const puSlowEl = document.getElementById('puSlow');
+  const puHealEl = document.getElementById('puHeal');
+  const puSuperEl = document.getElementById('puSuper');
 
   const rScore = document.getElementById('rScore');
   const rStreak = document.getElementById('rStreak');
@@ -35,6 +39,8 @@
     hit: document.getElementById('sfx-hit'),
     miss: document.getElementById('sfx-miss'),
     fever: document.getElementById('sfx-fever'),
+    powerup: document.getElementById('sfx-powerup'),
+    super: document.getElementById('sfx-super'),
     coachReady: document.getElementById('coach-ready'),
     coachGood: document.getElementById('coach-good'),
     coachMiss: document.getElementById('coach-miss')
@@ -52,6 +58,10 @@
 
   // Core stats
   let score = 0, timeLeft = 90, fever = 0;
+  // Power-ups & Super Fever
+  let shieldCharges = 0;
+  let slowUntil = 0; // timestamp
+  let superFeverUntil = 0; // timestamp when super fever ends
   let streak = 0, bestStreak = 0;
   let hitCount = 0, missCount = 0;
 
@@ -130,6 +140,10 @@
     timerEl.textContent = String(timeLeft);
     feverBar.style.width = `${fever}%`;
     multEl.textContent = `x${multiplier.toFixed(1)}`;
+    puShieldEl.textContent = `S:${shieldCharges}`;
+    puSlowEl.textContent = `T:${Math.max(0, Math.ceil((slowUntil-Date.now())/1000))}`;
+    puHealEl.textContent = `H:${Math.min(100, fever)}`;
+    puSuperEl.textContent = `SF:${Math.max(0, Math.ceil((superFeverUntil-Date.now())/1000))}`;
   }
 
   function startTicker(){
@@ -142,6 +156,8 @@
       if(sec <= timeLeft){ timeLeft = sec; }
       updateHUD();
       dynamicEnvironmentTick();
+      // super fever tick visuals
+      if(superFeverUntil>0 && superFeverUntil<=Date.now()){ superFeverUntil = 0; }
       if(remainingMs<=0){ endGame(); }
     }, 200);
   }
@@ -245,8 +261,8 @@
     if(state!=="playing") return;
 
     // Pick type with weights
-    const types = ["jump","duck","dashL","dashR","ring","bomb"];
-    const weights = [0.28,0.28,0.16,0.16,0.07,0.05];
+    const types = ["jump","duck","dashL","dashR","ring","bomb","pu"];
+    const weights = [0.26,0.26,0.15,0.15,0.07,0.05,0.06];
     const r = Math.random();
     let cum=0, type=types[0];
     for(let i=0;i<types.length;i++){ cum += weights[i]; if(r<=cum){ type=types[i]; break; } }
@@ -256,6 +272,8 @@
     if(mode==="speed") localDur = Math.max(900, localDur-600);
     if(mode==="endurance") localDur = localDur + 300;
     if(mode==="boss" && timeLeft<=60){ localDur = Math.max(800, localDur-500); }
+    // slow-time effect
+    if(Date.now()<slowUntil){ localDur = Math.max(localDur*1.6, localDur+500); }
 
     const obs = document.createElement(type==="ring" ? 'a-torus' : 'a-box');
     let y = 0.35, height = 0.45, width = 1.6, depth = 0.6;
@@ -271,6 +289,16 @@
     if(type==="dashR") obs.setAttribute('color', '#3b82f6');
     if(type==="ring") obs.setAttribute('radius', 0.9), obs.setAttribute('radius-tubular', 0.05), obs.setAttribute('color', '#22d3ee');
     if(type==="bomb") obs.setAttribute('color', '#111'); obs.setAttribute('height',0.7); y=0.9;
+    if(type==="pu"){
+      // power-up: choose one of shield/slow/heal
+      const puTypes = ['shield','slow','heal'];
+      const pick = puTypes[Math.floor(Math.random()*puTypes.length)];
+      obs.setAttribute('geometry','primitive: sphere; radius: 0.35');
+      const mat = pick==='shield' ? 'src: #tx-shield' : (pick==='slow' ? 'src: #tx-slow' : 'src: #tx-heal');
+      obs.setAttribute('material', mat);
+      obs.setAttribute('class', `pu-${pick}`);
+      y = 1.0;
+    }
 
     let x = 0;
     if(type==="dashL") x = -1.2;
@@ -302,6 +330,12 @@
     else if(type==="ring") success = jumping && actedRecently; // precise jump within window
     else if(type==="bomb") success = !actedRecently; // do nothing near bomb
 
+    // collect power-ups automatically when reach player
+    if(type==="pu"){
+      applyPowerUp(obs);
+      return;
+    }
+
     if(mode==="zen"){
       // Zen: no score, only coach guidance
       if(success){ speakCoach("Nice and steady."); }
@@ -313,7 +347,7 @@
       hitCount++;
       streak++;
       if(streak>bestStreak) bestStreak=streak;
-      multiplier = calcMultiplier();
+      multiplier = calcMultiplier(); if(superFeverUntil>Date.now()) multiplier = Math.max(multiplier, 3.0);
       let base = 10;
       if(type==="ring") base = 20;
       if(type==="bomb") base = 15; // reward for restraint
@@ -323,16 +357,51 @@
       if(streak===10) speakCoach("Great flow! Multiplier up!");
       if(streak===20) speakCoach("Unstoppable combo!");
       if(streak>0 && streak%10===0) speakCoach(`Streak ${streak}! Keep going!`);
-      if(fever===100){ if(audioEnabled){ sfx.fever.currentTime=0; sfx.fever.play(); } speakCoach("Fever mode! Go go go!"); }
+      if(fever===100 && superFeverUntil<=Date.now()){
+        // require an additional 5-hit streak to activate Super Fever, or trigger if already in streak>=5
+        if(streak>=5){
+          superFeverUntil = Date.now() + 6000; // 6s super
+          multiplier = Math.max(multiplier, 3.0);
+          if(audioEnabled){ try{ sfx.super.currentTime=0; sfx.super.play(); }catch(e){} }
+          speakCoach('SUPER FEVER!');
+          // brief flash sky
+          try{ document.getElementById('sky').setAttribute('color','#ffd54f'); setTimeout(()=>{ document.getElementById('sky').setAttribute('color', null); }, 600); }catch(e){}
+        }else{
+          if(audioEnabled){ sfx.fever.currentTime=0; sfx.fever.play(); }
+          speakCoach('Fever mode! Keep building!');
+        }
+      }
     }else{
-      missCount++;
+      // use shield if available to ignore one miss
+      if(shieldCharges>0){ shieldCharges--; speakCoach('Shield saved you!'); if(audioEnabled){ sfx.powerup.currentTime=0; sfx.powerup.play(); } obs.remove(); updateHUD(); return; }
+      missCount++; superFeverUntil=0;
       streak=0;
-      multiplier = calcMultiplier();
+      multiplier = calcMultiplier(); if(superFeverUntil>Date.now()) multiplier = Math.max(multiplier, 3.0);
       fever = Math.max(0, fever-15);
       if(audioEnabled){ sfx.miss.currentTime=0; sfx.miss.play(); }
       speakCoach(type==="bomb" ? "Boom! Wait next time!" : "Miss! Focus on the next one!");
     }
     obs.remove();
+    updateHUD();
+  }
+
+
+  function applyPowerUp(puEntity){
+    if(!puEntity) return;
+    const cls = puEntity.getAttribute('class') || '';
+    if(cls.includes('pu-shield')){
+      shieldCharges += 1;
+      speakCoach("Shield ready!");
+    }else if(cls.includes('pu-slow')){
+      slowUntil = Date.now() + 3500; // 3.5s slow-time
+      speakCoach("Slow time!");
+    }else if(cls.includes('pu-heal')){
+      fever = Math.min(100, fever + 20);
+      speakCoach("Energy boost!");
+      // if healing pushes fever to 100, consider Super Fever trigger on next success
+    }
+    if(sfx.powerup && sfx.powerup.play){ try{ sfx.powerup.currentTime=0; sfx.powerup.play(); }catch(e){} }
+    puEntity.remove();
     updateHUD();
   }
 
