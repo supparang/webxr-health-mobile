@@ -25,6 +25,21 @@
       padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap
     }
   </style>
+  <!-- วางแทนแท็กเดิม -->
+<script type="module" src="https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live"></script>
+
+<!-- Fallback แสดงเตือนถ้า main.js ไม่รัน -->
+<script>
+  (function(){
+    const w=document.createElement('div');
+    w.id='bootWarn';
+    w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap';
+    w.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ URL main.js?v=live';
+    document.body.appendChild(w);
+    setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 1500);
+  })();
+</script>
+
 </head>
 <body>
   <div id="bootWarn">⚠️ โหลดสคริปต์ไม่สำเร็จ: กำลังลองพาธสำรอง…</div>
