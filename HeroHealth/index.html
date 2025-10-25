@@ -5,12 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- base เดิมยังคงไว้ แต่เราไม่ได้พึ่ง base ในการโหลดสคริปต์หลักอีกต่อไป -->
+  <!-- base เดิมคงไว้ได้ แต่เราไม่พึ่ง base ในการโหลด main.js อีกต่อไป -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
   <style>
-    /* ให้ canvas ไม่บังคลิก และชั้น UI อยู่บนสุดอ่านชัด */
     #c{position:fixed;inset:0;z-index:1;pointer-events:none}
     .hud,.menu,.modal,.coach,.item{z-index:200;pointer-events:auto}
     .hud{font-size:18px;font-weight:800;text-shadow:0 2px 6px #000}
@@ -25,24 +24,9 @@
       padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap
     }
   </style>
-  <!-- วางแทนแท็กเดิม -->
-<script type="module" src="https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live"></script>
-
-<!-- Fallback แสดงเตือนถ้า main.js ไม่รัน -->
-<script>
-  (function(){
-    const w=document.createElement('div');
-    w.id='bootWarn';
-    w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap';
-    w.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ URL main.js?v=live';
-    document.body.appendChild(w);
-    setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 1500);
-  })();
-</script>
-
 </head>
 <body>
-  <div id="bootWarn">⚠️ โหลดสคริปต์ไม่สำเร็จ: กำลังลองพาธสำรอง…</div>
+  <div id="bootWarn">⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ URL main.js?v=live</div>
 
   <!-- Header -->
   <header class="brand">
@@ -53,39 +37,32 @@
     <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
   </header>
 
-  <!-- Render Surface -->
+  <!-- Canvas -->
   <canvas id="c"></canvas>
 
-  <!-- HUD -->
+  <!-- HUD (ตัดมาเฉพาะที่จำเป็น เพื่อโฟกัสปัญหาสคริปต์ก่อน) -->
   <section class="hud">
-    <div class="hud-line">
-      <span id="t_score">คะแนน</span>: <b id="score">0</b> |
-      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
-      <span id="t_time">เวลา</span>: <b id="time">60</b>s
-    </div>
+    <div>คะแนน: <b id="score">0</b> | คอมโบ: <b id="combo">x0</b> | เวลา: <b id="time">60</b>s</div>
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
     <div id="missionLine" style="display:none; font-weight:800;">—</div>
   </section>
-
   <div id="statusLine">โหมด: ดี vs ขยะ • ความยาก: ปกติ</div>
 
-  <!-- Coach bubble -->
+  <!-- Coach -->
   <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
-  <!-- Menu (ล่างซ้าย) -->
+  <!-- Menu -->
   <section id="menuBar" class="menu">
     <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups"    id="m_groups">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate"     id="m_plate">🍱 จัดจานสุขภาพ</button>
+      <button class="tag" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="hydration">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="mode" data-value="plate">🍱 จัดจานสุขภาพ</button>
     </div>
     <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
-      <span class="modeLabel"><span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
-        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b></span>
+      <button class="tag" data-action="diff" data-value="Easy">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Normal">ปกติ</button>
+      <button class="tag" data-action="diff" data-value="Hard">ยาก</button>
     </div>
     <div class="row">
       <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
@@ -123,59 +100,12 @@
   <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-  <!-- ===== Boot Loader: ลองโหลด main.js หลายพาธ + แคชบัสต์ + รายงานสาเหตุ ===== -->
-  <script type="module">
-    // ถ้าสคริปต์จริงรันได้ จะเซ็ตค่านี้เป็น true
-    window.__HHA_BOOT_OK = false;
+  <!-- ✅ โหลด main.js “ครั้งเดียวเท่านั้น” ด้วย URL ตายตัว -->
+  <script type="module" src="https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live"></script>
 
-    const tries = [
-      // 1) Absolute URL ที่คุณยืนยันว่าถูก
-      'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js?v=live',
-      // 2) ตาม base href
-      new URL('game/main.js?v=live', document.baseURI).href,
-      // 3) แบบ relative ปกติ (เผื่อ base ถูกปิดโดย host)
-      'game/main.js?v=live'
-    ];
-
-    const warn = document.getElementById('bootWarn');
-
-    (async () => {
-      let ok = false, logs = [];
-      for (const url of tries) {
-        try {
-          logs.push('ลองโหลด: ' + url);
-          await import(url);
-          ok = true;
-          break;
-        } catch (e) {
-          logs.push('❌ ' + url + ' -> ' + (e?.message || e));
-        }
-      }
-      if (!ok || !window.__HHA_BOOT_OK) {
-        warn.style.display = 'block';
-        warn.textContent =
-          '⚠️ โหลดสคริปต์ไม่สำเร็จ\n' +
-          'ลอง URL เหล่านี้แล้วไม่สำเร็จ:\n- ' + tries.join('\n- ') +
-          '\n\nTips:\n• ตรวจว่ามีไฟล์ /HeroHealth/game/main.js จริง (ตัวพิมพ์ตรง)\n' +
-          '• ถ้าเพิ่ง push ให้รอ GitHub Pages deploy สั้น ๆ แล้วกด Ctrl/Cmd+F5\n' +
-          '• เปิด DevTools > Network ดูสถานะ/ชนิด MIME ของ main.js ต้อง 200 + javascript\n\n' +
-          logs.join('\n');
-      } else {
-        // เสริม: ผูกปุ่ม Start ให้เริ่มแน่ ๆ (กันคลิกไม่ติด)
-        const b = document.getElementById('btn_start');
-        if (b) {
-          const clone = b.cloneNode(true);
-          b.parentNode.replaceChild(clone, b);
-          clone.addEventListener('click', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            try {
-              if (window.preStartFlow) window.preStartFlow();
-              else if (window.start) window.start();
-            } catch (err) { console.error('[Start error]', err); }
-          }, {capture:true});
-        }
-      }
-    })();
+  <!-- Fallback: โชว์ bootWarn ถ้า main.js ไม่ได้เซ็ต flag -->
+  <script>
+    setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ document.getElementById('bootWarn').style.display='block'; } }, 1500);
   </script>
 </body>
 </html>
