@@ -5,35 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- GitHub Pages base -->
+  <!-- GitHub Pages base (โฟลเดอร์ HeroHealth) -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
 
-  <!-- เสริมเลเยอร์/ตำแหน่งให้ HUD อยู่มุมซ้ายบนชัดเจน -->
+  <!-- เสริมเลเยอร์/ตำแหน่งให้ HUD ชัดเจน & กัน canvas บังคลิก -->
   <style>
     /* อย่าให้ canvas บังคลิก */
     #c { pointer-events: none; z-index: 1; }
 
-    /* HUD ตรึงมุมซ้ายบนชัด ๆ */
+    /* HUD ตรึงมุมซ้ายบน */
     .hud{
-      position: fixed; top: 56px; left: 12px; right: auto;
+      position: fixed; top: 56px; left: 12px;
       display: flex; flex-direction: column; gap: 8px;
-      z-index: 120; /* สูงกว่าเมนู/ฉาก */
-      text-shadow: 0 2px 8px rgba(0,0,0,.6);
+      z-index: 120; text-shadow: 0 2px 8px rgba(0,0,0,.6);
     }
     .hud-line, #statusLine{
       background: rgba(8,10,20,.62);
       border: 1px solid rgba(255,255,255,.18);
-      border-radius: 10px;
-      padding: 8px 12px;
+      border-radius: 10px; padding: 8px 12px;
       font-weight: 900; color: #fff;
     }
 
-    /* เมนูตรึงล่างซ้าย แต่ z-index ต่ำกว่า HUD นิดนึง */
+    /* เมนูตรึงล่างซ้าย */
     .menu{
       position: fixed; bottom: 12px; left: 12px; right: auto;
-      background: rgba(10,10,25,.90); border-radius: 12px; padding: 10px;
+      background: rgba(10,10,25,.90);
+      border-radius: 12px; padding: 10px;
       backdrop-filter: blur(8px);
       z-index: 110;
     }
@@ -43,6 +42,9 @@
       color: #fff; border-radius: 10px; cursor: pointer; font-weight: 700;
     }
     .btn:hover,.tag:hover{ background: rgba(255,255,255,.25); }
+
+    /* ให้ชั้น UI คลิกได้แน่ ๆ */
+    .item, .menu, .hud, .modal, .coach { pointer-events:auto; }
   </style>
 </head>
 <body>
@@ -60,7 +62,7 @@
 
   <!-- HUD (มุมซ้ายบน) -->
   <section class="hud">
-    <!-- 🔹 บรรทัดแสดงโหมด/ความยาก (ใหม่) -->
+    <!-- ป้ายโหมด/ความยาก -->
     <div id="statusLine">โหมด: — • ความยาก: —</div>
 
     <!-- คะแนน/คอมโบ/เวลา -->
@@ -77,35 +79,35 @@
     <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
-  <!-- Coach bubble -->
+  <!-- Coach -->
   <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
   <!-- เมนู -->
   <section id="menuBar" class="menu">
     <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="mode" data-value="hydration">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate">🍱 จัดจานสุขภาพ</button>
+      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups"    id="m_groups">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="mode" data-value="plate"     id="m_plate">🍱 จัดจานสุขภาพ</button>
     </div>
     <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard">ยาก</button>
+      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
+      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
     </div>
     <div class="row">
-      <button class="btn" data-action="start" id="btn_start">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause" id="btn_pause">⏸ พัก</button>
+      <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
+      <button class="btn" data-action="pause"   id="btn_pause">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help" id="btn_help">❓ วิธีเล่น</button>
+      <button class="btn" data-action="help"    id="btn_help">❓ วิธีเล่น</button>
     </div>
   </section>
 
   <!-- Help -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
-      <h3>วิธีเล่น</h3>
-      <pre>เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
+      <h3 id="h_help">วิธีเล่น</h3>
+      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
       <button class="btn" id="btn_ok">โอเค</button>
     </div>
   </div>
@@ -119,8 +121,18 @@
     </div>
   </div>
 
-  <!-- main.js -->
+  <!-- SFX / BGM -->
+  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
+  <audio id="bgm-main"     preload="auto" src="assets/bgm/stage1.mp3" loop></audio>
+
+  <!-- เกมหลัก -->
   <script type="module" src="game/main.js"></script>
+  <!-- UI Controller (How-to-Play + Tutorial + robust bindings) -->
+  <script type="module" src="game/ui.js"></script>
 
   <!-- bootWarn: แจ้งถ้า main.js ไม่โหลด -->
   <script>
