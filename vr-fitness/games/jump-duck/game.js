@@ -47,7 +47,9 @@
     super: document.getElementById('sfx-super'),
     coachReady: document.getElementById('coach-ready'),
     coachGood: document.getElementById('coach-good'),
-    coachMiss: document.getElementById('coach-miss')
+    coachMiss: document.getElementById('coach-miss'),
+    perfect: document.getElementById('sfx-perfect'),
+    good: document.getElementById('sfx-good')
   };
   sfx.bgm.loop = true;
 
@@ -82,6 +84,7 @@
   let spawnTimer = 0, spawnInterval = 1800;
   let gameTimerId = null, spawnerId = null;
   let gameEndAt = 0; let tickerId = null;
+  let poolReady=false;
 
   // Configurable settings
   let powerupRate = 'normal'; // low|normal|high
@@ -90,6 +93,9 @@
 
   // Action flags
   let jumping=false, ducking=false, dashingL=false, dashingR=false, actedAt=0;
+  // Calibration & thresholds
+  let playerHeight = 1.6; // default eye height (meters)
+  let yScale = 1.0; // derived from playerHeight/1.6
 
   function setTheme(name){
     theme = name;
@@ -138,6 +144,13 @@
   });
 
   btnStart.addEventListener('click', startGame);
+  document.getElementById('btnCalibrateHtml')?.addEventListener('click', calibrateHeight);
+  const btn3dStart = document.getElementById('btn3d-start');
+  const btn3dCal = document.getElementById('btn3d-cal');
+  btn3dStart?.addEventListener('click', ()=>{ startGame(); });
+  btn3dCal?.addEventListener('click', calibrateHeight);
+  scene.addEventListener('enter-vr', ()=>{ try{ document.getElementById('menu3d').setAttribute('visible', true); }catch(e){} hide(menu); });
+  scene.addEventListener('exit-vr', ()=>{ try{ document.getElementById('menu3d').setAttribute('visible', true); }catch(e){} show(menu); });
   btnStart.addEventListener('touchend', (e)=>{ e.preventDefault(); startGame(); });
   btnRetry.addEventListener('click', resetToMenu);
   btnRetry.addEventListener('touchend', (e)=>{ e.preventDefault(); resetToMenu(); });
@@ -165,6 +178,15 @@
 
 
   function show(el){ el.classList.add('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.add('menu-open'); } }
+
+  function calibrateHeight(){
+    try{
+      const cam = document.querySelector('[camera]');
+      const y = parseFloat(cam.getAttribute('position').y);
+      if(!isNaN(y) && y>0.9 && y<2.3){ playerHeight = y; yScale = playerHeight/1.6; speakCoach(`Height set to ${playerHeight.toFixed(2)} meters.`); }
+      else { speakCoach('Calibration failed. Stand naturally and try again.'); }
+    }catch(e){ speakCoach('Calibration not available.'); }
+  }
   function hide(el){ el.classList.remove('show'); if(el.id==='menu' || el.id==='result'){ document.body.classList.remove('menu-open'); } }
 
   function updateHUD(){
@@ -219,7 +241,8 @@
     gameEndAt = Date.now() + durSec*1000;
     startTicker();
 
-    // spawner
+    // init pool & spawner
+    if(!poolReady){ initPool(); poolReady=true; }
     if(spawnerId) clearInterval(spawnerId);
     spawnerId = setInterval(spawnObstacle, spawnInterval);
 
@@ -288,6 +311,30 @@
   function doDashL(){ dashingL = true; actedAt = Date.now(); setTimeout(()=> dashingL=false, 650); coachText.setAttribute("text","value","Dash Left!"); }
   function doDashR(){ dashingR = true; actedAt = Date.now(); setTimeout(()=> dashingR=false, 650); coachText.setAttribute("text","value","Dash Right!"); }
 
+
+  // ---------- Entity Pool ----------
+  const POOL = { box: [], torus: [], sphere: [] };
+  function initPool(){
+    for(let i=0;i<28;i++){ const e=document.createElement('a-box'); e.setAttribute('visible', false); obstaclesRoot.appendChild(e); POOL.box.push(e); }
+    for(let i=0;i<10;i++){ const e=document.createElement('a-torus'); e.setAttribute('visible', false); obstaclesRoot.appendChild(e); POOL.torus.push(e); }
+    for(let i=0;i<12;i++){ const e=document.createElement('a-sphere'); e.setAttribute('visible', false); obstaclesRoot.appendChild(e); POOL.sphere.push(e); }
+  }
+  function getFromPool(kind){
+    const arr = POOL[kind]; if(!arr || arr.length===0) return null;
+    const e = arr.pop(); e.setAttribute('visible', true); return e;
+  }
+  function returnToPool(e){
+    if(!e) return;
+    e.removeAttribute('animation'); e.setAttribute('visible', false);
+    // reset common attributes
+    e.removeAttribute('material'); e.removeAttribute('color'); e.setAttribute('position','0 -99 0');
+    // push back
+    const tag = e.tagName.toLowerCase();
+    if(tag==='a-box') POOL.box.push(e);
+    else if(tag==='a-torus') POOL.torus.push(e);
+    else POOL.sphere.push(e);
+  }
+
   // Spawn / mechanics
   function spawnObstacle(){
     if(state!=="playing") return;
@@ -311,10 +358,10 @@
     // slow-time effect
     if(Date.now()<slowUntil){ localDur = Math.max(localDur*1.6, localDur+500); }
 
-    const obs = document.createElement(type==="ring" ? 'a-torus' : 'a-box');
+    const obs = (type==="ring") ? getFromPool('torus') : (type==="pu" ? getFromPool('sphere') : getFromPool('box')); if(!obs) return;
     let y = 0.35, height = 0.45, width = 1.6, depth = 0.6;
     if(type==="duck"){ y = 1.1; height = 1.2; }
-    if(type==="dashL" || type==="dashR"){ y = 0.9; height = 0.7; width = 1.0; }
+    if(type==="dashL" || type==="dashR"){ y = 0.9*yScale; height = 0.7; width = 1.0; }
     if(type==="ring"){ y = 1.1; }
     obs.setAttribute('depth', depth);
     obs.setAttribute('width', width);
@@ -350,6 +397,7 @@
       loop: false
     });
 
+    obs._impactAt = Date.now() + (localDur-180);
     setTimeout(()=> checkCollision(obs, type, x, y), localDur-180);
   }
 
@@ -357,6 +405,10 @@
     if(state!=="playing") return;
     const now = Date.now();
     const actedRecently = (now - actedAt) <= 500; // 0.5s reaction window
+    const impact = obs._impactAt || now;
+    const delta = Math.abs((actedAt||0) - impact);
+    const isPerfect = delta <= 150;
+    const isGood = !isPerfect && delta <= 300;
 
     let success = false;
     if(type==="jump") success = jumping;
@@ -376,7 +428,7 @@
       // Zen: no score, only coach guidance
       if(success){ speakCoach("Nice and steady."); }
       else { speakCoach("Breathe. Try again."); }
-      obs.remove(); updateHUD(); return;
+      returnToPool(obs); updateHUD(); return;
     }
 
     if(success){
@@ -418,7 +470,7 @@
       if(audioEnabled){ sfx.miss.currentTime=0; sfx.miss.play(); }
       speakCoach(type==="bomb" ? "Boom! Wait next time!" : "Miss! Focus on the next one!");
     }
-    obs.remove();
+    returnToPool(obs);
     updateHUD();
   }
 

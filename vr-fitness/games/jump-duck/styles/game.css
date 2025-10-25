@@ -45,3 +45,5 @@ body.menu-open canvas.a-canvas { pointer-events: none !important; }
   z-index: 5;
 }
 #fxFlash.show{ opacity:1; }
+
+#btnCalibrateHtml{margin-left:8px}
