@@ -14,16 +14,16 @@ import { FloatingFX } from './core/fx.js';
 import { Coach } from './core/coach.js';
 
 import * as goodjunk from './modes/goodjunk.js';
-import * as groups from './modes/groups.js';
+import * as groups    from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
-import * as plate from './modes/plate.js';
+import * as plate     from './modes/plate.js';
 
 // ===== Utils =====
-const qs = (s) => document.querySelector(s);
-const now = () => performance.now?.() ?? Date.now();
+const qs = (s)=>document.querySelector(s);
+const now = ()=>performance.now?.() ?? Date.now();
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
 
-// ===== Core Systems =====
+// ===== Systems =====
 const MODES = { goodjunk, groups, hydration, plate };
 const hud   = new HUD();
 const sfx   = new SFX({ enabled:true, poolSize:6 });
@@ -35,121 +35,223 @@ const eng = new Engine(THREE, document.getElementById('c'));
 const fx  = new FloatingFX(eng);
 const coach = new Coach({ lang:'TH' });
 
+// expose for hydration HUD buttons (N/G)
+window.__HHA_SYS = { score, fx, sfx, power, coach };
+window.MODES = MODES;
+
+// ===== Game State =====
 let state = {
   modeKey: 'goodjunk',
   difficulty: 'Normal',
   running: false,
   timeLeft: 60,
-  fever: false,
-  demo: false
+  ctx: { hits:0, miss:0 },
+  fever: false
 };
 
 // ===== Difficulty table =====
 const DIFFS = {
-  Easy:   { time:70, spawn:900, life:4200 },
+  Easy:   { time:70, spawn:820, life:4200 },
   Normal: { time:60, spawn:700, life:3000 },
   Hard:   { time:50, spawn:560, life:1900 }
 };
 
-// ===== HUD refresh =====
+// ===== HUD =====
 function updateHUD(){
-  qs('#score').textContent = score.score|0;
-  qs('#combo').textContent = 'x'+(score.combo|0);
-  qs('#time').textContent  = state.timeLeft|0;
+  const sEl = qs('#score'), cEl = qs('#combo'), tEl = qs('#time');
+  if(sEl) sEl.textContent = score.score|0;
+  if(cEl) cEl.textContent = 'x'+(score.combo|0);
+  if(tEl) tEl.textContent = state.timeLeft|0;
 }
 
-// ===== Start Game =====
+// ===== DOM pool for .item (สิ่งที่วิ่งออกมาให้คลิก) =====
+const _pool=[]; const POOL_MAX=48;
+function createItem(){
+  const b=document.createElement('button');
+  b.className='item'; b.type='button';
+  b.style.position='fixed'; b.style.zIndex='100';    // อยู่บน canvas
+  b.style.minWidth='48px'; b.style.minHeight='48px';
+  b.style.pointerEvents='auto';
+  return b;
+}
+function getItemEl(){ return _pool.pop() || createItem(); }
+function releaseItemEl(el){
+  el.onclick=null;
+  if(el.parentNode) el.parentNode.removeChild(el);
+  if(_pool.length<POOL_MAX) _pool.push(el);
+}
+
+// ===== Spawner =====
+function spawnOnce(diff){
+  const mode = MODES[state.modeKey];
+  if(!mode || !mode.pickMeta){ 
+    // fallback test meta
+    const el = getItemEl();
+    el.textContent = '🍎';
+    place(el, diff);
+    el.onclick = ()=>{ score.add?.(5); fx.popText?.('+5',{color:'#7fffd4'}); updateHUD(); releaseItemEl(el); };
+    document.body.appendChild(el);
+    setTimeout(()=> el.isConnected && releaseItemEl(el), diff.life||2500);
+    return;
+  }
+
+  const meta = mode.pickMeta(diff, state);      // ต้องคืน {char, good|ok, ...}
+  const el = getItemEl();
+  el.textContent = meta.char || '?';
+
+  place(el, diff);
+
+  el.onclick = () => {
+    // ป้องกันสแปมคลิกเร็วเกิน
+    const t=now(); spawnOnce.__lc = spawnOnce.__lc||0;
+    if(t - spawnOnce.__lc < 120) return;
+    spawnOnce.__lc = t;
+
+    mode.onHit?.(meta, {score, sfx, power, fx}, state, hud);
+    state.ctx.hits = (state.ctx.hits||0) + 1;
+
+    if(meta.good || meta.ok){ coach.onGood?.(); sfx.good(); }
+    else { coach.onBad?.(state.modeKey); sfx.bad(); }
+
+    updateHUD();
+    releaseItemEl(el);
+  };
+
+  document.body.appendChild(el);
+  setTimeout(()=>{ if(el.isConnected) releaseItemEl(el); }, (diff.life||2500));
+}
+
+// วางตำแหน่งแบบเว้นขอบบน(หัว)และล่าง(เมนู)
+function place(el, diff){
+  const topSafePct = 14;     // เว้นจาก header
+  const bottomSafePct = 24;  // เว้นจากเมนู
+  const topMin = topSafePct, topMax = 100 - bottomSafePct;
+
+  el.style.left = (8 + Math.random()*84) + 'vw';
+  el.style.top  = (topMin + Math.random()*(topMax - topMin)) + 'vh';
+
+  // ความเร็วเคลื่อนที่เล็กๆ (optional เคลื่อนนิดหน่อย)
+  el.animate(
+    [{ transform:'translateY(0)' }, { transform:'translateY(-6px)' }, { transform:'translateY(0)' }],
+    { duration: 1200, iterations: Infinity }
+  );
+}
+
+const timers = { spawn:0, tick:0 };
+
+function spawnLoop(){
+  if(!state.running) return;
+
+  const base = DIFFS[state.difficulty] || DIFFS.Normal;
+  const hits = state.ctx.hits||0, miss=state.ctx.miss||0;
+  const acc  = hits>0 ? (hits/Math.max(1,hits+miss)) : 1;
+  const tune = acc>0.80 ? 0.90 : (acc<0.50 ? 1.10 : 1.00);
+
+  const dyn = {
+    ...base,
+    spawn: clamp(Math.round(base.spawn*tune), 240, 2000),
+    life:  clamp(Math.round(base.life /tune),  800, 8000)
+  };
+
+  spawnOnce(dyn);
+
+  // ยิ่งคะแนนสูง ยิ่งถี่ขึ้นเล็กน้อย
+  const accel = Math.max(0.5, 1 - (score.score/400));
+  const next  = Math.max(200, dyn.spawn * accel * (power.timeScale || 1));
+  timers.spawn = setTimeout(spawnLoop, next);
+}
+
+// ===== Start / Loop / End =====
 export function start(opt={}){
-  const diff = DIFFS[state.difficulty];
-  state.running = true;
-  state.timeLeft = diff.time;
-  state.demo = opt.demoPassed || false;
-  score.reset();
-  hud.reset();
-  mission.reset();
-  power.reset();
-  sfx.tick();
-  coach.say('เริ่มกันเลย!');
-  loop();
+  end(true); // reset เดิม
+  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+
+  state.running=true;
+  state.timeLeft=diff.time;
+  state.ctx={hits:0, miss:0};
+  state.fever=false;
+
+  score.reset(); hud.reset(); mission.reset(); power.reset();
+
+  // Hydration HUD actions (N/G) แสดงเฉพาะโหมด hydration
+  const hydUI=document.getElementById('hydrationActions');
+  if (hydUI) hydUI.style.display = (state.modeKey==='hydration') ? 'flex' : 'none';
+
+  // init โหมด
+  MODES[state.modeKey]?.init?.(state, hud, diff);
+
+  sfx.tick(); coach.say(state.modeKey==='hydration'?'รักษา 💧 45–65%!':'เริ่มเกม!');
+  updateHUD();
+
+  // main tick + spawn
+  tick(); spawnLoop();
 }
 window.start = start;
 
-// ===== Main Loop =====
-let last = now();
-function loop(){
+function tick(){
   if(!state.running) return;
-  const t = now(); const dt = (t - last)/1000; last = t;
-  state.timeLeft -= dt;
+  state.timeLeft--;
   updateHUD();
 
-  // spawn / tick per mode
+  // call per-mode tick
   MODES[state.modeKey]?.tick?.(state, {score, fx, sfx, power, coach}, hud);
 
-  if(state.timeLeft<=0){
-    end();
-  }else{
-    requestAnimationFrame(loop);
-  }
+  // หมดเวลา
+  if(state.timeLeft<=0){ end(); return; }
+
+  timers.tick = setTimeout(tick, 1000);
 }
 
-// ===== End Game =====
-export function end(skipAnim=false){
-  state.running = false;
-  const html = `<h4>${state.modeKey.toUpperCase()}</h4>
-  <p>คะแนนรวม: <b>${score.score|0}</b></p>
-  <p>คอมโบสูงสุด: x${score.bestCombo||0}</p>`;
-  const res = document.getElementById('result');
-  const core = document.getElementById('resCore');
-  if(core) core.innerHTML = html;
-  if(res) res.style.display='flex';
-  sfx.power();
-  coach.say('เยี่ยมมาก!');
+export function end(silent=false){
+  state.running=false;
+  clearTimeout(timers.spawn); clearTimeout(timers.tick);
+
+  // ซ่อน Hydration actions เมื่อจบ
+  const hydUI=document.getElementById('hydrationActions');
+  if (hydUI) hydUI.style.display='none';
+
+  if(!silent){
+    const html = `<h4>${(state.modeKey||'').toUpperCase()}</h4>
+    <p>คะแนนรวม: <b>${score.score|0}</b></p>
+    <p>คอมโบสูงสุด: x${score.bestCombo||0}</p>`;
+    const core=qs('#resCore'); if(core) core.innerHTML = html;
+    const res = document.getElementById('result'); if(res) res.style.display='flex';
+    sfx.power(); coach.say('เยี่ยมมาก!');
+  }
 }
 window.end = end;
 
-// ===== Fever Combo System =====
-if(typeof score.setHandlers==='function'){
-  score.setHandlers({
-    onCombo:(x)=>{
-      if(x>0 && x%5===0){ sfx.good(); fx.popText('+COMBO', {color:'#0f0'}); }
-    },
-    onScore:(val)=>{
-      if(val>50) fx.popText('PERFECT!',{color:'#ff0'});
-    }
-  });
-}
+// ===== Button wiring for mode/difficulty from menu =====
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('#menuBar button'); if(!btn) return;
+  const a = btn.getAttribute('data-action');
+  const v = btn.getAttribute('data-value');
 
-// ===== Input Shortcuts =====
-window.addEventListener('keydown',(e)=>{
-  if(!state.running) return;
-  const k=e.key.toLowerCase();
-  if(k==='p'){ state.running=false; coach.say('Pause'); }
+  if(a==='mode'){ state.modeKey = v; }
+  if(a==='diff'){ state.difficulty = v; }
+  if(a==='start'){ if(window.preStartFlow) window.preStartFlow(); else start({demoPassed:true}); }
+  if(a==='pause'){ state.running = !state.running; if(state.running){ tick(); spawnLoop(); } }
+  if(a==='restart'){ end(true); start({demoPassed:true}); }
+  if(a==='help'){ /* help handled in ui.js */ }
 });
 
-// ===== Integration with UI.js =====
+// ===== Integration + Shortcuts =====
 window.preStartFlow = function(){
-  // fade-in demo countdown
-  const coachHUD=document.getElementById('coachHUD');
-  const coachText=document.getElementById('coachText');
-  if(coachText){ coachText.textContent='เริ่มใน 3...'; }
-  coachHUD?.classList.add('show');
-  let c=3;
-  const int=setInterval(()=>{
-    if(!coachText) return;
-    c--; coachText.textContent=`${c}...`;
-    if(c<=0){
-      clearInterval(int);
-      coachHUD.classList.remove('show');
-      start({demoPassed:true});
-    }
-  },1000);
+  // เคาน์ดาวน์สั้น ๆ ก่อนเริ่ม
+  const hudC=document.getElementById('coachHUD');
+  const t=document.getElementById('coachText');
+  let n=3; if(t) t.textContent=`เริ่มใน ${n}...`; hudC?.classList.add('show');
+  const id=setInterval(()=>{
+    n--; if(t) t.textContent = (n>0)? `${n}...` : 'Go!';
+    if(n<=0){ clearInterval(id); hudC?.classList.remove('show'); start({demoPassed:true}); }
+  }, 800);
 };
 
-// ===== Utility for external UI =====
-window.HHA = {
-  startGame:(opt)=>start(opt),
-  pause:()=>{ state.running=false; },
-  resume:()=>{ if(!state.running){ state.running=true; loop(); } },
-  restart:()=>{ end(true); start({demoPassed:true}); },
-  onEnd:(cb)=>{ window.__onGameEnd=cb; },
-};
+// Unlock audio on first gesture
+['pointerdown','touchstart','keydown'].forEach(ev=>{
+  window.addEventListener(ev, ()=>sfx.unlock(), {once:true, passive:true});
+});
+
+// Ensure canvas never blocks clicks
+const cEl=document.getElementById('c');
+if(cEl){ cEl.style.pointerEvents='none'; cEl.style.zIndex='1'; }
