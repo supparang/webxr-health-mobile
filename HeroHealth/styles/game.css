@@ -29,3 +29,11 @@
 .hud-action:disabled{
   opacity:.6; cursor:not-allowed;
 }
+/* Canvas ต้องไม่บังคลิก */
+#c { pointer-events: none !important; z-index: 1 !important; }
+/* ชั้น UI ต้องคลิกได้และอยู่บน */
+.hud, .menu, .modal, .coach, .item {
+  pointer-events: auto !important;
+  z-index: 120 !important;
+}
+
