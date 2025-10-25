@@ -1,8 +1,8 @@
-// Hero Health Academy - main.js (2025-10-25)
+// Hero Health Academy - main.js (2025-10-25, layout-safe)
+// - จัดพื้นที่เล่นให้อยู่ระหว่าง header กับเมนู (relayout + safe spawn box)
 // - Pause/Resume จริง (หยุดทั้ง tick และ spawn)
-// - i18n TH/EN สำหรับ HUD/Help
 // - ใช้ TTL จาก meta.life (ถ้าไม่มีจะ fallback diff.life)
-// - power.timeScale ปลอดภัย (ดีฟอลต์ 1)
+// - i18n TH/EN สำหรับ HUD/Help
 // - cleanup โหมดก่อนหน้าเมื่อสลับ
 // - ปลอด "Invalid optional chain from new expression"
 
@@ -80,6 +80,15 @@ catch { coach = { onStart(){}, onEnd(){}, say(){}, lang: state.lang }; }
 let eng;
 try { eng = new Engine(THREE, document.getElementById('c')); }
 catch { eng = {}; }
+
+// ---------- Layout helpers ----------
+function relayout(){
+  const headerH = document.querySelector('header.brand')?.offsetHeight || 56;
+  const menuH   = document.getElementById('menuBar')?.offsetHeight || 120;
+  document.documentElement.style.setProperty('--h-header', headerH + 'px');
+  document.documentElement.style.setProperty('--h-menu',   menuH   + 'px');
+}
+window.addEventListener('resize', relayout);
 
 // ---------- UI helpers ----------
 function applyLang(){
@@ -201,8 +210,24 @@ function spawnOnce(diff){
   el.className = 'item';
   el.type = 'button';
   el.textContent = meta.char ?? '❓';
-  el.style.left = (10 + Math.random()*80) + 'vw';
-  el.style.top  = (20 + Math.random()*60) + 'vh';
+
+  // ---- จำกัดพื้นที่เกิดไอเท็มให้อยู่เหนือเมนูและใต้ header/HUD ----
+  const headerH = document.querySelector('header.brand')?.offsetHeight || 56;
+  const hudH    = document.querySelector('.hud')?.offsetHeight || 0;
+  const menuH   = document.getElementById('menuBar')?.offsetHeight || 120;
+
+  const safeTopMin = headerH + hudH + 12;                             // ขอบบนพื้นที่เล่น
+  const safeTopMax = Math.max(safeTopMin + 60, window.innerHeight - menuH - 84); // ขอบล่าง
+  const safeLeftMin = 8;
+  const safeLeftMax = Math.max(8, window.innerWidth - 88);
+
+  const x = Math.round(safeLeftMin + Math.random() * (safeLeftMax - safeLeftMin));
+  const y = Math.round(safeTopMin  + Math.random() * (safeTopMax  - safeTopMin));
+
+  el.style.position = 'fixed';
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.style.zIndex = '65';
 
   el.addEventListener('click', (ev)=>{
     ev.stopPropagation();
@@ -263,15 +288,10 @@ document.addEventListener('pointerup', (e)=>{
     state.lastModeKey = state.modeKey;
     state.modeKey = v;
     applyUI(); applyLang();
-    // สลับโหมดขณะเล่น: restart โหมดใหม่ด้วย diff เดิม
-    if (state.running){
-      start();
-    }
+    if (state.running){ start(); } // รีสตาร์ทด้วยโหมดใหม่ทันที
   } else if(a==='diff'){
     state.difficulty = v; applyUI();
-    if (state.running){
-      start();
-    }
+    if (state.running){ start(); }
   } else if(a==='start'){
     start();
   } else if(a==='pause'){
@@ -318,6 +338,7 @@ window.addEventListener('blur',  ()=>pauseGame());
 window.addEventListener('focus', ()=>resumeGame());
 
 // ---------- Boot ----------
+relayout();
 applyLang();
 applyUI();
 updateHUD();
