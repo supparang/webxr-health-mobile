@@ -36,4 +36,12 @@
   pointer-events: auto !important;
   z-index: 120 !important;
 }
+/* layout & layers */
+html,body{height:100%;margin:0;overflow:hidden;}
+#c{position:fixed;left:0;right:0;top:var(--h-header,56px);bottom:var(--h-menu,120px);width:100%;}
+.brand{position:fixed;top:0;left:0;right:0;z-index:50;}
+.hud{position:fixed;left:12px;top:calc(var(--h-header,56px) + 8px);z-index:60;}
+.coach{position:fixed;right:12px;top:calc(var(--h-header,56px) + 8px);z-index:61;}
+.menu{position:fixed;left:0;right:0;bottom:0;z-index:70;}
+.item{position:fixed;z-index:65;} /* ไอเท็มอยู่เหนือ canvas/hud แต่ต่ำกว่าเมนู */
 
