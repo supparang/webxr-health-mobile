@@ -1,162 +1,96 @@
 // game/modes/hydration.js
-// โหมดสมดุลน้ำ: คุม Hydration % ให้อยู่ในช่วง 45–65
-// เพิ่ม Normalize/Guard ปุ่ม HUD พร้อมคูลดาวน์ + วงแหวน
+// ระบบโหมดสมดุลน้ำ 💧 45–65%
 
-export function init(state, hud, diff){
-  // ค่าเริ่มต้น
-  state.hyd = 55;
-  state.hydMin = 45;
-  state.hydMax = 65;
+export function init(state, hud, diff) {
+  // สร้าง hydration bar ถ้ายังไม่มี
+  let wrap = document.getElementById('hydrationWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'hydrationWrap';
+    wrap.style.position = 'fixed';
+    wrap.style.top = '12px';
+    wrap.style.right = '12px';
+    wrap.style.width = '200px';
+    wrap.style.height = '20px';
+    wrap.style.background = 'rgba(255,255,255,0.15)';
+    wrap.style.border = '1px solid rgba(255,255,255,0.3)';
+    wrap.style.borderRadius = '10px';
+    wrap.style.zIndex = '150';
+    wrap.innerHTML = `
+      <div id="hydrationBar" style="
+        width:55%;
+        height:100%;
+        background:linear-gradient(90deg,#4FC3F7,#0288D1);
+        border-radius:10px;
+        transition:width .25s;
+      "></div>
+      <div id="hydrationLabel" style="
+        position:absolute;left:0;right:0;top:0;bottom:0;
+        text-align:center;font-weight:900;font-size:14px;
+        line-height:20px;color:white;text-shadow:0 1px 4px #000;
+      ">💧 55%</div>
+    `;
+    document.body.appendChild(wrap);
+  }
 
-  // คูลดาวน์ (วินาที)
-  state.hydCD = state.hydCD || { normalize: 0, guard: 0 };
-  state.hydGuardUntil = 0; // timestamp (ms)
-
-  showHydHUD(true);
-  wireButtons(state);
-  renderCD(state); // วาดวงแหวนครั้งแรก
-  hud.showHydration?.(state.hyd, state.hydMin, state.hydMax);
+  state.hydration = 55;
+  updateBar(state.hydration);
 }
 
-export function tick(state, {score, fx, sfx, power, coach}, hud){
-  // ดรอป/เพิ่มตามกาลเวลา (เบา ๆ)
-  const now = performance.now();
-  const dt = 1/60; // tick เรียกถี่ — ใช้ค่าคงที่พอ
-  const guarded = now < state.hydGuardUntil;
+export function pickMeta(diff, state) {
+  // สุ่มเครื่องดื่ม: น้ำ / น้ำหวาน / กาแฟ
+  const drinks = [
+    { char: '💧', effect: +10 },
+    { char: '🥤', effect: -15 },
+    { char: '☕', effect: -10 },
+    { char: '🥛', effect: +8 }
+  ];
+  const meta = drinks[Math.floor(Math.random() * drinks.length)];
+  meta.life = diff.life;
+  return meta;
+}
 
-  // ambient drift
-  let drift = (Math.random()*0.10 - 0.05); // -0.05..+0.05 ต่อเฟรม
-  if (guarded) drift *= 0.1;               // Guard ลดการดริฟต์แรงมาก
+export function onHit(meta, sys, state) {
+  const { score, sfx } = sys;
+  const wrap = document.getElementById('hydrationWrap');
+  if (!wrap) return;
 
-  state.hyd = clamp(state.hyd + drift, 0, 100);
+  // ปรับ hydration ตาม effect
+  state.hydration = Math.max(0, Math.min(100, state.hydration + meta.effect));
+  updateBar(state.hydration);
 
-  // อัปเดตไฮดรอ HUD
-  hud.setHydration?.(state.hyd);
-
-  // อัปเดตคูลดาวน์
-  stepCD(state);
-  renderCD(state);
-
-  // คะแนนเล็กน้อยจากการรักษาโซนสweetspot
-  if (state.hyd>=48 && state.hyd<=62){
-    state.__sweetAcc = (state.__sweetAcc||0) + dt;
-    if (state.__sweetAcc > 2){ // ทุก 2 วินาที
-      state.__sweetAcc = 0;
-      score.add?.(1); // โบนัสคงที่เล็กน้อย
-      fx.popText?.('+1', {color:'#7fffd4'});
-    }
+  // เงื่อนไขคะแนนตาม hydration
+  if (meta.char === '🥤') {
+    if (state.hydration > 65) score.add(10);
+    else if (state.hydration < 45) score.add(-10);
+    else score.add(-2);
   } else {
-    state.__sweetAcc = 0;
-  }
-}
-
-// === ปุ่ม (เรียกจาก main/ui) ===
-export function useNormalize(state, {fx, sfx, coach}){
-  if (state.hydCD.normalize>0) return false;
-  state.hyd = 55;
-  state.hydCD.normalize = 25;           // คูลดาวน์ 25s
-  sfx?.perfect?.(); coach?.say?.('Normalize!');
-  fx?.popText?.('55%', {color:'#39f'});
-  renderCD(state);
-  return true;
-}
-
-export function useGuard(state, {fx, sfx, coach}){
-  if (state.hydCD.guard>0) return false;
-  const now = performance.now();
-  state.hydGuardUntil = now + 5000;     // Guard 5s
-  state.hydCD.guard = 25;               // คูลดาวน์ 25s
-  sfx?.power?.(); coach?.say?.('Guard On!');
-  fx?.popText?.('GUARD', {color:'#0f0'});
-  renderCD(state);
-  return true;
-}
-
-// === logic เมื่อผู้เล่น "ดื่ม" เครื่องดื่ม (ให้โหมดเรียกใช้) ===
-// ตัวอย่าง hook ที่คุณอาจมีอยู่แล้ว: onHit(meta, systems, state, hud)
-export function onDrink(type, state, {score, fx, sfx, coach}, hud){
-  // type: 'water' | 'mineral' | 'sweet' | 'coffee' ...
-  // ตัวอย่างผลกระทบแบบง่าย
-  const over = state.hyd>65;
-  const under = state.hyd<45;
-
-  if (type==='water' || type==='mineral'){
-    state.hyd = clamp(state.hyd + 5, 0, 100);
-    score.add?.(5); sfx?.good?.();
-  } else if (type==='sweet' || type==='coffee'){
-    // กติกาพิเศษตามที่ระบุ
-    if (over){
-      score.add?.(10); fx?.popText?.('+10', {color:'#ff0'}); sfx?.good?.();
-    } else if (under){
-      score.add?.(-15); fx?.popText?.('-15', {color:'#f66'}); sfx?.bad?.();
-    } else {
-      state.hyd = clamp(state.hyd - 10, 0, 100);
-      score.add?.(-3); sfx?.bad?.();
-    }
+    score.add(5);
   }
 
-  hud.setHydration?.(state.hyd);
+  sfx.good();
 }
 
-// ===== Helpers =====
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-
-function showHydHUD(on){
-  const a = document.getElementById('hydrationActions');
-  if(a) a.style.display = on ? 'flex' : 'none';
-}
-function wireButtons(state){
-  const n = document.getElementById('btnNormalize');
-  const g = document.getElementById('btnGuard');
-  // กัน bind ซ้ำ
-  n?.replaceWith(n.cloneNode(true));
-  g?.replaceWith(g.cloneNode(true));
-  const n2 = document.getElementById('btnNormalize');
-  const g2 = document.getElementById('btnGuard');
-
-  n2?.addEventListener('click', ()=>{
-    // main.js จะเรียกผ่านโหมดนี้อีกที แต่เผื่อเรียกตรง
-    if (state.hydCD.normalize<=0 && window.MODES?.hydration?.useNormalize){
-      window.MODES.hydration.useNormalize(state, window.__HHA_SYS||{});
-    }
-  }, {passive:true});
-
-  g2?.addEventListener('click', ()=>{
-    if (state.hydCD.guard<=0 && window.MODES?.hydration?.useGuard){
-      window.MODES.hydration.useGuard(state, window.__HHA_SYS||{});
-    }
-  }, {passive:true});
+export function tick(state, sys) {
+  // ค่อยๆ ลด hydration ทุกวินาทีเล็กน้อย
+  state.hydration = Math.max(0, state.hydration - 0.4);
+  updateBar(state.hydration);
 }
 
-function stepCD(state){
-  // เรียกทุก tick (ประมาณ 60fps) — ลดคูลดาวน์ทีละเฟรม
-  const dec = 1/60;
-  if (state.hydCD.normalize>0) state.hydCD.normalize = Math.max(0, state.hydCD.normalize - dec);
-  if (state.hydCD.guard>0)     state.hydCD.guard     = Math.max(0, state.hydCD.guard - dec);
-}
+// helper
+function updateBar(val) {
+  const bar = document.getElementById('hydrationBar');
+  const label = document.getElementById('hydrationLabel');
+  if (!bar || !label) return;
 
-function renderCD(state){
-  const n = document.getElementById('btnNormalize');
-  const g = document.getElementById('btnGuard');
-  const cdN = document.getElementById('cdNormalize');
-  const cdG = document.getElementById('cdGuard');
-  const ringN = n?.querySelector('.ring');
-  const ringG = g?.querySelector('.ring');
+  const percent = Math.round(val);
+  bar.style.width = percent + '%';
 
-  const maxN = 25, maxG = 25;
-  const leftN = Math.ceil(state.hydCD.normalize||0);
-  const leftG = Math.ceil(state.hydCD.guard||0);
+  // สีตามระดับน้ำ
+  let color = '#4FC3F7';
+  if (percent < 45) color = '#E53935';
+  else if (percent > 65) color = '#FFB300';
+  bar.style.background = color;
 
-  if (n){
-    const pct = 1 - Math.min(1,(state.hydCD.normalize||0)/maxN);
-    ringN && ringN.style.setProperty('--pct', String(pct));
-    cdN && (cdN.textContent = leftN>0 ? leftN : '0');
-    n.disabled = leftN>0;
-  }
-  if (g){
-    const pct = 1 - Math.min(1,(state.hydCD.guard||0)/maxG);
-    ringG && ringG.style.setProperty('--pct', String(pct));
-    cdG && (cdG.textContent = leftG>0 ? leftG : '0');
-    g.disabled = leftG>0;
-  }
+  label.textContent = `💧 ${percent}%`;
 }
