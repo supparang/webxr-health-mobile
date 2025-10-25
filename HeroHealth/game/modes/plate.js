@@ -87,3 +87,44 @@ export function onHit(meta, systems, state){
 
   renderPills(state); updatePlateHUD(state);
 }
+// ===== Helper: แสดงพิลล์โควตาทั้งจานให้เห็นครบ ๆ =====
+export function renderPlatePills(state){
+  const wrap = document.getElementById('platePills'); if(!wrap) return;
+  const L = [
+    { key:'grain',   label:'ธัญพืช', need:2 },
+    { key:'veg',     label:'ผัก',    need:2 },
+    { key:'protein', label:'โปรตีน', need:1 },
+    { key:'fruit',   label:'ผลไม้',  need:1 },
+    { key:'dairy',   label:'นม',     need:1 },
+  ];
+  const get = (k)=> (state?.ctx?.plate?.[k] || 0);
+  wrap.innerHTML = L.map(({key,label,need})=>{
+    const got = get(key);
+    return Array.from({length:need},(_,i)=>{
+      const done = i < got ? 'done' : '';
+      // ตัวย่อภาษาไทยให้กระชับ เช่น ธ2-1, ผ2-2
+      const ab = label[0] + (i+1);
+      return `<span class="pill ${done}" title="${label} ${i+1}/${need}">${ab}</span>`;
+    }).join('');
+  }).join(' ');
+}
+
+// ===== Init (เสริมส่วนเปิด HUD + สร้าง state.ctx.plate ถ้ายังไม่มี) =====
+export function init(state, hud /*, diff */){
+  try{ hud.showPills?.(); }catch{}
+  if (!state.ctx) state.ctx = {};
+  if (!state.ctx.plate){
+    state.ctx.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
+  }
+  // โชว์โควตาทั้งหมดตั้งแต่เริ่ม
+  renderPlatePills(state);
+}
+
+// ===== Cleanup หลังจบเกม เพื่อไม่ให้ค้าง =====
+export function cleanup(state, hud){
+  try{ hud.hidePills?.(); }catch{}
+  const wrap = document.getElementById('platePills'); if(wrap) wrap.innerHTML='';
+  if (state?.ctx?.plate){
+    state.ctx.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
+  }
+}
