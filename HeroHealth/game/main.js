@@ -1,4 +1,4 @@
-// Hero Health Academy - main.js (layout-safe + contextual help + help scene)
+// Hero Health Academy - main.js (layout-safe + contextual help + help scene + adaptive icon size)
 // Updated: 2025-10-25
 
 window.__HHA_BOOT_OK = true;
@@ -330,7 +330,22 @@ function spawnOnce(diff){
   el.type = 'button';
   el.textContent = meta.char ?? '❓';
 
-  // ---- จำกัดพื้นที่เกิดไอเท็มให้อยู่เหนือเมนูและใต้ header/HUD ----
+  // 🎨 ปรับขนาดอัตโนมัติตามระดับความยาก
+  const sizeMap = { Easy: '80px', Normal: '64px', Hard: '52px' };
+  el.style.fontSize = sizeMap[state.difficulty] || '64px';
+  el.style.lineHeight = '1';
+  el.style.padding = '4px';
+  el.style.background = 'none';
+  el.style.border = 'none';
+  el.style.cursor = 'pointer';
+  el.style.transition = 'transform 0.15s ease, filter 0.15s ease';
+  el.style.filter = 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))';
+  el.onmouseenter = ()=>el.style.transform='scale(1.2)';
+  el.onmouseleave = ()=>el.style.transform='scale(1)';
+  el.onmousedown  = ()=>el.style.transform='scale(1.3)';
+  el.onmouseup    = ()=>el.style.transform='scale(1.2)';
+
+  // ---- จำกัดพื้นที่เกิดไอคอนให้อยู่เหนือเมนูและใต้ header/HUD ----
   const headerH = document.querySelector('header.brand')?.offsetHeight || 56;
   const hudH    = document.querySelector('.hud')?.offsetHeight || 0;
   const menuH   = document.getElementById('menuBar')?.offsetHeight || 120;
@@ -424,9 +439,11 @@ document.addEventListener('pointerup', (e)=>{
     end(true); start();
   } else if(a==='help'){
     renderHelpModalFor(state.modeKey);
-    document.getElementById('help').style.display = 'block';
+    const help = document.getElementById('help');
+    if (help) help.style.display = 'flex'; // ให้ modal จัดกึ่งกลางจอ (ต้องมี CSS .modal เป็น flex)
   } else if(a==='helpClose'){
-    document.getElementById('help').style.display = 'none';
+    const help = document.getElementById('help');
+    if (help) help.style.display = 'none';
   } else if(a==='helpScene'){
     openHelpScene();
   } else if(a==='helpSceneClose'){
