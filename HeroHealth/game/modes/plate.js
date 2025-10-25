@@ -1,5 +1,6 @@
+// game/modes/plate.js
 // === จัดจานสุขภาพ (Healthy Plate) ===
-export const name='จัดจานสุขภาพ';
+export const name = 'จัดจานสุขภาพ';
 
 const QUOTA = { grain:2, veg:2, protein:1, fruit:1, dairy:1 };
 const GROUPS = {
@@ -9,121 +10,109 @@ const GROUPS = {
   fruit:['🍎','🍌','🍇','🍊'],
   dairy:['🥛','🧀']
 };
-const LABELS = { grain:'ธัญพืช', veg:'ผัก', protein:'โปรตีน', fruit:'ผลไม้', dairy:'นม' };
+const LABELS_TH = { grain:'ธัญพืช', veg:'ผัก', protein:'โปรตีน', fruit:'ผลไม้', dairy:'นม' };
 
+const rnd = (arr)=>arr[(Math.random()*arr.length)|0];
+
+// ---------- HUD helpers ----------
 function renderPills(state){
-  state.plate = state.plate || { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
-  const pills=document.getElementById('platePills'); if(!pills) return;
-  pills.innerHTML='';
-  Object.keys(QUOTA).forEach(k=>{
-    const cur=state.plate[k]||0, need=QUOTA[k];
-    const el=document.createElement('div');
-    el.className='pill'+(cur>=need?' done':'' );
-    el.textContent=`${LABELS[k]} ${cur}/${need}`;
-    pills.appendChild(el);
-  });
-}
-function updatePlateHUD(state){
-  const wrap=document.getElementById('targetWrap'); if(wrap) wrap.style.display='block';
-  const badge=document.getElementById('targetBadge'); if(!badge) return;
-  // แนะนำหมวดที่ “ยังขาดมากสุด”
-  const rem = {};
-  for(const k of Object.keys(QUOTA)){
-    rem[k] = Math.max(0, (QUOTA[k]||0) - ((state.plate?.[k])||0));
-  }
-  const order=['veg','grain','protein','fruit','dairy'];
-  let best=null, bestVal=-1;
-  for(const k of order){ if(rem[k]>bestVal){ best = rem[k]>0 ? k : best; bestVal = rem[k]; } }
-  badge.textContent = best ? `${LABELS[best]} (${state.plate[best]||0}/${QUOTA[best]||0})` : 'ครบโควตาแล้ว!';
-}
-
-export function init(state, hud){
-  state.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
-  // reset ตัวนับภารกิจ
-  state.ctx = state.ctx || {};
-  state.ctx.perfectPlates = 0;   // ใช้กับ mission: perfect_plates
-  state.ctx.plateFills    = 0;   // ใช้โชว์สถิติ/ภารกิจอื่น
-
-  const wrap=document.getElementById('plateTracker'); if(wrap) wrap.style.display='block';
-  renderPills(state); updatePlateHUD(state);
-}
-
-export function pickMeta(diff, state){
-  const keys=Object.keys(GROUPS);
-  const k=keys[(Math.random()*keys.length)|0] || 'fruit';
-  const arr=GROUPS[k] || GROUPS.fruit;
-  const char=arr[(Math.random()*arr.length)|0];
-  return { type:'plate', group:k, char };
-}
-
-export function onHit(meta, systems, state){
-  const k = meta.group;
-  const need = QUOTA[k] ?? 0;
-  const cur = state.plate[k] || 0;
-
-  if(cur < need){
-    state.plate[k] = cur + 1;
-    systems.score.add(6);
-    state.ctx.plateFills = (state.ctx.plateFills||0) + 1;
-    systems.fx?.spawn3D?.(null, '+6', 'good');
-    systems.sfx?.play?.('sfx-good');
-
-    const done = Object.keys(QUOTA).every(g => (state.plate[g]||0) >= QUOTA[g]);
-    if(done){
-      systems.score.add(14);
-      state.ctx.perfectPlates = (state.ctx.perfectPlates||0) + 1; // นับภารกิจ
-      systems.fx?.spawn3D?.(null, 'PERFECT +14', 'good');
-      systems.sfx?.play?.('sfx-perfect');
-      // จานใหม่
-      state.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
-    }
-  }else{
-    systems.score.add(-2);
-    state.timeLeft = Math.max(0, (state.timeLeft||0) - 1); // โทษเวลาเมื่อ “เกินโควตา”
-    systems.fx?.spawn3D?.(null, '-2 • -1s', 'bad');
-    systems.sfx?.play?.('sfx-bad');
-    systems.score.bad?.();
-  }
-
-  renderPills(state); updatePlateHUD(state);
-}
-// ===== Helper: แสดงพิลล์โควตาทั้งจานให้เห็นครบ ๆ =====
-export function renderPlatePills(state){
-  const wrap = document.getElementById('platePills'); if(!wrap) return;
-  const L = [
-    { key:'grain',   label:'ธัญพืช', need:2 },
-    { key:'veg',     label:'ผัก',    need:2 },
-    { key:'protein', label:'โปรตีน', need:1 },
-    { key:'fruit',   label:'ผลไม้',  need:1 },
-    { key:'dairy',   label:'นม',     need:1 },
-  ];
-  const get = (k)=> (state?.ctx?.plate?.[k] || 0);
-  wrap.innerHTML = L.map(({key,label,need})=>{
-    const got = get(key);
-    return Array.from({length:need},(_,i)=>{
-      const done = i < got ? 'done' : '';
-      // ตัวย่อภาษาไทยให้กระชับ เช่น ธ2-1, ผ2-2
-      const ab = label[0] + (i+1);
-      return `<span class="pill ${done}" title="${label} ${i+1}/${need}">${ab}</span>`;
-    }).join('');
+  const pills = document.getElementById('platePills'); if(!pills) return;
+  const plate = state.ctx.plate;
+  // แสดงเป็นชิปสั้น ๆ: “ธัญพืช 1/2 | ผัก 0/2 | …”
+  pills.innerHTML = Object.keys(QUOTA).map(k=>{
+    const cur = plate[k]||0, need = QUOTA[k];
+    const done = cur>=need ? ' done' : '';
+    return `<span class="pill${done}" title="${LABELS_TH[k]} ${cur}/${need}">${LABELS_TH[k]} ${cur}/${need}</span>`;
   }).join(' ');
 }
 
-// ===== Init (เสริมส่วนเปิด HUD + สร้าง state.ctx.plate ถ้ายังไม่มี) =====
-export function init(state, hud /*, diff */){
-  try{ hud.showPills?.(); }catch{}
-  if (!state.ctx) state.ctx = {};
-  if (!state.ctx.plate){
-    state.ctx.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
+function updatePlateBadge(state){
+  const wrap  = document.getElementById('targetWrap');
+  const badge = document.getElementById('targetBadge');
+  if (wrap) wrap.style.display = 'block';
+  if (!badge) return;
+
+  const plate = state.ctx.plate;
+  // หา “หมวดที่ยังขาดมากสุด” แนะนำขึ้นป้าย
+  const remPairs = Object.keys(QUOTA).map(k=>{
+    const rem = Math.max(0, QUOTA[k] - (plate[k]||0));
+    return [k, rem];
+  }).sort((a,b)=>b[1]-a[1]); // มาก -> น้อย
+
+  const [bestKey, bestRem] = remPairs[0];
+  if (bestRem>0){
+    badge.textContent = `${LABELS_TH[bestKey]} (${plate[bestKey]||0}/${QUOTA[bestKey]})`;
+  }else{
+    badge.textContent = 'ครบโควตาแล้ว!';
   }
-  // โชว์โควตาทั้งหมดตั้งแต่เริ่ม
-  renderPlatePills(state);
 }
 
-// ===== Cleanup หลังจบเกม เพื่อไม่ให้ค้าง =====
+// ---------- Public API ----------
+export function init(state, hud /*, diff */){
+  state.ctx = state.ctx || {};
+  state.ctx.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
+  state.ctx.perfectPlates = 0;
+  state.ctx.plateFills    = 0;
+
+  try{ hud?.showPills?.(); }catch{}
+  renderPills(state);
+  updatePlateBadge(state);
+}
+
+export function pickMeta(diff, state){
+  const key  = rnd(Object.keys(GROUPS)) || 'fruit';
+  const char = rnd(GROUPS[key] || GROUPS.fruit);
+  return {
+    type: 'plate',
+    group: key,
+    char,
+    life: diff?.life ?? 3000   // ให้ main.js ใช้ TTL จาก meta.life
+  };
+}
+
+export function onHit(meta, sys, state){
+  const { score, sfx, fx } = sys || {};
+  const plate = state.ctx.plate;
+  const k = meta.group;
+  const need = QUOTA[k] ?? 0;
+  const cur  = plate[k] || 0;
+
+  if (cur < need){
+    plate[k] = cur + 1;
+    score?.add?.(6);
+    state.ctx.plateFills = (state.ctx.plateFills||0) + 1;
+    fx?.popText?.('+6', { color:'#7fffd4' });
+    sfx?.good?.();
+
+    const done = Object.keys(QUOTA).every(g => (plate[g]||0) >= QUOTA[g]);
+    if (done){
+      score?.add?.(14);
+      state.ctx.perfectPlates = (state.ctx.perfectPlates||0) + 1;
+      fx?.popText?.('PERFECT +14', { color:'#ccff88' });
+      sfx?.perfect?.();
+      // จานใหม่
+      state.ctx.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
+    }
+  }else{
+    // เกินโควตา
+    score?.add?.(-2);
+    state.timeLeft = Math.max(0, (state.timeLeft||0) - 1); // ลงโทษเวลา
+    fx?.popText?.('-2 • -1s', { color:'#ff9b9b' });
+    sfx?.bad?.();
+  }
+
+  renderPills(state);
+  updatePlateBadge(state);
+}
+
+export function tick(/* state, sys, hud */){
+  // โหมดนี้ไม่ต้องทำทุกวินาที
+}
+
 export function cleanup(state, hud){
-  try{ hud.hidePills?.(); }catch{}
-  const wrap = document.getElementById('platePills'); if(wrap) wrap.innerHTML='';
+  try{ hud?.hidePills?.(); }catch{}
+  const pills = document.getElementById('platePills'); if (pills) pills.innerHTML = '';
+  const badge = document.getElementById('targetBadge'); if (badge) badge.textContent = '—';
   if (state?.ctx?.plate){
     state.ctx.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
   }
