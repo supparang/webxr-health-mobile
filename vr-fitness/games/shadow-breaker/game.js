@@ -358,7 +358,7 @@ try {
     }
     r.addEventListener('click', function(){
       if(hit) return; hit=true;
-      var p=r.object3D.getWorldPosition(new THREE.Vector3()));
+      var p=r.object3D.getWorldPosition(new THREE.Vector3());
       floatText('BREAK','#00ffa3',p);
       combo++; onComboChanged(); hits++; score+=Math.round(14*scoringMul()); updateHUD();
       resetIgnore('ring');
