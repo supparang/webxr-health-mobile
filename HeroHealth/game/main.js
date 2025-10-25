@@ -1,7 +1,7 @@
-// ===== Boot flag =====
+// ===== Boot flag (ให้ fallback หายเมื่อไฟล์นี้รัน) =====
 window.__HHA_BOOT_OK = true;
 
-// ===== Imports =====
+// ===== Imports (relative จาก /HeroHealth/game/) =====
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine } from './core/engine.js';
 import { HUD } from './core/hud.js';
@@ -35,7 +35,7 @@ const coach = new Coach({ lang:'TH' });
 const c = document.getElementById('c');
 if (c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
 
-// ===== State (export ไว้ให้ index ใช้โชว์ help ตามโหมดได้) =====
+// ===== State (export ไว้ให้หน้า index อื่น ๆ อ่านได้) =====
 export const __HHA_STATE = {
   modeKey: 'goodjunk',
   difficulty: 'Normal',
@@ -53,26 +53,15 @@ const DIFFS = {
 
 // ===== HUD =====
 function updateHUD(){
-  qs('#score') && (qs('#score').textContent = score.score|0);
-  qs('#combo') && (qs('#combo').textContent = 'x'+(score.combo||0));
-  qs('#time')  && (qs('#time').textContent  = __HHA_STATE.timeLeft|0);
+  const sc=qs('#score'), cb=qs('#combo'), tm=qs('#time');
+  if(sc) sc.textContent = score.score|0;
+  if(cb) cb.textContent = 'x'+(score.combo||0);
+  if(tm) tm.textContent = __HHA_STATE.timeLeft|0;
 }
 function updateStatus(){
   const map = { goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ' };
   const el = qs('#statusLine');
   if (el) el.textContent = `โหมด: ${map[__HHA_STATE.modeKey]||__HHA_STATE.modeKey} • ความยาก: ${__HHA_STATE.difficulty}`;
-}
-
-// ===== Help text (สั้น) =====
-function langTH(){ return true; }
-function howToText(mode){
-  const TH={
-    goodjunk:'เก็บอาหารดี 🥦🍎 หลีกเลี่ยงของขยะ 🍔🍟🥤 • คอมโบเพิ่มคะแนน • มีภารกิจย่อย',
-    groups:'ดู 🎯 หมวดบน HUD แล้วเก็บให้ตรง • ถูก +7 ผิด −2 • เปลี่ยนหมวดทุก ~10s หรือครบ 3 ครั้ง',
-    hydration:'รักษา 💧 45–65% • น้ำเปล่าเพิ่ม/หวานลด • >65 ดื่มหวาน = ได้คะแนน, <45 ดื่มหวาน = หักคะแนน',
-    plate:'โควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1 • ครบทั้งหมด = Perfect Plate'
-  };
-  return TH[mode] || TH.goodjunk;
 }
 
 // ===== Item Pool =====
@@ -89,7 +78,6 @@ function makeItem(){
 }
 function getItem(){ return pool.pop() || makeItem(); }
 function freeItem(el){ el.onclick=null; el.remove(); if(pool.length<POOL_MAX) pool.push(el); }
-
 function place(el){
   el.style.left = (8 + Math.random()*84) + 'vw';
   el.style.top  = (18 + Math.random()*70) + 'vh';
@@ -154,7 +142,15 @@ export function start(){
 
   MODES[__HHA_STATE.modeKey]?.init?.(__HHA_STATE, hud, diff);
 
-  coach.say(howToText(__HHA_STATE.modeKey, langTH()?'TH':'EN'));
+  // พูด “วิธีเล่นสั้น ๆ” ให้ผู้เล่นเห็น
+  const intro = {
+    goodjunk:'เก็บอาหารดี 🥦🍎 หลีกเลี่ยงของขยะ 🍔🍟🥤 • คอมโบเพิ่มคะแนน',
+    groups:'ดู 🎯 หมวดบน HUD แล้วเก็บให้ตรง • ถูก +7 ผิด −2',
+    hydration:'รักษา 💧 45–65% • น้ำเปล่าเพิ่ม/หวานลด • >65 ดื่มหวาน = ได้คะแนน, <45 ดื่มหวาน = หักคะแนน',
+    plate:'โควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1 • ครบ = Perfect Plate'
+  }[__HHA_STATE.modeKey] || 'เริ่ม!';
+
+  coach.say(intro);
 
   tick(); loop();
 }
@@ -181,35 +177,39 @@ export function end(silent=false){
       <p>โหมด: <b>${({goodjunk:'ดี vs ขยะ',groups:'จาน 5 หมู่',hydration:'สมดุลน้ำ',plate:'จัดจานสุขภาพ'})[__HHA_STATE.modeKey]||__HHA_STATE.modeKey}</b></p>
       <p>ความยาก: <b>${__HHA_STATE.difficulty}</b></p>
       <p>คะแนน: <b>${score.score|0}</b> • คอมโบสูงสุด: <b>x${score.bestCombo||0}</b></p>`;
-    qs('#result')?.style && (qs('#result').style.display='flex');
+    const res = qs('#result'); if(res) res.style.display='flex';
     coach.say('เยี่ยมมาก!');
   }
 }
 
 // ===== Menu wiring =====
-document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('#menuBar button'); if(!btn) return;
-  const a = btn.dataset.action, v = btn.dataset.value;
-  if(a==='mode'){ __HHA_STATE.modeKey = v; updateStatus(); }
-  if(a==='diff'){ __HHA_STATE.difficulty = v; updateStatus(); }
+document.addEventListener('click',(e)=>{
+  const btn=e.target.closest('#menuBar button'); if(!btn) return;
+  const a=btn.dataset.action, v=btn.dataset.value;
+  if(a==='mode'){ __HHA_STATE.modeKey=v; updateStatus(); }
+  if(a==='diff'){ __HHA_STATE.difficulty=v; updateStatus(); }
   if(a==='start') start();
   if(a==='pause'){ __HHA_STATE.running=!__HHA_STATE.running; if(__HHA_STATE.running){ tick(); loop(); } }
   if(a==='restart'){ end(true); start(); }
-  if(a==='help'){
-    const body=qs('#helpBody'); if(body) body.textContent = howToText(__HHA_STATE.modeKey);
-    const h=qs('#help'); if(h) h.style.display='flex';
-  }
+  if(a==='help'){ const h=qs('#help'); if(h){ const b=qs('#helpBody'); if(b) b.textContent = introFor(__HHA_STATE.modeKey); h.style.display='flex'; } }
 });
-
 qs('#btn_ok')?.addEventListener('click', ()=> qs('#help').style.display='none');
 qs('#btn_replay')?.addEventListener('click', ()=>{ qs('#result').style.display='none'; start(); });
 qs('#btn_home')  ?.addEventListener('click', ()=>{ qs('#result').style.display='none'; });
+
+function introFor(mode){
+  const m = {
+    goodjunk:'เก็บอาหารดี • หลีกเลี่ยงของขยะ • คอมโบเพิ่มคะแนน',
+    groups:'เก็บให้ตรงหมวดบน HUD • ถูก +7 ผิด −2',
+    hydration:'รักษา 45–65% • น้ำเปล่าเพิ่ม/หวานลด',
+    plate:'โควตา ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1'
+  };
+  return m[mode] || m.goodjunk;
+}
 
 // ===== Unlock audio on first gesture =====
 ['pointerdown','touchstart','keydown'].forEach(ev=>{
   window.addEventListener(ev, ()=>sfx.unlock(), {once:true, passive:true});
 });
 
-// ===== Debug =====
-console.log('[HHA] Modes loaded =', Object.keys(MODES));
-updateStatus();  // แสดงสถานะตั้งแต่ยังไม่เริ่ม
+console.log('[HHA] main.js loaded and boot flag set.');
