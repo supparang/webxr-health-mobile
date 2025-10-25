@@ -5,71 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- IMPORTANT: base ชี้ไปโฟลเดอร์ HeroHealth บน GitHub Pages -->
+  <!-- Base path สำหรับ GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
+  <!-- Styles -->
   <link rel="stylesheet" href="styles/game.css" />
-
-  <!-- UI overrides เพื่อความชัดเจน/คลิกได้ชัวร์ -->
-  <style>
-    /* กัน canvas บังคลิกเสมอ */
-    #c { z-index: 1 !important; pointer-events: none !important; }
-
-    /* ชั้น UI อยู่บนสุดและคลิกได้ */
-    .hud, .menu, .modal, .coach, .item {
-      z-index: 100 !important;
-      pointer-events: auto !important;
-    }
-
-    /* HUD ใหญ่+คอนทราสต์สูง อ่านง่าย */
-    .hud {
-      font-size: 18px;
-      gap: 8px;
-      text-shadow: 0 2px 8px rgba(0,0,0,.6);
-    }
-    .hud > div {
-      background: rgba(8,10,20,.62) !important;
-      border: 1px solid rgba(255,255,255,.15);
-      border-radius: 12px;
-      padding: 8px 12px;
-      font-weight: 900;
-    }
-    #feverBarWrap { background: rgba(0,0,0,.4) !important; }
-
-    /* ป้าย “โหมด/ความยาก” ให้ชัด */
-    .menu .modeLabel{
-      color:#fff !important; font-weight:900;
-      padding:4px 8px; border-radius:8px;
-      background: rgba(0,0,0,.45);
-      text-shadow: 0 2px 6px rgba(0,0,0,.75);
-    }
-
-    /* เมนู—ล่างซ้ายเสมอ */
-    #menuBar{
-      position:fixed !important; left:10px !important; bottom:10px !important;
-      top:auto !important; transform:none !important; width:auto !important;
-      max-width:48vw; background:rgba(10,12,20,.92);
-      border-radius:12px; padding:10px; backdrop-filter: blur(6px);
-    }
-    #menuBar .row{ gap:8px; }
-
-    /* ปุ่มคลิกสบาย */
-    .btn,.tag{
-      padding:8px 12px; border-radius:12px; font-weight:800; cursor:pointer;
-      background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.25);
-    }
-    .btn:hover,.tag:hover{ background:rgba(255,255,255,.22) }
-
-    /* ไอเท็มเกมให้ใหญ่ขึ้น */
-    .item{
-      font-size: clamp(34px, 5.6vw, 60px) !important;
-      min-width: 60px !important; min-height: 60px !important;
-      padding: 8px 12px !important; border-radius:14px !important;
-    }
-
-    /* Coach แสดงเมื่อมี .show */
-    #coachHUD.show{ display:block !important; }
-  </style>
 </head>
 <body>
   <!-- Header -->
@@ -81,29 +21,32 @@
     <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
   </header>
 
-  <!-- Canvas -->
+  <!-- Render Surface -->
   <canvas id="c"></canvas>
 
   <!-- HUD -->
   <section class="hud">
-    <div>
+    <div class="hud-line">
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
       <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
       <span id="t_time">เวลา</span>: <b id="time">60</b>s
     </div>
 
-    <!-- Fever Bar -->
+    <!-- Fever Progress -->
     <div id="feverBarWrap" class="bar slim">
       <div id="feverBar" style="width:0%"></div>
     </div>
 
-    <!-- Mission -->
+    <!-- Mission / Tips -->
     <div id="missionLine" style="display:none; font-weight:800;">—</div>
 
-    <!-- Target / Plate / Hydration -->
+    <!-- Targets (ใช้ตามโหมด) -->
     <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
     <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
-    <div id="hydroWrap" style="display:none">💧 <span id="t_hydro">สมดุลน้ำ</span>: <span id="hydroLabel">—</span>
+
+    <!-- Hydration HUD -->
+    <div id="hydroWrap" style="display:none">
+      💧 <span id="t_hydro">สมดุลน้ำ</span>: <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
@@ -115,7 +58,7 @@
     <div id="coachText">...</div>
   </div>
 
-  <!-- Menu -->
+  <!-- Menu (ล่างซ้าย) -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
@@ -164,58 +107,29 @@
     </div>
   </div>
 
-  <!-- SFX -->
+  <!-- SFX / BGM (ไฟล์สามารถเพิ่มใน assets/ ตามชื่อด้านล่าง) -->
   <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
   <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
   <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
+  <audio id="bgm-main"     preload="auto" src="assets/bgm/stage1.mp3" loop></audio>
 
-  <!-- main.js ของเกม -->
+  <!-- เกมหลัก (ของเดิม) -->
   <script type="module" src="game/main.js"></script>
 
-  <!-- Fallback: แจ้งเตือนหาก main.js ไม่โหลด -->
+  <!-- UI Controller (ใหม่: คลิก/ท่อนไกด์/ฮาปติก/เมาส์-คีย์แมป) -->
+  <script type="module" src="game/ui.js"></script>
+
+  <!-- Fallback แจ้งเตือนถ้า main.js ไม่บูต -->
   <script>
     (function(){
-      const w=document.createElement('div');
+      const w = document.createElement('div');
       w.id='bootWarn';
       w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;display:none';
       w.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
       document.body.appendChild(w);
-      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 1800);
-    })();
-  </script>
-
-  <!-- Hard-fix: bind ปุ่มซ้ำ + ทำ HUD โผล่ + ตรวจ overlay -->
-  <script>
-    (function hardFix(){
-      function ensureLayers(){
-        const c = document.getElementById('c');
-        if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
-        ['hud','menu','modal','coach','item'].forEach(cls=>{
-          document.querySelectorAll('.'+cls).forEach(el=>{
-            el.style.pointerEvents='auto'; el.style.zIndex='100';
-          });
-        });
-      }
-      function bindButtons(){
-        const start = document.getElementById('btn_start');
-        if(start){
-          start.addEventListener('click', (e)=> {
-            if(window.preStartFlow) window.preStartFlow();
-            else if(window.HHA?.startGame) window.HHA.startGame({demoPassed:true});
-            else if(window.start) window.start();
-          }, {passive:true});
-        }
-      }
-      function ensureHUD(){
-        const hud = document.querySelector('.hud');
-        if(hud){ hud.style.display='flex'; hud.style.visibility='visible'; hud.style.opacity='1'; }
-      }
-      document.addEventListener('DOMContentLoaded', ()=>{
-        ensureLayers(); bindButtons(); ensureHUD();
-        setTimeout(()=>{ ensureLayers(); bindButtons(); ensureHUD(); }, 500);
-      });
+      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2000);
     })();
   </script>
 </body>
