@@ -5,14 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- ปรับตามโฮสต์จริง -->
+  <!-- ✅ Base path สำหรับ GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
+  <!-- ✅ โหลด stylesheet -->
   <link rel="stylesheet" href="styles/game.css" />
+
+  <!-- ✅ โหลดสคริปต์หลัก (ไม่ใส่ ./ ข้างหน้า) -->
   <script type="module" src="game/main.js"></script>
 </head>
+
 <body>
-  <!-- Brand / Toggles -->
+  <!-- ===== HEADER ===== -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
@@ -21,10 +25,10 @@
     <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
   </header>
 
-  <!-- Render Surface -->
+  <!-- ===== CANVAS ===== -->
   <canvas id="c"></canvas>
 
-  <!-- HUD -->
+  <!-- ===== HUD ===== -->
   <section class="hud">
     <div>
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
@@ -32,55 +36,37 @@
       <span id="t_time">เวลา</span>: <b id="time">60</b>s
     </div>
 
-    <!-- Fever Progress Bar -->
     <div id="feverBarWrap" class="bar slim">
       <div id="feverBar" style="width:0%"></div>
     </div>
 
-    <!-- ✅ ภารกิจสุ่มต่อรอบ -->
     <div id="missionLine" style="display:none; font-weight:800;">—</div>
-
-    <!-- เป้าหมายหมวดอาหาร -->
-    <div id="targetWrap" style="display:none">
-      🎯 <span id="t_target">หมวด</span>:
-      <span id="targetBadge">—</span>
-    </div>
-
-    <!-- โควตาอาหาร / จัดจานสุขภาพ -->
-    <div id="plateTracker" style="display:none">
-      🍱 <span id="t_quota">โควตา</span>:
-      <span id="platePills"></span>
-    </div>
-
-    <!-- สมดุลน้ำ -->
-    <div id="hydroWrap" style="display:none">
-      💧 <span id="t_hydro">สมดุลน้ำ</span>:
-      <span id="hydroLabel">—</span>
+    <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
+    <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
+    <div id="hydroWrap" style="display:none">💧 <span id="t_hydro">สมดุลน้ำ</span>: <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
-
-    <!-- Fever Label -->
     <div id="fever" class="fever" style="display:none">FEVER!</div>
   </section>
 
-  <!-- โค้ช -->
+  <!-- ===== COACH ===== -->
   <div id="coachHUD" class="coach" style="display:none">
     <div id="coachText">...</div>
   </div>
 
-  <!-- เมนูล่างจอ -->
+  <!-- ===== MENU ===== -->
   <section id="menuBar" class="menu">
     <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups"    id="m_groups">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="goodjunk" id="m_goodjunk">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups" id="m_groups">🍽️ จาน 5 หมู่</button>
       <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate"     id="m_plate">🍱 จัดจานสุขภาพ</button>
+      <button class="tag" data-action="mode" data-value="plate" id="m_plate">🍱 จัดจานสุขภาพ</button>
     </div>
 
     <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Easy" id="d_easy">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard">ยาก</button>
+      <button class="tag" data-action="diff" data-value="Hard" id="d_hard">ยาก</button>
 
       <span class="modeLabel">
         <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
@@ -89,14 +75,14 @@
     </div>
 
     <div class="row">
-      <button class="btn" data-action="start"   id="btn_start">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause"   id="btn_pause">⏸ พัก</button>
+      <button class="btn" data-action="start" id="btn_start">▶ เริ่มเกม</button>
+      <button class="btn" data-action="pause" id="btn_pause">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help"    id="btn_help">❓ วิธีเล่น</button>
+      <button class="btn" data-action="help" id="btn_help">❓ วิธีเล่น</button>
     </div>
   </section>
 
-  <!-- Help Modal -->
+  <!-- ===== HELP MODAL ===== -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
@@ -105,7 +91,7 @@
     </div>
   </div>
 
-  <!-- Result Modal -->
+  <!-- ===== RESULT MODAL ===== -->
   <div id="result" class="modal" style="display:none">
     <div class="card">
       <h3 id="h_summary">สรุปผล</h3>
@@ -114,27 +100,27 @@
       <div id="resBoard"></div>
       <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
-        <button class="btn" data-result="home"   id="btn_home">🏠 หน้าหลัก</button>
+        <button class="btn" data-result="home" id="btn_home">🏠 หน้าหลัก</button>
       </div>
     </div>
   </div>
 
-  <!-- SFX -->
-  <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
+  <!-- ===== SOUND EFFECTS ===== -->
+  <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-  <!-- เตือนเมื่อ main.js ไม่โหลด -->
+  <!-- ===== Fallback แจ้งเตือนเมื่อโหลดสคริปต์ไม่สำเร็จ ===== -->
   <script>
     (function(){
-      const w=document.createElement('div');
-      w.id='bootWarn';
-      w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;display:none';
-      w.textContent='โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js';
-      document.body.appendChild(w);
-      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2000);
+      const warn = document.createElement('div');
+      warn.id='bootWarn';
+      warn.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;display:none';
+      warn.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
+      document.body.appendChild(warn);
+      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ warn.style.display='block'; } }, 2000);
     })();
   </script>
 </body>
