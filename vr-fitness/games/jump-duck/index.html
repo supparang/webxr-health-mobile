@@ -3,22 +3,94 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Jump-Duck | VR Fitness</title>
+  <title>Jump‑Duck | VR Fitness</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <link rel="stylesheet" href="styles/game.css">
 </head>
 <body>
-  <div id="hud">
-    <div id="score">Score: 0</div>
-    <div id="feverBarWrap"><div id="feverBar"></div></div>
-    <div id="timer">90s</div>
+  <div id="menu" class="panel show">
+    <h1>Jump‑Duck</h1>
+    <div class="row">
+      <label>Difficulty</label>
+      <div class="btns">
+        <button data-diff="easy">Easy</button>
+        <button data-diff="normal" class="primary">Normal</button>
+        <button data-diff="hard">Hard</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Theme</label>
+      <div class="btns">
+        <button data-theme="forest" class="primary">Forest</button>
+        <button data-theme="city">City</button>
+        <button data-theme="space">Space</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Audio</label>
+      <div class="btns">
+        <button id="toggleBgm">BGM: On</button>
+        <button id="toggleCoach">Coach: On</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="start" class="start">Start Game</button>
+    </div>
+    <p class="hint">Controls: ↑ Jump · ↓ Duck (W/S) · VR: gaze/click</p>
   </div>
 
-  <a-scene background="color: #cfe9ff" vr-mode-ui="enabled: true">
-    <a-entity id="player" position="0 1.6 0"></a-entity>
-    <a-plane rotation="-90 0 0" width="10" height="50" color="#6ac36a"></a-plane>
-    <a-sky src="assets/bg/sky.jpg"></a-sky>
-    <a-entity id="coach" position="0 2 -2" text="value: Jump or Duck!; color: #222; align: center;"></a-entity>
+  <div id="hud" class="panel">
+    <div class="hud-grid">
+      <div>Score: <span id="score">0</span></div>
+      <div>Time: <span id="timer">90</span>s</div>
+      <div class="fever">
+        <div id="feverBarWrap"><div id="feverBar"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="result" class="panel">
+    <h2>Result</h2>
+    <div class="stat">Score: <span id="rScore">0</span></div>
+    <div class="stat">Best Streak: <span id="rStreak">0</span></div>
+    <div class="stat">Accuracy: <span id="rAcc">0%</span></div>
+    <div id="stars" class="stars">★☆☆☆☆</div>
+    <div class="actions">
+      <button id="retry" class="primary">Retry</button>
+      <button id="home">Home</button>
+    </div>
+  </div>
+
+  <a-scene renderer="antialias: true" vr-mode-ui="enabled: true">
+    <a-assets>
+      <img id="bg-forest" src="assets/bg/forest.jpg">
+      <img id="bg-city" src="assets/bg/city.jpg">
+      <img id="bg-space" src="assets/bg/space.jpg">
+
+      <img id="tx-jump" src="assets/obstacles/jump_bar.jpg">
+      <img id="tx-duck" src="assets/obstacles/duck_bar.jpg">
+
+      <audio id="sfx-bgm" src="assets/sfx/bgm.wav" preload="auto"></audio>
+      <audio id="sfx-hit" src="assets/sfx/hit.wav" preload="auto"></audio>
+      <audio id="sfx-miss" src="assets/sfx/miss.wav" preload="auto"></audio>
+      <audio id="sfx-fever" src="assets/sfx/fever.wav" preload="auto"></audio>
+
+      <audio id="coach-ready" src="assets/coach/ready.wav" preload="auto"></audio>
+      <audio id="coach-good" src="assets/coach/good.wav" preload="auto"></audio>
+      <audio id="coach-miss" src="assets/coach/miss.wav" preload="auto"></audio>
+    </a-assets>
+
+    <a-entity id="rig" position="0 1.6 0"></a-entity>
+
+    <a-sky id="sky" src="#bg-forest"></a-sky>
+    <a-plane id="ground" rotation="-90 0 0" width="30" height="200" position="0 0 -20" color="#6ac36a"></a-plane>
+
+    <a-entity id="coach" position="0 2 -2" text="value: Jump or Duck!; color: #222; align: center; width: 4;"></a-entity>
+    <a-entity id="obstacles"></a-entity>
+
+    <a-entity camera look-controls position="0 1.6 0">
+      <a-entity cursor="fuse: false; rayOrigin: mouse"></a-entity>
+    </a-entity>
   </a-scene>
 
   <script src="game.js"></script>
