@@ -93,4 +93,19 @@ function updateBar(val) {
   bar.style.background = color;
 
   label.textContent = `💧 ${percent}%`;
+}// สมมติว่ามี init/pickMeta/onHit/tick ของเดิมอยู่แล้ว
+// เพิ่มฟังก์ชัน cleanup เพื่อล้าง UI/สถานะค้างหลังจบเกม
+
+export function cleanup(state, hud){
+  try{ hud.hideHydration?.(); }catch{}
+  const bar = document.getElementById('hydroBar');
+  const lb  = document.getElementById('hydroLabel');
+  if (bar) bar.style.width = '0%';
+  if (lb)  lb.textContent  = '—';
+  // ล้างตัวแปรโหมด
+  if (state) {
+    state.hyd = null;
+    state.hydMin = undefined;
+    state.hydMax = undefined;
+  }
 }
