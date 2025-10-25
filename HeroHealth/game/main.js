@@ -37,10 +37,11 @@ let state = {
   running:false,
   timeLeft:60,
   fever:false,
-  ctx:{ hits:0, miss:0 }
+  ctx:{ hits:0, miss:0 },
+  hyd:50, hydMin:45, hydMax:65
 };
 
-// ===== Difficulty (ช้าลงนิด + อายุยาวขึ้น) =====
+// ===== Difficulty (นุ่มขึ้น + อายุยาวขึ้น) =====
 const DIFFS = {
   Easy:   { time:70, spawn:900, life:5000 },
   Normal: { time:60, spawn:780, life:3800 },
@@ -54,7 +55,6 @@ const MODE_NAME_TH = {
   plate:'จัดจานสุขภาพ'
 };
 
-// ===== Body state (ใช้จัดเลเยอร์/ซ่อนเมนูระหว่างเล่น) =====
 function setBodyState(name){
   const b=document.body;
   b.classList.remove('state-menu','state-playing','state-paused','state-result');
@@ -71,6 +71,71 @@ function updateHUD(){
 function updateStatusLine(){
   const el=qs('#statusLine'); if(!el) return;
   el.textContent = `โหมด: ${MODE_NAME_TH[state.modeKey]||state.modeKey} • ความยาก: ${state.difficulty}`;
+}
+
+// ===== UI reset/prepare =====
+function uiHideAll(){
+  // ซ่อน/รีเซ็ต HUD เฉพาะโหมด
+  const H = (sel)=>{ const el=qs(sel); if(el) el.style.display='none'; };
+  H('#hydroWrap'); H('#targetWrap'); H('#plateTracker'); H('#missionLine');
+  // FEVER bg off
+  document.body.classList.remove('fever-bg');
+  // รีเซ็ตข้อความ
+  const set = (sel, v)=>{ const el=qs(sel); if(el) el.textContent=v; };
+  set('#targetBadge','—');
+  set('#hydroLabel','—');
+  const hydroBar = qs('#hydroBar'); if(hydroBar){ hydroBar.style.width='0%'; }
+  const pills = qs('#platePills'); if(pills){ pills.innerHTML=''; }
+  const feverBar=qs('#feverBar'); if(feverBar){ feverBar.style.width='0%'; }
+
+  // เคลียร์ไอเท็มลอยที่ค้าง
+  try{ document.querySelectorAll('.item').forEach(el=>el.remove()); }catch{}
+}
+
+function uiPrepareForMode(){
+  // แสดง HUD ตามโหมด & ตั้งค่าเริ่มต้น
+  if(state.modeKey==='hydration'){
+    const wrap=qs('#hydroWrap');
+    if(wrap){ wrap.style.display='block'; }
+    state.hyd = 50; // รีเซ็ต
+    renderHydration(state.hyd);
+  }else if(state.modeKey==='groups'){
+    const tw=qs('#targetWrap'); if(tw){ tw.style.display='block'; }
+    // badge เริ่มต้นให้ “—” แล้วปล่อยให้โหมดอัปเดตจริง
+    const badge=qs('#targetBadge'); if(badge) badge.textContent='—';
+  }else if(state.modeKey==='plate'){
+    const pw=qs('#plateTracker'); if(pw){ pw.style.display='block'; }
+    renderPlatePills(); // เตรียม pill ครบโควตาให้เห็นตั้งแต่ต้น
+  }
+}
+
+function renderHydration(pct){
+  pct = clamp(pct, 0, 100);
+  const bar = qs('#hydroBar'); const lbl = qs('#hydroLabel');
+  if(bar) bar.style.width = pct + '%';
+  if(lbl) lbl.textContent = `${pct|0}% (เป้าหมาย ${state.hydMin}-${state.hydMax}%)`;
+}
+
+function renderPlatePills(){
+  const box = qs('#platePills'); if(!box) return;
+  // โควตาตามคำอธิบาย: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1  => รวม 7 pill
+  const data = [
+    {key:'grain', label:'ธัญพืช', n:2},
+    {key:'veg',   label:'ผัก',   n:2},
+    {key:'prot',  label:'โปรตีน',n:1},
+    {key:'fruit', label:'ผลไม้', n:1},
+    {key:'dairy', label:'นม',    n:1},
+  ];
+  box.innerHTML = '';
+  data.forEach(({key,label,n})=>{
+    for(let i=0;i<n;i++){
+      const span=document.createElement('span');
+      span.className='pill';
+      span.dataset.role = `plate-${key}`;
+      span.textContent = label;
+      box.appendChild(span);
+    }
+  });
 }
 
 // ===== Item Pool (ไอคอนใหญ่ คลิกง่าย) =====
@@ -109,6 +174,14 @@ function spawnOnce(diff){
 
   el.onclick = ()=>{
     mode.onHit?.(meta, {score, sfx, fx, power, coach}, state, hud);
+
+    // โหมด hydration: ถ้าโหมดนั้นอัปเดต state.hyd ให้ตามทัน HUD
+    if(state.modeKey==='hydration' && typeof state.hyd === 'number'){
+      renderHydration(state.hyd);
+    }
+    // โหมด plate: หากโหมด mark pill เป็น done, ให้ชุดนี้พร้อมรับ (โหมดจะ set class)
+    // โหมด groups: โหมดจะอัปเดต targetBadge เอง
+
     state.ctx.hits = (state.ctx.hits||0) + 1;
     updateHUD();
     releaseItemEl(el);
@@ -158,10 +231,10 @@ export function start(){
   const diff=DIFFS[state.difficulty] || DIFFS.Normal;
   state.running=true; state.timeLeft=diff.time;
   state.ctx={hits:0, miss:0}; state.fever=false;
+  state.hyd = 50;
 
   score.reset(); power.reset?.(); hud.reset?.();
-
-  forceUILayers();           // กัน overlay บังคลิก
+  forceUILayers(); uiHideAll(); uiPrepareForMode();
   updateStatusLine();
   setBodyState('playing');
 
@@ -175,6 +248,12 @@ function tick(){
   if(!state.running) return;
   state.timeLeft--; updateHUD();
   MODES[state.modeKey]?.tick?.(state, {score, fx, sfx, power, coach}, hud);
+
+  // Hydration HUD ติดตามค่าแบบเรียลไทม์
+  if(state.modeKey==='hydration' && typeof state.hyd === 'number'){
+    renderHydration(state.hyd);
+  }
+
   if(state.timeLeft<=0){ end(); return; }
   timers.tick = setTimeout(tick, 1000);
 }
@@ -182,6 +261,12 @@ function tick(){
 export function end(silent=false){
   state.running=false;
   clearTimeout(timers.spawn); clearTimeout(timers.tick);
+
+  // ----- เคลียร์ UI ค้างทั้งหมดเสมอ -----
+  uiHideAll();
+
+  // เรียก cleanup ของโหมด (ถ้ามี)
+  try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
   if(!silent){
     setBodyState('result');
@@ -203,7 +288,10 @@ document.addEventListener('click', (e)=>{
   const btn = e.target.closest('#menuBar button'); if(!btn) return;
   const a = btn.dataset.action, v=btn.dataset.value;
 
-  if(a==='mode'){ state.modeKey=v; updateStatusLine(); }
+  if(a==='mode'){
+    // เปลี่ยนโหมด -> เคลียร์ HUD ค้าง แล้วอัปเดต label
+    state.modeKey=v; uiHideAll(); uiPrepareForMode(); updateStatusLine();
+  }
   if(a==='diff'){ state.difficulty=v; updateStatusLine(); }
   if(a==='start'){ start(); }
   if(a==='pause'){
@@ -216,7 +304,7 @@ document.addEventListener('click', (e)=>{
 qs('#btn_ok')?.addEventListener('click', ()=>{ qs('#help').style.display='none'; });
 qs('#btn_home')?.addEventListener('click', ()=>{ qs('#result').style.display='none'; setBodyState('menu'); });
 
-// ===== Result / Replay handlers (แก้ให้คลิกได้ชัวร์) =====
+// ===== Result / Replay handlers (closest + ล้างซ้ำ) =====
 (function wireResultButtons(){
   const res = document.getElementById('result');
   if (!res) return;
@@ -228,7 +316,6 @@ qs('#btn_home')?.addEventListener('click', ()=>{ qs('#result').style.display='no
 
     if (a === 'replay') {
       hideResultModal();
-
       if (window.__replayLock) return;
       window.__replayLock = true;
 
@@ -282,5 +369,5 @@ updateStatusLine();
   window.addEventListener(ev, ()=>{ try{ document.getElementById('bgm-main')?.play(); }catch{} }, {once:true, passive:true});
 });
 
-// Expose (เผื่อเรียกจากสคริปต์อื่น)
+// Expose
 window.start=start; window.end=end;
