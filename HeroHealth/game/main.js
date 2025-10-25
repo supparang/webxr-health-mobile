@@ -1,7 +1,7 @@
 // ===== Boot flag (for index bootWarn) =====
 window.__HHA_BOOT_OK = true;
 
-// ===== Imports (ตรงตามโครงสร้าง GitHub Pages) =====
+// ===== Imports (ตรงตามโครงสร้างจริง: HeroHealth/game/core/, HeroHealth/game/modes/) =====
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine } from './core/engine.js';
 import { HUD } from './core/hud.js';
@@ -12,27 +12,17 @@ import { PowerUpSystem } from './core/powerup.js';
 import { ScoreSystem } from './core/score.js';
 import { FloatingFX } from './core/fx.js';
 import { Coach } from './core/coach.js';
-// (optional) import { Progression } from './core/progression.js';
 
 import * as goodjunk from './modes/goodjunk.js';
 import * as groups    from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
 import * as plate     from './modes/plate.js';
 
-// ===== Utils / Helpers =====
+// ===== Utils =====
 const qs = (s) => document.querySelector(s);
 const setText = (sel, txt) => { const el = qs(sel); if (el) el.textContent = txt; };
-const show = (sel, on, disp='flex') => { const el = qs(sel); if (el) el.style.display = on ? disp : 'none'; };
 const now = () => performance.now?.() ?? Date.now();
 const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-
-// Anti-spam click
-let _lastClick=0;
-const allowClick=()=>{ const t=now(); if(t-_lastClick<220) return false; _lastClick=t; return true; };
-
-// SFX throttle (≤8/วินาที)
-let _sfxCount=0,_sfxWin=0;
-const playSFX=(id,opts)=>{ const t=(now()/1000)|0; if(t!==_sfxWin){_sfxWin=t;_sfxCount=0;} if(_sfxCount++<8) try{sfx.play(id,opts);}catch{} };
 
 // ===== Systems =====
 const hud   = new HUD();
@@ -48,9 +38,9 @@ const coach = new Coach({ lang: 'TH' });
 // ===== Config =====
 const MODES = { goodjunk, groups, hydration, plate };
 const DIFFS = {
-  Easy:   { time:70, spawn:820, life:4200, hydWaterRate:0.78 },
-  Normal: { time:60, spawn:700, life:3000, hydWaterRate:0.66 },
-  Hard:   { time:50, spawn:560, life:1900, hydWaterRate:0.55 }
+  Easy:   { time:70, spawn:820, life:4200 },
+  Normal: { time:60, spawn:700, life:3000 },
+  Hard:   { time:50, spawn:560, life:1900 }
 };
 
 // ===== Game State =====
@@ -64,33 +54,75 @@ const state = {
   mission: null
 };
 
-// ===== Fever / Combo Hooks =====
-let feverCharge = 0;               
-const FEVER_REQ = 10;
-
-if (typeof score.setHandlers === 'function') {
-  score.setHandlers({
-    onCombo:(x)=>{
-      coach.onCombo?.(x);
-      feverCharge = Math.min(1, x/FEVER_REQ);
-      hud.setFeverProgress?.(feverCharge);
-
-      if(!state.fever && x >= FEVER_REQ){
-        state.fever = true;
-        document.body.classList.add('fever-bg');
-        coach.onFever?.();
-        playSFX('sfx-powerup');
-        power.apply('boost'); // +100% คะแนน 7s
-        setTimeout(()=>{
-          state.fever=false;
-          document.body.classList.remove('fever-bg');
-          feverCharge=0;
-          hud.setFeverProgress?.(0);
-        }, 7000);
-      }
-    }
-  });
+// ===== Game Functions =====
+function start(){
+  console.log('▶ เริ่มเกม');
+  state.running = true;
+  state.timeLeft = (DIFFS[state.difficulty] || DIFFS.Normal).time;
+  score.reset();
+  updateHUD();
+  coach.say?.('เริ่มกันเลย!');
+  tick();
+}
+function pause(){
+  state.running = !state.running;
+  coach.say?.(state.running ? 'เล่นต่อ!' : 'พักก่อนนะ');
+}
+function restart(){
+  state.running = false;
+  setTimeout(start, 200);
+}
+function updateHUD(){
+  setText('#score', score.score|0);
+  setText('#combo', 'x' + (score.combo||0));
+  setText('#time',  state.timeLeft|0);
+}
+function tick(){
+  if(!state.running) return;
+  state.timeLeft--;
+  updateHUD();
+  if(state.timeLeft<=0){ end(); return; }
+  setTimeout(tick,1000);
+}
+function end(){
+  state.running = false;
+  console.log('🏁 จบเกม');
+  document.getElementById('result').style.display='flex';
 }
 
-// ===== Boot Ready =====
-console.log("✅ main.js loaded successfully.");
+// ===== Bind Buttons after DOM Ready =====
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('#menuBar button').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const a = btn.getAttribute('data-action');
+      if(a==='start') start();
+      else if(a==='pause') pause();
+      else if(a==='restart') restart();
+      else if(a==='help'){
+        document.getElementById('help').style.display='flex';
+      }
+    });
+  });
+
+  // Help modal close
+  document.getElementById('help')?.addEventListener('click', e=>{
+    if(e.target.matches('#btn_ok, #help')) e.currentTarget.style.display='none';
+  });
+
+  // Result modal close
+  document.getElementById('result')?.addEventListener('click', e=>{
+    const a=e.target.getAttribute('data-result');
+    if(a==='replay'){ e.currentTarget.style.display='none'; restart(); }
+    if(a==='home'){ e.currentTarget.style.display='none'; }
+  });
+
+  // ปลดล็อกเสียงจาก gesture แรก
+  ['pointerdown','touchstart','keydown'].forEach(ev=>{
+    window.addEventListener(ev,()=>sfx.unlock(),{once:true,passive:true});
+  });
+
+  console.log("✅ UI Buttons Active");
+});
+
+// ===== Boot Complete =====
+console.log("✅ main.js loaded and ready");
