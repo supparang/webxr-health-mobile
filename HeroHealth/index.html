@@ -4,124 +4,187 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
-
-  <!-- ✅ Base path สำหรับ GitHub Pages -->
-  <base href="/webxr-health-mobile/HeroHealth/">
-
-  <!-- ✅ โหลด stylesheet -->
   <link rel="stylesheet" href="styles/game.css" />
+  <style>
+  /* ===== Visual Fix Layer ===== */
+  body {
+    background: radial-gradient(circle at center, #001020 0%, #000 100%);
+    color: #fff;
+    font-family: "Prompt", sans-serif;
+    overflow: hidden;
+  }
+  #c { z-index: 1 !important; pointer-events: none !important; }
 
-  <!-- ✅ โหลดสคริปต์หลัก (ไม่ใส่ ./ ข้างหน้า) -->
-  <script type="module" src="game/main.js"></script>
+  .hud, .menu, .modal, .coach, .item {
+    z-index: 100 !important;
+    pointer-events: auto;
+  }
+
+  .hud > div {
+    background: rgba(8,10,20,.55) !important;
+    border: 1px solid rgba(255,255,255,.10);
+  }
+
+  .menu .modeLabel {
+    color: #fff !important;
+    font-weight: 900;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(0,0,0,.35);
+    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+  }
+
+  #menuBar{
+    position: fixed !important;
+    left: 10px !important;
+    bottom: 10px !important;
+    background: rgba(10,12,20,0.9);
+    border-radius: 12px;
+    padding: 10px;
+    width: auto;
+    max-width: 48vw;
+  }
+  </style>
 </head>
 
-<body>
-  <!-- ===== HEADER ===== -->
-  <header class="brand">
-    <div id="brandTitle">HERO HEALTH ACADEMY</div>
-    <div class="spacer"></div>
-    <button id="langToggle" class="btn">🇹🇭 TH/EN</button>
-    <button id="gfxToggle" class="btn">🎛️ กราฟิก: ปกติ</button>
-    <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
-  </header>
+<body class="state-menu">
 
-  <!-- ===== CANVAS ===== -->
+  <!-- ===== 3D Canvas ===== -->
   <canvas id="c"></canvas>
 
   <!-- ===== HUD ===== -->
-  <section class="hud">
-    <div>
-      <span id="t_score">คะแนน</span>: <b id="score">0</b> |
-      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
-      <span id="t_time">เวลา</span>: <b id="time">60</b>s
-    </div>
-
-    <div id="feverBarWrap" class="bar slim">
-      <div id="feverBar" style="width:0%"></div>
-    </div>
-
-    <div id="missionLine" style="display:none; font-weight:800;">—</div>
-    <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
-    <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
-    <div id="hydroWrap" style="display:none">💧 <span id="t_hydro">สมดุลน้ำ</span>: <span id="hydroLabel">—</span>
-      <div class="bar"><div id="hydroBar"></div></div>
-    </div>
-    <div id="fever" class="fever" style="display:none">FEVER!</div>
-  </section>
-
-  <!-- ===== COACH ===== -->
-  <div id="coachHUD" class="coach" style="display:none">
-    <div id="coachText">...</div>
+  <div class="hud" id="hud">
+    <div><span id="t_score">คะแนน</span>: <span id="score">0</span></div>
+    <div><span id="t_combo">คอมโบ</span>: <span id="combo">x0</span></div>
+    <div><span id="t_time">เวลา</span>: <span id="time">60</span></div>
+    <div class="modeLabel" id="modeDiffLabel">โหมด: ดี vs ขยะ • ความยาก: ปกติ</div>
   </div>
 
   <!-- ===== MENU ===== -->
-  <section id="menuBar" class="menu">
-    <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk" id="m_goodjunk">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups" id="m_groups">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate" id="m_plate">🍱 จัดจานสุขภาพ</button>
-    </div>
+  <div id="menuBar" class="menu">
+    <button id="btn_start">▶ เริ่มเกม</button>
+    <button id="btn_pause">⏸ พัก</button>
+    <button id="btn_restart">↻ เริ่มใหม่</button>
+    <button id="btn_help">❓ วิธีเล่น</button>
+  </div>
 
-    <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy" id="d_easy">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal" id="d_normal">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard" id="d_hard">ยาก</button>
-
-      <span class="modeLabel">
-        <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
-        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
-      </span>
-    </div>
-
-    <div class="row">
-      <button class="btn" data-action="start" id="btn_start">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause" id="btn_pause">⏸ พัก</button>
-      <button class="btn" data-action="restart" id="btn_restart">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help" id="btn_help">❓ วิธีเล่น</button>
-    </div>
-  </section>
+  <!-- ===== COACH HUD ===== -->
+  <div id="coachHUD" class="coach">
+    <p id="coachText">พร้อมไหม?</p>
+  </div>
 
   <!-- ===== HELP MODAL ===== -->
-  <div id="help" class="modal" style="display:none">
-    <div class="card">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
-      <button class="btn" data-action="helpClose" id="btn_ok">โอเค</button>
+  <div id="help" class="modal" style="display:none;">
+    <div class="modal-inner">
+      <h3>วิธีเล่น</h3>
+      <pre id="helpBody"></pre>
+      <button id="btn_ok">ตกลง</button>
     </div>
   </div>
 
   <!-- ===== RESULT MODAL ===== -->
-  <div id="result" class="modal" style="display:none">
-    <div class="card">
-      <h3 id="h_summary">สรุปผล</h3>
+  <div id="result" class="modal" style="display:none;">
+    <div class="modal-inner">
+      <h3>สรุปผล</h3>
       <div id="resCore"></div>
-      <div id="resBreakdown"></div>
-      <div id="resBoard"></div>
-      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
-        <button class="btn" data-result="home" id="btn_home">🏠 หน้าหลัก</button>
+      <div class="buttons">
+        <button id="btn_replay">↻ เล่นอีกครั้ง</button>
+        <button id="btn_home">🏠 หน้าหลัก</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== SOUND EFFECTS ===== -->
-  <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
+  <!-- ===== JS ===== -->
+  <script type="module" src="game/main.js"></script>
 
-  <!-- ===== Fallback แจ้งเตือนเมื่อโหลดสคริปต์ไม่สำเร็จ ===== -->
-  <script>
-    (function(){
-      const warn = document.createElement('div');
-      warn.id='bootWarn';
-      warn.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;display:none';
-      warn.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
-      document.body.appendChild(warn);
-      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ warn.style.display='block'; } }, 2000);
-    })();
+  <!-- ===== UI Controller (จากที่คุณใช้) ===== -->
+  <script type="module">
+  const $ = (s)=>document.querySelector(s);
+  const btnStart   = $('#btn_start');
+  const btnPause   = $('#btn_pause');
+  const btnRestart = $('#btn_restart');
+  const btnHelp    = $('#btn_help');
+  const helpModal  = $('#help');
+  const helpBody   = $('#helpBody');
+  const resultModal= $('#result');
+  const coachHUD   = $('#coachHUD');
+  const coachText  = $('#coachText');
+  let langTH = true, state='menu';
+
+  const HHA = window.HHA ?? {
+    startGame:()=>console.log('mock start'),
+    pause:()=>{},
+    resume:()=>{},
+    restart:()=>{},
+    onEnd:(cb)=>{}
+  };
+
+  function setState(next){
+    state=next;
+    document.body.classList.remove('state-menu','state-demo','state-playing','state-paused','state-result');
+    document.body.classList.add(`state-${next}`);
+  }
+
+  function showCoach(msg){ coachText.textContent=msg; coachHUD.classList.add('show'); }
+  function hideCoach(){ coachHUD.classList.remove('show'); }
+
+  function showHelp(){ helpBody.textContent = getHelpText(); helpModal.style.display='flex'; }
+  function hideHelp(){ helpModal.style.display='none'; }
+  function showResult(htmlCore=''){ $('#resCore').innerHTML=htmlCore; resultModal.style.display='flex'; setState('result'); }
+  function hideResult(){ resultModal.style.display='none'; }
+
+  function getHelpText(){
+    return langTH ? `
+• เป้าหมาย: เก็บ/หลบให้ถูกตามโหมด
+• คีย์บอร์ด: ↑ Jump, ↓ Duck, ←/→ Dash, Space=Jump, Ctrl=Duck
+• เมาส์: คลิกปุ่มเมนูทั้งหมดได้
+• Fever: เก็บจังหวะดีๆ ให้ Fever เต็มเพื่อคูณคะแนน
+` : `
+• Goal: Pick/Avoid correctly
+• Keyboard: ↑ Jump, ↓ Duck, ←/→ Dash, Space=Jump, Ctrl=Duck
+• Mouse: click all UI buttons
+• Fever: Fill the bar for bonus score
+`;
+  }
+
+  async function runDemo(){
+    setState('demo');
+    showCoach(langTH?'เริ่มใน 3…':'Starts in 3…'); await wait(700);
+    showCoach('2…'); await wait(600);
+    showCoach('1…'); await wait(600);
+    showCoach(langTH?'เริ่มเลย!':'Go!');
+    setState('playing');
+    HHA.startGame?.({ demoPassed:true });
+  }
+  const wait=(ms)=>new Promise(r=>setTimeout(r,ms));
+
+  btnHelp?.addEventListener('click',()=>showHelp());
+  $('#btn_ok')?.addEventListener('click',()=>hideHelp());
+  btnStart?.addEventListener('click', async ()=>{
+    hideHelp(); hideResult();
+    await runDemo();
+  });
+  btnPause?.addEventListener('click',()=>{ if(state==='playing'){HHA.pause(); setState('paused'); showCoach('พักเกม');} else {HHA.resume(); setState('playing'); hideCoach();} });
+  btnRestart?.addEventListener('click',()=>{ hideResult(); hideHelp(); hideCoach(); setState('menu'); HHA.restart(); });
+  $('#btn_replay')?.addEventListener('click',()=>{ hideResult(); setState('menu'); });
+  $('#btn_home')?.addEventListener('click',()=>{ hideResult(); setState('menu'); });
+
+  HHA.onEnd?.((summaryHTML)=>{ showResult(summaryHTML); hideCoach(); });
+  setState('menu');
   </script>
+
+  <!-- ===== Fallback fix layer ===== -->
+  <script type="module">
+  const byId=(id)=>document.getElementById(id);
+  byId('btn_start')?.addEventListener('click',(e)=>{
+    e.preventDefault(); e.stopPropagation();
+    setTimeout(()=>window.HHA?.startGame({demoPassed:true}),100);
+  });
+  (()=>{
+    const hud=document.querySelector('.hud');
+    if(hud){ hud.style.display='flex'; hud.style.visibility='visible'; hud.style.opacity='1'; }
+  })();
+  </script>
+
 </body>
 </html>
