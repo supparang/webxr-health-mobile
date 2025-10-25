@@ -1,45 +1,44 @@
 /* ===============================
-   Hero Health Academy - styles
+   Hero Health Academy - Stage 1
    =============================== */
 :root{
   --bg:#0a0b0f;
-  --bg2:#0e1020;
   --fg:#e7f2ff;
   --muted:#9db1c7;
   --accent:#6cf;
   --good:#5CFF9E;
   --bad:#FF6F6F;
-  --neon:#00F0FF;
   --card:#141829;
   --btn:#1c2340;
   --btn-hover:#27305a;
   --hdr:#0f1223ee;
-  --z-hud: 40;
-  --z-menu: 45;
-  --z-items: 30;
-  --z-modal: 80;
-  --z-coach: 85;
-  --z-toast: 90;
+  --z-hud: 60;
+  --z-menu: 65;
+  --z-items: 40;
+  --z-modal: 90;
+  --z-coach: 95;
 }
 
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  margin:0; background:
+  margin:0;
+  background:
     radial-gradient(1200px 600px at 50% 0%, #122 0%, transparent 60%),
     linear-gradient(160deg, #090b14 0%, #0b0f1b 40%, #0a0b0f 100%);
-  color:var(--fg); font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
+  color:var(--fg);
+  font-family: ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
   overflow:hidden;
 }
 
-/* ===== Canvas ===== */
+/* ===== Canvas: อยู่ใต้ UI เสมอ ===== */
 #c{
   position:fixed; inset:0; width:100vw; height:100vh; display:block;
-  z-index: 1;             /* อยู่ใต้ HUD/เมนู/ปุ่ม */
-  pointer-events:none;    /* กันแคนวาสบังปุ่ม */
+  z-index: 1;
+  pointer-events:none; /* กันแคนวาสบังปุ่ม */
 }
 
-/* ===== Header brand ===== */
+/* ===== Header ===== */
 header.brand{
   position:fixed; top:0; left:0; right:0; z-index: var(--z-hud);
   display:flex; align-items:center; gap:8px; padding:8px 10px;
@@ -49,69 +48,75 @@ header.brand{
 header .spacer{flex:1}
 header .btn{
   background:var(--btn); color:var(--fg); border:1px solid rgba(255,255,255,.12);
-  padding:6px 10px; border-radius:10px; cursor:pointer; font-weight:600;
+  padding:6px 10px; border-radius:10px; cursor:pointer; font-weight:700;
 }
 header .btn:hover{ background:var(--btn-hover) }
 
-/* ===== HUD ===== */
+/* ===== HUD (อ่านง่ายขึ้น) ===== */
 .hud{
-  position:fixed; top:46px; left:12px; right:12px; z-index: var(--z-hud);
-  display:flex; flex-direction:column; gap:6px; font-weight:700;
-  text-shadow: 0 2px 10px rgba(0,0,0,.4);
+  position:fixed; top:52px; left:12px; right:12px; z-index: var(--z-hud);
+  display:flex; flex-direction:column; gap:8px; font-weight:900;
+  text-shadow: 0 2px 10px rgba(0,0,0,.6);
 }
-.hud > div{
-  background:rgba(8,10,20,.35);
-  border:1px solid rgba(255,255,255,.07);
-  padding:6px 10px; border-radius:10px;
+.hud .hud-line{
+  background:rgba(8,10,20,.62);
+  border:1px solid rgba(255,255,255,.15);
+  padding:8px 12px; border-radius:12px;
+  font-size: clamp(16px, 2.8vw, 20px);
 }
-
-/* Bar */
-.bar{height:12px; background:#1a2236; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,.06)}
+.fever{
+  display:none; padding:2px 8px; border-radius:8px; font-weight:900; letter-spacing:.5px;
+  background: linear-gradient(90deg,#ff8a00,#ff2770); color:#111; width:max-content;
+}
+.bar{height:12px; background:#1a2236; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,.08)}
 .bar > div{height:100%; background: linear-gradient(90deg,#3dd6ff,#00ffa2)}
 .bar.slim{ height:8px; margin-top:6px; background:#222; border-radius:6px }
 #feverBar{ background:linear-gradient(90deg,#ff8a00,#ff2770); transition: width .15s ease }
 
-/* ===== Target / Plate / Hydro ===== */
+/* ===== Target / Plate / Hydration ===== */
 #targetWrap,#plateTracker,#hydroWrap{display:none}
 #targetBadge{ color: var(--accent); font-weight:900 }
 #platePills{ display:inline-flex; gap:6px; flex-wrap:wrap; }
 .pill{ background:#1a2440; border:1px solid rgba(255,255,255,.1); padding:2px 6px; border-radius:999px; font-weight:800 }
 .pill.done{ background:#0f2d22; color:#bfffe0; border-color: #2cffb8 }
 
-/* ===== Coach ===== */
+/* ===== โค้ช ===== */
 .coach{
   position:fixed; bottom:120px; left:50%; transform:translateX(-50%);
   z-index: var(--z-coach);
   display:none;
 }
-.coach .card, .coach > div{
-  background:rgba(14,18,38,.85);
-  border:1px solid rgba(255,255,255,.12);
+.coach > div{
+  background:rgba(14,18,38,.88);
+  border:1px solid rgba(255,255,255,.18);
   border-radius:14px; padding:10px 14px; font-weight:900; font-size:18px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
-#coachHUD.show{ display:block }
+#coachHUD.show{ display:block; }
 
-/* ===== เมนู (ล่างซ้าย) ===== */
+/* ===== เมนูล่างซ้าย ===== */
 .menu{
-  position:fixed; left:0; right:unset; bottom:0; z-index: var(--z-menu);
+  position:fixed; left:10px; bottom:10px; z-index: var(--z-menu);
   background: linear-gradient(0deg, rgba(10,12,20,.92), rgba(10,12,20,.70));
-  border-top:1px solid rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
   padding:10px; display:flex; flex-direction:column; gap:10px;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px); border-radius:12px;
+  max-width:min(560px, 90vw);
 }
 .menu .row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
-.menu .modeLabel{ margin-left:auto; color:var(--muted); font-weight:700; }
-
-/* Buttons */
+.menu .modeLabel{
+  margin-left:auto; color:#fff; font-weight:900;
+  padding:4px 8px; border-radius:8px; background: rgba(0,0,0,.45);
+  text-shadow: 0 2px 6px rgba(0,0,0,.75);
+}
 .btn,.tag{
   background:var(--btn); color:var(--fg);
-  border:1px solid rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.18);
   padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:800;
 }
 .btn:hover,.tag:hover{ background: var(--btn-hover) }
 
-/* ===== ไอเท็มเกม (ปุ่มลอย) — เพิ่มขนาดคลิกง่าย ===== */
+/* ===== ไอเท็มเกม (ปุ่มลอย) ===== */
 .item{
   position:fixed; z-index: var(--z-items);
   font-size: clamp(34px, 5.6vw, 60px); line-height:1; padding:8px 12px;
@@ -120,7 +125,7 @@ header .btn:hover{ background:var(--btn-hover) }
   box-shadow: 0 8px 20px rgba(0,0,0,.35), inset 0 0 18px rgba(0,255,200,.05);
   backdrop-filter: blur(2px);
   transition: transform .12s ease, background .12s ease;
-  min-width:60px; min-height:60px;  /* เพิ่มขนาดขั้นต่ำ */
+  min-width: 60px; min-height: 60px;
 }
 .item:hover{ transform: translateY(-2px) scale(1.03); background: rgba(24,32,60,.75) }
 .item:active{ transform: translateY(0) scale(.98) }
@@ -133,7 +138,7 @@ header .btn:hover{ background:var(--btn-hover) }
 }
 .modal .card{
   width:min(760px, 92vw); background:var(--card);
-  border:1px solid rgba(255,255,255,.12); border-radius:16px;
+  border:1px solid rgba(255,255,255,.18); border-radius:16px;
   box-shadow: 0 20px 60px rgba(0,0,0,.45);
   padding:16px; color:var(--fg);
 }
@@ -144,12 +149,8 @@ header .btn:hover{ background:var(--btn-hover) }
 }
 
 /* ===== Flash เวลาใกล้หมด ===== */
-body.flash .hud > div:first-child{ animation: timeFlash .7s infinite; }
-@keyframes timeFlash{
-  0%{ box-shadow:0 0 0 rgba(255,80,80,0)}
-  50%{ box-shadow:0 0 20px rgba(255,80,80,.45)}
-  100%{ box-shadow:0 0 0 rgba(255,80,80,0)}
-}
+body.flash .hud .hud-line{ animation: timeFlash .7s infinite; }
+@keyframes timeFlash{ 0%{ box-shadow:0 0 0 rgba(255,80,80,0)} 50%{ box-shadow:0 0 20px rgba(255,80,80,.45)} 100%{ box-shadow:0 0 0 rgba(255,80,80,0)} }
 
 /* ===== Fever BG ===== */
 body.fever-bg{
@@ -158,62 +159,15 @@ body.fever-bg{
     linear-gradient(160deg, #140914 0%, #1a0b19 40%, #0a0b0f 100%);
 }
 
-/* ===== Low GFX ===== */
-.low-gfx *{ text-shadow:none !important; box-shadow:none !important; backdrop-filter:none !important; }
-.low-gfx .item{ backdrop-filter:none; }
-.low-gfx .hud > div, .low-gfx .modal .card { border-color: rgba(255,255,255,.08) }
+/* ===== ความแน่ใจว่า คลิกได้ ===== */
+.modal, .menu, .hud, .coach, .item { pointer-events:auto; }
+#c { pointer-events:none; }
 
 /* ===== Responsive ===== */
 @media (max-width: 736px){
   header.brand{ padding:6px 8px }
-  .hud{ top:44px; left:8px; right:8px }
+  .hud{ top:46px; left:8px; right:8px }
   .btn,.tag{ padding:7px 10px; border-radius:10px }
-  .item{ font-size:28px; padding:8px 10px }
   .coach{ bottom:110px }
   .menu{ padding:8px }
-}
-
-/* ปลอดภัยเรื่อง pointer-events */
-.modal, .menu, .hud, .coach, .item { pointer-events:auto; }
-#c { pointer-events:none; }
-/* --- กัน canvas บังปุ่ม/HUD --- */
-#c { z-index: 1 !important; pointer-events: none !important; }
-
-/* --- HUD/เมนู/โมดัล ต้องอยู่บนและคลิกได้ --- */
-.hud, .menu, .modal, .coach, .item {
-  z-index: 100 !important;
-  pointer-events: auto;
-}
-
-/* --- ให้ Coach โชว์เมื่อมี class .show --- */
-.coach.show { display: block !important; }
-
-/* --- ทำให้ HUD อ่านง่ายขึ้น --- */
-.hud > div {
-  background: rgba(8,10,20,.55) !important;
-  border: 1px solid rgba(255,255,255,.10);
-}
-
-/* --- ทำให้แถบ “โหมด/ความยาก” ชัดขึ้น --- */
-.menu .modeLabel{
-  color: #fff !important;
-  font-weight: 900;
-  padding: 4px 8px;
-  border-radius: 8px;
-  background: rgba(0,0,0,.35);
-  text-shadow: 0 2px 6px rgba(0,0,0,.6);
-}
-
-/* --- ย้ายเมนูไปล่างซ้ายให้แน่นอน --- */
-#menuBar{
-  position: fixed !important;
-  left: 10px !important;
-  bottom: 10px !important;
-  top: auto !important;
-  transform: none !important;
-  width: auto !important;
-  max-width: 48vw;
-  background: rgba(10,12,20,0.9);
-  border-radius: 12px;
-  padding: 10px;
 }
