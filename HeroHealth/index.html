@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- IMPORTANT: base ให้ชี้โฟลเดอร์ HeroHealth บน GitHub Pages -->
+  <!-- IMPORTANT: base ชี้ไปโฟลเดอร์ HeroHealth บน GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
@@ -15,14 +15,15 @@
     /* กัน canvas บังคลิกเสมอ */
     #c { z-index: 1 !important; pointer-events: none !important; }
 
-    /* ชั้น UI ทั้งหมดอยู่บนสุดและคลิกได้ */
+    /* ชั้น UI อยู่บนสุดและคลิกได้ */
     .hud, .menu, .modal, .coach, .item {
       z-index: 100 !important;
       pointer-events: auto !important;
     }
+
     /* HUD ใหญ่+คอนทราสต์สูง อ่านง่าย */
-    .hud { 
-      font-size: 18px; 
+    .hud {
+      font-size: 18px;
       gap: 8px;
       text-shadow: 0 2px 8px rgba(0,0,0,.6);
     }
@@ -68,13 +69,6 @@
 
     /* Coach แสดงเมื่อมี .show */
     #coachHUD.show{ display:block !important; }
-
-    /* Fallback ให้โมดัลอ่านง่าย */
-    .modal .card{
-      background: rgba(20,24,44,.95);
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.15);
-    }
   </style>
 </head>
 <body>
@@ -188,7 +182,7 @@
       w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;display:none';
       w.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
       document.body.appendChild(w);
-      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2000);
+      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 1800);
     })();
   </script>
 
@@ -203,16 +197,11 @@
             el.style.pointerEvents='auto'; el.style.zIndex='100';
           });
         });
-        const menu = document.getElementById('menuBar');
-        if(menu){
-          Object.assign(menu.style,{ position:'fixed', left:'10px', bottom:'10px', top:'auto', transform:'none' });
-        }
       }
       function bindButtons(){
         const start = document.getElementById('btn_start');
         if(start){
           start.addEventListener('click', (e)=> {
-            // ถ้าเกมมี preStartFlow ใช้ของเกม, ไม่มีก็ startGame ตรง
             if(window.preStartFlow) window.preStartFlow();
             else if(window.HHA?.startGame) window.HHA.startGame({demoPassed:true});
             else if(window.start) window.start();
@@ -223,51 +212,11 @@
         const hud = document.querySelector('.hud');
         if(hud){ hud.style.display='flex'; hud.style.visibility='visible'; hud.style.opacity='1'; }
       }
-      function probeOverlay(){
-        // ตรวจว่ามีอะไรบังปุ่ม start
-        const b = document.getElementById('btn_start');
-        if(!b) return;
-        const r = b.getBoundingClientRect();
-        const cx = r.left + r.width/2, cy = r.top + r.height/2;
-        const stack = document.elementsFromPoint(cx, cy);
-        // log เฉพาะถ้าสิ่งที่บนสุดไม่ใช่ปุ่มเอง
-        if(stack && stack[0] !== b){
-          console.warn('[Overlay Detected] Top element over Start:', stack[0]);
-        }
-      }
-
       document.addEventListener('DOMContentLoaded', ()=>{
-        ensureLayers(); bindButtons(); ensureHUD(); probeOverlay();
-        // re-assert อีกครั้งกัน stylesheet/renderer ปรับทีหลัง
-        setTimeout(()=>{ ensureLayers(); bindButtons(); ensureHUD(); probeOverlay(); }, 500);
+        ensureLayers(); bindButtons(); ensureHUD();
+        setTimeout(()=>{ ensureLayers(); bindButtons(); ensureHUD(); }, 500);
       });
     })();
   </script>
-  <script>
-(function(){
-  function show(msg){
-    const w = document.getElementById('bootWarn') || (()=>{
-      const d=document.createElement('div');
-      d.id='bootWarn';
-      d.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:1000;';
-      document.body.appendChild(d);
-      return d;
-    })();
-    w.textContent = '⚠️ main.js error: ' + msg;
-    w.style.display='block';
-    console.error('[main.js error]', msg);
-  }
-  window.addEventListener('error', (e)=>{
-    if(String(e?.filename||'').includes('/game/main.js') || String(e?.message||'').includes('import')){
-      show(e.message || 'module error');
-    }
-  });
-  window.addEventListener('unhandledrejection', (e)=>{
-    const m = (e.reason && (e.reason.stack||e.reason.message)) || e.reason || 'unhandled rejection';
-    show(m);
-  });
-})();
-</script>
-
 </body>
 </html>
