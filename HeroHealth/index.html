@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- base เดิม (ใช้กับ asset), แต่สคริปต์หลักใช้ URL เต็มเพื่อกันพลาด -->
+  <!-- base ยังอยู่เพื่อ asset อื่น ๆ แต่ loader ใหม่นี้ไม่พึ่ง base -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
 
   <style>
-    /* กัน canvas บังคลิก + ดัน UI ขึ้นบนสุด */
     #c{position:fixed;inset:0;z-index:1;pointer-events:none}
     .hud,.menu,.modal,.coach,.item{z-index:200;pointer-events:auto}
     .hud{font-size:18px;font-weight:800;text-shadow:0 2px 6px #000}
@@ -21,10 +20,12 @@
       background:rgba(0,0,0,.45);color:#fff;padding:6px 12px;border-radius:10px;
       font-weight:900;z-index:300
     }
+    /* แถบเตือน */
+    #bootWarn{position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;
+      padding:10px 12px;font-weight:700;z-index:9999;display:none;white-space:pre-wrap}
   </style>
 </head>
 <body>
-  <!-- Header -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
@@ -33,32 +34,26 @@
     <button id="soundToggle" class="btn">🔊 เสียง: เปิด</button>
   </header>
 
-  <!-- Canvas -->
   <canvas id="c"></canvas>
 
-  <!-- HUD -->
   <section class="hud">
     <div>คะแนน: <b id="score">0</b> | คอมโบ: <b id="combo">x0</b> | เวลา: <b id="time">60</b>s</div>
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
     <div id="missionLine" style="display:none;">—</div>
 
-    <!-- ส่วนเสริมตามโหมด (optional ในไฟล์โหมด) -->
+    <!-- ส่วนเสริมของโหมด -->
     <div id="targetWrap" style="display:none"></div>
     <div id="plateTracker" style="display:none"></div>
     <div id="hydroWrap" style="display:none">
-      💧 สมดุลน้ำ:
-      <span id="hydroLabel">—</span>
+      💧 สมดุลน้ำ: <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar" style="width:50%"></div></div>
     </div>
   </section>
 
-  <!-- แถบสถานะโหมด/ความยาก -->
   <div id="statusLine">โหมด: ดี vs ขยะ • ความยาก: ปกติ</div>
 
-  <!-- Coach bubble -->
   <div id="coachHUD" class="coach" style="display:none"><div id="coachText">...</div></div>
 
-  <!-- เมนู -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk">🥗 ดี vs ขยะ</button>
@@ -79,7 +74,6 @@
     </div>
   </section>
 
-  <!-- Help -->
   <div id="help" class="modal" style="display:none">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
@@ -88,7 +82,6 @@
     </div>
   </div>
 
-  <!-- Result -->
   <div id="result" class="modal" style="display:none">
     <div class="card">
       <h3>สรุปผล</h3>
@@ -105,37 +98,46 @@
   <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
   <audio id="sfx-powerup"  preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-  <!-- โหลด main.js ด้วย URL เต็ม เพื่อไม่ง้อ base -->
-  <script type="module" src="https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js"></script>
+  <!-- แถบเตือน -->
+  <div id="bootWarn">⚠️ โหลดสคริปต์ไม่สำเร็จ: กำลังลอง URL อื่น…</div>
 
-  <!-- Fallback: แจ้ง boot fail -->
-  <script>
-    (function(){
-      const w=document.createElement('div');
-      w.id='bootWarn';
-      w.style.cssText='position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:9999;display:none';
-      w.textContent='⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href';
-      document.body.appendChild(w);
-      setTimeout(()=>{ if(!window.__HHA_BOOT_OK){ w.style.display='block'; } }, 2000);
-    })();
-  </script>
+  <!-- 🔁 Dynamic loader: ลองหลาย URL เพื่อให้แน่ใจว่า main.js เข้าถึงได้ -->
+  <script type="module">
+    (async () => {
+      // รีเซ็ต flag (main.js จะตั้งให้เป็น true ทันทีที่รัน)
+      window.__HHA_BOOT_OK = false;
 
-  <!-- ปุ่ม “วิธีเล่น” ให้แสดงข้อความตามโหมด -->
-  <script>
-    const HOWTO = {
-      TH: {
-        goodjunk:`🎯 ดี vs ขยะ\nเก็บอาหารดี 🥦🍎 หลีกเลี่ยงของขยะ 🍔🍟🥤\nคอมโบเพิ่มคะแนน • มีภารกิจย่อย`,
-        groups:`🍽️ จาน 5 หมู่\nเก็บให้ตรงหมวดบน HUD • ถูก +7 ผิด −2 • เปลี่ยนหมวดทุก ~10s/ครบ 3 ครั้ง`,
-        hydration:`💧 สมดุลน้ำ\nรักษา 45–65% • น้ำเปล่าเพิ่ม / น้ำหวานลด\n>65 ดื่มหวาน = ได้คะแนน • <45 ดื่มหวาน = หักคะแนน\nN=Normalize • G=Guard`,
-        plate:`🍱 จัดจานสุขภาพ\nโควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1\nครบทั้งหมดได้ “Perfect Plate”`
+      const candidates = [
+        // Absolute (ทางหลักที่ควรใช้บน GitHub Pages)
+        'https://supparang.github.io/webxr-health-mobile/HeroHealth/game/main.js',
+        // Relative (เผื่อเปิดผ่าน live server/โฮสต์อื่น)
+        'game/main.js',
+        './game/main.js',
+        '/webxr-health-mobile/HeroHealth/game/main.js'
+      ];
+
+      const tried = [];
+      for (const url of candidates) {
+        try {
+          tried.push(url);
+          await import(url + '?v=' + Date.now()); // bust cache
+          // สำเร็จ: ให้ซ่อนแจ้งเตือนแล้วจบ loop
+          document.getElementById('bootWarn').style.display = 'none';
+          console.log('[Loader] OK:', url);
+          return;
+        } catch (e) {
+          console.warn('[Loader] Fail:', url, e);
+        }
       }
-    };
-    document.getElementById('btn_help')?.addEventListener('click', ()=>{
-      const mode = (window.__HHA_STATE?.modeKey) || 'goodjunk';
-      document.getElementById('helpBody').textContent = HOWTO.TH[mode] || HOWTO.TH.goodjunk;
-      document.getElementById('help').style.display='flex';
-    });
-    document.getElementById('btn_ok')?.addEventListener('click',()=>{ document.getElementById('help').style.display='none'; });
+
+      // ถ้าถึงตรงนี้คือโหลดไม่ได้ทุกทาง -> แสดงรายละเอียด debug
+      const warn = document.getElementById('bootWarn');
+      warn.style.display = 'block';
+      warn.textContent =
+        '⚠️ โหลดสคริปต์ไม่สำเร็จ\n' +
+        'ลอง URL เหล่านี้แล้วไม่สำเร็จ:\n- ' + tried.join('\n- ') +
+        '\nโปรดตรวจสอบว่าไฟล์อยู่ที่ path นั้นจริง (ตัวพิมพ์เล็ก/ใหญ่ต้องตรง) และเปิดด้วย HTTPS';
+    })();
   </script>
 </body>
 </html>
