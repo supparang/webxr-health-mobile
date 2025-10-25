@@ -1,5 +1,6 @@
 // game/modes/groups.js
 // โหมด: จาน 5 หมู่ + Mission 45s + Power-ups (Dual/Scorex2/Freeze/RotateNow) + HUD Timer
+// ปรับให้ onHit() return ผลลัพธ์สำหรับระบบคอมโบ/ฟีเวอร์ใน main.js และไม่บวกคะแนนเอง
 
 /* =========================
    1) คอนฟิก / คงที่
@@ -170,84 +171,80 @@ export function pickMeta(diff, state){
 }
 
 export function onHit(meta, sys, state, hud){
-  const { score, sfx, fx, coach, power } = sys || {};
+  const { sfx, fx, coach, power } = sys || {};
   const lang = state.lang || 'TH';
   const gctx = state.ctx?.groups;
 
-  // ==== power-ups ====
+  // ==== power-ups ====  → คืน 'power' ให้ main.js จัดเอฟเฟกต์/คอมโบ
   if (meta.type === 'powerup_dual'){
     gctx.target2 = rotateSingleTarget(gctx.target1);
     gctx.dualRemain = DUAL_DURATION[state.difficulty] || 12;
     setTargetHUD(state, hud);
     fx?.popText?.('DUAL TARGET!', { color:'#ffd54a' });
-    sfx?.powerup?.(); coach?.say?.(lang==='TH'?'เป้า ×2 ชั่วคราว!':'Dual targets!');
-    score?.add?.(3);
-    return;
+    (sfx.power||sfx.powerup||(()=>{}))();
+    coach?.say?.(lang==='TH'?'เป้า ×2 ชั่วคราว!':'Dual targets!');
+    return 'power';
   }
   if (meta.type === 'powerup_scorex2'){
     gctx.scorex2Remain = SCOREX2_SECONDS;
     setTargetHUD(state, hud);
     fx?.popText?.('SCORE ×2', { color:'#b0ff66' });
-    sfx?.powerup?.(); coach?.say?.(lang==='TH'?'คะแนน x2 ชั่วคราว!':'Score x2!');
-    return;
+    (sfx.power||sfx.powerup||(()=>{}))();
+    coach?.say?.(lang==='TH'?'คะแนน x2 ชั่วคราว!':'Score x2!');
+    return 'power';
   }
   if (meta.type === 'powerup_freeze'){
     gctx.freezeRemain = FREEZE_SECONDS;
     if (power) power.timeScale = 99; // ชะลอการ spawn ชั่วคราว
     setTargetHUD(state, hud);
     fx?.popText?.('FREEZE!', { color:'#66e0ff' });
-    sfx?.powerup?.(); coach?.say?.(lang==='TH'?'แช่แข็ง!':'Freeze!');
-    return;
+    (sfx.power||sfx.powerup||(()=>{}))();
+    coach?.say?.(lang==='TH'?'แช่แข็ง!':'Freeze!');
+    return 'power';
   }
   if (meta.type === 'powerup_rotate_now'){
     gctx.target1 = rotateSingleTarget(gctx.target1, gctx.target2);
     setTargetHUD(state, hud);
     fx?.popText?.('ROTATE!', { color:'#ffdd66' });
-    sfx?.tick?.(); coach?.say?.(lang==='TH'?'เปลี่ยนเป้าแล้ว!':'Target rotated!');
-    return;
+    (sfx.tick||(()=>{}))();
+    coach?.say?.(lang==='TH'?'เปลี่ยนเป้าแล้ว!':'Target rotated!');
+    return 'power';
   }
 
-  // ==== food ====
-  if (meta.type !== 'food'){ score?.add?.(1); fx?.popText?.('+1', { color:'#8ff' }); return; }
-
-  const mul = (gctx.scorex2Remain>0) ? 2 : 1;
+  // ==== food ==== → คืนผลลัพธ์ให้ main.js ทำคะแนน/คอมโบ/ฟีเวอร์
+  if (meta.type !== 'food') return 'ok';
 
   if (meta.good){
-    const add = 7 * mul;
-    score?.add?.(add);
-    score.combo = (score.combo||0) + 1;
-    fx?.popText?.(`+${add}`, { color: mul>1 ? '#ccff88' : '#7fffd4' });
-    sfx?.good?.();
+    (sfx.good||(()=>{}))();
     coach?.say?.(lang==='TH'?'เข้าเป้า!':'On target!');
     gctx.targetHits = (gctx.targetHits||0) + 1;
 
-    if (gctx.mission && !gctx.mission.done && gctx.mission.kind==='collect_target'){
-      gctx.mission.progress++;
+    // นับภารกิจ
+    const m = gctx.mission;
+    if (m && !m.done){
+      m.progress++;
+      if (m.progress >= m.need){
+        m.done = true;
+        fx?.popText?.('🏁 Mission Complete', { color:'#7fffd4' });
+      }
     }
+
+    // ครบ 3 ชิ้นที่เข้าเป้า หมุน target1 (ถ้า dual ยังอยู่ target2 คงเดิม)
     if (gctx.targetHits >= 3){
       gctx.target1 = rotateSingleTarget(gctx.target1, gctx.target2);
       gctx.targetHits = 0;
       setTargetHUD(state, hud);
     }
-    return;
+    return 'good';
   }
 
-  // ถูกหมวดแต่ไม่ใช่เป้า
-  if (GROUPS[meta.groupKey]){
-    const add = 2 * mul;
-    score?.add?.(add);
-    fx?.popText?.(`+${add}`, { color: mul>1 ? '#bde0ff' : '#9fdcff' });
-    sfx?.tick?.();
-    coach?.say?.(lang==='TH'?'ดี แต่ไม่ตรงเป้า':'OK, not target');
-    return;
-  }
+  // ถูกหมวดอาหาร “ที่มีในเกม” แต่ไม่ใช่เป้า → ok
+  if (GROUPS[meta.groupKey]){ (sfx.tick||(()=>{}))(); return 'ok'; }
 
-  // ผิดหมวด
-  score?.add?.(-2);
-  score.combo = 0;
-  fx?.popText?.('-2', { color:'#ff7a7a' });
-  sfx?.bad?.();
+  // ผิดหมวด → bad
+  (sfx.bad||(()=>{}))();
   coach?.say?.(lang==='TH'?'ผิดหมวด!':'Wrong group!');
+  return 'bad';
 }
 
 /* =========================
@@ -277,6 +274,7 @@ function updateMissionHUD(state){
 export function cleanup(state, hud){
   try{ hud?.hideTarget?.(); }catch{}
   const badge = document.getElementById('targetBadge'); if (badge) badge.textContent = '—';
+  const w = document.getElementById('targetWrap'); if (w) w.style.display = 'none';
   if (state?.ctx){
     state.ctx.target = null;
     state.ctx.targetHitsTotal = 0;
