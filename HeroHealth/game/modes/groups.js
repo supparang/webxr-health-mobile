@@ -1,6 +1,6 @@
 // === Hero Health Academy — game/modes/groups.js (Emoji Edition, 50 items) ===
-// โหมด "Groups" จัดหมวดอาหารให้ถูกต้อง (Fruits / Vegetables / Protein / Grains)
-// ใช้อีโมจิเป็นไอคอน -> โหลดไว ไม่ต้องมีไฟล์ภาพ
+// โหมด "Groups": จัดหมวดอาหารให้ถูกต้อง (Fruits / Vegetables / Protein / Grains)
+// ใช้อีโมจิเป็นไอคอน → เบา โหลดเร็ว ไม่ต้องมีไฟล์ภาพ
 // Public API: export const name, init(ctx), enter(root, opts), exit(), tick(dt), handleDomAction(el)
 
 export const name = 'groups';
@@ -11,10 +11,10 @@ let st  = null;   // state
 
 // ---------- Config ----------
 const GROUPS = [
-  { id:'fruits',  labelTH:'ผลไม้',   labelEN:'Fruits',     color:'#ff6b6b', key:'1' },
-  { id:'veggies', labelTH:'ผัก',      labelEN:'Vegetables', color:'#51cf66', key:'2' },
-  { id:'protein', labelTH:'โปรตีน',   labelEN:'Protein',    color:'#339af0', key:'3' },
-  { id:'grains',  labelTH:'ธัญพืช',   labelEN:'Grains',     color:'#f59f00', key:'4' },
+  { id:'fruits',  labelTH:'ผลไม้',   labelEN:'Fruits',     color:'#ef4444', key:'1' },
+  { id:'veggies', labelTH:'ผัก',      labelEN:'Vegetables', color:'#22c55e', key:'2' },
+  { id:'protein', labelTH:'โปรตีน',   labelEN:'Protein',    color:'#3b82f6', key:'3' },
+  { id:'grains',  labelTH:'ธัญพืช',   labelEN:'Grains',     color:'#f59e0b', key:'4' },
 ];
 
 const DEFAULTS = {
@@ -126,7 +126,7 @@ export function tick(dt){
   if (st.timeLeft <= 0){ endRound(); return; }
   sel('#ggTimer').textContent = formatTime(Math.ceil(st.timeLeft));
 
-  // combo decay (ถ้าว่างนาน)
+  // combo decay (อยู่นิ่งนานคอมโบค่อยๆ ลด)
   st.decayTimer += dt;
   if (st.decayTimer > 6 && st.combo>0){
     st.combo = Math.max(0, st.combo-1);
