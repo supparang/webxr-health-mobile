@@ -1,157 +1,248 @@
-/* ===== Layout base ===== */
-html, body { height: 100%; margin: 0; background: #0b0f1a; color: #fff; font-family: system-ui, sans-serif; }
-canvas#c { position: fixed; inset: 0; z-index: 0; }
+/* ==========================================================
+   Hero Health Academy — Game HUD / UI Styles (2025)
+   Compatible with main.js + coach.js + all modes
+   ========================================================== */
 
-/* ===== Header ===== */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(ellipse at center, #0e101a 0%, #06070b 100%);
+  color: #fff;
+  font-family: ui-rounded, "Segoe UI", system-ui, sans-serif;
+  overflow: hidden;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+canvas#c {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  background: transparent;
+}
+
+/* ---------- HEADER ---------- */
 header.brand {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 1200;
-  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-  background: rgba(0,0,0,.35); backdrop-filter: blur(6px);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 52px;
+  background: rgba(0,0,0,.5);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-weight: 800;
+  z-index: 200;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid #fff2;
+}
+header .btn {
+  background: rgba(255,255,255,.08);
+  border: 1px solid #fff2;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 10px;
+  margin-left: 6px;
+  cursor: pointer;
+}
+header .btn:hover {
+  background: rgba(255,255,255,.18);
 }
 header .spacer { flex: 1; }
-.btn, .tag { cursor: pointer; }
 
-/* ===== HUD ===== */
-section.hud {
-  position: fixed; top: 56px; left: 12px; right: 12px; z-index: 1200;
-  display: grid; gap: 8px; grid-auto-rows: min-content;
+/* ---------- HUD ---------- */
+.hud {
+  position: fixed;
+  top: 52px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 180;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.4;
+  pointer-events: none;
 }
-.bar { width: 100%; height: 8px; background: rgba(255,255,255,.15); border-radius: 6px; overflow: hidden; }
-.bar > div { height: 100%; width: 0%; background: linear-gradient(90deg,#65fbd2,#1ec8ff); }
-.bar.slim { height: 6px; }
+.hud b { color: #7fffd4; }
 
-/* FEVER label */
-#fever { position: fixed; top: 96px; left: 50%; transform: translateX(-50%);
-  z-index: 1500; font-weight: 900; letter-spacing: 2px; padding: 3px 10px;
-  background: rgba(255,180,0,.2); border: 1px solid rgba(255,180,0,.5);
-  border-radius: 10px; display: none;
+.bar {
+  position: relative;
+  width: 240px;
+  height: 16px;
+  background: rgba(255,255,255,.08);
+  border-radius: 8px;
+  margin: 6px auto;
+  overflow: hidden;
 }
-#fever.pulse { animation: pulse 0.8s infinite; }
-@keyframes pulse { 0%{transform:translateX(-50%) scale(1)} 50%{transform:translateX(-50%) scale(1.06)} 100%{transform:translateX(-50%) scale(1)} }
-
-/* ===== Menu bottom ===== */
-section.menu {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1400;
-  background: rgba(0,0,0,.35); backdrop-filter: blur(6px);
-  padding: 8px 12px; display: grid; gap: 8px;
+.bar.slim {
+  width: 180px;
+  height: 8px;
+  margin-top: 8px;
 }
-section.menu .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.tag, .btn {
-  padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25);
-  background: rgba(255,255,255,.06); color: #fff; font-weight: 600;
+.bar div {
+  height: 100%;
+  background: linear-gradient(90deg, #00e5ff, #00bfa5);
+  border-radius: 8px;
+  transition: width .25s ease-out;
 }
 
-/* ===== Items (spawned icons) ===== */
-.item { z-index: 800; user-select: none; touch-action: manipulation; }
+.fever {
+  font-weight: 900;
+  font-size: 28px;
+  color: #ffd54a;
+  text-shadow: 0 0 8px #ff9800, 0 0 20px #ff6d00;
+  animation: pulse 1s infinite alternate;
+  margin-top: 8px;
+}
+.fever.pulse {
+  animation: pulse .7s infinite alternate;
+}
+@keyframes pulse {
+  from { opacity: .6; transform: scale(1); }
+  to   { opacity: 1; transform: scale(1.08); }
+}
 
-/* ===== Modals ===== */
+/* ---------- COACH (อยู่ใต้ Fever) ---------- */
+.coach {
+  position: fixed;
+  left: 50%;
+  top: calc(50% + 120px); /* 🔸อยู่ใต้ FEVER */
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, .65);
+  color: #fff;
+  border: 1px solid #fff2;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font: 700 16px/1.25 ui-rounded, system-ui, Segoe UI, Arial;
+  z-index: 190;
+  pointer-events: none;
+  box-shadow: 0 8px 28px rgba(0,0,0,.35);
+  text-align: center;
+  min-width: 200px;
+  animation: fadein .3s ease;
+}
+@keyframes fadein {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ---------- Mission Line ---------- */
+.mission-line {
+  font-weight: 700;
+  font-size: 15px;
+  color: #aef;
+  margin-top: 8px;
+  text-shadow: 0 1px 5px #000;
+  pointer-events: none;
+}
+
+/* ---------- MENU ---------- */
+.menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0,0,0,.6);
+  border-top: 1px solid #fff2;
+  padding: 8px;
+  z-index: 160;
+  backdrop-filter: blur(8px);
+}
+.menu .row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.btn, .tag {
+  font: 700 14px/1.1 ui-rounded, system-ui, Segoe UI, Arial;
+  color: #fff;
+  background: rgba(255,255,255,.1);
+  border: 1px solid #fff2;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background .2s, transform .1s;
+}
+.btn:hover, .tag:hover {
+  background: rgba(255,255,255,.22);
+  transform: scale(1.05);
+}
+.modeLabel {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(255,255,255,.1);
+  border-radius: 10px;
+  font-size: 14px;
+  color: #fff;
+}
+
+/* ---------- MODALS ---------- */
 .modal {
-  display: none; position: fixed; inset: 0; z-index: 2000;
-  background: rgba(0,0,0,.45); align-items: center; justify-content: center;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.7);
+  z-index: 300;
+  backdrop-filter: blur(6px);
 }
-.modal .card {
-  background: rgba(15,20,35,.95); border: 1px solid rgba(255,255,255,.18);
-  border-radius: 14px; padding: 16px; max-width: 520px; width: 88%;
+.card {
+  background: rgba(30,30,40,.9);
+  border-radius: 14px;
+  padding: 20px;
+  color: #fff;
+  border: 1px solid #fff2;
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+  max-width: 420px;
+}
+.hs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
 }
 
-/* Help Scene grid */
-.hs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 12px; }
+/* ---------- TOAST ---------- */
+.toast {
+  font: 700 14px/1.2 ui-rounded, system-ui;
+  background: rgba(0,0,0,.7);
+  border-radius: 8px;
+  color: #fff;
+  padding: 6px 12px;
+  text-align: center;
+}
 
-/* ===== Score/Flame FX ===== */
+/* ---------- SCORE BURST / FLAME FX ---------- */
 .scoreBurst {
-  position: fixed; z-index: 1800; pointer-events: none;
-  transform: translate(-50%,-50%); font-weight: 900; text-shadow: 0 1px 4px rgba(0,0,0,.6);
-  animation: rise .9s ease-out forwards;
+  font-weight: 800;
+  font-size: 20px;
+  text-shadow: 0 2px 6px #000c;
 }
-.scoreBurst .minor { display: inline-block; margin-left: 8px; font-weight: 700; opacity: .8; }
-@keyframes rise {
-  0% { opacity: 0; transform: translate(-50%,-20%) scale(.9); }
-  25%{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
-  100%{ opacity: 0; transform: translate(-50%,-110%) scale(1.05); }
-}
-.flameBurst {
-  position: fixed; z-index: 1700; pointer-events: none;
-  width: 24px; height: 24px; background: radial-gradient(circle, rgba(255,210,90,.9), rgba(255,120,0,.0) 70%);
-  border-radius: 50%; transform: translate(-50%,-50%); animation: flame .9s ease-out forwards;
-  filter: blur(1px);
-}
-.flameBurst.strong { width: 34px; height: 34px; }
-@keyframes flame {
-  0% { opacity: .0; transform: translate(-50%,-30%) scale(.7); }
-  20%{ opacity: .95; transform: translate(-50%,-50%) scale(1); }
-  100%{ opacity: .0; transform: translate(-50%,-115%) scale(1.25); }
+@keyframes flamePop {
+  from { transform:translate(-50%,-50%) scale(.7); opacity:.0; }
+  to   { transform:translate(-50%,-50%) scale(1.05); opacity:.0; }
 }
 
-/* ===== Misc ===== */
-.flash { animation: flash 1s steps(1,end) infinite; }
-@keyframes flash { 50% { filter: brightness(1.25); } }
-
-#targetWrap, #plateTracker, #hydroWrap { display: none; }
-
-/* Debug chip (ไม่บังคลิก) */
-#jsChip { position: fixed; right: 10px; bottom: 10px; z-index: 5000; pointer-events: none;
-  background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.22); border-radius: 12px; padding: 6px 10px; font-weight: 700;
+/* ---------- FLASH (ใกล้หมดเวลา) ---------- */
+body.flash {
+  animation: flashBg .4s infinite alternate;
 }
-/* === HUD / Layout basics (คงของเดิมไว้) === */
-.hud{ position:fixed; left:12px; right:12px; top:56px; z-index:70; color:#fff; font-weight:700; text-shadow:0 1px 3px #0006; display:flex; flex-direction:column; gap:8px; }
-.bar{ background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25); height:10px; border-radius:6px; overflow:hidden; }
-.bar.slim{ height:6px; }
-#feverBar{ height:100%; width:0%; background:linear-gradient(90deg,#ffcc33,#ff6633); transition:width .25s; }
-.fever{ position:fixed; top:16px; left:50%; transform:translateX(-50%); font-weight:900; color:#ffd54a; text-shadow:0 0 10px #000; z-index:75; }
-.fever.pulse{ animation:pulse 0.6s infinite alternate; }
-@keyframes pulse{ from{ transform:translateX(-50%) scale(1);} to{ transform:translateX(-50%) scale(1.08);} }
-
-.item{ user-select:none; -webkit-tap-highlight-color: transparent; }
-body.flash{ animation:warn .6s steps(2,end) infinite; }
-@keyframes warn{ 50%{ filter:brightness(1.06);} }
-
-.fever-bg{ background-image: radial-gradient(ellipse at center, rgba(255,102,0,.07), rgba(0,0,0,0)); background-size: 140% 140%; }
-
-/* === Coach bubble === */
-.coach{ position:fixed; bottom:104px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.3); color:#fff; padding:8px 12px; border-radius:12px; z-index:90; font-weight:800; }
-
-/* === Score popup & flame === */
-.scoreBurst{ position:fixed; z-index:120; font-weight:900; text-shadow:0 2px 6px #0008; transform:translate(-50%,-50%) scale(1); animation:rise .9s ease-out forwards; pointer-events:none; }
-.scoreBurst .minor{ display:block; font-size:.8em; opacity:.85; margin-top:2px; }
-@keyframes rise{ 0%{ opacity:0; transform:translate(-50%,-30%) scale(.8);} 20%{opacity:1;} 100%{ opacity:0; transform:translate(-50%,-100%) scale(1.1);} }
-
-.flameBurst{ position:fixed; width:32px; height:32px; margin:-16px 0 0 -16px; z-index:110; background: radial-gradient(circle at 50% 60%, rgba(255,200,80,.9), rgba(255,80,0,.2) 60%, rgba(0,0,0,0) 61%); animation:flame .9s ease-out forwards; pointer-events:none; }
-.flameBurst.strong{ width:44px; height:44px; margin:-22px 0 0 -22px; filter:saturate(1.2); }
-@keyframes flame{ from{ transform:translateY(0) scale(.9); opacity:.9;} to{ transform:translateY(-22px) scale(1.2); opacity:0;} }
-
-/* === Quest HUD === */
-.questHUD{
-  display:grid; grid-template-columns: repeat(3, minmax(0,1fr));
-  gap:8px; margin-top:6px;
+@keyframes flashBg {
+  from { background-color: #1a1c2a; }
+  to   { background-color: #3c2c2c; }
 }
-.qcard{ background:rgba(0,0,0,.4); border:1px solid rgba(255,255,255,.25); border-radius:10px; padding:6px 8px; color:#fff; font-weight:800; }
-.qcard .qtitle{ font-size:12px; line-height:1.2; margin-bottom:4px; opacity:.95; }
-.qbar{ height:6px; background:rgba(255,255,255,.15); border-radius:6px; overflow:hidden; }
-.qin{ height:100%; width:0%; background:linear-gradient(90deg,#7fffd4,#2ecc71); transition:width .25s; }
-.qcard.done .qtitle{ color:#b0ff66; }
-.qcard.fail .qtitle{ color:#ff9b9b; }
-.qcard.done .qin{ background:linear-gradient(90deg,#b0ff66,#7fd45a); }
-.qcard.fail .qin{ background:linear-gradient(90deg,#ff9b9b,#ff7a7a); }
 
-/* === Modals center (index.html ของคุณมีอยู่แล้ว) === */
-.modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:200; background:rgba(0,0,0,.4); }
-.modal .card{ background:#121212cc; color:#fff; border:1px solid rgba(255,255,255,.2); border-radius:16px; padding:14px; max-width:520px; width:90%; box-shadow:0 10px 30px #000a; }
-
-/* === Bottom menu responsiveness === */
-.menu{ position:fixed; left:0; right:0; bottom:0; z-index:60; background:rgba(0,0,0,.55); color:#fff; border-top:1px solid rgba(255,255,255,.2); padding:8px 10px; }
-.menu .row{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0; }
-.btn,.tag{ background:#1e1e1e; color:#fff; border:1px solid #2a2a2a; border-radius:10px; padding:6px 10px; font-weight:800; }
-.tag{ font-weight:700; }
-
-/* canvas base */
-#c{ position:fixed; inset:0; z-index:10; }
-header.brand{ position:fixed; left:0; right:0; top:0; z-index:65; background:rgba(0,0,0,.6); color:#fff; padding:8px 12px; display:flex; align-items:center; gap:8px; font-weight:900; }
-/* game.css */
-.item{
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-  padding: 8px;           /* เพิ่ม hitbox */
-  border-radius: 14px;    /* ทรงเม็ดยา */
-  outline: 20px solid transparent; /* กันเผลอแตะพลาด */
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 600px) {
+  header.brand { height: 48px; font-size: 13px; }
+  .hud { font-size: 14px; }
+  .coach { top: calc(50% + 90px); font-size: 14px; }
+  .mission-line { font-size: 13px; }
+  .menu .btn, .menu .tag { font-size: 13px; padding: 6px 10px; }
 }
