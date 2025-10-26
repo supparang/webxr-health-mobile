@@ -26,3 +26,33 @@ export class Coach {
   }
   onEnd(score,grade){this.say(`จบเกม: ${score} | เกรด ${grade}`,`End: ${score} | Grade ${grade}`);}
 }
+// core/coach.js — โค้ชพูดคั่น/ตอนสำคัญ
+export class Coach{
+  constructor({lang='TH'}={}){ this.lang = lang; this.lastComboCall = 0; }
+  setLang(l){ this.lang = l; }
+  say(msg){
+    const el = document.getElementById('coachHUD');
+    const txt= document.getElementById('coachText');
+    if (!el || !txt) return;
+    txt.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(this._t);
+    this._t = setTimeout(()=>{ el.style.display='none'; }, 1600);
+  }
+  onStart(mode){
+    const m = this.lang==='TH' ? 'ลุยเลย!' : 'Go!';
+    this.say(m);
+  }
+  onCombo(x){
+    const now = Date.now();
+    if (now - this.lastComboCall < 1200) return;
+    this.lastComboCall = now;
+    if (x===10) this.say(this.lang==='TH'?'คอมโบ 10! ไฟกำลังมา!':'Combo 10! Heat up!');
+    else if (x===20) this.say(this.lang==='TH'?'20 แล้ว! โหดมาก!':'20! You’re on fire!');
+  }
+  onEnd(score,{grade}={}){
+    const msgTH = {S:'สุดยอด!',A:'เยี่ยมมาก!',B:'ดีเลย!',C:'สู้ต่อ!'}[grade||'C'];
+    const msgEN = {S:'Legend!',A:'Great!',B:'Nice!',C:'Keep going!'}[grade||'C'];
+    this.say(this.lang==='TH'?msgTH:msgEN);
+  }
+}
