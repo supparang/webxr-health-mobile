@@ -1,64 +1,39 @@
+// core/sfx.js
+// จัดการเสียงอย่างง่าย + ปุ่มเปิด/ปิด + ปลดล็อกเสียงสำหรับ iOS/Android
+
 export class SFX {
-  constructor({enabled=true, poolSize=4}={}) {
-    this.enabled = enabled;
-    this.poolSize = poolSize;
+  constructor() {
+    this.enabled = (localStorage.getItem('hha_sound') !== '0');
     this._unlocked = false;
-    this._pools = new Map(); // id -> [HTMLAudioElement...]
   }
 
-  setEnabled(on){ this.enabled = !!on; }
-
-  _ensurePool(id){
-    if(this._pools.has(id)) return this._pools.get(id);
-    const base = document.getElementById(id);
-    if(!base) return null;
-    base.muted = !this.enabled;
-    base.volume = 1.0;
-    base.preload = 'auto';
-    base.setAttribute('playsinline','');
-
-    const pool = [base];
-    for(let i=1;i<this.poolSize;i++){
-      const a = base.cloneNode(true);
-      a.id = `${id}__${i}`;
-      a.style.display='none';
-      a.muted = !this.enabled;
-      a.volume = 1.0;
-      base.parentNode.appendChild(a);
-      pool.push(a);
-    }
-    this._pools.set(id, pool);
-    return pool;
+  setEnabled(on) {
+    this.enabled = !!on;
   }
 
-  async unlock(){
-    if(this._unlocked) return;
-    this._unlocked = true;
-    for(const [_, pool] of this._pools.entries()){
-      for(const a of pool){
-        try{
-          a.muted = !this.enabled ? true : false;
-          a.volume = this.enabled ? 1.0 : 0.0;
-          a.currentTime = 0;
-          // iOS/Safari: play->pause เพื่อปลดล็อก
-          await a.play().then(()=>a.pause()).catch(()=>{});
-        }catch{}
+  unlock() {
+    if (this._unlocked) return;
+    const ids = ['sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        try { el.play().then(()=>{ el.pause(); el.currentTime = 0; }); } catch {}
       }
+    });
+    this._unlocked = true;
+  }
+
+  play(id) {
+    if (!this.enabled) return;
+    const el = document.getElementById(id);
+    if (el) {
+      try { el.currentTime = 0; el.play(); } catch {}
     }
   }
 
-  async play(id, {volume=1.0, rewind=true}={}){
-    if(!this.enabled) return;
-    const pool = this._ensurePool(id);
-    if(!pool || !pool.length) return;
-
-    let a = pool.find(x => x.paused) || pool[0];
-    try{
-      a.muted = false;
-      a.volume = volume;
-      if(rewind) a.currentTime = 0;
-      const p = a.play();
-      if(p?.catch) await p.catch(()=>{});
-    }catch{}
-  }
+  good()    { this.play('sfx-good'); }
+  bad()     { this.play('sfx-bad'); }
+  perfect() { this.play('sfx-perfect'); }
+  tick()    { this.play('sfx-tick'); }
+  power()   { this.play('sfx-powerup'); }
 }
