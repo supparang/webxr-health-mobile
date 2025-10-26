@@ -190,3 +190,25 @@ header .btn{
 
 /* Low-time flash */
 .flash #c{ filter:brightness(1.1) saturate(1.1); }
+/* ===== Mode: Groups ===== */
+.mode-groups { display:grid; gap:12px; }
+.mode-groups .gg-head{ display:flex; justify-content:space-between; align-items:center; }
+.mode-groups .gg-title{ font-weight:700; font-size:1.1rem; }
+.mode-groups .gg-timer{ font-variant-numeric:tabular-nums; }
+.mode-groups .gg-item{ display:grid; justify-items:center; gap:8px; padding:8px 0; }
+.mode-groups .gg-icon{ width:92px; height:92px; object-fit:contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,.2)); }
+.mode-groups .gg-name{ font-weight:600; }
+.mode-groups .gg-hint{ font-size:.9rem; opacity:.8; min-height:1.2em; }
+.mode-groups .gg-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+.mode-groups .gg-btn{
+  padding:12px 10px; border-radius:14px; border:0; background:var(--btnColor, #888);
+  color:#fff; font-weight:700; box-shadow:0 3px 0 rgba(0,0,0,.18), 0 0 0 2px rgba(255,255,255,.15) inset;
+  transition: transform .05s ease, filter .2s ease;
+}
+.mode-groups .gg-btn:active{ transform: translateY(2px); }
+.mode-groups .gg-small{ padding:6px 10px; border-radius:10px; border:0; background:#f1f3f5; }
+.mode-groups .gg-small.danger{ background:#ffe3e3; color:#c92a2a; }
+.mode-groups .gg-foot{ display:flex; gap:8px; align-items:center; justify-content:flex-start; }
+.mode-groups .gg-score{ margin-left:auto; display:flex; gap:12px; font-weight:700; }
+.mode-groups .gg-btn.chosen.good { filter: drop-shadow(0 0 10px #2f9e44); }
+.mode-groups .gg-btn.chosen.bad  { filter: drop-shadow(0 0 10px #e03131) saturate(0.6); }
