@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/modes/groups.js (Floating Icons like goodjunk) ===
+// === Hero Health Academy — game/modes/groups.js (Floating Icons like goodjunk — sticky items) ===
 export const name = 'groups';
 
 // ---------- Config ----------
@@ -100,8 +100,7 @@ export function cleanup(){
 }
 
 export function tick(state, systems, hud){
-  // หากนานเกิน 15 วินาทีแล้วยังไม่ครบโควตา — ช่วยปรับโอกาสสุ่มหรือสลับหมวด
-  // (ที่นี่ปล่อยให้เล่นตามธรรมชาติพอ; ถ้าต้อง want: setTimeout เปลี่ยนหมวดได้)
+  // (ถ้าต้องการบังคับสลับหมวดตามเวลา สามารถเพิ่ม logic ในนี้ได้)
 }
 
 // ให้ main.js เรียกทุกครั้งที่สไปว์นหนึ่งชิ้น ต้องคืน meta ของชิ้นนั้น
@@ -120,7 +119,8 @@ export function pickMeta(diff, gameState){
     id: it.id,
     char: it.icon,
     good: (it.group===ST.targetId),
-    life: diff?.life || 3000, // อายุบนจอ
+    sticky: true,       // <<< ค้างอยู่จนกว่าจะคลิก (ต้องมีแพตช์ใน main.js ดูหมายเหตุด้านล่าง)
+    // ไม่กำหนด life เพื่อให้ main.js ข้ามการตั้ง TTL เมื่อ sticky เป็น true
   };
 }
 
@@ -138,8 +138,7 @@ export function onHit(meta, systems, gameState, hud){
       systems.sfx?.play?.('powerup');
       systems.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
     }
-    // ได้คะแนนประเภท "good" ให้ main.js จัดคอมโบ/ฟีเวอร์เอง
-    return 'good';
+    return 'good'; // ให้ระบบคอมโบ/ฟีเวอร์ใน main.js จัดการคะแนนต่อ
   }
   // กดผิดหมวด
   systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
