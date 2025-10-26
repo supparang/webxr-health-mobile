@@ -4,6 +4,42 @@
 // 7) Hooks for saving/export (board/progression-ready)
 
 window.__HHA_BOOT_OK = true;
+// main.js – เพิ่มบนสุดของไฟล์
+const MAX_ITEMS = 10;
+const LIVE = new Set();
+
+// main.js – ใน spawnOnce() ก่อนสร้างปุ่มใหม่
+if (LIVE.size >= MAX_ITEMS) {
+  state.spawnTimer = setTimeout(()=>spawnOnce(diff), 180);
+  return;
+}
+
+// main.js – หลังสร้าง element el แล้ว (ก่อน appendChild)
+function randPos(){
+  const headerH = $('header.brand')?.offsetHeight || 56;
+  const menuH   = $('#menuBar')?.offsetHeight || 120;
+  const yMin = headerH + 60;
+  const yMax = Math.max(yMin + 50, window.innerHeight - menuH - 80);
+  const xMin = 20;
+  const xMax = Math.max(xMin + 50, window.innerWidth - 80);
+  return {
+    left: xMin + Math.random()*(xMax-xMin),
+    top:  yMin + Math.random()*(yMax-yMin)
+  };
+}
+function overlapped(x,y){
+  for (const n of LIVE){
+    const r = n.getBoundingClientRect();
+    const dx = (r.left + r.width/2) - x;
+    const dy = (r.top  + r.height/2) - y;
+    if (Math.hypot(dx,dy) < 64) return true; // กันชนรัศมี ~64px
+  }
+  return false;
+}
+let pos = randPos(), tries=0;
+while (tries++<12 && overlapped(pos.left, pos.top)) pos = randPos();
+el.style.left = pos.left + 'px';
+el.style.top  = pos.top  + 'px';
 
 // ----- Imports -----
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
