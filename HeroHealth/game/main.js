@@ -1,15 +1,12 @@
 // === Hero Health Academy — main.js (resilient build) ===
-// จุดเด่น: โหลดโมดูลแบบไดนามิก + รายงานไฟล์ที่พัง, มี fallback ให้เกมยังรันได้
+// จุดเด่น: โหลดโมดูลแบบไดนามิก + รายงานไฟล์ที่พัง, Help Modal/Scene ตามโหมด, คอมโบ/FEVER, ไอคอนปรับตามความยาก
 
 window.__HHA_BOOT_OK = true;
 
-// ----- utils -----
+/* ---------------- Utils ---------------- */
 const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>Array.from(document.querySelectorAll(s));
 const byAction = (el)=>el?.closest?.('[data-action]') || null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
-
-// แสดงชื่อไฟล์ที่ import พังบนแถบแดง bootWarn
 function showBootError(where, err){
   const w = document.getElementById('bootWarn');
   if (!w) return;
@@ -17,8 +14,6 @@ function showBootError(where, err){
   w.textContent = `โหลดสคริปต์ไม่สำเร็จ: ${where} • รายละเอียด: ${msg}`;
   w.style.display = 'block';
 }
-
-// ----- dynamic loader with labels -----
 async function tryImport(label, path, fallback){
   try{
     const mod = await import(path + (path.includes('?')?'&':'?') + 'cb=' + Date.now());
@@ -30,9 +25,9 @@ async function tryImport(label, path, fallback){
   }
 }
 
+/* ---------------- Boot ---------------- */
 (async function boot(){
-  // ===== core (จำเป็น) =====
-  // THREE เป็น ES module CDN — ใช้ static import จะชัวร์กว่า แต่เพื่อความเสมอกัน ใช้ dynamic เช่นกัน
+  // core libs
   const threeRes = await tryImport('THREE', 'https://unpkg.com/three@0.159.0/build/three.module.js', null);
   if(!threeRes.ok){ return; }
   const THREE = threeRes.mod;
@@ -45,15 +40,15 @@ async function tryImport(label, path, fallback){
   const cchRes  = await tryImport('core/coach',  './core/coach.js',  { Coach: class{ constructor(o){ this.lang=o?.lang||'TH'; } onStart(){} onEnd(){} onCombo(){} onFever(){} say(){} setLang(l){this.lang=l;} }});
   const fxRes   = await tryImport('core/fx',     './core/fx.js',     { FloatingFX: class{ popText(){} spawn3D(){} }});
 
-  const { Engine }       = engRes.mod;
-  const { HUD }          = hudRes.mod;
-  const { SFX }          = sfxRes.mod;
-  const { ScoreSystem }  = scrRes.mod;
-  const { PowerUpSystem }= pwrRes.mod;
-  const { Coach }        = cchRes.mod;
-  const { FloatingFX }   = fxRes.mod;
+  const { Engine }        = engRes.mod;
+  const { HUD }           = hudRes.mod;
+  const { SFX }           = sfxRes.mod;
+  const { ScoreSystem }   = scrRes.mod;
+  const { PowerUpSystem } = pwrRes.mod;
+  const { Coach }         = cchRes.mod;
+  const { FloatingFX }    = fxRes.mod;
 
-  // ===== modes (ถ้าไฟล์ไหนพัง จะใช้ fallback ที่เรียบง่ายแทน) =====
+  // modes (fallback if broken)
   const fallbackMode = {
     init(){}, tick(){}, cleanup(){},
     pickMeta(diff){ const chars=['🍎','🍔','🥦','🍩']; return { char: chars[(Math.random()*chars.length)|0], life: diff?.life||2500, good: Math.random()>0.4 }; },
@@ -64,13 +59,12 @@ async function tryImport(label, path, fallback){
   const hyRes = await tryImport('modes/hydration','./modes/hydration.js',{ default: fallbackMode, ...fallbackMode });
   const plRes = await tryImport('modes/plate',    './modes/plate.js',    { default: fallbackMode, ...fallbackMode });
 
-  // normalize export style (บางไฟล์อาจ export เป็นค่าเริ่มต้น)
   const goodjunk = gjRes.mod.default ? gjRes.mod.default : gjRes.mod;
   const groups   = grRes.mod.default ? grRes.mod.default : grRes.mod;
   const hydration= hyRes.mod.default ? hyRes.mod.default : hyRes.mod;
   const plate    = plRes.mod.default ? plRes.mod.default : plRes.mod;
 
-  // ===== Config =====
+  /* -------------- Config -------------- */
   const MODES = { goodjunk, groups, hydration, plate };
   const DIFFS = {
     Easy:   { time:70, spawn:900, life:4200 },
@@ -78,14 +72,14 @@ async function tryImport(label, path, fallback){
     Hard:   { time:50, spawn:550, life:1800 }
   };
 
-  // ===== Systems & State =====
-  const hud = new HUD();
-  const sfx = new SFX();
+  /* -------------- Systems & State -------------- */
+  const hud   = new HUD();
+  const sfx   = new SFX();
   const score = new ScoreSystem();
   const power = new PowerUpSystem();
   const coach = new Coach({ lang: localStorage.getItem('hha_lang') || 'TH' });
-  const eng = new Engine(THREE, document.getElementById('c'));
-  const fx  = new FloatingFX(eng);
+  const eng   = new Engine(THREE, document.getElementById('c'));
+  const fx    = new FloatingFX(eng);
 
   const state = {
     modeKey:'goodjunk',
@@ -101,7 +95,7 @@ async function tryImport(label, path, fallback){
     spawnTimer:0, tickTimer:0
   };
 
-  // ===== UI helpers & i18n (สั้น ๆ) =====
+  /* -------------- i18n (สั้น ๆ) -------------- */
   const i18n = {
     TH:{names:{goodjunk:'ดี vs ขยะ',groups:'จาน 5 หมู่',hydration:'สมดุลน้ำ',plate:'จัดจานสุขภาพ'}, diffs:{Easy:'ง่าย',Normal:'ปกติ',Hard:'ยาก'}},
     EN:{names:{goodjunk:'Good vs Trash',groups:'Food Groups',hydration:'Hydration',plate:'Healthy Plate'}, diffs:{Easy:'Easy',Normal:'Normal',Hard:'Hard'}}
@@ -110,7 +104,7 @@ async function tryImport(label, path, fallback){
 
   function applyUI(){
     const t = T(state.lang);
-    setText('#modeName', t.names[state.modeKey]||state.modeKey);
+    setText('#modeName',   t.names[state.modeKey]||state.modeKey);
     setText('#difficulty', t.diffs[state.difficulty]||state.difficulty);
   }
   function updateHUD(){
@@ -143,7 +137,148 @@ async function tryImport(label, path, fallback){
     fx.popText?.((total>=0?`+${total}`:`${total}`), { color: total>=0?'#7fffd4':'#ff9b9b' });
   }
 
-  // ===== gameplay loops =====
+  /* -------------- HELP TEXTS & SCENE -------------- */
+  const HELP_TEXT = {
+    TH: {
+      goodjunk: [
+        '🎯 เป้าหมาย: เก็บอาหารสุขภาพ หลีกเลี่ยงของขยะ',
+        '✅ ตัวอย่างที่ถูก: 🥦 🥕 🍎 🍇',
+        '❌ หลีกเลี่ยง: 🍔 🍟 🍩 🥤',
+        '💡 เคล็ดลับ: ตอกต่อเนื่องเพื่อคอมโบ เปิด FEVER แล้วคะแนนคูณ'
+      ],
+      groups: [
+        '🎯 เป้าหมาย: เก็บให้ “ตรงหมวดตามป้าย HUD”',
+        '✅ ตรงเป้า +7 (ถ้ามี x2 ได้มากขึ้นอัตโนมัติ)',
+        '↪️ ครบ 3 ชิ้น เป้าจะหมุนไปหมวดใหม่',
+        '🧊 พาวเวอร์อัป: ✨ (Dual) • ✖️2 (Score x2) • 🧊 (Freeze) • 🔄 (Rotate)',
+        '⏱️ ภารกิจ 45 วิ: ทำครบเพื่อโบนัส'
+      ],
+      hydration: [
+        '🎯 เป้าหมาย: รักษาสมดุลน้ำ 45–65%',
+        '💧 น้ำ/นม = เพิ่ม • 🥤 โซดา/น้ำหวาน & ☕ กาแฟ = ลด',
+        '📈 อยู่ในช่วงเหมาะสมได้คะแนนดีกว่า',
+        '⚠️ สูงหรือต่ำเกิน → โดนหัก/ลดโบนัส'
+      ],
+      plate: [
+        '🎯 เป้าหมาย: เติมโควตา—ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1',
+        '✅ เติมถูกหมวด +6 • ครบจาน PERFECT +14 และเริ่มจานใหม่',
+        '❌ เกินโควตา: -2 และ -1s เวลา',
+        '💡 ป้ายจะบอกหมวดที่ “ยังขาดมากสุด”'
+      ]
+    },
+    EN: {
+      goodjunk: [
+        '🎯 Goal: Collect healthy foods, avoid junk.',
+        '✅ Healthy: 🥦 🥕 🍎 🍇',
+        '❌ Avoid: 🍔 🍟 🍩 🥤',
+        '💡 Tip: Chain hits to build combo; FEVER multiplies score.'
+      ],
+      groups: [
+        '🎯 Goal: Match the “target food group” shown on HUD.',
+        '✅ On-target +7 (more if x2 active)',
+        '↪️ Target rotates after every 3 on-target hits.',
+        '🧊 Power-ups: ✨ (Dual) • ✖️2 (Score x2) • 🧊 (Freeze) • 🔄 (Rotate)',
+        '⏱️ 45s mission: complete for bonus'
+      ],
+      hydration: [
+        '🎯 Goal: Keep hydration between 45–65%.',
+        '💧 Water/Milk = up • 🥤 Soda & ☕ Coffee = down',
+        '📈 Staying in range gives better scoring.',
+        '⚠️ Too high/low → penalties / reduced bonus'
+      ],
+      plate: [
+        '🎯 Goal: Fill quotas—Grain2, Veg2, Protein1, Fruit1, Dairy1.',
+        '✅ Correct fill +6 • PERFECT +14 then reset plate',
+        '❌ Overfill: -2 and -1s time',
+        '💡 Badge shows the most-needed group'
+      ]
+    }
+  };
+
+  const HELP_SCENE = {
+    TH: [
+      { key:'goodjunk', icon:'🥗', title:'ดี vs ขยะ',
+        lines:['เก็บอาหารดี หลีกเลี่ยงของขยะ','คอมโบต่อเนื่อง → FEVER คะแนนคูณ'] },
+      { key:'groups', icon:'🍽️', title:'จาน 5 หมู่',
+        lines:['เก็บให้ตรงหมวดตาม HUD','พาวเวอร์อัป ✨ ✖️2 🧊 🔄 • ภารกิจ 45 วิ'] },
+      { key:'hydration', icon:'💧', title:'สมดุลน้ำ',
+        lines:['รักษา 45–65%','น้ำ/นมเพิ่ม • น้ำหวาน/กาแฟลด'] },
+      { key:'plate', icon:'🍱', title:'จัดจานสุขภาพ',
+        lines:['โควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1','PERFECT +14 • เกินโควตา -2 & -1s'] }
+    ],
+    EN: [
+      { key:'goodjunk', icon:'🥗', title:'Good vs Junk',
+        lines:['Collect healthy, avoid junk','Keep combos → FEVER (score boost)'] },
+      { key:'groups', icon:'🍽️', title:'5 Food Groups',
+        lines:['Match HUD target group','Power-ups ✨ ✖️2 🧊 🔄 • 45s mission'] },
+      { key:'hydration', icon:'💧', title:'Hydration',
+        lines:['Keep 45–65%','Water/Milk up • Soda/Coffee down'] },
+      { key:'plate', icon:'🍱', title:'Healthy Plate',
+        lines:['Quotas: G2 V2 P1 F1 D1','Perfect +14 • Overfill -2 & -1s'] }
+    ]
+  };
+
+  function openHelpForCurrentMode(){
+    const lang = state.lang === 'EN' ? 'EN' : 'TH';
+    const arr = HELP_TEXT[lang][state.modeKey] || [];
+    const body = document.getElementById('helpBody');
+    const modal = document.getElementById('help');
+    if (body) body.textContent = arr.join('\n');
+    if (modal) modal.style.display = 'flex';
+  }
+  function openHelpScene(){
+    const lang = state.lang === 'EN' ? 'EN' : 'TH';
+    const data = HELP_SCENE[lang] || [];
+    const host = document.getElementById('hs_body');
+    const modal = document.getElementById('helpScene');
+    if (!host || !modal) return;
+
+    host.innerHTML = data.map(card=>{
+      const lines = card.lines.map(l=>`<li>${l}</li>`).join('');
+      return `
+        <article class="hs-card" data-key="${card.key}" style="
+          display:flex;flex-direction:column;gap:8px;
+          padding:14px;border-radius:14px;background:rgba(255,255,255,.06);
+          box-shadow:0 4px 16px rgba(0,0,0,.25);backdrop-filter:blur(6px);
+        ">
+          <div style="font-size:32px">${card.icon}</div>
+          <h4 style="margin:0">${card.title}</h4>
+          <ul style="margin:0 0 6px 18px;padding:0;line-height:1.5">${lines}</ul>
+          <button type="button" class="btn" data-help-more="${card.key}">ℹ ดูวิธีเล่นโหมดนี้</button>
+        </article>
+      `;
+    }).join('');
+
+    host.onclick = (e)=>{
+      const btn = e.target.closest('[data-help-more]');
+      if (!btn) return;
+      state.modeKey = btn.getAttribute('data-help-more');
+      applyUI();
+      openHelpForCurrentMode();
+    };
+
+    modal.style.display = 'flex';
+  }
+  (function wireHelpClose(){
+    const hs = document.getElementById('helpScene');
+    if (hs){
+      hs.addEventListener('click', (e)=>{
+        if (e.target.id==='helpScene' || e.target.matches('[data-action="helpSceneClose"]')){
+          hs.style.display='none';
+        }
+      }, { passive:true });
+    }
+    const help = document.getElementById('help');
+    if (help){
+      help.addEventListener('click', (e)=>{
+        if (e.target.id==='help' || e.target.matches('[data-action="helpClose"]')){
+          help.style.display='none';
+        }
+      }, { passive:true });
+    }
+  })();
+
+  /* -------------- Spawning -------------- */
   function spawnOnce(diff){
     if(!state.running || state.paused) return;
     const mode = MODES[state.modeKey];
@@ -157,8 +292,8 @@ async function tryImport(label, path, fallback){
     el.style.position='fixed'; el.style.border='none'; el.style.background='none'; el.style.cursor='pointer';
     el.style.lineHeight=1; el.style.transition='transform .15s, filter .15s'; el.style.zIndex='80';
 
-    el.addEventListener('pointerenter', ()=> el.style.transform='scale(1.18)', {passive:true});
-    el.addEventListener('pointerleave', ()=> el.style.transform='scale(1)',   {passive:true});
+    el.addEventListener('pointerenter', ()=>{ el.style.transform='scale(1.18)'; }, {passive:true});
+    el.addEventListener('pointerleave', ()=>{ el.style.transform='scale(1)';    }, {passive:true});
 
     const headerH = $('header.brand')?.offsetHeight || 56;
     const menuH   = $('#menuBar')?.offsetHeight || 120;
@@ -195,6 +330,7 @@ async function tryImport(label, path, fallback){
     state.spawnTimer = setTimeout(spawnLoop, next);
   }
 
+  /* -------------- Tick / Flow -------------- */
   function tick(){
     if(!state.running || state.paused) return;
 
@@ -233,7 +369,7 @@ async function tryImport(label, path, fallback){
     if(!silent){ const m=$('#result'); if(m) m.style.display='flex'; }
   }
 
-  // ===== events =====
+  /* -------------- Events -------------- */
   document.addEventListener('pointerup', (e)=>{
     const btn = byAction(e.target); if(!btn) return;
     const a = btn.getAttribute('data-action');
@@ -249,9 +385,9 @@ async function tryImport(label, path, fallback){
       else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
     }
     else if (a==='restart'){ end(true); start(); }
-    else if (a==='help'){ const m=$('#help'); if(m) m.style.display='flex'; }
+    else if (a==='help'){ openHelpForCurrentMode(); }
     else if (a==='helpClose'){ const m=$('#help'); if(m) m.style.display='none'; }
-    else if (a==='helpScene'){ const m=$('#helpScene'); if(m) m.style.display='flex'; }
+    else if (a==='helpScene'){ openHelpScene(); }
     else if (a==='helpSceneClose'){ const m=$('#helpScene'); if(m) m.style.display='none'; }
   }, {passive:true});
 
@@ -270,7 +406,7 @@ async function tryImport(label, path, fallback){
 
   window.addEventListener('pointerdown', ()=>{ try{ (new SFX()).unlock?.(); }catch{} }, { once:true, passive:true });
 
-  // ===== boot =====
+  // boot
   applyUI();
   updateHUD();
 })();
