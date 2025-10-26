@@ -1,5 +1,5 @@
 // game/main.js
-// === Hero Health Academy — main.js (coach online + quests + 10-upgrades) ===
+// === Hero Health Academy — main.js (coach online + quests + 3D burst fixed) ===
 
 window.__HHA_BOOT_OK = true;
 
@@ -33,7 +33,7 @@ const ICON_SIZE_MAP = { Easy: 92, Normal: 72, Hard: 58 };
 const MAX_ITEMS = 10;
 const LIVE = new Set();
 
-// I18N (ชื่อโหมด/ยาก)
+// I18N
 const I18N = {
   TH:{ names:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
        diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'} },
@@ -65,13 +65,11 @@ const state = {
   stats:{good:0,perfect:0,ok:0,bad:0},
   _accHist:[],
   freezeUntil:0,
-  // coach/quest assist
-  questNames:{}, // {id:name} สำหรับโชว์ใน coach/mission
-  didWarnT10:false,
-  countdownSec:0,
+  questNames:{},
+  didWarnT10:false
 };
 
-// ----- UI -----
+// ----- Tiny UI -----
 function applyUI(){
   const L = T(state.lang);
   setText('#modeName',   L.names[state.modeKey]||state.modeKey);
@@ -145,7 +143,6 @@ function makeFlame(x,y,strong){
   st.textContent = `@keyframes flamePop{from{transform:translate(-50%,-50%) scale(.7);opacity:.0}to{transform:translate(-50%,-50%) scale(1.05);opacity:.0}}`;
   document.head.appendChild(st);
 })();
-
 function scoreWithEffects(base,x,y){
   const comboMul = state.combo>=20?1.4:(state.combo>=10?1.2:1.0);
   const feverMul = state.fever.active?state.fever.mul:1.0;
@@ -204,7 +201,86 @@ function overlapped(x,y){
   return false;
 }
 
-// ----- Spawn one -----
+// ----- FX root + 3D helpers (SINGLE VERSION) -----
+let FXROOT = document.querySelector('.fx3d-root');
+if (!FXROOT){
+  FXROOT = document.createElement('div');
+  FXROOT.className = 'fx3d-root';
+  document.addEventListener('DOMContentLoaded', ()=> document.body.appendChild(FXROOT));
+}
+function add3DTilt(el){
+  let rect;
+  const maxTilt = 12;
+  const upd = (x,y)=>{
+    if (!rect) rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top  + rect.height/2;
+    const dx = (x - cx) / (rect.width/2);
+    const dy = (y - cy) / (rect.height/2);
+    const rx = Math.max(-1, Math.min(1, dy)) * maxTilt;
+    const ry = Math.max(-1, Math.min(1, -dx)) * maxTilt;
+    el.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+  };
+  const clear = ()=>{ el.style.transform='perspective(600px) rotateX(0) rotateY(0)'; rect=null; };
+  el.addEventListener('pointermove', (e)=> upd(e.clientX, e.clientY), {passive:true});
+  el.addEventListener('pointerleave', clear, {passive:true});
+  el.addEventListener('pointerdown', (e)=> upd(e.clientX, e.clientY), {passive:true});
+  el.addEventListener('pointerup', clear, {passive:true});
+}
+function shatter3D(x, y){
+  // ring
+  const ring = document.createElement('div');
+  ring.className = 'burstRing';
+  ring.style.left = x + 'px';
+  ring.style.top  = y + 'px';
+  FXROOT.appendChild(ring);
+  ring.style.animation = 'ringOut .45s ease-out forwards';
+  setTimeout(()=>{ try{ ring.remove(); }catch{} }, 500);
+  // shards
+  const SHARDS = 10 + (Math.random()*6|0);
+  for (let i=0;i<SHARDS;i++){
+    const s = document.createElement('div');
+    s.className = 'shard';
+    s.style.left = x + 'px';
+    s.style.top  = y + 'px';
+    const ang = Math.random()*Math.PI*2;
+    const dist = 50 + Math.random()*90;
+    const tx = Math.cos(ang)*dist;
+    const ty = Math.sin(ang)*dist;
+    const tz = (Math.random()*2-1)*140;
+    const rot = (Math.random()*720 - 360) + 'deg';
+    s.style.setProperty('--x0','-50%');
+    s.style.setProperty('--y0','-50%');
+    s.style.setProperty('--x1', `${tx}px`);
+    s.style.setProperty('--y1', `${ty}px`);
+    s.style.setProperty('--z1', `${tz}px`);
+    s.style.setProperty('--rot', rot);
+    FXROOT.appendChild(s);
+    s.style.animation = `shardFly ${0.45 + Math.random()*0.15}s ease-out forwards`;
+    setTimeout(()=>{ try{ s.remove(); }catch{} }, 600);
+  }
+  // sparks
+  const SP = 8 + (Math.random()*4|0);
+  for (let i=0;i<SP;i++){
+    const p = document.createElement('div');
+    p.className='spark';
+    p.style.left = x + 'px';
+    p.style.top  = y + 'px';
+    const ang = Math.random()*Math.PI*2;
+    const d = 20 + Math.random()*50;
+    const tx = Math.cos(ang)*d;
+    const ty = Math.sin(ang)*d;
+    p.style.setProperty('--sx0','-50%');
+    p.style.setProperty('--sy0','-50%');
+    p.style.setProperty('--sx1', `${tx}px`);
+    p.style.setProperty('--sy1', `${ty}px`);
+    FXROOT.appendChild(p);
+    p.style.animation = `sparkUp .35s ease-out forwards`;
+    setTimeout(()=>{ try{ p.remove(); }catch{} }, 420);
+  }
+}
+
+// ----- Spawn one (SINGLE VERSION) -----
 function spawnOnce(diff){
   if (!state.running || state.paused) return;
 
@@ -229,8 +305,7 @@ function spawnOnce(diff){
     position:fixed;border:none;background:transparent;color:#fff;cursor:pointer;z-index:80;
     line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;`;
 
-  el.addEventListener('pointerenter', ()=> el.style.transform='scale(1.12)', {passive:true});
-  el.addEventListener('pointerleave', ()=> el.style.transform='scale(1)',   {passive:true});
+  add3DTilt(el);
 
   // anti-overlap
   let pos = randPos(), tries=0;
@@ -238,44 +313,33 @@ function spawnOnce(diff){
   el.style.left = pos.left+'px';
   el.style.top  = pos.top +'px';
 
-  // 3D explode effect container
-  el.dataset.hitFx = '1';
-
   el.addEventListener('click', (ev)=>{
     ev.stopPropagation();
     try{
       const sys = { score, sfx, power, coach, fx: eng?.fx };
-
-      // onHit → 'good'|'ok'|'bad'|'perfect'|'power', และอาจตั้ง state.freezeUntil
       const res = mode?.onHit?.(meta, sys, state, hud) || (meta.good?'good':'ok');
-
-      // notify coach for power kinds if present
-      if (res==='power'){
-        // onHit ในโหมดจะเรียก power.apply / freezeUntil ให้แล้ว
-        coach.onPower?.(meta.power==='scorex2'?'boost':meta.power);
-      }
 
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width/2;
       const cy = r.top  + r.height/2;
 
-      state.stats[res] = (state.stats[res]||0) + 1;
+      if (res==='power'){ coach.onPower?.(meta.power==='scorex2'?'boost':meta.power); }
+
+      state.stats[res] = (state.stats[res]||0)+1;
       if (res==='good' || res==='perfect') addCombo(res);
       if (res==='bad') addCombo('bad');
 
       const base = ({good:7,perfect:14,ok:2,bad:-3,power:5})[res] || 1;
       scoreWithEffects(base, cx, cy);
 
-      // haptics
       if (state.haptic && navigator.vibrate){
         if (res==='bad') navigator.vibrate(60);
         else if (res==='perfect') navigator.vibrate([12,30,12]);
         else if (res==='good') navigator.vibrate(12);
       }
 
-      // 3D explode mini (CSS-based shards)
-      try{ explode3D(el); }catch{}
-      el.style.opacity='0.6';
+      // 3D burst
+      shatter3D(cx, cy);
     }catch(e){
       console.error('[HHA] onHit error:', e);
     }finally{
@@ -287,31 +351,6 @@ function spawnOnce(diff){
   LIVE.add(el);
   const ttl = meta.life || diff.life || 3000;
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
-}
-
-// simple CSS 3D shard burst (lightweight)
-function explode3D(anchor){
-  const N = 6;
-  const rect = anchor.getBoundingClientRect();
-  for (let i=0;i<N;i++){
-    const s = document.createElement('div');
-    s.className='shard';
-    const x = rect.left + rect.width/2;
-    const y = rect.top  + rect.height/2;
-    s.style.cssText = `
-      position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%) rotate(${Math.random()*360}deg);
-      width:10px;height:10px;border-radius:2px;background:linear-gradient(45deg,#fff,#ffd54a);
-      pointer-events:none;z-index:90;opacity:.95;`;
-    document.body.appendChild(s);
-    const dx = (Math.random()*2-1)*90;
-    const dy = (Math.random()*2-1)*90;
-    requestAnimationFrame(()=>{
-      s.style.transition='transform .45s ease-out, opacity .45s';
-      s.style.transform = `translate(${dx}px,${dy}px) rotate(${Math.random()*720-360}deg)`;
-      s.style.opacity='0';
-    });
-    setTimeout(()=>{ try{ s.remove(); }catch{} }, 520);
-  }
 }
 
 // ----- Spawn loop (adaptive) -----
@@ -360,7 +399,7 @@ function tick(){
   state.tickTimer = setTimeout(tick, 1000);
 }
 
-// countdown overlay + coach call
+// countdown overlay
 async function runCountdown(sec=5){
   const overlayId='cdOverlay';
   let ov = document.getElementById(overlayId);
@@ -386,7 +425,6 @@ async function start(){
   end(true);
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
-  // countdown
   await runCountdown(5);
 
   state.running = true; state.paused=false;
