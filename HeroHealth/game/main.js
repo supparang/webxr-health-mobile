@@ -63,7 +63,7 @@ const state = {
   _accHist:[],
   freezeUntil:0,
   didWarnT10:false,
-  uiMode:false,              // โหมด UI-Driven (มี enter/exit ภายในโมดูล)
+  uiMode:false,
 };
 
 // ----- UI -----
@@ -246,6 +246,7 @@ function shatter3D(x,y){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
+    the:; // (no-op label removed if you like)
     const dist= 60 + Math.random()*110;
     const tx = Math.cos(ang)*dist;
     const ty = Math.sin(ang)*dist;
@@ -278,7 +279,7 @@ function shatter3D(x,y){
 
 // ----- Spawn one -----
 function spawnOnce(diff){
-  if (!state.running || state.paused || state.uiMode) return; // guard UI-Driven
+  if (!state.running || state.paused || state.uiMode) return;
 
   const now = performance?.now?.()||Date.now();
   if (state.freezeUntil && now < state.freezeUntil){
@@ -342,8 +343,7 @@ function spawnOnce(diff){
   document.body.appendChild(el);
   LIVE.add(el);
 
-  // ---- Sticky TTL logic (สำคัญ) ----
-  // ถ้า meta.sticky === true จะ "ค้าง" จนกว่าจะคลิก (ไม่ตั้ง TTL)
+  // Sticky support: ถ้า meta.sticky === true จะไม่ตั้ง TTL ให้หายเอง
   const ttl = (meta && meta.sticky) ? 0 : (meta.life || diff.life || 3000);
   if (ttl > 0){
     setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
@@ -352,7 +352,7 @@ function spawnOnce(diff){
 
 // ----- Spawn loop (adaptive) -----
 function spawnLoop(){
-  if (!state.running || state.paused || state.uiMode) return; // guard UI-Driven
+  if (!state.running || state.paused || state.uiMode) return;
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -384,7 +384,6 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
-  // ส่ง state/systems/hud ให้โหมด (ตามสัญญาเดิม)
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
   state.timeLeft = Math.max(0, state.timeLeft - 1);
@@ -436,7 +435,6 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  // โหมดที่มี enter() (เช่นบางโหมด UI-Driven) → ให้โมดูลคุม UI เอง
   const mode = MODES[state.modeKey];
   const modeRoot = document.getElementById('modeRoot');
   if (mode?.enter && modeRoot){
@@ -457,7 +455,6 @@ function end(silent=false){
   state.running=false; state.paused=false;
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
 
-  // cleanup ของโหมด UI-Driven
   try{ MODES[state.modeKey]?.exit?.(); }catch{}
   const modeRoot = document.getElementById('modeRoot');
   if (modeRoot) modeRoot.innerHTML = '';
@@ -489,7 +486,7 @@ function end(silent=false){
         </div>`;
       const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
 
-      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard'];
+      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
       if (coreEl) coreEl.innerHTML = resCore;
       if (brEl)   brEl.innerHTML   = resBreak;
       if (bdEl)   bdEl.innerHTML   = resBoard;
@@ -500,21 +497,18 @@ function end(silent=false){
 
 // ----- Events -----
 document.addEventListener('pointerup', (e)=>{
-  // ให้โหมด UI-Driven รับคลิกของตัวเองก่อน (ถ้ามี)
   if (state.uiMode && MODES[state.modeKey]?.handleDomAction){
     try { MODES[state.modeKey].handleDomAction(e.target); } catch {}
-    // ไม่ return เพื่อให้ปุ่มเมนูหลัก (help/pause/...) ยังทำงาน
   }
 
-  const btn = byAction(e.target); 
+  const btn = byAction(e.target);
   if(!btn) return;
 
-  const a = btn.getAttribute('data-action'); 
+  const a = btn.getAttribute('data-action');
   const v = btn.getAttribute('data-value');
 
-  // รองรับรูปแบบ ui:start:* (ตามปุ่มใน index.html)
   if (a && a.startsWith('ui:start:')){
-    const key = a.split(':')[2];           // goodjunk / groups / hydration / plate
+    const key = a.split(':')[2];
     if (MODES[key]){
       state.modeKey = key;
       applyUI();
@@ -523,50 +517,49 @@ document.addEventListener('pointerup', (e)=>{
     return;
   }
 
-  // รูปแบบเดิม (legacy)
-  if (a === 'mode'){ 
-    state.modeKey = v; 
-    applyUI(); 
-    if (state.running) start(); 
+  if (a === 'mode'){
+    state.modeKey = v;
+    applyUI();
+    if (state.running) start();
   }
-  else if (a === 'diff'){ 
-    state.difficulty = v; 
-    applyUI(); 
-    if (state.running) start(); 
+  else if (a === 'diff'){
+    state.difficulty = v;
+    applyUI();
+    if (state.running) start();
   }
-  else if (a === 'start'){ 
-    start(); 
+  else if (a === 'start'){
+    start();
   }
   else if (a === 'pause'){
     if (!state.running){ start(); return; }
     state.paused = !state.paused;
-    if (!state.paused){ 
-      tick(); 
-      if(!state.uiMode) spawnLoop(); 
-    } else { 
-      clearTimeout(state.tickTimer); 
-      clearTimeout(state.spawnTimer); 
+    if (!state.paused){
+      tick();
+      if(!state.uiMode) spawnLoop();
+    } else {
+      clearTimeout(state.tickTimer);
+      clearTimeout(state.spawnTimer);
     }
   }
-  else if (a === 'restart'){ 
-    end(true); 
-    start(); 
+  else if (a === 'restart'){
+    end(true);
+    start();
   }
-  else if (a === 'help'){ 
-    const m=$('#help'); 
-    if (m) m.style.display='flex'; 
+  else if (a === 'help'){
+    const m=$('#help');
+    if (m) m.style.display='flex';
   }
-  else if (a === 'helpClose'){ 
-    const m=$('#help'); 
-    if (m) m.style.display='none'; 
+  else if (a === 'helpClose'){
+    const m=$('#help');
+    if (m) m.style.display='none';
   }
-  else if (a === 'helpScene'){ 
-    const hs=$('#helpScene'); 
-    if (hs) hs.style.display='flex'; 
+  else if (a === 'helpScene'){
+    const hs=$('#helpScene');
+    if (hs) hs.style.display='flex';
   }
-  else if (a === 'helpSceneClose'){ 
-    const hs=$('#helpScene'); 
-    if (hs) hs.style.display='none'; 
+  else if (a === 'helpSceneClose'){
+    const hs=$('#helpScene');
+    if (hs) hs.style.display='none';
   }
 }, {passive:true});
 
