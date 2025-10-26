@@ -1,38 +1,14 @@
-// === Hero Health Academy — game/modes/groups.js (Target Group Edition) ===
-// โหมด "จาน 5 หมู่ / Food Group Frenzy":
-// - ระบบจะสุ่ม "หมวดเป้าหมาย" (ผลไม้/ผัก/โปรตีน/ธัญพืช)
-// - แสดงไอคอนอาหาร 8 ชิ้น (มีของหมวดเป้าหมายอยู่ N ชิ้น)
-// - ผู้เล่นต้อง "คลิกให้ตรงหมวดเป้าหมาย" ให้ครบ N ชิ้น เพื่อไปยังรอบถัดไป
-// - คะแนนได้จากคลิกถูก และคอมโบต่อเนื่อง ถ้าคลิกผิดคอมโบจะรีเซ็ต
-//
-// Public API ที่ main.js เรียก:
-//   export function init(ctx)
-//   export function enter(root, opts)
-//   export function exit()
-//   export function tick(dt)
-//   export function handleDomAction(el)
-
+// === Hero Health Academy — game/modes/groups.js (Centered feel + sticky items) ===
 export const name = 'groups';
-
-let ctx = null;   // engine/hud/coach/sfx/score/powerups ... จาก main
-let ui  = null;   // root DOM ของโหมดนี้
-let st  = null;   // state ภายในโหมด
+export const stickyItems = true; // บอก main.js ว่าไอคอนของโหมดนี้ควร "ค้าง" โดยดีฟอลต์
 
 // ---------- Config ----------
 const GROUPS = [
-  { id:'fruits',  labelTH:'ผลไม้',     labelEN:'Fruits',     color:'#ef4444', key:'1' },
-  { id:'veggies', labelTH:'ผัก',        labelEN:'Vegetables', color:'#22c55e', key:'2' },
-  { id:'protein', labelTH:'โปรตีน',     labelEN:'Protein',    color:'#3b82f6', key:'3' },
-  { id:'grains',  labelTH:'ธัญพืช',     labelEN:'Grains',     color:'#f59e0b', key:'4' },
+  { id:'fruits',  labelTH:'ผลไม้',     labelEN:'Fruits',     color:'#ef4444' },
+  { id:'veggies', labelTH:'ผัก',        labelEN:'Vegetables', color:'#22c55e' },
+  { id:'protein', labelTH:'โปรตีน',     labelEN:'Protein',    color:'#3b82f6' },
+  { id:'grains',  labelTH:'ธัญพืช',     labelEN:'Grains',     color:'#f59e0b' },
 ];
-
-const DEFAULTS = {
-  durationSec: 60,
-  language: 'TH',           // 'TH' | 'EN'
-  allowHints: true,
-  gridSize: 8,              // จำนวนไอคอนต่อรอบ
-  correctPerRound: 3,       // จำนวนเป้าหมายที่ต้องคลิกให้ครบในรอบหนึ่ง
-};
 
 const ITEMS = [
   // Fruits (12)
@@ -94,278 +70,100 @@ const ITEMS = [
   { id:'donut',      group:'grains',  labelEN:'Donut',      labelTH:'โดนัท',           icon:'🍩' },
 ];
 
-// ---------- Lifecycle ----------
-export function init(context){ ctx = context; }
+// ---------- Internal state ----------
+const ST = {
+  lang: 'TH',
+  targetId: 'fruits',
+  need: 4,
+  got: 0,
+};
 
-export function enter(root, opts={}){
-  const cfg = { ...DEFAULTS, ...opts };
+// ---------- Public API for main.js ----------
+export function init(gameState, hud, diff){
+  const d = (gameState?.difficulty)||'Normal';
+  ST.need = d==='Easy' ? 3 : d==='Hard' ? 5 : 4;
+  ST.got = 0;
+  ST.lang = (localStorage.getItem('hha_lang')||'TH');
 
-  st = {
-    cfg,
-    playing: true,
-    score: 0,
-    combo: 0,
-    bestCombo: 0,
-    hits: 0,
-    wrongs: 0,
-    round: 0,
-    targetGroup: null,     // 'fruits' | 'veggies' | 'protein' | 'grains'
-    need: cfg.correctPerRound,
-    got: 0,
-    usedItemIds: new Set(), // ป้องกันซ้ำติดกันบ่อยๆ
+  // สุ่มหมวดแรก + แสดง HUD
+  ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
+  showTargetHUD(true);
+  updateTargetBadge();
+
+  // ตั้ง data-attr ที่ <html> เพื่อให้ CSS scope เฉพาะโหมดนี้
+  try { document.documentElement.setAttribute('data-hha-mode','groups'); } catch {}
+}
+
+export function cleanup(){
+  showTargetHUD(false);
+  try { document.documentElement.removeAttribute('data-hha-mode'); } catch {}
+}
+
+export function tick(state, systems, hud){
+  // (option) สามารถเขียน logic สลับหมวดตามเวลา/ปรับโอกาสสปอว์นได้ที่นี่
+}
+
+// ให้ main.js เรียกตอนจะสปอว์น 1 ชิ้น → ส่ง meta คืน
+export function pickMeta(diff, gameState){
+  // เพิ่ม bias ให้ "ชิ้นที่เป็นเป้าหมาย" ขึ้นกลางจอได้ง่าย (อิง CSS ช่วย)
+  const probTarget = 0.62;
+  const pickTarget = Math.random() < probTarget;
+
+  const pool = pickTarget
+    ? ITEMS.filter(i=>i.group===ST.targetId)
+    : ITEMS.filter(i=>i.group!==ST.targetId);
+
+  const it = pool[(Math.random()*pool.length)|0];
+
+  return {
+    id: it.id,
+    char: it.icon,
+    good: (it.group===ST.targetId),
+    sticky: true,  // ค้างจนกว่าจะคลิก (main.js จะไม่ตั้ง TTL)
+    // ไม่กำหนด life เพื่อเลี่ยง TTL ใด ๆ
   };
-
-  ui = buildUI(cfg);
-  root.appendChild(ui);
-
-  ctx?.coach?.say( t('คลิกให้ตรงหมวดที่กำหนด!', 'Tap the items that match the target group!', cfg.language) );
-  newRound(); // เริ่มรอบแรก
 }
 
-export function exit(){
-  ui?.remove();
-  ui = null; st = null;
-}
-
-export function tick(_dt){
-  // รอบนี้ logic หลักอยู่ในการคลิก ไม่ต้องทำงานรายวินาทีในที่นี้
-}
-
-export function handleDomAction(el){
-  const act = el?.closest?.('[data-action]')?.getAttribute('data-action');
-  if (!act) return;
-  if (act.startsWith('pick:')){ onPick(act.slice(5)); return; }
-  if (act === 'groups:hint'){ showHint(); return; }
-  if (act === 'groups:skip'){ newRound(true); return; }
-  if (act === 'groups:quit'){ endRound(true); return; }
-}
-
-// ---------- Round / Grid ----------
-function newRound(skipped=false){
-  if (!st?.playing) return;
-
-  st.round++;
-  st.got = 0;
-  clearHint();
-
-  // สุ่มหมวดเป้าหมายที่ไม่ซ้ำจากรอบก่อน (ถ้าทำได้)
-  const prev = st.targetGroup;
-  const candidates = GROUPS.map(g=>g.id);
-  st.targetGroup = pickDifferent(candidates, prev);
-
-  // เลือกจำนวนที่ต้องคลิกให้ครบ (ปรับได้ หากในกลุ่มนั้นเหลือไอคอนน้อย)
-  const inTarget = ITEMS.filter(i=>i.group===st.targetGroup);
-  st.need = Math.min(st.cfg.correctPerRound, inTarget.length, st.cfg.gridSize);
-
-  // สร้างกริด: เลือกเป้าหมาย N ชิ้น + ตัวหลอก (gridSize-N) ชิ้น
-  const targetItems   = takeRandom(inTarget, st.need, st.usedItemIds);
-  const others        = ITEMS.filter(i=>i.group!==st.targetGroup);
-  const distractors   = takeRandom(others, st.cfg.gridSize - targetItems.length, st.usedItemIds);
-  const gridItems     = shuffle([...targetItems, ...distractors]);
-
-  // บันทึกว่าชิ้นไหนเป็นเป้าหมาย
-  const answerSet = new Set(targetItems.map(i=>i.id));
-
-  renderRound({
-    targetGroup: st.targetGroup,
-    gridItems,
-    isCorrect: (id)=>answerSet.has(id)
-  });
-
-  // อัปเดตข้อความโค้ช/เป้า
-  const gName = groupLabel(st.targetGroup, st.cfg.language);
-  ctx?.coach?.say( t(`เป้าหมาย: ${gName}`, `Target: ${gName}`, st.cfg.language) );
-
-  // บันทึกว่าชิ้นที่ใช้ไปแล้ว เพื่อลดโอกาสซ้ำถี่ ๆ
-  targetItems.forEach(i=>st.usedItemIds.add(i.id));
-  if (st.usedItemIds.size > 80) { // กันโตเกิน
-    st.usedItemIds = new Set(Array.from(st.usedItemIds).slice(-40));
-  }
-
-  if (skipped){
-    ctx?.sfx?.play('tick') || ctx?.sfx?.play?.('skip');
-  }
-}
-
-function renderRound({ targetGroup, gridItems, isCorrect }){
-  // เป้า
-  const target = GROUPS.find(g=>g.id===targetGroup);
-  sel('#ggTarget').textContent = t(target.labelTH, target.labelEN, st.cfg.language);
-  sel('#ggTarget').style.setProperty('--targetColor', target.color);
-
-  // เคลียร์กริด
-  const grid = sel('#ggGrid');
-  grid.innerHTML = '';
-
-  // สร้าง cell
-  for (const it of gridItems){
-    const cell = h('button', {
-      class:'gg-cell',
-      'data-id': it.id,
-      'data-action': `pick:${it.id}`,
-      title: t(it.labelTH, it.labelEN, st.cfg.language)
-    }, [
-      h('div', { class:'gg-emoji' }, it.icon),
-      h('div', { class:'gg-label' }, t(it.labelTH, it.labelEN, st.cfg.language))
-    ]);
-    // เก็บข้อมูลถูก/ผิดไว้ใน DOM dataset
-    cell.dataset.correct = isCorrect(it.id) ? '1' : '0';
-    grid.appendChild(cell);
-  }
-
-  // HUD
-  updateHUD();
-}
-
-// ---------- Click handling ----------
-function onPick(itemId){
-  if (!st?.playing) return;
-  const btn = sel(`[data-id="${CSS.escape(itemId)}"]`);
-  if (!btn || btn.classList.contains('done')) return; // กันกดซ้ำ
-
-  const isOk = btn.dataset.correct === '1';
-
-  if (isOk){
-    st.got += 1;
-    st.hits += 1;
-    st.combo += 1;
-    st.bestCombo = Math.max(st.bestCombo, st.combo);
-
-    btn.classList.add('good','done');
-    const add = 120 + (st.combo-1)*10; // คอมโบบวกคะแนน
-    st.score += add;
-    ctx?.hud?.flash?.('+'+add);
-    ctx?.sfx?.play('good') || ctx?.sfx?.play?.('right');
-
-    // สำเร็จครบตาม need → ขึ้นรอบใหม่เร็วๆ
-    if (st.got >= st.need){
-      setTimeout(()=>newRound(false), 450);
+// คลิก 1 ชิ้น → แจ้งผลให้ระบบกลางคิดแต้ม/คอมโบ/ฟีเวอร์
+export function onHit(meta, systems, gameState, hud){
+  if (meta.good){
+    ST.got++;
+    updateTargetBadge();
+    systems.coach?.say?.(t('ใช่เลย!', 'Nice!', ST.lang));
+    if (ST.got >= ST.need){
+      ST.got = 0;
+      ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
+      updateTargetBadge();
+      systems.sfx?.play?.('powerup');
+      systems.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
     }
+    return 'good';
   }else{
-    // ผิด → คอมโบหาย สะเทือนจอเล็กน้อย
-    st.wrongs += 1;
-    st.combo = 0;
-    btn.classList.add('bad','done');
-    ctx?.sfx?.play('bad') || ctx?.sfx?.play?.('wrong');
-    ctx?.hud?.shake?.(0.25);
+    systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
+    return 'bad';
   }
-
-  updateHUD();
 }
 
-// ---------- HUD / Hints ----------
-function updateHUD(){
-  sel('#ggScore').textContent = String(st.score);
-  sel('#ggCombo').textContent = '×'+st.combo;
-  sel('#ggNeed').textContent  = `${st.got}/${st.need}`;
+// ---------- HUD helpers ----------
+function showTargetHUD(show){
+  const wrap = document.getElementById('targetWrap');
+  if (wrap) wrap.style.display = show ? 'block' : 'none';
+}
+function updateTargetBadge(){
+  const g = GROUPS.find(x=>x.id===ST.targetId);
+  const badge = document.getElementById('targetBadge');
+  if (badge){
+    badge.textContent = t(g.labelTH, g.labelEN, ST.lang) + `  (${ST.got}/${ST.need})`;
+    badge.style.fontWeight = '800';
+  }
+  const tLabel = document.getElementById('t_target');
+  if (tLabel) tLabel.textContent = t('หมวด', 'Target', ST.lang);
 }
 
-function showHint(){
-  if (!st?.cfg?.allowHints) return;
-  const gName = groupLabel(st.targetGroup, st.cfg.language);
-  sel('#ggHint').textContent = t(`ใบ้: มองหาอาหารในหมวด “${gName}”`,
-                                 `Hint: Look for items in “${gName}”`, st.cfg.language);
-  ctx?.sfx?.play('powerup') || ctx?.sfx?.play?.('hint');
-}
-function clearHint(){ sel('#ggHint').textContent = ''; }
-
-// ---------- End ----------
-function endRound(byUser=false){
-  st.playing = false;
-  const result = {
-    mode: name,
-    score: st.score,
-    hits: st.hits,
-    misses: st.wrongs,
-    bestCombo: st.bestCombo,
-    endedByUser: byUser,
-    rounds: st.round
-  };
-  ctx?.hud?.showResult?.(result);
-  ctx?.engine?.emit?.('mode:end', result);
-}
-
-// ---------- Mini helpers ----------
+// ---------- utils ----------
 function t(th, en, lang){ return lang==='EN' ? en : th; }
-function groupLabel(id, lang='TH'){
-  const g = GROUPS.find(x=>x.id===id);
-  if (!g) return id;
-  return t(g.labelTH, g.labelEN, lang);
-}
-function takeRandom(arr, n, excludeIdSet=new Set()){
-  const pool = arr.filter(x=>!excludeIdSet.has(x.id));
-  const a = shuffle(pool.length>=n ? pool : arr).slice(0, n);
-  return a;
-}
 function pickDifferent(list, prev){
   if (!prev) return list[(Math.random()*list.length)|0];
   const cand = list.filter(x=>x!==prev);
   return cand.length? cand[(Math.random()*cand.length)|0] : prev;
-}
-function shuffle(a){
-  const arr = a.slice(0);
-  for(let i=arr.length-1;i>0;i--){
-    const j = (Math.random()*(i+1))|0;
-    [arr[i],arr[j]] = [arr[j],arr[i]];
-  }
-  return arr;
-}
-function h(tag, attrs={}, children=[]){
-  const el = document.createElement(tag);
-  for (const k in attrs){
-    if (k==='class') el.className = attrs[k];
-    else el.setAttribute(k, attrs[k]);
-  }
-  (Array.isArray(children)?children:[children]).forEach(c=>{
-    if (c==null) return;
-    if (typeof c === 'string') el.appendChild(document.createTextNode(c));
-    else el.appendChild(c);
-  });
-  return el;
-}
-function sel(q){ return ui?.querySelector(q); }
-
-// ---------- UI ----------
-function buildUI(cfg){
-  const wrap = h('div', { class:'mode-groups tg', tabindex:'-1' }, [
-    // Header
-    h('div', { class:'gg-head' }, [
-      h('div', { class:'gg-title' }, t('จาน 5 หมู่', 'Food Group Frenzy', cfg.language)),
-      h('div', { class:'gg-meta' }, [
-        h('span', { class:'gg-badge', id:'ggTarget', style:'--targetColor:#999' }, '—')
-      ]),
-      h('div', { class:'gg-scorebox' }, [
-        h('span', { id:'ggScore' }, '0'),
-        h('span', { id:'ggCombo' }, '×0')
-      ]),
-    ]),
-    // Hint line
-    h('div', { id:'ggHint', class:'gg-hint' }, ''),
-    // Need counter
-    h('div', { class:'gg-need' }, [
-      h('span', {}, t('เป้าหมายที่ต้องคลิกให้ครบ', 'Items to collect', cfg.language)+': '),
-      h('b', { id:'ggNeed' }, '0/0')
-    ]),
-    // Grid
-    h('div', { id:'ggGrid', class:'tg-grid' }, []),
-
-    // Footer controls
-    h('div', { class:'gg-foot' }, [
-      h('button', { class:'gg-small', 'data-action':'groups:hint' }, t('คำใบ้', 'Hint', cfg.language)),
-      h('button', { class:'gg-small', 'data-action':'groups:skip' }, t('ข้ามรอบ', 'Skip round', cfg.language)),
-      h('button', { class:'gg-small danger', 'data-action':'groups:quit' }, t('จบเกม', 'End', cfg.language)),
-    ]),
-  ]);
-
-  // คีย์ลัด 1-4 เลือกหมวด (เผื่อใช้ในอนาคต)
-  wrap.addEventListener('keydown', (e)=>{
-    const map = { '1':'fruits','2':'veggies','3':'protein','4':'grains' };
-    if (map[e.key]){
-      sel('#ggHint').textContent = t(`ตอนนี้เป้าหมายคือ “${groupLabel(map[e.key])}”`,
-                                     `Current target is “${groupLabel(map[e.key],'EN')}”`,
-                                     cfg.language);
-      e.preventDefault();
-    }
-  });
-  return wrap;
 }
