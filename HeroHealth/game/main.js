@@ -96,6 +96,35 @@ function updateHUD(){
 function modeHelpText(){
   return (T(state.lang).helpBody[state.modeKey] || '');
 }
+function renderHelpScene(){
+  const hsBody = document.getElementById('hs_body');
+  if (!hsBody) return;
+
+  const L = T(state.lang);
+  // ไอคอน + ชื่อโหมด
+  const MODE_META = [
+    { key:'goodjunk',  icon:'🥗', name:L.names.goodjunk,  body:L.help.goodjunk },
+    { key:'groups',    icon:'🍽️', name:L.names.groups,    body:L.help.groups },
+    { key:'hydration', icon:'💧', name:L.names.hydration,  body:L.help.hydration },
+    { key:'plate',     icon:'🍱', name:L.names.plate,      body:L.help.plate },
+  ];
+
+  hsBody.innerHTML = MODE_META.map(({icon, name, body}) => `
+    <article class="card" style="background:#0f1626;border:1px solid #2a3b5c;border-radius:14px;padding:12px">
+      <header style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:24px;line-height:1">${icon}</div>
+        <h4 style="margin:0;color:#eaf2ff">${name}</h4>
+      </header>
+      <pre style="white-space:pre-wrap;margin:0;color:#cfe3ff;font-family:inherit;line-height:1.4">${body || '-'}</pre>
+    </article>
+  `).join('');
+
+  // ปิดด้วยคลิกพื้นหลัง (ซ้ำความสามารถเดิม เผื่อยังไม่มี)
+  const hs = document.getElementById('helpScene');
+  if (hs) {
+    hs.addEventListener('click', (e)=>{ if (e.target === hs) hs.style.display='none'; }, { once:true });
+  }
+}
 
 // ----- Fever UI -----
 function setFeverBar(pct){
