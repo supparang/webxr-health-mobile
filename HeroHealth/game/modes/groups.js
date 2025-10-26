@@ -1,56 +1,97 @@
-// === Hero Health Academy — modes/groups.js ===
-// Food Grouping (คล้าย goodjunk): จัดเข้าหมวด Fruits / Vegetables / Protein / Grains
+// === Hero Health Academy — game/modes/groups.js (Emoji Edition, 50 items) ===
+// โหมด "Groups" จัดหมวดอาหารให้ถูกต้อง (Fruits / Vegetables / Protein / Grains)
+// ใช้อีโมจิเป็นไอคอน -> โหลดไว ไม่ต้องมีไฟล์ภาพ
+// Public API: export const name, init(ctx), enter(root, opts), exit(), tick(dt), handleDomAction(el)
 
 export const name = 'groups';
 
-let ctx = null;
-let ui  = null;
-let state = null;
+let ctx = null;   // { engine, hud, coach, sfx, score, powerups }
+let ui  = null;   // root DOM for this mode
+let st  = null;   // state
 
-// ------- Gameplay Config -------
+// ---------- Config ----------
 const GROUPS = [
-  { id:'fruits',  labelEN:'Fruits',     labelTH:'ผลไม้',    color:'#ff6b6b', key:'1' },
-  { id:'veggies', labelEN:'Vegetables', labelTH:'ผัก',       color:'#51cf66', key:'2' },
-  { id:'protein', labelEN:'Protein',    labelTH:'โปรตีน',    color:'#339af0', key:'3' },
-  { id:'grains',  labelEN:'Grains',     labelTH:'ธัญพืช',    color:'#f59f00', key:'4' },
+  { id:'fruits',  labelTH:'ผลไม้',   labelEN:'Fruits',     color:'#ff6b6b', key:'1' },
+  { id:'veggies', labelTH:'ผัก',      labelEN:'Vegetables', color:'#51cf66', key:'2' },
+  { id:'protein', labelTH:'โปรตีน',   labelEN:'Protein',    color:'#339af0', key:'3' },
+  { id:'grains',  labelTH:'ธัญพืช',   labelEN:'Grains',     color:'#f59f00', key:'4' },
 ];
 
-const ROUND_DEFAULTS = {
+const DEFAULTS = {
   durationSec: 60,
-  language: 'TH', // 'EN'|'TH'
+  language: 'TH',          // 'TH' | 'EN'
   allowHints: true,
   dynamicDifficulty: true,
 };
 
+// ---------- Items (50) ----------
 const ITEMS = [
-  // Fruits
-  { id:'apple',      group:'fruits',  labelEN:'Apple',      labelTH:'แอปเปิล',      icon:'assets/icons/food/apple.png' },
-  { id:'banana',     group:'fruits',  labelEN:'Banana',     labelTH:'กล้วย',        icon:'assets/icons/food/banana.png' },
-  { id:'strawberry', group:'fruits',  labelEN:'Strawberry', labelTH:'สตรอว์เบอร์รี่', icon:'assets/icons/food/strawberry.png' },
-  // Veggies
-  { id:'carrot',     group:'veggies', labelEN:'Carrot',     labelTH:'แครอท',        icon:'assets/icons/food/carrot.png' },
-  { id:'broccoli',   group:'veggies', labelEN:'Broccoli',   labelTH:'บรอกโคลี',     icon:'assets/icons/food/broccoli.png' },
-  { id:'cucumber',   group:'veggies', labelEN:'Cucumber',   labelTH:'แตงกวา',       icon:'assets/icons/food/cucumber.png' },
-  // Protein
-  { id:'egg',        group:'protein', labelEN:'Egg',        labelTH:'ไข่',           icon:'assets/icons/food/egg.png' },
-  { id:'fish',       group:'protein', labelEN:'Fish',       labelTH:'ปลา',           icon:'assets/icons/food/fish.png' },
-  { id:'tofu',       group:'protein', labelEN:'Tofu',       labelTH:'เต้าหู้',        icon:'assets/icons/food/tofu.png' },
-  // Grains
-  { id:'rice',       group:'grains',  labelEN:'Rice',       labelTH:'ข้าว',          icon:'assets/icons/food/rice.png' },
-  { id:'bread',      group:'grains',  labelEN:'Bread',      labelTH:'ขนมปัง',        icon:'assets/icons/food/bread.png' },
-  { id:'noodles',    group:'grains',  labelEN:'Noodles',    labelTH:'ก๋วยเตี๋ยว',    icon:'assets/icons/food/noodles.png' },
+  // Fruits (12)
+  { id:'apple',      group:'fruits',  labelEN:'Apple',      labelTH:'แอปเปิล',       icon:'🍎' },
+  { id:'banana',     group:'fruits',  labelEN:'Banana',     labelTH:'กล้วย',         icon:'🍌' },
+  { id:'strawberry', group:'fruits',  labelEN:'Strawberry', labelTH:'สตรอว์เบอร์รี่', icon:'🍓' },
+  { id:'watermelon', group:'fruits',  labelEN:'Watermelon', labelTH:'แตงโม',          icon:'🍉' },
+  { id:'orange',     group:'fruits',  labelEN:'Orange',     labelTH:'ส้ม',            icon:'🍊' },
+  { id:'grapes',     group:'fruits',  labelEN:'Grapes',     labelTH:'องุ่น',          icon:'🍇' },
+  { id:'pineapple',  group:'fruits',  labelEN:'Pineapple',  labelTH:'สับปะรด',        icon:'🍍' },
+  { id:'mango',      group:'fruits',  labelEN:'Mango',      labelTH:'มะม่วง',         icon:'🥭' },
+  { id:'cherry',     group:'fruits',  labelEN:'Cherry',     labelTH:'เชอร์รี่',        icon:'🍒' },
+  { id:'peach',      group:'fruits',  labelEN:'Peach',      labelTH:'พีช',            icon:'🍑' },
+  { id:'lemon',      group:'fruits',  labelEN:'Lemon',      labelTH:'มะนาว',          icon:'🍋' },
+  { id:'kiwi',       group:'fruits',  labelEN:'Kiwi',       labelTH:'กีวี',           icon:'🥝' },
+
+  // Veggies (12)
+  { id:'carrot',     group:'veggies', labelEN:'Carrot',     labelTH:'แครอท',         icon:'🥕' },
+  { id:'broccoli',   group:'veggies', labelEN:'Broccoli',   labelTH:'บรอกโคลี',      icon:'🥦' },
+  { id:'cucumber',   group:'veggies', labelEN:'Cucumber',   labelTH:'แตงกวา',        icon:'🥒' },
+  { id:'tomato',     group:'veggies', labelEN:'Tomato',     labelTH:'มะเขือเทศ',      icon:'🍅' },
+  { id:'corn',       group:'veggies', labelEN:'Corn',       labelTH:'ข้าวโพด',        icon:'🌽' },
+  { id:'lettuce',    group:'veggies', labelEN:'Lettuce',    labelTH:'ผักกาด/ผักใบ',  icon:'🥬' },
+  { id:'mushroom',   group:'veggies', labelEN:'Mushroom',   labelTH:'เห็ด',           icon:'🍄' },
+  { id:'salad',      group:'veggies', labelEN:'Salad',      labelTH:'สลัดผัก',        icon:'🥗' },
+  { id:'chili',      group:'veggies', labelEN:'Chili',      labelTH:'พริก',           icon:'🌶️' },
+  { id:'onion',      group:'veggies', labelEN:'Onion',      labelTH:'หัวหอม',         icon:'🧅' },
+  { id:'garlic',     group:'veggies', labelEN:'Garlic',     labelTH:'กระเทียม',       icon:'🧄' },
+  { id:'potato',     group:'veggies', labelEN:'Potato',     labelTH:'มันฝรั่ง',        icon:'🥔' },
+
+  // Protein (14)
+  { id:'egg',        group:'protein', labelEN:'Egg',        labelTH:'ไข่',            icon:'🥚' },
+  { id:'fish',       group:'protein', labelEN:'Fish',       labelTH:'ปลา',            icon:'🐟' },
+  { id:'tofu',       group:'protein', labelEN:'Tofu',       labelTH:'เต้าหู้',         icon:'🍢' },
+  { id:'chicken',    group:'protein', labelEN:'Chicken',    labelTH:'ไก่',            icon:'🍗' },
+  { id:'beef',       group:'protein', labelEN:'Beef',       labelTH:'เนื้อวัว',       icon:'🥩' },
+  { id:'shrimp',     group:'protein', labelEN:'Shrimp',     labelTH:'กุ้ง',            icon:'🦐' },
+  { id:'crab',       group:'protein', labelEN:'Crab',       labelTH:'ปู',              icon:'🦀' },
+  { id:'squid',      group:'protein', labelEN:'Squid',      labelTH:'หมึก',            icon:'🦑' },
+  { id:'peanuts',    group:'protein', labelEN:'Peanuts',    labelTH:'ถั่วลิสง',       icon:'🥜' },
+  { id:'soybeans',   group:'protein', labelEN:'Soybeans',   labelTH:'ถั่ว (ถั่วเหลือง/เมล็ดถั่ว)', icon:'🫘' },
+  { id:'milk',       group:'protein', labelEN:'Milk',       labelTH:'นม',             icon:'🥛' },
+  { id:'cheese',     group:'protein', labelEN:'Cheese',     labelTH:'ชีส',            icon:'🧀' },
+  { id:'ham',        group:'protein', labelEN:'Ham',        labelTH:'แฮม/เบคอน',      icon:'🥓' },
+  { id:'sausage',    group:'protein', labelEN:'Sausage',    labelTH:'ไส้กรอก',        icon:'🌭' },
+
+  // Grains (12)
+  { id:'rice',       group:'grains',  labelEN:'Rice',       labelTH:'ข้าวสวย',        icon:'🍚' },
+  { id:'bread',      group:'grains',  labelEN:'Bread',      labelTH:'ขนมปัง',         icon:'🍞' },
+  { id:'noodles',    group:'grains',  labelEN:'Noodles',    labelTH:'ก๋วยเตี๋ยว',     icon:'🍜' },
+  { id:'spaghetti',  group:'grains',  labelEN:'Spaghetti',  labelTH:'สปาเกตตี',       icon:'🍝' },
+  { id:'croissant',  group:'grains',  labelEN:'Croissant',  labelTH:'ครัวซองต์',       icon:'🥐' },
+  { id:'pancake',    group:'grains',  labelEN:'Pancake',    labelTH:'แพนเค้ก',         icon:'🥞' },
+  { id:'burrito',    group:'grains',  labelEN:'Burrito',    labelTH:'เบอร์ริโต',       icon:'🌯' },
+  { id:'sandwich',   group:'grains',  labelEN:'Sandwich',   labelTH:'แซนด์วิช',        icon:'🥪' },
+  { id:'taco',       group:'grains',  labelEN:'Taco',       labelTH:'ทาโก้',           icon:'🌮' },
+  { id:'pie',        group:'grains',  labelEN:'Pie',        labelTH:'พาย',             icon:'🥧' },
+  { id:'cookie',     group:'grains',  labelEN:'Cookie',     labelTH:'คุกกี้',          icon:'🍪' },
+  { id:'donut',      group:'grains',  labelEN:'Donut',      labelTH:'โดนัท',           icon:'🍩' },
 ];
 
-function t(th, en, lang){ return lang==='EN' ? en : th; }
-
-// ------- Lifecycle -------
-export function init(context){
-  ctx = context;
-}
+// ---------- Lifecycle ----------
+export function init(context){ ctx = context; }
 
 export function enter(root, opts={}){
-  const cfg = { ...ROUND_DEFAULTS, ...opts };
-  state = {
+  const cfg = { ...DEFAULTS, ...opts };
+
+  st = {
     cfg,
     timeLeft: cfg.durationSec,
     playing: true,
@@ -59,11 +100,10 @@ export function enter(root, opts={}){
     bestCombo: 0,
     correct: 0,
     wrong: 0,
+    difficulty: 1, // 1..5
+    decayTimer: 0,
     queue: shuffle(ITEMS),
     current: null,
-    nextRevealAt: 0,
-    decayTimer: 0,
-    difficultyLevel: 1, // 1..5
   };
 
   ui = buildUI(cfg);
@@ -74,61 +114,52 @@ export function enter(root, opts={}){
 }
 
 export function exit(){
-  if (ui && ui.parentNode) ui.parentNode.removeChild(ui);
-  ui = null;
-  state = null;
+  ui?.remove();
+  ui = null; st = null;
 }
 
 export function tick(dt){
-  if(!state?.playing) return;
+  if(!st?.playing) return;
 
-  // เวลา
-  state.timeLeft -= dt;
-  if (state.timeLeft <= 0){
-    endRound();
-    return;
+  // timer
+  st.timeLeft -= dt;
+  if (st.timeLeft <= 0){ endRound(); return; }
+  sel('#ggTimer').textContent = formatTime(Math.ceil(st.timeLeft));
+
+  // combo decay (ถ้าว่างนาน)
+  st.decayTimer += dt;
+  if (st.decayTimer > 6 && st.combo>0){
+    st.combo = Math.max(0, st.combo-1);
+    updateHUD();
+    st.decayTimer = 0;
   }
 
-  // Streak decay
-  state.decayTimer += dt;
-  if (state.decayTimer > 6 && state.combo>0){
-    state.combo = Math.max(0, state.combo-1);
-    updateComboUI();
-    state.decayTimer = 0;
+  // difficulty curve
+  if (st.cfg.dynamicDifficulty){
+    const pct = 1 - (st.timeLeft / st.cfg.durationSec);
+    st.difficulty = 1 + Math.floor(pct*4); // 1..5
   }
-
-  // Dynamic difficulty
-  if (state.cfg.dynamicDifficulty){
-    const pct = 1 - (state.timeLeft / state.cfg.durationSec);
-    state.difficultyLevel = 1 + Math.floor(pct*4); // 1..5
-  }
-
-  updateTimerUI();
 }
 
 export function handleDomAction(el){
-  const a = el?.closest?.('[data-action]')?.getAttribute('data-action') || '';
+  const a = el?.closest?.('[data-action]')?.getAttribute('data-action');
   if (!a) return;
 
-  if (a.startsWith('group:')){
-    const g = a.split(':')[1];
-    onChooseGroup(g);
-    return;
-  }
-  if (a==='groups:hint'){ showHint(); return; }
-  if (a==='groups:skip'){ skipItem(); return; }
-  if (a==='groups:quit'){ endRound(true); return; }
+  if (a.startsWith('group:')){ onChoose(a.split(':')[1]); return; }
+  if (a === 'groups:hint'){ showHint(); return; }
+  if (a === 'groups:skip'){ skipItem(); return; }
+  if (a === 'groups:quit'){ endRound(true); return; }
 }
 
-// ------- UI -------
+// ---------- UI ----------
 function buildUI(cfg){
-  const wrap = h('div', { class:'mode-groups' }, [
+  const wrap = h('div', { class:'mode-groups', tabindex:'-1' }, [
     h('div', { class:'gg-head' }, [
       h('div', { class:'gg-title' }, t('จัดเข้าหมวดอาหาร', 'Group the Food', cfg.language)),
-      h('div', { class:'gg-timer', id:'ggTimer' }, formatTime(cfg.durationSec)),
+      h('div', { id:'ggTimer', class:'gg-timer' }, formatTime(cfg.durationSec)),
     ]),
     h('div', { class:'gg-item' }, [
-      h('img', { id:'ggIcon', alt:'food', class:'gg-icon', src:'' }),
+      h('div', { id:'ggIcon', class:'gg-icon', style:'font-size:80px' }, '🍎'),
       h('div', { id:'ggName', class:'gg-name' }, ''),
       h('div', { id:'ggHint', class:'gg-hint' }, ''),
     ]),
@@ -137,7 +168,7 @@ function buildUI(cfg){
         class:'gg-btn',
         style:`--btnColor:${g.color}`,
         'data-action': `group:${g.id}`,
-        title: `${g.labelEN} [${g.key}]`
+        title: `${t(g.labelTH, g.labelEN, cfg.language)} [${g.key}]`
       }, t(g.labelTH, g.labelEN, cfg.language)))
     ),
     h('div', { class:'gg-foot' }, [
@@ -151,125 +182,130 @@ function buildUI(cfg){
     ])
   ]);
 
-  // คีย์ลัด 1–4
+  // shortcuts 1-4
   wrap.addEventListener('keydown', (e)=>{
     const map = { '1':'fruits','2':'veggies','3':'protein','4':'grains' };
-    const g = map[e.key];
-    if (g){
-      const btn = wrap.querySelector(`[data-action="group:${g}"]`);
-      if (btn){ btn.click(); e.preventDefault(); }
+    const gid = map[e.key];
+    if (gid){
+      wrap.querySelector(`[data-action="group:${gid}"]`)?.click();
+      e.preventDefault();
     }
   });
   return wrap;
 }
 
-// ------- Gameplay -------
+// ---------- Gameplay ----------
 function nextItem(){
-  if (state.queue.length === 0) state.queue = shuffle(ITEMS);
-  state.current = state.queue.shift();
-  state.nextRevealAt = performance.now() + 300;
+  if (st.queue.length === 0) st.queue = shuffle(ITEMS);
+  st.current = st.queue.pop();
+  st.decayTimer = 0;
 
-  const lang = state.cfg.language;
-  sel('#ggIcon').src = state.current.icon;
-  sel('#ggName').textContent = t(state.current.labelTH, state.current.labelEN, lang);
+  sel('#ggIcon').textContent = st.current.icon;
+  sel('#ggName').textContent = t(st.current.labelTH, st.current.labelEN, st.cfg.language);
   sel('#ggHint').textContent = '';
   glowChoices(null);
-  state.decayTimer = 0;
 }
 
-function onChooseGroup(groupId){
-  if (!state?.playing || !state.current) return;
+function onChoose(groupId){
+  if (!st?.playing || !st.current) return;
+  const ok = (groupId === st.current.group);
 
-  const correct = (groupId === state.current.group);
-
-  if (correct){
-    state.combo += 1;
-    state.bestCombo = Math.max(state.bestCombo, state.combo);
+  if (ok){
+    st.combo += 1;
+    st.bestCombo = Math.max(st.bestCombo, st.combo);
     const base = 100;
-    const add  = base + (state.combo-1)*10 + (state.difficultyLevel-1)*5;
-    state.score += add;
-    state.correct += 1;
-    ctx?.sfx?.play('right');
+    const add  = base + (st.combo-1)*10 + (st.difficulty-1)*5;
+    st.score += add;
+    st.correct += 1;
+    ctx?.sfx?.play('good') || ctx?.sfx?.play?.('right');
     ctx?.hud?.flash('+'+add);
-    if (ctx?.powerups && state.combo>=10) ctx.powerups.tryFever?.();
-  }else{
-    if (state.combo>0) ctx?.sfx?.play('comboBreak');
-    state.combo = 0;
-    state.wrong += 1;
-    ctx?.sfx?.play('wrong');
+    if (ctx?.powerups && st.combo>=10) ctx.powerups.tryFever?.();
+    ctx?.coach?.cheer?.();
+  } else {
+    if (st.combo>0) ctx?.sfx?.play('bad') || ctx?.sfx?.play?.('comboBreak');
+    st.combo = 0;
+    st.wrong += 1;
     ctx?.hud?.shake?.(0.3);
+    const gName = groupLabel(st.current.group);
+    ctx?.coach?.say( t(`ข้อนี้คือหมวด “${gName}”`, `This one is “${gName}”`, st.cfg.language) );
   }
 
-  updateScoreUI();
-  updateComboUI();
+  updateHUD();
   glowChoices(groupId);
-
-  if (ctx?.coach){
-    if (correct){
-      ctx.coach.cheer?.();
-    }else{
-      const gName = groupLabel(state.current.group, state.cfg.language);
-      ctx.coach.say( t(`ข้อนี้คือหมวด “${gName}”`,
-                       `This one is “${gName}”`, state.cfg.language) );
-    }
-  }
-
-  setTimeout(nextItem, correct ? 350 : 500);
+  setTimeout(nextItem, ok ? 320 : 480);
 }
 
 function skipItem(){
-  if (!state?.playing) return;
-  ctx?.sfx?.play('skip');
+  if (!st?.playing) return;
+  ctx?.sfx?.play('tick') || ctx?.sfx?.play?.('skip');
   nextItem();
 }
 
 function showHint(){
-  if (!state?.playing || !state?.cfg?.allowHints) return;
-  const g = groupLabel(state.current.group, state.cfg.language);
-  sel('#ggHint').textContent = t(`ใบ้: หมวดขึ้นต้นด้วย "${g[0]}"`, `Hint: Starts with "${g[0]}"`, state.cfg.language);
-  ctx?.sfx?.play('hint');
+  if (!st?.playing || !st?.cfg?.allowHints) return;
+  const g = groupLabel(st.current.group, st.cfg.language);
+  sel('#ggHint').textContent = t(`ใบ้: หมวดขึ้นต้นด้วย "${g[0]}"`, `Hint: Starts with "${g[0]}"`, st.cfg.language);
+  ctx?.sfx?.play('powerup') || ctx?.sfx?.play?.('hint');
 }
 
 function endRound(byUser=false){
-  state.playing = false;
+  st.playing = false;
   const result = {
     mode: name,
-    time: state.cfg.durationSec,
-    score: state.score,
-    hits: state.correct,
-    misses: state.wrong,
-    bestCombo: state.bestCombo,
+    time: st.cfg.durationSec,
+    score: st.score,
+    hits: st.correct,
+    misses: st.wrong,
+    bestCombo: st.bestCombo,
     endedByUser: byUser,
-    stars: calcStars(state.score),
-    details: { difficultyCurve: state.difficultyLevel }
+    stars: calcStars(st.score),
+    details: { difficultyCurve: st.difficulty }
   };
   ctx?.hud?.showResult?.(result);
   ctx?.engine?.emit?.('mode:end', result);
 }
 
-// ------- Helpers -------
-function calcStars(score){
-  if (score>=1600) return 5;
-  if (score>=1200) return 4;
-  if (score>=900)  return 3;
-  if (score>=600)  return 2;
-  if (score>=300)  return 1;
-  return 0;
-}
+// ---------- Small Helpers ----------
+function t(th, en, lang){ return lang==='EN' ? en : th; }
 
-function groupLabel(id, lang){
+function groupLabel(id, lang='TH'){
   const g = GROUPS.find(x=>x.id===id);
   if (!g) return id;
   return t(g.labelTH, g.labelEN, lang);
 }
 
-function shuffle(arr){
-  const a = arr.slice(0);
-  for(let i=a.length-1;i>0;i--){
-    const j = (Math.random()*(i+1))|0;
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
+function updateHUD(){
+  sel('#ggScore').textContent = String(st.score);
+  sel('#ggCombo').textContent = '×'+st.combo;
+}
+
+function glowChoices(chosenId){
+  GROUPS.forEach(g=>{
+    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
+    if (!btn) return;
+    btn.classList.remove('good','bad','chosen');
+  });
+  if (!chosenId) return;
+  const correctId = st.current.group;
+  GROUPS.forEach(g=>{
+    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
+    if (!btn) return;
+    if (g.id===chosenId) btn.classList.add('chosen', (g.id===correctId?'good':'bad'));
+  });
+}
+
+function calcStars(score){
+  if (score>=3000) return 5;
+  if (score>=2200) return 4;
+  if (score>=1600) return 3;
+  if (score>=1000) return 2;
+  if (score>=500)  return 1;
+  return 0;
+}
+
+function formatTime(s){
+  const m = (s/60)|0, r = (s%60)|0;
+  return `${m}:${r.toString().padStart(2,'0')}`;
 }
 
 function h(tag, attrs={}, children=[]){
@@ -285,33 +321,14 @@ function h(tag, attrs={}, children=[]){
   });
   return el;
 }
+
 function sel(q){ return ui?.querySelector(q); }
 
-function updateTimerUI(){
-  const tEl = sel('#ggTimer');
-  if (tEl) tEl.textContent = formatTime(Math.max(0, state.timeLeft|0));
-}
-function updateScoreUI(){
-  const el = sel('#ggScore'); if (el) el.textContent = String(state.score);
-}
-function updateComboUI(){
-  const el = sel('#ggCombo'); if (el) el.textContent = '×'+state.combo;
-}
-function glowChoices(chosenId){
-  GROUPS.forEach(g=>{
-    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
-    if (!btn) return;
-    btn.classList.remove('good','bad','chosen');
-  });
-  if (!chosenId) return;
-  const correctId = state.current.group;
-  GROUPS.forEach(g=>{
-    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
-    if (!btn) return;
-    if (g.id===chosenId) btn.classList.add('chosen', (g.id===correctId?'good':'bad'));
-  });
-}
-function formatTime(s){
-  const m = (s/60)|0, r = (s%60)|0;
-  return `${m}:${r.toString().padStart(2,'0')}`;
+function shuffle(arr){
+  const a = arr.slice(0);
+  for(let i=a.length-1;i>0;i--){
+    const j = (Math.random()*(i+1))|0;
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
 }
