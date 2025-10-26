@@ -158,3 +158,61 @@ header .btn{
 
 /* Flash (low time) */
 .flash #c{ filter:brightness(1.1) saturate(1.1); }
+/* ========== 3D icon base ========== */
+.item{
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,.35));
+  transform-style: preserve-3d;
+  will-change: transform, filter;
+}
+
+/* ยกตัวเล็กน้อยตอน hover (เมาส์) */
+.item:hover{ filter: drop-shadow(0 10px 24px rgba(0,0,0,.45)); }
+
+/* พื้นที่ perspective กลางจอ (สำหรับชิ้นส่วนแตก) */
+.fx3d-root{
+  position:fixed; inset:0; pointer-events:none; z-index:500;
+  perspective: 900px; transform-style: preserve-3d;
+}
+
+/* วงแหวนกระแทก */
+.burstRing{
+  position:fixed; left:0; top:0; width:18px; height:18px; border-radius:50%;
+  border:3px solid rgba(255,213,74,.9); box-shadow:0 0 12px rgba(255,213,74,.6);
+  pointer-events:none; z-index:520;
+  transform: translate(-50%,-50%) scale(0.6);
+  opacity: .95;
+}
+
+/* ชิ้นส่วนแตก (shard) */
+.shard{
+  position:fixed; left:0; top:0; width:10px; height:10px; border-radius:2px;
+  background: linear-gradient(45deg,#fff,#ffd54a);
+  box-shadow:0 0 8px rgba(255,213,74,.85);
+  will-change: transform, opacity;
+  pointer-events:none; z-index:510; opacity:1;
+  transform: translate(-50%,-50%);
+}
+
+/* ควันไฟเล็ก ๆ */
+.spark{
+  position:fixed; width:6px; height:6px; border-radius:50%;
+  background:#fff; filter:blur(1px); opacity:.9; pointer-events:none; z-index:505;
+  transform: translate(-50%,-50%);
+}
+
+/* keyframes สำหรับวงแหวน */
+@keyframes ringOut {
+  from { transform: translate(-50%,-50%) scale(.6); opacity:.95; }
+  to   { transform: translate(-50%,-50%) scale(2.4); opacity:0; }
+}
+
+/* “แตกกระจาย” 3D: translate + rotate + fade */
+@keyframes shardFly {
+  0%   { opacity:1; transform: translate(var(--x0),var(--y0)) translateZ(0) rotate3d(0,0,1,0deg); }
+  100% { opacity:0; transform: translate(var(--x1),var(--y1)) translateZ(var(--z1)) rotate3d(1,1,0, var(--rot)); }
+}
+
+@keyframes sparkUp {
+  0%   { opacity:.9; transform: translate(var(--sx0),var(--sy0)) scale(1); }
+  100% { opacity:0;  transform: translate(var(--sx1),var(--sy1)) scale(0.6); }
+}
