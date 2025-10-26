@@ -1,99 +1,101 @@
 // game/core/coach.js
-// โค้ช: แสดงข้อความเชียร์แบบ queue + auto-hide + debounce
+// โค้ช: ข้อความเชียร์สดระหว่างเล่น + ปลุกใจ + แจ้งเควสต์/FEVER/เวลาใกล้หมด
+// ใช้กับ index ที่มี #coachHUD + #coachText
+
 export class Coach {
-  constructor(opts = {}) {
+  constructor(opts={}){
     this.lang = opts.lang || 'TH';
-    this.queue = [];
-    this.busy = false;
-    this.minGap = 350;       // เว้นระยะระหว่างข้อความ
-    this.showMs = 1350;      // เวลาโชว์ข้อความ
-    this.elWrap = document.getElementById('coachHUD');
+    this.elHUD = document.getElementById('coachHUD');
     this.elText = document.getElementById('coachText');
-    this.lastAt = 0;
+    this._cool = 0;       // anti-spam cooldown ms
+    this._last = 0;       // last show time
+    this._timerHide = 0;
+    this.minGap = 700;    // กันข้อความยิงรัวเกินไป
+    this.visibleMs = 1600;// ค้างโชว์กี่ ms
   }
+
   setLang(l){ this.lang = l || 'TH'; }
-
-  say(text, {important=false, now=false} = {}) {
-    if (!text) return;
-    const t = Date.now();
-    if (!important && (t - this.lastAt) < this.minGap) return; // กันสแปม
-    this.lastAt = t;
-    if (now) { this._render(text); return; }
-    this.queue.push(text);
-    if (!this.busy) this._drain();
+  _t(key, vars={}){
+    const TH = {
+      start:"พร้อมไหม? ลุยเลย!",
+      good:"+ดีมาก!",
+      perfect:"เป๊ะเว่อร์!",
+      bad:"ระวังของขยะนะ!",
+      combo:(n)=>`คอมโบ x${n}! สู้ต่อ!`,
+      fever:"โหมดไฟลุก! ✦",
+      feverEnd:"ไฟเริ่มเบาลง ตั้งคอมโบใหม่!",
+      power_x2:"คะแนน ×2 ไปเลย!",
+      power_freeze:"หยุดเวลา! รีบเก็บ!",
+      quest_roll:"ภารกิจมาแล้ว: เลือก 3 อย่างให้สำเร็จ!",
+      quest_prog:(name,p,need)=>`${name}: ${p}/${need}`,
+      quest_done:"ภารกิจสำเร็จ! 🏁",
+      quest_fail:"ไม่เป็นไร รอบหน้าเอาใหม่!",
+      t10:"เหลือ 10 วิ สุดแรง!",
+      end_good:"สุดยอด! ไปต่อ!",
+      end_ok:"ดีมาก! ลองอีกทีจะดีกว่าเดิม",
+      countdown:(n)=>`เริ่มใน ${n}…`
+    };
+    const EN = {
+      start:"Ready? Go!",
+      good:"+Nice!",
+      perfect:"PERFECT!",
+      bad:"Watch out for junk!",
+      combo:(n)=>`Combo x${n}! Keep going!`,
+      fever:"FEVER on! ✦",
+      feverEnd:"Fever ending—build again!",
+      power_x2:"Score ×2!",
+      power_freeze:"Time freeze! Grab more!",
+      quest_roll:"Mini Quests up: clear 3!",
+      quest_prog:(name,p,need)=>`${name}: ${p}/${need}`,
+      quest_done:"Quest Complete! 🏁",
+      quest_fail:"Quest Failed—next time!",
+      t10:"10s left—push!",
+      end_good:"Awesome! Again?",
+      end_ok:"Nice! One more try?",
+      countdown:(n)=>`Start in ${n}…`
+    };
+    const L = (this.lang==='EN'?EN:TH);
+    const v = L[key];
+    if (typeof v === 'function') return v(...([].concat(vars)));
+    return v || key;
   }
-  _render(text){
-    if (!this.elWrap || !this.elText) return;
+
+  _show(text){
+    if (!this.elHUD || !this.elText) return;
+    const now = performance?.now?.() || Date.now();
+    if (now - this._last < this.minGap) return;
+    this._last = now;
+    this.elHUD.style.display = 'flex';
+    this.elHUD.classList.remove('pulse');
+    // force reflow for animation reset
+    // eslint-disable-next-line no-unused-expressions
+    this.elHUD.offsetHeight;
     this.elText.textContent = text;
-    this.elWrap.style.display = 'flex';
-    this.elWrap.classList.remove('hide'); // เผื่อมี CSS transition
-    setTimeout(()=> {
-      this.elWrap.classList.add('hide');
-      setTimeout(()=>{ if(this.elWrap) this.elWrap.style.display='none'; }, 250);
-      this.busy = false;
-    }, this.showMs);
-  }
-  async _drain(){
-    if (this.busy) return;
-    this.busy = true;
-    while (this.queue.length){
-      const msg = this.queue.shift();
-      this._render(msg);
-      await new Promise(r=>setTimeout(r, this.showMs + this.minGap));
-    }
-    this.busy = false;
+    this.elHUD.classList.add('pulse');
+    clearTimeout(this._timerHide);
+    this._timerHide = setTimeout(()=>{ this.elHUD.classList.remove('pulse'); }, this.visibleMs);
   }
 
-  // ====== Convenience hooks ======
-  onStart(modeKey){
-    const M = this.lang==='EN'
-      ? {goodjunk:'Good vs Junk',groups:'Food Groups',hydration:'Hydration',plate:'Healthy Plate'}
-      : {goodjunk:'ดี vs ขยะ',groups:'จาน 5 หมู่',hydration:'สมดุลน้ำ',plate:'จัดจานสุขภาพ'};
-    const msg = this.lang==='EN'
-      ? `Go! Mode: ${M[modeKey]||modeKey}`
-      : `ลุย! โหมด ${M[modeKey]||modeKey}`;
-    this.say(msg, {important:true, now:true});
-  }
-  onGood(){ this.say(this.lang==='EN'?'Nice!':'ดีมาก!'); }
-  onPerfect(){ this.say(this.lang==='EN'?'PERFECT!':'เป๊ะสุด!'); }
-  onBad(){ this.say(this.lang==='EN'?'Oops':'พลาดนะ'); }
-  onCombo(x){
-    if (x===5) this.say(this.lang==='EN'?'Combo x5! Keep it!':'คอมโบ x5! เยี่ยม!', {important:true});
-    if (x===10) this.say(this.lang==='EN'?'Combo x10!!':'คอมโบ x10!!', {important:true});
-    if (x===20) this.say(this.lang==='EN'?'COMBO GOD!':'สุดยอดคอมโบ!', {important:true});
-  }
-  onFever(){ this.say(this.lang==='EN'?'FEVER TIME!':'เข้าโหมด FEVER!', {important:true}); }
-  onFeverEnd(){ this.say(this.lang==='EN'?'Fever ended':'เฟเวอร์จบแล้ว'); }
-
-  // Mini-Quest hooks
-  onQuestsAssigned(qs){
-    const names = qs.map(q=>q.titleShort || q.title).join(' • ');
-    const msg = this.lang==='EN' ? `Quests: ${names}` : `เควส: ${names}`;
-    this.say(msg, {important:true});
-  }
-  onQuestProgress(q){ // q: {title, progress, need, remain}
-    const msg = this.lang==='EN'
-      ? `${q.titleShort||q.title}: ${q.progress}/${q.need}`
-      : `${q.titleShort||q.title}: ${q.progress}/${q.need}`;
-    this.say(msg);
-  }
-  onQuestComplete(q){
-    const msg = this.lang==='EN'
-      ? `Quest done: ${q.titleShort||q.title}!`
-      : `สำเร็จ: ${q.titleShort||q.title}!`;
-    this.say(msg, {important:true});
-  }
-  onQuestFailed(q){
-    const msg = this.lang==='EN'
-      ? `Time up: ${q.titleShort||q.title}`
-      : `หมดเวลา: ${q.titleShort||q.title}`;
-    this.say(msg);
+  // ========== Hooks ที่ main/modes เรียก ==========
+  onStart(){ this._show(this._t('start')); }
+  onGood(){ this._show(this._t('good')); }
+  onPerfect(){ this._show(this._t('perfect')); }
+  onBad(){ this._show(this._t('bad')); }
+  onCombo(n){ if (n%5===0) this._show(this._t('combo',[n])); }
+  onFever(){ this._show(this._t('fever')); }
+  onFeverEnd(){ this._show(this._t('feverEnd')); }
+  onPower(kind){
+    if (kind==='boost') this._show(this._t('power_x2'));
+    if (kind==='freeze') this._show(this._t('power_freeze'));
   }
 
-  onEnd(score, gradeInfo){
-    const msg = this.lang==='EN'
-      ? `Score ${score} • Nice run!`
-      : `จบเกม! คะแนน ${score} • เก่งมาก!`;
-    this.say(msg, {important:true, now:true});
-  }
+  onQuestRoll(){ this._show(this._t('quest_roll')); }
+  onQuestProgress(name, p, need){ this._show(this._t('quest_prog',[name,p,need])); }
+  onQuestDone(){ this._show(this._t('quest_done')); }
+  onQuestFail(){ this._show(this._t('quest_fail')); }
+
+  onCountdown(n){ this._show(this._t('countdown',[n])); }
+  onTimeLow(){ this._show(this._t('t10')); }
+
+  onEnd(score, grade){ this._show(score>=200 ? this._t('end_good') : this._t('end_ok')); }
 }
