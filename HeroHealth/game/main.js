@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (Power-ups wired to groups + cooldown UI) ===
+// === Hero Health Academy — main.js (Progress + Missions + Power-ups wired) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -9,6 +9,7 @@ import { Coach } from './core/coach.js';
 import { SFX } from './core/sfx.js';
 import { ScoreSystem } from './core/score.js';
 import { PowerUpSystem } from './core/powerup.js';
+import { Progress } from './core/progression.js';
 
 import * as goodjunk   from './modes/goodjunk.js';
 import * as groups     from './modes/groups.js';
@@ -27,7 +28,6 @@ const DIFFS = {
   Normal: { time: 60, spawn: 700, life: 3000 },
   Hard:   { time: 50, spawn: 550, life: 1800 }
 };
-
 const ICON_SIZE_MAP = { Easy:92, Normal:72, Hard:58 };
 const MAX_ITEMS = 10;
 const LIVE = new Set();
@@ -95,6 +95,8 @@ function startFever(){
   showFeverLabel(true);
   coach.onFever?.();
   try{ $('#sfx-powerup')?.play(); }catch{}
+  // progression
+  Progress.event('fever', {kind:'start'});
 }
 function stopFever(){
   if (!state.fever.active) return;
@@ -102,6 +104,8 @@ function stopFever(){
   state.fever.timeLeft = 0;
   showFeverLabel(false);
   coach.onFeverEnd?.();
+  // progression
+  Progress.event('fever', {kind:'end'});
 }
 
 // ----- Score FX -----
@@ -121,7 +125,9 @@ function makeScoreBurst(x,y,text,minor,color){
   }
   document.body.appendChild(el);
   requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.translate='0 0'; });
-  setTimeout(()=>{ el.style.opacity='0'; el.style.translate='0 -8px'; setTimeout(()=>{ try{el.remove();}catch{} }, 220); }, 720);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.translate='0 -8px';
+    setTimeout(()=>{ try{el.remove();}catch{} }, 220);
+  }, 720);
 }
 function makeFlame(x,y,strong){
   const el = document.createElement('div');
@@ -221,7 +227,7 @@ function shatter3D(x,y){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
-       const dist= 60 + Math.random()*110;
+    const dist= 60 + Math.random()*110;
     const tx = Math.cos(ang)*dist;
     const ty = Math.sin(ang)*dist;
     const tz = (Math.random()*2-1)*160;
@@ -233,7 +239,7 @@ function shatter3D(x,y){
     s.style.setProperty('--z1', tz+'px');
     s.style.setProperty('--rot', rot);
     FXROOT.appendChild(s);
-    s.style.animation=`shardFly .48s ease-out forwards`;
+    s.style.animation='shardFly .48s ease-out forwards';
     setTimeout(()=>{ try{ s.remove(); }catch{} }, 560);
   }
 
@@ -289,7 +295,7 @@ function spawnOnce(diff){
     ev.stopPropagation();
     try{
       const sys = { score, sfx, power, coach, fx: eng?.fx };
-      const res = mode?.onHit?.(meta, sys, state, hud) || (meta.good?'good':'ok');
+      const res = MODES[state.modeKey]?.onHit?.(meta, sys, state, hud) || (meta.good?'good':'ok');
 
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width/2;
@@ -302,6 +308,14 @@ function spawnOnce(diff){
       const base = ({good:10, perfect:20, ok:2, bad:-8, power:5})[res] || 1;
       scoreWithEffects(base, cx, cy);
       shatter3D(cx, cy);
+
+      // progression hit event
+      Progress.event('hit', {
+        mode: state.modeKey,
+        result: res,
+        meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden },
+        comboNow: state.combo
+      });
 
       if (state.haptic && navigator.vibrate){
         if (res==='bad') navigator.vibrate(60);
@@ -407,7 +421,7 @@ async function runCountdown(sec=5){
   }
   const b = $('#cdNum');
   for (let n=sec;n>0;n--){
-    b.textContent = n;
+    b.textContent = String(n);
     coach.onCountdown?.(n);
     await new Promise(r=>setTimeout(r, 1000));
   }
@@ -430,8 +444,13 @@ async function start(){
   state.fever.meter=0; setFeverBar(0); stopFever();
   score.reset?.(); updateHUD();
 
+  // init mode
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
+
+  // progression: เริ่มรอบ + ดึง missions ที่สุ่มได้ (ถ้าต้องการโชว์บน HUD)
+  const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
+  renderMissions(missions);
 
   tick();
   spawnLoop();
@@ -442,13 +461,17 @@ function end(silent=false){
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
+  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
+
+  // progression end
+  const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
+  Progress.endRun({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
 
   if (!silent){
     const modal = $('#result');
     if (modal){
       modal.style.display='flex';
-
       const total = score.score|0;
       const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
       const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
@@ -472,6 +495,34 @@ function end(silent=false){
       if (bdEl)   bdEl.innerHTML   = resBoard;
     }
     coach.onEnd?.(score.score, {grade:'A'});
+  }
+}
+
+// ----- Missions HUD (แสดง 3 เควสที่สุ่ม) -----
+function renderMissions(list){
+  const host = document.getElementById('questChips'); if (!host) return;
+  host.innerHTML = '';
+  if (!list || !list.length) return;
+  for (const m of list){
+    const chip = document.createElement('div');
+    chip.className = 'questChip';
+    chip.dataset.qid = m.id;
+    chip.innerHTML = `
+      <span class="qLabel">${m.label}</span>
+      <span class="qProg">${Math.min(m.prog||0, m.need)}/${m.need}</span>
+      <div class="qBar"><i style="width:${Math.min(100,(m.prog||0)/m.need*100)}%"></i></div>`;
+    host.appendChild(chip);
+  }
+
+  // subscribe once to mission updates (progression emits on mission_done / run_start / run_end)
+  if (!renderMissions._subscribed){
+    Progress.on((type,payload)=>{
+      if (type==='mission_done' || type==='run_start'){
+        // re-render
+        renderMissions(Progress.runCtx?.missions||[]);
+      }
+    });
+    renderMissions._subscribed = true;
   }
 }
 
@@ -510,14 +561,14 @@ document.addEventListener('pointerup', (e)=>{
   else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
-// ----- Power-ups click handler (top-left, works for groups powers) -----
+// ----- Power-ups (top-left, works for groups) -----
 (function wirePowers(){
   const bar = $('#powerBar');
   if (!bar) return;
 
-  // เปลี่ยนสัญลักษณ์ "sweep" ให้เป็นแม่เหล็ก
+  // เปลี่ยนไอคอน sweep -> magnet ถ้ายังเป็น 🧹
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
-  if (sweep) sweep.textContent = '🧲';
+  if (sweep && sweep.textContent.trim() === '🧹') sweep.textContent = '🧲';
 
   const COOLDOWNS = { x2:12000, freeze:9000, sweep:8000 }; // ms
   const DURATIONS = (() => {
@@ -566,8 +617,7 @@ document.addEventListener('pointerup', (e)=>{
     if (now - lastUsed[k] < (COOLDOWNS[k]||0)) return;
 
     const mode = MODES[state.modeKey];
-    const isGroups = (state.modeKey === 'groups' && mode?.powers);
-    if (!isGroups) return; // ตอนนี้รองรับโหมด groups
+    if (state.modeKey !== 'groups' || !mode?.powers) return;
 
     if (k==='x2'){ mode.powers.x2Target?.(); }
     if (k==='freeze'){ mode.powers.freezeTarget?.(); }
@@ -580,8 +630,7 @@ document.addEventListener('pointerup', (e)=>{
 
   bar.addEventListener('click', (e)=>{
     const seg = e.target.closest('.pseg'); if (!seg) return;
-    const k = seg.getAttribute('data-k');
-    if (!k) return;
+    const k = seg.getAttribute('data-k'); if (!k) return;
     const dur = DURATIONS[k] || 0;
     if (dur>0){ animateCD(k, dur); }
     usePower(k);
@@ -639,4 +688,15 @@ document.addEventListener('visibilitychange', ()=>{
 window.addEventListener('pointerdown', ()=>{ try{ sfx.unlock(); }catch{} }, {once:true, passive:true});
 
 // Boot
+Progress.init();
 applyUI(); updateHUD();
+(function levelUI(){
+  const lvEl = document.createElement('span');
+  lvEl.id = 'playerLevel';
+  lvEl.style.cssText='margin-left:8px;font-weight:800';
+  const brand = document.querySelector('header.brand #brandTitle')?.parentElement || document.querySelector('header.brand');
+  if (brand) brand.insertBefore(lvEl, brand.children[1]||null);
+  const render = ()=>{ const p=Progress.profile; if (p && lvEl) lvEl.textContent = `LV ${p.level}`; };
+  render();
+  Progress.on((type)=>{ if (type==='level_up') render(); });
+})();
