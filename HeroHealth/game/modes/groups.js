@@ -1,7 +1,25 @@
-// === Hero Health Academy — game/modes/groups.js (targets have longer life, multi-target ready) ===
+// === Hero Health Academy — game/modes/groups.js (Floating icons with TTL, target quota & autoswitch) ===
 export const name = 'groups';
 
-// ---------- Config ----------
+// ---------- พารามิเตอร์ที่ “ปรับเกม” ได้ ----------
+const TUNING = {
+  // โควตาที่ต้องกดให้ถูกตามหมวด ก่อนสลับหมวดใหม่
+  quotaByDiff: { Easy: 3, Normal: 4, Hard: 5 },
+
+  // โอกาสสุ่มชิ้น “หมวดเป้าหมาย” (0–1) ยิ่งสูงยิ่งออกเป้าหมายบ่อย
+  targetBias: 0.60,
+
+  // TTL/อายุไอคอนต่อความยาก (มิลลิวินาที) — main.js จะใช้ meta.life ถ้ามี
+  ttlByDiff: { Easy: 4200, Normal: 3000, Hard: 2200 },
+
+  // บังคับสลับหมวดถ้าเล่นช้าเกินกำหนด (วินาที) และยังเก็บไม่ครบโควตา
+  autoswitchSec: 18,
+
+  // เมื่อสลับหมวดใหม่ ให้ “กันซ้ำ” จากหมวดเดิม
+  avoidRepeatGroup: true,
+};
+
+// ---------- กลุ่ม/หมวด ----------
 const GROUPS = [
   { id:'fruits',  labelTH:'ผลไม้',     labelEN:'Fruits',     color:'#ef4444' },
   { id:'veggies', labelTH:'ผัก',        labelEN:'Vegetables', color:'#22c55e' },
@@ -9,6 +27,7 @@ const GROUPS = [
   { id:'grains',  labelTH:'ธัญพืช',     labelEN:'Grains',     color:'#f59e0b' },
 ];
 
+// ---------- รายการอาหาร (อีโมจิ) ----------
 const ITEMS = [
   // Fruits (12)
   { id:'apple',      group:'fruits',  labelEN:'Apple',      labelTH:'แอปเปิล',       icon:'🍎' },
@@ -30,7 +49,7 @@ const ITEMS = [
   { id:'cucumber',   group:'veggies', labelEN:'Cucumber',   labelTH:'แตงกวา',        icon:'🥒' },
   { id:'tomato',     group:'veggies', labelEN:'Tomato',     labelTH:'มะเขือเทศ',      icon:'🍅' },
   { id:'corn',       group:'veggies', labelEN:'Corn',       labelTH:'ข้าวโพด',        icon:'🌽' },
-  { id:'lettuce',    group:'veggies', labelEN:'Lettuce',    labelTH:'ผักกาด/ผักใบ',  icon:'🥬' },
+  { id:'lettuce',    group:'veggies', labelEN:'Lettuce',    labelTH:'ผักใบ',          icon:'🥬' },
   { id:'mushroom',   group:'veggies', labelEN:'Mushroom',   labelTH:'เห็ด',           icon:'🍄' },
   { id:'salad',      group:'veggies', labelEN:'Salad',      labelTH:'สลัดผัก',        icon:'🥗' },
   { id:'chili',      group:'veggies', labelEN:'Chili',      labelTH:'พริก',           icon:'🌶️' },
@@ -48,7 +67,7 @@ const ITEMS = [
   { id:'crab',       group:'protein', labelEN:'Crab',       labelTH:'ปู',              icon:'🦀' },
   { id:'squid',      group:'protein', labelEN:'Squid',      labelTH:'หมึก',            icon:'🦑' },
   { id:'peanuts',    group:'protein', labelEN:'Peanuts',    labelTH:'ถั่วลิสง',       icon:'🥜' },
-  { id:'soybeans',   group:'protein', labelEN:'Soybeans',   labelTH:'ถั่ว (ถั่วเหลือง/เมล็ดถั่ว)', icon:'🫘' },
+  { id:'soybeans',   group:'protein', labelEN:'Soybeans',   labelTH:'ถั่วเมล็ดแห้ง',  icon:'🫘' },
   { id:'milk',       group:'protein', labelEN:'Milk',       labelTH:'นม',             icon:'🥛' },
   { id:'cheese',     group:'protein', labelEN:'Cheese',     labelTH:'ชีส',            icon:'🧀' },
   { id:'ham',        group:'protein', labelEN:'Ham',        labelTH:'แฮม/เบคอน',      icon:'🥓' },
@@ -69,114 +88,127 @@ const ITEMS = [
   { id:'donut',      group:'grains',  labelEN:'Donut',      labelTH:'โดนัท',           icon:'🍩' },
 ];
 
-// ---------- Internal state ----------
+// ---------- สถานะภายในของโหมด ----------
 const ST = {
   lang: 'TH',
-  targetIds: ['fruits'], // ข้อ 3: หลายเป้าหมาย
-  need: 4,
+  targetId: 'fruits',
+  need: 4,            // จะถูกเซ็ตจากความยากตอน init()
   got: 0,
-  multi: false,          // true = เปิดหลายเป้าหมาย
+  lastSwitchMs: 0,    // เวลา (ms) ตอนตั้งเป้าหมายล่าสุด
 };
 
-// ---------- Public API ----------
-export function init(gameState, hud, diff){
-  const d = (gameState?.difficulty)||'Normal';
-  ST.need = d==='Easy' ? 3 : d==='Hard' ? 5 : 4;
-  ST.got = 0;
-  ST.lang = (localStorage.getItem('hha_lang')||'TH');
-
-  const all = GROUPS.map(g=>g.id);
-  if (ST.multi){
-    let a = all[(Math.random()*all.length)|0];
-    let b = all.filter(x=>x!==a)[(Math.random()*(all.length-1))|0];
-    ST.targetIds = [a,b];
-  } else {
-    ST.targetIds = [ pickDifferent(all, ST.targetIds[0]) ];
-  }
-
-  showTargetHUD(true);
-  updateTargetBadge();
-
-  try { document.documentElement.setAttribute('data-hha-mode','groups'); } catch {}
+// ---------- ฟังก์ชันช่วย ----------
+const t = (th, en, lang)=> (lang==='EN' ? en : th);
+const now = ()=> (performance?.now?.() || Date.now());
+function pickDifferent(list, prev){
+  if (!prev) return list[(Math.random()*list.length)|0];
+  const cand = list.filter(x=>x!==prev);
+  return cand.length? cand[(Math.random()*cand.length)|0] : prev;
 }
-
-export function cleanup(){
-  showTargetHUD(false);
-  try { document.documentElement.removeAttribute('data-hha-mode'); } catch {}
-}
-
-export function tick(state, systems, hud){
-  // (ปรับ logic ย่อยได้ภายหลัง)
-}
-
-export function pickMeta(diff, gameState){
-  // ข้อ 1: เป้าหมายอยู่นานขึ้น ตัวลวงอยู่น้อยลง
-  const isTargetGroup = g => ST.targetIds.includes(g);
-  const probTarget = 0.62;
-  const pickTarget = Math.random() < probTarget;
-
-  const pool = pickTarget
-    ? ITEMS.filter(i=>isTargetGroup(i.group))
-    : ITEMS.filter(i=>!isTargetGroup(i.group));
-
-  const it = pool[(Math.random()*pool.length)|0];
-  const isTarget = isTargetGroup(it.group);
-
-  const baseLife = diff?.life || 3000;
-  const life = Math.round(baseLife * (isTarget ? 1.25 : 0.85));
-
-  return { id: it.id, char: it.icon, good: isTarget, life };
-}
-
-export function onHit(meta, systems, gameState, hud){
-  if (meta.good){
-    ST.got++;
-    updateTargetBadge();
-    systems.coach?.say?.(t('ใช่เลย!', 'Nice!', ST.lang));
-    if (ST.got >= ST.need){
-      ST.got = 0;
-      const all = GROUPS.map(g=>g.id);
-      if (ST.multi){
-        let a = all[(Math.random()*all.length)|0];
-        let b = all.filter(x=>x!==a)[(Math.random()*(all.length-1))|0];
-        ST.targetIds = [a,b];
-      } else {
-        ST.targetIds = [ pickDifferent(all, ST.targetIds[0]) ];
-      }
-      updateTargetBadge();
-      systems.sfx?.play?.('powerup');
-      systems.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
-    }
-    return 'good';
-  }else{
-    systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
-    return 'bad';
-  }
-}
-
-// ---------- HUD helpers ----------
 function showTargetHUD(show){
   const wrap = document.getElementById('targetWrap');
   if (wrap) wrap.style.display = show ? 'block' : 'none';
 }
 function updateTargetBadge(){
+  const g = GROUPS.find(x=>x.id===ST.targetId);
   const badge = document.getElementById('targetBadge');
   if (badge){
-    const names = ST.targetIds.map(id=>{
-      const g = GROUPS.find(x=>x.id===id);
-      return t(g.labelTH, g.labelEN, ST.lang);
-    }).join(' & ');
-    badge.textContent = `${names}  (${ST.got}/${ST.need})`;
+    badge.textContent = t(g.labelTH, g.labelEN, ST.lang) + `  (${ST.got}/${ST.need})`;
     badge.style.fontWeight = '800';
   }
   const tLabel = document.getElementById('t_target');
   if (tLabel) tLabel.textContent = t('หมวด', 'Target', ST.lang);
 }
+function switchTarget(forced=false){
+  const ids = GROUPS.map(g=>g.id);
+  ST.targetId = (TUNING.avoidRepeatGroup && ST.targetId)
+    ? pickDifferent(ids, ST.targetId)
+    : ids[(Math.random()*ids.length)|0];
+  ST.got = 0;
+  ST.lastSwitchMs = now();
+  updateTargetBadge();
+  return forced;
+}
 
-// ---------- utils ----------
-function t(th, en, lang){ return lang==='EN' ? en : th; }
-function pickDifferent(list, prev){
-  if (!prev) return list[(Math.random()*list.length)|0];
-  const cand = list.filter(x=>x!==prev);
-  return cand.length? cand[(Math.random()*cand.length)|0] : prev;
+// ---------- API ให้ main.js เรียก ----------
+export function init(gameState, hud, diff){
+  // ภาษา
+  ST.lang = (localStorage.getItem('hha_lang')||'TH');
+
+  // โควตาตามความยาก
+  const d = (gameState?.difficulty)||'Normal';
+  ST.need = TUNING.quotaByDiff[d] ?? 4;
+
+  // เป้าหมายเริ่มต้น
+  switchTarget(false);
+
+  // โชว์ HUD เป้าหมาย
+  showTargetHUD(true);
+
+  // ให้โค้ชพูด
+  try {
+    const g = GROUPS.find(x=>x.id===ST.targetId);
+    const msg = t(`เป้าหมาย: ${g.labelTH}`, `Target: ${g.labelEN}`, ST.lang);
+    gameState?.coach?.say?.(msg);
+  } catch {}
+}
+
+export function cleanup(){
+  showTargetHUD(false);
+}
+
+// main.js จะเรียกต่อวินาที (dt ~ 1s)
+export function tick(state /* gameState */, systems /* {score,sfx,power,coach,...} */){
+  // ถ้าเล่นช้า (ยังไม่ครบโควตา) เกิน autoswitchSec → สลับหมวดช่วยผู้เล่น
+  if (ST.got < ST.need){
+    const waited = (now() - ST.lastSwitchMs) / 1000;
+    if (waited >= TUNING.autoswitchSec){
+      switchTarget(true);
+      systems?.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
+      try { systems?.sfx?.play?.('powerup'); } catch {}
+    }
+  }
+}
+
+// เมื่อ main.js spawn หนึ่งชิ้น จะมาถาม meta ที่ควรเกิด
+export function pickMeta(diff, gameState){
+  const d = (gameState?.difficulty)||'Normal';
+  const life = TUNING.ttlByDiff[d] ?? (diff?.life || 3000);
+
+  // เพิ่มโอกาสหมวดเป้าหมายด้วย targetBias
+  const pool = (Math.random() < TUNING.targetBias)
+    ? ITEMS.filter(i=>i.group===ST.targetId)
+    : ITEMS.filter(i=>i.group!==ST.targetId);
+
+  // กันกรณี pool ว่าง (เช่น bias สูงเกินไประหว่างสลับ)
+  const list = pool.length ? pool : ITEMS;
+  const it = list[(Math.random()*list.length)|0];
+
+  return {
+    id: it.id,
+    char: it.icon,
+    good: (it.group === ST.targetId),
+    life, // TTL ของชิ้นนี้ (main.js จะตั้ง setTimeout ลบเอง)
+  };
+}
+
+// ถูกคลิกหนึ่งชิ้น
+export function onHit(meta, systems){
+  if (meta.good){
+    ST.got++;
+    updateTargetBadge();
+    systems?.coach?.say?.(t('ใช่เลย!', 'Nice!', ST.lang));
+
+    if (ST.got >= ST.need){
+      // เคลียร์โควตา → สลับหมวดใหม่ทันที
+      switchTarget(true);
+      try { systems?.sfx?.play?.('powerup'); } catch {}
+      systems?.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
+    }
+    return 'good'; // main.js จะคำนวณคะแนน/คอมโบ/FEVER ให้
+  }
+
+  // กดผิดหมวด
+  systems?.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
+  return 'bad';
 }
