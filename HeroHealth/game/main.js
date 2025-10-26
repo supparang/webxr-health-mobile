@@ -1,10 +1,11 @@
-// === Hero Health Academy — main.js (stable + usability upgrades) ===
+// === Hero Health Academy — main.js (stable + countdown + coach pep) ===
 // - Icon auto-size by difficulty (Easy biggest, Hard smallest)
 // - Score popup + flame, Combo & Fever
 // - Concurrency cap + anti-overlap spawn
 // - Mobile haptics, freeze spawn, safe-area spawn
 // - Centered modals, working Help/Result buttons
 // - Pause on tab hidden, cleanup live items on end()
+// - 5s Countdown ก่อนเริ่ม + โค้ชปลุกใจ
 
 window.__HHA_BOOT_OK = true;
 
@@ -357,6 +358,46 @@ function spawnLoop(){
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
+// ----- Countdown (5s + coach pep) -----
+function countdownStart(callback){
+  // Overlay
+  const cd = document.createElement('div');
+  cd.id = 'countdownOverlay';
+  cd.style.cssText = `
+    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.7);color:#fff;font-size:96px;font-weight:900;
+    z-index:200;backdrop-filter:blur(1px);
+  `;
+  document.body.appendChild(cd);
+
+  // Coach pep line
+  try{
+    const thLines = ['เตรียมตัวให้พร้อม!','ลมหายใจลึก ๆ แล้วลุย!','พร้อมหรือยัง!','โฟกัสที่เป้าหมาย!','วันนี้ทำได้ดีกว่าเดิม!'];
+    const enLines = ['Get ready!','Deep breath… go!','Are you ready?','Focus on the goal!','Be better than yesterday!'];
+    const line = (state.lang==='TH'?thLines:enLines)[(Math.random()*5)|0];
+    coach.say?.(line, { force:true, stayMs:1600 });
+  }catch{}
+
+  let n = 5;
+  cd.textContent = n;
+
+  const tickSfx = ()=>{ try{ document.getElementById('sfx-tick')?.play()?.catch(()=>{}); }catch{} };
+
+  tickSfx();
+  const t = setInterval(()=>{
+    n--;
+    if (n>0){
+      cd.textContent = n;
+      tickSfx();
+    } else {
+      clearInterval(t);
+      cd.textContent = 'GO!';
+      try{ document.getElementById('sfx-perfect')?.play()?.catch(()=>{}); }catch{}
+      setTimeout(()=>{ try{ cd.remove(); }catch{}; callback?.(); }, 700);
+    }
+  }, 1000);
+}
+
 // ----- Tick / Start / End -----
 function tick(){
   if (!state.running || state.paused) return;
@@ -392,7 +433,12 @@ function tick(){
 }
 
 function start(){
+  // reset, then countdown -> startReal
   end(true);
+  countdownStart(startReal);
+}
+
+function startReal(){
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
   state.running   = true;
   state.paused    = false;
