@@ -1,59 +1,58 @@
-/* Layout basics */
-html,body{margin:0;padding:0;height:100%;background:#0b0f15;color:#fff;font-family:system-ui,Segoe UI,Arial}
-#c{position:fixed;inset:0;z-index:1;background:radial-gradient(1200px 600px at 50% -10%,#1a2433 0%,#0b0f15 60%)}
-
-/* Header */
-header.brand{position:fixed;top:0;left:0;right:0;z-index:90;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#0e1520c7;backdrop-filter:blur(6px);border-bottom:1px solid #ffffff1a}
+:root{
+  --fg:#fff; --bg:#0b0f16; --accent:#4fc3f7;
+  --good:#7fffd4; --bad:#ff9b9b; --fever:#ffd54a;
+}
+html,body{margin:0;height:100%;background:#0b0f16;color:var(--fg);font:600 16px/1.4 ui-rounded,system-ui,Segoe UI,Arial;}
+header.brand{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #ffffff17;background:#0d141f;position:sticky;top:0;z-index:50}
 header .spacer{flex:1}
-.btn,.tag{background:#132236;border:1px solid #ffffff22;color:#e6f2ff;border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer}
-.btn:hover,.tag:hover{filter:brightness(1.08)}
+.btn,.tag{background:#131b28;color:#fff;border:1px solid #ffffff22;border-radius:12px;padding:6px 10px;cursor:pointer}
+.btn:hover,.tag:hover{filter:brightness(1.1)}
+.menu{position:fixed;left:0;right:0;bottom:0;background:#0d141f;border-top:1px solid #ffffff17;padding:10px 12px;z-index:60}
+.menu .row{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0}
 
-/* HUD */
-.hud{position:fixed;left:12px;right:12px;top:60px;z-index:80;display:flex;flex-direction:column;gap:8px}
-.bar{background:#ffffff14;border-radius:999px;overflow:hidden}
-.bar.slim{height:10px}
-#feverBar{height:10px;background:linear-gradient(90deg,#ffb300,#ff6d00)}
-.fever{font-weight:900;letter-spacing:2px;text-align:left;color:#ffd54a;text-shadow:0 2px 8px #000}
-.fever.pulse{animation:pulse 0.8s infinite alternate}
-@keyframes pulse{from{opacity:.7}to{opacity:1}}
+canvas#c{position:fixed;inset:0;z-index:0}
 
-.coach{display:block;padding:6px 10px;background:#111a26;border:1px solid #ffffff1a;border-radius:12px;font-weight:800;color:#d7ecff}
-.mission-line{padding:6px 10px;background:#0f1722;border:1px solid #ffffff1a;border-radius:12px;font-weight:700;opacity:.95}
+.hud{position:fixed;left:12px;right:12px;top:62px;z-index:40;display:flex;flex-direction:column;gap:8px}
+.bar{height:12px;background:#ffffff15;border-radius:999px;overflow:hidden}
+.bar.slim{height:8px}
+.bar > div{height:100%;background:linear-gradient(90deg,#4fc3f7,#00bcd4)}
 
-/* Menu */
-.menu{position:fixed;left:0;right:0;bottom:0;z-index:85;background:#0e1520cc;backdrop-filter:blur(6px);border-top:1px solid #ffffff1a}
-.menu .row{display:flex;gap:8px;padding:8px 12px;flex-wrap:wrap}
-.modeLabel{margin-left:auto;opacity:.9}
+.fever{font:900 28px/1 ui-rounded,system-ui;letter-spacing:1px;color:#111;background:linear-gradient(90deg,#ffd54a,#ff6d00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.fever.pulse{animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.04)}}
 
-/* Item buttons (spawned) */
+#subHUD{display:flex;gap:8px;align-items:center}
+.chip{display:inline-flex;gap:8px;align-items:center;background:#141e2d;border:1px solid #ffffff22;border-radius:999px;padding:6px 10px;font-weight:800}
+.chip.ok{box-shadow:0 0 0 2px #5cf4a855 inset}
+.chip.warn{box-shadow:0 0 0 2px #ffd54a88 inset}
+.chip.bad{box-shadow:0 0 0 2px #ff9b9b88 inset}
+.chip.pow{gap:8px}
+#powerTime{width:88px;height:6px;background:#ffffff22;border-radius:999px;overflow:hidden}
+#powerTime>div{height:100%;width:0%;background:linear-gradient(90deg,#ffd54a,#ff6d00)}
+
+.mission-line{margin-top:4px;font-weight:800;color:#cde}
+
+.coach.under-fever{position:fixed;left:12px;top:120px;z-index:41;background:#0f1724cc;border:1px solid #ffffff22;border-radius:12px;padding:8px 10px;max-width:min(520px,92vw);backdrop-filter:blur(4px)}
+#coachText{font-weight:900}
+
 .item{user-select:none}
-.item.feverHit{filter:drop-shadow(0 0 12px #ffb300)}
 
-/* Modals */
-.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0008;z-index:200}
-.modal .card{background:#0f1722;color:#e6f2ff;border:1px solid #ffffff22;border-radius:16px;padding:16px;max-width:560px;width:90%;box-shadow:0 20px 60px #000a}
-.modal .card h3{margin-top:0}
+.scoreBurst{pointer-events:none}
 
-/* Effects */
-.scoreBurst{position:fixed;transform:translate(-50%,-50%);font:700 20px/1.2 ui-rounded,system-ui;color:#7fffd4;text-shadow:0 2px 6px #000c;z-index:120;pointer-events:none}
-.scoreBurst .minor{display:block;font:600 12px/1.2 ui-rounded,system-ui;opacity:.9}
-.flameBurst{position:fixed;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:radial-gradient(closest-side,#ffd54a,#ff6d00);mix-blend-mode:screen;filter:blur(8px) brightness(1.1);opacity:.9;z-index:110;pointer-events:none}
-.flameBurst.strong{width:72px;height:72px}
+.flash{animation:flash .6s}
+@keyframes flash{0%{filter:brightness(1.5)}100%{filter:none}}
 
-/* Burst 3D pieces */
-.burst3d{position:fixed;z-index:150;font-size:28px;pointer-events:none;transform:translate(-50%,-50%);will-change:transform,opacity;text-shadow:0 2px 4px #0008}
+.screen-dim{position:fixed;inset:0;background:#0008;z-index:100;animation:dim .25s ease-out forwards}
+@keyframes dim{from{opacity:.0}to{opacity:.55}}
 
-/* Flash near timeout */
-body.flash #time{color:#ff9b9b}
+.hs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.hs-block{background:#0f1724;border:1px solid #ffffff10;border-radius:12px;padding:10px}
 
-/* Help Scene grid */
-.hs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.modal{position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;z-index:120}
+.modal .card{background:#0f1724;border:1px solid #ffffff22;border-radius:16px;padding:14px;max-width:420px;width:92%;color:#fff}
 
-/* Toast */
-.toast{z-index:140}
+.float-piece{position:fixed;pointer-events:none;z-index:130;will-change:transform,opacity}
 
-/* Boot Chip (exists from HTML) */
-#bootChip{}
+.toast{pointer-events:none}
 
-/* Hydration bar in HUD */
-#hydroBar{height:10px;background:#4FC3F7}
+#bootWarn{font-weight:800}
