@@ -212,3 +212,43 @@ header .btn{
 .mode-groups .gg-score{ margin-left:auto; display:flex; gap:12px; font-weight:700; }
 .mode-groups .gg-btn.chosen.good { filter: drop-shadow(0 0 10px #2f9e44); }
 .mode-groups .gg-btn.chosen.bad  { filter: drop-shadow(0 0 10px #e03131) saturate(0.6); }
+/* === Powerbar & Effects (append) === */
+.hud .powerbar{
+  display:flex; gap:10px; align-items:center; margin:6px 0 2px;
+}
+.hud .powerbar .pseg{
+  position:relative; width:40px; height:40px; border-radius:12px;
+  background:linear-gradient(180deg,#1f2937,#0f172a);
+  color:#fff; display:flex; align-items:center; justify-content:center;
+  font-weight:900; box-shadow:0 2px 10px rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.1);
+  cursor:pointer; user-select:none;
+}
+.hud .powerbar .pseg span{ pointer-events:none; font-size:14px }
+.hud .powerbar .pseg[data-k="freeze"] span{ font-size:18px }
+.hud .powerbar .pseg[data-k="sweep"]  span{ font-size:18px }
+.hud .powerbar .pseg i{
+  position:absolute; inset:0; border-radius:inherit; background:rgba(255,255,255,.08);
+  transform-origin:bottom; transform:scaleY(0); transition:transform .25s ease; pointer-events:none;
+}
+.hud .powerbar .pseg.active{
+  outline:2px solid #7fffd4; box-shadow:0 0 14px rgba(127,255,212,.5); animation:pPulse .45s ease-out;
+}
+@keyframes pPulse{0%{transform:scale(.92)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+
+/* ให้ชิ้น decoy ในโหมด groups มีเส้นปะบอกใบ้ (เปิด-ปิดได้จากโค้ด) */
+.item.decoy-hint{ outline:3px dashed rgba(255,64,64,.45); border-radius:16px }
+
+/* Quest chips (ถ้ายังไม่มีในไฟล์เดิม) */
+.quests .chip{ background:#0b1f33; color:#fff; padding:6px 10px; border-radius:999px; font-weight:700; margin:4px; display:inline-flex }
+.quests .chip.done{ background:#2e7d32 }
+
+/* เอฟเฟกต์ช่วยอ่าน (accessibility) และม็อดภาพ (ใช้ในกลุ่ม groups) */
+@keyframes hcPulse{0%{filter:drop-shadow(0 0 0 rgba(255,255,0,0))}50%{filter:drop-shadow(0 0 8px rgba(255,255,0,.75))}100%{filter:drop-shadow(0 0 0 rgba(255,255,0,0))}}
+body.hc .item{ animation: hcPulse 1.8s ease-in-out infinite }
+
+body.mod-mirror { transform: scaleX(-1); }
+body.mod-blur   { filter: blur(1.5px); }
+body.mod-mono   { filter: grayscale(100%); }
+
+/* 3D FX root (ถ้ายังไม่มี) */
+.fx3d-root{ position:fixed; inset:0; pointer-events:none; z-index:90 }
