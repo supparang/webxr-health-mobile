@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (global presets + More toggle + adaptive spawn) ===
+// === Hero Health Academy — main.js (global presets + More toggle + powerbar→groups.powers) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -20,22 +20,19 @@ const $  = (s)=>document.querySelector(s);
 const byAction = (el)=>el?.closest?.('[data-action]')||null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 
-// ----- Presets (global; apply with one click across all modes) -----
+// ----- Presets -----
 const PRESETS = {
   ClassroomEasy: {
     DIFFS: { Easy:{time:80, spawn:900, life:4500}, Normal:{time:70, spawn:800, life:3800}, Hard:{time:60, spawn:650, life:2600} },
-    defaultDiff: 'Easy',
-    note: 'เล่นง่าย เหมาะสอน'
+    defaultDiff: 'Easy', note: 'เล่นง่าย เหมาะสอน'
   },
   TrainerBalanced: {
     DIFFS: { Easy:{time:75, spawn:820, life:3800}, Normal:{time:70, spawn:700, life:3000}, Hard:{time:55, spawn:560, life:2000} },
-    defaultDiff: 'Normal',
-    note: 'สมดุล + ปรับตามฝีมือ'
+    defaultDiff: 'Normal', note: 'สมดุล + ปรับตามฝีมือ'
   },
   ArcadeFast: {
     DIFFS: { Easy:{time:70, spawn:760, life:2800}, Normal:{time:60, spawn:560, life:2400}, Hard:{time:50, spawn:460, life:1700} },
-    defaultDiff: 'Hard',
-    note: 'เร็ว เร้าใจ'
+    defaultDiff: 'Hard', note: 'เร็ว เร้าใจ'
   }
 };
 function mergePreset(name){
@@ -44,7 +41,6 @@ function mergePreset(name){
   DIFFS.Normal = { ...DIFFS.Normal, ...p.DIFFS.Normal };
   DIFFS.Hard   = { ...DIFFS.Hard,   ...p.DIFFS.Hard   };
   localStorage.setItem('hha_preset', name);
-  console.log('[HHA] Preset:', name, p.note);
   return p;
 }
 
@@ -55,12 +51,8 @@ const DIFFS = {
   Normal: { time: 60, spawn: 700, life: 3000 },
   Hard:   { time: 50, spawn: 550, life: 1800 }
 };
-
 const IS_MOBILE = /Mobi|Android/i.test(navigator.userAgent);
-const ICON_SIZE_MAP = IS_MOBILE
-  ? { Easy:108, Normal:88, Hard:72 }
-  : { Easy:92,  Normal:72, Hard:58 };
-
+const ICON_SIZE_MAP = IS_MOBILE ? { Easy:108, Normal:88, Hard:72 } : { Easy:92, Normal:72, Hard:58 };
 const MAX_ITEMS = 10;
 const LIVE = new Set();
 
@@ -111,40 +103,16 @@ function updateHUD(){
 }
 
 // ----- Fever -----
-function setFeverBar(pct){
-  const bar = $('#feverBar'); if (!bar) return;
-  bar.style.width = Math.max(0,Math.min(100,pct|0))+'%';
-}
-function showFeverLabel(show){
-  const f = $('#fever'); if(!f) return;
-  f.style.display = show?'block':'none';
-  f.classList.toggle('pulse', !!show);
-}
-function startFever(){
-  if (state.fever.active) return;
-  state.fever.active = true;
-  state.fever.timeLeft = 7;
-  showFeverLabel(true);
-  coach.onFever?.();
-  try{ $('#sfx-powerup')?.play(); }catch{}
-}
-function stopFever(){
-  if (!state.fever.active) return;
-  state.fever.active = false;
-  state.fever.timeLeft = 0;
-  showFeverLabel(false);
-  coach.onFeverEnd?.();
-}
+function setFeverBar(pct){ const bar = $('#feverBar'); if (bar) bar.style.width = Math.max(0,Math.min(100,pct|0))+'%'; }
+function showFeverLabel(show){ const f = $('#fever'); if(f){ f.style.display = show?'block':'none'; f.classList.toggle('pulse', !!show);} }
+function startFever(){ if (state.fever.active) return; state.fever.active = true; state.fever.timeLeft = 7; showFeverLabel(true); coach.onFever?.(); try{ $('#sfx-powerup')?.play(); }catch{} }
+function stopFever(){ if (!state.fever.active) return; state.fever.active = false; state.fever.timeLeft = 0; showFeverLabel(false); coach.onFeverEnd?.(); }
 
 // ----- Score FX -----
 function makeScoreBurst(x,y,text,minor,color){
   const el = document.createElement('div');
   el.className='scoreBurst';
-  el.style.cssText = `
-    position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
-    font:900 20px/1.2 ui-rounded,system-ui,Arial;color:${color||'#7fffd4'};
-    text-shadow:0 2px 6px #000c;z-index:120;pointer-events:none;opacity:0;translate:0 6px;
-    transition:opacity .22s, translate .22s;`;
+  el.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);font:900 20px/1.2 ui-rounded,system-ui,Arial;color:${color||'#7fffd4'};text-shadow:0 2px 6px #000c;z-index:120;pointer-events:none;opacity:0;translate:0 6px;transition:opacity .22s, translate .22s;`;
   el.textContent = text;
   if (minor){
     const m = document.createElement('div');
@@ -157,12 +125,7 @@ function makeScoreBurst(x,y,text,minor,color){
 }
 function makeFlame(x,y,strong){
   const el = document.createElement('div');
-  el.style.cssText = `
-    position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
-    width:${strong?72:56}px;height:${strong?72:56}px;border-radius:50%;
-    background:radial-gradient(closest-side,#ffd54a,#ff6d00);
-    mix-blend-mode:screen;filter:blur(8px) brightness(1.1);opacity:.9;z-index:110;
-    pointer-events:none;animation:flamePop .5s ease-out forwards;`;
+  el.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);width:${strong?72:56}px;height:${strong?72:56}px;border-radius:50%;background:radial-gradient(closest-side,#ffd54a,#ff6d00);mix-blend-mode:screen;filter:blur(8px) brightness(1.1);opacity:.9;z-index:110;pointer-events:none;animation:flamePop .5s ease-out forwards;`;
   document.body.appendChild(el);
   setTimeout(()=>{ try{el.remove();}catch{} }, 520);
 }
@@ -185,7 +148,7 @@ function scoreWithEffects(base,x,y){
   if (state.fever.active) makeFlame(x,y,total>=10);
 }
 
-// ----- Safe area & overlap -----
+// ----- Bounds / overlap -----
 function safeBounds(){
   const headerH = $('header.brand')?.offsetHeight || 56;
   const menuH   = $('#menuBar')?.offsetHeight || 120;
@@ -195,7 +158,6 @@ function safeBounds(){
   const xMax = Math.max(xMin+50, innerWidth - 80);
   return {xMin,xMax,yMin,yMax};
 }
-// center-bias spawn (เล่นง่ายขึ้น)
 function randPos(){
   const {xMin,xMax,yMin,yMax} = safeBounds();
   const u = Math.random(), v = Math.random();
@@ -249,35 +211,27 @@ function add3DTilt(el){
   el.addEventListener('pointerleave', clear, {passive:true});
   el.addEventListener('pointerup', clear, {passive:true});
 }
-
 function shatter3D(x,y){
   const ring = document.createElement('div');
   ring.className='burstRing'; ring.style.left=x+'px'; ring.style.top=y+'px';
   FXROOT.appendChild(ring);
   ring.style.animation='ringOut .45s ease-out forwards';
   setTimeout(()=>{ try{ ring.remove(); }catch{} }, 500);
-
   const N = 12 + (Math.random()*6|0);
   for (let i=0;i<N;i++){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
     const dist= 60 + Math.random()*110;
-    const tx = Math.cos(ang)*dist;
-    const ty = Math.sin(ang)*dist;
-    const tz = (Math.random()*2-1)*160;
-    const rot= (Math.random()*720-360)+'deg';
-    s.style.setProperty('--x0','-50%');
-    s.style.setProperty('--y0','-50%');
-    s.style.setProperty('--x1', tx+'px');
-    s.style.setProperty('--y1', ty+'px');
-    s.style.setProperty('--z1', tz+'px');
-    s.style.setProperty('--rot', rot);
+    const tx = Math.cos(ang)*dist, ty = Math.sin(ang)*dist;
+    const tz = (Math.random()*2-1)*160, rot= (Math.random()*720-360)+'deg';
+    s.style.setProperty('--x0','-50%'); s.style.setProperty('--y0','-50%');
+    s.style.setProperty('--x1', tx+'px'); s.style.setProperty('--y1', ty+'px');
+    s.style.setProperty('--z1', tz+'px'); s.style.setProperty('--rot', rot);
     FXROOT.appendChild(s);
     s.style.animation=`shardFly .48s ease-out forwards`;
     setTimeout(()=>{ try{ s.remove(); }catch{} }, 560);
   }
-
   const SP = 8 + (Math.random()*6|0);
   for (let i=0;i<SP;i++){
     const p=document.createElement('div'); p.className='spark';
@@ -313,14 +267,14 @@ function spawnOnce(diff){
   el.className='item'; el.type='button';
   el.textContent = meta.char || '❓';
   const px = ICON_SIZE_MAP[state.difficulty] || 72;
-  el.style.cssText = `
-    position:fixed;border:none;background:transparent;color:#fff;cursor:pointer;z-index:80;
-    line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;
-    transform:perspective(600px) rotateX(0) rotateY(0);`;
+  el.style.cssText = `position:fixed;border:none;background:transparent;color:#fff;cursor:pointer;z-index:80;line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;transform:perspective(600px) rotateX(0) rotateY(0);`;
+
+  // ถ้าเป็น decoy ให้ติดคลาสบอกใบ้ (สไตล์ใน game.css)
+  if (meta.decoy) el.classList.add('decoy-hint');
 
   add3DTilt(el);
 
-  // anti-overlap + center-bias
+  // position (anti-overlap)
   let pos = randPos(), tries=0;
   while (tries++<12 && overlapped(pos.left,pos.top)) pos = randPos();
   el.style.left = pos.left+'px';
@@ -359,26 +313,19 @@ function spawnOnce(diff){
   document.body.appendChild(el);
   LIVE.add(el);
 
-  // TTL (เสมอ)
-  const ttl = (typeof meta.life === 'number') ? meta.life
-            : (typeof diff.life === 'number') ? diff.life
-            : 3000;
+  const ttl = (typeof meta.life === 'number') ? meta.life : (typeof diff.life === 'number') ? diff.life : 3000;
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
-// ----- Spawn loop (adaptive) -----
+// ----- Spawn loop -----
 function spawnLoop(){
   if (!state.running || state.paused) return;
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
-
-  // accuracy rolling
   const total = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accNow = total>0 ? (state.stats.good + state.stats.perfect)/total : 1;
   state._accHist.push(accNow); if (state._accHist.length>8) state._accHist.shift();
   const acc = state._accHist.reduce((s,x)=>s+x,0)/state._accHist.length;
-
-  // ปรับจังหวะตามความแม่น
   const speedUp = acc > 0.85 ? 0.90 : acc < 0.60 ? 1.12 : 1.00;
 
   const dyn = {
@@ -451,13 +398,8 @@ async function runCountdown(sec=5){
     ov.appendChild(b); document.body.appendChild(ov);
   }
   const b = $('#cdNum');
-  for (let n=sec;n>0;n--){
-    b.textContent = n;
-    coach.onCountdown?.(n);
-    await new Promise(r=>setTimeout(r, 1000));
-  }
-  b.textContent='Go!';
-  await new Promise(r=>setTimeout(r, 500));
+  for (let n=sec;n>0;n--){ b.textContent = n; coach.onCountdown?.(n); await new Promise(r=>setTimeout(r, 1000)); }
+  b.textContent='Go!'; await new Promise(r=>setTimeout(r, 500));
   try{ ov.remove(); }catch{}
 }
 
@@ -478,8 +420,7 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  tick();
-  spawnLoop();
+  tick(); spawnLoop();
 }
 
 function end(silent=false){
@@ -487,31 +428,19 @@ function end(silent=false){
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
-  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
   if (!silent){
     const modal = $('#result');
     if (modal){
       modal.style.display='flex';
-
       const total = score.score|0;
       const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
       const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
       const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
-
-      const resCore = `
-        <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
-        <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
-      const resBreak = `
-        <div style="margin-top:12px;text-align:left;font-weight:700">
-          ✅ ดี: ${state.stats.good}<br/>
-          🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
-          😐 ปกติ: ${state.stats.ok}<br/>
-          ❌ พลาด: ${state.stats.bad}
-        </div>`;
+      const resCore = `<div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div><div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
+      const resBreak = `<div style="margin-top:12px;text-align:left;font-weight:700">✅ ดี: ${state.stats.good}<br/>🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>😐 ปกติ: ${state.stats.ok}<br/>❌ พลาด: ${state.stats.bad}</div>`;
       const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
-
       const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
       if (coreEl) coreEl.innerHTML = resCore;
       if (brEl)   brEl.innerHTML   = resBreak;
@@ -523,11 +452,10 @@ function end(silent=false){
 
 // ----- Events -----
 document.addEventListener('pointerup', (e)=>{
-  const target = e.target;
-  const btn = byAction(target);
+  const btn = byAction(e.target);
   const a = btn?.getAttribute('data-action') || '';
 
-  // Toggle "More" presets row
+  // Toggle More row
   if (a === 'ui:togglePresets'){
     const row = $('#presetRow');
     if (row){
@@ -537,135 +465,81 @@ document.addEventListener('pointerup', (e)=>{
     }
     return;
   }
-
-  // Apply preset (global)
+  // Apply preset
   if (a.startsWith('ui:preset:')){
     const key = a.split(':')[2];
     const p = mergePreset(key);
-    // ตั้ง diff ให้เข้ากับพรีเซ็ต (แต่ผู้ใช้ยังปรับได้เองภายหลัง)
     state.difficulty = p.defaultDiff || state.difficulty;
     applyUI();
-    if (state.running) start(); // รีสตาร์ทด้วยค่าพรีเซ็ตใหม่
+    if (state.running) start();
     return;
   }
-
   if(!btn) return;
 
-  // start โหมดตามปุ่มใน index.html: ui:start:*
+  // Start mode buttons (ui:start:*)
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
-    if (MODES[key]){
-      state.modeKey = key;
-      applyUI();
-      start();
-    }
+    if (MODES[key]){ state.modeKey = key; applyUI(); start(); }
     return;
   }
 
-  // รูปแบบเดิม
-  if (a === 'mode'){ 
-    state.modeKey = btn.getAttribute('data-value'); 
-    applyUI(); 
-    if (state.running) start(); 
-  }
-  else if (a === 'diff'){ 
-    state.difficulty = btn.getAttribute('data-value'); 
-    applyUI(); 
-    if (state.running) start(); 
-  }
-  else if (a === 'start'){ 
-    start(); 
-  }
+  if (a === 'mode'){ state.modeKey = btn.getAttribute('data-value'); applyUI(); if (state.running) start(); }
+  else if (a === 'diff'){ state.difficulty = btn.getAttribute('data-value'); applyUI(); if (state.running) start(); }
+  else if (a === 'start'){ start(); }
   else if (a === 'pause'){
     if (!state.running){ start(); return; }
     state.paused = !state.paused;
-    if (!state.paused){ 
-      tick(); 
-      spawnLoop(); 
-    } else { 
-      clearTimeout(state.tickTimer); 
-      clearTimeout(state.spawnTimer); 
-    }
+    if (!state.paused){ tick(); spawnLoop(); }
+    else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
-  else if (a === 'restart'){ 
-    end(true); 
-    start(); 
-  }
-  else if (a === 'help'){ 
-    const m=$('#help'); 
-    if (m) m.style.display='flex'; 
-  }
-  else if (a === 'helpClose'){ 
-    const m=$('#help'); 
-    if (m) m.style.display='none'; 
-  }
-  else if (a === 'helpScene'){ 
-    const hs=$('#helpScene'); 
-    if (hs) hs.style.display='flex'; 
-  }
-  else if (a === 'helpSceneClose'){ 
-    const hs=$('#helpScene'); 
-    if (hs) hs.style.display='none'; 
-  }
+  else if (a === 'restart'){ end(true); start(); }
+  else if (a === 'help'){ const m=$('#help'); if (m) m.style.display='flex'; }
+  else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
+  else if (a === 'helpScene'){ const hs=$('#helpScene'); if (hs) hs.style.display='flex'; }
+  else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
-// Result modal buttons
-const resEl = $('#result');
-if (resEl){
-  resEl.addEventListener('click', (e)=>{
-    const a = e.target.getAttribute('data-result');
-    if (a==='replay'){ resEl.style.display='none'; start(); }
-    if (a==='home'){ resEl.style.display='none'; end(true); }
-  });
+// Powerbar → groups.powers
+const powerBar = $('#powerBar');
+if (powerBar){
+  const blink = (seg)=>{
+    seg.classList.add('active');
+    const i = seg.querySelector('i'); if (i){ i.style.transform='scaleY(1)'; setTimeout(()=>{ i.style.transform='scaleY(0)'; }, 400); }
+    setTimeout(()=>seg.classList.remove('active'), 420);
+  };
+  powerBar.addEventListener('pointerup', (e)=>{
+    const seg = e.target.closest('.pseg'); if (!seg) return;
+    if (!state.running || state.paused) return;
+    const k = seg.getAttribute('data-k');
+
+    if (state.modeKey==='groups' && groups?.powers){
+      if (k==='freeze'){ groups.powers.freezeTarget(); coach.say?.(state.lang==='EN'?'Freeze target timer!':'หยุดเวลาหมวด!'); }
+      else if (k==='sweep'){ groups.powers.magnetNext(); coach.say?.(state.lang==='EN'?'Magnet next hit!':'แม่เหล็กชิ้นถัดไป!'); }
+      else if (k==='x2'){ groups.powers.x2Target(); coach.say?.(state.lang==='EN'?'x2 target points!':'คะแนนเป้าหมาย x2!'); }
+      try{ $('#sfx-powerup')?.play(); }catch{}
+      blink(seg);
+    } else {
+      coach.say?.(state.lang==='EN'?'Use in Food Group Frenzy':'ใช้ได้ในโหมด จาน 5 หมู่');
+    }
+  }, {passive:true});
 }
 
 // Toggles
-$('#langToggle')?.addEventListener('click', ()=>{
-  state.lang = state.lang==='TH' ? 'EN' : 'TH';
-  localStorage.setItem('hha_lang', state.lang);
-  coach.setLang?.(state.lang);
-  applyUI();
-}, {passive:true});
-
-$('#gfxToggle')?.addEventListener('click', ()=>{
-  state.gfx = state.gfx==='low' ? 'quality' : 'low';
-  localStorage.setItem('hha_gfx', state.gfx);
-  try{ eng.renderer.setPixelRatio(state.gfx==='low'?0.75:(window.devicePixelRatio||1)); }catch{}
-}, {passive:true});
-
-$('#soundToggle')?.addEventListener('click', ()=>{
-  const on = localStorage.getItem('hha_sound') !== '0';
-  const nxt = !on;
-  localStorage.setItem('hha_sound', nxt?'1':'0');
-  sfx.setEnabled?.(nxt);
-  $('#soundToggle').textContent = nxt ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
-  if (nxt){ try{ sfx.play('sfx-good'); }catch{} }
-}, {passive:true});
-
-$('#hapticToggle')?.addEventListener('click', ()=>{
-  state.haptic = !state.haptic;
-  localStorage.setItem('hha_haptic', state.haptic?'1':'0');
-  $('#hapticToggle').textContent = state.haptic ? '📳 สั่น: เปิด' : '📴 สั่น: ปิด';
-}, {passive:true});
+$('#langToggle')?.addEventListener('click', ()=>{ state.lang = state.lang==='TH' ? 'EN' : 'TH'; localStorage.setItem('hha_lang', state.lang); coach.setLang?.(state.lang); applyUI(); }, {passive:true});
+$('#gfxToggle')?.addEventListener('click', ()=>{ state.gfx = state.gfx==='low' ? 'quality' : 'low'; localStorage.setItem('hha_gfx', state.gfx); try{ eng.renderer.setPixelRatio(state.gfx==='low'?0.75:(window.devicePixelRatio||1)); }catch{} }, {passive:true});
+$('#soundToggle')?.addEventListener('click', ()=>{ const on = localStorage.getItem('hha_sound') !== '0'; const nxt = !on; localStorage.setItem('hha_sound', nxt?'1':'0'); sfx.setEnabled?.(nxt); $('#soundToggle').textContent = nxt ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด'; if (nxt){ try{ sfx.play('sfx-good'); }catch{} } }, {passive:true});
+$('#hapticToggle')?.addEventListener('click', ()=>{ state.haptic = !state.haptic; localStorage.setItem('hha_haptic', state.haptic?'1':'0'); $('#hapticToggle').textContent = state.haptic ? '📳 สั่น: เปิด' : '📴 สั่น: ปิด'; }, {passive:true});
 
 // Auto pause
-document.addEventListener('visibilitychange', ()=>{
-  if (document.hidden && state.running && !state.paused){
-    state.paused = true;
-    clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
-  }
-});
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden && state.running && !state.paused){ state.paused = true; clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }});
 
 // Unlock audio
 window.addEventListener('pointerdown', ()=>{ try{ sfx.unlock(); }catch{} }, {once:true, passive:true});
 
-// ----- Boot -----
+// Boot
 (function boot(){
-  // โหลด preset ที่เคยเลือกไว้
   const saved = localStorage.getItem('hha_preset') || 'TrainerBalanced';
   const p = mergePreset(saved);
-  // ตั้ง diff เริ่มต้นให้เข้ากับพรีเซ็ต
   state.difficulty = p.defaultDiff || 'Normal';
-  applyUI();
-  updateHUD();
+  applyUI(); updateHUD();
 })();
