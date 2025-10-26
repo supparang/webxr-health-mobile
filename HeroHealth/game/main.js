@@ -1,7 +1,12 @@
-// === Hero Health Academy — main.js (icon-size + score FX + fever flame) ===
+// === Hero Health Academy — main.js (stable) ===
+// - Icon auto-size by difficulty
+// - Score/combo/fever effects (popup + flame)
+// - Centered modals
+// - Safe spawn area (not under header/menu)
+
 window.__HHA_BOOT_OK = true;
 
-// Imports
+// ----- Imports -----
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine } from './core/engine.js';
 import { HUD } from './core/hud.js';
@@ -15,387 +20,347 @@ import * as groups from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
 import * as plate from './modes/plate.js';
 
-// ------- helpers -------
-const $ = (s)=>document.querySelector(s);
-const byAction = (el)=>el?.closest?.('[data-action]') || null;
-const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
-const nowMS = ()=> (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now();
+// ----- Helpers -----
+const $ = (s) => document.querySelector(s);
+const byAction = (el) => (el && el.closest ? el.closest('[data-action]') : null);
+const setText = (sel, txt) => { const el = $(sel); if (el) el.textContent = txt; };
 
-function spawnScoreBurst(x, y, { text, color = '#7fffd4', minor }){
+// ----- Config -----
+const MODES = { goodjunk, groups, hydration, plate };
+const DIFFS = {
+  Easy:   { time: 70, spawn: 900, life: 4200 },
+  Normal: { time: 60, spawn: 700, life: 3000 },
+  Hard:   { time: 50, spawn: 550, life: 1800 }
+};
+const ICON_SIZE_MAP = { Easy: 92, Normal: 72, Hard: 58 };
+
+const I18N = {
+  TH:{
+    names:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
+    diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'}
+  },
+  EN:{
+    names:{goodjunk:'Good vs Junk', groups:'Food Groups', hydration:'Hydration', plate:'Healthy Plate'},
+    diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'}
+  }
+};
+const T = (lang)=> I18N[lang] || I18N.TH;
+
+// ----- State & Systems -----
+const state = {
+  modeKey: 'goodjunk',
+  difficulty: 'Normal',
+  running: false,
+  paused: false,
+  timeLeft: 60,
+  lang: localStorage.getItem('hha_lang') || 'TH',
+  gfx:  localStorage.getItem('hha_gfx')  || 'quality',
+  combo: 0,
+  bestCombo: 0,
+  fever: { active:false, meter:0, drainPerSec:14, chargeGood:10, chargePerfect:20, threshold:100, mul:2, timeLeft:0 },
+  spawnTimer: 0,
+  tickTimer: 0,
+  ctx: {}
+};
+
+const hud   = new HUD();
+const sfx   = new SFX();
+const score = new ScoreSystem();
+const power = new PowerUpSystem();
+const coach = new Coach({ lang: state.lang });
+const eng   = new Engine(THREE, document.getElementById('c'));
+
+// ----- UI Apply -----
+function applyUI(){
+  const L = T(state.lang);
+  setText('#modeName',   (L.names[state.modeKey] || state.modeKey));
+  setText('#difficulty', (L.diffs[state.difficulty] || state.difficulty));
+}
+function updateHUD(){
+  hud.setScore?.(score.score);
+  hud.setTime?.(state.timeLeft);
+  hud.setCombo?.('x' + state.combo);
+}
+
+// ----- Fever UI -----
+function setFeverBar(pct){
+  const bar = $('#feverBar'); if (!bar) return;
+  const clamped = Math.max(0, Math.min(100, pct|0));
+  bar.style.width = clamped + '%';
+}
+function showFeverLabel(show){
+  const f = $('#fever'); if (!f) return;
+  f.style.display = show ? 'block' : 'none';
+  if (show) f.classList.add('pulse'); else f.classList.remove('pulse');
+}
+function startFever(){
+  if (state.fever.active) return;
+  state.fever.active = true;
+  state.fever.timeLeft = 7;
+  showFeverLabel(true);
+  try{ $('#sfx-powerup')?.play(); }catch{}
+}
+function stopFever(){
+  state.fever.active = false;
+  state.fever.timeLeft = 0;
+  showFeverLabel(false);
+}
+
+// ----- Score FX (popup & flame) -----
+function makeScoreBurst(x, y, text, minor, color){
   const el = document.createElement('div');
   el.className = 'scoreBurst';
-  el.style.left = `${x}px`;
-  el.style.top  = `${y}px`;
-  el.style.color = color;
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.style.color = color || '#7fffd4';
+  el.style.fontSize = '20px';
   el.textContent = text;
-  if (minor){
+  if (minor) {
     const m = document.createElement('span');
     m.className = 'minor';
     m.textContent = minor;
     el.appendChild(m);
   }
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 950);
+  setTimeout(()=>{ try{ el.remove(); }catch{} }, 900);
 }
-function spawnFlame(x, y, strong=false){
-  const f = document.createElement('div');
-  f.className = 'flameBurst' + (strong ? ' strong' : '');
-  f.style.left = `${x}px`;
-  f.style.top  = `${y}px`;
-  document.body.appendChild(f);
-  setTimeout(()=>f.remove(), 950);
+function makeFlame(x, y, strong){
+  const el = document.createElement('div');
+  el.className = 'flameBurst' + (strong ? ' strong' : '');
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(()=>{ try{ el.remove(); }catch{} }, 900);
 }
 
-// ------- config -------
-const MODES = { goodjunk, groups, hydration, plate };
-const DIFFS = {
-  Easy:   { time:70, spawn:900, life:4200 },
-  Normal: { time:60, spawn:700, life:3000 },
-  Hard:   { time:50, spawn:550, life:1800 }
-};
-// ขนาดไอคอนตามความยาก (ใหญ่สุด → เล็กสุด)
-const ICON_SIZES = { Easy: 100, Normal: 76, Hard: 56 }; // px
+function scoreWithEffects(base, x, y){
+  const comboMul = state.combo >= 20 ? 1.4 : (state.combo >= 10 ? 1.2 : 1.0);
+  const feverMul = state.fever.active ? state.fever.mul : 1.0;
+  const total = Math.round(base * comboMul * feverMul);
 
-const I18N = {
-  TH:{
-    brand:'HERO HEALTH ACADEMY',
-    score:'คะแนน', combo:'คอมโบ', time:'เวลา',
-    target:'หมวด', quota:'โควตา', hydro:'สมดุลน้ำ',
-    mode:'โหมด', diff:'ความยาก',
-    modes:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
-    diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'},
-    helpTitle:'วิธีเล่น',
-    helpBody:{
-      goodjunk:'เก็บอาหารดี (🥦🍎) หลีกเลี่ยงอาหารขยะ (🍔🍟🥤)\nแตะไวได้ PERFECT • มี ✖️2 / 🧊',
-      groups:'ดู 🎯 เป้าบน HUD แล้วเก็บให้ตรงหมวด\nตรงเป้า=good | หมวดถูกแต่ไม่ตรง=ok | ผิดหมวด=bad\nพาวเวอร์: Dual / x2 / Freeze / Rotate',
-      hydration:'คุมแถบน้ำ 45–65%\n💧/🥛 เพิ่ม, 🥤/☕ ลด • ออกนอกโซนโทษหนัก',
-      plate:'เติมโควตา: ธ2 ผ2 ป1 ผ1 น1 • ครบจาน=PERFECT • เกินโควตา -เวลา'
-    },
-    summary:'สรุปผล',
-  },
-  EN:{
-    brand:'HERO HEALTH ACADEMY',
-    score:'Score', combo:'Combo', time:'Time',
-    target:'Target', quota:'Quota', hydro:'Hydration',
-    mode:'Mode', diff:'Difficulty',
-    modes:{goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate'},
-    diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'},
-    helpTitle:'How to Play',
-    helpBody:{
-      goodjunk:'Collect healthy (🥦🍎), avoid junk (🍔🍟🥤)\nQuick tap = PERFECT • ✖️2 / 🧊 power-ups',
-      groups:'Follow 🎯 on HUD.\nOn-target=good | right-group-not-target=ok | wrong-group=bad\nPower: Dual / x2 / Freeze / Rotate',
-      hydration:'Keep hydration 45–65%.\n💧/🥛 up, 🥤/☕ down • Outside zone = heavier penalty',
-      plate:'Fill quotas: G2 V2 P1 F1 D1 • Perfect plate=PERFECT • Overfill reduces time'
-    },
-    summary:'Summary',
-  }
-};
-const T = (lang)=>I18N[lang]||I18N.TH;
+  score.add?.(total);
 
-// ------- systems -------
-const hud = new HUD();
-const sfx = new SFX();
-const score = new ScoreSystem();
-const power = new PowerUpSystem();
-const coach = new Coach({ lang: localStorage.getItem('hha_lang') || 'TH' });
-const eng = new Engine(THREE, document.getElementById('c'));
+  const tag   = total >= 0 ? '+' + total : '' + total;
+  const minor = (comboMul > 1 || feverMul > 1) ? ('x' + comboMul.toFixed(1) + (feverMul>1 ? ' & FEVER' : '')) : '';
+  const color = total >= 0 ? (feverMul>1 ? '#ffd54a' : '#7fffd4') : '#ff9b9b';
 
-// ------- state -------
-const state = {
-  modeKey:'goodjunk',
-  difficulty:'Normal',
-  running:false,
-  paused:false,
-  timeLeft:60,
-  lang: localStorage.getItem('hha_lang') || 'TH',
-  gfx:  localStorage.getItem('hha_gfx') || 'quality',
-  combo:0,
-  bestCombo:0,
-  fever:{ active:false, meter:0, drainPerSec:14, chargePerGood:10, chargePerPerfect:20, threshold:100, mul:2, timeLeft:0 },
-  freezeUntil: 0,
-  lastSpawnAt: 0,
-  ctx:{},
-  spawnTimer:0,
-  tickTimer:0
-};
+  makeScoreBurst(x, y, tag, minor, color);
+  if (state.fever.active) makeFlame(x, y, total >= 10);
+}
 
-// ------- fever/combo -------
-function setFeverBar(pct){ const bar = $('#feverBar'); if (bar) bar.style.width = Math.max(0,Math.min(100,pct))+'%'; }
-function showFeverLabel(show){ const f=$('#fever'); if (f){ f.style.display = show?'block':'none'; f.classList.toggle('pulse', !!show); } }
-function startFever(){ if(state.fever.active) return; state.fever.active=true; state.fever.timeLeft=7; showFeverLabel(true); try{$('#sfx-powerup')?.play();}catch{} }
-function stopFever(){ state.fever.active=false; state.fever.timeLeft=0; showFeverLabel(false); }
-
+// ----- Combo logic -----
 function addCombo(kind){
-  if (kind==='bad'){
+  if (kind === 'bad'){
     state.combo = 0;
     hud.setCombo?.('x0');
     return;
   }
-  if (kind==='good' || kind==='perfect'){
+  if (kind === 'good' || kind === 'perfect'){
     state.combo++;
     state.bestCombo = Math.max(state.bestCombo, state.combo);
-    hud.setCombo?.('x'+state.combo);
+    hud.setCombo?.('x' + state.combo);
+
     if (!state.fever.active){
-      state.fever.meter = Math.min(100, state.fever.meter + (kind==='perfect'?state.fever.chargePerPerfect:state.fever.chargePerGood));
+      const gain = (kind === 'perfect') ? state.fever.chargePerfect : state.fever.chargeGood;
+      state.fever.meter = Math.min(100, state.fever.meter + gain);
       setFeverBar(state.fever.meter);
       if (state.fever.meter >= state.fever.threshold) startFever();
-    }else{
+    } else {
       state.fever.timeLeft = Math.min(10, state.fever.timeLeft + 0.6);
     }
   }
 }
-function scoreWithEffects(base, x, y){
-  const comboMul = state.combo>=20?1.4: state.combo>=10?1.2: 1.0;
-  const feverMul = state.fever.active?state.fever.mul:1.0;
-  const total = Math.round(base * comboMul * feverMul);
-  score.add?.(total);
 
-  // label
-  const label = total>=0?`+${total}`:`${total}`;
-  const color = total>=0?'#7fffd4':'#ff9b9b';
-  const minor = (comboMul>1 || feverMul>1)
-    ? `combo ${comboMul.toFixed(1)}×${feverMul>1?` • fever ${feverMul}×`:''}`
-    : undefined;
-
-  spawnScoreBurst(x, y, { text: label, color, minor });
-
-  // flames!
-  if (state.fever.active || state.combo>=8){
-    spawnFlame(x, y, state.fever.active || state.combo>=14);
-  }
-}
-
-// ------- i18n/UI -------
-function applyLang(){
-  const L = T(state.lang);
-  setText('#brandTitle', L.brand);
-  setText('#t_score', L.score);
-  setText('#t_combo', L.combo);
-  setText('#t_time',  L.time);
-  setText('#t_target',L.target);
-  setText('#t_quota', L.quota);
-  setText('#t_hydro', L.hydro);
-  setText('#t_mode',  L.mode);
-  setText('#t_diff',  L.diff);
-  setText('#modeName', L.modes[state.modeKey] || state.modeKey);
-  setText('#difficulty', L.diffs[state.difficulty] || state.difficulty);
-  setText('#h_help', L.helpTitle);
-  setText('#h_summary', L.summary);
-}
-function applyGFX(){
-  try{
-    eng.renderer.setPixelRatio(state.gfx==='low' ? 0.75 : (window.devicePixelRatio||1));
-    document.body.classList.toggle('low-gfx', state.gfx==='low');
-  }catch{}
-  const btn=$('#gfxToggle'); if(btn) btn.textContent='🎛️ ' + (state.gfx==='low' ? 'กราฟิก: ประหยัด' : 'กราฟิก: ปกติ');
-}
-function updateHUD(){
-  setText('#score', score.score|0);
-  setText('#combo', 'x'+(state.combo|0));
-  setText('#time',  state.timeLeft|0);
-}
-function modeHelpText(){
-  const L = T(state.lang);
-  return L.helpBody[state.modeKey] || '';
-}
-function buildHelpScene(){
-  const L = T(state.lang);
-  const icons = { goodjunk:'🥗', groups:'🍽️', hydration:'💧', plate:'🍱' };
-  const body = $('#hs_body'); if(!body) return;
-  body.innerHTML = Object.keys(L.modes).map(k=>{
-    const title = L.modes[k];
-    const howto = L.helpBody[k] || '';
-    const ic = icons[k] || '📘';
-    return `<div class="hs-card"><div class="hs-emoji">${ic}</div><h4>${title}</h4><div style="opacity:.9;white-space:pre-wrap">${howto}</div></div>`;
-  }).join('');
-}
-
-// ------- gameplay -------
+// ----- Spawn -----
 function spawnOnce(diff){
-  if(!state.running || state.paused) return;
+  if (!state.running || state.paused) return;
 
   const mode = MODES[state.modeKey];
-  const meta = mode?.pickMeta?.(diff, state) || {};
+  const meta = (mode && mode.pickMeta) ? (mode.pickMeta(diff, state) || {}) : {};
 
   const el = document.createElement('button');
   el.className = 'item';
   el.type = 'button';
   el.textContent = meta.char || '❓';
 
-  // --- ขนาดไอคอนตามความยาก ---
-  const basePx = ICON_SIZES[state.difficulty] || ICON_SIZES.Normal;
-  const feverBoost = state.fever.active ? 1.05 : 1.0;  // ไอคอนใหญ่ขึ้นนิดตอนฟีเวอร์
-  el.style.fontSize = Math.round(basePx * feverBoost) + 'px';
+  const px = ICON_SIZE_MAP[state.difficulty] || 72;
+  el.style.fontSize = px + 'px';
+  el.style.lineHeight = '1';
+  el.style.border = 'none';
+  el.style.background = 'transparent';
+  el.style.color = '#fff';
+  el.style.position = 'fixed';
+  el.style.cursor = 'pointer';
+  el.style.zIndex = '80';
+  el.style.transition = 'transform .15s, filter .15s, opacity .15s';
+  el.addEventListener('pointerenter', function(){ el.style.transform = 'scale(1.12)'; }, { passive:true });
+  el.addEventListener('pointerleave', function(){ el.style.transform = 'scale(1)'; }, { passive:true });
 
-  el.addEventListener('pointerenter', ()=> el.style.transform='scale(1.18)', {passive:true});
-  el.addEventListener('pointerleave', ()=> el.style.transform='scale(1)',   {passive:true});
+  // Safe area (avoid header and menu)
+  const headerH = ($('header.brand') && $('header.brand').offsetHeight) ? $('header.brand').offsetHeight : 56;
+  const menuH   = ($('#menuBar') && $('#menuBar').offsetHeight) ? $('#menuBar').offsetHeight : 120;
+  const yMin = headerH + 60;
+  const yMax = Math.max(yMin + 50, window.innerHeight - menuH - 80);
+  const xMin = 20;
+  const xMax = Math.max(xMin + 50, window.innerWidth - 80);
 
-  // Safe area
-  const headerH = $('header.brand')?.offsetHeight || 56;
-  const menuH   = $('#menuBar')?.offsetHeight || 120;
-  const yMin = headerH + 60, yMax = Math.max(yMin + 50, innerHeight - menuH - 80);
-  const xMin = 20,           xMax = Math.max(xMin + 50, innerWidth  - 80);
-  el.style.left = (xMin + Math.random()*(xMax-xMin)) + 'px';
-  el.style.top  = (yMin + Math.random()*(yMax-yMin)) + 'px';
+  el.style.left = (xMin + Math.random() * (xMax - xMin)) + 'px';
+  el.style.top  = (yMin + Math.random() * (yMax - yMin)) + 'px';
 
-  el.addEventListener('click', (ev)=>{
+  el.addEventListener('click', function(ev){
     ev.stopPropagation();
     try{
-      const sys = { score, sfx, power, coach, fx: eng.fx };
-      // modes should return: 'good'|'ok'|'bad'|'perfect'|'power'
-      const res = mode?.onHit?.(meta, sys, state, hud) || (meta.good ? 'good' : 'ok');
+      const sys = { score, sfx, power, coach, fx: eng?.fx };
+      // Each mode should return: 'good' | 'ok' | 'bad' | 'perfect' | 'power'
+      const res = (mode && mode.onHit) ? (mode.onHit(meta, sys, state, hud) || 'ok') : (meta.good ? 'good' : 'ok');
 
-      const rect = el.getBoundingClientRect();
-      const x = rect.left + rect.width/2;
-      const y = rect.top  + rect.height/2;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width/2;
+      const cy = r.top  + r.height/2;
 
-      if (res==='good' || res==='perfect') addCombo(res);
-      if (res==='bad') addCombo('bad');
+      if (res === 'good' || res === 'perfect') addCombo(res);
+      if (res === 'bad') addCombo('bad');
 
-      const baseMap = { good:7, perfect:14, ok:2, bad:-3, power:5 };
-      const base = baseMap[res] ?? 1;
+      const base = ({ good:7, perfect:14, ok:2, bad:-3, power:5 })[res] || 1;
+      scoreWithEffects(base, cx, cy);
 
-      scoreWithEffects(base, x, y);
-
-      if (res==='perfect') el.classList.add('feverHit');
-      if (state.fever.active) el.classList.add('feverHit');
+      if (res === 'good'){ try{ sfx.good(); }catch{} }
+      else if (res === 'bad'){ try{ sfx.bad(); }catch{} }
     }catch(e){
+      // fail-safe
       console.error('[HHA] onHit error:', e);
     }finally{
-      el.remove();
+      try{ el.remove(); }catch{}
     }
-  }, {passive:true});
+  }, { passive:true });
 
   document.body.appendChild(el);
-  state.lastSpawnAt = nowMS();
-
-  setTimeout(()=>{ try{ el.remove(); }catch{} }, meta.life || diff.life || 3000);
+  const ttl = meta.life || diff.life || 3000;
+  setTimeout(function(){ try{ el.remove(); }catch{} }, ttl);
 }
 
 function spawnLoop(){
-  if(!state.running || state.paused) return;
-
-  const now = nowMS();
-  if (state.freezeUntil && now < state.freezeUntil) {
-    state.spawnTimer = setTimeout(spawnLoop, 120);
-    return;
-  }
-
+  if (!state.running || state.paused) return;
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
-  const scale = Math.max(0.25, Math.min(3, power.timeScale || 1));
-  const next  = Math.max(260, Math.min(2000, (diff.spawn || 700) * scale));
-
   spawnOnce(diff);
-
-  setTimeout(()=>{
-    const t = nowMS();
-    if (state.running && !state.paused && (t - state.lastSpawnAt > 2500)) {
-      spawnOnce(diff);
-    }
-  }, 2500);
-
+  const next = Math.max(220, (diff.spawn || 700) * (power.timeScale || 1));
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
+// ----- Tick / Start / End -----
 function tick(){
-  if(!state.running || state.paused) return;
+  if (!state.running || state.paused) return;
 
+  // Fever drain
   if (state.fever.active){
     state.fever.timeLeft = Math.max(0, state.fever.timeLeft - 1);
     state.fever.meter = Math.max(0, state.fever.meter - state.fever.drainPerSec);
     setFeverBar(state.fever.meter);
-    if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
+    if (state.fever.timeLeft <= 0 || state.fever.meter <= 0) stopFever();
   }
 
-  try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng.fx}, hud); }catch(e){ console.warn('[HHA] mode.tick:', e); }
+  // Per-mode tick
+  try{
+    const mode = MODES[state.modeKey];
+    if (mode && mode.tick) mode.tick(state, { score, sfx, power, coach, fx: eng?.fx }, hud);
+  }catch(e){
+    console.warn('[HHA] mode.tick error:', e);
+  }
 
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
 
   if (state.timeLeft <= 0){ end(); return; }
-  if (state.timeLeft <= 10){ try{ $('#sfx-tick')?.play()?.catch(()=>{}); }catch{} }
+  if (state.timeLeft <= 10){
+    try{ $('#sfx-tick')?.play()?.catch(()=>{}); }catch{}
+    document.body.classList.add('flash');
+  }else{
+    document.body.classList.remove('flash');
+  }
+
   state.tickTimer = setTimeout(tick, 1000);
 }
 
 function start(){
   end(true);
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
-  state.running = true; state.paused=false;
-  state.timeLeft = diff.time;
-  state.combo=0; state.bestCombo=0;
-  state.fever.meter=0; setFeverBar(0); stopFever();
-  state.freezeUntil=0;
-  score.reset?.(); updateHUD();
+  state.running   = true;
+  state.paused    = false;
+  state.timeLeft  = diff.time;
+  state.combo     = 0;
+  state.fever.meter = 0;
+  setFeverBar(0);
+  stopFever();
+  score.reset?.();
+  updateHUD();
 
-  // Hide non-used HUD blocks
-  hud.hideHydration?.(); hud.hideTarget?.(); hud.hidePills?.();
+  try{
+    const mode = MODES[state.modeKey];
+    if (mode && mode.init) mode.init(state, hud, diff);
+  }catch(e){
+    console.error('[HHA] mode.init error:', e);
+  }
 
-  try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
-
-  if(state.modeKey!=='hydration') hud.hideHydration?.();
-  if(state.modeKey!=='groups' && state.modeKey!=='plate') hud.hideTarget?.();
-  if(state.modeKey!=='plate') hud.hidePills?.();
-
-  const ml = $('#missionLine'); if (ml) ml.style.display='none';
-
-  tick(); spawnLoop();
+  coach.onStart?.(state.modeKey);
+  tick();
+  spawnLoop();
 }
 
-function end(silent=false){
-  state.running=false; state.paused=false;
-  clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
+function end(silent){
+  if (silent !== true) silent = false;
+  state.running = false;
+  state.paused = false;
+  clearTimeout(state.tickTimer);
+  clearTimeout(state.spawnTimer);
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
-  const ml = $('#missionLine'); if (ml) ml.style.display='none';
-  if(!silent){ const m=$('#result'); if(m) m.style.display='flex'; }
+
+  if (!silent){
+    const modal = $('#result');
+    if (modal) modal.style.display = 'flex';
+    coach.onEnd?.(score.score, { grade: 'A' });
+  }
 }
 
-// ------- events -------
-document.addEventListener('pointerup', (e)=>{
-  const btn = byAction(e.target); if(!btn) return;
+// ----- Events -----
+document.addEventListener('pointerup', function(e){
+  const btn = byAction(e.target);
+  if (!btn) return;
   const a = btn.getAttribute('data-action');
   const v = btn.getAttribute('data-value');
 
-  if (a==='mode'){ state.modeKey=v; applyLang(); if(state.running) start(); }
-  else if (a==='diff'){ state.difficulty=v; applyLang(); if(state.running) start(); }
-  else if (a==='start'){ start(); }
-  else if (a==='pause'){
+  if (a === 'mode'){ state.modeKey = v; applyUI(); if (state.running) start(); }
+  else if (a === 'diff'){ state.difficulty = v; applyUI(); if (state.running) start(); }
+  else if (a === 'start'){ start(); }
+  else if (a === 'pause'){
     if (!state.running){ start(); return; }
     state.paused = !state.paused;
     if (!state.paused){ tick(); spawnLoop(); }
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
-  else if (a==='restart'){ end(true); start(); }
-  else if (a==='help'){
-    const help=$('#help'); const body=$('#helpBody');
-    if(help && body){ body.textContent = modeHelpText(); help.style.display='flex'; }
-  }
-  else if (a==='helpClose'){ const m=$('#help'); if(m) m.style.display='none'; }
-  else if (a==='helpScene'){ buildHelpScene(); const hs=$('#helpScene'); if(hs) hs.style.display='flex'; }
-  else if (a==='helpSceneClose'){ const hs=$('#helpScene'); if(hs) hs.style.display='none'; }
-}, {passive:true});
+  else if (a === 'restart'){ end(true); start(); }
+  else if (a === 'help'){ const m = $('#help'); if (m) m.style.display = 'flex'; }
+  else if (a === 'helpClose'){ const m = $('#help'); if (m) m.style.display = 'none'; }
+  else if (a === 'helpScene'){ const hs = $('#helpScene'); if (hs) hs.style.display = 'flex'; }
+  else if (a === 'helpSceneClose'){ const hs = $('#helpScene'); if (hs) hs.style.display = 'none'; }
+}, { passive:true });
 
-$('#langToggle')?.addEventListener('click', ()=>{
-  state.lang = state.lang==='TH' ? 'EN' : 'TH';
+// Top bar toggles
+$('#langToggle')?.addEventListener('click', function(){
+  state.lang = state.lang === 'TH' ? 'EN' : 'TH';
   localStorage.setItem('hha_lang', state.lang);
-  coach.setLang?.(state.lang);
-  applyLang();
-}, {passive:true});
+  coach.lang = state.lang;
+  applyUI();
+}, { passive:true });
 
-$('#gfxToggle')?.addEventListener('click', ()=>{
-  state.gfx = state.gfx==='low' ? 'quality' : 'low';
+$('#gfxToggle')?.addEventListener('click', function(){
+  state.gfx = state.gfx === 'low' ? 'quality' : 'low';
   localStorage.setItem('hha_gfx', state.gfx);
-  applyGFX();
-}, {passive:true});
+  try{ eng.renderer.setPixelRatio(state.gfx === 'low' ? 0.75 : (window.devicePixelRatio || 1)); }catch{}
+}, { passive:true });
 
-$('#soundToggle')?.addEventListener('click', ()=>{
-  const on = $('#soundToggle');
-  if (on) on.textContent = on.textContent.includes('🔊') ? '🔇 เสียง: ปิด' : '🔊 เสียง: เปิด';
-}, {passive:true});
+// Unlock audio once
+window.addEventListener('pointerdown', function(){ try{ sfx.unlock(); }catch{} }, { once:true, passive:true });
 
-// unlock audio once
-['pointerdown','touchstart','keydown'].forEach(ev=>{
-  window.addEventListener(ev, ()=>sfx.unlock?.(), { once:true, passive:true });
-});
-
-// Boot
-applyLang(); applyGFX(); updateHUD();
+// ----- Boot -----
+applyUI();
+updateHUD();
