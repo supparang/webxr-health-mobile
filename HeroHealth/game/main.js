@@ -63,7 +63,7 @@ const state = {
   _accHist:[],
   freezeUntil:0,
   didWarnT10:false,
-  uiMode:false,              // << NEW: โหมดที่ให้โมดูล UI คุมเอง (เช่น groups)
+  uiMode:false,              // NEW: โหมด UI-Driven (เช่น groups)
 };
 
 // ----- UI -----
@@ -235,14 +235,12 @@ function add3DTilt(el){
 }
 
 function shatter3D(x,y){
-  // ring
   const ring = document.createElement('div');
   ring.className='burstRing'; ring.style.left=x+'px'; ring.style.top=y+'px';
   FXROOT.appendChild(ring);
   ring.style.animation='ringOut .45s ease-out forwards';
   setTimeout(()=>{ try{ ring.remove(); }catch{} }, 500);
 
-  // shards
   const N = 12 + (Math.random()*6|0);
   for (let i=0;i<N;i++){
     const s=document.createElement('div'); s.className='shard';
@@ -264,7 +262,6 @@ function shatter3D(x,y){
     setTimeout(()=>{ try{ s.remove(); }catch{} }, 560);
   }
 
-  // sparks
   const SP = 8 + (Math.random()*6|0);
   for (let i=0;i<SP;i++){
     const p=document.createElement('div'); p.className='spark';
@@ -281,7 +278,7 @@ function shatter3D(x,y){
 
 // ----- Spawn one -----
 function spawnOnce(diff){
-  if (!state.running || state.paused || state.uiMode) return; // << guard UI-Driven
+  if (!state.running || state.paused || state.uiMode) return; // guard UI-Driven
 
   const now = performance?.now?.()||Date.now();
   if (state.freezeUntil && now < state.freezeUntil){
@@ -307,7 +304,6 @@ function spawnOnce(diff){
 
   add3DTilt(el);
 
-  // position (anti-overlap)
   let pos = randPos(), tries=0;
   while (tries++<12 && overlapped(pos.left,pos.top)) pos = randPos();
   el.style.left = pos.left+'px';
@@ -329,11 +325,8 @@ function spawnOnce(diff){
 
       const base = ({good:7, perfect:14, ok:2, bad:-3, power:5})[res] || 1;
       scoreWithEffects(base, cx, cy);
-
-      // 3D shatter effect
       shatter3D(cx, cy);
 
-      // haptics
       if (state.haptic && navigator.vibrate){
         if (res==='bad') navigator.vibrate(60);
         else if (res==='perfect') navigator.vibrate([12,30,12]);
@@ -354,7 +347,7 @@ function spawnOnce(diff){
 
 // ----- Spawn loop (adaptive) -----
 function spawnLoop(){
-  if (!state.running || state.paused || state.uiMode) return; // << guard UI-Driven
+  if (!state.running || state.paused || state.uiMode) return; // guard UI-Driven
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -467,7 +460,6 @@ function end(silent=false){
 
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
-  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
   if (!silent){
@@ -503,29 +495,74 @@ function end(silent=false){
 
 // ----- Events -----
 document.addEventListener('pointerup', (e)=>{
-  // ให้โหมด UI-Driven รับคลิกของตัวเอง (เช่น groups)
+  // ให้โหมด UI-Driven รับคลิกของตัวเองก่อน (เช่น groups)
   if (state.uiMode && MODES[state.modeKey]?.handleDomAction){
-    try{ MODES[state.modeKey].handleDomAction(e.target); }catch{}
+    try { MODES[state.modeKey].handleDomAction(e.target); } catch {}
     // ไม่ return เพื่อให้ปุ่มเมนูหลัก (help/pause/...) ยังทำงาน
   }
 
-  const btn = byAction(e.target); if(!btn) return;
-  const a = btn.getAttribute('data-action'); const v = btn.getAttribute('data-value');
+  const btn = byAction(e.target); 
+  if(!btn) return;
 
-  if (a==='mode'){ state.modeKey=v; applyUI(); if (state.running) start(); }
-  else if (a==='diff'){ state.difficulty=v; applyUI(); if (state.running) start(); }
-  else if (a==='start'){ start(); }
-  else if (a==='pause'){
+  const a = btn.getAttribute('data-action'); 
+  const v = btn.getAttribute('data-value');
+
+  // รองรับรูปแบบ ui:start:* (ตามปุ่มใน index.html)
+  if (a && a.startsWith('ui:start:')){
+    const key = a.split(':')[2];           // goodjunk / groups / hydration / plate
+    if (MODES[key]){
+      state.modeKey = key;
+      applyUI();
+      start();
+    }
+    return;
+  }
+
+  // รูปแบบเดิม (เผื่อยังมีปุ่ม legacy)
+  if (a === 'mode'){ 
+    state.modeKey = v; 
+    applyUI(); 
+    if (state.running) start(); 
+  }
+  else if (a === 'diff'){ 
+    state.difficulty = v; 
+    applyUI(); 
+    if (state.running) start(); 
+  }
+  else if (a === 'start'){ 
+    start(); 
+  }
+  else if (a === 'pause'){
     if (!state.running){ start(); return; }
     state.paused = !state.paused;
-    if (!state.paused){ tick(); if(!state.uiMode) spawnLoop(); }
-    else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
+    if (!state.paused){ 
+      tick(); 
+      if(!state.uiMode) spawnLoop(); 
+    } else { 
+      clearTimeout(state.tickTimer); 
+      clearTimeout(state.spawnTimer); 
+    }
   }
-  else if (a==='restart'){ end(true); start(); }
-  else if (a==='help'){ const m=$('#help'); if (m) m.style.display='flex'; }
-  else if (a==='helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
-  else if (a==='helpScene'){ const hs=$('#helpScene'); if (hs) hs.style.display='flex'; }
-  else if (a==='helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
+  else if (a === 'restart'){ 
+    end(true); 
+    start(); 
+  }
+  else if (a === 'help'){ 
+    const m=$('#help'); 
+    if (m) m.style.display='flex'; 
+  }
+  else if (a === 'helpClose'){ 
+    const m=$('#help'); 
+    if (m) m.style.display='none'; 
+  }
+  else if (a === 'helpScene'){ 
+    const hs=$('#helpScene'); 
+    if (hs) hs.style.display='flex'; 
+  }
+  else if (a === 'helpSceneClose'){ 
+    const hs=$('#helpScene'); 
+    if (hs) hs.style.display='none'; 
+  }
 }, {passive:true});
 
 // Result modal buttons
