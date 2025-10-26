@@ -11,52 +11,66 @@
   <link rel="stylesheet" href="styles/game.css" />
 
   <!-- Bootloader: ลองหลาย path + รายงาน error ถ้าโหลดไม่ได้ -->
-  <script type="module">
-    window.__HHA_BOOT_OK = false;
+<script type="module">
+  // ----- HHA Bootloader (resilient + success chip) -----
+  window.__HHA_BOOT_OK = false;
 
-    const candidates = [];
-    const baseURIs = [
-      document.baseURI,
-      new URL('./', location.href).href,
-      'https://supparang.github.io/webxr-health-mobile/HeroHealth/'
-    ];
-    const paths = [
-      'game/main.js?v=live',
-      'game/main.js',
-      './game/main.js'
-    ];
-    for (const b of baseURIs) {
-      for (const p of paths) {
-        candidates.push(new URL(p, b).href);
-      }
-    }
+  const candidates = [];
+  const baseURIs = [
+    document.baseURI,
+    new URL('./', location.href).href,
+    'https://supparang.github.io/webxr-health-mobile/HeroHealth/'
+  ];
+  const paths = ['game/main.js?v=live','game/main.js','./game/main.js'];
+  for (const b of baseURIs) for (const p of paths) candidates.push(new URL(p, b).href);
 
-    let loaded = false;
-    let lastErr = null;
-    for (const url of candidates) {
-      try {
-        const withBust = url.includes('?') ? url + '&cb=' + Date.now() : url + '?cb=' + Date.now();
-        await import(withBust);
-        loaded = true;
-        window.__HHA_BOOT_OK = true;
-        console.info('[HHA] boot ok via', url);
-        break;
-      } catch (e) {
-        lastErr = e;
-        console.warn('[HHA] boot try fail:', url, e);
-      }
-    }
+  let loaded = false;
+  let lastErr = null;
 
-    if (!loaded) {
-      const w = document.getElementById('bootWarn');
-      if (w) {
-        w.textContent =
-          'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: ' +
-          (lastErr && (lastErr.message || lastErr.toString()));
-        w.style.display = 'block';
-      }
+  // helper: show boot chip bottom-right
+  const showChip = () => {
+    const chip = document.createElement('div');
+    chip.id = 'bootChip';
+    chip.textContent = '✅ JS Loaded';
+    chip.style.cssText =
+      'position:fixed;right:10px;bottom:10px;background:#0a0;color:#fff;' +
+      'font:600 12px/1.6 system-ui;padding:6px 10px;border-radius:999px;' +
+      'z-index:1001;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    document.body.appendChild(chip);
+  };
+  const showChipSafe = () => {
+    if (document.readyState === 'loading')
+      document.addEventListener('DOMContentLoaded', showChip, { once:true });
+    else
+      showChip();
+  };
+
+  for (const url of candidates) {
+    try {
+      const withBust = url.includes('?') ? url + '&cb=' + Date.now() : url + '?cb=' + Date.now();
+      await import(withBust);
+      loaded = true;
+      window.__HHA_BOOT_OK = true;
+      console.info('[HHA] boot ok via', url);
+      showChipSafe();                    // ⬅️ โชว์ชิปทันทีเมื่อโหลดสำเร็จ
+      break;
+    } catch (e) {
+      lastErr = e;
+      console.warn('[HHA] boot try fail:', url, e);
     }
-  </script>
+  }
+
+  if (!loaded) {
+    const w = document.getElementById('bootWarn');
+    if (w) {
+      w.textContent =
+        'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: ' +
+        (lastErr && (lastErr.message || String(lastErr)));
+      w.style.display = 'block';
+    }
+  }
+</script>
+
 </head>
 <body>
   <!-- Boot error bar -->
