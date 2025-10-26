@@ -1,7 +1,5 @@
-// === Hero Health Academy — game/modes/groups.js (auto-despawn icons) ===
+// === Hero Health Academy — game/modes/groups.js (targets have longer life, multi-target ready) ===
 export const name = 'groups';
-// ไม่ประกาศ stickyItems หรือให้เป็น false เพื่อให้ main.js ตั้ง TTL ให้ทุกชิ้น
-// export const stickyItems = false;
 
 // ---------- Config ----------
 const GROUPS = [
@@ -74,9 +72,10 @@ const ITEMS = [
 // ---------- Internal state ----------
 const ST = {
   lang: 'TH',
-  targetId: 'fruits',
+  targetIds: ['fruits'], // ข้อ 3: หลายเป้าหมาย
   need: 4,
   got: 0,
+  multi: false,          // true = เปิดหลายเป้าหมาย
 };
 
 // ---------- Public API ----------
@@ -86,11 +85,18 @@ export function init(gameState, hud, diff){
   ST.got = 0;
   ST.lang = (localStorage.getItem('hha_lang')||'TH');
 
-  ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
+  const all = GROUPS.map(g=>g.id);
+  if (ST.multi){
+    let a = all[(Math.random()*all.length)|0];
+    let b = all.filter(x=>x!==a)[(Math.random()*(all.length-1))|0];
+    ST.targetIds = [a,b];
+  } else {
+    ST.targetIds = [ pickDifferent(all, ST.targetIds[0]) ];
+  }
+
   showTargetHUD(true);
   updateTargetBadge();
 
-  // เปิด scope CSS เฉพาะโหมดนี้ (ถ้าใช้ group.css)
   try { document.documentElement.setAttribute('data-hha-mode','groups'); } catch {}
 }
 
@@ -100,25 +106,26 @@ export function cleanup(){
 }
 
 export function tick(state, systems, hud){
-  // (ถ้าต้องการ logic เสริม ค่อยใส่ภายหลังได้)
+  // (ปรับ logic ย่อยได้ภายหลัง)
 }
 
 export function pickMeta(diff, gameState){
+  // ข้อ 1: เป้าหมายอยู่นานขึ้น ตัวลวงอยู่น้อยลง
+  const isTargetGroup = g => ST.targetIds.includes(g);
   const probTarget = 0.62;
   const pickTarget = Math.random() < probTarget;
 
   const pool = pickTarget
-    ? ITEMS.filter(i=>i.group===ST.targetId)
-    : ITEMS.filter(i=>i.group!==ST.targetId);
+    ? ITEMS.filter(i=>isTargetGroup(i.group))
+    : ITEMS.filter(i=>!isTargetGroup(i.group));
 
   const it = pool[(Math.random()*pool.length)|0];
+  const isTarget = isTargetGroup(it.group);
 
-  return {
-    id: it.id,
-    char: it.icon,
-    good: (it.group===ST.targetId),
-    // ไม่มี sticky, ไม่มี life → ให้ main.js ใช้ diff.life ตั้ง TTL เอง
-  };
+  const baseLife = diff?.life || 3000;
+  const life = Math.round(baseLife * (isTarget ? 1.25 : 0.85));
+
+  return { id: it.id, char: it.icon, good: isTarget, life };
 }
 
 export function onHit(meta, systems, gameState, hud){
@@ -128,7 +135,14 @@ export function onHit(meta, systems, gameState, hud){
     systems.coach?.say?.(t('ใช่เลย!', 'Nice!', ST.lang));
     if (ST.got >= ST.need){
       ST.got = 0;
-      ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
+      const all = GROUPS.map(g=>g.id);
+      if (ST.multi){
+        let a = all[(Math.random()*all.length)|0];
+        let b = all.filter(x=>x!==a)[(Math.random()*(all.length-1))|0];
+        ST.targetIds = [a,b];
+      } else {
+        ST.targetIds = [ pickDifferent(all, ST.targetIds[0]) ];
+      }
       updateTargetBadge();
       systems.sfx?.play?.('powerup');
       systems.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
@@ -146,10 +160,13 @@ function showTargetHUD(show){
   if (wrap) wrap.style.display = show ? 'block' : 'none';
 }
 function updateTargetBadge(){
-  const g = GROUPS.find(x=>x.id===ST.targetId);
   const badge = document.getElementById('targetBadge');
   if (badge){
-    badge.textContent = t(g.labelTH, g.labelEN, ST.lang) + `  (${ST.got}/${ST.need})`;
+    const names = ST.targetIds.map(id=>{
+      const g = GROUPS.find(x=>x.id===id);
+      return t(g.labelTH, g.labelEN, ST.lang);
+    }).join(' & ');
+    badge.textContent = `${names}  (${ST.got}/${ST.need})`;
     badge.style.fontWeight = '800';
   }
   const tLabel = document.getElementById('t_target');
