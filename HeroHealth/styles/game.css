@@ -1,296 +1,94 @@
-/* =========================
-   Hero Health Academy - game.css (full)
-   ========================= */
+/* ===== Layout base ===== */
+html, body { height: 100%; margin: 0; background: #0b0f1a; color: #fff; font-family: system-ui, sans-serif; }
+canvas#c { position: fixed; inset: 0; z-index: 0; }
 
-/* Base */
-:root{
-  --ui-bg: rgba(20,22,28,.55);
-  --ui-card: rgba(28,32,42,.85);
-  --ui-fg: #e9f1ff;
-  --ui-accent: #7fffd4;
-  --danger: #ff7a7a;
-  --warn: #ffd54a;
-  --soft: rgba(255,255,255,.08);
+/* ===== Header ===== */
+header.brand {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1200;
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(6px);
 }
-*{ box-sizing: border-box; }
-html, body{
-  margin:0; padding:0; height:100%;
-  background: radial-gradient(1200px 600px at 60% -10%, #1b2230 0%, #0e121a 60%, #0b0f16 100%);
-  color:var(--ui-fg);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  overflow:hidden;
-}
+header .spacer { flex: 1; }
+.btn, .tag { cursor: pointer; }
 
-/* Brand header (top) */
-header.brand{
-  position:fixed; left:0; right:0; top:0;
-  display:flex; align-items:center; gap:8px;
-  padding:10px 12px;
-  background: linear-gradient(180deg, rgba(10,12,16,.85), rgba(10,12,16,.35));
-  backdrop-filter: blur(6px);
-  z-index:1005;
+/* ===== HUD ===== */
+section.hud {
+  position: fixed; top: 56px; left: 12px; right: 12px; z-index: 1200;
+  display: grid; gap: 8px; grid-auto-rows: min-content;
 }
-header .spacer{ flex:1; }
-header .btn{
-  background: var(--soft);
-  border:1px solid rgba(255,255,255,.12);
-  color:var(--ui-fg);
-  padding:6px 10px; border-radius:10px; cursor:pointer;
-  font-weight:700;
-}
+.bar { width: 100%; height: 8px; background: rgba(255,255,255,.15); border-radius: 6px; overflow: hidden; }
+.bar > div { height: 100%; width: 0%; background: linear-gradient(90deg,#65fbd2,#1ec8ff); }
+.bar.slim { height: 6px; }
 
-/* Render surface (behind UI) */
-#c{
-  position:fixed; inset:0;
-  width:100vw; height:100vh;
-  display:block;
-  z-index:0;
+/* FEVER label */
+#fever { position: fixed; top: 96px; left: 50%; transform: translateX(-50%);
+  z-index: 1500; font-weight: 900; letter-spacing: 2px; padding: 3px 10px;
+  background: rgba(255,180,0,.2); border: 1px solid rgba(255,180,0,.5);
+  border-radius: 10px; display: none;
 }
-#c.shake{
-  animation: camshake .2s ease;
+#fever.pulse { animation: pulse 0.8s infinite; }
+@keyframes pulse { 0%{transform:translateX(-50%) scale(1)} 50%{transform:translateX(-50%) scale(1.06)} 100%{transform:translateX(-50%) scale(1)} }
+
+/* ===== Menu bottom ===== */
+section.menu {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 1400;
+  background: rgba(0,0,0,.35); backdrop-filter: blur(6px);
+  padding: 8px 12px; display: grid; gap: 8px;
 }
-@keyframes camshake{
-  0%{ transform: translate(0,0) }
-  25%{ transform: translate(2px,-2px) }
-  50%{ transform: translate(-2px,2px) }
-  75%{ transform: translate(1px,-1px) }
-  100%{ transform: translate(0,0) }
+section.menu .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tag, .btn {
+  padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.06); color: #fff; font-weight: 600;
 }
 
-/* HUD (top-left stack) */
-.hud{
-  position:fixed; left:12px; top:58px;
-  display:flex; flex-direction:column; gap:8px;
-  z-index:1003;
-  font-weight:700; text-shadow: 0 1px 4px rgba(0,0,0,.6);
-}
-.hud > div{
-  background: var(--ui-bg);
-  border:1px solid rgba(255,255,255,.12);
-  padding:6px 10px; border-radius:10px;
-}
+/* ===== Items (spawned icons) ===== */
+.item { z-index: 800; user-select: none; touch-action: manipulation; }
 
-/* Fever bar (slim) */
-.bar{ width:260px; height:14px; background:rgba(255,255,255,.12); border-radius:999px; overflow:hidden; }
-.bar.slim{ height:8px; }
-#feverBar{ height:100%; width:0%; background: linear-gradient(90deg,#ffb74d,#ffd54a,#fff176); transition: width .2s; }
-
-/* Fever label */
-.fever{
-  position:fixed; left:50%; top:96px; transform:translateX(-50%);
-  background: linear-gradient(180deg, rgba(255,170,0,.9), rgba(255,120,0,.75));
-  border:1px solid rgba(255,255,255,.25);
-  color:#222; padding:6px 16px; border-radius:999px; font-weight:900;
-  letter-spacing:.5px; z-index:1010;
+/* ===== Modals ===== */
+.modal {
+  display: none; position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.45); align-items: center; justify-content: center;
 }
-.fever.pulse{ animation: feverPulse 1s ease-in-out infinite; }
-@keyframes feverPulse{
-  0%{ box-shadow: 0 0 0 0 rgba(255,180,0,.55) }
-  70%{ box-shadow: 0 0 0 12px rgba(255,180,0,0) }
-  100%{ box-shadow: 0 0 0 0 rgba(255,180,0,0) }
-}
-
-/* Target / Plate / Hydration blocks */
-#targetWrap, #plateTracker, #hydroWrap{ display:none; }
-#platePills{ display:flex; gap:6px; flex-wrap:wrap; }
-.pill{
-  padding:4px 8px; border-radius:999px;
-  background:rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.12);
-  font-weight:800;
-}
-.pill.done{
-  background:rgba(127,255,212,.2);
-  border-color: rgba(127,255,212,.45);
-}
-
-/* Coach text bubble (mid-top) */
-.coach{
-  position:fixed; left:50%; top:140px; transform:translateX(-50%);
-  z-index:1006; display:none;
-}
-.coach #coachText{
-  padding:8px 12px; border-radius:12px;
-  background: var(--ui-card);
-  border:1px solid rgba(255,255,255,.14);
-  box-shadow: 0 6px 20px rgba(0,0,0,.25);
-  font-weight:800; max-width: 70vw; text-align:center;
-}
-
-/* Menu (bottom) */
-.menu{
-  position:fixed; left:0; right:0; bottom:0;
-  z-index:1004;
-  background: linear-gradient(0deg, rgba(10,12,16,.92), rgba(10,12,16,.35));
-  backdrop-filter: blur(6px);
-  padding:10px 12px;
-}
-.menu .row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0; }
-.menu .tag, .menu .btn{
-  background: var(--soft);
-  border:1px solid rgba(255,255,255,.12);
-  color:var(--ui-fg);
-  padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:800;
-}
-.menu .modeLabel{ margin-left:auto; opacity:.9; }
-
-/* Spawned item (emoji targets) */
-.item{
-  position:fixed; z-index:1002;
-  border:none; background:transparent; color:#fff;
-  line-height:1; cursor:pointer; user-select:none;
-  transition: transform .15s, filter .15s, opacity .15s;
-  text-shadow: 0 2px 10px rgba(0,0,0,.45);
-}
-.item:active{ transform: scale(.94); }
-.item.feverHit{ filter: drop-shadow(0 0 14px rgba(255,213,74,.45)); }
-
-/* Score burst (points popup) */
-.scoreBurst {
-  position: fixed;
-  z-index: 1300;
-  transform: translate(-50%, -50%);
-  font-weight: 900;
-  text-shadow: 0 2px 8px rgba(0,0,0,.55);
-  pointer-events: none;
-  animation: burstUp .9s ease-out forwards;
-  will-change: transform, opacity;
-}
-.scoreBurst .minor{
-  display:block; font-weight:700; opacity:.9; font-size:.8em;
-}
-@keyframes burstUp{
-  0%   { opacity: 0; transform: translate(-50%, -30%) scale(.9); }
-  15%  { opacity: 1; transform: translate(-50%, -55%) scale(1.0); }
-  75%  { opacity: .95; transform: translate(-50%, -120%) scale(1.06); }
-  100% { opacity: 0; transform: translate(-50%, -180%) scale(1.08); }
-}
-
-/* Flame burst (combo/fever fire) */
-.flameBurst{
-  position: fixed;
-  z-index: 1299;
-  width: 24px; height: 24px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  filter: drop-shadow(0 0 10px rgba(255,120,0,.55));
-  animation: flameUp .9s ease-out forwards, flameWobble 1s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-.flameBurst::before{ content:'🔥'; font-size:24px; line-height:24px; }
-.flameBurst.strong{ width:36px; height:36px; }
-.flameBurst.strong::before{ font-size:36px; }
-
-@keyframes flameUp{
-  0%   { opacity:.0; transform: translate(-50%,-30%) scale(.9) }
-  10%  { opacity:1; transform: translate(-50%,-55%) scale(1.0) }
-  80%  { opacity:.95; transform: translate(-50%,-130%) scale(1.1) }
-  100% { opacity:0; transform: translate(-50%,-200%) scale(1.15) }
-}
-@keyframes flameWobble{
-  0%   { filter: drop-shadow(0 0 10px rgba(255,120,0,.55)); }
-  50%  { filter: drop-shadow(0 0 16px rgba(255,160,0,.75)); }
-  100% { filter: drop-shadow(0 0 10px rgba(255,120,0,.55)); }
-}
-
-/* Modal (centered) */
-.modal{
-  position:fixed; inset:0;
-  display:none; align-items:center; justify-content:center;
-  background: rgba(8,10,14,.55);
-  backdrop-filter: blur(3px);
-  z-index:1100;
-}
-.modal .card{
-  width:min(92vw, 720px);
-  background: var(--ui-card);
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:16px;
-  padding:16px;
-  box-shadow: 0 10px 38px rgba(0,0,0,.35);
-}
-.modal .card h3{ margin:0 0 10px 0; }
-.modal .card pre{
-  margin:0; padding:12px; border-radius:10px;
-  background: rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.1);
-  white-space: pre-wrap; font-family: inherit; font-size: .98rem;
+.modal .card {
+  background: rgba(15,20,35,.95); border: 1px solid rgba(255,255,255,.18);
+  border-radius: 14px; padding: 16px; max-width: 520px; width: 88%;
 }
 
 /* Help Scene grid */
-.hs-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap:12px;
-}
-.hs-card{
-  background: rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.1);
-  padding:12px; border-radius:14px;
-}
-.hs-emoji{ font-size:26px; }
+.hs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 12px; }
 
-/* Boot warn banner (top) */
-#bootWarn{
-  position:fixed; top:0; left:0; right:0;
-  background:#b00020; color:#fff;
-  padding:10px 12px; font-weight:900;
-  z-index:2000; display:none;
+/* ===== Score/Flame FX ===== */
+.scoreBurst {
+  position: fixed; z-index: 1800; pointer-events: none;
+  transform: translate(-50%,-50%); font-weight: 900; text-shadow: 0 1px 4px rgba(0,0,0,.6);
+  animation: rise .9s ease-out forwards;
 }
-
-/* Flash on last seconds */
-body.flash #t_time{
-  color:#ffe082;
-  text-shadow: 0 0 8px rgba(255,180,0,.55);
+.scoreBurst .minor { display: inline-block; margin-left: 8px; font-weight: 700; opacity: .8; }
+@keyframes rise {
+  0% { opacity: 0; transform: translate(-50%,-20%) scale(.9); }
+  25%{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  100%{ opacity: 0; transform: translate(-50%,-110%) scale(1.05); }
 }
-
-/* Low-gfx mode helper */
-.low-gfx *{ text-shadow:none !important; box-shadow:none !important; }
-
-/* Small screens */
-@media (max-width: 560px){
-  .hud{ left:8px; top:56px; }
-  .bar{ width:200px; }
-  header.brand{ padding:8px; }
-  .menu{ padding:8px; }
+.flameBurst {
+  position: fixed; z-index: 1700; pointer-events: none;
+  width: 24px; height: 24px; background: radial-gradient(circle, rgba(255,210,90,.9), rgba(255,120,0,.0) 70%);
+  border-radius: 50%; transform: translate(-50%,-50%); animation: flame .9s ease-out forwards;
+  filter: blur(1px);
+}
+.flameBurst.strong { width: 34px; height: 34px; }
+@keyframes flame {
+  0% { opacity: .0; transform: translate(-50%,-30%) scale(.7); }
+  20%{ opacity: .95; transform: translate(-50%,-50%) scale(1); }
+  100%{ opacity: .0; transform: translate(-50%,-115%) scale(1.25); }
 }
 
-/* Accessibility focus */
-button:focus-visible{
-  outline:2px solid #80deea; outline-offset:2px;
-}
-/* Coach */
-#coachHUD{
-  position:fixed;
-  left:50%;
-  top:18%;
-  transform:translateX(-50%);
-  background:rgba(0,0,0,.55);
-  color:#fff;
-  padding:10px 16px;
-  border-radius:12px;
-  font-weight:700;
-  z-index:1200;
-  opacity:0;
-  transition:opacity .3s ease;
-}
-#coachText{font-size:1.1em;}
+/* ===== Misc ===== */
+.flash { animation: flash 1s steps(1,end) infinite; }
+@keyframes flash { 50% { filter: brightness(1.25); } }
 
-/* Popup effects */
-.scoreBurst{
-  position:fixed;
-  pointer-events:none;
-  font-weight:700;
-  text-shadow:0 0 6px rgba(0,0,0,.5);
-  animation:rise .9s ease-out forwards;
+#targetWrap, #plateTracker, #hydroWrap { display: none; }
+
+/* Debug chip (ไม่บังคลิก) */
+#jsChip { position: fixed; right: 10px; bottom: 10px; z-index: 5000; pointer-events: none;
+  background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.22); border-radius: 12px; padding: 6px 10px; font-weight: 700;
 }
-@keyframes rise{from{transform:translateY(0);opacity:1;}to{transform:translateY(-50px);opacity:0;}}
-.flameBurst{
-  position:fixed;
-  width:40px;height:40px;
-  background:url('../assets/flame.png') center/cover no-repeat;
-  opacity:.9;
-  animation:burn .8s ease-out forwards;
-}
-.flameBurst.strong{transform:scale(1.6);}
-@keyframes burn{to{opacity:0;transform:translateY(-80px) scale(1.2);}}
