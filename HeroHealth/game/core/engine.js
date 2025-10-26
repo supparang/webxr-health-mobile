@@ -1,18 +1,70 @@
-let VRB=(typeof window!=='undefined')?window.VRButton:null;
-async function ensureVRButton(){ if(VRB&&typeof VRB.createButton==='function')return VRB;
-  try{ const mod=await import('https://unpkg.com/three@0.159.0/examples/jsm/webxr/VRButton.js'); VRB=mod.VRButton; }catch(e){ console.warn('[HHA] VRButton module not available.'); } return VRB; }
-export class Engine{
-  constructor(THREE, canvas){ this.THREE=THREE; this.canvas=canvas; this.scene=new THREE.Scene();
-    this.camera=new THREE.PerspectiveCamera(60, innerWidth/innerHeight, .1, 100); this.camera.position.set(0,1.6,.5); this.camera.lookAt(0,1.6,-1);
-    this.renderer=new THREE.WebGLRenderer({canvas, antialias:true, alpha:true}); this.renderer.setSize(innerWidth, innerHeight);
-    this.group=new THREE.Group(); this.scene.add(this.group); this.raycaster=new THREE.Raycaster(); this.mouse=new THREE.Vector2();
-    addEventListener('resize', ()=>this.onResize());
-    ensureVRButton().then(VR=>{ if(VR&&typeof VR.createButton==='function'){ document.body.appendChild(VR.createButton(this.renderer)); this.renderer.xr.enabled=true; } });
-    this._loop=()=>{}; }
-  onResize(){ this.camera.aspect=innerWidth/innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(innerWidth, innerHeight); }
-  startLoop(loopFn){ this._loop=loopFn; this.renderer.setAnimationLoop(()=>{ this._loop&&this._loop(); this.renderer.render(this.scene,this.camera); }); }
-  makeBillboard(text){ const size=128,c=document.createElement('canvas'); c.width=c.height=size; const g=c.getContext('2d');
-    g.clearRect(0,0,size,size); g.font='96px serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillStyle='#fff'; g.fillText(text,size/2,size/2+8);
-    const tex=new this.THREE.CanvasTexture(c); const mat=new this.THREE.SpriteMaterial({map:tex,transparent:true}); const sp=new this.THREE.Sprite(mat); sp.scale.set(.35,.35,.35); return sp; }
-  raycastFromClient(x,y){ const r=this.renderer.domElement.getBoundingClientRect(); this.mouse.x=((x-r.left)/r.width)*2-1; this.mouse.y=-((y-r.top)/r.height)*2+1; this.raycaster.setFromCamera(this.mouse,this.camera); return this.raycaster.intersectObjects(this.group.children,true); }
+// core/engine.js — สะพานเชื่อม THREE กับ <canvas id="c"> + FX เบา ๆ
+export class Engine {
+  constructor(THREE, canvas) {
+    this.THREE = THREE;
+    this.canvas = canvas || document.getElementById('c');
+
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+      alpha: true
+    });
+    this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+    this._resize = this._resize.bind(this);
+    this._resize();
+    window.addEventListener('resize', this._resize, { passive: true });
+
+    // world แบบมินิมอล (เผื่ออนาคตอยากวาง scene 3D เล็ก ๆ)
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(60, this.canvas.clientWidth / this.canvas.clientHeight, 0.1, 100);
+    this.camera.position.set(0, 0, 5);
+
+    // FX helper (DOM)
+    this.fx = new FloatingFX(this);
+    this._raf = 0;
+    this._tick = this._tick.bind(this);
+    this._raf = requestAnimationFrame(this._tick);
+  }
+
+  _resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    this.renderer.setSize(w, h, false);
+    if (this.camera) {
+      this.camera.aspect = w / h;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
+  _tick() {
+    try { this.renderer.render(this.scene, this.camera); } catch {}
+    this._raf = requestAnimationFrame(this._tick);
+  }
+
+  dispose() {
+    cancelAnimationFrame(this._raf);
+    window.removeEventListener('resize', this._resize);
+    try { this.renderer.dispose(); } catch {}
+  }
+}
+
+// เอฟเฟกต์ตัวหนังสือลอยบน DOM (ใช้ในโหมดเช่น goodjunk ผ่าน sys.fx.popText)
+export class FloatingFX {
+  constructor(eng) { this.eng = eng; }
+  popText(text, opts = {}) {
+    const color = opts.color || '#7fffd4';
+    const x = (opts.x ?? (window.innerWidth * 0.5)) | 0;
+    const y = (opts.y ?? (window.innerHeight * 0.45)) | 0;
+
+    const el = document.createElement('div');
+    el.style.cssText = `
+      position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+      font:800 20px/1.2 ui-rounded,system-ui;color:${color};
+      text-shadow:0 2px 6px #000c;z-index:160;pointer-events:none;opacity:0;translate:0 6px;
+      transition:opacity .22s, translate .22s;
+    `;
+    el.textContent = text;
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.translate='0 0'; });
+    setTimeout(()=>{ el.style.opacity='0'; el.style.translate='0 -8px'; setTimeout(()=>{ try{el.remove();}catch{} }, 220); }, 720);
+  }
 }
