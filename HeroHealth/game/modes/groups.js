@@ -121,12 +121,8 @@ export function exit(){
 export function tick(dt){
   if(!st?.playing) return;
 
-  // timer
-  st.timeLeft -= dt;
-  if (st.timeLeft <= 0){ endRound(); return; }
-  sel('#ggTimer').textContent = formatTime(Math.ceil(st.timeLeft));
-
-  // combo decay (อยู่นิ่งนานคอมโบค่อยๆ ลด)
+  // timer (ปล่อยให้ main.js คุมเวลาและสรุปผล)
+  // แต่จะใช้ dt เพื่อปรับความยาก/decay คอมโบได้
   st.decayTimer += dt;
   if (st.decayTimer > 6 && st.combo>0){
     st.combo = Math.max(0, st.combo-1);
@@ -134,9 +130,8 @@ export function tick(dt){
     st.decayTimer = 0;
   }
 
-  // difficulty curve
   if (st.cfg.dynamicDifficulty){
-    const pct = 1 - (st.timeLeft / st.cfg.durationSec);
+    const pct = 1 - (Math.max(0, st.timeLeft-1) / Math.max(1, st.cfg.durationSec));
     st.difficulty = 1 + Math.floor(pct*4); // 1..5
   }
 }
