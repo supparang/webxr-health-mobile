@@ -8,7 +8,7 @@
   <base href="/webxr-health-mobile/HeroHealth/">
   <link rel="stylesheet" href="styles/game.css" />
 
-  <!-- Bootloader (เหมือนเดิม) -->
+  <!-- Bootloader (เดิม) -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
@@ -25,42 +25,27 @@
 
       const bases = [document.baseURI, new URL('./', location.href).href, 'https://supparang.github.io/webxr-health-mobile/HeroHealth/'];
       const paths = ['game/main.js', './game/main.js', 'game/main.js?v=live'];
-      const candidates = [];
-      for (const b of bases) for (const p of paths) candidates.push(new URL(p, b).href);
-
-      let loaded = false, lastErr = null;
-      for (const url of candidates) {
-        try {
-          const bust = url.includes('?') ? url + '&cb=' + Date.now() : url + '?cb=' + Date.now();
-          await import(bust);
-          loaded = true;
-          setTimeout(() => {
-            if (window.__HHA_BOOT_OK) {
-              const w = document.getElementById('bootWarn'); if (w) w.style.display = 'none';
-              const c = document.getElementById('bootChip'); if (c) c.style.display = 'inline-block';
-            }
-          }, 100);
-          break;
-        } catch (e) { lastErr = e; }
+      const cands = []; for (const b of bases) for (const p of paths) cands.push(new URL(p,b).href);
+      let ok=false, last=null;
+      for (const u of cands){
+        try{ await import(u+(u.includes('?')?'&':'?')+'cb='+Date.now()); ok=true; setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80); break; }
+        catch(e){ last=e; }
       }
-      if (!loaded) {
-        const w = document.getElementById('bootWarn');
-        if (w) { w.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: ' + (lastErr && (lastErr.message || String(lastErr))); w.style.display = 'block'; }
-      }
+      if(!ok){ warn.textContent='โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: '+(last?.message||String(last)); warn.style.display='block'; }
     })();
   </script>
 </head>
 <body>
-  <!-- Brand -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
     <button id="langToggle"   class="btn" type="button">🇹🇭 TH/EN</button>
     <button id="gfxToggle"    class="btn" type="button">🎛️ กราฟิก: ปกติ</button>
     <button id="soundToggle"  class="btn" type="button">🔊 เสียง: เปิด</button>
+    <button id="hapticToggle" class="btn" type="button">📳 สั่น: เปิด</button>
+    <button id="contrastToggle" class="btn" type="button">🎯 คอนทราสต์: ปกติ</button>
   </header>
 
-  <!-- Render -->
   <canvas id="c"></canvas>
 
   <!-- HUD -->
@@ -71,22 +56,21 @@
       <span id="t_time">เวลา</span>: <b id="time">60</b>s
     </div>
 
-    <!-- Fever Progress Bar -->
-    <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
+    <!-- Fever bar -->
+    <div id="feverBarWrap" class="bar slim"><div id="feverBar"></div></div>
     <div id="fever" class="fever" style="display:none">FEVER!</div>
 
-    <!-- Sub-HUD ใต้ FEVER -->
-    <div id="subHUD">
-      <!-- ชิปภารกิจ/โปรเกรส -->
-      <div id="questChip" class="chip" style="display:none">—</div>
-      <!-- Power-up bar -->
-      <div id="powerBar" class="chip pow" style="display:none">
-        <span id="powerLabel">—</span>
-        <div id="powerTime"><div></div></div>
-      </div>
+    <!-- NEW: Power-ups bar -->
+    <div id="powerBar" class="powerbar">
+      <div class="pseg" data-k="x2"><span>×2</span><i></i></div>
+      <div class="pseg" data-k="freeze"><span>🧊</span><i></i></div>
+      <div class="pseg" data-k="sweep"><span>🧹</span><i></i></div>
     </div>
 
-    <!-- เป้าหมาย/โควตา/น้ำ -->
+    <!-- NEW: Mini-Quest chips (แสดง 3 เควสที่สุ่มมา) -->
+    <div id="questChips" class="quests"></div>
+
+    <!-- Target/Plate/Hydration (ของเดิม) -->
     <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
     <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
     <div id="hydroWrap" style="display:none">
@@ -95,14 +79,16 @@
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
-    <!-- เส้นภารกิจ/สถานะย่อย -->
+    <!-- Coach moved HERE -->
+    <div id="coachHUD" class="coach under-fever" style="display:flex">
+      <div id="coachText">พร้อมไหม? สู้ๆ!</div>
+    </div>
+
+    <!-- Mission line (เสริมข้อความยาวเมื่อจำเป็น) -->
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- โค้ช (ใต้ FEVER/subHUD) -->
-  <div id="coachHUD" class="coach under-fever" style="display:none"><div id="coachText">...</div></div>
-
-  <!-- เมนู -->
+  <!-- เมนูล่าง -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
@@ -114,7 +100,10 @@
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
       <button class="tag" data-action="diff" data-value="Hard"   id="d_hard"   type="button">ยาก</button>
-      <span class="modeLabel"><span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> • <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b></span>
+      <span class="modeLabel">
+        <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
+        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
+      </span>
     </div>
     <div class="row">
       <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
@@ -129,7 +118,7 @@
   <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">เก็บของดี (🥦🍎) หลีกเลี่ยงของขยะ (🍔🍟🥤)\nMini-Quest 3 งาน/รอบ ใต้แถบ FEVER\nPower-up: ×2, Freeze, Clean Sweep</pre>
+      <pre id="helpBody">เก็บอาหารดี หลีกเลี่ยงขยะ ทำเควส 3 อย่างให้ทันเวลา ใช้พาวเวอร์ช่วยลุย!</pre>
       <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
     </div>
   </div>
@@ -148,22 +137,6 @@
     </div>
   </div>
 
-  <!-- Help Scene -->
-  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="hs_title">
-    <div class="card" style="max-width:960px; width:90%;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <h3 id="hs_title" style="margin:0">คู่มือรวม</h3>
-        <button class="btn" data-action="helpSceneClose" id="btn_helpSceneClose" type="button">✖ ปิด</button>
-      </div>
-      <div id="hs_body" class="hs-grid" style="margin-top:12px;">
-        <div class="hs-block"><h4>ดี vs ขยะ</h4><p>เก็บของดี หลีกเลี่ยงกับดัก ทำเควส 3 งานจาก 5 แบบ สุ่มทุกครั้ง</p></div>
-        <div class="hs-block"><h4>จาน 5 หมู่</h4><p>ตามเป้าหมายหมวดบน HUD</p></div>
-        <div class="hs-block"><h4>สมดุลน้ำ</h4><p>รักษาแถบ 45–65%</p></div>
-        <div class="hs-block"><h4>จัดจานสุขภาพ</h4><p>เติมโควตาให้ครบ</p></div>
-      </div>
-    </div>
-  </div>
-
   <!-- SFX -->
   <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
@@ -171,6 +144,10 @@
   <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
 
-  <noscript><div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">จำเป็นต้องเปิดใช้ JavaScript</div></noscript>
+  <noscript>
+    <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">
+      จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
+    </div>
+  </noscript>
 </body>
 </html>
