@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (stable) ===
+// === Hero Health Academy — main.js (icon-size + score FX + fever flame) ===
 window.__HHA_BOOT_OK = true;
 
 // Imports
@@ -21,16 +21,29 @@ const byAction = (el)=>el?.closest?.('[data-action]') || null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 const nowMS = ()=> (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now();
 
-// Float text fallback
-function spawnFloatText(x, y, text, color){
+function spawnScoreBurst(x, y, { text, color = '#7fffd4', minor }){
   const el = document.createElement('div');
-  el.className = 'floatText';
+  el.className = 'scoreBurst';
+  el.style.left = `${x}px`;
+  el.style.top  = `${y}px`;
+  el.style.color = color;
   el.textContent = text;
-  el.style.left = x+'px';
-  el.style.top  = y+'px';
-  if (color) el.style.color = color;
+  if (minor){
+    const m = document.createElement('span');
+    m.className = 'minor';
+    m.textContent = minor;
+    el.appendChild(m);
+  }
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 900);
+  setTimeout(()=>el.remove(), 950);
+}
+function spawnFlame(x, y, strong=false){
+  const f = document.createElement('div');
+  f.className = 'flameBurst' + (strong ? ' strong' : '');
+  f.style.left = `${x}px`;
+  f.style.top  = `${y}px`;
+  document.body.appendChild(f);
+  setTimeout(()=>f.remove(), 950);
 }
 
 // ------- config -------
@@ -40,6 +53,8 @@ const DIFFS = {
   Normal: { time:60, spawn:700, life:3000 },
   Hard:   { time:50, spawn:550, life:1800 }
 };
+// ขนาดไอคอนตามความยาก (ใหญ่สุด → เล็กสุด)
+const ICON_SIZES = { Easy: 100, Normal: 76, Hard: 56 }; // px
 
 const I18N = {
   TH:{
@@ -51,10 +66,10 @@ const I18N = {
     diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'},
     helpTitle:'วิธีเล่น',
     helpBody:{
-      goodjunk:'เก็บอาหารดี (🥦🍎) หลีกเลี่ยงอาหารขยะ (🍔🍟🥤)\nกดไวได้ PERFECT • มีพาวเวอร์ ✖️2 / 🧊',
-      groups:'ดู 🎯 เป้าบน HUD แล้วเก็บให้ตรงหมวด\nตรงเป้า = good, หมวดถูกแต่ไม่ตรงเป้า = ok, ผิดหมวด = bad\nมีพาวเวอร์: Dual / x2 / Freeze / Rotate',
-      hydration:'รักษาแถบน้ำ 45–65%\nดื่ม 💧/🥛 = บวก, 🥤/☕ = ลบ • ขึ้น/ลงเกินโซนจะโดนหนักขึ้น',
-      plate:'เติมโควตา: ธัญพืช2 ผัก2 โปรตีน1 ผลไม้1 นม1\nครบจาน = PERFECT • เกินโควตาโดน -เวลา'
+      goodjunk:'เก็บอาหารดี (🥦🍎) หลีกเลี่ยงอาหารขยะ (🍔🍟🥤)\nแตะไวได้ PERFECT • มี ✖️2 / 🧊',
+      groups:'ดู 🎯 เป้าบน HUD แล้วเก็บให้ตรงหมวด\nตรงเป้า=good | หมวดถูกแต่ไม่ตรง=ok | ผิดหมวด=bad\nพาวเวอร์: Dual / x2 / Freeze / Rotate',
+      hydration:'คุมแถบน้ำ 45–65%\n💧/🥛 เพิ่ม, 🥤/☕ ลด • ออกนอกโซนโทษหนัก',
+      plate:'เติมโควตา: ธ2 ผ2 ป1 ผ1 น1 • ครบจาน=PERFECT • เกินโควตา -เวลา'
     },
     summary:'สรุปผล',
   },
@@ -67,10 +82,10 @@ const I18N = {
     diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'},
     helpTitle:'How to Play',
     helpBody:{
-      goodjunk:'Collect healthy (🥦🍎), avoid junk (🍔🍟🥤)\nQuick tap = PERFECT • Power-ups: ✖️2 / 🧊',
-      groups:'Follow 🎯 on HUD.\nOn-target = good, right-group-not-target = ok, wrong-group = bad\nPower-ups: Dual / x2 / Freeze / Rotate',
-      hydration:'Keep hydration 45–65%.\n💧/🥛 increase, 🥤/☕ decrease • Outside zone -> heavier penalty',
-      plate:'Fill quotas: Grain2 Veg2 Protein1 Fruit1 Dairy1\nPerfect plate = PERFECT • Overfill reduces time'
+      goodjunk:'Collect healthy (🥦🍎), avoid junk (🍔🍟🥤)\nQuick tap = PERFECT • ✖️2 / 🧊 power-ups',
+      groups:'Follow 🎯 on HUD.\nOn-target=good | right-group-not-target=ok | wrong-group=bad\nPower: Dual / x2 / Freeze / Rotate',
+      hydration:'Keep hydration 45–65%.\n💧/🥛 up, 🥤/☕ down • Outside zone = heavier penalty',
+      plate:'Fill quotas: G2 V2 P1 F1 D1 • Perfect plate=PERFECT • Overfill reduces time'
     },
     summary:'Summary',
   }
@@ -134,9 +149,20 @@ function scoreWithEffects(base, x, y){
   const feverMul = state.fever.active?state.fever.mul:1.0;
   const total = Math.round(base * comboMul * feverMul);
   score.add?.(total);
-  const tag = total>=0?`+${total}`:`${total}`;
+
+  // label
+  const label = total>=0?`+${total}`:`${total}`;
   const color = total>=0?'#7fffd4':'#ff9b9b';
-  try{ eng.fx?.popText?.(tag,{color}); }catch{ spawnFloatText(x,y,tag,color); }
+  const minor = (comboMul>1 || feverMul>1)
+    ? `combo ${comboMul.toFixed(1)}×${feverMul>1?` • fever ${feverMul}×`:''}`
+    : undefined;
+
+  spawnScoreBurst(x, y, { text: label, color, minor });
+
+  // flames!
+  if (state.fever.active || state.combo>=8){
+    spawnFlame(x, y, state.fever.active || state.combo>=14);
+  }
 }
 
 // ------- i18n/UI -------
@@ -161,11 +187,7 @@ function applyGFX(){
     eng.renderer.setPixelRatio(state.gfx==='low' ? 0.75 : (window.devicePixelRatio||1));
     document.body.classList.toggle('low-gfx', state.gfx==='low');
   }catch{}
-  const L=T(state.lang);
   const btn=$('#gfxToggle'); if(btn) btn.textContent='🎛️ ' + (state.gfx==='low' ? 'กราฟิก: ประหยัด' : 'กราฟิก: ปกติ');
-}
-function applySound(){
-  if (typeof sfx.setEnabled === 'function') sfx.setEnabled(true);
 }
 function updateHUD(){
   setText('#score', score.score|0);
@@ -200,8 +222,10 @@ function spawnOnce(diff){
   el.type = 'button';
   el.textContent = meta.char || '❓';
 
-  const sizeMap = { Easy:'88px', Normal:'68px', Hard:'54px' };
-  el.style.fontSize = sizeMap[state.difficulty] || '68px';
+  // --- ขนาดไอคอนตามความยาก ---
+  const basePx = ICON_SIZES[state.difficulty] || ICON_SIZES.Normal;
+  const feverBoost = state.fever.active ? 1.05 : 1.0;  // ไอคอนใหญ่ขึ้นนิดตอนฟีเวอร์
+  el.style.fontSize = Math.round(basePx * feverBoost) + 'px';
 
   el.addEventListener('pointerenter', ()=> el.style.transform='scale(1.18)', {passive:true});
   el.addEventListener('pointerleave', ()=> el.style.transform='scale(1)',   {passive:true});
@@ -231,10 +255,9 @@ function spawnOnce(diff){
       const baseMap = { good:7, perfect:14, ok:2, bad:-3, power:5 };
       const base = baseMap[res] ?? 1;
 
-      // Special: Plate overfill removes time in plate.js; scoring centralized here
       scoreWithEffects(base, x, y);
 
-      if (res==='perfect') { /* optional shake */ }
+      if (res==='perfect') el.classList.add('feverHit');
       if (state.fever.active) el.classList.add('feverHit');
     }catch(e){
       console.error('[HHA] onHit error:', e);
@@ -253,21 +276,17 @@ function spawnLoop(){
   if(!state.running || state.paused) return;
 
   const now = nowMS();
-  // Freeze window (set by modes like goodjunk power FREEZE)
   if (state.freezeUntil && now < state.freezeUntil) {
     state.spawnTimer = setTimeout(spawnLoop, 120);
     return;
   }
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
-
-  // Clamp timeScale and spawn interval
-  const scale = Math.max(0.25, Math.min(3, power.timeScale || 1)); // 0.25x–3x
+  const scale = Math.max(0.25, Math.min(3, power.timeScale || 1));
   const next  = Math.max(260, Math.min(2000, (diff.spawn || 700) * scale));
 
   spawnOnce(diff);
 
-  // Watchdog: ensure something appears
   setTimeout(()=>{
     const t = nowMS();
     if (state.running && !state.paused && (t - state.lastSpawnAt > 2500)) {
@@ -281,7 +300,6 @@ function spawnLoop(){
 function tick(){
   if(!state.running || state.paused) return;
 
-  // Fever drain
   if (state.fever.active){
     state.fever.timeLeft = Math.max(0, state.fever.timeLeft - 1);
     state.fever.meter = Math.max(0, state.fever.meter - state.fever.drainPerSec);
@@ -289,7 +307,6 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
-  // per-mode tick
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng.fx}, hud); }catch(e){ console.warn('[HHA] mode.tick:', e); }
 
   state.timeLeft = Math.max(0, state.timeLeft - 1);
@@ -319,7 +336,6 @@ function start(){
   if(state.modeKey!=='groups' && state.modeKey!=='plate') hud.hideTarget?.();
   if(state.modeKey!=='plate') hud.hidePills?.();
 
-  // Mission text (if a mode updates #missionLine itself it will override)
   const ml = $('#missionLine'); if (ml) ml.style.display='none';
 
   tick(); spawnLoop();
@@ -354,4 +370,32 @@ document.addEventListener('pointerup', (e)=>{
     if(help && body){ body.textContent = modeHelpText(); help.style.display='flex'; }
   }
   else if (a==='helpClose'){ const m=$('#help'); if(m) m.style.display='none'; }
-  else if (a==='helpScene'){ buildHelpScene(); const hs=$('#helpScene'
+  else if (a==='helpScene'){ buildHelpScene(); const hs=$('#helpScene'); if(hs) hs.style.display='flex'; }
+  else if (a==='helpSceneClose'){ const hs=$('#helpScene'); if(hs) hs.style.display='none'; }
+}, {passive:true});
+
+$('#langToggle')?.addEventListener('click', ()=>{
+  state.lang = state.lang==='TH' ? 'EN' : 'TH';
+  localStorage.setItem('hha_lang', state.lang);
+  coach.setLang?.(state.lang);
+  applyLang();
+}, {passive:true});
+
+$('#gfxToggle')?.addEventListener('click', ()=>{
+  state.gfx = state.gfx==='low' ? 'quality' : 'low';
+  localStorage.setItem('hha_gfx', state.gfx);
+  applyGFX();
+}, {passive:true});
+
+$('#soundToggle')?.addEventListener('click', ()=>{
+  const on = $('#soundToggle');
+  if (on) on.textContent = on.textContent.includes('🔊') ? '🔇 เสียง: ปิด' : '🔊 เสียง: เปิด';
+}, {passive:true});
+
+// unlock audio once
+['pointerdown','touchstart','keydown'].forEach(ev=>{
+  window.addEventListener(ev, ()=>sfx.unlock?.(), { once:true, passive:true });
+});
+
+// Boot
+applyLang(); applyGFX(); updateHUD();
