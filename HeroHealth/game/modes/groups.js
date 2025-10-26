@@ -1,283 +1,176 @@
 // game/modes/groups.js
-// โหมด: จาน 5 หมู่ + Mission 45s + Power-ups (Dual/Scorex2/Freeze/RotateNow) + HUD Timer
-// ปรับให้ onHit() return ผลลัพธ์สำหรับระบบคอมโบ/ฟีเวอร์ใน main.js และไม่บวกคะแนนเอง
+// โหมด: จาน 5 หมู่ + เป้าหมาย + มิชชัน 45s + พาวเวอร์
+// ส่งผลลัพธ์ให้ main.js: 'good' | 'ok' | 'bad' | 'power'
 
-/* =========================
-   1) คอนฟิก / คงที่
-   ========================= */
 const GROUPS = {
-  grain:   { labelTH:'ธัญพืช',  labelEN:'Grain',   em:['🍚','🍞','🥖','🥯','🍜'] },
-  veg:     { labelTH:'ผัก',     labelEN:'Veg',     em:['🥦','🥕','🥬','🌽','🫑'] },
-  protein: { labelTH:'โปรตีน',  labelEN:'Protein', em:['🥩','🍗','🍖','🥚','🐟'] },
-  fruit:   { labelTH:'ผลไม้',   labelEN:'Fruit',   em:['🍎','🍌','🍇','🍓','🍊'] },
-  dairy:   { labelTH:'นม',      labelEN:'Dairy',   em:['🥛','🧀','🍦','🍨'] }
+  grain:   { th:'ธัญพืช',  em:['🍚','🍞','🥖','🥯','🍜'] },
+  veg:     { th:'ผัก',     em:['🥦','🥕','🥬','🌽','🫑'] },
+  protein: { th:'โปรตีน',  em:['🥩','🍗','🍖','🥚','🐟'] },
+  fruit:   { th:'ผลไม้',   em:['🍎','🍌','🍇','🍓','🍊'] },
+  dairy:   { th:'นม',      em:['🥛','🧀','🍦','🍨'] }
 };
-const GROUP_KEYS = Object.keys(GROUPS);
+const KEYS = Object.keys(GROUPS);
 const pick = (arr)=>arr[(Math.random()*arr.length)|0];
 
-const DUAL_DURATION   = { Easy:10, Normal:12, Hard:14 }; // วินาที
-const SCOREX2_SECONDS = 7;
-const FREEZE_SECONDS  = 2;
-
-const POWERUP_RATE  = { Easy:0.09, Normal:0.11, Hard:0.13 };
-const POWERUP_MIX = [
-  { type:'powerup_dual',       weight:4, icon:'✨'  },
-  { type:'powerup_scorex2',    weight:3, icon:'✖️2' },
-  { type:'powerup_freeze',     weight:2, icon:'🧊'  },
-  { type:'powerup_rotate_now', weight:2, icon:'🔄'  },
+const MISSION_NEED = { Easy:6, Normal:8, Hard:10 };
+const POWER_RATE   = { Easy:0.09, Normal:0.11, Hard:0.13 };
+const POWER_MIX = [
+  { type:'dual',   w:4, icon:'✨' },
+  { type:'scorex2',w:3, icon:'✖️2' },
+  { type:'freeze', w:2, icon:'🧊' },
+  { type:'rotate', w:2, icon:'🔄' },
 ];
+const FREEZE_SECONDS = 2;
+const DUAL_DURATION  = { Easy:10, Normal:12, Hard:14 };
+const SCOREX2_SECONDS= 7;
 
-/* =========================
-   2) Utils & HUD helpers
-   ========================= */
-function labelOf(key, lang='TH'){
-  const g = GROUPS[key]; if(!g) return '—';
-  return lang==='EN' ? g.labelEN : g.labelTH;
-}
-function setTargetHUD(state, hud){
-  const lang = state.lang || 'TH';
-  const gctx = state.ctx.groups;
-  const keys = [gctx.target1, gctx.target2].filter(Boolean);
-  let text = keys.map(k=>labelOf(k, lang)).join(' + ');
-  if (!text) text = '—';
-
-  const tags = [];
-  if (gctx.dualRemain>0)    tags.push(`DUAL ${pad(gctx.dualRemain)}s`);
-  if (gctx.scorex2Remain>0) tags.push(`x2 ${pad(gctx.scorex2Remain)}s`);
-  if (gctx.freezeRemain>0)  tags.push(`FREEZE ${pad(gctx.freezeRemain)}s`);
-  if (tags.length) text += ' • ' + tags.join(' | ');
-
-  if (hud?.showTarget) hud.showTarget();
-  if (hud?.setTargetBadge) hud.setTargetBadge(text);
-  else {
-    const b = document.getElementById('targetBadge'); if (b) b.textContent = text;
-    const w = document.getElementById('targetWrap');  if (w) w.style.display = 'block';
-  }
-}
-function setMissionLine(text){
-  const el = document.getElementById('missionLine');
-  if (!el) return;
-  el.style.display = text ? 'block' : 'none';
-  if (text) el.textContent = text;
-}
-function rotateSingleTarget(exceptA, exceptB){
-  const pool = GROUP_KEYS.filter(k=>k!==exceptA && k!==exceptB);
-  return pick(pool.length?pool:GROUP_KEYS);
-}
-function targetChanceByDiff(diffKey){
-  if(diffKey==='Easy') return 0.45;
-  if(diffKey==='Hard') return 0.65;
-  return 0.55;
-}
-function isOnTarget(groupKey, gctx){
-  return groupKey === gctx.target1 || (!!gctx.target2 && groupKey === gctx.target2);
-}
-function pad(n){ n|=0; return n<10?('0'+n):(''+n); }
-function rollPowerup(){
-  const total = POWERUP_MIX.reduce((s,x)=>s+x.weight,0);
-  let r = Math.random()*total;
-  for (const it of POWERUP_MIX){ if ((r-=it.weight) <= 0) return it; }
-  return POWERUP_MIX[0];
-}
-
-/* =========================
-   3) Public API
-   ========================= */
-export function init(state, hud, diff){
+export function init(state, hud){
   state.ctx = state.ctx || {};
   state.ctx.groups = {
-    target1: rotateSingleTarget(),
+    target1: rotate(null,null),
     target2: null,
     targetHits: 0,
     dualRemain: 0,
     scorex2Remain: 0,
     freezeRemain: 0,
-    mission: newMissionWindow(state)
+    mission: { need: MISSION_NEED[state.difficulty] ?? 8, progress:0, remain:45, done:false, fail:false }
   };
-  setTargetHUD(state, hud);
+  refreshHUD(state, hud);
   updateMissionHUD(state);
 }
 
 export function tick(state, sys, hud){
-  const { fx, sfx, coach, power } = sys || {};
-  const gctx = state.ctx?.groups; if(!gctx) return;
+  const g = state.ctx?.groups; if(!g) return;
+  const { power, coach, sfx, fx } = sys || {};
 
-  // ===== Mission 45s =====
-  if (gctx.mission && !gctx.mission.done){
-    gctx.mission.remain = Math.max(0, gctx.mission.remain - 1);
-    if (gctx.mission.progress >= gctx.mission.need){
-      gctx.mission.done = true;
-      fx?.popText?.('🏁 Mission Complete', { color:'#7fffd4' });
-      sfx?.perfect?.(); coach?.say?.(state.lang==='TH'?'มิชชันผ่าน!':'Mission complete!');
-    }else if (gctx.mission.remain === 0){
-      gctx.mission.done = true; gctx.mission.fail = true;
-      fx?.popText?.('⌛ Mission Failed', { color:'#ff9b9b' });
-      coach?.say?.(state.lang==='TH'?'มิชชันพลาด':'Mission failed');
-    }
+  let need = false;
+  if (g.dualRemain>0){ g.dualRemain--; if(g.dualRemain===0){ g.target2=null; coach?.say?.(state.lang==='TH'?'หมดพลัง Dual':'Dual over'); } need=true; }
+  if (g.scorex2Remain>0){ g.scorex2Remain--; need=true; }
+  if (g.freezeRemain>0){
+    g.freezeRemain--; need=true;
+    if (g.freezeRemain===0){ coach?.say?.(state.lang==='TH'?'เลิก Freeze':'Freeze over'); }
   }
 
-  // ===== Timers =====
-  let needUpdateHUD = false;
-
-  if (gctx.dualRemain > 0){
-    gctx.dualRemain--; needUpdateHUD = true;
-    if (gctx.dualRemain === 0){ gctx.target2 = null; coach?.say?.(state.lang==='TH'?'หมดพลัง Dual':'Dual over'); }
+  // Mission
+  const m = g.mission;
+  if (m && !m.done){
+    m.remain = Math.max(0, m.remain - 1);
+    if (m.progress >= m.need){ m.done=true; fx?.popText?.('🏁 Mission Complete',{color:'#7fffd4'}); sfx?.play?.('sfx-perfect'); }
+    else if (m.remain===0){ m.done=true; m.fail=true; fx?.popText?.('⌛ Mission Failed',{color:'#ff9b9b'}); }
   }
-  if (gctx.scorex2Remain > 0){ gctx.scorex2Remain--; needUpdateHUD = true; }
-  if (gctx.freezeRemain > 0){
-    gctx.freezeRemain--; needUpdateHUD = true;
-    if (gctx.freezeRemain === 0 && power){
-      power.timeScale = 1;
-      coach?.say?.(state.lang==='TH'?'เลิก Freeze':'Freeze over');
-    }
-  }
-
   updateMissionHUD(state);
-  if (needUpdateHUD) setTargetHUD(state, hud);
+  if (need) refreshHUD(state, hud);
 }
 
 export function pickMeta(diff, state){
-  const gctx = state.ctx?.groups || {};
-
-  // power-up roll
-  if (Math.random() < (POWERUP_RATE[state.difficulty] || 0.1)){
-    const p = rollPowerup();
-    return {
-      type: p.type,
-      char: p.icon,
-      life: Math.max(2000, diff?.life ?? 2500)
-    };
+  // roll power
+  if (Math.random() < (POWER_RATE[state.difficulty] || POWER_RATE.Normal)){
+    const p = rollPower();
+    return { type:'power', power:p.type, char:p.icon, life: Math.max(2000, diff?.life ?? 2500) };
   }
 
-  // food item
-  const useDual = !!gctx.target2;
-  const wantTarget = Math.random() < targetChanceByDiff(state.difficulty);
+  // food
+  const g = state.ctx?.groups || {};
+  const useDual = !!g.target2;
+  const wantTarget = Math.random() < targetChance(state.difficulty);
 
-  let groupKey;
-  if (useDual && wantTarget){
-    groupKey = Math.random()<0.5 ? gctx.target1 : gctx.target2;
-  }else if (wantTarget){
-    groupKey = gctx.target1;
-  }else{
-    groupKey = rotateSingleTarget(gctx.target1, gctx.target2);
-  }
+  let key;
+  if (useDual && wantTarget) key = Math.random()<0.5 ? g.target1 : g.target2;
+  else if (wantTarget) key = g.target1;
+  else key = rotate(g.target1, g.target2);
 
-  const char = pick(GROUPS[groupKey].em);
-  const life = (diff?.life ?? 3000);
-  return {
-    type:'food', char, life, groupKey,
-    good: isOnTarget(groupKey, gctx)
-  };
+  const char = pick(GROUPS[key].em);
+  return { type:'food', char, life:(diff?.life ?? 3000), groupKey:key, good: isOnTarget(key, g) };
 }
 
 export function onHit(meta, sys, state, hud){
-  const { sfx, fx, coach, power } = sys || {};
+  const g = state.ctx?.groups; const { coach, sfx, fx, power } = sys || {};
   const lang = state.lang || 'TH';
-  const gctx = state.ctx?.groups;
 
-  // ==== power-ups ====  → คืน 'power' ให้ main.js จัดเอฟเฟกต์/คอมโบ
-  if (meta.type === 'powerup_dual'){
-    gctx.target2 = rotateSingleTarget(gctx.target1);
-    gctx.dualRemain = DUAL_DURATION[state.difficulty] || 12;
-    setTargetHUD(state, hud);
-    fx?.popText?.('DUAL TARGET!', { color:'#ffd54a' });
-    (sfx.power||sfx.powerup||(()=>{}))();
-    coach?.say?.(lang==='TH'?'เป้า ×2 ชั่วคราว!':'Dual targets!');
-    return 'power';
-  }
-  if (meta.type === 'powerup_scorex2'){
-    gctx.scorex2Remain = SCOREX2_SECONDS;
-    setTargetHUD(state, hud);
-    fx?.popText?.('SCORE ×2', { color:'#b0ff66' });
-    (sfx.power||sfx.powerup||(()=>{}))();
-    coach?.say?.(lang==='TH'?'คะแนน x2 ชั่วคราว!':'Score x2!');
-    return 'power';
-  }
-  if (meta.type === 'powerup_freeze'){
-    gctx.freezeRemain = FREEZE_SECONDS;
-    if (power) power.timeScale = 99; // ชะลอการ spawn ชั่วคราว
-    setTargetHUD(state, hud);
-    fx?.popText?.('FREEZE!', { color:'#66e0ff' });
-    (sfx.power||sfx.powerup||(()=>{}))();
-    coach?.say?.(lang==='TH'?'แช่แข็ง!':'Freeze!');
-    return 'power';
-  }
-  if (meta.type === 'powerup_rotate_now'){
-    gctx.target1 = rotateSingleTarget(gctx.target1, gctx.target2);
-    setTargetHUD(state, hud);
-    fx?.popText?.('ROTATE!', { color:'#ffdd66' });
-    (sfx.tick||(()=>{}))();
-    coach?.say?.(lang==='TH'?'เปลี่ยนเป้าแล้ว!':'Target rotated!');
+  if (meta.type === 'power'){
+    if (meta.power==='dual'){
+      g.target2 = rotate(g.target1, g.target2);
+      g.dualRemain = DUAL_DURATION[state.difficulty] || 12;
+      fx?.popText?.('DUAL TARGET!', { color:'#ffd54a' }); sfx?.play?.('sfx-powerup');
+      refreshHUD(state, hud); return 'power';
+    }
+    if (meta.power==='scorex2'){
+      g.scorex2Remain = SCOREX2_SECONDS;
+      power?.apply?.('boost');
+      fx?.popText?.('SCORE ×2', { color:'#b0ff66' }); sfx?.play?.('sfx-powerup');
+      refreshHUD(state, hud); return 'power';
+    }
+    if (meta.power==='freeze'){
+      const now = performance?.now?.() ?? Date.now();
+      state.freezeUntil = now + FREEZE_SECONDS*1000;
+      g.freezeRemain = FREEZE_SECONDS;
+      fx?.popText?.('FREEZE!', { color:'#66e0ff' }); sfx?.play?.('sfx-powerup');
+      refreshHUD(state, hud); return 'power';
+    }
+    if (meta.power==='rotate'){
+      g.target1 = rotate(g.target1, g.target2);
+      fx?.popText?.('ROTATE!', { color:'#ffdd66' }); sfx?.play?.('sfx-tick');
+      refreshHUD(state, hud); return 'power';
+    }
     return 'power';
   }
 
-  // ==== food ==== → คืนผลลัพธ์ให้ main.js ทำคะแนน/คอมโบ/ฟีเวอร์
-  if (meta.type !== 'food') return 'ok';
+  if (meta.type !== 'food'){ sfx?.play?.('sfx-bad'); return 'bad'; }
 
   if (meta.good){
-    (sfx.good||(()=>{}))();
-    coach?.say?.(lang==='TH'?'เข้าเป้า!':'On target!');
-    gctx.targetHits = (gctx.targetHits||0) + 1;
-
-    // นับภารกิจ
-    const m = gctx.mission;
-    if (m && !m.done){
-      m.progress++;
-      if (m.progress >= m.need){
-        m.done = true;
-        fx?.popText?.('🏁 Mission Complete', { color:'#7fffd4' });
-      }
-    }
-
-    // ครบ 3 ชิ้นที่เข้าเป้า หมุน target1 (ถ้า dual ยังอยู่ target2 คงเดิม)
-    if (gctx.targetHits >= 3){
-      gctx.target1 = rotateSingleTarget(gctx.target1, gctx.target2);
-      gctx.targetHits = 0;
-      setTargetHUD(state, hud);
-    }
+    sfx?.play?.('sfx-good'); coach?.say?.(lang==='TH'?'เข้าเป้า!':'On target!');
+    g.targetHits = (g.targetHits||0) + 1;
+    if (g.mission && !g.mission.done){ g.mission.progress++; }
+    if (g.targetHits>=3){ g.target1 = rotate(g.target1, g.target2); g.targetHits=0; refreshHUD(state, hud); }
     return 'good';
   }
 
-  // ถูกหมวดอาหาร “ที่มีในเกม” แต่ไม่ใช่เป้า → ok
-  if (GROUPS[meta.groupKey]){ (sfx.tick||(()=>{}))(); return 'ok'; }
+  // ถูกหมู่แต่ไม่ตรงเป้า? -> OK (+2)
+  if (GROUPS[meta.groupKey]){
+    sfx?.play?.('sfx-tick'); coach?.say?.(lang==='TH'?'ดี แต่ไม่ตรงเป้า':'OK, not target');
+    return 'ok';
+  }
 
-  // ผิดหมวด → bad
-  (sfx.bad||(()=>{}))();
-  coach?.say?.(lang==='TH'?'ผิดหมวด!':'Wrong group!');
+  sfx?.play?.('sfx-bad'); coach?.say?.(lang==='TH'?'ผิดหมวด!':'Wrong group!');
   return 'bad';
 }
 
-/* =========================
-   4) Mission (ภายในโหมด)
-   ========================= */
-function newMissionWindow(state){
-  const byDiff = { Easy: 6, Normal: 8, Hard: 10 };
-  const need = byDiff[state.difficulty] ?? 8;
-  return { kind:'collect_target', need, progress:0, remain:45, done:false, fail:false };
-}
-function updateMissionHUD(state){
-  const gctx = state.ctx?.groups;
-  if (!gctx?.mission) { setMissionLine(''); return; }
-  const m = gctx.mission;
-  if (m.done){
-    setMissionLine(m.fail ? '⌛ Mission Failed' : '🏁 Mission Complete');
-    return;
-  }
-  const lang = state.lang || 'TH';
-  const lbl = lang==='TH' ? 'ตรงเป้า' : 'on target';
-  setMissionLine(`🎯 ${lbl} ${m.progress}/${m.need} • ${m.remain|0}s`);
-}
-
-/* =========================
-   5) Cleanup (optional)
-   ========================= */
 export function cleanup(state, hud){
   try{ hud?.hideTarget?.(); }catch{}
-  const badge = document.getElementById('targetBadge'); if (badge) badge.textContent = '—';
-  const w = document.getElementById('targetWrap'); if (w) w.style.display = 'none';
-  if (state?.ctx){
-    state.ctx.target = null;
-    state.ctx.targetHitsTotal = 0;
-    state.ctx.wrongGroup = 0;
+  const b = document.getElementById('targetBadge'); if (b) b.textContent='—';
+}
+
+/* Helpers */
+function labelTH(k){ return GROUPS[k]?.th || '—'; }
+function rotate(exA, exB){ const pool = KEYS.filter(k=>k!==exA && k!==exB); return pick(pool.length?pool:KEYS); }
+function isOnTarget(k, g){ return k===g.target1 || (!!g.target2 && k===g.target2); }
+function targetChance(diff){ if(diff==='Easy')return 0.5; if(diff==='Hard')return 0.7; return 0.6; }
+
+function rollPower(){
+  const total = POWER_MIX.reduce((s,x)=>s+x.w,0);
+  let r = Math.random()*total;
+  for (const it of POWER_MIX){ if((r-=it.w)<=0) return it; }
+  return POWER_MIX[0];
+}
+function refreshHUD(state, hud){
+  const g = state.ctx.groups;
+  const keys = [g.target1, g.target2].filter(Boolean);
+  let text = keys.length ? keys.map(labelTH).join(' + ') : '—';
+  const tags = [];
+  if (g.dualRemain>0)    tags.push(`DUAL ${pad(g.dualRemain)}s`);
+  if (g.freezeRemain>0)  tags.push(`FREEZE ${pad(g.freezeRemain)}s`);
+  if (g.scorex2Remain>0) tags.push(`x2 ${pad(g.scorex2Remain)}s`);
+  if (tags.length) text += ' • ' + tags.join(' | ');
+  try{ hud?.showTarget?.(); hud?.setTargetBadge?.(text); }catch{
+    const w=document.getElementById('targetWrap'); if(w) w.style.display='block';
+    const b=document.getElementById('targetBadge'); if(b) b.textContent=text;
   }
 }
+function updateMissionHUD(state){
+  const el = document.getElementById('missionLine'); if(!el) return;
+  const m = state.ctx.groups.mission; if(!m){ el.style.display='none'; return; }
+  el.style.display='block';
+  if (m.done) el.textContent = m.fail ? '⌛ Mission Failed' : '🏁 Mission Complete';
+  else el.textContent = `🎯 ตรงเป้า ${m.progress}/${m.need} • ${m.remain|0}s`;
+}
+function pad(n){ n|=0; return n<10?('0'+n):(''+n); }
