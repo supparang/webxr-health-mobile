@@ -1,30 +1,39 @@
-// === Hero Health Academy — game/modes/groups.js (Emoji Edition, 50 items) ===
-// โหมด "Groups": จัดหมวดอาหารให้ถูกต้อง (Fruits / Vegetables / Protein / Grains)
-// ใช้อีโมจิเป็นไอคอน → เบา โหลดเร็ว ไม่ต้องมีไฟล์ภาพ
-// Public API: export const name, init(ctx), enter(root, opts), exit(), tick(dt), handleDomAction(el)
+// === Hero Health Academy — game/modes/groups.js (Target Group Edition) ===
+// โหมด "จาน 5 หมู่ / Food Group Frenzy":
+// - ระบบจะสุ่ม "หมวดเป้าหมาย" (ผลไม้/ผัก/โปรตีน/ธัญพืช)
+// - แสดงไอคอนอาหาร 8 ชิ้น (มีของหมวดเป้าหมายอยู่ N ชิ้น)
+// - ผู้เล่นต้อง "คลิกให้ตรงหมวดเป้าหมาย" ให้ครบ N ชิ้น เพื่อไปยังรอบถัดไป
+// - คะแนนได้จากคลิกถูก และคอมโบต่อเนื่อง ถ้าคลิกผิดคอมโบจะรีเซ็ต
+//
+// Public API ที่ main.js เรียก:
+//   export function init(ctx)
+//   export function enter(root, opts)
+//   export function exit()
+//   export function tick(dt)
+//   export function handleDomAction(el)
 
 export const name = 'groups';
 
-let ctx = null;   // { engine, hud, coach, sfx, score, powerups }
-let ui  = null;   // root DOM for this mode
-let st  = null;   // state
+let ctx = null;   // engine/hud/coach/sfx/score/powerups ... จาก main
+let ui  = null;   // root DOM ของโหมดนี้
+let st  = null;   // state ภายในโหมด
 
 // ---------- Config ----------
 const GROUPS = [
-  { id:'fruits',  labelTH:'ผลไม้',   labelEN:'Fruits',     color:'#ef4444', key:'1' },
-  { id:'veggies', labelTH:'ผัก',      labelEN:'Vegetables', color:'#22c55e', key:'2' },
-  { id:'protein', labelTH:'โปรตีน',   labelEN:'Protein',    color:'#3b82f6', key:'3' },
-  { id:'grains',  labelTH:'ธัญพืช',   labelEN:'Grains',     color:'#f59e0b', key:'4' },
+  { id:'fruits',  labelTH:'ผลไม้',     labelEN:'Fruits',     color:'#ef4444', key:'1' },
+  { id:'veggies', labelTH:'ผัก',        labelEN:'Vegetables', color:'#22c55e', key:'2' },
+  { id:'protein', labelTH:'โปรตีน',     labelEN:'Protein',    color:'#3b82f6', key:'3' },
+  { id:'grains',  labelTH:'ธัญพืช',     labelEN:'Grains',     color:'#f59e0b', key:'4' },
 ];
 
 const DEFAULTS = {
   durationSec: 60,
-  language: 'TH',          // 'TH' | 'EN'
+  language: 'TH',           // 'TH' | 'EN'
   allowHints: true,
-  dynamicDifficulty: true,
+  gridSize: 8,              // จำนวนไอคอนต่อรอบ
+  correctPerRound: 3,       // จำนวนเป้าหมายที่ต้องคลิกให้ครบในรอบหนึ่ง
 };
 
-// ---------- Items (50) ----------
 const ITEMS = [
   // Fruits (12)
   { id:'apple',      group:'fruits',  labelEN:'Apple',      labelTH:'แอปเปิล',       icon:'🍎' },
@@ -93,24 +102,24 @@ export function enter(root, opts={}){
 
   st = {
     cfg,
-    timeLeft: cfg.durationSec,
     playing: true,
     score: 0,
     combo: 0,
     bestCombo: 0,
-    correct: 0,
-    wrong: 0,
-    difficulty: 1, // 1..5
-    decayTimer: 0,
-    queue: shuffle(ITEMS),
-    current: null,
+    hits: 0,
+    wrongs: 0,
+    round: 0,
+    targetGroup: null,     // 'fruits' | 'veggies' | 'protein' | 'grains'
+    need: cfg.correctPerRound,
+    got: 0,
+    usedItemIds: new Set(), // ป้องกันซ้ำติดกันบ่อยๆ
   };
 
   ui = buildUI(cfg);
   root.appendChild(ui);
 
-  ctx?.coach?.say( t('เลือกหมวดอาหารให้ถูกต้องนะ!', 'Pick the right food group!', cfg.language) );
-  nextItem();
+  ctx?.coach?.say( t('คลิกให้ตรงหมวดที่กำหนด!', 'Tap the items that match the target group!', cfg.language) );
+  newRound(); // เริ่มรอบแรก
 }
 
 export function exit(){
@@ -118,191 +127,189 @@ export function exit(){
   ui = null; st = null;
 }
 
-export function tick(dt){
-  if(!st?.playing) return;
-
-  // timer (ปล่อยให้ main.js คุมเวลาและสรุปผล)
-  // แต่จะใช้ dt เพื่อปรับความยาก/decay คอมโบได้
-  st.decayTimer += dt;
-  if (st.decayTimer > 6 && st.combo>0){
-    st.combo = Math.max(0, st.combo-1);
-    updateHUD();
-    st.decayTimer = 0;
-  }
-
-  if (st.cfg.dynamicDifficulty){
-    const pct = 1 - (Math.max(0, st.timeLeft-1) / Math.max(1, st.cfg.durationSec));
-    st.difficulty = 1 + Math.floor(pct*4); // 1..5
-  }
+export function tick(_dt){
+  // รอบนี้ logic หลักอยู่ในการคลิก ไม่ต้องทำงานรายวินาทีในที่นี้
 }
 
 export function handleDomAction(el){
-  const a = el?.closest?.('[data-action]')?.getAttribute('data-action');
-  if (!a) return;
-
-  if (a.startsWith('group:')){ onChoose(a.split(':')[1]); return; }
-  if (a === 'groups:hint'){ showHint(); return; }
-  if (a === 'groups:skip'){ skipItem(); return; }
-  if (a === 'groups:quit'){ endRound(true); return; }
+  const act = el?.closest?.('[data-action]')?.getAttribute('data-action');
+  if (!act) return;
+  if (act.startsWith('pick:')){ onPick(act.slice(5)); return; }
+  if (act === 'groups:hint'){ showHint(); return; }
+  if (act === 'groups:skip'){ newRound(true); return; }
+  if (act === 'groups:quit'){ endRound(true); return; }
 }
 
-// ---------- UI ----------
-function buildUI(cfg){
-  const wrap = h('div', { class:'mode-groups', tabindex:'-1' }, [
-    h('div', { class:'gg-head' }, [
-      h('div', { class:'gg-title' }, t('จัดเข้าหมวดอาหาร', 'Group the Food', cfg.language)),
-      h('div', { id:'ggTimer', class:'gg-timer' }, formatTime(cfg.durationSec)),
-    ]),
-    h('div', { class:'gg-item' }, [
-      h('div', { id:'ggIcon', class:'gg-icon', style:'font-size:80px' }, '🍎'),
-      h('div', { id:'ggName', class:'gg-name' }, ''),
-      h('div', { id:'ggHint', class:'gg-hint' }, ''),
-    ]),
-    h('div', { class:'gg-grid' },
-      GROUPS.map(g => h('button', {
-        class:'gg-btn',
-        style:`--btnColor:${g.color}`,
-        'data-action': `group:${g.id}`,
-        title: `${t(g.labelTH, g.labelEN, cfg.language)} [${g.key}]`
-      }, t(g.labelTH, g.labelEN, cfg.language)))
-    ),
-    h('div', { class:'gg-foot' }, [
-      h('button', { class:'gg-small', 'data-action':'groups:hint' }, t('คำใบ้', 'Hint', cfg.language)),
-      h('button', { class:'gg-small', 'data-action':'groups:skip' }, t('ข้าม', 'Skip', cfg.language)),
-      h('button', { class:'gg-small danger', 'data-action':'groups:quit' }, t('จบเกม', 'End', cfg.language)),
-      h('div', { class:'gg-score' }, [
-        h('span', { id:'ggScore' }, '0'),
-        h('span', { id:'ggCombo' }, '×0')
-      ])
-    ])
-  ]);
+// ---------- Round / Grid ----------
+function newRound(skipped=false){
+  if (!st?.playing) return;
 
-  // shortcuts 1-4
-  wrap.addEventListener('keydown', (e)=>{
-    const map = { '1':'fruits','2':'veggies','3':'protein','4':'grains' };
-    const gid = map[e.key];
-    if (gid){
-      wrap.querySelector(`[data-action="group:${gid}"]`)?.click();
-      e.preventDefault();
-    }
+  st.round++;
+  st.got = 0;
+  clearHint();
+
+  // สุ่มหมวดเป้าหมายที่ไม่ซ้ำจากรอบก่อน (ถ้าทำได้)
+  const prev = st.targetGroup;
+  const candidates = GROUPS.map(g=>g.id);
+  st.targetGroup = pickDifferent(candidates, prev);
+
+  // เลือกจำนวนที่ต้องคลิกให้ครบ (ปรับได้ หากในกลุ่มนั้นเหลือไอคอนน้อย)
+  const inTarget = ITEMS.filter(i=>i.group===st.targetGroup);
+  st.need = Math.min(st.cfg.correctPerRound, inTarget.length, st.cfg.gridSize);
+
+  // สร้างกริด: เลือกเป้าหมาย N ชิ้น + ตัวหลอก (gridSize-N) ชิ้น
+  const targetItems   = takeRandom(inTarget, st.need, st.usedItemIds);
+  const others        = ITEMS.filter(i=>i.group!==st.targetGroup);
+  const distractors   = takeRandom(others, st.cfg.gridSize - targetItems.length, st.usedItemIds);
+  const gridItems     = shuffle([...targetItems, ...distractors]);
+
+  // บันทึกว่าชิ้นไหนเป็นเป้าหมาย
+  const answerSet = new Set(targetItems.map(i=>i.id));
+
+  renderRound({
+    targetGroup: st.targetGroup,
+    gridItems,
+    isCorrect: (id)=>answerSet.has(id)
   });
-  return wrap;
+
+  // อัปเดตข้อความโค้ช/เป้า
+  const gName = groupLabel(st.targetGroup, st.cfg.language);
+  ctx?.coach?.say( t(`เป้าหมาย: ${gName}`, `Target: ${gName}`, st.cfg.language) );
+
+  // บันทึกว่าชิ้นที่ใช้ไปแล้ว เพื่อลดโอกาสซ้ำถี่ ๆ
+  targetItems.forEach(i=>st.usedItemIds.add(i.id));
+  if (st.usedItemIds.size > 80) { // กันโตเกิน
+    st.usedItemIds = new Set(Array.from(st.usedItemIds).slice(-40));
+  }
+
+  if (skipped){
+    ctx?.sfx?.play('tick') || ctx?.sfx?.play?.('skip');
+  }
 }
 
-// ---------- Gameplay ----------
-function nextItem(){
-  if (st.queue.length === 0) st.queue = shuffle(ITEMS);
-  st.current = st.queue.pop();
-  st.decayTimer = 0;
+function renderRound({ targetGroup, gridItems, isCorrect }){
+  // เป้า
+  const target = GROUPS.find(g=>g.id===targetGroup);
+  sel('#ggTarget').textContent = t(target.labelTH, target.labelEN, st.cfg.language);
+  sel('#ggTarget').style.setProperty('--targetColor', target.color);
 
-  sel('#ggIcon').textContent = st.current.icon;
-  sel('#ggName').textContent = t(st.current.labelTH, st.current.labelEN, st.cfg.language);
-  sel('#ggHint').textContent = '';
-  glowChoices(null);
+  // เคลียร์กริด
+  const grid = sel('#ggGrid');
+  grid.innerHTML = '';
+
+  // สร้าง cell
+  for (const it of gridItems){
+    const cell = h('button', {
+      class:'gg-cell',
+      'data-id': it.id,
+      'data-action': `pick:${it.id}`,
+      title: t(it.labelTH, it.labelEN, st.cfg.language)
+    }, [
+      h('div', { class:'gg-emoji' }, it.icon),
+      h('div', { class:'gg-label' }, t(it.labelTH, it.labelEN, st.cfg.language))
+    ]);
+    // เก็บข้อมูลถูก/ผิดไว้ใน DOM dataset
+    cell.dataset.correct = isCorrect(it.id) ? '1' : '0';
+    grid.appendChild(cell);
+  }
+
+  // HUD
+  updateHUD();
 }
 
-function onChoose(groupId){
-  if (!st?.playing || !st.current) return;
-  const ok = (groupId === st.current.group);
+// ---------- Click handling ----------
+function onPick(itemId){
+  if (!st?.playing) return;
+  const btn = sel(`[data-id="${CSS.escape(itemId)}"]`);
+  if (!btn || btn.classList.contains('done')) return; // กันกดซ้ำ
 
-  if (ok){
+  const isOk = btn.dataset.correct === '1';
+
+  if (isOk){
+    st.got += 1;
+    st.hits += 1;
     st.combo += 1;
     st.bestCombo = Math.max(st.bestCombo, st.combo);
-    const base = 100;
-    const add  = base + (st.combo-1)*10 + (st.difficulty-1)*5;
+
+    btn.classList.add('good','done');
+    const add = 120 + (st.combo-1)*10; // คอมโบบวกคะแนน
     st.score += add;
-    st.correct += 1;
+    ctx?.hud?.flash?.('+'+add);
     ctx?.sfx?.play('good') || ctx?.sfx?.play?.('right');
-    ctx?.hud?.flash('+'+add);
-    if (ctx?.powerups && st.combo>=10) ctx.powerups.tryFever?.();
-    ctx?.coach?.cheer?.();
-  } else {
-    if (st.combo>0) ctx?.sfx?.play('bad') || ctx?.sfx?.play?.('comboBreak');
+
+    // สำเร็จครบตาม need → ขึ้นรอบใหม่เร็วๆ
+    if (st.got >= st.need){
+      setTimeout(()=>newRound(false), 450);
+    }
+  }else{
+    // ผิด → คอมโบหาย สะเทือนจอเล็กน้อย
+    st.wrongs += 1;
     st.combo = 0;
-    st.wrong += 1;
-    ctx?.hud?.shake?.(0.3);
-    const gName = groupLabel(st.current.group);
-    ctx?.coach?.say( t(`ข้อนี้คือหมวด “${gName}”`, `This one is “${gName}”`, st.cfg.language) );
+    btn.classList.add('bad','done');
+    ctx?.sfx?.play('bad') || ctx?.sfx?.play?.('wrong');
+    ctx?.hud?.shake?.(0.25);
   }
 
   updateHUD();
-  glowChoices(groupId);
-  setTimeout(nextItem, ok ? 320 : 480);
 }
 
-function skipItem(){
-  if (!st?.playing) return;
-  ctx?.sfx?.play('tick') || ctx?.sfx?.play?.('skip');
-  nextItem();
+// ---------- HUD / Hints ----------
+function updateHUD(){
+  sel('#ggScore').textContent = String(st.score);
+  sel('#ggCombo').textContent = '×'+st.combo;
+  sel('#ggNeed').textContent  = `${st.got}/${st.need}`;
 }
 
 function showHint(){
-  if (!st?.playing || !st?.cfg?.allowHints) return;
-  const g = groupLabel(st.current.group, st.cfg.language);
-  sel('#ggHint').textContent = t(`ใบ้: หมวดขึ้นต้นด้วย "${g[0]}"`, `Hint: Starts with "${g[0]}"`, st.cfg.language);
+  if (!st?.cfg?.allowHints) return;
+  const gName = groupLabel(st.targetGroup, st.cfg.language);
+  sel('#ggHint').textContent = t(`ใบ้: มองหาอาหารในหมวด “${gName}”`,
+                                 `Hint: Look for items in “${gName}”`, st.cfg.language);
   ctx?.sfx?.play('powerup') || ctx?.sfx?.play?.('hint');
 }
+function clearHint(){ sel('#ggHint').textContent = ''; }
 
+// ---------- End ----------
 function endRound(byUser=false){
   st.playing = false;
   const result = {
     mode: name,
-    time: st.cfg.durationSec,
     score: st.score,
-    hits: st.correct,
-    misses: st.wrong,
+    hits: st.hits,
+    misses: st.wrongs,
     bestCombo: st.bestCombo,
     endedByUser: byUser,
-    stars: calcStars(st.score),
-    details: { difficultyCurve: st.difficulty }
+    rounds: st.round
   };
   ctx?.hud?.showResult?.(result);
   ctx?.engine?.emit?.('mode:end', result);
 }
 
-// ---------- Small Helpers ----------
+// ---------- Mini helpers ----------
 function t(th, en, lang){ return lang==='EN' ? en : th; }
-
 function groupLabel(id, lang='TH'){
   const g = GROUPS.find(x=>x.id===id);
   if (!g) return id;
   return t(g.labelTH, g.labelEN, lang);
 }
-
-function updateHUD(){
-  sel('#ggScore').textContent = String(st.score);
-  sel('#ggCombo').textContent = '×'+st.combo;
+function takeRandom(arr, n, excludeIdSet=new Set()){
+  const pool = arr.filter(x=>!excludeIdSet.has(x.id));
+  const a = shuffle(pool.length>=n ? pool : arr).slice(0, n);
+  return a;
 }
-
-function glowChoices(chosenId){
-  GROUPS.forEach(g=>{
-    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
-    if (!btn) return;
-    btn.classList.remove('good','bad','chosen');
-  });
-  if (!chosenId) return;
-  const correctId = st.current.group;
-  GROUPS.forEach(g=>{
-    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
-    if (!btn) return;
-    if (g.id===chosenId) btn.classList.add('chosen', (g.id===correctId?'good':'bad'));
-  });
+function pickDifferent(list, prev){
+  if (!prev) return list[(Math.random()*list.length)|0];
+  const cand = list.filter(x=>x!==prev);
+  return cand.length? cand[(Math.random()*cand.length)|0] : prev;
 }
-
-function calcStars(score){
-  if (score>=3000) return 5;
-  if (score>=2200) return 4;
-  if (score>=1600) return 3;
-  if (score>=1000) return 2;
-  if (score>=500)  return 1;
-  return 0;
+function shuffle(a){
+  const arr = a.slice(0);
+  for(let i=arr.length-1;i>0;i--){
+    const j = (Math.random()*(i+1))|0;
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
 }
-
-function formatTime(s){
-  const m = (s/60)|0, r = (s%60)|0;
-  return `${m}:${r.toString().padStart(2,'0')}`;
-}
-
 function h(tag, attrs={}, children=[]){
   const el = document.createElement(tag);
   for (const k in attrs){
@@ -316,14 +323,49 @@ function h(tag, attrs={}, children=[]){
   });
   return el;
 }
-
 function sel(q){ return ui?.querySelector(q); }
 
-function shuffle(arr){
-  const a = arr.slice(0);
-  for(let i=a.length-1;i>0;i--){
-    const j = (Math.random()*(i+1))|0;
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
+// ---------- UI ----------
+function buildUI(cfg){
+  const wrap = h('div', { class:'mode-groups tg', tabindex:'-1' }, [
+    // Header
+    h('div', { class:'gg-head' }, [
+      h('div', { class:'gg-title' }, t('จาน 5 หมู่', 'Food Group Frenzy', cfg.language)),
+      h('div', { class:'gg-meta' }, [
+        h('span', { class:'gg-badge', id:'ggTarget', style:'--targetColor:#999' }, '—')
+      ]),
+      h('div', { class:'gg-scorebox' }, [
+        h('span', { id:'ggScore' }, '0'),
+        h('span', { id:'ggCombo' }, '×0')
+      ]),
+    ]),
+    // Hint line
+    h('div', { id:'ggHint', class:'gg-hint' }, ''),
+    // Need counter
+    h('div', { class:'gg-need' }, [
+      h('span', {}, t('เป้าหมายที่ต้องคลิกให้ครบ', 'Items to collect', cfg.language)+': '),
+      h('b', { id:'ggNeed' }, '0/0')
+    ]),
+    // Grid
+    h('div', { id:'ggGrid', class:'tg-grid' }, []),
+
+    // Footer controls
+    h('div', { class:'gg-foot' }, [
+      h('button', { class:'gg-small', 'data-action':'groups:hint' }, t('คำใบ้', 'Hint', cfg.language)),
+      h('button', { class:'gg-small', 'data-action':'groups:skip' }, t('ข้ามรอบ', 'Skip round', cfg.language)),
+      h('button', { class:'gg-small danger', 'data-action':'groups:quit' }, t('จบเกม', 'End', cfg.language)),
+    ]),
+  ]);
+
+  // คีย์ลัด 1-4 เลือกหมวด (เผื่อใช้ในอนาคต)
+  wrap.addEventListener('keydown', (e)=>{
+    const map = { '1':'fruits','2':'veggies','3':'protein','4':'grains' };
+    if (map[e.key]){
+      sel('#ggHint').textContent = t(`ตอนนี้เป้าหมายคือ “${groupLabel(map[e.key])}”`,
+                                     `Current target is “${groupLabel(map[e.key],'EN')}”`,
+                                     cfg.language);
+      e.preventDefault();
+    }
+  });
+  return wrap;
 }
