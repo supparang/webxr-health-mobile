@@ -34,7 +34,7 @@ const LIVE = new Set();
 const I18N = {
   TH:{ names:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
        diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'} },
-  EN:{ names:{goodjunk:'Good vs Junk', groups:'Food Groups', hydration:'Hydration', plate:'Healthy Plate'},
+  EN:{ names:{goodjunk:'Good vs Junk', groups:'Food Group Frenzy', hydration:'Hydration', plate:'Healthy Plate'},
        diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'} }
 };
 const T = (lang)=>I18N[lang]||I18N.TH;
@@ -63,7 +63,7 @@ const state = {
   _accHist:[],
   freezeUntil:0,
   didWarnT10:false,
-  uiMode:false,              // NEW: โหมด UI-Driven (เช่น groups)
+  uiMode:false,              // โหมด UI-Driven (มี enter/exit ภายในโมดูล)
 };
 
 // ----- UI -----
@@ -341,8 +341,13 @@ function spawnOnce(diff){
 
   document.body.appendChild(el);
   LIVE.add(el);
-  const ttl = meta.life || diff.life || 3000;
-  setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
+
+  // ---- Sticky TTL logic (สำคัญ) ----
+  // ถ้า meta.sticky === true จะ "ค้าง" จนกว่าจะคลิก (ไม่ตั้ง TTL)
+  const ttl = (meta && meta.sticky) ? 0 : (meta.life || diff.life || 3000);
+  if (ttl > 0){
+    setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
+  }
 }
 
 // ----- Spawn loop (adaptive) -----
@@ -379,8 +384,8 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
-  // ให้โหมด UI-Driven (เช่น groups) อัปเดตภายในเองต่อวินาที (dt=1)
-  try{ MODES[state.modeKey]?.tick?.(1); }catch(e){}
+  // ส่ง state/systems/hud ให้โหมด (ตามสัญญาเดิม)
+  try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
@@ -431,7 +436,7 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  // โหมดที่มี enter() (เช่น groups) ให้โมดูลคุม UI เอง
+  // โหมดที่มี enter() (เช่นบางโหมด UI-Driven) → ให้โมดูลคุม UI เอง
   const mode = MODES[state.modeKey];
   const modeRoot = document.getElementById('modeRoot');
   if (mode?.enter && modeRoot){
@@ -484,7 +489,7 @@ function end(silent=false){
         </div>`;
       const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
 
-      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
+      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard'];
       if (coreEl) coreEl.innerHTML = resCore;
       if (brEl)   brEl.innerHTML   = resBreak;
       if (bdEl)   bdEl.innerHTML   = resBoard;
@@ -495,7 +500,7 @@ function end(silent=false){
 
 // ----- Events -----
 document.addEventListener('pointerup', (e)=>{
-  // ให้โหมด UI-Driven รับคลิกของตัวเองก่อน (เช่น groups)
+  // ให้โหมด UI-Driven รับคลิกของตัวเองก่อน (ถ้ามี)
   if (state.uiMode && MODES[state.modeKey]?.handleDomAction){
     try { MODES[state.modeKey].handleDomAction(e.target); } catch {}
     // ไม่ return เพื่อให้ปุ่มเมนูหลัก (help/pause/...) ยังทำงาน
@@ -518,7 +523,7 @@ document.addEventListener('pointerup', (e)=>{
     return;
   }
 
-  // รูปแบบเดิม (เผื่อยังมีปุ่ม legacy)
+  // รูปแบบเดิม (legacy)
   if (a === 'mode'){ 
     state.modeKey = v; 
     applyUI(); 
