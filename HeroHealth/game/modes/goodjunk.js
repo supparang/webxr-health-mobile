@@ -1,7 +1,7 @@
 // game/modes/goodjunk.js
 // โหมด: ดี vs ขยะ — เก็บของดี หลีกเลี่ยงของขยะ
 // ส่งผลลัพธ์ให้ main.js: 'good' | 'bad' | 'perfect' | 'power'
-// ไฮไลต์: life แบบ adaptive, 5 Mini-Quests (สุ่มมา 3), Power-ups (x2 / Freeze) + โค้ชเชียร์
+// ไฮไลต์: life แบบ adaptive, Mini-Quest 5 แบบ (สุ่มมา 3 ต่อรอบ), Power-ups (x2 / Freeze) + Coaching
 
 const HEALTHY = ['🥦','🍎','🥕','🍅','🍇','🍉','🥗','🥒','🥬','🌽'];
 const JUNK    = ['🍔','🍟','🍩','🍕','🥤','🍫','🌭','🧁','🍪','🧃'];
@@ -16,28 +16,22 @@ const TRAP_RATE = 0.06;
 const PERFECT_WINDOW_MS = 320;
 const MIN_LIFE_BY_DIFF = { Easy:2600, Normal:2200, Hard:1900 };
 
-// Mini-Quests pool (เราจะสุ่มมา 3 ตอนเริ่ม)
+// Mini-Quests: เตรียม 5 แบบ แล้วสุ่มมา 3 แบบ/รอบ
 const QUEST_POOL = [
-  { type:'collect', labelTH:'เก็บของดีให้ครบ', make:(diff)=>({ need: diff==='Hard'?14: diff==='Easy'?8:10 }) },
-  { type:'avoid',   labelTH:'เลี่ยงของขยะให้นาน', make:(diff)=>({ need: diff==='Hard'?14: diff==='Easy'?8:10, remain:0 }) },
-  { type:'perfect', labelTH:'PERFECT ให้ครบ', make:(diff)=>({ need: diff==='Hard'?6: diff==='Easy'?3:4 }) },
-  { type:'combo',   labelTH:'ไปให้ถึงคอมโบ', make:(diff)=>({ need: diff==='Hard'?20: diff==='Easy'?10:14 }) },
-  { type:'streak',  labelTH:'เก็บดีติดกัน', make:(diff)=>({ need: diff==='Hard'?10: diff==='Easy'?5:7, streak:0 }) },
+  { id:'streak5',     titleTH:'กดดีติดกัน 5 ครั้ง',              need:5,   type:'streak' },
+  { id:'collect10',   titleTH:'เก็บของดี 10 ชิ้น',                 need:10,  type:'goodCount' },
+  { id:'avoid5',      titleTH:'หลบของขยะ 5 ครั้งติด',             need:5,   type:'avoidStreak' },
+  { id:'perfect3',    titleTH:'PERFECT 3 ครั้ง',                   need:3,   type:'perfect' },
+  { id:'time15',      titleTH:'ทำคะแนนต่อเนื่อง 15 วินาที',       need:15,  type:'timeCombo' }
 ];
 
-const QUEST_TIME = 45; // วินาที/เควส
+const QUEST_TIME = 45; // แต่ละเควสมีเวลาของตัวเอง
 
 const pick = (arr)=>arr[(Math.random()*arr.length)|0];
-const sampleN = (arr, n)=>{
-  const a = arr.slice(); const out=[];
-  while(a.length && out.length<n){ out.push(a.splice((Math.random()*a.length)|0,1)[0]); }
-  return out;
-};
-const iconOf = (p)=> (p==='scorex2'?'✖️2': (p==='freeze'?'🧊':'✨'));
+const iconOf = (p)=> p==='scorex2' ? '✖️2' : (p==='freeze' ? '🧊' : '✨');
 
 function lifeAdaptive(diff, state, mul=1){
-  const g = state.ctx?.gj;
-  const hits = g?.hits || 0, miss = g?.miss || 0;
+  const hits = state.ctx?.gj?.hits || 0, miss = state.ctx?.gj?.miss || 0;
   const acc  = (hits+miss)>0 ? (hits/(hits+miss)) : 1;
   const boost= acc < 0.55 ? 1.25 : acc < 0.75 ? 1.12 : 1.0;
   const base = (diff?.life || 3000) * boost * mul;
@@ -45,203 +39,131 @@ function lifeAdaptive(diff, state, mul=1){
   return Math.max(minL, Math.round(base));
 }
 
-// ===== HUD helper: mission line =====
-function setMissionLine(text, show=true){
-  const el = document.getElementById('missionLine');
-  if (!el) return;
-  el.style.display = show ? 'block' : 'none';
-  if (text != null) el.textContent = text;
-}
-function questLabel(q){
-  const TH = {
-    collect:(q)=>`🎯 เก็บดี ${q.progress||0}/${q.need}`,
-    avoid:(q)=>  `🎯 เลี่ยงขยะ ${Math.max(0,q.remain|0)}s`,
-    perfect:(q)=>`🎯 PERFECT ${q.progress||0}/${q.need}`,
-    combo:(q)=>  `🎯 คอมโบ x${q.comboNow||0}/x${q.need}`,
-    streak:(q)=> `🎯 ติดกัน ${q.streak||0}/${q.need}`,
-  };
-  const EN = {
-    collect:(q)=>`🎯 Collect ${q.progress||0}/${q.need}`,
-    avoid:(q)=>  `🎯 Avoid ${Math.max(0,q.remain|0)}s`,
-    perfect:(q)=>`🎯 PERFECT ${q.progress||0}/${q.need}`,
-    combo:(q)=>  `🎯 Combo x${q.comboNow||0}/x${q.need}`,
-    streak:(q)=> `🎯 In a row ${q.streak||0}/${q.need}`,
-  };
-  const lang = (localStorage.getItem('hha_lang')||'TH');
-  const fn = (lang==='TH'?TH:EN)[q.type];
-  return fn ? fn(q) : '—';
-}
-
-// ===== Public API =====
-export function init(state, hud, diff){
-  state.ctx = state.ctx || {};
-  const gj = {
-    hits:0, miss:0,
-    lastTs:0,
-    questIdx:0,
-    quests: sampleN(QUEST_POOL, 3).map(q=>{
-      const data = { type:q.type, progress:0, done:false, fail:false, remain:QUEST_TIME };
-      Object.assign(data, q.make(state.difficulty));
-      return data;
-    })
-  };
-  state.ctx.gj = gj;
-
-  // เริ่มเควสแรก + โค้ชเชียร์
-  const cur = gj.quests[gj.questIdx];
-  if (cur && state?.fever !== undefined) {
-    setMissionLine(`${questLabel(cur)} • ${cur.remain|0}s`, true);
+function sampleQuests(){
+  const pool = [...QUEST_POOL];
+  const out = [];
+  while (out.length<3 && pool.length){
+    const i = (Math.random()*pool.length)|0;
+    out.push(pool.splice(i,1)[0]);
   }
+  return out.map(q=>({
+    id:q.id, titleTH:q.titleTH, type:q.type,
+    need:q.need, progress:0, remain:QUEST_TIME, done:false, success:false
+  }));
+}
+
+export function init(state){
+  state.ctx = state.ctx || {};
+  state.ctx.gj = {
+    hits:0, miss:0,
+    streak:0,
+    avoidStreak:0,
+    lastTapTs:0,
+    quests: sampleQuests()
+  };
+  // แจ้งภารกิจกับโค้ช
+  state.coach?.say?.('ภารกิจย่อยเริ่มแล้ว! เลือกเก็บของดี หลีกเลี่ยงของขยะ ✊');
 }
 
 export function pickMeta(diff, state){
   const ts = performance?.now?.() || Date.now();
 
-  // พาวเวอร์
   if (Math.random() < (POWER_RATE[state.difficulty] || POWER_RATE.Normal) && ENABLED_POWERS.length){
     const p = pick(ENABLED_POWERS);
     return { type:'power', power:p, char:iconOf(p), life: lifeAdaptive(diff, state, 1.0), ts };
   }
 
-  // กับดัก
   if (ENABLE_TRAPS && Math.random() < TRAP_RATE){
-    return { type:'trap', char: pick(TRAPS), good:false, life: lifeAdaptive(diff, state, 1.05), ts };
+    const char = pick(TRAPS);
+    return { type:'trap', char, good:false, life: lifeAdaptive(diff, state, 1.05), ts };
   }
 
-  // อาหาร
   const wantGood = Math.random() < (GOOD_RATIO[state.difficulty] || GOOD_RATIO.Normal);
   const char = wantGood ? pick(HEALTHY) : pick(JUNK);
   return { type:'food', char, good:wantGood, life: lifeAdaptive(diff, state, 1.0), ts };
 }
 
-export function onHit(meta, sys, state, hud){
+export function onHit(meta, sys, state){
   const { sfx, power, fx, coach } = sys || {};
-  const gj = state.ctx?.gj;
-
-  if (!gj) return 'ok';
+  const gj = state.ctx?.gj || (state.ctx.gj = { hits:0, miss:0, streak:0, avoidStreak:0, quests: sampleQuests() });
 
   // พาวเวอร์
   if (meta.type === 'power'){
     try{ sfx?.play?.('sfx-powerup'); }catch{}
-    if (meta.power === 'scorex2'){ try{ power?.apply?.('boost'); }catch{} fx?.popText?.('SCORE ×2',{color:'#b0ff66'}); }
-    else if (meta.power === 'freeze'){ const now = performance?.now?.()||Date.now(); state.freezeUntil = now + 2000; fx?.popText?.('FREEZE!',{color:'#66e0ff'}); }
+    if (meta.power === 'scorex2'){ try{ power?.apply?.('boost'); }catch{} fx?.popText?.('SCORE ×2',{color:'#b0ff66'}); coach?.say?.('คะแนนพุ่ง! ×2 ไปเลย!'); }
+    else if (meta.power === 'freeze'){ const now=performance?.now?.()||Date.now(); state.freezeUntil = now + 2200; fx?.popText?.('FREEZE!',{color:'#66e0ff'}); coach?.say?.('พักหายใจ สแปวน์ช้าลงชั่วคราว!'); }
     return 'power';
   }
 
   // กับดัก
   if (meta.type === 'trap'){
-    try{ sfx?.bad?.(); }catch{} fx?.popText?.('TRAP!',{color:'#ff9b9b'});
-    gj.miss++;
-    // เควสเลี่ยงขยะรีเซ็ตเวลาที่เหลือ
-    const cur = gj.quests[gj.questIdx];
-    if (cur?.type==='avoid' && !cur.done && !cur.fail){
-      cur.remain = cur.need; // เริ่มนับใหม่
-      coach?.onQuestProgress?.(Object.assign({}, cur));
-    }
-    // streak พัง
-    if (cur?.type==='streak') cur.streak = 0;
+    try{ sfx?.bad?.(); }catch{}
+    fx?.popText?.('TRAP!',{color:'#ff9b9b'});
+    gj.miss++; gj.streak=0; // รีสตรีค
+    coach?.say?.('ไม่เป็นไร ลุยต่อได้! ✊');
     return 'bad';
   }
 
   // อาหาร
   if (meta.type === 'food'){
     if (meta.good){
-      gj.hits++;
-
-      // perfect?
-      let perfect = false;
-      if (meta.ts){
-        const dt = (performance?.now?.()||Date.now()) - meta.ts;
-        if (dt <= PERFECT_WINDOW_MS) perfect = true;
+      gj.hits++; gj.streak++; gj.avoidStreak++;
+      const now = performance?.now?.()||Date.now();
+      const dt = now - (meta.ts||now);
+      // perfect window
+      if (dt <= PERFECT_WINDOW_MS){
+        try{ sfx?.good?.(); }catch{}
+        fx?.popText?.('PERFECT',{color:'#ccff88'});
+        updateQuest('perfect', gj, 1, coach);
+        updateQuest('streak', gj, 1, coach); // perfect ก็นับ streak ต่อ
+        return 'perfect';
+      }else{
+        try{ sfx?.good?.(); }catch{}
+        fx?.popText?.('GOOD',{color:'#7fffd4'});
+        updateQuest('goodCount', gj, 1, coach);
+        updateQuest('streak', gj, 1, coach);
+        updateQuest('timeCombo', gj, 1, coach); // นับเป็นวินาทีใน tick แต่ให้กำลังใจที่ onHit
+        return 'good';
       }
-
-      // เควสอัปเดต
-      const cur = gj.quests[gj.questIdx];
-      if (cur && !cur.done && !cur.fail){
-        if (cur.type === 'collect'){
-          cur.progress++; coach?.onQuestProgress?.(Object.assign({} , cur));
-        } else if (cur.type === 'perfect' && perfect){
-          cur.progress++; coach?.onQuestProgress?.(Object.assign({}, cur));
-        } else if (cur.type === 'combo'){
-          cur.comboNow = state?.combo || 0;
-          if (cur.comboNow >= cur.need) { cur.progress = cur.need; }
-          coach?.onQuestProgress?.(Object.assign({}, cur));
-        } else if (cur.type === 'streak'){
-          cur.streak = (cur.streak || 0) + 1;
-          if (cur.streak > cur.progress) cur.progress = cur.streak;
-          coach?.onQuestProgress?.(Object.assign({}, cur));
-        }
-        // สำเร็จ?
-        if ((cur.type==='collect' || cur.type==='perfect' || cur.type==='streak') && cur.progress >= cur.need){
-          cur.done = true; coach?.onQuestComplete?.(Object.assign({}, cur));
-          advanceQuest(gj, coach);
-        }
-        if (cur.type==='combo' && (state?.combo||0) >= cur.need){
-          cur.done = true; cur.progress = cur.need; coach?.onQuestComplete?.(Object.assign({}, cur));
-          advanceQuest(gj, coach);
-        }
-      }
-
-      try{ sfx?.good?.(); }catch{}
-      if (perfect){ fx?.popText?.('PERFECT',{color:'#ccff88'}); return 'perfect'; }
-      fx?.popText?.('GOOD',{color:'#7fffd4'}); return 'good';
     } else {
-      gj.miss++;
-      const cur = gj.quests[gj.questIdx];
-      // streak พัง
-      if (cur?.type==='streak') cur.streak = 0;
-      // combo quest — แจ้งความคืบหน้า
-      if (cur?.type==='combo'){ cur.comboNow = state?.combo || 0; coach?.onQuestProgress?.(Object.assign({}, cur)); }
-      try{ sfx?.bad?.(); }catch{} fx?.popText?.('JUNK!',{color:'#ff9b9b'}); return 'bad';
+      gj.miss++; gj.streak=0; gj.avoidStreak=0;
+      try{ sfx?.bad?.(); }catch{}
+      fx?.popText?.('JUNK!',{color:'#ff9b9b'});
+      coach?.say?.('พลาดนิดหน่อยเอง สู้ต่อ! 💪');
+      return 'bad';
     }
   }
-
   return 'ok';
 }
 
-export function tick(state, sys, hud){
+function updateQuest(kind, gj, val, coach){
+  for (const q of gj.quests){
+    if (q.done) continue;
+    if (kind==='perfect' && q.type==='perfect'){ q.progress+=val; cheer(q, coach); }
+    if (kind==='goodCount' && q.type==='goodCount'){ q.progress+=val; cheer(q, coach); }
+    if (kind==='streak' && q.type==='streak'){ if (gj.streak>0){ q.progress=Math.max(q.progress, gj.streak); cheer(q, coach);} }
+    if (kind==='avoid' && q.type==='avoidStreak'){ if (gj.avoidStreak>0){ q.progress=Math.max(q.progress, gj.avoidStreak); cheer(q, coach);} }
+  }
+}
+function cheer(q, coach){
+  if (q.done) return;
+  const pct = Math.min(100, Math.round((q.progress/q.need)*100));
+  if (pct===50) coach?.say?.('ครึ่งทางแล้ว! เดินหน้าต่อ 👟');
+  if (pct>=100){ q.done=true; q.success=true; coach?.say?.('🏁 เควสสำเร็จ! เยี่ยมมาก!'); }
+}
+
+export function tick(state, sys){
   const { coach } = sys || {};
   const gj = state.ctx?.gj; if (!gj) return;
 
-  const cur = gj.quests[gj.questIdx];
-  if (!cur){ setMissionLine(null, false); return; }
-
-  // นับเวลา
-  cur.remain = Math.max(0, (cur.remain|0) - 1);
-
-  // avoid: ถ้ายังหลีกขยะได้ต่อเนื่อง ลดเวลา (เรารีเซ็ตตอนโดน bad ไปแล้วใน onHit)
-  if (cur.type === 'avoid'){
-    // แค่ลดตาม tick ก็พอ
-    if (cur.remain <= 0){ cur.done = true; cur.progress = cur.need; coach?.onQuestComplete?.(Object.assign({}, cur)); advanceQuest(gj, coach); }
-    else coach?.onQuestProgress?.(Object.assign({}, cur));
-  } else {
-    // type อื่นหมดเวลา = fail
-    if (!cur.done && cur.remain === 0){
-      cur.fail = true; coach?.onQuestFail?.(Object.assign({}, cur)); advanceQuest(gj, coach);
-    }
-  }
-
-  // HUD บรรทัดภารกิจ
-  setMissionLine(`${questLabel(cur)} • ${cur.remain|0}s`, true);
-}
-
-export function cleanup(){ setMissionLine(null, false); }
-
-// ===== helpers =====
-function advanceQuest(gj, coach){
-  gj.questIdx++;
-  const next = gj.quests[gj.questIdx];
-  if (next){
-    // init state เฉพาะเควส
-    next.progress = next.progress|0;
-    if (next.type==='avoid'){ next.remain = next.need; }
-    if (next.type==='streak'){ next.streak = 0; }
-    coach?.onQuestStart?.(Object.assign({}, next));
-  } else {
-    // เควสครบ 3 แล้ว
-    const lang = (localStorage.getItem('hha_lang')||'TH');
-    const msg = lang==='TH' ? '🎉 เควสครบแล้ว! โกยคะแนนต่อเลย!' : '🎉 All quests done! Farm more points!';
-    coach?.say?.(msg, { stayMs: 1600 });
-    setMissionLine(null, false);
+  // เควส: ลดเวลา และอัปเดต timeCombo / avoidStreak
+  for (const q of gj.quests){
+    if (q.done) continue;
+    q.remain = Math.max(0, q.remain - 1);
+    if (q.type==='timeCombo'){ if (state.combo>0) q.progress++; cheer(q, coach); }
+    if (q.type==='avoidStreak'){ /* จะเพิ่มใน onHit ผ่าน avoidStreak */ }
+    if (q.remain===0 && !q.done){ q.done=true; q.success = q.progress>=q.need; if(!q.success) coach?.say?.('⌛ เควสหมดเวลา ไปรอบถัดไป!'); }
   }
 }
+
+export function cleanup(){ /* no-op */ }
