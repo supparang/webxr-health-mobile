@@ -1,5 +1,6 @@
 // Hero Health Academy - main.js (stable full build)
-// Updated: 2025-10-25
+// Works with index.html (bootloader) and modes/* you posted
+// Includes: Pause, Help Scene, Combo/Fever, adaptive icon size, centered modals, safe spawn area
 
 window.__HHA_BOOT_OK = true;
 
@@ -22,6 +23,7 @@ const DIFFS = {
   Normal: { time:60, spawn:700, life:3000 },
   Hard:   { time:50, spawn:550, life:1800 }
 };
+
 const $ = (s)=>document.querySelector(s);
 const byAction = (el)=>el?.closest?.('[data-action]') || null;
 
@@ -100,6 +102,7 @@ function addCombo(kind){
     state.combo = 0;
     document.body.classList.add('shake');
     setTimeout(()=>document.body.classList.remove('shake'), 220);
+    hud.setCombo?.('x0');
     return;
   }
   if (kind==='good' || kind==='perfect'){
@@ -134,8 +137,8 @@ function applyUI(){
 }
 function updateHUD(){
   hud.setScore?.(score.score);
-  hud.setCombo?.('x'+state.combo);
   hud.setTime?.(state.timeLeft);
+  hud.setCombo?.('x'+state.combo);
 }
 
 // -------- Flow --------
@@ -149,7 +152,6 @@ function start(){
   state.fever.meter = 0; setFeverBar(0); stopFever();
   score.reset?.();
 
-  // hide non-relevant HUDs via mode.cleanup() of previous call already
   try { MODES[state.modeKey]?.init?.(state, hud, diff); } catch(e){ console.error('[HHA] init error:', e); }
   coach.onStart?.(state.modeKey);
   updateHUD();
@@ -179,18 +181,21 @@ function spawnOnce(diff){
   el.type = 'button';
   el.textContent = meta.char || '❓';
   // adaptive size by difficulty
-  const sizeMap = { Easy:'80px', Normal:'64px', Hard:'52px' };
-  el.style.fontSize = sizeMap[state.difficulty] || '64px';
+  const sizeMap = { Easy:'88px', Normal:'68px', Hard:'54px' };
+  el.style.fontSize = sizeMap[state.difficulty] || '68px';
   el.style.lineHeight = 1;
   el.style.border = 'none';
   el.style.background = 'none';
   el.style.cursor = 'pointer';
   el.style.position = 'fixed';
   el.style.transition = 'transform .15s, filter .15s';
-  el.onmouseenter = ()=> el.style.transform = 'scale(1.2)';
-  el.onmouseleave = ()=> el.style.transform = 'scale(1)';
   el.style.zIndex = '80';
 
+  // hover scale (optional)
+  el.addEventListener('pointerenter', ()=> el.style.transform = 'scale(1.18)'));
+  el.addEventListener('pointerleave', ()=> el.style.transform = 'scale(1)'));
+
+  // safe area (avoid header & menu)
   const headerH = $('header.brand')?.offsetHeight || 56;
   const menuH   = $('#menuBar')?.offsetHeight || 120;
   const yMin = headerH + 60;
