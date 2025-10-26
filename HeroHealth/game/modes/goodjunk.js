@@ -1,169 +1,135 @@
 // game/modes/goodjunk.js
-// โหมด: ดี vs ขยะ — เก็บของดี หลีกเลี่ยงของขยะ
-// ส่งผลลัพธ์ให้ main.js: 'good' | 'bad' | 'perfect' | 'power'
-// ไฮไลต์: life แบบ adaptive, Mini-Quest 5 แบบ (สุ่มมา 3 ต่อรอบ), Power-ups (x2 / Freeze) + Coaching
-
 const HEALTHY = ['🥦','🍎','🥕','🍅','🍇','🍉','🥗','🥒','🥬','🌽'];
 const JUNK    = ['🍔','🍟','🍩','🍕','🥤','🍫','🌭','🧁','🍪','🧃'];
 const TRAPS   = ['💣','☠️'];
 
 const GOOD_RATIO = { Easy:0.72, Normal:0.65, Hard:0.58 };
 const POWER_RATE = { Easy:0.08, Normal:0.10, Hard:0.12 };
-const ENABLED_POWERS = ['scorex2','freeze'];
-const ENABLE_TRAPS = true;
-const TRAP_RATE = 0.06;
-
+const TRAP_RATE  = 0.06;
 const PERFECT_WINDOW_MS = 320;
 const MIN_LIFE_BY_DIFF = { Easy:2600, Normal:2200, Hard:1900 };
 
-// Mini-Quests: เตรียม 5 แบบ แล้วสุ่มมา 3 แบบ/รอบ
-const QUEST_POOL = [
-  { id:'streak5',     titleTH:'กดดีติดกัน 5 ครั้ง',              need:5,   type:'streak' },
-  { id:'collect10',   titleTH:'เก็บของดี 10 ชิ้น',                 need:10,  type:'goodCount' },
-  { id:'avoid5',      titleTH:'หลบของขยะ 5 ครั้งติด',             need:5,   type:'avoidStreak' },
-  { id:'perfect3',    titleTH:'PERFECT 3 ครั้ง',                   need:3,   type:'perfect' },
-  { id:'time15',      titleTH:'ทำคะแนนต่อเนื่อง 15 วินาที',       need:15,  type:'timeCombo' }
+// 5 เควส – จะสุ่มมา 3 ข้อ
+const ALL_QUESTS = [
+  { key:'veg5',     icon:'🥦', need:{Easy:6,Normal:8,Hard:10}, test:(m)=>m.type==='food'&&m.good&&'🥦🥕🥬🌽🥒'.includes(m.char) },
+  { key:'fruit4',   icon:'🍎', need:{Easy:5,Normal:7,Hard:9},  test:(m)=>m.type==='food'&&m.good&&'🍎🍌🍇🍓🍊🍉'.includes(m.char) },
+  { key:'nojunk15', icon:'🚫', need:{Easy:8,Normal:10,Hard:12}, test:(m,res)=>res!=='bad' }, // เก็บอะไรก็ได้แต่ห้ามพลาด
+  { key:'perfect3', icon:'✨', need:{Easy:2,Normal:3,Hard:4},  test:(m,res)=>res==='perfect' },
+  { key:'streak7',  icon:'🔥', need:{Easy:5,Normal:6,Hard:7},  test:(_m,_res,state)=> (state.combo||0)>=7 } // เก็บขณะคอมโบ>=7
 ];
 
-const QUEST_TIME = 45; // แต่ละเควสมีเวลาของตัวเอง
-
-const pick = (arr)=>arr[(Math.random()*arr.length)|0];
-const iconOf = (p)=> p==='scorex2' ? '✖️2' : (p==='freeze' ? '🧊' : '✨');
-
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 function lifeAdaptive(diff, state, mul=1){
-  const hits = state.ctx?.gj?.hits || 0, miss = state.ctx?.gj?.miss || 0;
-  const acc  = (hits+miss)>0 ? (hits/(hits+miss)) : 1;
-  const boost= acc < 0.55 ? 1.25 : acc < 0.75 ? 1.12 : 1.0;
-  const base = (diff?.life || 3000) * boost * mul;
+  const st = state._accHist || [1];
+  const acc = st.reduce((s,x)=>s+x,0)/st.length;
+  const boost = acc<0.55?1.25: acc<0.75?1.12: 1.0;
+  const base = (diff?.life||3000)*boost*mul;
   const minL = MIN_LIFE_BY_DIFF[state.difficulty] || 2100;
   return Math.max(minL, Math.round(base));
 }
 
-function sampleQuests(){
-  const pool = [...QUEST_POOL];
-  const out = [];
-  while (out.length<3 && pool.length){
-    const i = (Math.random()*pool.length)|0;
-    out.push(pool.splice(i,1)[0]);
-  }
-  return out.map(q=>({
-    id:q.id, titleTH:q.titleTH, type:q.type,
-    need:q.need, progress:0, remain:QUEST_TIME, done:false, success:false
-  }));
+function iconOf(power){
+  if (power==='x2') return '✖️2';
+  if (power==='freeze') return '🧊';
+  if (power==='sweep') return '🧹';
+  return '✨';
 }
 
-export function init(state){
-  state.ctx = state.ctx || {};
-  state.ctx.gj = {
-    hits:0, miss:0,
-    streak:0,
-    avoidStreak:0,
-    lastTapTs:0,
-    quests: sampleQuests()
-  };
-  // แจ้งภารกิจกับโค้ช
-  state.coach?.say?.('ภารกิจย่อยเริ่มแล้ว! เลือกเก็บของดี หลีกเลี่ยงของขยะ ✊');
+export function init(state, hud, diff){
+  // สุ่มเควส 3 ข้อ
+  const pool = [...ALL_QUESTS];
+  const chosen=[];
+  while(chosen.length<3 && pool.length){ chosen.push(pool.splice((Math.random()*pool.length)|0,1)[0]); }
+  const quests = chosen.map(q=>({
+    key:q.key, icon:q.icon, need:q.need[state.difficulty]||q.need.Normal, progress:0, remain:45, done:false, fail:false, test:q.test
+  }));
+  state.ctx = state.ctx||{};
+  state.ctx.gj = { hits:0, miss:0, quests, lastTs:0 };
+
+  hud.setQuestChips(quests);
 }
 
 export function pickMeta(diff, state){
-  const ts = performance?.now?.() || Date.now();
+  const ts = performance?.now?.()||Date.now();
 
-  if (Math.random() < (POWER_RATE[state.difficulty] || POWER_RATE.Normal) && ENABLED_POWERS.length){
-    const p = pick(ENABLED_POWERS);
-    return { type:'power', power:p, char:iconOf(p), life: lifeAdaptive(diff, state, 1.0), ts };
-  }
-
-  if (ENABLE_TRAPS && Math.random() < TRAP_RATE){
-    const char = pick(TRAPS);
-    return { type:'trap', char, good:false, life: lifeAdaptive(diff, state, 1.05), ts };
-  }
-
-  const wantGood = Math.random() < (GOOD_RATIO[state.difficulty] || GOOD_RATIO.Normal);
-  const char = wantGood ? pick(HEALTHY) : pick(JUNK);
-  return { type:'food', char, good:wantGood, life: lifeAdaptive(diff, state, 1.0), ts };
-}
-
-export function onHit(meta, sys, state){
-  const { sfx, power, fx, coach } = sys || {};
-  const gj = state.ctx?.gj || (state.ctx.gj = { hits:0, miss:0, streak:0, avoidStreak:0, quests: sampleQuests() });
-
-  // พาวเวอร์
-  if (meta.type === 'power'){
-    try{ sfx?.play?.('sfx-powerup'); }catch{}
-    if (meta.power === 'scorex2'){ try{ power?.apply?.('boost'); }catch{} fx?.popText?.('SCORE ×2',{color:'#b0ff66'}); coach?.say?.('คะแนนพุ่ง! ×2 ไปเลย!'); }
-    else if (meta.power === 'freeze'){ const now=performance?.now?.()||Date.now(); state.freezeUntil = now + 2200; fx?.popText?.('FREEZE!',{color:'#66e0ff'}); coach?.say?.('พักหายใจ สแปวน์ช้าลงชั่วคราว!'); }
-    return 'power';
+  // โอกาสพาวเวอร์
+  if (Math.random() < (POWER_RATE[state.difficulty]||POWER_RATE.Normal)){
+    const roll = Math.random();
+    const power = roll<0.7 ? 'x2' : roll<0.92 ? 'freeze' : 'sweep'; // sweep หายาก
+    return { type:'power', power, char:iconOf(power), life:lifeAdaptive(diff,state,1.0), ts };
   }
 
   // กับดัก
-  if (meta.type === 'trap'){
-    try{ sfx?.bad?.(); }catch{}
-    fx?.popText?.('TRAP!',{color:'#ff9b9b'});
-    gj.miss++; gj.streak=0; // รีสตรีค
-    coach?.say?.('ไม่เป็นไร ลุยต่อได้! ✊');
+  if (Math.random() < TRAP_RATE){
+    return { type:'trap', char:pick(TRAPS), good:false, life:lifeAdaptive(diff,state,1.05), ts };
+  }
+
+  const wantGood = Math.random() < (GOOD_RATIO[state.difficulty]||GOOD_RATIO.Normal);
+  const char = wantGood ? pick(HEALTHY) : pick(JUNK);
+  return { type:'food', char, good:wantGood, life:lifeAdaptive(diff,state,1.0), ts };
+}
+
+export function onHit(meta, sys, state, hud){
+  const { sfx, power, fx } = sys||{};
+  const ctx = state.ctx?.gj || (state.ctx.gj={hits:0,miss:0,quests:[]});
+
+  // Power-ups
+  if (meta.type==='power'){
+    try{ sfx?.play?.('sfx-powerup'); }catch{}
+    if (meta.power==='x2'){ power?.apply?.('x2',{sec:7}); }
+    else if (meta.power==='freeze'){ power?.apply?.('freeze',{sec:2}); }
+    else if (meta.power==='sweep'){
+      power?.apply?.('sweep',{sec:1,onSweep:()=>{ // เคลียร์ของขยะ
+        document.querySelectorAll('.item').forEach(n=>{
+          if(['🍔','🍟','🍩','🍕','🥤','🍫','🌭','🧁','🍪','🧃'].includes(n.textContent)){ try{ n.remove(); }catch{} }
+        });
+      }});
+    }
+    return 'power';
+  }
+
+  // Trap
+  if (meta.type==='trap'){
+    ctx.miss++; try{ sfx?.bad?.(); }catch{}; hud?.flashDanger?.();
     return 'bad';
   }
 
-  // อาหาร
-  if (meta.type === 'food'){
+  // Food
+  if (meta.type==='food'){
     if (meta.good){
-      gj.hits++; gj.streak++; gj.avoidStreak++;
-      const now = performance?.now?.()||Date.now();
-      const dt = now - (meta.ts||now);
-      // perfect window
-      if (dt <= PERFECT_WINDOW_MS){
-        try{ sfx?.good?.(); }catch{}
-        fx?.popText?.('PERFECT',{color:'#ccff88'});
-        updateQuest('perfect', gj, 1, coach);
-        updateQuest('streak', gj, 1, coach); // perfect ก็นับ streak ต่อ
-        return 'perfect';
-      }else{
-        try{ sfx?.good?.(); }catch{}
-        fx?.popText?.('GOOD',{color:'#7fffd4'});
-        updateQuest('goodCount', gj, 1, coach);
-        updateQuest('streak', gj, 1, coach);
-        updateQuest('timeCombo', gj, 1, coach); // นับเป็นวินาทีใน tick แต่ให้กำลังใจที่ onHit
-        return 'good';
+      ctx.hits++;
+      // Perfect?
+      const dt = (performance?.now?.()||Date.now()) - (meta.ts||Date.now());
+      const perfect = dt<=PERFECT_WINDOW_MS;
+      // เควส
+      for(const q of ctx.quests){
+        const ok = q.test.length===2 ? q.test(meta, perfect?'perfect':'good', state) : q.test(meta, perfect?'perfect':'good', state);
+        if (ok && !q.done && !q.fail){ q.progress++; }
       }
-    } else {
-      gj.miss++; gj.streak=0; gj.avoidStreak=0;
-      try{ sfx?.bad?.(); }catch{}
-      fx?.popText?.('JUNK!',{color:'#ff9b9b'});
-      coach?.say?.('พลาดนิดหน่อยเอง สู้ต่อ! 💪');
-      return 'bad';
+      hud?.setQuestChips?.(ctx.quests);
+      if (perfect){ try{ sfx?.good?.(); }catch{}; return 'perfect'; }
+      try{ sfx?.good?.(); }catch{}; return 'good';
+    }else{
+      ctx.miss++; try{ sfx?.bad?.(); }catch{}; return 'bad';
     }
   }
+
   return 'ok';
 }
 
-function updateQuest(kind, gj, val, coach){
-  for (const q of gj.quests){
-    if (q.done) continue;
-    if (kind==='perfect' && q.type==='perfect'){ q.progress+=val; cheer(q, coach); }
-    if (kind==='goodCount' && q.type==='goodCount'){ q.progress+=val; cheer(q, coach); }
-    if (kind==='streak' && q.type==='streak'){ if (gj.streak>0){ q.progress=Math.max(q.progress, gj.streak); cheer(q, coach);} }
-    if (kind==='avoid' && q.type==='avoidStreak'){ if (gj.avoidStreak>0){ q.progress=Math.max(q.progress, gj.avoidStreak); cheer(q, coach);} }
+export function tick(state, sys, hud){
+  const ctx = state.ctx?.gj; if(!ctx) return;
+  // นับเวลาของทุกเควส
+  let changed=false, cheer=false;
+  for(const q of ctx.quests){
+    if (q.done||q.fail) continue;
+    q.remain = Math.max(0, q.remain-1);
+    if (q.progress>=q.need){ q.done=true; cheer=true; }
+    else if (q.remain===0){ q.fail=true; }
+    if (q.done||q.fail) changed=true;
   }
-}
-function cheer(q, coach){
-  if (q.done) return;
-  const pct = Math.min(100, Math.round((q.progress/q.need)*100));
-  if (pct===50) coach?.say?.('ครึ่งทางแล้ว! เดินหน้าต่อ 👟');
-  if (pct>=100){ q.done=true; q.success=true; coach?.say?.('🏁 เควสสำเร็จ! เยี่ยมมาก!'); }
-}
-
-export function tick(state, sys){
-  const { coach } = sys || {};
-  const gj = state.ctx?.gj; if (!gj) return;
-
-  // เควส: ลดเวลา และอัปเดต timeCombo / avoidStreak
-  for (const q of gj.quests){
-    if (q.done) continue;
-    q.remain = Math.max(0, q.remain - 1);
-    if (q.type==='timeCombo'){ if (state.combo>0) q.progress++; cheer(q, coach); }
-    if (q.type==='avoidStreak'){ /* จะเพิ่มใน onHit ผ่าน avoidStreak */ }
-    if (q.remain===0 && !q.done){ q.done=true; q.success = q.progress>=q.need; if(!q.success) coach?.say?.('⌛ เควสหมดเวลา ไปรอบถัดไป!'); }
-  }
+  if (changed) hud?.setQuestChips?.(ctx.quests);
+  if (cheer) sys?.coach?.onQuestDone?.(hud);
 }
 
 export function cleanup(){ /* no-op */ }
