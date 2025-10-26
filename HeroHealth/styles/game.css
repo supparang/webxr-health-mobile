@@ -1,4 +1,4 @@
-/* === Hero Health Academy — game.css (3D icon + shatter) === */
+/* === Hero Health Academy — game.css (3D icon + shatter + help scene) === */
 
 /* Base */
 :root{
@@ -84,6 +84,7 @@ header .btn{
   padding:6px 10px; border-radius:999px; font:800 12px/1 ui-rounded,system-ui;
   color:#fff; background:#263238cc; border:1px solid #ffffff33; box-shadow:0 4px 14px #00000026;
 }
+.quests .qchip .p{ opacity:.85; }
 .quests .qchip.done{ background:#1b5e20e6; }
 .quests .qchip.fail{ background:#b00020e6; }
 
@@ -104,8 +105,9 @@ header .btn{
   font:900 20px/1.2 ui-rounded,system-ui; text-shadow:0 2px 6px #000c; pointer-events:none; z-index:120;
   transition:opacity .22s, translate .22s;
 }
+.scoreBurst .minor{ display:block; font:700 12px/1.2 ui-rounded,system-ui; opacity:.9; }
 
-/* 3D FX root */
+/* 3D FX root (for shatter) */
 .fx3d-root{
   position:fixed; inset:0; pointer-events:none; z-index:500;
   perspective: 900px; transform-style: preserve-3d;
@@ -116,6 +118,7 @@ header .btn{
   position:fixed; left:0; top:0; width:18px; height:18px; border-radius:50%;
   border:3px solid rgba(255,213,74,.9); box-shadow:0 0 12px rgba(255,213,74,.6);
   transform: translate(-50%,-50%) scale(0.6); opacity:.95;
+  animation: ringOut .45s ease-out forwards;
 }
 @keyframes ringOut{
   from{ transform:translate(-50%,-50%) scale(.6); opacity:.95; }
@@ -129,6 +132,7 @@ header .btn{
   box-shadow:0 0 8px rgba(255,213,74,.85);
   transform: translate(-50%,-50%);
   pointer-events:none; z-index:510; opacity:1;
+  animation: shardFly .55s ease-out forwards;
 }
 @keyframes shardFly{
   0%{ opacity:1; transform: translate(var(--x0),var(--y0)) translateZ(0) rotate3d(0,0,1,0deg); }
@@ -140,6 +144,7 @@ header .btn{
   position:fixed; width:6px; height:6px; border-radius:50%;
   background:#fff; filter:blur(1px); opacity:.9; pointer-events:none; z-index:505;
   transform: translate(-50%,-50%);
+  animation: sparkUp .35s ease-out forwards;
 }
 @keyframes sparkUp{
   0%{ opacity:.9; transform: translate(var(--sx0),var(--sy0)) scale(1); }
@@ -168,6 +173,20 @@ header .btn{
   background:#101826; color:#fff; border:1px solid #ffffff22; border-radius:16px;
   padding:16px; max-width:640px; width:min(92%, 640px); box-shadow:0 10px 30px #0008; text-align:center;
 }
+
+/* Help Scene grid/cards */
+.hs-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap:12px;
+}
+.hs-card{
+  background:#0f1726; border:1px solid #ffffff22; border-radius:14px;
+  padding:12px; text-align:left;
+  box-shadow:0 6px 20px #0006;
+}
+.hs-card h4{ margin:0 0 8px 0; font:900 16px/1 ui-rounded,system-ui; }
+.hs-card ul{ margin:0; padding-left:18px; line-height:1.5; }
 
 /* Low-time flash */
 .flash #c{ filter:brightness(1.1) saturate(1.1); }
