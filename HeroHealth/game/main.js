@@ -221,7 +221,7 @@ function shatter3D(x,y){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
-    const dist= 60 + Math.random()*110;
+       const dist= 60 + Math.random()*110;
     const tx = Math.cos(ang)*dist;
     const ty = Math.sin(ang)*dist;
     const tz = (Math.random()*2-1)*160;
@@ -466,7 +466,7 @@ function end(silent=false){
         </div>`;
       const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
 
-      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard'];
+      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
       if (coreEl) coreEl.innerHTML = resCore;
       if (brEl)   brEl.innerHTML   = resBreak;
       if (bdEl)   bdEl.innerHTML   = resBoard;
@@ -515,7 +515,7 @@ document.addEventListener('pointerup', (e)=>{
   const bar = $('#powerBar');
   if (!bar) return;
 
-  // ปรับไอคอน "sweep" เป็นแม่เหล็กด้วยสคริปต์ (ถ้าหน้า HTML ยังเป็น 🧹)
+  // เปลี่ยนสัญลักษณ์ "sweep" ให้เป็นแม่เหล็ก
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
   if (sweep) sweep.textContent = '🧲';
 
@@ -569,7 +569,6 @@ document.addEventListener('pointerup', (e)=>{
     const isGroups = (state.modeKey === 'groups' && mode?.powers);
     if (!isGroups) return; // ตอนนี้รองรับโหมด groups
 
-    // map ปุ่ม -> ฟังก์ชันใน groups.powers
     if (k==='x2'){ mode.powers.x2Target?.(); }
     if (k==='freeze'){ mode.powers.freezeTarget?.(); }
     if (k==='sweep'){ mode.powers.magnetNext?.(); }
@@ -583,7 +582,6 @@ document.addEventListener('pointerup', (e)=>{
     const seg = e.target.closest('.pseg'); if (!seg) return;
     const k = seg.getAttribute('data-k');
     if (!k) return;
-    // แสดงความยาว “ทำงานอยู่” บางตัว
     const dur = DURATIONS[k] || 0;
     if (dur>0){ animateCD(k, dur); }
     usePower(k);
