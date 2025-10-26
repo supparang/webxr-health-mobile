@@ -1,10 +1,8 @@
 // game/core/coach.js
-// โค้ช: แสดงข้อความปลุกใจ/คำใบ้ระหว่างเล่น + auto-hide + คิวข้อความ
-
+// โค้ช: ข้อความปลุกใจ/คำใบ้ระหว่างเล่น + auto-hide + คิวข้อความ
 export class Coach {
   constructor(opts = {}) {
     this.lang = opts.lang || 'TH';
-    // ตำแหน่ง DOM เป้าหมาย (ถ้าไม่มี ให้สร้างเอง)
     this.wrap = document.getElementById('coachHUD');
     this.text = document.getElementById('coachText');
     if (!this.wrap || !this.text) {
@@ -17,20 +15,15 @@ export class Coach {
       this.wrap.appendChild(this.text);
       document.body.appendChild(this.wrap);
     }
-
-    // คิว/สถานะ
     this.queue = [];
     this.showing = false;
     this.hideTimer = 0;
-
-    // throttle anti-spam
     this.lastPep = 0;
     this.cooldownMs = 1800;
   }
 
   setLang(l) { this.lang = l || 'TH'; }
 
-  // ===== API หลัก =====
   say(msg, { stayMs = 1400, force = false } = {}) {
     if (!msg) return;
     this.queue.push({ msg, stayMs, force });
@@ -54,16 +47,15 @@ export class Coach {
     const now = Date.now();
     if (now - this.lastPep < this.cooldownMs) return;
     this.lastPep = now;
-
     let line;
     if (this.lang === 'TH') {
-      if (x >= 20) line = 'โคมโบไฟลุก! รักษาจังหวะไว้! 🔥';
+      if (x >= 20) line = 'คอมโบไฟลุก! รักษาจังหวะไว้! 🔥';
       else if (x >= 10) line = 'จังหวะมาแล้ว! ต่อเนื่อง! ✨';
-      else if (x >= 5) line = 'กำลังดี! ไปต่อ! 💪';
+      else if (x >= 5)  line = 'กำลังดี! ไปต่อ! 💪';
     } else {
       if (x >= 20) line = 'Combo on fire! Keep it up! 🔥';
       else if (x >= 10) line = 'You’re rolling! Keep going! ✨';
-      else if (x >= 5) line = 'Nice rhythm! Push on! 💪';
+      else if (x >= 5)  line = 'Nice rhythm! Push on! 💪';
     }
     if (line) this.say(line, { stayMs: 1200 });
   }
@@ -73,12 +65,59 @@ export class Coach {
     this.say(line, { stayMs: 1400, force: true });
   }
 
-  // ===== ภายใน (queue driver) =====
+  // ===== Cheer mini-quests for goodjunk =====
+  onQuestStart(q) {
+    const TH = {
+      collect: `ภารกิจ: เก็บของดีให้ครบ ${q.need} ชิ้น ✨`,
+      avoid:   `ภารกิจ: เลี่ยงของขยะ ${q.need}s ⏳`,
+      perfect: `ภารกิจ: PERFECT ${q.need} ครั้ง 💎`,
+      combo:   `ภารกิจ: ไปให้ถึงคอมโบ x${q.need} 🚀`,
+      streak:  `ภารกิจ: ของดีติดกัน ${q.need} ครั้ง 🔗`,
+    };
+    const EN = {
+      collect: `Quest: Collect ${q.need} healthy ✨`,
+      avoid:   `Quest: Avoid junk for ${q.need}s ⏳`,
+      perfect: `Quest: Get ${q.need} PERFECT 💎`,
+      combo:   `Quest: Reach combo x${q.need} 🚀`,
+      streak:  `Quest: ${q.need} healthy in a row 🔗`,
+    };
+    const msg = (this.lang === 'TH' ? TH : EN)[q.type] || 'Quest!';
+    this.say(msg, { stayMs: 1600, force: true });
+  }
+
+  onQuestProgress(q) {
+    const TH = {
+      collect: `ดีมาก! ${q.progress}/${q.need} แล้ว ✨`,
+      avoid:   `ใกล้แล้ว! เหลือ ${Math.max(0, q.remain|0)}s ⏳`,
+      perfect: `PERFECT ${q.progress}/${q.need} 💎`,
+      combo:   `คอมโบปัจจุบัน x${q.comboNow||0} / x${q.need}`,
+      streak:  `ติดกัน ${q.streak||0}/${q.need} 🔗`,
+    };
+    const EN = {
+      collect: `Nice! ${q.progress}/${q.need} ✨`,
+      avoid:   `Almost! ${Math.max(0, q.remain|0)}s left ⏳`,
+      perfect: `PERFECT ${q.progress}/${q.need} 💎`,
+      combo:   `Combo x${q.comboNow||0} / x${q.need}`,
+      streak:  `In a row ${q.streak||0}/${q.need} 🔗`,
+    };
+    const msg = (this.lang === 'TH' ? TH : EN)[q.type];
+    if (msg) this.say(msg, { stayMs: 1100 });
+  }
+
+  onQuestComplete(q) {
+    const msg = this.lang === 'TH' ? '🏁 ภารกิจสำเร็จ!' : '🏁 Quest Complete!';
+    this.say(msg, { stayMs: 1500, force: true });
+  }
+
+  onQuestFail(q) {
+    const msg = this.lang === 'TH' ? '⌛ ภารกิจไม่สำเร็จ — ลองใหม่!' : '⌛ Quest failed — try again!';
+    this.say(msg, { stayMs: 1500 });
+  }
+
+  // ===== queue driver =====
   #drain() {
     if (this.showing || this.queue.length === 0) return;
-    const { msg, stayMs, force } = this.queue.shift();
-
-    // แสดง
+    const { msg, stayMs } = this.queue.shift();
     this.text.textContent = msg;
     this.wrap.style.display = 'block';
     this.wrap.style.opacity = '0';
@@ -90,10 +129,8 @@ export class Coach {
     });
 
     this.showing = true;
-
     clearTimeout(this.hideTimer);
     this.hideTimer = setTimeout(() => {
-      // ซ่อน
       this.wrap.style.opacity = '0';
       this.wrap.style.transform = 'translate(-50%, -8px)';
       setTimeout(() => {
