@@ -1,6 +1,4 @@
-// game/modes/plate.js
-// Healthy Plate — main.js จะคิดคะแนนจากผลลัพธ์ที่ return:
-//   'good' = เก็บเข้าจานได้, 'perfect' = ครบจาน, 'bad' = เกินโควตา (และโดน -เวลา ที่นี่)
+// game/modes/plate.js — Healthy Plate (quota)
 
 export const name = 'จัดจานสุขภาพ';
 
@@ -13,7 +11,6 @@ const GROUPS = {
   dairy:['🥛','🧀']
 };
 const LABELS_TH = { grain:'ธัญพืช', veg:'ผัก', protein:'โปรตีน', fruit:'ผลไม้', dairy:'นม' };
-
 const rnd = (arr)=>arr[(Math.random()*arr.length)|0];
 
 function renderPills(state){
@@ -31,7 +28,10 @@ function updatePlateBadge(state){
   if (wrap) wrap.style.display = 'block';
   if (!badge) return;
   const plate = state.ctx.plate;
-  const remPairs = Object.keys(QUOTA).map(k=>[k, Math.max(0, QUOTA[k] - (plate[k]||0))]).sort((a,b)=>b[1]-a[1]);
+  const remPairs = Object.keys(QUOTA).map(k=>{
+    const rem = Math.max(0, QUOTA[k] - (plate[k]||0));
+    return [k, rem];
+  }).sort((a,b)=>b[1]-a[1]);
   const [bestKey, bestRem] = remPairs[0];
   badge.textContent = bestRem>0 ? `${LABELS_TH[bestKey]} (${plate[bestKey]||0}/${QUOTA[bestKey]})` : 'ครบโควตาแล้ว!';
 }
@@ -49,10 +49,11 @@ export function init(state, hud){
 export function pickMeta(diff){
   const key  = rnd(Object.keys(GROUPS)) || 'fruit';
   const char = rnd(GROUPS[key] || GROUPS.fruit);
-  return { type:'plate', group:key, char, life: diff?.life ?? 3000 };
+  return { type: 'plate', group: key, char, life: diff?.life ?? 3000 };
 }
 
 export function onHit(meta, sys, state){
+  const { score, sfx, fx } = sys || {};
   const plate = state.ctx.plate;
   const k = meta.group;
   const need = QUOTA[k] ?? 0;
@@ -60,31 +61,35 @@ export function onHit(meta, sys, state){
 
   if (cur < need){
     plate[k] = cur + 1;
+    score?.add?.(6);
     state.ctx.plateFills = (state.ctx.plateFills||0) + 1;
+    fx?.popText?.('+6', { color:'#7fffd4' });
+    sfx?.good?.();
 
     const done = Object.keys(QUOTA).every(g => (plate[g]||0) >= QUOTA[g]);
-    renderPills(state);
-    updatePlateBadge(state);
-
     if (done){
+      score?.add?.(14);
       state.ctx.perfectPlates = (state.ctx.perfectPlates||0) + 1;
-      // reset plate
+      fx?.popText?.('PERFECT +14', { color:'#ccff88' });
+      sfx?.good?.();
       state.ctx.plate = { grain:0, veg:0, protein:0, fruit:0, dairy:0 };
       renderPills(state);
       updatePlateBadge(state);
       return 'perfect';
     }
-    return 'good';
-  }else{
-    // overfill → time penalty
-    state.timeLeft = Math.max(0, (state.timeLeft||0) - 1);
     renderPills(state);
     updatePlateBadge(state);
+    return 'good';
+  }else{
+    score?.add?.(-2);
+    state.timeLeft = Math.max(0, (state.timeLeft||0) - 1);
+    fx?.popText?.('-2 • -1s', { color:'#ff9b9b' });
+    sfx?.bad?.();
     return 'bad';
   }
 }
 
-export function tick(){}
+export function tick(){ /* no-op */ }
 
 export function cleanup(state, hud){
   try{ hud?.hidePills?.(); }catch{}
