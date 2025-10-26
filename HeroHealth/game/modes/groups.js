@@ -1,88 +1,317 @@
-// game/modes/groups.js
-// โหมด: จาน 5 หมู่ (target + mission + power-ups) → คืนค่า 'good'|'ok'|'bad'|'power'
-const GROUPS = {
-  grain:{ th:'ธัญพืช', em:['🍚','🍞','🥖','🥯','🍜'] },
-  veg:{ th:'ผัก', em:['🥦','🥕','🥬','🌽','🫑'] },
-  protein:{ th:'โปรตีน', em:['🥩','🍗','🍖','🥚','🐟'] },
-  fruit:{ th:'ผลไม้', em:['🍎','🍌','🍇','🍓','🍊'] },
-  dairy:{ th:'นม', em:['🥛','🧀','🍦','🍨'] }
-};
-const KEYS = Object.keys(GROUPS);
-const rnd = (arr)=>arr[(Math.random()*arr.length)|0];
+// === Hero Health Academy — modes/groups.js ===
+// Food Grouping (คล้าย goodjunk): จัดเข้าหมวด Fruits / Vegetables / Protein / Grains
 
-const POWER_RATE={ Easy:0.09, Normal:0.11, Hard:0.13 };
-const POWER = [
-  {type:'power_dual', w:4, icon:'✨'},
-  {type:'power_scorex2', w:3, icon:'✖️2'},
-  {type:'power_freeze', w:2, icon:'🧊'},
-  {type:'power_rotate', w:2, icon:'🔄'}
+export const name = 'groups';
+
+let ctx = null;
+let ui  = null;
+let state = null;
+
+// ------- Gameplay Config -------
+const GROUPS = [
+  { id:'fruits',  labelEN:'Fruits',     labelTH:'ผลไม้',    color:'#ff6b6b', key:'1' },
+  { id:'veggies', labelEN:'Vegetables', labelTH:'ผัก',       color:'#51cf66', key:'2' },
+  { id:'protein', labelEN:'Protein',    labelTH:'โปรตีน',    color:'#339af0', key:'3' },
+  { id:'grains',  labelEN:'Grains',     labelTH:'ธัญพืช',    color:'#f59f00', key:'4' },
 ];
-function rollPower(){ const tot=POWER.reduce((s,x)=>s+x.w,0); let r=Math.random()*tot; for(const p of POWER){ if((r-=p.w)<=0) return p; } return POWER[0]; }
-function rotTarget(exA, exB){ const pool=KEYS.filter(k=>k!==exA && k!==exB); return rnd(pool.length?pool:KEYS); }
-function wantTarget(diff){ return diff==='Easy'?0.5: diff==='Hard'?0.7:0.6; }
 
-export function init(state){
-  state.ctx = state.ctx || {};
-  state.ctx.groups = {
-    target1: rotTarget(),
-    target2: null,
-    targetHits:0,
-    dualRemain:0, scorex2Remain:0, freezeRemain:0
+const ROUND_DEFAULTS = {
+  durationSec: 60,
+  language: 'TH', // 'EN'|'TH'
+  allowHints: true,
+  dynamicDifficulty: true,
+};
+
+const ITEMS = [
+  // Fruits
+  { id:'apple',      group:'fruits',  labelEN:'Apple',      labelTH:'แอปเปิล',      icon:'assets/icons/food/apple.png' },
+  { id:'banana',     group:'fruits',  labelEN:'Banana',     labelTH:'กล้วย',        icon:'assets/icons/food/banana.png' },
+  { id:'strawberry', group:'fruits',  labelEN:'Strawberry', labelTH:'สตรอว์เบอร์รี่', icon:'assets/icons/food/strawberry.png' },
+  // Veggies
+  { id:'carrot',     group:'veggies', labelEN:'Carrot',     labelTH:'แครอท',        icon:'assets/icons/food/carrot.png' },
+  { id:'broccoli',   group:'veggies', labelEN:'Broccoli',   labelTH:'บรอกโคลี',     icon:'assets/icons/food/broccoli.png' },
+  { id:'cucumber',   group:'veggies', labelEN:'Cucumber',   labelTH:'แตงกวา',       icon:'assets/icons/food/cucumber.png' },
+  // Protein
+  { id:'egg',        group:'protein', labelEN:'Egg',        labelTH:'ไข่',           icon:'assets/icons/food/egg.png' },
+  { id:'fish',       group:'protein', labelEN:'Fish',       labelTH:'ปลา',           icon:'assets/icons/food/fish.png' },
+  { id:'tofu',       group:'protein', labelEN:'Tofu',       labelTH:'เต้าหู้',        icon:'assets/icons/food/tofu.png' },
+  // Grains
+  { id:'rice',       group:'grains',  labelEN:'Rice',       labelTH:'ข้าว',          icon:'assets/icons/food/rice.png' },
+  { id:'bread',      group:'grains',  labelEN:'Bread',      labelTH:'ขนมปัง',        icon:'assets/icons/food/bread.png' },
+  { id:'noodles',    group:'grains',  labelEN:'Noodles',    labelTH:'ก๋วยเตี๋ยว',    icon:'assets/icons/food/noodles.png' },
+];
+
+function t(th, en, lang){ return lang==='EN' ? en : th; }
+
+// ------- Lifecycle -------
+export function init(context){
+  ctx = context;
+}
+
+export function enter(root, opts={}){
+  const cfg = { ...ROUND_DEFAULTS, ...opts };
+  state = {
+    cfg,
+    timeLeft: cfg.durationSec,
+    playing: true,
+    score: 0,
+    combo: 0,
+    bestCombo: 0,
+    correct: 0,
+    wrong: 0,
+    queue: shuffle(ITEMS),
+    current: null,
+    nextRevealAt: 0,
+    decayTimer: 0,
+    difficultyLevel: 1, // 1..5
   };
-  // แสดงป้าย
-  const wrap=document.getElementById('targetWrap'); if(wrap) wrap.style.display='block';
-  const badge=document.getElementById('targetBadge'); if(badge) badge.textContent = GROUPS[state.ctx.groups.target1].th;
-}
-export function pickMeta(diff, state){
-  // power?
-  if (Math.random() < (POWER_RATE[state.difficulty]||0.1)){
-    const p = rollPower();
-    return { type:'power', char:p.icon, p:p.type, life: Math.max(2000, diff?.life ?? 2500) };
-  }
-  const gctx = state.ctx.groups;
-  const useDual = !!gctx.target2;
-  const want = Math.random() < wantTarget(state.difficulty);
-  let groupKey;
-  if (useDual && want){ groupKey = Math.random()<0.5?gctx.target1:gctx.target2; }
-  else if (want){ groupKey = gctx.target1; }
-  else { groupKey = rotTarget(gctx.target1, gctx.target2); }
-  const char = rnd(GROUPS[groupKey].em);
-  return { type:'food', char, life: diff?.life ?? 3000, groupKey, good: groupKey===gctx.target1 || groupKey===gctx.target2 };
-}
-export function onHit(meta, sys, state){
-  const { score, sfx, fx, power } = sys || {};
-  const gctx = state.ctx.groups;
 
-  if (meta.type==='power'){
-    try{ sfx?.play?.('sfx-powerup'); }catch{}
-    if (meta.p==='power_dual'){
-      gctx.target2 = rotTarget(gctx.target1);
-      gctx.dualRemain = 12; fx?.popText?.('DUAL',{color:'#ffd54a'}); score?.add?.(3); return 'power';
+  ui = buildUI(cfg);
+  root.appendChild(ui);
+
+  ctx?.coach?.say( t('เลือกหมวดอาหารให้ถูกต้องนะ!', 'Pick the right food group!', cfg.language) );
+  nextItem();
+}
+
+export function exit(){
+  if (ui && ui.parentNode) ui.parentNode.removeChild(ui);
+  ui = null;
+  state = null;
+}
+
+export function tick(dt){
+  if(!state?.playing) return;
+
+  // เวลา
+  state.timeLeft -= dt;
+  if (state.timeLeft <= 0){
+    endRound();
+    return;
+  }
+
+  // Streak decay
+  state.decayTimer += dt;
+  if (state.decayTimer > 6 && state.combo>0){
+    state.combo = Math.max(0, state.combo-1);
+    updateComboUI();
+    state.decayTimer = 0;
+  }
+
+  // Dynamic difficulty
+  if (state.cfg.dynamicDifficulty){
+    const pct = 1 - (state.timeLeft / state.cfg.durationSec);
+    state.difficultyLevel = 1 + Math.floor(pct*4); // 1..5
+  }
+
+  updateTimerUI();
+}
+
+export function handleDomAction(el){
+  const a = el?.closest?.('[data-action]')?.getAttribute('data-action') || '';
+  if (!a) return;
+
+  if (a.startsWith('group:')){
+    const g = a.split(':')[1];
+    onChooseGroup(g);
+    return;
+  }
+  if (a==='groups:hint'){ showHint(); return; }
+  if (a==='groups:skip'){ skipItem(); return; }
+  if (a==='groups:quit'){ endRound(true); return; }
+}
+
+// ------- UI -------
+function buildUI(cfg){
+  const wrap = h('div', { class:'mode-groups' }, [
+    h('div', { class:'gg-head' }, [
+      h('div', { class:'gg-title' }, t('จัดเข้าหมวดอาหาร', 'Group the Food', cfg.language)),
+      h('div', { class:'gg-timer', id:'ggTimer' }, formatTime(cfg.durationSec)),
+    ]),
+    h('div', { class:'gg-item' }, [
+      h('img', { id:'ggIcon', alt:'food', class:'gg-icon', src:'' }),
+      h('div', { id:'ggName', class:'gg-name' }, ''),
+      h('div', { id:'ggHint', class:'gg-hint' }, ''),
+    ]),
+    h('div', { class:'gg-grid' },
+      GROUPS.map(g => h('button', {
+        class:'gg-btn',
+        style:`--btnColor:${g.color}`,
+        'data-action': `group:${g.id}`,
+        title: `${g.labelEN} [${g.key}]`
+      }, t(g.labelTH, g.labelEN, cfg.language)))
+    ),
+    h('div', { class:'gg-foot' }, [
+      h('button', { class:'gg-small', 'data-action':'groups:hint' }, t('คำใบ้', 'Hint', cfg.language)),
+      h('button', { class:'gg-small', 'data-action':'groups:skip' }, t('ข้าม', 'Skip', cfg.language)),
+      h('button', { class:'gg-small danger', 'data-action':'groups:quit' }, t('จบเกม', 'End', cfg.language)),
+      h('div', { class:'gg-score' }, [
+        h('span', { id:'ggScore' }, '0'),
+        h('span', { id:'ggCombo' }, '×0')
+      ])
+    ])
+  ]);
+
+  // คีย์ลัด 1–4
+  wrap.addEventListener('keydown', (e)=>{
+    const map = { '1':'fruits','2':'veggies','3':'protein','4':'grains' };
+    const g = map[e.key];
+    if (g){
+      const btn = wrap.querySelector(`[data-action="group:${g}"]`);
+      if (btn){ btn.click(); e.preventDefault(); }
     }
-    if (meta.p==='power_scorex2'){ power?.apply?.('boost'); gctx.scorex2Remain=7; fx?.popText?.('SCORE ×2',{color:'#b0ff66'}); return 'power'; }
-    if (meta.p==='power_freeze'){
-      state.freezeUntil = (performance.now()) + 2000;
-      gctx.freezeRemain=2; fx?.popText?.('FREEZE!',{color:'#66e0ff'}); return 'power';
+  });
+  return wrap;
+}
+
+// ------- Gameplay -------
+function nextItem(){
+  if (state.queue.length === 0) state.queue = shuffle(ITEMS);
+  state.current = state.queue.shift();
+  state.nextRevealAt = performance.now() + 300;
+
+  const lang = state.cfg.language;
+  sel('#ggIcon').src = state.current.icon;
+  sel('#ggName').textContent = t(state.current.labelTH, state.current.labelEN, lang);
+  sel('#ggHint').textContent = '';
+  glowChoices(null);
+  state.decayTimer = 0;
+}
+
+function onChooseGroup(groupId){
+  if (!state?.playing || !state.current) return;
+
+  const correct = (groupId === state.current.group);
+
+  if (correct){
+    state.combo += 1;
+    state.bestCombo = Math.max(state.bestCombo, state.combo);
+    const base = 100;
+    const add  = base + (state.combo-1)*10 + (state.difficultyLevel-1)*5;
+    state.score += add;
+    state.correct += 1;
+    ctx?.sfx?.play('right');
+    ctx?.hud?.flash('+'+add);
+    if (ctx?.powerups && state.combo>=10) ctx.powerups.tryFever?.();
+  }else{
+    if (state.combo>0) ctx?.sfx?.play('comboBreak');
+    state.combo = 0;
+    state.wrong += 1;
+    ctx?.sfx?.play('wrong');
+    ctx?.hud?.shake?.(0.3);
+  }
+
+  updateScoreUI();
+  updateComboUI();
+  glowChoices(groupId);
+
+  if (ctx?.coach){
+    if (correct){
+      ctx.coach.cheer?.();
+    }else{
+      const gName = groupLabel(state.current.group, state.cfg.language);
+      ctx.coach.say( t(`ข้อนี้คือหมวด “${gName}”`,
+                       `This one is “${gName}”`, state.cfg.language) );
     }
-    if (meta.p==='power_rotate'){ gctx.target1 = rotTarget(gctx.target1, gctx.target2); fx?.popText?.('ROTATE',{color:'#ffdd66'}); return 'power'; }
   }
 
-  if (meta.type!=='food') return 'ok';
+  setTimeout(nextItem, correct ? 350 : 500);
+}
 
-  if (meta.good){
-    score?.add?.(0); // คะแนนรวมไปคิดที่ main.js
-    gctx.targetHits = (gctx.targetHits||0) + 1;
-    if (gctx.targetHits>=3){ gctx.target1 = rotTarget(gctx.target1, gctx.target2); gctx.targetHits=0; }
-    try{ sfx?.good?.(); }catch{}
-    return 'good';
+function skipItem(){
+  if (!state?.playing) return;
+  ctx?.sfx?.play('skip');
+  nextItem();
+}
+
+function showHint(){
+  if (!state?.playing || !state?.cfg?.allowHints) return;
+  const g = groupLabel(state.current.group, state.cfg.language);
+  sel('#ggHint').textContent = t(`ใบ้: หมวดขึ้นต้นด้วย "${g[0]}"`, `Hint: Starts with "${g[0]}"`, state.cfg.language);
+  ctx?.sfx?.play('hint');
+}
+
+function endRound(byUser=false){
+  state.playing = false;
+  const result = {
+    mode: name,
+    time: state.cfg.durationSec,
+    score: state.score,
+    hits: state.correct,
+    misses: state.wrong,
+    bestCombo: state.bestCombo,
+    endedByUser: byUser,
+    stars: calcStars(state.score),
+    details: { difficultyCurve: state.difficultyLevel }
+  };
+  ctx?.hud?.showResult?.(result);
+  ctx?.engine?.emit?.('mode:end', result);
+}
+
+// ------- Helpers -------
+function calcStars(score){
+  if (score>=1600) return 5;
+  if (score>=1200) return 4;
+  if (score>=900)  return 3;
+  if (score>=600)  return 2;
+  if (score>=300)  return 1;
+  return 0;
+}
+
+function groupLabel(id, lang){
+  const g = GROUPS.find(x=>x.id===id);
+  if (!g) return id;
+  return t(g.labelTH, g.labelEN, lang);
+}
+
+function shuffle(arr){
+  const a = arr.slice(0);
+  for(let i=a.length-1;i>0;i--){
+    const j = (Math.random()*(i+1))|0;
+    [a[i],a[j]] = [a[j],a[i]];
   }
-  try{ sfx?.bad?.(); }catch{}
-  return 'bad';
+  return a;
 }
-export function tick(state){
-  const g = state.ctx.groups; if(!g) return;
-  if (g.dualRemain>0) g.dualRemain--;
-  if (g.scorex2Remain>0) g.scorex2Remain--;
-  if (g.freezeRemain>0) g.freezeRemain--;
+
+function h(tag, attrs={}, children=[]){
+  const el = document.createElement(tag);
+  for (const k in attrs){
+    if (k==='class') el.className = attrs[k];
+    else el.setAttribute(k, attrs[k]);
+  }
+  (Array.isArray(children)?children:[children]).forEach(c=>{
+    if (c==null) return;
+    if (typeof c === 'string') el.appendChild(document.createTextNode(c));
+    else el.appendChild(c);
+  });
+  return el;
 }
-export function cleanup(){ const badge=document.getElementById('targetBadge'); if(badge) badge.textContent='—'; }
+function sel(q){ return ui?.querySelector(q); }
+
+function updateTimerUI(){
+  const tEl = sel('#ggTimer');
+  if (tEl) tEl.textContent = formatTime(Math.max(0, state.timeLeft|0));
+}
+function updateScoreUI(){
+  const el = sel('#ggScore'); if (el) el.textContent = String(state.score);
+}
+function updateComboUI(){
+  const el = sel('#ggCombo'); if (el) el.textContent = '×'+state.combo;
+}
+function glowChoices(chosenId){
+  GROUPS.forEach(g=>{
+    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
+    if (!btn) return;
+    btn.classList.remove('good','bad','chosen');
+  });
+  if (!chosenId) return;
+  const correctId = state.current.group;
+  GROUPS.forEach(g=>{
+    const btn = ui?.querySelector(`[data-action="group:${g.id}"]`);
+    if (!btn) return;
+    if (g.id===chosenId) btn.classList.add('chosen', (g.id===correctId?'good':'bad'));
+  });
+}
+function formatTime(s){
+  const m = (s/60)|0, r = (s%60)|0;
+  return `${m}:${r.toString().padStart(2,'0')}`;
+}
