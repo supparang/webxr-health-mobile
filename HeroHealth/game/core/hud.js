@@ -1,64 +1,71 @@
 // game/core/hud.js
-// HUD เดียวจบ ไม่มีประกาศซ้ำ
+// HUD utilities ที่ main.js เรียกใช้ (ฉบับเดียวจบ ไม่ซ้ำประกาศ)
 
 export class HUD {
-  // --- Score / Time / Combo ---
-  setScore(v){ const e=document.getElementById('score'); if(e) e.textContent=(v|0); }
-  setTime(v){  const e=document.getElementById('time');  if(e) e.textContent=(v|0); }
-  setCombo(v){
-    const e=document.getElementById('combo'); if(!e) return;
-    e.textContent = (typeof v==='number') ? ('x'+v) : v;
-  }
-  setMode(v){ const e=document.getElementById('modeName');     if(e) e.textContent=v; }
-  setDiff(v){ const e=document.getElementById('difficulty');   if(e) e.textContent=v; }
+  // สกอร์ / เวลา / คอมโบ
+  setScore(n){ const el=document.getElementById('score'); if(el) el.textContent = n|0; }
+  setTime(n){ const el=document.getElementById('time'); if(el) el.textContent = n|0; }
+  setCombo(text){ const el=document.getElementById('combo'); if(el) el.textContent = String(text); }
 
-  // --- Fever bar/label ---
+  // ชื่อโหมด/ความยาก (ถ้าอยากอัพเดตผ่าน HUD โดยตรง)
+  setDiff(v){ const el=document.getElementById('difficulty'); if(el) el.textContent = v; }
+  setMode(v){ const el=document.getElementById('modeName'); if(el) el.textContent = v; }
+
+  // FEVER progress bar (0..1)
   setFeverProgress(p01){
-    const bar=document.getElementById('feverBar'); if(!bar) return;
-    const pct=Math.max(0,Math.min(1,+p01||0))*100;
-    bar.style.width=pct+'%';
-  }
-  fever(show){
-    const f=document.getElementById('fever'); if(!f) return;
-    f.style.display = show ? 'inline-block' : 'none';
-    f.classList.toggle('pulse', !!show);
+    const el = document.getElementById('feverBar');
+    if(!el) return;
+    const w = Math.round(Math.max(0, Math.min(1, p01)) * 100);
+    el.style.width = w + '%';
   }
 
-  // --- Hydration HUD ---
+  // Hydration HUD
   showHydration(){ const w=document.getElementById('hydroWrap'); if(w) w.style.display='block'; }
   hideHydration(){ const w=document.getElementById('hydroWrap'); if(w) w.style.display='none'; }
-  setHydration(percent, zone){
-    const bar=document.getElementById('hydroBar');
-    const lab=document.getElementById('hydroLabel');
-    this.showHydration();
-    if(bar) bar.style.width=Math.max(0,Math.min(100,percent|0))+'%';
+  setHydration(pct, zone){
+    const bar = document.getElementById('hydroBar');
+    const lab = document.getElementById('hydroLabel');
+    const wrap= document.getElementById('hydroWrap');
+    if(wrap) wrap.style.display='block';
+    if(bar)  bar.style.width = Math.max(0, Math.min(100, pct|0)) + '%';
     if(lab){
-      const txt = zone==='ok' ? 'พอดี' : zone==='low' ? 'น้อยไป' : zone==='high' ? 'มากไป' : '';
-      lab.textContent = `${percent|0}% ${txt}`.trim();
+      const z = zone==='ok' ? 'พอดี' : (zone==='low' ? 'น้อยไป' : 'มากไป');
+      lab.textContent = `${Math.round(pct)}% ${z}`;
     }
   }
 
-  // --- Target / Pills (groups & plate) ---
-  showTarget(){ const w=document.getElementById('targetWrap');    if(w) w.style.display='block'; }
-  hideTarget(){ const w=document.getElementById('targetWrap');    if(w) w.style.display='none'; }
-  setTargetBadge(text){ const el=document.getElementById('targetBadge'); if(el) el.textContent=text ?? '—'; }
+  // Target HUD (โหมด groups/plate)
+  showTarget(){ const w=document.getElementById('targetWrap'); if(w) w.style.display='block'; }
+  hideTarget(){ const w=document.getElementById('targetWrap'); if(w) w.style.display='none'; }
+  setTargetBadge(text){ const el=document.getElementById('targetBadge'); if(el) el.textContent = text; }
 
-  showPills(){ const w=document.getElementById('plateTracker');   if(w) w.style.display='block'; }
-  hidePills(){ const w=document.getElementById('plateTracker');   if(w) w.style.display='none'; }
+  // Plate HUD (โหมด plate)
+  showPills(){ const w=document.getElementById('plateTracker'); if(w) w.style.display='block'; }
+  hidePills(){ const w=document.getElementById('plateTracker'); if(w) w.style.display='none'; }
 
-  // --- Fallback score FX (ถ้าไม่มีเอนจิน FX) ---
+  // (ถ้าอยากโชว์ FEVER label ผ่าน HUD)
+  fever(show){
+    const el = document.getElementById('fever');
+    if (el) el.style.display = show ? 'inline-block' : 'none';
+  }
+
+  // เอฟเฟกต์คะแนน (ถ้าอยากเรียกผ่าน HUD)
   popScore(x,y,tag,minor,color='#7fffd4'){
-    const el=document.createElement('div');
+    const el = document.createElement('div');
     el.className='scoreBurst';
-    el.style.left=x+'px'; el.style.top=y+'px'; el.style.color=color;
-    el.textContent=tag;
-    if(minor){ const m=document.createElement('span'); m.className='minor'; m.textContent=minor; el.appendChild(m); }
+    el.style.left=x+'px'; el.style.top=y+'px';
+    el.textContent=tag; el.style.color=color;
+    if (minor){
+      const m=document.createElement('span');
+      m.className='minor'; m.textContent=minor;
+      el.appendChild(m);
+    }
     document.body.appendChild(el);
     setTimeout(()=>{ try{el.remove();}catch{} }, 900);
   }
   burstFlame(x,y,strong=false){
-    const el=document.createElement('div');
-    el.className='flameBurst'+(strong?' strong':'');
+    const el = document.createElement('div');
+    el.className='flameBurst' + (strong?' strong':'');
     el.style.left=x+'px'; el.style.top=y+'px';
     document.body.appendChild(el);
     setTimeout(()=>{ try{el.remove();}catch{} }, 900);
