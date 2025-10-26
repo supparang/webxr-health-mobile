@@ -1,13 +1,13 @@
-// === Hero Health Academy — main.js (ASCII-safe stable) ===
-// - No emoji in this file (ASCII only)
+// === Hero Health Academy — main.js (compat, no optional chaining, no emoji in source) ===
 // - Icon auto-size by difficulty
-// - Score/combo/fever effects (popup + flame)
+// - Score/combo/fever popup
 // - Centered modals
-// - Safe spawn area (not under header/menu)
+// - Safe spawn area
+// - Avoids modern syntax pitfalls that can cause "Invalid or unexpected token"
 
 "use strict";
 
-/* global window, document */
+/* globals window, document */
 
 window.__HHA_BOOT_OK = true;
 
@@ -26,20 +26,43 @@ import * as hydration from "./modes/hydration.js";
 import * as plate from "./modes/plate.js";
 
 // ----- Helpers -----
-const $ = (s) => document.querySelector(s);
-const byAction = (el) => (el && el.closest ? el.closest("[data-action]") : null);
-const setText = (sel, txt) => { const el = $(sel); if (el) el.textContent = String(txt); };
+function $(s){ return document.querySelector(s); }
+function byAction(el){ return el && el.closest ? el.closest("[data-action]") : null; }
+function setText(sel, txt){ var el = $(sel); if (el) el.textContent = String(txt); }
+function addLoadedChip(msg){
+  function attach(){
+    var chip = document.getElementById("jsLoadedChip");
+    if (!chip){
+      chip = document.createElement("div");
+      chip.id = "jsLoadedChip";
+      chip.style.position = "fixed";
+      chip.style.right = "10px";
+      chip.style.bottom = "10px";
+      chip.style.padding = "6px 10px";
+      chip.style.background = "rgba(0,128,0,.9)";
+      chip.style.color = "#fff";
+      chip.style.font = "600 12px/1.2 system-ui, Arial, sans-serif";
+      chip.style.borderRadius = "8px";
+      chip.style.zIndex = "9999";
+      document.body.appendChild(chip);
+    }
+    chip.textContent = msg || "JS Loaded";
+  }
+  if (document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", attach);
+  }else{ attach(); }
+}
 
 // ----- Config -----
-const MODES = { goodjunk, groups, hydration, plate };
-const DIFFS = {
+var MODES = { goodjunk:goodjunk, groups:groups, hydration:hydration, plate:plate };
+var DIFFS = {
   Easy:   { time: 70, spawn: 900, life: 4200 },
   Normal: { time: 60, spawn: 700, life: 3000 },
   Hard:   { time: 50, spawn: 550, life: 1800 }
 };
-const ICON_SIZE_MAP = { Easy: 92, Normal: 72, Hard: 58 };
+var ICON_SIZE_MAP = { Easy: 92, Normal: 72, Hard: 58 };
 
-const I18N = {
+var I18N = {
   TH:{
     names:{goodjunk:"ดี vs ขยะ", groups:"จาน 5 หมู่", hydration:"สมดุลน้ำ", plate:"จัดจานสุขภาพ"},
     diffs:{Easy:"ง่าย", Normal:"ปกติ", Hard:"ยาก"}
@@ -49,10 +72,10 @@ const I18N = {
     diffs:{Easy:"Easy", Normal:"Normal", Hard:"Hard"}
   }
 };
-const T = (lang)=> I18N[lang] || I18N.TH;
+function T(lang){ return I18N[lang] || I18N.TH; }
 
 // ----- State & Systems -----
-const state = {
+var state = {
   modeKey: "goodjunk",
   difficulty: "Normal",
   running: false,
@@ -68,16 +91,16 @@ const state = {
   ctx: {}
 };
 
-const hud   = new HUD();
-const sfx   = new SFX();
-const score = new ScoreSystem();
-const power = new PowerUpSystem();
-const coach = new Coach({ lang: state.lang });
-const eng   = new Engine(THREE, document.getElementById("c"));
+var hud   = new HUD();
+var sfx   = new SFX();
+var score = new ScoreSystem();
+var power = new PowerUpSystem();
+var coach = new Coach({ lang: state.lang });
+var eng   = new Engine(THREE, document.getElementById("c"));
 
 // ----- UI Apply -----
 function applyUI(){
-  const L = T(state.lang);
+  var L = T(state.lang);
   setText("#modeName",   (L.names[state.modeKey] || state.modeKey));
   setText("#difficulty", (L.diffs[state.difficulty] || state.difficulty));
 }
@@ -89,21 +112,24 @@ function updateHUD(){
 
 // ----- Fever UI -----
 function setFeverBar(pct){
-  const bar = $("#feverBar"); if (!bar) return;
-  const clamped = Math.max(0, Math.min(100, pct|0));
+  var bar = $("#feverBar"); if (!bar) return;
+  var clamped = Math.max(0, Math.min(100, pct|0));
   bar.style.width = clamped + "%";
 }
 function showFeverLabel(show){
-  const f = $("#fever"); if (!f) return;
+  var f = $("#fever"); if (!f) return;
   f.style.display = show ? "block" : "none";
-  if (show) f.classList.add("pulse"); else f.classList.remove("pulse");
+  if (show){ f.classList.add("pulse"); } else { f.classList.remove("pulse"); }
 }
 function startFever(){
   if (state.fever.active) return;
   state.fever.active = true;
   state.fever.timeLeft = 7;
   showFeverLabel(true);
-  try{ const a = document.getElementById("sfx-powerup"); if (a) a.play(); }catch{}
+  try{
+    var a = document.getElementById("sfx-powerup");
+    if (a && typeof a.play === "function") a.play();
+  }catch(e){}
 }
 function stopFever(){
   state.fever.active = false;
@@ -113,7 +139,7 @@ function stopFever(){
 
 // ----- Score FX (popup & flame) -----
 function makeScoreBurst(x, y, text, minor, color){
-  const el = document.createElement("div");
+  var el = document.createElement("div");
   el.className = "scoreBurst";
   el.style.left = x + "px";
   el.style.top  = y + "px";
@@ -121,33 +147,33 @@ function makeScoreBurst(x, y, text, minor, color){
   el.style.fontSize = "20px";
   el.textContent = String(text);
   if (minor) {
-    const m = document.createElement("span");
+    var m = document.createElement("span");
     m.className = "minor";
     m.textContent = String(minor);
     el.appendChild(m);
   }
   document.body.appendChild(el);
-  setTimeout(()=>{ try{ el.remove(); }catch{} }, 900);
+  setTimeout(function(){ try{ el.remove(); }catch(e){} }, 900);
 }
 function makeFlame(x, y, strong){
-  const el = document.createElement("div");
+  var el = document.createElement("div");
   el.className = "flameBurst" + (strong ? " strong" : "");
   el.style.left = x + "px";
   el.style.top  = y + "px";
   document.body.appendChild(el);
-  setTimeout(()=>{ try{ el.remove(); }catch{} }, 900);
+  setTimeout(function(){ try{ el.remove(); }catch(e){} }, 900);
 }
 
 function scoreWithEffects(base, x, y){
-  const comboMul = state.combo >= 20 ? 1.4 : (state.combo >= 10 ? 1.2 : 1.0);
-  const feverMul = state.fever.active ? state.fever.mul : 1.0;
-  const total = Math.round(base * comboMul * feverMul);
+  var comboMul = state.combo >= 20 ? 1.4 : (state.combo >= 10 ? 1.2 : 1.0);
+  var feverMul = state.fever.active ? state.fever.mul : 1.0;
+  var total = Math.round(base * comboMul * feverMul);
 
   if (typeof score.add === "function") score.add(total);
 
-  const tag   = total >= 0 ? "+" + total : "" + total;
-  const minor = (comboMul > 1 || feverMul > 1) ? ("x" + comboMul.toFixed(1) + (feverMul>1 ? " & FEVER" : "")) : "";
-  const color = total >= 0 ? (feverMul>1 ? "#ffd54a" : "#7fffd4") : "#ff9b9b";
+  var tag   = total >= 0 ? "+" + total : "" + total;
+  var minor = (comboMul > 1 || feverMul > 1) ? ("x" + comboMul.toFixed(1) + (feverMul>1 ? " & FEVER" : "")) : "";
+  var color = total >= 0 ? (feverMul>1 ? "#ffd54a" : "#7fffd4") : "#ff9b9b";
 
   makeScoreBurst(x, y, tag, minor, color);
   if (state.fever.active) makeFlame(x, y, total >= 10);
@@ -166,7 +192,7 @@ function addCombo(kind){
     if (hud && typeof hud.setCombo === "function") hud.setCombo("x" + state.combo);
 
     if (!state.fever.active){
-      const gain = (kind === "perfect") ? state.fever.chargePerfect : state.fever.chargeGood;
+      var gain = (kind === "perfect") ? state.fever.chargePerfect : state.fever.chargeGood;
       state.fever.meter = Math.min(100, state.fever.meter + gain);
       setFeverBar(state.fever.meter);
       if (state.fever.meter >= state.fever.threshold) startFever();
@@ -180,15 +206,15 @@ function addCombo(kind){
 function spawnOnce(diff){
   if (!state.running || state.paused) return;
 
-  const mode = MODES[state.modeKey];
-  const meta = (mode && typeof mode.pickMeta === "function") ? (mode.pickMeta(diff, state) || {}) : {};
+  var mode = MODES[state.modeKey];
+  var meta = (mode && typeof mode.pickMeta === "function") ? (mode.pickMeta(diff, state) || {}) : {};
 
-  const el = document.createElement("button");
+  var el = document.createElement("button");
   el.className = "item";
   el.type = "button";
   el.textContent = meta.char ? String(meta.char) : "?";
 
-  const px = ICON_SIZE_MAP[state.difficulty] || 72;
+  var px = ICON_SIZE_MAP[state.difficulty] || 72;
   el.style.fontSize = px + "px";
   el.style.lineHeight = "1";
   el.style.border = "none";
@@ -202,14 +228,14 @@ function spawnOnce(diff){
   el.addEventListener("pointerleave", function(){ el.style.transform = "scale(1)"; }, { passive:true });
 
   // Safe area (avoid header and menu)
-  const header = $("header.brand");
-  const headerH = header && header.offsetHeight ? header.offsetHeight : 56;
-  const menu    = $("#menuBar");
-  const menuH   = menu && menu.offsetHeight ? menu.offsetHeight : 120;
-  const yMin = headerH + 60;
-  const yMax = Math.max(yMin + 50, window.innerHeight - menuH - 80);
-  const xMin = 20;
-  const xMax = Math.max(xMin + 50, window.innerWidth - 80);
+  var header = $("header.brand");
+  var headerH = header && header.offsetHeight ? header.offsetHeight : 56;
+  var menu    = $("#menuBar");
+  var menuH   = menu && menu.offsetHeight ? menu.offsetHeight : 120;
+  var yMin = headerH + 60;
+  var yMax = Math.max(yMin + 50, window.innerHeight - menuH - 80);
+  var xMin = 20;
+  var xMax = Math.max(xMin + 50, window.innerWidth - 80);
 
   el.style.left = (xMin + Math.random() * (xMax - xMin)) + "px";
   el.style.top  = (yMin + Math.random() * (yMax - yMin)) + "px";
@@ -217,42 +243,42 @@ function spawnOnce(diff){
   el.addEventListener("click", function(ev){
     ev.stopPropagation();
     try{
-      const sys = { score, sfx, power, coach, fx: eng && eng.fx ? eng.fx : null };
+      var sys = { score:score, sfx:sfx, power:power, coach:coach, fx: (eng && eng.fx) ? eng.fx : null };
       // Mode should return: "good" | "ok" | "bad" | "perfect" | "power"
-      const res = (mode && typeof mode.onHit === "function")
+      var res = (mode && typeof mode.onHit === "function")
         ? (mode.onHit(meta, sys, state, hud) || "ok")
         : (meta.good ? "good" : "ok");
 
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2;
-      const cy = r.top  + r.height/2;
+      var r = el.getBoundingClientRect();
+      var cx = r.left + r.width/2;
+      var cy = r.top  + r.height/2;
 
       if (res === "good" || res === "perfect") addCombo(res);
       if (res === "bad") addCombo("bad");
 
-      const baseMap = { good:7, perfect:14, ok:2, bad:-3, power:5 };
-      const base = Object.prototype.hasOwnProperty.call(baseMap, res) ? baseMap[res] : 1;
+      var baseMap = { good:7, perfect:14, ok:2, bad:-3, power:5 };
+      var base = baseMap.hasOwnProperty(res) ? baseMap[res] : 1;
       scoreWithEffects(base, cx, cy);
 
-      if (res === "good"){ try{ sfx.good(); }catch{} }
-      else if (res === "bad"){ try{ sfx.bad(); }catch{} }
+      if (res === "good"){ try{ if (typeof sfx.good === "function") sfx.good(); }catch(e){} }
+      else if (res === "bad"){ try{ if (typeof sfx.bad === "function") sfx.bad(); }catch(e){} }
     }catch(e){
-      console.error("[HHA] onHit error:", e);
+      try{ console.error("[HHA] onHit error:", e); }catch(_){}
     }finally{
-      try{ el.remove(); }catch{}
+      try{ el.remove(); }catch(e){}
     }
   }, { passive:true });
 
   document.body.appendChild(el);
-  const ttl = meta.life || diff.life || 3000;
-  setTimeout(function(){ try{ el.remove(); }catch{} }, ttl);
+  var ttl = meta.life || diff.life || 3000;
+  setTimeout(function(){ try{ el.remove(); }catch(e){} }, ttl);
 }
 
 function spawnLoop(){
   if (!state.running || state.paused) return;
-  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  var diff = DIFFS[state.difficulty] || DIFFS.Normal;
   spawnOnce(diff);
-  const next = Math.max(220, (diff.spawn || 700) * (power.timeScale || 1));
+  var next = Math.max(220, (diff.spawn || 700) * (power.timeScale || 1));
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
@@ -270,10 +296,10 @@ function tick(){
 
   // Per-mode tick
   try{
-    const mode = MODES[state.modeKey];
-    if (mode && typeof mode.tick === "function") mode.tick(state, { score, sfx, power, coach, fx: eng && eng.fx ? eng.fx : null }, hud);
+    var mode = MODES[state.modeKey];
+    if (mode && typeof mode.tick === "function") mode.tick(state, { score:score, sfx:sfx, power:power, coach:coach, fx:(eng && eng.fx)?eng.fx:null }, hud);
   }catch(e){
-    console.warn("[HHA] mode.tick error:", e);
+    try{ console.warn("[HHA] mode.tick error:", e); }catch(_){}
   }
 
   state.timeLeft = Math.max(0, state.timeLeft - 1);
@@ -281,7 +307,10 @@ function tick(){
 
   if (state.timeLeft <= 0){ end(false); return; }
   if (state.timeLeft <= 10){
-    try{ const t = document.getElementById("sfx-tick"); if (t && typeof t.play === "function") t.play(); }catch{}
+    try{
+      var t = document.getElementById("sfx-tick");
+      if (t && typeof t.play === "function"){ t.play(); }
+    }catch(e){}
     document.body.classList.add("flash");
   }else{
     document.body.classList.remove("flash");
@@ -292,7 +321,7 @@ function tick(){
 
 function start(){
   end(true);
-  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  var diff = DIFFS[state.difficulty] || DIFFS.Normal;
   state.running   = true;
   state.paused    = false;
   state.timeLeft  = diff.time;
@@ -304,27 +333,33 @@ function start(){
   updateHUD();
 
   try{
-    const mode = MODES[state.modeKey];
+    var mode = MODES[state.modeKey];
     if (mode && typeof mode.init === "function") mode.init(state, hud, diff);
   }catch(e){
-    console.error("[HHA] mode.init error:", e);
+    try{ console.error("[HHA] mode.init error:", e); }catch(_){}
   }
 
   if (coach && typeof coach.onStart === "function") coach.onStart(state.modeKey);
   tick();
   spawnLoop();
+
+  // bottom-right chip
+  addLoadedChip("JS Loaded");
 }
 
 function end(silent){
-  const isSilent = (silent === true);
+  var isSilent = (silent === true);
   state.running = false;
   state.paused = false;
   clearTimeout(state.tickTimer);
   clearTimeout(state.spawnTimer);
-  try{ const mode = MODES[state.modeKey]; if (mode && typeof mode.cleanup === "function") mode.cleanup(state, hud); }catch{}
+  try{
+    var mode = MODES[state.modeKey];
+    if (mode && typeof mode.cleanup === "function") mode.cleanup(state, hud);
+  }catch(e){}
 
   if (!isSilent){
-    const modal = $("#result");
+    var modal = $("#result");
     if (modal) modal.style.display = "flex";
     if (coach && typeof coach.onEnd === "function") coach.onEnd(score.score, { grade: "A" });
   }
@@ -332,10 +367,10 @@ function end(silent){
 
 // ----- Events -----
 document.addEventListener("pointerup", function(e){
-  const btn = byAction(e.target);
+  var btn = byAction(e.target);
   if (!btn) return;
-  const a = btn.getAttribute("data-action");
-  const v = btn.getAttribute("data-value");
+  var a = btn.getAttribute("data-action");
+  var v = btn.getAttribute("data-value");
 
   if (a === "mode"){ state.modeKey = v; applyUI(); if (state.running) start(); }
   else if (a === "diff"){ state.difficulty = v; applyUI(); if (state.running) start(); }
@@ -347,38 +382,41 @@ document.addEventListener("pointerup", function(e){
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a === "restart"){ end(true); start(); }
-  else if (a === "help"){ const m = $("#help"); if (m) m.style.display = "flex"; }
-  else if (a === "helpClose"){ const m = $("#help"); if (m) m.style.display = "none"; }
-  else if (a === "helpScene"){ const hs = $("#helpScene"); if (hs) hs.style.display = "flex"; }
-  else if (a === "helpSceneClose"){ const hs = $("#helpScene"); if (hs) hs.style.display = "none"; }
+  else if (a === "help"){ var m = $("#help"); if (m) m.style.display = "flex"; }
+  else if (a === "helpClose"){ var m2 = $("#help"); if (m2) m2.style.display = "none"; }
+  else if (a === "helpScene"){ var hs = $("#helpScene"); if (hs) hs.style.display = "flex"; }
+  else if (a === "helpSceneClose"){ var hs2 = $("#helpScene"); if (hs2) hs2.style.display = "none"; }
 }, { passive:true });
 
 // Top bar toggles
-const langBtn = $("#langToggle");
+var langBtn = $("#langToggle");
 if (langBtn){
   langBtn.addEventListener("click", function(){
     state.lang = state.lang === "TH" ? "EN" : "TH";
-    localStorage.setItem("hha_lang", state.lang);
+    try{ localStorage.setItem("hha_lang", state.lang); }catch(e){}
     coach.lang = state.lang;
     applyUI();
   }, { passive:true });
 }
-const gfxBtn = $("#gfxToggle");
+var gfxBtn = $("#gfxToggle");
 if (gfxBtn){
   gfxBtn.addEventListener("click", function(){
     state.gfx = state.gfx === "low" ? "quality" : "low";
-    localStorage.setItem("hha_gfx", state.gfx);
+    try{ localStorage.setItem("hha_gfx", state.gfx); }catch(e){}
     try{
       if (eng && eng.renderer && typeof eng.renderer.setPixelRatio === "function"){
         eng.renderer.setPixelRatio(state.gfx === "low" ? 0.75 : (window.devicePixelRatio || 1));
       }
-    }catch{}
+    }catch(e){}
   }, { passive:true });
 }
 
 // Unlock audio once
-window.addEventListener("pointerdown", function(){ try{ sfx.unlock(); }catch{} }, { once:true, passive:true });
+window.addEventListener("pointerdown", function(){
+  try{ if (typeof sfx.unlock === "function") sfx.unlock(); }catch(e){}
+}, { once:true, passive:true });
 
-// ----- Boot -----
+// ----- Boot UI (not auto-start game; press Start) -----
 applyUI();
 updateHUD();
+addLoadedChip("JS Ready");
