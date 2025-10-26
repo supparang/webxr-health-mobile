@@ -62,7 +62,8 @@ const state = {
   ctx:{}, stats:{good:0, perfect:0, ok:0, bad:0},
   _accHist:[],
   freezeUntil:0,
-  didWarnT10:false
+  didWarnT10:false,
+  uiMode:false,              // << NEW: โหมดที่ให้โมดูล UI คุมเอง (เช่น groups)
 };
 
 // ----- UI -----
@@ -280,7 +281,7 @@ function shatter3D(x,y){
 
 // ----- Spawn one -----
 function spawnOnce(diff){
-  if (!state.running || state.paused) return;
+  if (!state.running || state.paused || state.uiMode) return; // << guard UI-Driven
 
   const now = performance?.now?.()||Date.now();
   if (state.freezeUntil && now < state.freezeUntil){
@@ -353,7 +354,7 @@ function spawnOnce(diff){
 
 // ----- Spawn loop (adaptive) -----
 function spawnLoop(){
-  if (!state.running || state.paused) return;
+  if (!state.running || state.paused || state.uiMode) return; // << guard UI-Driven
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -385,7 +386,8 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
-  try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
+  // ให้โหมด UI-Driven (เช่น groups) อัปเดตภายในเองต่อวินาที (dt=1)
+  try{ MODES[state.modeKey]?.tick?.(1); }catch(e){}
 
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
@@ -436,12 +438,33 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  tick(); spawnLoop();
+  // โหมดที่มี enter() (เช่น groups) ให้โมดูลคุม UI เอง
+  const mode = MODES[state.modeKey];
+  const modeRoot = document.getElementById('modeRoot');
+  if (mode?.enter && modeRoot){
+    state.uiMode = true;
+    modeRoot.innerHTML = '';
+    try{
+      mode.enter(modeRoot, { language: state.lang==='EN'?'EN':'TH', durationSec: state.timeLeft });
+    }catch(e){ console.error('[HHA] enter:', e); }
+  } else {
+    state.uiMode = false;
+  }
+
+  tick();
+  if (!state.uiMode) spawnLoop();
 }
 
 function end(silent=false){
   state.running=false; state.paused=false;
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
+
+  // cleanup ของโหมด UI-Driven
+  try{ MODES[state.modeKey]?.exit?.(); }catch{}
+  const modeRoot = document.getElementById('modeRoot');
+  if (modeRoot) modeRoot.innerHTML = '';
+  state.uiMode = false;
+
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
   // cleanup live items
@@ -480,6 +503,12 @@ function end(silent=false){
 
 // ----- Events -----
 document.addEventListener('pointerup', (e)=>{
+  // ให้โหมด UI-Driven รับคลิกของตัวเอง (เช่น groups)
+  if (state.uiMode && MODES[state.modeKey]?.handleDomAction){
+    try{ MODES[state.modeKey].handleDomAction(e.target); }catch{}
+    // ไม่ return เพื่อให้ปุ่มเมนูหลัก (help/pause/...) ยังทำงาน
+  }
+
   const btn = byAction(e.target); if(!btn) return;
   const a = btn.getAttribute('data-action'); const v = btn.getAttribute('data-value');
 
@@ -489,7 +518,7 @@ document.addEventListener('pointerup', (e)=>{
   else if (a==='pause'){
     if (!state.running){ start(); return; }
     state.paused = !state.paused;
-    if (!state.paused){ tick(); spawnLoop(); }
+    if (!state.paused){ tick(); if(!state.uiMode) spawnLoop(); }
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a==='restart'){ end(true); start(); }
