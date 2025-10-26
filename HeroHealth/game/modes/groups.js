@@ -1,6 +1,6 @@
-// === Hero Health Academy — game/modes/groups.js (Centered feel + sticky items) ===
+// === Hero Health Academy — game/modes/groups.js (3D icons + shatter-on-click via main.js) ===
 export const name = 'groups';
-export const stickyItems = true; // บอก main.js ว่าไอคอนของโหมดนี้ควร "ค้าง" โดยดีฟอลต์
+export const stickyItems = true; // แจ้ง main.js ให้ไอคอนโหมดนี้ "ค้าง" เป็นค่าเริ่มต้น
 
 // ---------- Config ----------
 const GROUPS = [
@@ -78,19 +78,18 @@ const ST = {
   got: 0,
 };
 
-// ---------- Public API for main.js ----------
+// ---------- Public API ----------
 export function init(gameState, hud, diff){
   const d = (gameState?.difficulty)||'Normal';
   ST.need = d==='Easy' ? 3 : d==='Hard' ? 5 : 4;
   ST.got = 0;
   ST.lang = (localStorage.getItem('hha_lang')||'TH');
 
-  // สุ่มหมวดแรก + แสดง HUD
   ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
   showTargetHUD(true);
   updateTargetBadge();
 
-  // ตั้ง data-attr ที่ <html> เพื่อให้ CSS scope เฉพาะโหมดนี้
+  // เปิด scope CSS เฉพาะโหมดนี้ (สำหรับ 3D look)
   try { document.documentElement.setAttribute('data-hha-mode','groups'); } catch {}
 }
 
@@ -100,12 +99,12 @@ export function cleanup(){
 }
 
 export function tick(state, systems, hud){
-  // (option) สามารถเขียน logic สลับหมวดตามเวลา/ปรับโอกาสสปอว์นได้ที่นี่
+  // (สามารถเพิ่ม logic ปรับโอกาสสุ่ม หรือสลับหมวดด้วยเวลาได้)
 }
 
 // ให้ main.js เรียกตอนจะสปอว์น 1 ชิ้น → ส่ง meta คืน
 export function pickMeta(diff, gameState){
-  // เพิ่ม bias ให้ "ชิ้นที่เป็นเป้าหมาย" ขึ้นกลางจอได้ง่าย (อิง CSS ช่วย)
+  // Bias ให้เป้าหมายเจอบ่อยขึ้นเพื่อไม่ตันเกม
   const probTarget = 0.62;
   const pickTarget = Math.random() < probTarget;
 
@@ -119,12 +118,12 @@ export function pickMeta(diff, gameState){
     id: it.id,
     char: it.icon,
     good: (it.group===ST.targetId),
-    sticky: true,  // ค้างจนกว่าจะคลิก (main.js จะไม่ตั้ง TTL)
-    // ไม่กำหนด life เพื่อเลี่ยง TTL ใด ๆ
+    sticky: true,   // ค้างจนกว่าจะคลิก
+    // life: ไม่ตั้ง เพื่อไม่ให้หายเอง
   };
 }
 
-// คลิก 1 ชิ้น → แจ้งผลให้ระบบกลางคิดแต้ม/คอมโบ/ฟีเวอร์
+// คลิก 1 ชิ้น → ให้ระบบกลางคิดแต้ม/คอมโบ แล้วเราเดินสถานะเป้าหมาย
 export function onHit(meta, systems, gameState, hud){
   if (meta.good){
     ST.got++;
