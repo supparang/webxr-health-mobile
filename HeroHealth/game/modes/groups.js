@@ -1,6 +1,7 @@
-// === Hero Health Academy — game/modes/groups.js (3D icons + shatter-on-click via main.js) ===
+// === Hero Health Academy — game/modes/groups.js (auto-despawn icons) ===
 export const name = 'groups';
-export const stickyItems = true; // แจ้ง main.js ให้ไอคอนโหมดนี้ "ค้าง" เป็นค่าเริ่มต้น
+// ไม่ประกาศ stickyItems หรือให้เป็น false เพื่อให้ main.js ตั้ง TTL ให้ทุกชิ้น
+// export const stickyItems = false;
 
 // ---------- Config ----------
 const GROUPS = [
@@ -89,7 +90,7 @@ export function init(gameState, hud, diff){
   showTargetHUD(true);
   updateTargetBadge();
 
-  // เปิด scope CSS เฉพาะโหมดนี้ (สำหรับ 3D look)
+  // เปิด scope CSS เฉพาะโหมดนี้ (ถ้าใช้ group.css)
   try { document.documentElement.setAttribute('data-hha-mode','groups'); } catch {}
 }
 
@@ -99,12 +100,10 @@ export function cleanup(){
 }
 
 export function tick(state, systems, hud){
-  // (สามารถเพิ่ม logic ปรับโอกาสสุ่ม หรือสลับหมวดด้วยเวลาได้)
+  // (ถ้าต้องการ logic เสริม ค่อยใส่ภายหลังได้)
 }
 
-// ให้ main.js เรียกตอนจะสปอว์น 1 ชิ้น → ส่ง meta คืน
 export function pickMeta(diff, gameState){
-  // Bias ให้เป้าหมายเจอบ่อยขึ้นเพื่อไม่ตันเกม
   const probTarget = 0.62;
   const pickTarget = Math.random() < probTarget;
 
@@ -118,12 +117,10 @@ export function pickMeta(diff, gameState){
     id: it.id,
     char: it.icon,
     good: (it.group===ST.targetId),
-    sticky: true,   // ค้างจนกว่าจะคลิก
-    // life: ไม่ตั้ง เพื่อไม่ให้หายเอง
+    // ไม่มี sticky, ไม่มี life → ให้ main.js ใช้ diff.life ตั้ง TTL เอง
   };
 }
 
-// คลิก 1 ชิ้น → ให้ระบบกลางคิดแต้ม/คอมโบ แล้วเราเดินสถานะเป้าหมาย
 export function onHit(meta, systems, gameState, hud){
   if (meta.good){
     ST.got++;
