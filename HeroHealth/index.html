@@ -8,6 +8,8 @@
   <!-- สำคัญ: ตั้ง base ให้เส้นทาง assets/module ถูกบน GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
   <link rel="stylesheet" href="styles/game.css" />
+  <!-- NEW: สไตล์โหมด Groups -->
+  <link rel="stylesheet" href="styles/groups.css" />
 
   <!-- Bootloader: พยายาม import ./game/main.js หลาย path แล้วโชว์สถานะ -->
   <script type="module">
@@ -105,7 +107,7 @@
   <!-- เมนูล่าง -->
   <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
     <div class="row">
-      <!-- ปุ่มเลือกโหมด: ใช้ data-action แบบ ui:start:* ให้ตรงกับ main.js -->
+      <!-- ปุ่มเลือกโหมด: ใช้ data-action แบบ ui:start:* -->
       <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
       <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จัดเข้าหมวด (Groups)</button>
       <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
@@ -158,7 +160,7 @@
     </div>
   </div>
 
-  <!-- SFX (ระบบ SFX ภายในจะ map id/เสียงเอง) -->
+  <!-- SFX -->
   <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
   <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
