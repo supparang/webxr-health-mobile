@@ -1,68 +1,55 @@
-/* Layout base */
-html, body { margin:0; padding:0; height:100%; background:#0b1020; color:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+/* Layout basics */
+html, body { margin:0; padding:0; height:100%; background:#0d1117; color:#e6edf3; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Thai", "Noto Sans", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+.spacer { flex:1; }
 
-header.brand {
-  position:fixed; inset:0 0 auto 0; height:56px; display:flex; align-items:center; gap:8px;
-  padding:0 12px; background:rgba(0,0,0,0.35); backdrop-filter: blur(6px);
-  z-index: 1000;
-}
-header .spacer { flex:1; }
-.btn, .tag { background:#1e2a4a; color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:10px; padding:6px 10px; cursor:pointer; }
-.btn:hover, .tag:hover { filter:brightness(1.12); }
+/* Canvas under everything (but visible) */
+#c { position:fixed; inset:0; z-index:1; pointer-events:none; background: radial-gradient(1200px 700px at 50% 30%, #0f172a 10%, #0b1020 60%, #070b14 100%); }
 
-/* Canvas below interactive items */
-#c { position:fixed; inset:0; z-index:1; pointer-events:none; }
+/* Header brand */
+header.brand { position:fixed; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; gap:8px; padding:10px 12px; background:rgba(20,24,34,.7); backdrop-filter: blur(6px); border-bottom:1px solid rgba(255,255,255,.08); }
 
-/* HUD */
-.hud { position:fixed; left:12px; top:64px; z-index:1000; display:flex; flex-direction:column; gap:8px; max-width:90vw; }
-.hud .bar { width:320px; height:12px; background:rgba(255,255,255,0.15); border-radius:6px; overflow:hidden; }
-.hud .bar.slim { height:8px; }
-#hydroBar { height:100%; width:0%; background:#4FC3F7; transition:width .25s; }
-#feverBar  { height:100%; width:0%; background:#ffd54a; transition:width .2s; }
+/* HUD panel */
+.hud { position:fixed; left:12px; right:12px; top:56px; z-index:1000; display:flex; flex-direction:column; gap:8px; }
+.bar { width:100%; height:10px; background:rgba(255,255,255,.12); border-radius:8px; overflow:hidden; }
+.bar.slim { height:6px; }
+#feverBar { height:100%; background:linear-gradient(90deg,#ffd54a,#ff9a3c); transition: width .2s; }
+.fever { position:fixed; top:80px; right:16px; z-index:1001; font-weight:900; padding:4px 8px; border-radius:6px; background:#ffd54a; color:#1e1e1e; box-shadow:0 6px 20px rgba(255,213,74,.3); }
+.fever.pulse { animation: pulse 0.8s infinite; }
+@keyframes pulse { 0%{transform:scale(1)} 50%{transform:scale(1.08)} 100%{transform:scale(1)} }
 
-.mission-line { background:rgba(255,255,255,0.12); padding:6px 10px; border-radius:8px; font-weight:700; max-width:360px; }
+.mission-line { font-weight:700; color:#bde0ff; text-shadow: 0 1px 2px #000; }
 
 /* Menu bottom */
-.menu { position:fixed; left:0; right:0; bottom:0; z-index:1000; background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.6) 40%, rgba(0,0,0,.8) 100%); padding:10px 12px; }
-.menu .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+.menu { position:fixed; left:0; right:0; bottom:0; z-index:1000; padding:10px 12px; background:rgba(20,24,34,.7); backdrop-filter: blur(6px); border-top:1px solid rgba(255,255,255,.08); }
+.menu .row { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0; }
+.tag, .btn { background:#293345; color:#e6edf3; border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:8px 12px; cursor:pointer; }
+.tag:hover, .btn:hover { background:#33405a; }
+.modeLabel { margin-left:auto; align-self:center; opacity:.9 }
 
-/* Game items (buttons) will be styled inline too */
-.item { z-index:1002; font-size:72px; background:transparent; border:none; cursor:pointer; line-height:1; transition: transform .15s, filter .15s; }
+/* Modals centered */
+.modal { position:fixed; inset:0; z-index:1500; background:rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center; }
+.card { background:#121826; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:14px; color:#e6edf3; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+#help .card { max-width:600px; width:90%; }
+pre { white-space:pre-wrap; font-family:inherit; }
 
-/* Modals */
-.modal {
-  position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-  background: rgba(0,0,0,0.55); z-index:1500; padding:16px;
+/* Items (click targets) above all */
+.item { position:fixed; z-index:1002; pointer-events:auto; border:none; background:transparent; line-height:1; transition: transform .15s, filter .15s; }
+.item.feverHit { filter: drop-shadow(0 0 14px rgba(255,213,74,.45)); }
+
+/* Float text feedback */
+.floatText { position:fixed; z-index:1200; font-weight:900; text-shadow:0 2px 8px rgba(0,0,0,.6); transform:translate(-50%,-50%); animation: floatUp .8s ease-out forwards; }
+@keyframes floatUp {
+  0% { opacity:0; transform:translate(-50%,-20%); }
+  10% { opacity:1; transform:translate(-50%,-50%); }
+  100% { opacity:0; transform:translate(-50%,-120%); }
 }
-.modal .card {
-  background:#0f1834; border:1px solid rgba(255,255,255,0.15); border-radius:16px;
-  padding:16px; max-width:520px; width:90%;
-}
-#help pre { white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
 /* Help Scene grid */
-.hs-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px; }
-.hs-card { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:12px; }
+.hs-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; }
+.hs-card { background:#0f1524; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:12px; }
 .hs-card h4 { margin:0 0 6px 0; }
-.hs-icon { font-size:32px; }
+.hs-emoji { font-size:34px; line-height:1; }
 
-/* Fever & FX */
-.fever { position:fixed; top:70px; right:12px; background:#ffd54a; color:#000; font-weight:900; padding:4px 8px; border-radius:8px; box-shadow:0 0 20px rgba(255,213,74,.5); z-index:1200; }
-.fever.pulse { animation: pulse 0.8s infinite; }
-@keyframes pulse { 0%{ transform:scale(1);} 50%{ transform:scale(1.08);} 100%{ transform:scale(1);} }
-
-.floatText {
-  position:fixed; transform:translate(-50%,-50%); font-weight:900; pointer-events:none; z-index:1400;
-  animation: ft .8s ease-out forwards;
-}
-@keyframes ft { from { opacity:1; translate:0 0; } to { opacity:0; translate:0 -40px; } }
-
-.flash { animation: flash 0.8s infinite; }
-@keyframes flash { 0%{ filter:brightness(1);} 50%{ filter:brightness(1.25);} 100%{ filter:brightness(1);} }
-
-/* Target pills */
-.pill { display:inline-block; padding:2px 6px; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); margin-right:4px; }
-.pill.done { background:#2e7d32; border-color:#66bb6a; }
-
-/* Accessibility */
-button:focus-visible { outline:2px solid #90caf9; outline-offset:2px; }
+/* Pills for plate */
+.pill { display:inline-block; padding:2px 8px; background:#263145; border:1px solid rgba(255,255,255,.12); border-radius:999px; margin-right:6px; margin-top:4px; }
+.pill.done { background:#224932; border-color:#2f8c4d; color:#c9ffd7; }
