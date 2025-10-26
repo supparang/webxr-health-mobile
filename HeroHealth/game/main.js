@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (adaptive spawn, presets, mobile icon size) ===
+// === Hero Health Academy — main.js (global presets + More toggle + adaptive spawn) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -11,36 +11,41 @@ import { ScoreSystem } from './core/score.js';
 import { PowerUpSystem } from './core/powerup.js';
 
 import * as goodjunk from './modes/goodjunk.js';
-import * as groups from './modes/groups.js';
+import * as groups   from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
-import * as plate from './modes/plate.js';
+import * as plate    from './modes/plate.js';
 
 // ----- Helpers -----
 const $  = (s)=>document.querySelector(s);
 const byAction = (el)=>el?.closest?.('[data-action]')||null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 
-// ----- Presets (ข้อ 7) -----
+// ----- Presets (global; apply with one click across all modes) -----
 const PRESETS = {
-  ArcadeFast: {
-    DIFFS: { Easy:{time:70, spawn:760, life:2800}, Normal:{time:60, spawn:560, life:2400}, Hard:{time:50, spawn:460, life:1700} },
-    note: 'เร็ว เร้าใจ'
-  },
   ClassroomEasy: {
     DIFFS: { Easy:{time:80, spawn:900, life:4500}, Normal:{time:70, spawn:800, life:3800}, Hard:{time:60, spawn:650, life:2600} },
+    defaultDiff: 'Easy',
     note: 'เล่นง่าย เหมาะสอน'
   },
   TrainerBalanced: {
     DIFFS: { Easy:{time:75, spawn:820, life:3800}, Normal:{time:70, spawn:700, life:3000}, Hard:{time:55, spawn:560, life:2000} },
+    defaultDiff: 'Normal',
     note: 'สมดุล + ปรับตามฝีมือ'
+  },
+  ArcadeFast: {
+    DIFFS: { Easy:{time:70, spawn:760, life:2800}, Normal:{time:60, spawn:560, life:2400}, Hard:{time:50, spawn:460, life:1700} },
+    defaultDiff: 'Hard',
+    note: 'เร็ว เร้าใจ'
   }
 };
-function applyPreset(name='TrainerBalanced'){
+function mergePreset(name){
   const p = PRESETS[name] || PRESETS.TrainerBalanced;
-  DIFFS.Easy   = {...DIFFS.Easy,   ...p.DIFFS.Easy};
-  DIFFS.Normal = {...DIFFS.Normal, ...p.DIFFS.Normal};
-  DIFFS.Hard   = {...DIFFS.Hard,   ...p.DIFFS.Hard};
+  DIFFS.Easy   = { ...DIFFS.Easy,   ...p.DIFFS.Easy   };
+  DIFFS.Normal = { ...DIFFS.Normal, ...p.DIFFS.Normal };
+  DIFFS.Hard   = { ...DIFFS.Hard,   ...p.DIFFS.Hard   };
+  localStorage.setItem('hha_preset', name);
   console.log('[HHA] Preset:', name, p.note);
+  return p;
 }
 
 // ----- Config -----
@@ -51,7 +56,6 @@ const DIFFS = {
   Hard:   { time: 50, spawn: 550, life: 1800 }
 };
 
-// ข้อ 6: ขนาดไอคอนตามอุปกรณ์
 const IS_MOBILE = /Mobi|Android/i.test(navigator.userAgent);
 const ICON_SIZE_MAP = IS_MOBILE
   ? { Easy:108, Normal:88, Hard:72 }
@@ -181,31 +185,6 @@ function scoreWithEffects(base,x,y){
   if (state.fever.active) makeFlame(x,y,total>=10);
 }
 
-// ----- Combo -----
-function addCombo(kind){
-  if (kind==='bad'){
-    state.combo = 0;
-    hud.setCombo?.('x0');
-    coach.onBad?.();
-    return;
-  }
-  if (kind==='good' || kind==='perfect'){
-    state.combo++; state.bestCombo = Math.max(state.bestCombo, state.combo);
-    hud.setCombo?.('x'+state.combo);
-    if (kind==='perfect') coach.onPerfect?.(); else coach.onGood?.();
-
-    if (!state.fever.active){
-      const gain = (kind==='perfect')?state.fever.chargePerfect:state.fever.chargeGood;
-      state.fever.meter = Math.min(100, state.fever.meter + gain);
-      setFeverBar(state.fever.meter);
-      if (state.fever.meter >= state.fever.threshold) startFever();
-    }else{
-      state.fever.timeLeft = Math.min(10, state.fever.timeLeft + 0.6);
-    }
-    coach.onCombo?.(state.combo);
-  }
-}
-
 // ----- Safe area & overlap -----
 function safeBounds(){
   const headerH = $('header.brand')?.offsetHeight || 56;
@@ -216,21 +195,19 @@ function safeBounds(){
   const xMax = Math.max(xMin+50, innerWidth - 80);
   return {xMin,xMax,yMin,yMax};
 }
-
-// ข้อ 2: center-bias spawn
+// center-bias spawn (เล่นง่ายขึ้น)
 function randPos(){
   const {xMin,xMax,yMin,yMax} = safeBounds();
   const u = Math.random(), v = Math.random();
   const nx = xMin + u*(xMax-xMin);
   const ny = yMin + v*(yMax-yMin);
   const cx = (xMin + xMax)/2, cy = (yMin + yMax)/2;
-  const bias = 0.55; // 0=สุ่มทั่ว, 1=ชิดกลาง
+  const bias = 0.55;
   return {
     left: nx*(1-bias) + cx*bias + (Math.random()*40-20),
     top:  ny*(1-bias) + cy*bias + (Math.random()*40-20)
   };
 }
-
 function overlapped(x,y){
   for (const n of LIVE){
     const r = n.getBoundingClientRect();
@@ -343,7 +320,7 @@ function spawnOnce(diff){
 
   add3DTilt(el);
 
-  // anti-overlap + center-bias ตำแหน่ง
+  // anti-overlap + center-bias
   let pos = randPos(), tries=0;
   while (tries++<12 && overlapped(pos.left,pos.top)) pos = randPos();
   el.style.left = pos.left+'px';
@@ -363,7 +340,6 @@ function spawnOnce(diff){
       if (res==='good' || res==='perfect') addCombo(res);
       if (res==='bad') addCombo('bad');
 
-      // ข้อ 4: คะแนนใหม่
       const base = ({good:10, perfect:20, ok:2, bad:-8, power:5})[res] || 1;
       scoreWithEffects(base, cx, cy);
       shatter3D(cx, cy);
@@ -383,19 +359,20 @@ function spawnOnce(diff){
   document.body.appendChild(el);
   LIVE.add(el);
 
-  // TTL เสมอ
-  const ttl = (meta && typeof meta.life === 'number') ? meta.life
-            : (diff && typeof diff.life === 'number') ? diff.life
+  // TTL (เสมอ)
+  const ttl = (typeof meta.life === 'number') ? meta.life
+            : (typeof diff.life === 'number') ? diff.life
             : 3000;
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
-// ----- Spawn loop (adaptive, ข้อ 5) -----
+// ----- Spawn loop (adaptive) -----
 function spawnLoop(){
   if (!state.running || state.paused) return;
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
+  // accuracy rolling
   const total = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accNow = total>0 ? (state.stats.good + state.stats.perfect)/total : 1;
   state._accHist.push(accNow); if (state._accHist.length>8) state._accHist.shift();
@@ -413,6 +390,31 @@ function spawnLoop(){
   spawnOnce(dyn);
   const next = Math.max(220, dyn.spawn * (power.timeScale || 1));
   state.spawnTimer = setTimeout(spawnLoop, next);
+}
+
+// ----- Combo -----
+function addCombo(kind){
+  if (kind==='bad'){
+    state.combo = 0;
+    hud.setCombo?.('x0');
+    coach.onBad?.();
+    return;
+  }
+  if (kind==='good' || kind==='perfect'){
+    state.combo++; state.bestCombo = Math.max(state.bestCombo, state.combo);
+    hud.setCombo?.('x'+state.combo);
+    if (kind==='perfect') coach.onPerfect?.(); else coach.onGood?.();
+
+    if (!state.fever.active){
+      const gain = (kind==='perfect')?state.fever.chargePerfect:state.fever.chargeGood;
+      state.fever.meter = Math.min(100, state.fever.meter + gain);
+      setFeverBar(state.fever.meter);
+      if (state.fever.meter >= state.fever.threshold) startFever();
+    }else{
+      state.fever.timeLeft = Math.min(10, state.fever.timeLeft + 0.6);
+    }
+    coach.onCombo?.(state.combo);
+  }
 }
 
 // ----- Tick / Start / End -----
@@ -439,7 +441,6 @@ function tick(){
   state.tickTimer = setTimeout(tick, 1000);
 }
 
-// Countdown
 async function runCountdown(sec=5){
   let ov = document.getElementById('cdOverlay');
   if (!ov){
@@ -486,6 +487,7 @@ function end(silent=false){
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
+  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
   if (!silent){
@@ -521,22 +523,36 @@ function end(silent=false){
 
 // ----- Events -----
 document.addEventListener('pointerup', (e)=>{
-  const btn = byAction(e.target); 
-  if(!btn) return;
+  const target = e.target;
+  const btn = byAction(target);
+  const a = btn?.getAttribute('data-action') || '';
 
-  const a = btn.getAttribute('data-action'); 
-  const v = btn.getAttribute('data-value');
-
-  // พรีเซ็ต (ข้อ 7): ui:preset:ArcadeFast / ClassroomEasy / TrainerBalanced
-  if (a && a.startsWith('ui:preset:')){
-    const key = a.split(':')[2];
-    applyPreset(key);
-    if (state.running){ start(); }
+  // Toggle "More" presets row
+  if (a === 'ui:togglePresets'){
+    const row = $('#presetRow');
+    if (row){
+      const show = row.style.display === 'none';
+      row.style.display = show ? 'flex' : 'none';
+      btn.setAttribute('aria-expanded', show ? 'true' : 'false');
+    }
     return;
   }
 
-  // start โหมดแบบใหม่ใน index.html: ui:start:*
-  if (a && a.startsWith('ui:start:')){
+  // Apply preset (global)
+  if (a.startsWith('ui:preset:')){
+    const key = a.split(':')[2];
+    const p = mergePreset(key);
+    // ตั้ง diff ให้เข้ากับพรีเซ็ต (แต่ผู้ใช้ยังปรับได้เองภายหลัง)
+    state.difficulty = p.defaultDiff || state.difficulty;
+    applyUI();
+    if (state.running) start(); // รีสตาร์ทด้วยค่าพรีเซ็ตใหม่
+    return;
+  }
+
+  if(!btn) return;
+
+  // start โหมดตามปุ่มใน index.html: ui:start:*
+  if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
     if (MODES[key]){
       state.modeKey = key;
@@ -548,12 +564,12 @@ document.addEventListener('pointerup', (e)=>{
 
   // รูปแบบเดิม
   if (a === 'mode'){ 
-    state.modeKey = v; 
+    state.modeKey = btn.getAttribute('data-value'); 
     applyUI(); 
     if (state.running) start(); 
   }
   else if (a === 'diff'){ 
-    state.difficulty = v; 
+    state.difficulty = btn.getAttribute('data-value'); 
     applyUI(); 
     if (state.running) start(); 
   }
@@ -643,7 +659,13 @@ document.addEventListener('visibilitychange', ()=>{
 // Unlock audio
 window.addEventListener('pointerdown', ()=>{ try{ sfx.unlock(); }catch{} }, {once:true, passive:true});
 
-// Boot
-applyPreset('TrainerBalanced'); // ข้อ 7: ตั้งดีฟอลต์เป็น TrainerBalanced
-applyUI(); 
-updateHUD();
+// ----- Boot -----
+(function boot(){
+  // โหลด preset ที่เคยเลือกไว้
+  const saved = localStorage.getItem('hha_preset') || 'TrainerBalanced';
+  const p = mergePreset(saved);
+  // ตั้ง diff เริ่มต้นให้เข้ากับพรีเซ็ต
+  state.difficulty = p.defaultDiff || 'Normal';
+  applyUI();
+  updateHUD();
+})();
