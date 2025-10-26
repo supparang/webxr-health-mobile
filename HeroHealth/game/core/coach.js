@@ -1,86 +1,99 @@
-// core/coach.js
-// โค้ชปลุกใจ: มีคิวข้อความ, ระดับน้ำเสียง (good/hint/bad/system), auto-hide, กันสแปม
-
+// game/core/coach.js
+// โค้ช: แสดงข้อความเชียร์แบบ queue + auto-hide + debounce
 export class Coach {
-  constructor({ lang = 'TH' } = {}) {
-    this.lang = lang;
+  constructor(opts = {}) {
+    this.lang = opts.lang || 'TH';
     this.queue = [];
     this.busy = false;
-    this.holdMs = 1400;         // เวลาโชว์ขั้นต่ำ
-    this.cooldownMs = 450;      // เวลาเว้นระหว่างข้อความ
-    this.maxLen = 80;
-    this._mount();
+    this.minGap = 350;       // เว้นระยะระหว่างข้อความ
+    this.showMs = 1350;      // เวลาโชว์ข้อความ
+    this.elWrap = document.getElementById('coachHUD');
+    this.elText = document.getElementById('coachText');
+    this.lastAt = 0;
   }
+  setLang(l){ this.lang = l || 'TH'; }
 
-  _mount() {
-    this.box = document.getElementById('coachBox');
-    this.textEl = document.getElementById('coachText');
-    if (this.box) this.box.style.display = 'none';
+  say(text, {important=false, now=false} = {}) {
+    if (!text) return;
+    const t = Date.now();
+    if (!important && (t - this.lastAt) < this.minGap) return; // กันสแปม
+    this.lastAt = t;
+    if (now) { this._render(text); return; }
+    this.queue.push(text);
+    if (!this.busy) this._drain();
   }
-
-  setLang(l) { this.lang = l || 'TH'; }
-
-  say(msg, tone = 'system') {
-    if (!msg) return;
-    const clean = String(msg).slice(0, this.maxLen);
-    this.queue.push({ msg: clean, tone, ts: Date.now() });
-    this._drain();
-  }
-
-  onStart(modeKey) {
-    const m = (this.lang === 'TH')
-      ? 'เริ่มกันเลย! โฟกัสให้ดี สู้ ๆ 💪'
-      : 'Let’s go! Stay focused and have fun! 💪';
-    this.say(m, 'hint');
-  }
-
-  onEnd(score, { grade = 'A' } = {}) {
-    const m = (this.lang === 'TH')
-      ? `จบเกม! คะแนน ${score|0} เกรด ${grade} เยี่ยมมาก!`
-      : `Finished! Score ${score|0}, grade ${grade}. Great work!`;
-    this.say(m, 'good');
-  }
-
-  _drain() {
-    if (this.busy || !this.queue.length) return;
-    this.busy = true;
-
-    const { msg, tone } = this.queue.shift();
-    const color =
-      tone === 'good'  ? '#8fffa5' :
-      tone === 'bad'   ? '#ff9b9b' :
-      tone === 'hint'  ? '#aee3ff' : '#fff';
-
-    if (this.box && this.textEl) {
-      this.textEl.textContent = msg;
-      this.box.style.display = 'flex';
-      this.box.style.borderColor = color;
-      this.textEl.style.color = color;
-
-      // animation in
-      this.box.style.opacity = '0';
-      this.box.style.transform = 'translateY(8px)';
-      requestAnimationFrame(() => {
-        this.box.style.transition = 'opacity .22s, transform .22s';
-        this.box.style.opacity = '1';
-        this.box.style.transform = 'translateY(0)';
-      });
-
-      setTimeout(() => {
-        // animation out
-        this.box.style.opacity = '0';
-        this.box.style.transform = 'translateY(8px)';
-        setTimeout(() => {
-          this.box.style.display = 'none';
-          this.busy = false;
-          setTimeout(() => this._drain(), this.cooldownMs);
-        }, 220);
-      }, this.holdMs);
-    } else {
-      // fallback console
-      console.log('[Coach]', msg);
+  _render(text){
+    if (!this.elWrap || !this.elText) return;
+    this.elText.textContent = text;
+    this.elWrap.style.display = 'flex';
+    this.elWrap.classList.remove('hide'); // เผื่อมี CSS transition
+    setTimeout(()=> {
+      this.elWrap.classList.add('hide');
+      setTimeout(()=>{ if(this.elWrap) this.elWrap.style.display='none'; }, 250);
       this.busy = false;
-      setTimeout(() => this._drain(), this.cooldownMs);
+    }, this.showMs);
+  }
+  async _drain(){
+    if (this.busy) return;
+    this.busy = true;
+    while (this.queue.length){
+      const msg = this.queue.shift();
+      this._render(msg);
+      await new Promise(r=>setTimeout(r, this.showMs + this.minGap));
     }
+    this.busy = false;
+  }
+
+  // ====== Convenience hooks ======
+  onStart(modeKey){
+    const M = this.lang==='EN'
+      ? {goodjunk:'Good vs Junk',groups:'Food Groups',hydration:'Hydration',plate:'Healthy Plate'}
+      : {goodjunk:'ดี vs ขยะ',groups:'จาน 5 หมู่',hydration:'สมดุลน้ำ',plate:'จัดจานสุขภาพ'};
+    const msg = this.lang==='EN'
+      ? `Go! Mode: ${M[modeKey]||modeKey}`
+      : `ลุย! โหมด ${M[modeKey]||modeKey}`;
+    this.say(msg, {important:true, now:true});
+  }
+  onGood(){ this.say(this.lang==='EN'?'Nice!':'ดีมาก!'); }
+  onPerfect(){ this.say(this.lang==='EN'?'PERFECT!':'เป๊ะสุด!'); }
+  onBad(){ this.say(this.lang==='EN'?'Oops':'พลาดนะ'); }
+  onCombo(x){
+    if (x===5) this.say(this.lang==='EN'?'Combo x5! Keep it!':'คอมโบ x5! เยี่ยม!', {important:true});
+    if (x===10) this.say(this.lang==='EN'?'Combo x10!!':'คอมโบ x10!!', {important:true});
+    if (x===20) this.say(this.lang==='EN'?'COMBO GOD!':'สุดยอดคอมโบ!', {important:true});
+  }
+  onFever(){ this.say(this.lang==='EN'?'FEVER TIME!':'เข้าโหมด FEVER!', {important:true}); }
+  onFeverEnd(){ this.say(this.lang==='EN'?'Fever ended':'เฟเวอร์จบแล้ว'); }
+
+  // Mini-Quest hooks
+  onQuestsAssigned(qs){
+    const names = qs.map(q=>q.titleShort || q.title).join(' • ');
+    const msg = this.lang==='EN' ? `Quests: ${names}` : `เควส: ${names}`;
+    this.say(msg, {important:true});
+  }
+  onQuestProgress(q){ // q: {title, progress, need, remain}
+    const msg = this.lang==='EN'
+      ? `${q.titleShort||q.title}: ${q.progress}/${q.need}`
+      : `${q.titleShort||q.title}: ${q.progress}/${q.need}`;
+    this.say(msg);
+  }
+  onQuestComplete(q){
+    const msg = this.lang==='EN'
+      ? `Quest done: ${q.titleShort||q.title}!`
+      : `สำเร็จ: ${q.titleShort||q.title}!`;
+    this.say(msg, {important:true});
+  }
+  onQuestFailed(q){
+    const msg = this.lang==='EN'
+      ? `Time up: ${q.titleShort||q.title}`
+      : `หมดเวลา: ${q.titleShort||q.title}`;
+    this.say(msg);
+  }
+
+  onEnd(score, gradeInfo){
+    const msg = this.lang==='EN'
+      ? `Score ${score} • Nice run!`
+      : `จบเกม! คะแนน ${score} • เก่งมาก!`;
+    this.say(msg, {important:true, now:true});
   }
 }
