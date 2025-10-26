@@ -1,57 +1,171 @@
-/* === styles for mode: groups (emoji edition) === */
-.mode-groups { display:grid; gap:12px; text-align:center; }
-.mode-groups .gg-head{ display:flex; justify-content:space-between; align-items:center; }
-.mode-groups .gg-title{ font-weight:700; font-size:1.1rem; }
-.mode-groups .gg-timer{ font-variant-numeric:tabular-nums; }
-.mode-groups .gg-item{ display:grid; justify-items:center; gap:8px; padding:8px 0; }
-.mode-groups .gg-icon{ font-size:80px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.2)); }
-.mode-groups .gg-name{ font-weight:700; }
-.mode-groups .gg-hint{ font-size:.9rem; opacity:.8; min-height:1.2em; }
-.mode-groups .gg-grid{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
-.mode-groups .gg-btn{
-  padding:12px 10px; border-radius:14px; border:0; background:var(--btnColor, #888);
-  color:#fff; font-weight:800; box-shadow:0 3px 0 rgba(0,0,0,.2);
-  transition:transform .05s ease, filter .2s ease;
-}
-.mode-groups .gg-btn:active{ transform: translateY(2px); }
-.mode-groups .gg-small{ padding:6px 10px; border-radius:10px; border:0; background:#f1f3f5; }
-.mode-groups .gg-small.danger{ background:#ffe3e3; color:#c92a2a; }
-.mode-groups .gg-foot{ display:flex; gap:8px; align-items:center; justify-content:flex-start; }
-.mode-groups .gg-score{ margin-left:auto; display:flex; gap:12px; font-weight:700; }
-.mode-groups .gg-btn.chosen.good { filter: drop-shadow(0 0 10px #2f9e44); }
-.mode-groups .gg-btn.chosen.bad  { filter: drop-shadow(0 0 10px #e03131) saturate(0.6); }
-/* === Target Group layout === */
-.mode-groups.tg { display:grid; gap:10px; }
-.mode-groups.tg .gg-head{
-  display:grid; grid-template-columns: 1fr auto auto; gap:8px; align-items:center;
-}
-.mode-groups.tg .gg-title{ font-weight:800; }
-.mode-groups.tg .gg-meta{ display:flex; gap:8px; align-items:center; }
-.mode-groups.tg .gg-badge{
-  padding:6px 10px; border-radius:999px; color:#fff; font-weight:800; font-size:.95rem;
-  background: var(--targetColor, #666);
-  box-shadow: 0 2px 0 rgba(0,0,0,.18), inset 0 -2px 0 rgba(255,255,255,.08);
-}
-.mode-groups.tg .gg-scorebox{ display:flex; gap:12px; font-weight:800; justify-self:end; }
-.mode-groups.tg .gg-hint{ min-height:1.25em; opacity:.9; }
-.mode-groups.tg .gg-need{ font-weight:600; }
+// === Hero Health Academy — game/modes/groups.js (Floating Icons like goodjunk) ===
+export const name = 'groups';
 
-.tg-grid{
-  display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px;
-}
-@media (max-width:720px){
-  .tg-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-.gg-cell{
-  display:grid; gap:4px; justify-items:center; padding:10px; border:0; border-radius:14px;
-  background:#1f2937; color:#fff; box-shadow:0 3px 0 rgba(0,0,0,.25);
-  transition: transform .05s ease, filter .2s ease, background .2s ease, opacity .2s ease;
-}
-.gg-cell:active{ transform: translateY(2px); }
-.gg-emoji{ font-size:42px; line-height:1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
-.gg-label{ font-size:.9rem; opacity:.9; }
+// ---------- Config ----------
+const GROUPS = [
+  { id:'fruits',  labelTH:'ผลไม้',     labelEN:'Fruits',     color:'#ef4444' },
+  { id:'veggies', labelTH:'ผัก',        labelEN:'Vegetables', color:'#22c55e' },
+  { id:'protein', labelTH:'โปรตีน',     labelEN:'Protein',    color:'#3b82f6' },
+  { id:'grains',  labelTH:'ธัญพืช',     labelEN:'Grains',     color:'#f59e0b' },
+];
 
-/* feedback */
-.gg-cell.good{ outline: 2px solid #22c55e; background:#0f3b22; }
-.gg-cell.bad { outline: 2px solid #ef4444; background:#4a1010; }
-.gg-cell.done{ opacity:.9; }
+const ITEMS = [
+  // Fruits (12)
+  { id:'apple',      group:'fruits',  labelEN:'Apple',      labelTH:'แอปเปิล',       icon:'🍎' },
+  { id:'banana',     group:'fruits',  labelEN:'Banana',     labelTH:'กล้วย',         icon:'🍌' },
+  { id:'strawberry', group:'fruits',  labelEN:'Strawberry', labelTH:'สตรอว์เบอร์รี่', icon:'🍓' },
+  { id:'watermelon', group:'fruits',  labelEN:'Watermelon', labelTH:'แตงโม',          icon:'🍉' },
+  { id:'orange',     group:'fruits',  labelEN:'Orange',     labelTH:'ส้ม',            icon:'🍊' },
+  { id:'grapes',     group:'fruits',  labelEN:'Grapes',     labelTH:'องุ่น',          icon:'🍇' },
+  { id:'pineapple',  group:'fruits',  labelEN:'Pineapple',  labelTH:'สับปะรด',        icon:'🍍' },
+  { id:'mango',      group:'fruits',  labelEN:'Mango',      labelTH:'มะม่วง',         icon:'🥭' },
+  { id:'cherry',     group:'fruits',  labelEN:'Cherry',     labelTH:'เชอร์รี่',        icon:'🍒' },
+  { id:'peach',      group:'fruits',  labelEN:'Peach',      labelTH:'พีช',            icon:'🍑' },
+  { id:'lemon',      group:'fruits',  labelEN:'Lemon',      labelTH:'มะนาว',          icon:'🍋' },
+  { id:'kiwi',       group:'fruits',  labelEN:'Kiwi',       labelTH:'กีวี',           icon:'🥝' },
+
+  // Veggies (12)
+  { id:'carrot',     group:'veggies', labelEN:'Carrot',     labelTH:'แครอท',         icon:'🥕' },
+  { id:'broccoli',   group:'veggies', labelEN:'Broccoli',   labelTH:'บรอกโคลี',      icon:'🥦' },
+  { id:'cucumber',   group:'veggies', labelEN:'Cucumber',   labelTH:'แตงกวา',        icon:'🥒' },
+  { id:'tomato',     group:'veggies', labelEN:'Tomato',     labelTH:'มะเขือเทศ',      icon:'🍅' },
+  { id:'corn',       group:'veggies', labelEN:'Corn',       labelTH:'ข้าวโพด',        icon:'🌽' },
+  { id:'lettuce',    group:'veggies', labelEN:'Lettuce',    labelTH:'ผักกาด/ผักใบ',  icon:'🥬' },
+  { id:'mushroom',   group:'veggies', labelEN:'Mushroom',   labelTH:'เห็ด',           icon:'🍄' },
+  { id:'salad',      group:'veggies', labelEN:'Salad',      labelTH:'สลัดผัก',        icon:'🥗' },
+  { id:'chili',      group:'veggies', labelEN:'Chili',      labelTH:'พริก',           icon:'🌶️' },
+  { id:'onion',      group:'veggies', labelEN:'Onion',      labelTH:'หัวหอม',         icon:'🧅' },
+  { id:'garlic',     group:'veggies', labelEN:'Garlic',     labelTH:'กระเทียม',       icon:'🧄' },
+  { id:'potato',     group:'veggies', labelEN:'Potato',     labelTH:'มันฝรั่ง',        icon:'🥔' },
+
+  // Protein (14)
+  { id:'egg',        group:'protein', labelEN:'Egg',        labelTH:'ไข่',            icon:'🥚' },
+  { id:'fish',       group:'protein', labelEN:'Fish',       labelTH:'ปลา',            icon:'🐟' },
+  { id:'tofu',       group:'protein', labelEN:'Tofu',       labelTH:'เต้าหู้',         icon:'🍢' },
+  { id:'chicken',    group:'protein', labelEN:'Chicken',    labelTH:'ไก่',            icon:'🍗' },
+  { id:'beef',       group:'protein', labelEN:'Beef',       labelTH:'เนื้อวัว',       icon:'🥩' },
+  { id:'shrimp',     group:'protein', labelEN:'Shrimp',     labelTH:'กุ้ง',            icon:'🦐' },
+  { id:'crab',       group:'protein', labelEN:'Crab',       labelTH:'ปู',              icon:'🦀' },
+  { id:'squid',      group:'protein', labelEN:'Squid',      labelTH:'หมึก',            icon:'🦑' },
+  { id:'peanuts',    group:'protein', labelEN:'Peanuts',    labelTH:'ถั่วลิสง',       icon:'🥜' },
+  { id:'soybeans',   group:'protein', labelEN:'Soybeans',   labelTH:'ถั่ว (ถั่วเหลือง/เมล็ดถั่ว)', icon:'🫘' },
+  { id:'milk',       group:'protein', labelEN:'Milk',       labelTH:'นม',             icon:'🥛' },
+  { id:'cheese',     group:'protein', labelEN:'Cheese',     labelTH:'ชีส',            icon:'🧀' },
+  { id:'ham',        group:'protein', labelEN:'Ham',        labelTH:'แฮม/เบคอน',      icon:'🥓' },
+  { id:'sausage',    group:'protein', labelEN:'Sausage',    labelTH:'ไส้กรอก',        icon:'🌭' },
+
+  // Grains (12)
+  { id:'rice',       group:'grains',  labelEN:'Rice',       labelTH:'ข้าวสวย',        icon:'🍚' },
+  { id:'bread',      group:'grains',  labelEN:'Bread',      labelTH:'ขนมปัง',         icon:'🍞' },
+  { id:'noodles',    group:'grains',  labelEN:'Noodles',    labelTH:'ก๋วยเตี๋ยว',     icon:'🍜' },
+  { id:'spaghetti',  group:'grains',  labelEN:'Spaghetti',  labelTH:'สปาเกตตี',       icon:'🍝' },
+  { id:'croissant',  group:'grains',  labelEN:'Croissant',  labelTH:'ครัวซองต์',       icon:'🥐' },
+  { id:'pancake',    group:'grains',  labelEN:'Pancake',    labelTH:'แพนเค้ก',         icon:'🥞' },
+  { id:'burrito',    group:'grains',  labelEN:'Burrito',    labelTH:'เบอร์ริโต',       icon:'🌯' },
+  { id:'sandwich',   group:'grains',  labelEN:'Sandwich',   labelTH:'แซนด์วิช',        icon:'🥪' },
+  { id:'taco',       group:'grains',  labelEN:'Taco',       labelTH:'ทาโก้',           icon:'🌮' },
+  { id:'pie',        group:'grains',  labelEN:'Pie',        labelTH:'พาย',             icon:'🥧' },
+  { id:'cookie',     group:'grains',  labelEN:'Cookie',     labelTH:'คุกกี้',          icon:'🍪' },
+  { id:'donut',      group:'grains',  labelEN:'Donut',      labelTH:'โดนัท',           icon:'🍩' },
+];
+
+// ---------- Internal state (per play) ----------
+const ST = {
+  lang: 'TH',
+  targetId: 'fruits',
+  need: 4,    // ต้องเก็บให้ครบกี่ชิ้นก่อนสลับหมวด
+  got: 0,
+  lastSwitchAt: 0,
+};
+
+// ---------- Public API expected by main.js ----------
+export function init(gameState, hud, diff){
+  // ตั้งค่าโควตาตามความยาก
+  const d = (gameState?.difficulty)||'Normal';
+  ST.need = d==='Easy' ? 3 : d==='Hard' ? 5 : 4;
+  ST.got = 0;
+
+  // ภาษา (อ่านจาก localStorage ผ่าน main.js แล้วตั้งใน coach)
+  ST.lang = (localStorage.getItem('hha_lang')||'TH');
+
+  // สุ่มหมวดเริ่มต้นและโชว์ป้ายเป้าหมายใน HUD
+  ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
+  showTargetHUD(true);
+  updateTargetBadge();
+}
+
+export function cleanup(){
+  // ซ่อนป้ายเป้าหมายเมื่อออกจากโหมด
+  showTargetHUD(false);
+}
+
+export function tick(state, systems, hud){
+  // หากนานเกิน 15 วินาทีแล้วยังไม่ครบโควตา — ช่วยปรับโอกาสสุ่มหรือสลับหมวด
+  // (ที่นี่ปล่อยให้เล่นตามธรรมชาติพอ; ถ้าต้อง want: setTimeout เปลี่ยนหมวดได้)
+}
+
+// ให้ main.js เรียกทุกครั้งที่สไปว์นหนึ่งชิ้น ต้องคืน meta ของชิ้นนั้น
+export function pickMeta(diff, gameState){
+  // เพิ่มโอกาสให้ “ชิ้นหมวดเป้าหมาย” โผล่มากกว่าหมวดอื่น
+  const probTarget = 0.58; // ปรับได้ 0.5–0.7
+  const pickTarget = Math.random() < probTarget;
+
+  const pool = pickTarget
+    ? ITEMS.filter(i=>i.group===ST.targetId)
+    : ITEMS.filter(i=>i.group!==ST.targetId);
+
+  const it = pool[(Math.random()*pool.length)|0];
+
+  return {
+    id: it.id,
+    char: it.icon,
+    good: (it.group===ST.targetId),
+    life: diff?.life || 3000, // อายุบนจอ
+  };
+}
+
+// ถูกคลิกหนึ่งชิ้น → คืนผลลัพธ์แบบ goodjunk: 'good'|'perfect'|'ok'|'bad'|'power'
+export function onHit(meta, systems, gameState, hud){
+  if (meta.good){
+    ST.got++;
+    updateTargetBadge();
+    systems.coach?.say?.(t('ใช่เลย!', 'Nice!', ST.lang));
+    if (ST.got >= ST.need){
+      // เคลียร์โควตา → สลับหมวดใหม่
+      ST.got = 0;
+      ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
+      updateTargetBadge();
+      systems.sfx?.play?.('powerup');
+      systems.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
+    }
+    // ได้คะแนนประเภท "good" ให้ main.js จัดคอมโบ/ฟีเวอร์เอง
+    return 'good';
+  }
+  // กดผิดหมวด
+  systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
+  return 'bad';
+}
+
+// ---------- HUD helpers ----------
+function showTargetHUD(show){
+  const wrap = document.getElementById('targetWrap');
+  if (wrap) wrap.style.display = show ? 'block' : 'none';
+}
+function updateTargetBadge(){
+  const g = GROUPS.find(x=>x.id===ST.targetId);
+  const badge = document.getElementById('targetBadge');
+  if (badge){
+    badge.textContent = t(g.labelTH, g.labelEN, ST.lang) + `  (${ST.got}/${ST.need})`;
+    badge.style.fontWeight = '800';
+  }
+  const tLabel = document.getElementById('t_target');
+  if (tLabel) tLabel.textContent = t('หมวด', 'Target', ST.lang);
+}
+
+// ---------- utils ----------
+function t(th, en, lang){ return lang==='EN' ? en : th; }
+function pickDifferent(list, prev){
+  if (!prev) return list[(Math.random()*list.length)|0];
+  const cand = list.filter(x=>x!==prev);
+  return cand.length? cand[(Math.random()*cand.length)|0] : prev;
+}
