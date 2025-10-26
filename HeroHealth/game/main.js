@@ -62,8 +62,7 @@ const state = {
   ctx:{}, stats:{good:0, perfect:0, ok:0, bad:0},
   _accHist:[],
   freezeUntil:0,
-  didWarnT10:false,
-  uiMode:false,
+  didWarnT10:false
 };
 
 // ----- UI -----
@@ -246,7 +245,6 @@ function shatter3D(x,y){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
-    the:; // (no-op label removed if you like)
     const dist= 60 + Math.random()*110;
     const tx = Math.cos(ang)*dist;
     const ty = Math.sin(ang)*dist;
@@ -279,7 +277,7 @@ function shatter3D(x,y){
 
 // ----- Spawn one -----
 function spawnOnce(diff){
-  if (!state.running || state.paused || state.uiMode) return;
+  if (!state.running || state.paused) return;
 
   const now = performance?.now?.()||Date.now();
   if (state.freezeUntil && now < state.freezeUntil){
@@ -305,6 +303,7 @@ function spawnOnce(diff){
 
   add3DTilt(el);
 
+  // position (anti-overlap)
   let pos = randPos(), tries=0;
   while (tries++<12 && overlapped(pos.left,pos.top)) pos = randPos();
   el.style.left = pos.left+'px';
@@ -343,16 +342,16 @@ function spawnOnce(diff){
   document.body.appendChild(el);
   LIVE.add(el);
 
-  // Sticky support: ถ้า meta.sticky === true จะไม่ตั้ง TTL ให้หายเอง
-  const ttl = (meta && meta.sticky) ? 0 : (meta.life || diff.life || 3000);
-  if (ttl > 0){
-    setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
-  }
+  // ALWAYS TTL: โผล่มาแล้วหายเองทุกไอคอน (ไม่มี sticky defense)
+  const ttl = (meta && typeof meta.life === 'number') ? meta.life
+            : (diff && typeof diff.life === 'number') ? diff.life
+            : 3000;
+  setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
 // ----- Spawn loop (adaptive) -----
 function spawnLoop(){
-  if (!state.running || state.paused || state.uiMode) return;
+  if (!state.running || state.paused) return;
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -435,33 +434,16 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  const mode = MODES[state.modeKey];
-  const modeRoot = document.getElementById('modeRoot');
-  if (mode?.enter && modeRoot){
-    state.uiMode = true;
-    modeRoot.innerHTML = '';
-    try{
-      mode.enter(modeRoot, { language: state.lang==='EN'?'EN':'TH', durationSec: state.timeLeft });
-    }catch(e){ console.error('[HHA] enter:', e); }
-  } else {
-    state.uiMode = false;
-  }
-
   tick();
-  if (!state.uiMode) spawnLoop();
+  spawnLoop();
 }
 
 function end(silent=false){
   state.running=false; state.paused=false;
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
-
-  try{ MODES[state.modeKey]?.exit?.(); }catch{}
-  const modeRoot = document.getElementById('modeRoot');
-  if (modeRoot) modeRoot.innerHTML = '';
-  state.uiMode = false;
-
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
+  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
   if (!silent){
@@ -497,16 +479,13 @@ function end(silent=false){
 
 // ----- Events -----
 document.addEventListener('pointerup', (e)=>{
-  if (state.uiMode && MODES[state.modeKey]?.handleDomAction){
-    try { MODES[state.modeKey].handleDomAction(e.target); } catch {}
-  }
-
-  const btn = byAction(e.target);
+  const btn = byAction(e.target); 
   if(!btn) return;
 
-  const a = btn.getAttribute('data-action');
+  const a = btn.getAttribute('data-action'); 
   const v = btn.getAttribute('data-value');
 
+  // รองรับรูปแบบ ui:start:* (ตามปุ่มใน index.html)
   if (a && a.startsWith('ui:start:')){
     const key = a.split(':')[2];
     if (MODES[key]){
@@ -517,49 +496,50 @@ document.addEventListener('pointerup', (e)=>{
     return;
   }
 
-  if (a === 'mode'){
-    state.modeKey = v;
-    applyUI();
-    if (state.running) start();
+  // รูปแบบเดิม
+  if (a === 'mode'){ 
+    state.modeKey = v; 
+    applyUI(); 
+    if (state.running) start(); 
   }
-  else if (a === 'diff'){
-    state.difficulty = v;
-    applyUI();
-    if (state.running) start();
+  else if (a === 'diff'){ 
+    state.difficulty = v; 
+    applyUI(); 
+    if (state.running) start(); 
   }
-  else if (a === 'start'){
-    start();
+  else if (a === 'start'){ 
+    start(); 
   }
   else if (a === 'pause'){
     if (!state.running){ start(); return; }
     state.paused = !state.paused;
-    if (!state.paused){
-      tick();
-      if(!state.uiMode) spawnLoop();
-    } else {
-      clearTimeout(state.tickTimer);
-      clearTimeout(state.spawnTimer);
+    if (!state.paused){ 
+      tick(); 
+      spawnLoop(); 
+    } else { 
+      clearTimeout(state.tickTimer); 
+      clearTimeout(state.spawnTimer); 
     }
   }
-  else if (a === 'restart'){
-    end(true);
-    start();
+  else if (a === 'restart'){ 
+    end(true); 
+    start(); 
   }
-  else if (a === 'help'){
-    const m=$('#help');
-    if (m) m.style.display='flex';
+  else if (a === 'help'){ 
+    const m=$('#help'); 
+    if (m) m.style.display='flex'; 
   }
-  else if (a === 'helpClose'){
-    const m=$('#help');
-    if (m) m.style.display='none';
+  else if (a === 'helpClose'){ 
+    const m=$('#help'); 
+    if (m) m.style.display='none'; 
   }
-  else if (a === 'helpScene'){
-    const hs=$('#helpScene');
-    if (hs) hs.style.display='flex';
+  else if (a === 'helpScene'){ 
+    const hs=$('#helpScene'); 
+    if (hs) hs.style.display='flex'; 
   }
-  else if (a === 'helpSceneClose'){
-    const hs=$('#helpScene');
-    if (hs) hs.style.display='none';
+  else if (a === 'helpSceneClose'){ 
+    const hs=$('#helpScene'); 
+    if (hs) hs.style.display='none'; 
   }
 }, {passive:true});
 
