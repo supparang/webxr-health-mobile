@@ -191,9 +191,9 @@ function spawnOnce(diff){
   el.style.transition = 'transform .15s, filter .15s';
   el.style.zIndex = '80';
 
-  // hover scale (optional)
-  el.addEventListener('pointerenter', ()=> el.style.transform = 'scale(1.18)'));
-  el.addEventListener('pointerleave', ()=> el.style.transform = 'scale(1)'));
+  // hover scale (fixed: remove extra ')')
+  el.addEventListener('pointerenter', ()=> el.style.transform = 'scale(1.18)');
+  el.addEventListener('pointerleave', ()=> el.style.transform = 'scale(1)');
 
   // safe area (avoid header & menu)
   const headerH = $('header.brand')?.offsetHeight || 56;
