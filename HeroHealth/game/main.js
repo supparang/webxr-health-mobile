@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (global presets + More toggle + powerbar→groups.powers) ===
+// === Hero Health Academy — main.js (Power-ups wired to groups + cooldown UI) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -10,39 +10,15 @@ import { SFX } from './core/sfx.js';
 import { ScoreSystem } from './core/score.js';
 import { PowerUpSystem } from './core/powerup.js';
 
-import * as goodjunk from './modes/goodjunk.js';
-import * as groups   from './modes/groups.js';
-import * as hydration from './modes/hydration.js';
-import * as plate    from './modes/plate.js';
+import * as goodjunk   from './modes/goodjunk.js';
+import * as groups     from './modes/groups.js';
+import * as hydration  from './modes/hydration.js';
+import * as plate      from './modes/plate.js';
 
 // ----- Helpers -----
 const $  = (s)=>document.querySelector(s);
 const byAction = (el)=>el?.closest?.('[data-action]')||null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
-
-// ----- Presets -----
-const PRESETS = {
-  ClassroomEasy: {
-    DIFFS: { Easy:{time:80, spawn:900, life:4500}, Normal:{time:70, spawn:800, life:3800}, Hard:{time:60, spawn:650, life:2600} },
-    defaultDiff: 'Easy', note: 'เล่นง่าย เหมาะสอน'
-  },
-  TrainerBalanced: {
-    DIFFS: { Easy:{time:75, spawn:820, life:3800}, Normal:{time:70, spawn:700, life:3000}, Hard:{time:55, spawn:560, life:2000} },
-    defaultDiff: 'Normal', note: 'สมดุล + ปรับตามฝีมือ'
-  },
-  ArcadeFast: {
-    DIFFS: { Easy:{time:70, spawn:760, life:2800}, Normal:{time:60, spawn:560, life:2400}, Hard:{time:50, spawn:460, life:1700} },
-    defaultDiff: 'Hard', note: 'เร็ว เร้าใจ'
-  }
-};
-function mergePreset(name){
-  const p = PRESETS[name] || PRESETS.TrainerBalanced;
-  DIFFS.Easy   = { ...DIFFS.Easy,   ...p.DIFFS.Easy   };
-  DIFFS.Normal = { ...DIFFS.Normal, ...p.DIFFS.Normal };
-  DIFFS.Hard   = { ...DIFFS.Hard,   ...p.DIFFS.Hard   };
-  localStorage.setItem('hha_preset', name);
-  return p;
-}
 
 // ----- Config -----
 const MODES = { goodjunk, groups, hydration, plate };
@@ -51,8 +27,8 @@ const DIFFS = {
   Normal: { time: 60, spawn: 700, life: 3000 },
   Hard:   { time: 50, spawn: 550, life: 1800 }
 };
-const IS_MOBILE = /Mobi|Android/i.test(navigator.userAgent);
-const ICON_SIZE_MAP = IS_MOBILE ? { Easy:108, Normal:88, Hard:72 } : { Easy:92, Normal:72, Hard:58 };
+
+const ICON_SIZE_MAP = { Easy:92, Normal:72, Hard:58 };
 const MAX_ITEMS = 10;
 const LIVE = new Set();
 
@@ -103,16 +79,40 @@ function updateHUD(){
 }
 
 // ----- Fever -----
-function setFeverBar(pct){ const bar = $('#feverBar'); if (bar) bar.style.width = Math.max(0,Math.min(100,pct|0))+'%'; }
-function showFeverLabel(show){ const f = $('#fever'); if(f){ f.style.display = show?'block':'none'; f.classList.toggle('pulse', !!show);} }
-function startFever(){ if (state.fever.active) return; state.fever.active = true; state.fever.timeLeft = 7; showFeverLabel(true); coach.onFever?.(); try{ $('#sfx-powerup')?.play(); }catch{} }
-function stopFever(){ if (!state.fever.active) return; state.fever.active = false; state.fever.timeLeft = 0; showFeverLabel(false); coach.onFeverEnd?.(); }
+function setFeverBar(pct){
+  const bar = $('#feverBar'); if (!bar) return;
+  bar.style.width = Math.max(0,Math.min(100,pct|0))+'%';
+}
+function showFeverLabel(show){
+  const f = $('#fever'); if(!f) return;
+  f.style.display = show?'block':'none';
+  f.classList.toggle('pulse', !!show);
+}
+function startFever(){
+  if (state.fever.active) return;
+  state.fever.active = true;
+  state.fever.timeLeft = 7;
+  showFeverLabel(true);
+  coach.onFever?.();
+  try{ $('#sfx-powerup')?.play(); }catch{}
+}
+function stopFever(){
+  if (!state.fever.active) return;
+  state.fever.active = false;
+  state.fever.timeLeft = 0;
+  showFeverLabel(false);
+  coach.onFeverEnd?.();
+}
 
 // ----- Score FX -----
 function makeScoreBurst(x,y,text,minor,color){
   const el = document.createElement('div');
   el.className='scoreBurst';
-  el.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);font:900 20px/1.2 ui-rounded,system-ui,Arial;color:${color||'#7fffd4'};text-shadow:0 2px 6px #000c;z-index:120;pointer-events:none;opacity:0;translate:0 6px;transition:opacity .22s, translate .22s;`;
+  el.style.cssText = `
+    position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+    font:900 20px/1.2 ui-rounded,system-ui,Arial;color:${color||'#7fffd4'};
+    text-shadow:0 2px 6px #000c;z-index:120;pointer-events:none;opacity:0;translate:0 6px;
+    transition:opacity .22s, translate .22s;`;
   el.textContent = text;
   if (minor){
     const m = document.createElement('div');
@@ -125,7 +125,12 @@ function makeScoreBurst(x,y,text,minor,color){
 }
 function makeFlame(x,y,strong){
   const el = document.createElement('div');
-  el.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);width:${strong?72:56}px;height:${strong?72:56}px;border-radius:50%;background:radial-gradient(closest-side,#ffd54a,#ff6d00);mix-blend-mode:screen;filter:blur(8px) brightness(1.1);opacity:.9;z-index:110;pointer-events:none;animation:flamePop .5s ease-out forwards;`;
+  el.style.cssText = `
+    position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+    width:${strong?72:56}px;height:${strong?72:56}px;border-radius:50%;
+    background:radial-gradient(closest-side,#ffd54a,#ff6d00);
+    mix-blend-mode:screen;filter:blur(8px) brightness(1.1);opacity:.9;z-index:110;
+    pointer-events:none;animation:flamePop .5s ease-out forwards;`;
   document.body.appendChild(el);
   setTimeout(()=>{ try{el.remove();}catch{} }, 520);
 }
@@ -148,7 +153,7 @@ function scoreWithEffects(base,x,y){
   if (state.fever.active) makeFlame(x,y,total>=10);
 }
 
-// ----- Bounds / overlap -----
+// ----- Safe area & overlap -----
 function safeBounds(){
   const headerH = $('header.brand')?.offsetHeight || 56;
   const menuH   = $('#menuBar')?.offsetHeight || 120;
@@ -160,15 +165,7 @@ function safeBounds(){
 }
 function randPos(){
   const {xMin,xMax,yMin,yMax} = safeBounds();
-  const u = Math.random(), v = Math.random();
-  const nx = xMin + u*(xMax-xMin);
-  const ny = yMin + v*(yMax-yMin);
-  const cx = (xMin + xMax)/2, cy = (yMin + yMax)/2;
-  const bias = 0.55;
-  return {
-    left: nx*(1-bias) + cx*bias + (Math.random()*40-20),
-    top:  ny*(1-bias) + cy*bias + (Math.random()*40-20)
-  };
+  return { left: xMin + Math.random()*(xMax-xMin), top: yMin + Math.random()*(yMax-yMin) };
 }
 function overlapped(x,y){
   for (const n of LIVE){
@@ -180,7 +177,7 @@ function overlapped(x,y){
   return false;
 }
 
-// ----- 3D FX infra -----
+// ----- 3D FX root -----
 function ensureFXRoot(){
   let root = document.querySelector('.fx3d-root');
   if (!root){
@@ -211,27 +208,35 @@ function add3DTilt(el){
   el.addEventListener('pointerleave', clear, {passive:true});
   el.addEventListener('pointerup', clear, {passive:true});
 }
+
 function shatter3D(x,y){
   const ring = document.createElement('div');
   ring.className='burstRing'; ring.style.left=x+'px'; ring.style.top=y+'px';
   FXROOT.appendChild(ring);
   ring.style.animation='ringOut .45s ease-out forwards';
   setTimeout(()=>{ try{ ring.remove(); }catch{} }, 500);
+
   const N = 12 + (Math.random()*6|0);
   for (let i=0;i<N;i++){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
     const dist= 60 + Math.random()*110;
-    const tx = Math.cos(ang)*dist, ty = Math.sin(ang)*dist;
-    const tz = (Math.random()*2-1)*160, rot= (Math.random()*720-360)+'deg';
-    s.style.setProperty('--x0','-50%'); s.style.setProperty('--y0','-50%');
-    s.style.setProperty('--x1', tx+'px'); s.style.setProperty('--y1', ty+'px');
-    s.style.setProperty('--z1', tz+'px'); s.style.setProperty('--rot', rot);
+    const tx = Math.cos(ang)*dist;
+    const ty = Math.sin(ang)*dist;
+    const tz = (Math.random()*2-1)*160;
+    const rot= (Math.random()*720-360)+'deg';
+    s.style.setProperty('--x0','-50%');
+    s.style.setProperty('--y0','-50%');
+    s.style.setProperty('--x1', tx+'px');
+    s.style.setProperty('--y1', ty+'px');
+    s.style.setProperty('--z1', tz+'px');
+    s.style.setProperty('--rot', rot);
     FXROOT.appendChild(s);
     s.style.animation=`shardFly .48s ease-out forwards`;
     setTimeout(()=>{ try{ s.remove(); }catch{} }, 560);
   }
+
   const SP = 8 + (Math.random()*6|0);
   for (let i=0;i<SP;i++){
     const p=document.createElement('div'); p.className='spark';
@@ -250,8 +255,8 @@ function shatter3D(x,y){
 function spawnOnce(diff){
   if (!state.running || state.paused) return;
 
-  const now = performance?.now?.()||Date.now();
-  if (state.freezeUntil && now < state.freezeUntil){
+  const nowMs = performance?.now?.()||Date.now();
+  if (state.freezeUntil && nowMs < state.freezeUntil){
     state.spawnTimer = setTimeout(()=>spawnOnce(diff), 120);
     return;
   }
@@ -267,14 +272,14 @@ function spawnOnce(diff){
   el.className='item'; el.type='button';
   el.textContent = meta.char || '❓';
   const px = ICON_SIZE_MAP[state.difficulty] || 72;
-  el.style.cssText = `position:fixed;border:none;background:transparent;color:#fff;cursor:pointer;z-index:80;line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;transform:perspective(600px) rotateX(0) rotateY(0);`;
+  el.style.cssText = `
+    position:fixed;border:none;background:transparent;color:#fff;cursor:pointer;z-index:80;
+    line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;
+    transform:perspective(600px) rotateX(0) rotateY(0);`;
 
-  // ถ้าเป็น decoy ให้ติดคลาสบอกใบ้ (สไตล์ใน game.css)
   if (meta.decoy) el.classList.add('decoy-hint');
-
   add3DTilt(el);
 
-  // position (anti-overlap)
   let pos = randPos(), tries=0;
   while (tries++<12 && overlapped(pos.left,pos.top)) pos = randPos();
   el.style.left = pos.left+'px';
@@ -313,7 +318,9 @@ function spawnOnce(diff){
   document.body.appendChild(el);
   LIVE.add(el);
 
-  const ttl = (typeof meta.life === 'number') ? meta.life : (typeof diff.life === 'number') ? diff.life : 3000;
+  const ttl = (typeof meta.life === 'number') ? meta.life
+            : (typeof diff.life === 'number') ? diff.life
+            : 3000;
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
@@ -322,6 +329,7 @@ function spawnLoop(){
   if (!state.running || state.paused) return;
 
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+
   const total = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accNow = total>0 ? (state.stats.good + state.stats.perfect)/total : 1;
   state._accHist.push(accNow); if (state._accHist.length>8) state._accHist.shift();
@@ -335,7 +343,7 @@ function spawnLoop(){
   };
 
   spawnOnce(dyn);
-  const next = Math.max(220, dyn.spawn * (power.timeScale || 1));
+  const next = Math.max(220, dyn.spawn);
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
@@ -398,8 +406,13 @@ async function runCountdown(sec=5){
     ov.appendChild(b); document.body.appendChild(ov);
   }
   const b = $('#cdNum');
-  for (let n=sec;n>0;n--){ b.textContent = n; coach.onCountdown?.(n); await new Promise(r=>setTimeout(r, 1000)); }
-  b.textContent='Go!'; await new Promise(r=>setTimeout(r, 500));
+  for (let n=sec;n>0;n--){
+    b.textContent = n;
+    coach.onCountdown?.(n);
+    await new Promise(r=>setTimeout(r, 1000));
+  }
+  b.textContent='Go!';
+  await new Promise(r=>setTimeout(r, 500));
   try{ ov.remove(); }catch{}
 }
 
@@ -420,7 +433,8 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  tick(); spawnLoop();
+  tick();
+  spawnLoop();
 }
 
 function end(silent=false){
@@ -434,14 +448,25 @@ function end(silent=false){
     const modal = $('#result');
     if (modal){
       modal.style.display='flex';
+
       const total = score.score|0;
       const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
       const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
       const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
-      const resCore = `<div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div><div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
-      const resBreak = `<div style="margin-top:12px;text-align:left;font-weight:700">✅ ดี: ${state.stats.good}<br/>🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>😐 ปกติ: ${state.stats.ok}<br/>❌ พลาด: ${state.stats.bad}</div>`;
+
+      const resCore = `
+        <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
+        <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
+      const resBreak = `
+        <div style="margin-top:12px;text-align:left;font-weight:700">
+          ✅ ดี: ${state.stats.good}<br/>
+          🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
+          😐 ปกติ: ${state.stats.ok}<br/>
+          ❌ พลาด: ${state.stats.bad}
+        </div>`;
       const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
-      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
+
+      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard'];
       if (coreEl) coreEl.innerHTML = resCore;
       if (brEl)   brEl.innerHTML   = resBreak;
       if (bdEl)   bdEl.innerHTML   = resBoard;
@@ -450,38 +475,24 @@ function end(silent=false){
   }
 }
 
-// ----- Events -----
+// ----- Global UI Events -----
 document.addEventListener('pointerup', (e)=>{
-  const btn = byAction(e.target);
+  const target = e.target;
+  const btn = byAction(target);
   const a = btn?.getAttribute('data-action') || '';
 
-  // Toggle More row
-  if (a === 'ui:togglePresets'){
-    const row = $('#presetRow');
-    if (row){
-      const show = row.style.display === 'none';
-      row.style.display = show ? 'flex' : 'none';
-      btn.setAttribute('aria-expanded', show ? 'true' : 'false');
+  // ui:start:* โหมด
+  if (a.startsWith('ui:start:')){
+    const key = a.split(':')[2];
+    if (MODES[key]){
+      state.modeKey = key;
+      applyUI();
+      start();
     }
     return;
   }
-  // Apply preset
-  if (a.startsWith('ui:preset:')){
-    const key = a.split(':')[2];
-    const p = mergePreset(key);
-    state.difficulty = p.defaultDiff || state.difficulty;
-    applyUI();
-    if (state.running) start();
-    return;
-  }
-  if(!btn) return;
 
-  // Start mode buttons (ui:start:*)
-  if (a.startsWith('ui:start:')){
-    const key = a.split(':')[2];
-    if (MODES[key]){ state.modeKey = key; applyUI(); start(); }
-    return;
-  }
+  if(!btn) return;
 
   if (a === 'mode'){ state.modeKey = btn.getAttribute('data-value'); applyUI(); if (state.running) start(); }
   else if (a === 'diff'){ state.difficulty = btn.getAttribute('data-value'); applyUI(); if (state.running) start(); }
@@ -499,47 +510,135 @@ document.addEventListener('pointerup', (e)=>{
   else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
-// Powerbar → groups.powers
-const powerBar = $('#powerBar');
-if (powerBar){
-  const blink = (seg)=>{
-    seg.classList.add('active');
-    const i = seg.querySelector('i'); if (i){ i.style.transform='scaleY(1)'; setTimeout(()=>{ i.style.transform='scaleY(0)'; }, 400); }
-    setTimeout(()=>seg.classList.remove('active'), 420);
-  };
-  powerBar.addEventListener('pointerup', (e)=>{
-    const seg = e.target.closest('.pseg'); if (!seg) return;
-    if (!state.running || state.paused) return;
-    const k = seg.getAttribute('data-k');
+// ----- Power-ups click handler (top-left, works for groups powers) -----
+(function wirePowers(){
+  const bar = $('#powerBar');
+  if (!bar) return;
 
-    if (state.modeKey==='groups' && groups?.powers){
-      if (k==='freeze'){ groups.powers.freezeTarget(); coach.say?.(state.lang==='EN'?'Freeze target timer!':'หยุดเวลาหมวด!'); }
-      else if (k==='sweep'){ groups.powers.magnetNext(); coach.say?.(state.lang==='EN'?'Magnet next hit!':'แม่เหล็กชิ้นถัดไป!'); }
-      else if (k==='x2'){ groups.powers.x2Target(); coach.say?.(state.lang==='EN'?'x2 target points!':'คะแนนเป้าหมาย x2!'); }
-      try{ $('#sfx-powerup')?.play(); }catch{}
-      blink(seg);
-    } else {
-      coach.say?.(state.lang==='EN'?'Use in Food Group Frenzy':'ใช้ได้ในโหมด จาน 5 หมู่');
+  // ปรับไอคอน "sweep" เป็นแม่เหล็กด้วยสคริปต์ (ถ้าหน้า HTML ยังเป็น 🧹)
+  const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
+  if (sweep) sweep.textContent = '🧲';
+
+  const COOLDOWNS = { x2:12000, freeze:9000, sweep:8000 }; // ms
+  const DURATIONS = (() => {
+    const m = MODES['groups'];
+    if (m?.getPowerDurations) {
+      const info = m.getPowerDurations();
+      return {
+        x2: (info?.x2||8)*1000,
+        freeze: (info?.freeze||3)*1000,
+        sweep: (info?.magnet||0)*1000
+      };
     }
+    return { x2:8000, freeze:3000, sweep:0 };
+  })();
+
+  const lastUsed = { x2:0, freeze:0, sweep:0 };
+
+  function segEl(k){ return bar.querySelector(`.pseg[data-k="${k}"]`); }
+
+  function animateCD(k, dur){
+    const el = segEl(k); if (!el) return;
+    el.setAttribute('aria-disabled','true');
+    el.classList.add('busy');
+    const fill = el.querySelector('i');
+    if (fill){ fill.style.height = '100%'; }
+
+    const t0 = performance.now();
+    const tick = ()=>{
+      const t = performance.now() - t0;
+      const pct = 1 - Math.min(1, t/dur);
+      if (fill) fill.style.height = (pct*100)+'%';
+      if (t < dur) requestAnimationFrame(tick);
+      else {
+        el.classList.remove('busy');
+        el.removeAttribute('aria-disabled');
+        if (fill) fill.style.height = '0%';
+        el.classList.add('ready');
+        setTimeout(()=>el.classList.remove('ready'), 400);
+      }
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function usePower(k){
+    const now = performance.now();
+    if (now - lastUsed[k] < (COOLDOWNS[k]||0)) return;
+
+    const mode = MODES[state.modeKey];
+    const isGroups = (state.modeKey === 'groups' && mode?.powers);
+    if (!isGroups) return; // ตอนนี้รองรับโหมด groups
+
+    // map ปุ่ม -> ฟังก์ชันใน groups.powers
+    if (k==='x2'){ mode.powers.x2Target?.(); }
+    if (k==='freeze'){ mode.powers.freezeTarget?.(); }
+    if (k==='sweep'){ mode.powers.magnetNext?.(); }
+
+    try{ sfx.play('sfx-powerup'); }catch{}
+    lastUsed[k] = now;
+    animateCD(k, COOLDOWNS[k]||0);
+  }
+
+  bar.addEventListener('click', (e)=>{
+    const seg = e.target.closest('.pseg'); if (!seg) return;
+    const k = seg.getAttribute('data-k');
+    if (!k) return;
+    // แสดงความยาว “ทำงานอยู่” บางตัว
+    const dur = DURATIONS[k] || 0;
+    if (dur>0){ animateCD(k, dur); }
+    usePower(k);
   }, {passive:true});
+})();
+
+// Result modal buttons
+const resEl = $('#result');
+if (resEl){
+  resEl.addEventListener('click', (e)=>{
+    const a = e.target.getAttribute('data-result');
+    if (a==='replay'){ resEl.style.display='none'; start(); }
+    if (a==='home'){ resEl.style.display='none'; end(true); }
+  });
 }
 
 // Toggles
-$('#langToggle')?.addEventListener('click', ()=>{ state.lang = state.lang==='TH' ? 'EN' : 'TH'; localStorage.setItem('hha_lang', state.lang); coach.setLang?.(state.lang); applyUI(); }, {passive:true});
-$('#gfxToggle')?.addEventListener('click', ()=>{ state.gfx = state.gfx==='low' ? 'quality' : 'low'; localStorage.setItem('hha_gfx', state.gfx); try{ eng.renderer.setPixelRatio(state.gfx==='low'?0.75:(window.devicePixelRatio||1)); }catch{} }, {passive:true});
-$('#soundToggle')?.addEventListener('click', ()=>{ const on = localStorage.getItem('hha_sound') !== '0'; const nxt = !on; localStorage.setItem('hha_sound', nxt?'1':'0'); sfx.setEnabled?.(nxt); $('#soundToggle').textContent = nxt ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด'; if (nxt){ try{ sfx.play('sfx-good'); }catch{} } }, {passive:true});
-$('#hapticToggle')?.addEventListener('click', ()=>{ state.haptic = !state.haptic; localStorage.setItem('hha_haptic', state.haptic?'1':'0'); $('#hapticToggle').textContent = state.haptic ? '📳 สั่น: เปิด' : '📴 สั่น: ปิด'; }, {passive:true});
+$('#langToggle')?.addEventListener('click', ()=>{
+  state.lang = state.lang==='TH' ? 'EN' : 'TH';
+  localStorage.setItem('hha_lang', state.lang);
+  coach.setLang?.(state.lang);
+  applyUI();
+}, {passive:true});
+
+$('#gfxToggle')?.addEventListener('click', ()=>{
+  state.gfx = state.gfx==='low' ? 'quality' : 'low';
+  localStorage.setItem('hha_gfx', state.gfx);
+  try{ eng.renderer.setPixelRatio(state.gfx==='low'?0.75:(window.devicePixelRatio||1)); }catch{}
+}, {passive:true});
+
+$('#soundToggle')?.addEventListener('click', ()=>{
+  const on = localStorage.getItem('hha_sound') !== '0';
+  const nxt = !on;
+  localStorage.setItem('hha_sound', nxt?'1':'0');
+  sfx.setEnabled?.(nxt);
+  $('#soundToggle').textContent = nxt ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
+  if (nxt){ try{ sfx.play('sfx-good'); }catch{} }
+}, {passive:true});
+
+$('#hapticToggle')?.addEventListener('click', ()=>{
+  state.haptic = !state.haptic;
+  localStorage.setItem('hha_haptic', state.haptic?'1':'0');
+  $('#hapticToggle').textContent = state.haptic ? '📳 สั่น: เปิด' : '📴 สั่น: ปิด';
+}, {passive:true});
 
 // Auto pause
-document.addEventListener('visibilitychange', ()=>{ if (document.hidden && state.running && !state.paused){ state.paused = true; clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }});
+document.addEventListener('visibilitychange', ()=>{
+  if (document.hidden && state.running && !state.paused){
+    state.paused = true;
+    clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
+  }
+});
 
 // Unlock audio
 window.addEventListener('pointerdown', ()=>{ try{ sfx.unlock(); }catch{} }, {once:true, passive:true});
 
 // Boot
-(function boot(){
-  const saved = localStorage.getItem('hha_preset') || 'TrainerBalanced';
-  const p = mergePreset(saved);
-  state.difficulty = p.defaultDiff || 'Normal';
-  applyUI(); updateHUD();
-})();
+applyUI(); updateHUD();
