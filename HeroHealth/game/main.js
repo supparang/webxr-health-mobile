@@ -412,10 +412,19 @@ function bindUI() {
   help?.addEventListener('click', (e)=>{ if (e.target === help) help.style.display='none'; });
 
   // Help Scene
-  const helpScene = $('#helpScene');
-  $('#btn_helpScene')?.addEventListener('click', ()=>{ if(helpScene) helpScene.style.display='flex'; });
-  $('#btn_helpSceneClose')?.addEventListener('click', ()=>{ if(helpScene) helpScene.style.display='none'; });
-  helpScene?.addEventListener('click', (e)=>{ if(e.target===helpScene) helpScene.style.display='none'; });
+const hsOpen  = document.querySelector('[data-action="helpScene"]');
+const hsClose = document.querySelector('[data-action="helpSceneClose"]');
+const hs      = document.getElementById('helpScene');
+
+hsOpen?.addEventListener('click',  () => {
+  renderHelpScene();                  // เติมเนื้อหาก่อนแสดง
+  if (hs) hs.style.display = 'flex';
+});
+
+hsClose?.addEventListener('click', () => { if (hs) hs.style.display = 'none'; });
+
+hs?.addEventListener('click', (e) => { if (e.target === hs) hs.style.display = 'none'; });
+
 
   // Result modal buttons (รีเพลย์/โฮม)
   const result = $('#result');
