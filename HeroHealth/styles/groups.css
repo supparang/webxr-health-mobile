@@ -20,3 +20,38 @@
 .mode-groups .gg-score{ margin-left:auto; display:flex; gap:12px; font-weight:700; }
 .mode-groups .gg-btn.chosen.good { filter: drop-shadow(0 0 10px #2f9e44); }
 .mode-groups .gg-btn.chosen.bad  { filter: drop-shadow(0 0 10px #e03131) saturate(0.6); }
+/* === Target Group layout === */
+.mode-groups.tg { display:grid; gap:10px; }
+.mode-groups.tg .gg-head{
+  display:grid; grid-template-columns: 1fr auto auto; gap:8px; align-items:center;
+}
+.mode-groups.tg .gg-title{ font-weight:800; }
+.mode-groups.tg .gg-meta{ display:flex; gap:8px; align-items:center; }
+.mode-groups.tg .gg-badge{
+  padding:6px 10px; border-radius:999px; color:#fff; font-weight:800; font-size:.95rem;
+  background: var(--targetColor, #666);
+  box-shadow: 0 2px 0 rgba(0,0,0,.18), inset 0 -2px 0 rgba(255,255,255,.08);
+}
+.mode-groups.tg .gg-scorebox{ display:flex; gap:12px; font-weight:800; justify-self:end; }
+.mode-groups.tg .gg-hint{ min-height:1.25em; opacity:.9; }
+.mode-groups.tg .gg-need{ font-weight:600; }
+
+.tg-grid{
+  display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:10px;
+}
+@media (max-width:720px){
+  .tg-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+.gg-cell{
+  display:grid; gap:4px; justify-items:center; padding:10px; border:0; border-radius:14px;
+  background:#1f2937; color:#fff; box-shadow:0 3px 0 rgba(0,0,0,.25);
+  transition: transform .05s ease, filter .2s ease, background .2s ease, opacity .2s ease;
+}
+.gg-cell:active{ transform: translateY(2px); }
+.gg-emoji{ font-size:42px; line-height:1; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+.gg-label{ font-size:.9rem; opacity:.9; }
+
+/* feedback */
+.gg-cell.good{ outline: 2px solid #22c55e; background:#0f3b22; }
+.gg-cell.bad { outline: 2px solid #ef4444; background:#4a1010; }
+.gg-cell.done{ opacity:.9; }
