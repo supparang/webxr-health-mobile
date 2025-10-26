@@ -1,35 +1,403 @@
-// game/main.js — SMOKE TEST (no imports)
-// Goal: clear parser errors, hide red bar, show green chip, and prove <script type="module"> works.
+// === Hero Health Academy — main.js (FULL / STABLE) ===
+// Features:
+// - Icon size auto by difficulty (Easy/Normal/Hard)
+// - Score popup + combo + FEVER (with small "flame" burst)
+// - Centered modals (index.html already styles .modal; we only toggle display)
+// - Safe spawn area (not under header/menu)
+// - No optional chaining to avoid parser issues on older devices
 
-(function () {
-  'use strict';
+// Boot flag for index bootWarn
+try { window.__HHA_BOOT_OK = true; } catch (e) {}
 
-  // Flag for bootloader
-  try { window.__HHA_BOOT_OK = true; } catch (e) {}
+import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+import { Engine } from './core/engine.js';
+import { HUD } from './core/hud.js';
+import { Coach } from './core/coach.js';
+import { SFX } from './core/sfx.js';
+import { ScoreSystem } from './core/score.js';
+import { PowerUpSystem } from './core/powerup.js';
 
-  // Hide red bar if present
-  try {
-    var warn = document.getElementById('bootWarn');
-    if (warn) warn.style.display = 'none';
-  } catch (e) {}
+import * as goodjunk from './modes/goodjunk.js';
+import * as groups from './modes/groups.js';
+import * as hydration from './modes/hydration.js';
+import * as plate from './modes/plate.js';
 
-  // Show success chip (bottom-right)
-  try {
-    var chip = document.createElement('div');
-    chip.textContent = '✅ JS Loaded (smoke)';
-    chip.style.position = 'fixed';
-    chip.style.right = '12px';
-    chip.style.bottom = '12px';
-    chip.style.background = '#2e7d32';
-    chip.style.color = '#fff';
-    chip.style.padding = '6px 10px';
-    chip.style.borderRadius = '8px';
-    chip.style.font = '600 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto';
-    chip.style.zIndex = '99999';
-    document.body.appendChild(chip);
-    setTimeout(function(){ try { chip.remove(); } catch(e){} }, 2000);
-  } catch (e) {}
+// ---------- Helpers ----------
+function $(sel){ return document.querySelector(sel); }
+function setText(sel, txt){ var el=$(sel); if(el) el.textContent = txt; }
+function byAction(el){
+  while (el && el !== document) {
+    if (el.getAttribute && el.hasAttribute('data-action')) return el;
+    el = el.parentNode;
+  }
+  return null;
+}
 
-  // Minimal console confirmation
-  try { console.info('[HHA] Smoke test OK — main.js parsed & executed.'); } catch (e) {}
-})();
+// ---------- Config ----------
+var MODES = { goodjunk:goodjunk, groups:groups, hydration:hydration, plate:plate };
+var DIFFS = {
+  Easy:   { time:70, spawn:900, life:4200 },
+  Normal: { time:60, spawn:700, life:3000 },
+  Hard:   { time:50, spawn:550, life:1800 }
+};
+var ICON_SIZE = { Easy: 92, Normal: 72, Hard: 58 };
+
+var I18N = {
+  TH:{
+    names:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
+    diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'}
+  },
+  EN:{
+    names:{goodjunk:'Good vs Junk', groups:'Food Groups', hydration:'Hydration', plate:'Healthy Plate'},
+    diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'}
+  }
+};
+function T(lang){ return I18N[lang] || I18N.TH; }
+
+// ---------- Systems & State ----------
+var hud   = new HUD();
+var sfx   = new SFX();
+var score = new ScoreSystem();
+var power = new PowerUpSystem();
+var coach = new Coach({ lang: (localStorage.getItem('hha_lang') || 'TH') });
+var eng   = new Engine(THREE, document.getElementById('c'));
+
+var state = {
+  modeKey: 'goodjunk',
+  difficulty: 'Normal',
+  running: false,
+  paused: false,
+  timeLeft: 60,
+  lang: localStorage.getItem('hha_lang') || 'TH',
+  gfx:  localStorage.getItem('hha_gfx')  || 'quality',
+  combo: 0,
+  bestCombo: 0,
+  fever: { active:false, meter:0, drainPerSec:14, chargeGood:10, chargePerfect:20, threshold:100, mul:2, timeLeft:0 },
+  spawnTimer: 0,
+  tickTimer: 0,
+  ctx: {}
+};
+
+// ---------- UI ----------
+function applyUI(){
+  var L = T(state.lang);
+  setText('#modeName',   (L.names[state.modeKey] || state.modeKey));
+  setText('#difficulty', (L.diffs[state.difficulty] || state.difficulty));
+}
+function updateHUD(){
+  if (hud && typeof hud.setScore === 'function') hud.setScore(score.score);
+  if (hud && typeof hud.setTime  === 'function') hud.setTime(state.timeLeft);
+  if (hud && typeof hud.setCombo === 'function') hud.setCombo('x' + state.combo);
+}
+
+// Fever bar & label
+function setFeverBar(pct){
+  var bar = $('#feverBar'); if (!bar) return;
+  var clamped = Math.max(0, Math.min(100, pct|0));
+  bar.style.width = clamped + '%';
+}
+function showFeverLabel(show){
+  var f = $('#fever'); if (!f) return;
+  f.style.display = show ? 'block' : 'none';
+  if (show) f.classList.add('pulse'); else f.classList.remove('pulse');
+}
+function startFever(){
+  if (state.fever.active) return;
+  state.fever.active = true;
+  state.fever.timeLeft = 7;
+  showFeverLabel(true);
+  try{ var a = document.getElementById('sfx-powerup'); if(a && a.play) a.play(); }catch(e){}
+}
+function stopFever(){
+  state.fever.active = false;
+  state.fever.timeLeft = 0;
+  showFeverLabel(false);
+}
+
+// ---------- Score FX (popup & flame) ----------
+function makeScoreBurst(x, y, text, minor, color){
+  var el = document.createElement('div');
+  el.className = 'scoreBurst';
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  el.style.color = color || '#7fffd4';
+  el.style.fontSize = '20px';
+  el.textContent = text;
+  if (minor) {
+    var m = document.createElement('span');
+    m.className = 'minor';
+    m.textContent = minor;
+    el.appendChild(m);
+  }
+  document.body.appendChild(el);
+  setTimeout(function(){ try{ el.remove(); }catch(e){} }, 900);
+}
+function makeFlame(x, y, strong){
+  var el = document.createElement('div');
+  el.className = 'flameBurst' + (strong ? ' strong' : '');
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(function(){ try{ el.remove(); }catch(e){} }, 900);
+}
+
+function scoreWithEffects(base, x, y){
+  var comboMul = state.combo >= 20 ? 1.4 : (state.combo >= 10 ? 1.2 : 1.0);
+  var feverMul = state.fever.active ? state.fever.mul : 1.0;
+  var total = Math.round(base * comboMul * feverMul);
+
+  if (score && typeof score.add === 'function') score.add(total);
+
+  var tag   = total >= 0 ? '+' + total : '' + total;
+  var minor = (comboMul > 1 || feverMul > 1) ? ('x' + comboMul.toFixed(1) + (feverMul>1 ? ' & FEVER' : '')) : '';
+  var color = total >= 0 ? (feverMul>1 ? '#ffd54a' : '#7fffd4') : '#ff9b9b';
+
+  makeScoreBurst(x, y, tag, minor, color);
+  if (state.fever.active) makeFlame(x, y, total >= 10);
+}
+
+// ---------- Combo ----------
+function addCombo(kind){
+  if (kind === 'bad'){
+    state.combo = 0;
+    if (hud && typeof hud.setCombo === 'function') hud.setCombo('x0');
+    return;
+  }
+  if (kind === 'good' || kind === 'perfect'){
+    state.combo++;
+    state.bestCombo = Math.max(state.bestCombo, state.combo);
+    if (hud && typeof hud.setCombo === 'function') hud.setCombo('x' + state.combo);
+
+    if (!state.fever.active){
+      var gain = (kind === 'perfect') ? state.fever.chargePerfect : state.fever.chargeGood;
+      // NOTE: we didn't put chargePerfect in the object earlier; align to chargeGood / chargePerfect names:
+      if (typeof state.fever.chargePerfect !== 'number') state.fever.chargePerfect = 20;
+      if (typeof state.fever.chargeGood !== 'number') state.fever.chargeGood = 10;
+      gain = (kind === 'perfect') ? state.fever.chargePerfect : state.fever.chargeGood;
+
+      state.fever.meter = Math.min(100, state.fever.meter + gain);
+      setFeverBar(state.fever.meter);
+      if (state.fever.meter >= state.fever.threshold) startFever();
+    } else {
+      state.fever.timeLeft = Math.min(10, state.fever.timeLeft + 0.6);
+    }
+  }
+}
+
+// ---------- Spawner ----------
+function spawnOnce(diff){
+  if (!state.running || state.paused) return;
+
+  var mode = MODES[state.modeKey];
+  var meta = {};
+  try { meta = mode && mode.pickMeta ? (mode.pickMeta(diff, state) || {}) : {}; } catch(e){ meta = {}; }
+
+  var el = document.createElement('button');
+  el.className = 'item';
+  el.type = 'button';
+  el.textContent = meta.char || '❓';
+
+  var px = ICON_SIZE[state.difficulty] || 72;
+  el.style.fontSize = px + 'px';
+  el.style.lineHeight = '1';
+  el.style.border = 'none';
+  el.style.background = 'transparent';
+  el.style.color = '#fff';
+  el.style.position = 'fixed';
+  el.style.cursor = 'pointer';
+  el.style.zIndex = '80';
+  el.style.transition = 'transform .15s, filter .15s, opacity .15s';
+  el.addEventListener('pointerenter', function(){ el.style.transform = 'scale(1.12)'; }, false);
+  el.addEventListener('pointerleave', function(){ el.style.transform = 'scale(1)'; }, false);
+
+  // Safe area
+  var header = $('header.brand');
+  var menu   = $('#menuBar');
+  var headerH = header && header.offsetHeight ? header.offsetHeight : 56;
+  var menuH   = menu   && menu.offsetHeight   ? menu.offsetHeight   : 120;
+  var yMin = headerH + 60;
+  var yMax = Math.max(yMin + 50, window.innerHeight - menuH - 80);
+  var xMin = 20;
+  var xMax = Math.max(xMin + 50, window.innerWidth - 80);
+
+  el.style.left = (xMin + Math.random() * (xMax - xMin)) + 'px';
+  el.style.top  = (yMin + Math.random() * (yMax - yMin)) + 'px';
+
+  el.addEventListener('click', function(ev){
+    ev.stopPropagation();
+    try{
+      var sys = { score:score, sfx:sfx, power:power, coach:coach, fx:(eng && eng.fx ? eng.fx : null) };
+      var res = 'ok';
+      if (mode && typeof mode.onHit === 'function'){
+        res = mode.onHit(meta, sys, state, hud) || 'ok';
+      } else {
+        res = meta.good ? 'good' : 'ok';
+      }
+
+      var r  = el.getBoundingClientRect();
+      var cx = r.left + r.width/2;
+      var cy = r.top  + r.height/2;
+
+      if (res === 'good' || res === 'perfect') addCombo(res);
+      if (res === 'bad') addCombo('bad');
+
+      var base = 1;
+      if      (res === 'good')    base = 7;
+      else if (res === 'perfect') base = 14;
+      else if (res === 'ok')      base = 2;
+      else if (res === 'bad')     base = -3;
+      else if (res === 'power')   base = 5;
+
+      scoreWithEffects(base, cx, cy);
+
+      if (res === 'good'){ try{ sfx.good(); }catch(e){} }
+      else if (res === 'bad'){ try{ sfx.bad(); }catch(e){} }
+
+    }catch(err){
+      console.error('[HHA] onHit error:', err);
+    }finally{
+      try{ el.remove(); }catch(e){}
+    }
+  }, false);
+
+  document.body.appendChild(el);
+  var ttl = meta.life || diff.life || 3000;
+  setTimeout(function(){ try{ el.remove(); }catch(e){} }, ttl);
+}
+
+function spawnLoop(){
+  if (!state.running || state.paused) return;
+  var diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  spawnOnce(diff);
+  var next = Math.max(220, (diff.spawn || 700) * (power.timeScale || 1));
+  state.spawnTimer = setTimeout(spawnLoop, next);
+}
+
+// ---------- Tick / Start / End ----------
+function tick(){
+  if (!state.running || state.paused) return;
+
+  // FEVER drain
+  if (state.fever.active){
+    state.fever.timeLeft = Math.max(0, state.fever.timeLeft - 1);
+    state.fever.meter    = Math.max(0, state.fever.meter - state.fever.drainPerSec);
+    setFeverBar(state.fever.meter);
+    if (state.fever.timeLeft <= 0 || state.fever.meter <= 0) stopFever();
+  }
+
+  // per-mode tick
+  try{
+    var mode = MODES[state.modeKey];
+    if (mode && typeof mode.tick === 'function') mode.tick(state, { score:score, sfx:sfx, power:power, coach:coach, fx:(eng && eng.fx ? eng.fx : null) }, hud);
+  }catch(e){
+    console.warn('[HHA] mode.tick error:', e);
+  }
+
+  state.timeLeft = Math.max(0, state.timeLeft - 1);
+  updateHUD();
+
+  if (state.timeLeft <= 0){ end(); return; }
+  if (state.timeLeft <= 10){
+    try{ var t = document.getElementById('sfx-tick'); if(t && t.play) t.play().catch(function(){}); }catch(e){}
+    document.body.classList.add('flash');
+  }else{
+    document.body.classList.remove('flash');
+  }
+
+  state.tickTimer = setTimeout(tick, 1000);
+}
+
+function start(){
+  end(true);
+  var diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  state.running   = true;
+  state.paused    = false;
+  state.timeLeft  = diff.time;
+  state.combo     = 0;
+  state.fever.meter = 0;
+  setFeverBar(0);
+  stopFever();
+  if (score && typeof score.reset === 'function') score.reset();
+  updateHUD();
+
+  try{
+    var mode = MODES[state.modeKey];
+    if (mode && typeof mode.init === 'function') mode.init(state, hud, diff);
+  }catch(e){
+    console.error('[HHA] mode.init error:', e);
+  }
+
+  if (coach && typeof coach.onStart === 'function') coach.onStart(state.modeKey);
+  tick();
+  spawnLoop();
+}
+
+function end(silent){
+  if (silent !== true) silent = false;
+  state.running = false;
+  state.paused  = false;
+  clearTimeout(state.tickTimer);
+  clearTimeout(state.spawnTimer);
+  try{
+    var mode = MODES[state.modeKey];
+    if (mode && typeof mode.cleanup === 'function') mode.cleanup(state, hud);
+  }catch(e){}
+
+  if (!silent){
+    var modal = $('#result');
+    if (modal) modal.style.display = 'flex';
+    if (coach && typeof coach.onEnd === 'function') coach.onEnd(score.score, { grade: 'A' });
+  }
+}
+
+// ---------- Events ----------
+document.addEventListener('pointerup', function(e){
+  var btn = byAction(e.target);
+  if (!btn) return;
+  var a = btn.getAttribute('data-action');
+  var v = btn.getAttribute('data-value');
+
+  if (a === 'mode'){ state.modeKey = v; applyUI(); if (state.running) start(); }
+  else if (a === 'diff'){ state.difficulty = v; applyUI(); if (state.running) start(); }
+  else if (a === 'start'){ start(); }
+  else if (a === 'pause'){
+    if (!state.running){ start(); return; }
+    state.paused = !state.paused;
+    if (!state.paused){ tick(); spawnLoop(); }
+    else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
+  }
+  else if (a === 'restart'){ end(true); start(); }
+  else if (a === 'help'){ var m = $('#help'); if (m) m.style.display = 'flex'; }
+  else if (a === 'helpClose'){ var m2 = $('#help'); if (m2) m2.style.display = 'none'; }
+  else if (a === 'helpScene'){ var hs = $('#helpScene'); if (hs) hs.style.display = 'flex'; }
+  else if (a === 'helpSceneClose'){ var hs2 = $('#helpScene'); if (hs2) hs2.style.display = 'none'; }
+}, false);
+
+// Top bar toggles
+var langBtn = $('#langToggle');
+if (langBtn) langBtn.addEventListener('click', function(){
+  state.lang = state.lang === 'TH' ? 'EN' : 'TH';
+  localStorage.setItem('hha_lang', state.lang);
+  coach.lang = state.lang;
+  applyUI();
+}, false);
+
+var gfxBtn = $('#gfxToggle');
+if (gfxBtn) gfxBtn.addEventListener('click', function(){
+  state.gfx = state.gfx === 'low' ? 'quality' : 'low';
+  localStorage.setItem('hha_gfx', state.gfx);
+  try{
+    if (eng && eng.renderer && typeof eng.renderer.setPixelRatio === 'function') {
+      eng.renderer.setPixelRatio(state.gfx === 'low' ? 0.75 : (window.devicePixelRatio || 1));
+    }
+  }catch(e){}
+}, false);
+
+// Unlock audio once
+window.addEventListener('pointerdown', function(){
+  try{ if (sfx && typeof sfx.unlock === 'function') sfx.unlock(); }catch(e){}
+}, { once:true, passive:true });
+
+// ---------- Boot ----------
+applyUI();
+updateHUD();
