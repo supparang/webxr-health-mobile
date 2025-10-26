@@ -259,3 +259,38 @@ body.flash #t_time{
 button:focus-visible{
   outline:2px solid #80deea; outline-offset:2px;
 }
+/* Coach */
+#coachHUD{
+  position:fixed;
+  left:50%;
+  top:18%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.55);
+  color:#fff;
+  padding:10px 16px;
+  border-radius:12px;
+  font-weight:700;
+  z-index:1200;
+  opacity:0;
+  transition:opacity .3s ease;
+}
+#coachText{font-size:1.1em;}
+
+/* Popup effects */
+.scoreBurst{
+  position:fixed;
+  pointer-events:none;
+  font-weight:700;
+  text-shadow:0 0 6px rgba(0,0,0,.5);
+  animation:rise .9s ease-out forwards;
+}
+@keyframes rise{from{transform:translateY(0);opacity:1;}to{transform:translateY(-50px);opacity:0;}}
+.flameBurst{
+  position:fixed;
+  width:40px;height:40px;
+  background:url('../assets/flame.png') center/cover no-repeat;
+  opacity:.9;
+  animation:burn .8s ease-out forwards;
+}
+.flameBurst.strong{transform:scale(1.6);}
+@keyframes burn{to{opacity:0;transform:translateY(-80px) scale(1.2);}}
