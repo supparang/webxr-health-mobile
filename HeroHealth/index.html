@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- GitHub Pages (user site) -->
   <base href="/webxr-health-mobile/HeroHealth/">
-
   <link rel="stylesheet" href="styles/game.css" />
 
-  <!-- Bootloader: resilient import + red banner + green chip -->
+  <!-- Bootloader (เหมือนเดิม) -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
@@ -42,22 +40,12 @@
               const c = document.getElementById('bootChip'); if (c) c.style.display = 'inline-block';
             }
           }, 100);
-          console.info('[HHA] main loaded via', url);
           break;
-        } catch (e) {
-          lastErr = e;
-          console.warn('[HHA] import fail:', url, e);
-        }
+        } catch (e) { lastErr = e; }
       }
-
       if (!loaded) {
         const w = document.getElementById('bootWarn');
-        if (w) {
-          w.textContent =
-            'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: ' +
-            (lastErr && (lastErr.message || String(lastErr)));
-          w.style.display = 'block';
-        }
+        if (w) { w.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: ' + (lastErr && (lastErr.message || String(lastErr))); w.style.display = 'block'; }
       }
     })();
   </script>
@@ -72,7 +60,7 @@
     <button id="soundToggle"  class="btn" type="button">🔊 เสียง: เปิด</button>
   </header>
 
-  <!-- Render Surface -->
+  <!-- Render -->
   <canvas id="c"></canvas>
 
   <!-- HUD -->
@@ -85,13 +73,20 @@
 
     <!-- Fever Progress Bar -->
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
-    <!-- Fever Label -->
     <div id="fever" class="fever" style="display:none">FEVER!</div>
 
-    <!-- Coach (วางใต้ Fever) -->
-    <div id="coachHUD" class="coach"><div id="coachText">พร้อมลุย!</div></div>
+    <!-- Sub-HUD ใต้ FEVER -->
+    <div id="subHUD">
+      <!-- ชิปภารกิจ/โปรเกรส -->
+      <div id="questChip" class="chip" style="display:none">—</div>
+      <!-- Power-up bar -->
+      <div id="powerBar" class="chip pow" style="display:none">
+        <span id="powerLabel">—</span>
+        <div id="powerTime"><div></div></div>
+      </div>
+    </div>
 
-    <!-- Target / Plate / Hydration -->
+    <!-- เป้าหมาย/โควตา/น้ำ -->
     <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
     <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
     <div id="hydroWrap" style="display:none">
@@ -104,7 +99,10 @@
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- Menu -->
+  <!-- โค้ช (ใต้ FEVER/subHUD) -->
+  <div id="coachHUD" class="coach under-fever" style="display:none"><div id="coachText">...</div></div>
+
+  <!-- เมนู -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
@@ -112,18 +110,12 @@
       <button class="tag" data-action="mode" data-value="hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
       <button class="tag" data-action="mode" data-value="plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
     </div>
-
     <div class="row">
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
       <button class="tag" data-action="diff" data-value="Hard"   id="d_hard"   type="button">ยาก</button>
-
-      <span class="modeLabel">
-        <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
-        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
-      </span>
+      <span class="modeLabel"><span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> • <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b></span>
     </div>
-
     <div class="row">
       <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
@@ -137,7 +129,7 @@
   <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
+      <pre id="helpBody">เก็บของดี (🥦🍎) หลีกเลี่ยงของขยะ (🍔🍟🥤)\nMini-Quest 3 งาน/รอบ ใต้แถบ FEVER\nPower-up: ×2, Freeze, Clean Sweep</pre>
       <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
     </div>
   </div>
@@ -163,7 +155,12 @@
         <h3 id="hs_title" style="margin:0">คู่มือรวม</h3>
         <button class="btn" data-action="helpSceneClose" id="btn_helpSceneClose" type="button">✖ ปิด</button>
       </div>
-      <div id="hs_body" class="hs-grid" style="margin-top:12px;"></div>
+      <div id="hs_body" class="hs-grid" style="margin-top:12px;">
+        <div class="hs-block"><h4>ดี vs ขยะ</h4><p>เก็บของดี หลีกเลี่ยงกับดัก ทำเควส 3 งานจาก 5 แบบ สุ่มทุกครั้ง</p></div>
+        <div class="hs-block"><h4>จาน 5 หมู่</h4><p>ตามเป้าหมายหมวดบน HUD</p></div>
+        <div class="hs-block"><h4>สมดุลน้ำ</h4><p>รักษาแถบ 45–65%</p></div>
+        <div class="hs-block"><h4>จัดจานสุขภาพ</h4><p>เติมโควตาให้ครบ</p></div>
+      </div>
     </div>
   </div>
 
@@ -174,10 +171,6 @@
   <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
 
-  <noscript>
-    <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">
-      จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
-    </div>
-  </noscript>
+  <noscript><div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">จำเป็นต้องเปิดใช้ JavaScript</div></noscript>
 </body>
 </html>
