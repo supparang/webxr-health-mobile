@@ -1,164 +1,68 @@
-/* ===== Hydration HUD Actions ===== */
-.hud-actions{
-  display:flex; gap:10px; align-items:center;
-  background: rgba(8,10,20,.42);
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:12px; padding:8px; width:max-content;
+/* Layout base */
+html, body { margin:0; padding:0; height:100%; background:#0b1020; color:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+
+header.brand {
+  position:fixed; inset:0 0 auto 0; height:56px; display:flex; align-items:center; gap:8px;
+  padding:0 12px; background:rgba(0,0,0,0.35); backdrop-filter: blur(6px);
+  z-index: 1000;
 }
-.hud-action{
-  position:relative; width:56px; height:56px; border-radius:50%;
-  background:#101627; border:1px solid rgba(255,255,255,.16);
-  cursor:pointer; outline:none;
-  display:grid; place-items:center; font-weight:900;
-  color:#e8f3ff;
-}
-.hud-action .label{ position:absolute; inset:0; display:grid; place-items:center; font-size:18px; z-index:2 }
-.hud-action .cd{
-  position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-radius:50%;
-  background:#0e1224; border:1px solid rgba(255,255,255,.18); font-size:12px;
-  display:grid; place-items:center; z-index:3;
-}
-.hud-action .ring{
-  --pct: 0; /* 0..1 */
-  position:absolute; inset:-2px; border-radius:50%;
-  background: conic-gradient(#39d0ff calc(var(--pct)*1turn), rgba(255,255,255,.08) 0);
-  -webkit-mask: radial-gradient(circle 22px at center, transparent 35px, black 36px);
-          mask: radial-gradient(circle 22px at center, transparent 35px, black 36px);
-  z-index:1;
-}
-.hud-action:disabled{
-  opacity:.6; cursor:not-allowed;
-}
-/* Canvas ต้องไม่บังคลิก */
-#c { pointer-events: none !important; z-index: 1 !important; }
-/* ชั้น UI ต้องคลิกได้และอยู่บน */
-.hud, .menu, .modal, .coach, .item {
-  pointer-events: auto !important;
-  z-index: 120 !important;
-}
-/* layout & layers */
-html,body{height:100%;margin:0;overflow:hidden;}
-#c{position:fixed;left:0;right:0;top:var(--h-header,56px);bottom:var(--h-menu,120px);width:100%;}
-.brand{position:fixed;top:0;left:0;right:0;z-index:50;}
-.hud{position:fixed;left:12px;top:calc(var(--h-header,56px) + 8px);z-index:60;}
-.coach{position:fixed;right:12px;top:calc(var(--h-header,56px) + 8px);z-index:61;}
-.menu{position:fixed;left:0;right:0;bottom:0;z-index:70;}
-.item{position:fixed;z-index:65;} /* ไอเท็มอยู่เหนือ canvas/hud แต่ต่ำกว่าเมนู */
-/* Help Scene grid */
-.hs-grid{
-  display:grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap:12px;
-}
-.hs-card{
-  background: rgba(255,255,255,.08);
-  border:1px solid rgba(255,255,255,.15);
-  border-radius:14px;
-  padding:12px;
-}
-.hs-card h4{ margin:0 0 6px 0; display:flex; align-items:center; gap:8px; }
-.hs-card ul{ margin:6px 0 0 18px; padding:0; }
-/* ====== Modal layout (ศูนย์กลางหน้าจอ) ====== */
+header .spacer { flex:1; }
+.btn, .tag { background:#1e2a4a; color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:10px; padding:6px 10px; cursor:pointer; }
+.btn:hover, .tag:hover { filter:brightness(1.12); }
+
+/* Canvas below interactive items */
+#c { position:fixed; inset:0; z-index:1; pointer-events:none; }
+
+/* HUD */
+.hud { position:fixed; left:12px; top:64px; z-index:1000; display:flex; flex-direction:column; gap:8px; max-width:90vw; }
+.hud .bar { width:320px; height:12px; background:rgba(255,255,255,0.15); border-radius:6px; overflow:hidden; }
+.hud .bar.slim { height:8px; }
+#hydroBar { height:100%; width:0%; background:#4FC3F7; transition:width .25s; }
+#feverBar  { height:100%; width:0%; background:#ffd54a; transition:width .2s; }
+
+.mission-line { background:rgba(255,255,255,0.12); padding:6px 10px; border-radius:8px; font-weight:700; max-width:360px; }
+
+/* Menu bottom */
+.menu { position:fixed; left:0; right:0; bottom:0; z-index:1000; background:linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.6) 40%, rgba(0,0,0,.8) 100%); padding:10px 12px; }
+.menu .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+
+/* Game items (buttons) will be styled inline too */
+.item { z-index:1002; font-size:72px; background:transparent; border:none; cursor:pointer; line-height:1; transition: transform .15s, filter .15s; }
+
+/* Modals */
 .modal {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  display: none;
-  align-items: center;   /* จัดแนวตั้ง */
-  justify-content: center; /* จัดแนวนอน */
-  background: rgba(0,0,0,0.5);
-  z-index: 999;
+  position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+  background: rgba(0,0,0,0.55); z-index:1500; padding:16px;
 }
-
-/* กล่องข้อความภายในโมดัล */
 .modal .card {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.3);
-  border-radius: 16px;
-  padding: 24px;
-  max-width: 640px;
-  width: 90%;
-  color: white;
-  box-shadow: 0 0 20px rgba(0,0,0,0.3);
-  backdrop-filter: blur(6px);
+  background:#0f1834; border:1px solid rgba(255,255,255,0.15); border-radius:16px;
+  padding:16px; max-width:520px; width:90%;
 }
+#help pre { white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
-/* ปุ่มปิด / ตัวอักษรในโมดัล */
-#help h3, #help p, #help ul {
-  text-align: left;
-  line-height: 1.5;
-}
-/* ===== ปรับขนาดปุ่มไอคอนในเกมให้ใหญ่ขึ้น ===== */
-.item {
-  font-size: 64px;           /* เดิมอาจอยู่ราว 32px */
-  padding: 8px;
-  width: auto;
-  height: auto;
-  line-height: 1;
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
+/* Help Scene grid */
+.hs-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px; }
+.hs-card { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:12px; padding:12px; }
+.hs-card h4 { margin:0 0 6px 0; }
+.hs-icon { font-size:32px; }
 
-.item:hover {
-  transform: scale(1.2);
-}
+/* Fever & FX */
+.fever { position:fixed; top:70px; right:12px; background:#ffd54a; color:#000; font-weight:900; padding:4px 8px; border-radius:8px; box-shadow:0 0 20px rgba(255,213,74,.5); z-index:1200; }
+.fever.pulse { animation: pulse 0.8s infinite; }
+@keyframes pulse { 0%{ transform:scale(1);} 50%{ transform:scale(1.08);} 100%{ transform:scale(1);} }
 
-@media (max-width: 768px) {
-  .item {
-    font-size: 72px;         /* ใหญ่พิเศษสำหรับมือถือ */
-  }
+.floatText {
+  position:fixed; transform:translate(-50%,-50%); font-weight:900; pointer-events:none; z-index:1400;
+  animation: ft .8s ease-out forwards;
 }
-.item {
-  text-shadow: 0 0 6px rgba(0,0,0,0.4);
-  filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
-}
-/* ===== Fever Bar เอฟเฟกต์ ===== */
-#feverBarWrap { position: relative; overflow: hidden; }
-#feverBar {
-  height: 8px;
-  background: linear-gradient(90deg,#ffd54a,#ff8a00);
-  box-shadow: 0 0 8px rgba(255,168,0,.6);
-  transition: width .18s ease;
-}
-#fever.pulse {
-  animation: feverPulse .9s infinite;
-  color: #ffecb3;
-  text-shadow: 0 0 8px rgba(255,210,64,.9);
-  font-weight: 900;
-}
-@keyframes feverPulse {
-  0%,100% { transform: scale(1); opacity: 1; }
-  50%     { transform: scale(1.1); opacity: .85; }
-}
+@keyframes ft { from { opacity:1; translate:0 0; } to { opacity:0; translate:0 -40px; } }
 
-/* ===== Float Text (ตัวเลขลอย) ===== */
-.floatText{
-  position: fixed;
-  pointer-events: none;
-  transform: translate(-50%,-50%);
-  font-weight: 900;
-  color: #7fffd4;
-  text-shadow: 0 1px 6px rgba(0,0,0,.35);
-  animation: floatUp .8s ease forwards;
-  z-index: 120;
-}
-@keyframes floatUp{
-  0%   { opacity: 0; transform: translate(-50%,-20%) scale(.9); }
-  10%  { opacity: 1; transform: translate(-50%,-40%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%,-100px) scale(1.05); }
-}
+.flash { animation: flash 0.8s infinite; }
+@keyframes flash { 0%{ filter:brightness(1);} 50%{ filter:brightness(1.25);} 100%{ filter:brightness(1);} }
 
-/* ===== Screen Shake ===== */
-#c.shake, body.shake { animation: shake .22s linear 1; }
-@keyframes shake {
-  0%  { transform: translate(0,0); }
-  25% { transform: translate(3px,-3px); }
-  50% { transform: translate(-3px,2px); }
-  75% { transform: translate(2px,3px); }
-  100%{ transform: translate(0,0); }
-}
+/* Target pills */
+.pill { display:inline-block; padding:2px 6px; border-radius:999px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); margin-right:4px; }
+.pill.done { background:#2e7d32; border-color:#66bb6a; }
 
-/* เมื่ออยู่ใน Fever แล้วกดโดนไอเท็ม */
-.item.feverHit { filter: drop-shadow(0 0 10px rgba(255,168,0,.8)); }
+/* Accessibility */
+button:focus-visible { outline:2px solid #90caf9; outline-offset:2px; }
