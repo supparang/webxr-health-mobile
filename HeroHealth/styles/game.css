@@ -1,248 +1,59 @@
-/* ==========================================================
-   Hero Health Academy — Game HUD / UI Styles (2025)
-   Compatible with main.js + coach.js + all modes
-   ========================================================== */
+/* Layout basics */
+html,body{margin:0;padding:0;height:100%;background:#0b0f15;color:#fff;font-family:system-ui,Segoe UI,Arial}
+#c{position:fixed;inset:0;z-index:1;background:radial-gradient(1200px 600px at 50% -10%,#1a2433 0%,#0b0f15 60%)}
 
-html, body {
-  margin: 0;
-  padding: 0;
-  background: radial-gradient(ellipse at center, #0e101a 0%, #06070b 100%);
-  color: #fff;
-  font-family: ui-rounded, "Segoe UI", system-ui, sans-serif;
-  overflow: hidden;
-  user-select: none;
-  touch-action: manipulation;
-}
+/* Header */
+header.brand{position:fixed;top:0;left:0;right:0;z-index:90;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#0e1520c7;backdrop-filter:blur(6px);border-bottom:1px solid #ffffff1a}
+header .spacer{flex:1}
+.btn,.tag{background:#132236;border:1px solid #ffffff22;color:#e6f2ff;border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer}
+.btn:hover,.tag:hover{filter:brightness(1.08)}
 
-canvas#c {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  background: transparent;
-}
+/* HUD */
+.hud{position:fixed;left:12px;right:12px;top:60px;z-index:80;display:flex;flex-direction:column;gap:8px}
+.bar{background:#ffffff14;border-radius:999px;overflow:hidden}
+.bar.slim{height:10px}
+#feverBar{height:10px;background:linear-gradient(90deg,#ffb300,#ff6d00)}
+.fever{font-weight:900;letter-spacing:2px;text-align:left;color:#ffd54a;text-shadow:0 2px 8px #000}
+.fever.pulse{animation:pulse 0.8s infinite alternate}
+@keyframes pulse{from{opacity:.7}to{opacity:1}}
 
-/* ---------- HEADER ---------- */
-header.brand {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 52px;
-  background: rgba(0,0,0,.5);
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  font-weight: 800;
-  z-index: 200;
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid #fff2;
-}
-header .btn {
-  background: rgba(255,255,255,.08);
-  border: 1px solid #fff2;
-  border-radius: 8px;
-  color: #fff;
-  font-size: 13px;
-  padding: 6px 10px;
-  margin-left: 6px;
-  cursor: pointer;
-}
-header .btn:hover {
-  background: rgba(255,255,255,.18);
-}
-header .spacer { flex: 1; }
+.coach{display:block;padding:6px 10px;background:#111a26;border:1px solid #ffffff1a;border-radius:12px;font-weight:800;color:#d7ecff}
+.mission-line{padding:6px 10px;background:#0f1722;border:1px solid #ffffff1a;border-radius:12px;font-weight:700;opacity:.95}
 
-/* ---------- HUD ---------- */
-.hud {
-  position: fixed;
-  top: 52px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  z-index: 180;
-  font-weight: 700;
-  font-size: 16px;
-  line-height: 1.4;
-  pointer-events: none;
-}
-.hud b { color: #7fffd4; }
+/* Menu */
+.menu{position:fixed;left:0;right:0;bottom:0;z-index:85;background:#0e1520cc;backdrop-filter:blur(6px);border-top:1px solid #ffffff1a}
+.menu .row{display:flex;gap:8px;padding:8px 12px;flex-wrap:wrap}
+.modeLabel{margin-left:auto;opacity:.9}
 
-.bar {
-  position: relative;
-  width: 240px;
-  height: 16px;
-  background: rgba(255,255,255,.08);
-  border-radius: 8px;
-  margin: 6px auto;
-  overflow: hidden;
-}
-.bar.slim {
-  width: 180px;
-  height: 8px;
-  margin-top: 8px;
-}
-.bar div {
-  height: 100%;
-  background: linear-gradient(90deg, #00e5ff, #00bfa5);
-  border-radius: 8px;
-  transition: width .25s ease-out;
-}
+/* Item buttons (spawned) */
+.item{user-select:none}
+.item.feverHit{filter:drop-shadow(0 0 12px #ffb300)}
 
-.fever {
-  font-weight: 900;
-  font-size: 28px;
-  color: #ffd54a;
-  text-shadow: 0 0 8px #ff9800, 0 0 20px #ff6d00;
-  animation: pulse 1s infinite alternate;
-  margin-top: 8px;
-}
-.fever.pulse {
-  animation: pulse .7s infinite alternate;
-}
-@keyframes pulse {
-  from { opacity: .6; transform: scale(1); }
-  to   { opacity: 1; transform: scale(1.08); }
-}
+/* Modals */
+.modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#0008;z-index:200}
+.modal .card{background:#0f1722;color:#e6f2ff;border:1px solid #ffffff22;border-radius:16px;padding:16px;max-width:560px;width:90%;box-shadow:0 20px 60px #000a}
+.modal .card h3{margin-top:0}
 
-/* ---------- COACH (อยู่ใต้ Fever) ---------- */
-.coach {
-  position: fixed;
-  left: 50%;
-  top: calc(50% + 120px); /* 🔸อยู่ใต้ FEVER */
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, .65);
-  color: #fff;
-  border: 1px solid #fff2;
-  border-radius: 14px;
-  padding: 10px 14px;
-  font: 700 16px/1.25 ui-rounded, system-ui, Segoe UI, Arial;
-  z-index: 190;
-  pointer-events: none;
-  box-shadow: 0 8px 28px rgba(0,0,0,.35);
-  text-align: center;
-  min-width: 200px;
-  animation: fadein .3s ease;
-}
-@keyframes fadein {
-  from { opacity: 0; transform: translate(-50%, 10px); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
-}
+/* Effects */
+.scoreBurst{position:fixed;transform:translate(-50%,-50%);font:700 20px/1.2 ui-rounded,system-ui;color:#7fffd4;text-shadow:0 2px 6px #000c;z-index:120;pointer-events:none}
+.scoreBurst .minor{display:block;font:600 12px/1.2 ui-rounded,system-ui;opacity:.9}
+.flameBurst{position:fixed;transform:translate(-50%,-50%);width:56px;height:56px;border-radius:50%;background:radial-gradient(closest-side,#ffd54a,#ff6d00);mix-blend-mode:screen;filter:blur(8px) brightness(1.1);opacity:.9;z-index:110;pointer-events:none}
+.flameBurst.strong{width:72px;height:72px}
 
-/* ---------- Mission Line ---------- */
-.mission-line {
-  font-weight: 700;
-  font-size: 15px;
-  color: #aef;
-  margin-top: 8px;
-  text-shadow: 0 1px 5px #000;
-  pointer-events: none;
-}
+/* Burst 3D pieces */
+.burst3d{position:fixed;z-index:150;font-size:28px;pointer-events:none;transform:translate(-50%,-50%);will-change:transform,opacity;text-shadow:0 2px 4px #0008}
 
-/* ---------- MENU ---------- */
-.menu {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: rgba(0,0,0,.6);
-  border-top: 1px solid #fff2;
-  padding: 8px;
-  z-index: 160;
-  backdrop-filter: blur(8px);
-}
-.menu .row {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.btn, .tag {
-  font: 700 14px/1.1 ui-rounded, system-ui, Segoe UI, Arial;
-  color: #fff;
-  background: rgba(255,255,255,.1);
-  border: 1px solid #fff2;
-  border-radius: 10px;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: background .2s, transform .1s;
-}
-.btn:hover, .tag:hover {
-  background: rgba(255,255,255,.22);
-  transform: scale(1.05);
-}
-.modeLabel {
-  display: inline-block;
-  padding: 4px 10px;
-  background: rgba(255,255,255,.1);
-  border-radius: 10px;
-  font-size: 14px;
-  color: #fff;
-}
+/* Flash near timeout */
+body.flash #time{color:#ff9b9b}
 
-/* ---------- MODALS ---------- */
-.modal {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.7);
-  z-index: 300;
-  backdrop-filter: blur(6px);
-}
-.card {
-  background: rgba(30,30,40,.9);
-  border-radius: 14px;
-  padding: 20px;
-  color: #fff;
-  border: 1px solid #fff2;
-  box-shadow: 0 10px 30px rgba(0,0,0,.5);
-  max-width: 420px;
-}
-.hs-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-}
+/* Help Scene grid */
+.hs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 
-/* ---------- TOAST ---------- */
-.toast {
-  font: 700 14px/1.2 ui-rounded, system-ui;
-  background: rgba(0,0,0,.7);
-  border-radius: 8px;
-  color: #fff;
-  padding: 6px 12px;
-  text-align: center;
-}
+/* Toast */
+.toast{z-index:140}
 
-/* ---------- SCORE BURST / FLAME FX ---------- */
-.scoreBurst {
-  font-weight: 800;
-  font-size: 20px;
-  text-shadow: 0 2px 6px #000c;
-}
-@keyframes flamePop {
-  from { transform:translate(-50%,-50%) scale(.7); opacity:.0; }
-  to   { transform:translate(-50%,-50%) scale(1.05); opacity:.0; }
-}
+/* Boot Chip (exists from HTML) */
+#bootChip{}
 
-/* ---------- FLASH (ใกล้หมดเวลา) ---------- */
-body.flash {
-  animation: flashBg .4s infinite alternate;
-}
-@keyframes flashBg {
-  from { background-color: #1a1c2a; }
-  to   { background-color: #3c2c2c; }
-}
-
-/* ---------- RESPONSIVE ---------- */
-@media (max-width: 600px) {
-  header.brand { height: 48px; font-size: 13px; }
-  .hud { font-size: 14px; }
-  .coach { top: calc(50% + 90px); font-size: 14px; }
-  .mission-line { font-size: 13px; }
-  .menu .btn, .menu .tag { font-size: 13px; padding: 6px 10px; }
-}
+/* Hydration bar in HUD */
+#hydroBar{height:10px;background:#4FC3F7}
