@@ -1,48 +1,9 @@
-// === Hero Health Academy — game/modes/groups.js
-// โหมด: จาน 5 หมู่ (Food Group Frenzy)
-// อัปเดต: เป้าหมายสามารถมี 1/2/3 หมวดแบบสุ่มต่อรอบ + Mini Quest ทั้งหมด 5 แบบ สุ่มมาเล่น 3 อย่าง
+// === Hero Health Academy — game/modes/groups.js (Floating Icons + Powers + Multi-target) ===
+import { Progress } from '../core/progression.js';
 
 export const name = 'groups';
 
-/* --------------------- TUNING --------------------- */
-const TUNING = {
-  quotaByDiff: { Easy:3, Normal:4, Hard:5 },             // ต้องเก็บให้ครบต่อ "รอบ"
-  ttlByDiff:   { Easy:4200, Normal:3000, Hard:2200 },     // TTL ไอคอนพื้นฐาน (ms)
-  targetBias: 0.60,                                       // โอกาสสุ่ม “หมวดเป้าหมาย”
-  perTargetSec: 15,                                       // เวลาต่อรอบ
-  rushLastSec: 5,                                         // เร่งท้ายรอบ
-  rushBiasBoost: 0.35,
-  rushTTLScale: 0.85,
-  autoswitchSec: 18,
-
-  decoyRate: 0.18,
-
-  // Mini Quests — มีทั้งหมด 5 แบบ (กำหนดด้านล่าง) แล้วสุ่มมา 3 ต่อเกม
-  questShowCount: 3,
-  questTime: { Easy:22, Normal:18, Hard:14 },
-  questRewardScore: { small:40, mid:80, big:140 },
-  questRewardFever: { small:10, mid:18, big:28 },
-  questRewardTime:  { small:2,  mid:3,  big:4  },
-  questRerollCooldown: 10,
-
-  // Powers
-  powerFreezeTarget: 3,        // s
-  powerX2TargetSec: 8,         // s
-  powerMagnetBonus: 5,         // points (one-time)
-
-  // Perfect / Streak / Bad tax
-  perfectWindowMs: 280,
-  streakBonus: 35,
-  badTaxN: 3, badTaxTimePenalty: 3,
-
-  // Golden target
-  goldRateBase: 0.08,
-  goldRateRushBoost: 0.07,
-  goldBonusScore: 18,
-  goldBonusFever: 18,
-};
-
-/* --------------------- Groups & Items --------------------- */
+// ---------- Groups & Items ----------
 const GROUPS = [
   { id:'fruits',  labelTH:'ผลไม้',     labelEN:'Fruits',     color:'#ef4444' },
   { id:'veggies', labelTH:'ผัก',        labelEN:'Vegetables', color:'#22c55e' },
@@ -89,7 +50,7 @@ const ITEMS = [
   { id:'crab',       group:'protein', labelEN:'Crab',       labelTH:'ปู',              icon:'🦀' },
   { id:'squid',      group:'protein', labelEN:'Squid',      labelTH:'หมึก',            icon:'🦑' },
   { id:'peanuts',    group:'protein', labelEN:'Peanuts',    labelTH:'ถั่วลิสง',       icon:'🥜' },
-  { id:'soybeans',   group:'protein', labelEN:'Soybeans',   labelTH:'ถั่วเมล็ดแห้ง',  icon:'🫘' },
+  { id:'soybeans',   group:'protein', labelEN:'Soybeans',   labelTH:'ถั่วเหลือง',      icon:'🫘' },
   { id:'milk',       group:'protein', labelEN:'Milk',       labelTH:'นม',             icon:'🥛' },
   { id:'cheese',     group:'protein', labelEN:'Cheese',     labelTH:'ชีส',            icon:'🧀' },
   { id:'ham',        group:'protein', labelEN:'Ham',        labelTH:'แฮม/เบคอน',      icon:'🥓' },
@@ -110,464 +71,153 @@ const ITEMS = [
   { id:'donut',      group:'grains',  labelEN:'Donut',      labelTH:'โดนัท',           icon:'🍩' },
 ];
 
-/* --------------------- State --------------------- */
+// ---------- Internal state ----------
 const ST = {
   lang: 'TH',
-  targets: ['fruits'],          // เป้าหมายหลายหมวดพร้อมกัน (1–3 หมวด)
-  need: 4,                      // ต้องเก็บครบกี่ชิ้น (รวมทุกหมวดเป้าหมาย)
-  got: 0,
-  lastSwitchMs: 0,
-  targetTimeLeft: TUNING.perTargetSec,
-  _inRush: false,
+  // เป้าหมาย 1–3 หมวด (สุ่มต่อรอบ)
+  targetIds: ['fruits'],
+  needPerTarget: 4,
+  gotPerTarget: {},   // {fruits:2,...}
 
-  liveBias: TUNING.targetBias,
-  liveTTL: { ...TUNING.ttlByDiff },
+  // พลังเสริม
+  mulX2Until: 0,
+  freezeUntil: 0,
+  magnetOnce: false,
 
-  // powers
-  puFreezeUntil: 0,
-  puX2Until: 0,
-  puMagnetNext: false,
-
-  // quests (เลือกจาก pool 5 แบบ มาแสดง 3)
-  quests: [],
-  questRerollAt: 0,
-  _boundPowerHandlers: [],
-
-  // streak/tax
-  inTargetStreakNoMiss: true,
-  badStreak: 0,
-
-  // other
-  tutorialUntil: 0,
+  // ทอง
+  goldenRate: 0.12
 };
 
-/* --------------------- Utils --------------------- */
-const t = (th, en, lang)=> (lang==='EN' ? en : th);
-const now = ()=> (performance?.now?.() || Date.now());
-const clamp = (x,a,b)=> Math.max(a, Math.min(b, x));
-function pickDifferent(list, prev){
-  if (!prev) return list[(Math.random()*list.length)|0];
-  const cand = list.filter(x=>x!==prev);
-  return cand.length? cand[(Math.random()*cand.length)|0] : prev;
-}
-function sample(arr){ return arr[(Math.random()*arr.length)|0]; }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]];} return a; }
-
-/* --------------------- HUD --------------------- */
-function showTargetHUD(show){
-  const wrap = document.getElementById('targetWrap');
-  if (wrap) wrap.style.display = show ? 'block' : 'none';
-}
-function labelOf(gid){
-  const g = GROUPS.find(x=>x.id===gid);
-  return g ? (ST.lang==='EN'?g.labelEN:g.labelTH) : gid;
-}
-function updateTargetBadge(extra=''){
-  const badge = document.getElementById('targetBadge');
-  if (badge){
-    const names = ST.targets.map(labelOf).join(' + ');
-    const base = `${names}  (${ST.got}/${ST.need})`;
-    badge.textContent = extra ? `${base} — ${extra}` : base;
-    badge.style.fontWeight = '800';
-  }
-  const tLabel = document.getElementById('t_target');
-  if (tLabel) tLabel.textContent = t('หมวด', 'Target', ST.lang);
-}
-function renderQuestChips(){
-  const host = document.getElementById('questChips');
-  if (!host) return;
-  host.innerHTML = '';
-  for (const q of ST.quests){
-    const chip = document.createElement('div');
-    chip.className = 'chip questChip';
-    chip.dataset.qid = q.id;
-
-    const title = document.createElement('div');
-    title.className = 'qTitle';
-    title.textContent = q.label;
-    chip.appendChild(title);
-
-    const meta = document.createElement('div');
-    meta.className = 'qMeta';
-    meta.textContent = `${q.typeDisplay} • +${q.rewardScore}pts`;
-    chip.appendChild(meta);
-
-    const bar = document.createElement('div');
-    bar.className = 'qBar';
-    const fill = document.createElement('i'); fill.style.width='0%';
-    bar.appendChild(fill); chip.appendChild(bar);
-
-    host.appendChild(chip);
-  }
-}
-function updateQuestUI(){
-  const host = document.getElementById('questChips'); if (!host) return;
-  for (const q of ST.quests){
-    const chip = host.querySelector(`.questChip[data-qid="${q.id}"]`); if (!chip) continue;
-    const fill = chip.querySelector('.qBar i');
-    if (fill){
-      const pct = q.need>0 ? clamp(q.prog/q.need,0,1)*100 : 0;
-      fill.style.width = pct.toFixed(0)+'%';
-    }
-    chip.classList.toggle('done', q.state==='done');
-    chip.classList.toggle('fail', q.state==='fail');
-    const meta = chip.querySelector('.qMeta');
-    if (meta){
-      const timeStr = q.timeLeft>0 ? `${q.timeLeft|0}s` : (q.state==='done'?'✓':'—');
-      meta.textContent = `${q.typeDisplay} • ${timeStr} • +${q.rewardScore}pts`;
-    }
-  }
-}
-
-/* --------------------- Powers HUD binding --------------------- */
-function bindPowerBar(){
-  const wrap = document.getElementById('powerBar');
-  if (!wrap) return;
-  const seg = (k)=>wrap.querySelector(`.pseg[data-k="${k}"]`);
-  const handlers = [];
-
-  function bind(k, fn){
-    const el = seg(k); if (!el) return;
-    const h = (e)=>{ e.stopPropagation(); fn(); el.classList.add('used'); setTimeout(()=>el.classList.remove('used'), 600); };
-    el.addEventListener('click', h, {passive:true});
-    handlers.push({el,h});
-  }
-  bind('freeze', ()=>{ ST.puFreezeUntil = now() + TUNING.powerFreezeTarget*1000; });
-  bind('x2',     ()=>{ ST.puX2Until     = now() + TUNING.powerX2TargetSec*1000; });
-  bind('sweep',  ()=>{ ST.puMagnetNext  = true; });
-
-  ST._boundPowerHandlers = handlers;
-}
-function unbindPowerBar(){
-  for (const {el,h} of ST._boundPowerHandlers){ try{ el.removeEventListener('click', h); }catch{} }
-  ST._boundPowerHandlers = [];
-}
-
-/* --------------------- Decoy --------------------- */
-const LOOKALIKE = {
-  fruits:  ['tomato','chili'],
-  veggies: ['mushroom','corn','peanuts'],
-  protein: ['cheese','milk'],
-  grains:  ['donut','cookie','croissant'],
-};
-function pickDecoy(targetIds){
-  const ids = targetIds.flatMap(tg=> LOOKALIKE[tg] || []);
-  const pool = ITEMS.filter(x=>ids.includes(x.id));
-  return pool.length ? sample(pool) : null;
-}
-
-/* --------------------- Mini Quest System (POOL = 5 แบบ) --------------------- */
-function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,8); }
-function makeQuestPool(diff, lang){
-  const time = TUNING.questTime[diff] ?? 18;
-  return [
-    // 1) เก็บหมวดเป้าหมายติดกัน 3 ชิ้น (รวมหลายหมวดก็ได้ แต่ต้องเป็น "ใน targets")
-    {
-      id: uid('Q_CHAIN'),
-      type:'chain_target_n',
-      typeDisplay: t('ติดกัน','Chain',lang),
-      label: t('เก็บเป้าหมายติดกัน 3 ชิ้น','Get 3 target items in a row',lang),
-      need:3, prog:0, timeLeft:time, state:'active',
-      rewardScore:TUNING.questRewardScore.mid, rewardFever:TUNING.questRewardFever.mid, rewardTime:TUNING.questRewardTime.mid,
-    },
-    // 2) Perfect 2 ครั้ง
-    {
-      id: uid('Q_PERFECT'),
-      type:'perfect_n',
-      typeDisplay: t('เพอร์เฟกต์','Perfect',lang),
-      label: t('ทำ Perfect 2 ครั้ง','Hit 2 Perfect',lang),
-      need:2, prog:0, timeLeft:time, state:'active',
-      rewardScore:TUNING.questRewardScore.mid, rewardFever:TUNING.questRewardFever.small, rewardTime:TUNING.questRewardTime.small,
-    },
-    // 3) เก็บ “ผัก” 2 ชิ้น
-    {
-      id: uid('Q_GROUP_VEG'),
-      type:'group_collect_n',
-      group:'veggies',
-      typeDisplay: t('หมวด','Group',lang),
-      label: t('เก็บ “ผัก” 2 ชิ้น','Collect 2 veggies',lang),
-      need:2, prog:0, timeLeft:time, state:'active',
-      rewardScore:TUNING.questRewardScore.small, rewardFever:TUNING.questRewardFever.small, rewardTime:TUNING.questRewardTime.small,
-    },
-    // 4) เก็บไอคอนทอง 1 ชิ้น
-    {
-      id: uid('Q_GOLD'),
-      type:'golden_n',
-      typeDisplay: t('ทอง','Golden',lang),
-      label: t('เก็บไอคอนทอง 1 ชิ้น','Hit 1 golden target',lang),
-      need:1, prog:0, timeLeft:time, state:'active',
-      rewardScore:TUNING.questRewardScore.big, rewardFever:TUNING.questRewardFever.big, rewardTime:TUNING.questRewardTime.mid,
-    },
-    // 5) ไม่พลาดติดต่อกัน 6 วินาที
-    {
-      id: uid('Q_NOMISS'),
-      type:'no_miss_for_s',
-      typeDisplay: t('ไม่พลาด','No Miss',lang),
-      label: t('ไม่พลาดติดต่อกัน 6 วินาที','No miss for 6s',lang),
-      need:6, prog:0, timeLeft:time, state:'active',
-      rewardScore:TUNING.questRewardScore.mid, rewardFever:TUNING.questRewardFever.small, rewardTime:TUNING.questRewardTime.mid,
-    },
-  ];
-}
-
-function rollQuests(diff, lang){
-  // ใช้ pool 5 แบบ แล้วสุ่มมา 3 อย่างเสมอ
-  const pool = makeQuestPool(diff, lang);
-  return shuffle(pool).slice(0, TUNING.questShowCount);
-}
-
-function applyQuestTick(quests, dt, onDone){
-  for (const q of quests){
-    if (q.state!=='active') continue;
-    q.timeLeft = Math.max(0, q.timeLeft - dt);
-    if (q.type==='no_miss_for_s' && _noMissTick){
-      q.prog = clamp(q.prog + 1, 0, q.need);
-    }
-    if (q.prog>=q.need){ q.state='done'; onDone?.(q); }
-    else if (q.timeLeft<=0){ q.state='fail'; }
-  }
-}
-function applyQuestHit(quests, kind, meta, onDone){
-  for (const q of quests){
-    if (q.state!=='active') continue;
-    switch(q.type){
-      case 'chain_target_n':
-        if (kind==='bad' || !meta.good) q.prog = 0; else q.prog = clamp(q.prog+1, 0, q.need);
-        break;
-      case 'perfect_n':
-        if (kind==='perfect') q.prog = clamp(q.prog+1, 0, q.need);
-        break;
-      case 'group_collect_n':
-        if (kind!=='bad' && meta.groupId===q.group) q.prog = clamp(q.prog+1, 0, q.need);
-        break;
-      case 'golden_n':
-        if (kind!=='bad' && meta.golden) q.prog = clamp(q.prog+1, 0, q.need);
-        break;
-      case 'no_miss_for_s':
-        if (kind==='bad') q.prog = 0;
-        break;
-    }
-    if (q.prog>=q.need){ q.state='done'; onDone?.(q); }
-  }
-}
-function grantQuestReward(q, systems, gameState){
-  systems?.score?.add?.(q.rewardScore|0);
-  if (gameState?.fever){
-    gameState.fever.meter = Math.min(100, (gameState.fever.meter||0) + (q.rewardFever|0));
-  }
-  if (typeof gameState.timeLeft === 'number'){
-    gameState.timeLeft = Math.max(0, gameState.timeLeft + (q.rewardTime|0));
-  }
-  systems?.coach?.say?.(
-    t(`เควสสำเร็จ! +${q.rewardScore} แต้ม`, `Quest complete! +${q.rewardScore}pts`, ST.lang)
-  );
-}
-
-/* --------------------- Target switching (1–3 groups) --------------------- */
-function switchTarget(){
-  // สุ่มจำนวนเป้าหมาย 1/2/3 หมวด
-  const k = 1 + ((Math.random()*3)|0); // 1..3
-  const all = GROUPS.map(g=>g.id);
-  ST.targets = shuffle(all.slice()).slice(0, k);
-  ST.got = 0;
-  ST.lastSwitchMs = now();
-  ST.targetTimeLeft = TUNING.perTargetSec;
-  ST.inTargetStreakNoMiss = true;
-  updateTargetBadge();
-}
-
-/* --------------------- Public API --------------------- */
-export function init(gameState){
+// ---------- Public API ----------
+export function init(gameState, hud, diff){
   ST.lang = (localStorage.getItem('hha_lang')||'TH');
-  const d = (gameState?.difficulty)||'Normal';
-  ST.need = TUNING.quotaByDiff[d] ?? 4;
-  ST.liveBias = TUNING.targetBias;
-  ST.liveTTL  = { ...TUNING.ttlByDiff };
-  ST.tutorialUntil = now() + 15000;
 
-  ST.puFreezeUntil=0; ST.puX2Until=0; ST.puMagnetNext=false;
+  // โควตาต่อหมวดตามความยาก
+  const d = gameState?.difficulty || 'Normal';
+  ST.needPerTarget = d==='Easy' ? 3 : d==='Hard' ? 5 : 4;
 
-  switchTarget();
-  showTargetHUD(true);
+  // สุ่มจำนวนเป้าหมาย 1–3 หมวด
+  const howMany = 1 + ((Math.random()*3)|0);            // 1..3
+  ST.targetIds = pickN(shuffle(GROUPS.map(g=>g.id)), howMany);
+  ST.gotPerTarget = {}; for (const id of ST.targetIds) ST.gotPerTarget[id]=0;
 
-  // Mini quests: ใช้ pool 5 แบบ สุ่มมา 3
-  ST.quests = rollQuests(d, ST.lang);
-  ST.questRerollAt = now() + TUNING.questRerollCooldown*1000;
-  renderQuestChips();
-
-  bindPowerBar();
-
-  try {
-    const names = ST.targets.map(labelOf).join(' + ');
-    gameState?.coach?.say?.(t(`เป้าหมาย: ${names}`, `Targets: ${names}`, ST.lang));
-  } catch {}
+  // อัปเดต HUD
+  setTargetHUD();
 }
 
 export function cleanup(){
-  showTargetHUD(false);
-  unbindPowerBar();
+  // nothing
 }
 
-/* flag สำหรับ no_miss_for_s */
-let _noMissTick = true;
-
-/* เรียกทุกวินาทีจาก main.js */
-export function tick(state, systems){
-  const ms = now();
-  const d = (state?.difficulty)||'Normal';
-
-  // Target timer (หยุดเมื่อ Freeze)
-  const frozen = (ms < ST.puFreezeUntil);
-  if (!frozen) ST.targetTimeLeft = Math.max(0, ST.targetTimeLeft - 1);
-  ST._inRush = ST.targetTimeLeft <= TUNING.rushLastSec;
-
-  updateTargetBadge(`${ST.targetTimeLeft|0}s`);
-
-  // Mini quests tick
-  applyQuestTick(ST.quests, 1, (q)=>{ grantQuestReward(q, systems, state); });
-  updateQuestUI();
-
-  // Reroll เฉพาะตัวที่ fail (รักษาจำนวน 3)
-  if (ms >= ST.questRerollAt){
-    let changed=false;
-    for (let i=0;i<ST.quests.length;i++){
-      const q = ST.quests[i];
-      if (q.state==='fail'){
-        ST.quests[i] = rollQuests(d, ST.lang)[0];
-        changed=true;
-      }
-    }
-    if (changed){
-      renderQuestChips();
-      ST.questRerollAt = ms + TUNING.questRerollCooldown*1000;
-    }
-  }
-
-  // Autoswitch รอบเมื่อช้าเกิน
-  if (ST.got < ST.need){
-    const waited = (ms - ST.lastSwitchMs)/1000;
-    if (waited >= TUNING.autoswitchSec){
-      switchTarget();
-      try { systems?.sfx?.play?.('powerup'); } catch {}
-      systems?.coach?.say?.(t('เปลี่ยนหมวด!','New targets!',ST.lang));
-    }
-  }
-
-  _noMissTick = true;
+export function tick(state, systems, hud){
+  // เมื่อ freeze หมดเวลา ให้ปล่อย spawn ปกติ (main.js คุมแล้ว)
 }
 
-/* สุ่มเมตาต่อชิ้น */
+// meta ต่อชิ้นตอน spawn (main.js เรียกทุกครั้ง)
 export function pickMeta(diff, gameState){
-  const d = (gameState?.difficulty)||'Normal';
-  let ttl = ST.liveTTL[d] ?? (diff?.life || 3000);
-  let bias = ST.liveBias;
+  // เพิ่มโอกาสให้ชิ้น "หมวดเป้าหมาย" โผล่บ่อยกว่า
+  const probTarget = 0.58;
+  const isTarget = Math.random() < probTarget;
 
-  if (ST._inRush){ bias = clamp(bias + TUNING.rushBiasBoost,0,1); ttl = Math.round(ttl * TUNING.rushTTLScale); }
+  const pool = isTarget
+    ? ITEMS.filter(i=>ST.targetIds.includes(i.group))
+    : ITEMS;
 
-  let pick;
-  const targetSet = new Set(ST.targets);
-  if (Math.random() < bias){
-    pick = sample(ITEMS.filter(it=>targetSet.has(it.group)));
-  } else {
-    if (Math.random()<TUNING.decoyRate){
-      pick = pickDecoy(ST.targets) || sample(ITEMS.filter(it=>!targetSet.has(it.group)));
-      if (pick) pick.__decoy = true;
-    } else {
-      pick = sample(ITEMS.filter(it=>!targetSet.has(it.group)));
-    }
-  }
-  if (!pick) pick = sample(ITEMS);
+  const it = pool[(Math.random()*pool.length)|0];
 
-  // โอกาส Golden ถ้าเป็นเป้าหมาย
-  let golden=false;
-  if (targetSet.has(pick.group)){
-    let p = TUNING.goldRateBase + (ST._inRush ? TUNING.goldRateRushBoost : 0);
-    if (Math.random() < p) golden = true;
-  }
+  const life = Math.max(900, (diff?.life||3000) * (isFreeze() ? 1.8 : 1.0));
+
+  // โอกาสเป็นทองเฉพาะ target
+  const golden = isTarget && Math.random() < ST.goldenRate;
 
   return {
-    id: pick.id,
-    char: golden ? `✨${pick.icon}` : pick.icon,
-    good: targetSet.has(pick.group),
-    life: ttl,
-    bornAt: now(),
-    groupId: pick.group,
-    decoy: !!pick.__decoy,
-    golden,
+    id: it.id,
+    char: golden ? '🟡' : it.icon,
+    good: ST.targetIds.includes(it.group),
+    life,
+    groupId: it.group,
+    golden
   };
 }
 
-/* เมื่อผู้เล่นคลิก */
-export function onHit(meta, systems, gameState){
-  const ms = now();
-  const fast = (typeof meta.bornAt==='number') ? ((ms - meta.bornAt) <= TUNING.perfectWindowMs) : false;
+// เมื่อกดชิ้น
+export function onHit(meta, systems, gameState, hud){
+  if (!meta) return 'ok';
 
-  let result;
   if (meta.good){
-    const x2Now = (ms < ST.puX2Until);
-    if (fast || meta.golden){
-      result = 'perfect';
-      if (x2Now) systems?.score?.add?.(8);
-      if (meta.golden){
-        systems?.score?.add?.(TUNING.goldBonusScore);
-        if (gameState?.fever) gameState.fever.meter = Math.min(100, (gameState.fever.meter||0) + TUNING.goldBonusFever);
-        systems?.coach?.say?.(t('ทองคำ! เยี่ยมมาก!','GOLDEN! Awesome!',ST.lang));
-      } else {
-        systems?.coach?.say?.(t('ไวมาก!','Perfect!',ST.lang));
+    // Magnet (ครั้งถัดไป auto-good 1 ชิ้น)
+    if (ST.magnetOnce){ ST.magnetOnce=false; }
+
+    // x2 score ภายในโหมด (ซ้อนกับ FEVER ของเกม)
+    const isPerfect = false; // หากมีหน้าต่าง perfect ให้คำนวณตรงนี้
+    const res = isPerfect ? 'perfect' : 'good';
+
+    // นับโควตา
+    if (meta.groupId && ST.gotPerTarget[meta.groupId]!=null){
+      ST.gotPerTarget[meta.groupId] = Math.min(ST.needPerTarget, ST.gotPerTarget[meta.groupId]+1);
+      setTargetHUD();
+      // ครบทุกเป้าหมายหรือยัง
+      if (Object.keys(ST.gotPerTarget).every(id => ST.gotPerTarget[id] >= ST.needPerTarget)){
+        // รีเซ็ตรอบเป้าหมายใหม่
+        const howMany = 1 + ((Math.random()*3)|0);
+        ST.targetIds = pickN(shuffle(GROUPS.map(g=>g.id)), howMany);
+        ST.gotPerTarget = {}; for (const id of ST.targetIds) ST.gotPerTarget[id]=0;
+        setTargetHUD();
+        systems.sfx?.play?.('powerup');
       }
-    } else {
-      result = 'good';
-      if (x2Now) systems?.score?.add?.(6);
-      systems?.coach?.say?.(t('ใช่เลย!','Nice!',ST.lang));
     }
 
-    // Magnet next (ครั้งเดียว)
-    if (ST.puMagnetNext){ systems?.score?.add?.(TUNING.powerMagnetBonus); ST.puMagnetNext=false; }
-
-    ST.got++;
-    ST.badStreak = 0;
-
-    // เควส (อัปเดตจาก hit)
-    applyQuestHit(ST.quests, result, meta, (q)=>{ grantQuestReward(q, systems, gameState); });
-    updateQuestUI();
-
-    // จบ "รอบ" แล้วสุ่มจำนวนเป้าหมายใหม่ (1/2/3)
-    if (ST.got >= ST.need){
-      if (ST.inTargetStreakNoMiss){
-        systems?.score?.add?.(TUNING.streakBonus);
-        systems?.coach?.say?.(t('ยอดเยี่ยม! ไม่พลาดเลย','Flawless!',ST.lang));
-      }
-      switchTarget();
-      try { systems?.sfx?.play?.('powerup'); } catch {}
-      const names = ST.targets.map(labelOf).join(' + ');
-      systems?.coach?.say?.(t(`เปลี่ยนเป้าหมาย: ${names}`, `New targets: ${names}`, ST.lang));
+    if (meta.golden){
+      // แจ้ง coach เล็กน้อย
+      systems.coach?.say?.(t('ทองมาแล้ว!', 'Golden!', ST.lang));
     }
-    _noMissTick = true;
-
-  } else {
-    result = 'bad';
-    ST.badStreak++;
-    ST.inTargetStreakNoMiss = false;
-    systems?.coach?.say?.(meta.decoy ? t('โดนตัวลวง!','Decoy!',ST.lang) : t('ยังไม่ใช่หมวดนี้','Not this group!',ST.lang));
-
-    // Bad tax
-    if (ST.badStreak>=TUNING.badTaxN){
-      gameState.timeLeft = Math.max(0, (gameState.timeLeft||0) - TUNING.badTaxTimePenalty);
-      ST.badStreak = 0;
-    }
-
-    // เควส: รีเซ็ต no_miss_for_s
-    applyQuestHit(ST.quests, 'bad', meta, (q)=>{ grantQuestReward(q, systems, gameState); });
-    updateQuestUI();
-    _noMissTick = false;
+    return res;
   }
 
-  return result;
+  // กดผิด
+  systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
+  return 'bad';
 }
 
-/* --------------------- Powers API --------------------- */
+// ---------- Powers (called by main.js) ----------
 export const powers = {
-  freezeTarget(){ ST.puFreezeUntil = now() + TUNING.powerFreezeTarget*1000; },
-  magnetNext(){ ST.puMagnetNext = true; },
-  x2Target(){ ST.puX2Until = now() + TUNING.powerX2TargetSec*1000; },
+  x2Target(){
+    ST.mulX2Until = now()+8000;
+  },
+  freezeTarget(){
+    ST.freezeUntil = now()+3000;
+  },
+  magnetNext(){
+    ST.magnetOnce = true;
+  }
 };
+
+export function getPowerDurations(){
+  return { x2:8, freeze:3, magnet:0 };
+}
+
+// ---------- HUD helpers ----------
+function setTargetHUD(){
+  const wrap = document.getElementById('targetWrap');
+  const badge = document.getElementById('targetBadge');
+  const tLabel = document.getElementById('t_target');
+  if (!wrap || !badge || !tLabel) return;
+  wrap.style.display = 'block';
+  tLabel.textContent = t('หมวด', 'Target', ST.lang);
+
+  // ตัวอย่างข้อความ: ผลไม้(2/4), โปรตีน(1/4)
+  const parts = ST.targetIds.map(id=>{
+    const g = GROUPS.find(x=>x.id===id);
+    const got = ST.gotPerTarget[id]||0;
+    const need = ST.needPerTarget;
+    return `${t(g.labelTH, g.labelEN, ST.lang)}(${got}/${need})`;
+  });
+  badge.textContent = parts.join(', ');
+}
+
+// ---------- utils ----------
+function t(th, en, lang){ return lang==='EN' ? en : th; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function pickN(a, n){ return a.slice(0, Math.max(1, Math.min(n, a.length))); }
+function now(){ return performance?.now?.()||Date.now(); }
+function isFreeze(){ return now() < (ST.freezeUntil||0); }
