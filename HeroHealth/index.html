@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
+  <!-- GitHub Pages (user site) -->
   <base href="/webxr-health-mobile/HeroHealth/">
+
   <link rel="stylesheet" href="styles/game.css" />
 
-  <!-- Bootloader: โหลด main.js แบบทนทาน + แถบแดงเตือน + ชิป JS Loaded -->
+  <!-- Bootloader: resilient import + red banner + green chip -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
@@ -59,35 +61,9 @@
       }
     })();
   </script>
-
-  <style>
-    /* ========== เพิ่มสไตล์ของ Coach อยู่ใต้ Fever ========== */
-    .coach {
-      position: fixed;
-      left: 50%;
-      top: calc(50% + 120px); /* 🔸 อยู่ใต้ FEVER ประมาณ 120px */
-      transform: translateX(-50%);
-      background: rgba(0, 0, 0, .65);
-      color: #fff;
-      border: 1px solid #fff2;
-      border-radius: 14px;
-      padding: 10px 14px;
-      font: 700 16px/1.25 ui-rounded, system-ui, Segoe UI, Arial;
-      z-index: 190;
-      pointer-events: none;
-      box-shadow: 0 8px 28px rgba(0,0,0,.35);
-      text-align: center;
-      min-width: 200px;
-      animation: fadein .3s ease;
-    }
-    @keyframes fadein {
-      from { opacity: 0; transform: translate(-50%, 10px); }
-      to   { opacity: 1; transform: translate(-50%, 0); }
-    }
-  </style>
 </head>
 <body>
-  <!-- Brand / Toggles -->
+  <!-- Brand -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
@@ -99,7 +75,7 @@
   <!-- Render Surface -->
   <canvas id="c"></canvas>
 
-  <!-- HUD (คะแนน/คอมโบ/เวลา + Fever Bar + Mission Line + Coach) -->
+  <!-- HUD -->
   <section class="hud">
     <div>
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
@@ -109,33 +85,26 @@
 
     <!-- Fever Progress Bar -->
     <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
+    <!-- Fever Label -->
+    <div id="fever" class="fever" style="display:none">FEVER!</div>
 
-    <!-- เป้าหมายหมวดอาหาร -->
+    <!-- Coach (วางใต้ Fever) -->
+    <div id="coachHUD" class="coach"><div id="coachText">พร้อมลุย!</div></div>
+
+    <!-- Target / Plate / Hydration -->
     <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
-
-    <!-- โควตาอาหาร -->
     <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
-
-    <!-- สมดุลน้ำ -->
     <div id="hydroWrap" style="display:none">
       💧 <span id="t_hydro">สมดุลน้ำ</span>:
       <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
-    <!-- Fever Label -->
-    <div id="fever" class="fever" style="display:none">FEVER!</div>
-
-    <!-- 👇 ย้ายโค้ชมาอยู่ใต้ FEVER -->
-    <div id="coachHUD" class="coach" style="display:none">
-      <div id="coachText">...</div>
-    </div>
-
     <!-- เส้นภารกิจ/สถานะย่อย -->
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- เมนูล่างจอ -->
+  <!-- Menu -->
   <section id="menuBar" class="menu">
     <div class="row">
       <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
@@ -165,16 +134,16 @@
   </section>
 
   <!-- Help Modal -->
-  <div id="help" class="modal" style="display:none">
+  <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
     <div class="card">
-      <h3>วิธีเล่น</h3>
+      <h3 id="h_help">วิธีเล่น</h3>
       <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
       <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
     </div>
   </div>
 
   <!-- Result Modal -->
-  <div id="result" class="modal" style="display:none">
+  <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
     <div class="card">
       <h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div>
@@ -188,10 +157,10 @@
   </div>
 
   <!-- Help Scene -->
-  <div id="helpScene" class="modal" style="display:none">
+  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="hs_title">
     <div class="card" style="max-width:960px; width:90%;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <h3 style="margin:0">คู่มือรวม</h3>
+        <h3 id="hs_title" style="margin:0">คู่มือรวม</h3>
         <button class="btn" data-action="helpSceneClose" id="btn_helpSceneClose" type="button">✖ ปิด</button>
       </div>
       <div id="hs_body" class="hs-grid" style="margin-top:12px;"></div>
@@ -199,11 +168,11 @@
   </div>
 
   <!-- SFX -->
-  <audio id="sfx-good" preload="auto" src="./assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad" preload="auto" src="./assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="./assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick" preload="auto" src="./assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="./assets/sfx/powerup.mp3"></audio>
+  <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
 
   <noscript>
     <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">
