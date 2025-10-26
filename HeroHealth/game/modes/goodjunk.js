@@ -1,128 +1,174 @@
 // game/modes/goodjunk.js
 // โหมด: ดี vs ขยะ — เก็บของดี หลีกเลี่ยงของขยะ
-// ส่งผลลัพธ์กับ main.js: 'good' | 'bad' | 'perfect' | 'power'
-// ไฮไลต์: เควสต์ 5 แบบ (สุ่มมา 3), adaptive life, Perfect tap, Power-ups (x2 / Freeze / Sweep), Traps
+// ส่งผลลัพธ์ให้ main.js: 'good' | 'bad' | 'perfect' | 'power'
+// ไฮไลต์: life แบบ adaptive, Mini-Quest 5 แบบ (สุ่มมา 3), Power-ups (x2 / Freeze), Trap, PERFECT tap
 
 /* =========================
-   1) คงที่ / ทรัพยากร
+   ค่าคงที่ & ยูทิล
    ========================= */
-const HEALTHY = ['🥦','🍎','🥕','🍅','🍇','🍉','🥗','🥒','🥬','🌽','🫘','🥝','🫐'];
-const JUNK    = ['🍔','🍟','🍩','🍕','🥤','🍫','🌭','🧁','🍪','🧃','🍗','🥓','🍨'];
-const TRAPS   = ['💣','☠️','⚠️'];
+const HEALTHY = ['🥦','🍎','🥕','🍅','🍇','🍉','🥗','🥒','🥬','🌽'];
+const JUNK    = ['🍔','🍟','🍩','🍕','🥤','🍫','🌭','🧁','🍪','🧃'];
+const TRAPS   = ['💣','☠️'];
 
 const GOOD_RATIO = { Easy:0.72, Normal:0.65, Hard:0.58 };
-
-const POWER_RATE = { Easy:0.09, Normal:0.11, Hard:0.13 }; // โอกาสเกิด power ต่อการ spawn
-const ENABLED_POWERS = ['scorex2','freeze','sweep'];       // เพิ่ม 'sweep' กวาดเก็บของดีบนจอ
-const ENABLE_TRAPS = true;
-const TRAP_RATE = 0.055;
+const POWER_RATE = { Easy:0.08, Normal:0.10, Hard:0.12 };
+const ENABLED_POWERS = ['scorex2','freeze'];
+const ENABLE_TRAPS   = true;
+const TRAP_RATE      = 0.06;
 
 const PERFECT_WINDOW_MS = 320;
-const MIN_LIFE_BY_DIFF = { Easy:2600, Normal:2200, Hard:1900 };
+const MIN_LIFE_BY_DIFF  = { Easy:2600, Normal:2200, Hard:1900 };
 
-// โควตาเควสต์ตามความยาก
-const QUEST_NEED = { Easy: {A:8, B:0, C:5, D:2, E:4},  // A=collect, C=perfect, D=power, E=streak
-                     Normal:{A:10,B:0, C:7, D:3, E:5},
-                     Hard: {A:12,B:0, C:9, D:4, E:6} };
-// อนุโลม “หลีกเลี่ยงของเสีย” (B) — จำนวน miss ได้สูงสุด
-const QUEST_B_MISS_MAX = { Easy:4, Normal:3, Hard:2 };
-// เวลาเควสต์แต่ละชิ้น
-const QUEST_SECONDS = 45;
+// Mini-Quest targets (จะสุ่มมา 3 แบบ)
+const QUEST_TARGETS = {
+  collect_good: (diff)=>({ Easy:10, Normal:12, Hard:14 }[diff] || 12),
+  avoid_junk:   (diff)=>({ Easy: 4, Normal:  3, Hard:  2 }[diff] || 3),   // เกินนี้ = ล้มเหลว
+  perfect_hits: (diff)=>({ Easy: 5, Normal:  7, Hard:  9 }[diff] || 7),
+  power_user:   (diff)=>({ Easy: 2, Normal:  3, Hard:  4 }[diff] || 3),
+  good_streak:  (diff)=>({ Easy:15, Normal: 18, Hard: 22 }[diff] || 18)
+};
 
-/* =========================
-   2) ยูทิล
-   ========================= */
-const pick = (arr)=>arr[(Math.random()*arr.length)|0];
-const shuffle = (arr)=>arr.map(x=>[Math.random(),x]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
-function pickN(arr, n){ const a = shuffle(arr).slice(0, n); return a; }
+// ป้าย/ชื่อเควสต์ (ให้ครบทั้ง TH/EN เพื่อกัน undefined)
+function mkQuestTemplates(diff){
+  return [
+    {
+      id:'collect_good', icon:'🥗',
+      titleTH:'เก็บของดีให้ครบ', titleEN:'Collect healthy items',
+      need: QUEST_TARGETS.collect_good(diff),
+      kind:'counter',  // นับจำนวน good/perfect ทั้งหมด
+      progress:0, remain:45, done:false, fail:false
+    },
+    {
+      id:'avoid_junk', icon:'🛡️',
+      titleTH:'อย่าพลาดของเสีย', titleEN:'Avoid junk/mistakes',
+      need: QUEST_TARGETS.avoid_junk(diff),
+      kind:'max-bad',  // จำกัดจำนวน bad ได้ไม่เกิน need (ถ้าเกิน = fail)
+      progress:0, remain:45, done:false, fail:false, badCount:0
+    },
+    {
+      id:'perfect_hits', icon:'💯',
+      titleTH:'ทำ PERFECT ให้ครบ', titleEN:'Make PERFECT taps',
+      need: QUEST_TARGETS.perfect_hits(diff),
+      kind:'perfect',  // นับเฉพาะ perfect
+      progress:0, remain:45, done:false, fail:false
+    },
+    {
+      id:'power_user', icon:'⚡',
+      titleTH:'ใช้พลังช่วยให้ครบ', titleEN:'Use power-ups',
+      need: QUEST_TARGETS.power_user(diff),
+      kind:'power',    // นับตอนกดพาวเวอร์
+      progress:0, remain:45, done:false, fail:false
+    },
+    {
+      id:'good_streak', icon:'🔥',
+      titleTH:'ทำสตรีคของดีต่อเนื่อง', titleEN:'Good streak combo',
+      need: QUEST_TARGETS.good_streak(diff),
+      kind:'streak',   // ต้องทำ streak ต่อเนื่องแตะเป้าสูงสุด
+      progress:0, remain:45, done:false, fail:false, bestStreak:0, curStreak:0
+    }
+  ];
+}
 
-// power icon
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 function iconOf(power){
   if (power==='scorex2') return '✖️2';
   if (power==='freeze')  return '🧊';
-  if (power==='sweep')   return '🧹';
   return '✨';
 }
-
-// อายุวัตถุแบบ adaptive ตามความแม่น
+function safeTitle(q, lang){
+  if (lang==='EN') return q.titleEN || q.titleTH || 'Quest';
+  return q.titleTH || q.titleEN || 'เควสต์';
+}
 function lifeAdaptive(diff, state, mul=1){
-  const g = state.ctx?.gj;
-  const hits = g?.hits||0, miss = g?.miss||0;
+  const hits = state.ctx?.gj?.hits || 0;
+  const miss = state.ctx?.gj?.miss || 0;
   const acc  = (hits+miss)>0 ? (hits/(hits+miss)) : 1;
-  const boost= acc < 0.55 ? 1.25 : acc < 0.75 ? 1.12 : 1.0;
+  const boost= acc < 0.55 ? 1.25 : acc < 0.75 ? 1.12 : 1.00;
   const base = (diff?.life || 3000) * boost * mul;
   const minL = MIN_LIFE_BY_DIFF[state.difficulty] || 2100;
   return Math.max(minL, Math.round(base));
 }
 
 /* =========================
-   3) โครงเควสต์ (5 แบบ)
-   =========================
-   A) เก็บของดีให้ครบ N ชิ้น
-   B) หลีกเลี่ยงของเสีย (miss รวมไม่เกิน X) — เป็น “ข้อกำหนด” ที่ล้มเหลวได้
-   C) Perfect tap N ครั้ง (แตะเร็ว ≤ PERFECT_WINDOW_MS)
-   D) ใช้/เก็บพาวเวอร์ N ชิ้น
-   E) ทำสตรีคของดีต่อเนื่อง N ครั้ง (good/perfect ติดกัน)
-*/
-function mkQuestTemplates(diff){
-  const need = QUEST_NEED[diff] || QUEST_NEED.Normal;
-  const missMax = QUEST_B_MISS_MAX[diff] ?? 3;
-  const secs = QUEST_SECONDS;
+   HUD helpers (แบบเบา ๆ)
+   ========================= */
+function qel(){ return document.getElementById('questChips'); }
+function setMissionLine(text, show=true){
+  const el = document.getElementById('missionLine');
+  if (!el) return;
+  el.style.display = show ? 'block' : 'none';
+  if (text!=null) el.textContent = text;
+}
+function renderQuestChips(state){
+  const wrap = qel(); if (!wrap) return;
+  const qlist = state.ctx?.gj?.quests || [];
+  wrap.innerHTML = '';
+  for (const q of qlist){
+    const div = document.createElement('div');
+    div.className = 'qchip' + (q.done ? ' done' : (q.fail?' fail':'' ));
+    const title = safeTitle(q, state.lang);
+    const pText = q.kind==='max-bad'
+      ? `${q.badCount|0}/${q.need|0}`
+      : `${q.progress|0}/${q.need|0}`;
+    div.innerHTML = `
+      <span class="qi">${q.icon || '🎯'}</span>
+      <span class="qt">${title}</span>
+      <span class="qp">${pText}</span>
+    `;
+    wrap.appendChild(div);
+  }
 
-  return [
-    { id:'collect_good',  titleTH:'เก็บของดีให้ครบ', titleEN:'Collect healthy items', icon:'🥗',
-      need:need.A, progress:0, remain:secs, done:false, fail:false },
-
-    { id:'avoid_junk',    titleTH:'อย่าพลาดของเสีย', titleEN:'Avoid junk/mistakes', icon:'🛡️',
-      // เควสต์นี้สำเร็จโดย "ไม่เกิน missMax" เมื่อหมดเวลา (ไม่มี progress/need ตัวเลขขึ้นทีละคลิก)
-      need:missMax, progress:0, remain:secs, done:false, fail:false, meta:{ misses:0 } },
-
-    { id:'perfect_hits',  titleTH:'ทำ PERFECT ให้ครบ', titleEN:'Make PERFECT taps', icon:'💯',
-      need:need.C, progress:0, remain:secs, done:false, fail:false },
-
-    { id:'power_user',    titleTH:'ใช้พลังช่วยให้ครบ', titleEN:'Use power-ups', icon:'⚡',
-      need:need.D, progress:0, remain:secs, done:false, fail:false },
-
-    { id:'good_streak',   titleTH:'ทำสตรีคของดีต่อเนื่อง', titleEN:'Consecutive good streak', icon:'🔥',
-      need:need.E, progress:0, remain:secs, done:false, fail:false, meta:{ streak:0 } }
-  ];
+  // อัปเดต missionLine โชว์เควสต์แรกที่ยังไม่เสร็จ
+  const active = qlist.find(x=>!x.done && !x.fail);
+  if (active){
+    const pShow = active.kind==='max-bad' ? `${active.badCount|0}/${active.need|0}` : `${active.progress|0}/${active.need|0}`;
+    setMissionLine(`🎯 ${safeTitle(active, state.lang)} • ${pShow} • ${active.remain|0}s`, true);
+  }else{
+    // ถ้าทั้งหมดเสร็จ/ล้มเหลวแล้ว ซ่อนหรือสรุปสั้น ๆ
+    setMissionLine('🏁 Mini-Quests Completed', true);
+  }
 }
 
 /* =========================
-   4) API หลัก
+   Public API
    ========================= */
 export function init(state, hud, diff){
   state.ctx = state.ctx || {};
-  const gj = state.ctx.gj = {
+  const templates = mkQuestTemplates(state.difficulty);
+  // สุ่มเลือก 3 เควสต์ (แต่เรียงให้หลากหลาย)
+  const pool = templates.slice();
+  const chosen = [];
+  while (chosen.length<3 && pool.length){
+    const i = (Math.random()*pool.length)|0;
+    chosen.push(pool.splice(i,1)[0]);
+  }
+
+  state.ctx.gj = {
     hits:0, miss:0,
-    lastTapTs:0,
-    // เควสต์: สร้าง 5 แล้วสุ่มเลือก 3
-    quests: pickN(mkQuestTemplates(state.difficulty), 3),
+    lastTs:0,
+    quests: chosen
   };
 
-  // บัฟแสดงเควสต์ตอนเริ่ม (main จะ render จาก state.ctx.gj.quests)
-  const active = gj.quests[0];
-  try{ hud?.setFeverProgress?.(0); }catch{}
-  try{ state?.coach?.say?.('พร้อมลุยเควสต์! เลือกเก็บของดีให้ครบ 💪'); }catch{}
-  // ให้โค้ชผ่าน sys ใน onHit/tick แทน (main จะส่ง coach มากับ sys)
+  // เปิด HUD เควสต์
+  try{ renderQuestChips(state); }catch{}
 }
 
 export function pickMeta(diff, state){
   const ts = (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now();
 
-  // power?
+  // โอกาสเกิด power
   if (Math.random() < (POWER_RATE[state.difficulty] || POWER_RATE.Normal) && ENABLED_POWERS.length){
     const p = pick(ENABLED_POWERS);
     return { type:'power', power:p, char:iconOf(p), life: lifeAdaptive(diff, state, 1.0), ts };
   }
 
-  // trap?
+  // กับดัก
   if (ENABLE_TRAPS && Math.random() < TRAP_RATE){
     const char = pick(TRAPS);
     return { type:'trap', char, good:false, life: lifeAdaptive(diff, state, 1.05), ts };
   }
 
-  // food
+  // อาหาร
   const wantGood = Math.random() < (GOOD_RATIO[state.difficulty] || GOOD_RATIO.Normal);
   const char = wantGood ? pick(HEALTHY) : pick(JUNK);
   return { type:'food', char, good:wantGood, life: lifeAdaptive(diff, state, 1.0), ts };
@@ -130,73 +176,107 @@ export function pickMeta(diff, state){
 
 export function onHit(meta, sys, state, hud){
   const { sfx, power, fx, coach } = sys || {};
-  const gj = state.ctx?.gj;
+  const gj = state.ctx?.gj || (state.ctx.gj = { hits:0, miss:0, quests: mkQuestTemplates(state.difficulty).slice(0,3) });
 
-  if (!gj) return 'ok';
-
-  // === POWER ===
+  // ===== Power =====
   if (meta.type === 'power'){
     try{ sfx?.play?.('sfx-powerup'); }catch{}
     if (meta.power === 'scorex2'){
       try{ power?.apply?.('boost'); }catch{}
-      fx?.popText?.('SCORE ×2', { color:'#b0ff66' });
-      addQuestProgress(gj, 'power_user', 1, fx, coach);
+      fx?.popText?.('SCORE ×2',{color:'#b0ff66'});
+      // quest: power_user
+      for (const q of gj.quests){
+        if (q.kind==='power' && !q.done && !q.fail){
+          q.progress++;
+          if (q.progress >= q.need){ q.done=true; coach?.say?.(state.lang==='TH'?'พลังช่วยมาแล้ว!':'Power on!'); }
+        }
+      }
     } else if (meta.power === 'freeze'){
       const now = (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now();
-      state.freezeUntil = now + 2200;
-      fx?.popText?.('FREEZE!', { color:'#66e0ff' });
-      addQuestProgress(gj, 'power_user', 1, fx, coach);
-    } else if (meta.power === 'sweep'){
-      // โชว์ข้อความ + นับเป็นใช้พลัง
-      fx?.popText?.('SWEEP!', { color:'#66ffd2' });
-      addQuestProgress(gj, 'power_user', 1, fx, coach);
-      // ตัวเกมหลักจะเอาไปประยุกต์เพิ่มเอง (optional)
+      state.freezeUntil = now + 2000;
+      fx?.popText?.('FREEZE!',{color:'#66e0ff'});
+      // quest: power_user เช่นกัน
+      for (const q of gj.quests){
+        if (q.kind==='power' && !q.done && !q.fail){
+          q.progress++;
+          if (q.progress >= q.need){ q.done=true; coach?.say?.(state.lang==='TH'?'พลังช่วยมาแล้ว!':'Power on!'); }
+        }
+      }
     }
+    try{ renderQuestChips(state); }catch{}
     return 'power';
   }
 
-  // === TRAP ===
+  // ===== Trap =====
   if (meta.type === 'trap'){
-    gj.miss++;
     try{ sfx?.bad?.(); }catch{}
-    fx?.popText?.('TRAP!', { color:'#ff9b9b' });
-    noteAvoidQuestMiss(gj, coach);      // เควสต์ B
-    resetStreakQuest(gj);               // รีเซ็ตสตรีค (E)
-    coachSayRandom(coach, ['โอ๊ย! ระวังหน่อย!', 'ไม่เป็นไร ลุยต่อ! 💪']);
+    fx?.popText?.('TRAP!',{color:'#ff9b9b'});
+    gj.miss++;
+    // quest: avoid_junk (badCount++)
+    for (const q of gj.quests){
+      if (q.kind==='max-bad' && !q.done && !q.fail){
+        q.badCount = (q.badCount||0) + 1;
+        if (q.badCount > q.need){ q.fail = true; coach?.say?.(state.lang==='TH'?'ระวังให้มากขึ้น!':'Watch out!'); }
+      }
+      if (q.kind==='streak'){ q.curStreak = 0; } // ตัด streak
+    }
+    try{ renderQuestChips(state); }catch{}
     return 'bad';
   }
 
-  // === FOOD ===
+  // ===== Food =====
   if (meta.type === 'food'){
+    // PERFECT check
     const now = (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now();
+    const dt  = meta.ts ? (now - meta.ts) : 9999;
+    const isPerfect = meta.good && (dt <= PERFECT_WINDOW_MS);
 
     if (meta.good){
       gj.hits++;
 
-      // A: สะสมของดี
-      addQuestProgress(gj, 'collect_good', 1, fx, coach);
-
-      // E: streak ของดี
-      bumpStreakQuest(gj, fx, coach);
-
-      // PERFECT?
-      if (meta.ts && (now - meta.ts) <= PERFECT_WINDOW_MS){
-        try{ sfx?.perfect?.(); }catch{ try{ sfx?.good?.(); }catch{} }
-        fx?.popText?.('PERFECT',{ color:'#ccff88' });
-        addQuestProgress(gj, 'perfect_hits', 1, fx, coach);  // C: perfect
-        return 'perfect';
+      // quests update
+      for (const q of gj.quests){
+        if (q.done || q.fail) continue;
+        if (q.kind==='counter'){              // collects good/perfect
+          q.progress++;
+          if (q.progress>=q.need){ q.done=true; coach?.say?.(state.lang==='TH'?'สุดยอด! เควสต์สำเร็จ':'Great! Quest complete'); }
+        }
+        if (q.kind==='perfect' && isPerfect){ // perfect only
+          q.progress++;
+          if (q.progress>=q.need){ q.done=true; coach?.say?.(state.lang==='TH'?'เป๊ะมาก!':'Perfect!'); }
+        }
+        if (q.kind==='streak'){               // streak
+          q.curStreak = (q.curStreak||0) + 1;
+          q.bestStreak = Math.max(q.bestStreak||0, q.curStreak);
+          q.progress = q.bestStreak;          // แสดงเป็น progress
+          if (q.bestStreak>=q.need){ q.done=true; coach?.say?.(state.lang==='TH'?'สตรีคแรงมาก!':'Huge streak!'); }
+        }
       }
 
-      try{ sfx?.good?.(); }catch{}
-      fx?.popText?.('GOOD',{ color:'#7fffd4' });
-      return 'good';
+      try{ renderQuestChips(state); }catch{}
+
+      if (isPerfect){
+        try{ sfx?.good?.(); }catch{}
+        fx?.popText?.('PERFECT',{color:'#ccff88'});
+        return 'perfect';
+      }else{
+        try{ sfx?.good?.(); }catch{}
+        fx?.popText?.('GOOD',{color:'#7fffd4'});
+        return 'good';
+      }
     } else {
       gj.miss++;
+      // quests: bad impact
+      for (const q of gj.quests){
+        if (q.kind==='max-bad' && !q.done && !q.fail){
+          q.badCount = (q.badCount||0) + 1;
+          if (q.badCount > q.need){ q.fail = true; coach?.say?.(state.lang==='TH'?'พลาดเกินโควตาแล้ว!':'Too many misses!'); }
+        }
+        if (q.kind==='streak'){ q.curStreak = 0; }
+      }
+      try{ renderQuestChips(state); }catch{}
       try{ sfx?.bad?.(); }catch{}
-      fx?.popText?.('JUNK!',{ color:'#ff9b9b' });
-      noteAvoidQuestMiss(gj, coach);     // B: หลีกเลี่ยงของเสีย
-      resetStreakQuest(gj);              // E: สตรีคขาด
-      coachSayRandom(coach, ['พลาดไปนิดเดียว! ลองใหม่!', 'ใจเย็น ๆ สู้ต่อ!']);
+      fx?.popText?.('JUNK!',{color:'#ff9b9b'});
       return 'bad';
     }
   }
@@ -204,104 +284,22 @@ export function onHit(meta, sys, state, hud){
   return 'ok';
 }
 
-export function tick(state, sys, hud){
-  const { coach, fx } = sys || {};
-  const gj = state.ctx?.gj; if (!gj?.quests) return;
-
-  // ลดเวลาทุกเควสต์ที่ยังไม่จบ/ไม่ล้มเหลว
-  let anyActive = false;
+export function tick(state, sys){
+  // เควสต์นับถอยหลัง
+  const gj = state.ctx?.gj; if (!gj || !gj.quests) return;
+  let changed = false;
   for (const q of gj.quests){
     if (q.done || q.fail) continue;
-    q.remain = Math.max(0, q.remain - 1);
+    q.remain = Math.max(0, (q.remain|0) - 1);
     if (q.remain === 0){
-      // เช็คเงื่อนไขจบ (โดยเฉพาะ B ที่สำเร็จได้ถ้า miss ไม่เกินกำหนด)
-      if (q.id === 'avoid_junk'){
-        const missMax = QUEST_B_MISS_MAX[state.difficulty] ?? 3;
-        const misses = q.meta?.misses || 0;
-        if (misses <= missMax){ // สำเร็จ
-          q.done = true; fx?.popText?.('✅ เควสต์สำเร็จ',{color:'#a6ff9b'});
-          coach?.say?.('ยอดเยี่ยม! ระวังได้ดีมาก ✨');
-        } else {
-          q.fail = true; fx?.popText?.('⌛ เควสต์ล้มเหลว',{color:'#ffb3b3'});
-          coach?.say?.('ไม่เป็นไร! เควสต์อื่นยังไปต่อได้ 💪');
-        }
-      } else {
-        // เควสต์ทั่วไป: ถ้ายังไม่ถึง need = fail
-        if ((q.progress|0) >= (q.need|0)){
-          q.done = true; fx?.popText?.('✅ เควสต์สำเร็จ',{color:'#a6ff9b'});
-          coach?.say?.('สวย! ไปต่อเควสต์ถัดไปกัน 🚀');
-        }else{
-          q.fail = true; fx?.popText?.('⌛ หมดเวลาเควสต์',{color:'#ffb3b3'});
-          coach?.say?.('ไม่เป็นไร เควสต์ถัดไปยังไหว!');
-        }
-      }
-    } else {
-      anyActive = true;
+      // หมดเวลาแล้ว ถ้ายังไม่ผ่าน: fail
+      q.fail = true;
+      changed = true;
     }
   }
-
-  // กระตุ้นผู้เล่นเบา ๆ
-  if (anyActive && (state.timeLeft % 10 === 0)){
-    const left = gj.quests.find(q=>!q.done && !q.fail);
-    if (left){
-      coachSayRandom(coach, [
-        `สู้ ๆ! ${left.titleTH} เหลือ ${Math.max(0,left.need-left.progress)} ชิ้น`,
-        'รักษาจังหวะนี้ไว้!',
-        'ทำได้ดี! อย่าลดความเร็ว!'
-      ]);
-    }
-  }
+  if (changed){ try{ renderQuestChips(state); }catch{} }
 }
 
 export function cleanup(state){
-  // ไม่มีทรัพยากรค้างที่ต้องล้างนอกเหนือจาก state
-}
-
-/* =========================
-   5) ตัวช่วยด้านเควสต์
-   ========================= */
-function addQuestProgress(gj, id, inc=1, fx, coach){
-  const q = gj.quests?.find(x=>x.id===id && !x.done && !x.fail);
-  if (!q) return;
-  q.progress = Math.min(q.need|0, (q.progress|0) + inc);
-  if ((q.progress|0) >= (q.need|0)){
-    q.done = true;
-    fx?.popText?.('🏁 Quest Complete!', { color:'#7fffd4' });
-    coach?.say?.('เยี่ยม! เควสต์สำเร็จแล้ว 🏅');
-  }
-}
-function noteAvoidQuestMiss(gj, coach){
-  const q = gj.quests?.find(x=>x.id==='avoid_junk' && !x.done && !x.fail);
-  if (!q) return;
-  q.meta = q.meta || { misses:0 };
-  q.meta.misses++;
-  // แจ้งเตือนเมื่อเข้าใกล้เพดาน
-  const missMax = QUEST_B_MISS_MAX[gj?.diff || 'Normal'] ?? 3; // เผื่อไม่มี diff ใน ctx
-  if (q.meta.misses === missMax){
-    coach?.say?.('ระวัง! ถ้าเสียอีกจะพลาดเควสต์นี้นะ 🫣');
-  }
-}
-function bumpStreakQuest(gj, fx, coach){
-  const q = gj.quests?.find(x=>x.id==='good_streak' && !x.done && !x.fail);
-  if (!q) return;
-  q.meta = q.meta || { streak:0 };
-  q.meta.streak++;
-  // อัปเดต progress = ค่าสูงสุดที่ทำได้ (หรือจะนับทุกครั้งก็ได้ตามดีไซน์)
-  q.progress = Math.max(q.progress|0, q.meta.streak|0);
-  if (q.progress >= (q.need|0)){
-    q.done = true; fx?.popText?.('🔥 Streak Achieved!', { color:'#ffec99' });
-    coach?.say?.('สุดยอด! สตรีคโหดมาก! 🔥');
-  }else if (q.meta.streak % 3 === 0){
-    coach?.say?.(`สตรีค ${q.meta.streak} แล้ว! ไปต่อ!`);
-  }
-}
-function resetStreakQuest(gj){
-  const q = gj.quests?.find(x=>x.id==='good_streak' && !x.done && !x.fail);
-  if (!q) return;
-  q.meta = q.meta || { streak:0 };
-  q.meta.streak = 0;
-}
-function coachSayRandom(coach, arr){
-  if (!coach || !coach.say) return;
-  if (Math.random()<0.5) coach.say(pick(arr));
+  // no-op
 }
