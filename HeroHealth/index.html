@@ -5,97 +5,101 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- Base path สำหรับ GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
-
   <link rel="stylesheet" href="styles/game.css" />
 
-  <!-- ================= Bootloader (Resilient Import) ================= -->
+  <!-- Bootloader: โหลด main.js แบบทนทาน + แถบแดงเตือน + ชิป JS Loaded -->
   <script type="module">
     (async () => {
-      // helper แทรก element ลง body
-      const ensureIntoBody = (el) => {
-        if (document.body) document.body.appendChild(el);
-        else document.addEventListener("DOMContentLoaded", () => document.body.appendChild(el), { once: true });
-      };
+      const warn = document.createElement('div');
+      warn.id = 'bootWarn';
+      warn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000;display:none';
+      warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js';
+      document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(warn));
 
-      // ----- แถบแดงแจ้ง error -----
-      const warn = document.createElement("div");
-      warn.id = "bootWarn";
-      warn.style.cssText =
-        "position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000;display:none";
-      warn.textContent = "โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js";
-      ensureIntoBody(warn);
+      const chip = document.createElement('div');
+      chip.id = 'bootChip';
+      chip.style.cssText = 'position:fixed;right:12px;bottom:12px;background:#1b5e20;color:#fff;padding:8px 10px;border-radius:999px;font-weight:800;font-size:12px;z-index:2001;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+      chip.textContent = '✅ JS Loaded';
+      document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(chip));
 
-      // ----- ชิป JS Loaded -----
-      const chip = document.createElement("div");
-      chip.id = "bootChip";
-      chip.style.cssText =
-        "position:fixed;right:12px;bottom:12px;background:#1b5e20;color:#fff;padding:8px 10px;border-radius:999px;font-weight:800;font-size:12px;z-index:2001;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)";
-      chip.textContent = "✅ JS Loaded";
-      ensureIntoBody(chip);
-
-      // ----- Candidates สำหรับ import -----
-      const bases = [
-        document.baseURI,
-        new URL("./", location.href).href,
-        "https://supparang.github.io/webxr-health-mobile/HeroHealth/"
-      ];
-      const paths = ["game/main.js", "./game/main.js", "game/main.js?v=live"];
+      const bases = [document.baseURI, new URL('./', location.href).href, 'https://supparang.github.io/webxr-health-mobile/HeroHealth/'];
+      const paths = ['game/main.js', './game/main.js', 'game/main.js?v=live'];
       const candidates = [];
       for (const b of bases) for (const p of paths) candidates.push(new URL(p, b).href);
 
-      let loaded = false,
-        lastErr = null;
-
+      let loaded = false, lastErr = null;
       for (const url of candidates) {
         try {
-          const bust = url.includes("?") ? url + "&cb=" + Date.now() : url + "?cb=" + Date.now();
+          const bust = url.includes('?') ? url + '&cb=' + Date.now() : url + '?cb=' + Date.now();
           await import(bust);
           loaded = true;
           setTimeout(() => {
             if (window.__HHA_BOOT_OK) {
-              const w = document.getElementById("bootWarn");
-              if (w) w.style.display = "none";
-              const c = document.getElementById("bootChip");
-              if (c) c.style.display = "inline-block";
+              const w = document.getElementById('bootWarn'); if (w) w.style.display = 'none';
+              const c = document.getElementById('bootChip'); if (c) c.style.display = 'inline-block';
             }
-          }, 150);
-          console.info("[HHA] main loaded via", url);
+          }, 100);
+          console.info('[HHA] main loaded via', url);
           break;
         } catch (e) {
           lastErr = e;
-          console.warn("[HHA] import fail:", url, e);
+          console.warn('[HHA] import fail:', url, e);
         }
       }
 
       if (!loaded) {
-        const w = document.getElementById("bootWarn");
+        const w = document.getElementById('bootWarn');
         if (w) {
           w.textContent =
-            "โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: " +
+            'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: ' +
             (lastErr && (lastErr.message || String(lastErr)));
-          w.style.display = "block";
+          w.style.display = 'block';
         }
       }
     })();
   </script>
-</head>
 
+  <style>
+    /* ========== เพิ่มสไตล์ของ Coach อยู่ใต้ Fever ========== */
+    .coach {
+      position: fixed;
+      left: 50%;
+      top: calc(50% + 120px); /* 🔸 อยู่ใต้ FEVER ประมาณ 120px */
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, .65);
+      color: #fff;
+      border: 1px solid #fff2;
+      border-radius: 14px;
+      padding: 10px 14px;
+      font: 700 16px/1.25 ui-rounded, system-ui, Segoe UI, Arial;
+      z-index: 190;
+      pointer-events: none;
+      box-shadow: 0 8px 28px rgba(0,0,0,.35);
+      text-align: center;
+      min-width: 200px;
+      animation: fadein .3s ease;
+    }
+    @keyframes fadein {
+      from { opacity: 0; transform: translate(-50%, 10px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+  </style>
+</head>
 <body>
-  <!-- ================= Header ================= -->
+  <!-- Brand / Toggles -->
   <header class="brand">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
-    <button id="langToggle" class="btn" type="button">🇹🇭 TH/EN</button>
-    <button id="gfxToggle" class="btn" type="button">🎛️ กราฟิก: ปกติ</button>
-    <button id="soundToggle" class="btn" type="button">🔊 เสียง: เปิด</button>
+    <button id="langToggle"   class="btn" type="button">🇹🇭 TH/EN</button>
+    <button id="gfxToggle"    class="btn" type="button">🎛️ กราฟิก: ปกติ</button>
+    <button id="soundToggle"  class="btn" type="button">🔊 เสียง: เปิด</button>
   </header>
 
-  <!-- ================= Render Surface ================= -->
+  <!-- Render Surface -->
   <canvas id="c"></canvas>
 
-  <!-- ================= HUD ================= -->
+  <!-- HUD (คะแนน/คอมโบ/เวลา + Fever Bar + Mission Line + Coach) -->
   <section class="hud">
     <div>
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
@@ -103,43 +107,47 @@
       <span id="t_time">เวลา</span>: <b id="time">60</b>s
     </div>
 
-    <div id="feverBarWrap" class="bar slim">
-      <div id="feverBar" style="width:0%"></div>
-    </div>
+    <!-- Fever Progress Bar -->
+    <div id="feverBarWrap" class="bar slim"><div id="feverBar" style="width:0%"></div></div>
 
+    <!-- เป้าหมายหมวดอาหาร -->
     <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
 
-    <div id="plateTracker" style="display:none">
-      🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span>
-    </div>
+    <!-- โควตาอาหาร -->
+    <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
 
+    <!-- สมดุลน้ำ -->
     <div id="hydroWrap" style="display:none">
-      💧 <span id="t_hydro">สมดุลน้ำ</span>: <span id="hydroLabel">—</span>
+      💧 <span id="t_hydro">สมดุลน้ำ</span>:
+      <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
+    <!-- Fever Label -->
     <div id="fever" class="fever" style="display:none">FEVER!</div>
+
+    <!-- 👇 ย้ายโค้ชมาอยู่ใต้ FEVER -->
+    <div id="coachHUD" class="coach" style="display:none">
+      <div id="coachText">...</div>
+    </div>
+
+    <!-- เส้นภารกิจ/สถานะย่อย -->
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- ================= Coach ================= -->
-  <div id="coachHUD" class="coach" style="display:none">
-    <div id="coachText">...</div>
-  </div>
-
-  <!-- ================= Menu ================= -->
+  <!-- เมนูล่างจอ -->
   <section id="menuBar" class="menu">
     <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk" id="m_goodjunk" type="button">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups" id="m_groups" type="button">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-value="groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
       <button class="tag" data-action="mode" data-value="hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate" id="m_plate" type="button">🍱 จัดจานสุขภาพ</button>
+      <button class="tag" data-action="mode" data-value="plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
     </div>
 
     <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy" id="d_easy" type="button">ง่าย</button>
+      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard" id="d_hard" type="button">ยาก</button>
+      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard"   type="button">ยาก</button>
 
       <span class="modeLabel">
         <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
@@ -148,61 +156,55 @@
     </div>
 
     <div class="row">
-      <button class="btn" data-action="start" id="btn_start" type="button">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause" id="btn_pause" type="button">⏸ พัก</button>
+      <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
+      <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help" id="btn_help" type="button">❓ วิธีเล่น</button>
+      <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
       <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
   </section>
 
-  <!-- ================= Help Modal ================= -->
-  <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true">
+  <!-- Help Modal -->
+  <div id="help" class="modal" style="display:none">
     <div class="card">
       <h3>วิธีเล่น</h3>
-      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก → ทำภารกิจให้สำเร็จ!</pre>
+      <pre id="helpBody">เลือกโหมด → เก็บสิ่งที่ถูกต้อง → หลีกเลี่ยงกับดัก</pre>
       <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
     </div>
   </div>
 
-  <!-- ================= Result Modal ================= -->
-  <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true">
+  <!-- Result Modal -->
+  <div id="result" class="modal" style="display:none">
     <div class="card">
-      <h3>สรุปผล</h3>
+      <h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div>
       <div id="resBreakdown"></div>
       <div id="resBoard"></div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
-        <button class="btn" data-result="home" id="btn_home" type="button">🏠 หน้าหลัก</button>
+        <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
       </div>
     </div>
   </div>
 
-  <!-- ================= Help Scene ================= -->
-  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true">
-    <div class="card" style="max-width:960px;width:90%;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <!-- Help Scene -->
+  <div id="helpScene" class="modal" style="display:none">
+    <div class="card" style="max-width:960px; width:90%;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <h3 style="margin:0">คู่มือรวม</h3>
-        <button class="btn" data-action="helpSceneClose" type="button">✖ ปิด</button>
+        <button class="btn" data-action="helpSceneClose" id="btn_helpSceneClose" type="button">✖ ปิด</button>
       </div>
-      <div id="hs_body" class="hs-grid" style="margin-top:12px;">
-        <p>💡 <b>ดี vs ขยะ</b> — เก็บอาหารดี หลีกเลี่ยงของขยะ ทำ Mini Quest ให้ครบ</p>
-        <p>🍽️ <b>จาน 5 หมู่</b> — เลือกอาหารให้ตรงหมวดเป้าหมาย</p>
-        <p>💧 <b>สมดุลน้ำ</b> — ดื่มน้ำในระดับพอดี อย่ามากหรือน้อยเกินไป</p>
-        <p>🍱 <b>จัดจานสุขภาพ</b> — จัดอาหารในจานให้ครบและสมดุล</p>
-      </div>
+      <div id="hs_body" class="hs-grid" style="margin-top:12px;"></div>
     </div>
   </div>
 
-  <!-- ================= Sounds ================= -->
+  <!-- SFX -->
   <audio id="sfx-good" preload="auto" src="./assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad" preload="auto" src="./assets/sfx/bad.mp3"></audio>
   <audio id="sfx-perfect" preload="auto" src="./assets/sfx/perfect.mp3"></audio>
   <audio id="sfx-tick" preload="auto" src="./assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup" preload="auto" src="./assets/sfx/powerup.mp3"></audio>
 
-  <!-- ================= No-JS Warning ================= -->
   <noscript>
     <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">
       จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
