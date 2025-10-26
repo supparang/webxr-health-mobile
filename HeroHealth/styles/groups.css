@@ -1,22 +1,15 @@
-/* === Hero Health Academy — styles/group.css (3D icon look for groups mode) === */
+/* === Hero Health Academy — styles/group.css (no background changes) === */
 
-/* ใช้กับโหมด groups เท่านั้น เพื่อไม่รบกวนโหมดอื่น */
-html[data-hha-mode="groups"] body {
-  background-image:
-    radial-gradient(600px 420px at 50% 48%, rgba(255,255,255,0.10), rgba(0,0,0,0) 65%);
-}
-
-/* ให้ป้ายเป้าหมายเด่นและอ่านง่าย */
+/* ป้ายเป้าหมายให้เด่นขึ้นเล็กน้อย แต่ไม่แตะพื้นหลัง */
 html[data-hha-mode="groups"] #targetWrap {
   display: block !important;
   font-weight: 900;
   letter-spacing: .2px;
-  mix-blend-mode: screen;
 }
 
-/* === 3D LOOK FOR ICON BUTTONS === */
+/* 3D look สำหรับปุ่มไอคอน (ไม่ยุ่งกับพื้นหลัง) */
 html[data-hha-mode="groups"] .item {
-  position: fixed; /* main.js ตั้งตำแหน่งให้แล้ว */
+  position: fixed; /* main.js ตั้งตำแหน่งแล้ว */
   padding: 8px 12px;
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.10));
@@ -27,12 +20,12 @@ html[data-hha-mode="groups"] .item {
   text-shadow:
     0 2px 8px rgba(0,0,0,.35),
     0 0 1px rgba(0,0,0,.5);
-  transform: perspective(600px) rotateX(0) rotateY(0); /* add3DTilt จะหมุนให้ */
+  transform: perspective(600px) rotateX(0) rotateY(0); /* add3DTilt จะจัดให้ */
   will-change: transform, filter, opacity;
   transition: transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
 }
 
-/* แสงสะท้อนเงาบนพื้นผิวเลียนแบบ 3D */
+/* ไฮไลต์เงาสะท้อนบนปุ่ม */
 html[data-hha-mode="groups"] .item::before{
   content:'';
   position:absolute;
@@ -45,7 +38,7 @@ html[data-hha-mode="groups"] .item::before{
   pointer-events: none;
 }
 
-/* เงาตกพื้นเบา ๆ เพื่อรู้สึกว่าลอย */
+/* เงาตกพื้นของปุ่ม */
 html[data-hha-mode="groups"] .item::after{
   content:'';
   position:absolute;
@@ -60,7 +53,7 @@ html[data-hha-mode="groups"] .item::after{
   pointer-events: none;
 }
 
-/* hover/active ให้ลึกขึ้น (เดสก์ท็อป) */
+/* โต้ตอบ (เดสก์ท็อป) */
 @media (hover:hover){
   html[data-hha-mode="groups"] .item:hover{
     transform: perspective(600px) translateZ(12px) scale(1.06);
@@ -76,7 +69,7 @@ html[data-hha-mode="groups"] .item::after{
   }
 }
 
-/* Coach ขยับสู่กึ่งกลางให้อ่านง่ายขึ้น */
+/* จัดโค้ชให้อ่านง่ายขึ้นเล็กน้อย */
 html[data-hha-mode="groups"] #coachHUD {
   justify-content: center;
 }
