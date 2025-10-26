@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -8,10 +8,9 @@
   <!-- สำคัญ: ตั้ง base ให้เส้นทาง assets/module ถูกบน GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
   <link rel="stylesheet" href="styles/game.css" />
-  <!-- NEW: สไตล์โหมด Groups -->
   <link rel="stylesheet" href="styles/groups.css" />
 
-  <!-- Bootloader: พยายาม import ./game/main.js หลาย path แล้วโชว์สถานะ -->
+  <!-- Bootloader -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
@@ -56,7 +55,7 @@
     <button id="contrastToggle" class="btn" type="button" aria-pressed="false">🎯 คอนทราสต์: ปกติ</button>
   </header>
 
-  <!-- พื้นหลัง/เอฟเฟกต์เรนเดอร์ 3D (ถ้าใช้งาน) -->
+  <!-- พื้นหลัง/เอฟเฟกต์เรนเดอร์ 3D (คงไว้ตามเดิม) -->
   <canvas id="c" aria-hidden="true"></canvas>
 
   <!-- HUD -->
@@ -73,9 +72,9 @@
 
     <!-- Power-ups bar -->
     <div id="powerBar" class="powerbar" aria-label="Power-ups">
-      <div class="pseg" data-k="x2"><span>×2</span><i></i></div>
-      <div class="pseg" data-k="freeze"><span>🧊</span><i></i></div>
-      <div class="pseg" data-k="sweep"><span>🧹</span><i></i></div>
+      <div class="pseg" data-k="x2"     title="คะแนน x2 สำหรับเป้าหมาย" aria-disabled="false"><span>×2</span><i></i></div>
+      <div class="pseg" data-k="freeze" title="หยุดเวลาหมวดชั่วคราว"     aria-disabled="false"><span>🧊</span><i></i></div>
+      <div class="pseg" data-k="sweep"  title="Magnet ชิ้นถูกครั้งถัดไป" aria-disabled="false"><span>🧲</span><i></i></div>
     </div>
 
     <!-- Mini-Quest chips -->
@@ -95,11 +94,10 @@
       <div id="coachText">พร้อมไหม? สู้ๆ!</div>
     </div>
 
-    <!-- Mission line (ข้อความยาวเฉพาะกิจ) -->
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- จุด Mount สำหรับ UI ของโหมด (สำคัญ) -->
+  <!-- จุด Mount สำหรับ UI ของโหมด -->
   <main class="game-wrap" role="main" aria-label="Game area">
     <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
   </main>
@@ -107,13 +105,11 @@
   <!-- เมนูล่าง -->
   <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
     <div class="row">
-      <!-- ปุ่มเลือกโหมด: ใช้ data-action แบบ ui:start:* -->
       <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
       <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
       <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
       <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
     </div>
-
     <div class="row">
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
@@ -123,7 +119,6 @@
         <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
       </span>
     </div>
-
     <div class="row">
       <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
@@ -131,18 +126,6 @@
       <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
       <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
-
-    <!-- NEW: ปุ่ม More + แถวพรีเซ็ต (ซ่อนเป็นค่าเริ่มต้น) ใช้ได้กับทุกเกม -->
-    <div class="row" aria-label="เพิ่มเติม">
-      <button class="btn" data-action="ui:togglePresets" type="button" aria-expanded="false" aria-controls="presetRow">⚙️ More</button>
-    </div>
-    <div class="row" id="presetRow" style="display:none">
-      <span class="modeLabel" style="margin-right:8px;">พรีเซ็ต:</span>
-      <button class="tag" data-action="ui:preset:ClassroomEasy"   type="button" title="เล่นง่าย เหมาะสอน">🎓 Classroom Easy</button>
-      <button class="tag" data-action="ui:preset:TrainerBalanced" type="button" title="สมดุล + ปรับตามฝีมือ">🎯 Trainer</button>
-      <button class="tag" data-action="ui:preset:ArcadeFast"      type="button" title="เร็ว เร้าใจ">⚡ Arcade Fast</button>
-    </div>
-    <!-- /NEW -->
   </section>
 
   <!-- Help Modal -->
@@ -151,10 +134,10 @@
       <h3 id="h_help">วิธีเล่น</h3>
       <pre id="helpBody">
 - ดี vs ขยะ: เก็บอาหารดี หลีกเลี่ยงขยะ ทำเควส 3 อย่างให้ทันเวลา
-- Groups: อ่านชื่ออาหาร แล้วกดเลือก "หมวด" ให้ถูก (ผลไม้/ผัก/โปรตีน/ธัญพืช)
+- จาน 5 หมู่ (Food Group Frenzy): อ่านชื่ออาหาร/ดูไอคอน แล้วกดให้ตรง “หมวดเป้าหมาย” (ผลไม้/ผัก/โปรตีน/ธัญพืช)
 - สมดุลน้ำ: ดื่มน้ำให้พอดี ไม่มาก/น้อยเกิน
 - จัดจานสุขภาพ: วางอาหารลงจานให้ครบโควตา
-ใช้พาวเวอร์อัปช่วยลุย และสะสมคอมโบเพื่อแต้มพิเศษ!
+ใช้พาวเวอร์อัป Freeze / Magnet / X2 เพื่อสร้างจังหวะกดเทพๆ!
       </pre>
       <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
     </div>
