@@ -146,3 +146,12 @@ body.flash{ animation:warn .6s steps(2,end) infinite; }
 /* canvas base */
 #c{ position:fixed; inset:0; z-index:10; }
 header.brand{ position:fixed; left:0; right:0; top:0; z-index:65; background:rgba(0,0,0,.6); color:#fff; padding:8px 12px; display:flex; align-items:center; gap:8px; font-weight:900; }
+/* game.css */
+.item{
+  user-select:none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  padding: 8px;           /* เพิ่ม hitbox */
+  border-radius: 14px;    /* ทรงเม็ดยา */
+  outline: 20px solid transparent; /* กันเผลอแตะพลาด */
+}
