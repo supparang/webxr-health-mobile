@@ -1,261 +1,247 @@
 // game/modes/goodjunk.js
 // โหมด: ดี vs ขยะ — เก็บของดี หลีกเลี่ยงของขยะ
 // ส่งผลลัพธ์ให้ main.js: 'good' | 'bad' | 'perfect' | 'power'
-// ไฮไลต์: life แบบ adaptive, Mini-Quests (5 แบบ สุ่มมา 3), Power-ups (x2 / Freeze),
-//          Coach พูดเมื่อเริ่ม/สำเร็จ/พลาด และอัปเดต missionLine ตลอดเวลา
+// ไฮไลต์: life แบบ adaptive, 5 Mini-Quests (สุ่มมา 3), Power-ups (x2 / Freeze) + โค้ชเชียร์
 
-/* =========================
-   1) คอนสแตนต์ & ยูทิล
-   ========================= */
 const HEALTHY = ['🥦','🍎','🥕','🍅','🍇','🍉','🥗','🥒','🥬','🌽'];
 const JUNK    = ['🍔','🍟','🍩','🍕','🥤','🍫','🌭','🧁','🍪','🧃'];
 const TRAPS   = ['💣','☠️'];
 
-const GOOD_RATIO   = { Easy:0.72, Normal:0.65, Hard:0.58 };
-const POWER_RATE   = { Easy:0.08, Normal:0.10, Hard:0.12 };
+const GOOD_RATIO = { Easy:0.72, Normal:0.65, Hard:0.58 };
+const POWER_RATE = { Easy:0.08, Normal:0.10, Hard:0.12 };
 const ENABLED_POWERS = ['scorex2','freeze'];
-const TRAP_RATE    = 0.06;
-const PERFECT_WIN  = 320; // ms
-const MIN_LIFE     = { Easy:2600, Normal:2200, Hard:1900 };
+const ENABLE_TRAPS = true;
+const TRAP_RATE = 0.06;
 
-// เควสทั้งหมด (จะสุ่มเลือกมา 3 แบบ/รอบ)
+const PERFECT_WINDOW_MS = 320;
+const MIN_LIFE_BY_DIFF = { Easy:2600, Normal:2200, Hard:1900 };
+
+// Mini-Quests pool (เราจะสุ่มมา 3 ตอนเริ่ม)
 const QUEST_POOL = [
-  { id:'collect_good', icon:'🥦', color:'#7fffd4' },
-  { id:'avoid_junk',   icon:'🚫🍔', color:'#ffd54a' },
-  { id:'perfect',      icon:'✨', color:'#ccff88' },
-  { id:'powerups',     icon:'✖️2/🧊', color:'#b0ff66' },
-  { id:'reach_combo',  icon:'🔥', color:'#ffca28' }
+  { type:'collect', labelTH:'เก็บของดีให้ครบ', make:(diff)=>({ need: diff==='Hard'?14: diff==='Easy'?8:10 }) },
+  { type:'avoid',   labelTH:'เลี่ยงของขยะให้นาน', make:(diff)=>({ need: diff==='Hard'?14: diff==='Easy'?8:10, remain:0 }) },
+  { type:'perfect', labelTH:'PERFECT ให้ครบ', make:(diff)=>({ need: diff==='Hard'?6: diff==='Easy'?3:4 }) },
+  { type:'combo',   labelTH:'ไปให้ถึงคอมโบ', make:(diff)=>({ need: diff==='Hard'?20: diff==='Easy'?10:14 }) },
+  { type:'streak',  labelTH:'เก็บดีติดกัน', make:(diff)=>({ need: diff==='Hard'?10: diff==='Easy'?5:7, streak:0 }) },
 ];
 
-const QUEST_NEED = {
-  collect_good: { Easy: 8, Normal:10, Hard:12 },
-  avoid_junk:   { Easy:10, Normal:12, Hard:15 },   // วินาทีที่ต้องไม่โดน JUNK
-  perfect:      { Easy: 3, Normal: 4, Hard: 5 },
-  powerups:     { Easy: 2, Normal: 3, Hard: 3 },
-  reach_combo:  { Easy:10, Normal:12, Hard:15 }    // คอมโบเป้าหมาย
-};
+const QUEST_TIME = 45; // วินาที/เควส
 
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
-function pick3Distinct(arr){
-  const a = [...arr];
-  for (let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; }
-  return a.slice(0,3);
-}
-function iconOf(power){ return power==='scorex2'?'✖️2':(power==='freeze'?'🧊':'✨'); }
+const pick = (arr)=>arr[(Math.random()*arr.length)|0];
+const sampleN = (arr, n)=>{
+  const a = arr.slice(); const out=[];
+  while(a.length && out.length<n){ out.push(a.splice((Math.random()*a.length)|0,1)[0]); }
+  return out;
+};
+const iconOf = (p)=> (p==='scorex2'?'✖️2': (p==='freeze'?'🧊':'✨'));
 
 function lifeAdaptive(diff, state, mul=1){
-  const gj = state.ctx?.gj || {};
-  const hits = gj.hits|0, miss = gj.miss|0;
-  const acc = (hits+miss)>0 ? (hits/(hits+miss)) : 1;
-  const boost = acc < 0.55 ? 1.25 : acc < 0.75 ? 1.12 : 1.00;
-  const base = (diff?.life||3000) * boost * mul;
-  const minL = MIN_LIFE[state.difficulty] || 2100;
+  const g = state.ctx?.gj;
+  const hits = g?.hits || 0, miss = g?.miss || 0;
+  const acc  = (hits+miss)>0 ? (hits/(hits+miss)) : 1;
+  const boost= acc < 0.55 ? 1.25 : acc < 0.75 ? 1.12 : 1.0;
+  const base = (diff?.life || 3000) * boost * mul;
+  const minL = MIN_LIFE_BY_DIFF[state.difficulty] || 2100;
   return Math.max(minL, Math.round(base));
 }
 
-/* =========================
-   2) Mission HUD helpers
-   ========================= */
-function questTitle(q, lang='TH'){
-  const need = q.need|0, p = q.progress|0;
-  const leftSec = q.remain|0;
-  const mapTH = {
-    collect_good: `เก็บของดี ${p}/${need}`,
-    avoid_junk:   `เลี่ยงของขยะ ${p}/${need}s`,
-    perfect:      `Perfect Tap ${p}/${need}`,
-    powerups:     `เก็บพลังพิเศษ ${p}/${need}`,
-    reach_combo:  `คอมโบให้ถึง ${need} (ปัจจุบัน ${q.comboNow|0})`
-  };
-  const mapEN = {
-    collect_good: `Collect healthy ${p}/${need}`,
-    avoid_junk:   `Avoid junk ${p}/${need}s`,
-    perfect:      `Perfect taps ${p}/${need}`,
-    powerups:     `Grab power-ups ${p}/${need}`,
-    reach_combo:  `Reach combo ${need} (now ${q.comboNow|0})`
-  };
-  const body = (lang==='EN'?mapEN:mapTH)[q.id] || q.id;
-  return `${q.icon} ${body} • ${leftSec}s`;
-}
-
-function updateMissionLine(state){
+// ===== HUD helper: mission line =====
+function setMissionLine(text, show=true){
   const el = document.getElementById('missionLine');
   if (!el) return;
-  const lang = state.lang || 'TH';
-  const gj = state.ctx?.gj;
-  if (!gj || !gj.quests){ el.style.display='none'; return; }
-
-  // แสดง 2 งานแรกที่ยังไม่เสร็จ (หรือทั้งหมดถ้าอยาก)
-  const open = gj.quests.filter(q=>!q.done && !q.fail);
-  const show = (open.length?open:gj.quests).slice(0,2);
-  const text = show.map(q=>questTitle(q, lang)).join(' • ');
-  el.textContent = text || (lang==='EN'?'All quests done!':'เควสครบแล้ว!');
-  el.style.display = 'block';
+  el.style.display = show ? 'block' : 'none';
+  if (text != null) el.textContent = text;
+}
+function questLabel(q){
+  const TH = {
+    collect:(q)=>`🎯 เก็บดี ${q.progress||0}/${q.need}`,
+    avoid:(q)=>  `🎯 เลี่ยงขยะ ${Math.max(0,q.remain|0)}s`,
+    perfect:(q)=>`🎯 PERFECT ${q.progress||0}/${q.need}`,
+    combo:(q)=>  `🎯 คอมโบ x${q.comboNow||0}/x${q.need}`,
+    streak:(q)=> `🎯 ติดกัน ${q.streak||0}/${q.need}`,
+  };
+  const EN = {
+    collect:(q)=>`🎯 Collect ${q.progress||0}/${q.need}`,
+    avoid:(q)=>  `🎯 Avoid ${Math.max(0,q.remain|0)}s`,
+    perfect:(q)=>`🎯 PERFECT ${q.progress||0}/${q.need}`,
+    combo:(q)=>  `🎯 Combo x${q.comboNow||0}/x${q.need}`,
+    streak:(q)=> `🎯 In a row ${q.streak||0}/${q.need}`,
+  };
+  const lang = (localStorage.getItem('hha_lang')||'TH');
+  const fn = (lang==='TH'?TH:EN)[q.type];
+  return fn ? fn(q) : '—';
 }
 
-function questSay(coach, msg){
-  try{ coach?.say?.(msg); }catch{}
-}
-
-/* =========================
-   3) Public API
-   ========================= */
+// ===== Public API =====
 export function init(state, hud, diff){
   state.ctx = state.ctx || {};
-  // สุ่มเควส 3/5
-  const selected = pick3Distinct(QUEST_POOL).map(q=>({ ...q }));
-  // ใส่ need / progress / timer
-  for (const q of selected){
-    const need = (QUEST_NEED[q.id]||{} )[state.difficulty] ?? 10;
-    Object.assign(q, {
-      need,
-      progress: 0,
-      remain: 45,     // แต่ละเควสมีเวลา 45s เท่ากัน
-      done: false,
-      fail: false,
-      // ใช้สำหรับเควสเฉพาะ
-      comboNow: 0,
-      avoidTimer: 0,  // สะสมวินาทีที่ "ไม่โดน JUNK" ติดต่อกัน
-      icon: q.icon
-    });
-  }
-
-  state.ctx.gj = {
+  const gj = {
     hits:0, miss:0,
-    lastTapTs:0,
-    quests: selected
+    lastTs:0,
+    questIdx:0,
+    quests: sampleN(QUEST_POOL, 3).map(q=>{
+      const data = { type:q.type, progress:0, done:false, fail:false, remain:QUEST_TIME };
+      Object.assign(data, q.make(state.difficulty));
+      return data;
+    })
   };
+  state.ctx.gj = gj;
 
-  // บอกโค้ชเมื่อเริ่ม
-  questSay(state?.coach, state.lang==='EN'
-    ? 'Mini-quests started! Complete 3 goals in 45s.'
-    : 'เริ่มมินิเควสแล้ว! ทำให้ครบ 3 เป้าหมายใน 45 วินาที');
-
-  updateMissionLine(state);
+  // เริ่มเควสแรก + โค้ชเชียร์
+  const cur = gj.quests[gj.questIdx];
+  if (cur && state?.fever !== undefined) {
+    setMissionLine(`${questLabel(cur)} • ${cur.remain|0}s`, true);
+  }
 }
 
 export function pickMeta(diff, state){
   const ts = performance?.now?.() || Date.now();
 
-  // สุ่มพาวเวอร์
+  // พาวเวอร์
   if (Math.random() < (POWER_RATE[state.difficulty] || POWER_RATE.Normal) && ENABLED_POWERS.length){
     const p = pick(ENABLED_POWERS);
     return { type:'power', power:p, char:iconOf(p), life: lifeAdaptive(diff, state, 1.0), ts };
   }
+
   // กับดัก
-  if (Math.random() < TRAP_RATE){
+  if (ENABLE_TRAPS && Math.random() < TRAP_RATE){
     return { type:'trap', char: pick(TRAPS), good:false, life: lifeAdaptive(diff, state, 1.05), ts };
   }
-  // อาหารดี/ขยะ
+
+  // อาหาร
   const wantGood = Math.random() < (GOOD_RATIO[state.difficulty] || GOOD_RATIO.Normal);
   const char = wantGood ? pick(HEALTHY) : pick(JUNK);
   return { type:'food', char, good:wantGood, life: lifeAdaptive(diff, state, 1.0), ts };
 }
 
-export function onHit(meta, sys, state){
+export function onHit(meta, sys, state, hud){
   const { sfx, power, fx, coach } = sys || {};
-  const gj = state.ctx?.gj || (state.ctx.gj = { hits:0, miss:0, quests:[] });
+  const gj = state.ctx?.gj;
 
-  // ---------- Power ----------
+  if (!gj) return 'ok';
+
+  // พาวเวอร์
   if (meta.type === 'power'){
     try{ sfx?.play?.('sfx-powerup'); }catch{}
-    // เควส powerups
-    const qP = gj.quests?.find(q=>q.id==='powerups' && !q.done && !q.fail);
-    if (qP){ qP.progress = Math.min(qP.need, (qP.progress|0)+1); if (qP.progress>=qP.need){ qP.done=true; fx?.popText?.('Quest ✓',{color:qP.color}); questSay(coach, state.lang==='EN'?'Power-up quest complete!':'เควสพลังพิเศษสำเร็จ!'); } }
-
-    if (meta.power === 'scorex2'){ try{ power?.apply?.('boost'); }catch{} fx?.popText?.('SCORE ×2', { color:'#b0ff66' }); }
-    else if (meta.power === 'freeze'){ const now = performance?.now?.()||Date.now(); state.freezeUntil = now + 2000; fx?.popText?.('FREEZE!', { color:'#66e0ff' }); }
-
-    updateMissionLine(state);
+    if (meta.power === 'scorex2'){ try{ power?.apply?.('boost'); }catch{} fx?.popText?.('SCORE ×2',{color:'#b0ff66'}); }
+    else if (meta.power === 'freeze'){ const now = performance?.now?.()||Date.now(); state.freezeUntil = now + 2000; fx?.popText?.('FREEZE!',{color:'#66e0ff'}); }
     return 'power';
   }
 
-  // ---------- Trap ----------
+  // กับดัก
   if (meta.type === 'trap'){
+    try{ sfx?.bad?.(); }catch{} fx?.popText?.('TRAP!',{color:'#ff9b9b'});
     gj.miss++;
-    // กระแทกเควส avoid_junk (รีเซ็ตสะสม)
-    const qA = gj.quests?.find(q=>q.id==='avoid_junk' && !q.done && !q.fail);
-    if (qA){ qA.avoidTimer = 0; }
-    try{ sfx?.bad?.(); }catch{}
-    fx?.popText?.('TRAP!', { color:'#ff9b9b' });
-    updateMissionLine(state);
+    // เควสเลี่ยงขยะรีเซ็ตเวลาที่เหลือ
+    const cur = gj.quests[gj.questIdx];
+    if (cur?.type==='avoid' && !cur.done && !cur.fail){
+      cur.remain = cur.need; // เริ่มนับใหม่
+      coach?.onQuestProgress?.(Object.assign({}, cur));
+    }
+    // streak พัง
+    if (cur?.type==='streak') cur.streak = 0;
     return 'bad';
   }
 
-  // ---------- Food ----------
+  // อาหาร
   if (meta.type === 'food'){
-    const now = performance?.now?.() || Date.now();
     if (meta.good){
       gj.hits++;
 
-      // เควส collect_good
-      const qC = gj.quests?.find(q=>q.id==='collect_good' && !q.done && !q.fail);
-      if (qC){ qC.progress = Math.min(qC.need, (qC.progress|0)+1); if (qC.progress>=qC.need){ qC.done=true; fx?.popText?.('Quest ✓',{color:qC.color}); questSay(coach, state.lang==='EN'?'Great! Healthy items collected.':'เยี่ยม! เก็บของดีครบแล้ว'); } }
+      // perfect?
+      let perfect = false;
+      if (meta.ts){
+        const dt = (performance?.now?.()||Date.now()) - meta.ts;
+        if (dt <= PERFECT_WINDOW_MS) perfect = true;
+      }
 
-      // เควส reach_combo (ดูจาก state.combo ปัจจุบัน)
-      const qR = gj.quests?.find(q=>q.id==='reach_combo' && !q.done && !q.fail);
-      if (qR){ qR.comboNow = Math.max(qR.comboNow|0, state.combo|0); if ((state.combo|0) >= (qR.need|0)){ qR.done=true; fx?.popText?.('Quest ✓',{color:qR.color}); questSay(coach, state.lang==='EN'?'Combo quest complete!':'คอมโบถึงเป้าหมาย!'); } }
-
-      // Perfect tap
-      let isPerfect = false;
-      if (meta.ts){ const dt = (now - meta.ts)|0; if (dt <= PERFECT_WIN){ isPerfect = true; } }
-      if (isPerfect){
-        // เควส perfect
-        const qPf = gj.quests?.find(q=>q.id==='perfect' && !q.done && !q.fail);
-        if (qPf){ qPf.progress = Math.min(qPf.need, (qPf.progress|0)+1); if (qPf.progress>=qPf.need){ qPf.done=true; fx?.popText?.('Quest ✓',{color:qPf.color}); questSay(coach, state.lang==='EN'?'Perfect quest complete!':'เควส Perfect สำเร็จ!'); } }
-        try{ sfx?.good?.(); }catch{}
-        fx?.popText?.('PERFECT',{color:'#ccff88'});
-        updateMissionLine(state);
-        return 'perfect';
+      // เควสอัปเดต
+      const cur = gj.quests[gj.questIdx];
+      if (cur && !cur.done && !cur.fail){
+        if (cur.type === 'collect'){
+          cur.progress++; coach?.onQuestProgress?.(Object.assign({} , cur));
+        } else if (cur.type === 'perfect' && perfect){
+          cur.progress++; coach?.onQuestProgress?.(Object.assign({}, cur));
+        } else if (cur.type === 'combo'){
+          cur.comboNow = state?.combo || 0;
+          if (cur.comboNow >= cur.need) { cur.progress = cur.need; }
+          coach?.onQuestProgress?.(Object.assign({}, cur));
+        } else if (cur.type === 'streak'){
+          cur.streak = (cur.streak || 0) + 1;
+          if (cur.streak > cur.progress) cur.progress = cur.streak;
+          coach?.onQuestProgress?.(Object.assign({}, cur));
+        }
+        // สำเร็จ?
+        if ((cur.type==='collect' || cur.type==='perfect' || cur.type==='streak') && cur.progress >= cur.need){
+          cur.done = true; coach?.onQuestComplete?.(Object.assign({}, cur));
+          advanceQuest(gj, coach);
+        }
+        if (cur.type==='combo' && (state?.combo||0) >= cur.need){
+          cur.done = true; cur.progress = cur.need; coach?.onQuestComplete?.(Object.assign({}, cur));
+          advanceQuest(gj, coach);
+        }
       }
 
       try{ sfx?.good?.(); }catch{}
-      fx?.popText?.('GOOD',{color:'#7fffd4'});
-      updateMissionLine(state);
-      return 'good';
-
+      if (perfect){ fx?.popText?.('PERFECT',{color:'#ccff88'}); return 'perfect'; }
+      fx?.popText?.('GOOD',{color:'#7fffd4'}); return 'good';
     } else {
       gj.miss++;
-      // โดน JUNK → รีเซ็ตตัวนับของเควส avoid_junk
-      const qA = gj.quests?.find(q=>q.id==='avoid_junk' && !q.done && !q.fail);
-      if (qA){ qA.avoidTimer = 0; }
-      try{ sfx?.bad?.(); }catch{}
-      fx?.popText?.('JUNK!',{color:'#ff9b9b'});
-      updateMissionLine(state);
-      return 'bad';
+      const cur = gj.quests[gj.questIdx];
+      // streak พัง
+      if (cur?.type==='streak') cur.streak = 0;
+      // combo quest — แจ้งความคืบหน้า
+      if (cur?.type==='combo'){ cur.comboNow = state?.combo || 0; coach?.onQuestProgress?.(Object.assign({}, cur)); }
+      try{ sfx?.bad?.(); }catch{} fx?.popText?.('JUNK!',{color:'#ff9b9b'}); return 'bad';
     }
   }
 
   return 'ok';
 }
 
-export function tick(state /*, sys */){
-  // อัปเดตตัวนับเวลา/ความคืบหน้าของเควส (ทุก 1 วินาที)
-  const gj = state.ctx?.gj; if (!gj || !gj.quests) return;
+export function tick(state, sys, hud){
+  const { coach } = sys || {};
+  const gj = state.ctx?.gj; if (!gj) return;
 
-  for (const q of gj.quests){
-    if (q.done || q.fail) continue;
+  const cur = gj.quests[gj.questIdx];
+  if (!cur){ setMissionLine(null, false); return; }
 
-    // นับถอยหลัง
-    q.remain = Math.max(0, (q.remain|0) - 1);
+  // นับเวลา
+  cur.remain = Math.max(0, (cur.remain|0) - 1);
 
-    // เควส avoid_junk: สะสมเวลา "ปลอด JUNK" (เพิ่ม 1s/ติ๊ก ถ้าไม่โดน JUNK)
-    if (q.id === 'avoid_junk'){
-      q.avoidTimer = Math.min(q.need, (q.avoidTimer|0) + 1);
-      q.progress = q.avoidTimer;
-      if (q.progress >= q.need){
-        q.done = true;
-        try{ state?.coach?.say?.(state.lang==='EN'?'Clean eating!':'สะอาด! เลี่ยงของขยะสำเร็จ'); }catch{}
-      }
-    }
-
-    // หมดเวลาแล้วยังไม่ถึงเป้า → fail
-    if (q.remain === 0 && !q.done){
-      q.fail = true;
-      try{ state?.coach?.say?.(state.lang==='EN'?'Quest failed. Try again!':'พลาดเควส ลองใหม่ได้!'); }catch{}
+  // avoid: ถ้ายังหลีกขยะได้ต่อเนื่อง ลดเวลา (เรารีเซ็ตตอนโดน bad ไปแล้วใน onHit)
+  if (cur.type === 'avoid'){
+    // แค่ลดตาม tick ก็พอ
+    if (cur.remain <= 0){ cur.done = true; cur.progress = cur.need; coach?.onQuestComplete?.(Object.assign({}, cur)); advanceQuest(gj, coach); }
+    else coach?.onQuestProgress?.(Object.assign({}, cur));
+  } else {
+    // type อื่นหมดเวลา = fail
+    if (!cur.done && cur.remain === 0){
+      cur.fail = true; coach?.onQuestFail?.(Object.assign({}, cur)); advanceQuest(gj, coach);
     }
   }
 
-  updateMissionLine(state);
+  // HUD บรรทัดภารกิจ
+  setMissionLine(`${questLabel(cur)} • ${cur.remain|0}s`, true);
 }
 
-export function cleanup(/* state */){ /* no-op */ }
+export function cleanup(){ setMissionLine(null, false); }
+
+// ===== helpers =====
+function advanceQuest(gj, coach){
+  gj.questIdx++;
+  const next = gj.quests[gj.questIdx];
+  if (next){
+    // init state เฉพาะเควส
+    next.progress = next.progress|0;
+    if (next.type==='avoid'){ next.remain = next.need; }
+    if (next.type==='streak'){ next.streak = 0; }
+    coach?.onQuestStart?.(Object.assign({}, next));
+  } else {
+    // เควสครบ 3 แล้ว
+    const lang = (localStorage.getItem('hha_lang')||'TH');
+    const msg = lang==='TH' ? '🎉 เควสครบแล้ว! โกยคะแนนต่อเลย!' : '🎉 All quests done! Farm more points!';
+    coach?.say?.(msg, { stayMs: 1600 });
+    setMissionLine(null, false);
+  }
+}
