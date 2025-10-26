@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
+  <!-- สำคัญ: ตั้ง base ให้เส้นทาง assets/module ถูกบน GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
   <link rel="stylesheet" href="styles/game.css" />
 
-  <!-- Bootloader (เดิม) -->
+  <!-- Bootloader: พยายาม import ./game/main.js หลาย path แล้วโชว์สถานะ -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
@@ -28,28 +29,36 @@
       const cands = []; for (const b of bases) for (const p of paths) cands.push(new URL(p,b).href);
       let ok=false, last=null;
       for (const u of cands){
-        try{ await import(u+(u.includes('?')?'&':'?')+'cb='+Date.now()); ok=true; setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80); break; }
-        catch(e){ last=e; }
+        try{
+          await import(u+(u.includes('?')?'&':'?')+'cb='+Date.now());
+          ok=true;
+          setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80);
+          break;
+        } catch(e){ last=e; }
       }
-      if(!ok){ warn.textContent='โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: '+(last?.message||String(last)); warn.style.display='block'; }
+      if(!ok){
+        warn.textContent='โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: '+(last?.message||String(last));
+        warn.style.display='block';
+      }
     })();
   </script>
 </head>
 <body>
-  <header class="brand">
+  <header class="brand" role="banner">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
-    <button id="langToggle"   class="btn" type="button">🇹🇭 TH/EN</button>
-    <button id="gfxToggle"    class="btn" type="button">🎛️ กราฟิก: ปกติ</button>
-    <button id="soundToggle"  class="btn" type="button">🔊 เสียง: เปิด</button>
-    <button id="hapticToggle" class="btn" type="button">📳 สั่น: เปิด</button>
-    <button id="contrastToggle" class="btn" type="button">🎯 คอนทราสต์: ปกติ</button>
+    <button id="langToggle"   class="btn" type="button" aria-pressed="false">🇹🇭 TH/EN</button>
+    <button id="gfxToggle"    class="btn" type="button" aria-pressed="false">🎛️ กราฟิก: ปกติ</button>
+    <button id="soundToggle"  class="btn" type="button" aria-pressed="true">🔊 เสียง: เปิด</button>
+    <button id="hapticToggle" class="btn" type="button" aria-pressed="true">📳 สั่น: เปิด</button>
+    <button id="contrastToggle" class="btn" type="button" aria-pressed="false">🎯 คอนทราสต์: ปกติ</button>
   </header>
 
-  <canvas id="c"></canvas>
+  <!-- พื้นหลัง/เอฟเฟกต์เรนเดอร์ 3D (ถ้าใช้งาน) -->
+  <canvas id="c" aria-hidden="true"></canvas>
 
   <!-- HUD -->
-  <section class="hud">
+  <section class="hud" role="region" aria-label="HUD">
     <div>
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
       <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
@@ -60,17 +69,17 @@
     <div id="feverBarWrap" class="bar slim"><div id="feverBar"></div></div>
     <div id="fever" class="fever" style="display:none">FEVER!</div>
 
-    <!-- NEW: Power-ups bar -->
-    <div id="powerBar" class="powerbar">
+    <!-- Power-ups bar -->
+    <div id="powerBar" class="powerbar" aria-label="Power-ups">
       <div class="pseg" data-k="x2"><span>×2</span><i></i></div>
       <div class="pseg" data-k="freeze"><span>🧊</span><i></i></div>
       <div class="pseg" data-k="sweep"><span>🧹</span><i></i></div>
     </div>
 
-    <!-- NEW: Mini-Quest chips (แสดง 3 เควสที่สุ่มมา) -->
-    <div id="questChips" class="quests"></div>
+    <!-- Mini-Quest chips -->
+    <div id="questChips" class="quests" aria-live="polite"></div>
 
-    <!-- Target/Plate/Hydration (ของเดิม) -->
+    <!-- Target/Plate/Hydration -->
     <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
     <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
     <div id="hydroWrap" style="display:none">
@@ -79,22 +88,28 @@
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
-    <!-- Coach moved HERE -->
+    <!-- Coach -->
     <div id="coachHUD" class="coach under-fever" style="display:flex">
       <div id="coachText">พร้อมไหม? สู้ๆ!</div>
     </div>
 
-    <!-- Mission line (เสริมข้อความยาวเมื่อจำเป็น) -->
+    <!-- Mission line (ข้อความยาวเฉพาะกิจ) -->
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
+  <!-- จุด Mount สำหรับ UI ของโหมด (สำคัญ) -->
+  <main class="game-wrap" role="main" aria-label="Game area">
+    <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
+  </main>
+
   <!-- เมนูล่าง -->
-  <section id="menuBar" class="menu">
+  <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
     <div class="row">
-      <button class="tag" data-action="mode" data-value="goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="mode" data-value="groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="mode" data-value="hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="mode" data-value="plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
+      <!-- ปุ่มเลือกโหมด: ใช้ data-action แบบ ui:start:* ให้ตรงกับ main.js -->
+      <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จัดเข้าหมวด (Groups)</button>
+      <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
     </div>
     <div class="row">
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
@@ -118,7 +133,13 @@
   <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">เก็บอาหารดี หลีกเลี่ยงขยะ ทำเควส 3 อย่างให้ทันเวลา ใช้พาวเวอร์ช่วยลุย!</pre>
+      <pre id="helpBody">
+- ดี vs ขยะ: เก็บอาหารดี หลีกเลี่ยงขยะ ทำเควส 3 อย่างให้ทันเวลา
+- Groups: อ่านชื่ออาหาร แล้วกดเลือก "หมวด" ให้ถูก (ผลไม้/ผัก/โปรตีน/ธัญพืช)
+- สมดุลน้ำ: ดื่มน้ำให้พอดี ไม่มาก/น้อยเกิน
+- จัดจานสุขภาพ: วางอาหารลงจานให้ครบโควตา
+ใช้พาวเวอร์อัปช่วยลุย และสะสมคอมโบเพื่อแต้มพิเศษ!
+      </pre>
       <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
     </div>
   </div>
@@ -137,7 +158,7 @@
     </div>
   </div>
 
-  <!-- SFX -->
+  <!-- SFX (ระบบ SFX ภายในจะ map id/เสียงเอง) -->
   <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
   <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
   <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
