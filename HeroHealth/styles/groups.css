@@ -1,13 +1,12 @@
-/* === Hero Health Academy — styles/group.css (scope เฉพาะโหมด groups) === */
+/* === Hero Health Academy — styles/group.css (3D icon look for groups mode) === */
 
-/* ผูกสไตล์เฉพาะตอนเล่นโหมด groups เท่านั้น */
+/* ใช้กับโหมด groups เท่านั้น เพื่อไม่รบกวนโหมดอื่น */
 html[data-hha-mode="groups"] body {
-  /* ช่วยดึงโฟกัสมาที่กลางจอเล็กน้อย */
   background-image:
     radial-gradient(600px 420px at 50% 48%, rgba(255,255,255,0.10), rgba(0,0,0,0) 65%);
 }
 
-/* ป้ายเป้าหมายใน HUD ให้เด่นและอยู่ใกล้กึ่งกลางสายตา */
+/* ให้ป้ายเป้าหมายเด่นและอ่านง่าย */
 html[data-hha-mode="groups"] #targetWrap {
   display: block !important;
   font-weight: 900;
@@ -15,48 +14,69 @@ html[data-hha-mode="groups"] #targetWrap {
   mix-blend-mode: screen;
 }
 
-/* ปรับปุ่ม "ชิ้น" (emoji) ให้ดูเหมาะกับการอยู่กลางจอ */
+/* === 3D LOOK FOR ICON BUTTONS === */
 html[data-hha-mode="groups"] .item {
-  /* กึ่งโปร่ง / มีเงาเนียน / ขอบโค้ง */
-  padding: 10px 14px;
-  border-radius: 16px;
-  backdrop-filter: blur(2px);
-  box-shadow: 0 6px 24px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.05);
-  text-shadow: 0 2px 8px rgba(0,0,0,.35);
-  will-change: transform;
+  position: fixed; /* main.js ตั้งตำแหน่งให้แล้ว */
+  padding: 8px 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.10));
+  box-shadow:
+    0 14px 28px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.18),
+    inset 0 -1px 0 rgba(0,0,0,.18);
+  text-shadow:
+    0 2px 8px rgba(0,0,0,.35),
+    0 0 1px rgba(0,0,0,.5);
+  transform: perspective(600px) rotateX(0) rotateY(0); /* add3DTilt จะหมุนให้ */
+  will-change: transform, filter, opacity;
+  transition: transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
 }
 
-/* โฟกัสที่กึ่งกลาง: scale ขึ้นเล็กน้อยเมื่ออยู่แถวกลางจอ */
-@media (min-width: 768px) {
-  html[data-hha-mode="groups"] .item {
-    transition: transform .15s ease, opacity .15s ease, filter .15s ease;
-  }
-  html[data-hha-mode="groups"] .item:hover {
-    transform: perspective(600px) translateZ(0) scale(1.12);
-    filter: drop-shadow(0 8px 22px rgba(0,0,0,.35));
-  }
-}
-
-/* เพิ่ม “วงแหวนรับตา” กลางจอแบบเบามาก (เพื่อชี้นำพื้นที่โผล่ของไอคอน) */
-html[data-hha-mode="groups"]::after{
+/* แสงสะท้อนเงาบนพื้นผิวเลียนแบบ 3D */
+html[data-hha-mode="groups"] .item::before{
   content:'';
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%,-50%);
-  width: min(66vw, 560px);
-  height: min(66vw, 560px);
-  border-radius: 50%;
-  background: radial-gradient(closest-side,
-              rgba(255,255,255,0.06),
-              rgba(255,255,255,0.02) 60%,
-              rgba(0,0,0,0) 70%);
+  position:absolute;
+  inset: 2px 6px auto 6px;
+  height: 12px;
+  border-radius: 999px;
+  background: radial-gradient(closest-side, rgba(255,255,255,0.55), rgba(255,255,255,0));
+  filter: blur(2px);
+  opacity: .35;
   pointer-events: none;
-  z-index: 50;
-  opacity: .75;
 }
 
-/* ปรับ Coach ระหว่างเล่นให้ชิดกลางลงนิด (อ่านง่ายขึ้น) */
+/* เงาตกพื้นเบา ๆ เพื่อรู้สึกว่าลอย */
+html[data-hha-mode="groups"] .item::after{
+  content:'';
+  position:absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -6px;
+  width: 66%;
+  height: 10px;
+  background: radial-gradient(closest-side, rgba(0,0,0,.28), rgba(0,0,0,0));
+  filter: blur(4px);
+  opacity: .85;
+  pointer-events: none;
+}
+
+/* hover/active ให้ลึกขึ้น (เดสก์ท็อป) */
+@media (hover:hover){
+  html[data-hha-mode="groups"] .item:hover{
+    transform: perspective(600px) translateZ(12px) scale(1.06);
+    filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+    box-shadow:
+      0 16px 34px rgba(0,0,0,.40),
+      inset 0 1px 0 rgba(255,255,255,.22),
+      inset 0 -1px 0 rgba(0,0,0,.20);
+  }
+  html[data-hha-mode="groups"] .item:active{
+    transform: perspective(600px) translateZ(2px) scale(0.98);
+    filter: drop-shadow(0 6px 18px rgba(0,0,0,.32));
+  }
+}
+
+/* Coach ขยับสู่กึ่งกลางให้อ่านง่ายขึ้น */
 html[data-hha-mode="groups"] #coachHUD {
   justify-content: center;
 }
