@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -113,6 +113,7 @@
       <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
       <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
     </div>
+
     <div class="row">
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
       <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
@@ -122,6 +123,7 @@
         <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
       </span>
     </div>
+
     <div class="row">
       <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
@@ -129,6 +131,18 @@
       <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
       <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
+
+    <!-- NEW: ปุ่ม More + แถวพรีเซ็ต (ซ่อนเป็นค่าเริ่มต้น) ใช้ได้กับทุกเกม -->
+    <div class="row" aria-label="เพิ่มเติม">
+      <button class="btn" data-action="ui:togglePresets" type="button" aria-expanded="false" aria-controls="presetRow">⚙️ More</button>
+    </div>
+    <div class="row" id="presetRow" style="display:none">
+      <span class="modeLabel" style="margin-right:8px;">พรีเซ็ต:</span>
+      <button class="tag" data-action="ui:preset:ClassroomEasy"   type="button" title="เล่นง่าย เหมาะสอน">🎓 Classroom Easy</button>
+      <button class="tag" data-action="ui:preset:TrainerBalanced" type="button" title="สมดุล + ปรับตามฝีมือ">🎯 Trainer</button>
+      <button class="tag" data-action="ui:preset:ArcadeFast"      type="button" title="เร็ว เร้าใจ">⚡ Arcade Fast</button>
+    </div>
+    <!-- /NEW -->
   </section>
 
   <!-- Help Modal -->
