@@ -139,3 +139,54 @@ body.dim-penalty::before{
   border-radius:12px; color:#fff; text-shadow:0 2px 10px #000;
   display:none; z-index:9999;
 }
+/* === Hydration Bar (Low/OK/High) with FEVER flames === */
+#hydroWrap{
+  position:fixed; z-index:65; left:12px; right:12px; top:114px;
+  display:block; pointer-events:none;
+}
+.hydroBar{
+  position:relative; height:24px; border-radius:999px; overflow:hidden;
+  border:1px solid #203155; background:#0d172b;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.35);
+}
+.hydroBar .seg{
+  position:absolute; top:0; bottom:0; display:flex; align-items:center; justify-content:center;
+  font:800 11px/1 ui-rounded,system-ui; letter-spacing:.2px; color:#e9f3ff; opacity:.85;
+  text-shadow:0 1px 3px #0009;
+}
+.hydroBar .seg.low  { left:0;   width:35%; background:linear-gradient(180deg,#12223d,#0f1b33); }
+.hydroBar .seg.ok   { left:35%; width:30%; background:linear-gradient(180deg,#123d2a,#0f3324); }
+.hydroBar .seg.high { left:65%; width:35%; background:linear-gradient(180deg,#3d1212,#330f0f); }
+
+.hydroBar .needle{
+  position:absolute; top:-4px; width:12px; height:32px; border-radius:6px;
+  background:linear-gradient(180deg,#cfe9ff,#5ab0ff);
+  box-shadow:0 0 10px rgba(90,176,255,.7), 0 2px 10px rgba(0,0,0,.35);
+  transition:left .18s ease;
+}
+
+/* สีกรอบตามโซน */
+.hydroBar[data-zone="LOW"]  { outline:2px solid rgba(90,176,255,.35); }
+.hydroBar[data-zone="OK"]   { outline:2px solid rgba(127,255,212,.45); }
+.hydroBar[data-zone="HIGH"] { outline:2px solid rgba(255,109,0,.45); }
+
+/* FEVER flames */
+.hydroBar .flame{
+  position:absolute; bottom:-8px; width:20px; height:28px; pointer-events:none;
+  filter: drop-shadow(0 4px 8px rgba(255,109,0,.55));
+}
+.hydroBar .flame i{
+  position:absolute; bottom:0; left:50%; width:10px; height:14px; margin-left:-5px;
+  background: radial-gradient(closest-side, #ffd54a, #ff6d00);
+  border-radius:999px 999px 6px 6px;
+  animation: flameUp .8s infinite ease-in-out;
+  opacity:.95;
+}
+.hydroBar .flame i:nth-child(2){ width:8px; height:12px; margin-left:-2px; animation-duration:.75s; opacity:.9; }
+.hydroBar .flame i:nth-child(3){ width:6px; height:10px; margin-left:-7px; animation-duration:.7s;  opacity:.85; }
+
+@keyframes flameUp{
+  0%   { transform: translateY(6px) scale(0.9); opacity:.9; }
+  50%  { transform: translateY(-2px) scale(1.05); opacity:1; }
+  100% { transform: translateY(-8px) scale(0.85); opacity:.0; }
+}
