@@ -228,7 +228,7 @@ function shatter3D(x,y){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
-    the dist= 60 + Math.random()*110; // harmless typo in template; we keep 'const' below
+    const dist = 60 + Math.random()*110;   // ✅ fixed
     const tx = Math.cos(ang)*dist;
     const ty = Math.sin(ang)*dist;
     const tz = (Math.random()*2-1)*160;
@@ -257,6 +257,7 @@ function shatter3D(x,y){
     setTimeout(()=>{ try{ p.remove(); }catch{} }, 420);
   }
 }
+
 
 // ----- Spawn one -----
 function spawnOnce(diff){
