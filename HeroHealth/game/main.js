@@ -71,7 +71,6 @@ function applyUI(){
   const L = T(state.lang);
   setText('#modeName',   L.names[state.modeKey]||state.modeKey);
   setText('#difficulty', L.diffs[state.difficulty]||state.difficulty);
-  // บอก CSS ว่าเราอยู่โหมดไหน (สำหรับสไตล์เฉพาะโหมด)
   document.documentElement.setAttribute('data-hha-mode', state.modeKey);
 }
 function updateHUD(){
@@ -412,7 +411,7 @@ function tick(){
   state.tickTimer = setTimeout(tick, 1000);
 }
 
-async function runCountdown(sec=5){
+async function runCountdown(sec=3){
   let ov = document.getElementById('cdOverlay');
   if (!ov){
     ov = document.createElement('div'); ov.id='cdOverlay';
@@ -520,10 +519,71 @@ function renderMissions(list){
   }
 }
 
+// ----- Help content (per-mode & all-modes) -----
+function helpHTMLForMode(key, lang){
+  const TH = {
+    goodjunk: {
+      title:'วิธีเล่น: ดี vs ขยะ',
+      body:`🥗 เก็บอาหารดี • 🗑️ หลีกเลี่ยงอาหารขยะ
+- แตะไอคอนอาหารดีเพื่อทำคะแนนและสะสมคอมโบ
+- แตะผิด (ขยะ) จะโดนหักคะแนนและคอมโบ
+- ใช้พาวเวอร์อัป x2 / Freeze / Magnet ให้จังหวะได้เปรียบ`
+    },
+    groups: {
+      title:'วิธีเล่น: จาน 5 หมู่',
+      body:`🍎 เลือกหมวดให้ตรงเป้าหมาย (ผลไม้/ผัก/โปรตีน/ธัญพืช/นม)
+- เป้าหมายจะแสดงที่แถบ 🎯 ด้านบน
+- แตะไอคอนให้ตรงหมวดเพื่อทำคะแนน สะสมครบจะเปลี่ยนเป้าหมาย
+- พาวเวอร์: x2 (คะแนนเป้าหมาย×2), 🧊 Freeze เป้าหมาย, 🧲 Magnet ช่วยสุ่มเป้าหมายถี่ขึ้น`
+    },
+    hydration: {
+      title:'วิธีเล่น: สมดุลน้ำ',
+      body:`💧 รักษาระดับน้ำให้อยู่ในเขต "พอดี"
+- ระดับน้ำต่ำ: แตะน้ำเปล่าเพื่อเพิ่ม หลีกเลี่ยงน้ำหวาน
+- ระดับน้ำสูง: หยุดดื่มน้ำเปล่า แตะน้ำหวานได้โดยไม่เสียคอมโบ
+- บาร์น้ำเปลี่ยนสี: ต่ำ=ฟ้าเข้ม • พอดี=เขียว • สูง=ส้ม/แดง`
+    },
+    plate: {
+      title:'วิธีเล่น: จัดจานสุขภาพ',
+      body:`🍱 วางอาหารลงจานให้ครบโควตาตามสัดส่วนที่กำหนด
+- เติมผัก-ผลไม้ให้มากกว่ากลุ่มอื่น
+- โปรตีนพอดี ธัญพืชโฮลเกรน และนม/ทางเลือก`
+    }
+  };
+  const EN = {
+    goodjunk: { title:'How to Play: Good vs Junk', body:`Collect healthy foods, avoid junk. Use power-ups wisely.` },
+    groups:   { title:'How to Play: Food Group Frenzy', body:`Tap items matching the current target food group. Power-ups help the target.` },
+    hydration:{ title:'How to Play: Hydration', body:`Keep hydration in the green zone. Tap water or sugary drinks according to level.` },
+    plate:    { title:'How to Play: Healthy Plate', body:`Fill the plate according to quotas. Emphasize veggies & fruits.` },
+  };
+  const dict = (lang==='EN') ? EN : TH;
+  const d = dict[key] || dict.goodjunk;
+  return `<h4 style="margin:0 0 6px 0;font:900 18px/1.2 ui-rounded">${d.title}</h4><div>${d.body}</div>`;
+}
+function renderHelpPerMode(){
+  const lang = (state.lang==='EN')?'EN':'TH';
+  const html = helpHTMLForMode(state.modeKey, lang);
+  const body = $('#helpBody'); if (body) body.innerHTML = html;
+}
+function renderHelpAll(){
+  const lang = (state.lang==='EN')?'EN':'TH';
+  const keys = Object.keys(MODES);
+  const body = $('#helpSceneBody'); if (!body) return;
+  body.innerHTML = keys.map(k => helpHTMLForMode(k, lang)).join('<hr style="border:none;border-top:1px solid #26324d;margin:12px 0">');
+}
+
 // ----- Global UI Events -----
 // (สำคัญ) เลือกโหมด “ไม่เริ่มเกม” — ต้องกด Start เท่านั้น
 document.addEventListener('pointerup', (e)=>{
   const target = e.target;
+  // ผลสรุป: ปุ่มใน modal ใช้งานได้แน่
+  const res = target.getAttribute?.('data-result');
+  if (res){
+    const modal = $('#result');
+    if (res==='replay'){ if (modal) modal.style.display='none'; start(); return; }
+    if (res==='home'){ if (modal) modal.style.display='none'; end(true); return; }
+  }
+
   const btn = byAction(target);
   if (!btn) return;
 
@@ -549,9 +609,15 @@ document.addEventListener('pointerup', (e)=>{
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a === 'restart'){ end(true); start(); }
-  else if (a === 'help'){ const m=$('#help'); if (m) m.style.display='flex'; }
+  else if (a === 'help'){ 
+    renderHelpPerMode(); 
+    const m=$('#help'); if (m) m.style.display='flex'; 
+  }
   else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
-  else if (a === 'helpScene'){ const hs=$('#helpScene'); if (hs) hs.style.display='flex'; }
+  else if (a === 'helpScene'){ 
+    renderHelpAll();
+    const hs=$('#helpScene'); if (hs) hs.style.display='flex'; 
+  }
   else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
@@ -614,7 +680,7 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
-// Result modal buttons
+// Result modal buttons (fallback เผื่อ DOM bubbling ไม่ทำงาน)
 const resEl = $('#result');
 if (resEl){
   resEl.addEventListener('click', (e)=>{
