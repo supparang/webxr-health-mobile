@@ -20,7 +20,7 @@ html[data-hha-mode="groups"] .item {
   text-shadow:
     0 2px 8px rgba(0,0,0,.35),
     0 0 1px rgba(0,0,0,.5);
-  transform: perspective(600px) rotateX(0) rotateY(0); /* add3DTilt จะจัดให้ */
+  transform: perspective(600px) rotateX(0) rotateY(0);
   will-change: transform, filter, opacity;
   transition: transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
 }
@@ -68,52 +68,6 @@ html[data-hha-mode="groups"] .item::after{
     filter: drop-shadow(0 6px 18px rgba(0,0,0,.32));
   }
 }
-/* === Overlays (HowToPlay / Result) === */
-.overlay {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.75);
-  z-index: 200;
-  color: #fff;
-  text-align: center;
-}
-.overlay.center { display: flex; }
-
-.overlay .panel {
-  background: rgba(15, 25, 45, 0.9);
-  border: 1px solid #334155;
-  border-radius: 16px;
-  padding: 24px 32px;
-  max-width: 480px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-}
-
-.overlay h2 {
-  font-size: 1.5rem;
-  margin-bottom: 12px;
-  color: #ffd54a;
-}
-
-.overlay p {
-  font-size: 1rem;
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
-
-.overlay .btn {
-  background: linear-gradient(180deg, #2563eb, #1e3a8a);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 18px;
-  margin: 0 6px;
-  cursor: pointer;
-  font-weight: 700;
-}
-.overlay .btn:hover { background: linear-gradient(180deg, #3b82f6, #1e40af); }
 
 /* จัดโค้ชให้อ่านง่ายขึ้นเล็กน้อย */
 html[data-hha-mode="groups"] #coachHUD {
