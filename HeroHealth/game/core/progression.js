@@ -1,42 +1,37 @@
 // === Hero Health Academy — game/core/progression.js ===
 const STORE_KEY = 'hha_profile_v1';
 
-function load() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || null; } catch { return null; }
-}
-function save(data) {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch {}
-}
+// --- utils ---
+function load(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY))||null; }catch{ return null; } }
+function save(p){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(p)); }catch{} }
 function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
 function now(){ return performance?.now?.()||Date.now(); }
 
-// ตารางเลเวล (เลเวล 1–50)
+// ตารางเลเวล (1–50)
 const XP_TABLE = Array.from({length:50}, (_,i)=> 100 + i*40); // xp ต่อเลเวล
-
 function xpToNext(profile){
   const idx = clamp(profile.level-1, 0, XP_TABLE.length-1);
   return XP_TABLE[idx] || XP_TABLE.at(-1);
 }
 
-// --------- Badge definitions ---------
+// --------- Badges ---------
 const BADGES = [
-  { id:'first_blood',   nameTH:'ก้าวแรก',     nameEN:'First Steps',     cond:(p)=>p.meta.totalRuns>=1 },
-  { id:'hundred_score', nameTH:'ร้อยแต้ม!',   nameEN:'Hundred!',        cond:(p)=>p.meta.bestScore>=100 },
-  { id:'combo_20',      nameTH:'คอมโบ x20',   nameEN:'Combo x20',       cond:(p)=>p.meta.bestCombo>=20 },
-  { id:'gold_hunter',   nameTH:'นักล่าทอง',   nameEN:'Golden Hunter',   cond:(p)=>p.meta.goldenHits>=5 },
-  { id:'fever_master',  nameTH:'FEVER จ้าว',  nameEN:'Fever Master',    cond:(p)=>p.meta.feverActivations>=5 },
-  { id:'marathon_10',   nameTH:'มาราธอน',     nameEN:'Marathon',        cond:(p)=>p.meta.totalRuns>=10 },
+  { id:'first_blood',   th:'ก้าวแรก',     en:'First Steps',    cond:(p)=>p.meta.totalRuns>=1 },
+  { id:'hundred_score', th:'ร้อยแต้ม!',   en:'Hundred!',       cond:(p)=>p.meta.bestScore>=100 },
+  { id:'combo_20',      th:'คอมโบ x20',   en:'Combo x20',      cond:(p)=>p.meta.bestCombo>=20 },
+  { id:'gold_hunter',   th:'นักล่าทอง',   en:'Golden Hunter',  cond:(p)=>p.meta.goldenHits>=5 },
+  { id:'fever_master',  th:'FEVER จ้าว',  en:'Fever Master',   cond:(p)=>p.meta.feverActivations>=5 },
+  { id:'marathon_10',   th:'มาราธอน',     en:'Marathon',       cond:(p)=>p.meta.totalRuns>=10 },
 ];
 
-// --------- Mission pools by mode ---------
-// ต่อเกมจะสุ่มมา "3 เควส" จาก pool ของโหมดนั้น ๆ
+// --------- Missions (per mode) ---------
 const MISSION_POOLS = {
   groups: [
     { id:'grp_any_20',   th:'สะสมเป้าหมายรวม 20 ชิ้น', en:'Collect 20 target items', need:20,  type:'count_target' },
     { id:'grp_perfect6', th:'ทำ Perfect 6 ครั้ง',        en:'Hit 6 Perfects',          need:6,   type:'count_perfect' },
     { id:'grp_golden2',  th:'เก็บทอง 2 ชิ้น',           en:'Hit 2 Golden',            need:2,   type:'count_golden' },
     { id:'grp_chain10',  th:'ไม่พลาด 10 ครั้งติด',       en:'No miss 10 in a row',     need:10,  type:'streak_nomiss' },
-    { id:'grp_veggies5', th:'เก็บผัก 5 ชิ้น',            en:'Collect 5 veggies',       need:5,   type:'count_group', group:'veggies' },
+    { id:'grp_veg5',     th:'เก็บผัก 5 ชิ้น',            en:'Collect 5 veggies',       need:5,   type:'count_group', group:'veggies' },
   ],
   goodjunk: [
     { id:'gj_good25',    th:'เก็บอาหารดี 25 ชิ้น',      en:'Collect 25 good',         need:25,  type:'count_good' },
@@ -61,65 +56,38 @@ const MISSION_POOLS = {
   ],
 };
 
-// สุ่มภารกิจ 3 ตัวจากโหมดนั้น
 function rollMissions(mode, lang='TH'){
   const pool = (MISSION_POOLS[mode]||[]).slice();
-  if (pool.length===0) return [];
-  // shuffle แบบง่าย
+  if (!pool.length) return [];
   for (let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  return pool.slice(0,3).map(m=>({
-    ...m,
-    label: (lang==='EN'?m.en:m.th),
-    prog:0, done:false
-  }));
+  return pool.slice(0,3).map(m=>({ ...m, label:(lang==='EN'?m.en:m.th), prog:0, done:false }));
 }
 
 // ---------- Progress singleton ----------
 export const Progress = {
   profile: null,
   listeners: new Set(),
-  runCtx: null,  // { mode, difficulty, lang, startAt, missions:[], counters:{...} }
-  sessionModes: new Set(), // ใช้ประกอบ Daily "เล่นครบ 2 โหมด"
+  runCtx: null,
 
   init(){
     const p = load() || {
       name: 'Player',
       level: 1,
       xp: 0,
-      badges: {},           // {badgeId:true}
-      stats: {
-        totalPlayTime: 0,
-        lastPlayedAt: 0,
-      },
-      meta: {
-        totalRuns: 0,
-        bestScore: 0,
-        bestCombo: 0,
-        goldenHits: 0,
-        feverActivations: 0,
-      },
-      modes: {              // เก็บสถิติรายโหมด (สำหรับบอร์ดสถิติ)
-        goodjunk: { bestScore:0, acc:0, missionDone:0, plays:0 },
-        groups:   { bestScore:0, acc:0, missionDone:0, plays:0 },
-        hydration:{ bestScore:0, acc:0, missionDone:0, plays:0 },
-        plate:    { bestScore:0, acc:0, missionDone:0, plays:0 },
-      },
-      daily: null,          // จะถูก genDaily() เติม
-      dailySessionDate: null
+      badges: {},    // {id:true}
+      modes: {},     // { modeKey:{bestScore, acc, runs, missionDone} }
+      stats: { totalPlayTime:0, lastPlayedAt:0 },
+      meta:  { totalRuns:0, bestScore:0, bestCombo:0, goldenHits:0, feverActivations:0 },
+      daily: null
     };
-    // reset sessionModes เมื่อเปลี่ยนวัน
-    const today = new Date().toISOString().slice(0,10);
-    if (p.dailySessionDate !== today){ this.sessionModes = new Set(); p.dailySessionDate = today; }
     this.profile = p;
-    // ensure daily generated
-    this.genDaily();
-    return this.profile;
+    save(p);
+    return p;
   },
 
   on(fn){ this.listeners.add(fn); return ()=>this.listeners.delete(fn); },
-  emit(type, payload){ for(const fn of this.listeners){ try{ fn(type, payload); }catch{} } },
+  emit(type,payload){ for(const fn of this.listeners){ try{ fn(type,payload); }catch{} } },
 
-  // ---------- Run lifecycle ----------
   beginRun(mode, difficulty, lang='TH'){
     const missions = rollMissions(mode, lang);
     this.runCtx = {
@@ -129,68 +97,51 @@ export const Progress = {
       counters:{
         hits:0, good:0, perfect:0, bad:0,
         target:0, golden:0, comboMax:0, fever:0,
-        groupCount:{}, // e.g. {veggies: 3}
-        hy_balanceTicks:0,   // สำหรับ hydration
-        surviveSec:0
+        groupCount:{},
       }
     };
-    this.sessionModes.add(mode);
     this.emit('run_start', {mode, difficulty, missions});
     return missions;
   },
 
-  endRun({score=0, bestCombo=0, timePlayed=0}={}){
+  endRun({score=0, bestCombo=0, timePlayed=0, accPct=0}={}){
     if (!this.runCtx) return;
     const p = this.profile;
-    const C = this.runCtx.counters;
-
-    // ความแม่นยำ (ใช้ hits)
-    const total = Math.max(1, C.hits);
-    const accPct = ((C.good + C.perfect) / total) * 100;
-
-    // XP: ตามสกอร์ + โบนัสเล็กน้อยจากมิชชั่นที่สำเร็จ
     const questClears = this.runCtx.missions.filter(m=>m.done).length;
+
+    // XP
     const gain = Math.round(score*0.5 + questClears*40 + bestCombo*2);
     this.addXP(gain);
 
-    // meta/prof
+    // meta
     p.meta.totalRuns += 1;
     p.meta.bestScore = Math.max(p.meta.bestScore, score);
     p.meta.bestCombo = Math.max(p.meta.bestCombo, bestCombo);
     p.stats.totalPlayTime += Math.max(0, timePlayed|0);
     p.stats.lastPlayedAt = Date.now();
 
-    // โหมดปัจจุบัน
-    const mkey = this.runCtx.mode;
-    const mstat = p.modes[mkey] || (p.modes[mkey]={ bestScore:0, acc:0, missionDone:0, plays:0 });
-    mstat.bestScore = Math.max(mstat.bestScore, score);
-    // ถัวเฉลี่ยความแม่นแบบ EMA เบา ๆ
-    mstat.acc = mstat.plays ? (mstat.acc*0.7 + accPct*0.3) : accPct;
-    mstat.missionDone += questClears;
-    mstat.plays += 1;
+    // per-mode stats (avg accuracy)
+    const mk = this.runCtx.mode;
+    p.modes[mk] = p.modes[mk] || {bestScore:0, acc:0, runs:0, missionDone:0};
+    const ms = p.modes[mk];
+    ms.bestScore = Math.max(ms.bestScore, score);
+    ms.acc = (ms.acc*ms.runs + (accPct||0)) / (ms.runs+1);
+    ms.runs += 1;
+    ms.missionDone += questClears;
 
-    // badges
     this._checkBadges();
+    save(p);
 
     // Daily check
-    this.checkDaily({
-      score,
-      acc: accPct,
-      modesPlayedCount: this.sessionModes.size
-    });
+    this.checkDaily({ score, acc:accPct, mode:mk });
 
-    save(p);
-    this.emit('run_end', {
-      score, bestCombo, quests:questClears, xpGain:gain,
-      level:p.level, xp:p.xp, acc:accPct
-    });
+    this.emit('run_end', {score, bestCombo, quests:questClears, xpGain:gain, level:p.level, xp:p.xp});
     this.runCtx = null;
   },
 
   addXP(x){
     const p = this.profile; if (!p) return;
     p.xp += x;
-    // Level-up loop
     while (p.level < 50){
       const need = xpToNext(p);
       if (p.xp < need) break;
@@ -201,162 +152,96 @@ export const Progress = {
     save(p);
   },
 
-  // ---------- Events from game ----------
   event(type, data={}){
     if (!this.runCtx) return;
     const C = this.runCtx.counters;
 
     if (type==='hit'){
-      // data: {result:'good|perfect|bad', meta:{good, groupId, golden}, comboNow:number}
       const { result, meta, comboNow } = data;
       C.hits++;
       if (comboNow) C.comboMax = Math.max(C.comboMax, comboNow);
-
       if (result==='good'){ C.good++; if (meta?.good) C.target++; if (meta?.groupId){ C.groupCount[meta.groupId]=(C.groupCount[meta.groupId]||0)+1; } }
       if (result==='perfect'){ C.perfect++; if (meta?.good) C.target++; if (meta?.groupId){ C.groupCount[meta.groupId]=(C.groupCount[meta.groupId]||0)+1; } }
       if (result==='bad'){ C.bad++; }
-
       if (meta?.golden){ C.golden++; this.profile.meta.goldenHits++; }
 
-      // mission progress update
       for (const m of this.runCtx.missions){
         if (m.done) continue;
         switch(m.type){
-          case 'count_target':
-            m.prog = C.target; break;
-          case 'count_perfect':
-            m.prog = C.perfect; break;
-          case 'count_golden':
-            m.prog = C.golden; break;
-          case 'streak_nomiss':
-            if (result!=='bad') m.prog = Math.max(m.prog, comboNow||0);
-            else m.prog = Math.min(m.prog, comboNow||0);
-            break;
-          case 'count_group':
-            m.prog = C.groupCount[m.group]||0; break;
-          case 'reach_combo':
-            m.prog = Math.max(m.prog, comboNow||0); break;
-          default: break;
+          case 'count_target':  m.prog = C.target; break;
+          case 'count_perfect': m.prog = C.perfect; break;
+          case 'count_golden':  m.prog = C.golden; break;
+          case 'streak_nomiss': if (result!=='bad') m.prog = Math.max(m.prog, comboNow||0); break;
+          case 'count_group':   m.prog = C.groupCount[m.group]||0; break;
+          case 'reach_combo':   m.prog = Math.max(m.prog, comboNow||0); break;
         }
-        if (m.prog >= m.need){
-          m.done=true;
-          this.addXP(60);
-          this.emit('mission_done', {mission:m});
-        }
+        if (m.prog >= m.need){ m.done=true; this.addXP(60); this.emit('mission_done', {mission:m}); }
       }
     }
 
-    if (type==='fever'){ // data:{kind:'start'|'end'}
-      if (data.kind==='start'){ C.fever++; this.profile.meta.feverActivations++; }
-    }
-
-    // โหมด hydration อาจส่ง tick เฉพาะ
-    if (type==='hydration_balance_tick'){ // อยู่ในโซนสมดุล 1 ติ๊ก
-      C.hy_balanceTicks = (C.hy_balanceTicks||0)+1;
-      for (const m of this.runCtx.missions){
-        if (m.done) continue;
-        if (m.type==='hy_balance'){
-          m.prog = C.hy_balanceTicks;
-          if (m.prog >= m.need){ m.done=true; this.addXP(60); this.emit('mission_done', {mission:m}); }
-        }
-      }
-    }
-    if (type==='survive_tick'){ // นับเป็นวินาที (หรือช่วงเวลาปลอดภัย)
-      C.surviveSec = (C.surviveSec||0)+1;
-      for (const m of this.runCtx.missions){
-        if (m.done) continue;
-        if (m.type==='survive_time'){
-          m.prog = C.surviveSec;
-          if (m.prog >= m.need){ m.done=true; this.addXP(60); this.emit('mission_done', {mission:m}); }
-        }
-      }
-    }
-
+    if (type==='fever' && data.kind==='start'){ C.fever++; this.profile.meta.feverActivations++; }
     save(this.profile);
   },
 
-  // ---------- Badges ----------
   _checkBadges(){
     const p = this.profile;
     for (const b of BADGES){
       if (p.badges[b.id]) continue;
-      if (b.cond(p)){
-        p.badges[b.id]=true;
-        this.emit('badge_unlock', {id:b.id, name:(p.lang==='EN'?b.nameEN:b.nameTH)});
-      }
+      if (b.cond(p)){ p.badges[b.id]=true; this.emit('badge_unlock', {id:b.id, name:b.th}); }
     }
     save(p);
   },
 
-  // ---------- Daily Challenge ----------
+  // ---- Daily Challenge ----
   genDaily(){
-    const today = new Date().toISOString().slice(0,10);
-    const p = this.profile || (this.profile = load() || {});
+    const d = new Date(); const today = d.toISOString().slice(0,10);
+    const p = this.profile;
     if (p.daily?.date === today) return p.daily;
-
-    const pool = [
-      { id:'score300',  labelTH:'ได้คะแนน ≥300',    labelEN:'Score ≥300',      check:(r)=>r.score>=300 },
-      { id:'accuracy80',labelTH:'ความแม่น ≥80%',     labelEN:'Accuracy ≥80%',   check:(r)=>r.acc>=80 },
-      { id:'two_modes', labelTH:'เล่นครบ 2 โหมด',    labelEN:'Play 2 modes',    check:(r)=>r.modesPlayedCount>=2 },
-      { id:'combo15',   labelTH:'คอมโบถึง x15',      labelEN:'Reach combo x15', check:(r)=>r.maxCombo>=15 },
-      { id:'quest2',    labelTH:'สำเร็จเควส 2 อย่าง', labelEN:'Clear 2 quests',  check:(r)=>r.questsCleared>=2 },
+    const missions = [
+      { id:'score300',   label:'ได้คะแนน ≥ 300',  check:(r)=>r.score>=300 },
+      { id:'accuracy80', label:'ความแม่น ≥ 80%',  check:(r)=>r.acc>=80 },
+      { id:'play2modes', label:'เล่นครบ 2 โหมด',  check:()=>true },
     ];
-    // เลือก 2 ภารกิจ/วันแบบสุ่ม
-    for (let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
-    const picks = pool.slice(0,2).map(x=>({ id:x.id, labelTH:x.labelTH, labelEN:x.labelEN }));
-
-    p.daily = { date:today, missions:picks, done:[] };
-    p.dailySessionDate = today;
+    const picks = missions.sort(()=>Math.random()-0.5).slice(0,3);
+    p.daily = { date:today, missions:picks, done:[], modesPlayed:new Set?new Set():[] };
+    // Set ไม่ serialize: แปลงเป็น array เวลา save/load (ง่ายสุดใช้ array)
+    p.daily.modesPlayed = [];
     save(p);
-    this.emit('daily_new', p.daily);
     return p.daily;
   },
 
   checkDaily(result){
-    // result: { score, acc, modesPlayedCount, maxCombo?, questsCleared? }
-    const p = this.profile; if(!p) return;
+    const p = this.profile;
     if (!p.daily) return;
+    // track โหมดที่เล่นวันนี้
+    if (!Array.isArray(p.daily.modesPlayed)) p.daily.modesPlayed = [];
+    if (!p.daily.modesPlayed.includes(result.mode)) p.daily.modesPlayed.push(result.mode);
 
-    // Map checkers (ให้ตรงกับ genDaily)
-    const checkMap = {
-      score300:  (r)=>r.score>=300,
-      accuracy80:(r)=>r.acc>=80,
-      two_modes: (r)=>r.modesPlayedCount>=2,
-      combo15:   (r)=> (r.maxCombo||0) >= 15,
-      quest2:    (r)=> (r.questsCleared||0) >= 2,
-    };
-
-    let changed = false;
     for(const m of p.daily.missions){
-      if(p.daily.done.includes(m.id)) continue;
-      const ok = (checkMap[m.id]||(()=>false))(result);
-      if(ok){ p.daily.done.push(m.id); changed = true; }
+      if (p.daily.done.includes(m.id)) continue;
+      let ok = m.check(result);
+      if (m.id==='play2modes') ok = (p.daily.modesPlayed.length >= 2);
+      if (ok) p.daily.done.push(m.id);
     }
-
-    // ให้รางวัลเมื่อครบทั้งหมด
-    if (p.daily.done.length===p.daily.missions.length){
-      this.giveDailyReward();
-    }
-
-    if (changed){ save(p); this.emit('daily_update', p.daily); }
+    if (p.daily.done.length===p.daily.missions.length) this.giveReward('daily');
+    save(p);
   },
 
-  giveDailyReward(){
-    const p = this.profile; if(!p) return;
-    // XP พิเศษเล็กน้อย
-    this.addXP(80);
-    this.emit('daily_reward', { xp:80 });
+  giveReward(kind){
+    if (kind==='daily') this.addXP(80);
+    else this.addXP(30);
   },
 
-  // ---------- Utilities for UI ----------
+  // snapshot สำหรับบอร์ดสถิติรวม
   getStatSnapshot(){
-    const p = this.profile || {};
+    const p = this.profile;
+    const modes = p.modes||{};
+    const rows = Object.entries(modes).map(([k,v])=>({
+      key:k, bestScore:v.bestScore||0, acc: +(v.acc||0).toFixed(1), runs:v.runs||0, missions:v.missionDone||0
+    }));
     return {
-      level: p.level||1, xp:p.xp||0, xpToNext: xpToNext(p||{level:1}),
-      meta: p.meta||{},
-      modes: p.modes||{},
-      badges: p.badges||{},
-      daily: p.daily||null
+      level:p.level, xp:p.xp, totalRuns:p.meta.totalRuns, bestScore:p.meta.bestScore, bestCombo:p.meta.bestCombo,
+      rows
     };
   }
 };
