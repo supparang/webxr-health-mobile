@@ -12,7 +12,6 @@
   <!-- Bootloader: import main.js ด้วย absolute path -->
   <script type="module">
     (async () => {
-      const BOOT_BASE = '/webxr-health-mobile/HeroHealth/';
       const warn = document.createElement('div');
       warn.id = 'bootWarn';
       warn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000;display:none';
@@ -25,7 +24,7 @@
       chip.textContent = '✅ JS Loaded';
       document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(chip));
 
-      const url = BOOT_BASE + 'game/main.js?v=live&cb=' + Date.now();
+      const url = '/webxr-health-mobile/HeroHealth/game/main.js?v=live&cb=' + Date.now();
       try{
         await import(url);
         setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80);
