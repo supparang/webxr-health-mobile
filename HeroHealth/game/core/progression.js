@@ -1,6 +1,7 @@
-// === Hero Health Academy — game/core/progression.js ===
+// === Hero Health Academy — game/core/progression.js (Enhanced: autosave + totalTime + daily sync) ===
 const STORE_KEY = 'hha_profile_v1';
 
+// ---------- utils ----------
 function load() {
   try { return JSON.parse(localStorage.getItem(STORE_KEY)) || null; } catch { return null; }
 }
@@ -9,15 +10,16 @@ function save(data) {
 }
 function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
 function now(){ return performance?.now?.()||Date.now(); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
 
-// ตารางเลเวล (เลเวล 1–50)
-const XP_TABLE = Array.from({length:50}, (_,i)=> 100 + i*40); // xp ต่อเลเวล
+// ---------- XP / Level ----------
+const XP_TABLE = Array.from({length:50}, (_,i)=> 100 + i*40); // xp per level
 function xpToNext(profile){
   const idx = clamp(profile.level-1, 0, XP_TABLE.length-1);
   return XP_TABLE[idx] || XP_TABLE.at(-1);
 }
 
-// --------- Badge definitions ---------
+// ---------- Badges ----------
 const BADGES = [
   { id:'first_blood',   nameTH:'ก้าวแรก',     nameEN:'First Steps',     cond:(p)=>p.meta.totalRuns>=1 },
   { id:'hundred_score', nameTH:'ร้อยแต้ม!',   nameEN:'Hundred!',        cond:(p)=>p.meta.bestScore>=100 },
@@ -27,7 +29,7 @@ const BADGES = [
   { id:'marathon_10',   nameTH:'มาราธอน',     nameEN:'Marathon',        cond:(p)=>p.meta.totalRuns>=10 },
 ];
 
-// --------- Mission pools by mode ---------
+// ---------- Mission pools by mode ----------
 const MISSION_POOLS = {
   groups: [
     { id:'grp_any_20',   th:'สะสมเป้าหมายรวม 20 ชิ้น', en:'Collect 20 target items', need:20,  type:'count_target' },
@@ -59,46 +61,58 @@ const MISSION_POOLS = {
   ],
 };
 
-// สุ่มภารกิจ 3 ตัวจากโหมดนั้น
 function rollMissions(mode, lang='TH'){
   const pool = (MISSION_POOLS[mode]||[]).slice();
   if (pool.length===0) return [];
   for (let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  return pool.slice(0,3).map(m=>({
-    ...m,
-    label: (lang==='EN'?m.en:m.th),
-    prog:0, done:false
-  }));
+  return pool.slice(0,3).map(m=>({ ...m, label:(lang==='EN'?m.en:m.th), prog:0, done:false }));
 }
 
 // ---------- Progress singleton ----------
 export const Progress = {
   profile: null,
   listeners: new Set(),
-  runCtx: null,  // { mode, startAt, missions:[], counters:{} }
+  runCtx: null,     // { mode, difficulty, lang, startAt, missions, counters }
+  _autosaveTimer: 0,
+  _heartbeatTimer: 0,
+  _lastBeatAt: 0,
 
+  // ---- lifecycle ----
   init(){
     const p = load() || {
       name: 'Player',
       level: 1,
       xp: 0,
       badges: {},
-      stats: { totalPlayTime: 0, lastPlayedAt: 0 },
+      stats: {
+        totalPlayTime: 0,          // all-time seconds
+        totalPlayTimeToday: 0,     // seconds today
+        lastPlayedAt: 0,
+        lastDailyDate: todayISO(),
+      },
       meta:  { totalRuns: 0, bestScore: 0, bestCombo: 0, goldenHits: 0, feverActivations: 0 },
-      modes: {},            // per-mode stats
-      daily: null,
+      modes: {},                   // per-mode stats
+      daily: null,                 // {date, missions:[{id,label,kind,val}], done:[]}
       session: { modesPlayed: [] },
       lang: 'TH',
     };
     this.profile = p;
+
+    // Ensure daily exists and matches today
+    this.genDaily(); // will create/roll if needed
+
+    // Start autosave + heartbeat
+    this._startAutoSave();
+    this._startHeartbeat();
+
     save(p);
-    return this.profile;
+    return p;
   },
 
   on(fn){ this.listeners.add(fn); return ()=>this.listeners.delete(fn); },
   emit(type, payload){ for(const fn of this.listeners){ try{ fn(type, payload); }catch{} } },
 
-  // ---------- Run lifecycle ----------
+  // ---- run control ----
   beginRun(mode, difficulty, lang='TH'){
     const missions = rollMissions(mode, lang);
     const p = this.profile;
@@ -110,47 +124,56 @@ export const Progress = {
       mode, difficulty, lang,
       startAt: now(),
       missions,
-      counters:{ hits:0, good:0, perfect:0, bad:0, target:0, golden:0, comboMax:0, fever:0, groupCount:{} }
+      counters:{
+        hits:0, good:0, perfect:0, bad:0,
+        target:0, golden:0, comboMax:0, fever:0,
+        groupCount:{}
+      }
     };
     this.emit('run_start', {mode, difficulty, missions});
     return missions;
   },
 
-  endRun({score=0, bestCombo=0, timePlayed=0, acc=0}={}){
+  endRun({score=0, bestCombo=0, timePlayed=0, acc, accPct}={}){
     if (!this.runCtx) return;
     const p = this.profile;
     const mode = this.runCtx.mode;
 
-    // XP
+    // support both acc and accPct naming
+    const accuracy = typeof acc === 'number' ? acc : (typeof accPct === 'number' ? accPct : 0);
+
+    // XP gain
     const questClears = this.runCtx.missions.filter(m=>m.done).length;
     const gain = Math.round(score*0.5 + questClears*40 + bestCombo*2);
     this.addXP(gain);
 
-    // meta รวม
+    // meta (global)
     p.meta.totalRuns += 1;
     p.meta.bestScore = Math.max(p.meta.bestScore, score);
     p.meta.bestCombo = Math.max(p.meta.bestCombo, bestCombo);
     p.stats.totalPlayTime += Math.max(0, timePlayed|0);
+    p.stats.totalPlayTimeToday += Math.max(0, timePlayed|0);
     p.stats.lastPlayedAt = Date.now();
 
-    // per-mode
+    // per-mode stats
     const ms = p.modes[mode] || { bestScore:0, bestCombo:0, games:0, accAvg:0, missionDone:0 };
     ms.bestScore = Math.max(ms.bestScore, score);
     ms.bestCombo = Math.max(ms.bestCombo, bestCombo);
     ms.missionDone += questClears;
     const games = (ms.games||0);
-    ms.accAvg = (games * (ms.accAvg||0) + acc) / (games + 1);
+    ms.accAvg = (games * (ms.accAvg||0) + (accuracy||0)) / (games + 1);
     ms.games = games + 1;
     p.modes[mode] = ms;
 
+    // badges
     this._checkBadges();
 
-    // daily
-    const result = { score, acc, mode, sessionModes:(p.session?.modesPlayed||[]).slice() };
+    // daily check
+    const result = { score, acc: accuracy||0, mode, sessionModes:(p.session?.modesPlayed||[]).slice() };
     this.checkDaily(result);
 
     save(p);
-    this.emit('run_end', {score, bestCombo, quests:questClears, xpGain:gain, level:p.level, xp:p.xp, acc});
+    this.emit('run_end', {score, bestCombo, quests:questClears, xpGain:gain, level:p.level, xp:p.xp, acc:accuracy||0});
     this.runCtx = null;
   },
 
@@ -167,7 +190,7 @@ export const Progress = {
     save(p);
   },
 
-  // ---------- Events ----------
+  // ---- in-run events ----
   event(type, data={}){
     if (!this.runCtx) return;
     const C = this.runCtx.counters;
@@ -191,9 +214,14 @@ export const Progress = {
           case 'streak_nomiss':  if (data.result!=='bad') m.prog = Math.max(m.prog, data.comboNow||0); break;
           case 'count_group':    m.prog = C.groupCount[m.group]||0; break;
           case 'reach_combo':    m.prog = Math.max(m.prog, data.comboNow||0); break;
+          // hydration/plate specific types could be handled here if needed
           default: break;
         }
-        if (m.prog >= m.need){ m.done=true; this.addXP(60); this.emit('mission_done', {mission:m}); }
+        if (m.prog >= m.need){
+          m.done=true;
+          this.addXP(60);
+          this.emit('mission_done', {mission:m});
+        }
       }
     }
 
@@ -204,7 +232,7 @@ export const Progress = {
     save(this.profile);
   },
 
-  // ---------- Badges ----------
+  // ---- badges ----
   _checkBadges(){
     const p = this.profile;
     for (const b of BADGES){
@@ -214,20 +242,22 @@ export const Progress = {
     save(p);
   },
 
-  // ---------- Daily Challenge ----------
+  // ---- daily challenge ----
   genDaily(){
-    const d = new Date();
-    const today = d.toISOString().slice(0,10);
     const p = this.profile;
-    if (p.daily?.date === today) return p.daily;
+    const iso = todayISO();
+    if (p.daily?.date === iso) return p.daily;
 
     const pool = [
-      { id:'score300',  kind:'score', val:300, label:'ได้คะแนน ≥ 300' },
-      { id:'accuracy80',kind:'acc',   val:80,  label:'ความแม่น ≥ 80%' },
-      { id:'twoModes',  kind:'modes', val:2,   label:'เล่นครบอย่างน้อย 2 โหมด' },
+      { id:'score300',   kind:'score', val:300, label:'ได้คะแนน ≥ 300' },
+      { id:'accuracy80', kind:'acc',   val:80,  label:'ความแม่น ≥ 80%' },
+      { id:'twoModes',   kind:'modes', val:2,   label:'เล่นครบอย่างน้อย 2 โหมด' },
     ];
     const picks = pool.sort(()=>Math.random()-0.5).slice(0,2);
-    p.daily = { date:today, missions:picks, done:[] };
+    p.daily = { date: iso, missions: picks, done: [] };
+    p.session = { modesPlayed: [] };      // reset session set per day
+    p.stats.totalPlayTimeToday = 0;       // reset daily timer
+    p.stats.lastDailyDate = iso;
     save(p);
     return p.daily;
   },
@@ -239,8 +269,8 @@ export const Progress = {
     for(const m of d.missions){
       if(d.done.includes(m.id)) continue;
       let ok = false;
-      if (m.kind==='score')  ok = (result.score >= m.val);
-      else if (m.kind==='acc') ok = (result.acc >= m.val);
+      if (m.kind==='score')   ok = (result.score >= m.val);
+      else if (m.kind==='acc')   ok = (result.acc >= m.val);
       else if (m.kind==='modes') ok = ((result.sessionModes||[]).length >= m.val);
       if (ok) d.done.push(m.id);
     }
@@ -259,5 +289,60 @@ export const Progress = {
       this.emit('level_up', {level:p.level});
     }
     save(p);
-  }
+  },
+
+  // ---- snapshots for UI ----
+  getStatSnapshot(){
+    const p = this.profile || {};
+    const rows = Object.entries(p.modes||{}).map(([key, ms])=>({
+      key,
+      bestScore: ms.bestScore||0,
+      acc: ((ms.accAvg||0)).toFixed(1),
+      runs: ms.games||0,
+      missions: ms.missionDone||0
+    }));
+    return {
+      level: p.level||1,
+      xp: p.xp||0,
+      totalRuns: p.meta?.totalRuns||0,
+      bestCombo: p.meta?.bestCombo||0,
+      today: p.stats?.totalPlayTimeToday||0,
+      rows
+    };
+  },
+
+  // ---- autosave & heartbeat (totalTime + day roll) ----
+  _startAutoSave(){
+    if (this._autosaveTimer) clearInterval(this._autosaveTimer);
+    this._autosaveTimer = setInterval(()=>{ if (this.profile) save(this.profile); }, 10000); // every 10s
+    // ensure save on unload
+    window.addEventListener('beforeunload', ()=>{ try{ save(this.profile); }catch{} }, {once:true});
+  },
+
+  _startHeartbeat(){
+    if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
+    this._lastBeatAt = now();
+    this._heartbeatTimer = setInterval(()=>{
+      const p = this.profile; if (!p) return;
+
+      // day change sync
+      const iso = todayISO();
+      if (p.stats.lastDailyDate !== iso){
+        this.genDaily(); // resets session/day counters & rolls new daily
+      }
+
+      // accumulate foreground "presence" time (approx)
+      const visible = (typeof document!=='undefined') ? (document.visibilityState!=='hidden') : true;
+      const t = now();
+      const dt = Math.max(0, (t - (this._lastBeatAt||t)) / 1000); // seconds
+      this._lastBeatAt = t;
+
+      if (visible){
+        p.stats.totalPlayTime += dt;
+        p.stats.totalPlayTimeToday += dt;
+        save(p);
+      }
+    }, 5000); // every 5s
+    document.addEventListener('visibilitychange', ()=>{ this._lastBeatAt = now(); });
+  },
 };
