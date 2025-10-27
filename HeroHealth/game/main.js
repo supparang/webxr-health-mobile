@@ -64,8 +64,7 @@ const state = {
   _accHist:[],
   freezeUntil:0,
   didWarnT10:false,
-  // auto diff buffer
-  autoScale: 1.0, // 0.85..1.2
+  autoScale:1.0,
 };
 
 // ----- UI -----
@@ -352,9 +351,7 @@ function spawnLoop(){
   state._accHist.push(accNow); if (state._accHist.length>8) state._accHist.shift();
   const acc = state._accHist.reduce((s,x)=>s+x,0)/state._accHist.length;
 
-  // auto scale 0.9–1.1 (เร็วขึ้น/ช้าลง)
   const targetScale = acc > 0.85 ? 0.90 : acc < 0.60 ? 1.12 : 1.00;
-  // ease
   state.autoScale = state.autoScale*0.8 + targetScale*0.2;
 
   const dyn = {
@@ -459,7 +456,6 @@ function showResultModal(total, accPct, grade){
   $('#resBreakdown').innerHTML = br;
   $('#resBoard').innerHTML = bd;
 
-  // missions summary
   const runM = Progress.runCtx?.missions || [];
   const mHtml = runM.length ? runM.map(m=>{
     const ok = m.done ? '✅' : '⬜️';
@@ -469,7 +465,6 @@ function showResultModal(total, accPct, grade){
   }).join('') : '<div style="opacity:.7">ไม่มีภารกิจรอบนี้</div>';
   $('#resMissions').innerHTML = `<div style="font-weight:800;margin-bottom:6px">ภารกิจรอบนี้</div>${mHtml}`;
 
-  // daily preview
   const d = Progress.genDaily();
   const done = new Set(d.done||[]);
   const dHtml = d.missions.map(m=>{
@@ -515,7 +510,6 @@ function end(silent=false){
 
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
-  // สรุปผล/บันทึกสถิติ
   const total = score.score|0;
   const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accPct = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100) : 0;
@@ -524,7 +518,7 @@ function end(silent=false){
   const timePlayed = (DIFFS_BASE[state.difficulty]?.time||60) - state.timeLeft;
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
 
-  // sync daily after end (แสดงผลว่าติ๊กครบหรือไม่)
+  // อัปเดตสถานะ Daily อีกครั้งหลังจบเกม
   Progress.checkDaily({ score: total, acc: +accPct.toFixed(1), mode: state.modeKey, sessionModes: Progress.profile?.session?.modesPlayed||[] });
 
   if (!silent && wasRunning){
@@ -574,7 +568,7 @@ const HELP_TEXT = {
 function openHelpCurrent(){
   const lang = (localStorage.getItem('hha_lang')||'TH');
   const key  = state.modeKey;
-  const txt  = (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
+  const txt  = (HELP_TEXT[lang] && HELP_TEXT[key]) || '—';
   const b = $('#helpBody'); if (b){ b.textContent = txt; }
   const m = $('#help'); if (m){ m.style.display='flex'; }
 }
