@@ -151,3 +151,13 @@ function shade(hex, amt=-10){
   r = Math.max(0,Math.min(255,r+amt)); g = Math.max(0,Math.min(255,g+amt)); b = Math.max(0,Math.min(255,b+amt));
   return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
 }
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+
+export const fx = {
+  onSpawn(el/*, state*/){
+    add3DTilt(el);
+  },
+  onHit(x, y/*, meta, state*/){
+    shatter3D(x, y);
+  }
+};
