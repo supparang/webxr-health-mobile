@@ -203,7 +203,7 @@ function add3DTilt(el){
     const cx = rect.left + rect.width/2;
     const cy = rect.top  + rect.height/2;
     const dx = (x - cx) / (rect.width/2);
-    const dy = (y - cy) / (rect.height/2);   // <<< FIX: 'const dy' (เดิมพิมพ์ผิด)
+    const dy = (y - cy) / (rect.height/2);
     const rx = Math.max(-1, Math.min(1, dy)) * maxTilt;
     const ry = Math.max(-1, Math.min(1,-dx)) * maxTilt;
     el.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg)`;
@@ -228,7 +228,7 @@ function shatter3D(x,y){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
-    const dist = 60 + Math.random()*110;   // ✅ fixed
+    const dist = 60 + Math.random()*110;
     const tx = Math.cos(ang)*dist;
     const ty = Math.sin(ang)*dist;
     const tz = (Math.random()*2-1)*160;
@@ -257,7 +257,6 @@ function shatter3D(x,y){
     setTimeout(()=>{ try{ p.remove(); }catch{} }, 420);
   }
 }
-
 
 // ----- Spawn one -----
 function spawnOnce(diff){
@@ -392,6 +391,7 @@ function addCombo(kind){
 function tick(){
   if (!state.running || state.paused) return;
 
+  // Fever drain
   if (state.fever.active){
     state.fever.timeLeft = Math.max(0, state.fever.timeLeft - 1);
     state.fever.meter = Math.max(0, state.fever.meter - state.fever.drainPerSec);
@@ -399,9 +399,15 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
+  // per-mode update
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
+  // time & progression sec event (for survive quests / daily)
+  const totalTime = (DIFFS[state.difficulty]?.time || 60);
   state.timeLeft = Math.max(0, state.timeLeft - 1);
+  const elapsed = totalTime - state.timeLeft;
+  Progress.event('sec', { elapsed, remain: state.timeLeft });
+
   updateHUD();
 
   if (state.timeLeft===10 && !state.didWarnT10){
@@ -489,14 +495,13 @@ function end(silent=false){
 
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
-  // สรุปผล/บันทึกสถิติ
+  // summary + save
   const total = score.score|0;
   const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accPct = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100) : 0;
   const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
 
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
-  // FIX: progression รับ key 'acc' ไม่ใช่ 'accPct'
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
 
   if (!silent && wasRunning){
