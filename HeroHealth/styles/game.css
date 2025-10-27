@@ -128,3 +128,27 @@ body.modal-open header, body.modal-open main, body.modal-open canvas { pointer-e
 }
 .questChip .qBar{ width:80px; height:6px; border-radius:999px; background:#0b1530; overflow:hidden; border:1px solid #1a2a4a; }
 .questChip .qBar i{ display:block; height:100%; background:linear-gradient(90deg,#4ade80,#22c55e); }
+/* === Modal overlay & card (center + topmost) === */
+.modal{
+  position: fixed;
+  inset: 0;
+  display: none;               /* เปิดปิดด้วย JS => flex */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.45);
+  z-index: 3000;               /* สูงกว่า header/menu/fx ทั้งหมด */
+  padding: 16px;
+}
+.modal .card{
+  width: min(720px, 92vw);
+  max-height: 86vh;
+  overflow: auto;              /* เลื่อนใน card ได้ */
+  background: linear-gradient(180deg, rgba(8,12,24,.92), rgba(8,12,24,.88));
+  border: 1px solid #213052;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 10px 36px rgba(0,0,0,.45);
+}
+.modal .card.scroll{ overflow:auto; }
+.modal h3{ margin: 0 0 8px 0; font-weight: 900; }
+.modal .btn{ margin-top: 10px; }
