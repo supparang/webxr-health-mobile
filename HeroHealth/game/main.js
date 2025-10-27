@@ -10,6 +10,7 @@ import { SFX }              from '/webxr-health-mobile/HeroHealth/game/core/sfx.
 import { ScoreSystem }      from '/webxr-health-mobile/HeroHealth/game/core/score.js';
 import { PowerUpSystem }    from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
 import { Progress }         from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
+import { Quests }           from '/webxr-health-mobile/HeroHealth/game/core/quests.js';        // ⬅️ ใหม่
 // FX กลาง (โหมดจะ import เองด้วย แต่ main ใช้ fallback เผื่อโหมดไม่ใส่ hook)
 import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
 
@@ -45,10 +46,18 @@ const T = (lang)=>I18N[lang]||I18N.TH;
 // ----- Systems & State -----
 const hud   = new HUD();
 const sfx   = new SFX();
-const score = new ScoreSystem();
+const score = new ScoreSystem();                           // ใช้เวอร์ชันอัปเกรดที่รองรับ addKind/getGrade
 const power = new PowerUpSystem();
 const eng   = new Engine(THREE, document.getElementById('c'));
 const coach = new Coach({ lang: localStorage.getItem('hha_lang') || 'TH' });
+
+// 👉 ผูกคะแนนกับพลังเสริม + ตัวอ่านคอมโบ/FEVER
+power.attachToScore(score);
+score.setComboGetter(()=> state.combo|0);
+score.setFeverGetter(()=> state.fever.active ? 1 : 0);
+score.setHandlers({
+  change: (val)=> hud.setScore?.(val|0)
+});
 
 const state = {
   modeKey:'goodjunk',
@@ -76,7 +85,7 @@ function applyUI(){
   document.documentElement.setAttribute('data-hha-mode', state.modeKey);
 }
 function updateHUD(){
-  hud.setScore?.(score.score);
+  hud.setScore?.(score.get?.() ?? score.score);
   hud.setTime?.(state.timeLeft|0);
   hud.setCombo?.('x'+state.combo);
 }
@@ -110,6 +119,7 @@ function stopFever(){
 }
 
 // ----- Score FX (UI burst only) -----
+// ใช้ delta ที่เกิดจาก score.addKind() เพื่อโชว์ตัวเลขจริง
 function makeScoreBurst(x,y,text,minor,color){
   const el = document.createElement('div');
   el.className='scoreBurst';
@@ -130,15 +140,15 @@ function makeScoreBurst(x,y,text,minor,color){
     setTimeout(()=>{ try{el.remove();}catch{} }, 220);
   }, 720);
 }
-function scoreWithEffects(base,x,y){
-  const comboMul = state.combo>=20?1.4:(state.combo>=10?1.2:1.0);
-  const feverMul = state.fever.active?state.fever.mul:1.0;
-  const total = Math.round(base * comboMul * feverMul);
-  score.add?.(total);
-  const tag = total>=0?('+'+total):(''+total);
-  const minor = (comboMul>1||feverMul>1) ? ('x'+comboMul.toFixed(1)+(feverMul>1?' & FEVER':'')) : '';
-  const color = total>=0? (feverMul>1?'#ffd54a':'#7fffd4') : '#ff9b9b';
-  makeScoreBurst(x,y,tag,minor,color);
+function burstFromKind(kind, x, y){
+  const prev = score.get?.() ?? score.score|0;
+  score.addKind(kind);                               // ← ให้ ScoreSystem คิดคอมโบ/FEVER/boost
+  const now  = score.get?.() ?? score.score|0;
+  const delta = (now - prev)|0;
+  const tag   = (delta>=0?'+':'') + String(delta);
+  const minor = (state.fever.active?'FEVER ':'') + (state.combo>1?('x'+state.combo):'');
+  const color = delta>=0 ? (state.fever.active?'#ffd54a':'#7fffd4') : '#ff9b9b';
+  makeScoreBurst(x,y,tag,minor.trim(),color);
 }
 
 // ----- Safe area & overlap -----
@@ -211,23 +221,26 @@ function spawnOnce(diff){
       const cx = r.left + r.width/2;
       const cy = r.top  + r.height/2;
 
+      // สถิติ/คอมโบ
       state.stats[res] = (state.stats[res]||0)+1;
       if (res==='good' || res==='perfect') addCombo(res);
       if (res==='bad') addCombo('bad');
 
-      const base = ({good:10, perfect:20, ok:2, bad:-8, power:5})[res] || 1;
-      scoreWithEffects(base, cx, cy);
+      // คะแนน (ใช้ระบบใหม่ addKind)
+      burstFromKind(res, cx, cy);
 
-      // 🔹 ให้โหมดคุม onHit ได้เอง (ถ้าไม่ใส่ ใช้แตกกระจายกลาง)
+      // FX โหมด
       if (mode?.fx?.onHit) { try{ mode.fx.onHit(cx, cy, meta, state); }catch{}; }
       else { shatter3D(cx, cy); }
 
+      // ส่งอีเวนต์ให้ Progress + Quests
       Progress.event('hit', {
         mode: state.modeKey,
         result: res,
         meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden },
         comboNow: state.combo
       });
+      Quests.event('hit', { result:res, combo:state.combo, meta });
 
       if (state.haptic && navigator.vibrate){
         if (res==='bad') navigator.vibrate(60);
@@ -309,8 +322,17 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
+  // โหมดอัปเดต (รวม hydration bar เป็นต้น)
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
+  // เควส: อัปเดต progress ต่อวินาที + รีเฟรช HUD chips
+  Quests.event('tick', { score: score.get?.() ?? score.score });
+  const activeQ = Quests.getActive();
+  if (activeQ?.length) hud.setQuestChips(activeQ.map(q=>({
+    icon:q.icon, need:q.need, progress:q.prog|0, remain: Math.max(0, state.timeLeft|0), done:q.prog>=q.need
+  })));
+
+  // เวลา
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
 
@@ -383,8 +405,11 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
+  // Progress + Missions (Progress ภายใน) + Quests (HUD chips)
   const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
   renderMissions(missions);
+  const qList = Quests.beginRun(state.modeKey, state.difficulty, state.lang);
+  if (qList?.length){ hud.setQuestChips(qList.map(q=>({icon:q.icon, need:q.need, progress:q.prog|0, remain:state.timeLeft}))); coach.onQuestRoll?.(); }
 
   tick();
   spawnLoop();
@@ -399,23 +424,33 @@ function end(silent=false){
 
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
-  const total = score.score|0;
+  const total = (score.get?.() ?? score.score)|0;
   const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accPct = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100) : 0;
-  const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
+  const gradeLetter = score.getGrade ? score.getGrade().grade : (total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C');
 
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
+
+  // ปิดเควส (Quests) เพื่อตรวจ success/fail รวม
+  const qEnd = Quests.endRun({ miss: state.stats.bad|0 });
+  if (qEnd?.length){
+    const allDone = qEnd.every(q=> (q.prog|0) >= (q.need|0));
+    try{ coach[ allDone ? 'onQuestDone' : 'onQuestFail']?.(); }catch{}
+  }
+
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
 
   if (!silent && wasRunning){
-    showResultModal(total, accPct, grade);
+    showResultModal(total, accPct, gradeLetter);
     try{ sfx.play('sfx-good'); }catch{}
   }
 }
 
-// ----- Missions HUD -----
+// ----- Missions HUD (Progress) -----
 function renderMissions(list){
   const host = document.getElementById('questChips'); if (!host) return;
+  // ปล่อยหน้าที่ "ชิป Quests" ให้ระบบ Quests แทน (จะวาดเองผ่าน hud.setQuestChips ด้านบน)
+  // ส่วนนี้คงไว้เพื่อโชว์ missions จาก Progress (ถ้าอยากเห็นทั้งสองก็รวมได้)
   host.innerHTML = '';
   if (!list || !list.length) return;
   for (const m of list){
