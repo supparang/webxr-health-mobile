@@ -111,3 +111,23 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 }
 .menu .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .modeLabel{ margin-left:auto; opacity:.85; font-weight:800; }
+/* Help Modal: visual sections with icons */
+.help-modes{
+  display:grid; grid-template-columns:repeat(4,minmax(120px,1fr));
+  gap:8px; margin:6px 0 12px;
+}
+.help-modes .mode{
+  background:#0e1730; border:1px solid #203155; border-radius:12px;
+  padding:8px; text-align:center;
+}
+.help-modes .mode span{ font-size:22px; display:block; }
+.help-modes .mode b{ display:block; margin-top:4px; }
+.help-modes .mode small{ opacity:.8; }
+
+.help-body{ text-align:left; max-height:55vh; overflow:auto; }
+.help-sec{ padding:8px 4px 10px; border-bottom:1px dashed #26406a; }
+.help-sec:last-child{ border-bottom:none; }
+.help-sec-h{ display:flex; align-items:center; gap:8px; font-weight:900; color:#ffd54a; margin-bottom:6px; }
+.help-sec-h .ico{ font-size:20px; }
+.help-list{ margin:0 0 0 20px; padding:0; }
+.help-list li{ margin:4px 0; }
