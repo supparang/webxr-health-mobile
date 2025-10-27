@@ -1,12 +1,28 @@
-// === Hero Health Academy — game/modes/plate.js (quota-safe + penalties + clear HUD pills) ===
+// === Hero Health Academy — game/modes/plate.js (multi-group accept + overfill penalty) ===
 import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
 
 // ---------- Item pools (20 each) ----------
-const VEGGIES = ['🥦','🥕','🥒','🌽','🍅','🍆','🥗','🥬','🥔','🧅','🧄','🍄','🌶️','🥒','🥕','🥦','🥬','🍅','🥔','🍄'];
-const FRUITS  = ['🍎','🍌','🍓','🍇','🍉','🍍','🍑','🍊','🍐','🥭','🍒','🍋','🥝','🍈','🫐','🍎','🍌','🍊','🍇','🍍'];
-const GRAINS  = ['🍞','🥖','🥨','🍚','🍙','🍘','🍜','🍝','🍛','🌯','🌮','🥞','🫓','🥪','🥯','🍞','🍚','🍝','🥖','🥨'];
-const PROTEIN = ['🍗','🍖','🥩','🍳','🐟','🍤','🫘','🥜','🧆','🌭','🍣','🍢','🥓','🧆','🍗','🍳','🐟','🍤','🫘','🥩'];
-const DAIRY   = ['🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦','🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦'];
+const VEGGIES = [
+  '🥦','🥕','🥒','🌽','🍅','🍆','🥗','🥬','🥔','🧅',
+  '🧄','🍄','🌶️','🥒','🥕','🥦','🥬','🍅','🥔','🍄'
+];
+const FRUITS = [
+  '🍎','🍌','🍓','🍇','🍉','🍍','🍑','🍊','🍐','🥭',
+  '🍒','🍋','🥝','🍈','🫐','🍎','🍌','🍊','🍇','🍍'
+];
+const GRAINS = [
+  '🍞','🥖','🥨','🍚','🍙','🍘','🍜','🍝','🍛','🌯',
+  '🌮','🥞','🫓','🥪','🥯','🍞','🍚','🍝','🥖','🥨'
+];
+const PROTEIN = [
+  '🍗','🍖','🥩','🍳','🐟','🍤','🫘','🥜','🧆','🌭',
+  '🍣','🍢','🥓','🧆','🍗','🍳','🐟','🍤','🫘','🥩'
+];
+const DAIRY = [
+  '🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦',
+  '🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦'
+];
 
 const GROUPS = ['veggies','fruits','grains','protein','dairy'];
 const POOLS  = { veggies:VEGGIES, fruits:FRUITS, grains:GRAINS, protein:PROTEIN, dairy:DAIRY };
@@ -14,41 +30,41 @@ const POOLS  = { veggies:VEGGIES, fruits:FRUITS, grains:GRAINS, protein:PROTEIN,
 // ---------- Helpers ----------
 const rnd   = (arr)=>arr[(Math.random()*arr.length)|0];
 const clamp = (x,a,b)=>Math.max(a,Math.min(b,x));
-
-function langName(lang){
-  return {
-    TH: {veggies:'ผัก', fruits:'ผลไม้', grains:'ธัญพืช', protein:'โปรตีน', dairy:'นม'},
-    EN: {veggies:'Veggies', fruits:'Fruits', grains:'Grains', protein:'Protein', dairy:'Dairy'}
-  }[lang||'TH'];
-}
+const L = (lang)=>({
+  TH:{veggies:'ผัก', fruits:'ผลไม้', grains:'ธัญพืช', protein:'โปรตีน', dairy:'นม',
+      plateDone:'จัดจานครบ!', overfill:'เกินโควตา!'},
+  EN:{veggies:'Veggies', fruits:'Fruits', grains:'Grains', protein:'Protein', dairy:'Dairy',
+      plateDone:'Plate Complete!', overfill:'Over quota!'}
+})[lang||'TH'];
 
 function makeQuotas(diffKey='Normal'){
   if (diffKey==='Easy')   return { veggies:4, fruits:3, grains:2, protein:2, dairy:1 }; // 12
   if (diffKey==='Hard')   return { veggies:6, fruits:4, grains:3, protein:3, dairy:1 }; // 17
-  return                   { veggies:5, fruits:3, grains:2, protein:2, dairy:1 };       // 13
+  /* Normal */            return { veggies:5, fruits:3, grains:2, protein:2, dairy:1 }; // 13
 }
 
-function pickTargetGroup(ctx){
-  let best=null, bestNeed=-1;
+// กลุ่มที่ยัง “ขาด” (need - have > 0)
+function lackingGroups(ctx){
+  const out = [];
   for (const g of GROUPS){
-    const need = (ctx.need[g]||0) - (ctx.have[g]||0);
-    if (need > bestNeed){ bestNeed = need; best = g; }
+    const need = (ctx.need[g]||0), have = (ctx.have[g]||0);
+    if (need>0 && have<need) out.push(g);
   }
-  return bestNeed>0 ? best : null;
+  return out;
 }
 
-// อัปเดต HUD (#plateTracker)
+// ---------- HUD ----------
 function renderPlateHUD(state){
   const host = document.getElementById('platePills'); if (!host) return;
-  const L = langName(state.lang);
+  const Lang = L(state.lang);
   const pills = GROUPS.map(g=>{
     const have = state.ctx.have[g]||0;
     const need = state.ctx.need[g]||0;
-    const done = have>=need && need>0;
+    const done = need>0 && have>=need;
     const barW = need>0 ? clamp((have/need)*100, 0, 100) : 0;
-    return `<div class="pill ${done?'ok':''}" data-g="${g}">
-      <b>${L[g]}</b>
-      <span class="qty">${have}/${need}${done?' ✅':''}</span>
+    return `<div class="pill ${done?'ok':''}">
+      <b>${Lang[g]}</b>
+      <span>${have}/${need}</span>
       <i style="width:${barW}%"></i>
     </div>`;
   }).join('');
@@ -59,42 +75,53 @@ function flashLine(msg){
   const line = document.getElementById('missionLine'); if (!line) return;
   line.textContent = msg;
   line.style.display = 'block';
-  setTimeout(()=>{ line.style.display='none'; }, 900);
+  setTimeout(()=>{ line.style.display='none'; }, 950);
 }
 
 // ---------- Public API ----------
-export function init(state/*, hud*/, diff){
+export function init(state, hud, diff){
+  // เปิด HUD เพจเพลต
   const wrap = document.getElementById('plateTracker');
   if (wrap) wrap.style.display = 'block';
-  const tgt = document.getElementById('targetWrap');
-  if (tgt) tgt.style.display = 'none';
+  // ซ่อน targetWrap (เราไม่บังคับหมวดเป้าหมายทีละอันแล้ว)
+  const tgt = document.getElementById('targetWrap'); if (tgt) tgt.style.display = 'none';
 
+  // ตั้งค่าโควตา
   state.ctx = state.ctx || {};
   state.ctx.need = makeQuotas(state.difficulty||'Normal');
   state.ctx.have = { veggies:0, fruits:0, grains:0, protein:0, dairy:0 };
-  state.ctx.target = pickTargetGroup(state.ctx);
-
-  // metrics for quests
-  state.ctx.wrongGroup = 0;
   state.ctx.overfillCount = 0;
-  state.ctx.targetHitsTotal = 0;
+  state.ctx.perfectPlates = 0;
 
   renderPlateHUD(state);
+
+  // แจ้งภารกิจแบบ easy สำหรับ plate (Progress จะสุ่มขึ้นอยู่แล้วจาก progression.js)
+  try{
+    Progress.emit('run_start', {
+      mode:'plate',
+      difficulty: state.difficulty,
+      missions: (Progress.runCtx?.missions||[])
+    });
+  }catch{}
 }
 
-export function cleanup(state){
+export function cleanup(){
   const wrap = document.getElementById('plateTracker');
   if (wrap) wrap.style.display = 'none';
 }
 
+// ชิ้นใหม่: โอกาสสูงที่จะสุ่ม “หมวดยังขาด”
 export function pickMeta(diff, state){
   const ctx = state.ctx || {};
-  const target = ctx.target || pickTargetGroup(ctx) || rnd(GROUPS);
-  const isTargetPick = Math.random() < 0.72;
-  const group = isTargetPick ? target : rnd(GROUPS);
+  const lack = lackingGroups(ctx);
+  const isLackPick = Math.random() < 0.75 && lack.length>0;
+  const group = isLackPick ? rnd(lack) : rnd(GROUPS);
 
-  const char   = rnd(POOLS[group]);
+  const char = rnd(POOLS[group]);
   const golden = Math.random() < 0.08;
+
+  const need = (ctx.need[group]||0), have = (ctx.have[group]||0);
+  const withinQuota = need>0 && have<need;
 
   return {
     id: `${group}_${Date.now().toString(36)}_${(Math.random()*999)|0}`,
@@ -102,69 +129,56 @@ export function pickMeta(diff, state){
     aria: group,
     label: group,
     groupId: group,
-    good: group === target, // จะยืนยันอีกครั้งใน onHit
+    good: withinQuota,          // ดีเมื่อยังไม่ครบโควตา
     golden,
-    life: diff?.life ?? 3000,
+    life: diff?.life ?? 3000
   };
 }
 
-export function onHit(meta, systems, state/*, hud*/){
-  const { score, sfx } = systems;
+// แตะไอคอน: ยอมรับ “ทุกรายการ” ที่อยู่ในหมวดที่ยังขาดโควตา
+export function onHit(meta, systems, state){
+  const { score, sfx, coach, fx } = systems;
+  const Lang = L(state.lang);
   const ctx = state.ctx;
-  const g   = meta.groupId;
-  const need = ctx.need[g]||0;
-  const have = ctx.have[g]||0;
 
-  // ผิดหมวด
-  if (g !== ctx.target){
-    ctx.wrongGroup = (ctx.wrongGroup||0) + 1;
-    meta.good = false;
-    try{ sfx.play('sfx-bad'); }catch{}
-    return 'wrong'; // << ให้ main.js ลงโทษมากกว่า bad นิดหน่อย
-  }
+  const need = (ctx.need[meta.groupId]||0);
+  const have = (ctx.have[meta.groupId]||0);
+  const withinQuota = need>0 && have<need;
 
-  // เกินโควตา → ลงโทษหนักกว่า bad
-  if (need>0 && have>=need){
-    ctx.overfillCount = (ctx.overfillCount||0) + 1;
-    meta.good = false;
-    try{ sfx.play('sfx-bad'); }catch{}
-    return 'over'; // << บอก main.js เพื่อลดแต้ม/ตัดคอมโบ/แฟลชหน้าจอ
-  }
+  if (withinQuota){
+    // นับเข้าหมวดนั้น
+    ctx.have[meta.groupId] = have + 1;
 
-  // ถูกหมวดและยังไม่เต็ม
-  ctx.have[g] = have + 1;
-  ctx.targetHitsTotal = (ctx.targetHitsTotal||0) + 1;
-  const perfect = !!meta.golden || Math.random() < 0.18;
-
-  renderPlateHUD(state);
-
-  // เปลี่ยนเป้าหมายเมื่อครบหมวด
-  if ((ctx.have[g]||0) >= (ctx.need[g]||0)){
-    const next = pickTargetGroup(ctx);
-    if (next && next !== ctx.target){
-      ctx.target = next;
-      flashLine(state.lang==='EN'
-        ? `Next target: ${next}`
-        : `เป้าหมายถัดไป: ${langName(state.lang)[next]||next}`);
-    }
-  }
-
-  // จานครบหรือยัง
-  if (isPlateComplete(ctx)){
-    flashLine(state.lang==='EN' ? 'Plate Complete!' : 'จัดจานครบ!');
-    try{ score.add?.(40); }catch{}
-    try{ sfx.play('sfx-perfect'); }catch{}
-    nextPlate(ctx, state.difficulty||'Normal');
+    // โอกาส Perfect
+    const perfect = !!meta.golden || Math.random() < 0.18;
     renderPlateHUD(state);
-  }else{
-    try{ sfx.play(perfect?'sfx-perfect':'sfx-good'); }catch{}
+
+    // ตรวจจบจาน
+    if (isPlateComplete(ctx)){
+      flashLine(Lang.plateDone);
+      try{ score.add?.(40); }catch{}
+      try{ sfx.play('sfx-perfect'); }catch{}
+      // ต่อจานใหม่ (scale ขึ้นเล็ก ๆ)
+      nextPlate(ctx, state.difficulty||'Normal');
+      renderPlateHUD(state);
+    }else{
+      try{ sfx.play(perfect?'sfx-perfect':'sfx-good'); }catch{}
+    }
+
+    // ให้ Progress เก็บสถิติเป้าหมาย/กลุ่ม/ทอง
+    return perfect ? 'perfect' : 'good';
   }
 
-  meta.good = true;
-  return perfect ? 'perfect' : 'good';
+  // เกินโควตา → บทลงโทษ
+  ctx.overfillCount = (ctx.overfillCount||0) + 1;
+  flashLine('⚠ ' + Lang.overfill);
+  try{ sfx.play('sfx-bad'); }catch{}
+  return 'bad';
 }
 
-export function tick(){}
+export function tick(/*state, systems, hud*/){
+  // plate ไม่มีกลไก tick เฉพาะตอนนี้
+}
 
 // ---------- Internals ----------
 function isPlateComplete(ctx){
@@ -177,6 +191,7 @@ function isPlateComplete(ctx){
 }
 
 function nextPlate(ctx, diffKey){
+  // เพิ่มโควตาเล็กน้อยในรอบถัดไป (ยังคง easy-friendly)
   const base = makeQuotas(diffKey);
   const bump = { Easy:0, Normal:1, Hard:1 }[diffKey] ?? 1;
   ctx.need = {
@@ -187,11 +202,11 @@ function nextPlate(ctx, diffKey){
     dairy:   base.dairy
   };
   ctx.have = { veggies:0, fruits:0, grains:0, protein:0, dairy:0 };
-  ctx.target = pickTargetGroup(ctx);
+  ctx.overfillCount = 0;
 }
 
-import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+// ------- Shared FX hooks (tilt + shatter) -------
 export const fx = {
-  onSpawn(el){ add3DTilt(el); },
-  onHit(x, y){ shatter3D(x, y); }
+  onSpawn(el/*, state*/){ add3DTilt(el); },
+  onHit(x, y/*, meta, state*/){ shatter3D(x, y); }
 };
