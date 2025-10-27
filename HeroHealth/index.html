@@ -128,20 +128,275 @@
     </div>
   </section>
 
-  <!-- Help Modal -->
-  <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
-    <div class="card">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">
-- ดี vs ขยะ: เก็บอาหารดี หลีกเลี่ยงขยะ ทำเควส 3 อย่างให้ทันเวลา
-- จาน 5 หมู่ (Food Group Frenzy): อ่านชื่ออาหาร/ดูไอคอน แล้วกดให้ตรง “หมวดเป้าหมาย” (ผลไม้/ผัก/โปรตีน/ธัญพืช)
-- สมดุลน้ำ: ดื่มน้ำให้พอดี ไม่มาก/น้อยเกิน
-- จัดจานสุขภาพ: วางอาหารลงจานให้ครบโควตา
-ใช้พาวเวอร์อัป Freeze / Magnet / X2 เพื่อสร้างจังหวะกดเทพๆ!
-      </pre>
-      <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
+<!-- Help Modal (TH/EN + icons for all modes) -->
+<div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
+  <div class="card" style="max-width:760px">
+    <h3 id="h_help" style="display:flex;align-items:center;gap:8px">
+      <span>📘</span> <span>วิธีเล่น / How to Play</span>
+    </h3>
+
+    <!-- Mode icon strip -->
+    <div class="help-modes">
+      <div class="mode"><span>🥗</span><b>ดี vs ขยะ</b><small>Good vs Junk</small></div>
+      <div class="mode"><span>🍽️</span><b>จาน 5 หมู่</b><small>Food Group Frenzy</small></div>
+      <div class="mode"><span>💧</span><b>สมดุลน้ำ</b><small>Hydration</small></div>
+      <div class="mode"><span>🍱</span><b>จัดจานสุขภาพ</b><small>Healthy Plate</small></div>
+    </div>
+
+    <!-- เนื้อหาแบบสลับภาษา -->
+    <div id="helpBody" class="help-body" aria-live="polite"></div>
+
+    <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; justify-content:flex-end">
+      <button class="btn" data-action="helpClose" type="button">โอเค</button>
     </div>
   </div>
+</div>
+
+<!-- Templates: TH / EN -->
+<script type="application/json" id="helpTH">
+{
+  "sections": [
+    {
+      "icon":"🥗",
+      "h":"ดี vs ขยะ (Good vs Junk)",
+      "b":[
+        "✅ เก็บอาหารดี เพื่อคะแนนและคอมโบ",
+        "❌ เลี่ยงอาหารขยะ มิฉะนั้นคอมโบหลุด",
+        "🔥 สะสม FEVER ให้เต็มเพื่อคูณคะแนนช่วงสั้นๆ"
+      ]
+    },
+    {
+      "icon":"🍽️",
+      "h":"จาน 5 หมู่ (Food Group Frenzy)",
+      "b":[
+        "🎯 สังเกต \"หมวดเป้าหมาย\" มุมซ้ายบน (1–3 หมวด/รอบ)",
+        "👆 แตะไอคอนให้ตรงหมวด: ผลไม้ / ผัก / โปรตีน / ธัญพืช",
+        "📈 ครบโควตาแต่ละหมวด → สุ่มเป้าหมายใหม่",
+        "🟡 ไอคอนทอง = โบนัสพิเศษ"
+      ]
+    },
+    {
+      "icon":"💧",
+      "h":"สมดุลน้ำ (Hydration)",
+      "b":[
+        "🚰 ดื่มน้ำให้พอดีตามกิจกรรม/อากาศ",
+        "🔻 มากไป/น้อยไป = เสียคะแนน",
+        "🟩 รักษาแถบให้อยู่โซนสีเขียว"
+      ]
+    },
+    {
+      "icon":"🍱",
+      "h":"จัดจานสุขภาพ (Healthy Plate)",
+      "b":[
+        "📦 วางอาหารลงจานให้ครบโควตาแต่ละหมวด",
+        "⚖️ บาลานซ์ผัก–ผลไม้–โปรตีน–ธัญพืช",
+        "✨ วางถูกต่อเนื่องได้คอมโบ"
+      ]
+    },
+    {
+      "icon":"🎯",
+      "h":"เป้าหมายย่อย (Mini Quests)",
+      "b":[
+        "🎲 สุ่ม 3 เควสจาก 5 อย่างในแต่ละเกม",
+        "🧩 ตัวอย่าง: เก็บผลไม้ 5 | โปรตีน 3 ชิ้นติดกัน | ไม่พลาด 10 วิ",
+        "🏅 ทำครบรับโบนัสคะแนน/เวลา"
+      ]
+    },
+    {
+      "icon":"🧰",
+      "h":"พลังพิเศษ (Power-ups)",
+      "b":[
+        "❄️ Freeze: หยุด TTL ชั่วคราว",
+        "🧲 Magnet: เพิ่มโอกาสเกิดไอคอนตามหมวดเป้าหมาย",
+        "✖2 Score: คูณคะแนนช่วงสั้น ๆ",
+        "⏳ ปุ่มด้านบนซ้ายมีคูลดาวน์ แถบจะค่อย ๆ ลด"
+      ]
+    },
+    {
+      "icon":"💥",
+      "h":"คะแนน • คอมโบ • FEVER",
+      "b":[
+        "✅ ถูก = คะแนน+คอมโบ | ❌ พลาด = คอมโบรีเซ็ต",
+        "📈 คอมโบสูง = ตัวคูณคะแนนสูง",
+        "🔥 FEVER เพิ่มตัวคูณระยะสั้น"
+      ]
+    },
+    {
+      "icon":"⚙️",
+      "h":"ความยาก & พรีเซ็ต",
+      "b":[
+        "ง่าย / ปกติ / ยาก มีผลต่อความถี่เกิดและ TTL",
+        "More Presets: Arcade / Kids / Timed Rush (ใช้ได้ทุกโหมด)"
+      ]
+    },
+    {
+      "icon":"🎖️",
+      "h":"เลเวล • มิชชัน • แบดจ์",
+      "b":[
+        "🗺️ ทำมิชชันระยะยาวเพื่ออัปเลเวล",
+        "🏆 เก็บแบดจ์พิเศษ เช่น Golden Streak, Perfect Combo",
+        "📊 ดูความคืบหน้าใน Hero Health Academy Hub"
+      ]
+    },
+    {
+      "icon":"🕹️",
+      "h":"การควบคุม (Controls)",
+      "b":[
+        "📱 มือถือ: แตะไอคอน",
+        "🖱️ เดสก์ท็อป: คลิกเมาส์",
+        "🔊 เปิด/ปิดเสียงและสั่นได้ที่มุมขวาบน"
+      ]
+    }
+  ]
+}
+</script>
+
+<script type="application/json" id="helpEN">
+{
+  "sections": [
+    {
+      "icon":"🥗",
+      "h":"Good vs Junk",
+      "b":[
+        "✅ Collect healthy items for score and combo.",
+        "❌ Avoid junk or your combo resets.",
+        "🔥 Fill FEVER to gain a temporary multiplier."
+      ]
+    },
+    {
+      "icon":"🍽️",
+      "h":"Food Group Frenzy",
+      "b":[
+        "🎯 Watch target groups (top-left), 1–3 per round.",
+        "👆 Tap icons matching Fruits / Vegetables / Protein / Grains.",
+        "📈 Clear quotas to roll new targets.",
+        "🟡 Golden icon = bonus."
+      ]
+    },
+    {
+      "icon":"💧",
+      "h":"Hydration",
+      "b":[
+        "🚰 Drink the right amount based on activity/climate.",
+        "🔻 Too much/too little reduces score.",
+        "🟩 Keep the bar in the green zone."
+      ]
+    },
+    {
+      "icon":"🍱",
+      "h":"Healthy Plate",
+      "b":[
+        "📦 Place foods onto the plate to meet each group’s quota.",
+        "⚖️ Balance fruits–veggies–protein–grains.",
+        "✨ Streak of correct placements builds combo."
+      ]
+    },
+    {
+      "icon":"🎯",
+      "h":"Mini Quests",
+      "b":[
+        "🎲 Each run picks 3 of 5 quests.",
+        "🧩 Examples: collect 5 fruits | 3 proteins in a row | avoid mistakes 10s.",
+        "🏅 Finish for bonus score/time."
+      ]
+    },
+    {
+      "icon":"🧰",
+      "h":"Power-ups",
+      "b":[
+        "❄️ Freeze: pause icon TTL.",
+        "🧲 Magnet: increase target spawn chance.",
+        "✖2 Score: temporary score x2.",
+        "⏳ Top-left buttons have cooldown with filling bar."
+      ]
+    },
+    {
+      "icon":"💥",
+      "h":"Scoring • Combo • FEVER",
+      "b":[
+        "✅ Correct = score+combo | ❌ Wrong = combo reset.",
+        "📈 Higher combo = higher multiplier.",
+        "🔥 FEVER grants extra multiplier briefly."
+      ]
+    },
+    {
+      "icon":"⚙️",
+      "h":"Difficulty & Presets",
+      "b":[
+        "Easy / Normal / Hard affect spawn & TTL.",
+        "More Presets: Arcade / Kids / Timed Rush (all modes)."
+      ]
+    },
+    {
+      "icon":"🎖️",
+      "h":"Level • Missions • Badges",
+      "b":[
+        "🗺️ Complete long-term missions to level up.",
+        "🏆 Earn badges like Golden Streak, Perfect Combo.",
+        "📊 Track in the Hero Health Academy Hub."
+      ]
+    },
+    {
+      "icon":"🕹️",
+      "h":"Controls",
+      "b":[
+        "📱 Mobile: Tap icons.",
+        "🖱️ Desktop: Click.",
+        "🔊 Toggle sound/haptics top-right."
+      ]
+    }
+  ]
+}
+</script>
+
+<!-- Render logic for both Help & HelpScene buttons -->
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const helpBody = $('#helpBody');
+  const TH = JSON.parse($('#helpTH').textContent);
+  const EN = JSON.parse($('#helpEN').textContent);
+
+  function renderHelp(lang){
+    const D = (lang === 'EN') ? EN : TH;
+    helpBody.innerHTML = D.sections.map(sec => `
+      <section class="help-sec">
+        <div class="help-sec-h">
+          <span class="ico">${sec.icon}</span>
+          <span>${sec.h}</span>
+        </div>
+        <ul class="help-list">
+          ${sec.b.map(x=>`<li>${x}</li>`).join('')}
+        </ul>
+      </section>
+    `).join('');
+  }
+
+  function openHelp(){
+    const lang = localStorage.getItem('hha_lang') || 'TH';
+    renderHelp(lang);
+    const modal = $('#help');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  // ผูกกับทั้งปุ่ม ❓ และ 📘
+  $('#btn_help')?.addEventListener('click', openHelp, {passive:true});
+  document.querySelector('[data-action="helpScene"]')?.addEventListener('click', openHelp, {passive:true});
+
+  // อัปเดตภาษาเมื่อกด TH/EN ถ้า modal เปิดอยู่
+  $('#langToggle')?.addEventListener('click', () => {
+    setTimeout(() => {
+      const modal = $('#help');
+      if (modal && modal.style.display === 'flex') {
+        const lang = localStorage.getItem('hha_lang') || 'TH';
+        renderHelp(lang);
+      }
+    }, 0);
+  }, {passive:true});
+})();
+</script>
+
+
 
   <!-- Result Modal -->
   <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
