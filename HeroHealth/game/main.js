@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (modes selectable, Start-only, missions + stats + daily, shared FX, Quests HUD) ===
+// === Hero Health Academy — main.js (modes selectable, Start-only, missions + stats + daily, shared FX) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -10,10 +10,9 @@ import { SFX }              from '/webxr-health-mobile/HeroHealth/game/core/sfx.
 import { ScoreSystem }      from '/webxr-health-mobile/HeroHealth/game/core/score.js';
 import { PowerUpSystem }    from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
 import { Progress }         from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
-
-// ⬇️ NEW: Quests HUD/logic (ทำงานคู่กับ Progress)
 import { Quests }           from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
+// FX กลาง (โหมดจะ import เองด้วย แต่ main ใช้ fallback เผื่อโหมดไม่ใส่ hook)
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
 
 import * as goodjunk        from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
 import * as groups          from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
@@ -51,9 +50,8 @@ const score = new ScoreSystem();
 const power = new PowerUpSystem();
 const eng   = new Engine(THREE, document.getElementById('c'));
 const coach = new Coach({ lang: localStorage.getItem('hha_lang') || 'TH' });
-
-// ⬇️ NEW: bind Quests ให้ sync HUD/Coach
-const QUEST_BIND = Quests.bindToMain({ hud, coach });
+// bind quests → HUD/Coach
+const questUI = Quests.bindToMain({ hud, coach });
 
 const state = {
   modeKey:'goodjunk',
@@ -84,8 +82,8 @@ function updateHUD(){
   hud.setScore?.(score.score);
   hud.setTime?.(state.timeLeft|0);
   hud.setCombo?.('x'+state.combo);
-  // ⬇️ NEW: อัปเดตแถบ Power timers บน HUD ทุกครั้งที่รีเฟรช HUD
-  hud.setPowerTimers?.(power.timers);
+  // อัปเดต power timers ทุกเฟรมวินาที (freeze global; groups มี cooldown แยก)
+  try{ hud.setPowerTimers?.(power.timers||{}); }catch{}
 }
 
 // ----- Fever -----
@@ -106,8 +104,6 @@ function startFever(){
   coach.onFever?.();
   try{ $('#sfx-powerup')?.play(); }catch{}
   Progress.event('fever', {kind:'start'});
-  // ⬇️ NEW: ส่งไปยังระบบ Quests ด้วย (บางเควสต์นับจำนวนเปิด FEVER)
-  Quests.event('fever', {kind:'start'});
 }
 function stopFever(){
   if (!state.fever.active) return;
@@ -116,7 +112,6 @@ function stopFever(){
   showFeverLabel(false);
   coach.onFeverEnd?.();
   Progress.event('fever', {kind:'end'});
-  Quests.event('fever', {kind:'end'});
 }
 
 // ----- Score FX (UI burst only) -----
@@ -202,6 +197,7 @@ function spawnOnce(diff){
     line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;
     transform:perspective(600px) rotateX(0) rotateY(0);`;
 
+  // 🔹 ให้โหมดคุม onSpawn ได้เอง (ถ้าไม่ใส่ ใช้ tilt กลาง)
   if (mode?.fx?.onSpawn) { try{ mode.fx.onSpawn(el, state); }catch{}; }
   else { add3DTilt(el); }
 
@@ -227,18 +223,19 @@ function spawnOnce(diff){
       const base = ({good:10, perfect:20, ok:2, bad:-8, power:5})[res] || 1;
       scoreWithEffects(base, cx, cy);
 
+      // 🔹 ให้โหมดคุม onHit ได้เอง (ถ้าไม่ใส่ ใช้แตกกระจายกลาง)
       if (mode?.fx?.onHit) { try{ mode.fx.onHit(cx, cy, meta, state); }catch{}; }
       else { shatter3D(cx, cy); }
 
-      // ⬇️ กรอกอีเวนต์ให้ทั้ง Progress (เก็บสถิติ/XP) และ Quests (ชิป HUD)
-      const hitPayload = {
-        mode: state.modeKey,
+      // Progress counters + quests
+      const questPayload = {
         result: res,
         meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden },
-        comboNow: state.combo
+        combo: state.combo,
+        score: score.score
       };
-      Progress.event('hit', hitPayload);
-      Quests.event('hit', { result: res, meta: hitPayload.meta, combo: state.combo });
+      Progress.event('hit', { mode: state.modeKey, ...questPayload, comboNow: state.combo });
+      Quests.event('hit', questPayload);
 
       if (state.haptic && navigator.vibrate){
         if (res==='bad') navigator.vibrate(60);
@@ -320,14 +317,14 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
+  // per-mode tick (hydration จะยิง hydro_tick/hydro_cross/hydro_click เองในโหมด)
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
-  // ⬇️ แจ้ง 1 วินาทีให้ Progress (ใช้กับ survive_time / accuracy เก็บปลายเกม) และ Quests (เคาท์ดาวน์ชิป)
-  Progress.event('sec', {});
-  Quests.tick({ score: score.score|0 });
+  // ส่ง tick เข้า quests + HUD power timers
+  try{ Quests.tick({ score: score.score|0 }); }catch{}
+  updateHUD();
 
   state.timeLeft = Math.max(0, state.timeLeft - 1);
-  updateHUD();
 
   if (state.timeLeft===10 && !state.didWarnT10){
     state.didWarnT10=true; coach.onTimeLow?.(); try{ $('#sfx-tick')?.play(); }catch{}
@@ -398,13 +395,15 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  // Progress missions (ใช้ XP/daily/stats)
+  // Progress run + Missions UI (Progress) — คงไว้เพื่อสถิติรวม
   const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
   renderMissions(missions);
 
-  // ⬇️ NEW: เริ่ม Quests HUD (สุ่ม 3 จาก 10) ให้เวลาตามรอบจริง
-  Quests.beginRun(state.modeKey, state.difficulty, state.lang, state.timeLeft);
-  QUEST_BIND.refresh?.();
+  // Quests (10 แบบ/โหมด; เลือกสุ่ม 3) + bind HUD chips
+  try{
+    Quests.beginRun(state.modeKey, state.difficulty, state.lang, diff.time);
+    questUI.refresh?.();
+  }catch(e){ console.warn('Quests beginRun error', e); }
 
   tick();
   spawnLoop();
@@ -426,8 +425,8 @@ function end(silent=false){
 
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
 
-  // ⬇️ ปิด Quests (ให้ onEnd เคลียร์ชิป/สรุปสถานะ)
-  Quests.endRun({ score: total, miss: state.stats.bad|0, acc: +accPct.toFixed(1) });
+  // ปิด Quests ก่อนสำหรับบันทึกผลภารกิจย่อย
+  try{ Quests.endRun({ score: total, miss: state.stats.bad|0, bestCombo: state.bestCombo|0 }); }catch{}
 
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
 
@@ -437,7 +436,7 @@ function end(silent=false){
   }
 }
 
-// ----- Missions HUD (Progress UI เดิม) -----
+// ----- Missions HUD (Progress-only chips; คงไว้เพื่อความเข้ากันได้เดิม) -----
 function renderMissions(list){
   const host = document.getElementById('questChips'); if (!host) return;
   host.innerHTML = '';
@@ -460,14 +459,100 @@ function renderMissions(list){
   }
 }
 
-// ----- Help text / Stats / Daily (unchanged) -----
-const HELP_TEXT = { /* ...คงเดิมของคุณ... */ };
+// ----- Help text -----
+const HELP_TEXT = {
+  TH:{
+    goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
+    groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- ดู \"หมวดเป้าหมาย\" แล้วแตะไอคอนให้ถูกหมวด\n- ครบโควตาแล้วเปลี่ยนหมวดใหม่\n- Power-ups: ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
+    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = เงื่อนไขคะแนนตามสถานะ\n- Mini-quests สุ่ม 3 อย่าง/เกม",
+    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนตามสัดส่วนจานสุขภาพ\n- คอมโบช่วยบูสต์คะแนน"
+  },
+  EN:{
+    goodjunk: "🥗 Good vs Junk\n- Tap healthy items, avoid junk\n- Keep combo to trigger FEVER\n- Power-ups: ×2 / Freeze / Magnet",
+    groups:   "🍽️ Food Group Frenzy\n- Follow the target group\n- Fill quota to switch target\n- Power-ups: ×2 target-only, Freeze, Magnet next",
+    hydration:"💧 Hydration\n- Keep water bar in optimal zone\n- Water raises level; sugary drinks are conditional\n- Random 3 mini-quests per run",
+    plate:    "🍱 Healthy Plate\n- Place items by plate ratio\n- Combos boost score"
+  }
+};
+function openHelpCurrent(){
+  const lang = (localStorage.getItem('hha_lang')||'TH');
+  const key  = state.modeKey;
+  const txt  = (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
+  const b = $('#helpBody'); if (b){ b.textContent = txt; }
+  const m = $('#help'); if (m){ m.style.display='flex'; }
+}
+function openHelpAll(){
+  const lang = (localStorage.getItem('hha_lang')||'TH');
+  const data = HELP_TEXT[lang] || HELP_TEXT.TH;
+  const host = $('#helpAllBody');
+  if (host){
+    host.innerHTML = '';
+    for (const k of ['goodjunk','groups','hydration','plate']){
+      const wrap = document.createElement('div');
+      wrap.style.marginBottom='14px';
+      const h = document.createElement('div');
+      h.style.cssText='font-weight:900;margin-bottom:4px';
+      h.textContent = (T(lang).names[k]||k);
+      const p = document.createElement('pre');
+      p.textContent = data[k];
+      wrap.appendChild(h); wrap.appendChild(p);
+      host.appendChild(wrap);
+    }
+  }
+  const m = $('#helpScene'); if (m){ m.style.display='flex'; }
+}
 
-function openHelpCurrent(){ /* ...คงเดิมของคุณ... */ }
-function openHelpAll(){ /* ...คงเดิมของคุณ... */ }
-function buildStatSnapshotFallback(){ /* ...คงเดิมของคุณ... */ }
-function openStatBoard(){ /* ...คงเดิมของคุณ... */ }
-function openDailyPanel(){ /* ...คงเดิมของคุณ... */ }
+// ----- Stats board / Daily -----
+function buildStatSnapshotFallback(){
+  const p = Progress.profile || {};
+  const rows = [];
+  const modes = p.modes || {};
+  for (const k of Object.keys(modes)){
+    const v = modes[k] || {};
+    rows.push({
+      key:k,
+      bestScore: v.bestScore||0,
+      acc: +(v.accAvg||0).toFixed(1),
+      runs: v.games||0,
+      missions: v.missionDone||0
+    });
+  }
+  return {
+    level: p.level||1,
+    xp: p.xp||0,
+    totalRuns: p.meta?.totalRuns||0,
+    bestCombo: p.meta?.bestCombo||0,
+    rows
+  };
+}
+function openStatBoard(){
+  const host = $('#statBoardBody'); if(!host) return;
+  const snap = (typeof Progress.getStatSnapshot==='function')
+    ? Progress.getStatSnapshot()
+    : buildStatSnapshotFallback();
+  const rows = (snap.rows||[]).map(r=>`
+    <tr><td>${T(state.lang).names[r.key]||r.key}</td>
+        <td>${r.bestScore}</td><td>${r.acc}%</td><td>${r.runs}</td><td>${r.missions}</td></tr>`).join('');
+  host.innerHTML = `
+    <div style="font-weight:800;margin-bottom:8px">Level ${snap.level} (${snap.xp|0} XP) • เล่นทั้งหมด ${snap.totalRuns} รอบ • คอมโบสูงสุด ${snap.bestCombo}</div>
+    <table class="tbl">
+      <tr><th>โหมด</th><th>คะแนนสูงสุด</th><th>ความแม่น</th><th>รอบ</th><th>เควสสำเร็จ</th></tr>
+      ${rows || `<tr><td colspan="5" style="opacity:.75">ยังไม่มีข้อมูล</td></tr>`}
+    </table>`;
+  $('#statBoard').style.display='flex';
+}
+function openDailyPanel(){
+  const d = Progress.genDaily();
+  const host = $('#dailyBody'); if (!host) return;
+  const done = new Set(d.done||[]);
+  host.innerHTML = d.missions.map(m=>{
+    const ok = done.has(m.id);
+    return `<div style="display:flex;align-items:center;gap:8px;margin:6px 0">
+      <span>${ok?'✅':'⬜️'}</span><span>${m.label}</span>
+    </div>`;
+  }).join('') + `<div style="margin-top:8px;opacity:.8">วันที่: ${d.date}</div>`;
+  $('#dailyPanel').style.display='flex';
+}
 
 // ----- Global UI Events -----
 document.addEventListener('pointerup', (e)=>{
@@ -502,7 +587,6 @@ document.addEventListener('pointerup', (e)=>{
 }, {passive:true});
 
 // ----- Power-ups (groups) -----
-// (เหมือนเดิมของคุณ)
 (function wirePowers(){
   const bar = $('#powerBar'); if (!bar) return;
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
@@ -578,8 +662,6 @@ $('#langToggle')?.addEventListener('click', ()=>{
   localStorage.setItem('hha_lang', state.lang);
   coach.setLang?.(state.lang);
   applyUI();
-  // รีเฟรชชื่อโหมด/เควสต์ทั้งหมดให้ตรงภาษา
-  QUEST_BIND.refresh?.();
 }, {passive:true});
 
 $('#gfxToggle')?.addEventListener('click', ()=>{
