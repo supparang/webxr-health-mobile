@@ -1,4 +1,4 @@
-// === Hero Health Academy — modes/hydration.js (hydration bar + rules + mini-quests ready) ===
+// === Hero Health Academy — modes/hydration.js (hydration bar + rules + mini-quests ready + quest events) ===
 export const name = 'hydration';
 
 // ไอคอน (น้ำเปล่า/น้ำหวาน/ไอเท็มกลาง ๆ)
@@ -7,7 +7,7 @@ const WATER = [
   { id:'water2', labelEN:'Water', labelTH:'น้ำเปล่า', icon:'🫗' },
 ];
 const SWEET = [
-  { id:'soda',   labelEN:'Soda',   labelTH:'น้ำอัดลม', icon:'🥤' },
+  { id:'soda',   labelEN:'Soda',   labelTH:'น้ำอัดลม',   icon:'🥤' },
   { id:'juice',  labelEN:'Juice',  labelTH:'น้ำผลไม้หวาน', icon:'🧃' },
 ];
 const NEUTRAL = [
@@ -16,17 +16,29 @@ const NEUTRAL = [
 
 const ST = {
   lang:'TH',
-  level: 50,        // 0..120 (เรา clamp 0..120)
+  level: 50,        // 0..100
   safeMin: 40,
   safeMax: 60,
   x2Until: 0,
+  prevZone: 'OK',
   // HUD refs
   $wrap:null, $bar:null, $label:null
 };
 
-// โซนช่วยเหลือเควสต์
-const zoneOf = (v, min, max)=> v>max ? 'HIGH' : v<min ? 'LOW' : 'OK';
-let _lastZone = 'OK';
+// ===== helpers =====
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function t(th,en,lang){ return lang==='EN'?en:th; }
+function shade(hex, amt=-10){
+  const c = hex.replace('#','');
+  let r = parseInt(c.substring(0,2),16), g = parseInt(c.substring(2,4),16), b = parseInt(c.substring(4,6),16);
+  r = Math.max(0,Math.min(255,r+amt)); g = Math.max(0,Math.min(255,g+amt)); b = Math.max(0,Math.min(255,b+amt));
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+}
+function zoneOf(level, lo, hi){
+  if (level < lo) return 'LOW';
+  if (level > hi) return 'HIGH';
+  return 'OK';
+}
 
 export function init(gameState, hud, diff){
   ST.lang = localStorage.getItem('hha_lang') || 'TH';
@@ -39,16 +51,16 @@ export function init(gameState, hud, diff){
   ST.$label = document.getElementById('hydroLabel');
 
   if (ST.$wrap){ ST.$wrap.style.display = 'block'; }
-  _lastZone = zoneOf(ST.level, ST.safeMin, ST.safeMax);
+  ST.prevZone = zoneOf(ST.level, ST.safeMin, ST.safeMax);
   renderBar();
 }
 export function cleanup(){
   if (ST.$wrap) ST.$wrap.style.display = 'none';
 }
 export function tick(){
-  // อัปเดตสถานะโซนทุกวินาทีให้ Quests
+  // ยิงอีเวนต์ hydro_tick ทุกวินาที (main.js เรียก tick ทุก 1s)
   const z = zoneOf(ST.level, ST.safeMin, ST.safeMax);
-  window.HHA_QUESTS?.event?.('hydro_tick', { level: ST.level, zone: z });
+  try{ window.HHA_QUESTS?.event?.('hydro_tick', { level: ST.level, zone: z }); }catch{}
 }
 
 // สุ่มชิ้น: เน้นน้ำเปล่าเป็นหลัก (สนุกและมีเสี่ยง)
@@ -83,7 +95,8 @@ export function pickMeta(diff){
 // - หากอยู่ในโซนพอดี => น้ำเปล่าดี (good) น้ำหวาน ok
 export function onHit(meta, systems, gameState, hud){
   let res = 'ok';
-  const before = zoneOf(ST.level, ST.safeMin, ST.safeMax);
+  const before = ST.level;
+  const zoneBefore = zoneOf(before, ST.safeMin, ST.safeMax);
 
   if (meta.type==='water'){
     ST.level = clamp(ST.level + 8, 0, 120);
@@ -93,31 +106,37 @@ export function onHit(meta, systems, gameState, hud){
     ST.level = clamp(ST.level + 0, 0, 120);
   }
 
-  // แจ้งการคลิกให้เควสต์ (smart_sips / treat_time)
-  window.HHA_QUESTS?.event?.('hydro_click', { zoneBefore: before, kind: meta.type });
-
-  const after = zoneOf(ST.level, ST.safeMin, ST.safeMax);
-  if (before !== after){
-    window.HHA_QUESTS?.event?.('hydro_cross', { from: before, to: after });
-    _lastZone = after;
-  }
-
-  if (ST.level > ST.safeMax){             // “สูงเกิน”
+  // ตัดสินผล
+  if (ST.level > ST.safeMax){
     if (meta.type==='water'){ res='bad'; }
     else if (meta.type==='sweet'){ res='good'; }
     else { res='ok'; }
-  } else if (ST.level < ST.safeMin){      // “ต่ำ”
+  } else if (ST.level < ST.safeMin){
     if (meta.type==='sweet'){ res='bad'; }
     else if (meta.type==='water'){ res='good'; }
     else { res='ok'; }
-  } else {                                // “พอดี”
+  } else {
     if (meta.type==='water'){ res='good'; }
     else if (meta.type==='sweet'){ res='ok'; }
     else { res='ok'; }
   }
 
+  // แจ้ง Coach
   if (res==='good') systems.coach?.say?.(t('ดีมาก! ระดับน้ำกำลังดี', 'Nice! Hydration on track', ST.lang));
   if (res==='bad')  systems.coach?.say?.(t('ยังไม่เหมาะนะ', 'Not ideal yet', ST.lang));
+
+  // === ยิงอีเวนต์ให้ระบบ Quests ===
+  try{
+    // hydro_click: บอกโซนก่อนคลิก และชนิดที่กด
+    window.HHA_QUESTS?.event?.('hydro_click', { zoneBefore, kind: meta.type });
+
+    // hydro_cross: ถ้าโซนเปลี่ยน LOW/OK/HIGH
+    const zoneAfter = zoneOf(ST.level, ST.safeMin, ST.safeMax);
+    if (zoneAfter !== ST.prevZone){
+      window.HHA_QUESTS?.event?.('hydro_cross', { from: ST.prevZone, to: zoneAfter });
+      ST.prevZone = zoneAfter;
+    }
+  }catch{}
 
   renderBar();
   return res;
@@ -152,22 +171,8 @@ function renderBar(){
   ST.$label.textContent = `${txt} (${pct|0})`;
 }
 
-// utils
-function t(th,en,lang){ return lang==='EN'?en:th; }
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-function shade(hex, amt=-10){
-  const c = hex.replace('#','');
-  let r = parseInt(c.substring(0,2),16), g = parseInt(c.substring(2,4),16), b = parseInt(c.substring(4,6),16);
-  r = Math.max(0,Math.min(255,r+amt)); g = Math.max(0,Math.min(255,g+amt)); b = Math.max(0,Math.min(255,b+amt));
-  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
-}
 import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
-
 export const fx = {
-  onSpawn(el/*, state*/){
-    add3DTilt(el);
-  },
-  onHit(x, y/*, meta, state*/){
-    shatter3D(x, y);
-  }
+  onSpawn(el/*, state*/){ add3DTilt(el); },
+  onHit(x, y/*, meta, state*/){ shatter3D(x, y); }
 };
