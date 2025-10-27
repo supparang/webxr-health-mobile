@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (Progress + Missions + Power-ups + Per-mode Help) ===
+// === Hero Health Academy — main.js (Progress + Missions + Power-ups + Per-mode Help & Combined Help) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -164,6 +164,43 @@ function showHelpFor(modeKey){
   modal.style.justifyContent = 'center';
 }
 
+// === NEW: Combined help (all games) for the "📘 คู่มือรวม" button ===
+function showHelpAll(){
+  const modal = $('#help');
+  const body  = $('#helpBody');
+  if (!modal || !body) return;
+  const lang = (localStorage.getItem('hha_lang') || 'TH');
+
+  const blocks = Object.entries(HOWTO).map(([key, pack])=>{
+    const L = pack[lang] || pack.TH;
+    return `
+      <section style="padding:10px 0;border-bottom:1px dashed rgba(255,255,255,.12);">
+        <div style="font-weight:900;font-size:18px;display:flex;align-items:center;gap:8px">
+          <span style="font-size:22px">${pack.icon}</span> ${L.title}
+        </div>
+        <div style="opacity:.9;margin:4px 0 6px">${L.brief}</div>
+        <ul style="margin:6px 0 0 18px;padding:0;font-weight:700;line-height:1.5">
+          ${L.steps.map(s=>`<li>${s}</li>`).join('')}
+        </ul>
+      </section>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:820px">
+      ${blocks}
+      <div style="text-align:center;opacity:.8;font-weight:800;margin-top:6px">— END —</div>
+    </div>
+  `;
+  const card = modal.querySelector('.card');
+  if (card){
+    card.style.maxWidth = '900px';
+    card.style.margin   = '0 12px';
+  }
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+}
+
 // ----- Systems & State -----
 const hud   = new HUD();
 const sfx   = new SFX();
@@ -195,7 +232,6 @@ function applyUI(){
   const L = T(state.lang);
   setText('#modeName',   L.names[state.modeKey]||state.modeKey);
   setText('#difficulty', L.diffs[state.difficulty]||state.difficulty);
-  // ติด flag โหมดบน <html> ให้ CSS เฉพาะโหมดทำงาน
   document.documentElement.setAttribute('data-hha-mode', state.modeKey);
 }
 function updateHUD(){
@@ -664,8 +700,8 @@ document.addEventListener('pointerup', (e)=>{
 
   if(!btn) return;
 
-  if (a === 'mode'){ state.modeKey = btn.getAttribute('data-value'); applyUI(); /*ไม่ start อัตโนมัติ*/ }
-  else if (a === 'diff'){ state.difficulty = btn.getAttribute('data-value'); applyUI(); /*ไม่ start*/ }
+  if (a === 'mode'){ state.modeKey = btn.getAttribute('data-value'); applyUI(); }
+  else if (a === 'diff'){ state.difficulty = btn.getAttribute('data-value'); applyUI(); }
   else if (a === 'start'){ start(); }
   else if (a === 'pause'){
     if (!state.running){ start(); return; }
@@ -674,19 +710,10 @@ document.addEventListener('pointerup', (e)=>{
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a === 'restart'){ end(true); start(); }
-  else if (a === 'help'){
-    showHelpFor(state.modeKey);
-  }
-  else if (a === 'helpClose'){
-    const m=$('#help'); if (m) m.style.display='none';
-  }
-  else if (a === 'helpScene'){
-    // เปิดหน้าเดียวกับ Help และแสดงเฉพาะโหมดปัจจุบัน
-    showHelpFor(state.modeKey);
-  }
-  else if (a === 'helpSceneClose'){
-    const hs=$('#help'); if (hs) hs.style.display='none';
-  }
+  else if (a === 'help'){ showHelpFor(state.modeKey); }
+  else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
+  else if (a === 'helpScene'){ showHelpAll(); } // <<— รวมวิธีเล่นทุกเกม
+  else if (a === 'helpSceneClose'){ const hs=$('#help'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
 // ----- Power-ups (top-left, for groups) -----
