@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (Progress + Mini Quests + Power-ups) ===
+// === Hero Health Academy — main.js (Progress + Missions + Power-ups wired + A–D) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -10,7 +10,6 @@ import { SFX } from './core/sfx.js';
 import { ScoreSystem } from './core/score.js';
 import { PowerUpSystem } from './core/powerup.js';
 import { Progress } from './core/progression.js';
-import { Quests } from './core/quests.js';
 
 import * as goodjunk   from './modes/goodjunk.js';
 import * as groups     from './modes/groups.js';
@@ -61,7 +60,7 @@ const state = {
   combo:0, bestCombo:0,
   fever:{ active:false, meter:0, drainPerSec:14, chargeGood:10, chargePerfect:20, threshold:100, mul:2, timeLeft:0 },
   spawnTimer:0, tickTimer:0,
-  stats:{good:0, perfect:0, ok:0, bad:0},
+  ctx:{}, stats:{good:0, perfect:0, ok:0, bad:0},
   _accHist:[],
   freezeUntil:0,
   didWarnT10:false
@@ -72,6 +71,8 @@ function applyUI(){
   const L = T(state.lang);
   setText('#modeName',   L.names[state.modeKey]||state.modeKey);
   setText('#difficulty', L.diffs[state.difficulty]||state.difficulty);
+  // ใช้ data attribute สำหรับ CSS เฉพาะโหมด (groups.css)
+  document.documentElement.setAttribute('data-hha-mode', state.modeKey);
 }
 function updateHUD(){
   hud.setScore?.(score.score);
@@ -158,14 +159,16 @@ function scoreWithEffects(base,x,y){
   if (state.fever.active) makeFlame(x,y,total>=10);
 }
 
-// ----- Bounds / Positions -----
+// ----- Safe area & overlap (ข้อ 4) -----
 function safeBounds(){
   const headerH = $('header.brand')?.offsetHeight || 56;
   const menuH   = $('#menuBar')?.offsetHeight || 120;
-  const yMin = headerH + 60;
-  const yMax = Math.max(yMin+50, innerHeight - menuH - 80);
+  const topHUDPad = 110; // กันชน HUD/Target/Missions
+  const bottomPad = 90;  // กันชนแถวปุ่ม
+  const yMin = headerH + topHUDPad;
+  const yMax = Math.max(yMin+60, innerHeight - menuH - bottomPad);
   const xMin = 20;
-  const xMax = Math.max(xMin+50, innerWidth - 80);
+  const xMax = Math.max(xMin+60, innerWidth - 80);
   return {xMin,xMax,yMin,yMax};
 }
 function randPos(){
@@ -182,7 +185,7 @@ function overlapped(x,y){
   return false;
 }
 
-// ----- FX root / tilt / shatter -----
+// ----- 3D FX root -----
 function ensureFXRoot(){
   let root = document.querySelector('.fx3d-root');
   if (!root){
@@ -213,6 +216,7 @@ function add3DTilt(el){
   el.addEventListener('pointerleave', clear, {passive:true});
   el.addEventListener('pointerup', clear, {passive:true});
 }
+
 function shatter3D(x,y){
   const ring = document.createElement('div');
   ring.className='burstRing'; ring.style.left=x+'px'; ring.style.top=y+'px';
@@ -300,43 +304,20 @@ function spawnOnce(diff){
       const cy = r.top  + r.height/2;
 
       state.stats[res] = (state.stats[res]||0)+1;
-      if (res==='good' || res==='perfect'){
-        state.combo++; state.bestCombo = Math.max(state.bestCombo, state.combo);
-      } else if (res==='bad'){
-        state.combo = 0;
-      }
-      hud.setCombo?.('x'+state.combo);
+      if (res==='good' || res==='perfect') addCombo(res);
+      if (res==='bad') addCombo('bad');
 
-      // Fever charge
-      if (res==='good' || res==='perfect'){
-        if (!state.fever.active){
-          const gain = (res==='perfect')?state.fever.chargePerfect:state.fever.chargeGood;
-          state.fever.meter = Math.min(100, state.fever.meter + gain);
-          setFeverBar(state.fever.meter);
-          if (state.fever.meter >= state.fever.threshold) startFever();
-        } else {
-          state.fever.timeLeft = Math.min(10, state.fever.timeLeft + 0.6);
-        }
-      }
-
+      // B) คูณคะแนนด้วย meta.mult (x2)
+      const mul = meta.mult || 1;
       const base = ({good:10, perfect:20, ok:2, bad:-8, power:5})[res] || 1;
-      scoreWithEffects(base, cx, cy);
+      scoreWithEffects(base * mul, cx, cy);
       shatter3D(cx, cy);
 
-      // === ส่งอีเวนต์ให้ Progress + Quests ===
       Progress.event('hit', {
         mode: state.modeKey,
         result: res,
-        meta,
-        combo: state.combo,
-        score: score.score|0
-      });
-      Quests.event('hit', {
-        mode: state.modeKey,
-        result: res,
-        meta,
-        combo: state.combo,
-        score: score.score|0
+        meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden },
+        comboNow: state.combo
       });
 
       if (state.haptic && navigator.vibrate){
@@ -354,9 +335,11 @@ function spawnOnce(diff){
   document.body.appendChild(el);
   LIVE.add(el);
 
-  const ttl = (typeof meta.life === 'number') ? meta.life
-            : (typeof diff.life === 'number') ? diff.life
-            : 3000;
+  // 2) Cap TTL เพื่อไม่ให้ค้างจอนานเกินไปเมื่อมี freeze (<= 4500ms)
+  const ttlRaw = (typeof meta.life === 'number') ? meta.life
+              : (typeof diff.life === 'number') ? diff.life
+              : 3000;
+  const ttl = Math.min(ttlRaw, 4500);
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
@@ -383,6 +366,31 @@ function spawnLoop(){
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
+// ----- Combo -----
+function addCombo(kind){
+  if (kind==='bad'){
+    state.combo = 0;
+    hud.setCombo?.('x0');
+    coach.onBad?.();
+    return;
+  }
+  if (kind==='good' || kind==='perfect'){
+    state.combo++; state.bestCombo = Math.max(state.bestCombo, state.combo);
+    hud.setCombo?.('x'+state.combo);
+    if (kind==='perfect') coach.onPerfect?.(); else coach.onGood?.();
+
+    if (!state.fever.active){
+      const gain = (kind==='perfect')?state.fever.chargePerfect:state.fever.chargeGood;
+      state.fever.meter = Math.min(100, state.fever.meter + gain);
+      setFeverBar(state.fever.meter);
+      if (state.fever.meter >= state.fever.threshold) startFever();
+    }else{
+      state.fever.timeLeft = Math.min(10, state.fever.timeLeft + 0.6);
+    }
+    coach.onCombo?.(state.combo);
+  }
+}
+
 // ----- Tick / Start / End -----
 function tick(){
   if (!state.running || state.paused) return;
@@ -399,9 +407,6 @@ function tick(){
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
 
-  // อัปเดตเควสแบบ time-based (เช่น speed_finisher)
-  Quests.event('tick', { timeLeft: state.timeLeft, score: score.score|0 });
-
   if (state.timeLeft===10 && !state.didWarnT10){
     state.didWarnT10=true; coach.onTimeLow?.(); try{ $('#sfx-tick')?.play(); }catch{}
   }
@@ -414,7 +419,7 @@ async function runCountdown(sec=5){
   let ov = document.getElementById('cdOverlay');
   if (!ov){
     ov = document.createElement('div'); ov.id='cdOverlay';
-    ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:150;pointer-events:none;';
+    ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:2000;pointer-events:none;';
     const b = document.createElement('div'); b.id='cdNum';
     b.style.cssText='font:900 72px/1 ui-rounded,system-ui;color:#fff;text-shadow:0 2px 14px #000c;';
     ov.appendChild(b); document.body.appendChild(ov);
@@ -430,25 +435,7 @@ async function runCountdown(sec=5){
   try{ ov.remove(); }catch{}
 }
 
-function renderMissions(list){
-  const host = document.getElementById('questChips'); if (!host) return;
-  host.innerHTML = '';
-  if (!list || !list.length) return;
-  for (const m of list){
-    const chip = document.createElement('div');
-    chip.className = 'questChip';
-    chip.dataset.qid = m.id;
-    chip.innerHTML = `
-      <span class="qIcon">${m.icon||'🎯'}</span>
-      <span class="qLabel">${m.label}</span>
-      <span class="qProg">${Math.min(m.prog||0, m.need)}/${m.need}</span>
-      <div class="qBar"><i style="width:${Math.min(100,(m.prog||0)/m.need*100)}%"></i></div>`;
-    host.appendChild(chip);
-  }
-}
-
 async function start(){
-  // ไม่เริ่มจนกดปุ่ม Start เท่านั้น (โหมดจะตั้งผ่านปุ่มเลือก)
   end(true);
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -465,12 +452,11 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  // Progression + Quests
-  Progress.beginRun?.(state.modeKey, state.difficulty, state.lang);
-  const missions = Quests.beginRun(state.modeKey, state.difficulty, state.lang);
+  const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
   renderMissions(missions);
 
-  tick(); spawnLoop();
+  tick();
+  spawnLoop();
 }
 
 function end(silent=false){
@@ -478,22 +464,17 @@ function end(silent=false){
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
-  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
-  // Finalize quests + progression
-  const miss = state.stats.bad|0;
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
-  const questStates = Quests.endRun({ miss, timePlayed, score: score.score|0 });
-  Progress.endRun?.({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
-
-  // อัปเดต HUD เควสหลังจบ (แสดงเต็ม/Completed)
-  renderMissions(questStates);
+  Progress.endRun({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
 
   if (!silent){
     const modal = $('#result');
     if (modal){
       modal.style.display='flex';
+      modal.style.zIndex = 2100;
+
       const total = score.score|0;
       const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
       const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
@@ -515,9 +496,105 @@ function end(silent=false){
       if (coreEl) coreEl.innerHTML = resCore;
       if (brEl)   brEl.innerHTML   = resBreak;
       if (bdEl)   bdEl.innerHTML   = resBoard;
+
+      // D) ปุ่มบน Result modal ให้คลิกติดแน่ ๆ
+      const btnReplay = $('#btn_replay');
+      const btnHome   = $('#btn_home');
+      if (btnReplay){
+        btnReplay.onclick = (e)=>{ e.stopPropagation(); modal.style.display='none'; start(); };
+      }
+      if (btnHome){
+        btnHome.onclick = (e)=>{ e.stopPropagation(); modal.style.display='none'; end(true); };
+      }
     }
     coach.onEnd?.(score.score, {grade:'A'});
   }
+}
+
+// ----- Missions HUD -----
+function renderMissions(list){
+  const host = document.getElementById('questChips'); if (!host) return;
+  host.innerHTML = '';
+  if (!list || !list.length) return;
+  for (const m of list){
+    const chip = document.createElement('div');
+    chip.className = 'questChip';
+    chip.dataset.qid = m.id;
+    chip.innerHTML = `
+      <span class="qLabel">${m.label}</span>
+      <span class="qProg">${Math.min(m.prog||0, m.need)}/${m.need}</span>
+      <div class="qBar"><i style="width:${Math.min(100,(m.prog||0)/m.need*100)}%"></i></div>`;
+    host.appendChild(chip);
+  }
+  if (!renderMissions._subscribed){
+    Progress.on((type)=>{
+      if (type==='mission_done' || type==='run_start'){
+        renderMissions(Progress.runCtx?.missions||[]);
+      }
+    });
+    renderMissions._subscribed = true;
+  }
+}
+
+// ----- Help per mode & Help Scene (ข้อ 5 + C) -----
+function helpTextForMode(key, lang){
+  const th = {
+    goodjunk: {title:'วิธีเล่น: ดี vs ขยะ', body:'แตะเก็บอาหารที่ดี หลีกเลี่ยงขยะ สะสมคอมโบและเปิด FEVER!'},
+    groups:   {title:'วิธีเล่น: จาน 5 หมู่', body:'ดูเป้าหมายหมวด แล้วแตะไอคอนที่เข้าหมวดนั้นให้ครบโควตา เปลี่ยนหมวดอัตโนมัติ'},
+    hydration:{title:'วิธีเล่น: สมดุลน้ำ', body:'คุมระดับน้ำให้อยู่ในโซนพอดี แตะน้ำเมื่อขาด หลีกเลี่ยงเมื่อเกิน ใช้มินิเควสท์ให้ครบ'},
+    plate:    {title:'วิธีเล่น: จัดจานสุขภาพ', body:'ลาก/แตะวางอาหารลงจานให้ครบสัดส่วนหมู่ตามเป้า'}
+  };
+  const en = {
+    goodjunk: {title:'How to Play: Good vs Junk', body:'Tap healthy food, avoid junk. Build combos, trigger FEVER!'},
+    groups:   {title:'How to Play: Food Group Frenzy', body:'Check the target group, tap items that belong to it to meet the quota.'},
+    hydration:{title:'How to Play: Hydration', body:'Keep hydration in the optimal zone. Drink water when low; avoid when high.'},
+    plate:    {title:'How to Play: Healthy Plate', body:'Place foods to meet the target portions by food groups.'}
+  };
+  const dict = lang==='EN'? en: th;
+  return dict[key] || dict.goodjunk;
+}
+function openModeHelp(){
+  const lang = state.lang;
+  const info = helpTextForMode(state.modeKey, lang);
+  const modal = $('#help');
+  const h = $('#h_help');
+  const body = $('#helpBody');
+  if (h) h.textContent = info.title;
+  if (body) body.textContent = info.body;
+  if (modal){
+    modal.style.display='flex';
+    modal.style.zIndex = 2050;
+  }
+}
+function openHelpScene(){
+  let hs = $('#helpScene');
+  if (!hs){
+    hs = document.createElement('div');
+    hs.id='helpScene';
+    hs.className='modal';
+    hs.style.display='none';
+    hs.setAttribute('role','dialog');
+    hs.setAttribute('aria-modal','true');
+    hs.innerHTML = `
+      <div class="card">
+        <h3 id="h_scene">📘 คู่มือรวม (All Modes)</h3>
+        <div id="helpSceneBody" class="helpSceneBody"></div>
+        <div style="margin-top:12px;text-align:center">
+          <button class="btn" data-action="helpSceneClose" type="button" id="btn_helpSceneOK">โอเค</button>
+        </div>
+      </div>`;
+    document.body.appendChild(hs);
+  }
+  const body = $('#helpSceneBody');
+  if (body){
+    body.innerHTML = `
+      <section><h4>🥗 ดี vs ขยะ</h4><p>แตะอาหารดี หลีกเลี่ยงขยะ • คอมโบ • FEVER เพื่อคะแนนสูง</p></section>
+      <section><h4>🍽️ จาน 5 หมู่</h4><p>ดูเป้าหมาย: ผลไม้/ผัก/โปรตีน/ธัญพืช/นม แล้วแตะให้ตรงหมวดให้ครบโควตา</p></section>
+      <section><h4>💧 สมดุลน้ำ</h4><p>รักษาแถบระดับน้ำให้อยู่โซนพอดี สีเขียว • โซนสูง/ต่ำจะติดโทษต่างกัน</p></section>
+      <section><h4>🍱 จัดจานสุขภาพ</h4><p>จัดสัดส่วนอาหารให้ครบตามสัดส่วนสุขภาพ</p></section>`;
+  }
+  hs.style.display='flex';
+  hs.style.zIndex = 2050;
 }
 
 // ----- Global UI Events -----
@@ -526,15 +603,17 @@ document.addEventListener('pointerup', (e)=>{
   const btn = byAction(target);
   const a = btn?.getAttribute('data-action') || '';
 
-  // โหมด (เริ่มเกมก็ต่อเมื่อกดปุ่ม Start เท่านั้น)
+  // เลือกโหมด: "ไม่เริ่มทันที" ต้องกด Start เอง (ข้อทั่วไป)
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
     if (MODES[key]){
       state.modeKey = key;
       applyUI();
+      // ไม่ start ที่นี่
     }
-    return; // ไม่ auto-start
+    return;
   }
+
   if(!btn) return;
 
   if (a === 'mode'){ state.modeKey = btn.getAttribute('data-value'); applyUI(); }
@@ -547,19 +626,25 @@ document.addEventListener('pointerup', (e)=>{
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a === 'restart'){ end(true); start(); }
-  else if (a === 'help'){ const m=$('#help'); if (m) m.style.display='flex'; }
+  else if (a === 'help'){ openModeHelp(); }
   else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
-  else if (a === 'helpScene'){ const hs=$('#helpScene'); if (hs) hs.style.display='flex'; }
+  else if (a === 'helpScene'){ openHelpScene(); }
   else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
-// ----- Power-ups (top-left, works esp. for groups) -----
+// ----- Power-ups (top-left, works for groups) -----
 (function wirePowers(){
   const bar = $('#powerBar');
   if (!bar) return;
 
+  // เปลี่ยนไอคอน sweep -> magnet ถ้ายังเป็น 🧹
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
   if (sweep && sweep.textContent.trim() === '🧹') sweep.textContent = '🧲';
+
+  // a11y/tooltip
+  bar.querySelector('.pseg[data-k="x2"]')?.setAttribute('title','x2 Score');
+  bar.querySelector('.pseg[data-k="freeze"]')?.setAttribute('title','Freeze Spawn');
+  bar.querySelector('.pseg[data-k="sweep"]')?.setAttribute('title','Magnet');
 
   const COOLDOWNS = { x2:12000, freeze:9000, sweep:8000 }; // ms
   const DURATIONS = (() => {
@@ -576,7 +661,8 @@ document.addEventListener('pointerup', (e)=>{
   })();
 
   const lastUsed = { x2:0, freeze:0, sweep:0 };
-  const segEl = (k)=>bar.querySelector(`.pseg[data-k="${k}"]`);
+
+  function segEl(k){ return bar.querySelector(`.pseg[data-k="${k}"]`); }
 
   function animateCD(k, dur){
     const el = segEl(k); if (!el) return;
@@ -627,6 +713,12 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
+// ----- Freeze hook (ให้โหมดส่ง event มา) -----
+window.addEventListener('hha:freeze', (ev)=>{
+  const ms = Number(ev?.detail?.ms)||3000;
+  state.freezeUntil = (performance?.now?.()||Date.now()) + ms;
+});
+
 // Toggles
 $('#langToggle')?.addEventListener('click', ()=>{
   state.lang = state.lang==='TH' ? 'EN' : 'TH';
@@ -634,11 +726,13 @@ $('#langToggle')?.addEventListener('click', ()=>{
   coach.setLang?.(state.lang);
   applyUI();
 }, {passive:true});
+
 $('#gfxToggle')?.addEventListener('click', ()=>{
   state.gfx = state.gfx==='low' ? 'quality' : 'low';
   localStorage.setItem('hha_gfx', state.gfx);
   try{ eng.renderer.setPixelRatio(state.gfx==='low'?0.75:(window.devicePixelRatio||1)); }catch{}
 }, {passive:true});
+
 $('#soundToggle')?.addEventListener('click', ()=>{
   const on = localStorage.getItem('hha_sound') !== '0';
   const nxt = !on;
@@ -647,23 +741,26 @@ $('#soundToggle')?.addEventListener('click', ()=>{
   $('#soundToggle').textContent = nxt ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
   if (nxt){ try{ sfx.play('sfx-good'); }catch{} }
 }, {passive:true});
+
 $('#hapticToggle')?.addEventListener('click', ()=>{
   state.haptic = !state.haptic;
   localStorage.setItem('hha_haptic', state.haptic?'1':'0');
   $('#hapticToggle').textContent = state.haptic ? '📳 สั่น: เปิด' : '📴 สั่น: ปิด';
 }, {passive:true});
 
-// Auto pause / audio unlock
+// Auto pause
 document.addEventListener('visibilitychange', ()=>{
   if (document.hidden && state.running && !state.paused){
     state.paused = true;
     clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
   }
 });
+
+// Unlock audio
 window.addEventListener('pointerdown', ()=>{ try{ sfx.unlock(); }catch{} }, {once:true, passive:true});
 
 // Boot
-Progress.init?.();
+Progress.init();
 applyUI(); updateHUD();
 (function levelUI(){
   const lvEl = document.createElement('span');
@@ -673,5 +770,5 @@ applyUI(); updateHUD();
   if (brand) brand.insertBefore(lvEl, brand.children[1]||null);
   const render = ()=>{ const p=Progress.profile; if (p && lvEl) lvEl.textContent = `LV ${p.level}`; };
   render();
-  Progress.on?.((type)=>{ if (type==='level_up') render(); });
+  Progress.on((type)=>{ if (type==='level_up') render(); });
 })();
