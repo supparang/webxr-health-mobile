@@ -1,226 +1,175 @@
 // === Hero Health Academy — modes/hydration.js ===
-// โหมด "สมดุลน้ำ": รักษาระดับน้ำให้อยู่ในโซน OK โดยคลิก "น้ำ 💧" หรือ "ของหวาน 🍬"
-// - มีไอคอนเกิดทั่วไป (main.js สแปวน์) แต่มาเฉพาะสองชนิดนี้
-// - ตรรกะคลิกจะเพิ่ม/ลดระดับน้ำ แล้วคำนวณผลลัพธ์ good/perfect/bad
-// - ยิงอีเวนต์ Quests: 'hydro_tick', 'hydro_cross', 'hydro_click' ครบ
-// - อัปเดต HUD.setPowerTimers(power.timers) ทุกวินาที
+// บาร์ระดับน้ำ (Low/OK/High) + เอฟเฟกต์ไฟลุกเมื่อ FEVER ทำงาน
+// ยิงอีเวนต์สำหรับ Quests: 'hydro_tick', 'hydro_cross', 'hydro_click'
 
 import { Quests } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
 
-// ----------------- ค่าพื้นฐานของโหมด -----------------
-const CFG = {
-  // ช่วงที่ถือว่า "พอดี"
-  OK_MIN: 42,
-  OK_MAX: 58,
-  // ค่าระดับน้ำเริ่มต้น
-  START: 50,
-  // อัตราลดลงเองต่อวินาที (จำลองใช้พลังงาน)
-  DECAY_PER_SEC: 2.2,
-  // ผลจากการกด (หน่วยเป็นจุด)
-  WATER_GAIN: 9,   // กดน้ำเพิ่มระดับ
-  SWEET_DROP: 7,   // กดหวานช่วยลดระดับเมื่อ HIGH
-  // เกณฑ์ให้ "perfect"
-  PERFECT_MARGIN: 4, // หลังคลิกแล้วยังอยู่กลางโซน (ใกล้ 50) ใน ±4
-  // โอกาส Golden
-  GOLDEN_CHANCE: 0.08, // 8%
-};
+const ZONES = { LOW:'LOW', OK:'OK', HIGH:'HIGH' };
 
-// ----------------- ภายในโหมด -----------------
-let _prevZone = null;
-let _lastTickMS = 0;
-
-// แปลงระดับน้ำ -> โซน
-function zoneOf(level, cfg){
-  if (level < cfg.OK_MIN) return 'LOW';
-  if (level > cfg.OK_MAX) return 'HIGH';
-  return 'OK';
+function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+function zoneOf(level, minOK, maxOK){
+  if (level < minOK) return ZONES.LOW;
+  if (level > maxOK) return ZONES.HIGH;
+  return ZONES.OK;
 }
 
-// ตัดให้อยู่ใน [0..100]
-function clamp01(x){ return Math.max(0, Math.min(100, x)); }
+function ensureHUD(){
+  // ใช้ #hydroWrap ที่ HUD เตรียมไว้ ถ้าไม่มีให้สร้าง
+  let wrap = document.getElementById('hydroWrap');
+  if (!wrap){
+    wrap = document.createElement('div');
+    wrap.id = 'hydroWrap';
+    document.body.appendChild(wrap);
+  }
+  if (!wrap.querySelector('.hydroBar')){
+    wrap.innerHTML = `
+      <div class="hydroBar" aria-label="hydration-bar">
+        <div class="seg low"><span>น้อยไป</span></div>
+        <div class="seg ok"><span>พอดี</span></div>
+        <div class="seg high"><span>มากไป</span></div>
+        <div class="needle" role="presentation"></div>
+        <div class="flame" role="presentation" hidden>
+          <i></i><i></i><i></i>
+        </div>
+      </div>
+    `;
+  }
+  return wrap;
+}
 
-// -------------- Exported API (ที่ main.js เรียก) --------------
+// -------------------------------------------------
 
-// เริ่มรอบ: ตั้งค่าตัวแปรใน state และแสดง HUD ที่จำเป็น
-export function init(state, hud /* , diff */){
-  state.hyd     = CFG.START;
-  state.hydMin  = CFG.OK_MIN;
-  state.hydMax  = CFG.OK_MAX;
-  state.hydVel  = 0;            // เผื่ออนาคต (เช่น inertial)
-  state.hydCfg  = { ...CFG };   // เก็บคอนฟิกเผื่อโหมดอื่นต้องอ่าน
+export function init(state, hud, diff){
+  state.hydTotalTime = diff.time|0;
+  state.hyd = 50;         // 0..100
+  state.hydMin = 35;      // ขอบล่างโซน OK
+  state.hydMax = 65;      // ขอบบนโซน OK
+  state.hydDecay = 0.25;  // ลดเองต่อวินาที
+  state._hydPrevZone = zoneOf(state.hyd, state.hydMin, state.hydMax);
 
-  _prevZone = zoneOf(state.hyd, state.hydCfg);
-
-  // แสดงแถบ/ UI โหมดน้ำ (ถ้ามี)
+  ensureHUD();
   hud.showHydration?.();
-
-  // แจ้งเควสต์ครั้งแรก (สถานะเริ่มต้น)
-  Quests.event('hydro_tick', { zone: _prevZone });
-
-  // เริ่มต้นอัปเดต Power timers บน HUD
-  hud.setPowerTimers?.(state?.power?.timers || {});
+  render(state);
 }
 
-// จบ/ล้างเมื่อออกจากโหมด
 export function cleanup(state, hud){
   hud.hideHydration?.();
-  _prevZone = null;
-  _lastTickMS = 0;
 }
 
-// main.js จะเรียกเพื่อขอ "เมทาดาต้า" สำหรับสร้างไอคอน 1 ชิ้น
-// เราจะสุ่มให้เป็น "น้ำ 💧" หรือ "หวาน 🍬" พร้อมกำหนด meta ให้เควสต์ใช้ได้
-export function pickMeta(/* dyn, state */){
-  // สุ่มชนิด
-  const isWater = Math.random() < 0.65; // น้ำออกบ่อยกว่า
-  const kind = isWater ? 'water' : 'sweet';
-
-  // โอกาสทอง
-  const golden = Math.random() < CFG.GOLDEN_CHANCE;
-
-  return {
-    id: kind,
-    char: isWater ? '💧' : '🍬',
-    label: isWater ? 'water' : 'sweet',
-    aria: isWater ? 'drink water' : 'eat sweet treat',
-    life: 2600,           // อยู่ไม่นานเพื่อเร่งจังหวะ
-    golden,               // สำหรับเควสต์ golden
-    // meta.good จะคำนวณตอนคลิก (ขึ้นกับโซนก่อนคลิก)
-    // แต่ส่ง groupId ไว้ให้เควสต์ count_group ถ้าต้องการ
-    groupId: isWater ? 'water' : 'sweet',
-  };
-}
-
-// เมื่อคลิกไอคอนในโหมดนี้
-// - อัปเดตระดับน้ำ
-// - ตัดสินผลลัพธ์ good/perfect/bad
-// - ยิง Quests.event('hydro_click', { zoneBefore, kind })
-// - คืนค่า 'good'|'perfect'|'bad'|'ok' ให้ main.js นำไปคิดคะแนน/เอฟเฟกต์
-export function onHit(meta, sys, state, hud){
-  const { score, sfx, power, coach } = sys || {};
-  const cfg = state.hydCfg || CFG;
-
-  const before = state.hyd;
-  const zoneBefore = zoneOf(before, cfg);
-  const kind = meta.id === 'water' ? 'water' : 'sweet';
-
-  // ผลจากการคลิก
-  let after = before;
-  if (kind === 'water'){
-    after = before + cfg.WATER_GAIN;
-  } else { // sweet
-    // หวานจะช่วย "ลด" เมื่ออยู่ใน HIGH (ช่วยบาลานซ์), ถ้า LOW อาจยิ่งต่ำลง = ไม่ดี
-    after = before - cfg.SWEET_DROP;
-  }
-  after = clamp01(after);
-
-  // ตัดสิน good/perfect/bad
-  const zAfter = zoneOf(after, cfg);
-  let result = 'ok';
-  let goodLogic = false;
-
-  // กฎง่าย ๆ:
-  // - LOW -> "น้ำ" = ดี, ถ้าหลังคลิกแล้วยังอยู่กลาง OK (ใกล้ 50) และ |after-50| <= PERFECT_MARGIN => perfect
-  // - HIGH -> "หวาน" = ดี (ช่วยลด), เงื่อนไข perfect แบบเดียวกัน
-  // - OK -> "น้ำ" ส่วนใหญ่ยังดี (เติมเล็กน้อย), "หวาน" มักจะไม่ดี (ทำให้ลงต่ำ)
-  // - ทำให้หลุดจากโซน OK แบบรุนแรง => bad
-  if (zoneBefore === 'LOW'){
-    if (kind === 'water'){
-      goodLogic = true;
-      result = (Math.abs(after - 50) <= cfg.PERFECT_MARGIN) ? 'perfect' : 'good';
-    } else {
-      // LOW + sweet => เสี่ยงลงต่ำกว่าเดิม
-      result = 'bad';
-    }
-  } else if (zoneBefore === 'HIGH'){
-    if (kind === 'sweet'){
-      goodLogic = true;
-      result = (Math.abs(after - 50) <= cfg.PERFECT_MARGIN) ? 'perfect' : 'good';
-    } else {
-      // HIGH + water => เสี่ยงสูงขึ้นไปอีก
-      result = 'bad';
-    }
-  } else { // zoneBefore === 'OK'
-    if (kind === 'water'){
-      // เติมเล็กน้อยยังพอรับได้
-      goodLogic = zAfter !== 'HIGH'; // ถ้าทะลุ HIGH ถือว่า bad
-      result = goodLogic ? ((Math.abs(after - 50) <= cfg.PERFECT_MARGIN) ? 'perfect' : 'good') : 'bad';
-    } else { // sweet ใน OK มักจะพาไป LOW (แต่น้อย) => ส่วนใหญ่ ok หรือ bad
-      goodLogic = (zAfter === 'OK'); // ถ้ายังอยู่ OK ก็พอรับได้
-      result = goodLogic ? 'ok' : 'bad';
-    }
-  }
-
-  // Golden ช่วยอภัย/บูสต์เล็กน้อย: ถ้า golden และผลไม่ดี ให้เลื่อนขึ้นหนึ่งระดับ
-  if (meta.golden){
-    if (result === 'bad') result = 'ok';
-    else if (result === 'good') result = 'perfect';
-  }
-
-  // อัปเดตระดับน้ำจริง
-  state.hyd = after;
-
-  // ยิงอีเวนต์สำหรับ Quests (และ Progress ถูก main.js จัดการอยู่แล้ว)
-  Quests.event('hydro_click', { zoneBefore, kind });
-
-  // แจ้ง HUD Power timers ทุกครั้งที่มีอินพุต (เผื่อมีระบบ freeze/spawn ที่ผูกอยู่)
-  hud.setPowerTimers?.(power?.timers || {});
-
-  // โค้ชเบา ๆ (ทางเลือก)
-  try {
-    if (result === 'perfect') coach?.onPerfect?.();
-    else if (result === 'good') coach?.onGood?.();
-    else if (result === 'bad') coach?.onBad?.();
-  } catch {}
-
-  // คืนผลลัพธ์ให้ main.js
-  return result;
-}
-
-// main.js จะเรียกทุกวินาที
-export function tick(state, sys, hud){
-  const { power } = sys || {};
-  const cfg = state.hydCfg || CFG;
-
-  const now = performance?.now?.() || Date.now();
-  if (!_lastTickMS) _lastTickMS = now;
-  const dt = Math.min(1200, now - _lastTickMS); // ms
-  _lastTickMS = now;
-
-  // ลดระดับน้ำตามเวลา
-  const drop = cfg.DECAY_PER_SEC * (dt/1000);
-  state.hyd = clamp01(state.hyd - drop);
-
-  // โซนตอนนี้
-  const zNow = zoneOf(state.hyd, cfg);
-
-  // ถ้าโซนเปลี่ยน ยิง hydro_cross
-  if (_prevZone && _prevZone !== zNow){
-    Quests.event('hydro_cross', { from: _prevZone, to: zNow });
-  }
-  _prevZone = zNow;
-
-  // ยิง hydro_tick ทุกวินาที (ให้เควสต์สะสมเวลาในโซน)
-  Quests.event('hydro_tick', { zone: zNow });
-
-  // อัปเดต Power timers ที่ HUD
-  hud.setPowerTimers?.(power?.timers || {});
-}
-
-// (ไม่จำเป็นสำหรับ hydration แต่คง API ไว้ให้สอดคล้อง)
 export const fx = {
-  onSpawn(el /*, state */){
-    // แต่งไอคอนนิดหน่อยให้มีแรงสปริงเล็ก ๆ
-    el.style.transition = 'transform .18s ease, filter .15s';
-    el.addEventListener('pointerenter', ()=>{ el.style.transform += ' translateZ(10px) scale(1.06)'; }, {passive:true});
-    el.addEventListener('pointerleave', ()=>{ el.style.transform = el.style.transform.replace(' translateZ(10px) scale(1.06)',''); }, {passive:true});
+  onSpawn(el, state){
+    // เพิ่มเงา/tilt ถูกจัดการใน main แล้ว ไม่ต้องทำซ้ำ
   },
-  onHit(x, y /* , meta, state */){
-    // เอฟเฟกต์แตก/สปาร์ค ใช้ของกลางจาก main.js อยู่แล้ว
+  onHit(x, y, meta, state){
+    // main จะเรียกแตกกระจายกลางให้แล้ว ที่นี่ไม่บังคับทำอะไรเพิ่ม
   }
 };
 
-// (ทางเลือก) ให้ main.js หรือ UI อื่นอ่านช่วงเวลา power ได้ถ้าต้องการ
-export function getPowerDurations(){
-  return { x2: 6, freeze: 3, magnet: 2 };
+// สุ่มของที่โผล่: น้ำเปล่า, น้ำหวาน, น้ำแข็ง (ตัวช่วย), โบนัสทอง
+export function pickMeta(diff, state){
+  // อัตราส่วนแบบหยาบ: water 55%, sweet 30%, ice 10%, golden 5%
+  const r = Math.random();
+  if (r < 0.55) return { id:'water',  char:'💧',  aria:'Water',  good:true,  life: diff.life };
+  if (r < 0.85) return { id:'sweet',  char:'🧃',  aria:'Sweet drink', good:false, life: diff.life };
+  if (r < 0.95) return { id:'ice',    char:'🧊',  aria:'Ice (cooldown)', good:true,  life: diff.life, booster:true };
+  return                { id:'gold',  char:'⭐',  aria:'Golden', good:true, life: diff.life, golden:true };
+}
+
+export function onHit(meta, sys, state, hud){
+  const { score, coach } = sys;
+  const before = state.hyd;
+  const beforeZone = zoneOf(before, state.hydMin, state.hydMax);
+
+  if (meta.id==='water'){
+    // น้ำเปล่าช่วยขึ้นระดับ (มากขึ้นถ้าอยู่ LOW/OK, น้อยลงถ้าอยู่ HIGH)
+    const z = beforeZone;
+    const delta = (z===ZONES.HIGH ? +2 : +6);
+    state.hyd = clamp(state.hyd + delta, 0, 100);
+  }else if (meta.id==='sweet'){
+    // น้ำหวานช่วยลดตอน HIGH / (OK = -เล็กน้อย) / (LOW = แย่)
+    const z = beforeZone;
+    const delta = (z===ZONES.HIGH ? -8 : z===ZONES.OK ? -3 : +4); // LOW ดื่มหวาน = แย่ (ขึ้นอีก)
+    state.hyd = clamp(state.hyd + delta, 0, 100);
+  }else if (meta.id==='ice'){
+    // ช่วยคุมความเร็ว ลด decay ชั่วคราว + ให้คะแนนเล็กน้อย
+    state.hydDecayBoostUntil = performance.now() + 5000;
+    state.hydDecay = 0.1;
+    try{ coach?.onPower?.('freeze'); }catch{}
+  }else if (meta.id==='gold'){
+    // Golden = เติมเข้าพอดีแบบค่อย ๆ
+    if (state.hyd < state.hydMin) state.hyd = clamp(state.hyd + 10, 0, 100);
+    else if (state.hyd > state.hydMax) state.hyd = clamp(state.hyd - 10, 0, 100);
+    else state.hyd = clamp(state.hyd + 6, 0, 100);
+  }
+
+  // เควสต์ click logic
+  Quests.event('hydro_click', { zoneBefore: beforeZone, kind: meta.id==='sweet'?'sweet':'water' });
+
+  // ให้ผลลัพธ์กับ main (คะแนน, ดี/พลาด)
+  const afterZone = zoneOf(state.hyd, state.hydMin, state.hydMax);
+  if (afterZone === ZONES.OK){
+    score.add?.(8);
+    return (meta.golden ? 'perfect' : 'good');
+  }else if (beforeZone!==afterZone && afterZone!==ZONES.OK){
+    // ข้ามโซนไปผิดฝั่ง = พลาดแรง
+    return 'bad';
+  }else{
+    return 'ok';
+  }
+}
+
+export function tick(state, sys, hud){
+  const now = performance.now();
+
+  // decay คืนค่าปรกติเมื่อหมดบูสต์
+  if (state.hydDecayBoostUntil && now > state.hydDecayBoostUntil){
+    state.hydDecayBoostUntil = 0;
+    state.hydDecay = 0.25;
+  }
+
+  // ลดตามเวลา
+  state.hyd = clamp(state.hyd - state.hydDecay, 0, 100);
+
+  // โซนปัจจุบัน
+  const z = zoneOf(state.hyd, state.hydMin, state.hydMax);
+
+  // ยิง hydro_tick ให้ Quests (ใช้วัดเวลาที่อยู่โซน OK)
+  Quests.event('hydro_tick', { level: state.hyd, zone: (z===ZONES.OK?'OK':z) });
+
+  // ตรวจ crossing
+  if (z !== state._hydPrevZone){
+    Quests.event('hydro_cross', { from: state._hydPrevZone, to: (z===ZONES.OK?'OK':z) });
+    state._hydPrevZone = z;
+  }
+
+  // บังคับ penalty ถ้า HIGH/LOW ต่อเนื่องนาน ๆ (ใส้สั่นจาง ๆ)
+  if (z!==ZONES.OK && hud?.dimPenalty){ hud.dimPenalty(); }
+
+  // อัปเดต HUD
+  render(state);
+}
+
+// -------------------------------------------------
+// บาร์ + flame visual
+function render(state){
+  const wrap = document.getElementById('hydroWrap'); if (!wrap) return;
+  const bar  = wrap.querySelector('.hydroBar');
+  const needle = wrap.querySelector('.needle');
+  const flame  = wrap.querySelector('.flame');
+
+  // needle ตำแหน่งตาม 0..100
+  const pct = clamp(state.hyd|0, 0, 100);
+  needle.style.left = `calc(${pct}% - 6px)`;
+
+  // โซนเพื่อสีกรอบ
+  const z = zoneOf(state.hyd, state.hydMin, state.hydMax);
+  bar.dataset.zone = z;
+
+  // แสดง/ซ่อนไฟลุกเมื่อ FEVER ทำงาน
+  if (state?.fever?.active){
+    flame.hidden = false;
+    flame.style.left = `calc(${pct}% - 10px)`;
+  }else{
+    flame.hidden = true;
+  }
 }
