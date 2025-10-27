@@ -107,6 +107,10 @@
       <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
       <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
       <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
+
+      <!-- เพิ่มปุ่มเข้าถึงสถิติรวม + ภารกิจรายวัน -->
+      <button class="btn" data-action="statOpen"  id="btn_stats" type="button">🏆 สถิติรวม</button>
+      <button class="btn" data-action="dailyOpen" id="btn_daily" type="button">🌞 รายวัน</button>
     </div>
   </section>
 
@@ -127,7 +131,8 @@
       <button class="btn" data-action="helpSceneClose" id="btn_ok_all" type="button">โอเค</button>
     </div>
   </div>
-<!-- Stats Board -->
+
+  <!-- Stats Board -->
   <div id="statBoard" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_stats">
     <div class="card scroll">
       <h3 id="h_stats">🏆 บอร์ดสถิติรวม</h3>
@@ -144,6 +149,7 @@
       <button class="btn" data-action="dailyClose" type="button">ปิด</button>
     </div>
   </div>
+
   <!-- Result -->
   <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
     <div class="card">
