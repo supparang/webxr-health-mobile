@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (modes selectable, Start-only, missions + stats + daily) ===
+// === Hero Health Academy — main.js (Result+Daily+HUD tweaks+AutoDiff) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports (ABSOLUTE PATHS) -----
@@ -23,7 +23,7 @@ const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 
 // ----- Config -----
 const MODES = { goodjunk, groups, hydration, plate };
-const DIFFS = {
+const DIFFS_BASE = {
   Easy:   { time: 70, spawn: 900, life: 4200 },
   Normal: { time: 60, spawn: 700, life: 3000 },
   Hard:   { time: 50, spawn: 550, life: 1800 }
@@ -63,7 +63,9 @@ const state = {
   ctx:{}, stats:{good:0, perfect:0, ok:0, bad:0},
   _accHist:[],
   freezeUntil:0,
-  didWarnT10:false
+  didWarnT10:false,
+  // auto diff buffer
+  autoScale: 1.0, // 0.85..1.2
 };
 
 // ----- UI -----
@@ -339,26 +341,30 @@ function spawnOnce(diff){
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
-// ----- Spawn loop -----
+// ----- Spawn loop + AutoDiff -----
 function spawnLoop(){
   if (!state.running || state.paused) return;
 
-  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  const base = DIFFS_BASE[state.difficulty] || DIFFS_BASE.Normal;
 
   const total = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accNow = total>0 ? (state.stats.good + state.stats.perfect)/total : 1;
   state._accHist.push(accNow); if (state._accHist.length>8) state._accHist.shift();
   const acc = state._accHist.reduce((s,x)=>s+x,0)/state._accHist.length;
-  const speedUp = acc > 0.85 ? 0.90 : acc < 0.60 ? 1.12 : 1.00;
+
+  // auto scale 0.9–1.1 (เร็วขึ้น/ช้าลง)
+  const targetScale = acc > 0.85 ? 0.90 : acc < 0.60 ? 1.12 : 1.00;
+  // ease
+  state.autoScale = state.autoScale*0.8 + targetScale*0.2;
 
   const dyn = {
-    time: diff.time,
-    spawn: Math.max(260, Math.round((diff.spawn||700) * speedUp)),
-    life:  Math.max(800,  Math.round((diff.life ||3000) / speedUp))
+    time: base.time,
+    spawn: Math.max(220, Math.round((base.spawn||700) * state.autoScale)),
+    life:  Math.max(800,  Math.round((base.life ||3000) / state.autoScale))
   };
 
   spawnOnce(dyn);
-  const next = Math.max(220, dyn.spawn);
+  const next = Math.max(200, dyn.spawn);
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
@@ -391,7 +397,6 @@ function addCombo(kind){
 function tick(){
   if (!state.running || state.paused) return;
 
-  // Fever drain
   if (state.fever.active){
     state.fever.timeLeft = Math.max(0, state.fever.timeLeft - 1);
     state.fever.meter = Math.max(0, state.fever.meter - state.fever.drainPerSec);
@@ -399,15 +404,9 @@ function tick(){
     if (state.fever.timeLeft<=0 || state.fever.meter<=0) stopFever();
   }
 
-  // per-mode update
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
-  // time & progression sec event (for survive quests / daily)
-  const totalTime = (DIFFS[state.difficulty]?.time || 60);
   state.timeLeft = Math.max(0, state.timeLeft - 1);
-  const elapsed = totalTime - state.timeLeft;
-  Progress.event('sec', { elapsed, remain: state.timeLeft });
-
   updateHUD();
 
   if (state.timeLeft===10 && !state.didWarnT10){
@@ -433,6 +432,7 @@ async function runCountdown(sec=3){
   try{ ov.remove(); }catch{}
 }
 
+// ----- Result Modal + Missions/Daily summary -----
 function showResultModal(total, accPct, grade){
   let modal = $('#result');
   if (!modal){
@@ -440,6 +440,8 @@ function showResultModal(total, accPct, grade){
     modal.id='result'; modal.className='modal';
     modal.innerHTML = `<div class="card"><h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div><div id="resBreakdown"></div><div id="resBoard"></div>
+      <div id="resMissions" style="margin-top:8px"></div>
+      <div id="resDaily" style="margin-top:8px"></div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
         <button class="btn" data-result="home"   id="btn_home">🏠 หน้าหลัก</button></div></div>`;
@@ -450,33 +452,51 @@ function showResultModal(total, accPct, grade){
     <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${accPct.toFixed(1)}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
   const br = `
     <div style="margin-top:12px;text-align:left;font-weight:700">
-      ✅ ดี: ${state.stats.good}<br/>
-      🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
-      😐 ปกติ: ${state.stats.ok}<br/>
-      ❌ พลาด: ${state.stats.bad}
+      ✅ ดี: ${state.stats.good}&nbsp;&nbsp; 🌟 เพอร์เฟกต์: ${state.stats.perfect}&nbsp;&nbsp; 😐 ปกติ: ${state.stats.ok}&nbsp;&nbsp; ❌ พลาด: ${state.stats.bad}
     </div>`;
   const bd = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
   $('#resCore').innerHTML = core;
   $('#resBreakdown').innerHTML = br;
   $('#resBoard').innerHTML = bd;
+
+  // missions summary
+  const runM = Progress.runCtx?.missions || [];
+  const mHtml = runM.length ? runM.map(m=>{
+    const ok = m.done ? '✅' : '⬜️';
+    const pct = Math.min(100, ((m.prog||0)/m.need)*100|0);
+    return `<div class="chip"><span>${ok}</span><span>${m.label}</span><span style="opacity:.8">${Math.min(m.prog||0,m.need)}/${m.need}</span></div>
+            <div class="bar slim"><div style="width:${pct}%"></div></div>`;
+  }).join('') : '<div style="opacity:.7">ไม่มีภารกิจรอบนี้</div>';
+  $('#resMissions').innerHTML = `<div style="font-weight:800;margin-bottom:6px">ภารกิจรอบนี้</div>${mHtml}`;
+
+  // daily preview
+  const d = Progress.genDaily();
+  const done = new Set(d.done||[]);
+  const dHtml = d.missions.map(m=>{
+    const ok = done.has(m.id) ? '✅' : '⬜️';
+    return `<div class="chip"><span>${ok}</span><span>${m.label}</span></div>`;
+  }).join('');
+  $('#resDaily').innerHTML = `<div style="font-weight:800;margin-bottom:6px">ภารกิจรายวัน (${d.date})</div>${dHtml}`;
+
   modal.style.display='flex';
 }
 
 async function start(){
   end(true);
-  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
+  const base = DIFFS_BASE[state.difficulty] || DIFFS_BASE.Normal;
 
   await runCountdown(3);
 
   state.running=true; state.paused=false;
-  state.timeLeft = diff.time;
+  state.timeLeft = base.time;
   state.combo=0; state.bestCombo=0;
   state.stats={good:0,perfect:0,ok:0,bad:0};
   state._accHist=[]; state.freezeUntil=0; state.didWarnT10=false;
   state.fever.meter=0; setFeverBar(0); stopFever();
+  state.autoScale = 1.0;
   score.reset?.(); updateHUD();
 
-  try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
+  try{ MODES[state.modeKey]?.init?.(state, hud, base); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
   const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
@@ -495,14 +515,17 @@ function end(silent=false){
 
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
-  // summary + save
+  // สรุปผล/บันทึกสถิติ
   const total = score.score|0;
   const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accPct = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100) : 0;
   const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
 
-  const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
+  const timePlayed = (DIFFS_BASE[state.difficulty]?.time||60) - state.timeLeft;
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
+
+  // sync daily after end (แสดงผลว่าติ๊กครบหรือไม่)
+  Progress.checkDaily({ score: total, acc: +accPct.toFixed(1), mode: state.modeKey, sessionModes: Progress.profile?.session?.modesPlayed||[] });
 
   if (!silent && wasRunning){
     showResultModal(total, accPct, grade);
@@ -536,16 +559,16 @@ function renderMissions(list){
 // ----- Help text -----
 const HELP_TEXT = {
   TH:{
-    goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
-    groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- ดู \"หมวดเป้าหมาย\" แล้วแตะไอคอนให้ถูกหมวด\n- ครบโควตาแล้วเปลี่ยนหมวดใหม่\n- Power-ups: ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
-    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = เงื่อนไขคะแนนตามสถานะ\n- Mini-quests สุ่ม 3 อย่าง/เกม",
-    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนตามสัดส่วนจานสุขภาพ\n- คอมโบช่วยบูสต์คะแนน"
+    goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups: ×2 / Freeze / Magnet",
+    groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- แตะตามหมวดเป้าหมายให้ครบโควตาแล้วจะเปลี่ยนหมวด\n- มี ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
+    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำเพิ่มระดับ น้ำหวานมีเงื่อนไขคะแนน",
+    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนตามสัดส่วนจานสุขภาพให้ครบ\n- คอมโบช่วยบูสต์คะแนน"
   },
   EN:{
     goodjunk: "🥗 Good vs Junk\n- Tap healthy items, avoid junk\n- Keep combo to trigger FEVER\n- Power-ups: ×2 / Freeze / Magnet",
-    groups:   "🍽️ Food Group Frenzy\n- Follow the target group\n- Fill quota to switch target\n- Power-ups: ×2 target-only, Freeze, Magnet next",
-    hydration:"💧 Hydration\n- Keep water bar in optimal zone\n- Water raises level; sugary drinks are conditional\n- Random 3 mini-quests per run",
-    plate:    "🍱 Healthy Plate\n- Place items by plate ratio\n- Combos boost score"
+    groups:   "🍽️ Food Group Frenzy\n- Tap target-category items to fill quota then switch\n- Per-target ×2 / Freeze / Magnet next",
+    hydration:"💧 Hydration\n- Keep bar in optimal zone\n- Water raises level; sugary drinks conditional",
+    plate:    "🍱 Healthy Plate\n- Place food by plate ratio\n- Combos boost score"
   }
 };
 function openHelpCurrent(){
@@ -577,8 +600,6 @@ function openHelpAll(){
 }
 
 // ----- Stats board / Daily -----
-
-// ฟังก์ชันสำรอง ถ้า Progress.getStatSnapshot ไม่มี
 function buildStatSnapshotFallback(){
   const p = Progress.profile || {};
   const rows = [];
@@ -629,6 +650,9 @@ function openDailyPanel(){
       <span>${ok?'✅':'⬜️'}</span><span>${m.label}</span>
     </div>`;
   }).join('') + `<div style="margin-top:8px;opacity:.8">วันที่: ${d.date}</div>`;
+  const rw = $('#dailyReward');
+  const allDone = (d.done||[]).length === d.missions.length;
+  rw.textContent = allDone ? '🎁 รับ XP รายวันแล้ว!' : 'ทำภารกิจให้ครบเพื่อรับ XP รายวัน';
   $('#dailyPanel').style.display='flex';
 }
 
