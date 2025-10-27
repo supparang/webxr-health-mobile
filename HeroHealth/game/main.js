@@ -1,7 +1,7 @@
 // === Hero Health Academy — main.js (modes selectable, Start-only launch, missions + powers) ===
 window.__HHA_BOOT_OK = true;
 
-// ----- Imports (absolute paths) -----
+// ----- Imports (ABSOLUTE PATHS) -----
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine }      from '/webxr-health-mobile/HeroHealth/game/core/engine.js';
 import { HUD }         from '/webxr-health-mobile/HeroHealth/game/core/hud.js';
@@ -432,6 +432,7 @@ async function runCountdown(sec=3){
 }
 
 async function start(){
+  // เริ่มเฉพาะเมื่อกดปุ่ม Start เท่านั้น
   end(true);
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -518,7 +519,51 @@ function renderMissions(list){
   }
 }
 
+// ----- Help text -----
+const HELP_TEXT = {
+  TH:{
+    goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
+    groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- ดู \"หมวดเป้าหมาย\" แล้วแตะไอคอนให้ถูกหมวด\n- ครบโควตาแล้วเปลี่ยนหมวดใหม่\n- Power-ups: ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
+    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = มีเงื่อนไขคะแนนตามสถานะ\n- Mini-quests แบบสุ่ม 3 อย่าง/เกม",
+    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนอาหารให้ครบโควตาตามสัดส่วนจานสุขภาพ\n- ทำคอมโบเพื่อคะแนนโบนัส"
+  },
+  EN:{
+    goodjunk: "🥗 Good vs Junk\n- Tap healthy items, avoid junk\n- Keep combo to trigger FEVER\n- Power-ups: ×2 Score / Freeze / Magnet",
+    groups:   "🍽️ Food Group Frenzy\n- Follow the target group, tap matching icons\n- Fill quota, target switches\n- Power-ups: ×2 target-only, Freeze target, Magnet next",
+    hydration:"💧 Hydration\n- Keep water bar in the optimal zone\n- Water raises level; sugary drinks have conditional scoring\n- Mini-quests: random 3 per run",
+    plate:    "🍱 Healthy Plate\n- Place food icons to meet plate ratio quotas\n- Combos boost your score"
+  }
+};
+function openHelpCurrent(){
+  const lang = (localStorage.getItem('hha_lang')||'TH');
+  const key  = state.modeKey;
+  const txt  = (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
+  const b = $('#helpBody'); if (b){ b.textContent = txt; }
+  const m = $('#help'); if (m){ m.style.display='flex'; }
+}
+function openHelpAll(){
+  const lang = (localStorage.getItem('hha_lang')||'TH');
+  const data = HELP_TEXT[lang] || HELP_TEXT.TH;
+  const host = $('#helpAllBody');
+  if (host){
+    host.innerHTML = '';
+    for (const k of ['goodjunk','groups','hydration','plate']){
+      const wrap = document.createElement('div');
+      wrap.style.marginBottom='14px';
+      const h = document.createElement('div');
+      h.style.cssText='font-weight:900;margin-bottom:4px';
+      h.textContent = (T(lang).names[k]||k);
+      const p = document.createElement('pre');
+      p.textContent = data[k];
+      wrap.appendChild(h); wrap.appendChild(p);
+      host.appendChild(wrap);
+    }
+  }
+  const m = $('#helpScene'); if (m){ m.style.display='flex'; }
+}
+
 // ----- Global UI Events -----
+// เลือกโหมด—ไม่สตาร์ท จนกว่าจะกด Start
 document.addEventListener('pointerup', (e)=>{
   const target = e.target;
   const btn = byAction(target);
@@ -529,8 +574,11 @@ document.addEventListener('pointerup', (e)=>{
 
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
-    if (MODES[key]){ state.modeKey = key; applyUI(); }
-    return; // ไม่ start ทันที
+    if (MODES[key]){
+      state.modeKey = key;
+      applyUI();
+    }
+    return;
   }
 
   if (a === 'mode'){ state.modeKey = v; applyUI(); }
@@ -543,13 +591,13 @@ document.addEventListener('pointerup', (e)=>{
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a === 'restart'){ end(true); start(); }
-  else if (a === 'help'){ const m=$('#help'); if (m) m.style.display='flex'; }
+  else if (a === 'help'){ openHelpCurrent(); }
   else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
-  else if (a === 'helpScene'){ const hs=$('#helpScene'); if (hs) hs.style.display='flex'; }
+  else if (a === 'helpScene'){ openHelpAll(); }
   else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
-// ----- Power-ups (groups only wiring) -----
+// ----- Power-ups (พร้อมโหมด groups) -----
 (function wirePowers(){
   const bar = $('#powerBar'); if (!bar) return;
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
