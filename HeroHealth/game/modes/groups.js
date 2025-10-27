@@ -1,347 +1,295 @@
-// === Hero Health Academy — modes/groups.js (Food Group Frenzy; 20 items/หมู่ รวมครบในไฟล์) ===
-export const name = 'groups';
+// === Hero Health Academy — game/modes/groups.js ===
+// Food Group Frenzy (5 หมู่) + เป้าหมาย/โควตา + Power-ups (x2 / Freeze / Magnet)
+//
+// สัญญาใช้งานกับ main.js:
+// - export: init(state, hud, diff), cleanup(state, hud), pickMeta(diff, state), onHit(meta, sys, state, hud), tick(state, sys, hud)
+// - export: powers{ x2Target, freezeTarget, magnetNext }, getPowerDurations()
+// - meta จาก pickMeta ต้องใส่: {char, label, aria, groupId, good, golden, life}
+//
+// หมวดหลัก: veggies, protein, grains, fruit, dairy
 
-/* ------------------------------------------------------------------
-   1) GROUP DEFINITIONS (5 หมู่หลัก)
-------------------------------------------------------------------- */
-export const GROUPS = [
-  { id:'fruits',   labelTH:'ผลไม้',        labelEN:'Fruits',        color:'#ef4444' },
-  { id:'veggies',  labelTH:'ผัก',           labelEN:'Vegetables',    color:'#22c55e' },
-  { id:'protein',  labelTH:'โปรตีน',        labelEN:'Protein',       color:'#3b82f6' },
-  { id:'grains',   labelTH:'ธัญพืช',        labelEN:'Grains',        color:'#f59e0b' },
-  { id:'dairy',    labelTH:'นม/ผลิตภัณฑ์',  labelEN:'Dairy',         color:'#a855f7' },
-];
-
-/* ------------------------------------------------------------------
-   2) ITEMS — รวม 20 รายการ/หมู่ (icon + labelTH/EN)
-   หมายเหตุ: ใช้อีโมจิที่หาได้จริงในระบบมาตรฐาน
-------------------------------------------------------------------- */
-
-// Fruits (20)
-const FRUITS = [
-  { id:'apple',       labelEN:'Apple',        labelTH:'แอปเปิล',       icon:'🍎' },
-  { id:'green_apple', labelEN:'Green Apple',  labelTH:'แอปเปิลเขียว',  icon:'🍏' },
-  { id:'banana',      labelEN:'Banana',       labelTH:'กล้วย',          icon:'🍌' },
-  { id:'strawberry',  labelEN:'Strawberry',   labelTH:'สตรอว์เบอร์รี่', icon:'🍓' },
-  { id:'watermelon',  labelEN:'Watermelon',   labelTH:'แตงโม',           icon:'🍉' },
-  { id:'orange',      labelEN:'Orange',       labelTH:'ส้ม',             icon:'🍊' },
-  { id:'grapes',      labelEN:'Grapes',       labelTH:'องุ่น',           icon:'🍇' },
-  { id:'pineapple',   labelEN:'Pineapple',    labelTH:'สับปะรด',         icon:'🍍' },
-  { id:'mango',       labelEN:'Mango',        labelTH:'มะม่วง',          icon:'🥭' },
-  { id:'cherries',    labelEN:'Cherries',     labelTH:'เชอร์รี่',         icon:'🍒' },
-  { id:'peach',       labelEN:'Peach',        labelTH:'พีช',             icon:'🍑' },
-  { id:'lemon',       labelEN:'Lemon',        labelTH:'มะนาว',           icon:'🍋' },
-  { id:'pear',        labelEN:'Pear',         labelTH:'ลูกแพร์',         icon:'🍐' },
-  { id:'kiwi',        labelEN:'Kiwi',         labelTH:'กีวี',            icon:'🥝' },
-  { id:'melon',       labelEN:'Melon',        labelTH:'เมลอน',           icon:'🍈' },
-  { id:'coconut',     labelEN:'Coconut',      labelTH:'มะพร้าว',         icon:'🥥' },
-  { id:'blueberry',   labelEN:'Blueberries',  labelTH:'บลูเบอร์รี่',     icon:'🫐' }, // บางฟอนต์รองรับ
-  { id:'raspberry',   labelEN:'Raspberries',  labelTH:'ราสป์เบอร์รี่',   icon:'🫐' },
-  { id:'tangerine',   labelEN:'Tangerine',    labelTH:'ส้มแมนดาริน',     icon:'🍊' },
-  { id:'lime',        labelEN:'Lime',         labelTH:'มะนาวเขียว',      icon:'🍋' },
-].map(x=>({...x, group:'fruits'}));
-
-// Veggies (20)
-const VEGGIES = [
-  { id:'carrot',    labelEN:'Carrot',      labelTH:'แครอท',           icon:'🥕' },
-  { id:'broccoli',  labelEN:'Broccoli',    labelTH:'บรอกโคลี',        icon:'🥦' },
-  { id:'cucumber',  labelEN:'Cucumber',    labelTH:'แตงกวา',          icon:'🥒' },
-  { id:'tomato',    labelEN:'Tomato',      labelTH:'มะเขือเทศ',        icon:'🍅' },
-  { id:'corn',      labelEN:'Corn',        labelTH:'ข้าวโพด',          icon:'🌽' },
-  { id:'lettuce',   labelEN:'Leafy Greens',labelTH:'ผักใบ/ผักกาด',     icon:'🥬' },
-  { id:'mushroom',  labelEN:'Mushroom',    labelTH:'เห็ด',             icon:'🍄' },
-  { id:'salad',     labelEN:'Salad',       labelTH:'สลัดผัก',          icon:'🥗' },
-  { id:'chili',     labelEN:'Chili',       labelTH:'พริก',             icon:'🌶️' },
-  { id:'onion',     labelEN:'Onion',       labelTH:'หัวหอม',           icon:'🧅' },
-  { id:'garlic',    labelEN:'Garlic',      labelTH:'กระเทียม',         icon:'🧄' },
-  { id:'potato',    labelEN:'Potato',      labelTH:'มันฝรั่ง',          icon:'🥔' },
-  { id:'eggplant',  labelEN:'Eggplant',    labelTH:'มะเขือม่วง',        icon:'🍆' },
-  { id:'avocado',   labelEN:'Avocado',     labelTH:'อะโวคาโด',          icon:'🥑' },
-  { id:'herbs',     labelEN:'Herbs',       labelTH:'สมุนไพร',           icon:'🌿' },
-  { id:'sweetcorn', labelEN:'Sweet Corn',  labelTH:'ข้าวโพดหวาน',       icon:'🌽' },
-  { id:'pickle',    labelEN:'Pickled Cuke',labelTH:'แตงกวาดอง',         icon:'🥒' },
-  { id:'pepper',    labelEN:'Bell Pepper', labelTH:'พริกหวาน',          icon:'🌶️' },
-  { id:'seaweed',   labelEN:'Seaweed',     labelTH:'สาหร่าย',           icon:'🪸' }, // อีโมจิแทนใกล้เคียง
-  { id:'sprout',    labelEN:'Bean Sprout', labelTH:'ถั่วงอก',           icon:'🌱' },
-].map(x=>({...x, group:'veggies'}));
-
-// Protein (20)
-const PROTEIN = [
-  { id:'egg',       labelEN:'Egg',          labelTH:'ไข่',              icon:'🥚' },
-  { id:'drumstick', labelEN:'Chicken',      labelTH:'ไก่',              icon:'🍗' },
-  { id:'meat',      labelEN:'Meat',         labelTH:'เนื้อสัตว์',       icon:'🍖' },
-  { id:'beef',      labelEN:'Beef Steak',   labelTH:'เนื้อวัว',         icon:'🥩' },
-  { id:'fish',      labelEN:'Fish',         labelTH:'ปลา',              icon:'🐟' },
-  { id:'shrimp',    labelEN:'Shrimp',       labelTH:'กุ้ง',             icon:'🦐' },
-  { id:'crab',      labelEN:'Crab',         labelTH:'ปู',               icon:'🦀' },
-  { id:'squid',     labelEN:'Squid',        labelTH:'หมึก',             icon:'🦑' },
-  { id:'tofu',      labelEN:'Tofu',         labelTH:'เต้าหู้',           icon:'🍢' }, // ใช้คท.ไม้เป็นตัวแทน
-  { id:'peanut',    labelEN:'Peanuts',      labelTH:'ถั่วลิสง',         icon:'🥜' },
-  { id:'soybeans',  labelEN:'Soybeans',     labelTH:'ถั่วเหลือง',       icon:'🫘' },
-  { id:'ham',       labelEN:'Ham/Bacon',    labelTH:'แฮม/เบคอน',        icon:'🥓' },
-  { id:'sausage',   labelEN:'Sausage',      labelTH:'ไส้กรอก',          icon:'🌭' },
-  { id:'nuts',      labelEN:'Mixed Nuts',   labelTH:'ถั่วรวม',          icon:'🌰' },
-  { id:'turkey',    labelEN:'Turkey',       labelTH:'ไก่งวง',           icon:'🍗' },
-  { id:'eel',       labelEN:'Eel',          labelTH:'ปลาไหล',           icon:'🐟' },
-  { id:'shell',     labelEN:'Shellfish',    labelTH:'หอย',              icon:'🐚' },
-  { id:'lamb',      labelEN:'Lamb',         labelTH:'เนื้อแกะ',         icon:'🥩' },
-  { id:'beans',     labelEN:'Beans',        labelTH:'ถั่วต่างๆ',         icon:'🫘' },
-  { id:'edamame',   labelEN:'Edamame',      labelTH:'ถั่วแระ',          icon:'🫘' },
-].map(x=>({...x, group:'protein'}));
-
-// Grains (20)
-const GRAINS = [
-  { id:'rice',        labelEN:'Rice',          labelTH:'ข้าวสวย',         icon:'🍚' },
-  { id:'rice_ball',   labelEN:'Rice Ball',     labelTH:'ข้าวปั้น',         icon:'🍙' },
-  { id:'rice_cracker',labelEN:'Rice Cracker',  labelTH:'ข้าวเกรียบ/เซมเบ้', icon:'🍘' },
-  { id:'bread',       labelEN:'Bread',         labelTH:'ขนมปัง',          icon:'🍞' },
-  { id:'baguette',    labelEN:'Baguette',      labelTH:'บาแก็ต',           icon:'🥖' },
-  { id:'croissant',   labelEN:'Croissant',     labelTH:'ครัวซองต์',         icon:'🥐' },
-  { id:'pancake',     labelEN:'Pancake',       labelTH:'แพนเค้ก',           icon:'🥞' },
-  { id:'waffle',      labelEN:'Waffle',        labelTH:'วาฟเฟิล',           icon:'🧇' },
-  { id:'noodles',     labelEN:'Noodles',       labelTH:'ก๋วยเตี๋ยว',        icon:'🍜' },
-  { id:'spaghetti',   labelEN:'Spaghetti',     labelTH:'สปาเกตตี',          icon:'🍝' },
-  { id:'sandwich',    labelEN:'Sandwich',      labelTH:'แซนด์วิช',          icon:'🥪' },
-  { id:'taco',        labelEN:'Taco',          labelTH:'ทาโก้',              icon:'🌮' },
-  { id:'burrito',     labelEN:'Burrito',       labelTH:'เบอร์ริโต',          icon:'🌯' },
-  { id:'pretzel',     labelEN:'Pretzel',       labelTH:'เพรทเซล',            icon:'🥨' },
-  { id:'pie',         labelEN:'Pie',           labelTH:'พาย',                icon:'🥧' },
-  { id:'cookie',      labelEN:'Cookie',        labelTH:'คุกกี้',             icon:'🍪' },
-  { id:'donut',       labelEN:'Donut',         labelTH:'โดนัท',              icon:'🍩' },
-  { id:'bagel',       labelEN:'Bagel',         labelTH:'เบเกิล',             icon:'🥯' },
-  { id:'cereal',      labelEN:'Cereal',        labelTH:'ซีเรียล',             icon:'🥣' },
-  { id:'bento',       labelEN:'Bento (Rice)',  labelTH:'เบนโตะ (มีข้าว)',     icon:'🍱' },
-].map(x=>({...x, group:'grains'}));
-
-// Dairy (20)
-const DAIRY = [
-  { id:'milk',        labelEN:'Milk',          labelTH:'นม',              icon:'🥛' },
-  { id:'cheese',      labelEN:'Cheese',        labelTH:'ชีส',             icon:'🧀' },
-  { id:'yogurt',      labelEN:'Yogurt',        labelTH:'โยเกิร์ต',         icon:'🥣' },
-  { id:'butter',      labelEN:'Butter',        labelTH:'เนย',              icon:'🧈' },
-  { id:'icecream',    labelEN:'Ice Cream',     labelTH:'ไอศกรีม',          icon:'🍦' },
-  { id:'icecream_b',  labelEN:'Sundae',        labelTH:'ไอศกรีมถ้วย',       icon:'🍨' },
-  { id:'custard',     labelEN:'Custard',       labelTH:'คัสตาร์ด/พุดดิ้ง',  icon:'🍮' },
-  { id:'milkshake',   labelEN:'Milkshake',     labelTH:'มิลค์เชค',         icon:'🥤' },
-  { id:'kefir',       labelEN:'Kefir',         labelTH:'นมเปรี้ยวเคฟีร์',   icon:'🥛' },
-  { id:'cream',       labelEN:'Cream',         labelTH:'ครีม',             icon:'🥛' },
-  { id:'cottage',     labelEN:'Cottage Cheese',labelTH:'คอทเทจชีส',        icon:'🧀' },
-  { id:'mozzarella',  labelEN:'Mozzarella',    labelTH:'มอซซาเรลลา',        icon:'🧀' },
-  { id:'parmesan',    labelEN:'Parmesan',      labelTH:'พาร์มีซาน',         icon:'🧀' },
-  { id:'greek_yog',   labelEN:'Greek Yogurt',  labelTH:'กรีกโยเกิร์ต',      icon:'🥣' },
-  { id:'yog_drink',   labelEN:'Yogurt Drink',  labelTH:'นมเปรี้ยว',         icon:'🥤' },
-  { id:'pudding',     labelEN:'Milk Pudding',  labelTH:'พุดดิ้งนม',         icon:'🍮' },
-  { id:'condensed',   labelEN:'Condensed Milk',labelTH:'นมข้นหวาน',        icon:'🥛' },
-  { id:'evaporated',  labelEN:'Evaporated Milk',labelTH:'นมข้นจืด',        icon:'🥛' },
-  { id:'ghee',        labelEN:'Ghee',          labelTH:'กี (เนยใส)',        icon:'🧈' },
-  { id:'bottle',      labelEN:'Milk Bottle',   labelTH:'ขวดนม',            icon:'🍼' },
-].map(x=>({...x, group:'dairy'}));
-
-// รวมทั้งหมด
-const ITEMS = [...FRUITS, ...VEGGIES, ...PROTEIN, ...GRAINS, ...DAIRY];
-
-/* ------------------------------------------------------------------
-   3) TUNABLES / STATE
-------------------------------------------------------------------- */
-const NEED_BY_DIFF = { Easy:3, Normal:4, Hard:5 };
-const PROB_TARGET  = 0.58;   // โอกาสสุ่มตรงหมวดเป้าหมาย
-const LIFE_MS      = 3000;   // TTL ของไอคอน (ms)
-
-const POWER_DUR = { x2:8, freeze:3, magnet:2 }; // วินาที
-
-const ST = {
-  lang:'TH',
-  targetId:'fruits',
-  need:4, got:0,
-  lastSpawnAt:0,
-  missions:[],
-  missionProg:{},
-  magnetNext:false,
+// ---------- เนื้อหา 20 รายการ/หมู่ ----------
+const GROUPS = {
+  veggies: [
+    { id:'veg_broccoli',   emoji:'🥦', th:'บรอกโคลี',     en:'Broccoli' },
+    { id:'veg_carrot',     emoji:'🥕', th:'แครอท',        en:'Carrot' },
+    { id:'veg_corn',       emoji:'🌽', th:'ข้าวโพดหวาน',  en:'Sweet corn' },
+    { id:'veg_lettuce',    emoji:'🥬', th:'ผักกาดหอม',    en:'Lettuce' },
+    { id:'veg_cucumber',   emoji:'🥒', th:'แตงกวา',       en:'Cucumber' },
+    { id:'veg_spinach',    emoji:'🥬', th:'ผักโขม',       en:'Spinach' },
+    { id:'veg_pumpkin',    emoji:'🎃', th:'ฟักทอง',       en:'Pumpkin' },
+    { id:'veg_mushroom',   emoji:'🍄', th:'เห็ด',         en:'Mushroom' },
+    { id:'veg_eggplant',   emoji:'🍆', th:'มะเขือยาว',    en:'Eggplant' },
+    { id:'veg_chili',      emoji:'🌶️', th:'พริก',       en:'Chili' },
+    { id:'veg_onion',      emoji:'🧅', th:'หัวหอม',       en:'Onion' },
+    { id:'veg_garlic',     emoji:'🧄', th:'กระเทียม',     en:'Garlic' },
+    { id:'veg_tomato',     emoji:'🍅', th:'มะเขือเทศ*',   en:'Tomato*' },
+    { id:'veg_cabbage',    emoji:'🥬', th:'กะหล่ำปลี',    en:'Cabbage' },
+    { id:'veg_okra',       emoji:'🌿', th:'กระเจี๊ยบ',    en:'Okra' },
+    { id:'veg_bokchoy',    emoji:'🥬', th:'กวางตุ้ง',     en:'Bok choy' },
+    { id:'veg_kale',       emoji:'🥬', th:'คะน้า',        en:'Kale' },
+    { id:'veg_beet',       emoji:'🫐', th:'บีตรูต',       en:'Beetroot' }, // ไม่มีอีโมจิเฉพาะ ใช้แทน
+    { id:'veg_asparagus',  emoji:'🌿', th:'หน่อไม้ฝรั่ง', en:'Asparagus' },
+    { id:'veg_mixsalad',   emoji:'🥗', th:'สลัดผักรวม',   en:'Mixed salad' },
+  ],
+  protein: [
+    { id:'pro_chicken',    emoji:'🍗', th:'ไก่',          en:'Chicken' },
+    { id:'pro_beef',       emoji:'🥩', th:'เนื้อวัว',     en:'Beef' },
+    { id:'pro_pork',       emoji:'🍖', th:'หมู',          en:'Pork' },
+    { id:'pro_egg',        emoji:'🥚', th:'ไข่',          en:'Egg' },
+    { id:'pro_fish',       emoji:'🐟', th:'ปลา',          en:'Fish' },
+    { id:'pro_shrimp',     emoji:'🍤', th:'กุ้ง',         en:'Shrimp' },
+    { id:'pro_crab',       emoji:'🦀', th:'ปู',          en:'Crab' },
+    { id:'pro_shell',      emoji:'🐚', th:'หอย',         en:'Shellfish' },
+    { id:'pro_tofu',       emoji:'🧊', th:'เต้าหู้',       en:'Tofu' },     // (ไม่มี emoji เต้าหู้ ใช้สัญลักษณ์แทน)
+    { id:'pro_soymilk',    emoji:'🥛', th:'นมถั่วเหลือง', en:'Soy milk' },
+    { id:'pro_peanut',     emoji:'🥜', th:'ถั่วลิสง',      en:'Peanuts' },
+    { id:'pro_bean',       emoji:'🫘', th:'ถั่วแดง',       en:'Beans' },
+    { id:'pro_edamame',    emoji:'🫘', th:'ถั่วแระ',       en:'Edamame' },
+    { id:'pro_salmon',     emoji:'🍣', th:'ปลาแซลมอน',    en:'Salmon' },   // ใช้ซูชิแทน
+    { id:'pro_tuna',       emoji:'🐟', th:'ทูน่า',        en:'Tuna' },
+    { id:'pro_duck',       emoji:'🦆', th:'เนื้อเป็ด',     en:'Duck' },
+    { id:'pro_lentil',     emoji:'🫘', th:'ถั่วเลนทิล',    en:'Lentils' },
+    { id:'pro_chickpea',   emoji:'🫘', th:'ถั่วลูกไก่',    en:'Chickpeas' },
+    { id:'pro_squid',      emoji:'🦑', th:'ปลาหมึก',      en:'Squid' },
+    { id:'pro_eggwhite',   emoji:'🥚', th:'ไข่ขาว',       en:'Egg white' },
+  ],
+  grains: [
+    { id:'gr_rice',        emoji:'🍚', th:'ข้าวสวย',      en:'Rice' },
+    { id:'gr_brownrice',   emoji:'🍚', th:'ข้าวกล้อง',    en:'Brown rice' },
+    { id:'gr_sticky',      emoji:'🍙', th:'ข้าวเหนียว',   en:'Sticky rice' },
+    { id:'gr_bread',       emoji:'🍞', th:'ขนมปัง',       en:'Bread' },
+    { id:'gr_baguette',    emoji:'🥖', th:'บาแกตต์',       en:'Baguette' },
+    { id:'gr_croissant',   emoji:'🥐', th:'ครัวซองต์',     en:'Croissant' },
+    { id:'gr_pasta',       emoji:'🍝', th:'พาสต้า',        en:'Pasta' },
+    { id:'gr_noodle',      emoji:'🍜', th:'ก๋วยเตี๋ยว',    en:'Noodles' },
+    { id:'gr_cereal',      emoji:'🥣', th:'ซีเรียล',       en:'Cereal' },
+    { id:'gr_oat',         emoji:'🥣', th:'โอ๊ต',          en:'Oats' },
+    { id:'gr_porridge',    emoji:'🥣', th:'โจ๊ก',          en:'Porridge' },
+    { id:'gr_flatbread',   emoji:'🫓', th:'แป้งแผ่น',      en:'Flatbread' },
+    { id:'gr_pita',        emoji:'🫓', th:'พิต้า',         en:'Pita' },
+    { id:'gr_tortilla',    emoji:'🌮', th:'ตอร์ติญา',      en:'Tortilla' }, // ใช้ taco เป็นตัวแทนแป้ง
+    { id:'gr_bagel',       emoji:'🥯', th:'เบเกิล',        en:'Bagel' },
+    { id:'gr_waffle',      emoji:'🧇', th:'วาฟเฟิล',       en:'Waffle' },
+    { id:'gr_pancake',     emoji:'🥞', th:'แพนเค้ก',       en:'Pancake' },
+    { id:'gr_cracker',     emoji:'🍘', th:'ข้าวเกรียบ',    en:'Rice cracker' },
+    { id:'gr_bun',         emoji:'🥯', th:'ขนมปังกลม',     en:'Bun' },
+    { id:'gr_quinoa',      emoji:'🥣', th:'ควินัว',        en:'Quinoa' },
+  ],
+  fruit: [
+    { id:'fr_apple',       emoji:'🍎', th:'แอปเปิล',      en:'Apple' },
+    { id:'fr_banana',      emoji:'🍌', th:'กล้วย',        en:'Banana' },
+    { id:'fr_grape',       emoji:'🍇', th:'องุ่น',        en:'Grapes' },
+    { id:'fr_strawberry',  emoji:'🍓', th:'สตรอว์เบอร์รี', en:'Strawberry' },
+    { id:'fr_orange',      emoji:'🍊', th:'ส้ม',          en:'Orange' },
+    { id:'fr_pineapple',   emoji:'🍍', th:'สับปะรด',      en:'Pineapple' },
+    { id:'fr_mango',       emoji:'🥭', th:'มะม่วง',       en:'Mango' },
+    { id:'fr_peach',       emoji:'🍑', th:'พีช',          en:'Peach' },
+    { id:'fr_watermelon',  emoji:'🍉', th:'แตงโม',        en:'Watermelon' },
+    { id:'fr_cherry',      emoji:'🍒', th:'เชอร์รี',       en:'Cherry' },
+    { id:'fr_pear',        emoji:'🍐', th:'แพร์',         en:'Pear' },
+    { id:'fr_lemon',       emoji:'🍋', th:'เลมอน',        en:'Lemon' },
+    { id:'fr_melon',       emoji:'🍈', th:'เมลอน',        en:'Melon' },
+    { id:'fr_kiwi',        emoji:'🥝', th:'กีวี',         en:'Kiwi' },
+    { id:'fr_blueberry',   emoji:'🫐', th:'บลูเบอร์รี',    en:'Blueberry' },
+    { id:'fr_raspberry',   emoji:'🫐', th:'ราสป์เบอร์รี',  en:'Raspberry' }, // ใช้อิโมจิเดียวกัน
+    { id:'fr_dragon',      emoji:'🐉', th:'แก้วมังกร',     en:'Dragon fruit' }, // ใช้สัญลักษณ์แทน
+    { id:'fr_papaya',      emoji:'🥭', th:'มะละกอ',       en:'Papaya' },
+    { id:'fr_coconut',     emoji:'🥥', th:'มะพร้าว',      en:'Coconut' },
+    { id:'fr_guava',       emoji:'🍏', th:'ฝรั่ง',        en:'Guava' }, // ใช้แอปเปิลสีเขียวแทน
+  ],
+  dairy: [
+    { id:'da_milk',        emoji:'🥛', th:'นม',           en:'Milk' },
+    { id:'da_yogurt',      emoji:'🥛', th:'โยเกิร์ต',      en:'Yogurt' },
+    { id:'da_cheese',      emoji:'🧀', th:'ชีส',           en:'Cheese' },
+    { id:'da_kefir',       emoji:'🥛', th:'เคเฟอร์',       en:'Kefir' },
+    { id:'da_curd',        emoji:'🥛', th:'นมตกตะกอน',     en:'Curd' },
+    { id:'da_buttermilk',  emoji:'🥛', th:'บัตเตอร์มิลค์', en:'Buttermilk' },
+    { id:'da_cocoa',       emoji:'🍫', th:'นมโกโก้',       en:'Cocoa milk' },
+    { id:'da_yakult',      emoji:'🥛', th:'นมเปรี้ยว',     en:'Fermented milk' },
+    { id:'da_icecream',    emoji:'🍦', th:'ไอศกรีม',       en:'Ice cream' },
+    { id:'da_froyo',       emoji:'🍧', th:'โฟรโย',         en:'Frozen yogurt' },
+    { id:'da_pudding',     emoji:'🍮', th:'พุดดิ้งนม',     en:'Milk pudding' },
+    { id:'da_condensed',   emoji:'🥛', th:'นมข้นหวาน',     en:'Condensed milk' },
+    { id:'da_evap',        emoji:'🥛', th:'นมข้นจืด',      en:'Evaporated milk' },
+    { id:'da_lassi',       emoji:'🥛', th:'ลัสซี',         en:'Lassi' },
+    { id:'da_mozz',        emoji:'🧀', th:'มอสซาเรลลา',    en:'Mozzarella' },
+    { id:'da_parm',        emoji:'🧀', th:'พาร์เมซาน',     en:'Parmesan' },
+    { id:'da_cottage',     emoji:'🧀', th:'คอทเทจชีส',     en:'Cottage cheese' },
+    { id:'da_ricotta',     emoji:'🧀', th:'ริคอตตา',       en:'Ricotta' },
+    { id:'da_skyr',        emoji:'🥛', th:'สกีร์',         en:'Skyr' },
+    { id:'da_milkshake',   emoji:'🥤', th:'มิลค์เชค',      en:'Milkshake' },
+  ],
 };
+const GROUP_KEYS = Object.keys(GROUPS);
 
-/* ------------------------------------------------------------------
-   4) MINI-QUESTS (สุ่ม 1 ง่าย + 1 กลาง + 1 ยาก ต่อเกม)
-------------------------------------------------------------------- */
-const QUESTS_POOL = [
-  // ง่าย
-  { id:'q_easy_collect6', labelTH:'เก็บให้ถูก 6 ชิ้น', labelEN:'Pick 6 correct items', need:6, diff:'easy',
-    test:(ev)=>ev.result==='good' && ev.meta?.good },
-  { id:'q_easy_combo8', labelTH:'ทำคอมโบ x8', labelEN:'Reach combo x8', need:8, diff:'easy',
-    test:(ev)=>ev.comboNow>=8 },
+// ---------- ค่าที่แนะนำ ----------
+const QUOTA = { Easy:6, Normal:8, Hard:10 }; // โควตาต่อหมวด
+const TARGET_RATIO = 0.28; // โอกาสเกิดของชิ้น “เป้าหมาย”
+const GOLDEN_CHANCE = 0.04; // เมื่อผ่านเกณฑ์ golden gate แล้ว
+const GOLDEN_COOLDOWN_SPAWNS = 6; // ต้องเว้นอย่างน้อย N ชิ้น
+const GOLDEN_CAP_PER20 = 2;
 
-  // กลาง
-  { id:'q_mid_noBad5', labelTH:'ห้ามพลาด 5 ชิ้นติด', labelEN:'No miss for 5 hits', need:5, diff:'mid',
-    test:(ev)=>ev.result!=='bad' },
-  { id:'q_mid_target2', labelTH:'เคลียร์ 2 หมวด', labelEN:'Clear 2 targets', need:2, diff:'mid',
-    test:(ev)=>ev.type==='target_clear' },
+// ---------- ภายในโหมด (module scope) ----------
+let _hudRef = null;
+let _lastState = null;
+let _x2Until = 0;
+let _magnetNext = false;
+// gate golden
+let _goldenSeen = 0;
+let _sinceGolden = 0;
 
-  // ยาก
-  { id:'q_hard_speed5', labelTH:'เก็บเร็ว 1.2s/ชิ้น ×5', labelEN:'Fast pick 5 times', need:5, diff:'hard',
-    test:(ev)=>ev.type==='fast_hit' },
-  { id:'q_hard_combo15', labelTH:'ทำคอมโบ x15', labelEN:'Reach combo x15', need:15, diff:'hard',
-    test:(ev)=>ev.comboNow>=15 },
-];
+function nowMs(){ return performance?.now?.()||Date.now(); }
 
-/* ------------------------------------------------------------------
-   5) PUBLIC API สำหรับ main.js
-------------------------------------------------------------------- */
-export function init(gameState, hud, diff){
-  ST.lang = localStorage.getItem('hha_lang') || 'TH';
-  ST.need = NEED_BY_DIFF[gameState?.difficulty] ?? 4;
-  ST.got = 0;
-
-  // สุ่มเป้าหมายเริ่ม
-  ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
-  showTargetHUD(true);
-  updateTargetBadge();
-
-  // สุ่มเควส 1-1-1
-  const easy = randPick(QUESTS_POOL.filter(q=>q.diff==='easy'), 1);
-  const mid  = randPick(QUESTS_POOL.filter(q=>q.diff==='mid'), 1);
-  const hard = randPick(QUESTS_POOL.filter(q=>q.diff==='hard'), 1);
-  ST.missions = [...easy, ...mid, ...hard];
-  ST.missionProg = Object.fromEntries(ST.missions.map(q=>[q.id,0]));
-  publishMissionsHUD();
+function updateTargetHUD(state){
+  const have = state?.ctx?.targetHave|0;
+  const need = state?.ctx?.targetNeed|0;
+  const gkey = state?.ctx?.targetGroup;
+  // ผ่าน HUD API ถ้ามี
+  _hudRef?.setTarget?.(gkey, have, need);
+  // สำรอง: อัปเดต badge เอง
+  const el = document.getElementById('targetBadge');
+  if (el){
+    // แสดงชื่อหมวด (ไทย)
+    const nameTH = ({
+      veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'
+    })[gkey] || gkey;
+    el.textContent = `${nameTH} • ${have}/${need}`;
+    const wrap = document.getElementById('targetWrap');
+    if (wrap) wrap.style.display = 'inline-flex';
+  }
 }
 
-export function cleanup(){
-  showTargetHUD(false);
+function chooseNextTarget(prev){
+  let ng;
+  do { ng = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (ng===prev);
+  return ng;
 }
 
-export function pickMeta(diff, gameState){
-  ST.lastSpawnAt = performance.now();
+// ---------- Export: lifecycle ----------
+export function init(state, hud, diff){
+  _hudRef = hud;
+  _lastState = state;
+  state.ctx = state.ctx || {};
+  state.ctx.targetGroup = chooseNextTarget(null);
+  state.ctx.targetNeed  = QUOTA[state.difficulty] || 8;
+  state.ctx.targetHave  = 0;
 
-  const pickTarget = Math.random() < PROB_TARGET;
-  const pool = pickTarget
-    ? ITEMS.filter(i=>i.group===ST.targetId)
-    : ITEMS.filter(i=>i.group!==ST.targetId);
-  const it = pool[(Math.random()*pool.length)|0];
+  _x2Until = 0; _magnetNext = false;
+  _goldenSeen = 0; _sinceGolden = GOLDEN_COOLDOWN_SPAWNS; // เริ่มให้ผ่านเกณฑ์ได้เร็วหน่อย
+
+  updateTargetHUD(state);
+}
+
+export function cleanup(state){
+  _hudRef = null;
+  _lastState = null;
+  _x2Until = 0; _magnetNext = false;
+  _goldenSeen = 0; _sinceGolden = 0;
+}
+
+export function tick(state, sys){
+  // ปิด x2 เมื่อหมดเวลา
+  if (_x2Until && nowMs() > _x2Until) _x2Until = 0;
+}
+
+// ---------- Export: สุ่มหนึ่งชิ้น ----------
+export function pickMeta(diff, state){
+  // บังคับ “แม่เหล็ก” → ชิ้นถัดไปเป็นเป้าหมายเสมอ
+  let forceTarget = false;
+  if (_magnetNext){ forceTarget = true; _magnetNext = false; }
+
+  // ตัดสินใจเป้า/ไม่เป้า
+  const isTarget = forceTarget || (Math.random() < TARGET_RATIO);
+  const targetGroup = state.ctx?.targetGroup || 'veggies';
+
+  // เลือกหมวด
+  const groupId = isTarget
+    ? targetGroup
+    : (()=>{ // สุ่มหมวดอื่น
+        let k;
+        do { k = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (k===targetGroup);
+        return k;
+      })();
+
+  // สุ่มรายการในหมวด
+  const items = GROUPS[groupId];
+  const item = items[(Math.random()*items.length)|0];
+
+  // ระบบ Golden: ขึ้นเฉพาะชิ้นเป้าหมาย และผ่าน gate
+  let golden = false;
+  if (isTarget && _sinceGolden > GOLDEN_COOLDOWN_SPAWNS && _goldenSeen < GOLDEN_CAP_PER20){
+    if (Math.random() < GOLDEN_CHANCE){ golden = true; _goldenSeen++; _sinceGolden = 0; }
+  }else{
+    _sinceGolden++;
+  }
 
   return {
-    id: it.id,
-    char: it.icon,
-    label: ST.lang==='EN' ? it.labelEN : it.labelTH,
-    aria: `${ST.lang==='EN'?it.labelEN:it.labelTH}`,
-    good: (it.group===ST.targetId),
-    life: LIFE_MS,
-    groupId: it.group,
-    decoy: !pickTarget
+    char: item.emoji,
+    label: item.th,
+    aria: item.en,
+    groupId,
+    good: (groupId === targetGroup),
+    golden,
+    life: diff.life
   };
 }
 
-export function onHit(meta, systems, gameState, hud){
-  const now  = performance.now();
-  const fast = (now - ST.lastSpawnAt) <= 1200;
+// ---------- Export: เมื่อผู้เล่นคลิก ----------
+export function onHit(meta, sys, state, hud){
+  // meta: {good, golden, groupId}
+  let result = 'ok';
 
   if (meta.good){
-    ST.got++;
-    updateTargetBadge();
-    systems.coach?.say?.(t('ใช่เลย!', 'Nice!', ST.lang));
+    // ถ้าชิ้นเป้าหมาย
+    result = meta.golden ? 'perfect' : 'good';
 
-    if (fast) pushQuestEvent({type:'fast_hit'});
-    pushQuestEvent({result:'good', meta, comboNow:gameState.combo});
+    // คิดโควตา (Golden = 2)
+    const add = meta.golden ? 2 : 1;
+    state.ctx.targetHave = Math.min((state.ctx.targetHave|0) + add, state.ctx.targetNeed|0);
 
-    if (ST.got >= ST.need){
-      ST.got = 0;
-      ST.targetId = pickDifferent(GROUPS.map(g=>g.id), ST.targetId);
-      updateTargetBadge();
-      systems.sfx?.play?.('powerup');
-      systems.coach?.say?.(t('เปลี่ยนหมวด!', 'New target!', ST.lang));
-      pushQuestEvent({type:'target_clear'});
+    // x2 เฉพาะเป้าหมาย (หากเปิดอยู่) → เพิ่มสัญญาณให้ main จัดคะแนน x2 ผ่าน feverMul? เราจะส่งกลับ 'power' ไม่จำเป็น
+    if (_x2Until && nowMs() < _x2Until){
+      // ให้ main ได้โบนัสจาก FEVER/คอมโบอยู่แล้ว เราช่วย boost เพิ่มนิดด้วย minor flag:
+      result = (meta.golden ? 'perfect' : 'good'); // คงชนิดเดิม (คะแนนคูณจะถูกจัดที่ main จาก FEVER/COMBO)
     }
-    return 'good';
+
+    // ครบโควตา → เปลี่ยนหมวดใหม่ทันที
+    if (state.ctx.targetHave >= state.ctx.targetNeed){
+      try{ sys.sfx.play?.('sfx-perfect'); }catch{}
+      const next = chooseNextTarget(state.ctx.targetGroup);
+      state.ctx.targetGroup = next;
+      state.ctx.targetNeed  = QUOTA[state.difficulty] || 8;
+      state.ctx.targetHave  = 0;
+    }
+    updateTargetHUD(state);
+
   }else{
-    systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
-    pushQuestEvent({result:'bad', meta, comboNow:gameState.combo});
-    return 'bad';
+    // ชิ้นผิดหมวด = bad (ตัดคอมโบ)
+    result = 'bad';
   }
+
+  // ส่งต่อผลให้ progression (main เรียก Progress.event แล้ว)
+  return result; // 'good' | 'perfect' | 'bad' | 'ok'
 }
 
-export function tick(){ /* โหมดนี้ไม่ต้องทำอะไรต่อวินาทีเพิ่มเติม */ }
-
-/* ------------------------------------------------------------------
-   6) POWERS (ให้ main.js เรียกใช้)
-------------------------------------------------------------------- */
+// ---------- Power-ups ----------
 export const powers = {
+  // ×2 เฉพาะ “ชิ้นเป้าหมาย” — 8s
   x2Target(){
-    // ใช้ควบคู่กับระบบคะแนน/FEVER ใน main.js ได้เลย (เอฟเฟกต์/เสียง)
-    try{ document.getElementById('sfx-powerup')?.play(); }catch{}
+    _x2Until = nowMs() + 8000;
+    // (การคูณคะแนนจริงอยู่ที่ main ผ่านคอมโบ/fever — ที่นี่ใช้เพื่อบัฟพฤติกรรมเป้าเท่านั้น)
   },
-  freezeTarget(){ /* ถ้าต้องขยาย: ใส่ flag ให้ main.js ลด spawn เฉพาะกลุ่มได้ */ },
-  magnetNext(){ ST.magnetNext = true; }
+  // Freeze เป้าหมาย — แช่สภาพสนาม/ลดการเกิด? ใช้ตัวแปร freezeUntil ของ state (main รองรับ)
+  freezeTarget(){
+    if (_lastState) _lastState.freezeUntil = nowMs() + 3000;
+  },
+  // Magnet ชิ้นถัดไป — บังคับให้ spawn เป้าหมาย 1 ชิ้น
+  magnetNext(){
+    _magnetNext = true;
+  }
 };
-export function getPowerDurations(){ return POWER_DUR; }
 
-/* ------------------------------------------------------------------
-   7) HUD HELPERS
-------------------------------------------------------------------- */
-function showTargetHUD(show){
-  const wrap = document.getElementById('targetWrap');
-  if (wrap) wrap.style.display = show ? 'block' : 'none';
-}
-function updateTargetBadge(){
-  const g = GROUPS.find(x=>x.id===ST.targetId);
-  const badge = document.getElementById('targetBadge');
-  if (badge){
-    badge.textContent = t(g.labelTH, g.labelEN, ST.lang) + `  (${ST.got}/${ST.need})`;
-    badge.style.fontWeight = '800';
-    badge.setAttribute('aria-live','polite');
-  }
-  const tLabel = document.getElementById('t_target');
-  if (tLabel) tLabel.textContent = t('หมวด', 'Target', ST.lang);
-}
-function publishMissionsHUD(){
-  const list = ST.missions.map(q=>({
-    id:q.id,
-    label: t(q.labelTH,q.labelEN,ST.lang),
-    need: q.need,
-    prog: ST.missionProg[q.id]||0
-  }));
-  try{ window?.Progress?.emit?.('run_start', { missions:list }); }catch{}
-}
-
-/* ------------------------------------------------------------------
-   8) QUEST PROGRESS + BADGE FX
-------------------------------------------------------------------- */
-function pushQuestEvent(ev){
-  for (const q of ST.missions){
-    if (q.test(ev)){
-      ST.missionProg[q.id] = Math.min(q.need, (ST.missionProg[q.id]||0) + 1);
-      try{
-        window?.Progress?.emit?.('mission_tick', { id:q.id, prog:ST.missionProg[q.id], need:q.need });
-        if (ST.missionProg[q.id] >= q.need){
-          window?.Progress?.emit?.('mission_done', { id:q.id });
-          popBadgeFX(q);
-        }
-      }catch{}
-    }
-  }
-  // แจ้ง HUD ให้วาดใหม่
-  publishMissionsHUD();
-}
-function popBadgeFX(q){
-  const el = document.createElement('div');
-  el.style.cssText = `
-    position:fixed;left:50%;top:28%;transform:translate(-50%,-50%);
-    font:900 22px/1.2 ui-rounded,system-ui;color:#4ade80;text-shadow:0 2px 10px #000b;z-index:160;pointer-events:none;
-    background:rgba(6,44,24,.6);border:1px solid #1f9d55;border-radius:14px;padding:10px 14px;`;
-  el.textContent = t('สำเร็จเควส: ', 'Quest Complete: ', ST.lang) + t(q.labelTH, q.labelEN, ST.lang);
-  document.body.appendChild(el);
-  setTimeout(()=>{ el.style.transition='opacity .35s, transform .35s'; el.style.opacity='0'; el.style.transform='translate(-50%,-60%)'; }, 900);
-  setTimeout(()=>{ try{ el.remove(); }catch{} }, 1300);
-}
-
-/* ------------------------------------------------------------------
-   9) UTILS
-------------------------------------------------------------------- */
-function t(th, en, lang){ return lang==='EN' ? en : th; }
-function pickDifferent(list, prev){
-  if (!prev) return list[(Math.random()*list.length)|0];
-  const cand = list.filter(x=>x!==prev);
-  return cand.length ? cand[(Math.random()*cand.length)|0] : prev;
-}
-function randPick(arr, n){
-  const a = arr.slice(); const out = [];
-  while (a.length && out.length<n){ out.push(a.splice((Math.random()*a.length)|0,1)[0]); }
-  return out;
+export function getPowerDurations(){
+  return { x2:8, freeze:3, magnet:2 };
 }
