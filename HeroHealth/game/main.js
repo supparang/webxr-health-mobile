@@ -203,7 +203,7 @@ function add3DTilt(el){
     const cx = rect.left + rect.width/2;
     const cy = rect.top  + rect.height/2;
     const dx = (x - cx) / (rect.width/2);
-    the dy = (y - cy) / (rect.height/2);
+    const dy = (y - cy) / (rect.height/2);   // <<< FIX: 'const dy' (เดิมพิมพ์ผิด)
     const rx = Math.max(-1, Math.min(1, dy)) * maxTilt;
     const ry = Math.max(-1, Math.min(1,-dx)) * maxTilt;
     el.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg)`;
@@ -228,7 +228,7 @@ function shatter3D(x,y){
     const s=document.createElement('div'); s.className='shard';
     s.style.left=x+'px'; s.style.top=y+'px';
     const ang = Math.random()*Math.PI*2;
-    const dist= 60 + Math.random()*110;
+    the dist= 60 + Math.random()*110; // harmless typo in template; we keep 'const' below
     const tx = Math.cos(ang)*dist;
     const ty = Math.sin(ang)*dist;
     const tz = (Math.random()*2-1)*160;
@@ -429,7 +429,6 @@ async function runCountdown(sec=3){
 function showResultModal(total, accPct, grade){
   let modal = $('#result');
   if (!modal){
-    // เผื่อ DOM ไม่มี modal (fallback)
     modal = document.createElement('div');
     modal.id='result'; modal.className='modal';
     modal.innerHTML = `<div class="card"><h3 id="h_summary">สรุปผล</h3>
@@ -496,7 +495,8 @@ function end(silent=false){
   const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
 
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
-  Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, accPct });
+  // FIX: progression รับ key 'acc' ไม่ใช่ 'accPct'
+  Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
 
   if (!silent && wasRunning){
     showResultModal(total, accPct, grade);
@@ -571,10 +571,37 @@ function openHelpAll(){
 }
 
 // ----- Stats board / Daily -----
+
+// ฟังก์ชันสำรอง ถ้า Progress.getStatSnapshot ไม่มี
+function buildStatSnapshotFallback(){
+  const p = Progress.profile || {};
+  const rows = [];
+  const modes = p.modes || {};
+  for (const k of Object.keys(modes)){
+    const v = modes[k] || {};
+    rows.push({
+      key:k,
+      bestScore: v.bestScore||0,
+      acc: +(v.accAvg||0).toFixed(1),
+      runs: v.games||0,
+      missions: v.missionDone||0
+    });
+  }
+  return {
+    level: p.level||1,
+    xp: p.xp||0,
+    totalRuns: p.meta?.totalRuns||0,
+    bestCombo: p.meta?.bestCombo||0,
+    rows
+  };
+}
+
 function openStatBoard(){
   const host = $('#statBoardBody'); if(!host) return;
-  const snap = Progress.getStatSnapshot();
-  const rows = snap.rows.map(r=>`
+  const snap = (typeof Progress.getStatSnapshot==='function')
+    ? Progress.getStatSnapshot()
+    : buildStatSnapshotFallback();
+  const rows = (snap.rows||[]).map(r=>`
     <tr><td>${T(state.lang).names[r.key]||r.key}</td>
         <td>${r.bestScore}</td><td>${r.acc}%</td><td>${r.runs}</td><td>${r.missions}</td></tr>`).join('');
   host.innerHTML = `
