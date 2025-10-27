@@ -1,20 +1,20 @@
 // === Hero Health Academy — main.js (modes selectable, Start-only launch, missions + powers) ===
 window.__HHA_BOOT_OK = true;
 
-// ----- Imports -----
+// ----- Imports (absolute paths) -----
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
-import { Engine } from './core/engine.js';
-import { HUD } from './core/hud.js';
-import { Coach } from './core/coach.js';
-import { SFX } from './core/sfx.js';
-import { ScoreSystem } from './core/score.js';
-import { PowerUpSystem } from './core/powerup.js';
-import { Progress } from './core/progression.js';
+import { Engine }      from '/webxr-health-mobile/HeroHealth/game/core/engine.js';
+import { HUD }         from '/webxr-health-mobile/HeroHealth/game/core/hud.js';
+import { Coach }       from '/webxr-health-mobile/HeroHealth/game/core/coach.js';
+import { SFX }         from '/webxr-health-mobile/HeroHealth/game/core/sfx.js';
+import { ScoreSystem } from '/webxr-health-mobile/HeroHealth/game/core/score.js';
+import { PowerUpSystem } from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
+import { Progress }    from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
 
-import * as goodjunk   from './modes/goodjunk.js';
-import * as groups     from './modes/groups.js';
-import * as hydration  from './modes/hydration.js';
-import * as plate      from './modes/plate.js';
+import * as goodjunk   from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
+import * as groups     from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
+import * as hydration  from '/webxr-health-mobile/HeroHealth/game/modes/hydration.js';
+import * as plate      from '/webxr-health-mobile/HeroHealth/game/modes/plate.js';
 
 // ----- Helpers -----
 const $  = (s)=>document.querySelector(s);
@@ -432,7 +432,6 @@ async function runCountdown(sec=3){
 }
 
 async function start(){
-  // เริ่มเฉพาะเมื่อกดปุ่ม Start เท่านั้น
   end(true);
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -519,84 +518,19 @@ function renderMissions(list){
   }
 }
 
-// ----- Help content (per-mode & all-modes) -----
-function helpHTMLForMode(key, lang){
-  const TH = {
-    goodjunk: {
-      title:'วิธีเล่น: ดี vs ขยะ',
-      body:`🥗 เก็บอาหารดี • 🗑️ หลีกเลี่ยงอาหารขยะ
-- แตะไอคอนอาหารดีเพื่อทำคะแนนและสะสมคอมโบ
-- แตะผิด (ขยะ) จะโดนหักคะแนนและคอมโบ
-- ใช้พาวเวอร์อัป x2 / Freeze / Magnet ให้จังหวะได้เปรียบ`
-    },
-    groups: {
-      title:'วิธีเล่น: จาน 5 หมู่',
-      body:`🍎 เลือกหมวดให้ตรงเป้าหมาย (ผลไม้/ผัก/โปรตีน/ธัญพืช/นม)
-- เป้าหมายจะแสดงที่แถบ 🎯 ด้านบน
-- แตะไอคอนให้ตรงหมวดเพื่อทำคะแนน สะสมครบจะเปลี่ยนเป้าหมาย
-- พาวเวอร์: x2 (คะแนนเป้าหมาย×2), 🧊 Freeze เป้าหมาย, 🧲 Magnet ช่วยสุ่มเป้าหมายถี่ขึ้น`
-    },
-    hydration: {
-      title:'วิธีเล่น: สมดุลน้ำ',
-      body:`💧 รักษาระดับน้ำให้อยู่ในเขต "พอดี"
-- ระดับน้ำต่ำ: แตะน้ำเปล่าเพื่อเพิ่ม หลีกเลี่ยงน้ำหวาน
-- ระดับน้ำสูง: หยุดดื่มน้ำเปล่า แตะน้ำหวานได้โดยไม่เสียคอมโบ
-- บาร์น้ำเปลี่ยนสี: ต่ำ=ฟ้าเข้ม • พอดี=เขียว • สูง=ส้ม/แดง`
-    },
-    plate: {
-      title:'วิธีเล่น: จัดจานสุขภาพ',
-      body:`🍱 วางอาหารลงจานให้ครบโควตาตามสัดส่วนที่กำหนด
-- เติมผัก-ผลไม้ให้มากกว่ากลุ่มอื่น
-- โปรตีนพอดี ธัญพืชโฮลเกรน และนม/ทางเลือก`
-    }
-  };
-  const EN = {
-    goodjunk: { title:'How to Play: Good vs Junk', body:`Collect healthy foods, avoid junk. Use power-ups wisely.` },
-    groups:   { title:'How to Play: Food Group Frenzy', body:`Tap items matching the current target food group. Power-ups help the target.` },
-    hydration:{ title:'How to Play: Hydration', body:`Keep hydration in the green zone. Tap water or sugary drinks according to level.` },
-    plate:    { title:'How to Play: Healthy Plate', body:`Fill the plate according to quotas. Emphasize veggies & fruits.` },
-  };
-  const dict = (lang==='EN') ? EN : TH;
-  const d = dict[key] || dict.goodjunk;
-  return `<h4 style="margin:0 0 6px 0;font:900 18px/1.2 ui-rounded">${d.title}</h4><div>${d.body}</div>`;
-}
-function renderHelpPerMode(){
-  const lang = (state.lang==='EN')?'EN':'TH';
-  const html = helpHTMLForMode(state.modeKey, lang);
-  const body = $('#helpBody'); if (body) body.innerHTML = html;
-}
-function renderHelpAll(){
-  const lang = (state.lang==='EN')?'EN':'TH';
-  const keys = Object.keys(MODES);
-  const body = $('#helpSceneBody'); if (!body) return;
-  body.innerHTML = keys.map(k => helpHTMLForMode(k, lang)).join('<hr style="border:none;border-top:1px solid #26324d;margin:12px 0">');
-}
-
 // ----- Global UI Events -----
-// (สำคัญ) เลือกโหมด “ไม่เริ่มเกม” — ต้องกด Start เท่านั้น
 document.addEventListener('pointerup', (e)=>{
   const target = e.target;
-  // ผลสรุป: ปุ่มใน modal ใช้งานได้แน่
-  const res = target.getAttribute?.('data-result');
-  if (res){
-    const modal = $('#result');
-    if (res==='replay'){ if (modal) modal.style.display='none'; start(); return; }
-    if (res==='home'){ if (modal) modal.style.display='none'; end(true); return; }
-  }
-
   const btn = byAction(target);
   if (!btn) return;
 
   const a = btn.getAttribute('data-action') || '';
   const v = btn.getAttribute('data-value')  || '';
 
-  if (a.startsWith('ui:start:')){          // เลือกโหมด
+  if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
-    if (MODES[key]){
-      state.modeKey = key;
-      applyUI();
-    }
-    return;                                 // ไม่ start ทันที
+    if (MODES[key]){ state.modeKey = key; applyUI(); }
+    return; // ไม่ start ทันที
   }
 
   if (a === 'mode'){ state.modeKey = v; applyUI(); }
@@ -609,19 +543,13 @@ document.addEventListener('pointerup', (e)=>{
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a === 'restart'){ end(true); start(); }
-  else if (a === 'help'){ 
-    renderHelpPerMode(); 
-    const m=$('#help'); if (m) m.style.display='flex'; 
-  }
+  else if (a === 'help'){ const m=$('#help'); if (m) m.style.display='flex'; }
   else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
-  else if (a === 'helpScene'){ 
-    renderHelpAll();
-    const hs=$('#helpScene'); if (hs) hs.style.display='flex'; 
-  }
+  else if (a === 'helpScene'){ const hs=$('#helpScene'); if (hs) hs.style.display='flex'; }
   else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
-// ----- Power-ups (พร้อมโหมด groups) -----
+// ----- Power-ups (groups only wiring) -----
 (function wirePowers(){
   const bar = $('#powerBar'); if (!bar) return;
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
@@ -680,7 +608,7 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
-// Result modal buttons (fallback เผื่อ DOM bubbling ไม่ทำงาน)
+// Result modal buttons
 const resEl = $('#result');
 if (resEl){
   resEl.addEventListener('click', (e)=>{
