@@ -219,3 +219,35 @@ export const Progress = {
     save(p);
   }
 };
+export const Progress = {
+  ...
+  genDaily(){
+    const d = new Date();
+    const today = d.toISOString().slice(0,10);
+    const p = this.profile;
+    if(p.daily?.date === today) return p.daily;
+    const missions = [
+      { id:'score300', label:'ได้คะแนน ≥300', check:(r)=>r.score>=300 },
+      { id:'accuracy80', label:'ความแม่น ≥80%', check:(r)=>r.acc>=80 },
+      { id:'2modes', label:'เล่นครบ 2 โหมด', check:()=>true } // นับจาก session
+    ];
+    const picks = missions.sort(()=>Math.random()-0.5).slice(0,2);
+    p.daily = { date:today, missions:picks, done:[] };
+    this.save();
+    return p.daily;
+  },
+  checkDaily(result){
+    const d = this.profile.daily; if(!d) return;
+    for(const m of d.missions){
+      if(d.done.includes(m.id)) continue;
+      const ok = m.check(result);
+      if(ok) d.done.push(m.id);
+    }
+    if(d.done.length===d.missions.length) this.giveReward('daily');
+    this.save();
+  },
+  giveReward(kind){
+    this.profile.xp += kind==='daily'?80:30;
+    this.levelCheck();
+  }
+};
