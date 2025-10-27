@@ -1,15 +1,11 @@
-/* === Hero Health Academy — styles/game.css (modal + base + HUD/FX complete) === */
-
-/* ---------- Base ---------- */
+/* === Hero Health Academy — styles/game.css (modal + base) === */
 html, body {
   margin:0; padding:0; height:100%; width:100%;
   overflow:hidden; background:#0a0f1a;
   color:#fff; font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
 }
-* { box-sizing: border-box; }
 canvas#c { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
-/* ---------- Header ---------- */
 header.brand {
   position:fixed; top:0; left:0; right:0; z-index:50;
   display:flex; align-items:center; gap:8px;
@@ -23,30 +19,19 @@ header .btn, .menu .btn, .menu .tag {
 }
 header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(1px); }
 
-/* ---------- HUD (top area) ---------- */
 .hud {
   position:fixed; z-index:60; top:64px; left:12px; right:12px;
   display:flex; flex-direction:column; gap:6px;
   text-shadow:0 2px 8px #000;
 }
-.hud .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-.badge {
-  background:#0d172b; border:1px solid #203155; border-radius:10px;
-  padding:6px 10px; font-weight:900; display:inline-flex; gap:6px; align-items:center;
-}
-.badge b { font-weight:900; }
-#combo { min-width:44px; text-align:center; }
-
-/* Bars */
 .bar { background:#0e1730; border-radius:999px; overflow:hidden; height:10px; border:1px solid #1c2a4d; }
 .bar.slim { height:8px; }
-#feverBarWrap { display:flex; gap:8px; align-items:center; }
 #feverBar { height:100%; width:0%; background:linear-gradient(90deg, #ffd54a, #ff6d00); }
 .fever { font:900 18px/1 ui-rounded, system-ui; color:#ffd54a; }
-#time { min-width:36px; text-align:right; font-weight:900; }
 
-/* Power-ups (top HUD row) */
-.powerbar { display:flex; gap:8px; align-items:center; margin-top:4px; }
+.powerbar {
+  display:flex; gap:8px; align-items:center; margin-top:4px;
+}
 .powerbar .pseg {
   position:relative; display:flex; align-items:center; justify-content:center;
   width:40px; height:40px; border-radius:12px;
@@ -58,113 +43,18 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 .powerbar .pseg:hover { transform:translateY(-1px) scale(1.03); }
 .powerbar .pseg:active { transform:translateY(0) scale(.98); }
 .powerbar .pseg[aria-disabled="true"] { opacity:.45; pointer-events:none; }
-.powerbar .pseg span { font-size:18px; font-weight:900; user-select:none; }
+.powerbar .pseg span { font-size:18px; font-weight:900; }
 .powerbar .pseg[data-k="x2"] span { font-size:16px; }
-.powerbar .pseg i {
-  position:absolute; inset:auto 0 0 0; height:0%;
-  background:linear-gradient(180deg, rgba(255,213,74,.85), rgba(255,109,0,.85));
-  transition:height .2s linear;
-}
+.powerbar .pseg i { position:absolute; inset:auto 0 0 0; height:0%;
+  background:linear-gradient(180deg, rgba(255,213,74,.85), rgba(255,109,0,.85)); transition:height .2s linear; }
 .powerbar .pseg.busy i { height:100%; }
 .powerbar .pseg.ready { outline:2px solid #4ade80; }
 
-/* Target badge (Groups mode) */
 #targetWrap {
   font-weight:800; background:#0d172b; border:1px solid #203155; border-radius:10px;
   padding:6px 10px; display:inline-flex; align-items:center; gap:8px; width:max-content;
 }
-#targetBadge { font-weight:900; }
 
-/* Hydration HUD (optional) */
-#hydroWrap {
-  display:none; gap:8px; align-items:center;
-  background:#0d172b; border:1px solid #203155; border-radius:10px; padding:6px 10px;
-}
-
-/* Plate tracker (pills) */
-#plateTracker { display:none; }
-#platePills { display:flex; gap:8px; flex-wrap:wrap; }
-#platePills .pill {
-  position:relative;
-  background:#0d172b; border:1px solid #203155; border-radius:12px;
-  padding:6px 10px; display:flex; gap:8px; align-items:center; min-width:140px;
-}
-#platePills .pill b { min-width:86px; display:inline-block; }
-#platePills .pill span { font-weight:800; }
-#platePills .pill i {
-  position:absolute; left:0; top:0; bottom:0; width:0%;
-  background:linear-gradient(90deg,#7fffd4,#67e8f9); opacity:.18; border-radius:12px;
-  transition:width .25s ease;
-}
-#platePills .pill.ok { border-color:#34d399; box-shadow:0 0 0 1px #34d39940 inset; }
-
-/* Mission line (flash guidance) */
-#missionLine {
-  position:fixed; top:56px; left:50%; transform:translateX(-50%);
-  z-index:65; background:#0d172b; border:1px solid #203155; border-radius:12px;
-  padding:6px 12px; display:none; font-weight:900; text-shadow:0 2px 8px #000;
-}
-
-/* Quest chips (global Quests HUD) */
-#questChips {
-  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
-}
-#questChips .chip, .questChip {
-  display:grid; grid-template-columns:auto auto; grid-template-rows:auto auto; gap:4px 8px;
-  align-items:center;
-  padding:6px 10px; border-radius:12px; border:1px solid #203155; background:#0d172b;
-}
-#questChips .chip > span:first-child,
-.questChip .qLabel { grid-column:1 / span 2; font-weight:900; }
-#questChips .chip .bar,
-.questChip .qBar { grid-column:1 / span 2; width:180px; height:6px; border-radius:999px;
-  background:#0e1730; border:1px solid #1c2a4d; overflow:hidden; }
-#questChips .chip .bar > div,
-.questChip .qBar i { height:100%; width:0%; background:linear-gradient(90deg,#7fffd4,#22d3ee); }
-.questChip .qProg { font-weight:800; }
-
-/* Coach HUD (center-top bubble) */
-#coachHUD{
-  position:fixed; left:50%; top:98px; transform:translateX(-50%);
-  z-index:120; display:none; align-items:center; justify-content:center;
-  background:rgba(13,23,43,.9); border:1px solid #203155; border-radius:999px; padding:8px 14px;
-  box-shadow:0 10px 28px rgba(0,0,0,.35);
-}
-#coachText{ font:900 16px/1 ui-rounded,system-ui; color:#e9f3ff; white-space:nowrap; }
-#coachHUD.pulse{ animation:coachPulse .9s ease both; }
-@keyframes coachPulse{
-  0%{ transform:translateX(-50%) translateY(-6px); opacity:0; }
-  15%{ opacity:1; }
-  50%{ transform:translateX(-50%) translateY(0); }
-  100%{ opacity:1; }
-}
-
-/* ---------- Spawned Items ---------- */
-.item{
-  filter:drop-shadow(0 6px 16px rgba(0,0,0,.35));
-  user-select:none;
-}
-.item:active{ transform:scale(.96); }
-
-/* Score bursts */
-.scoreBurst{
-  pointer-events:none;
-  text-align:center;
-}
-
-/* Screen feedback */
-.flash-danger{ animation:flashDanger .18s ease both; }
-@keyframes flashDanger{
-  0%{ box-shadow:inset 0 0 0 9999px rgba(255,0,72,.12); }
-  100%{ box-shadow:inset 0 0 0 0 rgba(255,0,72,0); }
-}
-.dim-penalty{ animation:dimPenalty .35s ease both; }
-@keyframes dimPenalty{
-  0%{ filter:brightness(.8); }
-  100%{ filter:brightness(1); }
-}
-
-/* ---------- Bottom Menu ---------- */
 .menu{
   position:fixed; left:0; right:0; bottom:0; z-index:70;
   background:linear-gradient(0deg, rgba(8,12,24,.8), rgba(8,12,24,.3));
@@ -174,10 +64,10 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 .menu .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .modeLabel{ margin-left:auto; opacity:.85; font-weight:800; }
 
-/* ---------- Modal (Summary / Help / Stats / Daily) ---------- */
+/* ------- Modal (สรุปผล/คู่มือ/สถิติ/รายวัน) ------- */
 .modal{
   position:fixed; inset:0; display:none; align-items:center; justify-content:center;
-  z-index:9999; background:rgba(0,0,0,.45); backdrop-filter: blur(2px);
+  z-index: 9999; background:rgba(0,0,0,.45); backdrop-filter: blur(2px);
 }
 .modal .card{
   max-width:min(92vw,720px); width:clamp(280px,88vw,560px);
@@ -187,18 +77,10 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 }
 .modal .card.scroll{ overflow:auto; }
 .modal .btn,[data-result]{ cursor:pointer; }
-.tbl{ width:100%; border-collapse:collapse; }
-.tbl th,.tbl td{ border-bottom:1px solid #1e2a45; padding:8px; text-align:left; }
-.tbl th{ background:#0f1b33; }
 
-/* ---------- Help Panels ---------- */
-#help pre{ white-space:pre-wrap; font:600 14px/1.45 ui-rounded,system-ui; }
-#helpScene pre{ white-space:pre-wrap; }
-
-/* ---------- Responsive tweaks ---------- */
-@media (max-width: 480px){
-  #coachText{ font-size:14px; }
-  .powerbar .pseg{ width:36px; height:36px; }
-  #platePills .pill{ min-width:120px; }
-  .tbl th,.tbl td{ padding:6px; }
+/* 🔹 ใหม่: A11y โฟกัสสำหรับปุ่มไอคอนทุกโหมด */
+.item:focus-visible{
+  outline: 2px solid #7fffd4;
+  outline-offset: 4px;
+  border-radius: 16px;
 }
