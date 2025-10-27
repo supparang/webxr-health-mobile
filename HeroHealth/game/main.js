@@ -792,15 +792,24 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
-// Result modal buttons
-const resEl = $('#result');
+// Result modal buttons (FIX: use closest to catch inner clicks)
+const resEl = document.getElementById('result');
 if (resEl){
   resEl.addEventListener('click', (e)=>{
-    const a = e.target.getAttribute('data-result');
-    if (a==='replay'){ resEl.style.display='none'; start(); }
-    if (a==='home'){ resEl.style.display='none'; end(true); }
-  });
+    const btn = e.target.closest('[data-result]');
+    if (!btn) return;
+
+    const a = btn.getAttribute('data-result');
+    if (a === 'replay'){
+      resEl.style.display = 'none';
+      start();
+    } else if (a === 'home'){
+      resEl.style.display = 'none';
+      end(true);
+    }
+  }, {passive:true});
 }
+
 
 // Toggles
 $('#langToggle')?.addEventListener('click', ()=>{
