@@ -1,4 +1,4 @@
-// === Hero Health Academy — core/quests.js (Mini Quests: global + Hydration-specific) ===
+// === Hero Health Academy — core/quests.js (Mini Quests + HUD/timer ready) ===
 export const Quests = (() => {
   // สำหรับโหมดทั่วไป
   const BASE = [
@@ -96,26 +96,59 @@ export const Quests = (() => {
     },
   ];
 
-  // ภายใน
+  // --------- ภายใน ---------
   let RUN = null;
-  function t(th,en,lang){ return lang==='EN'?en:th; }
+  let _hud = null, _coach = null;
 
+  function t(th,en,lang){ return lang==='EN'?en:th; }
   function shufflePick3(list){
     const a=[...list];
     for (let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; }
     return a.slice(0,3);
   }
 
-  function beginRun(mode, diff, lang='TH'){
+  // แปลงเป็นชิป HUD
+  function toChips(){
+    if (!RUN) return [];
+    return RUN.list.map(x=>{
+      const c=x.ctx;
+      return {
+        key: c.id,
+        icon: c.icon || '⭐',
+        need: c.need|0,
+        progress: Math.max(0, Math.min(c.need|0, c.prog|0)),
+        remain: RUN.remainSec|0,       // ใช้เวลารวมของรอบ
+        done: !!c.done,
+        fail: !!c.fail,
+        label: c.label
+      };
+    });
+  }
+
+  // ตรวจจบ/ล้มเหลว
+  function _evalDoneFail(){
+    if (!RUN) return;
+    for (const x of RUN.list){
+      const c = x.ctx;
+      if (!c.done && !c.fail){
+        if ((c.prog|0) >= (c.need|0)) c.done = true;
+        else if ((RUN.remainSec|0) <= 0) c.fail = !c.done;
+      }
+    }
+  }
+
+  // --------- Public ---------
+  function beginRun(mode, diff, lang='TH', seconds=45){
     const pool = (mode==='hydration') ? HYD : BASE;
     const selected = shufflePick3(pool).map(q=>{
       const need = q.makeNeed ? q.makeNeed(diff) : (q.need||1);
-      const ctx = { id:q.id, icon:q.icon, label: t(q.labelTH, q.labelEN, lang), need, prog:0 };
+      const ctx = { id:q.id, icon:q.icon, label: t(q.labelTH, q.labelEN, lang), need, prog:0, done:false, fail:false };
       if (q.init) q.init(ctx);
       return { def:q, ctx };
     });
-    RUN = { mode, diff, lang, list:selected };
-    // ทำให้ hydration.js เรียกได้: window.HHA_QUESTS.event(...)
+    RUN = { mode, diff, lang, list:selected, remainSec: Math.max(10, seconds|0) };
+
+    // API ภายนอก (ตัวเดิม)
     if (!window.HHA_QUESTS){
       window.HHA_QUESTS = { event:(type,payload)=>event(type,payload) };
     }
@@ -127,6 +160,20 @@ export const Quests = (() => {
     for (const q of RUN.list){
       try { q.def.onEvent?.(q.ctx, type, payload||{}); } catch {}
     }
+    _evalDoneFail();
+    if (_hud) _hud.setQuestChips(toChips());
+  }
+
+  // เรียกทุก ~1s จาก main
+  function tick(tickPayload={}){ // เช่น {score}
+    if (!RUN) return;
+    RUN.remainSec = Math.max(0, (RUN.remainSec|0) - 1);
+    // ส่ง tick เข้าควสต์บางประเภท (เช่น speed_finisher)
+    for (const q of RUN.list){
+      try { q.def.onEvent?.(q.ctx, 'tick', tickPayload||{}); } catch {}
+    }
+    _evalDoneFail();
+    if (_hud) _hud.setQuestChips(toChips());
   }
 
   function endRun(summary){
@@ -134,12 +181,23 @@ export const Quests = (() => {
     for (const q of RUN.list){
       try { q.def.onEvent?.(q.ctx, 'run_end', summary||{}); } catch {}
     }
+    _evalDoneFail();
     const out = RUN.list.map(x=>x.ctx);
     RUN = null;
+    if (_hud) _hud.setQuestChips([]); // ล้าง HUD
     return out;
   }
 
   function getActive(){ return RUN ? RUN.list.map(x=>x.ctx) : []; }
 
-  return { beginRun, event, endRun, getActive };
+  // ตัวช่วย bind HUD/Coach (ไม่บังคับใช้)
+  function bindToMain({hud=null, coach=null}={}){
+    _hud = hud || null; _coach = coach || null;
+    return {
+      refresh(){ if (_hud) _hud.setQuestChips(toChips()); },
+      chips: toChips
+    };
+  }
+
+  return { beginRun, event, tick, endRun, getActive, bindToMain, toChips };
 })();
