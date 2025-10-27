@@ -1,9 +1,12 @@
-// === Hero Health Academy — game/modes/groups.js (Floating Icons + Powers + Multi-target) ===
+// === Hero Health Academy — game/modes/groups.js ===
+// Floating iconsแบบ goodjunk + Multi-Target + Powers (x2/freeze/magnet) + Golden
+// ทำงานร่วมกับ main.js และ progression.js
+
 import { Progress } from '../core/progression.js';
 
 export const name = 'groups';
 
-// ---------- Groups & Items ----------
+/* ---------- Groups & Items ---------- */
 const GROUPS = [
   { id:'fruits',  labelTH:'ผลไม้',     labelEN:'Fruits',     color:'#ef4444' },
   { id:'veggies', labelTH:'ผัก',        labelEN:'Vegetables', color:'#22c55e' },
@@ -71,68 +74,66 @@ const ITEMS = [
   { id:'donut',      group:'grains',  labelEN:'Donut',      labelTH:'โดนัท',           icon:'🍩' },
 ];
 
-// ---------- Internal state ----------
+/* ---------- State ---------- */
 const ST = {
   lang: 'TH',
-  // เป้าหมาย 1–3 หมวด (สุ่มต่อรอบ)
+
+  // เป้าหมายสุ่ม 1–3 หมวด/รอบ
   targetIds: ['fruits'],
   needPerTarget: 4,
-  gotPerTarget: {},   // {fruits:2,...}
+  gotPerTarget: {},
 
-  // พลังเสริม
-  mulX2Until: 0,
+  // พลัง
+  x2Until: 0,
   freezeUntil: 0,
   magnetOnce: false,
 
-  // ทอง
+  // ไอคอนทอง (โบนัส เพิ่มภารกิจ/แต้มจาก progression)
   goldenRate: 0.12
 };
 
-// ---------- Public API ----------
+/* ---------- API for main.js ---------- */
 export function init(gameState, hud, diff){
   ST.lang = (localStorage.getItem('hha_lang')||'TH');
 
-  // โควตาต่อหมวดตามความยาก
+  // กำหนดโควตาต่อหมวดตามระดับ
   const d = gameState?.difficulty || 'Normal';
   ST.needPerTarget = d==='Easy' ? 3 : d==='Hard' ? 5 : 4;
 
-  // สุ่มจำนวนเป้าหมาย 1–3 หมวด
-  const howMany = 1 + ((Math.random()*3)|0);            // 1..3
+  // สุ่มจำนวนเป้าหมาย 1–3
+  const howMany = 1 + ((Math.random()*3)|0);
   ST.targetIds = pickN(shuffle(GROUPS.map(g=>g.id)), howMany);
-  ST.gotPerTarget = {}; for (const id of ST.targetIds) ST.gotPerTarget[id]=0;
 
-  // อัปเดต HUD
-  setTargetHUD();
+  ST.gotPerTarget = {};
+  for (const id of ST.targetIds) ST.gotPerTarget[id] = 0;
+
+  renderTargetHUD();
+  Progress.event('mode_init', { mode:'groups', targetIds: ST.targetIds, need: ST.needPerTarget });
 }
 
-export function cleanup(){
-  // nothing
-}
+export function cleanup(){ /* no-op */ }
+export function tick(state, systems, hud){ /* no-op (life/TTL คุมโดย main.js) */ }
 
-export function tick(state, systems, hud){
-  // เมื่อ freeze หมดเวลา ให้ปล่อย spawn ปกติ (main.js คุมแล้ว)
-}
-
-// meta ต่อชิ้นตอน spawn (main.js เรียกทุกครั้ง)
+/** main.js เรียกทุกครั้งที่จะปล่อยไอคอน 1 ชิ้น */
 export function pickMeta(diff, gameState){
-  // เพิ่มโอกาสให้ชิ้น "หมวดเป้าหมาย" โผล่บ่อยกว่า
-  const probTarget = 0.58;
-  const isTarget = Math.random() < probTarget;
+  const probTarget = 0.58;               // โอกาสเป็นชิ้นตามเป้าหมาย
+  const isTarget  = Math.random() < probTarget;
 
   const pool = isTarget
-    ? ITEMS.filter(i=>ST.targetIds.includes(i.group))
+    ? ITEMS.filter(i => ST.targetIds.includes(i.group))
     : ITEMS;
 
   const it = pool[(Math.random()*pool.length)|0];
 
-  const life = Math.max(900, (diff?.life||3000) * (isFreeze() ? 1.8 : 1.0));
+  const lifeBase = (diff?.life ?? 3000);
+  const life = Math.max(900, lifeBase * (isFrozen() ? 1.8 : 1.0));
 
-  // โอกาสเป็นทองเฉพาะ target
+  // โอกาสทองเฉพาะ target
   const golden = isTarget && Math.random() < ST.goldenRate;
 
   return {
     id: it.id,
-    char: golden ? '🟡' : it.icon,
+    char: golden ? '🟡' : it.icon,  // แทนทองด้วยจุดเด่น
     good: ST.targetIds.includes(it.group),
     life,
     groupId: it.group,
@@ -140,52 +141,57 @@ export function pickMeta(diff, gameState){
   };
 }
 
-// เมื่อกดชิ้น
+/** เมื่อผู้เล่นคลิกไอคอน */
 export function onHit(meta, systems, gameState, hud){
   if (!meta) return 'ok';
 
+  // แม่เหล็ก: รอบถัดไปให้การสุ่มมี target สูงขึ้น (จัดการใน pickMeta แล้วผ่าน probTarget)
+  if (ST.magnetOnce && meta.good){ ST.magnetOnce = false; }
+
   if (meta.good){
-    // Magnet (ครั้งถัดไป auto-good 1 ชิ้น)
-    if (ST.magnetOnce){ ST.magnetOnce=false; }
+    // นับความคืบหน้าตามหมวด
+    if (meta.groupId in ST.gotPerTarget){
+      ST.gotPerTarget[meta.groupId] = Math.min(ST.needPerTarget, ST.gotPerTarget[meta.groupId] + 1);
+      renderTargetHUD();
+      Progress.event('groups_hit', { good:true, groupId: meta.groupId, golden: !!meta.golden });
 
-    // x2 score ภายในโหมด (ซ้อนกับ FEVER ของเกม)
-    const isPerfect = false; // หากมีหน้าต่าง perfect ให้คำนวณตรงนี้
-    const res = isPerfect ? 'perfect' : 'good';
-
-    // นับโควตา
-    if (meta.groupId && ST.gotPerTarget[meta.groupId]!=null){
-      ST.gotPerTarget[meta.groupId] = Math.min(ST.needPerTarget, ST.gotPerTarget[meta.groupId]+1);
-      setTargetHUD();
-      // ครบทุกเป้าหมายหรือยัง
-      if (Object.keys(ST.gotPerTarget).every(id => ST.gotPerTarget[id] >= ST.needPerTarget)){
-        // รีเซ็ตรอบเป้าหมายใหม่
+      // ครบทุกหมวดตามโควตา → สุ่มเป้าหมายใหม่
+      const doneAll = Object.keys(ST.gotPerTarget).every(id => ST.gotPerTarget[id] >= ST.needPerTarget);
+      if (doneAll){
         const howMany = 1 + ((Math.random()*3)|0);
         ST.targetIds = pickN(shuffle(GROUPS.map(g=>g.id)), howMany);
-        ST.gotPerTarget = {}; for (const id of ST.targetIds) ST.gotPerTarget[id]=0;
-        setTargetHUD();
+        ST.gotPerTarget = {};
+        for (const id of ST.targetIds) ST.gotPerTarget[id] = 0;
+        renderTargetHUD();
         systems.sfx?.play?.('powerup');
+        systems.coach?.say?.(t('เป้าหมายใหม่!', 'New targets!', ST.lang));
+        Progress.event('groups_cycle', { targetIds: ST.targetIds, need: ST.needPerTarget });
       }
     }
 
     if (meta.golden){
-      // แจ้ง coach เล็กน้อย
       systems.coach?.say?.(t('ทองมาแล้ว!', 'Golden!', ST.lang));
+      Progress.event('golden', { mode:'groups' });
     }
-    return res;
+
+    // ผลให้ main.js แปลงคะแนนต่อ (สามารถเพิ่ม perfect logic ภายหลัง)
+    return 'good';
   }
 
-  // กดผิด
+  // พลาดหมวด
   systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
+  Progress.event('groups_hit', { good:false, groupId: meta.groupId||null, golden: !!meta.golden });
   return 'bad';
 }
 
-// ---------- Powers (called by main.js) ----------
+/* ---------- Powers (เรียกจาก main.js) ---------- */
 export const powers = {
   x2Target(){
-    ST.mulX2Until = now()+8000;
+    // ใช้ร่วมกับ FEVER ของระบบหลักได้ (main.js คูณรวมให้แล้ว)
+    ST.x2Until = now() + 8000; // เก็บ state ไว้หากต้องใช้งานภายหลัง (เงื่อนไขคะแนนเฉพาะโหมด)
   },
   freezeTarget(){
-    ST.freezeUntil = now()+3000;
+    ST.freezeUntil = now() + 3000;
   },
   magnetNext(){
     ST.magnetOnce = true;
@@ -193,31 +199,33 @@ export const powers = {
 };
 
 export function getPowerDurations(){
+  // เพื่อให้ main.js แสดงคูลดาวน์/ระยะเวลาที่ปุ่ม
   return { x2:8, freeze:3, magnet:0 };
 }
 
-// ---------- HUD helpers ----------
-function setTargetHUD(){
-  const wrap = document.getElementById('targetWrap');
+/* ---------- HUD ---------- */
+function renderTargetHUD(){
+  const wrap  = document.getElementById('targetWrap');
   const badge = document.getElementById('targetBadge');
-  const tLabel = document.getElementById('t_target');
+  const tLabel= document.getElementById('t_target');
   if (!wrap || !badge || !tLabel) return;
-  wrap.style.display = 'block';
+
+  wrap.style.display = 'inline-flex';
   tLabel.textContent = t('หมวด', 'Target', ST.lang);
 
-  // ตัวอย่างข้อความ: ผลไม้(2/4), โปรตีน(1/4)
+  // เช่น: ผลไม้(2/4), โปรตีน(1/4)
   const parts = ST.targetIds.map(id=>{
     const g = GROUPS.find(x=>x.id===id);
-    const got = ST.gotPerTarget[id]||0;
+    const got = ST.gotPerTarget[id] || 0;
     const need = ST.needPerTarget;
     return `${t(g.labelTH, g.labelEN, ST.lang)}(${got}/${need})`;
   });
   badge.textContent = parts.join(', ');
 }
 
-// ---------- utils ----------
+/* ---------- utils ---------- */
 function t(th, en, lang){ return lang==='EN' ? en : th; }
-function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1)|0); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function pickN(a, n){ return a.slice(0, Math.max(1, Math.min(n, a.length))); }
 function now(){ return performance?.now?.()||Date.now(); }
-function isFreeze(){ return now() < (ST.freezeUntil||0); }
+function isFrozen(){ return now() < (ST.freezeUntil||0); }
