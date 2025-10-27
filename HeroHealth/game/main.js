@@ -719,3 +719,24 @@ applyUI(); updateHUD();
   render();
   Progress.on((type)=>{ if (type==='level_up') render(); });
 })();
+function openStatBoard(){
+  const host = $('#statBoardBody'); if(!host) return;
+  const p = Progress.profile;
+  const modeStats = Object.entries(p.modes||{}).map(([k,v])=>`
+    <tr><td>${T(state.lang).names[k]}</td>
+        <td>${v.bestScore||0}</td>
+        <td>${(v.acc||0).toFixed(1)}%</td>
+        <td>${v.missionDone||0}</td></tr>`).join('');
+  host.innerHTML = `
+    <div style="font-weight:800;margin-bottom:8px">Level ${p.level} (${p.xp|0} XP)</div>
+    <table class="tbl">
+      <tr><th>โหมด</th><th>คะแนนสูงสุด</th><th>ความแม่น</th><th>เควสสำเร็จ</th></tr>
+      ${modeStats}
+    </table>`;
+  $('#statBoard').style.display='flex';
+}
+document.addEventListener('click', (e)=>{
+  const a = e.target.getAttribute('data-action');
+  if(a==='statOpen') openStatBoard();
+  if(a==='statClose') $('#statBoard').style.display='none';
+});
