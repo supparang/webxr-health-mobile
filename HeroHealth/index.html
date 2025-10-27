@@ -5,45 +5,77 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- สำคัญ: ตั้ง base ให้ถูกกับ GitHub Pages ของโปรเจ็กต์ -->
+  <!-- สำคัญสำหรับ GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
 
   <link rel="stylesheet" href="styles/game.css" />
   <link rel="stylesheet" href="styles/groups.css" />
 
-  <!-- Bootloader -->
+  <!-- Bootloader: พยายาม import ./game/main.js หลาย path และแสดงสถานะ -->
   <script type="module">
-    (async () => {
-      const warn = document.createElement('div');
-      warn.id = 'bootWarn';
-      warn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:4000;display:none';
-      warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js';
-      document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(warn));
+  (async () => {
+    const warn = document.createElement('div');
+    warn.id = 'bootWarn';
+    warn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000;display:none';
+    warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js';
+    document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(warn));
 
-      const chip = document.createElement('div');
-      chip.id = 'bootChip';
-      chip.style.cssText = 'position:fixed;right:12px;bottom:12px;background:#1b5e20;color:#fff;padding:8px 10px;border-radius:999px;font-weight:800;font-size:12px;z-index:4001;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)';
-      chip.textContent = '✅ JS Loaded';
-      document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(chip));
+    const chip = document.createElement('div');
+    chip.id = 'bootChip';
+    chip.style.cssText = 'position:fixed;right:12px;bottom:12px;background:#1b5e20;color:#fff;padding:8px 10px;border-radius:999px;font-weight:800;font-size:12px;z-index:2001;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    chip.textContent = '✅ JS Loaded';
+    document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(chip));
 
-      const bases = [document.baseURI, new URL('./', location.href).href, 'https://supparang.github.io/webxr-health-mobile/HeroHealth/'];
-      const paths = ['game/main.js', './game/main.js', 'game/main.js?v=live'];
-      const cands = []; for (const b of bases) for (const p of paths) cands.push(new URL(p,b).href);
-      let ok=false, last=null;
-      for (const u of cands){
-        try{
-          await import(u+(u.includes('?')?'&':'?')+'cb='+Date.now());
-          ok=true;
-          setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80);
-          break;
-        } catch(e){ last=e; }
+    const bases = [
+      document.baseURI,
+      new URL('./', location.href).href,
+      location.origin + '/webxr-health-mobile/HeroHealth/',
+      'https://supparang.github.io/webxr-health-mobile/HeroHealth/'
+    ];
+    const paths = ['game/main.js', './game/main.js', 'game/main.js?v=live'];
+    const cands = [];
+    for (const b of bases) for (const p of paths) cands.push(new URL(p, b).href);
+
+    let ok=false, lastErr=null, tried=[];
+    for (const u of cands){
+      try{
+        const probe = await fetch(u + (u.includes('?')?'&':'?') + 'cb=' + Date.now(), { method:'GET' });
+        tried.push(`${probe.status} ${u}`);
+        if (!probe.ok) continue;
+
+        const code = await probe.text();
+        const blob = new Blob([code], { type:'text/javascript' });
+        const blobUrl = URL.createObjectURL(blob);
+        await import(blobUrl);
+        URL.revokeObjectURL(blobUrl);
+
+        ok=true;
+        setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80);
+        break;
+      }catch(e){
+        lastErr = e;
+        tried.push(`ERR ${e?.message||e}`);
       }
-      if(!ok){
-        warn.textContent='โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js (ตัวพิมพ์เล็ก/ใหญ่) • รายละเอียด: '+(last?.message||String(last));
-        warn.style.display='block';
-      }
-    })();
+    }
+
+    if(!ok){
+      warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path / ชื่อไฟล์ game/main.js • รายละเอียด: ' +
+        (lastErr?.message || 'not found') + '\nTried:\n' + tried.join('\n');
+      warn.style.whiteSpace = 'pre-wrap';
+      warn.style.display='block';
+    }
+  })();
   </script>
+  <style>
+    /* ทำให้ modal/สรุป/คู่มืออยู่กลางจอ + คู่มือรวมเลื่อนดูได้ */
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:140;background:rgba(0,0,0,.55)}
+    .modal .card{max-width:720px;max-height:78vh;overflow:auto;background:#0e1526;border:1px solid #26324d;border-radius:16px;padding:16px 16px 14px;color:#cfe9ff;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+    .modal .card h3{margin:0 0 8px 0;font:900 20px/1.2 ui-rounded,system-ui}
+    #helpBody{white-space:pre-wrap}
+    #helpSceneBody{max-height:66vh;overflow:auto}
+    #result .card{max-width:560px}
+    .help-icon{font-size:20px;margin-right:6px}
+  </style>
 </head>
 <body>
   <header class="brand" role="banner">
@@ -53,9 +85,9 @@
     <button id="gfxToggle"    class="btn" type="button" aria-pressed="false">🎛️ กราฟิก: ปกติ</button>
     <button id="soundToggle"  class="btn" type="button" aria-pressed="true">🔊 เสียง: เปิด</button>
     <button id="hapticToggle" class="btn" type="button" aria-pressed="true">📳 สั่น: เปิด</button>
-    <button id="contrastToggle" class="btn" type="button" aria-pressed="false">🎯 คอนทราสต์: ปกติ</button>
   </header>
 
+  <!-- พื้นหลัง/เรนเดอร์ -->
   <canvas id="c" aria-hidden="true"></canvas>
 
   <!-- HUD -->
@@ -70,33 +102,34 @@
     <div id="feverBarWrap" class="bar slim"><div id="feverBar"></div></div>
     <div id="fever" class="fever" style="display:none">FEVER!</div>
 
-    <!-- Power-ups (ซ้ายบน) -->
+    <!-- Power-ups -->
     <div id="powerBar" class="powerbar" aria-label="Power-ups">
-      <div class="pseg" data-k="x2"     aria-label="คะแนน x2"><span>×2</span><i></i></div>
-      <div class="pseg" data-k="freeze" aria-label="หยุดเวลา"><span>🧊</span><i></i></div>
-      <div class="pseg" data-k="sweep"  aria-label="แม่เหล็ก"><span>🧲</span><i></i></div>
+      <div class="pseg" data-k="x2"><span>×2</span><i></i></div>
+      <div class="pseg" data-k="freeze"><span>🧊</span><i></i></div>
+      <div class="pseg" data-k="sweep"><span>🧲</span><i></i></div>
     </div>
 
-    <!-- Mini-Quest -->
+    <!-- Mini-Quest chips -->
     <div id="questChips" class="quests" aria-live="polite"></div>
 
-    <!-- Target/Plate/Hydration -->
+    <!-- Target / Plate / Hydration -->
     <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
     <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
     <div id="hydroWrap" style="display:none">
-      💧 <span id="t_hydro">สมดุลน้ำ</span>:
-      <span id="hydroLabel">—</span>
+      💧 <span id="hydroLabel">—</span>
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
+    <!-- Coach -->
     <div id="coachHUD" class="coach under-fever" style="display:flex">
       <div id="coachText">พร้อมไหม? สู้ๆ!</div>
     </div>
 
+    <!-- Mission line -->
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- พื้นที่โหมด (สำหรับโหมดที่มี UI ของตัวเอง) -->
+  <!-- พื้นที่โหมด -->
   <main class="game-wrap" role="main" aria-label="Game area">
     <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
   </main>
@@ -104,11 +137,11 @@
   <!-- เมนู -->
   <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
     <div class="row">
-      <button class="tag" data-action="ui:select:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="ui:select:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="ui:select:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="ui:select:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
-      <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
+      <!-- เลือกโหมด: ยังไม่เริ่มเกม จนกว่าจะกด Start -->
+      <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
     </div>
     <div class="row">
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
@@ -120,47 +153,63 @@
       </span>
     </div>
     <div class="row">
-      <button class="btn primary" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
+      <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น (โหมดปัจจุบัน)</button>
+      <button class="btn" data-action="help"      id="btn_help"      type="button">❓ วิธีเล่น (โหมดนี้)</button>
+      <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
   </section>
 
-  <!-- วิธีเล่นเฉพาะโหมด -->
+  <!-- Help (per-mode) -->
   <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
-    <div class="card wide">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <div id="helpBody" class="helpBody"></div>
-      <div style="text-align:center;margin-top:12px">
+    <div class="card">
+      <h3 id="h_help"><span class="help-icon">❓</span>วิธีเล่น</h3>
+      <div id="helpBody">—</div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
       </div>
     </div>
   </div>
 
-  <!-- คู่มือรวมทุกเกม (เลื่อนอ่านได้) -->
-  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_all">
-    <div class="card wide scrollable">
-      <h3 id="h_all">📘 คู่มือรวม</h3>
-      <div id="helpAllBody"></div>
-      <div style="text-align:center;margin-top:12px">
-        <button class="btn" data-action="helpSceneClose" type="button">โอเค</button>
+  <!-- Help Scene (all modes) -->
+  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_scene">
+    <div class="card">
+      <h3 id="h_scene"><span class="help-icon">📘</span>คู่มือรวม</h3>
+      <div id="helpSceneBody">
+        <!-- main.js จะเติมเนื้อหาให้ และ container นี้เลื่อนลงได้ -->
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" data-action="helpSceneClose" id="btn_ok_scene" type="button">โอเค</button>
       </div>
     </div>
   </div>
 
-  <!-- สรุปผล -->
+  <!-- Result Modal -->
   <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
-    <div class="card wide">
+    <div class="card">
       <h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div>
       <div id="resBreakdown"></div>
       <div id="resBoard"></div>
-      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
-        <button class="btn primary" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
-        <button class="btn" id="btn_home" type="button">🏠 หน้าหลัก</button>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
+        <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
       </div>
     </div>
   </div>
+
+  <!-- SFX -->
+  <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
+
+  <noscript>
+    <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">
+      จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
+    </div>
+  </noscript>
 </body>
 </html>
