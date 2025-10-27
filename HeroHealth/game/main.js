@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (Progress + Missions + Power-ups wired) ===
+// === Hero Health Academy — game/main.js (Progress + Missions + Power-ups wired; Start button only) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -71,6 +71,8 @@ function applyUI(){
   const L = T(state.lang);
   setText('#modeName',   L.names[state.modeKey]||state.modeKey);
   setText('#difficulty', L.diffs[state.difficulty]||state.difficulty);
+  // ระบุโหมดบน <html> เพื่อ hook CSS โหมด groups
+  document.documentElement.setAttribute('data-hha-mode', state.modeKey);
 }
 function updateHUD(){
   hud.setScore?.(score.score);
@@ -95,7 +97,7 @@ function startFever(){
   showFeverLabel(true);
   coach.onFever?.();
   try{ $('#sfx-powerup')?.play(); }catch{}
-  Progress.event('fever', {kind:'start'});
+  Progress?.event?.('fever', {kind:'start'});
 }
 function stopFever(){
   if (!state.fever.active) return;
@@ -103,7 +105,7 @@ function stopFever(){
   state.fever.timeLeft = 0;
   showFeverLabel(false);
   coach.onFeverEnd?.();
-  Progress.event('fever', {kind:'end'});
+  Progress?.event?.('fever', {kind:'end'});
 }
 
 // ----- Score FX -----
@@ -123,8 +125,7 @@ function makeScoreBurst(x,y,text,minor,color){
   }
   document.body.appendChild(el);
   requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.translate='0 0'; });
-  setTimeout(()=>{
-    el.style.opacity='0'; el.style.translate='0 -8px';
+  setTimeout(()=>{ el.style.opacity='0'; el.style.translate='0 -8px';
     setTimeout(()=>{ try{el.remove();}catch{} }, 220);
   }, 720);
 }
@@ -294,7 +295,7 @@ function spawnOnce(diff){
     ev.stopPropagation();
     try{
       const sys = { score, sfx, power, coach, fx: eng?.fx };
-      const res = MODES[state.modeKey]?.onHit?.(meta, sys, state, hud) || (meta.good?'good':'ok');
+      const res = mode?.onHit?.(meta, sys, state, hud) || (meta.good?'good':'ok');
 
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width/2;
@@ -308,7 +309,7 @@ function spawnOnce(diff){
       scoreWithEffects(base, cx, cy);
       shatter3D(cx, cy);
 
-      Progress.event('hit', {
+      Progress?.event?.('hit', {
         mode: state.modeKey,
         result: res,
         meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden },
@@ -445,8 +446,8 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  // progression
-  const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
+  // progression: start run + missions
+  const missions = Progress?.beginRun?.(state.modeKey, state.difficulty, state.lang) || [];
   renderMissions(missions);
 
   tick();
@@ -461,7 +462,7 @@ function end(silent=false){
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
-  Progress.endRun({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
+  try{ Progress?.endRun?.({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed }); }catch{}
 
   if (!silent){
     const modal = $('#result');
@@ -508,10 +509,11 @@ function renderMissions(list){
       <div class="qBar"><i style="width:${Math.min(100,(m.prog||0)/m.need*100)}%"></i></div>`;
     host.appendChild(chip);
   }
+
   if (!renderMissions._subscribed){
-    Progress.on((type)=>{
+    Progress?.on?.((type)=>{
       if (type==='mission_done' || type==='run_start'){
-        renderMissions(Progress.runCtx?.missions||[]);
+        renderMissions(Progress?.runCtx?.missions||[]);
       }
     });
     renderMissions._subscribed = true;
@@ -519,38 +521,66 @@ function renderMissions(list){
 }
 
 // ----- Global UI Events -----
+// เปลี่ยนโหมดแล้ว "ไม่เริ่มเกม" ทันที ต้องกดปุ่ม Start เท่านั้น
 document.addEventListener('pointerup', (e)=>{
   const target = e.target;
-  const btn = byAction(target);
-  const a = btn?.getAttribute('data-action') || '';
+  const hit = byAction(target);
+  const a = hit?.getAttribute('data-action') || '';
 
-  // ui:start:* โหมด
+  // เลือกโหมดรูปแบบ ui:start:* — เปลี่ยนโหมดอย่างเดียว
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
     if (MODES[key]){
+      if (state.running) end(true); // หยุดถ้ากำลังเล่น
       state.modeKey = key;
       applyUI();
-      start();
+      coach?.say?.(state.lang==='EN' ? 'Ready! Press Start.' : 'เลือกโหมดแล้ว กดเริ่มเกมนะ!');
     }
     return;
   }
 
-  if(!btn) return;
+  if(!hit) return;
 
-  if (a === 'mode'){ state.modeKey = btn.getAttribute('data-value'); applyUI(); if (state.running) start(); }
-  else if (a === 'diff'){ state.difficulty = btn.getAttribute('data-value'); applyUI(); if (state.running) start(); }
-  else if (a === 'start'){ start(); }
+  if (a === 'mode'){ // legacy support
+    if (state.running) end(true);
+    state.modeKey = hit.getAttribute('data-value');
+    applyUI();
+    coach?.say?.(state.lang==='EN' ? 'Ready! Press Start.' : 'เลือกโหมดแล้ว กดเริ่มเกมนะ!');
+  }
+  else if (a === 'diff'){
+    const v = hit.getAttribute('data-value');
+    const wasRunning = state.running;
+    if (wasRunning) end(true);
+    state.difficulty = v;
+    applyUI();
+    // ไม่ auto start; ผู้เล่นกด Start เอง
+  }
+  else if (a === 'start'){
+    start();
+  }
   else if (a === 'pause'){
-    if (!state.running){ start(); return; }
+    if (!state.running){ return; }
     state.paused = !state.paused;
     if (!state.paused){ tick(); spawnLoop(); }
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
-  else if (a === 'restart'){ end(true); start(); }
-  else if (a === 'help'){ const m=$('#help'); if (m) m.style.display='flex'; }
-  // เปิดหน้า “คู่มือรวม” ให้ใช้ #help เดียวกัน
-  else if (a === 'helpScene'){ const h=$('#help'); if (h) h.style.display='flex'; }
-  else if (a === 'helpSceneClose'){ const hs=$('#help'); if (hs) hs.style.display='none'; }
+  else if (a === 'restart'){
+    if (!state.running){ start(); return; }
+    end(true); start();
+  }
+  else if (a === 'help'){
+    const m=$('#help'); if (m) m.style.display='flex';
+  }
+  else if (a === 'helpClose'){
+    const m=$('#help'); if (m) m.style.display='none';
+  }
+  else if (a === 'helpScene'){
+    // ใช้หน้าคู่มือรวมเดียวกับปุ่ม Help
+    const hs=$('#help'); if (hs) hs.style.display='flex';
+  }
+  else if (a === 'helpSceneClose'){
+    const hs=$('#help'); if (hs) hs.style.display='none';
+  }
 }, {passive:true});
 
 // ----- Power-ups (top-left, works for groups) -----
@@ -680,15 +710,17 @@ document.addEventListener('visibilitychange', ()=>{
 window.addEventListener('pointerdown', ()=>{ try{ sfx.unlock(); }catch{} }, {once:true, passive:true});
 
 // Boot
-Progress.init();
+try{ Progress.init(); }catch{}
 applyUI(); updateHUD();
+
+// แสดงเลเวลในหัวเว็บแบบสด
 (function levelUI(){
   const lvEl = document.createElement('span');
   lvEl.id = 'playerLevel';
   lvEl.style.cssText='margin-left:8px;font-weight:800';
   const brand = document.querySelector('header.brand #brandTitle')?.parentElement || document.querySelector('header.brand');
   if (brand) brand.insertBefore(lvEl, brand.children[1]||null);
-  const render = ()=>{ const p=Progress.profile; if (p && lvEl) lvEl.textContent = `LV ${p.level}`; };
+  const render = ()=>{ const p=Progress?.profile; if (p && lvEl) lvEl.textContent = `LV ${p.level}`; };
   render();
-  Progress.on((type)=>{ if (type==='level_up') render(); });
+  Progress?.on?.((type)=>{ if (type==='level_up') render(); });
 })();
