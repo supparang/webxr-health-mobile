@@ -1,6 +1,6 @@
 // === Hero Health Academy — game/modes/groups.js ===
-// Floating iconsแบบ goodjunk + Multi-Target + Powers (x2/freeze/magnet) + Golden
-// ทำงานร่วมกับ main.js และ progression.js
+// Floating icons แบบ goodjunk + Multi-Target + Powers (x2/freeze/magnet) + Golden
+// สอดคล้องกับ styles/group.css ที่ใช้ html[data-hha-mode="groups"]
 
 import { Progress } from '../core/progression.js';
 
@@ -86,9 +86,9 @@ const ST = {
   // พลัง
   x2Until: 0,
   freezeUntil: 0,
-  magnetOnce: false,
+  magnetOnce: false,    // เพิ่มโอกาสสุ่ม target ชั่วคราว
 
-  // ไอคอนทอง (โบนัส เพิ่มภารกิจ/แต้มจาก progression)
+  // ไอคอนทอง (โบนัส)
   goldenRate: 0.12
 };
 
@@ -96,7 +96,10 @@ const ST = {
 export function init(gameState, hud, diff){
   ST.lang = (localStorage.getItem('hha_lang')||'TH');
 
-  // กำหนดโควตาต่อหมวดตามระดับ
+  // ติดธงโหมดให้ CSS ทำงาน (styles/group.css)
+  try { document.documentElement.setAttribute('data-hha-mode', 'groups'); } catch {}
+
+  // โควตาต่อหมวดตามระดับ
   const d = gameState?.difficulty || 'Normal';
   ST.needPerTarget = d==='Easy' ? 3 : d==='Hard' ? 5 : 4;
 
@@ -111,29 +114,36 @@ export function init(gameState, hud, diff){
   Progress.event('mode_init', { mode:'groups', targetIds: ST.targetIds, need: ST.needPerTarget });
 }
 
-export function cleanup(){ /* no-op */ }
-export function tick(state, systems, hud){ /* no-op (life/TTL คุมโดย main.js) */ }
+export function cleanup(){
+  // เอาธงโหมดออกเมื่อออกจากเกม
+  try { if (document.documentElement.getAttribute('data-hha-mode') === 'groups') {
+    document.documentElement.removeAttribute('data-hha-mode');
+  }} catch {}
+}
 
-/** main.js เรียกทุกครั้งที่จะปล่อยไอคอน 1 ชิ้น */
-export function pickMeta(diff, gameState){
-  const probTarget = 0.58;               // โอกาสเป็นชิ้นตามเป้าหมาย
+export function tick(/* state, systems, hud */){
+  // TTL/Spawn จัดการโดย main.js แล้ว ที่นี่ไม่ต้องทำอะไรต่อวินาที
+}
+
+/** main.js เรียกก่อน spawn ไอคอนทุกชิ้น */
+export function pickMeta(diff, /* gameState */){
+  // เพิ่มโอกาสเจอ target ถ้าเปิดแม่เหล็ก
+  const baseProb = 0.58;
+  const probTarget = ST.magnetOnce ? 0.92 : baseProb;
+  if (ST.magnetOnce) ST.magnetOnce = false; // ใช้ครั้งเดียว
+
   const isTarget  = Math.random() < probTarget;
-
-  const pool = isTarget
-    ? ITEMS.filter(i => ST.targetIds.includes(i.group))
-    : ITEMS;
-
+  const pool = isTarget ? ITEMS.filter(i => ST.targetIds.includes(i.group)) : ITEMS;
   const it = pool[(Math.random()*pool.length)|0];
 
   const lifeBase = (diff?.life ?? 3000);
   const life = Math.max(900, lifeBase * (isFrozen() ? 1.8 : 1.0));
 
-  // โอกาสทองเฉพาะ target
   const golden = isTarget && Math.random() < ST.goldenRate;
 
   return {
     id: it.id,
-    char: golden ? '🟡' : it.icon,  // แทนทองด้วยจุดเด่น
+    char: golden ? '🟡' : it.icon,  // ไฮไลต์ “ทอง”
     good: ST.targetIds.includes(it.group),
     life,
     groupId: it.group,
@@ -142,16 +152,12 @@ export function pickMeta(diff, gameState){
 }
 
 /** เมื่อผู้เล่นคลิกไอคอน */
-export function onHit(meta, systems, gameState, hud){
+export function onHit(meta, systems /*, gameState, hud */){
   if (!meta) return 'ok';
 
-  // แม่เหล็ก: รอบถัดไปให้การสุ่มมี target สูงขึ้น (จัดการใน pickMeta แล้วผ่าน probTarget)
-  if (ST.magnetOnce && meta.good){ ST.magnetOnce = false; }
-
   if (meta.good){
-    // นับความคืบหน้าตามหมวด
     if (meta.groupId in ST.gotPerTarget){
-      ST.gotPerTarget[meta.groupId] = Math.min(ST.needPerTarget, ST.gotPerTarget[meta.groupId] + 1);
+      ST.gotPerTarget[meta.groupId] = Math.min(ST.needPerTarget, (ST.gotPerTarget[meta.groupId]||0) + 1);
       renderTargetHUD();
       Progress.event('groups_hit', { good:true, groupId: meta.groupId, golden: !!meta.golden });
 
@@ -174,11 +180,10 @@ export function onHit(meta, systems, gameState, hud){
       Progress.event('golden', { mode:'groups' });
     }
 
-    // ผลให้ main.js แปลงคะแนนต่อ (สามารถเพิ่ม perfect logic ภายหลัง)
     return 'good';
   }
 
-  // พลาดหมวด
+  // กดผิดหมวด
   systems.coach?.say?.(t('ยังไม่ใช่หมวดนี้นะ', 'Not this group!', ST.lang));
   Progress.event('groups_hit', { good:false, groupId: meta.groupId||null, golden: !!meta.golden });
   return 'bad';
@@ -187,8 +192,9 @@ export function onHit(meta, systems, gameState, hud){
 /* ---------- Powers (เรียกจาก main.js) ---------- */
 export const powers = {
   x2Target(){
-    // ใช้ร่วมกับ FEVER ของระบบหลักได้ (main.js คูณรวมให้แล้ว)
-    ST.x2Until = now() + 8000; // เก็บ state ไว้หากต้องใช้งานภายหลัง (เงื่อนไขคะแนนเฉพาะโหมด)
+    // โหมดนี้คะแนนพื้นฐานยังให้ main.js คูณตาม FEVER/Combo อยู่
+    // เก็บช่วงเวลาไว้ ถ้าต้องการ logic เพิ่มเติมในอนาคต
+    ST.x2Until = now() + 8000;
   },
   freezeTarget(){
     ST.freezeUntil = now() + 3000;
@@ -199,7 +205,7 @@ export const powers = {
 };
 
 export function getPowerDurations(){
-  // เพื่อให้ main.js แสดงคูลดาวน์/ระยะเวลาที่ปุ่ม
+  // main.js ใช้อ่านเพื่อแสดงแถบ CD/ระยะเวลาของปุ่มใน powerbar
   return { x2:8, freeze:3, magnet:0 };
 }
 
@@ -213,7 +219,7 @@ function renderTargetHUD(){
   wrap.style.display = 'inline-flex';
   tLabel.textContent = t('หมวด', 'Target', ST.lang);
 
-  // เช่น: ผลไม้(2/4), โปรตีน(1/4)
+  // ตัวอย่าง: ผลไม้(2/4), โปรตีน(1/4)
   const parts = ST.targetIds.map(id=>{
     const g = GROUPS.find(x=>x.id===id);
     const got = ST.gotPerTarget[id] || 0;
