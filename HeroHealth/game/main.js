@@ -95,7 +95,6 @@ function startFever(){
   showFeverLabel(true);
   coach.onFever?.();
   try{ $('#sfx-powerup')?.play(); }catch{}
-  // progression
   Progress.event('fever', {kind:'start'});
 }
 function stopFever(){
@@ -104,7 +103,6 @@ function stopFever(){
   state.fever.timeLeft = 0;
   showFeverLabel(false);
   coach.onFeverEnd?.();
-  // progression
   Progress.event('fever', {kind:'end'});
 }
 
@@ -125,7 +123,8 @@ function makeScoreBurst(x,y,text,minor,color){
   }
   document.body.appendChild(el);
   requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.translate='0 0'; });
-  setTimeout(()=>{ el.style.opacity='0'; el.style.translate='0 -8px';
+  setTimeout(()=>{
+    el.style.opacity='0'; el.style.translate='0 -8px';
     setTimeout(()=>{ try{el.remove();}catch{} }, 220);
   }, 720);
 }
@@ -239,7 +238,7 @@ function shatter3D(x,y){
     s.style.setProperty('--z1', tz+'px');
     s.style.setProperty('--rot', rot);
     FXROOT.appendChild(s);
-    s.style.animation='shardFly .48s ease-out forwards';
+    s.style.animation=`shardFly .48s ease-out forwards`;
     setTimeout(()=>{ try{ s.remove(); }catch{} }, 560);
   }
 
@@ -309,7 +308,6 @@ function spawnOnce(diff){
       scoreWithEffects(base, cx, cy);
       shatter3D(cx, cy);
 
-      // progression hit event
       Progress.event('hit', {
         mode: state.modeKey,
         result: res,
@@ -444,11 +442,10 @@ async function start(){
   state.fever.meter=0; setFeverBar(0); stopFever();
   score.reset?.(); updateHUD();
 
-  // init mode
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  // progression: เริ่มรอบ + ดึง missions ที่สุ่มได้ (ถ้าต้องการโชว์บน HUD)
+  // progression
   const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
   renderMissions(missions);
 
@@ -461,10 +458,8 @@ function end(silent=false){
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
-  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
-  // progression end
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
   Progress.endRun({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
 
@@ -498,7 +493,7 @@ function end(silent=false){
   }
 }
 
-// ----- Missions HUD (แสดง 3 เควสที่สุ่ม) -----
+// ----- Missions HUD -----
 function renderMissions(list){
   const host = document.getElementById('questChips'); if (!host) return;
   host.innerHTML = '';
@@ -513,12 +508,9 @@ function renderMissions(list){
       <div class="qBar"><i style="width:${Math.min(100,(m.prog||0)/m.need*100)}%"></i></div>`;
     host.appendChild(chip);
   }
-
-  // subscribe once to mission updates (progression emits on mission_done / run_start / run_end)
   if (!renderMissions._subscribed){
-    Progress.on((type,payload)=>{
+    Progress.on((type)=>{
       if (type==='mission_done' || type==='run_start'){
-        // re-render
         renderMissions(Progress.runCtx?.missions||[]);
       }
     });
@@ -556,9 +548,9 @@ document.addEventListener('pointerup', (e)=>{
   }
   else if (a === 'restart'){ end(true); start(); }
   else if (a === 'help'){ const m=$('#help'); if (m) m.style.display='flex'; }
-  else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
-  else if (a === 'helpScene'){ const hs=$('#helpScene'); if (hs) hs.style.display='flex'; }
-  else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
+  // เปิดหน้า “คู่มือรวม” ให้ใช้ #help เดียวกัน
+  else if (a === 'helpScene'){ const h=$('#help'); if (h) h.style.display='flex'; }
+  else if (a === 'helpSceneClose'){ const hs=$('#help'); if (hs) hs.style.display='none'; }
 }, {passive:true});
 
 // ----- Power-ups (top-left, works for groups) -----
