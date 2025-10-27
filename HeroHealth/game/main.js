@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (Start-only, missions, powers, centered result modal) ===
+// === Hero Health Academy — main.js (Start-only launch, missions + powers + robust result modal) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports (ABSOLUTE PATHS) -----
@@ -21,17 +21,34 @@ const $  = (s)=>document.querySelector(s);
 const byAction = (el)=>el?.closest?.('[data-action]')||null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 
-// Modal helpers (ศูนย์กลางจอ + z-index สูง)
+// ---- Modal helpers (force center + highest z-index) ----
+(function ensureModalStyles(){
+  if (document.getElementById('modalPatchCSS')) return;
+  const st = document.createElement('style'); st.id='modalPatchCSS';
+  st.textContent = `
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      z-index: 9999; background:rgba(0,0,0,.45); backdrop-filter: blur(2px);}
+    .modal .card{max-width:min(92vw,720px);width:clamp(280px,88vw,560px);
+      max-height:min(86vh,680px); overflow:auto; padding:16px; border-radius:16px;
+      background:#0d172b; border:1px solid #203155; color:#e9f3ff; box-shadow:0 18px 48px rgba(0,0,0,.45);}
+    .modal .card.scroll{overflow:auto}
+    .modal .btn,[data-result]{cursor:pointer}
+  `;
+  document.head.appendChild(st);
+})();
 function showModal(id){
   const el = document.getElementById(id);
   if(!el) return;
   el.style.display = 'flex';
-  try{ el.querySelector('.btn,[data-result]')?.focus(); }catch{}
+  el.style.zIndex = 9999;
+  el.setAttribute('aria-hidden','false');
+  setTimeout(()=>{ el.querySelector('.btn,[data-result]')?.focus?.(); }, 30);
 }
 function hideModal(id){
   const el = document.getElementById(id);
   if(!el) return;
   el.style.display = 'none';
+  el.setAttribute('aria-hidden','true');
 }
 
 // ----- Config -----
@@ -469,7 +486,7 @@ async function start(){
   spawnLoop();
 }
 
-// (UPDATED) end(): เติมการเปิด modal แบบกลางจอ + ปุ่มกดติด
+// (สำคัญ) สรุปผลแบบสร้าง modal หาก DOM ไม่มี และบังคับโชว์กลางจอ
 function end(silent=false){
   state.running=false; state.paused=false;
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
@@ -480,32 +497,57 @@ function end(silent=false){
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
   Progress.endRun({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
 
-  if (!silent){
-    const total = score.score|0;
-    const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
-    const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
-    const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
+  if (silent) return;
 
-    const resCore = `
-      <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
-      <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
-    const resBreak = `
-      <div style="margin-top:12px;text-align:left;font-weight:700">
-        ✅ ดี: ${state.stats.good}<br/>
-        🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
-        😐 ปกติ: ${state.stats.ok}<br/>
-        ❌ พลาด: ${state.stats.bad}
+  // สร้าง result modal ถ้าไม่มี
+  let modal = document.getElementById('result');
+  if (!modal){
+    modal = document.createElement('div');
+    modal.id='result'; modal.className='modal';
+    modal.innerHTML = `
+      <div class="card">
+        <h3 id="h_summary">สรุปผล</h3>
+        <div id="resCore"></div>
+        <div id="resBreakdown"></div>
+        <div id="resBoard"></div>
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
+          <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
+        </div>
       </div>`;
-    const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
-
-    const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
-    if (coreEl) coreEl.innerHTML = resCore;
-    if (brEl)   brEl.innerHTML   = resBreak;
-    if (bdEl)   bdEl.innerHTML   = resBoard;
-
-    showModal('result');
-    coach.onEnd?.(score.score, {grade});
+    document.body.appendChild(modal);
+    modal.addEventListener('click',(e)=>{
+      const btn=e.target.closest('[data-result]'); if(!btn) return;
+      const a = btn.getAttribute('data-result');
+      if (a==='replay'){ hideModal('result'); start(); }
+      if (a==='home'){   hideModal('result'); /* ปิดแล้วคงหน้าเลือกโหมด */ }
+    }, {passive:true});
   }
+
+  const total = score.score|0;
+  const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
+  const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
+  const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
+
+  const resCore = `
+    <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
+    <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
+  const resBreak = `
+    <div style="margin-top:12px;text-align:left;font-weight:700">
+      ✅ ดี: ${state.stats.good}<br/>
+      🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
+      😐 ปกติ: ${state.stats.ok}<br/>
+      ❌ พลาด: ${state.stats.bad}
+    </div>`;
+  const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
+
+  const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
+  if (coreEl) coreEl.innerHTML = resCore;
+  if (brEl)   brEl.innerHTML   = resBreak;
+  if (bdEl)   bdEl.innerHTML   = resBoard;
+
+  showModal('result');
+  coach.onEnd?.(score.score, {grade});
 }
 
 // ----- Missions HUD -----
@@ -536,7 +578,7 @@ const HELP_TEXT = {
   TH:{
     goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
     groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- ดู \"หมวดเป้าหมาย\" แล้วแตะไอคอนให้ถูกหมวด\n- ครบโควตาแล้วเปลี่ยนหมวดใหม่\n- Power-ups: ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
-    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = เงื่อนไขคะแนนตามสถานะ\n- Mini-quests สุ่ม 3 อย่าง/เกม",
+    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = มีเงื่อนไขคะแนนตามสถานะ\n- Mini-quests แบบสุ่ม 3 อย่าง/เกม",
     plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนอาหารให้ครบโควตาตามสัดส่วนจานสุขภาพ\n- ทำคอมโบเพื่อคะแนนโบนัส"
   },
   EN:{
@@ -575,10 +617,8 @@ function openHelpAll(){
 }
 
 // ----- Global UI Events -----
-// เลือกโหมด—ไม่เริ่มจนกด Start
 document.addEventListener('pointerup', (e)=>{
-  const target = e.target;
-  const btn = byAction(target);
+  const btn = byAction(e.target);
   if (!btn) return;
 
   const a = btn.getAttribute('data-action') || '';
@@ -587,7 +627,7 @@ document.addEventListener('pointerup', (e)=>{
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
     if (MODES[key]){ state.modeKey = key; applyUI(); }
-    return;
+    return; // ไม่ start ทันที
   }
 
   if (a === 'mode'){ state.modeKey = v; applyUI(); }
@@ -665,26 +705,14 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
-// Result modal buttons (คลิกติดแน่นอน)
-const resEl = document.getElementById('result');
+// Result modal explicit listeners (เผื่อมีอยู่แล้วใน DOM)
+const resEl = $('#result');
 if (resEl){
-  // คลิกเฉพาะใน .card เท่านั้น
   resEl.addEventListener('click', (e)=>{
-    const card = e.target.closest('.card');
-    if(!card) return;
-    const btn = e.target.closest('[data-result]');
-    if (!btn) return;
+    const btn=e.target.closest('[data-result]'); if(!btn) return;
     const a = btn.getAttribute('data-result');
     if (a==='replay'){ hideModal('result'); start(); }
-    if (a==='home'){ hideModal('result'); end(true); }
-  });
-  // safety บนอุปกรณ์ทัช
-  resEl.addEventListener('pointerup', (e)=>{
-    const btn = e.target.closest('[data-result]');
-    if (!btn) return;
-    const a = btn.getAttribute('data-result');
-    if (a==='replay'){ hideModal('result'); start(); }
-    if (a==='home'){ hideModal('result'); end(true); }
+    if (a==='home'){   hideModal('result'); /* stay on menu */ }
   }, {passive:true});
 }
 
@@ -741,28 +769,3 @@ applyUI(); updateHUD();
   render();
   Progress.on((type)=>{ if (type==='level_up') render(); });
 })();
-
-// Stats board open/close (ถ้ามีปุ่มในหน้า)
-function openStatBoard(){
-  const host = $('#statBoardBody'); if(!host) return;
-  const p = Progress.profile || {};
-  const modes = p.modes || {};
-  const modeStats = Object.entries(modes).map(([k,v])=>`
-    <tr><td>${T(state.lang).names[k]||k}</td>
-        <td>${v.bestScore||0}</td>
-        <td>${(v.acc||0).toFixed?.(1)||'0.0'}%</td>
-        <td>${v.missionDone||0}</td></tr>`).join('');
-  host.innerHTML = `
-    <div style="font-weight:800;margin-bottom:8px">Level ${p.level||1} (${p.xp|0} XP)</div>
-    <table class="tbl">
-      <tr><th>โหมด</th><th>คะแนนสูงสุด</th><th>ความแม่น</th><th>เควสสำเร็จ</th></tr>
-      ${modeStats}
-    </table>`;
-  showModal('statBoard');
-}
-document.addEventListener('click', (e)=>{
-  const a = e.target.getAttribute?.('data-action');
-  if(a==='statOpen') openStatBoard();
-  if(a==='statClose') hideModal('statBoard');
-  if(a==='dailyClose') hideModal('dailyPanel');
-});
