@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (modes selectable, Start-only, missions + stats + daily, shared FX) ===
+// === Hero Health Academy — main.js (modes selectable, missions + MINI-QUESTS wired, stats + daily, shared FX) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -10,8 +10,9 @@ import { SFX }              from '/webxr-health-mobile/HeroHealth/game/core/sfx.
 import { ScoreSystem }      from '/webxr-health-mobile/HeroHealth/game/core/score.js';
 import { PowerUpSystem }    from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
 import { Progress }         from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-// FX กลาง (โหมดจะ import เองด้วย แต่ main ใช้ fallback เผื่อโหมดไม่ใส่ hook)
 import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+// ★ NEW: Mini Quests
+import { Quests }           from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
 
 import * as goodjunk        from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
 import * as groups          from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
@@ -36,9 +37,11 @@ const LIVE = new Set();
 
 const I18N = {
   TH:{ names:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
-       diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'} },
+       diffs:{Easy:'ง่าย', Normal:'ปกติ', Hard:'ยาก'},
+       label:{ missions:'ภารกิจ', minis:'Mini Quests'} },
   EN:{ names:{goodjunk:'Good vs Junk', groups:'Food Group Frenzy', hydration:'Hydration', plate:'Healthy Plate'},
-       diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'} }
+       diffs:{Easy:'Easy', Normal:'Normal', Hard:'Hard'},
+       label:{ missions:'Missions', minis:'Mini Quests'} }
 };
 const T = (lang)=>I18N[lang]||I18N.TH;
 
@@ -81,7 +84,7 @@ function updateHUD(){
   hud.setCombo?.('x'+state.combo);
 }
 
-// ----- Fever -----
+// ===== Fever =====
 function setFeverBar(pct){
   const bar = $('#feverBar'); if (!bar) return;
   bar.style.width = Math.max(0,Math.min(100,pct|0))+'%';
@@ -109,7 +112,7 @@ function stopFever(){
   Progress.event('fever', {kind:'end'});
 }
 
-// ----- Score FX (UI burst only) -----
+// ===== Score FX =====
 function makeScoreBurst(x,y,text,minor,color){
   const el = document.createElement('div');
   el.className='scoreBurst';
@@ -141,7 +144,7 @@ function scoreWithEffects(base,x,y){
   makeScoreBurst(x,y,tag,minor,color);
 }
 
-// ----- Safe area & overlap -----
+// ===== Safe area / Spawn =====
 function safeBounds(){
   const headerH = $('header.brand')?.offsetHeight || 56;
   const menuH   = $('#menuBar')?.offsetHeight || 120;
@@ -165,7 +168,7 @@ function overlapped(x,y){
   return false;
 }
 
-// ----- Spawn one -----
+// ===== Spawn one =====
 function spawnOnce(diff){
   if (!state.running || state.paused) return;
 
@@ -192,7 +195,6 @@ function spawnOnce(diff){
     line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;
     transform:perspective(600px) rotateX(0) rotateY(0);`;
 
-  // 🔹 ให้โหมดคุม onSpawn ได้เอง (ถ้าไม่ใส่ ใช้ tilt กลาง)
   if (mode?.fx?.onSpawn) { try{ mode.fx.onSpawn(el, state); }catch{}; }
   else { add3DTilt(el); }
 
@@ -218,15 +220,22 @@ function spawnOnce(diff){
       const base = ({good:10, perfect:20, ok:2, bad:-8, power:5})[res] || 1;
       scoreWithEffects(base, cx, cy);
 
-      // 🔹 ให้โหมดคุม onHit ได้เอง (ถ้าไม่ใส่ ใช้แตกกระจายกลาง)
       if (mode?.fx?.onHit) { try{ mode.fx.onHit(cx, cy, meta, state); }catch{}; }
       else { shatter3D(cx, cy); }
 
+      // ----- Events to systems -----
       Progress.event('hit', {
         mode: state.modeKey,
         result: res,
         meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden },
         comboNow: state.combo
+      });
+
+      // ★ NEW: forward to Mini-Quests
+      Quests.event('hit', {
+        result: res,
+        combo: state.combo|0,
+        meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden }
       });
 
       if (state.haptic && navigator.vibrate){
@@ -250,7 +259,7 @@ function spawnOnce(diff){
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
-// ----- Spawn loop -----
+// ===== Spawn loop =====
 function spawnLoop(){
   if (!state.running || state.paused) return;
 
@@ -273,7 +282,7 @@ function spawnLoop(){
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
-// ----- Combo -----
+// ===== Combo =====
 function addCombo(kind){
   if (kind==='bad'){
     state.combo = 0;
@@ -298,7 +307,44 @@ function addCombo(kind){
   }
 }
 
-// ----- Tick / Start / End -----
+// ===== Missions & Mini-Quests HUD =====
+
+// Build combined chips into #questChips (top = main missions from Progress, bottom = Mini Quests)
+function updateQuestHUD() {
+  const host = document.getElementById('questChips');
+  if (!host) return;
+  const L = T(state.lang);
+
+  const main = (Progress.runCtx?.missions||[]).map(m=>{
+    const p = Math.min(m.prog||0, m.need||0);
+    const pct = m.need? Math.min(100, Math.round((p/(m.need||1))*100)) : 0;
+    const label = m.label || m.id || '';
+    const ok = p >= (m.need||Infinity);
+    return `<div class="chip" style="border-color:${ok?'#7fffd4':'#26324d'}">
+      <span>🏁</span><span>${p}/${m.need||0}</span>
+      <div class="bar"><div style="width:${pct}%"></div></div>
+      <span style="opacity:.9">${label}</span>
+    </div>`;
+  }).join('');
+
+  const minis = (Quests.getActive()||[]).map(q=>{
+    const p = Math.min(q.prog||0, q.need||0);
+    const pct = q.need? Math.min(100, Math.round((p/(q.need||1))*100)) : 0;
+    const ok = p >= (q.need||Infinity);
+    return `<div class="chip" style="border-color:${ok?'#ffd54a':'#26324d'}">
+      <span>${q.icon||'⭐'}</span><span>${p}/${q.need||0}</span>
+      <div class="bar"><div style="width:${pct}%"></div></div>
+      <span style="opacity:.9">${q.label||q.id}</span>
+    </div>`;
+  }).join('');
+
+  host.innerHTML = `
+    ${main? `<div style="font-weight:800;margin-bottom:4px">${L.label.missions}</div><div class="chips">${main}</div>`: ''}
+    ${minis? `<div style="font-weight:800;margin:8px 0 4px">${L.label.minis}</div><div class="chips">${minis}</div>`: ''}
+  `;
+}
+
+// ===== Tick / Start / End =====
 function tick(){
   if (!state.running || state.paused) return;
 
@@ -311,8 +357,12 @@ function tick(){
 
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
+  // ★ NEW: heartbeat for Mini-Quests (e.g., speed_finisher uses score on tick)
+  Quests.event('tick', { score: score.score|0 });
+
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
+  updateQuestHUD(); // refresh chips every second
 
   if (state.timeLeft===10 && !state.didWarnT10){
     state.didWarnT10=true; coach.onTimeLow?.(); try{ $('#sfx-tick')?.play(); }catch{}
@@ -344,6 +394,7 @@ function showResultModal(total, accPct, grade){
     modal.id='result'; modal.className='modal';
     modal.innerHTML = `<div class="card"><h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div><div id="resBreakdown"></div><div id="resBoard"></div>
+      <div id="resQuests"></div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
         <button class="btn" data-result="home"   id="btn_home">🏠 หน้าหลัก</button></div></div>`;
@@ -363,6 +414,22 @@ function showResultModal(total, accPct, grade){
   $('#resCore').innerHTML = core;
   $('#resBreakdown').innerHTML = br;
   $('#resBoard').innerHTML = bd;
+
+  // ★ NEW: summarize Quests result
+  const qEnd = Quests.endRun({ miss: state.stats.bad|0, score: score.score|0 }) || [];
+  const qHtml = qEnd.map(q=>{
+    const ok = (q.prog||0) >= (q.need||0);
+    return `<div style="display:flex;align-items:center;gap:8px;margin:4px 0">
+      <span>${ok?'✅':'❌'}</span>
+      <span>${q.icon||'⭐'}</span>
+      <span>${q.label||q.id}</span>
+      <span style="margin-left:auto;font-weight:800">${Math.min(q.prog||0,q.need||0)}/${q.need||0}</span>
+    </div>`;
+  }).join('');
+  $('#resQuests').innerHTML = qEnd.length
+    ? `<div style="margin-top:10px;font-weight:900">Mini Quests</div>${qHtml}`
+    : '';
+
   modal.style.display='flex';
 }
 
@@ -383,9 +450,13 @@ async function start(){
   try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
-  const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
-  renderMissions(missions);
+  // Main Missions (Progress)
+  Progress.beginRun(state.modeKey, state.difficulty, state.lang);
 
+  // ★ NEW: Mini Quests (3 สุ่ม/เกม, ตามโหมด + ความยาก)
+  Quests.beginRun(state.modeKey, state.difficulty, state.lang);
+
+  updateQuestHUD();
   tick();
   spawnLoop();
 }
@@ -407,36 +478,15 @@ function end(silent=false){
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
 
+  // NOTE: Quests.endRun() ถูกเรียกใน showResultModal เพื่อได้ค่ามาสรุปบนจอ
+
   if (!silent && wasRunning){
     showResultModal(total, accPct, grade);
     try{ sfx.play('sfx-good'); }catch{}
   }
 }
 
-// ----- Missions HUD -----
-function renderMissions(list){
-  const host = document.getElementById('questChips'); if (!host) return;
-  host.innerHTML = '';
-  if (!list || !list.length) return;
-  for (const m of list){
-    const chip = document.createElement('div');
-    chip.className = 'questChip';
-    chip.dataset.qid = m.id;
-    chip.innerHTML = `
-      <span class="qLabel">${m.label}</span>
-      <span class="qProg">${Math.min(m.prog||0, m.need)}/${m.need}</span>
-      <div class="qBar"><i style="width:${Math.min(100,(m.prog||0)/m.need*100)}%"></i></div>`;
-    host.appendChild(chip);
-  }
-  if (!renderMissions._subscribed){
-    Progress.on((type)=>{
-      if (type==='mission_done' || type==='run_start'){ renderMissions(Progress.runCtx?.missions||[]); }
-    });
-    renderMissions._subscribed = true;
-  }
-}
-
-// ----- Help text -----
+// ===== Help / Stats / Daily (unchanged) =====
 const HELP_TEXT = {
   TH:{
     goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
@@ -454,7 +504,7 @@ const HELP_TEXT = {
 function openHelpCurrent(){
   const lang = (localStorage.getItem('hha_lang')||'TH');
   const key  = state.modeKey;
-  const txt  = (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
+  const txt  = (HELP_TEXT[lang] && HELP_TEXT[key]) || (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
   const b = $('#helpBody'); if (b){ b.textContent = txt; }
   const m = $('#help'); if (m){ m.style.display='flex'; }
 }
@@ -479,7 +529,7 @@ function openHelpAll(){
   const m = $('#helpScene'); if (m){ m.style.display='flex'; }
 }
 
-// ----- Stats board / Daily -----
+// Stats board
 function buildStatSnapshotFallback(){
   const p = Progress.profile || {};
   const rows = [];
@@ -531,7 +581,7 @@ function openDailyPanel(){
   $('#dailyPanel').style.display='flex';
 }
 
-// ----- Global UI Events -----
+// ===== Global UI events =====
 document.addEventListener('pointerup', (e)=>{
   const btn = byAction(e.target); if (!btn) return;
   const a = btn.getAttribute('data-action') || '';
@@ -563,7 +613,7 @@ document.addEventListener('pointerup', (e)=>{
   else if (a === 'dailyClose'){ const d=$('#dailyPanel'); if (d) d.style.display='none'; }
 }, {passive:true});
 
-// ----- Power-ups (groups) -----
+// ===== Power-ups (groups) + HUD timers =====
 (function wirePowers(){
   const bar = $('#powerBar'); if (!bar) return;
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
@@ -604,7 +654,6 @@ document.addEventListener('pointerup', (e)=>{
     requestAnimationFrame(tick);
   }
 
-  // === NEW: อัปเดต HUD Power-Timers ตามเวลาคูลดาวน์ที่เหลือ (หน่วยวินาที) ===
   function updateHudPowerTimers(){
     const now = performance.now();
     const left = (k)=>Math.max(0, Math.ceil(((COOLDOWNS[k]||0) - (now - (lastUsed[k]||0)))/1000));
@@ -622,22 +671,17 @@ document.addEventListener('pointerup', (e)=>{
     if (now - lastUsed[k] < (COOLDOWNS[k]||0)) return;
     const mode = MODES[state.modeKey];
     if (state.modeKey !== 'groups' || !mode?.powers) return;
-
     if (k==='x2')    mode.powers.x2Target?.();
     if (k==='freeze')mode.powers.freezeTarget?.();
     if (k==='sweep') mode.powers.magnetNext?.();
-
     try{ sfx.play('sfx-powerup'); }catch{}
-    lastUsed[k] = now;
-    animateCD(k, COOLDOWNS[k]||0);
-    updateHudPowerTimers(); // รีเฟรชทันทีหลังใช้งาน
+    lastUsed[k] = now; animateCD(k, COOLDOWNS[k]||0);
+    updateHudPowerTimers();
   }
-
   bar.addEventListener('click', (e)=>{
     const seg = e.target.closest('.pseg'); if (!seg) return;
     const k = seg.getAttribute('data-k'); if (!k) return;
-    const dur = DURATIONS[k] || 0;
-    if (dur>0) animateCD(k, dur);
+    const dur = DURATIONS[k] || 0; if (dur>0) animateCD(k, dur);
     usePower(k);
   }, {passive:true});
 })();
@@ -659,6 +703,7 @@ $('#langToggle')?.addEventListener('click', ()=>{
   localStorage.setItem('hha_lang', state.lang);
   coach.setLang?.(state.lang);
   applyUI();
+  updateQuestHUD(); // refresh labels locale
 }, {passive:true});
 
 $('#gfxToggle')?.addEventListener('click', ()=>{
