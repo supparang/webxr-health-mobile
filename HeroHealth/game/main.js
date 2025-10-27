@@ -12,8 +12,6 @@ import { PowerUpSystem }    from '/webxr-health-mobile/HeroHealth/game/core/powe
 import { Progress }         from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
 // FX กลาง (โหมดจะ import เองด้วย แต่ main ใช้ fallback เผื่อโหมดไม่ใส่ hook)
 import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
-// 🔹 ใหม่: ชิปเควสต์ (เลือกใช้ได้)
-import { Quests }           from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
 
 import * as goodjunk        from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
 import * as groups          from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
@@ -51,9 +49,6 @@ const score = new ScoreSystem();
 const power = new PowerUpSystem();
 const eng   = new Engine(THREE, document.getElementById('c'));
 const coach = new Coach({ lang: localStorage.getItem('hha_lang') || 'TH' });
-
-// 🔹 ใหม่: ให้ Score รับ boost จาก PowerUpSystem
-power.attachToScore(score);
 
 const state = {
   modeKey:'goodjunk',
@@ -227,16 +222,12 @@ function spawnOnce(diff){
       if (mode?.fx?.onHit) { try{ mode.fx.onHit(cx, cy, meta, state); }catch{}; }
       else { shatter3D(cx, cy); }
 
-      // Progress mission (หลัก)
       Progress.event('hit', {
         mode: state.modeKey,
         result: res,
         meta: { good: !!meta.good, groupId: meta.groupId, golden: !!meta.golden },
         comboNow: state.combo
       });
-
-      // 🔹 Quests chips (รอง/เสริม)
-      Quests.event('hit', { result:res, combo:state.combo, meta });
 
       if (state.haptic && navigator.vibrate){
         if (res==='bad') navigator.vibrate(60);
@@ -320,12 +311,6 @@ function tick(){
 
   try{ MODES[state.modeKey]?.tick?.(state, {score,sfx,power,coach,fx:eng?.fx}, hud); }catch(e){}
 
-  // 🔹 อัปเดตตัวจับเวลา power บน HUD ทุกวินาที
-  hud.setPowerTimers?.(power.timers);
-
-  // 🔹 อัปเดตชิปเควสต์ (ถ้าเปิดใช้ Quests)
-  hud.setQuestChips?.(Quests.getActive?.()||[]);
-
   state.timeLeft = Math.max(0, state.timeLeft - 1);
   updateHUD();
 
@@ -401,10 +386,6 @@ async function start(){
   const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
   renderMissions(missions);
 
-  // 🔹 เริ่ม Quests chips (ถ้าอยากโชว์ 3 ชิปบน HUD)
-  const chips = Quests.beginRun(state.modeKey, state.difficulty, state.lang);
-  hud.setQuestChips?.(chips);
-
   tick();
   spawnLoop();
 }
@@ -425,10 +406,6 @@ function end(silent=false){
 
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
-
-  // 🔹 ปิด Quests chips และสรุป (ถ้าต้องการ)
-  Quests.endRun({ miss: state.stats.bad|0 });
-  hud.setQuestChips?.([]);
 
   if (!silent && wasRunning){
     showResultModal(total, accPct, grade);
@@ -626,21 +603,41 @@ document.addEventListener('pointerup', (e)=>{
     };
     requestAnimationFrame(tick);
   }
+
+  // === NEW: อัปเดต HUD Power-Timers ตามเวลาคูลดาวน์ที่เหลือ (หน่วยวินาที) ===
+  function updateHudPowerTimers(){
+    const now = performance.now();
+    const left = (k)=>Math.max(0, Math.ceil(((COOLDOWNS[k]||0) - (now - (lastUsed[k]||0)))/1000));
+    hud.setPowerTimers?.({
+      x2: left('x2'),
+      freeze: left('freeze'),
+      sweep: left('sweep')
+    });
+  }
+  let _hudTimer = setInterval(updateHudPowerTimers, 400);
+  updateHudPowerTimers();
+
   function usePower(k){
     const now = performance.now();
     if (now - lastUsed[k] < (COOLDOWNS[k]||0)) return;
     const mode = MODES[state.modeKey];
     if (state.modeKey !== 'groups' || !mode?.powers) return;
+
     if (k==='x2')    mode.powers.x2Target?.();
     if (k==='freeze')mode.powers.freezeTarget?.();
     if (k==='sweep') mode.powers.magnetNext?.();
+
     try{ sfx.play('sfx-powerup'); }catch{}
-    lastUsed[k] = now; animateCD(k, COOLDOWNS[k]||0);
+    lastUsed[k] = now;
+    animateCD(k, COOLDOWNS[k]||0);
+    updateHudPowerTimers(); // รีเฟรชทันทีหลังใช้งาน
   }
+
   bar.addEventListener('click', (e)=>{
     const seg = e.target.closest('.pseg'); if (!seg) return;
     const k = seg.getAttribute('data-k'); if (!k) return;
-    const dur = DURATIONS[k] || 0; if (dur>0) animateCD(k, dur);
+    const dur = DURATIONS[k] || 0;
+    if (dur>0) animateCD(k, dur);
     usePower(k);
   }, {passive:true});
 })();
