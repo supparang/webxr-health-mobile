@@ -1,59 +1,86 @@
-/* === Hero Health Academy — styles/groups.css (no background changes) === */
+/* === Hero Health Academy — styles/groups.css (mode-specific, no bg changes) === */
 
-/* ป้ายเป้าหมาย (โหมด groups) */
-html[data-hha-mode="groups"] #targetWrap {
-  display: block !important;
-  font-weight: 900;
-  letter-spacing: .2px;
+/* Target badge always visible in groups mode */
+html[data-hha-mode="groups"] #targetWrap{
+  display:block !important;
+  font-weight:900; letter-spacing:.2px;
 }
 
-/* 3D look ของปุ่มไอคอน */
-html[data-hha-mode="groups"] .item {
-  position: fixed;
-  padding: 8px 12px;
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(0,0,0,0.10));
+/* --- Icon buttons: 3D look & responsive size --- */
+html[data-hha-mode="groups"] .item{
+  position:fixed;
+  padding:8px 12px;
+  border:none; border-radius:18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.10));
   box-shadow:
     0 14px 28px rgba(0,0,0,.35),
     inset 0 1px 0 rgba(255,255,255,.18),
     inset 0 -1px 0 rgba(0,0,0,.18);
-  text-shadow:
-    0 2px 8px rgba(0,0,0,.35),
-    0 0 1px rgba(0,0,0,.5);
-  transform: perspective(600px) rotateX(0) rotateY(0);
-  will-change: transform, filter, opacity;
-  transition: transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
+  text-shadow:0 2px 8px rgba(0,0,0,.35), 0 0 1px rgba(0,0,0,.5);
+  transform:perspective(600px) rotateX(0) rotateY(0);
+  will-change:transform, filter, opacity;
+  transition:transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
+  user-select:none;
 }
 
-/* ไฮไลต์เงาสะท้อน */
+/* highlight strip */
 html[data-hha-mode="groups"] .item::before{
-  content:''; position:absolute; inset: 2px 6px auto 6px; height: 12px; border-radius: 999px;
-  background: radial-gradient(closest-side, rgba(255,255,255,0.55), rgba(255,255,255,0));
-  filter: blur(2px); opacity: .35; pointer-events: none;
+  content:""; position:absolute; inset:2px 6px auto 6px; height:12px; border-radius:999px;
+  background:radial-gradient(closest-side, rgba(255,255,255,.55), rgba(255,255,255,0));
+  filter:blur(2px); opacity:.35; pointer-events:none;
 }
-
-/* เงาตกพื้น */
+/* soft drop shadow under icon */
 html[data-hha-mode="groups"] .item::after{
-  content:''; position:absolute; left:50%; transform: translateX(-50%); bottom:-6px; width:66%; height:10px;
-  background: radial-gradient(closest-side, rgba(0,0,0,.28), rgba(0,0,0,0));
-  filter: blur(4px); opacity: .85; pointer-events: none;
+  content:""; position:absolute; left:50%; transform:translateX(-50%); bottom:-6px; width:66%; height:10px;
+  background:radial-gradient(closest-side, rgba(0,0,0,.28), rgba(0,0,0,0));
+  filter:blur(4px); opacity:.85; pointer-events:none;
 }
 
-/* Hover (เดสก์ท็อป) */
+/* Desktop hover/active */
 @media (hover:hover){
   html[data-hha-mode="groups"] .item:hover{
-    transform: perspective(600px) translateZ(12px) scale(1.06);
-    filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+    transform:perspective(600px) translateZ(12px) scale(1.06);
+    filter:drop-shadow(0 10px 24px rgba(0,0,0,.35));
     box-shadow:
       0 16px 34px rgba(0,0,0,.40),
       inset 0 1px 0 rgba(255,255,255,.22),
       inset 0 -1px 0 rgba(0,0,0,.20);
   }
   html[data-hha-mode="groups"] .item:active{
-    transform: perspective(600px) translateZ(2px) scale(0.98);
-    filter: drop-shadow(0 6px 18px rgba(0,0,0,.32));
+    transform:perspective(600px) translateZ(2px) scale(.98);
+    filter:drop-shadow(0 6px 18px rgba(0,0,0,.32));
   }
 }
 
-/* โค้ช */
-html[data-hha-mode="groups"] #coachHUD { justify-content: center; }
+/* Keyboard focus (accessibility) */
+html[data-hha-mode="groups"] .item:focus-visible{
+  outline:2px solid #7fffd4; outline-offset:2px;
+  box-shadow:0 0 0 2px #0a0f1a, 0 0 0 4px #7fffd470, 0 14px 28px rgba(0,0,0,.35);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  html[data-hha-mode="groups"] .item{ transition:none; }
+}
+
+/* Tighten coach bubble alignment for groups */
+html[data-hha-mode="groups"] #coachHUD{ justify-content:center; }
+
+/* --- Optional cues (non-breaking) -----------------------------
+   ถ้าโหมด groups ใส่ data-attr ให้ปุ่มไว้ (เช่น data-golden="1" / data-target="1"),
+   สไตล์ด้านล่างจะช่วยเน้นผลลัพธ์ได้สวยขึ้นโดยไม่กระทบของเดิม
+---------------------------------------------------------------- */
+html[data-hha-mode="groups"] .item[data-golden="1"]{
+  box-shadow:
+    0 14px 28px rgba(0,0,0,.35),
+    0 0 22px rgba(255,213,74,.45),
+    inset 0 1px 0 rgba(255,255,255,.25);
+}
+html[data-hha-mode="groups"] .item[data-target="1"]{
+  outline:2px dashed #67e8f9; outline-offset:3px;
+}
+
+/* Small-screen tweak */
+@media (max-width:480px){
+  html[data-hha-mode="groups"] #targetWrap{ font-size:14px; }
+}
