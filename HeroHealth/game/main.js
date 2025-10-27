@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (Progress + Missions + Power-ups + Per-mode Help & Combined Help) ===
+// === Hero Health Academy — main.js (Progress + Missions + Power-ups + Scrollable Help) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -40,167 +40,6 @@ const I18N = {
 };
 const T = (lang)=>I18N[lang]||I18N.TH;
 
-// ----- Per-mode HOWTO (TH/EN) -----
-const HOWTO = {
-  goodjunk: {
-    icon: '🥗',
-    TH: {
-      title: 'ดี vs ขยะ',
-      brief: 'แตะเก็บ “อาหารดี” หลีกเลี่ยง “อาหารขยะ” เก็บคอมโบให้ยาวที่สุด!',
-      steps: [
-        'แตะไอคอนอาหารดีเพื่อเก็บคะแนน',
-        'หลีกเลี่ยงขยะ หากเผลอแตะ = -คะแนน และคอมโบรีเซ็ต',
-        'เก็บคอมโบเติมเกจ FEVER เพื่อโบนัสคูณคะแนน',
-        'พาวเวอร์อัปช่วยได้: ❄ Freeze / 🧲 Magnet / ×2 แต้ม'
-      ]
-    },
-    EN: {
-      title: 'Good vs Junk',
-      brief: 'Tap the “good” food, avoid the junk. Keep your combo going!',
-      steps: [
-        'Tap healthy food for points',
-        'Avoid junk food or you’ll lose points and combo',
-        'Build combo to trigger FEVER for score multiplier',
-        'Use power-ups: ❄ Freeze / 🧲 Magnet / ×2 Score'
-      ]
-    }
-  },
-  groups: {
-    icon: '🍽️',
-    TH: {
-      title: 'จาน 5 หมู่ (Food Group Frenzy)',
-      brief: 'ดู “🎯 หมวดเป้าหมาย” แล้วแตะไอคอนที่ตรงหมวด (ผลไม้/ผัก/โปรตีน/ธัญพืช)',
-      steps: [
-        'สังเกต 🎯 หมวดที่มุมบนซ้าย',
-        'แตะเฉพาะไอคอนที่ตรงหมวดเพื่อเก็บโควตา',
-        'ครบโควตา → สลับหมวดใหม่อัตโนมัติ',
-        'ทุกไอคอนมีอายุและจะหายเอง',
-        'พาวเวอร์: ❄ Freeze หมวด • 🧲 Magnet ชิ้นถัดไป • ×2 คูณแต้มหมวด'
-      ]
-    },
-    EN: {
-      title: 'Food Group Frenzy',
-      brief: 'Follow the 🎯 target group and tap only matching icons.',
-      steps: [
-        'Watch the target (Fruits/Vegetables/Protein/Grains)',
-        'Tap matches to fill quota',
-        'Quota complete → rotates to a new target',
-        'Icons expire automatically',
-        'Powers: ❄ Freeze • 🧲 Magnet next • ×2 group score'
-      ]
-    }
-  },
-  hydration: {
-    icon: '💧',
-    TH: {
-      title: 'สมดุลน้ำ',
-      brief: 'ดื่มน้ำให้พอดี—รักษาเกจให้อยู่โซนสีเขียว',
-      steps: [
-        'แตะเพื่อดื่ม/หยุดตามจังหวะ',
-        'อยู่ในโซนดีต่อเนื่อง = คอมโบสูง',
-        'หลุดโซนจะเสียคะแนนและคอมโบ'
-      ]
-    },
-    EN: {
-      title: 'Hydration',
-      brief: 'Keep hydration in the optimal zone—no over/under.',
-      steps: [
-        'Tap to drink/stop at the right time',
-        'Stay in the green zone for combo',
-        'Leaving the zone reduces score/combo'
-      ]
-    }
-  },
-  plate: {
-    icon: '🍱',
-    TH: {
-      title: 'จัดจานสุขภาพ',
-      brief: 'ลากอาหารลงจานให้ครบสัดส่วนที่กำหนด',
-      steps: [
-        'ดูโควตาแต่ละหมวด แล้วลากอาหารลงจาน',
-        'จัดครบตามสัดส่วน = โบนัส',
-        'เลือกอาหารที่เหมาะสม สุขภาพดีกว่า!'
-      ]
-    },
-    EN: {
-      title: 'Healthy Plate',
-      brief: 'Assemble a balanced plate by category ratios.',
-      steps: [
-        'Check each category quota and place food',
-        'Meet ratios to earn bonus',
-        'Healthier picks grant extra points'
-      ]
-    }
-  }
-};
-
-function showHelpFor(modeKey){
-  const modal = $('#help');
-  const body  = $('#helpBody');
-  if (!modal || !body) return;
-
-  const lang = (localStorage.getItem('hha_lang') || 'TH');
-  const pack = HOWTO[modeKey] || HOWTO.goodjunk;
-  const L    = pack[lang] || pack.TH;
-
-  body.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:left;max-width:720px">
-      <div style="font-weight:900;font-size:22px;display:flex;align-items:center;gap:8px">
-        <span style="font-size:24px">${pack.icon}</span> ${L.title}
-      </div>
-      <div style="opacity:.9">${L.brief}</div>
-      <ul style="margin:8px 0 0 18px;padding:0;font-weight:700;line-height:1.5">
-        ${L.steps.map(s=>`<li>${s}</li>`).join('')}
-      </ul>
-    </div>
-  `;
-  const card = modal.querySelector('.card');
-  if (card){
-    card.style.maxWidth = '820px';
-    card.style.margin   = '0 12px';
-  }
-  modal.style.display = 'flex';
-  modal.style.alignItems = 'center';
-  modal.style.justifyContent = 'center';
-}
-
-// === NEW: Combined help (all games) for the "📘 คู่มือรวม" button ===
-function showHelpAll(){
-  const modal = $('#help');
-  const body  = $('#helpBody');
-  if (!modal || !body) return;
-  const lang = (localStorage.getItem('hha_lang') || 'TH');
-
-  const blocks = Object.entries(HOWTO).map(([key, pack])=>{
-    const L = pack[lang] || pack.TH;
-    return `
-      <section style="padding:10px 0;border-bottom:1px dashed rgba(255,255,255,.12);">
-        <div style="font-weight:900;font-size:18px;display:flex;align-items:center;gap:8px">
-          <span style="font-size:22px">${pack.icon}</span> ${L.title}
-        </div>
-        <div style="opacity:.9;margin:4px 0 6px">${L.brief}</div>
-        <ul style="margin:6px 0 0 18px;padding:0;font-weight:700;line-height:1.5">
-          ${L.steps.map(s=>`<li>${s}</li>`).join('')}
-        </ul>
-      </section>`;
-  }).join('');
-
-  body.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px;max-width:820px">
-      ${blocks}
-      <div style="text-align:center;opacity:.8;font-weight:800;margin-top:6px">— END —</div>
-    </div>
-  `;
-  const card = modal.querySelector('.card');
-  if (card){
-    card.style.maxWidth = '900px';
-    card.style.margin   = '0 12px';
-  }
-  modal.style.display = 'flex';
-  modal.style.alignItems = 'center';
-  modal.style.justifyContent = 'center';
-}
-
 // ----- Systems & State -----
 const hud   = new HUD();
 const sfx   = new SFX();
@@ -232,6 +71,7 @@ function applyUI(){
   const L = T(state.lang);
   setText('#modeName',   L.names[state.modeKey]||state.modeKey);
   setText('#difficulty', L.diffs[state.difficulty]||state.difficulty);
+  // ตั้ง data attribute เพื่อเปิดสไตล์เฉพาะโหมด (เช่น groups)
   document.documentElement.setAttribute('data-hha-mode', state.modeKey);
 }
 function updateHUD(){
@@ -400,7 +240,7 @@ function shatter3D(x,y){
     s.style.setProperty('--rot', rot);
     FXROOT.appendChild(s);
     s.style.animation=`shardFly .48s ease-out forwards`;
-    setTimeout(()=>{ try{ s.remove(); }catch{} }, 560);
+    setTimeout(()=>{ try{ s.remove();}catch{} }, 560);
   }
 
   const SP = 8 + (Math.random()*6|0);
@@ -570,7 +410,7 @@ function tick(){
 }
 
 async function runCountdown(sec=5){
-  let ov = $('#cdOverlay');
+  let ov = document.getElementById('cdOverlay');
   if (!ov){
     ov = document.createElement('div'); ov.id='cdOverlay';
     ov.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:150;pointer-events:none;';
@@ -618,6 +458,7 @@ function end(silent=false){
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
+  // cleanup live items
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
   const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
@@ -627,8 +468,8 @@ function end(silent=false){
     const modal = $('#result');
     if (modal){
       modal.style.display='flex';
-      modal.style.alignItems='center';
-      modal.style.justifyContent='center';
+      document.documentElement.classList.add('hha-modal-open');
+      document.body.classList.add('hha-modal-open');
 
       const total = score.score|0;
       const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
@@ -658,7 +499,7 @@ function end(silent=false){
 
 // ----- Missions HUD -----
 function renderMissions(list){
-  const host = $('#questChips'); if (!host) return;
+  const host = document.getElementById('questChips'); if (!host) return;
   host.innerHTML = '';
   if (!list || !list.length) return;
   for (const m of list){
@@ -671,6 +512,7 @@ function renderMissions(list){
       <div class="qBar"><i style="width:${Math.min(100,(m.prog||0)/m.need*100)}%"></i></div>`;
     host.appendChild(chip);
   }
+
   if (!renderMissions._subscribed){
     Progress.on((type)=>{
       if (type==='mission_done' || type==='run_start'){
@@ -681,27 +523,79 @@ function renderMissions(list){
   }
 }
 
+// ----- Scrollable modal helpers -----
+function openModal(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'flex';
+  document.documentElement.classList.add('hha-modal-open');
+  document.body.classList.add('hha-modal-open');
+
+  const body = el.querySelector('.modal-body') || el.querySelector('[tabindex]');
+  if (body) body.focus();
+
+  function onKey(e){ if (e.key === 'Escape'){ closeModal(id); } }
+  el._escHandler = onKey;
+  window.addEventListener('keydown', onKey);
+}
+function closeModal(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'none';
+  const anyOpen = Array.from(document.querySelectorAll('.modal')).some(m => m.style.display !== 'none');
+  if (!anyOpen){
+    document.documentElement.classList.remove('hha-modal-open');
+    document.body.classList.remove('hha-modal-open');
+  }
+  if (el._escHandler){
+    window.removeEventListener('keydown', el._escHandler);
+    delete el._escHandler;
+  }
+}
+
+// ----- Per-mode help (เติมข้อความตามโหมดเมื่อกดปุ่ม “วิธีเล่น”) -----
+function buildHelpHTML(modeKey, lang){
+  const L = lang==='EN'?'EN':'TH';
+  if (modeKey === 'goodjunk'){
+    return (L==='EN')
+      ? `<h4>Good vs Junk</h4><ul><li>Tap healthy food, avoid junk icons.</li><li>Chain combos for bonus & FEVER.</li><li>Icons appear and vanish automatically.</li></ul>`
+      : `<h4>ดี vs ขยะ</h4><ul><li>แตะเก็บอาหาร “ดี” หลีกเลี่ยงไอคอน “ขยะ”</li><li>ต่อคอมโบเพื่อโบนัส & โหมด FEVER</li><li>ไอคอนโผล่มาแล้วหายเองอัตโนมัติ</li></ul>`;
+  }
+  if (modeKey === 'groups'){
+    return (L==='EN')
+      ? `<h4>Food Group Frenzy</h4><ul><li>Watch the target group at HUD, tap only matching icons.</li><li>Auto-spawn & TTL on each icon.</li><li>3 Mini-quests are randomized each run.</li><li>Powers: ×2 score / Freeze / Magnet (next target).</li></ul>`
+      : `<h4>จาน 5 หมู่</h4><ul><li>ดูหมวดเป้าหมายที่ HUD แล้วแตะเฉพาะไอคอนที่ “ตรงหมวด”</li><li>แต่ละไอคอนเกิดแล้วหายเองอัตโนมัติ</li><li>มี Mini-Quest สุ่ม 3 ภารกิจ/เกม</li><li>พาวเวอร์: ×2 คะแนน / Freeze / Magnet</li></ul>`;
+  }
+  if (modeKey === 'hydration'){
+    return (L==='EN')
+      ? `<h4>Hydration</h4><p>Tap to drink the right amount. Keep the balance and chase FEVER for multipliers.</p>`
+      : `<h4>สมดุลน้ำ</h4><p>แตะเพื่อดื่มน้ำให้พอดี รักษาสมดุล และล่า FEVER เพื่อคูณคะแนน</p>`;
+  }
+  if (modeKey === 'plate'){
+    return (L==='EN')
+      ? `<h4>Healthy Plate</h4><p>Place foods into the plate to fill quotas (grains/protein/vegetables/fruits/dairy).</p>`
+      : `<h4>จัดจานสุขภาพ</h4><p>วางอาหารลงจานให้ครบโควตาแต่ละหมวด (ธัญพืช/โปรตีน/ผัก/ผลไม้/นม)</p>`;
+  }
+  return (L==='EN')? `<p>No help available.</p>` : `<p>ยังไม่มีคำอธิบายเกมนี้</p>`;
+}
+
 // ----- Global UI Events -----
 document.addEventListener('pointerup', (e)=>{
   const target = e.target;
   const btn = byAction(target);
-  const a = btn?.getAttribute('data-action') || '';
+  if(!btn) return;
+  const a = btn.getAttribute('data-action') || '';
+  const v = btn.getAttribute('data-value') || '';
 
-  // เลือกโหมด (ยังไม่เริ่มเกม จนกด Start)
+  // เลือกโหมด (ยังไม่เริ่มเกมจนกด ▶ เริ่มเกม)
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
-    if (MODES[key]){
-      state.modeKey = key;
-      applyUI();
-      // ไม่ start() ทันที — ต้องกดปุ่ม ▶ เริ่มเกม
-    }
+    if (MODES[key]){ state.modeKey = key; applyUI(); }
     return;
   }
 
-  if(!btn) return;
-
-  if (a === 'mode'){ state.modeKey = btn.getAttribute('data-value'); applyUI(); }
-  else if (a === 'diff'){ state.difficulty = btn.getAttribute('data-value'); applyUI(); }
+  if (a === 'mode'){ state.modeKey = v; applyUI(); }
+  else if (a === 'diff'){ state.difficulty = v; applyUI(); }
   else if (a === 'start'){ start(); }
   else if (a === 'pause'){
     if (!state.running){ start(); return; }
@@ -710,20 +604,30 @@ document.addEventListener('pointerup', (e)=>{
     else { clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer); }
   }
   else if (a === 'restart'){ end(true); start(); }
-  else if (a === 'help'){ showHelpFor(state.modeKey); }
-  else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
-  else if (a === 'helpScene'){ showHelpAll(); } // <<— รวมวิธีเล่นทุกเกม
-  else if (a === 'helpSceneClose'){ const hs=$('#help'); if (hs) hs.style.display='none'; }
+  else if (a === 'help'){
+    const helpBody = $('#helpBody');
+    if (helpBody) helpBody.innerHTML = buildHelpHTML(state.modeKey, state.lang);
+    openModal('help');
+  }
+  else if (a === 'helpClose'){ closeModal('help'); }
+  else if (a === 'helpScene'){ openModal('helpScene'); }
+  else if (a === 'helpSceneClose'){ closeModal('helpScene'); }
 }, {passive:true});
 
-// ----- Power-ups (top-left, for groups) -----
+// Result modal buttons (คลิกได้แน่นอน)
+const resEl = $('#result');
+if (resEl){
+  resEl.addEventListener('click', (e)=>{
+    const a = e.target.getAttribute('data-result');
+    if (a==='replay'){ resEl.style.display='none'; document.documentElement.classList.remove('hha-modal-open'); document.body.classList.remove('hha-modal-open'); start(); }
+    if (a==='home'){  resEl.style.display='none'; document.documentElement.classList.remove('hha-modal-open'); document.body.classList.remove('hha-modal-open'); end(true); }
+  });
+}
+
+// ----- Power-ups (top-left, works esp. for groups) -----
 (function wirePowers(){
   const bar = $('#powerBar');
   if (!bar) return;
-
-  // ถ้าไอคอน sweep ยังเป็น 🧹 ให้เปลี่ยนเป็น 🧲
-  const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
-  if (sweep && sweep.textContent.trim() === '🧹') sweep.textContent = '🧲';
 
   const COOLDOWNS = { x2:12000, freeze:9000, sweep:8000 }; // ms
   const DURATIONS = (() => {
@@ -791,25 +695,6 @@ document.addEventListener('pointerup', (e)=>{
     usePower(k);
   }, {passive:true});
 })();
-
-// Result modal buttons (FIX: use closest to catch inner clicks)
-const resEl = document.getElementById('result');
-if (resEl){
-  resEl.addEventListener('click', (e)=>{
-    const btn = e.target.closest('[data-result]');
-    if (!btn) return;
-
-    const a = btn.getAttribute('data-result');
-    if (a === 'replay'){
-      resEl.style.display = 'none';
-      start();
-    } else if (a === 'home'){
-      resEl.style.display = 'none';
-      end(true);
-    }
-  }, {passive:true});
-}
-
 
 // Toggles
 $('#langToggle')?.addEventListener('click', ()=>{
