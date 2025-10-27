@@ -1,63 +1,140 @@
-// === Hero Health Academy — modes/hydration.js (hydration bar + rules + mini-quests ready) ===
+// === Hero Health Academy — modes/hydration.js (hardened + mini-quests) ===
 export const name = 'hydration';
 
-// ไอคอน (น้ำเปล่า/น้ำหวาน/ไอเท็มกลาง ๆ)
+/* ------------------------------ Catalog ------------------------------ */
 const WATER = [
   { id:'water1', labelEN:'Water', labelTH:'น้ำเปล่า', icon:'💧' },
   { id:'water2', labelEN:'Water', labelTH:'น้ำเปล่า', icon:'🫗' },
 ];
 const SWEET = [
-  { id:'soda',   labelEN:'Soda',   labelTH:'น้ำอัดลม', icon:'🥤' },
-  { id:'juice',  labelEN:'Juice',  labelTH:'น้ำผลไม้หวาน', icon:'🧃' },
+  { id:'soda',  labelEN:'Soda',  labelTH:'น้ำอัดลม',        icon:'🥤' },
+  { id:'juice', labelEN:'Juice', labelTH:'น้ำผลไม้หวาน',   icon:'🧃'  },
 ];
 const NEUTRAL = [
-  { id:'ice', labelEN:'Ice', labelTH:'น้ำแข็ง', icon:'🧊' },
+  { id:'ice',   labelEN:'Ice',   labelTH:'น้ำแข็ง',        icon:'🧊'  },
 ];
 
+/* ------------------------------ Local State ------------------------------ */
 const ST = {
   lang:'TH',
-  level: 50,        // 0..100
+  level: 50,        // 0..100 (render cap), แต่อยู่จริง 0..120 เพื่อมี headroom
   safeMin: 40,
   safeMax: 60,
+
+  // x2
   x2Until: 0,
+
+  // Passive drift
+  driftPerSec: 2,        // ดึงกลับหาค่า 50 อย่างนุ่มนวล
+  lastTick: 0,
+
+  // Mini-quests
+  mq_inSafeMs: 0,        // เวลาที่อยู่ในโซนปลอดภัยต่อเนื่อง
+  mq_avoidSweetMs: 0,    // เวลาเลี่ยงน้ำหวานต่อเนื่อง
+  mq_lastWasSweet: false,
+
   // HUD refs
   $wrap:null, $bar:null, $label:null
 };
 
-export function init(gameState, hud, diff){
-  ST.lang = localStorage.getItem('hha_lang') || 'TH';
+/* ------------------------------ Safe FX Import ------------------------------ */
+let FX = { add3DTilt: ()=>{}, shatter3D: ()=>{} };
+(async () => {
+  try {
+    const m = await import('../game/core/fx.js').catch(()=>null);
+    if (m) FX = { add3DTilt: m.add3DTilt||(()=>{}), shatter3D: m.shatter3D||(()=>{}) };
+  } catch {}
+  if (!FX.add3DTilt || !FX.shatter3D) {
+    try {
+      const m2 = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
+      if (m2) FX = { add3DTilt: m2.add3DTilt||(()=>{}), shatter3D: m2.shatter3D||(()=>{}) };
+    } catch {}
+  }
+})();
+
+/* ------------------------------ Lifecycle ------------------------------ */
+export function init(gameState={}, hud=null, diff={}){
+  ST.lang = (localStorage.getItem('hha_lang') || gameState.lang || 'TH').toUpperCase();
   ST.level = 50;
   ST.safeMin = 40;
   ST.safeMax = 60;
+  ST.x2Until = 0;
 
-  ST.$wrap  = document.getElementById('hydroWrap');
-  ST.$bar   = document.getElementById('hydroBar');
-  ST.$label = document.getElementById('hydroLabel');
+  ST.driftPerSec = Number(diff?.driftPerSec) > 0 ? Number(diff.driftPerSec) : 2;
+  ST.lastTick = performance.now();
 
-  if (ST.$wrap){ ST.$wrap.style.display = 'block'; }
+  ST.mq_inSafeMs = 0;
+  ST.mq_avoidSweetMs = 0;
+  ST.mq_lastWasSweet = false;
+
+  ensureHydroHUD(); // สร้าง HUD ถ้าไม่มี
+  if (ST.$wrap) ST.$wrap.style.display = 'block';
   renderBar();
+
+  // โชว์เป้า mini-quests (ถ้า HUD มี mission API)
+  try {
+    hud?.mission?.setPrimary?.(t('รักษาระดับน้ำให้อยู่ในโซนพอดี 10 วินาที',
+                                 'Keep hydration in the safe zone for 10s', ST.lang));
+    hud?.mission?.setSecondary?.(t('หลีกเลี่ยงน้ำหวาน 8 วินาที',
+                                   'Avoid sweet drinks for 8s', ST.lang));
+  } catch {}
 }
+
 export function cleanup(){
   if (ST.$wrap) ST.$wrap.style.display = 'none';
 }
-export function tick(){ /* อัปเดต passively จากการคลิก */ }
 
-// สุ่มชิ้น: เน้นน้ำเปล่าเป็นหลัก (สนุกและมีเสี่ยง)
-export function pickMeta(diff){
+export function tick(gameState={}, systems={}, hud=null){
+  const now = performance.now();
+  let dt = now - (ST.lastTick || now);
+  ST.lastTick = now;
+  if (dt <= 0) dt = 0;
+
+  // ปิด x2 เมื่อหมดเวลา
+  if (ST.x2Until && now > ST.x2Until) ST.x2Until = 0;
+
+  // Passive drift: ดึง ST.level เข้าหา 50 เมื่อไม่มีการกด (รู้สึกเป็นธรรมชาติ)
+  // ไม่ดึงขณะ freeze (ให้ main.js ตั้ง state.freezeUntil)
+  if (!(gameState?.freezeUntil && now < gameState.freezeUntil)) {
+    const center = 50;
+    const dir = (ST.level > center) ? -1 : (ST.level < center ? 1 : 0);
+    ST.level = clamp(ST.level + dir * ST.driftPerSec * (dt/1000), 0, 120);
+  }
+
+  // Mini-quests evaluator (ทุกเฟรม)
+  const inSafe = (ST.level >= ST.safeMin && ST.level <= ST.safeMax);
+  ST.mq_inSafeMs     = inSafe ? (ST.mq_inSafeMs + dt) : 0;
+  ST.mq_avoidSweetMs = (!ST.mq_lastWasSweet) ? (ST.mq_avoidSweetMs + dt) : 0;
+  ST.mq_lastWasSweet = false; // reset flag; จะถูกตั้งกลับใน onHit ถ้าเพิ่งดื่มหวาน
+
+  // แจ้งความคืบหน้าบน HUD (ถ้ามี)
+  try {
+    hud?.mission?.setProgressPrimary?.(Math.min(1, ST.mq_inSafeMs / 10000));   // เป้า 10s
+    hud?.mission?.setProgressSecondary?.(Math.min(1, ST.mq_avoidSweetMs / 8000)); // เป้า 8s
+  } catch {}
+
+  renderBar();
+}
+
+/* ------------------------------ Spawner ------------------------------ */
+// น้ำเปล่าเยอะสุด (สนุกแต่มีเสี่ยงถ้าสูงเกิน)
+export function pickMeta(diff={}){
   const r = Math.random();
   const pool = r < 0.6 ? WATER : (r < 0.85 ? SWEET : NEUTRAL);
   const it = pool[(Math.random()*pool.length)|0];
 
-  // ความถูกต้องจะขึ้นกับ “สถานะระดับน้ำ” และสิ่งที่กด (ไปตัดสินใน onHit)
   const golden = performance.now() < ST.x2Until;
   const mult = golden ? 2 : 1;
 
-  const lifeBase = diff?.life || 3000;
-  const life = Math.min(4500, Math.max(700, lifeBase));
+  const lifeBase = Number(diff?.life) > 0 ? Number(diff.life) : 3000;
+  const life = clamp(lifeBase, 700, 4500);
+
+  // คำนวณ type แบบชัดเจน (ไม่พึ่ง .includes กับออปเจ็กต์จาก array อื่น)
+  const type = (pool === WATER) ? 'water' : (pool === SWEET ? 'sweet' : 'neutral');
 
   return {
     id: it.id,
-    type: (WATER.includes(it)?'water':(SWEET.includes(it)?'sweet':'neutral')),
+    type,                // 'water' | 'sweet' | 'neutral'
     char: it.icon,
     life,
     mult,
@@ -65,68 +142,101 @@ export function pickMeta(diff){
   };
 }
 
-// กฎ:
-// - หากระดับน้ำ “สูงเกิน” (ST.level > safeMax):
-//     - คลิกน้ำเปล่า => หักคะแนนและคอมโบ (bad)
-//     - คลิกน้ำหวาน => ให้คะแนน และไม่หักคอมโบ (good)  [ตามที่ระบุ]
-// - หากระดับน้ำ “ต่ำ” (ST.level < safeMin):
-//     - คลิกน้ำหวาน => หักคะแนนและคอมโบ (bad)        [ตามที่ระบุ]
-//     - คลิกน้ำเปล่า => ให้คะแนน (good)
-// - หากอยู่ในโซนพอดี => น้ำเปล่าดี (good) น้ำหวานพอใช้/หรือ bad ตามด่าน (ตั้งเป็น ok)
-export function onHit(meta, systems, gameState, hud){
+/* ------------------------------ Hit Logic (Rules) ------------------------------ */
+/*
+กฎ:
+- ถ้า ST.level > safeMax (สูงเกิน):
+    - water => bad
+    - sweet => good
+- ถ้า ST.level < safeMin (ต่ำ):
+    - sweet => bad
+    - water => good
+- ถ้าอยู่ในโซนพอดี:
+    - water => good
+    - sweet => ok
+- neutral => ok เสมอ
+หมายเหตุ: เราปรับระดับน้ำก่อนตัดสินผล เพื่อสะท้อนผลจากการดื่มทันที
+*/
+export function onHit(meta={}, systems={}, gameState={}, hud=null){
   let res = 'ok';
-  const was = ST.level;
 
-  if (meta.type==='water'){
-    // เพิ่มระดับน้ำเล็กน้อย
+  // ปรับระดับน้ำจากสิ่งที่ดื่ม
+  if (meta.type === 'water') {
     ST.level = clamp(ST.level + 8, 0, 120);
-  }else if (meta.type==='sweet'){
-    // น้ำหวานทำให้ “ชุ่มชื่นแป๊บเดียว” แต่ไม่ดีต่อความสมดุล -> ขยับน้อย/ทำ noise
+  } else if (meta.type === 'sweet') {
     ST.level = clamp(ST.level + 4, 0, 120);
-  }else{
-    // neutral: แทบไม่เปลี่ยน
-    ST.level = clamp(ST.level + 0, 0, 120);
+    ST.mq_lastWasSweet = true;  // รีเซ็ต quest เลี่ยงหวานใน tick ถัดไป
+  } // neutral ไม่เปลี่ยน
+
+  // ช่วงคะแนนคูณ (คูณจริงอยู่ที่ main.js)
+  const inX2 = (performance.now() < ST.x2Until);
+
+  // ตัดสินผลหลังอัปเดตระดับน้ำ
+  if (ST.level > ST.safeMax){
+    res = (meta.type==='water') ? 'bad' : (meta.type==='sweet' ? 'good' : 'ok');
+  } else if (ST.level < ST.safeMin){
+    res = (meta.type==='sweet') ? 'bad' : (meta.type==='water' ? 'good' : 'ok');
+  } else {
+    res = (meta.type==='water') ? 'good' : (meta.type==='sweet' ? 'ok' : 'ok');
   }
 
-  // ตัดสินผล
-  if (ST.level > ST.safeMax){             // “สูงเกิน”
-    if (meta.type==='water'){ res='bad'; }
-    else if (meta.type==='sweet'){ res='good'; }
-    else { res='ok'; }
-  } else if (ST.level < ST.safeMin){      // “ต่ำ”
-    if (meta.type==='sweet'){ res='bad'; }
-    else if (meta.type==='water'){ res='good'; }
-    else { res='ok'; }
-  } else {                                // “พอดี”
-    if (meta.type==='water'){ res='good'; }
-    else if (meta.type==='sweet'){ res='ok'; }
-    else { res='ok'; }
-  }
-
-  // โค้ชพูดและปรับป้าย
+  // โค้ชพูด
   if (res==='good') systems.coach?.say?.(t('ดีมาก! ระดับน้ำกำลังดี', 'Nice! Hydration on track', ST.lang));
   if (res==='bad')  systems.coach?.say?.(t('ยังไม่เหมาะนะ', 'Not ideal yet', ST.lang));
 
+  // แจ้งมิชชั่นผ่าน event (หาก engine ฟัง)
+  try {
+    systems.mission?.emit?.('hydration-hit', {
+      type: meta.type, result: res, level: ST.level, inX2
+    });
+  } catch {}
+
   renderBar();
-  return res;
+  return res; // 'good' | 'bad' | 'ok'
 }
 
-// Power durations ให้สอดคล้อง UI (แม่เหล็กไม่ใช้ในโหมดนี้)
+/* ------------------------------ Powers ------------------------------ */
 export function getPowerDurations(){ return { x2:8, freeze:3, magnet:0 }; }
 export const powers = {
   x2Target(){ ST.x2Until = performance.now() + 8000; },
-  freezeTarget(){ /* main.js จัดการหยุด spawn */ },
-  magnetNext(){ /* ไม่ใช้ */ }
+  freezeTarget(){ /* main.js จะจัดการหยุด spawn ผ่าน state.freezeUntil */ },
+  magnetNext(){ /* ไม่ใช้ในโหมดนี้ */ }
 };
 
-// ----- HUD: Hydration bar -----
+/* ------------------------------ HUD (Hydration bar) ------------------------------ */
+function ensureHydroHUD(){
+  ST.$wrap  = document.getElementById('hydroWrap');
+  ST.$bar   = document.getElementById('hydroBar');
+  ST.$label = document.getElementById('hydroLabel');
+
+  // ถ้าไม่มี ให้สร้าง DOM อย่างง่าย ๆ เพื่อกันพัง
+  if (!ST.$wrap) {
+    const wrap = document.createElement('div');
+    wrap.id = 'hydroWrap';
+    wrap.style.cssText = 'position:fixed;left:12px;top:72px;width:220px;display:block;z-index:10;font:14px/1.2 system-ui,Segoe UI,Arial;';
+    const label = document.createElement('div');
+    label.id = 'hydroLabel';
+    label.style.cssText = 'margin-bottom:6px;font-weight:600';
+    const rail = document.createElement('div');
+    rail.style.cssText = 'width:100%;height:12px;background:#1115;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 1px #0007';
+    const bar = document.createElement('div');
+    bar.id = 'hydroBar';
+    bar.style.cssText = 'height:100%;width:50%;background:#22c55e;border-radius:8px;transition:width .18s linear, box-shadow .18s linear;';
+    rail.appendChild(bar);
+    wrap.appendChild(label);
+    wrap.appendChild(rail);
+    document.body.appendChild(wrap);
+
+    ST.$wrap = wrap; ST.$bar = bar; ST.$label = label;
+  }
+}
+
 function renderBar(){
   if (!ST.$bar || !ST.$label) return;
 
   const pct = Math.max(0, Math.min(100, ST.level));
   ST.$bar.style.width = pct + '%';
 
-  // สีตามระดับ และมี “ไฟลุก” (glow) เมื่อสูงเกิน/ต่ำเกิน
   let color = '#22c55e', txt = t('พอดี', 'OK', ST.lang);
   let glow = '';
   if (ST.level > ST.safeMax){
@@ -141,23 +251,18 @@ function renderBar(){
   ST.$label.textContent = `${txt} (${pct|0})`;
 }
 
-// utils
+/* ------------------------------ FX hooks ------------------------------ */
+export const fx = {
+  onSpawn(el/*, state*/){ try { FX.add3DTilt?.(el); } catch {} },
+  onHit(x, y/*, meta, state*/){ try { FX.shatter3D?.(x, y); } catch {} }
+};
+
+/* ------------------------------ Utils ------------------------------ */
 function t(th,en,lang){ return lang==='EN'?en:th; }
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function shade(hex, amt=-10){
-  // hex #rrggbb -> ปรับความสว่างคร่าว ๆ
   const c = hex.replace('#','');
   let r = parseInt(c.substring(0,2),16), g = parseInt(c.substring(2,4),16), b = parseInt(c.substring(4,6),16);
   r = Math.max(0,Math.min(255,r+amt)); g = Math.max(0,Math.min(255,g+amt)); b = Math.max(0,Math.min(255,b+amt));
   return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
 }
-import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
-
-export const fx = {
-  onSpawn(el/*, state*/){
-    add3DTilt(el);
-  },
-  onHit(x, y/*, meta, state*/){
-    shatter3D(x, y);
-  }
-};
