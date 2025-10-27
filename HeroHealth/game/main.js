@@ -1,4 +1,4 @@
-// === Hero Health Academy — main.js (Progress + Missions + Power-ups + Scrollable Help) ===
+// === Hero Health Academy — main.js (Progress + Missions + Power-ups + Scrollable Help + Help Icons) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -71,7 +71,6 @@ function applyUI(){
   const L = T(state.lang);
   setText('#modeName',   L.names[state.modeKey]||state.modeKey);
   setText('#difficulty', L.diffs[state.difficulty]||state.difficulty);
-  // ตั้ง data attribute เพื่อเปิดสไตล์เฉพาะโหมด (เช่น groups)
   document.documentElement.setAttribute('data-hha-mode', state.modeKey);
 }
 function updateHUD(){
@@ -553,30 +552,72 @@ function closeModal(id){
   }
 }
 
-// ----- Per-mode help (เติมข้อความตามโหมดเมื่อกดปุ่ม “วิธีเล่น”) -----
+/* ----- Per-mode help (เพิ่มแถบไอคอนประกอบ) ----- */
+function helpHeader(title, iconsRow){
+  return `
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 6px 0">
+      <h4 style="margin:0">${title}</h4>
+      <div aria-hidden="true" style="display:flex;gap:6px;font-size:22px;line-height:1">${iconsRow}</div>
+    </div>`;
+}
 function buildHelpHTML(modeKey, lang){
   const L = lang==='EN'?'EN':'TH';
+
   if (modeKey === 'goodjunk'){
+    const head = helpHeader(
+      (L==='EN' ? 'Good vs Junk' : 'ดี vs ขยะ'),
+      '🥗 ✅ ❌ ⚡'
+    );
     return (L==='EN')
-      ? `<h4>Good vs Junk</h4><ul><li>Tap healthy food, avoid junk icons.</li><li>Chain combos for bonus & FEVER.</li><li>Icons appear and vanish automatically.</li></ul>`
-      : `<h4>ดี vs ขยะ</h4><ul><li>แตะเก็บอาหาร “ดี” หลีกเลี่ยงไอคอน “ขยะ”</li><li>ต่อคอมโบเพื่อโบนัส & โหมด FEVER</li><li>ไอคอนโผล่มาแล้วหายเองอัตโนมัติ</li></ul>`;
+      ? `${head}<ul><li>Tap healthy food, avoid junk icons.</li><li>Chain combos for bonus & FEVER.</li><li>Icons appear and vanish automatically.</li></ul>`
+      : `${head}<ul><li>แตะเก็บอาหาร “ดี” หลีกเลี่ยงไอคอน “ขยะ”</li><li>ต่อคอมโบเพื่อโบนัส & โหมด FEVER</li><li>ไอคอนโผล่มาแล้วหายเองอัตโนมัติ</li></ul>`;
   }
+
   if (modeKey === 'groups'){
+    const head = helpHeader(
+      (L==='EN' ? 'Food Group Frenzy' : 'จาน 5 หมู่'),
+      '🍎 🥦 🍗 🌾  •  ×2 🧊 🧲'
+    );
     return (L==='EN')
-      ? `<h4>Food Group Frenzy</h4><ul><li>Watch the target group at HUD, tap only matching icons.</li><li>Auto-spawn & TTL on each icon.</li><li>3 Mini-quests are randomized each run.</li><li>Powers: ×2 score / Freeze / Magnet (next target).</li></ul>`
-      : `<h4>จาน 5 หมู่</h4><ul><li>ดูหมวดเป้าหมายที่ HUD แล้วแตะเฉพาะไอคอนที่ “ตรงหมวด”</li><li>แต่ละไอคอนเกิดแล้วหายเองอัตโนมัติ</li><li>มี Mini-Quest สุ่ม 3 ภารกิจ/เกม</li><li>พาวเวอร์: ×2 คะแนน / Freeze / Magnet</li></ul>`;
+      ? `${head}
+         <ul>
+           <li>Watch the target group at HUD, tap only matching icons.</li>
+           <li>Auto-spawn & TTL on each icon (they disappear by themselves).</li>
+           <li>3 Mini-quests are randomized per run (from a pool of 5).</li>
+           <li>Powers: <b>×2</b> score, <b>Freeze</b>, <b>Magnet</b> (pull next target).</li>
+         </ul>`
+      : `${head}
+         <ul>
+           <li>ดูหมวดเป้าหมายที่ HUD แล้วแตะเฉพาะไอคอนที่ “ตรงหมวด”</li>
+           <li>ไอคอนสุ่มเกิดและมีอายุ (TTL) หายเองอัตโนมัติ</li>
+           <li>สุ่ม Mini-Quest 3 ภารกิจต่อเกม (จากชุด 5 ภารกิจ)</li>
+           <li>พาวเวอร์: <b>×2</b> คะแนน, <b>Freeze</b>, <b>Magnet</b> (ดูดเป้าหมายถัดไป)</li>
+         </ul>`;
   }
+
   if (modeKey === 'hydration'){
+    const head = helpHeader(
+      (L==='EN' ? 'Hydration' : 'สมดุลน้ำ'),
+      '💧 🥤 🚰 ⚡'
+    );
     return (L==='EN')
-      ? `<h4>Hydration</h4><p>Tap to drink the right amount. Keep the balance and chase FEVER for multipliers.</p>`
-      : `<h4>สมดุลน้ำ</h4><p>แตะเพื่อดื่มน้ำให้พอดี รักษาสมดุล และล่า FEVER เพื่อคูณคะแนน</p>`;
+      ? `${head}<p>Tap to drink the right amount. Keep the balance and chase FEVER for multipliers.</p>`
+      : `${head}<p>แตะเพื่อดื่มน้ำให้พอดี รักษาสมดุล และล่า FEVER เพื่อคูณคะแนน</p>`;
   }
+
   if (modeKey === 'plate'){
+    const head = helpHeader(
+      (L==='EN' ? 'Healthy Plate' : 'จัดจานสุขภาพ'),
+      '🍚 🍗 🥦 🍎 🥛'
+    );
     return (L==='EN')
-      ? `<h4>Healthy Plate</h4><p>Place foods into the plate to fill quotas (grains/protein/vegetables/fruits/dairy).</p>`
-      : `<h4>จัดจานสุขภาพ</h4><p>วางอาหารลงจานให้ครบโควตาแต่ละหมวด (ธัญพืช/โปรตีน/ผัก/ผลไม้/นม)</p>`;
+      ? `${head}<p>Place foods into the plate to fill quotas (grains/protein/vegetables/fruits/dairy).</p>`
+      : `${head}<p>วางอาหารลงจานให้ครบโควตา (ธัญพืช/โปรตีน/ผัก/ผลไม้/นม)</p>`;
   }
-  return (L==='EN')? `<p>No help available.</p>` : `<p>ยังไม่มีคำอธิบายเกมนี้</p>`;
+
+  return (L==='EN')
+    ? `<h4>No help available.</h4>`
+    : `<h4>ยังไม่มีคำอธิบายเกมนี้</h4>`;
 }
 
 // ----- Global UI Events -----
@@ -614,7 +655,7 @@ document.addEventListener('pointerup', (e)=>{
   else if (a === 'helpSceneClose'){ closeModal('helpScene'); }
 }, {passive:true});
 
-// Result modal buttons (คลิกได้แน่นอน)
+// Result modal buttons
 const resEl = $('#result');
 if (resEl){
   resEl.addEventListener('click', (e)=>{
@@ -624,7 +665,7 @@ if (resEl){
   });
 }
 
-// ----- Power-ups (top-left, works esp. for groups) -----
+// ----- Power-ups (top-left, for groups) -----
 (function wirePowers(){
   const bar = $('#powerBar');
   if (!bar) return;
