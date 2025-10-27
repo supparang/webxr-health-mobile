@@ -1,7 +1,7 @@
-// === Hero Health Academy — main.js (Result+Daily+HUD tweaks+AutoDiff) ===
+// === Hero Health Academy — main.js (modes selectable, Start-only, missions + stats + daily, shared FX) ===
 window.__HHA_BOOT_OK = true;
 
-// ----- Imports (ABSOLUTE PATHS) -----
+// ----- Imports -----
 import * as THREE           from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 import { Engine }           from '/webxr-health-mobile/HeroHealth/game/core/engine.js';
 import { HUD }              from '/webxr-health-mobile/HeroHealth/game/core/hud.js';
@@ -10,6 +10,8 @@ import { SFX }              from '/webxr-health-mobile/HeroHealth/game/core/sfx.
 import { ScoreSystem }      from '/webxr-health-mobile/HeroHealth/game/core/score.js';
 import { PowerUpSystem }    from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
 import { Progress }         from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
+// FX กลาง (โหมดจะ import เองด้วย แต่ main ใช้ fallback เผื่อโหมดไม่ใส่ hook)
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
 
 import * as goodjunk        from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
 import * as groups          from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
@@ -23,7 +25,7 @@ const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 
 // ----- Config -----
 const MODES = { goodjunk, groups, hydration, plate };
-const DIFFS_BASE = {
+const DIFFS = {
   Easy:   { time: 70, spawn: 900, life: 4200 },
   Normal: { time: 60, spawn: 700, life: 3000 },
   Hard:   { time: 50, spawn: 550, life: 1800 }
@@ -63,8 +65,7 @@ const state = {
   ctx:{}, stats:{good:0, perfect:0, ok:0, bad:0},
   _accHist:[],
   freezeUntil:0,
-  didWarnT10:false,
-  autoScale:1.0,
+  didWarnT10:false
 };
 
 // ----- UI -----
@@ -108,7 +109,7 @@ function stopFever(){
   Progress.event('fever', {kind:'end'});
 }
 
-// ----- Score FX -----
+// ----- Score FX (UI burst only) -----
 function makeScoreBurst(x,y,text,minor,color){
   const el = document.createElement('div');
   el.className='scoreBurst';
@@ -129,25 +130,6 @@ function makeScoreBurst(x,y,text,minor,color){
     setTimeout(()=>{ try{el.remove();}catch{} }, 220);
   }, 720);
 }
-function makeFlame(x,y,strong){
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  const el = document.createElement('div');
-  el.style.cssText = `
-    position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
-    width:${strong?72:56}px;height:${strong?72:56}px;border-radius:50%;
-    background:radial-gradient(closest-side,#ffd54a,#ff6d00);
-    mix-blend-mode:screen;filter:blur(8px) brightness(1.1);opacity:.9;z-index:110;
-    pointer-events:none;animation:flamePop .5s ease-out forwards;`;
-  document.body.appendChild(el);
-  setTimeout(()=>{ try{el.remove();}catch{} }, 520);
-}
-(function injectKF(){
-  if (document.getElementById('flameKF')) return;
-  const st = document.createElement('style'); st.id='flameKF';
-  st.textContent = `@keyframes flamePop{from{transform:translate(-50%,-50%) scale(.7);opacity:0}to{transform:translate(-50%,-50%) scale(1.05);opacity:0}}`;
-  document.head.appendChild(st);
-})();
-
 function scoreWithEffects(base,x,y){
   const comboMul = state.combo>=20?1.4:(state.combo>=10?1.2:1.0);
   const feverMul = state.fever.active?state.fever.mul:1.0;
@@ -157,7 +139,6 @@ function scoreWithEffects(base,x,y){
   const minor = (comboMul>1||feverMul>1) ? ('x'+comboMul.toFixed(1)+(feverMul>1?' & FEVER':'')) : '';
   const color = total>=0? (feverMul>1?'#ffd54a':'#7fffd4') : '#ff9b9b';
   makeScoreBurst(x,y,tag,minor,color);
-  if (state.fever.active) makeFlame(x,y,total>=10);
 }
 
 // ----- Safe area & overlap -----
@@ -182,81 +163,6 @@ function overlapped(x,y){
     if (Math.hypot(dx,dy) < 64) return true;
   }
   return false;
-}
-
-// ----- 3D FX root -----
-function ensureFXRoot(){
-  let root = document.querySelector('.fx3d-root');
-  if (!root){
-    root = document.createElement('div');
-    root.className = 'fx3d-root';
-    (document.body ? document.body : document.documentElement).appendChild(root);
-  }
-  return root;
-}
-const FXROOT = ensureFXRoot();
-
-function add3DTilt(el){
-  let rect;
-  const maxTilt = 12;
-  const upd = (x,y)=>{
-    rect = rect || el.getBoundingClientRect();
-    const cx = rect.left + rect.width/2;
-    const cy = rect.top  + rect.height/2;
-    const dx = (x - cx) / (rect.width/2);
-    const dy = (y - cy) / (rect.height/2);
-    const rx = Math.max(-1, Math.min(1, dy)) * maxTilt;
-    const ry = Math.max(-1, Math.min(1,-dx)) * maxTilt;
-    el.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg)`;
-  };
-  const clear = ()=>{ el.style.transform='perspective(600px) rotateX(0) rotateY(0)'; rect=null; };
-  el.addEventListener('pointermove', e=>upd(e.clientX,e.clientY), {passive:true});
-  el.addEventListener('pointerdown', e=>upd(e.clientX,e.clientY), {passive:true});
-  el.addEventListener('pointerleave', clear, {passive:true});
-  el.addEventListener('pointerup', clear, {passive:true});
-}
-
-function shatter3D(x,y){
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-  const ring = document.createElement('div');
-  ring.className='burstRing'; ring.style.left=x+'px'; ring.style.top=y+'px';
-  FXROOT.appendChild(ring);
-  ring.style.animation='ringOut .45s ease-out forwards';
-  setTimeout(()=>{ try{ ring.remove(); }catch{} }, 500);
-
-  const N = 12 + (Math.random()*6|0);
-  for (let i=0;i<N;i++){
-    const s=document.createElement('div'); s.className='shard';
-    s.style.left=x+'px'; s.style.top=y+'px';
-    const ang = Math.random()*Math.PI*2;
-    const dist = 60 + Math.random()*110;
-    const tx = Math.cos(ang)*dist;
-    const ty = Math.sin(ang)*dist;
-    const tz = (Math.random()*2-1)*160;
-    const rot= (Math.random()*720-360)+'deg';
-    s.style.setProperty('--x0','-50%');
-    s.style.setProperty('--y0','-50%');
-    s.style.setProperty('--x1', tx+'px');
-    s.style.setProperty('--y1', ty+'px');
-    s.style.setProperty('--z1', tz+'px');
-    s.style.setProperty('--rot', rot);
-    FXROOT.appendChild(s);
-    s.style.animation=`shardFly .48s ease-out forwards`;
-    setTimeout(()=>{ try{ s.remove(); }catch{} }, 560);
-  }
-
-  const SP = 8 + (Math.random()*6|0);
-  for (let i=0;i<SP;i++){
-    const p=document.createElement('div'); p.className='spark';
-    p.style.left=x+'px'; p.style.top=y+'px';
-    const ang=Math.random()*Math.PI*2, d= 20 + Math.random()*60;
-    const tx=Math.cos(ang)*d, ty=Math.sin(ang)*d;
-    p.style.setProperty('--sx0','-50%'); p.style.setProperty('--sy0','-50%');
-    p.style.setProperty('--sx1',tx+'px'); p.style.setProperty('--sy1',ty+'px');
-    FXROOT.appendChild(p);
-    p.style.animation='sparkUp .35s ease-out forwards';
-    setTimeout(()=>{ try{ p.remove(); }catch{} }, 420);
-  }
 }
 
 // ----- Spawn one -----
@@ -286,8 +192,9 @@ function spawnOnce(diff){
     line-height:1;transition:transform .15s, filter .15s, opacity .15s;padding:8px;border-radius:14px;font-size:${px}px;
     transform:perspective(600px) rotateX(0) rotateY(0);`;
 
-  if (meta.decoy) el.classList.add('decoy-hint');
-  add3DTilt(el);
+  // 🔹 ให้โหมดคุม onSpawn ได้เอง (ถ้าไม่ใส่ ใช้ tilt กลาง)
+  if (mode?.fx?.onSpawn) { try{ mode.fx.onSpawn(el, state); }catch{}; }
+  else { add3DTilt(el); }
 
   let pos = randPos(), tries=0;
   while (tries++<12 && overlapped(pos.left,pos.top)) pos = randPos();
@@ -298,7 +205,7 @@ function spawnOnce(diff){
     ev.stopPropagation();
     try{
       const sys = { score, sfx, power, coach, fx: eng?.fx };
-      const res = MODES[state.modeKey]?.onHit?.(meta, sys, state, hud) || (meta.good?'good':'ok');
+      const res = mode?.onHit?.(meta, sys, state, hud) || (meta.good?'good':'ok');
 
       const r = el.getBoundingClientRect();
       const cx = r.left + r.width/2;
@@ -310,7 +217,10 @@ function spawnOnce(diff){
 
       const base = ({good:10, perfect:20, ok:2, bad:-8, power:5})[res] || 1;
       scoreWithEffects(base, cx, cy);
-      shatter3D(cx, cy);
+
+      // 🔹 ให้โหมดคุม onHit ได้เอง (ถ้าไม่ใส่ ใช้แตกกระจายกลาง)
+      if (mode?.fx?.onHit) { try{ mode.fx.onHit(cx, cy, meta, state); }catch{}; }
+      else { shatter3D(cx, cy); }
 
       Progress.event('hit', {
         mode: state.modeKey,
@@ -340,28 +250,26 @@ function spawnOnce(diff){
   setTimeout(()=>{ try{ LIVE.delete(el); el.remove(); }catch{} }, ttl);
 }
 
-// ----- Spawn loop + AutoDiff -----
+// ----- Spawn loop -----
 function spawnLoop(){
   if (!state.running || state.paused) return;
 
-  const base = DIFFS_BASE[state.difficulty] || DIFFS_BASE.Normal;
+  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
   const total = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
   const accNow = total>0 ? (state.stats.good + state.stats.perfect)/total : 1;
   state._accHist.push(accNow); if (state._accHist.length>8) state._accHist.shift();
   const acc = state._accHist.reduce((s,x)=>s+x,0)/state._accHist.length;
-
-  const targetScale = acc > 0.85 ? 0.90 : acc < 0.60 ? 1.12 : 1.00;
-  state.autoScale = state.autoScale*0.8 + targetScale*0.2;
+  const speedUp = acc > 0.85 ? 0.90 : acc < 0.60 ? 1.12 : 1.00;
 
   const dyn = {
-    time: base.time,
-    spawn: Math.max(220, Math.round((base.spawn||700) * state.autoScale)),
-    life:  Math.max(800,  Math.round((base.life ||3000) / state.autoScale))
+    time: diff.time,
+    spawn: Math.max(260, Math.round((diff.spawn||700) * speedUp)),
+    life:  Math.max(800,  Math.round((diff.life ||3000) / speedUp))
   };
 
   spawnOnce(dyn);
-  const next = Math.max(200, dyn.spawn);
+  const next = Math.max(220, dyn.spawn);
   state.spawnTimer = setTimeout(spawnLoop, next);
 }
 
@@ -429,7 +337,6 @@ async function runCountdown(sec=3){
   try{ ov.remove(); }catch{}
 }
 
-// ----- Result Modal + Missions/Daily summary -----
 function showResultModal(total, accPct, grade){
   let modal = $('#result');
   if (!modal){
@@ -437,8 +344,6 @@ function showResultModal(total, accPct, grade){
     modal.id='result'; modal.className='modal';
     modal.innerHTML = `<div class="card"><h3 id="h_summary">สรุปผล</h3>
       <div id="resCore"></div><div id="resBreakdown"></div><div id="resBoard"></div>
-      <div id="resMissions" style="margin-top:8px"></div>
-      <div id="resDaily" style="margin-top:8px"></div>
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
         <button class="btn" data-result="home"   id="btn_home">🏠 หน้าหลัก</button></div></div>`;
@@ -449,49 +354,33 @@ function showResultModal(total, accPct, grade){
     <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${accPct.toFixed(1)}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
   const br = `
     <div style="margin-top:12px;text-align:left;font-weight:700">
-      ✅ ดี: ${state.stats.good}&nbsp;&nbsp; 🌟 เพอร์เฟกต์: ${state.stats.perfect}&nbsp;&nbsp; 😐 ปกติ: ${state.stats.ok}&nbsp;&nbsp; ❌ พลาด: ${state.stats.bad}
+      ✅ ดี: ${state.stats.good}<br/>
+      🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
+      😐 ปกติ: ${state.stats.ok}<br/>
+      ❌ พลาด: ${state.stats.bad}
     </div>`;
   const bd = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
   $('#resCore').innerHTML = core;
   $('#resBreakdown').innerHTML = br;
   $('#resBoard').innerHTML = bd;
-
-  const runM = Progress.runCtx?.missions || [];
-  const mHtml = runM.length ? runM.map(m=>{
-    const ok = m.done ? '✅' : '⬜️';
-    const pct = Math.min(100, ((m.prog||0)/m.need)*100|0);
-    return `<div class="chip"><span>${ok}</span><span>${m.label}</span><span style="opacity:.8">${Math.min(m.prog||0,m.need)}/${m.need}</span></div>
-            <div class="bar slim"><div style="width:${pct}%"></div></div>`;
-  }).join('') : '<div style="opacity:.7">ไม่มีภารกิจรอบนี้</div>';
-  $('#resMissions').innerHTML = `<div style="font-weight:800;margin-bottom:6px">ภารกิจรอบนี้</div>${mHtml}`;
-
-  const d = Progress.genDaily();
-  const done = new Set(d.done||[]);
-  const dHtml = d.missions.map(m=>{
-    const ok = done.has(m.id) ? '✅' : '⬜️';
-    return `<div class="chip"><span>${ok}</span><span>${m.label}</span></div>`;
-  }).join('');
-  $('#resDaily').innerHTML = `<div style="font-weight:800;margin-bottom:6px">ภารกิจรายวัน (${d.date})</div>${dHtml}`;
-
   modal.style.display='flex';
 }
 
 async function start(){
   end(true);
-  const base = DIFFS_BASE[state.difficulty] || DIFFS_BASE.Normal;
+  const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
   await runCountdown(3);
 
   state.running=true; state.paused=false;
-  state.timeLeft = base.time;
+  state.timeLeft = diff.time;
   state.combo=0; state.bestCombo=0;
   state.stats={good:0,perfect:0,ok:0,bad:0};
   state._accHist=[]; state.freezeUntil=0; state.didWarnT10=false;
   state.fever.meter=0; setFeverBar(0); stopFever();
-  state.autoScale = 1.0;
   score.reset?.(); updateHUD();
 
-  try{ MODES[state.modeKey]?.init?.(state, hud, base); }catch(e){ console.error('[HHA] init:', e); }
+  try{ MODES[state.modeKey]?.init?.(state, hud, diff); }catch(e){ console.error('[HHA] init:', e); }
   coach.onStart?.(state.modeKey);
 
   const missions = Progress.beginRun(state.modeKey, state.difficulty, state.lang);
@@ -515,11 +404,8 @@ function end(silent=false){
   const accPct = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100) : 0;
   const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
 
-  const timePlayed = (DIFFS_BASE[state.difficulty]?.time||60) - state.timeLeft;
+  const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
   Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, acc: +accPct.toFixed(1) });
-
-  // อัปเดตสถานะ Daily อีกครั้งหลังจบเกม
-  Progress.checkDaily({ score: total, acc: +accPct.toFixed(1), mode: state.modeKey, sessionModes: Progress.profile?.session?.modesPlayed||[] });
 
   if (!silent && wasRunning){
     showResultModal(total, accPct, grade);
@@ -553,22 +439,22 @@ function renderMissions(list){
 // ----- Help text -----
 const HELP_TEXT = {
   TH:{
-    goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups: ×2 / Freeze / Magnet",
-    groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- แตะตามหมวดเป้าหมายให้ครบโควตาแล้วจะเปลี่ยนหมวด\n- มี ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
-    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำเพิ่มระดับ น้ำหวานมีเงื่อนไขคะแนน",
-    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนตามสัดส่วนจานสุขภาพให้ครบ\n- คอมโบช่วยบูสต์คะแนน"
+    goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
+    groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- ดู \"หมวดเป้าหมาย\" แล้วแตะไอคอนให้ถูกหมวด\n- ครบโควตาแล้วเปลี่ยนหมวดใหม่\n- Power-ups: ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
+    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = เงื่อนไขคะแนนตามสถานะ\n- Mini-quests สุ่ม 3 อย่าง/เกม",
+    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนตามสัดส่วนจานสุขภาพ\n- คอมโบช่วยบูสต์คะแนน"
   },
   EN:{
     goodjunk: "🥗 Good vs Junk\n- Tap healthy items, avoid junk\n- Keep combo to trigger FEVER\n- Power-ups: ×2 / Freeze / Magnet",
-    groups:   "🍽️ Food Group Frenzy\n- Tap target-category items to fill quota then switch\n- Per-target ×2 / Freeze / Magnet next",
-    hydration:"💧 Hydration\n- Keep bar in optimal zone\n- Water raises level; sugary drinks conditional",
-    plate:    "🍱 Healthy Plate\n- Place food by plate ratio\n- Combos boost score"
+    groups:   "🍽️ Food Group Frenzy\n- Follow the target group\n- Fill quota to switch target\n- Power-ups: ×2 target-only, Freeze, Magnet next",
+    hydration:"💧 Hydration\n- Keep water bar in optimal zone\n- Water raises level; sugary drinks are conditional\n- Random 3 mini-quests per run",
+    plate:    "🍱 Healthy Plate\n- Place items by plate ratio\n- Combos boost score"
   }
 };
 function openHelpCurrent(){
   const lang = (localStorage.getItem('hha_lang')||'TH');
   const key  = state.modeKey;
-  const txt  = (HELP_TEXT[lang] && HELP_TEXT[key]) || '—';
+  const txt  = (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
   const b = $('#helpBody'); if (b){ b.textContent = txt; }
   const m = $('#help'); if (m){ m.style.display='flex'; }
 }
@@ -616,7 +502,6 @@ function buildStatSnapshotFallback(){
     rows
   };
 }
-
 function openStatBoard(){
   const host = $('#statBoardBody'); if(!host) return;
   const snap = (typeof Progress.getStatSnapshot==='function')
@@ -633,7 +518,6 @@ function openStatBoard(){
     </table>`;
   $('#statBoard').style.display='flex';
 }
-
 function openDailyPanel(){
   const d = Progress.genDaily();
   const host = $('#dailyBody'); if (!host) return;
@@ -644,9 +528,6 @@ function openDailyPanel(){
       <span>${ok?'✅':'⬜️'}</span><span>${m.label}</span>
     </div>`;
   }).join('') + `<div style="margin-top:8px;opacity:.8">วันที่: ${d.date}</div>`;
-  const rw = $('#dailyReward');
-  const allDone = (d.done||[]).length === d.missions.length;
-  rw.textContent = allDone ? '🎁 รับ XP รายวันแล้ว!' : 'ทำภารกิจให้ครบเพื่อรับ XP รายวัน';
   $('#dailyPanel').style.display='flex';
 }
 
@@ -741,7 +622,7 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
-// Result modal buttons (delegate)
+// Result modal buttons
 const resEl = $('#result');
 if (resEl){
   resEl.addEventListener('click', (e)=>{
