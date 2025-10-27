@@ -5,23 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy</title>
 
-  <!-- สำคัญ: ตั้ง base ให้เส้นทาง assets/module ถูกบน GitHub Pages -->
+  <!-- สำคัญ: ตั้ง base ให้ถูกกับ GitHub Pages ของโปรเจ็กต์ -->
   <base href="/webxr-health-mobile/HeroHealth/">
-  <link rel="stylesheet" href="styles/game.css" />
-  <link rel="stylesheet" href="styles/group.css" />
 
-  <!-- Bootloader: พยายาม import ./game/main.js หลาย path แล้วโชว์สถานะ -->
+  <link rel="stylesheet" href="styles/game.css" />
+  <link rel="stylesheet" href="styles/groups.css" />
+
+  <!-- Bootloader -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
       warn.id = 'bootWarn';
-      warn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000;display:none';
+      warn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:4000;display:none';
       warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path ./game/main.js';
       document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(warn));
 
       const chip = document.createElement('div');
       chip.id = 'bootChip';
-      chip.style.cssText = 'position:fixed;right:12px;bottom:12px;background:#1b5e20;color:#fff;padding:8px 10px;border-radius:999px;font-weight:800;font-size:12px;z-index:2001;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+      chip.style.cssText = 'position:fixed;right:12px;bottom:12px;background:#1b5e20;color:#fff;padding:8px 10px;border-radius:999px;font-weight:800;font-size:12px;z-index:4001;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)';
       chip.textContent = '✅ JS Loaded';
       document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(chip));
 
@@ -55,7 +56,6 @@
     <button id="contrastToggle" class="btn" type="button" aria-pressed="false">🎯 คอนทราสต์: ปกติ</button>
   </header>
 
-  <!-- พื้นหลัง/เอฟเฟกต์เรนเดอร์ 3D (ถ้าใช้งาน) -->
   <canvas id="c" aria-hidden="true"></canvas>
 
   <!-- HUD -->
@@ -70,14 +70,14 @@
     <div id="feverBarWrap" class="bar slim"><div id="feverBar"></div></div>
     <div id="fever" class="fever" style="display:none">FEVER!</div>
 
-    <!-- Power-ups bar -->
+    <!-- Power-ups (ซ้ายบน) -->
     <div id="powerBar" class="powerbar" aria-label="Power-ups">
-      <div class="pseg" data-k="x2"><span>×2</span><i></i></div>
-      <div class="pseg" data-k="freeze"><span>🧊</span><i></i></div>
-      <div class="pseg" data-k="sweep"><span>🧲</span><i></i></div>
+      <div class="pseg" data-k="x2"     aria-label="คะแนน x2"><span>×2</span><i></i></div>
+      <div class="pseg" data-k="freeze" aria-label="หยุดเวลา"><span>🧊</span><i></i></div>
+      <div class="pseg" data-k="sweep"  aria-label="แม่เหล็ก"><span>🧲</span><i></i></div>
     </div>
 
-    <!-- Mini-Quest chips -->
+    <!-- Mini-Quest -->
     <div id="questChips" class="quests" aria-live="polite"></div>
 
     <!-- Target/Plate/Hydration -->
@@ -89,28 +89,25 @@
       <div class="bar"><div id="hydroBar"></div></div>
     </div>
 
-    <!-- Coach -->
     <div id="coachHUD" class="coach under-fever" style="display:flex">
       <div id="coachText">พร้อมไหม? สู้ๆ!</div>
     </div>
 
-    <!-- Mission line -->
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- จุด Mount สำหรับ UI ของโหมด -->
+  <!-- พื้นที่โหมด (สำหรับโหมดที่มี UI ของตัวเอง) -->
   <main class="game-wrap" role="main" aria-label="Game area">
     <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
   </main>
 
-  <!-- เมนูล่าง -->
+  <!-- เมนู -->
   <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
     <div class="row">
-      <!-- เลือกโหมด: “เลือกโหมด” อย่างเดียว ยังไม่สตาร์ท จนกด ▶ เริ่มเกม -->
-      <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
+      <button class="tag" data-action="ui:select:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="ui:select:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="ui:select:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="ui:select:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
       <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
     <div class="row">
@@ -123,101 +120,47 @@
       </span>
     </div>
     <div class="row">
-      <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
+      <button class="btn primary" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
+      <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น (โหมดปัจจุบัน)</button>
     </div>
   </section>
 
-  <!-- Help Modal (วิธีเล่น “เฉพาะโหมดที่เลือก”) -->
+  <!-- วิธีเล่นเฉพาะโหมด -->
   <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
-    <div class="card modal-card">
-      <header class="modal-header">
-        <h3 id="h_help" style="margin:0">วิธีเล่น</h3>
-        <button class="btn close-x" data-action="helpClose" aria-label="ปิด">✕</button>
-      </header>
-      <div class="modal-body" id="helpBody" tabindex="0"></div>
-      <footer class="modal-footer">
+    <div class="card wide">
+      <h3 id="h_help">วิธีเล่น</h3>
+      <div id="helpBody" class="helpBody"></div>
+      <div style="text-align:center;margin-top:12px">
         <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
-      </footer>
-    </div>
-  </div>
-
-  <!-- Help Scene (คู่มือรวม) — เลื่อนอ่านได้ + ปุ่ม OK ติดล่าง -->
-  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_helpScene">
-    <div class="card modal-card">
-      <header class="modal-header">
-        <h3 id="h_helpScene" style="margin:0">📘 คู่มือรวม Hero Health Academy</h3>
-        <button class="btn close-x" data-action="helpSceneClose" aria-label="ปิด">✕</button>
-      </header>
-
-      <div class="modal-body" id="helpSceneBody" tabindex="0" aria-describedby="h_helpScene">
-        <section class="help-section">
-          <h4>🥗 ดี vs ขยะ</h4>
-          <ul>
-            <li>แตะเก็บอาหาร “ดี” หลีกเลี่ยงไอคอน “ขยะ”</li>
-            <li>คอมโบต่อเนื่องเพื่อแต้มคูณ & โหมด FEVER</li>
-            <li>ไอคอนโผล่มาแล้วหายเองอัตโนมัติ</li>
-          </ul>
-        </section>
-
-        <section class="help-section">
-          <h4>🍽️ จาน 5 หมู่ (Food Group Frenzy)</h4>
-          <ul>
-            <li>ดูหมวดเป้าหมายที่ HUD แล้วแตะเฉพาะไอคอนที่ “ตรงหมวด”</li>
-            <li>มี Mini-Quest สุ่ม 3 ภารกิจจากชุด 5 ภารกิจ/เกม</li>
-            <li>พาวเวอร์: ×2 คะแนน, Freeze (หยุดเวลา/ชิ้น), Magnet (ดูดเป้าหมายถัดไป)</li>
-          </ul>
-        </section>
-
-        <section class="help-section">
-          <h4>💧 สมดุลน้ำ</h4>
-          <p>แตะเพื่อดื่มน้ำให้พอดี เก็บเฟเวอร์เพื่อคะแนนคูณ ระวังมาก/น้อยเกิน</p>
-        </section>
-
-        <section class="help-section">
-          <h4>🍱 จัดจานสุขภาพ</h4>
-          <p>วางอาหารลงจานให้ครบโควตาแต่ละหมวด (ธัญพืช/โปรตีน/ผัก/ผลไม้/นม)</p>
-        </section>
       </div>
-
-      <footer class="modal-footer">
-        <button class="btn" data-action="helpSceneClose" id="btn_helpScene_ok" type="button">โอเค</button>
-      </footer>
     </div>
   </div>
 
-  <!-- Result Modal -->
+  <!-- คู่มือรวมทุกเกม (เลื่อนอ่านได้) -->
+  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_all">
+    <div class="card wide scrollable">
+      <h3 id="h_all">📘 คู่มือรวม</h3>
+      <div id="helpAllBody"></div>
+      <div style="text-align:center;margin-top:12px">
+        <button class="btn" data-action="helpSceneClose" type="button">โอเค</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- สรุปผล -->
   <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
-    <div class="card modal-card">
-      <header class="modal-header">
-        <h3 id="h_summary" style="margin:0">สรุปผล</h3>
-        <button class="btn close-x" data-result="home" aria-label="กลับหน้าหลัก">✕</button>
-      </header>
-      <div class="modal-body" id="resScroll">
-        <div id="resCore"></div>
-        <div id="resBreakdown" style="margin-top:8px"></div>
-        <div id="resBoard" style="margin-top:8px"></div>
+    <div class="card wide">
+      <h3 id="h_summary">สรุปผล</h3>
+      <div id="resCore"></div>
+      <div id="resBreakdown"></div>
+      <div id="resBoard"></div>
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+        <button class="btn primary" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
+        <button class="btn" id="btn_home" type="button">🏠 หน้าหลัก</button>
       </div>
-      <footer class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
-        <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
-      </footer>
     </div>
   </div>
-
-  <!-- SFX -->
-  <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
-
-  <noscript>
-    <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">
-      จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
-    </div>
-  </noscript>
 </body>
 </html>
