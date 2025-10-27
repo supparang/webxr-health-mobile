@@ -1,55 +1,25 @@
-// === Hero Health Academy — main.js (Start-only launch, missions + powers + robust result modal) ===
+// === Hero Health Academy — main.js (modes selectable, Start-only, missions + stats + daily) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports (ABSOLUTE PATHS) -----
-import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
-import { Engine }        from '/webxr-health-mobile/HeroHealth/game/core/engine.js';
-import { HUD }           from '/webxr-health-mobile/HeroHealth/game/core/hud.js';
-import { Coach }         from '/webxr-health-mobile/HeroHealth/game/core/coach.js';
-import { SFX }           from '/webxr-health-mobile/HeroHealth/game/core/sfx.js';
-import { ScoreSystem }   from '/webxr-health-mobile/HeroHealth/game/core/score.js';
-import { PowerUpSystem } from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
-import { Progress }      from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
+import * as THREE           from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+import { Engine }           from '/webxr-health-mobile/HeroHealth/game/core/engine.js';
+import { HUD }              from '/webxr-health-mobile/HeroHealth/game/core/hud.js';
+import { Coach }            from '/webxr-health-mobile/HeroHealth/game/core/coach.js';
+import { SFX }              from '/webxr-health-mobile/HeroHealth/game/core/sfx.js';
+import { ScoreSystem }      from '/webxr-health-mobile/HeroHealth/game/core/score.js';
+import { PowerUpSystem }    from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
+import { Progress }         from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
 
-import * as goodjunk   from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
-import * as groups     from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
-import * as hydration  from '/webxr-health-mobile/HeroHealth/game/modes/hydration.js';
-import * as plate      from '/webxr-health-mobile/HeroHealth/game/modes/plate.js';
+import * as goodjunk        from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
+import * as groups          from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
+import * as hydration       from '/webxr-health-mobile/HeroHealth/game/modes/hydration.js';
+import * as plate           from '/webxr-health-mobile/HeroHealth/game/modes/plate.js';
 
 // ----- Helpers -----
 const $  = (s)=>document.querySelector(s);
 const byAction = (el)=>el?.closest?.('[data-action]')||null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
-
-// ---- Modal helpers (force center + highest z-index) ----
-(function ensureModalStyles(){
-  if (document.getElementById('modalPatchCSS')) return;
-  const st = document.createElement('style'); st.id='modalPatchCSS';
-  st.textContent = `
-    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
-      z-index: 9999; background:rgba(0,0,0,.45); backdrop-filter: blur(2px);}
-    .modal .card{max-width:min(92vw,720px);width:clamp(280px,88vw,560px);
-      max-height:min(86vh,680px); overflow:auto; padding:16px; border-radius:16px;
-      background:#0d172b; border:1px solid #203155; color:#e9f3ff; box-shadow:0 18px 48px rgba(0,0,0,.45);}
-    .modal .card.scroll{overflow:auto}
-    .modal .btn,[data-result]{cursor:pointer}
-  `;
-  document.head.appendChild(st);
-})();
-function showModal(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.style.display = 'flex';
-  el.style.zIndex = 9999;
-  el.setAttribute('aria-hidden','false');
-  setTimeout(()=>{ el.querySelector('.btn,[data-result]')?.focus?.(); }, 30);
-}
-function hideModal(id){
-  const el = document.getElementById(id);
-  if(!el) return;
-  el.style.display = 'none';
-  el.setAttribute('aria-hidden','true');
-}
 
 // ----- Config -----
 const MODES = { goodjunk, groups, hydration, plate };
@@ -233,7 +203,7 @@ function add3DTilt(el){
     const cx = rect.left + rect.width/2;
     const cy = rect.top  + rect.height/2;
     const dx = (x - cx) / (rect.width/2);
-    const dy = (y - cy) / (rect.height/2);
+    the dy = (y - cy) / (rect.height/2);
     const rx = Math.max(-1, Math.min(1, dy)) * maxTilt;
     const ry = Math.max(-1, Math.min(1,-dx)) * maxTilt;
     el.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg)`;
@@ -451,18 +421,42 @@ async function runCountdown(sec=3){
     ov.appendChild(b); document.body.appendChild(ov);
   }
   const b = $('#cdNum');
-  for (let n=sec;n>0;n--){
-    b.textContent = String(n);
-    coach.onCountdown?.(n);
-    await new Promise(r=>setTimeout(r, 1000));
-  }
-  b.textContent='Go!';
-  await new Promise(r=>setTimeout(r, 500));
+  for (let n=sec;n>0;n--){ b.textContent = String(n); coach.onCountdown?.(n); await new Promise(r=>setTimeout(r, 1000)); }
+  b.textContent='Go!'; await new Promise(r=>setTimeout(r, 500));
   try{ ov.remove(); }catch{}
 }
 
+function showResultModal(total, accPct, grade){
+  let modal = $('#result');
+  if (!modal){
+    // เผื่อ DOM ไม่มี modal (fallback)
+    modal = document.createElement('div');
+    modal.id='result'; modal.className='modal';
+    modal.innerHTML = `<div class="card"><h3 id="h_summary">สรุปผล</h3>
+      <div id="resCore"></div><div id="resBreakdown"></div><div id="resBoard"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" data-result="replay" id="btn_replay">↻ เล่นอีกครั้ง</button>
+        <button class="btn" data-result="home"   id="btn_home">🏠 หน้าหลัก</button></div></div>`;
+    document.body.appendChild(modal);
+  }
+  const core = `
+    <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
+    <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${accPct.toFixed(1)}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
+  const br = `
+    <div style="margin-top:12px;text-align:left;font-weight:700">
+      ✅ ดี: ${state.stats.good}<br/>
+      🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
+      😐 ปกติ: ${state.stats.ok}<br/>
+      ❌ พลาด: ${state.stats.bad}
+    </div>`;
+  const bd = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
+  $('#resCore').innerHTML = core;
+  $('#resBreakdown').innerHTML = br;
+  $('#resBoard').innerHTML = bd;
+  modal.style.display='flex';
+}
+
 async function start(){
-  // เริ่มเฉพาะเมื่อกดปุ่ม Start เท่านั้น
   end(true);
   const diff = DIFFS[state.difficulty] || DIFFS.Normal;
 
@@ -486,68 +480,28 @@ async function start(){
   spawnLoop();
 }
 
-// (สำคัญ) สรุปผลแบบสร้าง modal หาก DOM ไม่มี และบังคับโชว์กลางจอ
 function end(silent=false){
-  state.running=false; state.paused=false;
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
+  const wasRunning = state.running;
+  state.running=false; state.paused=false;
+
   try{ MODES[state.modeKey]?.cleanup?.(state, hud); }catch{}
 
   for (const n of Array.from(LIVE)){ try{ n.remove(); }catch{} LIVE.delete(n); }
 
-  const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
-  Progress.endRun({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
-
-  if (silent) return;
-
-  // สร้าง result modal ถ้าไม่มี
-  let modal = document.getElementById('result');
-  if (!modal){
-    modal = document.createElement('div');
-    modal.id='result'; modal.className='modal';
-    modal.innerHTML = `
-      <div class="card">
-        <h3 id="h_summary">สรุปผล</h3>
-        <div id="resCore"></div>
-        <div id="resBreakdown"></div>
-        <div id="resBoard"></div>
-        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
-          <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
-        </div>
-      </div>`;
-    document.body.appendChild(modal);
-    modal.addEventListener('click',(e)=>{
-      const btn=e.target.closest('[data-result]'); if(!btn) return;
-      const a = btn.getAttribute('data-result');
-      if (a==='replay'){ hideModal('result'); start(); }
-      if (a==='home'){   hideModal('result'); /* ปิดแล้วคงหน้าเลือกโหมด */ }
-    }, {passive:true});
-  }
-
+  // สรุปผล/บันทึกสถิติ
   const total = score.score|0;
   const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
-  const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
+  const accPct = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100) : 0;
   const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
 
-  const resCore = `
-    <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
-    <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
-  const resBreak = `
-    <div style="margin-top:12px;text-align:left;font-weight:700">
-      ✅ ดี: ${state.stats.good}<br/>
-      🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
-      😐 ปกติ: ${state.stats.ok}<br/>
-      ❌ พลาด: ${state.stats.bad}
-    </div>`;
-  const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
+  const timePlayed = (DIFFS[state.difficulty]?.time||60) - state.timeLeft;
+  Progress.endRun({ score: total, bestCombo: state.bestCombo|0, timePlayed, accPct });
 
-  const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
-  if (coreEl) coreEl.innerHTML = resCore;
-  if (brEl)   brEl.innerHTML   = resBreak;
-  if (bdEl)   bdEl.innerHTML   = resBoard;
-
-  showModal('result');
-  coach.onEnd?.(score.score, {grade});
+  if (!silent && wasRunning){
+    showResultModal(total, accPct, grade);
+    try{ sfx.play('sfx-good'); }catch{}
+  }
 }
 
 // ----- Missions HUD -----
@@ -578,14 +532,14 @@ const HELP_TEXT = {
   TH:{
     goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
     groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- ดู \"หมวดเป้าหมาย\" แล้วแตะไอคอนให้ถูกหมวด\n- ครบโควตาแล้วเปลี่ยนหมวดใหม่\n- Power-ups: ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
-    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = มีเงื่อนไขคะแนนตามสถานะ\n- Mini-quests แบบสุ่ม 3 อย่าง/เกม",
-    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนอาหารให้ครบโควตาตามสัดส่วนจานสุขภาพ\n- ทำคอมโบเพื่อคะแนนโบนัส"
+    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = เงื่อนไขคะแนนตามสถานะ\n- Mini-quests สุ่ม 3 อย่าง/เกม",
+    plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนตามสัดส่วนจานสุขภาพ\n- คอมโบช่วยบูสต์คะแนน"
   },
   EN:{
-    goodjunk: "🥗 Good vs Junk\n- Tap healthy items, avoid junk\n- Keep combo to trigger FEVER\n- Power-ups: ×2 Score / Freeze / Magnet",
-    groups:   "🍽️ Food Group Frenzy\n- Follow the target group, tap matching icons\n- Fill quota, target switches\n- Power-ups: ×2 target-only, Freeze target, Magnet next",
-    hydration:"💧 Hydration\n- Keep water bar in the optimal zone\n- Water raises level; sugary drinks have conditional scoring\n- Mini-quests: random 3 per run",
-    plate:    "🍱 Healthy Plate\n- Place food icons to meet plate ratio quotas\n- Combos boost your score"
+    goodjunk: "🥗 Good vs Junk\n- Tap healthy items, avoid junk\n- Keep combo to trigger FEVER\n- Power-ups: ×2 / Freeze / Magnet",
+    groups:   "🍽️ Food Group Frenzy\n- Follow the target group\n- Fill quota to switch target\n- Power-ups: ×2 target-only, Freeze, Magnet next",
+    hydration:"💧 Hydration\n- Keep water bar in optimal zone\n- Water raises level; sugary drinks are conditional\n- Random 3 mini-quests per run",
+    plate:    "🍱 Healthy Plate\n- Place items by plate ratio\n- Combos boost score"
   }
 };
 function openHelpCurrent(){
@@ -593,7 +547,7 @@ function openHelpCurrent(){
   const key  = state.modeKey;
   const txt  = (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
   const b = $('#helpBody'); if (b){ b.textContent = txt; }
-  showModal('help');
+  const m = $('#help'); if (m){ m.style.display='flex'; }
 }
 function openHelpAll(){
   const lang = (localStorage.getItem('hha_lang')||'TH');
@@ -613,21 +567,48 @@ function openHelpAll(){
       host.appendChild(wrap);
     }
   }
-  showModal('helpScene');
+  const m = $('#helpScene'); if (m){ m.style.display='flex'; }
+}
+
+// ----- Stats board / Daily -----
+function openStatBoard(){
+  const host = $('#statBoardBody'); if(!host) return;
+  const snap = Progress.getStatSnapshot();
+  const rows = snap.rows.map(r=>`
+    <tr><td>${T(state.lang).names[r.key]||r.key}</td>
+        <td>${r.bestScore}</td><td>${r.acc}%</td><td>${r.runs}</td><td>${r.missions}</td></tr>`).join('');
+  host.innerHTML = `
+    <div style="font-weight:800;margin-bottom:8px">Level ${snap.level} (${snap.xp|0} XP) • เล่นทั้งหมด ${snap.totalRuns} รอบ • คอมโบสูงสุด ${snap.bestCombo}</div>
+    <table class="tbl">
+      <tr><th>โหมด</th><th>คะแนนสูงสุด</th><th>ความแม่น</th><th>รอบ</th><th>เควสสำเร็จ</th></tr>
+      ${rows || `<tr><td colspan="5" style="opacity:.75">ยังไม่มีข้อมูล</td></tr>`}
+    </table>`;
+  $('#statBoard').style.display='flex';
+}
+
+function openDailyPanel(){
+  const d = Progress.genDaily();
+  const host = $('#dailyBody'); if (!host) return;
+  const done = new Set(d.done||[]);
+  host.innerHTML = d.missions.map(m=>{
+    const ok = done.has(m.id);
+    return `<div style="display:flex;align-items:center;gap:8px;margin:6px 0">
+      <span>${ok?'✅':'⬜️'}</span><span>${m.label}</span>
+    </div>`;
+  }).join('') + `<div style="margin-top:8px;opacity:.8">วันที่: ${d.date}</div>`;
+  $('#dailyPanel').style.display='flex';
 }
 
 // ----- Global UI Events -----
 document.addEventListener('pointerup', (e)=>{
-  const btn = byAction(e.target);
-  if (!btn) return;
-
+  const btn = byAction(e.target); if (!btn) return;
   const a = btn.getAttribute('data-action') || '';
   const v = btn.getAttribute('data-value')  || '';
 
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
     if (MODES[key]){ state.modeKey = key; applyUI(); }
-    return; // ไม่ start ทันที
+    return;
   }
 
   if (a === 'mode'){ state.modeKey = v; applyUI(); }
@@ -641,18 +622,22 @@ document.addEventListener('pointerup', (e)=>{
   }
   else if (a === 'restart'){ end(true); start(); }
   else if (a === 'help'){ openHelpCurrent(); }
-  else if (a === 'helpClose'){ hideModal('help'); }
+  else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
   else if (a === 'helpScene'){ openHelpAll(); }
-  else if (a === 'helpSceneClose'){ hideModal('helpScene'); }
+  else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
+  else if (a === 'statOpen'){ openStatBoard(); }
+  else if (a === 'statClose'){ const s=$('#statBoard'); if (s) s.style.display='none'; }
+  else if (a === 'dailyOpen'){ openDailyPanel(); }
+  else if (a === 'dailyClose'){ const d=$('#dailyPanel'); if (d) d.style.display='none'; }
 }, {passive:true});
 
-// ----- Power-ups (พร้อมโหมด groups) -----
+// ----- Power-ups (groups) -----
 (function wirePowers(){
   const bar = $('#powerBar'); if (!bar) return;
   const sweep = bar.querySelector('.pseg[data-k="sweep"] span');
   if (sweep && sweep.textContent.trim()==='🧹') sweep.textContent = '🧲';
 
-  const COOLDOWNS = { x2:12000, freeze:9000, sweep:8000 }; // ms
+  const COOLDOWNS = { x2:12000, freeze:9000, sweep:8000 };
   const DURATIONS = (() => {
     const m = MODES['groups'];
     if (m?.getPowerDurations) {
@@ -705,15 +690,15 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
-// Result modal explicit listeners (เผื่อมีอยู่แล้วใน DOM)
+// Result modal buttons (delegate)
 const resEl = $('#result');
 if (resEl){
   resEl.addEventListener('click', (e)=>{
-    const btn=e.target.closest('[data-result]'); if(!btn) return;
-    const a = btn.getAttribute('data-result');
-    if (a==='replay'){ hideModal('result'); start(); }
-    if (a==='home'){   hideModal('result'); /* stay on menu */ }
-  }, {passive:true});
+    const t = e.target.closest('button'); if (!t) return;
+    const a = t.getAttribute('data-result');
+    if (a==='replay'){ resEl.style.display='none'; start(); }
+    if (a==='home'){ resEl.style.display='none'; end(true); }
+  });
 }
 
 // Toggles
