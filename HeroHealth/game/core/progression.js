@@ -1,4 +1,5 @@
-// === Hero Health Academy — game/core/progression.js (enhanced: autosave + totals + daily + full mission support) ===
+// === Hero Health Academy — game/core/progression.js
+// Mini-Quests 10 แบบ/โหมด (สุ่มมา 3 ต่อรอบ) + autosave + totals + daily
 
 // ---------- Storage utils ----------
 const STORE_KEY = 'hha_profile_v1';
@@ -29,36 +30,58 @@ const BADGES = [
   { id:'marathon_10',   nameTH:'มาราธอน',     nameEN:'Marathon',        cond:(p)=>p.meta.totalRuns>=10 },
 ];
 
-// ---------- Mission pools (5 each; plate = easy-mode) ----------
+// ---------- Mission pools (10 each; plate = easy-friendly) ----------
+// รองรับประเภทต่อไปนี้ (ไม่ต้องแก้ main.js): 
+// count_target, count_group, count_perfect, count_golden, reach_combo, streak_nomiss,
+// count_good, count_fever, survive_time, score_reach, max_bad, accuracy_ge, hy_balance
 const MISSION_POOLS = {
   groups: [
-    { id:'grp_any_20',   th:'สะสมเป้าหมายรวม 20 ชิ้น', en:'Collect 20 target items', need:20,  type:'count_target' },
-    { id:'grp_perfect6', th:'ทำ Perfect 6 ครั้ง',        en:'Hit 6 Perfects',          need:6,   type:'count_perfect' },
-    { id:'grp_golden2',  th:'เก็บทอง 2 ชิ้น',           en:'Hit 2 Golden',            need:2,   type:'count_golden' },
-    { id:'grp_chain10',  th:'ไม่พลาด 10 ครั้งติด',       en:'No miss 10 in a row',     need:10,  type:'streak_nomiss' },
-    { id:'grp_veggies5', th:'เก็บผัก 5 ชิ้น',            en:'Collect 5 veggies',       need:5,   type:'count_group', group:'veggies' },
+    { id:'grp_target25', th:'สะสมเป้าหมาย 25 ชิ้น',       en:'Collect 25 target items', need:25, type:'count_target' },
+    { id:'grp_perfect8', th:'Perfect 8 ครั้ง',              en:'8 Perfects',              need:8,  type:'count_perfect' },
+    { id:'grp_golden3',  th:'เก็บ Golden 3 ชิ้น',           en:'Hit 3 Golden',            need:3,  type:'count_golden' },
+    { id:'grp_combo20',  th:'คอมโบถึง x20',                en:'Reach combo x20',         need:20, type:'reach_combo' },
+    { id:'grp_nomiss15', th:'ไม่พลาด 15 ครั้งติด',         en:'No miss 15 in a row',     need:15, type:'streak_nomiss' },
+    { id:'grp_veg6',     th:'เก็บผัก 6 ชิ้น',              en:'Collect 6 veggies',       need:6,  type:'count_group', group:'veggies' },
+    { id:'grp_grain4',   th:'เก็บธัญพืช 4 ชิ้น',           en:'Collect 4 grains',        need:4,  type:'count_group', group:'grains' },
+    { id:'grp_survive60',th:'อยู่รอด 60 วินาที',           en:'Survive 60s',             need:60, type:'survive_time' },
+    { id:'grp_score320', th:'คะแนนถึง 320',                 en:'Reach score 320',         need:320,type:'score_reach' },
+    { id:'grp_maxbad3',  th:'พลาดไม่เกิน 3 ครั้ง',         en:'Max 3 misses',            need:3,  type:'max_bad' },
   ],
   goodjunk: [
-    { id:'gj_good25',    th:'เก็บอาหารดี 25 ชิ้น',      en:'Collect 25 good',         need:25,  type:'count_good' }, // (นับผ่าน meta.good)
-    { id:'gj_perfect5',  th:'Perfect 5 ครั้ง',           en:'5 Perfects',              need:5,   type:'count_perfect' },
-    { id:'gj_combo15',   th:'ทำคอมโบถึง x15',           en:'Reach combo x15',         need:15,  type:'reach_combo' },
-    { id:'gj_fever2',    th:'เปิด FEVER 2 ครั้ง',        en:'Trigger FEVER 2x',        need:2,   type:'count_fever' },
-    { id:'gj_avoid5',    th:'ไม่โดนขยะ 5 ชิ้นติดกัน',   en:'Avoid 5 junk in a row',   need:5,   type:'streak_nomiss' },
+    { id:'gj_good30',    th:'เก็บอาหารดี 30 ชิ้น',         en:'Collect 30 good',         need:30, type:'count_good' }, // meta.good
+    { id:'gj_perfect6',  th:'Perfect 6 ครั้ง',              en:'6 Perfects',              need:6,  type:'count_perfect' },
+    { id:'gj_golden3',   th:'เก็บ Golden 3 ชิ้น',          en:'Hit 3 Golden',            need:3,  type:'count_golden' },
+    { id:'gj_combo18',   th:'คอมโบถึง x18',                en:'Reach combo x18',         need:18, type:'reach_combo' },
+    { id:'gj_nomiss12',  th:'ไม่พลาด 12 ครั้งติด',         en:'No miss 12 in a row',     need:12, type:'streak_nomiss' },
+    { id:'gj_survive60', th:'อยู่รอด 60 วินาที',           en:'Survive 60s',             need:60, type:'survive_time' },
+    { id:'gj_fever2',    th:'เปิด FEVER 2 ครั้ง',           en:'Trigger FEVER 2x',        need:2,  type:'count_fever' },
+    { id:'gj_score340',  th:'คะแนนถึง 340',                 en:'Reach score 340',         need:340,type:'score_reach' },
+    { id:'gj_maxbad2',   th:'พลาดไม่เกิน 2 ครั้ง',         en:'Max 2 misses',            need:2,  type:'max_bad' },
+    { id:'gj_acc75',     th:'ความแม่น ≥ 75%',              en:'Accuracy ≥ 75%',          need:75, type:'accuracy_ge' },
   ],
   hydration: [
-    { id:'hy_balance3',  th:'รักษาสมดุล 3 ช่วง',        en:'Stay in balance 3x',      need:3,   type:'hy_balance' },     // รวมวินาที zone OK
-    { id:'hy_combo12',   th:'คอมโบถึง x12',             en:'Combo x12',               need:12,  type:'reach_combo' },
-    { id:'hy_perfect4',  th:'Perfect 4 ครั้ง',           en:'4 Perfects',              need:4,   type:'count_perfect' },
-    { id:'hy_time90',    th:'อยู่รอด 90 วินาที',         en:'Survive 90s',             need:90,  type:'survive_time' },
-    { id:'hy_fever1',    th:'เปิด FEVER 1 ครั้ง',        en:'Trigger FEVER',           need:1,   type:'count_fever' },
+    { id:'hy_balance24', th:'โซนพอดีรวม 24 วิ',            en:'Stay in OK zone 24s',     need:24, type:'hy_balance' }, // via hydro_tick
+    { id:'hy_perfect4',  th:'Perfect 4 ครั้ง',              en:'4 Perfects',              need:4,  type:'count_perfect' },
+    { id:'hy_combo12',   th:'คอมโบถึง x12',                en:'Reach combo x12',         need:12, type:'reach_combo' },
+    { id:'hy_fever1',    th:'เปิด FEVER 1 ครั้ง',           en:'Trigger FEVER 1x',        need:1,  type:'count_fever' },
+    { id:'hy_survive70', th:'อยู่รอด 70 วินาที',           en:'Survive 70s',             need:70, type:'survive_time' },
+    { id:'hy_score300',  th:'คะแนนถึง 300',                 en:'Reach score 300',         need:300,type:'score_reach' },
+    { id:'hy_golden2',   th:'เก็บ Golden 2 ชิ้น',          en:'Hit 2 Golden',            need:2,  type:'count_golden' },
+    { id:'hy_nomiss10',  th:'ไม่พลาด 10 ครั้งติด',         en:'No miss 10 in a row',     need:10, type:'streak_nomiss' },
+    { id:'hy_maxbad3',   th:'พลาดไม่เกิน 3 ครั้ง',         en:'Max 3 misses',            need:3,  type:'max_bad' },
+    { id:'hy_acc70',     th:'ความแม่น ≥ 70%',              en:'Accuracy ≥ 70%',          need:70, type:'accuracy_ge' },
   ],
-  // plate easy-mode quests (5 → pick 3 per run)
   plate: [
-    { id:'pl_target8',  th:'วางถูกหมวดรวม 8 ชิ้น',     en:'Collect 8 target items',   need:8,  type:'count_target' },
-    { id:'pl_veg2',     th:'ใส่ผัก 2 ส่วน',             en:'Add 2 veggie portions',    need:2,  type:'count_group', group:'veggies' },
-    { id:'pl_combo6',   th:'ทำคอมโบถึง x6',            en:'Reach combo x6',           need:6,  type:'reach_combo' },
-    { id:'pl_perfect2', th:'Perfect 2 ครั้ง',            en:'2 Perfects',               need:2,  type:'count_perfect' },
-    { id:'pl_golden1',  th:'เก็บ Golden 1 ชิ้น',         en:'Hit 1 Golden',             need:1,  type:'count_golden' },
+    { id:'pl_target12',  th:'วางถูกหมวดรวม 12 ชิ้น',      en:'Collect 12 target items', need:12, type:'count_target' },
+    { id:'pl_veg3',      th:'ใส่ผัก 3 ส่วน',               en:'Add 3 veggies',           need:3,  type:'count_group', group:'veggies' },
+    { id:'pl_fruit3',    th:'ใส่ผลไม้ 3 ส่วน',             en:'Add 3 fruits',            need:3,  type:'count_group', group:'fruits' },
+    { id:'pl_grain2',    th:'ใส่ธัญพืช 2 ส่วน',            en:'Add 2 grains',            need:2,  type:'count_group', group:'grains' },
+    { id:'pl_protein2',  th:'ใส่โปรตีน 2 ส่วน',            en:'Add 2 protein',           need:2,  type:'count_group', group:'protein' },
+    { id:'pl_combo8',    th:'คอมโบถึง x8',                 en:'Reach combo x8',          need:8,  type:'reach_combo' },
+    { id:'pl_perfect2',  th:'Perfect 2 ครั้ง',              en:'2 Perfects',              need:2,  type:'count_perfect' },
+    { id:'pl_golden1',   th:'เก็บ Golden 1 ชิ้น',          en:'Hit 1 Golden',            need:1,  type:'count_golden' },
+    { id:'pl_survive60', th:'อยู่รอด 60 วินาที',           en:'Survive 60s',             need:60, type:'survive_time' },
+    { id:'pl_score300',  th:'คะแนนถึง 300',                 en:'Reach score 300',         need:300,type:'score_reach' },
   ],
 };
 
@@ -91,34 +114,19 @@ export const Progress = {
       name: 'Player',
       level: 1,
       xp: 0,
-      badges: {},                     // { badgeId: true }
-      stats: {
-        totalPlayTime: 0,             // accumulated seconds (from game reports)
-        sessionStartAt: Date.now(),   // for info only
-        lastPlayedAt: 0,
-      },
-      meta: {
-        totalRuns: 0,
-        bestScore: 0,
-        bestCombo: 0,
-        goldenHits: 0,
-        feverActivations: 0,
-      },
-      modes: {},                      // per-mode snapshot
-      daily: null,                    // { date:'YYYY-MM-DD', missions:[{id,kind,val,label}], done:[id] }
+      badges: {},
+      stats: { totalPlayTime: 0, sessionStartAt: Date.now(), lastPlayedAt: 0 },
+      meta:  { totalRuns: 0, bestScore: 0, bestCombo: 0, goldenHits: 0, feverActivations: 0 },
+      modes: {},
+      daily: null,                 // { date, missions:[{id,kind,val,label}], done:[] }
       session: { modesPlayed: [] },
       lang: 'TH',
     };
     const loaded = _load();
     this.profile = loaded ? { ...def, ...loaded, stats:{...def.stats, ...(loaded.stats||{})} } : def;
 
-    // daily sync on first init
     this._ensureDaily();
-
-    // autosave heartbeat
     this._startAutosave();
-
-    // save immediately to ensure new fields persist
     this._markDirty(); this._flushSave();
     return this.profile;
   },
@@ -129,7 +137,6 @@ export const Progress = {
 
   // runs
   beginRun(mode, difficulty, lang='TH'){
-    // register session mode
     const p = this.profile;
     if (!Array.isArray(p.session?.modesPlayed)) p.session = { modesPlayed: [] };
     if (!p.session.modesPlayed.includes(mode)) p.session.modesPlayed.push(mode);
@@ -143,7 +150,9 @@ export const Progress = {
       counters:{
         hits:0, good:0, perfect:0, bad:0,
         target:0, golden:0, comboMax:0, fever:0,
-        groupCount:{}
+        groupCount:{},
+        sec:0,            // สำหรับ survive_time
+        hydroOkSec:0      // สำหรับ hy_balance
       }
     };
     this.emit('run_start', {mode, difficulty, missions});
@@ -154,6 +163,16 @@ export const Progress = {
     if (!this.runCtx) return;
     const p = this.profile;
     const mode = this.runCtx.mode;
+    const C = this.runCtx.counters;
+
+    // ตรวจจบมิชชั่นแบบปลายเกม (score/accuracy/max_bad/no_miss)
+    for (const m of this.runCtx.missions){
+      if (m.done) continue;
+      if (m.type==='score_reach'){ m.prog = score; if (m.prog >= m.need) { m.done=true; this.addXP(60); this.emit('mission_done',{mission:m}); } }
+      if (m.type==='accuracy_ge'){ m.prog = Math.round(+acc||0); if (m.prog >= m.need) { m.done=true; this.addXP(60); this.emit('mission_done',{mission:m}); } }
+      if (m.type==='max_bad'){ m.prog = Math.max(0, m.need - (C.bad||0)); if ((C.bad||0) <= m.need) { m.done=true; this.addXP(60); this.emit('mission_done',{mission:m}); } }
+      if (m.type==='no_miss'){ if ((C.bad||0)===0){ m.done=true; m.prog=m.need||0; this.addXP(60); this.emit('mission_done',{mission:m}); } }
+    }
 
     // xp gain: score + quests + best combo
     const questClears = this.runCtx.missions.filter(m=>m.done).length;
@@ -178,10 +197,8 @@ export const Progress = {
     ms.games = games + 1;
     p.modes[mode] = ms;
 
-    // badges
+    // badges + daily
     this._checkBadges();
-
-    // daily check
     const result = { score, acc: accNum, mode, sessionModes:(p.session?.modesPlayed||[]).slice() };
     this.checkDaily(result);
 
@@ -217,7 +234,6 @@ export const Progress = {
       if (result==='good'){ C.good++; if (meta?.good) C.target++; if (meta?.groupId){ C.groupCount[meta.groupId]=(C.groupCount[meta.groupId]||0)+1; } }
       if (result==='perfect'){ C.perfect++; if (meta?.good) C.target++; if (meta?.groupId){ C.groupCount[meta.groupId]=(C.groupCount[meta.groupId]||0)+1; } }
       if (result==='bad'){ C.bad++; }
-
       if (meta?.golden){ C.golden++; this.profile.meta.goldenHits++; }
 
       // mission progress (hit-driven)
@@ -230,9 +246,7 @@ export const Progress = {
           case 'streak_nomiss':  if (result!=='bad') m.prog = Math.max(m.prog|0, comboNow|0); break;
           case 'count_group':    m.prog = C.groupCount[m.group]||0; break;
           case 'reach_combo':    m.prog = Math.max(m.prog|0, comboNow|0); break;
-          case 'count_good':     // ใช้ meta.good จากโหมด
-            if (meta?.good){ m.prog = (m.prog||0) + 1; }
-            break;
+          case 'count_good':     if (meta?.good){ m.prog = (m.prog||0) + 1; } break;
           default: break;
         }
         if (m.prog >= m.need){ m.done = true; this.addXP(60); this.emit('mission_done', {mission:m}); }
@@ -251,7 +265,7 @@ export const Progress = {
       }
     }
 
-    // per-second ticker (from main.js)
+    // per-second ticker (จาก main.js → Progress.event('sec'))
     if (type==='sec'){
       C.sec = (C.sec||0) + 1;
       for (const m of this.runCtx.missions){
@@ -263,7 +277,7 @@ export const Progress = {
       }
     }
 
-    // Hydration zone time (OK accumulation)
+    // Hydration zone time (OK accumulation) — hydration.js ควรเรียก Progress.event('hydro_tick',{zone:'OK'|'LOW'|'HIGH'})
     if (type==='hydro_tick'){
       if (data.zone==='OK'){
         C.hydroOkSec = (C.hydroOkSec||0) + 1;
@@ -367,14 +381,12 @@ export const Progress = {
     if (this._autoTimer) return;
     this._autoLast = Date.now();
     this._autoTimer = setInterval(()=>this._autosaveTick(), 3500);
-    // also save on page hide
     try{
       window.addEventListener('beforeunload', ()=>this._flushSave(), {capture:true});
       document.addEventListener('visibilitychange', ()=>{ if (document.hidden) this._flushSave(); });
     }catch{}
   },
   _autosaveTick(){
-    // lightweight debounced save
     if (!this._dirty) return;
     const elapsed = Date.now() - this._autoLast;
     if (elapsed < 1500) return;
