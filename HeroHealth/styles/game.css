@@ -1,6 +1,6 @@
-/* === Hero Health Academy — styles/game.css (Power-ups + FX + A11y + Modal) === */
+/* === Hero Health Academy — styles/game.css (Power-ups + FX + Accessibility + Modals) === */
 
-/* พื้นหลังเดิม */
+/* Base (เดิม) */
 html, body {
   margin:0; padding:0; height:100%; width:100%;
   overflow:hidden; background:#0a0f1a;
@@ -8,8 +8,7 @@ html, body {
 }
 canvas#c { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
-/* Header */
-header.brand{
+header.brand {
   position:fixed; top:0; left:0; right:0; z-index:50;
   display:flex; align-items:center; gap:8px;
   padding:10px 12px; background:linear-gradient(180deg, rgba(8,12,24,.85), rgba(8,12,24,.35));
@@ -21,22 +20,22 @@ header .btn, .menu .btn, .menu .tag {
   padding:8px 12px; font-weight:800; cursor:pointer;
 }
 header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(1px); }
-.btn.primary{ background:#2457ff; border-color:#3e6cff; color:#fff; }
 
-/* HUD */
-.hud{
+.hud {
   position:fixed; z-index:60; top:64px; left:12px; right:12px;
   display:flex; flex-direction:column; gap:6px;
   text-shadow:0 2px 8px #000;
 }
+
 .bar { background:#0e1730; border-radius:999px; overflow:hidden; height:10px; border:1px solid #1c2a4d; }
 .bar.slim { height:8px; }
 #feverBar { height:100%; width:0%; background:linear-gradient(90deg, #ffd54a, #ff6d00); }
+
 .fever { font:900 18px/1 ui-rounded, system-ui; color:#ffd54a; }
 
-/* Power-ups */
-.powerbar{ display:flex; gap:8px; align-items:center; margin-top:4px; }
-.powerbar .pseg{
+/* Power-ups bar */
+.powerbar { display:flex; gap:8px; align-items:center; margin-top:4px; }
+.powerbar .pseg {
   position:relative; display:flex; align-items:center; justify-content:center;
   width:40px; height:40px; border-radius:12px;
   background:#15213a; border:1px solid #25365c; cursor:pointer;
@@ -49,48 +48,48 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 .powerbar .pseg[aria-disabled="true"] { opacity:.45; pointer-events:none; }
 .powerbar .pseg span { font-size:18px; font-weight:900; }
 .powerbar .pseg[data-k="x2"] span { font-size:16px; }
+
 /* Cooldown fill */
-.powerbar .pseg i{
+.powerbar .pseg i {
   position:absolute; inset:auto 0 0 0; height:0%;
   background:linear-gradient(180deg, rgba(255,213,74,.85), rgba(255,109,0,.85));
   transition:height .2s linear;
 }
-.powerbar .pseg.busy i{ height:100%; }
-.powerbar .pseg.ready{ outline:2px solid #4ade80; }
+.powerbar .pseg.busy i { height:100%; }
+.powerbar .pseg.ready { outline:2px solid #4ade80; animation:readyPulse .6s ease-out 1; }
+@keyframes readyPulse { from { outline-offset:6px; opacity:.7 } to { outline-offset:0; opacity:1 } }
 
 /* Target badge */
-#targetWrap{
+#targetWrap {
   font-weight:800; background:#0d172b; border:1px solid #203155; border-radius:10px;
   padding:6px 10px; display:inline-flex; align-items:center; gap:8px; width:max-content;
 }
 
-/* 3D FX root & particles */
-.fx3d-root{ position:fixed; inset:0; pointer-events:none; z-index:100; }
+/* FX */
+.fx3d-root{ position:fixed; inset:0; pointer-events:none; z-index:1000; }
 .burstRing{
   position:fixed; width:10px; height:10px; border-radius:999px; border:3px solid rgba(255,213,74,.95);
-  transform:translate(-50%,-50%) scale(0.6); filter:drop-shadow(0 0 10px rgba(255,213,74,.55));
+  transform:translate(-50%,-50%) scale(0.6); filter:drop-shadow(0 0 10px rgba(255,213,74,.55)); z-index:2000;
 }
 @keyframes ringOut { to { transform:translate(-50%,-50%) scale(9); opacity:0; } }
+
 .shard{
   position:fixed; width:12px; height:8px; background:linear-gradient(90deg,#ffd54a,#ff6d00);
   transform:translate(var(--x0),var(--y0)) translateZ(0) rotate(0deg);
-  border-radius:3px; box-shadow:0 2px 8px rgba(0,0,0,.3);
+  border-radius:3px; box-shadow:0 2px 8px rgba(0,0,0,.3); z-index:2000;
 }
 @keyframes shardFly {
   to { transform:translate(var(--x1),var(--y1)) translateZ(var(--z1)) rotate(var(--rot)); opacity:0; }
 }
+
 .spark{
   position:fixed; width:6px; height:6px; border-radius:999px; background:#fff3b0;
-  transform:translate(var(--sx0),var(--sy0));
+  transform:translate(var(--sx0),var(--sy0)); z-index:2000;
 }
 @keyframes sparkUp { to { transform:translate(var(--sx1),var(--sy1)); opacity:0; } }
 
 /* Items */
-.item{
-  user-select:none; -webkit-tap-highlight-color:transparent;
-  text-shadow:0 6px 16px rgba(0,0,0,.35);
-  will-change: transform, opacity, filter;
-}
+.item{ user-select:none; -webkit-tap-highlight-color:transparent; text-shadow: 0 6px 16px rgba(0,0,0,.35); will-change: transform, opacity, filter; }
 
 /* Menu */
 .menu{
@@ -102,40 +101,30 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 .menu .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .modeLabel{ margin-left:auto; opacity:.85; font-weight:800; }
 
-/* Quest chips (สั้น ๆ) */
-.quests{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-.questChip{
-  background:#14203b; border:1px solid #28406d; border-radius:999px;
-  padding:4px 8px; font-weight:800; display:flex; align-items:center; gap:8px;
-}
-.questChip .qBar{ width:64px; height:6px; border-radius:999px; background:#0f1a33; overflow:hidden; border:1px solid #1c2e57; }
-.questChip .qBar i{ display:block; height:100%; background:linear-gradient(90deg,#4ade80,#22c55e); }
-
-/* ===== Modal (ศูนย์กลางจอ + สรุป/คู่มือ) ===== */
+/* Modals: ให้อยู่กลาง, scroll ช่วยดูครบ, ปุ่มกดติดแน่ ๆ */
 .modal{
-  position:fixed; inset:0; z-index:3000; display:flex; align-items:center; justify-content:center;
+  position:fixed; inset:0; display:none; z-index:2400;
+  align-items:center; justify-content:center;
   background:rgba(0,0,0,.45);
 }
 .modal .card{
-  background:linear-gradient(180deg, rgba(18,26,46,.96), rgba(10,15,26,.96));
-  border:1px solid #2a3a63; border-radius:16px; padding:16px; width:min(720px, 92vw);
-  box-shadow:0 20px 60px rgba(0,0,0,.45);
+  background:#0e1730; border:1px solid #203155; border-radius:14px; padding:14px;
+  box-shadow:0 10px 40px rgba(0,0,0,.45);
+  max-width:min(720px, 92vw);
 }
-.modal .card.wide{ width:min(860px, 94vw); }
-.modal .card.scrollable{ max-height:min(80vh, 720px); overflow:auto; }
-.helpBody{ font-weight:700; line-height:1.55; }
-.modal h3{ margin:0 0 8px 0; font-weight:900; }
-
-/* ให้ modal อยู่กลางและปุ่มกดได้แน่ ๆ */
-#result, #help, #helpScene{ pointer-events:auto; }
-body.modal-open header, body.modal-open main, body.modal-open canvas{ pointer-events:none; }
-
-/* ปุ่มกดใน result */
-#btn_replay, #btn_home{ pointer-events:auto; }
-
-/* ไอคอนตัวอย่างใน help */
-.helpIcons{ display:flex; gap:8px; flex-wrap:wrap; font-size:24px; margin:8px 0; }
-.helpIcons .badge{ padding:4px 8px; border-radius:999px; background:#132241; border:1px solid #27406b; font-size:14px; }
-
-/* Decoy hint */
+#help .card, #result .card, #helpScene .card{
+  max-height:min(80vh, 720px);
+  overflow:auto;
+}
+body.modal-open header, body.modal-open main, body.modal-open canvas { pointer-events:none; }
+#result{ pointer-events:auto; } /* ให้คลิกปุ่มได้แน่ */
 .decoy-hint{ outline:3px dashed rgba(255,64,64,.45); border-radius:16px; }
+
+/* Mission chips */
+.quests{ display:flex; gap:8px; flex-wrap:wrap; }
+.questChip{
+  background:#12203a; border:1px solid #24365b; border-radius:999px; padding:6px 10px; font-weight:800;
+  display:inline-flex; gap:8px; align-items:center;
+}
+.questChip .qBar{ width:80px; height:6px; border-radius:999px; background:#0b1530; overflow:hidden; border:1px solid #1a2a4a; }
+.questChip .qBar i{ display:block; height:100%; background:linear-gradient(90deg,#4ade80,#22c55e); }
