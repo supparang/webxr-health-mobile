@@ -217,3 +217,13 @@ function nextPlate(ctx, diffKey){
   ctx.have = { veggies:0, fruits:0, grains:0, protein:0, dairy:0 };
   ctx.target = pickTargetGroup(ctx);
 }
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+
+export const fx = {
+  onSpawn(el/*, state*/){
+    add3DTilt(el);
+  },
+  onHit(x, y/*, meta, state*/){
+    shatter3D(x, y);
+  }
+};
