@@ -64,9 +64,8 @@ const MISSION_POOLS = {
 // สุ่มภารกิจ 3 ตัวจากโหมดนั้น
 function rollMissions(mode, lang='TH'){
   const pool = (MISSION_POOLS[mode]||[]).slice();
-  // เผื่อโหมดไม่รู้จัก -> ไม่มีภารกิจ
   if (pool.length===0) return [];
-  // สุ่ม 3
+  // shuffle แบบง่าย
   for (let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
   return pool.slice(0,3).map(m=>({
     ...m,
@@ -79,7 +78,8 @@ function rollMissions(mode, lang='TH'){
 export const Progress = {
   profile: null,
   listeners: new Set(),
-  runCtx: null,  // { mode, startAt, missions:[], counters:{} }
+  runCtx: null,  // { mode, difficulty, lang, startAt, missions:[], counters:{...} }
+  sessionModes: new Set(), // ใช้ประกอบ Daily "เล่นครบ 2 โหมด"
 
   init(){
     const p = load() || {
@@ -97,9 +97,22 @@ export const Progress = {
         bestCombo: 0,
         goldenHits: 0,
         feverActivations: 0,
-      }
+      },
+      modes: {              // เก็บสถิติรายโหมด (สำหรับบอร์ดสถิติ)
+        goodjunk: { bestScore:0, acc:0, missionDone:0, plays:0 },
+        groups:   { bestScore:0, acc:0, missionDone:0, plays:0 },
+        hydration:{ bestScore:0, acc:0, missionDone:0, plays:0 },
+        plate:    { bestScore:0, acc:0, missionDone:0, plays:0 },
+      },
+      daily: null,          // จะถูก genDaily() เติม
+      dailySessionDate: null
     };
+    // reset sessionModes เมื่อเปลี่ยนวัน
+    const today = new Date().toISOString().slice(0,10);
+    if (p.dailySessionDate !== today){ this.sessionModes = new Set(); p.dailySessionDate = today; }
     this.profile = p;
+    // ensure daily generated
+    this.genDaily();
     return this.profile;
   },
 
@@ -117,8 +130,11 @@ export const Progress = {
         hits:0, good:0, perfect:0, bad:0,
         target:0, golden:0, comboMax:0, fever:0,
         groupCount:{}, // e.g. {veggies: 3}
+        hy_balanceTicks:0,   // สำหรับ hydration
+        surviveSec:0
       }
     };
+    this.sessionModes.add(mode);
     this.emit('run_start', {mode, difficulty, missions});
     return missions;
   },
@@ -126,21 +142,48 @@ export const Progress = {
   endRun({score=0, bestCombo=0, timePlayed=0}={}){
     if (!this.runCtx) return;
     const p = this.profile;
+    const C = this.runCtx.counters;
+
+    // ความแม่นยำ (ใช้ hits)
+    const total = Math.max(1, C.hits);
+    const accPct = ((C.good + C.perfect) / total) * 100;
+
     // XP: ตามสกอร์ + โบนัสเล็กน้อยจากมิชชั่นที่สำเร็จ
     const questClears = this.runCtx.missions.filter(m=>m.done).length;
     const gain = Math.round(score*0.5 + questClears*40 + bestCombo*2);
     this.addXP(gain);
 
-    // meta
+    // meta/prof
     p.meta.totalRuns += 1;
     p.meta.bestScore = Math.max(p.meta.bestScore, score);
     p.meta.bestCombo = Math.max(p.meta.bestCombo, bestCombo);
     p.stats.totalPlayTime += Math.max(0, timePlayed|0);
     p.stats.lastPlayedAt = Date.now();
-    this._checkBadges();
-    save(p);
 
-    this.emit('run_end', {score, bestCombo, quests:questClears, xpGain:gain, level:p.level, xp:p.xp});
+    // โหมดปัจจุบัน
+    const mkey = this.runCtx.mode;
+    const mstat = p.modes[mkey] || (p.modes[mkey]={ bestScore:0, acc:0, missionDone:0, plays:0 });
+    mstat.bestScore = Math.max(mstat.bestScore, score);
+    // ถัวเฉลี่ยความแม่นแบบ EMA เบา ๆ
+    mstat.acc = mstat.plays ? (mstat.acc*0.7 + accPct*0.3) : accPct;
+    mstat.missionDone += questClears;
+    mstat.plays += 1;
+
+    // badges
+    this._checkBadges();
+
+    // Daily check
+    this.checkDaily({
+      score,
+      acc: accPct,
+      modesPlayedCount: this.sessionModes.size
+    });
+
+    save(p);
+    this.emit('run_end', {
+      score, bestCombo, quests:questClears, xpGain:gain,
+      level:p.level, xp:p.xp, acc:accPct
+    });
     this.runCtx = null;
   },
 
@@ -186,8 +229,8 @@ export const Progress = {
           case 'count_golden':
             m.prog = C.golden; break;
           case 'streak_nomiss':
-            // ใช้ comboNow เป็นตัวประมาณ streak (ทุก hit ที่ไม่ bad)
             if (result!=='bad') m.prog = Math.max(m.prog, comboNow||0);
+            else m.prog = Math.min(m.prog, comboNow||0);
             break;
           case 'count_group':
             m.prog = C.groupCount[m.group]||0; break;
@@ -195,7 +238,11 @@ export const Progress = {
             m.prog = Math.max(m.prog, comboNow||0); break;
           default: break;
         }
-        if (m.prog >= m.need){ m.done=true; this.addXP(60); this.emit('mission_done', {mission:m}); }
+        if (m.prog >= m.need){
+          m.done=true;
+          this.addXP(60);
+          this.emit('mission_done', {mission:m});
+        }
       }
     }
 
@@ -203,8 +250,27 @@ export const Progress = {
       if (data.kind==='start'){ C.fever++; this.profile.meta.feverActivations++; }
     }
 
-    if (type==='hydration_tick'){ /* สำหรับ hydration โดยเฉพาะ (ถ้าต้องใช้) */ }
-    if (type==='plate_complete'){ /* สำหรับ plate โดยเฉพาะ */ }
+    // โหมด hydration อาจส่ง tick เฉพาะ
+    if (type==='hydration_balance_tick'){ // อยู่ในโซนสมดุล 1 ติ๊ก
+      C.hy_balanceTicks = (C.hy_balanceTicks||0)+1;
+      for (const m of this.runCtx.missions){
+        if (m.done) continue;
+        if (m.type==='hy_balance'){
+          m.prog = C.hy_balanceTicks;
+          if (m.prog >= m.need){ m.done=true; this.addXP(60); this.emit('mission_done', {mission:m}); }
+        }
+      }
+    }
+    if (type==='survive_tick'){ // นับเป็นวินาที (หรือช่วงเวลาปลอดภัย)
+      C.surviveSec = (C.surviveSec||0)+1;
+      for (const m of this.runCtx.missions){
+        if (m.done) continue;
+        if (m.type==='survive_time'){
+          m.prog = C.surviveSec;
+          if (m.prog >= m.need){ m.done=true; this.addXP(60); this.emit('mission_done', {mission:m}); }
+        }
+      }
+    }
 
     save(this.profile);
   },
@@ -214,40 +280,83 @@ export const Progress = {
     const p = this.profile;
     for (const b of BADGES){
       if (p.badges[b.id]) continue;
-      if (b.cond(p)){ p.badges[b.id]=true; this.emit('badge_unlock', {id:b.id, name:(p.lang==='EN'?b.nameEN:b.nameTH)}); }
+      if (b.cond(p)){
+        p.badges[b.id]=true;
+        this.emit('badge_unlock', {id:b.id, name:(p.lang==='EN'?b.nameEN:b.nameTH)});
+      }
     }
     save(p);
-  }
-};
-export const Progress = {
-  ...
+  },
+
+  // ---------- Daily Challenge ----------
   genDaily(){
-    const d = new Date();
-    const today = d.toISOString().slice(0,10);
-    const p = this.profile;
-    if(p.daily?.date === today) return p.daily;
-    const missions = [
-      { id:'score300', label:'ได้คะแนน ≥300', check:(r)=>r.score>=300 },
-      { id:'accuracy80', label:'ความแม่น ≥80%', check:(r)=>r.acc>=80 },
-      { id:'2modes', label:'เล่นครบ 2 โหมด', check:()=>true } // นับจาก session
+    const today = new Date().toISOString().slice(0,10);
+    const p = this.profile || (this.profile = load() || {});
+    if (p.daily?.date === today) return p.daily;
+
+    const pool = [
+      { id:'score300',  labelTH:'ได้คะแนน ≥300',    labelEN:'Score ≥300',      check:(r)=>r.score>=300 },
+      { id:'accuracy80',labelTH:'ความแม่น ≥80%',     labelEN:'Accuracy ≥80%',   check:(r)=>r.acc>=80 },
+      { id:'two_modes', labelTH:'เล่นครบ 2 โหมด',    labelEN:'Play 2 modes',    check:(r)=>r.modesPlayedCount>=2 },
+      { id:'combo15',   labelTH:'คอมโบถึง x15',      labelEN:'Reach combo x15', check:(r)=>r.maxCombo>=15 },
+      { id:'quest2',    labelTH:'สำเร็จเควส 2 อย่าง', labelEN:'Clear 2 quests',  check:(r)=>r.questsCleared>=2 },
     ];
-    const picks = missions.sort(()=>Math.random()-0.5).slice(0,2);
+    // เลือก 2 ภารกิจ/วันแบบสุ่ม
+    for (let i=pool.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [pool[i],pool[j]]=[pool[j],pool[i]]; }
+    const picks = pool.slice(0,2).map(x=>({ id:x.id, labelTH:x.labelTH, labelEN:x.labelEN }));
+
     p.daily = { date:today, missions:picks, done:[] };
-    this.save();
+    p.dailySessionDate = today;
+    save(p);
+    this.emit('daily_new', p.daily);
     return p.daily;
   },
+
   checkDaily(result){
-    const d = this.profile.daily; if(!d) return;
-    for(const m of d.missions){
-      if(d.done.includes(m.id)) continue;
-      const ok = m.check(result);
-      if(ok) d.done.push(m.id);
+    // result: { score, acc, modesPlayedCount, maxCombo?, questsCleared? }
+    const p = this.profile; if(!p) return;
+    if (!p.daily) return;
+
+    // Map checkers (ให้ตรงกับ genDaily)
+    const checkMap = {
+      score300:  (r)=>r.score>=300,
+      accuracy80:(r)=>r.acc>=80,
+      two_modes: (r)=>r.modesPlayedCount>=2,
+      combo15:   (r)=> (r.maxCombo||0) >= 15,
+      quest2:    (r)=> (r.questsCleared||0) >= 2,
+    };
+
+    let changed = false;
+    for(const m of p.daily.missions){
+      if(p.daily.done.includes(m.id)) continue;
+      const ok = (checkMap[m.id]||(()=>false))(result);
+      if(ok){ p.daily.done.push(m.id); changed = true; }
     }
-    if(d.done.length===d.missions.length) this.giveReward('daily');
-    this.save();
+
+    // ให้รางวัลเมื่อครบทั้งหมด
+    if (p.daily.done.length===p.daily.missions.length){
+      this.giveDailyReward();
+    }
+
+    if (changed){ save(p); this.emit('daily_update', p.daily); }
   },
-  giveReward(kind){
-    this.profile.xp += kind==='daily'?80:30;
-    this.levelCheck();
+
+  giveDailyReward(){
+    const p = this.profile; if(!p) return;
+    // XP พิเศษเล็กน้อย
+    this.addXP(80);
+    this.emit('daily_reward', { xp:80 });
+  },
+
+  // ---------- Utilities for UI ----------
+  getStatSnapshot(){
+    const p = this.profile || {};
+    return {
+      level: p.level||1, xp:p.xp||0, xpToNext: xpToNext(p||{level:1}),
+      meta: p.meta||{},
+      modes: p.modes||{},
+      badges: p.badges||{},
+      daily: p.daily||null
+    };
   }
 };
