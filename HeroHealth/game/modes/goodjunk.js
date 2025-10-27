@@ -82,3 +82,13 @@ export const powers = {
 
 // utils
 function t(th,en,lang){ return lang==='EN'?en:th; }
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+
+export const fx = {
+  onSpawn(el/*, state*/){
+    add3DTilt(el);
+  },
+  onHit(x, y/*, meta, state*/){
+    shatter3D(x, y);
+  }
+};
