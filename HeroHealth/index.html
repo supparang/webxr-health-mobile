@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -8,9 +8,9 @@
   <!-- สำคัญ: ตั้ง base ให้เส้นทาง assets/module ถูกบน GitHub Pages -->
   <base href="/webxr-health-mobile/HeroHealth/">
   <link rel="stylesheet" href="styles/game.css" />
-  <link rel="stylesheet" href="styles/groups.css" />
+  <link rel="stylesheet" href="styles/group.css" />
 
-  <!-- Bootloader -->
+  <!-- Bootloader: พยายาม import ./game/main.js หลาย path แล้วโชว์สถานะ -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
@@ -55,7 +55,7 @@
     <button id="contrastToggle" class="btn" type="button" aria-pressed="false">🎯 คอนทราสต์: ปกติ</button>
   </header>
 
-  <!-- พื้นหลัง/เอฟเฟกต์เรนเดอร์ 3D -->
+  <!-- พื้นหลัง/เอฟเฟกต์เรนเดอร์ 3D (ถ้าใช้งาน) -->
   <canvas id="c" aria-hidden="true"></canvas>
 
   <!-- HUD -->
@@ -98,18 +98,20 @@
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
-  <!-- จุด Mount UI โหมด -->
+  <!-- จุด Mount สำหรับ UI ของโหมด -->
   <main class="game-wrap" role="main" aria-label="Game area">
     <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
   </main>
 
-  <!-- เมนู -->
+  <!-- เมนูล่าง -->
   <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
     <div class="row">
+      <!-- เลือกโหมด: “เลือกโหมด” อย่างเดียว ยังไม่สตาร์ท จนกด ▶ เริ่มเกม -->
       <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
       <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
       <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
       <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
+      <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
     <div class="row">
       <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
@@ -125,30 +127,83 @@
       <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
       <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
       <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
-      <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
     </div>
   </section>
 
-  <!-- Help Modal -->
+  <!-- Help Modal (วิธีเล่น “เฉพาะโหมดที่เลือก”) -->
   <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
-    <div class="card">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <div id="helpBody">—</div>
-      <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
+    <div class="card modal-card">
+      <header class="modal-header">
+        <h3 id="h_help" style="margin:0">วิธีเล่น</h3>
+        <button class="btn close-x" data-action="helpClose" aria-label="ปิด">✕</button>
+      </header>
+      <div class="modal-body" id="helpBody" tabindex="0"></div>
+      <footer class="modal-footer">
+        <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Help Scene (คู่มือรวม) — เลื่อนอ่านได้ + ปุ่ม OK ติดล่าง -->
+  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_helpScene">
+    <div class="card modal-card">
+      <header class="modal-header">
+        <h3 id="h_helpScene" style="margin:0">📘 คู่มือรวม Hero Health Academy</h3>
+        <button class="btn close-x" data-action="helpSceneClose" aria-label="ปิด">✕</button>
+      </header>
+
+      <div class="modal-body" id="helpSceneBody" tabindex="0" aria-describedby="h_helpScene">
+        <section class="help-section">
+          <h4>🥗 ดี vs ขยะ</h4>
+          <ul>
+            <li>แตะเก็บอาหาร “ดี” หลีกเลี่ยงไอคอน “ขยะ”</li>
+            <li>คอมโบต่อเนื่องเพื่อแต้มคูณ & โหมด FEVER</li>
+            <li>ไอคอนโผล่มาแล้วหายเองอัตโนมัติ</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h4>🍽️ จาน 5 หมู่ (Food Group Frenzy)</h4>
+          <ul>
+            <li>ดูหมวดเป้าหมายที่ HUD แล้วแตะเฉพาะไอคอนที่ “ตรงหมวด”</li>
+            <li>มี Mini-Quest สุ่ม 3 ภารกิจจากชุด 5 ภารกิจ/เกม</li>
+            <li>พาวเวอร์: ×2 คะแนน, Freeze (หยุดเวลา/ชิ้น), Magnet (ดูดเป้าหมายถัดไป)</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h4>💧 สมดุลน้ำ</h4>
+          <p>แตะเพื่อดื่มน้ำให้พอดี เก็บเฟเวอร์เพื่อคะแนนคูณ ระวังมาก/น้อยเกิน</p>
+        </section>
+
+        <section class="help-section">
+          <h4>🍱 จัดจานสุขภาพ</h4>
+          <p>วางอาหารลงจานให้ครบโควตาแต่ละหมวด (ธัญพืช/โปรตีน/ผัก/ผลไม้/นม)</p>
+        </section>
+      </div>
+
+      <footer class="modal-footer">
+        <button class="btn" data-action="helpSceneClose" id="btn_helpScene_ok" type="button">โอเค</button>
+      </footer>
     </div>
   </div>
 
   <!-- Result Modal -->
   <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
-    <div class="card">
-      <h3 id="h_summary">สรุปผล</h3>
-      <div id="resCore"></div>
-      <div id="resBreakdown"></div>
-      <div id="resBoard"></div>
-      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+    <div class="card modal-card">
+      <header class="modal-header">
+        <h3 id="h_summary" style="margin:0">สรุปผล</h3>
+        <button class="btn close-x" data-result="home" aria-label="กลับหน้าหลัก">✕</button>
+      </header>
+      <div class="modal-body" id="resScroll">
+        <div id="resCore"></div>
+        <div id="resBreakdown" style="margin-top:8px"></div>
+        <div id="resBoard" style="margin-top:8px"></div>
+      </div>
+      <footer class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
         <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
-      </div>
+      </footer>
     </div>
   </div>
 
@@ -164,7 +219,5 @@
       จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
     </div>
   </noscript>
-
-  <script type="module" src="game/main.js"></script>
 </body>
 </html>
