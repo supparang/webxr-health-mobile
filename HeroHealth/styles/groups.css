@@ -1,9 +1,10 @@
 /* === Hero Health Academy — styles/groups.css (mode-specific, no bg changes) === */
 
-/* Target badge always visible in groups mode */
+/* Target badge always visible (and above items) in groups mode */
 html[data-hha-mode="groups"] #targetWrap{
   display:block !important;
   font-weight:900; letter-spacing:.2px;
+  z-index:66; /* ensure badge stays above floating items */
 }
 
 /* --- Icon buttons: 3D look & responsive size --- */
@@ -29,6 +30,7 @@ html[data-hha-mode="groups"] .item::before{
   background:radial-gradient(closest-side, rgba(255,255,255,.55), rgba(255,255,255,0));
   filter:blur(2px); opacity:.35; pointer-events:none;
 }
+
 /* soft drop shadow under icon */
 html[data-hha-mode="groups"] .item::after{
   content:""; position:absolute; left:50%; transform:translateX(-50%); bottom:-6px; width:66%; height:10px;
@@ -67,8 +69,8 @@ html[data-hha-mode="groups"] .item:focus-visible{
 html[data-hha-mode="groups"] #coachHUD{ justify-content:center; }
 
 /* --- Optional cues (non-breaking) -----------------------------
-   ถ้าโหมด groups ใส่ data-attr ให้ปุ่มไว้ (เช่น data-golden="1" / data-target="1"),
-   สไตล์ด้านล่างจะช่วยเน้นผลลัพธ์ได้สวยขึ้นโดยไม่กระทบของเดิม
+   If the mode sets data attributes on items (data-golden / data-target),
+   these styles will highlight them without changing logic.
 ---------------------------------------------------------------- */
 html[data-hha-mode="groups"] .item[data-golden="1"]{
   box-shadow:
@@ -80,7 +82,11 @@ html[data-hha-mode="groups"] .item[data-target="1"]{
   outline:2px dashed #67e8f9; outline-offset:3px;
 }
 
-/* Small-screen tweak */
+/* Small-screen tweaks */
 @media (max-width:480px){
   html[data-hha-mode="groups"] #targetWrap{ font-size:14px; }
+}
+@media (max-width:380px){
+  /* guard rails so icons don’t overflow visually if inline font-size gets big */
+  html[data-hha-mode="groups"] .item{ font-size: clamp(40px, 16vw, 56px); }
 }
