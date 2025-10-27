@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/core/progression.js (enhanced: autosave + totals + daily) ===
+// === Hero Health Academy — game/core/progression.js (enhanced: autosave + totals + daily + full mission support) ===
 
 // ---------- Storage utils ----------
 const STORE_KEY = 'hha_profile_v1';
@@ -39,14 +39,14 @@ const MISSION_POOLS = {
     { id:'grp_veggies5', th:'เก็บผัก 5 ชิ้น',            en:'Collect 5 veggies',       need:5,   type:'count_group', group:'veggies' },
   ],
   goodjunk: [
-    { id:'gj_good25',    th:'เก็บอาหารดี 25 ชิ้น',      en:'Collect 25 good',         need:25,  type:'count_good' },
+    { id:'gj_good25',    th:'เก็บอาหารดี 25 ชิ้น',      en:'Collect 25 good',         need:25,  type:'count_good' }, // (นับผ่าน meta.good)
     { id:'gj_perfect5',  th:'Perfect 5 ครั้ง',           en:'5 Perfects',              need:5,   type:'count_perfect' },
     { id:'gj_combo15',   th:'ทำคอมโบถึง x15',           en:'Reach combo x15',         need:15,  type:'reach_combo' },
     { id:'gj_fever2',    th:'เปิด FEVER 2 ครั้ง',        en:'Trigger FEVER 2x',        need:2,   type:'count_fever' },
     { id:'gj_avoid5',    th:'ไม่โดนขยะ 5 ชิ้นติดกัน',   en:'Avoid 5 junk in a row',   need:5,   type:'streak_nomiss' },
   ],
   hydration: [
-    { id:'hy_balance3',  th:'รักษาสมดุล 3 ช่วง',        en:'Stay in balance 3x',      need:3,   type:'hy_balance' },
+    { id:'hy_balance3',  th:'รักษาสมดุล 3 ช่วง',        en:'Stay in balance 3x',      need:3,   type:'hy_balance' },     // รวมวินาที zone OK
     { id:'hy_combo12',   th:'คอมโบถึง x12',             en:'Combo x12',               need:12,  type:'reach_combo' },
     { id:'hy_perfect4',  th:'Perfect 4 ครั้ง',           en:'4 Perfects',              need:4,   type:'count_perfect' },
     { id:'hy_time90',    th:'อยู่รอด 90 วินาที',         en:'Survive 90s',             need:90,  type:'survive_time' },
@@ -220,7 +220,7 @@ export const Progress = {
 
       if (meta?.golden){ C.golden++; this.profile.meta.goldenHits++; }
 
-      // mission progress
+      // mission progress (hit-driven)
       for (const m of this.runCtx.missions){
         if (m.done) continue;
         switch(m.type){
@@ -230,14 +230,51 @@ export const Progress = {
           case 'streak_nomiss':  if (result!=='bad') m.prog = Math.max(m.prog|0, comboNow|0); break;
           case 'count_group':    m.prog = C.groupCount[m.group]||0; break;
           case 'reach_combo':    m.prog = Math.max(m.prog|0, comboNow|0); break;
+          case 'count_good':     // ใช้ meta.good จากโหมด
+            if (meta?.good){ m.prog = (m.prog||0) + 1; }
+            break;
           default: break;
         }
         if (m.prog >= m.need){ m.done = true; this.addXP(60); this.emit('mission_done', {mission:m}); }
       }
     }
 
+    // FEVER started/ended
     if (type==='fever'){
-      if (data.kind==='start'){ C.fever++; this.profile.meta.feverActivations++; }
+      if (data.kind==='start'){ C.fever = (C.fever||0) + 1; this.profile.meta.feverActivations++; }
+      for (const m of this.runCtx.missions){
+        if (m.done) continue;
+        if (m.type==='count_fever'){
+          m.prog = C.fever||0;
+          if (m.prog >= m.need){ m.done = true; this.addXP(60); this.emit('mission_done', {mission:m}); }
+        }
+      }
+    }
+
+    // per-second ticker (from main.js)
+    if (type==='sec'){
+      C.sec = (C.sec||0) + 1;
+      for (const m of this.runCtx.missions){
+        if (m.done) continue;
+        if (m.type==='survive_time'){
+          m.prog = C.sec;
+          if (m.prog >= m.need){ m.done = true; this.addXP(60); this.emit('mission_done', {mission:m}); }
+        }
+      }
+    }
+
+    // Hydration zone time (OK accumulation)
+    if (type==='hydro_tick'){
+      if (data.zone==='OK'){
+        C.hydroOkSec = (C.hydroOkSec||0) + 1;
+        for (const m of this.runCtx.missions){
+          if (m.done) continue;
+          if (m.type==='hy_balance'){
+            m.prog = C.hydroOkSec;
+            if (m.prog >= m.need){ m.done = true; this.addXP(60); this.emit('mission_done', {mission:m}); }
+          }
+        }
+      }
     }
 
     this._markDirty();
