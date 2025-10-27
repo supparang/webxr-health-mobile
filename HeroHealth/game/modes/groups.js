@@ -293,3 +293,13 @@ export const powers = {
 export function getPowerDurations(){
   return { x2:8, freeze:3, magnet:2 };
 }
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+
+export const fx = {
+  onSpawn(el/*, state*/){
+    add3DTilt(el);
+  },
+  onHit(x, y/*, meta, state*/){
+    shatter3D(x, y);
+  }
+};
