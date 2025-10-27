@@ -1,15 +1,15 @@
-// === Hero Health Academy — main.js (modes selectable, Start-only launch, missions + powers) ===
+// === Hero Health Academy — game/main.js (Start-only, missions, powers, centered result modal) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports (ABSOLUTE PATHS) -----
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
-import { Engine }      from '/webxr-health-mobile/HeroHealth/game/core/engine.js';
-import { HUD }         from '/webxr-health-mobile/HeroHealth/game/core/hud.js';
-import { Coach }       from '/webxr-health-mobile/HeroHealth/game/core/coach.js';
-import { SFX }         from '/webxr-health-mobile/HeroHealth/game/core/sfx.js';
-import { ScoreSystem } from '/webxr-health-mobile/HeroHealth/game/core/score.js';
+import { Engine }        from '/webxr-health-mobile/HeroHealth/game/core/engine.js';
+import { HUD }           from '/webxr-health-mobile/HeroHealth/game/core/hud.js';
+import { Coach }         from '/webxr-health-mobile/HeroHealth/game/core/coach.js';
+import { SFX }           from '/webxr-health-mobile/HeroHealth/game/core/sfx.js';
+import { ScoreSystem }   from '/webxr-health-mobile/HeroHealth/game/core/score.js';
 import { PowerUpSystem } from '/webxr-health-mobile/HeroHealth/game/core/powerup.js';
-import { Progress }    from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
+import { Progress }      from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
 
 import * as goodjunk   from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
 import * as groups     from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
@@ -20,6 +20,19 @@ import * as plate      from '/webxr-health-mobile/HeroHealth/game/modes/plate.js
 const $  = (s)=>document.querySelector(s);
 const byAction = (el)=>el?.closest?.('[data-action]')||null;
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
+
+// Modal helpers (ศูนย์กลางจอ + z-index สูง)
+function showModal(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = 'flex';
+  try{ el.querySelector('.btn,[data-result]')?.focus(); }catch{}
+}
+function hideModal(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.style.display = 'none';
+}
 
 // ----- Config -----
 const MODES = { goodjunk, groups, hydration, plate };
@@ -456,6 +469,7 @@ async function start(){
   spawnLoop();
 }
 
+// (UPDATED) end(): เติมการเปิด modal แบบกลางจอ + ปุ่มกดติด
 function end(silent=false){
   state.running=false; state.paused=false;
   clearTimeout(state.tickTimer); clearTimeout(state.spawnTimer);
@@ -467,32 +481,30 @@ function end(silent=false){
   Progress.endRun({ score: score.score|0, bestCombo: state.bestCombo|0, timePlayed });
 
   if (!silent){
-    const modal = $('#result');
-    if (modal){
-      modal.style.display='flex';
-      const total = score.score|0;
-      const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
-      const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
-      const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
+    const total = score.score|0;
+    const cnt = state.stats.good + state.stats.perfect + state.stats.ok + state.stats.bad;
+    const acc = cnt>0 ? ((state.stats.good + state.stats.perfect)/cnt*100).toFixed(1) : '0.0';
+    const grade = total>=500?'S': total>=400?'A+': total>=320?'A': total>=240?'B':'C';
 
-      const resCore = `
-        <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
-        <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
-      const resBreak = `
-        <div style="margin-top:12px;text-align:left;font-weight:700">
-          ✅ ดี: ${state.stats.good}<br/>
-          🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
-          😐 ปกติ: ${state.stats.ok}<br/>
-          ❌ พลาด: ${state.stats.bad}
-        </div>`;
-      const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
+    const resCore = `
+      <div style="font:900 32px/1.2 ui-rounded;text-shadow:0 2px 6px #000a;color:#7fffd4">${total} คะแนน</div>
+      <div style="font:700 16px;opacity:.85;margin-top:6px">แม่นยำ ${acc}% • คอมโบสูงสุด x${state.bestCombo}</div>`;
+    const resBreak = `
+      <div style="margin-top:12px;text-align:left;font-weight:700">
+        ✅ ดี: ${state.stats.good}<br/>
+        🌟 เพอร์เฟกต์: ${state.stats.perfect}<br/>
+        😐 ปกติ: ${state.stats.ok}<br/>
+        ❌ พลาด: ${state.stats.bad}
+      </div>`;
+    const resBoard = `<div style="margin-top:8px;font-weight:800">ระดับ: ${grade} (${state.difficulty})</div>`;
 
-      const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
-      if (coreEl) coreEl.innerHTML = resCore;
-      if (brEl)   brEl.innerHTML   = resBreak;
-      if (bdEl)   bdEl.innerHTML   = resBoard;
-    }
-    coach.onEnd?.(score.score, {grade:'A'});
+    const coreEl = $('#resCore'), brEl = $('#resBreakdown'), bdEl = $('#resBoard');
+    if (coreEl) coreEl.innerHTML = resCore;
+    if (brEl)   brEl.innerHTML   = resBreak;
+    if (bdEl)   bdEl.innerHTML   = resBoard;
+
+    showModal('result');
+    coach.onEnd?.(score.score, {grade});
   }
 }
 
@@ -524,7 +536,7 @@ const HELP_TEXT = {
   TH:{
     goodjunk: "🥗 ดี vs ขยะ\n- แตะเก็บอาหารดี หลีกเลี่ยงอาหารขยะ\n- ทำคอมโบต่อเนื่องเพื่อเปิด FEVER\n- Power-ups ช่วย: ×2 คะแนน / Freeze / Magnet",
     groups:   "🍽️ จาน 5 หมู่ (Food Group Frenzy)\n- ดู \"หมวดเป้าหมาย\" แล้วแตะไอคอนให้ถูกหมวด\n- ครบโควตาแล้วเปลี่ยนหมวดใหม่\n- Power-ups: ×2 เฉพาะหมวด, Freeze เป้าหมาย, Magnet ชิ้นถัดไป",
-    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = มีเงื่อนไขคะแนนตามสถานะ\n- Mini-quests แบบสุ่ม 3 อย่าง/เกม",
+    hydration:"💧 สมดุลน้ำ\n- รักษาบาร์น้ำให้อยู่ในโซนสีพอดี\n- น้ำ = เพิ่มระดับน้ำ, น้ำหวาน = เงื่อนไขคะแนนตามสถานะ\n- Mini-quests สุ่ม 3 อย่าง/เกม",
     plate:    "🍱 จัดจานสุขภาพ\n- วางไอคอนอาหารให้ครบโควตาตามสัดส่วนจานสุขภาพ\n- ทำคอมโบเพื่อคะแนนโบนัส"
   },
   EN:{
@@ -539,7 +551,7 @@ function openHelpCurrent(){
   const key  = state.modeKey;
   const txt  = (HELP_TEXT[lang] && HELP_TEXT[lang][key]) || '—';
   const b = $('#helpBody'); if (b){ b.textContent = txt; }
-  const m = $('#help'); if (m){ m.style.display='flex'; }
+  showModal('help');
 }
 function openHelpAll(){
   const lang = (localStorage.getItem('hha_lang')||'TH');
@@ -559,11 +571,11 @@ function openHelpAll(){
       host.appendChild(wrap);
     }
   }
-  const m = $('#helpScene'); if (m){ m.style.display='flex'; }
+  showModal('helpScene');
 }
 
 // ----- Global UI Events -----
-// เลือกโหมด—ไม่สตาร์ท จนกว่าจะกด Start
+// เลือกโหมด—ไม่เริ่มจนกด Start
 document.addEventListener('pointerup', (e)=>{
   const target = e.target;
   const btn = byAction(target);
@@ -574,10 +586,7 @@ document.addEventListener('pointerup', (e)=>{
 
   if (a.startsWith('ui:start:')){
     const key = a.split(':')[2];
-    if (MODES[key]){
-      state.modeKey = key;
-      applyUI();
-    }
+    if (MODES[key]){ state.modeKey = key; applyUI(); }
     return;
   }
 
@@ -592,9 +601,9 @@ document.addEventListener('pointerup', (e)=>{
   }
   else if (a === 'restart'){ end(true); start(); }
   else if (a === 'help'){ openHelpCurrent(); }
-  else if (a === 'helpClose'){ const m=$('#help'); if (m) m.style.display='none'; }
+  else if (a === 'helpClose'){ hideModal('help'); }
   else if (a === 'helpScene'){ openHelpAll(); }
-  else if (a === 'helpSceneClose'){ const hs=$('#helpScene'); if (hs) hs.style.display='none'; }
+  else if (a === 'helpSceneClose'){ hideModal('helpScene'); }
 }, {passive:true});
 
 // ----- Power-ups (พร้อมโหมด groups) -----
@@ -656,14 +665,27 @@ document.addEventListener('pointerup', (e)=>{
   }, {passive:true});
 })();
 
-// Result modal buttons
-const resEl = $('#result');
+// Result modal buttons (คลิกติดแน่นอน)
+const resEl = document.getElementById('result');
 if (resEl){
+  // คลิกเฉพาะใน .card เท่านั้น
   resEl.addEventListener('click', (e)=>{
-    const a = e.target.getAttribute('data-result');
-    if (a==='replay'){ resEl.style.display='none'; start(); }
-    if (a==='home'){ resEl.style.display='none'; end(true); }
+    const card = e.target.closest('.card');
+    if(!card) return;
+    const btn = e.target.closest('[data-result]');
+    if (!btn) return;
+    const a = btn.getAttribute('data-result');
+    if (a==='replay'){ hideModal('result'); start(); }
+    if (a==='home'){ hideModal('result'); end(true); }
   });
+  // safety บนอุปกรณ์ทัช
+  resEl.addEventListener('pointerup', (e)=>{
+    const btn = e.target.closest('[data-result]');
+    if (!btn) return;
+    const a = btn.getAttribute('data-result');
+    if (a==='replay'){ hideModal('result'); start(); }
+    if (a==='home'){ hideModal('result'); end(true); }
+  }, {passive:true});
 }
 
 // Toggles
@@ -719,24 +741,28 @@ applyUI(); updateHUD();
   render();
   Progress.on((type)=>{ if (type==='level_up') render(); });
 })();
+
+// Stats board open/close (ถ้ามีปุ่มในหน้า)
 function openStatBoard(){
   const host = $('#statBoardBody'); if(!host) return;
-  const p = Progress.profile;
-  const modeStats = Object.entries(p.modes||{}).map(([k,v])=>`
-    <tr><td>${T(state.lang).names[k]}</td>
+  const p = Progress.profile || {};
+  const modes = p.modes || {};
+  const modeStats = Object.entries(modes).map(([k,v])=>`
+    <tr><td>${T(state.lang).names[k]||k}</td>
         <td>${v.bestScore||0}</td>
-        <td>${(v.acc||0).toFixed(1)}%</td>
+        <td>${(v.acc||0).toFixed?.(1)||'0.0'}%</td>
         <td>${v.missionDone||0}</td></tr>`).join('');
   host.innerHTML = `
-    <div style="font-weight:800;margin-bottom:8px">Level ${p.level} (${p.xp|0} XP)</div>
+    <div style="font-weight:800;margin-bottom:8px">Level ${p.level||1} (${p.xp|0} XP)</div>
     <table class="tbl">
       <tr><th>โหมด</th><th>คะแนนสูงสุด</th><th>ความแม่น</th><th>เควสสำเร็จ</th></tr>
       ${modeStats}
     </table>`;
-  $('#statBoard').style.display='flex';
+  showModal('statBoard');
 }
 document.addEventListener('click', (e)=>{
-  const a = e.target.getAttribute('data-action');
+  const a = e.target.getAttribute?.('data-action');
   if(a==='statOpen') openStatBoard();
-  if(a==='statClose') $('#statBoard').style.display='none';
+  if(a==='statClose') hideModal('statBoard');
+  if(a==='dailyClose') hideModal('dailyPanel');
 });
