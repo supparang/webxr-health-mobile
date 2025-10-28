@@ -75,7 +75,7 @@
       <h4>Healthy Plate</h4>
       <div id="platePills">
         <!-- plate.js จะเติม .pill แต่ละหมวดลงให้เอง -->
-        <!-- ตัวอย่าง (โครง): 
+        <!-- ตัวอย่าง (โครง):
         <div class="pill"><b>ผัก</b><span>0/3</span><i style="width:0%"></i></div>
         -->
       </div>
@@ -83,7 +83,7 @@
 
     <!-- Hydration bar -->
     <div id="hydroWrap" class="hud-passive" style="display:none">
-      <div id="hydroBar" class="hydroBar" data-zone="OK">
+      <div id="hydroBarEl" class="hydroBar" data-zone="OK">
         <div class="seg low">LOW</div>
         <div class="seg ok">OK</div>
         <div class="seg high">HIGH</div>
@@ -94,7 +94,7 @@
     </div>
   </section>
 
-  <!-- Coach bubble (auto-creates if missing, butเราวางให้เลย) -->
+  <!-- Coach bubble (auto-creates if missing; เราวางให้เลย) -->
   <div id="coachHUD" class="hud-passive" style="position:fixed;top:104px;left:50%;transform:translateX(-50%);z-index:96;display:flex;">
     <span id="coachText">พร้อมไหม? ลุยเลย!</span>
   </div>
@@ -122,7 +122,7 @@
     <div class="card">
       <header style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
         <h3 style="margin:0;">ผลการเล่น / Results</h3>
-        <button class="btn" data-modal-close>✕</button>
+        <button class="btn" data-modal-close aria-label="Close">✕</button>
       </header>
       <div class="body" id="resultBody" style="margin-top:12px;">
         <!-- main.js จะเติมสรุปผล -->
@@ -159,9 +159,8 @@
   </div>
 
   <!-- ====== Scripts ====== -->
-  <!-- THREE is imported inside main.js via ESM; keep type="module" -->
+  <!-- THREE และโมดูลย่อยถูก import ใน main.js (ESM) -->
   <script type="module" src="./game/main.js?v=live"></script>
-
   <!-- Fallback note:
        ถ้า path ตรงนี้ต่างจากโครงของคุณ ให้ปรับให้ชี้ไปที่ไฟล์จริง เช่น ../HeroHealth/game/main.js -->
 </body>
