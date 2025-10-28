@@ -341,3 +341,39 @@ body.modal-open [data-modal-open] { pointer-events:none; }
   background:#0d172b; border:1px solid #203155; color:#7fffd4; padding:2px 6px; border-radius:8px;
 }
 .item.bad .badge{ border-color:#402222; color:#ff9b9b; }
+/* --- Clickability Hotfix --- */
+
+/* อนุญาตให้ปุ่ม/เมนูรับคลิกเสมอ */
+#menuBar, #resultModal, #coachHUD .controls, [data-ui="menu"], [data-ui="dialog"] {
+  pointer-events: auto !important;
+}
+
+/* HUD แสดงผลอย่างเดียว ไม่กินคลิก ขณะเล่นเกม */
+.hud-passive,
+#hudWrap.hud-passive,
+#platePills.hud-passive,
+#missionLine.hud-passive,
+#toast.hud-passive,
+#targetWrap.hud-passive {
+  pointer-events: none !important;
+}
+
+/* กัน overlay/blocker บังทั้งจอ */
+#screenBlocker, #cover, .modal-backdrop {
+  pointer-events: none !important;
+}
+
+/* ปุ่มที่ตั้งค่าไว้เป็น data-action ให้รับคลิกแน่นอน */
+button[data-action], .btn[data-action], [role="button"][data-action] {
+  pointer-events: auto !important;
+  cursor: pointer;
+}
+
+/* จัด z-index ให้เมนูอยู่บน gameplay เมื่อโหมดเมนู */
+body.ui-mode-menu #menuBar,
+body.ui-mode-result #resultModal {
+  z-index: 1000;
+}
+
+/* gameplay อยู่บน background แต่ใต้เมนู/ไดอะล็อก */
+#gameLayer, canvas, a-scene, .a-canvas { z-index: 1; position: relative; }
