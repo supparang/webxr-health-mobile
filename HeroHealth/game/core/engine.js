@@ -3,7 +3,7 @@
 
 export class Engine {
   constructor(THREE, canvas) {
-    this.THREE = THREE || {};
+    this.THREE  = THREE || {};
     this.canvas = canvas || document.getElementById('c') || this._ensureCanvas();
 
     // ---------- Renderer (optional/defensive) ----------
@@ -17,7 +17,7 @@ export class Engine {
           alpha: true,
           preserveDrawingBuffer: false
         });
-        const pr = Math.min(2, window.devicePixelRatio || 1);   // cap pixelRatio เพื่อประหยัด
+        const pr = Math.min(2, window.devicePixelRatio || 1); // cap pixelRatio เพื่อประหยัด
         renderer.setPixelRatio(pr);
         renderer.setSize(window.innerWidth, window.innerHeight, false);
       }
@@ -30,29 +30,28 @@ export class Engine {
     };
     window.addEventListener('resize', this._onResize, { passive:true });
 
-    // ---------- Motion preference ----------
-    this.reduceMotion = matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || false;
+    // ---------- Motion preference (ปลอดภัยบนทุก env) ----------
+    try {
+      const mq = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)');
+      this.reduceMotion = !!(mq && mq.matches);
+    } catch { this.reduceMotion = false; }
 
     // ---------- Book-keeping for cleanup ----------
-    this._activeFX = new Set();  // เก็บ DOM nodes/timeout/raf เพื่อ dispose ง่าย
+    // เก็บ DOM nodes / timeout id / raf id / และอ็อบเจกต์ที่มี off()
+    this._activeFX = new Set();
 
     // ---------- FX helpers (DOM-first) ----------
     this.fx = {
-      // Popข้อความกลางจอหรือพิกัด x/y ที่ส่งมา
       popText: (text, opts = {}) => this._popText(text, opts),
-      // เศษแตกแบบ DOM 3D (เบาเครื่องกว่าพาร์ติเคิลใน WebGL)
       spawnShards: (x, y, opts = {}) => this._spawnShards(x, y, opts),
-      // อีโมจิแตกกระจาย
       burstEmoji: (x, y, emojis = ['✨','🟡','🟠'], opts = {}) => this._burstEmoji(x, y, emojis, opts),
-      // เอฟเฟกต์สั้น ๆ รอบเมาส์/ทัช (ใช้ในดีบักหรือ tutorial)
       cursorBurst: (emojis = ['✨']) => this._cursorBurst(emojis),
-      // แสง/กลอว์ ณ พิกัดจอ (ใช้ย้ำ feedback จุดที่กด)
       glowAt: (x, y, color = 'rgba(0,255,200,.6)', ms = 480) => this._glowAt(x, y, color, ms),
 
       // Utilities พิกัด/ตำแหน่ง
       screenFrom3D: (camera, vec3) => this._screenFrom3D(camera, vec3),
       screenFromElementCenter: (el) => this._screenFromElementCenter(el),
-      cancelAll: () => this._cancelAllFX()
+      cancelAll: () => this._cancelAllFX(),
     };
   }
 
@@ -61,6 +60,10 @@ export class Engine {
     try { window.removeEventListener('resize', this._onResize, { passive:true }); } catch {}
     this._cancelAllFX();
     try { this.renderer?.dispose?.(); } catch {}
+    // ถ้า canvas นี้เอนจินเป็นคนสร้างเอง ให้ถอดทิ้งเพื่อกันซ้อน
+    if (this._ownCanvas && this.canvas?.parentNode) {
+      try { this.canvas.remove(); } catch {}
+    }
   }
 
   /* ======================= Internal helpers ======================= */
@@ -69,11 +72,11 @@ export class Engine {
     c.id = 'c';
     c.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;';
     document.body.appendChild(c);
+    this._ownCanvas = true;
     return c;
   }
 
   _track(obj) {
-    // รับได้ทั้ง DOM node, timeout id, requestAnimationFrame id (บันทึกเพื่อเคลียร์ภายหลัง)
     if (!obj) return;
     this._activeFX.add(obj);
     return obj;
@@ -82,18 +85,25 @@ export class Engine {
     if (!obj) return;
     this._activeFX.delete(obj);
   }
+
   _cancelAllFX() {
-    // ลบ DOM, ยกเลิก timeout/raf ทั้งหมดที่สร้างจาก engine.fx
+    // ลบ DOM, ยกเลิก timeout/raf และเรียก off() ถ้ามี
     for (const o of this._activeFX) {
-      if (typeof o === 'number') {
-        // อาจเป็น timeout หรือ raf — ลองทั้งคู่แบบปลอดภัย
-        try { cancelAnimationFrame(o); } catch {}
-        try { clearTimeout(o); } catch {}
-      } else if (o && o.nodeType === 1) {
-        try { o.remove(); } catch {}
-      } else if (o && o.type === 'raf') {
-        try { cancelAnimationFrame(o.id); } catch {}
-      }
+      try {
+        if (typeof o === 'number') {
+          // อาจเป็น timeout หรือ raf — ลองทั้งคู่แบบปลอดภัย
+          cancelAnimationFrame(o);
+          clearTimeout(o);
+        } else if (o && typeof o.off === 'function') {
+          // กรณี _cursorBurst() หรืออื่น ๆ ที่คืน off()
+          o.off();
+        } else if (o && o.nodeType === 1) {
+          // DOM node
+          o.remove();
+        } else if (o && o.type === 'raf' && o.id) {
+          cancelAnimationFrame(o.id);
+        }
+      } catch {}
     }
     this._activeFX.clear();
   }
@@ -194,7 +204,7 @@ export class Engine {
   /* ======================= FX: burstEmoji ======================= */
   _burstEmoji(x, y, emojis = ['✨'], opts = {}) {
     if (this.reduceMotion) return;
-    const count = Math.max(4, Math.min(60, opts.count ?? 18));
+    const count  = Math.max(4, Math.min(60, opts.count ?? 18));
     const spread = opts.spread ?? 1.0;
     const lifeMs = opts.life ?? 700;
 
@@ -248,7 +258,7 @@ export class Engine {
       this._burstEmoji(x, y, emojis, { count: 12, spread: 1.2, life: 640 });
     };
     window.addEventListener('pointerdown', on, { passive:true });
-    // คืนฟังก์ชันยกเลิก
+    // คืนฟังก์ชันยกเลิก (จะถูกเรียกใน _cancelAllFX)
     const off = () => window.removeEventListener('pointerdown', on, { passive:true });
     this._track({ off });
     return off;
@@ -272,7 +282,6 @@ export class Engine {
   /* ======================= Coord utilities ======================= */
   _screenFrom3D(camera, vec3) {
     try {
-      // THREE Vector3 ที่ถูก world->NDC แล้ว
       const v = vec3.clone();
       v.project(camera);
       const x = (v.x *  0.5 + 0.5) * window.innerWidth;
