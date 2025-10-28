@@ -311,3 +311,33 @@ body.overlock .item[aria-disabled="true"] {
   width: 0%; height: 6px; background: linear-gradient(90deg, #7fffd4, #4de1ff);
   border-radius: 999px; top: calc(50% + 22px);
 }
+/* === add-ons (append to your game.css) === */
+
+/* ปิดคลิกพื้นหลังเมื่อมีโมดัลเปิด */
+body.modal-open #menuBar,
+body.modal-open .item,
+body.modal-open [data-action],
+body.modal-open [data-modal-open] { pointer-events:none; }
+
+/* Toast มินิ */
+.toast{
+  position:fixed; left:50%; top:18%; transform:translateX(-50%);
+  background:rgba(0,0,0,.6); color:#fff; padding:8px 12px; border-radius:10px;
+  font:800 14px ui-rounded,system-ui; z-index:9999; opacity:0; transition:opacity .2s, transform .2s;
+}
+.toast.show{ opacity:1; transform:translate(-50%, -4px); }
+
+/* เป้าใหม่มี glow สั้น ๆ */
+#targetWrap.glow{ box-shadow:0 0 20px #4ade80; transition:box-shadow .95s; }
+
+/* ชิปเควสต์สั่นเมื่อสำเร็จ */
+.questChip.done { animation: chipDone .6s ease; }
+@keyframes chipDone { 0%{transform:scale(1)} 50%{transform:scale(1.07)} 100%{transform:scale(1)} }
+
+/* Badge สีบนไอเท็ม (ช่วยเด็ก ป.5 แยกดี/ขยะ) */
+.item[data-good="1"]{ text-shadow: 0 0 10px rgba(100,255,200,.6); }
+.item .badge{
+  position:absolute; top:6px; right:6px; font:900 10px ui-rounded;
+  background:#0d172b; border:1px solid #203155; color:#7fffd4; padding:2px 6px; border-radius:8px;
+}
+.item.bad .badge{ border-color:#402222; color:#ff9b9b; }
