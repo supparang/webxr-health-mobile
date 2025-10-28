@@ -1,98 +1,105 @@
-// === Hero Health Academy — modes/hydration.js (clamp delta/sec + lowCount + first tooltips) ===
+// === Hero Health Academy — game/modes/hydration.js (debounce zone + smart-sip + fever flames @HIGH) ===
 import { Quests } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
-
 const ZONES = { LOW:'LOW', OK:'OK', HIGH:'HIGH' };
-const MAX_DELTA_PER_TICK = 8;
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const zoneOf=(v,min,max)=> v<min?ZONES.LOW:(v>max?ZONES.HIGH:ZONES.OK);
 
-function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-function zoneOf(level, minOK, maxOK){
-  if (level < minOK) return ZONES.LOW;
-  if (level > maxOK) return ZONES.HIGH;
-  return ZONES.OK;
-}
+let _zone = 'OK', _zoneAt = 0;
 
-let _hinted = false;
-
-function tooltipOnce(msg){
-  if (_hinted) return;
-  _hinted = true;
-  let el = document.getElementById('toast'); if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-  el.textContent = msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
+function ensureHUD(){
+  let wrap=document.getElementById('hydroWrap');
+  if(!wrap){ wrap=document.createElement('div'); wrap.id='hydroWrap'; document.body.appendChild(wrap); }
+  if(!wrap.querySelector('.hydroBar')){
+    wrap.innerHTML = `
+      <div class="hydroBar" aria-label="hydration-bar">
+        <div class="seg low"><span>น้อยไป</span></div>
+        <div class="seg ok"><span>พอดี</span></div>
+        <div class="seg high"><span>มากไป</span></div>
+        <div class="needle" role="presentation"></div>
+        <div class="flame" role="presentation" hidden><i></i><i></i><i></i></div>
+      </div>`;
+  }
 }
 
 export function init(state, hud, diff){
-  state.hydTotalTime = diff.time|0;
-  state.hyd = 50; state.hydMin = 35; state.hydMax = 65; state.hydDecay = 0.25;
-  state._hydPrevZone = zoneOf(state.hyd, state.hydMin, state.hydMax);
-  state.highCount = 0; state.lowCount = 0;
-  _hinted = false;
-
+  state.hydTotalTime = (diff.time|0); state.hyd=50; state.hydMin=35; state.hydMax=65;
+  state.hydDecay=0.25; state._hydPrevZone=zoneOf(state.hyd, state.hydMin, state.hydMax);
+  state.highCount=0;
   ensureHUD(); hud.showHydration?.(); render(state);
+  _zone = zoneOf(state.hyd, state.hydMin, state.hydMax); _zoneAt=performance.now();
 }
-
 export function cleanup(state,hud){ hud.hideHydration?.(); }
 
-function ensureHUD(){ /* (เหมือนเวอร์ชันก่อนของคุณ) */ }
-function render(state){ /* (เหมือนเวอร์ชันก่อนของคุณ) */ }
+export function pickMeta(diff, state){
+  const r=Math.random();
+  if (r<0.55) return { id:'water', char:'💧', aria:'Water', good:true, life: diff.life };
+  if (r<0.85) return { id:'sweet', char:'🧃', aria:'Sweet', good:false, life: diff.life };
+  if (r<0.95) return { id:'ice',   char:'🧊', aria:'Ice', good:true, booster:true, life: diff.life };
+  return              { id:'gold',  char:'⭐', aria:'Golden', golden:true, good:true, life: diff.life };
+}
 
-export function pickMeta(diff,state){
-  const r = Math.random();
-  if (r < 0.55) return { id:'water',  char:'💧', aria:'Water', good:true,  life: diff.life };
-  if (r < 0.85) return { id:'sweet',  char:'🧃', aria:'Sweet drink', good:false, life: diff.life };
-  if (r < 0.95) return { id:'ice',    char:'🧊', aria:'Ice (cooldown)', good:true,  life: diff.life, booster:true };
-  return                { id:'gold',  char:'⭐', aria:'Golden', good:true, life: diff.life, golden:true };
+function smartHint(msg){
+  let el=document.getElementById('hydroHint'); if(!el){ el=document.createElement('div'); el.id='hydroHint';
+    el.style.cssText='position:fixed;left:50%;top:22%;transform:translateX(-50%);font:800 12px ui-rounded;background:rgba(0,0,0,.55);padding:6px 10px;border-radius:10px;z-index:9999';
+    document.body.appendChild(el);
+  }
+  el.textContent=msg; el.style.opacity='1'; setTimeout(()=>{ el.style.opacity='0'; }, 1500);
 }
 
 export function onHit(meta, sys, state, hud){
-  const before = state.hyd; const beforeZone = zoneOf(before, state.hydMin, state.hydMax);
+  const before=state.hyd, zBefore=zoneOf(before, state.hydMin, state.hydMax);
   if (meta.id==='water'){
-    const z = beforeZone; let delta = (z===ZONES.HIGH ? +2 : +6);
-    state.hyd = clamp(before + delta, 0, 100);
-    tooltipOnce('💧 น้ำเปล่า: ช่วยขึ้น (ถ้า “มากไป” ขึ้นช้า)');
+    const delta = zBefore===ZONES.HIGH ? +2 : +6; state.hyd = clamp(state.hyd+delta,0,100);
   }else if (meta.id==='sweet'){
-    const z = beforeZone; let delta = (z===ZONES.HIGH ? -8 : z===ZONES.OK ? -3 : +4);
-    state.hyd = clamp(before + delta, 0, 100);
-    tooltipOnce('🧃 น้ำหวาน: ใช้ลดตอน “มากไป” (ถ้าต่ำอยู่จะยิ่งแย่)');
+    const delta = zBefore===ZONES.HIGH ? -8 : zBefore===ZONES.OK ? -3 : +4; state.hyd = clamp(state.hyd+delta,0,100);
   }else if (meta.id==='ice'){
-    state.hydDecayBoostUntil = performance.now() + 5000;
-    state.hydDecay = 0.1;
+    state.hydDecayBoostUntil = performance.now()+5000; state.hydDecay=0.1;
   }else if (meta.id==='gold'){
-    if (before < state.hydMin) state.hyd = clamp(before + 10, 0, 100);
-    else if (before > state.hydMax) state.hyd = clamp(before - 10, 0, 100);
-    else state.hyd = clamp(before + 6, 0, 100);
+    if (state.hyd < state.hydMin) state.hyd = clamp(state.hyd+10,0,100);
+    else if (state.hyd > state.hydMax) state.hyd = clamp(state.hyd-10,0,100);
+    else state.hyd = clamp(state.hyd+6,0,100);
   }
 
-  Quests.event('hydro_click', { zoneBefore: beforeZone, kind: meta.id==='sweet'?'sweet':'water' });
+  Quests.event('hydro_click', { zoneBefore:zBefore, kind: meta.id==='sweet'?'sweet':'water' });
 
-  const afterZone = zoneOf(state.hyd, state.hydMin, state.hydMax);
-  if (afterZone === ZONES.OK) return meta.golden?'perfect':'good';
-  else if (beforeZone!==afterZone && afterZone!==ZONES.OK) return 'bad';
+  const zAfter=zoneOf(state.hyd, state.hydMin, state.hydMax);
+  if (zAfter===ZONES.OK){ sys.score.add?.(8); }
+  // smart hint
+  if (zBefore===ZONES.LOW && meta.id==='water') smartHint('✓ ดื่มน้ำถูกต้อง');
+  if (zBefore===ZONES.HIGH && meta.id==='sweet') smartHint('✓ ลดความเข้มด้วยหวานเล็กน้อย');
+
+  render(state);
+  if (zAfter===ZONES.OK) return (meta.golden?'perfect':'good');
+  if (zBefore!==zAfter && zAfter!==ZONES.OK) return 'bad';
   return 'ok';
 }
 
 export function tick(state, sys, hud){
-  const now = performance.now();
-  if (state.hydDecayBoostUntil && now > state.hydDecayBoostUntil){ state.hydDecayBoostUntil = 0; state.hydDecay = 0.25; }
-
-  const before = state.hyd;
+  const now=performance.now();
+  if (state.hydDecayBoostUntil && now>state.hydDecayBoostUntil){ state.hydDecayBoostUntil=0; state.hydDecay=0.25; }
   state.hyd = clamp(state.hyd - state.hydDecay, 0, 100);
-  // limit swing per tick
-  const swing = state.hyd - before;
-  if (Math.abs(swing) > MAX_DELTA_PER_TICK){
-    state.hyd = before + (swing>0?+1:-1)*MAX_DELTA_PER_TICK;
-  }
-
   const z = zoneOf(state.hyd, state.hydMin, state.hydMax);
-  Quests.event('hydro_tick', { level: state.hyd, zone: (z===ZONES.OK?'OK':z) });
 
-  if (z !== state._hydPrevZone){
-    Quests.event('hydro_cross', { from: state._hydPrevZone, to: (z===ZONES.OK?'OK':z) });
-    if (z===ZONES.HIGH) state.highCount++;
-    if (z===ZONES.LOW)  state.lowCount++;
-    state._hydPrevZone = z;
+  // debounce zone crossing
+  if (z!==_zone && (now - _zoneAt) > 350){
+    Quests.event('hydro_cross',{from:_zone,to:z}); _zone=z; _zoneAt=now;
   }
+  // track HIGH time
+  if (z===ZONES.HIGH){ state.highCount = (state.highCount|0)+1; }
 
-  if (z!=='OK' && hud?.dimPenalty){ hud.dimPenalty(); }
-
+  Quests.event('hydro_tick',{ level: state.hyd, zone: (z===ZONES.OK?'OK':z) });
+  if (z!==ZONES.OK && hud?.dimPenalty){ hud.dimPenalty(); }
   render(state);
+}
+
+// visual
+function render(state){
+  const wrap=document.getElementById('hydroWrap'); if(!wrap) return;
+  const bar=wrap.querySelector('.hydroBar'); const needle=wrap.querySelector('.needle'); const flame=wrap.querySelector('.flame');
+  const pct = clamp(state.hyd|0,0,100); needle.style.left=`calc(${pct}% - 6px)`;
+  const z = zoneOf(state.hyd, state.hydMin, state.hydMax); bar.dataset.zone=z;
+
+  // FEVER flames เฉพาะเมื่อ FEVER ทำงานและโซน HIGH
+  const fever = !!state?.fever?.active;
+  flame.hidden = !(fever && z===ZONES.HIGH);
 }
