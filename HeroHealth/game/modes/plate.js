@@ -1,9 +1,10 @@
 // === Hero Health Academy — game/modes/plate.js
-// (multi-group accept + overfill penalty + HUD bars + rarity perfect
-//  + over-quota lockout + group_full event + safe FX bootstrap)
+// (click-safe: no HUD blocking, robust meta guard, fair lockout,
+//  multi-group accept + overfill penalty + HUD bars + rarity perfect
+//  + group_full/plate_group_full events + safe FX bootstrap)
 
 import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-import { Quests }   from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
+import { Quests   } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
 
 export const name = 'plate';
 
@@ -38,7 +39,7 @@ const L = (lang)=>({
       plateDone:'จัดจานครบ!', overfill:'เกินโควตา!'},
   EN:{veggies:'Veggies', fruits:'Fruits', grains:'Grains', protein:'Protein', dairy:'Dairy',
       plateDone:'Plate Complete!', overfill:'Over quota!'}
-})[lang||'TH'];
+})[(lang||'TH').toUpperCase()];
 
 function makeQuotas(diffKey='Normal'){
   if (diffKey==='Easy')   return { veggies:4, fruits:3, grains:2, protein:2, dairy:1 }; // 12
@@ -58,6 +59,8 @@ function lackingGroups(ctx){
 // ---------- HUD ----------
 function renderPlateHUD(state){
   const host = document.getElementById('platePills'); if (!host) return;
+  // ป้องกัน HUD บังคลิก
+  host.style.pointerEvents = 'none';
   const Lang = L(state.lang);
   const pills = GROUPS.map(g=>{
     const have = state.ctx.have[g]||0;
@@ -75,6 +78,8 @@ function renderPlateHUD(state){
 
 function flashLine(msg){
   const line = document.getElementById('missionLine'); if (!line) return;
+  // ไม่บังคลิก
+  line.style.pointerEvents = 'none';
   line.textContent = msg;
   line.style.display = 'block';
   setTimeout(()=>{ line.style.display='none'; }, 950);
@@ -83,8 +88,16 @@ function flashLine(msg){
 function toastRound(text){
   let el = document.getElementById('toast');
   if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+  // ไม่บังคลิก
+  el.style.pointerEvents = 'none';
   el.textContent = text; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 900);
+}
+
+function clickSafeOverlays(){
+  // ปิด pointer-events ให้ชั้น HUD ที่อาจบังคลิกทั้งหมด
+  ['platePills','missionLine','toast','targetWrap','hudWrap','coachHUD','menuBar','resultModal']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.style.pointerEvents='none'; });
 }
 
 // ---------- Local state ----------
@@ -101,9 +114,17 @@ function rareBoost(groupId, ctx){
 
 // ---------- Public API ----------
 export function init(state={}, hud, diff){
-  const wrap = document.getElementById('plateTracker'); if (wrap) wrap.style.display = 'block';
-  const tgt  = document.getElementById('targetWrap');   if (tgt)  tgt.style.display  = 'none';
+  // normalize lang
+  state.lang = (state.lang||localStorage.getItem('hha_lang')||'TH').toUpperCase();
 
+  // เปิด/ซ่อน HUD ที่เกี่ยวข้อง
+  const wrap = document.getElementById('plateTracker'); if (wrap){ wrap.style.display = 'block'; wrap.style.pointerEvents='none'; }
+  const tgt  = document.getElementById('targetWrap');   if (tgt) { tgt.style.display  = 'none';  tgt.style.pointerEvents='none'; }
+
+  // ปิด pointer-events HUD ที่เหลือเพื่อไม่ให้บังคลิก
+  clickSafeOverlays();
+
+  // ตั้งค่าโควตาเริ่มต้น
   state.ctx = state.ctx || {};
   state.ctx.need = makeQuotas(state.difficulty||'Normal');
   state.ctx.have = { veggies:0, fruits:0, grains:0, protein:0, dairy:0 };
@@ -114,7 +135,7 @@ export function init(state={}, hud, diff){
   _lockout = {};
 
   renderPlateHUD(state);
-  toastRound('🍽️ จานที่ ' + _plateRound);
+  toastRound(state.lang==='EN' ? ('🍽️ Plate ' + _plateRound) : ('🍽️ จานที่ ' + _plateRound));
 
   try{
     Progress.emit?.('run_start', {
@@ -131,7 +152,7 @@ export function cleanup(){
 }
 
 export function pickMeta(diff={}, state={}){
-  const ctx = state.ctx || {};
+  const ctx = state.ctx || (state.ctx={need:makeQuotas(state.difficulty||'Normal'), have:{veggies:0,fruits:0,grains:0,protein:0,dairy:0}});
   const lack = lackingGroups(ctx);
   const isLackPick = Math.random() < 0.75 && lack.length>0;
   const group = isLackPick ? rnd(lack) : rnd(GROUPS);
@@ -149,20 +170,27 @@ export function pickMeta(diff={}, state={}){
     aria: group,
     label: group,
     groupId: group,
-    good: withinQuota,
+    good: withinQuota,   // main จะให้คะแนนจาก result ที่เราคืน
     golden,
     life
   };
 }
 
 export function onHit(meta={}, systems={}, state={}){
-  const { score, sfx } = systems;
-  const Lang = L(state.lang);
-  const ctx = state.ctx || (state.ctx={have:{},need:{}});
+  // กัน meta เพี้ยน/คลิกบนพื้นที่ว่าง → ไม่ถือว่า bad (เพื่อไม่ตัดคอมโบ)
+  if (!meta || !meta.groupId) return 'ok';
+
+  const score = systems?.score;
+  const sfx   = systems?.sfx;
+  const Lang  = L(state.lang);
+  const ctx   = state.ctx || (state.ctx={have:{},need:{}});
 
   const now = performance.now();
+
+  // lockout ใช้เฉพาะกรณี "เกินโควตา" ที่เพิ่งเกิดขึ้น ไม่ใช่ทุกรายการ
   if (_lockout[meta.groupId] && now < _lockout[meta.groupId]){
-    document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+    // แค่สั่นไฟเตือนเล็กน้อย แต่ไม่กินคลิกชิ้นอื่น
+    document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 120);
     try{ sfx?.play?.('sfx-bad'); }catch{}
     return 'bad';
   }
@@ -180,9 +208,10 @@ export function onHit(meta={}, systems={}, state={}){
 
     renderPlateHUD(state);
 
-    // แจ้งว่ากลุ่มนี้ครบโควตาแล้ว
     if (ctx.have[meta.groupId] >= ctx.need[meta.groupId]){
-      Quests.event?.('group_full', { groupId: meta.groupId });
+      const payload = { groupId: meta.groupId };
+      Quests.event?.('group_full', payload);
+      Quests.event?.('plate_group_full', payload); // สำรองให้ quests จับได้ชัวร์
     }
 
     if (isPlateComplete(ctx)){
@@ -192,14 +221,14 @@ export function onHit(meta={}, systems={}, state={}){
       _plateRound++;
       nextPlate(ctx, state.difficulty||'Normal');
       renderPlateHUD(state);
-      toastRound('🍽️ จานที่ ' + _plateRound);
+      toastRound(state.lang==='EN' ? ('🍽️ Plate ' + _plateRound) : ('🍽️ จานที่ ' + _plateRound));
     }else{
       try{ sfx?.play?.(perfect?'sfx-perfect':'sfx-good'); }catch{}
     }
     return perfect ? 'perfect' : 'good';
   }
 
-  // เกินโควตา → บทลงโทษ + lockout 600ms
+  // เกินโควตา → บทลงโทษ + lockout 600ms (เฉพาะหมวดที่กดเกิน)
   ctx.overfillCount = (ctx.overfillCount||0) + 1;
   _lockout[meta.groupId] = now + 600;
 
@@ -209,7 +238,7 @@ export function onHit(meta={}, systems={}, state={}){
   return 'bad';
 }
 
-export function tick(){ /* plate ไม่มีการนับเวลาเฉพาะโหมด */ }
+export function tick(){ /* plate: ไม่มี tick พิเศษ */ }
 
 // ---------- Internals ----------
 function isPlateComplete(ctx){
