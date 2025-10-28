@@ -429,3 +429,79 @@ body.ui-mode-playing #plateTracker{
 
 /* ป้องกัน overlay เผลอบังคลิกทั้งหมด */
 .overlay, .modal, .drawer{ z-index:40; }
+/* ==== Clickability & Layer Fixes (final global patch) ==== */
+
+/* Canvas ไม่บังคลิก */
+#c {
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* HUD อยู่บนแต่ไม่บังคลิกเว้นจุดที่อนุญาต */
+.hud { z-index: 20 !important; }
+
+/* ปิดคลิกเฉพาะส่วนที่เป็นข้อมูล ไม่ใช่ปุ่ม */
+.hud .cardlike,
+.hud #feverBarWrap,
+.hud #fever,
+.hud #questChips,
+.hud #targetWrap,
+.hud #plateTracker,
+.hud #hydroWrap,
+.hud #missionLine,
+.hud #coachHUD {
+  pointer-events: none !important;
+}
+
+/* เปิดคลิกเฉพาะที่จำเป็นใน HUD (เช่น power-ups) */
+#powerBar,
+#powerBar * {
+  pointer-events: auto !important;
+}
+
+/* เมนู/หัวเกม คลิกได้เสมอ */
+header.brand {
+  z-index: 25 !important;
+  pointer-events: auto !important;
+}
+.menu {
+  z-index: 30 !important;
+  pointer-events: auto !important;
+}
+.menu .btn,
+.menu .tag {
+  pointer-events: auto !important;
+}
+
+/* พื้นที่เล่นเกม */
+.game-wrap,
+#gameLayer {
+  position: relative;
+  z-index: 28; /* เหนือ canvas ใต้เมนู */
+}
+
+/* โฮสต์ของเป้า ต้องเต็มพื้นที่และไม่ดักคลิก */
+#spawnHost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none !important; /* host ไม่รับคลิก */
+  z-index: 28;
+}
+
+/* ปุ่มเป้า (ไอคอนอาหาร ฯลฯ) คลิกได้จริงบนทุกแพลตฟอร์ม */
+.spawn-emoji {
+  position: absolute;
+  font-size: clamp(24px, 5.5vmin, 42px);
+  line-height: 1;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  pointer-events: auto !important;
+  z-index: 29;
+}
+
+/* โมดัลอยู่บนสุดเสมอ */
+.modal { z-index: 40 !important; }
