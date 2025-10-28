@@ -505,3 +505,60 @@ header.brand {
 
 /* โมดัลอยู่บนสุดเสมอ */
 .modal { z-index: 40 !important; }
+/* ==== HHA — HUD visibility hotfix (coach/score/time on top) ==== */
+
+/* วาง HUD ไว้กึ่งกลางด้านบน ให้แสดงแน่นอน */
+#hudWrap{
+  position: fixed;
+  top: 56px; left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  z-index: 95;               /* สูงกว่า quest chips */
+  pointer-events: none;      /* HUD ไม่กันคลิกเกม */
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* กล่องคะแนน/เวลา ให้เป็นอินไลน์และมองเห็นชัด */
+#hudWrap .cardlike{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* เส้น FEVER/แท่งต่าง ๆ กำหนดความกว้างคุมกลาง */
+#feverBarWrap{ width: min(680px, 90vw); }
+
+/* โค้ชอยู่เหนือ HUD อื่น ๆ และไม่กันคลิก */
+#coachHUD{
+  position: fixed;
+  top: 104px; left: 50%; transform: translateX(-50%);
+  z-index: 96;
+  pointer-events: none !important;
+  display: flex !important;
+}
+#coachText{
+  background: rgba(0,0,0,.55);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 800;
+}
+
+/* Chip ภารกิจให้ไปบรรทัดล่าง ๆ ของ HUD (ไม่ทับคะแนน/เวลา) */
+#questChips{
+  order: 3;
+  max-width: min(96vw, 980px);
+  align-self: center;
+}
+
+/* เป้า/Plate/Hydro แยกเลเยอร์ให้ต่ำกว่า coach และไม่บังคลิก */
+#targetWrap, #plateTracker, #hydroWrap{
+  z-index: 93;
+  pointer-events: none;
+}
+
+/* ย้ำว่าแคนวาส/ฉากไม่บังคลิกและอยู่ล่างสุด */
+#c, .a-canvas, a-scene {
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
