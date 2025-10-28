@@ -1,6 +1,8 @@
-// === Hero Health Academy — game/modes/plate.js (multi-group accept + overfill penalty) ===
+// === Hero Health Academy — game/modes/plate.js (multi-group accept + overfill penalty + HUD bars) ===
 import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
 import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+
+export const name = 'plate';
 
 // ---------- Item pools (20 each) ----------
 const VEGGIES = [
@@ -79,14 +81,14 @@ function flashLine(msg){
 }
 
 // ---------- Public API ----------
-export function init(state, hud, diff){
-  // เปิด HUD เพจเพลต
+export function init(state={}, hud, diff){
+  // เปิด HUD ของเพลต
   const wrap = document.getElementById('plateTracker');
   if (wrap) wrap.style.display = 'block';
-  // ซ่อน targetWrap (เราไม่บังคับหมวดเป้าหมายทีละอันแล้ว)
+  // ซ่อน targetWrap (ไม่บังคับทีละหมวด)
   const tgt = document.getElementById('targetWrap'); if (tgt) tgt.style.display = 'none';
 
-  // ตั้งค่าโควตา
+  // ตั้งค่าโควตาเริ่มต้น
   state.ctx = state.ctx || {};
   state.ctx.need = makeQuotas(state.difficulty||'Normal');
   state.ctx.have = { veggies:0, fruits:0, grains:0, protein:0, dairy:0 };
@@ -95,7 +97,7 @@ export function init(state, hud, diff){
 
   renderPlateHUD(state);
 
-  // แจ้งภารกิจแบบ easy สำหรับ plate (Progress จะสุ่มขึ้นอยู่แล้วจาก progression.js)
+  // แจ้งเริ่มรันให้ Progress (เผื่อ UI ภายนอกต้อง sync)
   try{
     Progress.emit('run_start', {
       mode:'plate',
@@ -111,7 +113,7 @@ export function cleanup(){
 }
 
 // ชิ้นใหม่: โอกาสสูงที่จะสุ่ม “หมวดยังขาด”
-export function pickMeta(diff, state){
+export function pickMeta(diff={}, state={}){
   const ctx = state.ctx || {};
   const lack = lackingGroups(ctx);
   const isLackPick = Math.random() < 0.75 && lack.length>0;
@@ -131,53 +133,49 @@ export function pickMeta(diff, state){
     groupId: group,
     good: withinQuota,          // ดีเมื่อยังไม่ครบโควตา
     golden,
-    life: diff?.life ?? 3000
+    life: (typeof diff.life==='number') ? diff.life : 3000
   };
 }
 
 // แตะไอคอน: ยอมรับ “ทุกรายการ” ที่อยู่ในหมวดที่ยังขาดโควตา
-export function onHit(meta, systems, state){
-  const { score, sfx, coach, fx } = systems;
+export function onHit(meta={}, systems={}, state={}){
+  const { score, sfx } = systems;
   const Lang = L(state.lang);
-  const ctx = state.ctx;
+  const ctx = state.ctx || (state.ctx={have:{},need:{}});
 
   const need = (ctx.need[meta.groupId]||0);
   const have = (ctx.have[meta.groupId]||0);
   const withinQuota = need>0 && have<need;
 
   if (withinQuota){
-    // นับเข้าหมวดนั้น
+    // นับเข้าหมวดนั้น (Golden = โอกาสให้ Perfect ทาง main ผ่านคะแนน/เอฟเฟกต์)
     ctx.have[meta.groupId] = have + 1;
-
-    // โอกาส Perfect
-    const perfect = !!meta.golden || Math.random() < 0.18;
     renderPlateHUD(state);
 
-    // ตรวจจบจาน
+    // ตรวจจบ “จาน”
     if (isPlateComplete(ctx)){
       flashLine(Lang.plateDone);
       try{ score.add?.(40); }catch{}
-      try{ sfx.play('sfx-perfect'); }catch{}
-      // ต่อจานใหม่ (scale ขึ้นเล็ก ๆ)
+      try{ sfx?.play?.('sfx-perfect'); }catch{}
+      // เริ่มจานใหม่ (scale ความท้าทายเล็กน้อย)
       nextPlate(ctx, state.difficulty||'Normal');
       renderPlateHUD(state);
     }else{
-      try{ sfx.play(perfect?'sfx-perfect':'sfx-good'); }catch{}
+      try{ sfx?.play?.(meta.golden?'sfx-perfect':'sfx-good'); }catch{}
     }
 
-    // ให้ Progress เก็บสถิติเป้าหมาย/กลุ่ม/ทอง
-    return perfect ? 'perfect' : 'good';
+    return meta.golden ? 'perfect' : 'good';
   }
 
-  // เกินโควตา → บทลงโทษ
+  // เกินโควตา → บทลงโทษ (ให้ main หักคอมโบผ่านผล 'bad')
   ctx.overfillCount = (ctx.overfillCount||0) + 1;
   flashLine('⚠ ' + Lang.overfill);
-  try{ sfx.play('sfx-bad'); }catch{}
+  try{ sfx?.play?.('sfx-bad'); }catch{}
   return 'bad';
 }
 
 export function tick(/*state, systems, hud*/){
-  // plate ไม่มีกลไก tick เฉพาะตอนนี้
+  // plate ยังไม่ต้องใช้ tick ตอนนี้
 }
 
 // ---------- Internals ----------
