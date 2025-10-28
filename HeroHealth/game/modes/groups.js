@@ -10,6 +10,19 @@
 
 export const name = 'groups';
 
+// ---------- Safe FX bootstrap (no duplicate identifiers) ----------
+(function ensureFX(){
+  if (!window.HHA_FX) {
+    window.HHA_FX = { add3DTilt: ()=>{}, shatter3D: ()=>{} };
+    (async () => {
+      try {
+        const m = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
+        if (m) Object.assign(window.HHA_FX, m);
+      } catch {}
+    })();
+  }
+})();
+
 // ---------- เนื้อหา ----------
 const GROUPS = {
   veggies: [
@@ -128,7 +141,6 @@ const GROUP_KEYS = Object.keys(GROUPS);
 // ---------- ค่าแนะนำ/ควบคุม ----------
 const QUOTA = { Easy:6, Normal:8, Hard:10 };
 const TARGET_RATIO = 0.28;
-
 const GOLDEN_CHANCE = 0.04;
 const GOLDEN_COOLDOWN_SPAWNS = 6;
 const GOLDEN_CAP_PER20 = 2;
@@ -213,7 +225,6 @@ export function tick(/*state, sys, hud*/){
 
 // ---------- สุ่มเป้าหมาย ----------
 export function pickMeta(diff={}, state={}){
-  // Target cooldown: ระหว่าง 1.2s หลังเปลี่ยนหมวด ยังสุ่ม “ชิ้นเป้าหมาย” ได้ปกติ
   // Magnet: ชิ้นถัดไปบังคับเป็นเป้าหมาย
   let forceTarget = false;
   if (_magnetNext){ forceTarget = true; _magnetNext = false; }
@@ -221,10 +232,12 @@ export function pickMeta(diff={}, state={}){
   const targetGroup = state.ctx?.targetGroup || 'veggies';
   const isTarget = forceTarget || (Math.random() < TARGET_RATIO);
 
+  // เลือกหมวด
   const groupId = isTarget
     ? targetGroup
     : (()=>{ let k; do { k = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (k===targetGroup); return k; })();
 
+  // เลือกรายการ
   const item = GROUPS[groupId][(Math.random()*GROUPS[groupId].length)|0];
 
   // golden gating (เฉพาะชิ้นเป้าหมาย)
@@ -300,7 +313,6 @@ export function getPowerDurations(){ return { x2:8, freeze:3, magnet:2 }; }
 // ---------- FX hooks ----------
 export const fx = {
   onSpawn(el/*, state*/){
-    // ใช้เอฟเฟกต์ tilt ที่เพิ่มใน core/fx.js ผ่าน main.js อยู่แล้ว
     try { (window?.HHA_FX?.add3DTilt || (()=>{}))(el); } catch {}
   },
   onHit(x, y/*, meta, state*/){
