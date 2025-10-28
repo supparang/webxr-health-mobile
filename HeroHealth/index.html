@@ -6,27 +6,95 @@
         content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <title>Hero Health Academy</title>
 
-  <!-- ใช้พื้นหลัง/สไตล์เดิม -->
   <link rel="stylesheet" href="/webxr-health-mobile/HeroHealth/styles/game.css" />
   <link rel="stylesheet" href="/webxr-health-mobile/HeroHealth/styles/groups.css" />
 
   <style>
     :root { --safe: env(safe-area-inset-bottom, 0px); }
+
+    /* จัดกลางและเลเยอร์หลัก */
+    body, html { height:100%; }
+    body { margin:0; background:#0e1216; color:#fff; font-family:system-ui,-apple-system,Segoe UI,Roboto,TH Sarabun New,sans-serif; }
+    .game-wrap {
+      position:relative; width:100%; height:calc(100vh - 120px);
+      display:flex; align-items:center; justify-content:center;
+      overflow:hidden;
+    }
+    #stage {
+      position:relative; width:min(900px, 96vw); height:min(620px, 68vh);
+      border:1px solid rgba(255,255,255,.08); border-radius:14px;
+      background:linear-gradient(180deg,#10161b,#0b0f13);
+      box-shadow:0 8px 30px rgba(0,0,0,.35);
+    }
+    #gameLayer { position:absolute; inset:0; }
+    #spawnHost { position:absolute; inset:0; pointer-events:auto; }
+    .spawn-emoji {
+      position:absolute; transform:translate(-50%,-50%);
+      font-size:34px; line-height:1; border:none; background:transparent; cursor:pointer;
+      filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
+      user-select:none;
+    }
+
+    /* Header & menu */
+    header.brand { display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.08); }
+    header .spacer { flex:1; }
+    .btn, .tag {
+      background:rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.15);
+      border-radius:10px; padding:6px 10px; cursor:pointer;
+    }
+    .menu { padding:10px 12px; padding-bottom:calc(12px + var(--safe)); border-top:1px solid rgba(255,255,255,.08); }
+    .menu .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0; }
+    .modeLabel { opacity:.85; }
+
+    /* HUD */
+    #hudWrap { position:fixed; left:0; right:0; top:0; pointer-events:none; z-index:20; }
     .hud .cardlike {
       background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.5));
       border: 1px solid rgba(255,255,255,.12);
       border-radius: 12px; padding: 6px 10px; backdrop-filter: blur(6px);
+      margin:8px auto 0; width:max-content;
     }
-    #missionLine { margin-top:8px; }
-    .menu { padding-bottom: calc(12px + var(--safe)); }
+    #missionLine { margin-top:8px; text-align:center; }
 
+    /* Toast */
+    #toast {
+      position:fixed; left:50%; top:64px; transform:translateX(-50%);
+      background:rgba(0,0,0,.6); padding:8px 12px; border-radius:10px; z-index:30; display:none;
+    }
+    #toast.show { display:block; }
+
+    /* Modal basic */
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:40;
+             background:rgba(0,0,0,.5); padding:16px; }
+    .modal .card { background:rgba(22,26,31,.96); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px; max-width:720px; width:min(92vw,720px); }
+    .modal .card.scroll { max-height:80vh; overflow:auto; }
     .modal .tbl { width:100%; border-collapse:collapse; }
     .modal .tbl th, .modal .tbl td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.1); }
+
+    /* Coach */
+    #coachHUD { position:fixed; left:50%; transform:translateX(-50%); top:96px; z-index:25; pointer-events:none; }
+    #coachText { background:rgba(0,0,0,.45); padding:6px 10px; border-radius:10px; }
+
+    /* Target / plate / hydro */
+    #targetWrap, #plateTracker, #hydroWrap {
+      position:fixed; left:50%; transform:translateX(-50%); top:120px; z-index:22; display:none;
+      background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.12); border-radius:10px; padding:6px 10px;
+    }
+    #platePills .pill{ display:inline-flex; gap:6px; align-items:center; margin:2px 4px 0 0; padding:4px 6px;
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:999px; }
+    #platePills .pill i{ display:block; width:60px; height:6px; background:#1c2630; border-radius:4px; overflow:hidden }
+    #platePills .pill i::after{ content:''; display:block; height:100%; background:#29b6f6; width:var(--w,0%); }
+    #platePills .ok{ opacity:.6 }
+
+    /* Quests chip */
     .chip { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px;
             background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); margin:4px 6px 0 0; }
+
+    /* Block pointer on passive HUD */
+    .hud-passive { pointer-events:none !important; }
   </style>
 
-  <!-- Bootloader: import main.js ด้วย absolute path -->
+  <!-- Bootloader -->
   <script type="module">
     (async () => {
       const warn = document.createElement('div');
@@ -46,26 +114,25 @@
         await import(url);
         setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80);
       }catch(e){
-        warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ' + (e?.message || e);
+        warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ' + (e && e.message ? e.message : e);
         warn.style.display = 'block';
       }
     })();
   </script>
 </head>
 <body>
+  <!-- Header -->
   <header class="brand" role="banner">
     <div id="brandTitle">HERO HEALTH ACADEMY</div>
     <div class="spacer"></div>
-    <button id="langToggle"   class="btn" type="button">🇹🇭 TH/EN</button>
+    <button id="langToggle"   class="btn" type="button" data-action="lang" data-lang="TH">🇹🇭 TH/EN</button>
     <button id="gfxToggle"    class="btn" type="button">🎛️ กราฟิก: ปกติ</button>
     <button id="soundToggle"  class="btn" type="button">🔊 เสียง: เปิด</button>
     <button id="hapticToggle" class="btn" type="button">📳 สั่น: เปิด</button>
   </header>
 
-  <canvas id="c" aria-hidden="true"></canvas>
-
-  <!-- HUD -->
-  <section class="hud" role="region" aria-label="HUD">
+  <!-- HUD (id ตรงกับ main.js) -->
+  <section id="hudWrap" class="hud" role="region" aria-label="HUD">
     <div class="cardlike">
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
       <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
@@ -96,43 +163,52 @@
     </div>
 
     <div id="missionLine" class="mission-line" style="display:none">—</div>
+    <div id="toast" aria-live="polite"></div>
   </section>
 
+  <!-- พื้นที่เกม (id ตรงกับ main.js) -->
   <main class="game-wrap" role="main" aria-label="Game area">
-    <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
+    <div id="stage" aria-label="Stage">
+      <div id="gameLayer" aria-hidden="false"></div>
+      <div id="spawnHost" aria-live="off"></div>
+    </div>
   </main>
 
+  <!-- เมนู (ปรับ data-action/data-attr ให้ตรงกับ main.js) -->
   <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
     <div class="row">
-      <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
+      <!-- เปลี่ยนเป็น data-action="mode" + data-mode="..." -->
+      <button class="tag" data-action="mode" data-mode="goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
+      <button class="tag" data-action="mode" data-mode="groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
+      <button class="tag" data-action="mode" data-mode="hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
+      <button class="tag" data-action="mode" data-mode="plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
     </div>
     <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard"   type="button">ยาก</button>
+      <!-- เปลี่ยนเป็น data-action="difficulty" + data-diff="..." -->
+      <button class="tag" data-action="difficulty" data-diff="Easy"   id="d_easy"   type="button">ง่าย</button>
+      <button class="tag" data-action="difficulty" data-diff="Normal" id="d_normal" type="button">ปกติ</button>
+      <button class="tag" data-action="difficulty" data-diff="Hard"   id="d_hard"   type="button">ยาก</button>
       <span class="modeLabel">
         <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
         <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
       </span>
     </div>
     <div class="row">
-      <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
-      <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
-      <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
-
-      <!-- เพิ่มปุ่มเข้าถึงสถิติรวม + ภารกิจรายวัน -->
-      <button class="btn" data-action="statOpen"  id="btn_stats" type="button">🏆 สถิติรวม</button>
-      <button class="btn" data-action="dailyOpen" id="btn_daily" type="button">🌞 รายวัน</button>
+      <button class="btn" data-action="start"    id="btn_start"    type="button">▶ เริ่มเกม</button>
+      <button class="btn" data-action="restart"  id="btn_restart"  type="button">↻ เริ่มใหม่</button>
+      <!-- help ให้ตรงกับ main.js = howto -->
+      <button class="btn" data-action="howto"    id="btn_help"     type="button">❓ วิธีเล่น</button>
+      <!-- ปุ่มอื่น ๆ main.js ยังไม่รองรับจงใจปิดไว้ก่อน -->
+      <!-- <button class="btn" data-action="pause" id="btn_pause" type="button">⏸ พัก</button> -->
+      <!-- <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button> -->
+      <button class="btn" data-action="export"   id="btn_export"   type="button">⬆️ Export</button>
+      <button class="btn" data-action="import"   id="btn_import"   type="button">⬇️ Import</button>
+      <button class="btn" data-action="reset"    id="btn_reset"    type="button">🗑️ Reset</button>
     </div>
   </section>
 
   <!-- Help (individual) -->
-  <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
+  <div id="help" class="modal" role="dialog" aria-modal="true" aria-labelledby="h_help" style="display:none">
     <div class="card">
       <h3 id="h_help">วิธีเล่น</h3>
       <pre id="helpBody">—</pre>
@@ -140,46 +216,14 @@
     </div>
   </div>
 
-  <!-- Help (all) -->
-  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help_all">
-    <div class="card scroll">
-      <h3 id="h_help_all">คู่มือรวม</h3>
-      <div id="helpAllBody">—</div>
-      <button class="btn" data-action="helpSceneClose" id="btn_ok_all" type="button">โอเค</button>
-    </div>
-  </div>
-
-  <!-- Stats Board -->
-  <div id="statBoard" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_stats">
-    <div class="card scroll">
-      <h3 id="h_stats">🏆 บอร์ดสถิติรวม</h3>
-      <div id="statBoardBody">—</div>
-      <button class="btn" data-action="statClose" type="button">ปิด</button>
-    </div>
-  </div>
-
-  <!-- Daily Challenge -->
-  <div id="dailyPanel" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_daily">
-    <div class="card">
-      <h3 id="h_daily">🌞 ภารกิจรายวัน</h3>
-      <div id="dailyBody">—</div>
-      <div id="dailyReward" style="margin-top:8px; font-weight:800;"></div>
-      <button class="btn" data-action="dailyClose" type="button">ปิด</button>
-    </div>
-  </div>
-
-  <!-- Result -->
-  <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
+  <!-- Result (id ให้ตรง main.js) -->
+  <div id="resultModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="h_summary" style="display:none">
     <div class="card">
       <h3 id="h_summary">สรุปผล</h3>
-      <div id="resCore"></div>
-      <div id="resBreakdown"></div>
-      <div id="resBoard"></div>
-      <div id="resMissions" style="margin-top:8px"></div>
-      <div id="resDaily" style="margin-top:8px"></div>
+      <div id="resultBody">—</div>
       <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
-        <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
+        <button class="btn" data-action="restart" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
+        <button class="btn" data-action="back"    id="btn_home"   type="button">🏠 หน้าหลัก</button>
       </div>
     </div>
   </div>
