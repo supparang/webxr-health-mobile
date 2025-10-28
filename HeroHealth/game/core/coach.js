@@ -4,7 +4,7 @@
 
 export class Coach {
   constructor(opts = {}) {
-    this.lang = (opts.lang || 'TH').toUpperCase();
+    this.lang = (opts.lang || (document.documentElement.getAttribute('data-hha-lang') || 'TH')).toUpperCase();
     this.minGap = Number.isFinite(opts.minGap) ? opts.minGap : 700;        // กันยิงรัว
     this.visibleMs = Number.isFinite(opts.visibleMs) ? opts.visibleMs : 1600;
     this.priorityEnabled = opts.priorityEnabled ?? true;                   // เปิดระบบ priority
@@ -41,7 +41,7 @@ export class Coach {
   }
 
   // เมธอดช่วย: พูดด้วยข้อความดิบ หรือด้วย key
-  say(text, prio = 1){ this._enqueue(text, prio); }
+  say(text, prio = 1){ if (text) this._enqueue(String(text), prio); }
   sayKey(key, vars = [], prio = 1){ this._enqueue(this._t(key, vars), prio); }
 
   // ===== Hooks ที่ main/modes เรียก (API เผื่อใช้งานเร็ว) =====
@@ -49,20 +49,20 @@ export class Coach {
   onGood(){ this._enqueue(this._t('good'), 1); }
   onPerfect(){ this._enqueue(this._t('perfect'), 2); }
   onBad(){ this._enqueue(this._t('bad'), 2); }
-  onCombo(n){ if (n % 5 === 0) this._enqueue(this._t('combo', [n]), 2); }
+  onCombo(n){ if (n && n % 5 === 0) this._enqueue(this._t('combo', [n]), 2); }
   onFever(){ this._enqueue(this._t('fever'), 3); }
   onFeverEnd(){ this._enqueue(this._t('feverEnd'), 2); }
   onPower(kind){
-    if (kind === 'boost')  this._enqueue(this._t('power_x2'), 3);
-    if (kind === 'freeze') this._enqueue(this._t('power_freeze'), 3);
+    if (kind === 'boost' || kind === 'x2')  this._enqueue(this._t('power_x2'), 3);
+    if (kind === 'freeze')                  this._enqueue(this._t('power_freeze'), 3);
   }
   onQuestRoll(){ this._enqueue(this._t('quest_roll'), 2); }
   onQuestProgress(name, p, need){ this._enqueue(this._t('quest_prog', [name, p, need]), 1); }
   onQuestDone(){ this._enqueue(this._t('quest_done'), 3); }
   onQuestFail(){ this._enqueue(this._t('quest_fail'), 1); }
-  onCountdown(n){ this._enqueue(this._t('countdown', [n]), 3); }
+  onCountdown(n){ if (n>0) this._enqueue(this._t('countdown', [n]), 3); }
   onTimeLow(){ this._enqueue(this._t('t10'), 3); }
-  onEnd(score){ this._enqueue(score >= 200 ? this._t('end_good') : this._t('end_ok'), 2); }
+  onEnd(score){ this._enqueue((Number(score)||0) >= 200 ? this._t('end_good') : this._t('end_ok'), 2); }
 
   /* ============================= i18n ============================= */
   _t(key, vars = []) {
@@ -114,17 +114,13 @@ export class Coach {
   _enqueue(text, prio = 1) {
     const now = performance?.now?.() || Date.now();
 
-    // กัน duplicate สั้น ๆ
-    if (text === this._lastText && (now - this._lastEnqAt) < this.mergeDuplicatesMs) {
-      return;
-    }
+    // กัน duplicate ชิด ๆ กัน
+    if (text === this._lastText && (now - this._lastEnqAt) < this.mergeDuplicatesMs) return;
     this._lastText = text;
     this._lastEnqAt = now;
 
-    // ถ้า priority mode เปิด: คิวเก่าที่ความสำคัญน้อยกว่าอาจถูกแซง
+    // เข้าคิว (ให้ข้อความ prio สูงชนะ และข้อความใหม่กว่าแทรกก่อน)
     this._queue.push({ text, prio: Number(prio) || 1, at: now });
-
-    // จัดเรียงตาม prio แล้วตามเวลา
     if (this.priorityEnabled) {
       this._queue.sort((a,b)=> (b.prio - a.prio) || (a.at - b.at));
     }
@@ -135,14 +131,13 @@ export class Coach {
     if (!this.elHUD || !this.elText) return;
     const now = performance?.now?.() || Date.now();
 
-    // แก้สแปมตามสถานะ focus
+    // ลดสแปมตาม focus
     const minGap = this._blurred ? (this.minGap * this.cooldownScaleOnBlur) : this.minGap;
     if (now - this._lastShownAt < minGap) return;
 
     const next = this._queue.shift();
     if (!next) return;
 
-    // แสดง
     this._show(next.text);
   }
 
@@ -154,7 +149,7 @@ export class Coach {
     this.elHUD.style.display = 'flex';
     this.elHUD.classList.remove('pulse');
 
-    // force reflow to restart CSS animation
+    // restart CSS anim
     // eslint-disable-next-line no-unused-expressions
     this.elHUD.offsetHeight;
 
@@ -164,7 +159,6 @@ export class Coach {
     clearTimeout(this._timerHide);
     this._timerHide = setTimeout(() => {
       this.elHUD.classList.remove('pulse');
-      // หลังจบแอนิเมชัน พยายามดึงคิวถัดไป
       this._tryFlush();
     }, this.visibleMs);
   }
@@ -206,7 +200,7 @@ export class Coach {
       hud.appendChild(txt);
       host.appendChild(hud);
 
-      // inject keyframes สำหรับเอฟเฟกต์ pulse (ถ้ายังไม่มี)
+      // inject keyframes pulse (ถ้ายังไม่มี)
       if (!document.getElementById('coachPulseStyle')) {
         const st = document.createElement('style');
         st.id = 'coachPulseStyle';
