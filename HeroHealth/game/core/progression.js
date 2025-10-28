@@ -1,166 +1,96 @@
-// === Hero Health Academy — core/progression.js (robust profile + daily + export/import) ===
+// === Hero Health Academy — core/progression.js (profile+daily+export/import) ===
 export const Progress = (() => {
-  const KEY = 'hha_profile_v2';
-
-  const profile = {
-    level: 1,
-    xp: 0,
-    modes: { goodjunk:{}, groups:{}, hydration:{}, plate:{} },
-    meta: { totalRuns: 0, bestCombo: 0 },
-    daily: { date: '', missions: [], done: [] },
-    history: [] // keep last 30 {date, mode, score, acc, bestCombo}
-  };
-
+  const LS_KEY = 'hha_profile_v2';
   const listeners = new Set();
+  let profile = null;
   let runCtx = null;
 
-  // ---------- Storage ----------
-  function load(){
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return;
-    try{
-      const data = JSON.parse(raw);
-      Object.assign(profile, data);
-      // sanitize
-      profile.history = Array.isArray(profile.history) ? profile.history.slice(-30) : [];
-    }catch(e){ console.warn('[Progress] load error', e); }
-  }
-  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(profile)); }catch{} }
-
-  // ---------- Leveling ----------
-  function addXP(n){
-    profile.xp = Math.max(0, (profile.xp|0) + (n|0));
-    // simple curve: every 500 xp per level
-    while (profile.xp >= profile.level * 500){
-      profile.level++;
-      emit('level_up');
-    }
-  }
-
-  // ---------- Daily ----------
-  function todayStr(){ return new Date().toISOString().slice(0,10); }
-  function genDaily(){
-    const today = todayStr();
-    if (profile.daily.date !== today){
-      // (ตัวอย่าง) สุ่มภารกิจ 3 ข้อข้ามโหมด
-      profile.daily = {
-        date: today,
-        missions: [
-          { id:'d_score300', label:'ทำคะแนนรวม ≥ 300' },
-          { id:'d_fever1',   label:'เปิด FEVER อย่างน้อย 1 ครั้ง' },
-          { id:'d_play2',    label:'เล่นให้ครบ 2 โหมด' }
-        ],
-        done: []
-      };
-      save();
-    }
-    return profile.daily;
-  }
-  function markDaily(id){
-    const d = genDaily();
-    if (!d.done.includes(id)) d.done.push(id);
-    save();
-  }
-
-  // ---------- Runtime Events ----------
-  function beginRun(mode, diff, lang='TH'){
-    runCtx = { mode, diff, lang, start: Date.now(), missions: genDaily().missions };
-    emit('run_start');
-    return runCtx.missions;
-  }
-
-  function event(type, payload){
-    // สำหรับ hook ภายนอกถ้าต้องการ
-    emit(type, payload);
-  }
-
-  function endRun({ score=0, bestCombo=0, timePlayed=0, acc=0 }){
-    if (!runCtx) return;
-    const { mode } = runCtx;
-
-    // update per-mode
-    const m = profile.modes[mode] ||= {};
-    m.games = (m.games|0) + 1;
-    m.bestScore = Math.max(m.bestScore|0, score|0);
-    // moving average accuracy
-    const prev = m.accAvg||0;
-    m.accAvg = +(prev ? ((prev*(m.games-1) + acc)/m.games) : acc).toFixed(1);
-
-    // meta
-    profile.meta.totalRuns = (profile.meta.totalRuns|0) + 1;
-    profile.meta.bestCombo = Math.max(profile.meta.bestCombo|0, bestCombo|0);
-
-    // XP (อย่างง่าย)
-    addXP(Math.max(10, Math.round(score/5)));
-
-    // history (rotate 30)
-    profile.history.push({ date: todayStr(), mode, score, acc, bestCombo });
-    if (profile.history.length > 30) profile.history.shift();
-
-    save();
-    emit('run_end');
-
-    // daily auto checks
-    if (score >= 300) markDaily('d_score300');
-    // (ตัวอย่าง) เปิด FEVER ส่งมาจาก main ผ่าน event('fever',{kind:'start'})
-    // เล่นครบ 2 โหมด: ประเมินจาก history วันนี้
-    const playedToday = new Set(profile.history.filter(h=>h.date===todayStr()).map(h=>h.mode));
-    if (playedToday.size >= 2) markDaily('d_play2');
-
-    runCtx = null;
-  }
-
-  // ---------- Stats snapshot ----------
-  function getStatSnapshot(){
-    const rows = Object.keys(profile.modes).map(k=>{
-      const v = profile.modes[k]||{};
-      return { key:k, bestScore:v.bestScore||0, acc:+(v.accAvg||0).toFixed(1), runs:v.games||0, missions:v.missionDone||0 };
-    });
+  function defProfile(){
     return {
-      level: profile.level||1,
-      xp: profile.xp||0,
-      totalRuns: profile.meta?.totalRuns||0,
-      bestCombo: profile.meta?.bestCombo||0,
-      rows
+      version:2,
+      level:1, xp:0,
+      meta:{ totalRuns:0, bestCombo:0 },
+      modes:{
+        goodjunk:{ bestScore:0, accAvg:0, games:0, missionDone:0 },
+        groups:{   bestScore:0, accAvg:0, games:0, missionDone:0 },
+        hydration:{bestScore:0, accAvg:0, games:0, missionDone:0 },
+        plate:{    bestScore:0, accAvg:0, games:0, missionDone:0 },
+      },
+      daily:{ date:'', missions:[], done:[] }
     };
   }
 
-  // ---------- Export / Import ----------
-  function exportJSON(){
-    const blob = new Blob([JSON.stringify(profile,null,2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `HHA_profile_${todayStr()}.json`;
-    document.body.appendChild(a); a.click(); setTimeout(()=>{ try{ a.remove(); URL.revokeObjectURL(url);}catch{} }, 100);
+  function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(profile)); }catch{} }
+  function load(){ try{ profile = JSON.parse(localStorage.getItem(LS_KEY)||'')||defProfile(); }catch{ profile = defProfile(); } }
+
+  function init(){ load(); ensureDaily(); }
+  function on(cb){ listeners.add(cb); return ()=>listeners.delete(cb); }
+  function emit(type,p){ for(const f of listeners) try{ f(type,p); }catch{} }
+
+  // ---------- Daily ----------
+  function ensureDaily(){
+    const today = new Date().toISOString().slice(0,10);
+    if (profile.daily.date === today && (profile.daily.missions||[]).length) return profile.daily;
+    // gen ใหม่
+    const pool = [
+      'เล่นโหมดใดก็ได้ 2 รอบ', 'ทำคอมโบ ≥ x15', 'คะแนนรวม ≥ 400',
+      'เก็บ Golden อย่างน้อย 2', 'เปิด FEVER อย่างน้อย 1', 'ความแม่น ≥ 70%',
+      'Plate: ไม่มี Overfill', 'Hydration: ไม่ขึ้น HIGH', 'Groups: เป้าหมายครบ 3 รอบ', 'Good vs Junk: Perfect ≥ 10'
+    ];
+    const pick = []; const bag=[...pool];
+    for(let i=0;i<3;i++){ const k=(Math.random()*bag.length)|0; pick.push(bag.splice(k,1)[0]); }
+    profile.daily = { date: today, missions: pick.map((t,i)=>({id:`d${i+1}`, label:t})), done:[] };
+    save();
+    return profile.daily;
   }
-  function importJSON(file){
-    return new Promise((resolve,reject)=>{
-      const rd = new FileReader();
-      rd.onerror = reject;
-      rd.onload = ()=>{
-        try{
-          const data = JSON.parse(rd.result);
-          Object.assign(profile, data);
-          save(); emit('profile_imported'); resolve(profile);
-        }catch(e){ reject(e); }
-      };
-      rd.readAsText(file);
+  function genDaily(){ return ensureDaily(); }
+  function markDaily(id){ ensureDaily(); const s=new Set(profile.daily.done||[]); s.add(id); profile.daily.done=[...s]; save(); emit('daily_update'); }
+
+  // ---------- Runs ----------
+  function beginRun(mode, diff, lang){
+    runCtx = { mode, diff, lang, missions:[], startTs: Date.now() };
+    emit('run_start', runCtx);
+    return runCtx.missions;
+  }
+  function endRun({ score=0, bestCombo=0, timePlayed=0, acc=0 }={}){
+    if (!runCtx) return;
+    const mode = runCtx.mode;
+    const m = profile.modes[mode] || (profile.modes[mode]={ bestScore:0, accAvg:0, games:0, missionDone:0 });
+    m.bestScore = Math.max(m.bestScore|0, score|0);
+    m.accAvg = (m.games===0) ? acc : (0.35*acc + 0.65*m.accAvg); // EMA
+    m.games = (m.games|0)+1;
+    profile.meta.totalRuns = (profile.meta.totalRuns|0)+1;
+    profile.meta.bestCombo = Math.max(profile.meta.bestCombo|0, bestCombo|0);
+    // XP & Level (ง่าย ๆ)
+    const gain = Math.max(5, Math.round(score/20 + acc));
+    profile.xp = (profile.xp|0) + gain;
+    while (profile.xp >= profile.level*120){ profile.xp -= profile.level*120; profile.level++; emit('level_up', {level:profile.level}); }
+    save();
+    emit('run_end', { mode, score, acc, bestCombo, timePlayed });
+    runCtx = null;
+  }
+
+  // ---------- Missions/Quests (delegation) ----------
+  function event(type,payload){ emit(type,payload); }
+  function addMissionDone(mode){ const m=profile.modes[mode]; if(!m) return; m.missionDone=(m.missionDone|0)+1; save(); emit('mission_done'); }
+
+  // ---------- Stats ----------
+  function getStatSnapshot(){
+    const rows = Object.keys(profile.modes).map(k=>{
+      const v=profile.modes[k]; return { key:k, bestScore:v.bestScore|0, acc:+(v.accAvg||0).toFixed(1), runs:v.games|0, missions:v.missionDone|0 };
     });
+    return { level:profile.level|0, xp:profile.xp|0, totalRuns:profile.meta.totalRuns|0, bestCombo:profile.meta.bestCombo|0, rows };
   }
 
-  // ---------- Events ----------
-  function on(fn){ listeners.add(fn); }
-  function off(fn){ listeners.delete(fn); }
-  function emit(type, payload){ for(const fn of listeners) try{ fn(type, payload); }catch{} }
+  // ---------- Export / Import ----------
+  function exportProfile(){ return JSON.stringify(profile, null, 2); }
+  function importProfile(json){
+    try{
+      const obj = JSON.parse(json);
+      if (!obj || typeof obj!=='object' || !obj.modes) throw new Error('Invalid');
+      profile = obj; save(); emit('profile_imported'); return true;
+    }catch(e){ console.warn('[Progress] import fail', e); return false; }
+  }
 
-  // Init
-  function init(){ load(); genDaily(); save(); emit('ready'); }
-
-  return {
-    profile, runCtx,
-    init, beginRun, endRun, event,
-    on, off,
-    genDaily, getStatSnapshot,
-    exportJSON, importJSON
-  };
+  return { init, on, emit:event, beginRun, endRun, getStatSnapshot, profile:()=>profile, genDaily, markDaily, addMissionDone, exportProfile, importProfile, runCtx };
 })();
