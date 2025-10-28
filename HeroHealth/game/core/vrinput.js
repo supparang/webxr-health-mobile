@@ -1,145 +1,114 @@
-// === Hero Health Academy — core/vrinput.js ===
-// WebXR toggle (ถ้ามี), Gaze cursor (DOM center raycast) + Dwell timer (config ได้)
-// ใช้ได้ทั้ง PC/Mobile/VR โดยไม่พึ่ง framework อื่น
+// === Hero Health Academy — core/vrinput.js (Gaze reticle + dwell configurable + XR safe) ===
+export const VRInput = (() => {
+  let engine = null, sfx = null;
+  let xrSession = null, _gaze = null, _dwell = null, _timer = 0, _target = null;
+  let _cfg = {
+    mode: 'auto',           // 'auto' | 'gaze'
+    dwellMsDesktop: 700,
+    dwellMsMobile: 900,
+    dwellMsStandalone: 600
+  };
 
-const LS = {
-  get(key, def){ try{ const v = localStorage.getItem(key); return v==null?def:JSON.parse(v); }catch{ return def; } },
-  set(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch{} },
-};
+  function isMobile(){ return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); }
 
-let _engine = null;
-let _sfx = null;
+  function ensureReticle(){
+    if (_gaze) return;
+    _gaze = document.createElement('div');
+    _gaze.id = 'gazeReticle';
+    _gaze.innerHTML = `<i></i><b></b>`;
+    _gaze.style.cssText = 'position:fixed;inset:0;display:none;pointer-events:none;z-index:120';
+    document.body.appendChild(_gaze);
 
-// ---- Gaze mode (DOM center) ----
-let _gaze = {
-  on: false,
-  dwellMs:  LS.get('hha_gaze_ms', 750),
-  lastEl: null,
-  startAt: 0,
-  rafId: 0,
-  reticle: null,
-};
+    _dwell = _gaze.querySelector('b');
+  }
 
-function ensureReticle(){
-  if (_gaze.reticle && document.body.contains(_gaze.reticle)) return;
-  const r = document.createElement('div');
-  r.id = 'hhaReticle';
-  r.style.cssText = `
-    position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
-    width:22px;height:22px;border-radius:999px;border:2px solid #cfe9ff;opacity:.9;
-    box-shadow:0 0 12px rgba(95,170,255,.6); pointer-events:none; z-index:12000;
-  `;
-  const fill = document.createElement('div');
-  fill.style.cssText = `
-    position:absolute;inset:3px;border-radius:999px; background:rgba(127,255,212,.2);
-    transform: scale(0); transition: transform .08s linear;
-  `;
-  r.appendChild(fill);
-  document.body.appendChild(r);
-  _gaze.reticle = r;
-  _gaze._fill = fill;
-}
+  function inGazeMode(){
+    if (_cfg.mode === 'gaze') return true;
+    // auto: ไม่มีเมาส์/นิ้วกำลังลาก และไม่มี XR -> ใช้ gaze เมื่อคลาส 'gaze-mode' ถูกตั้งจากปุ่ม VR
+    return document.documentElement.classList.contains('hha-gaze');
+  }
 
-function setReticleProgress(pct){
-  if (!_gaze._fill) return;
-  const s = Math.max(0.01, Math.min(1, pct));
-  _gaze._fill.style.transform = `scale(${s})`;
-}
+  function pickDwellMs(){
+    // ถ้าอยู่ใน WebXR Immersive -> standalone
+    if (isXRActive()) return _cfg.dwellMsStandalone|0 || 600;
+    return isMobile() ? (_cfg.dwellMsMobile|0 || 900) : (_cfg.dwellMsDesktop|0 || 700);
+  }
 
-function isClickable(el){
-  if (!el) return false;
-  if (el.closest('[data-action]') || el.closest('[data-result]') || el.closest('[data-modal-open]') || el.closest('[data-modal-close]')) return true;
-  if (el.classList && el.classList.contains('item')) return true;
-  if (el.tagName === 'BUTTON') return true;
-  return false;
-}
+  function showReticle(show){
+    ensureReticle();
+    _gaze.style.display = show ? 'block' : 'none';
+    if (!show){ _target = null; _timer = 0; if (_dwell) _dwell.style.width = '0%'; }
+  }
 
-function gazeLoop(){
-  if (!_gaze.on) return;
-  const cx = Math.floor(innerWidth/2), cy = Math.floor(innerHeight/2);
-  const el = document.elementFromPoint(cx, cy);
+  function raycastTarget(){
+    // ในโหมด 2D UI เรา “gaze” กลางจอ: หา element .item ที่อยู่ตรงกลางจอมากที่สุด
+    const cx = innerWidth/2, cy = innerHeight/2;
+    let best=null, bestD=1e9;
+    document.querySelectorAll('.item').forEach(el=>{
+      const r = el.getBoundingClientRect();
+      const x = r.left + r.width/2, y = r.top + r.height/2;
+      const d = Math.hypot(x-cx, y-cy);
+      if (d < bestD){ bestD=d; best=el; }
+    });
+    return best;
+  }
 
-  if (el !== _gaze.lastEl){
-    _gaze.lastEl = el;
-    _gaze.startAt = performance.now();
-    setReticleProgress(0);
-  }else{
-    if (isClickable(el)){
-      const t = performance.now() - _gaze.startAt;
-      const pct = t / _gaze.dwellMs;
-      setReticleProgress(pct);
-      if (t >= _gaze.dwellMs){
-        // trigger click once
-        try{
-          el.dispatchEvent(new Event('click', {bubbles:true}));
-          if (_sfx) _sfx.play?.('sfx-good');
-          navigator.vibrate?.(10);
-        }catch{}
-        _gaze.startAt = performance.now(); // reset for repeat
-        setReticleProgress(0);
+  function loop(ts){
+    if (!inGazeMode()){ showReticle(false); return; }
+    showReticle(true);
+
+    const dwell = pickDwellMs();
+    const t = raycastTarget();
+
+    if (t !== _target){ _target = t; _timer = 0; if (_dwell) _dwell.style.width='0%'; }
+
+    if (_target){
+      _timer += 16;
+      const pct = Math.min(100, Math.round((_timer/dwell)*100));
+      if (_dwell) _dwell.style.width = pct + '%';
+      if (_timer >= dwell){
+        // trigger click
+        try{ _target.click(); }catch{}
+        if (navigator.vibrate) try{ navigator.vibrate(12); }catch{}
+        _timer = 0; if (_dwell) _dwell.style.width='0%';
       }
     }else{
-      setReticleProgress(0);
+      _timer = 0; if (_dwell) _dwell.style.width='0%';
     }
+    requestAnimationFrame(loop);
   }
-  _gaze.rafId = requestAnimationFrame(gazeLoop);
-}
 
-// ---- WebXR helpers (safe fallbacks) ----
-let _inXR = false;
-async function toggleVR(){
-  try{
-    // ถ้า engine รองรับ renderer.xr ก็เรียกของ three ได้
-    if (_engine?.renderer?.xr){
-      if (_inXR){
-        await _engine.renderer.xr.getSession()?.end();
-        _inXR = false;
-      }else{
-        const navxr = navigator.xr;
-        if (navxr?.isSessionSupported){
-          const ok = await navxr.isSessionSupported('immersive-vr');
-          if (!ok) throw new Error('immersive-vr not supported');
-        }
-        const session = await navigator.xr.requestSession('immersive-vr', { optionalFeatures:['local-floor','bounded-floor'] });
-        _engine.renderer.xr.setSession(session);
-        _inXR = true;
-      }
+  // --- XR toggles ---
+  async function toggleVR(){
+    if (xrSession){
+      await xrSession.end().catch(()=>{});
+      xrSession = null;
+      document.documentElement.classList.remove('hha-xr');
       return;
     }
-    // ถ้าไม่มี XR จริง ให้สลับเป็นโหมด GAZE (จำลอง)
-    setGazeMode(!_gaze.on);
-  }catch(e){
-    console.warn('[VRInput] toggleVR fallback to Gaze:', e);
-    setGazeMode(!_gaze.on);
+    if (!navigator.xr || !(await navigator.xr.isSessionSupported?.('immersive-vr'))){
+      // ไม่มี XR: เข้าสู่ Gaze mode แทน
+      document.documentElement.classList.toggle('hha-gaze');
+      return;
+    }
+    xrSession = await navigator.xr.requestSession('immersive-vr', { requiredFeatures: [] });
+    xrSession.addEventListener('end', ()=>{ xrSession=null; document.documentElement.classList.remove('hha-xr'); });
+    document.documentElement.classList.add('hha-xr');
+    // หมายเหตุ: engine จัดการ renderer.xr.enable/ setSession ที่ Engine แล้ว
+    try{ engine?.enterXR?.(xrSession); }catch{}
   }
-}
 
-function setGazeMode(on){
-  _gaze.on = !!on;
-  if (_gaze.on){
+  function isXRActive(){ return !!xrSession; }
+  function isGazeMode(){ return inGazeMode(); }
+
+  // --- Public ---
+  function init({ engine:eng, sfx:_sfx, config }){
+    engine = eng; sfx = _sfx;
+    _cfg = Object.assign(_cfg, config||{});
     ensureReticle();
-    cancelAnimationFrame(_gaze.rafId);
-    gazeLoop();
-  }else{
-    cancelAnimationFrame(_gaze.rafId);
-    _gaze.rafId = 0;
-    try{ _gaze.reticle?.remove(); }catch{}
-    _gaze.reticle = null; _gaze._fill = null;
+    requestAnimationFrame(loop);
   }
-}
+  function setConfig(cfg){ _cfg = Object.assign(_cfg, cfg||{}); }
 
-export const VRInput = {
-  init({engine, sfx}){
-    _engine = engine||null; _sfx = sfx||null;
-    // โหลด dwell config
-    const ms = Number(LS.get('hha_gaze_ms', 750))||750;
-    _gaze.dwellMs = ms;
-    // ปุ่มปรับ dwell ผ่าน console:
-    // localStorage.setItem('hha_gaze_ms', '650'); location.reload();
-  },
-  toggleVR,
-  isXRActive(){ return !!_inXR; },
-  isGazeMode(){ return !!_gaze.on; },
-  setGaze(on){ setGazeMode(on); },
-  setDwell(ms){ _gaze.dwellMs = Math.max(300, Math.min(2000, Number(ms)||750)); LS.set('hha_gaze_ms', _gaze.dwellMs); }
-};
+  return { init, toggleVR, isXRActive, isGazeMode, setConfig };
+})();
