@@ -274,3 +274,40 @@ button.btn, .item, [data-action], [data-result], [data-modal-open], [data-modal-
 
 /* ป้องกัน overlay บังโมดัลปุ่ม */
 .modal{ z-index: 9999; }
+/* === additions for alerts & gaze reticle === */
+
+/* Micro toast (target changed / plate done) */
+.toast {
+  position: fixed; left: 50%; top: 18%;
+  transform: translate(-50%, -10px);
+  background: rgba(0,0,0,.55);
+  border: 1px solid #203155;
+  color: #fff;
+  font: 800 14px/1.2 ui-rounded, system-ui;
+  padding: 8px 12px; border-radius: 10px; z-index: 9999;
+  opacity: 0; transition: opacity .18s, transform .18s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* Target change glow */
+html[data-hha-mode="groups"] #targetWrap.glow {
+  box-shadow: 0 0 0 2px #67e8f980, 0 0 18px #67e8f9;
+}
+
+/* Plate over-quota lock cue */
+body.overlock .item[aria-disabled="true"] {
+  filter: grayscale(1) brightness(.6);
+  cursor: not-allowed;
+}
+
+/* Gaze reticle */
+#gazeReticle { pointer-events: none; }
+#gazeReticle i, #gazeReticle b {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  border-radius: 999px;
+}
+#gazeReticle i { width: 28px; height: 28px; border: 2px solid #cfe9ff; box-shadow: 0 0 8px #000; }
+#gazeReticle b {
+  width: 0%; height: 6px; background: linear-gradient(90deg, #7fffd4, #4de1ff);
+  border-radius: 999px; top: calc(50% + 22px);
+}
