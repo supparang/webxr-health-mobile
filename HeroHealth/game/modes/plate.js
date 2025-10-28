@@ -1,33 +1,31 @@
 // === Hero Health Academy — game/modes/plate.js
-// (multi-group accept + overfill penalty + HUD bars + rarity perfect + over-quota lockout + group_full event)
+// (multi-group accept + overfill penalty + HUD bars + rarity perfect
+//  + over-quota lockout + group_full event + safe FX bootstrap)
 
 import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
-import { Quests } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
+import { Quests }   from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
 
 export const name = 'plate';
 
+// ---------- Safe FX bootstrap (avoid duplicate identifiers) ----------
+(function ensureFX(){
+  if (!window.HHA_FX) {
+    window.HHA_FX = { add3DTilt: ()=>{}, shatter3D: ()=>{} };
+    (async () => {
+      try {
+        const m = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
+        if (m) Object.assign(window.HHA_FX, m);
+      } catch {}
+    })();
+  }
+})();
+
 // ---------- Item pools (20 each) ----------
-const VEGGIES = [
-  '🥦','🥕','🥒','🌽','🍅','🍆','🥗','🥬','🥔','🧅',
-  '🧄','🍄','🌶️','🥒','🥕','🥦','🥬','🍅','🥔','🍄'
-];
-const FRUITS = [
-  '🍎','🍌','🍓','🍇','🍉','🍍','🍑','🍊','🍐','🥭',
-  '🍒','🍋','🥝','🍈','🫐','🍎','🍌','🍊','🍇','🍍'
-];
-const GRAINS = [
-  '🍞','🥖','🥨','🍚','🍙','🍘','🍜','🍝','🍛','🌯',
-  '🌮','🥞','🫓','🥪','🥯','🍞','🍚','🍝','🥖','🥨'
-];
-const PROTEIN = [
-  '🍗','🍖','🥩','🍳','🐟','🍤','🫘','🥜','🧆','🌭',
-  '🍣','🍢','🥓','🧆','🍗','🍳','🐟','🍤','🫘','🥩'
-];
-const DAIRY = [
-  '🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦',
-  '🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦'
-];
+const VEGGIES = ['🥦','🥕','🥒','🌽','🍅','🍆','🥗','🥬','🥔','🧅','🧄','🍄','🌶️','🥒','🥕','🥦','🥬','🍅','🥔','🍄'];
+const FRUITS  = ['🍎','🍌','🍓','🍇','🍉','🍍','🍑','🍊','🍐','🥭','🍒','🍋','🥝','🍈','🫐','🍎','🍌','🍊','🍇','🍍'];
+const GRAINS  = ['🍞','🥖','🥨','🍚','🍙','🍘','🍜','🍝','🍛','🌯','🌮','🥞','🫓','🥪','🥯','🍞','🍚','🍝','🥖','🥨'];
+const PROTEIN = ['🍗','🍖','🥩','🍳','🐟','🍤','🫘','🥜','🧆','🌭','🍣','🍢','🥓','🧆','🍗','🍳','🐟','🍤','🫘','🥩'];
+const DAIRY   = ['🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦','🥛','🧀','🍨','🍦','🥛','🧀','🥛','🧀','🍧','🍦'];
 
 const GROUPS = ['veggies','fruits','grains','protein','dairy'];
 const POOLS  = { veggies:VEGGIES, fruits:FRUITS, grains:GRAINS, protein:PROTEIN, dairy:DAIRY };
@@ -48,7 +46,6 @@ function makeQuotas(diffKey='Normal'){
   /* Normal */            return { veggies:5, fruits:3, grains:2, protein:2, dairy:1 }; // 13
 }
 
-// กลุ่มที่ยัง “ขาด” (need - have > 0)
 function lackingGroups(ctx){
   const out = [];
   for (const g of GROUPS){
@@ -86,16 +83,14 @@ function flashLine(msg){
 function toastRound(text){
   let el = document.getElementById('toast');
   if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-  el.textContent = text;
-  el.classList.add('show');
+  el.textContent = text; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 900);
 }
 
-// ---------- Local state (module-internal) ----------
+// ---------- Local state ----------
 let _lockout = {};   // groupId -> until timestamp (ms)
 let _plateRound = 1;
 
-// เพิ่มโอกาส perfect เมื่อกลุ่มหายาก/ยังขาดมาก
 function rareBoost(groupId, ctx){
   const rare = (groupId==='dairy' || groupId==='protein');
   const need = (ctx.need[groupId]||0), have = (ctx.have[groupId]||0);
@@ -106,13 +101,9 @@ function rareBoost(groupId, ctx){
 
 // ---------- Public API ----------
 export function init(state={}, hud, diff){
-  // เปิด HUD ของเพลต
-  const wrap = document.getElementById('plateTracker');
-  if (wrap) wrap.style.display = 'block';
-  // ซ่อน targetWrap (ไม่บังคับทีละหมวด)
-  const tgt = document.getElementById('targetWrap'); if (tgt) tgt.style.display = 'none';
+  const wrap = document.getElementById('plateTracker'); if (wrap) wrap.style.display = 'block';
+  const tgt  = document.getElementById('targetWrap');   if (tgt)  tgt.style.display  = 'none';
 
-  // ตั้งค่าโควตาเริ่มต้น
   state.ctx = state.ctx || {};
   state.ctx.need = makeQuotas(state.difficulty||'Normal');
   state.ctx.have = { veggies:0, fruits:0, grains:0, protein:0, dairy:0 };
@@ -125,7 +116,6 @@ export function init(state={}, hud, diff){
   renderPlateHUD(state);
   toastRound('🍽️ จานที่ ' + _plateRound);
 
-  // แจ้งเริ่มรันให้ระบบภายนอกถ้าจำเป็น
   try{
     Progress.emit?.('run_start', {
       mode:'plate',
@@ -140,7 +130,6 @@ export function cleanup(){
   if (wrap) wrap.style.display = 'none';
 }
 
-// ชิ้นใหม่: โอกาสสูงที่จะสุ่ม “หมวดยังขาด”
 export function pickMeta(diff={}, state={}){
   const ctx = state.ctx || {};
   const lack = lackingGroups(ctx);
@@ -148,10 +137,11 @@ export function pickMeta(diff={}, state={}){
   const group = isLackPick ? rnd(lack) : rnd(GROUPS);
 
   const char = rnd(POOLS[group]);
-  const golden = Math.random() < 0.08;
-
   const need = (ctx.need[group]||0), have = (ctx.have[group]||0);
   const withinQuota = need>0 && have<need;
+
+  const golden = Math.random() < 0.08;
+  const life   = clamp(Number(diff.life)>0? Number(diff.life): 3000, 700, 4500);
 
   return {
     id: `${group}_${Date.now().toString(36)}_${(Math.random()*999)|0}`,
@@ -159,13 +149,12 @@ export function pickMeta(diff={}, state={}){
     aria: group,
     label: group,
     groupId: group,
-    good: withinQuota,          // ดีเมื่อยังไม่ครบโควตา
+    good: withinQuota,
     golden,
-    life: (typeof diff.life==='number') ? diff.life : 3000
+    life
   };
 }
 
-// แตะไอคอน: ยอมรับ “ทุกรายการ” ที่อยู่ในหมวดที่ยังขาดโควตา + lockout เมื่อเกินโควตา
 export function onHit(meta={}, systems={}, state={}){
   const { score, sfx } = systems;
   const Lang = L(state.lang);
@@ -173,8 +162,7 @@ export function onHit(meta={}, systems={}, state={}){
 
   const now = performance.now();
   if (_lockout[meta.groupId] && now < _lockout[meta.groupId]){
-    document.body.classList.add('flash-danger');
-    setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+    document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
     try{ sfx?.play?.('sfx-bad'); }catch{}
     return 'bad';
   }
@@ -186,18 +174,17 @@ export function onHit(meta={}, systems={}, state={}){
   if (withinQuota){
     ctx.have[meta.groupId] = have + 1;
 
-    // rare perfect boost
-    const pBoost = rareBoost(meta.groupId, ctx);
+    // rarity-aware perfect
+    const pBoost  = rareBoost(meta.groupId, ctx);
     const perfect = !!meta.golden || Math.random() < pBoost;
 
     renderPlateHUD(state);
 
-    // แจ้งกลุ่มครบโควตา
+    // แจ้งว่ากลุ่มนี้ครบโควตาแล้ว
     if (ctx.have[meta.groupId] >= ctx.need[meta.groupId]){
       Quests.event?.('group_full', { groupId: meta.groupId });
     }
 
-    // ตรวจจบ “จาน”
     if (isPlateComplete(ctx)){
       flashLine(Lang.plateDone);
       try{ score?.add?.(40); }catch{}
@@ -209,7 +196,6 @@ export function onHit(meta={}, systems={}, state={}){
     }else{
       try{ sfx?.play?.(perfect?'sfx-perfect':'sfx-good'); }catch{}
     }
-
     return perfect ? 'perfect' : 'good';
   }
 
@@ -218,28 +204,23 @@ export function onHit(meta={}, systems={}, state={}){
   _lockout[meta.groupId] = now + 600;
 
   flashLine('⚠ ' + Lang.overfill);
-  document.body.classList.add('flash-danger');
-  setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+  document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
   try{ sfx?.play?.('sfx-bad'); }catch{}
   return 'bad';
 }
 
-export function tick(/*state, systems, hud*/){
-  // plate ยังไม่ต้องใช้ tick ตอนนี้
-}
+export function tick(){ /* plate ไม่มีการนับเวลาเฉพาะโหมด */ }
 
 // ---------- Internals ----------
 function isPlateComplete(ctx){
   for (const g of GROUPS){
-    const need = ctx.need[g]||0;
-    const have = ctx.have[g]||0;
+    const need = ctx.need[g]||0, have = ctx.have[g]||0;
     if (need>0 && have<need) return false;
   }
   return true;
 }
 
 function nextPlate(ctx, diffKey){
-  // เพิ่มโควตาเล็กน้อยในรอบถัดไป (ยังคง easy-friendly)
   const base = makeQuotas(diffKey);
   const bump = { Easy:0, Normal:1, Hard:1 }[diffKey] ?? 1;
   ctx.need = {
@@ -255,6 +236,6 @@ function nextPlate(ctx, diffKey){
 
 // ------- Shared FX hooks (tilt + shatter) -------
 export const fx = {
-  onSpawn(el/*, state*/){ add3DTilt(el); },
-  onHit(x, y/*, meta, state*/){ shatter3D(x, y); }
+  onSpawn(el/*, state*/){ try{ (window?.HHA_FX?.add3DTilt||(()=>{}))(el); }catch{} },
+  onHit(x, y/*, meta, state*/){ try{ (window?.HHA_FX?.shatter3D||(()=>{}))(x, y); }catch{} }
 };
