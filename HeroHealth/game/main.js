@@ -4,7 +4,7 @@ window.__HHA_BOOT_OK = true;
 // ----- Imports -----
 import { Quests }      from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
 import { Progress }    from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-// (ถ้ามี SFX/Powerups/VRInput ของคุณ ให้ import เพิ่มตรงนี้)
+
 import * as goodjunk   from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
 import * as groups     from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
 import * as hydration  from '/webxr-health-mobile/HeroHealth/game/modes/hydration.js';
@@ -16,6 +16,7 @@ const $$ = (s)=>Array.from(document.querySelectorAll(s));
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 const clamp = (n,a,b)=>Math.max(a, Math.min(b,n));
 const rndInt=(a,b)=> (a + Math.floor(Math.random()*(b-a+1)));
+const nowMs = ()=> performance?.now?.() || Date.now();
 
 const MODES = { goodjunk, groups, hydration, plate };
 
@@ -34,43 +35,26 @@ const STATE = {
   ctx: {}
 };
 
-// ----- Minimal SFX stub (ใช้ของจริงแทนได้) -----
-const SFX = {
-  play(name){ /* ต่อภายหลังกับ soundbank.js */ }
-};
+// ----- Minimal SFX stub -----
+const SFX = { play(name){ try{ $('#'+name)?.currentTime=0, $('#'+name)?.play(); }catch{} } };
 
-// ----- HUD (นาฬิกา/คะแนน/ชิพเควสต์/เป้า) -----
+// ----- HUD (ใช้ element ที่มีใน index.html) -----
 const HUD = (()=> {
-  // inject clock/score badge ถ้ายังไม่มี
-  function ensureBasics(){
-    const wrap = $('#hudWrap');
-    if (!wrap) return;
-    if (!$('#hudCore')) {
-      const box = document.createElement('div');
-      box.id = 'hudCore';
-      box.className = 'hud hud-passive';
-      box.style.position = 'fixed';
-      box.style.right = '10px';
-      box.style.top = '10px';
-      box.style.display = 'grid';
-      box.style.gap = '6px';
-      box.style.zIndex = '40';
-      box.innerHTML = `
-        <div id="clockBadge" class="badge">00:45</div>
-        <div id="scoreBadge" class="badge">Score 0</div>
-        <div id="questChips" class="chips"></div>
-      `;
-      document.body.appendChild(box);
-    }
-  }
-  ensureBasics();
-
   function setClock(sec){
+    // badge (ถ้ามี)
     const mm = String(Math.floor(sec/60)).padStart(2,'0');
     const ss = String(sec%60).padStart(2,'0');
     setText('#clockBadge', `${mm}:${ss}`);
+    // fields เดิม
+    setText('#time', sec|0);
   }
-  function setScore(n){ setText('#scoreBadge', `Score ${n|0}`); }
+  function setScore(n){
+    setText('#scoreBadge', `Score ${n|0}`);
+    setText('#score', n|0);
+  }
+  function setCombo(c){
+    setText('#combo', 'x'+(c|0));
+  }
   function setQuestChips(list){
     const host = $('#questChips'); if(!host) return;
     host.innerHTML = (list||[]).map(q=>{
@@ -86,27 +70,26 @@ const HUD = (()=> {
     const badge = $('#targetBadge'); if(!badge) return;
     const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[key] || key || '—';
     badge.textContent = `${nameTH} • ${have|0}/${need|0}`;
+    const wrap = $('#targetWrap'); if (wrap) wrap.style.display = 'inline-flex';
   }
   function coachSay(text, ms=1500){
-    const el = $('#coachHUD'); if(!el) return;
-    el.style.pointerEvents = 'none';
-    el.style.position='fixed'; el.style.left='50%'; el.style.top='calc(100% - 120px)';
-    el.style.transform='translateX(-50%)'; el.style.zIndex='45';
-    el.style.background='rgba(0,0,0,.55)'; el.style.padding='8px 12px';
-    el.style.borderRadius='12px';
-    el.textContent = text;
-    el.style.display='block';
-    clearTimeout(el._t);
-    el._t = setTimeout(()=>{ el.style.display='none'; }, ms);
+    const box = $('#coachHUD'); const txt = $('#coachText');
+    if(!box || !txt) return;
+    box.style.pointerEvents = 'none';
+    box.style.position='fixed'; box.style.left='50%'; box.style.top='96px';
+    box.style.transform='translateX(-50%)'; box.style.zIndex='45';
+    box.style.display='flex';
+    txt.textContent = text;
+    clearTimeout(box._t);
+    box._t = setTimeout(()=>{ box.style.display='none'; }, ms);
   }
-
-  return { setClock, setScore, setQuestChips, setTarget, coachSay };
+  return { setClock, setScore, setCombo, setQuestChips, setTarget, coachSay };
 })();
 
 // ให้ Quests ผูก HUD ไว้เพื่อ refresh chips ได้
 Quests.bindToMain({ hud: { setQuestChips: HUD.setQuestChips } });
 
-// ----- UI wiring (ทุกปุ่มใช้งานได้) -----
+// ----- UI wiring (ปุ่มทั้งหมด) -----
 document.addEventListener('click', (ev)=>{
   const btn = ev.target.closest('[data-action]');
   if(!btn) return;
@@ -114,10 +97,9 @@ document.addEventListener('click', (ev)=>{
 
   switch(act){
     case 'lang': {
-      const lang = btn.getAttribute('data-lang')||'TH';
-      STATE.lang = lang.toUpperCase();
-      localStorage.setItem('hha_lang', STATE.lang);
-      HUD.coachSay(STATE.lang==='TH'?'ภาษาไทย':'English');
+      const lang = (btn.getAttribute('data-lang')||'TH').toUpperCase();
+      STATE.lang = lang; localStorage.setItem('hha_lang', STATE.lang);
+      toast(STATE.lang==='TH'?'ภาษาไทย':'English');
       break;
     }
     case 'mode': {
@@ -125,7 +107,8 @@ document.addEventListener('click', (ev)=>{
       if (MODES[m]) {
         STATE.mode = m;
         highlightSelection('mode', m);
-        HUD.coachSay(m);
+        setText('#modeName', btn.textContent.trim());
+        HUD.coachSay(STATE.lang==='TH'?'โหมด: '+btn.textContent.trim():'Mode: '+m);
       }
       break;
     }
@@ -133,40 +116,23 @@ document.addEventListener('click', (ev)=>{
       const d = btn.getAttribute('data-diff')||'Normal';
       STATE.difficulty = d;
       highlightSelection('difficulty', d);
+      setText('#difficulty', ({Easy:'ง่าย',Normal:'ปกติ',Hard:'ยาก'})[d]||d);
       HUD.coachSay(`Difficulty: ${d}`);
       break;
     }
     case 'howto': {
-      toast(STATE.lang==='TH'
-        ? 'แตะ/คลิกสิ่งที่ใช่ สะสมคอมโบ หลบสิ่งผิดหมวด!'
-        : 'Tap/click correct items, build combo, avoid wrong ones!');
+      showHelpFor(STATE.mode);
       break;
     }
-    case 'import': {
-      doImport();
-      break;
-    }
-    case 'export': {
-      doExport();
-      break;
-    }
-    case 'reset': {
-      localStorage.removeItem('hha_save');
-      toast('Progress cleared.');
-      break;
-    }
-    case 'start': {
-      startRun();
-      break;
-    }
-    case 'restart': {
-      hideResult(); startRun();
-      break;
-    }
-    case 'back': {
-      endRunAndBackToMenu();
-      break;
-    }
+    case 'import': doImport(); break;
+    case 'export': doExport(); break;
+    case 'reset':  localStorage.removeItem('hha_save'); toast('Progress cleared.'); break;
+    case 'start':  startRun(); break;
+    case 'restart': hideResult(); startRun(); break;
+    case 'back':   endRunAndBackToMenu(); break;
+
+    // โมดัล
+    case 'helpClose': closeHelp(); break;
   }
 });
 
@@ -185,14 +151,39 @@ function toast(msg){
   el._t = setTimeout(()=>{ el.classList.remove('show'); el.style.display='none'; }, 1200);
 }
 
+// ----- Help Modal -----
+function showHelpFor(mode){
+  const m = mode||'goodjunk';
+  const mapTH = {
+    goodjunk: 'แตะของดี ✅ หลีกเลี่ยงของขยะ ❌ เก็บคอมโบให้ได้มากที่สุด!',
+    groups:   'ทำตามหมวดเป้าหมาย 🎯 ที่แสดงบน HUD แตะให้ครบโควตาแล้วเปลี่ยนเป้า',
+    hydration:'คุมแถบน้ำให้อยู่ในโซน OK 💧 จิบพอดี หลีกเลี่ยงเกิน',
+    plate:    'ใส่อาหารให้ถูกหมวดตามโควตา 🍱 เกินโควตาจะโดนลงโทษชั่วคราว'
+  };
+  const mapEN = {
+    goodjunk: 'Tap healthy ✅ avoid junk ❌ keep your combo!',
+    groups:   'Follow the target group 🎯 shown on HUD, fill quota then cycle',
+    hydration:'Keep hydration in the OK zone 💧 sip smartly, avoid over',
+    plate:    'Place items into correct quotas 🍱 over-quota triggers penalty'
+  };
+  const body = $('#helpBody'); const wrap = $('#help');
+  if (body && wrap){
+    body.textContent = (STATE.lang==='TH'?mapTH:mapEN)[m] || '';
+    wrap.style.display='flex';
+  }
+}
+function closeHelp(){ const wrap = $('#help'); if(wrap) wrap.style.display='none'; }
+
 // ----- Run lifecycle -----
 let _spawnTimer = null;
 
 function startRun(){
   // UI states
-  document.body.classList.remove('ui-mode-menu');
   $('#menuBar')?.setAttribute('style','display:none');
   $('#resultModal')?.setAttribute('style','display:none');
+  $('#targetWrap')?.setAttribute('style','display:none');
+  $('#plateTracker')?.setAttribute('style','display:none');
+  $('#hydroWrap')?.setAttribute('style','display:none');
 
   // Reset state
   STATE.running = true;
@@ -203,6 +194,7 @@ function startRun(){
   STATE.ctx = { };
   HUD.setClock(STATE.timeSec);
   HUD.setScore(STATE.score);
+  HUD.setCombo(STATE.combo);
   HUD.setQuestChips([]);
 
   // Init mode
@@ -221,15 +213,16 @@ function startRun(){
 
   // Start spawner
   if (_spawnTimer) clearInterval(_spawnTimer);
-  _spawnTimer = setInterval(spawnOne, 700);
+  _spawnTimer = setInterval(spawnOne, 720);
 
-  // Focus play area for keyboard space test (optional)
+  // Focus play area
   $('#gameLayer')?.focus?.();
 }
 
 function onTick(){
   if (!STATE.running) return;
-  if (Date.now() < (STATE.freezeUntil||0)) {
+
+  if (nowMs() < (STATE.freezeUntil||0)) {
     HUD.setClock(STATE.timeSec);
     Quests.tick({ score: STATE.score|0 });
     return;
@@ -278,10 +271,10 @@ function endRun(showResult){
         </div>
       `;
     }
-    $('#resultModal')?.setAttribute('style','display:block');
+    $('#resultModal')?.setAttribute('style','display:flex');
   }
 
-  // บันทึกความคืบหน้า
+  // Save
   try { Progress?.save?.(summary); } catch {}
 }
 
@@ -291,7 +284,6 @@ function endRunAndBackToMenu(){
   endRun(false);
   $('#resultModal')?.setAttribute('style','display:none');
   $('#menuBar')?.setAttribute('style','');
-  document.body.classList.add('ui-mode-menu');
 }
 
 // ----- Difficulty profile -----
@@ -303,12 +295,13 @@ function diffOf(key){
   }
 }
 
-// ----- Spawner (สร้าง “ไอคอนอาหาร” ให้คลิก) -----
+// ----- Spawner -----
 function spawnOne(){
   if (!STATE.running) return;
-  if (Date.now() < (STATE.freezeUntil||0)) return;
+  if (nowMs() < (STATE.freezeUntil||0)) return;
 
   const host = $('#spawnHost'); if (!host) return;
+  const box  = $('#gameLayer')?.getBoundingClientRect?.(); if (!box) return;
 
   // ให้โหมดสร้างเมตา
   const mode = MODES[STATE.mode] || MODES.goodjunk;
@@ -321,11 +314,10 @@ function spawnOne(){
   el.setAttribute('aria-label', meta.aria || meta.label || 'item');
   el.textContent = meta.char || '🍏';
 
-  // random position (ในเขตปลอด HUD ด้านบน/ล่างเล็กน้อย)
-  const pad = 18;
-  const box = $('#gameLayer').getBoundingClientRect();
-  const x = rndInt(pad, box.width  - pad*2);
-  const y = rndInt(pad+24, box.height - pad*2 - 24);
+  // random position (กันขอบ)
+  const pad = 22;
+  const x = rndInt(pad, Math.max(pad, box.width  - pad*2));
+  const y = rndInt(pad+24, Math.max(pad+24, box.height - pad*2 - 24));
   el.style.left = `${x}px`;
   el.style.top  = `${y}px`;
 
@@ -348,7 +340,14 @@ function spawnOne(){
 function handleHit(meta, el){
   // ให้โหมดคำนวณผลลัพธ์
   let result = 'ok';
-  try { result = (MODES[STATE.mode]?.onHit)?.(meta, { score:{ add: addScore }, sfx:SFX }, STATE, { setTarget: HUD.setTarget }) || 'ok'; } catch(e){}
+  try {
+    result = (MODES[STATE.mode]?.onHit)?.(
+      meta,
+      { score:{ add: addScore }, sfx:SFX },
+      STATE,
+      { setTarget: HUD.setTarget }
+    ) || 'ok';
+  } catch(e){}
 
   // FX hit
   try { (MODES[STATE.mode]?.fx?.onHit)?.(el.offsetLeft, el.offsetTop, meta, STATE); } catch {}
@@ -357,11 +356,13 @@ function handleHit(meta, el){
   if (result==='good' || result==='perfect'){
     STATE.combo = Math.min(999, STATE.combo+1);
     STATE.bestCombo = Math.max(STATE.bestCombo, STATE.combo);
+    HUD.setCombo(STATE.combo);
     const base = (result==='perfect'? 20: 10);
-    const bonus = Math.floor(STATE.combo/10); // เล็กน้อยตามคอมโบ
+    const bonus = Math.floor(STATE.combo/10);
     addScore(base + bonus);
   } else if (result==='bad') {
     STATE.combo = 0;
+    HUD.setCombo(STATE.combo);
   }
 
   // Quests event
@@ -408,12 +409,5 @@ function doImport(){
 highlightSelection('mode', STATE.mode);
 highlightSelection('difficulty', STATE.difficulty);
 
-// ----- Accessibility: ป้องกันเมนูบังคลิกตอนเล่น -----
-function setUIModePlaying(on){
-  const menu = $('#menuBar');
-  if(!menu) return;
-  if (on) menu.style.display='none';
-}
-
-// debug expose (optional)
+// ----- Debug expose -----
 window.HHA = { STATE, startRun, endRun };
