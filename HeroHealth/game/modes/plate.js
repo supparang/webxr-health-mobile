@@ -208,3 +208,86 @@ export const fx = {
   onSpawn(el/*, state*/){ add3DTilt(el); },
   onHit(x, y/*, meta, state*/){ shatter3D(x, y); }
 };
+// === Hero Health Academy — modes/plate.js (rarity perfect + over-quota lockout + group_full event) ===
+import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
+import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+import { Quests } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
+
+// ... (คงรายการ POOLS/GROUPS และ helper จากเวอร์ชันที่คุณรวมล่าสุดไว้)
+
+let _lockout = {}; // groupId -> until timestamp
+let _plateRound = 1;
+
+function rareBoost(groupId, ctx){
+  // เพิ่มโอกาส perfect เมื่อกลุ่มนั้น "ยังขาดเยอะ" และเป็นกลุ่มยาก
+  const rare = (groupId==='dairy' || groupId==='protein');
+  const need = (ctx.need[groupId]||0), have = (ctx.have[groupId]||0);
+  const gap = Math.max(0, need-have);
+  return rare ? Math.min(0.18 + gap*0.03, 0.45) : Math.min(0.18 + gap*0.02, 0.35);
+}
+
+function renderPlateRound(){
+  let el = document.getElementById('toast'); if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent = '🍽️ จานที่ ' + _plateRound; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 900);
+}
+
+export function init(state, hud, diff){
+  // ... (เหมือนเดิมจากไฟล์ที่คุณรวมก่อนหน้า)
+  _plateRound = 1;
+  _lockout = {};
+  renderPlateHUD(state);
+  renderPlateRound();
+}
+
+export function onHit(meta, systems, state){
+  const { score, sfx } = systems;
+  const Lang = L(state.lang);
+  const ctx = state.ctx;
+
+  const now = performance.now();
+  if (_lockout[meta.groupId] && now < _lockout[meta.groupId]){
+    document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+    return 'bad';
+  }
+
+  const need = (ctx.need[meta.groupId]||0);
+  const have = (ctx.have[meta.groupId]||0);
+  const withinQuota = need>0 && have<need;
+
+  if (withinQuota){
+    ctx.have[meta.groupId] = have + 1;
+    const pBoost = rareBoost(meta.groupId, ctx);
+    const perfect = !!meta.golden || Math.random() < pBoost;
+
+    renderPlateHUD(state);
+
+    // แจ้ง group full
+    if (ctx.have[meta.groupId] >= ctx.need[meta.groupId]){
+      Quests.event('group_full', { groupId: meta.groupId });
+    }
+
+    if (isPlateComplete(ctx)){
+      try{ sfx.play('sfx-perfect'); }catch{}
+      score.add?.(40);
+      _plateRound++;
+      nextPlate(ctx, state.difficulty||'Normal');
+      renderPlateHUD(state);
+      renderPlateRound();
+    }else{
+      try{ sfx.play(perfect?'sfx-perfect':'sfx-good'); }catch{}
+    }
+    return perfect ? 'perfect' : 'good';
+  }
+
+  // เกินโควตา: บทลงโทษ + lockout 600ms
+  ctx.overfillCount = (ctx.overfillCount||0)+1;
+  _lockout[meta.groupId] = now + 600;
+  document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+  try{ sfx.play('sfx-bad'); }catch{}
+  return 'bad';
+}
+
+export const fx = {
+  onSpawn(el){ add3DTilt(el); },
+  onHit(x,y){ shatter3D(x,y); }
+};
