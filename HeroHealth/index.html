@@ -25,9 +25,9 @@
     <button class="btn" data-action="open-help" aria-label="How to play">?</button>
   </header>
 
-  <!-- ====== HUD (score / combo / time / fever / quests / target / plate / hydration) ====== -->
-  <section id="hudWrap" class="hud">
-    <!-- Top row: Score / Combo / Time -->
+  <!-- ====== HUD (score / combo / time / fever / power / quests / target / plate / hydration) ====== -->
+  <section id="hudWrap" class="hud" aria-live="polite">
+    <!-- Top row: Score / Combo / Time / Fever -->
     <div class="cardlike" id="scoreRow" style="display:inline-flex;gap:10px;align-items:center;">
       <div class="cardlike" style="padding:6px 10px;border-radius:10px;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.12);">
         <b>Score</b>&nbsp;<span id="score">0</span>
@@ -75,15 +75,12 @@
       <h4>Healthy Plate</h4>
       <div id="platePills">
         <!-- plate.js จะเติม .pill แต่ละหมวดลงให้เอง -->
-        <!-- ตัวอย่าง (โครง):
-        <div class="pill"><b>ผัก</b><span>0/3</span><i style="width:0%"></i></div>
-        -->
       </div>
     </aside>
 
     <!-- Hydration bar -->
     <div id="hydroWrap" class="hud-passive" style="display:none">
-      <div id="hydroBarEl" class="hydroBar" data-zone="OK">
+      <div id="hydroBar" class="hydroBar" data-zone="OK">
         <div class="seg low">LOW</div>
         <div class="seg ok">OK</div>
         <div class="seg high">HIGH</div>
@@ -94,12 +91,12 @@
     </div>
   </section>
 
-  <!-- Coach bubble (auto-creates if missing; เราวางให้เลย) -->
+  <!-- Coach bubble (auto-creates if missing; แต่เราวางให้เลย) -->
   <div id="coachHUD" class="hud-passive" style="position:fixed;top:104px;left:50%;transform:translateX(-50%);z-index:96;display:flex;">
     <span id="coachText">พร้อมไหม? ลุยเลย!</span>
   </div>
 
-  <!-- Toast (mini) -->
+  <!-- Toast (mini, HUD.js จะสร้างให้อัตโนมัติถ้าไม่พบ) -->
   <div id="toast" class="toast" style="display:none" aria-live="polite"></div>
 
   <!-- Mission line (optional) -->
@@ -159,9 +156,8 @@
   </div>
 
   <!-- ====== Scripts ====== -->
-  <!-- THREE และโมดูลย่อยถูก import ใน main.js (ESM) -->
+  <!-- THREE is imported inside main.js via ESM; keep type="module" -->
   <script type="module" src="./game/main.js?v=live"></script>
-  <!-- Fallback note:
-       ถ้า path ตรงนี้ต่างจากโครงของคุณ ให้ปรับให้ชี้ไปที่ไฟล์จริง เช่น ../HeroHealth/game/main.js -->
+  <!-- Fallback note: ถ้าโครง path ต่างออก ให้ชี้ไปยังที่อยู่จริงของ main.js -->
 </body>
 </html>
