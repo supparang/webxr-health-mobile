@@ -1,64 +1,84 @@
 // game/core/hud.js
-// Hero Health Academy — HUD (visibility & click-through fixed)
+// Hero Health Academy — HUD (visibility, layering & click-through fixed + quests & power timers)
 
 export class HUD {
   constructor () {
-    // cache องค์ประกอบหลัก
+    // ---- Cache DOM ----
     this.$wrap       = document.getElementById('hudWrap');
     this.$score      = document.getElementById('score');
     this.$combo      = document.getElementById('combo');
     this.$time       = document.getElementById('time');
     this.$feverBar   = document.getElementById('feverBar');
+
     this.$powerBar   = document.getElementById('powerBar');
+
     this.$quests     = document.getElementById('questChips');
+
     this.$targetWrap = document.getElementById('targetWrap');
     this.$target     = document.getElementById('targetBadge');
+
     this.$plate      = document.getElementById('plateTracker');
+
     this.$hydroWrap  = document.getElementById('hydroWrap');
-    this.$hydroBarEl = document.getElementById('hydroBarEl') || document.querySelector('.hydroBar');
+    // รองรับทั้ง #hydroBar (ตาม index ล่าสุด) และ .hydroBar (ตาม CSS)
+    this.$hydroBarEl = document.getElementById('hydroBar') || document.getElementById('hydroBarEl') || document.querySelector('.hydroBar');
+    // เข็มอาจมี id="hydroNeedle" หรือเป็น .needle ภายใน hydroBar
     this.$hydroNeedle= document.getElementById('hydroNeedle') || (this.$hydroWrap && this.$hydroWrap.querySelector('.needle'));
+
     this.$coachHUD   = document.getElementById('coachHUD');
     this.$coachText  = document.getElementById('coachText');
-    this.$toast      = document.getElementById('toast');
+
+    this.$toast      = document.getElementById('toast') || this._ensureToast();
 
     this._applyLayerFixes();
   }
 
-  // ===== Base setters =====
-  setScore(v){ if(this.$score) this.$score.textContent = v|0; this._forceShow(); }
-  setCombo(text){ if(this.$combo) this.$combo.textContent = String(text); this._forceShow(); }
-  setTime(v){ if(this.$time) this.$time.textContent = v|0; this._forceShow(); }
+  /* ================= Base setters ================= */
+  setScore(v){ if (this.$score) this.$score.textContent = (v|0); this._forceShow(); }
+  setCombo(text){ if (this.$combo) this.$combo.textContent = String(text); this._forceShow(); }
+  setTime(v){ if (this.$time) this.$time.textContent = (v|0); this._forceShow(); }
   setFeverProgress(p01){
-    if(!this.$feverBar) return;
+    if (!this.$feverBar) return;
     const p = Math.max(0, Math.min(1, Number(p01)||0));
-    this.$feverBar.style.width = (p*100) + '%';
+    this.$feverBar.style.width = (p * 100) + '%';
   }
 
-  // ===== Hydration =====
+  /* ================= Hydration ================= */
   showHydration(zone, needlePct){
-    if(this.$hydroWrap) this.$hydroWrap.style.display = 'block';
-    if(this.$hydroBarEl && zone){
+    if (this.$hydroWrap) this.$hydroWrap.style.display = 'block';
+    if (this.$hydroBarEl && zone){
       this.$hydroBarEl.setAttribute('data-zone', String(zone).toUpperCase());
     }
-    if(this.$hydroNeedle && typeof needlePct === 'number'){
+    if (this.$hydroNeedle && typeof needlePct === 'number'){
       const pct = Math.max(0, Math.min(100, needlePct));
       this.$hydroNeedle.style.left = pct + '%';
     }
     this._forceShow();
   }
-  hideHydration(){ if(this.$hydroWrap) this.$hydroWrap.style.display = 'none'; }
+  hideHydration(){ if (this.$hydroWrap) this.$hydroWrap.style.display = 'none'; }
 
-  // ===== Target badge (groups / อื่น ๆ) =====
-  showTarget(){ if(this.$targetWrap){ this.$targetWrap.style.display='inline-flex'; } }
-  hideTarget(){ if(this.$targetWrap){ this.$targetWrap.style.display='none'; } }
-  setTargetBadge(text){ if(this.$target){ this.$target.textContent = text; this.showTarget(); } }
+  /* ================= Target badge (groups / others) ================= */
+  showTarget(){
+    if (this.$targetWrap){
+      this.$targetWrap.style.display='inline-flex';
+      // pulse สั้น ๆ ให้สะดุดตา (CSS มี .pulse / .glow รองรับ)
+      this.$targetWrap.classList.remove('pulse');
+      // force reflow
+      // eslint-disable-next-line no-unused-expressions
+      this.$targetWrap.offsetHeight;
+      this.$targetWrap.classList.add('pulse','glow');
+      setTimeout(()=> this.$targetWrap?.classList.remove('glow'), 800);
+    }
+  }
+  hideTarget(){ if (this.$targetWrap) this.$targetWrap.style.display='none'; }
+  setTargetBadge(text){ if (this.$target){ this.$target.textContent = text; this.showTarget(); } }
 
-  // ใช้ได้ทั้ง key อย่าง 'fruit' หรือชื่อไทย/อังกฤษตรง ๆ
+  // groupKey: 'fruit' | 'veggies' | ... หรือชื่อไทย/อังกฤษตรง ๆ
   setTarget(groupKey, have, need){
-    if(!this.$target) return;
+    if (!this.$target) return;
     const mapTH = { veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม' };
-    const key = (mapTH[groupKey] || groupKey || '—');
-    if (typeof have==='number' && typeof need==='number'){
+    const key = (mapTH[String(groupKey)] || groupKey || '—');
+    if (Number.isFinite(have) && Number.isFinite(need)){
       this.$target.textContent = `${key} • ${have|0}/${need|0}`;
     } else {
       this.$target.textContent = String(key);
@@ -66,19 +86,19 @@ export class HUD {
     this.showTarget();
   }
 
-  // ===== Plate tracker =====
-  hidePills(){ if(this.$plate) this.$plate.style.display='none'; }
-  showPills(){ if(this.$plate) this.$plate.style.display='block'; }
+  /* ================= Plate tracker ================= */
+  hidePills(){ if (this.$plate) this.$plate.style.display='none'; }
+  showPills(){ if (this.$plate) this.$plate.style.display='block'; }
 
-  // ===== Power-ups (x2/freeze/sweep) =====
-  // timers: { x2:number, freeze:number, sweep:number } in seconds (0..10)
+  /* ================= Power-ups (x2/freeze/sweep) =================
+     timers: { x2:number, freeze:number, sweep:number } in seconds (0..10)
+  ================================================================= */
   setPowerTimers(timers){
-    const wrap = this.$powerBar; if(!wrap) return;
+    const wrap = this.$powerBar; if (!wrap) return;
     ['x2','freeze','sweep'].forEach(k=>{
       const seg = wrap.querySelector(`.pseg[data-k="${k}"] i`);
       if(!seg) return;
-      const v = Math.max(0, Math.min(10, (timers?.[k]||0)));
-      // ไม่ทำลายโครงสร้างเดิมของปุ่ม แค่ใส่ barfill ชั้นใน
+      const v = Math.max(0, Math.min(10, Number(timers?.[k]||0)));
       let fill = seg.querySelector('.barfill');
       if(!fill){
         fill = document.createElement('b');
@@ -99,103 +119,107 @@ export class HUD {
     });
   }
 
-  // ===== Mini-Quest chips =====
-  // list: [{key, icon, need, progress, remain, done, fail}]
+  /* ================= Mini-Quest chips =================
+     list: [{ key, name, icon, need, progress, remain, done, fail }]
+     สอดคล้อง CSS: .questChip / .qLabel / .qProg / .qBar > i
+  ====================================================== */
   setQuestChips(list){
-    if(!this.$quests) return;
+    if (!this.$quests) return;
     this.$quests.innerHTML = '';
-    (list||[]).forEach(q=>{
-      const progPct = q.need>0 ? Math.min(100, Math.round((q.progress/q.need)*100)) : 0;
+    (list || []).forEach(q=>{
+      const need = Number(q.need)||0;
+      const prog = Number(q.progress)||0;
+      const pct  = need>0 ? Math.min(100, Math.round((prog*100)/need)) : 0;
+
       const chip = document.createElement('div');
-      chip.className = 'chip';
-      chip.style.display = 'inline-flex';
-      chip.style.alignItems = 'center';
-      chip.style.gap = '8px';
+      chip.className = 'questChip';
+
       chip.innerHTML = `
-        <span>${q.icon||'⭐'}</span>
-        <span>${(q.progress|0)}/${(q.need|0)}</span>
-        <div class="bar" style="width:80px;height:6px;border-radius:999px;overflow:hidden;border:1px solid #1c2a4d;background:#0e1730;">
-          <div style="width:${progPct}%;height:100%;background:${q.done && !q.fail ? 'linear-gradient(90deg,#41f1a3,#a3ffcf)':'linear-gradient(90deg,#7da7ff,#43e3ff)'}"></div>
+        <div class="qRow" style="display:flex;justify-content:space-between;align-items:center;">
+          <span class="qLabel">${q.icon||'⭐'} ${q.name||q.key||''}</span>
+          <span class="qProg">${prog|0}/${need|0}</span>
         </div>
-        <span>⏱ ${Math.max(0, q.remain|0)}s</span>
+        <div class="qBar"><i style="width:${pct}%"></i></div>
       `;
-      if(q.done && !q.fail) chip.style.borderColor = '#7fffd4';
-      if(q.fail) chip.style.borderColor = '#ff9b9b';
+
+      if (q.done && !q.fail) chip.classList.add('done');
+      if (q.fail) chip.style.borderColor = '#ff9b9b';
+
       this.$quests.appendChild(chip);
     });
   }
 
-  // ===== Coach speech / Toast =====
+  /* ================= Coach speech / Toast ================= */
   say(text, ms=1500){
-    if(!this.$coachText || !this.$coachHUD) return;
-    this.$coachText.textContent = text;
+    if (!this.$coachText || !this.$coachHUD) return;
+    this.$coachText.textContent = String(text ?? '');
     this.$coachHUD.style.display = 'flex';
     this.$coachHUD.style.pointerEvents = 'none';
     clearTimeout(this._coachT);
-    this._coachT = setTimeout(()=>{ this.$coachHUD.style.display = 'none'; }, ms);
+    this._coachT = setTimeout(()=>{ if (this.$coachHUD) this.$coachHUD.style.display = 'none'; }, ms);
     this._forceShow();
   }
 
   toast(text, ms=1200){
-    if(!this.$toast) return;
-    this.$toast.textContent = text;
+    if (!this.$toast) return;
+    this.$toast.textContent = String(text ?? '');
     this.$toast.style.display = 'block';
+    // restart transition
+    this.$toast.classList.remove('show');
+    // eslint-disable-next-line no-unused-expressions
+    this.$toast.offsetHeight;
     this.$toast.classList.add('show');
     clearTimeout(this._toastT);
     this._toastT = setTimeout(()=>{
-      this.$toast.classList.remove('show');
-      this.$toast.style.display = 'none';
+      this.$toast?.classList.remove('show');
+      if (this.$toast) this.$toast.style.display = 'none';
     }, ms);
   }
 
-  // ===== Screen feedback =====
+  /* ================= Screen feedback ================= */
   flashDanger(){
     document.body.classList.add('flash-danger');
-    setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+    setTimeout(()=> document.body.classList.remove('flash-danger'), 180);
   }
   dimPenalty(){
     document.body.classList.add('dim-penalty');
-    setTimeout(()=>document.body.classList.remove('dim-penalty'), 350);
+    setTimeout(()=> document.body.classList.remove('dim-penalty'), 350);
   }
 
-  // ===== Internal: make sure HUD never gets hidden or blocks clicks =====
+  /* ================= Internals ================= */
   _applyLayerFixes(){
-    // HUD วางสูง แตะคลิกทะลุ (ยกเว้น power bar)
-    if(this.$wrap){
-      this.$wrap.style.position = 'fixed';
-      this.$wrap.style.top = '56px';
-      this.$wrap.style.left = '0';
-      this.$wrap.style.right = '0';
-      this.$wrap.style.display = 'flex';
-      this.$wrap.style.flexDirection = 'column';
-      this.$wrap.style.alignItems = 'center';
-      this.$wrap.style.gap = '6px';
-      this.$wrap.style.zIndex = '95';
-      this.$wrap.style.pointerEvents = 'none';
-      this.$wrap.style.visibility = 'visible';
-      this.$wrap.style.opacity = '1';
+    // HUD ลอยบน ไม่กันคลิก (ยกเว้น power bar)
+    if (this.$wrap){
+      Object.assign(this.$wrap.style, {
+        position:'fixed', top:'56px', left:'0', right:'0',
+        display:'flex', flexDirection:'column', alignItems:'center', gap:'6px',
+        zIndex:'95', pointerEvents:'none', visibility:'visible', opacity:'1'
+      });
     }
-    if(this.$powerBar){
-      this.$powerBar.style.pointerEvents = 'auto';
+    if (this.$powerBar){ this.$powerBar.style.pointerEvents = 'auto'; }
+    if (this.$coachHUD){
+      Object.assign(this.$coachHUD.style, { zIndex:'96', pointerEvents:'none', display:'flex' });
     }
-    if(this.$coachHUD){
-      this.$coachHUD.style.zIndex = '96';
-      this.$coachHUD.style.pointerEvents = 'none';
-      this.$coachHUD.style.display = 'flex';
-    }
-    // กัน canvas/scene ไม่บังคลิก
+    // กัน canvas ไม่บังคลิก
     const canv = document.getElementById('c');
     if (canv){ canv.style.pointerEvents = 'none'; canv.style.zIndex = '0'; }
   }
 
   _forceShow(){
-    // บังคับให้กลุ่มหลักไม่โดน display:none โดยสไตล์อื่น
-    if(this.$wrap){
+    if (this.$wrap){
       this.$wrap.style.visibility = 'visible';
       this.$wrap.style.opacity = '1';
+      const cards = this.$wrap.querySelectorAll?.('.cardlike');
+      cards?.forEach(c => { c.style.display = 'inline-flex'; });
     }
-    // ทำให้แถบคะแนน/เวลาโผล่ชัด
-    const cards = this.$wrap && this.$wrap.querySelectorAll('.cardlike');
-    cards && cards.forEach(c=>{ c.style.display = 'inline-flex'; });
+  }
+
+  _ensureToast(){
+    const t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    t.style.display = 'none';
+    document.body.appendChild(t);
+    return t;
   }
 }
