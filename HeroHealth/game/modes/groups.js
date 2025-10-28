@@ -1,12 +1,9 @@
-// === Hero Health Academy — game/modes/groups.js (Hardened Drop-in) ===
+// === Hero Health Academy — game/modes/groups.js (Hardened + Factory adapter) ===
 // Food Group Frenzy (5 หมู่) + โควตา + Power-ups (x2 / Freeze / Magnet)
-// รวม: golden gating window, target cooldown + micro toast, HUD target badge, safe lifetimes
-// สัญญากับ main.js:
-// export: init(state, hud, diff), cleanup(state, hud), pickMeta(diff, state),
-//         onHit(meta, sys, state, hud), tick(state, sys, hud)
-// export: powers{ x2Target, freezeTarget, magnetNext }, getPowerDurations()
-// export: fx{ onSpawn, onHit }
-// meta: {char, label, aria, groupId, good, golden, life}
+// • Golden gating window, target cooldown + micro toast, HUD target badge
+// • Safe lifetimes & DOM-spawn adapter so it plugs into main.js (factory style)
+// -----------------------------------------------------------------------------
+// Supports BOTH legacy meta-flow (pickMeta/onHit/tick) and new factory create()
 
 export const name = 'groups';
 
@@ -185,7 +182,7 @@ function updateTargetHUD(state){
   }
 }
 
-// ---------- Lifecycle ----------
+// ---------- Lifecycle (legacy) ----------
 export function init(state={}, hud=null, diff={}){
   _hudRef = hud;
   _lastState = state;
@@ -223,7 +220,7 @@ export function tick(/*state, sys, hud*/){
   if (_x2Until && nowMs() > _x2Until) _x2Until = 0;
 }
 
-// ---------- สุ่มเป้าหมาย ----------
+// ---------- สุ่มเป้าหมาย (legacy) ----------
 export function pickMeta(diff={}, state={}){
   // Magnet: ชิ้นถัดไปบังคับเป็นเป้าหมาย
   let forceTarget = false;
@@ -264,7 +261,7 @@ export function pickMeta(diff={}, state={}){
   };
 }
 
-// ---------- เมื่อผู้เล่นคลิก ----------
+// ---------- เมื่อผู้เล่นคลิก (legacy) ----------
 export function onHit(meta={}, sys={}, state={}, hud=null){
   // meta: {good, golden, groupId}
   let result = 'ok';
@@ -319,3 +316,138 @@ export const fx = {
     try { (window?.HHA_FX?.shatter3D || (()=>{}))(x, y); } catch {}
   }
 };
+
+/* =============================================================================
+   Factory Adapter (for main.js DOM-spawn flow)
+   - Creates & manages DOM buttons under #spawnHost
+   - Uses pickMeta()/onHit() logic above, HUD/coach feedback, Bus scoring
+============================================================================= */
+export function create({ engine, hud, coach }) {
+  const host  = document.getElementById('spawnHost');
+  const layer = document.getElementById('gameLayer');
+
+  // Local state mirrors legacy 'state'
+  const state = {
+    running: false,
+    items: [],                 // { el, x, y, born, life, meta }
+    freezeUntil: 0,
+    difficulty: (window.__HHA_DIFF || 'Normal'),
+    lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(),
+    ctx: { targetGroup:'veggies', targetNeed: QUOTA[window.__HHA_DIFF||'Normal']||8, targetHave:0 },
+    stats: { good:0, perfect:0, bad:0, miss:0 },
+  };
+
+  // Keep global for powers.freezeTarget()
+  _lastState = state;
+  _hudRef = hud;
+
+  function start(){
+    stop();
+    state.running = true;
+    state.items.length = 0;
+    state.freezeUntil = 0;
+    state.stats = { good:0, perfect:0, bad:0, miss:0 };
+    init(state, hud, {}); // sets target + HUD
+    coach?.onStart?.();
+  }
+
+  function stop(){
+    state.running = false;
+    try {
+      for (const it of state.items) it.el.remove();
+    } catch {}
+    state.items.length = 0;
+  }
+
+  function update(dt, Bus){
+    if (!state.running) return;
+
+    const now = performance.now();
+    const rect = layer.getBoundingClientRect();
+
+    // Spawn cadence — lean on Bus.requestSpawn if present, otherwise do it here
+    if (!state._spawnCd) state._spawnCd = 0.18;
+    // Small dynamic spawn: faster when time is low
+    const timeLeft = Number(document.getElementById('time')?.textContent||'0')|0;
+    const speedBias = timeLeft <= 15 ? 0.18 : 0;
+    state._spawnCd -= dt;
+    if (now >= state.freezeUntil && state._spawnCd <= 0){
+      spawnOne(rect, Bus);
+      state._spawnCd = clamp(0.42 - speedBias + Math.random()*0.24, 0.28, 1.0);
+    }
+
+    // Life ticking
+    const gone = [];
+    for (const it of state.items){
+      if (now - it.born > it.life){
+        // timeout → miss if it was a target piece
+        if (it.meta.good){ Bus?.miss?.(); state.stats.miss++; }
+        try { it.el.remove(); } catch {}
+        gone.push(it);
+      }
+    }
+    if (gone.length){
+      state.items = state.items.filter(x=>!gone.includes(x));
+    }
+  }
+
+  function onClick(){ /* unused, per-item handles its own click */ }
+
+  function spawnOne(rect, Bus){
+    const meta = pickMeta({ life: 1600 }, state);
+    const pad = 30;
+    const x = Math.round(pad + Math.random()*(rect.width  - pad*2));
+    const y = Math.round(pad + Math.random()*(rect.height - pad*2));
+
+    const b = document.createElement('button');
+    b.className = 'spawn-emoji';
+    b.type = 'button';
+    b.style.left = x + 'px';
+    b.style.top  = y + 'px';
+    b.textContent = meta.char;
+    b.setAttribute('aria-label', meta.aria);
+    if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+
+    // FX hook on spawn
+    try { fx.onSpawn?.(b, state); } catch {}
+
+    b.addEventListener('click', (ev)=>{
+      if (!state.running) return;
+      ev.stopPropagation();
+      const ui = { x: ev.clientX, y: ev.clientY };
+
+      // Evaluate via legacy handler
+      const res = onHit(meta, { sfx: Bus?.sfx }, state, hud);
+
+      // Score & feedback
+      if (res === 'good' || res === 'perfect'){
+        const pts = res === 'perfect' ? 20 : 10;
+        if (res === 'perfect'){ coach?.onPerfect?.(); } else { coach?.onGood?.(); }
+        engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 720 });
+        try { fx.onHit?.(ui.x, ui.y, meta, state); } catch {}
+        state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui });
+      } else if (res === 'bad'){
+        // soft penalty
+        document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+        coach?.onBad?.(); state.stats.bad++; Bus?.miss?.();
+        state.freezeUntil = Math.max(state.freezeUntil, performance.now()+260);
+      }
+
+      // remove clicked
+      try { b.remove(); } catch {}
+      const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
+    }, { passive:false });
+
+    document.getElementById('spawnHost')?.appendChild?.(b);
+    state.items.push({ el:b, x, y, born: performance.now(), life: meta.life, meta });
+  }
+
+  function cleanup(){
+    stop();
+    cleanupLegacy();
+  }
+
+  function cleanupLegacy(){ try { cleanup(state, hud); } catch {} }
+
+  return { start, stop, update, onClick, cleanup };
+}
