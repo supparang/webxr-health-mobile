@@ -226,3 +226,51 @@ body.dim-penalty::before{
 
 /* ---------- Accessibility helpers ---------- */
 :focus-visible { outline:2px solid #7fffd4; outline-offset:2px; }
+/* === Hero Health Academy — styles/game.css (alerts for plate/hydration/target + gaze reticle) === */
+
+/* --- เพิ่มจากของเดิม: เอฟเฟกต์เตือน & Gaze Reticle --- */
+
+/* Plate: pill เขียวเมื่อครบ, แดงสั่นเมื่อ overfill */
+#platePills .pill.warn {
+  border-color:#9b2c2c !important;
+  box-shadow:0 0 0 2px rgba(255,64,64,.25);
+  animation: plateShake .2s linear 1;
+}
+@keyframes plateShake {
+  0%{ transform:translateX(0) }
+  25%{ transform:translateX(-3px) }
+  50%{ transform:translateX(2px) }
+  75%{ transform:translateX(-2px) }
+  100%{ transform:translateX(0) }
+}
+
+/* Hydration: flash สีที่ปลายทางเมื่อข้ามโซนผิดฝั่ง */
+.hydroBar.flash-bad::after{
+  content:''; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(255,64,64,.25), transparent);
+  animation: hydroFlash .25s ease-out 1;
+  pointer-events:none;
+}
+@keyframes hydroFlash{ from{ opacity:.9 } to{ opacity:0 } }
+
+/* Target badge pulse (โหมด groups) */
+#targetWrap.pulse {
+  animation: targetPulse .45s ease-out 1;
+  box-shadow:0 0 0 2px rgba(103,232,249,.35);
+}
+@keyframes targetPulse{
+  0%{ transform:scale(1); }
+  40%{ transform:scale(1.04); }
+  100%{ transform:scale(1); }
+}
+
+/* Gaze reticle (ตัวจริงสร้างจาก JS แต่กัน CSS ทับไว้) */
+#hhaReticle{ /* สไตล์หลักถูกตั้งจาก JS เพื่อความเข้ากันได้ทุกสภาพแวดล้อม */ }
+#hhaReticle.hidden{ opacity:0; }
+
+/* ปุ่มเมนู/โมดัล: ให้กดด้วย gaze ได้ง่ายขึ้น */
+button.btn, .item, [data-action], [data-result], [data-modal-open], [data-modal-close]{
+  touch-action: manipulation;
+}
+
+/* ป้องกัน overlay บังโมดัลปุ่ม */
+.modal{ z-index: 9999; }
