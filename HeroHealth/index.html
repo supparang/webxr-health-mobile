@@ -240,5 +240,51 @@
       จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
     </div>
   </noscript>
+  /* ==== Clickability & Layer Fixes (global) ==== */
+#c {              /* อย่าให้ canvas ขวางคลิก */
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+.hud {            /* HUD แสดงผลอย่างเดียว ไม่รับคลิก */
+  pointer-events: none !important;
+  z-index: 20 !important;
+}
+.hud * {          /* ข้อยกเว้น: powerbar/ปุ่มใน HUD ถ้ามี */
+  pointer-events: auto;
+}
+header.brand {
+  z-index: 25 !important;
+  pointer-events: auto !important;
+}
+.menu {
+  z-index: 30 !important;
+  pointer-events: auto !important;
+}
+.menu .btn, .menu .tag {
+  pointer-events: auto !important;
+}
+.game-wrap, #gameLayer, #spawnHost {
+  position: relative;
+  z-index: 28; /* อยู่เหนือ canvas / ใต้เมนู */
+}
+#spawnHost {
+  pointer-events: none;  /* host ไม่รับคลิก */
+}
+.spawn-emoji {
+  pointer-events: auto;  /* แต่ไอคอนที่สปอว์นต้องคลิกได้ */
+  position: absolute;
+  font-size: clamp(24px, 5.5vmin, 42px);
+  line-height: 1;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 29;
+}
+.modal {
+  z-index: 40 !important; /* time ที่เปิด modal ให้ขึ้นสุด */
+}
+
 </body>
 </html>
