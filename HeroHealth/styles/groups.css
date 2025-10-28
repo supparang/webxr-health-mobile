@@ -1,13 +1,14 @@
-/* === Hero Health Academy — styles/groups.css (mode-specific, no bg changes) === */
+/* === Hero Health Academy — styles/groups.css (mode: groups, HUD-safe, no bg changes) === */
 
-/* Target badge always visible (and above items) in groups mode */
+/* Target badge: โชว์ตลอดในโหมด groups, ไม่กันคลิก, อยู่เหนือไอคอนแต่ต่ำกว่า HUD */
 html[data-hha-mode="groups"] #targetWrap{
-  display:block !important;
+  display:inline-flex !important;
   font-weight:900; letter-spacing:.2px;
-  z-index:66; /* ensure badge stays above floating items */
+  z-index:94;                /* < coach(96)/hud(95) แต่ > items(29) & plate/hydro(93) */
+  pointer-events:none !important;
 }
 
-/* --- Icon buttons: 3D look & responsive size --- */
+/* --- Group items: 3D chip look + คลิกได้แน่นอน --- */
 html[data-hha-mode="groups"] .item{
   position:fixed;
   padding:8px 12px;
@@ -21,7 +22,11 @@ html[data-hha-mode="groups"] .item{
   transform:perspective(600px) rotateX(0) rotateY(0);
   will-change:transform, filter, opacity;
   transition:transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
-  user-select:none;
+  user-select:none; -webkit-tap-highlight-color:transparent;
+
+  /* คลิกได้จริงทุกแพลตฟอร์ม และอยู่เหนือฉาก/host แต่ต่ำกว่าเมนู/HUD */
+  pointer-events:auto !important;
+  z-index:29;
 }
 
 /* highlight strip */
@@ -60,18 +65,13 @@ html[data-hha-mode="groups"] .item:focus-visible{
   box-shadow:0 0 0 2px #0a0f1a, 0 0 0 4px #7fffd470, 0 14px 28px rgba(0,0,0,.35);
 }
 
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce){
-  html[data-hha-mode="groups"] .item{ transition:none; }
+/* Disabled state (เช่น over-quota) */
+html[data-hha-mode="groups"] .item[aria-disabled="true"],
+html[data-hha-mode="groups"] .item[data-disabled="1"]{
+  opacity:.45; pointer-events:none !important; filter:grayscale(1) brightness(.7);
 }
 
-/* Tighten coach bubble alignment for groups */
-html[data-hha-mode="groups"] #coachHUD{ justify-content:center; }
-
-/* --- Optional cues (non-breaking) -----------------------------
-   If the mode sets data attributes on items (data-golden / data-target),
-   these styles will highlight them without changing logic.
----------------------------------------------------------------- */
+/* Optional cues (จาก data-attrs ของโหมด groups) */
 html[data-hha-mode="groups"] .item[data-golden="1"]{
   box-shadow:
     0 14px 28px rgba(0,0,0,.35),
@@ -82,6 +82,9 @@ html[data-hha-mode="groups"] .item[data-target="1"]{
   outline:2px dashed #67e8f9; outline-offset:3px;
 }
 
+/* Tighten coach bubble alignment for groups */
+html[data-hha-mode="groups"] #coachHUD{ justify-content:center; }
+
 /* Small-screen tweaks */
 @media (max-width:480px){
   html[data-hha-mode="groups"] #targetWrap{ font-size:14px; }
@@ -89,4 +92,9 @@ html[data-hha-mode="groups"] .item[data-target="1"]{
 @media (max-width:380px){
   /* guard rails so icons don’t overflow visually if inline font-size gets big */
   html[data-hha-mode="groups"] .item{ font-size: clamp(40px, 16vw, 56px); }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  html[data-hha-mode="groups"] .item{ transition:none; }
 }
