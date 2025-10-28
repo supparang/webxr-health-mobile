@@ -1,4 +1,4 @@
-/* === Hero Health Academy — styles/game.css (with Plate tracker + Penalty FX) === */
+/* === Hero Health Academy — styles/game.css (Plate tracker + Penalty FX + Quests + Bursts) === */
 html, body {
   margin:0; padding:0; height:100%; width:100%;
   overflow:hidden; background:#0a0f1a;
@@ -6,6 +6,7 @@ html, body {
 }
 canvas#c { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
+/* ---------- Header ---------- */
 header.brand {
   position:fixed; top:0; left:0; right:0; z-index:50;
   display:flex; align-items:center; gap:8px;
@@ -19,6 +20,7 @@ header .btn, .menu .btn, .menu .tag {
 }
 header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(1px); }
 
+/* ---------- HUD ---------- */
 .hud {
   position:fixed; z-index:60; top:64px; left:12px; right:12px;
   display:flex; flex-direction:column; gap:6px;
@@ -29,9 +31,8 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 #feverBar { height:100%; width:0%; background:linear-gradient(90deg, #ffd54a, #ff6d00); }
 .fever { font:900 18px/1 ui-rounded, system-ui; color:#ffd54a; }
 
-.powerbar {
-  display:flex; gap:8px; align-items:center; margin-top:4px;
-}
+/* Power bar */
+.powerbar { display:flex; gap:8px; align-items:center; margin-top:4px; }
 .powerbar .pseg {
   position:relative; display:flex; align-items:center; justify-content:center;
   width:40px; height:40px; border-radius:12px;
@@ -45,16 +46,21 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 .powerbar .pseg[aria-disabled="true"] { opacity:.45; pointer-events:none; }
 .powerbar .pseg span { font-size:18px; font-weight:900; }
 .powerbar .pseg[data-k="x2"] span { font-size:16px; }
-.powerbar .pseg i { position:absolute; inset:auto 0 0 0; height:0%;
-  background:linear-gradient(180deg, rgba(255,213,74,.85), rgba(255,109,0,.85)); transition:height .2s linear; }
+.powerbar .pseg i {
+  position:absolute; inset:auto 0 0 0; height:0%;
+  background:linear-gradient(180deg, rgba(255,213,74,.85), rgba(255,109,0,.85));
+  transition:height .2s linear;
+}
 .powerbar .pseg.busy i { height:100%; }
 .powerbar .pseg.ready { outline:2px solid #4ade80; }
 
-#targetWrap {
+/* Mode target badge (used by groups) */
+#targetWrap{
   font-weight:800; background:#0d172b; border:1px solid #203155; border-radius:10px;
   padding:6px 10px; display:inline-flex; align-items:center; gap:8px; width:max-content;
 }
 
+/* ---------- Menu ---------- */
 .menu{
   position:fixed; left:0; right:0; bottom:0; z-index:70;
   background:linear-gradient(0deg, rgba(8,12,24,.8), rgba(8,12,24,.3));
@@ -64,7 +70,7 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 .menu .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 .modeLabel{ margin-left:auto; opacity:.85; font-weight:800; }
 
-/* ------- Modal (สรุปผล/คู่มือ/สถิติ/รายวัน) ------- */
+/* ---------- Modal (result/help/stats/daily) ---------- */
 .modal{
   position:fixed; inset:0; display:none; align-items:center; justify-content:center;
   z-index: 9999; background:rgba(0,0,0,.45); backdrop-filter: blur(2px);
@@ -78,8 +84,18 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 .modal .card.scroll{ overflow:auto; }
 .modal .btn,[data-result]{ cursor:pointer; }
 
+/* ---------- Countdown overlay ---------- */
+#cdOverlay{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:9900; pointer-events:none; }
+#cdNum{ font:900 72px/1 ui-rounded,system-ui; color:#fff; text-shadow:0 2px 14px #000c; }
+
+/* ---------- Floating score bursts ---------- */
+.scoreBurst{
+  will-change: transform, opacity;
+  pointer-events:none;
+}
+
 /* ============================================================
-   NEW: Healthy Plate Tracker (Quota bars)
+   Healthy Plate Tracker (Quota bars)
    ============================================================ */
 #plateTracker{
   position:fixed; z-index:62; top:64px; right:12px; min-width:240px;
@@ -95,7 +111,8 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
   background:#0b1426; border:1px solid #1a2a4d;
 }
 #platePills .pill b{ font:800 12px/1 ui-rounded,system-ui; opacity:.9; }
-#platePills .pill .qty{ font:800 12px/1 ui-rounded,system-ui; opacity:.9; }
+/* NOTE: plate.js renders a plain <span>, not .qty → target the span */
+#platePills .pill span{ font:800 12px/1 ui-rounded,system-ui; opacity:.9; }
 #platePills .pill i{
   position:absolute; left:6px; right:6px; bottom:6px; height:6px; border-radius:999px;
   background:linear-gradient(90deg,#7da7ff,#43e3ff); opacity:.85;
@@ -109,28 +126,24 @@ header .btn:active, .menu .btn:active, .menu .tag:active { transform:translateY(
 }
 
 /* ============================================================
-   NEW: Penalty FX — flash red / dim overlay
+   Penalty FX — flash red / dim overlay
    ============================================================ */
 body.flash-danger::after{
   content:''; position:fixed; inset:0; background:rgba(255,40,40,.35);
   animation:flashRed .25s ease-out;
   pointer-events:none; z-index:9998;
 }
-@keyframes flashRed{
-  0%{opacity:.85;} 100%{opacity:0;}
-}
+@keyframes flashRed{ 0%{opacity:.85;} 100%{opacity:0;} }
 
 body.dim-penalty::before{
   content:''; position:fixed; inset:0; background:rgba(0,0,0,.5);
   animation:dimPen .4s ease-out forwards;
   pointer-events:none; z-index:9997;
 }
-@keyframes dimPen{
-  0%{opacity:.8;} 100%{opacity:0;}
-}
+@keyframes dimPen{ 0%{opacity:.8;} 100%{opacity:0;} }
 
 /* ============================================================
-   Mission line (ใช้ใน Plate เปลี่ยนเป้าหมาย)
+   Mission line (used in Plate)
    ============================================================ */
 #missionLine{
   position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -139,7 +152,10 @@ body.dim-penalty::before{
   border-radius:12px; color:#fff; text-shadow:0 2px 10px #000;
   display:none; z-index:9999;
 }
-/* === Hydration Bar (Low/OK/High) with FEVER flames === */
+
+/* ============================================================
+   Hydration Bar (Low/OK/High) with FEVER flames
+   ============================================================ */
 #hydroWrap{
   position:fixed; z-index:65; left:12px; right:12px; top:114px;
   display:block; pointer-events:none;
@@ -165,7 +181,7 @@ body.dim-penalty::before{
   transition:left .18s ease;
 }
 
-/* สีกรอบตามโซน */
+/* outline color by zone */
 .hydroBar[data-zone="LOW"]  { outline:2px solid rgba(90,176,255,.35); }
 .hydroBar[data-zone="OK"]   { outline:2px solid rgba(127,255,212,.45); }
 .hydroBar[data-zone="HIGH"] { outline:2px solid rgba(255,109,0,.45); }
@@ -188,5 +204,25 @@ body.dim-penalty::before{
 @keyframes flameUp{
   0%   { transform: translateY(6px) scale(0.9); opacity:.9; }
   50%  { transform: translateY(-2px) scale(1.05); opacity:1; }
-  100% { transform: translateY(-8px) scale(0.85); opacity:.0; }
+  100% { transform: translateY(-8px) scale(0.85); opacity:0; }
 }
+
+/* ============================================================
+   Quest chips (shown by HUD via Quests.bindToMain)
+   ============================================================ */
+#questChips{
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+}
+.questChip{
+  display:flex; flex-direction:column; gap:4px; min-width:120px;
+  padding:8px 10px; border-radius:10px; background:#0b1426; border:1px solid #1a2a4d;
+}
+.questChip .qLabel{ font:800 12px/1.2 ui-rounded,system-ui; opacity:.95; }
+.questChip .qProg{ font:800 12px/1 ui-rounded,system-ui; opacity:.8; text-align:right; }
+.questChip .qBar{ position:relative; height:6px; border-radius:999px; overflow:hidden; background:#0e1730; border:1px solid #1c2a4d; }
+.questChip .qBar i{ position:absolute; inset:0; width:0%; background:linear-gradient(90deg,#7da7ff,#43e3ff); }
+.questChip.done{ border-color:#285a3a; background:linear-gradient(180deg,#0f1f1a,#0b1410); }
+.questChip.done .qBar i{ background:linear-gradient(90deg,#41f1a3,#a3ffcf); }
+
+/* ---------- Accessibility helpers ---------- */
+:focus-visible { outline:2px solid #7fffd4; outline-offset:2px; }
