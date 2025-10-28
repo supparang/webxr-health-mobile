@@ -307,3 +307,38 @@ export const fx = {
   onSpawn(el/*, state*/){ try { FX.add3DTilt?.(el); } catch {} },
   onHit(x, y/*, meta, state*/){ try { FX.shatter3D?.(x, y); } catch {} }
 };
+// === Hero Health Academy — modes/groups.js (target cooldown + micro toast + margin safe) ===
+import { fx as baseFX, powers, getPowerDurations, name as modeName } from './groups.js'; // ใช้ไฟล์เวอร์ชันล่าสุดของคุณ
+// หมายเหตุ: ถ้าไฟล์คุณชื่อเดียวกันอยู่แล้ว ให้ผสานโค้ดด้านล่างเข้า “ไฟล์ที่ใช้อยู่” (จากรอบก่อน)
+
+let _targetCooldownUntil = 0;
+
+function now(){ return performance.now(); }
+function toast(msg){
+  let el = document.getElementById('toast'); if (!el){
+    el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el);
+  }
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 1000);
+}
+
+export function init(state,hud,diff){
+  _targetCooldownUntil = 0;
+}
+
+export function onHit(meta, sys, state, hud){
+  const r = (await import('/webxr-health-mobile/HeroHealth/game/modes/groups.js')).onHit(meta, sys, state, hud);
+  // หลังจาก “ครบโควตา → เปลี่ยนหมวดใหม่” ในไฟล์เดิม ให้ใส่ cooldown เพิ่ม:
+  if (state.ctx?.targetHave===0){ // เพิ่งรีเซ็ตเป้า
+    _targetCooldownUntil = now() + 1200;
+    const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[state.ctx.targetGroup] || state.ctx.targetGroup;
+    toast('🎯 เป้าหมายใหม่: ' + nameTH);
+    const wrap = document.getElementById('targetWrap'); if (wrap){ wrap.classList.add('glow'); setTimeout(()=>wrap.classList.remove('glow'), 950); }
+  }
+  return r;
+}
+
+export function pickMeta(diff, state){
+  // กันซ้อนเมนูด้านล่าง: บอก engine/Spawner ผ่าน margin safe zone (ทำที่ main แล้ว)
+  return (await import('/webxr-health-mobile/HeroHealth/game/modes/groups.js')).pickMeta(diff, state);
+}
