@@ -59,72 +59,141 @@ export const Quests = (() => {
   let RUN = null, _hud = null;
 
   function shufflePick3(list){
-    const a=[...list]; for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j]]=[a[j],a[i]]; }
-    return a.slice(0,3);
+    const a = [...list];
+    for (let i = a.length - 1; i > 0; i--) { // FIX: สลับอาเรย์แบบถูกต้อง
+      const j = (Math.random() * (i + 1)) | 0;
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a.slice(0, 3);
   }
+
   function toChips(){
     if (!RUN) return [];
-    return RUN.list.map(q=>({
-      key:q.id, icon:q.icon||'⭐', need:q.need|0,
-      progress: Math.max(0, Math.min(q.need|0, q.prog|0)),
-      remain: RUN.remainSec|0, done:!!q.done, fail:!!q.fail, label:q.label
+    return RUN.list.map(q => ({
+      key: q.id, icon: q.icon || '⭐', need: q.need | 0,
+      progress: Math.max(0, Math.min(q.need | 0, q.prog | 0)),
+      remain: RUN.remainSec | 0, done: !!q.done, fail: !!q.fail, label: q.label
     }));
   }
-  function evalDone(){ if(!RUN) return; for(const q of RUN.list){ if(!q.done && !q.fail){ if((q.prog|0)>=(q.need|0)) q.done=true; else if((RUN.remainSec|0)<=0) q.fail=true; } } }
+
+  function evalDone(){
+    if (!RUN) return;
+    for (const q of RUN.list){
+      if (!q.done && !q.fail){
+        if ((q.prog|0) >= (q.need|0)) q.done = true;
+        else if ((RUN.remainSec|0) <= 0) q.fail = true;
+      }
+    }
+  }
 
   function beginRun(mode, diff, lang='TH', seconds=45){
-    const pool = POOLS[mode]||GJ;
-    const list = shufflePick3(pool).map(m=>({
+    const pool = POOLS[mode] || GJ;
+    const list = shufflePick3(pool).map(m => ({
       ...m,
-      label: lang==='EN'?(m.labelEN||m.id):(m.labelTH||m.id),
-      prog:0, done:false, fail:false
+      label: lang==='EN' ? (m.labelEN || m.id) : (m.labelTH || m.id),
+      prog: 0, done: false, fail: false
     }));
     RUN = { mode, diff, lang, list, remainSec: Math.max(10, seconds|0) };
     if (!window.HHA_QUESTS){ window.HHA_QUESTS = { event:(type,payload)=>event(type,payload) }; }
-    if (_hud) _hud.setQuestChips(toChips());
+    _hud?.setQuestChips?.(toChips());
     return list;
   }
 
-  function _applyHit(ctx, type, p){
-    for(const q of RUN.list){
-      if(q.done) continue;
+  // ---------- Event plumbing ----------
+  function _apply(ctx, type, p){
+    for (const q of RUN.list){
+      if (q.done) continue;
       switch(q.type){
-        case 'count_good':     if(type==='hit' && (p.result==='good'||p.result==='perfect') && p.meta?.isGood) q.prog=(q.prog|0)+1; break;
-        case 'count_perfect':  if(type==='hit' && p.result==='perfect') q.prog=(q.prog|0)+1; break;
-        case 'streak_nomiss':  if(type==='hit'){ if(p.result==='bad') q._streak=0; else q._streak=(q._streak|0)+1; q.prog=Math.max(q.prog|0, q._streak|0); } break;
-        case 'reach_score':    if((ctx.score|0) >= (q.need|0)) q.prog=q.need; break;
-        case 'count_fever':    if(type==='fever' && p.kind==='start') q.prog=(q.prog|0)+1; break;
-        case 'count_golden':   if(type==='hit' && p.meta?.golden) q.prog=(q.prog|0)+1; break;
-        case 'count_target':   if(type==='hit' && (p.meta?.good||p.meta?.isTarget)) q.prog=(q.prog|0)+1; break;
-        case 'count_group':    if(type==='hit' && p.meta?.groupId===q.group && (p.result==='good'||p.result==='perfect')) q.prog=(q.prog|0)+1; break;
-        case 'reach_combo':    if(type==='hit'){ q._max = Math.max(q._max|0, p.comboNow|0); q.prog=q._max|0; } break;
-        case 'targets_cleared':if(type==='target_cleared') q.prog=(q.prog|0)+1; break;
-        case 'hydro_ok_time':  if(type==='hydro_tick' && p.zone==='OK') q.prog=(q.prog|0)+1; break;
-        case 'hydro_recover_low': if(type==='hydro_cross' && p.from==='LOW' && p.to==='OK') q.prog=(q.prog|0)+1; break;
-        case 'hydro_treat_high':  if(type==='hydro_click' && p.zoneBefore==='HIGH' && p.kind==='sweet') q.prog=(q.prog|0)+1; break;
-        case 'hydro_no_high':  if(type==='run_end'){ if((p.highCount|0)===0) q.prog=0; q.prog=q.need; } break;
-        case 'hydro_smart_sip':if(type==='hydro_click'){ const good=(p.zoneBefore==='LOW'&&p.kind==='water')||(p.zoneBefore==='HIGH'&&p.kind==='sweet')||(p.zoneBefore==='OK'&&p.kind==='water'); if(good) q.prog=(q.prog|0)+1; } break;
-        case 'no_over_quota':  if(type==='run_end'){ if((p.overfill|0)===0) q.prog=q.need; } break;
-        case 'groups_completed': if(type==='group_full') q.prog=Math.min(q.need|0, (q.prog|0)+1); break;
+        case 'count_good':
+          if (type==='hit' && (p.result==='good'||p.result==='perfect') && (p.meta?.good || p.meta?.isGood)) q.prog = (q.prog|0) + 1;
+          break;
+        case 'count_perfect':
+          if (type==='hit' && p.result==='perfect') q.prog = (q.prog|0) + 1;
+          break;
+        case 'streak_nomiss':
+          if (type==='hit'){ if (p.result==='bad') q._streak = 0; else q._streak = (q._streak|0) + 1; q.prog = Math.max(q.prog|0, q._streak|0); }
+          break;
+        case 'reach_score':
+          if ((ctx.score|0) >= (q.need|0)) q.prog = q.need;
+          break;
+        case 'count_fever':
+          if (type==='fever' && p.kind==='start') q.prog = (q.prog|0) + 1;
+          break;
+        case 'count_golden':
+          if (type==='hit' && p.meta?.golden) q.prog = (q.prog|0) + 1;
+          break;
+        case 'count_target': // รองรับทั้ง groups(target) และ plate(ภายในโควตา)
+          if (type==='hit' && (p.meta?.good || p.meta?.isTarget)) q.prog = (q.prog|0) + 1;
+          break;
+        case 'count_group':
+          if (type==='hit' && p.meta?.groupId === q.group && (p.result==='good'||p.result==='perfect')) q.prog = (q.prog|0) + 1;
+          break;
+        case 'reach_combo':
+          if (type==='hit'){ q._max = Math.max(q._max|0, p.comboNow|0); q.prog = q._max|0; }
+          break;
+        case 'targets_cleared': // โหมด groups: รับทั้ง 'target_cleared' และ fallback 'target_cycle'
+          if (type==='target_cleared' || type==='target_cycle') q.prog = (q.prog|0) + 1;
+          break;
+        case 'hydro_ok_time':
+          if (type==='hydro_tick' && p.zone==='OK') q.prog = (q.prog|0) + 1;
+          break;
+        case 'hydro_recover_low':
+          if (type==='hydro_cross' && p.from==='LOW' && p.to==='OK') q.prog = (q.prog|0) + 1;
+          break;
+        case 'hydro_treat_high':
+          if (type==='hydro_click' && p.zoneBefore==='HIGH' && p.kind==='sweet') q.prog = (q.prog|0) + 1;
+          break;
+        case 'hydro_no_high': // FIX: ให้ผ่านเฉพาะเมื่อไม่มี HIGH จริง ๆ
+          if (type==='run_end' && ((p.highCount|0) === 0)) q.prog = q.need;
+          break;
+        case 'hydro_smart_sip':
+          if (type==='hydro_click'){
+            const good = (p.zoneBefore==='LOW' && p.kind==='water')
+                      || (p.zoneBefore==='HIGH' && p.kind==='sweet')
+                      || (p.zoneBefore==='OK'   && p.kind==='water');
+            if (good) q.prog = (q.prog|0) + 1;
+          }
+          break;
+        case 'no_over_quota':
+          if (type==='run_end' && ((p.overfill|0) === 0)) q.prog = q.need;
+          break;
+        case 'groups_completed': // Plate: รองรับทั้ง 'group_full' และ 'plate_group_full'
+          if (type==='group_full' || type==='plate_group_full') q.prog = Math.min(q.need|0, (q.prog|0) + 1);
+          break;
       }
     }
   }
 
   function event(type, payload={}){
-    if(!RUN) return;
+    if (!RUN) return;
     const ctx = payload._ctx || {};
-    _applyHit(ctx, type, payload);
+    _apply(ctx, type, payload);
     evalDone();
-    if(_hud) _hud.setQuestChips(toChips());
+    _hud?.setQuestChips?.(toChips());
   }
 
-  function tick(payload={}){ if(!RUN) return; RUN.remainSec=Math.max(0,(RUN.remainSec|0)-1); // speed_finisher migrated to reach_score
-    evalDone(); if(_hud) _hud.setQuestChips(toChips()); }
+  function tick(payload={}){
+    if (!RUN) return;
+    RUN.remainSec = Math.max(0, (RUN.remainSec|0) - 1);
+    // อัปเดตเควสต์ที่ผูกกับคะแนน/เวลาในระหว่างเล่น
+    const ctx = { score: payload.score|0 };
+    _apply(ctx, 'tick', { _ctx: ctx });
+    evalDone();
+    _hud?.setQuestChips?.(toChips());
+  }
 
-  function endRun(summary){ if(!RUN) return []; for(const q of RUN.list){ if(!q.done && !q.fail){ /* allow end checks already handled */ } }
-    const out = RUN.list.map(x=>x); RUN=null; if(_hud) _hud.setQuestChips([]); return out; }
+  function endRun(summary){
+    if (!RUN) return [];
+    // ปิดรอบ: ให้เงื่อนไขปลายทาง (no-high / no-over ฯลฯ) ยิงผ่าน event สรุป
+    _apply({ score: summary?.score|0 }, 'run_end', summary||{});
+    evalDone();
+    const out = RUN.list.map(x => x);
+    RUN = null;
+    _hud?.setQuestChips?.([]);
+    return out;
+  }
 
-  function bindToMain({hud=null}={}){ _hud=hud||null; return { refresh(){ if(_hud) _hud.setQuestChips(toChips()); } }; }
+  function bindToMain({hud=null}={}){ _hud = hud || null; return { refresh(){ _hud?.setQuestChips?.(toChips()); } }; }
 
   return { beginRun, event, tick, endRun, bindToMain };
 })();
