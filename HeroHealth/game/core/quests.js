@@ -1,4 +1,4 @@
-// === Hero Health Academy — core/quests.js (10 quests per mode, HUD-ready) ===
+// === Hero Health Academy — core/quests.js (10 quests per mode, HUD-ready, with HUD-done ping) ===
 export const Quests = (() => {
   // ---------- Quest definitions (10 ต่อโหมด) ----------
   const GJ = [ // Good vs Junk
@@ -60,7 +60,7 @@ export const Quests = (() => {
 
   function shufflePick3(list){
     const a = [...list];
-    for (let i = a.length - 1; i > 0; i--) { // FIX: สลับอาเรย์แบบถูกต้อง
+    for (let i = a.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
       [a[i], a[j]] = [a[j], a[i]];
     }
@@ -76,11 +76,15 @@ export const Quests = (() => {
     }));
   }
 
+  function _markDone(qid){
+    try{ _hud?.markQuestDone?.(qid); }catch{}
+  }
+
   function evalDone(){
     if (!RUN) return;
     for (const q of RUN.list){
       if (!q.done && !q.fail){
-        if ((q.prog|0) >= (q.need|0)) q.done = true;
+        if ((q.prog|0) >= (q.need|0)){ q.done = true; _markDone(q.id); }
         else if ((RUN.remainSec|0) <= 0) q.fail = true;
       }
     }
@@ -122,7 +126,7 @@ export const Quests = (() => {
         case 'count_golden':
           if (type==='hit' && p.meta?.golden) q.prog = (q.prog|0) + 1;
           break;
-        case 'count_target': // รองรับทั้ง groups(target) และ plate(ภายในโควตา)
+        case 'count_target': // Groups(target) + Plate(within quota)
           if (type==='hit' && (p.meta?.good || p.meta?.isTarget)) q.prog = (q.prog|0) + 1;
           break;
         case 'count_group':
@@ -131,7 +135,7 @@ export const Quests = (() => {
         case 'reach_combo':
           if (type==='hit'){ q._max = Math.max(q._max|0, p.comboNow|0); q.prog = q._max|0; }
           break;
-        case 'targets_cleared': // โหมด groups: รับทั้ง 'target_cleared' และ fallback 'target_cycle'
+        case 'targets_cleared': // groups: target_cleared/target_cycle
           if (type==='target_cleared' || type==='target_cycle') q.prog = (q.prog|0) + 1;
           break;
         case 'hydro_ok_time':
@@ -143,7 +147,7 @@ export const Quests = (() => {
         case 'hydro_treat_high':
           if (type==='hydro_click' && p.zoneBefore==='HIGH' && p.kind==='sweet') q.prog = (q.prog|0) + 1;
           break;
-        case 'hydro_no_high': // FIX: ให้ผ่านเฉพาะเมื่อไม่มี HIGH จริง ๆ
+        case 'hydro_no_high': // ผ่านเมื่อทั้งรอบไม่มี HIGH
           if (type==='run_end' && ((p.highCount|0) === 0)) q.prog = q.need;
           break;
         case 'hydro_smart_sip':
@@ -157,7 +161,7 @@ export const Quests = (() => {
         case 'no_over_quota':
           if (type==='run_end' && ((p.overfill|0) === 0)) q.prog = q.need;
           break;
-        case 'groups_completed': // Plate: รองรับทั้ง 'group_full' และ 'plate_group_full'
+        case 'groups_completed': // Plate: group_full/plate_group_full
           if (type==='group_full' || type==='plate_group_full') q.prog = Math.min(q.need|0, (q.prog|0) + 1);
           break;
       }
@@ -172,10 +176,9 @@ export const Quests = (() => {
     _hud?.setQuestChips?.(toChips());
   }
 
-  function tick(payload={}){
+  function tick(payload={}){ // ใช้ main ยิงทุกวินาที พร้อม ctx.score
     if (!RUN) return;
     RUN.remainSec = Math.max(0, (RUN.remainSec|0) - 1);
-    // อัปเดตเควสต์ที่ผูกกับคะแนน/เวลาในระหว่างเล่น
     const ctx = { score: payload.score|0 };
     _apply(ctx, 'tick', { _ctx: ctx });
     evalDone();
@@ -184,7 +187,6 @@ export const Quests = (() => {
 
   function endRun(summary){
     if (!RUN) return [];
-    // ปิดรอบ: ให้เงื่อนไขปลายทาง (no-high / no-over ฯลฯ) ยิงผ่าน event สรุป
     _apply({ score: summary?.score|0 }, 'run_end', summary||{});
     evalDone();
     const out = RUN.list.map(x => x);
@@ -194,6 +196,7 @@ export const Quests = (() => {
   }
 
   function bindToMain({hud=null}={}){ _hud = hud || null; return { refresh(){ _hud?.setQuestChips?.(toChips()); } }; }
+  function getActive(){ return RUN ? { mode:RUN.mode, remain:RUN.remainSec, list: RUN.list.map(q=>({id:q.id,need:q.need,prog:q.prog,done:q.done,fail:q.fail})) } : null; }
 
-  return { beginRun, event, tick, endRun, bindToMain };
+  return { beginRun, event, tick, endRun, bindToMain, getActive };
 })();
