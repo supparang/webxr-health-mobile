@@ -44,7 +44,7 @@ export class Coach {
   say(text, prio = 1){ this._enqueue(text, prio); }
   sayKey(key, vars = [], prio = 1){ this._enqueue(this._t(key, vars), prio); }
 
-  // ===== Hooks ที่ main/modes เรียก (API คงเดิม) =====
+  // ===== Hooks ที่ main/modes เรียก (API เผื่อใช้งานเร็ว) =====
   onStart(){ this._enqueue(this._t('start'), 2); }
   onGood(){ this._enqueue(this._t('good'), 1); }
   onPerfect(){ this._enqueue(this._t('perfect'), 2); }
@@ -62,7 +62,7 @@ export class Coach {
   onQuestFail(){ this._enqueue(this._t('quest_fail'), 1); }
   onCountdown(n){ this._enqueue(this._t('countdown', [n]), 3); }
   onTimeLow(){ this._enqueue(this._t('t10'), 3); }
-  onEnd(score, grade){ this._enqueue(score >= 200 ? this._t('end_good') : this._t('end_ok'), 2); }
+  onEnd(score){ this._enqueue(score >= 200 ? this._t('end_good') : this._t('end_ok'), 2); }
 
   /* ============================= i18n ============================= */
   _t(key, vars = []) {
@@ -172,7 +172,6 @@ export class Coach {
   _startLoop() {
     if (this._loop) return;
     const loop = () => {
-      // ถ้าค้างไม่มีข้อความนานแล้ว และมีคิว แต่มิได้โชว์เพราะ minGap ให้ลองใหม่
       this._tryFlush();
       this._loop = requestAnimationFrame(loop);
     };
@@ -180,24 +179,32 @@ export class Coach {
   }
 
   _ensureHUD(returnTextElOnly = false) {
-    // ถ้าไม่มีโครง HUD เลย ให้สร้าง DOM เบา ๆ
+    // ถ้าไม่มีโครง HUD เลย ให้สร้าง DOM เบา ๆ (สอดคล้อง CSS ใหม่: top 104px; z-index 96)
     let hud = document.getElementById('coachHUD');
     let txt = document.getElementById('coachText');
+
     if (!hud) {
+      // ถ้ามี #hudWrap ให้แนบไว้ข้างใน (เลเยอร์ถูกต้องอยู่แล้ว)
+      const host = document.getElementById('hudWrap') || document.body;
+
       hud = document.createElement('div');
       hud.id = 'coachHUD';
       hud.style.cssText = [
-        'position:fixed','left:50%','bottom:64px','transform:translateX(-50%)',
+        'position:fixed',
+        'top:104px','left:50%','transform:translateX(-50%)',
         'display:flex','align-items:center','justify-content:center',
-        'padding:10px 14px','background:rgba(0,0,0,.55)','backdrop-filter:blur(4px)',
-        'color:#fff','font:600 16px/1.2 system-ui,Segoe UI,Arial',
-        'border-radius:12px','box-shadow:0 6px 18px rgba(0,0,0,.25)',
-        'z-index:20','pointer-events:none','opacity:1'
+        'padding:10px 14px',
+        'background:rgba(0,0,0,.55)','backdrop-filter:blur(4px)',
+        'color:#fff','font:800 14px/1.2 ui-rounded,system-ui,Segoe UI,Arial',
+        'border-radius:12px','border:1px solid rgba(255,255,255,.12)',
+        'box-shadow:0 6px 18px rgba(0,0,0,.25)',
+        'z-index:96','pointer-events:none','opacity:1'
       ].join(';');
-      const span = document.createElement('span');
-      span.id = 'coachText';
-      hud.appendChild(span);
-      document.body.appendChild(hud);
+
+      txt = document.createElement('span');
+      txt.id = 'coachText';
+      hud.appendChild(txt);
+      host.appendChild(hud);
 
       // inject keyframes สำหรับเอฟเฟกต์ pulse (ถ้ายังไม่มี)
       if (!document.getElementById('coachPulseStyle')) {
@@ -215,6 +222,7 @@ export class Coach {
         document.head.appendChild(st);
       }
     }
+
     if (returnTextElOnly) {
       return txt || document.getElementById('coachText');
     }
