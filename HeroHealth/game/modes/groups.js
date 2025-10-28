@@ -1,10 +1,12 @@
-// === Hero Health Academy — game/modes/groups.js (hardened drop-in) ===
+// === Hero Health Academy — game/modes/groups.js (Hardened Drop-in) ===
 // Food Group Frenzy (5 หมู่) + โควตา + Power-ups (x2 / Freeze / Magnet)
+// รวม: golden gating window, target cooldown + micro toast, HUD target badge, safe lifetimes
 // สัญญากับ main.js:
-// - export: init(state, hud, diff), cleanup(state, hud), pickMeta(diff, state),
-//           onHit(meta, sys, state, hud), tick(state, sys, hud)
-// - export: powers{ x2Target, freezeTarget, magnetNext }, getPowerDurations()
-// - meta จาก pickMeta: {char, label, aria, groupId, good, golden, life}
+// export: init(state, hud, diff), cleanup(state, hud), pickMeta(diff, state),
+//         onHit(meta, sys, state, hud), tick(state, sys, hud)
+// export: powers{ x2Target, freezeTarget, magnetNext }, getPowerDurations()
+// export: fx{ onSpawn, onHit }
+// meta: {char, label, aria, groupId, good, golden, life}
 
 export const name = 'groups';
 
@@ -39,8 +41,8 @@ const GROUPS = {
     { id:'pro_egg',       emoji:'🥚', th:'ไข่',          en:'Egg' },
     { id:'pro_fish',      emoji:'🐟', th:'ปลา',          en:'Fish' },
     { id:'pro_shrimp',    emoji:'🍤', th:'กุ้ง',         en:'Shrimp' },
-    { id:'pro_crab',      emoji:'🦀', th:'ปู',          en:'Crab' },
-    { id:'pro_shell',     emoji:'🐚', th:'หอย',         en:'Shellfish' },
+    { id:'pro_crab',      emoji:'🦀', th:'ปู',           en:'Crab' },
+    { id:'pro_shell',     emoji:'🐚', th:'หอย',          en:'Shellfish' },
     { id:'pro_tofu',      emoji:'🧊', th:'เต้าหู้',       en:'Tofu' },
     { id:'pro_soymilk',   emoji:'🥛', th:'นมถั่วเหลือง', en:'Soy milk' },
     { id:'pro_peanut',    emoji:'🥜', th:'ถั่วลิสง',      en:'Peanuts' },
@@ -59,7 +61,7 @@ const GROUPS = {
     { id:'gr_brownrice',  emoji:'🍚', th:'ข้าวกล้อง',    en:'Brown rice' },
     { id:'gr_sticky',     emoji:'🍙', th:'ข้าวเหนียว',   en:'Sticky rice' },
     { id:'gr_bread',      emoji:'🍞', th:'ขนมปัง',       en:'Bread' },
-    { id:'gr_baguette',   emoji:'🥖', th:'บาแกตต์',       en:'Baguette' },
+    { id:'gr_baguette',   emoji:'🥖', th:'บาแกตต์',      en:'Baguette' },
     { id:'gr_croissant',  emoji:'🥐', th:'ครัวซองต์',     en:'Croissant' },
     { id:'gr_pasta',      emoji:'🍝', th:'พาสต้า',        en:'Pasta' },
     { id:'gr_noodle',     emoji:'🍜', th:'ก๋วยเตี๋ยว',    en:'Noodles' },
@@ -121,12 +123,12 @@ const GROUPS = {
     { id:'da_milkshake',  emoji:'🥤', th:'มิลค์เชค',      en:'Milkshake' },
   ],
 };
-
 const GROUP_KEYS = Object.keys(GROUPS);
 
-// ---------- ค่าที่แนะนำ ----------
+// ---------- ค่าแนะนำ/ควบคุม ----------
 const QUOTA = { Easy:6, Normal:8, Hard:10 };
 const TARGET_RATIO = 0.28;
+
 const GOLDEN_CHANCE = 0.04;
 const GOLDEN_COOLDOWN_SPAWNS = 6;
 const GOLDEN_CAP_PER20 = 2;
@@ -137,41 +139,31 @@ let _lastState = null;
 let _x2Until = 0;
 let _magnetNext = false;
 
-// golden window (ควบคุมเพดานต่อ 20 ชิ้น)
+// golden window
 let _spawnsInWindow = 0;
 let _goldenInWindow = 0;
 let _sinceGolden = GOLDEN_COOLDOWN_SPAWNS;
 
-// FX imports (safe)
-let FX = { add3DTilt: ()=>{}, shatter3D: ()=>{} };
-(async () => {
-  try {
-    const m = await import('../core/fx.js').catch(()=>null);
-    if (m) FX = { add3DTilt: m.add3DTilt||(()=>{}), shatter3D: m.shatter3D||(()=>{}) };
-  } catch {}
-  if (!FX.add3DTilt || !FX.shatter3D) {
-    try {
-      const m2 = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
-      if (m2) FX = { add3DTilt: m2.add3DTilt||(()=>{}), shatter3D: m2.shatter3D||(()=>{}) };
-    } catch {}
-  }
-})();
+// target cooldown + toast
+let _targetCooldownUntil = 0;
 
-function nowMs(){ return performance?.now?.()||Date.now(); }
+function nowMs(){ return performance?.now?.() || Date.now(); }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 function labelOf(item, lang='TH'){ return (lang==='EN') ? item.en : item.th; }
-function chooseNextTarget(prev){
-  let ng;
-  do { ng = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (ng===prev);
-  return ng;
+function chooseNextTarget(prev){ let ng; do { ng = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (ng===prev); return ng; }
+
+function toast(msg){
+  let el = document.getElementById('toast');
+  if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 1000);
 }
+
 function updateTargetHUD(state){
   const have = state?.ctx?.targetHave|0;
   const need = state?.ctx?.targetNeed|0;
   const gkey = state?.ctx?.targetGroup;
-  // ผ่าน HUD API ถ้ามี
   try { _hudRef?.setTarget?.(gkey, have, need); } catch {}
-  // สำรอง (badge แบบง่าย)
   const el = document.getElementById('targetBadge');
   if (el){
     const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[gkey] || gkey;
@@ -199,10 +191,12 @@ export function init(state={}, hud=null, diff={}){
   _goldenInWindow = 0;
   _sinceGolden = GOLDEN_COOLDOWN_SPAWNS;
 
+  _targetCooldownUntil = 0;
+
   updateTargetHUD(state);
 }
 
-export function cleanup(state){
+export function cleanup(/*state*/){
   _hudRef = null;
   _lastState = null;
   _x2Until = 0;
@@ -210,34 +204,32 @@ export function cleanup(state){
   _spawnsInWindow = 0;
   _goldenInWindow = 0;
   _sinceGolden = GOLDEN_COOLDOWN_SPAWNS;
+  _targetCooldownUntil = 0;
 }
 
-export function tick(state, sys, hud){
-  // ปิด x2 เมื่อหมดเวลา
+export function tick(/*state, sys, hud*/){
   if (_x2Until && nowMs() > _x2Until) _x2Until = 0;
 }
 
 // ---------- สุ่มเป้าหมาย ----------
 export function pickMeta(diff={}, state={}){
-  // Magnet: บังคับให้เป็น “ชิ้นเป้าหมาย”
+  // Target cooldown: ระหว่าง 1.2s หลังเปลี่ยนหมวด ยังสุ่ม “ชิ้นเป้าหมาย” ได้ปกติ
+  // Magnet: ชิ้นถัดไปบังคับเป็นเป้าหมาย
   let forceTarget = false;
   if (_magnetNext){ forceTarget = true; _magnetNext = false; }
 
   const targetGroup = state.ctx?.targetGroup || 'veggies';
-
   const isTarget = forceTarget || (Math.random() < TARGET_RATIO);
 
-  // เลือกหมวด
   const groupId = isTarget
     ? targetGroup
     : (()=>{ let k; do { k = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (k===targetGroup); return k; })();
 
-  // เลือกรายการ
   const item = GROUPS[groupId][(Math.random()*GROUPS[groupId].length)|0];
 
-  // Golden gating (เฉพาะชิ้นเป้าหมาย)
+  // golden gating (เฉพาะชิ้นเป้าหมาย)
   _spawnsInWindow++;
-  if (_spawnsInWindow >= 20){ _spawnsInWindow = 0; _goldenInWindow = 0; } // reset ทุก 20 ชิ้น
+  if (_spawnsInWindow >= 20){ _spawnsInWindow = 0; _goldenInWindow = 0; }
 
   let golden = false;
   if (isTarget && _sinceGolden > GOLDEN_COOLDOWN_SPAWNS && _goldenInWindow < GOLDEN_CAP_PER20){
@@ -271,18 +263,21 @@ export function onHit(meta={}, sys={}, state={}, hud=null){
     const add = meta.golden ? 2 : 1;
     state.ctx.targetHave = Math.min((state.ctx.targetHave|0) + add, state.ctx.targetNeed|0);
 
-    // x2 window (ให้ main ตัดสินคะแนนจริง)
-    if (_x2Until && nowMs() < _x2Until){
-      // ไม่ต้องเปลี่ยน result; main จะคูณเองผ่าน fever/combo
-    }
-
-    // ครบโควตา → เปลี่ยนหมวดใหม่
+    // ครบโควตา → เปลี่ยนหมวดใหม่ + cooldown + glow
     if ((state.ctx.targetHave|0) >= (state.ctx.targetNeed|0)){
       try { sys.sfx?.play?.('sfx-perfect'); } catch {}
       const next = chooseNextTarget(state.ctx.targetGroup);
       state.ctx.targetGroup = next;
       state.ctx.targetNeed  = QUOTA[state.difficulty] || 8;
       state.ctx.targetHave  = 0;
+
+      _targetCooldownUntil = nowMs() + 1200;
+
+      const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[next] || next;
+      toast('🎯 เป้าหมายใหม่: ' + nameTH);
+
+      const wrap = document.getElementById('targetWrap');
+      if (wrap){ wrap.classList.add('glow'); setTimeout(()=>wrap.classList.remove('glow'), 950); }
     }
     updateTargetHUD(state);
   } else {
@@ -304,41 +299,11 @@ export function getPowerDurations(){ return { x2:8, freeze:3, magnet:2 }; }
 
 // ---------- FX hooks ----------
 export const fx = {
-  onSpawn(el/*, state*/){ try { FX.add3DTilt?.(el); } catch {} },
-  onHit(x, y/*, meta, state*/){ try { FX.shatter3D?.(x, y); } catch {} }
+  onSpawn(el/*, state*/){
+    // ใช้เอฟเฟกต์ tilt ที่เพิ่มใน core/fx.js ผ่าน main.js อยู่แล้ว
+    try { (window?.HHA_FX?.add3DTilt || (()=>{}))(el); } catch {}
+  },
+  onHit(x, y/*, meta, state*/){
+    try { (window?.HHA_FX?.shatter3D || (()=>{}))(x, y); } catch {}
+  }
 };
-// === Hero Health Academy — modes/groups.js (target cooldown + micro toast + margin safe) ===
-import { fx as baseFX, powers, getPowerDurations, name as modeName } from './groups.js'; // ใช้ไฟล์เวอร์ชันล่าสุดของคุณ
-// หมายเหตุ: ถ้าไฟล์คุณชื่อเดียวกันอยู่แล้ว ให้ผสานโค้ดด้านล่างเข้า “ไฟล์ที่ใช้อยู่” (จากรอบก่อน)
-
-let _targetCooldownUntil = 0;
-
-function now(){ return performance.now(); }
-function toast(msg){
-  let el = document.getElementById('toast'); if (!el){
-    el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el);
-  }
-  el.textContent = msg; el.classList.add('show');
-  setTimeout(()=>el.classList.remove('show'), 1000);
-}
-
-export function init(state,hud,diff){
-  _targetCooldownUntil = 0;
-}
-
-export function onHit(meta, sys, state, hud){
-  const r = (await import('/webxr-health-mobile/HeroHealth/game/modes/groups.js')).onHit(meta, sys, state, hud);
-  // หลังจาก “ครบโควตา → เปลี่ยนหมวดใหม่” ในไฟล์เดิม ให้ใส่ cooldown เพิ่ม:
-  if (state.ctx?.targetHave===0){ // เพิ่งรีเซ็ตเป้า
-    _targetCooldownUntil = now() + 1200;
-    const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[state.ctx.targetGroup] || state.ctx.targetGroup;
-    toast('🎯 เป้าหมายใหม่: ' + nameTH);
-    const wrap = document.getElementById('targetWrap'); if (wrap){ wrap.classList.add('glow'); setTimeout(()=>wrap.classList.remove('glow'), 950); }
-  }
-  return r;
-}
-
-export function pickMeta(diff, state){
-  // กันซ้อนเมนูด้านล่าง: บอก engine/Spawner ผ่าน margin safe zone (ทำที่ main แล้ว)
-  return (await import('/webxr-health-mobile/HeroHealth/game/modes/groups.js')).pickMeta(diff, state);
-}
