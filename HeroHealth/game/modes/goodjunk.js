@@ -1,82 +1,50 @@
-// === mode: goodjunk ===
-import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+// === Hero Health Academy — game/modes/goodjunk.js (anti-repeat + soft penalty + streak goals + end-speedup) ===
+export const name = 'goodjunk';
 
-const GOODS = ['🥗','🍎','🥦','🍇','🍓','🥕','🥒','🍅','🌽','🍠','🍊','🍌'];
-const JUNKS = ['🍟','🍔','🌭','🍕','🍩','🍰','🥤','🍗🧂','🍬','🧁'];
+const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
+const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍭','🍜','🍝🧈','🍧','🍨','🍮','🥓','🍗🧈','🍞🍯','🧂'];
 
-const rnd = a=>a[(Math.random()*a.length)|0];
+let _lastEmoji = null;
+function pickNonRepeat(pool){
+  let e, tries=0;
+  do { e = pool[(Math.random()*pool.length)|0]; } while (e===_lastEmoji && tries++<3);
+  _lastEmoji = e; return e;
+}
+function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
 
-export function init(state,hud,diff){ const tgt=$('#targetWrap'); if(tgt) tgt.style.display='none'; state.ctx={}; }
+export function init(state){ state._gjStreakMilestone = 0; }
 export function cleanup(){}
 
-export function pickMeta(diff,state){
-  const isGood = Math.random() < 0.65;
-  const char = isGood ? rnd(GOODS) : rnd(JUNKS);
-  const golden = isGood && Math.random()<0.08;
-  return {
-    id:'gj_'+Date.now().toString(36),
-    char, aria: isGood?'good':'junk', label: isGood?'good':'junk',
-    isGood, golden, good: isGood, life: diff?.life ?? 3000
-  };
+export function pickMeta(diff={}, state={}){
+  // 60% good, 40% junk
+  const goodPick = Math.random() < 0.60;
+  const char = goodPick ? pickNonRepeat(GOOD) : pickNonRepeat(JUNK);
+  const golden = goodPick && Math.random()<0.06;
+  const life = clamp(Number(diff.life)||3000, 800, 4500);
+  return { char, aria: goodPick?'Healthy':'Junk', label: char, isGood: goodPick, good: goodPick, golden, life };
 }
 
-export function onHit(meta, sys, state){
+export function onHit(meta={}, sys={}, state={}){
   const { sfx } = sys;
   if (meta.isGood){
-    try{ sfx.play(meta.golden?'sfx-perfect':'sfx-good'); }catch{}
+    // Streak micro goal
+    const totalGood = (state.stats?.good|0) + (state.stats?.perfect|0) + 1;
+    if (totalGood >= (state._gjStreakMilestone+10)){
+      state._gjStreakMilestone += 10;
+      try{ sys.fx?.text?.( 'STREAK +10', {x:0,y:0}); }catch{}
+    }
+    try{ if (meta.golden) sfx?.play?.('sfx-perfect'); else sfx?.play?.('sfx-good'); }catch{}
     return meta.golden ? 'perfect' : 'good';
-  } else {
-    try{ sfx.play('sfx-bad'); }catch{}
-    return 'bad';
-  }
-}
-
-export const fx = {
-  onSpawn: add3DTilt,
-  onHit(x,y){ shatter3D(x,y); }
-};
-// === Hero Health Academy — modes/goodjunk.js (weighted spawn + golden cap + fair penalty) ===
-import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
-
-let _goldenInWindow=0, _spawnsInWindow=0;
-function resetWindow(){ _spawnsInWindow=0; _goldenInWindow=0; }
-
-export function init(state,hud,diff){ resetWindow(); }
-export function cleanup(){ resetWindow(); }
-
-export function pickMeta(diff,state){
-  // ปรับจาก accuracy ล่าสุด
-  const total = state.stats.good+state.stats.perfect+state.stats.ok+state.stats.bad;
-  const acc = total>0 ? (state.stats.good+state.stats.perfect)/total : 0.7;
-  let goodRatio = 0.55 + (0.70-acc)*0.20; // ถ้าความแม่นต่ำ เพิ่มของดีนิดหน่อย
-  goodRatio = Math.max(0.45, Math.min(0.70, goodRatio));
-
-  // golden gating (ต่อ 20 ชิ้น)
-  _spawnsInWindow++; if (_spawnsInWindow>=20) resetWindow();
-
-  const r = Math.random();
-  const goldenPossible = (_goldenInWindow < 3) && (Math.random() < 0.05);
-  if (r < goodRatio){
-    const golden = goldenPossible; if (golden) _goldenInWindow++;
-    return { id:'good', char:'🥗', aria:'Healthy Food', good:true, golden, life: diff.life };
-  }
-  // junk
-  return { id:'junk', char:'🍟', aria:'Junk Food', good:false, life: diff.life };
-}
-
-export function onHit(meta, sys, state){
-  const { sfx } = sys;
-  if (meta.good){
-    try{ sfx.play(meta.golden?'sfx-perfect':'sfx-good'); }catch{}
-    return meta.golden?'perfect':'good';
   }else{
-    // โทษคงที่ ไม่คูณ FEVER (คะแนนจริงไปคำนวณใน main แล้ว)
-    try{ sfx.play('sfx-bad'); }catch{}
+    // soft penalty: reset combo + −8 + micro-freeze spawn 300ms (ทำใน main ผ่าน result=bad)
+    try{ sfx?.play?.('sfx-bad'); }catch{}
+    if (state.freezeUntil) state.freezeUntil = Math.max(state.freezeUntil, performance.now()+300);
+    else state.freezeUntil = performance.now() + 300;
     return 'bad';
   }
 }
 
-export const fx = {
-  onSpawn(el){ add3DTilt(el); },
-  onHit(x,y){ shatter3D(x,y); }
-};
+export function tick(state, sys){
+  // Speed-up 15s สุดท้าย (เร่ง spawn และลด life เล็กน้อย—ทำใน main ผ่าน acc-based อยู่แล้ว; ไม่ต้องซ้ำ)
+}
+export const fx = {};
