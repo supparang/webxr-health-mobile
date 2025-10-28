@@ -1,437 +1,511 @@
-// === Hero Health Academy — game/main.js (Click-fixed • PC/Mobile/VR) ===
-window.__HHA_BOOT_OK = true;
+// === Hero Health Academy — game/main.js (2025-10-28, unified HUD/Coach/Power/Progress) ===
+// ESM entry. Works with index.html you provided.
+// - Wires menu → modes, countdown, timer, score/combo, power-ups, quests, result, stats/daily.
+// - Defensive: optional methods on modes; no crashes if a mode lacks some APIs.
 
 // ----- Imports -----
-import { Quests }   from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
-import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-import * as goodjunk  from '/webxr-health-mobile/HeroHealth/game/modes/goodjunk.js';
-import * as groups    from '/webxr-health-mobile/HeroHealth/game/modes/groups.js';
-import * as hydration from '/webxr-health-mobile/HeroHealth/game/modes/hydration.js';
-import * as plate     from '/webxr-health-mobile/HeroHealth/game/modes/plate.js';
+import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+import { Engine }      from './core/engine.js';
+import { HUD }         from './core/hud.js';
+import { Coach }       from './core/coach.js';
+import { PowerUpSystem } from './core/powerup.js';
+import { Progress }    from './core/progression.js';
+
+// (optional/safe) SFX + ScoreSystem (if you have them in your tree)
+let SFX = null, ScoreSystem = null;
+try { SFX = (await import('./core/sfx.js')).SFX; } catch {}
+try { ScoreSystem = (await import('./core/score.js')).ScoreSystem; } catch {}
+
+// Modes (each should export a factory or object; we call create(..) if present)
+const modes = Object.create(null);
+async function loadModes() {
+  const reg = {};
+  const safeReg = async (key, path) => {
+    try {
+      const mod = await import(path);
+      // Accept either default export or named create
+      const create = mod.create || mod.default || mod[`create${key[0].toUpperCase()+key.slice(1)}`] || mod[key];
+      reg[key] = create || mod;
+    } catch (e) {
+      console.warn('[HHA] mode load fail:', key, e);
+      reg[key] = null;
+    }
+  };
+  await Promise.all([
+    safeReg('goodjunk', './modes/goodjunk.js'),
+    safeReg('plate',    './modes/plate.js'),
+    safeReg('hydration','./modes/hydration.js'),
+    safeReg('groups',   './modes/groups.js'),
+    safeReg('healthy',  './modes/plate.js'), // alias to "plate" tracker style
+  ]);
+  Object.assign(modes, reg);
+}
+await loadModes();
 
 // ----- Helpers -----
-function $(s){ return document.querySelector(s); }
-function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
-function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-function rndInt(a,b){ return a + Math.floor(Math.random()*(b-a+1)); }
-function setText(sel, txt){ var el=$(sel); if(el) el.textContent = txt; }
-function show(el){ if(el) el.style.display='block'; }
-function hide(el){ if(el) el.style.display='none'; }
-function toast(msg, ms){
-  var t=$('#toast'); if(!t) return;
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._t);
-  t._t=setTimeout(function(){ t.classList.remove('show'); }, ms||1200);
+const $  = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const byAction = (el)=> el?.closest?.('[data-action]') || null;
+const raf = window.requestAnimationFrame;
+
+// ----- Core singletons -----
+const engine = new Engine(THREE, document.getElementById('c'));
+const hud    = new HUD();
+const coach  = new Coach({ lang: 'TH' });
+const power  = new PowerUpSystem();
+Progress.init();
+
+// Attach Power bonus (if ScoreSystem exists we’ll wire the boostFn)
+function createScore() {
+  if (ScoreSystem) {
+    const score = new ScoreSystem();
+    power.attachToScore(score);
+    return score;
+  }
+  // Lightweight fallback
+  let _n = 0, _combo = 0, _bestCombo = 0;
+  let _boostFn = (base)=> (power.isX2() ? base : 0) + (power.scoreBoost|0);
+  return {
+    add(base=0){
+      const add = (base|0) + (_boostFn(base)|0);
+      _n += add; _combo++; _bestCombo = Math.max(_bestCombo, _combo);
+      return { delta: add, total: _n, combo: _combo, bestCombo: _bestCombo };
+    },
+    miss(){ _combo = 0; return { combo:_combo }; },
+    total(){ return _n|0; },
+    combo(){ return _combo|0; },
+    bestCombo(){ return _bestCombo|0; },
+    reset(){ _n=0; _combo=0; _bestCombo=0; },
+    setBoostFn(fn){ _boostFn = typeof fn==='function' ? fn : _boostFn; }
+  };
 }
 
-var MODES = { goodjunk:goodjunk, groups:groups, hydration:hydration, plate:plate };
-
-// ----- State -----
-var STATE = {
-  lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(),
-  mode: 'goodjunk',
-  difficulty: 'Normal',
+// ----- Global App state -----
+const App = {
+  lang: 'TH',
+  modeKey: null,
+  mode: null,           // active mode instance
+  modeAPI: null,        // raw module (factory or object)
   running: false,
-  timeSec: 45,
-  timerId: null,
-  score: 0,
-  combo: 0,
-  bestCombo: 0,
-  freezeUntil: 0,
-  ctx: {}
+  timeLimit: 60,
+  timeLeft: 60,
+  fever: 0,             // 0..1 for HUD bar
+  lastTS: 0,
+  loopId: 0,
+  freezeHudTimer: 0,
+  score: createScore(),
+  acc: 0,               // percent-ish
+  shots: 0,
+  hits: 0,
+  quests: [],           // in-run simple quests
+  sfx: SFX ? new SFX() : null,
 };
 
-// ----- SFX (ผูกกับ <audio id="sfx-..."> ใน index.html) -----
-var SFX = {
-  play: function(id){
-    try{
-      var el = document.getElementById(id);
-      if (el && typeof el.play==='function'){ el.currentTime=0; el.play(); }
-    }catch(_e){}
-  }
-};
+// ----- UI Wiring (menu, power, modal) -----
+function wireMenu() {
+  // Mode buttons
+  $$('#menuBar [data-mode]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const key = btn.getAttribute('data-mode');
+      App.modeKey = key;
+      document.getElementById('modeLabel').textContent = key;
+      document.documentElement.setAttribute('data-hha-mode', key === 'groups' ? 'groups' : 'hub');
+      hud.setTargetBadge('—'); // clear
+      hud.hidePills();
+    }, { passive:true });
+  });
 
-// ====== LAYER & CLICKABILITY FIXES ======
-function ensurePlayLayer(){
-  var wrap = document.querySelector('.game-wrap');
-  if(!wrap){
-    wrap = document.createElement('main');
-    wrap.className='game-wrap';
-    document.body.appendChild(wrap);
-  }
-  var layer = document.getElementById('gameLayer');
-  if(!layer){
-    layer = document.createElement('div');
-    layer.id='gameLayer';
-    layer.setAttribute('tabindex','0');
-    layer.style.position='relative';
-    layer.style.width='100%';
-    layer.style.height='calc(100vh - 180px)';
-    layer.style.margin='0 auto';
-    layer.style.maxWidth='960px';
-    layer.style.overflow='hidden';
-    wrap.appendChild(layer);
-  }
-  var host = document.getElementById('spawnHost');
-  if(!host){
-    host = document.createElement('div');
-    host.id='spawnHost';
-    host.style.position='absolute';
-    host.style.left='0';
-    host.style.top='0';
-    host.style.width='100%';
-    host.style.height='100%';
-    host.style.pointerEvents='auto'; // สำคัญ: ต้องเป็น auto
-    layer.appendChild(host);
-  }
+  // Actions
+  $('#menuBar').addEventListener('click', (e)=>{
+    const actEl = byAction(e.target);
+    if (!actEl) return;
+    const action = actEl.getAttribute('data-action');
+    if (action === 'start') startGame();
+    if (action === 'stats') openStats();
+    if (action === 'daily') openDaily();
+    if (action === 'help')  openHelp();
+    if (action === 'power-x2')    usePower('x2', 8);
+    if (action === 'power-freeze')usePower('freeze', 3);
+    if (action === 'power-sweep') usePower('sweep', 2);
+    if (action === 'restart')     restartGame();
+    if (action === 'back-to-menu') backToMenu();
+  }, { passive:true });
+
+  // Header buttons
+  $('header .btn[data-action="toggle-lang"]').addEventListener('click', ()=>{
+    App.lang = (App.lang === 'TH' ? 'EN' : 'TH');
+    coach.setLang(App.lang);
+    hud.toast(App.lang === 'TH' ? 'ภาษาไทย' : 'English', 800);
+  }, { passive:true });
+  $('header .btn[data-action="open-help"]').addEventListener('click', openHelp, { passive:true });
+
+  // Modal close
+  $$('#resultModal [data-modal-close]').forEach(b=> b.addEventListener('click', closeModal, { passive:true }));
 }
-function applyClickabilityFixes(){
-  var canv = document.getElementById('c');
-  if (canv){ canv.style.pointerEvents='none'; canv.style.zIndex='0'; }
+wireMenu();
 
-  var hud = document.querySelector('.hud');
-  if (hud){ hud.style.pointerEvents='none'; hud.style.zIndex='20'; }
-
-  var menu = document.getElementById('menuBar');
-  if (menu){
-    menu.style.pointerEvents='auto';
-    menu.style.zIndex='30';
-    var btns = menu.querySelectorAll('.btn,.tag');
-    for (var i=0;i<btns.length;i++){ btns[i].style.pointerEvents='auto'; }
-  }
-
-  var layer = document.getElementById('gameLayer');
-  if (layer){ layer.style.pointerEvents='auto'; layer.style.zIndex='28'; }
-
-  var host  = document.getElementById('spawnHost');
-  if (host){
-    host.style.pointerEvents='auto'; // เดิมเป็น none ทำให้ลูกกดไม่ได้
-    host.style.zIndex='28';
-  }
-
-  var spawns = document.querySelectorAll('.spawn-emoji');
-  for (var j=0;j<spawns.length;j++){
-    spawns[j].style.pointerEvents='auto';
-    spawns[j].style.zIndex='29';
-  }
-}
-ensurePlayLayer();
-applyClickabilityFixes();
-
-// ====== HUD ======
-var HUD = (function(){
-  function setClock(sec){ setText('#time', String(sec|0)); }
-  function setScore(n){ setText('#score', String(n|0)); }
-  function setCombo(x){ setText('#combo', 'x'+String(x|0)); }
-  function setQuestChips(list){
-    var host=$('#questChips'); if(!host) return;
-    host.innerHTML = (list||[]).map(function(q){
-      var prog = q.need>0 ? (clamp((q.progress/q.need)*100, 0, 100)|0) : 0;
-      return '<span class="chip" title="'+(q.label||q.key)+'">'+
-             '<b>'+(q.icon||'⭐')+' '+(q.progress||0)+'/'+(q.need||0)+'</b>'+
-             '<i style="display:block;height:4px;background:'+(q.done?'#66bb6a':'#29b6f6')+';width:'+prog+'%;border-radius:4px"></i>'+
-             '</span>';
-    }).join('');
-  }
-  function setTarget(key, have, need){
-    var badge=$('#targetBadge'); if(!badge) return;
-    var nameTH = {veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'}[key] || key || '—';
-    badge.textContent = nameTH+' • '+(have|0)+'/'+(need|0);
-  }
-  function coachSay(text, ms){
-    var el=$('#coachText'); var box=$('#coachHUD');
-    if (el) el.textContent=text;
-    if (box){
-      box.style.pointerEvents='none';
-      box.style.display='flex';
-      clearTimeout(box._t);
-      box._t=setTimeout(function(){ box.style.display='none'; }, ms||1500);
-    }
-  }
-  return { setClock:setClock, setScore:setScore, setCombo:setCombo, setQuestChips:setQuestChips, setTarget:setTarget, coachSay:coachSay };
-})();
-Quests.bindToMain({ hud: { setQuestChips: HUD.setQuestChips }});
-
-// ====== UI EVENTS (ให้ตรง index.html) ======
-document.addEventListener('click', function(ev){
-  var btn = ev.target && ev.target.closest ? ev.target.closest('[data-action]') : null;
-  if(!btn) return;
-  var act = btn.getAttribute('data-action') || '';
-
-  switch(act){
-    case 'lang': {
-      var lang = btn.getAttribute('data-lang')||'TH';
-      STATE.lang = lang.toUpperCase();
-      localStorage.setItem('hha_lang', STATE.lang);
-      toast(STATE.lang==='TH'?'ภาษาไทย':'English', 800);
-      break;
-    }
-    case 'mode': {
-      var m = btn.getAttribute('data-mode') || 'goodjunk';
-      if (MODES[m]){
-        STATE.mode = m;
-        setText('#modeName', btn.textContent.replace(/\s+/g,' ').trim());
-        HUD.coachSay('Mode: '+STATE.mode, 900);
-      }
-      break;
-    }
-    case 'difficulty': {
-      var d = btn.getAttribute('data-diff')||'Normal';
-      STATE.difficulty = d;
-      var all = $all('#menuBar [data-action="difficulty"]');
-      for (var i=0;i<all.length;i++) all[i].classList.toggle('active', all[i]===btn);
-      setText('#difficulty', ({Easy:'ง่าย',Normal:'ปกติ',Hard:'ยาก'})[d]||d);
-      HUD.coachSay('Difficulty: '+d, 900);
-      break;
-    }
-    case 'howto': {
-      toast(STATE.lang==='TH'
-        ? 'แตะ/คลิกสิ่งที่ใช่ สะสมคอมโบ หลบสิ่งผิดหมวด!'
-        : 'Tap/click correct items, build combo, avoid wrong ones!', 1600);
-      break;
-    }
-    case 'export': doExport(); break;
-    case 'import': doImport(); break;
-    case 'reset':  localStorage.removeItem('hha_save'); toast('Progress cleared.', 900); break;
-    case 'start':  startRun(); break;
-    case 'restart': hideResult(); startRun(); break;
-    case 'back':   backToMenu(); break;
-
-    case 'help': { show($('#help')); break; }
-    case 'helpClose': { hide($('#help')); break; }
-
-    // (ปุ่ม helpScene/stat/daily ปิดไว้ก่อนใน index)
-    default: break;
-  }
-});
-
-// ====== RUN LOOP ======
-var _spawnTimer = null;
-
-function startRun(){
-  var menu = $('#menuBar'); if (menu) menu.style.display='none';
-  var res  = $('#resultModal'); if (res) res.style.display='none';
-
-  // Reset
-  STATE.running = true;
-  STATE.timeSec = 45;
-  STATE.score   = 0;
-  STATE.combo   = 0;
-  STATE.bestCombo = 0;
-  STATE.ctx = {};
-
-  HUD.setClock(STATE.timeSec);
-  HUD.setScore(STATE.score);
-  HUD.setCombo(STATE.combo);
-  HUD.setQuestChips([]);
-
-  // Init mode
-  var mode = MODES[STATE.mode] || MODES.goodjunk;
-  try { if (mode.init) mode.init(STATE, { setTarget: HUD.setTarget }, diffOf(STATE.difficulty)); } catch(e){ console.error(e); }
-
-  // Quests
-  Quests.beginRun(STATE.mode, STATE.difficulty, STATE.lang, STATE.timeSec);
-
-  // Coach
-  HUD.coachSay(STATE.lang==='TH'?'เริ่มกันเลย!':'Let’s go!', 1200);
-
-  // Timer
-  if (STATE.timerId) clearInterval(STATE.timerId);
-  STATE.timerId = setInterval(onTick, 1000);
-
-  // Spawner
-  if (_spawnTimer) clearInterval(_spawnTimer);
-  _spawnTimer = setInterval(spawnOne, 700);
-
-  applyClickabilityFixes();
-  var gl = $('#gameLayer'); if (gl && typeof gl.focus==='function') gl.focus();
+function openHelp(){
+  const body = $('#resultBody');
+  body.innerHTML = `
+    <div class="cardlike" style="display:flex;flex-direction:column;gap:8px">
+      <div><b>วิธีเล่น</b></div>
+      <ul style="margin:0 0 0 16px;padding:0;display:flex;flex-direction:column;gap:6px">
+        <li>เลือกโหมดแล้วกด <b>เริ่มเล่น</b></li>
+        <li>แตะ/คลิกไอคอน “ดี” หลีกเลี่ยง “ขยะ”</li>
+        <li>เก็บคอมโบเพื่อเปิด <b>FEVER</b> และใช้พลังเสริม</li>
+      </ul>
+    </div>
+  `;
+  openModal();
 }
 
-function onTick(){
-  if (!STATE.running) return;
+function openStats(){
+  const s = Progress.getStatSnapshot();
+  const rows = s.rows.map(r=>`
+    <tr><td style="padding:6px 8px">${r.key}</td>
+        <td style="padding:6px 8px;text-align:right">${r.bestScore}</td>
+        <td style="padding:6px 8px;text-align:right">${r.acc}%</td>
+        <td style="padding:6px 8px;text-align:right">${r.runs}</td>
+        <td style="padding:6px 8px;text-align:right">${r.missions}</td></tr>`).join('');
+  $('#resultBody').innerHTML = `
+    <div class="cardlike" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div><b>Level</b> ${s.level}</div>
+      <div><b>XP</b> ${s.xp}</div>
+      <div><b>Total Runs</b> ${s.totalRuns}</div>
+      <div><b>Best Combo</b> ${s.bestCombo}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-top:8px">
+      <thead><tr>
+        <th style="text-align:left;padding:6px 8px">Mode</th>
+        <th style="text-align:right;padding:6px 8px">Best</th>
+        <th style="text-align:right;padding:6px 8px">Acc%</th>
+        <th style="text-align:right;padding:6px 8px">Runs</th>
+        <th style="text-align:right;padding:6px 8px">Missions</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+  openModal();
+}
 
-  var now = Date.now();
-  if (STATE.freezeUntil && now < STATE.freezeUntil){
-    HUD.setClock(STATE.timeSec);
-    Quests.tick({ score: (STATE.score|0) });
+function openDaily(){
+  const d = Progress.genDaily();
+  const items = d.missions.map(m=>`
+    <li style="margin:0 0 4px 0">${m.label}</li>
+  `).join('');
+  $('#resultBody').innerHTML = `
+    <div><b>Daily (${d.date})</b></div>
+    <ul style="margin:8px 0 0 18px;padding:0">${items}</ul>
+  `;
+  openModal();
+}
+
+function openModal(){ $('#resultModal').style.display = 'flex'; document.body.classList.add('modal-open'); }
+function closeModal(){ $('#resultModal').style.display = 'none'; document.body.classList.remove('modal-open'); }
+
+// ----- Power-ups -----
+function usePower(kind, sec){
+  power.apply(kind, sec);
+  if (kind==='x2' || kind==='freeze') coach.onPower(kind==='x2' ? 'boost' : 'freeze');
+  if (kind==='sweep') hud.toast('Sweep!', 700);
+  // HUD reflect
+  hud.setPowerTimers(power.getTimers());
+}
+
+// Keep HUD timers fresh
+setInterval(()=> hud.setPowerTimers(power.getTimers()), 1000);
+
+// ----- Countdown -----
+async function countdown(n=3){
+  const wrap = $('#cdOverlay'), num = $('#cdNum');
+  wrap.style.display = 'flex';
+  for (let i=n;i>=1;i--){
+    num.textContent = i;
+    coach.onCountdown(i);
+    await wait(700);
+  }
+  wrap.style.display = 'none';
+}
+function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+// ----- Game start/stop -----
+async function startGame() {
+  if (!App.modeKey) {
+    hud.toast('เลือกโหมดก่อน!', 1000);
+    return;
+  }
+  // Build/prepare mode instance
+  App.modeAPI = modes[App.modeKey];
+  App.mode = await ensureModeInstance(App.modeKey);
+  if (!App.mode) {
+    hud.toast('โหมดนี้ยังไม่พร้อม', 1000);
     return;
   }
 
-  STATE.timeSec = Math.max(0, STATE.timeSec-1);
-  HUD.setClock(STATE.timeSec);
-  Quests.tick({ score: (STATE.score|0) });
+  App.running = false;
+  App.timeLimit = 60;
+  App.timeLeft  = App.timeLimit;
+  App.fever     = 0;
+  App.score.reset();
+  App.hits = 0; App.shots = 0; App.acc = 0;
 
-  var m = MODES[STATE.mode];
-  try { if (m && typeof m.tick==='function') m.tick(STATE, { sfx:SFX }, { setTarget: HUD.setTarget }); } catch(_e){}
+  // Quests (simple set per run; mode may override via callbacks)
+  App.quests = [
+    { key:'combo', name:'คอมโบ', icon:'🔥', need:10, progress:0, done:false },
+    { key:'perfect', name:'Perfect', icon:'✨', need:8, progress:0, done:false },
+    { key:'golden', name:'Golden', icon:'⭐', need:2, progress:0, done:false },
+  ];
+  hud.setQuestChips(App.quests);
 
-  if (STATE.timeSec<=0) endRun(true);
+  // UI state
+  document.body.classList.remove('ui-mode-menu');
+  document.body.classList.add('ui-mode-playing');
+  $('#menuBar').style.pointerEvents = 'none';
+  $('#menuBar').style.opacity = '.25';
+
+  await countdown(3);
+
+  // Begin progress run
+  Progress.beginRun(App.modeKey, 'normal', App.lang);
+  App.running = true;
+  App.lastTS = performance.now();
+
+  // Hooks
+  try { App.mode.start?.({ lang: App.lang, power, hud, coach, time: App.timeLimit }); } catch(e){ console.warn('[HHA] mode.start', e); }
+  coach.onStart();
+
+  // Loop on
+  loop();
 }
 
-function endRun(showResult){
-  STATE.running = false;
-  if (STATE.timerId){ clearInterval(STATE.timerId); STATE.timerId=null; }
-  if (_spawnTimer){  clearInterval(_spawnTimer);  _spawnTimer=null; }
+function restartGame(){
+  closeModal();
+  startGame();
+}
 
-  var m = MODES[STATE.mode];
-  try { if (m && typeof m.cleanup==='function') m.cleanup(STATE, { setTarget: HUD.setTarget }); } catch(_e){}
+function backToMenu(){
+  closeModal();
+  stopGame();
+  document.body.classList.remove('ui-mode-playing');
+  document.body.classList.add('ui-mode-menu');
+  $('#menuBar').style.pointerEvents = 'auto';
+  $('#menuBar').style.opacity = '1';
+}
 
-  var summary = {
-    score: (STATE.score|0),
-    bestCombo: (STATE.bestCombo|0),
-    time: 45,
-    mode: STATE.mode,
-    difficulty: STATE.difficulty
-  };
-  var quests = [];
-  try{ quests = Quests.endRun(summary)||[]; }catch(_e){}
+function stopGame(){
+  App.running = false;
+  if (App.loopId) cancelAnimationFrame(App.loopId);
+  try { App.mode?.stop?.(); } catch {}
+}
 
-  if (showResult){
-    var core = $('#resultBody');
-    if (core){
-      var list = quests.map(function(q){
-        return '<li>'+(q.label||q.id)+' — '+(q.done?'✅ Completed':'❌')+'</li>';
-      }).join('');
-      core.innerHTML =
-        '<div>Score: <b>'+summary.score+'</b></div>'+
-        '<div>Best Combo: <b>'+summary.bestCombo+'</b></div>'+
-        '<div>Mode: <b>'+summary.mode+'</b> • Diff: <b>'+summary.difficulty+'</b></div>'+
-        '<div style="margin-top:6px"><b>Quests</b></div>'+
-        '<ul style="margin:.25rem 0 0 1rem">'+list+'</ul>';
+// ----- Mode instance factory (robust to various exports) -----
+async function ensureModeInstance(key) {
+  const api = modes[key];
+  if (!api) return null;
+
+  // If a factory function is exported
+  if (typeof api === 'function') {
+    try {
+      return api({ engine, hud, coach, power, THREE, Progress });
+    } catch (e) {
+      console.warn('[HHA] mode factory failed', e);
     }
-    show($('#resultModal'));
   }
 
-  try { if (Progress && typeof Progress.save==='function') Progress.save(summary); } catch(_e){}
-}
-
-function hideResult(){ hide($('#resultModal')); }
-
-// ====== Difficulty ======
-function diffOf(key){
-  if (key==='Easy') return { life: 3500 };
-  if (key==='Hard') return { life: 2300 };
-  return { life: 3000 };
-}
-
-// ====== Spawner ======
-function spawnOne(){
-  if (!STATE.running) return;
-  var now = Date.now();
-  if (STATE.freezeUntil && now < STATE.freezeUntil) return;
-
-  var host = $('#spawnHost');
-  var layer= $('#gameLayer');
-  if (!host || !layer) return;
-
-  // meta จากโหมด
-  var mode = MODES[STATE.mode] || MODES.goodjunk;
-  var meta = {};
-  try { if (mode.pickMeta) meta = mode.pickMeta(diffOf(STATE.difficulty), STATE) || {}; } catch(_e){ meta = {}; }
-
-  // สร้างปุ่มเป้า
-  var el = document.createElement('button');
-  el.type = 'button';
-  el.className = 'spawn-emoji';
-  el.setAttribute('aria-label', meta.aria || meta.label || 'item');
-  el.textContent = meta.char || '🍏';
-
-  // ตำแหน่งแบบปลอด HUD
-  var pad = 18;
-  var box = layer.getBoundingClientRect();
-  var x = rndInt(pad, Math.max(pad, box.width  - pad*2));
-  var y = rndInt(pad+24, Math.max(pad+24, box.height - pad*2 - 24));
-  el.style.position='absolute';
-  el.style.left = x + 'px';
-  el.style.top  = y + 'px';
-  el.style.fontSize = 'clamp(24px, 5.5vmin, 42px)';
-  el.style.lineHeight='1';
-  el.style.border='none';
-  el.style.background='transparent';
-  el.style.cursor='pointer';
-  el.style.userSelect='none';
-  el.style.webkitTapHighlightColor='transparent';
-  el.style.pointerEvents='auto';
-  el.style.zIndex='29';
-
-  // อายุ
-  var life = clamp(Number(meta.life)>0?Number(meta.life):3000, 600, 5000);
-  var tdie = setTimeout(function(){ try{ el.remove(); }catch(_e){} }, life);
-
-  // FX on spawn
-  try { if (mode.fx && typeof mode.fx.onSpawn==='function') mode.fx.onSpawn(el, STATE); } catch(_e){}
-
-  // คลิกให้ชัวร์ (pointerdown + click)
-  var onHit = function(ev){
-    ev.stopPropagation();
-    clearTimeout(tdie);
-    handleHit(meta, el);
-  };
-  el.addEventListener('pointerdown', onHit, { passive:true });
-  el.addEventListener('click', onHit, false);
-  el.addEventListener('dragstart', function(ev){ ev.preventDefault(); });
-
-  host.appendChild(el);
-  applyClickabilityFixes(); // กันโดน style อื่นทับ
-}
-
-// ====== Hit handling ======
-function handleHit(meta, el){
-  // ให้โหมดตัดสินผล
-  var result = 'ok';
-  try{
-    var m = MODES[STATE.mode];
-    if (m && typeof m.onHit==='function'){
-      result = m.onHit(meta, { score:{ add: addScore }, sfx:SFX }, STATE, { setTarget: HUD.setTarget }) || 'ok';
+  // If module exported an object with create()
+  if (api && typeof api.create === 'function') {
+    try {
+      return api.create({ engine, hud, coach, power, THREE, Progress });
+    } catch (e) {
+      console.warn('[HHA] mode.create failed', e);
     }
-  }catch(_e){}
-
-  // FX on hit
-  try{
-    var mm = MODES[STATE.mode];
-    if (mm && mm.fx && typeof mm.fx.onHit==='function'){
-      var off = el.getBoundingClientRect();
-      mm.fx.onHit(off.left + off.width/2, off.top + off.height/2, meta, STATE);
-    }
-  }catch(_e){}
-
-  // คอมโบ/คะแนน
-  if (result==='good' || result==='perfect'){
-    STATE.combo = Math.min(999, STATE.combo+1);
-    if (STATE.combo > STATE.bestCombo) STATE.bestCombo = STATE.combo;
-    var base = (result==='perfect'? 20 : 10);
-    var bonus = Math.floor(STATE.combo/10);
-    addScore(base + bonus);
-  } else if (result==='bad') {
-    STATE.combo = 0;
   }
-  HUD.setCombo(STATE.combo);
+
+  // If module itself is a plain “mode” object (already implemented)
+  if (api && (api.start || api.update || api.onClick)) {
+    return api;
+  }
+
+  // Fallback stub (click-to-earn)
+  return {
+    start(){ /* no-op */ },
+    stop(){},
+    update(){},
+    onClick(x,y,el){
+      // quick toy feedback
+      onHit({ kind:'good', points:10, ui:{x,y} });
+    }
+  };
+}
+
+// ----- Input → gameplay host (#gameLayer) -----
+const gameLayer = $('#gameLayer');
+gameLayer.addEventListener('pointerdown', (e)=>{
+  if (!App.running) return;
+  const rect = gameLayer.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  // Let mode handle first
+  try { App.mode?.onClick?.(x, y, e.target); } catch {}
+
+  // If mode didn’t award, we can give light feedback via engine FX, but we
+  // will always show a subtle glow at the click spot.
+  engine.fx.glowAt(e.clientX, e.clientY, 'rgba(127,255,212,.55)', 380);
+}, { passive:true });
+
+// ----- Centralized event handlers (hit/miss/fever etc.) for modes to call -----
+function onHit({ kind='good', points=10, ui } = {}){
+  const base = points|0;
+  const res = App.score.add(base);
+  App.hits++; App.shots++;
+  App.acc = Math.round((App.hits / Math.max(1, App.shots)) * 100);
+
+  // FEVER build (simple)
+  App.fever = Math.min(1, App.fever + 0.04);
+
+  // HUD + COACH
+  hud.setScore(res.total);
+  hud.setCombo('x'+res.combo);
+  hud.setFeverProgress(App.fever);
+  if (kind === 'perfect') coach.onPerfect(); else coach.onGood();
 
   // Quests
-  try{ Quests.event('hit', { result:result, meta:meta, comboNow: STATE.combo, _ctx:{ score: (STATE.score|0) } }); }catch(_e){}
+  bumpQuest('combo', 1);
+  if (kind === 'perfect') bumpQuest('perfect', 1);
+  if (kind === 'golden')  bumpQuest('golden', 1);
 
-  // ลบชิ้น
-  try{ el.remove(); }catch(_e){}
+  // FX
+  if (ui?.x!=null && ui?.y!=null) {
+    engine.fx.spawnShards(ui.x, ui.y, { count: 30 });
+    engine.fx.popText(`+${res.total-(res.total-res.delta) ? res.delta : base}`, { x: ui.x, y: ui.y, ms: 650 });
+  }
 }
 
-function addScore(n){
-  STATE.score = Math.max(0, (STATE.score|0) + (n|0));
-  HUD.setScore(STATE.score);
+function onMiss(){
+  App.shots++;
+  App.score.miss?.();
+  App.fever = Math.max(0, App.fever - 0.08);
+  hud.setCombo('x'+App.score.combo());
+  hud.setFeverProgress(App.fever);
+  coach.onBad();
+  hud.flashDanger();
 }
 
-// ====== Menu default label ======
-(function initLabels(){
-  var mbtn = $('#m_goodjunk');
-  setText('#modeName', mbtn ? mbtn.textContent.replace(/\s+/g,' ').trim() : 'ดี vs ขยะ');
-  setText('#difficulty', 'ปกติ');
-})();
-
-// ====== Accessibility & Resume Menu ======
-function backToMenu(){
-  hide($('#resultModal'));
-  var menu = $('#menuBar'); if (menu) menu.style.display='';
-  document.body.classList.add('ui-mode-menu');
+function bumpQuest(key, d=1){
+  const q = App.quests.find(i=>i.key===key);
+  if (!q || q.done) return;
+  q.progress = Math.min(q.need, (q.progress|0) + (d|0));
+  if (q.progress >= q.need) q.done = true;
+  hud.setQuestChips(App.quests);
+  if (q.done) {
+    coach.onQuestDone();
+    Progress.addMissionDone(App.modeKey);
+  }
 }
 
-// ====== Expose for debug ======
-window.HHA = { STATE:STATE, startRun:startRun, endRun:endRun, backToMenu:backToMenu };
+// Expose a minimal bus so modes can call hits/misses easily
+const Bus = { hit: onHit, miss: onMiss, hud, coach, power, progress: Progress };
+window.__HHA_BUS__ = Bus; // (debug)
+
+// ----- Main loop -----
+function loop(ts){
+  if (!App.running) return;
+  App.loopId = raf(loop);
+
+  const now = ts || performance.now();
+  const dt = Math.min(0.05, (now - (App.lastTS||now)) / 1000); // c ~50ms
+  App.lastTS = now;
+
+  // Timer (freeze prevents countdown)
+  if ((power.getTimers().freeze|0) <= 0) {
+    App.timeLeft = Math.max(0, App.timeLeft - dt);
+  }
+
+  // Mode update
+  const timeScale = power.getTimeScale();
+  try { App.mode?.update?.(dt * timeScale, Bus); } catch {}
+
+  // HUD common
+  hud.setTime(Math.ceil(App.timeLeft));
+
+  // FEVER decay if not building
+  App.fever = Math.max(0, App.fever - dt*0.06);
+  hud.setFeverProgress(App.fever);
+
+  // Low time cues
+  if (App.timeLeft <= 10 && App.freezeHudTimer !== 10) {
+    App.freezeHudTimer = 10;
+    coach.onTimeLow();
+  }
+
+  // End
+  if (App.timeLeft <= 0) {
+    endGame();
+  }
+}
+
+function endGame(){
+  App.running = false;
+
+  // Accuracy
+  const acc = Math.round((App.hits / Math.max(1, App.shots)) * 100);
+
+  // Finish run
+  Progress.endRun({
+    score: App.score.total(),
+    bestCombo: App.score.bestCombo?.() || 0,
+    timePlayed: App.timeLimit,
+    acc
+  });
+
+  coach.onEnd(App.score.total());
+
+  // Fill result
+  const body = $('#resultBody');
+  body.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="cardlike"><b>Score</b><div>${App.score.total()}</div></div>
+      <div class="cardlike"><b>Accuracy</b><div>${acc}%</div></div>
+      <div class="cardlike"><b>Best Combo</b><div>${App.score.bestCombo?.()||0}</div></div>
+      <div class="cardlike"><b>Mode</b><div>${App.modeKey}</div></div>
+    </div>
+    <div style="margin-top:12px"><b>Mini Quests</b></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+      ${App.quests.map(q=>{
+        const ok = q.done && !q.fail;
+        const tag = ok ? '✅' : (q.progress>0 ? '⏳' : '—');
+        return `<div class="questChip${ok?' done':''}"><div class="qRow"><span class="qLabel">${q.icon||'⭐'} ${q.name}</span><span class="qProg">${q.progress}/${q.need}</span></div><div class="qBar"><i style="width:${Math.min(100, Math.round((q.progress*100)/q.need))}%"></i></div><div style="margin-top:4px">${tag}</div></div>`;
+      }).join('')}
+    </div>
+  `;
+
+  // Show modal & restore menu controls
+  openModal();
+  $('#menuBar').style.pointerEvents = 'auto';
+  $('#menuBar').style.opacity = '1';
+}
+
+// ----- Public-ish hooks for modes to call (optional) -----
+// Modes may import nothing and just call window.__HHA_BUS__.hit/miss
+// but we also provide named exports for ESM-aware local modes.
+export function HHA_onHit(args){ onHit(args); }
+export function HHA_onMiss(){ onMiss(); }
+
+// ----- Misc: click on power pseg shows cooldown fills via hud.setPowerTimers() -----
+$('#powerBar')?.addEventListener('click', ()=> hud.setPowerTimers(power.getTimers()), { passive:true });
+
+// ----- Quality-of-life: pause on blur -----
+window.addEventListener('blur', ()=>{ if (App.running) App._pausedOnBlur = true; }, { passive:true });
+window.addEventListener('focus', ()=>{ if (App._pausedOnBlur) { App._pausedOnBlur=false; coach.say(App.lang==='TH'?'พร้อมต่อ!':'Resume!'); } }, { passive:true });
+
+// ----- (Optional) Example: key binds for quick test -----
+window.addEventListener('keydown', (e)=>{
+  if (e.key==='1') usePower('x2',8);
+  if (e.key==='2') usePower('freeze',3);
+  if (e.key==='3') usePower('sweep',2);
+  if (e.key==='h') onHit({ kind:'good', points:10, ui:{ x: innerWidth/2, y: innerHeight/2 }});
+  if (e.key==='m') onMiss();
+}, { passive:true });
+
+// ----- End of file -----
