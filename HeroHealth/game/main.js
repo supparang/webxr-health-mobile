@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (UI wired + HUD + Quests + Coach + Spawner) ===
+// === Hero Health Academy — game/main.js (Stable UI + HUD + Quests + Coach + Spawner; PC/Mobile/VR-safe) ===
 window.__HHA_BOOT_OK = true;
 
 // ----- Imports -----
@@ -35,26 +35,74 @@ const STATE = {
   ctx: {}
 };
 
-// ----- Minimal SFX stub -----
-const SFX = { play(name){ try{ $('#'+name)?.currentTime=0, $('#'+name)?.play(); }catch{} } };
+// ----- Audio/SFX (แก้ optional chaining assignment) -----
+const SFX = {
+  play(id){
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { el.currentTime = 0; el.play()?.catch?.(()=>{}); } catch {}
+  }
+};
+// ปลดล็อกเสียงตั้งแต่ gesture แรก (มือถือ/VR)
+(function unlockAudioOnce(){
+  const ok = ()=> {
+    ['sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'].forEach(id=>{
+      const el = document.getElementById(id);
+      if (el) { try { el.muted=false; el.play()?.then(()=>el.pause()).catch(()=>{});}catch{} }
+    });
+    window.removeEventListener('pointerdown', ok, true);
+    window.removeEventListener('touchend', ok, true);
+    window.removeEventListener('click', ok, true);
+  };
+  window.addEventListener('pointerdown', ok, true);
+  window.addEventListener('touchend',   ok, true);
+  window.addEventListener('click',      ok, true);
+})();
+
+// ----- Ensure play layer (รองรับ index ที่ยังไม่มี #gameLayer/#spawnHost) -----
+function ensurePlayLayer(){
+  let layer = $('#gameLayer');
+  if (!layer){
+    const wrap = document.querySelector('main.game-wrap') || document.body;
+    layer = document.createElement('div');
+    layer.id = 'gameLayer';
+    layer.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(100vw,960px);height:min(70vh,70svh);max-width:96vw;max-height:76svh;outline:none;z-index:10;';
+    wrap.appendChild(layer);
+  }
+  let host = $('#spawnHost');
+  if (!host){
+    host = document.createElement('div');
+    host.id = 'spawnHost';
+    host.style.cssText = 'position:absolute;inset:0;overflow:hidden;touch-action:manipulation;';
+    layer.appendChild(host);
+  }
+  return { layer, host };
+}
+ensurePlayLayer();
+
+// จัดให้อยู่กลาง (PC/Mobile/VR)
+function relayout(){
+  const { layer } = ensurePlayLayer();
+  // ปรับให้มีพื้นที่ไม่ชนเมนู/หัว
+  const safeB = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--safe')||'0',10) || 0;
+  layer.style.bottom = `${safeB + 12}px`;
+}
+window.addEventListener('resize', relayout);
+relayout();
 
 // ----- HUD (ใช้ element ที่มีใน index.html) -----
 const HUD = (()=> {
   function setClock(sec){
-    // badge (ถ้ามี)
     const mm = String(Math.floor(sec/60)).padStart(2,'0');
     const ss = String(sec%60).padStart(2,'0');
-    setText('#clockBadge', `${mm}:${ss}`);
-    // fields เดิม
-    setText('#time', sec|0);
+    setText('#clockBadge', `${mm}:${ss}`); // ถ้ามี
+    setText('#time', sec|0);               // ของเดิมใน HUD
   }
   function setScore(n){
-    setText('#scoreBadge', `Score ${n|0}`);
-    setText('#score', n|0);
+    setText('#scoreBadge', `Score ${n|0}`); // ถ้ามี
+    setText('#score', n|0);                 // ของเดิมใน HUD
   }
-  function setCombo(c){
-    setText('#combo', 'x'+(c|0));
-  }
+  function setCombo(c){ setText('#combo','x'+(c|0)); }
   function setQuestChips(list){
     const host = $('#questChips'); if(!host) return;
     host.innerHTML = (list||[]).map(q=>{
@@ -85,71 +133,58 @@ const HUD = (()=> {
   }
   return { setClock, setScore, setCombo, setQuestChips, setTarget, coachSay };
 })();
-
-// ให้ Quests ผูก HUD ไว้เพื่อ refresh chips ได้
 Quests.bindToMain({ hud: { setQuestChips: HUD.setQuestChips } });
 
-// ----- UI wiring (ปุ่มทั้งหมด) -----
+// ----- UI wiring (รวมปุ่มจาก index ล่าสุด) -----
 document.addEventListener('click', (ev)=>{
   const btn = ev.target.closest('[data-action]');
   if(!btn) return;
   const act = btn.getAttribute('data-action');
 
+  // รองรับรูปแบบ "ui:start:mode"
+  if (act?.startsWith('ui:start:')){
+    const m = act.split(':')[2];
+    if (MODES[m]) {
+      STATE.mode = m;
+      setText('#modeName', btn.textContent.trim());
+      HUD.coachSay(STATE.lang==='TH'?'โหมด: '+btn.textContent.trim():'Mode: '+m);
+    }
+    return;
+  }
+
   switch(act){
-    case 'lang': {
-      const lang = (btn.getAttribute('data-lang')||'TH').toUpperCase();
-      STATE.lang = lang; localStorage.setItem('hha_lang', STATE.lang);
-      toast(STATE.lang==='TH'?'ภาษาไทย':'English');
-      break;
-    }
-    case 'mode': {
-      const m = btn.getAttribute('data-mode');
-      if (MODES[m]) {
-        STATE.mode = m;
-        highlightSelection('mode', m);
-        setText('#modeName', btn.textContent.trim());
-        HUD.coachSay(STATE.lang==='TH'?'โหมด: '+btn.textContent.trim():'Mode: '+m);
-      }
-      break;
-    }
-    case 'difficulty': {
-      const d = btn.getAttribute('data-diff')||'Normal';
+    case 'diff': {
+      const d = btn.getAttribute('data-value')||'Normal';
       STATE.difficulty = d;
-      highlightSelection('difficulty', d);
+      $$('[data-action="diff"]').forEach(b=>b.classList.toggle('active', b===btn));
       setText('#difficulty', ({Easy:'ง่าย',Normal:'ปกติ',Hard:'ยาก'})[d]||d);
       HUD.coachSay(`Difficulty: ${d}`);
       break;
     }
-    case 'howto': {
-      showHelpFor(STATE.mode);
-      break;
-    }
-    case 'import': doImport(); break;
-    case 'export': doExport(); break;
-    case 'reset':  localStorage.removeItem('hha_save'); toast('Progress cleared.'); break;
     case 'start':  startRun(); break;
+    case 'pause':  togglePause(); break;
     case 'restart': hideResult(); startRun(); break;
-    case 'back':   endRunAndBackToMenu(); break;
-
-    // โมดัล
+    case 'help': {
+      showHelpFor(STATE.mode); break;
+    }
     case 'helpClose': closeHelp(); break;
+    case 'helpScene': $('#helpScene')?.setAttribute('style','display:flex'); break;
+    case 'helpSceneClose': $('#helpScene')?.setAttribute('style','display:none'); break;
+    case 'statOpen': $('#statBoard')?.setAttribute('style','display:flex'); break;
+    case 'statClose': $('#statBoard')?.setAttribute('style','display:none'); break;
+    case 'dailyOpen': $('#dailyPanel')?.setAttribute('style','display:flex'); break;
+    case 'dailyClose': $('#dailyPanel')?.setAttribute('style','display:none'); break;
   }
 });
 
-function highlightSelection(kind, value){
-  $$(`[data-action="${kind}"]`).forEach(b=>{
-    const v = b.getAttribute(kind==='mode'?'data-mode':'data-diff');
-    b.classList.toggle('active', v===value);
-  });
-}
-
-function toast(msg){
-  const el = $('#toast'); if(!el) return;
-  el.textContent = msg; el.style.display='block';
-  el.classList.add('show');
-  clearTimeout(el._t);
-  el._t = setTimeout(()=>{ el.classList.remove('show'); el.style.display='none'; }, 1200);
-}
+// รองรับคีย์บอร์ด/VR คอนโทรลเลอร์ (Space = Start/Pause toggle ระหว่างเล่น)
+document.addEventListener('keydown', (e)=>{
+  if (e.code==='Space'){
+    e.preventDefault();
+    if (!STATE.running) startRun();
+    else togglePause();
+  }
+});
 
 // ----- Help Modal -----
 function showHelpFor(mode){
@@ -180,10 +215,8 @@ let _spawnTimer = null;
 function startRun(){
   // UI states
   $('#menuBar')?.setAttribute('style','display:none');
-  $('#resultModal')?.setAttribute('style','display:none');
-  $('#targetWrap')?.setAttribute('style','display:none');
-  $('#plateTracker')?.setAttribute('style','display:none');
-  $('#hydroWrap')?.setAttribute('style','display:none');
+  $('#result')?.setAttribute('style','display:none');
+  $('#help')?.setAttribute('style','display:none');
 
   // Reset state
   STATE.running = true;
@@ -191,6 +224,7 @@ function startRun(){
   STATE.score   = 0;
   STATE.combo   = 0;
   STATE.bestCombo = 0;
+  STATE.freezeUntil = 0;
   STATE.ctx = { };
   HUD.setClock(STATE.timeSec);
   HUD.setScore(STATE.score);
@@ -215,12 +249,23 @@ function startRun(){
   if (_spawnTimer) clearInterval(_spawnTimer);
   _spawnTimer = setInterval(spawnOne, 720);
 
-  // Focus play area
+  // Focus play area (ช่วย VR desktop/mouse)
   $('#gameLayer')?.focus?.();
 }
 
-function onTick(){
+function togglePause(){
   if (!STATE.running) return;
+  if (STATE._paused){
+    STATE._paused = false;
+    HUD.coachSay(STATE.lang==='TH'?'ไปต่อ!':'Resume!');
+  } else {
+    STATE._paused = true;
+    HUD.coachSay(STATE.lang==='TH'?'พักเกม':'Paused');
+  }
+}
+
+function onTick(){
+  if (!STATE.running || STATE._paused) return;
 
   if (nowMs() < (STATE.freezeUntil||0)) {
     HUD.setClock(STATE.timeSec);
@@ -242,6 +287,7 @@ function onTick(){
 
 function endRun(showResult){
   STATE.running = false;
+  STATE._paused = false;
   clearInterval(STATE.timerId); STATE.timerId=null;
   clearInterval(_spawnTimer); _spawnTimer=null;
 
@@ -259,32 +305,26 @@ function endRun(showResult){
   const quests = Quests.endRun(summary);
 
   if (showResult){
-    const body = $('#resultBody');
-    if (body){
-      body.innerHTML = `
-        <div>Score: <b>${summary.score}</b></div>
-        <div>Best Combo: <b>${summary.bestCombo}</b></div>
-        <div>Quests:
-          <ul style="margin:.25rem 0 0 1rem">
-            ${quests.map(q=>`<li>${q.label||q.id} — ${q.done?'✅':'❌'}</li>`).join('')}
-          </ul>
-        </div>
-      `;
-    }
-    $('#resultModal')?.setAttribute('style','display:flex');
+    const core = $('#resCore');
+    const bd   = $('#resBreakdown');
+    const ms   = $('#resMissions');
+    if (core) core.innerHTML = `
+      <div>Score: <b>${summary.score}</b></div>
+      <div>Best Combo: <b>${summary.bestCombo}</b></div>`;
+    if (bd) bd.innerHTML = '';
+    if (ms) ms.innerHTML = `
+      <div><b>Quests</b></div>
+      <ul style="margin:.25rem 0 0 1rem">
+        ${quests.map(q=>`<li>${q.label||q.id} — ${q.done?'✅':'❌'}</li>`).join('')}
+      </ul>`;
+    $('#result')?.setAttribute('style','display:flex');
   }
 
   // Save
   try { Progress?.save?.(summary); } catch {}
 }
 
-function hideResult(){ $('#resultModal')?.setAttribute('style','display:none'); }
-
-function endRunAndBackToMenu(){
-  endRun(false);
-  $('#resultModal')?.setAttribute('style','display:none');
-  $('#menuBar')?.setAttribute('style','');
-}
+function hideResult(){ $('#result')?.setAttribute('style','display:none'); }
 
 // ----- Difficulty profile -----
 function diffOf(key){
@@ -295,13 +335,13 @@ function diffOf(key){
   }
 }
 
-// ----- Spawner -----
+// ----- Spawner (PC/Mobile/VR-safe) -----
 function spawnOne(){
-  if (!STATE.running) return;
+  if (!STATE.running || STATE._paused) return;
   if (nowMs() < (STATE.freezeUntil||0)) return;
 
-  const host = $('#spawnHost'); if (!host) return;
-  const box  = $('#gameLayer')?.getBoundingClientRect?.(); if (!box) return;
+  const { host, layer } = ensurePlayLayer();
+  const box  = layer.getBoundingClientRect();
 
   // ให้โหมดสร้างเมตา
   const mode = MODES[STATE.mode] || MODES.goodjunk;
@@ -313,6 +353,7 @@ function spawnOne(){
   el.className = 'spawn-emoji';
   el.setAttribute('aria-label', meta.aria || meta.label || 'item');
   el.textContent = meta.char || '🍏';
+  el.style.position='absolute';
 
   // random position (กันขอบ)
   const pad = 22;
@@ -328,10 +369,9 @@ function spawnOne(){
   // FX on spawn
   try { (MODES[STATE.mode]?.fx?.onSpawn)?.(el, STATE); } catch {}
 
-  el.addEventListener('click', ()=>{
-    clearTimeout(tdie);
-    handleHit(meta, el);
-  }, { passive:true });
+  const onHit = ()=>{ clearTimeout(tdie); handleHit(meta, el); };
+  el.addEventListener('pointerdown', onHit, { passive:true });
+  el.addEventListener('click',       onHit, { passive:true });
 
   host.appendChild(el);
 }
@@ -405,9 +445,23 @@ function doImport(){
   inp.click();
 }
 
-// ----- Menu default highlight -----
-highlightSelection('mode', STATE.mode);
-highlightSelection('difficulty', STATE.difficulty);
+// ----- Menu default labels/highlight -----
+(function initLabels(){
+  setText('#modeName', 'ดี vs ขยะ');
+  setText('#difficulty', 'ปกติ');
+  $$('[data-action="diff"]').forEach(b=>{
+    b.classList.toggle('active', (b.getAttribute('data-value')||'')==='Normal');
+  });
+})();
+
+// ----- Toast helper (ใช้ #missionLine เป็น toast bar ชั่วคราว) -----
+function toast(msg){
+  const el = $('#missionLine'); if(!el) return;
+  el.textContent = msg; el.style.display='block';
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>{ el.classList.remove('show'); el.style.display='none'; }, 1200);
+}
 
 // ----- Debug expose -----
 window.HHA = { STATE, startRun, endRun };
