@@ -1,6 +1,9 @@
-// === Hero Health Academy — game/modes/plate.js (multi-group accept + overfill penalty + HUD bars) ===
+// === Hero Health Academy — game/modes/plate.js
+// (multi-group accept + overfill penalty + HUD bars + rarity perfect + over-quota lockout + group_full event)
+
 import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
 import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
+import { Quests } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
 
 export const name = 'plate';
 
@@ -80,6 +83,27 @@ function flashLine(msg){
   setTimeout(()=>{ line.style.display='none'; }, 950);
 }
 
+function toastRound(text){
+  let el = document.getElementById('toast');
+  if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent = text;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 900);
+}
+
+// ---------- Local state (module-internal) ----------
+let _lockout = {};   // groupId -> until timestamp (ms)
+let _plateRound = 1;
+
+// เพิ่มโอกาส perfect เมื่อกลุ่มหายาก/ยังขาดมาก
+function rareBoost(groupId, ctx){
+  const rare = (groupId==='dairy' || groupId==='protein');
+  const need = (ctx.need[groupId]||0), have = (ctx.have[groupId]||0);
+  const gap = Math.max(0, need - have);
+  return rare ? Math.min(0.18 + gap*0.03, 0.45)
+              : Math.min(0.18 + gap*0.02, 0.35);
+}
+
 // ---------- Public API ----------
 export function init(state={}, hud, diff){
   // เปิด HUD ของเพลต
@@ -95,11 +119,15 @@ export function init(state={}, hud, diff){
   state.ctx.overfillCount = 0;
   state.ctx.perfectPlates = 0;
 
-  renderPlateHUD(state);
+  _plateRound = 1;
+  _lockout = {};
 
-  // แจ้งเริ่มรันให้ Progress (เผื่อ UI ภายนอกต้อง sync)
+  renderPlateHUD(state);
+  toastRound('🍽️ จานที่ ' + _plateRound);
+
+  // แจ้งเริ่มรันให้ระบบภายนอกถ้าจำเป็น
   try{
-    Progress.emit('run_start', {
+    Progress.emit?.('run_start', {
       mode:'plate',
       difficulty: state.difficulty,
       missions: (Progress.runCtx?.missions||[])
@@ -137,39 +165,61 @@ export function pickMeta(diff={}, state={}){
   };
 }
 
-// แตะไอคอน: ยอมรับ “ทุกรายการ” ที่อยู่ในหมวดที่ยังขาดโควตา
+// แตะไอคอน: ยอมรับ “ทุกรายการ” ที่อยู่ในหมวดที่ยังขาดโควตา + lockout เมื่อเกินโควตา
 export function onHit(meta={}, systems={}, state={}){
   const { score, sfx } = systems;
   const Lang = L(state.lang);
   const ctx = state.ctx || (state.ctx={have:{},need:{}});
+
+  const now = performance.now();
+  if (_lockout[meta.groupId] && now < _lockout[meta.groupId]){
+    document.body.classList.add('flash-danger');
+    setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+    try{ sfx?.play?.('sfx-bad'); }catch{}
+    return 'bad';
+  }
 
   const need = (ctx.need[meta.groupId]||0);
   const have = (ctx.have[meta.groupId]||0);
   const withinQuota = need>0 && have<need;
 
   if (withinQuota){
-    // นับเข้าหมวดนั้น (Golden = โอกาสให้ Perfect ทาง main ผ่านคะแนน/เอฟเฟกต์)
     ctx.have[meta.groupId] = have + 1;
+
+    // rare perfect boost
+    const pBoost = rareBoost(meta.groupId, ctx);
+    const perfect = !!meta.golden || Math.random() < pBoost;
+
     renderPlateHUD(state);
+
+    // แจ้งกลุ่มครบโควตา
+    if (ctx.have[meta.groupId] >= ctx.need[meta.groupId]){
+      Quests.event?.('group_full', { groupId: meta.groupId });
+    }
 
     // ตรวจจบ “จาน”
     if (isPlateComplete(ctx)){
       flashLine(Lang.plateDone);
-      try{ score.add?.(40); }catch{}
+      try{ score?.add?.(40); }catch{}
       try{ sfx?.play?.('sfx-perfect'); }catch{}
-      // เริ่มจานใหม่ (scale ความท้าทายเล็กน้อย)
+      _plateRound++;
       nextPlate(ctx, state.difficulty||'Normal');
       renderPlateHUD(state);
+      toastRound('🍽️ จานที่ ' + _plateRound);
     }else{
-      try{ sfx?.play?.(meta.golden?'sfx-perfect':'sfx-good'); }catch{}
+      try{ sfx?.play?.(perfect?'sfx-perfect':'sfx-good'); }catch{}
     }
 
-    return meta.golden ? 'perfect' : 'good';
+    return perfect ? 'perfect' : 'good';
   }
 
-  // เกินโควตา → บทลงโทษ (ให้ main หักคอมโบผ่านผล 'bad')
+  // เกินโควตา → บทลงโทษ + lockout 600ms
   ctx.overfillCount = (ctx.overfillCount||0) + 1;
+  _lockout[meta.groupId] = now + 600;
+
   flashLine('⚠ ' + Lang.overfill);
+  document.body.classList.add('flash-danger');
+  setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
   try{ sfx?.play?.('sfx-bad'); }catch{}
   return 'bad';
 }
@@ -207,87 +257,4 @@ function nextPlate(ctx, diffKey){
 export const fx = {
   onSpawn(el/*, state*/){ add3DTilt(el); },
   onHit(x, y/*, meta, state*/){ shatter3D(x, y); }
-};
-// === Hero Health Academy — modes/plate.js (rarity perfect + over-quota lockout + group_full event) ===
-import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-import { add3DTilt, shatter3D } from '/webxr-health-mobile/HeroHealth/game/core/fx.js';
-import { Quests } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
-
-// ... (คงรายการ POOLS/GROUPS และ helper จากเวอร์ชันที่คุณรวมล่าสุดไว้)
-
-let _lockout = {}; // groupId -> until timestamp
-let _plateRound = 1;
-
-function rareBoost(groupId, ctx){
-  // เพิ่มโอกาส perfect เมื่อกลุ่มนั้น "ยังขาดเยอะ" และเป็นกลุ่มยาก
-  const rare = (groupId==='dairy' || groupId==='protein');
-  const need = (ctx.need[groupId]||0), have = (ctx.have[groupId]||0);
-  const gap = Math.max(0, need-have);
-  return rare ? Math.min(0.18 + gap*0.03, 0.45) : Math.min(0.18 + gap*0.02, 0.35);
-}
-
-function renderPlateRound(){
-  let el = document.getElementById('toast'); if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-  el.textContent = '🍽️ จานที่ ' + _plateRound; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 900);
-}
-
-export function init(state, hud, diff){
-  // ... (เหมือนเดิมจากไฟล์ที่คุณรวมก่อนหน้า)
-  _plateRound = 1;
-  _lockout = {};
-  renderPlateHUD(state);
-  renderPlateRound();
-}
-
-export function onHit(meta, systems, state){
-  const { score, sfx } = systems;
-  const Lang = L(state.lang);
-  const ctx = state.ctx;
-
-  const now = performance.now();
-  if (_lockout[meta.groupId] && now < _lockout[meta.groupId]){
-    document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
-    return 'bad';
-  }
-
-  const need = (ctx.need[meta.groupId]||0);
-  const have = (ctx.have[meta.groupId]||0);
-  const withinQuota = need>0 && have<need;
-
-  if (withinQuota){
-    ctx.have[meta.groupId] = have + 1;
-    const pBoost = rareBoost(meta.groupId, ctx);
-    const perfect = !!meta.golden || Math.random() < pBoost;
-
-    renderPlateHUD(state);
-
-    // แจ้ง group full
-    if (ctx.have[meta.groupId] >= ctx.need[meta.groupId]){
-      Quests.event('group_full', { groupId: meta.groupId });
-    }
-
-    if (isPlateComplete(ctx)){
-      try{ sfx.play('sfx-perfect'); }catch{}
-      score.add?.(40);
-      _plateRound++;
-      nextPlate(ctx, state.difficulty||'Normal');
-      renderPlateHUD(state);
-      renderPlateRound();
-    }else{
-      try{ sfx.play(perfect?'sfx-perfect':'sfx-good'); }catch{}
-    }
-    return perfect ? 'perfect' : 'good';
-  }
-
-  // เกินโควตา: บทลงโทษ + lockout 600ms
-  ctx.overfillCount = (ctx.overfillCount||0)+1;
-  _lockout[meta.groupId] = now + 600;
-  document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
-  try{ sfx.play('sfx-bad'); }catch{}
-  return 'bad';
-}
-
-export const fx = {
-  onSpawn(el){ add3DTilt(el); },
-  onHit(x,y){ shatter3D(x,y); }
 };
