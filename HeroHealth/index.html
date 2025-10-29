@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hero Health Academy</title>
 
-  <!-- Base styles (ของโปรเจกต์เดิม) -->
   <link rel="stylesheet" href="./styles/game.css">
   <link rel="stylesheet" href="./styles/groups.css">
-
   <meta name="theme-color" content="#0a0f1a">
 
-  <!-- Hub styling — โทนเดิม (glass + gradient + การ์ด) -->
   <style>
     :root{
       --hub-max: 1100px;
@@ -19,17 +16,14 @@
       --glass-bd: #22304a;
       --muted:#9db5cc; --fg:#e6f3ff; --accent:#7fffd4; --accent2:#ffd54a;
     }
-    body{ background:
-      radial-gradient(1200px 800px at 20% -10%, #163045 0%, #0a0f1a 55%),
-      radial-gradient(900px 600px  at 100%  0%, #0f2440 0%, #0a0f1a 50%);
+    body{
+      background:
+        radial-gradient(1200px 800px at 20% -10%, #163045 0%, #0a0f1a 55%),
+        radial-gradient(900px 600px  at 100%  0%, #0f2440 0%, #0a0f1a 50%);
       color:var(--fg);
     }
-    .hubWrap{
-      position:relative; margin:0 auto; max-width:var(--hub-max); padding:48px 16px 24px;
-    }
-    .hero{
-      display:flex; align-items:center; gap:24px; flex-wrap:wrap; margin-bottom:18px;
-    }
+    .hubWrap{ position:relative; margin:0 auto; max-width:var(--hub-max); padding:48px 16px 24px; }
+    .hero{ display:flex; align-items:center; gap:24px; flex-wrap:wrap; margin-bottom:18px; }
     .brand{
       display:flex; align-items:center; gap:14px;
       background:linear-gradient(180deg, #112137, #0b1727);
@@ -88,26 +82,29 @@
     }
     .ctaStart:active{ transform: translateY(1px); }
 
-    /* HUD */
-    #hudWrap{ top:10px; }
-    #coachHUD{ display:flex; justify-content:center; }
+    /* ===== Game layers & z-order fixes ===== */
+    #menuBar{ position:relative; z-index:92; }   /* สูงกว่า gameLayer */
+    #hudWrap{ position:fixed; top:10px; left:0; right:0; z-index:95; }
+    #coachHUD{ position:fixed; inset:60px 0 auto 0; z-index:96; display:flex; justify-content:center; }
     #coachBubble{ max-width:min(86dvw,860px); }
 
-    /* game layer */
     #gameLayer{ position:fixed; inset:0; overflow:hidden; z-index:28; }
     #spawnHost{ position:absolute; inset:0; }
 
-    /* Hide menu while playing */
+    /* ปิดการรับคลิกของเกมจนกว่าจะเริ่ม (กันบังเมนู) */
+    body:not([data-playing="1"]) #gameLayer{ pointer-events:none; }
+
+    /* ซ่อนเมนูเมื่อเล่น */
     #menuBar[data-hidden="1"]{ display:none; }
 
-    @media (max-width:640px){
-      .modes{ grid-template-columns: 1fr; }
-    }
+    /* ป้องกัน HUD เบียด */
+    #missionLine, #toast, #plateTracker, #targetWrap{ pointer-events:none; }
+
+    @media (max-width:640px){ .modes{ grid-template-columns: 1fr; } }
   </style>
 </head>
 <body data-mode="goodjunk">
   <div class="hubWrap">
-    <!-- Hero / Brand -->
     <div class="hero">
       <div class="brand">
         <div class="logo" aria-hidden="true"></div>
@@ -118,12 +115,12 @@
       </div>
     </div>
 
-    <!-- Coach (โชว์ "Ready?" ตอนแรก, และจะเปลี่ยนเป็น "Go!" เมื่อเริ่ม) -->
+    <!-- Coach -->
     <div id="coachHUD" class="coach" aria-live="polite" aria-atomic="true">
       <div id="coachBubble"><span id="coachText">Ready?</span></div>
     </div>
 
-    <!-- HUD หลัก -->
+    <!-- HUD -->
     <div id="hudWrap" class="hud">
       <div id="scoreWrap" class="hudBox"><b>Score</b> <span id="score">0</span></div>
       <div id="timeWrap"  class="hudBox"><b>Time</b>  <span id="time">45</span>s</div>
@@ -133,7 +130,7 @@
       </div>
     </div>
 
-    <!-- Menu glass -->
+    <!-- Menu -->
     <div id="menuBar" class="glass">
       <div class="row">
         <div class="col">
@@ -192,75 +189,94 @@
   <audio id="sfx-powerup" preload="auto" src="./assets/sfx/power.mp3"></audio>
   <audio id="bgm-main"    preload="auto" loop src="./assets/bgm/main.mp3"></audio>
 
-  <!-- Scripts ของโปรเจกต์ -->
+  <!-- UI + Boot (ของโปรเจกต์) -->
   <script src="./game/ui.js" defer></script>
   <script src="./game/boot.js" defer></script>
 
-  <!-- Hub wiring (ให้ Start ติดแน่นอน + อัปเดตป้าย Now Playing + Coach โชว์) -->
-  <script type="module">
-    const $ = s=>document.querySelector(s);
-    const $$ = s=>document.querySelectorAll(s);
+  <!-- Hub wiring: ensure clicks work + un-block game only after Start -->
+  <script>
+    (function(){
+      const $ = s=>document.querySelector(s);
+      const $$= s=>document.querySelectorAll(s);
+      let mode='goodjunk', diff='Normal';
 
-    // สถานะ UI
-    let mode = 'goodjunk';
-    let diff = 'Normal';
+      function reflect(){
+        document.body.setAttribute('data-mode', mode);
+        document.documentElement.setAttribute('data-hha-mode', mode);
+        window.__HHA_MODE = mode;
+        window.__HHA_DIFF = diff;
+        const L = { goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate' };
+        const lblM = $('#lblMode'); if(lblM) lblM.textContent = L[mode]||mode;
+        const lblD = $('#lblDiff'); if(lblD) lblD.textContent = diff;
+      }
 
-    function reflect(){
-      document.body.setAttribute('data-mode', mode);
-      document.documentElement.setAttribute('data-hha-mode', mode);
-      window.__HHA_MODE = mode;
-      window.__HHA_DIFF = diff;
-      $('#lblMode').textContent = {
-        goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate'
-      }[mode] || mode;
-      $('#lblDiff').textContent = diff;
-    }
-
-    // โค้ชโชว์เสมอที่หน้าแรก
-    (function showCoach(){ const t=$('#coachText'); if(t){ t.textContent='Ready?'; } })();
-
-    // เลือกโหมด
-    $$('.modeCard').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        $$('.modeCard').forEach(b=>b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        mode = btn.dataset.mode || 'goodjunk';
-        reflect();
-      });
-    });
-
-    // เลือกความยาก
-    $$('.chip[data-diff]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        $$('.chip[data-diff]').forEach(b=>b.classList.remove('is-active'));
-        btn.classList.add('is-active');
-        diff = btn.dataset.diff || 'Normal';
-        reflect();
-      });
-    });
-
-    // ปุ่ม Start — เรียก main ผ่าน HHA.startGame()
-    (function bindStart(){
-      const b = $('#btn_start'); if(!b) return;
-      const clone = b.cloneNode(true); b.replaceWith(clone);
-      clone.addEventListener('click', (e)=>{
-        e.preventDefault();
-        reflect(); // sync ค่าเข้าตัวแปร global
-        if (window.HHA && typeof window.HHA.startGame === 'function'){
-          // coach “Go!” เพื่อยืนยันเริ่ม
-          const t=$('#coachText'); if(t) t.textContent='Go!';
-          window.HHA.startGame({ demoPassed:true });
-        } else if (typeof window.startFlow === 'function'){
-          window.startFlow();
-        } else {
-          // ถ้า main ยังไม่พร้อม ซ่อนเมนูให้เห็น layer เกม
-          $('#menuBar')?.setAttribute('data-hidden','1');
+      function setPlaying(on){
+        if(on){
+          document.body.setAttribute('data-playing','1');
+          $('#menuBar')?.setAttribute('data-hidden','1');      // hide menu
+        }else{
+          document.body.removeAttribute('data-playing');
+          $('#menuBar')?.removeAttribute('data-hidden');
         }
-      }, {capture:true});
-    })();
+      }
 
-    // ค่าเริ่มต้น
-    reflect();
+      // Coach text
+      const coachTxt = $('#coachText'); if(coachTxt) coachTxt.textContent = 'Ready?';
+
+      // Mode buttons
+      $$('.modeCard').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          e.preventDefault();
+          $$('.modeCard').forEach(b=>b.classList.remove('is-active'));
+          btn.classList.add('is-active');
+          mode = btn.dataset.mode || 'goodjunk';
+          reflect();
+        }, {passive:true});
+      });
+
+      // Diff buttons
+      $$('.chip[data-diff]').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          e.preventDefault();
+          $$('.chip[data-diff]').forEach(b=>b.classList.remove('is-active'));
+          btn.classList.add('is-active');
+          diff = btn.dataset.diff || 'Normal';
+          reflect();
+        }, {passive:true});
+      });
+
+      // Start button — FORCE clickable
+      (function bindStart(){
+        const b = $('#btn_start'); if(!b) return;
+        const clone = b.cloneNode(true);
+        b.replaceWith(clone);
+        clone.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation();
+          reflect();
+          setPlaying(true);
+          if(coachTxt) coachTxt.textContent = 'Go!';
+
+          // call main if available
+          try{
+            if (window.HHA && typeof window.HHA.startGame === 'function'){
+              window.HHA.startGame({ demoPassed:true });
+            } else if (typeof window.startFlow === 'function'){
+              window.startFlow();
+            }
+          }catch(err){ console.warn('startGame error', err); }
+        }, {capture:true});
+      })();
+
+      // Safety: make sure any canvas never blocks clicks on menu
+      setTimeout(()=>{
+        const c = document.getElementById('c');
+        if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+      }, 0);
+
+      // initial
+      reflect();
+      setPlaying(false);
+    })();
   </script>
 </body>
 </html>
