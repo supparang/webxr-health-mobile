@@ -1,7 +1,7 @@
 // === Hero Health Academy — game/modes/plate.js
-// (click-safe: no HUD blocking, robust meta guard, fair lockout,
-//  multi-group accept + overfill penalty + HUD bars + rarity perfect
-//  + group_full/plate_group_full events + safe FX bootstrap)
+// (click-safe HUD, robust meta guard, fair lockout, multi-group accept,
+//  overfill penalty, HUD bars, rarity-perfect, quest events, FX hooks
+//  + Factory adapter for main.js DOM-spawn flow)
 
 import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
 import { Quests   } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
@@ -59,7 +59,6 @@ function lackingGroups(ctx){
 // ---------- HUD ----------
 function renderPlateHUD(state){
   const host = document.getElementById('platePills'); if (!host) return;
-  // ป้องกัน HUD บังคลิก
   host.style.pointerEvents = 'none';
   const Lang = L(state.lang);
   const pills = GROUPS.map(g=>{
@@ -78,7 +77,6 @@ function renderPlateHUD(state){
 
 function flashLine(msg){
   const line = document.getElementById('missionLine'); if (!line) return;
-  // ไม่บังคลิก
   line.style.pointerEvents = 'none';
   line.textContent = msg;
   line.style.display = 'block';
@@ -88,14 +86,12 @@ function flashLine(msg){
 function toastRound(text){
   let el = document.getElementById('toast');
   if (!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-  // ไม่บังคลิก
   el.style.pointerEvents = 'none';
   el.textContent = text; el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 900);
 }
 
 function clickSafeOverlays(){
-  // ปิด pointer-events ให้ชั้น HUD ที่อาจบังคลิกทั้งหมด
   ['platePills','missionLine','toast','targetWrap','hudWrap','coachHUD','menuBar','resultModal']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.style.pointerEvents='none'; });
 }
@@ -112,19 +108,15 @@ function rareBoost(groupId, ctx){
               : Math.min(0.18 + gap*0.02, 0.35);
 }
 
-// ---------- Public API ----------
+// ---------- Legacy API ----------
 export function init(state={}, hud, diff){
-  // normalize lang
   state.lang = (state.lang||localStorage.getItem('hha_lang')||'TH').toUpperCase();
 
-  // เปิด/ซ่อน HUD ที่เกี่ยวข้อง
   const wrap = document.getElementById('plateTracker'); if (wrap){ wrap.style.display = 'block'; wrap.style.pointerEvents='none'; }
   const tgt  = document.getElementById('targetWrap');   if (tgt) { tgt.style.display  = 'none';  tgt.style.pointerEvents='none'; }
 
-  // ปิด pointer-events HUD ที่เหลือเพื่อไม่ให้บังคลิก
   clickSafeOverlays();
 
-  // ตั้งค่าโควตาเริ่มต้น
   state.ctx = state.ctx || {};
   state.ctx.need = makeQuotas(state.difficulty||'Normal');
   state.ctx.have = { veggies:0, fruits:0, grains:0, protein:0, dairy:0 };
@@ -170,14 +162,13 @@ export function pickMeta(diff={}, state={}){
     aria: group,
     label: group,
     groupId: group,
-    good: withinQuota,   // main จะให้คะแนนจาก result ที่เราคืน
+    good: withinQuota,
     golden,
     life
   };
 }
 
 export function onHit(meta={}, systems={}, state={}){
-  // กัน meta เพี้ยน/คลิกบนพื้นที่ว่าง → ไม่ถือว่า bad (เพื่อไม่ตัดคอมโบ)
   if (!meta || !meta.groupId) return 'ok';
 
   const score = systems?.score;
@@ -187,9 +178,7 @@ export function onHit(meta={}, systems={}, state={}){
 
   const now = performance.now();
 
-  // lockout ใช้เฉพาะกรณี "เกินโควตา" ที่เพิ่งเกิดขึ้น ไม่ใช่ทุกรายการ
   if (_lockout[meta.groupId] && now < _lockout[meta.groupId]){
-    // แค่สั่นไฟเตือนเล็กน้อย แต่ไม่กินคลิกชิ้นอื่น
     document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 120);
     try{ sfx?.play?.('sfx-bad'); }catch{}
     return 'bad';
@@ -202,7 +191,6 @@ export function onHit(meta={}, systems={}, state={}){
   if (withinQuota){
     ctx.have[meta.groupId] = have + 1;
 
-    // rarity-aware perfect
     const pBoost  = rareBoost(meta.groupId, ctx);
     const perfect = !!meta.golden || Math.random() < pBoost;
 
@@ -211,7 +199,7 @@ export function onHit(meta={}, systems={}, state={}){
     if (ctx.have[meta.groupId] >= ctx.need[meta.groupId]){
       const payload = { groupId: meta.groupId };
       Quests.event?.('group_full', payload);
-      Quests.event?.('plate_group_full', payload); // สำรองให้ quests จับได้ชัวร์
+      Quests.event?.('plate_group_full', payload);
     }
 
     if (isPlateComplete(ctx)){
@@ -228,7 +216,7 @@ export function onHit(meta={}, systems={}, state={}){
     return perfect ? 'perfect' : 'good';
   }
 
-  // เกินโควตา → บทลงโทษ + lockout 600ms (เฉพาะหมวดที่กดเกิน)
+  // Over-quota → penalty + short lockout on that group
   ctx.overfillCount = (ctx.overfillCount||0) + 1;
   _lockout[meta.groupId] = now + 600;
 
@@ -238,7 +226,7 @@ export function onHit(meta={}, systems={}, state={}){
   return 'bad';
 }
 
-export function tick(){ /* plate: ไม่มี tick พิเศษ */ }
+export function tick(){ /* plate: no special ticking */ }
 
 // ---------- Internals ----------
 function isPlateComplete(ctx){
@@ -268,3 +256,121 @@ export const fx = {
   onSpawn(el/*, state*/){ try{ (window?.HHA_FX?.add3DTilt||(()=>{}))(el); }catch{} },
   onHit(x, y/*, meta, state*/){ try{ (window?.HHA_FX?.shatter3D||(()=>{}))(x, y); }catch{} }
 };
+
+/* =============================================================================
+   Factory Adapter (for main.js DOM-spawn flow)
+   - Creates & manages DOM buttons under #spawnHost
+   - Uses pickMeta()/onHit() logic above; sends Bus.hit()/Bus.miss()
+============================================================================= */
+export function create({ engine, hud, coach }) {
+  const host  = document.getElementById('spawnHost');
+  const layer = document.getElementById('gameLayer');
+
+  const state = {
+    running:false,
+    items:[],                 // { el, x, y, born, life, meta }
+    difficulty: (window.__HHA_DIFF || 'Normal'),
+    lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(),
+    ctx: { need: makeQuotas(window.__HHA_DIFF||'Normal'), have:{ veggies:0,fruits:0,grains:0,protein:0,dairy:0 }, overfillCount:0 },
+    stats: { good:0, perfect:0, bad:0, miss:0 },
+  };
+
+  function start(){
+    stop();
+    state.running = true;
+    state.items.length = 0;
+    _lockout = {};
+    init(state, hud, {}); // set HUD
+    coach?.onStart?.();
+  }
+
+  function stop(){
+    state.running = false;
+    try { for (const it of state.items) it.el.remove(); } catch {}
+    state.items.length = 0;
+  }
+
+  function update(dt, Bus){
+    if (!state.running || !layer) return;
+
+    const now = performance.now();
+    const rect = layer.getBoundingClientRect();
+
+    // Spawn cadence (slightly faster near end)
+    if (!state._spawnCd) state._spawnCd = 0.20;
+    const timeLeft = Number(document.getElementById('time')?.textContent||'0')|0;
+    const bias = timeLeft <= 15 ? 0.14 : 0;
+
+    state._spawnCd -= dt;
+    if (state._spawnCd <= 0){
+      spawnOne(rect, Bus);
+      state._spawnCd = clamp(0.40 - bias + Math.random()*0.22, 0.26, 0.95);
+    }
+
+    // Lifetime expiry → treat as “miss” only if it was within quota (a good piece)
+    const gone = [];
+    for (const it of state.items){
+      if (now - it.born > it.meta.life){
+        if (it.meta.good){ Bus?.miss?.(); state.stats.miss++; }
+        try { it.el.remove(); } catch {}
+        gone.push(it);
+      }
+    }
+    if (gone.length){
+      state.items = state.items.filter(x=>!gone.includes(x));
+    }
+  }
+
+  function spawnOne(rect, Bus){
+    const meta = pickMeta({ life: 1900 }, state);
+    const pad = 30;
+    const x = Math.round(pad + Math.random()*(Math.max(1, rect.width)  - pad*2));
+    const y = Math.round(pad + Math.random()*(Math.max(1, rect.height) - pad*2));
+
+    const b = document.createElement('button');
+    b.className = 'spawn-emoji';
+    b.type = 'button';
+    b.style.left = x + 'px';
+    b.style.top  = y + 'px';
+    b.textContent = meta.char;
+    b.setAttribute('aria-label', meta.aria);
+    if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+
+    try { (window?.HHA_FX?.add3DTilt||(()=>{}))(b); } catch {}
+
+    b.addEventListener('click', (ev)=>{
+      if (!state.running) return;
+      ev.stopPropagation();
+      const ui = { x: ev.clientX, y: ev.clientY };
+
+      const res = onHit(meta, { score: engine?.score, sfx: engine?.sfx }, state);
+
+      if (res === 'good' || res === 'perfect'){
+        const pts = res === 'perfect' ? 20 : 10;
+        engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 720 });
+        try { (window?.HHA_FX?.shatter3D||(()=>{}))(ui.x, ui.y); } catch {}
+        state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui, meta });
+        coach?.onGood?.();
+      } else if (res === 'bad'){
+        document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+        state.stats.bad++; Bus?.miss?.({ meta });
+        coach?.onBad?.();
+      }
+
+      // remove clicked
+      try { b.remove(); } catch {}
+      const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
+    }, { passive:false });
+
+    (host||document.getElementById('spawnHost'))?.appendChild?.(b);
+    state.items.push({ el:b, x, y, born: performance.now(), life: meta.life, meta });
+  }
+
+  function cleanup(){
+    stop();
+    try { cleanupLegacy(); } catch {}
+  }
+  function cleanupLegacy(){ try { cleanup(state); } catch {} }
+
+  return { start, stop, update, onClick(){}, cleanup };
+}
