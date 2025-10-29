@@ -306,3 +306,20 @@ button[data-action], .btn[data-action], [role="button"][data-action]{ pointer-ev
 
 /* ---------- Accessibility ---------- */
 :focus-visible{ outline:2px solid #7fffd4; outline-offset:2px; }
+/* --- Ensure play area has 3D perspective --- */
+.game-wrap{
+  position:relative; width:100%; height:calc(100vh - 120px);
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+  perspective: 900px;               /* <— เติม */
+  transform-style: preserve-3d;     /* <— เติม */
+}
+
+/* --- Make targets render in 3D plane and clickable --- */
+.spawn-emoji{
+  position:absolute; border:0; background:transparent; cursor:pointer; user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  font-size:clamp(28px,6vmin,56px); line-height:1;
+  pointer-events:auto !important; z-index:29;
+  transform: translateZ(0);         /* <— เติม */
+  will-change: transform, opacity;
+}
