@@ -1,174 +1,107 @@
-// === Hero Health Academy — game/core/hud.js (2025-10-30, unified & safe) ===
-// Minimal, robust HUD controller used by main.js + modes
-// Provides: setScore, setTime, setCombo, toast, say, dispose,
-//           setQuestChips, markQuestDone, setPowerTimers, setFeverProgress,
-//           showHydration, flashDanger, dimPenalty
-
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>[...document.querySelectorAll(s)];
-
-function ensure(el, make){
-  if (el) return el;
-  const built = make();
-  return built;
-}
-
+// === Hero Health Academy — core/hud.js (2025-10-30, quests+safe overlay) ===
 export class HUD {
-  constructor(){
-    // Score/Time
-    this.scoreEl = $('#score');
-    this.timeEl  = $('#time');
+  constructor() {
+    this.$score = document.getElementById('score');
+    this.$time  = document.getElementById('time');
+    this.$toast = document.getElementById('toast');
+    this.$coach = document.getElementById('coachHUD');
+    this.$coachText = document.getElementById('coachText');
 
-    // Combo pill (auto-create if missing)
-    const scoreTime = $('#scoreTime');
-    this.comboWrap = $('#comboPill');
-    if (!this.comboWrap && scoreTime){
-      const frag = document.createElement('span');
-      frag.className = 'pill';
-      frag.id = 'comboPill';
-      frag.innerHTML = `🔥 <b id="combo">x0</b>`;
-      scoreTime.insertBefore(frag, scoreTime.lastElementChild); // before time pill
+    // Quest bar host
+    this.$qbar  = document.getElementById('questBar');
+    this.$qwrap = document.getElementById('questChips');
+
+    // ป้องกันการบังคลิก: HUD ทั้งหมด pointer-events:none ยกเว้นปุ่มที่จำเป็น
+    const hudWrap = document.getElementById('hudWrap');
+    if (hudWrap) hudWrap.style.pointerEvents = 'none';
+    if (this.$qbar)  this.$qbar.style.pointerEvents  = 'none';
+    if (this.$qwrap) this.$qwrap.style.pointerEvents = 'none';
+  }
+
+  dispose() {
+    clearTimeout(this._t1); clearTimeout(this._t2);
+    this._t1 = this._t2 = null;
+  }
+
+  setScore(v){ if (this.$score) this.$score.textContent = String(v|0); }
+  setTime(v){  if (this.$time)  this.$time.textContent  = String(v|0); }
+
+  setCombo(text){
+    // โชว์คอมโบถ้าต้องการเพิ่ม สามารถวางไว้ใน pill เดียวกับคะแนนได้
+    // ตัวอย่าง: เพิ่ม title attribute
+    if (this.$score) this.$score.title = `Combo ${text||''}`;
+  }
+
+  // FEVER & Power (optional plumbing)
+  setFeverProgress(p01){ /* ถ้าต้องการโชว์แถบ สามารถเติมทีหลัง */ }
+  setPowerTimers(obj){ /* hook ให้ HUD แปลค่าถ้าทำแถบพลังงาน */ }
+
+  say(text, ms=900){
+    if (!this.$coachText || !this.$coach) return;
+    this.$coachText.textContent = text;
+    this.$coach.style.display = 'flex';
+    clearTimeout(this._t1);
+    this._t1 = setTimeout(()=>{ this.$coach.style.display='none'; }, ms);
+  }
+
+  toast(text, ms=900){
+    if (!this.$toast) return;
+    this.$toast.textContent = text;
+    this.$toast.classList.add('show');
+    clearTimeout(this._t2);
+    this._t2 = setTimeout(()=> this.$toast.classList.remove('show'), ms);
+  }
+
+  flashDanger(){
+    document.body.classList.add('flash-danger');
+    setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+  }
+
+  // ---------- Quests HUD ----------
+  setQuestChips(chips=[]) {
+    if (!this.$qwrap) return;
+    // สร้างสไตล์เล็ก ๆ รอบเดียว
+    if (!document.getElementById('qchipStyle')) {
+      const css = document.createElement('style');
+      css.id = 'qchipStyle';
+      css.textContent = `
+        #questBar{position:absolute;left:50%;top:38px;transform:translateX(-50%);width:min(980px,96vw);z-index:95}
+        #questChips{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+        .qchip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;
+               background:#0e1b30e6;border:1px solid #19304e;color:#eaf6ff;font:800 12px ui-rounded;
+               box-shadow:0 6px 16px rgba(0,0,0,.25)}
+        .qchip i{font-style:normal}
+        .qchip b{font:900 12px ui-rounded}
+        .qchip small{opacity:.8}
+        .qchip.done{background:#0f2a25;border-color:#2dd4bf80}
+        .qchip.fail{opacity:.55;filter:grayscale(0.2)}
+      `;
+      document.head.appendChild(css);
     }
-    this.comboEl = $('#combo');
-
-    // Toast & Coach
-    this.toastEl = ensure($('#toast'), ()=> {
-      const el = document.createElement('div');
-      el.id = 'toast'; el.className='toast'; document.body.appendChild(el);
-      return el;
-    });
-    this.coachWrap = ensure($('#coachHUD'), ()=> {
-      const w = document.createElement('div'); w.id='coachHUD'; w.className='coach'; document.body.appendChild(w); return w;
-    });
-    this.coachText = ensure($('#coachText'), ()=> {
-      const s = document.createElement('span'); s.id='coachText'; s.textContent='Ready?'; this.coachWrap.appendChild(s); return s;
-    });
-
-    // Quest bar (chips list)
-    this.questBar   = ensure($('#questBar'), ()=> {
-      const d = document.createElement('div'); d.id='questBar'; document.body.appendChild(d); return d;
-    });
-    this.questList  = ensure($('#questChips'), ()=> {
-      const ul = document.createElement('ul'); ul.id='questChips'; this.questBar.appendChild(ul); return ul;
-    });
-
-    // Mission line (quick banner)
-    this.missionLine = ensure($('#missionLine'), ()=> {
-      const d = document.createElement('div'); d.id='missionLine'; document.body.appendChild(d); return d;
-    });
-
-    // Runtime
-    this._sayT = 0;
-    this._toastT = 0;
-    this._power = { x2:0, freeze:0, sweep:0, shield:0, magnet:0, boost:0 };
-    this._fever01 = 0;
-  }
-
-  /* ----- Basic setters ----- */
-  setScore(n){ try{ if(this.scoreEl) this.scoreEl.textContent = (n|0); }catch{} }
-  setTime(n){  try{ if(this.timeEl)  this.timeEl.textContent  = (n|0); }catch{} }
-  setCombo(text='x0'){ try{ if(this.comboEl) this.comboEl.textContent = String(text); }catch{} }
-
-  /* ----- Coach speech bubble ----- */
-  say(text='', ms=900){
-    try{
-      if (!this.coachWrap || !this.coachText) return;
-      this.coachText.textContent = String(text||'');
-      this.coachWrap.classList.add('show');
-      this.coachWrap.style.display = 'flex';
-      clearTimeout(this._sayT);
-      this._sayT = setTimeout(()=>{
-        this.coachWrap.classList.remove('show');
-        this.coachWrap.style.display = 'none';
-      }, Math.max(200, ms|0));
-    }catch{}
-  }
-
-  /* ----- Toast pill ----- */
-  toast(text='', ms=900){
-    try{
-      if (!this.toastEl) return;
-      this.toastEl.textContent = String(text||'');
-      this.toastEl.classList.add('show');
-      clearTimeout(this._toastT);
-      this._toastT = setTimeout(()=> this.toastEl.classList.remove('show'), Math.max(200, ms|0));
-    }catch{}
-  }
-
-  /* ----- Power timers & Fever (safe no-op visuals) ----- */
-  setPowerTimers(timers={}){
-    // Store for potential future visual; keep silent if no UI
-    this._power = { ...this._power, ...timers };
-  }
-  setFeverProgress(x01=0){
-    this._fever01 = Math.max(0, Math.min(1, Number(x01)||0));
-    // If you later add a fever bar, update it here.
-  }
-
-  /* ----- Quest chips ----- */
-  setQuestChips(chips=[]){
-    try{
-      if (!this.questList) return;
-      // Render compact chips with progress bars
-      this.questList.innerHTML = chips.map(ch => {
-        const pct = ch.need ? Math.min(100, Math.round((ch.progress|0) * 100 / (ch.need|0))) : 0;
-        const done = ch.done ? ' done' : '';
-        const fail = ch.fail ? ' fail' : '';
-        const label = (ch.label || ch.key || '').toString();
-        const need  = ch.need|0, prog = ch.progress|0;
-        return `
-          <li class="quest-chip${done}${fail}" data-qid="${ch.key}" style="list-style:none;display:inline-flex;align-items:center;gap:8px;margin:4px 6px 0 0;padding:6px 8px;border-radius:999px;background:#102038;border:1px solid #19304e;font:800 12px ui-rounded">
-            <span>${ch.icon||'⭐'}</span>
-            <span class="lbl" style="opacity:.9">${label}</span>
-            <span class="stat" style="opacity:.85">${prog}/${need}</span>
-            <i class="bar" style="position:relative;display:inline-block;width:84px;height:8px;border-radius:999px;background:#0a1a2f;overflow:hidden">
-              <b style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:#2dd4bf;border-radius:999px"></b>
-            </i>
-          </li>`;
-      }).join('');
-    }catch{}
+    const html = chips.map(c=>{
+      const prog = Math.min(c.progress|0, c.need|0);
+      return `<li class="qchip ${c.done?'done':''} ${c.fail?'fail':''}" data-q="${c.key}">
+        <i>${c.icon||'⭐'}</i>
+        <b>${c.label||c.key}</b>
+        <small>${prog}/${c.need|0}</small>
+      </li>`;
+    }).join('');
+    this.$qwrap.innerHTML = html;
   }
 
   markQuestDone(qid){
-    try{
-      const li = this.questList?.querySelector?.(`.quest-chip[data-qid="${CSS.escape(qid)}"]`);
-      if (li){ li.classList.add('done'); }
-    }catch{}
+    const el = this.$qwrap?.querySelector?.(`[data-q="${CSS.escape(qid)}"]`);
+    if (el) el.classList.add('done');
+    this.toast('✓ Quest!', 900);
   }
 
-  /* ----- Hydration helper (optional visual) ----- */
-  showHydration(zone='OK', pct=50){
-    // hydration.js draws its own overlay; keep for future hooks
-    // Example: update body data-attrs for CSS if desired
-    try {
-      document.body.dataset.hzone = String(zone||'OK');
-      document.body.dataset.hpct  = String(pct|0);
-    }catch{}
+  // Hydration helpers (called by hydration.js)
+  showHydration(zone, pct){
+    // สามารถวาดบน #hydroWrap (สร้างโดยโหมด hydration) แล้วปล่อย HUD ทำแค่ชุดข้อความ
+    const z = String(zone||'').toUpperCase();
+    if (z==='HIGH')      this.say('💧 High', 600);
+    else if (z==='LOW')  this.say('💧 Low', 600);
   }
 
-  /* ----- Effects ----- */
-  flashDanger(){
-    try{
-      const root = $('#gameLayer') || document.body;
-      root.classList.add('flash-danger');
-      setTimeout(()=> root.classList.remove('flash-danger'), 180);
-    }catch{}
-  }
-  dimPenalty(){
-    try{
-      const root = $('#gameLayer') || document.body;
-      root.style.filter = 'brightness(0.92)';
-      setTimeout(()=> root.style.filter = '', 160);
-    }catch{}
-  }
-
-  /* ----- Cleanup ----- */
-  dispose(){
-    try{
-      clearTimeout(this._sayT);
-      clearTimeout(this._toastT);
-      if (this.coachWrap){ this.coachWrap.classList.remove('show'); this.coachWrap.style.display='none'; }
-      if (this.toastEl){ this.toastEl.classList.remove('show'); }
-    }catch{}
-  }
+  hideHydration(){ /* noop */ }
 }
