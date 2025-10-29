@@ -1,282 +1,229 @@
-<!doctype html>
-<html lang="th" data-hha-mode="">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hero Health Academy</title>
+// === Hero Health Academy — game/main.js (runtime glue; startGame wired) ===
+window.__HHA_BOOT_OK = 'main';
 
-  <link rel="stylesheet" href="./styles/game.css">
-  <link rel="stylesheet" href="./styles/groups.css">
-  <meta name="theme-color" content="#0a0f1a">
+(function () {
+  const $  = (s) => document.querySelector(s);
+  const $$ = (s) => document.querySelectorAll(s);
 
-  <style>
-    :root{
-      --hub-max: 1100px;
-      --glass-bg: #0e1624cc;
-      --glass-bd: #22304a;
-      --muted:#9db5cc; --fg:#e6f3ff; --accent:#7fffd4; --accent2:#ffd54a;
-    }
-    body{
-      background:
-        radial-gradient(1200px 800px at 20% -10%, #163045 0%, #0a0f1a 55%),
-        radial-gradient(900px 600px  at 100%  0%, #0f2440 0%, #0a0f1a 50%);
-      color:var(--fg);
-    }
-    .hubWrap{ position:relative; margin:0 auto; max-width:var(--hub-max); padding:48px 16px 24px; }
-    .hero{ display:flex; align-items:center; gap:24px; flex-wrap:wrap; margin-bottom:18px; }
-    .brand{
-      display:flex; align-items:center; gap:14px;
-      background:linear-gradient(180deg, #112137, #0b1727);
-      border:1px solid var(--glass-bd); border-radius:16px; padding:10px 14px;
-      box-shadow:0 10px 28px #0006;
-    }
-    .brand .logo{
-      width:46px; height:46px; border-radius:12px;
-      background:radial-gradient(circle at 32% 28%, #7fffd4, #2dd4bf 60%, #0ea5a0);
-      box-shadow:0 6px 18px #0af3c555, inset 0 1px 0 #fff3;
-    }
-    .brand .t1{ font-size:18px; font-weight:900; letter-spacing:.3px; }
-    .brand .t2{ font-size:12px; color:var(--muted); margin-top:-6px; }
+  // --------- Safe stubs (จะถูกแทนที่เมื่อ import ได้) ----------
+  let ScoreSystem, SFXClass, Quests, Progress, VRInput;
+  async function loadCore() {
+    try { ({ ScoreSystem } = await import('./core/score.js')); } catch { ScoreSystem = class{ constructor(){this.value=0;} add(n=0){ this.value+=n;} get(){return this.value|0;} reset(){this.value=0;} }; }
+    try { ({ SFX: SFXClass } = await import('./core/sfx.js')); } catch { SFXClass = class{ play(){} tick(){} good(){} bad(){} perfect(){} power(){} }; }
+    try { ({ Quests } = await import('./core/quests.js')); } catch { Quests = { beginRun(){}, event(){}, tick(){}, endRun(){return[]}, bindToMain(){return{refresh(){}}} }; }
+    try { ({ Progress } = await import('./core/progression.js')); } catch { Progress = { init(){}, beginRun(){}, endRun(){}, emit(){}, getStatSnapshot(){return{};}, profile(){return{};} }; }
+    try { ({ VRInput } = await import('./core/vrinput.js')); } catch { VRInput = { init(){}, toggleVR(){}, isXRActive(){return false;}, isGazeMode(){return false;} }; }
+  }
 
-    .glass{
-      background:var(--glass-bg); border:1px solid var(--glass-bd);
-      border-radius:18px; box-shadow:0 16px 40px #0007, inset 0 1px 0 #fff2;
-    }
-    .row{ display:flex; gap:16px; flex-wrap:wrap; }
-    .col{ flex:1 1 340px; min-width:280px; }
-    .hd{ font-size:14px; color:var(--muted); margin:12px 12px 8px; font-weight:800; letter-spacing:.2px; }
+  // --------- Mode loader (DOM-spawn factory first, then legacy) ----------
+  const MODE_PATH = (k) => `./modes/${k}.js`;
+  async function loadMode(key) {
+    const mod = await import(MODE_PATH(key));
+    const api = {
+      name: mod.name || key,
+      create: mod.create || null,
+      init:   mod.init   || null,
+      tick:   mod.tick   || null,
+      pickMeta: mod.pickMeta || null,
+      onHit:    mod.onHit    || null,
+      cleanup:  mod.cleanup  || null,
+      fx: mod.fx || {}
+    };
+    return api;
+  }
 
-    .modes{
-      display:grid; gap:10px; grid-template-columns: repeat(2, minmax(0,1fr)); padding:12px;
-    }
-    .modeCard{
-      display:flex; gap:12px; align-items:center; justify-content:flex-start;
-      padding:12px; border-radius:14px; cursor:pointer; border:1px solid #213049;
-      background:linear-gradient(180deg, #101c2d, #0c1828);
-      transition:transform .15s ease, box-shadow .15s ease, outline .15s ease;
-      user-select:none;
-    }
-    .modeCard:hover{ transform:translateY(-1px); box-shadow:0 10px 26px #0007; }
-    .modeCard.is-active{ outline:2px solid #2dd4bf; outline-offset:1px; }
-    .modeIcon{ font-size:30px; line-height:1; filter:drop-shadow(0 4px 12px #0007); width:36px; text-align:center; }
-    .modeTxt b{ display:block; font-size:15px; }
-    .modeTxt small{ color:var(--muted); }
-
-    .diffSeg{ display:flex; gap:8px; padding:12px; flex-wrap:wrap; }
-    .chip{
-      padding:10px 14px; border-radius:999px; border:1px solid #213049;
-      background:linear-gradient(180deg,#101c2d,#0c1828); font-weight:800; cursor:pointer;
-    }
-    .chip.is-active{ outline:2px solid #ffd54a; outline-offset:1px; background:#1b2b45; }
-
-    .nowPlaying{
-      margin-top:10px; margin-bottom:8px; text-align:center; font-weight:900;
-      color:#d9faff; letter-spacing:.25px;
-    }
-
-    .ctaRow{ display:flex; justify-content:center; padding:16px; }
-    .ctaStart{
-      font-size:20px; font-weight:900; padding:12px 28px; border-radius:18px; border:0;
-      color:#03131f; background:linear-gradient(180deg,#7fffd4,#48e5c2);
-      cursor:pointer; box-shadow:0 12px 30px #0af3c566;
-    }
-    .ctaStart:active{ transform: translateY(1px); }
-
-    /* ===== Game layers & z-order fixes ===== */
-    #menuBar{ position:relative; z-index:92; }   /* สูงกว่า gameLayer */
-    #hudWrap{ position:fixed; top:10px; left:0; right:0; z-index:95; }
-    #coachHUD{ position:fixed; inset:60px 0 auto 0; z-index:96; display:flex; justify-content:center; }
-    #coachBubble{ max-width:min(86dvw,860px); }
-
-    #gameLayer{ position:fixed; inset:0; overflow:hidden; z-index:28; }
-    #spawnHost{ position:absolute; inset:0; }
-
-    /* ปิดการรับคลิกของเกมจนกว่าจะเริ่ม (กันบังเมนู) */
-    body:not([data-playing="1"]) #gameLayer{ pointer-events:none; }
-
-    /* ซ่อนเมนูเมื่อเล่น */
-    #menuBar[data-hidden="1"]{ display:none; }
-
-    /* ป้องกัน HUD เบียด */
-    #missionLine, #toast, #plateTracker, #targetWrap{ pointer-events:none; }
-
-    @media (max-width:640px){ .modes{ grid-template-columns: 1fr; } }
-  </style>
-</head>
-<body data-mode="goodjunk">
-  <div class="hubWrap">
-    <div class="hero">
-      <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
-        <div>
-          <div class="t1">Hero Health Academy</div>
-          <div class="t2">VR • Mobile • PC</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Coach -->
-    <div id="coachHUD" class="coach" aria-live="polite" aria-atomic="true">
-      <div id="coachBubble"><span id="coachText">Ready?</span></div>
-    </div>
-
-    <!-- HUD -->
-    <div id="hudWrap" class="hud">
-      <div id="scoreWrap" class="hudBox"><b>Score</b> <span id="score">0</span></div>
-      <div id="timeWrap"  class="hudBox"><b>Time</b>  <span id="time">45</span>s</div>
-      <div id="targetWrap" class="hudBox" style="display:none"></div>
-      <div id="plateTracker" class="hudBox" style="display:none">
-        <div id="platePills"></div>
-      </div>
-    </div>
-
-    <!-- Menu -->
-    <div id="menuBar" class="glass">
-      <div class="row">
-        <div class="col">
-          <div class="hd">Mode</div>
-          <div class="modes">
-            <button id="m_goodjunk" class="modeCard is-active" data-mode="goodjunk" type="button" aria-pressed="true">
-              <div class="modeIcon">🥦</div>
-              <div class="modeTxt"><b>Good vs Junk</b><small>เก็บของดี หลีกเลี่ยงของขยะ</small></div>
-            </button>
-            <button id="m_groups" class="modeCard" data-mode="groups" type="button">
-              <div class="modeIcon">🎯</div>
-              <div class="modeTxt"><b>5 Food Groups</b><small>เก็บตรงหมวดตาม HUD</small></div>
-            </button>
-            <button id="m_hydration" class="modeCard" data-mode="hydration" type="button">
-              <div class="modeIcon">💧</div>
-              <div class="modeTxt"><b>Hydration</b><small>คุมโซน 45–65%</small></div>
-            </button>
-            <button id="m_plate" class="modeCard" data-mode="plate" type="button">
-              <div class="modeIcon">🍱</div>
-              <div class="modeTxt"><b>Healthy Plate</b><small>จัดจานให้ครบโควตา</small></div>
-            </button>
-          </div>
-        </div>
-        <div class="col">
-          <div class="hd">Difficulty</div>
-          <div class="diffSeg">
-            <button id="d_easy"   class="chip"            data-diff="Easy"   type="button">Easy</button>
-            <button id="d_normal" class="chip is-active"  data-diff="Normal" type="button">Normal</button>
-            <button id="d_hard"   class="chip"            data-diff="Hard"   type="button">Hard</button>
-          </div>
-
-          <div class="nowPlaying">
-            <span id="lblMode">Good vs Junk</span> • <span id="lblDiff">Normal</span>
-          </div>
-
-          <div class="ctaRow">
-            <button id="btn_start" class="ctaStart" type="button">Start</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Game Layer -->
-  <div id="gameLayer">
-    <div id="spawnHost"></div>
-    <div id="missionLine" class="missionLine" aria-live="polite"></div>
-    <div id="toast" class="toast"></div>
-  </div>
-
-  <!-- Audio -->
-  <audio id="sfx-good"    preload="auto" src="./assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"     preload="auto" src="./assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="./assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"    preload="auto" src="./assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="./assets/sfx/power.mp3"></audio>
-  <audio id="bgm-main"    preload="auto" loop src="./assets/bgm/main.mp3"></audio>
-
-  <!-- UI + Boot (ของโปรเจกต์) -->
-  <script src="./game/ui.js" defer></script>
-  <script src="./game/boot.js" defer></script>
-
-  <!-- Hub wiring: ensure clicks work + un-block game only after Start -->
-  <script>
-    (function(){
-      const $ = s=>document.querySelector(s);
-      const $$= s=>document.querySelectorAll(s);
-      let mode='goodjunk', diff='Normal';
-
-      function reflect(){
-        document.body.setAttribute('data-mode', mode);
-        document.documentElement.setAttribute('data-hha-mode', mode);
-        window.__HHA_MODE = mode;
-        window.__HHA_DIFF = diff;
-        const L = { goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate' };
-        const lblM = $('#lblMode'); if(lblM) lblM.textContent = L[mode]||mode;
-        const lblD = $('#lblDiff'); if(lblD) lblD.textContent = diff;
-      }
-
-      function setPlaying(on){
-        if(on){
-          document.body.setAttribute('data-playing','1');
-          $('#menuBar')?.setAttribute('data-hidden','1');      // hide menu
-        }else{
-          document.body.removeAttribute('data-playing');
-          $('#menuBar')?.removeAttribute('data-hidden');
-        }
-      }
-
-      // Coach text
-      const coachTxt = $('#coachText'); if(coachTxt) coachTxt.textContent = 'Ready?';
-
-      // Mode buttons
-      $$('.modeCard').forEach(btn=>{
-        btn.addEventListener('click', (e)=>{
-          e.preventDefault();
-          $$('.modeCard').forEach(b=>b.classList.remove('is-active'));
-          btn.classList.add('is-active');
-          mode = btn.dataset.mode || 'goodjunk';
-          reflect();
-        }, {passive:true});
+  // --------- Tiny FX helper for UI pop text ----------
+  const FX = {
+    popText(txt, { x, y, ms = 700 } = {}) {
+      const el = document.createElement('div');
+      el.textContent = txt;
+      el.style.cssText = `
+        position:fixed; left:${x|0}px; top:${y|0}px;
+        transform:translate(-50%,-50%);
+        font:900 16px ui-rounded, system-ui; color:#fff;
+        text-shadow:0 2px 10px #000;
+        pointer-events:none; z-index:97; opacity:1; transition: all .72s ease-out;
+      `;
+      document.body.appendChild(el);
+      requestAnimationFrame(() => {
+        el.style.top = (y - 36) + 'px';
+        el.style.opacity = '0';
       });
+      setTimeout(() => el.remove(), ms);
+    }
+  };
 
-      // Diff buttons
-      $$('.chip[data-diff]').forEach(btn=>{
-        btn.addEventListener('click', (e)=>{
-          e.preventDefault();
-          $$('.chip[data-diff]').forEach(b=>b.classList.remove('is-active'));
-          btn.classList.add('is-active');
-          diff = btn.dataset.diff || 'Normal';
-          reflect();
-        }, {passive:true});
-      });
+  // --------- HUD / Coach helpers ----------
+  function setScore(v){ const el = $('#score'); if (el) el.textContent = v|0; }
+  function setTime(v){ const el = $('#time');  if (el) el.textContent = v|0; }
+  function showCoach(txt){ const hud=$('#coachHUD'); const t=$('#coachText'); if(t) t.textContent = txt||'Ready?'; if(hud){ hud.style.display='flex'; hud.classList.add('show'); } }
+  function hideCoach(){ const hud=$('#coachHUD'); if(hud){ hud.classList.remove('show'); hud.style.display='none'; } }
 
-      // Start button — FORCE clickable
-      (function bindStart(){
-        const b = $('#btn_start'); if(!b) return;
-        const clone = b.cloneNode(true);
-        b.replaceWith(clone);
-        clone.addEventListener('click', (e)=>{
-          e.preventDefault(); e.stopPropagation();
-          reflect();
-          setPlaying(true);
-          if(coachTxt) coachTxt.textContent = 'Go!';
+  // --------- Engine loop (minimal) ----------
+  let R = {
+    playing:false,
+    startedAt:0,
+    remain:45,
+    raf:0,
+    sys:{ score:null, sfx:null },
+    modeAPI:null,
+    modeInst:null, // from create()
+  };
 
-          // call main if available
-          try{
-            if (window.HHA && typeof window.HHA.startGame === 'function'){
-              window.HHA.startGame({ demoPassed:true });
-            } else if (typeof window.startFlow === 'function'){
-              window.startFlow();
-            }
-          }catch(err){ console.warn('startGame error', err); }
-        }, {capture:true});
-      })();
+  function busFor(modeKey){
+    return {
+      sfx: R.sys.sfx,
+      hit(e){ // e: {kind:'good'|'perfect'|'ok', points, ui}
+        if (e?.points) R.sys.score.add(e.points);
+        setScore(R.sys.score.get?.() || R.sys.score.value || 0);
+        if (e?.ui) FX.popText(`+${e.points||0}`, e.ui);
+        Quests.event('hit', { result: e?.kind || 'good', comboNow: 0, meta: e?.meta || {} });
+      },
+      miss(){ /* soft miss: no-op for now; main handles timeouts */ }
+    };
+  }
 
-      // Safety: make sure any canvas never blocks clicks on menu
-      setTimeout(()=>{
-        const c = document.getElementById('c');
-        if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
-      }, 0);
+  function gameTick(ts){
+    if (!R.playing) return;
+    // countdown (each real second)
+    const tNow = performance.now();
+    const secGone = Math.floor((tNow - R._secMark)/1000);
+    if (secGone >= 1){
+      R.remain = Math.max(0, (R.remain|0) - secGone);
+      R._secMark = tNow;
+      setTime(R.remain);
+      // ping quests tick with score context
+      Quests.tick({ score: (R.sys.score.get?.()||0) });
+    }
 
-      // initial
-      reflect();
-      setPlaying(false);
-    })();
-  </script>
-</body>
-</html>
+    // mode update
+    try {
+      if (R.modeInst && typeof R.modeInst.update === 'function') {
+        const dt = (tNow - (R._dtMark||tNow)) / 1000;
+        R._dtMark = tNow;
+        R.modeInst.update(dt, busFor(R.modeKey));
+      } else if (R.modeAPI?.tick) {
+        R.modeAPI.tick(R.state||{}, R.sys, R.hud||{});
+      }
+    } catch(e){ console.warn('[mode.update] error', e); }
+
+    if (R.remain <= 0) return endGame(false);
+    R.raf = requestAnimationFrame(gameTick);
+  }
+
+  function endGame(manual=true){
+    if (!R.playing) return;
+    R.playing = false;
+    cancelAnimationFrame(R.raf);
+
+    // signal quests + mode cleanup
+    try { Quests.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
+    try { R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state, R.hud); } catch {}
+
+    // UI restore
+    document.body.removeAttribute('data-playing');
+    const menu = $('#menuBar'); if (menu) menu.removeAttribute('data-hidden');
+    showCoach('Nice run!'); setTimeout(hideCoach, 1200);
+
+    // save simple progress
+    try { Progress.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
+
+    window.HHA._busy = false;
+  }
+
+  async function startGame(opts={}){
+    if (window.HHA?._busy) return; // guard double-click
+    window.HHA._busy = true;
+
+    await loadCore();
+    Progress.init?.();
+
+    // reflect chosen mode/diff from hub global flags
+    const modeKey = window.__HHA_MODE || (document.body.getAttribute('data-mode') || 'goodjunk');
+    const diff    = window.__HHA_DIFF || 'Normal';
+
+    // load mode
+    let api;
+    try {
+      api = await loadMode(modeKey);
+    } catch (e) {
+      console.error('[HHA] Failed to load mode:', modeKey, e);
+      toast(`Failed to load mode: ${modeKey}`);
+      window.HHA._busy = false;
+      return;
+    }
+
+    // systems
+    R.sys.score = new (ScoreSystem||function(){})();
+    R.sys.score.reset?.();
+    R.sys.sfx   = new (SFXClass||function(){})();
+    setScore(0);
+
+    // HUD + coach
+    showCoach('Go!');
+    const hud = {
+      setTarget(g,have,need){
+        const el = $('#targetWrap'); if(!el) return;
+        const mapTH = { veggies:'ผัก', fruits:'ผลไม้', grains:'ธัญพืช', protein:'โปรตีน', dairy:'นม' };
+        el.textContent = `${mapTH[g]||g} • ${have|0}/${need|0}`;
+        el.style.display = 'inline-flex';
+      },
+      showHydration(){ /* hydration bar already insert self */ },
+      hideHydration(){ /* noop */ },
+      dimPenalty(){ document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 120); },
+      setQuestChips(){ /* reserved for quest HUD */ },
+      markQuestDone(){ /* reserved */ }
+    };
+
+    // bind quests HUD
+    try { Quests.bindToMain({ hud }); } catch {}
+
+    // prepare state and run
+    R.modeKey = modeKey;
+    R.modeAPI = api;
+    R.hud = hud;
+    R.state = { difficulty: diff, lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
+
+    // call mode: prefer factory adapter
+    if (api.create){
+      R.modeInst = api.create({ engine:{ fx:FX }, hud, coach:{
+        onStart(){}, onGood(){}, onBad(){}, onPerfect(){ showCoach('Perfect!'); setTimeout(hideCoach, 500); }
+      }});
+      R.modeInst.start?.();
+    } else if (api.init){
+      api.init(R.state, hud, { time: 45, life: 1600 });
+    }
+
+    // quests begin + profile run start
+    try { Quests.beginRun(modeKey, diff, (R.state.lang||'TH'), 45); } catch {}
+    try { Progress.beginRun(modeKey, diff, (R.state.lang||'TH')); } catch {}
+
+    // countdown start
+    R.playing = true;
+    R.startedAt = performance.now();
+    R._secMark = performance.now();
+    R._dtMark  = performance.now();
+    R.remain   = 45;
+    setTime(R.remain);
+
+    // hide menu & enable game layer click
+    document.body.setAttribute('data-playing','1');
+    const menu = $('#menuBar'); if (menu) menu.setAttribute('data-hidden','1');
+
+    R.raf = requestAnimationFrame(gameTick);
+  }
+
+  function toast(text){
+    let el = $('#toast'); if(!el){ el = document.createElement('div'); el.id='toast'; document.body.appendChild(el); }
+    el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
+  }
+
+  // expose globals
+  window.HHA = window.HHA || {};
+  window.HHA.startGame = startGame;
+  window.HHA.endGame   = endGame;
+
+  // safety: if hub forgot to hide canvas clicks
+  setTimeout(()=>{ const c = $('#c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; } }, 0);
+
+})();
