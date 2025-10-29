@@ -1,7 +1,6 @@
-// === Hero Health Academy — core/mission-system.js (hardened + lifecycle + legacy-safe) ===
+// === Hero Health Academy — core/mission-system.js (v2 hardened; dt-aware + helpers) ===
 export class MissionSystem {
-  constructor(){
-    // ----- Mission Pools -----
+  constructor(opts = {}) {
     this.pool = {
       goodjunk: [
         { key:'collect_goods',   target:[20,30,40],   icon:'🍎' },
@@ -30,15 +29,14 @@ export class MissionSystem {
       hold_ok_sec:'💧',   no_overflow:'🛑',
       perfect_plates:'🍽️', no_over_quota:'🚫'
     };
-    this._lastCoachAt = 0; // anti-spam cue for coach.onQuestProgress
-    this._coachGapMs  = 650;
+    this._lastCoachAt = 0;
+    this._coachGapMs  = Math.max(300, opts.coachGapMs || 650);
   }
 
   /* ================= Utilities ================= */
   _rand(arr){ return arr[(Math.random()*arr.length)|0]; }
   _clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
   _num(n, d=0){ const v = Number(n); return Number.isFinite(v) ? v : d; }
-  _sec(){ return Math.floor(Date.now()/1000); }
 
   _ensureCtx(state){
     state.ctx = state.ctx || {};
@@ -67,22 +65,26 @@ export class MissionSystem {
 
   /* ================= Public API ================= */
 
+  /** ปรับช่วงแจ้งเตือน coach เมื่อ progress ขยับ */
+  setCoachGap(ms = 650){ this._coachGapMs = Math.max(300, ms|0); }
+
+  /** แพตช์พูลภารกิจบางโหมด (เช่นเพิ่ม mission ใหม่/เปลี่ยนเป้า) */
+  setPool(patch = {}){ Object.keys(patch||{}).forEach(k=>{ if (Array.isArray(patch[k])) this.pool[k] = patch[k]; }); }
+
   /**
    * start(mode, opts?)
    * opts: { difficulty?:'Easy'|'Normal'|'Hard', lang?:'TH'|'EN', seconds?:number, count?:1|2|3 }
-   * - ถ้าไม่ส่ง opts: โหมด legacy → คืนภารกิจเดียว (เหมือนของเดิม)
+   * - ถ้าไม่ส่ง opts: legacy → คืนภารกิจเดียว (แบบเดิม)
    */
   start(mode, opts = undefined){
-    const legacy = (opts === undefined);
-    const o = opts || {};
+    const legacy  = (opts === undefined);
+    const o       = opts || {};
     const seconds = Math.max(10, (o.seconds|0) || 45);
     const count   = this._clamp((o.count|0) || (legacy?1:3), 1, 3);
     const lang    = String(o.lang || 'TH').toUpperCase();
 
     const missions = this._pickSet(mode, count).map(m => ({ ...m, remainSec: seconds }));
-    return legacy
-      ? { ...missions[0] }
-      : { list: missions, seconds, lang };
+    return legacy ? { ...missions[0] } : { list: missions, seconds, lang };
   }
 
   /** randomize a new mission set (ไม่รีเซ็ต ctx) */
@@ -97,6 +99,8 @@ export class MissionSystem {
   attachToState(run, state){
     state.missions = (run?.list || []).map(m=>({ ...m, remainSec: Math.max(0, m.remainSec|0) }));
     state.lang = run?.lang || state.lang || 'TH';
+    // ตัวนับสำหรับ tickDt
+    state.__ms_acc = 0;
     this._ensureCtx(state);
     return state;
   }
@@ -104,27 +108,44 @@ export class MissionSystem {
   /** reset counters/mission status (เก็บโครงสร้างภารกิจไว้) */
   reset(state){
     if (!state) return;
-    // reset counters
     state.ctx = {};
     this._ensureCtx(state);
-    // reset progress of missions
     if (Array.isArray(state.missions)){
-      state.missions.forEach(m=>{
-        m.progress = 0; m.done = false; m.success = false;
-      });
+      state.missions.forEach(m=>{ m.progress = 0; m.done = false; m.success = false; });
     }
-    if (state.mission){ // legacy
-      state.mission.progress = 0; state.mission.done=false; state.mission.success=false;
-    }
+    if (state.mission){ state.mission.progress = 0; state.mission.done=false; state.mission.success=false; }
+    state.__ms_acc = 0;
   }
 
-  /** stop: ตีสถานะว่า “ยุติ” เพื่อให้ tick ไม่เดินต่อ */
+  /** stop: ตีสถานะว่า “ยุติ” */
   stop(state){
     if (!state) return;
     if (Array.isArray(state.missions)){
       state.missions.forEach(m=>{ m.remainSec = 0; m.done = true; m.success = false; });
     }
     if (state.mission){ state.mission.remainSec = 0; state.mission.done = true; state.mission.success=false; }
+  }
+
+  /** export snapshot ของภารกิจ (ใช้กับ pause/resume) */
+  snapshot(state){
+    return {
+      lang: state?.lang || 'TH',
+      missions: (state?.missions||[]).map(m=>({ key:m.key, target:m.target, progress:m.progress, remainSec:m.remainSec, done:m.done, success:m.success, icon:m.icon })),
+      ctx: { ...(state?.ctx||{}) }
+    };
+  }
+
+  /** restore snapshot กลับเข้า state */
+  restore(state, snap = {}){
+    if (!state || !snap) return state;
+    state.lang = snap.lang || state.lang || 'TH';
+    if (Array.isArray(snap.missions)){
+      state.missions = snap.missions.map(m=>({ ...m }));
+    }
+    state.ctx = { ...(snap.ctx||{}) };
+    this._ensureCtx(state);
+    state.__ms_acc = 0;
+    return state;
   }
 
   /** อธิบายภารกิจ (TH/EN) */
@@ -156,14 +177,10 @@ export class MissionSystem {
     return fn(this._num(m?.target, 0));
   }
 
-  /**
-   * onEvent(ev, meta, state)
-   * ดู event ชนิดต่าง ๆ ในคอมเมนต์เดิม
-   */
+  /** onEvent(ev, meta, state) — เพิ่มตัวนับตามเหตุการณ์ในเกม */
   onEvent(ev, meta={}, state){
     this._ensureCtx(state);
     const c = (n)=> (Number.isFinite(n)? n|0 : 1);
-
     switch(ev){
       case 'good':           state.ctx.goodHits        += c(meta.count); break;
       case 'miss':           state.ctx.miss            += c(meta.count); break;
@@ -180,12 +197,21 @@ export class MissionSystem {
 
   /**
    * tick(state, score, cb, hooks?)
-   * - เรียกทุก ~1s จาก main
+   * - เรียกทุก ~1s จาก main (ถ้าอยากใช้ dt ให้เรียก tickDt แทน)
    * - cb({success:true|false, key, index}) เมื่อจบ/ล้มเหลว
    * - hooks: { hud?, coach?, lang? }
-   * - คืน snapshot ของชิปภารกิจ (array) เพื่อเอาไป set HUD ได้ง่าย
+   * - คืน snapshot ของ mission chips (array)
    */
-  tick(state, score, cb, hooks = {}){
+  tick(state, score, cb, hooks = {}) {
+    // แปลงเป็น dt 1000ms เพื่อใช้ logic เดียวกับ tickDt
+    return this.tickDt(state, score, 1000, cb, hooks);
+  }
+
+  /**
+   * tickDt(state, score, dtMs, cb, hooks?)
+   * - รองรับเกมลูปแบบ requestAnimationFrame ที่ส่ง dt เป็นมิลลิวินาที
+   */
+  tickDt(state, score, dtMs = 16, cb, hooks = {}) {
     const hud   = hooks.hud;
     const coach = hooks.coach;
     const lang  = (hooks.lang || state?.lang || 'TH').toUpperCase();
@@ -193,32 +219,40 @@ export class MissionSystem {
 
     // Legacy single
     if (state?.mission && !state.missions) {
-      if (state.mission.done) {
-        const chips = [this._chipOf(state.mission, lang)];
-        hud?.setQuestChips(chips);
-        return chips;
+      state.__ms_acc = (state.__ms_acc||0) + dtMs;
+      while ((state.__ms_acc|0) >= 1000) {
+        state.__ms_acc -= 1000;
+        if (!state.mission.done) state.mission.remainSec = Math.max(0, (state.mission.remainSec|0) - 1);
       }
-      state.mission.remainSec = Math.max(0, (state.mission.remainSec|0) - 1);
-      const { ok, fail, progress } = this._evaluateOne(state, score, state.mission);
-      if (Number.isFinite(progress)) state.mission.progress = progress;
-      if (ok || fail){
-        state.mission.done = true; state.mission.success = !!ok;
-        cb?.({ success: !!ok, key: state.mission.key, index: 0 });
-        coach && (ok ? coach.onQuestDone() : coach.onQuestFail());
-      } else if (hud){
-        hud.setQuestChips([ this._chipOf(state.mission, lang) ]);
+      if (!state.mission.done) {
+        const { ok, fail, progress } = this._evaluateOne(state, score, state.mission);
+        if (Number.isFinite(progress)) state.mission.progress = progress;
+        if (ok || fail){
+          state.mission.done = true; state.mission.success = !!ok;
+          cb?.({ success: !!ok, key: state.mission.key, index: 0 });
+          coach && (ok ? coach.onQuestDone() : coach.onQuestFail());
+        }
       }
-      return [ this._chipOf(state.mission, lang) ];
+      const chips = [ this._chipOf(state.mission, lang) ];
+      hud?.setQuestChips?.(chips);
+      return chips;
     }
 
     // New multi
     if (!Array.isArray(state?.missions) || !state.missions.length) return [];
 
+    state.__ms_acc = (state.__ms_acc||0) + dtMs;
     let progressed = false;
+
+    // ลดเวลาทีละวินาทีเพื่อความเสถียร
+    while ((state.__ms_acc|0) >= 1000) {
+      state.__ms_acc -= 1000;
+      for (const m of state.missions) if (!m.done) m.remainSec = Math.max(0, (m.remainSec|0) - 1);
+    }
+
     for (let i=0;i<state.missions.length;i++){
       const m = state.missions[i];
       if (m.done) continue;
-      m.remainSec = Math.max(0, (m.remainSec|0) - 1);
 
       const before = m.progress|0;
       const { ok, fail, progress } = this._evaluateOne(state, score, m);
@@ -238,7 +272,7 @@ export class MissionSystem {
     }
 
     const chips = state.missions.map(m=> this._chipOf(m, lang));
-    if (hud) hud.setQuestChips(chips);
+    hud?.setQuestChips?.(chips);
     return chips;
   }
 
@@ -262,10 +296,8 @@ export class MissionSystem {
         ok = progress >= (m.target|0);
         break;
       case 'no_miss': {
-        // เงื่อนไขผ่าน: หมดเวลาโดยไม่เคย miss เลย
         const missed = this._num(state.ctx.miss, 0) > 0;
-        if (m.remainSec <= 0) { ok = !missed; fail = missed; }
-        else { ok = false; fail = false; }
+        if ((m.remainSec|0) <= 0) { ok = !missed; fail = missed; }
         break;
       }
       case 'score_reach':
@@ -278,8 +310,7 @@ export class MissionSystem {
         break;
       case 'no_wrong_group': {
         const wrong = this._num(state.ctx.wrongGroup, 0) > 0;
-        if (m.remainSec <= 0) { ok = !wrong; fail = wrong; }
-        else { ok = false; fail = false; }
+        if ((m.remainSec|0) <= 0) { ok = !wrong; fail = wrong; }
         break;
       }
       case 'hold_ok_sec':
@@ -288,8 +319,7 @@ export class MissionSystem {
         break;
       case 'no_overflow': {
         const of = this._num(state.ctx.overflow, 0) > 0;
-        if (m.remainSec <= 0) { ok = !of; fail = of; }
-        else { ok = false; fail = false; }
+        if ((m.remainSec|0) <= 0) { ok = !of; fail = of; }
         break;
       }
       case 'perfect_plates':
@@ -298,18 +328,15 @@ export class MissionSystem {
         break;
       case 'no_over_quota': {
         const over = this._num(state.ctx.overfillCount, 0) > 0;
-        if (m.remainSec <= 0) { ok = !over; fail = over; }
-        else { ok = false; fail = false; }
+        if ((m.remainSec|0) <= 0) { ok = !over; fail = over; }
         break;
       }
       default: {
-        // ภารกิจไม่รู้จัก → ตีตกเมื่อหมดเวลา
         progress = 0;
-        if (m.remainSec <= 0) { ok = false; fail = true; }
+        if ((m.remainSec|0) <= 0) { ok = false; fail = true; }
       }
     }
 
-    // ถ้ายังไม่ตัดสินและหมดเวลาแล้ว → fail ยกเว้นพวก no_* ที่จัดการแล้วข้างบน
     if (!ok && !fail && (m.remainSec|0) <= 0){
       fail = true;
     }
