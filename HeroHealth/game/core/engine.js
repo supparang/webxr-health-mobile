@@ -1,5 +1,5 @@
 // === Hero Health Academy — core/engine.js (hardened + FX utilities) ===
-// มินิมอลเอนจิน: ตั้งค่า THREE renderer + helper FX (DOM-first)
+// Mini engine: optional THREE renderer + DOM-first FX helpers (safe & lean)
 
 export class Engine {
   constructor(THREE, canvas) {
@@ -9,7 +9,7 @@ export class Engine {
     // ---------- Renderer (optional/defensive) ----------
     let renderer = null;
     try {
-      const R = this.THREE.WebGLRenderer;
+      const R = this.THREE?.WebGLRenderer;
       if (typeof R === 'function') {
         renderer = new R({
           canvas: this.canvas,
@@ -17,28 +17,32 @@ export class Engine {
           alpha: true,
           preserveDrawingBuffer: false
         });
-        const pr = Math.min(2, window.devicePixelRatio || 1); // cap pixelRatio เพื่อประหยัด
+        const pr = Math.min(2, window.devicePixelRatio || 1); // cap pixelRatio for perf
         renderer.setPixelRatio(pr);
         renderer.setSize(window.innerWidth, window.innerHeight, false);
       }
     } catch {}
     this.renderer = renderer;
 
-    // ---------- Resize ----------
+    // ---------- Resize (throttled) ----------
+    let _resizeRaf = 0;
     this._onResize = () => {
-      try { this.renderer?.setSize(window.innerWidth, window.innerHeight, false); } catch {}
+      if (_resizeRaf) return;
+      _resizeRaf = requestAnimationFrame(() => {
+        _resizeRaf = 0;
+        try { this.renderer?.setSize(window.innerWidth, window.innerHeight, false); } catch {}
+      });
     };
     window.addEventListener('resize', this._onResize, { passive:true });
 
-    // ---------- Motion preference (ปลอดภัยบนทุก env) ----------
+    // ---------- Motion preference ----------
     try {
       const mq = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)');
       this.reduceMotion = !!(mq && mq.matches);
     } catch { this.reduceMotion = false; }
 
-    // ---------- Book-keeping for cleanup ----------
-    // เก็บ DOM nodes / timeout id / raf id / และอ็อบเจกต์ที่มี off()
-    this._activeFX = new Set();
+    // ---------- Book-keeping ----------
+    this._activeFX = new Set(); // DOM nodes / timeouts / RAF controllers / off() handles
 
     // ---------- FX helpers (DOM-first) ----------
     this.fx = {
@@ -48,7 +52,15 @@ export class Engine {
       cursorBurst: (emojis = ['✨']) => this._cursorBurst(emojis),
       glowAt: (x, y, color = 'rgba(0,255,200,.6)', ms = 480) => this._glowAt(x, y, color, ms),
 
-      // Utilities พิกัด/ตำแหน่ง
+      // Convenience: “shatter” = shards + sparkles
+      shatter3D: (x, y, opts = {}) => {
+        const shards = Math.max(8, Math.min(120, opts.shards ?? 28));
+        const sparks = Math.max(0, Math.min(60,  opts.sparks ?? 12));
+        this._spawnShards(x, y, { count: shards });
+        if (sparks > 0) this._burstEmoji(x, y, ['✨','⭐','✦'], { count: sparks, spread: 1.1, life: 680 });
+      },
+
+      // Utilities
       screenFrom3D: (camera, vec3) => this._screenFrom3D(camera, vec3),
       screenFromElementCenter: (el) => this._screenFromElementCenter(el),
       cancelAll: () => this._cancelAllFX(),
@@ -60,7 +72,6 @@ export class Engine {
     try { window.removeEventListener('resize', this._onResize, { passive:true }); } catch {}
     this._cancelAllFX();
     try { this.renderer?.dispose?.(); } catch {}
-    // ถ้า canvas นี้เอนจินเป็นคนสร้างเอง ให้ถอดทิ้งเพื่อกันซ้อน
     if (this._ownCanvas && this.canvas?.parentNode) {
       try { this.canvas.remove(); } catch {}
     }
@@ -70,7 +81,7 @@ export class Engine {
   _ensureCanvas() {
     const c = document.createElement('canvas');
     c.id = 'c';
-    c.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;';
+    c.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;';
     document.body.appendChild(c);
     this._ownCanvas = true;
     return c;
@@ -87,21 +98,19 @@ export class Engine {
   }
 
   _cancelAllFX() {
-    // ลบ DOM, ยกเลิก timeout/raf และเรียก off() ถ้ามี
     for (const o of this._activeFX) {
       try {
         if (typeof o === 'number') {
-          // อาจเป็น timeout หรือ raf — ลองทั้งคู่แบบปลอดภัย
-          cancelAnimationFrame(o);
+          // timeout id
           clearTimeout(o);
+          cancelAnimationFrame(o); // harmless if not a RAF
         } else if (o && typeof o.off === 'function') {
-          // กรณี _cursorBurst() หรืออื่น ๆ ที่คืน off()
-          o.off();
+          o.off(); // e.g., from cursorBurst
         } else if (o && o.nodeType === 1) {
-          // DOM node
-          o.remove();
-        } else if (o && o.type === 'raf' && o.id) {
-          cancelAnimationFrame(o.id);
+          o.remove(); // DOM node
+        } else if (o && o.__rafCtl) {
+          // raf controller { __rafCtl:true, id:number, cancel:fn }
+          o.cancel?.();
         }
       } catch {}
     }
@@ -138,6 +147,7 @@ export class Engine {
   _spawnShards(x, y, opts = {}) {
     if (this.reduceMotion) return;
     const count = Math.max(6, Math.min(96, (opts.count|0) || 48));
+
     const wrap = document.createElement('div');
     wrap.style.cssText = `
       position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
@@ -146,10 +156,15 @@ export class Engine {
     document.body.appendChild(wrap);
     this._track(wrap);
 
+    // One RAF controller for entire batch (avoid per-frame tracking leak)
+    const rafCtl = { __rafCtl:true, id:0, cancel:()=>rafCtl.id && cancelAnimationFrame(rafCtl.id) };
+    this._track(rafCtl);
+
+    const shards = [];
     for (let i = 0; i < count; i++) {
       const s = document.createElement('div');
       const size = Math.random() * 10 + 6;
-      const hue = 35 + Math.random() * 40; // โทนส้มเหลือง
+      const hue = 35 + Math.random() * 40; // warm hue
       s.style.cssText = `
         position:absolute;left:0;top:0;width:${size}px;height:${size * 0.6}px;border-radius:${(size*0.15)|0}px;
         background:linear-gradient(${Math.random()*180}deg, hsl(${hue} 100% 60%), hsl(${hue} 100% 50%));
@@ -157,7 +172,6 @@ export class Engine {
       `;
       wrap.appendChild(s);
 
-      // ฟิสิกส์ง่าย ๆ
       const angle = Math.random() * Math.PI * 2;
       const speed = 2 + Math.random() * 5;
       const vx = Math.cos(angle) * speed;
@@ -169,36 +183,51 @@ export class Engine {
       const rz = (Math.random() - 0.5) * 2;
       const rotSpd = 2 + Math.random() * 4;
 
-      let px = 0, py = 0, pz = 0, t = 0;
-      const life = 550 + Math.random() * 400;
-      const start = performance.now();
-
-      const step = (now) => {
-        const dt = Math.min(32, now - (s._t || now)); s._t = now; t += dt;
-        const gy = 0.0065 * dt; // gravity
-        px += vx * dt * 0.06;
-        py += vy * dt * 0.06 + gy * dt;
-        pz += vz * dt * 0.06;
-
-        const r = rotSpd * t * 0.02;
-        s.style.transform = `translate3d(${px}px, ${py}px, ${pz}px) rotate3d(${rx.toFixed(2)}, ${ry.toFixed(2)}, ${rz.toFixed(2)}, ${r.toFixed(2)}rad)`;
-
-        const lifePct = (now - start) / life;
-        s.style.opacity = String(1 - lifePct);
-
-        if (now - start < life) {
-          s._raf = requestAnimationFrame(step);
-          this._track({ type:'raf', id:s._raf });
-        } else {
-          try { s.remove(); } catch {}
-        }
-      };
-      s._raf = requestAnimationFrame(step);
-      this._track({ type:'raf', id:s._raf });
+      shards.push({
+        el: s,
+        px:0, py:0, pz:0, t:0,
+        vx, vy, vz,
+        rx, ry, rz,
+        rotSpd,
+        start: performance.now(),
+        life: 550 + Math.random() * 400,
+        _t: 0
+      });
     }
 
-    const rmWrap = setTimeout(() => { try { wrap.remove(); this._untrack(wrap); } catch {} }, 1200);
-    this._track(rmWrap);
+    const step = (now) => {
+      let alive = 0;
+      for (const o of shards) {
+        if (!o.el) continue;
+        const dt = Math.min(32, now - (o._t || now)); o._t = now; o.t += dt;
+        const gy = 0.0065 * dt;
+        o.px += o.vx * dt * 0.06;
+        o.py += o.vy * dt * 0.06 + gy * dt;
+        o.pz += o.vz * dt * 0.06;
+
+        const r = o.rotSpd * o.t * 0.02;
+        o.el.style.transform = `translate3d(${o.px}px, ${o.py}px, ${o.pz}px) rotate3d(${o.rx.toFixed(2)}, ${o.ry.toFixed(2)}, ${o.rz.toFixed(2)}, ${r.toFixed(2)}rad)`;
+
+        const lifePct = (now - o.start) / o.life;
+        o.el.style.opacity = String(1 - lifePct);
+
+        if ((now - o.start) < o.life) {
+          alive++;
+        } else {
+          try { o.el.remove(); o.el = null; } catch {}
+        }
+      }
+
+      if (alive > 0) {
+        rafCtl.id = requestAnimationFrame(step);
+      } else {
+        // cleanup
+        const rmWrap = setTimeout(() => { try { wrap.remove(); this._untrack(wrap); } catch {} }, 60);
+        this._track(rmWrap);
+        this._untrack(rafCtl);
+      }
+    };
+    rafCtl.id = requestAnimationFrame(step);
   }
 
   /* ======================= FX: burstEmoji ======================= */
@@ -216,6 +245,10 @@ export class Engine {
     document.body.appendChild(wrap);
     this._track(wrap);
 
+    const rafCtl = { __rafCtl:true, id:0, cancel:()=>rafCtl.id && cancelAnimationFrame(rafCtl.id) };
+    this._track(rafCtl);
+
+    const parts = [];
     for (let i=0;i<count;i++){
       const e = document.createElement('div');
       e.textContent = emojis[(Math.random()*emojis.length)|0];
@@ -230,25 +263,42 @@ export class Engine {
       const sp = (0.8 + Math.random()*1.8) * spread;
       const vx = Math.cos(a)*sp, vy = Math.sin(a)*sp - 0.6;
 
-      let px=0, py=0; const start = performance.now();
-      const tick = (now)=>{
-        const t = (now - start);
-        const dt = Math.min(32, now - (e._t || now)); e._t = now;
-        px += vx * dt * 0.6;
-        py += vy * dt * 0.6 + 0.0012 * dt * dt; // gravity-ish
-        const k = Math.min(1, t / 120);
-        e.style.transform = `translate(${px}px, ${py}px) scale(${1 + 0.4*k})`;
-        e.style.opacity = String(1 - t / lifeMs);
-        if (t < lifeMs) {
-          e._raf = requestAnimationFrame(tick);
-          this._track({ type:'raf', id:e._raf });
-        } else { try { e.remove(); } catch {} }
-      };
-      e._raf = requestAnimationFrame(tick);
-      this._track({ type:'raf', id:e._raf });
+      parts.push({
+        el: e,
+        vx, vy,
+        px:0, py:0,
+        start: performance.now(),
+        life: lifeMs,
+        _t: 0
+      });
     }
-    const rm = setTimeout(()=>{ try { wrap.remove(); this._untrack(wrap); } catch {} }, lifeMs+180);
-    this._track(rm);
+
+    const step = (now)=>{
+      let alive = 0;
+      for (const p of parts) {
+        if (!p.el) continue;
+        const t  = (now - p.start);
+        const dt = Math.min(32, now - (p._t || now)); p._t = now;
+        p.px += p.vx * dt * 0.6;
+        p.py += p.vy * dt * 0.6 + 0.0012 * dt * dt; // gravity-ish
+        const k = Math.min(1, t / 120);
+        p.el.style.transform = `translate(${p.px}px, ${p.py}px) scale(${1 + 0.4*k})`;
+        p.el.style.opacity = String(1 - t / p.life);
+        if (t < p.life) {
+          alive++;
+        } else {
+          try { p.el.remove(); p.el = null; } catch {}
+        }
+      }
+      if (alive > 0) {
+        rafCtl.id = requestAnimationFrame(step);
+      } else {
+        const rm = setTimeout(()=>{ try { wrap.remove(); this._untrack(wrap); } catch {} }, 80);
+        this._track(rm);
+        this._untrack(rafCtl);
+      }
+    };
+    rafCtl.id = requestAnimationFrame(step);
   }
 
   /* ======================= FX: cursorBurst (helper) ======================= */
@@ -258,7 +308,6 @@ export class Engine {
       this._burstEmoji(x, y, emojis, { count: 12, spread: 1.2, life: 640 });
     };
     window.addEventListener('pointerdown', on, { passive:true });
-    // คืนฟังก์ชันยกเลิก (จะถูกเรียกใน _cancelAllFX)
     const off = () => window.removeEventListener('pointerdown', on, { passive:true });
     this._track({ off });
     return off;
@@ -293,6 +342,5 @@ export class Engine {
     if (!el) return null;
     const r = el.getBoundingClientRect();
     return { x: r.left + r.width/2, y: r.top + r.height/2 };
-    // ใช้คู่กับ fx.popText / spawnShards / burstEmoji ได้
   }
 }
