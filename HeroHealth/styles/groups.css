@@ -1,100 +1,157 @@
-/* === Hero Health Academy — styles/groups.css (mode: groups, HUD-safe, no bg changes) === */
+/* === Hero Health Academy — styles/groups.css (mode: groups, HUD-safe, DOM-spawn) ===
+   Works with either:
+   • body[data-mode="groups"]      ← current ui.js sets this
+   • html[data-hha-mode="groups"]  ← legacy fallback
+*/
 
-/* Target badge: โชว์ตลอดในโหมด groups, ไม่กันคลิก, อยู่เหนือไอคอนแต่ต่ำกว่า HUD */
-html[data-hha-mode="groups"] #targetWrap{
-  display:inline-flex !important;
-  font-weight:900; letter-spacing:.2px;
-  z-index:94;                /* < coach(96)/hud(95) แต่ > items(29) & plate/hydro(93) */
-  pointer-events:none !important;
-}
+/* ---------- Helpers (scoped selector for both attributes) ---------- */
+:root {}
+@layer groups {
+  /* Scope helper */
+  body[data-mode="groups"], html[data-hha-mode="groups"] { --grp-z-items:29; --grp-z-hud:95; --grp-z-coach:96; }
 
-/* --- Group items: 3D chip look + คลิกได้แน่นอน --- */
-html[data-hha-mode="groups"] .item{
-  position:fixed;
-  padding:8px 12px;
-  border:none; border-radius:18px;
-  background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.10));
-  box-shadow:
-    0 14px 28px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,.18),
-    inset 0 -1px 0 rgba(0,0,0,.18);
-  text-shadow:0 2px 8px rgba(0,0,0,.35), 0 0 1px rgba(0,0,0,.5);
-  transform:perspective(600px) rotateX(0) rotateY(0);
-  will-change:transform, filter, opacity;
-  transition:transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
-  user-select:none; -webkit-tap-highlight-color:transparent;
+  /* Target badge: always visible, never blocks clicks */
+  body[data-mode="groups"] #targetWrap,
+  html[data-hha-mode="groups"] #targetWrap{
+    display:inline-flex !important;
+    font-weight:900; letter-spacing:.2px;
+    z-index:94; /* < coach(96)/hud(95) but > items(29) & other HUD bits(93) */
+    pointer-events:none !important;
+  }
 
-  /* คลิกได้จริงทุกแพลตฟอร์ม และอยู่เหนือฉาก/host แต่ต่ำกว่าเมนู/HUD */
-  pointer-events:auto !important;
-  z-index:29;
-}
-
-/* highlight strip */
-html[data-hha-mode="groups"] .item::before{
-  content:""; position:absolute; inset:2px 6px auto 6px; height:12px; border-radius:999px;
-  background:radial-gradient(closest-side, rgba(255,255,255,.55), rgba(255,255,255,0));
-  filter:blur(2px); opacity:.35; pointer-events:none;
-}
-
-/* soft drop shadow under icon */
-html[data-hha-mode="groups"] .item::after{
-  content:""; position:absolute; left:50%; transform:translateX(-50%); bottom:-6px; width:66%; height:10px;
-  background:radial-gradient(closest-side, rgba(0,0,0,.28), rgba(0,0,0,0));
-  filter:blur(4px); opacity:.85; pointer-events:none;
-}
-
-/* Desktop hover/active */
-@media (hover:hover){
-  html[data-hha-mode="groups"] .item:hover{
-    transform:perspective(600px) translateZ(12px) scale(1.06);
-    filter:drop-shadow(0 10px 24px rgba(0,0,0,.35));
+  /* ---------- Group item buttons (DOM-spawn adapter uses .spawn-emoji) ---------- */
+  body[data-mode="groups"] .spawn-emoji,
+  html[data-hha-mode="groups"] .spawn-emoji,
+  /* legacy class name for safety */
+  body[data-mode="groups"] .item,
+  html[data-hha-mode="groups"] .item{
+    position:fixed;
+    padding:8px 12px;
+    border:0; border-radius:18px;
+    background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.10));
     box-shadow:
-      0 16px 34px rgba(0,0,0,.40),
-      inset 0 1px 0 rgba(255,255,255,.22),
-      inset 0 -1px 0 rgba(0,0,0,.20);
+      0 14px 28px rgba(0,0,0,.35),
+      inset 0 1px 0 rgba(255,255,255,.18),
+      inset 0 -1px 0 rgba(0,0,0,.18);
+    text-shadow:0 2px 8px rgba(0,0,0,.35), 0 0 1px rgba(0,0,0,.5);
+    transform:perspective(600px) rotateX(0) rotateY(0);
+    will-change:transform, filter, opacity;
+    transition:transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
+    user-select:none; -webkit-tap-highlight-color:transparent;
+
+    /* ensure click-through works above scene but below HUD */
+    pointer-events:auto !important;
+    z-index:var(--grp-z-items,29);
+
+    /* baseline emoji sizing for consistency */
+    font-size: clamp(42px, 6.5vw, 56px);
+    line-height:1;
   }
-  html[data-hha-mode="groups"] .item:active{
-    transform:perspective(600px) translateZ(2px) scale(.98);
-    filter:drop-shadow(0 6px 18px rgba(0,0,0,.32));
+
+  /* highlight strip */
+  body[data-mode="groups"] .spawn-emoji::before,
+  html[data-hha-mode="groups"] .spawn-emoji::before,
+  body[data-mode="groups"] .item::before,
+  html[data-hha-mode="groups"] .item::before{
+    content:""; position:absolute; inset:2px 6px auto 6px; height:12px; border-radius:999px;
+    background:radial-gradient(closest-side, rgba(255,255,255,.55), rgba(255,255,255,0));
+    filter:blur(2px); opacity:.35; pointer-events:none;
   }
-}
 
-/* Keyboard focus (accessibility) */
-html[data-hha-mode="groups"] .item:focus-visible{
-  outline:2px solid #7fffd4; outline-offset:2px;
-  box-shadow:0 0 0 2px #0a0f1a, 0 0 0 4px #7fffd470, 0 14px 28px rgba(0,0,0,.35);
-}
+  /* soft drop shadow under icon */
+  body[data-mode="groups"] .spawn-emoji::after,
+  html[data-hha-mode="groups"] .spawn-emoji::after,
+  body[data-mode="groups"] .item::after,
+  html[data-hha-mode="groups"] .item::after{
+    content:""; position:absolute; left:50%; transform:translateX(-50%); bottom:-6px; width:66%; height:10px;
+    background:radial-gradient(closest-side, rgba(0,0,0,.28), rgba(0,0,0,0));
+    filter:blur(4px); opacity:.85; pointer-events:none;
+  }
 
-/* Disabled state (เช่น over-quota) */
-html[data-hha-mode="groups"] .item[aria-disabled="true"],
-html[data-hha-mode="groups"] .item[data-disabled="1"]{
-  opacity:.45; pointer-events:none !important; filter:grayscale(1) brightness(.7);
-}
+  /* Desktop hover/active */
+  @media (hover:hover){
+    body[data-mode="groups"] .spawn-emoji:hover,
+    html[data-hha-mode="groups"] .spawn-emoji:hover,
+    body[data-mode="groups"] .item:hover,
+    html[data-hha-mode="groups"] .item:hover{
+      transform:perspective(600px) translateZ(12px) scale(1.06);
+      filter:drop-shadow(0 10px 24px rgba(0,0,0,.35));
+      box-shadow:
+        0 16px 34px rgba(0,0,0,.40),
+        inset 0 1px 0 rgba(255,255,255,.22),
+        inset 0 -1px 0 rgba(0,0,0,.20);
+    }
+    body[data-mode="groups"] .spawn-emoji:active,
+    html[data-hha-mode="groups"] .spawn-emoji:active,
+    body[data-mode="groups"] .item:active,
+    html[data-hha-mode="groups"] .item:active{
+      transform:perspective(600px) translateZ(2px) scale(.98);
+      filter:drop-shadow(0 6px 18px rgba(0,0,0,.32));
+    }
+  }
 
-/* Optional cues (จาก data-attrs ของโหมด groups) */
-html[data-hha-mode="groups"] .item[data-golden="1"]{
-  box-shadow:
-    0 14px 28px rgba(0,0,0,.35),
-    0 0 22px rgba(255,213,74,.45),
-    inset 0 1px 0 rgba(255,255,255,.25);
-}
-html[data-hha-mode="groups"] .item[data-target="1"]{
-  outline:2px dashed #67e8f9; outline-offset:3px;
-}
+  /* Keyboard focus (a11y) */
+  body[data-mode="groups"] .spawn-emoji:focus-visible,
+  html[data-hha-mode="groups"] .spawn-emoji:focus-visible,
+  body[data-mode="groups"] .item:focus-visible,
+  html[data-hha-mode="groups"] .item:focus-visible{
+    outline:2px solid #7fffd4; outline-offset:2px;
+    box-shadow:0 0 0 2px #0a0f1a, 0 0 0 4px #7fffd470, 0 14px 28px rgba(0,0,0,.35);
+  }
 
-/* Tighten coach bubble alignment for groups */
-html[data-hha-mode="groups"] #coachHUD{ justify-content:center; }
+  /* Disabled (e.g., lockout) */
+  body[data-mode="groups"] .spawn-emoji[aria-disabled="true"],
+  html[data-hha-mode="groups"] .spawn-emoji[aria-disabled="true"],
+  body[data-mode="groups"] .spawn-emoji[data-disabled="1"],
+  html[data-hha-mode="groups"] .spawn-emoji[data-disabled="1"],
+  body[data-mode="groups"] .item[aria-disabled="true"],
+  html[data-hha-mode="groups"] .item[aria-disabled="true"],
+  body[data-mode="groups"] .item[data-disabled="1"],
+  html[data-hha-mode="groups"] .item[data-disabled="1"]{
+    opacity:.45; pointer-events:none !important; filter:grayscale(1) brightness(.7);
+  }
 
-/* Small-screen tweaks */
-@media (max-width:480px){
-  html[data-hha-mode="groups"] #targetWrap{ font-size:14px; }
-}
-@media (max-width:380px){
-  /* guard rails so icons don’t overflow visually if inline font-size gets big */
-  html[data-hha-mode="groups"] .item{ font-size: clamp(40px, 16vw, 56px); }
-}
+  /* Optional cues (from data-attrs) */
+  body[data-mode="groups"] .spawn-emoji[data-golden="1"],
+  html[data-hha-mode="groups"] .spawn-emoji[data-golden="1"],
+  body[data-mode="groups"] .item[data-golden="1"],
+  html[data-hha-mode="groups"] .item[data-golden="1"]{
+    box-shadow:
+      0 14px 28px rgba(0,0,0,.35),
+      0 0 22px rgba(255,213,74,.45),
+      inset 0 1px 0 rgba(255,255,255,.25);
+  }
+  body[data-mode="groups"] .spawn-emoji[data-target="1"],
+  html[data-hha-mode="groups"] .spawn-emoji[data-target="1"],
+  body[data-mode="groups"] .item[data-target="1"],
+  html[data-hha-mode="groups"] .item[data-target="1"]{
+    outline:2px dashed #67e8f9; outline-offset:3px;
+  }
 
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce){
-  html[data-hha-mode="groups"] .item{ transition:none; }
+  /* Coach bubble alignment */
+  body[data-mode="groups"] #coachHUD,
+  html[data-hha-mode="groups"] #coachHUD{ justify-content:center; }
+
+  /* Small-screen tweaks */
+  @media (max-width:480px){
+    body[data-mode="groups"] #targetWrap,
+    html[data-hha-mode="groups"] #targetWrap{ font-size:14px; }
+  }
+  @media (max-width:380px){
+    /* guard rails if font-size grows */
+    body[data-mode="groups"] .spawn-emoji,
+    html[data-hha-mode="groups"] .spawn-emoji,
+    body[data-mode="groups"] .item,
+    html[data-hha-mode="groups"] .item{
+      font-size: clamp(38px, 16vw, 56px);
+    }
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce){
+    body[data-mode="groups"] .spawn-emoji,
+    html[data-hha-mode="groups"] .spawn-emoji,
+    body[data-mode="groups"] .item,
+    html[data-hha-mode="groups"] .item{ transition:none; }
+  }
 }
