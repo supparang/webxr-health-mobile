@@ -1,8 +1,11 @@
-// === Hero Health Academy — game/modes/hydration.js
-// (debounce zone + smart-sip + FEVER flames @HIGH + HUD args fix + factory adapter)
-// Back-compat (init/pickMeta/onHit/tick) and new create({engine,hud,coach}) for DOM-spawn
+// === Hero Health Academy — game/modes/hydration.js (sync w/ latest HUD & main)
+// - Relative import (../core/quests.js)
+// - HUD.showHydration(zone, pct) compatible
+// - Debounced zone-cross, smart-sip hints, FEVER flames on HIGH
+// - Emits Quests events + optional window.HHA hooks
+// - DOM-spawn factory (create) for main.js
 
-import { Quests } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
+import { Quests } from '../core/quests.js';
 
 export const name = 'hydration';
 
@@ -13,7 +16,7 @@ const zoneOf=(v,min,max)=> v<min?ZONES.LOW:(v>max?ZONES.HIGH:ZONES.OK);
 let _zone = 'OK', _zoneAt = 0;
 let _lastDim = 0;
 
-// ---------- HUD scaffold (id-stable) ----------
+/* ---------- HUD scaffold (id-stable / non-dup) ---------- */
 function ensureHUD(){
   let wrap=document.getElementById('hydroWrap');
   if(!wrap){
@@ -36,7 +39,7 @@ function ensureHUD(){
   }
 }
 
-// ---------- Legacy API ----------
+/* ---------- Legacy API ---------- */
 export function init(state={}, hud, diff={}){
   state.hydTotalTime = (diff.time|0)||45;
   state.hyd=50; state.hydMin=35; state.hydMax=65;
@@ -79,14 +82,15 @@ export function onHit(meta={}, sys={}, state={}, hud){
     else state.hyd = clamp(state.hyd+6,0,100);
   }
 
+  // Quests + optional global bus
   Quests.event('hydro_click', { zoneBefore:zBefore, kind: meta.id==='sweet'?'sweet':'water' });
 
   const zAfter=zoneOf(state.hyd, state.hydMin, state.hydMax);
 
-  // (optional back-compat) tiny reward when steer to OK
+  // small reward toward score when steering to OK
   if (zAfter===ZONES.OK){ sys.score?.addKind?.('good', { mode:'hydration' }) || sys.score?.add?.(8); }
 
-  // smart hints (TH); add EN easily if needed
+  // smart hints (TH)
   if (zBefore===ZONES.LOW  && meta.id==='water') smartHint('✓ ดื่มน้ำถูกต้อง');
   if (zBefore===ZONES.HIGH && meta.id==='sweet') smartHint('✓ ลดความเข้มด้วยหวานเล็กน้อย');
 
@@ -105,12 +109,14 @@ export function tick(state={}, sys={}, hud){
   // debounce zone crossing
   if (z!==_zone && (now - _zoneAt) > 350){
     Quests.event('hydro_cross',{from:_zone,to:z});
+    try { window.HHA?.hydrationCross?.(_zone, z); } catch {}
     _zone=z; _zoneAt=now;
   }
   // track HIGH time
   if (z===ZONES.HIGH){ state.highCount = (state.highCount|0)+1; }
 
   Quests.event('hydro_tick',{ level: state.hyd, zone: (z===ZONES.OK?'OK':z) });
+  try { window.HHA?.hydrationTick?.(z); } catch {}
 
   // gentle penalty flash (debounced)
   if (z!==ZONES.OK && hud?.dimPenalty && (now - _lastDim) > 420){
@@ -120,7 +126,7 @@ export function tick(state={}, sys={}, hud){
   render(state, hud);
 }
 
-// ---------- Visual/HUD sync ----------
+/* ---------- Visual/HUD sync ---------- */
 function render(state={}, hud){
   const pct = clamp(state.hyd|0,0,100);
   const z   = zoneOf(state.hyd, state.hydMin, state.hydMax);
@@ -131,14 +137,14 @@ function render(state={}, hud){
   if (needle) needle.style.left = `calc(${pct}% - 6px)`;
   if (bar)    bar.dataset.zone = z;
 
-  // FEVER flames เฉพาะเมื่อ FEVER ทำงานและโซน HIGH
+  // FEVER flames only when FEVER active and zone HIGH
   const feverActive = !!state?.fever?.active;
   if (flame) flame.hidden = !(feverActive && z===ZONES.HIGH);
 }
 
-// ============================================================================
-// Factory Adapter (for main.js DOM-spawn flow) — DOM emoji spawner
-// ============================================================================
+/* ========================================================================
+ * Factory Adapter for DOM-spawn
+ * ===================================================================== */
 export function create({ engine, hud, coach }){
   const host  = document.getElementById('spawnHost');
   const layer = document.getElementById('gameLayer');
@@ -186,8 +192,7 @@ export function create({ engine, hud, coach }){
     }
     if (gone.length){ state.items = state.items.filter(x=>!gone.includes(x)); }
 
-    // hydro decay + visuals (call tick each frame chunk ~dt; main still calls tick(1s) if desired)
-    // Let main drive tick per second; here only keep visuals smooth if needed
+    // (main.js จะเรียก tick(1s) อยู่แล้ว)
   }
 
   function spawnOne(rect, Bus){
