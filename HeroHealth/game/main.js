@@ -1,444 +1,153 @@
-// === Hero Health Academy — game/main.js (DOM-spawn engine, quests/HUD wired, groups-first ready) ===
-// This main.js boots the game with a minimal DOM engine that works with the new
-// groups.css (DOM-spawn .spawn-emoji buttons) and the factory adapters found in
-// each mode (e.g., groups.create). It also falls back to legacy pickMeta/onHit()
-// when a mode doesn’t expose create().
-//
-// Expected HTML ids in page (safe if missing; calls are guarded):
-// - #gameLayer (absolute/fixed area for gameplay)
-// - #spawnHost (positioned container inside #gameLayer)
-// - #hudWrap  (#time, #score, quest chips, etc. if present)
-// - #targetWrap / #targetBadge (for “groups” target HUD)
-// - #result (modal) with [data-result="replay|home"]
-//
-// Usage (UI):
-//   window.HHA.startGame({ mode:'groups', diff:'Normal', lang:'TH', seconds:45 });
-//   window.HHA.endGame();  // to force-stop
-//
-// Default (if UI doesn’t pass anything): mode='groups', diff='Normal', lang from localStorage.
-//
-// -----------------------------------------------------------------------------
-// Imports (relative to /HeroHealth/game/)
-import { ScoreSystem }    from './core/score.js';
-import { PowerUpSystem }  from './core/powerup.js';
-import { Quests }         from './core/quests.js';
-import { Progress }       from './core/progression.js';
+<!doctype html>
+<html lang="th" data-hha-mode="groups">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Hero Health Academy — Nutrition Mini-Games</title>
+  <base href="./" />
 
-// Modes (factory-first; legacy-safe fallback)
-import * as groups    from './modes/groups.js';
-import * as goodjunk  from './modes/goodjunk.js';
-import * as hydration from './modes/hydration.js';
-import * as plate     from './modes/plate.js';
+  <!-- Minimal reset + layout so DOM-spawn items can be clicked everywhere -->
+  <style>
+    html,body{margin:0;padding:0;height:100%;background:#0b1220;color:#eaf2ff;font-family:ui-rounded,system-ui,-apple-system,Segoe UI,Roboto,Arial;}
+    #app{position:fixed;inset:0;display:flex;flex-direction:column;}
+    /* Gameplay layer (click area) */
+    #gameLayer{position:relative;flex:1;min-height:60vh;overflow:hidden;touch-action:manipulation;}
+    #spawnHost{position:absolute;inset:0;pointer-events:none;} /* children (buttons) re-enable pointer-events */
+    /* HUD wrap */
+    #hudWrap{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:8px;padding:10px 12px;z-index:95;pointer-events:none;}
+    #hudWrap .pill{background:#0f172a;border:1px solid #24324d;color:#dbeafe;padding:6px 10px;border-radius:12px;font-weight:800;display:inline-flex;gap:8px;align-items:center;pointer-events:auto}
+    #time,#score{font-weight:900}
+    #missionChips{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;max-width:min(58vw,820px);pointer-events:auto}
+    .chip{display:flex;align-items:center;gap:6px;background:#0e162b;border:1px solid #203155;border-radius:999px;padding:2px 6px}
+    .chip .bar{width:62px;height:6px;border-radius:999px;background:#0b1b33;overflow:hidden}
+    .chip .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#6ee7ff,#22d3ee)}
+    .chip.done{opacity:.75;box-shadow:0 0 0 2px #22c55e40 inset}
+    #targetWrap{display:none;gap:8px;background:#12203d;border:1px solid #284b8a;color:#c1e9ff;padding:6px 10px;border-radius:12px}
+    #targetBadge{font-weight:900}
+    /* Coach bubble */
+    #coachHUD{position:absolute;top:64px;left:0;right:0;display:flex;justify-content:center;z-index:96;pointer-events:none}
+    #coachHUD .bubble{pointer-events:auto;background:#0f172a;border:1px solid #203155;color:#e2f0ff;padding:8px 12px;border-radius:12px;font-weight:900;box-shadow:0 6px 24px #0006;opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s}
+    #coachHUD.show .bubble{opacity:1;transform:none}
+    /* Menubar (top-right) */
+    #menuBar{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:97}
+    #menuBar button{all:unset;background:#0f172a;border:1px solid #203155;color:#eaf2ff;padding:8px 10px;border-radius:10px;cursor:pointer;font-weight:800}
+    /* Result modal */
+    #result{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:120}
+    #result .card{background:#0b1220;border:1px solid #223156;border-radius:16px;min-width:280px;max-width:92vw;padding:16px 18px;box-shadow:0 12px 40px #000a}
+    #result h2{margin:0 0 10px 0}
+    #result .grid{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;margin:10px 0 14px}
+    #result [data-actions]{display:flex;gap:10px;justify-content:flex-end}
+    #result [data-actions] button{all:unset;background:#1d2a46;border:1px solid #2b4578;color:#eaf2ff;padding:8px 12px;border-radius:10px;font-weight:900;cursor:pointer}
+    /* Help modal */
+    #help{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:118}
+    #help .card{background:#0b1220;border:1px solid #223156;border-radius:16px;width:min(680px,92vw);padding:16px 18px;color:#eaf2ff}
+    #help pre{white-space:pre-wrap;background:#0f172a;border:1px solid #203155;border-radius:12px;padding:12px 14px}
+    /* Mission/Toast lightweight */
+    #missionLine{position:absolute;left:50%;top:52px;transform:translateX(-50%);background:#10213d;color:#c9ecff;border:1px solid #2a4b7f;border-radius:12px;padding:6px 10px;z-index:94;display:none;pointer-events:none}
+    .toast{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:#0f172a;border:1px solid #203155;border-radius:12px;color:#eaf2ff;padding:6px 10px;opacity:0;transition:opacity .18s;z-index:110}
+    .toast.show{opacity:1}
+    /* Hydration + Plate optional shells so modes can show inside safely */
+    #plateTracker{position:absolute;left:12px;bottom:12px;z-index:93;display:none}
+    #platePills{display:flex;flex-direction:column;gap:4px;pointer-events:none}
+    #platePills .pill{display:flex;gap:8px;align-items:center;background:#0e162b;border:1px solid #223156;color:#e2f0ff;padding:4px 8px;border-radius:10px}
+    #platePills .pill i{display:block;height:6px;background:#22d3ee;border-radius:999px}
+    /* Danger flash */
+    .flash-danger{animation:fd .18s ease}
+    @keyframes fd{from{background:#3b0b0bb3}to{background:#0b1220}}
+    /* Make sure canvas (if any) never blocks UI */
+    #c{position:absolute;inset:0;pointer-events:none;z-index:1}
+  </style>
 
-// Optional SFX helper (works with either core/sfx.js or <audio> tags)
-const SFX = (()=>{
-  // Prefer core/sfx if present on window
-  const core = window.SFX;
-  if (core && typeof core.play === 'function'){
-    return {
-      good: ()=>core.play('sfx-good'),
-      bad: ()=>core.play('sfx-bad'),
-      perfect: ()=>core.play('sfx-perfect'),
-      tick: ()=>core.play('sfx-tick'),
-      power: ()=>core.play('sfx-powerup'),
-      play: (id)=>core.play(id)
-    };
-  }
-  // Fallback to DOM <audio>
-  const play = (id)=>{ try{ const el=document.getElementById(id); if(el){ el.currentTime=0; el.play(); } }catch{} };
-  return { good:()=>play('sfx-good'), bad:()=>play('sfx-bad'), perfect:()=>play('sfx-perfect'), tick:()=>play('sfx-tick'), power:()=>play('sfx-powerup'), play };
-})();
+  <!-- Mode-specific CSS (the updated groups.css you provided) -->
+  <link rel="stylesheet" href="styles/groups.css" />
+</head>
+<body data-mode="groups">
+  <div id="app">
+    <!-- ===== Top HUD ===== -->
+    <div id="hudWrap" class="hud">
+      <div class="pill"><span>⏱</span><span id="time">45</span>s</div>
+      <div class="pill"><span>★</span><span id="score">0</span></div>
+      <div id="targetWrap" class="pill"><span id="targetBadge">—</span></div>
+      <div id="missionChips"></div>
+    </div>
 
-// Tiny DOM helpers
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>document.querySelectorAll(s);
+    <!-- ===== Coach bubble ===== -->
+    <div id="coachHUD" class="coach"><div class="bubble"><span id="coachText">Ready</span></div></div>
 
-// -----------------------------------------------------------------------------
-// HUD facade (all calls are no-ops if elements are missing)
-const HUD = (() => {
-  const chipsWrap = $('#missionChips') || $('#questChips') || null;
-  const targetBadge = $('#targetBadge') || null;
-  const targetWrap  = $('#targetWrap')  || null;
-  const hydroWrap   = $('#hydroWrap')   || null;
-  const scoreEl = $('#score') || $('#scoreVal') || null;
-  const timeEl  = $('#time')  || $('#timeLeft') || null;
+    <!-- ===== Menu bar (Start/Restart/Help/Lang/Sound) ===== -->
+    <div id="menuBar">
+      <button id="btn_start">▶ Start</button>
+      <button id="btn_restart">↻ Restart</button>
+      <button id="btn_help">❓ Help</button>
+      <button id="langToggle">TH/EN</button>
+      <button id="soundToggle">🔊</button>
+    </div>
 
-  function setQuestChips(list){
-    if (!chipsWrap) return;
-    // list: [{key,icon,need,progress,remain,done,fail,label}]
-    chipsWrap.innerHTML = list.map(c=>`
-      <div class="chip ${c.done?'done':''} ${c.fail?'fail':''}" data-q="${c.key}">
-        <span class="ico">${c.icon||'⭐'}</span>
-        <span class="txt">${c.label||c.key}</span>
-        <span class="bar"><i style="width:${Math.round((c.progress|0)/(c.need||1)*100)}%"></i></span>
+    <!-- ===== Gameplay area ===== -->
+    <div id="gameLayer">
+      <!-- if you render with <canvas>, keep id=c so ui.js can disable pointer-events -->
+      <canvas id="c"></canvas>
+      <div id="spawnHost"></div>
+
+      <!-- Plate tracker shell (mode: plate) -->
+      <div id="plateTracker">
+        <div id="platePills"></div>
       </div>
-    `).join('');
-  }
 
-  function markQuestDone(qid){
-    const el = chipsWrap?.querySelector?.(`[data-q="${qid}"]`);
-    if (!el) return;
-    el.classList.add('done');
-    // micro ping
-    el.animate?.([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}], {duration:320, easing:'ease-out'});
-  }
+      <!-- Mission line + toast -->
+      <div id="missionLine"></div>
+      <div id="targetWrap" style="display:none"><span id="targetBadge"></span></div>
+    </div>
+  </div>
 
-  function setTarget(groupKey, have=0, need=0){
-    if (targetBadge){
-      const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[groupKey] || groupKey;
-      targetBadge.textContent = `${nameTH} • ${have}/${need}`;
-    }
-    if (targetWrap){ targetWrap.style.display = 'inline-flex'; }
-  }
+  <!-- ===== Result modal ===== -->
+  <div id="result" role="dialog" aria-modal="true">
+    <div class="card">
+      <h2 id="h_result">ผลการเล่น / Result</h2>
+      <div class="grid">
+        <div>คะแนน / Score</div><div><b data-field="score">0</b></div>
+        <div>ดาว / Stars</div><div><b data-field="stars">—</b></div>
+        <div>เกรด / Grade</div><div><b data-field="grade">—</b></div>
+      </div>
+      <div data-actions>
+        <button data-result="replay">↻ เล่นอีกครั้ง / Replay</button>
+        <button data-result="home">⌂ กลับเมนู / Home</button>
+      </div>
+    </div>
+  </div>
 
-  function showHydration(){ if (hydroWrap){ hydroWrap.style.display='block'; } }
-  function hideHydration(){ if (hydroWrap){ hydroWrap.style.display='none'; } }
-  function setScore(n){ if (scoreEl) scoreEl.textContent = n|0; }
-  function setTime(n){ if (timeEl)  timeEl.textContent  = n|0; }
+  <!-- ===== Help modal (How to Play) ===== -->
+  <div id="help" role="dialog" aria-modal="true">
+    <div class="card">
+      <h2 id="h_help">วิธีเล่น / How to Play</h2>
+      <pre id="helpBody">Loading…</pre>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">
+        <button id="btn_ok" style="all:unset;background:#1d2a46;border:1px solid #2b4578;color:#eaf2ff;padding:8px 12px;border-radius:10px;font-weight:900;cursor:pointer">OK</button>
+      </div>
+    </div>
+  </div>
 
-  return { setQuestChips, markQuestDone, setTarget, showHydration, hideHydration, setScore, setTime };
-})();
+  <!-- ===== Audio (SFX/BGM) — ids used by SFX/core ===== -->
+  <audio id="bgm-main" loop preload="auto" src="assets/audio/bgm_main.mp3"></audio>
+  <audio id="sfx-good" preload="auto" src="assets/audio/sfx_good.mp3"></audio>
+  <audio id="sfx-bad" preload="auto" src="assets/audio/sfx_bad.mp3"></audio>
+  <audio id="sfx-perfect" preload="auto" src="assets/audio/sfx_perfect.mp3"></audio>
+  <audio id="sfx-tick" preload="auto" src="assets/audio/sfx_tick.mp3"></audio>
+  <audio id="sfx-powerup" preload="auto" src="assets/audio/sfx_powerup.mp3"></audio>
 
-// Coach facade (bubble texts; safe-ops)
-const Coach = (() => {
-  const hud  = $('#coachHUD');
-  const text = $('#coachText');
-  const say = (t)=>{ if(text) text.textContent=t; if(hud) hud.classList.add('show'); };
-  const hush= ()=>{ if(hud) hud.classList.remove('show'); };
-  return {
-    onStart(){ say('Ready!'); setTimeout(hush, 700); },
-    onGood(){ /* subtle pulse */ },
-    onPerfect(){ say('Perfect!'); setTimeout(hush, 500); },
-    onBad(){ say('Oops!'); setTimeout(hush, 450); },
-    onQuestDone(){ say('Mission ✓'); setTimeout(hush, 600); },
-    onQuestFail(){ say('Mission ✗'); setTimeout(hush, 600); },
-    onQuestProgress(label, p, t){ /* optional live hints */ }
-  };
-})();
+  <!-- ===== Boot & UI (loads game/main.js via boot; ui wires buttons/tutorial) ===== -->
+  <script type="module" src="game/boot.js"></script>
+  <script type="module" src="game/ui.js"></script>
 
-// Simple floating text FX
-const FX = {
-  popText(txt, {x=innerWidth/2, y=innerHeight/2, ms=700}={}){
-    const el = document.createElement('div');
-    el.className = 'popText';
-    el.textContent = txt;
-    el.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
-      font-weight:900;text-shadow:0 2px 8px #000a;pointer-events:none;z-index:120;`;
-    document.body.appendChild(el);
-    el.animate?.(
-      [{transform:'translate(-50%,-40%) scale(.9)', opacity:.0},
-       {transform:'translate(-50%,-50%) scale(1)', opacity:1, offset:.25},
-       {transform:'translate(-50%,-70%) scale(1.08)', opacity:0}],
-      {duration:ms, easing:'ease-out'}
-    ).finished?.then(()=>el.remove()).catch(()=>{ try{el.remove();}catch{} });
-  }
-};
-
-// -----------------------------------------------------------------------------
-// Engine (scene-agnostic; only DOM + mode adapter)
-const Engine = (() => {
-  let modeKey = 'groups';
-  let diffKey = 'Normal';
-  let lang    = (localStorage.getItem('hha_lang')||'TH').toUpperCase();
-  let seconds = 45;
-
-  // Expose diff for modes that read window.__HHA_DIFF
-  window.__HHA_DIFF = diffKey;
-
-  // Runtime
-  let running = false;
-  let rafId   = 0;
-  let lastT   = 0;
-  let remain  = 0;
-
-  // Systems
-  const score   = new ScoreSystem();
-  const power   = new PowerUpSystem();
-
-  // Bus (modes call back into engine via this)
-  const Bus = {
-    sfx: SFX,
-    hit({kind='good', points=0, ui={}, meta={}}={}){
-      // Prefer new addKind if available
-      if (typeof score.addKind === 'function'){
-        const map = { good:'good', perfect:'perfect', ok:'ok', bad:'bad' };
-        score.addKind(map[kind]||'good', meta);
-      } else {
-        // fallback
-        if (kind==='bad') score.addPenalty?.(8);
-        else score.add?.(points|| (kind==='perfect'?18:10));
-      }
-      HUD.setScore(score.get?.()||score.value||0);
-      Quests.event('hit', { result:kind, meta, comboNow: (score.combo|0)||0 });
-      if (kind==='perfect') SFX.perfect(); else if (kind==='bad') SFX.bad(); else SFX.good();
-    },
-    miss(){
-      if (typeof score.addPenalty === 'function') score.addPenalty(6);
-      else score.add?.(-4);
-      HUD.setScore(score.get?.()||score.value||0);
-      Quests.event('miss', {});
-      SFX.bad();
-    },
-    fx: FX,
-  };
-
-  // Hook score changes (if using rich ScoreSystem)
-  score.setHandlers?.({ change:(val)=>HUD.setScore(val|0) });
-  power.attachToScore?.(score);
-
-  // Mode registry
-  const MODES = { goodjunk, groups, hydration, plate };
-  let adapter = null;   // active adapter { start, stop, update, cleanup }
-
-  // HUD binding into Quests
-  const { refresh:questsHUDRefresh } = Quests.bindToMain({ hud: HUD });
-
-  // Helpers
-  function byKeySafe(key){
-    const M = MODES[key] || MODES.groups;
-    // prefer factory adapter if exists
-    if (typeof M.create === 'function') return M.create({ engine:{fx:FX}, hud:HUD, coach:Coach });
-    // fallback: wrap legacy {pickMeta,onHit,tick}
-    return adapterFromLegacy(M);
-  }
-
-  function adapterFromLegacy(M){
-    const host  = document.getElementById('spawnHost');
-    const layer = document.getElementById('gameLayer');
-    const items = [];
-    let freezeUntil = 0;
-    let spawnCd = 0.22;
-
-    function start(){
-      stop();
-      // call legacy init(state,hud,diff)
-      const state = { ctx:{}, difficulty: diffKey, lang };
-      try{ M.init?.(state, HUD, {}); }catch{}
-      // store to closure
-      adapter._state = state;
-    }
-
-    function stop(){
-      try{ for (const it of items) it.el.remove(); }catch{}
-      items.length = 0;
-    }
-
-    function spawnOne(){
-      const rect = layer.getBoundingClientRect();
-      const meta = M.pickMeta?.({life:1600}, adapter._state)||{ char:'⭐', aria:'Star', life:1500, good:true };
-      const pad = 30;
-      const x = Math.round(pad + Math.random()*(rect.width  - pad*2));
-      const y = Math.round(pad + Math.random()*(rect.height - pad*2));
-      const b = document.createElement('button');
-      b.className = 'spawn-emoji';
-      b.type = 'button';
-      b.style.left = x + 'px';
-      b.style.top  = y + 'px';
-      b.textContent = meta.char || '⭐';
-      b.setAttribute('aria-label', meta.aria||'item');
-      if (meta.golden) b.dataset.golden = '1';
-      if (meta.good)   b.dataset.target = '1';
-      try{ M.fx?.onSpawn?.(b, adapter._state); }catch{}
-      b.addEventListener('click', (ev)=>{
-        ev.stopPropagation();
-        const res = M.onHit?.(meta, { score, sfx:SFX }, adapter._state, HUD) || 'ok';
-        if (res==='good' || res==='perfect'){
-          Bus.hit({kind:res, ui:{x:ev.clientX,y:ev.clientY}, meta});
-          FX.popText(`+${res==='perfect'?18:10}${res==='perfect'?' ✨':''}`, {x:ev.clientX,y:ev.clientY, ms:700});
-        } else if (res==='bad'){
-          Bus.miss();
-          freezeUntil = Math.max(freezeUntil, performance.now()+280);
-          document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
-        }
-        try{ b.remove(); }catch{}
-        const i = items.findIndex(it=>it.el===b); if (i>=0) items.splice(i,1);
-      }, {passive:false});
-      host?.appendChild?.(b);
-      items.push({ el:b, born:performance.now(), life:meta.life||1500, meta });
-    }
-
-    function update(dt){
-      const now = performance.now();
-      spawnCd -= dt;
-      if (now >= freezeUntil && spawnCd <= 0){
-        spawnOne();
-        // slightly dynamic
-        const timeLeft = Number($('#time')?.textContent||remain|0)|0;
-        const bias = timeLeft<=15 ? 0.16 : 0;
-        spawnCd = Math.max(0.26, 0.42 - bias + Math.random()*0.24);
-      }
-      // life ticking
-      for (let i=items.length-1;i>=0;i--){
-        const it = items[i];
-        if (now - it.born > it.life){
-          if (it.meta?.good) Bus.miss();
-          try{ it.el.remove(); }catch{}
-          items.splice(i,1);
-        }
-      }
-      M.tick?.(adapter._state, { score, sfx:SFX }, HUD);
-    }
-
-    function cleanup(){ stop(); try{ M.cleanup?.(adapter._state, HUD); }catch{} }
-
-    return { start, stop, update, cleanup, _state:null };
-  }
-
-  // Result modal helper
-  function showResult(summary){
-    const dlg = $('#result'); if (!dlg) return;
-    const scoreEl = dlg.querySelector('[data-field="score"]');
-    const starsEl = dlg.querySelector('[data-field="stars"]');
-    const gradeEl = dlg.querySelector('[data-field="grade"]');
-    if (scoreEl) scoreEl.textContent = summary.score|0;
-    if (starsEl) starsEl.textContent = '★'.repeat(summary.stars||0);
-    if (gradeEl) gradeEl.textContent = summary.grade || '';
-    dlg.style.display = 'flex';
-  }
-
-  // Core loop
-  function loop(t){
-    if (!running){ cancelAnimationFrame(rafId); return; }
-    const dt = Math.min(0.050, (t - (lastT||t))/1000); // seconds
-    lastT = t;
-
-    // mode update
-    try{ adapter.update?.(dt, Bus); }catch(e){ console.warn('[adapter.update]', e); }
-
-    // 1s tick
-    if (!Engine._tickAt || t-Engine._tickAt >= 1000){
-      Engine._tickAt = t;
-      remain = Math.max(0, (remain|0) - 1);
-      HUD.setTime(remain);
-      Quests.tick({ score: score.get?.()||score.value||0 });
-
-      if (remain <= 5 && remain > 0) SFX.tick();
-      if (remain === 0){
-        end(false);
-        return;
-      }
-    }
-    rafId = requestAnimationFrame(loop);
-  }
-
-  function begin({ mode, diff, lang:lg, seconds:sec }){
-    // config
-    modeKey = (mode||modeKey||'groups');               // default to groups
-    diffKey = (diff||diffKey||'Normal');
-    lang    = (String(lg||lang||'TH')).toUpperCase();
-    seconds = Math.max(10, (sec|0) || 45);
-    window.__HHA_DIFF = diffKey;
-
-    // mark on DOM for CSS (groups.css watches this)
-    document.body.dataset.mode = modeKey;
-    document.documentElement.setAttribute('data-hha-mode', modeKey);
-
-    // clean spawnHost & ensure visible containers
-    $('#spawnHost')?.replaceChildren?.();
-
-    // systems
-    score.reset?.();
-    HUD.setScore(0);
-    remain = seconds;
-    HUD.setTime(remain);
-
-    // bind powerup HUD hooks if you show durations elsewhere
-    power.onChange?.((_t)=>{/* no-op, but available for HUD timer bubbles */});
-
-    // quests begin
-    Quests.beginRun?.(modeKey, diffKey, lang, seconds);
-    questsHUDRefresh?.();
-
-    // progress profile run context (optional)
-    try{ Progress.beginRun?.(modeKey, diffKey, lang); }catch{}
-
-    // build adapter
-    adapter = byKeySafe(modeKey);
-    adapter.start?.();
-
-    // coach cue
-    Coach.onStart?.();
-
-    // run
-    running = true;
-    lastT = 0;
-    rafId = requestAnimationFrame(loop);
-  }
-
-  function end(forceReplay=false){
-    if (!running && !forceReplay){
-      // still summarize if called from timeout or repeated
-    }
-    running = false;
-    cancelAnimationFrame(rafId);
-
-    // collect summary
-    const g = (typeof score.getGrade === 'function') ? score.getGrade() : { score: (score.get?.()||score.value||0), stars: Math.min(5, Math.floor((score.get?.()||score.value||0)/120)), grade:'-' };
-    const summary = { score: g.score|0, stars: g.stars|0, grade: g.grade||'-', highCount: adapter?._state?.highCount|0, overfill: adapter?._state?.ctx?.overfillCount|0 };
-
-    try{ Progress.endRun?.({ score:summary.score, bestCombo: (score.bestCombo|0)||0, timePlayed: (seconds-remain)|0, acc: 0 }); }catch{}
-    try{ const out = Quests.endRun?.(summary) || []; /* could be used to update daily/XP */ }catch{}
-
-    adapter?.cleanup?.();
-
-    // show result (if modal exists)
-    showResult(summary);
-  }
-
-  // Pause on window blur; resume on focus (soft — user must press Start again)
-  window.addEventListener('blur', ()=>{ if (running){ running=false; cancelAnimationFrame(rafId); }});
-  // Guard autoplay: ensure a user gesture happened once
-  document.addEventListener('click', ()=>{ try{
-    // if using core/sfx, unlock; else attempt to play silent tick
-    if (window.SFX?.unlock) window.SFX.unlock();
-    SFX.tick();
-  }catch{} }, { once:true });
-
-  // Public API
-  return {
-    begin, end,
-    setMode:(k)=>{ document.body.dataset.mode = k; document.documentElement.setAttribute('data-hha-mode', k); },
-    setDiff:(d)=>{ diffKey = d; window.__HHA_DIFF = d; },
-    setLang:(l)=>{ localStorage.setItem('hha_lang', String(l||'TH').toUpperCase()); },
-    _tickAt: 0
-  };
-})();
-
-// -----------------------------------------------------------------------------
-// Wire up result buttons if present
-(function bindResultButtons(){
-  const dlg = $('#result'); if (!dlg) return;
-  dlg.addEventListener('click', (e)=>{
-    const a = e.target.getAttribute('data-result');
-    if (a==='replay'){
-      dlg.style.display='none';
-      window.HHA.startGame({ demoPassed:true }); // rerun with the last config (UI can inject)
-    } else if (a==='home'){
-      dlg.style.display='none';
-      // do nothing; UI page can show menu
-    }
-  });
-})();
-
-// -----------------------------------------------------------------------------
-// Global façade expected by ui.js or external menu
-window.HHA = window.HHA || {};
-window.HHA.startGame = (opts={})=>{
-  // Defaults: prefer UI-provided opts; fallback to stored language/diff; mode defaults to 'groups'
-  const cfg = {
-    mode: (opts.mode || 'groups'),
-    diff: (opts.diff || window.__HHA_DIFF || 'Normal'),
-    lang: (opts.lang || localStorage.getItem('hha_lang') || 'TH'),
-    seconds: Math.max(10, (opts.seconds|0) || 45)
-  };
-  try { $('#result') && ($('#result').style.display='none'); } catch {}
-  Engine.begin(cfg);
-};
-window.HHA.endGame = ()=> Engine.end(false);
-
-// Legacy aliases (some older UI call these)
-window.start = (opts)=> window.HHA.startGame(opts||{ mode:'groups' });
-window.end   = ()=> window.HHA.endGame();
-
-// Mark boot success for boot.js banner suppression
-window.__HHA_BOOT_OK = 'main';
+  <!-- ===== Safe autostart for quick test (optional; remove if menu controls it) ===== -->
+  <script>
+    // When page is ready, if no external UI drives start, wire a quick start
+    window.addEventListener('DOMContentLoaded', ()=>{
+      // If HHA.startGame is not ready yet, ui.js will call it after help/tutorial.
+      // Button "Start" uses ui.js flow; this fallback ensures body data-mode matches default.
+      document.body.setAttribute('data-mode','groups');
+      document.documentElement.setAttribute('data-hha-mode','groups');
+    });
+  </script>
+</body>
+</html>
