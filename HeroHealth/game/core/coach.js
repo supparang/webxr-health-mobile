@@ -5,26 +5,36 @@
 export class Coach {
   constructor(opts = {}) {
     this.lang = (opts.lang || (document.documentElement.getAttribute('data-hha-lang') || 'TH')).toUpperCase();
-    this.minGap = Number.isFinite(opts.minGap) ? opts.minGap : 700;        // กันยิงรัว
+    this.minGap = Number.isFinite(opts.minGap) ? opts.minGap : 700;          // กันยิงรัว
     this.visibleMs = Number.isFinite(opts.visibleMs) ? opts.visibleMs : 1600;
-    this.priorityEnabled = opts.priorityEnabled ?? true;                   // เปิดระบบ priority
-    this.cooldownScaleOnBlur = opts.cooldownScaleOnBlur ?? 1.6;            // หน้าไม่โฟกัส → ลดสแปม
-    this.mergeDuplicatesMs = opts.mergeDuplicatesMs ?? 600;                // ข้อความเดิมซ้ำติด ๆ กัน
+    this.priorityEnabled = opts.priorityEnabled ?? true;                     // เปิดระบบ priority
+    this.cooldownScaleOnBlur = opts.cooldownScaleOnBlur ?? 1.6;              // หน้าไม่โฟกัส → ลดสแปม
+    this.mergeDuplicatesMs = opts.mergeDuplicatesMs ?? 600;                  // ข้อความเดิมซ้ำติด ๆ กัน
 
     // DOM
-    this.elHUD = document.getElementById('coachHUD') || this._ensureHUD();
+    this.elHUD  = document.getElementById('coachHUD')  || this._ensureHUD();
     this.elText = document.getElementById('coachText') || this._ensureHUD(true);
+
+    // ARIA (ไม่กินคลิก, อ่านได้ด้วย screen reader)
+    try {
+      this.elHUD.setAttribute('role','status');
+      this.elHUD.setAttribute('aria-live','polite');
+      this.elHUD.style.pointerEvents = 'none';
+    } catch {}
 
     // State
     this._lastShownAt = 0;
-    this._timerHide = 0;
-    this._queue = []; // {text, at, prio}
-    this._lastText = '';
-    this._lastEnqAt = 0;
-    this._loop = null;
+    this._timerHide   = 0;
+    this._queue       = []; // {text, at, prio}
+    this._lastText    = '';
+    this._lastEnqAt   = 0;
+
+    // Loop
+    this._loop = 0;
+    this._paused = false;
+    this._blurred = false;
 
     // Pause/Blur awareness (ลดสแปมเวลาผู้ใช้สลับแท็บ)
-    this._blurred = false;
     try {
       window.addEventListener('blur',  () => { this._blurred = true;  }, { passive:true });
       window.addEventListener('focus', () => { this._blurred = false; }, { passive:true });
@@ -34,17 +44,44 @@ export class Coach {
   }
 
   /* ============================= Public ============================= */
-  setLang(l){ this.lang = (l||'TH').toUpperCase(); }
+  setLang(l){
+    this.lang = (l||'TH').toUpperCase();
+    try { localStorage.setItem('hha_lang', this.lang); } catch {}
+  }
+
   setHUD(elHUD, elText){
-    if (elHUD) this.elHUD = elHUD;
+    if (elHUD)  this.elHUD = elHUD;
     if (elText) this.elText = elText;
+  }
+
+  setOptions(opts={}){
+    if ('minGap' in opts && Number.isFinite(opts.minGap)) this.minGap = opts.minGap;
+    if ('visibleMs' in opts && Number.isFinite(opts.visibleMs)) this.visibleMs = opts.visibleMs;
+    if ('priorityEnabled' in opts) this.priorityEnabled = !!opts.priorityEnabled;
+    if ('cooldownScaleOnBlur' in opts) this.cooldownScaleOnBlur = Number(opts.cooldownScaleOnBlur)||1;
+    if ('mergeDuplicatesMs' in opts) this.mergeDuplicatesMs = Number(opts.mergeDuplicatesMs)||0;
+  }
+
+  clearQueue(){
+    this._queue.length = 0;
+    clearTimeout(this._timerHide);
+    this._timerHide = 0;
+    if (this.elHUD) this.elHUD.classList.remove('pulse');
+  }
+
+  dispose(){
+    try { cancelAnimationFrame(this._loop); } catch {}
+    this._loop = 0;
+    clearTimeout(this._timerHide);
+    this._timerHide = 0;
+    this.clearQueue();
   }
 
   // เมธอดช่วย: พูดด้วยข้อความดิบ หรือด้วย key
   say(text, prio = 1){ if (text) this._enqueue(String(text), prio); }
   sayKey(key, vars = [], prio = 1){ this._enqueue(this._t(key, vars), prio); }
 
-  // ===== Hooks ที่ main/modes เรียก (API เผื่อใช้งานเร็ว) =====
+  // ===== Hooks ที่ main/modes เรียก =====
   onStart(){ this._enqueue(this._t('start'), 2); }
   onGood(){ this._enqueue(this._t('good'), 1); }
   onPerfect(){ this._enqueue(this._t('perfect'), 2); }
@@ -63,6 +100,10 @@ export class Coach {
   onCountdown(n){ if (n>0) this._enqueue(this._t('countdown', [n]), 3); }
   onTimeLow(){ this._enqueue(this._t('t10'), 3); }
   onEnd(score){ this._enqueue((Number(score)||0) >= 200 ? this._t('end_good') : this._t('end_ok'), 2); }
+
+  // ใช้คู่กับ main.pause/resume
+  onPause(){ this._paused = true; }
+  onResume(){ this._paused = false; }
 
   /* ============================= i18n ============================= */
   _t(key, vars = []) {
@@ -113,6 +154,7 @@ export class Coach {
   /* ============================= Internals ============================= */
   _enqueue(text, prio = 1) {
     const now = performance?.now?.() || Date.now();
+    if (!text) return;
 
     // กัน duplicate ชิด ๆ กัน
     if (text === this._lastText && (now - this._lastEnqAt) < this.mergeDuplicatesMs) return;
@@ -129,6 +171,7 @@ export class Coach {
 
   _tryFlush() {
     if (!this.elHUD || !this.elText) return;
+    if (this._paused) return; // หยุดพูดขณะ pause
     const now = performance?.now?.() || Date.now();
 
     // ลดสแปมตาม focus
@@ -146,9 +189,13 @@ export class Coach {
     const now = performance?.now?.() || Date.now();
 
     this._lastShownAt = now;
+
+    // ยืดเวลาปรากฏตามความยาวข้อความเล็กน้อย (อ่านง่ายขึ้น)
+    const lenBoost = Math.min(600, Math.max(0, (String(text).length - 16) * 22));
+    const showMs = this.visibleMs + lenBoost;
+
     this.elHUD.style.display = 'flex';
     this.elHUD.classList.remove('pulse');
-
     // restart CSS anim
     // eslint-disable-next-line no-unused-expressions
     this.elHUD.offsetHeight;
@@ -160,7 +207,7 @@ export class Coach {
     this._timerHide = setTimeout(() => {
       this.elHUD.classList.remove('pulse');
       this._tryFlush();
-    }, this.visibleMs);
+    }, showMs);
   }
 
   _startLoop() {
@@ -173,34 +220,24 @@ export class Coach {
   }
 
   _ensureHUD(returnTextElOnly = false) {
-    // ถ้าไม่มีโครง HUD เลย ให้สร้าง DOM เบา ๆ (สอดคล้อง CSS ใหม่: top 104px; z-index 96)
     let hud = document.getElementById('coachHUD');
     let txt = document.getElementById('coachText');
 
     if (!hud) {
-      // ถ้ามี #hudWrap ให้แนบไว้ข้างใน (เลเยอร์ถูกต้องอยู่แล้ว)
       const host = document.getElementById('hudWrap') || document.body;
-
       hud = document.createElement('div');
       hud.id = 'coachHUD';
-      hud.style.cssText = [
-        'position:fixed',
-        'top:104px','left:50%','transform:translateX(-50%)',
-        'display:flex','align-items:center','justify-content:center',
-        'padding:10px 14px',
-        'background:rgba(0,0,0,.55)','backdrop-filter:blur(4px)',
-        'color:#fff','font:800 14px/1.2 ui-rounded,system-ui,Segoe UI,Arial',
-        'border-radius:12px','border:1px solid rgba(255,255,255,.12)',
-        'box-shadow:0 6px 18px rgba(0,0,0,.25)',
-        'z-index:96','pointer-events:none','opacity:1'
-      ].join(';');
+      // วางเฉพาะสิ่งจำเป็น—ตำแหน่งหลักปล่อยให้ CSS คุมได้
+      hud.style.zIndex = '96';
+      hud.style.pointerEvents = 'none';
+      hud.style.display = 'flex';
 
       txt = document.createElement('span');
       txt.id = 'coachText';
       hud.appendChild(txt);
       host.appendChild(hud);
 
-      // inject keyframes pulse (ถ้ายังไม่มี)
+      // ถ้ายังไม่มี keyframes pulse ให้ใส่แบบสั้น
       if (!document.getElementById('coachPulseStyle')) {
         const st = document.createElement('style');
         st.id = 'coachPulseStyle';
