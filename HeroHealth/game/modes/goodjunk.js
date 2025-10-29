@@ -67,40 +67,49 @@ export function create({ engine, hud, coach }){
   }
 
   function spawnOne(rect, Bus){
-    const isGood = Math.random() < CHANCE_GOOD;
-    const life = clamp(LIFE[state.difficulty]||1450, 700, 3000);
-    const meta = { good:isGood, junk:!isGood };
-    const pad=30;
-    const x=Math.round(pad + Math.random()*(Math.max(1,rect.width)-pad*2));
-    const y=Math.round(pad + Math.random()*(Math.max(1,rect.height)-pad*2));
+  const host = document.getElementById('spawnHost');
+  const meta = pickMeta({ life: 1800 }, state);
 
-    const b=document.createElement('button');
-    b.className='spawn-emoji'; b.type='button';
-    b.textContent = isGood ? pick(GOOD) : pick(JUNK);
-    b.style.left=x+'px'; b.style.top=y+'px';
-    b.setAttribute('aria-label', isGood?'Healthy food':'Junk food');
-    // 3D pop a bit
-    b.style.transform='translate(-50%, -50%) translateZ(8px)';
+  const pad = 30;
+  const w = Math.max(2*pad + 1, (host?.clientWidth  || rect.width  || 0));
+  const h = Math.max(2*pad + 1, (host?.clientHeight || rect.height || 0));
 
-    b.addEventListener('click',(ev)=>{
-      if(!state.running) return; ev.stopPropagation();
-      const ui={x:ev.clientX,y:ev.clientY};
-      if(isGood){
-        const pts=10; Bus?.hit?.({kind:'good',points:pts,ui,meta:{...meta}});
-        engine?.fx?.popText?.(`+${pts}`,{x:ui.x,y:ui.y,ms:720});
-        engine?.fx?.shatter3D?.(ui.x,ui.y,{shards:26,sparks:10});
-        coach?.onGood?.();
-      } else {
-        document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'),160);
-        coach?.onBad?.(); Bus?.miss?.({meta});
-      }
-      try{ b.remove(); }catch{}
-      const idx=state.items.findIndex(it=>it.el===b); if(idx>=0) state.items.splice(idx,1);
-    },{passive:false});
+  const x = Math.round(pad + Math.random() * (w - 2*pad));
+  const y = Math.round(pad + Math.random() * (h - 2*pad));
 
-    (host||document.getElementById('spawnHost'))?.appendChild?.(b);
-    state.items.push({el:b,born:performance.now(),life,meta});
-  }
+  const b = document.createElement('button');
+  b.className = 'spawn-emoji';
+  b.type = 'button';
+  b.style.position = 'absolute';
+  b.style.left = x + 'px';
+  b.style.top  = y + 'px';
+  b.textContent = meta.char;
+  b.setAttribute('aria-label', meta.aria);
+  if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+
+  (host||document.getElementById('spawnHost'))?.appendChild?.(b);
+  state.items.push({ el:b, born: performance.now(), meta });
+
+  b.addEventListener('click', (ev)=>{
+    if (!state.running) return;
+    ev.stopPropagation();
+    const ui = { x: ev.clientX, y: ev.clientY };
+    const res = onHit(meta, { score: engine?.score, sfx: engine?.sfx }, state, hud);
+    if (res==='good' || res==='perfect'){
+      const pts = res==='perfect'? 18 : 10;
+      engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 700 });
+      state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui, meta });
+      coach?.onGood?.();
+    } else if (res==='bad'){
+      document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+      state.stats.bad++; Bus?.miss?.({ meta });
+      coach?.onBad?.();
+    }
+    try{ b.remove(); }catch{}
+    const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
+  }, { passive:false });
+}
+
 
   function cleanup(){ stop(); }
 
