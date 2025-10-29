@@ -120,3 +120,27 @@ export class ScoreSystem {
     try { this._handlers.change?.(this.score, payload); } catch {}
   }
 }
+// === Hero Health Academy — core/score.js (minimal) ===
+export class ScoreSystem {
+  constructor(){
+    this.value = 0;
+    this.combo = 0;
+    this.bestCombo = 0;
+    this._boostFn = null;
+  }
+  setBoostFn(fn){ this._boostFn = fn; }
+  reset(){ this.value = 0; this.combo = 0; this.bestCombo = 0; }
+  add(base=10){
+    const extra = this._boostFn ? (Number(this._boostFn(base))||0) : 0;
+    this.value += (base + extra);
+    this.combo += 1;
+    if (this.combo > this.bestCombo) this.bestCombo = this.combo;
+    return this.value;
+  }
+  addPenalty(n=8){
+    this.value = Math.max(0, this.value - n);
+    this.combo = 0;
+    return this.value;
+  }
+  get(){ return this.value|0; }
+}
