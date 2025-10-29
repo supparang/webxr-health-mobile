@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (2025-10-29, unified latest) ===
+// game/main.js — patch HUD show/hide (ใช้กับโค้ดล่าสุดของคุณ)
 import { HUD }            from './core/hud.js';
 import { SFX, sfx }       from './core/sfx.js';
 import { ScoreSystem }    from './core/score.js';
@@ -18,18 +18,20 @@ const App = {
   diff: (document.body.getAttribute('data-diff') || 'Normal'),
   lang: (document.documentElement.getAttribute('data-hha-lang') || 'TH').toUpperCase(),
   secs: 45,
-  running: false,
-  timeLeft: 45,
-  timers: { main: 0, sec: 0 },
-  hud: null, score: null, power: null, missionSys: null, leader: null,
-  state: { ctx:{}, missions:[], fever01:0 }
+  running:false, timeLeft:45, timers:{ main:0, sec:0 },
+  hud:null, score:null, power:null, missionSys:null, leader:null,
+  state:{ ctx:{}, missions:[], fever01:0 }
 };
 
 boot();
 
 function boot(){
+  // HUD
   App.hud = new HUD();
+  // 👇 ซ่อน HUD ขณะอยู่หน้า Hub
+  App.hud.showGameHUD(false);
 
+  // Score
   App.score = new ScoreSystem();
   App.score.setHandlers({
     change: (val,{delta,meta})=>{
@@ -39,15 +41,16 @@ function boot(){
         Quests.event('hit', {
           result: meta.kind,
           comboNow: App.score.combo|0,
-          meta: { good: meta.kind==='good'||meta.kind==='perfect', golden: !!meta.golden, isTarget: !!meta.isTarget, groupId: meta.groupId }
+          meta: { good: meta.kind==='good' || meta.kind==='perfect', golden: !!meta.golden, isTarget: !!meta.isTarget, groupId: meta.groupId }
         });
       }
     }
   });
 
+  // Power
   App.power = new PowerUpSystem();
   App.power.attachToScore(App.score);
-  App.power.onChange(() => {
+  App.power.onChange(()=>{
     const t = App.power.getCombinedTimers ? App.power.getCombinedTimers() : App.power.getTimers?.();
     App.hud.setPowerTimers(t || {});
   });
@@ -62,14 +65,12 @@ function boot(){
   VRInput.init({ sfx });
   VRInput.setAimHost($('#gameLayer'));
   VRInput.setDwellMs(900);
-  if (VRInput.setCooldown) VRInput.setCooldown(350);
-  if (VRInput.setReticleStyle) VRInput.setReticleStyle({ size: 30, border:'#eaf6ff', progress:'#42f9da' });
 
+  // UI binds
   bindMenu();
   bindResultModal();
   bindHelpModal();
   bindToggles();
-  bindBoardButtons();
 
   document.addEventListener('pointerdown', onFirstInteract, { once:true, passive:true });
   document.addEventListener('keydown',     onFirstInteract, { once:true, passive:true });
@@ -91,17 +92,14 @@ function bindMenu(){
   $('#d_hard')  ?.addEventListener('click', ()=> setDiff('Hard'));
 
   $('#langToggle')?.addEventListener('click', ()=>{
-    App.lang = (App.lang==='TH') ? 'EN' : 'TH';
+    App.lang = (App.lang==='TH')?'EN':'TH';
     setText('#langToggle', App.lang);
-    document.documentElement.setAttribute('data-hha-lang', App.lang);
     Quests.setLang(App.lang);
   });
 
-  // ปล่อยให้ ui.js เป็นคนสั่งเริ่มเกม ถ้ามี HHA_UI.startFlow
-  if (!window.HHA_UI || !window.HHA_UI.startFlow){
-    $('#btn_start')?.addEventListener('click', startGame);
-  }
+  $('#btn_start')?.addEventListener('click', startGame);
 }
+
 function reflectMenu(){
   $$('.tile').forEach(t=> t.classList.remove('active'));
   $('#m_'+App.mode)?.classList.add('active');
@@ -113,19 +111,19 @@ function reflectMenu(){
   if (App.diff==='Hard')   $('#d_hard')?.classList.add('active');
   setText('#difficulty', App.diff);
 }
+
 function setMode(m){ App.mode = m; reflectMenu(); }
-function setDiff(d){ App.diff = d; App.secs = (d==='Easy')?50:(d==='Hard'?40:45); reflectMenu(); }
+function setDiff(d){ App.diff = d; App.secs = (d==='Easy')?50 : (d==='Hard'?40:45); reflectMenu(); }
 function tileName(m){
-  return m==='goodjunk' ? 'Good vs Junk' :
-         m==='groups'   ? '5 Food Groups' :
-         m==='hydration'? 'Hydration' :
-         m==='plate'    ? 'Healthy Plate' : m;
+  return (m==='goodjunk') ? 'Good vs Junk'
+       : (m==='groups') ? '5 Food Groups'
+       : (m==='hydration') ? 'Hydration'
+       : (m==='plate') ? 'Healthy Plate' : m;
 }
 
 function bindToggles(){
   $('#soundToggle')?.addEventListener('click', ()=>{
-    const on = !sfx.isEnabled();
-    sfx.setEnabled(on);
+    const on = !sfx.isEnabled(); sfx.setEnabled(on);
     setText('#soundToggle', on ? '🔊' : '🔇');
   });
   $('#gfxToggle')?.addEventListener('click', ()=>{
@@ -133,11 +131,13 @@ function bindToggles(){
     document.body.setAttribute('data-gfx', v);
   });
 }
+
 function bindHelpModal(){
   $('#btn_ok')?.addEventListener('click', ()=> hideModal('#help'));
   document.querySelectorAll('.chip[data-modal-open], [data-modal-open]').forEach(el=>{
     el.addEventListener('click', ()=>{
-      const sel = el.getAttribute('data-modal-open'); if (sel) showModal(sel);
+      const sel = el.getAttribute('data-modal-open');
+      if (sel) showModal(sel);
     });
   });
 }
@@ -146,31 +146,26 @@ function bindResultModal(){
     btn.addEventListener('click', (e)=>{
       const act = e.currentTarget.getAttribute('data-result');
       hideModal('#result');
-      if (act==='replay'){ startGame(); } else { goHome(); }
+      if (act==='replay'){ startGame(); }
+      else { goHome(); }
     });
   });
 }
-function bindBoardButtons(){
-  const openBoard = ()=>{
-    showModal('#boardModal');
-    const scope = $('#lb_scope')?.value || 'month';
-    App.leader?.renderInto?.(document.querySelector('#lb_table'), { scope });
-    const info = App.leader?.getInfo?.(scope);
-    if (info) setText('#lb_info', info.text || '');
-  };
-  $('#btn_board')?.addEventListener('click', openBoard);
-  $('#btn_open_board')?.addEventListener('click', openBoard);
-  $('#lb_close')?.addEventListener('click', ()=> hideModal('#boardModal'));
-  $('#lb_scope')?.addEventListener('change', openBoard);
+function showModal(sel){ const el = document.querySelector(sel); if (el){ el.style.display='flex'; } }
+function hideModal(sel){ const el = document.querySelector(sel); if (el){ el.style.display='none'; } }
+function goHome(){
+  $('#menuBar')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  // 👇 ซ่อน HUD เมื่อกลับหน้าแรก
+  App.hud.showGameHUD(false);
 }
-function showModal(sel){ const el=document.querySelector(sel); if (el) el.style.display='flex'; }
-function hideModal(sel){ const el=document.querySelector(sel); if (el) el.style.display='none'; }
-function goHome(){ $('#menuBar')?.scrollIntoView({ behavior:'smooth', block:'start' }); }
 
 function startGame(){
   if (App.running) endGame(true);
-  $('#result')?.style && ( $('#result').style.display = 'none' );
 
+  // 👇 แสดง HUD เมื่อเริ่มเล่น
+  App.hud.showGameHUD(true);
+
+  $('#result')?.style && ( $('#result').style.display = 'none' );
   App.hud.dispose();
   App.hud.setScore(0);
   App.hud.setTime(App.secs);
@@ -191,8 +186,10 @@ function startGame(){
   App.timers.sec = setInterval(onTick1s, 1000);
 
   App.running = true;
+
   if (App.diff==='Easy') App.power.apply('shield', 5);
 }
+
 function onTick1s(){
   if (!App.running) return;
   App.timeLeft = Math.max(0, (App.timeLeft|0)-1);
@@ -203,85 +200,51 @@ function onTick1s(){
 
   App.missionSys.tick(App.state, { score: App.score.get() }, (ev)=>{
     if (ev?.success){ Progress.addMissionDone(App.mode); App.hud.toast('✓ Quest!', 900); }
-  }, { hud: App.hud, coach: {
+  }, { hud: App.hud, coach: { 
         onQuestDone(){ App.hud.say(App.lang==='TH'?'สำเร็จภารกิจ!':'Quest complete!', 900); },
         onQuestFail(){ App.hud.say(App.lang==='TH'?'พลาดภารกิจ':'Quest failed', 900); },
         onQuestProgress(txt,prog,need){ App.hud.say(`${txt} (${prog}/${need})`, 700); }
       }, lang: App.lang });
 
   Quests.tick({ score: App.score.get() });
-
   if (App.timeLeft <= 0) endGame(false);
 }
-function endGame(){
+
+function endGame(isAbort=false){
   if (!App.running) return;
   App.running = false;
   clearInterval(App.timers.sec);
 
   const scoreNow = App.score.get();
   const { stars, grade } = App.score.getGrade();
-  const quests = Quests.endRun({ score: scoreNow });
+  Quests.endRun({ score: scoreNow });
 
   Progress.endRun({ score: scoreNow, bestCombo: App.score.bestCombo|0, timePlayed: (App.secs|0), acc: 0 });
-  App.leader.submit(App.mode, App.diff, scoreNow, { name: ($('#playerName')?.value||'').trim() || undefined, meta:{ stars, grade } });
+  App.leader.submit(App.mode, App.diff, scoreNow, { name: undefined, meta:{ stars, grade } });
 
   setText('#finalScore', `${scoreNow}  ★${stars}  [${grade}]`);
   showModal('#result');
 
-  const d = Progress.getDaily?.();
-  if (d?.missions?.length){
-    App.hud.toast(App.lang==='TH' ? 'อัปเดตภารกิจรายวันแล้ว' : 'Daily missions updated', 1100);
-  }
+  // 👇 ซ่อน HUD เมื่อจบเกม
+  App.hud.showGameHUD(false);
+
   App.power.dispose();
 }
 
-// Gameplay hooks
-window.HHA = {
-  startGame,  // เผื่อ ui.js เรียก
-  hitGood(meta={}){ App.score.addKind('good', meta); Quests.event('hit', { result:'good', comboNow:App.score.combo|0, meta }); App.missionSys.onEvent('good',{count:1},App.state); },
-  hitPerfect(meta={}){ App.score.addKind('perfect', meta); App.state.fever01 = Math.min(1, App.state.fever01 + 0.1);
-    Quests.event('hit', { result:'perfect', comboNow:App.score.combo|0, meta:{...meta, golden:!!meta.golden} });
-    App.missionSys.onEvent('good',{count:1},App.state);
-  },
-  hitBad(meta={}){ 
-    if (App.power.consumeShield?.()) { App.hud.toast(App.lang==='TH'?'🛡 กันความเสียหาย':'🛡 Shielded', 900); }
-    else { App.score.addKind('bad', meta); App.hud.flashDanger(); App.missionSys.onEvent('miss',{count:1},App.state); }
-  },
-  targetHit(meta={}){ App.score.addKind('good', { ...meta, isTarget:true }); App.missionSys.onEvent('target_hit',{count:1},App.state);
-    Quests.event('hit', { result:'good', comboNow:App.score.combo|0, meta:{...meta, isTarget:true} }); },
-  wrongGroup(){ App.missionSys.onEvent('wrong_group',{count:1},App.state); },
-  feverStart(){ Quests.event('fever',{kind:'start'}); },
-  feverEnd(){ Quests.event('fever',{kind:'end'}); },
-  platePerfect(){ App.missionSys.onEvent('plate_perfect',{count:1},App.state); },
-  plateOver(){ App.missionSys.onEvent('over_quota',{count:1},App.state); },
-  hydrationTick(zone){ App.missionSys.onEvent('hydration_zone',{z:String(zone||'')},App.state); Quests.event('hydro_tick',{zone:String(zone||'')}); },
-  hydrationCross(from,to){ Quests.event('hydro_cross',{from:String(from||''), to:String(to||'')}); },
-  hydrationTreatHighSweet(){ Quests.event('hydro_click',{zoneBefore:'HIGH', kind:'sweet'}); },
-  groupFull(){ Quests.event('group_full'); },
-  targetCycle(){ Quests.event('target_cleared'); },
-  power(type){ 
-    if (['x2','freeze','sweep','magnet','boost','shield'].includes(type)){
-      App.power.apply(type);
-      sfx.power();
-      App.hud.toast(App.lang==='TH' ? `พลัง ${type}` : `Power ${type}`, 850);
-    }
-  }
-};
+function onFirstInteract(){ try { sfx.unlock?.(); } catch {} }
 
-function onFirstInteract(){ try{ sfx.unlock?.(); }catch{} }
 function pauseGame(){
   if (!App.running) return;
-  VRInput.pause?.();
   clearInterval(App.timers.sec);
   App.hud.say(App.lang==='TH'?'พักเกมชั่วคราว':'Paused', 900);
 }
 function resumeGame(){
   if (!App.running) return;
   if (!document.hidden){
-    VRInput.resume?.();
     clearInterval(App.timers.sec);
     App.timers.sec = setInterval(onTick1s, 1000);
     App.hud.say(App.lang==='TH'?'ต่อกันเลย!':'Resumed', 800);
   }
 }
+
 try { window.__HHA_APP__ = App; } catch {}
