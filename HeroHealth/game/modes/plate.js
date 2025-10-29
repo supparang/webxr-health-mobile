@@ -1,10 +1,11 @@
-// === Hero Health Academy — game/modes/plate.js
-// (click-safe HUD, robust meta guard, fair lockout, multi-group accept,
-//  overfill penalty, HUD bars, rarity-perfect, quest events, FX hooks
-//  + Factory adapter for main.js DOM-spawn flow)
+// === Hero Health Academy — game/modes/plate.js (2025-10-29, synced)
+// - Relative imports -> ../core/*
+// - Click-safe HUD, robust meta guard, fair lockout, multi-group accept
+// - Overfill penalty, HUD bars, rarity-perfect, quest events, FX hooks
+// - Factory adapter for main.js DOM-spawn flow
 
-import { Progress } from '/webxr-health-mobile/HeroHealth/game/core/progression.js';
-import { Quests   } from '/webxr-health-mobile/HeroHealth/game/core/quests.js';
+import { Progress } from '../core/progression.js';
+import { Quests   } from '../core/quests.js';
 
 export const name = 'plate';
 
@@ -14,7 +15,7 @@ export const name = 'plate';
     window.HHA_FX = { add3DTilt: ()=>{}, shatter3D: ()=>{} };
     (async () => {
       try {
-        const m = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
+        const m = await import('../core/fx.js').catch(()=>null);
         if (m) Object.assign(window.HHA_FX, m);
       } catch {}
     })();
@@ -200,12 +201,14 @@ export function onHit(meta={}, systems={}, state={}){
       const payload = { groupId: meta.groupId };
       Quests.event?.('group_full', payload);
       Quests.event?.('plate_group_full', payload);
+      try { window.HHA?.groupFull?.(); } catch {}
     }
 
     if (isPlateComplete(ctx)){
       flashLine(Lang.plateDone);
       try{ score?.add?.(40); }catch{}
       try{ sfx?.play?.('sfx-perfect'); }catch{}
+      try { window.HHA?.platePerfect?.(); } catch {}
       _plateRound++;
       nextPlate(ctx, state.difficulty||'Normal');
       renderPlateHUD(state);
@@ -223,6 +226,7 @@ export function onHit(meta={}, systems={}, state={}){
   flashLine('⚠ ' + Lang.overfill);
   document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
   try{ sfx?.play?.('sfx-bad'); }catch{}
+  try { window.HHA?.plateOver?.(); } catch {}
   return 'bad';
 }
 
