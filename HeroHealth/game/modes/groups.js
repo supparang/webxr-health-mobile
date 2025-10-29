@@ -141,35 +141,50 @@ export function create({ engine, hud, coach }) {
     if(gone.length) state.items = state.items.filter(x=>!gone.includes(x));
   }
 
-  function spawnOne(rect,Bus){
-    const meta = pickMeta({ life:1600 }, state);
-    const pad=30;
-    const x=Math.round(pad + Math.random()*(Math.max(1,rect.width)-pad*2));
-    const y=Math.round(pad + Math.random()*(Math.max(1,rect.height)-pad*2));
-    const b=document.createElement('button'); b.className='spawn-emoji'; b.type='button';
-    b.style.left=x+'px'; b.style.top=y+'px'; b.textContent=meta.char; b.setAttribute('aria-label', meta.aria);
-    if(meta.golden) b.style.filter='drop-shadow(0 0 10px rgba(255,215,0,.85))';
-    try{ fx.onSpawn?.(b,state); }catch{}
-    b.addEventListener('click',(ev)=>{
-      if(!state.running) return; ev.stopPropagation();
-      const ui={x:ev.clientX,y:ev.clientY};
-      const res = onHit(meta, { sfx: Bus?.sfx }, state, hud);
-      if(res==='good'||res==='perfect'){
-        const pts = res==='perfect' ? 20 : 10;
-        if(res==='perfect'){ coach?.onPerfect?.(); } else { coach?.onGood?.(); }
-        engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`,{x:ui.x,y:ui.y,ms:720});
-        try{ fx.onHit?.(ui.x,ui.y,meta,state); }catch{}
-        state.stats[res]++; Bus?.hit?.({kind:res,points:pts,ui,meta:{...meta,isTarget:meta.good}});
-      } else if(res==='bad'){
-        document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'),160);
-        coach?.onBad?.(); state.stats.bad++; Bus?.miss?.({meta:{...meta,isTarget:meta.good}});
-        state.freezeUntil = Math.max(state.freezeUntil, performance.now()+260);
-      }
-      try{ b.remove(); }catch{} const idx=state.items.findIndex(it=>it.el===b); if(idx>=0) state.items.splice(idx,1);
-    },{passive:false});
-    (host||document.getElementById('spawnHost'))?.appendChild?.(b);
-    state.items.push({el:b,x,y,born:performance.now(),life:meta.life,meta});
-  }
+ function spawnOne(rect, Bus){
+  const host = document.getElementById('spawnHost');
+  const meta = pickMeta({ life: 1850 }, state);
+
+  const pad = 30;
+  const w = Math.max(2*pad + 1, (host?.clientWidth  || rect.width  || 0));
+  const h = Math.max(2*pad + 1, (host?.clientHeight || rect.height || 0));
+
+  const x = Math.round(pad + Math.random() * (w - 2*pad));
+  const y = Math.round(pad + Math.random() * (h - 2*pad));
+
+  const b = document.createElement('button');
+  b.className = 'spawn-emoji';
+  b.type = 'button';
+  b.style.position = 'absolute';
+  b.style.left = x + 'px';
+  b.style.top  = y + 'px';
+  b.textContent = meta.char;
+  b.setAttribute('aria-label', meta.aria);
+  if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+
+  (host||document.getElementById('spawnHost'))?.appendChild?.(b);
+  state.items.push({ el:b, born: performance.now(), meta });
+
+  b.addEventListener('click', (ev)=>{
+    if (!state.running) return;
+    ev.stopPropagation();
+    const ui = { x: ev.clientX, y: ev.clientY };
+    const res = onHit(meta, { score: engine?.score, sfx: engine?.sfx }, state, hud);
+    if (res==='good' || res==='perfect'){
+      const pts = res==='perfect'? 18 : 10;
+      engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 700 });
+      state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui, meta });
+      coach?.onGood?.();
+    } else if (res==='bad'){
+      document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+      state.stats.bad++; Bus?.miss?.({ meta });
+      coach?.onBad?.();
+    }
+    try{ b.remove(); }catch{}
+    const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
+  }, { passive:false });
+}
+
   function cleanup(){ stop(); try{ cleanupLegacy(); }catch{} }
   function cleanupLegacy(){ try{ cleanup(state,hud); }catch{} }
   return { start, stop, update, cleanup };
