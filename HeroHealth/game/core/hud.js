@@ -4,7 +4,7 @@
 export class HUD {
   constructor () {
     // ---- Cache DOM ----
-    this.$wrap       = document.getElementById('hudWrap');
+    this.$wrap       = document.getElementById('hudWrap') || this._ensureWrap();
     this.$score      = document.getElementById('score');
     this.$combo      = document.getElementById('combo');
     this.$time       = document.getElementById('time');
@@ -18,6 +18,7 @@ export class HUD {
     this.$target     = document.getElementById('targetBadge');
 
     this.$plate      = document.getElementById('plateTracker');
+    this.$platePills = document.getElementById('platePills') || (this.$plate && this.$plate.querySelector('#platePills'));
 
     this.$hydroWrap  = document.getElementById('hydroWrap');
     // รองรับทั้ง #hydroBar (ตาม index ล่าสุด) และ .hydroBar (ตาม CSS)
@@ -30,6 +31,20 @@ export class HUD {
 
     this.$toast      = document.getElementById('toast') || this._ensureToast();
 
+    // ARIA ช่วยการเข้าถึง
+    try {
+      this.$toast.setAttribute('role','status');
+      this.$toast.setAttribute('aria-live','polite');
+      if (this.$coachHUD) {
+        this.$coachHUD.setAttribute('role','status');
+        this.$coachHUD.setAttribute('aria-live','polite');
+      }
+    } catch {}
+
+    // timers ภายใน
+    this._coachT = 0;
+    this._toastT = 0;
+
     this._applyLayerFixes();
   }
 
@@ -41,6 +56,10 @@ export class HUD {
     if (!this.$feverBar) return;
     const p = Math.max(0, Math.min(1, Number(p01)||0));
     this.$feverBar.style.width = (p * 100) + '%';
+  }
+  setModeLabel(text){
+    const el = document.getElementById('modeLabel');
+    if (el) el.textContent = String(text ?? '');
   }
 
   /* ================= Hydration ================= */
@@ -89,6 +108,23 @@ export class HUD {
   /* ================= Plate tracker ================= */
   hidePills(){ if (this.$plate) this.$plate.style.display='none'; }
   showPills(){ if (this.$plate) this.$plate.style.display='block'; }
+  /** pills: [{key:'fruit', label:'ผลไม้', ok:true, pct:0..100}] */
+  setPlatePills(pills=[]){
+    if (!this.$plate || !this.$platePills) return;
+    this.$plate.style.display = 'block';
+    this.$platePills.innerHTML = '';
+    pills.forEach(p=>{
+      const row = document.createElement('div');
+      row.className = 'pill' + (p.ok ? ' ok':'');
+      row.innerHTML = `
+        <b>${p.label ?? p.key ?? ''}</b>
+        <span>${Math.min(100, Math.max(0, p.pct|0))}%</span>
+        <i style="width:${Math.min(100, Math.max(0, p.pct|0))}%"></i>
+      `;
+      if (p.warn) row.classList.add('warn');
+      this.$platePills.appendChild(row);
+    });
+  }
 
   /* ================= Power-ups (x2/freeze/sweep) =================
      timers: { x2:number, freeze:number, sweep:number } in seconds (0..10)
@@ -96,16 +132,21 @@ export class HUD {
   setPowerTimers(timers){
     const wrap = this.$powerBar; if (!wrap) return;
     ['x2','freeze','sweep'].forEach(k=>{
-      const seg = wrap.querySelector(`.pseg[data-k="${k}"] i`);
-      if(!seg) return;
+      const segWrap = wrap.querySelector(`.pseg[data-k="${k}"]`);
+      if(!segWrap) return;
+      let seg = segWrap.querySelector('i');
+      if(!seg){
+        seg = document.createElement('i'); // fallback ตามสไตล์เดิม
+        segWrap.appendChild(seg);
+      }
       const v = Math.max(0, Math.min(10, Number(timers?.[k]||0)));
       let fill = seg.querySelector('.barfill');
       if(!fill){
         fill = document.createElement('b');
         fill.className = 'barfill';
-        fill.style.position = 'absolute';
-        fill.style.left = '0'; fill.style.top = '0'; fill.style.bottom = '0';
-        fill.style.borderRadius = '999px';
+        Object.assign(fill.style, {
+          position:'absolute', left:'0', top:'0', bottom:'0', borderRadius:'999px', width:'0%'
+        });
         seg.appendChild(fill);
       }
       fill.style.width = (v*10) + '%';
@@ -114,8 +155,8 @@ export class HUD {
         : (k==='freeze'
           ? 'linear-gradient(90deg,#66e0ff,#4fc3f7)'
           : 'linear-gradient(90deg,#9effa8,#7fffd4)');
-      seg.style.position = 'relative';
-      seg.style.overflow = 'hidden';
+      segWrap.style.position = 'relative';
+      segWrap.style.overflow = 'hidden';
     });
   }
 
@@ -221,5 +262,22 @@ export class HUD {
     t.style.display = 'none';
     document.body.appendChild(t);
     return t;
+  }
+
+  _ensureWrap(){
+    const el = document.createElement('section');
+    el.id = 'hudWrap';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  /* ================= Lifecycle ================= */
+  dispose(){
+    clearTimeout(this._coachT);
+    clearTimeout(this._toastT);
+    this._coachT = 0; this._toastT = 0;
+    if (this.$toast){
+      try { this.$toast.classList.remove('show'); this.$toast.style.display='none'; } catch {}
+    }
   }
 }
