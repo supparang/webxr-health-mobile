@@ -1,78 +1,92 @@
-// === Hero Health Academy — core/hud.js (r4 minimal, HUD-safe) ===
+// === Hero Health Academy — core/hud.js (v3: HUD minimal yet complete) ===
 export class HUD {
-  constructor(){
-    this.$score = document.getElementById('score');
-    this.$time  = document.getElementById('time');
-    this.$toast = document.getElementById('toast');
-    this.$coach = document.getElementById('coachHUD');
-    this.$coachText = document.getElementById('coachText');
-    this.$questUL = document.getElementById('questChips');
-    this.$targetWrap = document.getElementById('targetWrap');
-    this.$targetBadge= document.getElementById('targetBadge');
-    this._timeouts = [];
+  constructor() {
+    this.root    = document.getElementById('hudWrap') || this._mkHud();
+    this.scoreEl = document.getElementById('score');
+    this.timeEl  = document.getElementById('time');
+    this.comboEl = document.getElementById('combo');
+    this.questUl = document.getElementById('questChips');
+    this.toastEl = document.getElementById('toast');
+    this.coachEl = document.getElementById('coachHUD');
+    this.coachTx = document.getElementById('coachText');
+    this.targetWrap = document.getElementById('targetWrap');
+    this.targetBadge= document.getElementById('targetBadge');
+    this._timers = {};
+    this._timeouts = new Set();
+    this._installSafety();
   }
-  _later(fn, ms){ const t=setTimeout(fn,ms); this._timeouts.push(t); return t; }
-  dispose(){ try{ this._timeouts.forEach(clearTimeout); }catch{} this._timeouts.length=0; }
 
-  /* Score/Time/Combo */
-  setScore(v){ if(this.$score) this.$score.textContent = String(v|0); }
-  setTime(v){  if(this.$time)  this.$time.textContent  = String(v|0); }
-  setCombo(txt){ /* optional: could show elsewhere; keep quiet */ }
+  _mkHud(){
+    const d = document.createElement('div');
+    d.className='hud'; d.id='hudWrap';
+    document.getElementById('gameLayer')?.appendChild(d);
+    d.innerHTML = `
+      <span class="pill" id="targetWrap" style="display:none"><span id="targetBadge">—</span></span>
+      <div id="scoreTime">
+        <span class="pill">⭐ <b id="score">0</b></span>
+        <span class="pill">⏱ <b id="time">45</b>s</span>
+        <span class="pill">Combo <b id="combo">x0</b></span>
+      </div>
+      <div id="questBar"><ul id="questChips"></ul></div>
+      <div class="coach" id="coachHUD"><span id="coachText">Ready?</span></div>
+      <div class="toast" id="toast"></div>
+      <div class="missionLine" id="missionLine"></div>`;
+    return d;
+  }
 
-  /* Coach + Toast */
+  _installSafety(){
+    try {
+      // อย่าให้ HUD บังการคลิก item
+      this.root.style.pointerEvents = 'none';
+      [...this.root.querySelectorAll('*')].forEach(el=>el.style.pointerEvents='none');
+    } catch {}
+  }
+
+  /* Basic */
+  setScore(n){ if (this.scoreEl) this.scoreEl.textContent = (n|0); }
+  setTime(s){ if (this.timeEl)  this.timeEl.textContent  = (s|0); }
+  setCombo(t){ if (this.comboEl) this.comboEl.textContent = String(t||'x0'); }
+
+  /* Quests */
+  setQuestChips(chips = []){
+    if (!this.questUl) return;
+    const html = chips.map(c => `
+      <li id="q_${c.key}" class="${c.done?'done':''}" title="${c.label}">
+        <i>${c.icon||'⭐'}</i>
+        <span>${c.label}</span>
+        <b>${c.progress|0}/${c.need|0}</b>
+      </li>`).join('');
+    this.questUl.innerHTML = html;
+  }
+  markQuestDone(id){
+    const el = document.getElementById('q_'+id);
+    if (el) el.classList.add('done');
+    this.toast('✓ Quest!');
+  }
+
+  /* Coach & Toast */
   say(text, ms=900){
-    if(!this.$coach || !this.$coachText) return;
-    this.$coachText.textContent = text;
-    this.$coach.style.display = 'flex';
-    this._later(()=>{ this.$coach.style.display='none'; }, ms);
+    if (!this.coachEl || !this.coachTx) return;
+    this.coachTx.textContent = text;
+    this.coachEl.classList.add('show'); this.coachEl.style.display='flex';
+    this._later(ms, ()=>{ this.coachEl.classList.remove('show'); this.coachEl.style.display='none'; });
   }
   toast(text, ms=900){
-    if(!this.$toast) return;
-    this.$toast.textContent = text;
-    this.$toast.classList.add('show');
-    this._later(()=>this.$toast.classList.remove('show'), ms);
+    if (!this.toastEl) return;
+    this.toastEl.textContent = text; this.toastEl.classList.add('show');
+    this._later(ms, ()=> this.toastEl.classList.remove('show'));
   }
-  flashDanger(){
-    document.body.classList.add('flash-danger');
-    this._later(()=>document.body.classList.remove('flash-danger'), 180);
-  }
+  flashDanger(){ document.body.classList.add('flash-danger'); this._later(180, ()=>document.body.classList.remove('flash-danger')); }
 
-  /* Target badge (for groups/plate) */
-  setTargetBadge(txt){ if(this.$targetWrap && this.$targetBadge){ this.$targetWrap.style.display='inline-flex'; this.$targetBadge.textContent = txt; } }
+  /* Optional power/fever/hydration (no-op safe) */
+  setFeverProgress(/*v01*/){ /* hook for future bar */ }
+  setPowerTimers(/*t*/){ /* hook */ }
+  showHydration(/*zone,pct*/){ /* external hydration bar component handles itself */ }
 
-  /* Quests HUD */
-  setQuestChips(chips){
-    if(!this.$questUL) return;
-    this.$questUL.innerHTML = (chips||[]).map(c=>{
-      const dim = c.done || c.fail ? ' dim' : '';
-      const ok  = c.done ? ' ok' : '';
-      return `<li class="pill${ok}${dim}" data-q="${c.key}">
-        <span>${c.icon||'⭐'}</span>
-        <span>${c.label||''}</span>
-        <b>${(c.progress|0)}/${(c.need|0)}</b>
-      </li>`;
-    }).join('');
+  /* Utils */
+  dispose(){
+    for (const t of this._timeouts) clearTimeout(t);
+    this._timeouts.clear();
   }
-  markQuestDone(qid){
-    try{
-      const el = this.$questUL?.querySelector?.(`[data-q="${qid}"]`);
-      if(el){ el.classList.add('ok'); }
-    }catch{}
-  }
-
-  /* Power/Fever (optional visual no-op safe) */
-  setPowerTimers(/*t*/){ /* no-op minimal */ }
-  setFeverProgress(/*p01*/){ /* no-op minimal */ }
-
-  /* Hydration helpers (optional visual) */
-  showHydration(zone, pct){
-    // If you want a simple badge, reflect on target badge
-    if(this.$targetWrap && this.$targetBadge){
-      this.$targetWrap.style.display = 'inline-flex';
-      this.$targetBadge.textContent = `💧 ${pct|0}% ${zone||''}`;
-    }
-  }
-  hideHydration(){
-    if(this.$targetWrap) this.$targetWrap.style.display='none';
-  }
+  _later(ms, fn){ const t=setTimeout(()=>{this._timeouts.delete(t); try{fn()}catch{}}, ms|0); this._timeouts.add(t); return t; }
 }
