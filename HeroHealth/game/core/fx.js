@@ -1,42 +1,45 @@
-// === core/fx.js (namespace-only: no top-level add3DTilt/shatter3D identifiers) ===
+// === HHA FX Namespace (safe, single export) ===
+// ใช้แบบ: import FX from '../core/fx.js';  แล้วเรียก FX.add3DTilt(el), FX.shatter3D(x,y)
 
-// Tilt 3D ตามเมาส์
-export function fxAdd3DTilt(el) {
-  if (!el || el.__hhaTiltBound) return;
-  el.__hhaTiltBound = true;
-  const onMove = (e) => {
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    const dx = (e.clientX - cx) / (r.width / 2);
-    const dy = (e.clientY - cy) / (r.height / 2);
-    el.style.transform =
-      `translate(-50%,-50%) rotateX(${(-dy*8).toFixed(2)}deg) rotateY(${(dx*10).toFixed(2)}deg) translateZ(10px)`;
-  };
-  const onLeave = () => { el.style.transform = 'translate(-50%,-50%)'; };
-  el.addEventListener('mousemove', onMove);
-  el.addEventListener('mouseleave', onLeave);
-}
+const FX = (() => {
+  function add3DTilt(el){
+    if (!el || el.__hhaTilted) return;
+    el.__hhaTilted = true;
+    el.style.transformStyle = 'preserve-3d';
+    el.addEventListener('pointermove', (e)=>{
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      const dx = (e.clientX - cx)/r.width, dy = (e.clientY - cy)/r.height;
+      el.style.transform = `translate(-50%,-50%) rotateX(${(-dy*9).toFixed(2)}deg) rotateY(${(dx*9).toFixed(2)}deg)`;
+    }, { passive:true });
+    el.addEventListener('pointerleave', ()=>{
+      el.style.transform = 'translate(-50%,-50%)';
+    }, { passive:true });
+  }
 
-// เอฟเฟกต์แตกกระจายเรียบง่าย
-export function fxShatter3D(x, y) {
-  try {
-    const p = document.createElement('div');
-    p.style.position='fixed'; p.style.left=`${x}px`; p.style.top=`${y}px`;
-    p.style.transform='translate(-50%,-50%)'; p.style.pointerEvents='none'; p.style.zIndex=120;
-    p.textContent='✦'; p.style.filter='drop-shadow(0 0 8px rgba(255,255,255,.6))';
-    document.body.appendChild(p);
-    p.animate(
-      [{opacity:1, transform:'translate(-50%,-50%) scale(1)'},
-       {opacity:0, transform:'translate(-50%,-90%) scale(.8)'}],
-      {duration:500, easing:'ease-out'}
-    ).onfinish = ()=>{ try{ p.remove(); }catch{} };
-  } catch {}
-}
+  function shatter3D(x, y){
+    try{
+      const p = document.createElement('div');
+      p.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+        pointer-events:none;z-index:130;`;
+      for(let i=0;i<12;i++){
+        const s=document.createElement('i');
+        s.textContent='✦';
+        s.style.cssText=`position:absolute;left:0;top:0;font:900 12px ui-rounded;opacity:.9;`;
+        p.appendChild(s);
+        const ang = Math.random()*Math.PI*2;
+        const dist= 30+Math.random()*34;
+        const tx  = Math.cos(ang)*dist, ty = Math.sin(ang)*dist;
+        s.animate([{ transform:'translate(0,0) scale(1)', opacity:1 },
+                   { transform:`translate(${tx}px,${ty}px) scale(.5)`, opacity:0 }],
+                  { duration:620+Math.random()*200, easing:'cubic-bezier(.2,.9,.2,1)' });
+      }
+      document.body.appendChild(p);
+      setTimeout(()=>{ try{ p.remove(); }catch{} }, 720);
+    }catch{}
+  }
 
-// ใช้ผ่าน namespace เท่านั้น
-export const FX = {
-  add3DTilt: fxAdd3DTilt,
-  shatter3D: fxShatter3D
-};
+  return { add3DTilt, shatter3D };
+})();
 
 export default FX;
