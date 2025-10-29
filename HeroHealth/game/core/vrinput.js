@@ -1,32 +1,33 @@
-// === Hero Health Academy — core/vrinput.js (v2 hardened; gaze dwell + XR toggle + cleanup) ===
-// API-compatible with your previous version:
+// === Hero Health Academy — core/vrinput.js (v2.4 gaze+UX: hover, cooldown, long-press, callbacks) ===
+// Public API (back-compatible):
 //   VRInput.init({ engine, sfx, THREE })
 //   VRInput.toggleVR()
 //   VRInput.isXRActive(), VRInput.isGazeMode()
-// New (non-breaking) helpers:
-//   VRInput.setDwellMs(ms)            // 400..2000
-//   VRInput.setSelectors(css)         // custom clickable selector
-//   VRInput.setAimHost(el)            // aim center within a host rect (e.g., #gameLayer)
-//   VRInput.dispose()                 // unbind listeners & remove reticle
-//   VRInput.pause()/resume()          // manual control (auto on blur/visibilitychange)
-//   VRInput.calibrate(offsetX, offsetY) // fine tune aim in px
+//   VRInput.setDwellMs(ms)              // 400..2000
+//   VRInput.setSelectors(css)           // default: 'button,.item,[data-action],[data-modal-open],[data-result]'
+//   VRInput.setAimHost(el)              // e.g., document.getElementById('gameLayer')
+//   VRInput.calibrate(dx,dy)            // offset px
+//   VRInput.pause()/resume()/dispose()
+// New (non-breaking):
+//   VRInput.setCooldownMs(ms)           // default 350
+//   VRInput.setOnFire(fn)               // fn(el) -> boolean | void (return false to cancel .click())
+//   VRInput.setReticleStyle({size,border,progress})
 //
 // Notes:
-// • When WebXR "immersive-vr" not supported, it falls back to Gaze mode on HTML UI.
-// • Dwell progress ring is driven with conic-gradient for performance.
-// • Click fire has a short cooldown to prevent double-trigger on sticky targets.
-// • Reticle never consumes pointer events; we use document.elementFromPoint center of host.
+// • Reticle uses conic-gradient progress; never consumes pointer-events.
+// • Adds [data-gaze="focus"] to current target (+ synthetic pointerenter/leave).
+// • Long-press helper: elements with data-modal-open will open when fully dwelled.
 
 export const VRInput = (() => {
-  // ---- External refs (optional) ----
   let THREERef = null, engine = null, sfx = null;
 
-  // ---- XR state ----
+  // XR session
   let xrSession = null, xrRefSpace = null;
 
-  // ---- Gaze/reticle state ----
-  let reticle = null;
+  // Gaze
+  let ret = null;
   let dwellMs = 850;
+  let cooldownMs = 350;
   let dwellStart = 0;
   let dwellTarget = null;
   let dwellCooldownUntil = 0;
@@ -34,30 +35,19 @@ export const VRInput = (() => {
   let paused = false;
   let rafId = 0;
 
-  // Aim center host (defaults to window center)
-  let aimHost = null;                // HTMLElement or null
-  let aimOffset = { x: 0, y: 0 };    // calibration (px)
+  // Aim center
+  let aimHost = null;
+  let aimOffset = { x:0, y:0 };
 
-  // Clickable selector (configurable)
+  // Config
   let CLICK_SEL = 'button,.item,[data-action],[data-modal-open],[data-result]';
-
-  // Helpers
+  let onFire = null; // optional callback before .click()
   const msNow = () => performance?.now?.() || Date.now();
   const clamp = (n,a,b)=> Math.max(a, Math.min(b,n));
-  const cfgDwell = (ms) => {
-    if (Number.isFinite(ms)) {
-      dwellMs = clamp(ms|0, 400, 2000);
-      try { localStorage.setItem('hha_dwell_ms', String(dwellMs)); } catch {}
-      return;
-    }
-    const v = parseInt(localStorage.getItem('hha_dwell_ms')||'', 10);
-    dwellMs = Number.isFinite(v) ? clamp(v, 400, 2000) : 850;
-  };
 
-  // ---- Reticle ----
+  /* ============ Reticle ============ */
   function ensureReticle(){
-    if (reticle && document.body.contains(reticle.host)) return reticle;
-
+    if (ret && document.body.contains(ret.host)) return ret;
     const host = document.createElement('div');
     host.id = 'xrReticle';
     host.style.cssText = `
@@ -65,67 +55,85 @@ export const VRInput = (() => {
       width:28px;height:28px;border:3px solid #fff;border-radius:50%;
       box-shadow:0 0 12px #000a;z-index:9999;pointer-events:none;opacity:.0;transition:opacity .15s;
     `;
-
     const prog = document.createElement('div');
     prog.className = 'xrReticle-progress';
-    prog.style.cssText = `
-      position:absolute;inset:3px;border-radius:50%;
+    prog.style.cssText = `position:absolute;inset:3px;border-radius:50%;
       background:conic-gradient(#ffd54a 0deg,#0000 0deg);
-      opacity:.9;mix-blend-mode:screen;transition:none;pointer-events:none;
-    `;
-
+      opacity:.9;mix-blend-mode:screen;pointer-events:none;`;
     host.appendChild(prog);
     document.body.appendChild(host);
-    reticle = { host, prog };
-    return reticle;
+    ret = { host, prog, cfg:{ size:28, border:'#fff', progress:'#ffd54a' } };
+    return ret;
   }
   function showReticle(on){ ensureReticle().host.style.opacity = on ? '1' : '.0'; }
   function setReticlePct(p){
     const deg = clamp(p, 0, 1) * 360;
-    ensureReticle().prog.style.background = `conic-gradient(#ffd54a ${deg}deg,#0000 ${deg}deg)`;
+    const color = ensureReticle().cfg.progress;
+    ret.prog.style.background = `conic-gradient(${color} ${deg}deg,#0000 ${deg}deg)`;
+  }
+  function setReticleStyle({ size, border, progress } = {}){
+    ensureReticle();
+    if (Number.isFinite(size) && size>14 && size<120){
+      ret.cfg.size = size|0;
+      ret.host.style.width  = ret.host.style.height = `${ret.cfg.size}px`;
+      ret.prog.style.inset = '3px';
+    }
+    if (border){ ret.cfg.border = String(border); ret.host.style.borderColor = ret.cfg.border; }
+    if (progress){ ret.cfg.progress = String(progress); }
   }
 
-  // ---- XR toggle ----
+  /* ============ Config helpers ============ */
+  function cfgDwell(ms){
+    if (Number.isFinite(ms)) {
+      dwellMs = clamp(ms|0, 400, 2000);
+      try { localStorage.setItem('hha_dwell_ms', String(dwellMs)); } catch {}
+      return;
+    }
+    const v = parseInt(localStorage.getItem('hha_dwell_ms')||'', 10);
+    dwellMs = Number.isFinite(v) ? clamp(v, 400, 2000) : 850;
+  }
+  function setCooldownMs(ms){
+    cooldownMs = clamp(ms|0, 120, 2000);
+  }
+
+  /* ============ XR toggle ============ */
   async function toggleVR(){
     try{
-      if (xrSession){
-        await xrSession.end();
-        return;
-      }
+      if (xrSession){ await xrSession.end(); return; }
       if (!navigator.xr || !(await navigator.xr.isSessionSupported('immersive-vr'))){
-        // Fallback to Gaze-only UI mode
-        isGaze = true;
-        cfgDwell();
-        paused = false;
-        showReticle(true);
-        loopGaze();
+        enableGaze();
         return;
       }
       xrSession = await navigator.xr.requestSession('immersive-vr', { requiredFeatures:['local-floor'] });
       xrRefSpace = await xrSession.requestReferenceSpace('local-floor');
-      isGaze = true;                // we still use gaze for UI elements in VR HUD
-      paused = false;
-      cfgDwell();
-      showReticle(true);
+      enableGaze(); // still use gaze for UI HUD in VR
       xrSession.addEventListener('end', onXREnd, { once:true });
-      loopGaze();
     }catch(e){
       console.warn('[VRInput] toggle error', e);
-      // As a fallback, still enable gaze mode
-      isGaze = true; paused = false; cfgDwell(); showReticle(true); loopGaze();
+      enableGaze();
     }
   }
-
   function onXREnd(){
     xrSession = null; xrRefSpace = null;
     isGaze = false;
+    _setFocusEl(null);
     showReticle(false);
     cancelAnimationFrame(rafId);
   }
+  function enableGaze(){
+    isGaze = true; paused = false;
+    cfgDwell();
+    showReticle(true);
+    // auto aimHost: #gameLayer if present
+    try {
+      const gh = document.getElementById('gameLayer');
+      if (gh) setAimHost(gh);
+    } catch {}
+    loopGaze();
+  }
 
-  // ---- Aiming center ----
+  /* ============ Aim center ============ */
   function aimCenter(){
-    // Use aimHost center when present; else window center
     if (aimHost && aimHost.getBoundingClientRect){
       const r = aimHost.getBoundingClientRect();
       return { x: Math.round(r.left + r.width/2 + aimOffset.x),
@@ -134,47 +142,83 @@ export const VRInput = (() => {
     return { x: (innerWidth>>1) + (aimOffset.x|0), y: (innerHeight>>1) + (aimOffset.y|0) };
   }
 
-  // ---- Gaze loop ----
+  /* ============ Focus hover helpers ============ */
+  let _lastHoverEl = null;
+  function _dispatch(el, type){
+    try { el?.dispatchEvent?.(new Event(type, { bubbles:true, cancelable:true })); } catch {}
+  }
+  function _setFocusEl(el){
+    if (el === _lastHoverEl) return;
+    if (_lastHoverEl){
+      try { _lastHoverEl.removeAttribute('data-gaze'); } catch {}
+      _dispatch(_lastHoverEl,'pointerleave');
+    }
+    _lastHoverEl = el || null;
+    if (_lastHoverEl){
+      try { _lastHoverEl.setAttribute('data-gaze','focus'); } catch {}
+      _dispatch(_lastHoverEl,'pointerenter');
+    }
+  }
+
+  /* ============ Long-press helper ============ */
+  function _fireLongPress(el){
+    // If element declares data-modal-open, open it on dwell complete
+    const sel = el?.getAttribute?.('data-modal-open');
+    if (!sel) return false;
+    const modal = document.querySelector(sel);
+    if (!modal) return false;
+    try {
+      // conventional modal: display:flex
+      modal.style.display = 'flex';
+      return true;
+    } catch { return false; }
+  }
+
+  /* ============ Main gaze loop ============ */
   function loopGaze(){
     cancelAnimationFrame(rafId);
     const step = ()=>{
       if (!isGaze || paused){ setReticlePct(0); return; }
 
-      // Use center ray on DOM
       const { x, y } = aimCenter();
-      const target = document.elementFromPoint(x, y);
-      // Ignore the reticle itself (pointer-events:none already, but just in case)
-      const clickable = target?.closest?.(CLICK_SEL) || null;
+      const el = document.elementFromPoint(x, y);
+      const clickable = el?.closest?.(CLICK_SEL) || null;
 
       const now = msNow();
 
+      // Hover/focus visuals
+      _setFocusEl(clickable);
+
       if (clickable){
-        // Reset when new target acquired
         if (dwellTarget !== clickable){
           dwellTarget = clickable;
           dwellStart = now;
         }
-        // Progress
         const p = Math.min(1, (now - dwellStart) / dwellMs);
         setReticlePct(p);
 
-        // Cooldown window prevents double-trigger on sticky overlays
         const cooled = now >= dwellCooldownUntil;
-
         if (p >= 1 && cooled){
-          // Fire synthetic click
-          try {
-            clickable.click?.();
-            sfx?.play?.('sfx-good');
-          } catch {}
-          // Apply brief cooldown & reset progress
-          dwellCooldownUntil = now + 350;
+          // Try long-press helper first (e.g., help modal)
+          const used = _fireLongPress(clickable);
+
+          // Callback hook may cancel click
+          let ok = true;
+          if (typeof onFire === 'function'){
+            try { const r = onFire(clickable); if (r === false) ok = false; } catch {}
+          }
+
+          if (ok && !used){
+            try { clickable.click?.(); } catch {}
+          }
+
+          try { sfx?.good?.(); } catch {}
+          dwellCooldownUntil = now + cooldownMs;
           dwellTarget = null;
           dwellStart = now;
           setReticlePct(0);
         }
       } else {
-        // No target -> reset
         dwellTarget = null;
         setReticlePct(0);
       }
@@ -184,19 +228,17 @@ export const VRInput = (() => {
     rafId = requestAnimationFrame(step);
   }
 
-  // ---- Visibility/Focus handling ----
+  /* ============ Visibility/Focus handling ============ */
   function onBlur(){ pause(true); }
   function onFocus(){ resume(true); }
   function onVis(){ document.hidden ? pause(true) : resume(true); }
 
-  // ---- Public controls ----
+  /* ============ Public controls ============ */
   function init({ engine:engRef, sfx:sfxRef, THREE:threeRef } = {}){
     engine = engRef || engine;
     sfx    = sfxRef  || sfx;
     THREERef = threeRef || THREERef;
     cfgDwell();
-
-    // bind focus management
     try {
       window.addEventListener('blur', onBlur, { passive:true });
       window.addEventListener('focus', onFocus, { passive:true });
@@ -208,6 +250,10 @@ export const VRInput = (() => {
   function setSelectors(css){ if (css && typeof css === 'string') CLICK_SEL = css; }
   function setAimHost(el){ aimHost = (el && el.getBoundingClientRect) ? el : null; }
   function calibrate(dx=0, dy=0){ aimOffset = { x: dx|0, y: dy|0 }; }
+  function setOnFire(fn){ onFire = (typeof fn === 'function') ? fn : null; }
+
+  function setCooldown(ms){ setCooldownMs(ms); } // alias
+  function setCooldownMsPublic(ms){ setCooldownMs(ms); }
 
   function isXRActive(){ return !!xrSession; }
   function isGazeMode(){ return !!isGaze; }
@@ -215,15 +261,13 @@ export const VRInput = (() => {
   function pause(internal=false){
     if (paused) return;
     paused = true;
-    // Keep reticle visible but frozen with 0 progress
     setReticlePct(0);
-    // Stop RAF if any
     cancelAnimationFrame(rafId);
     if (!internal) console.debug('[VRInput] paused');
   }
 
   function resume(internal=false){
-    if (!isGaze) return; // only relevant in gaze mode
+    if (!isGaze) return;
     if (!paused) return;
     paused = false;
     loopGaze();
@@ -232,25 +276,27 @@ export const VRInput = (() => {
 
   function dispose(){
     pause();
+    _setFocusEl(null);
     showReticle(false);
-    try { reticle?.host?.remove(); } catch {}
-    reticle = null;
-    // Unbind global listeners
+    try { ret?.host?.remove(); } catch {}
+    ret = null;
     try {
       window.removeEventListener('blur', onBlur, { passive:true });
       window.removeEventListener('focus', onFocus, { passive:true });
       document.removeEventListener('visibilitychange', onVis, { passive:true });
     } catch {}
-    // End XR session if active
-    if (xrSession){
-      try { xrSession.end(); } catch {}
-    }
+    if (xrSession){ try { xrSession.end(); } catch {} }
     xrSession = null; xrRefSpace = null; isGaze = false;
   }
 
   return {
     init, toggleVR, isXRActive, isGazeMode,
     setDwellMs, setSelectors, setAimHost, calibrate,
+    setOnFire, setCooldown: setCooldownMsPublic, setCooldownMs: setCooldownMsPublic,
+    setReticleStyle,
     pause, resume, dispose
   };
 })();
+
+// Global quick version ping
+try { window.__HHA_VRINPUT_VER__ = 'v2.4'; } catch {}
