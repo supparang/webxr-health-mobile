@@ -1,16 +1,17 @@
-// === Hero Health Academy — game/main.js (Shield-ready build) ===
-// - Integrates PowerUpSystem v3 (x2/freeze/sweep/shield) with HUD v3.1
-// - Visual shield overlay (blue→violet glow) + penalty absorb
-// - Safe DOM-spawn factory for modes (goodjunk, groups)
-// - Pause on blur, strong replay, and simple result modal
+// === Hero Health Academy — game/main.js (Shield + Progression v2.1)
+// - PowerUpSystem v3 (x2/freeze/sweep/shield) + HUD v3.1 (🛡 segment)
+// - Progression v2.1: daily missions (local-date), XP/Level, stats, events
+// - Missions tick + addMissionDone on success
+// - Pause on blur, strong replay, result modal
 
 // ----- Imports -----
 import { HUD } from './core/hud.js';
 import { PowerUpSystem } from './core/powerup.js';
 import { MissionSystem } from './core/mission-system.js';
 import { Leaderboard } from './core/leaderboard.js';
+import { Progress } from './core/progression.js';   // ⟵ ใหม่
 
-// (Optional) tiny FX helper used by modes via engine.fx.popText(...)
+// (Optional) tiny FX helper
 const FX = {
   popText(txt, { x, y, ms = 720 } = {}) {
     const el = document.createElement('div');
@@ -33,15 +34,13 @@ const FX = {
 // ----- Modes (factory adapters) -----
 import * as goodjunk from './modes/goodjunk.js';
 import * as groups    from './modes/groups.js';
-// (hydration / plate สามารถเสียบเพิ่มเหมือนกันได้เมื่อพร้อม)
 
 // ----- Globals / State -----
 const Engine = {
   running: false,
   lastTs: 0,
   fx: FX,
-  update(dt) { // per-frame update called by RAF loop
-    // mode runner update will be attached on start
+  update(dt) {
     if (this.runner && typeof this.runner.update === 'function') {
       this.runner.update(dt, Bus);
     }
@@ -54,21 +53,53 @@ const State = {
   lang: (localStorage.getItem('hha_lang') || 'TH').toUpperCase(),
   mode: 'goodjunk',
   diff: (window.__HHA_DIFF || 'Normal'),
-  paused: false
+  paused: false,
+  // simple combo tracker (optional for XP calc)
+  combo: 0,
+  bestCombo: 0
 };
 
 // ----- Systems -----
 const hud     = new HUD();
-const power   = new PowerUpSystem();   // includes timers + onChange
+const power   = new PowerUpSystem();
 const mission = new MissionSystem();
 const board   = new Leaderboard();
 
-// sync HUD with power timers
+// Progression: init + listeners
+Progress.init();
+Progress.on((type, payload)=>{
+  switch(type){
+    case 'daily_rotate':
+      hud.toast(State.lang==='TH' ? 'ภารกิจประจำวันอัปเดตแล้ว' : 'Daily refreshed');
+      break;
+    case 'daily_update':
+      // could reflect on HUD later; lightweight toast ok
+      hud.toast(State.lang==='TH' ? 'อัปเดต Daily!' : 'Daily updated!');
+      break;
+    case 'level_up':
+      // แจ้งเตือนเวลาขึ้นเลเวล
+      hud.say((State.lang==='TH' ? 'เลเวลอัป! ' : 'Level up! ') + `Lv.${payload?.level||'?'}`, 1500);
+      break;
+    case 'run_start':
+      // no-op; reserved for future UI decorations
+      break;
+    case 'run_end':
+      // แสดง XP gain คร่าว ๆ
+      if (payload?.xpGain != null) {
+        hud.toast((State.lang==='TH' ? 'ได้ XP +' : 'XP +') + payload.xpGain, 1200);
+      }
+      break;
+    case 'mission_done':
+      hud.toast(State.lang==='TH' ? 'นับเควสต์สะสม +' : 'Mission tally +', 900);
+      break;
+  }
+});
+
+// Power timers → HUD
 power.onChange(timers => hud.setPowerTimers(timers));
 
-// ----- Shield Overlay (visual & feedback) -----
+/* ---------------- Shield Overlay FX ---------------- */
 const ShieldFX = (() => {
-  // style once
   if (!document.getElementById('hha-shield-css')) {
     const css = document.createElement('style');
     css.id = 'hha-shield-css';
@@ -88,21 +119,16 @@ const ShieldFX = (() => {
     `;
     document.head.appendChild(css);
   }
-  // element once
   let el = document.getElementById('shieldOverlay');
   if (!el) { el = document.createElement('div'); el.id = 'shieldOverlay'; document.body.appendChild(el); }
-
   function flash() {
-    el.classList.remove('active'); // restart
-    // force reflow
-    void el.offsetWidth;
-    el.classList.add('active');
+    el.classList.remove('active'); void el.offsetWidth; el.classList.add('active');
     setTimeout(()=> el.classList.remove('active'), 1200);
   }
   return { flash };
 })();
 
-// ----- Simple SFX proxy (optional) -----
+/* ---------------- SFX proxy ---------------- */
 const SFX = {
   play(id){ try{ document.querySelector('#'+id)?.play?.(); }catch{} },
   good(){ this.play('sfx-good'); },
@@ -111,7 +137,7 @@ const SFX = {
   power(){ this.play('sfx-powerup'); }
 };
 
-// ----- Result Modal helpers -----
+/* ---------------- Result Modal ---------------- */
 function showResult() {
   const root = document.getElementById('result');
   if (!root) return;
@@ -122,50 +148,51 @@ function hideResult(){
   const root = document.getElementById('result'); if (root) root.style.display='none';
 }
 
-// ----- Bus: events from modes to systems -----
+/* ---------------- Event Bus (from modes) ---------------- */
 const Bus = {
   sfx: SFX,
 
   hit({ kind, points = 0, ui, meta }) {
-    // Score bonus from PowerUps (×2/boost) is applied via add
+    // combo
+    State.combo = (State.combo|0) + 1;
+    State.bestCombo = Math.max(State.bestCombo|0, State.combo|0);
+
     addScore(points|0);
     if (kind === 'perfect') SFX.perfect(); else SFX.good();
 
-    // Missions
     mission.onEvent('good', { count: 1 }, State);
     if (meta?.isTarget) mission.onEvent('target_hit', { count: 1 }, State);
   },
 
   miss({ meta } = {}) {
-    // If shield is active → absorb penalty, flash overlay, DO NOT punish
+    // reset combo
+    State.combo = 0;
+
+    // shield absorb?
     const timers = power.getTimers?.() || {};
     const shieldOn = (timers.shield|0) > 0;
     if (shieldOn) {
       ShieldFX.flash();
       SFX.power();
       hud.toast(State.lang==='TH' ? '🛡 กันพลาด!' : '🛡 Shielded!');
-      // Optional: tiny consolation points
-      addScore(2);
+      addScore(2); // soft compensation
       return;
     }
 
-    // Normal penalty feedback
     hud.flashDanger();
     SFX.bad();
     mission.onEvent('miss', { count: 1 }, State);
-    // soft penalty only (no hard -score to keep gameplay friendly)
-    // If you want to deduct: addScore(-5);
   }
 };
 
-// ----- Score helpers -----
+/* ---------------- Score helpers ---------------- */
 function addScore(base) {
   const boost = (typeof power._boostFn === 'function') ? power._boostFn(base) : 0;
   State.score = Math.max(0, (State.score|0) + base + boost);
   hud.setScore(State.score|0);
 }
 
-// ----- Game Loop -----
+/* ---------------- Game Loop ---------------- */
 function loop(ts) {
   if (!Engine.running || State.paused) return;
   if (!Engine.lastTs) Engine.lastTs = ts;
@@ -173,38 +200,36 @@ function loop(ts) {
   Engine.lastTs = ts;
 
   Engine.update(dt);
-
   requestAnimationFrame(loop);
 }
 
-// ----- Timer (seconds) -----
+/* ---------------- Seconds ticker ---------------- */
 let _secT = 0;
 function startSecondTicker() {
   stopSecondTicker();
   _secT = setInterval(() => {
     if (State.paused) return;
 
-    // countdown
     State.seconds = Math.max(0, (State.seconds|0) - 1);
     hud.setTime(State.seconds|0);
 
-    // mission evaluation tick
     mission.tick(State, { score: State.score|0 }, (res)=>{
-      if (res?.success) hud.toast(State.lang==='TH' ? 'เควสต์สำเร็จ!' : 'Quest done!', 1000);
-      else hud.toast(State.lang==='TH' ? 'พลาดเควสต์' : 'Quest failed', 900);
+      if (res?.success) {
+        hud.toast(State.lang==='TH' ? 'เควสต์สำเร็จ!' : 'Quest done!', 1000);
+        Progress.addMissionDone(State.mode); // ⟵ บันทึกความคืบหน้า progression
+      } else {
+        hud.toast(State.lang==='TH' ? 'พลาดเควสต์' : 'Quest failed', 900);
+      }
     }, { hud, lang: State.lang });
 
-    // time up
-    if ((State.seconds|0) <= 0) {
-      endGame();
-    }
+    if ((State.seconds|0) <= 0) endGame();
   }, 1000);
 }
 function stopSecondTicker() {
   if (_secT) { clearInterval(_secT); _secT = 0; }
 }
 
-// ----- Runner factory per mode -----
+/* ---------------- Runner factory ---------------- */
 function makeRunner(modeKey) {
   const mod = (modeKey==='groups') ? groups
             : (modeKey==='goodjunk') ? goodjunk
@@ -213,7 +238,6 @@ function makeRunner(modeKey) {
   if (typeof mod.create === 'function') {
     return mod.create({ engine: Engine, hud, coach: CoachBridge });
   }
-  // legacy fallback
   return {
     start(){ mod.init?.(State, hud); },
     update(dt, bus){ mod.tick?.(State); },
@@ -221,10 +245,10 @@ function makeRunner(modeKey) {
   };
 }
 
-// ----- Coach bridge (HUD-based minimal cues) -----
+/* ---------------- Coach bridge ---------------- */
 const CoachBridge = {
   onStart(){ hud.say(State.lang==='TH'?'เริ่มเลย!':'Let’s go!', 900); },
-  onGood(){ /* optional micro cue */ },
+  onGood(){},
   onPerfect(){ hud.toast(State.lang==='TH'?'เยี่ยม!':'Great!', 700); },
   onBad(){ hud.dimPenalty(); },
   onQuestProgress(txt, cur, need){ hud.toast(`${txt}  ${cur}/${need}`, 700); },
@@ -232,21 +256,30 @@ const CoachBridge = {
   onQuestFail(){ hud.toast(State.lang==='TH'?'ภารกิจล้มเหลว':'Mission failed', 900); }
 };
 
-// ----- Start / End flow -----
+/* ---------------- Start / End flow ---------------- */
 function startGame({ demoPassed } = {}) {
   hideResult();
 
   // reset base state
   State.seconds = 45;
   State.score = 0;
+  State.combo = 0;
+  State.bestCombo = 0;
+
   State.lang = (window.HHA_UI?.getLang?.() || State.lang || 'TH').toUpperCase();
+  localStorage.setItem('hha_lang', State.lang);
+
   State.mode = (window.HHA_UI?.getMode?.() || State.mode || 'goodjunk');
   State.diff = (window.HHA_UI?.getDiff?.() || State.diff || 'Normal');
 
   hud.setScore(0);
   hud.setTime(State.seconds|0);
 
-  // missions (3 chips by default)
+  // Progression: start run + ensure daily today
+  Progress.genDaily(); // สร้าง/ยืนยัน daily ของวันนี้ (ไม่แสดง modal)
+  Progress.beginRun(State.mode, State.diff, State.lang);
+
+  // missions (3 chips)
   const run = mission.start(State.mode, { seconds: State.seconds, count: 3, lang: State.lang });
   mission.attachToState(run, State);
 
@@ -269,7 +302,6 @@ function startGame({ demoPassed } = {}) {
   startSecondTicker();
 }
 
-// Called by timer or UI
 function endGame() {
   Engine.running = false;
   stopSecondTicker();
@@ -278,19 +310,26 @@ function endGame() {
   // cleanup
   try { Engine.runner?.cleanup?.(); } catch {}
 
-  // save to board
-  board.submit(State.mode, State.diff, State.score|0, { meta:{ seconds: 45 } });
+  // save leaderboard
+  board.submit(State.mode, State.diff, State.score|0, { meta:{ seconds: 45, bestCombo: State.bestCombo|0 } });
+
+  // Progression: end run with metrics (acc = rough from combo/score if real acc not available)
+  const roughAcc = Math.max(0, Math.min(100, Math.round((State.bestCombo||0) * 3))); // placeholder heuristic
+  Progress.endRun({
+    score: State.score|0,
+    bestCombo: State.bestCombo|0,
+    timePlayed: 45,
+    acc: roughAcc
+  });
 
   showResult();
 }
 
-// ----- Public hooks for UI / boot.js -----
+/* ---------------- Public hooks for UI / boot.js ---------------- */
 window.HHA = {
   startGame,
   endGame,
-  // Power-ups from anywhere (modes / UI)
   applyPower(kind, sec){ power.apply(kind, sec); },
-  // Example helpers used by modes to test powers:
   powers: {
     x2(s=8){ power.apply('x2', s); },
     freeze(s=3){ power.apply('freeze', s); },
@@ -299,27 +338,22 @@ window.HHA = {
   }
 };
 
-// ----- Blur/pause handling (requested earlier) -----
+// Pause on blur/focus
 window.onAppBlur  = function(){ State.paused = true; };
 window.onAppFocus = function(){ State.paused = false; };
 
-// Language toggle from UI
+// Language toggle
 window.onLangSwitch = function(lang){
   State.lang = (String(lang).toUpperCase()==='EN'?'EN':'TH');
+  localStorage.setItem('hha_lang', State.lang);
 };
 
-// (Optional) Sound/GFX toggles if needed in future
-window.onSoundToggle = function(){ /* wire to your audio mixer */ };
-window.onGfxToggle   = function(){ /* wire to your postFX */ };
+// Optional stubs
+window.onSoundToggle = function(){};
+window.onGfxToggle   = function(){};
 
-// Strong restart from UI
+// Strong restart
 window.end = function(replay){
   try { endGame(); } catch {}
   if (replay) setTimeout(()=> startGame({ demoPassed:true }), 60);
 };
-
-// Expose shield FX test (debug)
-// window.__testShield = ()=>{ power.apply('shield', 6); ShieldFX.flash(); };
-
-// Auto-start if UI already ran the tutorial path
-// (boot/ui will call HHA.startGame(); no-op if user clicks START)
