@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="dark only"/>
 
   <style>
+  /* ===== Base Frame ===== */
   :root{
     --c-bg:#0b1626; --c-panel:#0f1d31; --c-ink:#eaf6ff;
     --c-accent:#37e3c6; --c-pill:#102038e0;
@@ -16,11 +17,14 @@
   html,body{height:100%}
   body{
     margin:0; background:linear-gradient(180deg,#08111e,#0b1626 24%,#0b1626);
-    color:var(--c-ink); font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial; overflow:hidden;
+    color:var(--c-ink); font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial;
+    overflow:hidden;
   }
-  #app{ position:relative; height:100vh; width:100%;
-        display:grid; grid-template-rows:auto auto 1fr; place-items:center;
-        max-width:100vw; margin:0 auto; padding:10px 12px 14px; }
+  #app{
+    position:relative; height:100vh; width:100%;
+    display:grid; grid-template-rows:auto auto 1fr; place-items:center;
+    max-width:100vw; margin:0 auto; padding:10px 12px 14px;
+  }
 
   /* ===== Hero ===== */
   #hero{text-align:center;margin:6px 0 10px}
@@ -29,11 +33,13 @@
 
   /* ===== Menu ===== */
   .menu{ width:min(980px,96vw); background:linear-gradient(180deg,#0f1d31,#0c1729);
-         border:1px solid #152641; border-radius:16px; padding:14px; box-shadow:0 16px 60px rgba(0,0,0,.35); }
+         border:1px solid #152641; border-radius:16px; padding:14px;
+         box-shadow:0 16px 60px rgba(0,0,0,.35); }
   .menu .grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:8px; }
   .tile{ display:flex; flex-direction:column; align-items:flex-start; gap:6px;
          padding:14px; border-radius:14px; background:#0e1b30; border:1px solid #162640;
-         color:#eaf6ff; text-align:left; cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s, background .15s; }
+         color:#eaf6ff; text-align:left; cursor:pointer;
+         transition:transform .15s, box-shadow .15s, border-color .15s, background .15s; }
   .tile i{ font-size:28px } .tile b{ font:800 16px/1 ui-rounded } .tile small{ opacity:.76; font-size:12px }
   .tile:hover{ transform:translateY(-2px); box-shadow:0 10px 30px rgba(0,0,0,.30) }
   .tile.active{ border-color:#2dd4bf80; box-shadow:0 0 0 2px #2dd4bf40 inset }
@@ -65,7 +71,7 @@
     border:1px solid #152641;
     background:radial-gradient(1200px 500px at 50% -40%, #152644 12%, #0c1729 55%, #0b1626);
     overflow:hidden; box-shadow:0 12px 50px rgba(0,0,0,.35);
-    perspective: 900px; perspective-origin: 50% 45%;
+    perspective:900px; perspective-origin:50% 45%;
   }
   #spawnHost{ position:absolute; inset:0; z-index:var(--z-items) }
 
@@ -79,34 +85,30 @@
   #targetWrap{ display:none; }
   #targetBadge{ font-weight:900; }
 
-  /* Quest bar */
-  #questBar{ position:absolute; left:50%; transform:translateX(-50%); top:38px; width:min(980px,96vw); z-index:var(--z-hud); pointer-events:none; }
-  #questChips{ list-style:none; margin:0; padding:0 10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  #questChips .pill{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#102038e0; border:1px solid #1a2c47b0; font:800 12px ui-rounded; box-shadow:0 6px 18px rgba(0,0,0,.22); }
-  #questChips .pill.ok{ background:#0f2a25; border-color:#2dd4bf80; }
-  #questChips .pill.dim{ opacity:.55; }
+  /* Quest bar (always visible) */
+  #questBar { position:absolute; left:50%; transform:translateX(-50%); top:46px; z-index:var(--z-hud); pointer-events:none; }
+  #questChips { margin:0; padding:0; list-style:none; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  #questChips .pill{ pointer-events:none; }
+  #questChips .pill.ok{ outline:2px solid #2dd4bf80; }
 
-  /* Toast/Coach */
+  /* Mini Quest / Toast */
   .toast{ pointer-events:none; position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
           background:#102038f0; border:1px solid #1a2c47; color:#eaf6ff;
           padding:8px 12px; border-radius:999px; font:800 12px ui-rounded; opacity:0; transition:opacity .15s; z-index:var(--z-hud); }
   .toast.show{ opacity:1 }
 
+  /* Coach */
   .coach{ position:absolute; left:50%; transform:translateX(-50%); top:120px;
           width:min(880px,92vw); display:none; justify-content:center; z-index:var(--z-coach); }
   .coach.show{ display:flex }
   #coachText{ padding:10px 14px; border-radius:12px; background:#102038eb; border:1px solid #1b2e4b; color:#eaf6ff;
               font:900 14px ui-rounded; letter-spacing:.2px; box-shadow:0 12px 30px rgba(0,0,0,.3) }
 
-  /* Mission line */
-  .missionLine{ position:absolute; left:50%; transform:translateX(-50%); top:14px; display:none;
-                background:#102038f0; border:1px solid #1a2c47; color:#eaf6ff; padding:6px 10px; border-radius:10px; font:800 12px ui-rounded; z-index:var(--z-hud); }
-
   /* Danger flash */
   @keyframes flashDanger{ 0%{filter:none} 50%{filter:brightness(1.25) saturate(1.1)} 100%{filter:none} }
   .flash-danger{ animation:flashDanger .18s linear }
 
-  /* Spawned buttons */
+  /* ===== Spawned Emojis ===== */
   #gameLayer #spawnHost .spawn-emoji, #gameLayer .spawn-emoji{
     position:absolute !important; left:0; top:0; transform:translate(-50%,-50%);
     z-index:var(--z-items); pointer-events:auto !important;
@@ -188,7 +190,7 @@
           <label class="lbl" for="playerName">Name</label>
           <input id="playerName" type="text" placeholder="Player"
                  style="padding:8px 10px;border-radius:10px;border:1px solid #19304e;background:#0e1b30;color:#eaf6ff;min-width:160px">
-          <button class="chip" id="btn_board" type="button" data-modal-open="#boardModal">Leaderboard</button>
+          <button class="chip" id="btn_board" type="button">Leaderboard</button>
           <button class="chip" id="langToggle"  type="button">TH</button>
           <button class="chip" id="soundToggle" type="button">🔊</button>
           <button class="chip" id="gfxToggle"   type="button">✨</button>
@@ -273,8 +275,10 @@
   <audio id="sfx-powerup"  preload="auto" src=""></audio>
 
   <!-- Scripts -->
+  <!-- boot: จะเดา path main.js และ import อัตโนมัติ (มีโหมด debug ผ่าน ?hha_debug=1) -->
   <script type="module" src="game/boot.js"></script>
+  <!-- ui: ปุ่ม START/HELP/เมนู ภาษา/เสียง/gfx + tutorial + guard -->
   <script type="module" src="game/ui.js"></script>
-  <!-- main.js จะถูกโหลดแบบ dynamic โดย boot.js (รองรับ ?hha_debug=1) -->
+  <!-- main.js ถูกโหลดแบบ dynamic โดย boot.js -->
 </body>
 </html>
