@@ -170,3 +170,33 @@ body{
 /* เงา/ไฮไลต์ (คงรูปแบบเดียวกับกลุ่มอื่น ๆ) */
 #gameLayer .spawn-emoji::before,
 #gameLayer .spawn-emoji::after { pointer-events: none; }
+/* === FX shards (click burst) === */
+.fx-shards { pointer-events:none; }
+.fx-shard {
+  position: absolute;
+  left: -3px; top: -3px;
+  width: 6px; height: 6px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffe27a, #ffb84d);
+  box-shadow: 0 0 8px rgba(255, 216, 64, .75);
+  transform: translate(0,0) rotate(0deg);
+  opacity: 1;
+  animation: hha_shard_move var(--dur, .72s) ease-out forwards;
+}
+@keyframes hha_shard_move {
+  70% { transform: translate(var(--tx, 80px), var(--ty, -80px)) rotate(var(--rz, 360deg)); opacity: .9; }
+  100%{ transform: translate(calc(var(--tx, 80px)*1.1), calc(var(--ty, -80px)*1.1)) rotate(var(--rz, 360deg));
+        opacity: 0; filter: blur(1px); }
+}
+
+/* Ensure playfield uses perspective so 3D tilt looks nice */
+#gameLayer {
+  perspective: 900px;
+  perspective-origin: 50% 45%;
+}
+
+/* Make spawn buttons feel elevated by default */
+.spawn-emoji, .item {
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
