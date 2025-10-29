@@ -1,272 +1,273 @@
-// === Hero Health Academy — game/main.js (runtime glue; startGame wired) ===
-window.__HHA_BOOT_OK = 'main';
-(function () {
-  const $ = (s) => document.querySelector(s);
-  const on = (el, ev, fn, opt)=> el && el.addEventListener(ev, fn, opt||{});
+// === Hero Health Academy — game/main.js (Final DOM-spawn factory, resilient) ===
+// - Plugs into boot.js dynamic loader
+// - Works with ui.js startFlow() / toggles
+// - DOM-first spawn pipeline (no WebGL dependency) with Engine FX helpers
+// - Integrates MissionSystem + ScoreSystem + PowerUpSystem + Leaderboard
+// - Safe across missing modules / optional features
 
-  // --------- Safe stubs ----------
-  let ScoreSystem, SFXClass, Quests, Progress, VRInput;
-  async function loadCore() {
-    try { ({ ScoreSystem } = await import('./core/score.js')); }
-    catch { ScoreSystem = class{ constructor(){this.value=0;} add(n=0){ this.value+=n;} get(){return this.value|0;} reset(){this.value=0;} }; }
-    try { ({ SFX: SFXClass } = await import('./core/sfx.js')); }
-    catch { SFXClass = class{ play(){} tick(){} good(){} bad(){} perfect(){} power(){} }; }
-    try { ({ Quests } = await import('./core/quests.js')); }
-    catch { Quests = { beginRun(){}, event(){}, tick(){}, endRun(){return[]}, bindToMain(){return{refresh(){}}} }; }
-    try { ({ Progress } = await import('./core/progression.js')); }
-    catch { Progress = { init(){}, beginRun(){}, endRun(){}, emit(){}, getStatSnapshot(){return{};}, profile(){return{};} }; }
-    try { ({ VRInput } = await import('./core/vrinput.js')); }
-    catch { VRInput = { init(){}, toggleVR(){}, isXRActive(){return false;}, isGazeMode(){return false;} }; }
-  }
+/* ---------------- Imports ---------------- */
+import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+import { Engine }           from './core/engine.js';
+import { HUD }              from './core/hud.js';
+import { Coach }            from './core/coach.js';
+import { SFX }              from './core/sfx.js';
+import { ScoreSystem }      from './core/score.js';
+import { PowerUpSystem }    from './core/powerup.js';
+import { MissionSystem }    from './core/mission-system.js';
+import { Leaderboard }      from './core/leaderboard.js';
 
-  // 🔹 Leaderboard
-  let LeaderboardClass, board;
-  async function loadLeaderboard(){
-    try { ({ Leaderboard: LeaderboardClass } = await import('./core/leaderboard.js')); }
-    catch { LeaderboardClass = class{ submit(){}, getTop(){return[]}, getRecent(){return[]}, getPersonalBest(){return null}, stats(){return{count:0,avg:0,max:0,min:0}}, exportJSON(){return'{}'}, importJSON(){return 0;} }; }
-    board = new LeaderboardClass({ key:'hha_board_v2', maxKeep: 600, retentionDays: 365 });
-  }
+import * as mode_goodjunk   from './modes/goodjunk.js';
+import * as mode_groups     from './modes/groups.js';
+// (ถ้ามี): import * as mode_hydration from './modes/hydration.js';
+// (ถ้ามี): import * as mode_plate     from './modes/plate.js';
 
-  // --------- Mode loader ----------
-  const MODE_PATH = (k) => `./modes/${k}.js`;
-  async function loadMode(key) {
-    const mod = await import(MODE_PATH(key));
-    return {
-      name: mod.name || key,
-      create: mod.create || null,
-      init: mod.init || null,
-      tick: mod.tick || null,
-      pickMeta: mod.pickMeta || null,
-      onHit: mod.onHit || null,
-      cleanup: mod.cleanup || null,
-      fx: mod.fx || {}
-    };
-  }
+/* ---------------- Globals & guards ---------------- */
+window.__HHA_BOOT_OK = window.__HHA_BOOT_OK || 'main';
+const $  = (s)=>document.querySelector(s);
+const now = ()=> performance?.now?.() || Date.now();
 
-  // --------- HUD helpers ----------
-  function setScore(v){ const el = $('#score'); if (el) el.textContent = v|0; }
-  function setTime(v){ const el = $('#time'); if (el) el.textContent = v|0; }
-  function showCoach(txt){ const hud=$('#coachHUD'); const t=$('#coachText'); if(t) t.textContent = txt||'Ready?'; if(hud){ hud.style.display='flex'; hud.classList.add('show'); } }
-  function hideCoach(){ const hud=$('#coachHUD'); if(hud){ hud.classList.remove('show'); hud.style.display='none'; } }
-  function toast(text){ let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-    el.textContent=text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+function safeText(sel, v){ const el=$(sel); if (el) el.textContent = String(v); }
 
-  // --------- FX pop text ----------
-  const FX = {
-    popText(txt, { x, y, ms = 700 } = {}) {
-      const el = document.createElement('div');
-      el.textContent = txt;
-      el.style.cssText = `position:fixed;left:${x|0}px;top:${y|0}px;transform:translate(-50%,-50%);
-        font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:97;
-        opacity:1;transition: all .72s ease-out;`;
-      document.body.appendChild(el);
-      requestAnimationFrame(() => { el.style.top = (y - 36) + 'px'; el.style.opacity = '0'; });
-      setTimeout(() => el.remove(), ms);
+/* ---------------- Registry: modes → factory.create(...) ---------------- */
+const MODES = {
+  goodjunk : mode_goodjunk,
+  groups   : mode_groups,
+  // hydration: mode_hydration,
+  // plate    : mode_plate,
+};
+
+/* ---------------- Systems ---------------- */
+const engine   = new Engine(THREE, $('#c'));
+const hud      = new HUD({ root: $('#hudWrap'), chipsRoot: $('#questChips') });
+const coach    = new Coach({ root: $('#coachHUD'), text: $('#coachText') });
+const sfx      = new SFX({
+  good:'#sfx-good', bad:'#sfx-bad', perfect:'#sfx-perfect',
+  tick:'#sfx-tick', power:'#sfx-powerup', bgm:'#bgm-main'
+});
+const scorer   = new ScoreSystem();
+const powers   = new PowerUpSystem();
+const missions = new MissionSystem();
+const board    = new Leaderboard();
+
+/* ---------------- State ---------------- */
+const HHA = {
+  running: false,
+  paused: false,
+  modeKey: 'goodjunk',
+  diff: 'Normal',
+  lang: 'TH',
+  timeTotal: 45,
+  timeLeft: 45,
+
+  loop: { id: 0, last: 0 },
+  dtAcc: 0,
+
+  modeInst: null,   // { start, stop, update(dt,Bus), cleanup, onClick? }
+  Bus: null,        // event bridge
+  state: null,      // per-mode runtime state mirror
+  score: scorer,    // alias
+};
+
+window.HHA = window.HHA || {};
+Object.assign(window.HHA, {
+  startGame,
+  end: hardEnd,
+  getScore: ()=>scorer?.score||0,
+});
+
+/* ---------------- UI wiring (from ui.js) ---------------- */
+function captureUI(){
+  try {
+    const ui = window.HHA_UI;
+    HHA.modeKey = ui?.getMode?.() || document.body.dataset.mode || 'goodjunk';
+    HHA.diff    = ui?.getDiff?.() || document.body.dataset.diff  || 'Normal';
+    HHA.lang    = ui?.getLang?.() || (document.documentElement.dataset?.hhaLang||'TH');
+    document.body.dataset.mode = HHA.modeKey;
+    document.body.dataset.diff = HHA.diff;
+  } catch {}
+  // time: 45s baseline (อาจปรับจาก diff)
+  HHA.timeTotal = (HHA.diff==='Easy') ? 50 : (HHA.diff==='Hard' ? 40 : 45);
+  HHA.timeLeft  = HHA.timeTotal;
+  safeText('#time', HHA.timeLeft);
+}
+
+/* ---------------- Bus (Mode ↔ Core) ---------------- */
+function makeBus(){
+  const Bus = {
+    sfx,
+    hit({ kind='good', points=10, ui, meta }){
+      // add score
+      scorer.add(points);
+      safeText('#score', scorer.score);
+
+      // missions counters
+      if (HHA.modeKey==='groups'){
+        if (meta?.isTarget) missions.onEvent('target_hit', {count:1}, HHA.state);
+        else missions.onEvent('wrong_group', {count:1}, HHA.state);
+      } else if (HHA.modeKey==='goodjunk'){
+        if (kind==='good' || kind==='perfect') missions.onEvent('good', {count:1}, HHA.state);
+      }
+      // coach micro cues
+      if (kind==='perfect') coach.onPerfect?.(); else coach.onGood?.();
+    },
+    miss({ meta }={}){
+      missions.onEvent('miss', {count:1}, HHA.state);
+      coach.onBad?.(); try{ sfx.bad(); }catch{}
+    },
+    addTime(sec=1){
+      HHA.timeLeft = Math.max(0, Math.min(999, HHA.timeLeft + (sec|0)));
+      safeText('#time', HHA.timeLeft);
+    },
+    power(name){
+      try { sfx.power(); }catch{}
+      if (name==='x2'){ (MODES[HHA.modeKey]?.powers?.x2Target || (()=>{}))(); }
+      if (name==='freeze'){ (MODES[HHA.modeKey]?.powers?.freezeTarget || (()=>{}))(); }
+      if (name==='magnet'){ (MODES[HHA.modeKey]?.powers?.magnetNext || (()=>{}))(); }
     }
   };
+  return Bus;
+}
 
-  // --------- Player name helpers ----------
-  function getPlayerName(){
-    try {
-      const el = $('#playerName');
-      const v = (el?.value || localStorage.getItem('hha_player_name') || '').trim();
-      return v ? v.slice(0,24) : undefined;
-    } catch { return undefined; }
+/* ---------------- Start / Stop ---------------- */
+function startGame(opts = {}){
+  try{
+    captureUI();
+
+    // Reset systems
+    scorer.reset();
+    powers.reset?.();
+    HHA.timeLeft = Number.isFinite(+opts.seconds) ? Math.max(10, +opts.seconds) : HHA.timeTotal;
+    safeText('#score', 0);
+    safeText('#time', HHA.timeLeft);
+
+    // Build per-mode instance
+    const mod = MODES[HHA.modeKey];
+    if (!mod || typeof mod.create!=='function') throw new Error(`Mode factory missing: ${HHA.modeKey}`);
+    HHA.Bus   = makeBus();
+    HHA.state = { difficulty: HHA.diff, lang: HHA.lang, ctx: {} };
+    HHA.modeInst?.cleanup?.();
+    HHA.modeInst = mod.create({ engine, hud, coach });
+
+    // Missions (multi) attach
+    const run = missions.start(HHA.modeKey, { seconds: HHA.timeLeft, count: 3, lang: HHA.lang });
+    missions.attachToState(run, HHA.state);
+    hud.setQuestChips?.([]); // clear first render
+
+    // HUD coach
+    coach.onStart?.();
+    // tiny kickoff tick for chips
+    missions.tick(HHA.state, scorer, (res)=>{}, { hud, coach, lang: HHA.lang });
+
+    // Start mode
+    HHA.modeInst.start?.();
+
+    // Loop
+    HHA.running = true; HHA.paused = false;
+    HHA.loop.last = now();
+    loopStep();
+
+    // One-shot cursor FX
+    try { engine.fx.cursorBurst(['✨','⭐']); }catch{}
+  } catch (err){
+    console.error('[HHA] startGame failed:', err);
+    try { window.HHA_BOOT?.reportError?.(err); } catch {}
+    throw err;
   }
-  function bindPlayerName(){
-    const el = $('#playerName');
-    if(!el) return;
-    const saved = localStorage.getItem('hha_player_name') || '';
-    if(saved && !el.value) el.value = saved;
-    on(el,'change', ()=>{ try{ localStorage.setItem('hha_player_name', el.value.trim().slice(0,24)); }catch{} });
-  }
+}
 
-  // --------- Engine loop ----------
-  let R = { playing:false, startedAt:0, remain:45, raf:0, sys:{ score:null, sfx:null }, modeAPI:null, modeInst:null };
-  function busFor(){ return {
-    sfx: R.sys.sfx,
-    hit(e){ if (e?.points) R.sys.score.add(e.points);
-      setScore(R.sys.score.get?.() || R.sys.score.value || 0);
-      try{ FX.popText(`+${e.points||0}`, e.ui||{}); }catch{}
-      try{ Quests.event('hit',{result:e?.kind||'good',comboNow:0,meta:e?.meta||{}}); }catch{}
-    },
-    miss(){ /* no-op */ }
-  };}
+function hardEnd(fromRestart=false){
+  // Stop loop + cleanup
+  HHA.running = false; HHA.paused = false;
+  if (HHA.loop.id){ cancelAnimationFrame(HHA.loop.id); HHA.loop.id=0; }
+  HHA.modeInst?.cleanup?.();
+  missions.stop(HHA.state);
+  coach.onEnd?.();
 
-  function gameTick(){
-    if (!R.playing) return;
-    const now = performance.now();
-    const secGone = Math.floor((now - R._secMark)/1000);
-    if (secGone >= 1){
-      R.remain = Math.max(0, (R.remain|0) - secGone);
-      R._secMark = now; setTime(R.remain);
-      try{ Quests.tick({ score: (R.sys.score.get?.()||0) }); }catch{}
+  // Leaderboard
+  try {
+    const item = board.submit(HHA.modeKey, HHA.diff, scorer.score, { meta:{ duration:HHA.timeTotal, timeLeft:HHA.timeLeft } });
+    console.debug('[Leaderboard submit]', item);
+  } catch{}
+
+  // Result UI
+  if (!fromRestart){
+    const root = $('#result') || $('#resultModal');
+    if (root){
+      safeText('#finalScore', scorer.score|0);
+      root.style.display = 'flex';
     }
-    try {
-      if (R.modeInst && typeof R.modeInst.update === 'function') {
-        const dt = (now - (R._dtMark||now)) / 1000; R._dtMark = now;
-        R.modeInst.update(dt, busFor());
-      } else if (R.modeAPI?.tick) {
-        R.modeAPI.tick(R.state||{}, R.sys, R.hud||{});
+  }
+}
+
+/* ---------------- Game Loop ---------------- */
+function loopStep(){
+  if (!HHA.running) return;
+  const t = now(), dt = Math.min(48, t - (HHA.loop.last||t)); // clamp dt
+  HHA.loop.last = t;
+
+  if (!HHA.paused){
+    // countdown (once/sec)
+    HHA.dtAcc += dt;
+    while (HHA.dtAcc >= 1000){
+      HHA.dtAcc -= 1000;
+      HHA.timeLeft = Math.max(0, (HHA.timeLeft|0) - 1);
+      safeText('#time', HHA.timeLeft);
+      // time-up?
+      if (HHA.timeLeft<=0){
+        HHA.timeLeft = 0;
+        HHA.running = false;
+        HHA.loop.id = requestAnimationFrame(()=> hardEnd(false));
+        return;
       }
-    } catch(e){ console.warn('[mode.update] error', e); }
-    if (R.remain <= 0) return endGame(false);
-    R.raf = requestAnimationFrame(gameTick);
-  }
-
-  // --------- Leaderboard UI renderers ----------
-  function renderMiniTop({ mode, diff }){
-    if(!board) return;
-    const wrap = $('#miniTop'); const pbRow = $('#pbRow'); if(!wrap) return;
-    const name = getPlayerName();
-
-    const top = board.getTop(5, { mode, diff, since:'month', uniqueByUser:true });
-    const recent = board.getRecent(5, { mode, diff });
-    const pb = board.getPersonalBest({ mode, diff });
-
-    if(pbRow){
-      pbRow.textContent = pb
-        ? `Personal Best (${mode}/${diff}) — ⭐ ${pb.score}  •  ${new Date(pb.t).toLocaleString()}${name?`  •  ${name}`:''}`
-        : `ยังไม่มี Personal Best ในโหมดนี้`;
     }
 
-    const mk = (rows, title)=>[
-      `<div style="font:900 13px ui-rounded;margin:6px 0 4px">${title}</div>`,
-      `<table style="width:100%;border-collapse:collapse;font:600 12px ui-rounded">`,
-      `<thead><tr><th style="text-align:left;padding:6px;border-bottom:1px solid #19304e">#</th><th style="text-align:left;padding:6px;border-bottom:1px solid #19304e">Name</th><th style="text-align:left;padding:6px;border-bottom:1px solid #19304e">Mode/Diff</th><th style="text-align:right;padding:6px;border-bottom:1px solid #19304e">Score</th></tr></thead>`,
-      `<tbody>`,
-      ...rows.map((r,i)=>`<tr>
-        <td style="padding:6px;border-bottom:1px solid #13243d">${i+1}</td>
-        <td style="padding:6px;border-bottom:1px solid #13243d">${r.name||'-'}</td>
-        <td style="padding:6px;border-bottom:1px solid #13243d">${r.mode}/${r.diff}</td>
-        <td style="padding:6px;border-bottom:1px solid #13243d;text-align:right">${r.score}</td>
-      </tr>`),
-      `</tbody></table>`
-    ].join('');
+    // mode update
+    try { HHA.modeInst.update?.(dt/1000, HHA.Bus); } catch(e){ console.warn('[mode.update]', e); }
 
-    wrap.innerHTML = mk(top, 'Top (This Month)') + mk(recent, 'Recent');
+    // missions tick (dt-aware)
+    try {
+      missions.tickDt(HHA.state, scorer, dt, (res)=>{
+        // Optional: small FX when a mission finishes
+        if (res?.success){ engine.fx.popText(HHA.lang==='TH'?'สำเร็จ!':'Mission OK', { x: innerWidth/2, y: innerHeight*0.72, ms: 900 }); }
+      }, { hud, coach, lang: HHA.lang });
+    } catch(e) { console.warn('[missions.tickDt]', e); }
   }
 
-  function openBoardModal(scope='week'){
-    const box = $('#boardModal'); if(!box||!board) return;
-    box.style.display='flex';
-    const info = $('#lb_info'); const table = $('#lb_table');
-    const mode = (window.__HHA_MODE || document.body.getAttribute('data-mode') || 'goodjunk');
-    const diff = (window.__HHA_DIFF || document.body.getAttribute('data-diff') || 'Normal');
+  HHA.loop.id = requestAnimationFrame(loopStep);
+}
 
-    const rows = board.getTop(50, { mode, diff, since: scope, uniqueByUser:true });
-    info.textContent = `Mode: ${mode} / Diff: ${diff} • Scope: ${scope}`;
-    table.innerHTML = `<table style="width:100%;border-collapse:collapse">
-      <thead><tr>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #19304e">#</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #19304e">Name</th>
-        <th style="text-align:left;padding:8px;border-bottom:1px solid #19304e">Time</th>
-        <th style="text-align:right;padding:8px;border-bottom:1px solid #19304e">Score</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map((r,i)=>`<tr>
-          <td style="padding:8px;border-bottom:1px solid #13243d">${i+1}</td>
-          <td style="padding:8px;border-bottom:1px solid #13243d">${r.name||'-'}</td>
-          <td style="padding:8px;border-bottom:1px solid #13243d">${new Date(r.t).toLocaleString()}</td>
-          <td style="padding:8px;border-bottom:1px solid #13243d;text-align:right">${r.score}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
-  }
+/* ---------------- Pause / Resume & Window focus ---------------- */
+window.onAppBlur  = ()=>{ if (!HHA.running) return; HHA.paused = true; coach.onPause?.(); };
+window.onAppFocus = ()=>{ if (!HHA.running) return; HHA.paused = false; coach.onResume?.(); };
 
-  // --------- End/start ----------
-  function endGame(){
-    if (!R.playing) return;
-    R.playing = false; cancelAnimationFrame(R.raf);
+window.onPauseIntent = ()=>{
+  if (!HHA.running) return;
+  HHA.paused = !HHA.paused;
+  if (HHA.paused) coach.onPause?.(); else coach.onResume?.();
+};
 
-    const mode = (R.modeKey || document.body.getAttribute('data-mode') || 'goodjunk');
-    const diff = (R.state?.difficulty || document.body.getAttribute('data-diff') || 'Normal');
-    const score = (R.sys.score.get?.()||0);
-    const name = getPlayerName();
+/* ---------------- Language switch (from UI) ---------------- */
+window.onLangSwitch = (lang='TH')=>{
+  HHA.lang = String(lang).toUpperCase();
+};
 
-    // ✓ save to leaderboard
-    try { board?.submit(mode, diff, score, { name, meta:{ duration:45 } }); } catch {}
+/* ---------------- GFX/Sound toggles (hooks only) ---------------- */
+window.onGfxToggle   = ()=>{ /* reserve for heavy FX switch if needed */ };
+window.onSoundToggle = ()=>{ sfx.toggleMute?.(); };
 
-    // update UI
-    const res = $('#result'); const txt = $('#resultText');
-    if (txt) txt.textContent = `⭐ Score: ${score}  •  Mode: ${mode}  •  Diff: ${diff}`;
-    renderMiniTop({ mode, diff });
-    if (res) res.style.display = 'flex';
+/* ---------------- Replay guard (modal buttons already bound in ui.js) ---------------- */
+window.preStartFlow = ()=>{
+  // Called by ui.js before startGame
+  // Any prep (e.g., fade menu, clear chips)
+  $('#result') && ($('#result').style.display='none');
+  $('#resultModal') && ($('#resultModal').style.display='none');
+};
 
-    try { Quests.endRun({ score }); } catch {}
-    try { R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state, R.hud); } catch {}
-    document.body.removeAttribute('data-playing');
-    $('#menuBar')?.removeAttribute('data-hidden');
-    showCoach('Nice run!'); setTimeout(hideCoach, 1200);
-    try { Progress.endRun({ score }); } catch {}
-    window.HHA._busy = false;
-  }
+/* ---------------- Safety: expose minimal API for legacy calls ---------------- */
+window.start = (opts)=> startGame(opts);
+window.end   = (fromRestart)=> hardEnd(!!fromRestart);
 
-  async function startGame(){
-    if (window.HHA?._busy) return; window.HHA._busy = true;
-    await loadCore(); await loadLeaderboard(); bindPlayerName(); Progress.init?.();
-
-    const modeKey = (window.__HHA_MODE || document.body.getAttribute('data-mode') || 'goodjunk');
-    const diff = (window.__HHA_DIFF || document.body.getAttribute('data-diff') || 'Normal');
-
-    // load mode
-    let api;
-    try { api = await loadMode(modeKey); }
-    catch (e) { console.error('[HHA] Failed to load mode:', modeKey, e); toast(`Failed to load mode: ${modeKey}`); window.HHA._busy=false; return; }
-
-    // systems
-    R.sys.score = new (ScoreSystem||function(){})(); R.sys.score.reset?.();
-    R.sys.sfx = new (SFXClass||function(){})(); setScore(0);
-
-    // HUD
-    const hud = {
-      setTarget(g,have,need){
-        const el = document.getElementById('targetBadge'); const wrap = document.getElementById('targetWrap');
-        if (!el || !wrap) return;
-        const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[g] || g;
-        el.textContent = `${nameTH} • ${have|0}/${need|0}`; wrap.style.display='inline-flex';
-      },
-      dimPenalty(){ document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 120); }
-    };
-    try { Quests.bindToMain({ hud }); } catch {}
-
-    // mode init (prefer factory)
-    R.modeKey = modeKey; R.modeAPI = api; R.hud = hud;
-    R.state = { difficulty: diff, lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
-    if (api.create){
-      R.modeInst = api.create({ engine:{ fx:FX }, hud, coach:{
-        onStart(){ showCoach('Go!'); setTimeout(hideCoach,800); },
-        onGood(){}, onBad(){}, onPerfect(){ showCoach('Perfect!'); setTimeout(hideCoach,500); }
-      }});
-      R.modeInst.start?.();
-    } else if (api.init){
-      api.init(R.state, hud, { time:45, life:1600 });
-      showCoach('Go!'); setTimeout(hideCoach,800);
-    }
-
-    try { Quests.beginRun(modeKey, diff, (R.state.lang||'TH'), 45); } catch {}
-    try { Progress.beginRun(modeKey, diff, (R.state.lang||'TH')); } catch {}
-
-    R.playing = true; R.startedAt = performance.now();
-    R._secMark = performance.now(); R._dtMark = performance.now();
-    R.remain = 45; setTime(R.remain);
-
-    document.body.setAttribute('data-playing','1');
-    $('#menuBar')?.setAttribute('data-hidden','1');
-    R.raf = requestAnimationFrame(gameTick);
-  }
-
-  // expose
-  window.HHA = window.HHA || {};
-  window.HHA.startGame = startGame;
-  window.HHA.endGame = endGame;
-
-  // UI bindings for Leaderboard modal
-  on($('#btn_board'), 'click', ()=> openBoardModal($('#lb_scope')?.value || 'week'));
-  on($('#btn_open_board'), 'click', ()=> openBoardModal($('#lb_scope')?.value || 'week'));
-  on($('#lb_close'), 'click', ()=>{ const m=$('#boardModal'); if(m) m.style.display='none'; });
-  on($('#lb_scope'), 'change', (e)=> openBoardModal(e.target.value||'week'));
-
-  // safety
-  setTimeout(()=>{ const c = document.getElementById('c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; } }, 0);
-})();
+/* ---------------- Error Fence ---------------- */
+window.addEventListener('error', (e)=>{
+  try { window.HHA_BOOT?.reportError?.(e?.error || e?.message || e); } catch{}
+});
