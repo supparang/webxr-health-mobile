@@ -1,273 +1,325 @@
-// === Hero Health Academy — game/main.js (Final DOM-spawn factory, resilient) ===
-// - Plugs into boot.js dynamic loader
-// - Works with ui.js startFlow() / toggles
-// - DOM-first spawn pipeline (no WebGL dependency) with Engine FX helpers
-// - Integrates MissionSystem + ScoreSystem + PowerUpSystem + Leaderboard
-// - Safe across missing modules / optional features
+// === Hero Health Academy — game/main.js (Shield-ready build) ===
+// - Integrates PowerUpSystem v3 (x2/freeze/sweep/shield) with HUD v3.1
+// - Visual shield overlay (blue→violet glow) + penalty absorb
+// - Safe DOM-spawn factory for modes (goodjunk, groups)
+// - Pause on blur, strong replay, and simple result modal
 
-/* ---------------- Imports ---------------- */
-import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
-import { Engine }           from './core/engine.js';
-import { HUD }              from './core/hud.js';
-import { Coach }            from './core/coach.js';
-import { SFX }              from './core/sfx.js';
-import { ScoreSystem }      from './core/score.js';
-import { PowerUpSystem }    from './core/powerup.js';
-import { MissionSystem }    from './core/mission-system.js';
-import { Leaderboard }      from './core/leaderboard.js';
+// ----- Imports -----
+import { HUD } from './core/hud.js';
+import { PowerUpSystem } from './core/powerup.js';
+import { MissionSystem } from './core/mission-system.js';
+import { Leaderboard } from './core/leaderboard.js';
 
-import * as mode_goodjunk   from './modes/goodjunk.js';
-import * as mode_groups     from './modes/groups.js';
-// (ถ้ามี): import * as mode_hydration from './modes/hydration.js';
-// (ถ้ามี): import * as mode_plate     from './modes/plate.js';
-
-/* ---------------- Globals & guards ---------------- */
-window.__HHA_BOOT_OK = window.__HHA_BOOT_OK || 'main';
-const $  = (s)=>document.querySelector(s);
-const now = ()=> performance?.now?.() || Date.now();
-
-function safeText(sel, v){ const el=$(sel); if (el) el.textContent = String(v); }
-
-/* ---------------- Registry: modes → factory.create(...) ---------------- */
-const MODES = {
-  goodjunk : mode_goodjunk,
-  groups   : mode_groups,
-  // hydration: mode_hydration,
-  // plate    : mode_plate,
+// (Optional) tiny FX helper used by modes via engine.fx.popText(...)
+const FX = {
+  popText(txt, { x, y, ms = 720 } = {}) {
+    const el = document.createElement('div');
+    el.textContent = txt;
+    Object.assign(el.style, {
+      position: 'fixed', left: Math.max(0, x - 10) + 'px', top: Math.max(0, y - 10) + 'px',
+      font: '900 16px ui-rounded', color: '#eaf6ff', textShadow: '0 2px 10px #000a',
+      pointerEvents: 'none', transform: 'translate(-50%,-60%) scale(1)', transition: 'all .72s ease',
+      zIndex: 120
+    });
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>{
+      el.style.transform = 'translate(-50%,-90%) scale(1.08)';
+      el.style.opacity = '0';
+    });
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, ms);
+  }
 };
 
-/* ---------------- Systems ---------------- */
-const engine   = new Engine(THREE, $('#c'));
-const hud      = new HUD({ root: $('#hudWrap'), chipsRoot: $('#questChips') });
-const coach    = new Coach({ root: $('#coachHUD'), text: $('#coachText') });
-const sfx      = new SFX({
-  good:'#sfx-good', bad:'#sfx-bad', perfect:'#sfx-perfect',
-  tick:'#sfx-tick', power:'#sfx-powerup', bgm:'#bgm-main'
-});
-const scorer   = new ScoreSystem();
-const powers   = new PowerUpSystem();
-const missions = new MissionSystem();
-const board    = new Leaderboard();
+// ----- Modes (factory adapters) -----
+import * as goodjunk from './modes/goodjunk.js';
+import * as groups    from './modes/groups.js';
+// (hydration / plate สามารถเสียบเพิ่มเหมือนกันได้เมื่อพร้อม)
 
-/* ---------------- State ---------------- */
-const HHA = {
+// ----- Globals / State -----
+const Engine = {
   running: false,
-  paused: false,
-  modeKey: 'goodjunk',
-  diff: 'Normal',
-  lang: 'TH',
-  timeTotal: 45,
-  timeLeft: 45,
-
-  loop: { id: 0, last: 0 },
-  dtAcc: 0,
-
-  modeInst: null,   // { start, stop, update(dt,Bus), cleanup, onClick? }
-  Bus: null,        // event bridge
-  state: null,      // per-mode runtime state mirror
-  score: scorer,    // alias
+  lastTs: 0,
+  fx: FX,
+  update(dt) { // per-frame update called by RAF loop
+    // mode runner update will be attached on start
+    if (this.runner && typeof this.runner.update === 'function') {
+      this.runner.update(dt, Bus);
+    }
+  }
 };
 
-window.HHA = window.HHA || {};
-Object.assign(window.HHA, {
-  startGame,
-  end: hardEnd,
-  getScore: ()=>scorer?.score||0,
-});
+const State = {
+  seconds: 45,
+  score: 0,
+  lang: (localStorage.getItem('hha_lang') || 'TH').toUpperCase(),
+  mode: 'goodjunk',
+  diff: (window.__HHA_DIFF || 'Normal'),
+  paused: false
+};
 
-/* ---------------- UI wiring (from ui.js) ---------------- */
-function captureUI(){
-  try {
-    const ui = window.HHA_UI;
-    HHA.modeKey = ui?.getMode?.() || document.body.dataset.mode || 'goodjunk';
-    HHA.diff    = ui?.getDiff?.() || document.body.dataset.diff  || 'Normal';
-    HHA.lang    = ui?.getLang?.() || (document.documentElement.dataset?.hhaLang||'TH');
-    document.body.dataset.mode = HHA.modeKey;
-    document.body.dataset.diff = HHA.diff;
-  } catch {}
-  // time: 45s baseline (อาจปรับจาก diff)
-  HHA.timeTotal = (HHA.diff==='Easy') ? 50 : (HHA.diff==='Hard' ? 40 : 45);
-  HHA.timeLeft  = HHA.timeTotal;
-  safeText('#time', HHA.timeLeft);
+// ----- Systems -----
+const hud     = new HUD();
+const power   = new PowerUpSystem();   // includes timers + onChange
+const mission = new MissionSystem();
+const board   = new Leaderboard();
+
+// sync HUD with power timers
+power.onChange(timers => hud.setPowerTimers(timers));
+
+// ----- Shield Overlay (visual & feedback) -----
+const ShieldFX = (() => {
+  // style once
+  if (!document.getElementById('hha-shield-css')) {
+    const css = document.createElement('style');
+    css.id = 'hha-shield-css';
+    css.textContent = `
+      #shieldOverlay{
+        position:fixed; inset:0; pointer-events:none; z-index:94; display:none;
+        background: radial-gradient(80% 60% at 50% 40%, rgba(160,180,255,.18), rgba(160,140,255,.08) 60%, transparent 70%);
+        mix-blend-mode: screen;
+      }
+      #shieldOverlay.active{ display:block; animation: hhaShieldPulse 1.2s ease-in-out; }
+      @keyframes hhaShieldPulse{
+        0%{ opacity:.00; filter:saturate(1.0) blur(0px); }
+        25%{ opacity:.40; filter:saturate(1.08) blur(0px); }
+        60%{ opacity:.22; }
+        100%{ opacity:.00; }
+      }
+    `;
+    document.head.appendChild(css);
+  }
+  // element once
+  let el = document.getElementById('shieldOverlay');
+  if (!el) { el = document.createElement('div'); el.id = 'shieldOverlay'; document.body.appendChild(el); }
+
+  function flash() {
+    el.classList.remove('active'); // restart
+    // force reflow
+    void el.offsetWidth;
+    el.classList.add('active');
+    setTimeout(()=> el.classList.remove('active'), 1200);
+  }
+  return { flash };
+})();
+
+// ----- Simple SFX proxy (optional) -----
+const SFX = {
+  play(id){ try{ document.querySelector('#'+id)?.play?.(); }catch{} },
+  good(){ this.play('sfx-good'); },
+  bad(){ this.play('sfx-bad'); },
+  perfect(){ this.play('sfx-perfect'); },
+  power(){ this.play('sfx-powerup'); }
+};
+
+// ----- Result Modal helpers -----
+function showResult() {
+  const root = document.getElementById('result');
+  if (!root) return;
+  const b = document.getElementById('finalScore'); if (b) b.textContent = String(State.score|0);
+  root.style.display = 'flex';
+}
+function hideResult(){
+  const root = document.getElementById('result'); if (root) root.style.display='none';
 }
 
-/* ---------------- Bus (Mode ↔ Core) ---------------- */
-function makeBus(){
-  const Bus = {
-    sfx,
-    hit({ kind='good', points=10, ui, meta }){
-      // add score
-      scorer.add(points);
-      safeText('#score', scorer.score);
+// ----- Bus: events from modes to systems -----
+const Bus = {
+  sfx: SFX,
 
-      // missions counters
-      if (HHA.modeKey==='groups'){
-        if (meta?.isTarget) missions.onEvent('target_hit', {count:1}, HHA.state);
-        else missions.onEvent('wrong_group', {count:1}, HHA.state);
-      } else if (HHA.modeKey==='goodjunk'){
-        if (kind==='good' || kind==='perfect') missions.onEvent('good', {count:1}, HHA.state);
-      }
-      // coach micro cues
-      if (kind==='perfect') coach.onPerfect?.(); else coach.onGood?.();
-    },
-    miss({ meta }={}){
-      missions.onEvent('miss', {count:1}, HHA.state);
-      coach.onBad?.(); try{ sfx.bad(); }catch{}
-    },
-    addTime(sec=1){
-      HHA.timeLeft = Math.max(0, Math.min(999, HHA.timeLeft + (sec|0)));
-      safeText('#time', HHA.timeLeft);
-    },
-    power(name){
-      try { sfx.power(); }catch{}
-      if (name==='x2'){ (MODES[HHA.modeKey]?.powers?.x2Target || (()=>{}))(); }
-      if (name==='freeze'){ (MODES[HHA.modeKey]?.powers?.freezeTarget || (()=>{}))(); }
-      if (name==='magnet'){ (MODES[HHA.modeKey]?.powers?.magnetNext || (()=>{}))(); }
+  hit({ kind, points = 0, ui, meta }) {
+    // Score bonus from PowerUps (×2/boost) is applied via add
+    addScore(points|0);
+    if (kind === 'perfect') SFX.perfect(); else SFX.good();
+
+    // Missions
+    mission.onEvent('good', { count: 1 }, State);
+    if (meta?.isTarget) mission.onEvent('target_hit', { count: 1 }, State);
+  },
+
+  miss({ meta } = {}) {
+    // If shield is active → absorb penalty, flash overlay, DO NOT punish
+    const timers = power.getTimers?.() || {};
+    const shieldOn = (timers.shield|0) > 0;
+    if (shieldOn) {
+      ShieldFX.flash();
+      SFX.power();
+      hud.toast(State.lang==='TH' ? '🛡 กันพลาด!' : '🛡 Shielded!');
+      // Optional: tiny consolation points
+      addScore(2);
+      return;
     }
+
+    // Normal penalty feedback
+    hud.flashDanger();
+    SFX.bad();
+    mission.onEvent('miss', { count: 1 }, State);
+    // soft penalty only (no hard -score to keep gameplay friendly)
+    // If you want to deduct: addScore(-5);
+  }
+};
+
+// ----- Score helpers -----
+function addScore(base) {
+  const boost = (typeof power._boostFn === 'function') ? power._boostFn(base) : 0;
+  State.score = Math.max(0, (State.score|0) + base + boost);
+  hud.setScore(State.score|0);
+}
+
+// ----- Game Loop -----
+function loop(ts) {
+  if (!Engine.running || State.paused) return;
+  if (!Engine.lastTs) Engine.lastTs = ts;
+  const dt = Math.min(0.1, (ts - Engine.lastTs) / 1000);
+  Engine.lastTs = ts;
+
+  Engine.update(dt);
+
+  requestAnimationFrame(loop);
+}
+
+// ----- Timer (seconds) -----
+let _secT = 0;
+function startSecondTicker() {
+  stopSecondTicker();
+  _secT = setInterval(() => {
+    if (State.paused) return;
+
+    // countdown
+    State.seconds = Math.max(0, (State.seconds|0) - 1);
+    hud.setTime(State.seconds|0);
+
+    // mission evaluation tick
+    mission.tick(State, { score: State.score|0 }, (res)=>{
+      if (res?.success) hud.toast(State.lang==='TH' ? 'เควสต์สำเร็จ!' : 'Quest done!', 1000);
+      else hud.toast(State.lang==='TH' ? 'พลาดเควสต์' : 'Quest failed', 900);
+    }, { hud, lang: State.lang });
+
+    // time up
+    if ((State.seconds|0) <= 0) {
+      endGame();
+    }
+  }, 1000);
+}
+function stopSecondTicker() {
+  if (_secT) { clearInterval(_secT); _secT = 0; }
+}
+
+// ----- Runner factory per mode -----
+function makeRunner(modeKey) {
+  const mod = (modeKey==='groups') ? groups
+            : (modeKey==='goodjunk') ? goodjunk
+            : goodjunk;
+
+  if (typeof mod.create === 'function') {
+    return mod.create({ engine: Engine, hud, coach: CoachBridge });
+  }
+  // legacy fallback
+  return {
+    start(){ mod.init?.(State, hud); },
+    update(dt, bus){ mod.tick?.(State); },
+    cleanup(){ mod.cleanup?.(State, hud); }
   };
-  return Bus;
 }
 
-/* ---------------- Start / Stop ---------------- */
-function startGame(opts = {}){
-  try{
-    captureUI();
-
-    // Reset systems
-    scorer.reset();
-    powers.reset?.();
-    HHA.timeLeft = Number.isFinite(+opts.seconds) ? Math.max(10, +opts.seconds) : HHA.timeTotal;
-    safeText('#score', 0);
-    safeText('#time', HHA.timeLeft);
-
-    // Build per-mode instance
-    const mod = MODES[HHA.modeKey];
-    if (!mod || typeof mod.create!=='function') throw new Error(`Mode factory missing: ${HHA.modeKey}`);
-    HHA.Bus   = makeBus();
-    HHA.state = { difficulty: HHA.diff, lang: HHA.lang, ctx: {} };
-    HHA.modeInst?.cleanup?.();
-    HHA.modeInst = mod.create({ engine, hud, coach });
-
-    // Missions (multi) attach
-    const run = missions.start(HHA.modeKey, { seconds: HHA.timeLeft, count: 3, lang: HHA.lang });
-    missions.attachToState(run, HHA.state);
-    hud.setQuestChips?.([]); // clear first render
-
-    // HUD coach
-    coach.onStart?.();
-    // tiny kickoff tick for chips
-    missions.tick(HHA.state, scorer, (res)=>{}, { hud, coach, lang: HHA.lang });
-
-    // Start mode
-    HHA.modeInst.start?.();
-
-    // Loop
-    HHA.running = true; HHA.paused = false;
-    HHA.loop.last = now();
-    loopStep();
-
-    // One-shot cursor FX
-    try { engine.fx.cursorBurst(['✨','⭐']); }catch{}
-  } catch (err){
-    console.error('[HHA] startGame failed:', err);
-    try { window.HHA_BOOT?.reportError?.(err); } catch {}
-    throw err;
-  }
-}
-
-function hardEnd(fromRestart=false){
-  // Stop loop + cleanup
-  HHA.running = false; HHA.paused = false;
-  if (HHA.loop.id){ cancelAnimationFrame(HHA.loop.id); HHA.loop.id=0; }
-  HHA.modeInst?.cleanup?.();
-  missions.stop(HHA.state);
-  coach.onEnd?.();
-
-  // Leaderboard
-  try {
-    const item = board.submit(HHA.modeKey, HHA.diff, scorer.score, { meta:{ duration:HHA.timeTotal, timeLeft:HHA.timeLeft } });
-    console.debug('[Leaderboard submit]', item);
-  } catch{}
-
-  // Result UI
-  if (!fromRestart){
-    const root = $('#result') || $('#resultModal');
-    if (root){
-      safeText('#finalScore', scorer.score|0);
-      root.style.display = 'flex';
-    }
-  }
-}
-
-/* ---------------- Game Loop ---------------- */
-function loopStep(){
-  if (!HHA.running) return;
-  const t = now(), dt = Math.min(48, t - (HHA.loop.last||t)); // clamp dt
-  HHA.loop.last = t;
-
-  if (!HHA.paused){
-    // countdown (once/sec)
-    HHA.dtAcc += dt;
-    while (HHA.dtAcc >= 1000){
-      HHA.dtAcc -= 1000;
-      HHA.timeLeft = Math.max(0, (HHA.timeLeft|0) - 1);
-      safeText('#time', HHA.timeLeft);
-      // time-up?
-      if (HHA.timeLeft<=0){
-        HHA.timeLeft = 0;
-        HHA.running = false;
-        HHA.loop.id = requestAnimationFrame(()=> hardEnd(false));
-        return;
-      }
-    }
-
-    // mode update
-    try { HHA.modeInst.update?.(dt/1000, HHA.Bus); } catch(e){ console.warn('[mode.update]', e); }
-
-    // missions tick (dt-aware)
-    try {
-      missions.tickDt(HHA.state, scorer, dt, (res)=>{
-        // Optional: small FX when a mission finishes
-        if (res?.success){ engine.fx.popText(HHA.lang==='TH'?'สำเร็จ!':'Mission OK', { x: innerWidth/2, y: innerHeight*0.72, ms: 900 }); }
-      }, { hud, coach, lang: HHA.lang });
-    } catch(e) { console.warn('[missions.tickDt]', e); }
-  }
-
-  HHA.loop.id = requestAnimationFrame(loopStep);
-}
-
-/* ---------------- Pause / Resume & Window focus ---------------- */
-window.onAppBlur  = ()=>{ if (!HHA.running) return; HHA.paused = true; coach.onPause?.(); };
-window.onAppFocus = ()=>{ if (!HHA.running) return; HHA.paused = false; coach.onResume?.(); };
-
-window.onPauseIntent = ()=>{
-  if (!HHA.running) return;
-  HHA.paused = !HHA.paused;
-  if (HHA.paused) coach.onPause?.(); else coach.onResume?.();
+// ----- Coach bridge (HUD-based minimal cues) -----
+const CoachBridge = {
+  onStart(){ hud.say(State.lang==='TH'?'เริ่มเลย!':'Let’s go!', 900); },
+  onGood(){ /* optional micro cue */ },
+  onPerfect(){ hud.toast(State.lang==='TH'?'เยี่ยม!':'Great!', 700); },
+  onBad(){ hud.dimPenalty(); },
+  onQuestProgress(txt, cur, need){ hud.toast(`${txt}  ${cur}/${need}`, 700); },
+  onQuestDone(){ hud.toast(State.lang==='TH'?'ภารกิจครบ!':'Mission complete!', 900); },
+  onQuestFail(){ hud.toast(State.lang==='TH'?'ภารกิจล้มเหลว':'Mission failed', 900); }
 };
 
-/* ---------------- Language switch (from UI) ---------------- */
-window.onLangSwitch = (lang='TH')=>{
-  HHA.lang = String(lang).toUpperCase();
+// ----- Start / End flow -----
+function startGame({ demoPassed } = {}) {
+  hideResult();
+
+  // reset base state
+  State.seconds = 45;
+  State.score = 0;
+  State.lang = (window.HHA_UI?.getLang?.() || State.lang || 'TH').toUpperCase();
+  State.mode = (window.HHA_UI?.getMode?.() || State.mode || 'goodjunk');
+  State.diff = (window.HHA_UI?.getDiff?.() || State.diff || 'Normal');
+
+  hud.setScore(0);
+  hud.setTime(State.seconds|0);
+
+  // missions (3 chips by default)
+  const run = mission.start(State.mode, { seconds: State.seconds, count: 3, lang: State.lang });
+  mission.attachToState(run, State);
+
+  // power reset
+  power.dispose();
+  hud.setPowerTimers(power.getTimers());
+
+  // runner
+  if (Engine.runner && typeof Engine.runner.cleanup === 'function') {
+    try { Engine.runner.cleanup(); } catch {}
+  }
+  Engine.runner = makeRunner(State.mode);
+  Engine.runner.start?.();
+
+  // begin
+  State.paused = false;
+  Engine.running = true;
+  Engine.lastTs = 0;
+  requestAnimationFrame(loop);
+  startSecondTicker();
+}
+
+// Called by timer or UI
+function endGame() {
+  Engine.running = false;
+  stopSecondTicker();
+  State.paused = false;
+
+  // cleanup
+  try { Engine.runner?.cleanup?.(); } catch {}
+
+  // save to board
+  board.submit(State.mode, State.diff, State.score|0, { meta:{ seconds: 45 } });
+
+  showResult();
+}
+
+// ----- Public hooks for UI / boot.js -----
+window.HHA = {
+  startGame,
+  endGame,
+  // Power-ups from anywhere (modes / UI)
+  applyPower(kind, sec){ power.apply(kind, sec); },
+  // Example helpers used by modes to test powers:
+  powers: {
+    x2(s=8){ power.apply('x2', s); },
+    freeze(s=3){ power.apply('freeze', s); },
+    sweep(s=2){ power.apply('sweep', s); },
+    shield(s=6){ power.apply('shield', s); }
+  }
 };
 
-/* ---------------- GFX/Sound toggles (hooks only) ---------------- */
-window.onGfxToggle   = ()=>{ /* reserve for heavy FX switch if needed */ };
-window.onSoundToggle = ()=>{ sfx.toggleMute?.(); };
+// ----- Blur/pause handling (requested earlier) -----
+window.onAppBlur  = function(){ State.paused = true; };
+window.onAppFocus = function(){ State.paused = false; };
 
-/* ---------------- Replay guard (modal buttons already bound in ui.js) ---------------- */
-window.preStartFlow = ()=>{
-  // Called by ui.js before startGame
-  // Any prep (e.g., fade menu, clear chips)
-  $('#result') && ($('#result').style.display='none');
-  $('#resultModal') && ($('#resultModal').style.display='none');
+// Language toggle from UI
+window.onLangSwitch = function(lang){
+  State.lang = (String(lang).toUpperCase()==='EN'?'EN':'TH');
 };
 
-/* ---------------- Safety: expose minimal API for legacy calls ---------------- */
-window.start = (opts)=> startGame(opts);
-window.end   = (fromRestart)=> hardEnd(!!fromRestart);
+// (Optional) Sound/GFX toggles if needed in future
+window.onSoundToggle = function(){ /* wire to your audio mixer */ };
+window.onGfxToggle   = function(){ /* wire to your postFX */ };
 
-/* ---------------- Error Fence ---------------- */
-window.addEventListener('error', (e)=>{
-  try { window.HHA_BOOT?.reportError?.(e?.error || e?.message || e); } catch{}
-});
+// Strong restart from UI
+window.end = function(replay){
+  try { endGame(); } catch {}
+  if (replay) setTimeout(()=> startGame({ demoPassed:true }), 60);
+};
+
+// Expose shield FX test (debug)
+// window.__testShield = ()=>{ power.apply('shield', 6); ShieldFX.flash(); };
+
+// Auto-start if UI already ran the tutorial path
+// (boot/ui will call HHA.startGame(); no-op if user clicks START)
