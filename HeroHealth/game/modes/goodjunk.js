@@ -1,195 +1,181 @@
-// === Hero Health Academy — game/modes/goodjunk.js
-// Mode: Good vs Trash
-// - DOM-spawn (ใช้ #spawnHost ของ main)
-// - Anti-repeat emoji (ไม่ซ้ำติดกัน 2 ชิ้นล่าสุด)
-// - Golden Assist (สุ่มเล็กน้อย / ช่วยคัมแบ็ก)
-// - Dynamic lifetime + end-phase speedup (ช่วงท้ายเร็วขึ้น)
-// - Soft penalty (ไม่หักแรงเกิน, คอมโบถูกรีเซ็ตที่ ScoreSystem)
-// - Freeze-on-bad 300ms (กันผู้เล่นกดรัวผิด)
-// - Mini-quests (Eat Good / Avoid Junk) อัปเดตผ่าน HUD
-
+// === Hero Health Academy — game/modes/goodjunk.js (DOM-spawn adapter) ===
 export const name = 'goodjunk';
 
-/* Pools */
+// Pools
 const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
-const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍜','🍖','🍗','🧂','🍭','🧁'];
+const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🍭','🧁','🥓','🍟','🍕','🍔','🥤','🍰','🍪'];
 
-/* Local state (ต่อรันของโหมดนี้เท่านั้น) */
-let _state = null;           // STATE จาก main
-let _hud = null;             // HUD จาก main
-let _startT = 0;             // performance.now()
-let _lastPicks = [];         // anti-repeat (จำ 2 ตัวหลังสุด)
-let _quest = {               // mini-quests
-  eatGood:   { need: 10, progress: 0 },
-  avoidJunk: { need: 6,  progress: 0 },
+const GOLDEN_CHANCE = 0.06;     // ชิ้นทอง (โบนัส)
+const LIFE_MS       = 1800;     // อายุพื้นฐานต่อชิ้น
+const SPEED_MIN     = 90;       // px/s
+const SPEED_MAX     = 220;
+
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function rnd(a,b){ return a + Math.random()*(b-a); }
+
+// ช่วยทำเอฟเฟกต์เล็ก ๆ เมื่อกด
+const FX = {
+  popText(txt, {x,y}){
+    try { window.HHA && window.HHA.fx && window.HHA.fx.popText?.(txt, {x,y}); } catch {}
+  }
 };
-let _nextQuestAnnounce = 0;
 
-/* ---------- Lifecycle ---------- */
-export function init(STATE, hud, opts = {}) {
-  _state = STATE;
-  _hud = hud;
-  _startT = (performance?.now?.() || Date.now());
-  _lastPicks.length = 0;
+// ---------- Factory Adapter ----------
+export function create({ engine, hud, coach }) {
+  const layer = document.getElementById('gameLayer');
+  const host  = document.getElementById('spawnHost');
 
-  // Reset quests
-  _quest = {
-    eatGood:   { need: 10, progress: 0 },
-    avoidJunk: { need: 6,  progress: 0 },
+  const state = {
+    running:false,
+    items: [], // {el, x, y, vx, vy, born, life, meta}
+    stats: { good:0, perfect:0, bad:0, miss:0 },
+    combo:0,
+    diff: window.__HHA_DIFF || 'Normal',
+    lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(),
   };
-  _pushQuests();
 
-  // แสดงเป้าหมาย
-  try { _hud.setTarget('ผลไม้/ผัก/โปรตีนดี', _quest.eatGood.progress, _quest.eatGood.need); } catch {}
-  try { _hud.showTarget(); } catch {}
-}
-
-export function cleanup() {
-  _state = null;
-  _hud = null;
-}
-
-/* per-frame tick (เรียกจาก main.loop) */
-export function tick(STATE, { sfx = {}, fx = {}, power }, hud) {
-  const t = performance?.now?.() || Date.now();
-  if (t > _nextQuestAnnounce) {
-    _nextQuestAnnounce = t + 500; // ลดงาน DOM
-    _pushQuests();
-  }
-}
-
-/* ---------- Spawn meta picker ---------- */
-export function pickMeta(control = { life: 3000 }, STATE) {
-  const now = performance?.now?.() || Date.now();
-  const elapsed = Math.max(0, (now - _startT) / 1000);
-  const remain  = Math.max(0, (STATE?.endAt ? (STATE.endAt - (performance?.now?.() || Date.now())) / 1000 : 0));
-  const endPhase = remain <= 15;
-
-  // เริ่มอัตรา 65/35 แล้วปรับเล็กน้อยตามคอมโบ
-  let goodBias = 0.65;
-  const combo = (STATE?.combo|0);
-  if (combo > 10) goodBias -= 0.07;
-  if (combo > 20) goodBias -= 0.05;
-
-  // อายุชิ้น เร็วขึ้นช่วงท้าย
-  const baseLife = Math.max(1200, control.life || 3000);
-  let life = Math.min(baseLife, 2600);
-  if (elapsed > 20) life -= 200;
-  if (elapsed > 35) life -= 200;
-  if (endPhase)     life -= 300;
-  life = Math.max(700, life);
-
-  // Golden Assist เมื่อคอมโบตก/พลาดบ่อย
-  const bad = (STATE?.stats?.bad|0);
-  const goldenChance = Math.min(0.25, 0.06 + (combo === 0 ? 0.08 : 0) + Math.min(0.1, bad * 0.01));
-
-  const useGood = Math.random() < goodBias;
-  const char = pickEmoji(useGood ? GOOD : JUNK);
-  const golden = useGood && Math.random() < goldenChance;
-
-  const aria = useGood ? 'Healthy food' : 'Junk food';
-  const label = char;
-
-  return { char, label, aria, good: !!useGood, golden, life };
-}
-
-/* ---------- On hit ---------- */
-/** คืนค่า: "perfect" | "good" | "bad" | "ok" */
-export function onHit(meta, { sfx = {}, fx = {}, power }, STATE, hud) {
-  // ตัดสินแบบง่าย: ของดี → 35% perfect, ที่เหลือ good / ของเสีย → bad
-  let outcome = meta.good ? (Math.random() < 0.35 ? 'perfect' : 'good') : 'bad';
-
-  // Golden → perfect + บัฟ
-  if (meta.golden && meta.good && outcome !== 'bad') {
-    outcome = 'perfect';
-    try { power?.apply?.('x2', 5); } catch {}
-    try { hud?.toast?.('×2 Boost (5s)!'); } catch {}
+  function start(){
+    stop();
+    state.running = true;
+    state.items.length = 0;
+    state.stats = { good:0, perfect:0, bad:0, miss:0 };
+    state.combo = 0;
+    coach?.onStart?.();
   }
 
-  // ถ้า bad → freeze 300ms กันรัวผิด
-  if (outcome === 'bad') {
-    try { hud?.flashDanger?.(); } catch {}
-    const t = (performance?.now?.() || Date.now());
-    STATE.freezeUntil = t + 300;
+  function stop(){
+    state.running = false;
+    try { for (const it of state.items) it.el.remove(); } catch {}
+    state.items.length = 0;
   }
 
-  return outcome;
-}
+  function pickMeta(){
+    const isGood = Math.random() < 0.62; // อัตราส่วนดีต่อขยะ
+    const char = isGood ? GOOD[(Math.random()*GOOD.length)|0]
+                        : JUNK[(Math.random()*JUNK.length)|0];
+    const golden = isGood && Math.random() < GOLDEN_CHANCE;
+    const life = clamp(LIFE_MS + (isGood?0:-200), 900, 3200);
+    return { char, good:isGood, golden, life };
+  }
 
-/* ---------- FX hooks (optional) ---------- */
-export const fx = {
-  onSpawn(el, STATE) {
-    // ปล่อยว่าง: main จะ tilt 3D ให้แล้ว
-  },
-  onHit(x, y, meta, STATE) {
-    try {
-      const HFX = (window.HHA_FX || {});
-      if (meta.golden && meta.good) {
-        HFX.shatter3D?.(x, y, { shards: 28, sparks: 18 });
-      } else if (meta.good) {
-        HFX.shatter3D?.(x, y, { shards: 18, sparks: 8 });
-      } else {
-        HFX.shatter3D?.(x, y, { shards: 10, sparks: 4 });
+  function spawnOne(rect, Bus){
+    const m = pickMeta();
+
+    // สุ่มพิกัด “เกิด” แนวบน/ซ้าย/ขวา แล้ววิ่งเข้า “กึ่งกลางกรอบ”
+    // เพื่อให้รู้สึกว่า “วิ่งออกมา”
+    const edges = ['top','left','right'];
+    const edge = edges[(Math.random()*edges.length)|0];
+
+    let x, y, vx, vy;
+    const cx = rect.width/2, cy = rect.height/2;
+
+    if (edge === 'top'){
+      x = rnd(40, rect.width-40);
+      y = -20;
+    } else if (edge === 'left'){
+      x = -20;
+      y = rnd(40, rect.height-40);
+    } else {
+      x = rect.width + 20;
+      y = rnd(40, rect.height-40);
+    }
+
+    // วิ่งเข้าหาศูนย์กลาง + noise
+    const tx = cx + rnd(-120, 120);
+    const ty = cy + rnd(-90,  90);
+    const dx = (tx - x), dy = (ty - y);
+    const len = Math.max(1, Math.hypot(dx,dy));
+    const spd = rnd(SPEED_MIN, SPEED_MAX);
+    vx = dx/len * spd;
+    vy = dy/len * spd;
+
+    // สร้างปุ่ม
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'spawn-emoji';
+    // ใช้ left/top เป็น “กึ่งกลางปุ่ม” แล้ว translate(-50%, -50%) จาก CSS
+    b.style.left = x + 'px';
+    b.style.top  = y + 'px';
+    b.textContent = m.char;
+    if (m.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+
+    b.addEventListener('click', (ev)=>{
+      if (!state.running) return;
+      ev.stopPropagation();
+      const ui = { x: ev.clientX, y: ev.clientY };
+
+      if (m.good){
+        // คะแนนพื้นฐาน + โบนัสดาวทอง
+        const pts = m.golden ? 20 : 10;
+        state.stats[m.golden?'perfect':'good']++;
+        state.combo++;
+        Bus?.hit?.({ kind: m.golden?'perfect':'good', points: pts, ui, meta:m });
+        FX.popText(`+${pts}${m.golden?' ✨':''}`, ui);
+      }else{
+        // ผิด → รีเซ็ตคอมโบ + หน่วงสั้น ๆ
+        state.stats.bad++; state.combo = 0;
+        try {
+          document.body.classList.add('flash-danger');
+          setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+        } catch {}
+        Bus?.miss?.();
       }
-    } catch {}
+
+      try { b.remove(); } catch {}
+      const idx = state.items.findIndex(it=>it.el===b);
+      if (idx>=0) state.items.splice(idx,1);
+    }, {passive:false});
+
+    host.appendChild(b);
+    state.items.push({
+      el:b, x, y, vx, vy, born: performance.now(), life: m.life, meta:m
+    });
   }
-};
 
-/* ---------- Helpers ---------- */
-function pickEmoji(pool){
-  if (!Array.isArray(pool) || pool.length === 0) return '🍎';
-  let choice = pool[(Math.random()*pool.length)|0];
+  function update(dt, Bus){
+    if (!state.running) return;
+    const rect = layer.getBoundingClientRect();
 
-  // anti-repeat: ไม่ซ้ำ 2 ตัวล่าสุด
-  let tries = 0;
-  while (_lastPicks.includes(choice) && tries < 6) {
-    choice = pool[(Math.random()*pool.length)|0];
-    tries++;
-  }
-  _lastPicks.push(choice);
-  if (_lastPicks.length > 2) _lastPicks.shift();
-  return choice;
-}
-
-function _pushQuests(){
-  if (!_hud) return;
-  const list = [
-    {
-      key: 'eatGood',
-      name: 'Eat Healthy',
-      icon: '🥗',
-      need: _quest.eatGood.need,
-      progress: _quest.eatGood.progress,
-      done: _quest.eatGood.progress >= _quest.eatGood.need
-    },
-    {
-      key: 'avoidJunk',
-      name: 'Avoid Junk',
-      icon: '🚫🍔',
-      need: _quest.avoidJunk.need,
-      progress: _quest.avoidJunk.progress,
-      done: _quest.avoidJunk.progress >= _quest.avoidJunk.need
+    // cadence: spawn ตามเวลาที่เหลือ (ยิ่งใกล้หมด ยิ่งถี่)
+    if (!state._cd) state._cd = 0.18;
+    const timeLeft = Number(document.getElementById('time')?.textContent||'0')|0;
+    const bias = timeLeft <= 15 ? 0.16 : 0.0;
+    state._cd -= dt;
+    if (state._cd <= 0){
+      spawnOne(rect, Bus);
+      state._cd = clamp(0.46 - bias + Math.random()*0.25, 0.28, 0.95);
     }
-  ];
-  _hud.setQuestChips(list);
-}
 
-/* ---------- เสริม: อัปเดตเควสต์หลังผู้เล่นกดโดน ---------- */
-/* เรียกจาก main หลังได้ outcome/meta (ไม่บังคับ แต่แนะนำ) */
-export function postHitForQuest(outcome, meta){
-  if (!_hud || !meta) return;
-  if (meta.good && (outcome === 'good' || outcome === 'perfect')) {
-    _quest.eatGood.progress = Math.min(_quest.eatGood.need, _quest.eatGood.progress + 1);
-    if (_quest.eatGood.progress === _quest.eatGood.need) {
-      try { _hud.toast('Quest: Eat Healthy ✓'); } catch {}
-    }
-    // กลไกง่าย: ทุก 2 Good → นับเลี่ยง Junk +1
-    if ((_quest.eatGood.progress % 2) === 0) {
-      _quest.avoidJunk.progress = Math.min(_quest.avoidJunk.need, _quest.avoidJunk.progress + 1);
-      if (_quest.avoidJunk.progress === _quest.avoidJunk.need) {
-        try { _hud.toast('Quest: Avoid Junk ✓'); } catch {}
+    // move + lifetime
+    const now = performance.now();
+    const gone = [];
+    for (const it of state.items){
+      it.x += it.vx * dt;
+      it.y += it.vy * dt;
+
+      // constrain inside view bounds (เล็กน้อย)
+      const pad = 24;
+      it.x = clamp(it.x, pad, rect.width - pad);
+      it.y = clamp(it.y, pad, rect.height - pad);
+
+      it.el.style.left = it.x + 'px';
+      it.el.style.top  = it.y + 'px';
+
+      if (now - it.born > it.life){
+        // miss หากเป็นชิ้นดี
+        if (it.meta.good){ Bus?.miss?.(); state.stats.miss++; }
+        try { it.el.remove(); } catch {}
+        gone.push(it);
       }
     }
-    _pushQuests();
+    if (gone.length){
+      state.items = state.items.filter(x=>!gone.includes(x));
+    }
   }
+
+  function cleanup(){
+    stop();
+  }
+
+  return { start, stop, update, cleanup };
 }
