@@ -21,16 +21,86 @@ header .btn, .menu .btn, .menu .tag{
 }
 header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1px); }
 
-/* ---------- Stage / Play area ---------- */
-.game-wrap{ position:relative; width:100%; height:calc(100vh - 120px); display:flex; align-items:center; justify-content:center; overflow:hidden; }
-#stage{ position:relative; width:min(900px,96vw); height:min(620px,68vh); border:1px solid rgba(255,255,255,.08); border-radius:14px;
-  background:linear-gradient(180deg,#10161b,#0b0f13); box-shadow:0 8px 30px rgba(0,0,0,.35); }
-#gameLayer{ position:relative; inset:0; width:100%; height:100%; z-index:28; pointer-events:auto; touch-action:manipulation; }
-#spawnHost{ position:absolute; inset:0; pointer-events:none !important; z-index:28; }
+/* ---------- Stage / Play area (centered between header & menu) ---------- */
+:root{
+  --header-h: 56px;                 /* สูง header (บน) */
+  --hud-gap:  56px;                 /* ระยะกัน HUD ด้านบน (#hudWrap เริ่มที่ top:56px) */
+  --menu-h:   96px;                 /* ประมาณความสูงแถบเมนูล่าง */
+}
+
+/* wrapper สำหรับโซนเล่น — ลอยกลางจอแนวตั้ง/แนวนอน */
+.game-wrap{
+  position: fixed;
+  left: 50%;
+  /* จัดกลางแนวตั้งโดยเผื่อ header/hud และเมนูด้านล่างให้พ้นสายตา */
+  top: calc(50% + (var(--header-h) - var(--menu-h)) * 0.0);
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  width: min(94vw, 900px);
+  /* ความสูงยืดหยุ่น: จำกัดให้อยู่ระหว่าง 420–68vh และไม่ชนหัว/ท้าย */
+  height: clamp(420px, 68vh, calc(100vh - var(--header-h) - var(--hud-gap) - var(--menu-h) - 18px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* ให้คลิกทะลุ wrapper (จะเปิดเฉพาะชั้นเล่นจริง) */
+}
+
+/* กรอบเวทีเล่นจริง (เนื้อเกม) */
+#stage{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  background: linear-gradient(180deg,#10161b,#0b0f13);
+  box-shadow: 0 8px 30px rgba(0,0,0,.35);
+  overflow: hidden;
+}
+
+/* ชั้นรับอินพุตของเกม — เปิดคลิกเฉพาะชั้นนี้ */
+#gameLayer{
+  position: relative;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 28;
+  pointer-events: auto;            /* เปิดรับคลิก */
+  touch-action: manipulation;
+}
+
+/* host สำหรับสปอนวัตถุ */
+#spawnHost{
+  position: absolute;
+  inset: 0;
+  pointer-events: none !important; /* ตัว host ไม่รับคลิก */
+  z-index: 28;
+}
+
+/* ชิ้น/อีโมจิที่เกิดขึ้น รับคลิกได้ตามปกติ */
 .spawn-emoji{
-  position:absolute; border:0; background:transparent; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
-  font-size:clamp(28px,6vmin,56px); line-height:1; pointer-events:auto !important; z-index:29;
+  position: absolute;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-size: clamp(28px, 6vmin, 56px);
+  line-height: 1;
+  pointer-events: auto !important; /* ชิ้นเกมเท่านั้นที่คลิกได้ */
+  z-index: 29;
   filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
+}
+
+/* จอเตี้ยมาก: ลดความสูงเวทีลงอีกเล็กน้อยเพื่อไม่ให้ชนเมนู */
+@media (max-height: 680px){
+  .game-wrap{
+    height: clamp(380px, 62vh, calc(100vh - var(--header-h) - var(--hud-gap) - var(--menu-h) - 12px));
+  }
+}
+
+/* มือถือแคบ: หดความกว้างเวทีให้พอดี */
+@media (max-width: 420px){
+  .game-wrap{ width: min(96vw, 860px); }
 }
 
 /* ---------- Menu ---------- */
