@@ -1,10 +1,25 @@
-/* === Hero Health Academy — styles/game.css (HUD on-top + Click-safe + Quests/Plate/Hydro FX) === */
+/* === Hero Health Academy — styles/game.css (clean consolidated) === */
+
+/* ---------- Root & Base ---------- */
+:root{
+  /* default layout tokens used by layout formulas */
+  --header-h: 56px;
+  --menu-h: 88px;
+  --hud-gap: 12px;
+  --safe-h: 100vh; /* updated by JS on resize/orientationchange */
+}
+
 html, body{
   margin:0; padding:0; height:100%; width:100%;
   overflow:hidden; background:#0a0f1a; color:#fff;
   font-family: ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
-canvas#c{ position:fixed; inset:0; z-index:0 !important; pointer-events:none !important; }
+
+/* BG Canvas = real background, never blocks clicks */
+canvas#c{
+  position:fixed; inset:0; z-index:-1; /* behind everything */
+  pointer-events:none;
+}
 
 /* ---------- Header ---------- */
 header.brand{
@@ -21,76 +36,31 @@ header .btn, .menu .btn, .menu .tag{
 }
 header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1px); }
 
-/* Stage / Play area: ย้ำการจัดกลางด้วย flex */
-.game-wrap{
-  position:relative;
-  width:100%;
-  height:calc(100vh - 120px);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  overflow:hidden;
-
-  /* (เพิ่ม) มุมมอง 3D สำหรับเอียงไอคอน */
-  perspective: 800px;
-}
-#stage{
-  position:relative;
-  width:min(900px,96vw);
-  height:min(620px,68vh);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:14px;
-  background:linear-gradient(180deg,#10161b,#0b0f13);
-  box-shadow:0 8px 30px rgba(0,0,0,.35);
-  margin:auto;            /* เผื่อบางธีม */
-}
-#gameLayer{
-  position:relative;
-  inset:0;
-  width:100%;
-  height:100%;
-  z-index:28;
-  pointer-events:auto;
-  touch-action:manipulation;
-
-  /* (เพิ่ม) คงโครงสร้าง 3D ภายใน */
-  transform-style: preserve-3d;
-}
-.spawn-emoji{
-  position:absolute;
-  border:0;
-  background:transparent;
-  cursor:pointer;
-  user-select:none;
-  -webkit-tap-highlight-color:transparent;
-  font-size:clamp(28px,6vmin,56px);
-  line-height:1;
-  pointer-events:auto !important;
-  z-index:29;
-  filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
-
-  /* (เพิ่ม) รองรับเอียง 3D ลื่น ๆ */
-  transform-style: preserve-3d;
-  will-change: transform, filter, opacity;
-}
-/* wrapper สำหรับโซนเล่น — ลอยกลางจอแนวตั้ง/แนวนอน */
+/* ---------- Stage / Play area ---------- */
+/* Wrapper floats at center and defines overall height using safe tokens */
 .game-wrap{
   position: fixed;
   left: 50%;
-  /* จัดกลางแนวตั้งโดยเผื่อ header/hud และเมนูด้านล่างให้พ้นสายตา */
   top: calc(50% + (var(--header-h) - var(--menu-h)) * 0.0);
   transform: translate(-50%, -50%);
   z-index: 5;
+
   width: min(94vw, 900px);
-  /* ความสูงยืดหยุ่น: จำกัดให้อยู่ระหว่าง 420–68vh และไม่ชนหัว/ท้าย */
-  height: clamp(420px, 68vh, calc(100vh - var(--header-h) - var(--hud-gap) - var(--menu-h) - 18px));
+  height: clamp(420px, 68vh, calc(var(--safe-h) - var(--header-h) - var(--hud-gap) - var(--menu-h) - 18px));
+
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none; /* ให้คลิกทะลุ wrapper (จะเปิดเฉพาะชั้นเล่นจริง) */
+
+  /* game clicks should not be blocked by wrapper itself */
+  pointer-events: none;
+
+  /* 3D scene perspective for nicer tilts */
+  perspective: 900px;
+  transform-style: preserve-3d;
 }
 
-/* กรอบเวทีเล่นจริง (เนื้อเกม) */
+/* The actual stage bounds */
 #stage{
   position: relative;
   width: 100%;
@@ -102,26 +72,29 @@ header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1
   overflow: hidden;
 }
 
-/* ชั้นรับอินพุตของเกม — เปิดคลิกเฉพาะชั้นนี้ */
+/* Input layer = the ONLY layer that accepts clicks in gameplay area */
 #gameLayer{
   position: relative;
   inset: 0;
   width: 100%;
   height: 100%;
   z-index: 28;
-  pointer-events: auto;            /* เปิดรับคลิก */
+  pointer-events: auto;            /* accepts clicks */
   touch-action: manipulation;
+
+  /* keep children’s 3D transforms */
+  transform-style: preserve-3d;
 }
 
-/* host สำหรับสปอนวัตถุ */
+/* host for dynamically spawned objects (itself is click-through) */
 #spawnHost{
   position: absolute;
   inset: 0;
-  pointer-events: none !important; /* ตัว host ไม่รับคลิก */
+  pointer-events: none; /* child nodes will toggle pointer-events */
   z-index: 28;
 }
 
-/* ชิ้น/อีโมจิที่เกิดขึ้น รับคลิกได้ตามปกติ */
+/* spawned clickables (e.g., emojis/items) */
 .spawn-emoji{
   position: absolute;
   border: 0;
@@ -131,21 +104,21 @@ header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1
   -webkit-tap-highlight-color: transparent;
   font-size: clamp(28px, 6vmin, 56px);
   line-height: 1;
-  pointer-events: auto !important; /* ชิ้นเกมเท่านั้นที่คลิกได้ */
+  pointer-events: auto; /* clickable */
   z-index: 29;
   filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
+  transform: translateZ(0);
+  will-change: transform, opacity, filter;
 }
 
-/* จอเตี้ยมาก: ลดความสูงเวทีลงอีกเล็กน้อยเพื่อไม่ให้ชนเมนู */
+/* Responsive tweaks */
 @media (max-height: 680px){
   .game-wrap{
-    height: clamp(380px, 62vh, calc(100vh - var(--header-h) - var(--hud-gap) - var(--menu-h) - 12px));
+    height: clamp(380px, 62vh, calc(var(--safe-h) - var(--header-h) - var(--hud-gap) - var(--menu-h) - 12px));
   }
 }
-
-/* มือถือแคบ: หดความกว้างเวทีให้พอดี */
 @media (max-width: 420px){
-  .game-wrap{ width: min(96vw, 860px); }
+  .game-wrap{ width: min(96vw, 900px); }
 }
 
 /* ---------- Menu ---------- */
@@ -160,7 +133,7 @@ header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1
 
 /* ---------- HUD (Score/Combo/Time + Fever + Coach) ---------- */
 #hudWrap{
-  position:fixed; top:56px; left:0; right:0; z-index:95; /* สูงกว่า quests/plate/hydro */
+  position:fixed; top:calc(8px + var(--header-h)); left:0; right:0; z-index:95;
   display:flex; flex-direction:column; align-items:center; gap:6px;
   pointer-events:none; visibility:visible !important; opacity:1 !important;
 }
@@ -175,7 +148,7 @@ header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1
 .fever{ font:900 18px/1 ui-rounded, system-ui; color:#ffd54a; }
 
 #coachHUD{
-  position:fixed; top:104px; left:50%; transform:translateX(-50%);
+  position:fixed; top:calc(48px + var(--header-h)); left:50%; transform:translateX(-50%);
   z-index:96; pointer-events:none !important; display:flex !important;
 }
 #coachText{
@@ -277,8 +250,13 @@ header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1
 }
 .toast.show{ opacity:1; transform:translate(-50%, 0); }
 
-/* ---------- Modal ---------- */
-.modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:9999; background:rgba(0,0,0,.45); backdrop-filter:blur(2px); }
+/* ---------- Modal (works with [hidden]) ---------- */
+.modal{
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+  display:flex; align-items:center; justify-content:center;
+}
+.modal[hidden]{ display:none; }
 .modal .card{
   max-width:min(92vw,720px); width:clamp(280px,88vw,560px);
   max-height:min(86vh,680px); overflow:auto; padding:16px; border-radius:16px;
@@ -298,28 +276,16 @@ body.dim-penalty::before{
 }
 @keyframes dimPen{ 0%{opacity:.8} 100%{opacity:0} }
 
-/* ---------- Clickability rules (safe) ---------- */
-#menuBar, header.brand, .menu .btn, .menu .tag, [data-action], [data-result]{ pointer-events:auto !important; }
-#hudWrap, #coachHUD, #targetWrap, #plateTracker, #hydroWrap, #missionLine, #questChips{ pointer-events:none !important; }
-button[data-action], .btn[data-action], [role="button"][data-action]{ pointer-events:auto !important; cursor:pointer; }
-#screenBlocker, #cover, .modal-backdrop{ pointer-events:none !important; }
+/* ---------- Clickability rules (centralized & safe) ---------- */
+#menuBar, header.brand, .menu .btn, .menu .tag, [data-action], [data-result]{
+  pointer-events:auto;
+}
+#hudWrap, #coachHUD, #targetWrap, #plateTracker, #hydroWrap, #missionLine, #questChips{
+  pointer-events:none !important; /* ensure HUD never blocks gameplay */
+}
+button[data-action], .btn[data-action], [role="button"][data-action]{
+  pointer-events:auto; cursor:pointer;
+}
 
 /* ---------- Accessibility ---------- */
 :focus-visible{ outline:2px solid #7fffd4; outline-offset:2px; }
-/* --- Ensure play area has 3D perspective --- */
-.game-wrap{
-  position:relative; width:100%; height:calc(100vh - 120px);
-  display:flex; align-items:center; justify-content:center; overflow:hidden;
-  perspective: 900px;               /* <— เติม */
-  transform-style: preserve-3d;     /* <— เติม */
-}
-
-/* --- Make targets render in 3D plane and clickable --- */
-.spawn-emoji{
-  position:absolute; border:0; background:transparent; cursor:pointer; user-select:none;
-  -webkit-tap-highlight-color:transparent;
-  font-size:clamp(28px,6vmin,56px); line-height:1;
-  pointer-events:auto !important; z-index:29;
-  transform: translateZ(0);         /* <— เติม */
-  will-change: transform, opacity;
-}
