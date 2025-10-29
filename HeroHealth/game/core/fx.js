@@ -8,6 +8,12 @@ function ensureFXRoot(){
   // prefers-reduced-motion
   try { REDUCE_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch {}
 
+  // ถ้ายังไม่มี <body> ให้รอจนพร้อม
+  if (!document.body) {
+    document.addEventListener('DOMContentLoaded', ensureFXRoot, { once:true });
+    return null;
+  }
+
   const root = document.createElement('div');
   root.className = 'fx3d-root';
   Object.assign(root.style, {
@@ -54,7 +60,7 @@ export function add3DTilt(el, opts = {}){
   el.classList.add('tilt3d');
 
   // ใช้ rAF กัน pointermove รัว ๆ
-  let rect = null, needUpd = false, lastX = 0, lastY = 0, af = 0;
+  let rect = null, lastX = 0, lastY = 0, af = 0;
 
   const measure = ()=>{ try { rect = el.getBoundingClientRect(); } catch { rect = null; } };
   const schedule = ()=>{
@@ -117,6 +123,7 @@ export function remove3DTilt(el){
 export function shatter3D(x, y, opts = {}){
   if (REDUCE_MOTION) return;
   const root = ensureFXRoot();
+  if (!root) return;
 
   const color1 = opts.color1 || '#ffd54a';
   const color2 = opts.color2 || '#ff6d00';
