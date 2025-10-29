@@ -224,7 +224,10 @@
   <div class="modal" id="result" role="dialog" aria-modal="true" aria-label="Result">
     <div class="box" style="text-align:center">
       <h3>จบเกม</h3>
-      <p id="resultText" style="opacity:.9;margin:.4rem 0 1rem">คะแนนของคุณจะสรุปที่นี่</p>
+      <!-- 🔹 UPDATED: include #finalScore for main.js -->
+      <p id="resultText" style="opacity:.9;margin:.4rem 0 1rem">
+        คะแนน: <b id="finalScore">0</b>
+      </p>
       <div id="pbRow" style="font:700 13px ui-rounded;margin:.5rem 0;opacity:.9"></div>
       <div id="miniTop" style="text-align:left;background:#0b1626;border:1px solid #19304e;border-radius:10px;padding:10px;max-height:200px;overflow:auto"></div>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:10px">
