@@ -1,9 +1,8 @@
 // === Hero Health Academy — game/modes/goodjunk.js
-// (2025-10-28) DOM-spawn version compatible with main.js factory pattern
-// - Click the healthy foods (GOOD), avoid the junk (JUNK)
-// - Anti-repeat emoji, soft penalty (combo reset + screen flash), golden items
-// - Dynamic spawn & lifetime, end-phase speedup, freeze-on-bad 300ms
-// - Uses #spawnHost inside #gameLayer; respects global HUD click-through patches
+// (2025-10-29) DOM-spawn version — safe bounds + preflight + 3D tilt hook
+// - Click healthy foods (GOOD), avoid JUNK
+// - Anti-repeat, soft penalty (flash + short freeze), golden items
+// - End-phase speedup (≤15s), spawn bound to #gameLayer, items live inside frame
 
 export const name = 'goodjunk';
 
@@ -18,22 +17,29 @@ function pickNonRepeat(pool){
   _lastEmoji = e; return e;
 }
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+const rand  = (a,b)=> a + Math.random()*(b-a);
 
 // Factory expected by main.js
 export function create({ engine, hud, coach }) {
-  const host = document.getElementById('spawnHost');
+  const host  = document.getElementById('spawnHost');
   const layer = document.getElementById('gameLayer');
 
   const state = {
     running: false,
     items: [],             // { el, x, y, born, life, meta }
-    spawnCd: 0,            // time until next spawn (s)
-    baseSpawn: 0.85,       // base spawn interval (s)
-    lifeMs: { min: 950, max: 1700 },
-    freezeUntil: 0,        // performance.now() when freeze ends
+    spawnCd: 0,
+    baseSpawn: 0.85,
+    lifeMs: { min: 980, max: 1700 },
+    freezeUntil: 0,
     stats: { good:0, perfect:0, bad:0, miss:0 },
-    _bus: null,            // set on update(dt, Bus)
+    _bus: null,
     _endSpeedApplied: false
+  };
+
+  // ---- helpers ----
+  const safeRect = ()=> {
+    const r = layer?.getBoundingClientRect?.() || { width:0, height:0, left:0, top:0 };
+    return (r.width>=50 && r.height>=50) ? r : null;
   };
 
   function start(opts={}){
@@ -46,6 +52,19 @@ export function create({ engine, hud, coach }) {
     state.freezeUntil = 0;
     state.stats = { good:0, perfect:0, bad:0, miss:0 };
     state._endSpeedApplied = false;
+
+    // Ensure host layout (click-through on host; targets clickable)
+    if (host){
+      host.style.position = 'absolute';
+      host.style.inset = '0';
+      host.style.pointerEvents = 'none';
+      host.style.zIndex = '28';
+    }
+
+    // Preflight: wait one frame if play area not measurable yet
+    if (!safeRect()){
+      requestAnimationFrame(()=>{ state.spawnCd = 0.05; });
+    }
 
     // HUD cues
     hud.setTarget('—');
@@ -62,7 +81,7 @@ export function create({ engine, hud, coach }) {
     if (!state.running) return;
     state._bus = Bus;
 
-    // Apply end-phase speed up (last 15s): slightly faster spawns & shorter lives once
+    // End-phase speed up (last 15s)
     const timeLeft = Number(document.getElementById('time')?.textContent||'0')|0;
     if (!state._endSpeedApplied && timeLeft <= 15) {
       state._endSpeedApplied = true;
@@ -75,63 +94,61 @@ export function create({ engine, hud, coach }) {
     const now = performance.now();
     const frozen = now < state.freezeUntil;
 
-    // Spawn logic (skip while frozen)
+    // Spawn logic (skip while frozen / when playarea invalid)
     if (!frozen){
       state.spawnCd -= dt;
       if (state.spawnCd <= 0) {
-        spawnOne();
-        // dynamic spawn based on very rough “heat” (fever bar ~ via recent clicks)
-        const heat = 0.5; // could be mapped from App.fever via Bus.hud later
-        const jitter = (Math.random()*0.25);
-        state.spawnCd = clamp(state.baseSpawn - heat*0.12 + jitter, 0.38, 1.2);
+        if (safeRect()){
+          spawnOne();
+          // dynamic spawn cadence
+          const heat = 0.5; // TODO: map from fever in Bus if available
+          const jitter = (Math.random()*0.25);
+          state.spawnCd = clamp(state.baseSpawn - heat*0.12 + jitter, 0.38, 1.2);
+        } else {
+          state.spawnCd = 0.08; // retry soon after layout settles
+        }
       }
     }
 
     // Tick life & cull
+    const r = safeRect();
+    const now2 = performance.now();
     const toRemove = [];
-    const rect = layer.getBoundingClientRect();
     for (const it of state.items){
-      if (now - it.born > it.life) {
-        // timed out → miss if it was GOOD (we missed a healthy choice)
+      if (now2 - it.born > it.life) {
         toRemove.push(it);
         if (it.meta.good) {
-          Bus?.miss?.();
           state.stats.miss++;
+          state._bus?.miss?.();
         }
         try { it.el.remove(); } catch {}
-      } else {
-        // soft idle animation optional (skip for perf)
-        // it.el.style.translate = `0 ${Math.sin((now-it.born)/220)*2}px`;
+      } else if (r) {
+        // keep items inside bounds if container resized
+        const pad = 24;
+        if (it.x < pad || it.x > r.width-pad || it.y < pad || it.y > r.height-pad){
+          it.x = clamp(it.x, pad, r.width - pad);
+          it.y = clamp(it.y, pad, r.height - pad);
+          it.el.style.left = it.x + 'px';
+          it.el.style.top  = it.y + 'px';
+        }
       }
     }
-    // purge
     if (toRemove.length){
       state.items = state.items.filter(x=>!toRemove.includes(x));
     }
-
-    // Keep items inside gameplay bounds (defensive on resize)
-    for (const it of state.items){
-      // if parent layout changed, clamp positions
-      const w = rect.width, h = rect.height;
-      const pad = 24;
-      if (it.x < pad || it.x > w-pad || it.y < pad || it.y > h-pad){
-        it.x = clamp(it.x, pad, w-pad);
-        it.y = clamp(it.y, pad, h-pad);
-        it.el.style.left = it.x + 'px';
-        it.el.style.top  = it.y + 'px';
-      }
-    }
   }
 
-  function onClick(x, y){ /* mode handles per-item clicks via button listeners */ }
+  function onClick(x, y){ /* per-item buttons handle clicks */ }
 
   /* ---------------- internals ---------------- */
 
   function spawnOne(){
     if (!host) return;
-    const rect = layer.getBoundingClientRect();
+    const rect = safeRect();
+    if (!rect){ state.spawnCd = 0.08; return; }
+
     const pad = 32;
-    const x = Math.round(pad + Math.random()*(rect.width - pad*2));
+    const x = Math.round(pad + Math.random()*(rect.width  - pad*2));
     const y = Math.round(pad + Math.random()*(rect.height - pad*2));
 
     // 60% good, 40% junk
@@ -139,20 +156,25 @@ export function create({ engine, hud, coach }) {
     const char = isGood ? pickNonRepeat(GOOD) : pickNonRepeat(JUNK);
     const golden = isGood && Math.random() < 0.06;
 
-    const life = clamp( Math.round(rand(state.lifeMs.min, state.lifeMs.max)), 650, 2600 );
+    const life = clamp(Math.round(rand(state.lifeMs.min, state.lifeMs.max)), 650, 2600);
 
     const b = document.createElement('button');
     b.className = 'spawn-emoji';
     b.type = 'button';
     b.style.left = x + 'px';
     b.style.top  = y + 'px';
+    b.style.pointerEvents = 'auto';
+    b.style.transform = 'translateZ(0)'; // ensure in 3D plane
     b.textContent = char;
     if (golden) {
-      b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+      b.style.filter = 'drop-shadow(0 0 12px rgba(255,215,0,.9))';
       b.setAttribute('aria-label', 'Golden Healthy');
     } else {
       b.setAttribute('aria-label', isGood ? 'Healthy' : 'Junk');
     }
+
+    // Optional: 3D tilt if fx module present
+    try { window?.HHA_FX?.add3DTilt?.(b, { maxTilt: 10 }); } catch {}
 
     // Click handler
     b.addEventListener('click', (ev)=>{
@@ -161,24 +183,24 @@ export function create({ engine, hud, coach }) {
 
       const ui = { x: ev.clientX, y: ev.clientY };
       if (isGood){
-        // base points + golden bonus
         const pts = golden ? 20 : 10;
         state.stats[ golden ? 'perfect' : 'good' ]++;
-        // FEEDBACK
-        engine.fx.spawnShards(ui.x, ui.y, { count: golden ? 42 : 26 });
-        engine.fx.popText(`+${pts}${golden?' ✨':''}`, { x: ui.x, y: ui.y, ms: 700 });
-        // Coach
-        if (golden) coach.onPerfect(); else coach.onGood();
-        // Score via bus
+
+        // FX
+        try { engine.fx.spawnShards(ui.x, ui.y, { count: golden ? 42 : 26 }); } catch {}
+        try { engine.fx.popText(`+${pts}${golden?' ✨':''}`, { x: ui.x, y: ui.y, ms: 720 }); } catch {}
+
+        // Bus / Coach
         state._bus?.hit?.({ kind: golden ? 'perfect' : 'good', points: pts, ui });
+        try { golden ? coach.onPerfect?.() : coach.onGood?.(); } catch {}
       } else {
-        // BAD: soft penalty (reset combo handled in bus.miss), short freeze
+        // BAD
         state.stats.bad++;
         document.body.classList.add('flash-danger');
         setTimeout(()=> document.body.classList.remove('flash-danger'), 160);
         state.freezeUntil = Math.max(state.freezeUntil, performance.now() + 300);
-        coach.onBad();
         state._bus?.miss?.();
+        try { coach.onBad?.(); } catch {}
       }
 
       // remove clicked
@@ -191,8 +213,7 @@ export function create({ engine, hud, coach }) {
 
     // track
     state.items.push({
-      el: b,
-      x, y,
+      el: b, x, y,
       born: performance.now(),
       life,
       meta: { good: isGood, golden, char }
@@ -200,10 +221,7 @@ export function create({ engine, hud, coach }) {
   }
 
   function clearAll(){
-    // remove DOM elements
-    try {
-      for (const it of state.items) it.el.remove();
-    } catch {}
+    try { for (const it of state.items) it.el.remove(); } catch {}
     state.items.length = 0;
   }
 
@@ -212,8 +230,6 @@ export function create({ engine, hud, coach }) {
     state.freezeUntil = 0;
   }
 
-  function rand(a,b){ return a + Math.random()*(b-a); }
-
-  // Public mode surface
+  // Public surface
   return { start, stop, update, onClick, cleanup };
 }
