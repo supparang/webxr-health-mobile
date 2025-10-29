@@ -1,79 +1,53 @@
-// === Hero Health Academy — core/hud.js (quests-ready minimal) ===
-export class HUD {
+// === HUD (score/time/combo + quests + simple coach + FX popText) ===
+export class HUD{
   constructor(){
-    this._scoreEl = document.getElementById('score');
-    this._timeEl  = document.getElementById('time');
-    this._comboEl = null; // ถ้ามี element แยก ให้ bind เพิ่มได้
-    this._toastEl = document.getElementById('toast');
-    this._coachEl = document.getElementById('coachHUD');
-    this._coachTx = document.getElementById('coachText');
-    this._questUl = document.getElementById('questChips');
-    this._targetWrap = document.getElementById('targetWrap');
+    this.scoreEl = document.getElementById('score');
+    this.timeEl  = document.getElementById('time');
+    this.comboEl = null; // rendered inside toast/coach if needed
+    this.questHost = document.getElementById('questChips');
+    this.toastEl = document.getElementById('toast');
+    this.coachBox = document.getElementById('coachHUD');
+    this.coachText = document.getElementById('coachText');
   }
-
-  /* === Score/Time/Combo === */
-  setScore(n){ if (this._scoreEl) this._scoreEl.textContent = String(n|0); }
-  setTime(s){ if (this._timeEl)  this._timeEl.textContent  = String(s|0); }
-  setCombo(t){ /* ถ้ามี element แสดงคอมโบ ให้เติมที่นี่; หรือแสดงเป็น toast */ }
-
-  /* === Power/Hydration/Effects (เรียกจาก main/game modes) === */
-  setFeverProgress(p01){ /* ถ้าทำแถบไว้ ค่อยอัปเดตความกว้าง */ }
-  setPowerTimers(timers){ /* ถ้ามี UI power bar ให้แสดงค่า timers.x2/freeze/shield ฯลฯ */ }
-  showHydration(zone, pct){
-    // ถ้ามี UI hydration bar ในหน้า hub ให้สลับสี/ตำแหน่งเข็มตรงนี้
-  }
-  flashDanger(){
-    document.body.classList.add('flash-danger');
-    setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
-  }
-  dimPenalty(){
-    // เอฟเฟกต์เบาลงตอนพลาดซ้ำ ๆ (ทางเลือก)
-  }
-
-  /* === Coach/Toast === */
-  say(text, ms=900){
-    if (!this._coachEl || !this._coachTx) return;
-    this._coachTx.textContent = text;
-    this._coachEl.classList.add('show');
-    clearTimeout(this._coachT);
-    this._coachT = setTimeout(()=>this._coachEl.classList.remove('show'), ms);
-  }
+  dispose(){ /* clear any timeouts if you kept some */ }
+  setScore(v){ if(this.scoreEl) this.scoreEl.textContent = v|0; }
+  setTime(v){  if(this.timeEl)  this.timeEl.textContent  = v|0; }
+  setCombo(txt){ /* optional small combo: show in toast briefly */ }
+  flashDanger(){ document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160); }
   toast(text, ms=900){
-    const el = this._toastEl; if (!el) return;
-    el.textContent = text; el.classList.add('show');
-    clearTimeout(this._toastT);
-    this._toastT = setTimeout(()=>el.classList.remove('show'), ms);
+    if(!this.toastEl){ const el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); this.toastEl=el; }
+    this.toastEl.textContent = text; this.toastEl.classList.add('show'); setTimeout(()=>this.toastEl.classList.remove('show'), ms);
   }
-  dispose(){
-    clearTimeout(this._coachT); clearTimeout(this._toastT);
+  say(text, ms=900){
+    if (!this.coachBox || !this.coachText) return;
+    this.coachText.textContent = text;
+    this.coachBox.classList.add('show');
+    setTimeout(()=> this.coachBox.classList.remove('show'), ms);
   }
+  setFeverProgress(){ /* visual optional */ }
+  setPowerTimers(){ /* power HUD optional */ }
 
-  /* === Quests HUD === */
-  setQuestChips(list){
-    if (!this._questUl) return;
-    // list: [{key,id,icon,need,progress,done,fail,label,remain}]
-    this._questUl.innerHTML = (list||[]).map(q=>{
-      const pct = Math.min(100, Math.round(((q.progress|0)/(q.need||1))*100));
-      return `<li data-q="${q.key}" class="${q.done?'done':''} ${q.fail?'fail':''}">
-        <i>${q.icon||'⭐'}</i>
-        <span>${escapeHtml(q.label||'')}</span>
-        <span>${q.progress|0}/${q.need|0}</span>
-        <span class="bar"><b style="width:${pct}%"></b></span>
-      </li>`;
-    }).join('');
+  // ==== Quests chips ====
+  setQuestChips(list=[]){
+    if(!this.questHost) return;
+    const html = list.map(q=>`<li class="pill" data-q="${q.key}">${q.icon} <b>${q.label||''}</b> <span>${q.progress}/${q.need}</span></li>`).join('');
+    this.questHost.innerHTML = html;
   }
   markQuestDone(qid){
-    const li = this._questUl?.querySelector(`[data-q="${CSS.escape(qid)}"]`);
-    if (li) li.classList.add('done');
+    const el = this.questHost?.querySelector?.(`.pill[data-q="${qid}"]`);
+    if (el){ el.classList.add('ok'); }
   }
 
-  /* === Target HUD (สำหรับโหมด groups/plate) === */
-  setTargetLabel(txt){ 
-    const w=this._targetWrap, b=document.getElementById('targetBadge');
-    if (b) b.textContent = txt||'—';
-    if (w && txt) w.style.display = 'inline-flex';
+  // FX helper used by modes
+  popText(text, {x,y,ms=700}={}){
+    const el=document.createElement('div');
+    el.style.position='fixed'; el.style.left=x+'px'; el.style.top=y+'px';
+    el.style.transform='translate(-50%,-50%)'; el.style.font='900 14px ui-rounded';
+    el.style.color='#eaf6ff'; el.style.textShadow='0 2px 8px #000a'; el.style.pointerEvents='none';
+    el.textContent=text; document.body.appendChild(el);
+    const t0=performance.now(); (function tick(){
+      const k=Math.min(1,(performance.now()-t0)/ms); el.style.opacity=String(1-k); el.style.transform=`translate(-50%,-50%) translateY(${-24*k}px)`; if(k<1) requestAnimationFrame(tick); else el.remove();
+    })();
   }
 }
-
-/* helpers */
-function escapeHtml(s){ return String(s).replace(/[&<>"]/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+export const coach = HUD; // back-compat
