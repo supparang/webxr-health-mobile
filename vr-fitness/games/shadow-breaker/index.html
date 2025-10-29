@@ -1,147 +1,151 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Shadow Breaker · VR Fitness</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Shadow Breaker</title>
+  <meta name="description" content="VR Fitness — Shadow Breaker"/>
 
-  <!-- บอก game.js ว่าฐานพาธอยู่ตรงไหน (GitHub Pages) -->
-  <meta name="asset-base" content="/webxr-health-mobile/vr-fitness">
-
-  <!-- A-Frame (CDN) + crossorigin เพื่อได้ stacktrace จริงเวลา error -->
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js" crossorigin="anonymous"></script>
-
-  <link rel="stylesheet" href="/webxr-health-mobile/vr-fitness/core/themes/sport-tech.css"/>
   <style>
-    .shake-scene{ animation: shake .24s linear; }
-    @keyframes shake { 25%{transform:translateX(2px)} 50%{transform:translateX(-2px)} 75%{transform:translateX(2px)}}
-    #bossBar{position:fixed;left:50%;top:8px;transform:translateX(-50%);width:60%;height:14px;background:#0b1118;border:1px solid #193044;border-radius:10px;display:none}
-    #bossHPFill{height:100%;width:100%;background:#ff3355;border-radius:10px}
-    #bossBar.rage #bossHPFill{background:#ff7a33}
-    #hud{position:fixed;left:8px;top:8px;background:rgba(0,0,0,.35);color:#e6f7ff;padding:6px 10px;border-radius:10px;font:600 13px system-ui}
-    #results{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);color:#e6f7ff}
-    .btn{padding:8px 12px;border:0;border-radius:10px;background:#0e2233;color:#e6f7ff;cursor:pointer}
-    .card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px 16px}
+    :root{
+      --bg:#0b1322; --panel:#0f1a30; --panel-2:#0b1730;
+      --txt:#eaf2ff; --muted:#9bb1d6; --accent:#4da3ff; --danger:#ff5e7a;
+      --good:#6cff9c; --warn:#ffd36c;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+    .wrap{min-height:100%;display:grid;grid-template-rows:auto 1fr auto}
+    header{display:flex;gap:.75rem;align-items:center;padding:.75rem 1rem;background:linear-gradient(180deg,#0c1528,#0a1221);position:sticky;top:0;z-index:10}
+    header h1{font-size:1.2rem;margin:0}
+    main{display:grid;grid-template-columns:1fr 320px;gap:12px;padding:12px}
+    @media (max-width:900px){ main{grid-template-columns:1fr} }
+    .stage{background:radial-gradient(1200px 500px at 50% -50%,#17305e20,#0000), linear-gradient(180deg,#0d1b35,#0a1326); border:1px solid #1b2a48; border-radius:16px; min-height:60vh; position:relative; overflow:hidden}
+    canvas#gameCanvas{position:absolute;inset:0; display:block; width:100%; height:100%}
+    .hud{position:absolute;inset:0; pointer-events:none}
+    .hud .bar{position:absolute;left:12px;right:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
+    .hud .top{top:10px}
+    .hud .bot{bottom:10px}
+    .chip{pointer-events:auto; background:var(--panel); border:1px solid #1e2d4f; border-radius:12px; padding:.45rem .65rem; display:inline-flex; gap:.5rem; align-items:center; color:var(--txt)}
+    .muted{color:var(--muted)}
+    .controls{display:grid;gap:10px; background:var(--panel-2); border:1px solid #1b2a48; border-radius:16px; padding:12px}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    label{font-size:.9rem}
+    select,button{appearance:none; background:#132245; color:var(--txt); border:1px solid #1e2d4f; border-radius:10px; padding:.55rem .7rem; font-size:.95rem}
+    button{cursor:pointer}
+    button.primary{background:linear-gradient(180deg,#2a6be8,#1b4db5); border-color:#2a6be8}
+    button.warn{background:linear-gradient(180deg,#e86b6b,#b51b34); border-color:#e86b6b}
+    button.ghost{background:#0d1c3a}
+    button:disabled{opacity:.55; pointer-events:none}
+    .card{background:var(--panel-2); border:1px solid #1b2a48; border-radius:16px; padding:12px}
+
+    /* RESULT PANEL */
+    .result-panel{ display:none; position:absolute; inset:0; backdrop-filter:blur(6px);
+      background:linear-gradient(180deg,#0a1122dd,#0a1122ee); padding:24px; align-content:center; justify-items:center; text-align:center}
+    .result-panel.is-visible{ display:grid }
+    .result-panel h2{margin:.2rem 0 1rem 0}
+    .stars span{font-size:1.4rem; margin:0 .1rem}
+    .grid{display:grid; gap:6px; grid-template-columns:1fr 1fr; max-width:520px; width:100%}
+    .grid .cell{background:#0e1a34; border:1px solid #1a2a4e; border-radius:12px; padding:.6rem .8rem; display:flex; justify-content:space-between}
+    .note{font-size:.9rem; color:var(--muted)}
+
+    /* helper */
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.9rem; background:#0a1a36; border:1px solid #1e2d4f; padding:.15rem .4rem; border-radius:6px}
   </style>
 </head>
 <body>
-  <a-scene renderer="colorManagement: true">
-    <!-- กล้อง + เมาส์เคอร์เซอร์ + raycaster จิ้มเฉพาะ .clickable -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity
-        id="cam"
-        camera
-        look-controls
-        cursor="rayOrigin: mouse"
-        raycaster="objects: .clickable; interval: 0; far: 100">
-      </a-entity>
-    </a-entity>
+<div class="wrap">
+  <header>
+    <h1>Shadow Breaker</h1>
+    <span class="muted">VR/PC/Mobile</span>
+  </header>
 
-    <!-- แสงพื้นฐาน ให้โมเดล/ชิ้นส่วน HP/หน้ากากเห็นชัดขึ้น -->
-    <a-entity light="type: ambient; color: #ffffff; intensity: 0.45"></a-entity>
-    <a-entity light="type: directional; color: #ffffff; intensity: 0.55" position="1 2 1"></a-entity>
+  <main>
+    <!-- ===== Game Stage ===== -->
+    <section class="stage card">
+      <canvas id="gameCanvas"></canvas>
 
-    <!-- สนาม/มือ/ฉาก -->
-    <a-entity id="arena" position="0 0 0"></a-entity>
-    <a-entity id="leftHand"  hand-speed position="-0.4 1.2 -1"></a-entity>
-    <a-entity id="rightHand" hand-speed position="0.4 1.2 -1"></a-entity>
-    <a-entity position="0 1.5 -3">
-      <a-plane width="6" height="3" color="#0a0f14" opacity="0.65"></a-plane>
-    </a-entity>
-  </a-scene>
-
-  <!-- HUD -->
-  <div id="hud">
-    <div>Score: <span id="score">0</span></div>
-    <div>Combo: <span id="combo">0</span> · <span id="phaseLabel">Phase 1</span></div>
-    <div>Time: <span id="time">60</span>s</div>
-  </div>
-  <div id="bossBar"><div id="bossHPFill"></div></div>
-
-  <!-- Results -->
-  <section id="results">
-    <div class="card" style="min-width:300px">
-      <h3 style="margin:0 0 8px">RESULTS</h3>
-      <div style="margin-bottom:8px">Diff: <b id="rDiff">NORMAL</b> · Stars: <b id="rStars">☆☆☆</b></div>
-      <div>Score: <b id="rScore">0</b></div>
-      <div>Max Combo: <b id="rMaxCombo">0</b></div>
-      <div>Accuracy: <b id="rAcc">0%</b></div>
-      <div style="margin-top:10px; display:flex; gap:8px">
-        <button class="btn" id="replayBtn">Replay</button>
-        <button class="btn" id="backBtn">Back to Hub</button>
+      <!-- HUD -->
+      <div class="hud">
+        <div class="bar top">
+          <div class="chip">Time: <strong id="lblTime">60</strong>s</div>
+          <div class="chip">Score: <strong id="lblScore">0</strong></div>
+          <div class="chip">Combo: <strong id="lblCombo">0</strong></div>
+          <div class="chip">MaxCombo: <strong id="lblMaxCombo">0</strong></div>
+          <div class="chip">Acc: <strong id="lblAccuracy">0%</strong></div>
+        </div>
+        <div class="bar bot">
+          <div class="chip muted">Tips: Hit pads. Avoid <span style="color:var(--danger)">Bombs</span>.</div>
+          <div class="chip muted">Pause: <span class="kbd">P</span></div>
+        </div>
       </div>
-    </div>
-  </section>
 
-  <!-- ปุ่มควบคุม -->
-  <div style="position:fixed;bottom:12px;left:12px;display:flex;gap:8px;z-index:9999">
-    <button class="btn" id="startBtn">Start</button>
-    <button class="btn" id="pauseBtn">Pause</button>
-    <button class="btn" id="bankBtn">Bank</button>
-  </div>
+      <!-- RESULT -->
+      <div id="resultPanel" class="result-panel" aria-hidden="true">
+        <h2>RESULTS</h2>
+        <div class="stars" id="starWrap">☆☆☆☆☆</div>
+        <div class="grid" style="margin:10px 0 16px">
+          <div class="cell"><span>Score</span><strong id="resScore">0</strong></div>
+          <div class="cell"><span>Max Combo</span><strong id="resMaxCombo">0</strong></div>
+          <div class="cell"><span>Accuracy</span><strong id="resAcc">0%</strong></div>
+          <div class="cell"><span>Difficulty</span><strong id="resDiff">NORMAL</strong></div>
+        </div>
+        <div class="note">Press <span class="kbd">R</span> to Restart or use the buttons.</div>
+      </div>
+    </section>
 
-  <!-- Core -->
-  <script src="/webxr-health-mobile/vr-fitness/core/i18n.js" defer></script>
-  <script src="/webxr-health-mobile/vr-fitness/core/audio.js" defer></script>
-  <script src="/webxr-health-mobile/vr-fitness/core/engine.js" defer></script>
-  <script src="/webxr-health-mobile/vr-fitness/core/ui.js" defer></script>
-  <script src="/webxr-health-mobile/vr-fitness/core/leaderboard.js" defer></script>
+    <!-- ===== Controls / Side Panel ===== -->
+    <aside class="controls">
+      <div class="row">
+        <label for="selDiff">Difficulty</label>
+        <select id="selDiff">
+          <option value="easy">Easy</option>
+          <option value="normal" selected>Normal</option>
+          <option value="hard">Hard</option>
+          <option value="final">Final</option>
+        </select>
+      </div>
 
-  <!-- Game -->
-  <script src="/webxr-health-mobile/vr-fitness/games/shadow-breaker/game.js" defer></script>
+      <div class="row">
+        <button id="btnStart" class="primary">Start</button>
+        <button id="btnPause" class="ghost">Pause / Resume</button>
+        <button id="btnEnd"   class="warn">End</button>
+      </div>
 
-  <!-- Diagnostic: แสดงเออร์เรอร์ละเอียด (ไฟล์/ไลน์) -->
-  <script>
-    window.addEventListener('error', function(e){
-      const msg = (e.message || 'unknown') + (e.filename? (' @ ' + e.filename + ':' + (e.lineno||0) + ':' + (e.colno||0)) : '');
-      let o=document.getElementById('fatal'); if(!o){ o=document.createElement('div'); o.id='fatal';
-        Object.assign(o.style,{position:'fixed',inset:'0',background:'#0b1118',color:'#ffb4b4',
-          display:'grid',placeItems:'center',font:'14px/1.5 system-ui',zIndex:99999}); document.body.appendChild(o);}
-      o.innerHTML='<div style="max-width:720px;padding:20px;text-align:center"><h2>⚠️ JS Error</h2><pre style="white-space:pre-wrap;text-align:left">'+msg+'</pre><p>ตรวจพาธสคริปต์/ไฟล์ และลองรีโหลด</p></div>';
-    });
-  </script>
+      <div class="card">
+        <div style="font-weight:600;margin-bottom:6px">Controls</div>
+        <div class="muted" style="line-height:1.6">
+          • Mouse/Touch: Click pads<br/>
+          • Keyboard: <span class="kbd">P</span> Pause, <span class="kbd">R</span> Restart<br/>
+          • VR: Trigger to hit pads
+        </div>
+      </div>
+    </aside>
+  </main>
 
-  <!-- Difficulty Dropdown -->
-  <div id="diffDock" style="
-    position:fixed; right:12px; bottom:12px; z-index:9999;
-    display:flex; align-items:center; gap:8px;
-    background:rgba(10,16,24,.75); backdrop-filter:saturate(1.1) blur(4px);
-    border:1px solid rgba(255,255,255,.08); border-radius:12px;
-    padding:8px 10px; color:#e6f7ff; font:600 12px system-ui;">
-    <label for="diffSel" style="opacity:.9; letter-spacing:.3px;">Difficulty</label>
-    <select id="diffSel" style="
-      appearance:none; -webkit-appearance:none; -moz-appearance:none;
-      background:#0e2233; color:#e6f7ff; border:1px solid rgba(255,255,255,.12);
-      border-radius:10px; padding:6px 28px 6px 10px; font:600 12px system-ui; cursor:pointer;">
-      <option value="easy">Easy</option>
-      <option value="normal">Normal</option>
-      <option value="hard">Hard</option>
-      <option value="final">Final</option>
-    </select>
-    <span aria-hidden="true" style="margin-left:-22px; pointer-events:none;">▼</span>
-  </div>
-  <script>
-    (function(){
-      const getQ = (k)=> new URLSearchParams(location.search).get(k);
-      const DIFF_KEYS = { easy:1, normal:1, hard:1, final:1 };
-      const current =
-        getQ('diff') ||
-        localStorage.getItem('sb_diff') ||
-        (window.APP && APP.story && APP.story.difficulty) ||
-        'normal';
-      const sel = document.getElementById('diffSel');
-      sel.value = DIFF_KEYS[current] ? current : 'normal';
-      sel.addEventListener('change', function(e){
-        const v = e.target.value;
-        try { localStorage.setItem('sb_diff', v); } catch(_){}
-        const url = new URL(location.href);
-        url.searchParams.set('diff', v);
-        location.href = url.pathname + '?' + url.searchParams.toString();
-      }, { passive: true });
-      document.addEventListener('keydown', function(ev){
-        if ((ev.altKey || ev.metaKey) && (ev.key==='d' || ev.key==='D')) sel.focus();
-      });
-    })();
-  </script>
+  <footer style="padding:10px 12px;color:var(--muted)">
+    Shadow Breaker — part of VR Fitness Academy
+  </footer>
+</div>
+
+<!-- ===== Script ===== -->
+<script src="./game.js"></script>
+<script>
+  // Hotkeys
+  window.addEventListener('keydown', (e)=>{
+    const k = e.key.toLowerCase();
+    if(k==='p') document.getElementById('btnPause')?.click();
+    if(k==='r') document.getElementById('btnStart')?.click();
+  });
+
+  // Hook ตัวอย่างสำหรับสะท้อนค่าตอนจบเกม (ถ้า game.js dispatch อีเวนต์)
+  document.addEventListener('shadowbreaker:finished', (ev)=>{
+    const d = ev.detail || {};
+    const byId = (id)=>document.getElementById(id);
+    byId('resScore') && (byId('resScore').textContent = d.score ?? 0);
+    byId('resMaxCombo') && (byId('resMaxCombo').textContent = d.maxCombo ?? 0);
+    byId('resAcc') && (byId('resAcc').textContent = (d.accuracy!=null? Math.round(d.accuracy*100)+'%' : '0%'));
+    const sel = document.getElementById('selDiff');
+    if (sel && byId('resDiff')) byId('resDiff').textContent = (sel.value||'normal').toUpperCase();
+  });
+</script>
 </body>
 </html>
