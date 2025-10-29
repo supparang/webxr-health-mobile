@@ -1,7 +1,7 @@
-// === Hero Health Academy — game/main.js (2025-10-29, unified + START/Loop fix) ===
-// - Modes: goodjunk | groups | hydration | plate (DOM-spawn)
-// - Adds: mode imports + MODE_MAP + engine Bus + RAF game loop
-// - Features: pause on blur, autoplay guard, result modal, daily mission ping, power HUD, quests HUD
+// === Hero Health Academy — game/main.js (2025-10-29, unified latest) ===
+// Modes: goodjunk | groups | hydration | plate  (DOM-spawn)
+// Systems: HUD, ScoreSystem, PowerUpSystem, MissionSystem, Quests, Progress, Leaderboard, SFX, VRInput
+// Fixes: start delay after layout, RAF loop, spawnHost absolute, result modal, pause/blur
 
 /* ----- Imports (core) ----- */
 import { HUD }            from './core/hud.js';
@@ -14,18 +14,18 @@ import { Progress }       from './core/progression.js';
 import { Leaderboard }    from './core/leaderboard.js';
 import { VRInput }        from './core/vrinput.js';
 
-/* ----- Imports (modes) ----- */
-import * as goodjunk   from './modes/goodjunk.js';
-import * as groups     from './modes/groups.js';
-import * as hydration  from './modes/hydration.js';
-import * as plate      from './modes/plate.js';
-
-const MODE_MAP = { goodjunk, groups, hydration, plate };
-
 /* ----- Shorthands / DOM ----- */
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>[...document.querySelectorAll(s)];
 const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
+
+/* ----- Lazy loaders for modes ----- */
+const MODE_LOADERS = {
+  goodjunk:  ()=>import('./modes/goodjunk.js'),
+  groups:    ()=>import('./modes/groups.js'),
+  hydration: ()=>import('./modes/hydration.js'),
+  plate:     ()=>import('./modes/plate.js'),
+};
 
 /* ----- Globals ----- */
 const App = {
@@ -47,27 +47,11 @@ const App = {
   missionSys: null,
   leader: null,
 
-  // Current mode instance
+  // Mode instance
   modeInst: null,
 
-  // Shared state
-  state: { ctx:{}, missions:[], fever01:0 },
-
-  // FX helpers for modes
-  fx: {
-    popText(txt, {x,y,ms=700}={}){
-      const n=document.createElement('div');
-      n.textContent=txt;
-      n.style.cssText=`position:fixed;left:${x|0}px;top:${y|0}px;transform:translate(-50%,-50%);
-        font:900 14px ui-rounded;color:#eaf6ff;background:#102038e6;border:1px solid #1b2e4b;
-        padding:6px 10px;border-radius:10px;pointer-events:none;z-index:120;opacity:0;transition:opacity .08s, transform .7s`;
-      document.body.appendChild(n);
-      requestAnimationFrame(()=>{ n.style.opacity='1'; n.style.transform=`translate(-50%,-70%)`; });
-      setTimeout(()=>{ try{ n.remove(); }catch{} }, ms);
-    }
-  },
-
-  sfx
+  // State for missions/fever (lightweight)
+  state: { ctx:{}, missions:[], fever01:0 }
 };
 
 /* ========================= Boot ========================= */
@@ -80,9 +64,10 @@ function boot(){
   // Score
   App.score = new ScoreSystem();
   App.score.setHandlers({
-    change: (val,{delta,meta})=>{
+    change: (val,{meta})=>{
       App.hud.setScore(val|0);
-      App.hud.setCombo?.(`x${App.score.combo|0}`);
+      App.hud.setCombo(`x${App.score.combo|0}`);
+      // feed quests on hit kinds (ok/good/perfect/bad)
       if (meta?.kind){
         Quests.event('hit', {
           result: meta.kind,
@@ -96,24 +81,28 @@ function boot(){
   // Power-ups
   App.power = new PowerUpSystem();
   App.power.attachToScore(App.score);
-  App.power.onChange(()=> {
+  App.power.onChange(()=>{
     const t = App.power.getCombinedTimers ? App.power.getCombinedTimers() : App.power.getTimers?.();
-    App.hud.setPowerTimers?.(t || {});
+    App.hud.setPowerTimers(t || {});
   });
 
-  // Missions / Leaderboard / Progress / Quests
+  // Missions
   App.missionSys = new MissionSystem();
-  App.leader     = new Leaderboard({ key:'hha_board_v2', maxKeep:500, retentionDays:365 });
-  Progress.init?.();
+
+  // Leaderboard
+  App.leader = new Leaderboard({ key: 'hha_board_v2', maxKeep: 500, retentionDays: 365 });
+
+  // Progression & Daily
+  Progress.init();
+
+  // Quests HUD binding
   Quests.bindToMain({ hud: App.hud });
   Quests.setLang(App.lang);
 
-  // VR/Gaze (optional chaining to guard versions)
-  VRInput.init?.({ sfx });
-  VRInput.setAimHost?.($('#gameLayer'));
-  VRInput.setDwellMs?.(900);
-  VRInput.setCooldown?.(350);
-  VRInput.setReticleStyle?.({ size: 30, border:'#eaf6ff', progress:'#42f9da' });
+  // VR/Gaze
+  VRInput.init({ sfx });
+  VRInput.setAimHost($('#gameLayer'));
+  VRInput.setDwellMs(900);
 
   // UI bindings
   bindMenu();
@@ -131,9 +120,6 @@ function boot(){
 
   // Paint initial UI
   reflectMenu();
-
-  // Expose starters
-  exposeStarters();
 }
 
 /* ========================= UI: Menu & Controls ========================= */
@@ -153,7 +139,7 @@ function bindMenu(){
     Quests.setLang(App.lang);
   });
 
-  $('#btn_start')?.addEventListener('click', startGame);
+  $('#btn_start')?.addEventListener('click', startGame, { capture:true });
 }
 
 function reflectMenu(){
@@ -161,14 +147,17 @@ function reflectMenu(){
   $('#m_'+App.mode)?.classList.add('active');
   setText('#modeName', tileName(App.mode));
 
-  ['#d_easy','#d_normal','#d_hard'].forEach(sel=> $(sel)?.classList.remove('active'));
+  $$('#d_easy,#d_normal,#d_hard').forEach(c=> c.classList.remove('active'));
   if (App.diff==='Easy')   $('#d_easy')?.classList.add('active');
   if (App.diff==='Normal') $('#d_normal')?.classList.add('active');
   if (App.diff==='Hard')   $('#d_hard')?.classList.add('active');
   setText('#difficulty', App.diff);
 }
 
-function setMode(m){ App.mode = m; reflectMenu(); }
+function setMode(m){
+  App.mode = m;
+  reflectMenu();
+}
 function setDiff(d){
   App.diff = d;
   App.secs = (d==='Easy') ? 50 : (d==='Hard' ? 40 : 45);
@@ -197,7 +186,7 @@ function bindToggles(){
 /* ========================= Help & Result ========================= */
 function bindHelpModal(){
   $('#btn_ok')?.addEventListener('click', ()=> hideModal('#help'));
-  document.querySelectorAll('.chip[data-modal-open], [data-modal-open]').forEach(el=>{
+  document.querySelectorAll('[data-modal-open]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const sel = el.getAttribute('data-modal-open');
       if (sel) showModal(sel);
@@ -209,99 +198,98 @@ function bindResultModal(){
     btn.addEventListener('click', (e)=>{
       const act = e.currentTarget.getAttribute('data-result');
       hideModal('#result');
-      if (act==='replay'){ startGame(); } else { goHome(); }
+      if (act==='replay'){ startGame(); }
     });
+  });
+  $('#btn_open_board')?.addEventListener('click', ()=>{
+    hideModal('#result'); showModal('#boardModal');
   });
 }
 function showModal(sel){ const el = document.querySelector(sel); if (el){ el.style.display='flex'; } }
 function hideModal(sel){ const el = document.querySelector(sel); if (el){ el.style.display='none'; } }
-function goHome(){ $('#menuBar')?.scrollIntoView({ behavior:'smooth', block:'start' }); }
 
-/* ========================= Run Loop + Mode wiring ========================= */
-function startGame(){
-  if (App.running) endGame(true);
+/* ========================= Run Loop ========================= */
+async function startGame(){
+  try{
+    // guard
+    if (App.running) endGame(true);
 
-  // Announce time/diff to modes (plate/hydration use)
-  window.__HHA_TIME = App.secs|0;
-  window.__HHA_DIFF = App.diff;
+    // UI reset
+    $('#result') && ( $('#result').style.display = 'none' );
+    App.hud.dispose();
+    App.hud.setScore(0);
+    App.hud.setTime(App.secs);
+    App.hud.toast(App.lang==='TH' ? 'เริ่มเกม!' : 'Let’s go!', 900);
 
-  // Reset UI & state
-  $('#result')?.style && ( $('#result').style.display = 'none' );
-  App.hud.dispose();
-  App.hud.setScore(0);
-  App.hud.setTime(App.secs);
-  App.hud.toast(App.lang==='TH' ? 'เริ่มเกม!' : 'Let’s go!', 900);
+    // core resets
+    App.score.reset();
+    App.power.dispose();
+    App.state = { ctx:{}, missions:[], fever01:0 };
 
-  App.score.reset();
-  App.power.dispose();
-  App.state = { ctx:{}, missions:[], fever01:0 };
+    // expose diff/time to modes (DOM factory)
+    window.__HHA_DIFF = App.diff;
+    window.__HHA_TIME = App.secs;
 
-  // Begin systems
-  Progress.beginRun?.(App.mode, App.diff, App.lang);
-  Quests.beginRun(App.mode, App.diff, App.lang, App.secs);
+    // progression & quests
+    Progress.beginRun(App.mode, App.diff, App.lang);
+    Quests.beginRun(App.mode, App.diff, App.lang, App.secs);
 
-  // MissionSystem legacy
-  const run = App.missionSys.start(App.mode, { difficulty:App.diff, lang:App.lang, seconds:App.secs, count:3 });
-  App.missionSys.attachToState(run, App.state);
+    // legacy MissionSystem chips (optional)
+    const run = App.missionSys.start(App.mode, { difficulty:App.diff, lang:App.lang, seconds:App.secs, count:3 });
+    App.missionSys.attachToState(run, App.state);
 
-  // Build engine for modes
-  const engine = {
-    score: App.score,
-    sfx: App.sfx || sfx,
-    fx: App.fx,
-    fever: { get active(){ return App.state.fever01>0.75; } }
-  };
+    // load & create current mode
+    const mod = await (MODE_LOADERS[App.mode]?.() || MODE_LOADERS.goodjunk());
+    App.modeInst?.stop?.();
+    App.modeInst = mod.create?.({
+      engine: { score: App.score, sfx, fx: App.hud },
+      hud: App.hud,
+      coach: {
+        onStart(){ App.hud.say(App.lang==='TH'?'เริ่ม!':'Start!', 700); },
+        onGood(){ /* optional cue */ },
+        onBad(){  App.hud.flashDanger(); }
+      }
+    }) || null;
+    App.modeInst?.start?.();
 
-  // Create mode instance
-  const mod = MODE_MAP[App.mode];
-  if (!mod || typeof mod.create!=='function'){
-    console.warn('[main] Mode missing or no create():', App.mode, mod);
-    App.hud.say('Mode not ready', 1000);
-    return;
+    // timer
+    App.timeLeft = App.secs|0;
+    clearInterval(App.timers.sec);
+    App.timers.sec = setInterval(onTick1s, 1000);
+
+    // RAF with 1-frame layout delay
+    cancelAnimationFrame(App.rafId);
+    App.lastTs = 0;
+
+    const Bus = {
+      hit:(e={})=>{
+        const kind = e.kind || 'good';
+        App.score.addKind(kind, { ...(e.meta||{}), kind });
+        App.missionSys.onEvent('good',{count:1},App.state);
+      },
+      miss:(e={})=>{
+        App.score.addKind('bad', { ...(e.meta||{}), kind:'bad' });
+        App.missionSys.onEvent('miss',{count:1},App.state);
+      }
+    };
+
+    const step = (ts)=>{
+      if (!App.lastTs) App.lastTs = ts;
+      const dt = Math.min(0.06, (ts - App.lastTs) / 1000);
+      App.lastTs = ts;
+
+      App.modeInst?.update?.(dt, Bus);
+      App.rafId = requestAnimationFrame(step);
+    };
+    requestAnimationFrame(()=>{ App.running = true; App.rafId = requestAnimationFrame(step); });
+
+    // Easy gift
+    if (App.diff==='Easy') App.power.apply('shield', 5);
+
+  }catch(err){
+    console.warn('[main] start error', err);
+    try{ window.HHA_BOOT?.reportError?.(err); }catch{}
   }
-  App.modeInst?.stop?.();
-  App.modeInst = mod.create({
-    engine,
-    hud: App.hud,
-    coach: {
-      onStart(){ /* hook if needed */ },
-      onGood(){ /* optional voice/coach */ },
-      onBad(){  /* optional voice/coach */ }
-    }
-  });
-  App.modeInst.start?.();
-
-  // Timer (seconds)
-  App.timeLeft = App.secs|0;
-  clearInterval(App.timers.sec);
-  App.timers.sec = setInterval(onTick1s, 1000);
-
-  // RAF loop
-  cancelAnimationFrame(App.rafId);
-  App.lastTs = 0;
-  const Bus = {
-    hit({ kind='good', points=10, ui, meta }={}){
-      if (kind==='perfect') HHA.hitPerfect?.(meta||{});
-      else HHA.hitGood?.(meta||{});
-    },
-    miss({ meta }={}){ HHA.hitBad?.(meta||{}); }
-  };
-  const step = (ts)=>{
-    if (!App.running) return;
-    if (!App.lastTs) App.lastTs = ts;
-    const dt = Math.min(0.1, (ts - App.lastTs)/1000); // clamp dt
-    App.lastTs = ts;
-
-    // Update current mode
-    App.modeInst?.update?.(dt, Bus);
-
-    App.rafId = requestAnimationFrame(step);
-  };
-  App.running = true;
-  App.rafId = requestAnimationFrame(step);
-
-  // Small gift on Easy
-  if (App.diff==='Easy') App.power.apply('shield', 5);
 }
 
 function onTick1s(){
@@ -309,89 +297,55 @@ function onTick1s(){
   App.timeLeft = Math.max(0, (App.timeLeft|0)-1);
   App.hud.setTime(App.timeLeft);
 
-  // FEVER decay placeholder (0..1 UI progress)
+  // FEVER UI (dummy)
   App.state.fever01 = Math.max(0, App.state.fever01 - 0.06);
-  App.hud.setFeverProgress?.(App.state.fever01);
+  App.hud.setFeverProgress(App.state.fever01);
 
-  // Mission & Quests tick
+  // MissionSystem tick + coach hooks
   App.missionSys.tick(App.state, { score: App.score.get() }, (ev)=>{
-    if (ev?.success){ Progress.addMissionDone?.(App.mode); App.hud.toast('✓ Quest!', 900); }
+    if (ev?.success){ Progress.addMissionDone(App.mode); App.hud.toast('✓ Quest!', 900); }
   }, { hud: App.hud, coach: {
         onQuestDone(){ App.hud.say(App.lang==='TH'?'สำเร็จภารกิจ!':'Quest complete!', 900); },
         onQuestFail(){ App.hud.say(App.lang==='TH'?'พลาดภารกิจ':'Quest failed', 900); },
         onQuestProgress(txt,prog,need){ App.hud.say(`${txt} (${prog}/${need})`, 700); }
       }, lang: App.lang });
 
+  // Quests tick (score context)
   Quests.tick({ score: App.score.get() });
 
   if (App.timeLeft <= 0) endGame(false);
 }
 
-function endGame(isAbort=false){
+function endGame(){
   if (!App.running) return;
   App.running = false;
-
   clearInterval(App.timers.sec);
   cancelAnimationFrame(App.rafId);
-  App.rafId = 0;
 
-  // Stop mode
-  App.modeInst?.stop?.();
-  App.modeInst = null;
-
+  // finalize quests
   const scoreNow = App.score.get();
   const { stars, grade } = App.score.getGrade();
   Quests.endRun({ score: scoreNow });
-  Progress.endRun?.({ score: scoreNow, bestCombo: App.score.bestCombo|0, timePlayed: (App.secs|0), acc: 0 });
 
-  const name = $('#playerName')?.value?.trim() || undefined;
+  // progression
+  Progress.endRun({ score: scoreNow, bestCombo: App.score.bestCombo|0, timePlayed: (App.secs|0), acc: 0 });
+
+  // leaderboard
+  const name = ($('#playerName')?.value || '').trim() || undefined;
   App.leader.submit(App.mode, App.diff, scoreNow, { name, meta:{ stars, grade } });
 
+  // show result
   setText('#finalScore', `${scoreNow}  ★${stars}  [${grade}]`);
-  showModal('#result');
+  const t = $('#result'); if (t) t.style.display = 'flex';
 
   App.power.dispose();
 }
 
-/* ========================= Gameplay Hooks (for modes) ========================= */
-window.HHA = Object.assign(window.HHA || {}, {
-  hitGood(meta={}){ App.score.addKind('good', meta); Quests.event('hit', { result:'good', comboNow:App.score.combo|0, meta }); App.missionSys.onEvent('good',{count:1},App.state); },
-  hitPerfect(meta={}){ 
-    App.score.addKind('perfect', meta); 
-    App.state.fever01 = Math.min(1, App.state.fever01 + 0.1);
-    Quests.event('hit', { result:'perfect', comboNow:App.score.combo|0, meta:{...meta, golden:!!meta.golden} });
-    App.missionSys.onEvent('good',{count:1},App.state);
-  },
-  hitBad(meta={}){ 
-    if (App.power.consumeShield?.()) {
-      App.hud.toast(App.lang==='TH'?'🛡 กันความเสียหาย':'🛡 Shielded', 900);
-    } else {
-      App.score.addKind('bad', meta); 
-      App.hud.flashDanger?.();
-      App.missionSys.onEvent('miss',{count:1},App.state);
-    }
-  },
-  targetHit(meta={}){ App.score.addKind('good', { ...meta, isTarget:true }); App.missionSys.onEvent('target_hit',{count:1},App.state); Quests.event('hit', { result:'good', comboNow:App.score.combo|0, meta:{...meta, isTarget:true} }); },
-  wrongGroup(){ App.missionSys.onEvent('wrong_group',{count:1},App.state); },
-  feverStart(){ Quests.event('fever',{kind:'start'}); },
-  feverEnd(){ Quests.event('fever',{kind:'end'}); },
-  platePerfect(){ App.missionSys.onEvent('plate_perfect',{count:1},App.state); },
-  plateOver(){ App.missionSys.onEvent('over_quota',{count:1},App.state); },
-  hydrationTick(zone){ App.missionSys.onEvent('hydration_zone',{z:String(zone||'')},App.state); Quests.event('hydro_tick',{zone:String(zone||'')}); },
-  hydrationCross(from,to){ Quests.event('hydro_cross',{from:String(from||''), to:String(to||'')}); },
-  hydrationTreatHighSweet(){ Quests.event('hydro_click',{zoneBefore:'HIGH', kind:'sweet'}); },
-  groupFull(){ Quests.event('group_full'); },
-  targetCycle(){ Quests.event('target_cleared'); }
-});
-
 /* ========================= Autoplay guard ========================= */
 function onFirstInteract(){
   try {
-    const bgm = $('#bgm-main');
-    if (bgm && !bgm.src) {
-      // bgm.src = 'assets/audio/bgm_main.mp3';
-    }
     sfx.unlock?.();
+    const bgm = $('#bgm-main'); if (bgm && bgm.src) bgm.play().catch(()=>{});
   } catch {}
 }
 
@@ -400,6 +354,7 @@ function pauseGame(){
   if (!App.running) return;
   VRInput.pause?.();
   clearInterval(App.timers.sec);
+  cancelAnimationFrame(App.rafId);
   App.hud.say(App.lang==='TH'?'พักเกมชั่วคราว':'Paused', 900);
 }
 function resumeGame(){
@@ -408,31 +363,20 @@ function resumeGame(){
     VRInput.resume?.();
     clearInterval(App.timers.sec);
     App.timers.sec = setInterval(onTick1s, 1000);
-    // resume RAF
+
     cancelAnimationFrame(App.rafId);
     App.lastTs = 0;
     const step = (ts)=>{
-      if (!App.running) return;
       if (!App.lastTs) App.lastTs = ts;
-      const dt = Math.min(0.1, (ts - App.lastTs)/1000);
+      const dt = Math.min(0.06, (ts - App.lastTs) / 1000);
       App.lastTs = ts;
-      App.modeInst?.update?.(dt, { hit:({kind,points,ui,meta})=>{ if(kind==='perfect') HHA.hitPerfect?.(meta); else HHA.hitGood?.(meta); }, miss:({meta}={})=>HHA.hitBad?.(meta) });
+      App.modeInst?.update?.(dt, { hit:()=>{}, miss:()=>{} });
       App.rafId = requestAnimationFrame(step);
     };
     App.rafId = requestAnimationFrame(step);
+
     App.hud.say(App.lang==='TH'?'ต่อกันเลย!':'Resumed', 800);
   }
-}
-
-/* ========================= Expose starters for ui.js (CRITICAL) ========================= */
-function exposeStarters(){
-  try {
-    window.HHA = window.HHA || {};
-    window.HHA.startGame = startGame;
-    window.HHA.endGame   = endGame;
-    window.HHA.goHome    = goHome;
-    window.preStartFlow  = () => startGame();
-  } catch {}
 }
 
 /* ========================= Public debug (optional) ========================= */
