@@ -1,4 +1,6 @@
-// === core/fx.js (no top-level add3DTilt/shatter3D identifiers) ===
+// === core/fx.js (namespace-only: no top-level add3DTilt/shatter3D identifiers) ===
+
+// Tilt 3D ตามเมาส์
 export function fxAdd3DTilt(el) {
   if (!el || el.__hhaTiltBound) return;
   el.__hhaTiltBound = true;
@@ -15,6 +17,7 @@ export function fxAdd3DTilt(el) {
   el.addEventListener('mouseleave', onLeave);
 }
 
+// เอฟเฟกต์แตกกระจายเรียบง่าย
 export function fxShatter3D(x, y) {
   try {
     const p = document.createElement('div');
@@ -30,9 +33,10 @@ export function fxShatter3D(x, y) {
   } catch {}
 }
 
-// ใช้ object namespace เท่านั้นเวลา import จากโมดูลอื่น
+// ใช้ผ่าน namespace เท่านั้น
 export const FX = {
   add3DTilt: fxAdd3DTilt,
   shatter3D: fxShatter3D
 };
+
 export default FX;
