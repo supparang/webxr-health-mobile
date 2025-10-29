@@ -220,22 +220,18 @@ export function tick(/*state, sys, hud*/){
 
 // ---------- สุ่มเป้าหมาย (legacy) ----------
 export function pickMeta(diff={}, state={}){
-  // Magnet: ชิ้นถัดไปบังคับเป็นเป้าหมาย
   let forceTarget = false;
   if (_magnetNext){ forceTarget = true; _magnetNext = false; }
 
   const targetGroup = state.ctx?.targetGroup || 'veggies';
   const isTarget = forceTarget || (Math.random() < TARGET_RATIO);
 
-  // เลือกหมวด
   const groupId = isTarget
     ? targetGroup
     : (()=>{ let k; do { k = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (k===targetGroup); return k; })();
 
-  // เลือกรายการ
   const item = GROUPS[groupId][(Math.random()*GROUPS[groupId].length)|0];
 
-  // golden gating (เฉพาะชิ้นเป้าหมาย) — FIX: เพิ่มการนับ cooldown เมื่อ “ไม่ออกทอง” แม้ผ่านเกณฑ์
   _spawnsInWindow++;
   if (_spawnsInWindow >= 20){ _spawnsInWindow = 0; _goldenInWindow = 0; }
 
@@ -244,9 +240,9 @@ export function pickMeta(diff={}, state={}){
     if (Math.random() < GOLDEN_CHANCE){
       golden = true;
       _goldenInWindow++;
-      _sinceGolden = 0; // reset เมื่อมี golden จริง
+      _sinceGolden = 0;
     } else {
-      _sinceGolden++;   // ❗️เดิมไม่ได้เพิ่ม ทำให้สุ่มซ้ำติด ๆ
+      _sinceGolden++;
     }
   } else {
     _sinceGolden++;
@@ -268,17 +264,14 @@ export function pickMeta(diff={}, state={}){
 
 // ---------- เมื่อผู้เล่นคลิก (legacy) ----------
 export function onHit(meta={}, sys={}, state={}, hud=null){
-  // meta: {good, golden, groupId}
   let result = 'ok';
 
   if (meta.good){
     result = meta.golden ? 'perfect' : 'good';
 
-    // โควตา: golden นับ 2
     const add = meta.golden ? 2 : 1;
     state.ctx.targetHave = Math.min((state.ctx.targetHave|0) + add, state.ctx.targetNeed|0);
 
-    // ครบโควตา → เปลี่ยนหมวดใหม่ + cooldown + glow
     if ((state.ctx.targetHave|0) >= (state.ctx.targetNeed|0)){
       try { sys.sfx?.play?.('sfx-perfect'); } catch {}
       const next = chooseNextTarget(state.ctx.targetGroup);
@@ -296,11 +289,10 @@ export function onHit(meta={}, sys={}, state={}, hud=null){
     }
     updateTargetHUD(state);
   } else {
-    // ชิ้นผิดหมวด = bad
     result = 'bad';
   }
 
-  return result; // 'good' | 'perfect' | 'bad' | 'ok'
+  return result;
 }
 
 // ---------- Power-ups ----------
@@ -312,7 +304,7 @@ export const powers = {
 
 export function getPowerDurations(){ return { x2:8, freeze:3, magnet:2 }; }
 
-// ---------- FX hooks ----------
+// ---------- FX hooks (exported for legacy main) ----------
 export const fx = {
   onSpawn(el/*, state*/){
     try { (window?.HHA_FX?.add3DTilt || (()=>{}))(el); } catch {}
@@ -326,15 +318,15 @@ export const fx = {
    Factory Adapter (for main.js DOM-spawn flow)
    - Creates & manages DOM buttons under #spawnHost
    - Uses pickMeta()/onHit() logic above, HUD/coach feedback, Bus scoring
+   - ✅ FIX: use engine.fx / window.HHA_FX directly to avoid TDZ on `fx`
 ============================================================================= */
 export function create({ engine, hud, coach }) {
   const host  = document.getElementById('spawnHost');
   const layer = document.getElementById('gameLayer');
 
-  // Local state mirrors legacy 'state'
   const state = {
     running: false,
-    items: [],                 // { el, x, y, born, life, meta }
+    items: [],
     freezeUntil: 0,
     difficulty: (window.__HHA_DIFF || 'Normal'),
     lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(),
@@ -342,7 +334,6 @@ export function create({ engine, hud, coach }) {
     stats: { good:0, perfect:0, bad:0, miss:0 },
   };
 
-  // Keep global for powers.freezeTarget()
   _lastState = state;
   _hudRef = hud;
 
@@ -358,9 +349,7 @@ export function create({ engine, hud, coach }) {
 
   function stop(){
     state.running = false;
-    try {
-      for (const it of state.items) it.el.remove();
-    } catch {}
+    try { for (const it of state.items) it.el.remove(); } catch {}
     state.items.length = 0;
   }
 
@@ -371,9 +360,7 @@ export function create({ engine, hud, coach }) {
     const now = performance.now();
     const rect = layer.getBoundingClientRect();
 
-    // Spawn cadence — lean on Bus.requestSpawn if present, otherwise do it here
     if (!state._spawnCd) state._spawnCd = 0.18;
-    // Small dynamic spawn: faster when time is low
     const timeLeft = Number(document.getElementById('time')?.textContent||'0')|0;
     const speedBias = timeLeft <= 15 ? 0.18 : 0;
     state._spawnCd -= dt;
@@ -382,11 +369,9 @@ export function create({ engine, hud, coach }) {
       state._spawnCd = clamp(0.42 - speedBias + Math.random()*0.24, 0.28, 1.0);
     }
 
-    // Life ticking
     const gone = [];
     for (const it of state.items){
       if (now - it.born > it.life){
-        // timeout → miss if it was a target piece
         if (it.meta.good){ Bus?.miss?.(); state.stats.miss++; }
         try { it.el.remove(); } catch {}
         gone.push(it);
@@ -396,8 +381,6 @@ export function create({ engine, hud, coach }) {
       state.items = state.items.filter(x=>!gone.includes(x));
     }
   }
-
-  function onClick(){ /* unused, per-item handles its own click */ }
 
   function spawnOne(rect, Bus){
     const meta = pickMeta({ life: 1600 }, state);
@@ -414,23 +397,23 @@ export function create({ engine, hud, coach }) {
     b.setAttribute('aria-label', meta.aria);
     if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
 
-    // FX hook on spawn
-    try { fx.onSpawn?.(b, state); } catch {}
+    // ✅ ใช้ engine.fx หรือ HHA_FX โดยตรง (เลี่ยง TDZ ของ export const fx)
+    try { (engine?.fx?.popText || (()=>{}))(' ', { x:-9999, y:-9999, ms:1 }); } catch {}
+    try { (window?.HHA_FX?.add3DTilt || (()=>{}))(b); } catch {}
 
     b.addEventListener('click', (ev)=>{
       if (!state.running) return;
       ev.stopPropagation();
       const ui = { x: ev.clientX, y: ev.clientY };
 
-      // Evaluate via legacy handler
       const res = onHit(meta, { sfx: Bus?.sfx }, state, hud);
 
-      // Score & feedback
       if (res === 'good' || res === 'perfect'){
-        const pts = res === 'perfect' ? 20 : 10; // ScoreSystem can still override via addKind
+        const pts = res === 'perfect' ? 20 : 10;
         if (res === 'perfect'){ coach?.onPerfect?.(); } else { coach?.onGood?.(); }
         engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 720 });
-        try { fx.onHit?.(ui.x, ui.y, meta, state); } catch {}
+        // ✅ FX shatter (ปลอดภัย)
+        (window?.HHA_FX?.shatter3D || engine?.fx?.spawnShards || (()=>{}))(ui.x, ui.y);
         state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui, meta: { ...meta, isTarget: meta.good } });
       } else if (res === 'bad'){
         document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
@@ -438,7 +421,6 @@ export function create({ engine, hud, coach }) {
         state.freezeUntil = Math.max(state.freezeUntil, performance.now()+260);
       }
 
-      // remove clicked
       try { b.remove(); } catch {}
       const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
     }, { passive:false });
@@ -449,10 +431,9 @@ export function create({ engine, hud, coach }) {
 
   function cleanup(){
     stop();
-    cleanupLegacy();
+    try { cleanupLegacy(); } catch {}
   }
-
   function cleanupLegacy(){ try { cleanup(state, hud); } catch {} }
 
-  return { start, stop, update, onClick, cleanup };
+  return { start, stop, update, onClick(){}, cleanup };
 }
