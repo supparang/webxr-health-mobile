@@ -1,9 +1,7 @@
-// === Hero Health Academy — game/modes/groups.js (Hardened + Factory adapter) ===
+// === Hero Health Academy — game/modes/groups.js (Hardened + Factory adapter; golden fix & safeties) ===
 // Food Group Frenzy (5 หมู่) + โควตา + Power-ups (x2 / Freeze / Magnet)
 // • Golden gating window, target cooldown + micro toast, HUD target badge
 // • Safe lifetimes & DOM-spawn adapter so it plugs into main.js (factory style)
-// -----------------------------------------------------------------------------
-// Supports BOTH legacy meta-flow (pickMeta/onHit/tick) and new factory create()
 
 export const name = 'groups';
 
@@ -183,7 +181,7 @@ function updateTargetHUD(state){
 }
 
 // ---------- Lifecycle (legacy) ----------
-export function init(state={}, hud=null, diff={}){
+export function init(state={}, hud=null/*, diff*/){
   _hudRef = hud;
   _lastState = state;
   state.ctx = state.ctx || {};
@@ -237,18 +235,25 @@ export function pickMeta(diff={}, state={}){
   // เลือกรายการ
   const item = GROUPS[groupId][(Math.random()*GROUPS[groupId].length)|0];
 
-  // golden gating (เฉพาะชิ้นเป้าหมาย)
+  // golden gating (เฉพาะชิ้นเป้าหมาย) — FIX: เพิ่มการนับ cooldown เมื่อ “ไม่ออกทอง” แม้ผ่านเกณฑ์
   _spawnsInWindow++;
   if (_spawnsInWindow >= 20){ _spawnsInWindow = 0; _goldenInWindow = 0; }
 
   let golden = false;
   if (isTarget && _sinceGolden > GOLDEN_COOLDOWN_SPAWNS && _goldenInWindow < GOLDEN_CAP_PER20){
-    if (Math.random() < GOLDEN_CHANCE){ golden = true; _goldenInWindow++; _sinceGolden = 0; }
+    if (Math.random() < GOLDEN_CHANCE){
+      golden = true;
+      _goldenInWindow++;
+      _sinceGolden = 0; // reset เมื่อมี golden จริง
+    } else {
+      _sinceGolden++;   // ❗️เดิมไม่ได้เพิ่ม ทำให้สุ่มซ้ำติด ๆ
+    }
   } else {
     _sinceGolden++;
   }
 
-  const life = clamp(Number(diff.life) > 0 ? Number(diff.life) : 3000, 700, 4500);
+  const lifeBase = Number(diff.life) > 0 ? Number(diff.life) : 3000;
+  const life = clamp(lifeBase, 700, 4500);
 
   return {
     char: item.emoji,
@@ -361,6 +366,7 @@ export function create({ engine, hud, coach }) {
 
   function update(dt, Bus){
     if (!state.running) return;
+    if (!layer) return;
 
     const now = performance.now();
     const rect = layer.getBoundingClientRect();
@@ -396,8 +402,8 @@ export function create({ engine, hud, coach }) {
   function spawnOne(rect, Bus){
     const meta = pickMeta({ life: 1600 }, state);
     const pad = 30;
-    const x = Math.round(pad + Math.random()*(rect.width  - pad*2));
-    const y = Math.round(pad + Math.random()*(rect.height - pad*2));
+    const x = Math.round(pad + Math.random()*(Math.max(1, rect.width)  - pad*2));
+    const y = Math.round(pad + Math.random()*(Math.max(1, rect.height) - pad*2));
 
     const b = document.createElement('button');
     b.className = 'spawn-emoji';
@@ -421,15 +427,14 @@ export function create({ engine, hud, coach }) {
 
       // Score & feedback
       if (res === 'good' || res === 'perfect'){
-        const pts = res === 'perfect' ? 20 : 10;
+        const pts = res === 'perfect' ? 20 : 10; // ScoreSystem can still override via addKind
         if (res === 'perfect'){ coach?.onPerfect?.(); } else { coach?.onGood?.(); }
         engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 720 });
         try { fx.onHit?.(ui.x, ui.y, meta, state); } catch {}
-        state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui });
+        state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui, meta: { ...meta, isTarget: meta.good } });
       } else if (res === 'bad'){
-        // soft penalty
         document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
-        coach?.onBad?.(); state.stats.bad++; Bus?.miss?.();
+        coach?.onBad?.(); state.stats.bad++; Bus?.miss?.({ meta: { ...meta, isTarget: meta.good } });
         state.freezeUntil = Math.max(state.freezeUntil, performance.now()+260);
       }
 
@@ -438,7 +443,7 @@ export function create({ engine, hud, coach }) {
       const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
     }, { passive:false });
 
-    document.getElementById('spawnHost')?.appendChild?.(b);
+    (host || document.getElementById('spawnHost'))?.appendChild?.(b);
     state.items.push({ el:b, x, y, born: performance.now(), life: meta.life, meta });
   }
 
