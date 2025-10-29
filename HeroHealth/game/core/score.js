@@ -1,16 +1,28 @@
-// === Hero Health Academy — core/score.js (drop-in upgrade; back-compat) ===
-// คุณยังใช้ API เดิมได้เหมือนเดิม:
-//   new ScoreSystem().reset(); .add(n); .setBoostFn(fn); .setHandlers({change})
-// เพิ่มเติม: .addKind('good'|'perfect'|'ok'|'bad', meta)
-//          .setComboGetter(fnComboInt)  // ให้คะแนน scale ตามคอมโบ
-//          .setFeverGetter(fnFever01)   // เสริมแต้มเล็กน้อยเมื่อเข้าช่วง FEVER
-//          .getGrade() -> {grade:'S/A/B/C', stars:0..5, score}
+// === Hero Health Academy — core/score.js (unified v2; back-compat + upgrades) ===
+// ใช้แทนเวอร์ชันก่อนหน้าได้ทันที (ลบไฟล์/คลาสซ้ำออกให้เหลืออันนี้อันเดียว)
+//
+// API ที่รองรับ:
+//   const score = new ScoreSystem({ base?, gradeBreaks?, gradeLetters? });
+//   score.reset();
+//   score.add(n, meta?);
+//   score.addPenalty(n=8, meta?);
+//   score.get();                         // -> integer
+//   score.getGrade();                    // -> { score, stars, grade }
+//
+// เพิ่มแบบอัปเกรด (ไม่บังคับใช้):
+//   score.addKind('good'|'perfect'|'ok'|'bad', meta?);
+//   score.setBoostFn(fnBaseToExtra);     // ใช้ร่วมกับ PowerUpSystem.attachToScore()
+//   score.setHandlers({ change:(score,{delta,meta})=>{} });
+//   score.setComboGetter(()=> comboInt); // ให้คะแนน scale ตามคอมโบปัจจุบัน (ถ้าต้องการ)
+//   score.setFeverGetter(()=> fever01);  // โบนัสเล็กน้อยเมื่ออยู่ FEVER 0..1
+//
+// หมายเหตุ:
+// - รักษาฟิลด์ combo / bestCombo ไว้สำหรับ HUD/Coach/Quests
+// - การให้คะแนนแบบ addKind จะคูณคอมโบและบวกโบนัส FEVER ให้ก่อนส่งเข้า add()
 
 export class ScoreSystem {
   constructor(opts = {}) {
-    this.score = 0;
-
-    // ค่าเริ่มต้นต่อเหตุการณ์ (ปรับได้ผ่าน opts.base)
+    // ค่าคะแนนพื้นฐานต่อเหตุการณ์
     this.base = {
       ok: 4,
       good: 10,
@@ -19,128 +31,139 @@ export class ScoreSystem {
       ...(opts.base || {})
     };
 
-    // ตัวคูณตามคอมโบ (คอมโบ 1..N) — ใช้ได้ทันทีถ้ามีตัวอ่านคอมโบ
-    // 1.00, 1.03, 1.06, 1.09, … capped ~1.30
-    this.comboMulCap = 1.30;
-    this.comboStep = 0.03;
+    // คะแนนรวม
+    this.value = 0;
 
-    // เสริมเล็กน้อยเมื่ออยู่ FEVER (0..1 จาก getter) → + up to 10% ของ base
+    // คอมโบ
+    this.combo = 0;
+    this.bestCombo = 0;
+
+    // การสเกลด้วยคอมโบ (เมื่อมี comboGetter)
+    this.comboStep = 0.03;     // +3% ต่อคอมโบถัดไป
+    this.comboMulCap = 1.30;   // เพดาน 1.30×
+
+    // โบนัส FEVER (0..1) → +ถึง 10% ของ base ก่อน boost
     this.feverBonusMax = 0.10;
 
     // เกณฑ์ดาว/เกรด
-    this.gradeBreaks = opts.gradeBreaks || [120, 240, 360, 480, 600]; // 0–5 ดาว
+    this.gradeBreaks  = opts.gradeBreaks  || [120, 240, 360, 480, 600]; // 0..5 ดาว
     this.gradeLetters = opts.gradeLetters || { S: 520, A: 380, B: 260, C: 160 };
+
+    // ความปลอดภัยต่อครั้ง
+    this._deltaClamp = { min: -100, max: 200 };
 
     // hooks
     this._handlers = { change: null };
-    this._boostFn = null;       // จาก PowerUpSystem.attachToScore()
-    this._comboGetter = null;   // -> integer (เช่น comboNow)
-    this._feverGetter = null;   // -> 0..1 (เช่น feverProgress หรือ 1 เมื่อ FEVER on)
-
-    // ป้องกันบั๊ก: จำกัดค่าเพิ่ม/ลดต่อครั้ง (กันค่าหลุด)
-    this._deltaClamp = { min: -100, max: 200 };
+    this._boostFn = null;
+    this._comboGetter = null;  // -> int
+    this._feverGetter = null;  // -> 0..1
   }
 
-  // ===== Back-compat API =====
+  /* ================= Back-compat core ================= */
   reset() {
-    this.score = 0;
+    this.value = 0;
+    this.combo = 0;
+    this.bestCombo = 0;
     this._emit();
   }
 
-  add(n, meta = {}) {
-    // base delta
-    let delta = (n | 0);
+  /** เพิ่มคะแนนดิบ (ใช้โดยระบบเดิม) */
+  add(n = 10, meta = {}) {
+    let delta = n | 0;
 
-    // boost จากระบบพลัง (x2/flat bonus) — ควรส่ง base n ให้ boostFn คำนวณเพิ่ม
+    // boost จาก PowerUpSystem (x2/flat)
     const extra = this._boostFn ? (this._boostFn(n) | 0) : 0;
     delta += extra;
 
-    // ปักหมุดความปลอดภัย
+    // clamp ต่อครั้ง
     delta = Math.max(this._deltaClamp.min, Math.min(this._deltaClamp.max, delta));
 
-    this.score = (this.score | 0) + delta;
+    // ปรับคอมโบ: เพิ่มเมื่อเป็นบวก, ติดลบจะถือว่าเป็นโทษ (คอมโบรีเซ็ต)
+    if (delta > 0) {
+      this.combo += 1;
+      if (this.combo > this.bestCombo) this.bestCombo = this.combo | 0;
+    } else if (delta < 0) {
+      this.combo = 0;
+    }
+
+    this.value = (this.value | 0) + delta;
     this._emit({ delta, meta });
   }
 
-  setBoostFn(fn) { this._boostFn = (typeof fn === 'function') ? fn : null; }
+  /** หักคะแนนพร้อมรีเซ็ตคอมโบ (เดิมใช้กับ “bad”) */
+  addPenalty(n = 8, meta = {}) {
+    const dec = Math.max(0, n | 0);
+    const before = this.value | 0;
+    this.value = Math.max(0, before - dec);
+    this.combo = 0;
+    this._emit({ delta: (this.value - before), meta: { ...meta, penalty: true } });
+  }
 
-  setHandlers(h = {}) { this._handlers = { ...this._handlers, ...h }; }
+  get() { return this.value | 0; }
 
-  // ===== ใหม่แบบไม่บังคับใช้ =====
-  // ใช้คะแนนตามชนิดผลลัพธ์ที่ main/โหมดส่งมา (ลดโค้ดซ้ำ)
+  /* ================= Upgrades (optional) ================= */
+  /** ให้คะแนนตามชนิดผลลัพธ์ */
   addKind(kind, meta = {}) {
-    // 1) เลือก base ตามชนิด
-    let base = this.base[kind];
+    const k = String(kind || '').toLowerCase();
+    let base = this.base[k];
     if (typeof base !== 'number') base = 0;
 
-    // 2) คูณตามคอมโบ (ถ้ามีตัวอ่านคอมโบ)
-    const combo = this._comboGetter ? (this._comboGetter() | 0) : 0;
-    let mul = 1;
-    if (combo > 1 && base > 0) {
-      mul = Math.min(this.comboMulCap, 1 + (Math.max(0, combo - 1) * this.comboStep));
+    // “bad” → ใช้โทษมาตรฐาน (และรีเซ็ตคอมโบ)
+    if (k === 'bad' || base < 0) {
+      this.addPenalty(Math.abs(base) || 8, { kind: k, ...meta });
+      return;
     }
 
-    // 3) โบนัสช่วง FEVER (0..1) → +0..10% ของ base (ก่อน boost x2)
+    // คูณคอมโบ (ถ้าให้ตัวอ่านมา)
+    const comboNow = this._comboGetter ? (this._comboGetter() | 0) : this.combo | 0;
+    let mul = 1;
+    if (comboNow > 1 && base > 0) {
+      mul = Math.min(this.comboMulCap, 1 + (Math.max(0, comboNow - 1) * this.comboStep));
+    }
+
+    // โบนัส FEVER (ถ้ามี)
     const fever01 = this._feverGetter ? Math.max(0, Math.min(1, +this._feverGetter() || 0)) : 0;
     const feverBonus = base > 0 ? Math.round(base * this.feverBonusMax * fever01) : 0;
 
     const raw = Math.round(base * mul) + feverBonus;
-
-    // ไปต่อขั้น boost/x2 ผ่าน add()
-    this.add(raw, { kind, combo, mul, fever01 });
+    this.add(raw, { kind: k, comboNow, mul, fever01, ...meta });
   }
 
-  // ให้ main บอกว่าอ่านคอมโบ/FEVER จากไหน (ไม่บังคับใช้)
+  /** ให้ PowerUpSystem ผูกฟังก์ชันเพิ่มแต้ม (x2/flat) */
+  setBoostFn(fn) { this._boostFn = (typeof fn === 'function') ? fn : null; }
+
+  /** เปลี่ยน handler (เช่นอัปเดต HUD ทันที) */
+  setHandlers(h = {}) { this._handlers = { ...this._handlers, ...h }; }
+
+  /** ส่งฟังก์ชันอ่านคอมโบจากระบบหลัก (ถ้ามี) */
   setComboGetter(fn) { this._comboGetter = (typeof fn === 'function') ? fn : null; }
+
+  /** ส่งฟังก์ชันอ่านสถานะ FEVER 0..1 (ถ้ามี) */
   setFeverGetter(fn) { this._feverGetter = (typeof fn === 'function') ? fn : null; }
 
-  // เกรด/ดาว (ใช้ตอนสรุปผล)
+  /** เกรด/ดาว ใช้ตอน result summary */
   getGrade() {
-    const s = this.score | 0;
+    const s = this.value | 0;
+    const br = this.gradeBreaks;
     const stars =
-      (s >= this.gradeBreaks[4]) ? 5 :
-      (s >= this.gradeBreaks[3]) ? 4 :
-      (s >= this.gradeBreaks[2]) ? 3 :
-      (s >= this.gradeBreaks[1]) ? 2 :
-      (s >= this.gradeBreaks[0]) ? 1 : 0;
+      (s >= br[4]) ? 5 :
+      (s >= br[3]) ? 4 :
+      (s >= br[2]) ? 3 :
+      (s >= br[1]) ? 2 :
+      (s >= br[0]) ? 1 : 0;
 
+    const gl = this.gradeLetters;
     const letter =
-      (s >= this.gradeLetters.S) ? 'S' :
-      (s >= this.gradeLetters.A) ? 'A' :
-      (s >= this.gradeLetters.B) ? 'B' :
-      (s >= this.gradeLetters.C) ? 'C' : 'D';
+      (s >= gl.S) ? 'S' :
+      (s >= gl.A) ? 'A' :
+      (s >= gl.B) ? 'B' :
+      (s >= gl.C) ? 'C' : 'D';
 
     return { score: s, stars, grade: letter };
   }
 
-  get() { return this.score | 0; }
-
-  // ===== Internals =====
+  /* ================= Internals ================= */
   _emit(payload = {}) {
-    try { this._handlers.change?.(this.score, payload); } catch {}
+    try { this._handlers.change?.(this.value | 0, payload); } catch {}
   }
-}
-// === Hero Health Academy — core/score.js (minimal) ===
-export class ScoreSystem {
-  constructor(){
-    this.value = 0;
-    this.combo = 0;
-    this.bestCombo = 0;
-    this._boostFn = null;
-  }
-  setBoostFn(fn){ this._boostFn = fn; }
-  reset(){ this.value = 0; this.combo = 0; this.bestCombo = 0; }
-  add(base=10){
-    const extra = this._boostFn ? (Number(this._boostFn(base))||0) : 0;
-    this.value += (base + extra);
-    this.combo += 1;
-    if (this.combo > this.bestCombo) this.bestCombo = this.combo;
-    return this.value;
-  }
-  addPenalty(n=8){
-    this.value = Math.max(0, this.value - n);
-    this.combo = 0;
-    return this.value;
-  }
-  get(){ return this.value|0; }
 }
