@@ -37,3 +37,8 @@ export class SFX {
   tick()    { this.play('sfx-tick'); }
   power()   { this.play('sfx-powerup'); }
 }
+// === Hero Health Academy — core/sfx.js (safe stub) ===
+export class SFX {
+  static play(/*key*/){ /* no-op for now; plug WebAudio/HTMLAudio here */ }
+}
+window.SFX = SFX;
