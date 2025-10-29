@@ -1,5 +1,4 @@
-// === Hero Health Academy — game/main.js (2025-10-30) ===
-// Unified loop: HUD, Score, PowerUp, MissionSystem, Quests, Leaderboard, VRInput
+// === Hero Health Academy — game/main.js (2025-10-30, fix: add pause/resume) ===
 
 /* ----- Imports (core) ----- */
 import { HUD }            from './core/hud.js';
@@ -12,7 +11,7 @@ import { Progress }       from './core/progression.js';
 import { Leaderboard }    from './core/leaderboard.js';
 import { VRInput }        from './core/vrinput.js';
 
-/* ----- Mode adapters (DOM-spawn) ----- */
+/* ----- Mode adapters ----- */
 import * as goodjunk   from './modes/goodjunk.js';
 import * as groups     from './modes/groups.js';
 import * as hydration  from './modes/hydration.js';
@@ -31,6 +30,7 @@ const App = {
   secs: 45,
 
   running: false,
+  paused: false,
   timeLeft: 45,
   timers: { sec: 0, raf: 0 },
 
@@ -57,8 +57,6 @@ function boot(){
   App.score.setHandlers({
     change: (val,{delta,meta})=>{
       App.hud.setScore(val|0);
-      // combo feed (ถ้ามี element คอมโบ จะผูกใน hud)
-      // feed quests: good/perfect/bad
       if (meta?.kind){
         Quests.event('hit', {
           result: meta.kind,
@@ -77,10 +75,8 @@ function boot(){
     App.hud.setPowerTimers(t || {});
   });
 
-  // Missions
+  // Missions & Leaderboard
   App.missionSys = new MissionSystem();
-
-  // Leaderboard
   App.leader = new Leaderboard({ key: 'hha_board_v2', maxKeep: 500, retentionDays: 365 });
 
   // Progress & Quests HUD binding
@@ -102,13 +98,12 @@ function boot(){
   bindHelpModal();
   bindToggles();
 
-  // Pause on blur/visibility
+  // Pause on blur/visibility  ⟵ (need pauseGame/resumeGame defined)
   window.addEventListener('blur', pauseGame, { passive:true });
   document.addEventListener('visibilitychange', ()=> document.hidden ? pauseGame() : resumeGame(), { passive:true });
 
   reflectMenu();
 
-  // expose for quick debug
   try { window.__HHA_APP__ = App; } catch{}
 }
 
@@ -132,11 +127,9 @@ function bindMenu(){
   $('#btn_start')?.addEventListener('click', startGame, { capture:true });
 }
 function reflectMenu(){
-  // tiles
   $$('.tile').forEach(t=> t.classList.remove('active'));
   $('#m_'+App.mode)?.classList.add('active');
   setText('#modeName', tileName(App.mode));
-  // diff
   $$('#d_easy,#d_normal,#d_hard').forEach(c=> c.classList.remove('active'));
   if (App.diff==='Easy')   $('#d_easy')?.classList.add('active');
   if (App.diff==='Normal') $('#d_normal')?.classList.add('active');
@@ -206,7 +199,7 @@ function startGame(){
   // Quests (3 random)
   Quests.beginRun(App.mode, App.diff, App.lang, App.secs);
 
-  // MissionSystem legacy (optional usage by modes)
+  // MissionSystem legacy
   const run = App.missionSys.start(App.mode, { difficulty:App.diff, lang:App.lang, seconds:App.secs, count:3 });
   App.missionSys.attachToState(run, {});
 
@@ -221,11 +214,12 @@ function startGame(){
   App.timers.sec = setInterval(onTick1s, 1000);
 
   App.running = true;
-  loopRAF(); // lightweight per-frame update for spawners
+  App.paused  = false;
+  loopRAF(); // per-frame spawn/update
 }
 
 function onTick1s(){
-  if (!App.running) return;
+  if (!App.running || App.paused) return;
   App.timeLeft = Math.max(0, (App.timeLeft|0)-1);
   App.hud.setTime(App.timeLeft);
 
@@ -237,9 +231,8 @@ function onTick1s(){
 
 function loopRAF(){
   cancelAnimationFrame(App.timers.raf);
-  const step = (t)=>{
-    if (!App.running) return;
-    // Update current mode dom-spawn
+  const step = ()=>{
+    if (!App.running || App.paused) return;
     App.modeCtrl?.update?.(0.016, {
       hit:(ev)=> handleHit(ev),
       miss:(ev)=> handleMiss(ev)
@@ -252,6 +245,7 @@ function loopRAF(){
 function endGame(isAbort=false){
   if (!App.running) return;
   App.running = false;
+  App.paused  = false;
   clearInterval(App.timers.sec);
   cancelAnimationFrame(App.timers.raf);
 
@@ -274,6 +268,25 @@ function endGame(isAbort=false){
     ? `คะแนน: ${scoreNow}  ★${stars}  [${grade}]`
     : `Score: ${scoreNow}  ★${stars}  [${grade}]`));
   showModal('#result');
+}
+
+/* ========================= Pause / Resume (FIX) ========================= */
+function pauseGame(){
+  if (!App.running || App.paused) return;
+  App.paused = true;
+  VRInput.pause?.();
+  clearInterval(App.timers.sec);
+  cancelAnimationFrame(App.timers.raf);
+  App.hud.say(App.lang==='TH'?'พักเกมชั่วคราว':'Paused', 900);
+}
+function resumeGame(){
+  if (!App.running || !document || document.hidden) return;
+  App.paused = false;
+  VRInput.resume?.();
+  clearInterval(App.timers.sec);
+  App.timers.sec = setInterval(onTick1s, 1000);
+  loopRAF();
+  App.hud.say(App.lang==='TH'?'ต่อกันเลย!':'Resumed', 800);
 }
 
 /* ========================= Mode glue ========================= */
@@ -305,7 +318,6 @@ function handleHit({ kind='good', points=10, ui={}, meta={} }={}){
   Quests.event('hit', { result:kind, comboNow:App.score.combo|0, meta });
 }
 function handleMiss({ meta={} }={}){
-  // shield?
   if (App.power.consumeShield?.()){
     App.hud.toast(App.lang==='TH'?'🛡 กันความเสียหาย':'🛡 Shielded', 900);
   }else{
