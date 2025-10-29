@@ -1,283 +1,166 @@
 <!doctype html>
-<html lang="th" data-hha-mode="">
+<html lang="th" data-hha-mode="goodjunk">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <base href="./" />
   <title>Hero Health Academy — Hub</title>
 
-  <!-- Core styles -->
-  <link rel="stylesheet" href="styles/game.css" />
-  <link rel="stylesheet" href="styles/groups.css" />
+  <!-- Styles -->
+  <link rel="stylesheet" href="./styles/game.css" />
+  <link rel="stylesheet" href="./styles/groups.css" />
 
-  <style>
-    /* Hub hero look (กลับไปแนวเดิมที่คุณชอบ + ปรับให้ปุ่มติดชัวร์) */
-    :root{
-      --accent:#37e3c6; --ink:#0b1321; --bg:#0a0f1a; --card:#0f1826; --muted:#93a2b6;
-    }
-    html,body{height:100%;}
-    body{margin:0;background:radial-gradient(1200px 600px at 70% -10%, #15304b 0%, #0a0f1a 55%, #070b12 100%);
-         color:#fff;font:600 16px/1.5 "Inter",system-ui,Segoe UI,Arial;}
-    .wrap{min-height:100%;display:flex;flex-direction:column;}
-    header{padding:18px 20px 6px;}
-    header h1{margin:0;font-size:20px;letter-spacing:.3px;font-weight:800}
-    header small{color:#9fb2c6}
-    .hub{
-      width:min(1000px, calc(100% - 24px));
-      margin:10px auto 28px;
-      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.12));
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.35);
-      padding:14px; display:grid; grid-template-columns: 1fr 320px; gap:12px;
-    }
-    @media(max-width:980px){ .hub{grid-template-columns:1fr;} }
-    .scene{
-      position:relative; min-height:420px; border-radius:14px;
-      background:
-        radial-gradient(600px 260px at 78% -40%, rgba(55,227,198,.15), rgba(55,227,198,0) 60%),
-        linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.22));
-      border:1px solid rgba(255,255,255,.06);
-      overflow:hidden;
-    }
-    /* game layer/canvas placeholder (ไม่บังคลิก) */
-    #gameLayer{position:absolute; inset:0; z-index:2; pointer-events:none;}
-    #c{position:absolute; inset:0; z-index:1; pointer-events:none;}
-
-    /* HUD (score/time + target) */
-    #hudWrap{position:absolute; inset:0; z-index:95; pointer-events:none; display:flex; align-items:flex-start; justify-content:space-between;}
-    .pill{background:#0d1422cc;border:1px solid #20324d66;border-radius:999px;padding:6px 10px;margin:10px;color:#dfe8f3;display:inline-flex;gap:10px;align-items:center}
-    #targetWrap{margin:10px 12px}
-    #scoreTime{display:flex; gap:10px}
-
-    /* Coach */
-    #coachHUD{position:absolute; left:50%; top:64px; transform:translateX(-50%);
-      z-index:96; display:none; align-items:center; gap:8px; pointer-events:none;}
-    #coachHUD.show{display:flex;}
-    #coachHUD .bubble{background:#0b1626e6;border:1px solid #1a2c47b0;border-radius:12px;padding:8px 12px;color:#eaf6ff;
-      text-shadow:0 1px 0 #000}
-    #coachHUD .emoji{font-size:22px;filter:drop-shadow(0 2px 6px #000)}
-
-    /* Menu panel */
-    .panel{background:#0f1826;border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:12px}
-    .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
-    .card{
-      border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.18));
-      border:1px solid rgba(255,255,255,.06); padding:10px; display:flex; align-items:center; gap:10px;
-      cursor:pointer; user-select:none;
-    }
-    .card[data-active="1"]{outline:2px solid var(--accent); box-shadow:0 0 0 3px #37e3c63e inset}
-    .title{font-weight:800}
-    .muted{color:#9fb2c6; font-weight:600;}
-
-    .row{display:flex; gap:8px; align-items:center; margin:10px 0 4px}
-    .segbtn{
-      flex:1 1 auto; text-align:center; padding:8px 10px; border-radius:10px;
-      border:1px solid rgba(255,255,255,.08); background:#0d1626; cursor:pointer; user-select:none;
-    }
-    .segbtn[data-active="1"]{background:#14243c; outline:2px solid #3ae3c680}
-
-    .actions{display:flex; gap:10px; margin-top:10px}
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center; gap:10px;
-      border-radius:999px; padding:12px 16px; font-weight:900; letter-spacing:.2px;
-      border:1px solid rgba(255,255,255,.08); background:#132038; cursor:pointer; user-select:none;
-    }
-    .btn.primary{background:linear-gradient(180deg, #2fe0d1, #2cb6a9); color:#08211f; border-color:#27a699}
-    .btn:active{transform:translateY(1px)}
-
-    /* Ready overlay */
-    #readyOverlay{
-      position:absolute; inset:0; z-index:94; display:none; place-items:center; pointer-events:none;
-    }
-    #readyOverlay.show{display:grid;}
-    .readyBox{background:#0b1626e6; border:1px solid #1a2c47b0; border-radius:12px; padding:10px 14px; text-align:center}
-    .readyBox strong{font-size:18px}
-
-    /* Toast */
-    #toast{position:fixed;left:50%;top:18%; transform:translateX(-50%); background:#0b1626e6; border:1px solid #1a2c47b0;
-      border-radius:12px; padding:6px 10px; z-index:97; display:none}
-    #toast.show{display:block}
-
-    /* Hide menu while playing */
-    body[data-playing="1"] #menuBar{opacity:0; pointer-events:none}
-    body[data-playing="1"] #readyOverlay{display:none}
-  </style>
-
-  <!-- Boot (checks and imports game/main.js safely) -->
-  <script type="module" src="game/boot.js"></script>
-  <!-- Hub/UI helpers (binds menu + start) -->
-  <script defer src="game/ui.js"></script>
+  <!-- Meta base so boot.js ใช้ path สม่ำเสมอ -->
+  <base href="./" />
 </head>
 <body data-mode="goodjunk">
-  <div class="wrap">
-
-    <header>
-      <h1>Hero Health Academy <small>• Hub</small></h1>
-      <small>เลือกเกม • เลือกความยาก • กด Start เพื่อเริ่ม</small>
+  <div id="app">
+    <!-- Header/Hero -->
+    <header id="hero">
+      <h1>Hero Health Academy</h1>
+      <p class="sub">Games: Good vs Junk · 5 Food Groups · Hydration · Healthy Plate</p>
     </header>
 
-    <main class="hub" id="hubRoot">
-      <!-- Left: Scene & HUD -->
-      <section class="scene">
-        <div id="gameLayer" aria-hidden="true"></div>
-        <canvas id="c" aria-hidden="true"></canvas>
+    <!-- Hub Menu -->
+    <nav id="menuBar" class="menu" aria-label="Game Selection">
+      <div class="grid">
+        <button id="m_goodjunk"   class="tile active" data-mode="goodjunk">
+          <i>🥦</i><b>Good vs Junk</b><small>Tap the healthy, dodge the junk</small>
+        </button>
+        <button id="m_groups"     class="tile" data-mode="groups">
+          <i>🎯</i><b>5 Food Groups</b><small>Match the target group</small>
+        </button>
+        <button id="m_hydration"  class="tile" data-mode="hydration">
+          <i>💧</i><b>Hydration</b><small>Keep 45–65%</small>
+        </button>
+        <button id="m_plate"      class="tile" data-mode="plate">
+          <i>🍱</i><b>Healthy Plate</b><small>Fill quotas without overfill</small>
+        </button>
+      </div>
 
-        <div id="hudWrap" class="hud">
-          <div id="targetWrap" class="pill" style="display:none">—</div>
-          <div id="scoreTime">
-            <div class="pill">🧮 <span id="score">0</span></div>
-            <div class="pill">⏱️ <span id="time">45</span>s</div>
+      <div class="row">
+        <div class="seg">
+          <span class="lbl">Mode</span>
+          <span id="modeName" class="value">Good vs Junk</span>
+        </div>
+        <div class="seg">
+          <span class="lbl">Difficulty</span>
+          <div class="btns">
+            <button id="d_easy"   class="chip" data-diff="Easy">Easy</button>
+            <button id="d_normal" class="chip active" data-diff="Normal">Normal</button>
+            <button id="d_hard"   class="chip" data-diff="Hard">Hard</button>
           </div>
         </div>
+        <div class="seg">
+          <span class="lbl">Language</span>
+          <button id="langToggle" class="chip">TH</button>
+        </div>
+      </div>
 
-        <div id="coachHUD">
-          <div class="emoji">🧑‍🏫</div>
-          <div class="bubble"><span id="coachText">Ready?</span></div>
-        </div>
+      <div class="cta">
+        <button id="btn_start" class="start">Start</button>
+      </div>
+    </nav>
 
-        <div id="readyOverlay">
-          <div class="readyBox"><strong>Ready?</strong><div>กด Start เพื่อเริ่ม</div></div>
-        </div>
-      </section>
+    <!-- HUD -->
+    <div id="hudWrap" class="hud" aria-live="polite">
+      <div id="targetWrap" class="pill" style="display:none">—</div>
+      <div id="scoreTime">
+        <div class="pill">🧮 <span id="score">0</span></div>
+        <div class="pill">⏱️ <span id="time">45</span>s</div>
+      </div>
+      <!-- Mini Quests -->
+      <div id="questBar" aria-label="Mini Quests">
+        <ul id="questChips"></ul>
+      </div>
+    </div>
 
-      <!-- Right: Menu panel -->
-      <aside class="panel" id="menuBar">
-        <div class="row"><span class="muted">โหมดเกม</span></div>
-        <div class="grid" role="tablist" aria-label="เลือกโหมด">
-          <div id="m_goodjunk" class="card" role="tab" data-mode="goodjunk" aria-selected="true"  data-active="1">
-            <div style="font-size:28px">🥦</div>
-            <div><div class="title">Good vs Junk</div><div class="muted">เก็บของดี เลี่ยงของขยะ</div></div>
-          </div>
-          <div id="m_groups" class="card" role="tab" data-mode="groups">
-            <div style="font-size:28px">🎯</div>
-            <div><div class="title">5 Food Groups</div><div class="muted">เก็บให้ตรงหมวด</div></div>
-          </div>
-          <div id="m_hydration" class="card" role="tab" data-mode="hydration">
-            <div style="font-size:28px">💧</div>
-            <div><div class="title">Hydration</div><div class="muted">รักษาโซน 45–65%</div></div>
-          </div>
-          <div id="m_plate" class="card" role="tab" data-mode="plate">
-            <div style="font-size:28px">🍽️</div>
-            <div><div class="title">Healthy Plate</div><div class="muted">จัดจานให้ครบโควตา</div></div>
-          </div>
-        </div>
+    <!-- Coach bubble -->
+    <div id="coachHUD" class="coach">
+      <div id="coachText">Ready?</div>
+    </div>
 
-        <div class="row" style="margin-top:14px"><span class="muted">ความยาก</span></div>
-        <div class="row" role="radiogroup" aria-label="เลือกความยาก">
-          <div id="d_easy"   class="segbtn" role="radio" aria-checked="false" data-diff="Easy">ง่าย</div>
-          <div id="d_normal" class="segbtn" role="radio" aria-checked="true"  data-diff="Normal" data-active="1">ปกติ</div>
-          <div id="d_hard"   class="segbtn" role="radio" aria-checked="false" data-diff="Hard">ยาก</div>
-        </div>
+    <!-- Mission / Toast lines (click-safe) -->
+    <div id="missionLine" class="missionLine" role="status" aria-live="polite"></div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-        <div class="actions">
-          <button id="btn_help"   class="btn" type="button">วิธีเล่น</button>
-          <button id="btn_start"  class="btn primary" type="button">Start</button>
-        </div>
-        <div class="row" style="justify-content:space-between">
-          <button id="langToggle"  class="btn" type="button">TH / EN</button>
-          <button id="soundToggle" class="btn" type="button">🔊</button>
-          <button id="gfxToggle"   class="btn" type="button">🎨</button>
-        </div>
-      </aside>
-    </main>
+    <!-- Game layer (DOM-spawn target host) -->
+    <div id="gameLayer">
+      <div id="spawnHost" aria-hidden="true"></div>
+    </div>
+
+    <!-- Audio (SFX/BGM) -->
+    <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
+    <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
+    <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
+    <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
+    <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
+    <audio id="bgm-main"     preload="auto" src="./assets/bgm/loop.mp3" loop></audio>
   </div>
 
-  <!-- SFX elements (HTMLAudio); main/sfx.js จะปลดล็อกเสียงให้ -->
-  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/power.mp3"></audio>
-  <audio id="bgm-main"     preload="auto" loop src="assets/bgm/hub.mp3"></audio>
+  <!-- Boot (ตรวจ main.js แล้วค่อย import) -->
+  <script type="module" src="./game/boot.js"></script>
+  <!-- Main runtime -->
+  <script type="module" src="./game/main.js"></script>
 
-  <!-- Safety: noscript -->
-  <noscript>จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกมนี้</noscript>
-
+  <!-- Hub wiring (เลือกโหมด/ความยาก + sync label) -->
   <script>
-  // ===== Hub wiring (ไม่พึ่ง ui.js เพื่อความชัวร์) =====
-  (function(){
-    const $=s=>document.querySelector(s);
-    const $$=s=>Array.from(document.querySelectorAll(s));
+    (function(){
+      const $ = s => document.querySelector(s);
+      const $$= s => document.querySelectorAll(s);
 
-    // State
-    let mode='goodjunk', diff='Normal';
+      window.__HHA_MODE = window.__HHA_MODE || 'goodjunk';
+      window.__HHA_DIFF = window.__HHA_DIFF || 'Normal';
 
-    // Mode cards
-    $$('.card[data-mode]').forEach(card=>{
-      card.addEventListener('click', ()=>{
-        mode = card.getAttribute('data-mode');
-        document.body.setAttribute('data-mode', mode);
-        $$('.card[data-mode]').forEach(c=>c.removeAttribute('data-active'));
-        card.setAttribute('data-active','1');
-        // tidy target badge on switch
-        const t=$('#targetWrap'); if(t) t.style.display = (mode==='groups'?'inline-flex':'none');
-      }, {passive:true});
-    });
-
-    // Difficulty
-    $$('.segbtn[data-diff]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        diff = btn.getAttribute('data-diff');
-        $$('.segbtn').forEach(b=>{ b.removeAttribute('data-active'); b.setAttribute('aria-checked','false'); });
-        btn.setAttribute('data-active','1'); btn.setAttribute('aria-checked','true');
-        window.__HHA_DIFF = diff;
-      }, {passive:true});
-    });
-
-    // Help
-    $('#btn_help')?.addEventListener('click', ()=> {
-      const coach = $('#coachHUD'); const text=$('#coachText');
-      if(text) text.textContent = (document.documentElement.lang==='th'?'วิธีเล่น: กด Start เพื่อเริ่ม':'How to Play: Press Start');
-      coach?.classList.add('show');
-      setTimeout(()=>coach?.classList.remove('show'), 1800);
-    });
-
-    // Start (robust binding with retries)
-    function callStart(){
-      window.__HHA_MODE = mode;
-      window.__HHA_DIFF = diff;
-      // coach “Ready?”
-      const coach=$('#coachHUD'); const t=$('#coachText');
-      if(t) t.textContent='Ready?'; coach?.classList.add('show');
-      setTimeout(()=>coach?.classList.remove('show'), 900);
-
-      if (window.HHA && typeof window.HHA.startGame === 'function'){
-        window.HHA.startGame({ fromHub:true });
-      } else if (typeof window.start === 'function'){
-        window.start({ fromHub:true });
-      } else {
-        // ถ้ายังโหลดไม่ทัน ให้ลองใหม่สักครู่
-        setTimeout(()=>{
-          if (window.HHA && typeof window.HHA.startGame === 'function'){
-            window.HHA.startGame({ fromHub:true });
-          } else {
-            const w = document.getElementById('toast') || (function(){const e=document.createElement('div'); e.id='toast'; document.body.appendChild(e); return e;})();
-            w.textContent = 'กำลังโหลดระบบเกม…'; w.classList.add('show'); setTimeout(()=>w.classList.remove('show'), 1200);
-          }
-        }, 250);
+      function setMode(m){
+        window.__HHA_MODE = m;
+        document.documentElement.setAttribute('data-hha-mode', m);
+        document.body.setAttribute('data-mode', m);
+        $$('.tile').forEach(t=>t.classList.toggle('active', t.dataset.mode===m));
+        const mapTH = {goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'};
+        const mapEN = {goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate'};
+        const lang = (localStorage.getItem('hha_lang')||'TH').toUpperCase();
+        const L = lang==='TH' ? mapTH : mapEN;
+        const name = $('#modeName'); if (name) name.textContent = L[m];
       }
-    }
-
-    const bindStart = ()=>{
-      const b = document.getElementById('btn_start'); if(!b) return;
-      const clone = b.cloneNode(true);
-      b.parentNode.replaceChild(clone, b);
-      clone.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); callStart(); }, {capture:true});
-    };
-    bindStart();
-
-    // Auto-set initial attributes
-    document.body.setAttribute('data-mode', mode);
-    window.__HHA_MODE = mode; window.__HHA_DIFF = diff;
-
-    // ถ้ากด Space/Enter บน Start ให้ทำงาน
-    window.addEventListener('keydown', (e)=>{
-      if(e.key==='Enter' || e.key===' ') {
-        const active = document.activeElement;
-        if (active && active.id==='btn_start'){ e.preventDefault(); callStart(); }
+      function setDiff(d){
+        window.__HHA_DIFF = d;
+        $$('.chip[data-diff]').forEach(c=>c.classList.toggle('active', c.dataset.diff===d));
       }
-    });
-  })();
+
+      // bind mode buttons
+      $$('#menuBar .tile').forEach(b=>{
+        b.addEventListener('click', ()=> setMode(b.dataset.mode));
+      });
+      // bind diff buttons
+      $$('#menuBar .chip[data-diff]').forEach(b=>{
+        b.addEventListener('click', ()=> setDiff(b.dataset.diff));
+      });
+
+      // lang toggle (UI only; main.js จะอ่านอีกครั้ง)
+      $('#langToggle')?.addEventListener('click', ()=>{
+        const cur=(localStorage.getItem('hha_lang')||'TH').toUpperCase();
+        const nxt = cur==='TH' ? 'EN' : 'TH';
+        localStorage.setItem('hha_lang', nxt);
+        $('#langToggle').textContent = nxt;
+        setMode(window.__HHA_MODE); // refresh label
+      });
+
+      // ensure initial
+      setMode(window.__HHA_MODE);
+      setDiff(window.__HHA_DIFF);
+
+      // Start button — call runtime
+      const start = document.getElementById('btn_start');
+      if (start){
+        const clone = start.cloneNode(true);
+        start.parentNode.replaceChild(clone, start);
+        clone.addEventListener('click', (e)=>{
+          e.preventDefault();
+          if (window.HHA?.startGame) window.HHA.startGame();
+          else if (window.start) window.start();
+        }, {capture:true});
+      }
+    })();
   </script>
 </body>
 </html>
