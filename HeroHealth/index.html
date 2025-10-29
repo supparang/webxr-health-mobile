@@ -1,165 +1,265 @@
 <!doctype html>
-<html lang="th" data-hha-mode="goodjunk">
+<html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Hero Health Academy — Hub</title>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="./styles/game.css" />
-  <link rel="stylesheet" href="./styles/groups.css" />
+  <link rel="stylesheet" href="./styles/game.css">
+  <link rel="stylesheet" href="./styles/groups.css">
 
-  <!-- Meta base so boot.js ใช้ path สม่ำเสมอ -->
-  <base href="./" />
+  <style>
+    /* ---- Hub header ---- */
+    :root{ --brand:#7fffd4; --ink:#eaf3ff; --bg:#0a0f1a; --panel:#0e1624; --panel2:#0c1320; }
+    body{
+      margin:0; background:radial-gradient(130% 100% at 50% 0%, #0e1624 0%, #0a0f1a 55%, #070b12 100%);
+      color:#e8f0ff; font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    header#hubHead{
+      max-width:1100px; margin:18px auto 6px; padding:10px 16px;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    #brand{
+      display:flex; align-items:center; gap:12px; font-weight:900; letter-spacing:.2px;
+    }
+    #brand i{
+      width:42px; height:42px; border-radius:12px;
+      background:linear-gradient(135deg, #1b2a3f, #162031); box-shadow: inset 0 1px 0 #fff2, 0 10px 24px #0006;
+      display:grid; place-items:center; font-size:22px;
+      border:1px solid #24364f;
+    }
+    #brand b{ font-size:18px; }
+    #meta{
+      display:flex; align-items:center; gap:10px; font-weight:800; opacity:.92;
+    }
+    #modeLabel{ color:var(--brand); text-shadow:0 2px 10px #000; }
+
+    /* ---- Menu bar ---- */
+    #menuBar{
+      max-width:1100px; margin:0 auto 8px; padding:12px 16px;
+      display:grid; grid-template-columns:1fr auto; gap:14px; align-items:center;
+    }
+    .card{
+      background:linear-gradient(180deg, #0f1827, #0b1220); border:1px solid #1b2a3c; border-radius:14px;
+      box-shadow:0 18px 36px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+      padding:10px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+    }
+    .group{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .tag{ font:800 12px/1.2 ui-rounded; letter-spacing:.2px; color:#9fc3ff; opacity:.9; }
+
+    button.hbtn{
+      appearance:none; border:0; border-radius:12px; padding:10px 14px; font-weight:900; letter-spacing:.2px;
+      background:linear-gradient(180deg, #172235, #0f1828); color:#eaf3ff; border:1px solid #22314a;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 10px 24px rgba(0,0,0,.35);
+      transition:transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+      cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
+    }
+    button.hbtn:hover{ transform:translateY(-1px); box-shadow:inset 0 1px 0 #fff2, 0 14px 28px #0006; }
+    button.hbtn[data-active="1"]{
+      background:linear-gradient(180deg, #1f304b, #142036); border-color:#2a4264;
+      outline:2px solid #7fffd440;
+    }
+
+    /* Start button */
+    #btn_start{
+      background:linear-gradient(180deg, #0f2d22, #0a2018); border-color:#1e6a52; color:#eafff7;
+    }
+    #btn_start:is(:hover,[data-armed="1"]){ background:linear-gradient(180deg, #144634, #0f2d22); box-shadow:0 14px 28px rgba(0,0,0,.4), 0 0 0 3px #1e6a5290 inset; }
+
+    /* ---- Playfield (see also styles/game.css) ---- */
+    #gameWrap{ margin-top:8px; }
+
+    /* ---- HUD minimal ---- */
+    #toast{
+      position:fixed; left:50%; top:10%; transform:translateX(-50%);
+      background:#0c1828cc; border:1px solid #1b2a3c; color:#eaf3ff; font-weight:900; padding:8px 12px;
+      border-radius:12px; z-index:9999; opacity:0; pointer-events:none; transition:opacity .18s;
+    }
+    #toast.show{ opacity:1; }
+
+    /* When playing, hide selector panel */
+    body[data-playing="1"] #menuBar { opacity:.0; pointer-events:none; }
+  </style>
 </head>
+
 <body data-mode="goodjunk">
-  <div id="app">
-    <!-- Header/Hero -->
-    <header id="hero">
-      <h1>Hero Health Academy</h1>
-      <p class="sub">Games: Good vs Junk · 5 Food Groups · Hydration · Healthy Plate</p>
-    </header>
+  <header id="hubHead">
+    <div id="brand">
+      <i>🛡️</i>
+      <div>
+        <b>Hero Health Academy</b><br>
+        <small style="opacity:.78;">VR Nutrition & Healthy Living — WebXR</small>
+      </div>
+    </div>
+    <div id="meta">
+      <span class="tag">Mode:</span><span id="modeLabel">Good vs Junk</span>
+      <span class="tag">Difficulty:</span><span id="diffLabel">Normal</span>
+    </div>
+  </header>
 
-    <!-- Hub Menu -->
-    <nav id="menuBar" class="menu" aria-label="Game Selection">
-      <div class="grid">
-        <button id="m_goodjunk"   class="tile active" data-mode="goodjunk">
-          <i>🥦</i><b>Good vs Junk</b><small>Tap the healthy, dodge the junk</small>
-        </button>
-        <button id="m_groups"     class="tile" data-mode="groups">
-          <i>🎯</i><b>5 Food Groups</b><small>Match the target group</small>
-        </button>
-        <button id="m_hydration"  class="tile" data-mode="hydration">
-          <i>💧</i><b>Hydration</b><small>Keep 45–65%</small>
-        </button>
-        <button id="m_plate"      class="tile" data-mode="plate">
-          <i>🍱</i><b>Healthy Plate</b><small>Fill quotas without overfill</small>
-        </button>
+  <!-- ===== Hub Menubar ===== -->
+  <nav id="menuBar">
+    <div class="card">
+      <span class="tag">Choose a Game</span>
+      <div class="group" id="modeGroup">
+        <button class="hbtn" id="m_goodjunk" data-mode="goodjunk" data-active="1">🥦 Good vs Junk</button>
+        <button class="hbtn" id="m_groups"   data-mode="groups">🍱 5 Food Groups</button>
+        <button class="hbtn" id="m_hydration"data-mode="hydration">💧 Hydration</button>
+        <button class="hbtn" id="m_plate"    data-mode="plate">🍽️ Healthy Plate</button>
       </div>
 
-      <div class="row">
-        <div class="seg">
-          <span class="lbl">Mode</span>
-          <span id="modeName" class="value">Good vs Junk</span>
-        </div>
-        <div class="seg">
-          <span class="lbl">Difficulty</span>
-          <div class="btns">
-            <button id="d_easy"   class="chip" data-diff="Easy">Easy</button>
-            <button id="d_normal" class="chip active" data-diff="Normal">Normal</button>
-            <button id="d_hard"   class="chip" data-diff="Hard">Hard</button>
-          </div>
-        </div>
-        <div class="seg">
-          <span class="lbl">Language</span>
-          <button id="langToggle" class="chip">TH</button>
-        </div>
+      <span class="tag" style="margin-left:10px;">Difficulty</span>
+      <div class="group" id="diffGroup">
+        <button class="hbtn" id="d_easy"   data-diff="Easy">Easy</button>
+        <button class="hbtn" id="d_normal" data-diff="Normal" data-active="1">Normal</button>
+        <button class="hbtn" id="d_hard"   data-diff="Hard">Hard</button>
       </div>
 
-      <div class="cta">
-        <button id="btn_start" class="start">Start</button>
-      </div>
-    </nav>
-
-    <!-- HUD -->
-    <div id="hudWrap" class="hud" aria-live="polite">
-      <div id="targetWrap" class="pill" style="display:none">—</div>
-      <div id="scoreTime">
-        <div class="pill">🧮 <span id="score">0</span></div>
-        <div class="pill">⏱️ <span id="time">45</span>s</div>
-      </div>
-      <!-- Mini Quests -->
-      <div id="questBar" aria-label="Mini Quests">
-        <ul id="questChips"></ul>
+      <div class="group" style="margin-left:auto;">
+        <button class="hbtn" id="langToggle" type="button">TH / EN</button>
+        <button class="hbtn" id="soundToggle" type="button">🔊</button>
+        <button class="hbtn" id="gfxToggle" type="button">🎛️</button>
       </div>
     </div>
 
-    <!-- Coach bubble -->
-    <div id="coachHUD" class="coach">
-      <div id="coachText">Ready?</div>
+    <div class="group">
+      <button class="hbtn" id="btn_start" type="button">▶ Start</button>
     </div>
+  </nav>
 
-    <!-- Mission / Toast lines (click-safe) -->
-    <div id="missionLine" class="missionLine" role="status" aria-live="polite"></div>
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-    <!-- Game layer (DOM-spawn target host) -->
+  <!-- ===== Playfield ===== -->
+  <div id="gameWrap">
     <div id="gameLayer">
-      <div id="spawnHost" aria-hidden="true"></div>
-    </div>
+      <div id="spawnHost"></div>
 
-    <!-- Audio (SFX/BGM) -->
-    <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
-    <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
-    <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
-    <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
-    <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/powerup.mp3"></audio>
-    <audio id="bgm-main"     preload="auto" src="./assets/bgm/loop.mp3" loop></audio>
+      <div id="hudWrap" class="hud">
+        <div id="scoreWrap">Score: <b id="score">0</b></div>
+        <div id="timeWrap">Time: <b id="time">45</b>s</div>
+        <div id="targetWrap" hidden></div>
+      </div>
+
+      <div id="coachHUD" class="coach"><span id="coachText">Ready?</span></div>
+    </div>
   </div>
 
-  <!-- Boot (ตรวจ main.js แล้วค่อย import) -->
-  <script type="module" src="./game/boot.js"></script>
-  <!-- Main runtime -->
-  <script type="module" src="./game/main.js"></script>
+  <!-- ===== SFX / BGM ===== -->
+  <audio id="sfx-good"     preload="auto" src="./assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="./assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="./assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="./assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="./assets/sfx/power.mp3"></audio>
+  <audio id="bgm-main"     preload="auto" src="./assets/bgm/bgm.mp3" loop></audio>
 
-  <!-- Hub wiring (เลือกโหมด/ความยาก + sync label) -->
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ===== Boot (loads game/main.js dynamically with cache-bust & error UI) ===== -->
+  <script type="module" src="./game/boot.js"></script>
+
+  <!-- ===== Hub wiring ===== -->
   <script>
     (function(){
-      const $ = s => document.querySelector(s);
-      const $$= s => document.querySelectorAll(s);
+      const $  = (s)=>document.querySelector(s);
+      const $$ = (s)=>document.querySelectorAll(s);
 
-      window.__HHA_MODE = window.__HHA_MODE || 'goodjunk';
-      window.__HHA_DIFF = window.__HHA_DIFF || 'Normal';
+      // Global flags read by main.js
+      window.__HHA_MODE = 'goodjunk';
+      window.__HHA_DIFF = 'Normal';
 
-      function setMode(m){
-        window.__HHA_MODE = m;
-        document.documentElement.setAttribute('data-hha-mode', m);
-        document.body.setAttribute('data-mode', m);
-        $$('.tile').forEach(t=>t.classList.toggle('active', t.dataset.mode===m));
-        const mapTH = {goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'};
-        const mapEN = {goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate'};
+      // Visual labels
+      const modeMapTH = {goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'};
+      const modeMapEN = {goodjunk:'Good vs Junk', groups:'5 Food Groups', hydration:'Hydration', plate:'Healthy Plate'};
+      function refreshLabels(){
         const lang = (localStorage.getItem('hha_lang')||'TH').toUpperCase();
-        const L = lang==='TH' ? mapTH : mapEN;
-        const name = $('#modeName'); if (name) name.textContent = L[m];
-      }
-      function setDiff(d){
-        window.__HHA_DIFF = d;
-        $$('.chip[data-diff]').forEach(c=>c.classList.toggle('active', c.dataset.diff===d));
+        const M = (lang==='EN'? modeMapEN : modeMapTH);
+        const modeName = M[window.__HHA_MODE] || window.__HHA_MODE;
+        $('#modeLabel').textContent = modeName;
+        $('#diffLabel').textContent = window.__HHA_DIFF;
+        document.body.setAttribute('data-mode', window.__HHA_MODE);
       }
 
-      // bind mode buttons
-      $$('#menuBar .tile').forEach(b=>{
-        b.addEventListener('click', ()=> setMode(b.dataset.mode));
-      });
-      // bind diff buttons
-      $$('#menuBar .chip[data-diff]').forEach(b=>{
-        b.addEventListener('click', ()=> setDiff(b.dataset.diff));
+      // Mode buttons
+      $$('#modeGroup .hbtn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          $$('#modeGroup .hbtn').forEach(b=>b.removeAttribute('data-active'));
+          btn.setAttribute('data-active','1');
+          window.__HHA_MODE = btn.getAttribute('data-mode');
+          refreshLabels();
+        });
       });
 
-      // lang toggle (UI only; main.js จะอ่านอีกครั้ง)
+      // Difficulty buttons
+      $$('#diffGroup .hbtn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          $$('#diffGroup .hbtn').forEach(b=>b.removeAttribute('data-active'));
+          btn.setAttribute('data-active','1');
+          window.__HHA_DIFF = btn.getAttribute('data-diff');
+          refreshLabels();
+        });
+      });
+
+      // Toggles (minimal)
       $('#langToggle')?.addEventListener('click', ()=>{
-        const cur=(localStorage.getItem('hha_lang')||'TH').toUpperCase();
-        const nxt = cur==='TH' ? 'EN' : 'TH';
-        localStorage.setItem('hha_lang', nxt);
-        $('#langToggle').textContent = nxt;
-        setMode(window.__HHA_MODE); // refresh label
+        const cur = (localStorage.getItem('hha_lang')||'TH').toUpperCase();
+        const next = (cur==='TH') ? 'EN' : 'TH';
+        localStorage.setItem('hha_lang', next);
+        refreshLabels();
+      });
+      $('#soundToggle')?.addEventListener('click', ()=>{
+        const on = localStorage.getItem('hha_sound') !== '0';
+        localStorage.setItem('hha_sound', on ? '0' : '1');
       });
 
-      // ensure initial
-      setMode(window.__HHA_MODE);
-      setDiff(window.__HHA_DIFF);
-
-      // Start button — call runtime
-      const start = document.getElementById('btn_start');
-      if (start){
-        const clone = start.cloneNode(true);
-        start.parentNode.replaceChild(clone, start);
-        clone.addEventListener('click', (e)=>{
-          e.preventDefault();
-          if (window.HHA?.startGame) window.HHA.startGame();
-          else if (window.start) window.start();
-        }, {capture:true});
+      // Toast helper
+      function toast(t){
+        const el = $('#toast'); el.textContent = t; el.classList.add('show');
+        setTimeout(()=>el.classList.remove('show'), 1200);
       }
+
+      // Start button — robust start that waits for main to be ready
+      function tryStart(){
+        // mark playing for CSS
+        document.body.setAttribute('data-playing','1');
+        // If engine is ready -> start immediately
+        if (window.HHA && typeof window.HHA.startGame === 'function'){
+          window.HHA.startGame({ fromHub:true });
+          return true;
+        }
+        // else wait briefly and retry
+        let tries = 0;
+        const t = setInterval(()=>{
+          tries++;
+          if (window.HHA && typeof window.HHA.startGame === 'function'){
+            clearInterval(t);
+            window.HHA.startGame({ fromHub:true });
+          } else if (tries > 20){
+            clearInterval(t);
+            document.body.removeAttribute('data-playing');
+            toast('ยังโหลดเกมไม่เสร็จ ลองใหม่อีกครั้ง');
+          }
+        }, 100);
+        return false;
+      }
+
+      // Bind Start (clone to drop old listeners)
+      (function bindStart(){
+        const b = $('#btn_start'); if(!b) return;
+        const c = b.cloneNode(true); b.parentNode.replaceChild(c, b);
+        c.addEventListener('click', (e)=>{
+          e.preventDefault(); e.stopPropagation();
+          c.setAttribute('data-armed','1');
+          tryStart();
+        }, {capture:true});
+      })();
+
+      // First paint
+      refreshLabels();
+
+      // Safety: ensure playfield pointers unlocked for UI overlays
+      setTimeout(()=>{
+        const c = document.getElementById('c');
+        if (c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
+      }, 0);
     })();
   </script>
 </body>
