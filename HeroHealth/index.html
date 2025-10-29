@@ -2,301 +2,203 @@
 <html lang="th" data-hha-mode="goodjunk">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- IMPORTANT: แก้ให้ตรง path ของโปรเจกต์คุณ (เช่น /webxr-health-mobile/HeroHealth/) -->
-  <!-- <base href="/webxr-health-mobile/HeroHealth/"> -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Hero Health Academy</title>
+  <!-- ช่วยแก้ path ให้สม่ำเสมอเวลารันบน GitHub Pages / โฟลเดอร์ย่อย -->
+  <base href="./" />
 
-  <!-- Styles (แก้/เพิ่มตามไฟล์ที่คุณมี) -->
-  <link rel="stylesheet" href="styles/core.css" />
-  <link rel="stylesheet" href="styles/hud.css" />
-  <link rel="stylesheet" href="styles/groups.css" />
-  <link rel="stylesheet" href="styles/hydration.css" />
-  <link rel="stylesheet" href="styles/plate.css" />
+  <!-- Styles (รวม fix: HUD-safe, Ready? center, spawn click-through) -->
   <link rel="stylesheet" href="styles/game.css" />
+  <link rel="stylesheet" href="styles/groups.css" />
 
-  <style>
-    /* Minimal safety + layout */
-    :root{
-      --glass: rgba(10,14,25,.55);
-      --glass-2: rgba(20,26,40,.65);
-      --accent: #7fffd4;
-      --accent-2:#ffd54a;
-      --danger:#ff5a6a;
-    }
-    html,body { height:100%; margin:0; background:#0b1220; color:#eef2ff; font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif; }
-    #app { height:100%; display:flex; flex-direction:column; }
-    /* Top bar (menu) */
-    .menu {
-      position:sticky; top:0; z-index:98;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:10px 12px; gap:12px;
-      background:linear-gradient(180deg, rgba(11,18,32,.82), rgba(11,18,32,.55));
-      backdrop-filter: blur(10px);
-      border-bottom:1px solid rgba(255,255,255,.06);
-    }
-    .brand { display:flex; align-items:center; gap:10px; font-weight:900; letter-spacing:.2px; }
-    .brand .logo { width:34px; height:34px; border-radius:10px; background:radial-gradient(circle at 30% 30%, #88ffe6, #1c2a44); box-shadow: 0 6px 16px rgba(0,0,0,.35) inset; }
-    .brand .name { font-size:18px; }
-    .tabs { display:flex; gap:6px; flex-wrap:wrap; }
-    .tabs button{
-      padding:8px 12px; border:0; border-radius:999px; background:rgba(255,255,255,.06);
-      color:#eef2ff; font-weight:800; letter-spacing:.2px; cursor:pointer;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.18);
-    }
-    .tabs button[aria-pressed="true"]{ background:linear-gradient(180deg, #26324a, #182236); box-shadow: 0 6px 16px rgba(0,0,0,.28); }
-    .diff { display:flex; gap:6px; }
-    .diff button{ padding:6px 10px; border:0; border-radius:10px; background:rgba(255,255,255,.06); color:#cfe6ff; font-weight:800; cursor:pointer; }
-    .diff button[aria-pressed="true"]{ background:#2a3856; color:#fff; }
-    .menu-right{ display:flex; align-items:center; gap:10px; }
-    .rounds{ display:flex; gap:6px; }
-    .round{
-      width:38px; height:38px; border-radius:999px; border:0; cursor:pointer; font-weight:900;
-      background:rgba(255,255,255,.08); color:#fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
-    }
-    .cta{
-      padding:10px 16px; border:0; border-radius:12px; cursor:pointer; font-weight:900; letter-spacing:.3px;
-      background:linear-gradient(180deg, #00f5c6, #00c6a1); color:#083b34;
-      box-shadow: 0 12px 28px rgba(0,245,198,.18), inset 0 1px 0 rgba(255,255,255,.35);
-    }
-    .cta:active{ transform: translateY(1px); }
-
-    /* Hero / header */
-    header.hero{
-      display:flex; align-items:center; justify-content:space-between; gap:14px;
-      padding:14px 14px 10px;
-    }
-    .hero-left{ display:flex; align-items:center; gap:12px; }
-    .hero-title{ display:flex; flex-direction:column; }
-    #modeName{ font: 900 22px ui-rounded, system-ui; letter-spacing:.2px; }
-    #difficulty{ font: 700 13px ui-rounded, system-ui; color:#b7c9ff; }
-
-    /* Game layer */
-    #stage { position:relative; flex:1; min-height: 520px; }
-    #gameLayer{ position:absolute; inset:0; z-index:2; }
-    #spawnHost{ position:absolute; inset:0; z-index:28; pointer-events:none; }
-    /* canvas scene (ถ้ามี) */
-    #c{ position:absolute; inset:0; z-index:1; pointer-events:none; }
-
-    /* HUD */
-    #hudWrap{ position:absolute; left:0; right:0; top:8px; display:flex; align-items:center; justify-content:center; gap:12px; z-index:95; pointer-events:none; }
-    .hud-pill{
-      display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px;
-      background:rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.18);
-      font-weight:900;
-    }
-    #targetWrap{ display:none; }
-    #targetBadge{ font-weight:900; }
-
-    /* Plate tracker (pills) */
-    #plateTracker{ display:none; position:absolute; left:50%; transform:translateX(-50%); bottom:12px; z-index:93; pointer-events:none; }
-    #platePills{ display:flex; gap:8px; }
-    #platePills .pill{
-      position:relative; display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px;
-      background:rgba(255,255,255,.06); font-weight:900; letter-spacing:.2px;
-    }
-    #platePills .pill i{ position:absolute; left:4px; right:4px; bottom:3px; height:4px; border-radius:6px; background:linear-gradient(90deg, var(--accent), #48b3ff); }
-
-    /* Hydration HUD wrap (created by hydration.js) */
-    #hydroWrap{ position:absolute; left:50%; transform:translateX(-50%); bottom:12px; z-index:93; pointer-events:none; }
-
-    /* Coach bubble */
-    #coachHUD{
-      position:absolute; left:0; right:0; top:64px; display:flex; justify-content:center; z-index:96; pointer-events:none;
-    }
-    #coachHUD .bubble{
-      background:var(--glass); border:1px solid rgba(255,255,255,.1); border-radius:14px; padding:8px 12px; pointer-events:auto;
-      box-shadow: 0 10px 26px rgba(0,0,0,.35); font-weight:800;
-    }
-    #coachHUD:not(.show){ display:none; }
-
-    /* Toast + mission line */
-    #missionLine{
-      position:absolute; left:50%; transform:translateX(-50%); top:46px; z-index:94;
-      background:var(--glass-2); border:1px solid rgba(255,255,255,.08); border-radius:10px; padding:6px 10px; display:none; font-weight:900;
-    }
-    .toast{
-      position:fixed; left:50%; top:18%; transform:translateX(-50%); z-index:94;
-      background:var(--glass-2); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:6px 10px; font-weight:900;
-      opacity:0; transition:opacity .18s;
-    }
-    .toast.show{ opacity:1; }
-
-    /* Help modal */
-    #help{
-      position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.55); z-index:97;
-    }
-    #help .card{
-      width:min(720px, 92vw); max-height:76vh; overflow:auto;
-      background:linear-gradient(180deg, #111a2c, #0d1526); border:1px solid rgba(255,255,255,.08);
-      border-radius:16px; box-shadow: 0 20px 50px rgba(0,0,0,.45);
-      padding:16px;
-    }
-    #help h2{ margin:0 0 8px 0; font:900 20px ui-rounded; }
-    #help pre{ white-space:pre-wrap; font: 700 13px/1.5 ui-rounded, system-ui; background:rgba(255,255,255,.04); padding:10px; border-radius:10px; }
-
-    /* Result modal */
-    #result{
-      position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(6,10,18,.55); z-index:97;
-    }
-    #result .card{
-      width:min(560px, 92vw); background:linear-gradient(180deg, #10192b, #0c1425); border:1px solid rgba(255,255,255,.08);
-      border-radius:16px; box-shadow: 0 20px 50px rgba(0,0,0,.45); padding:16px;
-    }
-    #result .row{ display:flex; gap:8px; margin-top:10px; }
-    #result .btn{ flex:1; padding:10px; border:0; border-radius:12px; font-weight:900; cursor:pointer; }
-    #result .btn.primary{ background:linear-gradient(180deg, #00f5c6, #00c6a1); color:#083b34; }
-    #result .btn.ghost{ background:rgba(255,255,255,.08); color:#fff; }
-
-    /* Warnings */
-    #bootWarn{
-      position:fixed; top:0; left:0; right:0; display:none; z-index:1000;
-      background:#b00020; color:#fff; font-weight:900; padding:10px 12px;
-    }
-    #overlayWarn{
-      display:none; position:fixed; bottom:8px; left:50%; transform:translateX(-50%);
-      background:#b00020;color:#fff;padding:6px 10px;border-radius:10px;font-weight:800;z-index:1000;
-    }
-
-    /* Danger flash */
-    .flash-danger{ animation: flash .16s; }
-    @keyframes flash{ from{ background:#2a1820; } to{ background:#0b1220; } }
-
-    /* Make sure UI is always clickable over scene */
-    #c{ pointer-events:none; z-index:1; }
-  </style>
+  <!-- iOS/Android PWA niceties (ทางเลือก) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b1220" />
 </head>
 <body data-mode="goodjunk">
-  <div id="app">
-    <!-- ===== Top menu / navbar ===== -->
-    <nav id="menuBar" class="menu glass">
-      <div class="brand">
-        <div class="logo" aria-hidden="true"></div>
-        <div class="name">Hero Health Academy</div>
+  <!-- ====== GLOBAL AUDIO (สอดคล้อง sfx.js) ====== -->
+  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/power.mp3"></audio>
+  <audio id="bgm-main"     preload="auto" src="assets/bgm/main.mp3" loop></audio>
+
+  <!-- ====== GAME LAYER ====== -->
+  <main id="gameLayer" role="main" aria-label="Hero Health Academy">
+    <!-- Spawn host (DOM-spawn) -->
+    <div id="spawnHost" aria-hidden="true"></div>
+
+    <!-- ===== HUD (score/time/combo/fever) ===== -->
+    <div id="hudWrap" class="hud">
+      <div class="hud-pill"><span id="modeName">Good vs Junk</span></div>
+      <div class="hud-pill">⏱ <span id="time">45</span>s</div>
+      <div class="hud-pill">⭐ <span id="score">0</span></div>
+      <div class="hud-pill">🔗 <span id="combo">0</span>x</div>
+      <div class="hud-pill" id="feverBarWrap" aria-label="fever">
+        <span>FEVER</span>
+        <div id="feverBar" style="margin-left:8px;width:120px;height:6px;border-radius:8px;background:#ffffff20;overflow:hidden;">
+          <i id="feverFill" style="display:block;height:100%;width:0%;background:linear-gradient(90deg,#ffd54a,#ff7f50)"></i>
+        </div>
+      </div>
+      <!-- กลุ่มเป้าหมายของโหมด Groups -->
+      <div id="targetWrap" class="hud-pill" style="display:none;">
+        🎯 <span id="targetBadge">ผัก • 0/8</span>
+      </div>
+    </div>
+
+    <!-- ===== Hydration HUD (โหมด hydration) ===== -->
+    <div id="hydroWrap" style="display:none;">
+      <div class="hydroBar" aria-label="hydration-bar">
+        <div class="seg low"><span>น้อยไป</span></div>
+        <div class="seg ok"><span>พอดี</span></div>
+        <div class="seg high"><span>มากไป</span></div>
+        <div class="needle" role="presentation"></div>
+        <div class="flame" role="presentation" hidden><i></i><i></i><i></i></div>
+      </div>
+    </div>
+
+    <!-- ===== Plate tracker (โหมด plate) ===== -->
+    <div id="plateTracker" style="display:none;">
+      <div id="platePills"></div>
+    </div>
+
+    <!-- ===== Mission line / Toast ===== -->
+    <div id="missionLine" aria-live="polite" style="display:none;"></div>
+    <div id="toast" class="toast" aria-live="polite"></div>
+
+    <!-- ===== Coach Bubble (พร้อม fix จัดกลาง) ===== -->
+    <section id="coachHUD" class="coach" aria-live="polite">
+      <div class="bubble" id="coachText">Ready?</div>
+    </section>
+
+    <!-- ===== MENU (Start & selectors) ===== -->
+    <nav id="menuBar" class="menu" aria-label="Game Menu" style="
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      z-index:100;display:flex;flex-direction:column;align-items:center;gap:14px;">
+
+      <h1 style="margin:0 0 6px 0">Hero Health Academy</h1>
+
+      <!-- Mode selector -->
+      <div id="modeSelector" style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <button type="button" id="m_goodjunk" class="btn mode">🥦 Good vs Junk</button>
+        <button type="button" id="m_groups"   class="btn mode">🍱 5 Food Groups</button>
+        <button type="button" id="m_hydration" class="btn mode">💧 Hydration</button>
+        <button type="button" id="m_plate"     class="btn mode">🍽️ Healthy Plate</button>
       </div>
 
-      <div class="tabs" role="tablist" aria-label="Game modes">
-        <button id="m_goodjunk"  role="tab" aria-pressed="true"  class="tab">🥦 Good vs Junk</button>
-        <button id="m_groups"    role="tab" aria-pressed="false" class="tab">🎯 5 Food Groups</button>
-        <button id="m_hydration" role="tab" aria-pressed="false" class="tab">💧 Hydration</button>
-        <button id="m_plate"     role="tab" aria-pressed="false" class="tab">🍽️ Healthy Plate</button>
+      <!-- Difficulty selector -->
+      <div id="diffSelector" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <button type="button" id="d_easy"   class="btn diff">Easy</button>
+        <button type="button" id="d_normal" class="btn diff is-active">Normal</button>
+        <button type="button" id="d_hard"   class="btn diff">Hard</button>
       </div>
 
-      <div class="menu-right">
-        <div class="diff" role="group" aria-label="Difficulty">
-          <button id="d_easy"   aria-pressed="false">Easy</button>
-          <button id="d_normal" aria-pressed="true">Normal</button>
-          <button id="d_hard"   aria-pressed="false">Hard</button>
-        </div>
-        <div class="rounds">
-          <button id="langToggle"  class="round" aria-label="Language"><span>TH/EN</span></button>
-          <button id="soundToggle" class="round" aria-label="Sound">🔊</button>
-          <button id="gfxToggle"   class="round" aria-label="Graphics">✨</button>
-          <button id="btn_help"    class="round" aria-label="How to Play">?</button>
-        </div>
-        <button id="btn_start" class="cta" data-action="start" tabindex="0" aria-label="Start game">▶ Start</button>
+      <!-- Toggles -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <button type="button" id="langToggle"  class="btn">TH/EN</button>
+        <button type="button" id="soundToggle" class="btn">🔊</button>
+        <button type="button" id="gfxToggle"   class="btn">🎨</button>
+        <button type="button" id="btn_help"    class="btn">❓ Help</button>
+      </div>
+
+      <!-- Start -->
+      <div style="margin-top:6px;">
+        <button type="button" id="btn_start" class="btn btn-primary" style="min-width:220px;height:48px;font-weight:900;">
+          ▶️ Start
+        </button>
       </div>
     </nav>
 
-    <!-- ===== Hero row ===== -->
-    <header class="hero">
-      <div class="hero-left">
-        <div class="hero-title">
-          <div id="modeName">Good vs Junk</div>
-          <div id="difficulty">Normal</div>
+    <!-- ===== RESULT MODAL ===== -->
+    <section id="result" class="modal" aria-modal="true" role="dialog" style="display:none;">
+      <div class="modal-body">
+        <h2 id="h_result">Result</h2>
+        <div id="resultStats">
+          <!-- main.js จะเติมคะแนน/ดาว/เกรด -->
+        </div>
+        <div class="modal-actions" style="display:flex;gap:10px;justify-content:center;">
+          <button type="button" data-result="replay" class="btn">↻ Replay</button>
+          <button type="button" data-result="home"   class="btn">🏠 Home</button>
         </div>
       </div>
-      <div class="hero-right">
-        <!-- reserve for profile / xp later -->
-      </div>
-    </header>
+    </section>
 
-    <!-- ===== Game Stage ===== -->
-    <main id="stage" aria-live="polite">
-      <!-- Canvas / 3D scene (optional) -->
-      <canvas id="c" aria-hidden="true"></canvas>
-
-      <!-- Game layer for HUD & spawns -->
-      <div id="gameLayer">
-        <!-- HUD: time / score / combo -->
-        <div id="hudWrap" class="hud">
-          <div class="hud-pill">⏱ <span id="time">45</span>s</div>
-          <div class="hud-pill">⭐ <span id="score">0</span></div>
-          <div class="hud-pill">🔥 x<span id="combo">0</span></div>
-          <div id="targetWrap" class="hud-pill"><span id="targetBadge">—</span></div>
-        </div>
-
-        <!-- Mission line (quick feedback) -->
-        <div id="missionLine" class="mission"></div>
-
-        <!-- Coach bubble -->
-        <div id="coachHUD"><div class="bubble"><span id="coachText">Ready?</span></div></div>
-
-        <!-- Plate tracker (bars) -->
-        <div id="plateTracker">
-          <div id="platePills"></div>
-        </div>
-
-        <!-- Hydration HUD created by hydration.js -->
-        <div id="hydroWrap"></div>
-
-        <!-- Spawn host (DOM buttons) -->
-        <div id="spawnHost"></div>
-      </div>
-
-      <!-- Toast -->
-      <div id="toast" class="toast" aria-live="assertive"></div>
-    </main>
-
-    <!-- ===== Help modal ===== -->
-    <section id="help" role="dialog" aria-modal="true" aria-labelledby="h_help">
-      <div class="card">
+    <!-- ===== HELP MODAL ===== -->
+    <section id="help" class="modal" aria-modal="true" role="dialog" style="display:none;">
+      <div class="modal-body" style="max-width:760px;">
         <h2 id="h_help">วิธีเล่น</h2>
-        <pre id="helpBody">...</pre>
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:10px;">
-          <button id="btn_ok" class="cta">ตกลง</button>
+        <pre id="helpBody" style="white-space:pre-wrap;font-family:inherit;"></pre>
+        <div style="text-align:center;margin-top:10px;">
+          <button type="button" id="btn_ok" class="btn btn-primary">OK</button>
         </div>
       </div>
     </section>
+  </main>
 
-    <!-- ===== Result modal ===== -->
-    <section id="result" role="dialog" aria-modal="true" aria-labelledby="h_result">
-      <div class="card">
-        <h2 id="h_result" style="margin-top:0;">ผลการเล่น</h2>
-        <div id="resultBody">...</div>
-        <div class="row">
-          <button class="btn primary" data-result="replay">▶ เล่นอีกครั้ง</button>
-          <button class="btn ghost"   data-result="home">🏠 กลับหน้าหลัก</button>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- ===== Audio (SFX/BGM) ===== -->
-  <audio id="sfx-good"    preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"     preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"    preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
-  <audio id="bgm-main"    preload="auto" loop src="assets/bgm/main.mp3"></audio>
-
-  <!-- ===== Boot/Overlay warnings ===== -->
-  <div id="bootWarn" role="alert" aria-live="assertive" style="display:none">
-    ⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ base href
-  </div>
-  <div id="overlayWarn" role="alert" aria-live="polite"></div>
-
-  <!-- ===== Scripts =====
-       หมายเหตุ:
-       1) ui.js จะจัดการ Start/Help/Tutorial/Bindings และทำให้ปุ่ม Start “กดได้ทุกกรณี”
-       2) boot.js จะ ping และ import game/main.js แบบกันแคช พร้อมแถบเตือนถ้าโหลดไม่ได้
-       3) main.js ของคุณควรประกาศ window.start()/window.end() หรือ HHA.startGame()
-  -->
-  <script type="module" src="game/ui.js"></script>
+  <!-- ===== Boot loader (จะ ping main.js และ import) ===== -->
   <script type="module" src="game/boot.js"></script>
-  <!-- ถ้าอยากโหลด main.js ตรง ๆ (นอก boot) ให้ uncomment:
-  <script type="module" src="game/main.js"></script>
-  -->
+  <!-- ===== UI bindings (Start flow, How-to, Tutorial, toggles) ===== -->
+  <script type="module" src="game/ui.js"></script>
+
+  <!-- ===== Start Fallback (เผื่อ ui.js ยังไม่ผูก — ให้ Start ติดแน่) ===== -->
+  <script>
+    (function ensureStartWorks(){
+      const btn = document.getElementById('btn_start');
+      if(!btn) return;
+
+      // ป้องกัน overlay/blocker
+      btn.style.pointerEvents = 'auto';
+      btn.setAttribute('tabindex','0');
+      btn.addEventListener('click', tryStart, {capture:true});
+      btn.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); tryStart(); }});
+
+      function tryStart(){
+        // ล้าง warning boot (ถ้ามี)
+        const w = document.getElementById('bootWarn'); if(w) w.style.display='none';
+
+        // เส้นทางหลัก: ui.js -> startFlow()
+        if (typeof window.startFlow === 'function') { window.startFlow(); return; }
+        // รองรับ main.js แบบ global API
+        if (window.preStartFlow) { window.preStartFlow(); return; }
+        if (window.HHA && typeof window.HHA.startGame === 'function'){ window.HHA.startGame({demoPassed:true}); return; }
+        if (typeof window.start === 'function'){ window.start({demoPassed:true}); return; }
+
+        // ถ้ายังไม่เจอ ให้ซ่อนเมนู แล้วให้ main.js คุมเกมต่อเมื่อ ready
+        const menu = document.getElementById('menuBar');
+        if (menu) menu.style.display = 'none';
+        console.warn('[StartFallback] No start function yet — hiding menu and waiting for main.js');
+      }
+    })();
+  </script>
+
+  <!-- ===== Minimal button styles (ให้เมนูสวย/คมและเข้ากับเกม.css) ===== -->
+  <style>
+    .btn{
+      appearance:none;border:0;border-radius:12px;padding:8px 14px;font-weight:800;
+      background:#22314d;color:#e8f0ff;cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .btn:hover{ filter:brightness(1.08); }
+    .btn:active{ transform:translateY(1px); }
+    .btn-primary{ background: linear-gradient(180deg,#3b82f6,#2563eb); color:#fff; }
+    .btn.mode{ background:#1b263b; }
+    .btn.diff.is-active{ outline:2px solid #7fffd4; }
+
+    .modal{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      background:rgba(5,8,15,.55); z-index:101;
+    }
+    .modal-body{
+      background:rgba(15,20,35,.9); color:#eaf2ff; padding:16px 18px; border-radius:14px;
+      box-shadow:0 18px 40px rgba(0,0,0,.45);
+      max-width:92vw;
+    }
+  </style>
+
+  <noscript>
+    <div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#111;color:#fff;z-index:9999">
+      ต้องเปิดใช้งาน JavaScript เพื่อเล่นเกมนี้
+    </div>
+  </noscript>
 </body>
 </html>
