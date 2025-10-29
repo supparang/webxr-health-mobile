@@ -1,291 +1,218 @@
-/* === Hero Health Academy — styles/game.css (clean consolidated) === */
+/* === Hero Health Academy — styles/game.css (Unified HUD-safe, Coach-safe, DOM-spawn) === */
 
-/* ---------- Root & Base ---------- */
-:root{
-  /* default layout tokens used by layout formulas */
-  --header-h: 56px;
-  --menu-h: 88px;
-  --hud-gap: 12px;
-  --safe-h: 100vh; /* updated by JS on resize/orientationchange */
+/* Base */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0b1220;
+  color: #eef2ff;
+  font-family: ui-rounded, system-ui, -apple-system, "Noto Sans Thai", sans-serif;
 }
 
-html, body{
-  margin:0; padding:0; height:100%; width:100%;
-  overflow:hidden; background:#0a0f1a; color:#fff;
-  font-family: ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-}
-
-/* BG Canvas = real background, never blocks clicks */
-canvas#c{
-  position:fixed; inset:0; z-index:-1; /* behind everything */
-  pointer-events:none;
-}
-
-/* ---------- Header ---------- */
-header.brand{
-  position:fixed; top:0; left:0; right:0; z-index:50;
-  display:flex; align-items:center; gap:8px;
-  padding:10px 12px;
-  background:linear-gradient(180deg, rgba(8,12,24,.85), rgba(8,12,24,.35));
-  backdrop-filter:saturate(120%) blur(6px);
-}
-header .spacer{ flex:1 1 auto; }
-header .btn, .menu .btn, .menu .tag{
-  background:#162033; color:#cfe9ff; border:1px solid #26324d; border-radius:10px;
-  padding:8px 12px; font-weight:800; cursor:pointer;
-}
-header .btn:active, .menu .btn:active, .menu .tag:active{ transform:translateY(1px); }
-
-/* ---------- Stage / Play area ---------- */
-/* Wrapper floats at center and defines overall height using safe tokens */
-.game-wrap{
-  position: fixed;
-  left: 50%;
-  top: calc(50% + (var(--header-h) - var(--menu-h)) * 0.0);
-  transform: translate(-50%, -50%);
-  z-index: 5;
-
-  width: min(94vw, 900px);
-  height: clamp(420px, 68vh, calc(var(--safe-h) - var(--header-h) - var(--hud-gap) - var(--menu-h) - 18px));
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* game clicks should not be blocked by wrapper itself */
-  pointer-events: none;
-
-  /* 3D scene perspective for nicer tilts */
-  perspective: 900px;
-  transform-style: preserve-3d;
-}
-
-/* The actual stage bounds */
-#stage{
+/* ===== Game Layers ===== */
+#gameLayer {
   position: relative;
   width: 100%;
   height: 100%;
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 14px;
-  background: linear-gradient(180deg,#10161b,#0b0f13);
-  box-shadow: 0 8px 30px rgba(0,0,0,.35);
   overflow: hidden;
 }
 
-/* Input layer = the ONLY layer that accepts clicks in gameplay area */
-#gameLayer{
-  position: relative;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 28;
-  pointer-events: auto;            /* accepts clicks */
-  touch-action: manipulation;
-
-  /* keep children’s 3D transforms */
-  transform-style: preserve-3d;
-}
-
-/* host for dynamically spawned objects (itself is click-through) */
-#spawnHost{
+#spawnHost {
   position: absolute;
   inset: 0;
-  pointer-events: none; /* child nodes will toggle pointer-events */
   z-index: 28;
+  pointer-events: none;
 }
 
-/* spawned clickables (e.g., emojis/items) */
-.spawn-emoji{
-  position: absolute;
+.spawn-emoji, .item {
+  position: fixed;
+  padding: 8px 12px;
   border: 0;
-  background: transparent;
-  cursor: pointer;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.10));
+  box-shadow: 0 14px 28px rgba(0,0,0,.35),
+              inset 0 1px 0 rgba(255,255,255,.18),
+              inset 0 -1px 0 rgba(0,0,0,.18);
+  text-shadow: 0 2px 8px rgba(0,0,0,.35), 0 0 1px rgba(0,0,0,.5);
+  font-size: clamp(42px, 6vw, 56px);
+  line-height: 1;
+  pointer-events: auto !important;
+  z-index: 29;
+  transition: transform .15s ease, opacity .15s ease, filter .15s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  font-size: clamp(28px, 6vmin, 56px);
-  line-height: 1;
-  pointer-events: auto; /* clickable */
-  z-index: 29;
-  filter: drop-shadow(0 3px 8px rgba(0,0,0,.45));
-  transform: translateZ(0);
-  will-change: transform, opacity, filter;
 }
 
-/* Responsive tweaks */
-@media (max-height: 680px){
-  .game-wrap{
-    height: clamp(380px, 62vh, calc(var(--safe-h) - var(--header-h) - var(--hud-gap) - var(--menu-h) - 12px));
+/* Hover effect (desktop) */
+@media (hover:hover) {
+  .spawn-emoji:hover {
+    transform: translateY(-8px) scale(1.08);
+    filter: drop-shadow(0 10px 24px rgba(0,0,0,.35));
+  }
+  .spawn-emoji:active {
+    transform: translateY(2px) scale(.95);
   }
 }
-@media (max-width: 420px){
-  .game-wrap{ width: min(96vw, 900px); }
+
+/* ===== HUD ===== */
+#hudWrap {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  z-index: 95;
+  pointer-events: none;
 }
 
-/* ---------- Menu ---------- */
-.menu{
-  position:fixed; left:0; right:0; bottom:0; z-index:70;
-  background:linear-gradient(0deg, rgba(8,12,24,.8), rgba(8,12,24,.3));
-  backdrop-filter:saturate(120%) blur(6px);
-  padding:8px 12px; display:flex; flex-direction:column; gap:6px; border-top:1px solid rgba(255,255,255,.08);
-}
-.menu .row{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-.modeLabel{ margin-left:auto; opacity:.85; font-weight:800; }
-
-/* ---------- HUD (Score/Combo/Time + Fever + Coach) ---------- */
-#hudWrap{
-  position:fixed; top:calc(8px + var(--header-h)); left:0; right:0; z-index:95;
-  display:flex; flex-direction:column; align-items:center; gap:6px;
-  pointer-events:none; visibility:visible !important; opacity:1 !important;
-}
-.hud .cardlike{
-  background:linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.5));
-  border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:6px 10px; backdrop-filter:blur(6px);
-  display:inline-flex; align-items:center; gap:8px;
-}
-.bar{ background:#0e1730; border-radius:999px; overflow:hidden; height:10px; border:1px solid #1c2a4d; }
-.bar.slim{ height:8px; }
-#feverBar{ height:100%; width:0%; background:linear-gradient(90deg,#ffd54a,#ff6d00); }
-.fever{ font:900 18px/1 ui-rounded, system-ui; color:#ffd54a; }
-
-#coachHUD{
-  position:fixed; top:calc(48px + var(--header-h)); left:50%; transform:translateX(-50%);
-  z-index:96; pointer-events:none !important; display:flex !important;
-}
-#coachText{
-  background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.12);
-  border-radius:12px; padding:6px 10px; font-weight:800;
+.hud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08),
+              inset 0 -1px 0 rgba(0,0,0,.18);
 }
 
-/* Power bar (clickable even when HUD pass-through) */
-.powerbar{ display:flex; gap:8px; align-items:center; margin-top:4px; pointer-events:auto; }
-.powerbar .pseg{
-  position:relative; display:flex; align-items:center; justify-content:center;
-  width:40px; height:40px; border-radius:12px; background:#15213a; border:1px solid #25365c; cursor:pointer;
-  box-shadow:0 2px 10px rgba(0,0,0,.25) inset, 0 2px 10px rgba(0,0,0,.2);
-  transition:transform .12s, filter .12s, opacity .12s; overflow:hidden;
-}
-.powerbar .pseg:hover{ transform:translateY(-1px) scale(1.03); }
-.powerbar .pseg:active{ transform:translateY(0) scale(.98); }
-.powerbar .pseg[aria-disabled="true"]{ opacity:.45; pointer-events:none; }
-.powerbar .pseg span{ font-size:18px; font-weight:900; }
-.powerbar .pseg[data-k="x2"] span{ font-size:16px; }
-.powerbar .pseg i{ position:absolute; inset:auto 0 0 0; height:0%; background:linear-gradient(180deg,rgba(255,213,74,.85),rgba(255,109,0,.85)); transition:height .2s linear; }
-.powerbar .pseg.busy i{ height:100%; }
-.powerbar .pseg.ready{ outline:2px solid #4ade80; }
-
-/* ---------- Quests / Target / Plate / Hydration ---------- */
-#questChips{ order:3; display:flex; gap:8px; flex-wrap:wrap; align-items:center; max-width:min(96vw,980px); align-self:center; }
-.questChip{
-  display:flex; flex-direction:column; gap:4px; min-width:120px;
-  padding:8px 10px; border-radius:10px; background:#0b1426; border:1px solid #1a2a4d;
-}
-.questChip .qLabel{ font:800 12px/1.2 ui-rounded,system-ui; opacity:.95; }
-.questChip .qProg{ font:800 12px/1 ui-rounded,system-ui; opacity:.8; text-align:right; }
-.questChip .qBar{ position:relative; height:6px; border-radius:999px; overflow:hidden; background:#0e1730; border:1px solid #1c2a4d; }
-.questChip .qBar i{ position:absolute; inset:0; width:0%; background:linear-gradient(90deg,#7da7ff,#43e3ff); }
-.questChip.done{ border-color:#285a3a; background:linear-gradient(180deg,#0f1f1a,#0b1410); animation: chipDone .6s ease; }
-.questChip.done .qBar i{ background:linear-gradient(90deg,#41f1a3,#a3ffcf); }
-@keyframes chipDone{ 0%{transform:scale(1)} 50%{transform:scale(1.07)} 100%{transform:scale(1)} }
-
-#targetWrap{
-  font-weight:800; background:#0d172b; border:1px solid #203155; border-radius:10px;
-  padding:6px 10px; display:inline-flex; align-items:center; gap:8px; width:max-content;
-  z-index:93; pointer-events:none;
-}
-#targetWrap.pulse{ animation: targetPulse .45s ease-out 1; box-shadow:0 0 0 2px rgba(103,232,249,.35); }
-#targetWrap.glow{ box-shadow:0 0 20px #4ade80; transition:box-shadow .95s; }
-@keyframes targetPulse{ 0%{transform:scale(1)} 40%{transform:scale(1.04)} 100%{transform:scale(1)} }
-
-#plateTracker{
-  position:fixed; z-index:93; top:64px; right:12px; min-width:240px; display:none;
-  background:#0d172b; border:1px solid #203155; border-radius:12px; padding:8px 10px; box-shadow:0 10px 30px rgba(0,0,0,.25);
-  pointer-events:none;
-}
-#platePills{ display:flex; flex-direction:column; gap:6px; }
-#platePills .pill{
-  display:grid; grid-template-columns: 1fr auto; align-items:center; gap:8px; position:relative;
-  padding:6px 8px; border-radius:10px; background:#0b1426; border:1px solid #1a2a4d;
-}
-#platePills .pill b, #platePills .pill span{ font:800 12px/1 ui-rounded,system-ui; opacity:.9; }
-#platePills .pill i{ position:absolute; left:6px; right:6px; bottom:6px; height:6px; border-radius:999px; background:linear-gradient(90deg,#7da7ff,#43e3ff); opacity:.85; }
-#platePills .pill.ok{ border-color:#285a3a; background:linear-gradient(180deg,#0f1f1a,#0b1410); }
-#platePills .pill.ok i{ background:linear-gradient(90deg,#41f1a3,#a3ffcf); }
-#platePills .pill.warn{ border-color:#9b2c2c !important; box-shadow:0 0 0 2px rgba(255,64,64,.25); animation: plateShake .2s linear 1; }
-@keyframes plateShake{ 0%{transform:translateX(0)} 25%{transform:translateX(-3px)} 50%{transform:translateX(2px)} 75%{transform:translateX(-2px)} 100%{transform:translateX(0)} }
-
-#hydroWrap{ position:fixed; z-index:93; left:12px; right:12px; top:118px; display:block; pointer-events:none; }
-.hydroBar{ position:relative; height:24px; border-radius:999px; overflow:hidden; border:1px solid #203155; background:#0d172b; box-shadow: inset 0 2px 8px rgba(0,0,0,.35); }
-.hydroBar .seg{ position:absolute; top:0; bottom:0; display:flex; align-items:center; justify-content:center;
-  font:800 11px/1 ui-rounded,system-ui; letter-spacing:.2px; color:#e9f3ff; opacity:.85; text-shadow:0 1px 3px #0009; }
-.hydroBar .seg.low{ left:0; width:35%; background:linear-gradient(180deg,#12223d,#0f1b33); }
-.hydroBar .seg.ok{ left:35%; width:30%; background:linear-gradient(180deg,#123d2a,#0f3324); }
-.hydroBar .seg.high{ left:65%; width:35%; background:linear-gradient(180deg,#3d1212,#330f0f); }
-.hydroBar .needle{ position:absolute; top:-4px; width:12px; height:32px; border-radius:6px; background:linear-gradient(180deg,#cfe9ff,#5ab0ff);
-  box-shadow:0 0 10px rgba(90,176,255,.7), 0 2px 10px rgba(0,0,0,.35); transition:left .18s ease; }
-.hydroBar[data-zone="LOW"]{ outline:2px solid rgba(90,176,255,.35); }
-.hydroBar[data-zone="OK"]{  outline:2px solid rgba(127,255,212,.45); }
-.hydroBar[data-zone="HIGH"]{outline:2px solid rgba(255,109,0,.45); }
-.hydroBar.flash-bad::after{
-  content:''; position:absolute; inset:0; background:linear-gradient(90deg, transparent, rgba(255,64,64,.25), transparent);
-  animation: hydroFlash .25s ease-out 1; pointer-events:none;
-}
-@keyframes hydroFlash{ from{opacity:.9} to{opacity:0} }
-.hydroBar .flame{ position:absolute; bottom:-8px; width:20px; height:28px; pointer-events:none; filter: drop-shadow(0 4px 8px rgba(255,109,0,.55)); }
-.hydroBar .flame i{ position:absolute; bottom:0; left:50%; width:10px; height:14px; margin-left:-5px; background:radial-gradient(closest-side,#ffd54a,#ff6d00);
-  border-radius:999px 999px 6px 6px; animation:flameUp .8s infinite ease-in-out; opacity:.95; }
-.hydroBar .flame i:nth-child(2){ width:8px; height:12px; margin-left:-2px; animation-duration:.75s; opacity:.9; }
-.hydroBar .flame i:nth-child(3){ width:6px; height:10px; margin-left:-7px;  animation-duration:.7s;  opacity:.85; }
-@keyframes flameUp{ 0%{transform:translateY(6px) scale(.9);opacity:.9} 50%{transform:translateY(-2px) scale(1.05);opacity:1} 100%{transform:translateY(-8px) scale(.85);opacity:0} }
-
-/* ---------- Mission line + Toast ---------- */
-#missionLine{
-  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-  font:900 22px/1.3 ui-rounded,system-ui; padding:8px 16px; background:rgba(0,0,0,.55);
-  border-radius:12px; color:#fff; text-shadow:0 2px 10px #000; display:none; z-index:99; pointer-events:none;
-}
-.toast{
-  position:fixed; left:50%; top:18%; transform:translate(-50%, -6px);
-  background:rgba(0,0,0,.6); border:1px solid #203155; color:#fff; padding:8px 12px; border-radius:10px;
-  font:800 14px/1.2 ui-rounded, system-ui; z-index:9999; opacity:0; transition:opacity .18s, transform .18s;
-}
-.toast.show{ opacity:1; transform:translate(-50%, 0); }
-
-/* ---------- Modal (works with [hidden]) ---------- */
-.modal{
-  position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
-  display:flex; align-items:center; justify-content:center;
-}
-.modal[hidden]{ display:none; }
-.modal .card{
-  max-width:min(92vw,720px); width:clamp(280px,88vw,560px);
-  max-height:min(86vh,680px); overflow:auto; padding:16px; border-radius:16px;
-  background:#0d172b; border:1px solid #203155; color:#e9f3ff; box-shadow:0 18px 48px rgba(0,0,0,.45);
-}
-.modal .btn,[data-result]{ cursor:pointer; }
-
-/* ---------- Penalty FX ---------- */
-body.flash-danger::after{
-  content:''; position:fixed; inset:0; background:rgba(255,40,40,.35);
-  animation:flashRed .25s ease-out; pointer-events:none; z-index:9998;
-}
-@keyframes flashRed{ 0%{opacity:.85} 100%{opacity:0} }
-body.dim-penalty::before{
-  content:''; position:fixed; inset:0; background:rgba(0,0,0,.5);
-  animation:dimPen .4s ease-out forwards; pointer-events:none; z-index:9997;
-}
-@keyframes dimPen{ 0%{opacity:.8} 100%{opacity:0} }
-
-/* ---------- Clickability rules (centralized & safe) ---------- */
-#menuBar, header.brand, .menu .btn, .menu .tag, [data-action], [data-result]{
-  pointer-events:auto;
-}
-#hudWrap, #coachHUD, #targetWrap, #plateTracker, #hydroWrap, #missionLine, #questChips{
-  pointer-events:none !important; /* ensure HUD never blocks gameplay */
-}
-button[data-action], .btn[data-action], [role="button"][data-action]{
-  pointer-events:auto; cursor:pointer;
+/* Target badge (for groups mode) */
+#targetWrap {
+  display: inline-flex;
+  z-index: 94;
+  pointer-events: none;
 }
 
-/* ---------- Accessibility ---------- */
-:focus-visible{ outline:2px solid #7fffd4; outline-offset:2px; }
+/* ===== Mission Line ===== */
+#missionLine {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15,20,35,.75);
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-weight: 900;
+  display: none;
+  z-index: 94;
+}
+
+/* ===== Coach Bubble (center-safe fix) ===== */
+#coachHUD {
+  position: absolute;
+  left: 50%;
+  top: 90px;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: min(90%, 680px);
+  z-index: 96;
+  pointer-events: none;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+#coachHUD .bubble {
+  background: rgba(10,14,25,.55);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 800;
+  color: #eaf5ff;
+  text-align: center;
+  box-shadow: 0 10px 26px rgba(0,0,0,.35);
+  pointer-events: auto;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+#coachHUD:not(.show) {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  #coachHUD {
+    top: 110px;
+    width: 94%;
+  }
+  #coachHUD .bubble {
+    font-size: 15px;
+    padding: 8px 12px;
+  }
+}
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  left: 50%;
+  top: 20%;
+  transform: translateX(-50%);
+  background: rgba(15,20,35,.75);
+  color: #fff;
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-weight: 900;
+  opacity: 0;
+  transition: opacity .18s ease;
+  z-index: 97;
+}
+.toast.show { opacity: 1; }
+
+/* ===== Hydration HUD ===== */
+#hydroWrap {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 14px;
+  z-index: 93;
+  pointer-events: none;
+}
+
+/* ===== Plate Tracker ===== */
+#plateTracker {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 10px;
+  z-index: 93;
+  display: none;
+}
+
+#platePills {
+  display: flex;
+  gap: 8px;
+}
+
+#platePills .pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  font-weight: 900;
+  position: relative;
+}
+
+#platePills .pill i {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  height: 4px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #7fffd4, #48b3ff);
+}
+
+/* ===== Reduced Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
