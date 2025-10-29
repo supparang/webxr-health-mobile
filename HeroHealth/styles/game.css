@@ -148,3 +148,25 @@ body{
   #gameLayer{ height:calc(100vh - 360px) }
   #questBar{ bottom:-50px }
 }
+/* ... (ของเดิมทั้งหมดคงไว้ตามเวอร์ชันล่าสุดที่คุณใช้) ... */
+
+/* ---------- DOM-spawn in-layer fix (สำคัญ) ---------- */
+/* บังคับให้ปุ่ม/อีโมจิสปอว์นอยู่ 'ภายใน' #gameLayer ไม่ใช่ทั้งหน้าจอ */
+#gameLayer #spawnHost .spawn-emoji,
+#gameLayer .spawn-emoji {
+  position: absolute !important;   /* เดิมเคยเป็น fixed ในบางสไตล์ → ทำให้พิกัดเพี้ยน */
+  left: 0; top: 0;
+  transform: translate(-50%, -50%); /* จะใช้คู่กับการกำหนดพิกัดเป็นจุดกึ่งกลาง */
+  z-index: var(--z-items, 29);
+  pointer-events: auto !important;
+}
+
+/* ขนาดพื้นฐานให้พอดีทุกจอ */
+#gameLayer .spawn-emoji {
+  font-size: clamp(42px, 6.5vw, 56px);
+  line-height: 1;
+}
+
+/* เงา/ไฮไลต์ (คงรูปแบบเดียวกับกลุ่มอื่น ๆ) */
+#gameLayer .spawn-emoji::before,
+#gameLayer .spawn-emoji::after { pointer-events: none; }
