@@ -1,94 +1,78 @@
-// === Hero Health Academy — core/hud.js (v2: quests v2-compatible) ===
-// ใช้กับ index.html (มี #score, #time, #questBar>#questChips, #coachHUD/#coachText, #toast)
-
+// === Hero Health Academy — core/hud.js (r4 minimal, HUD-safe) ===
 export class HUD {
   constructor(){
-    this.$score = byId('score');
-    this.$time  = byId('time');
-    this.$chips = byId('questChips'); // <ul>
-    this.$coach = byId('coachHUD');
-    this.$coachText = byId('coachText');
-    this.$toast = byId('toast');
-    this._to = { coach:0, toast:0 };
-
-    const hudWrap = byId('hudWrap');
-    if (hudWrap) hudWrap.style.pointerEvents = 'none';
+    this.$score = document.getElementById('score');
+    this.$time  = document.getElementById('time');
+    this.$toast = document.getElementById('toast');
+    this.$coach = document.getElementById('coachHUD');
+    this.$coachText = document.getElementById('coachText');
+    this.$questUL = document.getElementById('questChips');
+    this.$targetWrap = document.getElementById('targetWrap');
+    this.$targetBadge= document.getElementById('targetBadge');
+    this._timeouts = [];
   }
+  _later(fn, ms){ const t=setTimeout(fn,ms); this._timeouts.push(t); return t; }
+  dispose(){ try{ this._timeouts.forEach(clearTimeout); }catch{} this._timeouts.length=0; }
 
-  /* -------- Score/Time -------- */
-  setScore(v){ if (this.$score) this.$score.textContent = String(v|0); }
-  setTime(v){  if (this.$time)  this.$time.textContent  = String(v|0); }
-  setCombo(/*txt*/){}
-  setFeverProgress(/*pct01*/){}
-  setPowerTimers(/*timers*/){}
+  /* Score/Time/Combo */
+  setScore(v){ if(this.$score) this.$score.textContent = String(v|0); }
+  setTime(v){  if(this.$time)  this.$time.textContent  = String(v|0); }
+  setCombo(txt){ /* optional: could show elsewhere; keep quiet */ }
 
-  /* -------- Quests (รองรับสคีมาเก่า/ใหม่) -------- */
-  setQuestChips(arr){
-    if (!this.$chips) return;
-    const list = Array.isArray(arr) ? arr : [];
-    const html = list.map((q, i) => {
-      const id   = q.id ?? q.key ?? ('q_'+i);
-      const icon = q.icon ?? '⭐';
-      const lab  = q.text ?? q.label ?? 'Quest';
-      const prog = (q.prog ?? q.progress ?? 0) | 0;
-      const need = (q.need ?? 0) | 0;
-      const done = !!q.done;
-      const fail = !!q.fail;
-      const cls  = ['pill']; if (done) cls.push('ok'); if (fail && !done) cls.push('dim');
-
-      const meterPct = need>0 ? Math.min(100, Math.max(0, (prog/need)*100)) : (done?100:0);
-      const meter = need>0
-        ? `<i style="display:inline-block;vertical-align:middle;height:6px;width:${meterPct}%;background:#42f9da;border-radius:999px;margin-left:8px"></i>`
-        : '';
-
-      return `<li class="${cls.join(' ')}" data-qid="${cssSel(id)}">
-        <span>${icon}</span>
-        <b style="margin:0 6px">${esc(lab)}</b>
-        <small>${prog}${need?('/'+need):''}</small>
-        ${meter}
-      </li>`;
-    }).join('');
-    this.$chips.innerHTML = html;
+  /* Coach + Toast */
+  say(text, ms=900){
+    if(!this.$coach || !this.$coachText) return;
+    this.$coachText.textContent = text;
+    this.$coach.style.display = 'flex';
+    this._later(()=>{ this.$coach.style.display='none'; }, ms);
   }
-
-  markQuestDone(qid){
-    if (!this.$chips) return;
-    const li = this.$chips.querySelector(`[data-qid="${cssSel(qid)}"]`);
-    if (li) li.classList.add('ok');
-    this.toast('✓ Quest!', 900);
-  }
-
-  /* -------- Coach / Toast -------- */
-  say(txt, ms=900){
-    if (!this.$coach || !this.$coachText) return;
-    this.$coachText.textContent = String(txt||'');
-    this.$coach.classList.add('show');
-    clearTimeout(this._to.coach);
-    this._to.coach = setTimeout(()=> this.$coach.classList.remove('show'), ms|0);
-  }
-  toast(txt, ms=900){
-    if (!this.$toast) return;
-    this.$toast.textContent = String(txt||'');
+  toast(text, ms=900){
+    if(!this.$toast) return;
+    this.$toast.textContent = text;
     this.$toast.classList.add('show');
-    clearTimeout(this._to.toast);
-    this._to.toast = setTimeout(()=> this.$toast.classList.remove('show'), ms|0);
+    this._later(()=>this.$toast.classList.remove('show'), ms);
   }
   flashDanger(){
     document.body.classList.add('flash-danger');
-    setTimeout(()=>document.body.classList.remove('flash-danger'), 180);
+    this._later(()=>document.body.classList.remove('flash-danger'), 180);
   }
 
-  /* -------- Hydration stubs -------- */
-  showHydration(/*zone,pct*/){}
-  hideHydration(){}
+  /* Target badge (for groups/plate) */
+  setTargetBadge(txt){ if(this.$targetWrap && this.$targetBadge){ this.$targetWrap.style.display='inline-flex'; this.$targetBadge.textContent = txt; } }
 
-  dispose(){
-    try{ clearTimeout(this._to.coach); }catch{}
-    try{ clearTimeout(this._to.toast); }catch{}
+  /* Quests HUD */
+  setQuestChips(chips){
+    if(!this.$questUL) return;
+    this.$questUL.innerHTML = (chips||[]).map(c=>{
+      const dim = c.done || c.fail ? ' dim' : '';
+      const ok  = c.done ? ' ok' : '';
+      return `<li class="pill${ok}${dim}" data-q="${c.key}">
+        <span>${c.icon||'⭐'}</span>
+        <span>${c.label||''}</span>
+        <b>${(c.progress|0)}/${(c.need|0)}</b>
+      </li>`;
+    }).join('');
+  }
+  markQuestDone(qid){
+    try{
+      const el = this.$questUL?.querySelector?.(`[data-q="${qid}"]`);
+      if(el){ el.classList.add('ok'); }
+    }catch{}
+  }
+
+  /* Power/Fever (optional visual no-op safe) */
+  setPowerTimers(/*t*/){ /* no-op minimal */ }
+  setFeverProgress(/*p01*/){ /* no-op minimal */ }
+
+  /* Hydration helpers (optional visual) */
+  showHydration(zone, pct){
+    // If you want a simple badge, reflect on target badge
+    if(this.$targetWrap && this.$targetBadge){
+      this.$targetWrap.style.display = 'inline-flex';
+      this.$targetBadge.textContent = `💧 ${pct|0}% ${zone||''}`;
+    }
+  }
+  hideHydration(){
+    if(this.$targetWrap) this.$targetWrap.style.display='none';
   }
 }
-
-/* helpers */
-function byId(id){ return document.getElementById(id); }
-function esc(s){ return String(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-function cssSel(s){ return String(s).replace(/"/g, '\\"').replace(/'/g, "\\'"); }
