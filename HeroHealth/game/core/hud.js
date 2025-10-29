@@ -1,5 +1,5 @@
 // game/core/hud.js
-// Hero Health Academy — HUD (visibility, layering & click-through fixed + quests & power timers)
+// Hero Health Academy — HUD (Smart Power Timers, visibility, layering & click-through fixed + quests)
 
 export class HUD {
   constructor () {
@@ -11,6 +11,8 @@ export class HUD {
     this.$feverBar   = document.getElementById('feverBar');
 
     this.$powerBar   = document.getElementById('powerBar');
+    this._ensurePowerBar();            // << NEW: สร้าง power bar + segments อัตโนมัติ
+    this._ensurePowerbarStyles();      // << NEW: ฉีด CSS เฉพาะส่วน (pulse/glow/สี)
 
     this.$quests     = document.getElementById('questChips');
 
@@ -21,9 +23,7 @@ export class HUD {
     this.$platePills = document.getElementById('platePills') || (this.$plate && this.$plate.querySelector('#platePills'));
 
     this.$hydroWrap  = document.getElementById('hydroWrap');
-    // รองรับทั้ง #hydroBar (ตาม index ล่าสุด) และ .hydroBar (ตาม CSS)
     this.$hydroBarEl = document.getElementById('hydroBar') || document.getElementById('hydroBarEl') || document.querySelector('.hydroBar');
-    // เข็มอาจมี id="hydroNeedle" หรือเป็น .needle ภายใน hydroBar
     this.$hydroNeedle= document.getElementById('hydroNeedle') || (this.$hydroWrap && this.$hydroWrap.querySelector('.needle'));
 
     this.$coachHUD   = document.getElementById('coachHUD');
@@ -31,7 +31,7 @@ export class HUD {
 
     this.$toast      = document.getElementById('toast') || this._ensureToast();
 
-    // ARIA ช่วยการเข้าถึง
+    // ARIA
     try {
       this.$toast.setAttribute('role','status');
       this.$toast.setAttribute('aria-live','polite');
@@ -74,13 +74,12 @@ export class HUD {
     }
     this._forceShow();
   }
-  hideHydration(){ if (this.$hydroWrap) this.$hydroWrap.style.display = 'none'; }
+  hideHydration(){ if (this.$hydroWrap) this.$hydroWrap.style.display='none'; }
 
   /* ================= Target badge (groups / others) ================= */
   showTarget(){
     if (this.$targetWrap){
       this.$targetWrap.style.display='inline-flex';
-      // pulse สั้น ๆ ให้สะดุดตา (CSS มี .pulse / .glow รองรับ)
       this.$targetWrap.classList.remove('pulse');
       // force reflow
       // eslint-disable-next-line no-unused-expressions
@@ -91,8 +90,6 @@ export class HUD {
   }
   hideTarget(){ if (this.$targetWrap) this.$targetWrap.style.display='none'; }
   setTargetBadge(text){ if (this.$target){ this.$target.textContent = text; this.showTarget(); } }
-
-  // groupKey: 'fruit' | 'veggies' | ... หรือชื่อไทย/อังกฤษตรง ๆ
   setTarget(groupKey, have, need){
     if (!this.$target) return;
     const mapTH = { veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม' };
@@ -108,7 +105,6 @@ export class HUD {
   /* ================= Plate tracker ================= */
   hidePills(){ if (this.$plate) this.$plate.style.display='none'; }
   showPills(){ if (this.$plate) this.$plate.style.display='block'; }
-  /** pills: [{key:'fruit', label:'ผลไม้', ok:true, pct:0..100}] */
   setPlatePills(pills=[]){
     if (!this.$plate || !this.$platePills) return;
     this.$plate.style.display = 'block';
@@ -126,44 +122,51 @@ export class HUD {
     });
   }
 
-  /* ================= Power-ups (x2/freeze/sweep) =================
-     timers: { x2:number, freeze:number, sweep:number } in seconds (0..10)
-  ================================================================= */
+  /* ================= Power-ups (SMART) =================
+     - แสดงชื่อ/ไอคอน + เวลาถอยหลัง + glow/pulse ตอนทำงาน
+     - เตือนสีส้ม/แดงเมื่อเหลือ <3s
+     - สร้าง segment อัตโนมัติ ถ้าไม่มีใน DOM
+  ====================================================== */
   setPowerTimers(timers){
     const wrap = this.$powerBar; if (!wrap) return;
+    const DEF = {
+      x2:     { icon:'⚡', name:'x2',     grad:'linear-gradient(90deg,#ffd54a,#ff8a00)' },
+      freeze: { icon:'❄️',name:'Freeze', grad:'linear-gradient(90deg,#66e0ff,#4fc3f7)' },
+      sweep:  { icon:'🧲',name:'Magnet', grad:'linear-gradient(90deg,#9effa8,#7fffd4)' },
+    };
+
     ['x2','freeze','sweep'].forEach(k=>{
-      const segWrap = wrap.querySelector(`.pseg[data-k="${k}"]`);
-      if(!segWrap) return;
-      let seg = segWrap.querySelector('i');
-      if(!seg){
-        seg = document.createElement('i'); // fallback ตามสไตล์เดิม
-        segWrap.appendChild(seg);
-      }
-      const v = Math.max(0, Math.min(10, Number(timers?.[k]||0)));
-      let fill = seg.querySelector('.barfill');
-      if(!fill){
-        fill = document.createElement('b');
-        fill.className = 'barfill';
-        Object.assign(fill.style, {
-          position:'absolute', left:'0', top:'0', bottom:'0', borderRadius:'999px', width:'0%'
-        });
-        seg.appendChild(fill);
-      }
+      const seg = wrap.querySelector(`.pseg[data-k="${k}"]`) || this._mkPseg(k, DEF[k].icon, DEF[k].name);
+      const v = Math.max(0, Math.min(10, Number(timers?.[k]||0))); // seconds (cap 10)
+      const fill = seg.querySelector('.barfill');
+      const ttxt = seg.querySelector('.ptime');
+
+      // width & color
       fill.style.width = (v*10) + '%';
-      fill.style.background = (k==='x2')
-        ? 'linear-gradient(90deg,#ffd54a,#ff8a00)'
-        : (k==='freeze'
-          ? 'linear-gradient(90deg,#66e0ff,#4fc3f7)'
-          : 'linear-gradient(90deg,#9effa8,#7fffd4)');
-      segWrap.style.position = 'relative';
-      segWrap.style.overflow = 'hidden';
+      fill.style.background = DEF[k].grad;
+
+      // label time
+      ttxt.textContent = v > 0 ? `${v|0}s` : '';
+
+      // active state + glow
+      if (v > 0){
+        seg.classList.add('active');     // pulse/glow
+        seg.style.opacity = '1';
+        // low-time color shift
+        if (v <= 3){
+          seg.classList.add('low');      // สีเตือน
+        } else {
+          seg.classList.remove('low');
+        }
+      } else {
+        seg.classList.remove('active','low');
+        fill.style.width = '0%';
+        seg.style.opacity = '.55';
+      }
     });
   }
 
-  /* ================= Mini-Quest chips =================
-     list: [{ key, name, icon, need, progress, remain, done, fail }]
-     สอดคล้อง CSS: .questChip / .qLabel / .qProg / .qBar > i
-  ====================================================== */
+  /* ================= Mini-Quest chips ================= */
   setQuestChips(list){
     if (!this.$quests) return;
     this.$quests.innerHTML = '';
@@ -190,7 +193,7 @@ export class HUD {
     });
   }
 
-  /* ================= Coach speech / Toast ================= */
+  /* ================= Coach / Toast ================= */
   say(text, ms=1500){
     if (!this.$coachText || !this.$coachHUD) return;
     this.$coachText.textContent = String(text ?? '');
@@ -205,7 +208,6 @@ export class HUD {
     if (!this.$toast) return;
     this.$toast.textContent = String(text ?? '');
     this.$toast.style.display = 'block';
-    // restart transition
     this.$toast.classList.remove('show');
     // eslint-disable-next-line no-unused-expressions
     this.$toast.offsetHeight;
@@ -229,7 +231,6 @@ export class HUD {
 
   /* ================= Internals ================= */
   _applyLayerFixes(){
-    // HUD ลอยบน ไม่กันคลิก (ยกเว้น power bar)
     if (this.$wrap){
       Object.assign(this.$wrap.style, {
         position:'fixed', top:'56px', left:'0', right:'0',
@@ -241,7 +242,6 @@ export class HUD {
     if (this.$coachHUD){
       Object.assign(this.$coachHUD.style, { zIndex:'96', pointerEvents:'none', display:'flex' });
     }
-    // กัน canvas ไม่บังคลิก
     const canv = document.getElementById('c');
     if (canv){ canv.style.pointerEvents = 'none'; canv.style.zIndex = '0'; }
   }
@@ -269,6 +269,103 @@ export class HUD {
     el.id = 'hudWrap';
     document.body.appendChild(el);
     return el;
+  }
+
+  /* ---------- NEW: Power bar builder + styles ---------- */
+  _ensurePowerBar(){
+    if (!this.$powerBar){
+      const bar = document.createElement('div');
+      bar.id = 'powerBar';
+      Object.assign(bar.style, {
+        display:'flex', gap:'8px', alignItems:'center',
+        background:'rgba(16,32,56,.72)', border:'1px solid #1a2c47b0',
+        padding:'6px 8px', borderRadius:'999px'
+      });
+      // place under score/time row if possible
+      const scoreTime = document.getElementById('scoreTime');
+      if (scoreTime && scoreTime.parentNode){
+        scoreTime.parentNode.insertBefore(bar, scoreTime.nextSibling);
+      } else {
+        this.$wrap.appendChild(bar);
+      }
+      this.$powerBar = bar;
+    }
+
+    // build segments if missing
+    const want = [
+      { k:'x2', icon:'⚡', name:'x2' },
+      { k:'freeze', icon:'❄️', name:'Freeze' },
+      { k:'sweep', icon:'🧲', name:'Magnet' },
+    ];
+    want.forEach(({k,icon,name})=>{
+      if (!this.$powerBar.querySelector(`.pseg[data-k="${k}"]`)){
+        this._mkPseg(k, icon, name);
+      }
+    });
+  }
+
+  _mkPseg(k, icon, name){
+    const seg = document.createElement('div');
+    seg.className = 'pseg';
+    seg.dataset.k = k;
+    Object.assign(seg.style, {
+      display:'inline-flex', alignItems:'center', gap:'6px',
+      padding:'6px 8px', borderRadius:'999px',
+      border:'1px solid #19304e', background:'#0f213a',
+      position:'relative', overflow:'hidden', opacity:'.55'
+    });
+
+    const ico = document.createElement('span');
+    ico.className = 'picon';
+    ico.textContent = icon || '✨';
+    Object.assign(ico.style, { fontSize:'14px', lineHeight:'1' });
+
+    const lbl = document.createElement('span');
+    lbl.className = 'plbl';
+    lbl.textContent = name || k;
+    Object.assign(lbl.style, { font:'800 12px ui-rounded', opacity:.9 });
+
+    const meter = document.createElement('i');
+    meter.className = 'bar';
+    Object.assign(meter.style, {
+      position:'relative', height:'8px', width:'78px',
+      borderRadius:'999px', background:'rgba(255,255,255,.08)',
+      boxShadow:'inset 0 1px 0 rgba(255,255,255,.15), inset 0 -1px 0 rgba(0,0,0,.25)'
+    });
+
+    const fill = document.createElement('b');
+    fill.className = 'barfill';
+    Object.assign(fill.style, {
+      position:'absolute', left:0, top:0, bottom:0, width:'0%',
+      borderRadius:'999px', transition:'width .25s ease'
+    });
+    meter.appendChild(fill);
+
+    const t = document.createElement('em');
+    t.className = 'ptime';
+    t.textContent = '';
+    Object.assign(t.style, { font:'800 11px ui-rounded', opacity:.85 });
+
+    seg.appendChild(ico);
+    seg.appendChild(lbl);
+    seg.appendChild(meter);
+    seg.appendChild(t);
+
+    this.$powerBar.appendChild(seg);
+    return seg;
+  }
+
+  _ensurePowerbarStyles(){
+    if (document.getElementById('hud-powerbar-css')) return;
+    const css = document.createElement('style');
+    css.id = 'hud-powerbar-css';
+    css.textContent = `
+      @keyframes hhaPulse { 0%{box-shadow:0 0 0 0 rgba(55,227,198,.0)} 50%{box-shadow:0 0 0 6px rgba(55,227,198,.14)} 100%{box-shadow:0 0 0 0 rgba(55,227,198,.0)} }
+      #powerBar .pseg.active { animation:hhaPulse 1.2s ease-in-out infinite; border-color:#2dd4bf80; }
+      #powerBar .pseg.low .bar { background:rgba(255,160,122,.18) !important; }
+      #powerBar .pseg.low .barfill { filter:saturate(1.25) brightness(1.05); }
+    `;
+    document.head.appendChild(css);
   }
 
   /* ================= Lifecycle ================= */
