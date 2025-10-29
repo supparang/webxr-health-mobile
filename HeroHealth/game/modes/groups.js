@@ -1,15 +1,16 @@
-// === Hero Health Academy — game/modes/groups.js (2025-10-30 fixed)
-// Fixes: life missing in state.items (caused stuck icons), 'fruit'->'fruits',
-// quest events (target_hit/target_cleared), HUD target progress.
+// === Hero Health Academy — game/modes/groups.js (2025-10-30 fixed+FX)
+// Fixes: life in items (no stuck), fruit->fruits, quest events, HUD target,
+// ADD: 3D tilt on spawn + shatter on click, fair miss-on-expire (target only)
 
 export const name = 'groups';
 
-// Safe FX bootstrap
+// Safe FX bootstrap (no duplicate identifiers)
 (function ensureFX(){
   if (!window.HHA_FX) {
     window.HHA_FX = { add3DTilt: ()=>{}, shatter3D: ()=>{} };
     (async () => {
-      try { const m = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
+      try {
+        const m = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
         if (m) Object.assign(window.HHA_FX, m);
       } catch {}
     })();
@@ -53,7 +54,7 @@ export function init(state={}, hud=null){
   state.lang=(state.lang||localStorage.getItem('hha_lang')||'TH').toUpperCase();
   const diff = state.difficulty || document.body.getAttribute('data-diff') || 'Normal';
   state.ctx.targetGroup=chooseNextTarget(null);
-  state.ctx.targetNeed=QUOTA[diff]||8; 
+  state.ctx.targetNeed=QUOTA[diff]||8;
   state.ctx.targetHave=0;
   _x2Until=0; _magnetNext=false; _spawnsInWindow=0; _goldenInWindow=0; _sinceGolden=GOLDEN_COOLDOWN_SPAWNS;
   setTargetHUD(state.ctx.targetGroup, state.ctx.targetHave, state.ctx.targetNeed, state.lang);
@@ -130,8 +131,12 @@ export function create({ engine, hud, coach }) {
   };
   _lastState=state; _hudRef=hud;
 
-  function start(){ stop(); state.running=true; state.items.length=0; state.freezeUntil=0; state.stats={good:0,perfect:0,bad:0,miss:0}; init(state,hud,{}); coach?.onStart?.(); }
+  function start(){
+    stop(); state.running=true; state.items.length=0; state.freezeUntil=0;
+    state.stats={good:0,perfect:0,bad:0,miss:0}; init(state,hud,{}); coach?.onStart?.();
+  }
   function stop(){ state.running=false; try{ for(const it of state.items) it.el.remove(); }catch{} state.items.length=0; }
+
   function update(dt,Bus){
     if(!state.running||!layer) return;
     const now=performance.now(); const rect=layer.getBoundingClientRect();
@@ -170,7 +175,11 @@ export function create({ engine, hud, coach }) {
     if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
 
     (host||document.getElementById('spawnHost'))?.appendChild?.(b);
-    // IMPORTANT: keep life so expiry works
+
+    // NEW: 3D tilt on spawn
+    try{ (window?.HHA_FX?.add3DTilt||(()=>{}))(b); }catch{}
+
+    // keep life so expiry works
     state.items.push({ el:b, born: performance.now(), life: meta.life, meta });
 
     b.addEventListener('click', (ev)=>{
@@ -182,6 +191,8 @@ export function create({ engine, hud, coach }) {
       if (res==='good' || res==='perfect'){
         const pts = res==='perfect'? 18 : 10;
         engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 700 });
+        // NEW: shatter on click
+        try{ (window?.HHA_FX?.shatter3D||(()=>{}))(ui.x, ui.y); }catch{}
         state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui, meta:{...meta, isTarget:true} });
         coach?.onGood?.();
       } else if (res==='bad'){
