@@ -1,229 +1,283 @@
-// === Hero Health Academy — game/main.js (runtime glue; startGame wired) ===
-window.__HHA_BOOT_OK = 'main';
+<!doctype html>
+<html lang="th" data-hha-mode="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <base href="./" />
+  <title>Hero Health Academy — Hub</title>
 
-(function () {
-  const $  = (s) => document.querySelector(s);
-  const $$ = (s) => document.querySelectorAll(s);
+  <!-- Core styles -->
+  <link rel="stylesheet" href="styles/game.css" />
+  <link rel="stylesheet" href="styles/groups.css" />
 
-  // --------- Safe stubs (จะถูกแทนที่เมื่อ import ได้) ----------
-  let ScoreSystem, SFXClass, Quests, Progress, VRInput;
-  async function loadCore() {
-    try { ({ ScoreSystem } = await import('./core/score.js')); } catch { ScoreSystem = class{ constructor(){this.value=0;} add(n=0){ this.value+=n;} get(){return this.value|0;} reset(){this.value=0;} }; }
-    try { ({ SFX: SFXClass } = await import('./core/sfx.js')); } catch { SFXClass = class{ play(){} tick(){} good(){} bad(){} perfect(){} power(){} }; }
-    try { ({ Quests } = await import('./core/quests.js')); } catch { Quests = { beginRun(){}, event(){}, tick(){}, endRun(){return[]}, bindToMain(){return{refresh(){}}} }; }
-    try { ({ Progress } = await import('./core/progression.js')); } catch { Progress = { init(){}, beginRun(){}, endRun(){}, emit(){}, getStatSnapshot(){return{};}, profile(){return{};} }; }
-    try { ({ VRInput } = await import('./core/vrinput.js')); } catch { VRInput = { init(){}, toggleVR(){}, isXRActive(){return false;}, isGazeMode(){return false;} }; }
-  }
-
-  // --------- Mode loader (DOM-spawn factory first, then legacy) ----------
-  const MODE_PATH = (k) => `./modes/${k}.js`;
-  async function loadMode(key) {
-    const mod = await import(MODE_PATH(key));
-    const api = {
-      name: mod.name || key,
-      create: mod.create || null,
-      init:   mod.init   || null,
-      tick:   mod.tick   || null,
-      pickMeta: mod.pickMeta || null,
-      onHit:    mod.onHit    || null,
-      cleanup:  mod.cleanup  || null,
-      fx: mod.fx || {}
-    };
-    return api;
-  }
-
-  // --------- Tiny FX helper for UI pop text ----------
-  const FX = {
-    popText(txt, { x, y, ms = 700 } = {}) {
-      const el = document.createElement('div');
-      el.textContent = txt;
-      el.style.cssText = `
-        position:fixed; left:${x|0}px; top:${y|0}px;
-        transform:translate(-50%,-50%);
-        font:900 16px ui-rounded, system-ui; color:#fff;
-        text-shadow:0 2px 10px #000;
-        pointer-events:none; z-index:97; opacity:1; transition: all .72s ease-out;
-      `;
-      document.body.appendChild(el);
-      requestAnimationFrame(() => {
-        el.style.top = (y - 36) + 'px';
-        el.style.opacity = '0';
-      });
-      setTimeout(() => el.remove(), ms);
+  <style>
+    /* Hub hero look (กลับไปแนวเดิมที่คุณชอบ + ปรับให้ปุ่มติดชัวร์) */
+    :root{
+      --accent:#37e3c6; --ink:#0b1321; --bg:#0a0f1a; --card:#0f1826; --muted:#93a2b6;
     }
-  };
-
-  // --------- HUD / Coach helpers ----------
-  function setScore(v){ const el = $('#score'); if (el) el.textContent = v|0; }
-  function setTime(v){ const el = $('#time');  if (el) el.textContent = v|0; }
-  function showCoach(txt){ const hud=$('#coachHUD'); const t=$('#coachText'); if(t) t.textContent = txt||'Ready?'; if(hud){ hud.style.display='flex'; hud.classList.add('show'); } }
-  function hideCoach(){ const hud=$('#coachHUD'); if(hud){ hud.classList.remove('show'); hud.style.display='none'; } }
-
-  // --------- Engine loop (minimal) ----------
-  let R = {
-    playing:false,
-    startedAt:0,
-    remain:45,
-    raf:0,
-    sys:{ score:null, sfx:null },
-    modeAPI:null,
-    modeInst:null, // from create()
-  };
-
-  function busFor(modeKey){
-    return {
-      sfx: R.sys.sfx,
-      hit(e){ // e: {kind:'good'|'perfect'|'ok', points, ui}
-        if (e?.points) R.sys.score.add(e.points);
-        setScore(R.sys.score.get?.() || R.sys.score.value || 0);
-        if (e?.ui) FX.popText(`+${e.points||0}`, e.ui);
-        Quests.event('hit', { result: e?.kind || 'good', comboNow: 0, meta: e?.meta || {} });
-      },
-      miss(){ /* soft miss: no-op for now; main handles timeouts */ }
-    };
-  }
-
-  function gameTick(ts){
-    if (!R.playing) return;
-    // countdown (each real second)
-    const tNow = performance.now();
-    const secGone = Math.floor((tNow - R._secMark)/1000);
-    if (secGone >= 1){
-      R.remain = Math.max(0, (R.remain|0) - secGone);
-      R._secMark = tNow;
-      setTime(R.remain);
-      // ping quests tick with score context
-      Quests.tick({ score: (R.sys.score.get?.()||0) });
+    html,body{height:100%;}
+    body{margin:0;background:radial-gradient(1200px 600px at 70% -10%, #15304b 0%, #0a0f1a 55%, #070b12 100%);
+         color:#fff;font:600 16px/1.5 "Inter",system-ui,Segoe UI,Arial;}
+    .wrap{min-height:100%;display:flex;flex-direction:column;}
+    header{padding:18px 20px 6px;}
+    header h1{margin:0;font-size:20px;letter-spacing:.3px;font-weight:800}
+    header small{color:#9fb2c6}
+    .hub{
+      width:min(1000px, calc(100% - 24px));
+      margin:10px auto 28px;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.12));
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px; box-shadow:0 10px 40px rgba(0,0,0,.35);
+      padding:14px; display:grid; grid-template-columns: 1fr 320px; gap:12px;
     }
+    @media(max-width:980px){ .hub{grid-template-columns:1fr;} }
+    .scene{
+      position:relative; min-height:420px; border-radius:14px;
+      background:
+        radial-gradient(600px 260px at 78% -40%, rgba(55,227,198,.15), rgba(55,227,198,0) 60%),
+        linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.22));
+      border:1px solid rgba(255,255,255,.06);
+      overflow:hidden;
+    }
+    /* game layer/canvas placeholder (ไม่บังคลิก) */
+    #gameLayer{position:absolute; inset:0; z-index:2; pointer-events:none;}
+    #c{position:absolute; inset:0; z-index:1; pointer-events:none;}
 
-    // mode update
-    try {
-      if (R.modeInst && typeof R.modeInst.update === 'function') {
-        const dt = (tNow - (R._dtMark||tNow)) / 1000;
-        R._dtMark = tNow;
-        R.modeInst.update(dt, busFor(R.modeKey));
-      } else if (R.modeAPI?.tick) {
-        R.modeAPI.tick(R.state||{}, R.sys, R.hud||{});
+    /* HUD (score/time + target) */
+    #hudWrap{position:absolute; inset:0; z-index:95; pointer-events:none; display:flex; align-items:flex-start; justify-content:space-between;}
+    .pill{background:#0d1422cc;border:1px solid #20324d66;border-radius:999px;padding:6px 10px;margin:10px;color:#dfe8f3;display:inline-flex;gap:10px;align-items:center}
+    #targetWrap{margin:10px 12px}
+    #scoreTime{display:flex; gap:10px}
+
+    /* Coach */
+    #coachHUD{position:absolute; left:50%; top:64px; transform:translateX(-50%);
+      z-index:96; display:none; align-items:center; gap:8px; pointer-events:none;}
+    #coachHUD.show{display:flex;}
+    #coachHUD .bubble{background:#0b1626e6;border:1px solid #1a2c47b0;border-radius:12px;padding:8px 12px;color:#eaf6ff;
+      text-shadow:0 1px 0 #000}
+    #coachHUD .emoji{font-size:22px;filter:drop-shadow(0 2px 6px #000)}
+
+    /* Menu panel */
+    .panel{background:#0f1826;border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:12px}
+    .grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px}
+    .card{
+      border-radius:12px; background:linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.18));
+      border:1px solid rgba(255,255,255,.06); padding:10px; display:flex; align-items:center; gap:10px;
+      cursor:pointer; user-select:none;
+    }
+    .card[data-active="1"]{outline:2px solid var(--accent); box-shadow:0 0 0 3px #37e3c63e inset}
+    .title{font-weight:800}
+    .muted{color:#9fb2c6; font-weight:600;}
+
+    .row{display:flex; gap:8px; align-items:center; margin:10px 0 4px}
+    .segbtn{
+      flex:1 1 auto; text-align:center; padding:8px 10px; border-radius:10px;
+      border:1px solid rgba(255,255,255,.08); background:#0d1626; cursor:pointer; user-select:none;
+    }
+    .segbtn[data-active="1"]{background:#14243c; outline:2px solid #3ae3c680}
+
+    .actions{display:flex; gap:10px; margin-top:10px}
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:10px;
+      border-radius:999px; padding:12px 16px; font-weight:900; letter-spacing:.2px;
+      border:1px solid rgba(255,255,255,.08); background:#132038; cursor:pointer; user-select:none;
+    }
+    .btn.primary{background:linear-gradient(180deg, #2fe0d1, #2cb6a9); color:#08211f; border-color:#27a699}
+    .btn:active{transform:translateY(1px)}
+
+    /* Ready overlay */
+    #readyOverlay{
+      position:absolute; inset:0; z-index:94; display:none; place-items:center; pointer-events:none;
+    }
+    #readyOverlay.show{display:grid;}
+    .readyBox{background:#0b1626e6; border:1px solid #1a2c47b0; border-radius:12px; padding:10px 14px; text-align:center}
+    .readyBox strong{font-size:18px}
+
+    /* Toast */
+    #toast{position:fixed;left:50%;top:18%; transform:translateX(-50%); background:#0b1626e6; border:1px solid #1a2c47b0;
+      border-radius:12px; padding:6px 10px; z-index:97; display:none}
+    #toast.show{display:block}
+
+    /* Hide menu while playing */
+    body[data-playing="1"] #menuBar{opacity:0; pointer-events:none}
+    body[data-playing="1"] #readyOverlay{display:none}
+  </style>
+
+  <!-- Boot (checks and imports game/main.js safely) -->
+  <script type="module" src="game/boot.js"></script>
+  <!-- Hub/UI helpers (binds menu + start) -->
+  <script defer src="game/ui.js"></script>
+</head>
+<body data-mode="goodjunk">
+  <div class="wrap">
+
+    <header>
+      <h1>Hero Health Academy <small>• Hub</small></h1>
+      <small>เลือกเกม • เลือกความยาก • กด Start เพื่อเริ่ม</small>
+    </header>
+
+    <main class="hub" id="hubRoot">
+      <!-- Left: Scene & HUD -->
+      <section class="scene">
+        <div id="gameLayer" aria-hidden="true"></div>
+        <canvas id="c" aria-hidden="true"></canvas>
+
+        <div id="hudWrap" class="hud">
+          <div id="targetWrap" class="pill" style="display:none">—</div>
+          <div id="scoreTime">
+            <div class="pill">🧮 <span id="score">0</span></div>
+            <div class="pill">⏱️ <span id="time">45</span>s</div>
+          </div>
+        </div>
+
+        <div id="coachHUD">
+          <div class="emoji">🧑‍🏫</div>
+          <div class="bubble"><span id="coachText">Ready?</span></div>
+        </div>
+
+        <div id="readyOverlay">
+          <div class="readyBox"><strong>Ready?</strong><div>กด Start เพื่อเริ่ม</div></div>
+        </div>
+      </section>
+
+      <!-- Right: Menu panel -->
+      <aside class="panel" id="menuBar">
+        <div class="row"><span class="muted">โหมดเกม</span></div>
+        <div class="grid" role="tablist" aria-label="เลือกโหมด">
+          <div id="m_goodjunk" class="card" role="tab" data-mode="goodjunk" aria-selected="true"  data-active="1">
+            <div style="font-size:28px">🥦</div>
+            <div><div class="title">Good vs Junk</div><div class="muted">เก็บของดี เลี่ยงของขยะ</div></div>
+          </div>
+          <div id="m_groups" class="card" role="tab" data-mode="groups">
+            <div style="font-size:28px">🎯</div>
+            <div><div class="title">5 Food Groups</div><div class="muted">เก็บให้ตรงหมวด</div></div>
+          </div>
+          <div id="m_hydration" class="card" role="tab" data-mode="hydration">
+            <div style="font-size:28px">💧</div>
+            <div><div class="title">Hydration</div><div class="muted">รักษาโซน 45–65%</div></div>
+          </div>
+          <div id="m_plate" class="card" role="tab" data-mode="plate">
+            <div style="font-size:28px">🍽️</div>
+            <div><div class="title">Healthy Plate</div><div class="muted">จัดจานให้ครบโควตา</div></div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:14px"><span class="muted">ความยาก</span></div>
+        <div class="row" role="radiogroup" aria-label="เลือกความยาก">
+          <div id="d_easy"   class="segbtn" role="radio" aria-checked="false" data-diff="Easy">ง่าย</div>
+          <div id="d_normal" class="segbtn" role="radio" aria-checked="true"  data-diff="Normal" data-active="1">ปกติ</div>
+          <div id="d_hard"   class="segbtn" role="radio" aria-checked="false" data-diff="Hard">ยาก</div>
+        </div>
+
+        <div class="actions">
+          <button id="btn_help"   class="btn" type="button">วิธีเล่น</button>
+          <button id="btn_start"  class="btn primary" type="button">Start</button>
+        </div>
+        <div class="row" style="justify-content:space-between">
+          <button id="langToggle"  class="btn" type="button">TH / EN</button>
+          <button id="soundToggle" class="btn" type="button">🔊</button>
+          <button id="gfxToggle"   class="btn" type="button">🎨</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- SFX elements (HTMLAudio); main/sfx.js จะปลดล็อกเสียงให้ -->
+  <audio id="sfx-good"     preload="auto" src="assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad"      preload="auto" src="assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect"  preload="auto" src="assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick"     preload="auto" src="assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup"  preload="auto" src="assets/sfx/power.mp3"></audio>
+  <audio id="bgm-main"     preload="auto" loop src="assets/bgm/hub.mp3"></audio>
+
+  <!-- Safety: noscript -->
+  <noscript>จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกมนี้</noscript>
+
+  <script>
+  // ===== Hub wiring (ไม่พึ่ง ui.js เพื่อความชัวร์) =====
+  (function(){
+    const $=s=>document.querySelector(s);
+    const $$=s=>Array.from(document.querySelectorAll(s));
+
+    // State
+    let mode='goodjunk', diff='Normal';
+
+    // Mode cards
+    $$('.card[data-mode]').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        mode = card.getAttribute('data-mode');
+        document.body.setAttribute('data-mode', mode);
+        $$('.card[data-mode]').forEach(c=>c.removeAttribute('data-active'));
+        card.setAttribute('data-active','1');
+        // tidy target badge on switch
+        const t=$('#targetWrap'); if(t) t.style.display = (mode==='groups'?'inline-flex':'none');
+      }, {passive:true});
+    });
+
+    // Difficulty
+    $$('.segbtn[data-diff]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        diff = btn.getAttribute('data-diff');
+        $$('.segbtn').forEach(b=>{ b.removeAttribute('data-active'); b.setAttribute('aria-checked','false'); });
+        btn.setAttribute('data-active','1'); btn.setAttribute('aria-checked','true');
+        window.__HHA_DIFF = diff;
+      }, {passive:true});
+    });
+
+    // Help
+    $('#btn_help')?.addEventListener('click', ()=> {
+      const coach = $('#coachHUD'); const text=$('#coachText');
+      if(text) text.textContent = (document.documentElement.lang==='th'?'วิธีเล่น: กด Start เพื่อเริ่ม':'How to Play: Press Start');
+      coach?.classList.add('show');
+      setTimeout(()=>coach?.classList.remove('show'), 1800);
+    });
+
+    // Start (robust binding with retries)
+    function callStart(){
+      window.__HHA_MODE = mode;
+      window.__HHA_DIFF = diff;
+      // coach “Ready?”
+      const coach=$('#coachHUD'); const t=$('#coachText');
+      if(t) t.textContent='Ready?'; coach?.classList.add('show');
+      setTimeout(()=>coach?.classList.remove('show'), 900);
+
+      if (window.HHA && typeof window.HHA.startGame === 'function'){
+        window.HHA.startGame({ fromHub:true });
+      } else if (typeof window.start === 'function'){
+        window.start({ fromHub:true });
+      } else {
+        // ถ้ายังโหลดไม่ทัน ให้ลองใหม่สักครู่
+        setTimeout(()=>{
+          if (window.HHA && typeof window.HHA.startGame === 'function'){
+            window.HHA.startGame({ fromHub:true });
+          } else {
+            const w = document.getElementById('toast') || (function(){const e=document.createElement('div'); e.id='toast'; document.body.appendChild(e); return e;})();
+            w.textContent = 'กำลังโหลดระบบเกม…'; w.classList.add('show'); setTimeout(()=>w.classList.remove('show'), 1200);
+          }
+        }, 250);
       }
-    } catch(e){ console.warn('[mode.update] error', e); }
-
-    if (R.remain <= 0) return endGame(false);
-    R.raf = requestAnimationFrame(gameTick);
-  }
-
-  function endGame(manual=true){
-    if (!R.playing) return;
-    R.playing = false;
-    cancelAnimationFrame(R.raf);
-
-    // signal quests + mode cleanup
-    try { Quests.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
-    try { R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state, R.hud); } catch {}
-
-    // UI restore
-    document.body.removeAttribute('data-playing');
-    const menu = $('#menuBar'); if (menu) menu.removeAttribute('data-hidden');
-    showCoach('Nice run!'); setTimeout(hideCoach, 1200);
-
-    // save simple progress
-    try { Progress.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
-
-    window.HHA._busy = false;
-  }
-
-  async function startGame(opts={}){
-    if (window.HHA?._busy) return; // guard double-click
-    window.HHA._busy = true;
-
-    await loadCore();
-    Progress.init?.();
-
-    // reflect chosen mode/diff from hub global flags
-    const modeKey = window.__HHA_MODE || (document.body.getAttribute('data-mode') || 'goodjunk');
-    const diff    = window.__HHA_DIFF || 'Normal';
-
-    // load mode
-    let api;
-    try {
-      api = await loadMode(modeKey);
-    } catch (e) {
-      console.error('[HHA] Failed to load mode:', modeKey, e);
-      toast(`Failed to load mode: ${modeKey}`);
-      window.HHA._busy = false;
-      return;
     }
 
-    // systems
-    R.sys.score = new (ScoreSystem||function(){})();
-    R.sys.score.reset?.();
-    R.sys.sfx   = new (SFXClass||function(){})();
-    setScore(0);
-
-    // HUD + coach
-    showCoach('Go!');
-    const hud = {
-      setTarget(g,have,need){
-        const el = $('#targetWrap'); if(!el) return;
-        const mapTH = { veggies:'ผัก', fruits:'ผลไม้', grains:'ธัญพืช', protein:'โปรตีน', dairy:'นม' };
-        el.textContent = `${mapTH[g]||g} • ${have|0}/${need|0}`;
-        el.style.display = 'inline-flex';
-      },
-      showHydration(){ /* hydration bar already insert self */ },
-      hideHydration(){ /* noop */ },
-      dimPenalty(){ document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 120); },
-      setQuestChips(){ /* reserved for quest HUD */ },
-      markQuestDone(){ /* reserved */ }
+    const bindStart = ()=>{
+      const b = document.getElementById('btn_start'); if(!b) return;
+      const clone = b.cloneNode(true);
+      b.parentNode.replaceChild(clone, b);
+      clone.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); callStart(); }, {capture:true});
     };
+    bindStart();
 
-    // bind quests HUD
-    try { Quests.bindToMain({ hud }); } catch {}
+    // Auto-set initial attributes
+    document.body.setAttribute('data-mode', mode);
+    window.__HHA_MODE = mode; window.__HHA_DIFF = diff;
 
-    // prepare state and run
-    R.modeKey = modeKey;
-    R.modeAPI = api;
-    R.hud = hud;
-    R.state = { difficulty: diff, lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
-
-    // call mode: prefer factory adapter
-    if (api.create){
-      R.modeInst = api.create({ engine:{ fx:FX }, hud, coach:{
-        onStart(){}, onGood(){}, onBad(){}, onPerfect(){ showCoach('Perfect!'); setTimeout(hideCoach, 500); }
-      }});
-      R.modeInst.start?.();
-    } else if (api.init){
-      api.init(R.state, hud, { time: 45, life: 1600 });
-    }
-
-    // quests begin + profile run start
-    try { Quests.beginRun(modeKey, diff, (R.state.lang||'TH'), 45); } catch {}
-    try { Progress.beginRun(modeKey, diff, (R.state.lang||'TH')); } catch {}
-
-    // countdown start
-    R.playing = true;
-    R.startedAt = performance.now();
-    R._secMark = performance.now();
-    R._dtMark  = performance.now();
-    R.remain   = 45;
-    setTime(R.remain);
-
-    // hide menu & enable game layer click
-    document.body.setAttribute('data-playing','1');
-    const menu = $('#menuBar'); if (menu) menu.setAttribute('data-hidden','1');
-
-    R.raf = requestAnimationFrame(gameTick);
-  }
-
-  function toast(text){
-    let el = $('#toast'); if(!el){ el = document.createElement('div'); el.id='toast'; document.body.appendChild(el); }
-    el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
-  }
-
-  // expose globals
-  window.HHA = window.HHA || {};
-  window.HHA.startGame = startGame;
-  window.HHA.endGame   = endGame;
-
-  // safety: if hub forgot to hide canvas clicks
-  setTimeout(()=>{ const c = $('#c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; } }, 0);
-
-})();
+    // ถ้ากด Space/Enter บน Start ให้ทำงาน
+    window.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' ') {
+        const active = document.activeElement;
+        if (active && active.id==='btn_start'){ e.preventDefault(); callStart(); }
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
