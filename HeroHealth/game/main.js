@@ -1,402 +1,444 @@
-// === Hero Health Academy — game/main.js (unified play loop; centered spawn; 3D tilt; scoring; FX) ===
-import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
+// === Hero Health Academy — game/main.js (DOM-spawn engine, quests/HUD wired, groups-first ready) ===
+// This main.js boots the game with a minimal DOM engine that works with the new
+// groups.css (DOM-spawn .spawn-emoji buttons) and the factory adapters found in
+// each mode (e.g., groups.create). It also falls back to legacy pickMeta/onHit()
+// when a mode doesn’t expose create().
+//
+// Expected HTML ids in page (safe if missing; calls are guarded):
+// - #gameLayer (absolute/fixed area for gameplay)
+// - #spawnHost (positioned container inside #gameLayer)
+// - #hudWrap  (#time, #score, quest chips, etc. if present)
+// - #targetWrap / #targetBadge (for “groups” target HUD)
+// - #result (modal) with [data-result="replay|home"]
+//
+// Usage (UI):
+//   window.HHA.startGame({ mode:'groups', diff:'Normal', lang:'TH', seconds:45 });
+//   window.HHA.endGame();  // to force-stop
+//
+// Default (if UI doesn’t pass anything): mode='groups', diff='Normal', lang from localStorage.
+//
+// -----------------------------------------------------------------------------
+// Imports (relative to /HeroHealth/game/)
+import { ScoreSystem }    from './core/score.js';
+import { PowerUpSystem }  from './core/powerup.js';
+import { Quests }         from './core/quests.js';
+import { Progress }       from './core/progression.js';
 
-import { Engine } from './core/engine.js';
-import { HUD } from './core/hud.js';
-import { Coach } from './core/coach.js';
-import { PowerUpSystem } from './core/powerup.js';
-import { Progress } from './core/progression.js';
+// Modes (factory-first; legacy-safe fallback)
+import * as groups    from './modes/groups.js';
+import * as goodjunk  from './modes/goodjunk.js';
+import * as hydration from './modes/hydration.js';
+import * as plate     from './modes/plate.js';
 
-// โหมดเกม (อย่างน้อย 2 โหมดตัวอย่างตามที่ส่งมา)
-import * as goodjunk from './modes/goodjunk.js';
-import * as groups   from './modes/groups.js';
-
-// ---- (ใหม่) ScoreSystem แบบบางเบา (ถ้าคุณมีของเดิมอยู่แล้วให้ลบคลาสนี้ และ import ของเดิมแทน) ----
-class ScoreSystem {
-  constructor(){
-    this.value = 0;
-    this.combo = 0;
-    this.bestCombo = 0;
-    this._boostFn = null;  // function(baseScore)=>extra
+// Optional SFX helper (works with either core/sfx.js or <audio> tags)
+const SFX = (()=>{
+  // Prefer core/sfx if present on window
+  const core = window.SFX;
+  if (core && typeof core.play === 'function'){
+    return {
+      good: ()=>core.play('sfx-good'),
+      bad: ()=>core.play('sfx-bad'),
+      perfect: ()=>core.play('sfx-perfect'),
+      tick: ()=>core.play('sfx-tick'),
+      power: ()=>core.play('sfx-powerup'),
+      play: (id)=>core.play(id)
+    };
   }
-  setBoostFn(fn){ this._boostFn = fn; }
-  reset(){ this.value = 0; this.combo = 0; this.bestCombo = 0; }
-  add(base=10){
-    const extra = this._boostFn ? (Number(this._boostFn(base))||0) : 0;
-    this.value += (base + extra);
-    this.combo += 1;
-    if (this.combo > this.bestCombo) this.bestCombo = this.combo;
-    return { type:'add', base, extra, combo:this.combo, total:this.value };
-  }
-  addPenalty(n=8){
-    this.value = Math.max(0, this.value - n);
-    this.combo = 0;
-    return { type:'penalty', n, combo:this.combo, total:this.value };
-  }
-  get(){ return this.value|0; }
-}
-
-// ---- Lazy import FX (พร้อม fallback ปลอดภัย) ----
-let FX = { shatter3D:()=>{}, add3DTilt:()=>{} };
-(async () => {
-  try {
-    const m = await import('./core/fx.js');
-    FX = { ...FX, ...m };
-    // เผื่อโหมด groups เรียกผ่าน window
-    window.HHA_FX = { ...(window.HHA_FX||{}), ...FX };
-  } catch {}
+  // Fallback to DOM <audio>
+  const play = (id)=>{ try{ const el=document.getElementById(id); if(el){ el.currentTime=0; el.play(); } }catch{} };
+  return { good:()=>play('sfx-good'), bad:()=>play('sfx-bad'), perfect:()=>play('sfx-perfect'), tick:()=>play('sfx-tick'), power:()=>play('sfx-powerup'), play };
 })();
 
-// ---- Boot systems ----
-const engine = new Engine(THREE, document.getElementById('c'));
-const hud    = new HUD();
-const coach  = new Coach({ lang: (localStorage.getItem('hha_lang')||'TH') });
-const power  = new PowerUpSystem();
-const score  = new ScoreSystem();
-power.attachToScore(score);
-Progress.init();
+// Tiny DOM helpers
+const $  = (s)=>document.querySelector(s);
+const $$ = (s)=>document.querySelectorAll(s);
 
-// ---- DOM refs ----
-const stageEl   = document.getElementById('stage');
-const host      = document.getElementById('spawnHost');
-const gameLayer = document.getElementById('gameLayer');
-const menuBar   = document.getElementById('menuBar');
-const resultModal = document.getElementById('resultModal');
-const resultBody  = document.getElementById('resultBody');
+// -----------------------------------------------------------------------------
+// HUD facade (all calls are no-ops if elements are missing)
+const HUD = (() => {
+  const chipsWrap = $('#missionChips') || $('#questChips') || null;
+  const targetBadge = $('#targetBadge') || null;
+  const targetWrap  = $('#targetWrap')  || null;
+  const hydroWrap   = $('#hydroWrap')   || null;
+  const scoreEl = $('#score') || $('#scoreVal') || null;
+  const timeEl  = $('#time')  || $('#timeLeft') || null;
 
-const STATE = {
-  lang: (localStorage.getItem('hha_lang')||'TH').toUpperCase(),
-  mode: 'goodjunk',
-  difficulty: 'Normal',
-  playing: false,
-  endAt: 0,
-  freezeUntil: 0,
-  stats: { perfect:0, good:0, bad:0 },
-  _gjStreakMilestone: 0,
-};
-
-// โหมดที่ใช้งานได้
-const MODES = {
-  goodjunk,
-  groups,
-};
-
-// ---- Utils ----
-function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-function now(){ return performance?.now?.() || Date.now(); }
-
-// พิกัดแบบ "อยู่ในกรอบแน่" ของ host
-function randomPointInHost(padRatio=0.12){
-  const r = host.getBoundingClientRect();
-  const padX = r.width  * padRatio;
-  const padY = r.height * padRatio;
-  const x = clamp(Math.random()*(r.width  - padX*2) + padX, 0, r.width);
-  const y = clamp(Math.random()*(r.height - padY*2) + padY, 0, r.height);
-  return { x, y, rect:r };
-}
-function toDocXY(px, py, rect){ return { x: rect.left + px, y: rect.top + py }; }
-
-// ---- Spawn loop ----
-let rafId = 0;
-let nextSpawnAt = 0;
-let timeLeft = 60;
-
-function startGame(){
-  // reset state
-  STATE.playing = true;
-  STATE.stats = { perfect:0, good:0, bad:0 };
-  STATE.endAt = now() + timeLeft*1000;
-  STATE.freezeUntil = 0;
-
-  // reset UI/HUD
-  score.reset();
-  hud.setScore(0);
-  hud.setCombo('x0');
-  hud.setTime(timeLeft);
-  hud.setFeverProgress(0);
-  hud.setQuestChips([]);
-  coach.onStart();
-
-  // แจ้ง Progress (เริ่มรัน)
-  Progress.beginRun(STATE.mode, STATE.difficulty, STATE.lang);
-
-  // init โหมด
-  try { MODES[STATE.mode]?.init?.(STATE, hud, { life: 3000 }); } catch {}
-
-  // วนเกม
-  cancelAnimationFrame(rafId);
-  nextSpawnAt = 0;
-  loop();
-}
-
-function endGame(){
-  STATE.playing = false;
-
-  // โหมด cleanup
-  try { MODES[STATE.mode]?.cleanup?.(STATE, hud); } catch {}
-
-  // แจ้ง Progress (สรุป)
-  const acc = calcAccuracy(STATE.stats);
-  Progress.endRun({
-    score: score.get(),
-    bestCombo: score.bestCombo|0,
-    timePlayed: (timeLeft>=0? (60-timeLeft):60),
-    acc
-  });
-
-  // coach
-  coach.onEnd(score.get());
-
-  // แสดงผล
-  showResult({
-    score: score.get(),
-    bestCombo: score.bestCombo|0,
-    stats: { ...STATE.stats },
-    acc
-  });
-
-  // ล้างที่ spawn ค้าง
-  try { host.innerHTML = ''; } catch {}
-}
-
-function loop(){
-  if (!STATE.playing) return;
-
-  const t = now();
-
-  // นับเวลา
-  const remain = clamp(Math.ceil((STATE.endAt - t)/1000), 0, 999);
-  if (remain !== (timeLeft|0)){
-    timeLeft = remain;
-    hud.setTime(timeLeft);
-    if (timeLeft === 10) coach.onTimeLow();
-    if (timeLeft === 0) { endGame(); return; }
+  function setQuestChips(list){
+    if (!chipsWrap) return;
+    // list: [{key,icon,need,progress,remain,done,fail,label}]
+    chipsWrap.innerHTML = list.map(c=>`
+      <div class="chip ${c.done?'done':''} ${c.fail?'fail':''}" data-q="${c.key}">
+        <span class="ico">${c.icon||'⭐'}</span>
+        <span class="txt">${c.label||c.key}</span>
+        <span class="bar"><i style="width:${Math.round((c.progress|0)/(c.need||1)*100)}%"></i></span>
+      </div>
+    `).join('');
   }
 
-  // tick โหมด + power
-  try { MODES[STATE.mode]?.tick?.(STATE, { sfx:window.SFX||{}, fx:engine.fx, power }, hud); } catch {}
-
-  // freeze สำหรับสแปวน์ (จากโหมด/ลงโทษ)
-  const frozen = STATE.freezeUntil && t < STATE.freezeUntil;
-
-  // สแปวน์
-  if (!frozen && (t > nextSpawnAt)){
-    spawnOne();
-    const baseMs = 740; // ความถี่พื้นฐาน (ปรับตาม diff/acc ได้)
-    nextSpawnAt = t + baseMs;
+  function markQuestDone(qid){
+    const el = chipsWrap?.querySelector?.(`[data-q="${qid}"]`);
+    if (!el) return;
+    el.classList.add('done');
+    // micro ping
+    el.animate?.([{transform:'scale(1)'},{transform:'scale(1.06)'},{transform:'scale(1)'}], {duration:320, easing:'ease-out'});
   }
 
-  rafId = requestAnimationFrame(loop);
-}
-
-// ความแม่นง่าย ๆ: perfect/good เทียบทั้งหมด
-function calcAccuracy(st){
-  const ok = (st.perfect|0)+(st.good|0);
-  const all = ok + (st.bad|0);
-  return all>0 ? Math.round((ok*100)/all) : 0;
-}
-
-// ---- Spawn unit (ใช้ pickMeta ของโหมด) ----
-function spawnOne(){
-  const mode = MODES[STATE.mode];
-  if (!mode) return;
-
-  const meta = (mode.pickMeta?.({ life:3000 }, STATE) || {
-    char:'🍎', aria:'Healthy', label:'Apple', good:true, golden:false, life:3000
-  });
-
-  const { x, y, rect } = randomPointInHost(0.12);
-
-  const el = document.createElement('button');
-  el.className = 'spawn-emoji';
-  el.type = 'button';
-  el.setAttribute('aria-label', meta.aria || (meta.good?'Healthy':'Junk'));
-  el.textContent = meta.label || meta.char || '🍎';
-  el.style.left = `${x}px`;
-  el.style.top  = `${y}px`;
-
-  // ใส่ host (ในกรอบแน่)
-  host.appendChild(el);
-
-  // FX hook ตอน spawn
-  try { mode.fx?.onSpawn?.(el, STATE); } catch {}
-
-  // เพิ่ม 3D tilt ให้ไอคอน (ต้องมี perspective จาก CSS)
-  try { FX.add3DTilt?.(el, { maxTilt: 14 }); } catch {}
-
-  // อายุชิ้น
-  const lifeMs = clamp(Number(meta.life)||3000, 600, 4500);
-  const dieAt = now() + lifeMs;
-
-  const click = (ev)=>{
-    ev.preventDefault();
-    ev.stopPropagation();
-
-    // คิดผลตามโหมด
-    let result = 'ok';
-    try { result = mode.onHit?.(meta, { sfx:window.SFX||{}, fx:engine.fx, power }, STATE, hud) || 'ok'; } catch {}
-
-    // คะแนน
-    if (result === 'good'){
-      score.add(10);
-      STATE.stats.good++;
-      coach.onGood();
-    } else if (result === 'perfect'){
-      score.add(15);
-      STATE.stats.perfect++;
-      coach.onPerfect();
-      hud.setFeverProgress?.( (STATE.stats.perfect % 10) / 10 ); // ตัวอย่างแถบ Fever
-    } else if (result === 'bad'){
-      score.addPenalty(8);
-      STATE.stats.bad++;
-      hud.flashDanger();
-      coach.onBad();
-    } else {
-      // ok = ไม่ได้ให้คะแนน/โทษ
+  function setTarget(groupKey, have=0, need=0){
+    if (targetBadge){
+      const nameTH = ({veggies:'ผัก', protein:'โปรตีน', grains:'ธัญพืช', fruit:'ผลไม้', dairy:'นม'})[groupKey] || groupKey;
+      targetBadge.textContent = `${nameTH} • ${have}/${need}`;
     }
+    if (targetWrap){ targetWrap.style.display = 'inline-flex'; }
+  }
 
-    // อัปเดต HUD ทันที
-    hud.setScore(score.get());
-    hud.setCombo('x' + (score.combo|0));
+  function showHydration(){ if (hydroWrap){ hydroWrap.style.display='block'; } }
+  function hideHydration(){ if (hydroWrap){ hydroWrap.style.display='none'; } }
+  function setScore(n){ if (scoreEl) scoreEl.textContent = n|0; }
+  function setTime(n){ if (timeEl)  timeEl.textContent  = n|0; }
 
-    // แตกกระจาย + popText
-    const p = toDocXY(x, y, rect);
-    try { mode.fx?.onHit?.(p.x, p.y, meta, STATE); } catch {}
-    try { FX.shatter3D?.(p.x, p.y, { shards: 22, sparks: 10 }); } catch {}
-    engine?.fx?.popText?.(
-      result==='bad' ? '-8' : (result==='perfect'?'+15':'+10'),
-      { x:p.x, y:p.y, color: result==='bad' ? '#ff9b9b' : '#7fffd4' }
-    );
+  return { setQuestChips, markQuestDone, setTarget, showHydration, hideHydration, setScore, setTime };
+})();
 
-    cleanup();
+// Coach facade (bubble texts; safe-ops)
+const Coach = (() => {
+  const hud  = $('#coachHUD');
+  const text = $('#coachText');
+  const say = (t)=>{ if(text) text.textContent=t; if(hud) hud.classList.add('show'); };
+  const hush= ()=>{ if(hud) hud.classList.remove('show'); };
+  return {
+    onStart(){ say('Ready!'); setTimeout(hush, 700); },
+    onGood(){ /* subtle pulse */ },
+    onPerfect(){ say('Perfect!'); setTimeout(hush, 500); },
+    onBad(){ say('Oops!'); setTimeout(hush, 450); },
+    onQuestDone(){ say('Mission ✓'); setTimeout(hush, 600); },
+    onQuestFail(){ say('Mission ✗'); setTimeout(hush, 600); },
+    onQuestProgress(label, p, t){ /* optional live hints */ }
+  };
+})();
+
+// Simple floating text FX
+const FX = {
+  popText(txt, {x=innerWidth/2, y=innerHeight/2, ms=700}={}){
+    const el = document.createElement('div');
+    el.className = 'popText';
+    el.textContent = txt;
+    el.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+      font-weight:900;text-shadow:0 2px 8px #000a;pointer-events:none;z-index:120;`;
+    document.body.appendChild(el);
+    el.animate?.(
+      [{transform:'translate(-50%,-40%) scale(.9)', opacity:.0},
+       {transform:'translate(-50%,-50%) scale(1)', opacity:1, offset:.25},
+       {transform:'translate(-50%,-70%) scale(1.08)', opacity:0}],
+      {duration:ms, easing:'ease-out'}
+    ).finished?.then(()=>el.remove()).catch(()=>{ try{el.remove();}catch{} });
+  }
+};
+
+// -----------------------------------------------------------------------------
+// Engine (scene-agnostic; only DOM + mode adapter)
+const Engine = (() => {
+  let modeKey = 'groups';
+  let diffKey = 'Normal';
+  let lang    = (localStorage.getItem('hha_lang')||'TH').toUpperCase();
+  let seconds = 45;
+
+  // Expose diff for modes that read window.__HHA_DIFF
+  window.__HHA_DIFF = diffKey;
+
+  // Runtime
+  let running = false;
+  let rafId   = 0;
+  let lastT   = 0;
+  let remain  = 0;
+
+  // Systems
+  const score   = new ScoreSystem();
+  const power   = new PowerUpSystem();
+
+  // Bus (modes call back into engine via this)
+  const Bus = {
+    sfx: SFX,
+    hit({kind='good', points=0, ui={}, meta={}}={}){
+      // Prefer new addKind if available
+      if (typeof score.addKind === 'function'){
+        const map = { good:'good', perfect:'perfect', ok:'ok', bad:'bad' };
+        score.addKind(map[kind]||'good', meta);
+      } else {
+        // fallback
+        if (kind==='bad') score.addPenalty?.(8);
+        else score.add?.(points|| (kind==='perfect'?18:10));
+      }
+      HUD.setScore(score.get?.()||score.value||0);
+      Quests.event('hit', { result:kind, meta, comboNow: (score.combo|0)||0 });
+      if (kind==='perfect') SFX.perfect(); else if (kind==='bad') SFX.bad(); else SFX.good();
+    },
+    miss(){
+      if (typeof score.addPenalty === 'function') score.addPenalty(6);
+      else score.add?.(-4);
+      HUD.setScore(score.get?.()||score.value||0);
+      Quests.event('miss', {});
+      SFX.bad();
+    },
+    fx: FX,
   };
 
-  el.addEventListener('click', click, { passive:false });
+  // Hook score changes (if using rich ScoreSystem)
+  score.setHandlers?.({ change:(val)=>HUD.setScore(val|0) });
+  power.attachToScore?.(score);
 
-  // หมดอายุ
-  const ttl = setInterval(()=>{
-    if (now() >= dieAt) cleanup();
-  }, 80);
+  // Mode registry
+  const MODES = { goodjunk, groups, hydration, plate };
+  let adapter = null;   // active adapter { start, stop, update, cleanup }
 
-  function cleanup(){
-    try { clearInterval(ttl); } catch {}
-    try { el.removeEventListener('click', click, { passive:false }); } catch {}
-    try { el.remove(); } catch {}
+  // HUD binding into Quests
+  const { refresh:questsHUDRefresh } = Quests.bindToMain({ hud: HUD });
+
+  // Helpers
+  function byKeySafe(key){
+    const M = MODES[key] || MODES.groups;
+    // prefer factory adapter if exists
+    if (typeof M.create === 'function') return M.create({ engine:{fx:FX}, hud:HUD, coach:Coach });
+    // fallback: wrap legacy {pickMeta,onHit,tick}
+    return adapterFromLegacy(M);
   }
-}
 
-// ---- UI wiring ----
-document.addEventListener('click', (e)=>{
-  const b = e.target.closest('[data-action]');
-  if (!b) return;
+  function adapterFromLegacy(M){
+    const host  = document.getElementById('spawnHost');
+    const layer = document.getElementById('gameLayer');
+    const items = [];
+    let freezeUntil = 0;
+    let spawnCd = 0.22;
 
-  const act = b.getAttribute('data-action');
+    function start(){
+      stop();
+      // call legacy init(state,hud,diff)
+      const state = { ctx:{}, difficulty: diffKey, lang };
+      try{ M.init?.(state, HUD, {}); }catch{}
+      // store to closure
+      adapter._state = state;
+    }
 
-  if (act === 'start'){
-    e.preventDefault();
-    document.body.classList.remove('ui-mode-menu');
-    document.body.classList.add('ui-mode-play');
-    startGame();
-    return;
-  }
-  if (act === 'back-to-menu'){
-    e.preventDefault();
-    hideResult();
-    document.body.classList.add('ui-mode-menu');
-    document.body.classList.remove('ui-mode-play');
-    return;
-  }
-  if (act === 'restart'){
-    e.preventDefault();
-    hideResult();
-    startGame();
-    return;
-  }
-  if (act === 'toggle-lang'){
-    e.preventDefault();
-    STATE.lang = (STATE.lang==='TH' ? 'EN' : 'TH');
-    localStorage.setItem('hha_lang', STATE.lang);
-    coach.setLang(STATE.lang);
-    hud.toast(STATE.lang==='TH' ? 'ภาษาไทย' : 'English');
-    return;
-  }
-  if (act === 'open-help' || act === 'help'){
-    e.preventDefault();
-    hud.toast(STATE.lang==='TH' ? 'แตะอาหารดี เก็บคะแนน! ระวังอาหารขยะ' : 'Tap healthy foods for points! Avoid junk');
-    return;
-  }
-  if (act === 'power-x2'){
-    power.apply('x2', 8);
-    coach.onPower('boost');
-    return;
-  }
-  if (act === 'power-freeze'){
-    power.apply('freeze', 3);
-    coach.onPower('freeze');
-    return;
-  }
-  if (act === 'power-sweep'){
-    power.apply('sweep', 2);
-    hud.toast('Sweep ready');
-    return;
-  }
-});
+    function stop(){
+      try{ for (const it of items) it.el.remove(); }catch{}
+      items.length = 0;
+    }
 
-// เปลี่ยนโหมด
-document.addEventListener('click', (e)=>{
-  const m = e.target.closest('[data-mode]');
-  if (!m) return;
-  e.preventDefault();
-  const key = m.getAttribute('data-mode');
-  if (!MODES[key]) return hud.toast('Mode not ready');
-  STATE.mode = key;
-  document.getElementById('modeLabel')?.replaceChildren(document.createTextNode(key));
-  hud.toast('Mode: ' + key);
-});
+    function spawnOne(){
+      const rect = layer.getBoundingClientRect();
+      const meta = M.pickMeta?.({life:1600}, adapter._state)||{ char:'⭐', aria:'Star', life:1500, good:true };
+      const pad = 30;
+      const x = Math.round(pad + Math.random()*(rect.width  - pad*2));
+      const y = Math.round(pad + Math.random()*(rect.height - pad*2));
+      const b = document.createElement('button');
+      b.className = 'spawn-emoji';
+      b.type = 'button';
+      b.style.left = x + 'px';
+      b.style.top  = y + 'px';
+      b.textContent = meta.char || '⭐';
+      b.setAttribute('aria-label', meta.aria||'item');
+      if (meta.golden) b.dataset.golden = '1';
+      if (meta.good)   b.dataset.target = '1';
+      try{ M.fx?.onSpawn?.(b, adapter._state); }catch{}
+      b.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        const res = M.onHit?.(meta, { score, sfx:SFX }, adapter._state, HUD) || 'ok';
+        if (res==='good' || res==='perfect'){
+          Bus.hit({kind:res, ui:{x:ev.clientX,y:ev.clientY}, meta});
+          FX.popText(`+${res==='perfect'?18:10}${res==='perfect'?' ✨':''}`, {x:ev.clientX,y:ev.clientY, ms:700});
+        } else if (res==='bad'){
+          Bus.miss();
+          freezeUntil = Math.max(freezeUntil, performance.now()+280);
+          document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+        }
+        try{ b.remove(); }catch{}
+        const i = items.findIndex(it=>it.el===b); if (i>=0) items.splice(i,1);
+      }, {passive:false});
+      host?.appendChild?.(b);
+      items.push({ el:b, born:performance.now(), life:meta.life||1500, meta });
+    }
 
-// อัปเดต Power bar ทุก 300 ms
-setInterval(()=>{
-  const timers = power.getTimers();
-  hud.setPowerTimers(timers);
-}, 300);
+    function update(dt){
+      const now = performance.now();
+      spawnCd -= dt;
+      if (now >= freezeUntil && spawnCd <= 0){
+        spawnOne();
+        // slightly dynamic
+        const timeLeft = Number($('#time')?.textContent||remain|0)|0;
+        const bias = timeLeft<=15 ? 0.16 : 0;
+        spawnCd = Math.max(0.26, 0.42 - bias + Math.random()*0.24);
+      }
+      // life ticking
+      for (let i=items.length-1;i>=0;i--){
+        const it = items[i];
+        if (now - it.born > it.life){
+          if (it.meta?.good) Bus.miss();
+          try{ it.el.remove(); }catch{}
+          items.splice(i,1);
+        }
+      }
+      M.tick?.(adapter._state, { score, sfx:SFX }, HUD);
+    }
 
-// ---- Result modal ----
-function showResult({ score, bestCombo, stats, acc }){
-  if (!resultModal || !resultBody) return;
-  resultBody.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div><b>Score</b><div style="font:900 26px/1 ui-rounded">${score|0}</div></div>
-      <div><b>Best Combo</b><div style="font:900 26px/1 ui-rounded">x${bestCombo|0}</div></div>
-      <div><b>Accuracy</b><div style="font:900 22px/1 ui-rounded">${acc|0}%</div></div>
-      <div><b>Detail</b>
-        <div>Perfect: ${stats.perfect|0}</div>
-        <div>Good: ${stats.good|0}</div>
-        <div>Bad: ${stats.bad|0}</div>
-      </div>
-    </div>
-  `;
-  resultModal.style.display = 'flex';
-  resultModal.setAttribute('aria-hidden','false');
-}
-function hideResult(){
-  if (!resultModal) return;
-  resultModal.style.display = 'none';
-  resultModal.setAttribute('aria-hidden','true');
-}
-resultModal?.addEventListener('click', (e)=>{
-  if (e.target.matches('[data-modal-close]')) hideResult();
-});
+    function cleanup(){ stop(); try{ M.cleanup?.(adapter._state, HUD); }catch{} }
 
-// ---- Resize safety: คุมเวทีกลางจอเสมอ (ถ้าสตายล์ภายนอกเปลี่ยนขนาด) ----
-function recenter(){
-  // ปล่อยให้ CSS เป็นตัวกลาง (flex center) — เราเพียงย้ำ pointerEvents ให้ถูก
-  try {
-    document.getElementById('c').style.pointerEvents = 'none';
-    gameLayer.style.pointerEvents = 'auto';
-  } catch {}
-}
-window.addEventListener('resize', recenter, { passive:true });
-recenter();
+    return { start, stop, update, cleanup, _state:null };
+  }
 
-// ให้ปุ่มนอกไฟล์เรียกได้ (ถ้าจำเป็น)
-window.__HHA_START = startGame;
+  // Result modal helper
+  function showResult(summary){
+    const dlg = $('#result'); if (!dlg) return;
+    const scoreEl = dlg.querySelector('[data-field="score"]');
+    const starsEl = dlg.querySelector('[data-field="stars"]');
+    const gradeEl = dlg.querySelector('[data-field="grade"]');
+    if (scoreEl) scoreEl.textContent = summary.score|0;
+    if (starsEl) starsEl.textContent = '★'.repeat(summary.stars||0);
+    if (gradeEl) gradeEl.textContent = summary.grade || '';
+    dlg.style.display = 'flex';
+  }
+
+  // Core loop
+  function loop(t){
+    if (!running){ cancelAnimationFrame(rafId); return; }
+    const dt = Math.min(0.050, (t - (lastT||t))/1000); // seconds
+    lastT = t;
+
+    // mode update
+    try{ adapter.update?.(dt, Bus); }catch(e){ console.warn('[adapter.update]', e); }
+
+    // 1s tick
+    if (!Engine._tickAt || t-Engine._tickAt >= 1000){
+      Engine._tickAt = t;
+      remain = Math.max(0, (remain|0) - 1);
+      HUD.setTime(remain);
+      Quests.tick({ score: score.get?.()||score.value||0 });
+
+      if (remain <= 5 && remain > 0) SFX.tick();
+      if (remain === 0){
+        end(false);
+        return;
+      }
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function begin({ mode, diff, lang:lg, seconds:sec }){
+    // config
+    modeKey = (mode||modeKey||'groups');               // default to groups
+    diffKey = (diff||diffKey||'Normal');
+    lang    = (String(lg||lang||'TH')).toUpperCase();
+    seconds = Math.max(10, (sec|0) || 45);
+    window.__HHA_DIFF = diffKey;
+
+    // mark on DOM for CSS (groups.css watches this)
+    document.body.dataset.mode = modeKey;
+    document.documentElement.setAttribute('data-hha-mode', modeKey);
+
+    // clean spawnHost & ensure visible containers
+    $('#spawnHost')?.replaceChildren?.();
+
+    // systems
+    score.reset?.();
+    HUD.setScore(0);
+    remain = seconds;
+    HUD.setTime(remain);
+
+    // bind powerup HUD hooks if you show durations elsewhere
+    power.onChange?.((_t)=>{/* no-op, but available for HUD timer bubbles */});
+
+    // quests begin
+    Quests.beginRun?.(modeKey, diffKey, lang, seconds);
+    questsHUDRefresh?.();
+
+    // progress profile run context (optional)
+    try{ Progress.beginRun?.(modeKey, diffKey, lang); }catch{}
+
+    // build adapter
+    adapter = byKeySafe(modeKey);
+    adapter.start?.();
+
+    // coach cue
+    Coach.onStart?.();
+
+    // run
+    running = true;
+    lastT = 0;
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function end(forceReplay=false){
+    if (!running && !forceReplay){
+      // still summarize if called from timeout or repeated
+    }
+    running = false;
+    cancelAnimationFrame(rafId);
+
+    // collect summary
+    const g = (typeof score.getGrade === 'function') ? score.getGrade() : { score: (score.get?.()||score.value||0), stars: Math.min(5, Math.floor((score.get?.()||score.value||0)/120)), grade:'-' };
+    const summary = { score: g.score|0, stars: g.stars|0, grade: g.grade||'-', highCount: adapter?._state?.highCount|0, overfill: adapter?._state?.ctx?.overfillCount|0 };
+
+    try{ Progress.endRun?.({ score:summary.score, bestCombo: (score.bestCombo|0)||0, timePlayed: (seconds-remain)|0, acc: 0 }); }catch{}
+    try{ const out = Quests.endRun?.(summary) || []; /* could be used to update daily/XP */ }catch{}
+
+    adapter?.cleanup?.();
+
+    // show result (if modal exists)
+    showResult(summary);
+  }
+
+  // Pause on window blur; resume on focus (soft — user must press Start again)
+  window.addEventListener('blur', ()=>{ if (running){ running=false; cancelAnimationFrame(rafId); }});
+  // Guard autoplay: ensure a user gesture happened once
+  document.addEventListener('click', ()=>{ try{
+    // if using core/sfx, unlock; else attempt to play silent tick
+    if (window.SFX?.unlock) window.SFX.unlock();
+    SFX.tick();
+  }catch{} }, { once:true });
+
+  // Public API
+  return {
+    begin, end,
+    setMode:(k)=>{ document.body.dataset.mode = k; document.documentElement.setAttribute('data-hha-mode', k); },
+    setDiff:(d)=>{ diffKey = d; window.__HHA_DIFF = d; },
+    setLang:(l)=>{ localStorage.setItem('hha_lang', String(l||'TH').toUpperCase()); },
+    _tickAt: 0
+  };
+})();
+
+// -----------------------------------------------------------------------------
+// Wire up result buttons if present
+(function bindResultButtons(){
+  const dlg = $('#result'); if (!dlg) return;
+  dlg.addEventListener('click', (e)=>{
+    const a = e.target.getAttribute('data-result');
+    if (a==='replay'){
+      dlg.style.display='none';
+      window.HHA.startGame({ demoPassed:true }); // rerun with the last config (UI can inject)
+    } else if (a==='home'){
+      dlg.style.display='none';
+      // do nothing; UI page can show menu
+    }
+  });
+})();
+
+// -----------------------------------------------------------------------------
+// Global façade expected by ui.js or external menu
+window.HHA = window.HHA || {};
+window.HHA.startGame = (opts={})=>{
+  // Defaults: prefer UI-provided opts; fallback to stored language/diff; mode defaults to 'groups'
+  const cfg = {
+    mode: (opts.mode || 'groups'),
+    diff: (opts.diff || window.__HHA_DIFF || 'Normal'),
+    lang: (opts.lang || localStorage.getItem('hha_lang') || 'TH'),
+    seconds: Math.max(10, (opts.seconds|0) || 45)
+  };
+  try { $('#result') && ($('#result').style.display='none'); } catch {}
+  Engine.begin(cfg);
+};
+window.HHA.endGame = ()=> Engine.end(false);
+
+// Legacy aliases (some older UI call these)
+window.start = (opts)=> window.HHA.startGame(opts||{ mode:'groups' });
+window.end   = ()=> window.HHA.endGame();
+
+// Mark boot success for boot.js banner suppression
+window.__HHA_BOOT_OK = 'main';
