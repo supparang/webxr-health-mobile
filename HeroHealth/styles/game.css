@@ -200,3 +200,20 @@ body{
   transform-style: preserve-3d;
   backface-visibility: hidden;
 }
+#gameLayer { position: relative; overflow: hidden; }
+#spawnHost { position: absolute; inset: 0; }
+
+.spawn-emoji{
+  position:absolute; transform:translate(-50%,-50%);
+  font-size: 40px; line-height:1; border:none; background:transparent; cursor: pointer;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.35));
+  will-change: transform, opacity;
+}
+.spawn-emoji:active{ transform:translate(-50%,-50%) scale(.96); }
+
+#questBar{ pointer-events:none; }
+#questChips{ list-style:none; margin:0; padding:0; display:flex; gap:.5rem; justify-content:center; }
+#questChips li{ background:#0b1a; border:1px solid #0f3a; border-radius:999px; padding:.25rem .6rem; display:flex; gap:.5rem; align-items:center; }
+#questChips li.done{ background:#0b1f; border-color:#17b45c; }
+#questChips .bar{ display:inline-block; width:64px; height:6px; border-radius:999px; background:#fff1; overflow:hidden }
+#questChips .bar i{ display:block; height:100%; background:#1fe29a; }
