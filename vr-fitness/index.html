@@ -12,7 +12,6 @@
     .topbar{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #22263a;position:sticky;top:0;background:linear-gradient(180deg,#0f1220 0%,#0f1220ee 100%);z-index:5}
     .brand{margin:0;font-size:20px;letter-spacing:.3px}
     .btn{background:var(--accent);color:#001018;border:0;padding:10px 14px;border-radius:999px;font-weight:600;cursor:pointer}
-    .btn.secondary{background:#2a2f4a;color:var(--fg)}
     .btn.hidden{display:none}
     .hub{padding:20px;background:var(--bg)}
     .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
@@ -103,43 +102,85 @@
   <div id="err" class="err"></div>
 
   <script>
-    const GAME_URLS = {
-      "shadow-breaker": "/webxr-health-mobile/vr-fitness/shadow-breaker/play.html",
-      "rhythm-boxer":   "/webxr-health-mobile/vr-fitness/rhythm-boxer/play.html",
-      "jump-duck":      "/webxr-health-mobile/vr-fitness/jump-duck/play.html",
-      "balance-hold":   "/webxr-health-mobile/vr-fitness/balance-hold/play.html"
-    };
-
+    // ===== Robust launcher: ลองหลายพาธ + เช็ก 200 ก่อนค่อยเปิด (กัน 404) =====
     const $ = s=>document.querySelector(s);
     const hubEl=$("#hub"), stageEl=$("#stage"), frameEl=$("#gameFrame"), backBtn=$("#btnBack");
     const overlay=$("#overlay"), errBox=$("#err");
 
+    const CANDIDATES = (g)=>[
+      `/webxr-health-mobile/vr-fitness/${g}/play.html`,
+      `/webxr-health-mobile/vr-fitness/games/${g}/play.html`,
+      `/vr-fitness/${g}/play.html`,
+      `/vr-fitness/games/${g}/play.html`
+    ];
+
+    function defaults(g){
+      if(g==="shadow-breaker") return {min:30, time:90,  diff:"normal"};
+      if(g==="rhythm-boxer")   return {min:45, time:85,  diff:"normal"};
+      if(g==="jump-duck")      return {min:45, time:80,  diff:"easy"};
+      if(g==="balance-hold")   return {min:30, time:75,  diff:"normal"};
+      return {min:30, time:90, diff:"normal"};
+    }
     function clamp(n,a,b){ n=+n; if(Number.isNaN(n)) return a; return Math.max(a, Math.min(b,n)); }
+    const v  = sel => (document.querySelector(sel)||{}).value || "";
+    const vn = sel => +(document.querySelector(sel)||{}).value || 0;
+
     function getControls(g){
       if(g==="shadow-breaker") return { diff: v('[data-name="diff-sb"]'), time: clamp(vn('[data-name="time-sb"]'),30,180) };
       if(g==="rhythm-boxer")   return { diff: v('[data-name="diff-rb"]'), time: clamp(vn('[data-name="time-rb"]'),45,180) };
       if(g==="jump-duck")      return { diff: v('[data-name="diff-jd"]'), time: clamp(vn('[data-name="time-jd"]'),45,180) };
       if(g==="balance-hold")   return { diff: v('[data-name="diff-bh"]'), time: clamp(vn('[data-name="time-bh"]'),30,180) };
-      return { diff:"normal", time:90 };
+      const d=defaults(g); return { diff:d.diff, time:d.time };
     }
-    const v = sel => (document.querySelector(sel)||{}).value || "";
-    const vn = sel => +(document.querySelector(sel)||{}).value || 0;
-    function buildURL(game){
-      const base = GAME_URLS[game]; const {diff,time}=getControls(game);
-      const q = new URLSearchParams({ game, mode:"timed", diff, time:String(time) });
-      return `${base}?${q.toString()}`;
-    }
+
     function showHub(){ hubEl.style.display="block"; stageEl.classList.remove("show"); backBtn.classList.add("hidden"); frameEl.removeAttribute("src"); overlay.style.display="none"; }
     function showStage(){ hubEl.style.display="none"; stageEl.classList.add("show"); backBtn.classList.remove("hidden"); }
-    function showErr(msg){ errBox.style.display="block"; errBox.innerHTML = "<b>⚠️ Error:</b> "+msg+"<div class='fallback'>เปิดเกมโดยตรงได้จากลิงก์ “เปิดตรง” ใต้ปุ่ม Play</div>"; console.error(msg); }
+    function showErr(msg, tried=[]){
+      errBox.style.display="block";
+      errBox.innerHTML = "<b>⚠️ Error:</b> "+msg + (tried.length? `<div class='fallback' style="margin-top:6px">Tried: ${tried.map(x=>`<code>${x}</code>`).join(", ")}</div>` : "");
+      console.error(msg, tried);
+    }
 
-    document.addEventListener("click", (ev)=>{
+    async function headOK(url){
+      try{
+        const r = await fetch(url + (url.includes("?")?"&":"?") + "v=live", {method:"HEAD", cache:"no-store"});
+        return r.ok;
+      }catch(e){ return false; }
+    }
+
+    async function resolveGameURL(game, params){
+      const tried=[];
+      for(const base of CANDIDATES(game)){
+        const url = `${base}?${new URLSearchParams(params).toString()}`;
+        tried.push(url);
+        if(await headOK(base)) return {url, tried};
+      }
+      // บาง host ไม่ตอบ HEAD กับ html → ลอง GET
+      for(const base of CANDIDATES(game)){
+        const url = `${base}?${new URLSearchParams(params).toString()}`;
+        tried.push(url);
+        try{
+          const r = await fetch(base + (base.includes("?")?"&":"?") + "v=live", {method:"GET", cache:"no-store"});
+          if(r.ok) return {url, tried};
+        }catch(e){}
+      }
+      return {url:null, tried};
+    }
+
+    document.addEventListener("click", async (ev)=>{
       const a = ev.target.closest("[data-action]");
       if(!a) return;
       if(a.dataset.action==="play"){
-        const g=a.dataset.game, url=buildURL(g);
+        const game = a.dataset.game;
+        const d = defaults(game);
+        const c = getControls(game);
+        const params = { game, mode:"timed", diff: (c.diff || d.diff), time: String(c.time || d.time) };
+
+        const {url, tried} = await resolveGameURL(game, params);
+        if(!url) { showErr("ไม่พบไฟล์ play.html ของเกมนี้ (404)", tried); return; }
+
         try{ frameEl.src = url; showStage(); }
-        catch(e){ showErr("โหลดเกมไม่สำเร็จ: "+e.message); showHub(); }
+        catch(e){ showErr("โหลดเกมไม่สำเร็จ: "+e.message, tried); showHub(); }
       }
       if(a.dataset.action==="back"){ showHub(); }
     });
@@ -148,11 +189,7 @@
     window.addEventListener("focus", ()=>{ if(frameEl.contentWindow){ overlay.style.display="none"; frameEl.contentWindow.postMessage({type:"hub:pause",value:false},"*"); } });
 
     frameEl.addEventListener("error", ()=>showErr("ไม่สามารถโหลด iFrame ได้ (ตรวจ URL เกม)"));
-
-    window.addEventListener("message",(ev)=>{
-      const m=ev.data||{};
-      if(m.type==="game:ready"){ overlay.style.display="none"; }
-    });
+    window.addEventListener("message",(ev)=>{ if((ev.data||{}).type==="game:ready"){ overlay.style.display="none"; } });
 
     showHub();
   </script>
