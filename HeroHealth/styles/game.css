@@ -1,45 +1,42 @@
-/* === Hero Health — CLICK-THROUGH HARDEN (2025-10-30 NUCLEAR) === */
-html, body { margin:0; padding:0; width:100%; height:100%; -webkit-tap-highlight-color:transparent; }
-* { touch-action: manipulation; }
+/* === Hero Health Academy — styles/game.css (click-safe, 2025-10-30) === */
 
-#c { position:fixed; inset:0; z-index:0; pointer-events:none !important; }
-#app { position:relative; z-index:10; }
+/* Canvas ไม่รับคลิก */
+#c { pointer-events: none !important; }
 
-/* เมนูต้องคลิกได้เสมอเมื่อมองเห็น */
-#menuBar {
-  position:relative;
-  z-index:10000 !important;
-  display:block;
-  pointer-events:auto !important;
-}
-#menuBar * { pointer-events:auto !important; cursor:pointer; }
+/* ชั้นหลัก */
+#app       { position: relative; }
+#menuBar   { position: relative; z-index: 1000; }
+#gameLayer { position: relative; z-index: 900; }
+#result    { position: fixed; inset: 0; display: none;
+             align-items:center; justify-content:center;
+             z-index: 2000; }
 
-/* สนามเล่น */
-#gameLayer { position:relative; z-index:9000; pointer-events:auto !important; }
-#spawnHost { position:absolute; inset:0; z-index:9001; pointer-events:auto !important; }
-
-/* HUD ต้องไม่ขวางคลิก */
-#hudWrap { position:absolute; inset:0; z-index:9002; pointer-events:none !important; }
-#hudWrap * { pointer-events:none !important; }
-#toast, #coachHUD, #missionLine, #questChips, #targetWrap { pointer-events:none !important; }
-
-/* หน้าสรุปผล (กดได้เมื่อแสดง) */
-#result { position:absolute; inset:0; z-index:10001; display:none; pointer-events:auto !important; }
-#result * { pointer-events:auto !important; }
-
-/* ปุ่มเป้า */
-.spawn-emoji{
-  position:absolute; transform:translate(-50%,-50%);
-  font-size:28px; line-height:1; background:transparent; border:0; padding:6px 8px;
-  cursor:pointer; pointer-events:auto !important;
+/* HUD: ตัว HUD/overlay ไม่กินคลิก ยกเว้นของที่ต้องคลิกในสนาม (#spawnHost) */
+#hudWrap, #hudWrap *, #coachHUD, #missionLine, #toast, #questChips, #targetWrap {
+  pointer-events: none !important;
 }
 
-/* ปุ่มทั่วไป */
-.menu .tile, .chip, .start { cursor:pointer; pointer-events:auto !important; }
+/* ปุ่ม/ชิ้น spawn คลิกได้ */
+#spawnHost, #spawnHost * { pointer-events: auto !important; }
 
-/* แถบกู้ชีพ */
-#clickGuard { position:fixed; left:8px; bottom:8px; z-index:20000; display:flex; gap:8px; }
-#clickGuard button { padding:6px 10px; border-radius:8px; border:1px solid #999; background:#fff; cursor:pointer; }
+/* ปุ่มเมนูต้องคลิกได้เสมอเมื่ออยู่หน้าเมนู */
+#menuBar, #menuBar * { pointer-events: auto; }
 
-/* อะไรที่ซ่อนอยู่ ห้ามจับคลิก */
-[hidden], [aria-hidden="true"], .hidden, .visually-hidden { pointer-events:none !important; }
+/* สถานะจอ (สลับโดย main.js) */
+body.state-menu  #menuBar   { display: block; pointer-events: auto; }
+body.state-menu  #gameLayer { pointer-events: none; }
+body.state-menu  #result    { display: none; }
+
+body.state-play  #menuBar   { display: none; }
+body.state-play  #gameLayer { pointer-events: auto; }
+body.state-play  #result    { display: none; }
+
+body.state-result #menuBar   { display: none; }
+body.state-result #gameLayer { pointer-events: none; }
+body.state-result #result    { display: flex; pointer-events: auto; }
+
+/* ปุ่มพื้นฐานให้ cursor แสดง */
+button, .chip, .tile, .start { cursor: pointer; }
+
+/* กัน component ที่เผลอมี [hidden]/aria-hidden บังคลิก */
+[hidden], [aria-hidden="true"], .hidden, .visually-hidden { pointer-events: none !important; }
