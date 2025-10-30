@@ -1,66 +1,45 @@
-/* === Hero Health — CLICK SAFE (2025-10-30 harden) === */
-html, body { margin:0; padding:0; width:100%; height:100%; }
+/* === Hero Health — CLICK-THROUGH HARDEN (2025-10-30 NUCLEAR) === */
+html, body { margin:0; padding:0; width:100%; height:100%; -webkit-tap-highlight-color:transparent; }
+* { touch-action: manipulation; }
+
 #c { position:fixed; inset:0; z-index:0; pointer-events:none !important; }
+#app { position:relative; z-index:10; }
 
-#app { position:relative; z-index:1; }
-
-/* เมนู: ต้องกดได้เสมอเมื่อมองเห็น */
+/* เมนูต้องคลิกได้เสมอเมื่อมองเห็น */
 #menuBar {
   position:relative;
-  z-index:999;
+  z-index:10000 !important;
   display:block;
   pointer-events:auto !important;
 }
+#menuBar * { pointer-events:auto !important; cursor:pointer; }
 
-/* สนามเล่น + โฮสต์เป้า */
-#gameLayer {
-  position:relative;
-  z-index:10;
-  pointer-events:auto !important;   /* เปิดเป็นค่าเริ่มต้น */
-}
-#spawnHost {
-  position:absolute; inset:0;
-  z-index:11;
-  pointer-events:auto !important;   /* รับคลิกเป้า */
-}
+/* สนามเล่น */
+#gameLayer { position:relative; z-index:9000; pointer-events:auto !important; }
+#spawnHost { position:absolute; inset:0; z-index:9001; pointer-events:auto !important; }
 
-/* HUD ต้องไม่รับคลิก */
-#hudWrap {
-  position:absolute; inset:0;
-  z-index:12;
-  pointer-events:none !important;
-}
+/* HUD ต้องไม่ขวางคลิก */
+#hudWrap { position:absolute; inset:0; z-index:9002; pointer-events:none !important; }
 #hudWrap * { pointer-events:none !important; }
 #toast, #coachHUD, #missionLine, #questChips, #targetWrap { pointer-events:none !important; }
 
-/* หน้าสรุปผล: กดได้เฉพาะตอนแสดง */
-#result {
-  position:absolute; inset:0;
-  z-index:1000;
-  display:none;
-  pointer-events:auto !important;
-}
+/* หน้าสรุปผล (กดได้เมื่อแสดง) */
+#result { position:absolute; inset:0; z-index:10001; display:none; pointer-events:auto !important; }
+#result * { pointer-events:auto !important; }
 
 /* ปุ่มเป้า */
-.spawn-emoji {
-  position:absolute;
-  transform:translate(-50%,-50%);
-  font-size:28px; line-height:1;
-  background:#0000; border:0; padding:6px 8px;
-  cursor:pointer;
+.spawn-emoji{
+  position:absolute; transform:translate(-50%,-50%);
+  font-size:28px; line-height:1; background:transparent; border:0; padding:6px 8px;
+  cursor:pointer; pointer-events:auto !important;
 }
 
-/* ปุ่มในเมนู */
+/* ปุ่มทั่วไป */
 .menu .tile, .chip, .start { cursor:pointer; pointer-events:auto !important; }
 
 /* แถบกู้ชีพ */
-#clickGuard { position:fixed; left:8px; bottom:8px; z-index:2000; display:flex; gap:8px; }
+#clickGuard { position:fixed; left:8px; bottom:8px; z-index:20000; display:flex; gap:8px; }
 #clickGuard button { padding:6px 10px; border-radius:8px; border:1px solid #999; background:#fff; cursor:pointer; }
 
-/* ปิดทุก element ที่ซ่อนอยู่ไม่ให้จับคลิก */
+/* อะไรที่ซ่อนอยู่ ห้ามจับคลิก */
 [hidden], [aria-hidden="true"], .hidden, .visually-hidden { pointer-events:none !important; }
-
-/* กัน overlay ที่ไม่มีไอดี/คลาสมาครอบทั้งจอ */
-body > *:not(#app):not(#c):not(#clickGuard) {
-  /* ไม่บังคับปิด เพื่อเลี่ยง side effect; จัดการด้วย JS watchdog ใน main.js */
-}
