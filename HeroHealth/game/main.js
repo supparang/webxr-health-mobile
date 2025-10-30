@@ -89,3 +89,40 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){engine.pau
   bindMenu();
   showMenu();
 })();
+// ... (ส่วน import และบูตเดิมทั้งหมดคงไว้เหมือนที่คุณมีล่าสุด)
+
+function setPlayfieldActive(on){
+  const menu  = document.getElementById('menuBar');
+  const layer = document.getElementById('gameLayer');
+  const host  = document.getElementById('spawnHost');
+
+  // เปิด/ปิดการรับคลิกของสนามและโฮสต์สแปว์น
+  if (layer) layer.style.pointerEvents = on ? 'auto' : 'none';
+  if (host)  host.style.pointerEvents  = on ? 'auto' : 'none';
+
+  // เมนู: กลับกัน เปิดเมื่อไม่ได้เล่น
+  if (menu)  menu.style.pointerEvents  = on ? 'none' : 'auto';
+}
+
+function showMenu(){
+  const m = document.getElementById('menuBar');
+  const h = document.getElementById('hudWrap');
+  const r = document.getElementById('result');
+  if (m) m.style.display = 'block';
+  if (h) h.style.display = 'none';
+  if (r) r.style.display = 'none';
+  setPlayfieldActive(false);
+}
+
+function showPlay(){
+  const m = document.getElementById('menuBar');
+  const h = document.getElementById('hudWrap');
+  if (m) m.style.display = 'none';
+  if (h) h.style.display = 'block';
+  setPlayfieldActive(true);
+
+  // กันเคสสไตล์ภายนอก/แคช: re-assert อีกรอบหลัง DOM วาด
+  setTimeout(()=>setPlayfieldActive(true), 0);
+}
+
+// ... (โค้ดอื่นคงเดิมเช่น loadMode/startGame/stopGame/bindMenu/visibility handlers/boot)
