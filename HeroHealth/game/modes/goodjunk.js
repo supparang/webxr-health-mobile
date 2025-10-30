@@ -1,141 +1,134 @@
-// === Hero Health Academy — game/modes/goodjunk.js (2025-10-30 FX integrated) ===
+// === Hero Health Academy — game/modes/goodjunk.js (2025-10-30)
+// DOM-spawn ภายใน #gameLayer/#spawnHost | ใช้ FX จาก core/fx.js ผ่าน engine.fx
+// - เป้าดี/เป้าขยะ + golden
+// - คลิกแล้วแตกกระจาย + popText คะแนน
+// - ไม่ลอยออกนอกกรอบเกม, หมดเวลาแล้วลบเอง
+
 export const name = 'goodjunk';
 
 // Pools
 const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
-const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍭','🍬','🍨','🥓','🌮','🥞','🍿','🍜','🍝','🥤'];
+const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍬','🍫','🧁','🥓','🍨','🍿','🥮','🥠','🍭','🥯','🧈'];
+
+const RATIO_GOOD = 0.62;     // โอกาสเกิดของฝั่งดี
+const GOLDEN_CHANCE = 0.08;  // โอกาสทอง
+const LIFE_MS = 1850;        // อายุของไอคอนแต่ละตัว
 
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-export function init(state={}, hud){
-  state.lang = (state.lang||localStorage.getItem('hha_lang')||'TH').toUpperCase();
-  state.ctx = state.ctx || {};
-  state.stats = { good:0, perfect:0, bad:0, miss:0 };
-  // quest chip via HUD (ถ้าระบบมี)
-  try{ hud?.setQuestChips?.([{ id:'good_hits', label:(state.lang==='EN'?'Good items':'ของดี'), need:10, progress:0, icon:'✅' }]); }catch{}
-}
-export function cleanup(){ /* noop */ }
-export function tick(){ /* noop */ }
-
-export function pickMeta(diff={}, state={}){
-  const isGood = Math.random() < 0.65;
-  const char = isGood ? pick(GOOD) : pick(JUNK);
-  const lifeBase = Number(diff.life)>0? Number(diff.life): 2000;
-  const life = clamp(lifeBase, 700, 4500);
-  const golden = isGood && Math.random() < 0.08;
-  return {
-    char, aria: isGood ? 'good' : 'junk', label: isGood?'GOOD':'JUNK',
-    good: isGood, golden, life
-  };
-}
-
-export function onHit(meta={}, sys={}, state={}, hud=null){
-  if (!meta) return 'ok';
-  if (meta.good){
-    try { sys?.sfx?.play?.('sfx-good'); } catch {}
-    return meta.golden ? 'perfect' : 'good';
-  } else {
-    try { sys?.sfx?.play?.('sfx-bad'); } catch {}
-    return 'bad';
-  }
-}
-
-// ---- Optional FX hooks for a central FX system (if present) ----
-export const fx = {
-  onSpawn(el){ try{ (window?.HHA_FX?.add3DTilt||(()=>{}))(el); }catch{} },
-  onHit(x,y){ try{ (window?.HHA_FX?.shatter3D||(()=>{}))(x,y); }catch{} }
-};
-
-/* ========================= DOM-spawn factory ========================= */
 export function create({ engine, hud, coach }) {
-  const host  = document.getElementById('spawnHost');
   const layer = document.getElementById('gameLayer');
+  const host  = document.getElementById('spawnHost');
 
   const state = {
-    running:false, items:[], freezeUntil:0,
-    difficulty:(window.__HHA_DIFF||document.body.getAttribute('data-diff')||'Normal'),
-    lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(),
-    stats:{good:0,perfect:0,bad:0,miss:0}
+    running:false,
+    items:[], // { el, born, life, meta:{char,good,golden,aria} }
+    stats:{ good:0, perfect:0, bad:0, miss:0 },
   };
 
-  function start(){
-    stop(); state.running=true; state.items.length=0;
-    init(state, hud, {});
+  function start() {
+    stop();
+    state.running = true;
+    state.items.length = 0;
     coach?.onStart?.();
   }
-  function stop(){
-    state.running=false;
-    try{ for(const it of state.items) it.el.remove(); }catch{}
-    state.items.length=0;
+
+  function stop() {
+    state.running = false;
+    try { for (const it of state.items) it.el.remove(); } catch {}
+    state.items.length = 0;
   }
 
   function update(dt, Bus){
-    if(!state.running||!layer) return;
-    const now=performance.now(); const rect=layer.getBoundingClientRect();
-    if(!state._spawnCd) state._spawnCd=0.18;
-    const timeLeft=Number(document.getElementById('time')?.textContent||'0')|0;
-    const speedBias = timeLeft<=15?0.16:0;
-    state._spawnCd -= dt;
-    if(now>=state.freezeUntil && state._spawnCd<=0){
-      spawnOne(rect,Bus);
-      state._spawnCd=clamp(0.44 - speedBias + Math.random()*0.20, 0.28, 1.0);
+    if (!state.running || !layer) return;
+
+    const now  = performance.now();
+    const rect = layer.getBoundingClientRect();
+
+    // spawn cadence
+    if (!state._cd) state._cd = 0.18;
+    state._cd -= dt;
+    const bias = (Number(document.getElementById('time')?.textContent||'0')|0) <= 15 ? 0.14 : 0;
+    if (state._cd <= 0){
+      spawnOne(rect, Bus);
+      state._cd = clamp(0.40 - bias + Math.random()*0.22, 0.26, 0.95);
     }
+
+    // expiry (นับ miss เฉพาะเป้าที่เป็นฝั่งดี)
     const gone=[];
-    for(const it of state.items){
-      if(now - it.born > it.meta.life){
-        if(it.meta.good){ Bus?.miss?.({ meta:{ reason:'expire' } }); state.stats.miss++; }
-        try{ it.el.remove(); }catch{} gone.push(it);
+    for (const it of state.items){
+      if (now - it.born > it.life){
+        if (it.meta.good){ Bus?.miss?.({ meta:{ reason:'expire' } }); state.stats.miss++; }
+        try{ it.el.remove(); }catch{}
+        gone.push(it);
       }
     }
-    if(gone.length) state.items = state.items.filter(x=>!gone.includes(x));
+    if (gone.length) state.items = state.items.filter(x=>!gone.includes(x));
   }
 
   function spawnOne(rect, Bus){
-    const meta = pickMeta({ life: 1850 }, state);
+    const isGood = Math.random() < RATIO_GOOD;
+    const pool   = isGood ? GOOD : JUNK;
+    const char   = pool[(Math.random()*pool.length)|0];
+    const golden = isGood && Math.random() < GOLDEN_CHANCE;
 
-    // ตำแหน่ง “ภายในกรอบเกม” จริง (ไม่หลุด)
+    // พิกัดกลางใน host (ไม่ลอยนอกกรอบ)
     const pad = 30;
-    const x = Math.round(pad + Math.random()*Math.max(1, rect.width  - pad*2));
-    const y = Math.round(pad + Math.random()*Math.max(1, rect.height - pad*2));
+    const w = Math.max(2*pad + 1, (host?.clientWidth  || rect.width  || 0));
+    const h = Math.max(2*pad + 1, (host?.clientHeight || rect.height || 0));
+    const cx = Math.round(pad + Math.random() * (w - 2*pad));
+    const cy = Math.round(pad + Math.random() * (h - 2*pad));
 
-    // ปุ่มเป้า
     const b = document.createElement('button');
     b.className = 'spawn-emoji';
     b.type = 'button';
-    b.style.left = x + 'px';
-    b.style.top  = y + 'px';
-    b.textContent = meta.char;
-    b.setAttribute('aria-label', meta.aria);
-    if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+    // ใช้ left/top = จุดกลาง + translate(-50%,-50%) ใน CSS
+    b.style.left = cx + 'px';
+    b.style.top  = cy + 'px';
+    b.textContent = char;
+    b.setAttribute('aria-label', isGood ? 'Good' : 'Junk');
+    if (golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
 
-    // FX ตอนเกิด (glow เล็กน้อย ณ จุดเกิดบนจอ)
-    try { engine?.fx?.glowAt?.(rect.left + x, rect.top + y, 'rgba(127,255,212,.45)', 360); } catch {}
-    try { (window?.HHA_FX?.add3DTilt||(()=>{}))(b); } catch {}
+    // 3D tilt โดยใช้ engine.fx (เรียก core/fx.js)
+    try { engine?.fx?.add3DTilt?.(b); } catch {}
 
-    (host||document.getElementById('spawnHost'))?.appendChild?.(b);
-    state.items.push({ el:b, born: performance.now(), meta });
+    (host||layer)?.appendChild?.(b);
+
+    const meta = { char, good:isGood, golden, aria: isGood?'Good':'Junk' };
+    const item = { el:b, born: performance.now(), life: LIFE_MS, meta };
+    state.items.push(item);
 
     b.addEventListener('click', (ev)=>{
       if (!state.running) return;
       ev.stopPropagation();
-
       const ui = { x: ev.clientX, y: ev.clientY };
-      const res = onHit(meta, { score: engine?.score, sfx: engine?.sfx }, state, hud);
 
-      if (res==='good' || res==='perfect'){
-        const pts = res==='perfect'? 18 : 10;
-        Bus?.hit?.({ kind: res, points: pts, ui, meta });
-        coach?.onGood?.();
+      if (meta.good){
+        const kind   = meta.golden ? 'perfect' : 'good';
+        const points = meta.golden ? 18 : 10;
+
+        engine?.fx?.popText?.(`+${points}${meta.golden?' ✨':''}`, { x: ui.x, y: ui.y, ms: 720 });
+        engine?.fx?.shatter3D?.(ui.x, ui.y);
+
+        state.stats[kind] = (state.stats[kind]||0) + 1;
+        Bus?.hit?.({ kind, points, ui, meta });
+        if (meta.golden) coach?.onPerfect?.(); else coach?.onGood?.();
       } else {
+        // junk → bad (ไม่คิดคะแนน, คอมโบ reset โดย Bus.miss ใน main)
+        document.body.classList.add('flash-danger');
+        setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+        state.stats.bad++;
         Bus?.miss?.({ meta });
         coach?.onBad?.();
       }
 
       try{ b.remove(); }catch{}
-      const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
+      const idx = state.items.findIndex(it=>it.el===b);
+      if (idx>=0) state.items.splice(idx,1);
     }, { passive:false });
   }
 
-  return { start, stop, update, cleanup: stop };
+  function cleanup(){ stop(); }
+
+  return { start, stop, update, cleanup };
 }
