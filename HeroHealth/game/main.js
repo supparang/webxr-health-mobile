@@ -1,7 +1,10 @@
-// === Hero Health Academy — game/main.js (synced with core/hud.js createHUD)
-import { Engine }     from './core/engine.js';
-import { createHUD }  from './core/hud.js';
+// === Hero Health Academy — game/main.js (2025-10-30 sync)
+// - เมนูซ่อนเมื่อเล่น / HUD โชว์เฉพาะระหว่างเล่น
+// - Mini-quest วาง top-center ไม่บังเป้า
+// - ใช้โหมด DOM-spawn (goodjunk / groups / hydration / plate)
+// - รองรับ core/fx.js แบบ named exports (โหมดต่าง ๆ import เองผ่าน ensureFX)
 
+import { Quests } from './core/quests.js';
 import * as goodjunk  from './modes/goodjunk.js';
 import * as groups    from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
@@ -11,42 +14,86 @@ const MODES = { goodjunk, groups, hydration, plate };
 const $  = (s)=>document.querySelector(s);
 const on = (el,ev,fn)=>el && el.addEventListener(ev,fn);
 
-// ---------- Engine & HUD ----------
-const engine = new Engine(null, document.getElementById('c'));
-const hud = createHUD({
-  onHome:  ()=>showMenu(),
-  onReplay:()=>startGame()
-});
+// ---------------- HUD facade (click-through) ----------------
+const HUD = {
+  show(){ const w=$('#hudWrap'); if(w) w.style.display='block'; },
+  hide(){ const w=$('#hudWrap'); if(w) w.style.display='none'; },
+  setScore(n){ const el=$('#score'); if(el) el.textContent=n|0; },
+  setTime(n){ const el=$('#time');  if(el) el.textContent=n|0; },
+  setCombo(n){ const el=$('#combo'); if(el) el.textContent='x'+(n|0); },
+  coachSay(t){
+    const c=$('#coachHUD'), txt=$('#coachText'); if(!c||!txt) return;
+    txt.textContent=t; c.style.display='flex';
+    setTimeout(()=>{ c.style.display='none'; }, 1200);
+  },
+  setTarget(group,have,need){
+    const w=$('#targetWrap'); const b=$('#targetBadge'); if(!b) return;
+    if(w) w.style.display='inline-flex'; b.textContent=`${group} • ${have}/${need}`;
+  },
+  setQuestChips(chips=[]){
+    const ul=$('#questChips'); if(!ul) return;
+    ul.innerHTML = chips.map(q=>{
+      const need=q.need|0, prog=Math.min(q.progress|0, need), pct=need?Math.round((prog/need)*100):0;
+      return `<li class="${q.done?'done':''}">
+        <span class="ico">${q.icon||'⭐'}</span>
+        <span class="ql">${q.label||q.id}</span>
+        <span class="qp">${prog}/${need}</span>
+        <span class="bar"><i style="width:${pct}%"></i></span>
+      </li>`;
+    }).join('');
+  },
+  dimPenalty(){
+    document.body.classList.add('flash-danger');
+    setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
+  }
+};
+Quests.bindToMain({ hud: HUD });
 
-// ---------- App State ----------
+// ---------------- App State ----------------
 const App = {
   modeKey: (document.body.dataset.mode || 'goodjunk'),
-  diff:    (document.body.dataset.diff || 'Normal'),
-  score:0, combo:0, time:45,
-  running:false, loopId:0, _last:0, _accum:0,
-  sys:null
+  diff:    (document.body.dataset.diff  || 'Normal'),
+  lang:    (document.documentElement.getAttribute('data-hha-lang') || 'TH'),
+  score:0, combo:0, time:45, running:false, loopId:0,
+  engine:{
+    score:{ add:(n)=>{ App.score += (n|0); HUD.setScore(App.score); } },
+    sfx:{ play:()=>{} },
+    fx:{  popText:(t,{x,y,ms}={})=>{
+          const el=document.createElement('div'); el.textContent=t||'';
+          Object.assign(el.style,{
+            position:'fixed',left:(x||0)+'px',top:(y||0)+'px',
+            transform:'translate(-50%,-50%) translateY(0)',opacity:'1',
+            fontWeight:'900',color:'#eaf6ff',textShadow:'0 2px 8px #000',
+            transition:'transform .7s, opacity .7s',zIndex:120,pointerEvents:'none'
+          });
+          document.body.appendChild(el);
+          requestAnimationFrame(()=>{ el.style.transform='translate(-50%,-50%) translateY(-26px)'; el.style.opacity='0'; });
+          setTimeout(()=>{ try{el.remove();}catch{} }, ms||720);
+        } }
+  },
+  sys:null,
+  lastTs:0, accumSec:0
 };
 
-// ---------- UI wiring ----------
+// ---------------- Menu wiring ----------------
 function wireMenu(){
-  const setMode=(k)=>{
-    App.modeKey=k;
-    document.body.dataset.mode=k;
-    for(const id of ['m_goodjunk','m_groups','m_hydration','m_plate']){
-      const b=$('#'+id); if(!b) continue;
-      b.classList.toggle('active', id==='m_'+k);
-    }
+  const setMode=(k, label)=>{
+    App.modeKey=k; document.body.dataset.mode=k;
+    const head=$('#modeName'); if(head) head.textContent=label;
+    ['m_goodjunk','m_groups','m_hydration','m_plate'].forEach(id=>{
+      const b=$('#'+id); if(b) b.classList.toggle('active', id==='m_'+k);
+    });
   };
-  on($('#m_goodjunk'),'click',  ()=>setMode('goodjunk'));
-  on($('#m_groups'),'click',    ()=>setMode('groups'));
-  on($('#m_hydration'),'click', ()=>setMode('hydration'));
-  on($('#m_plate'),'click',     ()=>setMode('plate'));
+  on($('#m_goodjunk'),'click', ()=>setMode('goodjunk','Good vs Junk'));
+  on($('#m_groups'),'click',   ()=>setMode('groups','5 Food Groups'));
+  on($('#m_hydration'),'click',()=>setMode('hydration','Hydration'));
+  on($('#m_plate'),'click',    ()=>setMode('plate','Healthy Plate'));
 
   const setDiff=(d)=>{
-    App.diff=d;
-    const ids=['d_easy','d_normal','d_hard'];
-    ids.forEach(id=> $('#'+id)?.classList.toggle('active', id==='d_'+d.toLowerCase()));
-    document.body.dataset.diff = d;
+    App.diff=d; const el=$('#difficulty'); if(el) el.textContent=d;
+    ['d_easy','d_normal','d_hard'].forEach(id=>{
+      const b=$('#'+id); if(b) b.classList.toggle('active', id==='d_'+d.toLowerCase());
+    });
   };
   on($('#d_easy'),'click',   ()=>setDiff('Easy'));
   on($('#d_normal'),'click', ()=>setDiff('Normal'));
@@ -54,60 +101,64 @@ function wireMenu(){
 
   on($('#btn_start'),'click', startGame);
 
-  // result buttons handled inside hud.showResult via onHome/onReplay
+  // ปุ่มในหน้าผลลัพธ์
+  on($('#result'), 'click', (e)=>{
+    const a=e.target.closest?.('[data-result]'); if(!a) return;
+    if (a.dataset.result==='replay'){ hideResult(); startGame(); }
+    if (a.dataset.result==='home'){ hideResult(); showMenu(); }
+  });
 }
+function showMenu(){ const m=$('#menuBar'); if(m) m.style.display='block'; HUD.hide(); App.running=false; }
+function hideMenu(){ const m=$('#menuBar'); if(m) m.style.display='none'; HUD.show(); }
 
-function showMenu(){ $('#menuBar').style.display='block'; App.running=false; }
-function hideMenu(){ $('#menuBar').style.display='none'; }
-
-// ---------- Game Loop ----------
+// ---------------- Game loop ----------------
 function startGame(){
   hideMenu();
 
-  // reset state
-  App.score=0; App.combo=0; App.time=45;
-  hud.updateScore(App.score, 'x0', App.time);
+  // reset
+  App.score=0; App.combo=0; HUD.setScore(0); HUD.setCombo(0);
+  App.time = (window.__HHA_TIME|0) || 45; HUD.setTime(App.time);
+  App.running=true; App.lastTs=performance.now(); App.accumSec=0;
 
   // clear field
-  const host = $('#spawnHost'); if (host) host.innerHTML='';
+  const host = $('#spawnHost'); if(host) host.innerHTML='';
 
-  // boot mode (DOM-spawn factory)
+  // quests
+  Quests.setLang(App.lang);
+  Quests.beginRun(App.modeKey, App.diff, App.lang, App.time);
+
+  // boot mode
   const Mode = MODES[App.modeKey] || goodjunk;
-  App.sys = Mode.create ? Mode.create({
-    engine,
-    hud,
-    coach: {
-      onStart(){ hud.setCoach('เริ่ม!'); setTimeout(()=>hud.hideCoach(), 1200); },
-      onGood(){ hud.setCoach('+ดีมาก!'); setTimeout(()=>hud.hideCoach(), 800); },
-      onBad(){  hud.setCoach('ระวัง!');  setTimeout(()=>hud.hideCoach(), 800); }
-    }
-  }) : null;
-
-  // start/update
+  App.sys = Mode.create
+    ? Mode.create({ engine: App.engine, hud: HUD, coach: {
+        onStart(){ HUD.coachSay(App.lang==='EN'?'Go!':'เริ่ม!'); }, onGood(){}, onBad(){}
+      }})
+    : null;
   App.sys?.start?.();
-  App.running=true; App._last=performance.now(); App._accum=0;
+
+  // loop
   cancelAnimationFrame(App.loopId);
   App.loopId = requestAnimationFrame(loop);
 }
 
 function loop(ts){
-  if(!App.running) return;
-  const now = performance.now();
-  const dt = Math.min(0.05, (now - (App._last||now))/1000);
-  App._last = now;
+  if (!App.running) return;
+  const dt = Math.min(0.05, (ts - App.lastTs)/1000);
+  App.lastTs = ts;
+  App.accumSec += dt;
 
-  // per-frame
+  // per-frame update
   App.sys?.update?.(dt, Bus);
 
-  // per-second
-  App._accum += dt;
-  if (App._accum >= 1){
-    const steps = Math.floor(App._accum);
-    App._accum -= steps;
-    for(let i=0;i<steps;i++){
+  // per-second tick
+  if (App.accumSec >= 1){
+    const steps = Math.floor(App.accumSec);
+    App.accumSec -= steps;
+    for (let i=0;i<steps;i++){
       App.time = Math.max(0, (App.time|0) - 1);
-      hud.updateScore(App.score, App.combo, App.time);
-      if (App.time <= 0){ return endGame(); }
+      HUD.setTime(App.time);
+      Quests.tick({ score: App.score });
+      if (App.time<=0){ endGame(); return; }
     }
   }
   App.loopId = requestAnimationFrame(loop);
@@ -115,46 +166,51 @@ function loop(ts){
 
 function endGame(){
   App.running=false;
-  try { App.sys?.stop?.(); } catch {}
-  hud.showResult({ score: App.score, combo: App.combo, quests: [] });
+  App.sys?.stop?.();
+
+  const quests = Quests.endRun({ score: App.score });
+  const r=$('#result'), t=$('#resultText'), pb=$('#pbRow');
+  if (t) t.textContent = `คะแนน ${App.score}`;
+  if (pb){
+    pb.innerHTML = quests.map(q=>{
+      const mark = q.done ? '✅' : '❌';
+      const lbl  = q.label || q.id;
+      return `<li>${mark} ${lbl}</li>`;
+    }).join('');
+  }
+  showResult();
 }
 
-// ---------- Mode Bus ----------
-const Bus = {
-  hit({ kind='good', points=10, ui }={}){
-    App.score += points|0;
-    App.combo = (kind==='bad') ? 0 : (App.combo+1);
-    hud.updateScore(App.score, App.combo, App.time);
+function showResult(){ const r=$('#result'); if(r) r.style.display='flex'; }
+function hideResult(){ const r=$('#result'); if(r) r.style.display='none'; }
 
-    // floating text + shatter
-    if (ui?.x!=null && ui?.y!=null){
-      engine.fx.popText(`+${points}${kind==='perfect'?' ✨':''}`, { x:ui.x, y:ui.y, ms:720 });
-      engine.fx.shatter3D(ui.x, ui.y, { shards: 28, sparks: 12 });
-    }
+// ---------------- Bus (ส่งจากโหมด) ----------------
+const Bus = {
+  hit({ kind='good', points=10, ui={}, meta={} }={}){
+    App.engine.score.add(points);
+    App.combo = (kind==='bad') ? 0 : (App.combo+1);
+    HUD.setCombo(App.combo);
+    Quests.event('hit', { result: kind, meta, comboNow: App.combo, score: App.score });
   },
-  miss(){
-    App.combo = 0;
-    hud.updateScore(App.score, App.combo, App.time);
-    hud.dimPenalty();
+  miss({ meta={} }={}){
+    App.combo = 0; HUD.setCombo(0);
+    Quests.event('hit', { result: 'bad', meta, comboNow: 0, score: App.score });
   }
 };
 
-// ---------- Boot ----------
+// ---------------- Boot ----------------
 function boot(){
-  wireMenu(); showMenu();
-
-  // Pause on blur / resume on focus (เฉพาะตอนเล่น)
-  window.addEventListener('blur', ()=>{ if(App.running) App.running=false; });
+  wireMenu();
+  showMenu();
+  // pause on blur / resume on focus
+  window.addEventListener('blur', ()=>{ if(App.running){ App.running=false; } });
   window.addEventListener('focus', ()=>{
-    const menuShown = $('#menuBar').style.display!=='none';
-    const resultShown = $('#result').style.display!=='none';
-    if(!menuShown && !resultShown && !App.running){
-      App.running=true; App._last=performance.now();
+    const menuShown   = !!$('#menuBar')?.offsetParent;
+    const resultShown = !!$('#result')?.offsetParent;
+    if(!menuShown && !resultShown){
+      App.running=true; App.lastTs=performance.now();
       App.loopId=requestAnimationFrame(loop);
     }
   });
-
-  // ป้องกัน canvas บังคลิก
-  const c = $('#c'); if (c){ c.style.pointerEvents='none'; c.style.zIndex='1'; }
 }
 boot();
