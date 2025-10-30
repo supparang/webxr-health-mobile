@@ -1,21 +1,37 @@
-// === core/fx.js
+// === Hero Health Academy — core/fx.js
+// Named exports only (no default) เพื่อแก้ error "does not provide a default export".
+
 export function add3DTilt(el){
-  if (!el || el.__hhaTilt) return; el.__hhaTilt = 1;
-  el.addEventListener('pointermove', (e)=>{
-    const r = el.getBoundingClientRect();
-    const cx=(e.clientX-r.left)/r.width-.5, cy=(e.clientY-r.top)/r.height-.5;
-    el.style.transform = `translate(-50%,-50%) rotateX(${cy*-6}deg) rotateY(${cx*8}deg)`;
-  }, {passive:true});
-  el.addEventListener('pointerleave', ()=>{ el.style.transform='translate(-50%,-50%)'; });
+  try{
+    el.style.transform += ' rotateX(8deg) rotateY(-6deg)';
+    el.addEventListener('pointermove', (e)=>{
+      const r = el.getBoundingClientRect();
+      const cx = (e.clientX - (r.left + r.width/2)) / (r.width/2);
+      const cy = (e.clientY - (r.top  + r.height/2)) / (r.height/2);
+      el.style.transform = `translate(-50%,-50%) rotateX(${ -cy*10 }deg) rotateY(${ cx*12 }deg)`;
+    }, { passive:true });
+    el.addEventListener('pointerleave', ()=>{ el.style.transform = 'translate(-50%,-50%)'; }, { passive:true });
+  }catch{}
 }
-export function shatter3D(x,y){
-  const p = document.createElement('div');
-  p.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
-    width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 16px #fff8;
-    pointer-events:none;z-index:300;opacity:1;transition:all .6s ease-out`;
-  document.body.appendChild(p);
-  requestAnimationFrame(()=>{ p.style.opacity='0'; p.style.transform='translate(-50%,-120%) scale(1.6)'; });
-  setTimeout(()=>p.remove(), 620);
+
+export function shatter3D(x, y){
+  try{
+    for(let i=0;i<10;i++){
+      const p=document.createElement('div');
+      p.textContent='✦';
+      Object.assign(p.style,{
+        position:'fixed', left:x+'px', top:y+'px', transform:'translate(-50%,-50%)',
+        fontWeight:'900', fontSize:'16px', color:'#bde7ff',
+        textShadow:'0 2px 8px rgba(0,0,0,.35)', transition:'transform .6s, opacity .6s',
+        opacity:'1', zIndex: 120
+      });
+      document.body.appendChild(p);
+      const dx=(Math.random()-.5)*60, dy=(Math.random()-.5)*40;
+      requestAnimationFrame(()=>{
+        p.style.transform=`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${0.6+Math.random()*0.6})`;
+        p.style.opacity='0';
+      });
+      setTimeout(()=>{ try{p.remove();}catch{} }, 620);
+    }
+  }catch{}
 }
-// set once (modes อ้างผ่าน window.HHA_FX เพื่อเลี่ยง import ซ้ำ)
-if (!window.HHA_FX) window.HHA_FX = { add3DTilt, shatter3D };
