@@ -2,160 +2,95 @@
 <html lang="th" data-hha-lang="TH">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Hero Health Academy</title>
-  <base href="./">
 
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles/game.css">
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="stylesheet" href="./styles/game.css">
 
-  <style>
-    /* เติมสไตล์เฉพาะที่จำเป็นสำหรับ powerBar/leaderboard เผื่อยังไม่มีในไฟล์หลัก */
-    #powerBar .pchip{
-      pointer-events:none; display:inline-flex; align-items:center; gap:6px;
-      padding:6px 10px; border-radius:999px; background:#0b1626cc;
-      border:1px solid #1a2c47b0; color:#eaf6ff; font:800 12px ui-rounded;
-      box-shadow:0 6px 18px rgba(0,0,0,.28);
-    }
-    #powerBar .pchip i{ opacity:.9 }
-    #powerBar .pchip em{ font-style:normal; margin-left:4px; opacity:.9 }
-    #result{ display:none; position:fixed; inset:0; background:#0009; align-items:center; justify-content:center; z-index:99 }
-    #result .card{ width:min(720px,92vw); background:#0f1d31; color:#eaf6ff; border:1px solid #1a2c47; border-radius:16px; padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45) }
-    #result .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin:8px 0 }
-    #result .actions{ display:flex; gap:10px; justify-content:flex-end }
-    #result .btn{
-      padding:10px 14px; border-radius:10px; border:1px solid #163051; font:800 13px ui-rounded; cursor:pointer;
-      background:#102038; color:#eaf6ff;
-    }
-    #result .btn.primary{ background:linear-gradient(180deg,#42f9da,#22c1a5); color:#062017; border-color:#17433c; }
-    #lbScopes{ display:flex; gap:8px; }
-    #lbScopes .chip{ padding:6px 10px; border-radius:999px; border:1px solid #19304e; background:#102038; color:#eaf6ff; font:800 12px ui-rounded; cursor:pointer }
-    #lbScopes .chip.active{ border-color:#2dd4bf80; background:#0f2a25; color:#dbfffb }
-    #lbTable table{ width:100%; border-collapse:collapse; font-size:13px }
-    #lbTable th, #lbTable td{ border-bottom:1px solid #173356; padding:6px 8px; text-align:left }
-  </style>
-</head>
-<body data-mode="goodjunk" data-diff="Normal">
-  <div id="app">
-    <!-- Hero -->
-    <section id="hero">
-      <h1>Hero Health Academy</h1>
-      <p class="sub">โภชนาการ • ดื่มน้ำสมดุล • จานอาหารสุขภาพ • กลุ่มอาหาร 5 หมู่</p>
-    </section>
-
-    <!-- Menu (จะถูกซ่อนเมื่อเริ่มเกม) -->
-    <section id="menuBar" class="menu">
-      <div class="grid">
-        <button id="m_goodjunk"   class="tile active"><i>🍎</i><b>Good vs Junk</b><small>คลิกของดี หลีกเลี่ยงของแย่</small></button>
-        <button id="m_groups"     class="tile"><i>🧺</i><b>5 Food Groups</b><small>คัดหมวดอาหารให้ถูกต้อง</small></button>
-        <button id="m_hydration"  class="tile"><i>💧</i><b>Hydration</b><small>ประคองระดับน้ำให้อยู่โซน OK</small></button>
-        <button id="m_plate"      class="tile"><i>🍽️</i><b>Healthy Plate</b><small>จานสมดุลแบบสุขภาพดี</small></button>
-      </div>
-
-      <div class="row">
-        <div class="seg">
-          <span class="lbl">โหมด:</span>
-          <span id="modeName" class="value">Good vs Junk</span>
-        </div>
-        <div class="seg">
-          <span class="lbl">ระดับ:</span>
-          <div class="chips">
-            <button id="d_easy"   class="chip">Easy</button>
-            <button id="d_normal" class="chip active">Normal</button>
-            <button id="d_hard"   class="chip">Hard</button>
-          </div>
-          <span id="difficulty" class="value" style="margin-left:8px">Normal</span>
-        </div>
-      </div>
-
-      <div class="cta">
-        <button id="btn_start" class="start">เริ่มเกม</button>
-      </div>
-    </section>
-
-    <!-- Game Layer -->
-    <section id="gameLayer" aria-label="Game playfield">
-      <!-- Canvas (ถ้าไม่มี Engine จะสร้างให้เอง) -->
-      <canvas id="c" tabindex="-1" aria-hidden="true"></canvas>
-
-      <!-- Spawn host (DOM targets & items live here) -->
-      <div id="spawnHost"></div>
-
-      <!-- HUD (จะถูกแสดงเฉพาะตอนเล่น) -->
-      <div id="hudWrap" class="hud" style="display:none">
-        <!-- คะแนน / เวลา / คอมโบ -->
-        <div id="scoreTime" class="pill">
-          <span>🏆 <b id="score">0</b></span>
-          <span>⏱️ <b id="time">45</b></span>
-          <span>🧩 <b id="combo">x0</b></span>
-        </div>
-
-        <!-- Mini-quests -->
-        <div id="questBar"><ul id="questChips"></ul></div>
-
-        <!-- Power-ups bar -->
-        <ul id="powerBar"
-            style="position:absolute;left:50%;top:-46px;transform:translateX(-50%);
-                   display:flex;gap:8px;list-style:none;margin:0;padding:0;pointer-events:none"></ul>
-
-        <!-- Coach bubble -->
-        <div id="coachHUD" class="coach"><span id="coachText"></span></div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Result Modal + Leaderboard -->
-  <div id="result">
-    <div class="card">
-      <h2 style="margin:0 0 6px">สรุปผล</h2>
-      <div id="resultText" class="row" style="font-weight:900">คะแนน 0</div>
-
-      <div class="row" style="gap:6px">
-        <div style="flex:1 1 auto">
-          <div style="font:800 13px ui-rounded; margin-bottom:6px">Mini-quests</div>
-          <ul id="pbRow" style="margin:0; padding-left:18px"></ul>
-        </div>
-      </div>
-
-      <hr style="border:0;border-top:1px solid #173356; margin:12px 0"/>
-
-      <div class="row">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-          <label for="playerName" style="font:800 12px ui-rounded; opacity:.85">Name:</label>
-          <input id="playerName" type="text" placeholder="Your name"
-                 style="background:#0c1729;color:#eaf6ff;border:1px solid #173356;border-radius:8px;padding:8px 10px;min-width:200px"/>
-          <button id="saveName" class="btn">Save</button>
-        </div>
-        <div id="lbScopes">
-          <button class="chip active" data-scope="month">This Month</button>
-          <button class="chip" data-scope="week">This Week</button>
-          <button class="chip" data-scope="year">This Year</button>
-          <button class="chip" data-scope="all">All-time</button>
-        </div>
-      </div>
-
-      <div class="row">
-        <div id="lbInfo" style="opacity:.8; font:700 12px ui-rounded">Loading…</div>
-      </div>
-      <div id="lbTable" style="max-height:40vh; overflow:auto"></div>
-
-      <div class="actions" style="margin-top:12px">
-        <button class="btn" data-result="home">กลับหน้าเมนู</button>
-        <button class="btn primary" data-result="replay">เล่นอีกครั้ง</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Audio (ถ้าใช้) -->
+  <!-- SFX / BGM assets (ใส่ไฟล์จริงภายหลังได้) -->
   <audio id="bgm-main" preload="auto" loop></audio>
   <audio id="sfx-good" preload="auto"></audio>
   <audio id="sfx-bad" preload="auto"></audio>
   <audio id="sfx-perfect" preload="auto"></audio>
   <audio id="sfx-tick" preload="auto"></audio>
   <audio id="sfx-powerup" preload="auto"></audio>
+</head>
+<body data-mode="goodjunk" data-diff="Normal">
+  <canvas id="c" aria-hidden="true"></canvas>
 
-  <!-- Scripts -->
-  <script type="module" src="game/boot.js"></script>
-  <!-- boot.js จะ import game/main.js ให้อัตโนมัติ -->
+  <div id="app">
+    <!-- HERO -->
+    <section id="hero">
+      <h1>Hero Health Academy</h1>
+      <p class="sub">โภชนาการ • น้ำดื่ม • จานสุขภาพ • กลุ่มอาหาร</p>
+    </section>
+
+    <!-- MENU -->
+    <section id="menuBar" class="menu">
+      <div class="grid">
+        <button id="m_goodjunk" class="tile active"><i>🥗</i><b>Good vs Junk</b><small>แยกของดี/ขยะ</small></button>
+        <button id="m_groups"   class="tile"><i>🧺</i><b>5 Food Groups</b><small>เก็บให้ตรงหมวด</small></button>
+        <button id="m_hydration"class="tile"><i>💧</i><b>Hydration</b><small>สมดุลน้ำในร่างกาย</small></button>
+        <button id="m_plate"    class="tile"><i>🍽️</i><b>Healthy Plate</b><small>เติมให้ครบหมวด</small></button>
+      </div>
+
+      <div class="row">
+        <div class="seg">
+          <span class="lbl">Mode:</span>
+          <span id="modeName" class="value">Good vs Junk</span>
+        </div>
+        <div class="seg">
+          <span class="lbl">Difficulty:</span>
+          <button id="d_easy"   class="chip">Easy</button>
+          <button id="d_normal" class="chip active">Normal</button>
+          <button id="d_hard"   class="chip">Hard</button>
+          <span id="difficulty" class="value" style="margin-left:8px">Normal</span>
+        </div>
+        <div class="seg">
+          <button id="soundToggle" class="chip" title="Toggle Sound">🔊</button>
+        </div>
+      </div>
+
+      <div class="cta">
+        <button id="btn_start" class="start">Start</button>
+      </div>
+    </section>
+
+    <!-- GAME LAYER -->
+    <section id="gameLayer" aria-live="polite" aria-label="playfield">
+      <div id="spawnHost"></div>
+
+      <!-- HUD -->
+      <div id="hudWrap" class="hud" style="display:none">
+        <div class="pill" id="targetWrap" style="display:none">target</div>
+        <div id="scoreTime">
+          <div class="pill">⭐ <span id="score">0</span></div>
+          <div class="pill">⏱ <span id="time">45</span>s</div>
+          <div class="pill">Combo <span id="combo">x0</span></div>
+        </div>
+        <div id="questBar">
+          <ul id="questChips"></ul>
+        </div>
+        <div id="coachHUD" class="coach"><span id="coachText"></span></div>
+        <div id="missionLine" class="missionLine"></div>
+        <div id="toast" class="toast"></div>
+      </div>
+    </section>
+
+    <!-- RESULT -->
+    <section id="result" style="display:none;align-items:center;justify-content:center;gap:16px;flex-direction:column">
+      <h2 id="resultText">Score 0</h2>
+      <ul id="pbRow" style="list-style:none;padding:0;margin:0;display:flex;gap:8px;flex-wrap:wrap"></ul>
+      <div style="display:flex;gap:10px">
+        <button class="chip" data-result="home">🏠 Home</button>
+        <button class="chip" data-result="replay">🔄 Replay</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- RUNTIME -->
+  <script type="module" src="./game/main.js"></script>
+  <script src="./game/ui.js" defer></script>
 </body>
 </html>
