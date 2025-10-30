@@ -2,266 +2,117 @@
 <html lang="th" data-hha-lang="TH">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hero Health Academy — Hub</title>
-  <meta name="color-scheme" content="dark only"/>
-
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Hero Health Academy</title>
+  <link rel="preload" href="./game/main.js" as="script" type="module">
   <style>
-  :root{
-    --c-bg:#0b1626; --c-panel:#0f1d31; --c-ink:#eaf6ff;
-    --c-accent:#37e3c6; --c-pill:#102038e0; --z-hud:95; --z-coach:96; --z-items:29;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0; background:linear-gradient(180deg,#08111e,#0b1626 24%,#0b1626);
-    color:var(--c-ink); font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial; overflow:hidden;
-  }
-  #app{ position:relative; height:100vh; width:100%;
-        display:grid; grid-template-rows:auto auto 1fr; place-items:center;
-        max-width:100vw; margin:0 auto; padding:10px 12px 14px; }
+    :root{
+      --bg:#0b1420; --panel:#0f2236; --ink:#dbeaf7; --muted:#9db6cc;
+      --pill:#11263b; --pill2:#0d2033; --ok:#1fb47a; --danger:#e95a5a;
+    }
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 800px at 50% -200px,#0f2236,#0b1420),#0b1420;color:var(--ink);font-family:ui-rounded,system-ui,Segoe UI,Arial;}
+    /* Stage */
+    #stage{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr auto;pointer-events:none;}
+    #gameLayer{position:relative;pointer-events:none;}
+    #spawnHost{position:absolute;inset:0;pointer-events:auto;} /* คลิกได้เฉพาะสปอน */
 
-  /* ===== Hero ===== */
-  #hero{text-align:center;margin:6px 0 10px}
-  #hero h1{margin:0 0 6px; font:900 28px/1.1 ui-rounded}
-  #hero .sub{margin:0; opacity:.75; font-size:14px}
+    /* Menu */
+    #menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#07111b88,#07111bcc); backdrop-filter: blur(4px); pointer-events:auto;}
+    #menuCard{width:min(860px,92vw);background:var(--panel);border:1px solid #1f3a57;border-radius:20px;padding:16px 18px;box-shadow:0 20px 60px #0008;}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{padding:10px 14px;border-radius:12px;background:#0e1f33;border:1px solid #223d5a;color:var(--ink);cursor:pointer;user-select:none}
+    .btn.active{outline:2px solid #6fb6ff}
+    #btn_start{background:#1e6bff;border-color:#2e7bff}
 
-  /* ===== Menu ===== */
-  .menu{ width:min(980px,96vw); background:linear-gradient(180deg,#0f1d31,#0c1729);
-         border:1px solid #152641; border-radius:16px; padding:14px; box-shadow:0 16px 60px rgba(0,0,0,.35); }
-  .menu .grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:8px; }
-  .tile{ display:flex; flex-direction:column; align-items:flex-start; gap:6px;
-         padding:14px; border-radius:14px; background:#0e1b30; border:1px solid #162640;
-         color:#eaf6ff; text-align:left; cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s, background .15s; }
-  .tile i{ font-size:28px } .tile b{ font:800 16px/1 ui-rounded } .tile small{ opacity:.76; font-size:12px }
-  .tile:hover{ transform:translateY(-2px); box-shadow:0 10px 30px rgba(0,0,0,.30) }
-  .tile.active{ border-color:#2dd4bf80; box-shadow:0 0 0 2px #2dd4bf40 inset }
+    /* HUD (ไม่บังคลิก) */
+    #hudWrap{position:fixed;inset:0;display:none;pointer-events:none;}
+    #hudTop{display:flex;gap:12px;justify-content:center;align-items:flex-start;margin-top:8px;}
+    .hudPill{min-width:120px;height:34px;border-radius:999px;background:#0c20348c;border:1px solid #244664;display:flex;gap:8px;align-items:center;justify-content:center;padding:0 12px;color:var(--ink)}
+    #coachHUD{position:fixed;left:50%;top:62px;transform:translateX(-50%);background:#0e2338d9;border:1px solid #2a4b69;border-radius:14px;padding:6px 10px;opacity:0;transition:opacity .24s}
+    #coachHUD.show{opacity:1}
 
-  .menu .row{ display:flex; flex-wrap:wrap; gap:14px; align-items:center; justify-content:space-between; margin-top:6px }
-  .menu .seg{ display:flex; align-items:center; gap:10px }
-  .menu .seg .lbl{ opacity:.8; font-weight:700; font-size:13px }
-  .menu .seg .value{ font:800 15px ui-rounded }
+    /* Mini Quests */
+    #questBar{position:fixed;left:50%;top:68px;transform:translateX(-50%);pointer-events:none;width:min(900px,92vw)}
+    #questChips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;list-style:none;margin:0;padding:0}
+    #questChips li{height:34px;background:linear-gradient(180deg,#0e2134,#0c1d2e);border:1px solid #1f3a57;border-radius:14px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;padding:0 10px;font-size:13px}
+    #questChips li .bar{grid-column:1/4;height:6px;background:#0b1a29;border-radius:6px;overflow:hidden;margin-top:2px}
+    #questChips li .bar i{display:block;height:100%;background:#2aa0ff}
+    #questChips li.done{opacity:.55}
+    .qi{pointer-events:none}
 
-  .chip{ padding:8px 12px; border-radius:999px; border:1px solid #19304e; background:#102038; color:#eaf6ff;
-         cursor:pointer; font:800 12px ui-rounded; letter-spacing:.2px; }
-  .chip.active{ border-color:#2dd4bf80; background:#0f2a25; color:#dbfffb }
+    /* Target badge (groups) */
+    #targetWrap{position:fixed;right:12px;top:12px;display:none}
+    #targetBadge{padding:8px 12px;border-radius:999px;background:#0e2134;border:1px solid #1f3a57}
 
-  .menu .cta{ display:flex; justify-content:center; margin-top:8px }
-  .start{
-    min-width:210px; padding:14px 22px; border-radius:999px;
-    font:900 18px ui-rounded; letter-spacing:.4px;
-    border:2px solid #1f3a63; color:#061222;
-    background:linear-gradient(180deg,#42f9da,#22c1a5);
-    box-shadow:0 20px 50px rgba(0,0,0,.35), 0 8px 0 #0a221d inset, 0 -8px 0 #3fe2c8 inset;
-    cursor:pointer;
-  }
-  .start:active{ transform:translateY(1px) }
+    /* In-game emoji */
+    .spawn-emoji{position:absolute;transform:translate(-50%,-50%);font-size:38px;line-height:1;border:none;background:transparent;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))}
+    .spawn-emoji:focus{outline:none}
 
-  /* ===== Game Layer ===== */
-  #gameLayer{
-    position:relative; width:min(980px,96vw); height:calc(100vh - 290px);
-    min-height:360px; margin:10px auto 0; border-radius:16px;
-    border:1px solid #152641;
-    background:radial-gradient(1200px 500px at 50% -40%, #152644 12%, #0c1729 55%, #0b1626);
-    overflow:hidden; box-shadow:0 12px 50px rgba(0,0,0,.35);
-    perspective: 900px; perspective-origin: 50% 45%;
-  }
-  #spawnHost{ position:absolute; inset:0; z-index:var(--z-items) }
+    /* Result */
+    #result{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#07111bcc;backdrop-filter: blur(2px);pointer-events:auto}
+    #resultCard{width:min(680px,92vw);background:var(--panel);border:1px solid #1f3a57;border-radius:20px;padding:16px 18px}
+    #pbRow{margin:8px 0 0 18px}
+    #pbRow li{margin:4px 0}
 
-  /* ===== HUD ===== */
-  .hud{ position:absolute; left:50%; transform:translateX(-50%); top:72px;
-        width:min(980px,96vw); z-index:var(--z-hud); pointer-events:none; }
-  .pill{ display:inline-flex; gap:8px; align-items:center; padding:6px 10px; margin:0 6px 6px 0;
-         background:var(--c-pill); border:1px solid #1a2c47b0; border-radius:999px; font:800 12px ui-rounded;
-         box-shadow:0 6px 18px rgba(0,0,0,.22) }
-  #scoreTime{ position:absolute; right:12px; top:-46px; display:flex; gap:8px }
-  #targetWrap{ display:none; }
-  #targetBadge{ font-weight:900; }
-
-  /* ==== Mini Quest (fixed top-center, no click) ==== */
-  #questBar{
-    position:fixed;
-    top:10px; left:50%; transform:translateX(-50%);
-    z-index: var(--z-hud);
-    pointer-events: none;               /* สำคัญ: ไม่บังคลิก */
-    max-width: min(92vw, 980px);
-  }
-  #questChips{
-    margin:0; padding:0; list-style:none;
-    display:flex; gap:8px; align-items:center; justify-content:center;
-    pointer-events: none;               /* สำคัญ */
-    flex-wrap: wrap;
-  }
-  #questChips li{
-    position:relative;
-    display:inline-flex; align-items:center; gap:8px;
-    padding:6px 12px; line-height:1.1;
-    border-radius:999px;
-    background:#0b2a52cc; border:1px solid #2a69f5a0;
-    box-shadow:0 2px 8px #0006;
-    font-weight:800; font-size:13px;
-    pointer-events: none;               /* สำคัญ */
-  }
-  #questChips li .bar{
-    position:absolute; left:6px; right:6px; bottom:4px;
-    height:3px; border-radius:999px; background:#1e3a5f;
-    overflow:hidden; pointer-events:none;
-  }
-  #questChips li .bar i{ display:block; height:100%; width:0; background:#22d3ee; pointer-events:none; }
-  #questChips li.done{ outline:2px solid #22c55e; }
-
-  /* Mini Toast / Coach */
-  .toast{ pointer-events:none; position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
-          background:#102038f0; border:1px solid #1a2c47; color:#eaf6ff;
-          padding:8px 12px; border-radius:999px; font:800 12px ui-rounded; opacity:0; transition:opacity .15s; z-index:var(--z-hud); }
-  .toast.show{ opacity:1 }
-  .coach{ position:absolute; left:50%; transform:translateX(-50%); top:120px;
-          width:min(880px,92vw); display:none; justify-content:center; z-index:var(--z-coach); }
-  .coach.show{ display:flex }
-  #coachText{ padding:10px 14px; border-radius:12px; background:#102038eb; border:1px solid #1b2e4b; color:#eaf6ff;
-              font:900 14px ui-rounded; letter-spacing:.2px; box-shadow:0 12px 30px rgba(0,0,0,.3) }
-
-  @keyframes flashDanger{ 0%{filter:none} 50%{filter:brightness(1.25) saturate(1.1)} 100%{filter:none} }
-  .flash-danger{ animation:flashDanger .18s linear }
-
-  /* ===== Spawned Emojis ===== */
-  #gameLayer #spawnHost .spawn-emoji, #gameLayer .spawn-emoji{
-    position:absolute !important; left:0; top:0; transform:translate(-50%,-50%);
-    z-index:var(--z-items,29); pointer-events:auto !important;
-    padding:8px 12px; border-radius:18px; border:0;
-    background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.10));
-    box-shadow: 0 14px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.18), inset 0 -1px 0 rgba(0,0,0,.18);
-    text-shadow:0 2px 8px rgba(0,0,0,.35), 0 0 1px rgba(0,0,0,.5);
-    font-size: clamp(42px, 6.5vw, 56px); line-height:1;
-    transform-style:preserve-3d; backface-visibility:hidden;
-    transition:transform .15s ease, filter .15s ease, opacity .15s ease, box-shadow .15s ease;
-    user-select:none; -webkit-tap-highlight-color:transparent;
-  }
-
-  .modal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:#0008; z-index:120 }
-  .modal .box{ background:#0f1d31; border:1px solid #1b2e4b; border-radius:14px; padding:16px; width:min(680px,92vw) }
-  .modal h3{ margin:0 0 8px; font:900 18px ui-rounded }
-  .modal pre{ white-space:pre-wrap; margin:0 0 14px; font:13px/1.4 ui-monospace; color:#dff }
-
-  #lb_table table{ width:100%; border-collapse:collapse; font:600 12px ui-rounded; }
-  #lb_table th,#lb_table td{ padding:8px; border-bottom:1px solid #13243d; }
-  #lb_table th{ text-align:left; border-bottom:1px solid #19304e; }
-  #lb_table td:last-child{ text-align:right; }
-
-  @media (max-width:820px){ #gameLayer{ height:calc(100vh - 320px) } #scoreTime{ top:-50px } }
-  @media (max-width:560px){ #hero h1{ font-size:22px } .menu .grid{ grid-template-columns:repeat(2,1fr) } #gameLayer{ height:calc(100vh - 360px) } }
+    /* penalty flash */
+    .flash-danger{animation:flash .18s linear 1}
+    @keyframes flash{from{background-color:#1b0b0b}to{background-color:transparent}}
   </style>
 </head>
 <body data-mode="goodjunk" data-diff="Normal">
-  <div id="app">
-    <section id="hero">
-      <h1>Hero Health Academy</h1>
-      <p class="sub">โภชนาการ • สมดุลน้ำ • จัดจานสุขภาพ — พร้อมโค้ชแนะนำ</p>
-    </section>
-
-    <section class="menu" id="menuBar">
-      <div class="grid">
-        <button class="tile active" id="m_goodjunk" type="button">
-          <i>🥦</i><b>Good vs Junk</b><small>เก็บดี เลี่ยงขยะ</small>
-        </button>
-        <button class="tile" id="m_groups" type="button">
-          <i>🍱</i><b>5 Food Groups</b><small>ตรงหมวด เปลี่ยนเป้า</small>
-        </button>
-        <button class="tile" id="m_hydration" type="button">
-          <i>💧</i><b>Hydration</b><small>รักษาช่วง 45–65%</small>
-        </button>
-        <button class="tile" id="m_plate" type="button">
-          <i>🍽️</i><b>Healthy Plate</b><small>จัดจานครบโควตา</small>
-        </button>
+  <!-- Menu -->
+  <div id="menuBar">
+    <div id="menuCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 id="modeName" style="margin:0">Good vs Junk</h2>
+        <div>Difficulty: <b id="difficulty">Normal</b></div>
       </div>
-
-      <div class="row">
-        <div class="seg">
-          <span class="lbl">Mode</span>
-          <span class="value" id="modeName">Good vs Junk</span>
-        </div>
-        <div class="seg">
-          <span class="lbl">Difficulty</span>
-          <button class="chip" id="d_easy"  type="button">Easy</button>
-          <button class="chip active" id="d_normal" type="button">Normal</button>
-          <button class="chip" id="d_hard"  type="button">Hard</button>
-          <span class="value" id="difficulty" style="margin-left:6px">Normal</span>
-        </div>
-
-        <div class="seg">
-          <label class="lbl" for="playerName">Name</label>
-          <input id="playerName" type="text" placeholder="Player"
-                 style="padding:8px 10px;border-radius:10px;border:1px solid #19304e;background:#0e1b30;color:#eaf6ff;min-width:160px">
-          <button class="chip" id="btn_board" type="button">Leaderboard</button>
-          <button class="chip" id="langToggle"  type="button">TH</button>
-          <button class="chip" id="soundToggle" type="button">🔊</button>
-          <button class="chip" id="gfxToggle"   type="button">✨</button>
-        </div>
+      <div class="row" style="margin-bottom:6px">
+        <button id="m_goodjunk" class="btn active">Good vs Junk</button>
+        <button id="m_groups"   class="btn">5 Food Groups</button>
+        <button id="m_hydration"class="btn">Hydration</button>
+        <button id="m_plate"    class="btn">Healthy Plate</button>
       </div>
-
-      <div class="cta">
-        <button id="btn_start" class="start" type="button">START</button>
+      <div class="row" style="margin-bottom:8px">
+        <button id="d_easy"   class="btn">Easy</button>
+        <button id="d_normal" class="btn active">Normal</button>
+        <button id="d_hard"   class="btn">Hard</button>
       </div>
-    </section>
-
-    <section id="gameLayer" aria-label="playfield">
-      <div id="spawnHost" aria-live="polite"></div>
-
-      <!-- HUD -->
-      <div class="hud" id="hudWrap" aria-hidden="false" style="display:none">
-        <span class="pill" id="targetWrap"><span id="targetBadge">—</span></span>
-        <div id="scoreTime">
-          <span class="pill">⭐ <b id="score">0</b></span>
-          <span class="pill">⏱ <b id="time">45</b>s</span>
-          <span class="pill">🔗 <b id="combo">x0</b></span>
-        </div>
-        <div id="questBar"><ul id="questChips"></ul></div>
-        <div class="coach" id="coachHUD"><span id="coachText">Ready?</span></div>
-        <div class="toast" id="toast"></div>
-        <div class="missionLine" id="missionLine"></div>
-        <div id="plateTracker" style="position:absolute;left:12px;top:-46px;display:none;pointer-events:none">
-          <div id="platePills" style="display:flex;gap:6px"></div>
-        </div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Help Modal -->
-  <div class="modal" id="help" role="dialog" aria-modal="true" aria-labelledby="h_help">
-    <div class="box">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody"></pre>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button id="btn_ok" class="chip" type="button">OK</button>
+      <div class="row" style="justify-content:flex-end">
+        <button id="btn_start" class="btn">Start ▶</button>
       </div>
     </div>
   </div>
 
-  <!-- Result Modal -->
-  <div class="modal" id="result" role="dialog" aria-modal="true" aria-label="Result">
-    <div class="box" style="text-align:center">
-      <h3>จบเกม</h3>
-      <p id="resultText" style="opacity:.9;margin:.4rem 0 1rem">คะแนนของคุณจะสรุปที่นี่</p>
-      <div id="pbRow" style="font:700 13px ui-rounded;margin:.5rem 0;opacity:.9"></div>
-      <div id="miniTop" style="text-align:left;background:#0b1626;border:1px solid #19304e;border-radius:10px;padding:10px;max-height:200px;overflow:auto"></div>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:10px">
-        <button class="chip" data-result="replay" type="button">Replay</button>
-        <button class="chip" data-result="home"   type="button">Home</button>
+  <!-- Stage -->
+  <div id="stage">
+    <div id="hudWrap" aria-hidden="true">
+      <div id="hudTop">
+        <div class="hudPill">Score: <b id="score">0</b></div>
+        <div class="hudPill">Time: <b id="time">45</b></div>
+        <div class="hudPill">Combo: <b id="combo">x0</b></div>
+      </div>
+      <div id="questBar"><ul id="questChips"></ul></div>
+      <div id="coachHUD"><span id="coachText">Go!</span></div>
+      <div id="targetWrap"><span id="targetBadge">—</span></div>
+    </div>
+
+    <div id="gameLayer"><div id="spawnHost"></div></div>
+    <div></div> <!-- footer spacer -->
+  </div>
+
+  <!-- Result -->
+  <div id="result">
+    <div id="resultCard">
+      <h3 id="resultText" style="margin-top:0">คะแนน 0</h3>
+      <ul id="pbRow"></ul>
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn" data-result="home">Home</button>
+        <button class="btn" data-result="replay">Replay</button>
       </div>
     </div>
   </div>
 
-  <!-- Audio (unlock ใน ui.js) -->
-  <audio id="bgm-main" loop preload="auto" src=""></audio>
-  <audio id="sfx-good"     preload="auto" src=""></audio>
-  <audio id="sfx-bad"      preload="auto" src=""></audio>
-  <audio id="sfx-perfect"  preload="auto" src=""></audio>
-  <audio id="sfx-tick"     preload="auto" src=""></audio>
-  <audio id="sfx-powerup"  preload="auto" src=""></audio>
-
-  <!-- Scripts -->
-  <script type="module" src="game/boot.js"></script>
-  <script type="module" src="game/ui.js"></script>
-  <!-- main.js ถูกโหลดแบบ dynamic โดย boot.js -->
+  <script type="module" src="./game/main.js"></script>
 </body>
 </html>
