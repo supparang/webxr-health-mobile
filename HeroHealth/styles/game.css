@@ -1,42 +1,98 @@
-/* === Hero Health Academy — styles/game.css (click-safe, 2025-10-30) === */
+/* ====== Base ====== */
+:root {
+  --bg:#0b1620;
+  --fg:#e7f7ff;
+  --fg-dim:#a9c3d1;
+  --pill:#102333;
+  --accent:#22e1b5;
+}
+* { box-sizing: border-box; }
+html, body { height:100%; margin:0; background:var(--bg); color:var(--fg); font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
 
-/* Canvas ไม่รับคลิก */
-#c { pointer-events: none !important; }
-
-/* ชั้นหลัก */
-#app       { position: relative; }
-#menuBar   { position: relative; z-index: 1000; }
-#gameLayer { position: relative; z-index: 900; }
-#result    { position: fixed; inset: 0; display: none;
-             align-items:center; justify-content:center;
-             z-index: 2000; }
-
-/* HUD: ตัว HUD/overlay ไม่กินคลิก ยกเว้นของที่ต้องคลิกในสนาม (#spawnHost) */
-#hudWrap, #hudWrap *, #coachHUD, #missionLine, #toast, #questChips, #targetWrap {
-  pointer-events: none !important;
+/* ====== Scene canvas (ต้องไม่บังการคลิกเมนู) ====== */
+#c{
+  position:fixed; inset:0;
+  z-index:0;
+  pointer-events:none !important;
 }
 
-/* ปุ่ม/ชิ้น spawn คลิกได้ */
-#spawnHost, #spawnHost * { pointer-events: auto !important; }
+/* ====== App root ====== */
+#app{ position:relative; z-index:1; }
 
-/* ปุ่มเมนูต้องคลิกได้เสมอเมื่ออยู่หน้าเมนู */
-#menuBar, #menuBar * { pointer-events: auto; }
+/* ====== MENU (ต้องคลิกได้แน่ๆ) ====== */
+#menuBar{
+  position:relative;
+  z-index:50;                     /* ดันขึ้นเหนือทุกอย่าง */
+  pointer-events:auto !important; /* กันโดนปิดจากพาเรนต์ */
+  padding:24px;
+}
+#menuBar, #menuBar *{
+  pointer-events:auto !important; /* ปลดล็อกให้ลูกทั้งหมด */
+}
 
-/* สถานะจอ (สลับโดย main.js) */
-body.state-menu  #menuBar   { display: block; pointer-events: auto; }
-body.state-menu  #gameLayer { pointer-events: none; }
-body.state-menu  #result    { display: none; }
+.menu .grid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap:16px;
+  margin-bottom:16px;
+}
+.menu .tile{
+  display:flex; flex-direction:column; gap:6px;
+  background:linear-gradient(180deg,#0e2234,#0a1a28);
+  border:1px solid #0f2a43; border-radius:14px;
+  padding:16px; cursor:pointer;
+  outline: none;
+}
+.menu .tile.active{ box-shadow:0 0 0 2px var(--accent) inset; }
+.menu .tile i{ font-style:normal; font-size:28px; line-height:1; }
+.menu .tile b{ font-weight:700; }
+.menu .tile small{ color:var(--fg-dim); }
 
-body.state-play  #menuBar   { display: none; }
-body.state-play  #gameLayer { pointer-events: auto; }
-body.state-play  #result    { display: none; }
+.menu .row{ display:flex; gap:24px; align-items:center; margin:10px 0 18px; }
+.menu .seg{ display:flex; gap:8px; align-items:center; }
+.menu .chip{
+  border:1px solid #16415d; border-radius:999px;
+  padding:6px 12px; background:#0a1f2e; cursor:pointer;
+}
+.menu .chip.active{ background:#0f2f44; box-shadow:0 0 0 2px var(--accent) inset; }
 
-body.state-result #menuBar   { display: none; }
-body.state-result #gameLayer { pointer-events: none; }
-body.state-result #result    { display: flex; pointer-events: auto; }
+.menu .cta{ margin-top:6px; }
+.menu .start{
+  border:0; border-radius:999px; padding:12px 36px; font-size:18px; cursor:pointer;
+  background: radial-gradient(120% 120% at 50% 0%, #2cf0c8, #0ec7a0 60%, #08a388);
+  color:#07251e; font-weight:800; box-shadow:0 8px 22px #0ec7a044;
+}
 
-/* ปุ่มพื้นฐานให้ cursor แสดง */
-button, .chip, .tile, .start { cursor: pointer; }
+/* ====== GAME LAYER ====== */
+#gameLayer{
+  position:relative; height:58vh; margin:0 24px 24px; border-radius:16px;
+  background:linear-gradient(180deg,#0b1e2c,#07131d);
+  border:1px solid #0f2a43;
+  z-index:10;
+}
+#spawnHost{ position:absolute; inset:0; }
+.spawn-emoji{
+  position:absolute; border:0; background:transparent; font-size:36px; cursor:pointer;
+  filter: drop-shadow(0 2px 4px #0008);
+}
 
-/* กัน component ที่เผลอมี [hidden]/aria-hidden บังคลิก */
-[hidden], [aria-hidden="true"], .hidden, .visually-hidden { pointer-events: none !important; }
+/* ====== HUD (ตอนเล่นเท่านั้น) ====== */
+#hudWrap{
+  position:absolute; inset:0; display:none;
+  z-index:30; pointer-events:none;    /* HUD เองไม่บังคลิก */
+}
+#hudWrap .pill,#scoreTime .pill{ background:var(--pill); border-radius:999px; padding:4px 10px; display:inline-flex; gap:8px; align-items:center; }
+#questBar ul{ list-style:none; padding:0; margin:8px 0 0; display:flex; gap:8px; flex-wrap:wrap; }
+#coachHUD{ position:absolute; left:12px; bottom:12px; }
+#missionLine{ position:absolute; top:10px; left:50%; transform:translateX(-50%); }
+
+/* ====== RESULT ====== */
+#result{
+  position:relative; z-index:60;
+  background:transparent;
+}
+
+/* ====== Hard kill: ถ้ามีพ่อแม่ชุดไหนตั้ง pointer-events:none มาก่อน ====== */
+#app, #app *{ /* อย่าปิดคลิกทับเมนู */
+  /* ไม่ตั้ง none ที่นี่ เพื่อเลี่ยงผลข้างเคียง */
+}
