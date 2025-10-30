@@ -39,10 +39,8 @@
     <button id="btnBack" class="btn hidden" data-action="back">← Back to Hub</button>
   </header>
 
-  <!-- HUB CARDS -->
   <main id="hub" class="hub">
     <section class="grid">
-      <!-- Shadow Breaker -->
       <article class="card">
         <h2>Shadow Breaker</h2>
         <p class="desc">ชกตามแพทเทิร์น—ฟิตแรง แข่งเวลา</p>
@@ -52,10 +50,10 @@
         <div class="row"><label>Time (sec)</label><input data-name="time-sb" type="number" min="30" max="180" step="5" value="90"/></div>
         <div class="row">
           <button class="btn" data-action="play" data-game="shadow-breaker">Play</button>
-          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/games/shadow-breaker/play.html?game=shadow-breaker&mode=timed&diff=normal&time=90">เปิดตรง</a></span>
+          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/shadow-breaker/play.html?game=shadow-breaker&mode=timed&diff=normal&time=90">เปิดตรง</a></span>
         </div>
       </article>
-      <!-- Rhythm Boxer -->
+
       <article class="card">
         <h2>Rhythm Boxer</h2>
         <p class="desc">ต่อจังหวะ—แม่นจังหวะเพื่อคอมโบ</p>
@@ -65,10 +63,10 @@
         <div class="row"><label>Time (sec)</label><input data-name="time-rb" type="number" min="45" max="180" step="5" value="85"/></div>
         <div class="row">
           <button class="btn" data-action="play" data-game="rhythm-boxer">Play</button>
-          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/games/rhythm-boxer/play.html?game=rhythm-boxer&mode=timed&diff=normal&time=85">เปิดตรง</a></span>
+          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/rhythm-boxer/play.html?game=rhythm-boxer&mode=timed&diff=normal&time=85">เปิดตรง</a></span>
         </div>
       </article>
-      <!-- Jump–Duck -->
+
       <article class="card">
         <h2>Jump–Duck</h2>
         <p class="desc">กระโดด–ก้ม หลบสิ่งกีดขวาง</p>
@@ -78,10 +76,10 @@
         <div class="row"><label>Time (sec)</label><input data-name="time-jd" type="number" min="45" max="180" step="5" value="80"/></div>
         <div class="row">
           <button class="btn" data-action="play" data-game="jump-duck">Play</button>
-          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/games/jump-duck/play.html?game=jump-duck&mode=timed&diff=easy&time=80">เปิดตรง</a></span>
+          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/jump-duck/play.html?game=jump-duck&mode=timed&diff=easy&time=80">เปิดตรง</a></span>
         </div>
       </article>
-      <!-- Balance–Hold -->
+
       <article class="card">
         <h2>Balance–Hold</h2>
         <p class="desc">ทรงตัว นิ่ง ควบคุมแกนกลาง</p>
@@ -91,36 +89,31 @@
         <div class="row"><label>Time (sec)</label><input data-name="time-bh" type="number" min="30" max="180" step="5" value="75"/></div>
         <div class="row">
           <button class="btn" data-action="play" data-game="balance-hold">Play</button>
-          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/games/balance-hold/play.html?game=balance-hold&mode=timed&diff=normal&time=75">เปิดตรง</a></span>
+          <span class="fallback links"><a target="_self" href="/webxr-health-mobile/vr-fitness/balance-hold/play.html?game=balance-hold&mode=timed&diff=normal&time=75">เปิดตรง</a></span>
         </div>
       </article>
     </section>
   </main>
 
-  <!-- STAGE -->
   <section id="stage" class="stage" aria-hidden="true">
     <iframe id="gameFrame" class="frame" allow="autoplay; xr-spatial-tracking; fullscreen *; accelerometer; gyroscope;"></iframe>
     <div id="overlay" class="overlay"><div class="pill">Paused</div></div>
   </section>
 
-  <!-- ERROR BOX -->
   <div id="err" class="err"></div>
 
   <script>
-    // ------- Config -------
     const GAME_URLS = {
-      "shadow-breaker": "/webxr-health-mobile/vr-fitness/games/shadow-breaker/play.html",
-      "rhythm-boxer":   "/webxr-health-mobile/vr-fitness/games/rhythm-boxer/play.html",
-      "jump-duck":      "/webxr-health-mobile/vr-fitness/games/jump-duck/play.html",
-      "balance-hold":   "/webxr-health-mobile/vr-fitness/games/balance-hold/play.html"
+      "shadow-breaker": "/webxr-health-mobile/vr-fitness/shadow-breaker/play.html",
+      "rhythm-boxer":   "/webxr-health-mobile/vr-fitness/rhythm-boxer/play.html",
+      "jump-duck":      "/webxr-health-mobile/vr-fitness/jump-duck/play.html",
+      "balance-hold":   "/webxr-health-mobile/vr-fitness/balance-hold/play.html"
     };
 
-    // ------- El -------
     const $ = s=>document.querySelector(s);
     const hubEl=$("#hub"), stageEl=$("#stage"), frameEl=$("#gameFrame"), backBtn=$("#btnBack");
     const overlay=$("#overlay"), errBox=$("#err");
 
-    // ------- Helpers -------
     function clamp(n,a,b){ n=+n; if(Number.isNaN(n)) return a; return Math.max(a, Math.min(b,n)); }
     function getControls(g){
       if(g==="shadow-breaker") return { diff: v('[data-name="diff-sb"]'), time: clamp(vn('[data-name="time-sb"]'),30,180) };
@@ -140,38 +133,27 @@
     function showStage(){ hubEl.style.display="none"; stageEl.classList.add("show"); backBtn.classList.remove("hidden"); }
     function showErr(msg){ errBox.style.display="block"; errBox.innerHTML = "<b>⚠️ Error:</b> "+msg+"<div class='fallback'>เปิดเกมโดยตรงได้จากลิงก์ “เปิดตรง” ใต้ปุ่ม Play</div>"; console.error(msg); }
 
-    // ------- UI Events -------
     document.addEventListener("click", (ev)=>{
       const a = ev.target.closest("[data-action]");
       if(!a) return;
       if(a.dataset.action==="play"){
         const g=a.dataset.game, url=buildURL(g);
-        try{
-          frameEl.src = url;
-          showStage();
-        }catch(e){
-          showErr("โหลดเกมไม่สำเร็จ: "+e.message);
-          showHub();
-        }
+        try{ frameEl.src = url; showStage(); }
+        catch(e){ showErr("โหลดเกมไม่สำเร็จ: "+e.message); showHub(); }
       }
       if(a.dataset.action==="back"){ showHub(); }
     });
 
-    // ------- Pause on blur -------
     window.addEventListener("blur", ()=>{ if(frameEl.contentWindow){ overlay.style.display="flex"; frameEl.contentWindow.postMessage({type:"hub:pause",value:true},"*"); } });
     window.addEventListener("focus", ()=>{ if(frameEl.contentWindow){ overlay.style.display="none"; frameEl.contentWindow.postMessage({type:"hub:pause",value:false},"*"); } });
 
-    // ------- iFrame error handling -------
     frameEl.addEventListener("error", ()=>showErr("ไม่สามารถโหลด iFrame ได้ (ตรวจ URL เกม)"));
 
-    // ------- Messages from games (optional) -------
     window.addEventListener("message",(ev)=>{
       const m=ev.data||{};
       if(m.type==="game:ready"){ overlay.style.display="none"; }
-      // m.type === "game:score" / "game:end" สามารถต่อยอดแสดงผลได้
     });
 
-    // ------- First paint: ensure hub visible even if any JS fails -------
     showHub();
   </script>
 </body>
