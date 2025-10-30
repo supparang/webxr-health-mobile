@@ -1,105 +1,60 @@
-// === HUD core (2025-10-30) ===
-// Provides: createHUD({onHome,onReplay}), with methods used by main/modes.
-
+// === core/hud.js (minimal HUD object)
 export function createHUD({ onHome=()=>{}, onReplay=()=>{} }={}){
-  const $ = (s)=>document.querySelector(s);
+  const els = {
+    score: document.getElementById('score'),
+    combo: document.getElementById('combo'),
+    time : document.getElementById('time'),
+    coach: document.getElementById('coachHUD'),
+    coachText: document.getElementById('coachText'),
+    questHost: document.getElementById('questChips'),
+    result: document.getElementById('result'),
+    resultText: document.getElementById('resultText'),
+    menu: document.getElementById('menuBar'),
+  };
 
-  const elScore = $('#score');
-  const elTime  = $('#time');
-  const elCoach = $('#coachHUD');
-  const elCoachTxt = $('#coachText');
-  const elToast = $('#toast');
-  const elMission = $('#missionLine');
-  const elQuestList = $('#questChips');
-
-  const resultModal = $('#result');
-  const resultText  = $('#resultText');
-  const miniTop     = $('#miniTop');
-
-  function resetScore(s=0,c=0){ if(elScore) elScore.textContent = String(s|0); }
-  function updateScore(s, combo/*, tLeft*/){
-    if (elScore) elScore.textContent = String(s|0);
-    // (ถ้าต้องโชว์คอมโบ แทรก pill เพิ่มเองได้)
+  function updateScore(score=0, combo=0, time=0){
+    if (els.score) els.score.textContent = score|0;
+    if (els.combo) els.combo.textContent = combo|0;
+    if (els.time)  els.time.textContent  = time|0;
   }
-  function updateTime(t){
-    if (elTime) elTime.textContent = String(t|0);
-    // tick sound optional: document.getElementById('sfx-tick')?.play?.();
-  }
-  function dimPenalty(){
-    document.body.classList.add('flash-danger');
-    setTimeout(()=>document.body.classList.remove('flash-danger'),160);
-  }
+  function setCoach(msg){ if(!els.coach || !els.coachText) return;
+    els.coachText.textContent = msg; els.coach.classList.add('show'); }
+  function hideCoach(){ els.coach?.classList.remove('show'); }
+  function setFever(on){ /* add fever glow if want */ }
+  function dimPenalty(){ document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160); }
 
-  // Coach
-  function setCoach(msg){ if(elCoachTxt) elCoachTxt.textContent = msg; }
-  function showCoach(v){ if(elCoach) elCoach.classList.toggle('show', !!v); }
-
-  // Quests chips
-  function setQuestChips(items=[]){
-    if (!elQuestList) return;
-    elQuestList.innerHTML = items.map(q=>{
-      const pct = q.need? Math.min(100, Math.round((q.progress/q.need)*100)) : 0;
-      const cls = q.done? 'style="opacity:.9;filter:saturate(1.1)"' : (q.fail?'style="opacity:.45"':'');
-      return `<li ${cls} data-qid="${q.key}" style="display:inline-flex;gap:6px;align-items:center;margin:0 6px 6px 0;
-        padding:6px 10px;border-radius:999px;border:1px solid #1a2c47;background:#102038">
+  function setQuestChips(list=[]){
+    if(!els.questHost) return;
+    els.questHost.innerHTML = list.map(q=>{
+      const pct = Math.min(100, Math.round((q.progress|0)/(q.need||1)*100));
+      return `<li style="display:inline-flex;gap:6px;align-items:center;margin:4px 6px 0 0;
+               padding:6px 10px;border:1px solid #1a2c47;border-radius:999px;background:#0f1d31">
         <span>${q.icon||'⭐'}</span>
-        <b style="font:800 12px ui-rounded">${q.label||q.key}</b>
-        <span style="opacity:.85">${q.progress|0}/${q.need|0}</span>
+        <span style="font:800 12px ui-rounded">${q.label||q.id}</span>
+        <span style="opacity:.9">${q.progress||0}/${q.need||0}</span>
+        <i style="display:inline-block;width:66px;height:6px;border-radius:5px;background:#0a1f37;overflow:hidden">
+          <b style="display:block;height:100%;width:${pct}%;background:#2dd4bf"></b>
+        </i>
       </li>`;
     }).join('');
   }
-  function markQuestDone(qid){
-    const li = elQuestList?.querySelector(`[data-qid="${qid}"]`);
-    if (li){ li.style.opacity='1'; li.style.filter='saturate(1.2)'; }
-  }
+  function markQuestDone(qid){ /* optional glow */ }
 
-  // Groups target HUD
-  function setTarget(groupId, have, need){
-    const wrap = document.getElementById('targetWrap');
-    const badge= document.getElementById('targetBadge');
-    const mapTH={veggies:'ผัก',protein:'โปรตีน',grains:'ธัญพืช',fruits:'ผลไม้',dairy:'นม'};
-    if (wrap) wrap.style.display='inline-flex';
-    if (badge) badge.textContent = `${mapTH[groupId]||groupId} • ${have|0}/${need|0}`;
-  }
-
-  // Hydration bar hookup (optional UI.js handles visuals)
   function showHydration(zone='OK', pct=50){
-    // If you have custom visual, wire it here. For now we just ensure toast as hint.
-    // no-op for minimalist HUD
+    // simple needle: use toast/target or custom UI
+    // (ปล่อยให้ hydration.js วาด overlay bar แยก)
   }
 
-  // Result
   function showResult({score=0, combo=0, quests=[]}={}){
-    if (resultText) resultText.textContent = `⭐ ${score}  •  Max Combo ${combo}`;
-    if (miniTop){
-      miniTop.innerHTML = quests.map(q=>{
-        const st = q.done ? '✅' : (q.fail?'❌':'—');
-        return `<div style="display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #13243d;padding:6px 0">
-          <span>${st} ${q.label||q.id}</span>
-          <span>${q.prog|0}/${q.need|0}</span>
-        </div>`;
-      }).join('');
-    }
-    if (resultModal) resultModal.style.display='flex';
-    wireResultButtons();
-  }
-  function hideResult(){ if(resultModal) resultModal.style.display='none'; }
-  function wireResultButtons(){
-    resultModal?.querySelector('[data-result="replay"]')?.addEventListener('click', onReplay, { once:true });
-    resultModal?.querySelector('[data-result="home"]')?.addEventListener('click', onHome, { once:true });
+    els.resultText.textContent = `Score ${score} • Max Combo ${combo}`;
+    els.result.style.display = 'flex';
+    document.querySelector('[data-result="home"]')?.addEventListener('click', ()=>{
+      els.result.style.display='none'; els.menu.style.display='block'; onHome();
+    }, { once:true });
+    document.querySelector('[data-result="replay"]')?.addEventListener('click', ()=>{
+      els.result.style.display='none'; onReplay();
+    }, { once:true });
   }
 
-  // helpers UI sugar
-  function toast(msg){ if(!elToast) return; elToast.textContent=msg; elToast.classList.add('show'); setTimeout(()=>elToast.classList.remove('show'), 900); }
-  function flashLine(msg){ if(!elMission) return; elMission.textContent=msg; elMission.style.display='block'; setTimeout(()=>elMission.style.display='none', 950); }
-
-  // public API
-  return {
-    resetScore, updateScore, updateTime, dimPenalty,
-    setCoach, showCoach,
-    setQuestChips, markQuestDone,
-    setTarget, showHydration,
-    showResult, hideResult,
-    toast, flashLine
-  };
+  return { updateScore, setCoach, hideCoach, setFever, dimPenalty, setQuestChips, markQuestDone, showHydration, showResult };
 }
