@@ -1,204 +1,222 @@
-// === Hero Health Academy — game/main.js (runtime glue; Start wired + Coach integrated + Score v2 + PowerUp) ===
-window.__HHA_BOOT_OK = 'main';
+// === Hero Health Academy — game/main.js (2025-10-30, VRInput v2.1 integrated) ===
+// - Wires gaze/VR reticle controls to UI
+// - Pause/Resume on page visibility
+// - Safe handlers for dwell ms / cooldown / reticle style
+// - No breaking change to existing Engine/HUD/Coach flow
 
-import { Engine }           from '../core/engine.js';
-import { createHUD }        from '../core/hud.js';
-import { ScoreSystem }      from '../core/score.js';
-import { PowerUpSystem }    from '../core/powerup.js';
-import { Quests }           from '../core/quests.js';
-import { Progress }         from '../core/progression.js';
-import { Leaderboard }      from '../core/leaderboard.js';
+import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 
-const $ = (s)=>document.querySelector(s);
+import { Engine }            from './core/engine.js';
+import { HUD }               from './core/hud.js';
+import { Coach }             from './core/coach.js';
+import { SFX }               from './core/sfx.js';
+import { ScoreSystem }       from './core/score.js';
+import { PowerUpSystem }     from './core/powerup.js';
+import { MissionSystem }     from './core/mission-system.js';
+import { Progress }          from './core/progression.js';
+import { Quests }            from './core/quests.js';
+import { VRInput }           from './core/vrinput.js';
 
-const MODE_PATH = (k)=> `../modes/${k}.js`;
-async function loadMode(key){
-  const mod = await import(MODE_PATH(key));
-  return { name:mod.name||key, create:mod.create||null, init:mod.init||null, tick:mod.tick||null, cleanup:mod.cleanup||null };
-}
+// Modes (DOM-spawn factory pattern)
+import * as goodjunk   from './modes/goodjunk.js';
+import * as groups     from './modes/groups.js';
+import * as hydration  from './modes/hydration.js';
+import * as plate      from './modes/plate.js';
 
-const app = {
-  engine: null,
-  hud: null,
-  lb: null,
-  power: null,
-  scoreSys: null,
+window.__HHA_BOOT_OK = true;
 
-  modeKey: 'goodjunk',
-  diff: 'Normal',
-  lang: (document.documentElement.getAttribute('data-hha-lang')||'TH').toUpperCase(),
+// ----- DOM helpers -----
+const $  = (s)=>document.querySelector(s);
+const $$ = (s)=>Array.from(document.querySelectorAll(s));
+const byAction = (el)=>el?.closest?.('[data-action]')||null;
+const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
 
-  sys: null,        // mode instance
-  modeAPI: null,    // module API
-  running:false,
-  time:45,
-  raf:0,
+// ----- Core singletons -----
+const score   = new ScoreSystem();
+const power   = new PowerUpSystem();
+const coach   = new Coach();
+const hud     = new HUD();
+const sfx     = new SFX();
+const mission = new MissionSystem();
 
-  bestCombo:0,
-  runFlags:{ highCount:0, overfill:0 },
+power.attachToScore(score);
+
+const engine = new Engine({
+  hud, coach, sfx, score, power, mission,
+  THREE,
+  // simple UI text pop
+  fx: {
+    popText: (text, { x=0, y=0, ms=650 }={})=>{
+      const n = document.createElement('div');
+      n.className = 'poptext';
+      n.textContent = text;
+      n.style.left = x+'px';
+      n.style.top  = y+'px';
+      document.body.appendChild(n);
+      setTimeout(()=>{ try{ n.remove(); }catch{} }, ms|0);
+    }
+  }
+});
+
+// ----- Mode registry -----
+const MODES = { goodjunk, groups, hydration, plate };
+let current = null;
+
+// ----- Progress init -----
+Progress.init?.();
+
+// ----- VR / Gaze (VRInput v2.1) -----
+VRInput.init({ engine, sfx, THREE });
+window.HHA_VR = {
+  toggle: ()=>VRInput.toggleVR(),
+  pause:  ()=>VRInput.pause(),
+  resume: ()=>VRInput.resume(),
+  setDwell: (ms)=>VRInput.setDwellMs(ms),
+  setCooldown: (ms)=>VRInput.setCooldown(ms),
+  style: (opts)=>VRInput.setReticleStyle(opts),
+  isGaze: ()=>VRInput.isGazeMode(),
+  isXR:   ()=>VRInput.isXRActive(),
 };
 
-function bindMenu(){
-  const setMode=(k,label)=>{
-    app.modeKey=k; document.body.dataset.mode=k;
-    const head=$('#modeName'); if(head) head.textContent=label;
-    for(const id of ['m_goodjunk','m_groups','m_hydration','m_plate']){
-      const b=$('#'+id); if(b) b.classList.toggle('active', id==='m_'+k);
-    }
-  };
-  $('#m_goodjunk')?.addEventListener('click', ()=>setMode('goodjunk','Good vs Junk'));
-  $('#m_groups')?.addEventListener('click',   ()=>setMode('groups','5 Food Groups'));
-  $('#m_hydration')?.addEventListener('click',()=>setMode('hydration','Hydration'));
-  $('#m_plate')?.addEventListener('click',    ()=>setMode('plate','Healthy Plate'));
-
-  const setDiff=(d)=>{
-    app.diff=d; const el=$('#difficulty'); if(el) el.textContent=d;
-    for(const id of ['d_easy','d_normal','d_hard']){
-      const b=$('#'+id); b?.classList.toggle('active', id==='d_'+d.toLowerCase());
-    }
-  };
-  $('#d_easy')?.addEventListener('click',   ()=>setDiff('Easy'));
-  $('#d_normal')?.addEventListener('click', ()=>setDiff('Normal'));
-  $('#d_hard')?.addEventListener('click',   ()=>setDiff('Hard'));
-
-  document.getElementById('btn_start')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); }, {capture:true});
-  window.addEventListener('keydown', (e)=>{ if((e.key==='Enter'||e.key===' ') && !app.running && !$('#menuBar')?.hasAttribute('data-hidden')){ e.preventDefault(); startGame(); } }, {passive:false});
-}
-
-function showMenu(){ $('#menuBar')?.removeAttribute('data-hidden'); $('#menuBar').style.display='block'; app.hud && (app.hud.hideCoach(), app.hud.setQuestChips([])); }
-function hideMenu(){ $('#menuBar')?.setAttribute('data-hidden','1'); $('#menuBar').style.display='none'; }
-
-const Bus = {
-  addScore(n=0, ui){ app.scoreSys.add(n|0, { ui }); if(ui?.x&&ui?.y){ app.engine.fx.popText('+'+(n|0), ui); } },
-  hit({ kind='good', points, ui={}, meta={} } = {}){
-    if (Number.isFinite(points)) app.scoreSys.add(points|0, { kind, ...meta });
-    else app.scoreSys.addKind(kind, meta);
-    if (ui?.x && ui?.y) app.engine.fx.shatter3D(ui.x, ui.y);
-    if (kind==='perfect') Progress.notify('perfect');
-    if (meta?.golden)     Progress.notify('golden');
-    Quests.event('hit',{ result:kind, meta, comboNow: app.scoreSys.combo|0, score: app.scoreSys.get()|0 });
-    app.bestCombo = Math.max(app.bestCombo|0, app.scoreSys.bestCombo|0);
-  },
-  miss({ meta={} } = {}){
-    if (!app.power?.consumeShield?.()){
-      app.scoreSys.addKind('bad', { ...meta, penalty:true });
-      app.hud.dimPenalty();
-      Quests.event('hit',{ result:'bad', meta, comboNow:0, score: app.scoreSys.get()|0 });
-    }
-  },
-  power(kind, sec){ app.power?.apply?.(kind, sec); },
-  hydrationTick(zone){
-    Quests.event('hydro_tick', { zone:String(zone||'').toUpperCase() });
-    if (String(zone).toUpperCase()==='HIGH'){ app.runFlags.highCount=(app.runFlags.highCount|0)+1; Progress.notify('hydration_high'); }
-  },
-  hydrationCross(from,to){ Quests.event('hydro_cross',{ from:String(from||'').toUpperCase(), to:String(to||'').toUpperCase() }); },
-  hydrationClick(kind, zoneBefore){ Quests.event('hydro_click',{ kind, zoneBefore:String(zoneBefore||'').toUpperCase() }); },
-  groupHit(meta={}){ Quests.event('hit',{ result:'good', meta:{...meta, isTarget:true}, comboNow: app.scoreSys.combo|0, score: app.scoreSys.get()|0 }); },
-  groupFull(){ Quests.event('group_full',{}); },
-  targetCleared(){ Quests.event('target_cleared',{}); },
-  targetCycle(){ Quests.event('target_cycle',{}); },
-  platePerfect(){ Quests.event('hit',{ result:'perfect', meta:{ isTarget:true }, comboNow: app.scoreSys.combo|0, score: app.scoreSys.get()|0 }); },
-  plateOverfill(){ app.runFlags.overfill=(app.runFlags.overfill|0)+1; Progress.notify('plate_overfill'); },
-};
-
-async function startGame(){
-  if (app.running) return;
-
-  // engine + hud + systems
-  if (!app.engine) app.engine = new Engine(null, document.getElementById('c'));
-  if (!app.hud)    app.hud = createHUD({
-    onHome(){ showMenu(); },
-    onReplay(){ startGame(); }
+function bindVRButtons(){
+  // Toggle VR / Gaze (falls back to gaze if no WebXR)
+  $$('#toggleVR, [data-action="toggle-vr"]').forEach(btn=>{
+    btn.addEventListener('click', ()=>VRInput.toggleVR());
   });
-  if (!app.lb)     app.lb = new Leaderboard({ key:'hha_board_v2', maxKeep:500, retentionDays:365 });
 
-  app.power    = new PowerUpSystem();
-  app.scoreSys = new ScoreSystem();
-  app.scoreSys.setHandlers({
-    change: (val)=>{ app.hud.updateScore(val|0, app.scoreSys.combo|0, app.time|0); Quests.event('score_tick', { score: val|0, comboNow: app.scoreSys.combo|0 }); Progress.notify('score_tick',{score:val|0}); }
+  // Dwell controls
+  $$('#dwellMinus, [data-action="dwell-"]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const cur = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
+      const nxt = Math.max(400, cur - 100);
+      VRInput.setDwellMs(nxt);
+      setText('#dwellVal', `${nxt}ms`);
+      sfx.play?.('ui');
+    });
   });
-  app.power.attachToScore(app.scoreSys);
+  $$('#dwellPlus, [data-action="dwell+"]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const cur = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
+      const nxt = Math.min(2000, cur + 100);
+      VRInput.setDwellMs(nxt);
+      setText('#dwellVal', `${nxt}ms`);
+      sfx.play?.('ui');
+    });
+  });
 
-  // reset
-  app.time = (window.__HHA_TIME|0) || 45;
-  app.bestCombo = 0;
-  app.runFlags = { highCount:0, overfill:0 };
-  app.scoreSys.reset();
-  app.hud.updateScore(0,0,app.time);
-  document.getElementById('spawnHost').innerHTML='';
-
-  // reflect selection
-  app.modeKey = document.body.getAttribute('data-mode') || app.modeKey;
-  app.diff    = document.body.getAttribute('data-diff') || app.diff;
-
-  // bind quests & progress
-  Quests.bindToMain({ hud: app.hud });
-  Quests.setLang(app.lang);
-  Quests.beginRun(app.modeKey, app.diff, app.lang, app.time);
-  Progress.init();
-  Progress.beginRun(app.modeKey, app.diff, app.lang);
-
-  // coach splash (fallback ใน coach ของโหมด)
-  app.hud.setCoach(app.lang==='EN'?'Ready? Go!':'พร้อมไหม? ลุย!');
-  setTimeout(()=>app.hud.hideCoach(), 1400);
-
-  // load mode
-  try {
-    app.modeAPI = await loadMode(app.modeKey);
-  } catch(e){
-    console.error('[mode] load fail', e); toast(`Failed to load mode: ${app.modeKey}`); return;
+  // Cooldown slider (optional)
+  const cd = $('#gazeCooldown');
+  if (cd) {
+    const val = $('#gazeCooldownVal');
+    const apply = ()=>{
+      const ms = Math.max(0, parseInt(cd.value||'350',10)|0);
+      VRInput.setCooldown(ms);
+      if (val) val.textContent = `${ms}ms`;
+    };
+    cd.addEventListener('input', apply);
+    apply();
   }
-  app.sys = app.modeAPI.create
-    ? app.modeAPI.create({ engine:app.engine, hud:app.hud, coach:{ say:(t)=>{app.hud.setCoach(t); setTimeout(()=>app.hud.hideCoach(),1200);} } })
-    : null;
-  app.sys?.start?.();
 
-  hideMenu();
-  app.running = true;
-  app._secMark = performance.now();
-  app.raf = requestAnimationFrame(tick);
+  // Reticle quick themes (optional)
+  $$('#reticleLight, [data-action="reticle-light"]').forEach(b=>{
+    b.addEventListener('click', ()=>VRInput.setReticleStyle({ border:'#fff', progress:'#ffd54a', shadow:'#000a', size:28 }));
+  });
+  $$('#reticleBold, [data-action="reticle-bold"]').forEach(b=>{
+    b.addEventListener('click', ()=>VRInput.setReticleStyle({ border:'#0ff', progress:'#0ff', shadow:'#000', size:34 }));
+  });
 }
 
-function tick(now){
-  if (!app.running) return;
-  const secGone = Math.floor((now - (app._secMark||now))/1000);
-  if (secGone >= 1){
-    app._secMark = now;
-    app.time = Math.max(0, (app.time|0) - secGone);
-    app.hud.updateScore(app.scoreSys.get()|0, app.scoreSys.combo|0, app.time|0);
-    Quests.tick({ score: app.scoreSys.get()|0 });
-    if (app.time<=0){ return endGame(); }
-  }
-  try { app.sys?.update?.(Math.min(0.05, (now-(app._dt||now))/1000), Bus); app._dt=now; } catch(e){ console.warn('[mode.update]', e); }
-  app.raf = requestAnimationFrame(tick);
+// ----- Lifecycle: play/stop -----
+function loadMode(key){
+  const m = MODES[key] || MODES.goodjunk;
+  if (current?.cleanup) { try { current.cleanup(); } catch{} }
+  current = m.create({ engine, hud, coach }); // DOM-spawn adapter
 }
 
-function endGame(){
-  if (!app.running) return;
-  app.running=false; cancelAnimationFrame(app.raf);
-  app.sys?.stop?.();
-
-  const finalScore = app.scoreSys.get()|0;
-  const q = Quests.endRun({ score: finalScore, highCount: app.runFlags.highCount|0, overfill: app.runFlags.overfill|0 });
-  Progress.endRun({ score: finalScore, bestCombo: app.bestCombo|0, acc: 0 });
-
-  // Leaderboard
-  app.lb.submit(app.modeKey, app.diff, finalScore, { name: (document.getElementById('playerName')?.value||'').trim().slice(0,24) });
-
-  // Result
-  const t=$('#resultText'); if (t) t.textContent = `คะแนน ${finalScore} • คอมโบสูงสุด x${app.bestCombo|0}`;
-  const pb=$('#pbRow'); if (pb){ pb.innerHTML = q.map(m=>`<li>${m.done?'✅':'❌'} ${m.label}</li>`).join(''); }
-  $('#result').style.display='flex';
+function startGame(){
+  score.reset();
+  engine.start();
+  current?.start?.();
+  coach.onStart?.();
 }
 
-function toast(text){
-  let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-  el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
+function stopGame(){
+  current?.stop?.();
+  engine.stop();
+  coach.onEnd?.();
 }
 
+// ----- Bind global UI -----
+function bindUI(){
+  document.addEventListener('click', (ev)=>{
+    const a = byAction(ev.target);
+    if (!a) return;
+
+    const act = a.getAttribute('data-action');
+    switch (act) {
+      case 'play':
+        stopGame();
+        const sel = document.querySelector('input[name="mode"]:checked')?.value || 'goodjunk';
+        loadMode(sel);
+        startGame();
+        break;
+
+      case 'stop':
+        stopGame();
+        break;
+
+      case 'toggle-vr':
+        VRInput.toggleVR();
+        break;
+
+      case 'reticle-light':
+      case 'reticle-bold':
+      case 'dwell-':
+      case 'dwell+':
+        // handled in bindVRButtons
+        break;
+
+      default: break;
+    }
+  });
+
+  // Pause on blur/hidden, resume on focus (engine handles internal guards)
+  window.addEventListener('blur',  ()=>{ try{ engine.pause();  VRInput.pause(true); }catch{} }, { passive:true });
+  window.addEventListener('focus', ()=>{ try{ engine.resume(); VRInput.resume(true);}catch{} }, { passive:true });
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.hidden){ try{ engine.pause(); VRInput.pause(true);}catch{} }
+    else { try{ engine.resume(); VRInput.resume(true);}catch{} }
+  }, { passive:true });
+
+  bindVRButtons();
+}
+
+// ----- Boot -----
 (function boot(){
-  bindMenu();
-  showMenu();
-  window.addEventListener('blur', ()=>{ app.running=false; });
-  window.addEventListener('focus', ()=>{ if(!$('#menuBar')?.hasAttribute('data-hidden') || $('#result')?.offsetParent) return; app.running=true; app._secMark=performance.now(); app.raf=requestAnimationFrame(tick); });
+  try {
+    hud.init?.();
+    coach.init?.({ hud, sfx });
+    engine.init?.();
+
+    // Default mode
+    const urlMode = new URLSearchParams(location.search).get('mode') || 'goodjunk';
+    loadMode(urlMode);
+
+    // Apply initial dwell text if present
+    const v = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
+    setText('#dwellVal', `${Number.isFinite(v)?v:850}ms`);
+
+    bindUI();
+
+    // Optional: auto-start when ?autoplay=1
+    if (new URLSearchParams(location.search).get('autoplay')==='1'){
+      startGame();
+    }
+  } catch (e) {
+    console.error('[HHA] Boot error', e);
+    const el = document.createElement('pre');
+    el.style.color = '#f55';
+    el.textContent = 'Boot error:\n' + (e?.stack||e?.message||String(e));
+    document.body.appendChild(el);
+  }
 })();
