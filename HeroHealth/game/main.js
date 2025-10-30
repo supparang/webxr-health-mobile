@@ -1,10 +1,11 @@
-// === Hero Health Academy — game/main.js (2025-10-30 + Leaderboard)
+// === Hero Health Academy — game/main.js (2025-10-30 + MissionSystem v2.3 + Leaderboard)
+// - ใช้ MissionSystem เป็นตัวกำกับ mini-quests (combo/perfect/golden/ฯลฯ)
 // - ซ่อนเมนูเมื่อเริ่ม / โชว์ HUD ระหว่างเล่น
-// - Mini-quest top-center (ไม่บังเป้า)
 // - บันทึกและแสดง Leaderboard (week/month/year/all) ด้วย localStorage
 
-import { Quests } from './core/quests.js';
-import { Leaderboard } from './core/leaderboard.js';
+import { MissionSystem } from './core/mission-system.js';
+import { Leaderboard }   from './core/leaderboard.js';
+
 import * as goodjunk  from './modes/goodjunk.js';
 import * as groups    from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
@@ -24,7 +25,6 @@ function renderLB(){
   const elInfo = $('#lbInfo'); if (elInfo) elInfo.textContent = info;
 }
 function wireLB(){
-  // init name from localStorage
   const nameInput = $('#playerName');
   try { const saved = localStorage.getItem('hha_name'); if (saved && nameInput) nameInput.value = saved; } catch {}
   on($('#saveName'), 'click', ()=>{
@@ -32,7 +32,6 @@ function wireLB(){
     try { localStorage.setItem('hha_name', v); } catch {}
     renderLB();
   });
-  // scope buttons
   document.querySelectorAll('#lbScopes .chip').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('#lbScopes .chip').forEach(b=>b.classList.remove('active'));
@@ -64,9 +63,9 @@ const HUD = {
     const ul=$('#questChips'); if(!ul) return;
     ul.innerHTML = chips.map(q=>{
       const need=q.need|0, prog=Math.min(q.progress|0, need), pct=need?Math.round((prog/need)*100):0;
-      return `<li class="${q.done?'done':''}">
+      return `<li class="${q.done?'done':''} ${q.fail?'fail':''}">
         <span class="ico">${q.icon||'⭐'}</span>
-        <span class="ql">${q.label||q.id}</span>
+        <span class="ql">${q.label||q.key}</span>
         <span class="qp">${prog}/${need}</span>
         <span class="bar"><i style="width:${pct}%"></i></span>
       </li>`;
@@ -77,14 +76,26 @@ const HUD = {
     setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
   }
 };
-Quests.bindToMain({ hud: HUD });
 
 // ---------------- App State ----------------
+const Missions = new MissionSystem();
 const App = {
   modeKey: (document.body.dataset.mode || 'goodjunk'),
   diff:    (document.body.dataset.diff  || 'Normal'),
   lang:    (document.documentElement.getAttribute('data-hha-lang') || 'TH'),
   score:0, combo:0, time:45, running:false, loopId:0,
+
+  missionRun:null,         // โครงชุดเควสต์ ({list, seconds, lang})
+  missionState:{},         // state ภายในภารกิจ (ctx, missions)
+  coach:{
+    onStart(){ HUD.coachSay(App.lang==='EN'?'Ready? Go!':'พร้อมไหม? ลุย!'); },
+    onQuestProgress(desc, prog, need){ HUD.coachSay(`${desc} • ${prog}/${need}`); },
+    onQuestDone(){ HUD.coachSay(App.lang==='EN'?'Quest ✓':'เควสต์สำเร็จ ✓'); },
+    onQuestFail(){ HUD.coachSay(App.lang==='EN'?'Quest failed':'เควสต์ไม่สำเร็จ'); },
+    onTimeLow(){ HUD.coachSay(App.lang==='EN'?'10s left—push!':'เหลือ 10 วิ สุดแรง!'); },
+    onEnd(score){ HUD.coachSay((score|0)>=200 ? (App.lang==='EN'?'Awesome!':'สุดยอด!') : (App.lang==='EN'?'Nice!':'ดีมาก!')); },
+  },
+
   engine:{
     score:{ add:(n)=>{ App.score += (n|0); HUD.setScore(App.score); } },
     sfx:{ play:()=>{} },
@@ -101,7 +112,7 @@ const App = {
           setTimeout(()=>{ try{el.remove();}catch{} }, ms||720);
         } }
   },
-  sys:null,
+  sys:null,   // instance ของโหมด (create().start/update/stop)
   lastTs:0, accumSec:0
 };
 
@@ -141,11 +152,34 @@ function wireMenu(){
 function showMenu(){ const m=$('#menuBar'); if(m) m.style.display='block'; HUD.hide(); App.running=false; }
 function hideMenu(){ const m=$('#menuBar'); if(m) m.style.display='none'; HUD.show(); }
 
+// ---------------- Event Bus → MissionSystem ----------------
+const Bus = {
+  hit({ kind='good', points=10, ui={}, meta={} }={}){
+    // คะแนน + คอมโบ
+    App.engine.score.add(points);
+    App.combo = (kind==='bad') ? 0 : (App.combo+1);
+    HUD.setCombo(App.combo);
+
+    // แจ้งภารกิจ
+    Missions.onEvent(kind==='perfect' ? 'perfect' : 'good', { count:1, ...meta }, App.missionState);
+    if (meta?.golden) Missions.onEvent('golden', { count:1 }, App.missionState);
+    Missions.onEvent('combo', { value: App.combo }, App.missionState);
+  },
+  miss({ meta={} }={}){
+    App.combo = 0; HUD.setCombo(0);
+    Missions.onEvent('miss', { count:1, ...meta }, App.missionState);
+  },
+  // ให้โหมดต่าง ๆ เรียกส่งอีเวนต์เฉพาะทาง (groups/hydration/plate)
+  event(name, meta={}){
+    Missions.onEvent(name, meta, App.missionState);
+  }
+};
+
 // ---------------- Game loop ----------------
 function startGame(){
   hideMenu();
 
-  // reset
+  // reset run
   App.score=0; App.combo=0; HUD.setScore(0); HUD.setCombo(0);
   App.time = (window.__HHA_TIME|0) || 45; HUD.setTime(App.time);
   App.running=true; App.lastTs=performance.now(); App.accumSec=0;
@@ -153,17 +187,17 @@ function startGame(){
   // clear field
   const host = $('#spawnHost'); if(host) host.innerHTML='';
 
-  // quests
-  Quests.setLang(App.lang);
-  Quests.beginRun(App.modeKey, App.diff, App.lang, App.time);
+  // boot missions (3 เควสต์/รัน)
+  App.missionRun   = Missions.start(App.modeKey, { difficulty:App.diff, lang:App.lang, seconds:App.time, count:3 });
+  App.missionState = Missions.attachToState(App.missionRun, { lang:App.lang, ctx:{} });
+  HUD.setQuestChips(Missions.tick(App.missionState, { score:App.score }, null, { hud:HUD, coach:App.coach, lang:App.lang }) || []);
 
   // boot mode
   const Mode = MODES[App.modeKey] || goodjunk;
   App.sys = Mode.create
-    ? Mode.create({ engine: App.engine, hud: HUD, coach: {
-        onStart(){ HUD.coachSay(App.lang==='EN'?'Go!':'เริ่ม!'); }, onGood(){}, onBad(){}
-      }})
+    ? Mode.create({ engine: App.engine, hud: HUD, coach: App.coach })
     : null;
+  App.coach.onStart();
   App.sys?.start?.();
 
   // loop
@@ -177,7 +211,7 @@ function loop(ts){
   App.lastTs = ts;
   App.accumSec += dt;
 
-  // per-frame update
+  // per-frame update (ให้โหมด spawn/อัปเดต)
   App.sys?.update?.(dt, Bus);
 
   // per-second tick
@@ -187,8 +221,18 @@ function loop(ts){
     for (let i=0;i<steps;i++){
       App.time = Math.max(0, (App.time|0) - 1);
       HUD.setTime(App.time);
-      Quests.tick({ score: App.score });
+
+      // อัปเดตภารกิจทุกวินาที → คืน chips ไปวาด HUD
+      const chips = Missions.tick(
+        App.missionState,
+        { score: App.score },
+        ({success,key,index})=>{/* optional hook เมื่อจบเควสต์แต่ละอัน */},
+        { hud: HUD, coach: App.coach, lang: App.lang }
+      ) || [];
+      HUD.setQuestChips(chips);
+
       if (App.time<=0){ endGame(); return; }
+      if (App.time===10){ App.coach.onTimeLow?.(); }
     }
   }
   App.loopId = requestAnimationFrame(loop);
@@ -197,22 +241,21 @@ function loop(ts){
 function endGame(){
   App.running=false;
   App.sys?.stop?.();
+  Missions.stop(App.missionState);
 
   // บันทึก leaderboard
   const name = ($('#playerName')?.value || localStorage.getItem('hha_name') || '').trim();
   try { if (name) localStorage.setItem('hha_name', name); } catch {}
   LB.submit(App.modeKey, App.diff, App.score, { name });
 
-  // ภารกิจ/สรุป
-  const quests = Quests.endRun({ score: App.score });
-  const r=$('#result'), t=$('#resultText'), pb=$('#pbRow');
+  // สรุปผล + แสดงเควสต์ (สถานะล่าสุดจาก chips)
+  const chips = (App.missionState?.missions||[]).map(m=>({
+    done:m.done, success:!!m.success, label: Missions.describe(m, App.lang)
+  }));
+  const t=$('#resultText'), pb=$('#pbRow');
   if (t) t.textContent = `คะแนน ${App.score}`;
   if (pb){
-    pb.innerHTML = quests.map(q=>{
-      const mark = q.done ? '✅' : '❌';
-      const lbl  = q.label || q.id;
-      return `<li>${mark} ${lbl}</li>`;
-    }).join('');
+    pb.innerHTML = chips.map(c=> (c.success? '✅':'❌') + ' ' + c.label ).join(' • ');
   }
 
   showResult();
@@ -222,24 +265,10 @@ function endGame(){
 function showResult(){ const r=$('#result'); if(r) r.style.display='flex'; }
 function hideResult(){ const r=$('#result'); if(r) r.style.display='none'; }
 
-// ---------------- Bus (ส่งจากโหมด) ----------------
-const Bus = {
-  hit({ kind='good', points=10, ui={}, meta={} }={}){
-    App.engine.score.add(points);
-    App.combo = (kind==='bad') ? 0 : (App.combo+1);
-    HUD.setCombo(App.combo);
-    Quests.event('hit', { result: kind, meta, comboNow: App.combo, score: App.score });
-  },
-  miss({ meta={} }={}){
-    App.combo = 0; HUD.setCombo(0);
-    Quests.event('hit', { result: 'bad', meta, comboNow: 0, score: App.score });
-  }
-};
-
 // ---------------- Boot ----------------
 function boot(){
   wireMenu();
-  wireLB();           // <— ผูก leaderboard UI
+  wireLB();           // leaderboard UI
   showMenu();
 
   // pause on blur / resume on focus
