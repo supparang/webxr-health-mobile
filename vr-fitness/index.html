@@ -1,118 +1,123 @@
 <!doctype html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>VR Fitness Academy · Sport Tech</title>
-  <link rel="stylesheet" href="core/themes/sport-tech.css"/>
-  <style>
-    body{margin:0;background:#070b10;color:#e6f7ff;font:14px/1.4 system-ui}
-    .header,.footer{padding:12px 18px;display:flex;justify-content:space-between;align-items:center;background:#0b1118;border-bottom:1px solid #203446}
-    .brand{font-weight:700;font-size:18px;color:#00ffa3}
-    .container{padding:16px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:10px}
-    .game-card{background:#0b1118;border:1px solid #203446;border-radius:12px;padding:14px;color:#e6f7ff;text-decoration:none;display:flex;flex-direction:column;justify-content:space-between;transition:transform .15s}
-    .game-card:hover{transform:translateY(-3px)}
-    .btn{padding:8px 12px;border:0;border-radius:10px;background:#0e2233;color:#e6f7ff;cursor:pointer}
-  </style>
+  <title>VR Fitness — Hub (Single Page)</title>
+  <link rel="stylesheet" href="./hub.css"/>
 </head>
 <body>
-  <header class="header">
-    <div class="brand">VR Fitness Academy</div>
-    <div>
-      <select id="langSel" class="btn">
-        <option value="en">English</option>
-        <option value="th">ไทย</option>
-      </select>
-      <button class="btn" id="muteBtn">🔊</button>
-    </div>
+  <!-- HUB: เลือกเกม -->
+  <header class="topbar">
+    <h1 class="brand">VR Fitness — Hub</h1>
+    <button id="btnBack" class="btn hidden" data-action="back">← Back to Hub</button>
   </header>
 
-  <main class="container">
-    <h1>Choose your workout</h1>
-    <p style="opacity:.8;margin-bottom:14px">4 mini-games • scoring • VR/PC/Mobile compatible</p>
+  <main id="hub" class="hub">
+    <section class="grid">
+      <!-- Card: Shadow Breaker -->
+      <article class="card">
+        <h2>Shadow Breaker</h2>
+        <p class="desc">ชกตามแพทเทิร์น—ฟิตแรง แข่งเวลา</p>
+        <div class="row">
+          <label>Difficulty</label>
+          <select data-name="diff-sb">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+            <option value="final">Final</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Time (sec)</label>
+          <input data-name="time-sb" type="number" min="30" max="180" step="5" value="90"/>
+        </div>
+        <button class="btn" data-action="play" data-game="shadow-breaker">Play</button>
+      </article>
 
-    <div class="grid" id="gameGrid">
-      <!-- Shadow Breaker -->
-      <a id="link-sb" class="game-card" href="#">
-        <div>
-          <h3>Shadow Breaker</h3>
-          <p>บอสแพทเทิร์น + พาร์รี / เมาส์ - ทัชคลิกได้ / VR พร้อม</p>
+      <!-- Card: Rhythm Boxer -->
+      <article class="card">
+        <h2>Rhythm Boxer</h2>
+        <p class="desc">ต่อจังหวะ—แม่นจังหวะเพื่อคอมโบ</p>
+        <div class="row">
+          <label>Difficulty</label>
+          <select data-name="diff-rb">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
         </div>
-        <div>
-          <span id="sbDiffBadge" style="font-size:13px;opacity:.8">Diff: NORMAL</span><br>
-          <button class="btn" style="margin-top:8px">Play</button>
+        <div class="row">
+          <label>Time (sec)</label>
+          <input data-name="time-rb" type="number" min="45" max="180" step="5" value="85"/>
         </div>
-      </a>
+        <button class="btn" data-action="play" data-game="rhythm-boxer">Play</button>
+      </article>
 
-      <!-- Rhythm Boxer -->
-      <a id="link-rb" class="game-card" href="#">
-        <div>
-          <h3>Rhythm Boxer</h3>
-          <p>กดตามจังหวะ / คอมโบ – Fever / เมาส์ - ทัชคลิกได้ / VR พร้อม</p>
+      <!-- Card: Jump-Duck -->
+      <article class="card">
+        <h2>Jump–Duck</h2>
+        <p class="desc">กระโดด–ก้ม หลบสิ่งกีดขวาง</p>
+        <div class="row">
+          <label>Difficulty</label>
+          <select data-name="diff-jd">
+            <option value="easy" selected>Easy</option>
+            <option value="normal">Normal</option>
+            <option value="hard">Hard</option>
+          </select>
         </div>
-        <div>
-          <span id="rbDiffBadge" style="font-size:13px;opacity:.8">Diff: NORMAL</span><br>
-          <button class="btn" style="margin-top:8px">Play</button>
+        <div class="row">
+          <label>Time (sec)</label>
+          <input data-name="time-jd" type="number" min="45" max="180" step="5" value="80"/>
         </div>
-      </a>
+        <button class="btn" data-action="play" data-game="jump-duck">Play</button>
+      </article>
 
-      <!-- เพิ่มเกมอื่น ๆ ได้ที่นี่ -->
-    </div>
+      <!-- Card: Balance-Hold -->
+      <article class="card">
+        <h2>Balance–Hold</h2>
+        <p class="desc">ทรงตัว นิ่ง ควบคุมแกนแกนกลาง</p>
+        <div class="row">
+          <label>Difficulty</label>
+          <select data-name="diff-bh">
+            <option value="easy">Easy</option>
+            <option value="normal" selected>Normal</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Time (sec)</label>
+          <input data-name="time-bh" type="number" min="30" max="180" step="5" value="75"/>
+        </div>
+        <button class="btn" data-action="play" data-game="balance-hold">Play</button>
+      </article>
+    </section>
   </main>
 
-  <footer class="footer">
-    <span>Sport Tech UI · Press ESC to exit VR</span>
-  </footer>
+  <!-- GAME STAGE: โหลดเกมใน iFrame -->
+  <section id="stage" class="stage hidden" aria-hidden="true">
+    <iframe id="gameFrame" class="frame" allow="autoplay; xr-spatial-tracking; fullscreen *; accelerometer; gyroscope;"></iframe>
+    <div id="overlay" class="overlay">
+      <div class="pill">Paused</div>
+    </div>
+  </section>
 
-  <!-- Core scripts -->
-  <script src="core/i18n.js"></script>
-  <script src="core/audio.js"></script>
-  <script src="core/engine.js"></script>
-  <script src="core/ui.js"></script>
-  <script src="core/leaderboard.js"></script>
+  <!-- RESULT MODAL -->
+  <dialog id="resultModal" class="modal">
+    <h3>Result</h3>
+    <div class="rows">
+      <div><b>Game:</b> <span id="rGame">-</span></div>
+      <div><b>Score:</b> <span id="rScore">0</span></div>
+      <div><b>Combo:</b> <span id="rCombo">0</span></div>
+      <div><b>Stars:</b> <span id="rStars">0</span></div>
+      <div><b>Time:</b> <span id="rTime">0s</span></div>
+    </div>
+    <menu>
+      <button id="btnRetry" class="btn">Retry</button>
+      <button id="btnClose" class="btn btn-secondary">Close</button>
+    </menu>
+  </dialog>
 
-  <script>
-    // ตั้งค่าเสียงปิด/เปิด
-    document.getElementById('muteBtn').addEventListener('click', ()=>{ 
-      try { AudioBus.mute(true); }catch(_){}
-    });
-
-    // ---------- เข้าสู่เกม ----------
-    (function(){
-      const BASE = '/webxr-health-mobile/vr-fitness';
-      const sbDiff = localStorage.getItem('sb_diff') || 'normal';
-      const rbDiff = localStorage.getItem('rb_diff') || 'normal';
-      const show = k => ({easy:'EASY',normal:'NORMAL',hard:'HARD',final:'FINAL'})[k] || 'NORMAL';
-
-      // อัปเดต URL + ป้าย Diff
-      const sbURL = `${BASE}/games/shadow-breaker/?diff=${encodeURIComponent(sbDiff)}`;
-      const rbURL = `${BASE}/games/rhythm-boxer/?diff=${encodeURIComponent(rbDiff)}`;
-
-      const sbA=document.getElementById('link-sb');
-      const rbA=document.getElementById('link-rb');
-      const sbBadge=document.getElementById('sbDiffBadge');
-      const rbBadge=document.getElementById('rbDiffBadge');
-      if(sbA){sbA.href=sbURL; sbA.querySelector('button').onclick=(e)=>{e.preventDefault();location.href=sbURL;}; sbBadge.textContent='Diff: '+show(sbDiff);}
-      if(rbA){rbA.href=rbURL; rbA.querySelector('button').onclick=(e)=>{e.preventDefault();location.href=rbURL;}; rbBadge.textContent='Diff: '+show(rbDiff);}
-    })();
-
-    // ---------- แสดงคะแนนล่าสุด ----------
-    (function(){
-      try{
-        const list = Leaderboard?.recent?.(8) || [];
-        const grid = document.getElementById('gameGrid');
-        if(!list.length)return;
-        const box=document.createElement('div');
-        box.innerHTML='<h2>Recent Results</h2>'+list.map(e=>{
-          const when=new Date(e.ts).toLocaleString();
-          const game=e.gameId||'unknown';
-          const acc=(e.accuracy!=null?(e.accuracy+'%'):'-');
-          return `<div style="font:12px system-ui;opacity:.8">${when} – <b>${game}</b> · Score <b>${e.score||0}</b> · Combo ${e.maxCombo||0} · Acc ${acc}</div>`;
-        }).join('');
-        grid.after(box);
-      }catch(_){}
-    })();
-  </script>
+  <script type="module" src="./hub.js"></script>
 </body>
 </html>
