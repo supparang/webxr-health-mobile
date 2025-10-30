@@ -8,27 +8,29 @@
 </head>
 <body data-mode="goodjunk" data-diff="Normal">
   <div id="app">
+    <!-- Hero -->
     <section id="hero">
       <h1>Hero Health Academy</h1>
-      <p class="sub">เลือกเกมเพื่อฝึกสุขภาพของคุณ</p>
+      <p class="sub">เลือกเกมแล้วกดเริ่ม ▶</p>
     </section>
 
-    <!-- ========= Menu ========= -->
+    <!-- Menu -->
     <div id="menuBar" class="menu">
       <div class="grid">
-        <div id="m_goodjunk" class="tile active"><i>🥦</i><b>Good vs Junk</b><small>เลือกอาหารที่ดี หลีกเลี่ยงขยะ</small></div>
-        <div id="m_groups" class="tile"><i>🥗</i><b>5 Food Groups</b><small>แยกอาหารให้ถูกหมวดหมู่</small></div>
-        <div id="m_hydration" class="tile"><i>💧</i><b>Hydration</b><small>เติมน้ำในร่างกายให้สมดุล</small></div>
-        <div id="m_plate" class="tile"><i>🍽️</i><b>Healthy Plate</b><small>จัดจานอาหารให้สมดุล</small></div>
+        <div id="m_goodjunk"  class="tile active"><i>🥦</i><b>Good vs Junk</b><small>เลือกของดี เลี่ยงของขยะ</small></div>
+        <div id="m_groups"    class="tile"><i>🥗</i><b>5 Food Groups</b><small>แยกหมวดอาหาร</small></div>
+        <div id="m_hydration" class="tile"><i>💧</i><b>Hydration</b><small>รักษาสมดุลน้ำ</small></div>
+        <div id="m_plate"     class="tile"><i>🍽️</i><b>Healthy Plate</b><small>จัดจานให้ครบ</small></div>
       </div>
 
       <div class="row">
-        <div class="seg"><span class="lbl">ระดับ:</span>
+        <div class="seg">
+          <span class="lbl">ระดับ:</span>
           <span id="difficulty" class="value">Normal</span>
           <div class="seg">
-            <div id="d_easy" class="chip">Easy</div>
+            <div id="d_easy"   class="chip">Easy</div>
             <div id="d_normal" class="chip active">Normal</div>
-            <div id="d_hard" class="chip">Hard</div>
+            <div id="d_hard"   class="chip">Hard</div>
           </div>
         </div>
       </div>
@@ -36,9 +38,11 @@
       <div class="cta"><button id="btn_start" class="start">เริ่มเกม ▶</button></div>
     </div>
 
-    <!-- ========= Game Layer ========= -->
+    <!-- Game Layer -->
     <section id="gameLayer">
       <div id="spawnHost"></div>
+
+      <!-- HUD -->
       <div id="hudWrap" class="hud">
         <div id="scoreTime">
           <div id="score" class="pill">0</div>
@@ -48,26 +52,29 @@
         <div id="targetWrap" class="pill" style="display:none;">Target</div>
       </div>
 
+      <!-- Mini quests -->
       <div id="questBar">
         <ul id="questChips"></ul>
       </div>
 
+      <!-- Coach bubble -->
       <div id="coachHUD" class="coach"><span id="coachText"></span></div>
+
       <canvas id="c"></canvas>
     </section>
 
-    <!-- ========= Result Overlay ========= -->
+    <!-- Result -->
     <div id="result" class="menu" style="display:none;flex-direction:column;align-items:center;">
       <h2 id="resultText">คะแนน 0</h2>
       <ul id="pbRow"></ul>
       <div style="margin-top:10px;display:flex;gap:10px;">
         <button data-result="replay" class="chip">เล่นอีกครั้ง</button>
-        <button data-result="home" class="chip">กลับเมนู</button>
+        <button data-result="home"   class="chip">กลับเมนู</button>
       </div>
     </div>
   </div>
 
-  <!-- ========= Scripts ========= -->
+  <!-- Scripts -->
   <script type="module" src="./main.js"></script>
 </body>
 </html>
