@@ -1,236 +1,285 @@
-// === VR Fitness — Shadow Breaker (minimal playable core) ===
-// ES Module (โหลดจาก play.html)
-// - อ่านพารามิเตอร์จาก window.HubLaunch
-// - HUD: Timer / Diff / Mode / Score / Combo / Stars / ปุ่ม Hit!
-// - Logic: กด Hit เพิ่มคะแนน+คอมโบ, นับเวลาถอยหลัง, คิดดาวจากประสิทธิภาพ
-// - Integration: ส่ง tick ให้ Hub ทุก 1s และส่ง GameEnd เมื่อหมดเวลา
-// - Pause on blur + รับ message 'hub:pause' จาก Hub
+// === VR Fitness — Shadow Breaker (Playable DOM version) ===
+// - Lanes: 3 ช่อง (Left, Center, Right)
+// - เป้าจะ "ตกลง" มาที่เส้นตี (hit line) ให้กด J / K / L หรือคลิก/แตะที่เป้า
+// - ตัดสิน: Perfect / Good / Miss (คำนวณจากระยะห่างเส้นตี)
+// - คอมโบ/ดาว/คะแนน, ส่ง tick ให้ Hub ทุกวินาที, GameEnd ตอนหมดเวลา
+// - Pause on blur + รับ hub:pause
 
 (function(){
   "use strict";
 
-  // ---------- Launch Params ----------
+  // ---------- Launch ----------
   const L = window.HubLaunch || {};
   const GAME_ID = "shadow-breaker";
   const MODE = (L.mode||"timed");
   const DIFF = (L.diff||"normal");
-  const TOTAL_TIME = clamp(+L.time || 90, 30, 180); // seconds
+  const TOTAL_TIME = clamp(+L.time || 90, 30, 180);
 
   // ---------- State ----------
   let timeLeft = TOTAL_TIME;
   let score = 0;
   let combo = 0;
   let bestCombo = 0;
+  let stars = 0;
   let paused = false;
-  let started = false;
   let finished = false;
 
+  // ---------- Difficulty table ----------
+  const DIFFCFG = {
+    easy:   { bpm: 90,  fallSpeed: 380,  perfectWin: 26, goodWin: 56 },
+    normal: { bpm: 110, fallSpeed: 460,  perfectWin: 24, goodWin: 52 },
+    hard:   { bpm: 130, fallSpeed: 550,  perfectWin: 22, goodWin: 48 },
+    final:  { bpm: 150, fallSpeed: 640,  perfectWin: 20, goodWin: 44 }
+  }[DIFF] || { bpm: 110, fallSpeed: 460, perfectWin: 24, goodWin: 52 };
+
+  // ช่วง spawn (ms) ตาม bpm
+  const SPAWN_MS = Math.round(60000 / DIFFCFG.bpm); // โน้ตความถี่คงที่เรียบ ๆ
+  const LANES = ["L","C","R"];
+
   // ---------- Helpers ----------
-  function $(s){ return document.querySelector(s); }
-  function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-  function fmtTime(sec){
-    const m = Math.floor(sec/60);
-    const s = Math.floor(sec%60);
-    return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-  }
+  const $  = (s)=>document.querySelector(s);
+  const $$ = (s)=>[...document.querySelectorAll(s)];
+  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
   function sendToHub(type, data){
-    try{
-      if(window.parent && window.parent !== window){
-        window.parent.postMessage({type, game: GAME_ID, ...data}, "*");
-      }
-    }catch(e){}
+    try{ if(window.parent && window.parent!==window){
+      window.parent.postMessage({type, game: GAME_ID, ...data}, "*");
+    }}catch(e){}
+  }
+  function fmt(sec){ const m=(sec/60)|0; const s=(sec%60)|0; return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; }
+  function rngPick(arr){ return arr[(Math.random()*arr.length)|0]; }
+
+  // ดาว 0–5 จากคะแนน/วินาที ปรับด้วย diff
+  function calcStars(score, elapsed){
+    const rate = score / Math.max(1, elapsed);
+    const mul = {easy:0.85, normal:1, hard:1.2, final:1.35}[DIFF]||1;
+    const t=[0.6,1.0,1.6,2.2,3.0].map(x=>x*mul);
+    if(rate>=t[4]) return 5; if(rate>=t[3]) return 4; if(rate>=t[2]) return 3; if(rate>=t[1]) return 2; if(rate>=t[0]) return 1; return 0;
   }
 
-  // ดาว 0–5 จาก “ประสิทธิภาพต่อวินาที” ปรับด้วย difficulty
-  function starsFor(score, elapsed){
-    const sec = Math.max(1, elapsed);
-    const rate = score / sec; // คะแนนต่อวินาที
-    const diffMul = { easy:0.85, normal:1.0, hard:1.2, final:1.35 }[DIFF] || 1.0;
-
-    // เกณฑ์แบบนุ่มนวล (คะแนน/วินาที)
-    const t1 = 0.6 * diffMul;  // ★1
-    const t2 = 1.0 * diffMul;  // ★2
-    const t3 = 1.6 * diffMul;  // ★3
-    const t4 = 2.2 * diffMul;  // ★4
-    const t5 = 3.0 * diffMul;  // ★5
-
-    if(rate >= t5) return 5;
-    if(rate >= t4) return 4;
-    if(rate >= t3) return 3;
-    if(rate >= t2) return 2;
-    if(rate >= t1) return 1;
-    return 0;
-  }
-
-  function updateHUD(){
-    setText("#timer", fmtTime(timeLeft));
-    setText("#score", score);
-    setText("#combo", combo);
-    setText("#stars", String(starsFor(score, TOTAL_TIME - timeLeft)));
-  }
-
-  function setText(sel, txt){
-    const el = $(sel);
-    if(el) el.textContent = txt;
-  }
-
-  function bump(val, by=1){ return (val||0) + by; }
-
-  // ---------- Build UI ----------
+  // ---------- Build HUD + Stage ----------
   const root = document.createElement("div");
   root.innerHTML = `
   <style>
-    .sb-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font:16px/1.5 system-ui,Segoe UI,Inter,Arial}
-    .sb-card{max-width:860px;width:92vw;text-align:center}
-    h1{font-weight:700;letter-spacing:.3px;margin:0 0 18px 0;color:#cfe6ff}
-    .timer{font-size:64px;font-weight:800;letter-spacing:1px;margin:8px 0 16px 0}
-    .meta{font-size:22px;color:#dbe8ff;margin-bottom:18px}
-    .meta b{color:#fff}
-    .stats{display:flex;gap:24px;justify-content:center;margin:10px 0 24px 0}
+    :root{ --bg:#000; --fg:#fff; --muted:#a9b7d0; --accent:#76e1ff; }
+    html,body{background:#000;color:#fff}
+    .sb-wrap{min-height:100vh;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,Segoe UI,Inter,Arial}
+    .hud{padding-top:26px;text-align:center}
+    .title{color:#cfe6ff;margin:0 0 8px 0}
+    .timer{font-size:64px;font-weight:800;letter-spacing:1px;margin:10px 0 12px}
+    .meta{font-size:20px;color:#dbe8ff;margin-bottom:10px}
+    .stats{display:flex;gap:24px;justify-content:center;margin:0 0 8px}
     .stat{min-width:120px}
-    .stat .label{color:#a9b7d0}
-    .stat .val{font-size:32px;font-weight:800}
-    .hint{color:#9db0c8;margin:10px 0 18px 0}
-    .btn{display:inline-block;background:#76e1ff;color:#001018;border:0;border-radius:14px;padding:10px 18px;font-weight:800;cursor:pointer}
-    .btn[disabled]{opacity:.4;cursor:not-allowed}
-    .paused{position:fixed;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#00e0ff,#8be7ff);opacity:.0;transition:opacity .2s}
+    .stat .label{color:var(--muted)}
+    .stat .val{font-size:30px;font-weight:800}
+    .stage{position:relative;margin:18px auto 12px auto;width:min(880px,94vw);height:56vh;border:1px solid #1b2235;border-radius:16px;background:linear-gradient(180deg,#0a0d18,#03050a 70%);overflow:hidden}
+    .lanes{position:absolute;inset:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+    .lane{position:relative;border:1px dashed #1d2a3f;border-radius:12px;background:linear-gradient(180deg,#0e1724,#0a0f18)}
+    .hitline{position:absolute;left:0;right:0;bottom:50px;height:4px;background:linear-gradient(90deg,#00e0ff,#8be7ff);opacity:.8}
+    .note{position:absolute;left:0;right:0; width:66px; height:66px; margin:0 auto; border-radius:50%; background:#1f90ff; box-shadow:0 0 18px #1f90ff80; display:grid;place-items:center; font-weight:900}
+    .note[data-lane="L"]{background:#ff7d7d; box-shadow:0 0 18px #ff7d7d90}
+    .note[data-lane="R"]{background:#7dffb6; box-shadow:0 0 18px #7dffb690}
+    .judg{position:absolute;left:50%;transform:translateX(-50%);bottom:90px;font-size:22px;font-weight:900;pointer-events:none}
+    .judg.perfect{color:#8fe8ff;text-shadow:0 0 10px #8fe8ff}
+    .judg.good{color:#b4ff9b;text-shadow:0 0 10px #b4ff9b}
+    .judg.miss{color:#ff8a8a;text-shadow:0 0 10px #ff8a8a}
+    .help{color:#9db0c8;text-align:center;margin:6px 0 14px 0}
+    .keys{color:#9db0c8;text-align:center;margin-top:2px;font-size:13px}
+    .paused{position:fixed;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#00e0ff,#8be7ff);opacity:0;transition:opacity .2s}
     .paused.show{opacity:1}
   </style>
   <div class="sb-wrap">
-    <div class="sb-card">
-      <h1>VR Fitness — <b>Shadow Breaker</b></h1>
+    <div class="hud">
+      <h2 class="title">VR Fitness — <b>Shadow Breaker</b></h2>
       <div id="timer" class="timer">--:--</div>
       <div class="meta">Diff: <b id="diff"></b> | Mode: <b id="mode"></b></div>
-
       <div class="stats">
         <div class="stat"><div class="label">Score</div><div id="score" class="val">0</div></div>
         <div class="stat"><div class="label">Combo</div><div id="combo" class="val">0</div></div>
         <div class="stat"><div class="label">Stars</div><div id="stars" class="val">0</div></div>
       </div>
-
-      <div class="hint">(ทดสอบระบบ Hub: คลิก/แตะเพื่อ + คะแนน, ระบบจะส่ง score/เวลา ให้ Hub ทุกวินาที)</div>
-      <button id="btnHit" class="btn">+ Hit!</button>
     </div>
+    <div class="stage" id="stage">
+      <div class="lanes">
+        <div class="lane" data-lane="L"><div class="hitline"></div></div>
+        <div class="lane" data-lane="C"><div class="hitline"></div></div>
+        <div class="lane" data-lane="R"><div class="hitline"></div></div>
+      </div>
+    </div>
+    <div class="help">(คลิก/แตะเป้าหรือกดแป้น J K L ให้ตรงเส้น — Perfect/Good/Miss)</div>
+    <div class="keys">Keys: J = Left, K = Center, L = Right</div>
   </div>
   <div id="pausedBar" class="paused"></div>
   `;
   document.body.appendChild(root);
 
-  setText("#diff", DIFF);
-  setText("#mode", MODE);
+  $("#diff").textContent = DIFF;
+  $("#mode").textContent = MODE;
+
+  // ---------- HUD update ----------
+  function updateHUD(){
+    $("#timer").textContent = fmt(timeLeft);
+    $("#score").textContent = score;
+    $("#combo").textContent = combo;
+    $("#stars").textContent = stars;
+  }
   updateHUD();
 
-  // ---------- Scoring ----------
-  function handleHit(){
-    if(paused || finished) return;
-    started = true;
+  // ---------- Stage / Notes ----------
+  const stage = $("#stage");
+  const hitY = stage.getBoundingClientRect().height - 50 - 10; // 50px up from bottom, minus 10 inset
 
-    // คะแนนพื้นฐาน + โบนัสจากคอมโบ + ความยาก
-    const diffBonus = { easy:1.0, normal:1.1, hard:1.25, final:1.35 }[DIFF] || 1.0;
-    combo = bump(combo, 1);
-    bestCombo = Math.max(bestCombo, combo);
-    const add = Math.round(1 * diffBonus + Math.floor(combo/10));
-    score = bump(score, add);
+  const notes = new Set(); // active notes
+  let lastSpawn = 0;
 
-    // เอฟเฟ็กต์สั้น ๆ (scale ปุ่ม)
-    const btn = $("#btnHit");
-    if(btn){
-      btn.style.transform = "scale(1.06)";
-      setTimeout(()=>btn.style.transform="scale(1)", 90);
+  function spawnNote(){
+    const lane = rngPick(LANES);
+    const n = document.createElement("div");
+    n.className = "note";
+    n.dataset.lane = lane;
+    n.style.top = "-70px"; // start above view
+    n.style.cursor = "pointer";
+    n.dataset.y = "-70"; // for animation
+    n.addEventListener("click", ()=>tryHit(lane));
+    stage.appendChild(n);
+    notes.add(n);
+  }
+
+  // animation loop
+  let rafId=null, lastT=0;
+  function loop(t){
+    if(finished || paused){ rafId = requestAnimationFrame(loop); return; }
+    if(!lastT) lastT = t;
+    const dt = (t - lastT) / 1000; // sec
+    lastT = t;
+
+    // spawn rhythm
+    if(t - lastSpawn > SPAWN_MS){
+      spawnNote();
+      lastSpawn = t;
     }
+
+    // move notes
+    const h = stage.getBoundingClientRect().height;
+    const FALL = DIFFCFG.fallSpeed * dt; // px per frame
+    notes.forEach(n=>{
+      const y = (+n.dataset.y) + FALL;
+      n.dataset.y = String(y);
+      n.style.transform = `translateY(${y}px)`;
+      // miss if passed hit line
+      if(y > hitY + DIFFCFG.goodWin + 26){ // miss buffer
+        judge("miss");
+        notes.delete(n);
+        n.remove();
+      }
+    });
+
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // ---------- Judgement ----------
+  function tryHit(whichLane){
+    if(paused || finished) return;
+    // find closest note in that lane to hit line
+    let best = null, bestDist = 1e9;
+    notes.forEach(n=>{
+      if(n.dataset.lane !== whichLane) return;
+      const y = +n.dataset.y;
+      const dist = Math.abs(y - hitY);
+      if(dist < bestDist){ best = n; bestDist = dist; }
+    });
+    if(!best) return; // nothing in that lane
+    if(bestDist <= DIFFCFG.perfectWin){
+      judge("perfect");
+      pop(best);
+    }else if(bestDist <= DIFFCFG.goodWin){
+      judge("good");
+      pop(best);
+    }else{
+      judge("miss"); // too far
+    }
+  }
+
+  function pop(n){
+    notes.delete(n);
+    // tiny burst
+    n.animate([{transform:n.style.transform, opacity:1},{transform:`${n.style.transform} scale(1.25)`,opacity:0}],{duration:140,easing:"ease-out"});
+    setTimeout(()=>n.remove(),140);
+  }
+
+  function judge(kind){
+    const dmul = {easy:1.0, normal:1.1, hard:1.25, final:1.35}[DIFF]||1;
+    if(kind==="perfect"){
+      combo++; bestCombo=Math.max(bestCombo,combo);
+      score += Math.round(2*dmul + Math.floor(combo/10));
+      flash("perfect");
+    }else if(kind==="good"){
+      combo++; bestCombo=Math.max(bestCombo,combo);
+      score += Math.round(1*dmul + Math.floor(combo/20));
+      flash("good");
+    }else{ // miss
+      combo = 0;
+      flash("miss");
+    }
+    stars = calcStars(score, TOTAL_TIME - timeLeft);
     updateHUD();
   }
 
-  $("#btnHit").addEventListener("click", handleHit, {passive:true});
-
-  // ---------- Loop & Ticks ----------
-  let tickTimer = null;
-  function startLoop(){
-    if(tickTimer) return;
-    tickTimer = setInterval(()=>{
-      if(paused || finished) return;
-
-      // หากผู้เล่นยังไม่กด เริ่มนับถอยหลังอยู่ดี (สำหรับโหมด timed)
-      timeLeft = Math.max(0, timeLeft - 1);
-      updateHUD();
-
-      // ส่ง Tick ให้ Hub
-      sendToHub("HubScoreTick", {
-        timeLeft,
-        score,
-        combo,
-        stars: starsFor(score, TOTAL_TIME - timeLeft)
-      });
-
-      if(timeLeft <= 0){
-        endGame(true);
-      }
-    }, 1000);
+  function flash(kind){
+    const el = document.createElement("div");
+    el.className = `judg ${kind}`;
+    el.textContent = (kind==="perfect"?"PERFECT!":kind==="good"?"GOOD":"MISS");
+    stage.appendChild(el);
+    el.animate([{transform:"translate(-50%,0)",opacity:0},{opacity:1,offset:.25},{transform:"translate(-50%,-22px)",opacity:0}],{duration:650,easing:"ease-out"});
+    setTimeout(()=>el.remove(),650);
   }
+
+  // ---------- Input ----------
+  window.addEventListener("keydown",(e)=>{
+    if(e.repeat) return;
+    if(e.code==="KeyJ"){ e.preventDefault(); tryHit("L"); }
+    if(e.code==="KeyK"){ e.preventDefault(); tryHit("C"); }
+    if(e.code==="KeyL"){ e.preventDefault(); tryHit("R"); }
+  }, {passive:false});
+
+  // ---------- Timer / Hub ticks ----------
+  let tick = setInterval(()=>{
+    if(finished || paused) return;
+    timeLeft = Math.max(0, timeLeft - 1);
+    updateHUD();
+    sendToHub("HubScoreTick", { timeLeft, score, combo, stars });
+    if(timeLeft<=0){ endGame(true); }
+  }, 1000);
 
   function endGame(byTime){
     if(finished) return;
     finished = true;
-    clearInterval(tickTimer);
-    tickTimer = null;
-
-    const elapsed = TOTAL_TIME - timeLeft;
-    const star = starsFor(score, Math.max(1, elapsed));
-
-    // Freeze ปุ่ม
-    const btn = $("#btnHit");
-    if(btn) btn.setAttribute("disabled","disabled");
-
-    // ส่งผลสรุปให้ Hub
+    cancelAnimationFrame(rafId);
+    clearInterval(tick);
+    notes.forEach(n=>n.remove()); notes.clear();
     sendToHub("HubGameEnd", {
-      byTime: !!byTime,
-      timeTotal: TOTAL_TIME,
-      timePlayed: elapsed,
-      score, combo, bestCombo,
-      stars: star,
-      diff: DIFF, mode: MODE
+      byTime: !!byTime, timeTotal: TOTAL_TIME, timePlayed: TOTAL_TIME - timeLeft,
+      score, combo, bestCombo, stars, diff: DIFF, mode: MODE
     });
-
-    // แสดงข้อความเล็ก ๆ
-    const hint = document.createElement("div");
-    hint.className = "hint";
-    hint.style.color = "#cfe6ff";
-    hint.style.marginTop = "12px";
-    hint.textContent = `จบเกม — Stars: ${star} | Best Combo: ${bestCombo}`;
-    document.querySelector(".sb-card").appendChild(hint);
+    // banner small
+    flash("good");
   }
 
   // ---------- Pause / Resume ----------
   const pausedBar = $("#pausedBar");
   function setPaused(v){
     paused = !!v;
-    if(paused) pausedBar.classList.add("show");
-    else pausedBar.classList.remove("show");
+    pausedBar.classList.toggle("show", paused);
   }
-
   window.addEventListener("message", (ev)=>{
-    const m = ev.data || {};
-    if(m.type === "hub:pause"){
-      setPaused(!!m.value);
-    }
+    if((ev.data||{}).type==="hub:pause"){ setPaused(!!ev.data.value); }
   });
+  window.addEventListener("blur", ()=>setPaused(true));
+  window.addEventListener("focus", ()=>setPaused(false));
+  document.addEventListener("visibilitychange", ()=> setPaused(document.hidden));
 
-  window.addEventListener("blur", ()=> setPaused(true));
-  window.addEventListener("focus", ()=> setPaused(false));
-  document.addEventListener("visibilitychange", ()=>{
-    setPaused(document.hidden);
-  });
-
-  // ---------- Init ----------
-  // แจ้ง Hub ว่าเกมพร้อม (ให้ Hub ซ่อน overlay)
-  sendToHub("game:ready", { ok:true, game: GAME_ID });
-
-  // autostart loop
-  startLoop();
-
-  // กด Space = Hit (เผื่อ PC)
-  window.addEventListener("keydown", (e)=>{
-    if(e.code === "Space"){ e.preventDefault(); handleHit(); }
-  });
+  // ---------- Start ----------
+  sendToHub("game:ready", {ok:true, game:GAME_ID});
+  lastSpawn = performance.now(); // spawn asap
+  rafId = requestAnimationFrame(loop);
 
 })();
