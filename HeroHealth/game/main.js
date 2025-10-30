@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (stable minimal, 2025-10-30)
+// === Hero Health Academy — game/main.js (fix: no LHS optional chaining), 2025-10-30
 import * as goodjunk   from './modes/goodjunk.js';
 import * as groups     from './modes/groups.js';
 import * as hydration  from './modes/hydration.js';
@@ -16,13 +16,15 @@ const Engine = {
   score:{
     value:0, combo:0, fever:false,
     add(n){ this.value += n|0; if (this.combo>=10 && !this.fever) this.fever=true; },
-    addKind(kind, opt){ this.add(kind==='perfect'?20:10); },
+    addKind(kind){ this.add(kind==='perfect'?20:10); },
     comboUp(){ this.combo++; if (this.combo>=10) this.fever=true; },
     comboBreak(){ this.combo=0; this.fever=false; }
   },
   fx:{
-    popText(txt,{x,y,ms=700}={}){ const el=document.createElement('div');
-      el.textContent = txt; el.style.cssText=`position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+    popText(txt,{x,y,ms=700}={}){
+      const el=document.createElement('div');
+      el.textContent = txt;
+      el.style.cssText=`position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
         font:900 16px ui-rounded;color:#fff;text-shadow:0 2px 8px #0008;pointer-events:none;z-index:200;opacity:1;transition:all .7s ease`;
       document.body.appendChild(el);
       requestAnimationFrame(()=>{ el.style.transform+=' translateY(-30px)'; el.style.opacity='0'; });
@@ -30,7 +32,15 @@ const Engine = {
     }
   },
   sfx:{
-    play(id){ try{ document.getElementById(id)?.currentTime=0, document.getElementById(id)?.play(); }catch{} }
+    play(id){
+      try{
+        const a = document.getElementById(id);
+        if (a){
+          a.currentTime = 0;
+          a.play();
+        }
+      }catch{}
+    }
   }
 };
 
@@ -63,7 +73,8 @@ function wireMenu(){
   function setDiff(k){
     App.diff=k; $('#difficulty').textContent=k;
     document.querySelectorAll('.chip').forEach(c=>{ if(c.id?.startsWith('d_')) c.classList.remove('active'); });
-    ({Easy:'#d_easy',Normal:'#d_normal',Hard:'#d_hard'}[k] && document.querySelector({Easy:'#d_easy',Normal:'#d_normal',Hard:'#d_hard'}[k]).classList.add('active'));
+    const map = {Easy:'#d_easy', Normal:'#d_normal', Hard:'#d_hard'};
+    const sel = map[k]; if (sel) document.querySelector(sel)?.classList.add('active');
   }
 
   $('#langToggle')?.addEventListener('click', ()=>{
@@ -134,9 +145,7 @@ function startGame(modeKey='goodjunk', diff='Normal', lang='TH'){
   App.lastTs = performance.now();
   App.raf = requestAnimationFrame(gameLoop);
 
-  // hydration: ให้ main เป็นคน tick/วาดหลัก
   if (modeKey==='hydration'){
-    // per-second hydration tick
     const hydTick = ()=>{ if(!App.running) return;
       try{ hydration.tick(App._hydState||{}, { score:Engine.score }, App.hud); }catch{}
       setTimeout(hydTick, 1000);
@@ -154,8 +163,8 @@ function endGame(){
 
 const Coach = {
   onStart(){ App.hud.setCoach(App.lang==='EN'?'Ready... Go!':'พร้อม… ลุย!'); setTimeout(()=>App.hud.hideCoach(), 1200); },
-  onGood(){ /* could cheer */ },
-  onBad(){ /* could warn */ }
+  onGood(){},
+  onBad(){},
 };
 
 function boot(){
