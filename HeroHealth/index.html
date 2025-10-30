@@ -115,5 +115,106 @@
   <!-- RUNTIME -->
   <script type="module" src="./game/main.js"></script>
   <script src="./game/ui.js" defer></script>
+  <!-- === EMERGENCY CLICK HOTFIX (2025-10-30) === -->
+<style id="HHA_CLICK_HOTFIX">
+  #c{pointer-events:none !important;}
+  #menuBar{z-index:100000 !important; pointer-events:auto !important; display:block !important;}
+  #menuBar *{pointer-events:auto !important; cursor:pointer;}
+  #gameLayer{z-index:9000; pointer-events:none !important;} /* เมนูโชว์อยู่ → สนามต้องไม่กินคลิก */
+  #spawnHost{pointer-events:auto !important;}
+  #hudWrap,#hudWrap *,#toast,#coachHUD,#missionLine,#questChips,#targetWrap{pointer-events:none !important;}
+  #result{z-index:100001; pointer-events:auto !important;}
+  [hidden],[aria-hidden="true"],.hidden,.visually-hidden{pointer-events:none !important;}
+</style>
+
+<script>
+(function(){
+  // ---- ปุ่มกู้ชีพมุมล่างซ้าย ----
+  function ensureRescue(){
+    if (document.getElementById('clickRescue')) return;
+    const bar = document.createElement('div');
+    bar.id = 'clickRescue';
+    bar.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:200000;display:flex;gap:8px';
+    bar.innerHTML = `
+      <button id="btnUnblock" style="padding:6px 10px;border:1px solid #888;border-radius:8px;background:#fff;cursor:pointer">🛡 Force-Unblock</button>
+      <button id="btnStartHot" style="padding:6px 10px;border:1px solid #888;border-radius:8px;background:#fff;cursor:pointer">▶ Start</button>
+      <button id="btnHomeHot"  style="padding:6px 10px;border:1px solid #888;border-radius:8px;background:#fff;cursor:pointer">🏠 Home</button>
+    `;
+    document.body.appendChild(bar);
+    document.getElementById('btnUnblock')?.addEventListener('click', forceUnblock, {passive:false});
+    document.getElementById('btnStartHot')?.addEventListener('click', startGameSafe, {passive:false});
+    document.getElementById('btnHomeHot') ?.addEventListener('click', showMenuSafe,  {passive:false});
+  }
+
+  // ---- ปลดตัวบังคลิกทุกชั้น (ยกเว้นเมนู/ผลลัพธ์) ----
+  function forceUnblock(){
+    const vw = innerWidth, vh = innerHeight;
+    const allow = new Set(['menuBar','result','gameLayer','spawnHost','app','c']);
+    document.querySelectorAll('body *').forEach(el=>{
+      const id = el.id || '';
+      if (allow.has(id)) return;
+      const cs = getComputedStyle(el);
+      if (cs.display==='none' || cs.visibility==='hidden' || el.hasAttribute('hidden')) return;
+      // อะไรที่ใหญ่เต็มจอ + z สูง + ยังจับคลิก → ปิด pointer-events
+      if ((cs.position==='fixed' || cs.position==='absolute')) {
+        const r = el.getBoundingClientRect();
+        const large = r.width >= vw*0.9 && r.height >= vh*0.9;
+        const highZ = (parseInt(cs.zIndex||'0',10) >= 999);
+        if (large && highZ && cs.pointerEvents!=='none') el.style.pointerEvents = 'none';
+      }
+    });
+    // เมนูต้องคลิกได้
+    const m=document.getElementById('menuBar'); if(m){ m.style.pointerEvents='auto'; m.style.display='block'; }
+    const g=document.getElementById('gameLayer'); if(g){ g.style.pointerEvents='none'; }
+    const c=document.getElementById('c'); if(c){ c.style.pointerEvents='none'; }
+    console.log('[HHA] forceUnblock applied');
+  }
+
+  // ---- โชว์เมนู / เริ่มเกม แบบไม่พึ่งโมดูล (fallback ถ้า main.js ยังไม่ bind) ----
+  function showMenuSafe(){
+    const menu = document.getElementById('menuBar');
+    const hud  = document.getElementById('hudWrap');
+    const res  = document.getElementById('result');
+    if (menu) menu.style.display = 'block';
+    if (hud)  hud.style.display  = 'none';
+    if (res)  res.style.display  = 'none';
+    const layer = document.getElementById('gameLayer'); if (layer) layer.style.pointerEvents='none';
+    const spawn = document.getElementById('spawnHost'); if (spawn) spawn.style.pointerEvents='auto';
+  }
+  function showPlaySafe(){
+    const menu = document.getElementById('menuBar');
+    const hud  = document.getElementById('hudWrap');
+    if (menu) menu.style.display = 'none';
+    if (hud)  hud.style.display  = 'block';
+    const layer = document.getElementById('gameLayer'); if (layer) layer.style.pointerEvents='auto';
+  }
+  function startGameSafe(){
+    // ถ้ามี HHA จาก main.js ให้ใช้ของจริง
+    if (window.HHA && typeof window.HHA.startSelectedMode==='function'){ window.HHA.startSelectedMode(); return; }
+    // ไม่งั้นใช้ fallback: แค่สลับหน้าจอให้คลิกได้
+    showPlaySafe();
+    console.warn('[HHA] Fallback start: main.js ยังไม่ bind — ตรวจ path/console error ของโมดูล');
+  }
+
+  // ---- ผูกปุ่มหลักซ้ำ (รองรับ click / pointerdown / touchend) ----
+  function bindAll(sel, fn){
+    document.querySelectorAll(sel).forEach(el=>{
+      ['click','pointerdown','touchend'].forEach(ev=> el.addEventListener(ev, e=>{ e.preventDefault?.(); fn(); }, {passive:false}));
+    });
+  }
+
+  // init
+  ensureRescue();
+  bindAll('#btn_start', startGameSafe);
+  bindAll('[data-result="home"]', showMenuSafe);
+  bindAll('[data-result="replay"]', startGameSafe);
+
+  // ทำซ้ำทุก 500ms กัน element ใหม่มาบัง
+  setInterval(forceUnblock, 500);
+  addEventListener('resize', forceUnblock, {passive:true});
+  requestAnimationFrame(forceUnblock);
+})();
+</script>
+
 </body>
 </html>
