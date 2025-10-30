@@ -1,4 +1,8 @@
-// === Hero Health Academy — game/main.js (Menu+Start/Diff/Result wired, 2025-10-30) ===
+// === Hero Health Academy — game/main.js (2025-10-30R2)
+// Menu wired + Real play loop (RAF), timer, Bus(hit/miss), result Home/Replay
+// Works even if Engine has no internal loop.
+// ------------------------------------------------------
+
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 
 import { Engine }        from './core/engine.js';
@@ -12,7 +16,7 @@ import { Progress }      from './core/progression.js';
 import { Quests }        from './core/quests.js';
 import { VRInput }       from './core/vrinput.js';
 
-// Modes
+// Modes (DOM-spawn factory pattern)
 import * as goodjunk   from './modes/goodjunk.js';
 import * as groups     from './modes/groups.js';
 import * as hydration  from './modes/hydration.js';
@@ -25,94 +29,68 @@ const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>Array.from(document.querySelectorAll(s));
 const setText = (sel, txt)=>{ const el=$(sel); if (el) el.textContent = txt; };
 
-// ---------- Core singletons ----------
+// ---------- Singletons ----------
 const score   = new ScoreSystem();
 const power   = new PowerUpSystem();
-const hud     = new HUD();
 const coach   = new Coach();
+const hud     = new HUD();
 const sfx     = new SFX();
 const mission = new MissionSystem();
 power.attachToScore(score);
 
 const engine = new Engine({
   hud, coach, sfx, score, power, mission, THREE,
-  fx:{ popText:(text,{x=0,y=0,ms=700}={})=>{
+  fx:{ popText:(text,{x=0,y=0,ms=650}={})=>{
     const n=document.createElement('div'); n.className='poptext';
-    n.style.left=x+'px'; n.style.top=y+'px'; n.textContent=text;
+    n.textContent=text; n.style.left=x+'px'; n.style.top=y+'px';
     document.body.appendChild(n); setTimeout(()=>n.remove(), ms|0);
   }}
 });
 
-const MODES = { goodjunk, groups, hydration, plate };
-let current = null;
-
-// ---------- Global UI sections ----------
+// ---------- Sections ----------
 const elMenu   = $('#menuBar');
 const elLayer  = $('#gameLayer');
 const elHUD    = $('#hudWrap');
 const elResult = $('#result');
 const elModeNm = $('#modeName');
 const elDiffTx = $('#difficulty');
+const elScore  = $('#score');
+const elTime   = $('#time');
+const elCombo  = $('#combo');
+const elResultText = $('#resultText');
+const elPbRow  = $('#pbRow');
 
 function showMenu(){
-  elMenu && (elMenu.style.display = 'block');
-  elHUD  && (elHUD.style.display  = 'none');
-  elResult && (elResult.style.display = 'none');
-  if (elLayer) elLayer.style.pointerEvents = 'none';
-  if (elMenu)  elMenu.style.pointerEvents  = 'auto';
+  if (elMenu)   elMenu.style.display   = 'block';
+  if (elHUD)    elHUD.style.display    = 'none';
+  if (elResult) elResult.style.display = 'none';
+  if (elLayer)  elLayer.style.pointerEvents = 'none';
+  if (elMenu)   elMenu.style.pointerEvents  = 'auto';
 }
-
 function showPlay(){
-  elMenu && (elMenu.style.display = 'none');
-  elHUD  && (elHUD.style.display  = 'block');
-  elResult && (elResult.style.display = 'none');
-  if (elLayer) elLayer.style.pointerEvents = 'auto';
+  if (elMenu)   elMenu.style.display   = 'none';
+  if (elHUD)    elHUD.style.display    = 'block';
+  if (elResult) elResult.style.display = 'none';
+  if (elLayer)  elLayer.style.pointerEvents = 'auto';
 }
-
 function showResult(){
-  elHUD && (elHUD.style.display = 'none');
-  elMenu && (elMenu.style.display = 'none');
-  if (elResult){
-    elResult.style.display = 'flex';
-    // ให้ปุ่มใน result คลิกได้แน่ ๆ
-    elResult.style.pointerEvents = 'auto';
-    elResult.querySelectorAll('button').forEach(b=>b.style.pointerEvents='auto');
-  }
-  if (elLayer) elLayer.style.pointerEvents = 'none';
+  if (elMenu)   elMenu.style.display   = 'none';
+  if (elHUD)    elHUD.style.display    = 'none';
+  if (elResult){ elResult.style.display = 'flex'; elResult.style.pointerEvents='auto'; }
+  if (elLayer)  elLayer.style.pointerEvents = 'none';
 }
 
-// ---------- Mode load / lifecycle ----------
+// ---------- Modes ----------
+const MODES = { goodjunk, groups, hydration, plate };
+let current = null;
+
 function loadMode(key){
   const m = MODES[key] || MODES.goodjunk;
   try { current?.cleanup?.(); } catch {}
   current = m.create({ engine, hud, coach });
 }
-function startGame(){
-  score.reset();
-  engine.start();
-  current?.start?.();
-  coach?.onStart?.();
-}
-function stopGame(){
-  try { current?.stop?.(); } catch {}
-  try { engine.stop(); } catch {}
-  coach?.onEnd?.();
-  showResult();
-}
 
-// ---------- VR/Gaze ----------
-Progress.init?.();
-VRInput.init?.({ engine, sfx, THREE });
-window.HHA_VR = {
-  toggle: ()=>VRInput.toggleVR(),
-  pause: ()=>VRInput.pause(),
-  resume: ()=>VRInput.resume(),
-  setDwell:(ms)=>VRInput.setDwellMs(ms),
-  setCooldown:(ms)=>VRInput.setCooldown(ms),
-  style:(o)=>VRInput.setReticleStyle(o),
-};
-
-// ---------- Menu selections (mode/diff/sound) ----------
+// ---------- Selections ----------
 let selectedMode = 'goodjunk';
 let selectedDiff = 'Normal';
 
@@ -120,7 +98,6 @@ function setActiveIn(groupSel, el){
   document.querySelectorAll(groupSel).forEach(n=>n.classList.remove('active'));
   el?.classList?.add('active');
 }
-
 function selectMode(key, el){
   selectedMode = key || 'goodjunk';
   document.body.setAttribute('data-mode', selectedMode);
@@ -133,16 +110,15 @@ function selectMode(key, el){
   }
   setActiveIn('#menuBar .tile', el);
 }
-
 function selectDiff(diff, el){
   selectedDiff = diff || 'Normal';
-  window.__HHA_DIFF = selectedDiff;               // ให้โหมดอ่าน
+  window.__HHA_DIFF = selectedDiff;
   document.body.setAttribute('data-diff', selectedDiff);
   if (elDiffTx) elDiffTx.textContent = selectedDiff;
   setActiveIn('#menuBar .chip', el);
 }
 
-// tiles: mode
+// Tiles
 const TILE_MAP = {
   m_goodjunk:'goodjunk', m_groups:'groups',
   m_hydration:'hydration', m_plate:'plate'
@@ -151,75 +127,177 @@ Object.keys(TILE_MAP).forEach(id=>{
   const el = document.getElementById(id);
   if (el) el.addEventListener('click', ()=>selectMode(TILE_MAP[id], el));
 });
+// Diffs
+$('#d_easy')  ?.addEventListener('click', ()=>selectDiff('Easy',   $('#d_easy')));
+$('#d_normal')?.addEventListener('click', ()=>selectDiff('Normal', $('#d_normal')));
+$('#d_hard')  ?.addEventListener('click', ()=>selectDiff('Hard',   $('#d_hard')));
 
-// diff chips
-const dEasy   = $('#d_easy');
-const dNormal = $('#d_normal');
-const dHard   = $('#d_hard');
-dEasy  ?.addEventListener('click', ()=>selectDiff('Easy',   dEasy));
-dNormal?.addEventListener('click', ()=>selectDiff('Normal', dNormal));
-dHard  ?.addEventListener('click', ()=>selectDiff('Hard',   dHard));
-
-// sound toggle
+// Sound
 const soundBtn = $('#soundToggle');
 if (soundBtn){
-  let muted = false;
+  let muted=false;
   soundBtn.addEventListener('click', ()=>{
-    muted = !muted;
-    document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
-    soundBtn.textContent = muted ? '🔈' : '🔊';
+    muted=!muted; document.querySelectorAll('audio').forEach(a=>a.muted=muted);
+    soundBtn.textContent = muted?'🔈':'🔊';
   });
 }
 
-// defaults on boot
+// Defaults
 selectMode('goodjunk', $('#m_goodjunk'));
-selectDiff('Normal', dNormal);
+selectDiff('Normal', $('#d_normal'));
 
-// ---------- Start / Home / Replay ----------
+// ---------- Play loop (independent RAF) ----------
+let _raf = 0, _last = 0, _running = false, _secs = 45;
+
+// seconds by difficulty (can tweak)
+const LEN = { Easy:60, Normal:45, Hard:40 };
+
+function starsOf(scoreVal){
+  // same as ScoreSystem gradeBreaks default
+  const br=[120,240,360,480,600];
+  return (scoreVal>=br[4])?5:(scoreVal>=br[3])?4:(scoreVal>=br[2])?3:(scoreVal>=br[1])?2:(scoreVal>=br[0])?1:0;
+}
+function updateHUD(){
+  setText('#score', String(score.get()));
+  setText('#combo', 'x'+(score.combo|0));
+  setText('#time',  String(Math.max(0,_secs|0)));
+}
+
+// Bus for modes (what groups.js/plate.js expects)
+const Bus = {
+  hit: ({kind='good', points=0, meta={}, ui={}}={})=>{
+    // Prefer score.addKind so combo/fever hooks apply
+    score.addKind(kind, meta);
+    updateHUD();
+    // quests hooks
+    try { window.HHA_QUESTS?.event?.('hit', { result:kind, comboNow:score.combo|0, meta }); } catch {}
+    // mission counters
+    try {
+      const ms = engine?.mission;
+      if (kind==='perfect') ms?.onEvent?.('perfect', {}, engine?.state||{});
+      if (meta?.golden)     ms?.onEvent?.('golden',  {}, engine?.state||{});
+      if (meta?.isTarget)   ms?.onEvent?.('target_hit', {}, engine?.state||{});
+    } catch {}
+  },
+  miss: ({meta={}}={})=>{
+    score.addPenalty(8, { kind:'bad', ...meta });
+    updateHUD();
+    try { window.HHA_QUESTS?.event?.('hit', { result:'bad', meta }); } catch {}
+    try { engine?.mission?.onEvent?.('miss', {}, engine?.state||{}); } catch {}
+  }
+};
+
+function loop(ts){
+  if (!_running) return;
+  if (!_last) _last = ts;
+  const dt = Math.min(0.1, (ts - _last) / 1000); // seconds cap
+  _last = ts;
+
+  _secs -= dt;
+  current?.update?.(dt, Bus);
+  updateHUD();
+
+  if (_secs <= 0){
+    endRun();
+    return;
+  }
+  _raf = requestAnimationFrame(loop);
+}
+
+function beginRun(){
+  // prepare HUD counters
+  score.reset();
+  _secs = LEN[selectedDiff] ?? 45;
+  updateHUD();
+
+  // engine hooks (safe if no-ops)
+  try { engine.start(); } catch {}
+  try { coach.onStart?.(); } catch {}
+  try { current?.start?.(); } catch {}
+
+  _running = true;
+  _last = 0;
+  cancelAnimationFrame(_raf);
+  _raf = requestAnimationFrame(loop);
+}
+
+function endRun(){
+  _running = false;
+  cancelAnimationFrame(_raf);
+  try { current?.stop?.(); } catch {}
+  try { engine.stop(); } catch {}
+  try { coach.onEnd?.(); } catch {}
+
+  // Result UI
+  const g = score.getGrade();
+  if (elResultText) elResultText.textContent = `Score ${g.score} • Grade ${g.grade}`;
+  if (elPbRow){
+    const s = starsOf(g.score);
+    elPbRow.innerHTML = '';
+    for (let i=0;i<5;i++){
+      const li=document.createElement('li');
+      li.textContent = i<s ? '★' : '☆';
+      elPbRow.appendChild(li);
+    }
+  }
+  showResult();
+}
+
+// ---------- Buttons: Start / Home / Replay ----------
 const btnStart  = $('#btn_start');
 const btnHome   = document.querySelector('[data-result="home"]');
 const btnReplay = document.querySelector('[data-result="replay"]');
 
 function runSelected(){
-  // ปิดเมนู เปิดสนาม + โหลดโหมดตามเลือก + เริ่ม
   showPlay();
-  try { loadMode(selectedMode); } catch {}
-  startGame();
+  loadMode(selectedMode);
+  beginRun();
 }
 btnStart ?.addEventListener('click', runSelected);
 btnReplay?.addEventListener('click', runSelected);
 btnHome  ?.addEventListener('click', ()=>{
-  stopGame();
+  // go back to menu
+  try { current?.stop?.(); } catch {}
+  try { engine.stop(); } catch {}
   showMenu();
 });
 
-// ให้โหมด/ระบบอื่นเรียกได้
+// Export minimal hooks
 window.HHA = window.HHA || {};
 window.HHA.startSelectedMode = runSelected;
-window.HHA.stop = stopGame;
+window.HHA.stop   = endRun;
 window.HHA.replay = runSelected;
 
-// ---------- Pause on blur/hidden ----------
-window.addEventListener('blur',  ()=>{ try{ engine.pause(); VRInput.pause(true);}catch{} }, {passive:true});
-window.addEventListener('focus', ()=>{ try{ engine.resume();VRInput.resume(true);}catch{} }, {passive:true});
+// ---------- VR/Gaze ----------
+Progress.init?.();
+VRInput.init?.({ engine, sfx, THREE });
+window.HHA_VR = {
+  toggle: ()=>VRInput.toggleVR(),
+  pause:  ()=>VRInput.pause(),
+  resume: ()=>VRInput.resume(),
+  setDwell: (ms)=>VRInput.setDwellMs(ms),
+  setCooldown: (ms)=>VRInput.setCooldown(ms),
+  style: (o)=>VRInput.setReticleStyle(o),
+};
+
+// Pause/resume on tab state
+window.addEventListener('blur',  ()=>{ if(_running){ try{ VRInput.pause(true);}catch{} } }, {passive:true});
+window.addEventListener('focus', ()=>{ if(_running){ try{ VRInput.resume(true);}catch{} } }, {passive:true});
 document.addEventListener('visibilitychange', ()=>{
-  if (document.hidden){ try{ engine.pause(); VRInput.pause(true);}catch{} }
-  else { try{ engine.resume(); VRInput.resume(true);}catch{} }
+  if (document.hidden){ if(_running){ try{ VRInput.pause(true);}catch{} } }
+  else { if(_running){ try{ VRInput.resume(true);}catch{} } }
 }, {passive:true});
 
 // ---------- Boot ----------
 (function boot(){
   try{
     hud.init?.(); coach.init?.({ hud, sfx }); engine.init?.();
-    // โหลดโหมดเริ่มต้น (ไม่เริ่มเล่นจนกด Start)
     loadMode(selectedMode);
-    // ค่า dwell text ถ้ามี
     const v=parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
     setText('#dwellVal', `${Number.isFinite(v)?v:850}ms`);
-    // เปิดเมนูก่อนเสมอ
     showMenu();
   }catch(e){
-    console.error('[HHA] boot fail', e);
+    console.error('[HHA] Boot fail', e);
     const pre=document.createElement('pre'); pre.style.color='#f55';
     pre.textContent='Boot error:\n'+(e?.stack||e?.message||String(e));
     document.body.appendChild(pre);
