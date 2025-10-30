@@ -7,11 +7,10 @@
 <meta name="color-scheme" content="dark light"/>
 <style>
   html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.4 system-ui,Segoe UI,Inter,Arial}
-  #boot{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at top,#0f1220 0%,#000 60%);z-index:10}
-  #boot .box{background:#121528;padding:18px 20px;border-radius:14px;border:1px solid #2a2f4a;box-shadow:0 10px 30px rgba(0,0,0,.35);max-width:min(92vw,560px)}
-  #boot .log{margin-top:10px;background:#0a0d1f;border:1px solid #243;min-height:60px;max-height:200px;overflow:auto;border-radius:10px;padding:8px;font:12px ui-monospace,Menlo,Consolas,mono;white-space:pre-wrap}
+  #boot{position:fixed;inset:0;display:grid;place-items:center;background:#000;z-index:10}
+  #boot .box{background:#121528;padding:18px 20px;border-radius:14px;border:1px solid #2a2f4a;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  #boot .log{margin-top:10px;background:#0a0d1f;border:1px solid #243;min-height:60px;max-height:180px;overflow:auto;border-radius:10px;padding:8px;font:12px monospace;white-space:pre-wrap}
   #err{position:fixed;left:12px;bottom:12px;max-width:min(92vw,720px);display:none;background:#2a2f4a;border:1px solid #445;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;z-index:11}
-  #err b{color:#fff}
 </style>
 </head>
 <body>
@@ -22,33 +21,27 @@
 <div id="err"></div>
 
 <script>
-  (function(){ const u=new URL(location.href);
-    window.HubLaunch={ game:u.searchParams.get("game")||"shadow-breaker", mode:u.searchParams.get("mode")||"timed", diff:u.searchParams.get("diff")||"normal", time:Math.max(30,Math.min(180,+(u.searchParams.get("time")||90))) };
-  })();
+(function(){ const u=new URL(location.href);
+  window.HubLaunch={ game:u.searchParams.get("game")||"shadow-breaker", mode:u.searchParams.get("mode")||"timed",
+    diff:u.searchParams.get("diff")||"normal", time:Math.max(30,Math.min(180,+(u.searchParams.get("time")||90))) };
+})();
+const logEl=document.getElementById('bootLog');const errEl=document.getElementById('err');const boot=document.getElementById('boot');
+let gotGame=false,gotAdapter=false;
+const log=s=>{logEl.textContent+="\n• "+s;logEl.scrollTop=logEl.scrollHeight;};
+const showErr=m=>{errEl.style.display='block';errEl.innerHTML="<b>⚠️</b> "+m;console.error(m);};
+window.addEventListener('error',e=>showErr(e.message||String(e)),true);
+window.addEventListener('unhandledrejection',e=>showErr(String(e.reason)),true);
+function maybeStart(){if(gotGame&&gotAdapter){log('✓ ready');boot.remove();}}
 
-  const logEl=document.getElementById('bootLog'); const errEl=document.getElementById('err'); const boot=document.getElementById('boot');
-  let gotGame=false, gotAdapter=false;
-  const log=(s)=>{logEl.textContent+="\n• "+s; logEl.scrollTop=logEl.scrollHeight;};
-  const showErr=(m)=>{errEl.style.display='block'; errEl.innerHTML="<b>⚠️ Error:</b> "+m; console.error(m);};
-  window.addEventListener('error',(e)=>showErr((e.error&&e.error.stack)||e.message||String(e)),true);
-  window.addEventListener('unhandledrejection',(e)=>showErr((e.reason&&(e.reason.stack||e.reason.message))||String(e.reason)),true);
-  function maybeStart(){ if(gotGame&&gotAdapter){ log('both scripts loaded ✓'); boot.style.display='none'; } }
+(function(){const s=document.createElement('script');s.src='/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live';
+s.onload=()=>{gotAdapter=true;log('hub-adapter.js ✓');maybeStart();};
+s.onerror=()=>{showErr('โหลด hub-adapter.js ไม่สำเร็จ');};
+document.head.appendChild(s);})();
 
-  (function(){ const s=document.createElement('script');
-    s.src='/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live';
-    s.onload=()=>{ gotAdapter=true; log('hub-adapter.js loaded ✓'); maybeStart(); };
-    s.onerror=()=>{ showErr('โหลด hub-adapter.js ไม่สำเร็จ'); log('hub-adapter.js FAILED'); };
-    document.head.appendChild(s);
-  })();
-
-  (function(){ const s=document.createElement('script');
-    s.type='module'; s.src='./game.js?v=live';
-    s.onload=()=>{ gotGame=true; log('game.js loaded ✓'); maybeStart(); };
-    s.onerror=()=>{ showErr('โหลด game.js ไม่สำเร็จ (ตรวจพาธ/ตัวพิมพ์)'); log('game.js FAILED'); };
-    document.head.appendChild(s);
-  })();
-
-  setTimeout(()=>{ if(!(gotGame&&gotAdapter)) log('still loading… (check Network)'); },4000);
+(function(){const s=document.createElement('script');s.type='module';s.src='./game.js?v=live';
+s.onload=()=>{gotGame=true;log('game.js ✓');maybeStart();};
+s.onerror=()=>{showErr('โหลด game.js ไม่สำเร็จ');};
+document.head.appendChild(s);})();
 </script>
 </body>
 </html>
