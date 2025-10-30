@@ -1,53 +1,165 @@
-/* === Hero Health Academy — styles/game.css (pointer fix v2) === */
+/* === Hero Health Academy — styles/game.css (2025-10-30 click-through safe) === */
 
-/* เมนูอยู่บนสุด คลิกได้เฉพาะตอนแสดง */
-#menuBar{
-  position:relative;
-  z-index:100;
-  pointer-events:auto;
+/* Base */
+:root{
+  --bg:#071423;
+  --panel:#0f1d31;
+  --pill:#0c1a2b;
+  --accent:#2dd4bf;
+  --text:#e2ebff;
+  --muted:#8aa0c2;
 }
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+  font:400 16px/1.5 ui-sans-serif,system-ui,Segoe UI,Arial;
+  color:var(--text);
+  background:radial-gradient(80% 60% at 50% -10%, #123157 0%, #071423 55%, #060e1a 100%);
+  overflow:hidden;
+  -webkit-text-size-adjust:100%;
+}
+#app{ position:relative; width:100%; height:100vh; }
 
-/* ชั้นสนามเกม */
+/* ===== Layers ===== */
+/* Playfield must always be clickable unless main.js disables it */
 #gameLayer{
   position:relative;
-  z-index:1;
-  /* ไม่ตั้ง pointer-events ตายตัว ให้ JS คุม (auto ตอนเล่น / none ตอนเมนู) */
+  width:100%;
+  height:calc(100vh - 0px);
+  contain:layout size style;
+  pointer-events:auto;           /* default ON (main.js will turn OFF in menu) */
+  z-index:10;
 }
-
-/* โฮสต์สแปว์น: ต้องปล่อยคลิกเสมอเวลาเล่น */
 #spawnHost{
+  position:absolute; inset:0;
+  pointer-events:auto;           /* <-- ensure clicks land here */
+  z-index:12;
+}
+canvas#c{ position:fixed; inset:0; width:100%; height:100%; opacity:.08; pointer-events:none; z-index:1; }
+
+/* HUD should not eat clicks */
+#hudWrap{
+  position:absolute; inset:0;
+  display:none;
+  pointer-events:none;           /* <-- let clicks pass through */
+  z-index:14;
+}
+
+/* Menu sits above playfield and is interactive */
+.menu#menuBar{
   position:relative;
-  pointer-events:auto;   /* <-- แก้: เปิดคลิก */
-}
-
-/* ปุ่มไอเท็มที่เกิดในสนาม */
-#spawnHost .spawn-emoji{
-  position:absolute;
+  z-index:20;
   pointer-events:auto;
-  cursor:pointer;
+  display:block;
+  padding:24px 16px;
+  max-width:1000px;
+  margin:0 auto;
 }
-
-/* HUD/โอเวอร์เลย์ที่ต้อง “ไม่บังคลิก” */
-#hudWrap,
-#missionLine,
-#toast,
-#platePills,
-#plateTracker,
-#targetWrap,
-#coachHUD,
-#resultModal{
-  pointer-events:none;
+.menu .grid{
+  display:grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap:12px;
 }
-
-/* แคนวาสฉากหลัง ไม่บังคลิก */
-canvas#c{
-  position:fixed; inset:0;
-  z-index:0;
-  pointer-events:none;
+.menu .tile{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; min-height:96px;
+  background:var(--panel); border:1px solid #1a2c47; border-radius:16px;
+  color:var(--text);
+  cursor:pointer; pointer-events:auto;
 }
+.menu .tile i{ font-style:normal; font-size:28px; line-height:1; }
+.menu .tile b{ font-weight:800; }
+.menu .tile small{ color:var(--muted); }
+.menu .tile.active{ outline:2px solid var(--accent); }
+.menu .row{ display:flex; gap:16px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+.menu .seg{ display:flex; align-items:center; gap:8px; }
+.menu .chip{
+  background:#10233c; border:1px solid #1a2c47; color:var(--text);
+  padding:6px 10px; border-radius:999px; cursor:pointer; pointer-events:auto;
+}
+.menu .chip.active{ background:#14304f; border-color:#285d92; }
+.menu .start{
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:10px 18px; border-radius:14px; border:0; cursor:pointer;
+  background:linear-gradient(180deg, #22c1b3, #0fb8a8);
+  color:#041219; font-weight:900; box-shadow:0 6px 18px #0fb8a855;
+}
+.menu .cta{ margin-top:14px; }
 
-/* ผลลัพธ์: ปล่อยให้คลิกปุ่มได้ตามปกติเมื่อแสดง */
+/* Pills / HUD chips (visual only) */
+.pill{
+  display:inline-flex; align-items:center; gap:8px;
+  background:var(--pill); border:1px solid #1a2c47; border-radius:999px;
+  padding:6px 10px; color:var(--text);
+}
+#scoreTime{ position:absolute; left:12px; top:12px; display:flex; gap:8px; pointer-events:none; }
+#targetWrap{ position:absolute; right:12px; top:12px; pointer-events:none; }
+#questBar{ position:absolute; left:12px; right:12px; bottom:12px; display:flex; justify-content:center; pointer-events:none; }
+#questChips{ list-style:none; padding:0; margin:0; display:flex; gap:6px; flex-wrap:wrap; }
+#coachHUD{ position:absolute; left:50%; transform:translateX(-50%); top:56px; pointer-events:none; }
+#missionLine{ position:absolute; left:50%; transform:translateX(-50%); top:96px; background:#10233c; border:1px solid #22496f; border-radius:10px; padding:8px 12px; pointer-events:none; }
+.toast{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); background:#0e233a; border:1px solid #1e4672; color:#e8f6ff; padding:10px 14px; border-radius:12px; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:16; }
+.toast.show{ opacity:1; transform:translate(-50%,-50%) scale(1.02); }
+
+/* Plate tracker (visual only) */
+#plateTracker{ position:absolute; left:12px; right:12px; top:12px; display:none; pointer-events:none; z-index:13; }
+#platePills{ display:flex; gap:8px; pointer-events:none; }
+#platePills .pill{ position:relative; overflow:hidden; }
+#platePills .pill i{ position:absolute; left:0; bottom:0; height:6px; background:var(--accent); width:0; border-radius:4px; }
+#platePills .pill.ok{ outline:2px solid #27c4b2; }
+
+/* Result */
 #result{
-  z-index:120;
-  pointer-events:auto;
+  position:absolute; inset:0;
+  display:none; align-items:center; justify-content:center; flex-direction:column; gap:12px;
+  background:linear-gradient(180deg, #08192c88, #08192cdd);
+  z-index:22; pointer-events:auto;
 }
+#result .chip{ pointer-events:auto; }
+
+/* Spawn buttons (interactive!) */
+.spawn-emoji{
+  position:absolute;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:56px; height:56px;
+  font-size:36px; line-height:1; border:0; background:transparent; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+  pointer-events:auto;
+  user-select:none;
+}
+@media (max-width:480px){
+  .spawn-emoji{ width:52px; height:52px; font-size:34px; }
+}
+
+/* Pop text */
+.poptext{
+  position:fixed; left:0; top:0; transform:translate(-50%,-50%);
+  padding:4px 8px; border-radius:10px; background:#0a1f37dd; color:#c8f7ff;
+  font-weight:800; z-index:30; pointer-events:none;
+  animation:popfade .65s ease-out forwards;
+}
+@keyframes popfade{
+  0%{ transform:translate(-50%,-50%) scale(.95); opacity:.0; }
+  12%{ opacity:1; }
+  100%{ transform:translate(-50%,-80%) scale(1.06); opacity:0; }
+}
+
+/* Danger flash (miss/bad) */
+.flash-danger{ animation:danger .16s ease-out; }
+@keyframes danger{
+  0%{ box-shadow: inset 0 0 0 0 rgba(255,64,64,.0); }
+  100%{ box-shadow: inset 0 0 0 9999px rgba(255,64,64,.08); }
+}
+
+/* Reticle (VRInput will inject, keep non-blocking) */
+#xrReticle{ pointer-events:none; z-index:9999; }
+
+/* Hero & headings */
+#hero{ text-align:center; padding:16px 12px 8px; }
+#hero h1{ margin:0 0 4px; font-size:28px; line-height:1.1; }
+#hero .sub{ margin:0; color:var(--muted); }
+
+/* Utility */
+.hidden{ display:none !important; }
