@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Shadow Breaker — Play</title>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    html,body { margin:0; height:100%; background:#000; color:#fff; font:16px/1.4 system-ui,Segoe UI,Inter,Arial; }
+    #boot { position:fixed; inset:0; display:grid; place-items:center; opacity:.8; }
+  </style>
+</head>
+<body>
+  <div id="boot">Loading Shadow Breaker…</div>
+
+  <script>
+    // อ่านพารามิเตอร์จาก Hub (diff, time, mode)
+    (function(){
+      const u = new URL(location.href);
+      window.HubLaunch = {
+        game: u.searchParams.get("game") || "shadow-breaker",
+        mode: u.searchParams.get("mode") || "timed",
+        diff: u.searchParams.get("diff") || "normal",
+        time: Math.max(30, Math.min(180, +(u.searchParams.get("time")||90)))
+      };
+    })();
+  </script>
+
+  <!-- สคริปต์หลักของเกม -->
+  <script type="module" src="./game.js"></script>
+
+  <!-- Hub Adapter (ปรับพาธถ้าจัดเก็บที่อื่น) -->
+  <script src="../common/hub-adapter.js"></script>
+
+  <script>
+    // ซ่อนหน้าบูตเมื่อเกมพร้อม (กรณีเกมไม่ได้ยิง HubGameReady เอง)
+    window.addEventListener("load", ()=>document.getElementById("boot").style.display="none", { once:true });
+  </script>
+</body>
+</html>
