@@ -1,200 +1,170 @@
-// === Hero Health Academy — game/main.js (2025-10-31 full reactive build) ===
-// All modes unified with HUD, FX, Coach, Score, Combo, Fever
+// === Hero Health Academy — game/main.js (stable minimal, 2025-10-30)
+import * as goodjunk   from './modes/goodjunk.js';
+import * as groups     from './modes/groups.js';
+import * as hydration  from './modes/hydration.js';
+import * as plate      from './modes/plate.js';
+import { Quests }      from './core/quests.js';
+import { createHUD }   from './core/hud.js';
+import { add3DTilt, shatter3D } from './core/fx.js';
 
-import * as HUDMod from './core/hud.js';
-import { Quests } from './core/quests.js';
-import * as FX from './core/fx.js';
+const MODES = { goodjunk, groups, hydration, plate };
+window.HHA_FX = window.HHA_FX || { add3DTilt, shatter3D };
 
-import * as goodjunk from './modes/goodjunk.js';
-import * as groups from './modes/groups.js';
-import * as hydration from './modes/hydration.js';
-import * as plate from './modes/plate.js';
+function $(s){ return document.querySelector(s); }
 
-// --------------------- ENGINE ---------------------
 const Engine = {
-  score: {
-    value: 0,
-    combo: 0,
-    fever: 0,
-    add(n = 0) {
-      this.value += n | 0;
-      if (this.value < 0) this.value = 0;
-    },
-    comboUp() {
-      this.combo++;
-      if (this.combo % 10 === 0) this.fever++;
-    },
-    comboBreak() {
-      this.combo = 0;
+  score:{
+    value:0, combo:0, fever:false,
+    add(n){ this.value += n|0; if (this.combo>=10 && !this.fever) this.fever=true; },
+    addKind(kind, opt){ this.add(kind==='perfect'?20:10); },
+    comboUp(){ this.combo++; if (this.combo>=10) this.fever=true; },
+    comboBreak(){ this.combo=0; this.fever=false; }
+  },
+  fx:{
+    popText(txt,{x,y,ms=700}={}){ const el=document.createElement('div');
+      el.textContent = txt; el.style.cssText=`position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%);
+        font:900 16px ui-rounded;color:#fff;text-shadow:0 2px 8px #0008;pointer-events:none;z-index:200;opacity:1;transition:all .7s ease`;
+      document.body.appendChild(el);
+      requestAnimationFrame(()=>{ el.style.transform+=' translateY(-30px)'; el.style.opacity='0'; });
+      setTimeout(()=>el.remove(), ms);
     }
   },
-  sfx: {
-    play(id) {
-      const el = document.getElementById(id);
-      if (el) el.currentTime = 0, el.play().catch(() => {});
-    }
-  },
-  fx: {
-    popText(txt, { x, y, ms = 650 } = {}) {
-      const t = document.createElement('div');
-      t.textContent = txt;
-      t.style.cssText = `
-        position:fixed;left:${x}px;top:${y}px;
-        transform:translate(-50%,-50%);
-        font:900 18px/1 ui-rounded;color:#fff;
-        text-shadow:0 2px 10px #0008;
-        pointer-events:none;z-index:300;
-        transition:all .6s ease-out`;
-      document.body.appendChild(t);
-      setTimeout(() => {
-        t.style.transform = 'translate(-50%,-120%) scale(1.3)';
-        t.style.opacity = '0';
-      }, 20);
-      setTimeout(() => t.remove(), ms);
-    },
-    add3DTilt: FX.add3DTilt,
-    shatter3D: FX.shatter3D
+  sfx:{
+    play(id){ try{ document.getElementById(id)?.currentTime=0, document.getElementById(id)?.play(); }catch{} }
   }
 };
 
-// --------------------- STATE ---------------------
 const App = {
-  running: false,
-  modeKey: 'goodjunk',
-  diff: 'Normal',
-  lang: 'TH',
-  timeLeft: 45,
-  raf: 0,
-  lastTs: 0,
-  game: null,
-  hud: null
+  modeKey: (document.body.getAttribute('data-mode')||'goodjunk'),
+  diff:    (document.body.getAttribute('data-diff')||'Normal'),
+  lang:    (localStorage.getItem('hha_lang')||'TH').toUpperCase(),
+  running:false, timeLeft:45, lastTs:0, raf:0, game:null, hud:null,
 };
 
-const MODES = { goodjunk, groups, hydration, plate };
-const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-const $ = s => document.querySelector(s);
-
-// --------------------- HUD + QUEST ---------------------
-App.hud = HUDMod.createHUD({
-  onHome: stopToHome,
-  onReplay: () => startGame(App.modeKey, App.diff, App.lang)
-});
-Quests.bindToMain({ hud: App.hud });
-
-// --------------------- MENU ---------------------
-const TILE = {
-  goodjunk: $('#m_goodjunk'),
-  groups: $('#m_groups'),
-  hydration: $('#m_hydration'),
-  plate: $('#m_plate')
-};
-for (const [k, el] of Object.entries(TILE)) {
-  el?.addEventListener('click', () => {
-    Object.values(TILE).forEach(x => x?.classList.remove('active'));
-    el.classList.add('active');
-    App.modeKey = k;
-    $('#modeName').textContent = {
-      goodjunk: 'Good vs Junk',
-      groups: 'Food Groups',
-      hydration: 'Hydration',
-      plate: 'Healthy Plate'
-    }[k];
+function wireMenu(){
+  const tiles = [
+    ['m_goodjunk','goodjunk','Good vs Junk'],
+    ['m_groups','groups','5 Food Groups'],
+    ['m_hydration','hydration','Hydration'],
+    ['m_plate','plate','Healthy Plate'],
+  ];
+  tiles.forEach(([id,key,label])=>{
+    const el = $('#'+id); if(!el) return;
+    el.addEventListener('click', ()=>{
+      document.querySelectorAll('.tile').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+      App.modeKey = key; $('#modeName').textContent = label;
+    });
   });
-}
-$('#d_easy').onclick = () => App.diff = 'Easy';
-$('#d_normal').onclick = () => App.diff = 'Normal';
-$('#d_hard').onclick = () => App.diff = 'Hard';
-$('#btn_start').onclick = () => startGame(App.modeKey, App.diff, App.lang);
 
-// --------------------- GAME CONTROL ---------------------
-function startGame(modeKey = 'goodjunk', diff = 'Normal', lang = 'TH') {
-  stopGame();
-  App.running = true;
-  App.timeLeft = 45;
-  Engine.score.value = 0;
-  Engine.score.combo = 0;
-  Engine.score.fever = 0;
-  App.hud.resetScore(0, 0);
-  App.hud.updateTime(App.timeLeft);
+  $('#d_easy')  ?.addEventListener('click', ()=> setDiff('Easy'));
+  $('#d_normal')?.addEventListener('click', ()=> setDiff('Normal'));
+  $('#d_hard')  ?.addEventListener('click', ()=> setDiff('Hard'));
+  function setDiff(k){
+    App.diff=k; $('#difficulty').textContent=k;
+    document.querySelectorAll('.chip').forEach(c=>{ if(c.id?.startsWith('d_')) c.classList.remove('active'); });
+    ({Easy:'#d_easy',Normal:'#d_normal',Hard:'#d_hard'}[k] && document.querySelector({Easy:'#d_easy',Normal:'#d_normal',Hard:'#d_hard'}[k]).classList.add('active'));
+  }
 
-  $('#menuBar').style.display = 'none';
-  Quests.setLang(lang);
-  Quests.beginRun(modeKey, diff, lang, App.timeLeft);
+  $('#langToggle')?.addEventListener('click', ()=>{
+    App.lang = (App.lang==='TH'?'EN':'TH'); localStorage.setItem('hha_lang',App.lang);
+    $('#langToggle').textContent = App.lang;
+    try{ Quests.setLang(App.lang); }catch{}
+  });
 
-  const Bus = {
-    hit: ({ kind, points, ui, meta } = {}) => {
-      const pts = points ?? (kind === 'perfect' ? 20 : 10);
-      Engine.score.add(pts);
-      Engine.score.comboUp();
-      Engine.fx.popText(`+${pts}${kind === 'perfect' ? ' ✨' : ''}`, ui);
-      FX.shatter3D(ui.x, ui.y);
-      Quests.event('hit', { result: kind || 'good', meta, comboNow: Engine.score.combo, score: Engine.score.value });
-      App.hud.updateScore(Engine.score.value, Engine.score.combo, App.timeLeft);
-      App.hud.setFever(Engine.score.fever);
-    },
-    miss: ({ meta } = {}) => {
-      Engine.score.comboBreak();
-      Quests.event('hit', { result: 'bad', meta, comboNow: 0, score: Engine.score.value });
-      App.hud.updateScore(Engine.score.value, 0, App.timeLeft);
-      App.hud.dimPenalty();
-    }
-  };
-
-  const coach = {
-    onStart() { App.hud.setCoach('เริ่มเลย!'); App.hud.showCoach(true); setTimeout(() => App.hud.showCoach(false), 1500); },
-    onGood()  { if (Math.random() < 0.25) App.hud.flashCoach('ดีมาก!'); },
-    onBad()   { App.hud.flashCoach('ระวังหน่อย!'); }
-  };
-
-  const mod = MODES[modeKey] || goodjunk;
-  App.game = mod.create({ engine: Engine, hud: App.hud, coach });
-  App.Bus = Bus;
-  App.game.start();
-
-  App.lastTs = performance.now();
-  App.raf = requestAnimationFrame(loop);
-  tickSecond();
+  $('#btn_start')?.addEventListener('click', ()=> startGame(App.modeKey, App.diff, App.lang));
+  $('#btn_ok')    ?.addEventListener('click', ()=> $('#help').style.display='none');
 }
 
-function loop(ts) {
+function tickSecond(){
   if (!App.running) return;
-  const dt = Math.min(0.05, (ts - App.lastTs) / 1000);
-  App.lastTs = ts;
-  try { App.game?.update?.(dt, App.Bus); } catch (e) { console.warn(e); }
-  App.raf = requestAnimationFrame(loop);
-}
-
-function tickSecond() {
-  if (!App.running) return;
-  App.timeLeft = clamp(App.timeLeft - 1, 0, 999);
-  App.hud.updateTime(App.timeLeft);
-  Quests.tick({ score: Engine.score.value });
-  if (App.timeLeft <= 0) return endGame();
+  App.timeLeft = Math.max(0, App.timeLeft - 1);
+  try{ Quests.tick({ score: Engine.score.value }); }catch{}
+  App.hud.updateScore(Engine.score.value, Engine.score.combo, App.timeLeft);
+  if (App.timeLeft<=0) return endGame();
   setTimeout(tickSecond, 1000);
 }
 
-function endGame() {
+function gameLoop(ts){
   if (!App.running) return;
-  App.running = false;
-  try { App.game?.stop?.(); } catch { }
-  const q = Quests.endRun({ score: Engine.score.value });
-  App.hud.showResult({ score: Engine.score.value, combo: Engine.score.combo, quests: q });
+  const dt = Math.min(0.5, (ts - (App.lastTs||ts))/1000);
+  App.lastTs = ts;
+  try{ App.game?.update?.(dt, Bus); }catch{}
+  App.raf = requestAnimationFrame(gameLoop);
 }
 
-function stopGame() {
-  cancelAnimationFrame(App.raf);
-  try { App.game?.stop?.(); } catch { }
-  App.game = null;
+const Bus = {
+  hit({kind='good',points,ui={x:innerWidth/2,y:innerHeight/2},meta}={}){
+    const pts = points ?? (kind==='perfect'?20:10);
+    Engine.score.add(pts); Engine.score.comboUp();
+    Engine.fx.popText(`+${pts}${kind==='perfect'?' ✨':''}`, ui);
+    window.HHA_FX?.shatter3D?.(ui.x, ui.y);
+    Quests.event('hit', { result:kind, meta, comboNow:Engine.score.combo, score:Engine.score.value });
+    App.hud.updateScore(Engine.score.value, Engine.score.combo, App.timeLeft);
+    App.hud.setFever(Engine.score.fever);
+    Engine.sfx.play(kind==='perfect'?'sfx-perfect':'sfx-good');
+  },
+  miss({meta}={}){
+    Engine.score.comboBreak();
+    Quests.event('hit', { result:'bad', meta, comboNow:0, score:Engine.score.value });
+    App.hud.updateScore(Engine.score.value, 0, App.timeLeft);
+    App.hud.dimPenalty();
+    Engine.sfx.play('sfx-bad');
+  }
+};
+
+function startGame(modeKey='goodjunk', diff='Normal', lang='TH'){
+  try{ cancelAnimationFrame(App.raf); }catch{}
+  try{ App.game?.stop?.(); }catch{}
+
+  App.running = true;
+  App.timeLeft = 45;
+  Engine.score.value=0; Engine.score.combo=0; Engine.score.fever=false;
+
+  App.hud.setCoach(lang==='EN'?'Go! Collect and avoid!':'ลุย! เก็บของดี เลี่ยงขยะ');
+  App.hud.updateScore(0,0,App.timeLeft);
+  Quests.beginRun(modeKey, diff, lang, App.timeLeft);
+
+  const maker = MODES[modeKey]?.create || null;
+  if (!maker){ console.error('mode not found', modeKey); return; }
+  App.game = maker({ engine:Engine, hud:App.hud, coach: Coach });
+  App.game.start?.();
+
+  setTimeout(tickSecond, 1000);
+  App.lastTs = performance.now();
+  App.raf = requestAnimationFrame(gameLoop);
+
+  // hydration: ให้ main เป็นคน tick/วาดหลัก
+  if (modeKey==='hydration'){
+    // per-second hydration tick
+    const hydTick = ()=>{ if(!App.running) return;
+      try{ hydration.tick(App._hydState||{}, { score:Engine.score }, App.hud); }catch{}
+      setTimeout(hydTick, 1000);
+    }; setTimeout(hydTick, 1000);
+  }
 }
 
-function stopToHome() {
-  stopGame();
-  $('#menuBar').style.display = '';
-  App.hud.hideResult();
-  App.hud.showCoach(false);
+function endGame(){
+  if(!App.running) return;
+  App.running=false;
+  try{ App.game?.stop?.(); }catch{}
+  const quests = Quests.endRun({ score: Engine.score.value });
+  App.hud.showResult({ score: Engine.score.value, combo: Engine.score.combo, quests });
 }
 
-window.addEventListener('blur', () => { if (App.running) App.hud.setCoach('⏸ พักเกม'); });
-window.addEventListener('focus', () => { if (App.running) App.hud.showCoach(false); });
+const Coach = {
+  onStart(){ App.hud.setCoach(App.lang==='EN'?'Ready... Go!':'พร้อม… ลุย!'); setTimeout(()=>App.hud.hideCoach(), 1200); },
+  onGood(){ /* could cheer */ },
+  onBad(){ /* could warn */ }
+};
 
-window.__HHA_APP = App;
+function boot(){
+  wireMenu();
+  App.hud = createHUD({
+    onHome: ()=>{ try{ App.game?.stop?.(); }catch{} App.running=false; $('#menuBar').style.display='block'; },
+    onReplay: ()=> startGame(App.modeKey, App.diff, App.lang)
+  });
+  Quests.bindToMain({ hud: App.hud });
+  window.__HHA_APP = App;
+}
+boot();
