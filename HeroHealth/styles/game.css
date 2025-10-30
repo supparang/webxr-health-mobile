@@ -1,103 +1,76 @@
-/* === Hero Health Academy — styles/game.css (2025-10-30 CLICK-SAFE v2) === */
+/* === Hero Health — CLICK LAYERS SAFE CSS (2025-10-30) === */
 
-*{box-sizing:border-box;}
-html,body{margin:0;padding:0;height:100%;overflow:hidden;}
-body{font-family:'Segoe UI',sans-serif;background:#06121f;color:#e0ecff}
-
-/* พื้นหลัง 3D */
-canvas#c{
-  position:fixed;inset:0;width:100%;height:100%;
-  opacity:.08;z-index:0;
-  pointer-events:none !important;
+/* Base */
+html, body {
+  margin:0; padding:0; height:100%; width:100%;
 }
+#c { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
-/* โครง */
-#app{position:relative;width:100%;height:100%;}
+/* App layout */
+#app { position:relative; z-index:1; }
 
-/* สนามเกม */
-#gameLayer{
-  position:absolute;inset:0;
-  z-index:10 !important;
-  pointer-events:none !important; /* ปิดตอนอยู่เมนู */
-}
-#spawnHost{
-  position:absolute;inset:0;
-  z-index:11 !important;
-  pointer-events:auto !important;
-}
-
-/* เมนู — ต้องอยู่บนสุดและคลิกได้เสมอ */
-#menuBar{
+/* Menu always above playfield (when visible) */
+#menuBar {
   position:relative;
-  z-index:999 !important;
-  pointer-events:auto !important;
-  display:block;
-  background:linear-gradient(180deg,#091d33 0%,#06111f 100%);
-  padding:20px;
-}
-.menu .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.menu .tile{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:90px;border-radius:12px;border:1px solid #1c355a;
-  background:#0d1b2f;color:#e0ecff;cursor:pointer;
-  pointer-events:auto !important;
-}
-.menu .tile.active{outline:2px solid #29e1c3}
-.menu .tile i{font-size:28px}
-.menu .tile b{font-weight:700}
-.menu .tile small{color:#7fa0c2}
-.menu .row{margin-top:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-.menu .seg{display:flex;align-items:center;gap:6px}
-.menu .chip{
-  background:#0e223b;border:1px solid #1c355a;border-radius:999px;
-  color:#e0ecff;padding:6px 12px;cursor:pointer;
-  pointer-events:auto !important;
-}
-.menu .chip.active{background:#1c355a}
-.menu .cta{margin-top:16px}
-.menu .start{
-  background:linear-gradient(180deg,#23c9b8,#0eb49f);
-  border:0;border-radius:16px;padding:10px 22px;font-weight:900;
-  cursor:pointer;color:#031015;
-  pointer-events:auto !important;
+  z-index:999;
+  pointer-events:auto;
 }
 
-/* HUD/โอเวอร์เลย์: มองเห็นแต่ไม่รับคลิก */
-#hudWrap,#targetWrap,#coachHUD,#missionLine,#toast,#plateTracker,#platePills,#questBar{
-  pointer-events:none !important;z-index:20
+/* Game layer sits below menu, above canvas; spawnHost receives clicks */
+#gameLayer {
+  position:relative;
+  z-index:10;
+  pointer-events:none; /* เปิดเฉพาะตอนเล่นผ่าน JS */
+}
+#spawnHost {
+  position:absolute; inset:0;
+  z-index:11;
+  pointer-events:auto; /* รับคลิกเป้าหมาย */
 }
 
-/* ผลลัพธ์ */
-#result{
-  position:absolute;inset:0;display:none;
-  background:rgba(4,10,20,.86);
-  z-index:1000 !important;
-  pointer-events:auto !important;
+/* HUD floats above playfield butไม่บังคลิก */
+#hudWrap {
+  position:absolute; inset:0;
+  z-index:12;
+  pointer-events:none;
 }
-#result button{pointer-events:auto !important;cursor:pointer}
+#hudWrap * { pointer-events:none; }
+#questChips, #toast, #coachHUD, #missionLine, #targetWrap { pointer-events:none; }
 
-/* วัตถุเกม */
-.spawn-emoji{
-  position:absolute;display:inline-flex;align-items:center;justify-content:center;
-  width:60px;height:60px;font-size:40px;background:transparent;border:0;
-  cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
-  pointer-events:auto !important;user-select:none;
-  filter:drop-shadow(0 3px 6px rgba(0,0,0,.4));
+/* Result modal: clickable onlyเมื่อแสดง */
+#result {
+  position:absolute; inset:0;
+  display:none;
+  z-index:1000;
+  pointer-events:auto;
 }
 
-/* เอฟเฟกต์ตัวหนังสือลอย */
-.poptext{
-  position:fixed;left:0;top:0;transform:translate(-50%,-50%);
-  background:#0a1f37dd;color:#b7f6ff;font-weight:700;border-radius:10px;padding:4px 8px;
-  pointer-events:none;z-index:99;animation:popfade .6s ease-out forwards
+/* Spawn buttons (targets) */
+.spawn-emoji {
+  font-size:28px; line-height:1;
+  background:#0000; border:0; padding:6px 8px;
+  cursor:pointer;
+  transform:translate(-50%,-50%);
 }
-@keyframes popfade{0%{opacity:0;transform:translate(-50%,-40%) scale(.8)}
-15%{opacity:1}100%{opacity:0;transform:translate(-50%,-90%) scale(1.1)}}
 
-/* เรติเคิล */
-#xrReticle{pointer-events:none !important;z-index:9999}
+/* Tiles / chips */
+.menu .tile { cursor:pointer; }
+.chip { cursor:pointer; }
 
-/* ฮีโร่ */
-#hero{text-align:center;padding:12px 8px}
-#hero h1{margin:0;font-size:26px}
-#hero .sub{margin:0;color:#8fb2cc}
+/* Debug bar (injected by JS) */
+#clickGuard {
+  position:fixed; left:8px; bottom:8px;
+  z-index:2000; display:flex; gap:8px;
+}
+#clickGuard button {
+  padding:6px 10px; border-radius:8px; border:1px solid #999; background:#fff; cursor:pointer;
+}
+
+/* Safety: never allow invisible overlays to capture clicks */
+[aria-hidden="true"], .hidden, .visually-hidden { pointer-events:none !important; }
+
+/* Ensure any full-bleed element we didn't plan won't block clicks */
+body > div[style*="position: fixed"],
+body > div[style*="position: absolute"] {
+  /* don’t touch legitimate HUD (has ids), only anonymous full-screen overlays */
+}
