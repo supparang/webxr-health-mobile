@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://unpkg.com" crossorigin>
   <link rel="stylesheet" href="./styles/game.css">
 
-  <!-- SFX / BGM assets (ใส่ไฟล์จริงภายหลังได้) -->
+  <!-- SFX / BGM assets -->
   <audio id="bgm-main" preload="auto" loop></audio>
   <audio id="sfx-good" preload="auto"></audio>
   <audio id="sfx-bad" preload="auto"></audio>
@@ -29,10 +29,10 @@
     <!-- MENU -->
     <section id="menuBar" class="menu">
       <div class="grid">
-        <button id="m_goodjunk" class="tile active"><i>🥗</i><b>Good vs Junk</b><small>แยกของดี/ขยะ</small></button>
-        <button id="m_groups"   class="tile"><i>🧺</i><b>5 Food Groups</b><small>เก็บให้ตรงหมวด</small></button>
-        <button id="m_hydration"class="tile"><i>💧</i><b>Hydration</b><small>สมดุลน้ำในร่างกาย</small></button>
-        <button id="m_plate"    class="tile"><i>🍽️</i><b>Healthy Plate</b><small>เติมให้ครบหมวด</small></button>
+        <button id="m_goodjunk" class="tile active" data-mode="goodjunk"><i>🥗</i><b>Good vs Junk</b><small>แยกของดี/ขยะ</small></button>
+        <button id="m_groups"   class="tile" data-mode="groups"><i>🧺</i><b>5 Food Groups</b><small>เก็บให้ตรงหมวด</small></button>
+        <button id="m_hydration"class="tile" data-mode="hydration"><i>💧</i><b>Hydration</b><small>สมดุลน้ำในร่างกาย</small></button>
+        <button id="m_plate"    class="tile" data-mode="plate"><i>🍽️</i><b>Healthy Plate</b><small>เติมให้ครบหมวด</small></button>
       </div>
 
       <div class="row">
@@ -47,13 +47,23 @@
           <button id="d_hard"   class="chip">Hard</button>
           <span id="difficulty" class="value" style="margin-left:8px">Normal</span>
         </div>
-        <div class="seg">
+        <div class="seg" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button id="soundToggle" class="chip" title="Toggle Sound">🔊</button>
+          <button class="chip" id="toggleVR" data-action="toggle-vr" title="VR / Gaze">🕶️ VR</button>
+          <span class="lbl">Gaze:</span>
+          <button class="chip" id="dwellMinus" data-action="dwell-">−</button>
+          <span id="dwellVal" class="value">850ms</span>
+          <button class="chip" id="dwellPlus" data-action="dwell+">＋</button>
+          <label class="lbl" for="gazeCooldown">Cooldown</label>
+          <input id="gazeCooldown" type="range" min="0" max="1000" step="50" value="350" style="vertical-align:middle">
+          <span id="gazeCooldownVal" class="value">350ms</span>
+          <button class="chip" id="reticleLight" data-action="reticle-light">Reticle Light</button>
+          <button class="chip" id="reticleBold"  data-action="reticle-bold">Reticle Bold</button>
         </div>
       </div>
 
       <div class="cta">
-        <button id="btn_start" class="start">Start</button>
+        <button id="btn_start" class="start" data-action="play">Start</button>
       </div>
     </section>
 
@@ -63,15 +73,28 @@
 
       <!-- HUD -->
       <div id="hudWrap" class="hud" style="display:none">
-        <div class="pill" id="targetWrap" style="display:none">target</div>
+        <!-- Groups mode target pill -->
+        <div class="pill" id="targetWrap" style="display:none">
+          <span id="targetBadge">target</span>
+        </div>
+
         <div id="scoreTime">
           <div class="pill">⭐ <span id="score">0</span></div>
           <div class="pill">⏱ <span id="time">45</span>s</div>
-          <div class="pill">Combo <span id="combo">x0</span></div>
+          <div class="pill">Combo <span id="combo">0</span></div>
         </div>
+
+        <!-- Quests -->
         <div id="questBar">
           <ul id="questChips"></ul>
         </div>
+
+        <!-- Plate tracker (used by plate.js) -->
+        <div id="plateTracker" style="display:none;pointer-events:none">
+          <div id="platePills" class="pillrow"></div>
+        </div>
+
+        <!-- Coach / Toast / Mission line -->
         <div id="coachHUD" class="coach"><span id="coachText"></span></div>
         <div id="missionLine" class="missionLine"></div>
         <div id="toast" class="toast"></div>
