@@ -1,118 +1,73 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th" data-hha-lang="TH">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Hero Health Academy</title>
-  <link rel="preload" href="./game/main.js" as="script" type="module">
-  <style>
-    :root{
-      --bg:#0b1420; --panel:#0f2236; --ink:#dbeaf7; --muted:#9db6cc;
-      --pill:#11263b; --pill2:#0d2033; --ok:#1fb47a; --danger:#e95a5a;
-    }
-    html,body{height:100%;margin:0;background:radial-gradient(1200px 800px at 50% -200px,#0f2236,#0b1420),#0b1420;color:var(--ink);font-family:ui-rounded,system-ui,Segoe UI,Arial;}
-    /* Stage */
-    #stage{position:fixed;inset:0;display:grid;grid-template-rows:auto 1fr auto;pointer-events:none;}
-    #gameLayer{position:relative;pointer-events:none;}
-    #spawnHost{position:absolute;inset:0;pointer-events:auto;} /* คลิกได้เฉพาะสปอน */
-
-    /* Menu */
-    #menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#07111b88,#07111bcc); backdrop-filter: blur(4px); pointer-events:auto;}
-    #menuCard{width:min(860px,92vw);background:var(--panel);border:1px solid #1f3a57;border-radius:20px;padding:16px 18px;box-shadow:0 20px 60px #0008;}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{padding:10px 14px;border-radius:12px;background:#0e1f33;border:1px solid #223d5a;color:var(--ink);cursor:pointer;user-select:none}
-    .btn.active{outline:2px solid #6fb6ff}
-    #btn_start{background:#1e6bff;border-color:#2e7bff}
-
-    /* HUD (ไม่บังคลิก) */
-    #hudWrap{position:fixed;inset:0;display:none;pointer-events:none;}
-    #hudTop{display:flex;gap:12px;justify-content:center;align-items:flex-start;margin-top:8px;}
-    .hudPill{min-width:120px;height:34px;border-radius:999px;background:#0c20348c;border:1px solid #244664;display:flex;gap:8px;align-items:center;justify-content:center;padding:0 12px;color:var(--ink)}
-    #coachHUD{position:fixed;left:50%;top:62px;transform:translateX(-50%);background:#0e2338d9;border:1px solid #2a4b69;border-radius:14px;padding:6px 10px;opacity:0;transition:opacity .24s}
-    #coachHUD.show{opacity:1}
-
-    /* Mini Quests */
-    #questBar{position:fixed;left:50%;top:68px;transform:translateX(-50%);pointer-events:none;width:min(900px,92vw)}
-    #questChips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;list-style:none;margin:0;padding:0}
-    #questChips li{height:34px;background:linear-gradient(180deg,#0e2134,#0c1d2e);border:1px solid #1f3a57;border-radius:14px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;padding:0 10px;font-size:13px}
-    #questChips li .bar{grid-column:1/4;height:6px;background:#0b1a29;border-radius:6px;overflow:hidden;margin-top:2px}
-    #questChips li .bar i{display:block;height:100%;background:#2aa0ff}
-    #questChips li.done{opacity:.55}
-    .qi{pointer-events:none}
-
-    /* Target badge (groups) */
-    #targetWrap{position:fixed;right:12px;top:12px;display:none}
-    #targetBadge{padding:8px 12px;border-radius:999px;background:#0e2134;border:1px solid #1f3a57}
-
-    /* In-game emoji */
-    .spawn-emoji{position:absolute;transform:translate(-50%,-50%);font-size:38px;line-height:1;border:none;background:transparent;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))}
-    .spawn-emoji:focus{outline:none}
-
-    /* Result */
-    #result{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#07111bcc;backdrop-filter: blur(2px);pointer-events:auto}
-    #resultCard{width:min(680px,92vw);background:var(--panel);border:1px solid #1f3a57;border-radius:20px;padding:16px 18px}
-    #pbRow{margin:8px 0 0 18px}
-    #pbRow li{margin:4px 0}
-
-    /* penalty flash */
-    .flash-danger{animation:flash .18s linear 1}
-    @keyframes flash{from{background-color:#1b0b0b}to{background-color:transparent}}
-  </style>
+  <link rel="stylesheet" href="./styles/game.css" />
 </head>
 <body data-mode="goodjunk" data-diff="Normal">
-  <!-- Menu -->
-  <div id="menuBar">
-    <div id="menuCard">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <h2 id="modeName" style="margin:0">Good vs Junk</h2>
-        <div>Difficulty: <b id="difficulty">Normal</b></div>
-      </div>
-      <div class="row" style="margin-bottom:6px">
-        <button id="m_goodjunk" class="btn active">Good vs Junk</button>
-        <button id="m_groups"   class="btn">5 Food Groups</button>
-        <button id="m_hydration"class="btn">Hydration</button>
-        <button id="m_plate"    class="btn">Healthy Plate</button>
-      </div>
-      <div class="row" style="margin-bottom:8px">
-        <button id="d_easy"   class="btn">Easy</button>
-        <button id="d_normal" class="btn active">Normal</button>
-        <button id="d_hard"   class="btn">Hard</button>
-      </div>
-      <div class="row" style="justify-content:flex-end">
-        <button id="btn_start" class="btn">Start ▶</button>
-      </div>
-    </div>
-  </div>
+  <div id="app">
+    <section id="hero">
+      <h1>Hero Health Academy</h1>
+      <p class="sub">เลือกเกมเพื่อฝึกสุขภาพของคุณ</p>
+    </section>
 
-  <!-- Stage -->
-  <div id="stage">
-    <div id="hudWrap" aria-hidden="true">
-      <div id="hudTop">
-        <div class="hudPill">Score: <b id="score">0</b></div>
-        <div class="hudPill">Time: <b id="time">45</b></div>
-        <div class="hudPill">Combo: <b id="combo">x0</b></div>
+    <!-- ========= Menu ========= -->
+    <div id="menuBar" class="menu">
+      <div class="grid">
+        <div id="m_goodjunk" class="tile active"><i>🥦</i><b>Good vs Junk</b><small>เลือกอาหารที่ดี หลีกเลี่ยงขยะ</small></div>
+        <div id="m_groups" class="tile"><i>🥗</i><b>5 Food Groups</b><small>แยกอาหารให้ถูกหมวดหมู่</small></div>
+        <div id="m_hydration" class="tile"><i>💧</i><b>Hydration</b><small>เติมน้ำในร่างกายให้สมดุล</small></div>
+        <div id="m_plate" class="tile"><i>🍽️</i><b>Healthy Plate</b><small>จัดจานอาหารให้สมดุล</small></div>
       </div>
-      <div id="questBar"><ul id="questChips"></ul></div>
-      <div id="coachHUD"><span id="coachText">Go!</span></div>
-      <div id="targetWrap"><span id="targetBadge">—</span></div>
+
+      <div class="row">
+        <div class="seg"><span class="lbl">ระดับ:</span>
+          <span id="difficulty" class="value">Normal</span>
+          <div class="seg">
+            <div id="d_easy" class="chip">Easy</div>
+            <div id="d_normal" class="chip active">Normal</div>
+            <div id="d_hard" class="chip">Hard</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cta"><button id="btn_start" class="start">เริ่มเกม ▶</button></div>
     </div>
 
-    <div id="gameLayer"><div id="spawnHost"></div></div>
-    <div></div> <!-- footer spacer -->
-  </div>
+    <!-- ========= Game Layer ========= -->
+    <section id="gameLayer">
+      <div id="spawnHost"></div>
+      <div id="hudWrap" class="hud">
+        <div id="scoreTime">
+          <div id="score" class="pill">0</div>
+          <div id="combo" class="pill">x0</div>
+          <div id="time"  class="pill">45</div>
+        </div>
+        <div id="targetWrap" class="pill" style="display:none;">Target</div>
+      </div>
 
-  <!-- Result -->
-  <div id="result">
-    <div id="resultCard">
-      <h3 id="resultText" style="margin-top:0">คะแนน 0</h3>
+      <div id="questBar">
+        <ul id="questChips"></ul>
+      </div>
+
+      <div id="coachHUD" class="coach"><span id="coachText"></span></div>
+      <canvas id="c"></canvas>
+    </section>
+
+    <!-- ========= Result Overlay ========= -->
+    <div id="result" class="menu" style="display:none;flex-direction:column;align-items:center;">
+      <h2 id="resultText">คะแนน 0</h2>
       <ul id="pbRow"></ul>
-      <div class="row" style="justify-content:flex-end;margin-top:8px">
-        <button class="btn" data-result="home">Home</button>
-        <button class="btn" data-result="replay">Replay</button>
+      <div style="margin-top:10px;display:flex;gap:10px;">
+        <button data-result="replay" class="chip">เล่นอีกครั้ง</button>
+        <button data-result="home" class="chip">กลับเมนู</button>
       </div>
     </div>
   </div>
 
-  <script type="module" src="./game/main.js"></script>
+  <!-- ========= Scripts ========= -->
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
