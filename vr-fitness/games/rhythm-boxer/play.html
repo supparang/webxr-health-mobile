@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Rhythm Boxer — Play</title>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.4 system-ui,Segoe UI,Inter,Arial}
+    #boot{position:fixed;inset:0;display:grid;place-items:center;opacity:.8}
+  </style>
+</head>
+<body>
+  <div id="boot">Loading Rhythm Boxer…</div>
+
+  <script>
+    (function(){
+      const u=new URL(location.href);
+      window.HubLaunch={
+        game:u.searchParams.get("game")||"rhythm-boxer",
+        mode:u.searchParams.get("mode")||"timed",
+        diff:u.searchParams.get("diff")||"normal",
+        time:Math.max(45,Math.min(180,+(u.searchParams.get("time")||85)))
+      };
+    })();
+  </script>
+
+  <script type="module" src="./game.js"></script>
+  <script src="/webxr-health-mobile/vr-fitness/hub-adapter.js"></script>
+
+  <script>
+    window.addEventListener("load",()=>document.getElementById("boot").style.display="none",{once:true});
+  </script>
+</body>
+</html>
