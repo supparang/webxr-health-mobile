@@ -1,173 +1,236 @@
-// /vr-fitness/games/shadow-breaker/game.js
-// Minimal boot-safe game.js (no imports) to prevent black screen.
-// Reads window.HubLaunch, runs a simple timed loop, reports score/combo,
-// supports pause/resume via window.Game.setPaused (used by hub-adapter).
+// === VR Fitness — Shadow Breaker (minimal playable core) ===
+// ES Module (โหลดจาก play.html)
+// - อ่านพารามิเตอร์จาก window.HubLaunch
+// - HUD: Timer / Diff / Mode / Score / Combo / Stars / ปุ่ม Hit!
+// - Logic: กด Hit เพิ่มคะแนน+คอมโบ, นับเวลาถอยหลัง, คิดดาวจากประสิทธิภาพ
+// - Integration: ส่ง tick ให้ Hub ทุก 1s และส่ง GameEnd เมื่อหมดเวลา
+// - Pause on blur + รับ message 'hub:pause' จาก Hub
 
 (function(){
   "use strict";
 
-  // ---------- Config from Hub ----------
-  const L = (window.HubLaunch || {});
+  // ---------- Launch Params ----------
+  const L = window.HubLaunch || {};
   const GAME_ID = "shadow-breaker";
-  const DIFF = (L.diff || "normal");
-  const MODE = (L.mode || "timed");
-  const DURATION = Math.max(30, Math.min(180, Number(L.time || 90))); // seconds
-
-  // ---------- DOM scaffolding ----------
-  const root = document.createElement("div");
-  root.id = "sb-root";
-  root.style.position = "fixed";
-  root.style.inset = "0";
-  root.style.background = "#000";
-  root.style.color = "#fff";
-  root.style.font = "16px/1.4 system-ui,Segoe UI,Inter,Arial";
-  root.style.display = "grid";
-  root.style.placeItems = "center";
-  root.style.userSelect = "none";
-
-  root.innerHTML = `
-    <div id="sb-ui" style="text-align:center">
-      <div style="opacity:.8;font-size:14px;margin-bottom:6px">VR Fitness — <b>Shadow Breaker</b></div>
-      <div style="font-size:40px;font-weight:800;margin:6px 0" id="sb-time">--:--</div>
-      <div style="font-size:18px;margin:6px 0">Diff: <b id="sb-diff"></b> | Mode: <b id="sb-mode"></b></div>
-      <div style="display:flex;gap:18px;justify-content:center;margin-top:10px">
-        <div>Score<br><b id="sb-score" style="font-size:22px">0</b></div>
-        <div>Combo<br><b id="sb-combo" style="font-size:22px">0</b></div>
-        <div>Stars<br><b id="sb-stars" style="font-size:22px">0</b></div>
-      </div>
-      <div style="margin-top:18px;opacity:.7;font-size:13px">
-        (ทดสอบระบบ Hub: คลิก/แตะเพื่อ +คะแนน, ระบบจะส่ง score/เวลา ให้ Hub ทุกวินาที)
-      </div>
-      <button id="sb-add" style="margin-top:12px;padding:8px 12px;border-radius:10px;border:0;background:#76e1ff;color:#001018;font-weight:700;cursor:pointer">
-        + Hit!
-      </button>
-    </div>
-  `;
-  document.body.appendChild(root);
+  const MODE = (L.mode||"timed");
+  const DIFF = (L.diff||"normal");
+  const TOTAL_TIME = clamp(+L.time || 90, 30, 180); // seconds
 
   // ---------- State ----------
+  let timeLeft = TOTAL_TIME;
   let score = 0;
   let combo = 0;
   let bestCombo = 0;
-  let stars = 0;
-  let timeLeft = DURATION;
   let paused = false;
-  let tickTimer = null;
-  let secTimer = null;
-
-  // ---------- UI refs ----------
-  const elTime  = document.getElementById("sb-time");
-  const elScore = document.getElementById("sb-score");
-  const elCombo = document.getElementById("sb-combo");
-  const elStars = document.getElementById("sb-stars");
-  const elDiff  = document.getElementById("sb-diff");
-  const elMode  = document.getElementById("sb-mode");
-  const btnAdd  = document.getElementById("sb-add");
-
-  elDiff.textContent = DIFF;
-  elMode.textContent = MODE;
+  let started = false;
+  let finished = false;
 
   // ---------- Helpers ----------
-  const pad = (n)=> (n<10? "0"+n : ""+n);
+  function $(s){ return document.querySelector(s); }
+  function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
   function fmtTime(sec){
-    sec = Math.max(0, Math.floor(sec));
-    return `${pad(Math.floor(sec/60))}:${pad(sec%60)}`;
+    const m = Math.floor(sec/60);
+    const s = Math.floor(sec%60);
+    return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
   }
-  function updateStars(){
-    // very simple thresholds (you can tune later)
-    const pct = 1 - (timeLeft / DURATION);
-    const target = (score >= 100 ? 3 : score >= 50 ? 2 : score >= 20 ? 1 : 0);
-    stars = Math.max(stars, target);
-    elStars.textContent = stars;
-    return stars;
-  }
-  function render(){
-    elTime.textContent = fmtTime(timeLeft);
-    elScore.textContent = String(score);
-    elCombo.textContent = String(combo);
-  }
-
-  function onHit(){
-    if (paused || timeLeft <= 0) return;
-    const diffMul = (DIFF === "easy" ? 1 : DIFF === "hard" ? 2 : DIFF === "final" ? 3 : 1.5);
-    const gain = Math.floor(1 * diffMul + combo * 0.2);
-    score += Math.max(1, gain);
-    combo += 1;
-    if(combo > bestCombo) bestCombo = combo;
-    updateStars();
-    render();
-  }
-
-  // ---------- Public API for hub-adapter ----------
-  window.Game = window.Game || {};
-  window.Game.setPaused = function(flag){
-    paused = !!flag;
-  };
-
-  // ---------- Core loop (per-frame) ----------
-  function frameTick(){
-    if (!paused && timeLeft > 0){
-      // (optional visual effects per-frame later)
-    }
-    tickTimer = requestAnimationFrame(frameTick);
-  }
-
-  // ---------- Sec tick: time and report to Hub ----------
-  function secTick(){
-    if (!paused && timeLeft > 0){
-      timeLeft -= 1;
-      if (typeof window.HubScoreTick === "function"){
-        try {
-          window.HubScoreTick(score, combo, Math.max(0, timeLeft), stars);
-        } catch(e){}
+  function sendToHub(type, data){
+    try{
+      if(window.parent && window.parent !== window){
+        window.parent.postMessage({type, game: GAME_ID, ...data}, "*");
       }
-      if (timeLeft <= 0){
-        endGame();
-        return;
+    }catch(e){}
+  }
+
+  // ดาว 0–5 จาก “ประสิทธิภาพต่อวินาที” ปรับด้วย difficulty
+  function starsFor(score, elapsed){
+    const sec = Math.max(1, elapsed);
+    const rate = score / sec; // คะแนนต่อวินาที
+    const diffMul = { easy:0.85, normal:1.0, hard:1.2, final:1.35 }[DIFF] || 1.0;
+
+    // เกณฑ์แบบนุ่มนวล (คะแนน/วินาที)
+    const t1 = 0.6 * diffMul;  // ★1
+    const t2 = 1.0 * diffMul;  // ★2
+    const t3 = 1.6 * diffMul;  // ★3
+    const t4 = 2.2 * diffMul;  // ★4
+    const t5 = 3.0 * diffMul;  // ★5
+
+    if(rate >= t5) return 5;
+    if(rate >= t4) return 4;
+    if(rate >= t3) return 3;
+    if(rate >= t2) return 2;
+    if(rate >= t1) return 1;
+    return 0;
+  }
+
+  function updateHUD(){
+    setText("#timer", fmtTime(timeLeft));
+    setText("#score", score);
+    setText("#combo", combo);
+    setText("#stars", String(starsFor(score, TOTAL_TIME - timeLeft)));
+  }
+
+  function setText(sel, txt){
+    const el = $(sel);
+    if(el) el.textContent = txt;
+  }
+
+  function bump(val, by=1){ return (val||0) + by; }
+
+  // ---------- Build UI ----------
+  const root = document.createElement("div");
+  root.innerHTML = `
+  <style>
+    .sb-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#000;color:#fff;font:16px/1.5 system-ui,Segoe UI,Inter,Arial}
+    .sb-card{max-width:860px;width:92vw;text-align:center}
+    h1{font-weight:700;letter-spacing:.3px;margin:0 0 18px 0;color:#cfe6ff}
+    .timer{font-size:64px;font-weight:800;letter-spacing:1px;margin:8px 0 16px 0}
+    .meta{font-size:22px;color:#dbe8ff;margin-bottom:18px}
+    .meta b{color:#fff}
+    .stats{display:flex;gap:24px;justify-content:center;margin:10px 0 24px 0}
+    .stat{min-width:120px}
+    .stat .label{color:#a9b7d0}
+    .stat .val{font-size:32px;font-weight:800}
+    .hint{color:#9db0c8;margin:10px 0 18px 0}
+    .btn{display:inline-block;background:#76e1ff;color:#001018;border:0;border-radius:14px;padding:10px 18px;font-weight:800;cursor:pointer}
+    .btn[disabled]{opacity:.4;cursor:not-allowed}
+    .paused{position:fixed;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#00e0ff,#8be7ff);opacity:.0;transition:opacity .2s}
+    .paused.show{opacity:1}
+  </style>
+  <div class="sb-wrap">
+    <div class="sb-card">
+      <h1>VR Fitness — <b>Shadow Breaker</b></h1>
+      <div id="timer" class="timer">--:--</div>
+      <div class="meta">Diff: <b id="diff"></b> | Mode: <b id="mode"></b></div>
+
+      <div class="stats">
+        <div class="stat"><div class="label">Score</div><div id="score" class="val">0</div></div>
+        <div class="stat"><div class="label">Combo</div><div id="combo" class="val">0</div></div>
+        <div class="stat"><div class="label">Stars</div><div id="stars" class="val">0</div></div>
+      </div>
+
+      <div class="hint">(ทดสอบระบบ Hub: คลิก/แตะเพื่อ + คะแนน, ระบบจะส่ง score/เวลา ให้ Hub ทุกวินาที)</div>
+      <button id="btnHit" class="btn">+ Hit!</button>
+    </div>
+  </div>
+  <div id="pausedBar" class="paused"></div>
+  `;
+  document.body.appendChild(root);
+
+  setText("#diff", DIFF);
+  setText("#mode", MODE);
+  updateHUD();
+
+  // ---------- Scoring ----------
+  function handleHit(){
+    if(paused || finished) return;
+    started = true;
+
+    // คะแนนพื้นฐาน + โบนัสจากคอมโบ + ความยาก
+    const diffBonus = { easy:1.0, normal:1.1, hard:1.25, final:1.35 }[DIFF] || 1.0;
+    combo = bump(combo, 1);
+    bestCombo = Math.max(bestCombo, combo);
+    const add = Math.round(1 * diffBonus + Math.floor(combo/10));
+    score = bump(score, add);
+
+    // เอฟเฟ็กต์สั้น ๆ (scale ปุ่ม)
+    const btn = $("#btnHit");
+    if(btn){
+      btn.style.transform = "scale(1.06)";
+      setTimeout(()=>btn.style.transform="scale(1)", 90);
+    }
+    updateHUD();
+  }
+
+  $("#btnHit").addEventListener("click", handleHit, {passive:true});
+
+  // ---------- Loop & Ticks ----------
+  let tickTimer = null;
+  function startLoop(){
+    if(tickTimer) return;
+    tickTimer = setInterval(()=>{
+      if(paused || finished) return;
+
+      // หากผู้เล่นยังไม่กด เริ่มนับถอยหลังอยู่ดี (สำหรับโหมด timed)
+      timeLeft = Math.max(0, timeLeft - 1);
+      updateHUD();
+
+      // ส่ง Tick ให้ Hub
+      sendToHub("HubScoreTick", {
+        timeLeft,
+        score,
+        combo,
+        stars: starsFor(score, TOTAL_TIME - timeLeft)
+      });
+
+      if(timeLeft <= 0){
+        endGame(true);
       }
-      render();
+    }, 1000);
+  }
+
+  function endGame(byTime){
+    if(finished) return;
+    finished = true;
+    clearInterval(tickTimer);
+    tickTimer = null;
+
+    const elapsed = TOTAL_TIME - timeLeft;
+    const star = starsFor(score, Math.max(1, elapsed));
+
+    // Freeze ปุ่ม
+    const btn = $("#btnHit");
+    if(btn) btn.setAttribute("disabled","disabled");
+
+    // ส่งผลสรุปให้ Hub
+    sendToHub("HubGameEnd", {
+      byTime: !!byTime,
+      timeTotal: TOTAL_TIME,
+      timePlayed: elapsed,
+      score, combo, bestCombo,
+      stars: star,
+      diff: DIFF, mode: MODE
+    });
+
+    // แสดงข้อความเล็ก ๆ
+    const hint = document.createElement("div");
+    hint.className = "hint";
+    hint.style.color = "#cfe6ff";
+    hint.style.marginTop = "12px";
+    hint.textContent = `จบเกม — Stars: ${star} | Best Combo: ${bestCombo}`;
+    document.querySelector(".sb-card").appendChild(hint);
+  }
+
+  // ---------- Pause / Resume ----------
+  const pausedBar = $("#pausedBar");
+  function setPaused(v){
+    paused = !!v;
+    if(paused) pausedBar.classList.add("show");
+    else pausedBar.classList.remove("show");
+  }
+
+  window.addEventListener("message", (ev)=>{
+    const m = ev.data || {};
+    if(m.type === "hub:pause"){
+      setPaused(!!m.value);
     }
-    secTimer = setTimeout(secTick, 1000);
-  }
+  });
 
-  function endGame(){
-    if (tickTimer) cancelAnimationFrame(tickTimer);
-    if (secTimer)  clearTimeout(secTimer);
-    // finalize stars one more time
-    updateStars();
-    // send summary to Hub
-    if (typeof window.HubGameEnd === "function"){
-      try {
-        window.HubGameEnd({ score, maxCombo: bestCombo, stars, time: DURATION });
-      } catch(e){}
-    }
-    // show simple overlay end state
-    const end = document.createElement("div");
-    end.style.position = "fixed";
-    end.style.inset = "0";
-    end.style.display = "grid";
-    end.style.placeItems = "center";
-    end.style.background = "rgba(0,0,0,.55)";
-    end.innerHTML = `
-      <div style="background:#121528;border:1px solid #2a2f4a;border-radius:14px;padding:16px 18px;text-align:center;max-width:90vw">
-        <div style="font-size:18px;margin-bottom:8px"><b>Finished!</b></div>
-        <div>Score: <b>${score}</b> | Best Combo: <b>${bestCombo}</b> | Stars: <b>${stars}</b></div>
-        <div style="opacity:.8;font-size:12px;margin-top:8px">กด Back ที่ Hub เพื่อกลับ หรือกด Retry ใน Hub</div>
-      </div>`;
-    document.body.appendChild(end);
-  }
+  window.addEventListener("blur", ()=> setPaused(true));
+  window.addEventListener("focus", ()=> setPaused(false));
+  document.addEventListener("visibilitychange", ()=>{
+    setPaused(document.hidden);
+  });
 
-  // ---------- Wire events ----------
-  btnAdd.addEventListener("click", onHit);
+  // ---------- Init ----------
+  // แจ้ง Hub ว่าเกมพร้อม (ให้ Hub ซ่อน overlay)
+  sendToHub("game:ready", { ok:true, game: GAME_ID });
 
-  // First render + start loops
-  render();
-  tickTimer = requestAnimationFrame(frameTick);
-  secTimer  = setTimeout(secTick, 1000);
+  // autostart loop
+  startLoop();
 
-  // Tell Hub we are ready (if adapter already injected)
-  if (typeof window.HubGameReady === "function"){
-    try{ window.HubGameReady(); }catch(e){}
-  }
+  // กด Space = Hit (เผื่อ PC)
+  window.addEventListener("keydown", (e)=>{
+    if(e.code === "Space"){ e.preventDefault(); handleHit(); }
+  });
 
 })();
