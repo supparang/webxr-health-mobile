@@ -303,3 +303,17 @@ document.addEventListener('visibilitychange', ()=>{
     document.body.appendChild(pre);
   }
 })();
+// --- Hard-guard: make sure menu is always clickable & canvas never eats clicks
+(function ensureClickable(){
+  const c = document.getElementById('c');
+  if (c){ c.style.pointerEvents='none'; c.style.zIndex='0'; }
+  const layer = document.getElementById('gameLayer');
+  if (layer){ layer.style.zIndex = '10'; }
+  const menu = document.getElementById('menuBar');
+  if (menu){
+    menu.style.pointerEvents='auto';
+    menu.style.zIndex='50';
+    // เผื่อพาเรนต์ไปปิดคลิก
+    menu.querySelectorAll('*').forEach(n=>{ n.style.pointerEvents='auto'; });
+  }
+})();
