@@ -1,10 +1,10 @@
-// === Hero Health Academy — game/main.js (2025-10-30 sync)
-// - เมนูซ่อนเมื่อเล่น / HUD โชว์เฉพาะระหว่างเล่น
-// - Mini-quest วาง top-center ไม่บังเป้า
-// - ใช้โหมด DOM-spawn (goodjunk / groups / hydration / plate)
-// - รองรับ core/fx.js แบบ named exports (โหมดต่าง ๆ import เองผ่าน ensureFX)
+// === Hero Health Academy — game/main.js (2025-10-30 + Leaderboard)
+// - ซ่อนเมนูเมื่อเริ่ม / โชว์ HUD ระหว่างเล่น
+// - Mini-quest top-center (ไม่บังเป้า)
+// - บันทึกและแสดง Leaderboard (week/month/year/all) ด้วย localStorage
 
 import { Quests } from './core/quests.js';
+import { Leaderboard } from './core/leaderboard.js';
 import * as goodjunk  from './modes/goodjunk.js';
 import * as groups    from './modes/groups.js';
 import * as hydration from './modes/hydration.js';
@@ -13,6 +13,36 @@ import * as plate     from './modes/plate.js';
 const MODES = { goodjunk, groups, hydration, plate };
 const $  = (s)=>document.querySelector(s);
 const on = (el,ev,fn)=>el && el.addEventListener(ev,fn);
+
+// ---------------- Leaderboard ----------------
+const LB = new Leaderboard({ key:'hha_board_v2', maxKeep:500, retentionDays:365 });
+let lbScope = 'month';
+function renderLB(){
+  const host = $('#lbTable'); if(!host) return;
+  LB.renderInto(host, { scope: lbScope });
+  const info = LB.getInfo(lbScope)?.text || '';
+  const elInfo = $('#lbInfo'); if (elInfo) elInfo.textContent = info;
+}
+function wireLB(){
+  // init name from localStorage
+  const nameInput = $('#playerName');
+  try { const saved = localStorage.getItem('hha_name'); if (saved && nameInput) nameInput.value = saved; } catch {}
+  on($('#saveName'), 'click', ()=>{
+    const v = (nameInput?.value || '').trim();
+    try { localStorage.setItem('hha_name', v); } catch {}
+    renderLB();
+  });
+  // scope buttons
+  document.querySelectorAll('#lbScopes .chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#lbScopes .chip').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      lbScope = btn.getAttribute('data-scope') || 'month';
+      renderLB();
+    });
+  });
+  renderLB();
+}
 
 // ---------------- HUD facade (click-through) ----------------
 const HUD = {
@@ -168,6 +198,12 @@ function endGame(){
   App.running=false;
   App.sys?.stop?.();
 
+  // บันทึก leaderboard
+  const name = ($('#playerName')?.value || localStorage.getItem('hha_name') || '').trim();
+  try { if (name) localStorage.setItem('hha_name', name); } catch {}
+  LB.submit(App.modeKey, App.diff, App.score, { name });
+
+  // ภารกิจ/สรุป
   const quests = Quests.endRun({ score: App.score });
   const r=$('#result'), t=$('#resultText'), pb=$('#pbRow');
   if (t) t.textContent = `คะแนน ${App.score}`;
@@ -178,7 +214,9 @@ function endGame(){
       return `<li>${mark} ${lbl}</li>`;
     }).join('');
   }
+
   showResult();
+  renderLB();
 }
 
 function showResult(){ const r=$('#result'); if(r) r.style.display='flex'; }
@@ -201,7 +239,9 @@ const Bus = {
 // ---------------- Boot ----------------
 function boot(){
   wireMenu();
+  wireLB();           // <— ผูก leaderboard UI
   showMenu();
+
   // pause on blur / resume on focus
   window.addEventListener('blur', ()=>{ if(App.running){ App.running=false; } });
   window.addEventListener('focus', ()=>{
