@@ -1,8 +1,8 @@
-// === Hero Health Academy — game/modes/plate.js (2025-10-29, synced)
+// === Hero Health Academy — game/modes/plate.js (2025-10-30, synced)
 // - Relative imports -> ../core/*
 // - Click-safe HUD, robust meta guard, fair lockout, multi-group accept
 // - Overfill penalty, HUD bars, rarity-perfect, quest events, FX hooks
-// - Factory adapter for main.js DOM-spawn flow
+// - Factory adapter for main.js DOM-spawn flow (DOM buttons inside #spawnHost)
 
 import { Progress } from '../core/progression.js';
 import { Quests   } from '../core/quests.js';
@@ -150,7 +150,8 @@ export function pickMeta(diff={}, state={}){
   const isLackPick = Math.random() < 0.75 && lack.length>0;
   const group = isLackPick ? rnd(lack) : rnd(GROUPS);
 
-  const char = rnd(POOLS[group]);
+  const pool = POOLS[group] || VEGGIES;
+  const char = rnd(pool);
   const need = (ctx.need[group]||0), have = (ctx.have[group]||0);
   const withinQuota = need>0 && have<need;
 
