@@ -124,3 +124,12 @@ body{
 #spawnHost{ pointer-events:none; }
 #spawnHost .spawn-emoji{ pointer-events:auto; }                      /* ให้ปุ่มไอเท็มคลิกได้ */
 canvas#c{ position:fixed; inset:0; z-index:0; pointer-events:none; } /* กัน canvas บังปุ่ม */
+/* === Hero Health Academy — styles/game.css (hotfix pointer safe) === */
+#menuBar{ position:relative; z-index:100; pointer-events:auto; }
+#gameLayer{ position:relative; z-index:1; pointer-events:none; }
+#hudWrap,#missionLine,#toast,#platePills,#plateTracker,#targetWrap,#coachHUD,#resultModal{ pointer-events:none; }
+#spawnHost{ pointer-events:none; }
+#spawnHost .spawn-emoji{ pointer-events:auto; }
+canvas#c{ position:fixed; inset:0; z-index:0; pointer-events:none; }
+
+/* rest of your CSS (keep all visuals unchanged) */
