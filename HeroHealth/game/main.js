@@ -1,4 +1,4 @@
-// === Hero Health — game/main.js (2025-10-30 CLICK RESCUE EDITION) ===
+// === Hero Health — game/main.js (2025-10-30 CLICK WATCHDOG) ===
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 
 import { Engine }            from './core/engine.js';
@@ -19,7 +19,11 @@ import * as plate      from './modes/plate.js';
 
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>Array.from(document.querySelectorAll(s));
-const setText = (sel, txt)=>{ const el=$(sel); if(el) el.textContent = txt; };
+const setText = (sel, txt)=>{ const el=$(sel); if (el) el.textContent = txt; };
+
+const MODES = { goodjunk, groups, hydration, plate };
+let current = null;
+let currentKey = (document.body.getAttribute('data-mode') || 'goodjunk');
 
 const score   = new ScoreSystem();
 const power   = new PowerUpSystem();
@@ -31,47 +35,69 @@ power.attachToScore(score);
 
 const engine = new Engine({
   hud, coach, sfx, score, power, mission, THREE,
-  fx: { popText:(t,{x=0,y=0,ms=650}={})=>{ const n=document.createElement('div'); n.className='poptext'; n.textContent=t; n.style.left=x+'px'; n.style.top=y+'px'; document.body.appendChild(n); setTimeout(()=>{try{n.remove();}catch{}},ms|0);} }
+  fx:{ popText:(t,{x=0,y=0,ms=650}={})=>{ const n=document.createElement('div'); n.className='poptext'; n.textContent=t; n.style.left=x+'px'; n.style.top=y+'px'; document.body.appendChild(n); setTimeout(()=>{try{n.remove();}catch{}},ms|0);} }
 });
-
-const MODES = { goodjunk, groups, hydration, plate };
-let current = null;
-let currentKey = 'goodjunk';
 
 Progress.init?.();
 VRInput.init({ engine, sfx, THREE });
 
-/* ======== CLICK-LAYER ENFORCER & RESCUE ======== */
-function forceStyles() {
+/* ================= CLICK WATCHDOG ================ */
+const SAFE_IDS = new Set(['menuBar','gameLayer','spawnHost','hudWrap','result','clickGuard']);
+function forceClickStack(){
+  // ชั้นพื้นฐาน
   const canvas = $('#c');
   const menu   = $('#menuBar');
   const layer  = $('#gameLayer');
   const spawn  = $('#spawnHost');
   const hudW   = $('#hudWrap');
   const result = $('#result');
-
   if (canvas){ canvas.style.pointerEvents='none'; canvas.style.zIndex='0'; }
-  if (menu){   menu.style.zIndex='999'; menu.style.pointerEvents='auto'; }
-  if (layer){  layer.style.zIndex='10'; }
+  if (menu){   menu.style.zIndex='999'; menu.style.pointerEvents='auto'; menu.style.display = (menu.style.display||'block'); }
+  if (layer){  layer.style.zIndex='10'; layer.style.pointerEvents='auto'; }
   if (spawn){  spawn.style.zIndex='11'; spawn.style.pointerEvents='auto'; }
   if (hudW){   hudW.style.zIndex='12';  hudW.style.pointerEvents='none'; }
   if (result){ result.style.zIndex='1000'; }
 
-  // kill any full-page unknown overlay capturing clicks
-  const els = [...document.body.querySelectorAll('*')];
+  // หา overlay ที่ครอบทั้งหน้าจอและมี pointer-events != none → ปิด
   const vw = innerWidth, vh = innerHeight;
-  for (const el of els){
-    if (!el.id && !el.className) continue;
-    const s = getComputedStyle(el);
-    if ((s.position==='fixed' || s.position==='absolute')
-        && parseInt(s.zIndex||'0',10) > 1200) {
+  document.querySelectorAll('body *').forEach(el=>{
+    const id = el.id || '';
+    if (SAFE_IDS.has(id)) return;
+    const cs = getComputedStyle(el);
+    if ((cs.position==='fixed' || cs.position==='absolute')) {
       const r = el.getBoundingClientRect();
-      if (r.width >= vw*0.9 && r.height >= vh*0.9 && el.id!=='result'){
+      if (r.width >= vw*0.92 && r.height >= vh*0.92 && parseInt(cs.zIndex||'0',10) >= 900) {
         el.style.pointerEvents = 'none';
       }
     }
-  }
+  });
 }
+function injectRescueBar(){
+  if ($('#clickGuard')) return;
+  const bar = document.createElement('div');
+  bar.id = 'clickGuard';
+  bar.innerHTML = `
+    <button id="btnForceUnblock">🛡 Force Unblock</button>
+    <button id="btnStartNow">▶ Start</button>
+    <button id="btnHomeNow">🏠 Home</button>
+  `;
+  document.body.appendChild(bar);
+  $('#btnForceUnblock')?.addEventListener('click', ()=>forceClickStack());
+  $('#btnStartNow')?.addEventListener('click', ()=> startGame());
+  $('#btnHomeNow')?.addEventListener('click', ()=>{ stopGame(); showMenu(); });
+}
+function startWatchdog(){
+  forceClickStack();
+  const iv = setInterval(forceClickStack, 600);
+  window.addEventListener('resize', forceClickStack, { passive:true });
+  // debug: ดู element ที่ศูนย์จอว่ามันคืออะไร
+  document.addEventListener('click', (e)=>{
+    const t=e.target, r=t?.getBoundingClientRect?.();
+    console.debug('[CLICK]', t.tagName, '#'+(t.id||''), '.'+(t.className||''), r?`${r.width}x${r.height}@${r.left},${r.top}`:'');
+  }, { capture:true });
+}
+
+/* ================= UI STATE ================ */
 function setPlayfieldActive(on){
   const menu  = $('#menuBar');
   const layer = $('#gameLayer');
@@ -79,7 +105,7 @@ function setPlayfieldActive(on){
   if (layer) layer.style.pointerEvents = on ? 'auto' : 'none';
   if (spawn) spawn.style.pointerEvents = on ? 'auto' : 'none';
   if (menu)  menu.style.pointerEvents  = on ? 'none' : 'auto';
-  forceStyles();
+  forceClickStack();
 }
 function showMenu(){
   $('#menuBar')?.style && ($('#menuBar').style.display='block');
@@ -92,36 +118,8 @@ function showPlay(){
   $('#hudWrap')?.style && ($('#hudWrap').style.display='block');
   setPlayfieldActive(true);
 }
-function injectRescueBar(){
-  if ($('#clickGuard')) return;
-  const bar = document.createElement('div');
-  bar.id = 'clickGuard';
-  bar.innerHTML = `
-    <button id="btnForceUnblock">🛡 Force Unblock</button>
-    <button id="btnStartNow">▶ Start</button>
-    <button id="btnHomeNow">🏠 Home</button>
-  `;
-  document.body.appendChild(bar);
-  $('#btnForceUnblock')?.addEventListener('click', ()=>{
-    forceStyles();
-    // additionally turn off pointer on anything above 1200 except result/menu
-    [...document.querySelectorAll('body *')].forEach(el=>{
-      const id = el.id||'';
-      if (id==='menuBar' || id==='result' || id==='spawnHost' || id==='gameLayer' || id==='hudWrap') return;
-      const z = parseInt(getComputedStyle(el).zIndex||'0',10);
-      if (z>1200) el.style.pointerEvents='none';
-    });
-  });
-  $('#btnStartNow')?.addEventListener('click', ()=> startGame());
-  $('#btnHomeNow')?.addEventListener('click', ()=>{ stopGame(); showMenu(); });
-}
-function startWatchdog(){
-  forceStyles();
-  setInterval(forceStyles, 500);
-  window.addEventListener('resize', forceStyles, { passive:true });
-}
 
-/* ======== MODE / DIFFICULTY ======== */
+/* ================= MODE / DIFF ================ */
 function bindModeSelectors(){
   const map = {
     m_goodjunk:  { key:'goodjunk',  label:'Good vs Junk' },
@@ -157,6 +155,7 @@ function bindModeSelectors(){
   setDiff(document.body.getAttribute('data-diff') || 'Normal');
 }
 
+/* ================= LIFECYCLE ================ */
 function loadMode(key){
   const m = MODES[key] || MODES.goodjunk;
   if (current?.cleanup) { try { current.cleanup(); } catch{} }
@@ -177,7 +176,7 @@ function stopGame(){
 }
 function replayGame(){ stopGame(); startGame(); }
 
-/* ======== VR buttons / dwell ======== */
+/* ================= VR buttons / dwell ================ */
 function bindVRButtons(){
   $$('#toggleVR,[data-action="toggle-vr"]').forEach(btn=>btn.addEventListener('click', ()=>VRInput.toggleVR()));
   $$('#dwellMinus,[data-action="dwell-"]').forEach(b=>b.addEventListener('click', ()=>{
@@ -190,7 +189,7 @@ function bindVRButtons(){
   }));
 }
 
-/* ======== Wire UI ======== */
+/* ================= WIRE UI ================ */
 (function wireUI(){
   const btnStart = $('#btn_start');
   const btnHome  = document.querySelector('[data-result="home"]');
@@ -206,38 +205,32 @@ function bindVRButtons(){
   btnHome?.addEventListener('click', ()=>{ stopGame(); showMenu(); });
   btnReplay?.addEventListener('click', ()=> replayGame());
 
-  // menu initial
   showMenu();
   bindModeSelectors();
   bindVRButtons();
 
-  // rescue tools
   injectRescueBar();
   startWatchdog();
 
-  // global click logger (ช่วยไล่ว่าโดนบังหรือไม่)
-  document.addEventListener('click', (e)=>{
-    const t = e.target;
-    console.debug('[CLICK]', t.tagName, '#'+(t.id||''), '.'+(t.className||''));
-  }, { capture:true });
+  // แสดง dwell ms ปัจจุบันบนเมนูถ้ามี
+  const v = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
+  setText('#dwellVal', `${Number.isFinite(v)?v:850}ms`);
 })();
 
-/* ======== Boot / visibility ======== */
+/* ================= BOOT VISIBILITY HOOKS ================ */
 (function boot(){
   try {
     hud.init?.();
     coach.init?.({ hud, sfx });
     engine.init?.();
 
-    const urlMode = new URLSearchParams(location.search).get('mode') || 'goodjunk';
-    if (MODES[urlMode]) currentKey = urlMode;
+    const urlMode = new URLSearchParams(location.search).get('mode');
+    if (urlMode && MODES[urlMode]) currentKey = urlMode;
+
     document.body.setAttribute('data-mode', currentKey);
     setText('#modeName',
       {goodjunk:'Good vs Junk',groups:'5 Food Groups',hydration:'Hydration',plate:'Healthy Plate'}[currentKey] || 'Good vs Junk'
     );
-
-    const v = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
-    setText('#dwellVal', `${Number.isFinite(v)?v:850}ms`);
 
     window.addEventListener('blur',  ()=>{ try{ engine.pause();  VRInput.pause(true); }catch{} }, { passive:true });
     window.addEventListener('focus', ()=>{ try{ engine.resume(); VRInput.resume(true);}catch{} }, { passive:true });
@@ -245,11 +238,9 @@ function bindVRButtons(){
       if (document.hidden){ try{ engine.pause(); VRInput.pause(true);}catch{} }
       else { try{ engine.resume(); VRInput.resume(true);}catch{} }
     }, { passive:true });
-
-  } catch (e) {
+  } catch(e){
     console.error('[HHA] Boot error', e);
-    const el = document.createElement('pre');
-    el.style.color = '#f55';
+    const el = document.createElement('pre'); el.style.color='#f55';
     el.textContent = 'Boot error:\n' + (e?.stack||e?.message||String(e));
     document.body.appendChild(el);
   }
