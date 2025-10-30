@@ -1,80 +1,125 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th" data-hha-lang="TH">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
   <title>Hero Health Academy</title>
-  <link rel="stylesheet" href="./styles/game.css" />
+
+  <!-- Styles (ยึดตามไฟล์ CSS ล่าสุดของคุณ) -->
+  <link rel="stylesheet" href="./styles/game.css"/>
+
+  <style>
+    /* กัน mini quest/hud บังพื้นที่คลิกของเกม */
+    #hudWrap, #questBar, #coachHUD, #targetWrap, #plateTracker, #missionLine, #toast {
+      pointer-events: none;
+    }
+    /* ปุ่ม/อีโมจิในสนามต้องคลิกได้ */
+    #spawnHost, #spawnHost * { pointer-events: auto; }
+
+    /* กล่อง debug/boot warning ให้อยู่บนสุด แต่อย่าใหญ่ */
+    #bootWarn { pointer-events: none; }
+  </style>
 </head>
 <body data-mode="goodjunk" data-diff="Normal">
   <div id="app">
     <!-- Hero -->
     <section id="hero">
       <h1>Hero Health Academy</h1>
-      <p class="sub">เลือกเกมแล้วกดเริ่ม ▶</p>
+      <p class="sub">เลือกเกมเพื่อฝึกสุขภาพของคุณ</p>
     </section>
 
-    <!-- Menu -->
-    <div id="menuBar" class="menu">
+    <!-- เมนู -->
+    <section id="menuBar" class="menu">
       <div class="grid">
-        <div id="m_goodjunk"  class="tile active"><i>🥦</i><b>Good vs Junk</b><small>เลือกของดี เลี่ยงของขยะ</small></div>
-        <div id="m_groups"    class="tile"><i>🥗</i><b>5 Food Groups</b><small>แยกหมวดอาหาร</small></div>
-        <div id="m_hydration" class="tile"><i>💧</i><b>Hydration</b><small>รักษาสมดุลน้ำ</small></div>
-        <div id="m_plate"     class="tile"><i>🍽️</i><b>Healthy Plate</b><small>จัดจานให้ครบ</small></div>
+        <button id="m_goodjunk"   class="tile active" type="button">
+          <i>🍏</i><b>Good vs Junk</b><small>เลือกอาหารที่ดี หลีกเลี่ยงขยะ</small>
+        </button>
+        <button id="m_groups"     class="tile" type="button">
+          <i>🍽️</i><b>5 Food Groups</b><small>แยกอาหารให้ถูกหมวดหมู่</small>
+        </button>
+        <button id="m_hydration"  class="tile" type="button">
+          <i>💧</i><b>Hydration</b><small>เติมน้ำในร่างกายให้สมดุล</small>
+        </button>
+        <button id="m_plate"      class="tile" type="button">
+          <i>🫕</i><b>Healthy Plate</b><small>จัดจานอาหารให้สมดุล</small>
+        </button>
       </div>
 
       <div class="row">
         <div class="seg">
+          <span class="lbl">โหมด:</span>
+          <span id="modeName" class="value">Good vs Junk</span>
+        </div>
+        <div class="seg">
           <span class="lbl">ระดับ:</span>
           <span id="difficulty" class="value">Normal</span>
-          <div class="seg">
-            <div id="d_easy"   class="chip">Easy</div>
-            <div id="d_normal" class="chip active">Normal</div>
-            <div id="d_hard"   class="chip">Hard</div>
-          </div>
+          <button id="d_easy"   class="chip"        type="button">Easy</button>
+          <button id="d_normal" class="chip active" type="button">Normal</button>
+          <button id="d_hard"   class="chip"        type="button">Hard</button>
         </div>
       </div>
 
-      <div class="cta"><button id="btn_start" class="start">เริ่มเกม ▶</button></div>
-    </div>
-
-    <!-- Game Layer -->
-    <section id="gameLayer">
-      <div id="spawnHost"></div>
-
-      <!-- HUD -->
-      <div id="hudWrap" class="hud">
-        <div id="scoreTime">
-          <div id="score" class="pill">0</div>
-          <div id="combo" class="pill">x0</div>
-          <div id="time"  class="pill">45</div>
-        </div>
-        <div id="targetWrap" class="pill" style="display:none;">Target</div>
-      </div>
-
-      <!-- Mini quests -->
-      <div id="questBar">
-        <ul id="questChips"></ul>
-      </div>
-
-      <!-- Coach bubble -->
-      <div id="coachHUD" class="coach"><span id="coachText"></span></div>
-
-      <canvas id="c"></canvas>
+      <div class="cta"><button id="btn_start" class="start" type="button">เริ่มเกม ▶</button></div>
     </section>
 
-    <!-- Result -->
-    <div id="result" class="menu" style="display:none;flex-direction:column;align-items:center;">
-      <h2 id="resultText">คะแนน 0</h2>
-      <ul id="pbRow"></ul>
-      <div style="margin-top:10px;display:flex;gap:10px;">
-        <button data-result="replay" class="chip">เล่นอีกครั้ง</button>
-        <button data-result="home"   class="chip">กลับเมนู</button>
+    <!-- พื้นที่เกม -->
+    <section id="gameLayer" aria-label="Playfield">
+      <div id="spawnHost" aria-hidden="false"></div>
+
+      <!-- HUD -->
+      <div id="hudWrap" class="hud" style="display:none">
+        <!-- คะแนน/เวลา/คอมโบ -->
+        <div id="scoreTime" class="pill" style="pointer-events:none">
+          <span>🏆 <b id="score">0</b></span>
+          <span>⏱ <b id="time">45</b></span>
+          <span>🔥 <b id="combo">x0</b></span>
+        </div>
+
+        <!-- เป้าหมายโหมด groups -->
+        <div id="targetWrap" class="pill" style="display:none"><span id="targetBadge">Target</span></div>
+
+        <!-- ตัวติดตามโควต้าโหมด plate -->
+        <div id="plateTracker" class="pill" style="display:none">
+          <div id="platePills"></div>
+        </div>
+
+        <!-- โค้ช -->
+        <div id="coachHUD" class="coach" style="display:none">
+          <span id="coachText">...</span>
+        </div>
+
+        <!-- แถบ mini quests -->
+        <div id="questBar">
+          <ul id="questChips"></ul>
+        </div>
+
+        <div id="missionLine" class="missionLine"></div>
+        <div id="toast" class="toast"></div>
       </div>
-    </div>
+    </section>
+
+    <!-- ผลลัพธ์ -->
+    <section id="result" style="display:none; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap">
+      <h2 id="resultText" style="width:100%;text-align:center;margin:0">## คะแนน 0</h2>
+      <ul id="pbRow" style="list-style:none;margin:0;padding:0;display:flex;gap:10px;flex-wrap:wrap;justify-content:center"></ul>
+      <div style="width:100%;text-align:center;margin-top:6px">
+        <button class="chip" data-result="replay" type="button">เล่นอีกครั้ง</button>
+        <button class="chip" data-result="home"   type="button">กลับเมนู</button>
+      </div>
+    </section>
   </div>
 
-  <!-- Scripts -->
-  <script type="module" src="./main.js"></script>
+  <!-- เสียง (สามารถชี้ไฟล์จริงใน ui.js) -->
+  <audio id="bgm-main" preload="none" loop></audio>
+  <audio id="sfx-good" preload="none"></audio>
+  <audio id="sfx-bad" preload="none"></audio>
+  <audio id="sfx-perfect" preload="none"></audio>
+  <audio id="sfx-tick" preload="none"></audio>
+  <audio id="sfx-powerup" preload="none"></audio>
+
+  <!-- Boot + Main (type=module) -->
+  <script src="./game/boot.js"></script>
+  <script type="module" src="./game/main.js"></script>
+  <script src="./game/ui.js"></script>
 </body>
 </html>
