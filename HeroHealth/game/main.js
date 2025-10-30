@@ -1,4 +1,4 @@
-// === Hero Health — game/main.js (2025-10-30 CLICK WATCHDOG) ===
+// === Hero Health — game/main.js (2025-10-30 NUCLEAR CLICK FIX) ===
 import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 
 import { Engine }            from './core/engine.js';
@@ -41,63 +41,86 @@ const engine = new Engine({
 Progress.init?.();
 VRInput.init({ engine, sfx, THREE });
 
-/* ================= CLICK WATCHDOG ================ */
-const SAFE_IDS = new Set(['menuBar','gameLayer','spawnHost','hudWrap','result','clickGuard']);
-function forceClickStack(){
-  // ชั้นพื้นฐาน
-  const canvas = $('#c');
-  const menu   = $('#menuBar');
-  const layer  = $('#gameLayer');
-  const spawn  = $('#spawnHost');
-  const hudW   = $('#hudWrap');
-  const result = $('#result');
-  if (canvas){ canvas.style.pointerEvents='none'; canvas.style.zIndex='0'; }
-  if (menu){   menu.style.zIndex='999'; menu.style.pointerEvents='auto'; menu.style.display = (menu.style.display||'block'); }
-  if (layer){  layer.style.zIndex='10'; layer.style.pointerEvents='auto'; }
-  if (spawn){  spawn.style.zIndex='11'; spawn.style.pointerEvents='auto'; }
-  if (hudW){   hudW.style.zIndex='12';  hudW.style.pointerEvents='none'; }
-  if (result){ result.style.zIndex='1000'; }
-
-  // หา overlay ที่ครอบทั้งหน้าจอและมี pointer-events != none → ปิด
+/* --------- CLICK UNBLOCK: ปิด overlay ที่กินคลิกทั้งหมดอัตโนมัติ --------- */
+const SAFE_OK = new Set(['menuBar','gameLayer','spawnHost','hudWrap','result','clickGuard','app','c']);
+function killBlockers(){
   const vw = innerWidth, vh = innerHeight;
+  // เปิด pointer ให้เมนู/สนามแน่ๆ
+  $('#menuBar')?.style && ($('#menuBar').style.pointerEvents='auto');
+  $('#gameLayer')?.style && ($('#gameLayer').style.pointerEvents='auto');
+  $('#spawnHost')?.style && ($('#spawnHost').style.pointerEvents='auto');
+  // ปิด canvas คลิก
+  $('#c')?.style && ($('#c').style.pointerEvents='none');
+
   document.querySelectorAll('body *').forEach(el=>{
     const id = el.id || '';
-    if (SAFE_IDS.has(id)) return;
+    if (SAFE_OK.has(id)) return;
     const cs = getComputedStyle(el);
+    // ถ้าซ่อนอยู่ก็ไม่ยุ่ง
+    if (cs.display==='none' || cs.visibility==='hidden' || el.hasAttribute('hidden')) return;
+
+    // ตัวเต็มจอที่ z-index สูงและจับคลิก → ปิด
     if ((cs.position==='fixed' || cs.position==='absolute')) {
       const r = el.getBoundingClientRect();
-      if (r.width >= vw*0.92 && r.height >= vh*0.92 && parseInt(cs.zIndex||'0',10) >= 900) {
+      const large = r.width >= vw*0.9 && r.height >= vh*0.9;
+      const highZ = (parseInt(cs.zIndex||'0',10) >= 999);
+      const peOn  = cs.pointerEvents !== 'none';
+      if (large && highZ && peOn) {
         el.style.pointerEvents = 'none';
       }
     }
   });
 }
-function injectRescueBar(){
+function ensureRescueBar(){
   if ($('#clickGuard')) return;
   const bar = document.createElement('div');
-  bar.id = 'clickGuard';
+  bar.id='clickGuard';
   bar.innerHTML = `
     <button id="btnForceUnblock">🛡 Force Unblock</button>
     <button id="btnStartNow">▶ Start</button>
     <button id="btnHomeNow">🏠 Home</button>
   `;
   document.body.appendChild(bar);
-  $('#btnForceUnblock')?.addEventListener('click', ()=>forceClickStack());
+  $('#btnForceUnblock')?.addEventListener('click', killBlockers);
   $('#btnStartNow')?.addEventListener('click', ()=> startGame());
   $('#btnHomeNow')?.addEventListener('click', ()=>{ stopGame(); showMenu(); });
 }
-function startWatchdog(){
-  forceClickStack();
-  const iv = setInterval(forceClickStack, 600);
-  window.addEventListener('resize', forceClickStack, { passive:true });
-  // debug: ดู element ที่ศูนย์จอว่ามันคืออะไร
-  document.addEventListener('click', (e)=>{
-    const t=e.target, r=t?.getBoundingClientRect?.();
-    console.debug('[CLICK]', t.tagName, '#'+(t.id||''), '.'+(t.className||''), r?`${r.width}x${r.height}@${r.left},${r.top}`:'');
-  }, { capture:true });
+// ทำซ้ำทุก 500ms กัน element ใหม่ ๆ โผล่มาบัง
+setInterval(killBlockers, 500);
+window.addEventListener('resize', killBlockers, { passive:true });
+
+/* --------- โหมด/ดิฟ --------- */
+function bindModeSelectors(){
+  const map = {
+    m_goodjunk:  { key:'goodjunk',  label:'Good vs Junk' },
+    m_groups:    { key:'groups',    label:'5 Food Groups' },
+    m_hydration: { key:'hydration', label:'Hydration' },
+    m_plate:     { key:'plate',     label:'Healthy Plate' },
+  };
+  Object.keys(map).forEach(id=>{
+    const btn = $('#'+id);
+    if (!btn) return;
+    const apply = ()=>{ $$('.menu .tile').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); currentKey = map[id].key; document.body.setAttribute('data-mode', currentKey); setText('#modeName', map[id].label); };
+    // ผูกทุกประเภทอีเวนต์
+    ['click','pointerdown','touchend'].forEach(ev=>btn.addEventListener(ev,(e)=>{e.preventDefault?.(); apply();},{passive:false}));
+  });
+
+  const diffEl = $('#difficulty');
+  function setDiff(key){
+    ['d_easy','d_normal','d_hard'].forEach(id=>$('#'+id)?.classList.remove('active'));
+    if (key==='Easy')   $('#d_easy')?.classList.add('active');
+    if (key==='Normal') $('#d_normal')?.classList.add('active');
+    if (key==='Hard')   $('#d_hard')?.classList.add('active');
+    document.body.setAttribute('data-diff', key);
+    window.__HHA_DIFF = key;
+    if (diffEl) diffEl.textContent = key;
+  }
+  const bindDiff = (id, key)=>{ const b=$('#'+id); if(!b) return; ['click','pointerdown','touchend'].forEach(ev=>b.addEventListener(ev,(e)=>{e.preventDefault?.(); setDiff(key);},{passive:false})); };
+  bindDiff('d_easy','Easy'); bindDiff('d_normal','Normal'); bindDiff('d_hard','Hard');
+  setDiff(document.body.getAttribute('data-diff') || 'Normal');
 }
 
-/* ================= UI STATE ================ */
+/* --------- สถานะหน้าจอ --------- */
 function setPlayfieldActive(on){
   const menu  = $('#menuBar');
   const layer = $('#gameLayer');
@@ -105,7 +128,7 @@ function setPlayfieldActive(on){
   if (layer) layer.style.pointerEvents = on ? 'auto' : 'none';
   if (spawn) spawn.style.pointerEvents = on ? 'auto' : 'none';
   if (menu)  menu.style.pointerEvents  = on ? 'none' : 'auto';
-  forceClickStack();
+  killBlockers();
 }
 function showMenu(){
   $('#menuBar')?.style && ($('#menuBar').style.display='block');
@@ -119,43 +142,7 @@ function showPlay(){
   setPlayfieldActive(true);
 }
 
-/* ================= MODE / DIFF ================ */
-function bindModeSelectors(){
-  const map = {
-    m_goodjunk:  { key:'goodjunk',  label:'Good vs Junk' },
-    m_groups:    { key:'groups',    label:'5 Food Groups' },
-    m_hydration: { key:'hydration', label:'Hydration' },
-    m_plate:     { key:'plate',     label:'Healthy Plate' },
-  };
-  Object.keys(map).forEach(id=>{
-    const btn = $('#'+id);
-    if (!btn) return;
-    btn.addEventListener('click', ()=>{
-      $$('.menu .tile').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      currentKey = map[id].key;
-      document.body.setAttribute('data-mode', currentKey);
-      setText('#modeName', map[id].label);
-    });
-  });
-
-  const diffEl = $('#difficulty');
-  function setDiff(key){
-    ['d_easy','d_normal','d_hard'].forEach(id=>$('#'+id)?.classList.remove('active'));
-    if (key==='Easy')   $('#d_easy')?.classList.add('active');
-    if (key==='Normal') $('#d_normal')?.classList.add('active');
-    if (key==='Hard')   $('#d_hard')?.classList.add('active');
-    document.body.setAttribute('data-diff', key);
-    window.__HHA_DIFF = key;
-    if (diffEl) diffEl.textContent = key;
-  }
-  $('#d_easy')?.addEventListener('click', ()=>setDiff('Easy'));
-  $('#d_normal')?.addEventListener('click', ()=>setDiff('Normal'));
-  $('#d_hard')?.addEventListener('click', ()=>setDiff('Hard'));
-  setDiff(document.body.getAttribute('data-diff') || 'Normal');
-}
-
-/* ================= LIFECYCLE ================ */
+/* --------- โหลดโหมด / เริ่ม/หยุด --------- */
 function loadMode(key){
   const m = MODES[key] || MODES.goodjunk;
   if (current?.cleanup) { try { current.cleanup(); } catch{} }
@@ -176,20 +163,21 @@ function stopGame(){
 }
 function replayGame(){ stopGame(); startGame(); }
 
-/* ================= VR buttons / dwell ================ */
+/* --------- ปุ่ม VR / dwell (คงเดิม) --------- */
 function bindVRButtons(){
-  $$('#toggleVR,[data-action="toggle-vr"]').forEach(btn=>btn.addEventListener('click', ()=>VRInput.toggleVR()));
-  $$('#dwellMinus,[data-action="dwell-"]').forEach(b=>b.addEventListener('click', ()=>{
+  const bind = (sel, fn)=> $$(sel).forEach(b=>['click','pointerdown','touchend'].forEach(ev=>b.addEventListener(ev,(e)=>{e.preventDefault?.(); fn();},{passive:false})));
+  bind('#toggleVR,[data-action="toggle-vr"]', ()=>VRInput.toggleVR());
+  bind('#dwellMinus,[data-action="dwell-"]', ()=>{
     const cur = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
     const nxt = Math.max(400, cur - 100); VRInput.setDwellMs(nxt); setText('#dwellVal', `${nxt}ms`);
-  }));
-  $$('#dwellPlus,[data-action="dwell+"]').forEach(b=>b.addEventListener('click', ()=>{
+  });
+  bind('#dwellPlus,[data-action="dwell+"]', ()=>{
     const cur = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
     const nxt = Math.min(2000, cur + 100); VRInput.setDwellMs(nxt); setText('#dwellVal', `${nxt}ms`);
-  }));
+  });
 }
 
-/* ================= WIRE UI ================ */
+/* --------- Wire UI (ผูกทุกเหตุการณ์ + คีย์ลัด) --------- */
 (function wireUI(){
   const btnStart = $('#btn_start');
   const btnHome  = document.querySelector('[data-result="home"]');
@@ -201,23 +189,30 @@ function bindVRButtons(){
   window.HHA.stop               = stopGame;
   window.HHA.replay             = replayGame;
 
-  btnStart?.addEventListener('click', ()=> startGame());
-  btnHome?.addEventListener('click', ()=>{ stopGame(); showMenu(); });
-  btnReplay?.addEventListener('click', ()=> replayGame());
+  const bindAll = (el, fn)=>{ if(!el) return; ['click','pointerdown','touchend'].forEach(ev=>el.addEventListener(ev,(e)=>{e.preventDefault?.(); fn();},{passive:false})); };
+
+  bindAll(btnStart, ()=> startGame());
+  bindAll(btnHome,  ()=>{ stopGame(); showMenu(); });
+  bindAll(btnReplay,()=> replayGame());
+
+  // คีย์ลัด: Enter = Start / Space = Replay / Esc = Home
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter'){ e.preventDefault(); startGame(); }
+    else if (e.key === ' ') { e.preventDefault(); replayGame(); }
+    else if (e.key === 'Escape'){ e.preventDefault(); stopGame(); showMenu(); }
+  });
 
   showMenu();
   bindModeSelectors();
   bindVRButtons();
+  ensureRescueBar();
 
-  injectRescueBar();
-  startWatchdog();
-
-  // แสดง dwell ms ปัจจุบันบนเมนูถ้ามี
+  // แสดง dwell ms บนเมนู
   const v = parseInt(localStorage.getItem('hha_dwell_ms')||'850',10);
   setText('#dwellVal', `${Number.isFinite(v)?v:850}ms`);
 })();
 
-/* ================= BOOT VISIBILITY HOOKS ================ */
+/* --------- Hooks วิสิเบิล/โฟกัส --------- */
 (function boot(){
   try {
     hud.init?.();
@@ -238,9 +233,12 @@ function bindVRButtons(){
       if (document.hidden){ try{ engine.pause(); VRInput.pause(true);}catch{} }
       else { try{ engine.resume(); VRInput.resume(true);}catch{} }
     }, { passive:true });
+
+    // เรียกครั้งแรกทันที
+    killBlockers();
   } catch(e){
     console.error('[HHA] Boot error', e);
-    const el = document.createElement('pre'); el.style.color='#f55';
+    const el = document.createElement('pre'); el.style.cssText='color:#f55;white-space:pre-wrap;padding:8px;';
     el.textContent = 'Boot error:\n' + (e?.stack||e?.message||String(e));
     document.body.appendChild(el);
   }
