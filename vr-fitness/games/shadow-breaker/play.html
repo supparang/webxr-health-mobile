@@ -1,46 +1,23 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Shadow Breaker — Play</title>
-<meta name="color-scheme" content="dark light"/>
-<style>
-  html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.4 system-ui,Segoe UI,Inter,Arial}
-  #boot{position:fixed;inset:0;display:grid;place-items:center;background:#000;z-index:10}
-  #boot .box{background:#121528;padding:18px 20px;border-radius:14px;border:1px solid #2a2f4a;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-  #boot .log{margin-top:10px;background:#0a0d1f;border:1px solid #243;min-height:60px;max-height:180px;overflow:auto;border-radius:10px;padding:8px;font:12px monospace;white-space:pre-wrap}
-  #err{position:fixed;left:12px;bottom:12px;max-width:min(92vw,720px);display:none;background:#2a2f4a;border:1px solid #445;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;z-index:11}
-</style>
+<meta name="color-scheme" content="dark light" />
 </head>
-<body>
-<div id="boot"><div class="box">
-  <h1>Loading Shadow Breaker…</h1>
-  <div class="log" id="bootLog">• start</div>
-</div></div>
-<div id="err"></div>
-
+<body style="margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Inter,Arial">
+<pre id="log" style="position:fixed;left:10px;bottom:10px;color:#9df;white-space:pre-wrap">• start</pre>
 <script>
-(function(){ const u=new URL(location.href);
-  window.HubLaunch={ game:u.searchParams.get("game")||"shadow-breaker", mode:u.searchParams.get("mode")||"timed",
-    diff:u.searchParams.get("diff")||"normal", time:Math.max(30,Math.min(180,+(u.searchParams.get("time")||90))) };
-})();
-const logEl=document.getElementById('bootLog');const errEl=document.getElementById('err');const boot=document.getElementById('boot');
-let gotGame=false,gotAdapter=false;
-const log=s=>{logEl.textContent+="\n• "+s;logEl.scrollTop=logEl.scrollHeight;};
-const showErr=m=>{errEl.style.display='block';errEl.innerHTML="<b>⚠️</b> "+m;console.error(m);};
-window.addEventListener('error',e=>showErr(e.message||String(e)),true);
-window.addEventListener('unhandledrejection',e=>showErr(String(e.reason)),true);
-function maybeStart(){if(gotGame&&gotAdapter){log('✓ ready');boot.remove();}}
-
-(function(){const s=document.createElement('script');s.src='/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live';
-s.onload=()=>{gotAdapter=true;log('hub-adapter.js ✓');maybeStart();};
-s.onerror=()=>{showErr('โหลด hub-adapter.js ไม่สำเร็จ');};
-document.head.appendChild(s);})();
-
-(function(){const s=document.createElement('script');s.type='module';s.src='./game.js?v=live';
-s.onload=()=>{gotGame=true;log('game.js ✓');maybeStart();};
-s.onerror=()=>{showErr('โหลด game.js ไม่สำเร็จ');};
-document.head.appendChild(s);})();
+const u=new URL(location.href);
+window.HubLaunch={game:"shadow-breaker",mode:u.searchParams.get("mode")||"timed",diff:u.searchParams.get("diff")||"normal",time:+(u.searchParams.get("time")||90)};
+const log=t=>{logEl.textContent+="\n• "+t;logEl.scrollTop=logEl.scrollHeight};
+const logEl=document.getElementById("log");
+window.addEventListener("error",e=>log("ERR "+(e.message||e)),true);
+window.addEventListener("unhandledrejection",e=>log("REJ "+(e.reason||e)),true);
+["/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live","./game.js?v=live"].forEach(src=>{
+  const s=document.createElement('script');s.src=src;s.type=src.endsWith('.js?v=live')?'module':'text/javascript';
+  s.onload=()=>log(src.split('/').pop()+" ✓");s.onerror=()=>log("error "+src);document.head.appendChild(s);
+});
 </script>
 </body>
 </html>
