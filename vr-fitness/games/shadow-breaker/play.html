@@ -1,23 +1,108 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Shadow Breaker — Play</title>
-<meta name="color-scheme" content="dark light" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Shadow Breaker — Play</title>
+  <meta name="color-scheme" content="dark light"/>
+  <style>
+    html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.4 system-ui,Segoe UI,Inter,Arial}
+    #boot{position:fixed;inset:0;display:grid;place-items:center;background:#000;z-index:10}
+    #boot .box{background:#121528;padding:18px 20px;border-radius:14px;border:1px solid #2a2f4a;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    #log{margin-top:10px;background:#0a0d1f;border:1px solid #243;min-height:80px;max-height:220px;overflow:auto;border-radius:10px;padding:8px;font:12px monospace;white-space:pre-wrap}
+    #err{position:fixed;left:12px;bottom:12px;max-width:min(92vw,720px);display:none;background:#2a2f4a;border:1px solid #445;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;z-index:11}
+  </style>
 </head>
-<body style="margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Inter,Arial">
-<pre id="log" style="position:fixed;left:10px;bottom:10px;color:#9df;white-space:pre-wrap">• start</pre>
+<body>
+  <div id="boot"><div class="box">
+    <h1>Loading Shadow Breaker…</h1>
+    <div id="log">• start</div>
+  </div></div>
+  <div id="err"></div>
+
 <script>
-const u=new URL(location.href);
-window.HubLaunch={game:"shadow-breaker",mode:u.searchParams.get("mode")||"timed",diff:u.searchParams.get("diff")||"normal",time:+(u.searchParams.get("time")||90)};
-const log=t=>{logEl.textContent+="\n• "+t;logEl.scrollTop=logEl.scrollHeight};
-const logEl=document.getElementById("log");
-window.addEventListener("error",e=>log("ERR "+(e.message||e)),true);
-window.addEventListener("unhandledrejection",e=>log("REJ "+(e.reason||e)),true);
-["/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live","./game.js?v=live"].forEach(src=>{
-  const s=document.createElement('script');s.src=src;s.type=src.endsWith('.js?v=live')?'module':'text/javascript';
-  s.onload=()=>log(src.split('/').pop()+" ✓");s.onerror=()=>log("error "+src);document.head.appendChild(s);
-});
+  // ----- Launch params -----
+  (function(){ const u=new URL(location.href);
+    window.HubLaunch = {
+      game: "shadow-breaker",
+      mode: u.searchParams.get("mode") || "timed",
+      diff: u.searchParams.get("diff") || "normal",
+      time: Math.max(30, Math.min(180, +(u.searchParams.get("time") || 90)))
+    };
+  })();
+
+  const logEl = document.getElementById('log');
+  const errEl = document.getElementById('err');
+  const boot  = document.getElementById('boot');
+  const log = (t)=>{ logEl.textContent += "\n• " + t; logEl.scrollTop = logEl.scrollHeight; };
+  const showErr = (m, tried=[])=>{
+    errEl.style.display='block';
+    errEl.innerHTML = "<b>⚠️</b> " + m + (tried.length? `<div style="margin-top:6px;font:12px monospace">Tried:\n${tried.join("\n")}</div>` : "");
+    console.error(m, tried);
+  };
+
+  // ----- Candidates for game.js -----
+  // ปรับลำดับให้ "ของจริง" มาก่อน (ตามโครงใหม่)
+  const GAME_JS_CANDIDATES = [
+    "./game.js",  // /webxr-health-mobile/vr-fitness/shadow-breaker/game.js
+    "../shadow-breaker/game.js",                       // เผื่อถูกฝังผิดโฟลเดอร์
+    "/webxr-health-mobile/vr-fitness/shadow-breaker/game.js",
+    "/webxr-health-mobile/vr-fitness/games/shadow-breaker/game.js" // พาธเก่า
+  ];
+
+  // ตรวจว่าเป็นไฟล์ JS จริง (ไม่ใช่ HTML 404)
+  async function probeJS(url){
+    const bust = url + (url.includes("?") ? "&" : "?") + "v=live";
+    const r = await fetch(bust, { cache: "no-store" });
+    if(!r.ok) return { ok:false, reason: "HTTP " + r.status };
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    // accept: javascript types; reject: text/html
+    if(ct.includes("javascript") || ct.includes("ecmascript") || ct.includes("text/plain")){
+      return { ok:true, url: bust };
+    }
+    // บางครั้ง GitHub Pages ติด content-type เป็น text/plain ก็ยังโอเค
+    if(ct.includes("text/html")) return { ok:false, reason:"HTML response (likely 404/redirect)" };
+    return { ok:true, url: bust }; // ผ่อนปรน ถ้าเซิร์ฟเวอร์ตั้งค่าแปลก
+  }
+
+  async function loadHubAdapter(){
+    return new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = "/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live";
+      s.onload = ()=>{ log("hub-adapter.js ✓"); resolve(); };
+      s.onerror = ()=> reject(new Error("โหลด hub-adapter.js ไม่สำเร็จ"));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function loadGameModule(){
+    const tried = [];
+    for(const raw of GAME_JS_CANDIDATES){
+      tried.push(raw);
+      try{
+        const p = await probeJS(raw);
+        if(!p.ok){ log(`skip ${raw} → ${p.reason}`); continue; }
+        log(`import ${p.url}`);
+        await import(p.url);
+        log("game.js ✓");
+        return true;
+      }catch(e){
+        log(`fail ${raw} → ${e.message||e}`);
+      }
+    }
+    showErr("ไม่พบ/โหลด game.js ไม่สำเร็จ (เจอ HTML หรือ 404)", tried);
+    return false;
+  }
+
+  (async function bootAll(){
+    try{
+      await loadHubAdapter();
+      const ok = await loadGameModule();
+      if(ok){ boot.remove(); }
+    }catch(e){
+      showErr(e.message||String(e));
+    }
+  })();
 </script>
 </body>
 </html>
