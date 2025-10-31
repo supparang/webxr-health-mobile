@@ -1,215 +1,521 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
-  <title>Hero Health Academy</title>
+// /webxr-health-mobile/HeroHealth/game/main.js
+// Hero Health Academy — MAIN (2025-10-31 "BOOT-OK + Fallback GoodJunk")
+// - Dynamic import real modes; safe fallback BuiltinGoodJunk
+// - UI wiring, HUD, timer, score/combo, fever bar, result modal
+// - Pause on blur, autoplay guard, TH/EN toggle, SFX toggle
+// - No optional chaining for old webviews
 
-  <!-- ใช้พื้นหลัง/สไตล์เดิม -->
-  <link rel="stylesheet" href="/webxr-health-mobile/HeroHealth/styles/game.css" />
-  <link rel="stylesheet" href="/webxr-health-mobile/HeroHealth/styles/groups.css" />
+// ----- Boot flag for HTML loader -----
+window.__HHA_BOOT_OK = true;
 
-  <style>
-    :root { --safe: env(safe-area-inset-bottom, 0px); }
-    .hud .cardlike {
-      background: linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.5));
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 12px; padding: 6px 10px; backdrop-filter: blur(6px);
+// ----- Utils -----
+function $(s){ return document.querySelector(s); }
+function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
+function on(el,ev,fn){ if(el) el.addEventListener(ev,fn,false); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function now(){ return performance && performance.now ? performance.now() : Date.now(); }
+
+// ----- DOM ensure (auto-create if missing) -----
+(function ensureDOM(){
+  var hud = $('#hudWrap'); if(!hud){ var h=document.createElement('section'); h.id='hudWrap'; h.className='hud'; h.style.display='none'; document.body.appendChild(h); }
+  var gl = $('#gameLayer'); if(!gl){
+    var g=document.createElement('section'); g.id='gameLayer';
+    g.setAttribute('aria-label','playfield');
+    g.style.cssText='position:relative;width:min(980px,96vw);height:60vh;min-height:360px;margin:10px auto;border-radius:16px;border:1px solid #152641;background:radial-gradient(1200px 500px at 50% -40%, #152644 12%, #0c1729 55%, #0b1626);overflow:hidden;';
+    document.body.appendChild(g);
+  }
+  var host = $('#spawnHost'); if(!host){ var s=document.createElement('div'); s.id='spawnHost'; s.style.cssText='position:absolute;inset:0;'; $('#gameLayer').appendChild(s); }
+})();
+
+// ----- Paths -----
+var BASE = '/webxr-health-mobile/HeroHealth/game/';
+var MODES_DIR = BASE + 'modes/';
+
+// ----- State -----
+var State = {
+  lang: 'th', // 'th' | 'en'
+  gfx: 'Normal',
+  sound: true,
+  haptic: true,
+  difficulty: 'Normal', // Easy/Normal/Hard
+  modeKey: 'goodjunk',  // goodjunk/groups/hydration/plate
+  running: false,
+  paused: false,
+  timeLeft: 60,
+  score: 0,
+  combo: 0,
+  bestCombo: 0,
+  fever: 0, // 0..100
+  tickHandle: 0,
+  modeAPI: null,
+  startAt: 0,
+  sfx: {
+    good: $('#sfx-good'),
+    bad: $('#sfx-bad'),
+    perfect: $('#sfx-perfect'),
+    tick: $('#sfx-tick'),
+    powerup: $('#sfx-powerup'),
+  }
+};
+
+// ----- Texts (TH/EN) -----
+var T = {
+  th: {
+    score:'คะแนน', combo:'คอมโบ', time:'เวลา', mode:'โหมด', diff:'ความยาก',
+    target:'หมวด', quota:'โควตา', hydro:'สมดุลน้ำ',
+    helpTitle:'วิธีเล่น', ok:'โอเค', summary:'สรุปผล',
+    daily:'ภารกิจรายวัน', stats:'บอร์ดสถิติรวม',
+    modes:{goodjunk:'ดี vs ขยะ', groups:'จาน 5 หมู่', hydration:'สมดุลน้ำ', plate:'จัดจานสุขภาพ'},
+    start:'▶ เริ่มเกม', pause:'⏸ พัก', restart:'↻ เริ่มใหม่',
+    tipsGoodJunk:'แตะอาหาร “ดีต่อสุขภาพ” เพื่อเก็บคะแนน หลีกเลี่ยงอาหารขยะ โดนขยะคอมโบจะรีเซ็ต ระวังเวลาหมด!',
+    finished:'จบเกม! ทำได้',
+    star:'ดาว', sec:'วินาที'
+  },
+  en: {
+    score:'Score', combo:'Combo', time:'Time', mode:'Mode', diff:'Difficulty',
+    target:'Target', quota:'Quota', hydro:'Hydration',
+    helpTitle:'How to Play', ok:'OK', summary:'Summary',
+    daily:'Daily Challenge', stats:'Global Stats',
+    modes:{goodjunk:'Good vs Junk', groups:'Food Groups', hydration:'Water Balance', plate:'Healthy Plate'},
+    start:'▶ Start', pause:'⏸ Pause', restart:'↻ Restart',
+    tipsGoodJunk:'Tap healthy foods to score. Avoid junk! Bad hits reset combo. Race against the clock!',
+    finished:'Finished! You scored',
+    star:'star', sec:'s'
+  }
+};
+
+// ----- UI Refs -----
+var el = {
+  score: $('#score'), combo: $('#combo'), time: $('#time'),
+  t_score: $('#t_score'), t_combo: $('#t_combo'), t_time: $('#t_time'),
+  t_mode: $('#t_mode'), t_diff: $('#t_diff'), modeName: $('#modeName'), difficulty: $('#difficulty'),
+  feverWrap: $('#feverBarWrap'), feverBar: $('#feverBar'), feverText: $('#fever'),
+  questChips: $('#questChips'),
+  targetWrap: $('#targetWrap'), targetBadge: $('#targetBadge'),
+  plateTracker: $('#plateTracker'), platePills: $('#platePills'),
+  hydroWrap: $('#hydroWrap'), hydroLabel: $('#hydroLabel'), hydroBar: $('#hydroBar'),
+  coach: $('#coachHUD'), coachText: $('#coachText'),
+  missionLine: $('#missionLine'),
+  spawnHost: $('#spawnHost'),
+  btnStart: $('#btn_start'), btnPause: $('#btn_pause'), btnRestart: $('#btn_restart'),
+  langToggle: $('#langToggle'), gfxToggle: $('#gfxToggle'), soundToggle: $('#soundToggle'), hapticToggle: $('#hapticToggle'),
+  dEasy: $('#d_easy'), dNormal: $('#d_normal'), dHard: $('#d_hard'),
+  mGood: $('#m_goodjunk'), mGroups: $('#m_groups'), mHyd: $('#m_hydration'), mPlate: $('#m_plate'),
+  help: $('#help'), helpBody: $('#helpBody'), helpOpen: $('#btn_help'), helpClose: $('#btn_ok'),
+  helpScene: $('#helpScene'), helpAllBody: $('#helpAllBody'),
+  helpSceneOpen: $('#btn_helpScene'), helpSceneClose: $('#btn_ok_all'),
+  result: $('#result'), resText: $('#resultText'), resCore: $('#resCore'),
+  resBreak: $('#resBreakdown'), resBoard: $('#resBoard'), resMissions: $('#resMissions'), resDaily: $('#resDaily'),
+  statPanel: $('#statBoard'), statBody: $('#statBoardBody'),
+  statOpen: $('#btn_stats'), statCloseBtn: null, dailyPanel: $('#dailyPanel'), dailyBody: $('#dailyBody'), dailyReward: $('#dailyReward'),
+  dailyOpen: $('#btn_daily')
+};
+
+// ----- Lang apply -----
+function applyLang(){
+  var L = T[State.lang];
+  if(el.t_score) el.t_score.textContent = L.score;
+  if(el.t_combo) el.t_combo.textContent = L.combo;
+  if(el.t_time)  el.t_time.textContent  = L.time;
+  if($('#btn_start'))  $('#btn_start').textContent  = L.start;
+  if($('#btn_pause'))  $('#btn_pause').textContent  = L.pause;
+  if($('#btn_restart'))$('#btn_restart').textContent= L.restart;
+  if($('#t_mode'))     $('#t_mode').textContent     = L.mode;
+  if($('#t_diff'))     $('#t_diff').textContent     = L.diff;
+  if($('#modeName'))   $('#modeName').textContent   = L.modes[State.modeKey] || State.modeKey;
+  if($('#difficulty')) $('#difficulty').textContent = State.difficulty;
+}
+
+// ----- SFX -----
+function playSFX(name){
+  if(!State.sound) return;
+  var a = State.sfx[name];
+  if(a){ try{ a.currentTime=0; a.play(); }catch(_e){} }
+}
+
+// ----- Fever -----
+function setFever(v){
+  State.fever = clamp(v,0,100);
+  if(el.feverBar){ el.feverBar.style.width = State.fever + '%'; }
+  if(el.feverText){ el.feverText.style.display = (State.fever>=95?'block':'none'); }
+}
+
+// ----- Score/Combo -----
+function addScore(amount, isPerfect){
+  State.score += amount;
+  State.combo += 1;
+  State.bestCombo = Math.max(State.bestCombo, State.combo);
+  if(isPerfect) setFever(State.fever + 6); else setFever(State.fever + 3);
+  if(el.score) el.score.textContent = String(State.score);
+  if(el.combo) el.combo.textContent = 'x' + String(State.combo);
+}
+
+// ----- Penalty -----
+function badHit(){
+  playSFX('bad');
+  State.combo = 0;
+  if(el.combo) el.combo.textContent = 'x0';
+  setFever(Math.max(0, State.fever - 12));
+  // flash
+  var gl = $('#gameLayer');
+  if(gl){
+    gl.style.transition='background 120ms ease';
+    var old = gl.style.background;
+    gl.style.background='radial-gradient(1200px 500px at 50% -40%, #411a26 12%, #2a0c16 55%, #200b16)';
+    setTimeout(function(){ gl.style.background=old; }, 140);
+  }
+}
+
+// ----- Timer -----
+function setTimeLeft(sec){
+  State.timeLeft = Math.max(0, Math.round(sec));
+  if(el.time) el.time.textContent = String(State.timeLeft);
+}
+
+// ----- Mode loader (with fallback) -----
+var registry = {
+  goodjunk: null,
+  groups: null,
+  hydration: null,
+  plate: null
+};
+
+function tryImport(path){
+  return new Promise(function(res,rej){
+    import(path).then(function(m){ res(m); }).catch(function(e){ rej(e); });
+  });
+}
+
+function getMode(key){
+  if(registry[key]) return Promise.resolve(registry[key]);
+  var url = MODES_DIR + key + '.js?v=live';
+  return tryImport(url).then(function(m){ registry[key] = m; return m; }).catch(function(_e){
+    // Fallbacks: implement GoodJunk only (playable); others return stubs
+    if(key==='goodjunk') { registry[key] = BuiltinGoodJunk(); return registry[key]; }
+    registry[key] = StubMode(key);
+    return registry[key];
+  });
+}
+
+// ----- Builtin GoodJunk (DOM spawn) -----
+function BuiltinGoodJunk(){
+  var GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
+  var JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍗','🍖','🍫','🥓','🍿','🧈','🧂'];
+  var host, alive = false, spawnT=0, rate=700, life=1600, minR=560, maxR=820;
+
+  function rng(a,b){ return Math.floor(a + Math.random()*(b-a+1)); }
+
+  function makeItem(txt, good){
+    var d = document.createElement('button');
+    d.className='spawn-emoji';
+    d.setAttribute('aria-label', good?'good item':'junk item');
+    d.textContent = txt;
+    d.style.position='absolute';
+    var W = host.clientWidth, H = host.clientHeight;
+    // Avoid edges
+    var x = rng(24, Math.max(24, W-64));
+    var y = rng(24, Math.max(24, H-64));
+    d.style.left = x+'px'; d.style.top = y+'px';
+    d.style.fontSize = '38px';
+    d.style.border='0'; d.style.background='transparent'; d.style.filter='drop-shadow(0 3px 6px rgba(0,0,0,.45))';
+    d.dataset.good = good ? '1' : '0';
+    var lifeMs = rng(life-250, life+250);
+    var gone = false;
+    var to = setTimeout(function(){
+      if(gone) return;
+      leave();
+    }, lifeMs);
+
+    function leave(){
+      gone = true;
+      d.style.transition='transform 160ms ease, opacity 160ms ease';
+      d.style.transform='scale(.6) translateY(10px)';
+      d.style.opacity='0';
+      setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 170);
     }
-    #missionLine { margin-top:8px; }
-    .menu { padding-bottom: calc(12px + var(--safe)); }
 
-    .modal .tbl { width:100%; border-collapse:collapse; }
-    .modal .tbl th, .modal .tbl td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.1); }
-    .chip { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px;
-            background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); margin:4px 6px 0 0; }
+    on(d,'click',function(){
+      if(!alive) return;
+      clearTimeout(to);
+      // Pop effect
+      d.style.transition='transform 120ms ease, opacity 120ms ease';
+      d.style.transform='scale(1.25)';
+      setTimeout(function(){ d.style.opacity='0'; }, 90);
+      setTimeout(function(){ if(d.parentNode) d.parentNode.removeChild(d); }, 130);
 
-    /* --- pointer safety (ซ้อนชั้นไม่บังคลิก) --- */
-    #menuBar { pointer-events: auto; }
-    #hudWrap { pointer-events: none; }     /* HUD ไม่กินคลิก */
-    #gameLayer { pointer-events: auto; }
-    #spawnHost, .spawn-emoji { pointer-events: auto; }
-    .btn, .chip, .tile, .tag { pointer-events: auto; }
-    .modal { pointer-events: auto; }
-  </style>
-
-  <!-- Bootloader: import main.js ด้วย absolute path -->
-  <script type="module">
-    (async () => {
-      const warn = document.createElement('div');
-      warn.id = 'bootWarn';
-      warn.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000;display:none';
-      warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ตรวจ path /webxr-health-mobile/HeroHealth/game/main.js';
-      document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(warn));
-
-      const chip = document.createElement('div');
-      chip.id = 'bootChip';
-      chip.style.cssText = 'position:fixed;right:12px;bottom:calc(12px + var(--safe));background:#1b5e20;color:#fff;padding:8px 10px;border-radius:999px;font-weight:800;font-size:12px;z-index:2001;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)';
-      chip.textContent = '✅ JS Loaded';
-      document.addEventListener('DOMContentLoaded', ()=>document.body.appendChild(chip));
-
-      const url = '/webxr-health-mobile/HeroHealth/game/main.js?v=live&cb=' + Date.now();
-      try{
-        await import(url);
-        setTimeout(()=>{ if(window.__HHA_BOOT_OK){ warn.style.display='none'; chip.style.display='inline-block'; }}, 80);
-      }catch(e){
-        warn.textContent = 'โหลดสคริปต์ไม่สำเร็จ: ' + (e?.message || e);
-        warn.style.display = 'block';
+      if(d.dataset.good==='1'){
+        playSFX('good');
+        var perfect = Math.random()<0.22;
+        addScore(perfect? 200:100, perfect);
+      }else{
+        badHit();
       }
-    })();
-  </script>
-</head>
-<body>
-  <header class="brand" role="banner">
-    <div id="brandTitle">HERO HEALTH ACADEMY</div>
-    <div class="spacer"></div>
-    <button id="langToggle"   class="btn" type="button">🇹🇭 TH/EN</button>
-    <button id="gfxToggle"    class="btn" type="button">🎛️ กราฟิก: ปกติ</button>
-    <button id="soundToggle"  class="btn" type="button">🔊 เสียง: เปิด</button>
-    <button id="hapticToggle" class="btn" type="button">📳 สั่น: เปิด</button>
-  </header>
+    });
 
-  <canvas id="c" aria-hidden="true"></canvas>
+    host.appendChild(d);
+  }
 
-  <!-- HUD (ให้ main.js เปิดตอนเริ่มเกม) -->
-  <section class="hud" id="hudWrap" role="region" aria-label="HUD" style="display:none">
-    <div class="cardlike">
-      <span id="t_score">คะแนน</span>: <b id="score">0</b> |
-      <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
-      <span id="t_time">เวลา</span>: <b id="time">60</b>s
-    </div>
+  function tick(dt){
+    spawnT += dt;
+    if(spawnT >= rate){
+      spawnT = 0;
+      var good = Math.random() < 0.7;
+      if(Math.random()<0.12) { // golden streak
+        makeItem('🌟', true);
+      }else{
+        makeItem(good? GOOD[rng(0,GOOD.length-1)] : JUNK[rng(0,JUNK.length-1)], good);
+      }
+    }
+  }
 
-    <div id="feverBarWrap" class="bar slim"><div id="feverBar"></div></div>
-    <div id="fever" class="fever" style="display:none">FEVER!</div>
+  function start(cfg){
+    host = $('#spawnHost');
+    if(!host) return;
+    alive = true; spawnT = 0;
+    // difficulty params
+    var d = (cfg && cfg.difficulty)||'Normal';
+    if(d==='Easy'){ rate=820; life=1900; }
+    else if(d==='Hard'){ rate=560; life=1400; }
+    else { rate=700; life=1600; }
 
-    <div id="powerBar" class="powerbar" aria-label="Power-ups">
-      <div class="pseg" data-k="x2"><span>×2</span><i></i></div>
-      <div class="pseg" data-k="freeze"><span>🧊</span><i></i></div>
-      <div class="pseg" data-k="sweep"><span>🧲</span><i></i></div>
-    </div>
+    // show HUD
+    $('#hudWrap').style.display='block';
+  }
+  function pause(){ alive=false; }
+  function resume(){ alive=true; }
+  function stop(){
+    alive=false;
+    if(host){
+      var nodes = host.querySelectorAll('.spawn-emoji');
+      for(var i=0;i<nodes.length;i++){ if(nodes[i] && nodes[i].parentNode) nodes[i].parentNode.removeChild(nodes[i]); }
+    }
+  }
+  return {
+    name: 'goodjunk',
+    help: function(lang){ return (lang==='en'? T.en.tipsGoodJunk : T.th.tipsGoodJunk); },
+    start:start, pause:pause, resume:resume, stop:stop,
+    update: function(dt){ if(alive) tick(dt); }
+  };
+}
 
-    <div id="questChips" class="quests" aria-live="polite"></div>
+// ----- Stubs for other modes (playable later) -----
+function StubMode(key){
+  var alive=false, shown=false;
+  return {
+    name: key,
+    help: function(lang){ return (lang==='en'?'This mode is coming soon.':'โหมดนี้กำลังพัฒนา'); },
+    start: function(){ alive=true; shown=false; $('#hudWrap').style.display='block'; },
+    pause: function(){ alive=false; },
+    resume: function(){ alive=true; },
+    stop: function(){ alive=false; },
+    update: function(){ if(alive && !shown){ shown=true; var c=$('#coachText'); if(c) c.textContent='(Demo) Mode "'+key+'" is a stub.'; }
+    }
+  };
+}
 
-    <div id="targetWrap" style="display:none">🎯 <span id="t_target">หมวด</span>: <span id="targetBadge">—</span></div>
-    <div id="plateTracker" style="display:none">🍱 <span id="t_quota">โควตา</span>: <span id="platePills"></span></div>
-    <div id="hydroWrap" style="display:none">
-      💧 <span id="t_hydro">สมดุลน้ำ</span>:
-      <span id="hydroLabel">—</span>
-      <div class="bar"><div id="hydroBar"></div></div>
-    </div>
+// ----- Game lifecycle -----
+function resetState(){
+  State.running=false; State.paused=false;
+  State.score=0; State.combo=0; State.bestCombo=0; setFever(0);
+  setTimeLeft( (State.difficulty==='Easy')? 70 : (State.difficulty==='Hard'? 55 : 60) );
+  if(el.score) el.score.textContent='0';
+  if(el.combo) el.combo.textContent='x0';
+  if(el.coach) el.coach.style.display='flex';
+  if(el.coachText) el.coachText.textContent = (State.lang==='en'?'Ready? Let’s go!':'พร้อมไหม? สู้ๆ!');
+  if(el.result) el.result.style.display='none';
+}
 
-    <div id="coachHUD" class="coach under-fever" style="display:flex">
-      <div id="coachText">พร้อมไหม? สู้ๆ!</div>
-    </div>
+function startGame(){
+  if(State.running) return;
+  resetState();
+  getMode(State.modeKey).then(function(api){
+    State.modeAPI = api;
+    if(typeof api.start==='function') api.start({difficulty:State.difficulty});
+    State.running=true; State.paused=false; State.startAt = now();
+    loopHandle();
+  }).catch(function(){
+    // last-resort
+    State.modeAPI = BuiltinGoodJunk();
+    State.modeAPI.start({difficulty:State.difficulty});
+    State.running=true; State.paused=false; State.startAt = now();
+    loopHandle();
+  });
+}
 
-    <div id="missionLine" class="mission-line" style="display:none">—</div>
-  </section>
+function pauseGame(){
+  if(!State.running) return;
+  State.paused = !State.paused;
+  if(State.modeAPI){
+    if(State.paused && State.modeAPI.pause) State.modeAPI.pause();
+    if(!State.paused && State.modeAPI.resume) State.modeAPI.resume();
+  }
+}
 
-  <!-- พื้นที่เล่นจริง + ที่วาง spawn -->
-  <section id="gameLayer" aria-label="playfield" style="position:relative; width:min(980px,96vw); height:calc(100vh - 290px); min-height:360px; margin:10px auto; border-radius:16px; border:1px solid #152641; background:radial-gradient(1200px 500px at 50% -40%, #152644 12%, #0c1729 55%, #0b1626); overflow:hidden;">
-    <div id="spawnHost" aria-live="polite" style="position:absolute; inset:0;"></div>
-  </section>
+function stopGame(showResult){
+  if(State.modeAPI && State.modeAPI.stop) State.modeAPI.stop();
+  State.running=false; State.paused=false;
+  if(showResult) openResult();
+}
 
-  <!-- (คงไว้ได้) โครง game-wrap เดิม หากมีโหมดอื่นใช้ -->
-  <main class="game-wrap" role="main" aria-label="Game area">
-    <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
-  </main>
+function openResult(){
+  var L = T[State.lang];
+  if(el.resText) el.resText.textContent = L.finished + ' ' + State.score + ' pts, ' + State.bestCombo + ' combo.';
+  // stars by score
+  var stars = (State.score>=6000)?5 : (State.score>=4200)?4 : (State.score>=2600)?3 : (State.score>=1400)?2 : (State.score>0)?1:0;
+  if(el.resCore){
+    el.resCore.innerHTML = '';
+    var s = document.createElement('div');
+    s.style.fontSize='22px'; s.style.fontWeight='800'; s.style.margin='4px 0 8px';
+    s.textContent = '★'.repeat(stars) + ' ('+stars+')';
+    el.resCore.appendChild(s);
+  }
+  if(el.result) el.result.style.display='block';
+}
 
-  <section id="menuBar" class="menu" role="navigation" aria-label="โหมดและการควบคุม">
-    <div class="row">
-      <button class="tag" data-action="ui:start:goodjunk"  id="m_goodjunk"  type="button">🥗 ดี vs ขยะ</button>
-      <button class="tag" data-action="ui:start:groups"    id="m_groups"    type="button">🍽️ จาน 5 หมู่</button>
-      <button class="tag" data-action="ui:start:hydration" id="m_hydration" type="button">💧 สมดุลน้ำ</button>
-      <button class="tag" data-action="ui:start:plate"     id="m_plate"     type="button">🍱 จัดจานสุขภาพ</button>
-    </div>
-    <div class="row">
-      <button class="tag" data-action="diff" data-value="Easy"   id="d_easy"   type="button">ง่าย</button>
-      <button class="tag" data-action="diff" data-value="Normal" id="d_normal" type="button">ปกติ</button>
-      <button class="tag" data-action="diff" data-value="Hard"   id="d_hard"   type="button">ยาก</button>
-      <span class="modeLabel">
-        <span id="t_mode">โหมด</span>: <b id="modeName">ดี vs ขยะ</b> •
-        <span id="t_diff">ความยาก</span>: <b id="difficulty">ปกติ</b>
-      </span>
-    </div>
-    <div class="row">
-      <button class="btn" data-action="start"   id="btn_start"   type="button">▶ เริ่มเกม</button>
-      <button class="btn" data-action="pause"   id="btn_pause"   type="button">⏸ พัก</button>
-      <button class="btn" data-action="restart" id="btn_restart" type="button">↻ เริ่มใหม่</button>
-      <button class="btn" data-action="help"    id="btn_help"    type="button">❓ วิธีเล่น</button>
-      <button class="btn" data-action="helpScene" id="btn_helpScene" type="button">📘 คู่มือรวม</button>
+// ----- Main loop -----
+var _raf=0, _prev=0;
+function loopHandle(t){
+  if(!State.running){ cancelAnimationFrame(_raf); return; }
+  _raf = requestAnimationFrame(loopHandle);
+  var ts = (typeof t==='number'? t : performance.now());
+  if(!_prev) _prev = ts;
+  var dt = ts - _prev; _prev = ts;
 
-      <!-- เพิ่มปุ่มเข้าถึงสถิติรวม + ภารกิจรายวัน -->
-      <button class="btn" data-action="statOpen"  id="btn_stats" type="button">🏆 สถิติรวม</button>
-      <button class="btn" data-action="dailyOpen" id="btn_daily" type="button">🌞 รายวัน</button>
-    </div>
-  </section>
+  if(State.paused) return;
 
-  <!-- Help (individual) -->
-  <div id="help" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help">
-    <div class="card">
-      <h3 id="h_help">วิธีเล่น</h3>
-      <pre id="helpBody">—</pre>
-      <button class="btn" data-action="helpClose" id="btn_ok" type="button">โอเค</button>
-    </div>
-  </div>
+  // countdown
+  var newLeft = State.timeLeft - (dt/1000);
+  if(Math.floor(newLeft) !== Math.floor(State.timeLeft) && State.timeLeft>0){
+    playSFX('tick');
+  }
+  setTimeLeft(newLeft);
+  if(State.timeLeft<=0){
+    setTimeLeft(0);
+    stopGame(true);
+    return;
+  }
 
-  <!-- Help (all) -->
-  <div id="helpScene" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_help_all">
-    <div class="card scroll">
-      <h3 id="h_help_all">คู่มือรวม</h3>
-      <div id="helpAllBody">—</div>
-      <button class="btn" data-action="helpSceneClose" id="btn_ok_all" type="button">โอเค</button>
-    </div>
-  </div>
+  // mode update
+  if(State.modeAPI && State.modeAPI.update) State.modeAPI.update(dt);
+}
 
-  <!-- Stats Board -->
-  <div id="statBoard" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_stats">
-    <div class="card scroll">
-      <h3 id="h_stats">🏆 บอร์ดสถิติรวม</h3>
-      <div id="statBoardBody">—</div>
-      <button class="btn" data-action="statClose" type="button">ปิด</button>
-    </div>
-  </div>
+// ----- Event bindings -----
+function wireUI(){
+  // Lang toggle
+  on(el.langToggle,'click',function(){
+    State.lang = (State.lang==='th'?'en':'th'); applyLang();
+    var b = el.langToggle; if(b){ b.textContent = (State.lang==='en'?'🇹🇭 TH/EN':'🇹🇭 TH/EN'); }
+  });
 
-  <!-- Daily Challenge -->
-  <div id="dailyPanel" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_daily">
-    <div class="card">
-      <h3 id="h_daily">🌞 ภารกิจรายวัน</h3>
-      <div id="dailyBody">—</div>
-      <div id="dailyReward" style="margin-top:8px; font-weight:800;"></div>
-      <button class="btn" data-action="dailyClose" type="button">ปิด</button>
-    </div>
-  </div>
+  // Sound toggle
+  on(el.soundToggle,'click',function(){
+    State.sound = !State.sound;
+    this.textContent = (State.sound?'🔊 เสียง: เปิด':'🔇 เสียง: ปิด');
+  });
 
-  <!-- Result -->
-  <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
-    <div class="card">
-      <h3 id="h_summary">สรุปผล</h3>
-      <p id="resultText" style="opacity:.9;margin:.4rem 0 1rem">—</p>
-      <div id="resCore"></div>
-      <div id="resBreakdown"></div>
-      <div id="resBoard"></div>
-      <div id="resMissions" style="margin-top:8px"></div>
-      <div id="resDaily" style="margin-top:8px"></div>
-      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn" data-result="replay" id="btn_replay" type="button">↻ เล่นอีกครั้ง</button>
-        <button class="btn" data-result="home"   id="btn_home"   type="button">🏠 หน้าหลัก</button>
-      </div>
-    </div>
-  </div>
+  // Gfx toggle (label only)
+  on(el.gfxToggle,'click',function(){
+    State.gfx = (State.gfx==='Normal'?'Lite':'Normal');
+    this.textContent = (State.gfx==='Normal'?'🎛️ กราฟิก: ปกติ':'🎛️ กราฟิก: ประหยัด');
+  });
 
-  <!-- SFX -->
-  <audio id="sfx-good"     preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"      preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect"  preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"     preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup"  preload="auto" src="/webxr-health-mobile/HeroHealth/assets/sfx/powerup.mp3"></audio>
+  // Haptic toggle (label only)
+  on(el.hapticToggle,'click',function(){
+    State.haptic = !State.haptic;
+    this.textContent = (State.haptic?'📳 สั่น: เปิด':'📴 สั่น: ปิด');
+  });
 
-  <noscript>
-    <div style="position:fixed;top:0;left:0;right:0;background:#b00020;color:#fff;padding:10px 12px;font-weight:700;z-index:2000">
-      จำเป็นต้องเปิดใช้งาน JavaScript เพื่อเล่นเกม
-    </div>
-  </noscript>
-</body>
-</html>
+  // Diff
+  function setDiff(d){
+    State.difficulty = d;
+    if(el.difficulty) el.difficulty.textContent = d;
+  }
+  on(el.dEasy,'click',function(){ setDiff('Easy'); });
+  on(el.dNormal,'click',function(){ setDiff('Normal'); });
+  on(el.dHard,'click',function(){ setDiff('Hard'); });
+
+  // Mode selection
+  function setMode(key){
+    State.modeKey = key;
+    if(el.modeName) el.modeName.textContent = T[State.lang].modes[key] || key;
+  }
+  on(el.mGood,'click',function(){ setMode('goodjunk'); });
+  on(el.mGroups,'click',function(){ setMode('groups'); });
+  on(el.mHyd,'click',function(){ setMode('hydration'); });
+  on(el.mPlate,'click',function(){ setMode('plate'); });
+
+  // Start/Pause/Restart
+  on(el.btnStart,'click',function(){ startGame(); });
+  on(el.btnPause,'click',function(){ pauseGame(); });
+  on(el.btnRestart,'click',function(){ stopGame(false); startGame(); });
+
+  // Help (mode)
+  on(el.helpOpen,'click',function(){
+    var L = T[State.lang];
+    if(el.helpBody){
+      var tip = (State.modeAPI && State.modeAPI.help)? State.modeAPI.help(State.lang) : (State.lang==='en'?'Have fun!':'ขอให้สนุก!');
+      el.helpBody.textContent = tip;
+    }
+    if(el.help) el.help.style.display='block';
+  });
+  on(el.helpClose,'click',function(){ if(el.help) el.help.style.display='none'; });
+
+  // Help (scene)
+  on(el.helpSceneOpen,'click',function(){
+    if(el.helpAllBody){
+      el.helpAllBody.innerHTML = ''
+        + '<div class="chip">🥗 '+T[State.lang].modes.goodjunk+': '+(State.lang==='en'?T.en.tipsGoodJunk:T.th.tipsGoodJunk)+'</div>'
+        + '<div class="chip">🍽️ '+T[State.lang].modes.groups+': (coming soon)</div>'
+        + '<div class="chip">💧 '+T[State.lang].modes.hydration+': (coming soon)</div>'
+        + '<div class="chip">🍱 '+T[State.lang].modes.plate+': (coming soon)</div>';
+    }
+    if(el.helpScene) el.helpScene.style.display='block';
+  });
+  on(el.helpSceneClose,'click',function(){ if(el.helpScene) el.helpScene.style.display='none'; });
+
+  // Result buttons
+  var btnReplay = $('#btn_replay'), btnHome = $('#btn_home');
+  on(btnReplay,'click',function(){ if(el.result) el.result.style.display='none'; startGame(); });
+  on(btnHome,'click',function(){ if(el.result) el.result.style.display='none'; stopGame(false); resetState(); });
+
+  // Stats/Daily (placeholder)
+  on(el.statOpen,'click',function(){
+    if(el.statBody){ el.statBody.innerHTML = '<div class="chip">Hi-score: <b>'+ (window.localStorage.getItem('HHA_HISCORE')||'0') +'</b></div>'
+      + '<div class="chip">Best Combo: <b>'+ (window.localStorage.getItem('HHA_BESTCOMBO')||'0') +'</b></div>'; }
+    if(el.statPanel) el.statPanel.style.display='block';
+  });
+  // Add a close button dynamically if missing
+  if(el.statPanel){
+    var cbtn = document.createElement('button'); cbtn.className='btn'; cbtn.textContent=(State.lang==='en'?'Close':'ปิด');
+    cbtn.addEventListener('click', function(){ el.statPanel.style.display='none'; });
+    el.statPanel.querySelector('.card').appendChild(cbtn);
+  }
+  on(el.dailyOpen,'click',function(){
+    if(el.dailyBody) el.dailyBody.innerHTML = '<div class="chip">Play 2 rounds</div><div class="chip">Reach 1500 pts</div>';
+    if(el.dailyReward) el.dailyReward.textContent = (State.lang==='en'?'Reward: +50 bonus':'รางวัล: โบนัส +50');
+    if(el.dailyPanel) el.dailyPanel.style.display='block';
+  });
+  var dClose = el.dailyPanel ? el.dailyPanel.querySelector('button[data-action="dailyClose"]') : null;
+  on(dClose,'click',function(){ if(el.dailyPanel) el.dailyPanel.style.display='none'; });
+
+  // Pause on blur
+  on(window,'blur',function(){ if(State.running && !State.paused){ pauseGame(); } });
+
+  // Save hi-score on result open
+  var mo = new MutationObserver(function(){
+    if(el.result && el.result.style.display==='block'){
+      var hs = parseInt(window.localStorage.getItem('HHA_HISCORE')||'0',10);
+      var bc = parseInt(window.localStorage.getItem('HHA_BESTCOMBO')||'0',10);
+      if(State.score > hs) window.localStorage.setItem('HHA_HISCORE', String(State.score));
+      if(State.bestCombo > bc) window.localStorage.setItem('HHA_BESTCOMBO', String(State.bestCombo));
+    }
+  });
+  if(el.result) mo.observe(el.result, { attributes:true, attributeFilter:['style']});
+}
+
+// ----- Init -----
+(function init(){
+  applyLang();
+  wireUI();
+  resetState();
+})();
