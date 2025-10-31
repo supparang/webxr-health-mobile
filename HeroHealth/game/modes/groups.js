@@ -1,211 +1,211 @@
-// === Hero Health Academy — game/modes/groups.js (2025-10-30 fixed+FX)
-// Fixes: life in items (no stuck), fruit->fruits, quest events, HUD target,
-// ADD: 3D tilt on spawn + shatter on click, fair miss-on-expire (target only)
+// === Hero Health Academy — game/modes/groups.js (2025-10-31 ULTRA-SAFE) ===
+// โหมด: 5 Food Groups (ตามเป้าหมายหมวด + โควตา)
+// - ไม่มี optional chaining / dynamic import
+// - ใช้ create({engine,hud,coach}) แบบเดียวกับ main.js
+// - ปลอดภัยถ้า HUD ไม่พร้อม (ไม่พัง)
 
 export const name = 'groups';
 
-// Safe FX bootstrap (no duplicate identifiers)
 (function ensureFX(){
-  if (!window.HHA_FX) {
-    window.HHA_FX = { add3DTilt: ()=>{}, shatter3D: ()=>{} };
-    (async () => {
-      try {
-        const m = await import('/webxr-health-mobile/HeroHealth/game/core/fx.js').catch(()=>null);
-        if (m) Object.assign(window.HHA_FX, m);
-      } catch {}
-    })();
+  if (!window.HHA_FX){
+    window.HHA_FX = { add3DTilt:function(){}, shatter3D:function(){} };
   }
 })();
 
-// Data
-const GROUPS = {
-  veggies:[{emoji:'🥦',th:'บรอกโคลี',en:'Broccoli'},{emoji:'🥕',th:'แครอท',en:'Carrot'},{emoji:'🌽',th:'ข้าวโพด',en:'Corn'},{emoji:'🥬',th:'ผักใบเขียว',en:'Leafy'}],
-  protein:[{emoji:'🍗',th:'ไก่',en:'Chicken'},{emoji:'🐟',th:'ปลา',en:'Fish'},{emoji:'🥚',th:'ไข่',en:'Egg'},{emoji:'🥜',th:'ถั่ว',en:'Nuts'}],
-  grains: [{emoji:'🍚',th:'ข้าว',en:'Rice'},{emoji:'🍞',th:'ขนมปัง',en:'Bread'},{emoji:'🍝',th:'พาสต้า',en:'Pasta'},{emoji:'🥣',th:'โอ๊ต',en:'Oats'}],
-  fruits: [{emoji:'🍎',th:'แอปเปิล',en:'Apple'},{emoji:'🍌',th:'กล้วย',en:'Banana'},{emoji:'🍇',th:'องุ่น',en:'Grapes'},{emoji:'🍍',th:'สับปะรด',en:'Pineapple'}],
-  dairy:  [{emoji:'🥛',th:'นม',en:'Milk'},{emoji:'🧀',th:'ชีส',en:'Cheese'},{emoji:'🍦',th:'ไอศกรีม',en:'Ice cream'},{emoji:'🍧',th:'โฟรโย',en:'Froyo'}],
+var GROUPS = {
+  veggies:['🥦','🥕','🥬','🌽','🍅','🍆','🥒','🧅','🍄','🌶️'],
+  protein:['🍗','🥩','🍳','🐟','🍤','🧆','🫘','🥜','🧀','🍣'],
+  grains: ['🍚','🍞','🥖','🍝','🍜','🥯','🥪','🥞','🫓','🌯'],
+  fruits: ['🍎','🍌','🍇','🍓','🍊','🍍','🍉','🍑','🍐','🥭'],
+  dairy:  ['🥛','🧀','🍦','🍨','🍧','🥛','🧀','🍨','🍦','🥛']
 };
-const GROUP_KEYS = Object.keys(GROUPS);
-const QUOTA = { Easy:6, Normal:8, Hard:10 };
-const TARGET_RATIO = 0.28;
-const GOLDEN_CHANCE = 0.04;
-const GOLDEN_COOLDOWN_SPAWNS = 6;
-const GOLDEN_CAP_PER20 = 2;
+var KEYS = ['veggies','protein','grains','fruits','dairy'];
 
-let _hudRef=null,_lastState=null,_x2Until=0,_magnetNext=false;
-let _spawnsInWindow=0,_goldenInWindow=0,_sinceGolden=GOLDEN_COOLDOWN_SPAWNS;
-
-function nowMs(){ return performance?.now?.()||Date.now(); }
+function rnd(arr){ return arr[(Math.random()*arr.length)|0]; }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-function chooseNextTarget(prev){ let ng; do { ng = GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; } while (ng===prev); return ng; }
-function labelOf(item,lang='TH'){ return (lang==='EN')?item.en:item.th; }
-function toast(msg){ let el=document.getElementById('toast'); if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.appendChild(el);} el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1000); }
-function setTargetHUD(group, have, need, lang='TH'){
-  const wrap = document.getElementById('targetWrap');
-  const badge= document.getElementById('targetBadge');
-  const mapTH={veggies:'ผัก',protein:'โปรตีน',grains:'ธัญพืช',fruits:'ผลไม้',dairy:'นม'};
-  if (wrap) wrap.style.display='inline-flex';
-  if (badge) badge.textContent = `${(lang==='EN'?group:mapTH[group]||group)} • ${have}/${need}`;
+
+function mapTH(k){
+  var M = {veggies:'ผัก',protein:'โปรตีน',grains:'ธัญพืช',fruits:'ผลไม้',dairy:'นม'};
+  return M[k]||k;
 }
-
-// legacy init/cleanup/tick
-export function init(state={}, hud=null){
-  _hudRef=hud; _lastState=state; state.ctx=state.ctx||{};
-  state.lang=(state.lang||localStorage.getItem('hha_lang')||'TH').toUpperCase();
-  const diff = state.difficulty || document.body.getAttribute('data-diff') || 'Normal';
-  state.ctx.targetGroup=chooseNextTarget(null);
-  state.ctx.targetNeed=QUOTA[diff]||8;
-  state.ctx.targetHave=0;
-  _x2Until=0; _magnetNext=false; _spawnsInWindow=0; _goldenInWindow=0; _sinceGolden=GOLDEN_COOLDOWN_SPAWNS;
-  setTargetHUD(state.ctx.targetGroup, state.ctx.targetHave, state.ctx.targetNeed, state.lang);
-}
-export function cleanup(){ _hudRef=null; _lastState=null; _x2Until=0; _magnetNext=false; _spawnsInWindow=0; _goldenInWindow=0; _sinceGolden=GOLDEN_COOLDOWN_SPAWNS; }
-export function tick(){ if(_x2Until && nowMs()>_x2Until) _x2Until=0; }
-
-export function pickMeta(diff={}, state={}){
-  let forceTarget=false; if(_magnetNext){ forceTarget=true; _magnetNext=false; }
-  const targetGroup=state.ctx?.targetGroup||'veggies';
-  const isTarget = forceTarget || (Math.random()<TARGET_RATIO);
-  const groupId = isTarget ? targetGroup : (()=>{ let k; do{ k=GROUP_KEYS[(Math.random()*GROUP_KEYS.length)|0]; }while(k===targetGroup); return k; })();
-  const item = GROUPS[groupId][(Math.random()*GROUPS[groupId].length)|0];
-
-  _spawnsInWindow++; if(_spawnsInWindow>=20){ _spawnsInWindow=0; _goldenInWindow=0; }
-  let golden=false;
-  if(isTarget && _goldenInWindow<GOLDEN_CAP_PER20 && Math.random()<GOLDEN_CHANCE){ golden=true; _goldenInWindow++; }
-
-  const lifeBase = Number(diff.life)>0?Number(diff.life):3000;
-  const life = clamp(lifeBase,700,4500);
-
-  return { char:item.emoji, label:labelOf(item,state.lang), aria:item.en, groupId, good:(groupId===targetGroup), golden, life };
-}
-
-export function onHit(meta={}, sys={}, state={}, hud=null){
-  if (!meta) return 'ok';
-  let result='ok';
-  if(meta.good){
-    result = meta.golden ? 'perfect' : 'good';
-    const add = meta.golden ? 2 : 1;
-    state.ctx.targetHave = Math.min((state.ctx.targetHave|0)+add, state.ctx.targetNeed|0);
-
-    // quest: target hit
-    try { window.HHA_QUESTS?.event?.('target_hit', { groupId: meta.groupId }); } catch {}
-
-    if((state.ctx.targetHave|0) >= (state.ctx.targetNeed|0)){
-      try{ sys.sfx?.play?.('sfx-perfect'); }catch{}
-      const next=chooseNextTarget(state.ctx.targetGroup);
-      state.ctx.targetGroup=next; state.ctx.targetHave=0;
-      setTargetHUD(state.ctx.targetGroup, 0, state.ctx.targetNeed, state.lang);
-      toast((state.lang==='EN'?'🎯 New target: ':'🎯 เป้าหมายใหม่: ')+ (state.lang==='EN'?next:{veggies:'ผัก',protein:'โปรตีน',grains:'ธัญพืช',fruits:'ผลไม้',dairy:'นม'}[next]||next));
-
-      // quest: target cleared/cycle
-      try { window.HHA_QUESTS?.event?.('target_cleared', { groupId: next }); } catch {}
-    } else {
-      setTargetHUD(state.ctx.targetGroup, state.ctx.targetHave, state.ctx.targetNeed, state.lang);
-    }
-  } else {
-    result='bad';
+function setTargetHUD(group, have, need, lang){
+  var wrap = document.getElementById('targetWrap');
+  var badge= document.getElementById('targetBadge');
+  if (wrap && wrap.style) wrap.style.display = 'inline-flex';
+  if (badge) {
+    var nm = (lang==='EN') ? group : mapTH(group);
+    badge.textContent = nm + ' • ' + String(have||0) + '/' + String(need||0);
   }
-  return result;
+}
+function toast(msg){
+  var el = document.getElementById('toast');
+  if (!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  if (el.classList) el.classList.add('show');
+  setTimeout(function(){ try{ el.classList.remove('show'); }catch(e){} }, 900);
 }
 
-export const powers = {
-  x2Target(){ _x2Until = nowMs()+8000; },
-  freezeTarget(){ if(_lastState) _lastState.freezeUntil = nowMs()+3000; },
-  magnetNext(){ _magnetNext = true; }
-};
-export function getPowerDurations(){ return { x2:8, freeze:3, magnet:2 }; }
-export const fx = {
-  onSpawn(el){ try{ (window?.HHA_FX?.add3DTilt||(()=>{}))(el); }catch{} },
-  onHit(x,y){ try{ (window?.HHA_FX?.shatter3D||(()=>{}))(x,y); }catch{} }
-};
+export function create(ctx){
+  var engine = (ctx && ctx.engine) ? ctx.engine : {};
+  var coach  = (ctx && ctx.coach)  ? ctx.coach  : {};
 
-/* Factory adapter */
-export function create({ engine, hud, coach }) {
-  const host=document.getElementById('spawnHost'); const layer=document.getElementById('gameLayer');
-  const state={
-    running:false, items:[], freezeUntil:0,
-    difficulty:(window.__HHA_DIFF||document.body.getAttribute('data-diff')||'Normal'),
-    lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(),
-    ctx:{ targetGroup:'veggies', targetNeed: QUOTA[document.body.getAttribute('data-diff')||'Normal']||8, targetHave:0 },
+  var host=null, layer=null;
+  var state = {
+    running:false, items:[],
+    lang: 'TH',
+    difficulty: 'Normal',
+    ctx:{ target:'veggies', need:8, have:0 },
+    _spawnCd:0,
     stats:{good:0,perfect:0,bad:0,miss:0}
   };
-  _lastState=state; _hudRef=hud;
+
+  function chooseNext(prev){
+    var next = prev;
+    while(next===prev){ next = KEYS[(Math.random()*KEYS.length)|0]; }
+    return next;
+  }
+  function quotaByDiff(d){
+    if (d==='Easy') return 6;
+    if (d==='Hard') return 10;
+    return 8;
+  }
 
   function start(){
-    stop(); state.running=true; state.items.length=0; state.freezeUntil=0;
-    state.stats={good:0,perfect:0,bad:0,miss:0}; init(state,hud,{}); coach?.onStart?.();
+    stop();
+    host  = document.getElementById('spawnHost');
+    layer = document.getElementById('gameLayer'); if (!layer) layer = document.querySelector('.game-wrap');
+
+    try {
+      var L = localStorage.getItem('hha_lang'); state.lang = L ? L.toUpperCase() : 'TH';
+    }catch(e){ state.lang='TH'; }
+    try {
+      var d = document.body.getAttribute('data-diff'); state.difficulty = d||'Normal';
+    }catch(e){ state.difficulty='Normal'; }
+
+    state.ctx.target = KEYS[(Math.random()*KEYS.length)|0];
+    state.ctx.need   = quotaByDiff(state.difficulty);
+    state.ctx.have   = 0;
+
+    setTargetHUD(state.ctx.target, state.ctx.have, state.ctx.need, state.lang);
+    state.running = true; state.items.length=0; state.stats={good:0,perfect:0,bad:0,miss:0};
+
+    try{ if (coach && coach.onStart) coach.onStart(); }catch(e){}
+    toast(state.lang==='EN' ? '🎯 Target: ' + state.ctx.target : '🎯 เป้าหมาย: ' + mapTH(state.ctx.target));
   }
-  function stop(){ state.running=false; try{ for(const it of state.items) it.el.remove(); }catch{} state.items.length=0; }
 
-  function update(dt,Bus){
-    if(!state.running||!layer) return;
-    const now=performance.now(); const rect=layer.getBoundingClientRect();
-    if(!state._spawnCd) state._spawnCd=0.18;
-    const timeLeft=Number(document.getElementById('time')?.textContent||'0')|0;
-    const speedBias = timeLeft<=15?0.18:0;
-    state._spawnCd -= dt;
-    if(now>=state.freezeUntil && state._spawnCd<=0){ spawnOne(rect,Bus); state._spawnCd=clamp(0.42 - speedBias + Math.random()*0.24, 0.28, 1.0); }
+  function stop(){
+    state.running=false;
+    try{ for(var i=0;i<state.items.length;i++){ var it=state.items[i]; if(it && it.el && it.el.remove) it.el.remove(); } }catch(e){}
+    state.items.length=0;
+  }
 
-    const gone=[];
-    for(const it of state.items){
-      if(now - it.born > it.life){
-        if(it.meta.good){ Bus?.miss?.({ meta:{ reason:'expire', groupId: it.meta.groupId } }); state.stats.miss++; }
-        try{ it.el.remove(); }catch{} gone.push(it);
+  function pickMeta(){
+    var isTarget = Math.random() < 0.30; // 30% โผล่ตามเป้า
+    var gid = isTarget ? state.ctx.target : (function(){
+      var k = state.ctx.target;
+      while(k===state.ctx.target){ k = KEYS[(Math.random()*KEYS.length)|0]; }
+      return k;
+    })();
+    var ch = rnd(GROUPS[gid]);
+    var life = clamp(1700 + ((Math.random()*900)|0), 700, 4500);
+    var golden = isTarget && Math.random() < 0.06;
+    return { char:ch, aria:gid, groupId:gid, isTarget:isTarget, golden:golden, life:life };
+  }
+
+  function onHit(meta, ui, Bus){
+    var res='ok';
+    if (meta.groupId === state.ctx.target){
+      res = meta.golden ? 'perfect':'good';
+      state.ctx.have = Math.min(state.ctx.have+1, state.ctx.need);
+      setTargetHUD(state.ctx.target, state.ctx.have, state.ctx.need, state.lang);
+      try{ if (engine.sfx && engine.sfx.play) engine.sfx.play(res==='perfect'?'sfx-perfect':'sfx-good'); }catch(e){}
+      try{ if (engine.fx && engine.fx.popText) engine.fx.popText('+'+(res==='perfect'?18:10)+(res==='perfect'?' ✨':''), {x:ui.x,y:ui.y,ms:720}); }catch(e){}
+      try{ if (Bus && Bus.hit) Bus.hit({ kind:res, points:(res==='perfect'?18:10), ui:ui, meta:meta }); }catch(e){}
+      state.stats[res] = (state.stats[res]||0)+1;
+
+      if (state.ctx.have >= state.ctx.need){
+        try{ if (engine.sfx && engine.sfx.play) engine.sfx.play('sfx-perfect'); }catch(e){}
+        var next = chooseNext(state.ctx.target);
+        state.ctx.target = next; state.ctx.have = 0;
+        setTargetHUD(state.ctx.target, 0, state.ctx.need, state.lang);
+        toast(state.lang==='EN' ? '🎯 New target: ' + next : '🎯 เป้าหมายใหม่: ' + mapTH(next));
       }
+    } else {
+      res='bad';
+      try{
+        if (document.body && document.body.classList){ document.body.classList.add('flash-danger'); setTimeout(function(){ document.body.classList.remove('flash-danger'); },160); }
+      }catch(e){}
+      try{ if (engine.sfx && engine.sfx.play) engine.sfx.play('sfx-bad'); }catch(e){}
+      try{ if (Bus && Bus.miss) Bus.miss({ meta:meta }); }catch(e){}
+      state.stats.bad++;
     }
-    if(gone.length) state.items = state.items.filter(x=>!gone.includes(x));
+    return res;
   }
 
   function spawnOne(rect, Bus){
-    const meta = pickMeta({ life: 1850 }, state);
-    const pad = 30;
-    const w = Math.max(2*pad + 1, (host?.clientWidth  || rect.width  || 0));
-    const h = Math.max(2*pad + 1, (host?.clientHeight || rect.height || 0));
-    const x = Math.round(pad + Math.random() * (w - 2*pad));
-    const y = Math.round(pad + Math.random() * (h - 2*pad));
+    var m = pickMeta();
+    var pad=30;
+    var w = rect ? rect.width  : (host && host.clientWidth  ? host.clientWidth  : 640);
+    var h = rect ? rect.height : (host && host.clientHeight ? host.clientHeight : 360);
+    var x = Math.round(pad + Math.random()*(Math.max(1,w)-pad*2));
+    var y = Math.round(pad + Math.random()*(Math.max(1,h)-pad*2));
 
-    const b = document.createElement('button');
-    b.className = 'spawn-emoji';
-    b.type = 'button';
-    b.style.position = 'absolute';
-    b.style.left = x + 'px';
-    b.style.top  = y + 'px';
-    b.textContent = meta.char;
-    b.setAttribute('aria-label', meta.aria);
-    if (meta.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+    var b = document.createElement('button');
+    b.className='spawn-emoji'; b.type='button';
+    b.style.left = String(x)+'px'; b.style.top = String(y)+'px';
+    b.textContent = m.char; b.setAttribute('aria-label', m.aria);
+    if (m.golden) b.style.filter='drop-shadow(0 0 10px rgba(255,215,0,.85))';
+    try{ if (window.HHA_FX && window.HHA_FX.add3DTilt) window.HHA_FX.add3DTilt(b); }catch(e){}
 
-    (host||document.getElementById('spawnHost'))?.appendChild?.(b);
+    var parent = host || document.getElementById('spawnHost') || document.body;
+    parent.appendChild(b);
 
-    // NEW: 3D tilt on spawn
-    try{ (window?.HHA_FX?.add3DTilt||(()=>{}))(b); }catch{}
+    var born = (typeof performance!=='undefined' && performance && performance.now) ? performance.now() : Date.now();
+    state.items.push({ el:b, born:born, life:m.life, meta:m });
 
-    // keep life so expiry works
-    state.items.push({ el:b, born: performance.now(), life: meta.life, meta });
-
-    b.addEventListener('click', (ev)=>{
+    b.addEventListener('click', function(ev){
       if (!state.running) return;
       ev.stopPropagation();
-      const ui = { x: ev.clientX, y: ev.clientY };
-      const res = onHit(meta, { score: engine?.score, sfx: engine?.sfx }, state, hud);
-
-      if (res==='good' || res==='perfect'){
-        const pts = res==='perfect'? 18 : 10;
-        engine?.fx?.popText?.(`+${pts}${res==='perfect'?' ✨':''}`, { x: ui.x, y: ui.y, ms: 700 });
-        // NEW: shatter on click
-        try{ (window?.HHA_FX?.shatter3D||(()=>{}))(ui.x, ui.y); }catch{}
-        state.stats[res]++; Bus?.hit?.({ kind: res, points: pts, ui, meta:{...meta, isTarget:true} });
-        coach?.onGood?.();
-      } else if (res==='bad'){
-        document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160);
-        state.stats.bad++; Bus?.miss?.({ meta });
-        coach?.onBad?.();
-      }
-      try{ b.remove(); }catch{}
-      const idx = state.items.findIndex(it=>it.el===b); if (idx>=0) state.items.splice(idx,1);
-    }, { passive:false });
+      var ui = { x: ev.clientX||0, y: ev.clientY||0 };
+      var r  = onHit(m, ui, (engine && engine.Bus)? engine.Bus : null);
+      if (r!=='bad'){ try{ if (window.HHA_FX && window.HHA_FX.shatter3D) window.HHA_FX.shatter3D(ui.x, ui.y); }catch(e){} }
+      try{ b.remove(); }catch(e){}
+      for (var i=0;i<state.items.length;i++){ if (state.items[i].el===b){ state.items.splice(i,1); break; } }
+    }, false);
   }
 
-  function cleanup(){ stop(); try{ cleanupLegacy(); }catch{} }
-  function cleanupLegacy(){ try{ cleanup(state,hud); }catch{} }
-  return { start, stop, update, cleanup };
+  function update(dt, Bus){
+    if (!state.running) return;
+    var layerEl = layer || document.getElementById('gameLayer') || document.querySelector('.game-wrap');
+    var rect = { width:640, height:360 };
+    try{ if (layerEl && layerEl.getBoundingClientRect) rect = layerEl.getBoundingClientRect(); }catch(e){}
+
+    if (typeof state._spawnCd !== 'number') state._spawnCd = 0.20;
+    var tEl = document.getElementById('time'); var tLeft = 0;
+    try{ if (tEl && tEl.textContent){ var n=parseInt(tEl.textContent,10); if (isFinite(n)) tLeft=n; } }catch(e){}
+    var bias = (tLeft>0 && tLeft<=15) ? 0.12 : 0;
+
+    state._spawnCd -= dt;
+    if (state._spawnCd <= 0){
+      spawnOne(rect, Bus);
+      state._spawnCd = clamp(0.40 - bias + Math.random()*0.22, 0.26, 0.95);
+    }
+
+    var now = (typeof performance!=='undefined' && performance && performance.now) ? performance.now() : Date.now();
+    var keep=[]; for (var i=0;i<state.items.length;i++){
+      var it=state.items[i];
+      if (now - it.born > it.life){
+        if (it.meta && it.meta.groupId===state.ctx.target){ try{ if (Bus && Bus.miss) Bus.miss({ meta:{reason:'expire', group:it.meta.groupId} }); }catch(e){} state.stats.miss++; }
+        try{ it.el.remove(); }catch(e){}
+      } else keep.push(it);
+    }
+    state.items = keep;
+  }
+
+  function cleanup(){ stop(); }
+
+  return { start:start, stop:stop, update:update, cleanup:cleanup };
 }
+
+// default export
+export default { create:create, name:name };
