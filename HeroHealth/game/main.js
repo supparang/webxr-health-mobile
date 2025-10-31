@@ -1,8 +1,8 @@
-// === Hero Health Academy — game/main.js (2025-10-31 HARD FAILSAFE) ===
+// === Hero Health Academy — game/main.js (2025-10-31 HARD FAILSAFE — CLEAN) ===
 // แก้ "Failed to load mode: goodjunk" ให้เล่นได้แน่นอน:
 // - ถ้า import โหมดจริงล้มเหลว → ใช้ BuiltinGoodJunk (fallback) ทันที
 // - ถ้าไม่พบ #gameLayer/#spawnHost → auto-create host ภายใน .game-wrap
-// - แสดงแถบเขียว "Fallback mode active" เพื่อยืนยันว่ารันจริง
+// - แสดงแถบเขียว "Fallback mode active" หรือ "Real modes loaded"
 // - ไม่ใช้ optional chaining, รองรับ WebView/Chrome เก่า
 
 import * as THREEpkg from 'https://unpkg.com/three@0.159.0/build/three.module.js';
@@ -73,7 +73,7 @@ function ensurePlayHost(){
   var layer = $id('gameLayer');
   var wrap  = layer || $('.game-wrap');
   if (!wrap){
-    // เกิดกรณีไม่มี .game-wrap → สร้างให้เอง
+    // ไม่มี .game-wrap → สร้างให้เอง
     wrap = document.createElement('div'); wrap.className='game-wrap';
     wrap.style.cssText='position:relative; width:min(980px,96vw); height:calc(100vh - 320px); margin:10px auto 0; border-radius:16px; border:1px solid #152641; background:#0b1626; overflow:hidden; box-shadow:0 12px 50px rgba(0,0,0,.35)';
     var app = document.getElementById('app') || document.body; app.appendChild(wrap);
@@ -198,26 +198,29 @@ function beginTimer(seconds){
 function stopTimer(){ round.running=false; try{ if(round.raf) window.cancelAnimationFrame(round.raf);}catch(e){} round.raf=0; }
 
 // ---------- Load real modes (once) ----------
-var triedDynamic = false;
+var triedDynamic=false;
 function ensureRealModesThenLoad(key, onDone){
   if (!triedDynamic){
-    triedDynamic=true;
+    triedDynamic = true;
     Promise.all([
-      import('./modes/goodjunk.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load goodjunk failed', e); return null; }),
-      import('./modes/groups.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load groups failed', e); return null; }),
-      import('./modes/hydration.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load hydration failed', e); return null; }),
-      import('./modes/plate.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load plate failed', e); return null; })
+      import('./modes/goodjunk.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load goodjunk failed', e); return null; }),
+      import('./modes/groups.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load groups failed', e); return null; }),
+      import('./modes/hydration.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load hydration failed', e); return null; }),
+      import('./modes/plate.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load plate failed', e); return null; })
     ]).then(function(arr){
+      function pickMode(m){ return m ? (m.default!=null ? m.default : m) : null; }
       try{
-        if (arr[0]) MODES.goodjunk = arr[0].default||arr[0];
-        if (arr[1]) MODES.groups   = arr[1].default||arr[1];
-        if (arr[2]) MODES.hydration= arr[2].default||arr[2];
-        if (arr[3]) MODES.plate    = arr[3].default||arr[3];
+        var g = pickMode(arr[0]); if (g) MODES.goodjunk  = g;
+        var a = pickMode(arr[1]); if (a) MODES.groups    = a;
+        var h = pickMode(arr[2]); if (h) MODES.hydration = h;
+        var p = pickMode(arr[3]); if (p) MODES.plate     = p;
         banner('Real modes loaded', true);
       }catch(_){}
-      onDone();
-    }).catch(function(){ onDone(); });
-  } else { onDone(); }
+      onDone && onDone();
+    }).catch(function(){ onDone && onDone(); });
+  } else {
+    onDone && onDone();
+  }
 }
 
 // ---------- View helpers ----------
@@ -228,16 +231,26 @@ function showResult(){ var r=$id('result'); if(r&&r.style) r.style.display='flex
 // ---------- Flow ----------
 function loadMode(key){
   var mod = MODES[key] || MODES.goodjunk;
-  try{ if (current && current.cleanup) current.cleanup(); }catch(e){}
-  try{
-    var inst = (mod && typeof mod.create==='function') ? mod.create({ engine:engine, hud:hud, coach:coach }) : null;
-    if (!inst) throw new Error('Mode has no create()');
-    current = inst;
-  }catch(e){
-    console.warn('Mode load failed; using fallback:', key, e);
-    banner('Using fallback mode', true);
-    try{ current = BuiltinGoodJunk.create(); }catch(_){ current = null; }
+
+  // รองรับทั้ง: function(ctx), {create}, default fn, default.create
+  function instantiateMode(m, ctx){
+    if (!m) return null;
+    if (typeof m === 'function'){ try { return m(ctx) || null; } catch(e){ console.warn('[HHA] mode fn() failed', e); return null; } }
+    if (typeof m.create === 'function'){ try { return m.create(ctx) || null; } catch(e){ console.warn('[HHA] mode.create() failed', e); return null; } }
+    if (m.default && typeof m.default === 'function'){ try { return m.default(ctx) || null; } catch(e){ console.warn('[HHA] default fn() failed', e); return null; } }
+    if (m.default && typeof m.default.create === 'function'){ try { return m.default.create(ctx) || null; } catch(e){ console.warn('[HHA] default.create() failed', e); return null; } }
+    return null;
   }
+
+  try{ if (current && current.cleanup) current.cleanup(); }catch(e){}
+  var inst = instantiateMode(mod, { engine:engine, hud:hud, coach:coach });
+
+  if (!inst){
+    console.warn('Mode load failed; using fallback:', key);
+    banner('Using fallback mode', true);
+    try { inst = BuiltinGoodJunk.create(); } catch(_) { inst = null; }
+  }
+  current = inst;
 }
 
 function start(){
@@ -342,76 +355,3 @@ function bindMenu(){
     pre.textContent='Runtime error:\n'+(e && (e.stack||e.message) || String(e)); document.body.appendChild(pre);
   }
 })();
-// --- ใส่แทนที่เดิมทั้งหมดของ ensureRealModesThenLoad() ---
-var triedDynamic=false;
-function ensureRealModesThenLoad(key, onDone){
-  if (!triedDynamic){
-    triedDynamic = true;
-    Promise.all([
-      import('./modes/goodjunk.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load goodjunk failed', e); return null; }),
-      import('./modes/groups.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load groups failed', e); return null; }),
-      import('./modes/hydration.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load hydration failed', e); return null; }),
-      import('./modes/plate.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load plate failed', e); return null; })
-    ]).then(function(arr){
-      function pickMode(m){
-        // รองรับทั้ง namespace, default object, และ default function
-        if (!m) return null;
-        return (m.default != null ? m.default : m);
-      }
-      try{
-        var g = pickMode(arr[0]); if (g) MODES.goodjunk  = g;
-        var a = pickMode(arr[1]); if (a) MODES.groups    = a;
-        var h = pickMode(arr[2]); if (h) MODES.hydration = h;
-        var p = pickMode(arr[3]); if (p) MODES.plate     = p;
-        banner('Real modes loaded', true);
-      }catch(_){}
-      onDone();
-    }).catch(function(){ onDone(); });
-  } else {
-    onDone();
-  }
-}
-
-// --- ใส่แทนที่เดิมทั้งหมดของ loadMode() ---
-function loadMode(key){
-  var mod = MODES[key] || MODES.goodjunk;
-
-  // ฟังก์ชันรวมทุกกรณี: {create}, {default:{create}}, function(ctx), หรือ {default:function}
-  function instantiateMode(m, ctx){
-    if (!m) return null;
-
-    // กรณีโมดูลเป็นฟังก์ชันตรง ๆ
-    if (typeof m === 'function'){
-      try { return m(ctx) || null; } catch(e){ console.warn('[HHA] mode fn() failed', e); return null; }
-    }
-
-    // กรณีมี create()
-    if (typeof m.create === 'function'){
-      try { return m.create(ctx) || null; } catch(e){ console.warn('[HHA] mode.create() failed', e); return null; }
-    }
-
-    // กรณีมี default เป็นฟังก์ชัน
-    if (m.default && typeof m.default === 'function'){
-      try { return m.default(ctx) || null; } catch(e){ console.warn('[HHA] default fn() failed', e); return null; }
-    }
-
-    // กรณีมี default.create()
-    if (m.default && typeof m.default.create === 'function'){
-      try { return m.default.create(ctx) || null; } catch(e){ console.warn('[HHA] default.create() failed', e); return null; }
-    }
-
-    return null;
-  }
-
-  try{ if (current && current.cleanup) current.cleanup(); }catch(e){}
-
-  // พยายามอินสแตนซ์โหมดจริงก่อน
-  var inst = instantiateMode(mod, { engine:engine, hud:hud, coach:coach });
-
-  if (!inst){
-    console.warn('Mode load failed; using fallback:', key);
-    banner('Using fallback mode', true);
-    try { inst = BuiltinGoodJunk.create(); } catch(_) { inst = null; }
-  }
-  current = inst;
-}
