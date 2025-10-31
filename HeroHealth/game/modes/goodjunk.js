@@ -1,4 +1,4 @@
-// === goodjunk.js — 3D Emoji Shatter (G13 Full-Bleed + Score Popup) ===
+// === goodjunk.js — 3D Emoji Shatter (G13.1: reliable click-hit) ===
 export const name = 'goodjunk';
 
 const GOOD=['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
@@ -18,7 +18,6 @@ function badHit(){ try{ if(window.__HHA_modeHooks?.badHit){ window.__HHA_modeHoo
   try{ const c=document.getElementById('combo'); if(c) c.textContent='x0'; }catch(_){}
 }
 function popupFromPoint(pt, text, good=true){
-  // project → NDC
   const v = pt.clone().project(C);
   try{ window.__HHA_showPopup && window.__HHA_showPopup(v.x, v.y, text, !!good); }catch(_){}
 }
@@ -50,7 +49,7 @@ function diffScale(canvas){
   return byDiff * screenFactor * (0.95 + Math.random()*0.10);
 }
 
-// --- 3D target sprite ---
+// --- 3D target sprite (ติดแท็ก + อยู่ใต้ root) ---
 function makeTarget3D(isGood){
   const emoji = pick(isGood?GOOD:JUNK);
   const { texture, avgColor } = makeEmojiTexture(THREE, emoji, 256);
@@ -63,9 +62,20 @@ function makeTarget3D(isGood){
   const base = utils?.randInView?.(rand(-0.18,0.5)) || {x:0,y:0,z:0};
   const holder = new THREE.Object3D();
   holder.position.set(base.x, base.y, base.z);
-  holder.userData = { good:isGood?1:0, color:avgColor, spin:{x:rand(-0.7,0.7), y:rand(-0.9,0.9), z:rand(-0.5,0.5)}, born:performance.now(), scaleWorld };
+  holder.userData = {
+    tag:'target',
+    good:isGood?1:0,
+    color:avgColor,
+    spin:{x:rand(-0.7,0.7), y:rand(-0.9,0.9), z:rand(-0.5,0.5)},
+    born:performance.now(),
+    scaleWorld
+  };
   holder.add(spr);
-  S.add(holder); targets.push(holder); firstSpawned=true;
+
+  // ใส่ไว้ใต้ root เสมอ
+  root.add(holder);
+  targets.push(holder);
+  firstSpawned=true;
 }
 
 function shatter(point, color){
@@ -75,13 +85,13 @@ function shatter(point, color){
     const m=new THREE.MeshStandardMaterial({ color:col, roughness:0.55, metalness:0.08, transparent:true, opacity:1.0 });
     const p=new THREE.Mesh(g,m);
     p.position.copy(point);
-    p.userData={ vel:new THREE.Vector3(rand(-2.2,2.2),rand(-2.2,2.2),rand(-2.0,2.0)),
+    p.userData={ tag:'shard', vel:new THREE.Vector3(rand(-2.2,2.2),rand(-2.2,2.2),rand(-2.0,2.0)),
                  rot:new THREE.Vector3(rand(-3,3),rand(-3,3),rand(-3,3)), life:0.85 };
-    S.add(p); shards.push(p);
+    root.add(p); shards.push(p);
   }
-  // shake เล็กน้อย
-  try{ const gl=document.getElementById('gameLayer')||document.body; gl.style.transition='transform 60ms ease';
-       gl.style.transform='translate3d(2px,-2px,0)'; setTimeout(()=>{ gl.style.transform='translate3d(0,0,0)' }, 80); }catch(_){}
+  try{ const gl=document.getElementById('gameLayer')||document.body;
+       gl.style.transition='transform 60ms ease'; gl.style.transform='translate3d(2px,-2px,0)';
+       setTimeout(()=>{ gl.style.transform='translate3d(0,0,0)' }, 80); }catch(_){}
 }
 
 function update3D(dt){
@@ -91,7 +101,7 @@ function update3D(dt){
     h.rotation.x += s.x*(dt/1000);
     h.rotation.y += s.y*(dt/1000);
     h.rotation.z += s.z*(dt/1000);
-    if(t - h.userData.born > life){ S.remove(h); targets.splice(i,1); }
+    if(t - h.userData.born > life){ root.remove(h); targets.splice(i,1); }
   }
   for(let i=shards.length-1;i>=0;i--){
     const p=shards[i];
@@ -102,33 +112,41 @@ function update3D(dt){
     p.rotation.z += p.userData.rot.z*(dt/1000);
     p.userData.vel.y -= 4.8*(dt/1000);
     p.material.opacity = Math.max(0, p.userData.life/0.85);
-    if(p.userData.life<=0){ S.remove(p); shards.splice(i,1); }
+    if(p.userData.life<=0){ root.remove(p); shards.splice(i,1); }
   }
 }
 
-// pointer
+// pointer — raycast เฉพาะ root (กันชนเศษ)
 export function onPointer(ctx){
   if(!alive || !use3D) return;
+
+  // ทำให้ชน Sprite ง่ายขึ้นนิดนึง
+  if(ctx?.ray?.params?.Sprite) ctx.ray.params.Sprite.threshold = 0.6;
+
   ctx.ray.setFromCamera(ctx.pointer, C);
-  const hits = ctx.ray.intersectObjects(S.children, true);
+  const hits = ctx.ray.intersectObjects(root.children, true);
   if(!hits?.length) return;
 
-  // หา parent ที่เป็น holder ของ target
+  // ไต่ขึ้นหา holder ที่ tag=='target'
   let obj = hits[0].object;
-  while(obj && obj.parent && obj.parent !== S && !obj.userData?.good){ obj = obj.parent; }
-  if(!obj?.userData) return;
+  while(obj && obj.parent && obj !== root && obj.userData?.tag!=='target'){ obj = obj.parent; }
+  if(!obj?.userData || obj.userData.tag!=='target') return;
 
   const good = obj.userData.good === 1;
   const pt   = hits[0].point.clone();
   const col  = obj.userData.color || (good?0x31d67b:0xe24d4d);
 
-  S.remove(obj); const i=targets.indexOf(obj); if(i>=0) targets.splice(i,1);
+  root.remove(obj); const i=targets.indexOf(obj); if(i>=0) targets.splice(i,1);
   shatter(pt, col);
-  if(good){ const perfect=Math.random()<0.22; addScore(perfect?200:100, perfect); popupFromPoint(pt, perfect?'+200':'+100', true); }
-  else { badHit(); popupFromPoint(pt, 'MISS', false); }
+  if(good){
+    const perfect=Math.random()<0.22; const gain = perfect?200:100;
+    addScore(gain, perfect); popupFromPoint(pt, (gain>100?'+200':'+100'), true);
+  }else{
+    badHit(); popupFromPoint(pt, 'MISS', false);
+  }
 }
 
-// DOM fallback (ยังคงไว้ แต่ในโหมดเต็มจอจะใช้ 3D)
+// DOM fallback (ยังคงไว้)
 function makeDOM(isGood){
   const d=document.createElement('button');
   d.className='spawn-emoji'; d.textContent=pick(isGood?GOOD:JUNK);
@@ -138,7 +156,8 @@ function makeDOM(isGood){
   d.style.top  = rng(pad, Math.max(pad, H-64))+'px';
   const lifeMs=rng(life-250,life+250); let gone=false;
   const to=setTimeout(()=>{ if(!gone) leave(); }, lifeMs);
-  function leave(){ gone=true; d.style.transition='transform 160ms ease, opacity 160ms ease'; d.style.transform='scale(.6) translateY(10px)'; d.style.opacity='0'; setTimeout(()=>d.remove(),170); }
+  function leave(){ gone=true; d.style.transition='transform 160ms ease, opacity 160ms ease';
+    d.style.transform='scale(.6) translateY(10px)'; d.style.opacity='0'; setTimeout(()=>d.remove(),170); }
   d.addEventListener('click',()=>{
     if(!alive) return; clearTimeout(to); leave();
     const gain = Math.random()<0.22?200:100;
@@ -160,11 +179,9 @@ export function start(cfg){
 
   use3D = !!(cfg?.three?.ready);
   if(use3D){
-    // ล้าง DOM เป้าที่อาจเหลือ
     try{ const host=document.getElementById('spawnHost'); host && host.querySelectorAll('.spawn-emoji').forEach(n=>n.remove()); }catch(_){}
-    THREE = cfg.three.THREE; R=cfg.three.renderer; S=cfg.three.scene; C=cfg.three.cam||cfg.three.camera;
-    utils = cfg.three.utils || null;
-    if(root) S.remove(root);
+    THREE = cfg.three.THREE; R=cfg.three.renderer; S=cfg.three.scene; C=cfg.three.cam||cfg.three.camera; utils = cfg.three.utils || null;
+    if(root){ root.clear(); S.remove(root); }
     root = new THREE.Group(); root.name='GJ-Root';
     S.add(root); targets.length=0; shards.length=0;
   }else{
@@ -182,7 +199,7 @@ export function pause(){ alive=false; }
 export function resume(){ alive=true; }
 export function stop(){
   alive=false;
-  if(use3D && S){ if(root){ S.remove(root); root=null; } targets.length=0; shards.length=0; }
+  if(use3D && root){ root.clear(); if(S) S.remove(root); root=null; }
   if(hostDOM){ try{ hostDOM.querySelectorAll('.spawn-emoji').forEach(n=>n.remove()); }catch(_){ } }
 }
 
