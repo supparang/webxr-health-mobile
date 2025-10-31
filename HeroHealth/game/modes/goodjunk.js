@@ -1,192 +1,186 @@
-// === Hero Health Academy — game/modes/goodjunk.js (2025-10-31 safe build) ===
-// - No optional chaining (รองรับ browser/WebView เก่า)
-// - ไม่อ้าง DOM ตอนโหลดโมดูล (อ้างเฉพาะตอน create/start)
-// - ใช้รูปแบบ factory { start, stop, update, cleanup } ให้เข้ากับ main.js
-// - ป้องกัน element เป็น null และคำนวณพื้นที่ spawn อย่างปลอดภัย
-// - ส่ง Bus.hit / Bus.miss เมื่อคลิก/หมดอายุ (เพื่อให้ HUD/Score ทำงาน)
+// === Hero Health Academy — game/modes/goodjunk.js (2025-10-31 SAFE) ===
+// โหมด: ดี vs ขยะ  (คลิก "ดี" ได้คะแนน/คอมโบ, คลิก "ขยะ" โดนโทษ)
+// - รูปแบบ factory: export function create({engine,hud,coach})
+// - ไม่ใช้ optional chaining, ไม่อ้าง DOM ตอน import
+// - ใช้ #spawnHost ภายใน #gameLayer / .game-wrap
+// - หมดอายุ: ถ้า "ดี" หมดอายุ => miss, ถ้า "ขยะ" หมดอายุ => ไม่ลงโทษ
 
 export const name = 'goodjunk';
 
-var GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
-var JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🍭','🧈','🥓','🧃','🍮','🥟','🍨','🧇','🌮'];
+// ---- Safe FX bootstrap ------------------------------------------------------
+(function ensureFX(){
+  if (!window.HHA_FX) {
+    window.HHA_FX = { add3DTilt:function(){}, shatter3D:function(){} };
+    try {
+      import('../core/fx.js').then(function(m){
+        try { for (var k in m) window.HHA_FX[k] = m[k]; }catch(e){}
+      }).catch(function(){});
+    } catch(e){}
+  }
+})();
 
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+// ---- Pools ------------------------------------------------------------------
+var GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑','🫘'];
+var JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍭','🧁','🥓','🥠','🍨','🍦','🧂','🧈','🍹','🍯'];
+
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function rnd(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-function ensurePlayfield(){
-  var layer = document.getElementById('gameLayer');
-  if(!layer){
-    layer = document.createElement('section');
-    layer.id = 'gameLayer';
-    layer.style.position = 'relative';
-    layer.style.minHeight = '360px';
-    layer.style.overflow = 'hidden';
-    document.body.appendChild(layer);
-  }
-  var host = document.getElementById('spawnHost');
-  if(!host){
-    host = document.createElement('div');
-    host.id = 'spawnHost';
-    host.style.position = 'absolute';
-    host.style.inset = '0';
-    layer.appendChild(host);
-  }
-  return { layer: layer, host: host };
+function toast(msg){
+  var el = document.getElementById('toast');
+  if (!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(function(){ try{ el.classList.remove('show'); }catch(e){} }, 900);
 }
 
-function rectOf(el){
-  if(el && el.getBoundingClientRect){
-    var r = el.getBoundingClientRect();
-    var w = (r.width|0), h = (r.height|0);
-    if (w>0 && h>0) return { left:r.left, top:r.top, width:w, height:h };
-  }
-  // fallback (เช่นตอนยังไม่มี style)
-  var vw = (document.documentElement && document.documentElement.clientWidth) ? document.documentElement.clientWidth : (window.innerWidth||800);
-  var vh = (document.documentElement && document.documentElement.clientHeight)? document.documentElement.clientHeight: (window.innerHeight||600);
-  return { left:0, top:0, width:vw, height:vh };
-}
-
+// ---- Factory ----------------------------------------------------------------
 export function create(ctx){
-  // ctx: { engine, hud, coach } (อาจว่างบางส่วนได้)
-  var pf = ensurePlayfield();
-  var host = pf.host;
-  var layer = pf.layer;
+  var engine = (ctx && ctx.engine) || {};
+  var coach  = (ctx && ctx.coach)  || {};
 
+  var host=null, layer=null;
   var state = {
-    running: false,
-    items: [],            // { el, born, life, good }
-    spawnTimer: 0,
-    loopId: 0
+    running:false,
+    items:[],
+    lang: ((localStorage.getItem('hha_lang')||'TH')+'').toUpperCase(),
+    difficulty: (document.body.getAttribute('data-diff')||'Normal'),
+    stats:{ good:0, perfect:0, bad:0, miss:0 },
+    _spawnCd: 0
   };
 
-  function spawnOne(){
-    var area = rectOf(layer);
-    var pad = 28;
-    var x = Math.round(pad + Math.random() * Math.max(1, area.width  - pad*2));
-    var y = Math.round(pad + Math.random() * Math.max(1, area.height - pad*2));
-
-    var isGood = Math.random() < 0.62;
-    var emoji = isGood ? pick(GOOD) : pick(JUNK);
-
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'spawn-emoji';
-    // หมายเหตุ: CSS มี transform translate(-50%,-50%) อยู่แล้ว
-    b.style.left = String(x) + 'px';
-    b.style.top  = String(y) + 'px';
-    b.textContent = emoji;
-    b.setAttribute('aria-label', isGood ? 'good' : 'junk');
-
-    host.appendChild(b);
-
-    var obj = {
-      el: b,
-      born: (performance && performance.now ? performance.now() : Date.now()),
-      life: 1800 + Math.random()*900, // 1.8–2.7s
-      good: isGood
-    };
-    state.items.push(obj);
-
-    b.addEventListener('click', function(ev){
-      if (!state.running) return;
-      ev.stopPropagation();
-
-      // basic SFX
-      try {
-        if (ctx && ctx.engine && ctx.engine.sfx) {
-          if (isGood && ctx.engine.sfx.play) ctx.engine.sfx.play('sfx-good');
-          else if (!isGood && ctx.engine.sfx.play) ctx.engine.sfx.play('sfx-bad');
-        }
-      } catch(_){}
-
-      // แจ้ง Bus (ถ้ามี) ให้ระบบคะแนน/คอมโบ/ภารกิจทำงาน
-      var ui = { x: ev.clientX||0, y: ev.clientY||0 };
-      var bus = (ctx && ctx.engine && ctx.engine.Bus) ? ctx.engine.Bus : (ctx && ctx.Bus ? ctx.Bus : null);
-      try{
-        if (bus && bus.hit && isGood) bus.hit({ kind:'good', points:10, ui:ui, meta:{ good:true } });
-        else if (bus && bus.miss && !isGood) bus.miss({ meta:{ good:false } });
-      }catch(_){}
-
-      // เอฟเฟกต์ danger flash ถ้าเป็นขยะ
-      if (!isGood){
-        try{
-          document.body.classList.add('flash-danger');
-          setTimeout(function(){ document.body.classList.remove('flash-danger'); }, 160);
-        }catch(_){}
-      }
-
-      try{ b.remove(); }catch(_){}
-      // remove จาก list
-      for (var i=0;i<state.items.length;i++){
-        if (state.items[i].el === b){ state.items.splice(i,1); break; }
-      }
-    });
-  }
-
-  function loop(){
-    if (!state.running) return;
-
-    // cadence spawn
-    state.spawnTimer -= 16;
-    if (state.spawnTimer <= 0){
-      spawnOne();
-      // เร็วขึ้นเล็กน้อยช่วงท้ายเวลา (ถ้ามี HUD#time)
-      var tLeft = 0;
-      var timeEl = document.getElementById('time');
-      if (timeEl) {
-        var v = parseInt(timeEl.textContent||'0',10);
-        if (isFinite(v)) tLeft = v|0;
-      }
-      var bias = tLeft <= 15 ? 80 : 0;
-      state.spawnTimer = 420 - Math.floor(Math.random()*120) - bias; // 300–420ms, ช่วงท้ายเร็วขึ้น
-      state.spawnTimer = clamp(state.spawnTimer, 220, 900);
-    }
-
-    // expiry = นับเป็น miss เฉพาะชิ้นที่เป็น good (เพื่อความแฟร์)
-    var now = (performance && performance.now ? performance.now() : Date.now());
-    for (var j=state.items.length-1; j>=0; j--){
-      var it = state.items[j];
-      if (now - it.born > it.life){
-        try{ it.el.remove(); }catch(_){}
-        state.items.splice(j,1);
-        if (it.good){
-          var bus = (ctx && ctx.engine && ctx.engine.Bus) ? ctx.engine.Bus : (ctx && ctx.Bus ? ctx.Bus : null);
-          try{ if (bus && bus.miss) bus.miss({ meta:{ reason:'expire', good:true } }); }catch(_){}
-        }
-      }
-    }
-
-    state.loopId = window.requestAnimationFrame(loop);
-  }
-
   function start(){
-    // ล้างเดิม
     stop();
-
-    // เปิดการเล่น
+    host  = document.getElementById('spawnHost');
+    layer = document.getElementById('gameLayer') || document.querySelector('.game-wrap');
     state.running = true;
-    state.spawnTimer = 0;
-
-    // แจ้งโค้ช/ระบบ
-    try{ if (ctx && ctx.coach && ctx.coach.onStart) ctx.coach.onStart(); }catch(_){}
-
-    // เริ่มลูป
-    state.loopId = window.requestAnimationFrame(loop);
+    state.items.length = 0;
+    state.stats = { good:0, perfect:0, bad:0, miss:0 };
+    try{ if (coach && coach.onStart) coach.onStart(); }catch(e){}
+    toast(state.lang==='EN' ? '🍃 Good vs Junk' : '🍃 ดี vs ขยะ');
   }
 
   function stop(){
     state.running = false;
-    if (state.loopId){ try{ window.cancelAnimationFrame(state.loopId); }catch(_){} state.loopId = 0; }
-    // เคลียร์ปุ่มค้าง
     try{
-      var all = host.getElementsByClassName('spawn-emoji');
-      // HTMLCollection → live: ลบจากหัวท้าย
-      while(all.length){ try{ all[0].remove(); }catch(_){ break; } }
-    }catch(_){}
+      for (var i=0;i<state.items.length;i++){
+        var it = state.items[i]; if (it && it.el && it.el.remove) it.el.remove();
+      }
+    }catch(e){}
     state.items.length = 0;
+  }
+
+  function pickMeta(){
+    // 65% โอกาสเป็นของดี
+    var isGood = Math.random() < 0.65;
+    var char   = rnd(isGood ? GOOD : JUNK);
+    var life   = clamp(1700 + ((Math.random()*800)|0), 700, 4500);
+    // perfect โอกาสเล็กน้อย (หรือเร่งถ้าใกล้หมดเวลา)
+    var perfectHint = Math.random() < 0.08;
+    return { char:char, aria:(isGood?'Good':'Junk'), isGood:isGood, golden:perfectHint, life:life };
+  }
+
+  function onHit(meta, ui, Bus){
+    var res = 'ok';
+    if (meta.isGood){
+      res = meta.golden ? 'perfect' : 'good';
+      try{ if (engine && engine.sfx && engine.sfx.play) engine.sfx.play(res==='perfect'?'sfx-perfect':'sfx-good'); }catch(e){}
+      var pts = res==='perfect'? 20 : 10;
+      if (engine && engine.fx && engine.fx.popText){
+        try{ engine.fx.popText('+'+pts+(res==='perfect'?' ✨':''), {x:ui.x,y:ui.y,ms:720}); }catch(e){}
+      }
+      if (Bus && Bus.hit) Bus.hit({ kind:res, points:pts, ui:ui, meta:meta });
+      state.stats[res] = (state.stats[res]||0)+1;
+      return res;
+    } else {
+      res='bad';
+      var body = document.body;
+      if (body && body.classList){ body.classList.add('flash-danger'); setTimeout(function(){ try{ body.classList.remove('flash-danger'); }catch(e){} }, 160); }
+      try{ if (engine && engine.sfx && engine.sfx.play) engine.sfx.play('sfx-bad'); }catch(e){}
+      if (Bus && Bus.miss) Bus.miss({ meta:meta });
+      state.stats.bad++;
+      return res;
+    }
+  }
+
+  function spawnOne(rect, Bus){
+    var m = pickMeta();
+    var pad = 30;
+    var w = rect ? rect.width  : (host && host.clientWidth  ? host.clientWidth  : 640);
+    var h = rect ? rect.height : (host && host.clientHeight ? host.clientHeight : 360);
+    var x = Math.round(pad + Math.random()*(Math.max(1,w) - pad*2));
+    var y = Math.round(pad + Math.random()*(Math.max(1,h) - pad*2));
+
+    var b = document.createElement('button');
+    b.className = 'spawn-emoji';
+    b.type = 'button';
+    b.style.left = String(x)+'px';
+    b.style.top  = String(y)+'px';
+    b.textContent = m.char;
+    b.setAttribute('aria-label', m.aria);
+    if (m.golden) b.style.filter = 'drop-shadow(0 0 10px rgba(255,215,0,.85))';
+
+    try{ if (window.HHA_FX && window.HHA_FX.add3DTilt) window.HHA_FX.add3DTilt(b); }catch(e){}
+
+    var parent = host || document.getElementById('spawnHost') || document.body;
+    parent.appendChild(b);
+
+    var born = (performance && performance.now? performance.now() : Date.now());
+    state.items.push({ el:b, born:born, life:m.life, meta:m });
+
+    b.addEventListener('click', function(ev){
+      if (!state.running) return;
+      ev.stopPropagation();
+      var ui = { x: ev.clientX||0, y: ev.clientY||0 };
+      var res = onHit(m, ui, (engine && engine.Bus)? engine.Bus : null);
+      if (res!=='bad'){
+        try{ if (window.HHA_FX && window.HHA_FX.shatter3D) window.HHA_FX.shatter3D(ui.x, ui.y); }catch(e){}
+      }
+      try{ b.remove(); }catch(e){}
+      for (var i=0;i<state.items.length;i++){
+        if (state.items[i].el===b){ state.items.splice(i,1); break; }
+      }
+    }, false);
+  }
+
+  function update(dt, Bus){
+    if (!state.running) return;
+
+    var layerEl = layer || document.getElementById('gameLayer') || document.querySelector('.game-wrap');
+    var rect = layerEl ? layerEl.getBoundingClientRect() : { width: 640, height: 360 };
+
+    // spawn cadence (เร่งเล็กน้อยช่วงท้าย)
+    if (typeof state._spawnCd !== 'number') state._spawnCd = 0.20;
+    var timeLeftEl = document.getElementById('time');
+    var timeLeft = 0;
+    if (timeLeftEl && timeLeftEl.textContent) {
+      var n = parseInt(timeLeftEl.textContent, 10);
+      timeLeft = isFinite(n) ? n : 0;
+    }
+    var bias = timeLeft>0 && timeLeft<=15 ? 0.12 : 0;
+
+    state._spawnCd -= dt;
+    if (state._spawnCd <= 0){
+      spawnOne(rect, Bus);
+      state._spawnCd = clamp(0.40 - bias + Math.random()*0.22, 0.24, 0.95);
+    }
+
+    // expiry
+    var now = performance && performance.now ? performance.now() : Date.now();
+    var remain = [];
+    for (var i=0;i<state.items.length;i++){
+      var it = state.items[i];
+      if (now - it.born > it.life){
+        if (it.meta && it.meta.isGood && Bus && Bus.miss) Bus.miss({ meta:{ reason:'expire', good:true } });
+        try{ it.el.remove(); }catch(e){}
+      } else {
+        remain.push(it);
+      }
+    }
+    state.items = remain;
   }
 
   function cleanup(){ stop(); }
 
-  return { start: start, stop: stop, update: function(){}, cleanup: cleanup };
+  return { start:start, stop:stop, update:update, cleanup:cleanup };
 }
