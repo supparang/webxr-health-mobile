@@ -1,9 +1,8 @@
-// === Hero Health Academy — game/main.js (G14 Full-Bleed + 3D Click-Shatter + Legacy Bridge) ===
+// === Hero Health Academy — game/main.js (G14 Full-Bleed + 3D Click-Shatter + Legacy Bridge + FX) ===
 window.__HHA_BOOT_OK = 'main';
 
 (function () {
   const $  = (s) => document.querySelector(s);
-  const $$ = (s) => document.querySelectorAll(s);
 
   // ---------------- CSS: full-bleed gameplay + hide menu while playing ----------------
   (function injectCSS(){
@@ -35,6 +34,15 @@ window.__HHA_BOOT_OK = 'main';
     if(!$('#c')){ const c=document.createElement('canvas'); c.id='c'; $('#gameLayer').appendChild(c); }
     if(!$('#spawnHost')){ const h=document.createElement('div'); h.id='spawnHost'; $('#gameLayer').appendChild(h); }
   })();
+
+  // --- fx.js dynamic import (named exports) ---
+  let FX3 = { add3DTilt(){}, shatter3D(){} };
+  async function ensureFX(){
+    if (ensureFX._ok) return FX3;
+    try { FX3 = await import('./core/fx.js'); ensureFX._ok = true; }
+    catch { /* no-op */ }
+    return FX3;
+  }
 
   // ---------------- Safe stubs (จะถูกแทนเมื่อ import ได้) ----------------
   let ScoreSystem, SFXClass, Quests, Progress, VRInput, CoachClass;
@@ -74,13 +82,10 @@ window.__HHA_BOOT_OK = 'main';
     }
   }
 
-  // ---------------- Mode loader (รองรับได้ทั้ง API เก่า/ใหม่) ----------------
+  // ---------------- Mode loader (รองรับ API ใหม่/เก่า) ----------------
   const MODE_PATH = (k) => `./modes/${k}.js`;
   async function loadMode(key) {
     const m = await import(MODE_PATH(key));
-    // สร้างสะพานให้รองรับได้ทั้ง:
-    // - API ใหม่: start(cfg), update(dt), onPointer(ctx), stop()
-    // - API เก่า: create()/init()/tick()/cleanup()
     const api = {
       _raw: m,
       name: m.name || key,
@@ -215,24 +220,42 @@ window.__HHA_BOOT_OK = 'main';
     }
   }
 
-  // ---------------- pop score for new API (NDC → screen) ----------------
+  // ---------------- popup + shatter hooks (ใช้ fx.js) ----------------
   window.__HHA_showPopup = function(ndcX, ndcY, text, good=true){
-    const cvs = $('#c'); const r = cvs.getBoundingClientRect();
+    const cvs = document.getElementById('c'); const r = cvs.getBoundingClientRect();
     const x = (ndcX*0.5+0.5)*r.width  + r.left;
     const y = (-ndcY*0.5+0.5)*r.height + r.top;
+
     const d = document.createElement('div');
-    d.className='hitPopup'+(good?'':' bad'); d.textContent = text;
-    d.style.left = x+'px'; d.style.top = y+'px';
+    d.className = 'hitPopup' + (good ? '' : ' bad');
+    d.textContent = text;
+    d.style.left = x+'px';
+    d.style.top  = y+'px';
     document.body.appendChild(d);
-    setTimeout(()=>d.remove(), 900);
+
+    ensureFX().then(({add3DTilt, shatter3D})=>{
+      try { add3DTilt(d); } catch {}
+      try { shatter3D(x, y); } catch {}
+    });
+
+    setTimeout(()=>{ try{ d.remove(); }catch{} }, 900);
+  };
+
+  window.__HHA_screenShatter = function(ndcX, ndcY){
+    const cvs = document.getElementById('c'); const r = cvs.getBoundingClientRect();
+    const x = (ndcX*0.5+0.5)*r.width  + r.left;
+    const y = (-ndcY*0.5+0.5)*r.height + r.top;
+    ensureFX().then(({shatter3D})=>{ try{ shatter3D(x,y); }catch{} });
+  };
+
+  window.__HHA_screenShatterFromPx = function(x, y){
+    ensureFX().then(({shatter3D})=>{ try{ shatter3D(x,y); }catch{} });
   };
 
   // ---------------- HUD glue ----------------
   function setScoreHUD(v){ setScore(v); }
   function addScore(delta){ R.sys.score.add(delta); setScoreHUD(R.sys.score.get?.()||R.sys.score.value||0); }
-  function badHit(){ /* can add combo reset here if needed */ }
-
-  // ---------------- Expose hooks for new API modes ----------------
+  function badHit(){ /* combo reset ถ้าต้องการ ใส่เพิ่มได้ */ }
   window.__HHA_modeHooks = { addScore, badHit };
 
   // ---------------- Loop & timer ----------------
@@ -253,7 +276,7 @@ window.__HHA_BOOT_OK = 'main';
       R._secMark = tNow;
       setTime(R.remain);
       if (R.remain === 10) R.coach?.onTimeLow?.();
-      Quests.tick({ score: (R.sys.score.get?.()||0) });
+      try{ Quests.tick({ score: (R.sys.score.get?.()||0) }); }catch{}
     }
 
     // mode update
@@ -301,7 +324,6 @@ window.__HHA_BOOT_OK = 'main';
     R.coach?.onEnd?.(R.sys.score.get?.()||0);
     try { Progress.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
 
-    // สรุปผล
     const secs = Math.round((performance.now()-R.startedAt)/1000);
     const txt = `คะแนนรวม: ${R.sys.score.get?.()||0} • เวลาเล่น: ${secs}s`;
     const resText = $('#resultText'); if(resText) resText.textContent = txt;
@@ -313,24 +335,20 @@ window.__HHA_BOOT_OK = 'main';
     window.HHA._busy = true;
 
     await loadCore();
-    Progress.init?.();
+    await ensureFX();
+    try{ Progress.init?.(); }catch{}
 
-    // mode/diff จาก global หรือ data-attr
     const modeKey = window.__HHA_MODE || (document.body.getAttribute('data-mode') || 'goodjunk');
     const diff    = window.__HHA_DIFF || (document.body.getAttribute('data-diff') || 'Normal');
     R.modeKey = modeKey;
 
-    // systems
-    R.sys.score = new (ScoreSystem||function(){})();
-    R.sys.score.reset?.();
+    R.sys.score = new (ScoreSystem||function(){})(); R.sys.score.reset?.();
     R.sys.sfx   = new (SFXClass||function(){})();
-
     setScore(0);
 
-    // HUD & Coach
     R.hud = {
       setTarget(g,have,need){
-        const el = $('#targetWrap'); if(!el) return;
+        const el = document.getElementById('targetWrap'); if(!el) return;
         const mapTH = { veggies:'ผัก', fruits:'ผลไม้', grains:'ธัญพืช', protein:'โปรตีน', dairy:'นม' };
         el.textContent = `${mapTH[g]||g} • ${have|0}/${need|0}`;
         el.style.display = 'inline-flex';
@@ -344,27 +362,20 @@ window.__HHA_BOOT_OK = 'main';
     R.coach.onStart();
     try { Quests.bindToMain({ hud: R.hud, coach: R.coach }); } catch {}
 
-    // state
     R.state = { difficulty: diff, lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
 
-    // โหลดโหมด
     let api;
     try { api = await loadMode(modeKey); }
     catch (e) { console.error('[HHA] Failed to load mode:', modeKey, e); toast(`Failed to load mode: ${modeKey}`); window.HHA._busy = false; return; }
     R.modeAPI = api;
 
-    // เริ่ม 3D
     const three = await ensureThree();
     setPlane3D(true);
-
-    // เริ่มโหมด (รองรับ API ใหม่/เก่า)
     api.start({ difficulty: diff, lang: R.state.lang, three });
 
-    // begin run
     try { Quests.beginRun(modeKey, diff, (R.state.lang||'TH'), 45); } catch {}
     try { Progress.beginRun(modeKey, diff, (R.state.lang||'TH')); } catch {}
 
-    // start timer & loop
     R.playing = true;
     R.startedAt = performance.now();
     R._secMark = performance.now();
@@ -375,7 +386,6 @@ window.__HHA_BOOT_OK = 'main';
     enterPlaying();
     R.raf = requestAnimationFrame(gameTick);
 
-    // ปล่อย busy flag หลังเริ่มสำเร็จ
     window.HHA._busy = false;
   }
 
@@ -384,10 +394,6 @@ window.__HHA_BOOT_OK = 'main';
   window.HHA.startGame = startGame;
   window.HHA.endGame   = endGame;
 
-  // (สำคัญ) อย่าปิดคลิก canvas ตอนนี้ — เราใช้คลิกบน 3D
-  // ลบการตั้งค่า pointerEvents:none เดิมทิ้ง
-
-  // strong bind ปุ่ม Start
   (function bindStartStrong(){
     const b = document.getElementById('btn_start');
     if (!b) return;
@@ -396,27 +402,24 @@ window.__HHA_BOOT_OK = 'main';
     clone.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); startGame(); }, {capture:true});
   })();
 
-  // Enter/Space เพื่อเริ่มจากหน้า Home
   window.addEventListener('keydown', (e)=>{
     if ((e.key === 'Enter' || e.key === ' ') && !document.body.classList.contains('playing')){
-      const menuVisible = !$('#menuBar')?.hasAttribute('data-hidden');
+      const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
       if (menuVisible) { e.preventDefault(); startGame(); }
     }
   }, { passive:false });
 
-  // ปุ่มใน Result
   (function wireResultButtons(){
-    const replay = $('#btn_replay'); const home = $('#btn_home');
-    replay && replay.addEventListener('click', ()=>{ $('#result')&&( $('#result').style.display='none' ); startGame(); });
-    home   && home.addEventListener('click',  ()=>{ $('#result')&&( $('#result').style.display='none' ); document.body.classList.remove('playing','result'); });
+    const replay = document.getElementById('btn_replay'); const home = document.getElementById('btn_home');
+    replay && replay.addEventListener('click', ()=>{ document.getElementById('result')&&( document.getElementById('result').style.display='none' ); startGame(); });
+    home   && home.addEventListener('click',  ()=>{ document.getElementById('result')&&( document.getElementById('result').style.display='none' ); document.body.classList.remove('playing','result'); });
   })();
 
-  // --------- helper popup เด้งคะแนนให้ API เก่า (จากตำแหน่งจอ) ---------
+  // helper popup for legacy (px)
   function screenPopup(x,y,text,good=true){
     const d=document.createElement('div'); d.className='hitPopup'+(good?'':' bad'); d.textContent=text;
     d.style.left=(x|0)+'px'; d.style.top=(y|0)+'px'; document.body.appendChild(d); setTimeout(()=>d.remove(),900);
   }
-  // เปิดทางให้โหมดแบบเก่าเรียกได้ (ผ่าน R.state.ctx)
   R.state = R.state || {}; R.state.ctx = R.state.ctx || {}; R.state.ctx.screenPopup = screenPopup;
 
 })();
