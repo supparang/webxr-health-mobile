@@ -1,44 +1,55 @@
-// === Hero Health Academy — main.js (G12 FocusPlay)
-// - Playing: แสดงเฉพาะกรอบเกม + HUD (ซ่อน Header/เมนูทั้งหมด)
-// - End: เปิด Result modal แล้วให้กลับ Home ได้
+// === Hero Health Academy — main.js (G13 Full-Bleed Gameplay) ===
+// - ขณะเล่น: เต็มจอทั้งหน้าต่าง (full-bleed), ซ่อน header/menu ทั้งหมด
+// - เป้า 3D คลิกแล้วแตกกระจาย; เด้งคะแนน "+100/200" ณ จุดตี
+// - โหมดปลอดชนกัน (plane-lock): เล่น 3D ใช้ canvas อย่างเดียว
 
 window.__HHA_BOOT_OK = true;
 
 const $  = (s)=>document.querySelector(s);
 const on = (el,ev,fn)=>{ if(el) el.addEventListener(ev,fn,false); };
-const txt= (el,v)=>{ if(typeof el==='string') el=$(el); if(el) el.textContent=v; };
-const now= ()=>performance?.now?.()??Date.now();
+const T  = (sel, v)=>{ const el = (typeof sel==='string')?$(sel):sel; if(el) el.textContent = v; };
+const now= ()=>performance?.now?.() ?? Date.now();
 
-// ---------- CSS: โหมดซ่อนเมนูขณะเล่น ----------
+// ---------- CSS: Full-Bleed ระหว่างเล่น ----------
 (function injectCSS(){
   const css = `
-  body{background:#0b1626;margin:0}
+  html,body{height:100%;margin:0;background:#0b1626}
   header.brand{position:sticky;top:0;z-index:2000}
-  #gameLayer{
-    position:relative;width:min(980px,96vw);
-    height:calc(100vh - 290px);min-height:420px;margin:10px auto;
-    border-radius:16px;border:1px solid #152641;
+  #gameLayer{position:relative; width:min(980px,96vw); height:calc(100vh - 290px);
+    min-height:420px; margin:10px auto; border-radius:16px; border:1px solid #152641;
     background:radial-gradient(1200px 500px at 50% -40%, #152644 12%, #0c1729 55%, #0b1626);
-    overflow:hidden;isolation:isolate;clip-path: inset(0 round 16px);
+    overflow:hidden; isolation:isolate; clip-path: inset(0 round 16px);
   }
-  #c{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:6}
-  #spawnHost{position:absolute;inset:0;z-index:6}
-  #hudWrap{position:fixed;left:12px;top:58px;z-index:1500;pointer-events:none;display:none}
-  /* โหมดเล่น: ซ่อน header + menuBar ทั้งหมด */
-  body.playing header.brand,
-  body.playing #menuBar,
-  body.playing #help,
-  body.playing #helpScene,
-  body.playing #statBoard,
-  body.playing #dailyPanel { display:none !important; }
+  /* Full-bleed เมื่อเล่น: ใช้ทั้ง viewport */
+  body.playing #gameLayer{ position:fixed; inset:0; width:100vw; height:100vh; margin:0; border-radius:0; border:none; clip-path:none; }
+  #c{position:absolute; inset:0; width:100%; height:100%; display:block; z-index:6}
+  #spawnHost{position:absolute; inset:0; z-index:6}
+  #hudWrap{position:fixed; left:16px; top:14px; z-index:1500; pointer-events:none; display:none}
+  .hud .cardlike{ background:rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:8px 12px; backdrop-filter:blur(6px) }
+
+  /* ซ่อนทุกอย่างตอนเล่น */
+  body.playing header.brand, body.playing #menuBar,
+  body.playing #help, body.playing #helpScene,
+  body.playing #statBoard, body.playing #dailyPanel { display:none !important; }
   body.playing #hudWrap { display:block !important; }
-  /* โหมดผลลัพธ์: ซ่อนพื้นที่เล่นเพื่อป้องกันคลิก */
-  body.result #c, body.result #spawnHost { pointer-events:none; filter:grayscale(.2) brightness(.85); }
-  /* Plane lock */
-  body.use3d  #c{z-index:12;pointer-events:auto}
-  body.use3d  #spawnHost{display:none;pointer-events:none;z-index:0}
-  body.no3d   #c{pointer-events:none;z-index:0}
-  body.no3d   #spawnHost{display:block;pointer-events:auto;z-index:12}
+
+  /* ผลลัพธ์: ปิดคลิกที่พื้นที่เล่น */
+  body.result #c, body.result #spawnHost { pointer-events:none; filter:grayscale(.15) brightness(.9); }
+
+  /* plane-lock */
+  body.use3d  #c{z-index:12; pointer-events:auto}
+  body.use3d  #spawnHost{display:none; pointer-events:none; z-index:0}
+  body.no3d   #c{pointer-events:none; z-index:0}
+  body.no3d   #spawnHost{display:block; pointer-events:auto; z-index:12}
+
+  /* popup คะแนน */
+  .hitPopup{ position:fixed; z-index:2002; font-weight:900; font-size:18px; color:#7CFFB2;
+    text-shadow:0 2px 6px rgba(0,0,0,.55); pointer-events:none; transform:translate(-50%,-50%) scale(1); opacity:0;
+    animation:popfade .9s ease forwards; }
+  .hitPopup.bad{ color:#ff7c7c }
+  @keyframes popfade{ 0%{opacity:0; transform:translate(-50%,-50%) scale(.8)}
+                      15%{opacity:1; transform:translate(-50%,-64%) scale(1.08)}
+                      100%{opacity:0; transform:translate(-50%,-110%) scale(1)} }
   `;
   const tag=document.createElement('style'); tag.textContent=css; document.head.appendChild(tag);
 })();
@@ -50,54 +61,63 @@ const now= ()=>performance?.now?.()??Date.now();
   if(!$('#spawnHost')){ const h=document.createElement('div'); h.id='spawnHost'; $('#gameLayer').appendChild(h); }
 })();
 
-// ---------- Global game state ----------
+// ---------- Global state ----------
 const STATE={
   lang:'th',
   difficulty:'Normal',
   modeKey:'goodjunk',
-  running:false,
-  paused:false,
-  timeLeft:60,
-  score:0, combo:0, bestCombo:0,
-  startAt:0,
-  modeAPI:null
+  running:false, paused:false,
+  timeLeft:60, score:0, combo:0, bestCombo:0,
+  startAt:0, modeAPI:null
 };
 
-// glue ให้โหมดเรียกเพิ่มคะแนน/โดนพลาด
-function addScore(delta, perfect){
+// glue ให้โหมดเรียก
+function addScore(delta/*, perfect*/){
   STATE.score += delta;
   STATE.combo += 1;
   STATE.bestCombo = Math.max(STATE.bestCombo, STATE.combo);
-  txt('#score', STATE.score);
-  txt('#combo', 'x'+STATE.combo);
+  T('#score', STATE.score); T('#combo','x'+STATE.combo);
 }
-function badHit(){
-  STATE.combo = 0;
-  txt('#combo','x0');
-}
+function badHit(){ STATE.combo=0; T('#combo','x0'); }
 window.__HHA_modeHooks = { addScore, badHit };
-function setTime(v){ STATE.timeLeft=Math.max(0,v); txt('#time', Math.round(STATE.timeLeft)); }
 
-// ---------- Three.js minimal ctx ----------
+// ให้โหมดเรียกสร้าง popup ณ จุดที่ตี (ผ่าน NDC)
+window.__HHA_showPopup = function(ndcX, ndcY, text, isGood=true){
+  const cvs = $('#c'); const r = cvs.getBoundingClientRect();
+  const x = (ndcX*0.5+0.5)*r.width  + r.left;
+  const y = (-ndcY*0.5+0.5)*r.height + r.top;
+  const d = document.createElement('div');
+  d.className='hitPopup'+(isGood?'':' bad');
+  d.textContent = text;
+  d.style.left = x+'px'; d.style.top = y+'px';
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(), 1000);
+};
+
+function setTime(v){ STATE.timeLeft=Math.max(0,v); T('#time', Math.round(STATE.timeLeft)); }
+
+// ---------- Three.js ----------
 let THREE_CTX={ready:false};
 function ensureThree(){
   if(THREE_CTX.ready) return Promise.resolve(THREE_CTX);
   return import('https://unpkg.com/three@0.159.0/build/three.module.js').then((THREE)=>{
-    const gl=$('#gameLayer'), cvs=$('#c');
+    const cvs=$('#c');
     const renderer=new THREE.WebGLRenderer({canvas:cvs, antialias:true, alpha:true});
     renderer.setClearColor(0x000000,0);
     const scene=new THREE.Scene();
-    const cam=new THREE.PerspectiveCamera(50,16/9,0.1,50);
+    const cam=new THREE.PerspectiveCamera(50, 16/9, 0.1, 50);
     cam.position.set(0,0,8);
     scene.add(new THREE.AmbientLight(0xffffff,0.65));
     const dl=new THREE.DirectionalLight(0xffffff,0.9); dl.position.set(4,5,5); scene.add(dl);
 
     function size(){
-      const r=gl.getBoundingClientRect();
-      const w=Math.max(320,r.width), h=Math.max(260,r.height);
+      // ถ้าเล่น → เต็มจอ, ถ้าไม่เล่น → ขนาดกรอบเดิม
+      const w = document.body.classList.contains('playing') ? window.innerWidth  : ($('#gameLayer').getBoundingClientRect().width||960);
+      const h = document.body.classList.contains('playing') ? window.innerHeight : ($('#gameLayer').getBoundingClientRect().height||540);
       cam.aspect=w/h; cam.updateProjectionMatrix(); renderer.setSize(w,h,false);
     }
-    size(); new ResizeObserver(size).observe(gl); window.addEventListener('resize',size);
+    size(); new ResizeObserver(size).observe($('#gameLayer'));
+    window.addEventListener('resize', size);
 
     const ray=new THREE.Raycaster(), pointer=new THREE.Vector2();
     function pointerFromEvent(e){
@@ -108,17 +128,18 @@ function ensureThree(){
       pointer.y = -((cy-rect.top)/rect.height)*2+1;
     }
     function fire(){ STATE.modeAPI?.onPointer?.({THREE, renderer, scene, camera:cam, cam, ray, pointer, canvas:cvs}); }
+
     cvs.addEventListener('click',      e=>{ if(!document.body.classList.contains('use3d')) return; pointerFromEvent(e); fire(); }, false);
     cvs.addEventListener('pointerdown',e=>{ if(!document.body.classList.contains('use3d')) return; pointerFromEvent(e); fire(); }, false);
     cvs.addEventListener('touchstart', e=>{ if(!document.body.classList.contains('use3d')) return; pointerFromEvent(e); fire(); }, {passive:true});
     window.addEventListener('keydown', e=>{ if(e.code==='Space'||e.code==='Enter'){ pointerFromEvent(); fire(); }}, false);
 
-    function randInView(z=0){ // helper ให้โหมดสุ่มในเฟรม
+    function randInView(z=0){
       const zv=Math.min(0.6,Math.max(-0.25,z));
       const dist=(cam.position.z - zv);
       const halfH=Math.tan((cam.fov*Math.PI/180)/2)*dist;
       const halfW=halfH*cam.aspect;
-      return {x:(Math.random()*2-1)*(halfW*0.9), y:(Math.random()*2-1)*(halfH*0.9), z:zv};
+      return {x:(Math.random()*2-1)*(halfW*0.95), y:(Math.random()*2-1)*(halfH*0.95), z:zv};
     }
 
     THREE_CTX={ready:true, THREE, renderer, scene, camera:cam, cam, ray, pointer, canvas:cvs, utils:{randInView}};
@@ -126,7 +147,7 @@ function ensureThree(){
   }).catch(()=>({ready:false}));
 }
 
-// ---------- Plane lock (3D vs DOM) ----------
+// ---------- plane-lock ----------
 function setPlane(mode){
   const host=$('#spawnHost'), cvs=$('#c');
   if(mode==='3d'){
@@ -140,81 +161,62 @@ function setPlane(mode){
   }
 }
 
-// ---------- Mode loader ----------
+// ---------- mode loader ----------
 const MOD_BASE='/webxr-health-mobile/HeroHealth/game/modes/';
-const REG={};
-function loadMode(key){
-  if(REG[key]) return Promise.resolve(REG[key]);
-  const v=`v=g12&cb=${Date.now()}`;
-  return import(`${MOD_BASE}${key}.js?${v}`).then(m=> (REG[key]=m));
-}
+const REG={}; function loadMode(key){ if(REG[key]) return Promise.resolve(REG[key]); const v=`v=g13&cb=${Date.now()}`; return import(`${MOD_BASE}${key}.js?${v}`).then(m=>(REG[key]=m)); }
 
-// ---------- Screen states ----------
+// ---------- screens ----------
 function enterHome(){
   document.body.classList.remove('playing','result');
   $('#result')?.setAttribute('style','display:none');
-  // show header/menu
-  $('header.brand')?.setAttribute('style','');
-  $('#menuBar')?.setAttribute('style','');
+  $('header.brand')?.setAttribute('style',''); $('#menuBar')?.setAttribute('style','');
   setPlane('dom');
 }
 function enterPlaying(){
-  document.body.classList.add('playing');
-  document.body.classList.remove('result');
-  // hide header/menu
-  $('header.brand')?.setAttribute('style','display:none');
-  $('#menuBar')?.setAttribute('style','display:none');
+  document.body.classList.add('playing'); document.body.classList.remove('result');
+  $('header.brand')?.setAttribute('style','display:none'); $('#menuBar')?.setAttribute('style','display:none');
+  // ปรับขนาด renderer เป็นเต็มจอทันที
+  if(THREE_CTX.ready){ const r=THREE_CTX.renderer; const c=THREE_CTX.camera; c.aspect=window.innerWidth/window.innerHeight; c.updateProjectionMatrix(); r.setSize(window.innerWidth, window.innerHeight, false); }
 }
 function enterResult(){
-  document.body.classList.add('result');
-  document.body.classList.remove('playing');
-  // show result modal
-  const res = $('#result');
-  if(res){ res.style.display='block'; }
-  setPlane('dom'); // ปิดคลิกบน canvas ระหว่างดูผล
+  document.body.classList.add('result'); document.body.classList.remove('playing');
+  $('#result')?.setAttribute('style','display:block');
+  setPlane('dom');
 }
 
-// ---------- Lifecycle ----------
+// ---------- lifecycle ----------
 function resetState(){
   STATE.score=0; STATE.combo=0; STATE.bestCombo=0;
   setTime(STATE.difficulty==='Easy'?70:(STATE.difficulty==='Hard'?50:60));
-  txt('#score','0'); txt('#combo','x0');
+  T('#score','0'); T('#combo','x0');
 }
-
 function startGame(){
   if(STATE.running) return;
-  resetState();
-  enterPlaying();
+  resetState(); enterPlaying();
   loadMode(STATE.modeKey).then(api=>{
     STATE.modeAPI=api;
     ensureThree().then(ctx=>{
       if(ctx.ready){ setPlane('3d'); api?.start?.({difficulty:STATE.difficulty, lang:STATE.lang, three:ctx}); }
       else{ setPlane('dom'); api?.start?.({difficulty:STATE.difficulty, lang:STATE.lang}); }
       STATE.running=true; STATE.paused=false; STATE.startAt=now();
-      gameLoop(); startTimer();
+      loop(); runTimer();
     });
   });
 }
-
 function finishGame(){
   STATE.running=false;
   try{ STATE.modeAPI?.stop?.(); }catch(_){}
-  // สร้างสรุปผล
-  const secs = Math.round((now()-STATE.startAt)/1000);
-  txt('#resultText', `คะแนนรวม: ${STATE.score} • คอมโบสูงสุด: x${STATE.bestCombo} • เวลาเล่น: ${secs}s`);
-  // เพิ่ม core/breakdown หากต้องการข้อมูลละเอียด
+  const secs=Math.round((now()-STATE.startAt)/1000);
+  T('#resultText', `คะแนนรวม: ${STATE.score} • คอมโบสูงสุด: x${STATE.bestCombo} • เวลาเล่น: ${secs}s`);
   enterResult();
 }
+function backHome(){ enterHome(); }
 
-function backToHome(){
-  enterHome();
-}
-
-// ---------- Loop & Timer ----------
-let _last=0, _iv=null;
-function gameLoop(t){
+// ---------- loop/timer ----------
+let _last=0,_iv=null;
+function loop(t){
   if(!STATE.running) return;
-  requestAnimationFrame(gameLoop);
+  requestAnimationFrame(loop);
   if(!t) t=now(); const dt=_last?(t-_last):16.6; _last=t;
   if(STATE.paused) return;
   try{ STATE.modeAPI?.update?.(dt); }catch(_){}
@@ -222,30 +224,25 @@ function gameLoop(t){
     try{ THREE_CTX.renderer.render(THREE_CTX.scene, THREE_CTX.cam||THREE_CTX.camera); }catch(_){}
   }
 }
-function startTimer(){
+function runTimer(){
   if(_iv) clearInterval(_iv);
-  _iv=setInterval(()=>{
-    if(!STATE.running) return clearInterval(_iv);
-    if(STATE.paused) return;
-    setTime(STATE.timeLeft-1);
-    if(STATE.timeLeft<=0){ clearInterval(_iv); finishGame(); }
+  _iv=setInterval(()=>{ if(!STATE.running) return clearInterval(_iv);
+    if(!STATE.paused){ setTime(STATE.timeLeft-1); if(STATE.timeLeft<=0){ clearInterval(_iv); finishGame(); } }
   },1000);
 }
 
-// ---------- UI wiring ----------
+// ---------- UI wires ----------
 on($('#btn_start'),'click', startGame);
-on($('#btn_restart'),'click', ()=>{ finishGame(); startGame(); }); // เผื่อเรียกจากหน้าหลัก
 on($('#btn_replay'),'click', ()=>{ $('#result')&&( $('#result').style.display='none' ); startGame(); });
-on($('#btn_home'),'click', ()=>{ $('#result')&&( $('#result').style.display='none' ); backToHome(); });
+on($('#btn_home'),'click', ()=>{ $('#result')&&( $('#result').style.display='none' ); backHome(); });
 
-on($('#d_easy'),  'click', ()=>{ STATE.difficulty='Easy';   txt('#difficulty','Easy'); });
-on($('#d_normal'),'click', ()=>{ STATE.difficulty='Normal'; txt('#difficulty','Normal'); });
-on($('#d_hard'),  'click', ()=>{ STATE.difficulty='Hard';   txt('#difficulty','Hard'); });
+on($('#d_easy'),  'click', ()=>{ STATE.difficulty='Easy';   T('#difficulty','Easy'); });
+on($('#d_normal'),'click', ()=>{ STATE.difficulty='Normal'; T('#difficulty','Normal'); });
+on($('#d_hard'),  'click', ()=>{ STATE.difficulty='Hard';   T('#difficulty','Hard'); });
 
-on($('#m_goodjunk'),  'click', ()=>{ STATE.modeKey='goodjunk';   txt('#modeName','ดี vs ขยะ'); });
-on($('#m_groups'),    'click', ()=>{ STATE.modeKey='groups';     txt('#modeName','จาน 5 หมู่'); });
-on($('#m_hydration'), 'click', ()=>{ STATE.modeKey='hydration';  txt('#modeName','สมดุลน้ำ'); });
-on($('#m_plate'),     'click', ()=>{ STATE.modeKey='plate';      txt('#modeName','จัดจานสุขภาพ'); });
+on($('#m_goodjunk'),  'click', ()=>{ STATE.modeKey='goodjunk';   T('#modeName','ดี vs ขยะ'); });
+on($('#m_groups'),    'click', ()=>{ STATE.modeKey='groups';     T('#modeName','จาน 5 หมู่'); });
+on($('#m_hydration'), 'click', ()=>{ STATE.modeKey='hydration';  T('#modeName','สมดุลน้ำ'); });
+on($('#m_plate'),     'click', ()=>{ STATE.modeKey='plate';      T('#modeName','จัดจานสุขภาพ'); });
 
-// เริ่มต้นที่ Home
 enterHome();
