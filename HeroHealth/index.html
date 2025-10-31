@@ -24,6 +24,14 @@
     .modal .tbl th, .modal .tbl td { padding:6px 8px; border-bottom:1px solid rgba(255,255,255,.1); }
     .chip { display:inline-flex; gap:8px; align-items:center; padding:6px 10px; border-radius:999px;
             background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); margin:4px 6px 0 0; }
+
+    /* --- pointer safety (ซ้อนชั้นไม่บังคลิก) --- */
+    #menuBar { pointer-events: auto; }
+    #hudWrap { pointer-events: none; }     /* HUD ไม่กินคลิก */
+    #gameLayer { pointer-events: auto; }
+    #spawnHost, .spawn-emoji { pointer-events: auto; }
+    .btn, .chip, .tile, .tag { pointer-events: auto; }
+    .modal { pointer-events: auto; }
   </style>
 
   <!-- Bootloader: import main.js ด้วย absolute path -->
@@ -64,8 +72,8 @@
 
   <canvas id="c" aria-hidden="true"></canvas>
 
-  <!-- HUD -->
-  <section class="hud" role="region" aria-label="HUD">
+  <!-- HUD (ให้ main.js เปิดตอนเริ่มเกม) -->
+  <section class="hud" id="hudWrap" role="region" aria-label="HUD" style="display:none">
     <div class="cardlike">
       <span id="t_score">คะแนน</span>: <b id="score">0</b> |
       <span id="t_combo">คอมโบ</span>: <b id="combo">x0</b> |
@@ -98,6 +106,12 @@
     <div id="missionLine" class="mission-line" style="display:none">—</div>
   </section>
 
+  <!-- พื้นที่เล่นจริง + ที่วาง spawn -->
+  <section id="gameLayer" aria-label="playfield" style="position:relative; width:min(980px,96vw); height:calc(100vh - 290px); min-height:360px; margin:10px auto; border-radius:16px; border:1px solid #152641; background:radial-gradient(1200px 500px at 50% -40%, #152644 12%, #0c1729 55%, #0b1626); overflow:hidden;">
+    <div id="spawnHost" aria-live="polite" style="position:absolute; inset:0;"></div>
+  </section>
+
+  <!-- (คงไว้ได้) โครง game-wrap เดิม หากมีโหมดอื่นใช้ -->
   <main class="game-wrap" role="main" aria-label="Game area">
     <div id="modeRoot" tabindex="0" aria-label="Mode root"></div>
   </main>
@@ -172,6 +186,7 @@
   <div id="result" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="h_summary">
     <div class="card">
       <h3 id="h_summary">สรุปผล</h3>
+      <p id="resultText" style="opacity:.9;margin:.4rem 0 1rem">—</p>
       <div id="resCore"></div>
       <div id="resBreakdown"></div>
       <div id="resBoard"></div>
