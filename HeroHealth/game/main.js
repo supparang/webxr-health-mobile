@@ -25,6 +25,44 @@ function now(){ return (window.performance && performance.now)? performance.now(
   hud.style.right='12px';
   hud.style.zIndex='1500';
   hud.style.pointerEvents='none'; // ไม่กินคลิกเมนู
+// [ADD near top helpers]
+var THREE_CTX = { ready:false, THREE:null, renderer:null, scene:null, camera:null, raycaster:null, pointer:new (window.THREE?.Vector2||function(){return{}})(), canvas:null };
+function ensureThree(){
+  if(THREE_CTX.ready) return Promise.resolve(THREE_CTX);
+  return import('https://unpkg.com/three@0.159.0/build/three.module.js').then(function(THREE){
+    var canvas = document.getElementById('c'); if(!canvas){ canvas = document.createElement('canvas'); canvas.id='c'; document.body.appendChild(canvas); }
+    var r = new THREE.WebGLRenderer({ canvas:canvas, antialias:true, alpha:true });
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(50, 16/9, 0.1, 100); camera.position.set(0,0,8);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.35)); var dl = new THREE.DirectionalLight(0xffffff, 1.0); dl.position.set(3,5,4); scene.add(dl);
+
+    // place canvas over playfield but under HUD
+    var gl = document.getElementById('gameLayer');
+    canvas.style.position = 'absolute'; canvas.style.inset = '0'; canvas.style.zIndex = '5'; canvas.style.pointerEvents = 'auto';
+    if(gl && !gl.contains(canvas)) gl.appendChild(canvas);
+
+    function size(){
+      var rect = gl ? gl.getBoundingClientRect() : {width:window.innerWidth, height:window.innerHeight};
+      var w = Math.max(320, Math.floor(rect.width));
+      var h = Math.max(200, Math.floor(rect.height));
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+      r.setSize(w,h,false);
+    }
+    size(); window.addEventListener('resize', size);
+
+    THREE_CTX = { ready:true, THREE:THREE, renderer:r, scene:scene, camera:camera, raycaster:new THREE.Raycaster(), pointer:new THREE.Vector2(), canvas:canvas };
+    // pointer → ส่งให้โหมด (ถ้าโหมดมี onPointer)
+    canvas.addEventListener('click', function(e){
+      if(!State.modeAPI || !State.modeAPI.onPointer) return;
+      var rect = canvas.getBoundingClientRect();
+      THREE_CTX.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      THREE_CTX.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      State.modeAPI.onPointer(THREE_CTX);
+    }, false);
+
+    return THREE_CTX;
+  }).catch(function(){ return { ready:false }; });
+}
 
   var header = document.querySelector('header.brand');
   if(header){ header.style.position='sticky'; header.style.top='0'; header.style.zIndex='2000'; }
