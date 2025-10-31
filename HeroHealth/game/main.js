@@ -1,6 +1,9 @@
-// === Hero Health Academy — game/main.js (2025-10-31 FAILSAFE MODES) ===
-// แก้เคส "Failed to load mode: goodjunk" ด้วยโหมด fallback ในตัว + ตัวโหลดแบบ SAFETY
-// ทำงานร่วม index ปัจจุบัน (#gameLayer, #spawnHost, #hudWrap, #resultText)
+// === Hero Health Academy — game/main.js (2025-10-31 HARD FAILSAFE) ===
+// แก้ "Failed to load mode: goodjunk" ให้เล่นได้แน่นอน:
+// - ถ้า import โหมดจริงล้มเหลว → ใช้ BuiltinGoodJunk (fallback) ทันที
+// - ถ้าไม่พบ #gameLayer/#spawnHost → auto-create host ภายใน .game-wrap
+// - แสดงแถบเขียว "Fallback mode active" เพื่อยืนยันว่ารันจริง
+// - ไม่ใช้ optional chaining, รองรับ WebView/Chrome เก่า
 
 import * as THREEpkg from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 
@@ -15,7 +18,7 @@ function make(mod, name, a,b,c,d){
   return impl||{};
 }
 
-// ---------- Core (ปลอดภัยต่อ object/class) ----------
+// ---------- Core (object/class-safe) ----------
 import * as EngineMod   from './core/engine.js';
 import * as HUDMod      from './core/hud.js';
 import * as CoachMod    from './core/coach.js';
@@ -40,51 +43,86 @@ var engine  = EngineK ? new EngineK({
   hud: hud, coach: coach, sfx: sfx, score: score, power: power, mission: mission, THREE: THREEpkg,
   fx: { popText: function(text, o){
     o=o||{}; var n=document.createElement('div'); n.className='poptext';
-    n.textContent=text; n.style.left=String(o.x||0)+'px'; n.style.top=String(o.y||0)+'px';
-    document.body.appendChild(n); setTimeout(function(){ try{n.remove();}catch(e){} }, (o.ms|0)||650);
+    n.textContent=text; n.style.position='fixed';
+    n.style.left=String(o.x||0)+'px'; n.style.top=String(o.y||0)+'px';
+    n.style.font='900 16px ui-rounded'; n.style.padding='4px 8px';
+    n.style.background='rgba(0,0,0,.45)'; n.style.border='1px solid rgba(255,255,255,.2)';
+    n.style.borderRadius='8px'; n.style.color='#eaf6ff'; n.style.zIndex='9999';
+    document.body.appendChild(n); setTimeout(function(){ try{n.remove();}catch(e){} }, (o.ms|0)||700);
   }}
 }) : { start:function(){}, stop:function(){}, pause:function(){}, resume:function(){}, init:function(){} };
 
 try{ if (power && power.attachToScore) power.attachToScore(score); }catch(e){}
 
-// ---------- Fallback GoodJunk (ในตัว) ----------
+// ---------- Utilities ----------
+function $ (s){ return document.querySelector(s); }
+function $id(id){ return document.getElementById(id); }
+function banner(msg, ok){
+  var el = document.getElementById('failsafeBanner');
+  if (!el){
+    el=document.createElement('div'); el.id='failsafeBanner';
+    el.style.cssText='position:fixed;left:12px;bottom:12px;background:'+(ok?'#166534':'#7f1d1d')+';color:#fff;padding:8px 10px;border-radius:999px;font:800 12px ui-rounded;z-index:2002';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display='inline-block';
+}
+
+// ---------- Ensure host (auto-create if missing) ----------
+function ensurePlayHost(){
+  var layer = $id('gameLayer');
+  var wrap  = layer || $('.game-wrap');
+  if (!wrap){
+    // เกิดกรณีไม่มี .game-wrap → สร้างให้เอง
+    wrap = document.createElement('div'); wrap.className='game-wrap';
+    wrap.style.cssText='position:relative; width:min(980px,96vw); height:calc(100vh - 320px); margin:10px auto 0; border-radius:16px; border:1px solid #152641; background:#0b1626; overflow:hidden; box-shadow:0 12px 50px rgba(0,0,0,.35)';
+    var app = document.getElementById('app') || document.body; app.appendChild(wrap);
+  }
+  var host = $id('spawnHost');
+  if (!host){
+    host = document.createElement('div'); host.id='spawnHost';
+    host.style.cssText='position:absolute;inset:0;z-index:29';
+    wrap.appendChild(host);
+  }
+  return { layer: wrap, host: host };
+}
+
+// ---------- BuiltinGoodJunk (fallback) ----------
 var BuiltinGoodJunk = (function(){
-  var host=null, layer=null, running=false, items=[], spawnCd=0.2;
+  var running=false, items=[], spawnCd=0.2, layer=null, host=null;
   var GOOD=['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑','🫘'];
   var JUNK=['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍭','🧁','🥓','🥠','🍨','🍦','🧂','🧈','🍹','🍯'];
   function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
   function rnd(arr){ return arr[(Math.random()*arr.length)|0]; }
-  function toast(msg){
-    var el=document.getElementById('toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-    el.textContent=msg; if(el.classList&&el.classList.add) el.classList.add('show');
-    setTimeout(function(){ try{el.classList.remove('show');}catch(e){} }, 900);
+  function toast(txt){
+    var t=document.getElementById('toast'); if(!t){ t=document.createElement('div'); t.id='toast';
+      t.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#102038f0;border:1px solid #1a2c47;color:#eaf6ff;padding:8px 12px;border-radius:999px;font:800 12px ui-rounded;z-index:9998';
+      document.body.appendChild(t);
+    }
+    t.textContent=txt; t.style.opacity='1'; setTimeout(function(){ t.style.opacity='0.0'; }, 900);
   }
-  function pickMeta(){
-    var isGood=Math.random()<0.65; var char=rnd(isGood?GOOD:JUNK);
-    var life=clamp(1600+((Math.random()*900)|0),700,4500);
-    var golden=Math.random()<0.08; return {char:char, aria:(isGood?'Good':'Junk'), isGood:isGood, golden:golden, life:life};
-  }
+  function pickMeta(){ var isGood=Math.random()<0.65; return { isGood:isGood, char:rnd(isGood?GOOD:JUNK), life:clamp(1600+((Math.random()*900)|0),700,4500), golden:Math.random()<0.08, aria:(isGood?'Good':'Junk') }; }
   function spawnOne(rect){
-    var m=pickMeta(), pad=30, w=640, h=360;
-    if (rect && typeof rect.width==='number') w=rect.width; else if (host && host.clientWidth) w=host.clientWidth;
-    if (rect && typeof rect.height==='number') h=rect.height; else if (host && host.clientHeight) h=host.clientHeight;
+    var m=pickMeta(), pad=30;
+    var w=rect.width|0||640, h=rect.height|0||360;
     var x=Math.round(pad+Math.random()*(Math.max(1,w)-pad*2));
     var y=Math.round(pad+Math.random()*(Math.max(1,h)-pad*2));
-    var b=document.createElement('button'); b.className='spawn-emoji'; b.type='button';
-    b.style.left=String(x)+'px'; b.style.top=String(y)+'px'; b.textContent=m.char; b.setAttribute('aria-label',m.aria);
+    var b=document.createElement('button');
+    b.className='spawn-emoji'; b.type='button'; b.textContent=m.char; b.setAttribute('aria-label', m.aria);
+    b.style.cssText='position:absolute;left:'+x+'px;top:'+y+'px;transform:translate(-50%,-50%);z-index:29;padding:8px 12px;border-radius:18px;border:0;background:rgba(255,255,255,.08)';
     if (m.golden) b.style.filter='drop-shadow(0 0 10px rgba(255,215,0,.85))';
     (host||document.getElementById('spawnHost')||document.body).appendChild(b);
     var born=(typeof performance!=='undefined'&&performance&&performance.now)?performance.now():Date.now();
     items.push({ el:b, born:born, life:m.life, meta:m });
     b.addEventListener('click', function(ev){
-      if (!running) return; ev.stopPropagation();
+      if(!running) return; ev.stopPropagation();
       var ui={x:ev.clientX||0,y:ev.clientY||0};
-      if (m.isGood){
-        try{ if (sfx&&sfx.play) sfx.play(m.golden?'sfx-perfect':'sfx-good'); }catch(e){}
-        try{ if (engine && engine.fx && engine.fx.popText) engine.fx.popText('+'+(m.golden?20:10)+(m.golden?' ✨':''), {x:ui.x,y:ui.y,ms:720}); }catch(e){}
-      } else {
+      try{ if (sfx&&sfx.play) sfx.play(m.golden?'sfx-perfect':'sfx-good'); }catch(e){}
+      if (!m.isGood){
         try{ if (sfx&&sfx.play) sfx.play('sfx-bad'); }catch(e){}
         try{ document.body.classList.add('flash-danger'); setTimeout(function(){document.body.classList.remove('flash-danger');},160);}catch(e){}
+      } else {
+        try{ if (engine&&engine.fx&&engine.fx.popText) engine.fx.popText('+'+(m.golden?20:10)+(m.golden?' ✨':''), {x:ui.x,y:ui.y,ms:720}); }catch(e){}
       }
       try{ b.remove(); }catch(e){}
       for (var i=0;i<items.length;i++){ if(items[i].el===b){ items.splice(i,1); break; } }
@@ -94,25 +132,15 @@ var BuiltinGoodJunk = (function(){
     create: function(){
       return {
         start: function(){
-          running=false; // reset then start
-          // resolve
-          host=document.getElementById('spawnHost');
-          layer=document.getElementById('gameLayer')||document.querySelector('.game-wrap');
-          items.length=0; spawnCd=0.2; running=true;
-          toast('🍃 ดี vs ขยะ (fallback)');
+          running=false; items.length=0; spawnCd=0.2;
+          var hostInfo = ensurePlayHost(); layer=hostInfo.layer; host=hostInfo.host;
+          running=true; toast('🍃 ดี vs ขยะ (fallback)'); banner('Fallback mode active', true);
         },
-        stop: function(){
-          running=false;
-          try{ for (var i=0;i<items.length;i++){ var it=items[i]; if(it&&it.el&&it.el.remove) it.el.remove(); } }catch(e){}
-          items.length=0;
-        },
+        stop: function(){ running=false; try{ for (var i=0;i<items.length;i++){ var it=items[i]; if(it&&it.el&&it.el.remove) it.el.remove(); } }catch(e){} items.length=0; },
         update: function(dt){
           if(!running) return;
-          var layerEl=layer||document.getElementById('gameLayer')||document.querySelector('.game-wrap');
-          var rect={width:640,height:360}; try{ if(layerEl&&layerEl.getBoundingClientRect) rect=layerEl.getBoundingClientRect(); }catch(e){}
-          // spawn
-          spawnCd-=dt; if (spawnCd<=0){ spawnOne(rect); spawnCd = 0.40 - 0.0 + Math.random()*0.22; if(spawnCd<0.24)spawnCd=0.24; if(spawnCd>0.95)spawnCd=0.95; }
-          // expiry
+          var rect={width:640,height:360}; try{ if(layer&&layer.getBoundingClientRect) rect=layer.getBoundingClientRect(); }catch(e){}
+          spawnCd-=dt; if (spawnCd<=0){ spawnOne(rect); spawnCd = Math.max(0.24, Math.min(0.95, 0.40 + Math.random()*0.22)); }
           var now=(typeof performance!=='undefined'&&performance&&performance.now)?performance.now():Date.now();
           var keep=[]; for (var i=0;i<items.length;i++){ var it=items[i]; if(now-it.born>it.life){ try{it.el.remove();}catch(e){} } else keep.push(it); } items=keep;
         },
@@ -122,24 +150,19 @@ var BuiltinGoodJunk = (function(){
   };
 })();
 
-// ---------- Mode registry (placeholder, จะถูกแทนด้วยของจริงเมื่อโหลดสำเร็จ) ----------
-var MODES = {
-  goodjunk: BuiltinGoodJunk, // ใช้ fallback ก่อน
-  groups:   BuiltinGoodJunk, // ชั่วคราวให้เล่นได้
-  hydration:BuiltinGoodJunk,
-  plate:    BuiltinGoodJunk
-};
+// ---------- Mode registry (will swap with real ones if loaded) ----------
+var MODES = { goodjunk: BuiltinGoodJunk, groups: BuiltinGoodJunk, hydration: BuiltinGoodJunk, plate: BuiltinGoodJunk };
 var current = null;
 
-// ---------- DOM helpers ----------
-function $ (s){ return document.querySelector(s); }
-function $id(id){ return document.getElementById(id); }
+// ---------- Playfield pointer control ----------
 function setPlayfieldActive(on){
-  var layer=$id('gameLayer')||$('.game-wrap'); var menu=$id('menuBar');
-  if(layer&&layer.style) layer.style.pointerEvents=on?'auto':'none';
-  if(menu &&menu.style)  menu.style.pointerEvents =on?'none':'auto';
+  var wrap=$id('gameLayer')||$('.game-wrap'); var menu=$id('menuBar');
+  if (wrap&&wrap.style) wrap.style.pointerEvents=on?'auto':'auto'; // เปิดคลิกในเกม
+  if (menu&&menu.style) menu.style.pointerEvents=on?'none':'auto';
   var hudWrap=$id('hudWrap'); if(hudWrap&&hudWrap.style) hudWrap.style.pointerEvents='none';
 }
+
+// ---------- Selections ----------
 function selectedMode(){
   var ids=['m_goodjunk','m_groups','m_hydration','m_plate'];
   var map={m_goodjunk:'goodjunk',m_groups:'groups',m_hydration:'hydration',m_plate:'plate'};
@@ -154,7 +177,7 @@ function selectedDiff(){
   return document.body.getAttribute('data-diff')||'Normal';
 }
 
-// ---------- Timer / Game flow ----------
+// ---------- Timer ----------
 var round={sec:45,running:false,raf:0,last:0};
 function setTimeUI(v){ var t=$id('time'); if(t) t.textContent=String(v|0); }
 function beginTimer(seconds){
@@ -166,7 +189,7 @@ function beginTimer(seconds){
     var now=(typeof performance!=='undefined'&&performance&&performance.now)?performance.now():Date.now();
     var dt=(now-round.last)/1000; round.last=now;
     round.sec=Math.max(0, round.sec-dt); setTimeUI(Math.ceil(round.sec));
-    if (typeof current==='object' && current && typeof current.update==='function') { try{ current.update(dt, engine.Bus||null); }catch(e){} }
+    try{ if (current && typeof current.update==='function') current.update(dt, engine.Bus||null); }catch(e){}
     if (round.sec<=0){ round.running=false; endGameToResult(); return; }
     round.raf=window.requestAnimationFrame(step);
   }
@@ -174,49 +197,27 @@ function beginTimer(seconds){
 }
 function stopTimer(){ round.running=false; try{ if(round.raf) window.cancelAnimationFrame(round.raf);}catch(e){} round.raf=0; }
 
-// ---------- Mode loader (failsafe) ----------
+// ---------- Load real modes (once) ----------
 var triedDynamic=false;
 function ensureRealModesThenLoad(key, onDone){
-  // ถ้ายังไม่เคยพยายามโหลดจริง ให้ลองโหลดไฟล์โหมด
   if (!triedDynamic){
     triedDynamic=true;
-    // พยายาม import โหมดจริง ๆ (ถ้าล้มเหลว จะอยู่กับ fallback ต่อไป)
     Promise.all([
       import('./modes/goodjunk.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load goodjunk failed', e); return null; }),
-      import('./modes/groups.js?v=live&cb='+Date.now()).catch(function(){ return null; }),
-      import('./modes/hydration.js?v=live&cb='+Date.now()).catch(function(){ return null; }),
-      import('./modes/plate.js?v=live&cb='+Date.now()).catch(function(){ return null; }),
+      import('./modes/groups.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load groups failed', e); return null; }),
+      import('./modes/hydration.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load hydration failed', e); return null; }),
+      import('./modes/plate.js?v=live&cb='+Date.now()).catch(function(e){ console.warn('[HHA] load plate failed', e); return null; })
     ]).then(function(arr){
       try{
-        if (arr[0]){ MODES.goodjunk = arr[0].default||arr[0]; }
-        if (arr[1]){ MODES.groups   = arr[1].default||arr[1]; }
-        if (arr[2]){ MODES.hydration= arr[2].default||arr[2]; }
-        if (arr[3]){ MODES.plate    = arr[3].default||arr[3]; }
+        if (arr[0]) MODES.goodjunk = arr[0].default||arr[0];
+        if (arr[1]) MODES.groups   = arr[1].default||arr[1];
+        if (arr[2]) MODES.hydration= arr[2].default||arr[2];
+        if (arr[3]) MODES.plate    = arr[3].default||arr[3];
+        banner('Real modes loaded', true);
       }catch(_){}
       onDone();
     }).catch(function(){ onDone(); });
-  } else {
-    onDone();
-  }
-}
-
-function loadMode(key){
-  var mod = MODES[key] || MODES.goodjunk;
-  try{ if (current && current.cleanup) current.cleanup(); }catch(e){}
-  try{
-    var inst = (mod && typeof mod.create==='function') ? mod.create({ engine:engine, hud:hud, coach:coach }) : null;
-    if (!inst){ throw new Error('Mode has no create()'); }
-    current = inst;
-  }catch(e){
-    console.error('Failed to load mode:', key, e);
-    // ตกกลับไป fallback เสมอ
-    try{
-      var inst2 = BuiltinGoodJunk.create();
-      current = inst2;
-    }catch(_){
-      current = null;
-    }
-  }
+  } else { onDone(); }
 }
 
 // ---------- View helpers ----------
@@ -225,6 +226,20 @@ function showPlay(){ var m=$id('menuBar'), h=$id('hudWrap'), r=$id('result'); if
 function showResult(){ var r=$id('result'); if(r&&r.style) r.style.display='flex'; setPlayfieldActive(false); }
 
 // ---------- Flow ----------
+function loadMode(key){
+  var mod = MODES[key] || MODES.goodjunk;
+  try{ if (current && current.cleanup) current.cleanup(); }catch(e){}
+  try{
+    var inst = (mod && typeof mod.create==='function') ? mod.create({ engine:engine, hud:hud, coach:coach }) : null;
+    if (!inst) throw new Error('Mode has no create()');
+    current = inst;
+  }catch(e){
+    console.warn('Mode load failed; using fallback:', key, e);
+    banner('Using fallback mode', true);
+    try{ current = BuiltinGoodJunk.create(); }catch(_){ current = null; }
+  }
+}
+
 function start(){
   try{ if(score&&score.reset) score.reset(); }catch(e){}
   try{ if(Progress&&Progress.beginRun) Progress.beginRun(selectedMode(), selectedDiff(), 'TH', 45); }catch(e){}
@@ -245,6 +260,7 @@ function stop(){
   showMenu();
 }
 function replay(){ stopTimer(); try{ if(current&&current.stop) current.stop(); }catch(e){} showPlay(); start(); }
+
 function endGameToResult(){
   try{ if(current&&current.stop) current.stop(); }catch(e){}
   try{ if(engine&&engine.stop) engine.stop(); }catch(e){}
@@ -258,10 +274,8 @@ function endGameToResult(){
 window.addEventListener('blur',  function(){ try{ if(engine.pause) engine.pause(); if(VRInput.pause) VRInput.pause(true);}catch(e){} }, {passive:true});
 window.addEventListener('focus', function(){ try{ if(engine.resume) engine.resume(); if(VRInput.resume)VRInput.resume(true);}catch(e){} }, {passive:true});
 document.addEventListener('visibilitychange', function(){
-  try{
-    if (document.hidden){ if(engine.pause) engine.pause(); if(VRInput.pause) VRInput.pause(true); }
-    else { if(engine.resume) engine.resume(); if(VRInput.resume) VRInput.resume(true); }
-  }catch(e){}
+  try{ if (document.hidden){ if(engine.pause) engine.pause(); if(VRInput.pause) VRInput.pause(true); }
+       else { if(engine.resume) engine.resume(); if(VRInput.resume) VRInput.resume(true); } }catch(e){}
 }, {passive:true});
 
 // ---------- Bind Menu ----------
@@ -291,7 +305,7 @@ function bindMenu(){
   });
   var bRestart=$id('btn_restart'); if(bRestart) bRestart.addEventListener('click', function(){ replay(); });
   var bPause=$id('btn_pause'); if(bPause) bPause.addEventListener('click', function(){
-    try{ if(engine && engine.isPaused && engine.isPaused()){ if(engine.resume) engine.resume(); } else { if(engine.pause) engine.pause(); } }catch(e){}
+    try{ if(engine&&engine.isPaused&&engine.isPaused()){ if(engine.resume) engine.resume(); } else { if(engine.pause) engine.pause(); } }catch(e){}
   });
   document.addEventListener('click', function(ev){
     var a=ev.target && ev.target.closest ? ev.target.closest('[data-result]') : null; if(!a) return;
@@ -309,16 +323,14 @@ function bindMenu(){
     if (Progress&&Progress.init) Progress.init();
     if (VRInput&&VRInput.init) VRInput.init({ engine:engine, sfx:sfx, THREE:THREEpkg });
 
-    // โหลดโหมดจริงแบบขนาน (แต่มี fallback เล่นได้ทันทีตอนกด Start)
-    // ผู้ใช้กด Start → เราจะ ensure แล้ว loadMode() อีกครั้งภายหลัง
-    ensureRealModesThenLoad(selectedMode(), function(){ /* no-op */ });
+    // เตรียม host (กรณี index ไม่มี)
+    ensurePlayHost();
 
-    // เริ่มที่เมนู
+    // โหลดโหมดจริงแบบขนาน (ถ้าพลาด → fallback อยู่แล้ว)
+    ensureRealModesThenLoad(selectedMode(), function(){ /*noop*/ });
+
     showMenu();
-
-    // API เผื่อภายนอก
     window.HHA = window.HHA || {};
-    window.HHA.setPlayfieldActive = setPlayfieldActive;
     window.HHA.startSelectedMode  = function(){ ensureRealModesThenLoad(selectedMode(), function(){ loadMode(selectedMode()); start(); }); };
     window.HHA.stop   = stop;
     window.HHA.replay = replay;
