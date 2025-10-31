@@ -1,4 +1,4 @@
-// === goodjunk.js — 3D Emoji Shatter (G13.1: reliable click-hit) ===
+// === goodjunk.js — 3D Emoji Shatter (G14 + FX hooks) ===
 export const name = 'goodjunk';
 
 const GOOD=['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
@@ -49,7 +49,7 @@ function diffScale(canvas){
   return byDiff * screenFactor * (0.95 + Math.random()*0.10);
 }
 
-// --- 3D target sprite (ติดแท็ก + อยู่ใต้ root) ---
+// --- 3D target sprite (tag + under root) ---
 function makeTarget3D(isGood){
   const emoji = pick(isGood?GOOD:JUNK);
   const { texture, avgColor } = makeEmojiTexture(THREE, emoji, 256);
@@ -72,7 +72,6 @@ function makeTarget3D(isGood){
   };
   holder.add(spr);
 
-  // ใส่ไว้ใต้ root เสมอ
   root.add(holder);
   targets.push(holder);
   firstSpawned=true;
@@ -120,14 +119,12 @@ function update3D(dt){
 export function onPointer(ctx){
   if(!alive || !use3D) return;
 
-  // ทำให้ชน Sprite ง่ายขึ้นนิดนึง
   if(ctx?.ray?.params?.Sprite) ctx.ray.params.Sprite.threshold = 0.6;
 
   ctx.ray.setFromCamera(ctx.pointer, C);
   const hits = ctx.ray.intersectObjects(root.children, true);
   if(!hits?.length) return;
 
-  // ไต่ขึ้นหา holder ที่ tag=='target'
   let obj = hits[0].object;
   while(obj && obj.parent && obj !== root && obj.userData?.tag!=='target'){ obj = obj.parent; }
   if(!obj?.userData || obj.userData.tag!=='target') return;
@@ -138,15 +135,20 @@ export function onPointer(ctx){
 
   root.remove(obj); const i=targets.indexOf(obj); if(i>=0) targets.splice(i,1);
   shatter(pt, col);
+
   if(good){
     const perfect=Math.random()<0.22; const gain = perfect?200:100;
-    addScore(gain, perfect); popupFromPoint(pt, (gain>100?'+200':'+100'), true);
+    addScore(gain, perfect);
+    popupFromPoint(pt, (gain>100?'+200':'+100'), true);
+    // FX shatter (NDC)
+    try{ const v = pt.clone().project(C); window.__HHA_screenShatter && window.__HHA_screenShatter(v.x, v.y); }catch(_){}
   }else{
     badHit(); popupFromPoint(pt, 'MISS', false);
+    try{ const v = pt.clone().project(C); window.__HHA_screenShatter && window.__HHA_screenShatter(v.x, v.y); }catch(_){}
   }
 }
 
-// DOM fallback (ยังคงไว้)
+// DOM fallback
 function makeDOM(isGood){
   const d=document.createElement('button');
   d.className='spawn-emoji'; d.textContent=pick(isGood?GOOD:JUNK);
@@ -158,8 +160,10 @@ function makeDOM(isGood){
   const to=setTimeout(()=>{ if(!gone) leave(); }, lifeMs);
   function leave(){ gone=true; d.style.transition='transform 160ms ease, opacity 160ms ease';
     d.style.transform='scale(.6) translateY(10px)'; d.style.opacity='0'; setTimeout(()=>d.remove(),170); }
-  d.addEventListener('click',()=>{
+  d.addEventListener('click',(e)=>{
     if(!alive) return; clearTimeout(to); leave();
+    // FX shatter (screen px)
+    try{ window.__HHA_screenShatterFromPx && window.__HHA_screenShatterFromPx(e.clientX, e.clientY); }catch(_){}
     const gain = Math.random()<0.22?200:100;
     if(isGood){ addScore(gain, gain===200); } else { badHit(); }
   },false);
@@ -181,7 +185,7 @@ export function start(cfg){
   if(use3D){
     try{ const host=document.getElementById('spawnHost'); host && host.querySelectorAll('.spawn-emoji').forEach(n=>n.remove()); }catch(_){}
     THREE = cfg.three.THREE; R=cfg.three.renderer; S=cfg.three.scene; C=cfg.three.cam||cfg.three.camera; utils = cfg.three.utils || null;
-    if(root){ root.clear(); S.remove(root); }
+    if(root){ root.clear(); cfg.three.scene.remove(root); }
     root = new THREE.Group(); root.name='GJ-Root';
     S.add(root); targets.length=0; shards.length=0;
   }else{
