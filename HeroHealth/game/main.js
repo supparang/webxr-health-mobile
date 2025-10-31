@@ -342,3 +342,76 @@ function bindMenu(){
     pre.textContent='Runtime error:\n'+(e && (e.stack||e.message) || String(e)); document.body.appendChild(pre);
   }
 })();
+// --- ใส่แทนที่เดิมทั้งหมดของ ensureRealModesThenLoad() ---
+var triedDynamic=false;
+function ensureRealModesThenLoad(key, onDone){
+  if (!triedDynamic){
+    triedDynamic = true;
+    Promise.all([
+      import('./modes/goodjunk.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load goodjunk failed', e); return null; }),
+      import('./modes/groups.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load groups failed', e); return null; }),
+      import('./modes/hydration.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load hydration failed', e); return null; }),
+      import('./modes/plate.js?v=live&cb=' + Date.now()).catch(function(e){ console.warn('[HHA] load plate failed', e); return null; })
+    ]).then(function(arr){
+      function pickMode(m){
+        // รองรับทั้ง namespace, default object, และ default function
+        if (!m) return null;
+        return (m.default != null ? m.default : m);
+      }
+      try{
+        var g = pickMode(arr[0]); if (g) MODES.goodjunk  = g;
+        var a = pickMode(arr[1]); if (a) MODES.groups    = a;
+        var h = pickMode(arr[2]); if (h) MODES.hydration = h;
+        var p = pickMode(arr[3]); if (p) MODES.plate     = p;
+        banner('Real modes loaded', true);
+      }catch(_){}
+      onDone();
+    }).catch(function(){ onDone(); });
+  } else {
+    onDone();
+  }
+}
+
+// --- ใส่แทนที่เดิมทั้งหมดของ loadMode() ---
+function loadMode(key){
+  var mod = MODES[key] || MODES.goodjunk;
+
+  // ฟังก์ชันรวมทุกกรณี: {create}, {default:{create}}, function(ctx), หรือ {default:function}
+  function instantiateMode(m, ctx){
+    if (!m) return null;
+
+    // กรณีโมดูลเป็นฟังก์ชันตรง ๆ
+    if (typeof m === 'function'){
+      try { return m(ctx) || null; } catch(e){ console.warn('[HHA] mode fn() failed', e); return null; }
+    }
+
+    // กรณีมี create()
+    if (typeof m.create === 'function'){
+      try { return m.create(ctx) || null; } catch(e){ console.warn('[HHA] mode.create() failed', e); return null; }
+    }
+
+    // กรณีมี default เป็นฟังก์ชัน
+    if (m.default && typeof m.default === 'function'){
+      try { return m.default(ctx) || null; } catch(e){ console.warn('[HHA] default fn() failed', e); return null; }
+    }
+
+    // กรณีมี default.create()
+    if (m.default && typeof m.default.create === 'function'){
+      try { return m.default.create(ctx) || null; } catch(e){ console.warn('[HHA] default.create() failed', e); return null; }
+    }
+
+    return null;
+  }
+
+  try{ if (current && current.cleanup) current.cleanup(); }catch(e){}
+
+  // พยายามอินสแตนซ์โหมดจริงก่อน
+  var inst = instantiateMode(mod, { engine:engine, hud:hud, coach:coach });
+
+  if (!inst){
+    console.warn('Mode load failed; using fallback:', key);
+    banner('Using fallback mode', true);
+    try { inst = BuiltinGoodJunk.create(); } catch(_) { inst = null; }
+  }
+  current = inst;
+}
