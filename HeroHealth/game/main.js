@@ -1,15 +1,17 @@
 // /webxr-health-mobile/HeroHealth/game/main.js
-// Hero Health Academy — MAIN (2025-10-31 Patch Pack v3 + Timer Fallback + HUD fix)
+// Hero Health Academy — MAIN
+// (2025-10-31 G2) 3D-ready + Timer Fallback + HUD fix + Patch v3
 
 window.__HHA_BOOT_OK = true;
 
+// ---------- Utils ----------
 function $(s){ return document.querySelector(s); }
 function setText(sel, txt){ var el=$(sel); if(el) el.textContent = txt; }
 function on(el,ev,fn){ if(el) el.addEventListener(ev,fn,false); }
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function now(){ return (window.performance && performance.now)? performance.now() : Date.now(); }
 
-// ------- DOM ensure / playfield safety + HUD ไม่บังหัวเว็บ -------
+// ---------- DOM ensure / HUD ไม่บังเมนู ----------
 (function ensureDOM(){
   var hud = $('#hudWrap'); 
   if(!hud){ 
@@ -19,50 +21,12 @@ function now(){ return (window.performance && performance.now)? performance.now(
     hud.style.display='none'; 
     document.body.appendChild(hud); 
   }
-  // จัด HUD ไปขวาบนและไม่ทับ header
+  // HUD ไปขวาบนใต้ header
   hud.style.position='fixed';
   hud.style.top='64px';
   hud.style.right='12px';
   hud.style.zIndex='1500';
-  hud.style.pointerEvents='none'; // ไม่กินคลิกเมนู
-// [ADD near top helpers]
-var THREE_CTX = { ready:false, THREE:null, renderer:null, scene:null, camera:null, raycaster:null, pointer:new (window.THREE?.Vector2||function(){return{}})(), canvas:null };
-function ensureThree(){
-  if(THREE_CTX.ready) return Promise.resolve(THREE_CTX);
-  return import('https://unpkg.com/three@0.159.0/build/three.module.js').then(function(THREE){
-    var canvas = document.getElementById('c'); if(!canvas){ canvas = document.createElement('canvas'); canvas.id='c'; document.body.appendChild(canvas); }
-    var r = new THREE.WebGLRenderer({ canvas:canvas, antialias:true, alpha:true });
-    var scene = new THREE.Scene();
-    var camera = new THREE.PerspectiveCamera(50, 16/9, 0.1, 100); camera.position.set(0,0,8);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.35)); var dl = new THREE.DirectionalLight(0xffffff, 1.0); dl.position.set(3,5,4); scene.add(dl);
-
-    // place canvas over playfield but under HUD
-    var gl = document.getElementById('gameLayer');
-    canvas.style.position = 'absolute'; canvas.style.inset = '0'; canvas.style.zIndex = '5'; canvas.style.pointerEvents = 'auto';
-    if(gl && !gl.contains(canvas)) gl.appendChild(canvas);
-
-    function size(){
-      var rect = gl ? gl.getBoundingClientRect() : {width:window.innerWidth, height:window.innerHeight};
-      var w = Math.max(320, Math.floor(rect.width));
-      var h = Math.max(200, Math.floor(rect.height));
-      camera.aspect = w/h; camera.updateProjectionMatrix();
-      r.setSize(w,h,false);
-    }
-    size(); window.addEventListener('resize', size);
-
-    THREE_CTX = { ready:true, THREE:THREE, renderer:r, scene:scene, camera:camera, raycaster:new THREE.Raycaster(), pointer:new THREE.Vector2(), canvas:canvas };
-    // pointer → ส่งให้โหมด (ถ้าโหมดมี onPointer)
-    canvas.addEventListener('click', function(e){
-      if(!State.modeAPI || !State.modeAPI.onPointer) return;
-      var rect = canvas.getBoundingClientRect();
-      THREE_CTX.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      THREE_CTX.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      State.modeAPI.onPointer(THREE_CTX);
-    }, false);
-
-    return THREE_CTX;
-  }).catch(function(){ return { ready:false }; });
-}
+  hud.style.pointerEvents='none';
 
   var header = document.querySelector('header.brand');
   if(header){ header.style.position='sticky'; header.style.top='0'; header.style.zIndex='2000'; }
@@ -75,7 +39,8 @@ function ensureThree(){
     document.body.appendChild(gl);
   }
   var host = $('#spawnHost'); 
-  if(!host){ host=document.createElement('div'); host.id='spawnHost'; host.style.cssText='position:absolute;inset:0;'; gl.appendChild(host); }
+  if(!host){ host=document.createElement('div'); host.id='spawnHost'; host.style.cssText='position:absolute;inset:0;z-index:8;'; gl.appendChild(host); }
+  else { host.style.zIndex='8'; }
 
   try{
     var rect = gl.getBoundingClientRect();
@@ -83,11 +48,67 @@ function ensureThree(){
   }catch(_e){}
 })();
 
-// ----- Paths -----
+// ---------- Paths ----------
 var BASE = '/webxr-health-mobile/HeroHealth/game/';
 var MODES_DIR = BASE + 'modes/';
 
-// ----- State -----
+// ---------- Global 3D context ----------
+var THREE_CTX = { ready:false, THREE:null, renderer:null, scene:null, camera:null, raycaster:null, pointer:null, canvas:null };
+
+// (UPDATED) ให้ canvas อยู่เหนือพื้นเล่น (z-index 6) แต่ต่ำกว่า spawnHost (z 8) และ HUD (1500)
+function ensureThree(){
+  if(THREE_CTX.ready) return Promise.resolve(THREE_CTX);
+  return import('https://unpkg.com/three@0.159.0/build/three.module.js').then(function(THREE){
+    var gl = $('#gameLayer');
+    var canvas = document.getElementById('c'); 
+    if(!canvas){ canvas = document.createElement('canvas'); canvas.id='c'; }
+    canvas.style.position='absolute'; 
+    canvas.style.inset='0'; 
+    canvas.style.zIndex='6';              // ใต้ spawnHost (8), เหนือพื้น
+    canvas.style.pointerEvents='auto';
+    if(gl && !gl.contains(canvas)) gl.appendChild(canvas);
+
+    var r = new THREE.WebGLRenderer({ canvas:canvas, antialias:true, alpha:true });
+    r.setClearColor(0x000000, 0);         // โปร่งใส
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(50, 16/9, 0.1, 100); camera.position.set(0,0,8);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+    var dl = new THREE.DirectionalLight(0xffffff, 1.0); dl.position.set(3,5,4); scene.add(dl);
+
+    function size(){
+      var rect = gl ? gl.getBoundingClientRect() : {width:window.innerWidth, height:window.innerHeight};
+      var w = Math.max(320, Math.floor(rect.width));
+      var h = Math.max(220, Math.floor(rect.height));
+      camera.aspect = w/h; camera.updateProjectionMatrix();
+      r.setSize(w,h,false);
+    }
+    size(); window.addEventListener('resize', size);
+
+    var ray = new THREE.Raycaster();
+    var pointer = new THREE.Vector2();
+
+    // คลิกบนแคนวาส → ส่งให้โหมดเช็กชน
+    canvas.addEventListener('click', function(e){
+      if(!State.modeAPI || !State.modeAPI.onPointer) return;
+      var rect = canvas.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      THREE_CTX.pointer = pointer; THREE_CTX.raycaster = ray;
+      State.modeAPI.onPointer(THREE_CTX);
+    }, false);
+
+    THREE_CTX = { ready:true, THREE:THREE, renderer:r, scene:scene, camera:camera, raycaster:ray, pointer:pointer, canvas:canvas };
+
+    // ให้ #spawnHost อยู่บนแคนวาสเสมอ (สำหรับ DOM fallback)
+    var host = document.getElementById('spawnHost');
+    if(host){ host.style.position='absolute'; host.style.inset='0'; host.style.zIndex='8'; }
+
+    return THREE_CTX;
+  }).catch(function(){ return { ready:false }; });
+}
+
+// ---------- State ----------
 var State = {
   lang: 'th', gfx: 'Normal', sound: true, haptic: true,
   difficulty: 'Normal', modeKey: 'goodjunk',
@@ -100,28 +121,25 @@ var State = {
   }
 };
 
-// ----- Texts -----
-var T = { /* (เหมือนเดิม ตัดออกเพื่อย่อ) */ 
+// ---------- Texts ----------
+var T = {
   th:{score:'คะแนน',combo:'คอมโบ',time:'เวลา',mode:'โหมด',diff:'ความยาก',
       modes:{goodjunk:'ดี vs ขยะ',groups:'จาน 5 หมู่',hydration:'สมดุลน้ำ',plate:'จัดจานสุขภาพ'},
       start:'▶ เริ่มเกม',pause:'⏸ พัก',restart:'↻ เริ่มใหม่',
-      tipsGoodJunk:'แตะอาหาร “ดีต่อสุขภาพ” เพื่อเก็บคะแนน หลีกเลี่ยงอาหารขยะ โดนขยะคอมโบจะรีเซ็ต ระวังเวลาหมด!',
-      finished:'จบเกม! ทำได้'},
+      tipsGoodJunk:'แตะ/ตี เป้า “อาหารดี” เพื่อเก็บคะแนน หลีกเลี่ยงขยะ! ตีแล้วแตกกระจาย'},
   en:{score:'Score',combo:'Combo',time:'Time',mode:'Mode',diff:'Difficulty',
       modes:{goodjunk:'Good vs Junk',groups:'Food Groups',hydration:'Water Balance',plate:'Healthy Plate'},
       start:'▶ Start',pause:'⏸ Pause',restart:'↻ Restart',
-      tipsGoodJunk:'Tap healthy foods to score. Avoid junk! Bad hits reset combo. Race against the clock!',
-      finished:'Finished! You scored'}
+      tipsGoodJunk:'Hit the healthy 3D targets to score. Avoid junk! Shatter on hit.'}
 };
 
-// ----- UI refs -----
+// ---------- UI refs ----------
 var el = {
   score: $('#score'), combo: $('#combo'), time: $('#time'),
   t_score: $('#t_score'), t_combo: $('#t_combo'), t_time: $('#t_time'),
   t_mode: $('#t_mode'), t_diff: $('#t_diff'), modeName: $('#modeName'), difficulty: $('#difficulty'),
-  feverWrap: $('#feverBarWrap'), feverBar: $('#feverBar'), feverText: $('#fever'),
+  feverBar: $('#feverBar'), feverText: $('#fever'),
   coach: $('#coachHUD'), coachText: $('#coachText'),
-  spawnHost: $('#spawnHost'),
   btnStart: $('#btn_start'), btnPause: $('#btn_pause'), btnRestart: $('#btn_restart'),
   langToggle: $('#langToggle'), gfxToggle: $('#gfxToggle'), soundToggle: $('#soundToggle'), hapticToggle: $('#hapticToggle'),
   dEasy: $('#d_easy'), dNormal: $('#d_normal'), dHard: $('#d_hard'),
@@ -135,7 +153,7 @@ var el = {
   statOpen: $('#btn_stats'), dailyOpen: $('#btn_daily')
 };
 
-// ----- Fever / Score / Time -----
+// ---------- Fever / Score / Time ----------
 function setFever(v){
   State.fever = clamp(v,0,100);
   if(el.feverBar) el.feverBar.style.width = State.fever + '%';
@@ -157,18 +175,17 @@ function badHit(){
   setFever(Math.max(0, State.fever - 12));
 }
 function setTimeLeft(sec){
-  // แสดงแบบเต็มวินาที แต่เก็บทศนิยมภายใน
   State.timeLeft = Math.max(0, sec);
   if(el.time) el.time.textContent = String(Math.max(0, Math.round(State.timeLeft)));
 }
 
-// ----- expose hooks for modes -----
+// ---------- expose hooks for modes ----------
 window.__HHA_modeHooks = {
   addScore: function(delta, perfect){ addScore(delta, !!perfect); },
   badHit: function(){ badHit(); }
 };
 
-// ----- Lang apply -----
+// ---------- Lang ----------
 function applyLang(){
   var L = T[State.lang];
   setText('#t_score', L.score); setText('#t_combo', L.combo); setText('#t_time',  L.time);
@@ -179,14 +196,14 @@ function applyLang(){
   var lt = $('#langToggle'); if(lt) lt.textContent = '🇹🇭 TH/EN';
 }
 
-// ----- SFX -----
+// ---------- SFX ----------
 function playSFX(name){
   if(!State.sound) return;
   var a = State.sfx[name];
   if(a){ try{ a.currentTime=0; a.play(); }catch(_e){} }
 }
 
-// ----- Mode loader (เหมือนเดิม ตัดย่อ) -----
+// ---------- Mode loader ----------
 var registry = { goodjunk:null, groups:null, hydration:null, plate:null };
 function tryImport(path){ return new Promise(function(res,rej){ import(path).then(res).catch(rej); }); }
 function getMode(key){
@@ -197,7 +214,9 @@ function getMode(key){
     registry[key] = StubMode(key); return registry[key];
   });
 }
-function BuiltinGoodJunk(){ /* (เหมือนเดิม ตัดออกเพื่อย่อ) */ 
+
+// ----- Builtin GoodJunk fallback (DOM-only; เผื่อโหลดโหมดไม่ขึ้น) -----
+function BuiltinGoodJunk(){
   var GOOD=['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
   var JUNK=['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍗','🍖','🍫','🥓','🍿','🧈','🧂'];
   var host=null,alive=false,spawnT=0,rate=700,life=1600;
@@ -214,7 +233,7 @@ function BuiltinGoodJunk(){ /* (เหมือนเดิม ตัดออ�
   }
   return { name:'goodjunk',
     help:function(lang){ return (lang==='en'?T.en.tipsGoodJunk:T.th.tipsGoodJunk); },
-    start:function(cfg){ host=$('#spawnHost'); if(!host){ var gl=$('#gameLayer'); host=document.createElement('div'); host.id='spawnHost'; host.style.position='absolute'; host.style.inset='0'; if(gl) gl.appendChild(host); else document.body.appendChild(host); }
+    start:function(cfg){ host=$('#spawnHost'); if(!host){ var gl=$('#gameLayer'); host=document.createElement('div'); host.id='spawnHost'; host.style.position='absolute'; host.style.inset='0'; host.style.zIndex='8'; if(gl) gl.appendChild(host); else document.body.appendChild(host); }
       alive=true; spawnT=0; var d=(cfg&&cfg.difficulty)||'Normal'; if(d==='Easy'){rate=820;life=1900;} else if(d==='Hard'){rate=560;life=1400;} else {rate=700;life=1600;}
       $('#hudWrap').style.display='block'; },
     pause:function(){ alive=false; }, resume:function(){ alive=true; },
@@ -226,7 +245,7 @@ function StubMode(key){ var alive=false, shown=false; return { name:key, help:fu
   start:function(){ alive=true; shown=false; $('#hudWrap').style.display='block'; }, pause:function(){ alive=false; }, resume:function(){ alive=true; },
   stop:function(){ alive=false; }, update:function(){ if(alive && !shown){ shown=true; var c=$('#coachText'); if(c) c.textContent='(Demo) Mode "'+key+'" is a stub.'; } } }; }
 
-// ----- Controls state -----
+// ---------- Controls state ----------
 function setControlsState(state){
   var bStart = $('#btn_start'), bPause = $('#btn_pause'), bRestart = $('#btn_restart');
   if(!bStart || !bPause || !bRestart) return;
@@ -235,7 +254,7 @@ function setControlsState(state){
   else { bStart.disabled = false; bPause.disabled = true;  bRestart.disabled = false; }
 }
 
-// ----- Lifecycle -----
+// ---------- Lifecycle ----------
 function resetState(){
   State.running=false; State.paused=false;
   State.score=0; State.combo=0; State.bestCombo=0; setFever(0);
@@ -253,20 +272,23 @@ function startGame(){
 
   getMode(State.modeKey).then(function(api){
     State.modeAPI = api;
-    if(api && typeof api.start==='function') api.start({ difficulty: State.difficulty, lang: State.lang });
-    State.running = true; State.paused = false; State.startAt = now();
-    if(_raf) cancelAnimationFrame(_raf); _prev = 0;
-    setControlsState('running');
-    loopHandle();
-    startFallbackTimer(); // << เริ่มตัวนับสำรอง
+    // ----- init 3D (optional) -----
+    ensureThree().then(function(ctx){
+      if(api && typeof api.start==='function') api.start({ difficulty: State.difficulty, lang: State.lang, three: ctx.ready ? ctx : null });
+      State.running = true; State.paused = false; State.startAt = now();
+      if(_raf) cancelAnimationFrame(_raf); _prev = 0;
+      setControlsState('running');
+      loopHandle(); startFallbackTimer();
+    });
   }).catch(function(){
     State.modeAPI = BuiltinGoodJunk();
-    State.modeAPI.start({ difficulty: State.difficulty, lang: State.lang });
-    State.running = true; State.paused = false; State.startAt = now();
-    if(_raf) cancelAnimationFrame(_raf); _prev = 0;
-    setControlsState('running');
-    loopHandle();
-    startFallbackTimer();
+    ensureThree().then(function(ctx){
+      State.modeAPI.start({ difficulty: State.difficulty, lang: State.lang, three: ctx.ready ? ctx : null });
+      State.running = true; State.paused = false; State.startAt = now();
+      if(_raf) cancelAnimationFrame(_raf); _prev = 0;
+      setControlsState('running');
+      loopHandle(); startFallbackTimer();
+    });
   });
 }
 
@@ -289,9 +311,7 @@ function stopGame(showResult){
 }
 
 function openResult(){
-  var L = T[State.lang];
-  if(el.resText) el.resText.textContent = L.finished + ' ' + Math.round(State.score) + ' pts, ' + State.bestCombo + ' combo.';
-  // save hiscore
+  if(el.resText) el.resText.textContent = (State.lang==='en'?'Finished! You scored ':'จบเกม! ทำได้ ') + Math.round(State.score) + ' pts, ' + State.bestCombo + ' combo.';
   try{
     var hs = parseInt(window.localStorage.getItem('HHA_HISCORE')||'0',10);
     var bc = parseInt(window.localStorage.getItem('HHA_BESTCOMBO')||'0',10);
@@ -300,7 +320,7 @@ function openResult(){
   }catch(_e){}
 }
 
-// ----- Audio unlock -----
+// ---------- Audio unlock ----------
 (function audioUnlockOnce(){
   var unlocked = false;
   function unlock(){
@@ -319,7 +339,7 @@ function openResult(){
   document.addEventListener('touchstart', unlock, true);
 })();
 
-// ----- Main loop + dt cap + FALLBACK TIMER -----
+// ---------- Main loop (+ render 3D) + Timer Fallback ----------
 var _raf=0,_prev=0,_lastLoopAt=0,_fallbackTimer=null;
 
 function loopHandle(t){
@@ -330,7 +350,7 @@ function loopHandle(t){
   var dt = ts - _prev; _prev = ts;
 
   if(dt > 120) dt = 120;
-  _lastLoopAt = Date.now(); // บันทึกว่า RAF ยังทำงาน
+  _lastLoopAt = Date.now();
 
   if(State.paused) return;
 
@@ -340,27 +360,32 @@ function loopHandle(t){
   if(State.timeLeft<=0){ setTimeLeft(0); stopGame(true); return; }
 
   if(State.modeAPI && State.modeAPI.update) State.modeAPI.update(dt);
+
+  // ----- render 3D (ถ้ามี) -----
+  if(THREE_CTX.ready){
+    THREE_CTX.renderer.render(THREE_CTX.scene, THREE_CTX.camera);
+  }
 }
 
-// ถ้า RAF ไม่วิ่ง → ใช้ timer สำรองนับเวลาและขยับเกม
+// ถ้า RAF ไม่วิ่ง → ใช้ timer สำรอง
 function startFallbackTimer(){
   if(_fallbackTimer) return;
   _lastLoopAt = Date.now();
   _fallbackTimer = setInterval(function(){
     if(!State.running || State.paused) return;
-    if(Date.now() - _lastLoopAt < 600) return; // RAF ทำงานอยู่ ไม่ต้องช่วย
-    // fallback tick ~200ms
+    if(Date.now() - _lastLoopAt < 600) return; // RAF ยังวิ่ง
     var dt = 200;
     setTimeLeft(State.timeLeft - (dt/1000));
     if(State.timeLeft<=0){ setTimeLeft(0); stopGame(true); return; }
     if(State.modeAPI && State.modeAPI.update) State.modeAPI.update(dt);
+    if(THREE_CTX.ready){ THREE_CTX.renderer.render(THREE_CTX.scene, THREE_CTX.camera); }
   }, 200);
 }
 function stopFallbackTimer(){
   if(_fallbackTimer){ clearInterval(_fallbackTimer); _fallbackTimer=null; }
 }
 
-// ----- UI wiring -----
+// ---------- UI wiring ----------
 function wireUI(){
   on(el.langToggle,'click',function(){ State.lang = (State.lang==='th'?'en':'th'); applyLang(); });
   on(el.soundToggle,'click',function(){ State.sound = !State.sound; this.textContent = (State.sound?'🔊 เสียง: เปิด':'🔇 เสียง: ปิด'); });
@@ -382,9 +407,36 @@ function wireUI(){
   on(el.btnPause,'click',function(){ pauseGame(); });
   on(el.btnRestart,'click',function(){ stopGame(false); startGame(); });
 
-  // Help/Stats/Daily (เหมือนเดิม ตัดย่อ)
+  // Help/Stats/Daily (สรุป)
+  on(el.helpOpen,'click',function(){
+    var tip = (State.modeAPI && State.modeAPI.help)? State.modeAPI.help(State.lang) : (State.lang==='en'?'Have fun!':'ขอให้สนุก!');
+    if(el.helpBody) el.helpBody.textContent = tip;
+    if(el.help) el.help.style.display='block';
+  });
+  on(el.helpClose,'click',function(){ if(el.help) el.help.style.display='none'; });
+
+  on(el.helpSceneOpen,'click',function(){
+    if(el.helpAllBody){
+      el.helpAllBody.innerHTML = ''
+        + '<div class="chip">🥗 '+T[State.lang].modes.goodjunk+': '+(State.lang==='en'?T.en.tipsGoodJunk:T.th.tipsGoodJunk)+'</div>'
+        + '<div class="chip">🍽️ '+T[State.lang].modes.groups+': (coming soon)</div>'
+        + '<div class="chip">💧 '+T[State.lang].modes.hydration+': (coming soon)</div>'
+        + '<div class="chip">🍱 '+T[State.lang].modes.plate+': (coming soon)</div>';
+    }
+    if(el.helpScene) el.helpScene.style.display='block';
+  });
+  on(el.helpSceneClose,'click',function(){ if(el.helpScene) el.helpScene.style.display='none'; });
+
+  on(el.statOpen,'click',function(){
+    if(el.statBody){
+      el.statBody.innerHTML = '<div class="chip">Hi-score: <b>'+ (window.localStorage.getItem('HHA_HISCORE')||'0') +'</b></div>'
+        + '<div class="chip">Best Combo: <b>'+ (window.localStorage.getItem('HHA_BESTCOMBO')||'0') +'</b></div>';
+    }
+    if(el.statPanel) el.statPanel.style.display='block';
+  });
+
   on(window,'blur',function(){ if(State.running && !State.paused){ pauseGame(); } });
 }
 
-// ----- Init -----
+// ---------- Init ----------
 (function init(){ applyLang(); wireUI(); resetState(); })();
