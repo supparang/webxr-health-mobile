@@ -1,13 +1,12 @@
-// === Hero Health Academy — game/main.js (2025-10-31 SAFE RUN BUILD) ===
-// - รับมือโมดูล core ที่ไม่ใช่ class (HUD is not a constructor) ด้วย make()/pick()
-// - โหมด DOM-spawn ทำงานแน่: เริ่ม/หยุด/รีเพลย์ได้
-// - ตัวจับเวลาในตัว 45s → อัปเดต #time ทุกเฟรม, หมดเวลา → เปิด Result + ปุ่ม Home/Replay
-// - อัปเดตคะแนน/คอมโบแบบปลอดภัย ถ้า core score/hud ไม่พร้อมก็ไม่พัง
-// - ไม่ใช้ optional chaining (รองรับเว็บวิวเก่า)
+// === Hero Health Academy — game/main.js (2025-10-31 SAFE RUN BUILD + GAME LOOP) ===
+// - รับมือ core modules ที่ไม่ใช่ class (HUD is not a constructor) ด้วย make()/pick()
+// - มี game loop เรียก current.update(dt, engine.Bus) ทุกเฟรม
+// - ตัวจับเวลา 45s อัปเดต #time และจบเกมเปิด Result (มี Home/Replay)
+// - ไม่ใช้ optional chaining
 
 import * as THREEpkg from 'https://unpkg.com/three@0.159.0/build/three.module.js';
 
-// ---------- Safe import helpers ----------
+// ---------- Safe helpers ----------
 function pick(mod, name){
   return (mod && (mod[name] != null ? mod[name] : (mod.default != null ? mod.default : mod))) || null;
 }
@@ -21,7 +20,7 @@ function make(mod, name, a,b,c,d){
   return impl || {};
 }
 
-// ---------- Core (คลาสหรืออ็อบเจ็กต์ก็ได้) ----------
+// ---------- Core ----------
 import * as EngineMod   from './core/engine.js';
 import * as HUDMod      from './core/hud.js';
 import * as CoachMod    from './core/coach.js';
@@ -32,7 +31,7 @@ import * as MissionMod  from './core/mission-system.js';
 import * as ProgressMod from './core/progression.js';
 import * as VRInputMod  from './core/vrinput.js';
 
-// Modes (DOM-spawn)
+// Modes
 import * as goodjunk   from './modes/goodjunk.js';
 import * as groups     from './modes/groups.js';
 import * as hydration  from './modes/hydration.js';
@@ -63,7 +62,7 @@ var engine  = EngineK ? new EngineK({
     document.body.appendChild(n);
     setTimeout(function(){ try{ n.remove(); }catch(e){} }, (o.ms|0)||650);
   }}
-}) : { start:function(){}, stop:function(){}, pause:function(){}, resume:function(){}, init:function(){} };
+}) : { start:function(){}, stop:function(){}, pause:function(){}, resume:function(){}, init:function(){}, Bus:{} };
 
 try{ if (power && power.attachToScore) power.attachToScore(score); } catch(e){}
 
@@ -71,7 +70,7 @@ try{ if (power && power.attachToScore) power.attachToScore(score); } catch(e){}
 var MODES = { goodjunk: goodjunk, groups: groups, hydration: hydration, plate: plate };
 var current = null;
 
-// ---------- Tiny DOM helpers ----------
+// ---------- DOM helpers ----------
 function $ (s){ return document.querySelector(s); }
 function $id(id){ return document.getElementById(id); }
 
@@ -79,14 +78,11 @@ function setPlayfieldActive(on){
   var layer = $id('gameLayer') || $('.game-wrap');
   var menu  = $id('menuBar');
   if (layer && layer.style) layer.style.pointerEvents = on ? 'auto' : 'none';
-  if (menu  && menu.style ) menu.style.pointerEvents  = on ? 'none' : 'auto';
-  // เปิดคลิกเฉพาะของที่ต้องคลิก
-  try{
-    var hudWrap = $id('hudWrap');
-    if (hudWrap && hudWrap.style) hudWrap.style.pointerEvents = 'none';
-  }catch(e){}
+  if (menu  && menu.style ) menu.style.pointerEvents  = on ? 'auto' : 'auto'; // เมนูคลิกได้เสมอในหน้าเมนู
+  // HUD ไม่กินคลิก
+  var hudWrap = $id('hudWrap');
+  if (hudWrap && hudWrap.style) hudWrap.style.pointerEvents = 'none';
 }
-
 function selectedMode(){
   var ids = ['m_goodjunk','m_groups','m_hydration','m_plate'];
   var map = { m_goodjunk:'goodjunk', m_groups:'groups', m_hydration:'hydration', m_plate:'plate' };
@@ -104,56 +100,49 @@ function selectedDiff(){
   return document.body.getAttribute('data-diff') || 'Normal';
 }
 
-// ---------- Simple Round Timer (ในตัว) ----------
+// ---------- Round timer ----------
 var round = { sec:45, running:false, raf:0, last:0 };
 
-function setTimeUI(v){
-  var t = $id('time');
-  if (t) t.textContent = String(v|0);
-}
-function setScoreUI(v){
-  var el = $id('score');
-  if (el) el.textContent = String(v|0);
-}
-function setComboUI(v){
-  var el = $id('combo');
-  if (el) el.textContent = 'x' + String(v|0);
-}
+function setTimeUI(v){ var t=$id('time'); if (t) t.textContent = String(v|0); }
+function setScoreUI(v){ var el=$id('score'); if (el) el.textContent = String(v|0); }
+function setComboUI(v){ var el=$id('combo'); if (el) el.textContent = 'x'+String(v|0); }
 
 function beginTimer(seconds){
-  round.sec = (seconds|0) > 0 ? (seconds|0) : 45;
+  round.sec = (seconds|0)>0 ? (seconds|0) : 45;
   round.running = true;
-  round.last = performance.now ? performance.now() : Date.now();
+  round.last = (window.performance && performance.now) ? performance.now() : Date.now();
   setTimeUI(round.sec);
+}
+function stopTimer(){
+  round.running = false;
+  try{ if (round.raf) cancelAnimationFrame(round.raf); }catch(e){}
+  round.raf = 0;
+}
 
-  function step(){
-    if (!round.running) return;
-    var now = performance.now ? performance.now() : Date.now();
-    var dt = (now - round.last) / 1000;
-    round.last = now;
+// ---------- Game loop (สำคัญ) ----------
+function loop(){
+  var now = (window.performance && performance.now) ? performance.now() : Date.now();
+  var dt = Math.max(0, now - round.last) / 1000;
+  round.last = now;
 
+  // อัปเดตโหมดปัจจุบัน
+  try{ if (current && current.update) current.update(dt, engine.Bus); }catch(e){}
+
+  // อัปเดตเวลา/คะแนน/คอมโบ
+  if (round.running){
     round.sec = Math.max(0, round.sec - dt);
     setTimeUI(Math.ceil(round.sec));
-
-    // ปรับคะแนน/คอมโบบน HUD ถ้ามีระบบคะแนน
     try{
       if (score && typeof score.get === 'function') setScoreUI(score.get()|0);
       if (typeof score === 'object' && (score.combo|0) >= 0) setComboUI(score.combo|0);
     }catch(e){}
-
     if (round.sec <= 0){
       round.running = false;
       endGameToResult();
-      return;
     }
-    round.raf = window.requestAnimationFrame(step);
   }
-  round.raf = window.requestAnimationFrame(step);
-}
-function stopTimer(){
-  round.running = false;
-  try{ if (round.raf) window.cancelAnimationFrame(round.raf); }catch(e){}
-  round.raf = 0;
+
+  round.raf = requestAnimationFrame(loop);
 }
 
 // ---------- Mode lifecycle ----------
@@ -162,7 +151,6 @@ function loadMode(key){
   try{ if (current && current.cleanup) current.cleanup(); }catch(e){}
   current = (mod && typeof mod.create === 'function') ? mod.create({ engine:engine, hud:hud, coach:coach }) : null;
 }
-
 function showMenu(){
   var m=$id('menuBar'), h=$id('hudWrap'), r=$id('result');
   if (m&&m.style) m.style.display='block';
@@ -178,32 +166,30 @@ function showPlay(){
   setPlayfieldActive(true);
 }
 function showResult(){
-  var r=$id('result');
-  if (r&&r.style){ r.style.display='flex'; }
+  var r=$id('result'); if (r&&r.style) r.style.display='flex';
   setPlayfieldActive(false);
 }
-
 function start(){
   try{ if (score && score.reset) score.reset(); }catch(e){}
   try{ if (Progress && Progress.beginRun) Progress.beginRun(selectedMode(), selectedDiff(), 'TH', 45); }catch(e){}
   try{ if (engine && engine.start) engine.start(); }catch(e){}
   try{ if (current && current.start) current.start(); }catch(e){}
   try{ if (coach && coach.onStart) coach.onStart(); }catch(e){}
-
   showPlay();
   beginTimer(45);
+  // เริ่ม loop ถ้ายังไม่วิ่ง
+  if (!round.raf){ round.last = (performance && performance.now)? performance.now(): Date.now(); round.raf = requestAnimationFrame(loop); }
 }
 function stop(){
   stopTimer();
   try{ if (current && current.stop)  current.stop(); }catch(e){}
   try{ if (engine  && engine.stop)  engine.stop(); }catch(e){}
   try{ if (coach   && coach.onEnd)  coach.onEnd(); }catch(e){}
-
-  var sc = 0, bc = 0;
-  try{ sc = score && score.get ? (score.get()|0) : 0; }catch(e){}
-  try{ bc = score && (score.bestCombo|0) ? (score.bestCombo|0) : 0; }catch(e){}
-  try{ if (Progress && Progress.endRun) Progress.endRun({ score: sc, bestCombo: bc }); }catch(e){}
-
+  try{
+    var sc = score && score.get ? (score.get()|0) : 0;
+    var bc = score && (score.bestCombo|0) ? (score.bestCombo|0) : 0;
+    if (Progress && Progress.endRun) Progress.endRun({ score: sc, bestCombo: bc });
+  }catch(e){}
   showMenu();
 }
 function replay(){
@@ -217,8 +203,7 @@ function replay(){
 function endGameToResult(){
   try{ if (current && current.stop) current.stop(); }catch(e){}
   try{ if (engine  && engine.stop) engine.stop(); }catch(e){}
-
-  var sc = 0, bc = 0, grade = null, stars = 0;
+  var sc = 0, grade = null, stars = 0;
   try{
     sc = score && score.get ? (score.get()|0) : 0;
     if (score && typeof score.getGrade === 'function'){
@@ -226,7 +211,6 @@ function endGameToResult(){
       grade = g && g.grade; stars = g && g.stars;
     }
   }catch(e){}
-
   var res = $id('resultText');
   if (res){
     var txt = 'Score ' + sc;
@@ -237,7 +221,7 @@ function endGameToResult(){
   showResult();
 }
 
-// ---------- Visibility pause/resume ----------
+// ---------- Visibility ----------
 window.addEventListener('blur',  function(){ try{ if(engine.pause) engine.pause(); if(VRInput.pause) VRInput.pause(true);}catch(e){} }, {passive:true});
 window.addEventListener('focus', function(){ try{ if(engine.resume) engine.resume(); if(VRInput.resume)VRInput.resume(true);}catch(e){} }, {passive:true});
 document.addEventListener('visibilitychange', function(){
@@ -268,7 +252,7 @@ function bindMenu(){
         }
         var mName = $id('modeName'); if(mName) mName.textContent = label;
         document.body.setAttribute('data-mode', key);
-      }, {passive:true});
+      }, false);
     })(modePairs[i]);
   }
 
@@ -290,24 +274,16 @@ function bindMenu(){
         }
         var dv = $id('difficulty'); if(dv) dv.textContent = textTH;
         document.body.setAttribute('data-diff', val);
-      }, {passive:true});
+      }, false);
     })(diffPairs[k]);
   }
 
   // ปุ่มหลัก
-  var bStart = $id('btn_start');
-  if (bStart) bStart.addEventListener('click', function(){
-    loadMode(selectedMode());
-    start();
-  });
-  var bRestart = $id('btn_restart');
-  if (bRestart) bRestart.addEventListener('click', function(){ replay(); });
-  var bPause = $id('btn_pause');
-  if (bPause) bPause.addEventListener('click', function(){
-    try{
-      if (engine && engine.isPaused && engine.isPaused()) { if(engine.resume) engine.resume(); }
-      else { if(engine.pause) engine.pause(); }
-    }catch(e){}
+  var bStart = $id('btn_start');   if (bStart)   bStart.addEventListener('click', function(){ loadMode(selectedMode()); start(); });
+  var bRestart= $id('btn_restart');if (bRestart) bRestart.addEventListener('click', function(){ replay(); });
+  var bPause  = $id('btn_pause');  if (bPause)   bPause.addEventListener('click', function(){
+    try{ if (engine && engine.isPaused && engine.isPaused()) { if(engine.resume) engine.resume(); }
+         else { if(engine.pause) engine.pause(); } }catch(e){}
   });
 
   // ปุ่มใน Result
@@ -329,20 +305,13 @@ function bindMenu(){
     if (Progress && Progress.init) Progress.init();
     if (VRInput  && VRInput.init)  VRInput.init({ engine:engine, sfx:sfx, THREE:THREEpkg });
 
-    // default mode (ตาม active tile)
+    // default mode
     loadMode(selectedMode());
-
-    // เริ่มต้นที่หน้าเมนู
     showMenu();
-
-    // API เผื่อปุ่ม/สคริปต์อื่น
-    window.HHA = window.HHA || {};
-    window.HHA.setPlayfieldActive = setPlayfieldActive;
-    window.HHA.startSelectedMode  = function(){ loadMode(selectedMode()); start(); };
-    window.HHA.stop   = stop;
-    window.HHA.replay = replay;
-
     bindMenu();
+
+    // เตรียม loop ให้เริ่มเมื่อ start()
+    round.raf = 0;
   }catch(e){
     console.error('[main] init error', e);
     var pre=document.createElement('pre');
