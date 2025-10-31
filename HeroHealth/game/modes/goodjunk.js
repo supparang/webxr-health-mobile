@@ -1,4 +1,4 @@
-// === goodjunk.js — 3D Emoji Shatter (G10.3: pixel-safe clamp in blue frame) ===
+// === goodjunk.js — 3D Emoji Shatter (G11.1: plane-lock + pixel-safe in-frame) ===
 export const name = 'goodjunk';
 
 const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
@@ -51,59 +51,31 @@ function spriteScreenSizePx(camera, canvas, scaleWorld){
   const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width: canvas.width, height: canvas.height };
   const hPx = rect.height || canvas.height;
   const wPx = rect.width  || canvas.width;
-
-  // ความสูงโลกที่มองเห็นที่ระยะ dist: H = 2 * dist * tan(fov/2)
-  const dist = Math.max(0.0001, camera.position.z - 0.0); // z ของ sprite อยู่ราว 0 … 0.6
+  const dist = Math.max(0.0001, camera.position.z - 0.0);
   const worldH = 2 * dist * Math.tan((camera.fov * Math.PI/180)/2);
   const worldW = worldH * camera.aspect;
-
   const pxPerWorldY = hPx / worldH;
   const pxPerWorldX = wPx / worldW;
-
-  return {
-    w: scaleWorld * pxPerWorldX,
-    h: scaleWorld * pxPerWorldY,
-    canvasW: wPx, canvasH: hPx
-  };
+  return { w: scaleWorld * pxPerWorldX, h: scaleWorld * pxPerWorldY, canvasW:wPx, canvasH:hPx };
 }
 
-// ---------- clamp จุดกึ่งกลางให้ “ตัวทั้งตัว” อยู่ในกรอบ (คิดเป็น px) ----------
-function clampCenterToCanvasPx(camera, canvas, holder, spriteScaleWorld, padPx=18){
-  const center = holder.position.clone().project(camera); // NDC
-  // แปลง NDC→px
-  const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width: canvas.width, height: canvas.height, left:0, top:0 };
-  const px = {
-    x: ( center.x * 0.5 + 0.5 ) * rect.width,
-    y: ( -center.y * 0.5 + 0.5 ) * rect.height
-  };
-
+// ---------- clamp จุดกึ่งกลางให้ทั้งตัวอยู่ในกรอบ (คิดเป็น px) ----------
+function clampCenterToCanvasPx(THREE, camera, canvas, holder, spriteScaleWorld, padPx=18){
+  const center = holder.position.clone().project(camera);
+  const rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { width: canvas.width, height: canvas.height };
+  const px = { x:(center.x*0.5+0.5)*rect.width, y:(-center.y*0.5+0.5)*rect.height };
   const spr = spriteScreenSizePx(camera, canvas, spriteScaleWorld);
-  const halfW = spr.w * 0.5, halfH = spr.h * 0.5;
-
-  const minX = padPx + halfW;
-  const maxX = spr.canvasW - (padPx + halfW);
-  const minY = padPx + halfH;
-  const maxY = spr.canvasH - (padPx + halfH);
-
-  // clamp center px
-  const clampedPx = {
-    x: Math.max(minX, Math.min(maxX, px.x)),
-    y: Math.max(minY, Math.min(maxY, px.y))
-  };
-
-  // ถ้าเปลี่ยน → แปลงกลับ px→NDC→world แล้วตั้งตำแหน่งใหม่
+  const halfW = spr.w*0.5, halfH = spr.h*0.5;
+  const minX = padPx + halfW,           maxX = spr.canvasW - (padPx + halfW);
+  const minY = padPx + halfH,           maxY = spr.canvasH - (padPx + halfH);
+  const clampedPx = { x: Math.max(minX, Math.min(maxX, px.x)), y: Math.max(minY, Math.min(maxY, px.y)) };
   if (Math.abs(clampedPx.x - px.x) > 0.5 || Math.abs(clampedPx.y - px.y) > 0.5) {
-    const ndc = {
-      x: (clampedPx.x / spr.canvasW) * 2 - 1,
-      y: -((clampedPx.y / spr.canvasH) * 2 - 1)
-    };
+    const ndc = { x:(clampedPx.x/spr.canvasW)*2 - 1, y:-((clampedPx.y/spr.canvasH)*2 - 1) };
     const v = new THREE.Vector3(ndc.x, ndc.y, 0).unproject(camera);
-    // คงระยะ z เดิมของ holder
     const dir = v.sub(camera.position).normalize();
     const targetZ = holder.position.z;
     const lambda = (targetZ - camera.position.z) / dir.z;
-    const newPos = camera.position.clone().add(dir.multiplyScalar(lambda));
-    holder.position.copy(newPos);
+    holder.position.copy( camera.position.clone().add(dir.multiplyScalar(lambda)) );
   }
 }
 
@@ -123,12 +95,10 @@ function makeTarget3D(isGood){
   const mat = new THREE.SpriteMaterial({ map:texture, transparent:true, depthWrite:false, depthTest:false });
   const spr = new THREE.Sprite(mat);
 
-  // world scale (ใช้ค่าคงที่ ~1.0 แล้วคูณตัวคูณตามความยาก/จอ)
   const scaleWorld = diffScale(R?.domElement || document.getElementById('c'));
   spr.scale.set(scaleWorld, scaleWorld, 1);
   spr.renderOrder = 10;
 
-  // ฐานตำแหน่ง: ใช้ helper ในเฟรม + bias นิดหน่อย
   const base = utils?.randInView?.(rand(-0.18, 0.5)) || {x:0,y:0,z:0};
   const BIAS_X = +0.18, SPAN_X = 0.50, SPAN_Y = 0.78;
 
@@ -151,9 +121,8 @@ function makeTarget3D(isGood){
   };
   holder.add(spr);
 
-  // — Pixel-aware clamp: ดันให้ “ทั้งตัว” อยู่ในกรอบสีน้ำเงิน
   const canvas = R?.domElement || document.getElementById('c');
-  clampCenterToCanvasPx(C, canvas, holder, scaleWorld, 18);
+  clampCenterToCanvasPx(THREE, C, canvas, holder, scaleWorld, 18);
 
   root.add(holder);
   targets.push(holder);
@@ -265,6 +234,8 @@ export function start(cfg){
 
   use3D = !!(cfg?.three?.ready);
   if(use3D){
+    // IMPORTANT: กวาด DOM emoji ทิ้ง เพื่อไม่ให้บัง canvas (ตาม plane-lock)
+    try{ const host=document.getElementById('spawnHost'); host && host.querySelectorAll('.spawn-emoji').forEach(n=>n.remove()); }catch(_){}
     THREE = cfg.three.THREE; R=cfg.three.renderer; S=cfg.three.scene; C=cfg.three.cam||cfg.three.camera;
     utils = cfg.three.utils || null;
     if(root) S.remove(root);
