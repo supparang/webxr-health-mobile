@@ -198,7 +198,7 @@ function beginTimer(seconds){
 function stopTimer(){ round.running=false; try{ if(round.raf) window.cancelAnimationFrame(round.raf);}catch(e){} round.raf=0; }
 
 // ---------- Load real modes (once) ----------
-var triedDynamic=false;
+var triedDynamic = false;
 function ensureRealModesThenLoad(key, onDone){
   if (!triedDynamic){
     triedDynamic=true;
