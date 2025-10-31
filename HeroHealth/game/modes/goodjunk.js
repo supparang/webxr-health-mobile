@@ -1,4 +1,4 @@
-// === goodjunk.js — 3D Emoji Shatter (G10, in-frame/on-top, PC/Mobile/VR) ===
+// === goodjunk.js — 3D Emoji Shatter (G10.1 in-frame, on-top, PC/Mobile/VR) ===
 export const name = 'goodjunk';
 
 const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
@@ -6,9 +6,9 @@ const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','�
 
 let alive=false, use3D=false;
 let THREE=null, R=null, S=null, C=null, utils=null; // three ctx
-let root=null;                    // Group ของโหมดนี้
+let root=null;                // Group ของโหมดนี้
 let targets=[], shards=[];
-let hostDOM=null;                 // fallback DOM
+let hostDOM=null;             // fallback DOM
 let spawnT=0, rate=700, life=1600;
 let firstSpawned=false;
 
@@ -49,6 +49,19 @@ function makeEmojiTexture(THREE, emoji, size=256){
   return { texture:tex, avgColor:(avg.r<<16)|(avg.g<<8)|avg.b };
 }
 
+// ---- ช่วยตรวจ/ดันให้อยู่ในกรอบจอ (NDC clamp) ----
+function clampIntoView(THREE, camera, holder){
+  const v = new THREE.Vector3().copy(holder.position).project(camera);
+  // กล่องปลอดภัย (กึ่งกลางกรอบเล่น)
+  const SAFE = { minX:-0.15, maxX:0.75, minY:-0.65, maxY:0.65 };
+  let nudged = false;
+  if (v.x < SAFE.minX) { v.x = SAFE.minX; nudged = true; }
+  if (v.x > SAFE.maxX) { v.x = SAFE.maxX; nudged = true; }
+  if (v.y < SAFE.minY) { v.y = SAFE.minY; nudged = true; }
+  if (v.y > SAFE.maxY) { v.y = SAFE.maxY; nudged = true; }
+  if (nudged) holder.position.copy(v.unproject(camera));
+}
+
 // ---------- 3D target (Sprite) ----------
 function makeTarget3D(isGood){
   const emoji = pick(isGood?GOOD:JUNK);
@@ -56,27 +69,64 @@ function makeTarget3D(isGood){
 
   const mat = new THREE.SpriteMaterial({
     map: texture, transparent:true,
-    depthWrite:false, depthTest:false     // <— ไม่ให้ถูกบัง
+    depthWrite:false, depthTest:false   // <— ไม่ให้ถูกบัง
   });
   const spr = new THREE.Sprite(mat);
   const scale = 1.15; spr.scale.set(scale, scale, 1);
-  spr.renderOrder = 10;                    // <— ให้อยู่หน้าฉาก
+  spr.renderOrder = 10;                 // <— ให้อยู่หน้าฉาก
 
-  // ใช้ helper จาก main.js เพื่อสุ่มตำแหน่ง "ในกรอบกล้อง" เสมอ
-  const p = utils?.randInView?.(rand(-0.2, 0.6)) || {x:0,y:0,z:0};
+  // --- สุ่ม "ในกรอบ" พร้อมอคติไปกลางจอ ---
+  const base = utils?.randInView?.(rand(-0.2, 0.6)) || {x:0,y:0,z:0};
+
+  // อคติไปกึ่งกลาง (ปรับได้): BIAS_X = ขยับไปขวา, SPAN_X/Y = แคบช่วงสุ่ม
+  const BIAS_X = +0.22;
+  const SPAN_X = 0.60;
+  const SPAN_Y = 0.85;
+
+  const dist = (C.position.z - base.z);
+  const halfH = Math.tan((C.fov*Math.PI/180)/2) * dist;
+  const halfW = halfH * C.aspect;
+
+  const bx = THREE.MathUtils.clamp(base.x, -halfW, halfW);
+  const by = THREE.MathUtils.clamp(base.y, -halfH, halfH);
+  const cx = (bx * SPAN_X) + (halfW * BIAS_X);
+  const cy = (by * SPAN_Y);
+
   const holder = new THREE.Object3D();
-  holder.position.set(p.x, p.y, p.z);
+  holder.position.set(cx, cy, base.z);
   holder.userData = {
-    good:isGood?1:0,
-    color:avgColor,
-    spin:{x:rand(-0.7,0.7), y:rand(-0.9,0.9), z:rand(-0.5,0.5)},
-    born:performance.now()
+    good: isGood?1:0,
+    color: avgColor,
+    spin: { x: rand(-0.7,0.7), y: rand(-0.9,0.9), z: rand(-0.5,0.5) },
+    born: performance.now()
   };
   holder.add(spr);
+
+  // กันพลาด: clamp เข้า NDC กล่องปลอดภัย
+  clampIntoView(THREE, C, holder);
 
   root.add(holder);
   targets.push(holder);
   firstSpawned = true;
+}
+
+function shatter(point, color){
+  const col=new THREE.Color(color);
+  for(let i=0;i<22;i++){
+    const g=new THREE.TetrahedronGeometry(rand(0.06,0.12),0);
+    const m=new THREE.MeshStandardMaterial({ color:col, roughness:0.55, metalness:0.08, transparent:true, opacity:1.0 });
+    const p=new THREE.Mesh(g,m);
+    p.position.copy(point);
+    p.userData={ vel:new THREE.Vector3(rand(-2.2,2.2),rand(-2.2,2.2),rand(-2.0,2.0)),
+                 rot:new THREE.Vector3(rand(-3,3),rand(-3,3),rand(-3,3)),
+                 life:0.85 };
+    root.add(p); shards.push(p);
+  }
+  // screen shake
+  try{ const gl=document.getElementById('gameLayer');
+       gl.style.transition='transform 60ms ease';
+       gl.style.transform='translate3d(2px,-2px,0)';
+       setTimeout(()=>{ gl.style.transform='translate3d(0,0,0)'; }, 80); }catch(_){}
 }
 
 function update3D(dt){
@@ -101,38 +151,20 @@ function update3D(dt){
   }
 }
 
-function shatter(point, color){
-  const col=new THREE.Color(color);
-  for(let i=0;i<22;i++){
-    const g=new THREE.TetrahedronGeometry(rand(0.06,0.12),0);
-    const m=new THREE.MeshStandardMaterial({ color:col, roughness:0.55, metalness:0.08, transparent:true, opacity:1.0 });
-    const p=new THREE.Mesh(g,m);
-    p.position.copy(point);
-    p.userData={ vel:new THREE.Vector3(rand(-2.2,2.2),rand(-2.2,2.2),rand(-2.0,2.0)),
-                 rot:new THREE.Vector3(rand(-3,3),rand(-3,3),rand(-3,3)),
-                 life:0.85 };
-    root.add(p); shards.push(p);
-  }
-  // screen shake เบา ๆ
-  try{ const gl=document.getElementById('gameLayer');
-       gl.style.transition='transform 60ms ease';
-       gl.style.transform='translate3d(2px,-2px,0)';
-       setTimeout(()=>{ gl.style.transform='translate3d(0,0,0)'; }, 80); }catch(_){}
-}
-
 // ---------- pointer (raycast) ----------
 export function onPointer(ctx){
   if(!alive || !use3D) return;
   ctx.ray.setFromCamera(ctx.pointer, C);
   const hits = ctx.ray.intersectObjects(root.children, true);
   if(hits && hits.length){
-    // ย้อนขึ้นหา holder
     let obj = hits[0].object;
     while(obj && obj.parent && obj.parent !== root){ obj = obj.parent; }
     if(!obj || !obj.userData) return;
+
     const good = obj.userData.good === 1;
     const pt   = hits[0].point.clone();
     const col  = obj.userData.color || (good?0x31d67b:0xe24d4d);
+
     root.remove(obj); const i=targets.indexOf(obj); if(i>=0) targets.splice(i,1);
     shatter(pt, col);
     if(good){ const perfect=Math.random()<0.22; addScore(perfect?200:100, perfect); }
@@ -183,8 +215,7 @@ export function start(cfg){
   use3D = !!(cfg?.three?.ready);
   if(use3D){
     THREE = cfg.three.THREE; R = cfg.three.renderer; S = cfg.three.scene; C = cfg.three.cam || cfg.three.camera;
-    utils = cfg.three.utils || null;
-    // เคลียร์ root เก่า
+    utils  = cfg.three.utils || null;
     if(root) S.remove(root);
     root = new THREE.Group(); root.name='GJ-Root';
     S.add(root);
@@ -202,9 +233,8 @@ export function start(cfg){
   // show HUD
   try{ const hud=document.getElementById('hudWrap'); if(hud) hud.style.display='block'; }catch(_){}
 
-  // guaranteed first spawn
+  // guaranteed first spawn + anti-silent
   setTimeout(()=>{ if(!alive) return; (use3D?makeTarget3D:makeDOM)(true); }, 150);
-  // anti-silent burst
   setTimeout(()=>{ if(!alive || firstSpawned) return; for(let i=0;i<3;i++){ (use3D?makeTarget3D:makeDOM)(Math.random()<0.7); } }, 1200);
 }
 
