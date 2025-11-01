@@ -1,13 +1,11 @@
-// === Hero Health Academy — game/main.js (stable; Start strong + HUD/Coach/Fever/Result) ===
+// === Hero Health Academy — game/main.js (stable r2; Start strong + HUD/Coach + Fever + Result, no double endRun) ===
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
 (function () {
-  // ---------- DOM helpers ----------
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
 
-  // ---------- Safe stubs (แทนที่เมื่อ import สำเร็จ) ----------
   let ScoreSystem, SFXClass, Quests, Progress, VRInput, CoachClass, Leaderboard, HUDClass;
 
   async function loadCore(){
@@ -33,24 +31,21 @@ window.__HHA_BOOT_OK = 'main';
     try { ({ VRInput } = await import('./core/vrinput.js')); }
     catch { VRInput = { init(){}, toggleVR(){}, isXRActive(){return false;}, isGazeMode(){return false;} }; }
 
-    // Fallback Coach (หาก core/coach.js โหลดไม่ได้)
+    // ---- Coach (fallback safe) ----
     try { ({ Coach: CoachClass } = await import('./core/coach.js')); }
     catch {
       CoachClass = class {
-        constructor(opts={}){
-          this.lang = (localStorage.getItem('hha_lang') || opts.lang || 'TH').toUpperCase();
-          this._ensure();
-        }
+        constructor(opts={}){ this.lang=(localStorage.getItem('hha_lang')||opts.lang||'TH').toUpperCase(); this._ensure(); }
         _ensure(){
           this.box = $('#coachBox');
           if(!this.box){
             this.box = document.createElement('div');
-            this.box.id = 'coachBox';
-            this.box.style.cssText = 'position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none;z-index:2001';
+            this.box.id='coachBox';
+            this.box.style.cssText='position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none;z-index:2001';
             document.body.appendChild(this.box);
           }
         }
-        say(t){ if(!this.box) return; this.box.textContent = t||''; this.box.style.display='block'; clearTimeout(this._to); this._to=setTimeout(()=>{this.box.style.display='none';},1400); }
+        say(t){ if(!this.box) return; this.box.textContent=t||''; this.box.style.display='block'; clearTimeout(this._to); this._to=setTimeout(()=>{this.box.style.display='none';},1400); }
         onStart(){ this.say(this.lang==='EN'?'Ready? Go!':'พร้อมไหม? ลุย!'); }
         onGood(){ this.say(this.lang==='EN'?'+Nice!':'+ดีมาก!'); }
         onPerfect(){ this.say(this.lang==='EN'?'PERFECT!':'เป๊ะเว่อร์!'); }
@@ -69,6 +64,8 @@ window.__HHA_BOOT_OK = 'main';
         constructor(){
           this.root = $('#hud') || Object.assign(document.createElement('div'),{id:'hud'});
           if(!$('#hud')){ this.root.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2000;'; document.body.appendChild(this.root); }
+          // hide fallback mini badges toกันซ้อน
+          const topFB = $('#hudTop'); if(topFB) topFB.style.display='none';
 
           this.top = document.createElement('div');
           this.top.style.cssText='position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
@@ -89,10 +86,12 @@ window.__HHA_BOOT_OK = 'main';
           this.$score=this.top.querySelector('#hudScore');
           this.$combo=this.top.querySelector('#hudCombo');
 
+          // quest chips
           this.chips = Object.assign(document.createElement('div'),{id:'questChips'});
           this.chips.style.cssText='position:absolute;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:90vw;pointer-events:none';
           this.root.appendChild(this.chips);
 
+          // result modal
           this.result = document.createElement('div');
           this.result.id='resultModal';
           this.result.style.cssText='position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:2002';
@@ -137,7 +136,6 @@ window.__HHA_BOOT_OK = 'main';
           }
           this.chips.innerHTML=''; this.chips.appendChild(frag);
         }
-        say(t=''){ const box=$('#coachBox'); if(!box) return; box.textContent=t; box.style.display='block'; clearTimeout(this._to); this._to=setTimeout(()=>{box.style.display='none';},1600); }
         showResult({title='Result',desc='—',stats=[]}){
           this.$resTitle.textContent=title; this.$resDesc.textContent=desc;
           const frag=document.createDocumentFragment();
@@ -150,39 +148,30 @@ window.__HHA_BOOT_OK = 'main';
     }
   }
 
-  // ---------- Mode loader ----------
   const MODE_PATH = (k)=>`./modes/${k}.js`;
   async function loadMode(key){
     const mod = await import(MODE_PATH(key));
-    return {
-      name:mod.name||key,
-      create:mod.create||null, init:mod.init||null, tick:mod.tick||null, update:mod.update||null,
-      cleanup:mod.cleanup||null
-    };
+    return { name:mod.name||key, create:mod.create||null, init:mod.init||null, tick:mod.tick||null, update:mod.update||null, cleanup:mod.cleanup||null };
   }
 
-  // ---------- FX ----------
   const FX = {
     popText(txt,{x,y,ms=700}={}) {
       const el=document.createElement('div');
       el.textContent=txt;
-      el.style.cssText=`position:fixed;left:${x|0}px;top:${y|0}px;transform:translate(-50%,-50%);
-        font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;
-        pointer-events:none;z-index:97;opacity:1;transition:all .72s ease-out;`;
+      el.style.cssText=`position:fixed;left:${x|0}px;top:${y|0}px;transform:translate(-50%,-50%);font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:97;opacity:1;transition:all .72s ease-out;`;
       document.body.appendChild(el);
       requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
       setTimeout(()=>el.remove(),ms);
     }
   };
 
-  // ---------- Engine state ----------
   const TIME_BY_MODE = { goodjunk:45, groups:60, hydration:50, plate:55 };
   function getMatchTime(mode='goodjunk', diff='Normal'){
     const base = TIME_BY_MODE[mode] ?? 45;
     if (diff==='Easy') return base + 5;
     if (diff==='Hard') return Math.max(20, base - 5);
     return base;
-    }
+  }
 
   let R = {
     playing:false, startedAt:0, remain:45, raf:0,
@@ -190,11 +179,11 @@ window.__HHA_BOOT_OK = 'main';
     modeKey:'goodjunk', diff:'Normal',
     modeAPI:null, modeInst:null, state:null, coach:null,
     matchTime:45,
-    feverActive:false, feverBreaks:0
+    feverActive:false, feverBreaks:0,
+    questSnapshot:null // ← cache ผล endRun
   };
   let hud=null;
 
-  // ---------- UI sync ----------
   function setBadges(){
     hud?.setTop?.({ mode:R.modeKey, diff:R.diff, time:R.remain, score:R.sys?.score?.get?.()||0, combo:R.sys?.score?.combo|0 });
     const mB=$('#modeBadge'); if(mB) mB.textContent=R.modeKey;
@@ -202,7 +191,6 @@ window.__HHA_BOOT_OK = 'main';
     const sV=$('#scoreVal'); if(sV) sV.textContent=R.sys?.score?.get?.()||0;
   }
 
-  // ---------- Bus ----------
   function busFor(){
     return {
       sfx:R.sys.sfx,
@@ -213,17 +201,15 @@ window.__HHA_BOOT_OK = 'main';
           R.sys.score.combo=(R.sys.score.combo|0)+1;
           if((R.sys.score.combo|0)>(R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo|0;
         }
-        // Fever ON: combo ≥ 10
-        if(!R.feverActive && (R.sys.score.combo|0)>=10){ R.feverActive=true; R.feverBreaks=0; try{Quests.event('fever',{on:true});}catch{} }
+        if(!R.feverActive && (R.sys.score.combo|0)>=10){ R.feverActive=true; R.feverBreaks=0; try{Quests.event('fever',{on:true});}catch{}; window.dispatchEvent(new CustomEvent('hha:fever',{detail:{on:true}})); }
         if(e?.ui) FX.popText(`+${pts}`,e.ui);
         try{ Quests.event('hit',{result:e?.kind||'good',meta:e?.meta||{},points:pts,comboNow:R.sys.score.combo|0}); }catch{}
         setBadges();
       },
       miss(info={}){
-        // Fever OFF: เมื่อคอมโบขาดครบ 3 ครั้ง
         if(R.feverActive){
           R.feverBreaks++;
-          if(R.feverBreaks>=3){ R.feverActive=false; R.feverBreaks=0; try{Quests.event('fever',{on:false});}catch{} }
+          if(R.feverBreaks>=3){ R.feverActive=false; R.feverBreaks=0; try{Quests.event('fever',{on:false});}catch{}; window.dispatchEvent(new CustomEvent('hha:fever',{detail:{on:false}})); }
         }
         R.sys.score.combo=0;
         try{ Quests.event('miss',info||{}); }catch{}
@@ -233,7 +219,6 @@ window.__HHA_BOOT_OK = 'main';
     };
   }
 
-  // ---------- Loop ----------
   function gameTick(){
     if(!R.playing) return;
     const tNow=performance.now();
@@ -258,25 +243,23 @@ window.__HHA_BOOT_OK = 'main';
     R.raf=requestAnimationFrame(gameTick);
   }
 
-  // ---------- End game ----------
   function endGame(){
     if(!R.playing) return;
     R.playing=false; cancelAnimationFrame(R.raf);
+
     const score=R.sys?.score?.get?.()||0;
     const bestC=R.sys?.score?.bestCombo|0;
 
     try{ R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state,hud); }catch{}
-    try{ Quests.endRun({ score }); }catch{}
+    // ✅ call endRun() ครั้งเดียวและ cache
+    try{ R.questSnapshot = (typeof Quests.endRun==='function') ? Quests.endRun({ score }) : null; }catch{ R.questSnapshot=null; }
     try{ R.coach?.onEnd?.(score); }catch{}
     try{ Progress.endRun({ score, bestCombo:bestC }); }catch{}
 
-    // show menu back
     document.body.removeAttribute('data-playing');
     const mb = $('#menuBar'); if(mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; }
 
-    // result
     try{
-      const res = (typeof Quests.endRun==='function' && Quests.endRun({score})) || null;
       hud.showResult({
         title:'Result',
         desc:`Mode: ${R.modeKey} • Diff: ${R.diff}`,
@@ -284,7 +267,7 @@ window.__HHA_BOOT_OK = 'main';
           `Score: ${score}`,
           `Best Combo: ${bestC}`,
           `Time: ${R.matchTime|0}s`,
-          res && res.totalDone!=null ? `Quests: ${res.totalDone}` : ''
+          (R.questSnapshot && R.questSnapshot.totalDone!=null) ? `Quests: ${R.questSnapshot.totalDone}` : ''
         ].filter(Boolean)
       });
       hud.onHome = ()=>{ hud.hideResult(); const mb2=$('#menuBar'); if(mb2){ mb2.removeAttribute('data-hidden'); mb2.style.display='flex'; } };
@@ -294,7 +277,6 @@ window.__HHA_BOOT_OK = 'main';
     window.HHA._busy=false;
   }
 
-  // ---------- Start game ----------
   async function startGame(){
     if(window.HHA?._busy) return;
     window.HHA._busy=true;
@@ -304,13 +286,18 @@ window.__HHA_BOOT_OK = 'main';
 
     R.modeKey = document.body.getAttribute('data-mode') || 'goodjunk';
     R.diff    = document.body.getAttribute('data-diff') || 'Normal';
-
     R.matchTime = getMatchTime(R.modeKey,R.diff);
     R.remain    = R.matchTime|0;
 
     if(!hud) hud = new HUDClass();
+    // ซ่อน fallback mini badges ถ้ามี
+    const fb = $('#hudTop'); if(fb) fb.style.display='none';
+
     hud.hideResult?.();
     hud.setTop?.({ mode:R.modeKey, diff:R.diff, time:R.remain, score:0, combo:0 });
+
+    // wire lightweight HUD reactions to quest/fever events (จากโหมด DOM)
+    wireHudRuntime(hud);
 
     // load mode
     let api;
@@ -324,6 +311,7 @@ window.__HHA_BOOT_OK = 'main';
     R.sys.sfx   = new (SFXClass||function(){})();
     R.sys.score.combo=0; R.sys.score.bestCombo=0;
     R.feverActive=false; R.feverBreaks=0;
+    R.questSnapshot=null;
 
     // coach
     R.coach = new CoachClass({ lang:(localStorage.getItem('hha_lang')||'TH') });
@@ -338,25 +326,31 @@ window.__HHA_BOOT_OK = 'main';
     if(api.create){ R.modeInst = api.create({ engine:{fx:FX}, hud, coach:R.coach }); R.modeInst.start?.({ time:R.matchTime }); }
     else if(api.init){ api.init(R.state, hud, { time:R.matchTime, life:1600 }); }
 
-    // run
     R.playing=true;
     R.startedAt=performance.now();
     R._secMark =performance.now();
     R._dtMark  =performance.now();
-
     setBadges();
 
-    // hide menu (force)
     const mb = $('#menuBar');
     if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-
     requestAnimationFrame(gameTick);
   }
 
-  // ---------- Menu delegation + Start strong bind ----------
+  // ---- HUD live wiring to mission/fever custom events from DOM-mode ----
+  function wireHudRuntime(h){
+    // mission chip (single)
+    const mission = { key:'', label:'', progress:0, need:0, icon:'⭐' };
+    const onMission = (e)=>{ Object.assign(mission, e.detail||{}); h.setQuestChips([mission]); };
+    const onFever   = (e)=>{ const on = !!(e.detail&&e.detail.on); mission.icon = on ? '🔥' : '⭐'; h.setQuestChips([mission]); };
+    window.removeEventListener('hha:mission', onMission);
+    window.removeEventListener('hha:fever',   onFever);
+    window.addEventListener('hha:mission', onMission);
+    window.addEventListener('hha:fever',   onFever);
+  }
+
   (function bindMenu(){
     const mb = $('#menuBar'); if(!mb) return;
-
     function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
 
     mb.addEventListener('click',(ev)=>{
@@ -382,7 +376,6 @@ window.__HHA_BOOT_OK = 'main';
       if(t.dataset.action==='start'){ ev.preventDefault(); ev.stopPropagation(); startGame(); return; }
     }, false);
 
-    // ปุ่ม Start strong (id="btn_start")
     const b = $('#btn_start');
     if(b){
       const clone=b.cloneNode(true);
@@ -394,7 +387,6 @@ window.__HHA_BOOT_OK = 'main';
     }
   })();
 
-  // ---------- Toast ----------
   function toast(text){
     let el=$('#toast');
     if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
@@ -402,19 +394,16 @@ window.__HHA_BOOT_OK = 'main';
     setTimeout(()=>el.classList.remove('show'),1200);
   }
 
-  // ---------- Expose ----------
   window.HHA = window.HHA || {};
   window.HHA.startGame = startGame;
   window.HHA.endGame   = endGame;
 
-  // กัน canvas บังคลิก
   setTimeout(()=>{ const c=$('#c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; } },0);
 
-  // Keyboard quick start
   window.addEventListener('keydown',(e)=>{
     if((e.key==='Enter'||e.key===' ')&&!R.playing){
       const menuVisible = !$('#menuBar')?.hasAttribute('data-hidden');
       if(menuVisible){ e.preventDefault(); startGame(); }
     }
   },{passive:false});
-})(); // IIFE closed
+})();
