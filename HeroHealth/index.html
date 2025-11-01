@@ -76,7 +76,7 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
       <div class="row">
         <div class="btn" data-action="start">▶️ Start</div>
         <div class="btn" data-action="howto">❓ How to Play</div>
-        <div class="btn" data-action="sound">🔊 Sound</div>
+        <div class="btn" id="soundToggle">🔊</div> <!-- ✅ ปุ่ม toggle เสียง -->
       </div>
     </div>
   </div>
@@ -84,15 +84,16 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
   <div id="powerBarWrap"><div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div></div>
 </div>
 
-<!-- SFX tags -->
+<!-- SFX -->
 <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
 <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
 <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- ✅ โหลดตัวหลักจาก /game/ เพื่อให้ import ไปที่ /game/core/* ได้ถูกต้อง -->
+<!-- ✅ โหลดสคริปต์หลัก -->
 <script type="module" src="./game/main.js"></script>
+<script src="./game/ui.js" defer></script>
 
 <!-- Toast -->
 <div id="toast" class="toast"></div>
