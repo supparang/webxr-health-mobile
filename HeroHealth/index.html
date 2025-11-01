@@ -44,21 +44,21 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 .btn:hover{ filter:brightness(1.08) }
 .btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
 
-/* HUD (วาดโดย JS) */
-#hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
+/* HUD (drawn by JS) */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:20000}
 #hud #resultModal{z-index:20020} /* สูงกว่าเมนูแน่นอน */
 
 /* Toast + boot warn */
 .toast{
   position:fixed;left:50%;top:68px;transform:translateX(-50%);
   background:#0e1930;border:1px solid #214064;color:#e8f3ff;
-  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
+  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:30000
 }
 .toast.show{opacity:1}
-#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
+#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:30010;display:none}
 
 /* Optional power bar visual */
-#powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw)}
+#powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18000;width:min(380px,92vw)}
 #powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
 #powerFill{position:absolute;inset:0;width:0%}
 .fire{position:absolute;left:0;top:0;bottom:0;width:100%;
@@ -72,7 +72,8 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
 </style>
 </head>
-<body>
+<!-- ✅ ตั้งค่าเริ่มต้นให้ตรงกับปุ่ม active กัน race condition -->
+<body data-mode="goodjunk" data-diff="Normal">
 
 <div class="game-wrap">
   <div id="gameLayer"></div>
@@ -114,6 +115,10 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     </div>
   </div>
 
+  <!-- HUD / Coach host -->
+  <div id="hud"></div>
+  <div id="coachBox" aria-live="polite"></div>
+
   <!-- Optional power bar visual -->
   <div id="powerBarWrap">
     <div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div>
@@ -146,24 +151,40 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     w.style.display='block';
   }
 
+  // canvases never block clicks
   setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
 
+  // Menu binding
   (function bindMenu(){
     const mb = $('#menuBar'); if(!mb) return;
     function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
     mb.addEventListener('click', (ev)=>{
       const t = ev.target.closest('.btn'); if(!t) return;
-      if (t.hasAttribute('data-mode')) { setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
-      if (t.hasAttribute('data-diff')) { setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
-      if (t.dataset.action === 'howto') { toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
+      if (t.hasAttribute('data-mode')) {
+        setActive('[data-mode]', t);
+        document.body.setAttribute('data-mode', t.getAttribute('data-mode'));
+        return;
+      }
+      if (t.hasAttribute('data-diff')) {
+        setActive('[data-diff]', t);
+        document.body.setAttribute('data-diff', t.getAttribute('data-diff'));
+        return;
+      }
+      if (t.dataset.action === 'howto') {
+        toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็ม = FEVER • ⭐/🛡️ คือพาวเวอร์');
+        return;
+      }
       if (t.dataset.action === 'sound') {
         const A=[...document.querySelectorAll('audio')];
         const anyOn=A.some(a=>!a.muted);
         A.forEach(a=>{ try{ a.muted = anyOn; }catch{} });
         t.textContent = anyOn ? '🔇 Sound' : '🔊 Sound';
-        toast(anyOn?'เสียง: ปิด':'เสียง: เปิด'); return;
+        toast(anyOn?'เสียง: ปิด':'เสียง: เปิด');
+        return;
       }
-      if (t.dataset.action === 'start') { ev.preventDefault(); startNow(); return; }
+      if (t.dataset.action === 'start') {
+        ev.preventDefault(); startNow(); return;
+      }
     }, false);
 
     mb.addEventListener('pointerup', (e)=>{
@@ -178,6 +199,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   }
 
   function startNow(){
+    // unlock audio
     try{
       const bgm = document.getElementById('bgm-main');
       bgm && bgm.play && bgm.play().then(()=>bgm.pause()).catch(()=>{});
@@ -185,12 +207,21 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
         const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{});
       });
     }catch{}
+
+    // call runtime
     if (window.HHA && typeof window.HHA.startGame === 'function'){ hideMenu(); window.HHA.startGame(); return; }
     import(`./game/main.js?ts=${Date.now()}`)
-      .then(()=>{ if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
-      .catch(e=>{ console.error('[import main.js] fail', e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]) });
+      .then(()=>{
+        if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); }
+        else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); }
+      })
+      .catch(e=>{
+        console.error('[import main.js] fail', e);
+        warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]);
+      });
   }
 
+  // hard-bind Start (replace listeners thatอาจซ้อน)
   (function hardBindStart(){
     const old = document.getElementById('btn_start'); if(!old) return;
     const clone = old.cloneNode(true);
@@ -200,6 +231,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); } }, opts);
   })();
 
+  // keyboard start
   window.addEventListener('keydown', (e)=>{
     if ((e.key==='Enter'||e.key===' ') && !(document.body.getAttribute('data-playing')==='1')) {
       const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
