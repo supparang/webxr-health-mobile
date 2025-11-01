@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (force-hide menu + safe Coach + Builtin GoodJunk fallback) ===
+// === Hero Health Academy — game/main.js (menu hide + safe Coach + Fallback + Watchdog) ===
 window.__HHA_BOOT_OK = 'main';
 
 (function () {
@@ -12,7 +12,6 @@ window.__HHA_BOOT_OK = 'main';
     setTimeout(()=>el.classList.remove('show'), 1400);
   }
 
-  // --- hard show/hide for #menuBar ---
   function hideMenuHard(){
     const mb = $('#menuBar'); if (!mb) return;
     mb.setAttribute('data-hidden','1'); mb.setAttribute('aria-hidden','true');
@@ -43,7 +42,7 @@ window.__HHA_BOOT_OK = 'main';
     try { ({ VRInput } = await import('./core/vrinput.js')); }
     catch { VRInput = { init(){}, toggleVR(){}, isXRActive(){return false;}, isGazeMode(){return false;} }; }
 
-    // Coach (รับได้หลายรูปแบบ export)
+    // Coach: รองรับหลายรูปแบบ export
     try {
       const cmod = await import('./core/coach.js');
       CoachClass = (typeof cmod?.Coach === 'function') ? cmod.Coach
@@ -54,7 +53,7 @@ window.__HHA_BOOT_OK = 'main';
       CoachClass = class {
         constructor(){ this.lang=(localStorage.getItem('hha_lang')||'TH').toUpperCase(); }
         _say(m){ let b=document.getElementById('coachHUD'); if(!b){ b=document.createElement('div'); b.id='coachHUD';
-          b.style.cssText='position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;z-index:5000';
+          b.style.cssText='position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;z-index:6000';
           document.body.appendChild(b);} b.textContent=m; clearTimeout(this._to); this._to=setTimeout(()=>{ b.remove(); },1400); }
         onStart(){ this._say(this.lang==='EN'?'Ready? Go!':'พร้อมไหม? ลุย!'); }
         onGood(){ this._say(this.lang==='EN'?'+Nice!':'+ดีมาก!'); }
@@ -66,17 +65,20 @@ window.__HHA_BOOT_OK = 'main';
     }
   }
 
-  // --------- Builtin fallback mode (Good vs Junk) ----------
+  // --------- Builtin fallback (Good vs Junk DOM-spawn) ----------
   function BuiltinGoodJunk(){
     const GOOD = ['🥦','🥕','🍎','🍌','🍇','🍓','🥗','🐟','🥜','🥛'];
     const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧋','🥤','🍰','🌭'];
     let host, timer, alive = new Set();
 
-    function ensureHosts(){
+    function ensureHost(){
       host = document.getElementById('spawnHost');
-      if (!host) { host = document.createElement('div'); host.id='spawnHost'; host.style.cssText='position:fixed;inset:0;z-index:5;pointer-events:none;'; document.body.appendChild(host); }
+      if (!host) { host = document.createElement('div'); host.id='spawnHost'; document.body.appendChild(host); }
+      Object.assign(host.style, {
+        position:'fixed', left:0, top:0, right:0, bottom:0,
+        pointerEvents:'auto', zIndex: 5000   // ⬅️ รับคลิกแน่นอน
+      });
     }
-
     function rand(min,max){ return Math.random()*(max-min)+min; }
 
     function spawn(bus){
@@ -87,8 +89,8 @@ window.__HHA_BOOT_OK = 'main';
       d.textContent = emoji;
       d.style.cssText =
         `position:fixed;left:${x}vw;top:${y}vh;transform:translate(-50%,-50%);
-         font-size:${rand(28,44)}px;filter:drop-shadow(0 6px 10px #0008);cursor:pointer;
-         user-select:none;pointer-events:auto;transition:transform .15s ease, opacity .25s ease;`;
+         font-size:${rand(28,44)}px;filter:drop-shadow(0 6px 10px #0008);
+         cursor:pointer;user-select:none;pointer-events:auto;transition:transform .15s ease, opacity .25s ease;`;
       const kill = ()=>{ d.style.opacity='0'; setTimeout(()=>{ d.remove(); alive.delete(d); },120); };
       d.addEventListener('pointerdown', (e)=>{
         e.preventDefault(); e.stopPropagation();
@@ -98,15 +100,18 @@ window.__HHA_BOOT_OK = 'main';
       }, {passive:false});
       host.appendChild(d);
       alive.add(d);
+      // auto-despawn
       setTimeout(()=>{ if(alive.has(d)){ bus.miss(); kill(); } }, 1200 + (good?400:200));
+      // mark activity
+      window.__HHA_SPAWN_SEEN = (window.__HHA_SPAWN_SEEN|0)+1;
     }
 
     return {
       start({time=45}={}, bus){
-        ensureHosts();
-        timer = setInterval(()=>spawn(bus), 520); // ออกของสม่ำเสมอ
+        ensureHost();
+        timer = setInterval(()=>spawn(bus), 520);
       },
-      update(dt, bus){ /* ไม่ต้องทำอะไร เพิ่มได้ภายหลัง */ },
+      update(){},
       cleanup(){
         clearInterval(timer); timer=null;
         alive.forEach(el=>{ try{ el.remove(); }catch{} }); alive.clear();
@@ -131,15 +136,13 @@ window.__HHA_BOOT_OK = 'main';
     };
   }
 
-  // --------- Tiny FX helper ----------
   const FX = {
     popText(txt, { x, y, ms = 700 } = {}) {
       const el = document.createElement('div');
       el.textContent = txt;
-      el.style.cssText = `
-        position:fixed; left:${x|0}px; top:${y|0}px; transform:translate(-50%,-50%);
+      el.style.cssText = `position:fixed; left:${x|0}px; top:${y|0}px; transform:translate(-50%,-50%);
         font:900 16px ui-rounded, system-ui; color:#fff; text-shadow:0 2px 10px #000;
-        pointer-events:none; z-index:97; opacity:1; transition: all .72s ease-out;`;
+        pointer-events:none; z-index:5500; opacity:1; transition: all .72s ease-out;`;
       document.body.appendChild(el);
       requestAnimationFrame(() => { el.style.top = (y - 36) + 'px'; el.style.opacity = '0'; });
       setTimeout(() => el.remove(), ms);
@@ -215,6 +218,15 @@ window.__HHA_BOOT_OK = 'main';
     window.HHA._busy = false;
   }
 
+  // --- Switch-to-fallback helper ---
+  function switchToFallbackAndStart(){
+    const builtin = BuiltinGoodJunk();
+    R.modeAPI = { update: builtin.update, cleanup: builtin.cleanup };
+    R.modeInst = { update: builtin.update, cleanup: builtin.cleanup, start: (cfg)=>builtin.start(cfg, busFor()) };
+    R.modeInst.start({ time:45 });
+    toast('Fallback mode active');
+  }
+
   async function startGame(){
     try{
       if (window.HHA?._busy) return; window.HHA._busy = true;
@@ -225,15 +237,14 @@ window.__HHA_BOOT_OK = 'main';
       R.modeKey = (document.body.getAttribute('data-mode') || 'goodjunk');
       const diff = (document.body.getAttribute('data-diff') || 'Normal');
 
-      // load mode (หรือ fallback)
-      let api = null, usedFallback = false;
+      // load mode
+      let api = null; let usedFallback = false;
       try { api = await loadMode(R.modeKey); }
-      catch (e) { console.warn('[HHA] import mode fail → use builtin fallback', e); usedFallback = true; }
+      catch (e) { console.warn('[HHA] import mode fail → fallback', e); usedFallback = true; }
 
       // systems
-      R.sys.score = new (ScoreSystem||function(){})();
-      R.sys.score.reset?.(); R.sys.score.combo=0; R.sys.score.bestCombo=0;
-      R.sys.sfx   = new (SFXClass||function(){})();
+      R.sys.score = new (ScoreSystem||function(){})(); R.sys.score.reset?.();
+      R.sys.score.combo=0; R.sys.score.bestCombo=0; R.sys.sfx = new (SFXClass||function(){})();
       setScore(0);
 
       R.coach = new CoachClass({ lang: (localStorage.getItem('hha_lang')||'TH') });
@@ -243,18 +254,11 @@ window.__HHA_BOOT_OK = 'main';
 
       R.state = { difficulty: diff, lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
 
-      if (!api || (!api.create && !api.init && !api.update && !api.tick)) {
-        usedFallback = true;
-      }
-
-      if (usedFallback || R.modeKey==='goodjunk' && !api.update && !api.create) {
-        // ใช้ BuiltinGoodJunk ให้แน่ใจว่ามีของให้เล่น
-        const builtin = BuiltinGoodJunk();
-        R.modeAPI = { update: builtin.update, cleanup: builtin.cleanup };
-        R.modeInst = { update: builtin.update, cleanup: builtin.cleanup, start: (cfg)=>builtin.start(cfg, busFor()) };
-        R.modeInst.start({ time:45 });
+      // decide real vs fallback
+      window.__HHA_SPAWN_SEEN = 0;
+      if (usedFallback || (!api || (!api.create && !api.init && !api.update && !api.tick))) {
+        switchToFallbackAndStart();
       } else {
-        // ใช้โหมดจริง
         R.modeAPI = api;
         if (api.create){
           R.modeInst = api.create({ engine:{ fx:FX }, hud:{}, coach:R.coach });
@@ -262,9 +266,17 @@ window.__HHA_BOOT_OK = 'main';
         } else if (api.init){
           api.init(R.state, {}, { time: 45, life: 1600 });
         }
+        // watchdog: ถ้า 1.2s แล้ว ยังไม่มีอะไร spawn → fallback
+        setTimeout(()=>{ try{
+          const host = $('#spawnHost');
+          const active = (window.__HHA_SPAWN_SEEN|0) > 0 || (host && host.childElementCount>0);
+          if (!active && R.playing) {
+            console.warn('[watchdog] no activity → fallback');
+            R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state,{});
+            switchToFallbackAndStart();
+          }
+        }catch{} }, 1200);
       }
-
-      try { Quests.beginRun(R.modeKey, diff, (R.state.lang||'TH'), 45); Progress.beginRun(R.modeKey, diff, (R.state.lang||'TH')); } catch {}
 
       // start loop
       R.playing = true;
@@ -289,8 +301,7 @@ window.__HHA_BOOT_OK = 'main';
   window.HHA.endGame   = endGame;
 
   (function bindMenuDelegation(){
-    const mb = document.getElementById('menuBar');
-    if (!mb) return;
+    const mb = document.getElementById('menuBar'); if (!mb) return;
     mb.addEventListener('click', (ev)=>{
       const t = ev.target.closest('.btn'); if(!t) return;
       if (t.dataset.action === 'start'){ ev.preventDefault(); ev.stopPropagation(); startGame(); }
