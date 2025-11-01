@@ -1,27 +1,23 @@
-<!-- HeroHealth/game/boot.js -->
-<script type="module">
-// === Hero Health Academy — game/boot.js (debug+diagnostics, hardened) ===
+// === Hero Health Academy — game/boot.js (2025-11-01 robust import + diagnostics) ===
 window.__HHA_BOOT_OK  = 'boot';
 window.__HHA_BOOT_ERR = null;
 window.__HHA_BOOT_LOG = [];
 
-// ---- Guard: prevent duplicate boot runs ----
-if (window.__HHA_BOOT_RAN) {
-  // already booted once; no-op to avoid duplicate imports / re-declarations
-} else {
+if (!window.__HHA_BOOT_RAN) {
   window.__HHA_BOOT_RAN = true;
 
+  /* ---------- UI helpers ---------- */
   function ensureWarn() {
     let w = document.getElementById('bootWarn');
     if (!w) {
       w = document.createElement('div');
       w.id = 'bootWarn';
       w.style.cssText = [
-        'position:fixed','inset:auto 0 0 0','background:#b00020','color:#fff',
+        'position:fixed','left:0','right:0','bottom:0',
+        'background:#b00020','color:#fff',
         'padding:10px 12px','font:700 14px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto',
         'z-index:10000','display:none','box-shadow:0 -6px 18px #0006'
       ].join(';');
-      w.textContent = '⚠️ โหลดสคริปต์ไม่สำเร็จ: ตรวจ path game/main.js หรือ <base>';
       document.body.appendChild(w);
     }
     return w;
@@ -35,8 +31,6 @@ if (window.__HHA_BOOT_RAN) {
   function hideWarn(){ const w=document.getElementById('bootWarn'); if (w) w.style.display='none'; }
 
   function ensureDebug() {
-    const want = true; // เปิด debug ตลอด เพื่อจับ error จริง
-    if (!want) return null;
     let box = document.getElementById('bootDebug');
     if (box) return box;
     box = document.createElement('details');
@@ -47,45 +41,46 @@ if (window.__HHA_BOOT_RAN) {
     document.body.appendChild(box);
     return box;
   }
-
-  // ---- Log with cap (avoid huge DOM) ----
   function debugLog(msg) {
     window.__HHA_BOOT_LOG.push(msg);
-    if (window.__HHA_BOOT_LOG.length > 200) window.__HHA_BOOT_LOG.shift();
+    if (window.__HHA_BOOT_LOG.length > 250) window.__HHA_BOOT_LOG.shift();
     const pre = document.getElementById('bootDebugLog');
     if (pre) pre.textContent = window.__HHA_BOOT_LOG.join('\n');
+    // mirror to console
+    try { console.log(msg); } catch {}
   }
 
   window.HHA_BOOT = {
-    reportError(err){ try{
-      window.__HHA_BOOT_ERR = err;
-      window.__HHA_BOOT_OK = 'fail';
-      debugLog(`[main] runtime error: ${err?.stack||err?.message||err}`);
-      showWarn(['⚠️ มีข้อผิดพลาดขณะรัน main.js:', String(err?.message||err)]);
-    }catch{} }
+    reportError(err){
+      try{
+        window.__HHA_BOOT_ERR = err;
+        window.__HHA_BOOT_OK = 'fail';
+        debugLog(`[main] runtime error: ${err?.stack||err?.message||err}`);
+        showWarn(['⚠️ มีข้อผิดพลาดขณะรัน main.js:', String(err?.message||err)]);
+      }catch{}
+    }
   };
 
+  /* ---------- utils ---------- */
   function withTimeout(promise, ms, label='timeout') {
     return new Promise((resolve, reject)=>{
       const t = setTimeout(()=>reject(new Error(`${label} after ${ms}ms`)), ms);
       promise.then(v=>{ clearTimeout(t); resolve(v); }, e=>{ clearTimeout(t); reject(e); });
     });
   }
-
-  // ---- Normalize base (strip ? and # to avoid bad path calc) ----
   function cleanBase(href){
-    try {
-      const u = new URL(href);
-      u.search = '';
-      u.hash = '';
-      return u.href;
-    } catch { return href; }
+    try { const u = new URL(href); u.search=''; u.hash=''; return u.href; }
+    catch { return href; }
   }
-
   function guessCandidates() {
+    // ใช้ document.baseURI เพื่อให้ทำงานทั้ง root และ subfolder (GitHub Pages)
     const base = cleanBase(new URL('.', document.baseURI).href);
-    // Prefer game/main.js first, then fallbacks
-    const rels = ['game/main.js','./game/main.js','main.js','./main.js'];
+    const rels = [
+      'game/main.js', './game/main.js',
+      'main.js', './main.js',
+      // สำรองสำหรับ build ที่ย้ายโฟลเดอร์
+      'HeroHealth/game/main.js', './HeroHealth/game/main.js'
+    ];
     const out=[]; const seen=new Set();
     for (const r of rels){
       const url = new URL(r, base).href;
@@ -93,10 +88,10 @@ if (window.__HHA_BOOT_RAN) {
     }
     return out;
   }
-
   async function preflight(url){
-    const res = await withTimeout(fetch(url, { cache:'no-store', mode:'cors' }), 6000, 'fetch');
+    const res = await withTimeout(fetch(url, { cache:'no-store', mode:'cors' }), 7000, 'fetch');
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    // quick MIME sanity (บาง host ไม่ตั้ง type=application/javascript แต่พอ import ได้)
     return url;
   }
   async function tryImport(url){
@@ -104,6 +99,7 @@ if (window.__HHA_BOOT_RAN) {
     return import(src);
   }
 
+  /* ---------- boot sequence ---------- */
   (async function boot(){
     try {
       ensureDebug(); hideWarn();
@@ -111,6 +107,7 @@ if (window.__HHA_BOOT_RAN) {
       debugLog(`[boot] location: ${location.href}`);
       const candidates = guessCandidates();
       debugLog(`[boot] candidates:\n - ` + candidates.join('\n - '));
+
       let lastErr = null;
       for (const url of candidates){
         try {
@@ -129,11 +126,12 @@ if (window.__HHA_BOOT_RAN) {
           debugLog(`[fail] ${url} → ${e?.stack||e?.message||e}`);
         }
       }
+      // ถ้าทดลองครบแล้วยังพัง
       window.__HHA_BOOT_OK = 'fail';
       window.__HHA_BOOT_ERR = lastErr;
       showWarn([
-        '⚠️ โหลดสคริปต์ไม่สำเร็จ — น่าจะเกิดจาก error ภายใน main.js หรือไฟล์ที่มัน import',
-        'ให้เปิด Debug (กล่องมุมซ้ายบน) ดู stack ล่าสุด',
+        '⚠️ โหลดสคริปต์ไม่สำเร็จ — น่าจะเกิดจาก error ภายใน main.js หรือ path ไม่ถูกต้อง',
+        'ให้เปิด Debug (กล่องมุมซ้ายบน) ดู log ล่าสุด',
         'Paths ที่ลอง:', ...guessCandidates().map(u=>'· '+u),
         `ล่าสุด: ${String(lastErr?.message||lastErr)}`
       ]);
@@ -145,4 +143,3 @@ if (window.__HHA_BOOT_RAN) {
     }
   })();
 }
-</script>
