@@ -1,8 +1,9 @@
-// === core/progression.js (v2.2: daily-event binding)
+// === core/progression.js (v2.3: daily-event binding + PowerUp v3 hooks) ===
 export const Progress = (() => {
   const LS_KEY = 'hha_profile_v2'; const VERSION = 2; const listeners = new Set();
   let profile=null, runCtx=null;
 
+  /* ---------------- Schema / Storage ---------------- */
   function defProfile(){ return {
     version:VERSION, level:1, xp:0, meta:{ totalRuns:0, bestCombo:0, lastPlayedAt:0 },
     modes:{ goodjunk:{bestScore:0,accAvg:0,games:0,missionDone:0,lastPlayedAt:0},
@@ -21,6 +22,7 @@ export const Progress = (() => {
   function init(){ load(); ensureDaily(); ensureTodayRuns(); }
   function on(cb){ listeners.add(cb); return ()=>listeners.delete(cb); }
 
+  /* ---------------- Daily Missions ---------------- */
   const DAILY_POOL = [
     { key:'runs_any_2', need:2,  labelTH:'เล่นโหมดใดก็ได้ 2 รอบ', labelEN:'Play any mode 2 runs' },
     { key:'combo_ge_15',need:15, labelTH:'ทำคอมโบ ≥ x15',          labelEN:'Combo ≥ x15' },
@@ -44,9 +46,11 @@ export const Progress = (() => {
   function markDailyByKey(key){ ensureDaily(); const mis=profile.daily.missions||[]; const found=mis.find(m=>m.key===key); if(!found) return; markDaily(found.id); }
   function markDaily(id){ ensureDaily(); const s=new Set(profile.daily.done||[]); s.add(String(id)); profile.daily.done=[...s]; save(); emit('daily_update',{done:profile.daily.done.slice()}); }
 
+  /* ---------------- Today Runs ---------------- */
   function ensureTodayRuns(){ const today=localDateStr(); if(!profile.todayRuns || profile.todayRuns.date!==today){ profile.todayRuns={date:today,count:0}; save(); } }
   function incTodayRuns(){ ensureTodayRuns(); profile.todayRuns.count=(profile.todayRuns.count|0)+1; save(); }
 
+  /* ---------------- Run Lifecycle ---------------- */
   function beginRun(mode,diff,lang){
     runCtx={ mode:String(mode||'unknown'), diff:String(diff||'Normal'), lang:(lang||'TH').toUpperCase(), startTs:Date.now(),
       flags:{ perfect:0, golden:0, fever:0, groupRounds:0, hydrationHigh:0, plateOverfill:0 },
@@ -58,12 +62,12 @@ export const Progress = (() => {
     switch(String(type)){
       case 'perfect': runCtx.flags.perfect+=1; break;
       case 'golden': runCtx.flags.golden+=1; break;
-      case 'fever':  runCtx.flags.fever+=1; break;
+      case 'fever':  runCtx.flags.fever=Math.max(1, runCtx.flags.fever|0); break;
       case 'group_round_done': runCtx.flags.groupRounds+=1; break;
       case 'hydration_high':  runCtx.flags.hydrationHigh+=1; break;
       case 'plate_overfill':  runCtx.flags.plateOverfill+=1; break;
-      case 'combo_best': runCtx.metrics.bestCombo=Math.max(runCtx.metrics.bestCombo|0, payload?.value|0); break;
-      case 'score_tick': runCtx.metrics.score=Math.max(runCtx.metrics.score|0, payload?.score|0); break;
+      case 'combo_best': runCtx.metrics.bestCombo=Math.max(runCtx.metrics.bestCombo|0, (payload&&payload.value)|0); break;
+      case 'score_tick': runCtx.metrics.score=Math.max(runCtx.metrics.score|0, (payload&&payload.score)|0); break;
       default: break;
     }
   }
@@ -88,14 +92,40 @@ export const Progress = (() => {
     save(); emit('run_end',{ mode, score, acc, bestCombo, timePlayed, xpGain:gain, level:profile.level, xp:profile.xp }); runCtx=null;
   }
 
+  /* ---------------- Stats / Profile Ops ---------------- */
   function addMissionDone(mode){ const m=profile.modes[mode]; if(!m) return; m.missionDone=(m.missionDone|0)+1; save(); emit('mission_done',{mode,missionDone:m.missionDone}); }
-  function getStatSnapshot(){ const rows=Object.keys(profile.modes).map(k=>{ const v=profile.modes[k]||{}; return { key:k, bestScore:v.bestScore|0, acc:+((v.accAvg||0).toFixed(1)), runs:v.games|0, missions:v.missionDone|0, lastPlayedAt:v.lastPlayedAt||0 }; }); return {
-    level:profile.level|0, xp:profile.xp|0, totalRuns:profile.meta.totalRuns|0, bestCombo:profile.meta.bestCombo|0, lastPlayedAt:profile.meta.lastPlayedAt||0, todayRuns:{...(profile.todayRuns||{})}, rows }; }
+  function getStatSnapshot(){
+    const rows=Object.keys(profile.modes).map(k=>{ const v=profile.modes[k]||{}; return { key:k, bestScore:v.bestScore|0, acc:+((v.accAvg||0).toFixed(1)), runs:v.games|0, missions:v.missionDone|0, lastPlayedAt:v.lastPlayedAt||0 }; });
+    return { level:profile.level|0, xp:profile.xp|0, totalRuns:profile.meta.totalRuns|0, bestCombo:profile.meta.bestCombo|0, lastPlayedAt:profile.meta.lastPlayedAt||0, todayRuns:{...(profile.todayRuns||{})}, rows };
+  }
   function setXPLevel(level,xp=0){ profile.level=Math.max(1,level|0); profile.xp=Math.max(0,xp|0); save(); emit('xp_set',{level:profile.level,xp:profile.xp}); }
   function setModeStat(modeKey,patch={}){ if(!profile.modes[modeKey]) profile.modes[modeKey]={...defProfile().modes.goodjunk}; profile.modes[modeKey]={...profile.modes[modeKey], ...patch}; save(); emit('mode_patch',{mode:modeKey,value:{...profile.modes[modeKey]}}); }
   function exportProfile(){ return JSON.stringify({ exportedAt:Date.now(), version:VERSION, profile }, null, 2); }
-  function importProfile(json){ try{ const obj=JSON.parse(json); const src=obj?.profile&&typeof obj.profile==='object'?obj.profile:obj; if(!src||typeof src!=='object'||!src.modes) throw new Error('Invalid profile'); profile=mergeSchema(src); save(); emit('profile_imported',{version:profile.version}); return true; }catch(e){ console.warn('[Progress] import fail',e); return false; } }
+  function importProfile(json){ try{ const obj=JSON.parse(json); const src=obj&&obj.profile&&typeof obj.profile==='object'?obj.profile:obj; if(!src||typeof src!=='object'||!src.modes) throw new Error('Invalid profile'); profile=mergeSchema(src); save(); emit('profile_imported',{version:profile.version}); return true; }catch(e){ console.warn('[Progress] import fail',e); return false; } }
 
-  return { init,on, emit:(t,p)=>emit(t,p), beginRun,endRun, notify, getStatSnapshot, profile:()=>profile,
-    genDaily,getDaily,markDaily,resetDaily, addMissionDone, exportProfile, importProfile, setXPLevel,setModeStat, get runCtx(){ return runCtx; } };
+  /* ---------------- PowerUp v3 binding (x2/freeze/sweep/shield) ----------------
+     - เรียก Progress.bindPower(power) จาก main หลังสร้าง PowerUpSystem แล้ว
+     - เมื่อตัวใดตัวหนึ่งทำงาน (เช่น x2/sweep) → นับว่า "fever" 1 ครั้งสำหรับภารกิจรายวัน
+  ------------------------------------------------------------------------------*/
+  function bindPower(power){
+    if (!power || typeof power.onChange!=='function') return ()=>{};
+    const off = power.onChange(function timersChanged(timers){
+      try{
+        // หากมีเอฟเฟกต์โจมตี/คูณคะแนน → ถือว่าเป็น FEVER
+        if ((timers&&timers.x2|0)>0 || (timers&&timers.sweep|0)>0){
+          notify('fever');
+        }
+      }catch(_e){}
+    });
+    return (typeof off==='function') ? off : (function(){});
+  }
+
+  return {
+    init,on, emit:(t,p)=>emit(t,p),
+    beginRun,endRun, notify, getStatSnapshot, profile:()=>profile,
+    genDaily,getDaily,markDaily,resetDaily, addMissionDone,
+    exportProfile, importProfile, setXPLevel,setModeStat,
+    bindPower,
+    get runCtx(){ return runCtx; }
+  };
 })();
