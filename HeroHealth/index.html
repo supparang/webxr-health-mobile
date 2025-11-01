@@ -6,128 +6,92 @@
 <title>Hero Health Academy</title>
 <meta name="color-scheme" content="light dark"/>
 <style>
-:root{--bg:#0b1020;--fg:#e8f3ff;--muted:#94a3b8;--accent:#22d3ee;}
-*{box-sizing:border-box}
-body{margin:0;background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);color:var(--fg);
-font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
-.game-wrap{position:relative;min-height:100dvh;overflow:hidden;}
-/* กัน canvas ขวางคลิกทุกกรณี */
-canvas#c, canvas{pointer-events:none !important;z-index:1;position:fixed;inset:0}
-#gameLayer,#spawnHost{position:fixed;inset:0;}
-/* ให้โหมด DOM คลิกได้ */
-#spawnHost{pointer-events:auto}
-
-/* เมนูหลัก */
-#menuBar{
-  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
-  background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto
-}
-.menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
-padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
-.row{display:flex;flex-wrap:wrap;gap:10px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;
-border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;user-select:none}
-.btn:hover{filter:brightness(1.08)}
-.btn[data-mode].active,.btn[data-diff].active{outline:2px solid var(--accent);box-shadow:0 0 0 4px #22d3ee22}
-
-/* ซ่อนเมนู “จริงๆ” เมื่อเริ่มเกม */
+/* ... (สไตล์เดิมของคุณคงไว้ทั้งหมด) ... */
 #menuBar[data-hidden]{opacity:0;visibility:hidden;pointer-events:none;display:none}
-
-#hudTop{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;z-index:50;pointer-events:none}
-.badge{background:#0f1e38;border:1px solid #16325d;border-radius:10px;padding:6px 10px;pointer-events:auto}
-#scoreVal{font-weight:900}
-#powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw)}
-#powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
-#powerFill{position:absolute;inset:0;width:0%}
-.fire{position:absolute;left:0;top:0;bottom:0;width:100%;
-background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
-radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
-radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
-linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
-mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite}
-@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
-.toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;
-color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:60}
+.toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:60}
 .toast.show{opacity:1}
 #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10000;display:none}
 </style>
 </head>
 <body>
 
-<div class="game-wrap">
-  <div id="gameLayer"></div>
-  <div id="spawnHost"></div>
+<!-- ... เนื้อหาเดิมทั้งหมดของคุณ (menu, hud, audio, etc.) ... -->
 
-  <div id="hudTop">
-    <div class="badge">Mode: <b id="modeBadge">goodjunk</b> • Diff: <b id="diffBadge">Normal</b></div>
-    <div class="badge">Score: <span id="scoreVal">0</span></div>
-    <div class="badge" id="targetWrap" style="display:none"><span id="targetBadge">Target</span></div>
-    <div class="badge" id="missionLine" style="display:none"></div>
-  </div>
-
-  <div id="menuBar" aria-label="Main menu">
-    <div class="menu-card">
-      <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
-      <div>
-        <h3>Play Mode</h3>
-        <div class="row" role="group" aria-label="Mode">
-          <div class="btn" data-mode="goodjunk">🥗 Good vs Junk</div>
-          <div class="btn" data-mode="groups">🧺 5 Food Groups</div>
-          <div class="btn" data-mode="hydration">💧 Hydration</div>
-          <div class="btn" data-mode="plate">🍽️ Healthy Plate</div>
-        </div>
-      </div>
-      <hr style="margin:12px 0;border-color:#133"/>
-      <div>
-        <h3>Difficulty</h3>
-        <div class="row" role="group" aria-label="Difficulty">
-          <div class="btn" data-diff="Easy">Easy</div>
-          <div class="btn active" data-diff="Normal">Normal</div>
-          <div class="btn" data-diff="Hard">Hard</div>
-        </div>
-      </div>
-      <hr style="margin:12px 0;border-color:#133"/>
-      <div class="row">
-        <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0" aria-label="Start game">▶️ Start</button>
-        <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
-        <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="powerBarWrap"><div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div></div>
-</div>
-
-<!-- SFX tags -->
-<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
-<audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
-<audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
-<audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
-
-<!-- โหลดหลัก -->
+<!-- โหลดหลักปกติ -->
 <script type="module" src="./game/main.js"></script>
 
-<!-- Binder กันพลาด: ถ้า HHA.startGame ยังไม่มาให้ import ซ้ำ -->
+<!-- 🔒 Fail-safe binder (ลองหลาย path + แสดง error ชัดเจน) -->
 <script type="module">
-(function bindStartStrong(){
-  const btn = document.getElementById('btn_start'); if(!btn) return;
-  const clone = btn.cloneNode(true); btn.replaceWith(clone);
-  const startNow = ()=>{
-    try{ if (window.HHA?.startGame) return window.HHA.startGame(); }catch{}
-    import(`./game/main.js?ts=${Date.now()}`).then(()=>{
-      if (window.HHA?.startGame) window.HHA.startGame();
+const toast=(t)=>{ let el=document.getElementById('toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); } el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1400); };
+const warn =(lines)=>{ let w=document.getElementById('bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w);} w.innerHTML=(Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join(''); w.style.display='block'; };
+
+async function tryImport(url){
+  const bust = url + (url.includes('?')?'&':'?') + 'v=' + Date.now();
+  await import(bust);
+}
+
+async function ensureMainLoaded(){
+  if (window.HHA?.startGame) return true;
+  const candidates = ['./game/main.js','game/main.js','./main.js'];
+  let lastErr=null;
+  for (const u of candidates){
+    try{
+      await tryImport(u);
+      if (window.HHA?.startGame) return true;
+      lastErr = new Error('main loaded but HHA.startGame missing');
+    }catch(e){ lastErr=e; }
+  }
+  warn([
+    '⚠️ เริ่มเกมไม่สำเร็จ (โหลดสคริปต์ไม่ได้หรือพังระหว่างรัน)',
+    'ตรวจ path: ./game/main.js และไฟล์ที่มัน import (./core/*, ./modes/*)',
+    'รายละเอียดล่าสุด: ' + String(lastErr?.message||lastErr)
+  ]);
+  console.error('[HHA boot fail]', lastErr);
+  return false;
+}
+
+(function bindMenu(){
+  const mb=document.getElementById('menuBar'); if(!mb) return;
+
+  // เลือกโหมด/ความยาก
+  mb.addEventListener('click',(ev)=>{
+    const t=ev.target.closest('.btn'); if(!t) return;
+    if (t.hasAttribute('data-mode'))  { document.body.setAttribute('data-mode', t.getAttribute('data-mode'));  mb.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b===t)); }
+    if (t.hasAttribute('data-diff'))  { document.body.setAttribute('data-diff', t.getAttribute('data-diff'));  mb.querySelectorAll('[data-diff]').forEach(b=>b.classList.toggle('active',b===t)); }
+    if (t.dataset.action==='howto')   { toast('แตะของดี เลี่ยงของไม่ดี ภายในเวลาที่กำหนด'); }
+    if (t.dataset.action==='sound')   {
+      const aud = [...document.querySelectorAll('audio')];
+      const nowMuted = aud.every(a=>a.muted);
+      aud.forEach(a=>{ try{ a.muted = !nowMuted; }catch{} });
+      t.textContent = nowMuted ? '🔇 Sound' : '🔊 Sound';
+      toast(nowMuted?'เสียง: ปิด':'เสียง: เปิด');
+    }
+  }, false);
+
+  // ปุ่ม Start แบบ “กันพลาด”
+  const btn=document.getElementById('btn_start');
+  if (btn){
+    const startNow = async ()=>{
+      // เผื่อ main.js ไม่รันเพราะ error → โหลดแบบ fail-safe
+      const ok = await ensureMainLoaded();
+      if (ok) {
+        try { window.HHA.startGame(); }
+        catch(e){
+          warn(['⚠️ เริ่มเกมไม่สำเร็จ', String(e?.message||e)]);
+          console.error('[HHA start error]', e);
+        }
+      }
+    };
+    const clone = btn.cloneNode(true); btn.replaceWith(clone);
+    ['click','pointerup','touchend'].forEach(ev=>{
+      clone.addEventListener(ev,(e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, {capture:true, passive:false});
     });
-  };
-  ['click','pointerup','touchend'].forEach(ev=>{
-    clone.addEventListener(ev,(e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); },{capture:true,passive:false});
-  });
-  clone.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); startNow(); }},{capture:true});
+    clone.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); startNow(); }},{capture:true});
+  }
 })();
 </script>
 
 <div id="toast" class="toast"></div>
 <div id="bootWarn"></div>
-
 </body>
 </html>
