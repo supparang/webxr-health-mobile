@@ -1,13 +1,11 @@
-// === Hero Health Academy — game/main.js (stable; supports start/update modes + HUD/Coach/Fever/Result) ===
+// === Hero Health Academy — game/main.js (stable; penalty + countdown + coach in bus) ===
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
 (function () {
-  // ---------- DOM helpers ----------
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
 
-  // ---------- Safe stubs (replaced when imports succeed) ----------
   let ScoreSystem, SFXClass, Quests, Progress, VRInput, CoachClass, Leaderboard, HUDClass;
 
   async function loadCore(){
@@ -15,7 +13,7 @@ window.__HHA_BOOT_OK = 'main';
     catch {
       ScoreSystem = class {
         constructor(){ this.value=0; this.combo=0; this.bestCombo=0; }
-        add(n=0){ this.value += n|0; }
+        add(n=0){ this.value += n|0; if(this.value<0) this.value=0; }
         get(){ return this.value|0; }
         reset(){ this.value=0; this.combo=0; this.bestCombo=0; }
       };
@@ -56,7 +54,6 @@ window.__HHA_BOOT_OK = 'main';
       };
     }
 
-    // Coach (fallback if core/coach.js missing)
     try { ({ Coach: CoachClass } = await import('./core/coach.js')); }
     catch {
       CoachClass = class {
@@ -84,7 +81,6 @@ window.__HHA_BOOT_OK = 'main';
       };
     }
 
-    // ✅ FIX: proper class method syntax for fallback Leaderboard
     try { ({ Leaderboard } = await import('./core/leaderboard.js')); }
     catch {
       class LeaderboardFallback {
@@ -104,7 +100,7 @@ window.__HHA_BOOT_OK = 'main';
 
           this.top = document.createElement('div');
           this.top.style.cssText='position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
-          this.top.innerHTML = (
+          this.top.innerHTML =
             '<div style="display:flex;gap:8px;align-items:center">'+
               '<span id="hudMode"  style="padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;pointer-events:auto">—</span>'+
               '<span id="hudDiff"  style="padding:4px 8px;border-radius:10px;background:#102b52;color:#e6f5ff;border:1px solid #1b4b8a;pointer-events:auto">—</span>'+
@@ -113,8 +109,7 @@ window.__HHA_BOOT_OK = 'main';
             '<div style="display:flex;gap:8px;align-items:center">'+
               '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>'+
               '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>'+
-            '</div>'
-          );
+            '</div>';
           this.root.appendChild(this.top);
           this.$mode=this.top.querySelector('#hudMode');
           this.$diff=this.top.querySelector('#hudDiff');
@@ -129,7 +124,7 @@ window.__HHA_BOOT_OK = 'main';
           this.result = document.createElement('div');
           this.result.id='resultModal';
           this.result.style.cssText='position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:2002';
-          this.result.innerHTML = (
+          this.result.innerHTML =
             '<div style="width:min(520px,92vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:16px;color:#e6f2ff">'+
               '<h3 id="resTitle" style="margin:0 0 6px;font:900 20px ui-rounded">Result</h3>'+
               '<p  id="resDesc"  style="margin:0 0 10px;color:#cfe7ff">—</p>'+
@@ -138,8 +133,7 @@ window.__HHA_BOOT_OK = 'main';
                 '<button id="resHome"  style="padding:8px 10px;border-radius:10px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer">🏠 Home</button>'+
                 '<button id="resRetry" style="padding:8px 10px;border-radius:10px;background:#123054;color:#dff2ff;border:1px solid #1e4d83;cursor:pointer">↻ Retry</button>'+
               '</div>'+
-            '</div>'
-          );
+            '</div>';
           this.root.appendChild(this.result);
           this.$resTitle=this.result.querySelector('#resTitle');
           this.$resDesc =this.result.querySelector('#resDesc');
@@ -165,14 +159,13 @@ window.__HHA_BOOT_OK = 'main';
             const pct=m && m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
             const d=document.createElement('div');
             d.style.cssText='pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;border:1px solid #16325d;background:#0d1a31;color:#e6f2ff';
-            d.innerHTML=(
+            d.innerHTML=
               '<span style="font-size:16px">'+(m.icon||'⭐')+'</span>'+
               '<span style="font:700 12.5px ui-rounded">'+(m.label||m.key||'')+'</span>'+
               '<span style="font:700 12px;color:#a7f3d0;margin-left:6px">'+(m.progress||0)+'/'+(m.need||0)+'</span>'+
               '<i style="height:6px;width:100px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;display:inline-block;margin-left:6px">'+
                 '<b style="display:block;height:100%;width:'+pct+'%;background:'+(m.done?(m.fail?'#ef4444':'#22c55e'):'#22d3ee')+'"></b>'+
-              '</i>'
-            );
+              '</i>';
             frag.appendChild(d);
           }
           this.chips.innerHTML=''; this.chips.appendChild(frag);
@@ -203,7 +196,6 @@ window.__HHA_BOOT_OK = 'main';
     }
   }
 
-  // ---------- Mode loader ----------
   const MODE_PATH = (k)=>`./modes/${k}.js`;
   async function loadMode(key){
     const mod = await import(MODE_PATH(key));
@@ -214,7 +206,6 @@ window.__HHA_BOOT_OK = 'main';
     };
   }
 
-  // ---------- FX ----------
   const FX = {
     popText:function(txt,pos){
       const x = (pos && pos.x)|0;
@@ -225,10 +216,16 @@ window.__HHA_BOOT_OK = 'main';
       document.body.appendChild(el);
       requestAnimationFrame(function(){ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
       setTimeout(function(){ try{el.remove();}catch(e){}; },700);
+    },
+    flash:function(color){
+      const f=document.createElement('div');
+      f.style.cssText='position:fixed;inset:0;background:'+color+';opacity:.35;z-index:1500;pointer-events:none;transition:opacity .28s ease';
+      document.body.appendChild(f);
+      setTimeout(function(){ f.style.opacity='0'; },30);
+      setTimeout(function(){ try{f.remove();}catch(e){}; },340);
     }
   };
 
-  // ---------- Engine state ----------
   const TIME_BY_MODE = { goodjunk:45, groups:60, hydration:50, plate:55 };
   function getMatchTime(mode, diff){
     const m = mode || 'goodjunk';
@@ -249,7 +246,6 @@ window.__HHA_BOOT_OK = 'main';
   };
   let hud=null;
 
-  // ---------- UI sync ----------
   function setBadges(){
     if (hud && hud.setTop){
       hud.setTop({
@@ -265,10 +261,14 @@ window.__HHA_BOOT_OK = 'main';
     const sV=$('#scoreVal'); if(sV) sV.textContent=(R.sys && R.sys.score && R.sys.score.get ? R.sys.score.get() : 0);
   }
 
-  // ---------- Bus ----------
   function busFor(){
     return {
       sfx:R.sys.sfx,
+      coach:R.coach,
+      score:{
+        add:function(n){ R.sys.score.add(n); setBadges(); },
+        get:function(){ return R.sys.score.get?R.sys.score.get():0; }
+      },
       hit:function(e){
         const pts=(e && e.points)|0;
         if(pts){
@@ -276,25 +276,39 @@ window.__HHA_BOOT_OK = 'main';
           R.sys.score.combo=(R.sys.score.combo|0)+1;
           if((R.sys.score.combo|0)>(R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo|0;
         }
-        if(!R.feverActive && (R.sys.score.combo|0)>=10){ R.feverActive=true; R.feverBreaks=0; try{Quests.event('fever',{on:true});}catch(err){} }
+        if(!R.feverActive && (R.sys.score.combo|0)>=10){
+          R.feverActive=true; R.feverBreaks=0;
+          try{ R.coach && R.coach.say && R.coach.say('🔥 FEVER TIME!'); }catch(_){}
+          try{ R.sys.sfx && R.sys.sfx.perfect && R.sys.sfx.perfect(); }catch(_){}
+          try{ Quests.event('fever',{on:true}); }catch(_){}
+        }
         if(e && e.ui) FX.popText('+'+pts, e.ui);
-        try{ Quests.event('hit',{ result:(e && e.kind)?e.kind:'good', meta:(e && e.meta)?e.meta:{}, points:pts, comboNow:R.sys.score.combo|0 }); }catch(err2){}
+        try{ Quests.event('hit',{ result:(e && e.kind)?e.kind:'good', meta:(e && e.meta)?e.meta:{}, points:pts, comboNow:R.sys.score.combo|0 }); }catch(_){}
         setBadges();
       },
       miss:function(info){
+        // penalty: -100, reset combo, flash red, sfx, coach warn
+        R.sys.score.add(-100);
         if(R.feverActive){
           R.feverBreaks++;
-          if(R.feverBreaks>=3){ R.feverActive=false; R.feverBreaks=0; try{Quests.event('fever',{on:false});}catch(err3){} }
+          if(R.feverBreaks>=3){
+            R.feverActive=false; R.feverBreaks=0;
+            try{ Quests.event('fever',{on:false}); }catch(_){}
+          }
         }
         R.sys.score.combo=0;
-        try{ Quests.event('miss', info || {}); }catch(err4){}
+        FX.popText('-100',{x:innerWidth/2,y:innerHeight/2});
+        FX.flash('#ff3b3b');
+        try{ R.sys.sfx && R.sys.sfx.bad && R.sys.sfx.bad(); }catch(_){}
+        try{ R.coach && R.coach.onBad && R.coach.onBad(); }catch(_){}
+        try{ Quests.event('miss', info || {}); }catch(_){}
         setBadges();
       },
-      power:function(k){ try{ Quests.event('power',{kind:k}); }catch(err5){} }
+      power:function(k){ try{ Quests.event('power',{kind:k}); }catch(_){}
+      }
     };
   }
 
-  // ---------- Loop ----------
   function gameTick(){
     if(!R.playing) return;
     const tNow=performance.now();
@@ -305,7 +319,7 @@ window.__HHA_BOOT_OK = 'main';
       R._secMark=tNow;
       setBadges();
       if(R.remain===10 && R.coach && R.coach.onTimeLow){ R.coach.onTimeLow(); }
-      try{ Quests.tick({ score:(R.sys.score.get ? R.sys.score.get() : 0), dt:secGone, fever:R.feverActive }); }catch(err6){}
+      try{ Quests.tick({ score:(R.sys.score.get ? R.sys.score.get() : 0), dt:secGone, fever:R.feverActive }); }catch(_){}
     }
 
     try{
@@ -319,17 +333,16 @@ window.__HHA_BOOT_OK = 'main';
     R.raf=requestAnimationFrame(gameTick);
   }
 
-  // ---------- End game ----------
   function endGame(){
     if(!R.playing) return;
     R.playing=false; cancelAnimationFrame(R.raf);
     const score=(R.sys && R.sys.score && R.sys.score.get)?R.sys.score.get():0;
     const bestC=(R.sys && R.sys.score && R.sys.score.bestCombo)|0;
 
-    try{ if(R.modeInst && R.modeInst.cleanup) R.modeInst.cleanup(); if(R.modeAPI && R.modeAPI.cleanup) R.modeAPI.cleanup(R.state,hud); }catch(err7){}
-    try{ Quests.endRun({ score:score }); }catch(err8){}
-    try{ if(R.coach && R.coach.onEnd) R.coach.onEnd(score); }catch(err9){}
-    try{ Progress.endRun({ score:score, bestCombo:bestC }); }catch(err10){}
+    try{ if(R.modeInst && R.modeInst.cleanup) R.modeInst.cleanup(); if(R.modeAPI && R.modeAPI.cleanup) R.modeAPI.cleanup(R.state,hud); }catch(_){}
+    try{ Quests.endRun({ score:score }); }catch(_){}
+    try{ if(R.coach && R.coach.onEnd) R.coach.onEnd(score); }catch(_){}
+    try{ Progress.endRun({ score:score, bestCombo:bestC }); }catch(_){}
 
     document.body.removeAttribute('data-playing');
     const mb = $('#menuBar'); if(mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; }
@@ -350,19 +363,42 @@ window.__HHA_BOOT_OK = 'main';
         hud.onHome = function(){ hud.hideResult(); const m2=$('#menuBar'); if(m2){ m2.removeAttribute('data-hidden'); m2.style.display='flex'; } };
         hud.onRetry = function(){ hud.hideResult(); startGame(); };
       }
-    }catch(err11){}
+    }catch(_){}
 
     window.HHA._busy=false;
   }
 
-  // ---------- Start game ----------
+  // ---- 3-2-1-Go Countdown (blocking start) ----
+  function showCountdownStep(text){
+    let box = document.getElementById('countdownBox');
+    if(!box){
+      box = document.createElement('div');
+      box.id='countdownBox';
+      box.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:2005;pointer-events:none';
+      document.body.appendChild(box);
+    }
+    box.innerHTML = '<div style="font:900 82px ui-rounded;color:#fff;text-shadow:0 10px 40px rgba(0,0,0,.6)">'+text+'</div>';
+  }
+  function hideCountdown(){ const b=document.getElementById('countdownBox'); if(b) b.remove(); }
+  async function startCountdown(){
+    try{ R.sys.sfx && R.sys.sfx.tick && R.sys.sfx.tick(); }catch(_){}
+    showCountdownStep('3'); await new Promise(r=>setTimeout(r,600));
+    try{ R.sys.sfx && R.sys.sfx.tick && R.sys.sfx.tick(); }catch(_){}
+    showCountdownStep('2'); await new Promise(r=>setTimeout(r,600));
+    try{ R.sys.sfx && R.sys.sfx.tick && R.sys.sfx.tick(); }catch(_){}
+    showCountdownStep('1'); await new Promise(r=>setTimeout(r,600));
+    try{ R.sys.sfx && R.sys.sfx.perfect && R.sys.sfx.perfect(); }catch(_){}
+    showCountdownStep('GO!'); await new Promise(r=>setTimeout(r,350));
+    hideCountdown();
+  }
+
   async function startGame(){
     if(window.HHA && window.HHA._busy) return;
     if(!window.HHA) window.HHA = {};
     window.HHA._busy=true;
 
     await loadCore();
-    try{ Progress.init(); }catch(err12){}
+    try{ Progress.init(); }catch(_){}
 
     R.modeKey = document.body.getAttribute('data-mode') || 'goodjunk';
     R.diff    = document.body.getAttribute('data-diff') || 'Normal';
@@ -388,12 +424,11 @@ window.__HHA_BOOT_OK = 'main';
     R.coach = new CoachClass({ lang:(localStorage.getItem('hha_lang')||'TH') });
     if(R.coach && R.coach.onStart) R.coach.onStart();
 
-    try { Quests.bindToMain({ hud:hud, coach:R.coach }); }catch(err13){}
-    try { Quests.beginRun(R.modeKey, R.diff, (localStorage.getItem('hha_lang')||'TH'), R.matchTime); }catch(err14){}
+    try { Quests.bindToMain({ hud:hud, coach:R.coach }); }catch(_){}
+    try { Quests.beginRun(R.modeKey, R.diff, (localStorage.getItem('hha_lang')||'TH'), R.matchTime); }catch(_){}
 
     R.state = { difficulty:R.diff, lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
 
-    // Support 3 styles: create() / init() / start()
     if(api && typeof api.create==='function'){
       R.modeInst = api.create({ engine:{fx:FX}, hud:hud, coach:R.coach });
       if(R.modeInst && typeof R.modeInst.start==='function'){ R.modeInst.start({ time:R.matchTime, difficulty:R.diff }); }
@@ -403,19 +438,20 @@ window.__HHA_BOOT_OK = 'main';
       api.start({ time:R.matchTime, difficulty:R.diff });
     }
 
+    const mb = $('#menuBar'); if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
+    // countdown ก่อนเริ่มนับเวลาและอัปเดต
+    await startCountdown();
+
     R.playing=true;
     R.startedAt=performance.now();
     R._secMark =performance.now();
     R._dtMark  =performance.now();
     setBadges();
 
-    const mb = $('#menuBar');
-    if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-
     requestAnimationFrame(gameTick);
   }
 
-  // ---------- Menu delegation + Start strong bind ----------
   (function bindMenu(){
     const mb = $('#menuBar'); if(!mb) return;
 
@@ -455,7 +491,6 @@ window.__HHA_BOOT_OK = 'main';
     }
   })();
 
-  // ---------- Toast ----------
   function toast(text){
     let el=$('#toast');
     if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
@@ -464,15 +499,12 @@ window.__HHA_BOOT_OK = 'main';
     setTimeout(function(){ el.classList.remove('show'); },1200);
   }
 
-  // ---------- Expose ----------
   window.HHA = window.HHA || {};
   window.HHA.startGame = startGame;
   window.HHA.endGame   = endGame;
 
-  // Canvas never blocks UI
   setTimeout(function(){ const c=$('#c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; } },0);
 
-  // Keyboard quick start
   window.addEventListener('keydown',function(e){
     if((e.key==='Enter'||e.key===' ')&&!R.playing){
       const menuVisible = !($('#menuBar') && $('#menuBar').hasAttribute('data-hidden'));
