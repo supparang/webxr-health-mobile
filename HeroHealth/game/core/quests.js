@@ -1,55 +1,45 @@
 // === core/quests.js ===
-// เควสต์เบื้องต้น: sync HUD chips + อัปเดตจาก event('hit'|'miss')
-const DEFAULT = [
-  { key:'score1k', icon:'🏁', label:'ถึง 1,000 คะแนน', need:1000, progress:0, done:false },
-  { key:'perfect3', icon:'💥', label:'PERFECT x3', need:3, progress:0, done:false },
-  { key:'streak10', icon:'🔥', label:'คอมโบ x10', need:10, progress:0, done:false },
-];
-
-let ctx = { hud:null, coach:null, chips:[], lang:'TH' };
+// เควสต์ขั้นต่ำ: โชว์ชิป 1-2 อัน และนับ tick/hit เพื่ออัปเดตแถบ
+let _hud = null;
+let _coach = null;
+let _chips = [];
+let _goal = 20;
 
 export const Quests = {
-  bindToMain({ hud, coach, lang='TH' } = {}){
-    ctx.hud = hud || null; ctx.coach = coach || null; ctx.lang = String(lang).toUpperCase();
-    ctx.chips = DEFAULT.map(x=>({ ...x }));
-    ctx.hud?.setQuestChips?.(ctx.chips);
-    return { refresh(){ ctx.hud?.setQuestChips?.(ctx.chips); } };
+  bindToMain({ hud, coach }) {
+    _hud = hud; _coach = coach;
+    _chips = [
+      { key:'hit',  icon:'⭐', label:'Hit Targets',  progress:0, need:_goal, done:false, fail:false },
+      { key:'combo',icon:'🔥', label:'Combo Streak', progress:0, need:10,     done:false, fail:false },
+    ];
+    _hud?.setQuestChips(_chips);
+    return { refresh(){ _hud?.setQuestChips(_chips); } };
   },
-  beginRun(mode, diff, lang='TH', timeSec=45){
-    ctx.lang = String(lang).toUpperCase();
-    ctx.chips = DEFAULT.map(x=>({ ...x, progress:0, done:false, fail:false }));
-    ctx.hud?.setQuestChips?.(ctx.chips);
+
+  beginRun(mode, diff, lang, timeSec) {
+    // scale ตามโหมด/ระดับ
+    _goal = Math.max(10, Math.round((timeSec||45) * (diff==='Hard'?0.7:diff==='Easy'?0.5:0.6)));
+    if (_chips.length) _chips[0].need = _goal;
+    if (_hud) _hud.setQuestChips(_chips);
   },
-  event(type, payload = {}){
-    if (!ctx.hud) return;
-    if (type === 'hit'){
-      const pts = payload.points|0;
-      if (pts) { inc('score1k', pts); }
-      const kind = payload.result || 'good';
-      if (kind === 'perfect') inc('perfect3', 1);
-      const comboNow = payload.comboNow|0;
-      if (comboNow >= 10) markDone('streak10');
-      ctx.hud.setQuestChips(ctx.chips);
+
+  event(type, payload={}) {
+    if (type === 'hit') {
+      _chips[0].progress = Math.min(_chips[0].need, (_chips[0].progress|0) + 1);
+      const comboNow = payload.comboNow | 0;
+      _chips[1].progress = Math.max(_chips[1].progress|0, comboNow);
+      _chips[0].done = _chips[0].progress >= _chips[0].need;
+      _chips[1].done = (_chips[1].progress|0) >= (_chips[1].need|0);
+      _hud?.setQuestChips(_chips);
     }
-    if (type === 'miss'){
-      // อาจจะ reset บางเควสต์ถ้าต้องการ (ตอนนี้ไม่รีเซ็ต)
-      ctx.hud.setQuestChips(ctx.chips);
-    }
   },
-  tick(){ /* อนาคตใช้สำหรับนับเวลาเควสต์ */ },
-  endRun(){ return ctx.chips.slice(); }
+
+  tick() {
+    // reserved for time-based quests
+  },
+
+  endRun({ score }) {
+    // คืนผลสรุปเควสต์ (ถ้าต้องการ)
+    return _chips.slice();
+  }
 };
-
-function inc(key, by){
-  const c = ctx.chips.find(x=>x.key===key);
-  if (!c) return;
-  c.progress = Math.max(0, (c.progress|0) + (by|0));
-  if ((c.progress|0) >= (c.need|0)) c.done = true;
-}
-function markDone(key){
-  const c = ctx.chips.find(x=>x.key===key);
-  if (!c) return;
-  c.done = true; c.progress = c.need;
-}
-
-export default Quests;
