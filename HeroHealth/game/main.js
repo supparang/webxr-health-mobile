@@ -166,3 +166,30 @@ function endGame(){
   b.parentNode.replaceChild(clone,b);
   clone.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); startGame(); }, {capture:true});
 })();
+// ----- Imports (ด้านบนไฟล์ main.js) -----
+import { sfx as SFX } from './core/sfx.js';
+import { PowerUpSystem } from './core/powerup.js';
+// ...imports อื่น ๆ
+
+// ----- Boot/SFX binding (หลังสร้าง engine แล้ว) -----
+engine.sfx = SFX;
+// ชุดไอดีที่ใช้ (ถ้าคุณเพิ่ม/ลดไฟล์ สามารถปรับลิสต์ได้)
+SFX.loadIds(['sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']);
+SFX.setVolume(0.9); // ตามชอบ 0..1
+
+// ปุ่มเปิด/ปิดเสียงในเมนู (ถ้ามี)
+const btnSound = document.querySelector('[data-action="sound"]');
+if (btnSound){
+  const sync = () => btnSound.setAttribute('aria-pressed', SFX.isEnabled() ? 'true' : 'false');
+  sync();
+  btnSound.addEventListener('click', () => { SFX.setEnabled(!SFX.isEnabled()); sync(); }, { passive:true });
+}
+
+// ตัวอย่าง: ผูก PowerUp → เล่นเสียงตอนรับบัฟ
+const power = new PowerUpSystem();
+power.onChange((t) => {
+  // ติดไฟบัฟครั้งแรก หรือกดได้สกิลใหม่
+  if ((t?.x2|0)===1 || (t?.sweep|0)===1 || (t?.shield|0)===1) {
+    engine.sfx?.power();
+  }
+});
