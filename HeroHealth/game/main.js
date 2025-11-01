@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (runtime glue; Start wired + Coach integrated) ===
+// === Hero Health Academy — game/main.js (Start wired + Coach + Leaderboard) ===
 window.__HHA_BOOT_OK = 'main';
 
 (function () {
@@ -6,7 +6,7 @@ window.__HHA_BOOT_OK = 'main';
   const $$ = (s) => document.querySelectorAll(s);
 
   // --------- Safe stubs ----------
-  let ScoreSystem, SFXClass, Quests, Progress, VRInput, CoachClass;
+  let ScoreSystem, SFXClass, Quests, Progress, VRInput, CoachClass, Leaderboard;
 
   async function loadCore() {
     try { ({ ScoreSystem } = await import('./core/score.js')); }
@@ -42,6 +42,9 @@ window.__HHA_BOOT_OK = 'main';
         onEnd(score){ this.say((score|0)>=200 ? (this.lang==='EN'?'Awesome!':'สุดยอด!') : (this.lang==='EN'?'Nice!':'ดีมาก!')); }
       };
     }
+
+    try { ({ Leaderboard } = await import('./core/leaderboard.js')); }
+    catch { Leaderboard = class{ submit(){}, renderInto(){}, getInfo(){ return {text:'Scope:-'} } }; }
   }
 
   // --------- Mode loader ----------
@@ -77,14 +80,15 @@ window.__HHA_BOOT_OK = 'main';
 
   // --------- HUD helpers ----------
   function setScore(v){ const el = $('#scoreVal'); if (el) el.textContent = v|0; }
-  function setTime(v){ const el = $('#time');    if (el) el.textContent = v|0; }
+  function setTime(v){ const el = $('#timeVal'); if (el) el.textContent = v|0; }
 
   // --------- Engine state ----------
   let R = {
     playing:false, startedAt:0, remain:45, raf:0,
     sys:{ score:null, sfx:null },
     modeKey:'goodjunk', modeAPI:null, modeInst:null, state:null, hud:null, coach:null,
-    diff:'Normal'
+    diff:'Normal',
+    board:null, boardScope:'month'
   };
 
   function busFor(){
@@ -95,7 +99,7 @@ window.__HHA_BOOT_OK = 'main';
         setScore(R.sys.score.get?.() || R.sys.score.value || 0);
         if (e?.ui) FX.popText(`+${e.points||0}`, e.ui);
         if (e?.kind==='perfect') R.coach?.onPerfect(); else if (e?.kind==='good') R.coach?.onGood();
-        Quests.event('hit', { result: e?.kind || 'good', meta: e?.meta || {} });
+        try{ Quests.event('hit', { result: e?.kind || 'good', meta: e?.meta || {} }); }catch{}
       },
       miss(){ /* soft miss */ }
     };
@@ -112,7 +116,7 @@ window.__HHA_BOOT_OK = 'main';
       R._secMark = tNow;
       setTime(R.remain);
       if (R.remain === 10) R.coach?.onTimeLow?.();
-      Quests.tick({ score: (R.sys.score.get?.()||0) });
+      try{ Quests.tick({ score: (R.sys.score.get?.()||0) }); }catch{}
     }
 
     try {
@@ -133,15 +137,24 @@ window.__HHA_BOOT_OK = 'main';
     R.playing = false;
     cancelAnimationFrame(R.raf);
 
-    try { Quests.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
+    const score = R.sys?.score?.get?.() || 0;
+
+    try { Quests.endRun({ score }); } catch {}
     try { R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state, R.hud); } catch {}
+
+    // Submit to leaderboard
+    try {
+      const name = (localStorage.getItem('hha_name') || '').trim();
+      R.board?.submit(R.modeKey, R.diff, score, { name: name || 'Player', meta:{} });
+    } catch (e) { console.warn('[board.submit]', e); }
 
     document.body.removeAttribute('data-playing');
     $('#menuBar')?.removeAttribute('data-hidden');
 
-    R.coach?.onEnd?.(R.sys.score.get?.()||0);
-    try { Progress.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
+    R.coach?.onEnd?.(score);
+    try { Progress.endRun({ score }); } catch {}
 
+    toast(`Score: ${score} — saved!`);
     window.HHA._busy = false;
   }
 
@@ -151,6 +164,13 @@ window.__HHA_BOOT_OK = 'main';
 
     await loadCore();
     Progress.init?.();
+
+    // Ensure board
+    if (!R.board) {
+      R.board = new Leaderboard({ key:'hha_board', maxKeep:300, retentionDays:180 });
+      // โหลดชื่อเดิม (ถ้ามี) ไปใส่ input
+      try { const nm = localStorage.getItem('hha_name')||''; const inp=$('#playerName'); if(inp) inp.value = nm; }catch{}
+    }
 
     const modeKey = R.modeKey;
     const diff    = R.diff;
@@ -223,7 +243,24 @@ window.__HHA_BOOT_OK = 'main';
     setTimeout(()=>el.classList.remove('show'), 1200);
   }
 
-  // --------- NEW: Strong event delegation for menu (no need for id="btn_start") ----------
+  // --------- Leaderboard UI helpers ----------
+  function openBoard(scope){
+    const w = $('#boardWrap'); if (!w) return;
+    if (scope) R.boardScope = scope;
+    // sync name
+    try{ const inp=$('#playerName'); if(inp){ const nm=localStorage.getItem('hha_name')||''; inp.value=nm; } }catch{}
+    // render
+    try{
+      const host = $('#boardHost'); R.board.renderInto(host, { scope: R.boardScope });
+      const info = R.board.getInfo(R.boardScope); const inf = $('#boardInfo'); if(inf) inf.textContent = info.text;
+    }catch(e){ console.warn('[board.render]', e); }
+    w.style.display='flex';
+  }
+  function closeBoard(){
+    const w = $('#boardWrap'); if (w) w.style.display='none';
+  }
+
+  // --------- Menu delegation (includes Board & Sound & Start) ----------
   (function bindMenuDelegation(){
     const mb = document.getElementById('menuBar');
     if (!mb) return;
@@ -237,7 +274,6 @@ window.__HHA_BOOT_OK = 'main';
       const t = ev.target.closest('.btn');
       if (!t) return;
 
-      // Mode
       if (t.hasAttribute('data-mode')) {
         ev.preventDefault(); ev.stopPropagation();
         R.modeKey = t.getAttribute('data-mode') || R.modeKey;
@@ -246,7 +282,6 @@ window.__HHA_BOOT_OK = 'main';
         return;
       }
 
-      // Difficulty
       if (t.hasAttribute('data-diff')) {
         ev.preventDefault(); ev.stopPropagation();
         R.diff = t.getAttribute('data-diff') || R.diff;
@@ -255,7 +290,6 @@ window.__HHA_BOOT_OK = 'main';
         return;
       }
 
-      // Actions
       if (t.dataset.action === 'howto') {
         ev.preventDefault(); ev.stopPropagation();
         toast('แตะอาหารดี หลีกเลี่ยงของไม่ดี ภายใน 45 วินาที • เปลี่ยนโหมด/ความยากก่อนเริ่ม');
@@ -267,11 +301,14 @@ window.__HHA_BOOT_OK = 'main';
           const now = R.sys?.sfx?.isEnabled?.() ?? true;
           R.sys?.sfx?.setEnabled?.(!now);
           t.textContent = (!now) ? '🔊 Sound' : '🔇 Sound';
-          // เผื่อใช้แท็ก <audio> ตรง ๆ
-          const tags = document.querySelectorAll('audio');
-          tags.forEach(a=>{ try{ a.muted = now; }catch{} });
+          document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = now; }catch{} });
           toast((!now)?'เสียง: เปิด':'เสียง: ปิด');
         }catch{}
+        return;
+      }
+      if (t.dataset.action === 'board') {
+        ev.preventDefault(); ev.stopPropagation();
+        openBoard(R.boardScope);
         return;
       }
       if (t.dataset.action === 'start') {
@@ -281,7 +318,21 @@ window.__HHA_BOOT_OK = 'main';
       }
     }, false);
 
-    // รองรับแตะบนมือถือ
+    // Leaderboard scope buttons + close + name save
+    const wrap = $('#boardWrap');
+    if (wrap){
+      wrap.addEventListener('click', (e)=>{
+        if (e.target.hasAttribute('data-board-close') || e.target === wrap){ closeBoard(); }
+        const btn = e.target.closest('.btn[data-scope]');
+        if (btn){ openBoard(btn.getAttribute('data-scope')); }
+      });
+      const inp = $('#playerName');
+      if (inp){
+        inp.addEventListener('change', ()=>{ try{ localStorage.setItem('hha_name', inp.value||''); }catch{} });
+      }
+    }
+
+    // รองรับแตะบนมือถือสำหรับ Start
     mb.addEventListener('pointerup', (e)=>{
       const t = e.target.closest('.btn[data-action="start"]');
       if (t){ e.preventDefault(); startGame(); }
@@ -292,6 +343,8 @@ window.__HHA_BOOT_OK = 'main';
   window.HHA = window.HHA || {};
   window.HHA.startGame = startGame;
   window.HHA.endGame   = endGame;
+  window.HHA.openBoard = openBoard;
+  window.HHA.closeBoard= closeBoard;
 
   // Canvas never blocks UI
   setTimeout(()=>{ const c = $('#c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; } }, 0);
