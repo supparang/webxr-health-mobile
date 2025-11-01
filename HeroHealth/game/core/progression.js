@@ -1,26 +1,24 @@
 // === core/progression.js ===
-// โปรไฟล์/สถิติง่ายๆ เก็บใน localStorage
-const KEY = 'hha_profile_v1';
+// เก็บสถิติขั้นต่ำฝั่ง client
+const KEY = 'hha_progress';
 
-function load(){
-  try{ const raw = localStorage.getItem(KEY); if(!raw) return {}; return JSON.parse(raw)||{}; }catch{ return {}; }
-}
-function save(o){
-  try{ localStorage.setItem(KEY, JSON.stringify(o||{})); }catch{}
-}
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch{return {}} }
+function save(v){ try{ localStorage.setItem(KEY, JSON.stringify(v||{})); }catch{} }
+
+let _p = load();
 
 export const Progress = {
-  init(){ const p = load(); if (!p.stats) p.stats = {}; save(p); },
-  beginRun(mode, diff, lang){ /* reserved */ },
-  endRun({ score=0, bestCombo=0 } = {}){
-    const p = load();
-    p.stats = p.stats || {};
-    p.stats.best = Math.max(p.stats.best||0, score|0);
-    p.stats.bestCombo = Math.max(p.stats.bestCombo||0, bestCombo|0);
-    save(p);
+  init(){ _p = load(); },
+  beginRun(mode, diff, lang){ _p.last = { mode, diff, lang, started: Date.now() }; save(_p); },
+  endRun({ score, bestCombo }) {
+    _p.totalRuns = (_p.totalRuns|0) + 1;
+    _p.best = _p.best || {};
+    _p.best.score = Math.max(_p.best.score|0, score|0);
+    _p.best.combo = Math.max(_p.best.combo|0, bestCombo|0);
+    save(_p);
   },
   emit(){},
-  getStatSnapshot(){ const p = load(); return p.stats || {}; },
-  profile(){ return load(); }
+  getStatSnapshot(){ return Object.assign({}, _p.best||{}, { totalRuns:_p.totalRuns|0 }); },
+  profile(){ return _p; }
 };
-export default Progress;
+xxzxd
