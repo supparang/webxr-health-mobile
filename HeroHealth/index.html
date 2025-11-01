@@ -79,7 +79,6 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
       </div>
       <hr style="margin:12px 0;border-color:#133"/>
       <div class="row">
-        <!-- ปุ่ม Start แบบกันพลาด: button + id + tabindex + aria + ฟังหลายอีเวนต์ -->
         <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0" aria-label="Start game">▶️ Start</button>
         <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
         <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
@@ -91,86 +90,106 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
 </div>
 
 <!-- SFX tags -->
-<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
-<audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
-<audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
-<audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
+<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3" crossorigin="anonymous"></audio>
+<audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3" crossorigin="anonymous"></audio>
+<audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3" crossorigin="anonymous"></audio>
+<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3" crossorigin="anonymous"></audio>
+<audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3" crossorigin="anonymous"></audio>
 
-<!-- โหลดหลักตามปกติ -->
+<!-- โหลดหลักปกติ (ถ้ามี error จะยังมี fallback ด้านล่าง) -->
 <script type="module" src="./game/main.js"></script>
 
-<!-- 🔒 Binder กันพลาด: อยู่ในหน้านี้เลย -->
+<!-- Binder กันพลาด + ดีบักในหน้า -->
 <script type="module">
-const warn = (lines)=>{ let w=document.getElementById('bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w);} w.innerHTML=(Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join(''); w.style.display='block'; };
+const warn=(lines)=>{ let w=document.getElementById('bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w);} w.innerHTML=(Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join(''); w.style.display='block'; };
 const toast=(t)=>{ let el=document.getElementById('toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el);} el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); };
 
-// กัน canvas บังคลิก (ถ้ามีตัวอื่นสร้างเพิ่ม)
+// กัน canvas บังคลิก
 setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
 
-// Delegation โหมด/ยาก/เสียง
+// บันทึก mode/diff ที่เลือก และซิงก์ badge
 (function bindMenu(){
   const mb = document.getElementById('menuBar');
   if(!mb) return;
-  const $$ = (s)=>mb.querySelectorAll(s);
+  const $$=(s)=>mb.querySelectorAll(s);
   function setActive(sel, el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
-
-  mb.addEventListener('click', (ev)=>{
-    const t = ev.target.closest('.btn'); if(!t) return;
-    if (t.hasAttribute('data-mode')) { setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
-    if (t.hasAttribute('data-diff')) { setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
-    if (t.dataset.action === 'howto') { toast('แตะของดี เลี่ยงของไม่ดี ภายใน 45 วิ'); return; }
-    if (t.dataset.action === 'sound') {
-      const muted = !Array.from(document.querySelectorAll('audio')).some(a=>!a.muted);
-      document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = !muted; }catch{} });
-      t.textContent = muted ? '🔇 Sound' : '🔊 Sound';
-      toast(muted?'เสียง: ปิด':'เสียง: เปิด'); return;
+  function syncBadges(){
+    const m=document.body.getAttribute('data-mode')||'goodjunk';
+    const d=document.body.getAttribute('data-diff')||'Normal';
+    const mB=document.getElementById('modeBadge'); if(mB) mB.textContent=m;
+    const dB=document.getElementById('diffBadge'); if(dB) dB.textContent=d;
+  }
+  mb.addEventListener('click',(ev)=>{
+    const t=ev.target.closest('.btn'); if(!t) return;
+    if(t.hasAttribute('data-mode')){ setActive('[data-mode]',t); document.body.setAttribute('data-mode',t.getAttribute('data-mode')); syncBadges(); return; }
+    if(t.hasAttribute('data-diff')){ setActive('[data-diff]',t); document.body.setAttribute('data-diff',t.getAttribute('data-diff')); syncBadges(); return; }
+    if(t.dataset.action==='howto'){ toast('แตะของดี เลี่ยงของไม่ดี ภายใน 45 วิ'); return; }
+    if(t.dataset.action==='sound'){
+      const anyUnmuted = Array.from(document.querySelectorAll('audio')).some(a=>!a.muted);
+      document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = anyUnmuted; }catch{} });
+      t.textContent = anyUnmuted ? '🔇 Sound' : '🔊 Sound';
+      toast(anyUnmuted ? 'เสียง: ปิด' : 'เสียง: เปิด'); return;
     }
   }, false);
+  // ค่าเริ่มต้น
+  if(!document.body.hasAttribute('data-mode')) document.body.setAttribute('data-mode','goodjunk');
+  if(!document.body.hasAttribute('data-diff')) document.body.setAttribute('data-diff','Normal');
+  syncBadges();
 })();
 
-// ตัวเริ่มเกมแบบกันพลาด
+// ตัวเริ่มเกมแบบกันพลาด + ส่ง mode/diff เข้า main.js
 (function bindStartStrong(){
-  const btn = document.getElementById('btn_start');
-  if(!btn) return;
+  const btn=document.getElementById('btn_start'); if(!btn) return;
+
+  function pushSelectionToMain(){
+    const mode=document.body.getAttribute('data-mode')||'goodjunk';
+    const diff=document.body.getAttribute('data-diff')||'Normal';
+    // ใส่ global เผื่อ main.js อ่าน
+    window.__HHA_MODE = mode;
+    window.__HHA_DIFF = diff;
+    // ถ้ามี API ตั้งค่า ก็ส่งด้วย
+    try{ if(window.HHA?.setMode) window.HHA.setMode(mode); }catch{}
+    try{ if(window.HHA?.setDiff) window.HHA.setDiff(diff); }catch{}
+  }
 
   function startNow(){
+    pushSelectionToMain();
     try{
-      if (window.HHA && typeof window.HHA.startGame === 'function') {
-        window.HHA.startGame();
-        return;
+      if(window.HHA && typeof window.HHA.startGame==='function'){
+        window.HHA.startGame(); return;
       }
     }catch{}
 
-    // ถ้ายังไม่พร้อม → import main.js แล้วเรียกซ้ำ
-    import(`./game/main.js?ts=${Date.now()}`)
-      .then(()=>{
-        if (window.HHA && typeof window.HHA.startGame === 'function') {
-          window.HHA.startGame();
-        } else {
-          warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame');
-        }
-      })
-      .catch(e=>{
-        console.error('[import main.js] fail', e);
-        warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]);
-      });
+    // import main.js แบบไดนามิก แล้วลองอีกครั้ง
+    const url = `./game/main.js?ts=${Date.now()}`;
+    import(url).then(()=>{
+      pushSelectionToMain();
+      if(window.HHA && typeof window.HHA.startGame==='function'){
+        window.HHA.startGame();
+      }else{
+        warn(['โหลด main.js แล้ว แต่ไม่พบ HHA.startGame','ตรวจว่ามี window.HHA.startGame จริงใน game/main.js']);
+      }
+    }).catch(e=>{
+      console.error('[import main.js] fail', e);
+      warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]);
+    });
   }
 
-  // ล้าง listener เดิมทั้งหมดด้วยการ clone
-  const clone = btn.cloneNode(true);
-  btn.replaceWith(clone);
-
-  // จับหลายอีเวนต์ และใช้ capture เพื่อชิงก่อนตัวอื่น
-  const options = { capture:true, passive:false };
+  // ล้าง listener เดิมด้วย clone
+  const clone=btn.cloneNode(true); btn.replaceWith(clone);
+  const opt={capture:true,passive:false};
   ['click','pointerup','touchend'].forEach(ev=>{
-    clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, options);
+    clone.addEventListener(ev,(e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); },opt);
   });
-  // เริ่มเกมด้วย Enter/Space เมื่อ focus ที่ปุ่ม
-  clone.addEventListener('keydown', (e)=>{
-    if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); }
-  }, options);
+  clone.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); startNow(); }},opt);
+  // กัน overlay อื่น ๆ มาขวาง start
+  clone.style.position='relative'; clone.style.zIndex='10001';
 })();
+
+// แสดง error runtime ใต้จอทันที
+window.addEventListener('error',(e)=>{
+  warn(['⚠️ Runtime error:', String(e?.message||e)]);
+});
 </script>
 
 <!-- Toast + Boot warn host -->
