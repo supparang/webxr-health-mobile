@@ -1,4 +1,4 @@
-// === game/main.js (Option B pathing: imports from ./core/* under /game/) ===
+// === game/main.js (Option B, ultra-safe start + sound unlock + on-screen errors) ===
 import { sfx as SFX } from './core/sfx.js';
 import { Engine, FX } from './core/engine.js';
 import { ScoreSystem } from './core/score.js';
@@ -28,10 +28,8 @@ let state = {
   running: false,
   raf: 0,
   lastT: 0,
-  // for legacy modes
-  legacy: null,
-  // for new create()-style modes
-  ctrl: null
+  ctrl: null,     // for create({}) API
+  legacy: null    // for start/update API
 };
 
 const $ = (s)=>document.querySelector(s);
@@ -39,12 +37,13 @@ const modeBadge = $('#modeBadge');
 const diffBadge = $('#diffBadge');
 const scoreVal  = $('#scoreVal');
 const menuBar   = $('#menuBar');
+const spawnHost = $('#spawnHost');
 
 // ---------- HUD helpers ----------
 function toast(msg) {
   const el = $('#toast'); if (!el) return;
   el.textContent = msg; el.classList.add('show');
-  setTimeout(()=>{ try{ el.classList.remove('show'); }catch{} }, 900);
+  setTimeout(()=>{ try{ el.classList.remove('show'); }catch{} }, 1100);
 }
 function updatePowerBar() {
   const timers = power.getCombinedTimers();
@@ -60,13 +59,34 @@ function setActiveBtn(groupSel, value, attr) {
   });
 }
 
-// ---------- Bus: unify events from modes ----------
+// ---------- Safe mini-fallback (ถ้าโหมดพัง ให้ยังเล่นได้) ----------
+const Fallback = {
+  start(){
+    try{ spawnHost.innerHTML=''; }catch{}
+    const b = document.createElement('button');
+    b.textContent = '🥗';
+    b.className = 'spawn-emoji';
+    Object.assign(b.style,{
+      position:'fixed', left:'50%', top:'50%', transform:'translate(-50%,-50%)',
+      fontSize:'56px', border:'0', background:'transparent', zIndex:8
+    });
+    b.addEventListener('click',(ev)=>{
+      FX.popText('+10', {x:ev.clientX,y:ev.clientY});
+      score.addKind('good',{comboNow:score.combo});
+      engine.sfx.good();
+      scoreVal.textContent = String(score.get());
+    }, {passive:true});
+    document.body.appendChild(b);
+  },
+  stop(){ /* no-op */ },
+  update(){ /* no-op */ }
+};
+
+// ---------- Bus ----------
 const Bus = {
   hit(payload={}) {
-    // payload: { kind:'good'|'perfect'|'golden', points, ui:{x,y}, meta, comboNow? }
     const k = payload.kind || 'good';
     const meta = payload.meta || {};
-    // score:
     if (k === 'golden') {
       score.addKind('perfect', { ...meta, golden:true, comboNow: score.combo });
       power.apply('x2', 6);
@@ -87,7 +107,6 @@ const Bus = {
     score.addKind('bad', payload.meta || {});
     engine.sfx.bad();
     scoreVal.textContent = String(score.get());
-    // small red flash
     try{
       document.body.classList.add('flash-danger');
       setTimeout(()=>document.body.classList.remove('flash-danger'),160);
@@ -114,7 +133,7 @@ function loop(ts) {
       state.legacy.update(dt, Bus);
     }
   } catch(e) {
-    console.warn('update error', e);
+    showError(e);
   }
   state.raf = requestAnimationFrame(loop);
 }
@@ -126,39 +145,49 @@ function stopGame() {
   score.reset();
   try{ state.ctrl && state.ctrl.stop && state.ctrl.stop(); }catch{}
   try{ state.legacy && state.legacy.stop && state.legacy.stop(); }catch{}
-  try{ $('#spawnHost').innerHTML=''; }catch{}
+  try{ spawnHost.innerHTML=''; }catch{}
 }
 
 function startGame() {
   stopGame();
-  // HUD badges
+
+  // ปลดล็อกเสียงบนมือถือ + เด้งเสียงให้รู้ว่าทำงาน
+  SFX.unlock();
+  if (SFX.isEnabled()) { SFX.tick?.(); }
+
   modeBadge.textContent = state.mode;
   diffBadge.textContent = state.diff;
   scoreVal.textContent  = '0';
 
-  // instantiate controller (support both APIs)
-  const mod = MODS[state.mode];
+  let mod = MODS[state.mode];
   state.ctrl = null;
   state.legacy = null;
 
-  // newer API: create({engine,hud,coach})
-  if (mod && typeof mod.create === 'function') {
-    state.ctrl = mod.create({ engine });
-    state.ctrl.start?.({ difficulty: state.diff });
-  } else if (mod && typeof mod.start === 'function' && typeof mod.update === 'function') {
-    // legacy API: start(cfg), update(dt, bus)
-    state.legacy = mod;
-    state.legacy.start({ difficulty: state.diff });
-  } else {
-    alert('Mode not available: ' + state.mode);
-    return;
+  try {
+    if (mod && typeof mod.create === 'function') {
+      state.ctrl = mod.create({ engine });
+      state.ctrl.start?.({ difficulty: state.diff });
+    } else if (mod && typeof mod.start === 'function' && typeof mod.update === 'function') {
+      state.legacy = mod;
+      state.legacy.start({ difficulty: state.diff });
+    } else {
+      // ไม่มีโหมด → ใช้ fallback แทน
+      toast('Mode not available, using fallback');
+      state.ctrl = Fallback;
+      state.ctrl.start();
+    }
+  } catch (e) {
+    // ถ้าโหมดพัง → ใช้ fallback
+    showError(e);
+    toast('Mode error → fallback');
+    state.ctrl = Fallback;
+    state.ctrl.start();
   }
 
-  // hide menu and run
+  // ซ่อนเมนู & เริ่มลูป
   menuBar.style.display = 'none';
   state.running = true;
   state.lastT = 0;
-  power.dispose(); // reset power bar & timers
   state.raf = requestAnimationFrame(loop);
 }
 
@@ -168,6 +197,10 @@ function startGame() {
   const onHit = (ev) => {
     const t = ev.target.closest('.btn');
     if (!t) return;
+
+    // ปลดล็อกเสียงตั้งแต่มี gesture แรก
+    SFX.unlock();
+
     if (t.dataset.mode) {
       state.mode = t.dataset.mode;
       setActiveBtn('.btn[data-mode]', state.mode, 'mode');
@@ -185,20 +218,36 @@ function startGame() {
       return;
     }
     if (t.dataset.action === 'howto') {
-      alert('แตะของดี หลีกเลี่ยงของไม่ดี • Groups/Plate: เลือกให้ตรงหมวด • Hydration: รักษา 45–65%');
+      alert('• GoodJunk: แตะอาหารดี หลีกเลี่ยงของไม่ดี\n• Groups: แตะให้ตรงหมวด\n• Hydration: รักษา 45–65%\n• Plate: เติมครบตามโควตา');
       return;
     }
     if (t.dataset.action === 'sound') {
-      SFX.setEnabled(!SFX.isEnabled());
-      toast('Sound: ' + (SFX.isEnabled() ? 'ON' : 'OFF'));
+      const next = !SFX.isEnabled();
+      SFX.setEnabled(next);
+      SFX.unlock();
+      if (next) { SFX.good(); } // เล่นเสียงให้รู้ว่าเปิดแล้ว
+      toast('Sound: ' + (next ? 'ON' : 'OFF'));
       return;
     }
   };
-  ['click','pointerup','touchend'].forEach(e => mb.addEventListener(e, onHit, { passive:true }));
+  // bind หลายอีเวนต์ให้ครอบคลุมทุกอุปกรณ์/เบราว์เซอร์
+  ['click','pointerup','touchend','keydown'].forEach(e => mb.addEventListener(e, onHit, { passive:true }));
 })();
 
-// ---------- Mobile sound unlock on first gesture ----------
+// ---------- On-screen error box ----------
+function showError(e){
+  const msg = (e && (e.message || e.toString())) || 'Unknown error';
+  const box = document.createElement('div');
+  box.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:10000;background:#7f1d1d;color:#fff;padding:8px 12px;font:600 13px ui-rounded';
+  box.textContent='⚠️ '+msg;
+  document.body.appendChild(box);
+  console.error(e);
+}
+window.addEventListener('error',(e)=>showError(e.error||e));
+window.addEventListener('unhandledrejection',(e)=>showError(e.reason||e));
+
+// ---------- Mobile sound unlock on first gesture (เผื่อผู้ใช้กดตรงอื่น) ----------
 window.addEventListener('pointerdown', ()=>SFX.unlock(), { once:true, passive:true });
 
-// ---------- Debug helpers (optional) ----------
+// ---------- Debug helpers ----------
 try { window.HHA = { start: startGame, stop: stopGame, setMode:(m)=>state.mode=m, setDiff:(d)=>state.diff=d, score, power }; } catch {}
