@@ -1,409 +1,120 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hero Health Academy</title>
-  <meta name="color-scheme" content="light dark"/>
-
-  <style>
-    :root{
-      --bg:#0b1020; --fg:#e8f3ff; --muted:#94a3b8; --accent:#22d3ee; --danger:#ef4444;
-      --card:#111a2e; --chip:#0f172a; --ok:#2dd4bf; --warn:#fb923c;
-    }
-    *{box-sizing:border-box} html,body{height:100%} body{
-      margin:0; background:radial-gradient(1200px 800px at 50% -10%, #173056 10%, var(--bg) 55%  );
-      color:var(--fg); font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-    }
-    .game-wrap{position:relative; min-height:100dvh; overflow:hidden;}
-    #gameLayer{position:fixed; inset:0; pointer-events:none; z-index:3;}
-    #spawnHost{position:fixed; inset:0; pointer-events:auto; z-index:5;}
-
-    /* Top HUD bar */
-    .hudbar{position:fixed; left:0; right:0; top:0; z-index:20; display:flex; gap:12px;
-      align-items:center; padding:10px 14px; background:linear-gradient(#0b1425cc,#0b142580);
-      backdrop-filter:saturate(1.2) blur(6px); border-bottom:1px solid #0b1f3a;}
-    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px;
-      background:#0d1b31; border:1px solid #0e2242; color:#e6f2ff;}
-    .pill b{font-weight:900}
-    .hud-spacer{flex:1}
-
-    /* Score / Combo / Time */
-    .stat{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:#0e1a2f; border:1px solid #142a52; border-radius:10px;}
-    .stat .v{font:900 18px/1 ui-rounded}
-    #combo{min-width:40px; text-align:center}
-    #time{min-width:36px; text-align:center}
-
-    /* Target & badges (Groups) */
-    #targetWrap{display:none; gap:8px; align-items:center; padding:6px 10px; border-radius:12px; background:#0c1a31; border:1px solid #13305a;}
-    #targetBadge{font:800 13px/1.2 ui-rounded; opacity:.9}
-
-    /* Hydration bar */
-    #hydroWrap{display:none; align-items:center; gap:10px; padding:6px 10px; background:#0a1a2c; border:1px solid #113157; border-radius:12px;}
-    #hydroTrack{position:relative; width:160px; height:10px; border-radius:999px; background:#0b2746; overflow:hidden; border:1px solid #103058;}
-    #hydroBar{position:absolute; left:0; top:0; height:100%; width:50%; background:linear-gradient(90deg,#22d3ee,#06b6d4);}
-
-    /* Plate quotas */
-    #plateTracker{display:none; align-items:center; gap:10px; padding:6px 10px; background:#0b1a30; border:1px solid #0f2a52; border-radius:12px;}
-    #platePills{display:flex; gap:6px; flex-wrap:wrap}
-    #platePills .pill{background:#0c1d38}
-    #platePills .pill.ok{background:#0f2a26}
-
-    /* Quest chips */
-    #questChips{position:fixed; right:12px; bottom:12px; z-index:18; display:flex; flex-direction:column; gap:8px; width:min(360px,90vw);}
-    #questChips li{list-style:none; display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; padding:8px 10px;
-      background:#0b162b; border:1px solid #132748; border-radius:12px; box-shadow:0 4px 18px rgba(0,0,0,.25);}
-    #questChips li.done{outline:2px solid #22d3ee}
-    #questChips li.fail{opacity:.55; filter:grayscale(1)}
-    #questChips .ico{font-size:16px}
-    #questChips .bar{grid-column:1/-1; height:6px; background:#0b2546; border-radius:999px; overflow:hidden}
-    #questChips .bar i{display:block; height:100%; width:0; background:linear-gradient(90deg,#34d399,#10b981)}
-
-    /* Power bar — FIRE style */
-    #powerBarWrap{position:fixed; left:12px; bottom:12px; z-index:18; width:min(380px,92vw);}
-    #powerBar{position:relative; height:14px; border-radius:999px; background:#0a1931; border:1px solid #0f2a54; overflow:hidden;}
-    #powerFill{position:absolute; inset:0; width:0%;}
-    .fire{
-      position:absolute; left:0; top:0; bottom:0; width:100%;
-      background:
-        radial-gradient(30px 24px at 20% 110%, rgba(255,200,0,.9), rgba(255,130,0,.65) 55%, rgba(255,80,0,.0) 70%),
-        radial-gradient(26px 20px at 45% 110%, rgba(255,210,80,.85), rgba(255,120,0,.55) 55%, rgba(255,80,0,.0) 70%),
-        radial-gradient(34px 26px at 70% 110%, rgba(255,190,40,.9), rgba(255,110,0,.55) 55%, rgba(255,80,0,.0) 70%),
-        linear-gradient(0deg, rgba(255,140,0,.65), rgba(255,100,0,.25));
-      mix-blend-mode:screen; pointer-events:none; opacity:.9;
-      animation:fireRise .9s ease-in-out infinite;
-    }
-    @keyframes fireRise{
-      0%{ transform:translateY(8px) scaleY(.9); opacity:.85}
-      50%{ transform:translateY(0) scaleY(1); opacity:1}
-      100%{ transform:translateY(8px) scaleY(.9); opacity:.85}
-    }
-    /* blue glow trail */
-    #powerFill::before{
-      content:""; position:absolute; inset:0; background:linear-gradient(90deg, rgba(34,211,238,.7), rgba(125,211,252,.25));
-      filter:blur(4px); opacity:.7;
-    }
-
-    /* Coach bubble */
-    #coachHUD{position:fixed; left:12px; top:64px; z-index:18; display:none; max-width:54ch;}
-    #coachHUD.show{display:block}
-    #coachHUD .bubble{background:#0b1a31; border:1px solid #12345a; padding:10px 12px; border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,.3);}
-    #coachText{font:700 14px/1.4 ui-rounded}
-
-    /* Menu bar */
-    #menuBar{position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:30; background:linear-gradient(#0b1020d0,#0b1020d0);}
-    .menu-card{width:min(860px,94vw); background:linear-gradient(180deg,#0e1930,#0a1427); border:1px solid #132a4f; border-radius:16px; padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);}
-    .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px}
-    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px; border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; text-decoration:none}
-    .btn:hover{filter:brightness(1.08)}
-    .row{display:flex; gap:10px; flex-wrap:wrap}
-
-    /* Result modal */
-    #result{display:none; position:fixed; inset:0; z-index:40; align-items:center; justify-content:center; background:#0b1020dd;}
-    .result-card{width:min(560px,94vw); background:#0e1a31; border:1px solid #12345a; border-radius:16px; padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.55);}
-    #resultText{font:900 18px/1.3 ui-rounded; margin:8px 0 14px}
-
-    /* Toast + mission line */
-    .toast{position:fixed; left:50%; top:64px; transform:translateX(-50%); z-index:35; background:#0f1e38; border:1px solid #173867; padding:10px 14px; border-radius:12px; display:none}
-    .toast.show{display:block}
-    #missionLine{position:fixed; left:50%; top:100px; transform:translateX(-50%); z-index:34; display:none; padding:8px 12px; border-radius:12px; background:#0f2a26; border:1px solid #13584d; font:900 14px ui-rounded}
-
-    /* Danger flash */
-    .flash-danger, .flash-danger *{animation:flashDanger .16s linear 1}
-    @keyframes flashDanger{0%{filter:none} 50%{filter:contrast(1.2) saturate(1.1) drop-shadow(0 0 16px #ff4d4d)} 100%{filter:none}}
-
-    /* Clickable emoji spawns */
-    .spawn-emoji{position:absolute; border:0; background:transparent; transform:translate(-50%,-50%); font-size:40px; cursor:pointer;
-      text-shadow:0 2px 10px rgba(0,0,0,.35);}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Hero Health Academy</title>
+<meta name="color-scheme" content="light dark"/>
+<style>
+:root{--bg:#0b1020;--fg:#e8f3ff;--muted:#94a3b8;--accent:#22d3ee;}
+body{margin:0;background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);color:var(--fg);
+font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;}
+.game-wrap{position:relative;min-height:100dvh;overflow:hidden;}
+#gameLayer,#spawnHost{position:fixed;inset:0;}
+#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
+background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
+.menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
+padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;
+border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;}
+.btn:hover{filter:brightness(1.08)}
+#powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw);}
+#powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden;}
+#powerFill{position:absolute;inset:0;width:0%;}
+.fire{position:absolute;left:0;top:0;bottom:0;width:100%;
+background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
+radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
+radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
+linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
+mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite;}
+@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
+</style>
 </head>
-<body data-diff="Normal">
+<body>
 
-  <div class="game-wrap">
-    <div id="gameLayer"></div>
-    <div id="spawnHost"></div>
+<div class="game-wrap">
+  <div id="gameLayer"></div>
+  <div id="spawnHost"></div>
 
-    <!-- HUD Bar -->
-    <div class="hudbar" id="hudbar">
-      <span class="pill">Score <span class="v" id="score">0</span></span>
-      <span class="pill">Combo <span class="v" id="combo">x0</span></span>
-      <span class="pill">Time <span class="v" id="time">45</span></span>
-
-      <div id="targetWrap" class="pill"><span id="targetBadge">Target</span></div>
-
-      <div id="hydroWrap" class="pill">
-        <span>Hydration</span>
-        <div id="hydroTrack"><div id="hydroBar"></div></div>
-        <span id="hydroLabel">50%</span>
+  <div id="menuBar">
+    <div class="menu-card">
+      <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
+      <div>
+        <h3>Play Mode</h3>
+        <div class="btn" data-mode="goodjunk">🥗 Good vs Junk</div>
+        <div class="btn" data-mode="groups">🧺 5 Food Groups</div>
+        <div class="btn" data-mode="hydration">💧 Hydration</div>
+        <div class="btn" data-mode="plate">🍽️ Healthy Plate</div>
       </div>
-
-      <div id="plateTracker" class="pill">
-        <span>Plate</span>
-        <div id="platePills"></div>
+      <hr style="margin:12px 0;border-color:#133"/>
+      <div>
+        <h3>Difficulty</h3>
+        <div class="btn" data-diff="Easy">Easy</div>
+        <div class="btn" data-diff="Normal">Normal</div>
+        <div class="btn" data-diff="Hard">Hard</div>
       </div>
-
-      <div class="hud-spacer"></div>
-
-      <button class="btn" type="button" data-action="sound" aria-pressed="true" title="Sound">🔊 Sound</button>
-      <button class="btn" type="button" data-action="home">🏠 Home</button>
-    </div>
-
-    <!-- Coach -->
-    <div id="coachHUD"><div class="bubble"><div id="coachText">Ready!</div></div></div>
-
-    <!-- Power/Fever bar (fire style) -->
-    <div id="powerBarWrap">
-      <div id="powerBar">
-        <div id="powerFill" style="width:0%"><div class="fire"></div></div>
-      </div>
-    </div>
-
-    <!-- Quest chips -->
-    <ul id="questChips"></ul>
-
-    <!-- Toast & mission line -->
-    <div id="missionLine"></div>
-    <div id="toast" class="toast"></div>
-
-    <!-- Menu -->
-    <div id="menuBar">
-      <div class="menu-card">
-        <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
-        <div class="grid">
-          <div>
-            <h3 style="margin:8px 0 6px">Play Mode</h3>
-            <div class="row">
-              <button class="btn" data-mode="goodjunk">🥗 Good vs Junk</button>
-              <button class="btn" data-mode="groups">🧺 5 Food Groups</button>
-              <button class="btn" data-mode="hydration">💧 Hydration</button>
-              <button class="btn" data-mode="plate">🍽️ Healthy Plate</button>
-            </div>
-          </div>
-          <div>
-            <h3 style="margin:8px 0 6px">Difficulty</h3>
-            <div class="row">
-              <button class="btn" data-diff="Easy">Easy</button>
-              <button class="btn" data-diff="Normal">Normal</button>
-              <button class="btn" data-diff="Hard">Hard</button>
-            </div>
-          </div>
-          <div>
-            <h3 style="margin:8px 0 6px">Controls</h3>
-            <div class="row">
-              <button class="btn" data-action="start">▶️ Start</button>
-              <button class="btn" data-action="howto">❓ How to Play</button>
-            </div>
-          </div>
-        </div>
-        <p style="margin:12px 2px 4px; color:var(--muted); font-size:14px">Tip: แตะครั้งแรกเพื่อปลดล็อกเสียงบนมือถือ</p>
-      </div>
-    </div>
-
-    <!-- Result -->
-    <div id="result">
-      <div class="result-card">
-        <h3 style="margin:0 0 6px;font:900 20px ui-rounded">Result</h3>
-        <div id="resultText">Score 0 • Max Combo 0</div>
-        <div class="row">
-          <button class="btn" data-result="replay">🔁 Replay</button>
-          <button class="btn" data-result="home">🏠 Home</button>
-        </div>
-      </div>
+      <hr style="margin:12px 0;border-color:#133"/>
+      <div class="btn" data-action="start">▶️ Start</div>
+      <div class="btn" data-action="howto">❓ How to Play</div>
     </div>
   </div>
 
-  <!-- SFX audio -->
-  <audio id="sfx-good"    preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad"     preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick"    preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
+  <div id="powerBarWrap"><div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div></div>
+</div>
 
-  <!-- Main entry -->
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.159.0/build/three.module.js';
-    import { Engine } from './core/engine.js';
-    import { createHUD } from './core/hud.js';
-    import { ScoreSystem } from './core/score.js';
-    import { PowerUpSystem } from './core/powerup.js';
-    import { MissionSystem } from './core/mission-system.js';
-    import { Progress } from './core/progression.js';
-    import { Quests } from './core/quests.js';
-    import { sfx as SFX } from './core/sfx.js';
+<!-- SFX -->
+<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
+<audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
+<audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
+<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
+<audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-    import * as goodjunk  from './game/modes/goodjunk.js';
-    import * as groups    from './game/modes/groups.js';
-    import * as hydration from './game/modes/hydration.js';
-    import * as plate     from './game/modes/plate.js';
+<script type="module">
+import { sfx as SFX } from './core/sfx.js';
+import { Engine } from './core/engine.js';
+import * as goodjunk from './game/modes/goodjunk.js';
+import * as groups from './game/modes/groups.js';
+import * as hydration from './game/modes/hydration.js';
+import * as plate from './game/modes/plate.js';
 
-    // ---------- Boot ----------
-    const engine = new Engine(THREE, document.getElementById('c'));
-    engine.sfx = SFX;
-    SFX.loadIds(['sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']);
-    SFX.setVolume(0.9);
+const engine = new Engine();
+engine.sfx = SFX;
+SFX.loadIds(['sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']);
 
-    Progress.init();
+const MODS = {goodjunk,groups,hydration,plate};
+let current = {mode:'goodjunk',diff:'Normal'};
 
-    const HUD = createHUD({
-      onHome: ()=> showMenu(true),
-      onReplay: ()=> startGame(current.mode, current.diff)
-    });
+window.hha_start = ()=> startGame(current.mode,current.diff);
+window.hha_setMode = (m)=> current.mode=m;
+window.hha_setDiff = (d)=> current.diff=d;
 
-    const score = new ScoreSystem();
-    const power = new PowerUpSystem();
-    power.onChange(function(t){
-      // Power bar UI
-      var fill = document.getElementById('powerFill');
-      if (fill && fill.style){
-        var pct = Math.min(100, Math.max(0,
-          (t.x2?25:0) + (t.freeze?15:0) + (t.sweep?10:0) + (t.shield?20:0)
-        ));
-        fill.style.width = String(pct)+'%';
-      }
-    });
-    power.attachToScore(score);
+function startGame(mode,diff){
+  alert('🎮 Start: '+mode+' ('+diff+')');
+  document.getElementById('menuBar').style.display='none';
+  SFX.good();
+}
 
-    const mission = new MissionSystem();
-    const questCtl = Quests.bindToMain({ hud: HUD });
+// HOTFIX: universal click/touch delegate
+(function(){
+  const mb=document.getElementById('menuBar');
+  function closest(ev,sel){return ev.target.closest(sel);}
+  function onHit(ev){
+    let el;
+    if(el=closest(ev,'[data-mode]')){window.hha_setMode(el.dataset.mode);return;}
+    if(el=closest(ev,'[data-diff]')){window.hha_setDiff(el.dataset.diff);return;}
+    if(el=closest(ev,'[data-action="start"]')){window.hha_start();return;}
+    if(el=closest(ev,'[data-action="howto"]')){alert('แตะอาหารดี หลีกเลี่ยงของไม่ดี ภายในเวลาที่กำหนด!');return;}
+  }
+  ['click','touchend','pointerup'].forEach(e=>mb.addEventListener(e,onHit,{passive:true}));
+})();
 
-    // Simple Coach hooks (optional)
-    const coach = {
-      onStart: function(){ try{ document.getElementById('coachHUD').classList.add('show'); document.getElementById('coachText').textContent='เริ่มได้!'; }catch(e){} },
-      onGood:  function(){ try{ document.getElementById('coachText').textContent='ดีมาก! รักษาไว้'; }catch(e){} },
-      onBad:   function(){ try{ document.getElementById('coachText').textContent='ระวัง! ปรับให้พอดี'; }catch(e){} },
-      onQuestProgress: function(msg,cur,need){ try{ document.getElementById('coachText').textContent=msg+' ('+cur+'/'+need+')'; }catch(e){} },
-      onQuestDone: function(){ try{ engine.sfx?.perfect(); }catch(e){} },
-      onQuestFail: function(){ try{ engine.sfx?.bad(); }catch(e){} }
-    };
-
-    // Mode registry
-    const MODS = { goodjunk, groups, hydration, plate };
-
-    // Gameplay state
-    const current = { mode:'goodjunk', diff:'Normal', lang:(navigator.language||'th').toUpperCase().startsWith('TH')?'TH':'EN', running:false };
-    try{ localStorage.setItem('hha_lang', current.lang); }catch(e){}
-
-    // Menu bindings
-    function showMenu(on){
-      var m=document.getElementById('menuBar'); if(!m) return;
-      m.style.display = on?'flex':'none';
-    }
-    function setDiff(d){ document.body.setAttribute('data-diff', d); current.diff=d; }
-    function bindMenu(){
-      var mb=document.getElementById('menuBar'); if(!mb) return;
-      var btns=mb.querySelectorAll('[data-mode]'); for(var i=0;i<btns.length;i++){
-        btns[i].addEventListener('click', (function(el){ return function(){
-          current.mode=el.getAttribute('data-mode'); }; })(btns[i]), {passive:true});
-      }
-      var diffs=mb.querySelectorAll('[data-diff]'); for(var j=0;j<diffs.length;j++){
-        diffs[j].addEventListener('click', (function(el){ return function(){
-          setDiff(el.getAttribute('data-diff')); }; })(diffs[j]), {passive:true});
-      }
-      var start=mb.querySelector('[data-action="start"]');
-      if(start){ start.addEventListener('click', function(){ startGame(current.mode, current.diff); }, {passive:true}); }
-      var how=mb.querySelector('[data-action="howto"]');
-      if(how){ how.addEventListener('click', function(){
-        alert('วิธีเล่น: แตะ/คลิกเลือกเป้าหมายที่ถูกต้อง เก็บของดี หลีกเลี่ยงของไม่ดี ทำเควสต์ให้ครบภายในเวลา!');
-      }, {passive:true}); }
-    }
-    bindMenu();
-
-    // Sound toggle on HUD
-    (function(){
-      var b=document.querySelector('[data-action="sound"]'); if(!b) return;
-      function sync(){ b.setAttribute('aria-pressed', SFX.isEnabled()?'true':'false'); b.textContent = (SFX.isEnabled()?'🔊 Sound':'🔈 Muted'); }
-      b.addEventListener('click', function(){ SFX.setEnabled(!SFX.isEnabled()); sync(); }, {passive:true});
-      sync();
-    })();
-
-    // Bus (events from modes)
-    engine.Bus = {
-      hit: function(payload){
-        var k = payload && payload.kind || 'good';
-        score.addKind(k, { ui:payload.ui||{}, meta:payload.meta||{} });
-        if (k==='perfect'){ Progress.notify('perfect'); }
-        if (payload && payload.meta && payload.meta.golden){ Progress.notify('golden'); }
-        HUD.updateScore(score.get(), score.combo|0, getTimeLeft());
-        Quests.event('hit', { result:k, meta:payload.meta||{}, comboNow:score.combo|0 });
-        Progress.notify('score_tick', { score:score.get() });
-      },
-      miss: function(payload){
-        score.addKind('bad', { ui:(payload&&payload.ui)||{}, meta:(payload&&payload.meta)||{} });
-        HUD.dimPenalty(); HUD.updateScore(score.get(), score.combo|0, getTimeLeft());
-        Quests.event('hit', { result:'bad', meta:(payload&&payload.meta)||{}, comboNow:0 });
-      }
-    };
-
-    // Ticker
-    var lastTs=0, timeLeft=45, rafId=0, modeObj=null;
-    function getTimeLeft(){ return timeLeft|0; }
-
-    function startGame(modeKey, diff){
-      // reset HUD/UI
-      document.getElementById('result').style.display='none';
-      showMenu(false);
-      score.reset(); timeLeft=45; HUD.updateScore(0,0,timeLeft);
-
-      // set difficulty
-      setDiff(diff||'Normal');
-
-      // begin run
-      Progress.beginRun(modeKey, diff, current.lang);
-      Quests.setLang(current.lang);
-      Quests.beginRun(modeKey, diff, current.lang, 45);
-
-      // start mode
-      if(modeObj && modeObj.cleanup) modeObj.cleanup();
-      var mod = MODS[modeKey] || MODS.goodjunk;
-      modeObj = (mod && mod.create) ? mod.create({ engine:engine, hud:HUD, coach:coach }) : null;
-      if(modeObj && modeObj.start) modeObj.start();
-
-      current.running=true;
-      cancelAnimationFrame(rafId); lastTs=performance.now(); tick();
-    }
-
-    function stopGame(showSummary){
-      current.running=false;
-      if(modeObj && modeObj.stop) modeObj.stop();
-      if(showSummary){
-        var g=score.get(); var bc=score.bestCombo|0;
-        Progress.endRun({ score:g, bestCombo:bc, timePlayed:(45-timeLeft)|0, acc:0 });
-        HUD.showResult({ score:g, combo:bc, quests:[] });
-        Quests.endRun({ score:g });
-      }
-      cancelAnimationFrame(rafId);
-    }
-
-    function tick(){
-      var now=performance.now(); var dt=(now-lastTs)/1000; if(dt>0.2) dt=0.2; lastTs=now;
-
-      if(current.running){
-        timeLeft = Math.max(0, timeLeft - dt);
-        HUD.updateScore(score.get(), score.combo|0, timeLeft|0);
-
-        if(modeObj && modeObj.update) modeObj.update(dt, engine.Bus);
-
-        // Quests / Missions heartbeat
-        if(((now|0)%1000)<17){
-          Quests.tick({ score:score.get() });
-          mission.tick({ missions:[] }, { score:score.get() }, null, { hud:HUD, coach:coach, lang:current.lang });
-          SFX.tick(); // soft tick (optional)
-        }
-
-        if(timeLeft<=0){ stopGame(true); return; }
-      }
-      rafId=requestAnimationFrame(tick);
-    }
-
-    // Home button
-    (function(){
-      var b=document.querySelector('[data-action="home"]'); if(!b) return;
-      b.addEventListener('click', function(){ stopGame(false); showMenu(true); }, {passive:true});
-    })();
-
-    // Auto show menu
-    showMenu(true);
-  </script>
+// error display
+window.addEventListener('error',e=>{
+  const box=document.createElement('div');
+  box.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:10000;background:#7f1d1d;color:#fff;padding:8px 12px;font:600 13px ui-rounded';
+  box.textContent='⚠️ '+(e.message||'Script error');
+  document.body.appendChild(box);
+});
+</script>
 </body>
 </html>
