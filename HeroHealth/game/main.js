@@ -1,4 +1,4 @@
-ฃ// === Hero Health Academy — game/main.js (HUD + Coach + Missions + Timer) ===
+// === Hero Health Academy — game/main.js (HUD + Coach + Missions + Timer) ===
 import { sfx as SFX } from './core/sfx.js';
 import { Engine, FX } from './core/engine.js';
 import { ScoreSystem } from './core/score.js';
