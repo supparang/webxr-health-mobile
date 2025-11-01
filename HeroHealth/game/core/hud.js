@@ -1,174 +1,160 @@
-// === core/hud.js (HUD v2: top bar + chips + mission + fever + stars + result) ===
+// === core/hud.js (HUD overlay + result modal + fever bar + helpers) ===
+'use strict';
+
 export class HUD {
-  constructor () {
+  constructor(){
     this.root = document.getElementById('hud');
-    if (!this.root) {
+    if(!this.root){
       this.root = document.createElement('div');
       this.root.id = 'hud';
       this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2000;';
       document.body.appendChild(this.root);
     }
-    // top bar
+
+    // Top bar
     this.top = document.createElement('div');
     this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
-    this.top.innerHTML = `
-      <div style="display:flex;gap:8px;align-items:center">
-        <span id="hudMode"   class="hud-pill">—</span>
-        <span id="hudDiff"   class="hud-pill">—</span>
-        <span id="hudTime"   class="hud-pill" style="min-width:64px;text-align:center">—</span>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <span class="hud-pill">Score: <b id="hudScore">0</b></span>
-        <span class="hud-pill" style="color:#fde68a">Combo: <b id="hudCombo">0</b></span>
-        <span id="hudStars" class="hud-pill" title="Stars">⭐⭐⭐⭐⭐</span>
-      </div>`;
+    this.top.innerHTML =
+      '<div style="display:flex;gap:8px;align-items:center">'+
+        '<span id="hudMode"  style="padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;pointer-events:auto">—</span>'+
+        '<span id="hudDiff"  style="padding:4px 8px;border-radius:10px;background:#102b52;color:#e6f5ff;border:1px solid #1b4b8a;pointer-events:auto">—</span>'+
+        '<span id="hudTime"  style="padding:4px 8px;border-radius:10px;background:#0a1f3d;color:#c9e7ff;border:1px solid #123863;min-width:64px;text-align:center;pointer-events:auto">—</span>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;align-items:center">'+
+        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>'+
+        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>'+
+      '</div>';
     this.root.appendChild(this.top);
-    // pill style
-    const css = document.createElement('style');
-    css.textContent = `.hud-pill{padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;pointer-events:auto}`;
-    document.head.appendChild(css);
-
-    // fever banner
-    this.fever = document.createElement('div');
-    this.fever.style.cssText = 'position:absolute;left:50%;top:54px;transform:translateX(-50%);padding:8px 14px;border-radius:12px;background:#c026d3;color:#fff;font:900 16px ui-rounded;display:none;pointer-events:none;box-shadow:0 8px 22px rgba(192,38,211,.35)';
-    this.fever.textContent = 'FEVER!';
-    this.root.appendChild(this.fever);
-
-    // stage progress (mission timeline)
-    this.stage = document.createElement('div');
-    this.stage.style.cssText = 'position:absolute;left:12px;right:12px;top:46px;height:8px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;pointer-events:none';
-    this.stage.innerHTML = `<b id="stageFill" style="display:block;height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#14b8a6)"></b>`;
-    this.root.appendChild(this.stage);
-    this.$stageFill = this.stage.querySelector('#stageFill');
-
-    // quest chips
-    this.chipsWrap = document.createElement('div');
-    this.chipsWrap.id = 'questChips';
-    this.chipsWrap.style.cssText = 'position:absolute;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:90vw;pointer-events:none';
-    this.root.appendChild(this.chipsWrap);
-
-    // mission popup
-    this.mission = document.createElement('div');
-    this.mission.style.cssText = 'position:absolute;left:50%;bottom:100px;transform:translateX(-50%);background:#0e1930;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:14px;padding:10px 12px;box-shadow:0 12px 28px rgba(0,0,0,.45);display:none;pointer-events:auto;max-width:92vw';
-    this.mission.innerHTML = `<div id="msTitle" style="font:900 16px ui-rounded;margin-bottom:4px">Mission</div>
-      <div id="msLine" style="display:flex;gap:8px;align-items:center">
-        <span id="msIcon" style="font-size:18px">⭐</span>
-        <span id="msText">—</span>
-        <i style="height:6px;width:160px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;margin-left:8px">
-          <b id="msBar" style="display:block;height:100%;width:0%;background:#22d3ee"></b>
-        </i>
-      </div>`;
-    this.root.appendChild(this.mission);
-    this.$msIcon = this.mission.querySelector('#msIcon');
-    this.$msText = this.mission.querySelector('#msText');
-    this.$msBar  = this.mission.querySelector('#msBar');
-
-    // coach bubble (if not present)
-    this.coach = document.getElementById('coachBox');
-    if(!this.coach){
-      this.coach = document.createElement('div');
-      this.coach.id = 'coachBox';
-      this.coach.style.cssText = 'position:absolute;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none';
-      this.root.appendChild(this.coach);
-    }
-
-    // result modal
-    this.result = document.createElement('div');
-    this.result.id = 'resultModal';
-    this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto';
-    this.result.innerHTML = `
-      <div style="width:min(520px,92vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:16px;color:#e6f2ff">
-        <h3 style="margin:0 0 6px;font:900 20px ui-rounded" id="resTitle">Result</h3>
-        <p  id="resDesc"  style="margin:0 0 10px;color:#cfe7ff">—</p>
-        <div id="resStats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
-        <div id="resStars" style="font-size:22px;margin:8px 0">★★★★★</div>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="resHome" style="padding:8px 10px;border-radius:10px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer">🏠 Home</button>
-          <button id="resRetry" style="padding:8px 10px;border-radius:10px;background:#123054;color:#dff2ff;border:1px solid #1e4d83;cursor:pointer">↻ Retry</button>
-        </div>
-      </div>`;
-    this.root.appendChild(this.result);
     this.$mode  = this.top.querySelector('#hudMode');
     this.$diff  = this.top.querySelector('#hudDiff');
     this.$time  = this.top.querySelector('#hudTime');
     this.$score = this.top.querySelector('#hudScore');
     this.$combo = this.top.querySelector('#hudCombo');
-    this.$stars = this.top.querySelector('#hudStars');
+
+    // Fever bar (bottom-left)
+    this.powerWrap = document.getElementById('powerBarWrap');
+    if(!this.powerWrap){
+      this.powerWrap = document.createElement('div');
+      this.powerWrap.id = 'powerBarWrap';
+      this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw);pointer-events:none';
+      this.powerWrap.innerHTML =
+        '<div id="powerBar" style="position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
+          '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
+        '</div>';
+      document.body.appendChild(this.powerWrap);
+    }
+    this.$powerFill = this.powerWrap.querySelector('#powerFill');
+
+    // Coach host (text bubble)
+    this.coachBox = document.getElementById('coachBox');
+    if(!this.coachBox){
+      this.coachBox = document.createElement('div');
+      this.coachBox.id = 'coachBox';
+      this.coachBox.style.cssText = 'position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none;z-index:2001';
+      document.body.appendChild(this.coachBox);
+    }
+
+    // Quest chips (sequential focus)
+    this.chips = document.createElement('div');
+    this.chips.id = 'questChips';
+    this.chips.style.cssText = 'position:fixed;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:92vw;pointer-events:none';
+    this.root.appendChild(this.chips);
+
+    // Result modal
+    this.result = document.createElement('div');
+    this.result.id = 'resultModal';
+    this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:2002';
+    this.result.innerHTML =
+      '<div style="width:min(560px,94vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:16px;color:#e6f2ff">'+
+        '<h3 id="resTitle" style="margin:0 0 6px;font:900 20px ui-rounded">Result</h3>'+
+        '<p  id="resDesc"  style="margin:0 0 10px;color:#cfe7ff;white-space:pre-line">—</p>'+
+        '<div id="resStats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>'+
+        '<div id="resExtra" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>'+
+        '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+          '<button id="resHome"  style="padding:8px 10px;border-radius:10px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer">🏠 Home</button>'+
+          '<button id="resRetry" style="padding:8px 10px;border-radius:10px;background:#123054;color:#dff2ff;border:1px solid #1e4d83;cursor:pointer">↻ Retry</button>'+
+        '</div>'+
+      '</div>';
+    this.root.appendChild(this.result);
     this.$resTitle = this.result.querySelector('#resTitle');
     this.$resDesc  = this.result.querySelector('#resDesc');
     this.$resStats = this.result.querySelector('#resStats');
-    this.$resStars = this.result.querySelector('#resStars');
+    this.$resExtra = this.result.querySelector('#resExtra');
 
-    this.onHome = null; this.onRetry = null;
-    this.result.querySelector('#resHome').onclick  = ()=> this.onHome?.();
-    this.result.querySelector('#resRetry').onclick = ()=> this.onRetry?.();
+    this.onHome = null;
+    this.onRetry = null;
+    this.result.querySelector('#resHome').onclick  = ()=>this.onHome && this.onHome();
+    this.result.querySelector('#resRetry').onclick = ()=>this.onRetry && this.onRetry();
   }
 
-  setTop({ mode, diff, time, score, combo, stars }) {
-    if (mode  != null) this.$mode.textContent  = String(mode);
-    if (diff  != null) this.$diff.textContent  = String(diff);
-    if (time  != null) this.$time.textContent  = String(time)+'s';
-    if (score != null) this.$score.textContent = String(score|0);
-    if (combo != null) this.$combo.textContent = String(combo|0);
-    if (stars != null) this.$stars.textContent = '★★★★★'.slice(0, stars) + '☆☆☆☆☆'.slice(stars);
-  }
+  // Top HUD setters
+  setTop({mode,diff}={}){ if(mode!=null) this.$mode.textContent=String(mode); if(diff!=null) this.$diff.textContent=String(diff); }
+  setTimer(sec){ this.$time.textContent = Math.max(0, Math.round(sec)) + 's'; }
+  updateHUD(score, combo){ this.$score.textContent = String(score|0); this.$combo.textContent = String(combo|0); }
 
-  setStageProgress(pct=0){ this.$stageFill.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
-
-  setQuestChips(chips = []) {
+  // Quest chips: [{key,label,progress,need,done,fail,icon,active}]
+  setQuestChips(list=[]){
     const frag = document.createDocumentFragment();
-    for (const m of chips) {
+    for(const m of list){
+      const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
       const d = document.createElement('div');
-      d.style.cssText = 'pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;border:1px solid #16325d;background:#0d1a31;color:#e6f2ff';
-      const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : (m.done&&!m.fail?100:0);
-      d.innerHTML = `<span style="font-size:16px">${m.icon||'⭐'}</span>
-        <span style="font:700 12.5px ui-rounded">${m.label||m.key}</span>
-        <span style="font:700 12px;color:${m.fail?'#fecaca':'#a7f3d0'};margin-left:6px">${m.progress||0}/${m.need||0}</span>
-        <i style="height:6px;width:100px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;display:inline-block;margin-left:6px">
-          <b style="display:block;height:100%;width:${pct}%;background:${m.done? (m.fail?'#ef4444':'#22c55e'):'#22d3ee'}"></b>
-        </i>`;
+      d.style.cssText = 'pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;border:2px solid '+(m.active?'#22d3ee':'#16325d')+';background:'+(m.done?'#0f2e1f':m.fail?'#361515':'#0d1a31')+';color:#e6f2ff;';
+      d.innerHTML =
+        '<span style="font-size:16px">'+(m.icon||'⭐')+'</span>'+
+        '<span style="font:700 12.5px ui-rounded">'+(m.label||m.key)+'</span>'+
+        '<span style="font:700 12px;color:#a7f3d0;margin-left:6px">'+(m.progress||0)+'/'+(m.need||0)+'</span>'+
+        '<i style="height:6px;width:120px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;display:inline-block;margin-left:6px">'+
+          '<b style="display:block;height:100%;width:'+pct+'%;background:'+(m.done?(m.fail?'#ef4444':'#22c55e'):'#22d3ee')+'"></b>'+
+        '</i>';
       frag.appendChild(d);
     }
-    this.chipsWrap.innerHTML = '';
-    this.chipsWrap.appendChild(frag);
+    this.chips.innerHTML = '';
+    this.chips.appendChild(frag);
   }
 
-  showMission({icon='⭐', text='—', progress=0, need=1}) {
-    this.$msIcon.textContent = icon;
-    this.$msText.textContent = text;
-    this.$msBar.style.width  = Math.min(100, Math.round( (progress/Math.max(1,need))*100)) + '%';
-    this.mission.style.display = 'block';
-  }
-  updateMissionProgress(progress, need){
-    this.$msBar.style.width  = Math.min(100, Math.round( (progress/Math.max(1,need))*100)) + '%';
-  }
-  hideMission(){ this.mission.style.display = 'none'; }
-
-  fever(on=true){ this.fever.style.display = on ? 'block' : 'none'; }
-
-  say(text = '') {
-    if (!text) { this.coach.style.display = 'none'; return; }
-    this.coach.textContent = text;
-    this.coach.style.display = 'block';
-    clearTimeout(this._sayTo);
-    this._sayTo = setTimeout(()=>{ this.coach.style.display = 'none'; }, 1400);
-  }
-
-  showResult({ title='Result', desc='—', stats=[], stars=0 }) {
-    this.$resTitle.textContent = title;
-    this.$resDesc.textContent  = desc;
-    const frag = document.createDocumentFragment();
-    for (const s of stats) {
-      const b = document.createElement('div');
-      b.style.cssText = 'padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38';
-      b.textContent = s;
-      frag.appendChild(b);
+  // Fever visuals
+  showFever(on){
+    const f = this.$powerFill;
+    if(on){
+      f.innerHTML =
+        '<div class="fire" style="position:absolute;left:0;top:0;bottom:0;width:100%;'+
+        'background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,0)70%),'+
+        'radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,0)70%),'+
+        'radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,0)70%),'+
+        'linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite"></div>';
+    } else {
+      f.innerHTML = '';
     }
-    this.$resStats.innerHTML = '';
-    this.$resStats.appendChild(frag);
-    this.$resStars.textContent = '★★★★★'.slice(0, stars) + '☆☆☆☆☆'.slice(stars);
-    this.result.style.display = 'flex';
   }
-  hideResult(){ this.result.style.display = 'none'; }
+  resetBars(){ this.$powerFill.innerHTML=''; }
+
+  // Float text
+  showFloatingText(x,y,text){
+    const el=document.createElement('div');
+    el.textContent=String(text);
+    el.style.cssText='position:fixed;left:'+((x|0))+'px;top:'+((y|0))+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:2100;opacity:1;transition:all .72s ease-out;';
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
+    setTimeout(()=>{ try{el.remove();}catch{}; }, 720);
+  }
+
+  // Result
+  showResult({title='Result',desc='—',stats=[],extra=[]}={}){
+    this.$resTitle.textContent = String(title);
+    this.$resDesc.textContent  = String(desc);
+    const frag1=document.createDocumentFragment(), frag2=document.createDocumentFragment();
+    for(const s of stats){ const b=document.createElement('div'); b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38'; b.textContent=String(s); frag1.appendChild(b); }
+    for(const s of extra){ const b=document.createElement('div'); b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff'; b.textContent=String(s); frag2.appendChild(b); }
+    this.$resStats.innerHTML=''; this.$resStats.appendChild(frag1);
+    this.$resExtra.innerHTML=''; this.$resExtra.appendChild(frag2);
+    this.result.style.display='flex';
+  }
+  hideResult(){ this.result.style.display='none'; }
+
+  // Small toast
+  toast(text){
+    let t=document.getElementById('toast');
+    if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040'; document.body.appendChild(t); }
+    t.textContent=String(text); t.style.opacity='1'; setTimeout(()=>{ t.style.opacity='0'; },1200);
+  }
 }
-export default { HUD };
