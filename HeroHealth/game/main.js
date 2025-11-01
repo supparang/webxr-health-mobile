@@ -1,60 +1,37 @@
-// === Hero Health Academy — game/main.js (menu hide + safe Coach + Fallback + Watchdog) ===
+// === Hero Health Academy — game/main.js (stable start + HUD + coach-safe) ===
 window.__HHA_BOOT_OK = 'main';
 
-(function () {
-  const $  = (s) => document.querySelector(s);
-  const $$ = (s) => document.querySelectorAll(s);
+(function(){
+  const $  = (s)=>document.querySelector(s);
+  const $$ = (s)=>document.querySelectorAll(s);
 
-  function toast(text){
-    let el = $('#toast');
-    if(!el){ el = document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-    el.textContent = text; el.classList.add('show');
-    setTimeout(()=>el.classList.remove('show'), 1400);
-  }
-
-  function hideMenuHard(){
-    const mb = $('#menuBar'); if (!mb) return;
-    mb.setAttribute('data-hidden','1'); mb.setAttribute('aria-hidden','true');
-    Object.assign(mb.style,{display:'none',visibility:'hidden',pointerEvents:'none',zIndex:'-1'});
-  }
-  function showMenuHard(){
-    const mb = $('#menuBar'); if (!mb) return;
-    mb.removeAttribute('data-hidden'); mb.removeAttribute('aria-hidden');
-    Object.assign(mb.style,{display:'',visibility:'',pointerEvents:'auto',zIndex:'9999'});
-  }
-
-  // --------- Safe stubs ----------
-  let ScoreSystem, SFXClass, Quests, Progress, VRInput, CoachClass;
+  // ---------- Robust imports with fallbacks ----------
+  let ScoreSystem, SFXClass, Quests, Progress, CoachClass;
 
   async function loadCore() {
-    try { ({ ScoreSystem } = await import('./core/score.js')); }
-    catch { ScoreSystem = class{ constructor(){this.value=0;this.combo=0;this.bestCombo=0;} add(n=0){this.value+=n;} get(){return this.value|0;} reset(){this.value=0;this.combo=0;this.bestCombo=0;} }; }
-
-    try { ({ SFX: SFXClass } = await import('./core/sfx.js')); }
-    catch { SFXClass = class{ play(){} tick(){} good(){} bad(){} perfect(){} power(){} }; }
-
-    try { ({ Quests } = await import('./core/quests.js')); }
+    try { const m = await import('./core/score.js'); ScoreSystem = m.ScoreSystem || m.default; } catch {
+      ScoreSystem = class{ constructor(){this.value=0;this.combo=0;this.bestCombo=0;} add(n=0){this.value+=n;} get(){return this.value|0;} reset(){this.value=0;this.combo=0;this.bestCombo=0;} };
+    }
+    try { const m = await import('./core/sfx.js'); SFXClass = m.SFX || m.default; } catch {
+      SFXClass = class{ constructor(){this.enabled=true;} setEnabled(v){this.enabled=!!v;} isEnabled(){return !!this.enabled;} play(){} good(){} bad(){} perfect(){} tick(){} power(){} };
+    }
+    try { const m = await import('./core/quests.js'); Quests = m.Quests || m.default || { beginRun(){}, event(){}, tick(){}, endRun(){return[]}, bindToMain(){return{refresh(){}}} }; }
     catch { Quests = { beginRun(){}, event(){}, tick(){}, endRun(){return[]}, bindToMain(){return{refresh(){}}} }; }
-
-    try { ({ Progress } = await import('./core/progression.js')); }
+    try { const m = await import('./core/progression.js'); Progress = m.Progress || m.default || { init(){}, beginRun(){}, endRun(){}, emit(){}, getStatSnapshot(){return{};}, profile(){return{};} }; }
     catch { Progress = { init(){}, beginRun(){}, endRun(){}, emit(){}, getStatSnapshot(){return{};}, profile(){return{};} }; }
 
-    try { ({ VRInput } = await import('./core/vrinput.js')); }
-    catch { VRInput = { init(){}, toggleVR(){}, isXRActive(){return false;}, isGazeMode(){return false;} }; }
-
-    // Coach: รองรับหลายรูปแบบ export
+    // Coach must be a constructor
     try {
-      const cmod = await import('./core/coach.js');
-      CoachClass = (typeof cmod?.Coach === 'function') ? cmod.Coach
-                 : (typeof cmod?.default === 'function') ? cmod.default
-                 : cmod?.CoachClass;
-    } catch {}
-    if (typeof CoachClass !== 'function') {
+      const m = await import('./core/coach.js');
+      const C = (typeof m.Coach==='function') ? m.Coach : (typeof m.default==='function' ? m.default : null);
+      if (!C) throw new Error('Coach ctor missing');
+      CoachClass = C;
+    } catch {
       CoachClass = class {
         constructor(){ this.lang=(localStorage.getItem('hha_lang')||'TH').toUpperCase(); }
-        _say(m){ let b=document.getElementById('coachHUD'); if(!b){ b=document.createElement('div'); b.id='coachHUD';
-          b.style.cssText='position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;z-index:6000';
-          document.body.appendChild(b);} b.textContent=m; clearTimeout(this._to); this._to=setTimeout(()=>{ b.remove(); },1400); }
+        _say(msg){ let box=$('#coachBox'); if(!box){ box=document.createElement('div'); box.id='coachBox'; box.style.cssText='position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:2000'; document.body.appendChild(box); }
+          box.textContent=msg; box.style.display='block'; clearTimeout(this._to); this._to=setTimeout(()=>box.style.display='none',1400);
+        }
         onStart(){ this._say(this.lang==='EN'?'Ready? Go!':'พร้อมไหม? ลุย!'); }
         onGood(){ this._say(this.lang==='EN'?'+Nice!':'+ดีมาก!'); }
         onPerfect(){ this._say(this.lang==='EN'?'PERFECT!':'เป๊ะเว่อร์!'); }
@@ -65,258 +42,193 @@ window.__HHA_BOOT_OK = 'main';
     }
   }
 
-  // --------- Builtin fallback (Good vs Junk DOM-spawn) ----------
-  function BuiltinGoodJunk(){
-    const GOOD = ['🥦','🥕','🍎','🍌','🍇','🍓','🥗','🐟','🥜','🥛'];
-    const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧋','🥤','🍰','🌭'];
-    let host, timer, alive = new Set();
-
-    function ensureHost(){
-      host = document.getElementById('spawnHost');
-      if (!host) { host = document.createElement('div'); host.id='spawnHost'; document.body.appendChild(host); }
-      Object.assign(host.style, {
-        position:'fixed', left:0, top:0, right:0, bottom:0,
-        pointerEvents:'auto', zIndex: 5000   // ⬅️ รับคลิกแน่นอน
-      });
-    }
-    function rand(min,max){ return Math.random()*(max-min)+min; }
-
-    function spawn(bus){
-      const good = Math.random() < 0.7;
-      const emoji = good ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0];
-      const d = document.createElement('div');
-      const x = rand(10, 90), y = rand(15, 85);
-      d.textContent = emoji;
-      d.style.cssText =
-        `position:fixed;left:${x}vw;top:${y}vh;transform:translate(-50%,-50%);
-         font-size:${rand(28,44)}px;filter:drop-shadow(0 6px 10px #0008);
-         cursor:pointer;user-select:none;pointer-events:auto;transition:transform .15s ease, opacity .25s ease;`;
-      const kill = ()=>{ d.style.opacity='0'; setTimeout(()=>{ d.remove(); alive.delete(d); },120); };
-      d.addEventListener('pointerdown', (e)=>{
-        e.preventDefault(); e.stopPropagation();
-        if (good){ bus.hit({kind:'good', points:10, ui:{x:e.clientX,y:e.clientY}}); }
-        else     { bus.miss(); }
-        kill();
-      }, {passive:false});
-      host.appendChild(d);
-      alive.add(d);
-      // auto-despawn
-      setTimeout(()=>{ if(alive.has(d)){ bus.miss(); kill(); } }, 1200 + (good?400:200));
-      // mark activity
-      window.__HHA_SPAWN_SEEN = (window.__HHA_SPAWN_SEEN|0)+1;
-    }
-
-    return {
-      start({time=45}={}, bus){
-        ensureHost();
-        timer = setInterval(()=>spawn(bus), 520);
-      },
-      update(){},
-      cleanup(){
-        clearInterval(timer); timer=null;
-        alive.forEach(el=>{ try{ el.remove(); }catch{} }); alive.clear();
-      }
-    };
-  }
-
-  // --------- Mode loader ----------
-  const MODE_PATH = (k) => `./modes/${k}.js`;
-  async function loadMode(key) {
+  // ---------- Mode loader with flexible API ----------
+  const MODE_PATH = (k)=>`./modes/${k}.js`;
+  async function loadMode(key){
     const mod = await import(MODE_PATH(key));
     return {
       name: mod.name || key,
-      create: mod.create || null,
-      init: mod.init || null,
-      tick: mod.tick || null,
-      pickMeta: mod.pickMeta || null,
-      onHit: mod.onHit || null,
-      cleanup: mod.cleanup || null,
-      fx: mod.fx || {},
-      update: mod.update || null
+      // patterns supported:
+      start:  mod.start  || null,   // DOM-spawn pattern (this projectใช้)
+      update: mod.update || null,   // DOM-spawn tick(dt,bus)
+      cleanup:mod.cleanup|| null,
+      create: mod.create || null,   // factory pattern (เผื่อโหมดเก่า)
+      init:   mod.init   || null,
+      tick:   mod.tick   || null
     };
   }
 
+  // ---------- FX ----------
   const FX = {
-    popText(txt, { x, y, ms = 700 } = {}) {
-      const el = document.createElement('div');
-      el.textContent = txt;
-      el.style.cssText = `position:fixed; left:${x|0}px; top:${y|0}px; transform:translate(-50%,-50%);
-        font:900 16px ui-rounded, system-ui; color:#fff; text-shadow:0 2px 10px #000;
-        pointer-events:none; z-index:5500; opacity:1; transition: all .72s ease-out;`;
+    popText(txt,{x,y,ms=700}={}){
+      if(x==null||y==null){ x=innerWidth/2; y=innerHeight/2; }
+      const el=document.createElement('div');
+      el.textContent=txt;
+      el.style.cssText=`position:fixed;left:${x|0}px;top:${y|0}px;transform:translate(-50%,-50%);
+        font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:97;opacity:1;transition:.72s ease-out;`;
       document.body.appendChild(el);
-      requestAnimationFrame(() => { el.style.top = (y - 36) + 'px'; el.style.opacity = '0'; });
-      setTimeout(() => el.remove(), ms);
+      requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
+      setTimeout(()=>el.remove(),ms);
     }
   };
 
-  // --------- Engine state ----------
-  const R = {
-    playing:false, startedAt:0, remain:45, raf:0,
+  // ---------- Runtime ----------
+  const TIME_BY_MODE={ goodjunk:45, groups:60, hydration:50, plate:55 };
+  function matchTime(mode='goodjunk',diff='Normal'){
+    const base=TIME_BY_MODE[mode]??45;
+    if(diff==='Easy') return base+5;
+    if(diff==='Hard') return Math.max(20, base-5);
+    return base;
+  }
+
+  let R = {
+    playing:false, raf:0,
+    modeKey:'goodjunk', diff:'Normal',
+    remain:45, _secMark:0, _dtMark:0,
     sys:{ score:null, sfx:null },
-    modeKey:'goodjunk', modeAPI:null, modeInst:null, state:null, coach:null
+    api:null, inst:null, state:null, coach:null
   };
 
-  function setScore(v){ const el = $('#scoreVal'); if (el) el.textContent = v|0; }
-  function setTime(v){ const el = $('#timeVal'); if (el) el.textContent = v|0; }
+  function setBadges(){
+    const mB=$('#modeBadge'); if(mB) mB.textContent = R.modeKey;
+    const dB=$('#diffBadge'); if(dB) dB.textContent = R.diff;
+    const tV=$('#timeVal');  if(tV) tV.textContent  = R.remain|0;
+    const sV=$('#scoreVal'); if(sV) sV.textContent  = R.sys?.score?.get?.()||0;
+  }
 
-  function busFor(){
+  function bus(){
     return {
       sfx: R.sys.sfx,
       hit(e){
-        if (e?.points){ R.sys.score.add(e.points); R.sys.score.combo=(R.sys.score.combo|0)+1; R.sys.score.bestCombo=Math.max(R.sys.score.bestCombo|0,R.sys.score.combo|0); }
-        setScore(R.sys.score.get?.() || R.sys.score.value || 0);
-        if (e?.ui) FX.popText(`+${e.points||0}`, e.ui);
-        try{
-          if (e?.kind==='perfect') R.coach?.onPerfect(); else if (e?.kind==='good') R.coach?.onGood();
-          Quests.event('hit', { result: e?.kind || 'good', meta: e?.meta || {}, comboNow:R.sys.score.combo|0 });
-        }catch{}
+        const pts = e?.points|0;
+        if(pts){ R.sys.score.add(pts); R.sys.score.combo=(R.sys.score.combo|0)+1; R.sys.score.bestCombo=Math.max(R.sys.score.bestCombo|0,R.sys.score.combo|0); }
+        setBadges();
+        if(e?.ui) FX.popText(`+${pts}`, e.ui);
+        if(e?.kind==='perfect') R.coach?.onPerfect(); else if(e?.kind==='good') R.coach?.onGood();
+        try{ Quests.event('hit',{result:e?.kind||'good',meta:e?.meta||{},comboNow:R.sys.score.combo|0}); }catch{}
       },
-      miss(){
-        R.sys.score.combo = 0;
-        try{ Quests.event('miss',{}); R.coach?.onBad?.(); }catch{}
-      }
+      miss(){ R.sys.score.combo=0; setBadges(); try{R.coach?.onBad?.();}catch{} }
     };
   }
 
-  function gameTick(){
-    if (!R.playing) return;
-    const tNow = performance.now();
+  function loop(){
+    if(!R.playing) return;
+    const now=performance.now();
 
-    const secGone = Math.floor((tNow - R._secMark)/1000);
-    if (secGone >= 1){
-      R.remain = Math.max(0, (R.remain|0) - secGone);
-      R._secMark = tNow;
-      setTime(R.remain);
-      try{ if (R.remain === 10) R.coach?.onTimeLow?.(); Quests.tick({ score: (R.sys.score.get?.()||0) }); }catch{}
+    const sg=Math.floor((now-R._secMark)/1000);
+    if(sg>=1){
+      R.remain=Math.max(0,(R.remain|0)-sg);
+      R._secMark=now;
+      setBadges();
+      if(R.remain===10) R.coach?.onTimeLow?.();
+      try{ Quests.tick({score:R.sys.score.get?.()||0}); }catch{}
     }
 
-    try {
-      if (R.modeInst && typeof R.modeInst.update === 'function') {
-        const dt = (tNow - (R._dtMark||tNow)) / 1000; R._dtMark = tNow;
-        R.modeInst.update(dt, busFor());
-      } else if (R.modeAPI?.update) {
-        const dt = (tNow - (R._dtMark||tNow)) / 1000; R._dtMark = tNow;
-        R.modeAPI.update(dt, busFor());
-      } else if (R.modeAPI?.tick) {
-        R.modeAPI.tick(R.state||{}, R.sys, {});
+    try{
+      if (typeof R.api?.update==='function') {
+        const dt=(now-(R._dtMark||now))/1000; R._dtMark=now;
+        R.api.update(dt, bus());
+      } else if (R.inst?.update) {
+        const dt=(now-(R._dtMark||now))/1000; R._dtMark=now;
+        R.inst.update(dt, bus());
+      } else if (R.api?.tick) {
+        R.api.tick(R.state||{}, R.sys, {});
       }
-    } catch(e){ console.warn('[mode.update] error', e); }
+    }catch(e){ console.warn('[mode.update]',e); }
 
-    if (R.remain <= 0) return endGame();
-    R.raf = requestAnimationFrame(gameTick);
+    if(R.remain<=0){ return endGame(); }
+    R.raf = requestAnimationFrame(loop);
   }
 
   function endGame(){
-    if (!R.playing) return;
-    R.playing = false;
-    cancelAnimationFrame(R.raf);
-    try { Quests.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
-    try { R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state, {}); } catch {}
+    if(!R.playing) return;
+    R.playing=false; cancelAnimationFrame(R.raf);
+    try{ R.inst?.cleanup?.(); R.api?.cleanup?.(R.state,{}); }catch{}
     document.body.removeAttribute('data-playing');
-    showMenuHard();
-    try { R.coach?.onEnd?.(R.sys.score.get?.()||0); Progress.endRun({ score: R.sys.score.get?.()||0 }); } catch {}
-    window.HHA._busy = false;
-  }
-
-  // --- Switch-to-fallback helper ---
-  function switchToFallbackAndStart(){
-    const builtin = BuiltinGoodJunk();
-    R.modeAPI = { update: builtin.update, cleanup: builtin.cleanup };
-    R.modeInst = { update: builtin.update, cleanup: builtin.cleanup, start: (cfg)=>builtin.start(cfg, busFor()) };
-    R.modeInst.start({ time:45 });
-    toast('Fallback mode active');
+    const mb = $('#menuBar'); if(mb){ mb.setAttribute('data-hidden','0'); mb.style.display=''; }
+    R.coach?.onEnd?.(R.sys?.score?.get?.()||0);
+    window.HHA._busy=false;
   }
 
   async function startGame(){
+    if(window.HHA?._busy) return;
+    window.HHA._busy=true;
+
+    await loadCore();
+    // pick selection from body
+    R.modeKey = document.body.getAttribute('data-mode') || 'goodjunk';
+    R.diff    = document.body.getAttribute('data-diff') || 'Normal';
+    R.remain  = matchTime(R.modeKey, R.diff);
+
+    // systems
+    R.sys.score = new ScoreSystem(); R.sys.score.reset?.();
+    R.sys.sfx   = new SFXClass();
+
+    // coach
+    R.coach = new CoachClass({ lang:(localStorage.getItem('hha_lang')||'TH') });
+    R.coach.onStart?.();
+
+    // load mode
+    let api;
+    try { api = await loadMode(R.modeKey); }
+    catch(e){ console.error('[loadMode]',e); toast(`Failed to load mode: ${R.modeKey}`); window.HHA._busy=false; return; }
+    R.api = api; R.inst=null; R.state={difficulty:R.diff, ctx:{}};
+
+    // start mode (support both start() and create()/init())
     try{
-      if (window.HHA?._busy) return; window.HHA._busy = true;
-
-      await loadCore();
-      Progress.init?.();
-
-      R.modeKey = (document.body.getAttribute('data-mode') || 'goodjunk');
-      const diff = (document.body.getAttribute('data-diff') || 'Normal');
-
-      // load mode
-      let api = null; let usedFallback = false;
-      try { api = await loadMode(R.modeKey); }
-      catch (e) { console.warn('[HHA] import mode fail → fallback', e); usedFallback = true; }
-
-      // systems
-      R.sys.score = new (ScoreSystem||function(){})(); R.sys.score.reset?.();
-      R.sys.score.combo=0; R.sys.score.bestCombo=0; R.sys.sfx = new (SFXClass||function(){})();
-      setScore(0);
-
-      R.coach = new CoachClass({ lang: (localStorage.getItem('hha_lang')||'TH') });
-      R.coach.onStart?.();
-
-      try { Quests.bindToMain({ hud: {}, coach: R.coach }); } catch {}
-
-      R.state = { difficulty: diff, lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
-
-      // decide real vs fallback
-      window.__HHA_SPAWN_SEEN = 0;
-      if (usedFallback || (!api || (!api.create && !api.init && !api.update && !api.tick))) {
-        switchToFallbackAndStart();
-      } else {
-        R.modeAPI = api;
-        if (api.create){
-          R.modeInst = api.create({ engine:{ fx:FX }, hud:{}, coach:R.coach });
-          R.modeInst.start?.({ time:45 });
-        } else if (api.init){
-          api.init(R.state, {}, { time: 45, life: 1600 });
-        }
-        // watchdog: ถ้า 1.2s แล้ว ยังไม่มีอะไร spawn → fallback
-        setTimeout(()=>{ try{
-          const host = $('#spawnHost');
-          const active = (window.__HHA_SPAWN_SEEN|0) > 0 || (host && host.childElementCount>0);
-          if (!active && R.playing) {
-            console.warn('[watchdog] no activity → fallback');
-            R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state,{});
-            switchToFallbackAndStart();
-          }
-        }catch{} }, 1200);
+      if (typeof api.start==='function'){
+        api.start({ difficulty:R.diff });
+      } else if (api.create){
+        R.inst = api.create({ engine:{fx:FX}, coach:R.coach });
+        R.inst.start?.({ difficulty:R.diff });
+      } else if (api.init){
+        api.init(R.state, {}, { time:R.remain, life:1600 });
       }
+    }catch(e){ console.warn('[mode.start/init]',e); }
 
-      // start loop
-      R.playing = true;
-      R.startedAt = performance.now();
-      R._secMark = performance.now();
-      R._dtMark  = performance.now();
-      R.remain   = 45;
-      setTime(R.remain);
-      document.body.setAttribute('data-playing','1');
-      hideMenuHard(); setTimeout(hideMenuHard,0); setTimeout(hideMenuHard,120); setTimeout(hideMenuHard,400);
-      R.raf = requestAnimationFrame(gameTick);
-    }catch(err){
-      console.error('[HHA] startGame error', err);
-      toast(`เริ่มเกมไม่สำเร็จ: ${err?.message||err}`);
-      window.HHA._busy = false;
-    }
+    // hide menu
+    const mb = $('#menuBar'); if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+    document.body.setAttribute('data-playing','1');
+
+    // show HUD top
+    setBadges();
+
+    // start loop
+    R.playing=true;
+    R._secMark = performance.now();
+    R._dtMark  = performance.now();
+    requestAnimationFrame(loop);
   }
 
-  // --------- Expose & bindings ----------
+  function toast(text){
+    let el=$('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+    el.textContent=text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200);
+  }
+
+  // Menu delegation (เลือก mode/diff + howto/sound)
+  (function bindMenu(){
+    const mb = $('#menuBar'); if(!mb) return;
+    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+    mb.addEventListener('click',(ev)=>{
+      const t = ev.target.closest('.btn'); if(!t) return;
+      if (t.hasAttribute('data-mode')){ setActive('[data-mode]',t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
+      if (t.hasAttribute('data-diff')){ setActive('[data-diff]',t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
+      if (t.dataset.action==='howto'){ toast('แตะอาหารดี เลี่ยงของไม่ดี ภายในเวลาที่กำหนด'); return; }
+      if (t.dataset.action==='sound'){
+        const nowOn = !Array.from(document.querySelectorAll('audio')).every(a=>a.muted);
+        document.querySelectorAll('audio').forEach(a=>a.muted = nowOn);
+        t.textContent = nowOn ? '🔇 Sound' : '🔊 Sound';
+        toast(nowOn?'เสียง: ปิด':'เสียง: เปิด'); return;
+      }
+      if (t.dataset.action==='start'){ startGame(); return; }
+    }, false);
+  })();
+
+  // Expose
   window.HHA = window.HHA || {};
   window.HHA.startGame = startGame;
   window.HHA.endGame   = endGame;
 
-  (function bindMenuDelegation(){
-    const mb = document.getElementById('menuBar'); if (!mb) return;
-    mb.addEventListener('click', (ev)=>{
-      const t = ev.target.closest('.btn'); if(!t) return;
-      if (t.dataset.action === 'start'){ ev.preventDefault(); ev.stopPropagation(); startGame(); }
-      if (t.hasAttribute('data-mode')){ document.body.setAttribute('data-mode', t.getAttribute('data-mode')); $$('#menuBar [data-mode]').forEach(b=>b.classList.remove('active')); t.classList.add('active'); }
-      if (t.hasAttribute('data-diff')){ document.body.setAttribute('data-diff', t.getAttribute('data-diff')); $$('#menuBar [data-diff]').forEach(b=>b.classList.remove('active')); t.classList.add('active'); }
-    }, true);
-  })();
-
-  // กัน canvas บังคลิก
-  setTimeout(()=>{ const c = $('#c'); if(c){ c.style.pointerEvents='none'; c.style.zIndex='1'; } }, 0);
-
-  window.addEventListener('keydown', (e)=>{
-    if ((e.key === 'Enter' || e.key === ' ') && !R.playing){
-      const menuVisible = !$('#menuBar')?.hasAttribute('data-hidden');
-      if (menuVisible) { e.preventDefault(); startGame(); }
-    }
-  }, { passive:false });
+  // Safety: canvas never blocks UI
+  setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ c.style.pointerEvents='none'; c.style.zIndex='1'; }); },0);
 })();
