@@ -1,237 +1,178 @@
-// === core/quests.js — Mini Quest Engine (10 quests; gold/avoid-junk fixed; diff scaling) ===
-export const Quests = (function () {
-  // ---- runtime refs ----
-  let hud = null, coach = null;
+// === core/quests.js — Focused Mini-Quests (pick 3/10 per run) ===
+export const Quests = (function(){
+  // ---------- State ----------
+  let _hud=null, _coach=null;
+  let _diff='Normal', _mode='goodjunk', _lang='TH';
+  let _duration=45;
+  let _picked=[];          // 3 เควสต์ที่สุ่มได้
+  let _activeIdx=0;        // index เควสต์ที่กำลังทำ
+  let _onRefresh=null;     // callback ให้ main เรียก hud.setQuestChips
+  let _summary=null;       // เก็บผลรวมไว้โชว์ตอนท้าย
 
-  // ---- run-scoped state ----
-  const S = {
-    diff: 'Normal',
-    lang: 'TH',
-    timeSec: 45,
+  // โครงสร้างเควสต์ 10 แบบ (key, label, need โดยขึ้นกับ diff)
+  const ALL = [
+    { key:'gold',        icon:'🌟', label:'Gold Hits',            base:3,  inc:[+0,+0,+1] },
+    { key:'perfect',     icon:'✨', label:'Perfect Hits',         base:10, inc:[-3, 0, +4] },
+    { key:'combo10',     icon:'🔥', label:'Reach Combo 10',       base:1,  inc:[-1, 0, +1] },
+    { key:'fever',       icon:'💥', label:'Trigger FEVER',        base:1,  inc:[ 0, 0,  0] },
+    { key:'usepower',    icon:'🔸', label:'Use Any Power',        base:3,  inc:[-1, 0, +1] },
+    { key:'shield',      icon:'🛡️', label:'Shield Pickups',      base:2,  inc:[-1, 0, +1] },
+    { key:'avoidJunk',   icon:'🚫', label:'Avoid Junk (sec)',     base:12, inc:[-4, 0, +6], time:true },
+    { key:'noMiss',      icon:'🧭', label:'No Miss (sec)',        base:12, inc:[-2, 0, +6], time:true },
+    { key:'streakPerf3', icon:'⭐', label:'Perfect ×3 streak',     base:1,  inc:[ 0, 0, +1] },
+    { key:'goodOrPerf',  icon:'✅', label:'Good/Perfect Hits',    base:22, inc:[-6, 0, +8] },
+  ];
 
-    // event counters
-    totalDone: 0,
-    junkClicks: 0,
-    anyMiss: 0,
+  function byKey(k){ return ALL.find(x=>x.key===k); }
+  function needFor(def){
+    const di = (_diff==='Easy'?0: _diff==='Hard'?2:1);
+    return Math.max(1, (def.base + (def.inc[di]||0))|0);
+  }
 
-    // streak & timers (secs)
-    secsNoJunk: 0,
-    secsNoMiss: 0,
-    perfectStreak: 0,
+  // ---------- Runtime quest objs ----------
+  function makeQuest(def){
+    const q = {
+      key:def.key, icon:def.icon, label:def.label, need:needFor(def),
+      progress:0, done:false, fail:false, timeMode:!!def.time, // timeMode = นับวินาทีต่อเนื่อง
+      _timer:0, _streak:0
+    };
+    return q;
+  }
 
-    // dynamic quests list
-    quests: [],
+  // ---------- Pick 3 quests ----------
+  function pickThree(){
+    const keys = ALL.map(x=>x.key);
+    // กระจายให้มีทั้ง hit / time / utility อย่างน้อย 1
+    const groupA = ['gold','perfect','goodOrPerf','streakPerf3','combo10'];
+    const groupB = ['avoidJunk','noMiss'];
+    const groupC = ['fever','usepower','shield'];
 
-    // fast flags to avoid re-computing “reach once” quests
-    reachedCombo10: false,
-    feverTriggered: false,
-  };
+    function rnd(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-  // ---- difficulty-scaled targets ----
-  function targetsFor(diff) {
-    // ค่าพื้นฐานต่อโหมดความยาก
-    if (diff === 'Easy') {
-      return {
-        gold: 2, perfect: 6, comboStreak: 10, fever: 1, power: 2,
-        avoidJunkSecs: 8, noMissSecs: 8, goodHits: 18, shieldPick: 1, perfectStreak3: 1
-      };
+    const chosen = new Set();
+    chosen.add(rnd(groupA));
+    chosen.add(rnd(groupB));
+    chosen.add(rnd(groupC));
+    // เติมให้ครบ 3 (กันซ้ำ)
+    while(chosen.size<3){
+      chosen.add(keys[(Math.random()*keys.length)|0]);
     }
-    if (diff === 'Hard') {
-      return {
-        gold: 4, perfect: 12, comboStreak: 10, fever: 1, power: 4,
-        avoidJunkSecs: 15, noMissSecs: 15, goodHits: 28, shieldPick: 2, perfectStreak3: 1
-      };
-    }
-    // Normal (default)
+    return Array.from(chosen).map(k=>makeQuest(byKey(k)));
+  }
+
+  // ---------- Public: bind / begin / end ----------
+  function bindToMain({hud,coach}){
+    _hud=hud; _coach=coach;
     return {
-      gold: 3, perfect: 10, comboStreak: 10, fever: 1, power: 3,
-      avoidJunkSecs: 12, noMissSecs: 12, goodHits: 22, shieldPick: 2, perfectStreak3: 1
+      refresh(){ if(_onRefresh) _onRefresh(); },
+      onRefresh(fn){ _onRefresh = fn; }   // main จะส่ง callback มา
     };
   }
 
-  // ---- HUD helpers ----
-  function refresh() {
-    if (!hud || typeof hud.setQuestChips !== 'function') return;
-    hud.setQuestChips(S.quests);
+  function beginRun(mode, diff, lang, duration){
+    _mode=mode; _diff=diff; _lang=(lang||'TH').toUpperCase();
+    _duration=duration|0;
+    _picked = pickThree();
+    _activeIdx = 0;
+    _summary = { done:0, list:[], start:performance.now() };
+    if(_onRefresh) _onRefresh();
   }
 
-  function say(t) { try { coach?.say?.(t); } catch {} }
-
-  // ---- quest ops ----
-  function makeQuest(key, label, icon, need) {
-    return { key, label, icon, progress: 0, need, done: false, fail: false };
-  }
-
-  function setLangLabel(key, en, th) {
-    return S.lang === 'TH' ? th : en;
-  }
-
-  function bump(key, add = 1) {
-    const q = S.quests.find(q => q.key === key);
-    if (!q || q.done) return;
-    q.progress = Math.min(q.need, (q.progress || 0) + add);
-    if (q.progress >= q.need) {
-      q.done = true;
-      S.totalDone++;
-      say('✅ ' + q.label);
-    }
-  }
-
-  function setOnce(key) {
-    const q = S.quests.find(q => q.key === key);
-    if (!q || q.done) return;
-    q.progress = q.need;
-    q.done = true;
-    S.totalDone++;
-    say('✅ ' + q.label);
-  }
-
-  function resetTimedCountersOnMiss(reason) {
-    // เควสต์ “Avoid Junk” จะรีเซ็ตเฉพาะตอน miss เพราะคลิก junk เท่านั้น
-    if (reason === 'junkClick') S.secsNoJunk = 0;
-
-    // “No Miss” จะรีเซ็ตทุกประเภทของ miss (junk / timeout / อื่น ๆ)
-    S.secsNoMiss = 0;
-    S.perfectStreak = 0;
-  }
-
-  // ---- lifecycle ----
-  function bindToMain(refs = {}) {
-    hud = refs.hud || null;
-    coach = refs.coach || null;
-    refresh();
-    return { refresh };
-  }
-
-  function beginRun(modeKey, diff, lang, timeSec = 45) {
-    S.diff = (diff || 'Normal');
-    S.lang = (String(lang || 'TH').toUpperCase());
-    S.timeSec = (timeSec | 0) || 45;
-
-    S.totalDone = 0;
-    S.junkClicks = 0;
-    S.anyMiss = 0;
-    S.secsNoJunk = 0;
-    S.secsNoMiss = 0;
-    S.perfectStreak = 0;
-    S.reachedCombo10 = false;
-    S.feverTriggered = false;
-
-    const T = targetsFor(S.diff);
-
-    // === 10 mini quests ===
-    S.quests = [
-      makeQuest('goldHit',        setLangLabel('goldHit', 'Gold Hits',           'เก็บทอง'),          T.gold),            // 🌟/⭐ (meta.gold === true)
-      makeQuest('perfect',        setLangLabel('perfect', 'Perfect Hits',        'Perfect'),           T.perfect),         // result === 'perfect'
-      makeQuest('combo10',        setLangLabel('combo10', 'Reach Combo 10',      'คอมโบถึง 10'),       1),                 // one-time
-      makeQuest('fever',          setLangLabel('fever',   'Trigger FEVER',       'เปิดโหมดไฟลุก'),     T.fever),           // on:true
-      makeQuest('power',          setLangLabel('power',   'Use Any Power',       'ใช้พลังพิเศษ'),      T.power),           // meta.power (star/shield)
-      makeQuest('avoidJunk',      setLangLabel('avoidJunk','Avoid Junk (sec)',   'เลี่ยง Junk (วินาที)'), T.avoidJunkSecs), // วินาทีที่ไม่คลิก junk
-      makeQuest('noMiss',         setLangLabel('noMiss',  'No Miss (sec)',       'ไม่มีพลาด (วินาที)'),  T.noMissSecs),     // วินาทีที่ไม่มี miss ทุกชนิด
-      makeQuest('goodHits',       setLangLabel('goodHits','Good/Perfect Hits',   'ตีโดนของดี'),         T.goodHits),        // good + perfect
-      makeQuest('shieldPick',     setLangLabel('shieldPick','Shield Pickups',    'เก็บโล่'),           T.shieldPick),      // power kind === 'shield'
-      makeQuest('streakPerfect3', setLangLabel('streakPerfect3','Perfect ×3 streak','Perfect ติดกัน 3'), T.perfectStreak3)   // perfect 3 ครั้งติด
-    ];
-
-    refresh();
-  }
-
-  // called each second from main
-  function tick(info = {}) {
-    // เพิ่มวินาทีสำหรับ avoidJunk และ noMiss
-    S.secsNoJunk++;
-    S.secsNoMiss++;
-
-    bump('avoidJunk', 1);
-    bump('noMiss', 1);
-
-    refresh();
-  }
-
-  // ---- event intake from main/bus ----
-  function event(type, ev = {}) {
-    if (type === 'hit') {
-      const result = ev.result || 'good';
-      const meta = ev.meta || {};
-
-      // gold
-      if (meta.gold === true || meta.quest === 'goldHit') bump('goldHit', 1);
-
-      // perfect
-      if (result === 'perfect') {
-        bump('perfect', 1);
-        S.perfectStreak++;
-        if (S.perfectStreak >= 3) setOnce('streakPerfect3');
-      } else {
-        // non-perfect hit resets perfect streak
-        S.perfectStreak = 0;
-      }
-
-      // good (รวม perfect ด้วย) → นับเป็น goodHits
-      if (result === 'good' || result === 'perfect') bump('goodHits', 1);
-
-      // combo >= 10 (เมื่อ “เคยถึง” สักครั้ง ให้สำเร็จ)
-      if (!S.reachedCombo10 && (ev.comboNow | 0) >= 10) {
-        S.reachedCombo10 = true;
-        setOnce('combo10');
-      }
-
-      // power use (⭐/🛡️)
-      if (meta.power) {
-        bump('power', 1);
-        if (meta.power === 'shield') bump('shieldPick', 1);
-      }
-    }
-    else if (type === 'miss') {
-      S.anyMiss++;
-      if (ev?.reason === 'junkClick') S.junkClicks++;
-
-      resetTimedCountersOnMiss(ev?.reason);
-    }
-    else if (type === 'fever') {
-      if (ev?.on && !S.feverTriggered) {
-        S.feverTriggered = true;
-        bump('fever', 1);
-      }
-      // ปิด fever ไม่กระทบเควสต์
-    }
-    else if (type === 'power') {
-      // สำหรับกรณี bus.power('shield') ที่ main ยิงตรง
-      if (ev?.kind) {
-        bump('power', 1);
-        if (ev.kind === 'shield') bump('shieldPick', 1);
-      }
-    }
-
-    refresh();
-  }
-
-  function endRun({ score } = {}) {
-    const details = S.quests.map(q =>
-      `${q.label}: ${q.progress}/${q.need}${q.done ? ' ✓' : ''}`
-    );
-    const summary = {
-      totalDone: S.totalDone | 0,
-      details,
-      counters: {
-        junkClicks: S.junkClicks | 0,
-        anyMiss: S.anyMiss | 0
-      }
+  function endRun({score}={}){
+    // คืนสรุป
+    const totalDone = _picked.filter(q=>q.done && !q.fail).length;
+    const res = {
+      totalDone,
+      items: _picked.map(q=>({ key:q.key, label:q.label, progress:q.progress, need:q.need, done:q.done, fail:q.fail }))
     };
-
-    // reset for safety (not strictly required if a new beginRun happens)
-    S.quests = [];
-    S.totalDone = 0;
-    S.junkClicks = 0;
-    S.anyMiss = 0;
-    S.secsNoJunk = 0;
-    S.secsNoMiss = 0;
-    S.perfectStreak = 0;
-    S.reachedCombo10 = false;
-    S.feverTriggered = false;
-
-    return summary;
+    _summary.end = performance.now();
+    _summary.score = score|0;
+    return res;
   }
 
-  return { bindToMain, beginRun, event, tick, endRun };
+  // ---------- Visible chips (แสดงเฉพาะ active) ----------
+  function getActive(){ return _picked[_activeIdx]; }
+  function getVisibleChips(){
+    const q = getActive();
+    if(!q) return [];
+    return [{
+      key:q.key, icon:q.icon, label:q.label,
+      progress:q.timeMode ? Math.floor(q._timer) : q.progress,
+      need:q.need,
+      done:q.done, fail:q.fail, active:true
+    }];
+  }
+  function advanceIfDone(){
+    const q = getActive(); if(!q) return;
+    if(q.done && _activeIdx<(_picked.length-1)){ _activeIdx++; if(_onRefresh) _onRefresh(); }
+  }
+
+  // ---------- Event hooks ----------
+  function event(kind, payload){
+    const q = getActive(); if(!q) return;
+    switch(kind){
+      case 'hit': {
+        const meta = payload?.meta||{};
+        const isGood  = (payload?.result==='good'||payload?.result==='perfect');
+        const isPerf  = (payload?.result==='perfect');
+        const isGold  = !!meta.gold;
+
+        if(q.key==='gold' && isGold){ q.progress++; if(q.progress>=q.need) q.done=true; }
+        if(q.key==='perfect' && isPerf){ q.progress++; if(q.progress>=q.need) q.done=true; }
+        if(q.key==='goodOrPerf' && isGood){ q.progress++; if(q.progress>=q.need) q.done=true; }
+        if(q.key==='streakPerf3'){
+          q._streak = isPerf ? (q._streak+1) : 0;
+          if(q._streak>=3){ q.progress=1; q.done=true; }
+        }
+        if(q.key==='combo10'){
+          const comboNow = payload?.comboNow|0;
+          if(comboNow>=10){ q.progress=1; q.done=true; }
+        }
+        if(q.key==='usepower' && (payload?.usedPower)){ q.progress++; if(q.progress>=q.need) q.done=true; }
+        // time-based จะนับใน tick()
+        advanceIfDone();
+        if(_onRefresh) _onRefresh();
+        break;
+      }
+      case 'miss': {
+        if(q.key==='noMiss'){ q._timer = 0; } // รีเซ็ตเวลา
+        if(q.key==='avoidJunk' && (payload?.junk===true)){ q._timer = 0; }
+        if(q.key==='streakPerf3'){ q._streak = 0; }
+        if(_onRefresh) _onRefresh();
+        break;
+      }
+      case 'power': {
+        if(q.key==='usepower'){ q.progress++; if(q.progress>=q.need) q.done=true; }
+        if(q.key==='shield' && payload?.kind==='shield'){ q.progress++; if(q.progress>=q.need) q.done=true; }
+        advanceIfDone();
+        if(_onRefresh) _onRefresh();
+        break;
+      }
+      case 'fever': {
+        if(q.key==='fever' && payload?.on){ q.progress=1; q.done=true; advanceIfDone(); if(_onRefresh) _onRefresh(); }
+        break;
+      }
+    }
+  }
+
+  function tick({score,dt,fever}){
+    const q = getActive(); if(!q) return;
+    if(q.timeMode){
+      // noMiss: เพิ่มหาก “ไม่มี miss” ในช่วงที่ผ่าน
+      // avoidJunk: เพิ่มหาก “ไม่มีการกด junk” — ระบบจะรีเซ็ตใน event('miss', {junk:true})
+      q._timer += Math.max(0, dt||0);
+      const goal = q.need|0;
+      if(Math.floor(q._timer) >= goal){ q.done=true; }
+      if(_onRefresh) _onRefresh();
+      if(q.done) advanceIfDone();
+    }
+  }
+
+  // ให้ main เรียกกรณีอยากบังคับ refresh รอบนี้
+  function refreshNow(){ if(_onRefresh) _onRefresh(); }
+
+  return {
+    bindToMain, beginRun, endRun, event, tick,
+    getVisibleChips, refreshNow
+  };
 })();
