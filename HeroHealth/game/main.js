@@ -3,6 +3,8 @@ import { Progress } from './core/progression.js';
 import { PowerUpSystem } from './core/powerup.js';      // มีอยู่แล้วจากรอบก่อน
 import { MissionSystem } from './core/mission-system.js'; // ถ้ายังไม่ได้ import
 import { createHUD } from './core/hud.js';
+import { FX } from './core/engine.js';
+
 
 // ==== STATE (เพิ่มตัวนับเพื่อคิด accuracy และเวลาที่เล่น) ====
 let R = {
