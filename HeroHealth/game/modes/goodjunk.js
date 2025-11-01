@@ -92,3 +92,23 @@ function spawnOne(glyph, isGood, isGolden, bus){
 
   host.appendChild(d);
 }
+const POWERS = ['x2','freeze','sweep','shield'];
+const PGLYPH = { x2:'×2', freeze:'🧊', sweep:'🧲', shield:'🛡️' };
+
+function spawnPower(kind,bus){
+  const d=document.createElement('button');
+  d.className='spawn-emoji power';
+  d.textContent=PGLYPH[kind]||'★';
+  d.style.cssText='position:absolute;font-size:42px;border:0;background:none;cursor:pointer;';
+  const W=window.innerWidth,H=window.innerHeight;
+  const x=Math.random()*(W-100)+50,y=Math.random()*(H-160)+80;
+  d.style.left=x+'px';d.style.top=y+'px';
+  const life=1800;
+  const to=setTimeout(()=>d.remove(),life);
+  d.onclick=(ev)=>{
+    clearTimeout(to); d.remove();
+    bus?.power?.(kind);
+    FX.popText(`+${kind.toUpperCase()}`,{x:ev.clientX,y:ev.clientY});
+  };
+  document.body.appendChild(d);
+}
