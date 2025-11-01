@@ -1,448 +1,270 @@
-// === Hero Health Academy — game/modes/goodjunk.js (Sequential Quests + Burst FX) ===
+// === modes/goodjunk.js — Quest-by-quest + Fever + 3D explode effect ===
 export const name = 'goodjunk';
 
-// ---------- Glyph pools ----------
-const GOOD  = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
-const JUNK  = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍭','🍨'];
-const STAR  = '⭐';
-const SHIELD= '🛡️';
+// Pools
+const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
+const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍗','🍖','🍫','🥓','🍿','🧈','🧂'];
+const POWERS = ['star','shield']; // star = golden (x2 points + fever boost), shield = skip-miss 1 ครั้ง
 
-// ---------- Factory ----------
+// Internal state
+let host = null, alive = false, diff = 'Normal';
+let rate = 0.70, life = 1.6, age = 0;
+let fever = 0, feverTime = 0, feverActive = false;
+let shield = 0;
+let questIdx = 0, quests = [];
+let stat = { hits:0, perfect:0, miss:0, feverOpen:0, stars:0, bestStreak:0, streak:0 };
+
+// UI sizes per difficulty
+const SIZE_BY_DIFF = { Easy: 56, Normal: 44, Hard: 36 };
+
 export function create({ engine, hud, coach }) {
-  const host = ensureHost();
-  injectCSS();
-
-  // runtime state
-  const S = {
-    alive:false,
-    diff:'Normal',
-    rate:0.70,     // spawn every X sec
-    life:1.60,     // item lifetime (sec)
-    size:38,       // font px
-    pad:40,        // margin from edges
-    combo:0,
-    bestCombo:0,
-    feverLv:0,     // 0-3
-    shield:false,
-    shieldTime:0,
-    t:0, acc:0,
-    bus:null,
-
-    // score/perfect track
-    score:0,
-    perfects:0,
-
-    // quests
-    questPool: [],
-    qIndex:-1,
-    q:null,       // {key, icon, label, need, progress, done, fail, remain}
+  return {
+    start(opts={}) {
+      host = document.getElementById('spawnHost') || ensureHost();
+      host.innerHTML = '';
+      alive = true;
+      diff = String((opts?.difficulty || document.body.getAttribute('data-diff') || 'Normal'));
+      ({ rate, life } = tuneByDiff(diff));
+      age = 0;
+      fever = 0; feverTime = 0; feverActive = false;
+      shield = 0;
+      stat = { hits:0, perfect:0, miss:0, feverOpen:0, stars:0, bestStreak:0, streak:0 };
+      // Build quest list (10 แบบสุ่ม แต่แสดงทีละอัน)
+      quests = buildQuestList();
+      questIdx = 0;
+      notifyQuest(hud, coach);
+      hud?.setQuestChips?.([currentQuestChip()]);
+    },
+    update(dt, bus) {
+      if (!alive) return;
+      // Fever ticking
+      if (feverActive) {
+        feverTime -= dt;
+        if (feverTime <= 0) {
+          feverActive = false;
+          fever = Math.min(fever, 90);
+          bus?.fever?.({ active:false, value:fever });
+        }
+      }
+      // Spawn by rate (boosted in fever)
+      age += dt;
+      const spawnRate = rate * (feverActive ? 0.5 : 1); // เร็วขึ้นตอน fever
+      if (age >= spawnRate) {
+        age -= spawnRate;
+        // limit on-screen items
+        if (host.childElementCount < 18) {
+          const roll = Math.random();
+          if (roll < 0.10) spawnPower(bus); else spawnOne(bus);
+        }
+      }
+      // Cleanup stray children (safety)
+      if (host.childElementCount > 28) {
+        [...host.children].slice(0, host.childElementCount - 20).forEach(n=>n.remove());
+      }
+    },
+    cleanup() {
+      alive = false;
+      try { host && (host.innerHTML=''); } catch {}
+    },
+    // Bonus: profile helpers
+    pickMeta(){ return { questTotal: quests.length, questDone: questIdx, feverTimes: stat.feverOpen, stars: stat.stars }; }
   };
 
-  const DIFF = {
-    Easy:   { rate:0.82, life:1.90, size:52 },
-    Normal: { rate:0.70, life:1.60, size:42 },
-    Hard:   { rate:0.56, life:1.40, size:34 },
-  };
+  // ---- helpers ----
+  function ensureHost(){
+    const h = document.createElement('div');
+    h.id = 'spawnHost';
+    h.style.cssText = 'position:fixed;inset:0;pointer-events:auto;z-index:5;';
+    document.body.appendChild(h);
+    return h;
+  }
 
-  // ---------- API ----------
-  function start({ time=45, diff='Normal' } = {}) {
-    Object.assign(S, {
-      alive:true, t:0, acc:0, combo:0, bestCombo:0, score:0, perfects:0,
-      feverLv:0, shield:false, shieldTime:0
+  function tuneByDiff(d) {
+    if (d === 'Easy')   return { rate:0.85, life:1.95 };
+    if (d === 'Hard')   return { rate:0.56, life:1.40 };
+    return               { rate:0.70, life:1.60 };
+  }
+
+  function spawnOne(bus){
+    const isGolden = Math.random() < 0.12;
+    const isGood   = isGolden || Math.random() < 0.70;
+    const glyph    = isGolden ? '🌟' : (isGood ? pick(GOOD) : pick(JUNK));
+    const size     = SIZE_BY_DIFF[diff] || 44;
+
+    const d = document.createElement('button');
+    d.className = 'spawn-emoji';
+    d.type = 'button';
+    d.dataset.good = isGood ? '1':'0';
+    d.dataset.golden = isGolden ? '1':'0';
+    d.textContent = glyph;
+    Object.assign(d.style,{
+      position:'absolute', border:'0', background:'transparent',
+      fontSize:size+'px', transform:'translate(-50%,-50%)',
+      filter:'drop-shadow(0 6px 12px rgba(0,0,0,.45))', willChange:'transform, opacity'
     });
-    applyDiff(diff);
-    ensureFeverLayer();
-    buildQuestPool(); // สร้างพูลเควสต์ 10 แบบแบบสุ่มลำดับ
-    nextQuest(true);
-    coach?.onStart?.();
-  }
+    placeRandom(d);
 
-  function update(dt, bus){
-    if(!S.alive) return;
-    S.bus = bus;
-    S.t += dt; S.acc += dt;
+    const ms = Math.floor((life + (isGolden?0.2:0)) * (feverActive?0.8:1) * 1000);
+    const to = setTimeout(()=>{ try{d.remove();}catch{} onMiss(bus); }, ms);
 
-    // shield countdown
-    if (S.shield) {
-      S.shieldTime -= dt;
-      if (S.shieldTime <= 0) { S.shield=false; S.shieldTime=0; document.body.removeAttribute('data-shield'); }
-    }
-
-    // spawn by rate
-    if (S.acc >= S.rate){
-      S.acc -= S.rate;
-      spawnOne();
-    }
-
-    // live-update quest remain (เช่น เควสต์ combo / fever)
-    refreshQuestHUD();
-  }
-
-  function cleanup(){
-    S.alive=false;
-    document.querySelectorAll('.spawn-emoji,.burst,.ring,.pop-txt,.fever-fire').forEach(el=>{ try{el.remove();}catch{} });
-    document.body.removeAttribute('data-fever');
-    document.body.removeAttribute('data-fever-lv');
-    document.body.removeAttribute('data-shield');
-    setMissionLine('');
-    hud?.setQuestChips?.([]);
-  }
-
-  // ---------- Core ----------
-  function applyDiff(d='Normal'){
-    S.diff = d;
-    const cfg = DIFF[d] || DIFF.Normal;
-    S.rate = cfg.rate;
-    S.life = cfg.life;
-    S.size = cfg.size;
-  }
-
-  function spawnOne(){
-    const W = innerWidth, H = innerHeight;
-    const pad = S.pad;
-    // distribution: 70% good, 20% junk, 7% star, 3% shield
-    const r = Math.random();
-    let kind='good', glyph=pick(GOOD);
-    if (r > 0.7 && r <= 0.9) { kind='junk'; glyph=pick(JUNK); }
-    else if (r > 0.9 && r <= 0.97){ kind='star'; glyph=STAR; }
-    else if (r > 0.97){ kind='shield'; glyph=SHIELD; }
-
-    const x = Math.floor(pad + Math.random()*(W - pad*2));
-    const y = Math.floor(pad + Math.random()*(H - pad*2 - 120));
-
-    const btn = document.createElement('button');
-    btn.className = 'spawn-emoji';
-    btn.type='button';
-    btn.dataset.kind = kind;
-    btn.textContent = glyph;
-    Object.assign(btn.style,{
-      left:x+'px', top:y+'px',
-      fontSize: ((S.size) + (kind==='star'?2:0)) + 'px'
-    });
-
-    const lifeMs = Math.floor(S.life*1000);
-    const killto = setTimeout(()=>{ // miss if not clicked
-      try{ btn.remove(); }catch{}
-      if (kind==='good') onMiss(); // ดีแล้วพลาด → คอมโบแตก
-      // junk/others: ปล่อยผ่าน
-    }, lifeMs);
-
-    btn.addEventListener('click', (ev)=>{
-      clearTimeout(killto);
-      try{ btn.remove(); }catch{}
-      handleHit(kind, ev.clientX||x, ev.clientY||y);
+    d.addEventListener('click', ev=>{
+      clearTimeout(to);
+      try{ d.remove(); }catch{}
+      hitEffect(ev.clientX, ev.clientY, d.textContent); // 3D explode-ish
+      if (isGood){
+        stat.hits++; stat.streak++; stat.bestStreak = Math.max(stat.bestStreak, stat.streak);
+        const perfect = isGolden || Math.random() < 0.22;
+        if (perfect) stat.perfect++;
+        const pts = (perfect ? 200 : 100) * (feverActive ? 1.5 : 1);
+        if (isGolden) { stat.stars++; fever = Math.min(100, fever + 18); }
+        else          { fever = Math.min(100, fever + 6); }
+        // open fever?
+        if (!feverActive && fever >= 100) {
+          feverActive = true; stat.feverOpen++;
+          feverTime = 7; // seconds
+          fever = 0;
+          bus?.fever?.({ active:true, value:100, time:feverTime });
+        } else {
+          bus?.fever?.({ active:feverActive, value:fever });
+        }
+        // score + quest progress
+        bus?.hit?.({ kind:(perfect?'perfect':'good'), points:Math.round(pts), ui:{ x:ev.clientX, y:ev.clientY } });
+        progressQuest({ good:isGood, golden:isGolden }, bus);
+      } else {
+        onMiss(bus);
+      }
     }, { passive:true });
 
-    host.appendChild(btn);
+    host.appendChild(d);
   }
 
-  function handleHit(kind, cx, cy){
-    if (kind==='good'){
-      const perfect = Math.random() < 0.22;
-      const pts = perfect ? 200 : 100;
+  function spawnPower(bus){
+    const kind = pick(POWERS);
+    const d = document.createElement('button');
+    d.className = 'spawn-emoji power';
+    d.type = 'button';
+    d.textContent = (kind==='star'?'★':'🛡️');
+    Object.assign(d.style,{
+      position:'absolute', border:'0', background:'transparent', fontSize:'42px',
+      transform:'translate(-50%,-50%)', filter:'drop-shadow(0 8px 14px rgba(10,120,160,.6))'
+    });
+    placeRandom(d);
+    const ms = Math.floor((life+0.2)*1000);
+    const to = setTimeout(()=>{ try{d.remove();}catch{} }, ms);
 
-      S.score += pts;
-      S.combo++;
-      if (S.combo > S.bestCombo) S.bestCombo = S.combo;
-      if (perfect) S.perfects++;
-
-      coach?.[perfect?'onPerfect':'onGood']?.();
-      FX.pop(`+${pts}`, {x:cx,y:cy});
-      FX.shatter({x:cx,y:cy});            // แตกกระจายแบบชิ้นส่วน
-      feverUpdate();
-
-      S.bus?.hit?.({ kind: perfect?'perfect':'good', points: pts, ui:{x:cx,y:cy} });
-      onQuestProgress('good', { perfect });
-    }
-    else if (kind==='junk'){
-      if (S.shield){
-        S.shield=false; S.shieldTime=0; document.body.removeAttribute('data-shield');
-        FX.ring({x:cx,y:cy});
-        // ไม่หัก combo เพราะกันได้
-        S.bus?.hit?.({ kind:'good', points: 0, ui:{x:cx,y:cy}, meta:{blocked:true} });
-        onQuestProgress('block', {});
+    d.addEventListener('click', ev=>{
+      clearTimeout(to); try{ d.remove(); }catch{}
+      if (kind==='star'){ fever = Math.min(100, fever + 26); stat.stars++; }
+      if (kind==='shield'){ shield = Math.min(2, shield + 1); }
+      bus?.power?.(kind);
+      bus?.hit?.({ kind:'good', points:0, ui:{x:ev.clientX, y:ev.clientY} });
+      if (!feverActive && fever >= 100) {
+        feverActive = true; stat.feverOpen++; feverTime = 7; fever = 0;
+        bus?.fever?.({ active:true, value:100, time:feverTime });
       } else {
-        onMiss();
-        FX.burst({x:cx,y:cy,color:'#ff6b6b'});
+        bus?.fever?.({ active:feverActive, value:fever });
       }
-    }
-    else if (kind==='star'){
-      const pts = 150;
-      S.score += pts;
-      S.combo++;
-      if (S.combo > S.bestCombo) S.bestCombo = S.combo;
+    }, { passive:true });
 
-      FX.spark({x:cx,y:cy});
-      feverUpdate(+1);
-      S.bus?.hit?.({ kind:'perfect', points: pts, ui:{x:cx,y:cy}, meta:{star:true} });
-      onQuestProgress('star', {});
-    }
-    else if (kind==='shield'){
-      S.shield = true; S.shieldTime = 7.0;
-      document.body.setAttribute('data-shield','1');
-      FX.shield({x:cx,y:cy});
-      S.bus?.hit?.({ kind:'good', points: 0, ui:{x:cx,y:cy}, meta:{shield:true} });
-      onQuestProgress('shield', {});
+    host.appendChild(d);
+  }
+
+  function onMiss(bus){
+    if (shield > 0) { shield--; return; }
+    stat.streak = 0;
+    bus?.miss?.();
+  }
+
+  function placeRandom(d){
+    const pad=48, W=innerWidth, H=innerHeight;
+    const x = Math.floor(pad + Math.random()*(W - pad*2));
+    const y = Math.floor(pad + Math.random()*(H - pad*2 - 140));
+    d.style.left = x+'px';
+    d.style.top  = y+'px';
+  }
+
+  function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+
+  // 3D-ish explode (DOM shards)
+  function hitEffect(x,y,ch){
+    const n = 10 + ((Math.random()*10)|0);
+    for (let i=0;i<n;i++){
+      const s = document.createElement('div');
+      s.textContent = ch;
+      s.style.cssText = `position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%) scale(${0.6+Math.random()*0.6});
+        font:900 18px ui-rounded,system-ui;pointer-events:none;opacity:1;z-index:2000;filter:drop-shadow(0 4px 10px rgba(0,0,0,.6))`;
+      document.body.appendChild(s);
+      const ang = Math.random()*Math.PI*2;
+      const dist = 40 + Math.random()*90;
+      const tx = x + Math.cos(ang)*dist;
+      const ty = y + Math.sin(ang)*dist;
+      requestAnimationFrame(()=>{
+        s.style.transition = 'transform .7s cubic-bezier(.2,.8,.2,1), opacity .7s';
+        s.style.transform  = `translate(${tx-x}px,${ty-y}px) scale(.1) rotate(${(Math.random()*720-360)|0}deg)`;
+        s.style.opacity    = '0';
+      });
+      setTimeout(()=>{ try{s.remove();}catch{} }, 720);
     }
   }
 
-  function onMiss(){
-    S.combo = 0;
-    feverUpdate(0,true);
-    coach?.onBad?.();
-    S.bus?.miss?.();
-    onQuestProgress('miss', {});
-  }
-
-  // ---------- Fever ----------
-  function feverUpdate(){
-    const c = S.combo;
-    let lv = 0;
-    if (c >= 25) lv = 3; else if (c >= 15) lv = 2; else if (c >= 7) lv = 1; else lv = 0;
-
-    if (lv !== S.feverLv){
-      S.feverLv = lv;
-      if (lv>0){
-        ensureFeverLayer();
-        document.body.setAttribute('data-fever','1');
-        document.body.setAttribute('data-fever-lv', String(lv));
-      } else {
-        document.body.removeAttribute('data-fever');
-        document.body.removeAttribute('data-fever-lv');
-      }
-      onQuestProgress('fever', {});
-    }
-  }
-
-  // ---------- Quests ----------
-  function buildQuestPool(){
-    // สุ่มลำดับภารกิจ 10 แบบ
-    const pool = [
-      makeQuest('good5',   '✅', 'เก็บของดีให้ครบ',    { need:5,  watch:'good' }),
-      makeQuest('good12',  '✅', 'เก็บของดีให้ครบ',    { need:12, watch:'good' }),
-      makeQuest('perfect3','💠','ทำ PERFECT ให้ครบ',   { need:3,  watch:'perfect' }),
-      makeQuest('star2',   '⭐', 'เก็บดาวให้ครบ',       { need:2,  watch:'star' }),
-      makeQuest('shield1', '🛡️','เปิดโล่ให้สำเร็จ',    { need:1,  watch:'shield' }),
-      makeQuest('combo8',  '🔥', 'ทำคอมโบให้ถึง',       { need:8,  watch:'combo-atleast' }),
-      makeQuest('combo15', '🔥','ทำคอมโบให้ถึง',       { need:15, watch:'combo-atleast' }),
-      makeQuest('fever1',  '⚡','เปิดโหมด Fever',       { need:1,  watch:'fever' }),
-      makeQuest('score800','🏆','ทำคะแนนให้ถึง',        { need:800,watch:'score-atleast' }),
-      makeQuest('no-miss3','🟦','อย่าพลาดของดี 3 ชิ้น', { need:3,  watch:'good-streak' }),
+  // ===== Quests: one-by-one (10 random) =====
+  function buildQuestList(){
+    const bag = [
+      { key:'good12',  icon:'🥗', label:'Collect Good x12',     need:12, cond:ev=>ev.good===true },
+      { key:'gold3',   icon:'🌟', label:'Hit Golden x3',        need:3,  cond:ev=>ev.golden===true },
+      { key:'streak8', icon:'⚡', label:'Get Streak x8',        need:8,  tick:()=>stat.streak>=(this.need||8) },
+      { key:'shield1', icon:'🛡️', label:'Grab 1 Shield',       need:1,  power:'shield' },
+      { key:'star1',   icon:'★',  label:'Grab 1 Star',         need:1,  power:'star' },
+      { key:'good20',  icon:'🥗', label:'Collect Good x20',     need:20, cond:ev=>ev.good===true },
+      { key:'streak12',icon:'⚡', label:'Get Streak x12',       need:12, tick:()=>stat.streak>=(this.need||12) },
+      { key:'fever1',  icon:'🔥', label:'Trigger FEVER',        need:1,  fever:true },
+      { key:'perfect5',icon:'✨', label:'Make PERFECT x5',      need:5,  acc:'perfect' },
+      { key:'score1k', icon:'🏆', label:'Reach 1000 pts',       need:1000, score:true }
     ];
-    S.questPool = shuffle(pool);
-    S.qIndex = -1;
+    // shuffle and cut 10
+    for (let i=bag.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [bag[i],bag[j]]=[bag[j],bag[i]]; }
+    return bag.slice(0,10).map(q=>({ ...q, progress:0, done:false }));
   }
 
-  function makeQuest(key, icon, label, cfg){
-    return { key, icon, label, ...cfg };
+  function currentQuest(){ return quests[questIdx] || null; }
+  function currentQuestChip(){
+    const q = currentQuest(); if (!q) return { icon:'🏁', label:'ALL MISSIONS CLEAR', progress:1, need:1, done:true };
+    return { icon:q.icon, label:q.label, progress:q.progress, need:q.need, done:q.done };
   }
 
-  function nextQuest(initial=false){
-    S.qIndex++;
-    if (S.qIndex >= S.questPool.length){
-      // หมดภารกิจ → วนซ้ำสุ่มใหม่
-      buildQuestPool();
-      S.qIndex = 0;
-    }
-    const qdef = S.questPool[S.qIndex];
-    S.q = {
-      key:qdef.key, icon:qdef.icon, label:qdef.label,
-      watch:qdef.watch,
-      need:qdef.need,
-      progress:0, done:false, fail:false, remain:qdef.need
-    };
-    if (!initial) coach?.say?.('ภารกิจต่อไป!');
-    refreshQuestHUD();
-  }
+  function progressQuest(ev, bus){
+    const q = currentQuest(); if (!q) return;
+    // count by condition
+    if (q.cond && q.cond(ev)) q.progress++;
+    if (q.power && (ev.powerKind===q.power)) q.progress++;
+    if (q.fever && feverActive) q.progress = Math.max(q.progress, 1);
+    if (q.acc==='perfect' && ev.golden) q.progress++; // golden นับ perfect ไปด้วย
+    // Streak/Score live-rule
+    if (q.tick && q.tick.call(q)) q.progress = q.need;
+    if (q.score) q.progress = Math.min(q.need, (window.HHA_SCORE_NOW||0));
 
-  function onQuestProgress(event, info){
-    if (!S.q || S.q.done) return;
+    // clamp & check
+    q.progress = Math.min(q.progress|0, q.need|0);
+    const chip = currentQuestChip();
+    bus?.quest?.({ index:questIdx+1, total:quests.length, chip, done:false });
 
-    // อัปเดตตามชนิด watch
-    switch (S.q.watch){
-      case 'good':
-        if (event==='good'){ S.q.progress++; }
-        break;
-      case 'perfect':
-        if (event==='good' && info.perfect){ S.q.progress++; }
-        break;
-      case 'star':
-        if (event==='star'){ S.q.progress++; }
-        break;
-      case 'shield':
-        if (event==='shield'){ S.q.progress++; }
-        break;
-      case 'combo-atleast':
-        if (S.combo >= S.q.need){ S.q.progress = S.q.need; }
-        break;
-      case 'fever':
-        if (event==='fever' && S.feverLv>0){ S.q.progress = 1; }
-        break;
-      case 'score-atleast':
-        if (S.score >= S.q.need){ S.q.progress = S.q.need; }
-        break;
-      case 'good-streak':
-        if (event==='good'){ S.q.progress = Math.min(S.q.need, S.q.progress+1); }
-        if (event==='miss'){ S.q.progress = 0; } // พลาดเริ่มนับใหม่
-        break;
-    }
-
-    S.q.remain = Math.max(0, (S.q.need|0) - (S.q.progress|0));
-    refreshQuestHUD();
-
-    // เสร็จแล้ว → โบนัสเล็ก ๆ + ไปเควสต์ถัดไป
-    if (S.q.progress >= S.q.need){
-      S.q.done = true;
-      coach?.say?.('ภารกิจสำเร็จ!');
-      try { S.bus?.hit?.({ kind:'good', points: 150, ui:null, meta:{quest:S.q.key} }); } catch {}
-      setTimeout(()=> nextQuest(false), 650);
+    if (q.progress >= q.need) {
+      q.done = true;
+      bus?.quest?.({ index:questIdx+1, total:quests.length, chip:{...chip, done:true}, done:true });
+      questIdx++;
+      if (questIdx >= quests.length) {
+        bus?.doneAll?.({ quests, stat });
+      } else {
+        notifyQuest(null, null, bus); // tell UI next quest
+      }
     }
   }
 
-  function refreshQuestHUD(){
-    if (!S.q) { hud?.setQuestChips?.([]); setMissionLine(''); return; }
-    const label = missionText(S.q);
-    const chip = {
-      key:S.q.key, icon:S.q.icon,
-      label, progress:S.q.progress|0, need:S.q.need|0,
-      done:!!S.q.done, fail:!!S.q.fail, remain:S.q.remain|0
-    };
-    hud?.setQuestChips?.([chip]);
-    setMissionLine(label);
+  function notifyQuest(hud, coach, bus){
+    const q = currentQuest();
+    const msg = q ? (`MISSION: ${q.label}`) : 'ALL MISSIONS CLEAR 🎉';
+    coach?.say?.(msg);
+    hud?.setQuestChips?.([currentQuestChip()]);
+    bus?.quest?.({ index:questIdx+1, total:quests.length, chip:currentQuestChip(), done:false });
   }
-
-  function missionText(q){
-    switch(q.watch){
-      case 'good':          return `${q.icon} ${q.label} ${q.need} ชิ้น (${q.progress}/${q.need})`;
-      case 'perfect':       return `${q.icon} ${q.label} ${q.need} ครั้ง (${q.progress}/${q.need})`;
-      case 'star':          return `${q.icon} ${q.label} ${q.need} ดวง (${q.progress}/${q.need})`;
-      case 'shield':        return `${q.icon} ${q.label} (${q.progress}/${q.need})`;
-      case 'combo-atleast': return `${q.icon} ${q.label} ${q.need}+`;
-      case 'fever':         return `${q.icon} ${q.label} 1 ครั้ง`;
-      case 'score-atleast': return `${q.icon} ${q.label} ${q.need}+ คะแนน`;
-      case 'good-streak':   return `${q.icon} ${q.label} (${q.progress}/${q.need})`;
-      default: return `${q.icon} ภารกิจ`;
-    }
-  }
-
-  function setMissionLine(text=''){
-    const el = document.getElementById('missionLine');
-    if (!el) return;
-    el.style.display = text ? 'inline-flex' : 'none';
-    el.textContent = text || '';
-  }
-
-  // ---------- Return instance ----------
-  return { start, update, cleanup };
-}
-
-// ---------- FX helpers ----------
-const FX = {
-  pop(txt,{x,y}){
-    const el=document.createElement('div');
-    el.className='pop-txt';
-    el.textContent=txt;
-    el.style.left=(x|0)+'px';
-    el.style.top =(y|0)+'px';
-    document.body.appendChild(el);
-    requestAnimationFrame(()=>{ el.style.transform='translate(-50%,-70px) scale(1.1)'; el.style.opacity='0'; });
-    setTimeout(()=>{ try{el.remove();}catch{} }, 720);
-  },
-  burst({x,y,color='#ffd166'}){
-    for(let i=0;i<20;i++){
-      const p=document.createElement('i');
-      p.className='burst';
-      p.style.background=color;
-      p.style.left=(x|0)+'px'; p.style.top=(y|0)+'px';
-      document.body.appendChild(p);
-      const ang=Math.random()*Math.PI*2;
-      const sp = 220+Math.random()*220;
-      const dx = Math.cos(ang)*sp, dy = Math.sin(ang)*sp;
-      const t0=performance.now();
-      (function anim(t){ const dt=(t-t0)/1000; const nx=x+dx*dt, ny=y+dy*dt+420*dt*dt;
-        p.style.transform=`translate(${nx|0}px,${ny|0}px) rotate(${dt*720|0}deg)`; p.style.opacity=String(Math.max(0,1-dt*1.3));
-        if(dt<0.8) requestAnimationFrame(anim); else try{p.remove();}catch{}; })(t0);
-    }
-  },
-  spark({x,y}){ this.burst({x,y,color:'#ffe27a'}); },
-  ring({x,y}){ const r=document.createElement('i'); r.className='ring'; r.style.left=x+'px'; r.style.top=y+'px'; document.body.appendChild(r); setTimeout(()=>r.remove(),600); },
-  shield({x,y}){ this.ring({x,y}); },
-  shatter({x,y}){ this.burst({x,y,color:'#a2ff9c'}); this.spark({x,y}); }
-};
-
-// ---------- DOM helpers ----------
-function ensureHost(){
-  return document.getElementById('spawnHost') ||
-    document.body.appendChild(Object.assign(document.createElement('div'),{
-      id:'spawnHost', style:'position:fixed;inset:0;pointer-events:none;z-index:12'
-    }));
-}
-function pick(a){ return a[(Math.random()*a.length)|0]; }
-function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
-
-// ---------- CSS ----------
-function injectCSS(){
-  if (document.getElementById('gj-popup-style')) return;
-  const css = `
-  #spawnHost{ pointer-events:none; }
-  .spawn-emoji{
-    position:fixed; transform:translate(-50%,-50%) scale(1); border:0; background:transparent;
-    text-shadow:0 3px 12px rgba(0,0,0,.45);
-    filter: drop-shadow(0 6px 14px rgba(0,0,0,.45));
-    transition: transform .08s ease; pointer-events:auto; cursor:pointer; user-select:none;
-  }
-  .spawn-emoji:active{ transform:translate(-50%,-50%) scale(1.1); }
-
-  .pop-txt{
-    position:fixed; left:0; top:0; transform:translate(-50%,-40px);
-    font:900 16px ui-rounded,system-ui; color:#fff; text-shadow:0 2px 10px #000;
-    pointer-events:none; transition:transform .72s ease, opacity .72s ease; opacity:1; z-index:99;
-  }
-
-  .burst{
-    position:fixed; width:10px;height:10px;border-radius:3px; background:#ffd166; opacity:1;
-    transform:translate(0,0); pointer-events:none; z-index:98;
-  }
-  .ring{
-    position:fixed; width:12px;height:12px;border:2px solid #88e0ff;border-radius:99px;
-    transform:translate(-50%,-50%) scale(1); opacity:1; pointer-events:none; z-index:98;
-    transition:transform .45s ease, opacity .45s ease;
-    transform-origin:center; animation: ringGrow .45s ease forwards;
-  }
-  @keyframes ringGrow{ to{ transform:translate(-50%,-50%) scale(3.2); opacity:0; } }
-
-  /* Fever overlay */
-  #feverLayer{ position:fixed; left:0; right:0; top:0; bottom:0; pointer-events:none; z-index:5; mix-blend-mode:screen; display:none; }
-  [data-fever="1"] #feverLayer{ display:block; }
-  .fever-fire{
-    position:absolute; left:-10%; right:-10%; bottom:-15%; height:55%;
-    background:
-      radial-gradient(30px 24px at 20% 110%, rgba(255,200,0,.9), rgba(255,130,0,.45) 55%, rgba(255,80,0,0) 70%),
-      radial-gradient(26px 20px at 45% 110%, rgba(255,210,80,.85), rgba(255,120,0,.40) 55%, rgba(255,80,0,0) 70%),
-      radial-gradient(34px 26px at 70% 110%, rgba(255,190,40,.9), rgba(255,110,0,.40) 55%, rgba(255,80,0,0) 70%),
-      linear-gradient(0deg, rgba(255,140,0,.30), rgba(255,100,0,.12));
-    animation: fireRise .9s ease-in-out infinite;
-    opacity:.0;
-  }
-  [data-fever-lv="1"] .fever-fire{ opacity:.32; }
-  [data-fever-lv="2"] .fever-fire{ opacity:.52; }
-  [data-fever-lv="3"] .fever-fire{ opacity:.72; }
-  @keyframes fireRise{ 0%{ transform:translateY(8px) scaleY(.9) } 50%{ transform:translateY(0) scaleY(1) } 100%{ transform:translateY(8px) scaleY(.9) } }
-
-  /* Shield glow at page edge */
-  [data-shield="1"]::after{
-    content:''; position:fixed; inset:0; pointer-events:none; z-index:6;
-    box-shadow:inset 0 0 0 3px rgba(120,220,255,.45), inset 0 0 60px rgba(120,220,255,.18);
-  }
-  `;
-  const s=document.createElement('style'); s.id='gj-popup-style'; s.textContent=css; document.head.appendChild(s);
-}
-
-// ---------- Fever layer ----------
-function ensureFeverLayer(){
-  if (document.getElementById('feverLayer')) return;
-  const wrap = document.createElement('div');
-  wrap.id='feverLayer';
-  wrap.innerHTML = `<div class="fever-fire"></div><div class="fever-fire"></div><div class="fever-fire"></div>`;
-  document.body.appendChild(wrap);
 }
