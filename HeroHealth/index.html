@@ -1,134 +1,121 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Hero Health Academy</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Hero Health Academy</title>
+<meta name="color-scheme" content="light dark"/>
+<style>
+:root{--bg:#0b1020;--fg:#e8f3ff;--muted:#94a3b8;--accent:#22d3ee;}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);color:var(--fg);
+font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
 
-  <style>
-    body {
-      margin: 0; background: #071422; color: #e6f4ff;
-      font-family: 'Segoe UI', sans-serif;
-      overflow: hidden;
-    }
-    .game-wrap { position: relative; width: 100%; height: 100vh; overflow: hidden; }
+.game-wrap{position:relative;min-height:100dvh;overflow:hidden;}
+/* กัน canvas ขวางคลิกทุกกรณี */
+canvas#c, canvas{pointer-events:none !important;z-index:1;position:fixed;inset:0}
 
-    /* ---------- MENU ---------- */
-    #menuBar {
-      position: absolute; inset: 0;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: linear-gradient(160deg, #0c2140 0%, #102b52 100%);
-      z-index: 50; transition: opacity 0.4s;
-    }
-    #menuBar[data-hidden] { display: none !important; }
+/* โฮสต์เกมและสปอน */
+#gameLayer,#spawnHost{position:fixed;inset:0;}
+#spawnHost{pointer-events:auto;z-index:5}
 
-    #menuBar h1 {
-      font-size: 28px; margin-bottom: 16px;
-      background: linear-gradient(to right, #c3e8ff, #9fe);
-      -webkit-background-clip: text; color: transparent;
-    }
-    .menu-row { display: flex; gap: 8px; margin: 6px 0; }
-    button {
-      cursor: pointer;
-      padding: 10px 16px; border-radius: 10px; border: 1px solid #16325d;
-      background: #0f1e38; color: #e6f2ff; font-weight: 600;
-      transition: background 0.2s;
-    }
-    button:hover { background: #19355e; }
-    .active { background: #2563eb !important; border-color: #1d4ed8; }
+/* เมนูหลัก */
+#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
+background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
+/* ซ่อนเมนูเมื่อเริ่มเกม */
+#menuBar[data-hidden="1"]{display:none !important;}
 
-    #howText, #soundText { font-size: 14px; margin-top: 4px; color: #a6c8ff; }
+.menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
+padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;
+border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;user-select:none}
+.btn:hover{filter:brightness(1.08)}
+.btn[data-mode].active,.btn[data-diff].active{outline:2px solid var(--accent);box-shadow:0 0 0 4px #22d3ee22}
 
-    /* ---------- HUD + RESULT ---------- */
-    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 2000; }
-    #toast {
-      position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.7); color: #fff; padding: 6px 12px;
-      border-radius: 8px; opacity: 0; transition: opacity 0.3s;
-    }
-    #toast.show { opacity: 1; }
+/* HUD ด้านบน และกันบังคลิก */
+#hudTop{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;z-index:50;pointer-events:none}
+.badge{background:#0f1e38;border:1px solid #16325d;border-radius:10px;padding:6px 10px;pointer-events:auto}
+#scoreVal{font-weight:900}
 
-  </style>
+/* Power bar */
+#powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw)}
+#powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
+#powerFill{position:absolute;inset:0;width:0%}
+.fire{position:absolute;left:0;top:0;bottom:0;width:100%;
+background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
+radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
+radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
+linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
+mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite}
+@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
+
+/* Toast + Boot warn */
+.toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;
+color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:60}
+.toast.show{opacity:1}
+#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10000;display:none}
+</style>
 </head>
-<body data-mode="goodjunk" data-diff="Normal">
-  <div class="game-wrap">
-    <!-- ----------- MENU ----------- -->
-    <div id="menuBar">
-      <h1>Hero Health Academy</h1>
+<body>
 
-      <div class="menu-row">
-        <button class="modeBtn active" data-mode="goodjunk">🥦 Good vs Junk</button>
-        <button class="modeBtn" data-mode="plate">🍽️ Balanced Plate</button>
-        <button class="modeBtn" data-mode="hydration">💧 Water Balance</button>
-      </div>
+<div class="game-wrap">
+  <div id="gameLayer"></div>
+  <div id="spawnHost"></div>
 
-      <div class="menu-row">
-        <button class="diffBtn active" data-diff="Easy">ง่าย</button>
-        <button class="diffBtn" data-diff="Normal">ปกติ</button>
-        <button class="diffBtn" data-diff="Hard">ยาก</button>
-      </div>
-
-      <div class="menu-row">
-        <button id="btn_how">📘 How to Play</button>
-        <button id="btn_sound">🔊 Sound: ON</button>
-      </div>
-      <div id="howText">แตะอาหารที่ดี หลีกเลี่ยงอาหารขยะ!</div>
-      <div id="soundText"></div>
-
-      <div class="menu-row" style="margin-top:18px;">
-        <button id="btn_start" style="padding:12px 32px;font-size:18px;background:#2563eb;color:white;border:none;border-radius:12px;">▶ Start</button>
-      </div>
-    </div>
-
-    <!-- ----------- HUD/RESULT/QUEST ----------- -->
-    <div id="hud"></div>
-    <div id="coachBox"></div>
-    <div id="spawnHost"></div>
-    <div id="toast"></div>
+  <div id="hudTop">
+    <div class="badge">Mode: <b id="modeBadge">goodjunk</b> • Diff: <b id="diffBadge">Normal</b></div>
+    <div class="badge">Score: <span id="scoreVal">0</span></div>
+    <div class="badge" id="targetWrap" style="display:none"><span id="targetBadge">Target</span></div>
+    <div class="badge" id="missionLine" style="display:none"></div>
   </div>
 
-  <script type="module" src="./game/main.js?v=final"></script>
+  <div id="menuBar" aria-label="Main menu">
+    <div class="menu-card">
+      <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
+      <div>
+        <h3>Play Mode</h3>
+        <div class="row" role="group" aria-label="Mode">
+          <div class="btn" data-mode="goodjunk">🥗 Good vs Junk</div>
+          <div class="btn" data-mode="groups">🧺 5 Food Groups</div>
+          <div class="btn" data-mode="hydration">💧 Hydration</div>
+          <div class="btn" data-mode="plate">🍽️ Healthy Plate</div>
+        </div>
+      </div>
+      <hr style="margin:12px 0;border-color:#133"/>
+      <div>
+        <h3>Difficulty</h3>
+        <div class="row" role="group" aria-label="Difficulty">
+          <div class="btn" data-diff="Easy">Easy</div>
+          <div class="btn active" data-diff="Normal">Normal</div>
+          <div class="btn" data-diff="Hard">Hard</div>
+        </div>
+      </div>
+      <hr style="margin:12px 0;border-color:#133"/>
+      <div class="row">
+        <!-- ปุ่ม Start แบบกันพลาด: มี id + type=button -->
+        <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0" aria-label="Start game">▶️ Start</button>
+        <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
+        <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
+      </div>
+    </div>
+  </div>
 
-  <script>
-    // -------- MENU INTERACTION --------
-    const modeBtns = document.querySelectorAll('.modeBtn');
-    const diffBtns = document.querySelectorAll('.diffBtn');
-    const howBtn   = document.getElementById('btn_how');
-    const soundBtn = document.getElementById('btn_sound');
-    const howText  = document.getElementById('howText');
-    const soundText= document.getElementById('soundText');
+  <div id="powerBarWrap"><div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div></div>
+</div>
 
-    // --- Mode select ---
-    modeBtns.forEach(btn=>{
-      btn.onclick=()=>{
-        modeBtns.forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        document.body.setAttribute('data-mode', btn.dataset.mode);
-      };
-    });
+<!-- SFX tags (ใส่ไฟล์จริงได้ภายหลัง) -->
+<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
+<audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
+<audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
+<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
+<audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-    // --- Diff select ---
-    diffBtns.forEach(btn=>{
-      btn.onclick=()=>{
-        diffBtns.forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-        document.body.setAttribute('data-diff', btn.dataset.diff);
-      };
-    });
+<!-- โหลดหลัก -->
+<script type="module" src="./game/main.js"></script>
 
-    // --- How to play ---
-    howBtn.onclick=()=>{
-      howText.textContent="แตะอาหารที่ดีเพื่อได้คะแนน หลีกเลี่ยงอาหารขยะ ถ้ากดผิดจะเสียคอมโบ!";
-      howText.style.color="#bef";
-    };
-
-    // --- Sound toggle ---
-    let soundOn=true;
-    soundBtn.onclick=()=>{
-      soundOn=!soundOn;
-      soundBtn.textContent = soundOn ? "🔊 Sound: ON" : "🔇 Sound: OFF";
-      soundText.textContent = soundOn ? "เปิดเสียงเอฟเฟกต์แล้ว" : "ปิดเสียงเอฟเฟกต์แล้ว";
-    };
-  </script>
+<!-- Toast + Boot warn host -->
+<div id="toast" class="toast"></div>
+<div id="bootWarn"></div>
 </body>
 </html>
