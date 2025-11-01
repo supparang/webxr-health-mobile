@@ -1,91 +1,98 @@
-// === game/menu-bind.js (ultra-robust menu bindings) ===
-(function(){
-  const $  = (s)=>document.querySelector(s);
-  const $$ = (s)=>document.querySelectorAll(s);
+// === Hero Health Academy — game/menu-bind.js (start binder: hard-capture + fallbacks)
+(function () {
+  const $  = (s) => document.querySelector(s);
+  const $$ = (s) => document.querySelectorAll(s);
 
-  // เผื่อ main.js ยังโหลดไม่ทัน ให้เก็บ mode/diff ไว้ชั่วคราว
-  window.__HHA_MODE = window.__HHA_MODE || 'goodjunk';
-  window.__HHA_DIFF = window.__HHA_DIFF || 'Normal';
+  // --- fallback เดโม (ถ้า main.js ยังไม่พร้อม)
+  function startShim() {
+    try {
+      const menu = $('#menuBar');
+      menu && menu.setAttribute('data-hidden', '1');
+      document.body.setAttribute('data-playing', '1');
 
-  function setActive(listSel, el){
-    $$(listSel).forEach(b=>b.classList.remove('active'));
-    if (el) el.classList.add('active');
+      const host = $('#spawnHost');
+      let n = 0;
+      const t = setInterval(() => {
+        if (n++ > 35) { clearInterval(t); document.body.removeAttribute('data-playing'); menu && menu.removeAttribute('data-hidden'); return; }
+        const b = document.createElement('button');
+        b.textContent = Math.random() < 0.7 ? '🥦' : '🍔';
+        b.style.cssText = 'position:absolute;background:transparent;border:0;font-size:40px;left:'+(40+Math.random()*(innerWidth-80))+'px;top:'+(80+Math.random()*(innerHeight-200))+'px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))';
+        host.appendChild(b);
+        setTimeout(() => b.remove(), 900);
+      }, 350);
+    } catch (e) {
+      alert('Start fallback error: ' + (e.message || e));
+    }
   }
 
-  function bind(){
-    const mb = $('#menuBar');
-    if (!mb) return;
-
-    function handle(el){
-      if (!el) return;
-      if (el.hasAttribute('data-mode')) {
-        window.__HHA_MODE = el.getAttribute('data-mode') || window.__HHA_MODE;
-        setActive('[data-mode]', el);
-        const mB = $('#modeBadge'); if (mB) mB.textContent = window.__HHA_MODE;
-      } else if (el.hasAttribute('data-diff')) {
-        window.__HHA_DIFF = el.getAttribute('data-diff') || window.__HHA_DIFF;
-        setActive('[data-diff]', el);
-        const dB = $('#diffBadge'); if (dB) dB.textContent = window.__HHA_DIFF;
-      } else if (el.dataset.action === 'howto') {
-        alert('แตะอาหารดี หลีกเลี่ยงของไม่ดี ภายในเวลาที่กำหนด • เปลี่ยนโหมด/ความยากก่อนเริ่ม');
-      } else if (el.dataset.action === 'sound') {
-        // toggle เสียงแบบง่าย ถ้า SFX ยังไม่มา
-        const nowMuted = !(localStorage.getItem('hha_tmp_sound')!=='0');
-        document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = !nowMuted; }catch{} });
-        localStorage.setItem('hha_tmp_sound', (!nowMuted)?'0':'1');
-        el.textContent = (!nowMuted)?'🔊 Sound':'🔇 Sound';
-      } else if (el.dataset.action === 'start') {
-        // เรียก main ถ้ามีแล้ว, ถ้ายัง → fallback เรียกภายหลังทันทีที่มี
-        if (window.HHA && typeof window.HHA.startGame === 'function') {
-          document.body.setAttribute('data-mode', window.__HHA_MODE);
-          document.body.setAttribute('data-diff', window.__HHA_DIFF);
-          window.HHA.startGame();
-        } else {
-          // รอ main.js โหลดยืนยัน แล้วกดให้เอง
-          let tries = 0;
-          const t = setInterval(()=>{
-            tries++;
-            if (window.HHA && typeof window.HHA.startGame === 'function') {
-              clearInterval(t);
-              document.body.setAttribute('data-mode', window.__HHA_MODE);
-              document.body.setAttribute('data-diff', window.__HHA_DIFF);
-              window.HHA.startGame();
-            } else if (tries > 60) { // ~6s
-              clearInterval(t);
-              alert('โหลดสคริปต์หลักช้า ลองรีเฟรชหน้า (Ctrl/Cmd+Shift+R)');
-            }
-          }, 100);
-        }
+  // --- เรียก start ของจริง ถ้า HHA พร้อม (รอสูงสุด ~3 วินาที แล้วค่อย fallback)
+  function startSafe() {
+    let tries = 0;
+    const iv = setInterval(() => {
+      tries++;
+      if (window.HHA && typeof window.HHA.startGame === 'function') {
+        clearInterval(iv);
+        window.HHA.startGame();
+      } else if (tries > 30) { // ~3s
+        clearInterval(iv);
+        startShim();
       }
-    }
-
-    // เดลิเกตให้รองรับทุกปุ่ม + มือถือ
-    ['click','pointerup','touchend'].forEach(ev=>{
-      mb.addEventListener(ev,(e)=>{
-        const t = e.target.closest('.btn'); if(!t) return;
-        e.preventDefault(); e.stopPropagation();
-        handle(t);
-      }, {passive:false});
-    });
-
-    // ปุ่ม Start สำรอง (กัน theme/script อื่นเขียนทับ)
-    const startBtn = $('#btn_start');
-    if (startBtn) {
-      const clone = startBtn.cloneNode(true);
-      startBtn.parentNode.replaceChild(clone, startBtn);
-      ['click','pointerup','touchend'].forEach(ev=>{
-        clone.addEventListener(ev,(e)=>{
-          e.preventDefault(); e.stopPropagation();
-          handle(clone);
-        }, {passive:false});
-      });
-    }
+    }, 100);
   }
 
-  // bind ทันที และซ้ำหลัง DOM พร้อม
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bind, {once:true});
-  } else {
-    bind();
+  // --- sync ค่าที่เลือกจากปุ่ม mode/diff ก่อนกด Start
+  function syncSelections() {
+    const actM = $('.btn[data-mode].active');
+    const actD = $('.btn[data-diff].active');
+    const mode = actM ? actM.getAttribute('data-mode') : (document.body.getAttribute('data-mode') || 'goodjunk');
+    const diff = actD ? actD.getAttribute('data-diff') : (document.body.getAttribute('data-diff') || 'Normal');
+    window.__HHA_MODE = mode; window.__HHA_DIFF = diff;
+    document.body.setAttribute('data-mode', mode);
+    document.body.setAttribute('data-diff', diff);
+  }
+
+  // --- ป้องกันตัวอื่น intercept: จับใน capture phase ระดับ window
+  function handleMaybeStart(e) {
+    const tgt = e.target && (e.target.closest('#btn_start') || e.target.closest('[data-action="start"]'));
+    if (!tgt) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    syncSelections();
+    startSafe();
+  }
+
+  ['click','pointerup','touchend'].forEach(ev => {
+    window.addEventListener(ev, handleMaybeStart, true); // capture = true
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { handleMaybeStart(e); }
+  }, true);
+
+  // --- ตั้ง active เมื่อเลือก mode/diff
+  const mb = $('#menuBar');
+  if (mb) {
+    mb.addEventListener('click', (ev) => {
+      const t = ev.target.closest('.btn');
+      if (!t) return;
+      if (t.matches('[data-mode]')) {
+        $$('.btn[data-mode]').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+      }
+      if (t.matches('[data-diff]')) {
+        $$('.btn[data-diff]').forEach(x => x.classList.remove('active'));
+        t.classList.add('active');
+      }
+    });
+  }
+
+  // --- กัน overlay ใด ๆ มาปิดเมนู
+  const menu = $('#menuBar');
+  if (menu) {
+    menu.style.zIndex = '2147483647';
+  }
+  const c = document.getElementById('c');
+  if (c) {
+    c.style.pointerEvents = 'none';
+    c.style.zIndex = '1';
+    c.style.position = 'fixed';
   }
 })();
