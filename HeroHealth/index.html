@@ -10,15 +10,14 @@
 body{margin:0;background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);color:var(--fg);
 font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;}
 .game-wrap{position:relative;min-height:100dvh;overflow:hidden;}
-#gameLayer,#spawnHost{position:fixed;inset:0;}
-
-/* ✅ กันชั้นเกมทับเมนู: ก่อนเริ่มเกมให้รับคลิกไม่ได้ */
-#gameLayer,#spawnHost{pointer-events:none;}
+/* ชั้นเกมไม่รับคลิกจนกว่าจะเริ่มจริง */
+#gameLayer,#spawnHost{position:fixed;inset:0;pointer-events:none;z-index:1;}
 body[data-playing="1"] #gameLayer,
 body[data-playing="1"] #spawnHost{pointer-events:auto;}
-
-#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
-background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
+/* เมนูต้องอยู่บนสุดเสมอ */
+#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+z-index:2147483647;background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
+#menuBar[data-hidden="1"]{display:none;}
 .menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
 padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
 .row{display:flex;flex-wrap:wrap;gap:10px}
@@ -80,8 +79,9 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
       </div>
       <hr style="margin:12px 0;border-color:#133"/>
       <div class="row">
-        <!-- ✅ ใส่ id และ fallback onclick กันพลาด -->
-        <div id="btn_start" class="btn" data-action="start" onclick="window.HHA&&HHA.startGame()">▶️ Start</div>
+        <!-- ปุ่ม Start แบบกันพลาดสุด: id + role + tabindex + onclick fallback -->
+        <div id="btn_start" class="btn" data-action="start" role="button" tabindex="0"
+             onclick="window.HHA&&typeof HHA.startGame==='function'?HHA.startGame():window.__StartShim&&__StartShim()">▶️ Start</div>
         <div class="btn" data-action="howto">❓ How to Play</div>
         <div class="btn" data-action="sound">🔊 Sound</div>
       </div>
@@ -98,11 +98,85 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- โมดูลหลัก -->
+<!-- โมดูลหลัก (อย่าลบ) -->
 <script type="module" src="./game/main.js"></script>
-
-<!-- ✅ ตัวช่วยผูกปุ่มให้ชัวร์ -->
 <script type="module" src="./game/menu-bind.js"></script>
+
+<!-- ✅ SHIM: จับปุ่ม Start ระดับ window (capture) + Fallback start ถ้า main.js ยังไม่พร้อม -->
+<script>
+(function(){
+  // ค่าเลือกไว้ก่อนที่ main จะอ่าน
+  window.__HHA_MODE = window.__HHA_MODE || 'goodjunk';
+  window.__HHA_DIFF = window.__HHA_DIFF || 'Normal';
+
+  // ฟังก์ชันเริ่มเล่นแบบ Fallback (เดโมสั้น ๆ) — เพื่อยืนยันว่าปุ่มคลิกติดแน่ ๆ
+  window.__StartShim = function(){
+    try{
+      console.log('[shim] Start fallback');
+      document.body.setAttribute('data-mode', window.__HHA_MODE);
+      document.body.setAttribute('data-diff', window.__HHA_DIFF);
+      const menu = document.getElementById('menuBar');
+      menu && menu.setAttribute('data-hidden','1');
+      document.body.setAttribute('data-playing','1');
+      const host = document.getElementById('spawnHost');
+      let n=0; const t=setInterval(()=>{
+        if(n++>30){ clearInterval(t); document.body.removeAttribute('data-playing'); menu && menu.removeAttribute('data-hidden'); return; }
+        const b=document.createElement('button');
+        b.textContent = Math.random()<0.7?'🥦':'🍔';
+        b.style.cssText='position:absolute;background:transparent;border:0;font-size:40px;left:'+(40+Math.random()*(innerWidth-80))+'px;top:'+(80+Math.random()*(innerHeight-200))+'px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.45))';
+        host.appendChild(b); setTimeout(()=>b.remove(),1200);
+      }, 400);
+    }catch(e){ alert('Start fallback error: '+(e.message||e)); }
+  };
+
+  function startSafe(){
+    if (window.HHA && typeof window.HHA.startGame==='function'){
+      window.HHA.startGame();
+    } else {
+      // รอ main.js สั้น ๆ แล้วค่อย fallback
+      let tries=0;
+      const iv=setInterval(()=>{
+        tries++;
+        if (window.HHA && typeof window.HHA.startGame==='function'){ clearInterval(iv); window.HHA.startGame(); }
+        else if (tries>30){ clearInterval(iv); window.__StartShim(); }
+      }, 100);
+    }
+  }
+
+  function handleStart(e){
+    const tgt = e.target.closest('#btn_start,[data-action="start"]'); if(!tgt) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    console.log('[shim] Start clicked via', e.type);
+    // sync badge ค่า mode/diff
+    const mAct = document.querySelector('.btn[data-mode].active'); if(mAct) window.__HHA_MODE = mAct.getAttribute('data-mode')||window.__HHA_MODE;
+    const dAct = document.querySelector('.btn[data-diff].active'); if(dAct) window.__HHA_DIFF = dAct.getAttribute('data-diff')||window.__HHA_DIFF;
+    document.body.setAttribute('data-mode', window.__HHA_MODE);
+    document.body.setAttribute('data-diff', window.__HHA_DIFF);
+    startSafe();
+  }
+
+  // จับทุกเหตุการณ์ใน capture phase เพื่อชนะทุกตัวดักอื่น
+  ['click','pointerup','touchend','keydown'].forEach(ev=>{
+    window.addEventListener(ev, (e)=>{
+      if (ev==='keydown'){ if(!(e.key==='Enter'||e.key===' ')) return; }
+      handleStart(e);
+    }, true); // <-- capture = true
+  });
+
+  // กัน element ใด ๆ ทับปุ่ม
+  const btn = document.getElementById('btn_start');
+  if (btn){ btn.style.position='relative'; btn.style.zIndex='2147483647'; }
+
+  // กัน overlay แปลก ๆ มาปิด
+  setInterval(()=>{ 
+    const menu = document.getElementById('menuBar');
+    if(menu && getComputedStyle(menu).display!=='none'){ 
+      // บังคับ top-most
+      menu.style.zIndex='2147483647';
+    }
+  }, 800);
+})();
+</script>
 
 <!-- Toast -->
 <div id="toast" class="toast"></div>
