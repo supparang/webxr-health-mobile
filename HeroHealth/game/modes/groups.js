@@ -20,6 +20,56 @@ var GROUPS = {
   dairy:  ['🥛','🧀','🍦','🍨','🍧','🥛','🧀','🍨','🍦','🥛']
 };
 var KEYS = ['veggies','protein','grains','fruits','dairy'];
+// === modes/groups.js (เลือกหมวดให้ถูก: veggie/fruits/grains/protein/dairy)
+export const name = 'groups';
+const BUCKETS = ['🥬','🍎','🌾','🍗','🥛']; // แทน 5 หมู่
+let host=null, alive=false, rate=0.85, age=0, life=1.6, curTarget='🥬', diff='Normal';
+
+export function start(cfg={}){
+  host = document.getElementById('spawnHost') || (()=>{ const h=document.createElement('div'); h.id='spawnHost'; h.style.cssText='position:fixed;inset:0;pointer-events:auto;z-index:5;'; document.body.appendChild(h); return h; })();
+  host.innerHTML=''; alive=true; age=0; diff=String(cfg.difficulty||'Normal');
+  if (diff==='Easy'){ rate=1.0; life=1.9; } else if (diff==='Hard'){ rate=0.7; life=1.4; } else { rate=0.85; life=1.6; }
+  curTarget = BUCKETS[(Math.random()*BUCKETS.length)|0];
+  updateHUDTarget(curTarget);
+}
+export function stop(){ alive=false; try{ host && (host.innerHTML=''); }catch{} }
+
+function updateHUDTarget(t){ try{ const el=document.getElementById('targetWrap'); if(el){ el.style.display='inline-flex'; el.textContent=`🎯 เป้า: ${t}`; } }catch{} }
+
+function spawnOne(glyph, bus){
+  const d=document.createElement('button'); d.className='spawn-emoji'; d.type='button'; d.textContent=glyph;
+  Object.assign(d.style,{ position:'absolute', border:'0', background:'transparent', fontSize:(diff==='Easy'?'44px':(diff==='Hard'?'32px':'38px')), transform:'translate(-50%,-50%)',
+    filter:'drop-shadow(0 3px 6px rgba(0,0,0,.45))' });
+  const pad=40, W=innerWidth, H=innerHeight;
+  const x = Math.floor(pad + Math.random()*(W - pad*2));
+  const y = Math.floor(pad + Math.random()*(H - pad*2 - 120));
+  d.style.left=x+'px'; d.style.top=y+'px';
+  const killto=setTimeout(()=>{ try{ d.remove(); }catch{} bus?.miss?.(); }, Math.floor(life*1000));
+
+  d.addEventListener('click',(ev)=>{
+    clearTimeout(killto); try{d.remove();}catch{}
+    if (glyph === curTarget){
+      bus?.hit?.({ kind:'good', points:120, ui:{x:ev.clientX,y:ev.clientY} });
+    } else {
+      bus?.miss?.();
+    }
+  }, { passive:true });
+
+  host.appendChild(d);
+}
+
+export function update(dt, bus){
+  if(!alive) return;
+  age += dt;
+  if (age >= rate){
+    age -= rate;
+    // เปลี่ยนเป้าเป็นระยะ
+    if (Math.random()<0.18){ curTarget = BUCKETS[(Math.random()*BUCKETS.length)|0]; updateHUDTarget(curTarget); }
+    // spawn
+    const glyph = BUCKETS[(Math.random()*BUCKETS.length)|0];
+    spawnOne(glyph, bus);
+  }
+}
 
 function rnd(arr){ return arr[(Math.random()*arr.length)|0]; }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
