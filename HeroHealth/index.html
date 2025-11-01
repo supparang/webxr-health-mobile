@@ -29,13 +29,22 @@ border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cur
 .fire{position:absolute;left:0;top:0;bottom:0;width:100%;
 background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
 radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
-radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
 linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
 mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite}
 @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
 .toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;
 color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:60}
 .toast.show{opacity:1}
+
+/* --- LEADERBOARD panel --- */
+#boardWrap{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:10000;
+background:linear-gradient(#0008,#000a)}
+.board{width:min(900px,96vw);max-height:86vh;overflow:auto;background:#0e1930;border:1px solid #214064;border-radius:16px;padding:14px}
+.board h3{margin:6px 0 10px;font:900 18px ui-rounded}
+.board .topbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px}
+.board .scopes .btn{padding:6px 10px}
+.leaderboard-table{width:100%;border-collapse:collapse}
+.leaderboard-table th,.leaderboard-table td{border-bottom:1px solid #16325d;padding:6px 8px;text-align:left}
 </style>
 </head>
 <body>
@@ -47,6 +56,8 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
   <div id="hudTop">
     <div class="badge">Mode: <b id="modeBadge">goodjunk</b> • Diff: <b id="diffBadge">Normal</b></div>
     <div class="badge">Score: <span id="scoreVal">0</span></div>
+    <!-- NEW: เวลา -->
+    <div class="badge">Time: <span id="timeVal">45</span>s</div>
     <div class="badge" id="targetWrap" style="display:none"><span id="targetBadge">Target</span></div>
     <div class="badge" id="missionLine" style="display:none"></div>
   </div>
@@ -76,7 +87,9 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
       <div class="row">
         <div class="btn" data-action="start">▶️ Start</div>
         <div class="btn" data-action="howto">❓ How to Play</div>
-        <div class="btn" id="soundToggle">🔊</div> <!-- ✅ ปุ่ม toggle เสียง -->
+        <div class="btn" data-action="sound">🔊 Sound</div>
+        <!-- NEW: ปุ่มเปิด Leaderboard -->
+        <div class="btn" data-action="board">🏆 Leaderboard</div>
       </div>
     </div>
   </div>
@@ -84,14 +97,39 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
   <div id="powerBarWrap"><div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div></div>
 </div>
 
-<!-- SFX -->
+<!-- LEADERBOARD PANEL -->
+<div id="boardWrap" aria-hidden="true">
+  <div class="board">
+    <div class="topbar">
+      <h3>🏆 Leaderboard</h3>
+      <div class="row">
+        <!-- ตั้งชื่อผู้เล่น -->
+        <label class="btn" style="gap:6px">
+          👤 Name
+          <input id="playerName" type="text" placeholder="Player" style="margin-left:6px;padding:6px;border-radius:8px;border:1px solid #214064;background:#0f1e38;color:#e6f2ff;width:160px">
+        </label>
+        <div class="btn" data-board-close>✖ Close</div>
+      </div>
+    </div>
+    <div class="row scopes">
+      <div class="btn" data-scope="week">Week</div>
+      <div class="btn" data-scope="month">Month</div>
+      <div class="btn" data-scope="year">Year</div>
+      <div class="btn" data-scope="all">All</div>
+      <div class="btn" id="boardInfo" style="margin-left:auto;opacity:.85;pointer-events:none">Scope: -</div>
+    </div>
+    <div id="boardHost"></div>
+  </div>
+</div>
+
+<!-- SFX tags -->
 <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
 <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
 <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- ✅ โหลดสคริปต์หลัก -->
+<!-- โหลดตัวหลักจาก /game/ -->
 <script type="module" src="./game/main.js"></script>
 <script src="./game/ui.js" defer></script>
 
