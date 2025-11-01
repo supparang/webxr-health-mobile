@@ -1,5 +1,6 @@
-// === core/quests.js (v2)
+// === core/quests.js (v2.1: PowerUp v3 edge-detect + no optional chaining, legacy-safe) ===
 export const Quests = (() => {
+  /* -------------------- Quest Pools -------------------- */
   const GJ = [
     { id:'gj_good30',icon:'🥗',labelTH:'เก็บของดี 30',labelEN:'Collect 30 good',need:30,type:'count_good' },
     { id:'gj_good50',icon:'🥗',labelTH:'เก็บของดี 50',labelEN:'Collect 50 good',need:50,type:'count_good' },
@@ -48,48 +49,243 @@ export const Quests = (() => {
     { id:'pl_score300',icon:'⏱️',labelTH:'คะแนน≥300',labelEN:'Score ≥300',need:300,type:'reach_score' },
     { id:'pl_any2full',icon:'✅',labelTH:'เติมครบ 2 หมวด',labelEN:'Complete 2 groups',need:2,type:'groups_completed' },
   ];
-  const POOLS={ goodjunk:GJ, groups:GR, hydration:HY, plate:PL };
+  const POOLS = { goodjunk:GJ, groups:GR, hydration:HY, plate:PL };
 
-  let RUN=null, _hud=null, _lang='TH';
-  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-  function _pick3(pool){ const a=pool.slice(); for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a.slice(0,3); }
-  function _labelOf(m,lang){ return (String(lang).toUpperCase()==='EN' ? (m.labelEN||m.id):(m.labelTH||m.id)); }
-  function _chips(){ if(!RUN) return []; return RUN.list.map(q=>({ key:q.id, icon:q.icon||'⭐', need:q.need|0, progress:clamp(q.prog|0,0,q.need|0), remain:RUN.remainSec|0, done:!!q.done, fail:!!q.fail, label:q.label })); }
-  function _refreshHUD(){ try{ _hud?.setQuestChips?.(_chips()); }catch{} }
-  function _markDone(qid){ try{ _hud?.markQuestDone?.(qid); }catch{} }
+  /* -------------------- State -------------------- */
+  var RUN = null, _hud = null, _lang = 'TH';
+  var _feverEdgePrev = false; // detect rising edge from PowerUp timers
+  var _unbindPower = null;
 
-  function bindToMain({ hud=null }={}){ _hud=hud||null; return { refresh:_refreshHUD }; }
-  function setLang(lang='TH'){ _lang=String(lang||'TH').toUpperCase(); if(RUN){ RUN.lang=_lang; for(const q of RUN.list) q.label=_labelOf(q,_lang); _refreshHUD(); } }
-  function beginRun(mode='goodjunk', diff='Normal', lang='TH', seconds=45){
-    const list=_pick3(POOLS[mode]||GJ).map(m=>({ ...m, label:_labelOf(m,lang), prog:0, done:false, fail:false }));
-    RUN={ mode, diff, lang:String(lang).toUpperCase(), list, remainSec:Math.max(10,seconds|0), startTs:Date.now() };
-    _refreshHUD(); if(!window.HHA_QUESTS){ window.HHA_QUESTS={ event:(type,payload)=>event(type,payload) }; } return list;
+  /* -------------------- Helpers -------------------- */
+  function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
+  function _pick3(pool){
+    var a = pool.slice();
+    for (var i=a.length-1;i>0;i--){ var j=(Math.random()*(i+1))|0; var t=a[i]; a[i]=a[j]; a[j]=t; }
+    return a.slice(0,3);
   }
-  function tick(payload={}){ if(!RUN) return; RUN.remainSec=Math.max(0,(RUN.remainSec|0)-1); const s=payload.score|0; for(const q of RUN.list){ if(q.done) continue; if(q.type==='reach_score' && s>=(q.need|0)) q.prog=q.need|0; } _evalDone(); _refreshHUD(); }
-  function endRun(summary={}){ if(!RUN) return []; const endScore=summary.score|0; _apply({score:endScore},'run_end',summary); _evalDone(true); const out=RUN.list.map(x=>({...x})); RUN=null; _refreshHUD(); return out; }
-  function event(type,payload={}){ if(!RUN) return; _apply({score:payload?.score|0},type,payload); _evalDone(); _refreshHUD(); }
-  function getActive(){ return RUN ? { mode:RUN.mode, remain:RUN.remainSec|0, list: RUN.list.map(q=>({ id:q.id, need:q.need, prog:q.prog, done:q.done, fail:q.fail })) } : null; }
+  function _labelOf(m,lang){
+    return (String(lang||'TH').toUpperCase()==='EN' ? (m.labelEN||m.id) : (m.labelTH||m.id));
+  }
+  function _chips(){
+    if(!RUN) return [];
+    var out=[];
+    for(var i=0;i<RUN.list.length;i++){
+      var q=RUN.list[i];
+      out.push({
+        key:q.id, icon:q.icon||'⭐', need:q.need|0,
+        progress:clamp(q.prog|0,0,q.need|0),
+        remain:RUN.remainSec|0, done:!!q.done, fail:!!q.fail, label:q.label
+      });
+    }
+    return out;
+  }
+  function _refreshHUD(){ try{ if(_hud && _hud.setQuestChips) _hud.setQuestChips(_chips()); }catch(e){} }
+  function _markDone(qid){ try{ if(_hud && _hud.markQuestDone) _hud.markQuestDone(qid); }catch(e){} }
 
-  function _apply(ctx,type,p){ for(const q of RUN.list){ if(q.done) continue;
-    switch(q.type){
-      case 'count_good':     if (type==='hit' && (p.result==='good'||p.result==='perfect') && (p.meta?.good||p.meta?.isGood)) q.prog=(q.prog|0)+1; break;
-      case 'count_perfect':  if (type==='hit' && p.result==='perfect') q.prog=(q.prog|0)+1; break;
-      case 'streak_nomiss':  if (type==='hit'){ if(p.result==='bad'){ q._streak=0; } else { q._streak=(q._streak|0)+1; q.prog=Math.max(q.prog|0,q._streak|0); } } break;
-      case 'reach_score':    if ((ctx.score|0)>=(q.need|0)) q.prog=q.need|0; break;
-      case 'count_fever':    if (type==='fever' && p.kind==='start') q.prog=(q.prog|0)+1; break;
-      case 'count_golden':   if (type==='hit' && p.meta?.golden) q.prog=(q.prog|0)+1; break;
-      case 'count_target':   if (type==='hit' && (p.meta?.good||p.meta?.isTarget)) q.prog=(q.prog|0)+1; break;
-      case 'count_group':    if (type==='hit' && p.meta?.groupId===q.group && (p.result==='good'||p.result==='perfect')) q.prog=(q.prog|0)+1; break;
-      case 'reach_combo':    if (type==='hit'){ q._max=Math.max(q._max|0, p.comboNow|0); q.prog=q._max|0; } break;
-      case 'targets_cleared':if (type==='target_cleared' || type==='target_cycle') q.prog=(q.prog|0)+1; break;
-      case 'hydro_ok_time':  if (type==='hydro_tick' && p.zone==='OK') q.prog=(q.prog|0)+1; break;
-      case 'hydro_recover_low': if (type==='hydro_cross' && p.from==='LOW' && p.to==='OK') q.prog=(q.prog|0)+1; break;
-      case 'hydro_treat_high': if (type==='hydro_click' && p.zoneBefore==='HIGH' && p.kind==='sweet') q.prog=(q.prog|0)+1; break;
-      case 'hydro_no_high':  if (type==='run_end' && ((p.highCount|0)===0)) q.prog=q.need|0; break;
-      case 'no_over_quota':  if (type==='run_end' && ((p.overfill|0)===0)) q.prog=q.need|0; break;
-      case 'groups_completed': if (type==='group_full' || type==='plate_group_full') q.prog=Math.min(q.need|0,(q.prog|0)+1); break;
-    } } }
-  function _evalDone(forceFailOnTimeout=false){ if(!RUN) return; for(const q of RUN.list){ if(q.done||q.fail) continue; const reached=(q.prog|0)>=(q.need|0); const timeout=(RUN.remainSec|0)<=0; if(reached){ q.done=true; _markDone(q.id); } else if(forceFailOnTimeout||timeout){ q.fail=true; } } }
+  /* -------------------- Public API -------------------- */
+  function bindToMain(opts){
+    opts = opts || {};
+    _hud = opts.hud || null;
 
-  return { bindToMain,setLang, beginRun,tick,endRun,event,getActive };
+    // Optional: bind to PowerUpSystem v3 to convert timers to "fever start" events
+    if (_unbindPower){ try{ _unbindPower(); }catch(e){} _unbindPower=null; }
+    var power = opts.power;
+    if (power && typeof power.onChange === 'function'){
+      _unbindPower = power.onChange(function(timers){
+        try{
+          var had = false;
+          if (timers){
+            var x2 = (timers.x2|0) > 0;
+            var sw = (timers.sweep|0) > 0;
+            had = x2 || sw;
+          }
+          if (had && !_feverEdgePrev){
+            event('fever', { kind:'start' });
+          }
+          _feverEdgePrev = had;
+        }catch(_e){}
+      });
+    }
+    return { refresh:_refreshHUD };
+  }
+
+  function setLang(lang){
+    _lang = String(lang||'TH').toUpperCase();
+    if(!RUN) return;
+    RUN.lang=_lang;
+    for (var i=0;i<RUN.list.length;i++){ var q=RUN.list[i]; q.label=_labelOf(q,_lang); }
+    _refreshHUD();
+  }
+
+  function beginRun(mode, diff, lang, seconds){
+    if (!mode) mode='goodjunk';
+    if (!diff) diff='Normal';
+    if (!lang) lang='TH';
+    if (!seconds) seconds=45;
+
+    var pool = POOLS[mode] || GJ;
+    var list = _pick3(pool).map(function(m){ return { id:m.id, icon:m.icon, label:_labelOf(m,lang), need:m.need|0, type:m.type, group:m.group, prog:0, done:false, fail:false }; });
+    RUN = { mode:mode, diff:diff, lang:String(lang).toUpperCase(), list:list, remainSec:Math.max(10, seconds|0), startTs:Date.now() };
+    _refreshHUD();
+
+    // Expose minimal global hook for console/manual testing
+    try{
+      if (!window.HHA_QUESTS){
+        window.HHA_QUESTS = { event:function(t,p){ event(t,p); } };
+      }
+    }catch(_e){}
+
+    return list;
+  }
+
+  function tick(payload){
+    if(!RUN) return;
+    payload = payload || {};
+    RUN.remainSec = Math.max(0, (RUN.remainSec|0)-1);
+
+    var s = payload.score|0;
+    for (var i=0;i<RUN.list.length;i++){
+      var q=RUN.list[i];
+      if (q.done) continue;
+      if (q.type==='reach_score' && s >= (q.need|0)) { q.prog = q.need|0; }
+    }
+
+    _evalDone(false);
+    _refreshHUD();
+  }
+
+  function endRun(summary){
+    if(!RUN) return [];
+    summary = summary || {};
+    _apply({ score: summary.score|0 }, 'run_end', summary);
+    _evalDone(true);
+    var out = RUN.list.map(function(x){ return { id:x.id, need:x.need, prog:x.prog, done:x.done, fail:x.fail }; });
+    RUN = null;
+    _refreshHUD();
+    return out;
+  }
+
+  function event(type, payload){
+    if(!RUN) return;
+    payload = payload || {};
+    _apply({ score: payload.score|0 }, String(type), payload);
+    _evalDone(false);
+    _refreshHUD();
+  }
+
+  function getActive(){
+    if(!RUN) return null;
+    return {
+      mode:RUN.mode, remain:RUN.remainSec|0,
+      list: RUN.list.map(function(q){ return { id:q.id, need:q.need, prog:q.prog, done:q.done, fail:q.fail }; })
+    };
+  }
+
+  /* -------------------- Internals -------------------- */
+  function _apply(ctx, type, p){
+    for (var i=0;i<RUN.list.length;i++){
+      var q = RUN.list[i];
+      if (q.done) continue;
+
+      switch(q.type){
+        case 'count_good':
+          if (type==='hit'){
+            var isGood = (p && (p.result==='good' || p.result==='perfect')) &&
+                         (p && p.meta && (p.meta.good || p.meta.isGood));
+            if (isGood){ q.prog = (q.prog|0)+1; }
+          }
+          break;
+
+        case 'count_perfect':
+          if (type==='hit' && p && p.result==='perfect'){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'streak_nomiss':
+          if (type==='hit'){
+            if (p && p.result==='bad'){ q._streak = 0; }
+            else { q._streak = (q._streak|0)+1; q.prog = Math.max(q.prog|0, q._streak|0); }
+          }
+          break;
+
+        case 'reach_score':
+          if ((ctx.score|0) >= (q.need|0)){ q.prog = q.need|0; }
+          break;
+
+        case 'count_fever':
+          if (type==='fever' && p && p.kind==='start'){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'count_golden':
+          if (type==='hit' && p && p.meta && p.meta.golden){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'count_target':
+          if (type==='hit' && p && p.meta && (p.meta.good || p.meta.isTarget)){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'count_group':
+          if (type==='hit' && p && p.meta && p.meta.groupId===q.group && (p.result==='good' || p.result==='perfect')){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'reach_combo':
+          if (type==='hit'){
+            var comboNow = (p && p.comboNow)|0;
+            q._max = Math.max(q._max|0, comboNow);
+            q.prog = q._max|0;
+          }
+          break;
+
+        case 'targets_cleared':
+          if (type==='target_cleared' || type==='target_cycle'){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'hydro_ok_time':
+          if (type==='hydro_tick' && p && p.zone==='OK'){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'hydro_recover_low':
+          if (type==='hydro_cross' && p && p.from==='LOW' && p.to==='OK'){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'hydro_treat_high':
+          if (type==='hydro_click' && p && p.zoneBefore==='HIGH' && p.kind==='sweet'){ q.prog = (q.prog|0)+1; }
+          break;
+
+        case 'hydro_no_high':
+          if (type==='run_end' && ((p && p.highCount)|0)===0){ q.prog = q.need|0; }
+          break;
+
+        case 'no_over_quota':
+          if (type==='run_end' && ((p && p.overfill)|0)===0){ q.prog = q.need|0; }
+          break;
+
+        case 'groups_completed':
+          if (type==='group_full' || type==='plate_group_full'){
+            var cur = q.prog|0, need=q.need|0;
+            q.prog = cur < need ? (cur+1) : need;
+          }
+          break;
+      }
+    }
+  }
+
+  function _evalDone(forceFailOnTimeout){
+    if(!RUN) return;
+    var timeout = (RUN.remainSec|0) <= 0;
+    for (var i=0;i<RUN.list.length;i++){
+      var q = RUN.list[i];
+      if (q.done || q.fail) continue;
+      var reached = (q.prog|0) >= (q.need|0);
+      if (reached){
+        q.done = true; _markDone(q.id);
+      } else if (forceFailOnTimeout || timeout){
+        q.fail = true;
+      }
+    }
+  }
+
+  return { bindToMain, setLang, beginRun, tick, endRun, event, getActive };
 })();
+
+// default export for convenience
+export default Quests;
