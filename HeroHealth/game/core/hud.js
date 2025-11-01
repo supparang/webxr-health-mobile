@@ -1,42 +1,50 @@
-// === core/hud.js (extended with PowerUp bar) ===
-export function createHUD({ onHome=()=>{}, onReplay=()=>{} }={}) {
-  const els = {
-    score: document.getElementById('score'),
-    time:  document.getElementById('time'),
-    result: document.getElementById('result'),
-    resultText: document.getElementById('resultText'),
-    powerBar: document.getElementById('powerBar'),
-  };
+// === core/hud.js (HUD + PowerBar “ไฟลุก”)
+export function createHUD({ onHome=()=>{}, onReplay=()=>{} } = {}){
+  const elScore = document.getElementById('score');
+  const elTime  = document.getElementById('time');
+  const result  = document.getElementById('result');
+  const resultText = document.getElementById('resultText');
+  const menu   = document.getElementById('menuBar');
+  const powerBar = document.getElementById('powerBar');
 
-  function updateScore(v=0){ if(els.score) els.score.textContent=v|0; }
-  function updateTime(v=0){ if(els.time) els.time.textContent=v|0; }
+  function updateScore(v=0){ if(elScore) elScore.textContent = v|0; }
+  function updateTime(v=0){ if(elTime) elTime.textContent = v|0; }
+  function dimPenalty(){ document.body.classList.add('flash-danger'); setTimeout(()=>document.body.classList.remove('flash-danger'), 160); }
 
   function updatePowerBar(timers){
-    if(!els.powerBar) return;
+    if(!powerBar) return;
     ['x2','freeze','sweep'].forEach(k=>{
-      const seg=els.powerBar.querySelector(`.pseg[data-k="${k}"]`);
+      const seg = powerBar.querySelector(`.pseg[data-k="${k}"]`);
       if(!seg) return;
-      const s=timers[k]|0;
-      seg.classList.toggle('active',s>0);
-      seg.querySelector('i')?.style.setProperty('width',s>0?'100%':'0%');
-      const sp=seg.querySelector('span'); if(sp) sp.textContent=s>0?`${sp.dataset.base||sp.textContent} ${s}s`:sp.dataset.base||sp.textContent;
+      const s = timers[k]|0;
+      seg.classList.toggle('active', s>0);
+      seg.querySelector('i')?.style.setProperty('width', s>0?'100%':'0%');
+      const sp = seg.querySelector('span');
+      if(sp){
+        const base = sp.dataset.base || sp.textContent;
+        sp.dataset.base = base;
+        sp.textContent = s>0 ? `${base} ${s}s` : base;
+      }
     });
-    const sh=els.powerBar.querySelector('.pseg[data-k="shield"]');
+    const sh = powerBar.querySelector('.pseg[data-k="shield"]');
     if(sh){
-      const c=timers.shieldCount|0;
-      sh.classList.toggle('active',c>0);
-      sh.querySelector('span').textContent=`🛡️ x${c}`;
+      const c = timers.shieldCount|0;
+      sh.classList.toggle('active', c>0);
+      const sp = sh.querySelector('span');
+      if (sp) sp.textContent = `🛡️ x${c}`;
     }
   }
 
-  function showResult({score=0,combo=0,time=0,missions=[]}={}){
-    els.resultText.textContent=`Score ${score} • Combo ${combo}`;
-    els.result.style.display='flex';
-    const btnH=document.querySelector('[data-result="home"]');
-    const btnR=document.querySelector('[data-result="replay"]');
-    if(btnH) btnH.onclick=()=>{els.result.style.display='none'; onHome();};
-    if(btnR) btnR.onclick=()=>{els.result.style.display='none'; onReplay();};
+  function showResult({score=0, combo=0}={}){
+    if(resultText) resultText.textContent = `Score ${score} • Max Combo ${combo}`;
+    if(result) result.style.display = 'flex';
+    result?.querySelector('[data-result="home"]')?.addEventListener('click', ()=>{
+      result.style.display='none'; menu && (menu.style.display='block'); onHome();
+    }, { once:true });
+    result?.querySelector('[data-result="replay"]')?.addEventListener('click', ()=>{
+      result.style.display='none'; onReplay();
+    }, { once:true });
   }
 
-  return { updateScore, updateTime, updatePowerBar, showResult };
+  return { updateScore, updateTime, updatePowerBar, showResult, dimPenalty };
 }
