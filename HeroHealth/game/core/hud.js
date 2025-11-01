@@ -1,12 +1,24 @@
-// === core/hud.js (HUD + quest chips + fever bar + result) ===
+// === core/hud.js (Guaranteed HUD mount) ===
 export class HUD {
   constructor () {
+    // root
     this.root = document.getElementById('hud');
     if (!this.root) {
       this.root = document.createElement('div');
       this.root.id = 'hud';
-      this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2000;';
+      this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:10020;';
       document.body.appendChild(this.root);
+    }
+
+    // inject minimal styles for readability
+    if (!document.getElementById('hud-inline-style')) {
+      const st = document.createElement('style');
+      st.id = 'hud-inline-style';
+      st.textContent = `
+        .hud-b{padding:4px 8px;border-radius:10px;border:1px solid #134064;background:#0b1c36;color:#e6f2ff}
+        #resultModal{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:10030}
+      `;
+      document.head.appendChild(st);
     }
 
     // top bar
@@ -14,21 +26,22 @@ export class HUD {
     this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
     this.top.innerHTML = `
       <div style="display:flex;gap:8px;align-items:center">
-        <span id="hudMode"  class="hud-b" style="padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;pointer-events:auto">—</span>
-        <span id="hudDiff"  class="hud-b" style="padding:4px 8px;border-radius:10px;background:#102b52;color:#e6f5ff;border:1px solid #1b4b8a;pointer-events:auto">—</span>
-        <span id="hudTime"  class="hud-b" style="padding:4px 8px;border-radius:10px;background:#0a1f3d;color:#c9e7ff;border:1px solid #123863;min-width:64px;text-align:center;pointer-events:auto">60s</span>
+        <span id="hudMode"  class="hud-b">—</span>
+        <span id="hudDiff"  class="hud-b">—</span>
+        <span id="hudTime"  class="hud-b" style="min-width:64px;text-align:center">0s</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <span class="hud-b" style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>
-        <span class="hud-b" style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>
-        <span class="hud-b" style="padding:0;border-radius:10px;border:1px solid #134064;background:#0b1c36;pointer-events:auto">
-          <i style="display:block;width:160px;height:12px;border-radius:10px;overflow:hidden;background:#051226">
+        <span class="hud-b">Score: <b id="hudScore">0</b></span>
+        <span class="hud-b">Combo: <b id="hudCombo">0</b></span>
+        <span class="hud-b" style="padding:0">
+          <i style="display:block;width:160px;height:12px;border-radius:10px;overflow:hidden;background:#051226;border:1px solid #134064">
             <b id="feverFill" style="display:block;height:100%;width:0%"></b>
           </i>
         </span>
       </div>
     `;
     this.root.appendChild(this.top);
+
     this.$mode   = this.top.querySelector('#hudMode');
     this.$diff   = this.top.querySelector('#hudDiff');
     this.$time   = this.top.querySelector('#hudTime');
@@ -36,30 +49,29 @@ export class HUD {
     this.$combo  = this.top.querySelector('#hudCombo');
     this.$fever  = this.top.querySelector('#feverFill');
 
-    // quest chips
+    // quest chip (แสดงทีละภารกิจ)
     this.chipsWrap = document.createElement('div');
     this.chipsWrap.id = 'questChips';
-    this.chipsWrap.style.cssText = 'position:absolute;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:90vw;pointer-events:none';
+    this.chipsWrap.style.cssText = 'position:absolute;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:90vw;pointer-events:none;z-index:10025';
     this.root.appendChild(this.chipsWrap);
 
     // coach bubble
     this.coach = document.createElement('div');
     this.coach.id = 'coachBox';
-    this.coach.style.cssText = 'position:absolute;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none';
+    this.coach.style.cssText = 'position:absolute;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none;z-index:10025';
     this.root.appendChild(this.coach);
 
     // result modal
     this.result = document.createElement('div');
     this.result.id = 'resultModal';
-    this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto';
     this.result.innerHTML = `
       <div style="width:min(520px,92vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:16px;color:#e6f2ff">
         <h3 style="margin:0 0 6px;font:900 20px ui-rounded" id="resTitle">Result</h3>
         <p id="resDesc" style="margin:0 0 10px;color:#cfe7ff">—</p>
         <div id="resStats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button id="resHome" style="padding:8px 10px;border-radius:10px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer">🏠 Home</button>
-          <button id="resRetry" style="padding:8px 10px;border-radius:10px;background:#123054;color:#dff2ff;border:1px solid #1e4d83;cursor:pointer">↻ Retry</button>
+          <button id="resHome"  class="hud-b" style="cursor:pointer">🏠 Home</button>
+          <button id="resRetry" class="hud-b" style="cursor:pointer">↻ Retry</button>
         </div>
       </div>
     `;
@@ -70,7 +82,7 @@ export class HUD {
 
     this.onHome = null;
     this.onRetry = null;
-    this.result.querySelector('#resHome').onclick = ()=> this.onHome?.();
+    this.result.querySelector('#resHome').onclick  = ()=> this.onHome?.();
     this.result.querySelector('#resRetry').onclick = ()=> this.onRetry?.();
   }
 
@@ -88,7 +100,6 @@ export class HUD {
   }
 
   setQuestChips(chips = []) {
-    // chips: [{icon,label,progress,need,done,fail}]
     const frag = document.createDocumentFragment();
     for (const m of chips) {
       const d = document.createElement('div');
