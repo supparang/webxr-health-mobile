@@ -1,5 +1,4 @@
-// === core/hud.js ===
-// HUD แบบเบา: โชว์ Mode/Diff/Time/Score/Combo + Result Modal + Quest Chips
+// === core/hud.js (v1) ===
 export class HUD {
   constructor () {
     this.root = document.getElementById('hud');
@@ -9,7 +8,6 @@ export class HUD {
       this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2000;';
       document.body.appendChild(this.root);
     }
-    // top bar
     this.top = document.createElement('div');
     this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
     this.top.innerHTML = `
@@ -21,17 +19,14 @@ export class HUD {
       <div style="display:flex;gap:8px;align-items:center">
         <span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>
         <span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>
-      </div>
-    `;
+      </div>`;
     this.root.appendChild(this.top);
 
-    // quest chips
     this.chipsWrap = document.createElement('div');
     this.chipsWrap.id = 'questChips';
     this.chipsWrap.style.cssText = 'position:absolute;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:90vw;pointer-events:none';
     this.root.appendChild(this.chipsWrap);
 
-    // result
     this.result = document.createElement('div');
     this.result.id = 'resultModal';
     this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto';
@@ -44,11 +39,9 @@ export class HUD {
           <button id="resHome" style="padding:8px 10px;border-radius:10px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer">🏠 Home</button>
           <button id="resRetry" style="padding:8px 10px;border-radius:10px;background:#123054;color:#dff2ff;border:1px solid #1e4d83;cursor:pointer">↻ Retry</button>
         </div>
-      </div>
-    `;
+      </div>`;
     this.root.appendChild(this.result);
 
-    // wires
     this.$mode  = this.top.querySelector('#hudMode');
     this.$diff  = this.top.querySelector('#hudDiff');
     this.$time  = this.top.querySelector('#hudTime');
@@ -66,7 +59,7 @@ export class HUD {
   setTop({ mode, diff, time, score, combo }) {
     if (mode  != null) this.$mode.textContent = String(mode);
     if (diff  != null) this.$diff.textContent = String(diff);
-    if (time  != null) this.$time.textContent = String(time) + 's';
+    if (time  != null) this.$time.textContent = String(time)+'s';
     if (score != null) this.$score.textContent = String(score|0);
     if (combo != null) this.$combo.textContent = String(combo|0);
   }
@@ -89,22 +82,15 @@ export class HUD {
     this.chipsWrap.appendChild(frag);
   }
 
-  say(text=''){ /* ที่นี่ปล่อยให้ coach จัดการกล่องตัวเอง */ }
-
   showResult({ title='Result', desc='—', stats=[] }) {
     this.$resTitle.textContent = title;
     this.$resDesc.textContent  = desc;
     const frag = document.createDocumentFragment();
-    for (const s of stats) {
-      const b = document.createElement('div');
-      b.style.cssText = 'padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38';
-      b.textContent = s;
-      frag.appendChild(b);
-    }
-    this.$resStats.innerHTML = '';
-    this.$resStats.appendChild(frag);
-    this.result.style.display = 'flex';
+    stats.forEach(s=>{ const b=document.createElement('div'); b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38'; b.textContent=s; frag.appendChild(b); });
+    this.$resStats.innerHTML=''; this.$resStats.appendChild(frag);
+    this.result.style.display='flex';
   }
-  hideResult(){ this.result.style.display = 'none'; }
+  hideResult(){ this.result.style.display='none'; }
 }
-export default HUD;
+export default { HUD };
+export { HUD };
