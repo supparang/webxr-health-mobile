@@ -5,56 +5,72 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Hero Health Academy</title>
 <meta name="color-scheme" content="light dark"/>
+
 <style>
 :root{--bg:#0b1020;--fg:#e8f3ff;--muted:#94a3b8;--accent:#22d3ee;}
 *{box-sizing:border-box}
-body{margin:0;background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);color:var(--fg);
-font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;color:var(--fg);
+  background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
+  font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
+  -webkit-tap-highlight-color:transparent;
+}
 
+/* Layers */
 .game-wrap{position:relative;min-height:100dvh;overflow:hidden;}
-/* กัน canvas ขวางคลิกทุกกรณี */
-canvas#c, canvas{pointer-events:none !important;z-index:1;position:fixed;inset:0}
+#gameLayer,#spawnHost{position:fixed;inset:0}
 
-/* โฮสต์เกมและสปอน */
-#gameLayer,#spawnHost{position:fixed;inset:0;}
-#spawnHost{pointer-events:auto;z-index:5}
+/* Never block UI */
+canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
 
-/* เมนูหลัก */
-#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
-background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
-/* ซ่อนเมนูเมื่อเริ่มเกม */
-#menuBar[data-hidden="1"]{display:none !important;}
+/* Menu */
+#menuBar{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
+}
+#menuBar[data-hidden="1"]{ display:none !important; } /* ✅ hide when playing */
 
-.menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
-padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
+.menu-card{
+  width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
+  padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
+}
 .row{display:flex;flex-wrap:wrap;gap:10px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;
-border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;user-select:none}
-.btn:hover{filter:brightness(1.08)}
-.btn[data-mode].active,.btn[data-diff].active{outline:2px solid var(--accent);box-shadow:0 0 0 4px #22d3ee22}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
+  border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d;
+  cursor:pointer; user-select:none
+}
+.btn:hover{ filter:brightness(1.08) }
+.btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
 
-/* HUD ด้านบน และกันบังคลิก */
+/* HUD badges (legacy top mini bar for fallback) */
 #hudTop{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;z-index:50;pointer-events:none}
 .badge{background:#0f1e38;border:1px solid #16325d;border-radius:10px;padding:6px 10px;pointer-events:auto}
-#scoreVal{font-weight:900}
+#missionLine{display:none}
 
-/* Power bar */
+/* Power bar (visual only, optional) */
 #powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw)}
 #powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
 #powerFill{position:absolute;inset:0;width:0%}
 .fire{position:absolute;left:0;top:0;bottom:0;width:100%;
-background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
-radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
-radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
-linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
-mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite}
+  background:
+    radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
+    radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
+    radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
+    linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
+  mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite
+}
 @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
 
-/* Toast + Boot warn */
-.toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;
-color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:60}
+/* Toast + boot warn */
+.toast{
+  position:fixed;left:50%;top:68px;transform:translateX(-50%);
+  background:#0e1930;border:1px solid #214064;color:#e8f3ff;
+  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
+}
 .toast.show{opacity:1}
-#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10000;display:none}
+#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
 </style>
 </head>
 <body>
@@ -63,16 +79,18 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
   <div id="gameLayer"></div>
   <div id="spawnHost"></div>
 
-  <div id="hudTop">
+  <!-- (fallback mini badges; HUD จริงจะถูกวาดโดย core/hud.js) -->
+  <div id="hudTop" aria-hidden="true">
     <div class="badge">Mode: <b id="modeBadge">goodjunk</b> • Diff: <b id="diffBadge">Normal</b></div>
     <div class="badge">Score: <span id="scoreVal">0</span></div>
-    <div class="badge" id="targetWrap" style="display:none"><span id="targetBadge">Target</span></div>
-    <div class="badge" id="missionLine" style="display:none"></div>
+    <div class="badge" id="missionLine"></div>
   </div>
 
+  <!-- MENU -->
   <div id="menuBar" aria-label="Main menu">
     <div class="menu-card">
       <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
+
       <div>
         <h3>Play Mode</h3>
         <div class="row" role="group" aria-label="Mode">
@@ -82,7 +100,9 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
           <div class="btn" data-mode="plate">🍽️ Healthy Plate</div>
         </div>
       </div>
+
       <hr style="margin:12px 0;border-color:#133"/>
+
       <div>
         <h3>Difficulty</h3>
         <div class="row" role="group" aria-label="Difficulty">
@@ -91,9 +111,10 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
           <div class="btn" data-diff="Hard">Hard</div>
         </div>
       </div>
+
       <hr style="margin:12px 0;border-color:#133"/>
+
       <div class="row">
-        <!-- ปุ่ม Start แบบกันพลาด: มี id + type=button -->
         <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0" aria-label="Start game">▶️ Start</button>
         <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
         <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
@@ -101,21 +122,153 @@ color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .
     </div>
   </div>
 
-  <div id="powerBarWrap"><div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div></div>
+  <!-- Optional power bar visual -->
+  <div id="powerBarWrap">
+    <div id="powerBar"><div id="powerFill"><div class="fire"></div></div></div>
+  </div>
 </div>
 
-<!-- SFX tags (ใส่ไฟล์จริงได้ภายหลัง) -->
+<!-- SFX -->
+<audio id="bgm-main" preload="auto"></audio>
 <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
 <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
 <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- โหลดหลัก -->
+<!-- Main (ESM) -->
 <script type="module" src="./game/main.js"></script>
 
-<!-- Toast + Boot warn host -->
+<!-- Binder & Safe-guards (inline, no deps) -->
+<script>
+(function(){
+  const $  = (s)=>document.querySelector(s);
+  const $$ = (s)=>document.querySelectorAll(s);
+
+  // Toast/Warn
+  function toast(text){
+    let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+    el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
+  }
+  function warn(lines){
+    let w = $('#bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w); }
+    w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
+    w.style.display='block';
+  }
+
+  // Never let canvases block clicks
+  setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
+
+  // Menu delegation
+  (function bindMenu(){
+    const mb = $('#menuBar'); if(!mb) return;
+    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+
+    mb.addEventListener('click', (ev)=>{
+      const t = ev.target.closest('.btn'); if(!t) return;
+
+      if (t.hasAttribute('data-mode')) {
+        setActive('[data-mode]', t);
+        document.body.setAttribute('data-mode', t.getAttribute('data-mode'));
+        $('#modeBadge') && ($('#modeBadge').textContent = t.getAttribute('data-mode'));
+        return;
+      }
+      if (t.hasAttribute('data-diff')) {
+        setActive('[data-diff]', t);
+        document.body.setAttribute('data-diff', t.getAttribute('data-diff'));
+        $('#diffBadge') && ($('#diffBadge').textContent = t.getAttribute('data-diff'));
+        return;
+      }
+      if (t.dataset.action === 'howto') {
+        toast('แตะของดี เลี่ยงของไม่ดี • ทำภารกิจทีละอัน • เกจเต็ม = FEVER');
+        return;
+      }
+      if (t.dataset.action === 'sound') {
+        const A=[...document.querySelectorAll('audio')];
+        const anyOn=A.some(a=>!a.muted);
+        A.forEach(a=>{ try{ a.muted = anyOn; }catch{} });
+        t.textContent = anyOn ? '🔇 Sound' : '🔊 Sound';
+        toast(anyOn?'เสียง: ปิด':'เสียง: เปิด');
+        return;
+      }
+      if (t.dataset.action === 'start') {
+        ev.preventDefault(); startNow(); return;
+      }
+    }, false);
+
+    // extra for touch
+    mb.addEventListener('pointerup', (e)=>{
+      const t = e.target.closest('.btn[data-action="start"]');
+      if (t){ e.preventDefault(); startNow(); }
+    }, {passive:false});
+  })();
+
+  // strong binder for Start (works even if main.js not ready yet)
+  function startNow(){
+    // Unlock audio once
+    try{
+      const bgm = document.getElementById('bgm-main');
+      bgm && bgm.play && bgm.play().then(()=>bgm.pause()).catch(()=>{});
+      ['sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'].forEach(id=>{
+        const a = document.getElementById(id);
+        a && a.play && a.play().then(()=>a.pause()).catch(()=>{});
+      });
+    }catch{}
+
+    // Call runtime
+    if (window.HHA && typeof window.HHA.startGame === 'function'){
+      hideMenu(); window.HHA.startGame(); return;
+    }
+    // Import and retry
+    import(`./game/main.js?ts=${Date.now()}`)
+      .then(()=>{
+        if (window.HHA && typeof window.HHA.startGame === 'function'){
+          hideMenu(); window.HHA.startGame();
+        } else {
+          warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame');
+        }
+      })
+      .catch(e=>{
+        console.error('[import main.js] fail', e);
+        warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]);
+      });
+  }
+
+  function hideMenu(){
+    const mb = document.getElementById('menuBar');
+    if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+  }
+
+  // Replace existing Start button with a clean clone (remove competing listeners)
+  (function hardBindStart(){
+    const old = document.getElementById('btn_start'); if(!old) return;
+    const clone = old.cloneNode(true);
+    old.replaceWith(clone);
+    const opts = { capture:true, passive:false };
+    ['click','pointerup','touchend'].forEach(ev=>{
+      clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts);
+    });
+    clone.addEventListener('keydown', (e)=>{
+      if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); }
+    }, opts);
+  })();
+
+  // Keyboard start (from menu)
+  window.addEventListener('keydown', (e)=>{
+    if ((e.key==='Enter' || e.key===' ') && !(document.body.getAttribute('data-playing')==='1')) {
+      const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
+      if (menuVisible) { e.preventDefault(); startNow(); }
+    }
+  }, {passive:false});
+
+  // expose tiny debug
+  window.__HHA_DEBUG = { startNow };
+})();
+</script>
+
+<!-- Toast + Boot warn hosts -->
 <div id="toast" class="toast"></div>
 <div id="bootWarn"></div>
+
 </body>
 </html>
