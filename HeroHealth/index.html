@@ -1,42 +1,47 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hero Health Academy</title>
-  <meta name="color-scheme" content="light dark"/>
-  <style>
-  :root{--bg:#0b1020;--fg:#e8f3ff;--muted:#94a3b8;--accent:#22d3ee;}
-  body{margin:0;background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);color:var(--fg);
-  font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;}
-  .game-wrap{position:relative;min-height:100dvh;overflow:hidden;}
-  #gameLayer,#spawnHost{position:fixed;inset:0;}
-  #menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
-  background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
-  .menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
-  padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
-  .row{display:flex;flex-wrap:wrap;gap:10px}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;
-  border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;user-select:none}
-  .btn:hover{filter:brightness(1.08)}
-  .btn[data-mode].active,.btn[data-diff].active{outline:2px solid var(--accent);box-shadow:0 0 0 4px #22d3ee22}
-  #hudTop{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;z-index:50;pointer-events:none}
-  .badge{background:#0f1e38;border:1px solid #16325d;border-radius:10px;padding:6px 10px;pointer-events:auto}
-  #scoreVal{font-weight:900}
-  #powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw)}
-  #powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
-  #powerFill{position:absolute;inset:0;width:0%}
-  .fire{position:absolute;left:0;top:0;bottom:0;width:100%;
-  background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
-  radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
-  radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
-  linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
-  mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite}
-  @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
-  .toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;
-  color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:60}
-  .toast.show{opacity:1}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Hero Health Academy</title>
+<meta name="color-scheme" content="light dark"/>
+<style>
+:root{--bg:#0b1020;--fg:#e8f3ff;--muted:#94a3b8;--accent:#22d3ee;}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);color:var(--fg);
+font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+.game-wrap{position:relative;min-height:100dvh;overflow:hidden;}
+/* กัน canvas ขวางคลิกทุกกรณี */
+canvas#c, canvas{pointer-events:none !important;z-index:1;position:fixed;inset:0}
+#gameLayer,#spawnHost{position:fixed;inset:0;}
+#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;
+background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
+.menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
+padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;
+border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;user-select:none}
+.btn:hover{filter:brightness(1.08)}
+.btn[data-mode].active,.btn[data-diff].active{outline:2px solid var(--accent);box-shadow:0 0 0 4px #22d3ee22}
+#hudTop{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;gap:8px;z-index:50;pointer-events:none}
+.badge{background:#0f1e38;border:1px solid #16325d;border-radius:10px;padding:6px 10px;pointer-events:auto}
+#scoreVal{font-weight:900}
+#powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw)}
+#powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
+#powerFill{position:absolute;inset:0;width:0%}
+.fire{position:absolute;left:0;top:0;bottom:0;width:100%;
+background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,.0)70%),
+radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,.0)70%),
+radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,.0)70%),
+linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
+mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite}
+@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
+.toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;
+color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:60}
+.toast.show{opacity:1}
+/* แถบแจ้งเตือนโหลดล้มเหลว */
+#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10000;display:none}
+</style>
 </head>
 <body>
 
@@ -51,12 +56,12 @@
     <div class="badge" id="missionLine" style="display:none"></div>
   </div>
 
-  <div id="menuBar">
+  <div id="menuBar" aria-label="Main menu">
     <div class="menu-card">
       <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
       <div>
         <h3>Play Mode</h3>
-        <div class="row">
+        <div class="row" role="group" aria-label="Mode">
           <div class="btn" data-mode="goodjunk">🥗 Good vs Junk</div>
           <div class="btn" data-mode="groups">🧺 5 Food Groups</div>
           <div class="btn" data-mode="hydration">💧 Hydration</div>
@@ -66,7 +71,7 @@
       <hr style="margin:12px 0;border-color:#133"/>
       <div>
         <h3>Difficulty</h3>
-        <div class="row">
+        <div class="row" role="group" aria-label="Difficulty">
           <div class="btn" data-diff="Easy">Easy</div>
           <div class="btn active" data-diff="Normal">Normal</div>
           <div class="btn" data-diff="Hard">Hard</div>
@@ -74,13 +79,10 @@
       </div>
       <hr style="margin:12px 0;border-color:#133"/>
       <div class="row">
-        <!-- ✅ ปุ่ม Start แบบกันพลาด: id + role + tabindex + onclick fallback -->
-        <div id="btn_start" class="btn" data-action="start" role="button" tabindex="0"
-             onclick="window.HHA&&typeof HHA.startGame==='function'?HHA.startGame():console.warn('HHA not ready (onclick), using binder')">
-          ▶️ Start
-        </div>
-        <div class="btn" data-action="howto">❓ How to Play</div>
-        <div class="btn" data-action="sound">🔊 Sound</div>
+        <!-- ปุ่ม Start แบบกันพลาด: button + id + tabindex + aria + ฟังหลายอีเวนต์ -->
+        <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0" aria-label="Start game">▶️ Start</button>
+        <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
+        <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
       </div>
     </div>
   </div>
@@ -95,14 +97,85 @@
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- ตัวหลัก -->
+<!-- โหลดหลักตามปกติ -->
 <script type="module" src="./game/main.js"></script>
-<!-- ✅ ตัว binder จับปุ่ม Start แบบ hard-capture (ต้องอยู่หลัง main.js) -->
-<script type="module" src="./game/menu-bind.js"></script>
-<!-- เสริมเล็ก ๆ (optional): ปลดล็อกเสียง/ทริกเกอร์ง่าย ๆ -->
-<script src="./game/ui.js" defer></script>
 
-<!-- Toast -->
+<!-- 🔒 Binder กันพลาด: อยู่ในหน้านี้เลย -->
+<script type="module">
+const warn = (lines)=>{ let w=document.getElementById('bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w);} w.innerHTML=(Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join(''); w.style.display='block'; };
+const toast=(t)=>{ let el=document.getElementById('toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el);} el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); };
+
+// กัน canvas บังคลิก (ถ้ามีตัวอื่นสร้างเพิ่ม)
+setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
+
+// Delegation โหมด/ยาก/เสียง
+(function bindMenu(){
+  const mb = document.getElementById('menuBar');
+  if(!mb) return;
+  const $$ = (s)=>mb.querySelectorAll(s);
+  function setActive(sel, el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+
+  mb.addEventListener('click', (ev)=>{
+    const t = ev.target.closest('.btn'); if(!t) return;
+    if (t.hasAttribute('data-mode')) { setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
+    if (t.hasAttribute('data-diff')) { setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
+    if (t.dataset.action === 'howto') { toast('แตะของดี เลี่ยงของไม่ดี ภายใน 45 วิ'); return; }
+    if (t.dataset.action === 'sound') {
+      const muted = !Array.from(document.querySelectorAll('audio')).some(a=>!a.muted);
+      document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = !muted; }catch{} });
+      t.textContent = muted ? '🔇 Sound' : '🔊 Sound';
+      toast(muted?'เสียง: ปิด':'เสียง: เปิด'); return;
+    }
+  }, false);
+})();
+
+// ตัวเริ่มเกมแบบกันพลาด
+(function bindStartStrong(){
+  const btn = document.getElementById('btn_start');
+  if(!btn) return;
+
+  function startNow(){
+    try{
+      if (window.HHA && typeof window.HHA.startGame === 'function') {
+        window.HHA.startGame();
+        return;
+      }
+    }catch{}
+
+    // ถ้ายังไม่พร้อม → import main.js แล้วเรียกซ้ำ
+    import(`./game/main.js?ts=${Date.now()}`)
+      .then(()=>{
+        if (window.HHA && typeof window.HHA.startGame === 'function') {
+          window.HHA.startGame();
+        } else {
+          warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame');
+        }
+      })
+      .catch(e=>{
+        console.error('[import main.js] fail', e);
+        warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]);
+      });
+  }
+
+  // ล้าง listener เดิมทั้งหมดด้วยการ clone
+  const clone = btn.cloneNode(true);
+  btn.replaceWith(clone);
+
+  // จับหลายอีเวนต์ และใช้ capture เพื่อชิงก่อนตัวอื่น
+  const options = { capture:true, passive:false };
+  ['click','pointerup','touchend'].forEach(ev=>{
+    clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, options);
+  });
+  // เริ่มเกมด้วย Enter/Space เมื่อ focus ที่ปุ่ม
+  clone.addEventListener('keydown', (e)=>{
+    if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); }
+  }, options);
+})();
+</script>
+
+<!-- Toast + Boot warn host -->
 <div id="toast" class="toast"></div>
+<div id="bootWarn"></div>
+
 </body>
 </html>
