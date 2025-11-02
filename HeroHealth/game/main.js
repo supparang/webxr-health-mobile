@@ -1,4 +1,4 @@
-// === Hero Health Academy — /game/main.js (dual-update + hard kick + watchdog) ===
+// === Hero Health Academy — /game/main.js (watchdog + heartbeat + builtin fallback) ===
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
@@ -6,6 +6,7 @@ window.__HHA_BOOT_OK = 'main';
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
 
+  // ---------------- Core imports (with fallbacks) ----------------
   let HUDClass, CoachClass, ScoreSystem, SFXClass, Quests, Progress;
 
   async function loadCore(){
@@ -33,14 +34,51 @@ window.__HHA_BOOT_OK = 'main';
 
     try { ({ Quests } = await import('./core/quests.js')); }
     catch {
-      // …(เหมือนเวอร์ชันก่อนของผมได้เลย ไม่ตัดทิ้งเพื่อย่อความ)…
-      // ตรงนี้คงเดิม ใช้งานได้
+      const BASE = [
+        { key:'good_20',    label:'แตะของดี 20', need:20, type:'inc',   icon:'🥗' },
+        { key:'perfect_10', label:'PERFECT 10',  need:10, type:'inc',   icon:'💥' },
+        { key:'avoid_20s',  label:'หลบ JUNK 20 วิ', need:20, type:'time_nojunk', icon:'🚫' },
+        { key:'combo_16',   label:'ทำคอมโบ 16', need:16, type:'combo', icon:'🔥' },
+        { key:'gold_3',     label:'เก็บทอง 3',  need:3,  type:'gold',  icon:'🌟' },
+        { key:'shield_1',   label:'ใช้โล่ 1',   need:1,  type:'shield',icon:'🛡️' },
+        { key:'score_1000', label:'สกอร์ถึง 1000', need:1000,type:'score',icon:'🏆' },
+        { key:'time_20',    label:'อยู่รอด 20 วิ', need:20, type:'time', icon:'⏱️' },
+        { key:'fever_on',   label:'เข้า FEVER 1', need:1,  type:'fever',icon:'⚡' },
+        { key:'nojunk',     label:'ไม่กด JUNK เลย', need:1, type:'nojunk',icon:'❎' },
+      ];
+      let state=null, cur=0, elapsed=0, nojunkTimer=0, hud=null, coach=null;
+      Quests = {
+        bindToMain({hud:hh,coach:cc}){ hud=hh; coach=cc; return this; },
+        beginRun(){ const pool=[...BASE], pick=[]; while(pick.length<3&&pool.length) pick.push(pool.splice((Math.random()*pool.length)|0,1)[0]);
+          state=pick.map((q,i)=>({...q,progress:0,done:false,fail:false,active:i===0})); cur=0; elapsed=0; nojunkTimer=0;
+          hud?.setQuestChips(state); coach?.onQuestStart?.(state[0].label);
+        },
+        _upd(){ hud?.setQuestChips(state); },
+        event(kind,p={}){ if(!state) return; const q=state[cur]; if(!q) return;
+          if(kind==='tick'){ elapsed+=(p.dt||0); if(q.type==='time') q.progress=Math.min(q.need,Math.floor(elapsed)); if(q.type==='time_nojunk') q.progress=Math.min(q.need,Math.floor(nojunkTimer)); }
+          if(kind==='hit'){ if(q.type==='inc' && (p.meta?.good||p.meta?.golden)) q.progress++; if(q.type==='gold' && (p.meta?.gold===1||p.meta?.power==='gold')) q.progress++;
+            if(q.type==='score') q.progress=Math.max(q.progress,p.pointsAccum|0); if(q.type==='combo') q.progress=Math.max(q.progress,p.comboNow|0); nojunkTimer=0; }
+          if(kind==='bad'){ if(q.type==='nojunk'||q.type==='time_nojunk') { q.fail=true; nojunkTimer=0; } }
+          if(kind==='miss'){ /* แค่คอมโบแตก */ }
+          if(kind==='fever' && q.type==='fever' && p.on) q.progress=1;
+          if(kind==='power' && q.type==='shield' && p.kind==='shield') q.progress=1;
+          if(kind==='tick'){ nojunkTimer+=p.dt||0; }
+          // done?
+          let ok=(q.type==='score')?((p.pointsAccum|0)>=q.need):(q.progress>=q.need);
+          if(ok && !q.fail){ q.done=true; q.active=false; coach?.onQuestDone?.(); cur++; if(state[cur]){ state[cur].active=true; coach?.onQuestStart?.(state[cur].label); } }
+          this._upd();
+        },
+        tick(meta){ this.event('tick', meta); this._upd(); },
+        endRun(){ return { list:(state||[]), totalDone:(state||[]).filter(x=>x.done).length }; },
+        getChips(){ return state||[]; }
+      };
     }
 
     try { ({ Progress } = await import('./core/progression.js')); }
     catch { Progress = { init(){}, beginRun(){}, endRun(){}, getStatSnapshot(){return{}} }; }
   }
 
+  // ---------------- Mode loader ----------------
   const MODE_PATH = (k)=>`./modes/${k}.js`;
   async function loadMode(key){
     const mod = await import(MODE_PATH(key));
@@ -53,6 +91,34 @@ window.__HHA_BOOT_OK = 'main';
     };
   }
 
+  // ---------------- Built-in fallback spawner (ฉุกเฉิน) ----------------
+  function BuiltinGoodJunk(){
+    let alive=false, t=0, interval=0.72, life=1.6, host=null, fever=false;
+    function ensureHost(){ host=document.getElementById('spawnHost')||document.body; }
+    function spawn(bus){
+      ensureHost();
+      const isGood=Math.random()<0.72, isGolden=Math.random()<0.12;
+      const glyph=isGolden?'🌟':(isGood?['🥦','🥕','🍎','🍌','🥗','🐟'][Math.random()*6|0]:['🍔','🍟','🍕','🍩','🍫'][Math.random()*5|0]);
+      const d=document.createElement('button'); d.textContent=glyph; d.type='button';
+      Object.assign(d.style,{position:'fixed',left:(56+Math.random()*(innerWidth-112))+'px',top:(80+Math.random()*(innerHeight-220))+'px',
+        transform:'translate(-50%,-50%)',font:`900 ${isGolden?64:54}px ui-rounded`,border:0,background:'transparent',filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))',cursor:'pointer',zIndex:9});
+      const kill=setTimeout(()=>{ d.remove(); if(isGood) bus?.miss?.({source:'good-timeout'}); }, (life+(isGolden?0.25:0))*1000|0);
+      d.addEventListener('click', (ev)=>{ clearTimeout(kill); d.remove();
+        if(isGood){ const perfect=isGolden||Math.random()<0.2; const pts=Math.round((perfect?200:100)*(fever?1.5:1));
+          bus?.hit?.({ kind:perfect?'perfect':'good', points:pts, ui:{x:ev.clientX,y:ev.clientY}, meta:{ good:1, golden:(isGolden?1:0) }});
+        }else{ bus?.bad?.({source:'junk-click'}); }
+      }, {passive:true});
+      host.appendChild(d);
+    }
+    return {
+      start(){ alive=true; t=0; ensureHost(); },
+      setFever(on){ fever=!!on; },
+      update(dt,bus){ if(!alive) return; t+=dt; while(t>=interval){ t-=interval; spawn(bus); } },
+      cleanup(){ alive=false; try{ (document.getElementById('spawnHost')||{}).innerHTML=''; }catch{} }
+    };
+  }
+
+  // ---------------- Engine state ----------------
   const TIME_BY_MODE = { goodjunk:45, groups:60, hydration:50, plate:55 };
   function getMatchTime(mode, diff){ const base=(TIME_BY_MODE[mode]??45); if(diff==='Easy') return base+5; if(diff==='Hard') return Math.max(20,base-5); return base; }
 
@@ -63,7 +129,7 @@ window.__HHA_BOOT_OK = 'main';
     modeAPI:null, modeInst:null, state:null, coach:null,
     matchTime:45, fever:false, feverBreaks:0,
     gold:0, goods:0, junkBad:0, misses:0,
-    _dtMark:0, _secAccum:0, _watch:0, _spawnSeen:false
+    _dtMark:0, _secAccum:0, _watch:0, _spawnSeen:false, _lastRAF:0
   };
   let hud=null;
 
@@ -77,7 +143,7 @@ window.__HHA_BOOT_OK = 'main';
     return {
       sfx:R.sys.sfx,
       hit:(e)=>{ const pts=(e?.points)|0; if(pts) R.sys.score.add(pts);
-        R.sys.score.combo=(R.sys.score.combo|0)+1; if(R.sys.score.combo> (R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo;
+        R.sys.score.combo=(R.sys.score.combo|0)+1; if(R.sys.score.combo>(R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo;
         if(e?.meta?.gold===1 || e?.meta?.power==='gold') R.gold++; if(e?.meta?.good) R.goods++;
         if(!R.fever && (R.sys.score.combo|0)>=10) feverOn();
         hud && e?.ui && hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`);
@@ -90,29 +156,47 @@ window.__HHA_BOOT_OK = 'main';
     };
   }
 
+  // ---------------- Game loop + watchdog/heartbeat ----------------
   function tickLoop(){
+    R._lastRAF = performance.now();
     if(!R.playing || R.paused){ R.raf=requestAnimationFrame(tickLoop); return; }
     const now=performance.now(); const dt=Math.max(0,(now-(R._dtMark||now))/1000); R._dtMark=now;
 
-    // second accumulator
     R._secAccum+=dt;
     while(R._secAccum>=1){ R._secAccum-=1; R.remain=Math.max(0,(R.remain|0)-1); hud?.setTimer(R.remain); if(R.remain===10) R.coach?.onTimeLow?.(); Quests?.tick?.({score:R.sys.score.get?.()||0,dt:1,fever:R.fever}); }
 
-    // update BOTH api+instance toกันกรณีหนึ่งไม่ทำงาน
     try{ R.modeAPI?.update && R.modeAPI.update(dt, busFor()); }catch(e){ console.warn('api.update error',e); }
     try{ R.modeInst?.update && R.modeInst.update(dt, busFor()); }catch(e){ console.warn('inst.update error',e); }
 
-    // watchdog: หาก 2s ยังไม่มี hit/miss/bad → เขี่ย spawn
+    // ถ้า 2s ยังไม่มีอีเวนต์ → เขี่ย spawn และถ้ายังเงียบอีกจะสลับไป fallback
     R._watch += dt;
     if(R._watch>2 && !R._spawnSeen){
-      try{ R.modeAPI?.update?.(1.0, busFor()); R.modeInst?.update?.(1.0, busFor()); }catch{}
+      try{ R.modeAPI?.update?.(1.2, busFor()); R.modeInst?.update?.(1.2, busFor()); }catch{}
       R._watch=0;
+      // ถ้ายังไม่เห็น spawn หลัง kick 2 รอบ → เปิด Builtin fallback ทับ
+      R._kickCount = (R._kickCount|0)+1;
+      if((R._kickCount|0)>=2 && !R._usingBuiltin){
+        console.warn('[HHA] Switching to BuiltinGoodJunk fallback.');
+        const B = BuiltinGoodJunk();
+        try{ B.start({}); }catch{}
+        R.modeAPI = { update:B.update.bind(B), start:B.start.bind(B), cleanup:B.cleanup.bind(B), setFever:B.setFever.bind(B) };
+        R.modeInst = null;
+        R._usingBuiltin = true;
+      }
     }
 
     if(R.remain<=0){ endGame(); return; }
     R.raf=requestAnimationFrame(tickLoop);
   }
 
+  // Heartbeat: ถ้า RAF หยุดวิ่ง (เช่น แท็บแช่/เบราว์เซอร์ throttle) ให้เรียก tick เอง
+  setInterval(()=>{
+    if(!R.playing || R.paused) return;
+    const since = performance.now() - (R._lastRAF||0);
+    if(since > 800){ tickLoop(); }
+  }, 500);
+
+  // ---------------- Start / End / Pause ----------------
   function threeTwoOneGo(cb){
     if(!hud?.showBig){ cb(); return; }
     const seq=['3','2','1','GO!']; let i=0;
@@ -130,7 +214,7 @@ window.__HHA_BOOT_OK = 'main';
     R.matchTime=getMatchTime(R.modeKey,R.diff); R.remain=R.matchTime|0;
 
     R.gold=0; R.goods=0; R.junkBad=0; R.misses=0;
-    R._dtMark=performance.now(); R._secAccum=0; R._watch=0; R._spawnSeen=false;
+    R._dtMark=performance.now(); R._secAccum=0; R._watch=0; R._spawnSeen=false; R._kickCount=0; R._usingBuiltin=false;
 
     hud=new HUDClass(); hud.hideResult?.(); hud.resetBars?.(); hud.setTop?.({mode:R.modeKey,diff:R.diff}); hud.setTimer?.(R.remain); hud.updateHUD?.(0,0);
 
@@ -141,23 +225,31 @@ window.__HHA_BOOT_OK = 'main';
 
     Quests?.bindToMain?.({hud,coach:R.coach}); Quests?.beginRun?.(R.modeKey,R.diff,(localStorage.getItem('hha_lang')||'TH'),R.matchTime);
 
+    // โหลดโหมด
     let api=null;
     try{ api=await loadMode(R.modeKey); }
-    catch(e){ console.error('[HHA] Failed to load mode:', R.modeKey, e); hud?.toast?.('Failed to load mode: '+R.modeKey); window.HHA._busy=false; return; }
+    catch(e){ console.error('[HHA] Failed to load mode:', R.modeKey, e); /* จะสลับไป fallback ด้านล่าง */ }
+    if(!api || (!api.update && !api.create)){ // ถ้าโหลดไม่ได้ ใช้ fallback ทันที
+      const B = BuiltinGoodJunk(); api = { update:B.update.bind(B), start:B.start.bind(B), cleanup:B.cleanup.bind(B), setFever:B.setFever.bind(B) };
+      R._usingBuiltin = true;
+    }
     R.modeAPI=api;
 
-    // เรียก start ทั้ง "instance" และ "api" เพื่อกันหลุด
+    // สตาร์ตทั้ง instance และ api (ถ้ามี)
     if(api?.create){ R.modeInst=api.create({engine:{},hud,coach:R.coach}); try{ R.modeInst?.start?.({time:R.matchTime,difficulty:R.diff}); }catch{} }
     if(api?.start){ try{ api.start({time:R.matchTime,difficulty:R.diff}); }catch{} }
 
-    // kick ครั้งแรก หลังเริ่ม 800ms เพื่อบังคับให้มีของ spawn ถ้าเงียบ
-    setTimeout(()=>{ if(!R._spawnSeen){ try{ api?.update?.(1.2, busFor()); R.modeInst?.update?.(1.2, busFor()); }catch{} } }, 800);
+    // Kick ครั้งแรกหลังเริ่ม 700ms
+    setTimeout(()=>{ if(!R._spawnSeen){ try{ api?.update?.(1.0, busFor()); R.modeInst?.update?.(1.0, busFor()); }catch{} } }, 700);
 
+    // UI
     const mb=$('#menuBar'); if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
     document.body.setAttribute('data-playing','1');
 
+    // BGM
     R.sys.sfx?.bgmFever(false); R.sys.sfx?.bgmMain(true);
 
+    // นับถอยหลังก่อนวิ่ง
     threeTwoOneGo(()=>{ R.playing=true; R.paused=false; R._dtMark=performance.now(); R._secAccum=0; setTopHUD(); R.raf=requestAnimationFrame(tickLoop); window.HHA._busy=false; });
   }
 
@@ -184,10 +276,16 @@ window.__HHA_BOOT_OK = 'main';
 
   function setPaused(on){ if(!R.playing) return; R.paused=!!on; if(R.paused){ R.sys.sfx?.bgmMain(false); R.sys.sfx?.bgmFever(false); hud?.toast?.('Paused'); } else { R.sys.sfx?.bgmMain(true); if(R.fever) R.sys.sfx?.bgmFever(true); R._dtMark=performance.now(); hud?.toast?.('Resume'); } }
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) setPaused(true); });
+  // auto-resume เมื่อมีอินพุตครั้งแรก
+  ['pointerdown','touchstart','keydown'].forEach(ev=>window.addEventListener(ev, ()=>{ if(R.playing && R.paused) setPaused(false); }, {once:false,passive:true}));
   window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='p') setPaused(!R.paused); }, {passive:true});
 
+  // expose
   window.HHA=window.HHA||{}; window.HHA.startGame=startGame; window.HHA.endGame=endGame; window.HHA.pause=()=>setPaused(true); window.HHA.resume=()=>setPaused(false);
 
+  // canvases never block UI
   setTimeout(()=>{ $$('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
+
+  // quick start from keyboard
   window.addEventListener('keydown',(e)=>{ if((e.key==='Enter'||e.key===' ')&&!R.playing){ const menuVisible=!($('#menuBar')?.hasAttribute('data-hidden')); if(menuVisible){ e.preventDefault(); startGame(); } } },{passive:false});
 })();
