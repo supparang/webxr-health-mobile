@@ -17,13 +17,18 @@ body{
   -webkit-tap-highlight-color:transparent;
   transition: background .25s ease;
 }
-body.fever-on{
-  background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%);
-}
+body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
 
 /* Layout layers */
 .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
-#gameLayer,#spawnHost{position:fixed;inset:0}
+#gameLayer{position:fixed;inset:0;z-index:1}
+
+/* ✅ ให้ spawnHost อยู่บนสุดและรับคลิกแน่ ๆ */
+#spawnHost{
+  position:fixed;inset:0;
+  z-index:5000;           /* ทับ HUD ได้ */
+  pointer-events:auto;    /* รับคลิก */
+}
 
 /* canvases never block clicks */
 canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
@@ -41,8 +46,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 .row{display:flex;flex-wrap:wrap;gap:10px}
 .btn{
   display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
-  border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d;
-  cursor:pointer; user-select:none
+  border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none
 }
 .btn:hover{ filter:brightness(1.08) }
 .btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
@@ -64,7 +68,8 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
 </style>
 </head>
-<body>
+<!-- ✅ ตั้งค่า default ให้ body ทันที กันกรณีเมนูไม่กด -->
+<body data-mode="goodjunk" data-diff="Normal">
 
 <div class="game-wrap">
   <div id="gameLayer"></div>
@@ -123,8 +128,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- Main (ESM) -->
-<!-- ✅ เปลี่ยนเป็นเส้นทางในโฟลเดอร์ game/ -->
+<!-- ✅ Main (ESM) ชี้ไปที่ /game/ เสมอ -->
 <script type="module" src="./game/main.js"></script>
 
 <!-- Binder & Safe-guards -->
@@ -174,7 +178,6 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   }
 
   function startNow(){
-    // prime audio
     try{
       (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']).forEach(id=>{
         const a=document.getElementById(id);
@@ -182,14 +185,12 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       });
     }catch{}
 
-    // ✅ เปลี่ยน dynamic import ให้ตรง path
     if (window.HHA && typeof window.HHA.startGame === 'function'){ hideMenu(); window.HHA.startGame(); return; }
     import(`./game/main.js?ts=${Date.now()}`)
       .then(()=>{ if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
       .catch(e=>{ console.error('[import main.js] fail', e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]) });
   }
 
-  // hard-bind start
   (function hardBindStart(){
     const old = document.getElementById('btn_start'); if(!old) return;
     const clone = old.cloneNode(true);
