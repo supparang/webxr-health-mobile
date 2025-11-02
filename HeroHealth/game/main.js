@@ -1,5 +1,4 @@
-// === Hero Health Academy — /game/main.js (2025-11-02 SAFE) ===
-// dual-loop engine + prime spawn + idle watchdog + host ensure + visibility resume
+// === Hero Health Academy — /game/main.js (dual-loop engine + prime spawn + idle watchdog + kickoff update) ===
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
@@ -51,13 +50,11 @@ window.__HHA_BOOT_OK = 'main';
           this._cur=0; this._elapsed=0; this._nojunk=0;
           this._hud?.setQuestChips(this._state); this._coach?.onQuestStart?.(this._state[0].label);
         },
-        event(kind,p={}){
-          const s=this._state, i=this._cur; if(!s||!s[i]) return; const q=s[i];
+        event(kind,p={}){ const s=this._state, i=this._cur; if(!s||!s[i]) return; const q=s[i];
           if(kind==='tick'){ this._elapsed+=(p.dt||0); if(q.type==='time') q.progress=Math.min(q.need|0, Math.floor(this._elapsed)); this._nojunk += (p.dt||0); }
           if(kind==='hit'){ if(q.type==='inc' && (p.meta?.good||p.meta?.golden)) q.progress++; if(q.type==='gold' && (p.meta?.gold===1||p.meta?.power==='gold')) q.progress++; if(q.type==='combo') q.progress=Math.max(q.progress, p.comboNow|0); this._nojunk=0; }
           if(kind==='bad'){ if(q.type==='nojunk'){ q.fail=true; } this._nojunk=0; }
-          if(kind==='fever' && p.on){}
-          const ok = (q.type==='combo') ? (q.progress>=q.need) : (q.progress>=q.need);
+          const ok=(q.type==='combo')?(q.progress>=q.need):(q.progress>=q.need);
           if(ok && !q.fail){ q.done=true; q.active=false; this._coach?.onQuestDone?.(); this._cur++; if(s[this._cur]){ s[this._cur].active=true; this._coach?.onQuestStart?.(s[this._cur].label); } }
           this._hud?.setQuestChips(s);
         },
@@ -74,10 +71,10 @@ window.__HHA_BOOT_OK = 'main';
   const MODE_PATH = (k)=>`./modes/${k}.js`;
   async function loadMode(key){
     const mod = await import(MODE_PATH(key));
-    return { name:mod.name||key, create:mod.create||null, init:mod.init||null, tick:mod.tick||null, update:mod.update||null, start:mod.start||null, cleanup:mod.cleanup||null, setFever:mod.setFever||null, restart:mod.restart||null };
+    return { name:mod.name||key, create:mod.create||null, init:mod.init||null, tick:mod.tick||null, update:mod.update||null, start:mod.start||null, cleanup:mod.cleanup||null, setFever:mod.setFever||null };
   }
 
-  // ---------- Emergency builtin (ใช้ถ้าหยุดนิ่ง) ----------
+  // ---------- Emergency builtin ----------
   function BuiltinGoodJunk(){
     let alive=false, t=0, interval=0.60, life=2.0, host=null, fever=false;
     function H(){ host=document.getElementById('spawnHost')||document.body; }
@@ -89,7 +86,7 @@ window.__HHA_BOOT_OK = 'main';
       const d=document.createElement('button'); d.textContent=glyph; d.type='button';
       Object.assign(d.style,{position:'fixed',left:(56+Math.random()*(innerWidth-112))+'px',top:(96+Math.random()*(innerHeight-240))+'px',transform:'translate(-50%,-50%)',font:`900 ${golden?64:54}px ui-rounded`,border:0,background:'transparent',filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))',cursor:'pointer',zIndex:5500});
       const kill=setTimeout(()=>{ try{d.remove();}catch{} if(good) bus?.miss?.({source:'good-timeout'}); }, (life+(golden?0.28:0))*1000|0);
-      d.addEventListener('click',(ev)=>{ clearTimeout(kill); try{d.remove();}catch{}; if(good){ const perfect=golden||Math.random()<0.2; const pts=Math.round((perfect?200:100)*(fever?1.5:1)); bus?.hit?.({kind:perfect?'perfect':'good',points:pts,ui:{x:ev.clientX,y:ev.clientY},meta:{good:1,golden:golden?1:0}}); } else { bus?.bad?.({source:'junk-click'}); } window.__notifySpawn?.(); }, {passive:true});
+      d.addEventListener('click',(ev)=>{ clearTimeout(kill); try{d.remove();}catch{}; if(good){ const perfect=golden||Math.random()<0.2; const pts=Math.round((perfect?200:100)*(fever?1.5:1)); bus?.hit?.({kind:perfect?'perfect':'good',points:pts,ui:{x:ev.clientX,y:ev.clientY},meta:{good:1,golden:golden?1:0}}); } else { bus?.bad?.({source:'junk-click'}); } }, {passive:true});
       host.appendChild(d);
     }
     return {
@@ -114,7 +111,7 @@ window.__HHA_BOOT_OK = 'main';
     _dtMark:0, _secAccum:0, _lastRAF:0, _activity:0,
     _usingBuiltin:false
   };
-  let hud=null, _engineTimer=null, _safetyPump=null, _watchdog=null, _lastSpawnMark=performance.now();
+  let hud=null, _engineTimer=null, _safetyPump=null;
 
   function markActivity(){ R._activity = performance.now(); }
   function setTopHUD(){ hud?.setTop({mode:R.modeKey,diff:R.diff}); hud?.setTimer(R.remain); hud?.updateHUD(R.sys.score?.get?R.sys.score.get():0, R.sys.score?.combo|0); }
@@ -127,16 +124,16 @@ window.__HHA_BOOT_OK = 'main';
   function busFor(){
     return {
       sfx:R.sys.sfx,
-      hit:(e)=>{ _lastSpawnMark=performance.now(); markActivity(); const pts=(e?.points)|0; if(pts) R.sys.score.add(pts);
+      hit:(e)=>{ markActivity(); const pts=(e?.points)|0; if(pts) R.sys.score.add(pts,{kind:e?.kind}); 
         R.sys.score.combo=(R.sys.score.combo|0)+1; if(R.sys.score.combo>(R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo;
         if(e?.meta?.gold===1 || e?.meta?.power==='gold') R.gold++; if(e?.meta?.good) R.goods++;
         if(!R.fever && (R.sys.score.combo|0)>=10) feverOn();
         hud && e?.ui && hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`); Quests?.event?.('hit',{...e,pointsAccum:R.sys.score.get(),comboNow:R.sys.score.combo});
         setTopHUD();
       },
-      miss:(info)=>{ _lastSpawnMark=performance.now(); markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.misses++; R.sys.score.combo=0; R.coach?.onBad?.(); Quests?.event?.('miss',info||{}); setTopHUD(); },
-      bad:(info)=>{ _lastSpawnMark=performance.now(); markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.junkBad++; R.sys.score.combo=0; R.sys.sfx?.bad?.(); Quests?.event?.('bad',info||{}); setTopHUD(); },
-      power:(kind)=>{ _lastSpawnMark=performance.now(); markActivity(); R.sys.sfx?.power?.(); Quests?.event?.('power',{kind}); setTopHUD(); }
+      miss:(info)=>{ markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.misses++; R.sys.score.combo=0; R.coach?.onBad?.(); Quests?.event?.('miss',info||{}); setTopHUD(); },
+      bad:(info)=>{ markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.junkBad++; R.sys.score.combo=0; R.sys.sfx?.bad?.(); Quests?.event?.('bad',info||{}); setTopHUD(); },
+      power:(kind)=>{ markActivity(); R.sys.sfx?.power?.(); Quests?.event?.('power',{kind}); setTopHUD(); }
     };
   }
 
@@ -157,52 +154,6 @@ window.__HHA_BOOT_OK = 'main';
     R._raf = requestAnimationFrame(tickRAF);
   }
 
-  // ---------- Safety helpers ----------
-  function ensureHosts(){
-    const wrap = document.querySelector('.game-wrap') || document.body;
-    let gameLayer = $('#gameLayer');
-    if(!gameLayer){
-      gameLayer = document.createElement('div');
-      gameLayer.id='gameLayer';
-      Object.assign(gameLayer.style,{position:'absolute',inset:'0',overflow:'hidden'});
-      wrap.appendChild(gameLayer);
-    }
-    let spawnHost = $('#spawnHost');
-    if(!spawnHost){
-      spawnHost = document.createElement('div');
-      spawnHost.id='spawnHost';
-      Object.assign(spawnHost.style,{position:'absolute',inset:'0',pointerEvents:'auto',zIndex:'5'});
-      gameLayer.appendChild(spawnHost);
-    }
-  }
-
-  function startWatchdog(){
-    clearInterval(_watchdog);
-    window.__notifySpawn = ()=>{ _lastSpawnMark = performance.now(); };
-    _lastSpawnMark = performance.now();
-    _watchdog = setInterval(()=>{
-      if(!R.playing || R.paused) return;
-      const idleSpawnMs = performance.now() - _lastSpawnMark;
-      // ถ้านิ่งเกิน 4s: พยายามรีสตาร์ทโหมด หรือเตะ update หนัก ๆ
-      if(idleSpawnMs > 4000){
-        console.warn('[watchdog] No spawns >4s, nudging…');
-        try{ R.modeAPI?.restart?.(); }catch{}
-        try{ R.modeAPI?.update?.(0.9, busFor()); R.modeInst?.update?.(0.9, busFor()); }catch{}
-        _lastSpawnMark = performance.now();
-      }
-    }, 1500);
-
-    // resume/pause จาก visibility
-    document.addEventListener('visibilitychange', ()=>{
-      if(!R.playing) return;
-      if(document.visibilityState==='visible'){
-        setPaused(false);
-      }else{
-        setPaused(true);
-      }
-    });
-  }
-
   // ---------- Start / End / Pause ----------
   function threeTwoOneGo(cb){
     if(!hud?.showBig){ cb(); return; }
@@ -214,7 +165,6 @@ window.__HHA_BOOT_OK = 'main';
   async function startGame(){
     if(window.HHA?._busy) return; window.HHA=window.HHA||{}; window.HHA._busy=true;
 
-    ensureHosts();
     await loadCore(); Progress?.init?.();
 
     R.modeKey=document.body.getAttribute('data-mode')||'goodjunk';
@@ -242,7 +192,7 @@ window.__HHA_BOOT_OK = 'main';
     if(api?.create){ R.modeInst=api.create({engine:{},hud,coach:R.coach}); try{ R.modeInst?.start?.({time:R.matchTime,difficulty:R.diff}); }catch{} }
     if(api?.start){ try{ api.start({time:R.matchTime,difficulty:R.diff}); }catch{} }
 
-    // PRIME: บังคับให้มีการ spawn/เหตุการณ์ตั้งแต่ต้น
+    // PRIME: call a few updates so modes that prefill via update() will spawn immediately
     try{ for(let i=0;i<3;i++) api?.update?.(0.40, busFor()); }catch{}
 
     // UI & BGM
@@ -252,9 +202,11 @@ window.__HHA_BOOT_OK = 'main';
 
     threeTwoOneGo(()=>{
       R.playing=true; R.paused=false; R._dtMark=performance.now(); R._secAccum=0; setTopHUD();
-      startWatchdog();
 
-      // Dual-loop: RAF + 30fps interval (กัน throttle)
+      // === NEW: kickoff spawn/update once right after GO! (prevents silent start if RAF is throttled) ===
+      try { R.modeAPI?.update?.(0.5, busFor()); R.modeInst?.update?.(0.5, busFor()); } catch {}
+
+      // Dual-loop: RAF + interval 30fps
       cancelAnimationFrame(R._raf); R._raf=requestAnimationFrame(tickRAF);
       clearInterval(_engineTimer); _engineTimer=setInterval(()=>step(1/30), 1000/30);
 
@@ -288,7 +240,7 @@ window.__HHA_BOOT_OK = 'main';
   function endGame(){
     if(!R.playing) return;
     R.playing=false;
-    cancelAnimationFrame(R._raf); clearInterval(_engineTimer); clearInterval(_safetyPump); clearInterval(_watchdog);
+    cancelAnimationFrame(R._raf); clearInterval(_engineTimer); clearInterval(_safetyPump);
 
     try{ R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state,hud); }catch{}
     const score=R.sys.score?.get?R.sys.score.get():0, bestC=R.sys.score?.bestCombo|0;
