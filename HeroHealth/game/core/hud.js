@@ -1,8 +1,9 @@
-// === core/hud.js (HUD overlay + result modal + fever bar + helpers) ===
+// === core/hud.js (HUD overlay + result modal + fever bar + countdown + helpers) ===
 'use strict';
 
 export class HUD {
   constructor(){
+    // Root
     this.root = document.getElementById('hud');
     if(!this.root){
       this.root = document.createElement('div');
@@ -11,7 +12,7 @@ export class HUD {
       document.body.appendChild(this.root);
     }
 
-    // Top bar
+    // ===== Top bar (ซ้าย: mode/diff/time | ขวา: score/combo/stars)
     this.top = document.createElement('div');
     this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
     this.top.innerHTML =
@@ -23,6 +24,7 @@ export class HUD {
       '<div style="display:flex;gap:8px;align-items:center">'+
         '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>'+
         '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>'+
+        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#ffd166;border:1px solid #134064;pointer-events:auto">⭐ Stars: <b id="hudStars">0</b></span>'+
       '</div>';
     this.root.appendChild(this.top);
     this.$mode  = this.top.querySelector('#hudMode');
@@ -30,8 +32,9 @@ export class HUD {
     this.$time  = this.top.querySelector('#hudTime');
     this.$score = this.top.querySelector('#hudScore');
     this.$combo = this.top.querySelector('#hudCombo');
+    this.$stars = this.top.querySelector('#hudStars');
 
-    // Fever bar (bottom-left)
+    // ===== Fever bar (ซ้ายล่าง)
     this.powerWrap = document.getElementById('powerBarWrap');
     if(!this.powerWrap){
       this.powerWrap = document.createElement('div');
@@ -45,7 +48,7 @@ export class HUD {
     }
     this.$powerFill = this.powerWrap.querySelector('#powerFill');
 
-    // Coach host (text bubble)
+    // ===== Coach bubble
     this.coachBox = document.getElementById('coachBox');
     if(!this.coachBox){
       this.coachBox = document.createElement('div');
@@ -54,13 +57,13 @@ export class HUD {
       document.body.appendChild(this.coachBox);
     }
 
-    // Quest chips (sequential focus)
+    // ===== Quest chips (focus ทีละเควสต์)
     this.chips = document.createElement('div');
     this.chips.id = 'questChips';
     this.chips.style.cssText = 'position:fixed;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:92vw;pointer-events:none';
     this.root.appendChild(this.chips);
 
-    // Result modal
+    // ===== Result modal
     this.result = document.createElement('div');
     this.result.id = 'resultModal';
     this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:2002';
@@ -80,19 +83,25 @@ export class HUD {
     this.$resDesc  = this.result.querySelector('#resDesc');
     this.$resStats = this.result.querySelector('#resStats');
     this.$resExtra = this.result.querySelector('#resExtra');
-
-    this.onHome = null;
-    this.onRetry = null;
+    this.onHome = null; this.onRetry = null;
     this.result.querySelector('#resHome').onclick  = ()=>this.onHome && this.onHome();
     this.result.querySelector('#resRetry').onclick = ()=>this.onRetry && this.onRetry();
+
+    // ===== Countdown overlay (3-2-1-Go)
+    this.countWrap = document.createElement('div');
+    this.countWrap.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:2003;pointer-events:none';
+    this.countWrap.innerHTML = '<div id="countBig" style="font:900 96px ui-rounded; color:#fff; text-shadow:0 6px 30px #000; transform:scale(1); transition:transform .28s, opacity .28s; opacity:1"></div>';
+    this.root.appendChild(this.countWrap);
+    this._countEl = this.countWrap.querySelector('#countBig');
   }
 
-  // Top HUD setters
+  // ===== Top HUD setters
   setTop({mode,diff}={}){ if(mode!=null) this.$mode.textContent=String(mode); if(diff!=null) this.$diff.textContent=String(diff); }
   setTimer(sec){ this.$time.textContent = Math.max(0, Math.round(sec)) + 's'; }
   updateHUD(score, combo){ this.$score.textContent = String(score|0); this.$combo.textContent = String(combo|0); }
+  setStars(n){ if(this.$stars) this.$stars.textContent = String(n|0); }
 
-  // Quest chips: [{key,label,progress,need,done,fail,icon,active}]
+  // ===== Quest chips: [{key,label,progress,need,done,fail,icon,active}]
   setQuestChips(list=[]){
     const frag = document.createDocumentFragment();
     for(const m of list){
@@ -112,7 +121,7 @@ export class HUD {
     this.chips.appendChild(frag);
   }
 
-  // Fever visuals
+  // ===== Fever visuals
   showFever(on){
     const f = this.$powerFill;
     if(on){
@@ -128,7 +137,7 @@ export class HUD {
   }
   resetBars(){ this.$powerFill.innerHTML=''; }
 
-  // Float text
+  // ===== Floating text
   showFloatingText(x,y,text){
     const el=document.createElement('div');
     el.textContent=String(text);
@@ -138,7 +147,21 @@ export class HUD {
     setTimeout(()=>{ try{el.remove();}catch{}; }, 720);
   }
 
-  // Result
+  // ===== Countdown 3-2-1-Go
+  async showCountdown(seq=['3','2','1','GO']){
+    this.countWrap.style.display='flex';
+    for(const t of seq){
+      this._countEl.textContent = t;
+      this._countEl.style.opacity='1'; this._countEl.style.transform='scale(1)';
+      requestAnimationFrame(()=>{ this._countEl.style.transform='scale(1.2)'; });
+      await new Promise(r=>setTimeout(r, 550));
+      this._countEl.style.opacity='0.0';
+      await new Promise(r=>setTimeout(r, 180));
+    }
+    this.countWrap.style.display='none';
+  }
+
+  // ===== Result
   showResult({title='Result',desc='—',stats=[],extra=[]}={}){
     this.$resTitle.textContent = String(title);
     this.$resDesc.textContent  = String(desc);
@@ -151,10 +174,14 @@ export class HUD {
   }
   hideResult(){ this.result.style.display='none'; }
 
-  // Small toast
+  // ===== Small toast
   toast(text){
     let t=document.getElementById('toast');
-    if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040'; document.body.appendChild(t); }
+    if(!t){
+      t=document.createElement('div'); t.id='toast'; t.className='toast';
+      t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040';
+      document.body.appendChild(t);
+    }
     t.textContent=String(text); t.style.opacity='1'; setTimeout(()=>{ t.style.opacity='0'; },1200);
   }
 }
