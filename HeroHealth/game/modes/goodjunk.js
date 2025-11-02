@@ -1,4 +1,4 @@
-// === modes/goodjunk.js — PROD (MISS on GOOD timeout only; junk = penalty; fever/gold/shield ok) ===
+// === modes/goodjunk.js — HUD-v2 ready (MISS=GOOD-timeout only; junk=penalty; fever hooks) ===
 export const name = 'goodjunk';
 
 const GOOD  = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
@@ -12,9 +12,9 @@ let fever=false, allowMiss=0;
 export function start(cfg={}){
   ensureHost(); clearHost(); alive=true;
   diff = String(cfg.difficulty||'Normal');
-  if (diff==='Easy'){   spawnIntervalS=0.82; lifeS=1.95; iconSizeBase=68; }
-  else if (diff==='Hard'){ spawnIntervalS=0.56; lifeS=1.35; iconSizeBase=48; }
-  else {                 spawnIntervalS=0.70; lifeS=1.65; iconSizeBase=58; }
+  if (diff==='Easy'){   spawnIntervalS=0.82; lifeS=1.95; iconSizeBase=70; }
+  else if (diff==='Hard'){ spawnIntervalS=0.56; lifeS=1.35; iconSizeBase=50; }
+  else {                 spawnIntervalS=0.70; lifeS=1.65; iconSizeBase=60; }
   _accum=0;
 }
 export function stop(){ alive=false; clearHost(); }
@@ -32,14 +32,14 @@ function reportMiss(bus, meta){
   if (consumeShield()){ bus?.sfx?.power?.(); return; }
   bus?.miss?.(meta||{}); bus?.sfx?.bad?.();
 }
-function reportPenalty(bus, meta){ // สำหรับ junk click (ไม่ใช่ MISS)
-  bus?.penalty?.(meta||{}); // main จะตัด combo/fever แต่ไม่ส่ง miss quest
+function reportPenalty(bus, meta){ // junk click = not MISS
+  bus?.penalty?.(meta||{}); // main จะตัด combo / นับ fever-break
 }
 
 function spawnOne(glyph, isGood, isGolden, bus){
   const d=document.createElement('button');
   d.className='spawn-emoji'; d.type='button'; d.textContent=glyph;
-  const size = isGolden ? (iconSizeBase+8) : iconSizeBase;
+  const size = isGolden ? (iconSizeBase+10) : iconSizeBase;
   Object.assign(d.style,{ position:'absolute', border:'0', background:'transparent', cursor:'pointer',
     fontSize:size+'px', transform:'translate(-50%,-50%)', filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))' });
   const pad=56, W=innerWidth, H=innerHeight;
@@ -47,12 +47,15 @@ function spawnOne(glyph, isGood, isGolden, bus){
   const y=Math.floor(pad+Math.random()*(H-pad*2-140));
   d.style.left=x+'px'; d.style.top=y+'px';
 
-  // timeout: นับ MISS เฉพาะไอคอน "good" เท่านั้น
+  // timeout → MISS เฉพาะ good เท่านั้น
   const lifeMs=Math.floor((lifeS + (isGolden?0.25:0))*1000);
   const killto=setTimeout(()=>{ try{ d.remove(); }catch{} if(isGood){ reportMiss(bus,{type:'timeout'}); } }, lifeMs);
 
   d.addEventListener('click',(ev)=>{
-    clearTimeout(killto); try{ d.remove(); }catch{} explodeAt(x,y);
+    clearTimeout(killto); try{ d.remove(); }catch{};
+    // เล็กน้อย: effect แตกกระจาย
+    explodeAt(x,y);
+
     if(isGood){
       const perfect = isGolden || Math.random()<0.22;
       const basePts = perfect ? 200 : 100;
@@ -122,5 +125,5 @@ function explodeAt(x,y){
   }
 }
 
-// compatibility
+// compatibility for main.create()
 export function create(){ return { start:(cfg)=>start(cfg), update:(dt,bus)=>update(dt,bus), cleanup:()=>stop() }; }
