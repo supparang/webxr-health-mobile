@@ -3,6 +3,8 @@
 
 export class HUD {
   constructor(){
+    ensureStyle(); // <-- ใส่สไตล์หลัก/คีย์เฟรมให้พร้อม
+
     // ---- root ----
     this.root = document.getElementById('hud');
     if(!this.root){
@@ -49,7 +51,7 @@ export class HUD {
 
     // ---- big number / banner center ----
     this.big = document.createElement('div');
-    this.big.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);font:900 92px ui-rounded,system-ui;color:#fef3c7;text-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .2s, transform .2s;z-index:2100';
+    this.big.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);font:900 92px ui-rounded,system-ui;color:#fef3c7;text-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .2s, transform .2s;z-index:7000';
     this.big.textContent = '';
     this.root.appendChild(this.big);
 
@@ -85,9 +87,7 @@ export class HUD {
     this.result.querySelector('#resRetry').onclick = ()=>this.onRetry && this.onRetry();
 
     // ---- expose a tiny API so Coach can "say" via HUD ----
-    window.__HHA_HUD_API = {
-      say: (msg)=> this.toast(msg)
-    };
+    window.__HHA_HUD_API = { say: (msg)=> this.toast(msg) };
   }
 
   // ============ Top HUD ============
@@ -95,8 +95,7 @@ export class HUD {
   setTimer(sec){ this.$time.textContent = Math.max(0, Math.round(sec)) + 's'; }
   updateHUD(score, combo){ this.$score.textContent = String(score|0); this.$combo.textContent = String(combo|0); }
 
-  // ============ Quest chips (sequential focus) ============
-  // items: [{key,label,progress,need,done,fail,icon,active}]
+  // ============ Quest chips ============
   setQuestChips(list=[]){
     const frag=document.createDocumentFragment();
     for(const m of list){
@@ -140,7 +139,7 @@ export class HUD {
   showFloatingText(x,y,text){
     const el=document.createElement('div');
     el.textContent = String(text);
-    el.style.cssText='position:fixed;left:'+(x|0)+'px;top:'+(y|0)+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:2100;opacity:1;transition:all .72s ease-out;';
+    el.style.cssText='position:fixed;left:'+(x|0)+'px;top:'+(y|0)+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:6900;opacity:1;transition:all .72s ease-out;';
     document.body.appendChild(el);
     requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
     setTimeout(()=>{ try{el.remove();}catch{}; }, 720);
@@ -189,4 +188,20 @@ export class HUD {
     t.style.opacity = '1';
     setTimeout(()=>{ t.style.opacity='0'; }, 1200);
   }
+}
+
+/* ---------- Local style injection (keyframes / helpers) ---------- */
+function ensureStyle(){
+  if(document.getElementById('hud-style')) return;
+  const s=document.createElement('style'); s.id='hud-style';
+  s.textContent = `
+  @keyframes fireRise {
+    0%   { transform: translateY(6%); opacity: .85; }
+    50%  { transform: translateY(-6%); opacity: 1; }
+    100% { transform: translateY(6%); opacity: .85; }
+  }
+  body.fever-on #powerBar {
+    box-shadow: 0 0 16px rgba(255,140,0,.25) inset, 0 0 18px rgba(255,120,0,.25);
+  }`;
+  document.head.appendChild(s);
 }
