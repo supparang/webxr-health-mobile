@@ -1,154 +1,75 @@
-// === modes/goodjunk.js — DOM-spawn (production) ===
-// - GOOD คลิกไม่ทัน = นับเป็น miss (มี shield กัน miss ได้)
-// - JUNK คลิก = bad (ไม่ใช่ miss) | ปล่อยหายไป = ไม่ถือว่า miss
-// - GOLD/STAR นับเป็น "gold" ใน Quests ผ่าน kind
-// - ไอคอนใหญ่ขึ้นตามระดับความยาก: Easy > Normal > Hard
-// - ใช้ time-accumulator คุมอัตรา spawn ให้สม่ำเสมอ
-
+// === modes/goodjunk.js — DOM-spawn icons + Fever hooks + Shield/Star (MISS only for good-timeout) ===
 export const name = 'goodjunk';
 
 const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
 const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍗','🍖','🍫','🥓','🍿','🧈','🧂'];
-const POWERS = ['star','shield']; // star=+points, shield=กัน miss ครั้งถัดไป
+const POWERS = ['gold','shield'];
 
-let host = null;
-let alive = false;
-let difficulty = 'Normal';
+let host=null, alive=false;
+let diff='Normal';
+let iconSizeBase=52;
+let spawnIntervalS=0.70;
+let lifeS=1.60;
+let _accum=0;
+let fever=false, allowMiss=0;
 
-// ปรับขนาดไอคอน/อายุ/อัตราเกิดตามระดับ
-let iconSizeBase = 48;
-let lifeS = 1.60;          // อายุอยู่บนจอ
-let spawnIntervalS = 0.70; // ค่าต่ำ = โผล่ถี่ขึ้น
-
-let _accum = 0;
-let shieldCount = 0;
-
-// ---------- lifecycle ----------
-export function start(cfg = {}){
-  ensureHost();
-  clearHost();
-  alive = true;
-
-  difficulty = String(cfg.difficulty || 'Normal');
-
-  if (difficulty === 'Easy'){
-    iconSizeBase = 60;    // ใหญ่สุด
-    lifeS = 2.00;
-    spawnIntervalS = 0.80;
-  } else if (difficulty === 'Hard'){
-    iconSizeBase = 44;    // เล็กลงเล็กน้อย
-    lifeS = 1.40;
-    spawnIntervalS = 0.56;
-  } else {
-    iconSizeBase = 52;    // ใหญ่กว่าเดิมเล็กน้อย
-    lifeS = 1.60;
-    spawnIntervalS = 0.70;
-  }
-
-  _accum = 0;
-  shieldCount = 0;
+export function start(cfg={}){
+  ensureHost(); clearHost(); alive=true; _accum=0; // ⟵ reset accum ทุกครั้ง
+  diff = String(cfg.difficulty||'Normal');
+  if (diff==='Easy'){ spawnIntervalS=0.82; lifeS=1.95; iconSizeBase=60; }
+  else if (diff==='Hard'){ spawnIntervalS=0.54; lifeS=1.38; iconSizeBase=44; }
+  else { spawnIntervalS=0.70; lifeS=1.60; iconSizeBase=52; }
 }
+export function stop(){ alive=false; clearHost(); }
+export function setFever(on){ fever=!!on; }
+export function grantShield(n=1){ allowMiss += n|0; }
+function consumeShield(){ if(allowMiss>0){ allowMiss--; return true; } return false; }
 
-export function cleanup(){
-  alive = false;
-  clearHost();
-}
-
-// main.js เรียกผ่าน update(dt, bus)
-export function update(dt, bus){
-  if(!alive) return;
-
-  _accum += dt;
-  while (_accum >= spawnIntervalS){
-    _accum -= spawnIntervalS;
-
-    const r = Math.random();
-
-    // ~10% เป็น power (star/shield)
-    if (r < 0.10){
-      spawnPower(POWERS[(Math.random()*POWERS.length)|0], bus);
-      continue;
-    }
-
-    // ~12% เป็น GOLD (🌟), ที่เหลือสุ่ม GOOD 70% / JUNK 30%
-    const isGolden = Math.random() < 0.12;
-    const isGood = isGolden || (Math.random() < 0.70);
-    const glyph = isGolden ? '🌟' : (isGood ? pick(GOOD) : pick(JUNK));
-    spawnOne(glyph, isGood, isGolden, bus);
-  }
-}
-
-// ---------- DOM helpers ----------
 function ensureHost(){
   host = document.getElementById('spawnHost');
   if(!host){
     host = document.createElement('div');
-    host.id = 'spawnHost';
-    host.style.cssText = 'position:fixed;inset:0;pointer-events:auto;z-index:5;';
+    host.id='spawnHost';
+    host.style.cssText='position:fixed;inset:0;pointer-events:auto;z-index:5;';
     document.body.appendChild(host);
   }
 }
-function clearHost(){ try{ host && (host.innerHTML = ''); }catch(_e){} }
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+function clearHost(){ try{ host && (host.innerHTML=''); }catch{} }
 
-// ---------- spawn ----------
+function onMissGood(bus){
+  if(consumeShield()){ bus?.power?.('shield'); return; }
+  bus?.miss?.({ source:'good-timeout' });
+}
+
 function spawnOne(glyph, isGood, isGolden, bus){
-  const d = document.createElement('button');
-  d.className = 'spawn-emoji';
-  d.type = 'button';
-  d.textContent = glyph;
+  const d=document.createElement('button');
+  d.className='spawn-emoji'; d.type='button'; d.textContent=glyph;
+  const size = (isGolden? (iconSizeBase+10) : iconSizeBase);
+  Object.assign(d.style,{
+    position:'absolute', border:'0', background:'transparent',
+    fontSize:size+'px', transform:'translate(-50%,-50%)',
+    filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))', cursor:'pointer'
+  });
 
-  const size = isGolden ? (iconSizeBase + 8) : iconSizeBase;
-  d.style.position = 'absolute';
-  d.style.border = '0';
-  d.style.background = 'transparent';
-  d.style.fontSize = size + 'px';
-  d.style.transform = 'translate(-50%,-50%)';
-  d.style.filter = 'drop-shadow(0 6px 16px rgba(0,0,0,.55))';
-  d.style.cursor = 'pointer';
-
-  const pad = 56, W = window.innerWidth, H = window.innerHeight;
+  const pad=56, W=innerWidth, H=innerHeight;
   const x = Math.floor(pad + Math.random()*(W - pad*2));
   const y = Math.floor(pad + Math.random()*(H - pad*2 - 140));
-  d.style.left = x + 'px';
-  d.style.top  = y + 'px';
+  d.style.left = x+'px'; d.style.top = y+'px';
 
   const lifeMs = Math.floor((lifeS + (isGolden?0.25:0))*1000);
-  const killto = setTimeout(function(){
-    try{ d.remove(); }catch(_e){}
-    // GOOD ที่หมดอายุ = MISS (ถ้าไม่มี shield)
-    if (isGood){
-      if (shieldCount > 0){
-        shieldCount--;
-        // แจ้งว่าใช้ shield
-        safeCall(bus, 'power', ['shield-used']);
-      } else {
-        safeCall(bus, 'miss', [{ kind:'timeout' }]);
-        safeCall(bus, 'sfx', ['bad']); // ถ้ามี sfx.bad ให้ดัง
-      }
-    }
-    // JUNK หมดอายุ: ไม่ถือว่า miss/bad อะไร
-  }, lifeMs);
+  const killto = setTimeout(()=>{ try{ d.remove(); }catch{}; if(isGood) onMissGood(bus); }, lifeMs);
 
-  d.addEventListener('click', function(ev){
-    clearTimeout(killto);
-    try{ d.remove(); }catch(_e){}
-
+  d.addEventListener('click',(ev)=>{
+    clearTimeout(killto); try{ d.remove(); }catch{}; explodeAt(x,y);
     if (isGood){
-      // แต้ม: GOLD/perfect สูงกว่า
-      const perfect = isGolden || Math.random() < 0.22;
+      const perfect = isGolden || Math.random()<0.22;
       const basePts = perfect ? 200 : 100;
-      const pts = basePts; // FEVER คูณ ถูกจัดการใน main ผ่าน combo แล้ว (แสดงผล)
-      safeCall(bus, 'hit', [{
-        kind: isGolden ? 'gold' : (perfect ? 'perfect' : 'good'),
-        points: pts,
-        ui: { x: ev.clientX, y: ev.clientY }
-      }]);
-      if (perfect) safeCall(bus, 'sfx', ['perfect']); else safeCall(bus, 'sfx', ['good']);
+      const mult = fever ? 1.5 : 1.0;
+      const pts = Math.round(basePts*mult);
+      bus?.hit?.({ kind:(isGolden?'perfect':(perfect?'perfect':'good')), points:pts, ui:{x:ev.clientX,y:ev.clientY}, meta:{ good:1, golden:(isGolden?1:0) } });
+      if (perfect) bus?.sfx?.perfect?.(); else bus?.sfx?.good?.();
     } else {
-      // กด JUNK = bad (reset combo) ไม่ใช่ miss
-      safeCall(bus, 'bad', [{ kind:'junk', ui:{ x:ev.clientX, y:ev.clientY } }]);
-      safeCall(bus, 'sfx', ['bad']);
+      bus?.bad?.({ source:'junk-click' }); bus?.sfx?.bad?.();
     }
   }, { passive:true });
 
@@ -156,64 +77,54 @@ function spawnOne(glyph, isGood, isGolden, bus){
 }
 
 function spawnPower(kind, bus){
-  const d = document.createElement('button');
-  d.className = 'spawn-emoji power';
-  d.type = 'button';
-  d.textContent = (kind === 'shield') ? '🛡️' : '⭐';
-
-  d.style.position = 'absolute';
-  d.style.border = '0';
-  d.style.background = 'transparent';
-  d.style.fontSize = iconSizeBase + 'px';
-  d.style.transform = 'translate(-50%,-50%)';
-  d.style.filter = 'drop-shadow(0 8px 18px rgba(10,120,220,.55))';
-  d.style.cursor = 'pointer';
-
-  const pad = 56, W = window.innerWidth, H = window.innerHeight;
+  const d=document.createElement('button');
+  d.className='spawn-emoji power'; d.type='button'; d.textContent=(kind==='shield'?'🛡️':'⭐');
+  Object.assign(d.style,{ position:'absolute', border:'0', background:'transparent',
+    fontSize:(iconSizeBase+4)+'px', transform:'translate(-50%,-50%)',
+    filter:'drop-shadow(0 8px 18px rgba(10,120,220,.55))', cursor:'pointer' });
+  const pad=56, W=innerWidth, H=innerHeight;
   const x = Math.floor(pad + Math.random()*(W - pad*2));
   const y = Math.floor(pad + Math.random()*(H - pad*2 - 140));
-  d.style.left = x + 'px';
-  d.style.top  = y + 'px';
-
-  const killto = setTimeout(function(){ try{ d.remove(); }catch(_e){}; }, Math.floor((lifeS+0.25)*1000));
-
-  d.addEventListener('click', function(ev){
-    clearTimeout(killto);
-    try{ d.remove(); }catch(_e){}
-
-    if (kind === 'shield'){
-      shieldCount++;
-      safeCall(bus, 'power', ['shield']);
-    } else {
-      // STAR = แต้ม + แจ้งว่าเป็น gold (สำหรับ Quests นับ gold capture)
-      safeCall(bus, 'hit', [{
-        kind: 'gold',
-        points: 150,
-        ui: { x: ev.clientX, y: ev.clientY }
-      }]);
-      safeCall(bus, 'sfx', ['power']);
-    }
+  d.style.left=x+'px'; d.style.top=y+'px';
+  const killto=setTimeout(()=>{ try{d.remove();}catch{} }, Math.floor((lifeS+0.25)*1000));
+  d.addEventListener('click',(ev)=>{
+    clearTimeout(killto); try{d.remove();}catch{};
+    if (kind==='shield'){ grantShield(1); bus?.power?.('shield'); }
+    else { const pts = Math.round(150 * (fever?1.5:1)); bus?.hit?.({ kind:'perfect', points:pts, ui:{x:ev.clientX,y:ev.clientY}, meta:{gold:1, power:'gold'} }); bus?.power?.('gold'); }
   }, { passive:true });
-
   host.appendChild(d);
 }
 
-// ---------- utils ----------
-function safeCall(bus, key, args){
-  try{
-    const fn = bus && bus[key];
-    if (typeof fn === 'function'){
-      if (Array.isArray(args)) fn.apply(null, args);
-      else fn(args);
+export function update(dt, bus){
+  if(!alive) return;
+  _accum += Math.max(0, dt||0);
+  while (_accum >= spawnIntervalS) {
+    _accum -= spawnIntervalS;
+    const r = Math.random();
+    if (r < 0.10){
+      spawnPower(POWERS[(Math.random()*POWERS.length)|0], bus);
+    } else {
+      const isGolden = Math.random() < 0.12;
+      const isGood   = isGolden || (Math.random() < 0.70);
+      const glyph    = isGolden ? '🌟' : (isGood ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0]);
+      spawnOne(glyph, isGood, isGolden, bus);
     }
-  }catch(_e){}
+  }
 }
 
-// สำหรับ main รุ่นเก่าที่เรียก create()
-export function create(){
-  return {
-    start: function(cfg){ start(cfg); },
-    update: function(dt, bus){ update(dt, bus); },
-    cleanup: function(){ cleanup(); }
-  };
+// particle burst
+function explodeAt(x,y){
+  const n=8+((Math.random()*6)|0);
+  for(let i=0;i<n;i++){
+    const p=document.createElement('div'); p.textContent='✦';
+    Object.assign(p.style,{ position:'fixed', left:x+'px', top:y+'px', transform:'translate(-50%,-50%)',
+      font:'900 16px ui-rounded,system-ui', color:'#a7c8ff', textShadow:'0 2px 12px #4ea9ff',
+      transition:'transform .7s ease-out, opacity .7s ease-out', opacity:'1', zIndex:1200, pointerEvents:'none' });
+    document.body.appendChild(p);
+    const dx=(Math.random()*120-60), dy=(Math.random()*120-60), s=0.6+Math.random()*0.6;
+    requestAnimationFrame(()=>{ p.style.transform=`translate(${dx}px,${dy}px) scale(${s})`; p.style.opacity='0'; });
+    setTimeout(()=>{ try{p.remove();}catch{} }, 720);
+  }
 }
+
+export function create(){ return { start:(cfg)=>start(cfg), update:(dt,bus)=>update(dt,bus), cleanup:()=>stop() }; }
