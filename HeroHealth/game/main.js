@@ -1,4 +1,4 @@
-// === Hero Health Academy — /game/main.js (super-watchdog + forced spawn) ===
+// === Hero Health Academy — /game/main.js (idle-watchdog + safe fallback + prefill) ===
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
@@ -33,18 +33,17 @@ window.__HHA_BOOT_OK = 'main';
 
     try { ({ Quests } = await import('./core/quests.js')); }
     catch {
-      // ย่อ (สุ่ม 3 เควสต์ โฟกัสทีละอัน)
       const BASE = [
-        { key:'good_20', label:'แตะของดี 20', need:20, type:'inc', icon:'🥗' },
-        { key:'perfect_10', label:'PERFECT 10', need:10, type:'inc', icon:'💥' },
-        { key:'avoid_20s', label:'หลบ JUNK 20 วิ', need:20, type:'time_nojunk', icon:'🚫' },
-        { key:'combo_16', label:'ทำคอมโบ 16', need:16, type:'combo', icon:'🔥' },
-        { key:'gold_3', label:'เก็บทอง 3', need:3, type:'gold', icon:'🌟' },
-        { key:'shield_1', label:'ใช้โล่ 1', need:1, type:'shield', icon:'🛡️' },
-        { key:'score_1000', label:'สกอร์ถึง 1000', need:1000, type:'score', icon:'🏆' },
-        { key:'time_20', label:'อยู่รอด 20 วิ', need:20, type:'time', icon:'⏱️' },
-        { key:'fever_on', label:'เข้า FEVER 1', need:1, type:'fever', icon:'⚡' },
-        { key:'nojunk', label:'ไม่กด JUNK เลย', need:1, type:'nojunk', icon:'❎' },
+        { key:'good_20',    label:'แตะของดี 20',     need:20,   type:'inc',    icon:'🥗' },
+        { key:'perfect_10', label:'PERFECT 10',      need:10,   type:'inc',    icon:'💥' },
+        { key:'avoid_20s',  label:'หลบ JUNK 20 วิ',  need:20,   type:'time_nojunk', icon:'🚫' },
+        { key:'combo_16',   label:'ทำคอมโบ 16',     need:16,   type:'combo',  icon:'🔥' },
+        { key:'gold_3',     label:'เก็บทอง 3',       need:3,    type:'gold',   icon:'🌟' },
+        { key:'shield_1',   label:'ใช้โล่ 1',        need:1,    type:'shield', icon:'🛡️' },
+        { key:'score_1000', label:'สกอร์ถึง 1000',   need:1000, type:'score',  icon:'🏆' },
+        { key:'time_20',    label:'อยู่รอด 20 วิ',   need:20,   type:'time',   icon:'⏱️' },
+        { key:'fever_on',   label:'เข้า FEVER 1',    need:1,    type:'fever',  icon:'⚡' },
+        { key:'nojunk',     label:'ไม่กด JUNK เลย',  need:1,    type:'nojunk', icon:'❎' },
       ];
       let state=null, cur=0, elapsed=0, nojunkTimer=0, hud=null, coach=null;
       Quests = {
@@ -58,7 +57,7 @@ window.__HHA_BOOT_OK = 'main';
           if(kind==='hit'){ if(q.type==='inc' && (p.meta?.good||p.meta?.golden)) q.progress++; if(q.type==='gold' && (p.meta?.gold===1||p.meta?.power==='gold')) q.progress++;
             if(q.type==='score') q.progress=Math.max(q.progress,p.pointsAccum|0); if(q.type==='combo') q.progress=Math.max(q.progress,p.comboNow|0); nojunkTimer=0; }
           if(kind==='bad'){ if(q.type==='nojunk'||q.type==='time_nojunk') { q.fail=true; nojunkTimer=0; } }
-          if(kind==='miss'){ /* แค่คอมโบแตก */ }
+          if(kind==='miss'){ /* คอมโบแตกเฉย ๆ */ }
           if(kind==='fever' && q.type==='fever' && p.on) q.progress=1;
           if(kind==='power' && q.type==='shield' && p.kind==='shield') q.progress=1;
           if(kind==='tick'){ nojunkTimer+=p.dt||0; }
@@ -82,29 +81,40 @@ window.__HHA_BOOT_OK = 'main';
     return { name:mod.name||key, create:mod.create||null, init:mod.init||null, tick:mod.tick||null, update:mod.update||null, start:mod.start||null, cleanup:mod.cleanup||null, setFever:mod.setFever||null };
   }
 
-  // Builtin emergency spawner
+  // -------- Builtin emergency spawner (ต่อเนื่องทันที + prefill) --------
   function BuiltinGoodJunk(){
-    let alive=false, t=0, interval=0.72, life=1.6, host=null, fever=false;
+    let alive=false, t=0, interval=0.65, life=2.10, host=null, fever=false;
     function ensureHost(){ host=document.getElementById('spawnHost')||document.body; }
     function spawn(bus){
       ensureHost();
       const isGood=Math.random()<0.72, isGolden=Math.random()<0.12;
-      const G=['🥦','🥕','🍎','🍌','🥗','🐟'], B=['🍔','🍟','🍕','🍩','🍫'];
+      const G=['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍇'], B=['🍔','🍟','🍕','🍩','🍫','🥤'];
       const glyph=isGolden?'🌟':(isGood?G[Math.random()*G.length|0]:B[Math.random()*B.length|0]);
       const d=document.createElement('button'); d.textContent=glyph; d.type='button';
-      Object.assign(d.style,{position:'fixed',left:(56+Math.random()*(innerWidth-112))+'px',top:(80+Math.random()*(innerHeight-220))+'px',
-        transform:'translate(-50%,-50%)',font:`900 ${isGolden?64:54}px ui-rounded`,border:0,background:'transparent',filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))',cursor:'pointer',zIndex:5500});
-      const kill=setTimeout(()=>{ d.remove(); if(isGood) bus?.miss?.({source:'good-timeout'}); }, (life+(isGolden?0.25:0))*1000|0);
-      d.addEventListener('click', (ev)=>{ clearTimeout(kill); d.remove();
+      Object.assign(d.style,{
+        position:'fixed',
+        left:(56+Math.random()*(innerWidth-112))+'px',
+        top:(90+Math.random()*(innerHeight-240))+'px',
+        transform:'translate(-50%,-50%)',
+        font:`900 ${isGolden?64:54}px ui-rounded`,
+        border:0,background:'transparent',
+        filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))',
+        cursor:'pointer',zIndex:5500
+      });
+      const kill=setTimeout(()=>{ try{d.remove();}catch{} if(isGood) bus?.miss?.({source:'good-timeout'}); }, (life+(isGolden?0.3:0))*1000|0);
+      d.addEventListener('click', (ev)=>{ clearTimeout(kill); try{d.remove();}catch{};
         if(isGood){ const perfect=isGolden||Math.random()<0.2; const pts=Math.round((perfect?200:100)*(fever?1.5:1));
           bus?.hit?.({ kind:perfect?'perfect':'good', points:pts, ui:{x:ev.clientX,y:ev.clientY}, meta:{ good:1, golden:(isGolden?1:0) }});
         }else{ bus?.bad?.({source:'junk-click'}); }
       }, {passive:true});
       host.appendChild(d);
     }
-    return { start(){ alive=true; t=0; ensureHost(); }, setFever(on){ fever=!!on; },
+    return {
+      start(){ alive=true; t=0; ensureHost(); /* prefill */ for(let i=0;i<3;i++) spawn(busFor()); },
+      setFever(on){ fever=!!on; },
       update(dt,bus){ if(!alive) return; t+=dt; while(t>=interval){ t-=interval; spawn(bus); } },
-      cleanup(){ alive=false; try{ (document.getElementById('spawnHost')||{}).innerHTML=''; }catch{} } };
+      cleanup(){ alive=false; try{ (document.getElementById('spawnHost')||{}).innerHTML=''; }catch{} }
+    };
   }
 
   const TIME_BY_MODE = { goodjunk:45, groups:60, hydration:50, plate:55 };
@@ -117,29 +127,41 @@ window.__HHA_BOOT_OK = 'main';
     modeAPI:null, modeInst:null, state:null, coach:null,
     matchTime:45, fever:false, feverBreaks:0,
     gold:0, goods:0, junkBad:0, misses:0,
-    _dtMark:0, _secAccum:0, _spawnSeen:false, _kickCount:0, _usingBuiltin:false, _lastRAF:0
+    _dtMark:0, _secAccum:0, _lastRAF:0,
+    _usingBuiltin:false, _idleKicks:0, _kickCount:0,
+    _activityMark:0
   };
   let hud=null;
 
   function setTopHUD(){ hud?.setTop({mode:R.modeKey,diff:R.diff}); hud?.setTimer(R.remain); hud?.updateHUD(R.sys.score?.get?R.sys.score.get():0, R.sys.score?.combo|0); }
+  function markActivity(){ R._activityMark = performance.now(); }
 
   function feverOn(){ if(R.fever) return; R.fever=true; R.feverBreaks=0; hud?.showFever(true); R.sys.sfx?.bgmMain(false); R.sys.sfx?.bgmFever(true); R.coach?.onFever?.(); Quests?.event?.('fever',{on:true}); try{R.modeAPI?.setFever?.(true)}catch{} }
   function feverOff(){ if(!R.fever) return; R.fever=false; R.feverBreaks=0; hud?.showFever(false); R.sys.sfx?.bgmFever(false); R.sys.sfx?.bgmMain(true); Quests?.event?.('fever',{on:false}); try{R.modeAPI?.setFever?.(false)}catch{} }
 
   function busFor(){
-    const seen = ()=>{ R._spawnSeen=true; };
     return {
       sfx:R.sys.sfx,
-      hit:(e)=>{ const pts=(e?.points)|0; if(pts) R.sys.score.add(pts);
+      hit:(e)=>{ markActivity(); const pts=(e?.points)|0; if(pts) R.sys.score.add(pts);
         R.sys.score.combo=(R.sys.score.combo|0)+1; if(R.sys.score.combo>(R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo;
         if(e?.meta?.gold===1 || e?.meta?.power==='gold') R.gold++; if(e?.meta?.good) R.goods++;
         if(!R.fever && (R.sys.score.combo|0)>=10) feverOn();
-        hud && e?.ui && hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`); Quests?.event?.('hit',{...e,pointsAccum:R.sys.score.get(),comboNow:R.sys.score.combo}); setTopHUD(); seen();
+        hud && e?.ui && hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`); Quests?.event?.('hit',{...e,pointsAccum:R.sys.score.get(),comboNow:R.sys.score.combo}); setTopHUD();
       },
-      miss:(info)=>{ if(R.fever && ++R.feverBreaks>=3) feverOff(); R.misses++; R.sys.score.combo=0; R.coach?.onBad?.(); Quests?.event?.('miss',info||{}); setTopHUD(); seen(); },
-      bad:(info)=>{ if(R.fever && ++R.feverBreaks>=3) feverOff(); R.junkBad++; R.sys.score.combo=0; R.sys.sfx?.bad?.(); Quests?.event?.('bad',info||{}); setTopHUD(); seen(); },
-      power:(kind)=>{ R.sys.sfx?.power?.(); Quests?.event?.('power',{kind}); setTopHUD(); seen(); }
+      miss:(info)=>{ markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.misses++; R.sys.score.combo=0; R.coach?.onBad?.(); Quests?.event?.('miss',info||{}); setTopHUD(); },
+      bad:(info)=>{ markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.junkBad++; R.sys.score.combo=0; R.sys.sfx?.bad?.(); Quests?.event?.('bad',info||{}); setTopHUD(); },
+      power:(kind)=>{ markActivity(); R.sys.sfx?.power?.(); Quests?.event?.('power',{kind}); setTopHUD(); }
     };
+  }
+
+  function switchToBuiltin(reason='fallback'){
+    if(R._usingBuiltin) return;
+    const B = BuiltinGoodJunk();
+    B.start({});
+    R.modeAPI = { update:B.update.bind(B), start:B.start.bind(B), cleanup:B.cleanup.bind(B), setFever:B.setFever.bind(B) };
+    R.modeInst = null;
+    R._usingBuiltin = true;
+    hud?.toast?.(reason==='idle' ? 'Fallback (idle)' : 'Fallback mode active');
   }
 
   function tickLoop(){
@@ -157,25 +179,18 @@ window.__HHA_BOOT_OK = 'main';
     R.raf=requestAnimationFrame(tickLoop);
   }
 
-  // ✅ super-watchdog: บังคับ kick โหมดทุก 1.2s ถ้าไม่เห็นสปอน และสลับไป builtin หลัง 2 รอบ
-  function forceKick(){
-    if(!R.playing || R.paused || R._spawnSeen) return;
-    try{ R.modeAPI?.update?.(1.0, busFor()); R.modeInst?.update?.(1.0, busFor()); }catch{}
-    if(!R._spawnSeen){
-      R._kickCount++;
-      if(R._kickCount>=2 && !R._usingBuiltin){
-        const B = BuiltinGoodJunk();
-        B.start({});
-        R.modeAPI = { update:B.update.bind(B), start:B.start.bind(B), cleanup:B.cleanup.bind(B), setFever:B.setFever.bind(B) };
-        R.modeInst = null;
-        R._usingBuiltin = true;
-        hud?.toast?.('Fallback mode active');
-      }
+  // ---------- idle-watchdog: ถ้าเงียบเกิน 1.5s ให้ kick; เกิน 2 รอบ สลับ fallback ----------
+  setInterval(()=>{
+    if(!R.playing || R.paused || R._usingBuiltin) return;
+    const since = performance.now() - (R._activityMark||0);
+    if(since > 1500){
+      try{ R.modeAPI?.update?.(1.0, busFor()); R.modeInst?.update?.(1.0, busFor()); }catch{}
+      R._idleKicks = (R._idleKicks|0) + 1;
+      if(R._idleKicks >= 2){ switchToBuiltin('idle'); }
     }
-  }
-  setInterval(()=>{ forceKick(); }, 1200);
+  }, 900);
 
-  // heartbeat: ถ้า RAF งง ให้เรียก tick เอง
+  // heartbeat: ถ้า RAF ถูก throttle ให้เรียก tick เอง
   setInterval(()=>{ if(!R.playing || R.paused) return; const since=performance.now()-(R._lastRAF||0); if(since>800){ tickLoop(); } }, 600);
 
   function threeTwoOneGo(cb){
@@ -195,7 +210,8 @@ window.__HHA_BOOT_OK = 'main';
     R.matchTime=getMatchTime(R.modeKey,R.diff); R.remain=R.matchTime|0;
 
     R.gold=0; R.goods=0; R.junkBad=0; R.misses=0;
-    R._dtMark=performance.now(); R._secAccum=0; R._spawnSeen=false; R._kickCount=0; R._usingBuiltin=false;
+    R._dtMark=performance.now(); R._secAccum=0; R._lastRAF=performance.now();
+    R._usingBuiltin=false; R._idleKicks=0; R._kickCount=0; markActivity();
 
     hud=new HUDClass(); hud.hideResult?.(); hud.resetBars?.(); hud.setTop?.({mode:R.modeKey,diff:R.diff}); hud.setTimer?.(R.remain); hud.updateHUD?.(0,0);
 
@@ -209,7 +225,7 @@ window.__HHA_BOOT_OK = 'main';
     // โหลดโหมดจริง
     let api=null;
     try{ api=await loadMode(R.modeKey); }catch(e){ console.error('[HHA] Failed to load mode:', R.modeKey, e); }
-    if(!api || (!api.update && !api.create)){ const B=BuiltinGoodJunk(); api={ update:B.update.bind(B), start:B.start.bind(B), cleanup:B.cleanup.bind(B), setFever:B.setFever.bind(B) }; R._usingBuiltin=true; }
+    if(!api || (!api.update && !api.create)){ switchToBuiltin('import-fail'); api = R.modeAPI; }
     R.modeAPI=api;
 
     if(api?.create){ R.modeInst=api.create({engine:{},hud,coach:R.coach}); try{ R.modeInst?.start?.({time:R.matchTime,difficulty:R.diff}); }catch{} }
@@ -220,7 +236,18 @@ window.__HHA_BOOT_OK = 'main';
 
     R.sys.sfx?.bgmFever(false); R.sys.sfx?.bgmMain(true);
 
-    threeTwoOneGo(()=>{ R.playing=true; R.paused=false; R._dtMark=performance.now(); R._secAccum=0; setTopHUD(); R.raf=requestAnimationFrame(tickLoop); window.HHA._busy=false; });
+    threeTwoOneGo(()=>{
+      R.playing=true; R.paused=false; R._dtMark=performance.now(); R._secAccum=0; markActivity(); setTopHUD(); R.raf=requestAnimationFrame(tickLoop);
+
+      // ✅ safe fallback: ถ้า 2.5s หลัง GO ยังไม่มีแต้ม/เหตุการณ์เลย → สลับ fallback
+      setTimeout(()=>{
+        if(!R._usingBuiltin && (R.sys.score.get?.()||0)===0 && R.misses===0 && R.junkBad===0){
+          switchToBuiltin('idle');
+        }
+      }, 2500);
+
+      window.HHA._busy=false;
+    });
   }
 
   function endGame(){
@@ -243,7 +270,7 @@ window.__HHA_BOOT_OK = 'main';
   }
 
   function setPaused(on){ if(!R.playing) return; R.paused=!!on; if(R.paused){ R.sys.sfx?.bgmMain(false); R.sys.sfx?.bgmFever(false); hud?.toast?.('Paused'); }
-    else { R.sys.sfx?.bgmMain(true); if(R.fever) R.sys.sfx?.bgmFever(true); R._dtMark=performance.now(); hud?.toast?.('Resume'); } }
+    else { R.sys.sfx?.bgmMain(true); if(R.fever) R.sys.sfx?.bgmFever(true); R._dtMark=performance.now(); markActivity(); hud?.toast?.('Resume'); } }
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) setPaused(true); });
   ['pointerdown','touchstart','keydown'].forEach(ev=>window.addEventListener(ev, ()=>{ if(R.playing && R.paused) setPaused(false); }, {once:false,passive:true}));
   window.addEventListener('keydown', (e)=>{ if(e.key.toLowerCase()==='p') setPaused(!R.paused); }, {passive:true});
