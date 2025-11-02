@@ -21,4 +21,3 @@ export const Progress = {
   getStatSnapshot(){ return Object.assign({}, _p.best||{}, { totalRuns:_p.totalRuns|0 }); },
   profile(){ return _p; }
 };
-xxzxd
