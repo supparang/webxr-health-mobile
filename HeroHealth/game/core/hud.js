@@ -1,4 +1,4 @@
-// === core/hud.js (production HUD: top bar, big-number, fever flame, result-full) ===
+// === core/hud.js (production HUD: top bar, big-number, fever flame, result-full + coach say API) ===
 'use strict';
 
 export class HUD {
@@ -45,6 +45,15 @@ export class HUD {
     this.big.textContent='';
     this.root.appendChild(this.big);
 
+    // Coach bubble (for Coach.say via HUD API)
+    this.coachBox = document.getElementById('coachBox');
+    if(!this.coachBox){
+      this.coachBox = document.createElement('div');
+      this.coachBox.id = 'coachBox';
+      this.coachBox.style.cssText = 'position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none;z-index:2001';
+      document.body.appendChild(this.coachBox);
+    }
+
     // Quest chips
     this.chips = document.createElement('div');
     this.chips.id='questChips';
@@ -72,6 +81,19 @@ export class HUD {
     this.onHome=null; this.onRetry=null;
     this.result.querySelector('#resHome').onclick = ()=>this.onHome && this.onHome();
     this.result.querySelector('#resRetry').onclick= ()=>this.onRetry && this.onRetry();
+
+    // Expose HUD API for Coach
+    window.__HHA_HUD_API = { say: (t)=>this.say(t) };
+  }
+
+  // Coach bubble through HUD
+  say(text){
+    const el = this.coachBox;
+    if(!el) return;
+    el.textContent = String(text||'');
+    el.style.display = 'block';
+    clearTimeout(this._coachHideTO);
+    this._coachHideTO = setTimeout(()=>{ el.style.display='none'; }, 1200);
   }
 
   setTop({mode,diff}={}){ if(mode!=null) this.$mode.textContent=String(mode); if(diff!=null) this.$diff.textContent=String(diff); }
