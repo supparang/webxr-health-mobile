@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Hero Health Academy</title>
 <meta name="color-scheme" content="light dark"/>
-
 <style>
 :root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
 *{box-sizing:border-box}
@@ -20,15 +19,9 @@ body{
 body.fever-on{
   background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%);
 }
-
-/* Layout layers */
 .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
 #gameLayer,#spawnHost{position:fixed;inset:0}
-
-/* canvases never block clicks */
 canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
-
-/* Menu */
 #menuBar{
   position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
   z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
@@ -46,12 +39,8 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 }
 .btn:hover{ filter:brightness(1.08) }
 .btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
-
-/* HUD shell */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
 #hud #resultModal{z-index:20020}
-
-/* Toast + boot warn */
 .toast{
   position:fixed;left:50%;top:68px;transform:translateX(-50%);
   background:#0e1930;border:1px solid #214064;color:#e8f3ff;
@@ -59,8 +48,6 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 }
 .toast.show{opacity:1}
 #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
-
-/* Fever flame anim */
 @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
 </style>
 </head>
@@ -115,18 +102,18 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 </div>
 
 <!-- AUDIO -->
-<audio id="bgm-main" preload="auto"></audio>
+<audio id="bgm-main"  preload="auto"></audio>
 <audio id="bgm-fever" preload="auto"></audio>
-<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
-<audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
+<audio id="sfx-good"    preload="auto" src="assets/sfx/good.mp3"></audio>
+<audio id="sfx-bad"     preload="auto" src="assets/sfx/bad.mp3"></audio>
 <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
+<audio id="sfx-tick"    preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- Main (ESM) -->
-<script type="module" src="./main.js"></script>
+<!-- Main (ESM) ———— เปลี่ยนเป็นชี้ไปที่ /game/main.js -->
+<script type="module" src="./game/main.js"></script>
 
-<!-- Binder & Safe-guards (optional; กด Start แล้ว import main.js หากยังไม่โหลด) -->
+<!-- Binder & Safe-guards -->
 <script>
 (function(){
   const $  = (s)=>document.querySelector(s);
@@ -180,18 +167,19 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
         a && a.play && a.play().then(()=>a.pause()).catch(()=>{});
       });
     }catch{}
-    // call main
+
+    // ถ้ามี HHA แล้วก็สตาร์ทเลย
     if (window.HHA && typeof window.HHA.startGame === 'function'){ hideMenu(); window.HHA.startGame(); return; }
-    import(`./main.js?ts=${Date.now()}`)
+
+    // fallback import ———— เปลี่ยนเป็น ./game/main.js
+    import(`./game/main.js?ts=${Date.now()}`)
       .then(()=>{ if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
       .catch(e=>{ console.error('[import main.js] fail', e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]) });
   }
 
-  // hard-bind start
   (function hardBindStart(){
     const old = document.getElementById('btn_start'); if(!old) return;
-    const clone = old.cloneNode(true);
-    old.replaceWith(clone);
+    const clone = old.cloneNode(true); old.replaceWith(clone);
     const opts = { capture:true, passive:false };
     ['click','pointerup','touchend'].forEach(ev=>{ clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts); });
     clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); } }, opts);
