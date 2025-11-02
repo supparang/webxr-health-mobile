@@ -5,40 +5,63 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Hero Health Academy</title>
 <meta name="color-scheme" content="light dark"/>
+
 <style>
-:root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee}
-*{box-sizing:border-box} html,body{height:100%}
+:root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
+*{box-sizing:border-box}
+html,body{height:100%}
 body{
   margin:0;color:var(--fg);
   background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
   font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
   -webkit-tap-highlight-color:transparent;
+  transition: background .25s ease;
 }
+body.fever-on{
+  background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%);
+}
+
+/* Layout layers */
 .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
 #gameLayer,#spawnHost{position:fixed;inset:0}
-canvas,canvas#c{pointer-events:none!important;z-index:1;position:fixed;inset:0}
 
-/* MENU */
-#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-  z-index:9999;background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto}
-#menuBar[data-hidden="1"]{display:none!important}
-.menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
-  padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45)}
+/* canvases never block clicks */
+canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
+
+/* Menu */
+#menuBar{
+  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
+}
+#menuBar[data-hidden="1"]{ display:none !important; }
+.menu-card{
+  width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
+  padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
+}
 .row{display:flex;flex-wrap:wrap;gap:10px}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;border-radius:12px;
-  background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;user-select:none}
-.btn:hover{filter:brightness(1.08)}
-.btn[data-mode].active,.btn[data-diff].active{outline:2px solid var(--accent);box-shadow:0 0 0 4px #22d3ee22}
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
+  border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d;
+  cursor:pointer; user-select:none
+}
+.btn:hover{ filter:brightness(1.08) }
+.btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
 
-/* HUD */
+/* HUD shell */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
-.toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;
-  color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040}
+#hud #resultModal{z-index:20020}
+
+/* Toast + boot warn */
+.toast{
+  position:fixed;left:50%;top:68px;transform:translateX(-50%);
+  background:#0e1930;border:1px solid #214064;color:#e8f3ff;
+  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
+}
 .toast.show{opacity:1}
 #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
-#powerBarWrap{position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw)}
-#powerBar{position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
-#powerFill{position:absolute;inset:0;width:0%}
+
+/* Fever flame anim */
+@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
 </style>
 </head>
 <body>
@@ -80,78 +103,111 @@ canvas,canvas#c{pointer-events:none!important;z-index:1;position:fixed;inset:0}
         <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
         <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
       </div>
-      <p style="opacity:.8;margin:10px 0 0 2px">Pause/Resume: <b>P</b> หรือ <b>Esc</b></p>
     </div>
   </div>
 
-  <!-- Fever bar -->
-  <div id="powerBarWrap"><div id="powerBar"><div id="powerFill"></div></div></div>
+  <!-- Fever/Power bar container (HUD ใช้ต่อ) -->
+  <div id="powerBarWrap">
+    <div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">
+      <div id="powerFill" style="position:absolute;inset:0;width:100%"></div>
+    </div>
+  </div>
 </div>
 
-<!-- SFX/BGM (ให้ใส่ไฟล์จริง) -->
-<audio id="bgm-main" preload="auto" src="assets/bgm/main.mp3"></audio>
-<audio id="bgm-fever" preload="auto" src="assets/bgm/fever.mp3"></audio>
+<!-- AUDIO -->
+<audio id="bgm-main" preload="auto"></audio>
+<audio id="bgm-fever" preload="auto"></audio>
 <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
 <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
 <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- Main -->
-<script type="module" src="./game/main.js"></script>
+<!-- Main (ESM) -->
+<script type="module" src="./main.js"></script>
 
-<!-- Hard binder + fallback -->
+<!-- Binder & Safe-guards (optional; กด Start แล้ว import main.js หากยังไม่โหลด) -->
 <script>
 (function(){
-  const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
-  function toast(t){let el=$('#toast'); if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.appendChild(el);} el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200);}
-  function warn(lines){let w=$('#bootWarn'); if(!w){w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w);} w.innerHTML=(Array.isArray(lines)?lines:[lines]).map(t=>'<div>'+t+'</div>').join(''); w.style.display='block';}
-  setTimeout(()=>{document.querySelectorAll('canvas').forEach(c=>{try{c.style.pointerEvents='none';c.style.zIndex='1';}catch(e){}});},0);
-
-  (function bindMenu(){
-    const mb=$('#menuBar'); if(!mb) return;
-    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
-    mb.addEventListener('click',function(ev){
-      const t=ev.target.closest('.btn'); if(!t) return;
-      if(t.hasAttribute('data-mode')){ setActive('[data-mode]',t); document.body.setAttribute('data-mode',t.getAttribute('data-mode')); return; }
-      if(t.hasAttribute('data-diff')){ setActive('[data-diff]',t); document.body.setAttribute('data-diff',t.getAttribute('data-diff')); return; }
-      if(t.dataset.action==='howto'){ toast('แตะของดี • เลี่ยงของไม่ดี • คอมโบ≥10 = FEVER • ⭐/🛡️ คือ Power'); return; }
-      if(t.dataset.action==='sound'){
-        const A=[].slice.call(document.querySelectorAll('audio')); const anyOn=A.some(a=>!a.muted);
-        for(let i=0;i<A.length;i++){ try{A[i].muted=anyOn;}catch(e){} }
-        t.textContent=anyOn?'🔇 Sound':'🔊 Sound'; toast(anyOn?'เสียง: ปิด':'เสียง: เปิด'); return;
-      }
-      if(t.dataset.action==='start'){ ev.preventDefault(); startNow(); return; }
-    },false);
-    const b=$('#btn_start'); if(b){
-      const c=b.cloneNode(true); b.replaceWith(c);
-      const opt={capture:true,passive:false};
-      ['click','pointerup','touchend'].forEach(ev=>c.addEventListener(ev,function(e){e.preventDefault();e.stopPropagation();startNow();},opt));
-      c.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); startNow(); } },opt);
-    }
-  })();
-
-  function hideMenu(){ const mb=document.getElementById('menuBar'); if(mb){mb.setAttribute('data-hidden','1'); mb.style.display='none';} }
-  function startNow(){
-    // unlock audio
-    try{
-      const ids=['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'];
-      for(let i=0;i<ids.length;i++){ const a=document.getElementById(ids[i]); if(a && a.play){ a.play().then(()=>a.pause()).catch(function(){}); } }
-    }catch(e){}
-    if(window.HHA && typeof window.HHA.startGame==='function'){ hideMenu(); window.HHA.startGame(); return; }
-    import('./game/main.js?ts='+Date.now())
-      .then(function(){ if(window.HHA && window.HHA.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
-      .catch(function(e){ console.error(e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e && e.message ? e.message : e)]); });
+  const $  = (s)=>document.querySelector(s);
+  const $$ = (s)=>document.querySelectorAll(s);
+  function toast(text){
+    let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+    el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
+  }
+  function warn(lines){
+    let w = $('#bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w); }
+    w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
+    w.style.display='block';
   }
 
-  window.addEventListener('keydown',function(e){
-    const menuVisible = !(document.getElementById('menuBar') && document.getElementById('menuBar').hasAttribute('data-hidden'));
-    if(menuVisible && (e.key==='Enter'||e.key===' ')){ e.preventDefault(); startNow(); }
-  },{passive:false});
+  setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
+
+  (function bindMenu(){
+    const mb = $('#menuBar'); if(!mb) return;
+    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+    mb.addEventListener('click', (ev)=>{
+      const t = ev.target.closest('.btn'); if(!t) return;
+      if (t.hasAttribute('data-mode')) { setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
+      if (t.hasAttribute('data-diff')) { setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
+      if (t.dataset.action === 'howto') { toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
+      if (t.dataset.action === 'sound') {
+        const A=[...document.querySelectorAll('audio')];
+        const anyOn=A.some(a=>!a.muted);
+        A.forEach(a=>{ try{ a.muted = anyOn; }catch{} });
+        t.textContent = anyOn ? '🔇 Sound' : '🔊 Sound';
+        toast(anyOn?'เสียง: ปิด':'เสียง: เปิด'); return;
+      }
+      if (t.dataset.action === 'start') { ev.preventDefault(); startNow(); return; }
+    }, false);
+
+    mb.addEventListener('pointerup', (e)=>{
+      const t = e.target.closest('.btn[data-action="start"]');
+      if (t){ e.preventDefault(); startNow(); }
+    }, {passive:false});
+  })();
+
+  function hideMenu(){
+    const mb = document.getElementById('menuBar');
+    if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+  }
+
+  function startNow(){
+    // prime audio
+    try{
+      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']).forEach(id=>{
+        const a=document.getElementById(id);
+        a && a.play && a.play().then(()=>a.pause()).catch(()=>{});
+      });
+    }catch{}
+    // call main
+    if (window.HHA && typeof window.HHA.startGame === 'function'){ hideMenu(); window.HHA.startGame(); return; }
+    import(`./main.js?ts=${Date.now()}`)
+      .then(()=>{ if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
+      .catch(e=>{ console.error('[import main.js] fail', e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]) });
+  }
+
+  // hard-bind start
+  (function hardBindStart(){
+    const old = document.getElementById('btn_start'); if(!old) return;
+    const clone = old.cloneNode(true);
+    old.replaceWith(clone);
+    const opts = { capture:true, passive:false };
+    ['click','pointerup','touchend'].forEach(ev=>{ clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts); });
+    clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); } }, opts);
+  })();
+
+  window.addEventListener('keydown', (e)=>{
+    if ((e.key==='Enter'||e.key===' ') && !(document.body.getAttribute('data-playing')==='1')) {
+      const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
+      if (menuVisible) { e.preventDefault(); startNow(); }
+    }
+  }, {passive:false});
 })();
 </script>
 
 <div id="toast" class="toast"></div>
 <div id="bootWarn"></div>
+
 </body>
 </html>
