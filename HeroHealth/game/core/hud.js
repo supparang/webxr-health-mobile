@@ -1,18 +1,17 @@
-// === core/hud.js (HUD overlay + result modal + fever bar + countdown + helpers) ===
+// === core/hud.js (HUD overlay + result modal + fever bar + helpers) ===
 'use strict';
 
 export class HUD {
   constructor(){
-    // Root
     this.root = document.getElementById('hud');
     if(!this.root){
       this.root = document.createElement('div');
       this.root.id = 'hud';
-      this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2000;';
+      this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:20000;'; // ⬆ z-index ให้สูงขึ้น
       document.body.appendChild(this.root);
     }
 
-    // ===== Top bar (ซ้าย: mode/diff/time | ขวา: score/combo/stars)
+    // Top bar
     this.top = document.createElement('div');
     this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
     this.top.innerHTML =
@@ -24,7 +23,6 @@ export class HUD {
       '<div style="display:flex;gap:8px;align-items:center">'+
         '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>'+
         '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>'+
-        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#ffd166;border:1px solid #134064;pointer-events:auto">⭐ Stars: <b id="hudStars">0</b></span>'+
       '</div>';
     this.root.appendChild(this.top);
     this.$mode  = this.top.querySelector('#hudMode');
@@ -32,14 +30,13 @@ export class HUD {
     this.$time  = this.top.querySelector('#hudTime');
     this.$score = this.top.querySelector('#hudScore');
     this.$combo = this.top.querySelector('#hudCombo');
-    this.$stars = this.top.querySelector('#hudStars');
 
-    // ===== Fever bar (ซ้ายล่าง)
+    // Fever bar (bottom-left)
     this.powerWrap = document.getElementById('powerBarWrap');
     if(!this.powerWrap){
       this.powerWrap = document.createElement('div');
       this.powerWrap.id = 'powerBarWrap';
-      this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:18;width:min(380px,92vw);pointer-events:none';
+      this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:20010;width:min(380px,92vw);pointer-events:none';
       this.powerWrap.innerHTML =
         '<div id="powerBar" style="position:relative;height:14px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
           '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
@@ -48,27 +45,27 @@ export class HUD {
     }
     this.$powerFill = this.powerWrap.querySelector('#powerFill');
 
-    // ===== Coach bubble
+    // Coach host
     this.coachBox = document.getElementById('coachBox');
     if(!this.coachBox){
       this.coachBox = document.createElement('div');
       this.coachBox.id = 'coachBox';
-      this.coachBox.style.cssText = 'position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none;z-index:2001';
+      this.coachBox.style.cssText = 'position:fixed;right:12px;bottom:92px;background:#0e1f3a;color:#e6f4ff;border:1px solid #1a3b6a;border-radius:12px;padding:8px 10px;box-shadow:0 10px 28px rgba(0,0,0,.45);max-width:48ch;pointer-events:auto;display:none;z-index:20015';
       document.body.appendChild(this.coachBox);
     }
 
-    // ===== Quest chips (focus ทีละเควสต์)
+    // Quest chips
     this.chips = document.createElement('div');
     this.chips.id = 'questChips';
-    this.chips.style.cssText = 'position:fixed;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:92vw;pointer-events:none';
+    this.chips.style.cssText = 'position:fixed;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:92vw;pointer-events:none;z-index:20012';
     this.root.appendChild(this.chips);
 
-    // ===== Result modal
+    // Result modal
     this.result = document.createElement('div');
     this.result.id = 'resultModal';
-    this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:2002';
+    this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:20050';
     this.result.innerHTML =
-      '<div style="width:min(560px,94vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:16px;color:#e6f2ff">'+
+      '<div style="width:min(600px,94vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:16px;color:#e6f2ff">'+
         '<h3 id="resTitle" style="margin:0 0 6px;font:900 20px ui-rounded">Result</h3>'+
         '<p  id="resDesc"  style="margin:0 0 10px;color:#cfe7ff;white-space:pre-line">—</p>'+
         '<div id="resStats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>'+
@@ -83,25 +80,20 @@ export class HUD {
     this.$resDesc  = this.result.querySelector('#resDesc');
     this.$resStats = this.result.querySelector('#resStats');
     this.$resExtra = this.result.querySelector('#resExtra');
-    this.onHome = null; this.onRetry = null;
+
+    this.onHome = null;
+    this.onRetry = null;
     this.result.querySelector('#resHome').onclick  = ()=>this.onHome && this.onHome();
     this.result.querySelector('#resRetry').onclick = ()=>this.onRetry && this.onRetry();
-
-    // ===== Countdown overlay (3-2-1-Go)
-    this.countWrap = document.createElement('div');
-    this.countWrap.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:2003;pointer-events:none';
-    this.countWrap.innerHTML = '<div id="countBig" style="font:900 96px ui-rounded; color:#fff; text-shadow:0 6px 30px #000; transform:scale(1); transition:transform .28s, opacity .28s; opacity:1"></div>';
-    this.root.appendChild(this.countWrap);
-    this._countEl = this.countWrap.querySelector('#countBig');
   }
 
-  // ===== Top HUD setters
+  // Top HUD setters
   setTop({mode,diff}={}){ if(mode!=null) this.$mode.textContent=String(mode); if(diff!=null) this.$diff.textContent=String(diff); }
   setTimer(sec){ this.$time.textContent = Math.max(0, Math.round(sec)) + 's'; }
-  updateHUD(score, combo){ this.$score.textContent = String(score|0); this.$combo.textContent = String(combo|0); }
-  setStars(n){ if(this.$stars) this.$stars.textContent = String(n|0); }
-
-  // ===== Quest chips: [{key,label,progress,need,done,fail,icon,active}]
+  updateHUD(score, combo){
+    if(score!=null) this.$score.textContent = String(score|0);
+    if(combo!=null) this.$combo.textContent = String(combo|0);
+  }
   setQuestChips(list=[]){
     const frag = document.createDocumentFragment();
     for(const m of list){
@@ -121,7 +113,6 @@ export class HUD {
     this.chips.appendChild(frag);
   }
 
-  // ===== Fever visuals
   showFever(on){
     const f = this.$powerFill;
     if(on){
@@ -137,51 +128,53 @@ export class HUD {
   }
   resetBars(){ this.$powerFill.innerHTML=''; }
 
-  // ===== Floating text
   showFloatingText(x,y,text){
     const el=document.createElement('div');
     el.textContent=String(text);
-    el.style.cssText='position:fixed;left:'+((x|0))+'px;top:'+((y|0))+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:2100;opacity:1;transition:all .72s ease-out;';
+    el.style.cssText='position:fixed;left:'+((x|0))+'px;top:'+((y|0))+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:20030;opacity:1;transition:all .72s ease-out;';
     document.body.appendChild(el);
     requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
     setTimeout(()=>{ try{el.remove();}catch{}; }, 720);
   }
 
-  // ===== Countdown 3-2-1-Go
-  async showCountdown(seq=['3','2','1','GO']){
-    this.countWrap.style.display='flex';
-    for(const t of seq){
-      this._countEl.textContent = t;
-      this._countEl.style.opacity='1'; this._countEl.style.transform='scale(1)';
-      requestAnimationFrame(()=>{ this._countEl.style.transform='scale(1.2)'; });
-      await new Promise(r=>setTimeout(r, 550));
-      this._countEl.style.opacity='0.0';
-      await new Promise(r=>setTimeout(r, 180));
-    }
-    this.countWrap.style.display='none';
-  }
-
-  // ===== Result
+  // ✅ สำคัญ: ensure modal ไม่ถูกเมนูกลบ + แสดงข้อมูลครบ
   showResult({title='Result',desc='—',stats=[],extra=[]}={}){
+    // ซ่อนเมนูเผื่อกรณีเมนูเปิดค้าง
+    const mb = document.getElementById('menuBar');
+    if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
     this.$resTitle.textContent = String(title);
     this.$resDesc.textContent  = String(desc);
+
     const frag1=document.createDocumentFragment(), frag2=document.createDocumentFragment();
-    for(const s of stats){ const b=document.createElement('div'); b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38'; b.textContent=String(s); frag1.appendChild(b); }
-    for(const s of extra){ const b=document.createElement('div'); b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff'; b.textContent=String(s); frag2.appendChild(b); }
+    const safeStats = (Array.isArray(stats) && stats.length)? stats : ['No stats'];
+    for(const s of safeStats){
+      const b=document.createElement('div');
+      b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38';
+      b.textContent=String(s);
+      frag1.appendChild(b);
+    }
+    const safeExtra = Array.isArray(extra)? extra : [];
+    for(const s of safeExtra){
+      const b=document.createElement('div');
+      b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff';
+      b.textContent=String(s);
+      frag2.appendChild(b);
+    }
+
     this.$resStats.innerHTML=''; this.$resStats.appendChild(frag1);
     this.$resExtra.innerHTML=''; this.$resExtra.appendChild(frag2);
+
+    // โชว์ผลลัพธ์ชัวร์ ๆ
     this.result.style.display='flex';
+    this.result.style.zIndex = '20060';  // โผล่บนสุด
+    this.root.style.zIndex   = '20000';
   }
   hideResult(){ this.result.style.display='none'; }
 
-  // ===== Small toast
   toast(text){
     let t=document.getElementById('toast');
-    if(!t){
-      t=document.createElement('div'); t.id='toast'; t.className='toast';
-      t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040';
-      document.body.appendChild(t);
-    }
+    if(!t){ t=document.createElement('div'); t.id='toast'; t.className='toast'; t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:20040'; document.body.appendChild(t); }
     t.textContent=String(text); t.style.opacity='1'; setTimeout(()=>{ t.style.opacity='0'; },1200);
   }
 }
