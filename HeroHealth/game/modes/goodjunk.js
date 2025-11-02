@@ -1,5 +1,5 @@
-// === Hero Health Academy — /game/modes/goodjunk.js (2025-11-02 FINAL) ===
-// DOM-spawn icons + Fever hooks + Shield/Gold (MISS เฉพาะ good-timeout)
+// === Hero Health Academy — /game/modes/goodjunk.js (2025-11-02 FINAL+watchdog) ===
+// DOM-spawn icons + Fever hooks + Shield/Gold (MISS เฉพาะ good-timeout) + anti-silence watchdog
 export const name = 'goodjunk';
 
 const GOOD  = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍇','🍓','🍊','🍅','🥬','🥛','🍞','🍚'];
@@ -11,11 +11,19 @@ let allowMiss = 0, diff = 'Normal';
 let iconSizeBase = 52, lifeS = 1.60, spawnIntervalS = 0.70, _accum = 0;
 let _busPlaceholder = { hit(){}, miss(){}, bad(){}, power(){}, sfx:{ good(){}, bad(){}, perfect(){}, power(){} } };
 
-// ---------- Public API ----------
+// --- NEW: watchdog/heartbeat to prevent silent screen ---
+let _lastSpawnAt = 0;
+let _watchdogId = 0;
+function _now(){ return (typeof performance!=='undefined' && performance.now) ? performance.now() : Date.now(); }
+function _markSpawn(){ _lastSpawnAt = _now(); }
+
 export function start(cfg = {}) {
   ensureHost();
   clearHost();
-  alive = true; fever = !!cfg.fever; allowMiss = 0;
+
+  alive = true;
+  fever = !!cfg.fever;
+  allowMiss = 0;
   diff = String(cfg.difficulty || 'Normal');
 
   if (diff === 'Easy'){  spawnIntervalS = 0.82; lifeS = 1.95; iconSizeBase = 58; }
@@ -23,20 +31,35 @@ export function start(cfg = {}) {
   else { spawnIntervalS = 0.70; lifeS = 1.60; iconSizeBase = 52; }
 
   _accum = 0;
+  _markSpawn();
 
-  // prefill 2 icons
+  // prefill 2 icons (guarantee first visuals)
   for (let i=0;i<2;i++){
     const isGolden = Math.random() < 0.10;
     const isGood   = isGolden || (Math.random() < 0.72);
     const glyph    = isGolden ? '🌟' : (isGood ? pick(GOOD) : pick(JUNK));
     spawnOne(glyph, isGood, isGolden, _busPlaceholder);
   }
+
+  // --- NEW: watchdog – if idle >900ms, force a spawn ---
+  clearInterval(_watchdogId);
+  _watchdogId = setInterval(()=>{
+    if(!alive) return;
+    const idle = _now() - _lastSpawnAt;
+    if (idle > 900){
+      const isGolden = Math.random() < 0.08;
+      const isGood   = isGolden || (Math.random() < 0.70);
+      const glyph    = isGolden ? '🌟' : (isGood ? pick(GOOD) : pick(JUNK));
+      spawnOne(glyph, isGood, isGolden, _busPlaceholder);
+    }
+  }, 400);
 }
 
 export function update(dt, bus){
   if (!alive) return;
   _busPlaceholder = bus || _busPlaceholder;
   _accum += dt;
+
   while(_accum >= spawnIntervalS){
     _accum -= spawnIntervalS;
     const r = Math.random();
@@ -50,7 +73,12 @@ export function update(dt, bus){
   }
 }
 
-export function stop(){ alive = false; clearHost(); }
+export function stop(){
+  alive = false;
+  clearInterval(_watchdogId);
+  _watchdogId = 0;
+  clearHost();
+}
 export function cleanup(){ stop(); }
 export function setFever(on){ fever = !!on; }
 export function restart(){ stop(); start({ difficulty: diff, fever }); }
@@ -75,7 +103,6 @@ function consumeShield(){
   if (allowMiss>0){ allowMiss--; return true; }
   return false;
 }
-
 function onMissGood(bus){
   if (consumeShield()){ try{ bus?.power?.('shield'); }catch{}; return; }
   try{ bus?.miss?.({ source:'good-timeout' }); }catch{}
@@ -96,11 +123,15 @@ function spawnOne(glyph,isGood,isGolden,bus){
     fontSize:size+'px',filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))',zIndex:'5500'
   });
 
+  _markSpawn();
+
   const lifeMs=Math.floor((lifeS+(isGolden?0.28:0))*1000);
   const kill=setTimeout(()=>{ try{d.remove();}catch{} if(isGood) onMissGood(bus); },lifeMs);
 
   d.addEventListener('click',(ev)=>{
     clearTimeout(kill); try{d.remove();}catch{};
+    _markSpawn(); // activity
+
     if(isGood){
       const perfect=isGolden||Math.random()<0.22;
       const pts=Math.round((perfect?200:100)*(fever?1.5:1));
@@ -139,11 +170,15 @@ function spawnPower(kind,bus){
     cursor:'pointer',zIndex:'5550'
   });
 
+  _markSpawn();
+
   const lifeMs=Math.floor((lifeS+0.30)*1000);
   const kill=setTimeout(()=>{ try{d.remove();}catch{}; },lifeMs);
 
   d.addEventListener('click',(ev)=>{
     clearTimeout(kill); try{d.remove();}catch{};
+    _markSpawn();
+
     if(kind==='shield'){
       allowMiss++;
       try{ bus?.power?.('shield'); bus?.sfx?.power?.(); }catch{}
