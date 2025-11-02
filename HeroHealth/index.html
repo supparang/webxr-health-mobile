@@ -19,63 +19,46 @@ body{
 }
 body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
 
-/* Layout layers */
+/* Layers */
 .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
 #gameLayer{position:fixed;inset:0;z-index:1}
-
-/* ✅ ให้ spawnHost อยู่บนสุดและรับคลิกแน่ ๆ */
-#spawnHost{
-  position:fixed;inset:0;
-  z-index:5000;           /* ทับ HUD ได้ */
-  pointer-events:auto;    /* รับคลิก */
-}
-
-/* canvases never block clicks */
-canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
-
-/* Menu */
-#menuBar{
-  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
-}
-#menuBar[data-hidden="1"]{ display:none !important; }
-.menu-card{
-  width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
-  padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
-}
-.row{display:flex;flex-wrap:wrap;gap:10px}
-.btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
-  border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none
-}
-.btn:hover{ filter:brightness(1.08) }
-.btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
+#spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
 
 /* HUD shell */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
-#hud #resultModal{z-index:20020}
 
-/* Toast + boot warn */
-.toast{
-  position:fixed;left:50%;top:68px;transform:translateX(-50%);
+/* Menu */
+#menuBar{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  z-index:9999;background:linear-gradient(#0b1020d0,#0b1020d0);pointer-events:auto;}
+#menuBar[data-hidden="1"]{display:none !important;}
+.menu-card{width:min(860px,94vw);background:#0e1930;border:1px solid #132a4f;border-radius:16px;
+  padding:18px;box-shadow:0 18px 60px rgba(0,0,0,.45);}
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 12px;
+  border-radius:12px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer;user-select:none}
+.btn:hover{filter:brightness(1.08)}
+.btn[data-mode].active,.btn[data-diff].active{outline:2px solid var(--accent);box-shadow:0 0 0 4px #22d3ee22}
+
+/* Toast + warn */
+.toast{position:fixed;left:50%;top:68px;transform:translateX(-50%);
   background:#0e1930;border:1px solid #214064;color:#e8f3ff;
-  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
-}
+  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040}
 .toast.show{opacity:1}
 #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
 
-/* Fever flame anim */
-@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
+/* Fever bar */
+#powerBarWrap{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);
+ width:min(420px,90vw);z-index:2000;}
+#powerBar{position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden}
+#powerFill{position:absolute;inset:0;width:100%}
 </style>
 </head>
-<!-- ✅ ตั้งค่า default ให้ body ทันที กันกรณีเมนูไม่กด -->
-<body data-mode="goodjunk" data-diff="Normal">
 
+<body data-mode="goodjunk" data-diff="Normal">
 <div class="game-wrap">
   <div id="gameLayer"></div>
   <div id="spawnHost"></div>
 
-  <!-- MENU -->
   <div id="menuBar" aria-label="Main menu">
     <div class="menu-card">
       <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
@@ -94,7 +77,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 
       <div>
         <h3>Difficulty</h3>
-        <div class="row" role="group" aria-label="Difficulty">
+        <div class="row">
           <div class="btn" data-diff="Easy">Easy</div>
           <div class="btn active" data-diff="Normal">Normal</div>
           <div class="btn" data-diff="Hard">Hard</div>
@@ -104,18 +87,15 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       <hr style="margin:12px 0;border-color:#133"/>
 
       <div class="row">
-        <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0" aria-label="Start game">▶️ Start</button>
-        <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
-        <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
+        <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0">▶️ Start</button>
+        <div class="btn" data-action="howto">❓ How to Play</div>
+        <div class="btn" data-action="sound">🔊 Sound</div>
       </div>
     </div>
   </div>
 
-  <!-- Fever/Power bar container (HUD ใช้ต่อ) -->
   <div id="powerBarWrap">
-    <div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">
-      <div id="powerFill" style="position:absolute;inset:0;width:100%"></div>
-    </div>
+    <div id="powerBar"><div id="powerFill"></div></div>
   </div>
 </div>
 
@@ -128,89 +108,82 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- ✅ Main (ESM) ชี้ไปที่ /game/ เสมอ -->
+<!-- ✅ Main -->
 <script type="module" src="./game/main.js"></script>
 
-<!-- Binder & Safe-guards -->
+<!-- ✅ Emergency DOM Spawner + Binder -->
 <script>
 (function(){
-  const $  = (s)=>document.querySelector(s);
-  const $$ = (s)=>document.querySelectorAll(s);
-  function toast(text){
-    let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-    el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
-  }
-  function warn(lines){
-    let w = $('#bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w); }
-    w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
-    w.style.display='block';
-  }
+const $=(s)=>document.querySelector(s), $$=(s)=>document.querySelectorAll(s);
+function toast(t){let el=$('#toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.appendChild(el);}el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),1200);}
+function warn(lines){let w=$('#bootWarn');if(!w){w=document.createElement('div');w.id='bootWarn';document.body.appendChild(w);}w.innerHTML=(Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');w.style.display='block';}
 
-  setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
+/* 🧩 Emergency DOM Spawner (EDS) */
+const EDS=(()=>{
+ let run=false,timers=[];
+ function host(){return document.getElementById('spawnHost')||document.body;}
+ function spawn(){
+   const isGood=Math.random()<0.7,isGold=Math.random()<0.1;
+   const G=['🥦','🍎','🥕','🥗','🐟','🍌'],B=['🍔','🍟','🍩','🍕','🥤'];
+   const glyph=isGold?'🌟':(isGood?G[Math.random()*G.length|0]:B[Math.random()*B.length|0]);
+   const el=document.createElement('button');
+   el.textContent=glyph;el.type='button';
+   el.style.cssText='position:fixed;z-index:7000;border:0;background:transparent;cursor:pointer;'+
+     'font:900 '+(isGold?64:52)+'px ui-rounded;filter:drop-shadow(0 6px 16px rgba(0,0,0,.55));'+
+     'left:'+(60+Math.random()*(innerWidth-120))+'px;top:'+(100+Math.random()*(innerHeight-260))+'px;transform:translate(-50%,-50%);';
+   const killer=setTimeout(()=>{try{el.remove();}catch{};},isGold?2200:1800);
+   el.addEventListener('click',ev=>{
+     clearTimeout(killer);try{el.remove();}catch{};
+     const fx=document.createElement('div');
+     fx.textContent=isGood?'+100':'Oops!';fx.style.cssText='position:fixed;left:'+ev.clientX+'px;top:'+ev.clientY+'px;transform:translate(-50%,-50%);font:900 18px ui-rounded;color:#fff;text-shadow:0 2px 8px #000;opacity:1;transition:all .6s;z-index:7100;';
+     document.body.appendChild(fx);requestAnimationFrame(()=>{fx.style.top=(ev.clientY-40)+'px';fx.style.opacity='0';});
+     setTimeout(()=>{try{fx.remove();}catch{};},600);
+     try{window.HHA=window.HHA||{};window.HHA._seenEvent=true;}catch{}
+   },{passive:true});
+   host().appendChild(el);
+ }
+ function loop(){
+   if(!run)return;
+   if(window.HHA&&window.HHA._seenEvent){stop();return;}
+   if(document.querySelectorAll('.eds-target').length<5){spawn();}
+   timers.push(setTimeout(loop,700));
+ }
+ function start(){if(run)return;run=true;for(let i=0;i<4;i++)spawn();loop();timers.push(setTimeout(stop,60000));}
+ function stop(){run=false;while(timers.length)clearTimeout(timers.pop());document.querySelectorAll('.eds-target').forEach(e=>{try{e.remove();}catch{}});}
+ return{start,stop};
+})();
 
-  (function bindMenu(){
-    const mb = $('#menuBar'); if(!mb) return;
-    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
-    mb.addEventListener('click', (ev)=>{
-      const t = ev.target.closest('.btn'); if(!t) return;
-      if (t.hasAttribute('data-mode')) { setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
-      if (t.hasAttribute('data-diff')) { setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
-      if (t.dataset.action === 'howto') { toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
-      if (t.dataset.action === 'sound') {
-        const A=[...document.querySelectorAll('audio')];
-        const anyOn=A.some(a=>!a.muted);
-        A.forEach(a=>{ try{ a.muted = anyOn; }catch{} });
-        t.textContent = anyOn ? '🔇 Sound' : '🔊 Sound';
-        toast(anyOn?'เสียง: ปิด':'เสียง: เปิด'); return;
-      }
-      if (t.dataset.action === 'start') { ev.preventDefault(); startNow(); return; }
-    }, false);
+/* MENU binding */
+(function(){
+ const mb=$('#menuBar');if(!mb)return;
+ function setActive(sel,el){$$(sel).forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+ mb.addEventListener('click',ev=>{
+   const t=ev.target.closest('.btn');if(!t)return;
+   if(t.dataset.mode){setActive('[data-mode]',t);document.body.dataset.mode=t.dataset.mode;return;}
+   if(t.dataset.diff){setActive('[data-diff]',t);document.body.dataset.diff=t.dataset.diff;return;}
+   if(t.dataset.action==='howto'){toast('แตะของดี • เลี่ยงของไม่ดี • ⭐ และ 🛡️ คือพลังพิเศษ');return;}
+   if(t.dataset.action==='sound'){const A=[...document.querySelectorAll('audio')];const anyOn=A.some(a=>!a.muted);A.forEach(a=>a.muted=anyOn);t.textContent=anyOn?'🔇 Sound':'🔊 Sound';toast(anyOn?'เสียง: ปิด':'เสียง: เปิด');return;}
+   if(t.dataset.action==='start'){ev.preventDefault();startNow();return;}
+ },false);
+})();
 
-    mb.addEventListener('pointerup', (e)=>{
-      const t = e.target.closest('.btn[data-action="start"]');
-      if (t){ e.preventDefault(); startNow(); }
-    }, {passive:false});
-  })();
+function hideMenu(){const mb=$('#menuBar');if(mb){mb.setAttribute('data-hidden','1');mb.style.display='none';}}
+function primeAudio(){(['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']).forEach(id=>{const a=document.getElementById(id);try{a&&a.play&&a.play().then(()=>a.pause()).catch(()=>{});}catch{}});}
 
-  function hideMenu(){
-    const mb = document.getElementById('menuBar');
-    if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-  }
+function startNow(){
+ hideMenu();primeAudio();EDS.start();
+ import(`./game/main.js?ts=${Date.now()}`).then(()=>{if(window.HHA?.startGame){window.HHA.startGame();}}).catch(e=>{console.error('import fail',e);warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js',String(e?.message||e)])});
+ const stopCheck=setInterval(()=>{if(window.HHA&&window.HHA._seenEvent){clearInterval(stopCheck);EDS.stop();}},700);
+}
 
-  function startNow(){
-    try{
-      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']).forEach(id=>{
-        const a=document.getElementById(id);
-        a && a.play && a.play().then(()=>a.pause()).catch(()=>{});
-      });
-    }catch{}
+const btn=document.getElementById('btn_start');
+if(btn){['click','pointerup','touchend'].forEach(ev=>btn.addEventListener(ev,e=>{e.preventDefault();startNow();},{passive:false}));}
 
-    if (window.HHA && typeof window.HHA.startGame === 'function'){ hideMenu(); window.HHA.startGame(); return; }
-    import(`./game/main.js?ts=${Date.now()}`)
-      .then(()=>{ if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
-      .catch(e=>{ console.error('[import main.js] fail', e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]) });
-  }
-
-  (function hardBindStart(){
-    const old = document.getElementById('btn_start'); if(!old) return;
-    const clone = old.cloneNode(true);
-    old.replaceWith(clone);
-    const opts = { capture:true, passive:false };
-    ['click','pointerup','touchend'].forEach(ev=>{ clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts); });
-    clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); } }, opts);
-  })();
-
-  window.addEventListener('keydown', (e)=>{
-    if ((e.key==='Enter'||e.key===' ') && !(document.body.getAttribute('data-playing')==='1')) {
-      const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
-      if (menuVisible) { e.preventDefault(); startNow(); }
-    }
-  }, {passive:false});
+window.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!document.body.dataset.playing){const vis=!$('#menuBar')?.hasAttribute('data-hidden');if(vis){e.preventDefault();startNow();}}});
 })();
 </script>
 
 <div id="toast" class="toast"></div>
 <div id="bootWarn"></div>
-
 </body>
 </html>
