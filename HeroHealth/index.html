@@ -19,16 +19,12 @@ body{
 }
 body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
 
-/* Layout layers */
+/* Layers */
 .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
 #gameLayer{position:fixed;inset:0;z-index:1}
 
-/* ✅ ให้ spawnHost อยู่บนสุดและรับคลิกแน่ ๆ */
-#spawnHost{
-  position:fixed;inset:0;
-  z-index:5000;
-  pointer-events:auto;
-}
+/* ✅ spawnHost รับคลิกแน่ๆ */
+#spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
 
 /* canvases never block clicks */
 canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
@@ -69,7 +65,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 </style>
 </head>
 
-<!-- ✅ preset โหมดเริ่มต้น -->
+<!-- โหมด/ความยากค่าเริ่มต้น -->
 <body data-mode="goodjunk" data-diff="Normal">
 
 <div class="game-wrap">
@@ -129,10 +125,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- ✅ Main ESM: ชี้ไปที่ /game/main.js -->
-<script type="module" src="./game/main.js"></script>
-
-<!-- Binder + Persist Sound -->
+<!-- ░░ Binder: force-fresh main.js with countdown/timer ░░ -->
 <script>
 (function(){
   const MUTED_KEY = 'hha_muted';
@@ -148,70 +141,66 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
     w.style.display='block';
   }
-
   function applyMuteFromStorage(){
     const muted = localStorage.getItem(MUTED_KEY) === '1';
-    document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
-    const btn = document.querySelector('.btn[data-action="sound"]');
+    $$('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
+    const btn = $('.btn[data-action="sound"]');
     if(btn) btn.textContent = muted ? '🔇 Sound' : '🔊 Sound';
   }
   applyMuteFromStorage();
 
-  setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
-
-  (function bindMenu(){
-    const mb = $('#menuBar'); if(!mb) return;
-    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
-    mb.addEventListener('click', (ev)=>{
-      const t = ev.target.closest('.btn'); if(!t) return;
-      if (t.hasAttribute('data-mode')) { setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
-      if (t.hasAttribute('data-diff')) { setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
-      if (t.dataset.action === 'howto') { toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
-      if (t.dataset.action === 'sound') {
-        const nowMuted = !(localStorage.getItem(MUTED_KEY) === '1');
-        localStorage.setItem(MUTED_KEY, nowMuted ? '1' : '0');
-        applyMuteFromStorage();
-        toast(nowMuted ? 'เสียง: ปิด' : 'เสียง: เปิด');
-        return;
-      }
-      if (t.dataset.action === 'start') { ev.preventDefault(); startNow(); return; }
-    }, false);
-
-    mb.addEventListener('pointerup', (e)=>{
-      const t = e.target.closest('.btn[data-action="start"]');
-      if (t){ e.preventDefault(); startNow(); }
-    }, {passive:false});
-  })();
-
-  function hideMenu(){
-    const mb = document.getElementById('menuBar');
-    if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+  // 🔒 force-fresh import every time before start
+  async function ensureMainFresh(){
+    try { delete window.HHA; } catch {}
+    const v = Date.now();
+    await import(`./game/main.js?v=${v}`);
+    if (!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
   }
 
-  function startNow(){
-    // prime audio once
+  async function startNow(){
+    // prime audio (user gesture)
     try{
-      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']).forEach(id=>{
-        const a=document.getElementById(id);
-        a && a.play && a.play().then(()=>a.pause()).catch(()=>{});
-      });
+      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'])
+        .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); });
     }catch{}
 
-    if (window.HHA && typeof window.HHA.startGame === 'function'){ hideMenu(); window.HHA.startGame(); return; }
-    import(`./game/main.js?ts=${Date.now()}`)
-      .then(()=>{ if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
-      .catch(e=>{ console.error('[import main.js] fail', e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]) });
+    try{
+      await ensureMainFresh();               // ← โหลด main.js เวอร์ชันล่าสุดเสมอ
+      $('#menuBar')?.setAttribute('data-hidden','1');
+      if ($('#menuBar')) $('#menuBar').style.display='none';
+      window.HHA.startGame();               // ภายใน main.js มี countdown + wall-clock timer แล้ว
+    }catch(e){
+      console.error(e);
+      warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(e?.message||e)]);
+    }
   }
 
-  // hard-bind start to avoid passive listeners swallowing clicks
-  (function hardBindStart(){
-    const old = document.getElementById('btn_start'); if(!old) return;
-    const clone = old.cloneNode(true);
-    old.replaceWith(clone);
-    const opts = { capture:true, passive:false };
-    ['click','pointerup','touchend'].forEach(ev=>{ clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts); });
-    clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); } }, opts);
-  })();
+  // bind menu
+  const mb = $('#menuBar');
+  if (mb){
+    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+    mb.addEventListener('click', (ev)=>{
+      const t=ev.target.closest('.btn'); if(!t) return;
+      if (t.dataset.action==='start'){ ev.preventDefault(); startNow(); return; }
+      if (t.dataset.action==='howto'){ toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
+      if (t.dataset.action==='sound'){
+        const nowMuted = !(localStorage.getItem(MUTED_KEY) === '1');
+        localStorage.setItem(MUTED_KEY, nowMuted ? '1' : '0');
+        applyMuteFromStorage(); toast(nowMuted ? 'เสียง: ปิด' : 'เสียง: เปิด'); return;
+      }
+      if (t.hasAttribute('data-mode')){ setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
+      if (t.hasAttribute('data-diff')){ setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
+    }, false);
+
+    // hard-bind start to avoid passive swallowing
+    const old = document.getElementById('btn_start'); if (old){
+      const clone = old.cloneNode(true);
+      old.replaceWith(clone);
+      const opts = { capture:true, passive:false };
+      ['click','pointerup','touchend'].forEach(ev=> clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts));
+      clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); startNow(); } }, opts);
+    }
+  }
 
   // keyboard quick start
   window.addEventListener('keydown', (e)=>{
@@ -220,6 +209,9 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       if (menuVisible) { e.preventDefault(); startNow(); }
     }
   }, {passive:false});
+
+  // safety: canvases never capture pointer
+  setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
 })();
 </script>
 
