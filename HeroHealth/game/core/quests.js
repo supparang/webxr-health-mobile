@@ -1,272 +1,318 @@
-// === Hero Health Academy — core/quests.js (10 quests + focus + summary) ===
-'use strict';
+// === core/quests.js (Mini Quests v1.0: random-from-10, focus-one, auto-advance) ===
+
+/*
+API ที่ main.js ใช้:
+- Quests.bindToMain({ hud, coach })
+- Quests.beginRun(modeKey, diff, lang, matchTime)
+- Quests.event(type, payload)   // 'hit' | 'miss' | 'fever' | 'power'
+- Quests.tick({ score, dt, fever })
+- Quests.endRun({ score })  -> summary object { totalDone, doneList, failList }
+
+การแสดงผล:
+- เราจะแสดง "ชิปเดียว" (focused quest) ผ่าน hud.setQuestChips([chip])
+- เมื่อสำเร็จ (done) หรือ fail -> เด้งไปเควสต์ถัดไปอัตโนมัติ (ดีเลย์สั้น ๆ)
+*/
 
 export const Quests = (function(){
-  // ----- refs to main/HUD/Coach -----
-  let HUD=null, COACH=null;
+  // ---- runtime refs ----
+  let HUD = null, COACH = null;
+  let LANG = 'TH';
+  let IN_RUN = false;
+  let SCORE = 0;
+  let MATCH_TIME = 45;
 
-  // ----- per-run state -----
-  let runActive=false, lang='TH', diff='Normal', mode='goodjunk', matchTime=45;
+  // ---- state ----
+  let _catalog = [];         // 10 รายการ
+  let _queue = [];           // คิวที่สุ่มแล้ว
+  let _idx = -1;             // current quest index (ในคิว)
+  let _cur = null;           // current quest object (live)
+  let _doneList = [];
+  let _failList = [];
 
-  // chosen 3 quests this run
-  let activeList=[];    // [{key,label,icon,need,progress,done,fail,meta:{...}}]
-  let activeIdx=0;      // focus index (0..2)
+  // ตัวช่วยเวลา/สตรีค
+  let _sinceAnyMiss = 0;     // นับเวลาตั้งแต่ miss ครั้งล่าสุด (วินาที)
+  let _sinceJunkMiss = 0;    // นับเวลาตั้งแต่ junk miss ล่าสุด
+  let _hitStreak = 0;        // ฮิตติดกัน (นับจาก miss จะรีเซ็ต)
+  let _feverOn = false;
 
-  // global counters this run
-  let counters = {
-    score: 0,
-    hits: 0,
-    perfect: 0,
-    gold: 0,
-    power: 0,
-    junkClicks: 0,
-    goodTimeout: 0,
-    comboNow: 0,
-    comboBest: 0,
-    feverOn: false,
-    feverSecs: 0,
-    secsNoJunk: 0,         // for "avoid_junk" quest
-    _hadJunkInThisSecond: false,
-  };
+  // ---- utils ----
+  const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
+  function sayCoach(th, en){ if(!COACH) return; COACH.say(LANG==='EN'?en:th); }
+  function refreshHUD(){
+    if(!HUD) return;
+    if(!_cur){
+      HUD.setQuestChips([]);
+      return;
+    }
+    const pct = _cur.need>0 ? Math.min(100, Math.round((_cur.progress/_cur.need)*100)) : 0;
+    HUD.setQuestChips([{
+      key   : _cur.key,
+      label : _cur.label,
+      icon  : _cur.icon,
+      progress: _cur.progress|0,
+      need  : _cur.need|0,
+      done  : !!_cur.done,
+      fail  : !!_cur.fail,
+      pct
+    }]);
+  }
+  function nextQuest(delayMs=500){
+    // เก็บผลสรุป
+    if(_cur){
+      if(_cur.done) _doneList.push(_cur.key);
+      else if(_cur.fail) _failList.push(_cur.key);
+    }
+    // ดึงถัดไปจากคิว
+    setTimeout(()=>{
+      _idx++;
+      if(_idx >= _queue.length){
+        // เติมคิวใหม่แบบสุ่มต่อเนื่อง
+        _queue = shuffle(_catalog.map(cloneQuest));
+        _idx = 0;
+      }
+      _cur = _queue[_idx];
+      // รีเซ็ตตัวนับที่ binding กับภารกิจ
+      _cur.progress = 0;
+      _cur.done = false;
+      _cur.fail = false;
+      _cur._time = 0;        // time counter ภายในเควสต์
+      refreshHUD();
+      // แจ้งโค้ชชื่อเควสต์
+      sayCoach(`เควสต์: ${_cur.label}`, `Quest: ${_cur.label}`);
+    }, delayMs);
+  }
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j=(Math.random()*(i+1))|0;
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+  function cloneQuest(q){ return JSON.parse(JSON.stringify(q)); }
 
-  // difficulty presets
-  const DZ = {
-    Easy:   { GOOD:25, PERFECT:4, GOLD:2, NOJUNK_SECS:10, COMBO1:8, COMBOHOLD:8, FEVER_TIMES:1, FEVER_SECS:6, NOMICSMOOTH:10, POWER:2 },
-    Normal: { GOOD:35, PERFECT:6, GOLD:3, NOJUNK_SECS:12, COMBO1:10, COMBOHOLD:10, FEVER_TIMES:1, FEVER_SECS:9, NOMICSMOOTH:12, POWER:3 },
-    Hard:   { GOOD:45, PERFECT:8, GOLD:4, NOJUNK_SECS:15, COMBO1:12, COMBOHOLD:12, FEVER_TIMES:2, FEVER_SECS:12, NOMICSMOOTH:14, POWER:4 },
-  };
+  // ---- 10 เควสต์มาตรฐาน (ออกแบบให้สัญญาณจาก main/goodjunk เพียงพอ) ----
+  function buildCatalog(diff='Normal'){
+    const easy = (diff==='Easy');
+    const hard = (diff==='Hard');
 
-  // 10 quest definitions (key, label, icon, needFromDZ, updater hooks)
-  const ALL_QUESTS = [
-    { key:'good_hits',   icon:'🥗', labelTH:'ตีของดีให้ครบ',         labelEN:'Hit good items',
-      need:(dz)=>dz.GOOD,                    tick:null, onHit:(e)=> (e.kind==='good'||e.kind==='perfect') && !e.meta?.junk, },
+    return [
+      // 1) สะสม Good/Perfect ให้ครบ N
+      { key:'goods_10', icon:'🥦', label:(LANG==='EN'?'Get 10 good items':'เก็บของดี 10 ชิ้น'), type:'count_hit_good',
+        need: hard?14 : easy?8 : 10, progress:0 },
 
-    { key:'perfect_hits',icon:'💥', labelTH:'PERFECT ให้ครบ',         labelEN:'Make PERFECT hits',
-      need:(dz)=>dz.PERFECT,                 tick:null, onHit:(e)=> (e.kind==='perfect') },
+      // 2) เลี่ยง Junk X วินาที (reset เมื่อมี junk miss)
+      { key:'avoid_junk_7s', icon:'🧹', label:(LANG==='EN'?'Avoid junk for 7s':'เลี่ยงของขยะ 7 วิ'), type:'time_no_junk',
+        need: hard?9 : easy?5 : 7, progress:0 },
 
-    { key:'gold_collect',icon:'🌟', labelTH:'เก็บ GOLD ให้ครบ',       labelEN:'Collect GOLD',
-      need:(dz)=>dz.GOLD,                    tick:null, onHit:(e)=> (e.kind==='perfect' && e.meta?.gold===true) },
+      // 3) คอมโบถึง X
+      { key:'combo_10', icon:'⚡', label:(LANG==='EN'?'Reach combo 10':'ทำคอมโบ 10'), type:'reach_combo',
+        need: hard?12 : easy?8 : 10, progress:0 },
 
-    { key:'avoid_junk',  icon:'🚫🍔',labelTH:'เลี่ยง JUNK ต่อเนื่อง', labelEN:'Avoid JUNK (seconds)',
-      need:(dz)=>dz.NOJUNK_SECS,             tick:(sec)=> sec>0 && !counters._hadJunkInThisSecond, onMiss:(m)=> m.kind==='junk' },
+      // 4) Perfect ให้ครบ N
+      { key:'perfect_5', icon:'💯', label:(LANG==='EN'?'5 PERFECT hits':'PERFECT 5 ครั้ง'), type:'count_perfect',
+        need: hard?6 : easy?4 : 5, progress:0 },
 
-    { key:'combo_once',  icon:'🔗', labelTH:'ทำคอมโบถึงเป้า',         labelEN:'Reach combo target',
-      need:(dz)=>dz.COMBO1,                  tick:null, onAny:()=> counters.comboNow>=needOf('combo_once') },
+      // 5) ติด FEVER หนึ่งครั้ง (หรือกำหนดเป็นเวลาได้ แต่เอาง่ายก่อน)
+      { key:'fever_once', icon:'🔥', label:(LANG==='EN'?'Trigger FEVER once':'เปิดโหมด FEVER 1 ครั้ง'), type:'fever_on',
+        need:1, progress:0 },
 
-    { key:'combo_hold',  icon:'⏱️', labelTH:'รักษาคอมโบ (วินาที)',    labelEN:'Hold combo (sec)',
-      need:(dz)=>dz.COMBOHOLD,               tick:(sec)=> counters.comboNow>=needOf('combo_once') ? sec>0 : 0 },
+      // 6) เก็บดาวทอง ⭐/🌟 N ชิ้น
+      { key:'star_3', icon:'⭐', label:(LANG==='EN'?'Collect 3 stars':'เก็บดาว 3 ดวง'), type:'count_gold',
+        need: hard?4 : easy?2 : 3, progress:0 },
 
-    { key:'fever_enter', icon:'🔥', labelTH:'เข้า FEVER',             labelEN:'Enter FEVER',
-      need:(dz)=>dz.FEVER_TIMES,             tick:null, onFever:(on)=> !!on },
+      // 7) คะแนนถึง X
+      { key:'score_800', icon:'🏅', label:(LANG==='EN'?'Reach score 800':'ทำคะแนนถึง 800'), type:'reach_score',
+        need: hard?1000 : easy?600 : 800, progress:0 },
 
-    { key:'fever_time',  icon:'⏳🔥',labelTH:'เวลาใน FEVER (วินาที)',  labelEN:'Time in FEVER (sec)',
-      need:(dz)=>dz.FEVER_SECS,              tick:(sec)=> counters.feverOn ? sec : 0 },
+      // 8) ไม่มี miss ใด ๆ ต่อเนื่อง X วิ (reset เมื่อ miss)
+      { key:'no_miss_8s', icon:'🛡️', label:(LANG==='EN'?'No miss for 8s':'ไม่พลาด 8 วิ'), type:'time_no_any_miss',
+        need: hard?10 : easy?6 : 8, progress:0 },
 
-    { key:'no_miss_10',  icon:'🎯', labelTH:'ไม่พลาดต่อเนื่อง',       labelEN:'No-miss streak',
-      need:(dz)=>dz.NOMICSMOOTH,             tick:null, onAny:()=> counters.comboNow>=needOf('no_miss_10') },
+      // 9) สะสมคอมโบต่อเนื่อง X (เทียบ comboNow)
+      { key:'combo_streak_8', icon:'🎯', label:(LANG==='EN'?'Hit-streak 8':'ติดกัน 8 ครั้ง'), type:'reach_combo_strict',
+        need: hard?10 : easy?6 : 8, progress:0 },
 
-    { key:'power_collect',icon:'🛡️',labelTH:'เก็บพลังพิเศษ',          labelEN:'Collect power-ups',
-      need:(dz)=>dz.POWER,                   tick:null, onPower:()=> true },
-  ];
-
-  function needOf(key){
-    const dz = DZ[diff] || DZ.Normal;
-    const q = ALL_QUESTS.find(q=>q.key===key);
-    return q ? q.need(dz) : 0;
+      // 10) อยู่รอด X วิ (เน้นเล่นต่อเนื่อง)
+      { key:'survive_15s', icon:'⌛', label:(LANG==='EN'?'Survive 15s':'เอาตัวรอด 15 วิ'), type:'time_survive',
+        need: hard?18 : easy?12 : 15, progress:0 },
+    ];
   }
 
-  // pick 3 quests randomly (consistent labels per lang)
-  function pickThree(){
-    const arr = [...ALL_QUESTS];
-    shuffle(arr);
-    return arr.slice(0,3).map(q=>({
-      key:q.key, icon:q.icon,
-      label: (lang==='EN'? q.labelEN : q.labelTH),
-      need: q.need(DZ[diff]||DZ.Normal),
-      progress: 0, done:false, fail:false, meta:{}
-    }));
+  // ---- core evaluators ----
+  function onHit(payload){
+    // payload: { result:'good'|'perfect', points, ui, meta:{gold?}, comboNow }
+    if(!_cur) return;
+
+    // อัปเดต streak
+    _hitStreak = (_hitStreak|0) + 1;
+
+    switch(_cur.type){
+      case 'count_hit_good': {
+        // นับทุก hit ที่ไม่ใช่ miss (ทั้ง good/perfect)
+        _cur.progress++;
+        break;
+      }
+      case 'count_perfect': {
+        if(payload?.result==='perfect') _cur.progress++;
+        break;
+      }
+      case 'reach_combo': {
+        if((payload?.comboNow|0) >= (_cur.need|0)) _cur.progress = _cur.need;
+        break;
+      }
+      case 'reach_combo_strict': {
+        // ใช้ comboNow เช่นกัน
+        if((payload?.comboNow|0) >= (_cur.need|0)) _cur.progress = _cur.need;
+        break;
+      }
+      case 'count_gold': {
+        if(payload?.meta?.gold) _cur.progress++;
+        break;
+      }
+      // reach_score / time_xxx ประเมินใน tick
+    }
+
+    checkDoneOrFail();
   }
 
-  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+  function onMiss(info){
+    // info.kind เช่น 'junk_click', 'junk_timeout', 'good_timeout', 'gold_timeout' ...
+    _hitStreak = 0;        // รีเซ็ตสตรีคเสมอ
+    _sinceAnyMiss = 0;     // รีเซ็ตตัวจับเวลา no-miss
+    if(String(info?.kind||'').startsWith('junk')) _sinceJunkMiss = 0;
 
-  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+    if(!_cur) return;
 
-  // HUD chips refresh
-  function refresh(){
-    if(!HUD || !HUD.setQuestChips) return;
-    const list = activeList.map((m,idx)=>({
-      key:m.key, label:m.label, icon:m.icon,
-      progress:m.progress|0, need:m.need|0, done:!!m.done, fail:!!m.fail,
-      active:(idx===activeIdx)
-    }));
-    // render + mark active
-    HUD.setQuestChips(list);
-    // paint active using data-active
-    const root = document.getElementById('questChips');
-    if(root){
-      [...root.children].forEach((el,i)=>{ if(i===activeIdx) el.setAttribute('data-active','1'); else el.removeAttribute('data-active'); });
+    switch(_cur.type){
+      case 'time_no_junk': {
+        // มี junk miss -> รีเซ็ตความก้าวหน้า
+        if(String(info?.kind||'').startsWith('junk')) _cur.progress = 0;
+        break;
+      }
+      case 'time_no_any_miss': {
+        // มี miss ใด ๆ -> รีเซ็ต
+        _cur.progress = 0;
+        break;
+      }
+      // เควสต์อื่น ๆ ไม่ต้อง fail ทันที (คงความยืดหยุ่น)
+    }
+
+    checkDoneOrFail();
+  }
+
+  function onFever(payload){
+    _feverOn = !!payload?.on;
+    if(!_cur) return;
+
+    if(_cur.type==='fever_once' && _feverOn){
+      _cur.progress = _cur.need;
+      checkDoneOrFail();
     }
   }
 
-  function focus(i){
-    activeIdx = clamp(i|0,0,Math.max(0,activeList.length-1));
-    refresh();
+  function onPower(payload){
+    // ไม่ต้องทำอะไรพิเศษ: เก็บ star ทำใน onHit(meta.gold)
   }
 
-  function advanceFocus(){
-    let i = activeIdx;
-    for(let k=0;k<activeList.length;k++){
-      const idx = (i+k)%activeList.length;
-      if(!activeList[idx].done && !activeList[idx].fail){ activeIdx = idx; refresh(); return; }
-    }
-    // all finished -> keep last
-    refresh();
-  }
+  function onTick(t){
+    // t: { score, dt, fever }
+    SCORE = t?.score|0;
 
-  function incProgress(key, by=1){
-    const q = activeList.find(x=>x.key===key);
-    if(!q) return;
-    if(q.done || q.fail) return;
-    q.progress = clamp((q.progress|0)+(by|0), 0, q.need|0);
-    if(q.progress>=q.need){ q.done=true; COACH?.say(lang==='EN'?'Quest complete!':'ภารกิจสำเร็จ!'); }
-  }
+    // ตัวจับเวลา global
+    _sinceAnyMiss += t?.dt||0;
+    _sinceJunkMiss += t?.dt||0;
 
-  function tickSeconds(secGone){
-    if(!runActive || secGone<=0) return;
-    const a = activeList[activeIdx];
+    if(!_cur) return;
+    _cur._time = (_cur._time||0) + (t?.dt||0);
 
-    // fever time (accumulates even if not focused)
-    incQuestByTick('fever_time', secGone);
-
-    // avoid_junk: increase if this second had no junk
-    if(!counters._hadJunkInThisSecond){
-      incQuestByTick('avoid_junk', secGone);
-      counters.secsNoJunk += secGone;
-    } else {
-      counters.secsNoJunk = 0;
-    }
-
-    // combo_hold
-    if(counters.comboNow >= needOf('combo_once')){
-      incQuestByTick('combo_hold', secGone);
+    switch(_cur.type){
+      case 'reach_score': {
+        if(SCORE >= (_cur.need|0)) _cur.progress = _cur.need;
+        break;
+      }
+      case 'time_no_junk': {
+        // เพิ่มเวลาต่อเนื่องที่ไม่มี junk miss
+        _cur.progress = Math.min(_cur.need, Math.floor(_sinceJunkMiss));
+        break;
+      }
+      case 'time_no_any_miss': {
+        _cur.progress = Math.min(_cur.need, Math.floor(_sinceAnyMiss));
+        break;
+      }
+      case 'time_survive': {
+        // อยู่รอดตามเวลา (ไม่สน miss)
+        _cur.progress = Math.min(_cur.need, Math.floor(_cur._time));
+        break;
+      }
+      // reach_combo / streak evaluated in onHit via comboNow
     }
 
-    counters._hadJunkInThisSecond = false;
-    refresh();
+    checkDoneOrFail();
   }
 
-  function incQuestByTick(key, sec){
-    const q = activeList.find(x=>x.key===key);
-    if(!q || q.done || q.fail) return;
-    q.progress = clamp((q.progress|0)+(sec|0), 0, q.need|0);
-    if(q.progress>=q.need){ q.done=true; COACH?.say(lang==='EN'?'Quest complete!':'ภารกิจสำเร็จ!'); }
+  function checkDoneOrFail(){
+    if(!_cur) return;
+    const done = (_cur.progress|0) >= (_cur.need|0);
+    if(done){
+      _cur.done = true;
+      refreshHUD();
+      sayCoach('เยี่ยม! ผ่านเควสต์แล้ว', 'Nice! Quest cleared');
+      nextQuest(600);
+      return;
+    }
+    // (ออปชัน) บางเควสต์อาจมีเงื่อนไข fail ทันที—ตอนนี้ออกแบบเป็นแนวรีเซ็ต ไม่ fail
+    refreshHUD();
   }
 
-  // ---------------- Public API ----------------
-  function bindToMain({hud,coach}){
-    HUD=hud||HUD; COACH=coach||COACH;
-    return { refresh };
+  // ---- Public API ----
+  function bindToMain({hud, coach}={}){
+    HUD = hud||null; COACH = coach||null;
+    return { refresh: refreshHUD };
   }
 
-  function beginRun(_mode,_diff,_lang,_timeSec){
-    mode=_mode||'goodjunk'; diff=_diff||'Normal'; lang=(_lang||'TH').toUpperCase(); matchTime=_timeSec|0;
-    counters = { score:0,hits:0,perfect:0,gold:0,power:0,junkClicks:0,goodTimeout:0,
-                 comboNow:0,comboBest:0,feverOn:false,feverSecs:0,secsNoJunk:0,_hadJunkInThisSecond:false };
-    activeList = pickThree();
-    activeIdx = 0;
-    runActive=true;
-    refresh();
+  function beginRun(modeKey, diff, lang='TH', matchTime=45){
+    IN_RUN = true;
+    LANG = (lang||'TH').toUpperCase();
+    MATCH_TIME = matchTime|0;
+
+    _catalog = buildCatalog(diff||'Normal');
+    _queue = shuffle(_catalog.map(cloneQuest));
+    _idx = -1;
+    _cur = null;
+
+    _doneList = [];
+    _failList = [];
+
+    _sinceAnyMiss = 0;
+    _sinceJunkMiss = 0;
+    _hitStreak = 0;
+    _feverOn = false;
+
+    nextQuest(0); // เริ่มเควสต์แรกทันที
   }
 
-  // hit/miss/power/fever events sent by main/modes
-  function event(type, payload={}){
-    if(!runActive) return;
+  function endRun({score}={}){
+    const summary = {
+      totalDone: _doneList.length|0,
+      doneList: _doneList.slice(0),
+      failList: _failList.slice(0),
+      lastQuest: _cur ? { key:_cur.key, progress:_cur.progress, need:_cur.need } : null
+    };
+    // แสดงบน HUD (หาก main เรียก hud.showResult อยู่แล้ว ก็ใช้ข้อมูลนี้)
+    return summary;
+  }
+
+  function event(type, payload){
+    if(!IN_RUN) return;
     switch(type){
-      case 'hit': {
-        counters.hits++;
-        counters.comboNow = payload.comboNow|0;
-        if(payload.points>0) counters.score += (payload.points|0);
-        if(payload.kind==='perfect') counters.perfect++;
-        if(payload.meta?.gold===true){ counters.gold++; incProgress('gold_collect',1); }
-
-        // good_hits / perfect_hits
-        if(payload.kind==='perfect'){ incProgress('perfect_hits',1); incProgress('good_hits',1); }
-        else if(payload.kind==='good'){ incProgress('good_hits',1); }
-
-        // combo_once / no_miss_10
-        if(counters.comboNow> (counters.comboBest|0)) counters.comboBest = counters.comboNow|0;
-        if(counters.comboNow >= needOf('combo_once')) incProgress('combo_once',0); // marked by onAny()
-        if(counters.comboNow >= needOf('no_miss_10')) incProgress('no_miss_10',0);
-
-        refresh();
-        break;
-      }
-      case 'miss': {
-        counters.comboNow = 0;
-        if(payload.kind==='junk'){ counters.junkClicks++; counters._hadJunkInThisSecond = true; }
-        refresh();
-        break;
-      }
-      case 'power': {
-        counters.power++;
-        incProgress('power_collect',1);
-        refresh();
-        break;
-      }
-      case 'fever': {
-        counters.feverOn = !!payload.on;
-        if(payload.on){ incProgress('fever_enter',1); COACH?.say(lang==='EN'?'FEVER!':'ไฟลุก!'); }
-        refresh();
-        break;
-      }
-      case 'quest:advance': {
-        // manual ask to go next
-        advanceFocus();
-        break;
-      }
+      case 'hit':   onHit(payload||{}); break;
+      case 'miss':  onMiss(payload||{}); break;
+      case 'fever': onFever(payload||{}); break;
+      case 'power': onPower(payload||{}); break;
     }
   }
 
-  function tick({score=0, dt=0, fever=false}={}){
-    counters.score = score|0;
-    if(fever && !counters.feverOn){ counters.feverOn=true; } // sync
-    if(!fever && counters.feverOn){ counters.feverOn=false; }
-    if(fever && dt>0){ counters.feverSecs += dt; }
+  function tick(t){ if(!IN_RUN) return; onTick(t||{}); }
 
-    if(dt>0){ tickSeconds(dt|0); }
-
-    // auto-advance focus if current quest completed
-    const cur = activeList[activeIdx];
-    if(cur && (cur.done || cur.fail)) advanceFocus();
-  }
-
-  function endRun({score=0}={}){
-    runActive=false;
-    const totalDone = activeList.filter(q=>q.done).length;
-    return { totalDone };
-  }
-
-  function getStatSnapshot(){
-    return { ...counters };
-  }
-
-  function buildSummary(){
-    const lines=[];
-    const cz = getStatSnapshot();
-    lines.push(`Quests: ${activeList.filter(q=>q.done).length}/${activeList.length}`);
-    for(const q of activeList){
-      const mark = q.done ? '✓' : (q.fail ? '✗' : `${q.progress}/${q.need}`);
-      lines.push(`${q.icon} ${q.label}: ${mark}`);
-    }
-    lines.push(`Gold: ${cz.gold}, Perfect: ${cz.perfect}, Best Combo: ${cz.comboBest}`);
-    lines.push(`Fever time: ${Math.round(cz.feverSecs)}s`);
-    return lines;
-  }
-
-  function profile(){ return {}; }
-
-  return {
-    bindToMain, beginRun, endRun, event, tick, getStatSnapshot, buildSummary, profile,
-    focus, // optional public
-  };
+  return { bindToMain, beginRun, endRun, event, tick };
 })();
