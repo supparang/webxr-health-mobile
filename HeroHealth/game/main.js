@@ -1,4 +1,4 @@
-// === Hero Health Academy — /game/main.js (dual-loop engine + prime spawn + idle watchdog + kickoff update) ===
+// === Hero Health Academy — /game/main.js (countdown + wall-clock second timer) ===
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
@@ -6,7 +6,6 @@ window.__HHA_BOOT_OK = 'main';
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
 
-  // ---------- Core (with safe fallbacks) ----------
   let HUDClass, CoachClass, ScoreSystem, SFXClass, Quests, Progress;
 
   async function loadCore(){
@@ -17,7 +16,7 @@ window.__HHA_BOOT_OK = 'main';
     catch { CoachClass = class { constructor(){} onStart(){} onBad(){} onTimeLow(){} onQuestStart(){} onQuestDone(){} onFever(){} onEnd(){} }; }
 
     try { ({ ScoreSystem } = await import('./core/score.js')); }
-    catch { ScoreSystem = class { constructor(){this.value=0;this.combo=0;this.bestCombo=0;} add(n=0){this.value+=(n|0);} get(){return this.value|0;} reset(){this.value=0;this.combo=0;this.bestCombo=0;} }; }
+    catch { ScoreSystem = class { constructor(){this.value=0;this.combo=0;this.bestCombo=0;this.fever={active:false,charge:0,timeLeft:0};} add(n=0){this.value+=(n|0); if(n>0){this.combo++; if(this.combo>this.bestCombo)this.bestCombo=this.combo;} else {this.combo=0;}} get(){return this.value|0;} reset(){this.value=0;this.combo=0;this.bestCombo=0;} }; }
 
     try { ({ SFX: SFXClass } = await import('./core/sfx.js')); }
     catch {
@@ -35,31 +34,7 @@ window.__HHA_BOOT_OK = 'main';
     try { ({ Quests } = await import('./core/quests.js')); }
     catch {
       Quests = {
-        _state:null,_cur:0,_elapsed:0,_nojunk:0,_hud:null,_coach:null,
-        bindToMain({hud,coach}){ this._hud=hud; this._coach=coach; return this; },
-        beginRun(){ const base=[
-            {key:'good_20',label:'แตะของดี 20',need:20,type:'inc',icon:'🥗'},
-            {key:'perfect_10',label:'PERFECT 10',need:10,type:'inc',icon:'💥'},
-            {key:'combo_15',label:'คอมโบ 15',need:15,type:'combo',icon:'🔥'},
-            {key:'gold_3',label:'เก็บทอง 3',need:3,type:'gold',icon:'🌟'},
-            {key:'nojunk',label:'ไม่กด Junk',need:1,type:'nojunk',icon:'❎'}
-          ];
-          const pick=[]; const pool=[...base];
-          while(pick.length<3 && pool.length) pick.push(pool.splice((Math.random()*pool.length)|0,1)[0]);
-          this._state=pick.map((q,i)=>({...q,progress:0,done:false,fail:false,active:i===0}));
-          this._cur=0; this._elapsed=0; this._nojunk=0;
-          this._hud?.setQuestChips(this._state); this._coach?.onQuestStart?.(this._state[0].label);
-        },
-        event(kind,p={}){ const s=this._state, i=this._cur; if(!s||!s[i]) return; const q=s[i];
-          if(kind==='tick'){ this._elapsed+=(p.dt||0); if(q.type==='time') q.progress=Math.min(q.need|0, Math.floor(this._elapsed)); this._nojunk += (p.dt||0); }
-          if(kind==='hit'){ if(q.type==='inc' && (p.meta?.good||p.meta?.golden)) q.progress++; if(q.type==='gold' && (p.meta?.gold===1||p.meta?.power==='gold')) q.progress++; if(q.type==='combo') q.progress=Math.max(q.progress, p.comboNow|0); this._nojunk=0; }
-          if(kind==='bad'){ if(q.type==='nojunk'){ q.fail=true; } this._nojunk=0; }
-          const ok=(q.type==='combo')?(q.progress>=q.need):(q.progress>=q.need);
-          if(ok && !q.fail){ q.done=true; q.active=false; this._coach?.onQuestDone?.(); this._cur++; if(s[this._cur]){ s[this._cur].active=true; this._coach?.onQuestStart?.(s[this._cur].label); } }
-          this._hud?.setQuestChips(s);
-        },
-        tick(meta){ this.event('tick', meta); },
-        endRun(){ const s=this._state||[]; return { list:s, totalDone:s.filter(x=>x.done).length }; }
+        bindToMain(){return this;}, beginRun(){}, event(){}, tick(){}, endRun(){return{list:[],totalDone:0}}
       };
     }
 
@@ -67,16 +42,15 @@ window.__HHA_BOOT_OK = 'main';
     catch { Progress = { init(){}, beginRun(){}, endRun(){}, getStatSnapshot(){return{}} }; }
   }
 
-  // ---------- Mode loader ----------
   const MODE_PATH = (k)=>`./modes/${k}.js`;
   async function loadMode(key){
     const mod = await import(MODE_PATH(key));
     return { name:mod.name||key, create:mod.create||null, init:mod.init||null, tick:mod.tick||null, update:mod.update||null, start:mod.start||null, cleanup:mod.cleanup||null, setFever:mod.setFever||null };
   }
 
-  // ---------- Emergency builtin ----------
+  // --- Emergency builtin (ย่อ) ---
   function BuiltinGoodJunk(){
-    let alive=false, t=0, interval=0.60, life=2.0, host=null, fever=false;
+    let alive=false,t=0,interval=0.6,host=null,fever=false;
     function H(){ host=document.getElementById('spawnHost')||document.body; }
     function spawn(bus){
       H();
@@ -85,19 +59,13 @@ window.__HHA_BOOT_OK = 'main';
       const glyph=golden?'🌟':(good?G[Math.random()*G.length|0]:B[Math.random()*B.length|0]);
       const d=document.createElement('button'); d.textContent=glyph; d.type='button';
       Object.assign(d.style,{position:'fixed',left:(56+Math.random()*(innerWidth-112))+'px',top:(96+Math.random()*(innerHeight-240))+'px',transform:'translate(-50%,-50%)',font:`900 ${golden?64:54}px ui-rounded`,border:0,background:'transparent',filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))',cursor:'pointer',zIndex:5500});
-      const kill=setTimeout(()=>{ try{d.remove();}catch{} if(good) bus?.miss?.({source:'good-timeout'}); }, (life+(golden?0.28:0))*1000|0);
+      const kill=setTimeout(()=>{ try{d.remove();}catch{} if(good) bus?.miss?.({source:'good-timeout'}); }, (2.0+(golden?0.28:0))*1000|0);
       d.addEventListener('click',(ev)=>{ clearTimeout(kill); try{d.remove();}catch{}; if(good){ const perfect=golden||Math.random()<0.2; const pts=Math.round((perfect?200:100)*(fever?1.5:1)); bus?.hit?.({kind:perfect?'perfect':'good',points:pts,ui:{x:ev.clientX,y:ev.clientY},meta:{good:1,golden:golden?1:0}}); } else { bus?.bad?.({source:'junk-click'}); } }, {passive:true});
       host.appendChild(d);
     }
-    return {
-      start(){ alive=true; t=0; H(); for(let i=0;i<3;i++) spawn(busFor()); },
-      setFever(on){ fever=!!on; },
-      update(dt,bus){ if(!alive) return; t+=dt; while(t>=interval){ t-=interval; spawn(bus); } },
-      cleanup(){ alive=false; try{ (document.getElementById('spawnHost')||{}).innerHTML=''; }catch{} }
-    };
+    return { start(){ alive=true; t=0; H(); for(let i=0;i<3;i++) spawn(busFor()); }, setFever(on){ fever=!!on; }, update(dt){ if(!alive)return; t+=dt; while(t>=interval){ t-=interval; spawn(busFor()); } }, cleanup(){ alive=false; try{ (document.getElementById('spawnHost')||{}).innerHTML=''; }catch{} } };
   }
 
-  // ---------- Engine state ----------
   const TIME_BY_MODE = { goodjunk:45, groups:60, hydration:50, plate:55 };
   function getMatchTime(mode,diff){ const base=(TIME_BY_MODE[mode]??45); if(diff==='Easy') return base+5; if(diff==='Hard') return Math.max(20,base-5); return base; }
 
@@ -105,77 +73,106 @@ window.__HHA_BOOT_OK = 'main';
     playing:false, paused:false, remain:45,
     sys:{ score:null, sfx:null },
     modeKey:'goodjunk', diff:'Normal',
-    modeAPI:null, modeInst:null, state:null, coach:null,
-    matchTime:45, fever:false, feverBreaks:0,
+    modeAPI:null, modeInst:null, coach:null,
+    matchTime:45, fever:false,
     gold:0, goods:0, junkBad:0, misses:0,
-    _dtMark:0, _secAccum:0, _lastRAF:0, _activity:0,
-    _usingBuiltin:false
+    _dtMark:0, _lastRAF:0, _activity:0,
+    _usingBuiltin:false,
+    _secTimer:null, _engineTimer:null, _safetyPump:null
   };
-  let hud=null, _engineTimer=null, _safetyPump=null;
+  let hud=null;
 
   function markActivity(){ R._activity = performance.now(); }
-  function setTopHUD(){ hud?.setTop({mode:R.modeKey,diff:R.diff}); hud?.setTimer(R.remain); hud?.updateHUD(R.sys.score?.get?R.sys.score.get():0, R.sys.score?.combo|0); }
+  function setTopHUD(){ hud?.setTop({mode:R.modeKey,diff:R.diff}); hud?.setTimer(R.remain); hud?.updateHUD(R.sys.score?.get?.()||0, R.sys.score?.combo|0); }
 
-  // ---------- Fever ----------
-  function feverOn(){ if(R.fever) return; R.fever=true; R.feverBreaks=0; hud?.showFever(true); R.sys.sfx?.bgmMain(false); R.sys.sfx?.bgmFever(true); R.coach?.onFever?.(); R.modeAPI?.setFever?.(true); Quests?.event?.('fever',{on:true}); }
-  function feverOff(){ if(!R.fever) return; R.fever=false; R.feverBreaks=0; hud?.showFever(false); R.sys.sfx?.bgmFever(false); R.sys.sfx?.bgmMain(true); R.modeAPI?.setFever?.(false); Quests?.event?.('fever',{on:false}); }
+  // ---- Fever (stub) ----
+  function feverOn(){ if(R.fever) return; R.fever=true; hud?.showFever(true); R.sys.sfx?.bgmMain(false); R.sys.sfx?.bgmFever(true); R.modeAPI?.setFever?.(true); }
+  function feverOff(){ if(!R.fever) return; R.fever=false; hud?.showFever(false); R.sys.sfx?.bgmFever(false); R.sys.sfx?.bgmMain(true); R.modeAPI?.setFever?.(false); }
 
-  // ---------- Bus ----------
+  // ---- Bus ----
   function busFor(){
     return {
       sfx:R.sys.sfx,
-      hit:(e)=>{ markActivity(); const pts=(e?.points)|0; if(pts) R.sys.score.add(pts,{kind:e?.kind}); 
-        R.sys.score.combo=(R.sys.score.combo|0)+1; if(R.sys.score.combo>(R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo;
+      hit:(e)=>{ markActivity();
+        const pts=(e?.points)|0; if(pts) R.sys.score.add(pts,{kind:e?.kind});
         if(e?.meta?.gold===1 || e?.meta?.power==='gold') R.gold++; if(e?.meta?.good) R.goods++;
-        if(!R.fever && (R.sys.score.combo|0)>=10) feverOn();
-        hud && e?.ui && hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`); Quests?.event?.('hit',{...e,pointsAccum:R.sys.score.get(),comboNow:R.sys.score.combo});
+        hud && e?.ui && hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`);
+        Quests?.event?.('hit',{...e,pointsAccum:R.sys.score.get?.()||0,comboNow:R.sys.score.combo|0});
         setTopHUD();
       },
-      miss:(info)=>{ markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.misses++; R.sys.score.combo=0; R.coach?.onBad?.(); Quests?.event?.('miss',info||{}); setTopHUD(); },
-      bad:(info)=>{ markActivity(); if(R.fever && ++R.feverBreaks>=3) feverOff(); R.junkBad++; R.sys.score.combo=0; R.sys.sfx?.bad?.(); Quests?.event?.('bad',info||{}); setTopHUD(); },
+      miss:(info)=>{ markActivity(); R.misses++; R.sys.score.add(0,{kind:'miss'}); Quests?.event?.('miss',info||{}); setTopHUD(); },
+      bad:(info)=>{ markActivity(); R.junkBad++; R.sys.score.add(0,{kind:'bad'}); R.sys.sfx?.bad?.(); Quests?.event?.('bad',info||{}); setTopHUD(); },
       power:(kind)=>{ markActivity(); R.sys.sfx?.power?.(); Quests?.event?.('power',{kind}); setTopHUD(); }
     };
   }
 
-  // ---------- Dual-loop engine ----------
+  // ---- Render step (ไม่ลดเวลาแล้ว) ----
   function step(dt){
     if(!R.playing || R.paused) return;
-    R._secAccum += dt;
-    while(R._secAccum>=1){ R._secAccum -= 1; R.remain=Math.max(0,(R.remain|0)-1); hud?.setTimer(R.remain); if(R.remain===10) R.coach?.onTimeLow?.(); Quests?.tick?.({score:R.sys.score.get?.()||0,dt:1,fever:R.fever}); }
     try{ R.modeAPI?.update?.(dt, busFor()); }catch(e){ console.warn('[mode.update]', e); }
     try{ R.modeInst?.update?.(dt, busFor()); }catch(e){ console.warn('[inst.update]', e); }
-    if(R.remain<=0){ endGame(); }
   }
-
   function tickRAF(){
-    if(!R.playing){ R._raf = requestAnimationFrame(tickRAF); return; }
-    const now = performance.now(); const dt = Math.max(0,(now-(R._dtMark||now))/1000); R._dtMark=now; R._lastRAF=now;
+    const now = performance.now();
+    const dt = Math.max(0,(now-(R._dtMark||now))/1000); R._dtMark=now; R._lastRAF=now;
     step(dt);
-    R._raf = requestAnimationFrame(tickRAF);
+    requestAnimationFrame(tickRAF);
   }
 
-  // ---------- Start / End / Pause ----------
-  function threeTwoOneGo(cb){
-    if(!hud?.showBig){ cb(); return; }
-    const seq=['3','2','1','GO!']; let i=0;
-    const run=()=>{ hud.showBig(seq[i]); if(seq[i]==='GO!'){ setTimeout(cb, 340); } else { setTimeout(()=>{ i++; run(); }, 480); } };
+  // ---- Second ticker (แยกเวลาแน่ๆ) ----
+  function startSecondTicker(){
+    stopSecondTicker();
+    R._secTimer = setInterval(()=>{
+      if(!R.playing || R.paused) return;
+      R.remain = Math.max(0,(R.remain|0)-1);
+      hud?.setTimer(R.remain);
+      Quests?.tick?.({score:R.sys.score.get?.()||0,dt:1,fever:R.fever});
+      if(R.remain===10) R.coach?.onTimeLow?.();
+      if(R.remain<=0) endGame();
+    }, 1000);
+  }
+  function stopSecondTicker(){ if(R._secTimer){ clearInterval(R._secTimer); R._secTimer=null; } }
+
+  // ---- Countdown overlay ----
+  function showCountdown(cb){
+    const id='countdown';
+    let el = document.getElementById(id);
+    if(!el){
+      el = document.createElement('div');
+      el.id=id;
+      el.style.cssText='position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);font:900 120px ui-rounded,system-ui;color:#ffe8b0;text-shadow:0 10px 40px rgba(0,0,0,.6);z-index:3000;pointer-events:none;opacity:0;transition:opacity .2s, transform .2s';
+      document.body.appendChild(el);
+    }
+    const seq=['3','2','1','GO!'];
+    let i=0;
+    const run=()=>{
+      el.textContent = seq[i];
+      el.style.opacity='1'; el.style.transform='translate(-50%,-50%) scale(1)';
+      setTimeout(()=>{
+        el.style.opacity='0'; el.style.transform='translate(-50%,-50%) scale(.92)';
+        if(seq[i]==='GO!'){ setTimeout(()=>{ try{ el.remove(); }catch{}; cb(); }, 240); }
+        else { setTimeout(()=>{ i++; run(); }, 260); }
+      }, 420);
+    };
     run();
   }
 
+  // ---- Start / End / Pause ----
   async function startGame(){
     if(window.HHA?._busy) return; window.HHA=window.HHA||{}; window.HHA._busy=true;
-
     await loadCore(); Progress?.init?.();
 
     R.modeKey=document.body.getAttribute('data-mode')||'goodjunk';
     R.diff   =document.body.getAttribute('data-diff')||'Normal';
-    R.matchTime=getMatchTime(R.modeKey,R.diff); R.remain=R.matchTime|0;
+    R.matchTime=getMatchTime(R.modeKey,R.diff);
+    R.remain=R.matchTime|0;
 
     R.gold=0; R.goods=0; R.junkBad=0; R.misses=0;
-    R._dtMark=performance.now(); R._secAccum=0; R._lastRAF=performance.now(); markActivity();
+    R._dtMark=performance.now(); markActivity();
     R._usingBuiltin=false;
 
-    hud=new HUDClass(); hud.hideResult?.(); hud.resetBars?.(); hud.setTop?.({mode:R.modeKey,diff:R.diff}); hud.setTimer?.(R.remain); hud.updateHUD?.(0,0);
+    hud=new HUDClass(); hud.hideResult?.(); hud.resetBars?.();
+    hud.setTop?.({mode:R.modeKey,diff:R.diff}); hud.setTimer?.(R.remain); hud.updateHUD?.(0,0);
 
     R.sys.score=new ScoreSystem(); R.sys.score.reset?.();
     R.sys.sfx  =new SFXClass();
@@ -192,27 +189,27 @@ window.__HHA_BOOT_OK = 'main';
     if(api?.create){ R.modeInst=api.create({engine:{},hud,coach:R.coach}); try{ R.modeInst?.start?.({time:R.matchTime,difficulty:R.diff}); }catch{} }
     if(api?.start){ try{ api.start({time:R.matchTime,difficulty:R.diff}); }catch{} }
 
-    // PRIME: call a few updates so modes that prefill via update() will spawn immediately
-    try{ for(let i=0;i<3;i++) api?.update?.(0.40, busFor()); }catch{}
+    // Prime one update กันจอดำ
+    try{ api?.update?.(0.5, busFor()); R.modeInst?.update?.(0.5, busFor()); }catch{}
 
     // UI & BGM
     $('#menuBar')?.setAttribute('data-hidden','1'); $('#menuBar')&&( $('#menuBar').style.display='none' );
     document.body.setAttribute('data-playing','1');
     R.sys.sfx?.bgmFever(false); R.sys.sfx?.bgmMain(true);
 
-    threeTwoOneGo(()=>{
-      R.playing=true; R.paused=false; R._dtMark=performance.now(); R._secAccum=0; setTopHUD();
+    // ---- Countdown แล้วค่อยเริ่ม loop + second ticker ----
+    showCountdown(()=>{
+      R.playing=true; R.paused=false;
+      R._dtMark=performance.now(); setTopHUD();
 
-      // === NEW: kickoff spawn/update once right after GO! (prevents silent start if RAF is throttled) ===
-      try { R.modeAPI?.update?.(0.5, busFor()); R.modeInst?.update?.(0.5, busFor()); } catch {}
+      // Loops
+      requestAnimationFrame(tickRAF);
+      clearInterval(R._engineTimer); R._engineTimer=setInterval(()=>step(1/30), 1000/30);
+      startSecondTicker();
 
-      // Dual-loop: RAF + interval 30fps
-      cancelAnimationFrame(R._raf); R._raf=requestAnimationFrame(tickRAF);
-      clearInterval(_engineTimer); _engineTimer=setInterval(()=>step(1/30), 1000/30);
-
-      // Safety pump: ถ้าว่างเงียบเกิน 1.2s ให้เตะ update เอง
-      clearInterval(_safetyPump);
-      _safetyPump=setInterval(()=>{
+      // Safety pump กัน idle
+      clearInterval(R._safetyPump);
+      R._safetyPump=setInterval(()=>{
         if(!R.playing || R.paused) return;
         const idleFor = performance.now() - (R._activity||0);
         if(idleFor > 1200){
@@ -221,18 +218,6 @@ window.__HHA_BOOT_OK = 'main';
         }
       }, 600);
 
-      // ถ้า 2.5s ยังไม่เกิดสกอร์/เหตุการณ์เลย → เปิด fallback
-      setTimeout(()=>{
-        if(!R._usingBuiltin && (R.sys.score.get?.()||0)===0 && R.misses===0 && R.junkBad===0){
-          const B = BuiltinGoodJunk();
-          try{ B.start({}); }catch{}
-          R.modeAPI = { update:B.update.bind(B), start:B.start.bind(B), cleanup:B.cleanup.bind(B), setFever:B.setFever.bind(B) };
-          R.modeInst = null;
-          R._usingBuiltin = true;
-          hud?.toast?.('Fallback mode active');
-        }
-      }, 2500);
-
       window.HHA._busy=false;
     });
   }
@@ -240,9 +225,9 @@ window.__HHA_BOOT_OK = 'main';
   function endGame(){
     if(!R.playing) return;
     R.playing=false;
-    cancelAnimationFrame(R._raf); clearInterval(_engineTimer); clearInterval(_safetyPump);
+    clearInterval(R._engineTimer); clearInterval(R._safetyPump); stopSecondTicker();
 
-    try{ R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(R.state,hud); }catch{}
+    try{ R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(); }catch{}
     const score=R.sys.score?.get?R.sys.score.get():0, bestC=R.sys.score?.bestCombo|0;
     const stars=(score>=2000)?5:(score>=1500)?4:(score>=1000)?3:(score>=600)?2:(score>=200)?1:0;
     const qsum=Quests?.endRun?.({score})||{list:[],totalDone:0};
@@ -264,7 +249,7 @@ window.__HHA_BOOT_OK = 'main';
     if(!R.playing) return;
     R.paused=!!on;
     if(R.paused){ R.sys.sfx?.bgmMain(false); R.sys.sfx?.bgmFever(false); hud?.toast?.('Paused'); }
-    else { R.sys.sfx?.bgmMain(true); if(R.fever) R.sys.sfx?.bgmFever(true); R._dtMark=performance.now(); markActivity(); hud?.toast?.('Resume'); }
+    else { R.sys.sfx?.bgmMain(true); if(R.fever) R.sys.sfx?.bgmFever(true); markActivity(); hud?.toast?.('Resume'); }
   }
 
   // Expose
