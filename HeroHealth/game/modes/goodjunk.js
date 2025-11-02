@@ -1,32 +1,28 @@
-// === modes/goodjunk.js — DOM-spawn icons + Fever hooks + Shield/Star (stable, HUD-aware) ===
+// === modes/goodjunk.js — DOM-spawn icons + correct miss + star meta ===
 export const name = 'goodjunk';
 
 const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
 const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍗','🍖','🍫','🥓','🍿','🧈','🧂'];
-const POWERS = ['star','shield']; // star=+points burst, shield=ignore next miss
+const POWERS = ['star','shield']; // star=คะแนน+นับทอง, shield=กันพลาด 1 ครั้ง
 
 let host=null, alive=false;
 let diff='Normal';
 let iconSizeBase=48;
-
-let spawnIntervalS = 0.70;   // เวลาต่อ 1 spawn (น้อย = เร็ว)
-let lifeS          = 1.60;   // อายุไอคอน
-let _accum = 0;              // time accumulator
+let spawnIntervalS = 0.70;   // Normal
+let lifeS           = 1.60;
+let _accum = 0;
 let fever=false, allowMiss=0;
 
 export function start(cfg={}){
   ensureHost(); clearHost(); alive=true;
   diff = String(cfg.difficulty||'Normal');
-
   if (diff==='Easy'){ spawnIntervalS=0.82; lifeS=1.90; iconSizeBase=54; }
   else if (diff==='Hard'){ spawnIntervalS=0.56; lifeS=1.40; iconSizeBase=40; }
   else { spawnIntervalS=0.70; lifeS=1.60; iconSizeBase=48; }
-
-  _accum = 0;
 }
 
 export function stop(){ alive=false; clearHost(); }
-export function setFever(on){ fever = !!on; }
+export function setFever(on){ fever=!!on; }
 export function grantShield(n=1){ allowMiss += n|0; }
 function consumeShield(){ if(allowMiss>0){ allowMiss--; return true; } return false; }
 
@@ -41,16 +37,19 @@ function ensureHost(){
 }
 function clearHost(){ try{ host && (host.innerHTML=''); }catch{} }
 
+function onMiss(bus, kind='miss'){
+  if (consumeShield()){ bus?.sfx?.power?.(); return; }
+  bus?.miss?.({kind}); bus?.sfx?.bad?.();
+}
+
 function spawnOne(glyph, isGood, isGolden, bus){
   const d=document.createElement('button');
   d.className='spawn-emoji'; d.type='button'; d.textContent=glyph;
-
   const size = (isGolden? (iconSizeBase+8) : iconSizeBase);
   Object.assign(d.style,{
     position:'absolute', border:'0', background:'transparent',
     fontSize:size+'px', transform:'translate(-50%,-50%)',
-    filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))',
-    cursor:'pointer'
+    filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))', cursor:'pointer'
   });
 
   const pad=56, W=innerWidth, H=innerHeight;
@@ -58,23 +57,18 @@ function spawnOne(glyph, isGood, isGolden, bus){
   const y = Math.floor(pad + Math.random()*(H - pad*2 - 140));
   d.style.left = x+'px'; d.style.top = y+'px';
 
-  // อายุ (หมดเวลา = miss ชนิด good_timeout / junk_timeout)
   const lifeMs = Math.floor((lifeS + (isGolden?0.25:0))*1000);
-  const killto = setTimeout(()=>{
-    try{ d.remove(); }catch{}
-    if (isGolden){
-      // ทองหมดเวลา = นับเป็น miss แบบ good ก็ได้ (ให้บทเรียนเรื่องโอกาส)
-      onMiss(bus,{kind:'gold_timeout'});
-    } else {
-      onMiss(bus,{kind: isGood ? 'good_timeout' : 'junk_timeout'});
-    }
+  const killto = setTimeout(()=>{ 
+    try{ d.remove(); }catch{} 
+    // ❗ หมดเวลา: นับพลาดเฉพาะ good/gold เท่านั้น (ปล่อย junk ให้หมดเวลาไม่ถือว่าพลาด)
+    if (isGood || isGolden) onMiss(bus, isGolden?'gold_timeout':'good_timeout');
   }, lifeMs);
 
   d.addEventListener('click', (ev)=>{
     clearTimeout(killto);
     explodeAt(x,y);
     try{ d.remove(); }catch{}
-    if (isGood){
+    if (isGood || isGolden){
       const perfect = isGolden || Math.random()<0.22;
       const basePts = perfect ? 200 : 100;
       const mult = fever ? 1.5 : 1.0;
@@ -87,8 +81,8 @@ function spawnOne(glyph, isGood, isGolden, bus){
       });
       if (perfect) bus?.sfx?.perfect?.(); else bus?.sfx?.good?.();
     } else {
-      // คลิก junk = miss ชัดเจน
-      onMiss(bus,{kind:'junk_click'});
+      // คลิก junk = นับ miss แบบ junk_click
+      onMiss(bus,'junk_click');
     }
   }, { passive:true });
 
@@ -109,27 +103,22 @@ function spawnPower(kind, bus){
   d.addEventListener('click',(ev)=>{
     clearTimeout(killto); try{d.remove();}catch{}
     if (kind==='shield'){ grantShield(1); bus?.power?.('shield'); }
-    else { // ⭐ power = ให้คะแนน และนับเป็น gold ครั้งหนึ่ง
-      bus?.hit?.({ kind:'perfect', points:150, ui:{x:ev.clientX,y:ev.clientY}, meta:{gold:true} });
+    else {
+      // ⭐ = ได้คะแนน + นับ gold
+      bus?.hit?.({ kind:'perfect', points:150, ui:{x:ev.clientX,y:ev.clientY}, meta:{ gold:true } });
+      bus?.sfx?.power?.();
     }
   }, { passive:true });
   host.appendChild(d);
 }
 
-function onMiss(bus, info={}){
-  if (consumeShield()){ bus?.sfx?.power?.(); return; }
-  bus?.miss?.(info); bus?.sfx?.bad?.();
-}
-
 export function update(dt, bus){
   if(!alive) return;
-
   _accum += dt;
   while (_accum >= spawnIntervalS) {
     _accum -= spawnIntervalS;
-
     const r = Math.random();
-    if (r < 0.10){ // 10% power
+    if (r < 0.10){
       spawnPower(POWERS[(Math.random()*POWERS.length)|0], bus);
     } else {
       const isGolden = Math.random() < 0.12;
@@ -140,7 +129,6 @@ export function update(dt, bus){
   }
 }
 
-// เอฟเฟกต์แตกกระจาย
 function explodeAt(x,y){
   const n=8+((Math.random()*6)|0);
   for(let i=0;i<n;i++){
@@ -158,7 +146,7 @@ function explodeAt(x,y){
   }
 }
 
-/* API สำหรับ main รุ่น create() */
+// สำหรับ main ที่ใช้สไตล์ create()
 export function create(){
   return {
     start: (cfg)=>start(cfg),
