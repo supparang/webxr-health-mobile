@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (prod: GOOD-timeout=MISS only, junk=penalty; HUD+Result ok) ===
+// === Hero Health Academy — game/main.js (prod HUD-v2: setTop/setTimer/updateHUD/showFever/Result) ===
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
@@ -10,7 +10,7 @@ window.__HHA_BOOT_OK = 'main';
 
   async function loadCore(){
     try { ({ ScoreSystem } = await import('./core/score.js')); }
-    catch { ScoreSystem = class { constructor(){this.value=0;this.combo=0;this.bestCombo=0;} add(n=0){this.value+=n|0;} get(){return this.value|0;} reset(){this.value=0;this.combo=0;this.bestCombo=0;} }; }
+    catch { ScoreSystem = class { constructor(){this.value=0;this.combo=0;this.bestCombo=0;} add(n=0){this.value=(this.value|0)+(n|0);} get(){return this.value|0;} reset(){this.value=0;this.combo=0;this.bestCombo=0;} }; }
 
     try { ({ SFX: SFXClass } = await import('./core/sfx.js')); }
     catch { SFXClass = class { constructor(){this._on=true;} setEnabled(v){this._on=!!v;} isEnabled(){return !!this._on;} play(){} tick(){} good(){} bad(){} perfect(){} power(){} }; }
@@ -44,71 +44,7 @@ window.__HHA_BOOT_OK = 'main';
     catch { Leaderboard = class { submit(){} renderInto(){} getInfo(){return{text:'-'};} }; }
 
     try { ({ HUD: HUDClass } = await import('./core/hud.js')); }
-    catch {
-      HUDClass = class {
-        constructor(){
-          this.root = $('#hud') || Object.assign(document.createElement('div'),{id:'hud'});
-          if(!$('#hud')){ this.root.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:2000;'; document.body.appendChild(this.root); }
-          this.top = document.createElement('div');
-          this.top.style.cssText='position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
-          this.top.innerHTML = `
-            <div style="display:flex;gap:8px;align-items:center">
-              <span id="hudMode"  style="padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;pointer-events:auto">—</span>
-              <span id="hudDiff"  style="padding:4px 8px;border-radius:10px;background:#102b52;color:#e6f5ff;border:1px solid #1b4b8a;pointer-events:auto">—</span>
-              <span id="hudTime"  style="padding:4px 8px;border-radius:10px;background:#0a1f3d;color:#c9e7ff;border:1px solid #123863;min-width:64px;text-align:center;pointer-events:auto">—</span>
-            </div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>
-              <span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>
-              <span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bfdbfe;border:1px solid #134064;pointer-events:auto">Stars: <b id="hudStar">0</b></span>
-            </div>`;
-          this.root.appendChild(this.top);
-          this.$mode=this.top.querySelector('#hudMode');
-          this.$diff=this.top.querySelector('#hudDiff');
-          this.$time=this.top.querySelector('#hudTime');
-          this.$score=this.top.querySelector('#hudScore');
-          this.$combo=this.top.querySelector('#hudCombo');
-          this.$star =this.top.querySelector('#hudStar');
-
-          this.result = document.createElement('div');
-          this.result.id='resultModal';
-          this.result.style.cssText='position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:2002';
-          this.result.innerHTML = `
-            <div style="width:min(520px,92vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:16px;color:#e6f2ff">
-              <h3 id="resTitle" style="margin:0 0 6px;font:900 20px ui-rounded">Result</h3>
-              <p  id="resDesc"  style="margin:0 0 10px;color:#cfe7ff">—</p>
-              <div id="resStats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>
-              <div style="display:flex;gap:8px;justify-content:flex-end">
-                <button id="resHome"  style="padding:8px 10px;border-radius:10px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer">🏠 Home</button>
-                <button id="resRetry" style="padding:8px 10px;border-radius:10px;background:#123054;color:#dff2ff;border:1px solid #1e4d83;cursor:pointer">↻ Retry</button>
-              </div>
-            </div>`;
-          this.root.appendChild(this.result);
-          this.$resTitle=this.result.querySelector('#resTitle');
-          this.$resDesc =this.result.querySelector('#resDesc');
-          this.$resStats=this.result.querySelector('#resStats');
-          this.onHome=null; this.onRetry=null;
-          this.result.querySelector('#resHome').onclick = ()=>this.onHome?.();
-          this.result.querySelector('#resRetry').onclick= ()=>this.onRetry?.();
-        }
-        setTop({mode,diff,time,score,combo,stars}){
-          if(mode!=null)  this.$mode.textContent  = String(mode);
-          if(diff!=null)  this.$diff.textContent  = String(diff);
-          if(time!=null)  this.$time.textContent  = String(time)+'s';
-          if(score!=null) this.$score.textContent = String(score|0);
-          if(combo!=null) this.$combo.textContent = String(combo|0);
-          if(stars!=null) this.$star.textContent  = String(stars|0);
-        }
-        showResult({title='Result',desc='—',stats=[]}){
-          this.$resTitle.textContent=title; this.$resDesc.textContent=desc;
-          const frag=document.createDocumentFragment();
-          for(const s of stats){ const b=document.createElement('div'); b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38'; b.textContent=s; frag.appendChild(b); }
-          this.$resStats.innerHTML=''; this.$resStats.appendChild(frag);
-          this.result.style.display='flex';
-        }
-        hideResult(){ this.result.style.display='none'; }
-      };
-    }
+    catch { throw new Error('HUD module is required'); } // เราพึ่ง HUD ใหม่นี้แบบเต็ม ๆ
   }
 
   const MODE_PATH = (k)=>`./modes/${k}.js`;
@@ -120,18 +56,6 @@ window.__HHA_BOOT_OK = 'main';
     };
   }
 
-  const FX = {
-    popText(txt,{x,y,ms=700}={}) {
-      const el=document.createElement('div');
-      el.textContent=txt;
-      el.style.cssText=`position:fixed;left:${x|0}px;top:${y|0}px;transform:translate(-50%,-50%);
-        font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:97;opacity:1;transition:all .72s ease-out;`;
-      document.body.appendChild(el);
-      requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
-      setTimeout(()=>el.remove(),ms);
-    }
-  };
-
   const TIME_BY_MODE = { goodjunk:45, groups:60, hydration:50, plate:55 };
   function getMatchTime(mode='goodjunk', diff='Normal'){
     const base = TIME_BY_MODE[mode] ?? 45;
@@ -142,19 +66,17 @@ window.__HHA_BOOT_OK = 'main';
 
   let R = {
     playing:false, startedAt:0, remain:45, raf:0,
-    sys:{ score:null, sfx:null, stars:0 },
+    sys:{ score:null, sfx:null },
     modeKey:'goodjunk', diff:'Normal',
     modeAPI:null, modeInst:null, state:null, coach:null,
-    matchTime:45,
-    feverActive:false, feverBreaks:0
+    matchTime:45, feverActive:false, feverBreaks:0
   };
   let hud=null;
 
   function setBadges(){
-    hud?.setTop?.({
-      mode:R.modeKey, diff:R.diff, time:R.remain,
-      score:R.sys?.score?.get?.()||0, combo:R.sys?.score?.combo|0, stars:R.sys?.stars|0
-    });
+    hud?.setTop?.({ mode:R.modeKey, diff:R.diff });
+    hud?.setTimer?.(R.remain|0);
+    hud?.updateHUD?.(R.sys?.score?.get?.()||0, R.sys?.score?.combo|0);
     const mB=$('#modeBadge'); if(mB) mB.textContent=R.modeKey;
     const dB=$('#diffBadge'); if(dB) dB.textContent=R.diff;
     const sV=$('#scoreVal'); if(sV) sV.textContent=R.sys?.score?.get?.()||0;
@@ -163,8 +85,8 @@ window.__HHA_BOOT_OK = 'main';
   function applyFever(on){
     R.feverActive = !!on;
     try{ R.modeAPI?.setFever?.(R.feverActive); }catch{}
+    hud?.showFever?.(R.feverActive);
     document.body.toggleAttribute?.('data-fever', R.feverActive);
-    // (ถ้ามี BGM/ธีมพิเศษ FEVER ให้สลับตรงนี้)
   }
 
   function busFor(){
@@ -172,28 +94,33 @@ window.__HHA_BOOT_OK = 'main';
       sfx:R.sys.sfx,
       hit(e){
         const pts=e?.points|0;
-        if(pts){ R.sys.score.add(pts); R.sys.score.combo=(R.sys.score.combo|0)+1; R.sys.score.bestCombo=Math.max(R.sys.score.bestCombo|0,R.sys.score.combo|0); }
-        if(e?.kind==='gold'){ R.sys.stars = (R.sys.stars|0)+1; }
-        if(!R.feverActive && (R.sys.score.combo|0)>=10){ R.feverBreaks=0; applyFever(true); try{Quests.event('fever',{on:true});}catch{} }
-        if(e?.ui) FX.popText(`+${pts}`,e.ui);
+        if(pts){
+          R.sys.score.add(pts);
+          R.sys.score.combo=(R.sys.score.combo|0)+1;
+          R.sys.score.bestCombo=Math.max(R.sys.score.bestCombo|0,R.sys.score.combo|0);
+        }
+        if(!R.feverActive && (R.sys.score.combo|0)>=10){
+          R.feverBreaks=0; applyFever(true);
+          try{ Quests.event('fever',{on:true}); }catch{}
+        }
+        if(e?.ui){ hud?.showFloatingText?.(e.ui.x|0, e.ui.y|0, `+${pts}`); }
         try{ Quests.event('hit',{ result:e?.kind||'good', meta:e?.meta||{}, points:pts, comboNow:R.sys.score.combo|0 }); }catch{}
-        setBadges();
+        hud?.updateHUD?.(R.sys?.score?.get?.()||0, R.sys?.score?.combo|0);
       },
-      // ❗ penalty = คลิก JUNK (ไม่ใช่ MISS ทางระบบเควสต์)
+      // junk click = penalty (ไม่ใช่ MISS)
       penalty(info={}){
         R.sys.score.combo=0;
         R.sys.sfx?.bad?.();
+        hud?.updateHUD?.(R.sys?.score?.get?.()||0, R.sys?.score?.combo|0);
         try{ Quests.event('penalty', info); }catch{}
-        setBadges();
-        // ระหว่าง FEVER ถ้าโดน penalty นับ break แต่ไม่ถือเป็น MISS
         if(R.feverActive){ R.feverBreaks++; if(R.feverBreaks>=3){ applyFever(false); try{Quests.event('fever',{on:false});}catch{} } }
       },
-      // ❗ miss = GOOD timeout เท่านั้น (โดนจากโหมด)
+      // MISS = GOOD timeout เท่านั้น (ถูกเรียกจากโหมด)
       miss(info={}){
         R.sys.score.combo=0;
         R.sys.sfx?.bad?.();
+        hud?.updateHUD?.(R.sys?.score?.get?.()||0, R.sys?.score?.combo|0);
         try{ Quests.event('miss', info); }catch{}
-        setBadges();
         if(R.feverActive){ R.feverBreaks++; if(R.feverBreaks>=3){ applyFever(false); try{Quests.event('fever',{on:false});}catch{} } }
       },
       power(k){ try{ Quests.event('power',{kind:k}); }catch{} }
@@ -206,10 +133,17 @@ window.__HHA_BOOT_OK = 'main';
 
     const secGone=Math.floor((tNow-R._secMark)/1000);
     if(secGone>=1){
+      const before = R.remain|0;
       R.remain=Math.max(0,(R.remain|0)-secGone);
       R._secMark=tNow;
-      setBadges();
-      if(R.remain===10) R.coach?.onTimeLow?.();
+      hud?.setTimer?.(R.remain|0);
+
+      // Big countdown 10..1
+      if (before!==R.remain && R.remain>0 && R.remain<=10){
+        hud?.showFloatingText?.(innerWidth/2, Math.max(120, innerHeight*0.30), String(R.remain));
+        if (R.remain===10) R.coach?.onTimeLow?.();
+      }
+
       try{ Quests.tick({ score:(R.sys.score.get?.()||0), dt:secGone, fever:R.feverActive }); }catch{}
     }
 
@@ -220,7 +154,7 @@ window.__HHA_BOOT_OK = 'main';
       else if(R.modeAPI?.tick){ R.modeAPI.tick(R.state||{}, R.sys, hud||{}); }
     }catch(e){ console.warn('[mode.update] error',e); }
 
-    if(R.remain<=0) return endGame(false);
+    if(R.remain<=0) return endGame();
     R.raf=requestAnimationFrame(gameTick);
   }
 
@@ -239,16 +173,16 @@ window.__HHA_BOOT_OK = 'main';
 
     try{
       const res = (typeof Quests.endRun==='function' && Quests.endRun({score})) || null;
-      hud?.showResult({
+      hud?.showResult?.({
         title:'Result',
         desc:`Mode: ${R.modeKey} • Diff: ${R.diff}`,
         stats:[
           `Score: ${score}`,
           `Best Combo: ${bestC}`,
-          `Stars: ${R.sys.stars|0}`,
           `Time: ${R.matchTime|0}s`,
           res && res.totalDone!=null ? `Quests: ${res.totalDone}` : ''
-        ].filter(Boolean)
+        ].filter(Boolean),
+        extra: res?.lines || []
       });
       hud.onHome = ()=>{ hud.hideResult(); const m2=$('#menuBar'); if(m2){ m2.removeAttribute('data-hidden'); m2.style.display='flex'; } };
       hud.onRetry= ()=>{ hud.hideResult(); startGame(); };
@@ -271,7 +205,11 @@ window.__HHA_BOOT_OK = 'main';
 
     if(!hud) hud = new HUDClass();
     hud.hideResult?.();
-    hud.setTop?.({ mode:R.modeKey, diff:R.diff, time:R.remain, score:0, combo:0, stars:0 });
+    hud.setTop?.({ mode:R.modeKey, diff:R.diff });
+    hud.setTimer?.(R.remain|0);
+    hud.updateHUD?.(0,0);
+    hud.resetBars?.();
+    applyFever(false); R.feverBreaks=0;
 
     let api;
     try { api = await loadMode(R.modeKey); }
@@ -281,8 +219,6 @@ window.__HHA_BOOT_OK = 'main';
     R.sys.score = new (ScoreSystem||function(){})();
     R.sys.score.reset?.();
     R.sys.sfx   = new (SFXClass||function(){})();
-    R.sys.score.combo=0; R.sys.score.bestCombo=0; R.sys.stars=0;
-    applyFever(false); R.feverBreaks=0;
 
     R.coach = new CoachClass({ lang:(localStorage.getItem('hha_lang')||'TH') });
     R.coach?.onStart?.();
@@ -292,7 +228,7 @@ window.__HHA_BOOT_OK = 'main';
 
     R.state = { difficulty:R.diff, lang:(localStorage.getItem('hha_lang')||'TH').toUpperCase(), ctx:{} };
 
-    if(api.create){ R.modeInst = api.create({ engine:{fx:FX}, hud, coach:R.coach }); R.modeInst.start?.({ time:R.matchTime, difficulty:R.diff }); }
+    if(api.create){ R.modeInst = api.create({ hud, coach:R.coach }); R.modeInst.start?.({ time:R.matchTime, difficulty:R.diff }); }
     else if(api.init){ api.init(R.state, hud, { time:R.matchTime, life:1600 }); }
     else if(api.start){ api.start({ time:R.matchTime, difficulty:R.diff }); }
 
@@ -301,7 +237,6 @@ window.__HHA_BOOT_OK = 'main';
     R._secMark =performance.now();
     R._dtMark  =performance.now();
 
-    // สำคัญ: ซ่อนเมนูและติดธง playing
     const mb = $('#menuBar');
     if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
     document.body.setAttribute('data-playing','1');
