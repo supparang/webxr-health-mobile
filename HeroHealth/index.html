@@ -69,7 +69,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 </style>
 </head>
 
-<!-- ✅ ตั้งค่า default ให้ body -->
+<!-- ✅ preset โหมดเริ่มต้น -->
 <body data-mode="goodjunk" data-diff="Normal">
 
 <div class="game-wrap">
@@ -129,14 +129,16 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
 <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 
-<!-- ✅ Main (ESM) ชี้ไปที่ /game/ เสมอ -->
+<!-- ✅ Main ESM: ชี้ไปที่ /game/main.js -->
 <script type="module" src="./game/main.js"></script>
 
-<!-- Binder + EDS (Emergency Dummy Spawner) -->
+<!-- Binder + Persist Sound -->
 <script>
 (function(){
+  const MUTED_KEY = 'hha_muted';
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
+
   function toast(text){
     let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
     el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
@@ -146,6 +148,14 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
     w.style.display='block';
   }
+
+  function applyMuteFromStorage(){
+    const muted = localStorage.getItem(MUTED_KEY) === '1';
+    document.querySelectorAll('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
+    const btn = document.querySelector('.btn[data-action="sound"]');
+    if(btn) btn.textContent = muted ? '🔇 Sound' : '🔊 Sound';
+  }
+  applyMuteFromStorage();
 
   setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
 
@@ -158,11 +168,11 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       if (t.hasAttribute('data-diff')) { setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
       if (t.dataset.action === 'howto') { toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
       if (t.dataset.action === 'sound') {
-        const A=[...document.querySelectorAll('audio')];
-        const anyOn=A.some(a=>!a.muted);
-        A.forEach(a=>{ try{ a.muted = anyOn; }catch{} });
-        t.textContent = anyOn ? '🔇 Sound' : '🔊 Sound';
-        toast(anyOn?'เสียง: ปิด':'เสียง: เปิด'); return;
+        const nowMuted = !(localStorage.getItem(MUTED_KEY) === '1');
+        localStorage.setItem(MUTED_KEY, nowMuted ? '1' : '0');
+        applyMuteFromStorage();
+        toast(nowMuted ? 'เสียง: ปิด' : 'เสียง: เปิด');
+        return;
       }
       if (t.dataset.action === 'start') { ev.preventDefault(); startNow(); return; }
     }, false);
@@ -178,35 +188,8 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
   }
 
-  // --- EDS: ตัวล่อฉุกเฉิน (จะหยุดเมื่อ "เกมจริง" ส่งเหตุการณ์) ---
-  const EDS = (function(){
-    let to=null, on=false, host=null;
-    function ensure(){ host=document.getElementById('spawnHost')||document.body; }
-    function spawn(){
-      if(!on) return;
-      ensure();
-      const isGood=Math.random()<0.75, isGolden=Math.random()<0.12;
-      const G=['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍇'], B=['🍔','🍟','🍕','🍩','🍫','🥤'];
-      const glyph=isGolden?'🌟':(isGood?G[Math.random()*G.length|0]:B[Math.random()*B.length|0]);
-      const d=document.createElement('button'); d.textContent=glyph; d.type='button';
-      Object.assign(d.style,{
-        position:'fixed', left:(56+Math.random()*(innerWidth-112))+'px', top:(90+Math.random()*(innerHeight-240))+'px',
-        transform:'translate(-50%,-50%)', font:`900 ${isGolden?64:54}px ui-rounded`,
-        border:0, background:'transparent', filter:'drop-shadow(0 6px 16px rgba(0,0,0,.55))', cursor:'pointer', zIndex:6000
-      });
-      const life= (isGolden?2000:1600);
-      const kill=setTimeout(()=>{ try{d.remove();}catch{}; }, life);
-      d.addEventListener('click',()=>{ clearTimeout(kill); try{d.remove();}catch{}; }, {passive:true});
-      host.appendChild(d);
-    }
-    return {
-      start(){ if(on) return; on=true; spawn(); to=setInterval(spawn, 650); },
-      stop(){ on=false; try{clearInterval(to);}catch{}; to=null; try{(document.getElementById('spawnHost')||{}).innerHTML='';}catch{}; }
-    };
-  })();
-
   function startNow(){
-    // prime audio
+    // prime audio once
     try{
       (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup']).forEach(id=>{
         const a=document.getElementById(id);
@@ -214,36 +197,13 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       });
     }catch{}
 
-    // ถ้ายังไม่มี HHA.startGame ให้ import main.js จาก /game/
-    if (!(window.HHA && typeof window.HHA.startGame === 'function')){
-      import(`./game/main.js?ts=${Date.now()}`).catch(e=>{
-        console.error('[import main.js] fail', e);
-        warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]);
-      });
-    }
-
-    // เปิด EDS ทันที แล้วรอเกมจริงยิง _realEvent
-    EDS.start();
-    const stopCheck = setInterval(()=>{
-      if (window.HHA && window.HHA._realEvent){ // ✅ หยุดเมื่อ "เกมจริง" ส่งอีเวนต์
-        clearInterval(stopCheck);
-        EDS.stop();
-      }
-    }, 700);
-
-    hideMenu();
-    // สั่งเริ่มเกมจริง (ถ้าเริ่มได้แล้ว)
-    const tryStart = ()=>{
-      if (window.HHA && typeof window.HHA.startGame === 'function'){ window.HHA.startGame(); return true; }
-      return false;
-    };
-    if(!tryStart()){
-      // ลองซ้ำ ๆ ช่วงสั้น ๆ เผื่อ import ยังไม่เสร็จ
-      let tries=0; const t = setInterval(()=>{ if(tryStart()){ clearInterval(t);} if(++tries>8) clearInterval(t); }, 200);
-    }
+    if (window.HHA && typeof window.HHA.startGame === 'function'){ hideMenu(); window.HHA.startGame(); return; }
+    import(`./game/main.js?ts=${Date.now()}`)
+      .then(()=>{ if (window.HHA?.startGame){ hideMenu(); window.HHA.startGame(); } else { warn('โหลด main.js แล้ว แต่ไม่พบ HHA.startGame'); } })
+      .catch(e=>{ console.error('[import main.js] fail', e); warn(['⚠️ โหลดสคริปต์ไม่สำเร็จ: ./game/main.js', String(e?.message||e)]) });
   }
 
-  // hard-bind start
+  // hard-bind start to avoid passive listeners swallowing clicks
   (function hardBindStart(){
     const old = document.getElementById('btn_start'); if(!old) return;
     const clone = old.cloneNode(true);
@@ -253,6 +213,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter' || e.key===' ') { e.preventDefault(); startNow(); } }, opts);
   })();
 
+  // keyboard quick start
   window.addEventListener('keydown', (e)=>{
     if ((e.key==='Enter'||e.key===' ') && !(document.body.getAttribute('data-playing')==='1')) {
       const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
