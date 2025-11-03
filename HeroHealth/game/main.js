@@ -1,10 +1,7 @@
-// === Hero Health Academy — game/main.js (Finish flow fixed + Fever integrated, polished) ===
+// === Hero Health Academy — game/main.js (Finish flow + Fever + solid 1s timer) ===
 
-// ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน
-if (window.HHA?.__stopLoop) {
-  try { window.HHA.__stopLoop(); } catch(e){}
-  delete window.HHA;
-}
+// เคลียร์อินสแตนซ์เดิมถ้ามี
+if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
 
 // ---------- Imports ----------
 import { Engine } from './core/engine.js';
@@ -25,10 +22,12 @@ const MODES = { goodjunk };
 const $  = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-const now = ()=>performance.now?performance.now():Date.now();
+const pnow = ()=>performance.now?performance.now():Date.now();
 
 let playing=false, rafId=0, activeMode=null;
-let wallSecondsTotal=45, wallSecondsLeft=45, lastWallMs=0;
+let wallSecondsTotal=45, wallSecondsLeft=45;
+let lastFrameMs=0;          // ใช้คำนวณ dt ของเกม
+let tickTimerId=null;       // 1s setInterval ที่เป็นตัวเดินเวลาแท้จริง
 let currentModeKey='goodjunk', currentDiff='Normal';
 
 // ---------- Core instances ----------
@@ -45,22 +44,13 @@ const stateRef={ missions:[], ctx:{} };
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 
-// ---------- Fever System ----------
+// ---------- Fever ----------
 power.onFever(v=>{
-  // อัปเดตแถบ FEVER ผ่าน HUD (0–100)
-  hud.setFever?.(v);
-
-  // เต็ม 100 → เล่นเอฟเฟกต์ + บัฟคะแนนช่วงสั้น ๆ แล้วรีเซ็ต
+  if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0, Math.min(100, v)) + '%';
   if (v >= 100) {
-    hud.showFever?.(true);
-    sfx.power?.();
-    // ให้บัฟ: x2 5s + flat boost 7 คะแนน/ครั้ง 7s
-    power.apply('x2', 5);
-    power.apply('boost');
-    setTimeout(()=>{
-      hud.showFever?.(false);
-      power.resetFever();
-    }, 5000);
+    hud.showFever(true);
+    sfx.power();
+    setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000);
   }
 });
 
@@ -74,12 +64,7 @@ const BUS={
     if(e?.ui) hud.showFloatingText?.(e.ui.x,e.ui.y,`+${pts}`);
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
     mission.onEvent(kind,{count:1},stateRef);
-
-    // ⭐ เก็บทอง → เติม FEVER + ส่งอีเวนต์ golden ให้เควสต์
-    if (e?.meta?.golden){
-      power.add(20);
-      mission.onEvent('golden',{count:1},stateRef);
-    }
+    if (e?.meta?.golden) power.add(20); // เติม fever เมื่อเก็บทอง
   },
   miss(){
     score.add(0); coach.onMiss();
@@ -109,13 +94,14 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   power.resetFever();
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
-  lastWallMs = now();
+  lastFrameMs = pnow();
 
   hud.setTop({mode:shortMode(modeKey), diff});
   hud.resetBars?.();
+  hud.setTimer(wallSecondsLeft); // แสดงทันที
   coach.onStart();
 
-  // เควสต์แบบ single-active
+  // ภารกิจ: single-active
   const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
   mission.attachToState(run, stateRef);
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
@@ -125,6 +111,20 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   activeMode = MODES[modeKey];
   activeMode?.start?.({ difficulty: diff });
 
+  // ----- Solid 1s timer (แยกจาก rAF) -----
+  clearInterval(tickTimerId);
+  tickTimerId = setInterval(()=>{
+    if(!playing) return;
+    if (wallSecondsLeft>0) {
+      wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
+      hud.setTimer(wallSecondsLeft);
+      sfx.tick();
+      power.drain(0.5);
+      mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
+      if (wallSecondsLeft===0) endRun();
+    }
+  }, 1000);
+
   loop();
 }
 
@@ -132,22 +132,18 @@ function endRun(){
   if(!playing) return;
   playing=false;
 
-  // --- hard stop ---
   try{ cancelAnimationFrame(rafId); }catch{}
+  clearInterval(tickTimerId); tickTimerId=null;
+
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
   const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
 
-  // finalize missions
   mission.stop(stateRef);
 
-  // summary
   const finalScore = score.get()|0;
   const bestCombo  = score.bestCombo|0;
-  const finalChips = (stateRef.missions||[]).map(m=>({
-    key:m.key, ok:!!m.success, need:m.target|0, got:m.progress|0
-  }));
-
+  const finalChips = (stateRef.missions||[]).map(m=>({ key:m.key, ok:!!m.success, need:m.target|0, got:m.progress|0 }));
   const extra = finalChips.map(c=>{
     const icon = ({collect_goods:'🍎',count_perfect:'🌟',count_golden:'🟡',reach_combo:'🔥',no_miss:'❌',score_reach:'🏁',target_hits:'🎯'})[c.key] || '⭐';
     const name = mission.describe({key:c.key,target:c.need}, 'TH');
@@ -157,13 +153,10 @@ function endRun(){
 
   try{ board.submit(currentModeKey, currentDiff, finalScore, { meta:{ bestCombo } }); }catch{}
 
-  // modal + ปุ่มกดได้จริง (pointer-events แก้ที่ HUD แล้ว)
-  hud.showResult({
-    title:'สรุปผล',
+  hud.showResult({ title:'สรุปผล',
     desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
     stats:[`คะแนน: ${finalScore}`, `คอมโบสูงสุด: ${bestCombo}`],
-    extra
-  });
+    extra });
 
   hud.onHome = ()=>{
     try{
@@ -173,13 +166,10 @@ function endRun(){
       hud.resetBars?.();
       document.body.removeAttribute('data-playing');
       const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
-      power.resetFever();
-    }catch{
-      location.reload();
-    }
+    }catch{ location.reload(); }
   };
 
-  hud.onRetry= ()=>{
+  hud.onRetry = ()=>{
     hud.hideResult?.();
     hud.resetBars?.();
     mission.reset(stateRef);
@@ -195,25 +185,13 @@ function loop(){
   if(!playing) return;
   rafId=requestAnimationFrame(loop);
 
-  const t=now();
-  const dtMs=t-lastWallMs;
+  // dt ของเกม (สำหรับการ spawn / อนิเมชันโหมด)
+  const nowMs = pnow();
+  let dt = (nowMs - lastFrameMs) / 1000;
+  if (!(dt>0) || dt>1.5) dt = 0.016;
+  lastFrameMs = nowMs;
 
-  // นับถอยหลังแบบวินาที
-  if (dtMs >= 1000){
-    const step = Math.floor(dtMs/1000);
-    wallSecondsLeft = Math.max(0, wallSecondsLeft - step);
-    lastWallMs += step*1000;
-    hud.setTimer(wallSecondsLeft);
-    sfx.tick();
-    power.drain(0.5); // ค่อย ๆ ลด FEVER
-    mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
-  }
-
-  // อัปเดตโหมด (กันเฟรมกระโดด)
-  const dtSec = Math.min(0.05, Math.max(0, dtMs/1000)); // ≤ 50ms
-  try{ activeMode?.update?.(dtSec, BUS); }catch(e){ console.warn(e); }
-
-  if (wallSecondsLeft <= 0){ endRun(); }
+  try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
 }
 
 // ---------- Public ----------
@@ -227,7 +205,11 @@ async function startGame(){
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
 }
 
-function stopLoop(){ try{ cancelAnimationFrame(rafId); }catch{} playing=false; }
+function stopLoop(){
+  try{ cancelAnimationFrame(rafId); }catch{}
+  clearInterval(tickTimerId); tickTimerId=null;
+  playing=false;
+}
 
 function shortMode(m){
   if(m==='goodjunk') return 'Good vs Junk';
@@ -238,4 +220,4 @@ function shortMode(m){
 }
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — finish flow fixed + fever integrated (polished)');
+console.log('[HeroHealth] main.js — solid 1s timer + fever integrated');
