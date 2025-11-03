@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (Finish flow fixed + Fever integrated) ===
+// === Hero Health Academy — game/main.js (Finish flow fixed + Fever integrated, polished) ===
 
 // ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน
 if (window.HHA?.__stopLoop) {
@@ -47,14 +47,20 @@ power.attachToScore(score);
 
 // ---------- Fever System ----------
 power.onFever(v=>{
-  if (hud.$powerFill) hud.$powerFill.style.width = v + '%';
+  // อัปเดตแถบ FEVER ผ่าน HUD (0–100)
+  hud.setFever?.(v);
+
+  // เต็ม 100 → เล่นเอฟเฟกต์ + บัฟคะแนนช่วงสั้น ๆ แล้วรีเซ็ต
   if (v >= 100) {
-    hud.showFever(true);
-    sfx.power();
+    hud.showFever?.(true);
+    sfx.power?.();
+    // ให้บัฟ: x2 5s + flat boost 7 คะแนน/ครั้ง 7s
+    power.apply('x2', 5);
+    power.apply('boost');
     setTimeout(()=>{
-      hud.showFever(false);
+      hud.showFever?.(false);
       power.resetFever();
-    },5000);
+    }, 5000);
   }
 });
 
@@ -69,9 +75,10 @@ const BUS={
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
     mission.onEvent(kind,{count:1},stateRef);
 
-    // ⭐ Golden = เติม Fever
-    if (e?.meta?.golden) {
+    // ⭐ เก็บทอง → เติม FEVER + ส่งอีเวนต์ golden ให้เควสต์
+    if (e?.meta?.golden){
       power.add(20);
+      mission.onEvent('golden',{count:1},stateRef);
     }
   },
   miss(){
@@ -82,12 +89,7 @@ const BUS={
     score.add(0); coach.onJunk();
     mission.onEvent('wrong_group',{count:1},stateRef);
   },
-  sfx:{
-    good(){sfx.good();},
-    bad(){sfx.bad();},
-    perfect(){sfx.perfect();},
-    power(){sfx.power();}
-  }
+  sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
 
 // ---------- Flow ----------
@@ -113,12 +115,13 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   hud.resetBars?.();
   coach.onStart();
 
+  // เควสต์แบบ single-active
   const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
   mission.attachToState(run, stateRef);
-
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
   if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
 
+  // start mode
   activeMode = MODES[modeKey];
   activeMode?.start?.({ difficulty: diff });
 
@@ -135,9 +138,10 @@ function endRun(){
   try{ activeMode?.cleanup?.(); }catch{}
   const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
 
+  // finalize missions
   mission.stop(stateRef);
 
-  // --- summary data ---
+  // summary
   const finalScore = score.get()|0;
   const bestCombo  = score.bestCombo|0;
   const finalChips = (stateRef.missions||[]).map(m=>({
@@ -153,6 +157,7 @@ function endRun(){
 
   try{ board.submit(currentModeKey, currentDiff, finalScore, { meta:{ bestCombo } }); }catch{}
 
+  // modal + ปุ่มกดได้จริง (pointer-events แก้ที่ HUD แล้ว)
   hud.showResult({
     title:'สรุปผล',
     desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
@@ -168,6 +173,7 @@ function endRun(){
       hud.resetBars?.();
       document.body.removeAttribute('data-playing');
       const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
+      power.resetFever();
     }catch{
       location.reload();
     }
@@ -191,17 +197,22 @@ function loop(){
 
   const t=now();
   const dtMs=t-lastWallMs;
+
+  // นับถอยหลังแบบวินาที
   if (dtMs >= 1000){
     const step = Math.floor(dtMs/1000);
     wallSecondsLeft = Math.max(0, wallSecondsLeft - step);
     lastWallMs += step*1000;
     hud.setTimer(wallSecondsLeft);
     sfx.tick();
-    power.drain(0.5);
+    power.drain(0.5); // ค่อย ๆ ลด FEVER
     mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
   }
 
-  try{ activeMode?.update?.(dtMs/1000, BUS); }catch(e){ console.warn(e); }
+  // อัปเดตโหมด (กันเฟรมกระโดด)
+  const dtSec = Math.min(0.05, Math.max(0, dtMs/1000)); // ≤ 50ms
+  try{ activeMode?.update?.(dtSec, BUS); }catch(e){ console.warn(e); }
+
   if (wallSecondsLeft <= 0){ endRun(); }
 }
 
@@ -227,4 +238,4 @@ function shortMode(m){
 }
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — finish flow fixed + fever integrated');
+console.log('[HeroHealth] main.js — finish flow fixed + fever integrated (polished)');
