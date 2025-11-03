@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (Fixed for re-import) ===
+// === Hero Health Academy — game/main.js (Fixed + MiniQuest Active One) ===
 
 // ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน
 if (window.HHA?.__stopLoop) {
@@ -30,6 +30,7 @@ const now = ()=>performance.now?performance.now():Date.now();
 let playing=false, rafId=0, activeMode=null;
 let wallSecondsLeft=45, lastWallMs=0;
 let currentModeKey='goodjunk', currentDiff='Normal';
+let currentQuest=null; // ✅ track mini quest
 
 // ---------- Core instances ----------
 const engine=new Engine();
@@ -52,9 +53,18 @@ const BUS={
     hud.updateHUD(score.get(),score.combo|0);
     if(e?.ui) hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`);
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
+
+    // ✅ นับภารกิจย่อย (mini quest progress)
+    mission.onEvent(kind,{count:1},stateRef);
   },
-  miss(){ score.add(0); coach.onMiss(); },
-  bad(){ score.add(0); coach.onJunk(); },
+  miss(){
+    score.add(0); coach.onMiss();
+    mission.onEvent('miss',{count:1},stateRef);
+  },
+  bad(){
+    score.add(0); coach.onJunk();
+    mission.onEvent('bad',{count:1},stateRef);
+  },
   sfx:{
     good(){sfx.good();},
     bad(){sfx.bad();},
@@ -62,6 +72,9 @@ const BUS={
     power(){sfx.power();}
   }
 };
+
+// ---------- Mission / Quest state ----------
+const stateRef={missions:[],ctx:{}};
 
 // ---------- Flow ----------
 async function preCountdown(){
@@ -77,6 +90,13 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   lastWallMs=now();
   hud.setTop({mode:modeKey,diff});
   coach.onStart();
+
+  // เริ่มภารกิจหลัก + ภารกิจย่อย
+  const run = mission.start(modeKey,{seconds:wallSecondsLeft,count:3,lang:'TH'});
+  mission.attachToState(run,stateRef);
+  currentQuest = mission.activateNext?.(stateRef);
+  if(currentQuest) hud.showMiniQuest?.(currentQuest.label || currentQuest.title || 'ภารกิจเริ่มต้น');
+
   activeMode?.start?.({difficulty:diff});
   loop();
 }
@@ -91,6 +111,24 @@ function endRun(){
   hud.showResult({title:'Result',desc:'จบเกมแล้ว'});
 }
 
+// ✅ mini-quest manager
+function updateMiniQuest(){
+  if(!currentQuest){
+    currentQuest = mission.activateNext?.(stateRef);
+    if(currentQuest) hud.showMiniQuest?.(currentQuest.label||'ภารกิจใหม่!');
+    return;
+  }
+
+  if(mission.isCompleted?.(currentQuest,stateRef)){
+    hud.showMiniQuestComplete?.(currentQuest.label||'เสร็จภารกิจ!');
+    sfx.power();
+    setTimeout(()=>{
+      currentQuest = mission.activateNext?.(stateRef);
+      if(currentQuest) hud.showMiniQuest?.(currentQuest.label||'ภารกิจต่อไป');
+    },1200);
+  }
+}
+
 function loop(){
   if(!playing)return;
   rafId=requestAnimationFrame(loop);
@@ -103,7 +141,10 @@ function loop(){
     sfx.tick();
     if(wallSecondsLeft<=0){ endRun(); return; }
   }
+
+  // per-frame update
   try{ activeMode?.update?.(dtMs/1000,BUS); }catch(e){console.warn(e);}
+  updateMiniQuest(); // ✅ ตรวจภารกิจย่อย
 }
 
 // ---------- Public ----------
@@ -123,4 +164,4 @@ function stopLoop(){
 }
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js loaded fresh');
+console.log('[HeroHealth] main.js loaded fresh + mini quest');
