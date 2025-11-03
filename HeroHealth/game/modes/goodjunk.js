@@ -1,14 +1,14 @@
-// === Hero Health Academy — game/modes/goodjunk.js (DOM-spawn, low-density, quest-aware) ===
+// === Hero Health Academy — game/modes/goodjunk.js (DOM-spawn, low-density, quest-aware, tuned) ===
 export const name = 'goodjunk';
 
 const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
-const GOLD = ['⭐']; // golden = แตะได้คะแนนพิเศษ
+const GOLD = ['⭐']; // golden = คะแนนพิเศษ
 
 let host, items = [], alive = 0;
 let cfg, spawnAcc = 0, running = false;
 
-// ค่าเกิดน้อยลงชัดเจน (ตามที่ขอ)
+// ความหนาแน่นต่ำ + อายุชิ้นนานขึ้น
 const PRESET = {
   Easy:   { spawnEvery: 1.30, maxAlive: 6,  life: 3.6, size: 60 },
   Normal: { spawnEvery: 1.10, maxAlive: 7,  life: 3.3, size: 62 },
@@ -36,17 +36,16 @@ function spawnOne(BUS){
   const r = Math.random();
   let kind = 'good';
   if (r > 0.86) kind = 'gold';     // ~14%
-  else if (r > 0.58) kind = 'junk';// ~28%
-  // ที่เหลือ ~58% = good
+  else if (r > 0.58) kind = 'junk';// ~28% ; ที่เหลือ ~58% = good
 
   const emoji = kind==='gold' ? pick(GOLD)
                : kind==='junk' ? pick(JUNK) : pick(GOOD);
 
-  // สุ่มตำแหน่ง: ไม่ชิดขอบ
+  // สุ่มตำแหน่ง: ไม่ชิดขอบ + เลี่ยง HUD ล่าง
   const pad = 70;
   const ww = window.innerWidth, hh = window.innerHeight;
   const x = clamp(Math.random()*ww, pad, ww-pad);
-  const y = clamp(Math.random()*hh, pad+20, hh-pad-80); // เลี่ยงทับ HUD ล่าง
+  const y = clamp(Math.random()*hh, pad+20, hh-pad-80);
 
   const el = document.createElement('div');
   const s = cfg.size;
@@ -71,20 +70,22 @@ function spawnOne(BUS){
     if (obj.dead) return;
     obj.dead = true;
     alive = Math.max(0, alive-1);
-    // เอฟเฟ็กต์แตก
+
+    // เอฟเฟกต์ "แตก"
     try { el.style.transform = 'translate(-50%,-50%) scale(0.82)'; } catch{}
     setTimeout(()=>{ try{ el.style.opacity='0'; }catch{}; }, 25);
     setTimeout(()=>{ try{ el.remove(); }catch{}; }, 180);
 
-    // แจ้ง BUS
+    // แจ้ง BUS + เอฟเฟกต์เสียง
+    const ui = { x: ev.clientX, y: ev.clientY };
     if (kind==='junk'){
-      BUS.bad?.({ source: obj, ui:{x, y} });
+      BUS.bad?.({ source: obj, ui });
       BUS.sfx?.bad?.();
     } else {
-      const base = (kind==='gold') ? 50 : 10;
-      const mult = (kind==='gold') ? 2 : 1;
-      BUS.hit?.({ points: base, kind: 'good', ui:{x,y}, meta:{ golden: kind==='gold', mult } });
-      if (kind==='gold') BUS.sfx?.power?.(); else BUS.sfx?.good?.();
+      const isGold = (kind==='gold');
+      const base = isGold ? 50 : 10;
+      BUS.hit?.({ points: base, kind: isGold ? 'perfect' : 'good', ui, meta:{ golden: isGold } });
+      if (isGold) BUS.sfx?.power?.(); else BUS.sfx?.good?.();
     }
   }, {passive:true});
 
@@ -93,11 +94,11 @@ function spawnOne(BUS){
   alive++;
 }
 
-// ลูปอัปเดต (ถูกเรียกจาก main.update)
+// อัปเดตรอบลูป (ถูกเรียกจาก main.update)
 function tick(dt, BUS){
   if (!running) return;
 
-  // สปอว์น
+  // สร้างของใหม่ตามเวลา
   spawnAcc += dt;
   const need = Math.floor(spawnAcc / cfg.spawnEvery);
   if (need > 0){
@@ -115,7 +116,7 @@ function tick(dt, BUS){
       alive = Math.max(0, alive-1);
       try{ it.el.style.opacity='0'; }catch{}
       setTimeout(()=>{ try{ it.el.remove(); }catch{}; }, 160);
-      // นับ miss เฉพาะของดี/ทอง (ถ้าไม่ทันคลิก)
+      // นับ miss เฉพาะของดี/ทอง
       if (it.kind!=='junk'){ BUS.miss?.({source:it}); }
       items.splice(i,1);
     }
@@ -141,23 +142,21 @@ export function start({ difficulty='Normal' } = {}){
       c.style.zIndex = '1';
     });
   }catch{}
+
+  // เติมของตั้งต้นทันที 2–3 ชิ้น ให้ไม่โล่ง
+  for(let i=0;i<3;i++) spawnOne({ hit:()=>{}, bad:()=>{}, sfx:{} });
 }
 
 export function update(dt, BUS){
-  // ป้องกัน dt หลุดเป็น NaN/Infinity
-  if (!(dt>0) || dt>1.5) dt = 0.016;
+  if (!(dt>0) || dt>1.5) dt = 0.016; // กัน NaN/กระโดดเฟรม
   tick(dt, BUS);
 }
 
-export function stop(){
-  running = false;
-}
+export function stop(){ running = false; }
 
 export function cleanup(){
   running = false;
-  try {
-    items.forEach(it=>{ try{ it.el.remove(); }catch{}; });
-  } catch {}
+  try { if (host) host.innerHTML = ''; } catch {}
   items = [];
   alive = 0;
 }
