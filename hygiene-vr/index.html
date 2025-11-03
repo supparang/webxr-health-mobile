@@ -1,130 +1,79 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
-  <title>Hygiene Rhythm — 4 Games (Fixed Start)</title>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
-  <style>
-    html,body{margin:0;height:100%;background:#0b1220;font-family:system-ui,Arial,sans-serif}
-    /* ให้ปุ่มลอยอยู่เหนือแคนวาสแน่ ๆ */
-    .ui{
-      position:fixed;left:50%;transform:translateX(-50%);
-      bottom:12px;z-index:2147483647;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
-      pointer-events:auto;
-    }
-    a-scene, a-scene canvas{position:fixed;inset:0;z-index:0}
-    .btn, select, input[type="range"]{
-      background:#fff;color:#0b1220;border:none;border-radius:12px;
-      padding:10px 12px;font-weight:800;box-shadow:0 2px 12px rgba(0,0,0,.3)
-    }
-    .btn.primary{background:#93c5fd;color:#08223b}
-    .card{
-      position:fixed;right:12px;top:12px;background:rgba(0,0,0,.55);
-      color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;z-index:2147483646;
-      pointer-events:none;
-    }
-    .group{display:flex;gap:6px;align-items:center;background:rgba(255,255,255,.12);border-radius:12px;padding:6px 8px}
-    label{color:#fff}
-  </style>
-</head>
-<body>
-  <div class="ui" id="uiBar" role="toolbar" aria-label="Game Controls">
-    <button id="btnStart" class="btn primary" type="button">Start</button>
-    <button id="btnReset" class="btn" type="button">Reset</button>
+<!doctype html>
 
-    <div class="group">
-      <label>Task:
-        <select id="task">
-          <option value="bathe" selected>อาบน้ำ</option>
-          <option value="oral">ดูแลช่องปากและฟัน</option>
-          <option value="hands">ล้างมือ</option>
-          <option value="nails">ดูแลเล็บ</option>
-        </select>
-      </label>
-      <label>โหมด:
-        <select id="difficulty">
-          <option value="easy" selected>Easy</option>
-          <option value="normal">Normal</option>
-          <option value="hard">Hard</option>
-        </select>
-      </label>
-      <label>BPM:
-        <select id="bpm">
-          <option value="96" selected>96</option>
-          <option value="110">110</option>
-          <option value="128">128</option>
-        </select>
-      </label>
-      <label>Training:
-        <select id="training">
-          <option value="on" selected>On</option>
-          <option value="off">Off</option>
-        </select>
-      </label>
-    </div>
 
-    <div class="group">
-      <label>Calibration (ms)</label>
-      <input id="calib" type="range" min="-200" max="200" step="5" value="0"/>
-      <span id="calibVal" style="color:#fff;font-weight:700">0</span>
-    </div>
-  </div>
+<section class="card">
+<h3>โหมด Hub</h3>
+<div class="row">
+<button id="mode2d" class="pill on">2D Menu</button>
+<button id="mode3d" class="pill">3D VR</button>
+</div>
+<p class="small">Desktop/Mobile แนะนำ 2D, อุปกรณ์ VR ใช้ 3D Portal</p>
+</section>
 
-  <div class="card" id="hud" aria-live="polite">Hygiene Rhythm — พร้อมเริ่ม</div>
 
-  <a-scene id="scene" background="color:#0b1220" renderer="antialias:true;colorManagement:true" raycaster="showLine:false">
-    <a-assets timeout="30000">
-      <a-asset-item id="thaiFont" src="https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts/hinted/ttf/NotoSansThai/NotoSansThai-Regular.ttf"></a-asset-item>
+<section class="card">
+<h3>สรุปความก้าวหน้า</h3>
+<div id="summary"></div>
+</section>
+</aside>
 
-      <!-- Emoji/Icons (เหมือนเดิม) -->
-      <img id="em-shower" src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%237dfcc6"/><text x="160" y="180" font-size="110" text-anchor="middle">🚿</text></svg>'>
-      <img id="em-soap"   src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23bbf7d0"/><text x="160" y="180" font-size="110" text-anchor="middle">🧼</text></svg>'>
-      <img id="em-scrub"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%2393c5fd"/><text x="160" y="180" font-size="110" text-anchor="middle">🧽</text></svg>'>
-      <img id="em-towel"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fde68a"/><text x="160" y="180" font-size="110" text-anchor="middle">🧻</text></svg>'>
 
-      <img id="em-brush"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23a78bfa"/><text x="160" y="180" font-size="110" text-anchor="middle">🪥</text></svg>'>
-      <img id="em-tooth"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23c084fc"/><text x="160" y="180" font-size="110" text-anchor="middle">🦷</text></svg>'>
-      <img id="em-dent"   src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fda4af"/><text x="160" y="180" font-size="110" text-anchor="middle">👩‍⚕️</text></svg>'>
+<section class="content">
+<!-- 2D MENU (default) -->
+<div id="menu2d" class="menu2d">
+<template id="zoneTpl">
+<div class="zone">
+<div class="zone-head">
+<h2 class="zone-title"></h2>
+<div class="zone-meta small"></div>
+</div>
+<div class="grid" data-zone-grid></div>
+</div>
+</template>
 
-      <img id="em-hands"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%2393c5fd"/><text x="160" y="180" font-size="110" text-anchor="middle">🤲</text></svg>'>
-      <img id="em-water"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%2300e5ff"/><text x="160" y="180" font-size="110" text-anchor="middle">💧</text></svg>'>
-      <img id="em-foam"   src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23e5e7eb"/><text x="160" y="180" font-size="110" text-anchor="middle">🫧</text></svg>'>
-      <img id="em-dry"    src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fde68a"/><text x="160" y="180" font-size="110" text-anchor="middle">🧻</text></svg>'>
 
-      <img id="em-nail"   src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fecaca"/><text x="160" y="180" font-size="110" text-anchor="middle">💅</text></svg>'>
-      <img id="em-clip"   src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23fca5a5"/><text x="160" y="180" font-size="110" text-anchor="middle">✂️</text></svg>'>
-      <img id="em-clean"  src='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320"><rect width="100%" height="100%" fill="%230b1220"/><circle cx="160" cy="160" r="110" fill="%23bbf7d0"/><text x="160" y="180" font-size="110" text-anchor="middle">🧴</text></svg>'>
-    </a-assets>
+<template id="gameCardTpl">
+<button class="game">
+<div class="game-ico" data-ico>🎮</div>
+<div class="game-body">
+<div class="game-title" data-title>Game</div>
+<div class="game-desc small" data-desc></div>
+<div class="game-meta small" data-meta></div>
+</div>
+</button>
+</template>
 
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity camera look-controls>
-        <a-entity id="cursor"
-          cursor="rayOrigin: mouse; fuse: false"
-          raycaster="objects: .clickable; far: 15; interval: 0"
-          position="0 0 -1"
-          geometry="primitive: ring; radiusInner: 0.012; radiusOuter: 0.022"
-          material="color:#93c5fd; shader:flat; opacity:0.95; transparent:true; visible:false"></a-entity>
-      </a-entity>
-    </a-entity>
 
-    <a-entity id="root" position="0 1.25 -3"></a-entity>
-    <a-entity id="hitLine" geometry="primitive: plane; width: 2.4; height: 0.04" material="color:#1e293b; opacity:0.95; shader:flat" position="0 -0.35 0.05"></a-entity>
-    <a-entity id="hitPad" class="clickable" geometry="primitive: plane; width: 2.4; height: 0.45" material="color:#0f172a; opacity:0.95; shader:flat" position="0 -0.6 0.06"></a-entity>
+<div id="zones"></div>
+</div>
 
-    <!-- ปุ่ม Start แบบ 3D สำรองในฉาก (ถ้า HTML ปุ่มกดไม่ได้) -->
-    <a-entity id="start3D" class="clickable"
-      geometry="primitive: plane; width: 1.6; height: 0.44"
-      material="color:#7dfcc6; opacity:0.96; shader:flat"
-      position="0 0.25 0.07">
-      <a-entity troika-text="value: START (3D); color: #053b2a; fontSize: 0.22; maxWidth: 4; align: center" position="0 0 0.01"></a-entity>
-    </a-entity>
 
-    <a-entity light="type: ambient; color: #fff; intensity: 1.0"></a-entity>
-    <a-sky color="#0b1220"></a-sky>
-  </a-scene>
+<!-- 3D PORTAL (A‑Frame) -->
+<div id="menu3d" class="menu3d hidden">
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<a-scene renderer="antialias: true" background="color: #eef7ff">
+<a-entity position="0 1.6 0">
+<a-camera wasd-controls-enabled="true" look-controls="true">
+<a-cursor></a-cursor>
+</a-camera>
+</a-entity>
 
-  <script src="game.js"></script>
+
+<!-- Ground -->
+<a-plane color="#dff0ff" rotation="-90 0 0" width="30" height="30"></a-plane>
+<a-entity position="0 0 -3">
+<a-text value="Hero Academy" align="center" color="#333" position="0 2.2 0" width="6"></a-text>
+</a-entity>
+
+
+<!-- Portals generated by hub.js from ZONES config -->
+<a-entity id="portalHost"></a-entity>
+</a-scene>
+</div>
+</section>
+</main>
+
+
+<footer class="foot small">v1 • Free‑order Missions • Local Profile • © Hygiene World</footer>
 </body>
 </html>
