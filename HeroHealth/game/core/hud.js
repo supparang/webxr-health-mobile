@@ -62,7 +62,7 @@ export class HUD {
     // Mini-quest banner (center top)
     this.mini = document.createElement('div');
     this.mini.id = 'miniQuest';
-    this.mini.style.cssText = 'position:fixed;left:50%;top:72px;transform:translateX(-50%);font:900 18px ui-rounded,system-ui;color:#ffde85;text-shadow:0 0 12px #000;z-index:8000;opacity:0;transition:opacity .25s ease';
+    this.mini.style.cssText = 'position:fixed;left:50%;top:72px;transform:translateX(-50%);padding:6px 10px;border-radius:12px;background:#0e1930cc;border:1px solid #214064;color:#ffde85;font:900 16px ui-rounded,system-ui;text-shadow:0 0 10px #000;z-index:8000;opacity:0;transition:opacity .25s ease';
     this.mini.textContent = '';
     document.body.appendChild(this.mini);
 
@@ -103,12 +103,15 @@ export class HUD {
   // ===== Quest chips =====
   setQuestChips(list=[]){
     const frag = document.createDocumentFragment();
+    let index = 0;
     for(const m of list){
       const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
+      // ถ้าไม่ได้ส่ง active มา ให้ถือว่า “อันนี้แหละตัว active” เมื่อยังไม่ done/fail
+      const isActive = (m.active !== undefined) ? !!m.active : (!m.done && !m.fail && index===0);
       const d = document.createElement('div');
       d.style.cssText =
         'pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;'+
-        `border:2px solid ${m.active?'#22d3ee':'#16325d'};`+
+        `border:2px solid ${isActive?'#22d3ee':'#16325d'};`+
         `background:${m.done?(m.fail?'#361515':'#0f2e1f'):'#0d1a31'};color:#e6f2ff;`;
       d.innerHTML =
         `<span style="font-size:16px">${m.icon||'⭐'}</span>`+
@@ -118,18 +121,25 @@ export class HUD {
           `<b style="display:block;height:100%;width:${pct}%;background:${m.done?(m.fail?'#ef4444':'#22c55e'):'#22d3ee'}"></b>`+
         '</i>';
       frag.appendChild(d);
+      index++;
     }
     this.chips.innerHTML=''; this.chips.appendChild(frag);
   }
 
   // ===== Mini-quest banner =====
   showMiniQuest(text){
-    this.mini.textContent = String(text||'');
+    const msg = String(text||'').trim();
+    if (!msg){
+      this.mini.style.opacity = '0';
+      return;
+    }
+    this.mini.textContent = msg;
     this.mini.style.opacity = '1';
     setTimeout(()=>{ this.mini.style.opacity='0.35'; }, 1200);
   }
   showMiniQuestComplete(text){
-    this.mini.textContent = String(text||'Mission complete!');
+    const msg = String(text||'Mission complete!').trim();
+    this.mini.textContent = msg;
     this.mini.style.opacity = '1';
     setTimeout(()=>{ this.mini.style.opacity='0'; }, 900);
   }
