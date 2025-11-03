@@ -227,6 +227,44 @@ document.addEventListener('DOMContentLoaded', ()=>{
 window.addEventListener('keydown', (e)=>{
   if ((e.code==='Space' || e.key===' ') && !playing) { e.preventDefault(); startGame(); }
 });
+// ---------- Auto-bootstrap (ROBUST) ----------
+function autoBoot(){
+  // ถ้าเริ่มอยู่แล้ว ไม่ทำซ้ำ
+  if (playing) return;
+
+  // โหมด/ระดับจาก <body data-mode data-diff>
+  currentModeKey = document.body.getAttribute('data-mode') || 'goodjunk';
+  currentDiff    = document.body.getAttribute('data-diff') || 'Normal';
+
+  // ซ่อนเมนูถ้ามี
+  const mb = document.querySelector('#menuBar');
+  if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
+  // เริ่มเกมเลย
+  startGame();
+}
+
+// ❶ เรียกทันทีถ้า DOM พร้อมแล้วอยู่แล้ว
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  setTimeout(autoBoot, 0);
+} else {
+  // ❷ เผื่อกรณี DOMContentLoaded ยังไม่มา
+  document.addEventListener('DOMContentLoaded', () => setTimeout(autoBoot, 0), { once:true });
+  window.addEventListener('load', () => setTimeout(autoBoot, 0), { once:true });
+}
+
+// ❸ Watchdog: ถ้า 1.5s ผ่านไปแล้วยังไม่เล่น → บูตซ้ำ
+setTimeout(()=>{
+  if (!playing) autoBoot();
+}, 1500);
+
+// ❹ Hotkey fallback
+window.addEventListener('keydown', (e)=>{
+  if ((e.code==='Space' || e.key===' ') && !playing) { e.preventDefault(); autoBoot(); }
+});
+
+// ❺ Expose manual start (debug)
+window.startHHA = autoBoot;
 
 window.HHA = { startGame, __stopLoop: stopLoop };
 console.log('[HeroHealth] main.js — autostart + solid timer + spawn-guard');
