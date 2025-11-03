@@ -60,7 +60,83 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 .toast.show{opacity:1}
 #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
 
-/* Fever flame anim */
+/* Fever/Power bar container placeholder */
+#powerBarWrap{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:2200; }
+#powerBar{ position:relative; height:16px; width:260px; border-radius:999px; background:#0a1931; border:1px solid #0f2a54; overflow:hidden }
+#powerFill{ position:absolute; inset:0; width:100% }
+
+/* === Fever Gauge (มุมขวาล่าง) + เปลวไฟพุ่ง === */
+.fever-gauge {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 150px;
+  height: 18px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,140,0,0.4);
+  border-radius: 999px;
+  overflow: visible;
+  box-shadow: inset 0 0 6px rgba(255,255,255,0.15);
+  z-index: 3000;
+}
+.fever-gauge .fever-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg,#ffb400,#ff8000,#ff4500,#ff8000,#ffb400);
+  background-size: 300% 100%;
+  animation: flameFlow 2s linear infinite;
+  box-shadow: 0 0 16px rgba(255,140,0,0.8);
+  transition: width 0.3s ease;
+}
+.fever-gauge .fever-label {
+  position: absolute;
+  top: -24px; right: 0;
+  font: 900 13px ui-rounded,system-ui;
+  color: #ffb200;
+  text-shadow: 0 0 8px rgba(255,150,0,0.8);
+}
+
+/* เปลวไฟพุ่งขึ้นบนเกจ */
+.fever-gauge::after {
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:100%;
+  height:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 100%, rgba(255,180,0,0.6) 0%, transparent 70%),
+    radial-gradient(circle at 30% 100%, rgba(255,100,0,0.5) 0%, transparent 70%),
+    radial-gradient(circle at 70% 100%, rgba(255,80,0,0.5) 0%, transparent 70%);
+  opacity:0;
+  transform:translateY(0) scaleY(1);
+  transition:opacity .3s, transform .3s;
+}
+body.fever-on .fever-gauge::after {
+  animation: flameRise 0.8s linear infinite;
+  opacity:1;
+}
+
+/* Animations */
+@keyframes flameFlow { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
+@keyframes flameFlowFast {
+  0% { background-position:0 0; filter:brightness(1.2); }
+  100%{ background-position:300% 0; filter:brightness(1.5); }
+}
+@keyframes flameRise{
+  0%{transform:translateY(0) scaleY(1); opacity:1}
+  80%{transform:translateY(-20px) scaleY(1.2); opacity:.9}
+  100%{transform:translateY(-40px) scaleY(1.4); opacity:0}
+}
+
+/* Fever active glow */
+body.fever-on .fever-gauge{
+  border-color:#ff6000;
+  box-shadow:0 0 20px rgba(255,100,0,0.9), inset 0 0 10px rgba(255,180,0,0.6);
+}
+body.fever-on .fever-gauge .fever-fill{ animation: flameFlowFast 1s linear infinite; }
+
+/* Fever flame anim from your base */
 @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
 </style>
 </head>
@@ -110,10 +186,27 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
 
   <!-- Fever/Power bar container (HUD ใช้ต่อ) -->
   <div id="powerBarWrap">
-    <div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">
-      <div id="powerFill" style="position:absolute;inset:0;width:100%"></div>
+    <div id="powerBar">
+      <div id="powerFill"></div>
     </div>
   </div>
+
+  <!-- FEVER GAUGE + LABEL -->
+  <div id="feverGauge" class="fever-gauge">
+    <div class="fever-fill"></div>
+    <span class="fever-label">FEVER</span>
+  </div>
+
+  <!-- AUDIO (bgm + sfx + fever) -->
+  <audio id="bgm-main" preload="auto"></audio>
+  <audio id="bgm-fever" preload="auto"></audio>
+  <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
+  <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
+  <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
+  <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
+  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
+  <audio id="sfx-fever-start" preload="auto" src="assets/sfx/fever_start.mp3"></audio>
+  <audio id="sfx-fever-end" preload="auto" src="assets/sfx/fever_end.mp3"></audio>
 </div>
 
 <!-- (ไม่มี <script type="module" src="./game/main.js"> อีกต่อไป) -->
@@ -152,7 +245,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   async function startNow(){
     // prime audio (user gesture)
     try{
-      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'])
+      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup','sfx-fever-start','sfx-fever-end'])
         .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); });
     }catch{}
 
@@ -160,7 +253,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       await ensureMainFresh();        // โหลด main.js เวอร์ชันล่าสุดเสมอ
       $('#menuBar')?.setAttribute('data-hidden','1');
       if ($('#menuBar')) $('#menuBar').style.display='none';
-      window.HHA.startGame();         // main.js มี countdown + timer แล้ว
+      window.HHA.startGame();         // main.js คุม countdown + timer + fever hooks
     }catch(e){
       console.error(e);
       warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(e?.message||e)]);
