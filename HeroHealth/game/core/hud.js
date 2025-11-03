@@ -35,7 +35,6 @@ export class HUD {
     this.$combo = this.top.querySelector('#hudCombo');
 
     // ----- Fever / Power bar (left bottom) -----
-    // (ใช้ class + id เดิม เพื่อความเข้ากันได้)
     this.powerWrap = document.getElementById('powerBarWrap');
     if(!this.powerWrap){
       this.powerWrap = document.createElement('div');
@@ -103,9 +102,7 @@ export class HUD {
   /* ===== Public binding ===== */
   bindPower(power){
     if(!power) return;
-    // FEVER value 0–100
-    power.onFever((v)=> this.setFever(v));
-    // (ยังไม่แสดง timers รายชนิดใน HUD — ถ้าต้องการค่อยต่อยอด)
+    power.onFever((v)=> this.setFever(v)); // FEVER value 0–100
   }
 
   /* ===== Top HUD ===== */
@@ -157,27 +154,21 @@ export class HUD {
 
   /* ===== FEVER visuals ===== */
   setFever(v){
-    // v: 0–100
     const val = Math.max(0, Math.min(100, Number(v)||0));
     this._feverVal = val;
     const pct = val.toFixed(0) + '%';
-    // แถบไฟ (ใช้ HTML gradients + keyframes)
-    this.$powerFill.innerHTML = (val>0)
-      ? '<div class="fire"></div>'
-      : '';
+    this.$powerFill.innerHTML = (val>0) ? '<div class="fire"></div>' : '';
     this.$powerFill.style.width = pct;
 
-    // ป้าย FEVER ขวา/ซ้าย: เปลี่ยนความสว่างตามค่า
     const op = (val>0)? 1 : .6;
     const glow = (val>0)? '0 0 14px rgba(255,160,0,.35)' : 'none';
     this.$powerLabel.style.opacity = String(op);
     this.$powerLabel.style.textShadow = glow;
 
-    // toggle คลาสกับ body เพื่อแต่งขอบบาร์
     if (val>0) document.body.classList.add('fever-on');
     else document.body.classList.remove('fever-on');
   }
-  showFever(on){ this.setFever(on? (this._feverVal||1) : 0); } // คง API เดิม
+  showFever(on){ this.setFever(on? (this._feverVal||1) : 0); }
   resetBars(){ this.setFever(0); }
 
   /* ===== Floating / Big ===== */
@@ -198,7 +189,6 @@ export class HUD {
 
   /* ===== Result ===== */
   showResult({title='Result',desc='—',stats=[],extra=[]}={}){
-    // บล็อกคลิกจาก spawnHost เพื่อให้ปุ่มกดได้
     try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'none'; }catch{}
     this.root.style.pointerEvents = 'auto';
 
