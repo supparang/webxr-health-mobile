@@ -1,9 +1,6 @@
-// === Hero Health Academy — game/main.js (wall-clock rAF + single autostart + spawn-guard) ===
-
-// เคลียร์อินสแตนซ์เดิมถ้ามี
+// === Hero Health Academy — game/main.js (rAF wall-clock + single boot + rAF watchdog) ===
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
 
-// ---------- Imports ----------
 import { Engine } from './core/engine.js';
 import { HUD } from './core/hud.js';
 import { Coach } from './core/coach.js';
@@ -13,24 +10,21 @@ import { PowerUpSystem } from './core/powerup.js';
 import { Quests } from './core/quests.js';
 import { MissionSystem } from './core/mission-system.js';
 import { Leaderboard } from './core/leaderboard.js';
-import { VRInput } from './core/vrinput.js';
-import * as FX from './core/fx.js';
 import * as goodjunk from './modes/goodjunk.js';
 
-// ---------- State ----------
 const MODES = { goodjunk };
-const $  = (s)=>document.querySelector(s);
+const $ = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const nowMs = ()=>performance.now?performance.now():Date.now();
 
 let playing=false, booting=false, rafId=0, activeMode=null;
 let wallSecondsTotal=45, wallSecondsLeft=45;
-let wallStartMs=0, lastShownSec=-1;   // ← ใช้คำนวณวินาทีที่เหลือจาก rAF
-let lastFrameMs=0;
-let spawnGuardId=null, guardTimerId=null;
+let wallStartMs=0, lastShownSec=-1;
+let lastFrameMs=0, lastLoopBeat=0;
+let guardTimerId=null, spawnGuardId=null;
 let currentModeKey='goodjunk', currentDiff='Normal';
-let autoBootArmed=false;
+let autoBooted=false;
 
 const engine=new Engine();
 const hud=new HUD();
@@ -45,13 +39,11 @@ const stateRef={ missions:[], ctx:{} };
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 
-// ---------- Fever ----------
 power.onFever(v=>{
   if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0, Math.min(100, v)) + '%';
   if (v >= 100) { hud.showFever(true); sfx.power(); setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000); }
 });
 
-// ---------- BUS ----------
 const BUS={
   hit(e){
     const pts=e?.points|0;
@@ -64,16 +56,14 @@ const BUS={
     if (e?.meta?.golden) power.add(20);
   },
   miss(){ score.add(0); coach.onMiss(); mission.onEvent('miss',{count:1},stateRef); },
-  bad(){  score.add(0); coach.onJunk(); mission.onEvent('wrong_group',{count:1},stateRef); },
-  sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
+  bad(){  score.add(0); coach.onJunk(); mission.onEvent('wrong_group',{count:1},stateRef); }
 };
 
-// ---------- Flow ----------
 async function preCountdown(){
   hud.showBig('3'); sfx.tick(); await sleep(650);
   hud.showBig('2'); sfx.tick(); await sleep(650);
   hud.showBig('1'); sfx.tick(); await sleep(650);
-  hud.showBig('GO!'); sfx.tick(); await sleep(450);
+  hud.showBig('GO!'); sfx.tick(); await sleep(420);
 }
 
 function armSpawnGuard(){
@@ -82,39 +72,34 @@ function armSpawnGuard(){
     if(!playing) return;
     const hasAny = document.querySelector('#spawnHost .gj-it');
     if (!hasAny) { try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{} }
-  }, 1500);
+  }, 1400);
 }
 
 function beginRun({modeKey,diff='Normal',seconds=45}){
   document.body.setAttribute('data-playing','1');
-  playing=true;
+  playing = true;
 
-  // reset
   score.reset(); power.resetFever();
   wallSecondsTotal = clamp(seconds|0,10,300);
-  wallStartMs = nowMs();                 // ← เริ่มวินาที ณ ตอนนี้
-  lastShownSec = -1;
-  lastFrameMs = wallStartMs;
+  wallStartMs = nowMs(); lastShownSec = -1;
+  lastFrameMs = wallStartMs; lastLoopBeat = wallStartMs;
 
   hud.setTop({mode:shortMode(modeKey), diff});
   hud.resetBars?.();
   hud.setTimer(wallSecondsTotal);
   coach.onStart();
 
-  // missions
   const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
   mission.attachToState(run, stateRef);
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
   if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
 
-  // start mode
   activeMode = MODES[modeKey];
   activeMode?.start?.({ difficulty: diff });
 
-  // spawn guard
   armSpawnGuard();
   clearInterval(guardTimerId);
-  guardTimerId = setInterval(()=>armSpawnGuard(), 4000);
+  guardTimerId = setInterval(()=>armSpawnGuard(), 3500);
 
   loop();
 }
@@ -129,8 +114,7 @@ function endRun(){
 
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
-  const host=document.getElementById('spawnHost');
-  if(host){ host.innerHTML=''; host.style.pointerEvents='auto'; }
+  const host=document.getElementById('spawnHost'); if(host){ host.innerHTML=''; host.style.pointerEvents='none'; }
 
   mission.stop(stateRef);
 
@@ -146,7 +130,6 @@ function endRun(){
 
   try{ board.submit(currentModeKey, currentDiff, finalScore, { meta:{ bestCombo } }); }catch{}
 
-  if (host) host.style.pointerEvents = 'none';
   hud.showResult({
     title:'สรุปผล',
     desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
@@ -174,8 +157,12 @@ function loop(){
   if(!playing) return;
   rafId=requestAnimationFrame(loop);
 
-  // 1) อัปเดตเวลาจาก "ผันผ่านจริง"
-  const elapsed = Math.floor((nowMs() - wallStartMs)/1000);
+  // rAF watchdog: ถ้าหายเงียบ >350ms ให้ถือว่า loop ครั้งนี้เป็น beat
+  const t = nowMs();
+  if (t - lastLoopBeat > 350) lastLoopBeat = t; else lastLoopBeat = t;
+
+  // เดินเวลาแบบ wall-clock
+  const elapsed = Math.floor((t - wallStartMs)/1000);
   const left = Math.max(0, wallSecondsTotal - elapsed);
   if (left !== lastShownSec){
     lastShownSec = left;
@@ -187,14 +174,11 @@ function loop(){
     if (left===0){ endRun(); return; }
   }
 
-  // 2) อัปเดตโหมด
-  const t = nowMs(); let dt = (t - lastFrameMs)/1000;
-  if (!(dt>0) || dt>1.5) dt = 0.016;
-  lastFrameMs = t;
+  // อัปเดตโหมด
+  let dt = (t - lastFrameMs)/1000; if (!(dt>0) || dt>1.5) dt = 0.016; lastFrameMs = t;
   try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
 }
 
-// ---------- Public ----------
 async function startGame(){
   if (booting || playing) return;
   booting = true;
@@ -206,7 +190,7 @@ async function startGame(){
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
-  setTimeout(()=>{ booting=false; }, 100);
+  setTimeout(()=>{ booting=false; }, 80);
 }
 
 function stopLoop(){
@@ -224,22 +208,19 @@ function shortMode(m){
   return String(m||'');
 }
 
-// ---------- Single autostart (robust) ----------
-function autoBootOnce(){
-  if (autoBootArmed) return; autoBootArmed = true;
+// Single autostart (กันบูตซ้ำ)
+(function autoBootOnce(){
+  if (autoBooted) return; autoBooted = true;
   const tryBoot = ()=>{ if (!playing && !booting) startGame(); };
-
   if (document.readyState === 'complete' || document.readyState === 'interactive'){
     setTimeout(tryBoot, 0);
   } else {
     document.addEventListener('DOMContentLoaded', ()=>setTimeout(tryBoot,0), { once:true });
     window.addEventListener('load', ()=>setTimeout(tryBoot,0), { once:true });
   }
-  setTimeout(()=>{ tryBoot(); }, 1500);
+  setTimeout(tryBoot, 1200);
   window.addEventListener('keydown', (e)=>{ if ((e.code==='Space' || e.key===' ') && !playing && !booting){ e.preventDefault(); tryBoot(); } });
-}
-autoBootOnce();
+})();
 
-window.startHHA = startGame;
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — wall-clock rAF + single autostart + spawn-guard');
+console.log('[HeroHealth] main.js — rAF wall-clock + single boot + rAF watchdog');
