@@ -1,9 +1,9 @@
-// === Hero Health Academy — game/main.js (FINAL: mini-quest one-at-a-time + safe re-import) ===
+// === Hero Health Academy — game/main.js (v2.4-compatible, timer fixed, single-active mini-quest) ===
 
-// ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน (กัน "Identifier 'loop' declared" และลูปรันซ้อน)
+// กันซ้อนลูป/ชื่อซ้ำตอน re-import
 if (window.HHA?.__stopLoop) {
-  try { window.HHA.__stopLoop(); } catch(e){}
-  try { delete window.HHA; } catch(e){}
+  try { window.HHA.__stopLoop(); } catch {}
+  try { delete window.HHA; } catch {}
 }
 
 // ---------- Imports ----------
@@ -20,14 +20,14 @@ import { VRInput } from './core/vrinput.js';
 import * as FX from './core/fx.js';
 import * as goodjunk from './modes/goodjunk.js';
 
-// ---------- Registry / helpers ----------
+// ---------- Setup ----------
 const MODES = { goodjunk };
 const $  = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-const now = ()=> (performance?.now?.() ?? Date.now());
+const now   = ()=> (performance?.now?.() ?? Date.now());
 
-// ---------- Core singletons ----------
+// singletons
 const engine = new Engine();
 const hud    = new HUD();
 const coach  = new Coach({ lang:'TH' });
@@ -39,52 +39,40 @@ const mission= new MissionSystem();
 Quests.bindToMain({ hud, coach });
 power.attachToScore(score);
 
-// ---------- Run-state ----------
+// run state
 let playing=false, rafId=0, activeMode=null;
 let wallSecondsLeft=45, lastWallMs=0;
 let currentModeKey='goodjunk', currentDiff='Normal';
-let currentQuest=null; // ภารกิจย่อยที่ active อยู่
 
-// ---------- Mission/quest state ----------
-const stateRef = { missions:[], ctx:{}, lang:'TH' };
+// mission state
+const stateRef = { missions:[], ctx:{}, lang:'TH', singleActive:true, activeIndex:0 };
 
-// ---------- BUS (bridge from modes -> systems) ----------
+// BUS: events from modes
 const BUS = {
   hit(e){
     const pts = e?.points|0;
     const kind = (e?.kind==='perfect') ? 'perfect' : 'good';
-    score.add(pts, { kind });
+    score.add(pts,{kind});
     hud.updateHUD(score.get(), score.combo|0);
+
     if (e?.ui) {
       hud.showFloatingText(e.ui.x, e.ui.y, `+${pts}`);
       try { FX.shatter3D(e.ui.x, e.ui.y); } catch {}
     }
     if (kind==='perfect') coach.onPerfect(); else coach.onGood();
 
-    // missions
-    mission.onEvent(kind, { count:1 }, stateRef);
-    // combo สูงสุด (หาก ScoreSystem มีคอมโบ)
-    if ((score.combo|0)>0) mission.onEvent('combo', { value: score.combo|0 }, stateRef);
-    // golden meta
-    if (e?.meta?.gold || e?.meta?.golden) mission.onEvent('golden', { count:1 }, stateRef);
+    // quests/mission counters
+    mission.onEvent(kind, {count:1}, stateRef);
+    if ((score.combo|0)>0) mission.onEvent('combo', {value:score.combo|0}, stateRef);
+    if (e?.meta?.gold || e?.meta?.golden) mission.onEvent('golden', {count:1}, stateRef);
   },
   miss(){
     score.add(0); coach.onMiss();
-    mission.onEvent('miss', { count:1 }, stateRef);
+    mission.onEvent('miss', {count:1}, stateRef);
   },
-  bad(){
-    score.add(0); coach.onJunk();
-    // โหมด goodjunk ถือเป็นผิด (ไม่ต้องนับพิเศษ)
-  },
-  power(kind){
-    if (kind==='shield' || kind==='gold') sfx.power();
-  },
-  sfx: {
-    good(){ sfx.good(); },
-    bad(){ sfx.bad(); },
-    perfect(){ sfx.perfect(); },
-    power(){ sfx.power(); }
-  }
+  bad(){ score.add(0); coach.onJunk(); },
+  power(){ sfx.power(); },
+  sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
 
 // ---------- Flow ----------
@@ -107,38 +95,38 @@ function beginRun({ modeKey, diff='Normal', seconds=45 }){
   playing = true;
   document.body.setAttribute('data-playing','1');
 
-  // reset score & wall clock
+  // reset + wall clock
   score.reset?.();
   wallSecondsLeft = clamp(seconds|0, 10, 300);
   lastWallMs = now();
-
-  // HUD top
   hud.setTop({ mode: shortMode(modeKey), diff });
+  hud.setTimer(wallSecondsLeft);                 // ✅ แสดงเวลาเริ่มเกมทันที
 
-  // start coach + quests
+  // start guidance
   coach.onStart?.();
   Quests.beginRun?.(modeKey, diff, 'TH', wallSecondsLeft);
 
-  // missions: เตรียมชุด 3 เควสต์ แล้ว active ทีละอัน
-  const run = mission.start(modeKey, { seconds: wallSecondsLeft, count: 3, lang: 'TH' });
+  // missions: สร้างชุดใหม่แบบ single-active (v2.4)
+  const run = mission.start(modeKey, { seconds: wallSecondsLeft, count:3, lang:'TH', singleActive:true });
   mission.attachToState(run, stateRef);
-  // เปิดเควสต์แรก
-  currentQuest = mission.activateNext(stateRef);
-  if (currentQuest) {
-    hud.showMiniQuest(currentQuest.label || mission.describe(currentQuest, stateRef.lang));
+
+  // แสดง mini-quest แรกทันที
+  if (stateRef.missions?.length){
+    const first = stateRef.missions[0];
+    hud.showMiniQuest(mission.describe(first, stateRef.lang));
+    hud.setQuestChips([{
+      key:first.key, icon:first.icon, need:first.target,
+      progress:first.progress|0, remain:first.remainSec|0,
+      done:!!first.done, fail:!!first.done && !first.success,
+      label: mission.describe(first, stateRef.lang)
+    }]);
+  } else {
+    hud.setQuestChips([]);
+    hud.showMiniQuest('');
   }
-  hud.setQuestChips(
-    (stateRef.missions||[]).map(m=>({
-      key:m.key, icon:m.icon, need:m.target, progress:m.progress|0,
-      remain:m.remainSec|0, done:!!m.done, fail:!!m.done && !m.success,
-      label: mission.describe(m, stateRef.lang)
-    }))
-  );
 
-  // start mode
+  // start mode & loop
   activeMode?.start?.({ difficulty: diff, fever:false });
-
-  // start loop
   rafId = requestAnimationFrame(loop);
 }
 
@@ -147,73 +135,32 @@ function endRun(){
   playing = false;
   try { cancelAnimationFrame(rafId); } catch {}
 
-  // stop mode & clear spawns
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
   const host = document.getElementById('spawnHost'); if (host) host.innerHTML='';
 
-  // finalize quests
   mission.stop(stateRef);
   Quests?.endRun?.({ _score: score.get?.()|0 });
 
-  // submit board (optional)
   try {
     board.submit?.(currentModeKey, currentDiff, score.get?.()|0, { name:'Player', meta:{ comboBest: score.bestCombo|0 } });
   } catch {}
 
-  // build mission summary lines
   const lines = [];
-  if (Array.isArray(stateRef.missions)) {
-    for (const m of stateRef.missions) {
-      const ok = !!m.success;
-      const label = mission.describe(m, stateRef.lang);
-      const prog = `${m.progress|0}/${m.target|0}`;
-      lines.push(`${ok?'✅':'❌'} ${label} • ${prog}`);
-    }
+  for (const m of (stateRef.missions||[])) {
+    const label = mission.describe(m, stateRef.lang);
+    const prog  = `${m.progress|0}/${m.target|0}`;
+    lines.push(`${m.success?'✅':'❌'} ${label} • ${prog}`);
   }
 
-  // show result
   hud.showResult({
-    title: 'Result',
-    desc: `Mode: ${shortMode(currentModeKey)} • Diff: ${currentDiff}`,
-    stats: [
-      `Score: ${score.get?.()|0}`,
-      `Best Combo: ${score.bestCombo|0}`
-    ],
+    title:'Result',
+    desc:`Mode: ${shortMode(currentModeKey)} • Diff: ${currentDiff}`,
+    stats:[ `Score: ${score.get?.()|0}`, `Best Combo: ${score.bestCombo|0}` ],
     extra: lines
   });
-
-  // wire buttons
   hud.onHome  = ()=>{ location.href = location.href; };
   hud.onRetry = ()=>{ location.reload(); };
-}
-
-function onQuestTickCallback(ev){
-  // ev: { success, key, index }
-  if (!currentQuest) return;
-  const activeKey = currentQuest.key;
-  if (ev?.key !== activeKey) return;
-
-  if (ev.success) {
-    // แสดงสำเร็จ + ไปภารกิจถัดไป (ทีละอัน)
-    hud.showMiniQuestComplete(mission.describe(currentQuest, stateRef.lang));
-    sfx.power();
-    setTimeout(()=>{
-      currentQuest = mission.activateNext(stateRef);
-      if (currentQuest) {
-        hud.showMiniQuest(mission.describe(currentQuest, stateRef.lang));
-      }
-    }, 900);
-  } else {
-    // ล้มเหลวเมื่อหมดเวลา (no_* cases) → ไปภารกิจถัดไป
-    hud.showMiniQuestComplete('❌ ' + mission.describe(currentQuest, stateRef.lang));
-    setTimeout(()=>{
-      currentQuest = mission.activateNext(stateRef);
-      if (currentQuest) {
-        hud.showMiniQuest(mission.describe(currentQuest, stateRef.lang));
-      }
-    }, 900);
-  }
 }
 
 function loop(){
@@ -223,7 +170,7 @@ function loop(){
   const t = now();
   const dtMs = t - lastWallMs;
 
-  // 1s wall-clock
+  // นับถอยหลังแบบวินาทีผนัง
   if (dtMs >= 1000){
     const step = Math.floor(dtMs / 1000);
     wallSecondsLeft = Math.max(0, wallSecondsLeft - step);
@@ -232,26 +179,31 @@ function loop(){
     hud.setTimer(wallSecondsLeft);
     sfx.tick();
 
-    // per-second systems
+    // ให้ MissionSystem เป็นคนจัด active quest เพียงตัวเดียว
     try {
-      const chips = mission.tick(stateRef, { score: score.get?.()|0 }, onQuestTickCallback, { hud, coach, lang:'TH' });
-      hud.setQuestChips(chips);
-    } catch(e){ console.warn('[mission.tick]', e); }
+      const chips = mission.tick(stateRef, { score: score.get?.()|0 }, /*cb*/null, { hud, coach, lang:'TH' });
+      if (chips && chips.length){
+        hud.setQuestChips(chips);
+        if (chips[0]?.label) hud.showMiniQuest(chips[0].label);
+      } else {
+        hud.setQuestChips([]);
+        hud.showMiniQuest('');
+      }
+    } catch(err){ console.warn('[mission.tick]', err); }
 
-    // legacy quests (optional)
-    try { Quests.tick?.({ score: score.get?.()|0, dt: step*1000, fever: !!score?.fever?.active }); } catch {}
+    Quests.tick?.({ score: score.get?.()|0, dt: step*1000, fever: !!score?.fever?.active });
 
     if (wallSecondsLeft <= 0) { endRun(); return; }
   }
 
-  // Fever UI sync ถ้ามี
+  // ซิงก์ Fever UI
   try { hud.showFever(!!(score?.fever?.active)); } catch {}
 
-  // Mode update (dt in seconds จากรอบนี้)
+  // อัปเดตโหมด
   try { activeMode?.update?.(dtMs/1000, BUS); } catch(e){ console.warn('[mode.update]', e); }
 }
 
-// ---------- Public API ----------
+// ---------- Public ----------
 async function startGame(){
   currentModeKey = document.body.getAttribute('data-mode') || 'goodjunk';
   currentDiff    = document.body.getAttribute('data-diff') || 'Normal';
@@ -264,10 +216,7 @@ async function startGame(){
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
 }
 
-function stopLoop(){
-  try { cancelAnimationFrame(rafId); } catch {}
-  playing = false;
-}
+function __stopLoop(){ try { cancelAnimationFrame(rafId); } catch {} playing=false; }
 
-window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js loaded (final)');
+window.HHA = { startGame, __stopLoop };
+console.log('[HeroHealth] main.js loaded (v2.4-compatible)');
