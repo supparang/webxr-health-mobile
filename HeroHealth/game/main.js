@@ -1,6 +1,11 @@
-// === Hero Health Academy — /game/main.js (STABLE TIMER + COUNTDOWN) ===
+// === Hero Health Academy — /game/main.js (STABLE TIMER + COUNTDOWN + HARD 1s TICK) ===
 'use strict';
-window.__HHA_BOOT_OK = 'main-stable';
+if (window.__HHA_MAIN_LOADED__) {
+  // ป้องกันโหลดซ้ำกรณี index เคย include module ค้าง
+  console.warn('[HHA] main.js already loaded — skipping duplicate');
+} else {
+  window.__HHA_MAIN_LOADED__ = true;
+}
 
 import { HUD }        from './core/hud.js';
 import { Coach }      from './core/coach.js';
@@ -9,7 +14,6 @@ import { SFX }        from './core/sfx.js';
 import { Quests }     from './core/quests.js';
 import { Progress }   from './core/progression.js';
 
-// mode loader
 const MODE = (k)=>import(`./modes/${k}.js`);
 const TIME_BY_MODE = { goodjunk:45, groups:60, hydration:50, plate:55 };
 const $=(s)=>document.querySelector(s);
@@ -21,7 +25,7 @@ function matchTime(mode,diff){
   return base;
 }
 
-// --------- Builtin emergency spawner (ถ้าโหมดเงียบ) ----------
+// --------- Builtin emergency spawner (กันเงียบ) ----------
 function BuiltinGoodJunk(){
   let alive=false, t=0, host=null, interval=0.65;
   function H(){ host=document.getElementById('spawnHost')||document.body; }
@@ -48,18 +52,17 @@ function BuiltinGoodJunk(){
 const R = {
   playing:false, paused:false,
   modeKey:'goodjunk', diff:'Normal',
-  matchTime:45,       // seconds
-  startAtMs:0,        // performance.now() ตอน "GO!"
-  remain:45,          // วินาทีที่คำนวณจาก wall-clock
-  lastSecShown:-1,    // ป้องกันเซ็ต HUD ซ้ำ
+  matchTime:45,
+  startAtMs:0,
+  remain:45,
+  lastSecShown:-1,
   fever:false, feverBreaks:0,
-
   sys:{ score:null, sfx:null },
   hud:null, coach:null,
-
   modeAPI:null, modeInst:null,
   _raf:0, _lastRAF:0, _idleMark:0,
-  _usingBuiltin:false
+  _usingBuiltin:false,
+  _hardTick:null
 };
 
 function setTopHUD(){
@@ -95,7 +98,6 @@ function busFor(){
       R.sys.score.combo=(R.sys.score.combo|0)+1;
       if(R.sys.score.combo>(R.sys.score.bestCombo|0)) R.sys.score.bestCombo=R.sys.score.combo;
       if(!R.fever && (R.sys.score.combo|0)>=10) feverOn();
-      if (e?.meta?.gold===1 || e?.meta?.power==='gold'){} // reserved
       if (e?.ui) R.hud?.showFloatingText(e.ui.x, e.ui.y, `+${pts}`);
       Quests?.event?.('hit',{...e, pointsAccum:R.sys.score.get(), comboNow:R.sys.score.combo});
       setTopHUD();
@@ -126,16 +128,14 @@ function busFor(){
   };
 }
 
-// --------- Main step (RAF only + wall-clock second tick) ----------
+// --------- Main step (RAF + wall-clock) ----------
 function step(nowMs){
   if(!R.playing || R.paused) return;
 
-  // คำนวณเวลาที่เหลือตามจริง (ไม่ไวต่อ throttle)
   const elapsed = Math.max(0, (nowMs - R.startAtMs)/1000);
   const remain  = Math.max(0, R.matchTime - Math.floor(elapsed));
   R.remain = remain|0;
 
-  // อัปเดต HUD ต่อเมื่อเปลี่ยนวินาที
   if ((R.remain|0) !== (R.lastSecShown|0)) {
     R.lastSecShown = R.remain|0;
     R.hud?.setTimer(R.remain);
@@ -143,7 +143,6 @@ function step(nowMs){
     Quests?.tick?.({ score:R.sys.score.get?.()||0, dt:1, fever:R.fever });
   }
 
-  // เดินโหมด
   const dt = Math.max(0, (nowMs - (R._lastRAF||nowMs))/1000);
   R._lastRAF = nowMs;
   try { R.modeAPI?.update?.(dt, busFor()); } catch(e){ console.warn('[mode.update]', e); }
@@ -151,17 +150,21 @@ function step(nowMs){
 
   if (R.remain<=0) return endGame();
 
-  // safety: ถ้า 1.2s ไม่มี event ให้เตะ spawn/update เอง
   if (nowMs - (R._idleMark||nowMs) > 1200) {
     try { R.modeAPI?.update?.(0.9, busFor()); R.modeInst?.update?.(0.9, busFor()); } catch{}
     R._idleMark = nowMs;
   }
 }
 
-function loop(now){
-  if (R.playing) step(now);
-  R._raf = requestAnimationFrame(loop);
+function loop(now){ if (R.playing) step(now); R._raf = requestAnimationFrame(loop); }
+
+// --------- Hard 1s tick (กัน throttle) ----------
+function startHardTick(){
+  stopHardTick();
+  const tick = ()=>{ if(R.playing && !R.paused){ step(performance.now()); } R._hardTick = setTimeout(tick, 1000); };
+  R._hardTick = setTimeout(tick, 1000);
 }
+function stopHardTick(){ if (R._hardTick){ clearTimeout(R._hardTick); R._hardTick=null; } }
 
 // --------- 3-2-1-GO ----------
 function countdownThen(cb){
@@ -190,7 +193,6 @@ async function startGame(){
   R.lastSecShown = -1;
   R.fever=false; R.feverBreaks=0; R._idleMark = performance.now();
 
-  // HUD & systems
   R.hud   = new HUD();
   R.hud.hideResult?.(); R.hud.resetBars?.(); R.hud.setTop?.({mode:R.modeKey, diff:R.diff}); R.hud.setTimer?.(R.remain); R.hud.updateHUD?.(0,0);
   R.sys.score = new ScoreSystem(); R.sys.score.reset?.();
@@ -201,7 +203,6 @@ async function startGame(){
   Quests?.beginRun?.(R.modeKey, R.diff, (localStorage.getItem('hha_lang')||'TH'), R.matchTime);
   R.coach?.onStart?.();
 
-  // โหลดโหมด
   let api=null;
   try { api = await MODE(R.modeKey); } catch(e){ console.error('[mode load fail]', e); }
   if (!api || (!api.update && !api.create)) {
@@ -213,31 +214,25 @@ async function startGame(){
   }
   R.modeAPI = api;
 
-  // สร้าง instance (ถ้ามี)
-  if (api?.create) {
-    try { R.modeInst = api.create({ engine:{}, hud:R.hud, coach:R.coach }); R.modeInst?.start?.({ time:R.matchTime, difficulty:R.diff }); } catch{}
-  }
-  if (api?.start) { try { api.start({ time:R.matchTime, difficulty:R.diff }); } catch{} }
+  if (api?.create) { try { R.modeInst = api.create({ engine:{}, hud:R.hud, coach:R.coach }); R.modeInst?.start?.({ time:R.matchTime, difficulty:R.diff }); } catch{} }
+  if (api?.start)  { try { api.start({ time:R.matchTime, difficulty:R.diff }); } catch{} }
 
-  // prime spawn 3 ครั้งกันว่าง
-  try { for (let i=0;i<3;i++) api?.update?.(0.35, busFor()); } catch{}
+  for (let i=0;i<3;i++) { try { api?.update?.(0.35, busFor()); } catch{} }
 
-  // UI states
   document.body.setAttribute('data-playing','1');
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
 
-  // เริ่มนับจริงหลัง GO!
   countdownThen(()=>{
-    R.playing = true;
-    R.paused  = false;
-    R.startAtMs = performance.now();   // จุดอ้างอิงเวลาจริง
+    R.playing = true; R.paused=false;
+    R.startAtMs = performance.now();
     R._lastRAF  = R.startAtMs;
     setTopHUD();
 
     cancelAnimationFrame(R._raf);
     R._raf = requestAnimationFrame(loop);
 
-    // ถ้า 2.5s ยังเงียบสนิท → เปิด builtin โหมด
+    startHardTick(); // <<< ฮาร์ดทิกเริ่มทำงาน
+
     setTimeout(()=>{
       if (!R._usingBuiltin && (R.sys.score.get?.()||0)===0){
         const B = BuiltinGoodJunk();
@@ -257,6 +252,7 @@ function endGame(){
   if (!R.playing) return;
   R.playing=false;
 
+  stopHardTick();
   cancelAnimationFrame(R._raf);
 
   try{ R.modeInst?.cleanup?.(); R.modeAPI?.cleanup?.(); }catch{}
@@ -269,11 +265,7 @@ function endGame(){
   R.hud?.showResult?.({
     title:'Result',
     desc:`Mode: ${R.modeKey} • Diff: ${R.diff}\n⭐ ${'★'.repeat(stars)}${'☆'.repeat(5-stars)}`,
-    stats:[
-      `Score: ${score}`,
-      `Best Combo: ${bestC}`,
-      `Time: ${R.matchTime|0}s`,
-    ],
+    stats:[`Score: ${score}`, `Best Combo: ${bestC}`, `Time: ${R.matchTime|0}s`],
     extra:(qsum.list||[]).map(q=>`${q.done?'✔':(q.fail?'✘':'…')} ${q.label} (${q.progress||0}/${q.need||0})`)
   });
 
@@ -284,7 +276,6 @@ function endGame(){
   Progress?.endRun?.({ score, bestCombo:bestC });
 }
 
-// --------- Pause/Resume (เผื่อใช้) ----------
 function setPaused(on){
   if (!R.playing) return;
   R.paused = !!on;
@@ -310,5 +301,5 @@ window.addEventListener('keydown',(e)=>{
   }
 },{passive:false});
 
-// version ping (ช่วยเช็คว่าไฟล์ใหม่จริง)
-try { window.__HHA_VER = 'main-stable-2025-11-02'; } catch {}
+// version ping
+try { window.__HHA_VER = 'main-stable-hardtick-2025-11-02'; } catch {}
