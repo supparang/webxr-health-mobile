@@ -1,313 +1,249 @@
-// === Hero Health Academy — /game/main.js (2025-11-03 FINAL) ===
-'use strict';
+<!-- /webxr-health-mobile/HeroHealth/game/main.js  (LATEST) -->
+<script type="module">
+// ===== Hero Health Academy — game/main.js =====
+// - Uses wall-clock countdown (HUD time decreases every second)
+// - 3-2-1-GO prestart
+// - Stops spawns cleanly on timeout
+// - Imports from ./core/* and ./modes/*
 
-// ----- Imports (core) -----
-import { Engine }            from '../core/engine.js';
-import { HUD }               from '../core/hud.js';
-import { Coach }             from '../core/coach.js';
-import { ScoreSystem }       from '../core/score.js';
-import { PowerUpSystem }     from '../core/powerup.js';
-import { SFX }               from '../core/sfx.js';
-import { Quests }            from '../core/quests.js';
-import { MissionSystem }     from '../core/mission-system.js';
-import { Progress }          from '../core/progression.js';
+import { Engine } from './core/engine.js';
+import { HUD } from './core/hud.js';
+import { Coach } from './core/coach.js';
+import { SFX } from './core/sfx.js';
+import { ScoreSystem } from './core/score.js';
+import { PowerUpSystem } from './core/powerup.js';
+import { Quests } from './core/quests.js';
+import { MissionSystem } from './core/mission-system.js';
+import { Leaderboard } from './core/leaderboard.js';
+import { VRInput } from './core/vrinput.js';
+import * as FX from './core/fx.js';
 
-// ----- State -----
-const R = {
-  playing: false,
-  modeKey: 'goodjunk',
-  diff: 'Normal',
-  seconds: 45,
+// Modes
+import * as goodjunk from './modes/goodjunk.js';
 
-  // modules
-  engine: null,
-  hud: null,
-  coach: null,
-  score: null,
-  power: null,
-  sfx: null,
-  mission: null,
-
-  // mode api
-  modeAPI: null,     // {start, update, cleanup, setFever?}
-  modeInst: null,    // legacy wrapper if needed
-
-  // timers
-  _raf: 0,
-  _hardTick: null,
-  _lastTS: 0,
-  tStartWall: 0,
-  tEndWall: 0,
-
-  // helpers
-  _countdownTOs: [],
+// ---------- Registry ----------
+const MODES = {
+  goodjunk
 };
 
-// ====== Utilities ======
-const $ = (s)=>document.querySelector(s);
+// ---------- Helpers ----------
+const $  = (s)=>document.querySelector(s);
+const now = ()=> (performance.now ? performance.now() : Date.now());
+const sleep = (ms)=> new Promise(r=>setTimeout(r, ms));
 
-function getSelectedMode(){ return document.body.getAttribute('data-mode') || 'goodjunk'; }
-function getSelectedDiff(){ return document.body.getAttribute('data-diff') || 'Normal'; }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
-function wallSecondsLeft(){
-  const now = Date.now();
-  const ms = Math.max(0, R.tEndWall - now);
-  return Math.ceil(ms/1000);
-}
+// ---------- Singletons ----------
+const engine = new Engine();
+const hud    = new HUD();
+const coach  = new Coach({ lang: 'TH' });
+const sfx    = new SFX();
+const score  = new ScoreSystem();
+const power  = new PowerUpSystem();
+const board  = new Leaderboard({ key:'hha_board', maxKeep:300, retentionDays:180 });
+const mission= new MissionSystem();
+Quests.bindToMain({ hud, coach });
 
-function stopHardTick(){
-  if (R._hardTick){ clearInterval(R._hardTick); R._hardTick = null; }
-  if (R._raf) cancelAnimationFrame(R._raf);
-}
+power.attachToScore(score);
+power.onChange((t)=>{ /* you may draw extra power timers here if needed */ });
 
-// ====== FEVER sync ======
-function syncFeverVisual(){
-  const active = R.score?.fever?.active;
-  R.hud?.showFever(!!active);
-  try { R.modeAPI?.setFever?.(!!active); } catch {}
-}
+// ---------- Run State ----------
+let playing = false;
+let rafId   = 0;
+let activeMode = null;
+let wallSecondsTotal = 45;
+let wallSecondsLeft  = 45;
+let lastWallMs = 0;
 
-// ====== BUS (events from mode) ======
+// ---------- BUS (bridge from modes -> main/core) ----------
 const BUS = {
+  // hit from mode
   hit(e){
-    const kind = e?.kind || 'good';
-    const pts  = e?.points|0;
-    R.score.add(pts, { kind });
-    R.hud.updateHUD(R.score.get(), R.score.combo);
-    if (e?.ui) R.hud.showFloatingText(e.ui.x, e.ui.y, `+${pts}`);
+    const pts = e?.points|0;
+    const kind = (e?.kind==='perfect') ? 'perfect' : 'good';
+    score.add(pts, { kind });
+    hud.updateHUD(score.get(), score.combo|0);
+    if (e?.ui){ hud.showFloatingText(e.ui.x, e.ui.y, `+${pts}`); }
+    if (kind==='perfect') coach.onPerfect(); else coach.onGood();
 
-    // auto-activate fever when charged
-    if (!R.score.fever.active && (R.score.fever.charge|0) >= 100){
-      if (R.score.tryActivateFever()){
-        R.coach?.onFever?.();
-        R.sfx?.fever?.(true);
-        syncFeverVisual();
-      }
-    }
+    // quests/minimissions
+    if (kind==='perfect') mission.onEvent('perfect', {count:1}, stateRef);
+    else                   mission.onEvent('good',    {count:1}, stateRef);
 
-    // missions / quests signals
-    try {
-      if (kind === 'perfect') R.mission?.onEvent('perfect', {}, R);
-      R.mission?.onEvent('good', {}, R);
-    } catch {}
+    if (e?.meta?.golden)  mission.onEvent('golden', {count:1}, stateRef);
   },
-  miss(ev){
-    R.score.add(0, { kind:'miss' });
-    R.hud.updateHUD(R.score.get(), R.score.combo);
-    try { R.mission?.onEvent('miss', {}, R); } catch {}
-    R.coach?.onMiss?.();
+  // when a visible good expired (treated as miss)
+  miss(/*{source}*/){
+    score.add(0); // soft reset combo
+    coach.onMiss();
+    mission.onEvent('miss', {count:1}, stateRef);
   },
-  bad(ev){
-    R.score.add(0, { kind:'bad' });
-    R.hud.updateHUD(R.score.get(), R.score.combo);
-    try { R.mission?.onEvent('wrong_group', {}, R); } catch {}
-    R.coach?.onBad?.();
+  // clicked junk
+  bad(/*{source}*/){
+    score.add(0); // soft reset combo
+    coach.onJunk();
   },
   power(kind){
-    // You can map to PowerUpSystem if desired
-    R.sfx?.power?.();
+    if (kind==='shield'){ /* shield handled inside mode goodjunk */ }
+    if (kind==='gold'){ /* affects score via hit() already */ }
   },
   sfx: {
-    good(){ R.sfx?.good?.(); },
-    bad(){ R.sfx?.bad?.(); },
-    perfect(){ R.sfx?.perfect?.(); },
-    power(){ R.sfx?.power?.(); },
+    good(){ sfx.good(); },
+    bad(){ sfx.bad(); },
+    perfect(){ sfx.perfect(); },
+    power(){ sfx.power(); }
   }
 };
 
-// ====== Mode Loader (goodjunk guaranteed) ======
-async function loadMode(key){
-  try {
-    const mod = await import(`./modes/${key}.js?ts=${Date.now()}`);
-    // Prefer module API (start/update/cleanup)
-    const api = (mod && (mod.create ? mod.create() : (mod.start && mod.update ? mod : null)));
-    if (!api) throw new Error(`Mode ${key} missing API`);
-    return api;
-  } catch (e){
-    // fallback to goodjunk
-    if (key !== 'goodjunk'){
-      console.warn(`[mode:${key}] failed, fallback to goodjunk`, e);
-      return await loadMode('goodjunk');
-    }
-    throw e;
-  }
+// Mission/quest state shell (kept minimal)
+const stateRef = { missions: [], ctx:{} };
+
+// ---------- Game Flow ----------
+async function preCountdown(){
+  // 3-2-1-GO with HUD
+  hud.showBig('3'); sfx.tick(); await sleep(650);
+  hud.showBig('2'); sfx.tick(); await sleep(650);
+  hud.showBig('1'); sfx.tick(); await sleep(650);
+  hud.showBig('GO!'); sfx.tick(); await sleep(450);
 }
 
-// ====== Countdown (3-2-1-Go) ======
-async function runCountdown(){
-  const seq = ['3','2','1','GO!'];
-  const delay = [650, 650, 650, 550];
-  for (let i=0;i<seq.length;i++){
-    R.hud.showBig(seq[i]);
-    await new Promise(r=>{ const to=setTimeout(r, delay[i]); R._countdownTOs.push(to); });
-  }
-}
-
-// ====== Game Loop ======
-function frame(ts){
-  if (!R.playing) return;
-
-  const dt = Math.max(0.001, (R._lastTS ? (ts - R._lastTS) : 16.6) / 1000);
-  R._lastTS = ts;
-
-  // propagate fever timing
-  R.score.tick(dt);
-  // fever end hook
-  if (!R.score.fever.active && document.body.classList.contains('fever-on')){
-    R.sfx?.fever?.(false);
-    syncFeverVisual();
-  }
-
-  try { R.modeAPI?.update?.(dt, BUS); } catch (e){ console.error('[mode.update]', e); }
-
-  // check end by wall clock
-  if (Date.now() >= R.tEndWall){
-    endGame();
-    return;
-  }
-
-  R._raf = requestAnimationFrame(frame);
-}
-
-function startHardTick(){
-  // Wall-clock HUD timer & quests tick
-  R._hardTick = setInterval(()=>{
-    // HUD time
-    R.hud.setTimer(wallSecondsLeft());
-
-    // Optional: tick Quests system to progress time-based quests
-    try {
-      const fever = !!(R.score?.fever?.active);
-      Quests.tick({ score: R.score.get(), dt: 1, fever });
-    } catch {}
-  }, 1000);
-}
-
-// ====== Start / End / Retry ======
-async function startGame(){
-  if (R.playing) return;
-
-  // read selection
-  R.modeKey = getSelectedMode();
-  R.diff    = getSelectedDiff();
-  R.seconds = 45; // fixed for now; adjust as you like
-
-  // init modules (once)
-  if (!R.engine)  R.engine  = new Engine();
-  if (!R.hud)     R.hud     = new HUD();
-  if (!R.coach)   R.coach   = new Coach({ lang:'TH' });
-  if (!R.score)   R.score   = new ScoreSystem();
-  if (!R.power)   R.power   = new PowerUpSystem();
-  if (!R.sfx)     R.sfx     = new SFX();
-  if (!R.mission) R.mission = new MissionSystem();
-
-  Progress.init();
-
-  // HUD top info
-  R.hud.setTop({ mode: R.modeKey, diff: R.diff });
-  R.hud.updateHUD(0, 0);
-  R.hud.setTimer(R.seconds);
-  R.hud.resetBars();
-  Quests.bindToMain({ hud:R.hud, coach:R.coach });
-
-  // load mode api
-  try {
-    R.modeAPI = await loadMode(R.modeKey);
-  } catch (e){
-    console.error('[loadMode] fatal', e);
-    window.__HHA_HUD_API?.say?.('โหลดโหมดไม่สำเร็จ');
-    return;
-  }
-
-  // begin mission set (optional UI chips driven by Quests)
-  try { Quests.beginRun(R.modeKey, R.diff, 'TH', R.seconds); } catch {}
-
-  // start flags
-  R.playing = true;
+function beginRun({ modeKey, diff='Normal', seconds=45 }){
   document.body.setAttribute('data-playing','1');
-  R.score.reset();
-  R.power.attachToScore(R.score);
+  playing = true;
 
-  // Countdown → start
-  await runCountdown();
+  // Reset systems
+  score.reset();
+  wallSecondsTotal = clamp(seconds|0, 10, 300);
+  wallSecondsLeft  = wallSecondsTotal;
+  lastWallMs = now();
 
-  // Start mode
-  try {
-    R.modeAPI.start?.({ difficulty:R.diff, fever:false });
-  } catch (e){ console.error('[mode.start]', e); }
+  // HUD top
+  hud.setTop({ mode: shortMode(modeKey), diff });
 
-  // wall clock timer bounds
-  R.tStartWall = Date.now();
-  R.tEndWall   = R.tStartWall + R.seconds*1000;
+  // Coach cue
+  coach.onStart();
 
-  // coach + hud
-  R.coach.onStart?.();
-  R.hud.setTimer(wallSecondsLeft());
+  // Quests (simple bind)
+  Quests.beginRun(modeKey, diff, 'TH', wallSecondsTotal);
 
-  // timers
-  startHardTick();
-  R._lastTS = 0;
-  R._raf = requestAnimationFrame(frame);
+  // MissionSystem attach (optional, safe)
+  const run = mission.start(modeKey, { seconds: wallSecondsTotal, count:3, lang:'TH' });
+  mission.attachToState(run, stateRef);
+
+  // Kick mode
+  activeMode?.start?.({ difficulty: diff, fever: false });
+
+  // Start loop
+  loop();
 }
 
-function endGame(){
-  if (!R.playing) return;
-  R.playing = false;
+function endRun(){
+  if (!playing) return;
+  playing = false;
   document.body.removeAttribute('data-playing');
 
-  stopHardTick();
+  // Stop mode & clean DOM spawns
+  try{ activeMode?.stop?.(); }catch{}
+  try{ activeMode?.cleanup?.(); }catch{}
+  const host = document.getElementById('spawnHost'); if (host) host.innerHTML='';
 
-  // cleanup mode
-  try { R.modeAPI?.cleanup?.(); } catch (e){ console.warn('mode.cleanup error', e); }
+  // Finalize score & summary
+  const finalScore = score.get();
+  const comboBest  = score.bestCombo|0;
+  const questSum   = Quests.endRun({ _score: finalScore });
+  mission.stop(stateRef);
 
-  // HARD clear spawns (DOM modes safeguard)
-  try {
-    const host = document.getElementById('spawnHost');
-    if (host) host.innerHTML = '';
-  } catch {}
+  board.submit(currentModeKey, currentDiff, finalScore, { name:'Player', meta:{ comboBest } });
 
-  // result
-  const score = R.score.get();
-  const bestC = R.score.bestCombo|0;
-  Progress.endRun({ score, bestCombo: bestC });
+  const stats = [
+    `Score: ${finalScore}`,
+    `Best Combo: ${comboBest}`,
+  ];
+  const extra = (questSum?.lines||[]);
 
-  const qsum = Quests.endRun?.({_score:score}) || { lines:[], totalDone:0 };
-  const lines = qsum.lines || [];
-  R.hud.showResult({
+  hud.showResult({
     title: 'Result',
-    desc: `Mode: ${R.modeKey} (${R.diff})`,
-    stats: [
-      `Score: ${score}`,
-      `Best combo: x${bestC}`,
-      `Quests done: ${qsum.totalDone||0}/3`
-    ],
-    extra: lines
+    desc: `Mode: ${shortMode(currentModeKey)} • Diff: ${currentDiff}`,
+    stats, extra
   });
-  R.hud.onHome  = ()=>{ try{ location.href = location.href; }catch{} };
-  R.hud.onRetry = ()=>{ R.hud.hideResult(); startGame(); };
 
-  R.coach.onEnd?.(score);
-
-  // reset handles
-  R.modeInst = null;
-  R.modeAPI  = null;
+  hud.onHome = ()=> { location.href = location.href; };
+  hud.onRetry= ()=> { location.reload(); };
 }
 
-function restartGame(){
-  if (!R.playing) return;
-  endGame();
-  startGame();
+function loop(){
+  if (!playing) return;
+  rafId = requestAnimationFrame(loop);
+
+  // --- wall-clock countdown ---
+  const t = now();
+  const dtMs = t - lastWallMs;
+  if (dtMs >= 1000){
+    const step = Math.floor(dtMs / 1000);
+    wallSecondsLeft = Math.max(0, wallSecondsLeft - step);
+    lastWallMs += step*1000;
+    hud.setTimer(wallSecondsLeft);
+    sfx.tick();
+
+    // quests/missions 1s tick
+    Quests.tick({ score: score.get(), dt: step*1000, fever: score.fever.active });
+    mission.tick(stateRef, { score: score.get() }, /*cb*/null, { hud, coach, lang:'TH' });
+  }
+
+  // --- per-frame updates ---
+  // score fever countdown
+  score.tick((dtMs/1000));
+
+  // if fever activated externally (not used here), HUD visual
+  hud.showFever(!!score.fever.active);
+
+  // mode internal update (seconds passed in seconds)
+  try{
+    activeMode?.update?.(dtMs/1000, BUS);
+  }catch(e){
+    console.error('[mode.update] failed', e);
+  }
+
+  // timeout
+  if (wallSecondsLeft <= 0){
+    cancelAnimationFrame(rafId);
+    endRun();
+  }
 }
 
-// ====== Expose API to window (used by index binder) ======
-try {
-  window.HHA = window.HHA || {};
-  window.HHA.startGame  = startGame;
-  window.HHA.endGame    = endGame;
-  window.HHA.restart    = restartGame;
-  // For debug — allow DOM mode to ping us if needed
-  window.__notifySpawn = ()=>{/* no-op; hook for dev */};
-} catch {}
+// ---------- Public API ----------
+let currentModeKey = 'goodjunk';
+let currentDiff    = 'Normal';
 
-// ====== Optional: close menu if loaded directly and auto-start? ======
-// (We let index.html decide; no auto-start here)
+async function startGame(){
+  // read menu selections from <body data-mode/diff>
+  currentModeKey = document.body.getAttribute('data-mode') || 'goodjunk';
+  currentDiff    = document.body.getAttribute('data-diff') || 'Normal';
+
+  // mode module
+  activeMode = MODES[currentModeKey];
+  if (!activeMode){
+    alert('Mode not found: '+currentModeKey);
+    return;
+  }
+
+  // Hide menu (safety if loader didn’t already)
+  const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
+  // Precount + begin
+  await preCountdown();
+  beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
+}
+
+function shortMode(m){
+  if(m==='goodjunk') return 'Good vs Junk';
+  if(m==='groups') return '5 Groups';
+  if(m==='hydration') return 'Hydration';
+  if(m==='plate') return 'Healthy Plate';
+  return String(m||'');
+}
+
+// expose
+window.HHA = Object.assign({}, window.HHA||{}, { startGame });
+
+</script>
