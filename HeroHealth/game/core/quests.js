@@ -1,46 +1,31 @@
-// === core/quests.js (10 mini-quests; pick 3 per run; focus sequential; full summary) ===
+// === core/quests.js (Fixed active-one-at-a-time mode) ===
 'use strict';
 
 export const Quests = (()=>{
+
   const QUEST_DEFS = [
     { key:'good_15',   icon:'🥗', label:'แตะของดี 15 ชิ้น', needByDiff:{Easy:12,Normal:15,Hard:18},
-      onHit:(e)=> ((e.kind==='good'||e.kind==='perfect') ? 1 : 0) },
-
+      onHit:(e)=> (e.kind==='good'||e.kind==='perfect')?1:0 },
     { key:'perfect_8', icon:'💥', label:'Perfect 8 ครั้ง', needByDiff:{Easy:6,Normal:8,Hard:10},
-      onHit:(e)=> (e.kind==='perfect' ? 1 : 0) },
-
+      onHit:(e)=> (e.kind==='perfect')?1:0 },
     { key:'combo_20',  icon:'🔥', label:'ทำคอมโบ 20', needByDiff:{Easy:16,Normal:20,Hard:24},
-      onTick:(_s,ctx)=> (ctx.comboMax>=ctx.need ? (ctx.need-ctx.progress) : 0) },
-
+      onTick:(_s,ctx)=> ctx.comboMax>=ctx.need? (ctx.need-ctx.progress):0 },
     { key:'fever_on',  icon:'⚡', label:'เข้า FEVER 1 ครั้ง', needByDiff:{Easy:1,Normal:1,Hard:1},
-      onFever:(on)=> (on ? 1 : 0) },
-
-    { key:'fever_10s', icon:'⏱️', label:'สะสม FEVER 10 วิ', needByDiff:{Easy:8,Normal:10,Hard:12},
-      onTick:(_s,ctx)=> (ctx.fever ? ctx.dt : 0), isTime:true },
-
-    // 🔧 FIXED: นับ gold ผ่าน meta/power (ตรงกับ goodjunk.js)
-    { key:'gold_5',    icon:'⭐', label:'เก็บ GOLD 5 ชิ้น', needByDiff:{Easy:4,Normal:5,Hard:6},
-      onHit:(e)=> ((e.meta?.gold===1 || e.meta?.power==='gold') ? 1 : 0) },
-
-    { key:'avoid_junk',icon:'🚫', label:'หลีกเลี่ยง JUNK 20 วิ', needByDiff:{Easy:15,Normal:20,Hard:25},
-      onTick:(_s,ctx)=> (ctx.noJunkSeconds>0 ? Math.min(ctx.dt, ctx.noJunkSeconds) : 0), isTime:true },
-
-    { key:'streak_10', icon:'🔗', label:'Streak 10', needByDiff:{Easy:8,Normal:10,Hard:12},
-      onTick:(_s,ctx)=> (ctx.combo>=ctx.need ? (ctx.need-ctx.progress) : 0) },
-
+      onFever:(on)=> on?1:0 },
     { key:'score_600', icon:'🏆', label:'ทำคะแนน 600', needByDiff:{Easy:450,Normal:600,Hard:800},
-      onTick:(_s,ctx)=> (ctx.score>=ctx.need ? (ctx.need-ctx.progress) : 0) },
-
-    { key:'good_chain',icon:'➕', label:'แตะของดีติดกัน 12', needByDiff:{Easy:10,Normal:12,Hard:14},
-      onHit:(e,ctx)=> ((e.kind==='good'||e.kind==='perfect') ? 1 : (ctx.breakChain=1,0)), chain:true }
+      onTick:(s,ctx)=> (ctx.score>=ctx.need)? (ctx.need-ctx.progress):0 },
+    { key:'gold_5',    icon:'⭐', label:'เก็บ GOLD 5 ชิ้น', needByDiff:{Easy:4,Normal:5,Hard:6},
+      onHit:(e)=> e.kind==='gold'?1:0 },
+    { key:'streak_10', icon:'🔗', label:'Streak 10', needByDiff:{Easy:8,Normal:10,Hard:12},
+      onTick:(_s,ctx)=> ctx.combo>=ctx.need? (ctx.need-ctx.progress):0 },
   ];
 
-  // runtime
   let HUD=null, COACH=null, active=[], focusIdx=0, diff='Normal', secTotal=45;
 
-  function diffNeed(def){ return def.needByDiff?.[diff] ?? def.needByDiff?.Normal ?? 1; }
-  function pick3(defs){
-    const k=[...defs];
+  const diffNeed = (def)=> def.needByDiff?.[diff] ?? def.needByDiff?.Normal ?? 1;
+
+  function pick3(){
+    const k = [...QUEST_DEFS];
     for(let i=k.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [k[i],k[j]]=[k[j],k[i]]; }
     return k.slice(0,3).map(d=>({
       key:d.key, icon:d.icon, label:d.label, need:diffNeed(d),
@@ -50,107 +35,74 @@ export const Quests = (()=>{
 
   function refreshHUD(){
     const list = active.map((q,i)=>({
-      key:q.key,label:q.label,icon:q.icon,need:q.need,progress:q.progress,done:q.done,fail:q.fail,active:i===focusIdx
+      key:q.key, label:q.label, icon:q.icon,
+      need:q.need, progress:q.progress, done:q.done, fail:q.fail, active:i===focusIdx
     }));
     HUD?.setQuestChips(list);
   }
 
   function ensureFocus(){
-    while(focusIdx<active.length && (active[focusIdx].done||active[focusIdx].fail)) focusIdx++;
+    // move to next unfinished quest
+    while(focusIdx<active.length && (active[focusIdx].done||active[focusIdx].fail))
+      focusIdx++;
     if(focusIdx>=active.length) focusIdx = active.length-1;
     refreshHUD();
   }
 
-  function addProgress(q, inc){
+  function addProgress(q,inc){
     if(q.done||q.fail) return;
     q.progress += inc;
-    if(!q._def.isTime && q.progress>q.need) q.progress=q.need;
-    if(q.progress>=q.need){ q.progress=q.need; q.done=true; COACH?.say('เควสต์สำเร็จ!'); }
+    if(q.progress>=q.need){
+      q.progress=q.need; q.done=true;
+      COACH?.say('เควสต์สำเร็จ!');
+      // switch to next quest
+      focusIdx++;
+      if(focusIdx<active.length){
+        COACH?.say('ต่อไป ภารกิจถัดไป!');
+      } else {
+        COACH?.say('เควสต์ทั้งหมดเสร็จสิ้น!');
+      }
+      ensureFocus();
+    }
     refreshHUD();
-    if(q.done) ensureFocus();
   }
 
   return {
-    bindToMain({hud,coach}){ HUD=hud; COACH=coach; return { refresh:refreshHUD }; },
-
-    beginRun(modeKey, difficulty, lang, seconds){
-      diff = String(difficulty||'Normal'); secTotal=seconds|0;
-      active = pick3(QUEST_DEFS); focusIdx=0;
+    bindToMain({hud,coach}){ HUD=hud; COACH=coach; return {refresh:refreshHUD}; },
+    beginRun(modeKey,difficulty,lang,seconds){
+      diff=String(difficulty||'Normal'); secTotal=seconds|0;
+      active=pick3(); focusIdx=0;
+      active[0].active=true;
+      COACH?.say('ภารกิจเริ่ม! ทำอันแรกให้สำเร็จ!');
       refreshHUD();
-      COACH?.say('ภารกิจ 3 อย่าง เริ่มจากอันแรก!');
-      this._ctx = {
-        combo:0, comboMax:0,
-        noJunkSeconds:0, lastWasJunk:false,
-        fever:false, dt:0, score:0
-      };
+      this._ctx={ combo:0, comboMax:0, score:0, fever:false };
     },
-
-    endRun({_score}={}){
+    endRun({_score}={}) {
       const done = active.filter(q=>q.done).map(q=>q.key);
-      const fail = active.filter(q=>!q.done).map(q=>q.key);
-      const lines = active.map(q=>{
-        const mark = q.done ? '✅' : '❌';
-        return `${mark} ${q.label} — ${q.progress}/${q.need}`;
-      });
-      return { done, fail, lines, totalDone: done.length };
+      const lines = active.map((q)=>`${q.done?'✅':'❌'} ${q.label} — ${q.progress}/${q.need}`);
+      return { done, lines, totalDone: done.length };
     },
-
-    // events from main:
-    event(type, payload={}){
-      const ctx = this._ctx || (this._ctx={});
-      if(type==='hit'){
-        const kind = payload.kind||'good';
-        ctx.score = (ctx.score|0) + (payload.points|0);
-        if(kind==='good'||kind==='perfect'){ ctx.combo=(ctx.combo|0)+1; } else { ctx.combo=0; }
-        if(ctx.combo>ctx.comboMax) ctx.comboMax=ctx.combo;
-
-        for(const q of active){
-          if(q.done||q.fail) continue;
-          const def=q._def;
-          if(def.onHit){
-            const inc = def.onHit({ kind, meta:payload.meta||{} }, ctx) | 0;
-            if(inc>0 && active.indexOf(q)===focusIdx) addProgress(q, inc);
-          }
-        }
-        ctx.lastWasJunk=false;
-      }
-      else if(type==='miss'){
-        // miss: ของดีหมดเวลา → ตัดคอมโบ
-        ctx.combo=0;
-      }
-      else if(type==='bad'){ // 🔧 main ใช้ 'bad' เมื่อคลิก Junk
-        ctx.combo=0;
-        ctx.lastWasJunk=true;
-        ctx.noJunkSeconds=0;
-      }
-      else if(type==='fever'){
-        ctx.fever = !!payload.on;
-      }
-      refreshHUD();
+    event(type,payload={}){
+      const ctx=this._ctx||{};
+      const q = active[focusIdx]; if(!q||q.done) return;
+      const def=q._def;
+      if(type==='hit' && def.onHit){
+        const inc=def.onHit({kind:payload.kind},ctx)|0;
+        if(inc>0) addProgress(q,inc);
+      } else if(type==='fever' && def.onFever){
+        const inc=def.onFever(payload.on,ctx)|0;
+        if(inc>0) addProgress(q,inc);
+      } else if(type==='junk'){ ctx.combo=0; }
     },
-
     tick({score,dt,fever}){
       const ctx=this._ctx; if(!ctx) return;
-      ctx.dt = +dt || 0;                // ใช้ float dt
-      ctx.score = score|0;
-
-      // accumulate “avoid junk” time
-      if(!ctx.lastWasJunk) ctx.noJunkSeconds = (ctx.noJunkSeconds||0) + ctx.dt;
-
-      for(const q of active){
-        if(q.done||q.fail) continue;
-        const def=q._def;
-        if(def.onTick){
-          const inc = def.onTick(q, {
-            dt:ctx.dt, fever:!!fever,
-            combo:ctx.combo|0, comboMax:ctx.comboMax|0,
-            score:ctx.score|0, need:q.need, progress:q.progress,
-            noJunkSeconds:ctx.noJunkSeconds||0
-          });
-          if(inc>0 && active.indexOf(q)===focusIdx) addProgress(q, inc);
-        }
+      ctx.score=score|0; ctx.dt=dt|0;
+      const q=active[focusIdx]; if(!q||q.done) return;
+      const def=q._def;
+      if(def.onTick){
+        const inc=def.onTick(score,{combo:ctx.combo,comboMax:ctx.comboMax,score:ctx.score,need:q.need,progress:q.progress,fever})|0;
+        if(inc>0) addProgress(q,inc);
       }
-      refreshHUD();
     }
   };
 })();
