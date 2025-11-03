@@ -1,4 +1,5 @@
-// === Hero Health Academy — game/modes/goodjunk.js (DOM-spawn, low-density, quest-aware, tuned) ===
+// === Hero Health Academy — game/modes/goodjunk.js
+// (DOM-spawn, low-density, quest-aware, tuned) ===
 export const name = 'goodjunk';
 
 const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
@@ -8,11 +9,11 @@ const GOLD = ['⭐']; // golden = คะแนนพิเศษ
 let host, items = [], alive = 0;
 let cfg, spawnAcc = 0, running = false;
 
-// ความหนาแน่นต่ำ + อายุชิ้นนานขึ้น
+// ความหนาแน่นต่ำ + อายุชิ้นนานขึ้น + ขนาดต่างตามความยาก (Easy ใหญ่สุด)
 const PRESET = {
-  Easy:   { spawnEvery: 1.30, maxAlive: 6,  life: 3.6, size: 60 },
-  Normal: { spawnEvery: 1.10, maxAlive: 7,  life: 3.3, size: 62 },
-  Hard:   { spawnEvery: 0.95, maxAlive: 8,  life: 3.0, size: 64 },
+  Easy:   { spawnEvery: 1.8, maxAlive: 4, life: 4.2, size: 76 },
+  Normal: { spawnEvery: 1.4, maxAlive: 5, life: 3.6, size: 64 },
+  Hard:   { spawnEvery: 1.1, maxAlive: 6, life: 3.2, size: 54 },
 };
 
 function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
@@ -28,11 +29,34 @@ function ensureHost(){
   }
 }
 
+// หาตำแหน่งวาง โดยพยายามไม่ชนกัน (กัน “อัดเป็นกลุ่ม”)
+function findFreeSpot(size){
+  const pad = Math.max(70, size*1.2);
+  const ww = window.innerWidth, hh = window.innerHeight;
+  const minDist = size * 1.4; // ระยะห่างขั้นต่ำระหว่างไอคอน
+
+  for (let attempt=0; attempt<12; attempt++){
+    const x = clamp(Math.random()*ww, pad, ww-pad);
+    const y = clamp(Math.random()*hh, pad+20, hh-pad-80); // เลี่ยง HUD ล่าง
+    let ok = true;
+    for (const it of items){
+      const dx = (x - it.x), dy = (y - it.y);
+      if (Math.hypot(dx, dy) < minDist){ ok = false; break; }
+    }
+    if (ok) return {x,y};
+  }
+  // ถ้าหาไม่ได้จริง ๆ ก็ยอมวางแบบสุ่ม
+  return {
+    x: clamp(Math.random()*ww, pad, ww-pad),
+    y: clamp(Math.random()*hh, pad+20, hh-pad-80)
+  };
+}
+
 // สร้าง 1 ชิ้น
 function spawnOne(BUS){
   if (alive >= cfg.maxAlive) return;
 
-  // สุ่มชนิด (ลด junk ให้เกมไหลลื่น)
+  // ชนิด (ลด junk ให้เกมไหล)
   const r = Math.random();
   let kind = 'good';
   if (r > 0.86) kind = 'gold';     // ~14%
@@ -41,11 +65,9 @@ function spawnOne(BUS){
   const emoji = kind==='gold' ? pick(GOLD)
                : kind==='junk' ? pick(JUNK) : pick(GOOD);
 
-  // สุ่มตำแหน่ง: ไม่ชิดขอบ + เลี่ยง HUD ล่าง
-  const pad = 70;
-  const ww = window.innerWidth, hh = window.innerHeight;
-  const x = clamp(Math.random()*ww, pad, ww-pad);
-  const y = clamp(Math.random()*hh, pad+20, hh-pad-80);
+  // ตำแหน่งวาง (เลี่ยงชนชิดกัน)
+  const pos = findFreeSpot(cfg.size);
+  const x = pos.x, y = pos.y;
 
   const el = document.createElement('div');
   const s = cfg.size;
@@ -62,7 +84,7 @@ function spawnOne(BUS){
     transition: transform .12s ease, opacity .28s ease;
   `;
 
-  const life = cfg.life * (0.9 + Math.random()*0.3); // +/-10–15%
+  const life = cfg.life * (0.93 + Math.random()*0.20); // แกว่ง ~±7%
   const obj = { el, x, y, t:0, life, kind, dead:false };
 
   // คลิก
@@ -84,6 +106,7 @@ function spawnOne(BUS){
     } else {
       const isGold = (kind==='gold');
       const base = isGold ? 50 : 10;
+      // แจ้งว่าเป็น golden ผ่าน meta → main จะไป onEvent('golden') ได้
       BUS.hit?.({ points: base, kind: isGold ? 'perfect' : 'good', ui, meta:{ golden: isGold } });
       if (isGold) BUS.sfx?.power?.(); else BUS.sfx?.good?.();
     }
@@ -132,6 +155,7 @@ export function start({ difficulty='Normal' } = {}){
   alive = 0;
   spawnAcc = 0;
 
+  // ตั้งค่าตามความยาก (ขนาดต่างกันชัดเจน)
   cfg = PRESET[difficulty] || PRESET.Normal;
 
   // กันกรณีสไตล์อื่นบล็อกคลิก
@@ -143,7 +167,7 @@ export function start({ difficulty='Normal' } = {}){
     });
   }catch{}
 
-  // เติมของตั้งต้นทันที 2–3 ชิ้น ให้ไม่โล่ง
+  // เติมของตั้งต้น 2–3 ชิ้น ให้ไม่โล่ง
   for(let i=0;i<3;i++) spawnOne({ hit:()=>{}, bad:()=>{}, sfx:{} });
 }
 
