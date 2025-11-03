@@ -170,6 +170,49 @@ function loop(){
   }
 }
 
+// === FEVER GAUGE + SOUND CONTROL ===
+const feverFill = document.querySelector('.fever-gauge .fever-fill');
+const feverStartSfx = document.getElementById('sfx-fever-start');
+const feverEndSfx   = document.getElementById('sfx-fever-end');
+
+function updateFeverGauge(){
+  if(!feverFill) return;
+  const val = Math.min(100, score.fever.charge|0);
+  feverFill.style.width = val + '%';
+}
+
+// เมื่อ fever เริ่ม
+score.onFeverStart = function(){
+  document.body.classList.add('fever-on');
+  try{ feverStartSfx?.play(); }catch{}
+};
+
+// เมื่อ fever จบ
+score.onFeverEnd = function(){
+  document.body.classList.remove('fever-on');
+  try{ feverEndSfx?.play(); }catch{}
+};
+
+// เรียกใน loop
+function loop(){
+  if (!playing) return;
+  rafId = requestAnimationFrame(loop);
+  const t = now();
+  const dtMs = t - lastWallMs;
+  if (dtMs >= 1000){
+    const step = Math.floor(dtMs / 1000);
+    wallSecondsLeft = Math.max(0, wallSecondsLeft - step);
+    lastWallMs += step*1000;
+    hud.setTimer(wallSecondsLeft);
+    sfx.tick();
+  }
+  score.tick(dtMs/1000);
+  hud.showFever(!!score.fever.active);
+  updateFeverGauge(); // ← อัปเดตเกจทุกเฟรม
+  try{ activeMode?.update?.(dtMs/1000, BUS); }catch(e){}
+  if (wallSecondsLeft <= 0){ cancelAnimationFrame(rafId); endRun(); }
+}
+
 // ---------- Public API ----------
 async function startGame(){
   currentModeKey = document.body.getAttribute('data-mode') || 'goodjunk';
