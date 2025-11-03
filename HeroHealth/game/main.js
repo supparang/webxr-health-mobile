@@ -1,6 +1,6 @@
 // === Hero Health Academy — game/main.js (Finish flow fixed: real stop + summary + buttons) ===
 
-// ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน
+// ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน (กัน re-import แล้ว loop ซ้ำ)
 if (window.HHA?.__stopLoop) {
   try { window.HHA.__stopLoop(); } catch(e){}
   delete window.HHA;
@@ -45,7 +45,7 @@ const stateRef={ missions:[], ctx:{} };
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 
-// ---------- BUS ----------
+// ---------- BUS (เชื่อมโหมดเกมกับระบบหลัก) ----------
 const BUS={
   hit(e){
     const pts=e?.points|0;
@@ -54,7 +54,7 @@ const BUS={
     hud.updateHUD(score.get(),score.combo|0);
     if(e?.ui) hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`);
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
-    // ภารกิจ
+    // เควสต์นับความคืบหน้า
     mission.onEvent(kind,{count:1},stateRef);
   },
   miss(){
@@ -63,7 +63,8 @@ const BUS={
   },
   bad(){
     score.add(0); coach.onJunk();
-    mission.onEvent('wrong_group',{count:1},stateRef); // สำหรับ goodjunk ถือเป็นผิด
+    // ใน goodjunk: treat เป็นผิดหมวด (เพื่อให้ no_miss/score_reach มีผลทางอ้อม)
+    mission.onEvent('wrong_group',{count:1},stateRef);
   },
   sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
@@ -80,7 +81,7 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   document.body.setAttribute('data-playing','1');
   playing=true;
 
-  // reset
+  // reset run
   score.reset();
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
@@ -90,10 +91,11 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   hud.resetBars?.();
   coach.onStart();
 
-  // ภารกิจ (single active)
+  // ภารกิจแบบ single-active (แสดงทีละอัน)
   const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
   mission.attachToState(run, stateRef);
-  // แสดงเควสต์ตัวแรก
+
+  // ให้ HUD แสดงเควสต์ตัวแรกทันที
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
   if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
 
@@ -114,20 +116,20 @@ function endRun(){
   try{ activeMode?.cleanup?.(); }catch{}
   const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
 
-  // --- finalize missions (ล่าสุดที่ tick) ---
+  // --- finalize missions ---
   mission.stop(stateRef);
 
   // --- summary data ---
   const finalScore = score.get()|0;
   const bestCombo  = score.bestCombo|0;
 
-  // ดึง mini-quest chips สุดท้าย (active ตัวเดียว)
-  const finalChips = stateRef.missions?.map(m=>({
+  // รวบรวมสถานะ mini-quest สุดท้าย
+  const finalChips = (stateRef.missions||[]).map(m=>({
     key:m.key, ok:!!m.success, need:m.target|0, got:m.progress|0
-  }))||[];
+  }));
 
   const extra = finalChips.map(c=>{
-    const icon = ({collect_goods:'🍎',count_perfect:'🌟',count_golden:'🟡',reach_combo:'🔥',no_miss:'❌',score_reach:'🏁'})[c.key] || '⭐';
+    const icon = ({collect_goods:'🍎',count_perfect:'🌟',count_golden:'🟡',reach_combo:'🔥',no_miss:'❌',score_reach:'🏁',target_hits:'🎯'})[c.key] || '⭐';
     const name = mission.describe({key:c.key,target:c.need}, 'TH');
     const mark = c.ok ? '✅' : '❌';
     return `${mark} ${icon} ${name} — ${c.got}/${c.need}`;
@@ -136,7 +138,7 @@ function endRun(){
   // --- leaderboard (optional) ---
   try{ board.submit(currentModeKey, currentDiff, finalScore, { meta:{ bestCombo } }); }catch{}
 
-  // --- show result modal ---
+  // --- show result modal + ปุ่มทำงานจริง ---
   hud.showResult({
     title:'สรุปผล',
     desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
@@ -144,17 +146,29 @@ function endRun(){
     extra
   });
 
-  // ปุ่มทำงานจริง
-  hud.onHome = ()=>{ try{ location.href = location.href.split('#')[0].split('?')[0]; }catch{ location.reload(); } };
+  hud.onHome = ()=>{
+    try{
+      // แสดงเมนูหลักกลับมา
+      const mb = $('#menuBar');
+      if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; }
+      hud.hideResult?.();
+      hud.resetBars?.();
+      document.body.removeAttribute('data-playing');
+      // ล้างสแปน/สไปน์ที่อาจค้าง
+      const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
+    }catch{
+      location.reload();
+    }
+  };
+
   hud.onRetry= ()=>{
-    // reset state และเริ่มใหม่แบบรวดเร็ว
     hud.hideResult?.();
     hud.resetBars?.();
     mission.reset(stateRef);
     beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: wallSecondsTotal });
   };
 
-  // ถอนสถานะเล่น
+  // ถอนสถานะเล่น + ปิดเอฟเฟกต์ไข้
   document.body.removeAttribute('data-playing');
   hud.showFever?.(false);
 }
@@ -163,7 +177,7 @@ function loop(){
   if(!playing) return;
   rafId=requestAnimationFrame(loop);
 
-  // wall-clock timer
+  // wall-clock timer เดินทุกวินาที (ไม่ชนกับ mini-quest)
   const t=now();
   const dtMs=t-lastWallMs;
   if (dtMs >= 1000){
@@ -173,13 +187,14 @@ function loop(){
     hud.setTimer(wallSecondsLeft);
     sfx.tick();
 
-    // tick missions (single-active)
+    // tick missions (single-active) — ให้ HUD อัปเดต progress ชิปเดียว
     mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
   }
 
-  // per-frame
+  // per-frame ของโหมด
   try{ activeMode?.update?.(dtMs/1000, BUS); }catch(e){ console.warn(e); }
 
+  // หมดเวลา => จบเกม
   if (wallSecondsLeft <= 0){
     endRun();
   }
@@ -190,8 +205,10 @@ async function startGame(){
   currentModeKey=document.body.getAttribute('data-mode')||'goodjunk';
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
   if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
-  $('#menuBar')?.setAttribute('data-hidden','1');
-  if ($('#menuBar')) $('#menuBar').style.display='none';
+
+  // ซ่อนเมนู
+  const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
 }
