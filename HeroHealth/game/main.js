@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (autostart + solid timer + spawn-guard) ===
+// === Hero Health Academy — game/main.js (autostart single + solid timer + spawn-guard + start-lock) ===
 
 // เคลียร์อินสแตนซ์เดิมถ้ามี
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
@@ -24,13 +24,14 @@ const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const pnow = ()=>performance.now?performance.now():Date.now();
 
-let playing=false, rafId=0, activeMode=null;
+let playing=false, booting=false, rafId=0, activeMode=null;
 let wallSecondsTotal=45, wallSecondsLeft=45;
 let lastFrameMs=0;
 let tickTimerId=null;        // ตัวจับเวลา 1s แยกจาก rAF
 let spawnGuardId=null;       // กัน “เริ่มแล้วไม่มีของเกิด”
 let guardTimerId=null;       // ตรวจซ้ำเป็นระยะ
 let currentModeKey='goodjunk', currentDiff='Normal';
+let autoBootArmed=false;     // autostart แค่ครั้งเดียว
 
 // ---------- Core ----------
 const engine=new Engine();
@@ -49,7 +50,10 @@ power.attachToScore(score);
 // ---------- Fever ----------
 power.onFever(v=>{
   if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0, Math.min(100, v)) + '%';
-  if (v >= 100) { hud.showFever(true); sfx.power(); setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000); }
+  if (v >= 100) {
+    hud.showFever(true); sfx.power();
+    setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000);
+  }
 });
 
 // ---------- BUS ----------
@@ -144,7 +148,8 @@ function endRun(){
 
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
-  const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
+  const host=document.getElementById('spawnHost');
+  if(host){ host.innerHTML=''; host.style.pointerEvents='auto'; }
 
   mission.stop(stateRef);
 
@@ -160,6 +165,8 @@ function endRun(){
 
   try{ board.submit(currentModeKey, currentDiff, finalScore, { meta:{ bestCombo } }); }catch{}
 
+  // ปิดการคลิกของ host ขณะโชว์ผลลัพธ์ เพื่อให้ปุ่มกดได้แน่นอน
+  if (host) host.style.pointerEvents = 'none';
   hud.showResult({
     title:'สรุปผล',
     desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
@@ -171,10 +178,11 @@ function endRun(){
     try{
       const mb = $('#menuBar'); if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; }
       hud.hideResult?.(); hud.resetBars?.(); document.body.removeAttribute('data-playing');
-      const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
+      const host=document.getElementById('spawnHost'); if(host){ host.innerHTML=''; host.style.pointerEvents='auto'; }
     }catch{ location.reload(); }
   };
   hud.onRetry= ()=>{
+    const host=document.getElementById('spawnHost'); if(host) host.style.pointerEvents='auto';
     hud.hideResult?.(); hud.resetBars?.(); mission.reset(stateRef); power.resetFever();
     beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: wallSecondsTotal });
   };
@@ -192,12 +200,20 @@ function loop(){
 
 // ---------- Public ----------
 async function startGame(){
+  if (booting || playing) return;   // กันเริ่มซ้ำ
+  booting = true;
+
   currentModeKey=document.body.getAttribute('data-mode')||'goodjunk';
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
-  if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
+  if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); booting=false; return; }
+
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
+
+  // ปลดล็อกหลัง begin แล้ว
+  setTimeout(()=>{ booting=false; }, 100);
 }
 
 function stopLoop(){
@@ -205,7 +221,7 @@ function stopLoop(){
   clearInterval(tickTimerId); tickTimerId=null;
   clearInterval(guardTimerId); guardTimerId=null;
   clearTimeout(spawnGuardId); spawnGuardId=null;
-  playing=false;
+  playing=false; booting=false;
 }
 
 function shortMode(m){
@@ -216,55 +232,32 @@ function shortMode(m){
   return String(m||'');
 }
 
-// ---------- Auto-bootstrap ----------
-// 1) ไม่มีปุ่ม/เมนู → autostart
-// 2) กด Space เพื่อเริ่ม (fallback)
-document.addEventListener('DOMContentLoaded', ()=>{
-  const mb = $('#menuBar');
-  const autostart = document.body.getAttribute('data-autostart');
-  if (!mb || autostart==='1' || autostart===null){ setTimeout(()=>startGame(), 250); }
-});
-window.addEventListener('keydown', (e)=>{
-  if ((e.code==='Space' || e.key===' ') && !playing) { e.preventDefault(); startGame(); }
-});
-// ---------- Auto-bootstrap (ROBUST) ----------
-function autoBoot(){
-  // ถ้าเริ่มอยู่แล้ว ไม่ทำซ้ำ
-  if (playing) return;
+// ---------- Auto-start (single, robust) ----------
+function autoBootOnce(){
+  if (autoBootArmed) return;
+  autoBootArmed = true;
 
-  // โหมด/ระดับจาก <body data-mode data-diff>
-  currentModeKey = document.body.getAttribute('data-mode') || 'goodjunk';
-  currentDiff    = document.body.getAttribute('data-diff') || 'Normal';
+  const tryBoot = ()=>{ if (!playing && !booting) startGame(); };
 
-  // ซ่อนเมนูถ้ามี
-  const mb = document.querySelector('#menuBar');
-  if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+  if (document.readyState === 'complete' || document.readyState === 'interactive'){
+    setTimeout(tryBoot, 0);
+  } else {
+    document.addEventListener('DOMContentLoaded', ()=>setTimeout(tryBoot,0), { once:true });
+    window.addEventListener('load', ()=>setTimeout(tryBoot,0), { once:true });
+  }
 
-  // เริ่มเกมเลย
-  startGame();
+  // Watchdog เผื่อเฟรมเวิร์กบางตัวช้า
+  setTimeout(()=>{ tryBoot(); }, 1500);
+
+  // Hotkey fallback
+  window.addEventListener('keydown', (e)=>{
+    if ((e.code==='Space' || e.key===' ') && !playing && !booting){ e.preventDefault(); tryBoot(); }
+  });
 }
-
-// ❶ เรียกทันทีถ้า DOM พร้อมแล้วอยู่แล้ว
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  setTimeout(autoBoot, 0);
-} else {
-  // ❷ เผื่อกรณี DOMContentLoaded ยังไม่มา
-  document.addEventListener('DOMContentLoaded', () => setTimeout(autoBoot, 0), { once:true });
-  window.addEventListener('load', () => setTimeout(autoBoot, 0), { once:true });
-}
-
-// ❸ Watchdog: ถ้า 1.5s ผ่านไปแล้วยังไม่เล่น → บูตซ้ำ
-setTimeout(()=>{
-  if (!playing) autoBoot();
-}, 1500);
-
-// ❹ Hotkey fallback
-window.addEventListener('keydown', (e)=>{
-  if ((e.code==='Space' || e.key===' ') && !playing) { e.preventDefault(); autoBoot(); }
-});
+autoBootOnce();
 
 // ❺ Expose manual start (debug)
-window.startHHA = autoBoot;
+window.startHHA = startGame;
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — autostart + solid timer + spawn-guard');
+console.log('[HeroHealth] main.js — autostart(single) + solid timer + spawn-guard + start-lock');
