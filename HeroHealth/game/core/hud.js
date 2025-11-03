@@ -1,4 +1,4 @@
-// === Hero Health Academy — core/hud.js (FINAL: mini-quest banner + result wiring + fever glow) ===
+// === Hero Health Academy — core/hud.js (FINAL: mini-quest banner + result wiring + fever glow + iconSize) ===
 'use strict';
 
 export class HUD {
@@ -106,16 +106,17 @@ export class HUD {
     let index = 0;
     for(const m of list){
       const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
-      // ถ้าไม่ได้ส่ง active มา ให้ถือว่า “อันนี้แหละตัว active” เมื่อยังไม่ done/fail
       const isActive = (m.active !== undefined) ? !!m.active : (!m.done && !m.fail && index===0);
+      const size = m.iconSize || 16; // << ใช้ขนาดจากระดับความยาก (Easy/Normal/Hard)
+
       const d = document.createElement('div');
       d.style.cssText =
         'pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;'+
         `border:2px solid ${isActive?'#22d3ee':'#16325d'};`+
         `background:${m.done?(m.fail?'#361515':'#0f2e1f'):'#0d1a31'};color:#e6f2ff;`;
       d.innerHTML =
-        `<span style="font-size:16px">${m.icon||'⭐'}</span>`+
-        `<span style="font:700 12.5px ui-rounded">${m.label||m.key}</span>`+
+        `<span style="font-size:${size}px;line-height:1">${m.icon||'⭐'}</span>`+  // << อัปเดต: ไอคอนใหญ่/เล็กตามความยาก
+        `<span style="font:700 12.5px ui-rounded;margin-left:4px">${m.label||m.key}</span>`+
         `<span style="font:700 12px;color:#a7f3d0;margin-left:6px">${m.progress||0}/${m.need||0}</span>`+
         '<i style="height:6px;width:128px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;display:inline-block;margin-left:6px">'+
           `<b style="display:block;height:100%;width:${pct}%;background:${m.done?(m.fail?'#ef4444':'#22c55e'):'#22d3ee'}"></b>`+
