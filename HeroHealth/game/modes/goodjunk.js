@@ -46,8 +46,8 @@ function findFreeSpot(size){
     if (ok) return {x,y};
   }
   // ถ้าหาไม่ได้ก็สุ่มแบบปกติ
-  return { 
-    x: clamp(Math.random()*ww, pad, ww-pad), 
+  return {
+    x: clamp(Math.random()*ww, pad, ww-pad),
     y: clamp(Math.random()*hh, pad+20, hh-pad-80)
   };
 }
@@ -59,8 +59,11 @@ function boomEffect(x,y,emoji){
   p.style.cssText=`position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%) scale(1);
     font-size:42px;opacity:1;transition:all .4s ease;z-index:9000;pointer-events:none;`;
   document.body.appendChild(p);
-  setTimeout(()=>{p.style.transform='translate(-50%,-50%) scale(1.8)';p.style.opacity='0';},10);
-  setTimeout(()=>{p.remove();},400);
+  requestAnimationFrame(()=>{ // ให้ transition ทำงานเสมอ
+    p.style.transform='translate(-50%,-50%) scale(1.8)';
+    p.style.opacity='0';
+  });
+  setTimeout(()=>{ try{p.remove();}catch{}; },400);
 }
 
 // สร้างไอเท็ม 1 ชิ้น
@@ -101,15 +104,16 @@ function spawnOne(BUS){
   // เมื่อคลิก
   el.addEventListener('pointerdown',(ev)=>{
     if (obj.dead) return;
+    try{ ev.preventDefault(); ev.stopPropagation(); }catch{}
     obj.dead=true;
     alive=Math.max(0,alive-1);
 
     el.style.transform='translate(-50%,-50%) scale(0.82)';
-    setTimeout(()=>{el.style.opacity='0';},40);
-    setTimeout(()=>{try{el.remove();}catch{};},180);
-    boomEffect(x,y,emoji);
+    setTimeout(()=>{ el.style.opacity='0'; },40);
+    setTimeout(()=>{ try{el.remove();}catch{}; },180);
+    boomEffect(ev.clientX||x, ev.clientY||y, emoji);
 
-    const ui={x:ev.clientX,y:ev.clientY};
+    const ui={x:ev.clientX||x,y:ev.clientY||y};
     if(kind==='junk'){
       BUS.bad?.({source:obj,ui});
       BUS.sfx?.bad?.();
@@ -119,7 +123,7 @@ function spawnOne(BUS){
       BUS.hit?.({points:base,kind:isGold?'perfect':'good',ui,meta:{golden:isGold}});
       if(isGold) BUS.sfx?.power?.(); else BUS.sfx?.good?.();
     }
-  },{passive:true});
+  },{passive:false});
 
   host.appendChild(el);
   items.push(obj);
@@ -140,13 +144,13 @@ function tick(dt,BUS){
   // ตรวจอายุ
   for(let i=items.length-1;i>=0;i--){
     const it=items[i];
-    if(it.dead){items.splice(i,1);continue;}
+    if(it.dead){ items.splice(i,1); continue; }
     it.t+=dt;
     if(it.t>=it.life){
       it.dead=true;
       alive=Math.max(0,alive-1);
-      try{it.el.style.opacity='0';}catch{}
-      setTimeout(()=>{try{it.el.remove();}catch{};},160);
+      try{ it.el.style.opacity='0'; }catch{}
+      setTimeout(()=>{ try{it.el.remove();}catch{}; },160);
       if(it.kind!=='junk') BUS.miss?.({source:it});
       items.splice(i,1);
     }
@@ -157,7 +161,7 @@ function tick(dt,BUS){
 export function start({difficulty='Normal'}={}){
   ensureHost();
   running=true;
-  items=[];alive=0;spawnAcc=0;
+  items=[]; alive=0; spawnAcc=0;
   cfg=PRESET[difficulty]||PRESET.Normal;
 
   try{
@@ -173,7 +177,7 @@ export function start({difficulty='Normal'}={}){
 }
 
 export function update(dt,BUS){
-  if(!(dt>0)||dt>1.5) dt=0.016;
+  if(!(dt>0)||dt>1.5) dt=0.016; // กัน NaN/เฟรมกระโดด
   tick(dt,BUS);
 }
 
@@ -182,5 +186,5 @@ export function stop(){ running=false; }
 export function cleanup(){
   running=false;
   try{ if(host) host.innerHTML=''; }catch{}
-  items=[];alive=0;
+  items=[]; alive=0;
 }
