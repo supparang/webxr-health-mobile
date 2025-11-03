@@ -235,11 +235,10 @@ function loop(){
     // per-second systems
     try {
       const chips = mission.tick(stateRef, { score: score.get?.()|0 }, onQuestTickCallback, { hud, coach, lang:'TH' });
-      // ให้ HUD render chips ล่าสุด (ซ้ำได้ ปลอดภัย)
       hud.setQuestChips(chips);
     } catch(e){ console.warn('[mission.tick]', e); }
 
-    // Quests legacy (ถ้าใช้)
+    // legacy quests (optional)
     try { Quests.tick?.({ score: score.get?.()|0, dt: step*1000, fever: !!score?.fever?.active }); } catch {}
 
     if (wallSecondsLeft <= 0) { endRun(); return; }
@@ -259,10 +258,8 @@ async function startGame(){
   activeMode     = MODES[currentModeKey];
   if (!activeMode){ alert('Mode not found: '+currentModeKey); return; }
 
-  // hide menu (ถ้ายังแสดง)
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
 
-  // countdown + begin
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
 }
