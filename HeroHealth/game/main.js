@@ -1,6 +1,6 @@
-// === Hero Health Academy — game/main.js (Finish flow fixed: real stop + summary + buttons) ===
+// === Hero Health Academy — game/main.js (Finish flow fixed + Fever integrated) ===
 
-// ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน (กัน re-import แล้ว loop ซ้ำ)
+// ถ้ามี HHA เก่าอยู่ ให้หยุดลูปและเคลียร์ก่อน
 if (window.HHA?.__stopLoop) {
   try { window.HHA.__stopLoop(); } catch(e){}
   delete window.HHA;
@@ -45,17 +45,34 @@ const stateRef={ missions:[], ctx:{} };
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 
-// ---------- BUS (เชื่อมโหมดเกมกับระบบหลัก) ----------
+// ---------- Fever System ----------
+power.onFever(v=>{
+  if (hud.$powerFill) hud.$powerFill.style.width = v + '%';
+  if (v >= 100) {
+    hud.showFever(true);
+    sfx.power();
+    setTimeout(()=>{
+      hud.showFever(false);
+      power.resetFever();
+    },5000);
+  }
+});
+
+// ---------- BUS ----------
 const BUS={
   hit(e){
     const pts=e?.points|0;
     const kind=(e?.kind==='perfect')?'perfect':'good';
     score.add(pts,{kind});
     hud.updateHUD(score.get(),score.combo|0);
-    if(e?.ui) hud.showFloatingText(e.ui.x,e.ui.y,`+${pts}`);
+    if(e?.ui) hud.showFloatingText?.(e.ui.x,e.ui.y,`+${pts}`);
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
-    // เควสต์นับความคืบหน้า
     mission.onEvent(kind,{count:1},stateRef);
+
+    // ⭐ Golden = เติม Fever
+    if (e?.meta?.golden) {
+      power.add(20);
+    }
   },
   miss(){
     score.add(0); coach.onMiss();
@@ -63,10 +80,14 @@ const BUS={
   },
   bad(){
     score.add(0); coach.onJunk();
-    // ใน goodjunk: treat เป็นผิดหมวด (เพื่อให้ no_miss/score_reach มีผลทางอ้อม)
     mission.onEvent('wrong_group',{count:1},stateRef);
   },
-  sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
+  sfx:{
+    good(){sfx.good();},
+    bad(){sfx.bad();},
+    perfect(){sfx.perfect();},
+    power(){sfx.power();}
+  }
 };
 
 // ---------- Flow ----------
@@ -83,6 +104,7 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
 
   // reset run
   score.reset();
+  power.resetFever();
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
   lastWallMs = now();
@@ -91,15 +113,12 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   hud.resetBars?.();
   coach.onStart();
 
-  // ภารกิจแบบ single-active (แสดงทีละอัน)
   const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
   mission.attachToState(run, stateRef);
 
-  // ให้ HUD แสดงเควสต์ตัวแรกทันที
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
   if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
 
-  // start mode
   activeMode = MODES[modeKey];
   activeMode?.start?.({ difficulty: diff });
 
@@ -108,22 +127,19 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
 
 function endRun(){
   if(!playing) return;
+  playing=false;
 
   // --- hard stop ---
-  playing=false;
   try{ cancelAnimationFrame(rafId); }catch{}
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
   const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
 
-  // --- finalize missions ---
   mission.stop(stateRef);
 
   // --- summary data ---
   const finalScore = score.get()|0;
   const bestCombo  = score.bestCombo|0;
-
-  // รวบรวมสถานะ mini-quest สุดท้าย
   const finalChips = (stateRef.missions||[]).map(m=>({
     key:m.key, ok:!!m.success, need:m.target|0, got:m.progress|0
   }));
@@ -135,10 +151,8 @@ function endRun(){
     return `${mark} ${icon} ${name} — ${c.got}/${c.need}`;
   });
 
-  // --- leaderboard (optional) ---
   try{ board.submit(currentModeKey, currentDiff, finalScore, { meta:{ bestCombo } }); }catch{}
 
-  // --- show result modal + ปุ่มทำงานจริง ---
   hud.showResult({
     title:'สรุปผล',
     desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
@@ -148,13 +162,11 @@ function endRun(){
 
   hud.onHome = ()=>{
     try{
-      // แสดงเมนูหลักกลับมา
       const mb = $('#menuBar');
       if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; }
       hud.hideResult?.();
       hud.resetBars?.();
       document.body.removeAttribute('data-playing');
-      // ล้างสแปน/สไปน์ที่อาจค้าง
       const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
     }catch{
       location.reload();
@@ -165,10 +177,10 @@ function endRun(){
     hud.hideResult?.();
     hud.resetBars?.();
     mission.reset(stateRef);
+    power.resetFever();
     beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: wallSecondsTotal });
   };
 
-  // ถอนสถานะเล่น + ปิดเอฟเฟกต์ไข้
   document.body.removeAttribute('data-playing');
   hud.showFever?.(false);
 }
@@ -177,7 +189,6 @@ function loop(){
   if(!playing) return;
   rafId=requestAnimationFrame(loop);
 
-  // wall-clock timer เดินทุกวินาที (ไม่ชนกับ mini-quest)
   const t=now();
   const dtMs=t-lastWallMs;
   if (dtMs >= 1000){
@@ -186,18 +197,12 @@ function loop(){
     lastWallMs += step*1000;
     hud.setTimer(wallSecondsLeft);
     sfx.tick();
-
-    // tick missions (single-active) — ให้ HUD อัปเดต progress ชิปเดียว
+    power.drain(0.5);
     mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
   }
 
-  // per-frame ของโหมด
   try{ activeMode?.update?.(dtMs/1000, BUS); }catch(e){ console.warn(e); }
-
-  // หมดเวลา => จบเกม
-  if (wallSecondsLeft <= 0){
-    endRun();
-  }
+  if (wallSecondsLeft <= 0){ endRun(); }
 }
 
 // ---------- Public ----------
@@ -206,17 +211,12 @@ async function startGame(){
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
   if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
 
-  // ซ่อนเมนู
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
 }
 
-function stopLoop(){
-  try{ cancelAnimationFrame(rafId); }catch{}
-  playing=false;
-}
+function stopLoop(){ try{ cancelAnimationFrame(rafId); }catch{} playing=false; }
 
 function shortMode(m){
   if(m==='goodjunk') return 'Good vs Junk';
@@ -227,4 +227,4 @@ function shortMode(m){
 }
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — finish flow fixed');
+console.log('[HeroHealth] main.js — finish flow fixed + fever integrated');
