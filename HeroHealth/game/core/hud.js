@@ -1,4 +1,4 @@
-// === Hero Health Academy — core/hud.js (FINAL: mini-quest banner + result wiring + fever glow + iconSize) ===
+// === Hero Health Academy — core/hud.js (FINAL: mini-quest banner + result wiring + fever glow + iconSize by difficulty) ===
 'use strict';
 
 export class HUD {
@@ -93,21 +93,40 @@ export class HUD {
 
     // expose small API for Coach toast
     window.__HHA_HUD_API = { say: (msg)=> this.toast(msg) };
+
+    // diff ปัจจุบัน (ใช้คุมขนาดไอคอน quest chips)
+    this.diffLevel = 'Normal';
   }
 
   // ===== Top HUD =====
-  setTop({mode,diff}={}){ if(mode!=null) this.$mode.textContent=String(mode); if(diff!=null) this.$diff.textContent=String(diff); }
+  setTop({mode,diff}={}){
+    if(mode!=null) this.$mode.textContent=String(mode);
+    if(diff!=null){
+      this.$diff.textContent=String(diff);
+      this.diffLevel = String(diff);
+    }
+  }
   setTimer(sec){ this.$time.textContent = Math.max(0, Math.round(sec)) + 's'; }
   updateHUD(score, combo){ this.$score.textContent=String(score|0); this.$combo.textContent=String(combo|0); }
+
+  // ขนาดไอคอนจากระดับความยาก
+  iconSizeByDiff(){
+    const d = (this.diffLevel||'Normal').toLowerCase();
+    if (d==='easy')   return 20;
+    if (d==='hard')   return 14;
+    return 16; // Normal
+  }
 
   // ===== Quest chips =====
   setQuestChips(list=[]){
     const frag = document.createDocumentFragment();
     let index = 0;
+    const fallbackSize = this.iconSizeByDiff();
+
     for(const m of list){
       const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
       const isActive = (m.active !== undefined) ? !!m.active : (!m.done && !m.fail && index===0);
-      const size = m.iconSize || 16; // << ใช้ขนาดจากระดับความยาก (Easy/Normal/Hard)
+      const size = m.iconSize || fallbackSize; // ใช้ค่าจาก mission หรือจากระดับความยาก
 
       const d = document.createElement('div');
       d.style.cssText =
@@ -115,7 +134,7 @@ export class HUD {
         `border:2px solid ${isActive?'#22d3ee':'#16325d'};`+
         `background:${m.done?(m.fail?'#361515':'#0f2e1f'):'#0d1a31'};color:#e6f2ff;`;
       d.innerHTML =
-        `<span style="font-size:${size}px;line-height:1">${m.icon||'⭐'}</span>`+  // << อัปเดต: ไอคอนใหญ่/เล็กตามความยาก
+        `<span style="font-size:${size}px;line-height:1">${m.icon||'⭐'}</span>`+
         `<span style="font:700 12.5px ui-rounded;margin-left:4px">${m.label||m.key}</span>`+
         `<span style="font:700 12px;color:#a7f3d0;margin-left:6px">${m.progress||0}/${m.need||0}</span>`+
         '<i style="height:6px;width:128px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;display:inline-block;margin-left:6px">'+
