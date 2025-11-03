@@ -116,16 +116,9 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   </div>
 </div>
 
-<!-- AUDIO -->
-<audio id="bgm-main" preload="auto"></audio>
-<audio id="bgm-fever" preload="auto"></audio>
-<audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
-<audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
-<audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-<audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
-<audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
+<!-- (ไม่มี <script type="module" src="./game/main.js"> อีกต่อไป) -->
 
-<!-- ░░ Binder: force-fresh main.js with countdown/timer ░░ -->
+<!-- Binder + Dynamic Import (force-fresh) -->
 <script>
 (function(){
   const MUTED_KEY = 'hha_muted';
@@ -149,10 +142,9 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   }
   applyMuteFromStorage();
 
-  // 🔒 force-fresh import every time before start
   async function ensureMainFresh(){
     try { delete window.HHA; } catch {}
-    const v = Date.now();
+    const v = Date.now(); // cache-buster
     await import(`./game/main.js?v=${v}`);
     if (!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
   }
@@ -165,10 +157,10 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     }catch{}
 
     try{
-      await ensureMainFresh();               // ← โหลด main.js เวอร์ชันล่าสุดเสมอ
+      await ensureMainFresh();        // โหลด main.js เวอร์ชันล่าสุดเสมอ
       $('#menuBar')?.setAttribute('data-hidden','1');
       if ($('#menuBar')) $('#menuBar').style.display='none';
-      window.HHA.startGame();               // ภายใน main.js มี countdown + wall-clock timer แล้ว
+      window.HHA.startGame();         // main.js มี countdown + timer แล้ว
     }catch(e){
       console.error(e);
       warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(e?.message||e)]);
@@ -192,7 +184,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       if (t.hasAttribute('data-diff')){ setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
     }, false);
 
-    // hard-bind start to avoid passive swallowing
+    // hard-bind start (กัน passive swallow)
     const old = document.getElementById('btn_start'); if (old){
       const clone = old.cloneNode(true);
       old.replaceWith(clone);
@@ -210,7 +202,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     }
   }, {passive:false});
 
-  // safety: canvases never capture pointer
+  // canvases never capture pointer
   setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
 })();
 </script>
