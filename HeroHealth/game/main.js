@@ -13,9 +13,11 @@ import { PowerUpSystem } from './core/powerup.js';
 import { Quests } from './core/quests.js';
 import { MissionSystem } from './core/mission-system.js';
 import { Leaderboard } from './core/leaderboard.js';
-import { VRInput } from './core/vrinput.js';
-import * as FX from './core/fx.js';
 import * as goodjunk from './modes/goodjunk.js';
+
+// ---------- Config ----------
+const PAUSE_ON_BLUR = true;    // สลับแอป/แท็บ → พักเวลา (กลับมาแล้วเดินต่อ)
+const RUN_SECONDS   = 45;
 
 // ---------- State ----------
 const MODES = { goodjunk };
@@ -24,17 +26,19 @@ const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const pnow = ()=>performance.now?performance.now():Date.now();
 
-let playing=false, rafId=0, activeMode=null;
-let wallSecondsTotal=45, wallSecondsLeft=45;
+let playing=false, paused=false, rafId=0, activeMode=null;
+let wallSecondsTotal=RUN_SECONDS, wallSecondsLeft=RUN_SECONDS;
 let lastFrameMs=0;
 let tickTimerId=null;
 let spawnGuardId=null;
 let guardTimerId=null;
+let emgSpawnerId=null;
 let currentModeKey='goodjunk', currentDiff='Normal';
 
 // watchdog markers
 let lastTimerTickMs = 0;
 let lastSpawnSeenMs = 0;
+let spawnObserver = null;
 
 // ---------- Core ----------
 const engine=new Engine();
@@ -68,6 +72,7 @@ const BUS={
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
     mission.onEvent(kind,{count:1},stateRef);
     if (e?.meta?.golden) power.add(20);
+    lastSpawnSeenMs = pnow();
   },
   miss(){ score.add(0); coach.onMiss(); mission.onEvent('miss',{count:1},stateRef); },
   bad(){  score.add(0); coach.onJunk(); mission.onEvent('wrong_group',{count:1},stateRef); },
@@ -88,6 +93,39 @@ function ensureSpawnHost(){
   return host;
 }
 
+function observeSpawn(){
+  const host = ensureSpawnHost();
+  if (spawnObserver) { try{ spawnObserver.disconnect(); }catch{} }
+  spawnObserver = new MutationObserver((muts)=>{
+    for(const m of muts){
+      if (m.addedNodes && m.addedNodes.length){
+        lastSpawnSeenMs = pnow();
+        // ถ้า emergency กำลังทำงานและเจอของจากโหมดจริงแล้ว → ปิดฉุกเฉิน
+        const hasReal = host.querySelector('.gj-it');
+        if (hasReal) clearInterval(emgSpawnerId);
+      }
+    }
+  });
+  spawnObserver.observe(host, { childList:true, subtree:false });
+}
+
+function emergencySpawner(on){
+  clearInterval(emgSpawnerId);
+  if(!on) return;
+  const host = ensureSpawnHost();
+  emgSpawnerId = setInterval(()=>{
+    if(!playing) return;
+    // ถ้ามีของจริงแล้ว ให้หยุดฉุกเฉิน
+    if (host.querySelector('.gj-it')) { clearInterval(emgSpawnerId); return; }
+    const d = document.createElement('div');
+    d.className='gj-it'; d.textContent='⭐';
+    d.style.cssText=`position:absolute;left:${Math.random()*85+5}vw;top:${Math.random()*70+15}vh;font-size:44px;filter:drop-shadow(0 0 8px #0008);`;
+    d.onclick=()=>{ d.remove(); lastSpawnSeenMs=pnow(); };
+    host.appendChild(d);
+    lastSpawnSeenMs=pnow();
+  }, 900);
+}
+
 // ---------- Flow ----------
 async function preCountdown(){
   hud.showBig('3'); sfx.tick(); await sleep(650);
@@ -99,20 +137,55 @@ async function preCountdown(){
 function armSpawnGuard(){
   clearTimeout(spawnGuardId);
   spawnGuardId = setTimeout(()=>{
-    if(!playing) return;
+    if(!playing || paused) return;
     const hasAny = document.querySelector('#spawnHost .gj-it');
     if (hasAny){ lastSpawnSeenMs = pnow(); return; }
     try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{}
   }, 1800);
 }
 
-function beginRun({modeKey,diff='Normal',seconds=45}){
+function startTimer(){
+  clearInterval(tickTimerId);
+  tickTimerId = setInterval(()=>{
+    if(!playing || paused) return;
+    if (wallSecondsLeft>0){
+      wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
+      hud.setTimer(wallSecondsLeft);
+      lastTimerTickMs = pnow();
+      sfx.tick();
+      power.drain(0.5);
+      mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
+      if (wallSecondsLeft===0) endRun();
+    }
+  }, 1000);
+}
+
+function bindPauseResume(){
+  if (!PAUSE_ON_BLUR) return;
+  const onVisible = ()=>{
+    if (document.visibilityState==='visible'){
+      paused=false;
+      // ถ้ากลับมาแล้วยังเงียบ → kick
+      setTimeout(()=>{ if (playing && (lastTimerTickMs===0 || (pnow()-lastSpawnSeenMs>2200))) { try{ activeMode?.start?.({difficulty:currentDiff}); }catch{} startTimer(); emergencySpawner(true); }}, 120);
+    }else{
+      paused=true;
+    }
+  };
+  document.removeEventListener('visibilitychange', onVisible);
+  document.addEventListener('visibilitychange', onVisible, { passive:true });
+}
+
+function beginRun({modeKey,diff='Normal',seconds=RUN_SECONDS}){
   ensureSpawnHost();
+  observeSpawn();
+  bindPauseResume();
+
   document.body.setAttribute('data-playing','1');
-  playing=true;
+  playing=true; paused=false;
 
   // reset run
-  score.reset(); power.resetFever();
+  score.reset(); power.resetFever(); hud.hideResult?.();
+  const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
   lastFrameMs = pnow();
@@ -125,57 +198,34 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   coach.onStart();
 
   // missions
-  const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
-  mission.attachToState(run, stateRef);
-  const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
-  if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
+  try{
+    const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
+    mission.attachToState(run, stateRef);
+    const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
+    if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
+  }catch(e){ console.warn('mission init failed', e); }
 
   // start mode
   activeMode = MODES[modeKey];
-  activeMode?.start?.({ difficulty: diff });
+  try{ activeMode?.start?.({ difficulty: diff }); }catch(e){ console.warn('mode.start failed', e); }
 
   // solid 1s timer
-  clearInterval(tickTimerId);
-  tickTimerId = setInterval(()=>{
-    if(!playing) return;
-    if (wallSecondsLeft>0){
-      wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
-      hud.setTimer(wallSecondsLeft);
-      lastTimerTickMs = pnow();
-      sfx.tick();
-      power.drain(0.5);
-      mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
-      if (wallSecondsLeft===0) endRun();
-    }
-  }, 1000);
+  startTimer();
 
   // spawn guard & watchdog
   armSpawnGuard();
   clearInterval(guardTimerId);
   guardTimerId = setInterval(()=>armSpawnGuard(), 3000);
 
-  // after GO ถ้าตัวจับเวลา/สปอนไม่เดิน ให้คิกซ้ำ
+  // after GO ถ้าตัวจับเวลา/สปอนไม่เดิน ให้คิกซ้ำ + เปิดฉุกเฉิน
   setTimeout(()=>{
     if(!playing) return;
     const noTimer = (lastTimerTickMs===0);
     const noSpawn = (pnow()-lastSpawnSeenMs>2500);
     if (noTimer || noSpawn){
       try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{}
-      if (noTimer){ // kick timer อีกชั้น
-        clearInterval(tickTimerId);
-        lastTimerTickMs = 0;
-        tickTimerId = setInterval(()=>{
-          if(!playing) return;
-          if (wallSecondsLeft>0){
-            wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
-            hud.setTimer(wallSecondsLeft);
-            lastTimerTickMs = pnow();
-            power.drain(0.5);
-            mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
-            if (wallSecondsLeft===0) endRun();
-          }
-        }, 1000);
-      }
+      if (noTimer){ startTimer(); }
+      if (noSpawn){ emergencySpawner(true); }
     }
   }, 1200);
 
@@ -184,12 +234,14 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
 
 function endRun(){
   if(!playing) return;
-  playing=false;
+  playing=false; paused=false;
 
   try{ cancelAnimationFrame(rafId); }catch{}
   clearInterval(tickTimerId); tickTimerId=null;
   clearInterval(guardTimerId); guardTimerId=null;
   clearTimeout(spawnGuardId); spawnGuardId=null;
+  clearInterval(emgSpawnerId); emgSpawnerId=null;
+  try{ spawnObserver?.disconnect?.(); }catch{}
 
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
@@ -220,8 +272,7 @@ function endRun(){
     try{
       const mb = $('#menuBar'); if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; }
       hud.hideResult?.(); hud.resetBars?.(); document.body.removeAttribute('data-playing');
-      const host=document.getElementById('spawnHost'); if(host) host.innerHTML=''; 
-      // โฟกัสกลับเมนู
+      const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
       setTimeout(()=>$('#btn_start')?.focus(),100);
     }catch{ location.reload(); }
   };
@@ -234,11 +285,11 @@ function endRun(){
 }
 
 function loop(){
-  if(!playing) return;
+  if(!playing || paused) return;
   rafId=requestAnimationFrame(loop);
   const nowMs = pnow(); let dt = (nowMs - lastFrameMs) / 1000;
   if (!(dt>0) || dt>1.5) dt = 0.016; lastFrameMs = nowMs;
-  try{ activeMode?.update?.(dt, BUS); }catch(e){ /* แทนที่จะค้าง ให้ log แล้วไปต่อ */ console.warn(e); }
+  try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
 }
 
 // ---------- Public ----------
@@ -248,11 +299,10 @@ async function startGame(){
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
   if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
 
-  // ซ่อนเมนูถ้ามี
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-
+  hud.hideResult?.(); // กันค้างผลสรุป
   await preCountdown();
-  beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
+  beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: RUN_SECONDS });
 }
 
 // ให้เรียกคิกเกมซ้ำได้ (กรณี GO แล้วเงียบ)
@@ -266,7 +316,9 @@ function stopLoop(){
   clearInterval(tickTimerId); tickTimerId=null;
   clearInterval(guardTimerId); guardTimerId=null;
   clearTimeout(spawnGuardId); spawnGuardId=null;
-  playing=false;
+  clearInterval(emgSpawnerId); emgSpawnerId=null;
+  try{ spawnObserver?.disconnect?.(); }catch{}
+  playing=false; paused=false;
 }
 
 function shortMode(m){
@@ -277,9 +329,9 @@ function shortMode(m){
   return String(m||'');
 }
 
-// auto-ensure canvases ไม่บังคลิก
+// canvases ไม่บังคลิก (เผื่อ DOM ใส่มาทีหลัง)
 setTimeout(()=>document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }),0);
 
 // expose
 window.HHA = { startGame, kick, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — robust start + watchdog');
+console.log('[HeroHealth] main.js — robust start + watchdog + pause-on-blur');
