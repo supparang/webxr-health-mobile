@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hero Health Academy</title>
   <meta name="color-scheme" content="light dark"/>
+  <meta name="theme-color" content="#0b1020"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
 
   <style>
     :root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
@@ -15,6 +17,7 @@
       background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
       font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
       -webkit-tap-highlight-color:transparent;
+      -webkit-user-select:none; user-select:none;
       transition:background .25s ease;
     }
     body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
@@ -42,7 +45,8 @@
     .row{display:flex;flex-wrap:wrap;gap:10px}
     .btn{
       display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
-      border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none
+      border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none;
+      touch-action:manipulation;
     }
     .btn:hover{ filter:brightness(1.08) }
     .btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
@@ -154,11 +158,8 @@
   // ===== Clean stop for previous instance =====
   function hardStopOld(){
     try{ window.HHA?.__stopLoop?.(); }catch{}
-    // เคลียร์หน้าสปอนเก่า (กันค้าง)
     try{ const sh = document.getElementById('spawnHost'); if(sh) sh.innerHTML=''; }catch{}
-    // เปิดเมนูกลับ (ถ้ามี)
     try{ const mb = document.getElementById('menuBar'); if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; } }catch{}
-    // ล้างรีเฟอเรนซ์
     try{ delete window.HHA; }catch{}
   }
 
@@ -192,7 +193,7 @@
       const mb = $('#menuBar');
       if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
 
-      // kick new round (main.js มี BOOTING guard + watchdog อีกชั้น)
+      // kick new round
       window.HHA.startGame();
 
       // 🔁 autokick watchdog ครั้งเดียว: 1.2s หลังสั่งเริ่ม ถ้ายังไม่เข้าเล่น → เรียกซ้ำ
