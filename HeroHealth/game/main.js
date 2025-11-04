@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (clean restart & result guard) ===
+// === Hero Health Academy — game/main.js (robust start + timer/spawn watchdog) ===
 
 // เคลียร์อินสแตนซ์เดิมถ้ามี
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
@@ -13,6 +13,8 @@ import { PowerUpSystem } from './core/powerup.js';
 import { Quests } from './core/quests.js';
 import { MissionSystem } from './core/mission-system.js';
 import { Leaderboard } from './core/leaderboard.js';
+import { VRInput } from './core/vrinput.js';
+import * as FX from './core/fx.js';
 import * as goodjunk from './modes/goodjunk.js';
 
 // ---------- State ----------
@@ -30,6 +32,10 @@ let spawnGuardId=null;
 let guardTimerId=null;
 let currentModeKey='goodjunk', currentDiff='Normal';
 
+// watchdog markers
+let lastTimerTickMs = 0;
+let lastSpawnSeenMs = 0;
+
 // ---------- Core ----------
 const engine=new Engine();
 const hud=new HUD();
@@ -44,9 +50,10 @@ const stateRef={ missions:[], ctx:{} };
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 
-// Fever visual
+// FEVER hook
 power.onFever(v=>{
-  if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0, Math.min(100, v)) + '%';
+  const fill = hud.$powerFill;
+  if (fill) fill.style.width = Math.max(0, Math.min(100, v)) + '%';
   if (v >= 100) { hud.showFever(true); sfx.power(); setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000); }
 });
 
@@ -67,26 +74,26 @@ const BUS={
   sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
 
-// ---------- Helpers ----------
-function hardClearStage(){
-  try{ cancelAnimationFrame(rafId); }catch{}
-  clearInterval(tickTimerId); tickTimerId=null;
-  clearTimeout(spawnGuardId); spawnGuardId=null;
-  clearInterval(guardTimerId); guardTimerId=null;
-
-  const host=document.getElementById('spawnHost');
-  if(host){ host.innerHTML=''; host.style.pointerEvents='auto'; }
-
-  document.querySelectorAll('canvas').forEach(c=>{
-    try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{}
-  });
+// ---------- Utils ----------
+function ensureSpawnHost(){
+  let host = document.getElementById('spawnHost');
+  if (!host){
+    host = document.createElement('div');
+    host.id = 'spawnHost';
+    host.style.cssText = 'position:fixed;inset:0;z-index:5000;pointer-events:auto';
+    document.body.appendChild(host);
+  }
+  // แคนวาสอย่าบังคลิก
+  document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
+  return host;
 }
 
+// ---------- Flow ----------
 async function preCountdown(){
   hud.showBig('3'); sfx.tick(); await sleep(650);
   hud.showBig('2'); sfx.tick(); await sleep(650);
   hud.showBig('1'); sfx.tick(); await sleep(650);
-  hud.showBig('GO!'); sfx.tick(); await sleep(450);
+  hud.showBig('GO!'); sfx.tick(); await sleep(420);
 }
 
 function armSpawnGuard(){
@@ -94,49 +101,83 @@ function armSpawnGuard(){
   spawnGuardId = setTimeout(()=>{
     if(!playing) return;
     const hasAny = document.querySelector('#spawnHost .gj-it');
-    if (!hasAny) { try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{} }
-  }, 2500);
+    if (hasAny){ lastSpawnSeenMs = pnow(); return; }
+    try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{}
+  }, 1800);
 }
 
-// ---------- Flow ----------
 function beginRun({modeKey,diff='Normal',seconds=45}){
+  ensureSpawnHost();
   document.body.setAttribute('data-playing','1');
   playing=true;
 
+  // reset run
   score.reset(); power.resetFever();
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
   lastFrameMs = pnow();
+  lastTimerTickMs = 0;
+  lastSpawnSeenMs = pnow();
 
   hud.setTop({mode:shortMode(modeKey), diff});
   hud.resetBars?.();
   hud.setTimer(wallSecondsLeft);
   coach.onStart();
 
+  // missions
   const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
   mission.attachToState(run, stateRef);
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
   if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
 
+  // start mode
   activeMode = MODES[modeKey];
   activeMode?.start?.({ difficulty: diff });
 
+  // solid 1s timer
   clearInterval(tickTimerId);
   tickTimerId = setInterval(()=>{
     if(!playing) return;
     if (wallSecondsLeft>0){
       wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
       hud.setTimer(wallSecondsLeft);
+      lastTimerTickMs = pnow();
       sfx.tick();
       power.drain(0.5);
       mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
       if (wallSecondsLeft===0) endRun();
     }
-  },1000);
+  }, 1000);
 
+  // spawn guard & watchdog
   armSpawnGuard();
   clearInterval(guardTimerId);
-  guardTimerId = setInterval(()=>armSpawnGuard(), 4000);
+  guardTimerId = setInterval(()=>armSpawnGuard(), 3000);
+
+  // after GO ถ้าตัวจับเวลา/สปอนไม่เดิน ให้คิกซ้ำ
+  setTimeout(()=>{
+    if(!playing) return;
+    const noTimer = (lastTimerTickMs===0);
+    const noSpawn = (pnow()-lastSpawnSeenMs>2500);
+    if (noTimer || noSpawn){
+      try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{}
+      if (noTimer){ // kick timer อีกชั้น
+        clearInterval(tickTimerId);
+        lastTimerTickMs = 0;
+        tickTimerId = setInterval(()=>{
+          if(!playing) return;
+          if (wallSecondsLeft>0){
+            wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
+            hud.setTimer(wallSecondsLeft);
+            lastTimerTickMs = pnow();
+            power.drain(0.5);
+            mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
+            if (wallSecondsLeft===0) endRun();
+          }
+        }, 1000);
+      }
+    }
+  }, 1200);
 
   loop();
 }
@@ -147,8 +188,8 @@ function endRun(){
 
   try{ cancelAnimationFrame(rafId); }catch{}
   clearInterval(tickTimerId); tickTimerId=null;
-  clearTimeout(spawnGuardId); spawnGuardId=null;
   clearInterval(guardTimerId); guardTimerId=null;
+  clearTimeout(spawnGuardId); spawnGuardId=null;
 
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
@@ -179,13 +220,13 @@ function endRun(){
     try{
       const mb = $('#menuBar'); if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; }
       hud.hideResult?.(); hud.resetBars?.(); document.body.removeAttribute('data-playing');
-      const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
+      const host=document.getElementById('spawnHost'); if(host) host.innerHTML=''; 
+      // โฟกัสกลับเมนู
+      setTimeout(()=>$('#btn_start')?.focus(),100);
     }catch{ location.reload(); }
   };
   hud.onRetry= ()=>{
-    hud.hideResult?.();                    // สำคัญ! ปิด modal ก่อน
-    hud.resetBars?.(); mission.reset(stateRef); power.resetFever();
-    hardClearStage();                      // ล้างเวทีเก่า
+    hud.hideResult?.(); hud.resetBars?.(); mission.reset(stateRef); power.resetFever();
     beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: wallSecondsTotal });
   };
 
@@ -197,31 +238,34 @@ function loop(){
   rafId=requestAnimationFrame(loop);
   const nowMs = pnow(); let dt = (nowMs - lastFrameMs) / 1000;
   if (!(dt>0) || dt>1.5) dt = 0.016; lastFrameMs = nowMs;
-  try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
+  try{ activeMode?.update?.(dt, BUS); }catch(e){ /* แทนที่จะค้าง ให้ log แล้วไปต่อ */ console.warn(e); }
 }
 
 // ---------- Public ----------
 async function startGame(){
-  // ปิดผลค้าง + ล้างเวทีเก่าให้สะอาดก่อนเริ่ม
-  try{ hud.hideResult?.(); }catch{}
-  document.body.removeAttribute('data-result-open');
-  hardClearStage();
-  mission.reset?.(stateRef); power.resetFever?.(); score.reset?.();
-
+  ensureSpawnHost();
   currentModeKey=document.body.getAttribute('data-mode')||'goodjunk';
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
+  if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
 
+  // ซ่อนเมนูถ้ามี
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
 
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
 }
 
+// ให้เรียกคิกเกมซ้ำได้ (กรณี GO แล้วเงียบ)
+function kick(){
+  if (playing) return;
+  try{ startGame(); }catch(e){ console.error(e); }
+}
+
 function stopLoop(){
   try{ cancelAnimationFrame(rafId); }catch{}
   clearInterval(tickTimerId); tickTimerId=null;
-  clearTimeout(spawnGuardId); spawnGuardId=null;
   clearInterval(guardTimerId); guardTimerId=null;
+  clearTimeout(spawnGuardId); spawnGuardId=null;
   playing=false;
 }
 
@@ -233,5 +277,9 @@ function shortMode(m){
   return String(m||'');
 }
 
-window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — clean restart & result guard');
+// auto-ensure canvases ไม่บังคลิก
+setTimeout(()=>document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }),0);
+
+// expose
+window.HHA = { startGame, kick, __stopLoop: stopLoop };
+console.log('[HeroHealth] main.js — robust start + watchdog');
