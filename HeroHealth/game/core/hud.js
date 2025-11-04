@@ -1,11 +1,11 @@
-// === Hero Health Academy — core/hud.js (Fever-safe v3.2 + modal z-fix + quest UI) ===
+// === Hero Health Academy — core/hud.js (Fever binding + modal z-fix + quest singleton) ===
 'use strict';
 
 export class HUD {
   constructor(){
     ensureStyle();
 
-    // ----- Root -----
+    // Root
     this.root = document.getElementById('hud');
     if(!this.root){
       this.root = document.createElement('div');
@@ -14,7 +14,7 @@ export class HUD {
       document.body.appendChild(this.root);
     }
 
-    // ----- Top bar -----
+    // Top bar
     this.top = document.createElement('div');
     this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
     this.top.innerHTML =
@@ -34,29 +34,43 @@ export class HUD {
     this.$score = this.top.querySelector('#hudScore');
     this.$combo = this.top.querySelector('#hudCombo');
 
-    // ----- Fever / Power bar -----
-    this._ensurePowerDom();
+    // Fever/Power bar (กลางล่าง — ใช้ element เดิมจาก index.html)
+    this.powerWrap = document.getElementById('powerBarWrap');
+    if(!this.powerWrap){
+      this.powerWrap = document.createElement('div');
+      this.powerWrap.id = 'powerBarWrap';
+      this.powerWrap.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2200;width:280px;pointer-events:none';
+      this.powerWrap.innerHTML =
+        '<div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
+          '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
+        '</div>';
+      document.body.appendChild(this.powerWrap);
+    }
+    this.$powerFill = this.powerWrap.querySelector('#powerFill');
+    this._feverVal = 0;
 
-    // ----- Big number -----
+    // Big number
     this.big = document.createElement('div');
     this.big.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);font:900 92px ui-rounded,system-ui;color:#fef3c7;text-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .2s, transform .2s;z-index:7000';
     this.big.textContent = '';
     this.root.appendChild(this.big);
 
-    // ----- Quest chips -----
+    // Quest chips
     this.chips = document.createElement('div');
     this.chips.id = 'questChips';
     this.chips.style.cssText = 'position:fixed;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:92vw;pointer-events:none';
     this.root.appendChild(this.chips);
 
-    // ----- Mini-quest banner -----
+    // Mini-quest banner — กันซ้อน: ถ้ามีของเดิมอยู่ให้ลบทิ้ง
+    const existedMini = document.getElementById('miniQuest');
+    if (existedMini) { try{ existedMini.remove(); }catch{} }
     this.mini = document.createElement('div');
     this.mini.id = 'miniQuest';
     this.mini.style.cssText = 'position:fixed;left:50%;top:72px;transform:translateX(-50%);padding:6px 10px;border-radius:12px;background:#0e1930cc;border:1px solid #214064;color:#ffde85;font:900 16px ui-rounded,system-ui;text-shadow:0 0 10px #000;z-index:8000;opacity:0;transition:opacity .25s ease';
     this.mini.textContent = '';
     document.body.appendChild(this.mini);
 
-    // ----- Result modal -----
+    // Result modal (บังคับ z-index > spawnHost)
     this.result = document.createElement('div');
     this.result.id = 'resultModal';
     this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:9000';
@@ -84,29 +98,10 @@ export class HUD {
     window.__HHA_HUD_API = { say: (msg)=> this.toast(msg) };
   }
 
-  /* ===== helpers ===== */
-  _ensurePowerDom(){
-    this.powerWrap = document.getElementById('powerBarWrap');
-    if(!this.powerWrap){
-      this.powerWrap = document.createElement('div');
-      this.powerWrap.id = 'powerBarWrap';
-      this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2200;width:min(420px,94vw);pointer-events:none';
-      this.powerWrap.innerHTML =
-        '<div id="powerLabel" style="font:700 12px ui-rounded;color:#ffd166;margin:0 0 4px 2px;opacity:.8">FEVER</div>'+
-        '<div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
-          '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
-        '</div>';
-      document.body.appendChild(this.powerWrap);
-    }
-    this.$powerFill  = this.powerWrap.querySelector('#powerFill');
-    this.$powerLabel = this.powerWrap.querySelector('#powerLabel');
-    this._feverVal = this._feverVal||0;
-  }
-
-  /* ===== Public binding ===== */
+  /* ===== Binding ===== */
   bindPower(power){
     if(!power) return;
-    power.onFever((v)=> this.setFever(v)); // ใช้ setFever เสมอ (อย่าแตะ .style ตรงๆ)
+    power.onFever((v)=> this.setFever(v));  // HUD อัปเดตแถบกลางล่าง
   }
 
   /* ===== Top HUD ===== */
@@ -122,6 +117,7 @@ export class HUD {
       const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
       const isActive = (m.active !== undefined) ? !!m.active : (!m.done && !m.fail && index===0);
       const size = m.iconSize || 16;
+
       const d = document.createElement('div');
       d.style.cssText =
         'pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;'+
@@ -140,39 +136,35 @@ export class HUD {
     this.chips.innerHTML=''; this.chips.appendChild(frag);
   }
 
-  /* ===== Mini-quest ===== */
+  /* ===== Mini-quest banner ===== */
   showMiniQuest(text){
     const msg = String(text||'').trim();
     if (!msg){ this.mini.style.opacity = '0'; return; }
     this.mini.textContent = msg;
     this.mini.style.opacity = '1';
-    setTimeout(()=>{ this.mini.style.opacity='0.35'; }, 1200);
+    clearTimeout(this._miniT);
+    this._miniT = setTimeout(()=>{ this.mini.style.opacity='0.35'; }, 1200);
   }
   showMiniQuestComplete(text){
     const msg = String(text||'Mission complete!').trim();
     this.mini.textContent = msg;
     this.mini.style.opacity = '1';
-    setTimeout(()=>{ this.mini.style.opacity='0'; }, 900);
+    clearTimeout(this._miniT);
+    this._miniT = setTimeout(()=>{ this.mini.style.opacity='0'; }, 900);
   }
 
-  /* ===== FEVER (SAFE) ===== */
+  /* ===== FEVER visuals ===== */
   setFever(v){
-    // ซ่อม DOM ถ้าหาย
-    this._ensurePowerDom();
-    const fill  = this.$powerFill  = document.getElementById('powerFill');
-    const label = this.$powerLabel = document.getElementById('powerLabel');
-    if (!fill || !label) return; // กันพังแน่นอน
-
     const val = Math.max(0, Math.min(100, Number(v)||0));
     this._feverVal = val;
-    const pct = val.toFixed(0) + '%';
-
-    fill.innerHTML = (val>0) ? '<div class="fire"></div>' : '';
-    try{ fill.style.width = pct; }catch{}
-
-    const op = (val>0)? 1 : .6;
-    const glow = (val>0)? '0 0 14px rgba(255,160,0,.35)' : 'none';
-    try{ label.style.opacity = String(op); label.style.textShadow = glow; }catch{}
+    this.$powerFill.innerHTML = (val>0)
+      ? '<div class="fire" style="position:absolute;left:0;top:0;bottom:0;width:100%;'+
+        'background:radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,0)70%),'+
+        'radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,0)70%),'+
+        'radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,0)70%),'+
+        'linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite"></div>'
+      : '';
+    this.$powerFill.style.width = val.toFixed(0) + '%';
 
     if (val>0) document.body.classList.add('fever-on');
     else document.body.classList.remove('fever-on');
@@ -198,30 +190,32 @@ export class HUD {
 
   /* ===== Result ===== */
   showResult({title='Result',desc='—',stats=[],extra=[]}={}){
-    try{ const sh=document.getElementById('spawnHost'); if(sh) sh.style.pointerEvents='none'; }catch{}
-    this.root.style.pointerEvents='auto';
+    try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'none'; }catch{}
+    this.root.style.pointerEvents = 'auto';
 
     const frag1=document.createDocumentFragment(), frag2=document.createDocumentFragment();
     for(const s of stats){
       const b=document.createElement('div');
       b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38';
-      b.textContent=String(s); frag1.appendChild(b);
+      b.textContent=String(s);
+      frag1.appendChild(b);
     }
     for(const s of extra){
       const b=document.createElement('div');
       b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff';
-      b.textContent=String(s); frag2.appendChild(b);
+      b.textContent=String(s);
+      frag2.appendChild(b);
     }
-    this.$resTitle.textContent=String(title);
-    this.$resDesc.textContent =String(desc);
+    this.$resTitle.textContent = String(title);
+    this.$resDesc.textContent  = String(desc);
     this.$resStats.innerHTML=''; this.$resStats.appendChild(frag1);
     this.$resExtra.innerHTML=''; this.$resExtra.appendChild(frag2);
     this.result.style.display='flex';
   }
   hideResult(){
     this.result.style.display='none';
-    this.root.style.pointerEvents='none';
-    try{ const sh=document.getElementById('spawnHost'); if(sh) sh.style.pointerEvents='auto'; }catch{}
+    this.root.style.pointerEvents = 'none';
+    try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'auto'; }catch{}
   }
 
   /* ===== Toast ===== */
@@ -230,11 +224,13 @@ export class HUD {
     if(!t){
       t=document.createElement('div');
       t.id='toast';
+      t.className='toast';
       t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040';
       document.body.appendChild(t);
     }
-    t.textContent=String(text); t.style.opacity='1';
-    setTimeout(()=>{ t.style.opacity='0'; },1200);
+    t.textContent = String(text);
+    t.style.opacity = '1';
+    setTimeout(()=>{ t.style.opacity='0'; }, 1200);
   }
 }
 
@@ -248,15 +244,6 @@ function ensureStyle(){
     100% { transform: translateY(6%); opacity: .85; }
   }
   #powerBar { position:relative; overflow:hidden; }
-  #powerFill .fire{
-    position:absolute; left:0; top:0; bottom:0; width:100%;
-    background:
-      radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,0)70%),
-      radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,0)70%),
-      radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,0)70%),
-      linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
-    mix-blend-mode:screen; animation:fireRise .9s ease-in-out infinite;
-  }
   body.fever-on #powerBar {
     box-shadow: 0 0 16px rgba(255,140,0,.25) inset, 0 0 18px rgba(255,120,0,.25);
   }`;
