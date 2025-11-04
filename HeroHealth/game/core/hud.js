@@ -1,4 +1,4 @@
-// === Hero Health Academy — core/hud.js (robust result modal & fever bind) ===
+// === Hero Health Academy — core/hud.js (robust result modal & fever bind, patched 2025-11-05) ===
 'use strict';
 
 export class HUD {
@@ -13,20 +13,20 @@ export class HUD {
       this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2000;';
       document.body.appendChild(this.root);
     }
-    this.root.style.pointerEvents = 'none'; // เริ่มต้นต้องไม่กินคลิก
+    this.root.style.pointerEvents = 'none';
 
     // ----- Top bar -----
     this.top = document.createElement('div');
     this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
     this.top.innerHTML =
       '<div style="display:flex;gap:8px;align-items:center">'+
-        '<span id="hudMode"  style="padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;pointer-events:auto">—</span>'+
-        '<span id="hudDiff"  style="padding:4px 8px;border-radius:10px;background:#102b52;color:#e6f5ff;border:1px solid #1b4b8a;pointer-events:auto">—</span>'+
-        '<span id="hudTime"  style="padding:4px 8px;border-radius:10px;background:#0a1f3d;color:#c9e7ff;border:1px solid #123863;min-width:72px;text-align:center;pointer-events:auto">—</span>'+
+        '<span id="hudMode"  style="padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;">—</span>'+
+        '<span id="hudDiff"  style="padding:4px 8px;border-radius:10px;background:#102b52;color:#e6f5ff;border:1px solid #1b4b8a;">—</span>'+
+        '<span id="hudTime"  style="padding:4px 8px;border-radius:10px;background:#0a1f3d;color:#c9e7ff;border:1px solid #123863;min-width:72px;text-align:center;">—</span>'+
       '</div>'+
       '<div style="display:flex;gap:8px;align-items:center">'+
-        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;pointer-events:auto">Score: <b id="hudScore">0</b></span>'+
-        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;pointer-events:auto">Combo: <b id="hudCombo">0</b></span>'+
+        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;">Score: <b id="hudScore">0</b></span>'+
+        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;">Combo: <b id="hudCombo">0</b></span>'+
       '</div>';
     this.root.appendChild(this.top);
     this.$mode  = this.top.querySelector('#hudMode');
@@ -35,7 +35,7 @@ export class HUD {
     this.$score = this.top.querySelector('#hudScore');
     this.$combo = this.top.querySelector('#hudCombo');
 
-    // ----- Fever (เดิม) -----
+    // ----- Fever Bar -----
     this.powerWrap = document.getElementById('powerBarWrap');
     if(!this.powerWrap){
       this.powerWrap = document.createElement('div');
@@ -64,7 +64,7 @@ export class HUD {
     this.chips.style.cssText = 'position:fixed;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:92vw;pointer-events:none';
     this.root.appendChild(this.chips);
 
-    // ----- Mini-quest banner -----
+    // ----- Mini quest banner -----
     this.mini = document.createElement('div');
     this.mini.id = 'miniQuest';
     this.mini.style.cssText = 'position:fixed;left:50%;top:72px;transform:translateX(-50%);padding:6px 10px;border-radius:12px;background:#0e1930cc;border:1px solid #214064;color:#ffde85;font:900 16px ui-rounded,system-ui;text-shadow:0 0 10px #000;z-index:8000;opacity:0;transition:opacity .25s ease';
@@ -87,6 +87,7 @@ export class HUD {
         '</div>'+
       '</div>';
     this.root.appendChild(this.result);
+
     this.$resTitle = this.result.querySelector('#resTitle');
     this.$resDesc  = this.result.querySelector('#resDesc');
     this.$resStats = this.result.querySelector('#resStats');
@@ -97,114 +98,57 @@ export class HUD {
     this.result.querySelector('#resRetry').onclick = ()=> this.onRetry && this.onRetry();
 
     this.isResultOpen = false;
-
-    // expose toast API
     window.__HHA_HUD_API = { say: (msg)=> this.toast(msg) };
   }
 
-  bindPower(power){
-    if(!power) return;
-    power.onFever((v)=> this.setFever(v));
-  }
-
-  setTop({mode,diff}={}){ if(mode!=null) this.$mode.textContent=String(mode); if(diff!=null) this.$diff.textContent=String(diff); }
+  // === Core HUD API ===
+  bindPower(power){ if(power) power.onFever((v)=> this.setFever(v)); }
+  setTop({mode,diff}={}){ if(mode) this.$mode.textContent=mode; if(diff) this.$diff.textContent=diff; }
   setTimer(sec){ this.$time.textContent = Math.max(0, Math.round(sec)) + 's'; }
-  updateHUD(score, combo){ this.$score.textContent=String(score|0); this.$combo.textContent=String(combo|0); }
+  updateHUD(score, combo){ this.$score.textContent=score|0; this.$combo.textContent=combo|0; }
+  resetBars(){ this.setFever(0); }
 
-  setQuestChips(list=[]){
-    const frag = document.createDocumentFragment();
-    let index = 0;
-    for(const m of list){
-      const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
-      const isActive = (m.active !== undefined) ? !!m.active : (!m.done && !m.fail && index===0);
-      const size = m.iconSize || 16;
-
-      const d = document.createElement('div');
-      d.style.cssText =
-        'pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;'+
-        `border:2px solid ${isActive?'#22d3ee':'#16325d'};`+
-        `background:${m.done?(m.fail?'#361515':'#0f2e1f'):'#0d1a31'};color:#e6f2ff;`;
-      d.innerHTML =
-        `<span style="font-size:${size}px;line-height:1">${m.icon||'⭐'}</span>`+
-        `<span style="font:700 12.5px ui-rounded;margin-left:4px">${m.label||m.key}</span>`+
-        `<span style="font:700 12px;color:#a7f3d0;margin-left:6px">${m.progress||0}/${m.need||0}</span>`+
-        '<i style="height:6px;width:128px;border-radius:999px;background:#0a1931;border:1px solid #12325a;overflow:hidden;display:inline-block;margin-left:6px">'+
-          `<b style="display:block;height:100%;width:${pct}%;background:${m.done?(m.fail?'#ef4444':'#22c55e'):'#22d3ee'}"></b>`+
-        '</i>';
-      frag.appendChild(d);
-      index++;
-    }
-    this.chips.innerHTML=''; this.chips.appendChild(frag);
+  // === Visual cues ===
+  showFloatingText(x,y,text){
+    const el=document.createElement('div');
+    el.textContent = text;
+    el.style.cssText='position:fixed;left:'+(x|0)+'px;top:'+(y|0)+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded;color:#fff;text-shadow:0 2px 10px #000;opacity:1;transition:all .72s ease-out;pointer-events:none;z-index:6900';
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
+    setTimeout(()=>el.remove(),720);
+  }
+  showBig(text){
+    this.big.textContent = text||'';
+    this.big.style.opacity = '1';
+    this.big.style.transform = 'translate(-50%,-50%) scale(1)';
+    setTimeout(()=>{ this.big.style.opacity='0'; this.big.style.transform='translate(-50%,-50%) scale(.9)'; },380);
   }
 
-  showMiniQuest(text){
-    const msg = String(text||'').trim();
-    if (!msg){ this.mini.style.opacity = '0'; return; }
-    this.mini.textContent = msg;
-    this.mini.style.opacity = '1';
-    setTimeout(()=>{ this.mini.style.opacity='0.35'; }, 1200);
-  }
-  showMiniQuestComplete(text){
-    const msg = String(text||'Mission complete!').trim();
-    this.mini.textContent = msg;
-    this.mini.style.opacity = '1';
-    setTimeout(()=>{ this.mini.style.opacity='0'; }, 900);
-  }
-
+  // === Fever ===
   setFever(v){
     const val = Math.max(0, Math.min(100, Number(v)||0));
     this._feverVal = val;
     const pct = val.toFixed(0) + '%';
-    this.$powerFill.innerHTML = (val>0) ? '<div class="fire"></div>' : '';
+    this.$powerFill.innerHTML = (val>0)? '<div class="fire"></div>' : '';
     this.$powerFill.style.width = pct;
-
     const op = (val>0)? 1 : .6;
-    const glow = (val>0)? '0 0 14px rgba(255,160,0,.35)' : 'none';
-    this.$powerLabel.style.opacity = String(op);
-    this.$powerLabel.style.textShadow = glow;
-
-    if (val>0) document.body.classList.add('fever-on');
-    else document.body.classList.remove('fever-on');
+    this.$powerLabel.style.opacity = op;
+    this.$powerLabel.style.textShadow = (val>0)? '0 0 14px rgba(255,160,0,.35)' : 'none';
+    document.body.classList.toggle('fever-on', val>0);
   }
-  showFever(on){ this.setFever(on? (this._feverVal||1) : 0); }
-  resetBars(){ this.setFever(0); }
+  showFever(on){ this.setFever(on ? (this._feverVal||1) : 0); }
 
-  showFloatingText(x,y,text){
-    const el=document.createElement('div');
-    el.textContent = String(text);
-    el.style.cssText='position:fixed;left:'+(x|0)+'px;top:'+(y|0)+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded,system-ui;color:#fff;text-shadow:0 2px 10px #000;pointer-events:none;z-index:6900;opacity:1;transition:all .72s ease-out;';
-    document.body.appendChild(el);
-    requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
-    setTimeout(()=>{ try{el.remove();}catch{}; }, 720);
-  }
-  showBig(text){
-    this.big.textContent = String(text||'');
-    this.big.style.opacity = '1';
-    this.big.style.transform = 'translate(-50%,-50%) scale(1)';
-    setTimeout(()=>{ this.big.style.opacity='0'; this.big.style.transform='translate(-50%,-50%) scale(.9)'; }, 380);
-  }
-
+  // === Result modal ===
   showResult({title='Result',desc='—',stats=[],extra=[]}={}){
     try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'none'; }catch{}
     this.root.style.pointerEvents = 'auto';
-
-    const frag1=document.createDocumentFragment(), frag2=document.createDocumentFragment();
-    for(const s of stats){
-      const b=document.createElement('div');
-      b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38';
-      b.textContent=String(s);
-      frag1.appendChild(b);
-    }
-    for(const s of extra){
-      const b=document.createElement('div');
-      b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff';
-      b.textContent=String(s);
-      frag2.appendChild(b);
-    }
-    this.$resTitle.textContent = String(title);
-    this.$resDesc.textContent  = String(desc);
-    this.$resStats.innerHTML=''; this.$resStats.appendChild(frag1);
-    this.$resExtra.innerHTML=''; this.$resExtra.appendChild(frag2);
+    const f1=document.createDocumentFragment(), f2=document.createDocumentFragment();
+    for(const s of stats){ const d=document.createElement('div'); d.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38'; d.textContent=s; f1.appendChild(d); }
+    for(const s of extra){ const d=document.createElement('div'); d.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff'; d.textContent=s; f2.appendChild(d); }
+    this.$resTitle.textContent = title;
+    this.$resDesc.textContent  = desc;
+    this.$resStats.replaceChildren(f1);
+    this.$resExtra.replaceChildren(f2);
     this.result.style.display='flex';
     document.body.setAttribute('data-result-open','1');
     this.isResultOpen = true;
@@ -212,14 +156,17 @@ export class HUD {
   hideResult(){
     this.result.style.display='none';
     this.root.style.pointerEvents = 'none';
-    try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'auto'; }catch{}
     document.body.removeAttribute('data-result-open');
     this.isResultOpen = false;
+    try{
+      const sh = document.getElementById('spawnHost');
+      if (sh) sh.style.pointerEvents = 'auto';
+    }catch{}
     this.$resStats.innerHTML = '';
     this.$resExtra.innerHTML = '';
   }
 
-  toast(text){
+  toast(msg){
     let t=document.getElementById('toast');
     if(!t){
       t=document.createElement('div');
@@ -228,29 +175,29 @@ export class HUD {
       t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040';
       document.body.appendChild(t);
     }
-    t.textContent = String(text);
+    t.textContent = msg;
     t.style.opacity = '1';
     setTimeout(()=>{ t.style.opacity='0'; }, 1200);
   }
 }
 
+// --- Fever bar style ---
 function ensureStyle(){
   if(document.getElementById('hud-style')) return;
   const s=document.createElement('style'); s.id='hud-style';
-  s.textContent = `
-  @keyframes fireRise { 0%{transform:translateY(6%);opacity:.85}50%{transform:translateY(-6%);opacity:1}100%{transform:translateY(6%);opacity:.85} }
-  #powerBar { position:relative; overflow:hidden; }
+  s.textContent=`
+  @keyframes fireRise{0%{transform:translateY(6%);opacity:.85}50%{transform:translateY(-6%);opacity:1}100%{transform:translateY(6%);opacity:.85}}
+  #powerBar{position:relative;overflow:hidden;}
   #powerFill .fire{
-    position:absolute; left:0; top:0; bottom:0; width:100%;
+    position:absolute;left:0;top:0;bottom:0;width:100%;
     background:
       radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,0)70%),
       radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,0)70%),
       radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,0)70%),
       linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
-    mix-blend-mode:screen; animation:fireRise .9s ease-in-out infinite;
+    mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite;
   }
-  body.fever-on #powerBar {
-    box-shadow: 0 0 16px rgba(255,140,0,.25) inset, 0 0 18px rgba(255,120,0,.25);
-  }`;
+  body.fever-on #powerBar{box-shadow:0 0 16px rgba(255,140,0,.25) inset,0 0 18px rgba(255,120,0,.25);}
+  `;
   document.head.appendChild(s);
 }
