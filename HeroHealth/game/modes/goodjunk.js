@@ -1,250 +1,209 @@
-// === Hero Health Academy — game/main.js (autostart + solid timer + spawn-guard + fever-safe bind) ===
+// === Hero Health Academy — game/modes/goodjunk.js
+// (DOM-spawn, low-density, quest-aware, NO internal fever, with explode FX) ===
+export const name = 'goodjunk';
 
-// เคลียร์อินสแตนซ์เดิมถ้ามี
-if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
+const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
+const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
+const GOLD = ['⭐']; // golden = ใช้ HUD fever ภายนอก (ส่ง meta.golden=true ไปให้ main)
 
-// ---------- Imports ----------
-import { Engine } from './core/engine.js';
-import { HUD } from './core/hud.js';
-import { Coach } from './core/coach.js';
-import { SFX } from './core/sfx.js';
-import { ScoreSystem } from './core/score.js';
-import { PowerUpSystem } from './core/powerup.js';
-import { Quests } from './core/quests.js';
-import { MissionSystem } from './core/mission-system.js';
-import { Leaderboard } from './core/leaderboard.js';
-import { VRInput } from './core/vrinput.js';
-import * as FX from './core/fx.js';
-import * as goodjunk from './modes/goodjunk.js';
+// Runtime state
+let host, items = [], alive = 0;
+let cfg, spawnAcc = 0, running = false;
 
-// ---------- State ----------
-const MODES = { goodjunk };
-const $  = (s)=>document.querySelector(s);
-const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
-const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-const pnow = ()=>performance.now?performance.now():Date.now();
-
-let playing=false, rafId=0, activeMode=null;
-let wallSecondsTotal=45, wallSecondsLeft=45;
-let lastFrameMs=0;
-let tickTimerId=null;        // จับเวลา 1s
-let spawnGuardId=null;       // กัน “เริ่มแล้วไม่มีของเกิด”
-let guardTimerId=null;       // ตรวจซ้ำ
-let currentModeKey='goodjunk', currentDiff='Normal';
-
-// ---------- Core ----------
-const engine=new Engine();
-const hud=new HUD();
-const coach=new Coach({lang:'TH'});
-const sfx=new SFX();
-const score=new ScoreSystem();
-const power=new PowerUpSystem();
-const board=new Leaderboard({key:'hha_board', maxKeep:300, retentionDays:180});
-const mission=new MissionSystem();
-const stateRef={ missions:[], ctx:{} };
-
-Quests.bindToMain({hud,coach});
-power.attachToScore(score);
-hud.bindPower?.(power); // << ผูก fever แบบปลอดภัย
-
-// helper: set style แบบไม่พังถ้า el เป็น null
-function setStyleSafe(el, prop, val){ if(el && el.style){ try{ el.style[prop]=val; }catch{} } }
-
-// ---------- Fever ----------
-power.onFever(v=>{
-  // ไม่แตะ element โดยตรง → ให้ HUD จัดการเสมอ
-  hud.setFever?.(v);
-  if (v >= 100) {
-    hud.showFever?.(true);
-    sfx.power?.();
-    setTimeout(()=>{ hud.showFever?.(false); power.resetFever?.(); }, 5000);
-  }
-});
-
-// ---------- BUS ----------
-const BUS={
-  hit(e){
-    const pts=e?.points|0;
-    const kind=(e?.kind==='perfect')?'perfect':'good';
-    score.add(pts,{kind});
-    hud.updateHUD(score.get(),score.combo|0);
-    if(e?.ui) hud.showFloatingText?.(e.ui.x,e.ui.y,`+${pts}`);
-    if(kind==='perfect') coach.onPerfect(); else coach.onGood();
-    mission.onEvent(kind,{count:1},stateRef);
-    if (e?.meta?.golden) power.add(20);
-  },
-  miss(){ score.add(0); coach.onMiss(); mission.onEvent('miss',{count:1},stateRef); },
-  bad(){  score.add(0); coach.onJunk(); mission.onEvent('wrong_group',{count:1},stateRef); },
-  sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
+// ความหนาแน่นต่ำ + อายุชิ้นนานขึ้น + ขนาดแยกตามระดับความยาก
+const PRESET = {
+  Easy:   { spawnEvery: 1.60, maxAlive: 4,  life: 4.2, size: 76 },
+  Normal: { spawnEvery: 1.30, maxAlive: 5,  life: 3.6, size: 64 },
+  Hard:   { spawnEvery: 1.05, maxAlive: 6,  life: 3.2, size: 54 },
 };
 
-// ---------- Flow ----------
-async function preCountdown(){
-  hud.showBig('3'); sfx.tick(); await sleep(650);
-  hud.showBig('2'); sfx.tick(); await sleep(650);
-  hud.showBig('1'); sfx.tick(); await sleep(650);
-  hud.showBig('GO!'); sfx.tick(); await sleep(450);
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+
+function ensureHost(){
+  host = document.getElementById('spawnHost');
+  if (!host){
+    host = document.createElement('div');
+    host.id = 'spawnHost';
+    host.style.cssText = 'position:fixed;inset:0;z-index:5000;pointer-events:auto';
+    document.body.appendChild(host);
+  }
 }
 
-function armSpawnGuard(){
-  clearTimeout(spawnGuardId);
-  spawnGuardId = setTimeout(()=>{
-    if(!playing) return;
-    const hasAny = document.querySelector('#spawnHost .gj-it');
-    if (!hasAny) { try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{} }
-  }, 2500);
-}
+// หาตำแหน่งใหม่ โดยเลี่ยงชนกันมากไป
+function findFreeSpot(size){
+  const pad = Math.max(70, size * 1.3);
+  const ww = window.innerWidth, hh = window.innerHeight;
+  const minDist = size * 1.35;
 
-function beginRun({modeKey,diff='Normal',seconds=45}){
-  document.body.setAttribute('data-playing','1');
-  playing=true;
-
-  // reset run
-  score.reset(); power.resetFever();
-  wallSecondsTotal = clamp(seconds|0,10,300);
-  wallSecondsLeft  = wallSecondsTotal;
-  lastFrameMs = pnow();
-
-  hud.setTop({mode:shortMode(modeKey), diff});
-  hud.resetBars?.();
-  hud.setTimer(wallSecondsLeft);
-  coach.onStart();
-
-  // missions
-  const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
-  mission.attachToState(run, stateRef);
-  const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
-  if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
-
-  // start mode
-  activeMode = MODES[modeKey];
-  activeMode?.start?.({ difficulty: diff });
-
-  // solid 1s timer
-  clearInterval(tickTimerId);
-  tickTimerId = setInterval(()=>{
-    if(!playing) return;
-    if (wallSecondsLeft>0){
-      wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
-      hud.setTimer(wallSecondsLeft);
-      sfx.tick();
-      power.drain(0.5);
-      mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
-      if (wallSecondsLeft===0) endRun();
+  for (let attempt=0; attempt<10; attempt++){
+    const x = clamp(Math.random()*ww, pad, ww-pad);
+    const y = clamp(Math.random()*hh, pad+20, hh-pad-80);
+    let ok = true;
+    for (const it of items){
+      const dx = x - it.x, dy = y - it.y;
+      if (Math.hypot(dx,dy) < minDist){ ok = false; break; }
     }
-  },1000);
-
-  // spawn guard
-  armSpawnGuard();
-  clearInterval(guardTimerId);
-  guardTimerId = setInterval(()=>armSpawnGuard(), 4000);
-
-  loop();
-}
-
-function endRun(){
-  if(!playing) return;
-  playing=false;
-
-  try{ cancelAnimationFrame(rafId); }catch{}
-  clearInterval(tickTimerId); tickTimerId=null;
-  clearInterval(guardTimerId); guardTimerId=null;
-  clearTimeout(spawnGuardId); spawnGuardId=null;
-
-  try{ activeMode?.stop?.(); }catch{}
-  try{ activeMode?.cleanup?.(); }catch{}
-  const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
-
-  mission.stop(stateRef);
-
-  const finalScore = score.get()|0;
-  const bestCombo  = score.bestCombo|0;
-  const finalChips = (stateRef.missions||[]).map(m=>({ key:m.key, ok:!!m.success, need:m.target|0, got:m.progress|0 }));
-  const extra = finalChips.map(c=>{
-    const icon = ({collect_goods:'🍎',count_perfect:'🌟',count_golden:'🟡',reach_combo:'🔥',no_miss:'❌',score_reach:'🏁',target_hits:'🎯'})[c.key] || '⭐';
-    const name = mission.describe({key:c.key,target:c.need}, 'TH');
-    const mark = c.ok ? '✅' : '❌';
-    return `${mark} ${icon} ${name} — ${c.got}/${c.need}`;
-  });
-
-  try{ board.submit(currentModeKey, currentDiff, finalScore, { meta:{ bestCombo } }); }catch{}
-
-  hud.showResult({
-    title:'สรุปผล',
-    desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
-    stats:[`คะแนน: ${finalScore}`, `คอมโบสูงสุด: ${bestCombo}`],
-    extra
-  });
-
-  hud.onHome = ()=>{
-    try{
-      const mb = $('#menuBar');
-      if (mb){ mb.removeAttribute('data-hidden'); setStyleSafe(mb,'display','flex'); }
-      hud.hideResult?.(); hud.resetBars?.();
-      document.body.removeAttribute('data-playing');
-      const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
-    }catch{ location.reload(); }
+    if (ok) return {x,y};
+  }
+  // สำรอง
+  return { 
+    x: clamp(Math.random()*ww, pad, ww-pad), 
+    y: clamp(Math.random()*hh, pad+20, hh-pad-80)
   };
-  hud.onRetry= ()=>{
-    hud.hideResult?.(); hud.resetBars?.(); mission.reset(stateRef); power.resetFever();
-    beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: wallSecondsTotal });
-  };
-
-  document.body.removeAttribute('data-playing'); hud.showFever?.(false);
 }
 
-function loop(){
-  if(!playing) return;
-  rafId=requestAnimationFrame(loop);
-  const nowMs = pnow(); let dt = (nowMs - lastFrameMs) / 1000;
-  if (!(dt>0) || dt>1.5) dt = 0.016; lastFrameMs = nowMs;
-  try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
+// เอฟเฟกต์แตกกระจาย (particles แบบ self-contained)
+function explodeAt(x,y,{color='rgba(255,220,120,.95)', pieces=12, spread=38}={}){
+  for(let i=0;i<pieces;i++){
+    const p=document.createElement('b');
+    p.style.cssText=
+      `position:fixed;left:${x}px;top:${y}px;width:6px;height:6px;`+
+      `background:${color};border-radius:50%;pointer-events:none;z-index:9100;opacity:1;`;
+    document.body.appendChild(p);
+    const ang=Math.random()*Math.PI*2;
+    const dist= spread*(0.6+Math.random()*0.8);
+    const dx=Math.cos(ang)*dist, dy=Math.sin(ang)*dist;
+    const dur=420+Math.random()*300;
+    requestAnimationFrame(()=>{
+      p.animate(
+        [{ transform:'translate(-3px,-3px)', opacity:1 },
+         { transform:`translate(${dx-3}px,${dy-3}px)`, opacity:0 }],
+        { duration: dur, easing:'cubic-bezier(.25,.6,.3,1)' }
+      ).onfinish=()=>{ try{p.remove();}catch{} };
+    });
+  }
 }
 
-// ---------- Public ----------
-async function startGame(){
-  currentModeKey=document.body.getAttribute('data-mode')||'goodjunk';
-  currentDiff=document.body.getAttribute('data-diff')||'Normal';
-  if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
-  const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); setStyleSafe(mb,'display','none'); }
-  await preCountdown();
-  beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
+// สร้างไอเท็ม 1 ชิ้น
+function spawnOne(BUS){
+  if (!running) return;
+  if (alive >= cfg.maxAlive) return;
+
+  // เลือกชนิด
+  const r = Math.random();
+  let kind = 'good';
+  if (r > 0.86) kind = 'gold';      // ~14%
+  else if (r > 0.58) kind = 'junk'; // ~28%
+
+  const emoji = kind==='gold' ? pick(GOLD)
+               : kind==='junk' ? pick(JUNK)
+               : pick(GOOD);
+
+  const pos = findFreeSpot(cfg.size);
+  const x = pos.x, y = pos.y;
+  const s = cfg.size;
+
+  const glow = (kind==='gold') ? '0 0 28px rgba(255,205,80,.85)'
+             : (kind==='good') ? '0 0 18px rgba(80,200,255,.35)'
+                               : '0 0 18px rgba(255,120,120,.25)';
+
+  const el = document.createElement('div');
+  el.className = 'gj-it';
+  el.textContent = emoji;
+  el.style.cssText = `
+    position:fixed; left:${x}px; top:${y}px; transform:translate(-50%,-50%) scale(1);
+    width:${s}px; height:${s}px; display:flex; align-items:center; justify-content:center;
+    font-size:${s-6}px; user-select:none; cursor:pointer; pointer-events:auto;
+    filter:drop-shadow(${glow});
+    transition: transform .12s ease, opacity .28s ease;
+  `;
+
+  const life = cfg.life * (0.93 + Math.random()*0.20); // ±7%
+  const obj = { el, x, y, t:0, life, kind, dead:false };
+
+  // คลิก/แตะ
+  el.addEventListener('pointerdown',(ev)=>{
+    if (!running || obj.dead) return;
+    obj.dead = true;
+    alive = Math.max(0, alive-1);
+
+    // เอฟเฟกต์ยุบ + แตกกระจาย
+    try { el.style.transform = 'translate(-50%,-50%) scale(0.82)'; } catch{}
+    setTimeout(()=>{ try{ el.style.opacity='0'; }catch{}; }, 25);
+    setTimeout(()=>{ try{ el.remove(); }catch{}; }, 180);
+    explodeAt(x,y,{ color: (kind==='junk'?'rgba(255,120,120,.95)':'rgba(180,220,255,.95)') });
+
+    const ui={x:ev.clientX,y:ev.clientY};
+    if(kind==='junk'){
+      BUS.bad?.({ source: obj, ui });
+      BUS.sfx?.bad?.();
+    } else {
+      const isGold = (kind==='gold');
+      const base   = isGold ? 50 : 10;
+      BUS.hit?.({ points: base, kind: isGold ? 'perfect' : 'good', ui, meta:{ golden: isGold } });
+      if(isGold) BUS.sfx?.power?.(); else BUS.sfx?.good?.();
+    }
+  },{passive:true});
+
+  host.appendChild(el);
+  items.push(obj);
+  alive++;
 }
 
-function stopLoop(){
-  try{ cancelAnimationFrame(rafId); }catch{}
-  clearInterval(tickTimerId); tickTimerId=null;
-  clearInterval(guardTimerId); guardTimerId=null;
-  clearTimeout(spawnGuardId); spawnGuardId=null;
-  playing=false;
+// อัปเดตรอบลูป (ถูกเรียกจาก main.update)
+function tick(dt, BUS){
+  if (!running) return;
+
+  // เกิดของใหม่ตามเวลา
+  spawnAcc += dt;
+  const need = Math.floor(spawnAcc / cfg.spawnEvery);
+  if (need > 0){
+    spawnAcc -= need * cfg.spawnEvery;
+    for (let i=0; i<need; i++) spawnOne(BUS);
+  }
+
+  // อายุและ “พลาด”
+  for (let i=items.length-1;i>=0;i--){
+    const it = items[i];
+    if (it.dead) { items.splice(i,1); continue; }
+    it.t += dt;
+    if (it.t >= it.life){
+      it.dead = true;
+      alive = Math.max(0, alive-1);
+      try{ it.el.style.opacity='0'; }catch{}
+      setTimeout(()=>{ try{ it.el.remove(); }catch{}; }, 140);
+      if (it.kind!=='junk'){ BUS.miss?.({source:it}); }
+      items.splice(i,1);
+    }
+  }
 }
 
-function shortMode(m){
-  if(m==='goodjunk') return 'Good vs Junk';
-  if(m==='groups') return '5 Groups';
-  if(m==='hydration') return 'Hydration';
-  if(m==='plate') return 'Healthy Plate';
-  return String(m||'');
+/* ========== Public API (called by main.js) ========== */
+
+export function start({ difficulty='Normal' } = {}){
+  ensureHost();
+  running  = true;
+  items    = [];
+  alive    = 0;
+  spawnAcc = 0;
+
+  // ตั้งค่าตามระดับ
+  cfg = PRESET[difficulty] || PRESET.Normal;
+
+  // กันแคนวาสบังคลิก
+  try {
+    host.style.pointerEvents = 'auto';
+    document.querySelectorAll('canvas').forEach(c=>{
+      c.style.pointerEvents = 'none';
+      c.style.zIndex = '1';
+    });
+  }catch{}
+
+  // เติมของตั้งต้นเล็กน้อย (ให้ผู้เล่นเห็นทันที)
+  for(let i=0;i<3;i++) spawnOne({ hit:()=>{}, bad:()=>{}, sfx:{} });
 }
 
-// ---------- Auto-bootstrap ----------
-function autoBoot(){
-  if (playing) return;
-  currentModeKey = document.body.getAttribute('data-mode') || 'goodjunk';
-  currentDiff    = document.body.getAttribute('data-diff') || 'Normal';
-  const mb = document.querySelector('#menuBar');
-  if (mb){ mb.setAttribute('data-hidden','1'); setStyleSafe(mb,'display','none'); }
-  startGame();
+export function update(dt, BUS){
+  if (!(dt>0) || dt>1.5) dt = 0.016; // กัน NaN/กระโดดเฟรม
+  tick(dt, BUS);
 }
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  setTimeout(autoBoot, 0);
-} else {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(autoBoot, 0), { once:true });
-  window.addEventListener('load', () => setTimeout(autoBoot, 0), { once:true });
-}
-setTimeout(()=>{ if (!playing) autoBoot(); }, 1500);
-window.addEventListener('keydown', (e)=>{ if ((e.code==='Space' || e.key===' ') && !playing) { e.preventDefault(); autoBoot(); }});
-window.startHHA = autoBoot;
 
-window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — autostart + solid timer + spawn-guard + fever-safe bind');
+export function stop(){ running = false; }
+
+export function cleanup(){
+  running = false;
+  try { if (host) host.innerHTML = ''; } catch {}
+  items = [];
+  alive = 0;
+}
