@@ -1,132 +1,219 @@
-// === Hero Health Academy — core/mission-system.js (v4.1: auto-advance, no zero target, instant HUD) ===
+// === Hero Health Academy — core/mission-system.js (v2.0 single-active + autoadvance) ===
 'use strict';
+
+const QUEST_POOL = [
+  // key, label(labelTH), target(by diff tiers), type(optional)
+  { key:'collect_goods', icon:'🍎',
+    labelTH:'เก็บของดีให้ครบ', tiers:{ Easy:20, Normal:26, Hard:32 } },
+  { key:'count_perfect', icon:'🌟',
+    labelTH:'Perfect ให้ครบ', tiers:{ Easy:6, Normal:10, Hard:14 } },
+  { key:'count_golden', icon:'🟡',
+    labelTH:'เก็บไอเท็มทองให้ครบ', tiers:{ Easy:2, Normal:3, Hard:4 } },
+  { key:'reach_combo', icon:'🔥',
+    labelTH:'ทำคอมโบให้ถึง x', tiers:{ Easy:10, Normal:14, Hard:18 } },
+  { key:'no_miss', icon:'❌',
+    labelTH:'ห้ามพลาดเกิน 0 ครั้ง', tiers:{ Easy:0, Normal:0, Hard:0 }, type:'limit' },
+  { key:'score_reach', icon:'🏁',
+    labelTH:'ทำคะแนนให้ถึง', tiers:{ Easy:400, Normal:700, Hard:900 } },
+  { key:'target_hits', icon:'🎯',
+    labelTH:'ตีเป้าให้ครบ', tiers:{ Easy:18, Normal:24, Hard:30 } },
+  { key:'streak_keep', icon:'🧊',
+    labelTH:'รักษาคอมโบ ≥8 ต่อเนื่อง (วินาที)', tiers:{ Easy:5, Normal:8, Hard:10 }, type:'duration' },
+  { key:'timed_survive', icon:'⏱️',
+    labelTH:'อยู่รอด 10 วิ โดยไม่พลาด', tiers:{ Easy:8, Normal:10, Hard:12 }, type:'survive' },
+  { key:'quick_start', icon:'⚡',
+    labelTH:'เปิดเกม 10 วิแรก ทำคะแนนให้ถึง', tiers:{ Easy:150, Normal:250, Hard:300 } },
+];
+
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
 export class MissionSystem {
   constructor(){
-    // 10 mini-quests (จะสุ่มมา 3 ต่อรอบ)
-    this.poolDefs = [
-      { key:'collect_goods', icon:'🥗', need:[12,16,20],  label:(n)=>`เก็บของดีให้ครบ ${n} ชิ้น` },
-      { key:'count_perfect', icon:'🌟', need:[6,8,10],    label:(n)=>`Perfect ให้ครบ ${n}` },
-      { key:'count_golden',  icon:'🟡', need:[2,3,4],     label:(n)=>`แตะทองให้ครบ ${n}` },
-      { key:'reach_combo',   icon:'🔥', need:[10,20,30],  label:(n)=>`ทำคอมโบให้ถึง x${n}` },
-      { key:'score_reach',   icon:'🏁', need:[300,450,600],label:(n)=>`ทำคะแนนให้ถึง ${n}` },
-      { key:'target_hits',   icon:'🎯', need:[18,24,30],  label:(n)=>`ตีโดนให้ครบ ${n}` },
-      // no_miss = ต่อเนื่องไม่พลาด N ครั้ง (เดิมเป้าดูเหมือน 0/0 → ปรับให้ชัดเจน)
-      { key:'no_miss',       icon:'❌', need:[6,8,10],    label:(n)=>`ห้ามพลาดต่อเนื่อง จนครบ ${n} ครั้ง` },
-      { key:'quick_start',   icon:'⚡', need:[5,6,7],     label:(n)=>`10 วินาทีแรก เก็บของดีให้ได้ ${n}` },
-      { key:'streak_keep',   icon:'🧊', need:[8,10,12],   label:(n)=>`รักษาคอมโบ ≥ ${n} ต่อเนื่อง (วินาที)` },
-      { key:'timed_survive', icon:'⏱️', need:[10,15,20],  label:(n)=>`อยู่รอด ${n} วิ โดยไม่พลาด` },
-    ];
-    this.active = [];
-    this.index  = 0;
-    this.runCtx = null;
-    this.stats  = { miss:0, hits:0, goods:0, perfect:0, golden:0, combo:0, score:0, elapsed:0 };
-  }
-
-  _tier(diff){ if (diff==='Easy') return 0; if (diff==='Hard') return 2; return 1; }
-
-  describe(m){ 
-    const d=this.poolDefs.find(x=>x.key===m.key); 
-    const n=m.target|0; 
-    return d?.label ? d.label(n) : m.key; 
+    this.state = null;
+    this.diff = 'Normal';
   }
 
   start(modeKey, {seconds=45, count=3, lang='TH', singleActive=true, diff='Normal'}={}){
-    const tier=this._tier(diff);
-    const pool=[...this.poolDefs];
-    const picks=[];
-    for(let i=0;i<count && pool.length;i++){
-      const d=pool.splice((Math.random()*pool.length)|0,1)[0];
-      let target = Array.isArray(d.need) ? (d.need[tier]|0) : (d.need|0);
-      if (!Number.isFinite(target) || target<=0) target = 1; // ⬅ ป้องกัน 0
-      picks.push({ key:d.key, icon:d.icon, target, progress:0, done:false, fail:false, label:d.label?d.label(target):d.key, _t:0 });
+    // สร้างกองภารกิจ (สุ่มไม่ซ้ำ) ตาม diff
+    this.diff = diff || 'Normal';
+    const pool = [...QUEST_POOL];
+    const chosen = [];
+    while (chosen.length < clamp(count,1,3) && pool.length){
+      const q = pool.splice((Math.random()*pool.length)|0, 1)[0];
+      chosen.push(this._makeQuest(q));
     }
-    this.active=picks; this.index=0;
-    this.runCtx={seconds, singleActive, lang, diff};
-    this.stats={ miss:0, hits:0, goods:0, perfect:0, golden:0, combo:0, score:0, elapsed:0 };
-    return { missions:this.active };
+    // ทำให้ active แค่ตัวแรก
+    chosen.forEach((q,i)=>{ q.active = (i===0); });
+    this.state = { modeKey, seconds, list: chosen, lang, singleActive: !!singleActive, startedAt: performance.now() };
+    return this.state;
   }
 
-  attachToState(run, stateRef){ stateRef.missions=this.active; stateRef.ctx=this.runCtx; }
-  reset(stateRef){ this.active=[]; this.index=0; this.runCtx=null; this.stats={ miss:0, hits:0, goods:0, perfect:0, golden:0, combo:0, score:0, elapsed:0 }; if(stateRef){stateRef.missions=[]; stateRef.ctx={};} }
-
-  _chips(){
-    return this.active.map((m,i)=>({
-      key:m.key,label:m.label,need:m.target|0,progress:Math.min(m.target|0,m.progress|0),
-      done:!!m.done,fail:!!m.fail,active:(i===this.index && !m.done && !m.fail),icon:m.icon,iconSize:16
-    }));
-  }
-  _cur(){ return this.active[this.index]||null; }
-
-  _advanceAndAnnounce({hud,coach}={}){
-    // เดินข้ามเควสต์ที่จบ/พัง
-    while(this.index < this.active.length && (this.active[this.index].done || this.active[this.index].fail)) this.index++;
-    // ประกาศเควสต์ถัดไป
-    const nxt=this._cur();
-    if(nxt){ hud?.showMiniQuest?.(nxt.label); }
-    hud?.setQuestChips?.(this._chips());
+  attachToState(run, stateRef){
+    stateRef.missions = run.list;
+    stateRef.ctx = { diff:this.diff, startedAt: run.startedAt };
   }
 
-  // เรียกทุก 1 วิ (จาก main)
-  tick(stateRef, scoreCtx, _unused, ui={}){
-    this.stats.elapsed=(this.stats.elapsed|0)+1;
-    const cur=this._cur();
+  reset(stateRef){
+    if (!this.state) return;
+    this.state.list.forEach(q=>{ q.progress=0; q.done=false; q.fail=false; q.active=false; q._t=0; });
+    // เริ่มใหม่ที่ตัวแรก
+    this.state.list[0].active = true;
+    stateRef.missions = this.state.list;
+  }
 
-    if(cur){
-      // เงื่อนไขตามเวลา
-      if(cur.key==='timed_survive' && !cur.fail){ cur._t=(cur._t|0)+1; cur.progress=cur._t; if(cur.progress>=cur.target){ cur.done=true; } }
-      if(cur.key==='streak_keep'){
-        const need=cur.target|0;
-        if((this.stats.combo|0)>=need){ cur._t=(cur._t|0)+1; cur.progress=cur._t; if(cur.progress>=need){ cur.done=true; } }
-        else { cur._t=0; cur.progress=0; }
+  stop(){ /* no-op for now */ }
+
+  // เรียกทุกครั้งที่มี event / ทุกวินาที (จาก main.js)
+  tick(stateRef, metrics={}, _unused, ui){
+    const list = (this.state?.list)||[];
+    // อัปเดตแค่ตัวที่ active
+    const act = list.find(q=>q.active && !q.done && !q.fail);
+    if (act){
+      this._updateQuest(act, metrics);
+      // เสร็จ/ล้มเหลว → เด้งป้าย + ไปต่อ
+      if (act.done){ ui?.hud?.showMiniQuestComplete?.('สำเร็จ!'); this.ensureAdvance(ui); }
+      else if (act.fail){ ui?.hud?.toast?.('ภารกิจล้มเหลว'); this.ensureAdvance(ui); }
+    }
+    // ส่งไป HUD เฉพาะตัว active เพื่อ “โชว์ทีละ 1”
+    const chips = act ? [this._chipOf(act)] : [];
+    ui?.hud?.setQuestChips?.(chips);
+    return chips;
+  }
+
+  // เรียกจาก BUS
+  onEvent(evt, payload, stateRef){
+    const list = (this.state?.list)||[];
+    const act = list.find(q=>q.active && !q.done && !q.fail);
+    if (!act) return;
+
+    if (evt==='hit' || evt==='good' || evt==='perfect'){
+      if (act.key==='target_hits') act.progress++;
+      if (evt==='perfect' && act.key==='count_perfect') act.progress++;
+      if (evt==='good'   && act.key==='collect_goods') act.progress++;
+    }
+    if (evt==='golden' && act.key==='count_golden') act.progress++;
+    if (evt==='miss'){
+      if (act.key==='no_miss') act.fail = true;
+      if (act.key==='streak_keep') act._t = 0; // แตกสตรีค
+    }
+    if (evt==='combo' && typeof payload?.combo==='number'){
+      if (act.key==='reach_combo' && payload.combo>=act.target) act.done=true;
+      if (act.key==='streak_keep'){
+        if (payload.combo>=8) act._t += 1; else act._t = 0;
+        if (act._t >= act.target) act.done = true;
       }
-      if(cur.key==='quick_start'){ if((this.stats.elapsed|0)>10 && !cur.done){ cur.fail=true; } }
-      if(cur.key==='score_reach'){ cur.progress=Math.min(cur.target|0,this.stats.score|0); if(this.stats.score>=cur.target){ cur.done=true; } }
     }
-
-    ui?.hud?.setQuestChips?.(this._chips());
-    if(cur && (cur.done||cur.fail)){ this._advanceAndAnnounce(ui); }
-    return this._chips();
+    if (evt==='score' && typeof payload?.score==='number'){
+      if (act.key==='score_reach' && payload.score>=act.target) act.done=true;
+      if (act.key==='quick_start'){
+        const since = (performance.now() - (this.state?.startedAt||0))/1000;
+        if (since <= 10 && payload.score>=act.target) act.done=true;
+        if (since > 10 && !act.done) act.fail=true;
+      }
+    }
   }
 
-  // ให้ main เรียกทันทีหลังเกิดอีเวนต์ เพื่อให้เลื่อนไว (ไม่ต้องรอ tick)
-  ensureAdvance(ui){ if(this._cur() && (this._cur().done||this._cur().fail)){ this._advanceAndAnnounce(ui); } }
+  // ถ้าภารกิจ active จบ/พัง → เปิดภารกิจถัดไป (ถ้ามี)
+  ensureAdvance(ui){
+    const list = (this.state?.list)||[];
+    let idx = list.findIndex(q=>q.active);
+    if (idx<0) return;
+    const cur = list[idx];
 
-  onEvent(type, payload, stateRef){
-    if(type==='hit') this.stats.hits++;
-    if(type==='good') this.stats.goods++;
-    if(type==='perfect') this.stats.perfect++;
-    if(type==='golden') this.stats.golden++;
-    if(type==='miss') this.stats.miss++;
-    if(type==='combo') this.stats.combo = Math.max(this.stats.combo|0, payload?.combo|0);
-    if(type==='score') this.stats.score = payload?.score|0;
-
-    const cur=this._cur(); if(!cur) return;
-
-    switch(cur.key){
-      case 'collect_goods': if(type==='good'||type==='perfect'){ cur.progress=Math.min(cur.target,(cur.progress|0)+1); } break;
-      case 'count_perfect': if(type==='perfect'){ cur.progress=Math.min(cur.target,(cur.progress|0)+1); } break;
-      case 'count_golden' : if(type==='golden'){  cur.progress=Math.min(cur.target,(cur.progress|0)+1); } break;
-      case 'reach_combo'  :
-        if(type==='combo'){
-          const c=payload?.combo|0;
-          if(c>=cur.target){ cur.progress=cur.target; cur.done=true; } else { cur.progress=Math.max(cur.progress|0,c); }
-        }
-        break;
-      case 'score_reach'  :
-        if(type==='score'){ cur.progress=Math.min(cur.target,payload?.score|0); if((payload?.score|0)>=cur.target){ cur.done=true; } }
-        break;
-      case 'target_hits'  : if(type==='hit'){ cur.progress=Math.min(cur.target,(cur.progress|0)+1); } break;
-      case 'no_miss'      :
-        if(type==='miss'){ cur.fail=true; cur._t=0; cur.progress=0; }
-        if(type==='good'||type==='perfect'){ if(!cur.fail){ cur._t=(cur._t|0)+1; cur.progress=Math.min(cur.target,cur._t); if(cur.progress>=cur.target){ cur.done=true; } } }
-        break;
-      case 'quick_start'  :
-        if((type==='good'||type==='perfect') && (this.stats.elapsed|0)<=10){ cur.progress=Math.min(cur.target,(cur.progress|0)+1); if(cur.progress>=cur.target){ cur.done=true; } }
-        break;
-      case 'streak_keep'  : /* handled in tick */ break;
-      case 'timed_survive': if(type==='miss'){ cur.fail=true; } break;
+    if (cur.done || cur.fail){
+      // ปิดตัวปัจจุบัน
+      cur.active = false;
+      // หาอันต่อไปที่ยังไม่ done/fail
+      const next = list.find(q=>!q.done && !q.fail && !q.active);
+      if (next){
+        next.active = true;
+        ui?.hud?.showMiniQuest?.(this.describe(next));
+        // push HUD chips เฉพาะตัว next
+        ui?.hud?.setQuestChips?.([this._chipOf(next)]);
+      }else{
+        // ไม่มีต่อแล้ว → ล้างแถบ mini quest
+        ui?.hud?.setQuestChips?.([]);
+      }
+    }else{
+      // ยังไม่จบก็แค่รีเฟรชชิพเดียว
+      ui?.hud?.setQuestChips?.([this._chipOf(cur)]);
     }
-    if(cur.progress>=cur.target && !cur.done && !cur.fail){ cur.done=true; }
+  }
+
+  describe(q){
+    if (!q) return '';
+    // ภาษาไทย
+    const name = {
+      collect_goods:'เก็บของดีให้ครบ',
+      count_perfect:'Perfect ให้ครบ',
+      count_golden:'เก็บไอเท็มทองให้ครบ',
+      reach_combo:'ทำคอมโบให้ถึง x',
+      no_miss:'ห้ามพลาดเกิน 0 ครั้ง',
+      score_reach:'ทำคะแนนให้ถึง',
+      target_hits:'ตีเป้าให้ครบ',
+      streak_keep:'รักษาคอมโบ ≥8 ต่อเนื่อง (วินาที)',
+      timed_survive:'อยู่รอดโดยไม่พลาด',
+      quick_start:'10 วิแรก ทำคะแนนให้ถึง',
+    }[q.key] || 'ภารกิจ';
+
+    if (q.key==='reach_combo')   return `${name} ${q.target}`;
+    if (q.key==='score_reach')   return `${name} ${q.target}`;
+    if (q.key==='streak_keep')   return `${name} ${q.target}`;
+    if (q.key==='timed_survive') return `${name} ${q.target}`;
+    if (q.key==='quick_start')   return `${name} ${q.target}`;
+    return `${name} ${q.target} ชิ้น`;
+  }
+
+  _makeQuest(def){
+    const t = def.tiers?.[this.diff] ?? def.tiers?.Normal ?? 10;
+    return {
+      key:def.key, icon:def.icon||'⭐',
+      label:this._labelTH(def.key),
+      target:t|0, progress:0, done:false, fail:false, active:false,
+      type:def.type||'count',
+      _t:0 // ตัวนับวินาที/สตรีค
+    };
+  }
+
+  _labelTH(key){
+    return ({
+      collect_goods:'เก็บของดีให้ครบ',
+      count_perfect:'Perfect ให้ครบ',
+      count_golden:'เก็บไอเท็มทองให้ครบ',
+      reach_combo:'ทำคอมโบให้ถึง x',
+      no_miss:'ห้ามพลาดเกิน 0 ครั้ง',
+      score_reach:'ทำคะแนนให้ถึง',
+      target_hits:'ตีเป้าให้ครบ',
+      streak_keep:'รักษาคอมโบ ≥8 ต่อเนื่อง (วินาที)',
+      timed_survive:'อยู่รอดโดยไม่พลาด',
+      quick_start:'10 วิแรก ทำคะแนนให้ถึง',
+    }[key] || 'ภารกิจ');
+  }
+
+  _updateQuest(q, metrics){
+    // อัปเดตแบบ passive ต่อวินาที
+    if (q.key==='timed_survive'){
+      // ใช้ miss เป็นตัวรีเซ็ตใน onEvent แล้ว ที่นี่บวกเวลา
+      q._t += 1;
+      if (q._t >= q.target) q.done = true;
+    }
+    // นับความคืบหน้าให้เคส count ที่อาจถูกอัปเดตจาก onEvent ไปแล้ว
+    if (q.type==='count'){
+      if (q.progress >= q.target) q.done = true;
+    }
+    if (q.type==='limit'){
+      if (q.fail) { /* already fail */ }
+    }
+  }
+
+  _chipOf(q){
+    const need = q.target|0, got = clamp(q.progress|0, 0, need);
+    const pct  = need>0 ? Math.round((got/need)*100) : (q.fail?0:100);
+    return {
+      key:q.key, label:q.label, icon:q.icon, need, progress:got,
+      done:!!q.done, fail:!!q.fail, active:true, pct
+    };
+    // HUD จะสร้างแถบจากค่าพวกนี้
   }
 }
