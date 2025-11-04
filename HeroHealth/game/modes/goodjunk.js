@@ -1,5 +1,5 @@
 // === Hero Health Academy — game/modes/goodjunk.js
-// (diff-tuned golden + HUD-safe spawn + resize-safe)
+// (diff-tuned golden + HUD-safe spawn + resize-safe + smoother cadence)
 
 export const name = 'goodjunk';
 
@@ -7,12 +7,17 @@ const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','�
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
 const GOLD = ['⭐'];
 
-let host, items=[], alive=0, running=false, spawnAcc=0, cfg;
+// ===== Runtime state =====
+let host, items=[], alive=0, running=false, spawnAcc=0, cfg, BUSRef=null, rafSync=0;
 
+// ควบคุมความถี่สปอนแบบ adaptive (จะเร่งเล็กน้อยเมื่อเวลาเดิน)
+let adapt = { t:0, accel:0, minEvery:0.42, accelPerSec:0.0035 };
+
+// ===== Difficulty presets =====
 const PRESET = {
   Easy:   { spawnEvery: 1.50, maxAlive: 6, life: 4.2, size: 72, goldenProb: 0.10 },
-  Normal: { spawnEvery: 1.25, maxAlive: 7, life: 3.8, size: 64, goldenProb: 0.14 },
-  Hard:   { spawnEvery: 1.00, maxAlive: 8, life: 3.4, size: 58, goldenProb: 0.18 },
+  Normal: { spawnEvery: 1.20, maxAlive: 7, life: 3.6, size: 64, goldenProb: 0.14 },
+  Hard:   { spawnEvery: 0.95, maxAlive: 8, life: 3.2, size: 58, goldenProb: 0.18 },
 };
 
 function pick(a){ return a[(Math.random()*a.length) | 0]; }
@@ -36,10 +41,10 @@ function collectHudRects(){
     const r = el.getBoundingClientRect();
     if (r.width>0 && r.height>0) rects.push(r);
   };
-  push(document.querySelector('#hud')); // top bars live inside
+  push(document.querySelector('#hud'));          // รวม top bars
   push(document.querySelector('#questChips'));
   push(document.querySelector('#powerBarWrap'));
-  push(document.querySelector('#feverGauge')); // ถ้ายังมีมุมล่างขวา
+  push(document.querySelector('#feverGauge'));   // ถ้ามี
   push(document.querySelector('#resultModal'));
   return rects;
 }
@@ -56,12 +61,12 @@ function findFreeSpot(size){
   const padX = Math.max(70, size*1.2);
   const padY = Math.max(70, size*1.2);
   const rects = collectHudRects();
-  for(let i=0;i<18;i++){
+  for(let i=0;i<22;i++){
     const x = clamp(Math.random()*ww, padX, ww-padX);
     const y = clamp(Math.random()*hh, padY, hh-padY);
-    if(!overlaps(x,y,size+12,rects)) return {x,y};
+    if(!overlaps(x,y,size+14,rects)) return {x,y};
   }
-  // fallback: random in safe padding; HUD ทับก็ยอม
+  // fallback: random ในกรอบปลอดภัย (ยอมชน HUD ถ้ายังหาไม่ได้)
   return {
     x: clamp(Math.random()*ww, padX, ww-padX),
     y: clamp(Math.random()*hh, padY, hh-padY),
@@ -79,20 +84,32 @@ function boomEffect(x,y,emoji){
   setTimeout(()=>{ try{p.remove();}catch{}; }, 360);
 }
 
-/* ---------- Spawn ---------- */
+function flashRed(){
+  const old = document.body.style.backgroundColor;
+  document.body.style.transition='background .08s';
+  document.body.style.backgroundColor='#3a0f0f';
+  setTimeout(()=>{ document.body.style.backgroundColor=old||''; }, 120);
+}
+
+/* ---------- Spawn logic ---------- */
+function currentSpawnEvery(){
+  // ยิ่งเวลาผ่าน interval จะค่อย ๆ สั้นลง แต่ไม่ต่ำกว่า minEvery
+  return Math.max(adapt.minEvery, cfg.spawnEvery - adapt.accel);
+}
+
 function decideKind(){
-  // golden ตาม diff
+  // golden ตาม diff โดยตรง
   const r = Math.random();
   if (r < (cfg.goldenProb||0.12)) return 'gold';
-  // ให้ junk ~35%
+  // junk ~35% หลังจากหัก golden
   if (r < (cfg.goldenProb||0.12) + 0.35) return 'junk';
   return 'good';
 }
 
-function spawnOne(BUS){
-  if (alive >= cfg.maxAlive) return;
+function spawnOne(){
+  if (!running || alive >= cfg.maxAlive) return;
 
-  const kind = decideKind();
+  const kind  = decideKind();
   const emoji = (kind==='gold' ? pick(GOLD) : kind==='junk' ? pick(JUNK) : pick(GOOD));
 
   const s = cfg.size;
@@ -111,27 +128,29 @@ function spawnOne(BUS){
     width:${s}px; height:${s}px; display:flex; align-items:center; justify-content:center;
     font-size:${s-6}px; user-select:none; cursor:pointer; pointer-events:auto;
     filter:drop-shadow(${glow}); transition: transform .12s ease, opacity .24s ease;`;
-  const life = cfg.life * (0.93 + Math.random()*0.2);
+  const life = cfg.life * (0.92 + Math.random()*0.22);
   const obj = { el, x, y, t:0, life, kind, dead:false };
 
   el.addEventListener('pointerdown', (ev)=>{
-    if (obj.dead) return;
+    if (!running || obj.dead) return;
     obj.dead = true;
     alive = Math.max(0, alive-1);
     el.style.transform='translate(-50%,-50%) scale(0.84)';
     setTimeout(()=>{ el.style.opacity='0'; }, 30);
     setTimeout(()=>{ try{el.remove();}catch{} }, 160);
-    boomEffect(ev.clientX || x, ev.clientY || y, emoji);
+    const uiX = ev.clientX || x, uiY = ev.clientY || y;
+    boomEffect(uiX, uiY, emoji);
 
-    const ui={x:ev.clientX||x, y:ev.clientY||y};
+    const ui = {x:uiX, y:uiY};
     if (kind==='junk'){
-      BUS.bad?.({source:obj,ui});
-      BUS.sfx?.bad?.();
+      BUSRef?.bad?.({source:obj,ui});
+      BUSRef?.sfx?.bad?.();
+      flashRed();
     }else{
       const isGold = (kind==='gold');
-      const base = isGold ? 50 : 10;
-      BUS.hit?.({points:base, kind:isGold?'perfect':'good', ui, meta:{golden:isGold}});
-      if (isGold) BUS.sfx?.power?.(); else BUS.sfx?.good?.();
+      const pts = isGold ? 150 : 100;
+      BUSRef?.hit?.({points:pts, kind:isGold?'perfect':'good', ui, meta:{golden:isGold}});
+      if (isGold) BUSRef?.sfx?.power?.(); else BUSRef?.sfx?.good?.();
     }
   }, {passive:true});
 
@@ -140,14 +159,25 @@ function spawnOne(BUS){
   alive++;
 }
 
-function tick(dt,BUS){
+function tick(dt){
   if(!running) return;
+
+  // ป้องกัน dt แปลก ๆ
+  if (!(dt>0) || dt>1.2) dt = 0.016;
+
+  // เร่งสปอนช้า ๆ เมื่อเวลาเดิน
+  adapt.t += dt;
+  adapt.accel = Math.min(0.75, adapt.accel + adapt.accelPerSec * dt); // เพดานเร่ง
+
   spawnAcc += dt;
-  const need = Math.floor(spawnAcc / cfg.spawnEvery);
-  if (need>0){
-    spawnAcc -= need*cfg.spawnEvery;
-    for(let i=0;i<need;i++) spawnOne(BUS);
+  const every = currentSpawnEvery();
+
+  // ปรับ cadence ให้เนียนขึ้นด้วยการกึ่งล็อก rAF (สร้างอย่างน้อย 1 ต่อช่วง)
+  while (spawnAcc >= every) {
+    spawnAcc -= every;
+    spawnOne();
   }
+
   // อายุของชิ้น
   for(let i=items.length-1;i>=0;i--){
     const it=items[i];
@@ -157,7 +187,8 @@ function tick(dt,BUS){
       it.dead=true; alive=Math.max(0,alive-1);
       try{ it.el.style.opacity='0'; }catch{}
       setTimeout(()=>{ try{ it.el.remove(); }catch{} }, 140);
-      if (it.kind!=='junk') BUS.miss?.({source:it});
+      // นับ miss เฉพาะ GOOD/GOLD เท่านั้น
+      if (it.kind!=='junk') BUSRef?.miss?.({source:it});
       items.splice(i,1);
     }
   }
@@ -166,18 +197,43 @@ function tick(dt,BUS){
 /* ---------- Public API ---------- */
 export function start({difficulty='Normal'}={}){
   ensureHost();
-  running = true; items=[]; alive=0; spawnAcc=0;
+  // เคลียร์ของเก่าให้หมดก่อน
+  try{ host.innerHTML=''; }catch{}
+  items=[]; alive=0; spawnAcc=0; rafSync=0;
   cfg = PRESET[difficulty] || PRESET.Normal;
+  adapt = { t:0, accel:0, minEvery:0.42, accelPerSec:0.0035 };
+  running = true;
 
   // canvases ไม่บังคลิก
   document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
 
-  // เริ่มของตั้งต้น
-  for(let i=0;i<Math.min(4, cfg.maxAlive); i++) spawnOne({hit:()=>{},bad:()=>{},sfx:{}});
+  // เริ่มของตั้งต้น (ให้จอไม่โล่ง)
+  for(let i=0;i<Math.min(4, cfg.maxAlive); i++) spawnOne();
+
+  // ผูก resize/orientation ให้จัดวางใหม่
+  window.removeEventListener('resize', onViewportChange);
+  window.addEventListener('resize', onViewportChange, {passive:true});
+  window.removeEventListener('orientationchange', onViewportChange);
+  window.addEventListener('orientationchange', onViewportChange, {passive:true});
 }
-export function update(dt,BUS){ if(!(dt>0) || dt>1.5) dt=0.016; tick(dt,BUS); }
-export function stop(){ running=false; }
-export function cleanup(){ running=false; try{ if(host) host.innerHTML=''; }catch{} items=[]; alive=0; }
+
+export function update(dt,bus){
+  BUSRef = bus || BUSRef;
+  tick(dt);
+}
+
+export function stop(){
+  running=false;
+  window.removeEventListener('resize', onViewportChange);
+  window.removeEventListener('orientationchange', onViewportChange);
+}
+
+export function cleanup(){
+  running=false;
+  try{ if(host) host.innerHTML=''; }catch{}
+  items=[]; alive=0; spawnAcc=0;
+}
+
 export function onViewportChange(){
   // บีบให้อยู่ในจอ และหลบ HUD เพิ่มเติม
   const rects = collectHudRects();
@@ -185,7 +241,7 @@ export function onViewportChange(){
     const s = cfg?.size || 64;
     it.x = clamp(it.x, s, window.innerWidth - s);
     it.y = clamp(it.y, s, window.innerHeight - s);
-    if (overlaps(it.x,it.y,s+12,rects)){
+    if (overlaps(it.x,it.y,s+14,rects)){
       const pos = findFreeSpot(s);
       it.x = pos.x; it.y = pos.y;
     }
