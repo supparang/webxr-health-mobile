@@ -1,73 +1,68 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Hero Health Academy</title>
-<meta name="color-scheme" content="light dark"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Hero Health Academy</title>
+  <meta name="color-scheme" content="light dark"/>
 
-<style>
-:root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;color:var(--fg);
-  background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
-  font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
-  -webkit-tap-highlight-color:transparent;
-  transition: background .25s ease;
-}
-body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
+  <style>
+    :root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;color:var(--fg);
+      background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
+      font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
+      -webkit-tap-highlight-color:transparent;
+      transition:background .25s ease;
+    }
+    body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
 
-/* Layers */
-.game-wrap{position:relative;min-height:100dvh;overflow:hidden}
-#gameLayer{position:fixed;inset:0;z-index:1}
+    /* Layers */
+    .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
+    #gameLayer{position:fixed;inset:0;z-index:1}
+    #spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
 
-/* ✅ spawnHost รับคลิกแน่ๆ */
-#spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
+    /* canvases never block clicks */
+    canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
 
-/* canvases never block clicks */
-canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
+    /* Menu */
+    #menuBar{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
+    }
+    #menuBar[data-hidden="1"]{ display:none !important; }
+    .menu-card{
+      width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
+      padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
+    }
+    .row{display:flex;flex-wrap:wrap;gap:10px}
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
+      border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none
+    }
+    .btn:hover{ filter:brightness(1.08) }
+    .btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
 
-/* Menu */
-#menuBar{
-  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
-}
-#menuBar[data-hidden="1"]{ display:none !important; }
-.menu-card{
-  width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
-  padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
-}
-.row{display:flex;flex-wrap:wrap;gap:10px}
-.btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
-  border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none
-}
-.btn:hover{ filter:brightness(1.08) }
-.btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
+    /* HUD shell (ตัว HUD จะ inject เอง) */
+    #hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
+    #hud #resultModal{z-index:20020}
 
-/* HUD shell */
-#hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
-#hud #resultModal{z-index:20020}
+    /* Toast + boot warn */
+    .toast{
+      position:fixed;left:50%;top:68px;transform:translateX(-50%);
+      background:#0e1930;border:1px solid #214064;color:#e8f3ff;
+      padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
+    }
+    .toast.show{opacity:1}
+    #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
 
-/* Toast + boot warn */
-.toast{
-  position:fixed;left:50%;top:68px;transform:translateX(-50%);
-  background:#0e1930;border:1px solid #214064;color:#e8f3ff;
-  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
-}
-.toast.show{opacity:1}
-#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
-
-/* Fever/Power bar container (กลางล่างจอ) */
-#powerBarWrap{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:2200; }
-#powerBar{ position:relative; height:16px; width:280px; border-radius:999px; background:#0a1931; border:1px solid #0f2a54; overflow:hidden }
-#powerFill{ position:absolute; inset:0; width:0% }
-
-/* Fever flame anim */
-@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
-</style>
+    /* Fever/Power bar (กลางล่าง ใช้ร่วมกับ HUD) */
+    #powerBarWrap{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:2200; }
+    #powerBar{ position:relative; height:16px; width:min(520px,92vw); border-radius:999px; background:#0a1931; border:1px solid #0f2a54; overflow:hidden }
+    #powerFill{ position:absolute; inset:0; width:0% }
+  </style>
 </head>
 
 <!-- โหมด/ความยากค่าเริ่มต้น -->
@@ -113,14 +108,14 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     </div>
   </div>
 
-  <!-- Fever/Power bar (HUD ใช้ต่อ) -->
+  <!-- Fever/Power bar container (HUD จะผูก event ให้เอง) -->
   <div id="powerBarWrap">
     <div id="powerBar">
       <div id="powerFill"></div>
     </div>
   </div>
 
-  <!-- AUDIO (bgm + sfx + fever) -->
+  <!-- AUDIO (bgm + sfx) -->
   <audio id="bgm-main" preload="auto"></audio>
   <audio id="bgm-fever" preload="auto"></audio>
   <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
@@ -128,8 +123,6 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
   <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
   <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
-  <audio id="sfx-fever-start" preload="auto" src="assets/sfx/fever_start.wav"></audio>
-  <audio id="sfx-fever-end" preload="auto" src="assets/sfx/fever_end.flac"></audio>
 </div>
 
 <!-- Binder + Dynamic Import (force-fresh) -->
@@ -139,6 +132,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
 
+  // UI helpers
   function toast(text){
     let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
     el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
@@ -148,6 +142,8 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
     w.style.display='block';
   }
+
+  // Apply mute from storage
   function applyMuteFromStorage(){
     const muted = localStorage.getItem(MUTED_KEY) === '1';
     $$('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
@@ -156,6 +152,7 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
   }
   applyMuteFromStorage();
 
+  // Always import fresh main.js
   async function ensureMainFresh(){
     try { delete window.HHA; } catch {}
     const v = Date.now(); // cache-buster
@@ -163,32 +160,37 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
     if (!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
   }
 
-  async function startNow(){
-    // prime audio (user gesture)
+  // Clean start
+  async function startNow(e){
+    if (e){ e.preventDefault(); e.stopPropagation(); }
+
+    // prime audio gesture
     try{
-      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup','sfx-fever-start','sfx-fever-end'])
+      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'])
         .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); });
     }catch{}
 
     try{
-      await ensureMainFresh();        // โหลด main.js เวอร์ชันล่าสุดเสมอ
-      $('#menuBar')?.setAttribute('data-hidden','1');
-      if ($('#menuBar')) $('#menuBar').style.display='none';
-      window.HHA.startGame();         // main.js คุม countdown + timer + fever hooks
-    }catch(e){
-      console.error(e);
-      warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(e?.message||e)]);
+      await ensureMainFresh();
+      // Hide menu
+      const mb = $('#menuBar');
+      if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+      // Start new round
+      window.HHA.startGame();
+    }catch(err){
+      console.error(err);
+      warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(err?.message||err)]);
     }
   }
 
-  // bind menu
+  // Bind menu buttons
   const mb = $('#menuBar');
   if (mb){
     function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
     mb.addEventListener('click', (ev)=>{
       const t=ev.target.closest('.btn'); if(!t) return;
-      if (t.dataset.action==='start'){ ev.preventDefault(); startNow(); return; }
-      if (t.dataset.action==='howto'){ toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
+      if (t.dataset.action==='start'){ startNow(ev); return; }
+      if (t.dataset.action==='howto'){ toast('แตะของดี • เลี่ยงของไม่ดี • ⭐ Golden เพิ่มพลัง • เกจเต็ม = FEVER'); return; }
       if (t.dataset.action==='sound'){
         const nowMuted = !(localStorage.getItem(MUTED_KEY) === '1');
         localStorage.setItem(MUTED_KEY, nowMuted ? '1' : '0');
@@ -198,26 +200,27 @@ canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; in
       if (t.hasAttribute('data-diff')){ setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
     }, false);
 
-    // hard-bind start (กัน passive swallow)
+    // rebuild Start button listener (clean)
     const old = document.getElementById('btn_start'); if (old){
       const clone = old.cloneNode(true);
       old.replaceWith(clone);
       const opts = { capture:true, passive:false };
-      ['click','pointerup','touchend'].forEach(ev=> clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts));
-      clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); startNow(); } }, opts);
+      ['click','pointerup','touchend'].forEach(ev=> clone.addEventListener(ev, startNow, opts));
+      clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter'||e.key===' ') { startNow(e); } }, opts);
     }
   }
 
-  // keyboard quick start
+  // Keyboard quick start (from menu)
   window.addEventListener('keydown', (e)=>{
-    if ((e.key==='Enter'||e.key===' ') && !(document.body.getAttribute('data-playing')==='1')) {
-      const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
-      if (menuVisible) { e.preventDefault(); startNow(); }
-    }
+    const inGame = document.body.getAttribute('data-playing')==='1';
+    const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
+    if ((e.key==='Enter'||e.key===' ') && !inGame && menuVisible){ e.preventDefault(); startNow(e); }
   }, {passive:false});
 
-  // canvases never capture pointer
-  setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
+  // Resize guard: canvases never capture pointer
+  const ensureCanvas = ()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); };
+  window.addEventListener('resize', ensureCanvas);
+  setTimeout(ensureCanvas, 0);
 })();
 </script>
 
