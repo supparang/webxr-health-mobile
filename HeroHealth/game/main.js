@@ -1,7 +1,9 @@
-// === Hero Health Academy — game/main.js (pause on background + resize-safe + diff-tuned golden) ===
+// === Hero Health Academy — game/main.js (clean restart & result guard) ===
 
+// เคลียร์อินสแตนซ์เดิมถ้ามี
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
 
+// ---------- Imports ----------
 import { Engine } from './core/engine.js';
 import { HUD } from './core/hud.js';
 import { Coach } from './core/coach.js';
@@ -13,43 +15,48 @@ import { MissionSystem } from './core/mission-system.js';
 import { Leaderboard } from './core/leaderboard.js';
 import * as goodjunk from './modes/goodjunk.js';
 
+// ---------- State ----------
 const MODES = { goodjunk };
-const $ = (s)=>document.querySelector(s);
+const $  = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 const pnow = ()=>performance.now?performance.now():Date.now();
 
-let playing=false, paused=false, rafId=0, activeMode=null;
+let playing=false, rafId=0, activeMode=null;
 let wallSecondsTotal=45, wallSecondsLeft=45;
-let tickTimerId=null;        // solid 1s timer
-let lastFrameMs=0, pauseStartMs=0;
-let guardTimerId=null, spawnGuardId=null;
+let lastFrameMs=0;
+let tickTimerId=null;
+let spawnGuardId=null;
+let guardTimerId=null;
 let currentModeKey='goodjunk', currentDiff='Normal';
 
+// ---------- Core ----------
 const engine=new Engine();
 const hud=new HUD();
 const coach=new Coach({lang:'TH'});
 const sfx=new SFX();
 const score=new ScoreSystem();
 const power=new PowerUpSystem();
-const mission=new MissionSystem();
 const board=new Leaderboard({key:'hha_board', maxKeep:300, retentionDays:180});
+const mission=new MissionSystem();
 const stateRef={ missions:[], ctx:{} };
 
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 
-// FEVER hook
+// Fever visual
 power.onFever(v=>{
-  if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0,Math.min(100,v)) + '%';
-  if (v>=100){ hud.showFever(true); sfx.power(); setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000); }
+  if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0, Math.min(100, v)) + '%';
+  if (v >= 100) { hud.showFever(true); sfx.power(); setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000); }
 });
 
-// BUS
+// ---------- BUS ----------
 const BUS={
   hit(e){
-    const pts=e?.points|0; const kind=(e?.kind==='perfect')?'perfect':'good';
-    score.add(pts,{kind}); hud.updateHUD(score.get(),score.combo|0);
+    const pts=e?.points|0;
+    const kind=(e?.kind==='perfect')?'perfect':'good';
+    score.add(pts,{kind});
+    hud.updateHUD(score.get(),score.combo|0);
     if(e?.ui) hud.showFloatingText?.(e.ui.x,e.ui.y,`+${pts}`);
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
     mission.onEvent(kind,{count:1},stateRef);
@@ -59,6 +66,21 @@ const BUS={
   bad(){  score.add(0); coach.onJunk(); mission.onEvent('wrong_group',{count:1},stateRef); },
   sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
+
+// ---------- Helpers ----------
+function hardClearStage(){
+  try{ cancelAnimationFrame(rafId); }catch{}
+  clearInterval(tickTimerId); tickTimerId=null;
+  clearTimeout(spawnGuardId); spawnGuardId=null;
+  clearInterval(guardTimerId); guardTimerId=null;
+
+  const host=document.getElementById('spawnHost');
+  if(host){ host.innerHTML=''; host.style.pointerEvents='auto'; }
+
+  document.querySelectorAll('canvas').forEach(c=>{
+    try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{}
+  });
+}
 
 async function preCountdown(){
   hud.showBig('3'); sfx.tick(); await sleep(650);
@@ -70,19 +92,25 @@ async function preCountdown(){
 function armSpawnGuard(){
   clearTimeout(spawnGuardId);
   spawnGuardId = setTimeout(()=>{
-    if(!playing || paused) return;
+    if(!playing) return;
     const hasAny = document.querySelector('#spawnHost .gj-it');
-    if(!hasAny){ try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{} }
+    if (!hasAny) { try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{} }
   }, 2500);
 }
 
+// ---------- Flow ----------
 function beginRun({modeKey,diff='Normal',seconds=45}){
   document.body.setAttribute('data-playing','1');
-  playing=true; paused=false;
+  playing=true;
 
   score.reset(); power.resetFever();
-  wallSecondsTotal=clamp(seconds|0,10,300); wallSecondsLeft=wallSecondsTotal;
-  hud.setTop({mode:shortMode(modeKey), diff}); hud.resetBars?.(); hud.setTimer(wallSecondsLeft);
+  wallSecondsTotal = clamp(seconds|0,10,300);
+  wallSecondsLeft  = wallSecondsTotal;
+  lastFrameMs = pnow();
+
+  hud.setTop({mode:shortMode(modeKey), diff});
+  hud.resetBars?.();
+  hud.setTimer(wallSecondsLeft);
   coach.onStart();
 
   const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
@@ -90,12 +118,12 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
   if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
 
-  activeMode = MODES[modeKey]; activeMode?.start?.({ difficulty: diff });
+  activeMode = MODES[modeKey];
+  activeMode?.start?.({ difficulty: diff });
 
-  // solid 1s timer
   clearInterval(tickTimerId);
   tickTimerId = setInterval(()=>{
-    if(!playing || paused) return;
+    if(!playing) return;
     if (wallSecondsLeft>0){
       wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
       hud.setTimer(wallSecondsLeft);
@@ -110,7 +138,6 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   clearInterval(guardTimerId);
   guardTimerId = setInterval(()=>armSpawnGuard(), 4000);
 
-  lastFrameMs = pnow();
   loop();
 }
 
@@ -155,8 +182,10 @@ function endRun(){
       const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
     }catch{ location.reload(); }
   };
-  hud.onRetry = ()=>{
-    hud.hideResult?.(); hud.resetBars?.(); mission.reset(stateRef); power.resetFever();
+  hud.onRetry= ()=>{
+    hud.hideResult?.();                    // สำคัญ! ปิด modal ก่อน
+    hud.resetBars?.(); mission.reset(stateRef); power.resetFever();
+    hardClearStage();                      // ล้างเวทีเก่า
     beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: wallSecondsTotal });
   };
 
@@ -164,62 +193,38 @@ function endRun(){
 }
 
 function loop(){
-  if(!playing || paused) return;
-  rafId = requestAnimationFrame(loop);
-  const now = pnow(); let dt = (now - lastFrameMs)/1000;
-  if(!(dt>0) || dt>1.5) dt=0.016;
-  lastFrameMs = now;
+  if(!playing) return;
+  rafId=requestAnimationFrame(loop);
+  const nowMs = pnow(); let dt = (nowMs - lastFrameMs) / 1000;
+  if (!(dt>0) || dt>1.5) dt = 0.016; lastFrameMs = nowMs;
   try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
 }
 
-/* ---------- Pause/Resume on background ---------- */
-function doPause(){
-  if(!playing || paused) return;
-  paused = true;
-  pauseStartMs = pnow();
-  try{ cancelAnimationFrame(rafId); }catch{}
-}
-function doResume(){
-  if(!playing || !paused) return;
-  paused = false;
-  // ชดเชยเวลาที่หายไปให้ with solid timer (ตัว timer 1s จะเดินต่อเอง)
-  lastFrameMs = pnow();
-  loop();
-}
-document.addEventListener('visibilitychange', ()=>{
-  if (document.hidden) doPause(); else doResume();
-});
-
-/* ---------- Resize/orientation: คงตำแหน่งปลอดภัย ---------- */
-let resizeTid=0;
-function onViewportChange(){
-  try{ activeMode?.onViewportChange?.(); }catch{}
-}
-window.addEventListener('resize', ()=>{
-  clearTimeout(resizeTid);
-  resizeTid = setTimeout(onViewportChange, 120);
-});
-window.addEventListener('orientationchange', ()=>{
-  clearTimeout(resizeTid);
-  resizeTid = setTimeout(onViewportChange, 120);
-});
-
-/* ---------- Public ---------- */
+// ---------- Public ----------
 async function startGame(){
+  // ปิดผลค้าง + ล้างเวทีเก่าให้สะอาดก่อนเริ่ม
+  try{ hud.hideResult?.(); }catch{}
+  document.body.removeAttribute('data-result-open');
+  hardClearStage();
+  mission.reset?.(stateRef); power.resetFever?.(); score.reset?.();
+
   currentModeKey=document.body.getAttribute('data-mode')||'goodjunk';
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
-  if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
+
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
 }
+
 function stopLoop(){
   try{ cancelAnimationFrame(rafId); }catch{}
   clearInterval(tickTimerId); tickTimerId=null;
   clearTimeout(spawnGuardId); spawnGuardId=null;
   clearInterval(guardTimerId); guardTimerId=null;
-  playing=false; paused=false;
+  playing=false;
 }
+
 function shortMode(m){
   if(m==='goodjunk') return 'Good vs Junk';
   if(m==='groups') return '5 Groups';
@@ -229,4 +234,4 @@ function shortMode(m){
 }
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — pause/resume + resize-safe + diff gold');
+console.log('[HeroHealth] main.js — clean restart & result guard');
