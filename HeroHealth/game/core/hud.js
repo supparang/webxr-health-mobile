@@ -1,4 +1,4 @@
-// === Hero Health Academy — core/hud.js (Fever v3.1 binding + modal z-fix + quest UI) ===
+// === Hero Health Academy — core/hud.js (Fever v3.2: self-healing DOM + guards) ===
 'use strict';
 
 export class HUD {
@@ -34,22 +34,10 @@ export class HUD {
     this.$score = this.top.querySelector('#hudScore');
     this.$combo = this.top.querySelector('#hudCombo');
 
-    // ----- Fever / Power bar (left bottom) -----
-    this.powerWrap = document.getElementById('powerBarWrap');
-    if(!this.powerWrap){
-      this.powerWrap = document.createElement('div');
-      this.powerWrap.id = 'powerBarWrap';
-      this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2200;width:min(420px,94vw);pointer-events:none';
-      this.powerWrap.innerHTML =
-        '<div id="powerLabel" style="font:700 12px ui-rounded;color:#ffd166;margin:0 0 4px 2px;opacity:.8">FEVER</div>'+
-        '<div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
-          '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
-        '</div>';
-      document.body.appendChild(this.powerWrap);
-    }
-    this.$powerFill = this.powerWrap.querySelector('#powerFill');
-    this.$powerLabel = this.powerWrap.querySelector('#powerLabel');
+    // ----- Fever / Power (จะซ่อมตัวเองถ้าขาดชิ้นส่วน) -----
+    this.powerWrap = null; this.$powerFill=null; this.$powerLabel=null;
     this._feverVal = 0;
+    this._ensurePowerDom();
 
     // ----- Big number banner -----
     this.big = document.createElement('div');
@@ -70,7 +58,7 @@ export class HUD {
     this.mini.textContent = '';
     document.body.appendChild(this.mini);
 
-    // ----- Result modal (z-index สูง แซง spawnHost) -----
+    // ----- Result modal -----
     this.result = document.createElement('div');
     this.result.id = 'resultModal';
     this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:9000';
@@ -95,14 +83,52 @@ export class HUD {
     this.result.querySelector('#resHome').onclick  = ()=> this.onHome && this.onHome();
     this.result.querySelector('#resRetry').onclick = ()=> this.onRetry && this.onRetry();
 
-    // expose small API for Coach toast
     window.__HHA_HUD_API = { say: (msg)=> this.toast(msg) };
+  }
+
+  /* ===== Internal: ensure fever DOM exists ===== */
+  _ensurePowerDom(){
+    // wrap
+    this.powerWrap = document.getElementById('powerBarWrap') || this.powerWrap;
+    if(!this.powerWrap){
+      this.powerWrap = document.createElement('div');
+      this.powerWrap.id = 'powerBarWrap';
+      this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2200;width:min(420px,94vw);pointer-events:none';
+      document.body.appendChild(this.powerWrap);
+    }
+    // inner structure
+    if(!this.powerWrap.querySelector('#powerBar')){
+      this.powerWrap.innerHTML =
+        '<div id="powerLabel" style="font:700 12px ui-rounded;color:#ffd166;margin:0 0 4px 2px;opacity:.8">FEVER</div>'+
+        '<div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
+          '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
+        '</div>';
+    } else {
+      // ถ้า powerBar มีแต่ไม่มี powerFill/label → เติมให้ครบ
+      if(!this.powerWrap.querySelector('#powerFill')){
+        const bar = this.powerWrap.querySelector('#powerBar');
+        const fill = document.createElement('div');
+        fill.id='powerFill'; fill.style.cssText='position:absolute;inset:0;width:0%';
+        bar.appendChild(fill);
+      }
+      if(!this.powerWrap.querySelector('#powerLabel')){
+        const lab = document.createElement('div');
+        lab.id='powerLabel';
+        lab.textContent='FEVER';
+        lab.style.cssText='font:700 12px ui-rounded;color:#ffd166;margin:0 0 4px 2px;opacity:.8';
+        this.powerWrap.prepend(lab);
+      }
+    }
+    this.$powerFill  = this.powerWrap.querySelector('#powerFill');
+    this.$powerLabel = this.powerWrap.querySelector('#powerLabel');
   }
 
   /* ===== Public binding ===== */
   bindPower(power){
     if(!power) return;
-    power.onFever((v)=> this.setFever(v)); // FEVER value 0–100
+    // ให้แน่ใจว่า element อยู่จริง
+    this._ensurePowerDom();
+    power.onFever((v)=> this.setFever(v));
   }
 
   /* ===== Top HUD ===== */
@@ -154,9 +180,14 @@ export class HUD {
 
   /* ===== FEVER visuals ===== */
   setFever(v){
+    // make sure DOM exists, ถ้าหายจะสร้างใหม่
+    this._ensurePowerDom();
+    if (!this.$powerFill || !this.$powerLabel) return; // กันพังเงียบ ๆ
+
     const val = Math.max(0, Math.min(100, Number(v)||0));
     this._feverVal = val;
     const pct = val.toFixed(0) + '%';
+
     this.$powerFill.innerHTML = (val>0) ? '<div class="fire"></div>' : '';
     this.$powerFill.style.width = pct;
 
