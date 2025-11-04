@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (autostart + solid timer + spawn-guard + HUD fever bind) ===
+// === Hero Health Academy — game/main.js (missions robust + combo latch + dense play) ===
 
 // เคลียร์อินสแตนซ์เดิมถ้ามี
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
@@ -26,10 +26,7 @@ const pnow = ()=>performance.now?performance.now():Date.now();
 
 let playing=false, rafId=0, activeMode=null;
 let wallSecondsTotal=45, wallSecondsLeft=45;
-let lastFrameMs=0;
-let tickTimerId=null;        // ตัวจับเวลา 1s
-let spawnGuardId=null;       // กัน “เริ่มแล้วไม่มีของเกิด”
-let guardTimerId=null;       // ตรวจซ้ำเป็นระยะ
+let lastFrameMs=0, tickTimerId=null, guardTimerId=null, spawnGuardId=null;
 let currentModeKey='goodjunk', currentDiff='Normal';
 
 // ---------- Core ----------
@@ -45,32 +42,54 @@ const stateRef={ missions:[], ctx:{} };
 
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
-hud.bindPower(power);   // << ให้ HUD คุมแถบ FEVER กลางล่าง
+hud.bindPower?.(power);
 
-// ---------- Fever ----------
+// Fever hook
 power.onFever(v=>{
-  // เมื่อครบ 100 → เล่น fever 5s แล้วรีเซ็ต (HUD จะอัปเดตเกจเอง)
-  if (v >= 100) {
-    hud.showFever(true);
-    sfx.power();
-    setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000);
-  }
+  if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0, Math.min(100, v)) + '%';
+  if (v >= 100) { hud.showFever(true); sfx.power(); setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000); }
 });
+
+// ----- combo latch เพื่อไม่ยิงซ้ำไร้ประโยชน์ -----
+let lastComboReported = 0;
 
 // ---------- BUS ----------
 const BUS={
   hit(e){
     const pts=e?.points|0;
-    const kind=(e?.kind==='perfect')?'perfect':'good';
-    score.add(pts,{kind});
+    const isPerfect = (e?.kind==='perfect');
+    score.add(pts,{kind:isPerfect?'perfect':'good'});
     hud.updateHUD(score.get(),score.combo|0);
     if(e?.ui) hud.showFloatingText?.(e.ui.x,e.ui.y,`+${pts}`);
-    if(kind==='perfect') coach.onPerfect(); else coach.onGood();
-    mission.onEvent(kind,{count:1},stateRef);
-    if (e?.meta?.golden) power.add(20);   // ⭐ เติม Fever
+    if(isPerfect) coach.onPerfect(); else coach.onGood();
+
+    // ===== ส่ง event ให้ missions =====
+    // ของดี/ทองเก็บ = นับ collect_goods
+    mission.onEvent('collect_goods',{count:1},stateRef);
+
+    // perfect
+    if (isPerfect) mission.onEvent('count_perfect',{count:1},stateRef);
+
+    // golden
+    if (e?.meta?.golden) { mission.onEvent('count_golden',{count:1},stateRef); power.add(20); }
+
+    // combo (ใช้ "ค่าสูงสุด" ไม่ต้องนับซ้ำทีละ 1)
+    const c = score.combo|0;
+    if (c > lastComboReported) {
+      mission.onEvent('reach_combo',{value:c},stateRef);
+      lastComboReported = c;
+    }
   },
-  miss(){ score.add(0); coach.onMiss(); mission.onEvent('miss',{count:1},stateRef); },
-  bad(){  score.add(0); coach.onJunk(); mission.onEvent('wrong_group',{count:1},stateRef); },
+  miss(){
+    score.add(0); coach.onMiss();
+    mission.onEvent('miss',{count:1},stateRef);
+    // เมื่อหลุดคอมโบ รีเซ็ต latch ลงไปต่ำหน่อย เพื่อให้ latch ขึ้นใหม่ได้
+    lastComboReported = Math.min(lastComboReported, (score.combo|0));
+  },
+  bad(){
+    score.add(0); coach.onJunk();
+    mission.onEvent('wrong_group',{count:1},stateRef);
+  },
   sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
 
@@ -97,6 +116,7 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
 
   // reset run
   score.reset(); power.resetFever();
+  lastComboReported = 0;
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
   lastFrameMs = pnow();
@@ -155,7 +175,15 @@ function endRun(){
 
   const finalScore = score.get()|0;
   const bestCombo  = score.bestCombo|0;
-  const finalChips = (stateRef.missions||[]).map(m=>({ key:m.key, ok:!!m.success, need:m.target|0, got:m.progress|0 }));
+
+  // ✅ สรุปผลยืนยันจากตัวเลข ไม่พึ่ง m.success
+  const finalChips = (stateRef.missions||[]).map(m=>{
+    const need = m.target|0;
+    const got  = m.progress|0;
+    const ok   = got >= need;
+    return { key:m.key, ok, need, got };
+  });
+
   const extra = finalChips.map(c=>{
     const icon = ({collect_goods:'🍎',count_perfect:'🌟',count_golden:'🟡',reach_combo:'🔥',no_miss:'❌',score_reach:'🏁',target_hits:'🎯'})[c.key] || '⭐';
     const name = mission.describe({key:c.key,target:c.need}, 'TH');
@@ -221,6 +249,6 @@ function shortMode(m){
   return String(m||'');
 }
 
-// Auto-expose
+// Autoboot (ปล่อยไว้ตามที่ใช้งานได้ของคุณ)
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — autostart + solid timer + spawn-guard + HUD fever bind');
+console.log('[HeroHealth] main.js — missions robust + combo latch + dense play');
