@@ -65,9 +65,7 @@
   </style>
 </head>
 
-<!-- โหมด/ความยากค่าเริ่มต้น -->
 <body data-mode="goodjunk" data-diff="Normal">
-
 <div class="game-wrap">
   <div id="gameLayer"></div>
   <div id="spawnHost"></div>
@@ -110,9 +108,7 @@
 
   <!-- Fever/Power bar container (HUD จะผูก event ให้เอง) -->
   <div id="powerBarWrap">
-    <div id="powerBar">
-      <div id="powerFill"></div>
-    </div>
+    <div id="powerBar"><div id="powerFill"></div></div>
   </div>
 
   <!-- AUDIO (bgm + sfx) -->
@@ -125,14 +121,13 @@
   <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 </div>
 
-<!-- Binder + Dynamic Import (force-fresh) -->
+<!-- Binder + Dynamic Import (force-fresh + autokick) -->
 <script>
 (function(){
   const MUTED_KEY = 'hha_muted';
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
 
-  // UI helpers
   function toast(text){
     let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
     el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
@@ -143,7 +138,6 @@
     w.style.display='block';
   }
 
-  // Apply mute from storage
   function applyMuteFromStorage(){
     const muted = localStorage.getItem(MUTED_KEY) === '1';
     $$('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
@@ -152,7 +146,6 @@
   }
   applyMuteFromStorage();
 
-  // Always import fresh main.js
   async function ensureMainFresh(){
     try { delete window.HHA; } catch {}
     const v = Date.now(); // cache-buster
@@ -160,11 +153,10 @@
     if (!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
   }
 
-  // Clean start
   async function startNow(e){
     if (e){ e.preventDefault(); e.stopPropagation(); }
 
-    // prime audio gesture
+    // audio unlock (user gesture)
     try{
       (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'])
         .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); });
@@ -172,18 +164,29 @@
 
     try{
       await ensureMainFresh();
-      // Hide menu
+
+      // hide menu
       const mb = $('#menuBar');
       if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-      // Start new round
+
+      // kick new round
       window.HHA.startGame();
+
+      // 🔁 autokick watchdog: ถ้า 1.2s แล้วยังไม่เข้าเล่น → เรียกซ้ำ
+      setTimeout(()=>{
+        const stillInMenu = !mb?.hasAttribute('data-hidden');
+        const notPlaying = document.body.getAttribute('data-playing')!=='1';
+        if (!stillInMenu && notPlaying){
+          try{ window.HHA.startGame(); }catch{}
+        }
+      }, 1200);
     }catch(err){
       console.error(err);
       warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(err?.message||err)]);
     }
   }
 
-  // Bind menu buttons
+  // Menu bindings
   const mb = $('#menuBar');
   if (mb){
     function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
@@ -200,7 +203,7 @@
       if (t.hasAttribute('data-diff')){ setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
     }, false);
 
-    // rebuild Start button listener (clean)
+    // clean-rebind Start button (กัน listener หลุด)
     const old = document.getElementById('btn_start'); if (old){
       const clone = old.cloneNode(true);
       old.replaceWith(clone);
@@ -210,14 +213,14 @@
     }
   }
 
-  // Keyboard quick start (from menu)
+  // Keyboard quick start (only when menu visible)
   window.addEventListener('keydown', (e)=>{
     const inGame = document.body.getAttribute('data-playing')==='1';
     const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
     if ((e.key==='Enter'||e.key===' ') && !inGame && menuVisible){ e.preventDefault(); startNow(e); }
   }, {passive:false});
 
-  // Resize guard: canvases never capture pointer
+  // canvases never capture pointer
   const ensureCanvas = ()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); };
   window.addEventListener('resize', ensureCanvas);
   setTimeout(ensureCanvas, 0);
