@@ -1,4 +1,4 @@
-// === Hero Health Academy — core/hud.js (Fever v3.2: self-healing DOM + guards) ===
+// === Hero Health Academy — core/hud.js (Fever-safe v3.2 + modal z-fix + quest UI) ===
 'use strict';
 
 export class HUD {
@@ -34,12 +34,10 @@ export class HUD {
     this.$score = this.top.querySelector('#hudScore');
     this.$combo = this.top.querySelector('#hudCombo');
 
-    // ----- Fever / Power (จะซ่อมตัวเองถ้าขาดชิ้นส่วน) -----
-    this.powerWrap = null; this.$powerFill=null; this.$powerLabel=null;
-    this._feverVal = 0;
+    // ----- Fever / Power bar -----
     this._ensurePowerDom();
 
-    // ----- Big number banner -----
+    // ----- Big number -----
     this.big = document.createElement('div');
     this.big.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);font:900 92px ui-rounded,system-ui;color:#fef3c7;text-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .2s, transform .2s;z-index:7000';
     this.big.textContent = '';
@@ -86,49 +84,29 @@ export class HUD {
     window.__HHA_HUD_API = { say: (msg)=> this.toast(msg) };
   }
 
-  /* ===== Internal: ensure fever DOM exists ===== */
+  /* ===== helpers ===== */
   _ensurePowerDom(){
-    // wrap
-    this.powerWrap = document.getElementById('powerBarWrap') || this.powerWrap;
+    this.powerWrap = document.getElementById('powerBarWrap');
     if(!this.powerWrap){
       this.powerWrap = document.createElement('div');
       this.powerWrap.id = 'powerBarWrap';
       this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2200;width:min(420px,94vw);pointer-events:none';
-      document.body.appendChild(this.powerWrap);
-    }
-    // inner structure
-    if(!this.powerWrap.querySelector('#powerBar')){
       this.powerWrap.innerHTML =
         '<div id="powerLabel" style="font:700 12px ui-rounded;color:#ffd166;margin:0 0 4px 2px;opacity:.8">FEVER</div>'+
         '<div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
           '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
         '</div>';
-    } else {
-      // ถ้า powerBar มีแต่ไม่มี powerFill/label → เติมให้ครบ
-      if(!this.powerWrap.querySelector('#powerFill')){
-        const bar = this.powerWrap.querySelector('#powerBar');
-        const fill = document.createElement('div');
-        fill.id='powerFill'; fill.style.cssText='position:absolute;inset:0;width:0%';
-        bar.appendChild(fill);
-      }
-      if(!this.powerWrap.querySelector('#powerLabel')){
-        const lab = document.createElement('div');
-        lab.id='powerLabel';
-        lab.textContent='FEVER';
-        lab.style.cssText='font:700 12px ui-rounded;color:#ffd166;margin:0 0 4px 2px;opacity:.8';
-        this.powerWrap.prepend(lab);
-      }
+      document.body.appendChild(this.powerWrap);
     }
     this.$powerFill  = this.powerWrap.querySelector('#powerFill');
     this.$powerLabel = this.powerWrap.querySelector('#powerLabel');
+    this._feverVal = this._feverVal||0;
   }
 
   /* ===== Public binding ===== */
   bindPower(power){
     if(!power) return;
-    // ให้แน่ใจว่า element อยู่จริง
-    this._ensurePowerDom();
-    power.onFever((v)=> this.setFever(v));
+    power.onFever((v)=> this.setFever(v)); // ใช้ setFever เสมอ (อย่าแตะ .style ตรงๆ)
   }
 
   /* ===== Top HUD ===== */
@@ -144,7 +122,6 @@ export class HUD {
       const pct = m.need>0 ? Math.min(100, Math.round((m.progress/m.need)*100)) : 0;
       const isActive = (m.active !== undefined) ? !!m.active : (!m.done && !m.fail && index===0);
       const size = m.iconSize || 16;
-
       const d = document.createElement('div');
       d.style.cssText =
         'pointer-events:auto;display:inline-flex;gap:6px;align-items:center;padding:6px 8px;border-radius:12px;'+
@@ -163,7 +140,7 @@ export class HUD {
     this.chips.innerHTML=''; this.chips.appendChild(frag);
   }
 
-  /* ===== Mini-quest banner ===== */
+  /* ===== Mini-quest ===== */
   showMiniQuest(text){
     const msg = String(text||'').trim();
     if (!msg){ this.mini.style.opacity = '0'; return; }
@@ -178,23 +155,24 @@ export class HUD {
     setTimeout(()=>{ this.mini.style.opacity='0'; }, 900);
   }
 
-  /* ===== FEVER visuals ===== */
+  /* ===== FEVER (SAFE) ===== */
   setFever(v){
-    // make sure DOM exists, ถ้าหายจะสร้างใหม่
+    // ซ่อม DOM ถ้าหาย
     this._ensurePowerDom();
-    if (!this.$powerFill || !this.$powerLabel) return; // กันพังเงียบ ๆ
+    const fill  = this.$powerFill  = document.getElementById('powerFill');
+    const label = this.$powerLabel = document.getElementById('powerLabel');
+    if (!fill || !label) return; // กันพังแน่นอน
 
     const val = Math.max(0, Math.min(100, Number(v)||0));
     this._feverVal = val;
     const pct = val.toFixed(0) + '%';
 
-    this.$powerFill.innerHTML = (val>0) ? '<div class="fire"></div>' : '';
-    this.$powerFill.style.width = pct;
+    fill.innerHTML = (val>0) ? '<div class="fire"></div>' : '';
+    try{ fill.style.width = pct; }catch{}
 
     const op = (val>0)? 1 : .6;
     const glow = (val>0)? '0 0 14px rgba(255,160,0,.35)' : 'none';
-    this.$powerLabel.style.opacity = String(op);
-    this.$powerLabel.style.textShadow = glow;
+    try{ label.style.opacity = String(op); label.style.textShadow = glow; }catch{}
 
     if (val>0) document.body.classList.add('fever-on');
     else document.body.classList.remove('fever-on');
@@ -220,32 +198,30 @@ export class HUD {
 
   /* ===== Result ===== */
   showResult({title='Result',desc='—',stats=[],extra=[]}={}){
-    try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'none'; }catch{}
-    this.root.style.pointerEvents = 'auto';
+    try{ const sh=document.getElementById('spawnHost'); if(sh) sh.style.pointerEvents='none'; }catch{}
+    this.root.style.pointerEvents='auto';
 
     const frag1=document.createDocumentFragment(), frag2=document.createDocumentFragment();
     for(const s of stats){
       const b=document.createElement('div');
       b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38';
-      b.textContent=String(s);
-      frag1.appendChild(b);
+      b.textContent=String(s); frag1.appendChild(b);
     }
     for(const s of extra){
       const b=document.createElement('div');
       b.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff';
-      b.textContent=String(s);
-      frag2.appendChild(b);
+      b.textContent=String(s); frag2.appendChild(b);
     }
-    this.$resTitle.textContent = String(title);
-    this.$resDesc.textContent  = String(desc);
+    this.$resTitle.textContent=String(title);
+    this.$resDesc.textContent =String(desc);
     this.$resStats.innerHTML=''; this.$resStats.appendChild(frag1);
     this.$resExtra.innerHTML=''; this.$resExtra.appendChild(frag2);
     this.result.style.display='flex';
   }
   hideResult(){
     this.result.style.display='none';
-    this.root.style.pointerEvents = 'none';
-    try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'auto'; }catch{}
+    this.root.style.pointerEvents='none';
+    try{ const sh=document.getElementById('spawnHost'); if(sh) sh.style.pointerEvents='auto'; }catch{}
   }
 
   /* ===== Toast ===== */
@@ -254,13 +230,11 @@ export class HUD {
     if(!t){
       t=document.createElement('div');
       t.id='toast';
-      t.className='toast';
       t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040';
       document.body.appendChild(t);
     }
-    t.textContent = String(text);
-    t.style.opacity = '1';
-    setTimeout(()=>{ t.style.opacity='0'; }, 1200);
+    t.textContent=String(text); t.style.opacity='1';
+    setTimeout(()=>{ t.style.opacity='0'; },1200);
   }
 }
 
