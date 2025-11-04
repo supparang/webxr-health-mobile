@@ -354,6 +354,10 @@ function shortMode(m){
 // canvases ไม่บังคลิก (เผื่อ DOM ใส่มาทีหลัง)
 setTimeout(()=>document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }),0);
 
+// รีเลย์เหตุการณ์ Resize/หมุนจอ ไปให้โหมดจัดวางใหม่ (กันสปอนทับ HUD/ล้นจอ)
+window.addEventListener('resize', ()=>{ try{ activeMode?.onViewportChange?.(); }catch{} }, {passive:true});
+window.addEventListener('orientationchange', ()=>{ try{ activeMode?.onViewportChange?.(); }catch{} }, {passive:true});
+
 // expose
 window.HHA = { startGame, kick, __stopLoop: stopLoop };
 console.log('[HeroHealth] main.js — robust start + watchdog + pause-on-blur (latest)');
