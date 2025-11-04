@@ -22,6 +22,8 @@
     /* Layers */
     .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
     #gameLayer{position:fixed;inset:0;z-index:1}
+
+    /* ✅ spawnHost ต้องอยู่ด้วยเสมอ และรับคลิกแน่ๆ */
     #spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
 
     /* canvases never block clicks */
@@ -121,13 +123,14 @@
   <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 </div>
 
-<!-- Binder + Dynamic Import (force-fresh + autokick) -->
+<!-- Binder + Dynamic Import (force-fresh + clean stop + single autokick) -->
 <script>
 (function(){
   const MUTED_KEY = 'hha_muted';
   const $  = (s)=>document.querySelector(s);
   const $$ = (s)=>document.querySelectorAll(s);
 
+  // ===== Helpers =====
   function toast(text){
     let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
     el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
@@ -137,7 +140,9 @@
     w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
     w.style.display='block';
   }
+  function ensureCanvas(){ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); }
 
+  // ===== Sound prefs =====
   function applyMuteFromStorage(){
     const muted = localStorage.getItem(MUTED_KEY) === '1';
     $$('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
@@ -146,17 +151,35 @@
   }
   applyMuteFromStorage();
 
+  // ===== Clean stop for previous instance =====
+  function hardStopOld(){
+    try{ window.HHA?.__stopLoop?.(); }catch{}
+    // เคลียร์หน้าสปอนเก่า (กันค้าง)
+    try{ const sh = document.getElementById('spawnHost'); if(sh) sh.innerHTML=''; }catch{}
+    // เปิดเมนูกลับ (ถ้ามี)
+    try{ const mb = document.getElementById('menuBar'); if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; } }catch{}
+    // ล้างรีเฟอเรนซ์
+    try{ delete window.HHA; }catch{}
+  }
+
+  // ===== Always import fresh main.js =====
   async function ensureMainFresh(){
-    try { delete window.HHA; } catch {}
+    hardStopOld();
     const v = Date.now(); // cache-buster
     await import(`./game/main.js?v=${v}`);
     if (!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
   }
 
+  // ===== Single-boot guard on this page =====
+  if (typeof window.__HHA_BOOTING === 'undefined') window.__HHA_BOOTING = false;
+
+  // ===== Start flow =====
   async function startNow(e){
     if (e){ e.preventDefault(); e.stopPropagation(); }
+    if (window.__HHA_BOOTING) return;
+    window.__HHA_BOOTING = true;
 
-    // audio unlock (user gesture)
+    // unlock audio (user gesture)
     try{
       (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'])
         .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); });
@@ -169,24 +192,27 @@
       const mb = $('#menuBar');
       if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
 
-      // kick new round
+      // kick new round (main.js มี BOOTING guard + watchdog อีกชั้น)
       window.HHA.startGame();
 
-      // 🔁 autokick watchdog: ถ้า 1.2s แล้วยังไม่เข้าเล่น → เรียกซ้ำ
+      // 🔁 autokick watchdog ครั้งเดียว: 1.2s หลังสั่งเริ่ม ถ้ายังไม่เข้าเล่น → เรียกซ้ำ
       setTimeout(()=>{
-        const stillInMenu = !mb?.hasAttribute('data-hidden');
         const notPlaying = document.body.getAttribute('data-playing')!=='1';
-        if (!stillInMenu && notPlaying){
+        const stillHidden = mb?.hasAttribute('data-hidden');
+        if (stillHidden && notPlaying){
           try{ window.HHA.startGame(); }catch{}
         }
       }, 1200);
     }catch(err){
       console.error(err);
       warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(err?.message||err)]);
+    }finally{
+      // ปลดตัวล็อกหน้าเพจ หลังผ่านช่วงสตาร์ท
+      setTimeout(()=>{ window.__HHA_BOOTING = false; }, 600);
     }
   }
 
-  // Menu bindings
+  // ===== Menu bindings =====
   const mb = $('#menuBar');
   if (mb){
     function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
@@ -203,7 +229,7 @@
       if (t.hasAttribute('data-diff')){ setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
     }, false);
 
-    // clean-rebind Start button (กัน listener หลุด)
+    // clean-rebind Start button (กัน listener ซ้อน/หลุด)
     const old = document.getElementById('btn_start'); if (old){
       const clone = old.cloneNode(true);
       old.replaceWith(clone);
@@ -213,17 +239,20 @@
     }
   }
 
-  // Keyboard quick start (only when menu visible)
+  // ===== Keyboard quick start (เฉพาะตอนเมนูแสดง) =====
   window.addEventListener('keydown', (e)=>{
     const inGame = document.body.getAttribute('data-playing')==='1';
     const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
     if ((e.key==='Enter'||e.key===' ') && !inGame && menuVisible){ e.preventDefault(); startNow(e); }
   }, {passive:false});
 
-  // canvases never capture pointer
-  const ensureCanvas = ()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); };
+  // ===== Canvas safety =====
   window.addEventListener('resize', ensureCanvas);
   setTimeout(ensureCanvas, 0);
+
+  // ===== Leave page ⇒ stop clean =====
+  window.addEventListener('pagehide', hardStopOld);
+  window.addEventListener('beforeunload', hardStopOld);
 })();
 </script>
 
