@@ -1,5 +1,5 @@
 // === Hero Health Academy — game/modes/goodjunk.js
-// (spawn-heartbeat + host-visibility + low-density tuned)
+// (robust spawn: keep-at-maxAlive + DOM reconcile + heartbeat)
 export const name = 'goodjunk';
 
 const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
@@ -8,32 +8,26 @@ const GOLD = ['⭐'];
 
 let host, items=[], alive=0;
 let cfg, spawnAcc=0, running=false;
-let heartAcc=0;          // ตัวจับเวลา “ฮาร์ตบีตสปอว์น”
-let sinceAnySpawn=0;     // นับเวลาตั้งแต่มีการสปอว์นครั้งล่าสุด
+let hbAcc=0, sinceSpawn=0, reconAcc=0;
 
 const PRESET = {
   Easy:   { spawnEvery: 1.6, maxAlive: 4, life: 4.2, size: 76 },
-  Normal: { spawnEvery: 1.3, maxAlive: 5, life: 3.6, size: 64 },
-  Hard:   { spawnEvery: 1.1, maxAlive: 6, life: 3.2, size: 54 },
+  Normal: { spawnEvery: 1.2, maxAlive: 5, life: 3.6, size: 64 },
+  Hard:   { spawnEvery: 1.0, maxAlive: 6, life: 3.2, size: 54 },
 };
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-const pick = (arr)=>arr[(Math.random()*arr.length)|0];
+const pick=(arr)=>arr[(Math.random()*arr.length)|0];
 
 function ensureHost(){
-  host = document.getElementById('spawnHost');
-  if(!host){
-    host=document.createElement('div');
-    host.id='spawnHost';
-    document.body.appendChild(host);
-  }
+  host=document.getElementById('spawnHost');
+  if(!host){ host=document.createElement('div'); host.id='spawnHost'; document.body.appendChild(host); }
   host.style.cssText='position:fixed;inset:0;z-index:9999;pointer-events:auto;display:block;opacity:1;visibility:visible';
 }
 
-// หาตำแหน่งเลี่ยงซ้อน
 function findFreeSpot(size){
   const pad=Math.max(70,size*1.3);
-  const ww=innerWidth, hh=innerHeight;
+  const ww=innerWidth||window.innerWidth, hh=innerHeight||window.innerHeight;
   const minDist=size*1.4;
   for(let k=0;k<10;k++){
     const x=clamp(Math.random()*ww,pad,ww-pad);
@@ -49,10 +43,10 @@ function boomEffect(x,y,emoji){
   const p=document.createElement('div');
   p.textContent=emoji;
   p.style.cssText=`position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%) scale(1);
-    font-size:42px;opacity:1;transition:all .38s ease;z-index:10000;pointer-events:none;`;
+    font-size:42px;opacity:1;transition:all .36s ease;z-index:10000;pointer-events:none;`;
   document.body.appendChild(p);
-  requestAnimationFrame(()=>{ p.style.transform='translate(-50%,-50%) scale(1.75)'; p.style.opacity='0'; });
-  setTimeout(()=>{ try{p.remove();}catch{}; }, 360);
+  requestAnimationFrame(()=>{ p.style.transform='translate(-50%,-50%) scale(1.7)'; p.style.opacity='0';});
+  setTimeout(()=>{ try{p.remove();}catch{}; }, 340);
 }
 
 function spawnOne(BUS){
@@ -64,7 +58,7 @@ function spawnOne(BUS){
   if(r>0.86) kind='gold';
   else if(r>0.58) kind='junk';
 
-  const emoji = kind==='gold' ? pick(GOLD) : (kind==='junk' ? pick(JUNK) : pick(GOOD));
+  const emoji = kind==='gold'?pick(GOLD):(kind==='junk'?pick(JUNK):pick(GOOD));
   const {x,y}=findFreeSpot(cfg.size);
   const s=cfg.size;
 
@@ -96,7 +90,7 @@ function spawnOne(BUS){
 
     const ui={x:ev.clientX,y:ev.clientY};
     if(kind==='junk'){ BUS.bad?.({source:obj,ui}); BUS.sfx?.bad?.(); }
-    else {
+    else{
       const isGold=(kind==='gold'); const base=isGold?50:10;
       BUS.hit?.({points:base,kind:isGold?'perfect':'good',ui,meta:{golden:isGold}});
       if(isGold) BUS.sfx?.power?.(); else BUS.sfx?.good?.();
@@ -105,15 +99,26 @@ function spawnOne(BUS){
 
   host.appendChild(el);
   items.push(obj);
-  alive++;
-  sinceAnySpawn=0; // รีเซ็ตตัวจับว่าเพิ่งเกิดของ
+  alive++; sinceSpawn=0;
+}
+
+function reconcileDomCount(){
+  // ถ้า DOM มีน้อยกว่า alive ให้ sync จาก DOM จริง
+  try{
+    const domCnt = host.querySelectorAll('.gj-it').length|0;
+    if(domCnt < alive) alive = domCnt + items.filter(it=>!it.dead).length - (host.querySelectorAll('.gj-it').length - domCnt);
+    // เติมให้ถึง maxAlive ถ้ายังไม่ครบ
+    let need = Math.max(0, cfg.maxAlive - domCnt);
+    while(need-- > 0) spawnOne({hit:()=>{},bad:()=>{},sfx:{}});
+  }catch{}
 }
 
 function tick(dt,BUS){
   if(!running) return;
 
-  // สปอว์นตามนาฬิกาปกติ
-  spawnAcc+=dt;
+  spawnAcc+=dt; hbAcc+=dt; reconAcc+=dt; sinceSpawn+=dt;
+
+  // สปอว์นตามช่วงเวลา
   const need=Math.floor(spawnAcc/cfg.spawnEvery);
   if(need>0){
     spawnAcc-=need*cfg.spawnEvery;
@@ -134,37 +139,39 @@ function tick(dt,BUS){
     }
   }
 
-  // ---------- Spawn Heartbeat ----------
-  // ถ้า “โล่งเกินไป” หรือเงียบเกิน 1.8s → เติมให้ถึง target
-  heartAcc+=dt; sinceAnySpawn+=dt;
-  const target=Math.min(cfg.maxAlive, 3); // อย่างน้อยพยายามให้มี 3 ชิ้นหมุนเวียน
-  if ( (heartAcc>=0.7 && alive<target) || sinceAnySpawn>1.8 ){
-    heartAcc=0;
-    // เติมทีละ 1–2 ชิ้นจนถึง target (ไม่เกิน maxAlive)
-    let toAdd=Math.min(target-alive, 2);
+  // Heartbeat: เติมจนถึง maxAlive เสมอ
+  if(hbAcc>=0.5){
+    hbAcc=0;
+    const domCnt = (host.querySelectorAll('.gj-it').length|0);
+    let toAdd = Math.max(0, (cfg.maxAlive - Math.max(alive, domCnt)));
     while(toAdd-- > 0) spawnOne(BUS);
   }
+
+  // ถ้าเงียบเกิน 1.6s ให้บังคับเติม 1–2 ชิ้น
+  if(sinceSpawn>1.6){
+    sinceSpawn=0;
+    let toAdd=Math.min(2, Math.max(0, cfg.maxAlive - alive));
+    while(toAdd-- > 0) spawnOne(BUS);
+  }
+
+  // DOM reconcile ช่วง ๆ กัน edge-case
+  if(reconAcc>=1.2){ reconAcc=0; reconcileDomCount(); }
 }
 
-// ---------- Public API ----------
+// ---------- Public ----------
 export function start({difficulty='Normal'}={}){
   ensureHost();
-  running=true; items=[]; alive=0; spawnAcc=0; heartAcc=0; sinceAnySpawn=0;
+  running=true; items=[]; alive=0; spawnAcc=0; hbAcc=0; reconAcc=0; sinceSpawn=0;
   cfg=PRESET[difficulty]||PRESET.Normal;
 
-  // กัน element อื่นบังคลิก
   try{
     document.querySelectorAll('canvas').forEach(c=>{ c.style.pointerEvents='none'; c.style.zIndex='1'; });
     const hud=document.getElementById('hud'); if(hud) hud.style.pointerEvents='none';
     host.style.pointerEvents='auto';
   }catch{}
 
-  // เติมตั้งต้น 3 ชิ้น
-  for(let i=0;i<3;i++) spawnOne({hit:()=>{},bad:()=>{},sfx:{}});
-
-  // เผื่อมี CSS ไปซ่อน .gj-it
-  const ss=document.createElement('style'); ss.textContent='.gj-it{visibility:visible;opacity:1}';
-  document.head.appendChild(ss);
+  // เติมตั้งต้นจนถึง maxAlive เลย
+  for(let i=0;i<cfg.maxAlive;i++) spawnOne({hit:()=>{},bad:()=>{},sfx:{}});
 }
 
 export function update(dt,BUS){
@@ -180,9 +187,5 @@ export function cleanup(){
   items=[]; alive=0;
 }
 
-// สำหรับ main เรียกย้ำได้ (ยังคงไว้)
-export function nudge(BUS){
-  if(!running) return;
-  let toAdd=Math.max(0, Math.min((cfg?.maxAlive||4)-alive, 2));
-  while(toAdd-- > 0) spawnOne(BUS);
-}
+// optional nudge
+export function nudge(BUS){ if(!running) return; let need=Math.max(0,cfg.maxAlive - (host.querySelectorAll('.gj-it').length|0)); while(need-- > 0) spawnOne(BUS); }
