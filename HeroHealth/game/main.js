@@ -1,10 +1,7 @@
-// === Hero Health Academy — game/main.js (autostart + solid timer + spawn-guard + fever) ===
+// === Hero Health Academy — game/main.js (single-boot, boot-lock, solid timer, spawn-guard) ===
 
 // เคลียร์อินสแตนซ์เดิมถ้ามี (กัน re-import แล้วลูปซ้อน)
-if (window.HHA?.__stopLoop) {
-  try { window.HHA.__stopLoop(); } catch {}
-  delete window.HHA;
-}
+if (window.HHA?.__stopLoop) { try { window.HHA.__stopLoop(); } catch{} delete window.HHA; }
 
 // ---------- Imports ----------
 import { Engine } from './core/engine.js';
@@ -16,9 +13,6 @@ import { PowerUpSystem } from './core/powerup.js';
 import { Quests } from './core/quests.js';
 import { MissionSystem } from './core/mission-system.js';
 import { Leaderboard } from './core/leaderboard.js';
-import { VRInput } from './core/vrinput.js';
-import * as FX from './core/fx.js';
-
 import * as goodjunk from './modes/goodjunk.js';
 
 // ---------- State ----------
@@ -26,14 +20,16 @@ const MODES = { goodjunk };
 const $  = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
-const pnow  = ()=>performance.now?performance.now():Date.now();
+const now  = ()=>performance.now?performance.now():Date.now();
 
-let playing=false, rafId=0, activeMode=null;
+let booting=false;              // กัน startGame ถูกเรียกซ้ำ
+let playing=false;              // กำลังเล่นอยู่
+let rafId=0, tickTimerId=null;  // rAF + 1s timer
+let guardOnceId=null, guardLoopId=null; // spawn guards
+let activeMode=null;            // โหมดปัจจุบัน
+
 let wallSecondsTotal=45, wallSecondsLeft=45;
 let lastFrameMs=0;
-let tickTimerId=null;        // จับเวลา 1s (ไม่พึ่ง rAF)
-let spawnGuardId=null;       // ตรวจครั้งแรกหลังเริ่ม
-let guardTimerId=null;       // ตรวจซ้ำเป็นระยะ (กันเงียบ)
 let currentModeKey='goodjunk', currentDiff='Normal';
 
 // ---------- Core instances ----------
@@ -50,17 +46,12 @@ const stateRef={ missions:[], ctx:{} };
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 hud.bindPower?.(power);
-
-// ---------- Fever ----------
 power.onFever(v=>{
-  if (hud.$powerFill) hud.$powerFill.style.width = Math.max(0, Math.min(100, v)) + '%';
-  if (v >= 100) {
-    hud.showFever(true); sfx.power();
-    setTimeout(()=>{ hud.showFever(false); power.resetFever(); }, 5000);
-  }
+  const fill = hud.$powerFill;
+  if (fill) fill.style.width = Math.max(0, Math.min(100, v)) + '%';
 });
 
-// ---------- BUS (เชื่อมโหมด ↔ ระบบหลัก) ----------
+// ---------- BUS ----------
 const BUS={
   hit(e){
     const pts=e?.points|0;
@@ -70,8 +61,6 @@ const BUS={
     if(e?.ui) hud.showFloatingText?.(e.ui.x,e.ui.y,`+${pts}`);
     if(kind==='perfect') coach.onPerfect(); else coach.onGood();
     mission.onEvent(kind,{count:1},stateRef);
-
-    // Golden → เติม FEVER
     if (e?.meta?.golden) power.add(20);
   },
   miss(){ score.add(0); coach.onMiss(); mission.onEvent('miss',{count:1},stateRef); },
@@ -79,37 +68,24 @@ const BUS={
   sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
 
-// ---------- Flow helpers ----------
+// ---------- Flow ----------
 async function preCountdown(){
   hud.showBig('3'); sfx.tick(); await sleep(650);
   hud.showBig('2'); sfx.tick(); await sleep(650);
   hud.showBig('1'); sfx.tick(); await sleep(650);
-  hud.showBig('GO!'); sfx.tick(); await sleep(450);
-}
-
-function armSpawnGuard(){
-  clearTimeout(spawnGuardId);
-  // หลังเริ่ม 2.5s ถ้ายังไม่มีอะไรเกิดเลย ให้สั่ง start โหมดซ้ำ
-  spawnGuardId = setTimeout(()=>{
-    if(!playing) return;
-    const hasAny = document.querySelector('#spawnHost .gj-it');
-    if (!hasAny) {
-      try{ activeMode?.start?.({ difficulty: currentDiff, bus: BUS }); }catch{}
-    }
-  }, 2500);
+  hud.showBig('GO!'); sfx.tick(); await sleep(420);
 }
 
 function beginRun({modeKey,diff='Normal',seconds=45}){
-  document.body.setAttribute('data-playing','1');
+  // reset state
   playing=true;
-
-  // reset run
   score.reset(); power.resetFever();
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
-  lastFrameMs = pnow();
+  lastFrameMs = now();
 
-  hud.setTop({mode:shortMode(modeKey), diff});
+  document.body.setAttribute('data-playing','1');
+  hud.setTop({mode:shortName(modeKey), diff});
   hud.resetBars?.();
   hud.setTimer(wallSecondsLeft);
   coach.onStart();
@@ -120,29 +96,36 @@ function beginRun({modeKey,diff='Normal',seconds=45}){
   const chips = mission.tick(stateRef, { score:0 }, null, { hud, coach, lang:'TH' });
   if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
 
-  // start mode — ส่ง BUS เข้าไปด้วย (สำคัญ!)
+  // start mode (สำคัญ: ส่ง BUS)
   activeMode = MODES[modeKey];
   activeMode?.start?.({ difficulty: diff, bus: BUS });
 
-  // จับเวลา 1 วินาที (ไม่ผูกกับ rAF)
+  // timer 1s ที่แน่นอน
   clearInterval(tickTimerId);
   tickTimerId = setInterval(()=>{
-    if(!playing) return;
-    if (wallSecondsLeft>0){
-      wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
-      hud.setTimer(wallSecondsLeft);
-      sfx.tick();
-      power.drain(0.5);
-      mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
-      if (wallSecondsLeft===0) endRun();
+    if (!playing) return;
+    wallSecondsLeft = Math.max(0, wallSecondsLeft - 1);
+    hud.setTimer(wallSecondsLeft);
+    sfx.tick();
+    power.drain?.(0.5);
+    mission.tick(stateRef, { score: score.get() }, null, { hud, coach, lang:'TH' });
+    if (wallSecondsLeft<=0) endRun();
+  }, 1000);
+
+  // spawn guard: 1) หลังเริ่ม 1.2s 2) ตรวจซ้ำทุก 4s
+  clearTimeout(guardOnceId); clearInterval(guardLoopId);
+  guardOnceId = setTimeout(()=>{
+    if (!document.querySelector('#spawnHost .gj-it')) {
+      try{ activeMode?.start?.({ difficulty: diff, bus: BUS }); }catch{}
     }
-  },1000);
+  }, 1200);
+  guardLoopId = setInterval(()=>{
+    if (!playing) return;
+    const any = document.querySelector('#spawnHost .gj-it');
+    if (!any) { try{ activeMode?.start?.({ difficulty: diff, bus: BUS }); }catch{} }
+  }, 4000);
 
-  // spawn guard (ครั้งแรก + ตรวจทุก 4 วินาที)
-  armSpawnGuard();
-  clearInterval(guardTimerId);
-  guardTimerId = setInterval(()=>armSpawnGuard(), 4000);
-
+  // per-frame loop
   loop();
 }
 
@@ -152,8 +135,8 @@ function endRun(){
 
   try{ cancelAnimationFrame(rafId); }catch{}
   clearInterval(tickTimerId); tickTimerId=null;
-  clearInterval(guardTimerId); guardTimerId=null;
-  clearTimeout(spawnGuardId); spawnGuardId=null;
+  clearTimeout(guardOnceId); guardOnceId=null;
+  clearInterval(guardLoopId); guardLoopId=null;
 
   try{ activeMode?.stop?.(); }catch{}
   try{ activeMode?.cleanup?.(); }catch{}
@@ -175,7 +158,7 @@ function endRun(){
 
   hud.showResult({
     title:'สรุปผล',
-    desc:`โหมด: ${shortMode(currentModeKey)} • ระดับ: ${currentDiff}`,
+    desc:`โหมด: ${shortName(currentModeKey)} • ระดับ: ${currentDiff}`,
     stats:[`คะแนน: ${finalScore}`, `คอมโบสูงสุด: ${bestCombo}`],
     extra
   });
@@ -200,34 +183,37 @@ function loop(){
   if(!playing) return;
   rafId=requestAnimationFrame(loop);
 
-  const nowMs = pnow();
-  let dt = (nowMs - lastFrameMs) / 1000;
-  if (!(dt>0) || dt>1.5) dt = 0.016; // กันกระโดดเฟรม/NaN
-  lastFrameMs = nowMs;
+  let dt = (now() - lastFrameMs) / 1000;
+  if (!(dt>0) || dt>1.5) dt = 0.016;
+  lastFrameMs = now();
 
   try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
 }
 
 // ---------- Public ----------
 async function startGame(){
+  if (booting || playing) return;   // กันเรียกซ้ำ
+  booting = true;
+
   currentModeKey=document.body.getAttribute('data-mode')||'goodjunk';
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
-  if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
-
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: 45 });
+
+  booting = false;
 }
 
 function stopLoop(){
   try{ cancelAnimationFrame(rafId); }catch{}
   clearInterval(tickTimerId); tickTimerId=null;
-  clearInterval(guardTimerId); guardTimerId=null;
-  clearTimeout(spawnGuardId); spawnGuardId=null;
-  playing=false;
+  clearTimeout(guardOnceId); guardOnceId=null;
+  clearInterval(guardLoopId); guardLoopId=null;
+  playing=false; booting=false;
 }
 
-function shortMode(m){
+function shortName(m){
   if(m==='goodjunk') return 'Good vs Junk';
   if(m==='groups') return '5 Groups';
   if(m==='hydration') return 'Hydration';
@@ -235,33 +221,25 @@ function shortMode(m){
   return String(m||'');
 }
 
-// ---------- Auto-bootstrap (robust) ----------
+// ---------- Autostart: ทางเดียวเท่านั้น ----------
 function autoBoot(){
-  if (playing) return;
-  currentModeKey = document.body.getAttribute('data-mode') || 'goodjunk';
-  currentDiff    = document.body.getAttribute('data-diff') || 'Normal';
-  const mb = document.querySelector('#menuBar');
-  if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+  if (playing || booting) return;
   startGame();
 }
-
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   setTimeout(autoBoot, 0);
 } else {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(autoBoot, 0), { once:true });
-  window.addEventListener('load', () => setTimeout(autoBoot, 0), { once:true });
+  document.addEventListener('DOMContentLoaded', ()=>setTimeout(autoBoot,0), { once:true });
+  window.addEventListener('load', ()=>setTimeout(autoBoot,0), { once:true });
 }
-
-// เพิ่ม watchdog: ถ้า 1.5s ผ่านไปแล้วยังไม่ playing → บู๊ตซ้ำ
+// ถ้า 1.5s ผ่านไปยังไม่เริ่ม ให้บูตซ้ำ
 setTimeout(()=>{ if (!playing) autoBoot(); }, 1500);
 
-// Hotkey fallback (Space)
+// Hotkey fallback
 window.addEventListener('keydown', (e)=>{
-  if ((e.code==='Space' || e.key===' ') && !playing) { e.preventDefault(); autoBoot(); }
+  if ((e.code==='Space' || e.key===' ') && !playing && !booting) { e.preventDefault(); autoBoot(); }
 });
 
-// Expose manual start
-window.startHHA = autoBoot;
-
+// export
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — autostart + solid timer + spawn-guard + fever');
+console.log('[HeroHealth] main.js — single-boot, boot-lock, solid timer, spawn-guard');
