@@ -1,149 +1,75 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Hero Health Academy</title>
-<meta name="color-scheme" content="light dark"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Hero Health Academy</title>
+  <meta name="color-scheme" content="light dark"/>
+  <base href="./">
 
-<style>
-:root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;color:var(--fg);
-  background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
-  font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
-  -webkit-tap-highlight-color:transparent;
-  transition: background .25s ease;
-}
-body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
+  <style>
+    :root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;color:var(--fg);
+      background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
+      font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
+      -webkit-tap-highlight-color:transparent;
+      transition: background .25s ease;
+    }
+    body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
 
-/* Layers */
-.game-wrap{position:relative;min-height:100dvh;overflow:hidden}
-#gameLayer{position:fixed;inset:0;z-index:1}
+    .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
+    #gameLayer{position:fixed;inset:0;z-index:1}
 
-/* ✅ spawnHost รับคลิกแน่ๆ */
-#spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
+    /* ✅ spawnHost คลิกได้แน่นอน */
+    #spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
 
-/* canvases never block clicks */
-canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
+    /* canvases ไม่ให้บังคลิก */
+    canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
 
-/* Menu */
-#menuBar{
-  position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-  z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
-}
-#menuBar[data-hidden="1"]{ display:none !important; }
-.menu-card{
-  width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
-  padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
-}
-.row{display:flex;flex-wrap:wrap;gap:10px}
-.btn{
-  display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
-  border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none
-}
-.btn:hover{ filter:brightness(1.08) }
-.btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
+    /* Menu overlay */
+    #menuBar{
+      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
+    }
+    #menuBar[data-hidden="1"]{ display:none !important; }
+    .menu-card{
+      width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
+      padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
+    }
+    .row{display:flex;flex-wrap:wrap;gap:10px}
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
+      border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none
+    }
+    .btn:hover{ filter:brightness(1.08) }
+    .btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
 
-/* HUD shell */
-#hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
-#hud #resultModal{z-index:20020}
+    /* HUD shell */
+    #hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
+    #hud #resultModal{z-index:20020}
 
-/* Toast + boot warn */
-.toast{
-  position:fixed;left:50%;top:68px;transform:translateX(-50%);
-  background:#0e1930;border:1px solid #214064;color:#e8f3ff;
-  padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
-}
-.toast.show{opacity:1}
-#bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
+    /* Toast + boot warn */
+    .toast{
+      position:fixed;left:50%;top:68px;transform:translateX(-50%);
+      background:#0e1930;border:1px solid #214064;color:#e8f3ff;
+      padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
+    }
+    .toast.show{opacity:1}
+    #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
 
-/* Fever/Power bar container placeholder */
-#powerBarWrap{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:2200; }
-#powerBar{ position:relative; height:16px; width:260px; border-radius:999px; background:#0a1931; border:1px solid #0f2a54; overflow:hidden }
-#powerFill{ position:absolute; inset:0; width:100% }
+    /* === Fever (ใช้ชุดเดียวกับ HUD) === */
+    #powerBarWrap{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:2200; }
+    #powerBar{ position:relative; height:16px; width:300px; border-radius:999px; background:#0a1931; border:1px solid #0f2a54; overflow:hidden }
+    #powerFill{ position:absolute; inset:0; width:0% }
 
-/* === Fever Gauge (มุมขวาล่าง) + เปลวไฟพุ่ง === */
-.fever-gauge {
-  position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 150px;
-  height: 18px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,140,0,0.4);
-  border-radius: 999px;
-  overflow: visible;
-  box-shadow: inset 0 0 6px rgba(255,255,255,0.15);
-  z-index: 3000;
-}
-.fever-gauge .fever-fill {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 0%;
-  background: linear-gradient(90deg,#ffb400,#ff8000,#ff4500,#ff8000,#ffb400);
-  background-size: 300% 100%;
-  animation: flameFlow 2s linear infinite;
-  box-shadow: 0 0 16px rgba(255,140,0,0.8);
-  transition: width 0.3s ease;
-}
-.fever-gauge .fever-label {
-  position: absolute;
-  top: -24px; right: 0;
-  font: 900 13px ui-rounded,system-ui;
-  color: #ffb200;
-  text-shadow: 0 0 8px rgba(255,150,0,0.8);
-}
-
-/* เปลวไฟพุ่งขึ้นบนเกจ */
-.fever-gauge::after {
-  content:"";
-  position:absolute;
-  left:0;right:0;bottom:100%;
-  height:0;
-  pointer-events:none;
-  background:
-    radial-gradient(circle at 50% 100%, rgba(255,180,0,0.6) 0%, transparent 70%),
-    radial-gradient(circle at 30% 100%, rgba(255,100,0,0.5) 0%, transparent 70%),
-    radial-gradient(circle at 70% 100%, rgba(255,80,0,0.5) 0%, transparent 70%);
-  opacity:0;
-  transform:translateY(0) scaleY(1);
-  transition:opacity .3s, transform .3s;
-}
-body.fever-on .fever-gauge::after {
-  animation: flameRise 0.8s linear infinite;
-  opacity:1;
-}
-
-/* Animations */
-@keyframes flameFlow { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
-@keyframes flameFlowFast {
-  0% { background-position:0 0; filter:brightness(1.2); }
-  100%{ background-position:300% 0; filter:brightness(1.5); }
-}
-@keyframes flameRise{
-  0%{transform:translateY(0) scaleY(1); opacity:1}
-  80%{transform:translateY(-20px) scaleY(1.2); opacity:.9}
-  100%{transform:translateY(-40px) scaleY(1.4); opacity:0}
-}
-
-/* Fever active glow */
-body.fever-on .fever-gauge{
-  border-color:#ff6000;
-  box-shadow:0 0 20px rgba(255,100,0,0.9), inset 0 0 10px rgba(255,180,0,0.6);
-}
-body.fever-on .fever-gauge .fever-fill{ animation: flameFlowFast 1s linear infinite; }
-
-/* Fever flame anim from your base */
-@keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
-</style>
+    @keyframes fireRise{0%{transform:translateY(8px) scaleY(.9)}50%{transform:translateY(0) scaleY(1)}100%{transform:translateY(8px) scaleY(.9)}}
+  </style>
 </head>
 
-<!-- โหมด/ความยากค่าเริ่มต้น -->
 <body data-mode="goodjunk" data-diff="Normal">
-
 <div class="game-wrap">
   <div id="gameLayer"></div>
   <div id="spawnHost"></div>
@@ -184,124 +110,104 @@ body.fever-on .fever-gauge .fever-fill{ animation: flameFlowFast 1s linear infin
     </div>
   </div>
 
-  <!-- Fever/Power bar container (HUD ใช้ต่อ) -->
+  <!-- Fever/Power bar placeholder (HUD จะ bind เข้ามา) -->
   <div id="powerBarWrap">
-    <div id="powerBar">
-      <div id="powerFill"></div>
-    </div>
+    <div id="powerBar"><div id="powerFill"></div></div>
   </div>
 
-  <!-- FEVER GAUGE + LABEL -->
-  <div id="feverGauge" class="fever-gauge">
-    <div class="fever-fill"></div>
-    <span class="fever-label">FEVER</span>
-  </div>
-
-  <!-- AUDIO (bgm + sfx + fever) -->
+  <!-- AUDIO (ตัวอย่างโครง; ไฟล์จริงค่อยใส่ทีหลัง) -->
   <audio id="bgm-main" preload="auto"></audio>
   <audio id="bgm-fever" preload="auto"></audio>
-  <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
-  <audio id="sfx-fever-start" preload="auto" src="assets/sfx/fever_start.wav"></audio>
-  <audio id="sfx-fever-end" preload="auto" src="assets/sfx/fever_end.flac"></audio>
+  <audio id="sfx-good" preload="auto"></audio>
+  <audio id="sfx-bad" preload="auto"></audio>
+  <audio id="sfx-perfect" preload="auto"></audio>
+  <audio id="sfx-tick" preload="auto"></audio>
+  <audio id="sfx-powerup" preload="auto"></audio>
+  <audio id="sfx-fever-start" preload="auto"></audio>
+  <audio id="sfx-fever-end" preload="auto"></audio>
 </div>
 
-<!-- (ไม่มี <script type="module" src="./game/main.js"> อีกต่อไป) -->
-
-<!-- Binder + Dynamic Import (force-fresh) -->
+<!-- Dynamic Import (force-fresh) + bindings -->
 <script>
 (function(){
-  const MUTED_KEY = 'hha_muted';
-  const $  = (s)=>document.querySelector(s);
-  const $$ = (s)=>document.querySelectorAll(s);
+  const MUTED_KEY='hha_muted';
+  const $=(s)=>document.querySelector(s);
+  const $$=(s)=>document.querySelectorAll(s);
 
-  function toast(text){
-    let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-    el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
+  function toast(t){ let el=$('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
+    el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+  function warn(lines){ let w=$('#bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w); }
+    w.innerHTML=(Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join(''); w.style.display='block'; }
+
+  function applyMute(){
+    const muted = localStorage.getItem(MUTED_KEY)==='1';
+    $$('audio').forEach(a=>{ try{ a.muted=muted; }catch{} });
+    const btn=$('.btn[data-action="sound"]'); if(btn) btn.textContent=muted?'🔇 Sound':'🔊 Sound';
   }
-  function warn(lines){
-    let w = $('#bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w); }
-    w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
-    w.style.display='block';
-  }
-  function applyMuteFromStorage(){
-    const muted = localStorage.getItem(MUTED_KEY) === '1';
-    $$('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
-    const btn = $('.btn[data-action="sound"]');
-    if(btn) btn.textContent = muted ? '🔇 Sound' : '🔊 Sound';
-  }
-  applyMuteFromStorage();
+  applyMute();
 
   async function ensureMainFresh(){
-    try { delete window.HHA; } catch {}
-    const v = Date.now(); // cache-buster
-    await import(`./game/main.js?v=${v}`);
-    if (!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
+    try{ delete window.HHA; }catch{}
+    const url=`./game/main.js?v=${Date.now()}`;
+    // เช็คว่าดาวน์โหลดได้ก่อน import (กัน MIME/404)
+    try{
+      const r=await fetch('./game/main.js',{cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+    }catch(e){ throw new Error('ไม่พบไฟล์ game/main.js ('+(e.message||e)+')'); }
+
+    await import(url);
+    if(!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
   }
 
   async function startNow(){
-    // prime audio (user gesture)
-    try{
-      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup','sfx-fever-start','sfx-fever-end'])
-        .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); });
-    }catch{}
+    // prime audio
+    try{ ['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup','sfx-fever-start','sfx-fever-end']
+      .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); }); }catch{}
 
     try{
-      await ensureMainFresh();        // โหลด main.js เวอร์ชันล่าสุดเสมอ
-      $('#menuBar')?.setAttribute('data-hidden','1');
-      if ($('#menuBar')) $('#menuBar').style.display='none';
-      window.HHA.startGame();         // main.js คุม countdown + timer + fever hooks
+      await ensureMainFresh();
+      const mb=$('#menuBar'); if(mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
+      window.HHA.startGame();
     }catch(e){
-      console.error(e);
-      warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(e?.message||e)]);
+      console.error(e); warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(e?.message||e)]);
     }
   }
 
-  // bind menu
-  const mb = $('#menuBar');
-  if (mb){
+  // bind menu & buttons
+  const mb=$('#menuBar');
+  if(mb){
     function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
-    mb.addEventListener('click', (ev)=>{
+    mb.addEventListener('click',(ev)=>{
       const t=ev.target.closest('.btn'); if(!t) return;
-      if (t.dataset.action==='start'){ ev.preventDefault(); startNow(); return; }
-      if (t.dataset.action==='howto'){ toast('แตะของดี • เลี่ยงของไม่ดี • เกจเต็มเป็น FEVER • มี ⭐/🛡️'); return; }
-      if (t.dataset.action==='sound'){
-        const nowMuted = !(localStorage.getItem(MUTED_KEY) === '1');
-        localStorage.setItem(MUTED_KEY, nowMuted ? '1' : '0');
-        applyMuteFromStorage(); toast(nowMuted ? 'เสียง: ปิด' : 'เสียง: เปิด'); return;
-      }
-      if (t.hasAttribute('data-mode')){ setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
-      if (t.hasAttribute('data-diff')){ setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
+      if(t.dataset.action==='start'){ ev.preventDefault(); startNow(); return; }
+      if(t.dataset.action==='howto'){ toast('แตะของดี • เลี่ยงของไม่ดี • ⭐ เติม FEVER'); return; }
+      if(t.dataset.action==='sound'){ const nowMuted=!(localStorage.getItem(MUTED_KEY)==='1'); localStorage.setItem(MUTED_KEY, nowMuted?'1':'0'); applyMute(); toast(nowMuted?'เสียง: ปิด':'เสียง: เปิด'); return; }
+      if(t.hasAttribute('data-mode')){ setActive('[data-mode]',t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
+      if(t.hasAttribute('data-diff')){ setActive('[data-diff]',t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
     }, false);
 
-    // hard-bind start (กัน passive swallow)
-    const old = document.getElementById('btn_start'); if (old){
-      const clone = old.cloneNode(true);
-      old.replaceWith(clone);
-      const opts = { capture:true, passive:false };
-      ['click','pointerup','touchend'].forEach(ev=> clone.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); }, opts));
-      clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); startNow(); } }, opts);
+    // rebind Start ด้วย passive:false กัน gesture หาย
+    const old=$('#btn_start'); if(old){
+      const clone=old.cloneNode(true); old.replaceWith(clone);
+      const opts={capture:true, passive:false};
+      ['click','pointerup','touchend'].forEach(ev=> clone.addEventListener(ev,(e)=>{ e.preventDefault(); e.stopPropagation(); startNow(); },opts));
+      clone.addEventListener('keydown',(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); startNow(); }},opts);
     }
   }
 
-  // keyboard quick start
-  window.addEventListener('keydown', (e)=>{
-    if ((e.key==='Enter'||e.key===' ') && !(document.body.getAttribute('data-playing')==='1')) {
-      const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
-      if (menuVisible) { e.preventDefault(); startNow(); }
+  // quickstart ด้วยคียบอร์ด (เฉพาะตอนเมนูเปิดอยู่)
+  window.addEventListener('keydown',(e)=>{
+    if((e.key==='Enter'||e.key===' ') && $('#menuBar') && !$('#menuBar').hasAttribute('data-hidden')){
+      e.preventDefault(); startNow();
     }
   }, {passive:false});
 
-  // canvases never capture pointer
+  // กัน canvas ไปบัง pointer
   setTimeout(()=>{ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); },0);
 })();
 </script>
 
 <div id="toast" class="toast"></div>
 <div id="bootWarn"></div>
-<script>setTimeout(()=>window.HHA?.startGame?.(),500);</script>
 </body>
 </html>
