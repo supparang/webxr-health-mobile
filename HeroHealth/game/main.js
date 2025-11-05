@@ -1,9 +1,8 @@
-// === Hero Health Academy — game/main.js (robust start + timer/spawn watchdog + pause-on-blur) ===
+// === Hero Health Academy — game/main.js (status-aware + strict autokick gate) ===
 
 // เคลียร์อินสแตนซ์เดิมถ้ามี
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
 
-// ---------- Imports ----------
 import { Engine } from './core/engine.js';
 import { HUD } from './core/hud.js';
 import { Coach } from './core/coach.js';
@@ -15,13 +14,11 @@ import { MissionSystem } from './core/mission-system.js';
 import { Leaderboard } from './core/leaderboard.js';
 import * as goodjunk from './modes/goodjunk.js';
 
-// ---------- Config ----------
-const PAUSE_ON_BLUR = true;      // สลับแอป/แท็บ → pause timer (กลับมาเดินต่อ)
-const RUN_SECONDS   = 45;        // ความยาว 1 รอบ
-const SPAWN_KICK_MS = 1800;      // watchdog สั่ง start() โหมดซ้ำ ถ้าไม่มีของเกิด
-const TIMER_KICK_MS = 1200;      // watchdog สร้าง timer ใหม่ ถ้าไม่เดินหลัง GO
+const PAUSE_ON_BLUR = true;
+const RUN_SECONDS   = 45;
+const SPAWN_KICK_MS = 1400;   // เร็วขึ้นนิด
+const TIMER_KICK_MS = 1100;
 
-// ---------- State ----------
 const MODES = { goodjunk };
 const $  = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
@@ -30,22 +27,11 @@ const nowMs = ()=>performance?.now?.() ?? Date.now();
 
 let playing=false, paused=false, countingDown=false;
 let rafId=0, activeMode=null;
-
 let wallSecondsTotal=RUN_SECONDS, wallSecondsLeft=RUN_SECONDS;
-let lastFrameMs=0;
-let tickTimerId=null;
-let spawnGuardId=null;
-let guardTimerId=null;
-let emgSpawnerId=null;
-
+let lastFrameAt=0, tickTimerId=null, spawnGuardId=null, guardTimerId=null, emgSpawnerId=null;
 let currentModeKey='goodjunk', currentDiff='Normal';
+let lastTimerTickAt=0, lastSpawnSeenAt=0, spawnObserver=null;
 
-// watchdog markers
-let lastTimerTickAt = 0;
-let lastSpawnSeenAt = 0;
-let spawnObserver = null;
-
-// ---------- Core singletons ----------
 const engine=new Engine();
 const hud=new HUD();
 const coach=new Coach({lang:'TH'});
@@ -59,7 +45,6 @@ const stateRef={ missions:[], ctx:{} };
 Quests.bindToMain({hud,coach});
 power.attachToScore(score);
 
-// FEVER hook → อัปเดตแถบกลางล่างของ HUD
 power.onFever(v=>{
   const fill = hud.$powerFill;
   if (fill) fill.style.width = Math.max(0, Math.min(100, v)) + '%';
@@ -69,7 +54,6 @@ power.onFever(v=>{
   }
 });
 
-// ---------- BUS (จากโหมดเกมยิงกลับเข้า core) ----------
 const BUS={
   hit(e){
     const pts=e?.points|0;
@@ -87,7 +71,6 @@ const BUS={
   sfx:{ good(){sfx.good();}, bad(){sfx.bad();}, perfect(){sfx.perfect();}, power(){sfx.power();} }
 };
 
-// ---------- Utils ----------
 function ensureSpawnHost(){
   let host = document.getElementById('spawnHost');
   if (!host){
@@ -96,7 +79,6 @@ function ensureSpawnHost(){
     host.style.cssText = 'position:fixed;inset:0;z-index:5000;pointer-events:auto';
     document.body.appendChild(host);
   }
-  // แคนวาสอย่าบังคลิก
   document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
   return host;
 }
@@ -108,7 +90,6 @@ function observeSpawn(){
     for(const m of muts){
       if (m.addedNodes && m.addedNodes.length){
         lastSpawnSeenAt = nowMs();
-        // ถ้ามีของจากโหมดจริงแล้ว → ปิด emergency spawner
         if (host.querySelector('.gj-it')) clearInterval(emgSpawnerId);
       }
     }
@@ -140,11 +121,10 @@ function clearAllTimers(){
   clearInterval(emgSpawnerId); emgSpawnerId=null;
 }
 
-// ---------- Flow ----------
 async function preCountdown(){
-  // กันนับซ้ำ
   if (countingDown) return;
   countingDown = true;
+  document.body.dataset.status = 'countdown';
 
   hud.showBig('3'); sfx.tick(); await sleep(650);
   hud.showBig('2'); sfx.tick(); await sleep(650);
@@ -160,7 +140,6 @@ function armSpawnGuard(){
     if(!playing || paused) return;
     const hasAny = document.querySelector('#spawnHost .gj-it');
     if (hasAny){ lastSpawnSeenAt = nowMs(); return; }
-    // คิก start() ของโหมดอีกครั้ง เผื่อหลุด
     try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{}
   }, SPAWN_KICK_MS);
 }
@@ -185,8 +164,7 @@ function bindPauseResume(){
   if (!PAUSE_ON_BLUR) return;
   const onVisible = ()=>{
     if (document.visibilityState==='visible'){
-      paused=false;
-      // กลับมาแล้ว ถ้า timer/สปอนไม่เดิน → kick
+      paused=false; document.body.dataset.status = 'running';
       setTimeout(()=>{
         if (playing && (lastTimerTickAt===0 || (nowMs()-lastSpawnSeenAt>SPAWN_KICK_MS+300))){
           try{ activeMode?.start?.({difficulty:currentDiff}); }catch{}
@@ -194,7 +172,7 @@ function bindPauseResume(){
         }
       }, 120);
     }else{
-      paused=true;
+      paused=true; document.body.dataset.status = 'paused';
     }
   };
   document.removeEventListener('visibilitychange', onVisible);
@@ -207,14 +185,14 @@ function beginRun({modeKey,diff='Normal',seconds=RUN_SECONDS}){
   bindPauseResume();
 
   document.body.setAttribute('data-playing','1');
+  document.body.dataset.status = 'running';
   playing=true; paused=false;
 
-  // reset run
   score.reset(); power.resetFever(); hud.hideResult?.();
   const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
   wallSecondsTotal = clamp(seconds|0,10,300);
   wallSecondsLeft  = wallSecondsTotal;
-  lastFrameMs = nowMs();
+  lastFrameAt = nowMs();
   lastTimerTickAt = 0;
   lastSpawnSeenAt = nowMs();
 
@@ -223,7 +201,6 @@ function beginRun({modeKey,diff='Normal',seconds=RUN_SECONDS}){
   hud.setTimer(wallSecondsLeft);
   coach.onStart();
 
-  // missions
   try{
     const run = mission.start(modeKey,{ seconds:wallSecondsTotal, count:3, lang:'TH', singleActive:true });
     mission.attachToState(run, stateRef);
@@ -231,29 +208,25 @@ function beginRun({modeKey,diff='Normal',seconds=RUN_SECONDS}){
     if (chips?.[0]) hud.showMiniQuest?.(chips[0].label);
   }catch(e){ console.warn('mission init failed', e); }
 
-  // start mode
   activeMode = MODES[modeKey];
   try{ activeMode?.start?.({ difficulty: diff }); }catch(e){ console.warn('mode.start failed', e); }
 
-  // solid 1s timer
   startTimer();
-
-  // spawn guard & watchdog
   armSpawnGuard();
   clearInterval(guardTimerId);
   guardTimerId = setInterval(()=>armSpawnGuard(), 3000);
 
-  // after GO ถ้า timer/สปอนไม่เดิน → kick + emergency
+  // ถ้า 1.1s แล้วไม่มี spawn → ฉุกเฉินทันที
   setTimeout(()=>{
     if(!playing) return;
     const noTimer = (lastTimerTickAt===0);
-    const noSpawn = (nowMs()-lastSpawnSeenAt>SPAWN_KICK_MS+700);
+    const noSpawn = (nowMs()-lastSpawnSeenAt>SPAWN_KICK_MS);
     if (noTimer || noSpawn){
       try{ activeMode?.start?.({ difficulty: currentDiff }); }catch{}
       if (noTimer){ startTimer(); }
       if (noSpawn){ emergencySpawner(true); }
     }
-  }, TIMER_KICK_MS);
+  }, 1100);
 
   loop();
 }
@@ -261,6 +234,7 @@ function beginRun({modeKey,diff='Normal',seconds=RUN_SECONDS}){
 function endRun(){
   if(!playing) return;
   playing=false; paused=false;
+  document.body.dataset.status = '';
 
   clearAllTimers();
   try{ spawnObserver?.disconnect?.(); }catch{}
@@ -309,38 +283,35 @@ function endRun(){
 function loop(){
   if(!playing || paused) return;
   rafId=requestAnimationFrame(loop);
-  const t = nowMs(); let dt = (t - lastFrameMs) / 1000;
-  if (!(dt>0) || dt>1.5) dt = 0.016; lastFrameMs = t;
+  let dt = (nowMs() - lastFrameAt) / 1000;
+  if (!(dt>0) || dt>1.5) dt = 0.016; lastFrameAt = nowMs();
   try{ activeMode?.update?.(dt, BUS); }catch(e){ console.warn(e); }
 }
 
-// ---------- Public ----------
 async function startGame(){
-  // กันสตาร์ทซ้อน (ระหว่าง countdown)
   if (playing || countingDown) return;
-
   ensureSpawnHost();
+
   currentModeKey=document.body.getAttribute('data-mode')||'goodjunk';
   currentDiff=document.body.getAttribute('data-diff')||'Normal';
   if (!MODES[currentModeKey]){ alert('Mode not found: '+currentModeKey); return; }
 
   const mb = $('#menuBar'); if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-  hud.hideResult?.(); // กันค้างผลสรุป
+  hud.hideResult?.();
 
+  // ✅ แจ้งสถานะก่อนเริ่ม countdown เพื่อกัน autokickซ้ำจากไฟล์ index
+  document.body.dataset.status = 'countdown';
   await preCountdown();
   beginRun({ modeKey: currentModeKey, diff: currentDiff, seconds: RUN_SECONDS });
 }
 
-// ให้เรียกคิกเกมซ้ำได้ (กรณี GO แล้วเงียบ)
-function kick(){
-  if (playing || countingDown) return;
-  try{ startGame(); }catch(e){ console.error(e); }
-}
+function kick(){ if (!playing && !countingDown) { try{ startGame(); }catch(e){ console.error(e); } } }
 
 function stopLoop(){
   clearAllTimers();
   try{ spawnObserver?.disconnect?.(); }catch{}
   playing=false; paused=false; countingDown=false;
+  document.body.dataset.status = '';
 }
 
 function shortMode(m){
@@ -351,13 +322,7 @@ function shortMode(m){
   return String(m||'');
 }
 
-// canvases ไม่บังคลิก (เผื่อ DOM ใส่มาทีหลัง)
 setTimeout(()=>document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }),0);
 
-// รีเลย์เหตุการณ์ Resize/หมุนจอ ไปให้โหมดจัดวางใหม่ (กันสปอนทับ HUD/ล้นจอ)
-window.addEventListener('resize', ()=>{ try{ activeMode?.onViewportChange?.(); }catch{} }, {passive:true});
-window.addEventListener('orientationchange', ()=>{ try{ activeMode?.onViewportChange?.(); }catch{} }, {passive:true});
-
-// expose
 window.HHA = { startGame, kick, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — robust start + watchdog + pause-on-blur (latest)');
+console.log('[HeroHealth] main.js — status-aware watchdog (latest)');
