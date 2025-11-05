@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Hero Health VR — index1</title>
+  <title>Hero Health VR — Nutrition Suite</title>
   <meta name="color-scheme" content="light dark"/>
   <style>
     body{margin:0;background:#0b1324;color:#e8f0ff;font-family:system-ui,Segoe UI,Inter,Arial}
@@ -12,11 +12,13 @@
     button{font:inherit}
   </style>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <!-- modules -->
   <script type="module" src="./vr/emoji-sprite.js"></script>
   <script type="module" src="./vr/miniquest.js"></script>
   <script type="module" src="./vr/game-router.js"></script>
 </head>
 <body>
+  <!-- boot helper / force start -->
   <div class="fallback" id="bootStatus">
     <div><strong>Status:</strong> Booting… (?mode=goodjunk|groups|hydration|plate & goal=30|40|50)</div>
     <button id="forceStartBtn" style="margin-top:6px;background:#2e8b57;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">
@@ -29,7 +31,7 @@
     <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
     <a-sky color="#0b1324"></a-sky>
 
-    <!-- HUD (depth off) -->
+    <!-- HUD (depth off ให้ลอยบนสุดเสมอ) -->
     <a-entity id="hud" position="0 2.2 -2">
       <a-entity geometry="primitive: plane; width: 1.8; height: 0.26"
                 material="color:#111a33; opacity:0.88; depthTest:false; depthWrite:false"></a-entity>
@@ -38,6 +40,7 @@
       <a-text id="tCombo" value="คอมโบ: x1"  position="0.15 -0.03 0.01"  align="left" width="2.4" color="#e8f0ff"></a-text>
       <a-text id="tStat"  value="READY"       position="0.15 0.07 0.01"   align="left" width="2.4" color="#7ea8ff"></a-text>
 
+      <!-- Mission -->
       <a-entity position="0 -0.23 0">
         <a-entity geometry="primitive: plane; width: 1.8; height: 0.08"
                   material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
@@ -46,6 +49,7 @@
         <a-text id="tMission" value="ภารกิจ: 0/40" position="-0.88 -0.005 0.02" align="left" width="2.4" color="#dff"></a-text>
       </a-entity>
 
+      <!-- Streak + Fever -->
       <a-entity position="0 -0.42 0">
         <a-entity geometry="primitive: plane; width: 1.8; height: 0.08"
                   material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
@@ -112,8 +116,8 @@
       <a-sound id="sndFvr" src="url(assets/audio/cheer_fever.mp3)" volume="1.0"></a-sound>
     </a-entity>
 
-    <!-- Game zone (moved back) -->
-    <a-entity id="spawnZone" position="0 1.2 -3.4"></a-entity>
+    <!-- Game zone: ถอย/ต่ำลงไม่ชน HUD -->
+    <a-entity id="spawnZone" position="0 1.00 -3.80"></a-entity>
     <a-entity id="game" game-manager="goal: 40; duration: 60"></a-entity>
   </a-scene>
 
@@ -129,8 +133,9 @@
 
       function getGM(){ return document.querySelector('[game-manager]')?.components?.['game-manager'] || null; }
 
+      // ถ้า external game-manager ยังไม่มี ให้สร้าง fallback
       if (!AFRAME.components['game-manager']) {
-        console.warn('[HHA] Using SAFETY game-manager fallback (index1)');
+        console.warn('[HHA] Using SAFETY game-manager fallback');
         AFRAME.registerComponent('game-manager', {
           schema:{goal:{default:GOAL}, duration:{default:DURA}},
           init:function(){
@@ -161,13 +166,25 @@
           },
           _spawnLoop:function(){
             if(!this.running) return;
+
+            // ===== Safe spawn area (ไม่ชน HUD) =====
+            const SPAWN_Z = -3.8;      // ถอยหลัง
+            const SAFE_Y_MIN = 0.70;   // ต่ำสุด
+            const SAFE_Y_MAX = 1.20;   // สูงสุด (ต่ำกว่า HUD)
+            const SAFE_X = 0.80;       // ซ้าย/ขวา
+
+            let x = (Math.random()*2 - 1) * SAFE_X;                        // -0.8..0.8
+            let y = SAFE_Y_MIN + Math.random()*(SAFE_Y_MAX - SAFE_Y_MIN);  // 0.70..1.20
+            let z = SPAWN_Z;
+
             const e=document.createElement('a-entity');
-            e.setAttribute('emoji-sprite', {char: this._pickEmoji(), size: 0.55});
-            const x=(Math.random()-0.5)*1.6, y=0.9+Math.random()*0.5, z=-3.4;
+            e.setAttribute('emoji-sprite', {char: this._pickEmoji(), size: 0.58});
             e.setAttribute('position', `${x} ${y} ${z}`);
             e.classList.add('target','clickable');
-            const good = Math.random()>0.35;
+
+            const good = Math.random()>0.35; // 65% good
             e.dataset.good = good ? '1' : '0';
+
             e.addEventListener('click', ()=>{
               if(!this.running) return;
               if (e._dead) return; e._dead=true; e.remove();
@@ -179,9 +196,12 @@
               }
               this._updateHUD();
             });
+
             this.spawn.appendChild(e);
-            setTimeout(()=>{ e?.remove?.(); }, 2200+Math.random()*1200);
-            setTimeout(()=>this._spawnLoop(), 360+Math.random()*240);
+
+            // อายุวัตถุ + อัตราเกิด
+            setTimeout(()=>{ e?.remove?.(); }, 2200+Math.random()*1000);
+            setTimeout(()=>this._spawnLoop(), 300+Math.random()*220);
           },
           _pickEmoji:function(){
             const GOOD=['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
@@ -203,6 +223,7 @@
         if (game && !game.getAttribute('game-manager')) game.setAttribute('game-manager', `goal: ${GOAL}; duration: ${DURA}`);
       }
 
+      // Hard-start (คลิกปุ่ม/ฉาก หรือ Space/Enter จะรีทรายเริ่มจนติด)
       function startWithRetry(msLeft=10000){
         const gm=getGM();
         if (gm && !gm.running){ try{ gm.start(); setStatus('Started ✅'); return; }catch(e){ console.error(e); setStatus('Error: '+e.message); } }
