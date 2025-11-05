@@ -1,16 +1,22 @@
-// === HUD (minimal augment) ===
+// === HUD (augment with Streak/Fever) ===
 export class HUD{
   constructor(){
     this.el = document.querySelector('.hud') || document.body;
     this._missionBar = document.getElementById('missionBar');
     this._missionText = document.getElementById('missionText');
     this._resultModal = document.getElementById('resultModal');
+    // Streak/Fever elements
+    this._streakNum = document.getElementById('streakNum');
+    this._feverBar  = document.getElementById('feverBar');
+    this._feverWrap = document.getElementById('feverWrap');
   }
+
   setTimer(t){ const el = document.getElementById('hudTime'); if(el) el.textContent = t; }
   setScore(s){ const el = document.getElementById('hudScore'); if(el) el.textContent = s; }
   setCombo(c){ const el = document.getElementById('hudCombo'); if(el) el.textContent = 'x'+c; }
   setStatus(st){ const el = document.getElementById('hudStatus'); if(el) el.textContent = st; }
 
+  // ----- Mission -----
   showMission(show=true){
     const wrap = document.getElementById('missionWrap');
     if(wrap) wrap.style.display = show?'flex':'none';
@@ -28,8 +34,22 @@ export class HUD{
     }
   }
 
+  // ----- Streak / Fever -----
+  setStreak(n){
+    if(this._streakNum) this._streakNum.textContent = n;
+  }
+  setFever({pct=0, active=false}={}){
+    if(this._feverBar){
+      const clamped = Math.max(0, Math.min(100, pct|0));
+      this._feverBar.style.width = clamped + '%';
+    }
+    if(this._feverWrap){
+      this._feverWrap.dataset.active = active ? '1':'0';
+    }
+  }
+
+  // ----- Result -----
   showResult({mode,score,time,stars=1,banner='RESULT',details={},summary=''}){
-    // ถ้ามี result modal ใน DOM ให้ใช้
     if(this._resultModal){
       this._resultModal.querySelector('.res-banner').textContent = banner;
       this._resultModal.querySelector('.res-score').textContent = score;
@@ -40,7 +60,6 @@ export class HUD{
       this._resultModal.style.display = 'block';
       return;
     }
-    // fallback
     alert(summary || `Score ${score}`);
   }
 }
