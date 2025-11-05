@@ -11,6 +11,7 @@
   </style>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script type="module" src="./vr/emoji-sprite.js"></script>
+  <script type="module" src="./vr/miniquest.js"></script>
   <script type="module" src="./vr/game-router.js"></script>
 </head>
 <body>
@@ -43,7 +44,16 @@
         <a-text id="tStreak" value="Streak: 0" position="-0.88 -0.005 0.02" align="left" width="2.4" color="#ffd54f"></a-text>
         <a-entity id="feverBg" geometry="primitive: plane; width: 0.9; height: 0.06" position="0.45 0 0.01" material="color:#1b2752; opacity:0.95"></a-entity>
         <a-entity id="feverFill" geometry="primitive: plane; width: 0.0; height: 0.06" position="0.0 0 0.02" material="color:#ff9043; opacity:0.95"></a-entity>
-      </a-entity>
+      
+    <!-- Mini Quest Panel (3 random quests) -->
+    <a-entity id="questPanel" position="0 1.62 -2">
+      <a-entity geometry="primitive: plane; width: 1.8; height: 0.28" material="color:#111a33; opacity:0.85"></a-entity>
+      <a-text value="Mini Quests" position="-0.84 0.09 0.01" align="left" width="2.4" color="#ffd54f"></a-text>
+      <a-text id="tQ1" value="-" position="-0.84 -0.01 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
+      <a-text id="tQ2" value="-" position="-0.84 -0.08 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
+      <a-text id="tQ3" value="-" position="-0.84 -0.15 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
+    </a-entity>
+</a-entity>
     </a-entity>
 
     <!-- Start / Result Panels -->
@@ -72,6 +82,13 @@
 
     <!-- Sounds (placeholders; you can replace with real files) -->
     <a-entity id="sfx" position="0 1.6 0">
+      <!-- Coach voice (Thai) -->
+      <a-sound id="coach_start" src="url(assets/audio/coach_start_th.mp3)" volume="1.0"></a-sound>
+      <a-sound id="coach_good"  src="url(assets/audio/coach_good_th.mp3)"  volume="1.0"></a-sound>
+      <a-sound id="coach_warn"  src="url(assets/audio/coach_warn_th.mp3)"  volume="1.0"></a-sound>
+      <a-sound id="coach_fever" src="url(assets/audio/coach_fever_th.mp3)" volume="1.0"></a-sound>
+      <a-sound id="coach_quest" src="url(assets/audio/coach_quest_th.mp3)" volume="1.0"></a-sound>
+      <a-sound id="coach_clear" src="url(assets/audio/coach_clear_th.mp3)" volume="1.0"></a-sound>
       <a-sound id="bgm" src="url(assets/audio/bgm_loop.mp3)" autoplay="false" loop="true" volume="0.6"></a-sound>
       <a-sound id="sndPop" src="url(assets/audio/pop.mp3)" volume="1.0"></a-sound>
       <a-sound id="sndBoo" src="url(assets/audio/boo.mp3)" volume="1.0"></a-sound>

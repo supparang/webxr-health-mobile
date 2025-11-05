@@ -1,3 +1,4 @@
+import { MiniQuest } from '../miniquest.js';
 // modes/hydration-vr.js
 
 function byId(id){ return document.getElementById(id); }
@@ -19,7 +20,7 @@ AFRAME.registerComponent('game-manager', {
   schema:{ goal:{default:'auto'}, duration:{default:60} },
   init(){
     this.scene=this.el.sceneEl; this.spawnZone=byId('spawnZone');
-    this.hud={tTime:byId('tTime'), tScore:byId('tScore'), tCombo:byId('tCombo'), tStat:byId('tStat'),
+    this.hud={tTime:byId('tTime'), tScore:byId('tScore'), tCombo:byId('tCombo'), tStat:byId('tStat'), tQ1:byId('tQ1'), tQ2:byId('tQ2'), tQ3:byId('tQ3'),
                tMission:byId('tMission'), missionFill:byId('missionFill'), tStreak:byId('tStreak'), feverFill:byId('feverFill')};
     this.ui={startBtn:byId('startBtn'), restartBtn:byId('restartBtn'), resultPanel:byId('resultPanel'),
               tResultTitle:byId('tResultTitle'), tResultBody:byId('tResultBody')};
@@ -28,7 +29,8 @@ AFRAME.registerComponent('game-manager', {
     this.hits={good:0,junk:0}; this.streak=0; this.fever={pct:0,active:false,timer:null}; this.running=false;
     this._onStart=()=>this.start(); this._onRestart=()=>this.start();
     this.ui.startBtn?.addEventListener('click',this._onStart); this.ui.restartBtn?.addEventListener('click',this._onRestart);
-    this.ui.startBtn?.classList.add('clickable'); this.ui.restartBtn?.classList.add('clickable'); this._updateHUD('READY');
+    this.ui.startBtn?.classList.add('clickable'); this.ui.restartBtn?.classList.add('clickable'); this.mq = new MiniQuest({tQ1:byId('tQ1'),tQ2:byId('tQ2'),tQ3:byId('tQ3')}, this.audio);
+    this._updateHUD('READY');
   },
   remove(){ this.ui.startBtn?.removeEventListener('click',this._onStart); this.ui.restartBtn?.removeEventListener('click',this._onRestart); this._clear(); },
   _goal(){ const q=parseInt((new URL(location.href)).searchParams.get('goal')||'',10); if([30,40,50].includes(q))return q; return 40; },
@@ -44,8 +46,8 @@ AFRAME.registerComponent('game-manager', {
   _clear(){ clearTimeout(this.spawnT); clearInterval(this.tickT); clearTimeout(this.fever.timer); this.spawnT=this.tickT=this.fever.timer=null; },
   start(){ this._clear(); this.ui.resultPanel?.setAttribute('visible','false');
     this.timeLeft=this.data.duration; this.score=0; this.combo=1; this.maxCombo=1; this.hits={good:0,junk:0}; this.streak=0; this.fever={pct:0,active:false,timer:null};
-    this.running=true; this._updateHUD('PLAY'); this._stop('bgm'); this._play('bgm');
-    this._spawnLoop(); this.tickT=setInterval(()=>{ if(!this.running)return; this.timeLeft--; if(!this.fever.active) this._fever(-6); this._updateHUD(); if(this.timeLeft<=0) this.end(); },1000);
+    this.running=true; this._updateHUD('PLAY'); this._stop('bgm'); this._play('bgm'); this.mq.start(this.goal);
+    this._spawnLoop(); this.tickT=setInterval(()=>{ if(!this.running)return; this.timeLeft--; if(!this.fever.active) this._fever(-6); this._updateHUD(); this.mq.second(); if(this.timeLeft<=0) this.end(); },1000);
   },
   end(){ if(!this.running)return; this.running=false; this._clear(); this._stop('bgm');
     this.scene.querySelectorAll('.drop').forEach(e=>e.remove());
@@ -63,10 +65,10 @@ AFRAME.registerComponent('game-manager', {
   },
   _hit(good,e){ if(good){ this.hits.good++; this.score+=10*this.combo; this.combo=Math.min(999,this.combo+1); this.maxCombo=Math.max(this.maxCombo,this.combo); this.streak++; this._fever(+14); this._play('pop'); }
     else { this.hits.junk++; this.combo=1; this.streak=0; this._play('boo'); }
-    this._updateHUD(); setTimeout(()=>e.remove(), 40);
+    this._updateHUD(); this.mq.good({score:this.score, combo:this.combo, streak:this.streak, missionGood:this.hits.good}); this.mission && this.mq.mission(this.hits.good); setTimeout(()=>e.remove(), 40);
   },
   _fever(delta){ if(this.fever.active && delta>0) return; this.fever.pct=Math.max(0,Math.min(100,this.fever.pct+delta));
-    if(this.fever.pct>=100 && !this.fever.active){ this.fever.active=true; this._play('fvr'); clearTimeout(this.fever.timer);
+    if(this.fever.pct>=100 && !this.fever.active){ this.fever.active=true; this._play('fvr'); this.mq.fever(); clearTimeout(this.fever.timer);
       this.fever.timer=setTimeout(()=>{ this.fever.active=false; this.fever.pct=0; this._updateHUD(); },6000); }
   }
 });
