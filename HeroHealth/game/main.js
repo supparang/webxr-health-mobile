@@ -1,4 +1,7 @@
-// === Hero Health Academy — game/main.js (CLASSIC-LITE)
+// === Hero Health Academy — game/main.js (CLASSIC-LITE v2)
+// - ส่ง BUS เข้าโหมดตั้งแต่ start()
+// - จิ้ม update(0, BUS) หนึ่งครั้งเพื่อ bind BUS ทันที
+// - watchdog เบา ๆ 1 ชั้น ถ้า 1.2s แล้วยังไม่มี .gj-it
 
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
 
@@ -13,7 +16,6 @@ import { Leaderboard } from './core/leaderboard.js';
 import * as goodjunk from './modes/goodjunk.js';
 
 const RUN_SECONDS = 45;
-
 const MODES = { goodjunk };
 const $  = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
@@ -45,6 +47,7 @@ function ensureSpawnHost(){
   let host=document.getElementById('spawnHost');
   if(!host){ host=document.createElement('div'); host.id='spawnHost'; host.style.cssText='position:fixed;inset:0;z-index:5000;pointer-events:auto'; document.body.appendChild(host); }
   document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
+  return host;
 }
 
 async function preCountdown(){
@@ -83,10 +86,24 @@ function beginRun({modeKey,diff='Normal'}){
   }catch{}
 
   activeMode = MODES[modeKey];
-  try{ activeMode?.start?.({difficulty:diff}); }catch{}
+  try{
+    // ส่ง BUS เข้าไปตั้งแต่เริ่ม
+    activeMode?.start?.({difficulty:diff, bus: BUS});
+    // bind BUS ให้ชัวร์อีกช็อต (สำหรับโหมดที่รับ BUS ผ่าน update)
+    activeMode?.update?.(0, BUS);
+  }catch{}
 
-  // ไม่ใช้ watchdog ซ้อนชั้น: ปล่อยให้โหมดจัดการสปอนเองแบบเดิม
-  // main loop ไม่จำเป็นใน legacy เพราะโหมดใช้ interval
+  // Watchdog เบา ๆ: 1.2s แล้วไม่เห็น .gj-it ⇒ start ซ้ำ
+  setTimeout(()=>{
+    if(!playing) return;
+    const host = document.getElementById('spawnHost');
+    if(host && !host.querySelector('.gj-it')){
+      try{
+        activeMode?.start?.({difficulty:diff, bus: BUS});
+        activeMode?.update?.(0, BUS);
+      }catch{}
+    }
+  }, 1200);
 }
 
 function endRun(){
@@ -123,4 +140,4 @@ async function startGame(){
 function stopLoop(){ clearInterval(tickTimer); playing=false; countingDown=false; }
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — CLASSIC-LITE (legacy stable)');
+console.log('[HeroHealth] main.js — CLASSIC-LITE v2 (legacy+BUS)');
