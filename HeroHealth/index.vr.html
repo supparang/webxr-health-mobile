@@ -9,7 +9,7 @@
     body{margin:0;background:#0b1324;color:#e8f0ff;font-family:system-ui,Segoe UI,Inter,Arial}
     .fallback{position:fixed;left:12px;bottom:12px;padding:8px 10px;background:#111a33;color:#cfe;border-radius:10px}
     .fallback strong{color:#9ff}
-    button{font:inherit}
+    .btn{cursor:pointer}
   </style>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <!-- modules -->
@@ -20,7 +20,7 @@
 <body>
   <!-- boot helper / force start -->
   <div class="fallback" id="bootStatus">
-    <div><strong>Status:</strong> Booting… (?mode=goodjunk|groups|hydration|plate & goal=30|40|50)</div>
+    <div><strong>Status:</strong> Booting…</div>
     <button id="forceStartBtn" style="margin-top:6px;background:#2e8b57;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">
       Force Start
     </button>
@@ -31,14 +31,14 @@
     <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
     <a-sky color="#0b1324"></a-sky>
 
-    <!-- HUD (depth off ให้ลอยบนสุดเสมอ) -->
+    <!-- HUD (depth off) -->
     <a-entity id="hud" position="0 2.2 -2">
       <a-entity geometry="primitive: plane; width: 1.8; height: 0.26"
                 material="color:#111a33; opacity:0.88; depthTest:false; depthWrite:false"></a-entity>
       <a-text id="tTime"  value="เวลา: 60s" position="-0.84 0.07 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
       <a-text id="tScore" value="คะแนน: 0"   position="-0.84 -0.03 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
       <a-text id="tCombo" value="คอมโบ: x1"  position="0.15 -0.03 0.01"  align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tStat"  value="READY"       position="0.15 0.07 0.01"   align="left" width="2.4" color="#7ea8ff"></a-text>
+      <a-text id="tStat"  value="เลือกโหมด →" position="0.15 0.07 0.01"   align="left" width="2.4" color="#7ea8ff"></a-text>
 
       <!-- Mission -->
       <a-entity position="0 -0.23 0">
@@ -71,12 +71,36 @@
       <a-text id="tQ3" value="-" position="-0.84 -0.15 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
     </a-entity>
 
+    <!-- === VR Mode Menu (เลือกโหมดในฉาก) === -->
+    <a-entity id="modeMenu" position="0 1.45 -1.25">
+      <a-entity geometry="primitive: plane; width: 1.2; height: 0.72"
+                material="color:#0e1b38; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
+      <a-text value="เลือกโหมดเกม" position="-0.45 0.28 0.01" width="2" color="#9fd"></a-text>
+
+      <!-- แถวบน -->
+      <a-plane class="clickable btn" position="-0.38 0.10 0.01" width="0.52" height="0.20" color="#1f3a6d"
+               data-mode="goodjunk"></a-plane>
+      <a-text value="ดี vs ขยะ" position="-0.58 0.09 0.02" width="2" color="#fff"></a-text>
+
+      <a-plane class="clickable btn" position="0.38 0.10 0.01" width="0.52" height="0.20" color="#1f3a6d"
+               data-mode="groups"></a-plane>
+      <a-text value="หมวดอาหาร" position="0.16 0.09 0.02" width="2" color="#fff"></a-text>
+
+      <!-- แถวล่าง -->
+      <a-plane class="clickable btn" position="-0.38 -0.16 0.01" width="0.52" height="0.20" color="#1f3a6d"
+               data-mode="hydration"></a-plane>
+      <a-text value="สมดุลน้ำ" position="-0.58 -0.17 0.02" width="2" color="#fff"></a-text>
+
+      <a-plane class="clickable btn" position="0.38 -0.16 0.01" width="0.52" height="0.20" color="#1f3a6d"
+               data-mode="plate"></a-plane>
+      <a-text value="จานสุขภาพ" position="0.18 -0.17 0.02" width="2" color="#fff"></a-text>
+    </a-entity>
+
     <!-- Start / Result -->
-    <a-entity id="startPanel" position="0 1.4 -1.2">
-      <a-plane id="startBtn" width="0.8" height="0.24" color="#2e8b57" class="clickable"
-               material="depthTest:false; depthWrite:false"
-               onclick="(function(){window.__HARD_START__&&window.__HARD_START__();})();"></a-plane>
-      <a-text value="เริ่มเกม" position="-0.22 0 0.01" width="2" color="#fff"></a-text>
+    <a-entity id="startPanel" position="0 1.0 -1.20">
+      <a-plane id="startBtn" width="0.9" height="0.26" class="clickable"
+               color="#3b6" material="depthTest:false; depthWrite:false"></a-plane>
+      <a-text id="startLbl" value="เลือกโหมดก่อน" position="-0.32 0 0.01" width="2" color="#fff"></a-text>
     </a-entity>
 
     <a-entity id="resultPanel" position="0 1.6 -1.3" visible="false">
@@ -116,12 +140,12 @@
       <a-sound id="sndFvr" src="url(assets/audio/cheer_fever.mp3)" volume="1.0"></a-sound>
     </a-entity>
 
-    <!-- Game zone: ถอย/ต่ำลงไม่ชน HUD -->
+    <!-- Game zone -->
     <a-entity id="spawnZone" position="0 1.00 -3.80"></a-entity>
     <a-entity id="game" game-manager="goal: 40; duration: 60"></a-entity>
   </a-scene>
 
-  <!-- Hard-start + Safety fallback -->
+  <!-- Hard-start + Mode logic + Safety fallback -->
   <script>
     (function(){
       const statusEl = document.getElementById('bootStatus');
@@ -130,10 +154,48 @@
       const url = new URL(location.href);
       let GOAL = Number(url.searchParams.get('goal') ?? 40); if(!Number.isFinite(GOAL)) GOAL = 40;
       let DURA = Number(url.searchParams.get('time') ?? 60); if(!Number.isFinite(DURA)) DURA = 60;
+      let MODE = url.searchParams.get('mode') || localStorage.getItem('HHA_MODE') || '';
 
+      const startBtn = document.getElementById('startBtn');
+      const startLbl = document.getElementById('startLbl');
+      const tStat    = document.getElementById('tStat');
+      const modeMenu = document.getElementById('modeMenu');
+
+      function updateStartState(){
+        const ready = !!MODE;
+        startBtn.setAttribute('color', ready ? '#2e8b57' : '#555');
+        startLbl.setAttribute('value', ready ? 'เริ่มเกม' : 'เลือกโหมดก่อน');
+        tStat.setAttribute('value', ready ? ('โหมด: '+MODE.toUpperCase()) : 'เลือกโหมด →');
+      }
+
+      // hook: buttons in the menu
+      Array.from(modeMenu.querySelectorAll('.btn')).forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          MODE = btn.getAttribute('data-mode');
+          localStorage.setItem('HHA_MODE', MODE);
+          const q = new URL(location.href);
+          q.searchParams.set('mode', MODE);
+          history.replaceState({}, '', q.toString()); // อัปเดต URL ให้ตรง
+          updateStartState();
+        });
+      });
+
+      // hard-start retry
       function getGM(){ return document.querySelector('[game-manager]')?.components?.['game-manager'] || null; }
+      function startWithRetry(msLeft=10000){
+        if(!MODE){ updateStartState(); return; }
+        const gm=getGM();
+        if (gm && !gm.running){ try{ gm.start(); setStatus('Started ✅'); modeMenu.setAttribute('visible','false'); return; }catch(e){ console.error(e); setStatus('Error: '+e.message); } }
+        if (msLeft<=0){ setStatus('Failed ❌'); return; }
+        setStatus('Waiting for game… ('+Math.ceil(msLeft/1000)+'s)');
+        setTimeout(()=>startWithRetry(msLeft-250),250);
+      }
+      window.__HARD_START__=()=>startWithRetry(10000);
 
-      // ถ้า external game-manager ยังไม่มี ให้สร้าง fallback
+      // wire start click
+      startBtn.addEventListener('click', ()=>window.__HARD_START__());
+
+      // ===== Safety fallback: register game-manager if not provided by mode files =====
       if (!AFRAME.components['game-manager']) {
         console.warn('[HHA] Using SAFETY game-manager fallback');
         AFRAME.registerComponent('game-manager', {
@@ -145,14 +207,14 @@
             this.tTime=byId('tTime'); this.tScore=byId('tScore'); this.tCombo=byId('tCombo');
             this.tStat=byId('tStat'); this.tMission=byId('tMission'); this.missionFill=byId('missionFill');
             this.tStreak=byId('tStreak'); this.spawn=document.getElementById('spawnZone');
-            byId('startBtn')?.addEventListener('click', ()=>this.start());
             byId('restartBtn')?.addEventListener('click', ()=>this.start());
-            document.querySelector('a-scene')?.addEventListener('click', ()=>{ if(!this.running) this.start(); }, {once:true});
             this._updateHUD('READY');
           },
           start:function(){
             if(this.running)return;
+            if(!MODE){ alert('กรุณาเลือกโหมดก่อน'); return; }
             this.running=true; this.timeLeft=this.data.duration; this.score=0; this.combo=1; this.streak=0; this.goodHits=0;
+            modeMenu.setAttribute('visible','false');
             this._updateHUD('PLAY');
             this._tickTimer=setInterval(()=>{ this.timeLeft--; this._updateHUD(); if(this.timeLeft<=0) this.end(); },1000);
             this._spawnLoop();
@@ -160,46 +222,31 @@
           },
           end:function(){
             this.running=false; clearInterval(this._tickTimer); this._tickTimer=null; this._updateHUD('END');
-            const res=document.getElementById('resultPanel'); if(res) res.setAttribute('visible', true);
+            document.getElementById('resultPanel')?.setAttribute('visible', true);
             const body=document.getElementById('tResultBody');
-            if(body) body.setAttribute('value', `Score: ${this.score}\nGood: ${this.goodHits}/${this.data.goal}`);
+            if(body) body.setAttribute('value', `Mode: ${MODE}\nScore: ${this.score}\nGood: ${this.goodHits}/${this.data.goal}`);
           },
           _spawnLoop:function(){
             if(!this.running) return;
-
-            // ===== Safe spawn area (ไม่ชน HUD) =====
-            const SPAWN_Z = -3.8;      // ถอยหลัง
-            const SAFE_Y_MIN = 0.70;   // ต่ำสุด
-            const SAFE_Y_MAX = 1.20;   // สูงสุด (ต่ำกว่า HUD)
-            const SAFE_X = 0.80;       // ซ้าย/ขวา
-
-            let x = (Math.random()*2 - 1) * SAFE_X;                        // -0.8..0.8
-            let y = SAFE_Y_MIN + Math.random()*(SAFE_Y_MAX - SAFE_Y_MIN);  // 0.70..1.20
-            let z = SPAWN_Z;
-
+            // safe area (ไม่ชน HUD)
+            const z=-3.8, yMin=0.70, yMax=1.20, xAbs=0.80;
+            const x=(Math.random()*2-1)*xAbs, y=yMin+Math.random()*(yMax-yMin);
             const e=document.createElement('a-entity');
             e.setAttribute('emoji-sprite', {char: this._pickEmoji(), size: 0.58});
             e.setAttribute('position', `${x} ${y} ${z}`);
             e.classList.add('target','clickable');
-
-            const good = Math.random()>0.35; // 65% good
+            const good = (MODE==='goodjunk') ? (Math.random()>0.35) : true; // ตัวอย่าง: โหมดอื่นอาจนับเฉพาะ "ถูกที่/ถูกเวลา"
             e.dataset.good = good ? '1' : '0';
-
             e.addEventListener('click', ()=>{
               if(!this.running) return;
               if (e._dead) return; e._dead=true; e.remove();
               if (good){
                 this.goodHits++; this.score += 10*this.combo; this.combo++; this.streak++;
                 if (this.goodHits>=this.data.goal) this.end();
-              } else {
-                this.combo=1; this.streak=0;
-              }
+              } else { this.combo=1; this.streak=0; }
               this._updateHUD();
             });
-
             this.spawn.appendChild(e);
-
-            // อายุวัตถุ + อัตราเกิด
             setTimeout(()=>{ e?.remove?.(); }, 2200+Math.random()*1000);
             setTimeout(()=>this._spawnLoop(), 300+Math.random()*220);
           },
@@ -209,7 +256,7 @@
             return (Math.random()>0.35?GOOD:JUNK)[Math.floor(Math.random()*20)% (Math.random()>0.35?GOOD.length:JUNK.length)];
           },
           _updateHUD:function(state){
-            if (state) this.tStat?.setAttribute('value', state);
+            if (state) this.tStat?.setAttribute('value', state+' ('+(MODE?MODE.toUpperCase():'-')+')');
             this.tTime?.setAttribute('value', `เวลา: ${this.timeLeft}s`);
             this.tScore?.setAttribute('value', `คะแนน: ${this.score}`);
             this.tCombo?.setAttribute('value', `คอมโบ: x${this.combo}`);
@@ -219,11 +266,14 @@
             this.tStreak?.setAttribute('value', `Streak: ${this.streak}`);
           }
         });
-        const game=document.getElementById('game');
-        if (game && !game.getAttribute('game-manager')) game.setAttribute('game-manager', `goal: ${GOAL}; duration: ${DURA}`);
       }
 
-      // Hard-start (คลิกปุ่ม/ฉาก หรือ Space/Enter จะรีทรายเริ่มจนติด)
+      // init UI state
+      updateStartState();
+
+      // force-start helper
+      document.getElementById('forceStartBtn').addEventListener('click', ()=>window.__HARD_START__());
+      window.__HARD_START__=()=>startWithRetry(10000);
       function startWithRetry(msLeft=10000){
         const gm=getGM();
         if (gm && !gm.running){ try{ gm.start(); setStatus('Started ✅'); return; }catch(e){ console.error(e); setStatus('Error: '+e.message); } }
@@ -231,15 +281,6 @@
         setStatus('Waiting for game… ('+Math.ceil(msLeft/1000)+'s)');
         setTimeout(()=>startWithRetry(msLeft-250),250);
       }
-      window.__HARD_START__=()=>startWithRetry(10000);
-
-      window.addEventListener('DOMContentLoaded', ()=>{
-        setStatus('Loaded (press Start / Space / Enter)');
-        document.getElementById('forceStartBtn')?.addEventListener('click', window.__HARD_START__);
-        const scene=document.querySelector('a-scene');
-        scene?.addEventListener('click', ()=>window.__HARD_START__());
-        window.addEventListener('keydown', (e)=>{ if(e.code==='Space'||e.code==='Enter') window.__HARD_START__(); });
-      });
     })();
   </script>
 </body>
