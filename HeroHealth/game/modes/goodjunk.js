@@ -1,8 +1,7 @@
-// === Hero Health Academy — game/modes/goodjunk.js (LEGACY-STABLE)
-// - ไม่พึ่ง rAF
-// - สปอนด้วย setInterval เดี่ยว ๆ + เปิดฉาก burst
-// - ไม่เช็ค HUD ทับ (กัน false positive)
-// - ทำงานเหมือนเวอร์ชันที่เคยใช้ได้ดี
+// === Hero Health Academy — game/modes/goodjunk.js (LEGACY-STABLE v2)
+// - interval-only (ไม่พึ่ง rAF/MutationObserver)
+// - รับ BUS ตั้งแต่ start()
+// - ใช้ pnow() รองรับเครื่องที่ไม่มี performance.now()
 
 export const name = 'goodjunk';
 
@@ -19,6 +18,7 @@ const PRESET = {
 let host, items=[], alive=0, running=false, cfg;
 let spawnTimer=null, ageTimer=null, BUSRef=null;
 
+function pnow(){ try{ return performance.now(); }catch{ return Date.now(); } }
 function pick(a){ return a[(Math.random()*a.length)|0]; }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
@@ -30,6 +30,8 @@ function ensureHost(){
     host.style.cssText='position:fixed;inset:0;z-index:5000;pointer-events:auto';
     document.body.appendChild(host);
   }
+  // กัน canvas บังคลิก
+  document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
 }
 
 function randPos(size){
@@ -74,18 +76,19 @@ function spawnOne(){
     width:${s}px; height:${s}px; display:flex; align-items:center; justify-content:center;
     font-size:${s-6}px; cursor:pointer; user-select:none; pointer-events:auto;`;
   const life = cfg.life*(0.92+Math.random()*0.22);
-  const obj={el,x,y,dieAt:performance.now()+life,kind,dead:false};
+  const obj={el,x,y,dieAt:pnow()+life,kind,dead:false};
 
   el.addEventListener('pointerdown',(ev)=>{
     if(!running||obj.dead) return;
     obj.dead=true; alive=Math.max(0,alive-1);
     el.style.opacity='0'; setTimeout(()=>{ try{el.remove();}catch{}; },120);
     const uiX=ev.clientX||x, uiY=ev.clientY||y; boomEffect(uiX,uiY,emoji);
-    if(kind==='junk'){ BUSRef?.bad?.({source:obj,ui:{x:uiX,y:uiY}}); BUSRef?.sfx?.bad?.(); }
+    if(!BUSRef) return;
+    if(kind==='junk'){ BUSRef.bad?.({source:obj,ui:{x:uiX,y:uiY}}); BUSRef.sfx?.bad?.(); }
     else{
       const gold=(kind==='gold'); const pts=gold?150:100;
-      BUSRef?.hit?.({points:pts,kind:gold?'perfect':'good',ui:{x:uiX,y:uiY},meta:{golden:gold}});
-      if(gold) BUSRef?.sfx?.power?.(); else BUSRef?.sfx?.good?.();
+      BUSRef.hit?.({points:pts,kind:gold?'perfect':'good',ui:{x:uiX,y:uiY},meta:{golden:gold}});
+      if(gold) BUSRef.sfx?.power?.(); else BUSRef.sfx?.good?.();
     }
   },{passive:true});
 
@@ -95,9 +98,9 @@ function spawnOne(){
 
 function clearTimers(){ clearInterval(spawnTimer); spawnTimer=null; clearInterval(ageTimer); ageTimer=null; }
 
-export function start({difficulty='Normal'}={}){
+export function start({difficulty='Normal', bus=null}={}){
   ensureHost();
-  running=true; items=[]; alive=0;
+  running=true; items=[]; alive=0; BUSRef = bus || BUSRef;
   try{ host.innerHTML=''; }catch{}
   cfg = PRESET[difficulty] || PRESET.Normal;
 
@@ -105,38 +108,34 @@ export function start({difficulty='Normal'}={}){
   const burst=Math.min(4,cfg.maxAlive);
   for(let i=0;i<burst;i++) spawnOne();
 
-  // สปอนคงที่ แบบเดิมที่เคยใช้ได้ดี
+  // สปอนคงที่
   clearTimers();
   spawnTimer=setInterval(()=>{
     if(!running) return;
     if(alive<cfg.maxAlive) spawnOne();
   }, cfg.spawnEvery);
 
-  // อายุไอเท็มแบบคงที่ (100ms/ครั้ง)
+  // อายุไอเท็มแบบคงที่
   ageTimer=setInterval(()=>{
     if(!running) return;
-    const now=performance.now();
+    const now=pnow();
     for(let i=items.length-1;i>=0;i--){
-      const it=items[i]; if(it.dead) { items.splice(i,1); continue; }
+      const it=items[i]; if(it.dead){ items.splice(i,1); continue; }
       if(now>=it.dieAt){
         it.dead=true; alive=Math.max(0,alive-1);
         try{ it.el.style.opacity='0'; }catch{}
         setTimeout(()=>{ try{it.el.remove();}catch{}; },100);
-        if(it.kind!=='junk') BUSRef?.miss?.({source:it});
+        if(BUSRef && it.kind!=='junk') BUSRef.miss?.({source:it});
         items.splice(i,1);
       }
     }
   }, 100);
-
-  // กัน canvas บังคลิก
-  document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
 }
 
-export function update(_dt,bus){ BUSRef = bus || BUSRef; /* ไม่ต้องทำอะไร: ใช้ interval ล้วน */ }
+export function update(_dt,bus){ if(bus) BUSRef = bus; /* interval-only */ }
 export function stop(){ running=false; clearTimers(); }
 export function cleanup(){ stop(); try{ if(host) host.innerHTML=''; }catch{} items=[]; alive=0; }
 export function onViewportChange(){
-  // ปรับให้อยู่ในจอ ถ้า rotate/resize
   for(const it of items){
     const s=cfg?.size||64;
     it.x = clamp(it.x, s, window.innerWidth - s);
