@@ -127,7 +127,7 @@
   <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
 </div>
 
-<!-- Binder + Dynamic Import (force-fresh + clean stop + single autokick) -->
+<!-- Binder + Dynamic Import (force-fresh + clean stop + gated autokick) -->
 <script>
 (function(){
   const MUTED_KEY = 'hha_muted';
@@ -196,11 +196,12 @@
       // kick new round
       window.HHA.startGame();
 
-      // 🔁 autokick watchdog ครั้งเดียว: 1.2s หลังสั่งเริ่ม ถ้ายังไม่เข้าเล่น → เรียกซ้ำ
+      // 🔁 autokick watchdog ครั้งเดียว (เช็คสถานะจาก main.js): ไม่เรียกซ้ำถ้า countdown/running
       setTimeout(()=>{
-        const notPlaying = document.body.getAttribute('data-playing')!=='1';
+        const status = document.body.dataset.status; // '', 'countdown', 'running', 'paused'
+        const notReady = (status!=='countdown' && status!=='running');
         const stillHidden = mb?.hasAttribute('data-hidden');
-        if (stillHidden && notPlaying){
+        if (stillHidden && notReady){
           try{ window.HHA.startGame(); }catch{}
         }
       }, 1200);
