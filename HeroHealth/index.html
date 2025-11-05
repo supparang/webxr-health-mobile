@@ -2,263 +2,107 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hero Health Academy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="color-scheme" content="light dark"/>
-  <meta name="theme-color" content="#0b1020"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="theme-color" content="#0b1324"/>
+  <title>Hero Health — Good vs Junk</title>
 
+  <!-- Styles (external + minimal fallback) -->
+  <link rel="preload" as="script" href="./game/main.js"/>
+  <link rel="stylesheet" href="./styles/game.css"/>
   <style>
-    :root{--bg:#0b1020;--fg:#e8f3ff;--accent:#22d3ee;}
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{
-      margin:0;color:var(--fg);
-      background:radial-gradient(1200px 800px at 50% -10%,#173056 10%,var(--bg) 55%);
-      font:500 16px/1.5 ui-rounded,system-ui,Segoe UI,Arial,sans-serif;
-      -webkit-tap-highlight-color:transparent;
-      -webkit-user-select:none; user-select:none;
-      transition:background .25s ease;
-    }
-    body.fever-on{ background: radial-gradient(1200px 800px at 50% -10%, #513017 10%, var(--bg) 55%); }
-
-    /* Layers */
-    .game-wrap{position:relative;min-height:100dvh;overflow:hidden}
-    #gameLayer{position:fixed;inset:0;z-index:1}
-
-    /* ✅ spawnHost ต้องอยู่ด้วยเสมอ และรับคลิกแน่ๆ */
-    #spawnHost{position:fixed;inset:0;z-index:5000;pointer-events:auto}
-
-    /* canvases never block clicks */
-    canvas, canvas#c { pointer-events:none !important; z-index:1; position:fixed; inset:0 }
-
-    /* Menu */
-    #menuBar{
-      position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
-      z-index:9999; background:linear-gradient(#0b1020d0,#0b1020d0); pointer-events:auto;
-    }
-    #menuBar[data-hidden="1"]{ display:none !important; }
-    .menu-card{
-      width:min(860px,94vw); background:#0e1930; border:1px solid #132a4f; border-radius:16px;
-      padding:18px; box-shadow:0 18px 60px rgba(0,0,0,.45);
-    }
-    .row{display:flex;flex-wrap:wrap;gap:10px}
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 12px;
-      border-radius:12px; background:#0f1e38; color:#e6f2ff; border:1px solid #16325d; cursor:pointer; user-select:none;
-      touch-action:manipulation;
-    }
-    .btn:hover{ filter:brightness(1.08) }
-    .btn[data-mode].active,.btn[data-diff].active{ outline:2px solid var(--accent); box-shadow:0 0 0 4px #22d3ee22 }
-
-    /* HUD shell (ตัว HUD จะ inject เอง) */
-    #hud{position:fixed;inset:0;pointer-events:none;z-index:2000}
-    #hud #resultModal{z-index:20020}
-
-    /* Toast + boot warn */
-    .toast{
-      position:fixed;left:50%;top:68px;transform:translateX(-50%);
-      background:#0e1930;border:1px solid #214064;color:#e8f3ff;
-      padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040
-    }
-    .toast.show{opacity:1}
-    #bootWarn{position:fixed;inset:auto 0 0 0;background:#b00020;color:#fff;padding:10px 12px;font:700 14px ui-sans-serif;z-index:10050;display:none}
-
-    /* Fever/Power bar (กลางล่าง ใช้ร่วมกับ HUD) */
-    #powerBarWrap{ position:fixed; left:50%; bottom:20px; transform:translateX(-50%); z-index:2200; }
-    #powerBar{ position:relative; height:16px; width:min(520px,92vw); border-radius:999px; background:#0a1931; border:1px solid #0f2a54; overflow:hidden }
-    #powerFill{ position:absolute; inset:0; width:0% }
+    /* Fallback ถ้า styles/game.css ยังไม่มา */
+    :root{--bg:#0b1324;--fg:#e8f0ff;--card:#111a33;--muted:#7ea8ff;}
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Inter,Arial}
+    .wrap{min-height:100%;display:flex;flex-direction:column}
+    header.appbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:10px 14px;background:var(--card);position:sticky;top:0;z-index:50}
+    .brand{display:flex;gap:10px;align-items:center}
+    .brand .title{font-weight:800;letter-spacing:.3px}
+    .hud-bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .hud-pill{background:#1b2752;border-radius:999px;padding:6px 10px;font-weight:700}
+    .btn{appearance:none;border:0;border-radius:12px;padding:10px 16px;font-weight:800;cursor:pointer;background:#2e8b57;color:white}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    main{flex:1;display:flex;flex-direction:column;gap:10px;padding:10px 14px}
+    .game-wrap{position:relative;flex:1;min-height:60vh;border-radius:14px;background:#0c1736;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+    /* Host หลาย id เพื่อรองรับโค้ดเดิม */
+    #gameLayer, #spawnHost{position:absolute;inset:0}
+    /* Mission */
+    #missionWrap{display:flex;gap:10px;align-items:center}
+    #missionText{opacity:.95}
+    .mission-bar{flex:1;height:12px;background:#1b2752;border-radius:999px;overflow:hidden}
+    #missionBar{height:100%;width:0%;background:linear-gradient(90deg,#3ddc84,#23a4ff)}
+    /* Result modal */
+    #resultModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:9999}
+    .result-card{max-width:560px;margin:10vh auto;background:var(--card);border-radius:18px;padding:18px 18px 14px}
+    .res-banner{margin:0 0 6px 0;font-size:24px}
+    .res-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+    footer.appfoot{padding:10px 14px;opacity:.75}
+    .tip{font-size:13px;color:#b9d0ff}
   </style>
 </head>
+<body>
+  <noscript>ต้องเปิดใช้งาน JavaScript เพื่อเล่นเกมนี้</noscript>
 
-<body data-mode="goodjunk" data-diff="Normal">
-<div class="game-wrap">
-  <div id="gameLayer"></div>
-  <div id="spawnHost"></div>
-
-  <!-- MENU -->
-  <div id="menuBar" aria-label="Main menu">
-    <div class="menu-card">
-      <h2 style="margin:4px 0 12px;font:900 22px ui-rounded">Hero Health Academy</h2>
-
-      <div>
-        <h3>Play Mode</h3>
-        <div class="row" role="group" aria-label="Mode">
-          <div class="btn active" data-mode="goodjunk">🥗 Good vs Junk</div>
-          <div class="btn" data-mode="groups">🧺 5 Food Groups</div>
-          <div class="btn" data-mode="hydration">💧 Hydration</div>
-          <div class="btn" data-mode="plate">🍽️ Healthy Plate</div>
-        </div>
+  <div class="wrap">
+    <!-- App Bar / HUD -->
+    <header class="appbar">
+      <div class="brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="#7ea8ff" aria-hidden="true"><path d="M12 2l3 6 6 .9-4.5 4.3L17 20l-5-2.6L7 20l1.5-6.8L4 8.9 10 8z"/></svg>
+        <div class="title">Hero Health • Good vs Junk</div>
       </div>
-
-      <hr style="margin:12px 0;border-color:#133"/>
-
-      <div>
-        <h3>Difficulty</h3>
-        <div class="row" role="group" aria-label="Difficulty">
-          <div class="btn" data-diff="Easy">Easy</div>
-          <div class="btn active" data-diff="Normal">Normal</div>
-          <div class="btn" data-diff="Hard">Hard</div>
-        </div>
+      <div class="hud-bar" role="status" aria-live="polite">
+        <span class="hud-pill">เวลา: <b id="hudTime">60</b>s</span>
+        <span class="hud-pill">คะแนน: <b id="hudScore">0</b></span>
+        <span class="hud-pill">คอมโบ: <b id="hudCombo">x1</b></span>
+        <span class="hud-pill">สถานะ: <b id="hudStatus">READY</b></span>
+        <button data-action="start" id="startBtn" class="btn">เริ่มเกม</button>
       </div>
+    </header>
 
-      <hr style="margin:12px 0;border-color:#133"/>
+    <!-- Mission -->
+    <main>
+      <section id="missionWrap" aria-label="mission">
+        <div id="missionText">ภารกิจ: เก็บอาหารดีให้ครบ</div>
+        <div class="mission-bar"><div id="missionBar"></div></div>
+      </section>
 
-      <div class="row">
-        <button id="btn_start" class="btn" data-action="start" type="button" tabindex="0" aria-label="Start game">▶️ Start</button>
-        <div class="btn" data-action="howto" role="button" tabindex="0">❓ How to Play</div>
-        <div class="btn" data-action="sound" role="button" tabindex="0">🔊 Sound</div>
+      <!-- Game Host -->
+      <section class="game-wrap" aria-label="game area">
+        <!-- โค้ดรองรับ host ได้ทั้งสองแบบ -->
+        <div id="spawnHost"></div>
+        <div id="gameLayer"></div>
+      </section>
+    </main>
+
+    <!-- Result Modal -->
+    <div id="resultModal" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <div class="result-card">
+        <h2 id="resultTitle" class="res-banner">RESULT</h2>
+        <div class="res-grid">
+          <div>คะแนน: <b class="res-score">0</b></div>
+          <div>เวลา: <b class="res-time">0s</b></div>
+          <div>ดาว: <b class="res-stars">★☆☆☆☆</b></div>
+          <div class="res-detail">Good 0 | Junk 0 | MaxCombo x1 | Mission 0/0</div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+          <button class="btn" onclick="document.getElementById('resultModal').style.display='none'">ปิด</button>
+          <button class="btn" data-action="start">เล่นอีกครั้ง</button>
+        </div>
       </div>
     </div>
+
+    <footer class="appfoot">
+      <div class="tip">หากเสียงไม่ดัง ให้คลิก “เริ่มเกม” หนึ่งครั้งก่อน (นโยบาย Autoplay ของเบราว์เซอร์)</div>
+    </footer>
   </div>
 
-  <!-- Fever/Power bar container (HUD จะผูก event ให้เอง) -->
-  <div id="powerBarWrap">
-    <div id="powerBar"><div id="powerFill"></div></div>
-  </div>
-
-  <!-- AUDIO (bgm + sfx) -->
-  <audio id="bgm-main" preload="auto"></audio>
-  <audio id="bgm-fever" preload="auto"></audio>
-  <audio id="sfx-good" preload="auto" src="assets/sfx/good.mp3"></audio>
-  <audio id="sfx-bad" preload="auto" src="assets/sfx/bad.mp3"></audio>
-  <audio id="sfx-perfect" preload="auto" src="assets/sfx/perfect.mp3"></audio>
-  <audio id="sfx-tick" preload="auto" src="assets/sfx/tick.mp3"></audio>
-  <audio id="sfx-powerup" preload="auto" src="assets/sfx/powerup.mp3"></audio>
-</div>
-
-<!-- Binder + Dynamic Import (force-fresh + clean stop + gated autokick) -->
-<script>
-(function(){
-  const MUTED_KEY = 'hha_muted';
-  const $  = (s)=>document.querySelector(s);
-  const $$ = (s)=>document.querySelectorAll(s);
-
-  // ===== Helpers =====
-  function toast(text){
-    let el = $('#toast'); if(!el){ el=document.createElement('div'); el.id='toast'; el.className='toast'; document.body.appendChild(el); }
-    el.textContent = text; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'), 1200);
-  }
-  function warn(lines){
-    let w = $('#bootWarn'); if(!w){ w=document.createElement('div'); w.id='bootWarn'; document.body.appendChild(w); }
-    w.innerHTML = (Array.isArray(lines)?lines:[lines]).map(t=>`<div>${t}</div>`).join('');
-    w.style.display='block';
-  }
-  function ensureCanvas(){ document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} }); }
-
-  // ===== Sound prefs =====
-  function applyMuteFromStorage(){
-    const muted = localStorage.getItem(MUTED_KEY) === '1';
-    $$('audio').forEach(a=>{ try{ a.muted = muted; }catch{} });
-    const btn = $('.btn[data-action="sound"]');
-    if(btn) btn.textContent = muted ? '🔇 Sound' : '🔊 Sound';
-  }
-  applyMuteFromStorage();
-
-  // ===== Clean stop for previous instance =====
-  function hardStopOld(){
-    try{ window.HHA?.__stopLoop?.(); }catch{}
-    try{ const sh = document.getElementById('spawnHost'); if(sh) sh.innerHTML=''; }catch{}
-    try{ const mb = document.getElementById('menuBar'); if (mb){ mb.removeAttribute('data-hidden'); mb.style.display='flex'; } }catch{}
-    try{ delete window.HHA; }catch{}
-  }
-
-  // ===== Always import fresh main.js =====
-  async function ensureMainFresh(){
-    hardStopOld();
-    const v = Date.now(); // cache-buster
-    await import(`./game/main.js?v=${v}`);
-    if (!window.HHA?.startGame) throw new Error('HHA.startGame missing after import');
-  }
-
-  // ===== Single-boot guard on this page =====
-  if (typeof window.__HHA_BOOTING === 'undefined') window.__HHA_BOOTING = false;
-
-  // ===== Start flow =====
-  async function startNow(e){
-    if (e){ e.preventDefault(); e.stopPropagation(); }
-    if (window.__HHA_BOOTING) return;
-    window.__HHA_BOOTING = true;
-
-    // unlock audio (user gesture)
-    try{
-      (['bgm-main','bgm-fever','sfx-good','sfx-bad','sfx-perfect','sfx-tick','sfx-powerup'])
-        .forEach(id=>{ const a=document.getElementById(id); a && a.play && a.play().then(()=>a.pause()).catch(()=>{}); });
-    }catch{}
-
-    try{
-      await ensureMainFresh();
-
-      // hide menu
-      const mb = $('#menuBar');
-      if (mb){ mb.setAttribute('data-hidden','1'); mb.style.display='none'; }
-
-      // kick new round
-      window.HHA.startGame();
-
-      // 🔁 autokick watchdog ครั้งเดียว (เช็คสถานะจาก main.js): ไม่เรียกซ้ำถ้า countdown/running
-      setTimeout(()=>{
-        const status = document.body.dataset.status; // '', 'countdown', 'running', 'paused'
-        const notReady = (status!=='countdown' && status!=='running');
-        const stillHidden = mb?.hasAttribute('data-hidden');
-        if (stillHidden && notReady){
-          try{ window.HHA.startGame(); }catch{}
-        }
-      }, 1200);
-    }catch(err){
-      console.error(err);
-      warn(['⚠️ โหลด ./game/main.js ไม่สำเร็จ', String(err?.message||err)]);
-    }finally{
-      // ปลดตัวล็อกหน้าเพจ หลังผ่านช่วงสตาร์ท
-      setTimeout(()=>{ window.__HHA_BOOTING = false; }, 600);
-    }
-  }
-
-  // ===== Menu bindings =====
-  const mb = $('#menuBar');
-  if (mb){
-    function setActive(sel,el){ $$(sel).forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
-    mb.addEventListener('click', (ev)=>{
-      const t=ev.target.closest('.btn'); if(!t) return;
-      if (t.dataset.action==='start'){ startNow(ev); return; }
-      if (t.dataset.action==='howto'){ toast('แตะของดี • เลี่ยงของไม่ดี • ⭐ Golden เพิ่มพลัง • เกจเต็ม = FEVER'); return; }
-      if (t.dataset.action==='sound'){
-        const nowMuted = !(localStorage.getItem(MUTED_KEY) === '1');
-        localStorage.setItem(MUTED_KEY, nowMuted ? '1' : '0');
-        applyMuteFromStorage(); toast(nowMuted ? 'เสียง: ปิด' : 'เสียง: เปิด'); return;
-      }
-      if (t.hasAttribute('data-mode')){ setActive('[data-mode]', t); document.body.setAttribute('data-mode', t.getAttribute('data-mode')); return; }
-      if (t.hasAttribute('data-diff')){ setActive('[data-diff]', t); document.body.setAttribute('data-diff', t.getAttribute('data-diff')); return; }
-    }, false);
-
-    // clean-rebind Start button (กัน listener ซ้อน/หลุด)
-    const old = document.getElementById('btn_start'); if (old){
-      const clone = old.cloneNode(true);
-      old.replaceWith(clone);
-      const opts = { capture:true, passive:false };
-      ['click','pointerup','touchend'].forEach(ev=> clone.addEventListener(ev, startNow, opts));
-      clone.addEventListener('keydown', (e)=>{ if (e.key==='Enter'||e.key===' ') { startNow(e); } }, opts);
-    }
-  }
-
-  // ===== Keyboard quick start (เฉพาะตอนเมนูแสดง) =====
-  window.addEventListener('keydown', (e)=>{
-    const inGame = document.body.getAttribute('data-playing')==='1';
-    const menuVisible = !document.getElementById('menuBar')?.hasAttribute('data-hidden');
-    if ((e.key==='Enter'||e.key===' ') && !inGame && menuVisible){ e.preventDefault(); startNow(e); }
-  }, {passive:false});
-
-  // ===== Canvas safety =====
-  window.addEventListener('resize', ensureCanvas);
-  setTimeout(ensureCanvas, 0);
-
-  // ===== Leave page ⇒ stop clean =====
-  window.addEventListener('pagehide', hardStopOld);
-  window.addEventListener('beforeunload', hardStopOld);
-})();
-</script>
-
-<div id="toast" class="toast"></div>
-<div id="bootWarn"></div>
+  <!-- App Scripts -->
+  <!-- ถ้ามี bundler/paths ต่างออกไป สามารถแก้ path ได้ตามโครงที่คุณใช้อยู่ -->
+  <script type="module">
+    // โหลด HUD/Coach ถ้าใช้แบบ ES Modules ในโปรเจกต์ของคุณ ให้ปรับ path เป็น './game/core/hud.js' และ './game/core/coach.js'
+    // ในหลายโปรเจกต์ HUD/Coach อาจถูก bundle เข้ามากับ main.js อยู่แล้ว
+  </script>
+  <script type="module" src="./game/main.js"></script>
 </body>
 </html>
