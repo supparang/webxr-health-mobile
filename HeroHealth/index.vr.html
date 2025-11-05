@@ -99,15 +99,15 @@
 
     <!-- Spawn zone & game manager -->
     <a-entity id="spawnZone" position="0 1.4 -2.6"></a-entity>
-    <a-entity id="game" game-manager="goal: auto; duration: 60"></a-entity>
+    <a-entity id="game" game-manager="goal: 40; duration: 60"></a-entity>
   </a-scene>
 
   <!-- SAFETY FALLBACK: inline game-manager (runs if external one missing) -->
   <script>
   (function(){
     function q(k, d){const u=new URL(window.location.href);return u.searchParams.get(k)||d;}
-    const GOAL = parseInt(q('goal','40'),10)||40;
-    const DURA = parseInt(q('time','60'),10)||60;
+    let GOAL = Number(q("goal","40")); if(!Number.isFinite(GOAL)) GOAL = 40;
+    let DURA = Number(q("time","60")); if(!Number.isFinite(DURA)) DURA = 60;
     if (!AFRAME.components['game-manager']) {
       console.warn('[HHA] Using SAFETY game-manager fallback');
       AFRAME.registerComponent('game-manager', {
@@ -153,7 +153,7 @@
         _spawnLoop: function(){
           if(!this.running) return;
           const e=document.createElement('a-entity');
-          e.setAttribute('text', {value: this._pickEmoji(), align:'center', color:'#fff', width: 3});
+          e.setAttribute('emoji-sprite', {char: this._pickEmoji(), size: 0.5});
           // random position in a box
           const x=(Math.random()-0.5)*1.6, y=1.1+Math.random()*0.6, z=-2.6; 
           e.setAttribute('position', `${x} ${y} ${z}`);
