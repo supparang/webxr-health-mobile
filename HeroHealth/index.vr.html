@@ -15,20 +15,21 @@
   <script type="module" src="./vr/game-router.js"></script>
 </head>
 <body>
-  <div class="fallback">ใช้ ?mode=goodjunk|groups|hydration|plate และ ?goal=30|40|50 • คลิกปุ่มเขียวเพื่อเริ่ม</div>
+  <div class="fallback">ใช้พารามิเตอร์ ?mode=goodjunk|groups|hydration|plate และ ?goal=30|40|50 • กด Enter VR</div>
   <a-scene background="color: #0b1324" renderer="colorManagement: true; physicallyCorrectLights: true" vr-mode-ui="enterVRButton: true">
-
     <a-entity light="type: ambient; intensity: 0.6"></a-entity>
     <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
+
     <a-sky color="#0b1324"></a-sky>
+    <a-plane position="0 0 -2" rotation="-90 0 0" width="30" height="30" color="#0c1736"></a-plane>
 
     <!-- HUD -->
     <a-entity id="hud" position="0 2.2 -2">
       <a-entity geometry="primitive: plane; width: 1.8; height: 0.26" material="color:#111a33; opacity:0.88"></a-entity>
-      <a-text id="tTime" value="เวลา: 60s" position="-0.84 0.07 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tScore" value="คะแนน: 0" position="-0.84 -0.03 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
+      <a-text id="tTime"  value="เวลา: 60s"  position="-0.84 0.07 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
+      <a-text id="tScore" value="คะแนน: 0"  position="-0.84 -0.03 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
       <a-text id="tCombo" value="คอมโบ: x1" position="0.15 -0.03 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tStat" value="READY" position="0.15 0.07 0.01" align="left" width="2.4" color="#7ea8ff"></a-text>
+      <a-text id="tStat"  value="READY"     position="0.15 0.07 0.01" align="left" width="2.4" color="#7ea8ff"></a-text>
 
       <!-- Mission -->
       <a-entity position="0 -0.23 0">
@@ -43,16 +44,16 @@
         <a-text id="tStreak" value="Streak: 0" position="-0.88 -0.005 0.02" align="left" width="2.4" color="#ffd54f"></a-text>
         <a-entity id="feverBg" geometry="primitive: plane; width: 0.9; height: 0.06" position="0.45 0 0.01" material="color:#1b2752; opacity:0.95"></a-entity>
         <a-entity id="feverFill" geometry="primitive: plane; width: 0.0; height: 0.06" position="0.0 0 0.02" material="color:#ff9043; opacity:0.95"></a-entity>
-      </a-entity>
-    </a-entity>
-
-    <!-- Mini Quest Panel -->
+      
+    <!-- Mini Quest Panel (3 random quests) -->
     <a-entity id="questPanel" position="0 1.62 -2">
       <a-entity geometry="primitive: plane; width: 1.8; height: 0.28" material="color:#111a33; opacity:0.85"></a-entity>
       <a-text value="Mini Quests" position="-0.84 0.09 0.01" align="left" width="2.4" color="#ffd54f"></a-text>
       <a-text id="tQ1" value="-" position="-0.84 -0.01 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
       <a-text id="tQ2" value="-" position="-0.84 -0.08 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
       <a-text id="tQ3" value="-" position="-0.84 -0.15 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
+    </a-entity>
+</a-entity>
     </a-entity>
 
     <!-- Start / Result Panels -->
@@ -64,60 +65,41 @@
     <a-entity id="resultPanel" position="0 1.6 -1.3" visible="false">
       <a-plane width="1.2" height="0.6" color="#111a33" opacity="0.95"></a-plane>
       <a-text id="tResultTitle" value="RESULT" position="-0.5 0.22 0.01" width="2" color="#7ea8ff"></a-text>
-      <a-text id="tResultBody" value="-" position="-0.5 0.04 0.01" width="2" color="#e8f0ff"></a-text>
+      <a-text id="tResultBody"  value="-"       position="-0.5 0.04 0.01" width="2" color="#e8f0ff"></a-text>
       <a-plane id="restartBtn" position="0 -0.18 0.01" width="0.6" height="0.2" color="#2e8b57" class="clickable"></a-plane>
       <a-text value="เล่นอีกครั้ง" position="-0.24 -0.18 0.02" width="1.6" color="#fff"></a-text>
     </a-entity>
 
-    <!-- Camera + cursor (fixed) -->
+    <!-- Camera + controllers -->
     <a-entity id="rig" position="0 1.6 0">
-      <a-entity
-        id="camera"
-        camera
-        look-controls
-        wasd-controls="acceleration: 40"
-        cursor="rayOrigin: mouse; fuse: false"
-        raycaster="objects: .clickable, .target; far: 6">
-        <a-entity
-          position="0 0 -1"
-          geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
-          material="color: #9fd; shader: flat"></a-entity>
+      <a-entity id="camera" camera look-controls wasd-controls="acceleration: 40">
+        <a-entity cursor="fuse: false" position="0 0 -1" geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015" material="color: #9fd; shader: flat"></a-entity>
+        <a-entity id="gazeRay" raycaster="objects: .clickable, .target; far: 6"></a-entity>
       </a-entity>
       <a-entity laser-controls="hand: right" raycaster="objects: .clickable, .target; far: 6"></a-entity>
+      <a-entity hand-controls="hand: left"></a-entity>
     </a-entity>
 
-    <!-- Sounds -->
+    <!-- Sounds (placeholders; you can replace with real files) -->
     <a-entity id="sfx" position="0 1.6 0">
       <!-- Coach voice (Thai) -->
       <a-sound id="coach_start" src="url(assets/audio/coach_start_th.mp3)" volume="1.0"></a-sound>
-      <a-sound id="coach_good" src="url(assets/audio/coach_good_th.mp3)" volume="1.0"></a-sound>
-      <a-sound id="coach_warn" src="url(assets/audio/coach_warn_th.mp3)" volume="1.0"></a-sound>
+      <a-sound id="coach_good"  src="url(assets/audio/coach_good_th.mp3)"  volume="1.0"></a-sound>
+      <a-sound id="coach_warn"  src="url(assets/audio/coach_warn_th.mp3)"  volume="1.0"></a-sound>
       <a-sound id="coach_fever" src="url(assets/audio/coach_fever_th.mp3)" volume="1.0"></a-sound>
       <a-sound id="coach_quest" src="url(assets/audio/coach_quest_th.mp3)" volume="1.0"></a-sound>
       <a-sound id="coach_clear" src="url(assets/audio/coach_clear_th.mp3)" volume="1.0"></a-sound>
-
       <a-sound id="bgm" src="url(assets/audio/bgm_loop.mp3)" autoplay="false" loop="true" volume="0.6"></a-sound>
       <a-sound id="sndPop" src="url(assets/audio/pop.mp3)" volume="1.0"></a-sound>
       <a-sound id="sndBoo" src="url(assets/audio/boo.mp3)" volume="1.0"></a-sound>
-      <a-sound id="sndOk" src="url(assets/audio/cheer_ok.mp3)" volume="1.0"></a-sound>
+      <a-sound id="sndOk"  src="url(assets/audio/cheer_ok.mp3)" volume="1.0"></a-sound>
       <a-sound id="sndWin" src="url(assets/audio/cheer_victory.mp3)" volume="1.0"></a-sound>
       <a-sound id="sndFvr" src="url(assets/audio/cheer_fever.mp3)" volume="1.0"></a-sound>
     </a-entity>
 
-    <!-- Game zone -->
+    <!-- Spawn zone & game manager -->
     <a-entity id="spawnZone" position="0 1.4 -2.6"></a-entity>
     <a-entity id="game" game-manager="goal: auto; duration: 60"></a-entity>
   </a-scene>
-
-  <!-- Fallback auto-start (เริ่มเมื่อคลิกครั้งแรก ถ้าปุ่มไม่ติด) -->
-  <script>
-    window.addEventListener("DOMContentLoaded", () => {
-      const scene = document.querySelector("a-scene");
-      scene.addEventListener("click", () => {
-        const gm = document.querySelector("[game-manager]")?.components["game-manager"];
-        if (gm && !gm.running) gm.start();
-      }, { once: true });
-    });
-  </script>
 </body>
 </html>
