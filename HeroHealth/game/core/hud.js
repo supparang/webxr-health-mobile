@@ -1,203 +1,46 @@
-// === Hero Health Academy — core/hud.js (robust result modal & fever bind, patched 2025-11-05) ===
-'use strict';
-
-export class HUD {
+// === HUD (minimal augment) ===
+export class HUD{
   constructor(){
-    ensureStyle();
+    this.el = document.querySelector('.hud') || document.body;
+    this._missionBar = document.getElementById('missionBar');
+    this._missionText = document.getElementById('missionText');
+    this._resultModal = document.getElementById('resultModal');
+  }
+  setTimer(t){ const el = document.getElementById('hudTime'); if(el) el.textContent = t; }
+  setScore(s){ const el = document.getElementById('hudScore'); if(el) el.textContent = s; }
+  setCombo(c){ const el = document.getElementById('hudCombo'); if(el) el.textContent = 'x'+c; }
+  setStatus(st){ const el = document.getElementById('hudStatus'); if(el) el.textContent = st; }
 
-    // ----- Root -----
-    this.root = document.getElementById('hud');
-    if(!this.root){
-      this.root = document.createElement('div');
-      this.root.id = 'hud';
-      this.root.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2000;';
-      document.body.appendChild(this.root);
+  showMission(show=true){
+    const wrap = document.getElementById('missionWrap');
+    if(wrap) wrap.style.display = show?'flex':'none';
+  }
+  setMissionGoal(goal){
+    if(this._missionText) this._missionText.textContent = `ภารกิจ: เก็บอาหารดีให้ครบ ${goal}`;
+  }
+  updateMission(done, goal){
+    if(this._missionBar){
+      const pct = Math.max(0, Math.min(100, Math.round((done/goal)*100)));
+      this._missionBar.style.width = pct+'%';
     }
-    this.root.style.pointerEvents = 'none';
-
-    // ----- Top bar -----
-    this.top = document.createElement('div');
-    this.top.style.cssText = 'position:absolute;left:12px;right:12px;top:10px;display:flex;gap:8px;align-items:center;justify-content:space-between;pointer-events:none';
-    this.top.innerHTML =
-      '<div style="display:flex;gap:8px;align-items:center">'+
-        '<span id="hudMode"  style="padding:4px 8px;border-radius:10px;background:#0b2544;color:#cbe7ff;border:1px solid #15406e;">—</span>'+
-        '<span id="hudDiff"  style="padding:4px 8px;border-radius:10px;background:#102b52;color:#e6f5ff;border:1px solid #1b4b8a;">—</span>'+
-        '<span id="hudTime"  style="padding:4px 8px;border-radius:10px;background:#0a1f3d;color:#c9e7ff;border:1px solid #123863;min-width:72px;text-align:center;">—</span>'+
-      '</div>'+
-      '<div style="display:flex;gap:8px;align-items:center">'+
-        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#bbf7d0;border:1px solid #134064;">Score: <b id="hudScore">0</b></span>'+
-        '<span style="padding:4px 8px;border-radius:10px;background:#0b1c36;color:#fde68a;border:1px solid #134064;">Combo: <b id="hudCombo">0</b></span>'+
-      '</div>';
-    this.root.appendChild(this.top);
-    this.$mode  = this.top.querySelector('#hudMode');
-    this.$diff  = this.top.querySelector('#hudDiff');
-    this.$time  = this.top.querySelector('#hudTime');
-    this.$score = this.top.querySelector('#hudScore');
-    this.$combo = this.top.querySelector('#hudCombo');
-
-    // ----- Fever Bar -----
-    this.powerWrap = document.getElementById('powerBarWrap');
-    if(!this.powerWrap){
-      this.powerWrap = document.createElement('div');
-      this.powerWrap.id = 'powerBarWrap';
-      this.powerWrap.style.cssText = 'position:fixed;left:12px;bottom:12px;z-index:2200;width:min(420px,94vw);pointer-events:none';
-      this.powerWrap.innerHTML =
-        '<div id="powerLabel" style="font:700 12px ui-rounded;color:#ffd166;margin:0 0 4px 2px;opacity:.8">FEVER</div>'+
-        '<div id="powerBar" style="position:relative;height:16px;border-radius:999px;background:#0a1931;border:1px solid #0f2a54;overflow:hidden">'+
-          '<div id="powerFill" style="position:absolute;inset:0;width:0%"></div>'+
-        '</div>';
-      document.body.appendChild(this.powerWrap);
+    if(this._missionText){
+      this._missionText.textContent = `ภารกิจ: ${done}/${goal}`;
     }
-    this.$powerFill  = this.powerWrap.querySelector('#powerFill');
-    this.$powerLabel = this.powerWrap.querySelector('#powerLabel');
-    this._feverVal = 0;
-
-    // ----- Big number banner -----
-    this.big = document.createElement('div');
-    this.big.style.cssText = 'position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);font:900 92px ui-rounded,system-ui;color:#fef3c7;text-shadow:0 8px 40px rgba(0,0,0,.6);pointer-events:none;opacity:0;transition:opacity .2s, transform .2s;z-index:7000';
-    this.big.textContent = '';
-    this.root.appendChild(this.big);
-
-    // ----- Quest chips -----
-    this.chips = document.createElement('div');
-    this.chips.id = 'questChips';
-    this.chips.style.cssText = 'position:fixed;left:12px;bottom:78px;display:flex;flex-wrap:wrap;gap:6px;max-width:92vw;pointer-events:none';
-    this.root.appendChild(this.chips);
-
-    // ----- Mini quest banner -----
-    this.mini = document.createElement('div');
-    this.mini.id = 'miniQuest';
-    this.mini.style.cssText = 'position:fixed;left:50%;top:72px;transform:translateX(-50%);padding:6px 10px;border-radius:12px;background:#0e1930cc;border:1px solid #214064;color:#ffde85;font:900 16px ui-rounded,system-ui;text-shadow:0 0 10px #000;z-index:8000;opacity:0;transition:opacity .25s ease';
-    this.mini.textContent = '';
-    document.body.appendChild(this.mini);
-
-    // ----- Result modal -----
-    this.result = document.createElement('div');
-    this.result.id = 'resultModal';
-    this.result.style.cssText = 'position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);pointer-events:auto;z-index:9000';
-    this.result.innerHTML =
-      '<div style="width:min(640px,94vw);background:#0e1930;border:1px solid #16325d;border-radius:16px;padding:18px;color:#e6f2ff">'+
-        '<h3 id="resTitle" style="margin:0 0 6px;font:900 22px ui-rounded">Result</h3>'+
-        '<p  id="resDesc"  style="margin:0 0 10px;color:#cfe7ff;white-space:pre-line">—</p>'+
-        '<div id="resStats" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>'+
-        '<div id="resExtra" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"></div>'+
-        '<div style="display:flex;gap:8px;justify-content:flex-end">'+
-          '<button id="resHome"  style="padding:8px 10px;border-radius:10px;background:#0f1e38;color:#e6f2ff;border:1px solid #16325d;cursor:pointer">🏠 Home</button>'+
-          '<button id="resRetry" style="padding:8px 10px;border-radius:10px;background:#123054;color:#dff2ff;border:1px solid #1e4d83;cursor:pointer">↻ Retry</button>'+
-        '</div>'+
-      '</div>';
-    this.root.appendChild(this.result);
-
-    this.$resTitle = this.result.querySelector('#resTitle');
-    this.$resDesc  = this.result.querySelector('#resDesc');
-    this.$resStats = this.result.querySelector('#resStats');
-    this.$resExtra = this.result.querySelector('#resExtra');
-    this.onHome = null;
-    this.onRetry= null;
-    this.result.querySelector('#resHome').onclick  = ()=> this.onHome && this.onHome();
-    this.result.querySelector('#resRetry').onclick = ()=> this.onRetry && this.onRetry();
-
-    this.isResultOpen = false;
-    window.__HHA_HUD_API = { say: (msg)=> this.toast(msg) };
   }
 
-  // === Core HUD API ===
-  bindPower(power){ if(power) power.onFever((v)=> this.setFever(v)); }
-  setTop({mode,diff}={}){ if(mode) this.$mode.textContent=mode; if(diff) this.$diff.textContent=diff; }
-  setTimer(sec){ this.$time.textContent = Math.max(0, Math.round(sec)) + 's'; }
-  updateHUD(score, combo){ this.$score.textContent=score|0; this.$combo.textContent=combo|0; }
-  resetBars(){ this.setFever(0); }
-
-  // === Visual cues ===
-  showFloatingText(x,y,text){
-    const el=document.createElement('div');
-    el.textContent = text;
-    el.style.cssText='position:fixed;left:'+(x|0)+'px;top:'+(y|0)+'px;transform:translate(-50%,-50%);font:900 16px ui-rounded;color:#fff;text-shadow:0 2px 10px #000;opacity:1;transition:all .72s ease-out;pointer-events:none;z-index:6900';
-    document.body.appendChild(el);
-    requestAnimationFrame(()=>{ el.style.top=(y-36)+'px'; el.style.opacity='0'; });
-    setTimeout(()=>el.remove(),720);
-  }
-  showBig(text){
-    this.big.textContent = text||'';
-    this.big.style.opacity = '1';
-    this.big.style.transform = 'translate(-50%,-50%) scale(1)';
-    setTimeout(()=>{ this.big.style.opacity='0'; this.big.style.transform='translate(-50%,-50%) scale(.9)'; },380);
-  }
-
-  // === Fever ===
-  setFever(v){
-    const val = Math.max(0, Math.min(100, Number(v)||0));
-    this._feverVal = val;
-    const pct = val.toFixed(0) + '%';
-    this.$powerFill.innerHTML = (val>0)? '<div class="fire"></div>' : '';
-    this.$powerFill.style.width = pct;
-    const op = (val>0)? 1 : .6;
-    this.$powerLabel.style.opacity = op;
-    this.$powerLabel.style.textShadow = (val>0)? '0 0 14px rgba(255,160,0,.35)' : 'none';
-    document.body.classList.toggle('fever-on', val>0);
-  }
-  showFever(on){ this.setFever(on ? (this._feverVal||1) : 0); }
-
-  // === Result modal ===
-  showResult({title='Result',desc='—',stats=[],extra=[]}={}){
-    try{ const sh = document.getElementById('spawnHost'); if (sh) sh.style.pointerEvents = 'none'; }catch{}
-    this.root.style.pointerEvents = 'auto';
-    const f1=document.createDocumentFragment(), f2=document.createDocumentFragment();
-    for(const s of stats){ const d=document.createElement('div'); d.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #16325d;background:#0f1e38'; d.textContent=s; f1.appendChild(d); }
-    for(const s of extra){ const d=document.createElement('div'); d.style.cssText='padding:6px 8px;border-radius:10px;border:1px solid #2a3e6a;background:#0c233f;color:#bfe0ff'; d.textContent=s; f2.appendChild(d); }
-    this.$resTitle.textContent = title;
-    this.$resDesc.textContent  = desc;
-    this.$resStats.replaceChildren(f1);
-    this.$resExtra.replaceChildren(f2);
-    this.result.style.display='flex';
-    document.body.setAttribute('data-result-open','1');
-    this.isResultOpen = true;
-  }
-  hideResult(){
-    this.result.style.display='none';
-    this.root.style.pointerEvents = 'none';
-    document.body.removeAttribute('data-result-open');
-    this.isResultOpen = false;
-    try{
-      const sh = document.getElementById('spawnHost');
-      if (sh) sh.style.pointerEvents = 'auto';
-    }catch{}
-    this.$resStats.innerHTML = '';
-    this.$resExtra.innerHTML = '';
-  }
-
-  toast(msg){
-    let t=document.getElementById('toast');
-    if(!t){
-      t=document.createElement('div');
-      t.id='toast';
-      t.className='toast';
-      t.style.cssText='position:fixed;left:50%;top:68px;transform:translateX(-50%);background:#0e1930;border:1px solid #214064;color:#e8f3ff;padding:8px 12px;border-radius:10px;opacity:0;transition:opacity .3s;z-index:10040';
-      document.body.appendChild(t);
+  showResult({mode,score,time,stars=1,banner='RESULT',details={},summary=''}){
+    // ถ้ามี result modal ใน DOM ให้ใช้
+    if(this._resultModal){
+      this._resultModal.querySelector('.res-banner').textContent = banner;
+      this._resultModal.querySelector('.res-score').textContent = score;
+      this._resultModal.querySelector('.res-time').textContent = time+'s';
+      this._resultModal.querySelector('.res-stars').textContent = '★'.repeat(stars)+'☆'.repeat(5-stars);
+      this._resultModal.querySelector('.res-detail').textContent =
+        `Good ${details.good||0} | Junk ${details.junk||0} | MaxCombo x${details.maxCombo||1} | Mission ${details?.mission?.good||0}/${details?.mission?.goal||0}`;
+      this._resultModal.style.display = 'block';
+      return;
     }
-    t.textContent = msg;
-    t.style.opacity = '1';
-    setTimeout(()=>{ t.style.opacity='0'; }, 1200);
+    // fallback
+    alert(summary || `Score ${score}`);
   }
-}
-
-// --- Fever bar style ---
-function ensureStyle(){
-  if(document.getElementById('hud-style')) return;
-  const s=document.createElement('style'); s.id='hud-style';
-  s.textContent=`
-  @keyframes fireRise{0%{transform:translateY(6%);opacity:.85}50%{transform:translateY(-6%);opacity:1}100%{transform:translateY(6%);opacity:.85}}
-  #powerBar{position:relative;overflow:hidden;}
-  #powerFill .fire{
-    position:absolute;left:0;top:0;bottom:0;width:100%;
-    background:
-      radial-gradient(30px 24px at 20% 110%,rgba(255,200,0,.9),rgba(255,130,0,.65)55%,rgba(255,80,0,0)70%),
-      radial-gradient(26px 20px at 45% 110%,rgba(255,210,80,.85),rgba(255,120,0,.55)55%,rgba(255,80,0,0)70%),
-      radial-gradient(34px 26px at 70% 110%,rgba(255,190,40,.9),rgba(255,110,0,.55)55%,rgba(255,80,0,0)70%),
-      linear-gradient(0deg,rgba(255,140,0,.65),rgba(255,100,0,.25));
-    mix-blend-mode:screen;animation:fireRise .9s ease-in-out infinite;
-  }
-  body.fever-on #powerBar{box-shadow:0 0 16px rgba(255,140,0,.25) inset,0 0 18px rgba(255,120,0,.25);}
-  `;
-  document.head.appendChild(s);
 }
