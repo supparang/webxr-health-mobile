@@ -1,5 +1,5 @@
 // === Hero Health Academy — game/modes/goodjunk.js
-// (diff-tuned golden + HUD-safe spawn + resize-safe + smoother cadence)
+// (faster cadence + more initial items + diff-tuned golden)
 
 export const name = 'goodjunk';
 
@@ -7,20 +7,16 @@ const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','�
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
 const GOLD = ['⭐'];
 
-// ===== Runtime state =====
-let host, items=[], alive=0, running=false, spawnAcc=0, cfg, BUSRef=null, rafSync=0;
+let host, items=[], alive=0, running=false, spawnAcc=0, cfg, BUSRef=null;
+let adapt = { t:0, accel:0, minEvery:0.36, accelPerSec:0.0045 };
 
-// ควบคุมความถี่สปอนแบบ adaptive (จะเร่งเล็กน้อยเมื่อเวลาเดิน)
-let adapt = { t:0, accel:0, minEvery:0.42, accelPerSec:0.0035 };
-
-// ===== Difficulty presets =====
 const PRESET = {
-  Easy:   { spawnEvery: 1.50, maxAlive: 6, life: 4.2, size: 72, goldenProb: 0.10 },
-  Normal: { spawnEvery: 1.20, maxAlive: 7, life: 3.6, size: 64, goldenProb: 0.14 },
-  Hard:   { spawnEvery: 0.95, maxAlive: 8, life: 3.2, size: 58, goldenProb: 0.18 },
+  Easy:   { spawnEvery: 1.10, maxAlive: 7, life: 4.2, size: 72, goldenProb: 0.10 },
+  Normal: { spawnEvery: 0.95, maxAlive: 8, life: 3.6, size: 64, goldenProb: 0.16 },
+  Hard:   { spawnEvery: 0.78, maxAlive: 9, life: 3.2, size: 58, goldenProb: 0.22 },
 };
 
-function pick(a){ return a[(Math.random()*a.length) | 0]; }
+function pick(a){ return a[(Math.random()*a.length)|0]; }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
 function ensureHost(){
@@ -33,47 +29,31 @@ function ensureHost(){
   }
 }
 
-/* ---------- HUD-safe zones ---------- */
+/* ---- HUD-safe ---- */
 function collectHudRects(){
-  const rects=[];
-  const push=(el)=>{
-    if(!el) return;
-    const r = el.getBoundingClientRect();
-    if (r.width>0 && r.height>0) rects.push(r);
-  };
-  push(document.querySelector('#hud'));          // รวม top bars
+  const rects=[], push=(el)=>{ if(!el) return; const r=el.getBoundingClientRect(); if(r.width>0&&r.height>0) rects.push(r); };
+  push(document.querySelector('#hud'));
   push(document.querySelector('#questChips'));
   push(document.querySelector('#powerBarWrap'));
-  push(document.querySelector('#feverGauge'));   // ถ้ามี
   push(document.querySelector('#resultModal'));
   return rects;
 }
 function overlaps(x,y,sz,rects){
   const r = { left:x-sz/2, top:y-sz/2, right:x+sz/2, bottom:y+sz/2 };
-  for(const b of rects){
-    const hit = !(r.right < b.left || r.left > b.right || r.bottom < b.top || r.top > b.bottom);
-    if (hit) return true;
-  }
+  for(const b of rects){ if(!(r.right<b.left||r.left>b.right||r.bottom<b.top||r.top>b.bottom)) return true; }
   return false;
 }
 function findFreeSpot(size){
-  const ww = window.innerWidth, hh = window.innerHeight;
-  const padX = Math.max(70, size*1.2);
-  const padY = Math.max(70, size*1.2);
+  const ww=innerWidth, hh=innerHeight, padX=Math.max(70,size*1.2), padY=Math.max(70,size*1.2);
   const rects = collectHudRects();
-  for(let i=0;i<22;i++){
-    const x = clamp(Math.random()*ww, padX, ww-padX);
-    const y = clamp(Math.random()*hh, padY, hh-padY);
+  for(let i=0;i<24;i++){
+    const x=clamp(Math.random()*ww, padX, ww-padX), y=clamp(Math.random()*hh, padY, hh-padY);
     if(!overlaps(x,y,size+14,rects)) return {x,y};
   }
-  // fallback: random ในกรอบปลอดภัย (ยอมชน HUD ถ้ายังหาไม่ได้)
-  return {
-    x: clamp(Math.random()*ww, padX, ww-padX),
-    y: clamp(Math.random()*hh, padY, hh-padY),
-  };
+  return { x:clamp(Math.random()*ww, padX, ww-padX), y:clamp(Math.random()*hh, padY, hh-padY) };
 }
 
-/* ---------- FX ---------- */
+/* ---- FX ---- */
 function boomEffect(x,y,emoji){
   const p=document.createElement('div');
   p.textContent=emoji;
@@ -91,17 +71,12 @@ function flashRed(){
   setTimeout(()=>{ document.body.style.backgroundColor=old||''; }, 120);
 }
 
-/* ---------- Spawn logic ---------- */
-function currentSpawnEvery(){
-  // ยิ่งเวลาผ่าน interval จะค่อย ๆ สั้นลง แต่ไม่ต่ำกว่า minEvery
-  return Math.max(adapt.minEvery, cfg.spawnEvery - adapt.accel);
-}
+/* ---- Spawn ---- */
+function currentSpawnEvery(){ return Math.max(adapt.minEvery, cfg.spawnEvery - adapt.accel); }
 
 function decideKind(){
-  // golden ตาม diff โดยตรง
   const r = Math.random();
   if (r < (cfg.goldenProb||0.12)) return 'gold';
-  // junk ~35% หลังจากหัก golden
   if (r < (cfg.goldenProb||0.12) + 0.35) return 'junk';
   return 'good';
 }
@@ -109,7 +84,7 @@ function decideKind(){
 function spawnOne(){
   if (!running || alive >= cfg.maxAlive) return;
 
-  const kind  = decideKind();
+  const kind = decideKind();
   const emoji = (kind==='gold' ? pick(GOLD) : kind==='junk' ? pick(JUNK) : pick(GOOD));
 
   const s = cfg.size;
@@ -138,6 +113,7 @@ function spawnOne(){
     el.style.transform='translate(-50%,-50%) scale(0.84)';
     setTimeout(()=>{ el.style.opacity='0'; }, 30);
     setTimeout(()=>{ try{el.remove();}catch{} }, 160);
+
     const uiX = ev.clientX || x, uiY = ev.clientY || y;
     boomEffect(uiX, uiY, emoji);
 
@@ -161,24 +137,18 @@ function spawnOne(){
 
 function tick(dt){
   if(!running) return;
-
-  // ป้องกัน dt แปลก ๆ
   if (!(dt>0) || dt>1.2) dt = 0.016;
 
-  // เร่งสปอนช้า ๆ เมื่อเวลาเดิน
   adapt.t += dt;
-  adapt.accel = Math.min(0.75, adapt.accel + adapt.accelPerSec * dt); // เพดานเร่ง
+  adapt.accel = Math.min(0.85, adapt.accel + adapt.accelPerSec * dt);
 
   spawnAcc += dt;
   const every = currentSpawnEvery();
-
-  // ปรับ cadence ให้เนียนขึ้นด้วยการกึ่งล็อก rAF (สร้างอย่างน้อย 1 ต่อช่วง)
   while (spawnAcc >= every) {
     spawnAcc -= every;
     spawnOne();
   }
 
-  // อายุของชิ้น
   for(let i=items.length-1;i>=0;i--){
     const it=items[i];
     if(it.dead){ items.splice(i,1); continue; }
@@ -187,67 +157,45 @@ function tick(dt){
       it.dead=true; alive=Math.max(0,alive-1);
       try{ it.el.style.opacity='0'; }catch{}
       setTimeout(()=>{ try{ it.el.remove(); }catch{} }, 140);
-      // นับ miss เฉพาะ GOOD/GOLD เท่านั้น
       if (it.kind!=='junk') BUSRef?.miss?.({source:it});
       items.splice(i,1);
     }
   }
 }
 
-/* ---------- Public API ---------- */
+/* ---- Public ---- */
 export function start({difficulty='Normal'}={}){
   ensureHost();
-  // เคลียร์ของเก่าให้หมดก่อน
   try{ host.innerHTML=''; }catch{}
-  items=[]; alive=0; spawnAcc=0; rafSync=0;
+  items=[]; alive=0; spawnAcc=0;
   cfg = PRESET[difficulty] || PRESET.Normal;
-  adapt = { t:0, accel:0, minEvery:0.42, accelPerSec:0.0035 };
+  adapt = { t:0, accel:0, minEvery:0.36, accelPerSec:0.0045 };
   running = true;
 
-  // canvases ไม่บังคลิก
   document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
 
-  // เริ่มของตั้งต้น (ให้จอไม่โล่ง)
-  for(let i=0;i<Math.min(4, cfg.maxAlive); i++) spawnOne();
+  // 🔥 เริ่มด้วยของตั้งต้นเยอะขึ้น (รู้สึก “เล่นได้ทันที”)
+  for(let i=0;i<Math.min(6, cfg.maxAlive); i++) spawnOne();
 
-  // ผูก resize/orientation ให้จัดวางใหม่
   window.removeEventListener('resize', onViewportChange);
   window.addEventListener('resize', onViewportChange, {passive:true});
   window.removeEventListener('orientationchange', onViewportChange);
   window.addEventListener('orientationchange', onViewportChange, {passive:true});
 }
 
-export function update(dt,bus){
-  BUSRef = bus || BUSRef;
-  tick(dt);
-}
-
-export function stop(){
-  running=false;
-  window.removeEventListener('resize', onViewportChange);
-  window.removeEventListener('orientationchange', onViewportChange);
-}
-
-export function cleanup(){
-  running=false;
-  try{ if(host) host.innerHTML=''; }catch{}
-  items=[]; alive=0; spawnAcc=0;
-}
-
+export function update(dt,bus){ BUSRef = bus || BUSRef; tick(dt); }
+export function stop(){ running=false; window.removeEventListener('resize', onViewportChange); window.removeEventListener('orientationchange', onViewportChange); }
+export function cleanup(){ running=false; try{ if(host) host.innerHTML=''; }catch{} items=[]; alive=0; spawnAcc=0; }
 export function onViewportChange(){
-  // บีบให้อยู่ในจอ และหลบ HUD เพิ่มเติม
   const rects = collectHudRects();
   for(const it of items){
     const s = cfg?.size || 64;
-    it.x = clamp(it.x, s, window.innerWidth - s);
-    it.y = clamp(it.y, s, window.innerHeight - s);
+    it.x = clamp(it.x, s, innerWidth - s);
+    it.y = clamp(it.y, s, innerHeight - s);
     if (overlaps(it.x,it.y,s+14,rects)){
       const pos = findFreeSpot(s);
       it.x = pos.x; it.y = pos.y;
     }
-    if (it.el){
-      it.el.style.left = it.x + 'px';
-      it.el.style.top  = it.y + 'px';
-    }
+    if (it.el){ it.el.style.left = it.x + 'px'; it.el.style.top = it.y + 'px'; }
   }
 }
