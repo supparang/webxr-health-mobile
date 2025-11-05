@@ -20,7 +20,7 @@ export class MiniQuest {
     this.lastJunkAt = 0;
     this.goodTimestamps.length = 0;
     this.feverCount = 0;
-    this._shownClearCheer = False;
+    this._shownClearCheer = false;
 
     const templates = [
       { id:'G10',  label:'เก็บของดี 10 ชิ้น',          type:'good',   target:10,  prog:0 },
@@ -155,3 +155,6 @@ export class MiniQuest {
     }
   }
 }
+
+
+try{ window.__MINIQUEST_OK = true; }catch(e){}
