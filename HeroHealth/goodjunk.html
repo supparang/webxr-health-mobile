@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Good vs Junk — Safe</title>
+  <style>
+    body{margin:0;font-family:system-ui,Segoe UI,Arial;}
+    .wrap{height:100vh;background:#0b1324;color:#fff;display:flex;flex-direction:column}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 16px;background:#111a33}
+    .hud{display:flex;gap:16px;align-items:center;font-weight:600}
+    .hud .pill{background:#1b2752;padding:6px 10px;border-radius:999px}
+    .btn{cursor:pointer;border:0;border-radius:10px;padding:10px 16px;background:#2e8b57;color:#fff;font-weight:700}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    #arena{position:relative;flex:1;overflow:hidden}
+    .item{position:absolute;font-size:40px;user-select:none;cursor:pointer;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+    .good{outline:0}
+    .junk{outline:0;filter:drop-shadow(0 0 10px rgba(255,0,0,.5))}
+    .flash-good{animation:good .25s}
+    .flash-bad{animation:bad .35s}
+    @keyframes good{from{background:rgba(0,255,153,.1)}to{background:transparent}}
+    @keyframes bad{from{background:rgba(255,0,0,.18)}to{background:transparent}}
+    footer{padding:10px 16px;background:#0a1130;color:#9fb;display:flex;justify-content:space-between;align-items:center}
+    .msg{opacity:.85}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="hud">
+        <div class="pill">เวลา: <span id="time">60</span>s</div>
+        <div class="pill">คะแนน: <span id="score">0</span></div>
+        <div class="pill">คอมโบ: <span id="combo">x1</span></div>
+      </div>
+      <button id="startBtn" class="btn">เริ่มเกม</button>
+    </header>
+    <div id="arena" aria-label="game arena"></div>
+    <footer>
+      <div class="msg" id="msg">คลิกอาหารดี (เขียวเรือง) เลี่ยงขยะ (แดงเรือง)</div>
+      <button id="pauseBtn" class="btn" disabled>พัก/ไปต่อ</button>
+    </footer>
+  </div>
+  <script type="module" src="./goodjunk.safe.js"></script>
+</body>
+</html>
