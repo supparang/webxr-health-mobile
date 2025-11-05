@@ -1,7 +1,6 @@
-// === Hero Health Academy — game/modes/goodjunk.js (LEGACY-STABLE v2)
-// - interval-only (ไม่พึ่ง rAF/MutationObserver)
-// - รับ BUS ตั้งแต่ start()
-// - ใช้ pnow() รองรับเครื่องที่ไม่มี performance.now()
+// === Hero Health Academy — game/modes/goodjunk.js (LEGACY-STABLE v3)
+// interval-only, ไม่พึ่ง rAF/observer, รับ BUS ตั้งแต่ start()
+// ปรับถี่/จำนวนให้ aggressive เพื่อให้ "เห็นของแน่นอน"
 
 export const name = 'goodjunk';
 
@@ -9,10 +8,11 @@ const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','�
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
 const GOLD = ['⭐'];
 
+// ms-based presets (ถี่ขึ้น + maxAlive สูงขึ้น)
 const PRESET = {
-  Easy:   { spawnEvery: 600, maxAlive: 7, life: 3600, size: 72, goldenProb: 0.10 }, // ms
-  Normal: { spawnEvery: 520, maxAlive: 8, life: 3400, size: 64, goldenProb: 0.14 },
-  Hard:   { spawnEvery: 450, maxAlive: 9, life: 3200, size: 58, goldenProb: 0.18 },
+  Easy:   { spawnEvery: 520, maxAlive: 10, life: 3400, size: 72, goldenProb: 0.10 },
+  Normal: { spawnEvery: 460, maxAlive: 12, life: 3200, size: 64, goldenProb: 0.14 },
+  Hard:   { spawnEvery: 420, maxAlive: 14, life: 3000, size: 58, goldenProb: 0.18 },
 };
 
 let host, items=[], alive=0, running=false, cfg;
@@ -23,14 +23,13 @@ function pick(a){ return a[(Math.random()*a.length)|0]; }
 function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
 function ensureHost(){
-  host=document.getElementById('spawnHost');
+  host = document.getElementById('spawnHost');
   if(!host){
-    host=document.createElement('div');
+    host = document.createElement('div');
     host.id='spawnHost';
     host.style.cssText='position:fixed;inset:0;z-index:5000;pointer-events:auto';
     document.body.appendChild(host);
   }
-  // กัน canvas บังคลิก
   document.querySelectorAll('canvas').forEach(c=>{ try{ c.style.pointerEvents='none'; c.style.zIndex='1'; }catch{} });
 }
 
@@ -47,10 +46,10 @@ function boomEffect(x,y,emoji){
   const p=document.createElement('div');
   p.textContent=emoji;
   p.style.cssText=`position:fixed;left:${x}px;top:${y}px;transform:translate(-50%,-50%) scale(1);
-    font-size:42px;opacity:1;transition:all .32s ease;z-index:9000;pointer-events:none`;
+    font-size:42px;opacity:1;transition:all .28s ease;z-index:9000;pointer-events:none`;
   document.body.appendChild(p);
-  requestAnimationFrame(()=>{ p.style.transform='translate(-50%,-50%) scale(1.8)'; p.style.opacity='0'; });
-  setTimeout(()=>{ try{p.remove();}catch{}; }, 320);
+  requestAnimationFrame(()=>{ p.style.transform='translate(-50%,-50%) scale(1.6)'; p.style.opacity='0'; });
+  setTimeout(()=>{ try{p.remove();}catch{}; }, 280);
 }
 
 function decideKind(){
@@ -69,7 +68,7 @@ function spawnOne(){
   const {x,y}=randPos(s);
 
   const el=document.createElement('div');
-  el.className='gj-it';
+  el.className='gj-it gj-real';
   el.textContent=emoji;
   el.style.cssText=`
     position:fixed; left:${x}px; top:${y}px; transform:translate(-50%,-50%);
@@ -81,7 +80,7 @@ function spawnOne(){
   el.addEventListener('pointerdown',(ev)=>{
     if(!running||obj.dead) return;
     obj.dead=true; alive=Math.max(0,alive-1);
-    el.style.opacity='0'; setTimeout(()=>{ try{el.remove();}catch{}; },120);
+    el.style.opacity='0'; setTimeout(()=>{ try{el.remove();}catch{}; },110);
     const uiX=ev.clientX||x, uiY=ev.clientY||y; boomEffect(uiX,uiY,emoji);
     if(!BUSRef) return;
     if(kind==='junk'){ BUSRef.bad?.({source:obj,ui:{x:uiX,y:uiY}}); BUSRef.sfx?.bad?.(); }
@@ -104,18 +103,12 @@ export function start({difficulty='Normal', bus=null}={}){
   try{ host.innerHTML=''; }catch{}
   cfg = PRESET[difficulty] || PRESET.Normal;
 
-  // เปิดฉากให้เห็นทันที
-  const burst=Math.min(4,cfg.maxAlive);
+  // เปิดฉากแน่น ๆ
+  const burst = Math.min(6, cfg.maxAlive);
   for(let i=0;i<burst;i++) spawnOne();
 
-  // สปอนคงที่
   clearTimers();
-  spawnTimer=setInterval(()=>{
-    if(!running) return;
-    if(alive<cfg.maxAlive) spawnOne();
-  }, cfg.spawnEvery);
-
-  // อายุไอเท็มแบบคงที่
+  spawnTimer=setInterval(()=>{ if(running && alive<cfg.maxAlive) spawnOne(); }, cfg.spawnEvery);
   ageTimer=setInterval(()=>{
     if(!running) return;
     const now=pnow();
@@ -124,7 +117,7 @@ export function start({difficulty='Normal', bus=null}={}){
       if(now>=it.dieAt){
         it.dead=true; alive=Math.max(0,alive-1);
         try{ it.el.style.opacity='0'; }catch{}
-        setTimeout(()=>{ try{it.el.remove();}catch{}; },100);
+        setTimeout(()=>{ try{it.el.remove();}catch{}; },90);
         if(BUSRef && it.kind!=='junk') BUSRef.miss?.({source:it});
         items.splice(i,1);
       }
@@ -132,7 +125,7 @@ export function start({difficulty='Normal', bus=null}={}){
   }, 100);
 }
 
-export function update(_dt,bus){ if(bus) BUSRef = bus; /* interval-only */ }
+export function update(_dt,bus){ if(bus) BUSRef = bus; }
 export function stop(){ running=false; clearTimers(); }
 export function cleanup(){ stop(); try{ if(host) host.innerHTML=''; }catch{} items=[]; alive=0; }
 export function onViewportChange(){
