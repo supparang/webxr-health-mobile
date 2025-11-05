@@ -1,7 +1,6 @@
-// === Hero Health Academy — game/main.js (CLASSIC-LITE v2)
-// - ส่ง BUS เข้าโหมดตั้งแต่ start()
-// - จิ้ม update(0, BUS) หนึ่งครั้งเพื่อ bind BUS ทันที
-// - watchdog เบา ๆ 1 ชั้น ถ้า 1.2s แล้วยังไม่มี .gj-it
+// === Hero Health Academy — game/main.js (CLASSIC-LITE v3)
+// ส่ง BUS ให้โหมดตั้งแต่ start(), และมี Emergency DOM Spawner
+// ที่ยิง .gj-it.emg ทุก ~600ms จนกว่าจะเห็น .gj-it.gj-real
 
 if (window.HHA?.__stopLoop) { try{ window.HHA.__stopLoop(); }catch{} delete window.HHA; }
 
@@ -21,7 +20,7 @@ const $  = (s)=>document.querySelector(s);
 const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
 
 let playing=false, countingDown=false, activeMode=null;
-let wallSecondsLeft=RUN_SECONDS, tickTimer=null;
+let wallSecondsLeft=RUN_SECONDS, tickTimer=null, emgTimer=null;
 
 const hud=new HUD(), coach=new Coach({lang:'TH'}), sfx=new SFX();
 const score=new ScoreSystem(), power=new PowerUpSystem();
@@ -50,12 +49,33 @@ function ensureSpawnHost(){
   return host;
 }
 
+// ---------- Emergency DOM Spawner ----------
+function startEmergency(){
+  stopEmergency();
+  const host = ensureSpawnHost();
+  emgTimer = setInterval(()=>{
+    if(!playing) return;
+    // ถ้ามีของจริงแล้วหยุด
+    if(host.querySelector('.gj-it.gj-real')){ stopEmergency(); return; }
+    const x = Math.random()*85+7, y = Math.random()*70+15;
+    const d = document.createElement('div');
+    d.className='gj-it emg';
+    d.textContent='⭐';
+    d.style.cssText=`position:fixed;left:${x}vw;top:${y}vh;transform:translate(-50%,-50%);font-size:48px;
+      filter:drop-shadow(0 0 10px #0008);cursor:pointer;user-select:none`;
+    d.onpointerdown=(ev)=>{ try{ d.remove(); }catch{} BUS.hit?.({points:120,kind:'perfect',ui:{x:ev.clientX,y:ev.clientY},meta:{golden:true}}); };
+    host.appendChild(d);
+    setTimeout(()=>{ try{ d.remove(); }catch{} }, 2400);
+  }, 600);
+}
+function stopEmergency(){ clearInterval(emgTimer); emgTimer=null; }
+
 async function preCountdown(){
   if(countingDown) return; countingDown=true;
-  hud.showBig('3'); sfx.tick(); await sleep(500);
-  hud.showBig('2'); sfx.tick(); await sleep(500);
-  hud.showBig('1'); sfx.tick(); await sleep(500);
-  hud.showBig('GO!'); sfx.tick(); await sleep(350);
+  hud.showBig('3'); sfx.tick(); await sleep(450);
+  hud.showBig('2'); sfx.tick(); await sleep(450);
+  hud.showBig('1'); sfx.tick(); await sleep(450);
+  hud.showBig('GO!'); sfx.tick(); await sleep(320);
   countingDown=false;
 }
 
@@ -87,28 +107,31 @@ function beginRun({modeKey,diff='Normal'}){
 
   activeMode = MODES[modeKey];
   try{
-    // ส่ง BUS เข้าไปตั้งแต่เริ่ม
+    // ส่ง BUS ให้โหมด และ bind ทันที
     activeMode?.start?.({difficulty:diff, bus: BUS});
-    // bind BUS ให้ชัวร์อีกช็อต (สำหรับโหมดที่รับ BUS ผ่าน update)
     activeMode?.update?.(0, BUS);
   }catch{}
 
-  // Watchdog เบา ๆ: 1.2s แล้วไม่เห็น .gj-it ⇒ start ซ้ำ
+  // ถ้า 900ms แล้วยังไม่เห็นของจริง → เปิด emergency
   setTimeout(()=>{
     if(!playing) return;
     const host = document.getElementById('spawnHost');
-    if(host && !host.querySelector('.gj-it')){
-      try{
-        activeMode?.start?.({difficulty:diff, bus: BUS});
-        activeMode?.update?.(0, BUS);
-      }catch{}
+    if(host && !host.querySelector('.gj-it.gj-real')) startEmergency();
+  }, 900);
+
+  // เฝ้าไว้ทุก 1.2s: ไม่มีของจริง → คิก start โหมดซ้ำ (พร้อม BUS)
+  setInterval(()=>{
+    if(!playing) return;
+    const host = document.getElementById('spawnHost');
+    if(host && !host.querySelector('.gj-it.gj-real')){
+      try{ activeMode?.start?.({difficulty:diff, bus: BUS}); activeMode?.update?.(0, BUS); }catch{}
     }
   }, 1200);
 }
 
 function endRun(){
   if(!playing) return; playing=false;
-  clearInterval(tickTimer);
+  clearInterval(tickTimer); stopEmergency();
   try{ activeMode?.stop?.(); activeMode?.cleanup?.(); }catch{}
   const host=document.getElementById('spawnHost'); if(host) host.innerHTML='';
   mission.stop(stateRef);
@@ -137,7 +160,7 @@ async function startGame(){
   await preCountdown(); beginRun({modeKey:document.body.getAttribute('data-mode')||'goodjunk', diff:document.body.getAttribute('data-diff')||'Normal'});
 }
 
-function stopLoop(){ clearInterval(tickTimer); playing=false; countingDown=false; }
+function stopLoop(){ try{ clearInterval(tickTimer); }catch{} stopEmergency(); playing=false; countingDown=false; }
 
 window.HHA = { startGame, __stopLoop: stopLoop };
-console.log('[HeroHealth] main.js — CLASSIC-LITE v2 (legacy+BUS)');
+console.log('[HeroHealth] main.js — CLASSIC-LITE v3 (BUS + Emergency Spawner)');
