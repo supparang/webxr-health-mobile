@@ -1,4 +1,4 @@
-// === modes/goodjunk.safe.js — Ultra clean & anti-overlap solid (2025-11-06) ===
+// === modes/goodjunk.safe.js — Ultra clean, anti-overlap solid (2025-11-06) ===
 import { Difficulty }   from '../vr/difficulty.js';
 import { Emoji }        from '../vr/emoji-sprite.js';
 import { Fever }        from '../vr/fever.js';
@@ -27,24 +27,24 @@ const AdvancedFX = FX.AdvancedFX || {
   }catch{} }
 };
 
-const $=s=>document.querySelector(s);
-const sample=a=>a[Math.floor(Math.random()*a.length)];
-const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-const now  =()=>performance.now();
+const $ = s => document.querySelector(s);
+const sample = a => a[Math.floor(Math.random()*a.length)];
+const clamp  = (n,a,b)=>Math.max(a,Math.min(b,n));
+const now    = ()=>performance.now();
 
-// ---------- Pools (20 each) ----------
+// ---------- Pools (20/20) ----------
 const GOOD=['🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'];
 const JUNK=['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'];
 
-// ---------- Session knobs (sparse & comfy) ----------
+// ---------- Session knobs ----------
 const TIME_BY_DIFF         ={ easy:45, normal:60, hard:75 };
-const MAX_ACTIVE_BY_DIFF   ={ easy:1,  normal:2,  hard:2 };  // จำนวนพร้อมกัน
-const SPAWN_BUDGET_PER_SEC ={ easy:1,  normal:2,  hard:2 };  // ต่อวินาทีสูงสุด
+const MAX_ACTIVE_BY_DIFF   ={ easy:1,  normal:2,  hard:2 };
+const SPAWN_BUDGET_PER_SEC ={ easy:1,  normal:2,  hard:2 };
 const GOOD_RATE=0.70, GOLDEN_RATE=0.07;
 
-// Anti-overlap (2D x/y + slot cooldown)
-const MIN_DIST         = 0.30;  // m (เพิ่มอีกนิดกันซ้อน)
-const SLOT_COOLDOWN_MS = 420;   // ms
+// Anti-overlap (เข้ม)
+const MIN_DIST         = 0.36;   // m (2D x/y)
+const SLOT_COOLDOWN_MS = 520;    // ms
 
 // ---------- Emoji / Twemoji ----------
 const USE_EMOJI_SVG=(()=>{ try{ return (new URL(location.href)).searchParams.get('emoji')?.toLowerCase()==='svg'; }catch{ return false; }})();
@@ -61,36 +61,34 @@ function makeEmojiNode(char,{scale=0.58}={}){
   }
 }
 
-// ---------- Slots: 3 columns x 2 rows (lower-middle screen) ----------
-function buildSlots(yBase=0.44){
-  const xs=[-0.90, 0.00, 0.90];    // กว้างมาก
-  const ys=[ yBase, yBase+0.28 ];  // ล่าง + กลาง
+// ---------- Slots: 3 cols x 2 rows (lower-middle, ห่างขึ้น) ----------
+function buildSlots(yBase = 0.42){
+  const xs = [-0.95, 0.00, 0.95];
+  const ys = [ yBase, yBase + 0.34 ];
   const slots=[]; let id=0;
   for(let ci=0; ci<xs.length; ci++){
     for(let ri=0; ri<ys.length; ri++){
-      slots.push({ id:id++, col:ci, row:ri, x:xs[ci], y:ys[ri], z:-(1.32+Math.random()*0.10), used:false, lastUsed:0 });
+      slots.push({ id:id++, col:ci, row:ri, x:xs[ci], y:ys[ri], z:-1.34, used:false, lastUsed:0 });
     }
   }
   return slots;
 }
+// กรองสลอตตั้งแต่ต้น (คูลดาวน์ + ไม่ทับคอลัมน์/แถว)
 function takeFreeSlot(slots, busyCols, busyRows){
   const t=now();
   const free=slots.filter(s=>!s.used && (t - s.lastUsed >= SLOT_COOLDOWN_MS) && !busyCols.has(s.col) && !busyRows.has(s.row));
   if(!free.length) return null;
-  const s=free[Math.floor(Math.random()*free.length)];
-  s.used=true; return s;
+  const s=free[Math.floor(Math.random()*free.length)]; s.used=true; return s;
 }
 function releaseSlot(slots,slot){ if(slot){ slot.used=false; slot.lastUsed=now(); } }
 
 // =====================================================
 export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
-  // host safety
   if(!host){ const wrap=$('a-scene')||document.body; const auto=document.createElement('a-entity'); auto.id='spawnHost'; wrap.appendChild(auto); host=auto; }
 
   // SFX
   const sfx=new SFX('../assets/audio/');
-  await sfx.unlock?.();
-  sfx.attachPageVisibilityAutoMute?.();
+  await sfx.unlock?.(); sfx.attachPageVisibilityAutoMute?.();
   window.addEventListener('hha:muteToggle', (e)=>{ sfx.mute?.(!!(e.detail?.muted)); });
   window.addEventListener('hha:volChange',  (e)=>{ sfx.setVolume?.(Number(e.detail?.vol)||1); });
 
@@ -111,7 +109,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   if(!duration||duration<=0) duration=TIME_BY_DIFF[difficulty]||60;
   $('#hudTime')?.setAttribute('troika-text','value',`เวลา: ${duration}s`);
 
-  // Difficulty -> พื้นฐาน
+  // Difficulty base
   const diff=new Difficulty();
   const safeCfg={ size:0.60, rate:520, life:2000 };
   const baseCfg=(diff?.config?.[difficulty]) || (diff?.config?.normal) || safeCfg;
@@ -119,7 +117,9 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   let lifetimeMs  = Number(baseCfg.life) || safeCfg.life;
   let sizeFactor  = Math.max(0.40, (Number(baseCfg.size)||0.60) * 0.80); // เล็กลง ~20%
 
-  const hitW=(difficulty==='easy'?0.50 : difficulty==='hard'?0.40 : 0.46);
+  // ฮิตบ็อกซ์ไม่ให้ใหญ่เกินกันชน
+  let hitWBase = (difficulty==='easy'?0.50 : difficulty==='hard'?0.40 : 0.46);
+  const hitW   = Math.min(hitWBase, MIN_DIST * 0.80);
 
   // State
   let running=true, missionGood=0, score=0, combo=0, comboMax=0, streak=0, lastGoodAt=now();
@@ -128,15 +128,15 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   let   MAX_ACTIVE      = MAX_ACTIVE_INIT;
   const BUDGET          = SPAWN_BUDGET_PER_SEC[difficulty]??2;
 
-  const active=new Set();            // a-entity เป้าที่อยู่บนจอ
+  const active=new Set();
   const slots =buildSlots();
-  const busyCols=new Set();          // จำกัด 1 ชิ้นต่อคอลัมน์
-  const busyRows=new Set();          // จำกัด 1 ชิ้นต่อแถว
+  const busyCols=new Set();     // 1 ชิ้น/คอลัมน์
+  const busyRows=new Set();     // 1 ชิ้น/แถว
   let issuedThisSec=0, spawnTicker;
-  let SPAWN_LOCK=false;              // กัน race/ซ้อน
+  let SPAWN_LOCK=false;         // มิวเท็กซ์สปอน
   const budgetTimer=setInterval(()=>{ issuedThisSec=0; },1000);
 
-  // FPS adapt (เบา ๆ)
+  // FPS adapt
   let frames=0, lastT=now();
   function raf(t){
     frames++;
@@ -171,7 +171,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
     }
   }catch{} }
 
-  // ------------------------ Spawn one target (race-safe) ------------------------
+  // ------------------------ Spawn one (race-safe) ------------------------
   function spawnOne(){
     if(!running) return;
     if(SPAWN_LOCK) return;
@@ -183,14 +183,14 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
       const slot=takeFreeSlot(slots, busyCols, busyRows);
       if(!slot) return;
 
-      // กันซ้อน 2D อีกรอบ (edge)
+      // กันซ้อน 2D เพิ่มชั้น
       const tooClose=[...active].some(el=>{
         try{ const p=el.getAttribute('position'); const dx=p.x-slot.x, dy=p.y-slot.y; return (dx*dx+dy*dy) < (MIN_DIST*MIN_DIST); }
         catch{ return false; }
       });
       if(tooClose){ releaseSlot(slots,slot); return; }
 
-      // จองคอลัมน์/แถวทันที
+      // จองคอลัมน์/แถว
       busyCols.add(slot.col); busyRows.add(slot.row);
       issuedThisSec++;
 
@@ -199,7 +199,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
       const isGold=isGood && Math.random()<GOLDEN_RATE;
 
       const el=makeEmojiNode(char,{ scale: clamp(sizeFactor, 0.35, 0.65) }); // cap 0.65
-      el.setAttribute('position',`${slot.x} ${slot.y} ${slot.z}`);  // ไม่มี z-jitter
+      el.setAttribute('position',`${slot.x} ${slot.y} ${slot.z}`);  // no z-jitter
       el.classList.add('hit','clickable');
       el.__col=slot.col; el.__row=slot.row;
 
@@ -251,17 +251,41 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
         busyCols.delete(slot.col); busyRows.delete(slot.row);
         releaseSlot(slots,slot);
       }
-    } finally {
-      SPAWN_LOCK=false;
+    } finally { SPAWN_LOCK=false; }
+  }
+
+  // ---------- Overlap sweeper: ตรวจทุก 200ms แล้วย้าย/ถอดตัวทับ ----------
+  function resolveOverlaps(){
+    const arr=[...active];
+    for(let i=0;i<arr.length;i++){
+      for(let j=i+1;j<arr.length;j++){
+        const a=arr[i], b=arr[j];
+        try{
+          const pa=a.getAttribute('position'), pb=b.getAttribute('position');
+          const dx=pb.x-pa.x, dy=pb.y-pa.y, d2=dx*dx+dy*dy;
+          if(d2 < (MIN_DIST*MIN_DIST)){
+            const dest=takeFreeSlot(slots, busyCols, busyRows);
+            if(dest){
+              b.setAttribute('position',`${dest.x} ${dest.y} ${dest.z}`);
+              busyCols.add(dest.col); busyRows.add(dest.row);
+              if(b.__col!=null && b.__row!=null){ busyCols.delete(b.__col); busyRows.delete(b.__row); }
+              b.__col=dest.col; b.__row=dest.row;
+            }else{
+              try{ b.remove(); }catch{} active.delete(b);
+            }
+          }
+        }catch{}
+      }
     }
   }
+  const overlapSweeper=setInterval(()=>{ if(running) resolveOverlaps(); },200);
 
   // Loop
   function loop(){
     clearTimeout(spawnTicker);
     const tick=()=>{
       if(running && active.size<MAX_ACTIVE && issuedThisSec<BUDGET) spawnOne();
-      const cd=Math.max(380, spawnRateMs|0);   // soft-min 380ms
+      const cd=Math.max(380, spawnRateMs|0);
       spawnTicker=setTimeout(tick,cd);
     };
     tick();
@@ -269,7 +293,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   function prime(){ setTimeout(()=>spawnOne(),220); }
 
   loop(); prime();
-  console.log('[goodjunk] sparse+no-overlap v3', {MAX_ACTIVE, BUDGET, MIN_DIST});
+  console.log('[goodjunk] anti-overlap v4', {MAX_ACTIVE, BUDGET, MIN_DIST});
 
   // Hit result
   function onHit({ el, char, pos, isGold=false }){
@@ -289,7 +313,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
 
       mq.good({score,combo,streak,missionGood});
       missions.onGood?.(); missions.updateScore?.(score); missions.updateCombo?.(combo);
-      renderQuest();
+      try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{}
 
       if(missionGood>=goal){
         mq.mission(missionGood);
@@ -301,10 +325,9 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
     }else{
       score=Math.max(0,score-5); combo=0; streak=0;
       sfx.popBad?.(); Particles.smoke?.(host,pos);
-      mq.junk(); missions.onJunk?.(); renderQuest();
+      mq.junk(); missions.onJunk?.();
+      try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{}
     }
-
-    try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{}
   }
 
   // Timers
@@ -321,6 +344,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
     if(!running) return; running=false;
     clearTimeout(spawnTicker);
     clearInterval(secondTimer); clearInterval(budgetTimer); clearInterval(comboDecay);
+    clearInterval(overlapSweeper);
     clearTimeout(endTimer);
     try{ fever.end(); }catch{} try{ sfx.playCoach?.('clear'); }catch{}
     try{ window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,missionGood,goal,comboMax}})); }catch{}
