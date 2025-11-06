@@ -21,8 +21,8 @@
 
     <!-- Camera -->
     <a-entity id="rig" position="0 0 0">
-      <a-entity id="cam" camera position="0 1.6 0" look-controls cursor="rayOrigin: mouse"
-                raycaster="objects: .clickable, a-link"></a-entity>
+      <a-entity id="cam" camera position="0 1.6 0" look-controls
+                cursor="rayOrigin: mouse" raycaster="objects: .clickable, a-link"></a-entity>
       <a-entity laser-controls="hand: right"></a-entity>
     </a-entity>
 
@@ -80,7 +80,7 @@
 
     <!-- สถานะ/บั๊ก -->
     <a-entity id="bootStatus" position="-0.95 1.05 -1.0"
-              troika-text="value: Status: Booting…; color:#9ca3af; fontSize:0.06; maxWidth:1.2"></a-entity>
+              troika-text="value: Status: Hub ready; color:#9ca3af; fontSize:0.06; maxWidth:1.2"></a-entity>
 
     <!-- เสียง (ไม่บล็อกเรนเดอร์) -->
     <a-entity id="coach_start"  sound="src: url(./assets/audio/coach_start_th.mp3); poolSize: 1"></a-entity>
@@ -91,7 +91,7 @@
     <a-entity id="coach_quest"  sound="src: url(./assets/audio/star.mp3); poolSize: 1"></a-entity>
   </a-scene>
 
-  <!-- ===== Orchestrator (no external imports) ===== -->
+  <!-- ===== Orchestrator ===== -->
   <script type="module">
     const statusEl = document.getElementById('bootStatus');
     const setStatus = (msg)=>{ try{ statusEl.setAttribute('troika-text', `value: ${msg}`); }catch{} };
@@ -121,7 +121,7 @@
     document.getElementById('d-normal').addEventListener('click', ()=>{ selectedDiff='normal'; setSelected(diffButtons,'d-normal'); });
     document.getElementById('d-hard').addEventListener('click',   ()=>{ selectedDiff='hard';   setSelected(diffButtons,'d-hard'); });
 
-    // โหมด → ไฟล์ (ชี้พาธตรงกับโครง HeroHealth/)
+    // โหมด → ไฟล์ (ต้องมีใน /HeroHealth/modes/*.safe.js)
     const MODE_URL = {
       goodjunk: './modes/goodjunk.safe.js',
       groups:   './modes/groups.safe.js',
@@ -129,7 +129,7 @@
       plate:    './modes/plate.safe.js'
     };
 
-    // อัปเดตคะแนนแบบเบา ๆ
+    // อัปเดตคะแนนแบบเบา ๆ จาก event ของโหมด
     window.addEventListener('hha:score', (e)=>{
       const {score=0, combo=0} = e.detail||{};
       const hud=document.getElementById('hudScore');
@@ -139,7 +139,7 @@
     // Start
     document.getElementById('btnStart').addEventListener('click', async ()=>{
       try{
-        setStatus('Status: Loading mode "'+selectedMode+'"…');
+        setStatus(`Status: Loading mode "${selectedMode}"…`);
         document.getElementById('hubMenu')?.setAttribute('visible', false);
 
         const url = MODE_URL[selectedMode] || MODE_URL.goodjunk;
@@ -150,9 +150,9 @@
           host: document.getElementById('spawnZone'),
           difficulty: selectedDiff,
           goal: 40
-          // duration: ให้โหมดกำหนดตามระดับ
+          // duration: ให้โหมดกำหนดตามระดับ (factory ภายในจัดการ)
         });
-        setStatus('Status: Mode loaded: '+selectedMode+' ('+selectedDiff+')');
+        setStatus(`Status: Mode loaded: ${selectedMode} (${selectedDiff})`);
       }catch(err){
         console.error(err);
         setStatus('Error: '+(err?.message||err));
@@ -162,14 +162,10 @@
           await f.boot({ host: document.getElementById('spawnZone'), difficulty: 'easy', goal: 30 });
           setStatus('Status: Fallback goodjunk (easy) started');
         }catch(e2){
-          console.error('Fallback failed', e2);
-          setStatus('Error: Fallback failed. Check paths under /HeroHealth/modes/*.safe.js');
+          setStatus('Error: Fallback failed. Check /HeroHealth/modes/*.safe.js');
         }
       }
     });
-
-    // บู๊ตสำเร็จ
-    setStatus('Status: Hub ready');
   </script>
 </body>
 </html>
