@@ -1,60 +1,231 @@
+// === modes/goodjunk.safe.js (Good vs Junk Mode, 2025-11-06) ===
+// เป้าหมาย: คลิก "ของดี (GOOD)" เลี่ยง "ของขยะ (JUNK)"
+// รองรับ: Emoji สีจริง, Fever, MiniQuest, MissionDeck, SFX, Particles
+// API: export async function boot({ host, duration=60, difficulty='normal', goal=40 })
 
-// GoodJunk Safe Mode (module)
-export async function boot({host, duration=60, difficulty='normal'}){
-  const zone = host || document.getElementById('spawnZone');
-  while(zone.firstChild) zone.removeChild(zone.firstChild);
+import Difficulty     from '../vr/difficulty.js';
+import Emoji          from '../vr/emoji-sprite.js';
+import { Fever }      from '../vr/fever.js';
+import MiniQuest      from '../vr/miniquest.js';
+import { MissionDeck } from '../vr/mission.js';
+import { Particles }  from '../vr/particles.js';
+import { SFX }        from '../vr/sfx.js';
 
-  const plane = document.createElement('a-plane');
-  plane.setAttribute('width','2.2'); plane.setAttribute('height','1.2');
-  plane.setAttribute('color','#0b1d38'); plane.setAttribute('opacity','0.85');
-  plane.setAttribute('position','0 0 -0.01');
-  zone.appendChild(plane);
+// ---------- Pools: 20 รายการต่อกลุ่ม ----------
+const GOOD = [
+  '🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝',
+  '🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'
+];
+const JUNK = [
+  '🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰',
+  '🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'
+];
 
-  const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
-  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
-  let tLeft = duration, score=0, paused=false;
+const $ = s => document.querySelector(s);
+const sample = arr => arr[Math.floor(Math.random()*arr.length)];
+const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 
-  function setHudTime(sec){
-    const t = document.querySelector('#hudRoot a-entity[troika-text]:nth-of-type(2)');
-    if(t) t.setAttribute('troika-text','value','เวลา: '+sec+'s');
+// สร้างอีโมจิแบบ “สีจริง” ให้ทำงานได้ทั้งเวอร์ชัน EmojiSprite เก่า/ใหม่
+function makeEmoji(char, {size=96, scale=0.55, glow=true, shadow=true} = {}){
+  if (typeof Emoji?.fromChar === 'function') {
+    return Emoji.fromChar(char, { size, scale, glow, shadow });
   }
-  function setHudScore(sc){
-    const t = document.querySelector('#hudRoot a-entity[troika-text]:nth-of-type(3)');
-    if(t) t.setAttribute('troika-text','value','คะแนน: '+sc);
+  // Fallback: รุ่นเก่า (SDF text จะไม่ได้สีจริง) — ยังคงเล่นได้
+  if (typeof Emoji?.create === 'function') {
+    const type = GOOD.includes(char) ? 'GOOD' : (JUNK.includes(char) ? 'JUNK' : 'STAR');
+    return Emoji.create({ type, size: scale });
   }
-  setHudTime(tLeft); setHudScore(score);
+  // สุดท้าย: ใช้ a-text ง่าย ๆ
+  const el = document.createElement('a-entity');
+  el.setAttribute('text', { value: char, align: 'center', width: 2.2*scale, color: '#fff' });
+  return el;
+}
 
-  function randPos(){
-    return [ (Math.random()*1.8-0.9), (Math.random()*0.9-0.45), 0.01 ];
+export async function boot({ host, duration=60, difficulty='normal', goal=40 } = {}) {
+  // ---------- Host safety ----------
+  if (!host){
+    const wrap = $('a-scene') || document.body;
+    const auto = document.createElement('a-entity');
+    auto.id = 'spawnHost';
+    wrap.appendChild(auto);
+    host = auto;
   }
+
+  // ---------- Systems ----------
+  const sfx = new SFX('../assets/audio/');
+  await sfx.unlock();
+  sfx.attachPageVisibilityAutoMute();
+
+  const scene = $('a-scene') || document.body;
+  const fever = new Fever(scene, null, { durationMs: 10000 });
+  const mq = new MiniQuest(
+    { tQ1: $('#tQ1'), tQ2: $('#tQ2'), tQ3: $('#tQ3') },
+    { coach_start: $('#coach_start'), coach_good: $('#coach_good'),
+      coach_warn: $('#coach_warn'), coach_fever: $('#coach_fever'),
+      coach_quest: $('#coach_quest'), coach_clear: $('#coach_clear') }
+  );
+  mq.start(goal);
+
+  const missions = new MissionDeck();
+  missions.draw3();
+
+  // ---------- Difficulty ----------
+  // ใช้โครงสร้าง config จาก vr/difficulty.js ของคุณโดยตรง
+  const diff = new Difficulty();
+  const cfgByLevel = (diff?.config && diff.config[difficulty]) || diff?.config?.normal || { size:0.6, rate:520, life:2000 };
+  let spawnRateMs = cfgByLevel.rate;   // ระยะห่างการเกิดเป้า
+  let lifetimeMs  = cfgByLevel.life;   // อายุเป้าก่อนหาย
+  let sizeFactor  = cfgByLevel.size;   // ขนาดเป้า
+
+  // ---------- Game State ----------
+  let running = true;
+  let missionGood = 0; // จำนวนที่เก็บ GOOD สำเร็จ (ใช้เช็คภารกิจหลัก/goal)
+  let score = 0;
+  let combo = 0;
+  let streak = 0;
+  let totalSpawn = 0;
+  const startAt = performance.now();
+
+  // ---------- Spawn Logic ----------
+  // อัตราส่วน: 68% GOOD / 32% JUNK (ปรับง่ายตรงนี้)
+  const GOOD_RATE = 0.68;
+
   function spawnOne(){
-    if(paused) return;
-    const good = Math.random()<0.7;
-    const emoji = (good?GOOD:JUNK)[(Math.random()* (good?GOOD.length:JUNK.length))|0];
-    const pos = randPos();
-    const e = document.createElement('a-entity');
-    e.classList.add('clickable','target');
-    e.setAttribute('troika-text', `value: ${emoji}; color:#fff; fontSize:0.20; anchor:center;`);
-    e.setAttribute('position', `${pos[0].toFixed(2)} ${pos[1].toFixed(2)} ${pos[2]}`);
-    const life = setTimeout(()=>e.remove(), 2200);
-    e.addEventListener('click', ()=>{
-      clearTimeout(life);
-      score = Math.max(0, score + (good?1:-1));
-      setHudScore(score);
-      e.remove();
-    });
-    zone.appendChild(e);
+    if (!running) return;
+
+    totalSpawn++;
+    const roll = Math.random();
+    const char = (roll < GOOD_RATE) ? sample(GOOD) : sample(JUNK);
+
+    const el = makeEmoji(char, { size: 96, scale: clamp(sizeFactor, 0.45, 0.9), glow: true, shadow: true });
+
+    // กระจายตำแหน่งด้านหน้า
+    const px=(Math.random()*1.4-0.7);
+    const py=(Math.random()*0.8+1.0);
+    const pz=-(Math.random()*0.6+1.2);
+    el.setAttribute('position', `${px} ${py} ${pz}`);
+
+    // อายุเป้า
+    const ttl = lifetimeMs;
+    const killer = setTimeout(()=>{
+      // ถ้า GOOD หายไปเอง → ถือว่า "พลาด" เบา ๆ: รีสตรีคอย่างเดียว (ไม่หักคะแนน)
+      if (GOOD.includes(char)) {
+        streak = 0;
+        combo  = 0;
+        mq.junk();          // ใช้เสียงเตือนเดียวกันเพื่อ feedback
+        missions.onJunk();  // นับ miss ใน deck
+      }
+      el.remove();
+    }, ttl);
+
+    // คลิก
+    el.addEventListener('click', ()=>{
+      clearTimeout(killer);
+      onHit({ el, char, pos: {x:px, y:py, z:pz} });
+    }, { once:true });
+
+    host.appendChild(el);
   }
 
-  const rate = (difficulty==='hard')? 260 : (difficulty==='normal')? 360 : 480;
-  let spawner = setInterval(spawnOne, rate);
-  let timer = setInterval(()=>{
-    if(paused) return;
-    tLeft--; setHudTime(tLeft);
-    if(tLeft<=0){
-      clearInterval(spawner); clearInterval(timer);
-    }
-  }, 1000);
+  function onHit({ el, char, pos }){
+    el.remove();
+    const isGood = GOOD.includes(char);
 
-  return { pause(){ paused=true; }, resume(){ paused=false; }, destroy(){ try{ clearInterval(spawner); clearInterval(timer); }catch{}; while(zone.firstChild) zone.removeChild(zone.firstChild);} };
+    if (isGood){
+      const gain = fever.active ? 2 : 1;
+      missionGood += 1;
+      score += 10 * gain;
+      combo += 1;
+      streak += 1;
+
+      sfx.popGood();
+      Particles.burst(host, pos, '#69f0ae');
+
+      // เติม Fever ตามสตรีค
+      if (streak % 6 === 0) fever.add(8);
+
+      mq.good({ score, combo, streak, missionGood });
+      missions.onGood();
+      missions.updateScore(score);
+      missions.updateCombo(combo);
+
+      // ผ่านเป้าหมายหลัก
+      if (missionGood >= goal) {
+        mq.mission(missionGood);
+        if (missionGood === goal) { // เฉลิมฉลองครั้งแรกที่ถึงเป้า
+          sfx.star();
+          Particles.spark(host, {x:0, y:1.4, z:-1.4}, '#ffe066');
+        }
+      }
+    } else {
+      // JUNK
+      score = Math.max(0, score - 5);
+      combo = 0;
+      streak = 0;
+
+      sfx.popBad();
+      Particles.smoke(host, pos);
+      mq.junk();
+      missions.onJunk();
+    }
+  }
+
+  // ---------- Timers ----------
+  const spawnTimer = setInterval(spawnOne, spawnRateMs);
+  const secondTimer = setInterval(()=>{
+    if (!running) return;
+    mq.second();
+    missions.second();
+  }, 1000);
+  const endTimer = setTimeout(()=> endGame('timeout'), duration * 1000);
+
+  function endGame(reason='stop'){
+    if (!running) return;
+    running = false;
+    clearInterval(spawnTimer);
+    clearInterval(secondTimer);
+    clearTimeout(endTimer);
+
+    fever.end();
+    sfx.playCoach('clear');
+
+    // สรุปผลสำหรับ HUD/Modal
+    const detail = {
+      reason,
+      score,
+      missionGood,
+      goal,
+      totalSpawn,
+      quests: mq.serialize?.().quests || [],
+      missions: missions.summary()
+    };
+    try { window.dispatchEvent(new CustomEvent('hha:end', { detail })); } catch {}
+  }
+
+  // Fever hook → แจ้ง MiniQuest/Mission
+  window.addEventListener('hha:fever', (e)=>{
+    if (e?.detail?.state === 'start'){
+      mq.fever();
+      missions.onFeverStart();
+    }
+  });
+
+  // ---------- Public API ----------
+  return {
+    pause(){
+      if (!running) return;
+      running = false;
+      clearInterval(spawnTimer);
+      // หมายเหตุ: หากต้องหยุด Fever UI ด้วย ให้เพิ่ม fever.pause() ตามระบบของคุณ
+      mq.pause?.();
+    },
+    resume(){
+      if (running) return;
+      running = true;
+      // รีสตาร์ท spawn ใหม่ตามระดับเดิม
+      setInterval(spawnOne, spawnRateMs);
+      mq.resume?.();
+    },
+    stop(){ endGame('stop'); }
+  };
 }
