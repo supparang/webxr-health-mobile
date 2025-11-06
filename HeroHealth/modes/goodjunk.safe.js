@@ -84,7 +84,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   if(!host){ const wrap=$('a-scene')||document.body; const auto=document.createElement('a-entity'); auto.id='spawnHost'; wrap.appendChild(auto); host=auto; }
 
   const sfx=new SFX('../assets/audio/'); await sfx.unlock?.(); sfx.attachPageVisibilityAutoMute?.();
-  window.addEventListener('hha:muteToggle',e=>sfx.mute?.(!!(e.detail?.muted))));
+  window.addEventListener('hha:muteToggle', e => sfx.mute?.(!!(e.detail?.muted)));
   window.addEventListener('hha:volChange', e=>sfx.setVolume?.(Number(e.detail?.vol)||1));
 
   const scene=$('a-scene')||document.body;
