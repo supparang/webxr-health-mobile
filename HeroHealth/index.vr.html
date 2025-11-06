@@ -112,11 +112,13 @@
       hide($('#startPanel'));
       killFallback(); setTimeout(killFallback,0);
 
-      const map = {
-        goodjunk:   './modes/goodjunk.safe.js',
-        groups:     './modes/groups.safe.js',
-        hydration:  './modes/hydration.safe.js',
-        plate:      './modes/plate.safe.js'
+    const map = {
+     goodjunk : './modes/goodjunk.safe.js'
+     groups   : './modes/groups.safe.js',
+     hydration: './modes/hydration.quest.js',
+     plate    : './modes/plate.quest.js',
+      };
+
       };
       try{
         const url = map[mode] || map.goodjunk;
