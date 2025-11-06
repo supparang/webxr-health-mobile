@@ -5,53 +5,49 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hero Health Academy VR</title>
   <meta name="color-scheme" content="light dark"/>
-  <!-- A-Frame + THREE (ให้ THREE อยู่บน window สำหรับปลั๊กอิน/สคริปต์อื่น) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
-  <!-- Troika Text (สำหรับ troika-text) -->
   <script src="https://cdn.jsdelivr.net/npm/aframe-troika-text@0.9.1/dist/aframe-troika-text.min.js"></script>
-
   <style>
-    :root { color-scheme: light dark; }
-    body { margin:0; background:#0b0d14; overflow:hidden; font-family:system-ui, -apple-system, Segoe UI, Roboto, 'Prompt', sans-serif; }
-    /* HUD/เมนู overlay */
-    #hudOverlay { position:fixed; inset:0; pointer-events:none; }
-    .menuWrap {
-      height:100vh; display:flex; flex-direction:column; gap:1rem;
-      align-items:center; justify-content:center;
-      pointer-events:auto; z-index:9999;
-    }
-    h2 { margin:0 0 .5rem; color:#fff; letter-spacing:.5px; }
-    label { color:#cbd5e1; margin-right:.5rem; }
-    select { padding:.35rem .5rem; border-radius:.5rem; border:1px solid #374151; background:#0f172a; color:#e5e7eb; }
-    button { background:#22c55e; border:none; padding:.8rem 1.4rem; border-radius:.7rem; color:#fff; font-size:1rem; cursor:pointer; }
-    button:hover { background:#16a34a; }
-    .status { position:fixed; left:0; right:0; bottom:12px; text-align:center; color:#cbd5e1; font-size:1rem; pointer-events:none; }
-    .noclick { pointer-events: none; } /* กันเควสบังเป้า */
+    body{margin:0;background:#0b0d14;overflow:hidden;font-family:system-ui,-apple-system,Roboto,'Prompt',sans-serif}
+    #hudOverlay{position:fixed;inset:0;pointer-events:none}
+    .menuWrap{height:100vh;display:flex;flex-direction:column;gap:1rem;align-items:center;justify-content:center;pointer-events:auto;z-index:9999}
+    h2{margin:0 0 .5rem;color:#fff}
+    label{color:#cbd5e1;margin-right:.5rem}
+    select{padding:.35rem .5rem;border-radius:.5rem;border:1px solid #374151;background:#0f172a;color:#e5e7eb}
+    button{background:#22c55e;border:none;padding:.8rem 1.4rem;border-radius:.7rem;color:#fff;font-size:1rem;cursor:pointer}
+    button:hover{background:#16a34a}
+    .status{position:fixed;left:0;right:0;bottom:12px;text-align:center;color:#cbd5e1}
+    .noclick{pointer-events:none}
   </style>
 </head>
 <body>
-  <!-- Scene -->
-  <a-scene background="color:#0b0d14"
-           cursor="rayOrigin: mouse"
-           raycaster="objects: .clickable"
-           vr-mode-ui="enabled: true">
-    <!-- โซนสปอนเป้า (ล่าง-กลางจอ) -->
-    <a-entity id="spawnZone" position="0 1.2 -1.2"></a-entity>
+  <a-scene background="color:#0b0d14" vr-mode-ui="enabled:true">
+    <!-- กล้อง + cursor/raycaster ติดกล้อง -->
+    <a-entity id="rig" position="0 0 0">
+      <a-entity id="cam" camera position="0 1.6 0"
+                cursor="rayOrigin: mouse"
+                raycaster="objects: .clickable; interval: 0">
+        <!-- HUD ผูกกับกล้อง -->
+        <a-entity position="0 0 -1.2">
+          <a-entity id="hudTime"
+                    troika-text="value: เวลา: 60s; color:#ffffff; fontSize:0.08"
+                    position="-0.55 0.26 0"></a-entity>
+          <a-entity id="hudScore"
+                    troika-text="value: คะแนน: 0  คอมโบ: x0; color:#ffffff; fontSize:0.08"
+                    position="0 0.26 0"></a-entity>
+          <a-entity id="tQmain"
+                    troika-text="value: Mini Quest — เริ่มรอบ; color:#a7f3d0; fontSize:0.075"
+                    position="0.55 0.26 0"></a-entity>
+        </a-entity>
+      </a-entity>
+    </a-entity>
 
-    <!-- HUD: เวลา/คะแนน/เควส (อยู่บน) -->
-    <a-entity id="hudTime"
-              troika-text="value: เวลา: 60s; color: #ffffff; fontSize: 0.08"
-              position="-0.65 1.86 -1.2"></a-entity>
-    <a-entity id="hudScore"
-              troika-text="value: คะแนน: 0  คอมโบ: x0; color:#ffffff; fontSize:0.08"
-              position="0 1.86 -1.2"></a-entity>
-    <a-entity id="tQmain"
-              troika-text="value: เควสกำลังเริ่ม...; color:#a7f3d0; fontSize:0.075"
-              position="0.65 1.86 -1.2"></a-entity>
+    <!-- โซนสปอน (ล่าง-กลางจอ) -->
+    <a-entity id="spawnZone" position="0 0 -1.2"></a-entity>
   </a-scene>
 
-  <!-- Overlay: เมนูเลือกโหมด/ระดับ + สถานะ -->
+  <!-- เมนู -->
   <div id="hudOverlay">
     <div id="hubMenu" class="menuWrap">
       <h2>เริ่ม: HERO HEALTH ACADEMY</h2>
@@ -77,105 +73,64 @@
     <div class="status"><span id="bootStatus">Status: Ready</span></div>
   </div>
 
-  <!-- Launcher -->
   <script type="module">
-    const $ = (s)=>document.querySelector(s);
-    const statusEl = $('#bootStatus');
-    const hubMenu  = $('#hubMenu');
-    const selMode  = $('#selMode');
-    const selDiff  = $('#selDiff');
-    const btnStart = $('#btnStart');
-    const spawn    = $('#spawnZone');
-    const setStatus = (m)=>{ if(statusEl) statusEl.textContent = m; console.log('[HHA]', m); };
+    const $ = s=>document.querySelector(s);
+    const statusEl=$('#bootStatus'), hubMenu=$('#hubMenu'), selMode=$('#selMode'), selDiff=$('#selDiff'), btnStart=$('#btnStart'), spawn=$('#spawnZone');
+    const setStatus=(m)=>{ if(statusEl) statusEl.textContent=m; console.log('[HHA]',m); };
 
-    // แสดง error overlay อ่านง่าย
     function showErrorOverlay(msg){
-      let el = document.getElementById('errOverlay');
-      if(!el){
-        el = document.createElement('div');
-        el.id = 'errOverlay';
-        el.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:10000;color:#fff;padding:24px;text-align:left';
+      let el=document.getElementById('errOverlay');
+      if(!el){ el=document.createElement('div'); el.id='errOverlay';
+        el.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.6);z-index:10000;color:#fff;padding:24px';
         document.body.appendChild(el);
       }
-      el.innerHTML = '<div style="max-width:900px;background:#111827;padding:16px 20px;border-radius:12px;border:1px solid #374151;font-family:monospace;white-space:pre-wrap;line-height:1.4">'+
-                     '<b>Load error</b>\n\n'+msg+'</div>';
+      el.innerHTML='<div style="max-width:900px;background:#111827;padding:16px 20px;border-radius:12px;border:1px solid #374151;white-space:pre-wrap;font-family:monospace">'+
+                   '<b>Load error</b>\n\n'+msg+'</div>';
     }
-    window.addEventListener('error', e=> showErrorOverlay('JS Error: '+(e.message||'unknown')));
-    window.addEventListener('unhandledrejection', e=> showErrorOverlay('Promise Error: '+(e.reason?.message||e.reason||'unknown')));
+    window.addEventListener('error', e=>showErrorOverlay('JS Error: '+(e.message||'unknown')));
+    window.addEventListener('unhandledrejection', e=>showErrorOverlay('Promise Error: '+(e.reason?.message||e.reason||'unknown')));
 
-    // map พาธโหมด
-    const MODE_URL = {
-      goodjunk : './modes/goodjunk.safe.js',
-      groups   : './modes/groups.safe.js',
-      hydration: './modes/hydration.safe.js',
-      plate    : './modes/plate.safe.js'
+    const MODE_URL={
+      goodjunk:'./modes/goodjunk.safe.js',
+      groups:'./modes/groups.safe.js',
+      hydration:'./modes/hydration.safe.js',
+      plate:'./modes/plate.safe.js'
     };
 
-    // restore ค่าเลือกจาก URL (ถ้ามี)
-    try {
-      const u = new URL(location.href);
-      const m = (u.searchParams.get('mode')||'').toLowerCase();
-      const d = (u.searchParams.get('diff')||'').toLowerCase();
-      if (m && MODE_URL[m]) selMode.value = m;
-      if (d && ['easy','normal','hard'].includes(d)) selDiff.value = d;
-    } catch {}
+    try{
+      const u=new URL(location.href);
+      const m=(u.searchParams.get('mode')||'').toLowerCase();
+      const d=(u.searchParams.get('diff')||'').toLowerCase();
+      if(m && MODE_URL[m]) selMode.value=m;
+      if(['easy','normal','hard'].includes(d)) selDiff.value=d;
+    }catch{}
 
-    // HUD score live update
-    window.addEventListener('hha:score', (e)=>{
-      const d = e.detail||{};
-      const hud = document.querySelector('#hudScore');
-      if (hud) hud.setAttribute('troika-text', `value: คะแนน: ${d.score||0}  คอมโบ: x${d.combo||0}`);
+    // HUD score live
+    window.addEventListener('hha:score',(e)=>{
+      const d=e.detail||{};
+      const hud=$('#hudScore');
+      if(hud) hud.setAttribute('troika-text',`value: คะแนน: ${d.score||0}  คอมโบ: x${d.combo||0}`);
     });
 
-    // ป้องกันกรณี pointer-events:none บนพ่อ
-    ['mousedown','touchstart','click','change'].forEach(ev=>{
-      hubMenu.addEventListener(ev, ()=>{}, {passive:true});
-    });
-
-    // Start
     btnStart.addEventListener('click', async (e)=>{
       e.preventDefault();
-      const mode = selMode.value || 'goodjunk';
-      const diff = selDiff.value || 'normal';
-      const url  = MODE_URL[mode] || MODE_URL.goodjunk;
-      setStatus(`Loading ${mode} (${diff})...`);
-      hubMenu.style.display = 'none';
-
-      // update URL (ไม่รีโหลด)
-      try {
-        const u = new URL(location.href);
-        u.searchParams.set('mode', mode);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('v', Date.now());
-        history.replaceState({}, '', u.toString());
-      } catch {}
+      const mode=selMode.value||'goodjunk';
+      const diff=selDiff.value||'normal';
+      const url =MODE_URL[mode]||MODE_URL.goodjunk;
+      setStatus(`Loading ${mode} (${diff})...`); hubMenu.style.display='none';
 
       try{
-        // ping กันพาธผิด
-        const r = await fetch(url, { cache:'no-store' });
-        if(!r.ok) throw new Error(`Fetch ${url} -> ${r.status} ${r.statusText}`);
-
-        const mod = await import(url + '?v=' + Date.now());
-        if (!mod?.boot) throw new Error('No boot() in '+url);
-        await mod.boot({ host: spawn, difficulty: diff, goal: 40 });
+        const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error(`Fetch ${url} -> ${r.status}`);
+        const mod=await import(url+'?v='+Date.now());
+        if(!mod?.boot) throw new Error('No boot() in '+url);
+        await mod.boot({host:spawn,difficulty:diff,goal:40});
         setStatus(`Running (${mode}/${diff})`);
       }catch(err){
-        console.error('[HHA] load mode failed:', err);
-        showErrorOverlay(String(err?.stack || err?.message || err));
-        setStatus('Fallback demo (module error)');
-
-        // fallback box (ยังคลิกได้)
-        try{
-          const scene = document.querySelector('a-scene');
-          const box = document.createElement('a-box');
-          box.setAttribute('color','#60a5fa');
-          box.setAttribute('position','0 1.2 -1.2');
-          box.classList.add('clickable');
-          scene.appendChild(box);
-          box.addEventListener('click', ()=> box.setAttribute('color','#22c55e'));
-        }catch{}
-
-        setTimeout(()=> hubMenu.style.display = 'flex', 1000);
+        console.error(err); showErrorOverlay(String(err?.stack||err?.message||err)); setStatus('Fallback demo');
+        const scene=document.querySelector('a-scene');
+        const box=document.createElement('a-box'); box.setAttribute('color','#60a5fa'); box.setAttribute('position','0 1.2 -1.2'); box.classList.add('clickable'); scene.appendChild(box);
+        box.addEventListener('click',()=>box.setAttribute('color','#22c55e'));
+        setTimeout(()=>hubMenu.style.display='flex',1000);
       }
     });
   </script>
