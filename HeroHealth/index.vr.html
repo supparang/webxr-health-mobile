@@ -152,5 +152,54 @@
       $('#hudFever').style.display=on?'block':'none';
     });
   </script>
+  <script>
+(function(){
+  const $ = s=>document.querySelector(s);
+  const goalEl  = $('#hudGoal');
+  const chipsEl = $('#hudChips');
+
+  // อัปเดตกล่อง Goal กลางบน (รองรับหลายเป้า)
+  function renderGoal(detail){
+    if(!goalEl) return;
+    const list = detail?.multiTargets;
+    if(Array.isArray(list) && list.length){
+      const parts = list.map(t=>{
+        const ex = (t.examples||[]).slice(0,3).join(' ');
+        return `[${t.label} ${t.have}/${t.need}] ${ex}`;
+      });
+      goalEl.innerHTML = `เป้าหมาย: ${parts.join(' &nbsp; | &nbsp; ')}`;
+      goalEl.style.display = 'block';
+    }else{
+      // เผื่อโหมดเดิมที่ส่งแบบเดี่ยว
+      const {label='-', have=0, need=10, examples=[]} = detail||{};
+      goalEl.innerHTML = `เป้าหมาย: ${label} — ${have}/${need} &nbsp;&nbsp;|&nbsp;&nbsp; ตัวอย่าง: ${(examples||[]).slice(0,3).join(' ')}`;
+      goalEl.style.display = 'block';
+    }
+  }
+
+  // อัปเดตชิพหมวด (ขวาบน)
+  function renderChips(detail){
+    if(!chipsEl) return;
+    chipsEl.innerHTML = '';
+    const cats = detail?.categories || [];
+    cats.forEach(c=>{
+      const d = document.createElement('div');
+      d.className = 'chip small' + (c.active?' active':'');
+      d.textContent = c.label || c.id;
+      chipsEl.appendChild(d);
+    });
+  }
+
+  window.addEventListener('hha:goal',  e=> renderGoal(e.detail||{}) );
+  window.addEventListener('hha:chips', e=> renderChips(e.detail||{}) );
+
+  // mini quest (หากมีอยู่แล้วก็ใช้ร่วมกันได้)
+  const hudQuest = document.getElementById('hudQuest');
+  window.addEventListener('hha:quest', e=>{
+    if(hudQuest) hudQuest.textContent = e.detail?.text || '';
+  });
+})();
+</script>
+
 </body>
 </html>
