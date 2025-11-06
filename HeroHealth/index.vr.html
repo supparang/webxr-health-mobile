@@ -10,12 +10,17 @@
   .fallback{position:fixed;left:12px;bottom:12px;padding:8px 10px;background:#111a33;color:#cfe;border-radius:10px;z-index:10}
   .fallback strong{color:#9ff}
 </style>
+
+<!-- A-Frame core -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<!-- Troika text renderer (รองรับภาษาไทย) -->
+<script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
+
 <script>
 AFRAME.registerComponent('front-most', {
   schema:{order:{default:10000}},
   init(){
-    const apply = (o)=>{
+    const apply=(o)=>{
       o.traverse(n=>{
         if(n.material){
           n.material.depthTest=false;
@@ -29,8 +34,9 @@ AFRAME.registerComponent('front-most', {
   }
 });
 </script>
+
 <script type="module">
-  import { GameHub } from './vr/hub.js?v=menufinal3';
+  import { GameHub } from './vr/hub.js?v=thai3';
   window.addEventListener('DOMContentLoaded',()=>{ window.__hub=new GameHub(); });
 </script>
 </head>
@@ -52,47 +58,59 @@ AFRAME.registerComponent('front-most', {
   <a-entity id="hudRoot" position="0 2.18 -2.8">
     <a-entity geometry="primitive: plane; width: 1.9; height: 0.30"
               material="color:#111a33; opacity:0.9; depthTest:false; depthWrite:false"></a-entity>
-    <a-text id="tMode"  value="เลือกโหมด →"  position="-0.9 0.08 0.05" shader="flat" align="left" width="2.7" color="#9fd"></a-text>
-    <a-text id="tTime"  value="เวลา: 60s"      position="-0.9 -0.02 0.05" shader="flat" align="left" width="2.7" color="#e8f0ff"></a-text>
-    <a-text id="tScore" value="คะแนน: 0"       position="0.15 0.08 0.05" shader="flat" align="left" width="2.7" color="#e8f0ff"></a-text>
-    <a-text id="tCombo" value="คอมโบ: x1"      position="0.15 -0.02 0.05" shader="flat" align="left" width="2.7" color="#e8f0ff"></a-text>
+    <a-entity troika-text="value: โหมด: -; color: #9fd; fontSize: 0.07; maxWidth: 1.8; anchor: left"
+              position="-0.9 0.08 0.05"></a-entity>
+    <a-entity troika-text="value: เวลา: 60s; color: #fff; fontSize: 0.07; maxWidth: 1.8; anchor: left"
+              position="-0.9 -0.02 0.05"></a-entity>
+    <a-entity troika-text="value: คะแนน: 0; color: #fff; fontSize: 0.07; anchor: left"
+              position="0.15 0.08 0.05"></a-entity>
+    <a-entity troika-text="value: คอมโบ: x1; color: #fff; fontSize: 0.07; anchor: left"
+              position="0.15 -0.02 0.05"></a-entity>
     <a-entity position="0 -0.20 0">
       <a-entity geometry="primitive: plane; width: 1.9; height: 0.08"
                 material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
       <a-entity id="feverFill" geometry="primitive: plane; width: 0.0; height: 0.08" position="-0.95 0 0.06"
                 material="color:#ff6600; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-      <a-text id="tFever" value="Fever 0%" position="-0.92 -0.01 0.08" shader="flat" align="left" width="2.4" color="#ffd54f"></a-text>
+      <a-entity troika-text="value: Fever 0%; color: #ffd54f; fontSize: 0.07; anchor: left"
+                position="-0.92 -0.01 0.08"></a-entity>
     </a-entity>
   </a-entity>
 
-  <!-- เมนูหลัก (เลื่อนออกมาด้านหน้า 1.2 เมตร) -->
+  <!-- เมนูหลัก (ใช้ troika-text ทั้งหมด) -->
   <a-entity id="modeMenu" position="0 1.35 -1.2" front-most="order:10000">
     <a-entity geometry="primitive: plane; width: 1.1; height: 0.6"
               material="color:#0e1b38; opacity:0.95; transparent:true"></a-entity>
-    <a-text value="เลือกโหมดเกม" position="-0.35 0.25 0.25" shader="flat" width="1.8" color="#9fd"></a-text>
 
-    <a-plane class="btn clickable" position="-0.28 0.08 0.2" width="0.46" height="0.18"
+    <a-entity troika-text="value: เลือกโหมดเกม; color:#9fd; fontSize:0.08; maxWidth:1.0; anchor:left; baseline:top"
+              position="-0.42 0.25 0.26"></a-entity>
+
+    <a-plane class="btn clickable" position="-0.28 0.08 0.20" width="0.46" height="0.18"
              color="#1f3a6d" data-mode="goodjunk"></a-plane>
-    <a-text value="ดี vs ขยะ" position="-0.41 0.075 0.26" shader="flat" width="1.6" color="#fff"></a-text>
+    <a-entity troika-text="value: ดี vs ขยะ; color:#fff; fontSize:0.075; maxWidth:0.44; anchor:left; baseline:center"
+              position="-0.41 0.08 0.26"></a-entity>
 
-    <a-plane class="btn clickable" position="0.28 0.08 0.2" width="0.46" height="0.18"
+    <a-plane class="btn clickable" position="0.28 0.08 0.20" width="0.46" height="0.18"
              color="#1f3a6d" data-mode="groups"></a-plane>
-    <a-text value="หมวดอาหาร" position="0.09 0.075 0.26" shader="flat" width="1.6" color="#fff"></a-text>
+    <a-entity troika-text="value: หมวดอาหาร; color:#fff; fontSize:0.075; maxWidth:0.44; anchor:left; baseline:center"
+              position="0.09 0.08 0.26"></a-entity>
 
-    <a-plane class="btn clickable" position="-0.28 -0.14 0.2" width="0.46" height="0.18"
+    <a-plane class="btn clickable" position="-0.28 -0.14 0.20" width="0.46" height="0.18"
              color="#1f3a6d" data-mode="hydration"></a-plane>
-    <a-text value="สมดุลน้ำ" position="-0.43 -0.145 0.26" shader="flat" width="1.6" color="#fff"></a-text>
+    <a-entity troika-text="value: สมดุลน้ำ; color:#fff; fontSize:0.075; maxWidth:0.44; anchor:left; baseline:center"
+              position="-0.43 -0.14 0.26"></a-entity>
 
-    <a-plane class="btn clickable" position="0.28 -0.14 0.2" width="0.46" height="0.18"
+    <a-plane class="btn clickable" position="0.28 -0.14 0.20" width="0.46" height="0.18"
              color="#1f3a6d" data-mode="plate"></a-plane>
-    <a-text value="จานสุขภาพ" position="0.08 -0.145 0.26" shader="flat" width="1.6" color="#fff"></a-text>
+    <a-entity troika-text="value: จานสุขภาพ; color:#fff; fontSize:0.075; maxWidth:0.44; anchor:left; baseline:center"
+              position="0.08 -0.14 0.26"></a-entity>
   </a-entity>
 
   <!-- ปุ่มเริ่ม -->
   <a-entity id="startPanel" position="0 0.75 -1.2" visible="false" front-most="order:10000">
     <a-plane id="startBtn" class="clickable" width="0.80" height="0.22" color="#2e8b57"></a-plane>
-    <a-text id="startLbl" value="เลือกโหมดก่อน" position="-0.28 -0.005 0.25"
-            shader="flat" width="1.6" color="#ffffff"></a-text>
+    <a-entity id="startLbl"
+              troika-text="value: เลือกโหมดก่อน; color:#fff; fontSize:0.075; anchor:left; baseline:center"
+              position="-0.28 0 0.26"></a-entity>
   </a-entity>
 
   <!-- กล้อง -->
@@ -107,7 +125,6 @@ AFRAME.registerComponent('front-most', {
               raycaster="objects: .clickable, .target; far: 6"></a-entity>
   </a-entity>
 
-  <!-- โซนเกม -->
   <a-entity id="spawnZone" position="0 1.00 -3.80"></a-entity>
   <a-entity id="fxLayer" position="0 0 0"></a-entity>
 </a-scene>
