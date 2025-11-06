@@ -3,205 +3,177 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>HERO HEALTH ACADEMY — VR</title>
+  <title>Hero Health Academy (VR)</title>
   <meta name="color-scheme" content="light dark"/>
+
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
-    :root{ --bg:#0b1118; --card:#18212b; --pill:#2b3038; --text:#e7eefc; --accent:#21c064; }
-    html,body{ height:100%; margin:0; background:var(--bg); color:var(--text); font:600 16px/1.3 system-ui,Segoe UI,Inter,Arial,sans-serif; }
-    .wrap{ max-width:980px; margin:24px auto; padding:0 16px; }
-    h1{ text-align:center; font-size:32px; margin:10px 0 14px; }
+    :root{ --bg:#0b1324; --panel:#1f2d44; --chip:#323a46; --chip-t:#e7eefc; }
+    html,body{ margin:0; height:100%; background:#0b1324; color:#e7eefc; font-family:system-ui,Segoe UI,Inter,Arial; }
+    .hud-chip{ position:fixed; top:12px; left:12px; background:var(--chip); color:var(--chip-t);
+      padding:8px 12px; border-radius:12px; font-weight:700; box-shadow:0 6px 24px rgba(0,0,0,.3); }
+    #hudScore{ left:50%; transform:translateX(-50%); }
+    #hudQuest{ right:12px; left:auto; }
+    #hudTime{ top:12px; left:12px; }
 
-    /* UI Start Panel */
-    .ui-card{ position:relative; z-index:32; background:linear-gradient(180deg,#22304a,#1a2537);
-      border-radius:16px; padding:22px; box-shadow:0 18px 40px rgba(0,0,0,.35); text-align:center; }
-    .row{ display:flex; align-items:center; justify-content:center; gap:10px; margin:10px 0; }
-    label{ opacity:.85; }
-    select{ background:#0e151d; color:var(--text); border:1px solid #324052; border-radius:8px; padding:8px 10px; }
-    .btn{ cursor:pointer; background:var(--accent); color:#0e151d; border:0; border-radius:12px; font-weight:800;
-      padding:12px 22px; margin:10px auto 0; display:block; box-shadow:0 8px 20px rgba(33,192,100,.35); }
-    .btn:active{ transform:translateY(1px); }
+    #menuWrap{ position:relative; margin:56px auto 0; width:min(1320px,92vw); background:linear-gradient(180deg,#223149,#263d5d);
+      padding:28px 24px 40px; border-radius:20px; box-shadow:0 20px 50px rgba(0,0,0,.35); }
+    .row{ text-align:center; margin:10px 0; }
+    select,button{ font-size:18px; padding:10px 14px; border-radius:12px; border:none; }
+    button.start{ background:#23c26b; color:#fff; font-weight:800; cursor:pointer; box-shadow:0 8px 28px rgba(35,194,107,.35); }
+    button.start:active{ transform:translateY(1px); }
+    .label{ font-weight:800; margin-right:10px; opacity:.9; }
+    #fallbackDemo{ height:420px; display:flex; align-items:end; justify-content:center; color:#0b1324;
+      background:#73a9ff; border-radius:14px; margin:18px auto 0; max-width:1024px; }
+    #fallbackDemo small{ margin:20px; opacity:.7; font-weight:700; }
 
-    /* Fallback demo */
-    #fallbackPanel{ position:relative; width:100%; height:420px; border-radius:14px;
-      background:#67a8ff; display:flex; align-items:end; justify-content:center; }
-    #fallbackPanel > div{ opacity:.85; color:#fff; padding:18px; font-size:22px; }
-
-    /* HUD Overlay */
-    #hudOverlay{ position:fixed; inset:0; pointer-events:none; z-index:30; }
-    .pill{ pointer-events:none; position:fixed; padding:10px 14px; background:var(--pill); color:var(--text);
-           border-radius:12px; font:600 16px/1.1 system-ui,ui-sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.25); z-index:31; }
-    .pill-tl{ top:14px; left:14px; }
-    .pill-tc{ top:14px; left:50%; transform:translateX(-50%); }
-    .pill-tr{ top:14px; right:14px; }
-    #hudFever{ top:56px; background:#8b1e1e; display:none; }
-
-    .scene-wrap{ margin-top:18px; border-radius:14px; overflow:hidden; box-shadow:0 16px 40px rgba(0,0,0,.35); }
+    /* play area */
+    #play{ display:none; }
+    a-scene{ width:100vw; height:100vh; }
+    .goalbar{ position:fixed; left:50%; transform:translateX(-50%); bottom:16px; display:flex; gap:8px; }
+    .goalchip{ background:#223149; border-radius:12px; padding:6px 10px; font-size:14px; font-weight:700; opacity:.95; }
+    .g1{ border:2px solid #64b5f6 } .g2{ border:2px solid #ffd54f } .g3{ border:2px solid #81c784 }
+    .g4{ border:2px solid #ffb74d } .g5{ border:2px solid #f48fb1 }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>เริ่ม: HERO HEALTH ACADEMY</h1>
 
-    <!-- Start Panel -->
-    <div id="startPanel" class="ui-card">
+  <!-- HUD -->
+  <div id="hudTime"  class="hud-chip">เวลา: 60s</div>
+  <div id="hudScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
+  <div id="hudQuest" class="hud-chip" style="right:12px; left:auto;">Mini Quest — เตรียมเริ่ม</div>
+
+  <!-- MENU / HUB -->
+  <section id="menu">
+    <div id="menuWrap">
+      <h1 style="text-align:center; margin:0 0 12px; font-size:42px;">เริ่ม: HERO HEALTH ACADEMY</h1>
       <div class="row">
-        <label for="selMode">เลือกโหมด:</label>
-        <select id="selMode">
+        <span class="label">เลือกโหมด:</span>
+        <!-- value = key จริงของไฟล์โหมด -->
+        <select id="modeSel">
           <option value="goodjunk">Good vs Junk</option>
-          <option value="groups">Food Groups</option>
-          <option value="hydration">Hydration</option>
-          <option value="plate">Healthy Plate</option>
+          <option value="groups">Food Groups (Classify)</option>
+          <option value="hydration">Hydration Control</option>
+          <option value="plate">Balanced Plate</option>
         </select>
       </div>
       <div class="row">
-        <label for="selDiff">ระดับความยาก:</label>
-        <select id="selDiff">
+        <span class="label">ระดับความยาก:</span>
+        <select id="diffSel">
           <option value="easy">ง่าย</option>
           <option value="normal" selected>ปกติ</option>
           <option value="hard">ยาก</option>
         </select>
       </div>
-      <button id="btnStart" class="btn">เริ่มเกม</button>
+      <div class="row" style="margin-top:14px;">
+        <button id="startBtn" class="start">เริ่มเกม</button>
+      </div>
 
-      <!-- Fallback demo (จะถูกลบเมื่อเริ่มเกม) -->
-      <div id="fallbackPanel"><div>Fallback demo</div></div>
+      <!-- ตัวอย่าง Fallback (จะถูกซ่อนเมื่อเริ่มเกม) -->
+      <div id="fallbackDemo"><small>Fallback demo</small></div>
     </div>
+  </section>
 
-    <!-- HUD -->
-    <div id="hudOverlay">
-      <div id="hudTime"  class="pill pill-tl">เวลา: 60s</div>
-      <div id="hudScore" class="pill pill-tc">คะแนน: 0 | คอมโบ: x0</div>
-      <div id="hudQuest" class="pill pill-tr">Mini Quest — เตรียมเริ่ม</div>
-      <div id="hudFever" class="pill pill-tc">FEVER!</div>
+  <!-- PLAY -->
+  <section id="play">
+    <a-scene embedded renderer="antialias:true; colorManagement:true" vr-mode-ui="enabled: true" background="color: #0b1324" id="scene">
+      <a-entity id="spawnHost"></a-entity>
+      <a-entity camera position="0 1.6 0" look-controls></a-entity>
+      <a-sky color="#0b1324"></a-sky>
+    </a-scene>
+
+    <!-- เป้าหมาย 5 หมู่ (สำหรับโหมด plate) -->
+    <div id="goalBar" class="goalbar" style="display:none;">
+      <div class="goalchip g1" id="goal1">โปรตีน 0/0</div>
+      <div class="goalchip g2" id="goal2">คาร์บ 0/0</div>
+      <div class="goalchip g3" id="goal3">ผัก 0/0</div>
+      <div class="goalchip g4" id="goal4">ผลไม้ 0/0</div>
+      <div class="goalchip g5" id="goal5">ไขมัน 0/0</div>
     </div>
+  </section>
 
-    <!-- Scene -->
-    <div class="scene-wrap">
-      <a-scene renderer="colorManagement:true" vr-mode-ui="enabled:true" embedded background="color: #0b1118">
-        <a-entity id="rig">
-          <a-entity camera look-controls position="0 1.6 0"></a-entity>
-        </a-entity>
-        <a-sky color="#0b1118"></a-sky>
-      </a-scene>
-    </div>
-  </div>
+<script type="module">
+  const $ = s => document.querySelector(s);
 
-  <script type="module">
-    const $ = (s)=>document.querySelector(s);
-    const $$ = (s)=>document.querySelectorAll(s);
-    const hide = (el)=>{ if(el) el.style.display='none'; };
+  // โหมด → ไฟล์
+  const MODE_MAP = {
+    goodjunk : './modes/goodjunk.safe.js',
+    groups   : './modes/groups.safe.js',
+    hydration: './modes/hydration.quest.js', // ถ้ายังใช้ safe → เปลี่ยนชื่อไฟล์ได้
+    plate    : './modes/plate.quest.js'
+  };
 
-    function killFallback(){
-      hide($('#fallbackPanel'));
-      $('#fallbackPanel')?.remove();
-      $$('#startPanel [id*="fallback"], #startPanel div')
-      .forEach(el=>{
-        if(el.textContent && el.textContent.trim().toLowerCase().includes('fallback demo')){
-          el.remove();
-        }
-      });
-    }
-
-    async function startGame(ev){
-      try{ ev?.preventDefault?.(); }catch{}
-      const mode = ($('#selMode')?.value || 'goodjunk').toLowerCase();
-      const difficulty = ($('#selDiff')?.value || 'normal').toLowerCase();
-
-      hide($('#startPanel'));
-      killFallback(); setTimeout(killFallback,0);
-
-    const map = {
-     goodjunk : './modes/goodjunk.safe.js'
-     groups   : './modes/groups.safe.js',
-     hydration: './modes/hydration.quest.js',
-     plate    : './modes/plate.quest.js',
-      };
-
-      };
-      try{
-        const url = map[mode] || map.goodjunk;
-        const mod = await import(url + '?v=' + Date.now());
-        const api = await (mod.boot?.({ difficulty }) || null);
-        window.__HHA_API__ = api;
-      }catch(err){
-        console.error('[HHA] load mode failed:', err);
-        document.getElementById('startPanel').style.display='block';
-      }
-    }
-
-    window.__HHA_START__ = startGame;
-    window.addEventListener('load', ()=>{
-      const btn=document.getElementById('btnStart');
-      if(btn) btn.addEventListener('click',startGame,{passive:false});
-    });
-
-    // HUD events
-    window.addEventListener('hha:time', e=>{
-      const s=e?.detail?.remainSec??0;
-      $('#hudTime').textContent=`เวลา: ${s}s`;
-    });
-    window.addEventListener('hha:score', e=>{
-      const {score=0,combo=0}=e.detail||{};
-      $('#hudScore').textContent=`คะแนน: ${score} | คอมโบ: x${combo}`;
-    });
-    window.addEventListener('hha:quest', e=>{
-      $('#hudQuest').textContent=e?.detail?.text||'Mini Quest';
-    });
-    window.addEventListener('hha:fever', e=>{
-      const on=(e?.detail?.state==='start');
-      $('#hudFever').style.display=on?'block':'none';
-    });
-  </script>
-  <script>
-(function(){
-  const $ = s=>document.querySelector(s);
-  const goalEl  = $('#hudGoal');
-  const chipsEl = $('#hudChips');
-
-  // อัปเดตกล่อง Goal กลางบน (รองรับหลายเป้า)
-  function renderGoal(detail){
-    if(!goalEl) return;
-    const list = detail?.multiTargets;
-    if(Array.isArray(list) && list.length){
-      const parts = list.map(t=>{
-        const ex = (t.examples||[]).slice(0,3).join(' ');
-        return `[${t.label} ${t.have}/${t.need}] ${ex}`;
-      });
-      goalEl.innerHTML = `เป้าหมาย: ${parts.join(' &nbsp; | &nbsp; ')}`;
-      goalEl.style.display = 'block';
-    }else{
-      // เผื่อโหมดเดิมที่ส่งแบบเดี่ยว
-      const {label='-', have=0, need=10, examples=[]} = detail||{};
-      goalEl.innerHTML = `เป้าหมาย: ${label} — ${have}/${need} &nbsp;&nbsp;|&nbsp;&nbsp; ตัวอย่าง: ${(examples||[]).slice(0,3).join(' ')}`;
-      goalEl.style.display = 'block';
-    }
-  }
-
-  // อัปเดตชิพหมวด (ขวาบน)
-  function renderChips(detail){
-    if(!chipsEl) return;
-    chipsEl.innerHTML = '';
-    const cats = detail?.categories || [];
-    cats.forEach(c=>{
-      const d = document.createElement('div');
-      d.className = 'chip small' + (c.active?' active':'');
-      d.textContent = c.label || c.id;
-      chipsEl.appendChild(d);
-    });
-  }
-
-  window.addEventListener('hha:goal',  e=> renderGoal(e.detail||{}) );
-  window.addEventListener('hha:chips', e=> renderChips(e.detail||{}) );
-
-  // mini quest (หากมีอยู่แล้วก็ใช้ร่วมกันได้)
-  const hudQuest = document.getElementById('hudQuest');
-  window.addEventListener('hha:quest', e=>{
-    if(hudQuest) hudQuest.textContent = e.detail?.text || '';
+  // HUD listeners (รับจากโหมด)
+  window.addEventListener('hha:score', e=>{
+    const {score=0, combo=0} = e.detail||{};
+    $('#hudScore').textContent = `คะแนน: ${score} | คอมโบ: x${combo}`;
   });
-})();
-</script>
 
+  window.addEventListener('hha:quest', e=>{
+    const t = (e.detail && e.detail.text) || 'Mini Quest';
+    $('#hudQuest').textContent = t;
+  });
+
+  window.addEventListener('hha:goal', e=>{
+    const m = (e.detail && e.detail.multiTargets) || null;
+    if(!m){ $('#goalBar').style.display='none'; return; }
+    $('#goalBar').style.display='flex';
+    const map = {g1:'#goal1', g2:'#goal2', g3:'#goal3', g4:'#goal4', g5:'#goal5'};
+    const idOf = (id)=>({g1:1,g2:2,g3:3,g4:4,g5:5}[id]||1);
+    for(const t of m){
+      const el = $(map[t.id]||'#goal1');
+      if(!el) continue;
+      const g = idOf(t.id);
+      el.textContent = `${['', 'โปรตีน','คาร์บ','ผัก','ผลไม้','ไขมัน'][g]} ${t.have||0}/${t.need||0}`;
+    }
+  });
+
+  window.addEventListener('hha:time', e=>{
+    const {left} = e.detail||{};
+    if(typeof left === 'number') $('#hudTime').textContent = `เวลา: ${left|0}s`;
+  });
+
+  // เริ่มเกม
+  $('#startBtn').addEventListener('click', async ()=>{
+    const mode = $('#modeSel').value;      // value = key จริง
+    const diff = $('#diffSel').value;
+
+    try{
+      // แอบเมนู + แสดงฉาก
+      $('#menu').style.display='none';
+      $('#play').style.display='block';
+      $('#goalBar').style.display='none';
+
+      // โหลดโมดูล (กันแคช)
+      const path = MODE_MAP[mode];
+      if(!path) throw new Error('ไม่พบเส้นทางไฟล์ของโหมด: '+mode);
+
+      const url  = `${path}?v=${Date.now()}`;
+      const mod  = await import(url);
+      const boot = mod.boot || mod.default || mod.run;
+      if(typeof boot !== 'function') throw new Error('โมดูลไม่มีฟังก์ชัน boot()');
+
+      // reset HUD
+      $('#hudScore').textContent = `คะแนน: 0 | คอมโบ: x0`;
+      $('#hudQuest').textContent = `Mini Quest — กำลังเริ่ม`;
+
+      // เรียกโหมด
+      const scene = $('#scene');
+      const host  = scene.querySelector('#spawnHost') || scene;
+      window.__MODE_API = await boot({ host, difficulty: diff });
+
+      // ถ้าโหมดไม่ได้ส่งเวลา → คงค่าเดิมไว้
+      console.log('[HHA] Running', mode, diff);
+    }catch(err){
+      console.error('[HHA] Start failed:', err);
+      alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message||err));
+      // กลับสู่เมนู
+      $('#play').style.display='none';
+      $('#menu').style.display='block';
+    }
+  });
+</script>
 </body>
 </html>
