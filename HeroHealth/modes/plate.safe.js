@@ -1,12 +1,11 @@
-// === plate.safe.js — Healthy Plate (เลือกของดีตามจานสุขภาพ) ===
+// === plate.safe.js — Healthy Plate ===
 import { boot as baseBoot } from '../vr/mode-factory.js';
 
-// จำลองหมวดจานสุขภาพ: ผักผลไม้ 1/2, ธัญพืช/โปรตีนดี 1/2
 const FRUITVEG = ['🥦','🥕','🌽','🍅','🥬','🍆','🫑','🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🥑','🍒'];
 const PRO_GRAIN= ['🐟','🍗','🥚','🥜','🫘','🥩','🍞','🥖','🍚','🍙','🍘','🍝','🌮','🌯','🧀','🥨','🥯','🧆','🍛','🍣'];
 const JUNK     = ['🍔','🍟','🍕','🌭','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥓','🥠','🥮'];
 
-const GOOD = [...FRUITVEG.slice(0,10), ...PRO_GRAIN.slice(0,10)]; // รวม 20 ชิ้นที่ "ดี"
+const GOOD = [...FRUITVEG.slice(0,10), ...PRO_GRAIN.slice(0,10)];
 
 export async function boot(cfg={}) {
   return baseBoot({
@@ -18,7 +17,6 @@ export async function boot(cfg={}) {
     judge: (ch) => {
       if(!ch) return { good:false, scoreDelta:-5 };
       const healthy = GOOD.includes(ch);
-      // ของดี = +10, ขยะ = -5
       return { good: healthy, scoreDelta: healthy?10:-5, feverDelta: healthy?5:0 };
     }
   });
