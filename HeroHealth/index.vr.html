@@ -16,9 +16,7 @@
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script type="module">
   import { GameHub } from './vr/hub.js';
-  window.addEventListener('DOMContentLoaded',()=>{
-    window.__hub = new GameHub();
-  });
+  window.addEventListener('DOMContentLoaded',()=>{ window.__hub = new GameHub(); });
 </script>
 </head>
 <body>
@@ -35,7 +33,7 @@
   <a-sky color="#0b1324"></a-sky>
 
   <!-- HUD -->
-  <a-entity id="hudRoot" position="0 2.18 -2">
+  <a-entity id="hudRoot" position="0 2.18 -2.4">
     <a-entity geometry="primitive: plane; width: 1.9; height: 0.30"
               material="color:#111a33; opacity:0.9; depthTest:false; depthWrite:false"></a-entity>
     <a-text id="tMode"  value="เลือกโหมด →"  position="-0.9 0.08 0.01" align="left" width="2.7" color="#9fd"></a-text>
@@ -43,7 +41,6 @@
     <a-text id="tScore" value="คะแนน: 0"       position="0.15 0.08 0.01"  align="left" width="2.7" color="#e8f0ff"></a-text>
     <a-text id="tCombo" value="คอมโบ: x1"      position="0.15 -0.00 0.01" align="left" width="2.7" color="#e8f0ff"></a-text>
 
-    <!-- Fever bar -->
     <a-entity position="0 -0.20 0">
       <a-entity geometry="primitive: plane; width: 1.9; height: 0.08"
                 material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
@@ -54,7 +51,7 @@
   </a-entity>
 
   <!-- Mini Quest panel -->
-  <a-entity id="questPanel" position="0 1.65 -2">
+  <a-entity id="questPanel" position="0 1.65 -2.4" visible="false">
     <a-entity geometry="primitive: plane; width: 1.9; height: 0.28"
               material="color:#111a33; opacity:0.88; depthTest:false; depthWrite:false"></a-entity>
     <a-text value="Mini Quests" position="-0.9 0.09 0.01" align="left" width="2.7" color="#ffd54f"></a-text>
@@ -62,29 +59,33 @@
   </a-entity>
 
   <!-- Hub Menu -->
-  <a-entity id="modeMenu" position="0 1.25 -1.05">
+  <a-entity id="modeMenu" position="0 1.25 -0.85">
     <a-entity geometry="primitive: plane; width: 1.4; height: 0.90"
-              material="color:#0e1b38; opacity:0.99; depthTest:false; depthWrite:false"></a-entity>
-    <a-text value="เลือกโหมดเกม" position="-0.50 0.38 0.01" width="2" color="#9fd"></a-text>
+              material="color:#0e1b38; opacity:0.98; transparent:true; depthTest:false; depthWrite:false"></a-entity>
+    <a-text value="เลือกโหมดเกม" position="-0.50 0.38 0.02" width="2" color="#9fd"></a-text>
 
-    <a-plane class="btn clickable" position="-0.40 0.15 0.01" width="0.55" height="0.22" color="#1f3a6d" data-mode="goodjunk"></a-plane>
+    <a-plane class="btn clickable" position="-0.40 0.15 0.01" width="0.55" height="0.22" color="#1f3a6d"
+             material="depthTest:false; depthWrite:false" data-mode="goodjunk"></a-plane>
     <a-text value="ดี vs ขยะ" position="-0.60 0.14 0.02" width="2" color="#fff"></a-text>
 
-    <a-plane class="btn clickable" position="0.40 0.15 0.01" width="0.55" height="0.22" color="#1f3a6d" data-mode="groups"></a-plane>
+    <a-plane class="btn clickable" position="0.40 0.15 0.01" width="0.55" height="0.22" color="#1f3a6d"
+             material="depthTest:false; depthWrite:false" data-mode="groups"></a-plane>
     <a-text value="หมวดอาหาร" position="0.18 0.14 0.02" width="2" color="#fff"></a-text>
 
-    <a-plane class="btn clickable" position="-0.40 -0.15 0.01" width="0.55" height="0.22" color="#1f3a6d" data-mode="hydration"></a-plane>
+    <a-plane class="btn clickable" position="-0.40 -0.15 0.01" width="0.55" height="0.22" color="#1f3a6d"
+             material="depthTest:false; depthWrite:false" data-mode="hydration"></a-plane>
     <a-text value="สมดุลน้ำ" position="-0.60 -0.16 0.02" width="2" color="#fff"></a-text>
 
-    <a-plane class="btn clickable" position="0.40 -0.15 0.01" width="0.55" height="0.22" color="#1f3a6d" data-mode="plate"></a-plane>
+    <a-plane class="btn clickable" position="0.40 -0.15 0.01" width="0.55" height="0.22" color="#1f3a6d"
+             material="depthTest:false; depthWrite:false" data-mode="plate"></a-plane>
     <a-text value="จานสุขภาพ" position="0.18 -0.16 0.02" width="2" color="#fff"></a-text>
   </a-entity>
 
   <!-- Start Button -->
-  <a-entity id="startPanel" position="0 0.70 -1.05" visible="false">
+  <a-entity id="startPanel" position="0 0.70 -0.85" visible="false">
     <a-plane id="startBtn" class="clickable" width="0.95" height="0.26" color="#2e8b57"
              material="depthTest:false; depthWrite:false"></a-plane>
-    <a-text id="startLbl" value="เลือกโหมดก่อน" position="-0.35 0 0.01" width="2" color="#fff"></a-text>
+    <a-text id="startLbl" value="เลือกโหมดก่อน" position="-0.35 0 0.02" width="2" color="#fff"></a-text>
   </a-entity>
 
   <!-- Result -->
