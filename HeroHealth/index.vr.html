@@ -15,7 +15,7 @@
     <a-entity id="rig">
       <a-entity id="cam" camera look-controls
         cursor="rayOrigin: mouse; fuse: false"
-        raycaster="objects:.hit; far:6; interval:0; lineColor:#0ff; lineOpacity:0.18"></a-entity>
+        raycaster="objects: .hit, .clickable; far: 8; interval: 0; lineColor: #0ff; lineOpacity: 0.18"></a-entity>
       <a-entity laser-controls="hand: right"></a-entity>
       <a-entity laser-controls="hand: left"></a-entity>
     </a-entity>
@@ -26,8 +26,8 @@
 
     <a-sky color="#0b1324"></a-sky>
 
-    <!-- host (ตัวพ่อสำหรับใส่เป้า/เอฟเฟกต์) -->
-    <a-entity id="spawnZone" position="0 0 0"></a-entity>
+    <!-- โซนสปอน (ต่ำลง เพื่อให้เป้าอยู่ล่างกลางจอ) -->
+    <a-entity id="spawnZone" position="0 0.4 0"></a-entity>
 
     <!-- ===== HUD บนสุด ===== -->
     <a-entity id="hudRoot" position="0 1.95 -1.60">
