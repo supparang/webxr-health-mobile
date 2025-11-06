@@ -3,20 +3,22 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>Hero Health VR — Nutrition Hub</title>
+<title>Hero Health VR — Nutrition (Offline Emoji)</title>
 <meta name="color-scheme" content="light dark"/>
+
 <style>
   html,body{height:100%;margin:0;background:#0b1324;color:#e8f0ff;font-family:system-ui,Segoe UI,Inter,Arial}
   .fallback{position:fixed;left:12px;bottom:12px;padding:8px 10px;background:#111a33;color:#cfe;border-radius:10px;z-index:10}
   .fallback strong{color:#9ff}
   .ver{position:fixed;right:10px;bottom:10px;opacity:0.6;font-size:12px}
+  button{font:600 14px/1.2 system-ui,Segoe UI,Inter}
 </style>
 
-<!-- A-Frame & Troika -->
+<!-- A-Frame & Troika (สำหรับข้อความ HUD/เมนู) -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
 
-<!-- on-top renderer for UI -->
+<!-- helpers: render on-top + billboard -->
 <script>
 AFRAME.registerComponent('front-most', {
   schema:{order:{default:10000}},
@@ -26,19 +28,17 @@ AFRAME.registerComponent('front-most', {
     this.el.addEventListener('object3dset',()=>apply(this.el.object3D));
   }
 });
-</script>
-
-<!-- Hub (optional; ถ้าไม่มีจะ fallback inline) -->
-<script type="module">
-  import { GameHub } from './vr/hub.js?v=starter';
-  window.addEventListener('DOMContentLoaded',()=>{ try{ window.__hub=new GameHub(); }catch(e){ console.warn('hub missing, fallback inline',e); } });
+AFRAME.registerComponent('billboard', {
+  tick(){ const cam=document.getElementById('camera'); if(cam){ this.el.object3D.lookAt(cam.object3D.position); } }
+});
 </script>
 </head>
 <body>
 <div class="fallback" id="bootStatus"><div><strong>Status:</strong> Booting…</div>
   <button id="forceStartBtn" style="margin-top:6px;background:#2e8b57;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">Force Start</button>
+  <button id="dbgSpawn10" style="margin-left:6px;background:#0b7bd6;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">Spawn x10 (Debug)</button>
 </div>
-<div class="ver">HeroHealth VR — Full</div>
+<div class="ver">HeroHealth VR — Offline Emoji</div>
 
 <a-scene background="color:#0b1324" vr-mode-ui="enterVRButton:true"
          renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true">
@@ -86,23 +86,40 @@ AFRAME.registerComponent('front-most', {
 
   <!-- เมนูโหมด -->
   <a-entity id="modeMenu" position="0 1.35 -1.0" front-most="order:10001">
-    <a-entity geometry="primitive: plane; width: 1.05; height: 0.62"
+    <a-entity geometry="primitive: plane; width: 1.05; height: 0.80"
               material="color:#0e1b38; opacity:0.95; transparent:true"></a-entity>
-    <a-entity troika-text="value: เลือกโหมดเกม; color:#9fd; fontSize:0.065;" position="-0.40 0.25 0.26"></a-entity>
-    <a-entity troika-text="value: ดี  vs  ขยะ; color:#fff; fontSize:0.058;" position="-0.38 0.09 0.26"></a-entity>
-    <a-entity troika-text="value: หมวดอาหาร; color:#fff; fontSize:0.058;" position="0.06 0.09 0.26"></a-entity>
-    <a-entity troika-text="value: สมดุลน้ำ; color:#fff; fontSize:0.058;" position="-0.38 -0.12 0.26"></a-entity>
-    <a-entity troika-text="value: จานสุขภาพ; color:#fff; fontSize:0.058;" position="0.06 -0.12 0.26"></a-entity>
+    <a-entity troika-text="value: เลือกโหมดเกม; color:#9fd; fontSize:0.065;" position="-0.40 0.30 0.26"></a-entity>
+    <a-entity troika-text="value: ดี  vs  ขยะ; color:#fff; fontSize:0.058;" position="-0.38 0.15 0.26"></a-entity>
+    <a-entity troika-text="value: หมวดอาหาร; color:#fff; fontSize:0.058;" position="0.06 0.15 0.26"></a-entity>
+    <a-entity troika-text="value: สมดุลน้ำ; color:#fff; fontSize:0.058;" position="-0.38 -0.06 0.26"></a-entity>
+    <a-entity troika-text="value: จานสุขภาพ; color:#fff; fontSize:0.058;" position="0.06 -0.06 0.26"></a-entity>
 
-    <!-- ปุ่ม (มองเห็นบางๆ เพื่อดีบัก; เปลี่ยนกลับ opacity:0.001 เมื่อตกลงใจ) -->
-    <a-plane class="clickable" data-mode="goodjunk" position="-0.16 0.09 0.24" width="0.46" height="0.18"
+    <!-- ปุ่มโหมด -->
+    <a-plane class="clickable" data-mode="goodjunk" position="-0.16 0.15 0.24" width="0.46" height="0.18"
              material="color:#00ff88; opacity:0.12"></a-plane>
-    <a-plane class="clickable" data-mode="groups" position="0.40 0.09 0.24" width="0.46" height="0.18"
+    <a-plane class="clickable" data-mode="groups" position="0.40 0.15 0.24" width="0.46" height="0.18"
              material="color:#00aaff; opacity:0.12"></a-plane>
-    <a-plane class="clickable" data-mode="hydration" position="-0.16 -0.12 0.24" width="0.46" height="0.18"
+    <a-plane class="clickable" data-mode="hydration" position="-0.16 -0.06 0.24" width="0.46" height="0.18"
              material="color:#ffd400; opacity:0.12"></a-plane>
-    <a-plane class="clickable" data-mode="plate" position="0.40 -0.12 0.24" width="0.46" height="0.18"
+    <a-plane class="clickable" data-mode="plate" position="0.40 -0.06 0.24" width="0.46" height="0.18"
              material="color:#ff6a6a; opacity:0.12"></a-plane>
+
+    <!-- แถวเลือกระดับ -->
+    <a-entity id="diffRow" position="0 -0.32 0.24">
+      <a-entity troika-text="value: ระดับ:; color:#9fd; fontSize:0.058;" position="-0.50 0.00 0.02"></a-entity>
+
+      <a-plane id="btnDiffEasy"   class="clickable" position="-0.10 0.00 0.00" width="0.28" height="0.14"
+               material="color:#2e8b57; opacity:0.95"></a-plane>
+      <a-entity troika-text="value: ง่าย; color:#fff; fontSize:0.055;" position="-0.18 -0.005 0.02"></a-entity>
+
+      <a-plane id="btnDiffNormal" class="clickable" position="0.22 0.00 0.00" width="0.32" height="0.14"
+               material="color:#3a4b77; opacity:0.75"></a-plane>
+      <a-entity troika-text="value: ปกติ; color:#fff; fontSize:0.055;" position="0.10 -0.005 0.02"></a-entity>
+
+      <a-plane id="btnDiffHard"   class="clickable" position="0.58 0.00 0.00" width="0.28" height="0.14"
+               material="color:#7a263a; opacity:0.70"></a-plane>
+      <a-entity troika-text="value: ยาก; color:#fff; fontSize:0.055;" position="0.50 -0.005 0.02"></a-entity>
+    </a-entity>
   </a-entity>
 
   <!-- ปุ่มเริ่ม -->
@@ -134,7 +151,7 @@ AFRAME.registerComponent('front-most', {
     <a-entity troika-text="value: กลับเมนู; color:#fff; fontSize:0.06;" position="0.27 -0.34 0.08"></a-entity>
   </a-entity>
 
-  <!-- Rig/Camera — raycaster ยิงได้ทั้ง .hitbox และ .clickable -->
+  <!-- Rig/Camera -->
   <a-entity id="rig" position="0 1.6 0">
     <a-entity id="camera"
               camera look-controls
@@ -153,22 +170,38 @@ AFRAME.registerComponent('front-most', {
   <a-entity id="fxLayer" position="0 0 0"></a-entity>
 </a-scene>
 
-<!-- App wiring / Audio unlock / Pause / i18n / Fallback inline GoodJunk -->
+<!-- App wiring / Emoji canvas / Fallback inline GoodJunk -->
 <script>
+// ===== Utils =====
 function logBoot(msg){
   const box=document.getElementById('bootStatus');
   if(box) box.firstElementChild.innerHTML='<strong>Status:</strong> '+msg;
   console.log('[HVR]',msg);
 }
 
-// Audio unlock (มือถือ/VR)
+// Emoji → dataURL (offline)
+function emojiDataUrl(char, sizePx = 256) {
+  const c = document.createElement('canvas');
+  c.width = c.height = sizePx;
+  const ctx = c.getContext('2d');
+  const fontStack = '"Noto Color Emoji","Segoe UI Emoji","Apple Color Emoji","Twemoji Mozilla",system-ui,sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `900 ${Math.floor(sizePx*0.68)}px ${fontStack}`;
+  ctx.shadowColor = 'rgba(0,0,0,.18)';
+  ctx.shadowBlur = sizePx*0.04;
+  ctx.fillText(char, sizePx/2, Math.floor(sizePx*0.53));
+  return c.toDataURL('image/png');
+}
+
+// Audio unlock
 let _ctx;
 function getAudioCtx(){ if(_ctx) return _ctx; const AC = window.AudioContext||window.webkitAudioContext; _ctx = new AC(); return _ctx; }
 ['click','touchstart','pointerdown','keydown'].forEach(ev=>{
   window.addEventListener(ev,()=>{ try{ getAudioCtx().resume(); }catch{} }, {once:true});
 });
 
-// Pause/Resume global
+// Pause/Resume
 (function(){
   let paused=false;
   function setPaused(v){ if(paused===v) return; paused=v; window.dispatchEvent(new CustomEvent(v?'hha:pause':'hha:resume')); logBoot(v?'Paused':'Resumed'); }
@@ -178,7 +211,7 @@ function getAudioCtx(){ if(_ctx) return _ctx; const AC = window.AudioContext||wi
   document.getElementById('pauseBtn').addEventListener('click',()=>setPaused(!paused));
 })();
 
-// i18n stub
+// i18n
 const i18n = {
   th: { mode:'โหมด', time:'เวลา', score:'คะแนน', start:'เริ่ม', quests:'Quests' },
   en: { mode:'Mode', time:'Time', score:'Score', start:'Start', quests:'Quests' }
@@ -191,59 +224,29 @@ document.getElementById('langBtn').addEventListener('click', ()=>{
   document.getElementById('hudScore').setAttribute('troika-text','value', (i18n[lang].score||'Score')+': 0');
 });
 
-// เมนู/เริ่ม/Force fallback + DEBUG LOG
-function wireClicks(){
-  const hub=()=>window.__hub;
-
-  // DEBUG: ดูว่าเมาส์/เรย์เข้าเป้าหรือยัง
-  document.querySelectorAll('.clickable').forEach(e=>{
-    ['mouseenter','click'].forEach(ev=>{
-      e.addEventListener(ev,()=>console.log('HIT',ev,e.getAttribute('data-mode')||e.id));
-    });
-  });
-
-  // เลือกโหมด
-  document.querySelectorAll('[data-mode]').forEach(btn=>{
-    const mode=btn.getAttribute('data-mode');
-    const onPick=()=>{
-      if(hub() && typeof hub().selectMode==='function') hub().selectMode(mode);
-      const lbl=document.getElementById('startLbl');
-      if(lbl) lbl.setAttribute('troika-text','value','เริ่ม: '+mode.toUpperCase());
-      document.getElementById('startPanel').setAttribute('visible',true);
-      logBoot('Picked mode: '+mode);
-      document.getElementById('hudMode').setAttribute('troika-text','value',(i18n[lang].mode||'Mode')+': '+mode);
-    };
-    ['click','mousedown','mouseup','triggerdown'].forEach(ev=>btn.addEventListener(ev,onPick));
-  });
-
-  // ปุ่ม Start
-  const start=document.getElementById('startBtn');
-  const fx=document.getElementById('startBtnFx');
-  start.addEventListener('mouseenter',()=>fx.setAttribute('material','opacity',0.08));
-  start.addEventListener('mouseleave',()=>fx.setAttribute('material','opacity',0.0));
-  const tryStart=async ()=>{
-    logBoot('Start pressed');
-    if(hub()){
-      if(typeof hub().startGame==='function'){ hub().startGame(); gotoPlayUI(); return; }
-      if(typeof hub().start==='function'){ hub().start(); gotoPlayUI(); return; }
-      if(typeof hub().begin==='function'){ hub().begin(); gotoPlayUI(); return; }
-    }
-    // fallback inline
-    logBoot('Fallback inline GoodJunk');
-    inlineGoodJunkBoot({host:document.getElementById('spawnZone'), duration:60, difficulty:'normal'});
-    gotoPlayUI();
+// Difficulty UI
+let selectedDifficulty = 'easy';
+function setDiffUI(d){
+  selectedDifficulty = d;
+  const set = (id,active,color,on=0.95,off=0.60)=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.setAttribute('material', `color:${color}; opacity:${active?on:off}`);
   };
-  function gotoPlayUI(){
-    document.getElementById('modeMenu').setAttribute('visible', false);
-    document.getElementById('startPanel').setAttribute('visible', false);
-  }
-  ['click','mousedown','mouseup','triggerdown'].forEach(ev=>start.addEventListener(ev,tryStart));
-  document.getElementById('forceStartBtn').addEventListener('click', tryStart);
-}
-if(document.readyState!=='loading') setTimeout(wireClicks,0);
-else window.addEventListener('DOMContentLoaded',()=>setTimeout(wireClicks,0));
+  set('btnDiffEasy',   d==='easy',   '#2e8b57');
+  set('btnDiffNormal', d==='normal', '#3a4b77');
+  set('btnDiffHard',   d==='hard',   '#7a263a');
 
-/* ---------------- Helper HUD ---------------- */
+  const hud = document.getElementById('hudMode');
+  if(hud){
+    const cur = hud.getAttribute('troika-text')?.value || 'โหมด: -';
+    const noDiff = cur.replace(/\s*\(ระดับ:.*\)$/,'');
+    hud.setAttribute('troika-text', `value: ${noDiff} (ระดับ:${d})`);
+  }
+}
+window.addEventListener('DOMContentLoaded', ()=> setDiffUI(selectedDifficulty));
+
+// HUD helpers
 function setHudTime(sec){ document.getElementById('hudTime').setAttribute('troika-text','value',(i18n[lang].time||'Time')+': '+sec+'s'); }
 function setHudScore(sc){ document.getElementById('hudScore').setAttribute('troika-text','value', (i18n[lang].score||'Score')+': '+sc); }
 function setHudCombo(c){ document.getElementById('hudCombo').setAttribute('troika-text','value','คอมโบ: x'+Math.max(1,c)); }
@@ -278,7 +281,82 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
   setTimeout(()=>node.remove(), 700);
 }
 
-/* ================= Inline GoodJunk — Quests + Diff-size + Full-screen targets + Result Panel ================= */
+// Menu wiring
+function wireClicks(){
+  const hub=()=>window.__hub;
+
+  // ปุ่มระดับ
+  const bind = (id, diff)=> {
+    const el = document.getElementById(id);
+    if(!el) return;
+    ['click','mousedown','mouseup','triggerdown','touchstart','pointerdown']
+      .forEach(ev=> el.addEventListener(ev, ()=> setDiffUI(diff)));
+  };
+  bind('btnDiffEasy','easy'); bind('btnDiffNormal','normal'); bind('btnDiffHard','hard');
+
+  // เลือกโหมด
+  document.querySelectorAll('[data-mode]').forEach(btn=>{
+    const mode=btn.getAttribute('data-mode');
+    const onPick=()=>{
+      if(hub() && typeof hub().selectMode==='function') hub().selectMode(mode);
+      const lbl=document.getElementById('startLbl');
+      if(lbl) lbl.setAttribute('troika-text','value','เริ่ม: '+mode.toUpperCase());
+      document.getElementById('startPanel').setAttribute('visible',true);
+      logBoot('Picked mode: '+mode);
+      document.getElementById('hudMode').setAttribute('troika-text','value',(i18n[lang].mode||'Mode')+': '+mode+' (ระดับ:'+selectedDifficulty+')');
+    };
+    ['click','mousedown','mouseup','triggerdown','touchstart','pointerdown'].forEach(ev=>btn.addEventListener(ev,onPick));
+  });
+
+  // ปุ่ม Start
+  const start=document.getElementById('startBtn');
+  const fx=document.getElementById('startBtnFx');
+  start?.addEventListener('mouseenter',()=>fx.setAttribute('material','opacity',0.08));
+  start?.addEventListener('mouseleave',()=>fx.setAttribute('material','opacity',0.0));
+
+  const tryStart=async ()=>{
+    logBoot('Start pressed: diff='+selectedDifficulty);
+
+    if(hub()){
+      if(typeof hub().setDifficulty==='function') hub().setDifficulty(selectedDifficulty);
+      if(typeof hub().startGame==='function'){ hub().startGame(); gotoPlayUI(); return; }
+      if(typeof hub().start==='function'){ hub().start(); gotoPlayUI(); return; }
+      if(typeof hub().begin==='function'){ hub().begin(); gotoPlayUI(); return; }
+    }
+    inlineGoodJunkBoot({
+      host: document.getElementById('spawnZone'),
+      duration: 60,
+      difficulty: selectedDifficulty
+    });
+    gotoPlayUI();
+  };
+
+  function gotoPlayUI(){
+    document.getElementById('modeMenu').setAttribute('visible', false);
+    document.getElementById('startPanel').setAttribute('visible', false);
+  }
+
+  ['click','mousedown','mouseup','triggerdown','touchstart','pointerdown']
+    .forEach(ev=> start?.addEventListener(ev,tryStart));
+
+  document.getElementById('forceStartBtn')?.addEventListener('click', tryStart);
+
+  // Debug
+  document.getElementById('dbgSpawn10')?.addEventListener('click', ()=>{
+    if(typeof window.__HHA_DEBUG_SPAWN10==='function') window.__HHA_DEBUG_SPAWN10();
+  });
+}
+if(document.readyState!=='loading') setTimeout(wireClicks,0);
+else window.addEventListener('DOMContentLoaded',()=>setTimeout(wireClicks,0));
+
+// Keyboard shortcut for difficulty
+window.addEventListener('keydown',(e)=>{
+  if(e.key==='1') setDiffUI('easy');
+  if(e.key==='2') setDiffUI('normal');
+  if(e.key==='3') setDiffUI('hard');
+});
+
+/* ================= Inline GoodJunk (offline emoji) ================= */
 (function(){
   const PALETTE = {
     good:    { base:'#7CFC00', glow:'#b7ff66', text:'#ffffff' },
@@ -289,44 +367,11 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
     shield:  { base:'#5ef',    glow:'#bbf3ff', text:'#003344' },
     x2:      { base:'#FFD700', glow:'#ffe885', text:'#4d3b00' }
   };
-  const DIFF_SCALE   = { easy: 1.00, normal: 0.85, hard: 0.72 };  // เป้าตามระดับ
-  const HITBOX_SCALE = { easy: 1.30, normal: 1.12, hard: 1.00 };  // hitbox ใหญ่ขึ้นตามระดับ
-  const LIFE_MS      = { easy: 2800, normal: 2500, hard: 2200 };  // ชีวิตเป้าตามระดับ
-
-  // Mini Quests (10 แบบ)
-  const QUESTS = [
-    { id:'q_good',      title:'กดเฉพาะอาหารดี (GOOD)',              goalBase:{easy:30,normal:40,hard:50},
-      want:(kind)=> kind==='good', weights:{good:0.60, junk:0.15, decoy:0.10, star:0.05, diamond:0.03, shield:0.04, x2:0.03} },
-    { id:'q_fruit',     title:'กดเฉพาะผลไม้ (FRUIT only)',          goalBase:{easy:24,normal:34,hard:44},
-      subset:'fruit',    want:(kind,emoji,sets)=> kind==='good' && sets.FRUIT.has(emoji),
-      weights:{good:0.65, junk:0.12, decoy:0.08, star:0.05, diamond:0.03, shield:0.04, x2:0.03} },
-    { id:'q_veggie',    title:'กดเฉพาะผัก (VEGGIE only)',            goalBase:{easy:18,normal:26,hard:34},
-      subset:'veggie',   want:(kind,emoji,sets)=> kind==='good' && sets.VEGGIE.has(emoji),
-      weights:{good:0.62, junk:0.14, decoy:0.08, star:0.05, diamond:0.03, shield:0.05, x2:0.03} },
-    { id:'q_star',      title:'ล่า ⭐ ให้ครบ',                         goalBase:{easy:10,normal:14,hard:18},
-      want:(kind)=> kind==='star', weights:{star:0.22, good:0.38, junk:0.15, decoy:0.08, diamond:0.06, shield:0.06, x2:0.05} },
-    { id:'q_diamond',   title:'ล่า 💎 ให้ครบ',                         goalBase:{easy:8, normal:12,hard:16},
-      want:(kind)=> kind==='diamond', weights:{diamond:0.20, good:0.36, junk:0.16, decoy:0.08, star:0.10, shield:0.05, x2:0.05} },
-    { id:'q_combo',     title:'ทำคอมโบต่อเนื่อง (ไม่พลาด)',          goalBase:{easy:12,normal:18,hard:24},
-      want:(kind,emoji,sets,ctx)=> ctx.delta>0 && ctx.combo>0, weights:{good:0.56, junk:0.18, decoy:0.10, star:0.06, diamond:0.04, shield:0.04, x2:0.02} },
-    { id:'q_speed',     title:'สปีดรอบ: เป้าเล็ก–เกิดถี่',           goalBase:{easy:28,normal:38,hard:48},
-      speed:true, sizeMul:0.85, want:(kind)=> kind==='good', weights:{good:0.58, junk:0.18, decoy:0.10, star:0.06, diamond:0.04, shield:0.02, x2:0.02} },
-    { id:'q_mix',       title:'ดี + ⭐ คิด 2 แต้ม',                    goalBase:{easy:20,normal:28,hard:36},
-      want:(kind)=> (kind==='good' || kind==='star'), scoreMap:{good:1, star:2}, weights:{good:0.52, star:0.16, junk:0.16, decoy:0.08, diamond:0.04, shield:0.02, x2:0.02} },
-    { id:'q_x2',        title:'เปิดโหมด ✖️x2 ให้บ่อย ตีอะไรก็คุ้ม',  goalBase:{easy:26,normal:36,hard:46},
-      want:(kind,emoji,sets,ctx)=> ctx.delta>0, weights:{x2:0.14, good:0.44, star:0.12, junk:0.14, decoy:0.08, diamond:0.05, shield:0.03} },
-    { id:'q_shield',    title:'ใช้ 🛡️ กันพลาด และเก็บ GOOD',         goalBase:{easy:24,normal:34,hard:44},
-      want:(kind,emoji,sets,ctx)=> (kind==='good' || (ctx.usedShield===true)), weights:{shield:0.16, good:0.46, junk:0.16, decoy:0.10, star:0.06, diamond:0.04, x2:0.02} },
-  ];
-
-  function pick3(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]];} return a.slice(0,3); }
-  function normWeights(w){
-    const base = {diamond:0.06, star:0.08, shield:0.06, x2:0.06, decoy:0.14, good:0.38, junk:0.22};
-    const mix = Object.assign({}, base, w||{});
-    const sum = Object.values(mix).reduce((s,n)=>s+n,0)||1;
-    Object.keys(mix).forEach(k=> mix[k]=mix[k]/sum);
-    return mix;
-  }
+  // ขนาด/ฮิตบ็อกซ์/อายุ ตามระดับ
+  const DIFF_SCALE   = { easy: 1.05, normal: 0.90, hard: 0.78 };
+  const HITBOX_BASE  = 0.22;
+  const HITBOX_SCALE = { easy: 1.45, normal: 1.22, hard: 1.08 };
+  const LIFE_MS      = { easy: 3000, normal: 2500, hard: 2200 };
 
   const GOOD   = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
   const JUNK   = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
@@ -335,60 +380,71 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
   const FRUIT = new Set(['🍎','🍓','🍇','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝']);
   const VEGGIE= new Set(['🥦','🥕','🍅','🥬']);
 
-  /* ---- Full-screen random with safe margin (2.2×1.2) ---- */
+  // พื้นที่กระจาย 2.2×1.2
   function randPosSafe(sizeMul){
-    const halfW=1.1, halfH=0.6;           // plane size / 2
-    const margin = 0.14 * sizeMul;        // ลดเหลือ 0.10 ถ้าอยากติดขอบมากขึ้น
-    const minX = -halfW + margin, maxX = halfW - margin;
-    const minY = -halfH + margin, maxY = halfH - margin;
-    const x = Math.random()*(maxX-minX)+minX;
-    const y = Math.random()*(maxY-minY)+minY;
+    const halfW=1.1, halfH=0.6, m=0.14*sizeMul;
+    const x = Math.random()*(halfW*2-2*m) - (halfW-m);
+    const y = Math.random()*(halfH*2-2*m) - (halfH-m);
     return [ x, y, 0.01 ];
   }
 
-  // เป้า: Glow + hitbox วงกลม (ใหญ่ขึ้นตามระดับ) + hover FX
+  // เป้า: glow + สติ๊กเกอร์ emoji (canvas) + hitbox (billboard)
   function makeTarget(kind, emoji, pos, sizeMul, difficulty){
     const pal = PALETTE[kind] || {base:'#fff', glow:'#ddd', text:'#000'};
     const root = document.createElement('a-entity');
-    root.classList.add('target');
-
-    const glow = document.createElement('a-plane');
-    glow.setAttribute('width', (0.28*sizeMul).toFixed(3));
-    glow.setAttribute('height',(0.28*sizeMul).toFixed(3));
-    glow.setAttribute('material', `color:${pal.glow}; opacity:0.38; transparent:true; shader: standard; emissive:${pal.glow}; emissiveIntensity:0.70`);
-    glow.setAttribute('position', '0 0 -0.002');
-    root.appendChild(glow);
-
-    const txt = document.createElement('a-entity');
-    const baseFont = (kind==='diamond'||kind==='star')?0.24:(kind==='x2'?0.22:0.22);
-    txt.setAttribute('troika-text', `value: ${emoji}; color:${pal.text}; fontSize:${(baseFont*sizeMul).toFixed(3)}; anchor:center;`);
-    txt.setAttribute('position', '0 0 0');
-    root.appendChild(txt);
-
-    const hbScale = ( { easy:1.30, normal:1.12, hard:1.00 }[difficulty] || 1.12 );
-    const hit = document.createElement('a-entity');
-    hit.classList.add('hitbox','clickable');
-    hit.setAttribute('geometry', `primitive: circle; radius: ${(0.19*sizeMul*hbScale).toFixed(3)}`);
-    hit.setAttribute('material','transparent:true; opacity:0.001; color:#fff');
-    hit.setAttribute('position','0 0 0.002');
-    root.appendChild(hit);
-
+    root.classList.add('target'); root.dataset.scored='0';
     root.setAttribute('position', `${pos[0].toFixed(2)} ${pos[1].toFixed(2)} ${pos[2]}`);
 
-    const aimRing=document.getElementById('aimRing');
+    // glow
+    const glow = document.createElement('a-plane');
+    const glowSz = (0.30*sizeMul).toFixed(3);
+    glow.setAttribute('width', glowSz);
+    glow.setAttribute('height',glowSz);
+    glow.setAttribute('material', `color:${pal.glow}; opacity:0.40; transparent:true; emissive:${pal.glow}; emissiveIntensity:0.9`);
+    glow.setAttribute('position', '0 0 -0.002');
+    glow.setAttribute('front-most','order:9998');
+    glow.setAttribute('billboard','');
+    root.appendChild(glow);
+
+    // emoji sticker (offline)
+    const sticker = document.createElement('a-plane');
+    const texURL = emojiDataUrl(emoji, 256);
+    const side = (0.26*sizeMul).toFixed(3);
+    sticker.setAttribute('width', side);
+    sticker.setAttribute('height', side);
+    sticker.setAttribute('material', `src: url(${texURL}); transparent: true; alphaTest: 0.01; side: double;`);
+    sticker.setAttribute('position', '0 0 0.000');
+    sticker.setAttribute('front-most','order:9999');
+    sticker.setAttribute('billboard','');
+    root.appendChild(sticker);
+
+    // hitbox โปร่ง
+    const hbScale = (HITBOX_SCALE[difficulty]||1.22);
+    const hit = document.createElement('a-entity');
+    hit.classList.add('hitbox','clickable');
+    hit.setAttribute('geometry', `primitive: circle; radius: ${ (HITBOX_BASE*sizeMul*hbScale).toFixed(3) }`);
+    hit.setAttribute('material','transparent:true; opacity:0.001; color:#fff; side:double');
+    hit.setAttribute('position','0 0 0.002');
+    hit.setAttribute('front-most','order:10000');
+    hit.setAttribute('billboard','');
+    root.appendChild(hit);
+
+    // hover FX
     hit.addEventListener('mouseenter', ()=>{
-      glow.setAttribute('material', `color:${pal.glow}; opacity:0.55; transparent:true; shader: standard; emissive:${pal.glow}; emissiveIntensity:0.95`);
+      glow.setAttribute('material', `color:${pal.glow}; opacity:0.60; transparent:true; emissive:${pal.glow}; emissiveIntensity:1.1`);
+      const aimRing=document.getElementById('aimRing');
       if(aimRing){ aimRing.setAttribute('geometry','primitive:ring; radiusInner:0.012; radiusOuter:0.020'); }
     });
     hit.addEventListener('mouseleave', ()=>{
-      glow.setAttribute('material', `color:${pal.glow}; opacity:0.38; transparent:true; shader: standard; emissive:${pal.glow}; emissiveIntensity:0.70`);
+      glow.setAttribute('material', `color:${pal.glow}; opacity:0.40; transparent:true; emissive:${pal.glow}; emissiveIntensity:0.9`);
+      const aimRing=document.getElementById('aimRing');
       if(aimRing){ aimRing.setAttribute('geometry','primitive:ring; radiusInner:0.010; radiusOuter:0.015'); }
     });
 
     return {root, hit};
   }
 
-  // Space/Enter ยิงเป้าที่เล็งอยู่
+  // Space/Enter ยิง
   window.addEventListener('keydown', (e)=>{
     if(e.code==='Space' || e.code==='Enter'){
       const cam=document.getElementById('camera');
@@ -398,44 +454,78 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
     }
   });
 
-  // ====== Result Panel ======
+  // Result
   function showResult(score, maxCombo, questsDone){
     const rp = document.getElementById('resultPanel');
     rp.setAttribute('visible', true);
     document.getElementById('resultScore').setAttribute('troika-text','value',`คะแนนรวม: ${score}`);
     document.getElementById('resultCombo').setAttribute('troika-text','value',`คอมโบสูงสุด: ${maxCombo}`);
     document.getElementById('resultQuest').setAttribute('troika-text','value',`ภารกิจสำเร็จ: ${questsDone}/3`);
-
     const retry = document.getElementById('retryBtn');
     const menu  = document.getElementById('menuBtn');
-
-    const doOnce=(el,ev,fn)=>{ const h=()=>{ el.removeEventListener(ev,h); fn(); }; el.addEventListener(ev,h); };
-
-    doOnce(retry,'click', ()=>{
+    const once=(el,ev,fn)=>{ const h=()=>{ el.removeEventListener(ev,h); fn(); }; el.addEventListener(ev,h); };
+    once(retry,'click', ()=>{
       rp.setAttribute('visible',false);
-      // เริ่มรอบใหม่ด้วย fallback inline (หรือส่งต่อให้ hub ถ้ามี)
-      inlineGoodJunkBoot({host:document.getElementById('spawnZone'), duration:60, difficulty:'normal'});
+      inlineGoodJunkBoot({host:document.getElementById('spawnZone'), duration:60, difficulty:selectedDifficulty});
     });
-    doOnce(menu,'click', ()=>{
+    once(menu,'click', ()=>{
       rp.setAttribute('visible',false);
       document.getElementById('modeMenu').setAttribute('visible',true);
       document.getElementById('startPanel').setAttribute('visible',false);
-      // ล้างพื้นที่เล่น
       const zone=document.getElementById('spawnZone'); while(zone.firstChild) zone.removeChild(zone.firstChild);
     });
   }
 
-  // ====== Boot inline (fallback) ======
-  window.inlineGoodJunkBoot = function inlineGoodJunkBoot({host,duration=60,difficulty='normal'}){
+  // Mini Quests (10 แบบ: สุ่ม 3)
+  const QUESTS = [
+    { id:'q_good',      title:'กดเฉพาะอาหารดี (GOOD)',              goalBase:{easy:30,normal:40,hard:50},
+      want:(kind)=> kind==='good', weights:{good:0.60, junk:0.15, decoy:0.10, star:0.05, diamond:0.03, shield:0.04, x2:0.03} },
+    { id:'q_fruit',     title:'กดเฉพาะผลไม้ (FRUIT only)',          goalBase:{easy:24,normal:34,hard:44},
+      subset:'fruit',    want:(k,e)=> k==='good' && FRUIT.has(e),
+      weights:{good:0.65, junk:0.12, decoy:0.08, star:0.05, diamond:0.03, shield:0.04, x2:0.03} },
+    { id:'q_veggie',    title:'กดเฉพาะผัก (VEGGIE only)',            goalBase:{easy:18,normal:26,hard:34},
+      subset:'veggie',   want:(k,e)=> k==='good' && VEGGIE.has(e),
+      weights:{good:0.62, junk:0.14, decoy:0.08, star:0.05, diamond:0.04, shield:0.05, x2:0.03} },
+    { id:'q_star',      title:'ล่า ⭐ ให้ครบ',                         goalBase:{easy:10,normal:14,hard:18},
+      want:(k)=> k==='star', weights:{star:0.22, good:0.38, junk:0.15, decoy:0.08, diamond:0.06, shield:0.06, x2:0.05} },
+    { id:'q_diamond',   title:'ล่า 💎 ให้ครบ',                         goalBase:{easy:8, normal:12,hard:16},
+      want:(k)=> k==='diamond', weights:{diamond:0.20, good:0.36, junk:0.16, decoy:0.08, star:0.10, shield:0.05, x2:0.05} },
+    { id:'q_combo',     title:'ทำคอมโบต่อเนื่อง (ไม่พลาด)',          goalBase:{easy:12,normal:18,hard:24},
+      want:(k,e,sets,ctx)=> ctx.delta>0 && ctx.combo>0, weights:{good:0.56, junk:0.18, decoy:0.10, star:0.06, diamond:0.04, shield:0.04, x2:0.02} },
+    { id:'q_speed',     title:'สปีดรอบ: เป้าเล็ก–เกิดถี่',           goalBase:{easy:28,normal:38,hard:48},
+      speed:true, sizeMul:0.85, want:(k)=> k==='good', weights:{good:0.58, junk:0.18, decoy:0.10, star:0.06, diamond:0.04, shield:0.02, x2:0.02} },
+    { id:'q_mix',       title:'ดี + ⭐ คิด 2 แต้ม',                    goalBase:{easy:20,normal:28,hard:36},
+      want:(k)=> (k==='good' || k==='star'), scoreMap:{good:1, star:2}, weights:{good:0.52, star:0.16, junk:0.16, decoy:0.08, diamond:0.04, shield:0.02, x2:0.02} },
+    { id:'q_x2',        title:'เปิดโหมด ✖️x2 ให้บ่อย ตีอะไรก็คุ้ม',  goalBase:{easy:26,normal:36,hard:46},
+      want:(k,e,sets,ctx)=> ctx.delta>0, weights:{x2:0.14, good:0.44, star:0.12, junk:0.14, decoy:0.08, diamond:0.05, shield:0.03} },
+    { id:'q_shield',    title:'ใช้ 🛡️ กันพลาด และเก็บ GOOD',         goalBase:{easy:24,normal:34,hard:44},
+      want:(k,e,sets,ctx)=> (k==='good' || (ctx.usedShield===true)), weights:{shield:0.16, good:0.46, junk:0.16, decoy:0.10, star:0.06, diamond:0.04, x2:0.02} },
+  ];
+  function pick3(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){const j=(Math.random()*(i+1))|0; [a[i],a[j]]=[a[j],a[i]];} return a.slice(0,3); }
+  function normWeights(w){
+    const base = {diamond:0.06, star:0.08, shield:0.06, x2:0.06, decoy:0.14, good:0.38, junk:0.22};
+    const mix = Object.assign({}, base, w||{});
+    const sum = Object.values(mix).reduce((s,n)=>s+n,0)||1;
+    Object.keys(mix).forEach(k=> mix[k]=mix[k]/sum);
+    return mix;
+  }
+
+  // Boot
+  window.inlineGoodJunkBoot = function inlineGoodJunkBoot({host,duration=60,difficulty='easy'}){
     const zone = host || document.getElementById('spawnZone');
     while(zone.firstChild) zone.removeChild(zone.firstChild);
 
-    // พื้นหลังแผ่นเล่น 2.2×1.2
+    // พื้นหลัง
     const plane = document.createElement('a-plane');
     plane.setAttribute('width','2.2'); plane.setAttribute('height','1.2');
     plane.setAttribute('color','#0e1b38'); plane.setAttribute('opacity','0.85');
     plane.setAttribute('position','0 0 -0.01');
     zone.appendChild(plane);
+
+    // debug
+    let live=0, spawned=0;
+    const bootBox=document.getElementById('bootStatus');
+    const showDbg=()=>{ if(bootBox) bootBox.firstElementChild.innerHTML = `<strong>Status:</strong> Spawning… live=${live} / spawned=${spawned}`; };
 
     let score=0, fever=0, combo=0, maxCombo=0;
     setHudScore(score); setHudFever(fever); setHudCombo(combo);
@@ -445,21 +535,19 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
 
     const picks = pick3(QUESTS);
     let qi = 0, qProgress = 0, qGoal = 0, qWeights = null;
-    const sets = { FRUIT, VEGGIE };
 
-    const diffScale = DIFF_SCALE[difficulty] || 0.85;
-    const lifeMs   = LIFE_MS[difficulty]   || 2500;
+    const diffScale = DIFF_SCALE[difficulty] || 1.0;
+    const lifeMs   = LIFE_MS[difficulty]   || 2800;
 
     let hasShield=false, hasX2=false, x2Timer=null;
     const baseRate = (difficulty==='hard')? 260 : (difficulty==='normal')? 360 : 480;
     let spawnRate = baseRate;
     let perTargetSizeMul = diffScale;
 
-    function normW(w){ qWeights = normWeights(w||{}); }
     function startQuest(q){
-      qGoal = q.goalBase?.[difficulty] ?? q.goalBase?.normal ?? 40;
+      qGoal = q.goalBase?.[difficulty] ?? q.goalBase?.easy ?? 30;
       qProgress = 0;
-      normW(q.weights);
+      qWeights = normWeights(q.weights);
       spawnRate = q.speed ? baseRate*0.80 : baseRate;
       perTargetSizeMul = diffScale * (q.sizeMul || 1.0);
       if(tQ) tQ.setAttribute('troika-text','value', `${q.title} — ${qProgress}/${qGoal}`);
@@ -474,7 +562,7 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
         stopAll();
         showResult(score, maxCombo, qi);
       }else{
-        setTimeout(()=> startQuest(picks[qi]), 800);
+        setTimeout(()=> startQuest(picks[qi]), 700);
       }
     }
 
@@ -489,7 +577,7 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
 
     let lastSpawnAt=0, spawner=null;
     function spawnOne(){
-      const now=performance.now(); if(now-lastSpawnAt<90) return; lastSpawnAt=now;
+      const now=performance.now(); if(now-lastSpawnAt<50) { /* allow firsts */ } lastSpawnAt=now;
 
       const k = pickKind();
       let kind=k, emoji, value=0;
@@ -501,99 +589,85 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
       else if(kind==='good'){ emoji=GOOD[(Math.random()*GOOD.length)|0]; value=1; }
       else { kind='junk'; emoji=JUNK[(Math.random()*JUNK.length)|0]; value=-1; }
 
-      const pos = randPosSafe(perTargetSizeMul);           // ★ กระจายเต็มจอ
+      const pos = randPosSafe(perTargetSizeMul);
       const {root, hit} = makeTarget(kind, emoji, pos, perTargetSizeMul, difficulty);
       zone.appendChild(root);
+      live++; spawned++; showDbg();
 
-      const life = setTimeout(()=>root.remove(), lifeMs);
+      const life = setTimeout(()=>{ root.remove(); live--; showDbg(); }, lifeMs);
 
       const onHit = ()=>{
+        if(root.dataset.scored==='1') return;
+        root.dataset.scored='1';
         clearTimeout(life);
-        let usedShield=false;
+        live--; showDbg();
 
+        let usedShield=false;
         if(kind==='shield'){
           hasShield = true;
-          burst3D(zone, pos, PALETTE.shield.base);
-          popupScore(zone, pos, '🛡️ ได้เกราะป้องกัน!', PALETTE.shield.base);
-          root.remove(); return;
+          burst3D(zone, pos, '#5ef');
+          popupScore(zone, pos, '🛡️ ได้เกราะ!', '#5ef');
+          setTimeout(()=>root.remove(),0); return;
         }
         if(kind==='x2'){
           hasX2 = true;
           if(x2Timer) clearTimeout(x2Timer);
-          burst3D(zone, pos, PALETTE.x2.base);
-          popupScore(zone, pos, '✖️ x2 Mode!', PALETTE.x2.base);
-          const hudX2 = document.querySelector('#hudRoot [troika-text][value^="x2"]') || (()=>{
-            const n=document.createElement('a-entity');
-            n.setAttribute('troika-text','value: x2 ACTIVE!; color:#FFD700; fontSize:0.08;');
-            n.setAttribute('position','0.65 0.06 0.05'); document.getElementById('hudRoot').appendChild(n); return n;
-          })();
-          hudX2.setAttribute('troika-text','value','x2 ACTIVE!');
-          x2Timer = setTimeout(()=>{
-            hasX2=false;
-            hudX2.setAttribute('troika-text','value','');
-            popupScore(zone, [0,0.2,0.01],'x2 หมดเวลา','#999');
-          }, 8000);
-          root.remove(); return;
+          burst3D(zone, pos, '#FFD700');
+          popupScore(zone, pos, '✖️ x2 Mode!', '#FFD700');
+          x2Timer = setTimeout(()=>{ hasX2=false; popupScore(zone,[0,0.2,0.01],'x2 หมดเวลา','#999'); }, 8000);
+          setTimeout(()=>root.remove(),0); return;
         }
-
         if((kind==='decoy' || kind==='junk') && hasShield){
           hasShield=false; usedShield=true;
-          burst3D(zone, pos, PALETTE.shield.base);
-          popupScore(zone, pos, '🛡️ ป้องกันสำเร็จ!', PALETTE.shield.base);
-          root.remove(); return;
+          burst3D(zone, pos, '#5ef');
+          popupScore(zone, pos, '🛡️ ป้องกัน!', '#5ef');
+          setTimeout(()=>root.remove(),0); return;
         }
 
         const mult = (hasX2?2:1) * (fever>=1?2:1);
         const delta = (value>0 ? value*mult : value);
         score = Math.max(0, score + delta);
-        if (value>0){
-          combo++; if(combo>maxCombo) maxCombo = combo;
-          fever = Math.min(1, fever + (kind==='diamond'?0.15: kind==='star'?0.08:0.04));
-        }else{
-          combo=0; fever=Math.max(0, fever-0.10);
-          zone.setAttribute('material','color','#2a0b1a'); setTimeout(()=>zone.setAttribute('material','color','#0e1b38'), 120);
-        }
+        if (value>0){ combo++; if(combo>maxCombo) maxCombo = combo; fever = Math.min(1, fever + (kind==='diamond'?0.15: kind==='star'?0.08:0.04)); }
+        else { combo=0; fever=Math.max(0, fever-0.10); }
         setHudScore(score); setHudFever(fever); setHudCombo(combo);
 
-        const q = picks[qi];
-        let add = 0;
-        const ctx = {delta, combo, usedShield};
+        // นับเควสต์
+        const q = picks[qi]; let add = 0; const ctx = {delta, combo, usedShield};
         if(q.want){
-          if(q.subset==='fruit' && kind==='good' && !FRUIT.has(emoji)) { /* no count */ }
-          else if(q.subset==='veggie' && kind==='good' && !VEGGIE.has(emoji)) { /* no count */ }
+          if(q.subset==='fruit' && kind==='good' && !FRUIT.has(emoji)) { /* no */ }
+          else if(q.subset==='veggie' && kind==='good' && !VEGGIE.has(emoji)) { /* no */ }
           else {
             if(q.scoreMap && q.scoreMap[kind]!=null){
               if(q.want(kind,emoji,{FRUIT,VEGGIE},ctx)) add = q.scoreMap[kind];
-            }else if(q.want(kind,emoji,{FRUIT,VEGGIE},ctx)){
-              add = 1;
-            }
+            }else if(q.want(kind,emoji,{FRUIT,VEGGIE},ctx)){ add = 1; }
           }
         }
         if(add>0){
           qProgress += add;
           popupScore(zone, pos, `+${add} (เควสต์)`, '#7fffd4');
           if(tQ) updateQuestText(q);
-          if(qProgress>=qGoal){ setTimeout(()=>completeQuest(q), 300); }
+          if(qProgress>=qGoal){ setTimeout(()=>completeQuest(q), 250); }
         }
 
-        const col = (delta>=0)
-          ? (kind==='diamond'?PALETTE.diamond.base:(kind==='star'?PALETTE.star.base:PALETTE.good.base))
-          : PALETTE.junk.base;
-        burst3D(zone, pos, col);
-
-        root.remove();
+        burst3D(zone, pos, (delta>=0 ? '#7CFC00' : '#ff4d4d'));
+        setTimeout(()=>root.remove(),0);
       };
-      ['click','mousedown','mouseup','triggerdown'].forEach(ev=> hit.addEventListener(ev,onHit));
+      ['click','mousedown','mouseup','triggerdown','triggerup','touchstart','touchend','pointerdown','pointerup']
+        .forEach(ev=> hit.addEventListener(ev,onHit,{passive:true}));
     }
 
     function restartSpawner(){ if(spawner) clearInterval(spawner); spawner = setInterval(spawnOne, spawnRate); }
     function stopAll(){ try{ clearInterval(spawner); }catch{} }
 
-    // เริ่มด้วย 8 ชิ้น ให้เต็มจอและรู้สึกมีชีวิต
-    for(let i=0;i<8;i++) spawnOne();
+    // เริ่มด้วย 10 ชิ้นให้เห็นแน่ ๆ
+    for(let i=0;i<10;i++) spawnOne();
+    restartSpawner();
 
-    // เควสต์แรกจาก 3 ที่สุ่ม
+    // เริ่มเควสต์แรก
     startQuest(picks[0]);
+
+    // Debug
+    window.__HHA_DEBUG_SPAWN10 = ()=>{ for(let i=0;i<10;i++) spawnOne(); };
   };
 })();
 </script>
