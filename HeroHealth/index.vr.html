@@ -14,7 +14,7 @@
 </head>
 <body>
   <a-scene renderer="antialias:true" background="color: #0b1324">
-    <!-- RIG + CAMERA (mouse + VR controllers) -->
+    <!-- RIG + CAMERA -->
     <a-entity id="rig">
       <a-entity id="cam" camera look-controls
         cursor="rayOrigin: mouse; fuse: false"
@@ -49,13 +49,13 @@
       </a-entity>
     </a-entity>
 
-    <!-- ===== Quest Panel ===== -->
-    <a-entity id="questPanel" position="0 1.45 -1.5" visible="false">
-      <a-plane width="1.9" height="0.8" color="#0e1a2b" opacity="0.85"></a-plane>
-      <a-entity position="-0.9 0.32 0.01" troika-text="value: Mini Quests; color:#fff; fontSize:0.07; anchor:left;"></a-entity>
-      <a-entity id="tQ1" position="-0.9 0.18 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.055; anchor:left;"></a-entity>
-      <a-entity id="tQ2" position="-0.9 0.06 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.055; anchor:left;"></a-entity>
-      <a-entity id="tQ3" position="-0.9 -0.06 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.055; anchor:left;"></a-entity>
+    <!-- ===== Quest Panel (ย้ายซ้ายบน ให้เล็ก/โปร่ง ไม่บังเป้า) ===== -->
+    <a-entity id="questPanel" position="-0.95 1.55 -1.50" scale="0.9 0.9 1" visible="false">
+      <a-plane width="0.9" height="0.72" color="#0e1a2b" opacity="0.75"></a-plane>
+      <a-entity position="-0.42 0.28 0.01" troika-text="value: Mini Quests; color:#fff; fontSize:0.06; anchor:left;"></a-entity>
+      <a-entity id="tQ1" position="-0.42 0.15 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.05; anchor:left;"></a-entity>
+      <a-entity id="tQ2" position="-0.42 0.04 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.05; anchor:left;"></a-entity>
+      <a-entity id="tQ3" position="-0.42 -0.07 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.05; anchor:left;"></a-entity>
     </a-entity>
 
     <!-- ===== Start & Selection Panel ===== -->
@@ -104,7 +104,6 @@
   <script type="module">
     // ------- helpers -------
     const q = (s)=>document.querySelector(s);
-    const bindOnce = (el, ev, fn, opt)=>{ const h=(e)=>{el.removeEventListener(ev,h,opt); fn(e);} ; el.addEventListener(ev,h,opt); };
     const setText = (el, t)=>{ try{ el.setAttribute('troika-text','value', t); }catch{} };
     function getParam(name, def=null){ try { return (new URL(location.href)).searchParams.get(name) ?? def; } catch { return def; } }
 
@@ -151,29 +150,18 @@
       setText(hudMode,  `โหมด: ${selectedMode} (ระดับ:${selectedDiff})`);
     }
     function paintSelection(){
-      // reset all
       Object.values(modeButtons).forEach(b=>b && b.setAttribute('color','#1b3d5a'));
       Object.values(diffButtons).forEach(b=>b && b.setAttribute('color','#254a39'));
-      // highlight selected
       modeButtons[selectedMode]?.setAttribute('color', '#2a74b1');
       diffButtons[selectedDiff]?.setAttribute('color', '#2e8b57');
     }
     function setMode(m){ selectedMode = m; paintSelection(); updateStartLabel(); }
     function setDiff(d){ selectedDiff = d; paintSelection(); updateStartLabel(); }
 
-    // attach events for all buttons
-    Object.entries(modeButtons).forEach(([m,btn])=>{
-      ['click','mousedown','touchstart'].forEach(ev=>{
-        btn?.addEventListener(ev, (e)=>{ if(ev==='touchstart') e.preventDefault(); setMode(m); }, {passive:false});
-      });
-      btn?.classList.add('hit');
-    });
-    Object.entries(diffButtons).forEach(([d,btn])=>{
-      ['click','mousedown','touchstart'].forEach(ev=>{
-        btn?.addEventListener(ev, (e)=>{ if(ev==='touchstart') e.preventDefault(); setDiff(d); }, {passive:false});
-      });
-      btn?.classList.add('hit');
-    });
+    // attach events
+    const attach = (el, fn)=>['click','mousedown','touchstart'].forEach(ev=>el?.addEventListener(ev,(e)=>{ if(ev==='touchstart') e.preventDefault(); fn(); },{passive:false}));
+    Object.entries(modeButtons).forEach(([m,btn])=>{ attach(btn, ()=>setMode(m)); btn?.classList.add('hit'); });
+    Object.entries(diffButtons).forEach(([d,btn])=>{ attach(btn, ()=>setDiff(d)); btn?.classList.add('hit'); });
 
     // init visuals
     paintSelection(); updateStartLabel();
@@ -187,7 +175,7 @@
         const mod = await import(url + '?v=' + Date.now());
         if (typeof mod.boot !== 'function') throw new Error('Mode has no boot()');
 
-        // options: let mode decide duration by diff unless overridden by URL time
+        // let mode decide duration unless user supplies ?time=
         const opts = { host: spawnHost, difficulty: selectedDiff };
         if (secsParam) opts.duration = parseInt(secsParam,10)||60;
 
@@ -196,7 +184,6 @@
         await mod.boot(opts);
         setBoot('Running');
 
-        // If duration known (from URL), update HUD
         if (opts.duration) setText(hudTime, `เวลา: ${opts.duration}s`);
       }catch(e){
         console.error('[VR] load mode failed:', e);
