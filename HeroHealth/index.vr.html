@@ -5,20 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health VR — Nutrition Suite</title>
   <meta name="color-scheme" content="light dark"/>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     body{margin:0;background:#0b1324;color:#e8f0ff;font-family:system-ui,Segoe UI,Inter,Arial}
     .fallback{position:fixed;left:12px;bottom:12px;padding:8px 10px;background:#111a33;color:#cfe;border-radius:10px}
     .fallback strong{color:#9ff}
     .btn{cursor:pointer}
   </style>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- modules -->
-  <script type="module" src="./vr/emoji-sprite.js"></script>
-  <script type="module" src="./vr/miniquest.js"></script>
-  <script type="module" src="./vr/game-router.js"></script>
 </head>
 <body>
-  <!-- boot helper / force start -->
   <div class="fallback" id="bootStatus">
     <div><strong>Status:</strong> Booting…</div>
     <button id="forceStartBtn" style="margin-top:6px;background:#2e8b57;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">
@@ -26,262 +21,113 @@
     </button>
   </div>
 
-  <a-scene background="color: #0b1324" renderer="colorManagement: true; physicallyCorrectLights: true" vr-mode-ui="enterVRButton: true">
+  <a-scene background="color:#0b1324" vr-mode-ui="enterVRButton:true">
     <a-entity light="type: ambient; intensity: 0.6"></a-entity>
     <a-entity light="type: directional; intensity: 0.9" position="1 2 1"></a-entity>
     <a-sky color="#0b1324"></a-sky>
 
-    <!-- HUD (depth off) -->
-    <a-entity id="hud" position="0 2.2 -2">
+    <!-- HUD -->
+    <a-entity id="hud" position="0 2.2 -2" render-order-deep="100">
       <a-entity geometry="primitive: plane; width: 1.8; height: 0.26"
                 material="color:#111a33; opacity:0.88; depthTest:false; depthWrite:false"></a-entity>
-      <a-text id="tTime"  value="เวลา: 60s" position="-0.84 0.07 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tScore" value="คะแนน: 0"   position="-0.84 -0.03 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tCombo" value="คอมโบ: x1"  position="0.15 -0.03 0.01"  align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tStat"  value="เลือกโหมด →" position="0.15 0.07 0.01"   align="left" width="2.4" color="#7ea8ff"></a-text>
-
-      <!-- Mission -->
-      <a-entity position="0 -0.23 0">
-        <a-entity geometry="primitive: plane; width: 1.8; height: 0.08"
-                  material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-        <a-entity id="missionFill" geometry="primitive: plane; width: 0.0; height: 0.08" position="-0.9 0 0.01"
-                  material="color:#23a4ff; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-        <a-text id="tMission" value="ภารกิจ: 0/40" position="-0.88 -0.005 0.02" align="left" width="2.4" color="#dff"></a-text>
-      </a-entity>
-
-      <!-- Streak + Fever -->
-      <a-entity position="0 -0.42 0">
-        <a-entity geometry="primitive: plane; width: 1.8; height: 0.08"
-                  material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-        <a-text id="tStreak" value="Streak: 0" position="-0.88 -0.005 0.02" align="left" width="2.4" color="#ffd54f"></a-text>
-        <a-entity id="feverBg" geometry="primitive: plane; width: 0.9; height: 0.06" position="0.45 0 0.01"
-                  material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-        <a-entity id="feverFill" geometry="primitive: plane; width: 0.0; height: 0.06" position="0.0 0 0.02"
-                  material="color:#ff9043; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-      </a-entity>
+      <a-text id="tTime" value="เวลา:60s" position="-0.84 0.07 0.01" width="2.4" color="#e8f0ff"></a-text>
+      <a-text id="tScore" value="คะแนน:0" position="-0.84 -0.03 0.01" width="2.4" color="#e8f0ff"></a-text>
+      <a-text id="tCombo" value="คอมโบ:x1" position="0.15 -0.03 0.01" width="2.4" color="#e8f0ff"></a-text>
+      <a-text id="tStat" value="เลือกโหมด →" position="0.15 0.07 0.01" width="2.4" color="#7ea8ff"></a-text>
     </a-entity>
 
-    <!-- Mini Quests (depth off) -->
-    <a-entity id="questPanel" position="0 1.62 -2">
-      <a-entity geometry="primitive: plane; width: 1.8; height: 0.28"
-                material="color:#111a33; opacity:0.85; depthTest:false; depthWrite:false"></a-entity>
-      <a-text value="Mini Quests" position="-0.84 0.09 0.01" align="left" width="2.4" color="#ffd54f"></a-text>
-      <a-text id="tQ1" value="-" position="-0.84 -0.01 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tQ2" value="-" position="-0.84 -0.08 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
-      <a-text id="tQ3" value="-" position="-0.84 -0.15 0.01" align="left" width="2.4" color="#e8f0ff"></a-text>
-    </a-entity>
-
-    <!-- === VR Mode Menu (เลือกโหมดในฉาก) === -->
-    <a-entity id="modeMenu" position="0 1.45 -1.25">
+    <!-- เมนูเลือกโหมด -->
+    <a-entity id="modeMenu" position="0 1.45 -0.95" render-order-deep="1000" ui-layer="1">
       <a-entity geometry="primitive: plane; width: 1.2; height: 0.72"
-                material="color:#0e1b38; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
+                material="color:#0e1b38; opacity:0.99; depthTest:false; depthWrite:false"></a-entity>
       <a-text value="เลือกโหมดเกม" position="-0.45 0.28 0.01" width="2" color="#9fd"></a-text>
 
-      <!-- แถวบน -->
-      <a-plane class="clickable btn" position="-0.38 0.10 0.01" width="0.52" height="0.20" color="#1f3a6d"
-               data-mode="goodjunk"></a-plane>
+      <a-plane class="clickable btn" position="-0.38 0.10 0.01" width="0.52" height="0.20" color="#1f3a6d" data-mode="goodjunk"></a-plane>
       <a-text value="ดี vs ขยะ" position="-0.58 0.09 0.02" width="2" color="#fff"></a-text>
 
-      <a-plane class="clickable btn" position="0.38 0.10 0.01" width="0.52" height="0.20" color="#1f3a6d"
-               data-mode="groups"></a-plane>
+      <a-plane class="clickable btn" position="0.38 0.10 0.01" width="0.52" height="0.20" color="#1f3a6d" data-mode="groups"></a-plane>
       <a-text value="หมวดอาหาร" position="0.16 0.09 0.02" width="2" color="#fff"></a-text>
 
-      <!-- แถวล่าง -->
-      <a-plane class="clickable btn" position="-0.38 -0.16 0.01" width="0.52" height="0.20" color="#1f3a6d"
-               data-mode="hydration"></a-plane>
+      <a-plane class="clickable btn" position="-0.38 -0.16 0.01" width="0.52" height="0.20" color="#1f3a6d" data-mode="hydration"></a-plane>
       <a-text value="สมดุลน้ำ" position="-0.58 -0.17 0.02" width="2" color="#fff"></a-text>
 
-      <a-plane class="clickable btn" position="0.38 -0.16 0.01" width="0.52" height="0.20" color="#1f3a6d"
-               data-mode="plate"></a-plane>
+      <a-plane class="clickable btn" position="0.38 -0.16 0.01" width="0.52" height="0.20" color="#1f3a6d" data-mode="plate"></a-plane>
       <a-text value="จานสุขภาพ" position="0.18 -0.17 0.02" width="2" color="#fff"></a-text>
     </a-entity>
 
-    <!-- Start / Result -->
-    <a-entity id="startPanel" position="0 1.0 -1.20">
-      <a-plane id="startBtn" width="0.9" height="0.26" class="clickable"
-               color="#3b6" material="depthTest:false; depthWrite:false"></a-plane>
+    <!-- ปุ่มเริ่ม -->
+    <a-entity id="startPanel" position="0 0.95 -1.05" render-order-deep="900" visible="false">
+      <a-plane id="startBtn" width="0.9" height="0.26" color="#3b6" class="clickable" material="depthTest:false; depthWrite:false"></a-plane>
       <a-text id="startLbl" value="เลือกโหมดก่อน" position="-0.32 0 0.01" width="2" color="#fff"></a-text>
-    </a-entity>
-
-    <a-entity id="resultPanel" position="0 1.6 -1.3" visible="false">
-      <a-plane width="1.2" height="0.6" color="#111a33" opacity="0.95" material="depthTest:false; depthWrite:false"></a-plane>
-      <a-text id="tResultTitle" value="RESULT" position="-0.5 0.22 0.01" width="2" color="#7ea8ff"></a-text>
-      <a-text id="tResultBody"  value="-"      position="-0.5 0.04 0.01"  width="2" color="#e8f0ff"></a-text>
-      <a-plane id="restartBtn" position="0 -0.18 0.01" width="0.6" height="0.2" color="#2e8b57" class="clickable"
-               material="depthTest:false; depthWrite:false"></a-plane>
-      <a-text value="เล่นอีกครั้ง" position="-0.24 -0.18 0.02" width="1.6" color="#fff"></a-text>
-    </a-entity>
-
-    <!-- Camera + cursor -->
-    <a-entity id="rig" position="0 1.6 0">
-      <a-entity id="camera" camera look-controls wasd-controls="acceleration: 40"
-        cursor="rayOrigin: mouse; fuse: false"
-        raycaster="objects: .clickable, .target; far: 6">
-        <a-entity position="0 0 -1" geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
-                  material="color: #9fd; shader: flat; depthTest:false; depthWrite:false"></a-entity>
-      </a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .clickable, .target; far: 6"></a-entity>
-    </a-entity>
-
-    <!-- Sounds -->
-    <a-entity id="sfx" position="0 1.6 0">
-      <a-sound id="coach_start" src="url(assets/audio/coach_start_th.mp3)" volume="1.0"></a-sound>
-      <a-sound id="coach_good"  src="url(assets/audio/coach_good_th.mp3)"  volume="1.0"></a-sound>
-      <a-sound id="coach_warn"  src="url(assets/audio/coach_warn_th.mp3)"  volume="1.0"></a-sound>
-      <a-sound id="coach_fever" src="url(assets/audio/coach_fever_th.mp3)" volume="1.0"></a-sound>
-      <a-sound id="coach_quest" src="url(assets/audio/coach_quest_th.mp3)" volume="1.0"></a-sound>
-      <a-sound id="coach_clear" src="url(assets/audio/coach_clear_th.mp3)" volume="1.0"></a-sound>
-
-      <a-sound id="bgm"   src="url(assets/audio/bgm_loop.mp3)" autoplay="false" loop="true" volume="0.6"></a-sound>
-      <a-sound id="sndPop" src="url(assets/audio/pop.mp3)" volume="1.0"></a-sound>
-      <a-sound id="sndBoo" src="url(assets/audio/boo.mp3)" volume="1.0"></a-sound>
-      <a-sound id="sndOk"  src="url(assets/audio/cheer_ok.mp3)" volume="1.0"></a-sound>
-      <a-sound id="sndWin" src="url(assets/audio/cheer_victory.mp3)" volume="1.0"></a-sound>
-      <a-sound id="sndFvr" src="url(assets/audio/cheer_fever.mp3)" volume="1.0"></a-sound>
     </a-entity>
 
     <!-- Game zone -->
     <a-entity id="spawnZone" position="0 1.00 -3.80"></a-entity>
-    <a-entity id="game" game-manager="goal: 40; duration: 60"></a-entity>
+    <a-entity id="game" game-manager="goal:40;duration:60"></a-entity>
+
+    <!-- กล้อง -->
+    <a-entity id="rig" position="0 1.6 0">
+      <a-entity id="camera" camera look-controls cursor="rayOrigin:mouse"
+        raycaster="objects:.clickable,.target;far:6">
+        <a-entity position="0 0 -1" geometry="primitive:ring;radiusInner:0.01;radiusOuter:0.015"
+                  material="color:#9fd;shader:flat;depthTest:false;depthWrite:false"></a-entity>
+      </a-entity>
+    </a-entity>
   </a-scene>
 
-  <!-- Hard-start + Mode logic + Safety fallback -->
   <script>
-    (function(){
-      const statusEl = document.getElementById('bootStatus');
-      const setStatus = (t)=>{ if(statusEl) statusEl.firstElementChild.innerHTML = '<strong>Status:</strong> '+t; };
-
-      const url = new URL(location.href);
-      let GOAL = Number(url.searchParams.get('goal') ?? 40); if(!Number.isFinite(GOAL)) GOAL = 40;
-      let DURA = Number(url.searchParams.get('time') ?? 60); if(!Number.isFinite(DURA)) DURA = 60;
-      let MODE = url.searchParams.get('mode') || localStorage.getItem('HHA_MODE') || '';
-
-      const startBtn = document.getElementById('startBtn');
-      const startLbl = document.getElementById('startLbl');
-      const tStat    = document.getElementById('tStat');
-      const modeMenu = document.getElementById('modeMenu');
-
-      function updateStartState(){
-        const ready = !!MODE;
-        startBtn.setAttribute('color', ready ? '#2e8b57' : '#555');
-        startLbl.setAttribute('value', ready ? 'เริ่มเกม' : 'เลือกโหมดก่อน');
-        tStat.setAttribute('value', ready ? ('โหมด: '+MODE.toUpperCase()) : 'เลือกโหมด →');
+  // --- render-order-deep + ui-layer components ---
+  AFRAME.registerComponent('render-order-deep',{
+    schema:{default:0},
+    _apply(el,n){ (el.object3D||el).traverse(o=>o.renderOrder=n); },
+    init(){ this._apply(this.el,this.data);
+      this._on=()=>this._apply(this.el,this.data);
+      this.el.addEventListener('object3dset',this._on);
+      this.el.addEventListener('child-attached',this._on);
+    },
+    update(){ this._apply(this.el,this.data); },
+    remove(){ this.el.removeEventListener('object3dset',this._on);
+              this.el.removeEventListener('child-attached',this._on);}
+  });
+  AFRAME.registerComponent('ui-layer',{
+    schema:{default:1},
+    init(){
+      const n=this.data;
+      this.el.object3D.traverse(o=>o.layers.set(n));
+      const cam=document.querySelector('#camera');
+      if(cam && cam.object3D && cam.object3D.children[0]){
+        const c3=cam.object3D.children[0];
+        c3.layers.enable(n);
+        c3.layers.enable(0);
       }
+    }
+  });
+  // --- game manager fallback ---
+  (function(){
+    const btns=document.querySelectorAll('.btn');
+    const startPanel=document.getElementById('startPanel');
+    const startBtn=document.getElementById('startBtn');
+    const startLbl=document.getElementById('startLbl');
+    const tStat=document.getElementById('tStat');
+    const menu=document.getElementById('modeMenu');
+    let MODE='';
 
-      // hook: buttons in the menu
-      Array.from(modeMenu.querySelectorAll('.btn')).forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          MODE = btn.getAttribute('data-mode');
-          localStorage.setItem('HHA_MODE', MODE);
-          const q = new URL(location.href);
-          q.searchParams.set('mode', MODE);
-          history.replaceState({}, '', q.toString()); // อัปเดต URL ให้ตรง
-          updateStartState();
-        });
-      });
+    btns.forEach(b=>b.addEventListener('click',()=>{
+      MODE=b.getAttribute('data-mode');
+      startPanel.setAttribute('visible','true');
+      startLbl.setAttribute('value','เริ่มเกม');
+      startBtn.setAttribute('color','#2e8b57');
+      tStat.setAttribute('value','โหมด: '+MODE.toUpperCase());
+    }));
 
-      // hard-start retry
-      function getGM(){ return document.querySelector('[game-manager]')?.components?.['game-manager'] || null; }
-      function startWithRetry(msLeft=10000){
-        if(!MODE){ updateStartState(); return; }
-        const gm=getGM();
-        if (gm && !gm.running){ try{ gm.start(); setStatus('Started ✅'); modeMenu.setAttribute('visible','false'); return; }catch(e){ console.error(e); setStatus('Error: '+e.message); } }
-        if (msLeft<=0){ setStatus('Failed ❌'); return; }
-        setStatus('Waiting for game… ('+Math.ceil(msLeft/1000)+'s)');
-        setTimeout(()=>startWithRetry(msLeft-250),250);
-      }
-      window.__HARD_START__=()=>startWithRetry(10000);
-
-      // wire start click
-      startBtn.addEventListener('click', ()=>window.__HARD_START__());
-
-      // ===== Safety fallback: register game-manager if not provided by mode files =====
-      if (!AFRAME.components['game-manager']) {
-        console.warn('[HHA] Using SAFETY game-manager fallback');
-        AFRAME.registerComponent('game-manager', {
-          schema:{goal:{default:GOAL}, duration:{default:DURA}},
-          init:function(){
-            this.running=false; this.timeLeft=this.data.duration;
-            this.score=0; this.combo=1; this.streak=0; this.goodHits=0;
-            const byId=(id)=>document.getElementById(id);
-            this.tTime=byId('tTime'); this.tScore=byId('tScore'); this.tCombo=byId('tCombo');
-            this.tStat=byId('tStat'); this.tMission=byId('tMission'); this.missionFill=byId('missionFill');
-            this.tStreak=byId('tStreak'); this.spawn=document.getElementById('spawnZone');
-            byId('restartBtn')?.addEventListener('click', ()=>this.start());
-            this._updateHUD('READY');
-          },
-          start:function(){
-            if(this.running)return;
-            if(!MODE){ alert('กรุณาเลือกโหมดก่อน'); return; }
-            this.running=true; this.timeLeft=this.data.duration; this.score=0; this.combo=1; this.streak=0; this.goodHits=0;
-            modeMenu.setAttribute('visible','false');
-            this._updateHUD('PLAY');
-            this._tickTimer=setInterval(()=>{ this.timeLeft--; this._updateHUD(); if(this.timeLeft<=0) this.end(); },1000);
-            this._spawnLoop();
-            try{ document.getElementById('bgm')?.components.sound.playSound(); }catch(e){}
-          },
-          end:function(){
-            this.running=false; clearInterval(this._tickTimer); this._tickTimer=null; this._updateHUD('END');
-            document.getElementById('resultPanel')?.setAttribute('visible', true);
-            const body=document.getElementById('tResultBody');
-            if(body) body.setAttribute('value', `Mode: ${MODE}\nScore: ${this.score}\nGood: ${this.goodHits}/${this.data.goal}`);
-          },
-          _spawnLoop:function(){
-            if(!this.running) return;
-            // safe area (ไม่ชน HUD)
-            const z=-3.8, yMin=0.70, yMax=1.20, xAbs=0.80;
-            const x=(Math.random()*2-1)*xAbs, y=yMin+Math.random()*(yMax-yMin);
-            const e=document.createElement('a-entity');
-            e.setAttribute('emoji-sprite', {char: this._pickEmoji(), size: 0.58});
-            e.setAttribute('position', `${x} ${y} ${z}`);
-            e.classList.add('target','clickable');
-            const good = (MODE==='goodjunk') ? (Math.random()>0.35) : true; // ตัวอย่าง: โหมดอื่นอาจนับเฉพาะ "ถูกที่/ถูกเวลา"
-            e.dataset.good = good ? '1' : '0';
-            e.addEventListener('click', ()=>{
-              if(!this.running) return;
-              if (e._dead) return; e._dead=true; e.remove();
-              if (good){
-                this.goodHits++; this.score += 10*this.combo; this.combo++; this.streak++;
-                if (this.goodHits>=this.data.goal) this.end();
-              } else { this.combo=1; this.streak=0; }
-              this._updateHUD();
-            });
-            this.spawn.appendChild(e);
-            setTimeout(()=>{ e?.remove?.(); }, 2200+Math.random()*1000);
-            setTimeout(()=>this._spawnLoop(), 300+Math.random()*220);
-          },
-          _pickEmoji:function(){
-            const GOOD=['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
-            const JUNK=['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
-            return (Math.random()>0.35?GOOD:JUNK)[Math.floor(Math.random()*20)% (Math.random()>0.35?GOOD.length:JUNK.length)];
-          },
-          _updateHUD:function(state){
-            if (state) this.tStat?.setAttribute('value', state+' ('+(MODE?MODE.toUpperCase():'-')+')');
-            this.tTime?.setAttribute('value', `เวลา: ${this.timeLeft}s`);
-            this.tScore?.setAttribute('value', `คะแนน: ${this.score}`);
-            this.tCombo?.setAttribute('value', `คอมโบ: x${this.combo}`);
-            this.tMission?.setAttribute('value', `ภารกิจ: ${this.goodHits}/${this.data.goal}`);
-            const w=Math.max(0,Math.min(1,this.goodHits/this.data.goal))*1.8;
-            this.missionFill?.setAttribute('geometry', {primitive:'plane', width:w, height:0.08});
-            this.tStreak?.setAttribute('value', `Streak: ${this.streak}`);
-          }
-        });
-      }
-
-      // init UI state
-      updateStartState();
-
-      // force-start helper
-      document.getElementById('forceStartBtn').addEventListener('click', ()=>window.__HARD_START__());
-      window.__HARD_START__=()=>startWithRetry(10000);
-      function startWithRetry(msLeft=10000){
-        const gm=getGM();
-        if (gm && !gm.running){ try{ gm.start(); setStatus('Started ✅'); return; }catch(e){ console.error(e); setStatus('Error: '+e.message); } }
-        if (msLeft<=0){ setStatus('Failed ❌'); return; }
-        setStatus('Waiting for game… ('+Math.ceil(msLeft/1000)+'s)');
-        setTimeout(()=>startWithRetry(msLeft-250),250);
-      }
-    })();
+    startBtn.addEventListener('click',()=>{ if(!MODE){alert('เลือกโหมดก่อน');return;}
+      menu.setAttribute('visible','false'); startBtn.setAttribute('color','#555');
+      startLbl.setAttribute('value','กำลังโหลด...');
+      document.getElementById('bgm')?.components?.sound?.playSound?.();
+      // เริ่มเกมปลอม (demo)
+      console.log('Start mode',MODE);
+    });
+  })();
   </script>
 </body>
 </html>
