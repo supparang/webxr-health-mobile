@@ -1,47 +1,33 @@
-// === vr/mode-factory.js — Shared spawner & gameplay (2025-11-06 prod) ===
-import { Difficulty }  from './difficulty.js';
-import { Emoji }       from './emoji-sprite.js';
-import { Fever }       from './fever.js';
-import { MiniQuest }   from './miniquest.js';
-import { MissionDeck } from './mission.js';
-import * as FX         from './particles.js';
-import { SFX }         from './sfx.js';
+// === vr/mode-factory.js — Shared spawner + HUD + FX (2025-11-07) ===
+import { Difficulty }   from './difficulty.js';
+import { Emoji }        from './emoji-sprite.js';
+import { Fever }        from './fever.js';
+import { MiniQuest }    from './miniquest.js';
+import { MissionDeck }  from './mission.js';
+import * as FX          from './particles.js';
+import { SFX }          from './sfx.js';
 
 const Particles = FX.Particles || FX;
-
-const $=(s)=>document.querySelector(s);
-const sample=(a)=>a[Math.floor(Math.random()*a.length)];
+const $=s=>document.querySelector(s);
+const sample=a=>a[Math.floor(Math.random()*a.length)];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-const now =()=>performance.now();
+const now=()=>performance.now();
 
-// ---- Defaults: โล่งขึ้น + กันซ้อนแน่นขึ้น ----
-const MIN_DIST_DEFAULT         = 0.46; // m
-const SLOT_COOLDOWN_MS_DEFAULT = 520;  // ms
-const MAX_ACTIVE_BY_DIFF_DEF   = { easy:1, normal:2, hard:3 };
-const BUDGET_BY_DIFF_DEF       = { easy:1, normal:2, hard:3 };
-const TIME_BY_DIFF_DEF         = { easy:45, normal:60, hard:75 };
-
-// ---- Twemoji fallback (?emoji=svg) ----
 const USE_EMOJI_SVG = (()=>{ try{ return (new URL(location.href)).searchParams.get('emoji')?.toLowerCase()==='svg'; }catch{ return false; }})();
-const toCP=(s)=>{ const p=[]; for(const ch of s) p.push(ch.codePointAt(0).toString(16)); return p.join('-'); };
-const twemojiURL=(ch)=>`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${toCP(ch)}.svg`;
+const toCP = (s)=>{ const p=[]; for(const ch of s) p.push(ch.codePointAt(0).toString(16)); return p.join('-'); };
+const twemojiURL = (ch)=>`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${toCP(ch)}.svg`;
 
+// ---- helpers ----
 function makeEmojiNode(char,{scale=0.58}={}){
   if(!USE_EMOJI_SVG){
     if(typeof Emoji?.fromChar==='function') return Emoji.fromChar(char,{size:96,scale,glow:true,shadow:true});
-    if(typeof Emoji?.create==='function')   return Emoji.create({type:'GOOD', size:scale});
-    const el=document.createElement('a-entity');
-    el.setAttribute('text',{value:char,align:'center',width:2.2*scale,color:'#fff'});
-    return el;
+    if(typeof Emoji?.create==='function'){ return Emoji.create({type:'GOOD', size:scale}); }
+    const el=document.createElement('a-entity'); el.setAttribute('text',{value:char,align:'center',width:2.2*scale,color:'#fff'}); return el;
   }else{
-    const img=document.createElement('a-image');
-    img.setAttribute('src', twemojiURL(char));
-    img.setAttribute('width',0.80*scale); img.setAttribute('height',0.80*scale);
-    return img;
+    const img=document.createElement('a-image'); img.setAttribute('src',twemojiURL(char));
+    img.setAttribute('width',0.80*scale); img.setAttribute('height',0.80*scale); return img;
   }
 }
-
-// ---- Slots: เป้าอยู่ล่าง-กลางจอ ----
 function buildSlots(yBase=0.42){
   const xs=[-0.95, 0.00, 0.95];
   const ys=[ yBase, yBase+0.34 ];
@@ -55,13 +41,22 @@ function buildSlots(yBase=0.42){
 }
 function takeFreeSlot(slots, busyCols, busyRows, cooldownMs){
   const t=now();
-  const free=slots.filter(s=>!s.used && (t-s.lastUsed>=cooldownMs) && !busyCols.has(s.col) && !busyRows.has(s.row));
+  const free=slots.filter(s=>!s.used && (t - s.lastUsed >= cooldownMs) && !busyCols.has(s.col) && !busyRows.has(s.row));
   if(!free.length) return null;
   const s=free[Math.floor(Math.random()*free.length)]; s.used=true; return s;
 }
 function releaseSlot(slots, slot){ if(slot){ slot.used=false; slot.lastUsed=now(); } }
 
-// ===================================================================
+// -------------- Factory boot --------------
+/**
+ * config = {
+ *   name: 'goodjunk'|'groups'|'hydration'|'plate',
+ *   pools: { good: string[], bad?: string[] },
+ *   judge(hitChar, ctx) -> { good:boolean, scoreDelta:number, feverDelta?:number }
+ *   ui: { questMainSel?: string }
+ *   goldenRate?: number, goodRate?: number
+ * }
+ */
 export async function boot(config={}){
   const {
     name='mode',
@@ -70,52 +65,60 @@ export async function boot(config={}){
     ui={ questMainSel:'#tQmain' },
     goldenRate=0.07,
     goodRate =0.70,
-    minDist  =MIN_DIST_DEFAULT,
-    slotCooldownMs=SLOT_COOLDOWN_MS_DEFAULT,
-    timeByDiff     =TIME_BY_DIFF_DEF,
-    maxActiveByDiff=MAX_ACTIVE_BY_DIFF_DEF,
-    budgetByDiff   =BUDGET_BY_DIFF_DEF,
+    minDist  =0.36,
+    slotCooldownMs=520,
+    timeByDiff={ easy:45, normal:60, hard:75 },
+    maxActiveByDiff={ easy:1, normal:2, hard:2 },
+    budgetByDiff   ={ easy:1, normal:2, hard:2 },
     host:givenHost,
     duration:givenDuration,
     difficulty:givenDiff='normal',
     goal=40
   } = config;
 
-  // Host safety
-  let host=givenHost;
-  if(!host){ const wrap=$('a-scene')||document.body; const auto=document.createElement('a-entity'); auto.id='spawnHost'; wrap.appendChild(auto); host=auto; }
+  // DOM: HUD
+  const hudTime  = $('#hudTime');
+  const hudScore = $('#hudScore');
+  const hudQuest = $(ui.questMainSel || '#tQmain');
 
+  const setText = (el, txt)=>{ try{ el?.setAttribute('troika-text', `value: ${txt}`); }catch{} };
+  const updateHUD = ()=>{ setText(hudTime,  `เวลา: ${Math.max(0,Math.ceil(remain/1000))}s`);
+                          setText(hudScore, `คะแนน: ${score}  คอมโบ: x${combo}`); };
+
+  // Host
+  let host=givenHost;
+  if(!host){ const wrap=$('a-scene')||document.body; const auto=document.createElement('a-entity'); auto.id='spawnHost'; auto.setAttribute('position','0 0 -1.2'); wrap.appendChild(auto); host=auto; }
+
+  // SFX/FEVER
   const sfx=new SFX('../assets/audio/'); await sfx.unlock?.(); sfx.attachPageVisibilityAutoMute?.();
   const scene=$('a-scene')||document.body;
   const fever=new Fever(scene,null,{durationMs:10000});
+  window.addEventListener('hha:fever',(e)=>{
+    if(e?.detail?.state==='start'){ sfx.feverStart?.(); }
+    if(e?.detail?.state==='end'){ sfx.feverEnd?.(); }
+  });
 
-  // MiniQuest + กันบังคลิก (ข้อ 4)
-  const mq=new MiniQuest(
-    { tQmain:$(ui.questMainSel||'#tQmain') },
+  // MiniQuest (single line)
+  const mq=new MiniQuest( { tQmain:hudQuest },
     { coach_start:$('#coach_start'), coach_good:$('#coach_good'), coach_warn:$('#coach_warn'),
-      coach_fever:$('#coach_fever'), coach_quest:$('#coach_quest'), coach_clear:$('#coach_clear') }
-  );
+      coach_fever:$('#coach_fever'), coach_quest:$('#coach_quest'), coach_clear:$('#coach_clear') } );
   mq.start(goal);
   const missions=new MissionDeck(); missions.draw3?.();
-  const questPanel = document.getElementById('tQmain')?.parentElement;
-  questPanel?.classList?.add('noclick'); // pointer-events: none จาก CSS
 
-  // Time/Diff
+  // Time/Difficulty
   const difficulty = givenDiff;
-  let duration = givenDuration || timeByDiff[difficulty] || 60;
-  $('#hudTime')?.setAttribute('troika-text','value',`เวลา: ${duration}s`);
+  let durationSec = Number(givenDuration || timeByDiff[difficulty] || 60);
+  let remain = durationSec * 1000; // ms
+  setText(hudTime, `เวลา: ${durationSec}s`);
 
   const diff=new Difficulty();
   const safe={ size:0.60, rate:520, life:2000 };
   const base=(diff?.config?.[difficulty]) || (diff?.config?.normal) || safe;
-
   let spawnRateMs = Number(base.rate) || safe.rate;
   let lifetimeMs  = Number(base.life) || safe.life;
   let sizeFactor  = Math.max(0.40, (Number(base.size)||0.60)*0.80);
-
-  // (ข้อ 2) ขยาย hitbox ให้คลิกง่ายขึ้น
-  let hitWBase    = (difficulty==='easy'?0.56 : difficulty==='hard'?0.46 : 0.52);
-  const hitW      = Math.min(hitWBase, minDist*0.90);
+  let hitWBase    = (difficulty==='easy'?0.50 : difficulty==='hard'?0.40 : 0.46);
+  const hitW      = Math.min(hitWBase, minDist*0.80);
 
   // State
   let running=true, missionGood=0, score=0, combo=0, comboMax=0, streak=0, lastGoodAt=now();
@@ -132,15 +135,17 @@ export async function boot(config={}){
   let frames=0, lastT=now();
   (function raf(t){ frames++; if(t-lastT>=1000){ const fps=frames; frames=0; lastT=t; if(fps<40){ spawnRateMs=Math.min(spawnRateMs*1.15,900); MAX_ACTIVE=Math.max(1,Math.round(MAX_ACTIVE*0.9)); } } requestAnimationFrame(raf); })(performance.now());
 
-  // Combo decay
-  const comboDecay=setInterval(()=>{ if(!running) return; if(now()-lastGoodAt>2000 && combo>0){ combo--; try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{} }},1000);
+  // Combo decay + Timer HUD
+  const comboDecay=setInterval(()=>{ if(!running) return; if(now()-lastGoodAt>2000 && combo>0){ combo--; updateHUD(); }},1000);
+  const timerTick = setInterval(()=>{ if(!running) return; remain -= 1000; if(remain<=0){ endGame('timeout'); } updateHUD(); mq.second(); missions.second?.(); },1000);
 
-  // Pause/Resume hooks (แก้ชื่อซ้ำ api)
-  let api = null;
+  // Pause/Resume hooks
+  let api=null;
   window.addEventListener('blur',  ()=>api?.pause?.());
   window.addEventListener('focus', ()=>api?.resume?.());
   document.addEventListener('visibilitychange',()=>document.hidden?api?.pause?.():api?.resume?.());
 
+  // spawn
   function spawnOne(){
     if(!running) return;
     if(SPAWN_LOCK) return; SPAWN_LOCK=true;
@@ -155,10 +160,9 @@ export async function boot(config={}){
 
       busyCols.add(slot.col); busyRows.add(slot.row); issuedThisSec++;
 
-      // pick
-      const isGood = Math.random() < (config.goodRate ?? 0.70) || !pools.bad?.length;
+      const isGood = Math.random() < goodRate || !pools.bad?.length;
       const char   = isGood ? sample(pools.good) : sample(pools.bad||pools.good);
-      const isGold = isGood && Math.random() < (goldenRate ?? 0.07);
+      const isGold = isGood && Math.random() < (goldenRate||0);
 
       const el=makeEmojiNode(char,{scale:clamp(sizeFactor,0.35,0.65)});
       el.setAttribute('position',`${slot.x} ${slot.y} ${slot.z}`);
@@ -172,7 +176,6 @@ export async function boot(config={}){
         el.appendChild(halo);
       }
 
-      // hitbox โปร่งใส
       const hit=document.createElement('a-plane');
       hit.setAttribute('width',hitW); hit.setAttribute('height',hitW);
       hit.setAttribute('material','opacity:0; transparent:true; side:double');
@@ -191,6 +194,7 @@ export async function boot(config={}){
           const res = judge(null, { type:'timeout', char, score, combo, streak, feverActive:fever.active });
           if(res?.good===false){ streak=0; combo=0; mq.junk(); }
         }else{ streak=0; combo=0; mq.junk(); }
+        updateHUD();
         cleanup();
       }, ttl);
 
@@ -205,11 +209,12 @@ export async function boot(config={}){
         if(res.good){
           const plus = res.scoreDelta ?? 10;
           missionGood+=1; score+=plus; combo+=1; streak+=1; comboMax=Math.max(comboMax,combo); lastGoodAt=now();
-          sfx.popGood?.(); Particles.burst?.(host, {x:slot.x,y:slot.y,z:slot.z}, '#69f0ae');
-          // popup
+          sfx.popGood?.();
+          Particles.burst?.(host, {x:slot.x,y:slot.y,z:slot.z}, '#69f0ae');
+          // popup +score
           try{
             const t=document.createElement('a-entity');
-            t.setAttribute('troika-text',`value: +${plus}; color:#fff; fontSize:0.08; anchor:center`);
+            t.setAttribute('troika-text',`value: +${plus}; color:#ffffff; fontSize:0.08; anchor:center`);
             t.setAttribute('position',`${slot.x} ${slot.y+0.05} ${slot.z+0.01}`);
             host.appendChild(t);
             t.setAttribute('animation__rise',`property: position; to: ${slot.x} ${slot.y+0.30} ${slot.z+0.01}; dur: 520; easing: ease-out`);
@@ -222,6 +227,9 @@ export async function boot(config={}){
           score=Math.max(0, score + (res.scoreDelta ?? -5));
           combo=0; streak=0; sfx.popBad?.(); Particles.smoke?.(host,{x:slot.x,y:slot.y,z:slot.z}); mq.junk();
         }
+
+        // HUD + event
+        updateHUD();
         try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{}
         if(missionGood>=goal){ mq.mission(missionGood); }
 
@@ -244,7 +252,7 @@ export async function boot(config={}){
     } finally { SPAWN_LOCK=false; }
   }
 
-  // Anti-overlap sweeper
+  // resolve overlaps periodically
   function resolveOverlaps(){
     const arr=[...active];
     for(let i=0;i<arr.length;i++){
@@ -254,13 +262,16 @@ export async function boot(config={}){
           const pa=a.getAttribute('position'), pb=b.getAttribute('position');
           const dx=pb.x-pa.x, dy=pb.y-pa.y, d2=dx*dx+dy*dy;
           if(d2 < (minDist*minDist)){
+            // ขยับ b ออก 1 ช่อง
             const dest=takeFreeSlot(slots, busyCols, busyRows, slotCooldownMs);
             if(dest){
               b.setAttribute('position',`${dest.x} ${dest.y} ${dest.z}`);
               busyCols.add(dest.col); busyRows.add(dest.row);
               if(b.__col!=null && b.__row!=null){ busyCols.delete(b.__col); busyRows.delete(b.__row); }
               b.__col=dest.col; b.__row=dest.row;
-            }else{ try{ b.remove(); }catch{} active.delete(b); }
+            }else{
+              try{ b.remove(); }catch{} active.delete(b);
+            }
           }
         }catch{}
       }
@@ -268,35 +279,30 @@ export async function boot(config={}){
   }
   const overlapSweeper=setInterval(()=>{ if(running) resolveOverlaps(); },200);
 
-  // Loop
+  // main loop
   function loop(){
     clearTimeout(spawnTicker);
-    const tick=()=>{ if(running && issuedThisSec<BUDGET) spawnOne(); spawnTicker=setTimeout(tick, Math.max(380, spawnRateMs|0)); };
+    const tick=()=>{ if(running && issuedThisSec<BUDGET) spawnOne();
+      const cd=Math.max(380, spawnRateMs|0);
+      spawnTicker=setTimeout(tick, cd);
+    };
     tick();
   }
   loop(); setTimeout(()=>spawnOne(),240);
 
-  const secondTimer=setInterval(()=>{ if(running){ mq.second(); missions.second?.(); } },1000);
-  const endTimer   =setTimeout(()=>endGame('timeout'), duration*1000);
-
-  window.addEventListener('hha:fever',(e)=>{
-    if(e?.detail?.state==='start'){ try{ mq.fever(); }catch{} spawnRateMs=Math.round(spawnRateMs*0.85); }
-    else { spawnRateMs = Number(base.rate)||520; }
-  });
-
   function endGame(reason='stop'){
     if(!running) return; running=false;
-    clearTimeout(spawnTicker); clearInterval(secondTimer); clearInterval(budgetTimer);
-    clearInterval(comboDecay); clearInterval(overlapSweeper); clearTimeout(endTimer);
+    clearTimeout(spawnTicker); clearInterval(timerTick); clearInterval(budgetTimer);
+    clearInterval(comboDecay); clearInterval(overlapSweeper);
     try{ fever.end(); }catch{} try{ sfx.playCoach?.('clear'); }catch{}
     try{ window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,missionGood,goal,comboMax}})); }catch{}
   }
 
-  api = {
-    pause(){ if(!running) return; running=false; clearTimeout(spawnTicker); },
-    resume(){ if(running) return; running=true; loop(); },
-    stop(){ endGame('stop'); }
-  };
-
-  return api;
+  const apiObj={ pause(){ if(!running) return; running=false; clearTimeout(spawnTicker); },
+                 resume(){ if(running) return; running=true; loop(); },
+                 stop(){ endGame('stop'); } };
+  // ป้องกันชื่อซ้ำ
+  try{ window.__HHA_API?.stop?.(); }catch{}
+  window.__HHA_API = apiObj;
+  return apiObj;
 }
