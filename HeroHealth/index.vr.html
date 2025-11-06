@@ -12,9 +12,11 @@
   .ver{position:fixed;right:10px;bottom:10px;opacity:0.6;font-size:12px}
 </style>
 
+<!-- A-Frame & Troika -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
 
+<!-- Ensure on-top rendering for UI -->
 <script>
 AFRAME.registerComponent('front-most', {
   schema:{order:{default:10000}},
@@ -26,6 +28,7 @@ AFRAME.registerComponent('front-most', {
 });
 </script>
 
+<!-- Hub -->
 <script type="module">
   import { GameHub } from './vr/hub.js?v=starter';
   window.addEventListener('DOMContentLoaded',()=>{ window.__hub=new GameHub(); });
@@ -48,18 +51,20 @@ AFRAME.registerComponent('front-most', {
     <a-entity geometry="primitive: plane; width: 1.9; height: 0.30"
               material="color:#111a33; opacity:0.9; depthTest:false; depthWrite:false"></a-entity>
     <a-entity troika-text="value: โหมด: -; color:#9fd; fontSize:0.06;" position="-0.9 0.08 0.05"></a-entity>
-    <a-entity troika-text="value: เวลา: 60s; color: #fff; fontSize:0.06;" position="-0.9 -0.02 0.05"></a-entity>
-    <a-entity troika-text="value: คะแนน: 0; color: #fff; fontSize:0.06;" position="0.15 0.08 0.05"></a-entity>
+    <a-entity troika-text="value: เวลา: 60s; color:#fff; fontSize:0.06;" position="-0.9 -0.02 0.05"></a-entity>
+    <a-entity troika-text="value: คะแนน: 0; color:#fff; fontSize:0.06;" position="0.15 0.08 0.05"></a-entity>
     <a-entity troika-text="value: คอมโบ: x1; color:#fff; fontSize:0.06;" position="0.15 -0.02 0.05"></a-entity>
 
+    <!-- Fever bar -->
     <a-entity position="0 -0.20 0">
       <a-entity geometry="primitive: plane; width: 1.9; height: 0.08"
                 material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
       <a-entity id="feverFill" geometry="primitive: plane; width: 0.0; height: 0.08" position="-0.95 0 0.06"
                 material="color:#ff6600; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-      <a-entity troika-text="value: Fever 0%; color: #ffd54f; fontSize:0.06;" position="-0.92 -0.01 0.08"></a-entity>
+      <a-entity troika-text="value: Fever 0%; color:#ffd54f; fontSize:0.06;" position="-0.92 -0.01 0.08"></a-entity>
     </a-entity>
 
+    <!-- Buttons: Pause / Lang -->
     <a-entity id="pauseBtn" class="clickable" position="-0.88 0.10 0.06"
       geometry="primitive: plane; width:0.18; height:0.08"
       material="color:#5b2b2b; opacity:0.9"></a-entity>
@@ -71,6 +76,7 @@ AFRAME.registerComponent('front-most', {
     <a-entity troika-text="value: TH/EN; color:#fff; fontSize:0.045;" position="0.80 0.095 0.08"></a-entity>
   </a-entity>
 
+  <!-- Mini Quests (stub) -->
   <a-entity id="questPanel" position="0 1.65 -2.8" visible="false">
     <a-entity geometry="primitive: plane; width: 1.9; height: 0.28"
               material="color:#111a33; opacity:0.88; transparent:true; depthTest:false; depthWrite:false"></a-entity>
@@ -78,6 +84,7 @@ AFRAME.registerComponent('front-most', {
     <a-entity id="tQ" troika-text="value: ; color:#e8f0ff; fontSize:0.06;" position="-0.9 -0.06 0.05"></a-entity>
   </a-entity>
 
+  <!-- เมนูโหมด -->
   <a-entity id="modeMenu" position="0 1.35 -1.2" front-most="order:10000">
     <a-entity geometry="primitive: plane; width: 1.05; height: 0.58"
               material="color:#0e1b38; opacity:0.95; transparent:true"></a-entity>
@@ -87,20 +94,18 @@ AFRAME.registerComponent('front-most', {
     <a-entity troika-text="value: สมดุลน้ำ; color:#fff; fontSize:0.058;" position="-0.38 -0.14 0.26"></a-entity>
     <a-entity troika-text="value: จานสุขภาพ; color:#fff; fontSize:0.058;" position="0.06 -0.14 0.26"></a-entity>
 
+    <!-- hitboxes -->
     <a-plane class="clickable" data-mode="goodjunk" position="-0.16 0.07 0.24" width="0.46" height="0.18"
-             material="transparent:true; opacity:0.001;"
-             onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
+             material="transparent:true; opacity:0.001;"></a-plane>
     <a-plane class="clickable" data-mode="groups" position="0.40 0.07 0.24" width="0.46" height="0.18"
-             material="transparent:true; opacity:0.001;"
-             onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
+             material="transparent:true; opacity:0.001;"></a-plane>
     <a-plane class="clickable" data-mode="hydration" position="-0.16 -0.14 0.24" width="0.46" height="0.18"
-             material="transparent:true; opacity:0.001;"
-             onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
+             material="transparent:true; opacity:0.001;"></a-plane>
     <a-plane class="clickable" data-mode="plate" position="0.40 -0.14 0.24" width="0.46" height="0.18"
-             material="transparent:true; opacity:0.001;"
-             onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
+             material="transparent:true; opacity:0.001;"></a-plane>
   </a-entity>
 
+  <!-- ปุ่มเริ่ม -->
   <a-entity id="startPanel" position="0 0.72 -1.15" visible="false" front-most="order:10000">
     <a-plane id="startBtn" class="clickable" position="0 0 0.30"
              width="0.90" height="0.24"
@@ -112,27 +117,32 @@ AFRAME.registerComponent('front-most', {
               position="-0.27 0 0.40"></a-entity>
   </a-entity>
 
+  <!-- Rig/Camera -->
   <a-entity id="rig" position="0 1.6 0">
     <a-entity id="camera" camera look-controls cursor="rayOrigin: mouse"
-              raycaster="objects: .clickable, .target; far: 6">
+              raycaster="objects: .clickable, .target, .hitbox; far: 6">
       <a-entity position="0 0 -1"
                 geometry="primitive: ring; radiusInner: 0.01; radiusOuter: 0.015"
                 material="color:#9fd; shader: flat; depthTest:false; depthWrite:false"></a-entity>
     </a-entity>
     <a-entity laser-controls="hand: right"
-              raycaster="objects: .clickable, .target; far: 6"></a-entity>
+              raycaster="objects: .clickable, .target, .hitbox; far: 6"></a-entity>
   </a-entity>
 
+  <!-- พื้นที่เกม -->
   <a-entity id="spawnZone" position="0 1.00 -3.80"></a-entity>
   <a-entity id="fxLayer" position="0 0 0"></a-entity>
 </a-scene>
 
+<!-- App wiring / Audio unlock / Pause / i18n / Fallback inline GoodJunk -->
 <script>
 function logBoot(msg){
   const box=document.getElementById('bootStatus');
   if(box) box.firstElementChild.innerHTML='<strong>Status:</strong> '+msg;
   console.log('[HVR]',msg);
 }
+
+// Audio unlock (มือถือ/VR)
 let _ctx;
 function getAudioCtx(){
   if(_ctx) return _ctx;
@@ -144,6 +154,7 @@ function getAudioCtx(){
   window.addEventListener(ev,()=>{ try{ getAudioCtx().resume(); }catch{} }, {once:true});
 });
 
+// Pause/Resume global
 (function(){
   let paused=false;
   function setPaused(v){
@@ -157,6 +168,7 @@ function getAudioCtx(){
   document.getElementById('pauseBtn').addEventListener('click',()=>setPaused(!paused));
 })();
 
+// i18n stub
 const i18n = {
   th: { mode:'โหมด', time:'เวลา', score:'คะแนน', start:'เริ่ม', quests:'มิชชั่น' },
   en: { mode:'Mode', time:'Time', score:'Score', start:'Start', quests:'Quests' }
@@ -172,8 +184,11 @@ document.getElementById('langBtn').addEventListener('click', ()=>{
   }
 });
 
+// เมนู/เริ่ม/Force fallback
 function wireClicks(){
   const hub=()=>window.__hub;
+
+  // เลือกโหมด
   document.querySelectorAll('[data-mode]').forEach(btn=>{
     const mode=btn.getAttribute('data-mode');
     const onPick=()=>{
@@ -185,6 +200,8 @@ function wireClicks(){
     };
     ['click','mousedown','mouseup','triggerdown'].forEach(ev=>btn.addEventListener(ev,onPick));
   });
+
+  // ปุ่ม Start
   const start=document.getElementById('startBtn');
   const fx=document.getElementById('startBtnFx');
   start.addEventListener('mouseenter',()=>fx.setAttribute('material','opacity',0.08));
@@ -196,15 +213,19 @@ function wireClicks(){
       if(typeof hub().start==='function'){ hub().start(); return; }
       if(typeof hub().begin==='function'){ hub().begin(); return; }
     }
+    // fallback inline
     logBoot('Fallback inline GoodJunk');
     inlineGoodJunkBoot({host:document.getElementById('spawnZone'), duration:60, difficulty:'normal'});
   };
   ['click','mousedown','mouseup','triggerdown'].forEach(ev=>start.addEventListener(ev,tryStart));
+
+  // Force start (debug)
   document.getElementById('forceStartBtn').addEventListener('click', tryStart);
 }
 if(document.readyState!=='loading') setTimeout(wireClicks,0);
 else window.addEventListener('DOMContentLoaded',()=>setTimeout(wireClicks,0));
 
+/* ---------------- Helper HUD ---------------- */
 function setHudTime(sec){
   const t = document.querySelector('#hudRoot a-entity[troika-text]:nth-of-type(2)');
   if(t) t.setAttribute('troika-text','value',(i18n[lang].time||'Time')+': '+sec+'s');
@@ -243,109 +264,183 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
   host.appendChild(node);
   setTimeout(()=>node.remove(), 700);
 }
-window.inlineGoodJunkBoot = function inlineGoodJunkBoot({host,duration=60,difficulty='normal'}){
-  const zone = host || document.getElementById('spawnZone');
-  while(zone.firstChild) zone.removeChild(zone.firstChild);
 
-  const plane = document.createElement('a-plane');
-  plane.setAttribute('width','2.2'); plane.setAttribute('height','1.2');
-  plane.setAttribute('color','#0e1b38'); plane.setAttribute('opacity','0.85');
-  plane.setAttribute('position','0 0 -0.01');
-  zone.appendChild(plane);
+/* ---------------- Inline GoodJunk with power-ups & Glow/Hitbox ---------------- */
+(function(){
+  // พาเลตสีแยกตามชนิด
+  const PALETTE = {
+    good:    { base:'#7CFC00', glow:'#b7ff66', text:'#ffffff' },
+    junk:    { base:'#ff4d4d', glow:'#ff9999', text:'#ffffff' },
+    decoy:   { base:'#ff9e7a', glow:'#ffd0bf', text:'#ffffff' },
+    star:    { base:'#ffea00', glow:'#fff27a', text:'#3b3300' },
+    diamond: { base:'#66ccff', glow:'#bfe8ff', text:'#06263a' },
+    shield:  { base:'#5ef',    glow:'#bbf3ff', text:'#003344' },
+    x2:      { base:'#FFD700', glow:'#ffe885', text:'#4d3b00' }
+  };
 
-  const GOOD   = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
-  const JUNK   = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
-  const DECOY  = ['🥯','🧀','🍗','🍖','🥠','🍜'];
-  const STAR   = '⭐';
-  const DIAM   = '🔷';
-  const SHIELD = '🛡️';
-  const X2     = '✖️';
+  window.inlineGoodJunkBoot = function inlineGoodJunkBoot({host,duration=60,difficulty='normal'}){
+    const zone = host || document.getElementById('spawnZone');
+    while(zone.firstChild) zone.removeChild(zone.firstChild);
 
-  let score=0, tLeft=duration, fever=0, combo=0;
-  let hasShield=false, hasX2=false, x2Timer=null;
-  setHudScore(score); setHudTime(tLeft); setHudFever(fever);
+    // ฉากหลังของเกม
+    const plane = document.createElement('a-plane');
+    plane.setAttribute('width','2.2'); plane.setAttribute('height','1.2');
+    plane.setAttribute('color','#0e1b38'); plane.setAttribute('opacity','0.85');
+    plane.setAttribute('position','0 0 -0.01');
+    zone.appendChild(plane);
 
-  const hudRoot = document.getElementById('hudRoot');
-  const hudX2 = document.createElement('a-entity');
-  hudX2.setAttribute('troika-text','value: ; color:#FFD700; fontSize:0.08;');
-  hudX2.setAttribute('position','0.65 0.06 0.05');
-  hudRoot.appendChild(hudX2);
+    // ชุดอีโมจิ
+    const GOOD   = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
+    const JUNK   = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
+    const DECOY  = ['🥯','🧀','🍗','🍖','🥠','🍜'];
+    const STAR   = '⭐';
+    const DIAM   = '🔷';
+    const SHIELD = '🛡️';
+    const X2     = '✖️';
 
-  function randPos(){ return [ (Math.random()*1.8-0.9), (Math.random()*0.9-0.45), 0.01 ]; }
+    // สถานะเกม
+    let score=0, tLeft=duration, fever=0, combo=0;
+    let hasShield=false, hasX2=false, x2Timer=null;
+    setHudScore(score); setHudTime(tLeft); setHudFever(fever);
 
-  function spawnOne(){
-    const r = Math.random();
-    let kind, emoji, value=0, color='#fff';
-    if (r < 0.06){ kind='diamond'; emoji=DIAM; value=10; color='#8df'; }
-    else if (r < 0.14){ kind='star'; emoji=STAR; value=5; color='#ffea00'; }
-    else if (r < 0.20){ kind='shield'; emoji=SHIELD; value=0; color='#5ef'; }
-    else if (r < 0.26){ kind='x2'; emoji=X2; value=0; color='#FFD700'; }
-    else if (r < 0.40){ kind='decoy'; emoji=DECOY[(Math.random()*DECOY.length)|0]; value=-2; color='#f99'; }
-    else if (r < 0.78){ kind='good'; emoji=GOOD[(Math.random()*GOOD.length)|0]; value=1; color='#7CFC00'; }
-    else { kind='junk'; emoji=JUNK[(Math.random()*JUNK.length)|0]; value=-1; color='#f55'; }
+    // HUD แสดง x2
+    const hudRoot = document.getElementById('hudRoot');
+    const hudX2 = document.createElement('a-entity');
+    hudX2.setAttribute('troika-text','value: ; color:#FFD700; fontSize:0.08;');
+    hudX2.setAttribute('position','0.65 0.06 0.05');
+    hudRoot.appendChild(hudX2);
 
-    const pos = randPos();
-    const e = document.createElement('a-entity');
-    e.classList.add('clickable','target');
-    e.setAttribute('troika-text', `value: ${emoji}; color:#fff; fontSize:${(kind==='diamond'||kind==='star')?0.22:(kind==='x2'?0.20:0.20)}; anchor:center;`);
-    e.setAttribute('position', `${pos[0].toFixed(2)} ${pos[1].toFixed(2)} ${pos[2]}`);
+    // ตำแหน่งสุ่ม (กลางจอ 1.8 x 0.9)
+    function randPos(){ return [ (Math.random()*1.8-0.9), (Math.random()*0.9-0.45), 0.01 ]; }
+    // ถ้าต้องการเต็ม plane 2.2 x 1.2 ใช้:
+    // function randPos(){ return [ (Math.random()*2.2-1.1), (Math.random()*1.2-0.6), 0.01 ]; }
 
-    const life = setTimeout(()=>e.remove(), 2000);
-    e.addEventListener('click', ()=>{
-      clearTimeout(life);
-      if(kind==='shield'){
-        hasShield = true;
-        burst3D(zone, pos, color);
-        popupScore(zone, pos, '🛡️ ได้เกราะป้องกัน!', '#5ef');
-        e.remove(); return;
-      }
-      if(kind==='x2'){
-        hasX2 = true;
-        if(x2Timer) clearTimeout(x2Timer);
-        burst3D(zone, pos, color);
-        popupScore(zone, pos, '✖️ x2 Mode!', '#FFD700');
-        hudX2.setAttribute('troika-text','value','x2 ACTIVE!');
-        x2Timer = setTimeout(()=>{
-          hasX2=false;
-          hudX2.setAttribute('troika-text','value','');
-          popupScore(zone, [0,0.2,0.01],'x2 หมดเวลา','#999');
-        }, 8000);
-        e.remove(); return;
-      }
-      if((kind==='decoy' || kind==='junk') && hasShield){
-        hasShield=false;
-        burst3D(zone, pos, '#5ef');
-        popupScore(zone, pos, '🛡️ ป้องกันสำเร็จ!', '#5ef');
-        e.remove(); return;
-      }
+    // ตัวช่วยสร้างเป้าพร้อม Glow + Hitbox
+    function makeTarget(kind, emoji, pos){
+      const pal = PALETTE[kind] || {base:'#fff', glow:'#ddd', text:'#000'};
+      const root = document.createElement('a-entity');
+      root.classList.add('target');
 
-      burst3D(zone, pos, (kind==='good')?'#7CFC00':(kind==='star')?'#ffea00':(kind==='diamond')?'#8df':'#f55');
-      const mult = (hasX2?2:1) * (fever>=1?2:1);
-      const delta = (value>0 ? value*mult : value);
-      score = Math.max(0, score + delta);
-      if (value>0){ combo++; fever = Math.min(1, fever + (kind==='diamond'?0.15: kind==='star'?0.08:0.04)); }
-      else { combo = 0; fever = Math.max(0, fever - 0.10); zone.setAttribute('material','color','#2a0b1a'); setTimeout(()=>zone.setAttribute('material','color','#0e1b38'), 120); }
+      const glow = document.createElement('a-plane');
+      glow.setAttribute('width','0.28'); glow.setAttribute('height','0.28');
+      glow.setAttribute('material', `color:${pal.glow}; opacity:0.35; transparent:true; shader: standard; emissive:${pal.glow}; emissiveIntensity:0.55`);
+      glow.setAttribute('position', '0 0 -0.002');
+      root.appendChild(glow);
 
-      popupScore(zone, pos, (delta>0?'+':'')+delta + (kind==='star'?' ⭐':'' ) + (kind==='diamond'?' 💎':'' ), (delta>=0? (kind==='diamond'?'#8df':kind==='star'?'#ffea00':'#7CFC00') :'#f55') );
-      setHudScore(score); setHudFever(fever);
-      e.remove();
-    });
+      const txt = document.createElement('a-entity');
+      txt.setAttribute('troika-text', `value: ${emoji}; color:${pal.text}; fontSize:${(kind==='diamond'||kind==='star')?0.24:(kind==='x2'?0.22:0.22)}; anchor:center;`);
+      txt.setAttribute('position', '0 0 0');
+      root.appendChild(txt);
 
-    zone.appendChild(e);
-  }
+      const box = document.createElement('a-plane');
+      box.classList.add('hitbox','clickable');
+      box.setAttribute('width','0.34'); box.setAttribute('height','0.34');
+      box.setAttribute('material','transparent:true; opacity:0.001; color:#fff');
+      box.setAttribute('position','0 0 0.002');
+      root.appendChild(box);
 
-  const rate = (difficulty==='hard')? 260 : (difficulty==='normal')? 360 : 480;
-  const spawner = setInterval(spawnOne, rate);
-  const timer = setInterval(()=>{
-    tLeft--; setHudTime(tLeft);
-    if (tLeft<=0){
-      clearInterval(spawner); clearInterval(timer);
-      popupScore(zone, [0,0.1,0.01], 'จบเกม! คะแนน: '+score, '#9fd');
+      root.setAttribute('position', `${pos[0].toFixed(2)} ${pos[1].toFixed(2)} ${pos[2]}`);
+
+      box.addEventListener('mouseenter', () => glow.setAttribute('material','opacity:0.5; transparent:true; color:'+pal.glow+'; emissive:'+pal.glow+'; emissiveIntensity:0.75'));
+      box.addEventListener('mouseleave', () => glow.setAttribute('material','opacity:0.35; transparent:true; color:'+pal.glow+'; emissive:'+pal.glow+'; emissiveIntensity:0.55'));
+
+      return {root, box};
     }
-  }, 1000);
 
-  for(let i=0;i<5;i++) spawnOne();
-}
+    // สร้างเป้า 1 ชิ้น
+    function spawnOne(){
+      const r = Math.random();
+      let kind, emoji, value=0;
+      if (r < 0.06){ kind='diamond'; emoji=DIAM; value=10; }
+      else if (r < 0.14){ kind='star'; emoji=STAR; value=5; }
+      else if (r < 0.20){ kind='shield'; emoji=SHIELD; value=0; }
+      else if (r < 0.26){ kind='x2'; emoji=X2; value=0; }
+      else if (r < 0.40){ kind='decoy'; emoji=DECOY[(Math.random()*DECOY.length)|0]; value=-2; }
+      else if (r < 0.78){ kind='good'; emoji=GOOD[(Math.random()*GOOD.length)|0]; value=1; }
+      else { kind='junk'; emoji=JUNK[(Math.random()*JUNK.length)|0]; value=-1; }
+
+      const pos = randPos();
+      const {root, box} = makeTarget(kind, emoji, pos);
+      zone.appendChild(root);
+
+      const life = setTimeout(()=>root.remove(), 2200);
+
+      const onHit = ()=>{
+        clearTimeout(life);
+
+        // Power-ups ก่อน
+        if(kind==='shield'){
+          hasShield = true;
+          burst3D(zone, pos, PALETTE.shield.base);
+          popupScore(zone, pos, '🛡️ ได้เกราะป้องกัน!', PALETTE.shield.base);
+          root.remove(); return;
+        }
+        if(kind==='x2'){
+          hasX2 = true;
+          if(x2Timer) clearTimeout(x2Timer);
+          burst3D(zone, pos, PALETTE.x2.base);
+          popupScore(zone, pos, '✖️ x2 Mode!', PALETTE.x2.base);
+          hudX2.setAttribute('troika-text','value','x2 ACTIVE!');
+          x2Timer = setTimeout(()=>{
+            hasX2=false;
+            hudX2.setAttribute('troika-text','value','');
+            popupScore(zone, [0,0.2,0.01],'x2 หมดเวลา','#999');
+          }, 8000);
+          root.remove(); return;
+        }
+
+        // Bad hit แต่มี shield → ยกเลิกโทษ
+        if((kind==='decoy' || kind==='junk') && hasShield){
+          hasShield=false;
+          burst3D(zone, pos, PALETTE.shield.base);
+          popupScore(zone, pos, '🛡️ ป้องกันสำเร็จ!', PALETLETE.shield?.base||'#5ef');
+          root.remove(); return;
+        }
+
+        // คำนวณคะแนน/fever
+        const mult = (hasX2?2:1) * (fever>=1?2:1);
+        const delta = (value>0 ? value*mult : value);
+        score = Math.max(0, score + delta);
+
+        if (value>0){
+          combo++;
+          fever = Math.min(1, fever + (kind==='diamond'?0.15: kind==='star'?0.08:0.04));
+        } else {
+          combo = 0;
+          fever = Math.max(0, fever - 0.10);
+          zone.setAttribute('material','color','#2a0b1a');
+          setTimeout(()=>zone.setAttribute('material','color','#0e1b38'), 120);
+        }
+
+        const col = (delta>=0)
+          ? (kind==='diamond'?PALETTE.diamond.base:(kind==='star'?PALETTE.star.base:PALETTE.good.base))
+          : PALETTE.junk.base;
+
+        burst3D(zone, pos, col);
+        popupScore(zone, pos, (delta>0?'+':'')+delta + (kind==='star'?' ⭐':'' ) + (kind==='diamond'?' 💎':'' ), col);
+
+        setHudScore(score); setHudFever(fever);
+        root.remove();
+      };
+
+      ['click','mousedown','mouseup','triggerdown'].forEach(ev=> box.addEventListener(ev,onHit));
+    }
+
+    // อัตรา spawn ตามความยาก
+    const rate = (difficulty==='hard')? 260 : (difficulty==='normal')? 360 : 480;
+    const spawner = setInterval(spawnOne, rate);
+    const timer = setInterval(()=>{
+      tLeft--; setHudTime(tLeft);
+      if (tLeft<=0){
+        clearInterval(spawner); clearInterval(timer);
+        popupScore(zone, [0,0.1,0.01], 'จบเกม! คะแนน: '+score, '#9fd');
+      }
+    }, 1000);
+
+    // เริ่มต้นด้วย 5 ชิ้น
+    for(let i=0;i<5;i++) spawnOne();
+  };
+})();
 </script>
 </body>
 </html>
