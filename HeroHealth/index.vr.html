@@ -14,7 +14,7 @@
 </head>
 <body>
   <a-scene renderer="antialias:true" background="color: #0b1324">
-    <!-- RIG + CAMERA (รองรับ mouse/VR controller) -->
+    <!-- RIG + CAMERA (mouse + VR controllers) -->
     <a-entity id="rig">
       <a-entity id="cam" camera look-controls
         cursor="rayOrigin: mouse; fuse: false"
@@ -24,23 +24,22 @@
       <a-entity laser-controls="hand: left"></a-entity>
     </a-entity>
 
-    <!-- Crosshair ให้เล็งง่าย -->
+    <!-- Crosshair -->
     <a-entity position="0 0 -1"
               geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.008"
               material="color: #7ff; shader: flat; opacity: 0.9"></a-entity>
 
-    <!-- Sky (Fever จะสลับสี) -->
     <a-sky color="#0b1324"></a-sky>
 
-    <!-- โซนวางเป้า/สปอน -->
+    <!-- Spawn host -->
     <a-entity id="spawnZone" position="0 0 0"></a-entity>
 
     <!-- ===== HUD Top ===== -->
     <a-entity id="hudRoot" position="0 1.95 -1.6">
-      <a-entity troika-text="value: โหมด: -; color: #aef; fontSize: 0.06; anchor: left;"></a-entity>
-      <a-entity position="0 -0.08 0" troika-text="value: เวลา: 60s; color: #aef; fontSize: 0.05; anchor: left;"></a-entity>
-      <a-entity position="0.95 0 0" troika-text="value: คะแนน: 0; color: #fff; fontSize: 0.06; anchor: right;"></a-entity>
-      <a-entity position="0.95 -0.08 0" troika-text="value: คอมโบ: x0; color: #fff; fontSize: 0.05; anchor: right;"></a-entity>
+      <a-entity id="hudMode" troika-text="value: โหมด: -; color: #aef; fontSize: 0.06; anchor: left;"></a-entity>
+      <a-entity id="hudTime" position="0 -0.08 0" troika-text="value: เวลา: —; color: #aef; fontSize: 0.05; anchor: left;"></a-entity>
+      <a-entity id="hudScore" position="0.95 0 0" troika-text="value: คะแนน: 0; color: #fff; fontSize: 0.06; anchor: right;"></a-entity>
+      <a-entity id="hudCombo" position="0.95 -0.08 0" troika-text="value: คอมโบ: x0; color: #fff; fontSize: 0.05; anchor: right;"></a-entity>
 
       <!-- Fever bar -->
       <a-entity id="feverBarWrap" position="0 -0.19 0">
@@ -59,109 +58,166 @@
       <a-entity id="tQ3" position="-0.9 -0.06 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.055; anchor:left;"></a-entity>
     </a-entity>
 
-    <!-- ใช้กับบางโหมด -->
-    <a-entity id="hudTarget" position="0 1.72 -1.6" troika-text="value: ; color:#8be9fd; fontSize:0.06; anchor:center;"></a-entity>
-    <a-entity id="hydrationLabel" position="0 1.62 -1.6" troika-text="value: ; color:#a3ffac; fontSize:0.05; anchor:center;"></a-entity>
-
-    <!-- ===== Start Panel ===== -->
+    <!-- ===== Start & Selection Panel ===== -->
     <a-entity id="startPanel" position="0 1.15 -1.2" visible="true">
-      <a-plane width="1.6" height="0.7" color="#102033" opacity="0.92"></a-plane>
-      <a-entity id="startLbl" position="0 0.18 0.01" troika-text="value: เริ่ม: -; color:#fff; fontSize:0.08; anchor:center;"></a-entity>
-      <a-entity position="0 0.02 0.01" troika-text="value: เลือกโหมด ?mode=goodjunk|groups|hydration|plate; color:#bcd; fontSize:0.045; anchor:center;"></a-entity>
+      <a-plane width="1.8" height="1.2" color="#102033" opacity="0.92"></a-plane>
+      <a-entity id="startLbl" position="0 0.48 0.01" troika-text="value: เริ่ม: -; color:#fff; fontSize:0.085; anchor:center;"></a-entity>
 
-      <!-- ปุ่มเริ่ม -->
-      <a-plane id="btnStart" class="hit" position="0 -0.18 0.02" width="0.9" height="0.18" color="#1b7f5a"></a-plane>
-      <a-entity position="0 -0.18 0.03" troika-text="value: เริ่มเกม; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
+      <!-- Mode selector -->
+      <a-entity position="0 0.28 0.01" troika-text="value: เลือกโหมด; color:#bcd; fontSize:0.055; anchor:center;"></a-entity>
+
+      <a-plane id="m-goodjunk" class="hit selMode" position="-0.65 0.17 0.02" width="0.7" height="0.16" color="#1b3d5a"></a-plane>
+      <a-entity position="-0.65 0.17 0.03" troika-text="value: Good vs Junk; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
+
+      <a-plane id="m-groups"   class="hit selMode" position="0.65 0.17 0.02" width="0.7" height="0.16" color="#1b3d5a"></a-plane>
+      <a-entity position="0.65 0.17 0.03" troika-text="value: Groups; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
+
+      <a-plane id="m-hydration" class="hit selMode" position="-0.65 -0.03 0.02" width="0.7" height="0.16" color="#1b3d5a"></a-plane>
+      <a-entity position="-0.65 -0.03 0.03" troika-text="value: Hydration; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
+
+      <a-plane id="m-plate"    class="hit selMode" position="0.65 -0.03 0.02" width="0.7" height="0.16" color="#1b3d5a"></a-plane>
+      <a-entity position="0.65 -0.03 0.03" troika-text="value: Healthy Plate; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
+
+      <!-- Difficulty selector -->
+      <a-entity position="0 -0.22 0.01" troika-text="value: ระดับความยาก; color:#bcd; fontSize:0.055; anchor:center;"></a-entity>
+
+      <a-plane id="d-easy"   class="hit selDiff" position="-0.80 -0.33 0.02" width="0.46" height="0.14" color="#254a39"></a-plane>
+      <a-entity position="-0.80 -0.33 0.03" troika-text="value: ง่าย; color:#fff; fontSize:0.05; anchor:center;"></a-entity>
+
+      <a-plane id="d-normal" class="hit selDiff" position="0.00 -0.33 0.02" width="0.46" height="0.14" color="#254a39"></a-plane>
+      <a-entity position="0.00 -0.33 0.03" troika-text="value: ปกติ; color:#fff; fontSize:0.05; anchor:center;"></a-entity>
+
+      <a-plane id="d-hard"   class="hit selDiff" position="0.80 -0.33 0.02" width="0.46" height="0.14" color="#254a39"></a-plane>
+      <a-entity position="0.80 -0.33 0.03" troika-text="value: ยาก; color:#fff; fontSize:0.05; anchor:center;"></a-entity>
+
+      <!-- Start button -->
+      <a-plane id="btnStart" class="hit" position="0 -0.63 0.02" width="0.9" height="0.18" color="#1b7f5a"></a-plane>
+      <a-entity position="0 -0.63 0.03" troika-text="value: เริ่มเกม; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
     </a-entity>
 
     <!-- Boot status -->
     <a-entity id="bootStatus" position="-0.85 0.15 -1.0">
       <a-entity troika-text="value: Status: Preparing...; color:#fff; fontSize:0.055; anchor:left;"></a-entity>
     </a-entity>
-
   </a-scene>
 
   <script type="module">
-    function getParam(name, def=null){
-      try { return (new URL(location.href)).searchParams.get(name) ?? def; } catch { return def; }
-    }
-    const mode = (getParam('mode','goodjunk')||'').toLowerCase();
-    const diff = (getParam('diff','normal')||'normal').toLowerCase();
-    // ถ้าไม่ได้ส่ง time มา จะให้กำหนดตามระดับในโหมด (โหมดมี fallback อีกชั้น)
-    const secsParam = getParam('time', null);
+    // ------- helpers -------
+    const q = (s)=>document.querySelector(s);
+    const bindOnce = (el, ev, fn, opt)=>{ const h=(e)=>{el.removeEventListener(ev,h,opt); fn(e);} ; el.addEventListener(ev,h,opt); };
+    const setText = (el, t)=>{ try{ el.setAttribute('troika-text','value', t); }catch{} };
+    function getParam(name, def=null){ try { return (new URL(location.href)).searchParams.get(name) ?? def; } catch { return def; } }
 
+    // Default selections (allow URL to preselect)
+    let selectedMode = (getParam('mode','goodjunk')||'goodjunk').toLowerCase();
+    let selectedDiff = (getParam('diff','normal')||'normal').toLowerCase();
+    const secsParam  = getParam('time', null); // optional
+
+    // Modules map
     const MODULES = {
       goodjunk: './modes/goodjunk.safe.js',
       groups:   './modes/groups.safe.js',
       hydration:'./modes/hydration.safe.js',
       plate:    './modes/plate.safe.js'
     };
-    const url = MODULES[mode] || MODULES.goodjunk;
 
-    // HUD labels
-    const hud = {
-      mode: document.querySelector('#hudRoot a-entity[troika-text]'),
-      time: document.querySelector('#hudRoot a-entity[position="0 -0.08 0"]'),
-      score: document.querySelector('#hudRoot a-entity[position="0.95 0 0"]'),
-      combo: document.querySelector('#hudRoot a-entity[position="0.95 -0.08 0"]'),
-      startLbl: document.getElementById('startLbl')
+    const hudMode  = q('#hudMode');
+    const hudTime  = q('#hudTime');
+    const hudScore = q('#hudScore');
+    const hudCombo = q('#hudCombo');
+    const startLbl = q('#startLbl');
+    const startPanel = q('#startPanel');
+    const questPanel = q('#questPanel');
+    const bootBox = q('#bootStatus a-entity[troika-text]');
+    const spawnHost = q('#spawnZone');
+
+    const setBoot = (msg)=>{ try{ bootBox.setAttribute('troika-text','value', `Status: ${msg}`); }catch{} };
+
+    // ---------- selection UI ----------
+    const modeButtons = {
+      goodjunk: q('#m-goodjunk'),
+      groups:   q('#m-groups'),
+      hydration:q('#m-hydration'),
+      plate:    q('#m-plate')
     };
-    if (hud.mode)   hud.mode.setAttribute('troika-text', 'value', `โหมด: ${mode} (ระดับ:${diff})`);
-    if (hud.time)   hud.time.setAttribute('troika-text', 'value', `เวลา: —`);
-    if (hud.score)  hud.score.setAttribute('troika-text', 'value', `คะแนน: 0`);
-    if (hud.combo)  hud.combo.setAttribute('troika-text', 'value', `คอมโบ: x0`);
-    if (hud.startLbl) hud.startLbl.setAttribute('troika-text','value', `เริ่ม: ${mode.toUpperCase()}`);
+    const diffButtons = {
+      easy:   q('#d-easy'),
+      normal: q('#d-normal'),
+      hard:   q('#d-hard')
+    };
 
-    const startPanel = document.getElementById('startPanel');
-    const questPanel = document.getElementById('questPanel');
-    const bootBox    = document.querySelector('#bootStatus a-entity[troika-text]');
-    const spawnHost  = document.getElementById('spawnZone');
+    function updateStartLabel(){
+      setText(startLbl, `เริ่ม: ${selectedMode.toUpperCase()} (${selectedDiff})`);
+      setText(hudMode,  `โหมด: ${selectedMode} (ระดับ:${selectedDiff})`);
+    }
+    function paintSelection(){
+      // reset all
+      Object.values(modeButtons).forEach(b=>b && b.setAttribute('color','#1b3d5a'));
+      Object.values(diffButtons).forEach(b=>b && b.setAttribute('color','#254a39'));
+      // highlight selected
+      modeButtons[selectedMode]?.setAttribute('color', '#2a74b1');
+      diffButtons[selectedDiff]?.setAttribute('color', '#2e8b57');
+    }
+    function setMode(m){ selectedMode = m; paintSelection(); updateStartLabel(); }
+    function setDiff(d){ selectedDiff = d; paintSelection(); updateStartLabel(); }
 
-    const setBoot = (msg)=>{ try { bootBox.setAttribute('troika-text','value', `Status: ${msg}`); } catch {} };
+    // attach events for all buttons
+    Object.entries(modeButtons).forEach(([m,btn])=>{
+      ['click','mousedown','touchstart'].forEach(ev=>{
+        btn?.addEventListener(ev, (e)=>{ if(ev==='touchstart') e.preventDefault(); setMode(m); }, {passive:false});
+      });
+      btn?.classList.add('hit');
+    });
+    Object.entries(diffButtons).forEach(([d,btn])=>{
+      ['click','mousedown','touchstart'].forEach(ev=>{
+        btn?.addEventListener(ev, (e)=>{ if(ev==='touchstart') e.preventDefault(); setDiff(d); }, {passive:false});
+      });
+      btn?.classList.add('hit');
+    });
 
+    // init visuals
+    paintSelection(); updateStartLabel();
+    setText(hudTime, 'เวลา: —'); setText(hudScore,'คะแนน: 0'); setText(hudCombo,'คอมโบ: x0');
+
+    // ---------- start game ----------
     async function startGame(){
       try{
+        const url = MODULES[selectedMode] || MODULES.goodjunk;
         setBoot('Loading mode…');
         const mod = await import(url + '?v=' + Date.now());
         if (typeof mod.boot !== 'function') throw new Error('Mode has no boot()');
 
-        // ให้โหมดกำหนดเวลาเองถ้าไม่ส่งมา
-        const opts = { host: spawnHost, difficulty: diff };
+        // options: let mode decide duration by diff unless overridden by URL time
+        const opts = { host: spawnHost, difficulty: selectedDiff };
         if (secsParam) opts.duration = parseInt(secsParam,10)||60;
 
-        if (startPanel) startPanel.setAttribute('visible', false);
-        if (questPanel) questPanel.setAttribute('visible', true);
-        const api = await mod.boot(opts);
+        startPanel?.setAttribute('visible', false);
+        questPanel?.setAttribute('visible', true);
+        await mod.boot(opts);
         setBoot('Running');
 
-        // รับอีเวนต์อัปเดตเวลา (ถ้าโหมดส่งมา) หรือเซ็ตจาก opts
-        if (hud.time && opts.duration){
-          hud.time.setAttribute('troika-text','value', `เวลา: ${opts.duration}s`);
-        }
+        // If duration known (from URL), update HUD
+        if (opts.duration) setText(hudTime, `เวลา: ${opts.duration}s`);
       }catch(e){
         console.error('[VR] load mode failed:', e);
         setBoot('Load failed, check console');
       }
     }
 
-    // ปุ่มเริ่ม (mouse/touch/VR)
-    const btnStart = document.getElementById('btnStart');
-    const bindOnce = (el, ev, fn, opt)=>{ const h=(e)=>{el.removeEventListener(ev,h,opt); fn(e);} ; el.addEventListener(ev,h,opt); };
+    const btnStart = q('#btnStart');
     if (btnStart){
-      bindOnce(btnStart, 'click',      startGame);
-      bindOnce(btnStart, 'mousedown',  startGame);
-      bindOnce(btnStart, 'touchstart', (e)=>{ e.preventDefault(); startGame(); }, {passive:false});
+      const go = (e)=>{ if(e?.type==='touchstart') e.preventDefault(); startGame(); };
+      ['click','mousedown','touchstart'].forEach(ev=>btnStart.addEventListener(ev, go, {passive:false}));
       btnStart.classList.add('hit');
     }
 
-    // Score/Combo
+    // ---------- runtime HUD events ----------
     window.addEventListener('hha:score', (e)=>{
       const {score=0, combo=0} = e.detail||{};
-      if (hud.score) hud.score.setAttribute('troika-text','value', `คะแนน: ${score}`);
-      if (hud.combo) hud.combo.setAttribute('troika-text','value', `คอมโบ: x${combo}`);
+      setText(hudScore, `คะแนน: ${score}`);
+      setText(hudCombo, `คอมโบ: x${combo}`);
     });
 
-    // Fever bar
     const feverBar = document.getElementById('feverBar');
     const feverLabel = document.getElementById('feverLabel');
     window.addEventListener('hha:feverLevel', (e)=>{
@@ -171,16 +227,13 @@
         feverBar.setAttribute('width', w);
         feverBar.setAttribute('position', `${-0.95 + (w/2)} 0 0.001`);
       }
-      if (feverLabel){
-        feverLabel.setAttribute('troika-text','value', `Fever ${lv}%`);
-      }
+      setText(feverLabel, `Fever ${lv}%`);
     });
 
-    // End
     window.addEventListener('hha:end', ()=>{
       setBoot('Finished');
-      if (startPanel) startPanel.setAttribute('visible', true);
-      if (questPanel) questPanel.setAttribute('visible', true);
+      startPanel?.setAttribute('visible', true);
+      questPanel?.setAttribute('visible', true);
     });
   </script>
 </body>
