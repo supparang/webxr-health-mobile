@@ -1,8 +1,8 @@
-// === modes/goodjunk.safe.js (2025-11-06: menu+quest-safe+3D FX) ===
-import Difficulty       from '../vr/difficulty.js';
-import Emoji            from '../vr/emoji-sprite.js';
+// === modes/goodjunk.safe.js (2025-11-06: fix imports + quest-safe + 3D FX) ===
+import { Difficulty }   from '../vr/difficulty.js';
+import { Emoji }        from '../vr/emoji-sprite.js';
 import { Fever }        from '../vr/fever.js';
-import MiniQuest        from '../vr/miniquest.js';
+import { MiniQuest }    from '../vr/miniquest.js';
 import { MissionDeck }  from '../vr/mission.js';
 import { Particles, AdvancedFX } from '../vr/particles.js';
 import { SFX }          from '../vr/sfx.js';
@@ -18,7 +18,7 @@ const JUNK = ['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','�
 // เวลา fallback ต่อระดับ
 const TIME_BY_DIFF = { easy: 45, normal: 60, hard: 75 };
 
-// คุมความหนาแน่น
+// ความหนาแน่น
 const MAX_ACTIVE_BY_DIFF   = { easy: 4,  normal: 6,  hard: 8 };
 const SPAWN_BUDGET_PER_SEC = { easy: 4,  normal: 6,  hard: 8 };
 const GOOD_RATE            = 0.70;
@@ -37,7 +37,7 @@ function makeEmoji(char, {size=96, scale=0.55, glow=true, shadow=true} = {}){
   return el;
 }
 
-// Slot grid — ยกขึ้นเหนือเควส
+// Slot grid — ยกขึ้นเหนือเควส (เควส ~ y=1.55)
 function buildSlots() {
   const xs = [-0.70,-0.42,-0.14, 0.14, 0.42, 0.70];
   const ys = [ 1.65, 1.80, 1.95, 2.10, 2.25 ];
@@ -46,21 +46,14 @@ function buildSlots() {
     slots.push({ x, y, z: -(1.25 + Math.random()*0.35), used:false });
   return slots;
 }
-function takeFreeSlot(slots) {
-  const free = slots.filter(s => !s.used);
-  if (!free.length) return null;
-  const s = free[Math.floor(Math.random()*free.length)];
-  s.used = true; return s;
-}
+function takeFreeSlot(slots){ const free = slots.filter(s=>!s.used); if(!free.length) return null; const s=free[Math.floor(Math.random()*free.length)]; s.used=true; return s; }
 function releaseSlot(slots, slot){ if (slot) slot.used = false; }
 
 // bindOnce
-function bindOnce(target, ev, fn, opt){
-  const h = e => { target.removeEventListener(ev, h, opt); fn(e); };
-  target.addEventListener(ev, h, opt);
-}
+function bindOnce(target, ev, fn, opt){ const h=e=>{target.removeEventListener(ev,h,opt); fn(e);} ; target.addEventListener(ev,h,opt); }
 
 export async function boot({ host, duration, difficulty='normal', goal=40 } = {}) {
+  // host safety
   if (!host){
     const wrap = $('a-scene') || document.body;
     const auto = document.createElement('a-entity');
@@ -69,9 +62,10 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
     host = auto;
   }
 
+  // systems
   const sfx = new SFX('../assets/audio/');
-  await sfx.unlock();
-  sfx.attachPageVisibilityAutoMute();
+  if (sfx.unlock) await sfx.unlock();
+  if (sfx.attachPageVisibilityAutoMute) sfx.attachPageVisibilityAutoMute();
 
   const scene = $('a-scene') || document.body;
   const fever = new Fever(scene, null, { durationMs: 10000 });
@@ -85,23 +79,20 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
   mq.start(goal);
 
   const missions = new MissionDeck();
-  missions.draw3();
+  missions.draw3?.();
 
-  // Duration fallback
+  // duration fallback
   if (!duration || duration <= 0) duration = TIME_BY_DIFF[difficulty] || 60;
-  try {
-    const timeHud = document.querySelector('#hudTime');
-    timeHud && timeHud.setAttribute('troika-text','value', `เวลา: ${duration}s`);
-  } catch {}
+  try { document.querySelector('#hudTime')?.setAttribute('troika-text','value', `เวลา: ${duration}s`); } catch {}
 
-  // Difficulty config base
+  // difficulty cfg
   const diff = new Difficulty();
   const cfgByLevel = (diff?.config && diff.config[difficulty]) || diff?.config?.normal || { size:0.6, rate:520, life:2000 };
   let spawnRateMs = cfgByLevel.rate;
   let lifetimeMs  = cfgByLevel.life;
   let sizeFactor  = cfgByLevel.size;
 
-  // State
+  // state
   let running = true;
   let missionGood = 0;
   let score = 0;
@@ -147,15 +138,15 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
     // ให้คลิกง่าย
     el.classList.add('hit');
     const hit = document.createElement('a-plane');
-    hit.setAttribute('width',  0.40);
-    hit.setAttribute('height', 0.40);
+    hit.setAttribute('width',  0.42);
+    hit.setAttribute('height', 0.42);
     hit.setAttribute('material','opacity:0; transparent:true; side:double');
     hit.classList.add('hit');
     el.appendChild(hit);
 
     active.add(el);
 
-    // อายุเป้า (easy นานขึ้น, hard สั้นลง)
+    // อายุเป้า
     const ttlMult = (difficulty === 'easy') ? 1.6 : (difficulty === 'hard' ? 0.9 : 1.0);
     const ttl = Math.round(lifetimeMs * ttlMult * (1.05 + Math.random()*0.35));
     const killer = setTimeout(()=>{
@@ -192,7 +183,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
       score += plus;
       combo += 1; streak += 1;
 
-      sfx.popGood();
+      sfx.popGood?.();
       AdvancedFX.explode3D(host, pos, '#69f0ae');
       AdvancedFX.popupScore(host, {x:pos.x, y:pos.y+0.05, z:pos.z}, `+${plus}`);
       AdvancedFX.shakeRig();
@@ -207,14 +198,14 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
       if (missionGood >= goal) {
         mq.mission(missionGood);
         if (missionGood === goal){
-          sfx.star();
+          sfx.star?.();
           Particles.spark(host, {x:0, y:1.6, z:-1.4}, '#ffe066');
         }
       }
     } else {
       score = Math.max(0, score - 5);
       combo = 0; streak = 0;
-      sfx.popBad();
+      sfx.popBad?.();
       Particles.smoke(host, pos);
       mq.junk();
       missions.onJunk?.();
@@ -248,7 +239,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
     clearTimeout(endTimer);
 
     fever.end();
-    sfx.playCoach('clear');
+    sfx.playCoach?.('clear');
 
     const detail = {
       reason, score, missionGood, goal, totalSpawn,
