@@ -1,27 +1,44 @@
-// === goodjunk.safe.js — Good vs Junk (Production Mode, 2025-11-06) ===
-import { boot as baseBoot } from '../vr/mode-factory.js';
+// --- single-instance guard (prevent duplicate globals across hot reloads) ---
+if (window.__MODE_API) {
+  try { window.__MODE_API.stop?.(); } catch {}
+  delete window.__MODE_API;
+}
 
+import { boot as factoryBoot } from '../vr/mode-factory.js';
+
+// กลุ่มละ 20 อย่าง (GOOD / JUNK)
 const GOOD = ['🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'];
 const JUNK = ['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'];
 
-// --- Gameplay Config ---
-export async function boot(cfg={}) {
-  return baseBoot({
-    ...cfg,
+function sample(a){ return a[Math.floor(Math.random()*a.length)]; }
+
+export async function boot(opts = {}) {
+  // ผู้ตัดสินผลโดนเป้า
+  const judge = (char, ctx) => {
+    if (ctx?.type === 'timeout') return { good:false, scoreDelta:-5 };
+    const isGood = !!GOOD.includes(char);
+    if (isGood) return { good:true,  scoreDelta:10, feverDelta:5 };
+    return { good:false, scoreDelta:-8 };
+  };
+
+  const modeApi = await factoryBoot({
     name: 'goodjunk',
     pools: { good: GOOD, bad: JUNK },
-    goldenRate: 0.07,     // 7% โอกาสได้ “Golden Item”
-    goodRate:   0.70,     // 70% เป้าเป็นของดี
-    minDist:    0.45,     // ป้องกันเป้าซ้อนกัน
-    slotCooldownMs: 620,  // ระยะห่างเวลาสร้างเป้าใหม่
-    judge: (ch, ctx) => {
-      // กดพลาดหรือหมดเวลา → ลดคะแนน
-      if (!ch) return { good:false, scoreDelta:-5 };
-      const healthy = GOOD.includes(ch);
-      if (healthy)
-        return { good:true, scoreDelta:10, feverDelta:5 };
-      else
-        return { good:false, scoreDelta:-5, feverDelta:0 };
-    }
+    judge,
+    ui: { questMainSel: '#tQmain' },
+    goldenRate: 0.07,
+    goodRate: 0.70,
+    // ค่ามาตรฐานจาก mode-factory จะจัด anti-overlap ให้อยู่แล้ว
+    ...opts
   });
+
+  // (ถ้ามีงานล้างทรัพยากรเพิ่ม ให้พัน stop ที่นี่)
+  const origStop = modeApi.stop?.bind(modeApi);
+  modeApi.stop = function(){
+    // cleanup เฉพาะโหมดนี้ (ถ้ามี)
+    origStop?.();
+  };
+
+  window.__MODE_API = modeApi;
+  return modeApi;
 }
