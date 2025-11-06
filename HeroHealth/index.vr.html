@@ -17,50 +17,35 @@
   <a-entity id="rig">
     <a-entity id="cam" camera look-controls
       cursor="rayOrigin: mouse; fuse: false"
-      raycaster="objects: .hit, .clickable; far: 10; interval: 0; lineColor: #0ff; lineOpacity: 0.18"></a-entity>
-    <a-entity laser-controls="hand: right"></a-entity>
-    <a-entity laser-controls="hand: left"></a-entity>
+      raycaster="objects: .hit, .clickable; far: 10; interval: 0; lineColor: #0ff; lineOpacity: 0.2"></a-entity>
   </a-entity>
-
-  <a-entity position="0 0 -1"
-            geometry="primitive:ring; radiusInner:0.005; radiusOuter:0.008"
-            material="color:#7ff; shader:flat; opacity:0.9"></a-entity>
 
   <a-sky color="#0b1324"></a-sky>
-  <a-entity id="spawnZone" position="0 0.40 0"></a-entity>
+  <a-entity id="spawnZone" position="0 0.35 0"></a-entity>
 
   <!-- HUD -->
-  <a-entity id="hudRoot" position="0 1.9 -1.5">
+  <a-entity id="hudRoot" position="0 1.8 -1.5">
     <a-entity id="hudMode" troika-text="value: โหมด: -; color:#aef; fontSize:0.06; anchor:left;"></a-entity>
     <a-entity id="hudTime" position="0 -0.08 0" troika-text="value: เวลา: —; color:#aef; fontSize:0.05; anchor:left;"></a-entity>
-    <a-entity id="hudScore" position="0.95 0 0" troika-text="value: คะแนน: 0; color:#fff; fontSize:0.06; anchor:right;"></a-entity>
-    <a-entity id="hudCombo" position="0.95 -0.08 0" troika-text="value: คอมโบ: x0; color:#fff; fontSize:0.05; anchor:right;"></a-entity>
+    <a-entity id="hudScore" position="0.9 0 0" troika-text="value: คะแนน: 0; color:#fff; fontSize:0.06; anchor:right;"></a-entity>
+    <a-entity id="hudCombo" position="0.9 -0.08 0" troika-text="value: คอมโบ: x0; color:#fff; fontSize:0.05; anchor:right;"></a-entity>
   </a-entity>
 
-  <a-entity id="questPanel" position="0 1.7 -1.5" visible="false">
-    <a-plane width="1.4" height="0.32" color="#0e1a2b" opacity="0.78"></a-plane>
-    <a-entity id="tQTitle" position="-0.66 0.10 0.01"
+  <!-- Mini Quest -->
+  <a-entity id="questPanel" position="0 1.65 -1.5" visible="false">
+    <a-plane width="1.4" height="0.30" color="#0e1a2b" opacity="0.75"></a-plane>
+    <a-entity id="tQTitle" position="-0.65 0.10 0.01"
               troika-text="value: Mini Quest (1/3); color:#fff; fontSize:0.055; anchor:left;"></a-entity>
-    <a-entity id="tQmain" position="-0.66 -0.02 0.01"
+    <a-entity id="tQmain" position="-0.65 -0.02 0.01"
               troika-text="value: ; color:#eaeaea; fontSize:0.06; anchor:left;"></a-entity>
   </a-entity>
 
   <!-- Start Menu -->
-  <a-entity id="startPanel" position="0 1.00 -1.20" visible="true">
-    <a-plane width="1.8" height="1.2" color="#102033" opacity="0.92"></a-plane>
-    <a-entity id="startLbl" position="0 0.48 0.01" troika-text="value: เริ่ม: -; color:#fff; fontSize:0.085; anchor:center;"></a-entity>
-    <a-plane id="m-goodjunk" class="hit selMode" position="0 0.15 0.02" width="1.2" height="0.18" color="#1b3d5a"></a-plane>
-    <a-entity position="0 0.15 0.03" troika-text="value: Good vs Junk; color:#fff; fontSize:0.06; anchor:center;"></a-entity>
-    <a-plane id="btnStart" class="hit" position="0 -0.3 0.02" width="1.0" height="0.18" color="#1b7f5a"></a-plane>
-    <a-entity position="0 -0.3 0.03" troika-text="value: เริ่มเกม; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
-  </a-entity>
-
-  <a-entity id="resultPanel" position="0 1.05 -1.20" visible="false">
-    <a-plane width="1.8" height="1.0" color="#0f1f33" opacity="0.94"></a-plane>
-    <a-entity position="0 0.36 0.01" troika-text="value: สรุปผลรอบนี้; color:#fff; fontSize:0.085; anchor:center;"></a-entity>
-    <a-entity id="rScore" position="-0.70 0.15 0.01" troika-text="value: คะแนน: 0; color:#aef; fontSize:0.06; anchor:left;"></a-entity>
-    <a-plane id="btnRestart" class="hit" position="0 -0.33 0.02" width="0.9" height="0.18" color="#1b7f5a"></a-plane>
-    <a-entity position="0 -0.33 0.03" troika-text="value: เล่นอีกครั้ง; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
+  <a-entity id="startPanel" position="0 1.0 -1.2" visible="true">
+    <a-plane width="1.8" height="1.0" color="#102033" opacity="0.9"></a-plane>
+    <a-entity id="startLbl" position="0 0.42 0.01" troika-text="value: เริ่มเกม; color:#fff; fontSize:0.08; anchor:center;"></a-entity>
+    <a-plane id="btnStart" class="hit" position="0 -0.1 0.02" width="1.0" height="0.18" color="#1b7f5a"></a-plane>
+    <a-entity position="0 -0.1 0.03" troika-text="value: เริ่มเล่น Good vs Junk; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
   </a-entity>
 
   <a-entity id="bootStatus" position="-0.85 0.15 -1.0">
@@ -71,19 +56,18 @@
 
 <script type="module">
 const q=s=>document.querySelector(s);
-const setText=(el,t)=>{try{el.setAttribute('troika-text','value',t);}catch{}};
-function setBoot(m){const box=q('#bootStatus a-entity[troika-text]');if(box)box.setAttribute('troika-text','value',`Status: ${m}`);}
+const setBoot=t=>{const e=q('#bootStatus a-entity[troika-text]');if(e)e.setAttribute('troika-text','value',`Status: ${t}`);};
 
-// ✅ ใช้พาธสัมบูรณ์บน GitHub Pages
+// absolute path for GH Pages
 const MODULES = {
-  goodjunk  : '/webxr-health-mobile/HeroHealth/modes/goodjunk.safe.js',
-  groups    : '/webxr-health-mobile/HeroHealth/modes/groups.safe.js',
-  hydration : '/webxr-health-mobile/HeroHealth/modes/hydration.safe.js',
-  plate     : '/webxr-health-mobile/HeroHealth/modes/plate.safe.js'
+  goodjunk  : 'https://supparang.github.io/webxr-health-mobile/HeroHealth/modes/goodjunk.safe.js',
+  groups    : 'https://supparang.github.io/webxr-health-mobile/HeroHealth/modes/groups.safe.js',
+  hydration : 'https://supparang.github.io/webxr-health-mobile/HeroHealth/modes/hydration.safe.js',
+  plate     : 'https://supparang.github.io/webxr-health-mobile/HeroHealth/modes/plate.safe.js'
 };
 
 async function startGame(){
-  const url = MODULES['goodjunk'];
+  const url = MODULES.goodjunk;
   try{
     const mod = await import(url + '?v=' + Date.now());
     if(typeof mod.boot!=='function') throw new Error('Mode has no boot()');
@@ -91,12 +75,11 @@ async function startGame(){
     q('#questPanel').setAttribute('visible',true);
     await mod.boot({ host:q('#spawnZone'), difficulty:'normal' });
     setBoot('Running');
-  }catch(e){console.error(e);setBoot('Load failed, check console');}
+  }catch(e){console.error('[HHA] load failed', e);setBoot('Load failed, check console');}
 }
 
 ['click','mousedown','touchstart'].forEach(ev=>{
   q('#btnStart').addEventListener(ev, e=>{e.preventDefault();startGame();},{passive:false});
-  q('#btnRestart').addEventListener(ev, e=>{e.preventDefault();location.reload();},{passive:false});
 });
 </script>
 </body>
