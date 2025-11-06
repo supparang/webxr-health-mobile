@@ -1,4 +1,4 @@
-// === modes/goodjunk.safe.js — Production (12 fixes/features, density tuned) ===
+// === modes/goodjunk.safe.js — Production (density tuned: MAX_ACTIVE↓, spacing↑, scale↓) ===
 import { Difficulty }   from '../vr/difficulty.js';
 import { Emoji }        from '../vr/emoji-sprite.js';
 import { Fever }        from '../vr/fever.js';
@@ -42,11 +42,11 @@ const now    = ()=>performance.now();
 const GOOD = ['🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'];
 const JUNK = ['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'];
 
-// เวลา/ความหนาแน่นต่อระดับ — ลดความหนาแน่นรวม
+// เวลา/ความหนาแน่นต่อระดับ (ปรับให้โปร่งขึ้น)
 const TIME_BY_DIFF = { easy: 45, normal: 60, hard: 75 };
-// จำกัดเป้าพร้อมกันบนจอ
-const MAX_ACTIVE_BY_DIFF   = { easy: 3,  normal: 4,  hard: 5 };
-// งบ spawn ต่อวินาที
+// ✅ ลดจำนวนเป้าพร้อมกันบนจอ (2/3/4)
+const MAX_ACTIVE_BY_DIFF   = { easy: 2,  normal: 3,  hard: 4 };
+// งบ spawn ต่อวินาที (ยังคงเดิมจากรุ่นโปร่ง)
 const SPAWN_BUDGET_PER_SEC = { easy: 2,  normal: 3,  hard: 4 };
 
 const GOOD_RATE   = 0.70;
@@ -82,13 +82,13 @@ function makeEmojiNode(char, {scale=0.58}={}){
   }
 }
 
-// ช่องสปอน: ล่าง-กลางจอ, กว้างขึ้น, แถวลดลง
+// ช่องสปอน: ล่าง-กลางจอ, เพิ่มช่องไฟแนวตั้ง
 function buildSlots(yBase = 0.58) {
-  const xs = [-0.60, -0.25, 0.25, 0.60];        // 4 คอลัมน์
-  const ys = [ yBase, yBase+0.18, yBase+0.36 ]; // 3 แถว
+  const xs = [-0.60, -0.25, 0.25, 0.60];          // 4 คอลัมน์ (กว้าง)
+  const ys = [ yBase, yBase+0.22, yBase+0.44 ];   // ✅ ระยะห่างแถวเพิ่มขึ้น
   const slots = [];
   for (const x of xs) for (const y of ys) {
-    const z = -(1.30 + Math.random()*0.18);     // ลึกขึ้นเล็กน้อย
+    const z = -(1.30 + Math.random()*0.18);       // ลึกขึ้นเล็กน้อย
     slots.push({ x, y, z, used:false });
   }
   return slots;
@@ -134,7 +134,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
   if (!duration || duration <= 0) duration = TIME_BY_DIFF[difficulty] || 60;
   $('#hudTime')?.setAttribute('troika-text','value', `เวลา: ${duration}s`);
 
-  // difficulty config + ปรับขนาดลด 15%
+  // difficulty config + ปรับขนาดลง 15%
   const diff = new Difficulty();
   const safeCfg = { size:0.60, rate:520, life:2000 };
   const baseCfg = (diff?.config?.[difficulty]) || (diff?.config?.normal) || safeCfg;
@@ -149,7 +149,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
   let running = true, missionGood = 0, score = 0, combo = 0, comboMax = 0, streak = 0;
   let totalSpawn = 0, lastGoodAt = now(), questsCleared = 0;
 
-  const MAX_ACTIVE_INIT = MAX_ACTIVE_BY_DIFF[difficulty] ?? 4;
+  const MAX_ACTIVE_INIT = MAX_ACTIVE_BY_DIFF[difficulty] ?? 3;
   let MAX_ACTIVE = MAX_ACTIVE_INIT;
   const BUDGET_PER_SEC = SPAWN_BUDGET_PER_SEC[difficulty] ?? 3;
 
@@ -167,7 +167,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
       const fps = frames; frames=0; lastT=t;
       if (fps < 40){
         spawnRateMs = Math.min(spawnRateMs*1.15, 900);
-        MAX_ACTIVE  = Math.max(3, Math.round(MAX_ACTIVE*0.9));
+        MAX_ACTIVE  = Math.max(2, Math.round(MAX_ACTIVE*0.9));
       } else if (fps > 55){
         spawnRateMs = Math.max(spawnRateMs*0.95, baseCfg.rate||520);
         MAX_ACTIVE  = Math.min(MAX_ACTIVE_INIT, MAX_ACTIVE+1);
@@ -228,11 +228,11 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
     issuedThisSecond++; totalSpawn++;
 
     const isGood = Math.random() < GOOD_RATE;
-    let char = isGood ? sample(GOOD) : sample(JUNK);
-
+    const char   = isGood ? sample(GOOD) : sample(JUNK);
     const isGold = isGood && Math.random() < GOLDEN_RATE;
 
-    const el = makeEmojiNode(char, { scale: clamp(sizeFactor, 0.45, 0.85) });
+    // ✅ ย่อขนาดลงอีกนิด (0.9x) และมีเพดาน 0.75
+    const el = makeEmojiNode(char, { scale: clamp(sizeFactor * 0.9, 0.4, 0.75) });
     const zJ = slot.z - (Math.random()*0.06); // z-jitter เล็กน้อย
     el.setAttribute('position', `${slot.x} ${slot.y} ${zJ}`);
     el.classList.add('hit','clickable');
