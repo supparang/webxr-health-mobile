@@ -1,20 +1,21 @@
-// === modes/hydration.safe.js ===
-import { boot as bootFactory } from '../vr/mode-factory.js';
+// === hydration.safe.js — ดื่มน้ำ/เครื่องดื่มที่ดี ===
+import { boot as baseBoot } from '../vr/mode-factory.js';
 
-const HYDRATE = ['💧','🧊','🥛','🍵','🍶','🍵','🥤','🧃','🥣','🥥','🫗']; // จัดเป็น “ดี” เน้นน้ำ/ซุป/ชาอ่อน
-const SWEET   = ['🧋','🥤','🥤','🍹','🍸','🍷','🍺','🍾','🍶','☕','🧃','🍧','🍨']; // หวาน/คาเฟอีน/แอลกอฮอล์
+const GOOD = ['💧','🚰','🫗','🥛','🫖','🍵','🫙','🧊','🍶','🧃','🍋','🍐','🍉','🍊','🍏','🍇','🥒','🍓','🍍','🥥']; // น้ำ/ผลไม้/สมุนไพร
+const BAD  = ['🥤','🧋','🍹','🍸','🍷','🍺','🍻','🍾','🥃','🧉','🍨','🍧','🧃','🍫','🍬','🍭','🍩','🍪','🍰','🍮'];
 
-export async function boot(opts={}){
-  // ให้ 💧 ออกบ่อยกว่า (ดีต่อ)
-  return bootFactory({
-    name:'hydration',
-    pools:{ good:HYDRATE, bad:SWEET },
-    goodRate:0.75,
-    judge:(char, ctx)=>{
-      if(!char) return { good:false, scoreDelta:-5 };
-      const ok = HYDRATE.includes(char);
-      return ok ? { good:true, scoreDelta:(ctx.feverActive?20:10), feverDelta:8 } : { good:false, scoreDelta:-5 };
-    },
-    ...opts
+export async function boot(cfg={}) {
+  return baseBoot({
+    ...cfg,
+    name: 'hydration',
+    pools: { good: GOOD, bad: BAD },
+    goldenRate: 0.05,
+    goodRate:   0.70,
+    judge: (ch) => {
+      if(!ch) return { good:false, scoreDelta:-5 };
+      const healthy = GOOD.includes(ch);
+      // น้ำและเครื่องดื่มไม่หวาน = ดี, น้ำหวาน/แอลกอฮอล์/ชานมไข่มุก = ไม่ดี
+      return { good: healthy, scoreDelta: healthy?12:-6, feverDelta: healthy?5:0 };
+    }
   });
 }
