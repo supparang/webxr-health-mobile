@@ -9,54 +9,50 @@
   <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/aframe-troika-text@0.9.1/dist/aframe-troika-text.min.js"></script>
   <style>
-    body{margin:0;background:#0b0d14;overflow:hidden;font-family:system-ui,-apple-system,Roboto,'Prompt',sans-serif}
-    #hudOverlay{position:fixed;inset:0;pointer-events:none}
-    .menuWrap{height:100vh;display:flex;flex-direction:column;gap:1rem;align-items:center;justify-content:center;pointer-events:auto;z-index:9999}
-    h2{margin:0 0 .5rem;color:#fff}
+    :root{--bg:#0b0d14;--fg:#e5e7eb;--muted:#9aa4b2;--accent:#22c55e;}
+    html,body{height:100%} body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Roboto,'Prompt',sans-serif}
+    /* ===== Overlay HUD ===== */
+    #overlay{position:fixed;inset:0;pointer-events:none}
+    #hudBar{position:absolute;left:24px;right:24px;top:14px;display:flex;gap:16px;align-items:center;justify-content:space-between}
+    .hudBox{backdrop-filter:blur(6px);background:rgba(15,23,42,.35);border:1px solid rgba(255,255,255,.08);
+            color:var(--fg);border-radius:12px;padding:10px 14px;font-size:16px;line-height:1}
+    #feverBanner{position:absolute;left:50%;top:66px;transform:translateX(-50%);
+                 background:#b91c1c;color:#fff;border-radius:12px;padding:8px 14px;display:none}
+    /* ===== Menu ===== */
+    #menu{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;pointer-events:auto}
+    h2{margin:0 0 6px;color:#fff}
     label{color:#cbd5e1;margin-right:.5rem}
     select{padding:.35rem .5rem;border-radius:.5rem;border:1px solid #374151;background:#0f172a;color:#e5e7eb}
-    button{background:#22c55e;border:none;padding:.8rem 1.4rem;border-radius:.7rem;color:#fff;font-size:1rem;cursor:pointer}
-    button:hover{background:#16a34a}
-    .status{position:fixed;left:0;right:0;bottom:12px;text-align:center;color:#cbd5e1}
+    button{background:var(--accent);border:none;padding:.8rem 1.4rem;border-radius:.7rem;color:#fff;font-size:1rem;cursor:pointer}
+    button:hover{filter:brightness(0.95)}
+    /* Status */
+    #status{position:absolute;left:0;right:0;bottom:12px;text-align:center;color:#cbd5e1}
   </style>
 </head>
 <body>
   <a-scene background="color:#0b0d14" vr-mode-ui="enabled:true">
-    <!-- กล้อง + cursor/raycaster ติดกล้อง -->
+    <!-- Camera + cursor -->
     <a-entity id="rig" position="0 0 0">
       <a-entity id="cam" camera position="0 1.6 0"
                 cursor="rayOrigin: mouse"
-                raycaster="objects: .clickable; interval: 0">
-        <!-- HUD ติดกล้อง ระยะ ~1.1m เห็นแน่นอน -->
-        <a-entity id="hudRoot" position="0 0 -1.1">
-          <!-- แถบบนซ้าย: เวลา -->
-          <a-entity id="hudTime"
-                    troika-text="value: เวลา: 60s; color:#ffffff; fontSize:0.085; anchor:align; align:left"
-                    position="-0.56 0.28 0"></a-entity>
-          <!-- กลางบน: คะแนน/คอมโบ -->
-          <a-entity id="hudScore"
-                    troika-text="value: คะแนน: 0  คอมโบ: x0; color:#ffffff; fontSize:0.085; anchor:center"
-                    position="0 0.28 0"></a-entity>
-          <!-- ขวาบน: Mini Quest (แสดงทีละข้อ) -->
-          <a-entity id="tQmain"
-                    troika-text="value: Mini Quest — เริ่มรอบ; color:#a7f3d0; fontSize:0.08; anchor:align; align:right"
-                    position="0.56 0.28 0"></a-entity>
-          <!-- แบนเนอร์ FEVER -->
-          <a-entity id="feverBanner" visible="false" position="0 0.1 0">
-            <a-plane width="0.9" height="0.14" color="#7c2d12" opacity="0.9"></a-plane>
-            <a-entity troika-text="value: FEVER!; color:#fff; fontSize:0.11; anchor:center"></a-entity>
-          </a-entity>
-        </a-entity>
-      </a-entity>
+                raycaster="objects: .clickable; interval: 0"></a-entity>
     </a-entity>
-
-    <!-- โซนสปอนเป้า (ล่าง-กลางจอ) -->
+    <!-- เป้าเกม -->
     <a-entity id="spawnZone" position="0 0 -1.2"></a-entity>
   </a-scene>
 
-  <!-- เมนูเริ่มเกม -->
-  <div id="hudOverlay">
-    <div id="hubMenu" class="menuWrap">
+  <!-- ===== Overlay (HUD + Menu + Status) ===== -->
+  <div id="overlay">
+    <!-- HUD bar -->
+    <div id="hudBar" style="display:none">
+      <div class="hudBox" id="hudTime">เวลา: 60s</div>
+      <div class="hudBox" id="hudScore">คะแนน: 0 | คอมโบ: x0</div>
+      <div class="hudBox" id="hudQuest">Mini Quest — เตรียมเริ่ม</div>
+    </div>
+    <div id="feverBanner">FEVER!</div>
+
+    <!-- Menu -->
+    <div id="menu">
       <h2>เริ่ม: HERO HEALTH ACADEMY</h2>
       <div>
         <label>เลือกโหมด:</label>
@@ -77,15 +73,18 @@
       </div>
       <button id="btnStart" type="button">เริ่มเกม</button>
     </div>
-    <div class="status"><span id="bootStatus">Status: Ready</span></div>
+
+    <div id="status">Status: Ready</div>
   </div>
 
   <script type="module">
     const $ = s=>document.querySelector(s);
-    const statusEl=$('#bootStatus'), hubMenu=$('#hubMenu'), selMode=$('#selMode'), selDiff=$('#selDiff'), btnStart=$('#btnStart'), spawn=$('#spawnZone');
-    const setStatus=(m)=>{ if(statusEl) statusEl.textContent=m; console.log('[HHA]',m); };
+    const selMode=$('#selMode'), selDiff=$('#selDiff'), btnStart=$('#btnStart');
+    const menu=$('#menu'), statusEl=$('#status'), hudBar=$('#hudBar');
+    const timeEl=$('#hudTime'), scoreEl=$('#hudScore'), questEl=$('#hudQuest');
+    const feverBanner=$('#feverBanner'), spawn=$('#spawnZone');
 
-    // เปิดด้วยพารามิเตอร์ก็ได้
+    // read URL params (mode/diff)
     try{
       const u=new URL(location.href);
       const m=(u.searchParams.get('mode')||'').toLowerCase();
@@ -94,21 +93,23 @@
       if(['easy','normal','hard'].includes(d)) selDiff.value=d;
     }catch{}
 
-    // HUD live updates
+    // HUD listeners from mode-factory
     window.addEventListener('hha:score',(e)=>{
-      const d=e.detail||{};
-      $('#hudScore')?.setAttribute('troika-text',`value: คะแนน: ${d.score||0}  คอมโบ: x${d.combo||0}`);
+      const {score=0, combo=0} = e.detail||{};
+      scoreEl.textContent = `คะแนน: ${score} | คอมโบ: x${combo}`;
     });
-    // Fever banner (จาก hha:fever start/end)
-    const banner = $('#feverBanner');
-    window.addEventListener('hha:fever', (e)=>{
-      const s = e.detail?.state;
-      if(!banner) return;
-      if(s==='start'){ banner.setAttribute('visible', true); }
-      if(s==='end'){   banner.setAttribute('visible', false); }
+    window.addEventListener('hha:time',(e)=>{
+      const {remainSec=0} = e.detail||{};
+      timeEl.textContent = `เวลา: ${remainSec}s`;
+    });
+    window.addEventListener('hha:quest',(e)=>{
+      questEl.textContent = e.detail?.text || 'Mini Quest';
+    });
+    window.addEventListener('hha:fever',(e)=>{
+      const s=e.detail?.state;
+      feverBanner.style.display = (s==='start') ? 'block' : 'none';
     });
 
-    // โหลดโหมด
     const MODE_URL={
       goodjunk:'./modes/goodjunk.safe.js',
       groups:'./modes/groups.safe.js',
@@ -116,26 +117,28 @@
       plate:'./modes/plate.safe.js'
     };
 
-    btnStart.addEventListener('click', async (e)=>{
-      e.preventDefault();
+    btnStart.addEventListener('click', async (ev)=>{
+      ev.preventDefault();
       const mode=selMode.value||'goodjunk';
       const diff=selDiff.value||'normal';
-      const url =MODE_URL[mode]||MODE_URL.goodjunk;
-      setStatus(`Loading ${mode} (${diff})...`); hubMenu.style.display='none';
+      statusEl.textContent = `Loading ${mode} (${diff})...`;
+      menu.style.display='none';
+      hudBar.style.display='flex'; // show HUD
 
       try{
-        // กันแคช
-        await import(url+'?v='+Date.now()).then(mod=>mod.boot({host:spawn,difficulty:diff,goal:40}));
-        setStatus(`Running (${mode}/${diff})`);
+        const mod = await import((MODE_URL[mode]||MODE_URL.goodjunk) + '?v=' + Date.now());
+        await mod.boot({ host: spawn, difficulty: diff, goal: 40 });
+        statusEl.textContent = `Running (${mode}/${diff})`;
       }catch(err){
         console.error(err);
-        setStatus('Fallback demo');
-        // กล่องสำรองให้คลิก
+        statusEl.textContent = 'Fallback demo';
+        hudBar.style.display='none';
+        // fallback box
         const scene=document.querySelector('a-scene');
-        const box=document.createElement('a-box'); box.setAttribute('color','#60a5fa'); box.setAttribute('position','0 1.2 -1.2'); box.classList.add('clickable'); scene.appendChild(box);
+        const box=document.createElement('a-box'); box.setAttribute('color','#60a5fa');
+        box.setAttribute('position','0 1.2 -1.2'); box.classList.add('clickable'); scene.appendChild(box);
         box.addEventListener('click',()=>box.setAttribute('color','#22c55e'));
-        // ให้กลับเมนูได้
-        setTimeout(()=>hubMenu.style.display='flex',1000);
+        setTimeout(()=>{menu.style.display='flex';},800);
       }
     });
   </script>
