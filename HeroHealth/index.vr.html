@@ -7,12 +7,13 @@
   <meta name="color-scheme" content="light dark"/>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
-  <style>html,body{margin:0;padding:0;background:#0b1324;}</style>
+  <style>
+    html,body{margin:0;padding:0;background:#0b1324;}
+  </style>
 </head>
 <body>
 <a-scene renderer="antialias:true" background="color:#0b1324">
 
-  <!-- CAMERA -->
   <a-entity id="rig">
     <a-entity id="cam" camera look-controls
       cursor="rayOrigin: mouse; fuse: false"
@@ -21,89 +22,47 @@
     <a-entity laser-controls="hand: left"></a-entity>
   </a-entity>
 
-  <!-- crosshair -->
-  <a-entity position="0 0 -1" geometry="primitive:ring; radiusInner:0.005; radiusOuter:0.008"
+  <a-entity position="0 0 -1"
+            geometry="primitive:ring; radiusInner:0.005; radiusOuter:0.008"
             material="color:#7ff; shader:flat; opacity:0.9"></a-entity>
 
   <a-sky color="#0b1324"></a-sky>
-
-  <!-- โซนสปอน (ต่ำลง: ไม่บัง Mini Quest) -->
   <a-entity id="spawnZone" position="0 0.40 0"></a-entity>
 
-  <!-- ===== HUD บนสุด ===== -->
-  <a-entity id="hudRoot" position="0 1.95 -1.60">
-    <a-entity id="hudMode"  troika-text="value: โหมด: -; color:#aef; fontSize:0.06; anchor:left;"></a-entity>
-    <a-entity id="hudTime"  position="0 -0.08 0" troika-text="value: เวลา: —; color:#aef; fontSize:0.05; anchor:left;"></a-entity>
+  <!-- HUD -->
+  <a-entity id="hudRoot" position="0 1.9 -1.5">
+    <a-entity id="hudMode" troika-text="value: โหมด: -; color:#aef; fontSize:0.06; anchor:left;"></a-entity>
+    <a-entity id="hudTime" position="0 -0.08 0" troika-text="value: เวลา: —; color:#aef; fontSize:0.05; anchor:left;"></a-entity>
     <a-entity id="hudScore" position="0.95 0 0" troika-text="value: คะแนน: 0; color:#fff; fontSize:0.06; anchor:right;"></a-entity>
     <a-entity id="hudCombo" position="0.95 -0.08 0" troika-text="value: คอมโบ: x0; color:#fff; fontSize:0.05; anchor:right;"></a-entity>
-
-    <!-- Fever bar -->
-    <a-entity id="feverBarWrap" position="0 -0.19 0">
-      <a-plane width="1.9" height="0.035" color="#223a5c"></a-plane>
-      <a-plane id="feverBar" position="-0.95 0 0.001" width="0" height="0.035" color="#ffb300" anchor="left"></a-plane>
-      <a-entity id="feverLabel" position="-0.95 0.03 0" troika-text="value: Fever 0%; color:#ffb300; fontSize:0.04; anchor:left;"></a-entity>
-    </a-entity>
-
-    <!-- SFX controls (mute/vol) -->
-    <a-entity id="audioPanel" position="0.95 -0.19 0">
-      <a-plane id="btnMute" class="hit" position="0 0 0.01" width="0.20" height="0.08" color="#29435c"></a-plane>
-      <a-entity id="txtMute" position="0 0 0.02" troika-text="value: 🔊; color:#fff; fontSize:0.045; anchor:center;"></a-entity>
-
-      <a-plane id="btnVolUp" class="hit" position="-0.26 0 0.01" width="0.20" height="0.08" color="#29435c"></a-plane>
-      <a-entity position="-0.26 0 0.02" troika-text="value: ＋; color:#fff; fontSize:0.045; anchor:center;"></a-entity>
-
-      <a-plane id="btnVolDn" class="hit" position="-0.52 0 0.01" width="0.20" height="0.08" color="#29435c"></a-plane>
-      <a-entity position="-0.52 0 0.02" troika-text="value: －; color:#fff; fontSize:0.045; anchor:center;"></a-entity>
-    </a-entity>
   </a-entity>
 
-  <!-- ===== Mini Quest: บนกึ่งกลาง ===== -->
-  <a-entity id="questPanel" position="0 1.70 -1.50" visible="false">
+  <a-entity id="questPanel" position="0 1.7 -1.5" visible="false">
     <a-plane width="1.4" height="0.32" color="#0e1a2b" opacity="0.78"></a-plane>
-    <a-entity id="tQTitle" position="-0.66 0.10 0.01" troika-text="value: Mini Quest (1/3); color:#fff; fontSize:0.055; anchor:left;"></a-entity>
-    <a-entity id="tQmain"  position="-0.66 -0.02 0.01" troika-text="value: ; color:#eaeaea; fontSize:0.06; anchor:left;"></a-entity>
+    <a-entity id="tQTitle" position="-0.66 0.10 0.01"
+              troika-text="value: Mini Quest (1/3); color:#fff; fontSize:0.055; anchor:left;"></a-entity>
+    <a-entity id="tQmain" position="-0.66 -0.02 0.01"
+              troika-text="value: ; color:#eaeaea; fontSize:0.06; anchor:left;"></a-entity>
   </a-entity>
 
-  <!-- ===== Start / Hub (กลางจอ) ===== -->
+  <!-- Start Menu -->
   <a-entity id="startPanel" position="0 1.00 -1.20" visible="true">
     <a-plane width="1.8" height="1.2" color="#102033" opacity="0.92"></a-plane>
     <a-entity id="startLbl" position="0 0.48 0.01" troika-text="value: เริ่ม: -; color:#fff; fontSize:0.085; anchor:center;"></a-entity>
-
-    <a-entity position="0 0.28 0.01" troika-text="value: เลือกโหมด; color:#bcd; fontSize:0.055; anchor:center;"></a-entity>
-    <a-plane id="m-goodjunk" class="hit selMode" position="-0.65 0.17 0.02" width="0.7" height="0.16" color="#1b3d5a"></a-plane>
-    <a-entity position="-0.65 0.17 0.03" troika-text="value: Good vs Junk; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
-    <a-plane id="m-groups"   class="hit selMode" position="0.65 0.17 0.02"  width="0.7" height="0.16" color="#1b3d5a"></a-plane>
-    <a-entity position="0.65 0.17 0.03" troika-text="value: Groups; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
-    <a-plane id="m-hydration" class="hit selMode" position="-0.65 -0.03 0.02" width="0.7" height="0.16" color="#1b3d5a"></a-plane>
-    <a-entity position="-0.65 -0.03 0.03" troika-text="value: Hydration; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
-    <a-plane id="m-plate"    class="hit selMode" position="0.65 -0.03 0.02"  width="0.7" height="0.16" color="#1b3d5a"></a-plane>
-    <a-entity position="0.65 -0.03 0.03" troika-text="value: Healthy Plate; color:#fff; fontSize:0.055; anchor:center;"></a-entity>
-
-    <a-entity position="0 -0.22 0.01" troika-text="value: ระดับความยาก; color:#bcd; fontSize:0.055; anchor:center;"></a-entity>
-    <a-plane id="d-easy"   class="hit selDiff" position="-0.80 -0.33 0.02" width="0.46" height="0.14" color="#254a39"></a-plane>
-    <a-entity position="-0.80 -0.33 0.03" troika-text="value: ง่าย; color:#fff; fontSize:0.05; anchor:center;"></a-entity>
-    <a-plane id="d-normal" class="hit selDiff" position="0.00 -0.33 0.02"  width="0.46" height="0.14" color="#254a39"></a-plane>
-    <a-entity position="0.00 -0.33 0.03" troika-text="value: ปกติ; color:#fff; fontSize:0.05; anchor:center;"></a-entity>
-    <a-plane id="d-hard"   class="hit selDiff" position="0.80 -0.33 0.02"  width="0.46" height="0.14" color="#254a39"></a-plane>
-    <a-entity position="0.80 -0.33 0.03" troika-text="value: ยาก; color:#fff; fontSize:0.05; anchor:center;"></a-entity>
-
-    <a-plane id="btnStart" class="hit" position="0 -0.63 0.02" width="0.9" height="0.18" color="#1b7f5a"></a-plane>
-    <a-entity position="0 -0.63 0.03" troika-text="value: เริ่มเกม; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
+    <a-plane id="m-goodjunk" class="hit selMode" position="0 0.15 0.02" width="1.2" height="0.18" color="#1b3d5a"></a-plane>
+    <a-entity position="0 0.15 0.03" troika-text="value: Good vs Junk; color:#fff; fontSize:0.06; anchor:center;"></a-entity>
+    <a-plane id="btnStart" class="hit" position="0 -0.3 0.02" width="1.0" height="0.18" color="#1b7f5a"></a-plane>
+    <a-entity position="0 -0.3 0.03" troika-text="value: เริ่มเกม; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
   </a-entity>
 
-  <!-- ===== Result / Summary ===== -->
   <a-entity id="resultPanel" position="0 1.05 -1.20" visible="false">
     <a-plane width="1.8" height="1.0" color="#0f1f33" opacity="0.94"></a-plane>
     <a-entity position="0 0.36 0.01" troika-text="value: สรุปผลรอบนี้; color:#fff; fontSize:0.085; anchor:center;"></a-entity>
     <a-entity id="rScore" position="-0.70 0.15 0.01" troika-text="value: คะแนน: 0; color:#aef; fontSize:0.06; anchor:left;"></a-entity>
-    <a-entity id="rCombo" position="-0.70 0.03 0.01" troika-text="value: คอมโบสูงสุด: x0; color:#aef; fontSize:0.06; anchor:left;"></a-entity>
-    <a-entity id="rQuest" position="-0.70 -0.09 0.01" troika-text="value: ภารกิจ: 0/3; color:#aef; fontSize:0.06; anchor:left;"></a-entity>
-
     <a-plane id="btnRestart" class="hit" position="0 -0.33 0.02" width="0.9" height="0.18" color="#1b7f5a"></a-plane>
     <a-entity position="0 -0.33 0.03" troika-text="value: เล่นอีกครั้ง; color:#fff; fontSize:0.065; anchor:center;"></a-entity>
   </a-entity>
 
-  <!-- boot status -->
   <a-entity id="bootStatus" position="-0.85 0.15 -1.0">
     <a-entity troika-text="value: Status: Preparing...; color:#fff; fontSize:0.055; anchor:left;"></a-entity>
   </a-entity>
@@ -113,88 +72,31 @@
 <script type="module">
 const q=s=>document.querySelector(s);
 const setText=(el,t)=>{try{el.setAttribute('troika-text','value',t);}catch{}};
-function getParam(name,def=null){try{return(new URL(location.href)).searchParams.get(name)??def;}catch{return def;}}
+function setBoot(m){const box=q('#bootStatus a-entity[troika-text]');if(box)box.setAttribute('troika-text','value',`Status: ${m}`);}
 
-let selectedMode=(getParam('mode','goodjunk')||'goodjunk').toLowerCase();
-let selectedDiff=(getParam('diff','normal')||'normal').toLowerCase();
-const secsParam=getParam('time',null);
-
-const MODULES={
-  goodjunk:'./modes/goodjunk.safe.js',
-  groups:'./modes/groups.safe.js',
-  hydration:'./modes/hydration.safe.js',
-  plate:'./modes/plate.safe.js'
+// ✅ ใช้พาธสัมบูรณ์บน GitHub Pages
+const MODULES = {
+  goodjunk  : '/webxr-health-mobile/HeroHealth/modes/goodjunk.safe.js',
+  groups    : '/webxr-health-mobile/HeroHealth/modes/groups.safe.js',
+  hydration : '/webxr-health-mobile/HeroHealth/modes/hydration.safe.js',
+  plate     : '/webxr-health-mobile/HeroHealth/modes/plate.safe.js'
 };
 
-const hudMode=q('#hudMode'), hudTime=q('#hudTime'), hudScore=q('#hudScore'), hudCombo=q('#hudCombo');
-const startLbl=q('#startLbl'), startPanel=q('#startPanel'), questPanel=q('#questPanel'), resultPanel=q('#resultPanel');
-const bootBox=q('#bootStatus a-entity[troika-text]'), spawnHost=q('#spawnZone');
-
-const setBoot=m=>{try{bootBox.setAttribute('troika-text','value',`Status: ${m}`);}catch{}};
-function updateStart(){setText(startLbl,`เริ่ม: ${selectedMode.toUpperCase()} (${selectedDiff})`);
-  setText(hudMode,`โหมด: ${selectedMode} (ระดับ:${selectedDiff})`);}
-function paint(){
-  const modeButtons={goodjunk:q('#m-goodjunk'),groups:q('#m-groups'),hydration:q('#m-hydration'),plate:q('#m-plate')};
-  const diffButtons={easy:q('#d-easy'),normal:q('#d-normal'),hard:q('#d-hard')};
-  Object.values(modeButtons).forEach(b=>b&&b.setAttribute('color','#1b3d5a'));
-  Object.values(diffButtons).forEach(b=>b&&b.setAttribute('color','#254a39'));
-  modeButtons[selectedMode]?.setAttribute('color','#2a74b1');
-  diffButtons[selectedDiff]?.setAttribute('color','#2e8b57');
-}
-const attach=(el,fn)=>['click','mousedown','touchstart'].forEach(ev=>el?.addEventListener(ev,e=>{if(ev==='touchstart')e.preventDefault();fn();},{passive:false}));
-
-attach(q('#m-goodjunk'),()=>{selectedMode='goodjunk'; paint(); updateStart();});
-attach(q('#m-groups'),()=>{selectedMode='groups'; paint(); updateStart();});
-attach(q('#m-hydration'),()=>{selectedMode='hydration'; paint(); updateStart();});
-attach(q('#m-plate'),()=>{selectedMode='plate'; paint(); updateStart();});
-attach(q('#d-easy'),()=>{selectedDiff='easy'; paint(); updateStart();});
-attach(q('#d-normal'),()=>{selectedDiff='normal'; paint(); updateStart();});
-attach(q('#d-hard'),()=>{selectedDiff='hard'; paint(); updateStart();});
-paint(); updateStart();
-
-// Audio UI → โยนอีเวนต์ให้โหมดจัดการเสียง
-let muted=false, vol=1.0;
-attach(q('#btnMute'),()=>{ muted=!muted; setText(q('#txtMute'), muted?'🔇':'🔊'); window.dispatchEvent(new CustomEvent('hha:muteToggle',{detail:{muted}})); });
-attach(q('#btnVolUp'),()=>{ vol=Math.min(1,vol+0.1); window.dispatchEvent(new CustomEvent('hha:volChange',{detail:{vol}})); });
-attach(q('#btnVolDn'),()=>{ vol=Math.max(0,vol-0.1); window.dispatchEvent(new CustomEvent('hha:volChange',{detail:{vol}})); });
-
-// เริ่มเกม
 async function startGame(){
+  const url = MODULES['goodjunk'];
   try{
-    const url=MODULES[selectedMode]||MODULES.goodjunk;
-    setBoot('Loading mode…');
-    const mod=await import(url+'?v='+Date.now());
+    const mod = await import(url + '?v=' + Date.now());
     if(typeof mod.boot!=='function') throw new Error('Mode has no boot()');
-    const opts={host:spawnHost,difficulty:selectedDiff};
-    if(secsParam) opts.duration=parseInt(secsParam,10)||60;
-    startPanel?.setAttribute('visible',false);
-    questPanel?.setAttribute('visible',true);
-    resultPanel?.setAttribute('visible',false);
-    await mod.boot(opts);
+    q('#startPanel').setAttribute('visible',false);
+    q('#questPanel').setAttribute('visible',true);
+    await mod.boot({ host:q('#spawnZone'), difficulty:'normal' });
     setBoot('Running');
-    if(opts.duration) setText(hudTime,`เวลา: ${opts.duration}s`);
-  }catch(e){console.error(e); setBoot('Load failed, check console');}
+  }catch(e){console.error(e);setBoot('Load failed, check console');}
 }
-attach(q('#btnStart'),()=>startGame());
-attach(q('#btnRestart'),()=>{ startPanel?.setAttribute('visible',true); resultPanel?.setAttribute('visible',false); });
 
-window.addEventListener('hha:score',e=>{const {score=0,combo=0}=e.detail||{}; setText(hudScore,`คะแนน: ${score}`); setText(hudCombo,`คอมโบ: x${combo}`);});
-const feverBar=q('#feverBar'),feverLabel=q('#feverLabel');
-window.addEventListener('hha:feverLevel',e=>{
-  const lv=Math.max(0,Math.min(100,(e.detail?.level||0))); const w=1.9*(lv/100);
-  if(feverBar){feverBar.setAttribute('width',w); feverBar.setAttribute('position',`${-0.95+(w/2)} 0 0.001`);}
-  setText(feverLabel,`Fever ${lv}%`);
-});
-// รับผลสรุป
-window.addEventListener('hha:end',e=>{
-  setBoot('Finished');
-  const d=e.detail||{};
-  setText(q('#rScore'), `คะแนน: ${d.score||0}`);
-  setText(q('#rCombo'), `คอมโบสูงสุด: x${d.comboMax||0}`);
-  setText(q('#rQuest'), `ภารกิจ: ${d.questsCleared||0}/3`);
-  resultPanel?.setAttribute('visible',true);
-  questPanel?.setAttribute('visible',true);
-  startPanel?.setAttribute('visible',true);
+['click','mousedown','touchstart'].forEach(ev=>{
+  q('#btnStart').addEventListener(ev, e=>{e.preventDefault();startGame();},{passive:false});
+  q('#btnRestart').addEventListener(ev, e=>{e.preventDefault();location.reload();},{passive:false});
 });
 </script>
 </body>
