@@ -16,7 +16,7 @@
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
 
-<!-- force-on-top renderer for UI layers -->
+<!-- on-top renderer for UI -->
 <script>
 AFRAME.registerComponent('front-most', {
   schema:{order:{default:10000}},
@@ -28,17 +28,17 @@ AFRAME.registerComponent('front-most', {
 });
 </script>
 
-<!-- Hub (ถ้ามีไฟล์); ถ้าไม่มีจะ fallback inline ให้ -->
+<!-- Hub (optional; ถ้าไม่มีจะ fallback inline) -->
 <script type="module">
   import { GameHub } from './vr/hub.js?v=starter';
-  window.addEventListener('DOMContentLoaded',()=>{ try{ window.__hub=new GameHub(); }catch(e){ console.warn('hub missing, will fallback inline',e); } });
+  window.addEventListener('DOMContentLoaded',()=>{ try{ window.__hub=new GameHub(); }catch(e){ console.warn('hub missing, fallback inline',e); } });
 </script>
 </head>
 <body>
 <div class="fallback" id="bootStatus"><div><strong>Status:</strong> Booting…</div>
   <button id="forceStartBtn" style="margin-top:6px;background:#2e8b57;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">Force Start</button>
 </div>
-<div class="ver">HeroHealth VR — Starter</div>
+<div class="ver">HeroHealth VR — Full-screen Targets</div>
 
 <a-scene background="color:#0b1324" vr-mode-ui="enterVRButton:true"
          renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true">
@@ -50,8 +50,8 @@ AFRAME.registerComponent('front-most', {
   <a-entity id="hudRoot" position="0 2.18 -2.8" front-most="order:10000">
     <a-entity geometry="primitive: plane; width: 1.9; height: 0.30"
               material="color:#111a33; opacity:0.9;"></a-entity>
-    <a-entity id="hudMode" troika-text="value: โหมด: -; color:#9fd; fontSize:0.06;" position="-0.9 0.08 0.05"></a-entity>
-    <a-entity id="hudTime" troika-text="value: เวลา: 60s; color:#fff; fontSize:0.06;" position="-0.9 -0.02 0.05"></a-entity>
+    <a-entity id="hudMode"  troika-text="value: โหมด: -; color:#9fd; fontSize:0.06;" position="-0.9 0.08 0.05"></a-entity>
+    <a-entity id="hudTime"  troika-text="value: เวลา: 60s; color:#fff; fontSize:0.06;" position="-0.9 -0.02 0.05"></a-entity>
     <a-entity id="hudScore" troika-text="value: คะแนน: 0; color:#fff; fontSize:0.06;" position="0.15 0.08 0.05"></a-entity>
     <a-entity id="hudCombo" troika-text="value: คอมโบ: x1; color:#fff; fontSize:0.06;" position="0.15 -0.02 0.05"></a-entity>
 
@@ -117,7 +117,7 @@ AFRAME.registerComponent('front-most', {
               position="-0.27 0 0.40"></a-entity>
   </a-entity>
 
-  <!-- Rig/Camera (เพิ่ม fuse cursor + เล็งเฉพาะ .hitbox) -->
+  <!-- Rig/Camera (fuse cursor + เล็งเฉพาะ .hitbox) -->
   <a-entity id="rig" position="0 1.6 0">
     <a-entity id="camera"
               camera look-controls
@@ -146,12 +146,7 @@ function logBoot(msg){
 
 // Audio unlock (มือถือ/VR)
 let _ctx;
-function getAudioCtx(){
-  if(_ctx) return _ctx;
-  const AC = window.AudioContext||window.webkitAudioContext;
-  _ctx = new AC();
-  return _ctx;
-}
+function getAudioCtx(){ if(_ctx) return _ctx; const AC = window.AudioContext||window.webkitAudioContext; _ctx = new AC(); return _ctx; }
 ['click','touchstart','pointerdown','keydown'].forEach(ev=>{
   window.addEventListener(ev,()=>{ try{ getAudioCtx().resume(); }catch{} }, {once:true});
 });
@@ -159,11 +154,7 @@ function getAudioCtx(){
 // Pause/Resume global
 (function(){
   let paused=false;
-  function setPaused(v){
-    if(paused===v) return; paused=v;
-    window.dispatchEvent(new CustomEvent(v?'hha:pause':'hha:resume'));
-    logBoot(v?'Paused':'Resumed');
-  }
+  function setPaused(v){ if(paused===v) return; paused=v; window.dispatchEvent(new CustomEvent(v?'hha:pause':'hha:resume')); logBoot(v?'Paused':'Resumed'); }
   window.addEventListener('visibilitychange',()=>setPaused(document.hidden));
   window.addEventListener('blur',()=>setPaused(true));
   window.addEventListener('focus',()=>setPaused(false));
@@ -208,18 +199,20 @@ function wireClicks(){
   start.addEventListener('mouseleave',()=>fx.setAttribute('material','opacity',0.0));
   const tryStart=async ()=>{
     logBoot('Start pressed');
-    // ให้ hub เริ่มก่อน ถ้ามี
     if(hub()){
-      if(typeof hub().startGame==='function'){ hub().startGame(); return; }
-      if(typeof hub().start==='function'){ hub().start(); return; }
-      if(typeof hub().begin==='function'){ hub().begin(); return; }
+      if(typeof hub().startGame==='function'){ hub().startGame(); gotoPlayUI(); return; }
+      if(typeof hub().start==='function'){ hub().start(); gotoPlayUI(); return; }
+      if(typeof hub().begin==='function'){ hub().begin(); gotoPlayUI(); return; }
     }
     // fallback inline
     logBoot('Fallback inline GoodJunk');
     inlineGoodJunkBoot({host:document.getElementById('spawnZone'), duration:60, difficulty:'normal'});
+    gotoPlayUI();
+  };
+  function gotoPlayUI(){
     document.getElementById('modeMenu').setAttribute('visible', false);
     document.getElementById('startPanel').setAttribute('visible', false);
-  };
+  }
   ['click','mousedown','mouseup','triggerdown'].forEach(ev=>start.addEventListener(ev,tryStart));
   document.getElementById('forceStartBtn').addEventListener('click', tryStart);
 }
@@ -261,7 +254,7 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
   setTimeout(()=>node.remove(), 700);
 }
 
-/* ================= Inline GoodJunk — Quests + Diff-based target size + Better Hitbox ================ */
+/* ================= Inline GoodJunk — Quests + Diff-size + Full-screen targets ================= */
 (function(){
   const PALETTE = {
     good:    { base:'#7CFC00', glow:'#b7ff66', text:'#ffffff' },
@@ -272,13 +265,9 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
     shield:  { base:'#5ef',    glow:'#bbf3ff', text:'#003344' },
     x2:      { base:'#FFD700', glow:'#ffe885', text:'#4d3b00' }
   };
-
-  // ขนาด emoji/กลุ่มตามระดับ
-  const DIFF_SCALE = { easy: 1.00, normal: 0.85, hard: 0.72 };
-  // ขนาด hitbox ตามระดับ (ใหญ่ขึ้น = คลิกง่ายขึ้น)
-  const HITBOX_SCALE = { easy: 1.30, normal: 1.12, hard: 1.00 };
-  // ชีวิตเป้าต่อชิ้น
-  const LIFE_MS = { easy: 2800, normal: 2500, hard: 2200 };
+  const DIFF_SCALE   = { easy: 1.00, normal: 0.85, hard: 0.72 };  // เป้าตามระดับ
+  const HITBOX_SCALE = { easy: 1.30, normal: 1.12, hard: 1.00 };  // hitbox ใหญ่ขึ้นตามระดับ
+  const LIFE_MS      = { easy: 2800, normal: 2500, hard: 2200 };  // ชีวิตเป้าตามระดับ
 
   // Mini Quests (10 แบบ)
   const QUESTS = [
@@ -318,20 +307,22 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
   const GOOD   = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
   const JUNK   = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
   const DECOY  = ['🥯','🧀','🍗','🍖','🥠','🍜'];
-  const STAR   = '⭐', DIAM='🔷', SHIELD='🛡️', X2='✖️';
+  const STAR='⭐', DIAM='🔷', SHIELD='🛡️', X2='✖️';
   const FRUIT = new Set(['🍎','🍓','🍇','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝']);
   const VEGGIE= new Set(['🥦','🥕','🍅','🥬']);
 
-  // วงปลอดภัย ตามขนาดเป้า
+  /* ---- Full-screen random with safe margin (2.2×1.2) ---- */
   function randPosSafe(sizeMul){
-    const halfW=1.1, halfH=0.6;           // plane 2.2 x 1.2
-    const margin = 0.20 * sizeMul;        // safe margin
-    const x = (Math.random() * ((halfW-margin)-(-halfW+margin))) + (-halfW+margin);
-    const y = (Math.random() * ((halfH-margin)-(-halfH+margin))) + (-halfH+margin);
+    const halfW=1.1, halfH=0.6;           // plane size / 2
+    const margin = 0.14 * sizeMul;        // ลดเหลือ 0.10 ถ้าอยากติดขอบมากขึ้น
+    const minX = -halfW + margin, maxX = halfW - margin;
+    const minY = -halfH + margin, maxY = halfH - margin;
+    const x = Math.random()*(maxX-minX)+minX;
+    const y = Math.random()*(maxY-minY)+minY;
     return [ x, y, 0.01 ];
   }
 
-  // สร้างเป้า: Glow + hitbox วงกลม (ใหญ่ตามระดับ) + hover FX
+  // เป้า: Glow + hitbox วงกลม (ใหญ่ขึ้นตามระดับ) + hover FX
   function makeTarget(kind, emoji, pos, sizeMul, difficulty){
     const pal = PALETTE[kind] || {base:'#fff', glow:'#ddd', text:'#000'};
     const root = document.createElement('a-entity');
@@ -350,7 +341,7 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
     txt.setAttribute('position', '0 0 0');
     root.appendChild(txt);
 
-    const hbScale = HITBOX_SCALE[difficulty] || 1.12;
+    const hbScale = ( { easy:1.30, normal:1.12, hard:1.00 }[difficulty] || 1.12 );
     const hit = document.createElement('a-entity');
     hit.classList.add('hitbox','clickable');
     hit.setAttribute('geometry', `primitive: circle; radius: ${(0.19*sizeMul*hbScale).toFixed(3)}`);
@@ -373,21 +364,22 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
     return {root, hit};
   }
 
-  // คีย์บอร์ดช่วยยิง (Space/Enter) จากจุดเล็งปัจจุบัน
+  // Space/Enter ยิงเป้าที่เล็งอยู่
   window.addEventListener('keydown', (e)=>{
     if(e.code==='Space' || e.code==='Enter'){
       const cam=document.getElementById('camera');
       const ray = cam && cam.components && cam.components.raycaster;
-      const hit = (ray && ray.intersections && ray.intersections[0] && ray.intersections[0].object && ray.intersections[0].object.el);
-      if(hit && hit.classList.contains('hitbox')) hit.emit('click');
+      const el = (ray && ray.intersections && ray.intersections[0] && ray.intersections[0].object && ray.intersections[0].object.el);
+      if(el && el.classList.contains('hitbox')) el.emit('click');
     }
   });
 
-  // ====== Boot ฟอลแบ็ก ======
+  // ====== Boot inline (fallback) ======
   window.inlineGoodJunkBoot = function inlineGoodJunkBoot({host,duration=60,difficulty='normal'}){
     const zone = host || document.getElementById('spawnZone');
     while(zone.firstChild) zone.removeChild(zone.firstChild);
 
+    // พื้นหลังแผ่นเล่น 2.2×1.2
     const plane = document.createElement('a-plane');
     plane.setAttribute('width','2.2'); plane.setAttribute('height','1.2');
     plane.setAttribute('color','#0e1b38'); plane.setAttribute('opacity','0.85');
@@ -405,20 +397,14 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
     const sets = { FRUIT, VEGGIE };
 
     const diffScale = DIFF_SCALE[difficulty] || 0.85;
+    const lifeMs   = LIFE_MS[difficulty]   || 2500;
 
     let hasShield=false, hasX2=false, x2Timer=null;
     const baseRate = (difficulty==='hard')? 260 : (difficulty==='normal')? 360 : 480;
     let spawnRate = baseRate;
     let perTargetSizeMul = diffScale;
 
-    function updateTime(){
-      // ถ้าต้องการจับเวลา รวมเกม ให้เพิ่ม timer ตรงนี้ได้
-    }
-
-    function normW(w){
-      qWeights = normWeights(w||{});
-    }
-
+    function normW(w){ qWeights = normWeights(w||{}); }
     function startQuest(q){
       qGoal = q.goalBase?.[difficulty] ?? q.goalBase?.normal ?? 40;
       qProgress = 0;
@@ -428,11 +414,7 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
       if(tQ) tQ.setAttribute('troika-text','value', `${q.title} — ${qProgress}/${qGoal}`);
       restartSpawner();
     }
-
-    function updateQuestText(q){
-      if(tQ) tQ.setAttribute('troika-text','value', `${q.title} — ${qProgress}/${qGoal}`);
-    }
-
+    function updateQuestText(q){ if(tQ) tQ.setAttribute('troika-text','value', `${q.title} — ${qProgress}/${qGoal}`); }
     function completeQuest(q){
       popupScore(zone, [0,0.28,0.01], `เควสต์สำเร็จ: ${q.title}`, '#90ee90');
       qi++;
@@ -467,11 +449,11 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
       else if(kind==='good'){ emoji=GOOD[(Math.random()*GOOD.length)|0]; value=1; }
       else { kind='junk'; emoji=JUNK[(Math.random()*JUNK.length)|0]; value=-1; }
 
-      const pos = randPosSafe(perTargetSizeMul);
+      const pos = randPosSafe(perTargetSizeMul);           // ★ กระจายเต็มจอ
       const {root, hit} = makeTarget(kind, emoji, pos, perTargetSizeMul, difficulty);
       zone.appendChild(root);
 
-      const life = setTimeout(()=>root.remove(), LIFE_MS[difficulty] || 2500);
+      const life = setTimeout(()=>root.remove(), lifeMs);
 
       const onHit = ()=>{
         clearTimeout(life);
@@ -533,10 +515,8 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
         if(add>0){
           qProgress += add;
           popupScore(zone, pos, `+${add} (เควสต์)`, '#7fffd4');
-          updateQuestText(q);
-          if(qProgress>=qGoal){
-            setTimeout(()=>completeQuest(q), 300);
-          }
+          if(tQ) updateQuestText(q);
+          if(qProgress>=qGoal){ setTimeout(()=>completeQuest(q), 300); }
         }
 
         const col = (delta>=0)
@@ -553,10 +533,10 @@ function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
     function restartSpawner(){ if(spawner) clearInterval(spawner); spawner = setInterval(spawnOne, spawnRate); }
     function stopAll(){ try{ clearInterval(spawner); }catch{} }
 
-    // เริ่มด้วย 4-5 ชิ้น
-    for(let i=0;i<5;i++) spawnOne();
+    // เริ่มด้วย 6–8 ชิ้น เพื่อให้เต็มจอและรู้สึกมีชีวิต
+    for(let i=0;i<8;i++) spawnOne();
 
-    // เควสต์แรก
+    // เควสต์แรกจาก 3 ที่สุ่ม
     startQuest(picks[0]);
   };
 })();
