@@ -6,32 +6,34 @@
   <title>Hero Health Academy VR</title>
   <meta name="color-scheme" content="light dark"/>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
-  <!-- ✅ โหลด Three.js ก่อนทุกโมดูล -->
+  <!-- THREE ต้องมาก่อนทุกสคริปต์ -->
   <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
-
   <style>
     body { margin:0; background:#0b0d14; overflow:hidden; }
-    #hudOverlay { position:absolute; top:0; left:0; width:100%; color:#fff; font-family:sans-serif; text-align:center; pointer-events:none; }
-    #hudOverlay .status { position:absolute; bottom:1rem; left:0; width:100%; font-size:1.1rem; color:#ddd; }
+    /* overlay ปล่อยคลิกผ่านโดยรวม แต่เปิดคลิกเฉพาะเมนู */
+    #hudOverlay { position:absolute; inset:0; color:#fff; font-family:sans-serif; text-align:center; pointer-events:none; }
+    #hudOverlay .status { position:absolute; bottom:1rem; left:0; width:100%; font-size:1.1rem; color:#ddd; pointer-events:none; }
+    .menuWrap {
+      display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:1rem;
+      pointer-events:auto;                 /* ✅ ให้เมนูรับคลิก */
+      z-index: 9999;                       /* ✅ ลอยเหนือแคนวาส */
+    }
     button { background:#22c55e; border:none; padding:0.8rem 1.4rem; border-radius:0.5rem; color:#fff; font-size:1rem; cursor:pointer; }
     button:hover { background:#16a34a; }
-    .menuWrap { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:1rem; }
+    select { padding:0.25rem 0.4rem; }
   </style>
 </head>
-
 <body>
   <a-scene background="color:#0b0d14" cursor="rayOrigin: mouse" raycaster="objects: .clickable" vr-mode-ui="enabled: true">
     <a-entity id="spawnZone" position="0 1.2 -1.2"></a-entity>
   </a-scene>
 
-  <!-- ✅ HUD Overlay -->
+  <!-- HUD Overlay -->
   <div id="hudOverlay">
     <div id="hubMenu" class="menuWrap">
-      <h2 style="color:#fff;">เริ่ม: HERO HEALTH ACADEMY</h2>
-
+      <h2 style="color:#fff; margin:0 0 .5rem;">เริ่ม: HERO HEALTH ACADEMY</h2>
       <div>
-        <label style="color:#ccc;">เลือกโหมด:</label>
+        <label style="color:#ccc; margin-right:.5rem;">เลือกโหมด:</label>
         <select id="selMode">
           <option value="goodjunk">Good vs Junk</option>
           <option value="groups">Food Groups</option>
@@ -39,25 +41,19 @@
           <option value="plate">Healthy Plate</option>
         </select>
       </div>
-
       <div>
-        <label style="color:#ccc;">ระดับความยาก:</label>
+        <label style="color:#ccc; margin-right:.5rem;">ระดับความยาก:</label>
         <select id="selDiff">
           <option value="easy">ง่าย</option>
           <option value="normal" selected>ปกติ</option>
           <option value="hard">ยาก</option>
         </select>
       </div>
-
-      <button id="btnStart">เริ่มเกม</button>
+      <button id="btnStart" type="button">เริ่มเกม</button>
     </div>
-
-    <div class="status">
-      <span id="bootStatus">Status: Preparing...</span>
-    </div>
+    <div class="status"><span id="bootStatus">Status: Preparing...</span></div>
   </div>
 
-  <!-- ✅ สคริปต์หลัก -->
   <script type="module">
     const statusEl = document.getElementById('bootStatus');
     const setStatus = (m)=>{ if(statusEl) statusEl.textContent = m; console.log(m); };
@@ -66,10 +62,10 @@
     window.addEventListener('unhandledrejection', e=> setStatus('Promise Error: '+(e.reason?.message||e.reason||'unknown')));
 
     const MODE_URL = {
-      goodjunk: './modes/goodjunk.safe.js',
-      groups: './modes/groups.safe.js',
+      goodjunk : './modes/goodjunk.safe.js',
+      groups   : './modes/groups.safe.js',
       hydration: './modes/hydration.safe.js',
-      plate: './modes/plate.safe.js'
+      plate    : './modes/plate.safe.js'
     };
 
     const btnStart = document.getElementById('btnStart');
@@ -77,7 +73,13 @@
     const selDiff  = document.getElementById('selDiff');
     const hubMenu  = document.getElementById('hubMenu');
 
-    btnStart.addEventListener('click', async ()=>{
+    // ✅ กันบางเบราว์เซอร์บล็อกคลิกถ้าพ่อมี pointer-events:none
+    ['mousedown','touchstart','click','change'].forEach(ev=>{
+      hubMenu.addEventListener(ev, e=>{/* no-op to keep focus flow */}, {passive:true});
+    });
+
+    btnStart.addEventListener('click', async (e)=>{
+      e.preventDefault();
       const mode = selMode.value || 'goodjunk';
       const diff = selDiff.value || 'normal';
       const host = document.getElementById('spawnZone');
@@ -94,7 +96,7 @@
       }catch(err){
         console.error(err);
         setStatus('Error: '+(err?.message||err));
-        // 🔸 fallback demo
+        // fallback demo
         try{
           const scene = document.querySelector('a-scene');
           const box = document.createElement('a-box');
