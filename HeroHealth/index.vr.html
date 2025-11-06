@@ -5,35 +5,43 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hero Health Academy VR</title>
   <meta name="color-scheme" content="light dark"/>
+  <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-  <!-- THREE ต้องมาก่อนทุกสคริปต์ -->
+  <!-- THREE ต้องมาก่อนทุก module อื่น -->
   <script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+
   <style>
-    body { margin:0; background:#0b0d14; overflow:hidden; }
-    /* overlay ปล่อยคลิกผ่านโดยรวม แต่เปิดคลิกเฉพาะเมนู */
-    #hudOverlay { position:absolute; inset:0; color:#fff; font-family:sans-serif; text-align:center; pointer-events:none; }
-    #hudOverlay .status { position:absolute; bottom:1rem; left:0; width:100%; font-size:1.1rem; color:#ddd; pointer-events:none; }
+    :root { color-scheme: light dark; }
+    body { margin:0; background:#0b0d14; overflow:hidden; font-family:system-ui, -apple-system, Segoe UI, Roboto, 'Prompt', sans-serif; }
+
+    /* Overlay: เปิดคลิกเฉพาะเมนู */
+    #hudOverlay { position:fixed; inset:0; pointer-events:none; }
     .menuWrap {
-      display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; gap:1rem;
-      pointer-events:auto;                 /* ✅ ให้เมนูรับคลิก */
-      z-index: 9999;                       /* ✅ ลอยเหนือแคนวาส */
+      height:100vh; display:flex; flex-direction:column; gap:1rem;
+      align-items:center; justify-content:center;
+      pointer-events:auto; z-index:9999;
     }
-    button { background:#22c55e; border:none; padding:0.8rem 1.4rem; border-radius:0.5rem; color:#fff; font-size:1rem; cursor:pointer; }
+    h2 { margin:0 0 .5rem; color:#fff; letter-spacing:.5px; }
+    label { color:#cbd5e1; margin-right:.5rem; }
+    select { padding:.35rem .5rem; border-radius:.5rem; border:1px solid #374151; background:#0f172a; color:#e5e7eb; }
+    button { background:#22c55e; border:none; padding:.8rem 1.4rem; border-radius:.7rem; color:#fff; font-size:1rem; cursor:pointer; }
     button:hover { background:#16a34a; }
-    select { padding:0.25rem 0.4rem; }
+    .status { position:fixed; left:0; right:0; bottom:12px; text-align:center; color:#cbd5e1; font-size:1rem; pointer-events:none; }
   </style>
 </head>
 <body>
+  <!-- Scene -->
   <a-scene background="color:#0b0d14" cursor="rayOrigin: mouse" raycaster="objects: .clickable" vr-mode-ui="enabled: true">
+    <!-- โซนสปอนเป้า (ล่าง-กลางจอ) -->
     <a-entity id="spawnZone" position="0 1.2 -1.2"></a-entity>
   </a-scene>
 
-  <!-- HUD Overlay -->
+  <!-- Overlay: เมนูเลือกโหมด/ระดับ + สถานะ -->
   <div id="hudOverlay">
     <div id="hubMenu" class="menuWrap">
-      <h2 style="color:#fff; margin:0 0 .5rem;">เริ่ม: HERO HEALTH ACADEMY</h2>
+      <h2>เริ่ม: HERO HEALTH ACADEMY</h2>
       <div>
-        <label style="color:#ccc; margin-right:.5rem;">เลือกโหมด:</label>
+        <label>เลือกโหมด:</label>
         <select id="selMode">
           <option value="goodjunk">Good vs Junk</option>
           <option value="groups">Food Groups</option>
@@ -42,7 +50,7 @@
         </select>
       </div>
       <div>
-        <label style="color:#ccc; margin-right:.5rem;">ระดับความยาก:</label>
+        <label>ระดับความยาก:</label>
         <select id="selDiff">
           <option value="easy">ง่าย</option>
           <option value="normal" selected>ปกติ</option>
@@ -51,16 +59,27 @@
       </div>
       <button id="btnStart" type="button">เริ่มเกม</button>
     </div>
-    <div class="status"><span id="bootStatus">Status: Preparing...</span></div>
+    <div class="status"><span id="bootStatus">Status: Ready</span></div>
   </div>
 
+  <!-- Launcher -->
   <script type="module">
-    const statusEl = document.getElementById('bootStatus');
-    const setStatus = (m)=>{ if(statusEl) statusEl.textContent = m; console.log(m); };
+    // ---------- Helpers ----------
+    const $ = (s)=>document.querySelector(s);
+    const statusEl = $('#bootStatus');
+    const hubMenu  = $('#hubMenu');
+    const selMode  = $('#selMode');
+    const selDiff  = $('#selDiff');
+    const btnStart = $('#btnStart');
+    const spawn    = $('#spawnZone');
 
+    const setStatus = (m)=>{ if(statusEl) statusEl.textContent = m; console.log('[HHA]', m); };
+
+    // Log errorsชัด ๆ
     window.addEventListener('error', e=> setStatus('JS Error: '+(e.message||'unknown')));
     window.addEventListener('unhandledrejection', e=> setStatus('Promise Error: '+(e.reason?.message||e.reason||'unknown')));
 
+    // ---------- Module map (พาธตามโครงสร้างโปรเจกต์) ----------
     const MODE_URL = {
       goodjunk : './modes/goodjunk.safe.js',
       groups   : './modes/groups.safe.js',
@@ -68,54 +87,73 @@
       plate    : './modes/plate.safe.js'
     };
 
-    const btnStart = document.getElementById('btnStart');
-    const selMode  = document.getElementById('selMode');
-    const selDiff  = document.getElementById('selDiff');
-    const hubMenu  = document.getElementById('hubMenu');
+    // ---------- Restore selection from URL (ถ้ามี) ----------
+    try {
+      const u = new URL(location.href);
+      const m = (u.searchParams.get('mode')||'').toLowerCase();
+      const d = (u.searchParams.get('diff')||'').toLowerCase();
+      if (m && MODE_URL[m]) selMode.value = m;
+      if (d && ['easy','normal','hard'].includes(d)) selDiff.value = d;
+    } catch {}
 
-    // ✅ กันบางเบราว์เซอร์บล็อกคลิกถ้าพ่อมี pointer-events:none
+    // กัน edge-case: บางเบราว์เซอร์บล็อกคลิกถ้าพ่อ pointer-events:none
     ['mousedown','touchstart','click','change'].forEach(ev=>{
-      hubMenu.addEventListener(ev, e=>{/* no-op to keep focus flow */}, {passive:true});
+      hubMenu.addEventListener(ev, ()=>{}, {passive:true});
     });
 
+    // ---------- Start button ----------
     btnStart.addEventListener('click', async (e)=>{
       e.preventDefault();
       const mode = selMode.value || 'goodjunk';
       const diff = selDiff.value || 'normal';
-      const host = document.getElementById('spawnZone');
       const url  = MODE_URL[mode] || MODE_URL.goodjunk;
 
-      setStatus(`Status: Loading ${mode} (${diff})...`);
+      // อัปเดต URL (ไม่รีโหลดหน้า)
+      try {
+        const u = new URL(location.href);
+        u.searchParams.set('mode', mode);
+        u.searchParams.set('diff', diff);
+        history.replaceState({}, '', u.toString());
+      } catch {}
+
+      setStatus(`Loading ${mode} (${diff})...`);
       hubMenu.style.display = 'none';
 
       try{
+        // ทดสอบว่าพาธถูก (HEAD แบบ fetch) ก่อน import เพื่อ error ที่อ่านง่าย
+        await fetch(url, {method:'GET', cache:'no-store'}).then(r=>{
+          if(!r.ok) throw new Error(`Cannot fetch ${url} (${r.status})`);
+        });
+
         const mod = await import(url + '?v=' + Date.now());
         if (!mod?.boot) throw new Error('No boot() in '+url);
-        await mod.boot({ host, difficulty: diff, goal: 40 });
-        setStatus(`Status: Running (${mode}/${diff})`);
+        await mod.boot({ host: spawn, difficulty: diff, goal: 40 });
+        setStatus(`Running (${mode}/${diff})`);
       }catch(err){
-        console.error(err);
-        setStatus('Error: '+(err?.message||err));
-        // fallback demo
+        console.error('[HHA] load mode failed:', err);
+        setStatus('Error: ' + (err?.message || err));
+
+        // ---------- Fallback demo (กล่องคลิกได้) ----------
         try{
           const scene = document.querySelector('a-scene');
           const box = document.createElement('a-box');
-          box.setAttribute('color','#22c55e');
-          box.setAttribute('depth','0.3');
-          box.setAttribute('height','0.3');
-          box.setAttribute('width','0.3');
+          box.setAttribute('color','#60a5fa');
+          box.setAttribute('depth','0.32');
+          box.setAttribute('height','0.32');
+          box.setAttribute('width','0.32');
           box.setAttribute('position','0 1.2 -1.2');
           box.classList.add('clickable');
           scene.appendChild(box);
-          box.addEventListener('click', ()=>box.setAttribute('color','#60a5fa'));
+          box.addEventListener('click', ()=> box.setAttribute('color','#22c55e'));
           setStatus('Fallback demo ready (click box)');
         }catch(e2){
           setStatus('Fallback failed: '+(e2?.message||e2));
         }
+
+        // แสดงเมนูกลับ ถ้าอยากเปลี่ยนโหมด/ระดับใหม่
+        setTimeout(()=>{ hubMenu.style.display = 'flex'; }, 1000);
       }
     });
-
-    setStatus('Status: Ready');
   </script>
 </body>
 </html>
