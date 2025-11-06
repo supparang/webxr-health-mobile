@@ -1,36 +1,27 @@
-// === modes/groups.safe.js ===
-import { boot as bootFactory } from '../vr/mode-factory.js';
+// === groups.safe.js — Food Groups (20 ต่อกลุ่ม; คลิก "ดี" ได้แต้ม) ===
+import { boot as baseBoot } from '../vr/mode-factory.js';
 
-const FRUITS = ['🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑','🍌','🍅','🍊','🍓','🍎'];
-const PROTEIN= ['🐟','🥚','🥩','🍗','🥓','🧀','🥜','🌰','🫘','🍤','🦐','🦑','🥙','🌯','🍣','🍛','🍖','🍔','🌭','🍗'];
-const GRAINS = ['🍞','🥯','🥖','🥐','🍚','🍙','🍘','🫓','🥨','🫕','🫔','🍜','🍝','🍱','🥞','🧇','🍩','🥟','🥪','🍿'];
-const VEGGIE = ['🥗','🥦','🥬','🥕','🌽','🫑','🍆','🧄','🧅','🥒','🍄','🥔','🌶️','🥗','🥦','🥬','🥕','🍅','🫛','🧄'];
+// 4 กลุ่มตัวอย่าง (อย่างละ ~10–12 ชิ้น, รวมสุ่มไปเรื่อย)
+const FRUIT  = ['🍎','🍏','🍇','🍓','🍒','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍈','🥭','🍑'];
+const VEGGIE = ['🥦','🥕','🌽','🍅','🥒','🧄','🧅','🥬','🍆','🫑'];
+const PROTEIN= ['🐟','🍗','🥚','🥜','🫘','🥩','🧀','🍖','🦐','🦑'];
+const GRAINS = ['🍞','🥖','🥯','🥨','🍚','🍙','🍘','🌮','🌯','🍝'];
 
-const GROUPS = [
-  { key:'ผลไม้',  set:FRUITS },
-  { key:'โปรตีน', set:PROTEIN },
-  { key:'ธัญพืช', set:GRAINS },
-  { key:'ผัก',    set:VEGGIE },
-];
+const GOOD = [...FRUIT, ...VEGGIE, ...PROTEIN, ...GRAINS].slice(0, 40); // เอา 40 รายการแรก
+const JUNK = ['🍔','🍟','🍕','🌭','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥓','🥠','🥯'];
 
-export async function boot(opts={}){
-  let current = GROUPS[Math.floor(Math.random()*GROUPS.length)];
-  // แสดงคำสั่งบน Mini Quest line
-  try{ document.querySelector('#tQmain')?.setAttribute('troika-text',`value: เก็บกลุ่ม: ${current.key}`); }catch{}
-
-  return bootFactory({
-    name:'groups',
-    pools:{ good:[...current.set], bad:[...FRUITS,...PROTEIN,...GRAINS,...VEGGIE].filter(x=>!current.set.includes(x)) },
-    judge:(char, ctx)=>{
-      if(!char) return { good:false, scoreDelta:-6 };
-      const ok = current.set.includes(char);
-      // เปลี่ยนกลุ่มทุก ๆ 6 ตัวที่เก็บถูก
-      if(ok && (ctx.streak+1)%6===0){
-        current = GROUPS[Math.floor(Math.random()*GROUPS.length)];
-        try{ document.querySelector('#tQmain')?.setAttribute('troika-text',`value: เก็บกลุ่ม: ${current.key}`); }catch{}
-      }
-      return ok ? { good:true, scoreDelta:12, feverDelta:8 } : { good:false, scoreDelta:-6 };
-    },
-    ...opts
+export async function boot(cfg={}) {
+  return baseBoot({
+    ...cfg,
+    name: 'groups',
+    pools: { good: GOOD, bad: JUNK },
+    goldenRate: 0.06,
+    goodRate:   0.75,
+    judge: (ch) => {
+      if(!ch) return { good:false, scoreDelta:-5 };
+      const healthy = GOOD.includes(ch);
+      // กลุ่มอาหารถือว่า "ดี" ทั้งหมด, ของหวาน/ฟาสต์ฟู้ด "ไม่ดี"
+      return { good: healthy, scoreDelta: healthy?10:-5, feverDelta: healthy?5:0 };
+    }
   });
 }
