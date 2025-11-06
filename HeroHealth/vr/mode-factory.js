@@ -1,4 +1,4 @@
-// === vr/mode-factory.js — Shared anti-overlap spawner & gameplay (HUD Events, 2025-11-07) ===
+// === vr/mode-factory.js — Production HUD+Fever+Anti-Overlap (2025-11-07) ===
 import { Difficulty }   from './difficulty.js';
 import { Emoji }        from './emoji-sprite.js';
 import { Fever }        from './fever.js';
@@ -99,14 +99,14 @@ export async function boot(config={}){
   const scene=$('a-scene')||document.body;
   const fever=new Fever(scene,null,{durationMs:10000});
 
-  // MiniQuest (ไม่พึ่ง DOM แล้ว, HUD ใช้อีเวนต์)
+  // MiniQuest + MissionDeck
   const mq=new MiniQuest( {}, { coach_start:$('#coach_start'), coach_good:$('#coach_good'),
                                 coach_warn:$('#coach_warn'), coach_fever:$('#coach_fever'),
                                 coach_quest:$('#coach_quest'), coach_clear:$('#coach_clear') } );
   mq.start(goal);
   const missions=new MissionDeck(); missions.draw3?.();
 
-  // helper: สร้างข้อความเควสแสดงบน HUD
+  // helper: ข้อความเควสที่ส่งให้ HUD
   function questLine(){
     try{
       const qs=mq.quests||[];
@@ -153,13 +153,13 @@ export async function boot(config={}){
   // Combo decay
   const comboDecay=setInterval(()=>{ if(!running) return; if(now()-lastGoodAt>2000 && combo>0){ combo--; emit('hha:score',{score,combo}); }},1000);
 
-  // Fever state watcher → ส่ง event ให้ HUD
-  let lastFever=false;
-  const feverWatch=setInterval(()=>{ 
+  // Fever banner watcher → HUD
+  let feverPrev=false;
+  const feverWatcher=setInterval(()=>{ 
     if(!running) return;
-    if(!!fever.active !== lastFever){
-      lastFever = !!fever.active;
-      emit('hha:fever', { state: lastFever ? 'start' : 'end' });
+    if(!!fever.active !== feverPrev){
+      feverPrev = !!fever.active;
+      emit('hha:fever', { state: feverPrev ? 'start' : 'end' });
     }
   }, 200);
 
@@ -178,8 +178,8 @@ export async function boot(config={}){
       const slot=takeFreeSlot(slots, busyCols, busyRows, slotCooldownMs);
       if(!slot) return;
 
-      // 2D overlap check
-      const tooClose=[...active].some(el=>{ try{ const p=el.getAttribute('position'); const dx=p.x-slot.x, dy=p.y-slot.y; return (dx*dx+dy*dy)<(minDist*minDist); }catch{ return false; }});
+      // 2D overlap check (soft reject)
+      const tooClose=[...active].some(el=>{ try{ const p=el.getAttribute('position'); const dx=p.x-slot.x, dy=p.y-slot.y; return (dx*dx+dy*dy)<(MIN_DIST_DEFAULT*MIN_DIST_DEFAULT); }catch{ return false; }});
       if(tooClose){ releaseSlot(slots,slot); return; }
 
       // reserve
@@ -216,7 +216,10 @@ export async function boot(config={}){
 
       let consumed=false;
       const killer=setTimeout(()=>{ // timeout -> miss
-        streak=0; combo=0; mq.junk(); emit('hha:score',{score,combo}); emit('hha:quest',{text:questLine()}); cleanup();
+        streak=0; combo=0; mq.junk();
+        emit('hha:score',{score,combo});
+        emit('hha:quest',{text:questLine()});
+        cleanup();
       }, ttl);
 
       const fire=(ev)=>{
@@ -302,7 +305,7 @@ export async function boot(config={}){
   }
   loop(); setTimeout(()=>spawnOne(),240);
 
-  // Timers (เวลา)
+  // Countdown timer → HUD
   const timerTick=setInterval(()=>{
     if(!running) return;
     remain -= 1000;
@@ -321,7 +324,7 @@ export async function boot(config={}){
   function endGame(reason='stop'){
     if(!running) return; running=false;
     clearTimeout(spawnTicker); clearInterval(timerTick); clearInterval(budgetTimer);
-    clearInterval(comboDecay); clearInterval(overlapSweeper); clearInterval(feverWatch);
+    clearInterval(comboDecay); clearInterval(overlapSweeper); clearInterval(feverWatcher);
     try{ fever.end(); }catch{} try{ sfx.playCoach?.('clear'); }catch{}
     emit('hha:time',{remainSec:0}); emit('hha:fever',{state:'end'});
     try{ window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,missionGood,goal,comboMax}})); }catch{}
