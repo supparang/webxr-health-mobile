@@ -9,48 +9,36 @@
   html,body{height:100%;margin:0;background:#0b1324;color:#e8f0ff;font-family:system-ui,Segoe UI,Inter,Arial}
   .fallback{position:fixed;left:12px;bottom:12px;padding:8px 10px;background:#111a33;color:#cfe;border-radius:10px;z-index:10}
   .fallback strong{color:#9ff}
+  .ver{position:fixed;right:10px;bottom:10px;opacity:0.6;font-size:12px}
 </style>
 
-<!-- A-Frame / Troika (รองรับไทย) -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
 
-<!-- บังคับเรนเดอร์หน้าสุด -->
 <script>
 AFRAME.registerComponent('front-most', {
   schema:{order:{default:10000}},
   init(){
-    const apply=(o)=>{
-      o.traverse(n=>{
-        if(n.material){
-          n.material.depthTest=false;
-          n.material.depthWrite=false;
-          n.renderOrder=this.data.order;
-        }
-      });
-    };
+    const apply=(o)=>{ o.traverse(n=>{ if(n.material){ n.material.depthTest=false; n.material.depthWrite=false; n.renderOrder=this.data.order; }}); };
     if(this.el.object3D) apply(this.el.object3D);
     this.el.addEventListener('object3dset',()=>apply(this.el.object3D));
   }
 });
 </script>
 
-<!-- Hub -->
 <script type="module">
-  import { GameHub } from './vr/hub.js?v=thai5';
+  import { GameHub } from './vr/hub.js?v=starter';
   window.addEventListener('DOMContentLoaded',()=>{ window.__hub=new GameHub(); });
 </script>
 </head>
 <body>
-<div class="fallback" id="bootStatus">
-  <div><strong>Status:</strong> Booting…</div>
-  <button id="forceStartBtn" style="margin-top:6px;background:#2e8b57;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">
-    Force Start
-  </button>
+<div class="fallback" id="bootStatus"><div><strong>Status:</strong> Booting…</div>
+  <button id="forceStartBtn" style="margin-top:6px;background:#2e8b57;color:#fff;border:0;padding:6px 10px;border-radius:6px;cursor:pointer">Force Start</button>
 </div>
+<div class="ver">HeroHealth Starter</div>
 
 <a-scene background="color:#0b1324" vr-mode-ui="enterVRButton:true"
-         renderer="colorManagement:true; physicallyCorrectLights:true">
+         renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true">
   <a-entity light="type: ambient; intensity: 1.0"></a-entity>
   <a-entity light="type: directional; intensity: 0.8" position="1 2 1"></a-entity>
   <a-sky color="#0b1324"></a-sky>
@@ -60,54 +48,59 @@ AFRAME.registerComponent('front-most', {
     <a-entity geometry="primitive: plane; width: 1.9; height: 0.30"
               material="color:#111a33; opacity:0.9; depthTest:false; depthWrite:false"></a-entity>
     <a-entity troika-text="value: โหมด: -; color:#9fd; fontSize:0.06;" position="-0.9 0.08 0.05"></a-entity>
-    <a-entity troika-text="value: เวลา: 60s; color:#fff; fontSize:0.06;" position="-0.9 -0.02 0.05"></a-entity>
-    <a-entity troika-text="value: คะแนน: 0; color:#fff; fontSize:0.06;" position="0.15 0.08 0.05"></a-entity>
+    <a-entity troika-text="value: เวลา: 60s; color: #fff; fontSize:0.06;" position="-0.9 -0.02 0.05"></a-entity>
+    <a-entity troika-text="value: คะแนน: 0; color: #fff; fontSize:0.06;" position="0.15 0.08 0.05"></a-entity>
     <a-entity troika-text="value: คอมโบ: x1; color:#fff; fontSize:0.06;" position="0.15 -0.02 0.05"></a-entity>
+
     <a-entity position="0 -0.20 0">
       <a-entity geometry="primitive: plane; width: 1.9; height: 0.08"
                 material="color:#1b2752; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
       <a-entity id="feverFill" geometry="primitive: plane; width: 0.0; height: 0.08" position="-0.95 0 0.06"
                 material="color:#ff6600; opacity:0.95; depthTest:false; depthWrite:false"></a-entity>
-      <a-entity troika-text="value: Fever 0%; color:#ffd54f; fontSize:0.06;" position="-0.92 -0.01 0.08"></a-entity>
+      <a-entity troika-text="value: Fever 0%; color: #ffd54f; fontSize:0.06;" position="-0.92 -0.01 0.08"></a-entity>
     </a-entity>
+
+    <a-entity id="pauseBtn" class="clickable" position="-0.88 0.10 0.06"
+      geometry="primitive: plane; width:0.18; height:0.08"
+      material="color:#5b2b2b; opacity:0.9"></a-entity>
+    <a-entity troika-text="value: Pause; color:#fff; fontSize:0.045;" position="-0.95 0.095 0.08"></a-entity>
+
+    <a-entity id="langBtn" class="clickable" position="0.88 0.10 0.06"
+      geometry="primitive: plane; width:0.18; height:0.08"
+      material="color:#243a6b; opacity:0.9"></a-entity>
+    <a-entity troika-text="value: TH/EN; color:#fff; fontSize:0.045;" position="0.80 0.095 0.08"></a-entity>
   </a-entity>
 
-  <!-- เมนูหลัก -->
+  <a-entity id="questPanel" position="0 1.65 -2.8" visible="false">
+    <a-entity geometry="primitive: plane; width: 1.9; height: 0.28"
+              material="color:#111a33; opacity:0.88; transparent:true; depthTest:false; depthWrite:false"></a-entity>
+    <a-entity troika-text="value: Mini Quests; color:#ffd54f; fontSize:0.07;" position="-0.9 0.09 0.05"></a-entity>
+    <a-entity id="tQ" troika-text="value: ; color:#e8f0ff; fontSize:0.06;" position="-0.9 -0.06 0.05"></a-entity>
+  </a-entity>
+
   <a-entity id="modeMenu" position="0 1.35 -1.2" front-most="order:10000">
     <a-entity geometry="primitive: plane; width: 1.05; height: 0.58"
               material="color:#0e1b38; opacity:0.95; transparent:true"></a-entity>
+    <a-entity troika-text="value: เลือกโหมดเกม; color:#9fd; fontSize:0.065;" position="-0.40 0.23 0.26"></a-entity>
+    <a-entity troika-text="value: ดี  vs  ขยะ; color:#fff; fontSize:0.058;" position="-0.38 0.07 0.26"></a-entity>
+    <a-entity troika-text="value: หมวดอาหาร; color:#fff; fontSize:0.058;" position="0.06 0.07 0.26"></a-entity>
+    <a-entity troika-text="value: สมดุลน้ำ; color:#fff; fontSize:0.058;" position="-0.38 -0.14 0.26"></a-entity>
+    <a-entity troika-text="value: จานสุขภาพ; color:#fff; fontSize:0.058;" position="0.06 -0.14 0.26"></a-entity>
 
-    <a-entity troika-text="value: เลือกโหมดเกม; color:#9fd; fontSize:0.065;"
-              position="-0.40 0.23 0.26"></a-entity>
-
-    <a-entity troika-text="value: ดี  vs  ขยะ; color:#fff; fontSize:0.058;"
-              position="-0.38 0.07 0.26"></a-entity>
-    <a-entity troika-text="value: หมวดอาหาร; color:#fff; fontSize:0.058;"
-              position="0.06 0.07 0.26"></a-entity>
-    <a-entity troika-text="value: สมดุลน้ำ; color:#fff; fontSize:0.058;"
-              position="-0.38 -0.14 0.26"></a-entity>
-    <a-entity troika-text="value: จานสุขภาพ; color:#fff; fontSize:0.058;"
-              position="0.06 -0.14 0.26"></a-entity>
-
-    <!-- hitboxes โปร่งใส -->
     <a-plane class="clickable" data-mode="goodjunk" position="-0.16 0.07 0.24" width="0.46" height="0.18"
              material="transparent:true; opacity:0.001;"
              onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
-
     <a-plane class="clickable" data-mode="groups" position="0.40 0.07 0.24" width="0.46" height="0.18"
              material="transparent:true; opacity:0.001;"
              onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
-
     <a-plane class="clickable" data-mode="hydration" position="-0.16 -0.14 0.24" width="0.46" height="0.18"
              material="transparent:true; opacity:0.001;"
              onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
-
     <a-plane class="clickable" data-mode="plate" position="0.40 -0.14 0.24" width="0.46" height="0.18"
              material="transparent:true; opacity:0.001;"
              onmouseenter="this.setAttribute('opacity',0.06)" onmouseleave="this.setAttribute('opacity',0.001)"></a-plane>
   </a-entity>
 
-  <!-- ปุ่มเริ่ม -->
   <a-entity id="startPanel" position="0 0.72 -1.15" visible="false" front-most="order:10000">
     <a-plane id="startBtn" class="clickable" position="0 0 0.30"
              width="0.90" height="0.24"
@@ -119,7 +112,6 @@ AFRAME.registerComponent('front-most', {
               position="-0.27 0 0.40"></a-entity>
   </a-entity>
 
-  <!-- กล้อง -->
   <a-entity id="rig" position="0 1.6 0">
     <a-entity id="camera" camera look-controls cursor="rayOrigin: mouse"
               raycaster="objects: .clickable, .target; far: 6">
@@ -135,62 +127,225 @@ AFRAME.registerComponent('front-most', {
   <a-entity id="fxLayer" position="0 0 0"></a-entity>
 </a-scene>
 
-<!-- จับคลิก + Fallback start -->
 <script>
 function logBoot(msg){
   const box=document.getElementById('bootStatus');
   if(box) box.firstElementChild.innerHTML='<strong>Status:</strong> '+msg;
   console.log('[HVR]',msg);
 }
+let _ctx;
+function getAudioCtx(){
+  if(_ctx) return _ctx;
+  const AC = window.AudioContext||window.webkitAudioContext;
+  _ctx = new AC();
+  return _ctx;
+}
+['click','touchstart','pointerdown','keydown'].forEach(ev=>{
+  window.addEventListener(ev,()=>{ try{ getAudioCtx().resume(); }catch{} }, {once:true});
+});
+
+(function(){
+  let paused=false;
+  function setPaused(v){
+    if(paused===v) return; paused=v;
+    window.dispatchEvent(new CustomEvent(v?'hha:pause':'hha:resume'));
+    logBoot(v?'Paused':'Resumed');
+  }
+  window.addEventListener('visibilitychange',()=>setPaused(document.hidden));
+  window.addEventListener('blur',()=>setPaused(true));
+  window.addEventListener('focus',()=>setPaused(false));
+  document.getElementById('pauseBtn').addEventListener('click',()=>setPaused(!paused));
+})();
+
+const i18n = {
+  th: { mode:'โหมด', time:'เวลา', score:'คะแนน', start:'เริ่ม', quests:'มิชชั่น' },
+  en: { mode:'Mode', time:'Time', score:'Score', start:'Start', quests:'Quests' }
+};
+let lang='th';
+document.getElementById('langBtn').addEventListener('click', ()=>{
+  lang = (lang==='th'?'en':'th');
+  const heads = document.querySelectorAll('#hudRoot a-entity[troika-text]');
+  if(heads.length>=3){
+    heads[0].setAttribute('troika-text','value', (i18n[lang].mode||'Mode')+': -');
+    heads[1].setAttribute('troika-text','value', (i18n[lang].time||'Time')+': 60s');
+    heads[2].setAttribute('troika-text','value', (i18n[lang].score||'Score')+': 0');
+  }
+});
 
 function wireClicks(){
   const hub=()=>window.__hub;
-
-  // เลือกโหมด
   document.querySelectorAll('[data-mode]').forEach(btn=>{
     const mode=btn.getAttribute('data-mode');
     const onPick=()=>{
       if(hub() && typeof hub().selectMode==='function') hub().selectMode(mode);
-      const lbl=document.querySelector('#startLbl');
+      const lbl=document.getElementById('startLbl');
       if(lbl) lbl.setAttribute('troika-text','value','เริ่ม: '+mode.toUpperCase());
-      const panel=document.querySelector('#startPanel');
-      if(panel) panel.setAttribute('visible',true);
+      document.getElementById('startPanel').setAttribute('visible',true);
       logBoot('Picked mode: '+mode);
     };
     ['click','mousedown','mouseup','triggerdown'].forEach(ev=>btn.addEventListener(ev,onPick));
   });
-
-  // ปุ่มเริ่ม
-  const start=document.querySelector('#startBtn');
-  const fx=document.querySelector('#startBtnFx');
-  if(start){
-    start.addEventListener('mouseenter',()=>fx.setAttribute('material','opacity',0.08));
-    start.addEventListener('mouseleave',()=>fx.setAttribute('material','opacity',0.0));
-    const tryStart=async ()=>{
-      logBoot('Start pressed');
-      if(hub()){
-        if(typeof hub().startGame==='function'){ hub().startGame(); return; }
-        if(typeof hub().start==='function'){ hub().start(); return; }
-        if(typeof hub().begin==='function'){ hub().begin(); return; }
-      }
-      // Fallback: start goodjunk.safe.js ทันที
-      try{
-        logBoot('Fallback: loading goodjunk.safe.js');
-        const mod=await import('./modes/goodjunk.safe.js?v=fallback');
-        if(mod && typeof mod.boot==='function'){
-          mod.boot({ host: document.getElementById('spawnZone'), duration:60, difficulty:'normal' });
-          logBoot('Fallback mode started.');
-        }else{
-          logBoot('Fallback module has no boot()');
-        }
-      }catch(e){ console.error(e); logBoot('Fallback failed: '+(e?.message||e)); }
-    };
-    ['click','mousedown','mouseup','triggerdown'].forEach(ev=>start.addEventListener(ev,tryStart));
-  }
+  const start=document.getElementById('startBtn');
+  const fx=document.getElementById('startBtnFx');
+  start.addEventListener('mouseenter',()=>fx.setAttribute('material','opacity',0.08));
+  start.addEventListener('mouseleave',()=>fx.setAttribute('material','opacity',0.0));
+  const tryStart=async ()=>{
+    logBoot('Start pressed');
+    if(hub()){
+      if(typeof hub().startGame==='function'){ hub().startGame(); return; }
+      if(typeof hub().start==='function'){ hub().start(); return; }
+      if(typeof hub().begin==='function'){ hub().begin(); return; }
+    }
+    logBoot('Fallback inline GoodJunk');
+    inlineGoodJunkBoot({host:document.getElementById('spawnZone'), duration:60, difficulty:'normal'});
+  };
+  ['click','mousedown','mouseup','triggerdown'].forEach(ev=>start.addEventListener(ev,tryStart));
+  document.getElementById('forceStartBtn').addEventListener('click', tryStart);
 }
-
 if(document.readyState!=='loading') setTimeout(wireClicks,0);
 else window.addEventListener('DOMContentLoaded',()=>setTimeout(wireClicks,0));
+
+function setHudTime(sec){
+  const t = document.querySelector('#hudRoot a-entity[troika-text]:nth-of-type(2)');
+  if(t) t.setAttribute('troika-text','value',(i18n[lang].time||'Time')+': '+sec+'s');
+}
+function setHudScore(sc){
+  const t = document.querySelector('#hudRoot a-entity[troika-text]:nth-of-type(3)');
+  if(t) t.setAttribute('troika-text','value',(i18n[lang].score||'Score')+': '+sc);
+}
+function setHudFever(p){
+  const bar = document.getElementById('feverFill');
+  if (bar) bar.setAttribute('geometry','width', (Math.max(0,Math.min(1,p))*1.9));
+  const label = document.querySelector('#hudRoot a-entity[troika-text][position="-0.92 -0.01 0.08"]');
+  if (label) label.setAttribute('troika-text','value','Fever ' + Math.round(p*100) + '%');
+}
+function burst3D(host, pos=[0,0,0], color='#7ee'){
+  for(let i=0;i<10;i++){
+    const piece = document.createElement('a-entity');
+    piece.setAttribute('geometry','primitive: box; depth: 0.02; height: 0.02; width: 0.02');
+    piece.setAttribute('material',`color:${color}; opacity:0.95; transparent:true`);
+    piece.setAttribute('position', `${pos[0]} ${pos[1]} ${pos[2]}`);
+    const dx = (Math.random()*0.6-0.3).toFixed(2);
+    const dy = (Math.random()*0.6-0.2).toFixed(2);
+    const dz = (Math.random()*0.2+0.05).toFixed(2);
+    piece.setAttribute('animation__move', `property: position; to: ${(+pos[0]+ +dx)} ${(+pos[1]+ +dy)} ${(+pos[2]+ +dz)}; dur: 450; easing: easeOutQuad`);
+    piece.setAttribute('animation__fade', 'property: material.opacity; to: 0; dur: 420; delay:80; easing: linear');
+    host.appendChild(piece);
+    setTimeout(()=>piece.remove(), 520);
+  }
+}
+function popupScore(host, pos=[0,0,0], text='+1', color='#7CFC00'){
+  const node = document.createElement('a-entity');
+  node.setAttribute('troika-text', `value: ${text}; color:${color}; fontSize:0.06; anchor:center;`);
+  node.setAttribute('position', `${pos[0]} ${pos[1]} ${pos[2]+0.02}`);
+  node.setAttribute('animation__rise', `property: position; to: ${pos[0]} ${(+pos[1]+0.24).toFixed(2)} ${pos[2]+0.02}; dur:600; easing:easeOutQuad`);
+  node.setAttribute('animation__fade', `property: opacity; to: 0; dur: 500; delay:100; easing: linear`);
+  host.appendChild(node);
+  setTimeout(()=>node.remove(), 700);
+}
+window.inlineGoodJunkBoot = function inlineGoodJunkBoot({host,duration=60,difficulty='normal'}){
+  const zone = host || document.getElementById('spawnZone');
+  while(zone.firstChild) zone.removeChild(zone.firstChild);
+
+  const plane = document.createElement('a-plane');
+  plane.setAttribute('width','2.2'); plane.setAttribute('height','1.2');
+  plane.setAttribute('color','#0e1b38'); plane.setAttribute('opacity','0.85');
+  plane.setAttribute('position','0 0 -0.01');
+  zone.appendChild(plane);
+
+  const GOOD   = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
+  const JUNK   = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
+  const DECOY  = ['🥯','🧀','🍗','🍖','🥠','🍜'];
+  const STAR   = '⭐';
+  const DIAM   = '🔷';
+  const SHIELD = '🛡️';
+  const X2     = '✖️';
+
+  let score=0, tLeft=duration, fever=0, combo=0;
+  let hasShield=false, hasX2=false, x2Timer=null;
+  setHudScore(score); setHudTime(tLeft); setHudFever(fever);
+
+  const hudRoot = document.getElementById('hudRoot');
+  const hudX2 = document.createElement('a-entity');
+  hudX2.setAttribute('troika-text','value: ; color:#FFD700; fontSize:0.08;');
+  hudX2.setAttribute('position','0.65 0.06 0.05');
+  hudRoot.appendChild(hudX2);
+
+  function randPos(){ return [ (Math.random()*1.8-0.9), (Math.random()*0.9-0.45), 0.01 ]; }
+
+  function spawnOne(){
+    const r = Math.random();
+    let kind, emoji, value=0, color='#fff';
+    if (r < 0.06){ kind='diamond'; emoji=DIAM; value=10; color='#8df'; }
+    else if (r < 0.14){ kind='star'; emoji=STAR; value=5; color='#ffea00'; }
+    else if (r < 0.20){ kind='shield'; emoji=SHIELD; value=0; color='#5ef'; }
+    else if (r < 0.26){ kind='x2'; emoji=X2; value=0; color='#FFD700'; }
+    else if (r < 0.40){ kind='decoy'; emoji=DECOY[(Math.random()*DECOY.length)|0]; value=-2; color='#f99'; }
+    else if (r < 0.78){ kind='good'; emoji=GOOD[(Math.random()*GOOD.length)|0]; value=1; color='#7CFC00'; }
+    else { kind='junk'; emoji=JUNK[(Math.random()*JUNK.length)|0]; value=-1; color='#f55'; }
+
+    const pos = randPos();
+    const e = document.createElement('a-entity');
+    e.classList.add('clickable','target');
+    e.setAttribute('troika-text', `value: ${emoji}; color:#fff; fontSize:${(kind==='diamond'||kind==='star')?0.22:(kind==='x2'?0.20:0.20)}; anchor:center;`);
+    e.setAttribute('position', `${pos[0].toFixed(2)} ${pos[1].toFixed(2)} ${pos[2]}`);
+
+    const life = setTimeout(()=>e.remove(), 2000);
+    e.addEventListener('click', ()=>{
+      clearTimeout(life);
+      if(kind==='shield'){
+        hasShield = true;
+        burst3D(zone, pos, color);
+        popupScore(zone, pos, '🛡️ ได้เกราะป้องกัน!', '#5ef');
+        e.remove(); return;
+      }
+      if(kind==='x2'){
+        hasX2 = true;
+        if(x2Timer) clearTimeout(x2Timer);
+        burst3D(zone, pos, color);
+        popupScore(zone, pos, '✖️ x2 Mode!', '#FFD700');
+        hudX2.setAttribute('troika-text','value','x2 ACTIVE!');
+        x2Timer = setTimeout(()=>{
+          hasX2=false;
+          hudX2.setAttribute('troika-text','value','');
+          popupScore(zone, [0,0.2,0.01],'x2 หมดเวลา','#999');
+        }, 8000);
+        e.remove(); return;
+      }
+      if((kind==='decoy' || kind==='junk') && hasShield){
+        hasShield=false;
+        burst3D(zone, pos, '#5ef');
+        popupScore(zone, pos, '🛡️ ป้องกันสำเร็จ!', '#5ef');
+        e.remove(); return;
+      }
+
+      burst3D(zone, pos, (kind==='good')?'#7CFC00':(kind==='star')?'#ffea00':(kind==='diamond')?'#8df':'#f55');
+      const mult = (hasX2?2:1) * (fever>=1?2:1);
+      const delta = (value>0 ? value*mult : value);
+      score = Math.max(0, score + delta);
+      if (value>0){ combo++; fever = Math.min(1, fever + (kind==='diamond'?0.15: kind==='star'?0.08:0.04)); }
+      else { combo = 0; fever = Math.max(0, fever - 0.10); zone.setAttribute('material','color','#2a0b1a'); setTimeout(()=>zone.setAttribute('material','color','#0e1b38'), 120); }
+
+      popupScore(zone, pos, (delta>0?'+':'')+delta + (kind==='star'?' ⭐':'' ) + (kind==='diamond'?' 💎':'' ), (delta>=0? (kind==='diamond'?'#8df':kind==='star'?'#ffea00':'#7CFC00') :'#f55') );
+      setHudScore(score); setHudFever(fever);
+      e.remove();
+    });
+
+    zone.appendChild(e);
+  }
+
+  const rate = (difficulty==='hard')? 260 : (difficulty==='normal')? 360 : 480;
+  const spawner = setInterval(spawnOne, rate);
+  const timer = setInterval(()=>{
+    tLeft--; setHudTime(tLeft);
+    if (tLeft<=0){
+      clearInterval(spawner); clearInterval(timer);
+      popupScore(zone, [0,0.1,0.01], 'จบเกม! คะแนน: '+score, '#9fd');
+    }
+  }, 1000);
+
+  for(let i=0;i<5;i++) spawnOne();
+}
 </script>
 </body>
 </html>
