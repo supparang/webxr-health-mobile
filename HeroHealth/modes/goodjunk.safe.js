@@ -1,40 +1,29 @@
-// === modes/goodjunk.safe.js (Good vs Junk Mode — 2025-11-06) ===
-// เป้าหมาย: คลิก "ของดี (GOOD)" เลี่ยง "ของขยะ (JUNK)"
-// อัปเดตล่าสุด: hitbox โปร่งใส + mouse/touch/VR, slot grid กันซ้อน,
-// scheduler จำกัดสปอนต่อวินาที + MAX_ACTIVE ตามระดับ, ระยะเวลาต่อรอบตามระดับ
-// API: export async function boot({ host, duration, difficulty='normal', goal=40 })
-
+// === modes/goodjunk.safe.js (2025-11-06: menu+quest-safe+3D FX) ===
 import Difficulty       from '../vr/difficulty.js';
 import Emoji            from '../vr/emoji-sprite.js';
 import { Fever }        from '../vr/fever.js';
 import MiniQuest        from '../vr/miniquest.js';
 import { MissionDeck }  from '../vr/mission.js';
-import { Particles }    from '../vr/particles.js';
+import { Particles, AdvancedFX } from '../vr/particles.js';
 import { SFX }          from '../vr/sfx.js';
 
 const $ = s => document.querySelector(s);
 const sample = arr => arr[Math.floor(Math.random()*arr.length)];
 const clamp  = (n,a,b)=>Math.max(a,Math.min(b,n));
 
-// ---------- Pools: 20 รายการ ----------
-const GOOD = [
-  '🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝',
-  '🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'
-];
-const JUNK = [
-  '🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰',
-  '🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'
-];
+// Pools 20 รายการ
+const GOOD = ['🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'];
+const JUNK = ['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'];
 
-// ---------- ระยะเวลาต่อรอบ (fallback เมื่อไม่ได้ส่ง duration เข้ามา) ----------
+// เวลา fallback ต่อระดับ
 const TIME_BY_DIFF = { easy: 45, normal: 60, hard: 75 };
 
-// ---------- Spawn controls ----------
-const MAX_ACTIVE_BY_DIFF   = { easy: 4,  normal: 6,  hard: 8   }; // เพดานพร้อมกัน
-const SPAWN_BUDGET_PER_SEC = { easy: 4,  normal: 6,  hard: 8   }; // สูงสุด/วินาที
-const GOOD_RATE            = 0.70;                                  // GOOD มากกว่า JUNK
+// คุมความหนาแน่น
+const MAX_ACTIVE_BY_DIFF   = { easy: 4,  normal: 6,  hard: 8 };
+const SPAWN_BUDGET_PER_SEC = { easy: 4,  normal: 6,  hard: 8 };
+const GOOD_RATE            = 0.70;
 
-// ---------- Emoji helper ----------
+// Emoji helper
 function makeEmoji(char, {size=96, scale=0.55, glow=true, shadow=true} = {}){
   if (typeof Emoji?.fromChar === 'function') {
     return Emoji.fromChar(char, { size, scale, glow, shadow });
@@ -48,13 +37,13 @@ function makeEmoji(char, {size=96, scale=0.55, glow=true, shadow=true} = {}){
   return el;
 }
 
-// ---------- Slot grid (กันซ้อน) ----------
+// Slot grid — ยกขึ้นเหนือเควส
 function buildSlots() {
   const xs = [-0.70,-0.42,-0.14, 0.14, 0.42, 0.70];
-  const ys = [ 1.00, 1.22, 1.44, 1.66, 1.88 ];
+  const ys = [ 1.65, 1.80, 1.95, 2.10, 2.25 ];
   const slots = [];
   for (const x of xs) for (const y of ys)
-    slots.push({ x, y, z: -(1.2 + Math.random()*0.5), used:false });
+    slots.push({ x, y, z: -(1.25 + Math.random()*0.35), used:false });
   return slots;
 }
 function takeFreeSlot(slots) {
@@ -65,14 +54,13 @@ function takeFreeSlot(slots) {
 }
 function releaseSlot(slots, slot){ if (slot) slot.used = false; }
 
-// ---------- bindOnce helper ----------
+// bindOnce
 function bindOnce(target, ev, fn, opt){
   const h = e => { target.removeEventListener(ev, h, opt); fn(e); };
   target.addEventListener(ev, h, opt);
 }
 
 export async function boot({ host, duration, difficulty='normal', goal=40 } = {}) {
-  // ---------- Host safety ----------
   if (!host){
     const wrap = $('a-scene') || document.body;
     const auto = document.createElement('a-entity');
@@ -81,7 +69,6 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
     host = auto;
   }
 
-  // ---------- Systems ----------
   const sfx = new SFX('../assets/audio/');
   await sfx.unlock();
   sfx.attachPageVisibilityAutoMute();
@@ -100,22 +87,21 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
   const missions = new MissionDeck();
   missions.draw3();
 
-  // ---------- Duration fallback ----------
+  // Duration fallback
   if (!duration || duration <= 0) duration = TIME_BY_DIFF[difficulty] || 60;
-  // แจ้ง HUD เวลา (ถ้า index ไม่ได้ตั้ง)
   try {
-    const timeHud = document.querySelector('#hudRoot a-entity[position="0 -0.08 0"]');
+    const timeHud = document.querySelector('#hudTime');
     timeHud && timeHud.setAttribute('troika-text','value', `เวลา: ${duration}s`);
   } catch {}
 
-  // ---------- Difficulty ----------
+  // Difficulty config base
   const diff = new Difficulty();
   const cfgByLevel = (diff?.config && diff.config[difficulty]) || diff?.config?.normal || { size:0.6, rate:520, life:2000 };
-  let spawnRateMs = cfgByLevel.rate;   // ระยะห่างพื้นฐาน
-  let lifetimeMs  = cfgByLevel.life;   // อายุเป้า
-  let sizeFactor  = cfgByLevel.size;   // ขนาดเป้า
+  let spawnRateMs = cfgByLevel.rate;
+  let lifetimeMs  = cfgByLevel.life;
+  let sizeFactor  = cfgByLevel.size;
 
-  // ---------- State ----------
+  // State
   let running = true;
   let missionGood = 0;
   let score = 0;
@@ -123,7 +109,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
   let streak = 0;
   let totalSpawn = 0;
 
-  // ---------- caps & slots & scheduler ----------
+  // caps & scheduler
   const MAX_ACTIVE     = MAX_ACTIVE_BY_DIFF[difficulty]   || 6;
   const BUDGET_PER_SEC = SPAWN_BUDGET_PER_SEC[difficulty] || 6;
   const active = new Set();
@@ -143,7 +129,6 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
   }
   scheduleSpawnLoop();
 
-  // ---------- Spawn ----------
   function spawnOne(){
     if (!running) return;
     if (active.size >= MAX_ACTIVE || issuedThisSecond >= BUDGET_PER_SEC) return;
@@ -159,7 +144,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
     const el = makeEmoji(char, { size: 96, scale: clamp(sizeFactor, 0.48, 0.85), glow: true, shadow: true });
     el.setAttribute('position', `${slot.x} ${slot.y} ${slot.z}`);
 
-    // ให้ raycaster เล็งโดน + เพิ่ม hitbox โปร่งใส
+    // ให้คลิกง่าย
     el.classList.add('hit');
     const hit = document.createElement('a-plane');
     hit.setAttribute('width',  0.40);
@@ -170,13 +155,11 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
 
     active.add(el);
 
-    // TTL ปรับตามระดับ: easy นานขึ้น, hard สั้นลง
+    // อายุเป้า (easy นานขึ้น, hard สั้นลง)
     const ttlMult = (difficulty === 'easy') ? 1.6 : (difficulty === 'hard' ? 0.9 : 1.0);
     const ttl = Math.round(lifetimeMs * ttlMult * (1.05 + Math.random()*0.35));
     const killer = setTimeout(()=>{
-      if (GOOD.includes(char)) { // พลาดของดี
-        streak = 0; combo = 0; mq.junk(); missions.onJunk();
-      }
+      if (GOOD.includes(char)) { streak = 0; combo = 0; mq.junk(); missions.onJunk?.(); }
       cleanup();
     }, ttl);
 
@@ -204,12 +187,15 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
 
     if (isGood){
       const gain = fever.active ? 2 : 1;
+      const plus = 10 * gain;
       missionGood += 1;
-      score += 10 * gain;
+      score += plus;
       combo += 1; streak += 1;
 
       sfx.popGood();
-      Particles.burst(host, pos, '#69f0ae');
+      AdvancedFX.explode3D(host, pos, '#69f0ae');
+      AdvancedFX.popupScore(host, {x:pos.x, y:pos.y+0.05, z:pos.z}, `+${plus}`);
+      AdvancedFX.shakeRig();
 
       if (streak % 6 === 0) fever.add(8);
 
@@ -222,32 +208,27 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
         mq.mission(missionGood);
         if (missionGood === goal){
           sfx.star();
-          Particles.spark(host, {x:0, y:1.4, z:-1.4}, '#ffe066');
+          Particles.spark(host, {x:0, y:1.6, z:-1.4}, '#ffe066');
         }
       }
     } else {
       score = Math.max(0, score - 5);
       combo = 0; streak = 0;
-
       sfx.popBad();
       Particles.smoke(host, pos);
       mq.junk();
       missions.onJunk?.();
     }
 
-    // แจ้ง HUD ส่วนกลาง (ถ้า index ฟัง)
+    // แจ้ง HUD กลาง
     try { window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); } catch {}
   }
 
-  // ---------- Timers ----------
-  const secondTimer = setInterval(()=>{
-    if (!running) return;
-    mq.second(); missions.second?.();
-  }, 1000);
-
+  // Timers
+  const secondTimer = setInterval(()=>{ if (running){ mq.second(); missions.second?.(); } }, 1000);
   const endTimer = setTimeout(()=> endGame('timeout'), duration * 1000);
 
-  // Fever hook (ชะลอสปอนช่วง Fever เล็กน้อย)
+  // Fever hooks
   window.addEventListener('hha:fever', (e)=>{
     if (e?.detail?.state === 'start'){
       mq.fever(); missions.onFeverStart?.();
@@ -277,20 +258,9 @@ export async function boot({ host, duration, difficulty='normal', goal=40 } = {}
     try { window.dispatchEvent(new CustomEvent('hha:end', { detail })); } catch {}
   }
 
-  // ---------- Public API ----------
   return {
-    pause(){
-      if (!running) return;
-      running = false;
-      clearTimeout(spawnTicker);
-      mq.pause?.();
-    },
-    resume(){
-      if (running) return;
-      running = true;
-      scheduleSpawnLoop();
-      mq.resume?.();
-    },
+    pause(){ if (!running) return; running = false; clearTimeout(spawnTicker); mq.pause?.(); },
+    resume(){ if (running) return; running = true; scheduleSpawnLoop(); mq.resume?.(); },
     stop(){ endGame('stop'); }
   };
 }
