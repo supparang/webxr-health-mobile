@@ -1,4 +1,4 @@
-// === modes/goodjunk.safe.js — Ultra clean & non-overlapping (2025-11-06) ===
+// === modes/goodjunk.safe.js — Ultra clean & anti-overlap solid (2025-11-06) ===
 import { Difficulty }   from '../vr/difficulty.js';
 import { Emoji }        from '../vr/emoji-sprite.js';
 import { Fever }        from '../vr/fever.js';
@@ -38,13 +38,13 @@ const JUNK=['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰
 
 // ---------- Session knobs (sparse & comfy) ----------
 const TIME_BY_DIFF         ={ easy:45, normal:60, hard:75 };
-const MAX_ACTIVE_BY_DIFF   ={ easy:1,  normal:2,  hard:2 };  // <= จำนวนพร้อมกันบนจอ
-const SPAWN_BUDGET_PER_SEC ={ easy:1,  normal:2,  hard:2 };  // <= อัตราสูงสุดต่อวินาที
+const MAX_ACTIVE_BY_DIFF   ={ easy:1,  normal:2,  hard:2 };  // จำนวนพร้อมกัน
+const SPAWN_BUDGET_PER_SEC ={ easy:1,  normal:2,  hard:2 };  // ต่อวินาทีสูงสุด
 const GOOD_RATE=0.70, GOLDEN_RATE=0.07;
 
-// Anti-overlap
-const MIN_DIST         = 0.28;  // m (2D x/y)
-const SLOT_COOLDOWN_MS = 420;   // ms (เว้นสลอตเดิมก่อนใช้ซ้ำ)
+// Anti-overlap (2D x/y + slot cooldown)
+const MIN_DIST         = 0.30;  // m (เพิ่มอีกนิดกันซ้อน)
+const SLOT_COOLDOWN_MS = 420;   // ms
 
 // ---------- Emoji / Twemoji ----------
 const USE_EMOJI_SVG=(()=>{ try{ return (new URL(location.href)).searchParams.get('emoji')?.toLowerCase()==='svg'; }catch{ return false; }})();
@@ -63,21 +63,22 @@ function makeEmojiNode(char,{scale=0.58}={}){
 
 // ---------- Slots: 3 columns x 2 rows (lower-middle screen) ----------
 function buildSlots(yBase=0.44){
-  const xs=[-0.85, 0.00, 0.85];    // กว้างมาก = โปร่ง
-  const ys=[ yBase, yBase+0.26 ];  // ล่าง + กลาง
+  const xs=[-0.90, 0.00, 0.90];    // กว้างมาก
+  const ys=[ yBase, yBase+0.28 ];  // ล่าง + กลาง
   const slots=[]; let id=0;
   for(let ci=0; ci<xs.length; ci++){
     for(let ri=0; ri<ys.length; ri++){
-      slots.push({ id:id++, col:ci, row:ri, x:xs[ci], y:ys[ri], z:-(1.32+Math.random()*0.12), used:false, lastUsed:0 });
+      slots.push({ id:id++, col:ci, row:ri, x:xs[ci], y:ys[ri], z:-(1.32+Math.random()*0.10), used:false, lastUsed:0 });
     }
   }
   return slots;
 }
-function takeFreeSlot(slots){
+function takeFreeSlot(slots, busyCols, busyRows){
   const t=now();
-  const free=slots.filter(s=>!s.used && (t - s.lastUsed >= SLOT_COOLDOWN_MS));
+  const free=slots.filter(s=>!s.used && (t - s.lastUsed >= SLOT_COOLDOWN_MS) && !busyCols.has(s.col) && !busyRows.has(s.row));
   if(!free.length) return null;
-  const s=free[Math.floor(Math.random()*free.length)]; s.used=true; return s;
+  const s=free[Math.floor(Math.random()*free.length)];
+  s.used=true; return s;
 }
 function releaseSlot(slots,slot){ if(slot){ slot.used=false; slot.lastUsed=now(); } }
 
@@ -116,7 +117,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   const baseCfg=(diff?.config?.[difficulty]) || (diff?.config?.normal) || safeCfg;
   let spawnRateMs = Number(baseCfg.rate) || safeCfg.rate;
   let lifetimeMs  = Number(baseCfg.life) || safeCfg.life;
-  let sizeFactor  = Math.max(0.40, (Number(baseCfg.size)||0.60) * 0.80); // เล็กลง ~20% (max cap ตอนสร้าง)
+  let sizeFactor  = Math.max(0.40, (Number(baseCfg.size)||0.60) * 0.80); // เล็กลง ~20%
 
   const hitW=(difficulty==='easy'?0.50 : difficulty==='hard'?0.40 : 0.46);
 
@@ -132,6 +133,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   const busyCols=new Set();          // จำกัด 1 ชิ้นต่อคอลัมน์
   const busyRows=new Set();          // จำกัด 1 ชิ้นต่อแถว
   let issuedThisSec=0, spawnTicker;
+  let SPAWN_LOCK=false;              // กัน race/ซ้อน
   const budgetTimer=setInterval(()=>{ issuedThisSec=0; },1000);
 
   // FPS adapt (เบา ๆ)
@@ -169,85 +171,88 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
     }
   }catch{} }
 
-  // ------------------------ Spawn one target ------------------------
+  // ------------------------ Spawn one target (race-safe) ------------------------
   function spawnOne(){
     if(!running) return;
-    if(active.size>=MAX_ACTIVE || issuedThisSec>=BUDGET) return;
+    if(SPAWN_LOCK) return;
+    SPAWN_LOCK=true;
 
-    const slot=takeFreeSlot(slots);
-    if(!slot) return;
+    try{
+      if(active.size>=MAX_ACTIVE || issuedThisSec>=BUDGET) return;
 
-    // ห้ามมากกว่า 1 ชิ้นในคอลัมน์/แถวเดียวกัน
-    if(busyCols.has(slot.col) || busyRows.has(slot.row)){ releaseSlot(slots,slot); return; }
+      const slot=takeFreeSlot(slots, busyCols, busyRows);
+      if(!slot) return;
 
-    // กันซ้อน 2D: ตรวจระยะกับทุกชิ้นที่แอคทีฟ (ใช้ x/y)
-    const tooClose=[...active].some(el=>{
-      try{ const p=el.getAttribute('position'); const dx=p.x-slot.x, dy=p.y-slot.y; return (dx*dx+dy*dy) < (MIN_DIST*MIN_DIST); }
-      catch{ return false; }
-    });
-    if(tooClose){ releaseSlot(slots,slot); return; }
+      // กันซ้อน 2D อีกรอบ (edge)
+      const tooClose=[...active].some(el=>{
+        try{ const p=el.getAttribute('position'); const dx=p.x-slot.x, dy=p.y-slot.y; return (dx*dx+dy*dy) < (MIN_DIST*MIN_DIST); }
+        catch{ return false; }
+      });
+      if(tooClose){ releaseSlot(slots,slot); return; }
 
-    // จองคอลัมน์/แถว
-    busyCols.add(slot.col); busyRows.add(slot.row);
-    issuedThisSec++;
+      // จองคอลัมน์/แถวทันที
+      busyCols.add(slot.col); busyRows.add(slot.row);
+      issuedThisSec++;
 
-    // เนื้อหา
-    const isGood=Math.random()<GOOD_RATE;
-    const char =isGood?sample(GOOD):sample(JUNK);
-    const isGold=isGood && Math.random()<GOLDEN_RATE;
+      const isGood=Math.random()<GOOD_RATE;
+      const char =isGood?sample(GOOD):sample(JUNK);
+      const isGold=isGood && Math.random()<GOLDEN_RATE;
 
-    const el=makeEmojiNode(char,{ scale: clamp(sizeFactor, 0.35, 0.65) }); // cap 0.65
-    el.setAttribute('position',`${slot.x} ${slot.y} ${slot.z}`);  // ไม่มี z-jitter เพื่อกันซ้อนเชิงลึก
-    el.classList.add('hit','clickable');
-    el.__col=slot.col; el.__row=slot.row;
+      const el=makeEmojiNode(char,{ scale: clamp(sizeFactor, 0.35, 0.65) }); // cap 0.65
+      el.setAttribute('position',`${slot.x} ${slot.y} ${slot.z}`);  // ไม่มี z-jitter
+      el.classList.add('hit','clickable');
+      el.__col=slot.col; el.__row=slot.row;
 
-    if(isGold){
-      el.setAttribute('scale','1.12 1.12 1.12');
-      const halo=document.createElement('a-ring');
-      halo.setAttribute('radius-inner','0.18'); halo.setAttribute('radius-outer','0.22');
-      halo.setAttribute('position','0 0 0.001'); halo.setAttribute('material','color:#ffe066; opacity:0.85; shader:flat');
-      el.appendChild(halo);
-    }
+      if(isGold){
+        el.setAttribute('scale','1.12 1.12 1.12');
+        const halo=document.createElement('a-ring');
+        halo.setAttribute('radius-inner','0.18'); halo.setAttribute('radius-outer','0.22');
+        halo.setAttribute('position','0 0 0.001'); halo.setAttribute('material','color:#ffe066; opacity:0.85; shader:flat');
+        el.appendChild(halo);
+      }
 
-    // Hitbox โปร่งใส
-    const hit=document.createElement('a-plane');
-    hit.setAttribute('width',hitW); hit.setAttribute('height',hitW);
-    hit.setAttribute('material','opacity:0; transparent:true; side:double');
-    hit.classList.add('hit','clickable');
-    el.appendChild(hit);
+      // ฮิตบ็อกซ์โปร่งใส
+      const hit=document.createElement('a-plane');
+      hit.setAttribute('width',hitW); hit.setAttribute('height',hitW);
+      hit.setAttribute('material','opacity:0; transparent:true; side:double');
+      hit.classList.add('hit','clickable');
+      el.appendChild(hit);
 
-    active.add(el);
+      active.add(el);
 
-    // อายุเป้า
-    const ttlMult=(difficulty==='easy')?1.8:(difficulty==='hard'?0.95:1.1);
-    let ttl=Math.round(lifetimeMs*ttlMult*(1.05+Math.random()*0.35));
-    if(active.size<=1) ttl=Math.max(ttl,2400);
+      // อายุเป้า
+      const ttlMult=(difficulty==='easy')?1.8:(difficulty==='hard'?0.95:1.1);
+      let ttl=Math.round(lifetimeMs*ttlMult*(1.05+Math.random()*0.35));
+      if(active.size<=1) ttl=Math.max(ttl,2400);
 
-    let consumed=false;
-    const killer=setTimeout(()=>{
-      if(GOOD.includes(char)){ streak=0; combo=0; mq.junk(); missions.onJunk?.(); }
-      cleanup();
-    },ttl);
+      let consumed=false;
+      const killer=setTimeout(()=>{
+        if(GOOD.includes(char)){ streak=0; combo=0; mq.junk(); missions.onJunk?.(); }
+        cleanup();
+      },ttl);
 
-    const fire=(ev)=>{
-      if(consumed) return; consumed=true;
-      try{ ev?.stopPropagation?.(); ev?.preventDefault?.(); }catch{}
-      clearTimeout(killer);
-      onHit({ el, char, pos:{x:slot.x,y:slot.y,z:slot.z}, isGold });
-      cleanup();
-    };
-    ['click','mousedown','touchstart','triggerdown'].forEach(evt=>{
-      try{ hit.addEventListener(evt, fire, {passive:false}); }catch{}
-      try{ el.addEventListener(evt,  fire, {passive:false}); }catch{}
-    });
+      const fire=(ev)=>{
+        if(consumed) return; consumed=true;
+        try{ ev?.stopPropagation?.(); ev?.preventDefault?.(); }catch{}
+        clearTimeout(killer);
+        onHit({ el, char, pos:{x:slot.x,y:slot.y,z:slot.z}, isGold });
+        cleanup();
+      };
+      ['click','mousedown','touchstart','triggerdown'].forEach(evt=>{
+        try{ hit.addEventListener(evt, fire, {passive:false}); }catch{}
+        try{ el.addEventListener(evt,  fire, {passive:false}); }catch{}
+      });
 
-    host.appendChild(el);
+      host.appendChild(el);
 
-    function cleanup(){
-      try{ el.remove(); }catch{}
-      active.delete(el);
-      busyCols.delete(slot.col); busyRows.delete(slot.row);
-      releaseSlot(slots,slot);
+      function cleanup(){
+        try{ el.remove(); }catch{}
+        active.delete(el);
+        busyCols.delete(slot.col); busyRows.delete(slot.row);
+        releaseSlot(slots,slot);
+      }
+    } finally {
+      SPAWN_LOCK=false;
     }
   }
 
@@ -256,7 +261,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
     clearTimeout(spawnTicker);
     const tick=()=>{
       if(running && active.size<MAX_ACTIVE && issuedThisSec<BUDGET) spawnOne();
-      const cd=Math.max(350, spawnRateMs|0);
+      const cd=Math.max(380, spawnRateMs|0);   // soft-min 380ms
       spawnTicker=setTimeout(tick,cd);
     };
     tick();
@@ -264,7 +269,7 @@ export async function boot({ host, duration, difficulty='normal', goal=40 }={}){
   function prime(){ setTimeout(()=>spawnOne(),220); }
 
   loop(); prime();
-  console.log('[goodjunk] sparse+no-overlap', {MAX_ACTIVE, BUDGET, MIN_DIST});
+  console.log('[goodjunk] sparse+no-overlap v3', {MAX_ACTIVE, BUDGET, MIN_DIST});
 
   // Hit result
   function onHit({ el, char, pos, isGold=false }){
