@@ -186,4 +186,107 @@ export async function boot(config={}){
       }, ttl);
 
       const fire=(ev)=>{
-        if(consumed) return;
+        if(consumed) return; consumed=true;
+        try{ ev?.stopPropagation?.(); ev?.preventDefault?.(); }catch{}
+        clearTimeout(killer);
+
+        // judge result
+        let res = { good:true, scoreDelta:10, feverDelta:0 };
+        if(typeof judge==='function') res = judge(char, { type:'hit', score, combo, streak, feverActive:fever.active });
+
+        if(res.good){
+          const plus = res.scoreDelta ?? 10;
+          missionGood+=1; score+=plus; combo+=1; streak+=1; comboMax=Math.max(comboMax,combo); lastGoodAt=now();
+          try{ Particles.burst?.(host, {x:slot.x,y:slot.y,z:slot.z}, '#69f0ae'); }catch{}
+          try{
+            const t=document.createElement('a-entity');
+            t.setAttribute('troika-text',`value: +${plus}; color:#fff; fontSize:0.08; anchor:center`);
+            t.setAttribute('position',`${slot.x} ${slot.y+0.05} ${slot.z+0.01}`);
+            host.appendChild(t);
+            t.setAttribute('animation__rise',`property: position; to: ${slot.x} ${slot.y+0.30} ${slot.z+0.01}; dur: 520; easing: ease-out`);
+            t.setAttribute('animation__fade',`property: opacity; to: 0; dur: 520; easing: linear`);
+            setTimeout(()=>t.remove(),560);
+          }catch{}
+          if(res.feverDelta) try{ fever.add(res.feverDelta); }catch{}
+          mq.good({score,combo,streak,missionGood});
+        }else{
+          score=Math.max(0, score + (res.scoreDelta ?? -5));
+          combo=0; streak=0; try{ Particles.smoke?.(host,{x:slot.x,y:slot.y,z:slot.z}); }catch{} mq.junk();
+        }
+        try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{}
+
+        if(missionGood>=goal){ mq.mission(missionGood); }
+        cleanup();
+      };
+
+      ['click','mousedown','touchstart','triggerdown'].forEach(evt=>{
+        try{ hit.addEventListener(evt, fire, {passive:false}); }catch{}
+        try{ el.addEventListener(evt,  fire, {passive:false}); }catch{}
+      });
+
+      host.appendChild(el);
+
+      function cleanup(){
+        try{ el.remove(); }catch{}
+        active.delete(el);
+        busyCols.delete(slot.col); busyRows.delete(slot.row);
+        releaseSlot(slots,slot);
+      }
+    } finally { SPAWN_LOCK=false; }
+  }
+
+  // Sweeper: resolve overlaps every 200ms
+  function resolveOverlaps(){
+    const arr=[...active];
+    for(let i=0;i<arr.length;i++){
+      for(let j=i+1;j<arr.length;j++){
+        const a=arr[i], b=arr[j];
+        try{
+          const pa=a.getAttribute('position'), pb=b.getAttribute('position');
+          const dx=pb.x-pa.x, dy=pb.y-pa.y, d2=dx*dx+dy*dy;
+          if(d2 < (minDist*minDist)){
+            const dest=takeFreeSlot(slots, busyCols, busyRows, slotCooldownMs);
+            if(dest){
+              b.setAttribute('position',`${dest.x} ${dest.y} ${dest.z}`);
+              busyCols.add(dest.col); busyRows.add(dest.row);
+              if(b.__col!=null && b.__row!=null){ busyCols.delete(b.__col); busyRows.delete(b.__row); }
+              b.__col=dest.col; b.__row=dest.row;
+            }else{
+              try{ b.remove(); }catch{} active.delete(b);
+            }
+          }
+        }catch{}
+      }
+    }
+  }
+  const overlapSweeper=setInterval(()=>{ if(running) resolveOverlaps(); },200);
+
+  // Loop
+  function loop(){
+    clearTimeout(spawnTicker);
+    const tick=()=>{ if(running && !ctl.paused && issuedThisSec<BUDGET) spawnOne();
+      const cd=Math.max(380, spawnRateMs|0); spawnTicker=setTimeout(tick, cd); };
+    tick();
+  }
+  loop(); setTimeout(()=>spawnOne(),240);
+
+  // Timers
+  const secondTimer=setInterval(()=>{ if(running && !ctl.paused){ duration=Math.max(0, duration-1);
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:duration}}));
+    mq.second(); missions.second?.(); if(duration<=0){ endGame('timeout'); } } },1000);
+
+  function endGame(reason='stop'){
+    if(!running) return; running=false;
+    clearTimeout(spawnTicker); clearInterval(secondTimer); clearInterval(budgetTimer);
+    clearInterval(comboDecay); clearInterval(overlapSweeper);
+    try{ window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,missionGood,goal,comboMax}})); }catch{}
+  }
+
+  return {
+    stop(){ endGame('stop'); },
+    pause(){ ctl.paused=true; },
+    resume(){ ctl.paused=false; }
+  };
+}
+
+export default { boot };
