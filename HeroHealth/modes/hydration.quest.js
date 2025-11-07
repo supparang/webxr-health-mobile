@@ -1,91 +1,85 @@
-// === modes/hydration.quest.js — production safe ===
-import { boot as factoryBoot } from '../vr/mode-factory.js';
+// === modes/hydration.quest.js (production) ===
+import { boot as buildMode } from '../vr/mode-factory.js';
 
-export async function boot(config = {}){
-  // โซน hydration (0..100)
-  let meter = 40; // เริ่ม LOW/GREEN
-  let zone  = 'LOW';
-  let greenSec = 0;
-  let streak = 0;
+// รายการ “ดื่มน้ำ” กับ “เครื่องดื่ม” มีผลต่อระดับน้ำ
+var WATER = ['💧','🚰','🧊','🥛'];         // ดี
+var LIGHT = ['🍵','🧃','🫖'];             // กลาง ๆ
+var BAD   = ['🥤','🧋','🍺','🍷','🍹'];     // ไม่ดี
 
-  // รายการ
-  const GOOD = ['💧','🥛','🍉','🍊','🍐','🥒'];       // เพิ่มน้ำ
-  const BAD  = ['🥤','🧋','🍺','🍷','🍰','🍩'];       // เพิ่มน้ำแบบ “ไม่ดี” (ถ้า HIGH ลงโทษ)
+function inArr(ch, arr){ for(var i=0;i<arr.length;i++){ if(arr[i]===ch) return true; } return false; }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
 
-  // ช่วยอธิบายบน HUD ขวา
-  function updateQuestHUD(){
-    const text = `Hydration — Zone: ${zone} | GREEN ${greenSec}/20s | Streak ${streak}/10 | Recover HIGH→GREEN ≤3s`;
-    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text}})); }catch{}
-  }
-  updateQuestHUD();
+export async function boot(cfg){
+  cfg = cfg || {};
+  var level = 50; // 0..100
+  var zone  = 'GREEN'; // LOW / GREEN / HIGH
+  var streak = 0, greenHold = 0; // วินาทีในโซนเขียว
+  var lastTick = Date.now();
 
-  function recalcZone(){
-    if(meter<35) zone='LOW';
-    else if(meter>65) zone='HIGH';
-    else zone='GREEN';
-  }
+  function zoneOf(v){ if(v<35) return 'LOW'; if(v>75) return 'HIGH'; return 'GREEN'; }
+  function questText(){ return 'Hydration — Zone: '+zone+' | GREEN '+greenHold+'/20s | Streak '+streak+'/10 | Recover HIGH→GREEN ≤3s'; }
 
-  // ปรับ meter ตามของที่เลือก
-  function judge(char, ctx){
-    // เพิ่ม/ลดตามหมวด
-    let delta = 0, good = true, scoreDelta = 0, feverDelta = 0;
+  try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){}
 
-    if(GOOD.includes(char)){
-      // น้ำดี: เพิ่ม meter
-      meter += 7;
-      if(zone==='LOW'){ scoreDelta = 12; streak++; }
-      else if(zone==='GREEN'){ scoreDelta = 10; streak++; feverDelta = 1; }
-      else if(zone==='HIGH'){ // ดื่มเกิน → ลดสกอร์เล็กน้อย
-        scoreDelta = -4; good = false; streak = 0;
+  // ให้ระบบสปอว์นใช้ “อิโมจิดื่ม” ทั้งหมด (รวมไม่ดี)
+  var ALL = WATER.concat(LIGHT).concat(BAD);
+
+  // tick น้ำลดตามเวลาเล็กน้อย
+  var decay = setInterval(function(){
+    var now = Date.now();
+    var dt = Math.max(0, Math.min(2000, now - lastTick));
+    lastTick = now;
+    level = clamp(level - dt*0.004, 0, 100); // ลดช้า ๆ
+    var z = zoneOf(level);
+    if(z==='GREEN'){ greenHold = clamp(greenHold+1, 0, 999); } else { greenHold = 0; }
+    zone = z;
+    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){}
+  }, 1000);
+
+  var api = await buildMode({
+    host: cfg.host,
+    difficulty: cfg.difficulty,
+    duration: cfg.duration,
+    pools: { good: ALL, bad: [] }, // ทั้งหมดเป็น "เป้าดื่ม" ให้ judge เป็นตัวตัดสิน
+    goodRate: 1.0,
+    goal: 9999,
+    judge: function(char, ctx){
+      // ผลกระทบต่อระดับน้ำ
+      var delta = 0;
+      if(inArr(char, WATER)) delta = 10;
+      else if(inArr(char, LIGHT)) delta = 5;
+      else if(inArr(char, BAD)) delta = -12;
+
+      var prev = level; level = clamp(level + delta, 0, 100);
+      var prevZone = zone; zone = zoneOf(level);
+
+      // กติกาคะแนน: อยู่ GREEN ได้แต้มดี, LOW/HIGH ลงโทษเพิ่มตามกติกาที่คุยไว้
+      var scoreDelta = 0, good = true;
+
+      if(zone==='GREEN'){
+        scoreDelta = 12; streak += 1;
+      }else if(zone==='LOW'){
+        // ถ้าดื่มของไม่ดีตอน LOW → โทษหนัก
+        if(inArr(char, BAD)){ scoreDelta = -15; good = false; streak = 0; }
+        else scoreDelta = 6; // ดื่มของดีเพื่อขึ้นสู่เขียว
+      }else if(zone==='HIGH'){
+        // ถ้าอยู่สูง ดื่มของไม่ดี → ลงโทษน้อยกว่า (ตามเงื่อนไข)
+        if(inArr(char, BAD)){ scoreDelta = 2; } // ปรับลด
+        else { scoreDelta = -8; good=false; streak=0; } // ดื่มเพิ่มตอนสูง = ไม่ดี
       }
-    }else{
-      // ของไม่ดี: เพิ่ม meter มาก/หรือโทษเมื่อ LOW
-      meter += 9;
-      if(zone==='LOW'){ scoreDelta = -6; good = false; streak = 0; }
-      else if(zone==='GREEN'){ scoreDelta = -3; good = false; streak = 0; }
-      else if(zone==='HIGH'){ scoreDelta = -8; good = false; streak = 0; }
+
+      // เควสย่อย: Perfect Balance / Hydration Streak / Overdrink Warning
+      // อัปเดตข้อความทุก hit
+      try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){}
+
+      return { good: good, scoreDelta: scoreDelta };
     }
-
-    meter = Math.max(0, Math.min(100, meter));
-    const prevZone = zone;
-    recalcZone();
-
-    // เควส: อยู่โซน GREEN ต่อเนื่อง
-    if(zone==='GREEN') greenSec = Math.min(20, greenSec+1);
-    else greenSec = 0;
-
-    // เควส: Recover HIGH→GREEN ≤3s
-    if(prevZone==='HIGH' && zone==='GREEN'){ /* ตัวเช็คเวลาเสริมทำใน loop ด้านล่าง */ }
-
-    updateQuestHUD();
-    return { good, scoreDelta, feverDelta };
-  }
-
-  // เดินเวลาทุกวิ (factory จะยิง hha:time ให้แล้ว แต่ซ้ำไว้อีกชั้นเพื่อความชัวร์)
-  let sec = Number(config.duration)||60;
-  const t = setInterval(()=>{
-    try{ window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec}})); }catch{}
-    if(sec>0) sec--;
-  },1000);
-
-  // เริ่มเกมผ่าน factory
-  const api = await factoryBoot({
-    name:'hydration',
-    pools: { good: GOOD, bad: BAD },
-    judge,
-    difficulty: config.difficulty || 'normal',
-    duration: config.duration || 60,
-    host: config.host,
-    goodRate: 0.60,
-    goldenRate: 0.05,
-    goal: 999 // ใช้เควสเป็นหลัก
   });
 
-  // คืน API มาตรฐาน
   return {
-    stop(){ try{ api?.stop?.(); }catch{} clearInterval(t); },
-    pause(){ try{ api?.pause?.(); }catch{} },
-    resume(){ try{ api?.resume?.(); }catch{} }
+    stop: function(){ try{ clearInterval(decay); }catch(e){} api && api.stop && api.stop(); },
+    pause: function(){ api && api.pause && api.pause(); },
+    resume: function(){ api && api.resume && api.resume(); }
   };
 }
 
