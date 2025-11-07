@@ -1,4 +1,4 @@
-// === vr/mode-factory.js (Safe/Production) ===
+9// === vr/mode-factory.js (Safe/Production) ===
 // โรงงานสปอว์นเป้า + จัดการเวลา/คะแนน + อีเวนต์ HUD
 // ไม่มี optional chaining เพื่อรองรับเบราว์เซอร์เก่า
 
@@ -195,4 +195,3 @@ export async function boot(cfg){
 }
 
 export default { boot };
-```0
