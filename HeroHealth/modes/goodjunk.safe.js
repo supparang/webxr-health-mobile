@@ -1,51 +1,92 @@
-// === modes/goodjunk.safe.js (production) ===
-import { boot as buildMode } from '../vr/mode-factory.js';
+// === Hero Health — modes/goodjunk.safe.js ===
+// DROP-IN: ใช้แทนที่ทั้งไฟล์ได้ หรือคัดเฉพาะส่วน "ADD" ไปใส่ในไฟล์เดิม
 
-// ชุดอิโมจิพื้นฐาน
-var GOOD = ['🍎','🍓','🍇','🥦','🥕','🍊','🥬','🍌','🍐','🍍','🫐','🍉','🥝','🐟','🍞','🥛','🍚','🥗'];
-var BAD  = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
+import { Particles } from '../vr/particles.js';
 
-function inArr(ch, arr){
-  for(var i=0;i<arr.length;i++){ if(arr[i]===ch) return true; }
-  return false;
+// ---------- ADD: utilities ----------
+function uvFromEvent(e){
+  // เดาพิกัดจอจากอีเวนต์คลิก (ถ้าไม่มี ใช้ค่ากลาง)
+  const x = (e && (e.clientX!=null)) ? e.clientX / window.innerWidth  : 0.5;
+  const y = (e && (e.clientY!=null)) ? e.clientY / window.innerHeight : 0.6;
+  return [x, y];
 }
 
-export async function boot(cfg){
-  cfg = cfg || {};
-  // เควสหมุนเวียนง่าย ๆ
-  var quest = 'เก็บของดีให้ได้ 8 ชิ้น (หลีกเลี่ยงของขยะ)';
-  try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:quest}})); }catch(e){}
+export async function boot(config = {}) {
+  const host = (config && config.host) || document.getElementById('spawnHost');
+  let score = 0, combo = 0, timeLeft = Number(config.duration||60);
+  let running = true;
 
-  var api = await buildMode({
-    host: cfg.host,
-    difficulty: cfg.difficulty,
-    duration: cfg.duration,
-    pools: { good: GOOD, bad: BAD },
-    goodRate: 0.7,
-    goal: 9999,
-    judge: function(char, ctx){
-      var good = inArr(char, GOOD);
-      // ให้คะแนน +10 ถ้าดี / -7 ถ้าขยะ
-      return { good: good, scoreDelta: good? 10 : -7 };
-    }
-  });
+  // HUD tick (เวลา)
+  const timer = setInterval(()=>{
+    if(!running) return;
+    timeLeft = Math.max(0, timeLeft - 1);
+    window.dispatchEvent(new CustomEvent('hha:time', { detail:{ sec: timeLeft } }));
+    if(timeLeft <= 0){ end(); }
+  }, 1000);
 
-  // ปรับข้อความเควสแบบง่ายทุก ๆ 6 วินาที
-  var qset = [
-    'No-Junk 10 วิ ติดกัน',
-    'คอมโบถึง x5',
-    'เก็บของดีติดกัน 8 ชิ้น'
-  ];
-  var qi=0;
-  var qtimer=setInterval(function(){
-    qi=(qi+1)%qset.length;
-    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:qset[qi]}})); }catch(e){}
-  }, 6000);
+  function end(){
+    if(!running) return;
+    running = false;
+    clearInterval(timer);
+    window.dispatchEvent(new CustomEvent('hha:end', { detail:{ score, combo } }));
+  }
 
+  // ---------- ADD: award() + quest text ----------
+  function setQuestText(txt){
+    window.dispatchEvent(new CustomEvent('hha:quest', { detail:{ text: txt } }));
+  }
+  setQuestText('No-Junk  | เก็บของดี 8 ชิ้น (ขยะ ≤3)');
+
+  function award(delta, isGood, e){
+    // คะแนน & คอมโบ
+    if(isGood){ combo = Math.max(1, combo + 1); } else { combo = 0; }
+    score += delta;
+    window.dispatchEvent(new CustomEvent('hha:score', { detail:{ score, combo } }));
+
+    // เอฟเฟ็กต์
+    const [u,v] = uvFromEvent(e);
+    Particles.hit(u, v, { score: Math.abs(delta), combo: Math.max(1,combo), isGood });
+  }
+
+  // ---------- สุ่มเป้าแบบ DOM (อีมูเลตง่าย ๆ) ----------
+  const GOOD = ['🍎','🍐','🍊','🍓','🍇','🥝','🥦','🥕','🥗','🐟','🥛','🍞'];
+  const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🧋','🥤','🍫','🍰'];
+
+  function spawnOne(){
+    if(!running) return;
+    const isGood = Math.random() < 0.7;
+    const emoji  = isGood ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0];
+
+    const el = document.createElement('div');
+    el.textContent = emoji;
+    Object.assign(el.style, {
+      position:'fixed', left:(10+Math.random()*80)+'vw', top:(20+Math.random()*60)+'vh',
+      fontSize:'min(10vw,64px)', filter:'drop-shadow(0 0 10px #fff3)', cursor:'pointer', userSelect:'none',
+      transition:'transform 120ms ease-out'
+    });
+    document.body.appendChild(el);
+
+    const onHit = (e)=>{
+      el.onclick = null;
+      el.style.transform='scale(0.85)';
+      setTimeout(()=>{ try{ el.remove(); }catch{} }, 120);
+      // ให้คะแนน
+      award(isGood? +10 : -5, isGood, e);
+    };
+    el.onclick = onHit;
+
+    // lifetime
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, 1500);
+  }
+
+  // spawn loop
+  const spawner = setInterval(spawnOne, 550);
+
+  // คืน API
   return {
-    stop: function(){ try{ clearInterval(qtimer); }catch(e){} api && api.stop && api.stop(); },
-    pause: function(){ api && api.pause && api.pause(); },
-    resume: function(){ api && api.resume && api.resume(); }
+    stop(){ running=false; clearInterval(timer); clearInterval(spawner); },
+    pause(){ running=false; },
+    resume(){ running=true; }
   };
 }
 
