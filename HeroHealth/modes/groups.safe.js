@@ -1,14 +1,8 @@
-// === Food Groups — SAFE (no optional chaining) ===
-// โหมด: เลือกอาหารให้ตรง "หมวด" ตามเป้าหมายของรอบ (1–3 รายการ)
-// - คลิกของถูกหมวดได้คะแนน + คอมโบ
-// - ของผิดหมวดยกเลิกคอมโบและนับพลาด
-// - ครบเป้าหมายของรอบ → รับโบนัส และสุ่มเป้าหมายรอบใหม่ทันที
-
+// === Food Groups — SAFE (fix: target positioning & visibility) ===
 var running=false, host=null;
 var score=0, combo=0, maxCombo=0, misses=0;
 var spawnTimer=null, endTimer=null;
 
-// ---------- Emoji → sprite (canvas DataURL) ----------
 var __emojiCache = {};
 function emojiSprite(emo, px){
   var size = px || 160, key = emo+'@'+size;
@@ -24,7 +18,6 @@ function emojiSprite(emo, px){
 }
 function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail:detail})); }catch(e){} }
 
-// ---------- หมวดอาหาร & รายการ ----------
 var CATS = ['ผัก','โปรตีน','ธัญพืช','นม','ผลไม้'];
 var POOL = {
   'ผัก'   : ['🥦','🥬','🥕','🍅','🌽','🧄','🧅','🥒'],
@@ -33,81 +26,57 @@ var POOL = {
   'นม'    : ['🥛','🧈','🍦','🍨'],
   'ผลไม้' : ['🍎','🍊','🍌','🍓','🍇','🍍','🥝','🍐','🍑','🍉']
 };
-// reverse map emoji -> cat
-var EMO2CAT = (function(){
-  var m={}; 
-  for(var k in POOL){ 
-    var arr = POOL[k]; 
-    for(var i=0;i<arr.length;i++){ m[arr[i]] = k; }
-  }
-  return m;
-})();
+var EMO2CAT=(function(){var m={},k,i,a;for(k in POOL){a=POOL[k];for(i=0;i<a.length;i++)m[a[i]]=k;}return m;})();
 
-// ---------- รอบเป้าหมาย ----------
-var roundNeed = {};   // {หมวด: จำนวน}
-var roundDone = {};   // {หมวด: เก็บแล้ว}
-function rnd(n,a){ return Math.floor(Math.random()* (a-n+1)) + n; }
+var roundNeed={}, roundDone={};
+function rnd(n,a){ return Math.floor(Math.random()*(a-n+1))+n; }
 
 function newRound(diff){
-  roundNeed = {}; roundDone = {};
-  // จำนวนหมวดเป้าหมาย 1–3 ตามความยาก
-  var k = 1; if(diff==='normal') k = 2; if(diff==='hard') k = 3;
-  var cats = CATS.slice().sort(function(){return Math.random()-0.5;}).slice(0,k);
+  roundNeed={}; roundDone={};
+  var k=1; if(diff==='normal')k=2; if(diff==='hard')k=3;
+  var cats=CATS.slice().sort(function(){return Math.random()-0.5;}).slice(0,k);
   for(var i=0;i<cats.length;i++){
-    var need = 1; 
-    if(diff==='normal') need = rnd(1,2); 
-    if(diff==='hard')   need = rnd(2,3);
-    roundNeed[cats[i]] = need;
-    roundDone[cats[i]] = 0;
+    var need=1; if(diff==='normal')need=rnd(1,2); if(diff==='hard')need=rnd(2,3);
+    roundNeed[cats[i]]=need; roundDone[cats[i]]=0;
   }
   updateQuestText();
 }
-
 function updateQuestText(){
-  var parts=[], k;
-  for(k in roundNeed){
-    var left = Math.max(0, roundNeed[k] - (roundDone[k]||0));
-    parts.push(k+' ×'+left);
-  }
-  var txt = parts.length? ('Goal: '+parts.join(' , ')) : 'Goal: —';
-  emit('hha:quest', { text: 'กลุ่มอาหาร — '+txt });
+  var parts=[],k;
+  for(k in roundNeed){ var left=Math.max(0,roundNeed[k]-(roundDone[k]||0)); parts.push(k+' ×'+left); }
+  emit('hha:quest',{text:'กลุ่มอาหาร — '+(parts.length?('Goal: '+parts.join(' , ')):'Goal: —')});
 }
+function isRoundCompleted(){ var k; for(k in roundNeed){ if((roundDone[k]||0)<roundNeed[k]) return false; } return true; }
 
-function isRoundCompleted(){
-  var k;
-  for(k in roundNeed){
-    if((roundDone[k]||0) < roundNeed[k]) return false;
-  }
-  return true;
-}
-
-// ---------- UI helpers ----------
-function popupText(txt, x, y, color){
-  var t = document.createElement('a-entity');
-  t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09;');
-  t.setAttribute('position', x+' '+(y+0.05)+' -1.18');
+function popupText(txt,x,y,color){
+  var t=document.createElement('a-entity');
+  t.setAttribute('troika-text','value: '+txt+'; color:'+(color||'#fff')+'; fontSize:0.09;');
+  t.setAttribute('position',x+' '+(y+0.05)+' -1.18');
   host.appendChild(t);
-  t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.32)+' -1.18; dur: 520; easing: ease-out');
-  t.setAttribute('animation__fade','property: opacity; to: 0; dur: 520; easing: linear');
-  setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 560);
+  t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.32)+' -1.18; dur:520; easing:ease-out');
+  t.setAttribute('animation__fade','property: opacity; to: 0; dur:520; easing:linear');
+  setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },560);
 }
 
-// ---------- เป้า ----------
+// ---- สร้างเป้า (ตำแหน่งแก้ใหม่: set ที่ entity แม่) ----
 function makeTarget(emoji, diff){
-  var cat = EMO2CAT[emoji] || 'อื่นๆ';
-  var el  = document.createElement('a-entity');
+  var cat=EMO2CAT[emoji]||'อื่นๆ';
+  var el=document.createElement('a-entity');
 
-  var img = document.createElement('a-image');
-  img.setAttribute('src', emojiSprite(emoji, 192));
-  var px = (Math.random()*1.6 - 0.8);       // -0.8..0.8
-  var py = (Math.random()*0.7 + 0.6);       // 0.6..1.3
-  img.setAttribute('position', px+' '+py+' -1.2');
-  img.setAttribute('width', 0.42);
-  img.setAttribute('height', 0.42);
+  // ตำแหน่งของ "แม่" เพื่อให้ภาพอยู่ในเฟรมแน่นอน
+  var px=(Math.random()*1.6-0.8);   // -0.8..0.8
+  var py=(Math.random()*0.7+0.6);   // 0.6..1.3
+  el.setAttribute('position', px+' '+py+' -1.2');
+
+  var img=document.createElement('a-image');
+  img.setAttribute('src', emojiSprite(emoji,192));
+  img.setAttribute('position','0 0 0');
+  img.setAttribute('width',0.42);
+  img.setAttribute('height',0.42);
   img.classList.add('clickable');
   el.appendChild(img);
 
-  var glow = document.createElement('a-plane');
+  var glow=document.createElement('a-plane');
   glow.setAttribute('width',0.48); glow.setAttribute('height',0.48);
   glow.setAttribute('material','color:#60a5fa; opacity:0.18; transparent:true');
   glow.setAttribute('position','0 0 -0.01');
@@ -115,45 +84,31 @@ function makeTarget(emoji, diff){
 
   function destroy(){ if(el.parentNode) el.parentNode.removeChild(el); }
 
-  img.addEventListener('click', function(){
+  img.addEventListener('click',function(){
     if(!running) return;
-    // ถูกหมวดที่ต้องการและยังไม่ครบ
-    var need = roundNeed[cat];
-    var done = roundDone[cat]||0;
-
-    if(need && done < need){
-      roundDone[cat] = done+1;
-      var base = 30 + combo*3;
-      score += base; combo += 1; if(combo>maxCombo) maxCombo = combo;
-      popupText('+'+base+' ('+cat+')', px, py, '#bff7bf');
-      updateQuestText();
-
+    var need=roundNeed[cat], done=roundDone[cat]||0;
+    if(need && done<need){
+      roundDone[cat]=done+1;
+      var base=30+combo*3; score+=base; combo+=1; if(combo>maxCombo)maxCombo=combo;
+      popupText('+'+base+' ('+cat+')',px,py,'#bff7bf'); updateQuestText();
       if(isRoundCompleted()){
-        // โบนัสรอบ
-        var bonus = 80 + combo*2;
-        score += bonus;
-        popupText('BONUS +'+bonus, px, py+0.15, '#ffe08a');
-        newRound(diff);
+        var bonus=80+combo*2; score+=bonus; popupText('BONUS +'+bonus,px,py+0.15,'#ffe08a'); newRound(diff);
       }
     }else{
-      // ผิดหมวด หรือหมวดนั้นครบแล้ว → โทษ
-      combo = 0; misses += 1;
-      score = Math.max(0, score-20);
-      popupText('-20', px, py, '#ffb4b4');
+      combo=0; misses+=1; score=Math.max(0,score-20); popupText('-20',px,py,'#ffb4b4');
     }
-
-    emit('hha:score', {score:score, combo:combo});
-    emit('hha:miss',  {count:misses});
+    emit('hha:score',{score:score,combo:combo}); emit('hha:miss',{count:misses});
     destroy();
   });
 
-  // หมดเวลาเป้า → พลาด
-  var ttl = 1700; if(diff==='easy') ttl = 2000; if(diff==='hard') ttl = 1400;
+  // TTL (กันนับพลาดตอนหยุด)
+  var ttl=1900; if(diff==='easy') ttl=2100; if(diff==='hard') ttl=1500;
   setTimeout(function(){
+    if(!running) return;
     if(!el.parentNode) return;
-    destroy(); misses += 1; combo = 0;
-    emit('hha:score', {score:score, combo:combo});
-    emit('hha:miss',  {count:misses});
+    destroy(); misses+=1; combo=0;
+    emit('hha:score',{score:score,combo:combo});
+    emit('hha:miss',{count:misses});
   }, ttl);
 
   return el;
@@ -161,63 +116,52 @@ function makeTarget(emoji, diff){
 
 function spawnLoop(diff){
   if(!running) return;
-  // เลือกหมวดที่อยู่ใน roundNeed บ่อยขึ้น
-  var poolEmo = [];
-  var k, i, arr;
-  for(k in POOL){
-    arr = POOL[k];
-    var weight = roundNeed[k]? 2 : 1;   // ถ้าเป็นหมวดเป้าให้โอกาสออกมากขึ้น
-    for(i=0;i<arr.length;i++){
-      for(var w=0; w<weight; w++) poolEmo.push(arr[i]);
-    }
-  }
-  var emoji = poolEmo[Math.floor(Math.random()*poolEmo.length)];
-  host.appendChild(makeTarget(emoji, diff));
+  // เลือกหมวดเป้าออกถี่ขึ้น
+  var pool=[],k,i,a,w;
+  for(k in POOL){ a=POOL[k]; w=roundNeed[k]?2:1; for(i=0;i<a.length;i++){ for(var j=0;j<w;j++) pool.push(a[i]); } }
+  var emoji=pool[Math.floor(Math.random()*pool.length)];
+  host.appendChild(makeTarget(emoji,diff));
 
-  var gap = 520; if(diff==='easy') gap=650; if(diff==='hard') gap=420;
-  spawnTimer = setTimeout(function(){ spawnLoop(diff); }, gap);
+  var gap=540; if(diff==='easy') gap=680; if(diff==='hard') gap=430;
+  spawnTimer=setTimeout(function(){ spawnLoop(diff); }, gap);
 }
 
-// ---------- Boot ----------
 export async function boot(cfg){
   host = (cfg && cfg.host) ? cfg.host : document.getElementById('spawnHost');
-  var duration = (cfg && cfg.duration)|0 || 60;
-  var diff = (cfg && cfg.difficulty) || 'normal';
+  if(!host){ console.warn('groups.safe: #spawnHost not found'); host=document.querySelector('a-scene')||document.body; }
+  var duration=(cfg && cfg.duration)|0 || 60;
+  var diff=(cfg && cfg.difficulty) || 'normal';
 
   // reset
-  running = true; score=0; combo=0; maxCombo=0; misses=0;
-  emit('hha:score', {score:0, combo:0});
-  emit('hha:miss',  {count:0});
+  while(host.firstChild) host.removeChild(host.firstChild); // ล้างเป้าเก่า (กันซ้อนนอกเฟรม)
+  running=true; score=0; combo=0; maxCombo=0; misses=0;
+  emit('hha:score',{score:0,combo:0}); emit('hha:miss',{count:0});
 
   newRound(diff);
 
-  // ตัวจับเวลาหลัก (ฝั่งโหมด)
-  var remain = duration;
-  emit('hha:time', {sec:remain});
+  var remain=duration;
+  emit('hha:time',{sec:remain});
   clearInterval(endTimer);
-  endTimer = setInterval(function(){
+  endTimer=setInterval(function(){
     if(!running){ clearInterval(endTimer); return; }
-    remain -= 1; if(remain<0) remain=0;
-    emit('hha:time', {sec:remain});
-    if(remain<=0){
-      clearInterval(endTimer);
-      endGame();
-    }
-  }, 1000);
+    remain-=1; if(remain<0) remain=0;
+    emit('hha:time',{sec:remain});
+    if(remain<=0){ clearInterval(endTimer); endGame(); }
+  },1000);
 
-  // เริ่มสแปว์น
   spawnLoop(diff);
+  console.log('[groups.safe] started diff=',diff,'dur=',duration);
 
   function endGame(){
-    running = false;
+    running=false;
     try{ clearTimeout(spawnTimer); }catch(e){}
-    emit('hha:end', { score:score, combo:maxCombo, misses:misses, title:'Food Groups' });
+    emit('hha:end',{score:score,combo:maxCombo,misses:misses,title:'Food Groups'});
   }
 
   return {
-    stop:   function(){ if(!running) return; endGame(); },
-    pause:  function(){ running=false; },
-    resume: function(){ if(!running){ running=true; spawnLoop(diff); } }
+    stop:function(){ if(!running) return; endGame(); },
+    pause:function(){ running=false; },
+    resume:function(){ if(!running){ running=true; spawnLoop(diff); } }
   };
 }
 export default { boot };
