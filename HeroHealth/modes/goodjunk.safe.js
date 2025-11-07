@@ -1,11 +1,11 @@
-// === Good vs Junk — SAFE + FEVER (no optional chaining) ===
+// === Good vs Junk — SAFE + FEVER (fix: target positioning & visibility) ===
 var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0;
 var spawnTimer=null, endTimer=null;
 
 // ---- Emoji → sprite (dataURL) helper + cache ----
 var __emojiCache = {};
 function emojiSprite(emo, px){
-  var size = px || 128, key = emo+'@'+size;
+  var size = px || 192, key = emo+'@'+size;
   if(__emojiCache[key]) return __emojiCache[key];
   var c = document.createElement('canvas'); c.width=c.height=size;
   var ctx = c.getContext('2d');
@@ -42,66 +42,7 @@ function feverEnd(){
   clearTimeout(feverTimer); feverTimer=null;
 }
 
-// ---- Target ----
-function makeTarget(emoji, good, diff){
-  var el = document.createElement('a-entity');
-
-  var img = document.createElement('a-image');
-  img.setAttribute('src', emojiSprite(emoji, 192));
-  // ล่าง-กลางจอ (กระจายแนวนอนเล็กน้อย)
-  var px = (Math.random()*1.6 - 0.8);
-  var py = (Math.random()*0.7 + 0.6);
-  img.setAttribute('position', px+' '+py+' -1.2');
-  img.setAttribute('width', 0.42);
-  img.setAttribute('height', 0.42);
-  el.appendChild(img);
-
-  var glow = document.createElement('a-plane');
-  glow.setAttribute('width',0.48); glow.setAttribute('height',0.48);
-  glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.22; transparent:true');
-  glow.setAttribute('position','0 0 -0.01');
-  el.appendChild(glow);
-
-  function destroy(){ if(el.parentNode) el.parentNode.removeChild(el); }
-
-  img.classList.add('clickable');
-  img.addEventListener('click', function(){
-    if(!running) return;
-    destroy();
-
-    if(good){
-      var base = 20 + combo*2;
-      var plus = FEVER_ACTIVE ? base*2 : base; // x2 ใน Fever
-      score += plus;
-      combo += 1; if(combo>maxCombo) maxCombo = combo;
-
-      // ปักธง Fever เมื่อถึงคอมโบที่กำหนด
-      if(!FEVER_ACTIVE && combo >= FEVER_COMBO_NEED){ feverStart(); }
-
-      // pop + คะแนนเด้ง
-      popupText('+'+plus, px, py);
-    }else{
-      combo = 0; misses += 1;
-      score = Math.max(0, score - 15);
-      // ชนของไม่ดี: ถ้าอยู่ใน Fever ก็ไม่ยกเลิก Fever แต่คอมโบตก
-      popupText('-15', px, py, '#ffb4b4');
-    }
-
-    emit('hha:score', {score:score, combo:combo});
-  });
-
-  // เวลาหมด = พลาด
-  var ttl = 1600;
-  if(diff==='easy') ttl = 1900; else if(diff==='hard') ttl = 1400;
-  setTimeout(function(){
-    if(!el.parentNode) return;
-    destroy(); misses += 1; combo = 0;
-    emit('hha:miss'); emit('hha:score', {score:score, combo:combo});
-  }, ttl);
-
-  return el;
-}
-
+// ---- Popup text ----
 function popupText(txt, x, y, color){
   var t = document.createElement('a-entity');
   t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09;');
@@ -112,6 +53,66 @@ function popupText(txt, x, y, color){
   setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 560);
 }
 
+// ---- Target (ตำแหน่ง set ที่ entity แม่) ----
+function makeTarget(emoji, good, diff){
+  var el = document.createElement('a-entity');
+
+  // ตั้งตำแหน่ง “แม่” ให้เห็นแน่ในครึ่งล่างจอ
+  var px = (Math.random()*1.6 - 0.8);   // -0.8..0.8
+  var py = (Math.random()*0.7 + 0.6);   // 0.6..1.3
+  el.setAttribute('position', px+' '+py+' -1.2');
+
+  var img = document.createElement('a-image');
+  img.setAttribute('src', emojiSprite(emoji, 192));
+  img.setAttribute('position', '0 0 0');
+  img.setAttribute('width', 0.42);
+  img.setAttribute('height', 0.42);
+  img.classList.add('clickable');
+  el.appendChild(img);
+
+  var glow = document.createElement('a-plane');
+  glow.setAttribute('width',0.48); glow.setAttribute('height',0.48);
+  glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.18; transparent:true');
+  glow.setAttribute('position','0 0 -0.01');
+  el.appendChild(glow);
+
+  function destroy(){ if(el.parentNode) el.parentNode.removeChild(el); }
+
+  img.addEventListener('click', function(){
+    if(!running) return;
+    destroy();
+
+    if(good){
+      var base = 20 + combo*2;
+      var plus = FEVER_ACTIVE ? base*2 : base; // x2 ตอน FEVER
+      score += plus;
+      combo += 1; if(combo>maxCombo) maxCombo = combo;
+
+      if(!FEVER_ACTIVE && combo >= FEVER_COMBO_NEED){ feverStart(); }
+      popupText('+'+plus, px, py, '#bff7bf');
+    }else{
+      combo = 0; misses += 1;
+      score = Math.max(0, score - 15);
+      popupText('-15', px, py, '#ffb4b4');
+    }
+
+    emit('hha:score', {score:score, combo:combo});
+  });
+
+  // TTL (กันนับพลาดตอนเป้าหายจากเฟรม)
+  var ttl = 1700;
+  if(diff==='easy') ttl = 2000; else if(diff==='hard') ttl = 1400;
+  setTimeout(function(){
+    if(!running) return;
+    if(!el.parentNode) return;
+    destroy(); misses += 1; combo = 0;
+    emit('hha:miss',{count:misses});
+    emit('hha:score', {score:score, combo:combo});
+  }, ttl);
+
+  return el;
+}
+
 function spawnLoop(diff){
   if(!running) return;
   var goodPick = Math.random() > 0.35;
@@ -120,24 +121,27 @@ function spawnLoop(diff){
   host.appendChild(makeTarget(emoji, goodPick, diff));
 
   var gap = 520; if(diff==='easy') gap=650; if(diff==='hard') gap=400;
-  // ระหว่าง Fever เร็วขึ้นเล็กน้อย
   if(FEVER_ACTIVE) gap = Math.max(300, Math.round(gap*0.85));
-
   spawnTimer = setTimeout(function(){ spawnLoop(diff); }, gap);
 }
 
 export async function boot(cfg){
   host = (cfg && cfg.host) ? cfg.host : document.getElementById('spawnHost');
+  if(!host){ console.warn('goodjunk.safe: #spawnHost not found'); host=document.querySelector('a-scene')||document.body; }
+
   var duration = (cfg && cfg.duration)|0 || 60;
   var diff = (cfg && cfg.difficulty) || 'normal';
 
+  // reset
+  while(host.firstChild) host.removeChild(host.firstChild);
   running = true; score=0; combo=0; maxCombo=0; misses=0;
   FEVER_ACTIVE=false; clearTimeout(feverTimer); feverTimer=null;
 
   emit('hha:score', {score:0, combo:0});
   emit('hha:quest', {text:'Mini Quest — เก็บของดีติดกัน '+FEVER_COMBO_NEED+' ชิ้น เพื่อเปิด FEVER!'});
-  emit('hha:fever', {state:'end'}); // reset HUD fever
-  // นับเวลาฝั่งโหมด
+  emit('hha:fever', {state:'end'});
+
+  // นับเวลาที่โหมด
   var remain = duration;
   emit('hha:time', {sec:remain});
   clearInterval(endTimer);
@@ -151,12 +155,12 @@ export async function boot(cfg){
     }
   }, 1000);
 
-  // เริ่มสแปว์น
   spawnLoop(diff);
+  console.log('[goodjunk.safe] started diff=',diff,'dur=',duration);
 
   function endGame(){
     running = false;
-    clearTimeout(spawnTimer);
+    try{ clearTimeout(spawnTimer); }catch(e){}
     feverEnd();
     emit('hha:end', { score:score, combo:maxCombo, misses:misses, title:'Good vs Junk' });
   }
