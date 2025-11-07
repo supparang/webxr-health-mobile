@@ -1,58 +1,45 @@
-// === modes/groups.safe.js — production-safe ===
+// === modes/groups.safe.js — production shim (ensures named export) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 
-// หมวดตัวอย่าง (ปรับ/เพิ่มได้)
-const CATS = {
-  veg:   ['🥦','🥬','🥕','🍅','🧅','🧄','🌽','🥒','🥔','🍆'],
-  fruit: ['🍎','🍏','🍐','🍊','🍋','🍓','🍇','🍉','🍍','🥝','🫐','🍒','🍑','🍈','🥭'],
-  grain: ['🍞','🥖','🥐','🥨','🥯','🍚','🍙','🍘','🍜','🍝','🍛'],
-  protein:['🐟','🍗','🥩','🍤','🥚','🧄'],   // ใส่โปรตีนอื่น ๆ เพิ่มได้
-  junk:  ['🍔','🍟','🍕','🌭','🍩','🍪','🧁','🍰','🍫','🥤','🧋','🍿']
+// กลุ่มอาหารหลัก (ตัวอย่างย่อ แก้/เพิ่มได้)
+const GROUPS = {
+  veg: ['🥦','🥬','🥕','🧅','🍅','🌽','🍆','🫑'],
+  fruit: ['🍎','🍏','🍉','🍌','🍍','🍇','🍓','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑'],
+  grain: ['🍞','🥖','🥯','🥐','🍚','🍘','🍙','🍜','🍝'],
+  protein: ['🥚','🐟','🍗','🥩','🧈','🧀','🥜','🌭'],
+  dairy: ['🥛','🧀','🍦','🍨'],
+  junk: ['🍔','🍟','🍕','🍩','🍪','🧁','🍰','🍫','🍭','🥤','🧋','🍿']
 };
+const ALL_GOOD = [...GROUPS.veg, ...GROUPS.fruit, ...GROUPS.grain, ...GROUPS.protein, ...GROUPS.dairy];
+const ALL_JUNK = GROUPS.junk;
 
-// สร้างพูลรวม เพื่อให้ factory จัด spawn ได้
-const GOOD = [...CATS.veg, ...CATS.fruit, ...CATS.grain, ...CATS.protein];
-const BAD  = [...CATS.junk];
+const INTERNAL =
+  (typeof start === 'function' && start) ||
+  (typeof run   === 'function' && run)   ||
+  (typeof init  === 'function' && init)  || null;
 
-export async function boot(opts = {}) {
-  let modeApi = null;
+export async function boot(config = {}) {
+  console.log('[groups] boot mode', config);
 
-  // ตัวอย่างกติกา: รอบนี้กำหนด "หมวดเป้าหมาย" แบบสุ่ม 1–3 หมวด
-  const allKeys = ['veg','fruit','grain','protein'];
-  const pickN = (n)=> {
-    const src=[...allKeys], out=[];
-    while(out.length<n && src.length){ out.push(src.splice(Math.floor(Math.random()*src.length),1)[0]); }
-    return out;
+  if (INTERNAL) return await INTERNAL(config);
+
+  // judge แบบพื้นฐาน: ของดีได้คะแนน, ของขยะติดลบ
+  const judge = (char, ctx) => {
+    if (ctx?.type === 'timeout') return { good: false, scoreDelta: -3 };
+    if (ALL_GOOD.includes(char)) return { good: true, scoreDelta: 8, feverDelta: 1 };
+    if (ALL_JUNK.includes(char)) return { good: false, scoreDelta: -6 };
+    return { good: false, scoreDelta: -2 };
   };
-  const targetCats = pickN(2); // เริ่ม 2 หมวด (ค่อย ๆ เพิ่มได้ภายหลัง)
 
-  function judge(hitChar, ctx){
-    if (ctx?.type === 'timeout') return { good:false, scoreDelta:-2 };
-
-    // อยู่ในเป้าหมายถือว่าถูก, ถ้าเป็น junk = ผิด
-    const isTarget = targetCats.some(k => (CATS[k]||[]).includes(hitChar));
-    const isJunk   = CATS.junk.includes(hitChar);
-
-    if (isJunk) return { good:false, scoreDelta:-6 };
-    if (isTarget) return { good:true, scoreDelta:12, feverDelta:6 };
-    // ไม่ใช่หมวดเป้าหมายแต่ยังเป็นของดี → คะแนนน้อยหน่อย
-    if (GOOD.includes(hitChar)) return { good:true, scoreDelta:5 };
-
-    return { good:false, scoreDelta:-3 };
-  }
-
-  modeApi = await factoryBoot({
+  return await factoryBoot({
     name: 'groups',
-    pools: { good: GOOD, bad: BAD },
+    pools: { good: ALL_GOOD, bad: ALL_JUNK },
     judge,
-    difficulty: opts.difficulty || 'normal',
-    host: opts.host,
-    goal: opts.goal || 10,
+    ui: { questMainSel: '#tQmain' },
     goldenRate: 0.05,
     goodRate: 0.80,
-    ui: { questMainSel: '#tQmain' }
+    ...config
   });
-
-  try { window.__MODE_API = modeApi; } catch {}
-  return modeApi;
 }
+
+export default { boot };
