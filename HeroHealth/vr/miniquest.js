@@ -1,21 +1,76 @@
-// === miniquest.js — simple HUD binder (2025-11-07) ===
-export class MiniQuest{
-  constructor(bind, coach){
-    this.bind = bind || {};
-    this.coach = coach || {};
-    this.goodCount = 0;
-    this.junkCount = 0;
-    this.seconds = 0;
-    this.goal = 0;
+// === Hero Health — vr/miniquest.js ===
+// Lightweight mini-quest engine (no optional chaining)
+
+export function createMiniQuest(opts){
+  var onUpdate = (opts && opts.onUpdate) || function(){};
+  var onFinish = (opts && opts.onFinish) || function(){};
+  var nowQuest = null, secLeft = 0, timer = null, started = false;
+
+  // quest factory (ต้องคืน {title, sec, reset(), apply({good,bad}) -> done?})
+  var makeList = (opts && opts.makeList) || function(){ return []; };
+  var pool = makeList().slice(0);
+
+  function pick(){
+    if(pool.length===0) pool = makeList().slice(0);
+    return pool.splice(Math.floor(Math.random()*pool.length),1)[0];
   }
-  _text(s){
-    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:s}})); }catch(e){}
+
+  function startNext(){
+    nowQuest = pick();
+    secLeft = nowQuest.sec;
+    if(nowQuest.reset) nowQuest.reset();
+    started = true;
+    onUpdate(text());
   }
-  start(goal){ this.goal = goal||0; this._text('กำลังเริ่ม • เป้าหมาย '+this.goal); }
-  good(){ this.goodCount++; this._text('กดถูก: '+this.goodCount+' / เป้าหมาย '+this.goal); }
-  junk(){ this.junkCount++; this._text('พลาด: '+this.junkCount+' ครั้ง'); }
-  mission(n){ this._text('เควสคืบหน้า: '+(n||this.goodCount)+' / '+this.goal); }
-  second(){ this.seconds++; }
-  fever(){ this._text('FEVER! • เร่งทำคะแนน'); }
+
+  function text(){
+    if(!nowQuest) return 'Mini Quest — เตรียมเริ่ม';
+    var t = (nowQuest.title||'Mini Quest') + ' | เหลือ ' + secLeft + 's';
+    if(nowQuest.statusText) t = nowQuest.statusText(secLeft);
+    return t;
+  }
+
+  function applyHit(isGood){
+    if(!started || !nowQuest) return;
+    var done = false;
+    try { done = nowQuest.apply({good:isGood, bad:!isGood})===true; } catch(e){}
+    if(done){
+      // เควสสำเร็จ → เริ่มเควสใหม่หลัง 1 วิ
+      onUpdate(nowQuest.title + ' — สำเร็จ!');
+      if(timer) clearInterval(timer);
+      setTimeout(function(){ run(); }, 1000);
+    }else{
+      onUpdate(text());
+    }
+  }
+
+  function tick(){
+    if(!nowQuest) return;
+    secLeft = Math.max(0, secLeft-1);
+    if(secLeft<=0){
+      onUpdate(nowQuest.title + ' — หมดเวลา');
+      if(timer) clearInterval(timer);
+      setTimeout(function(){ run(); }, 800);
+    }else{
+      onUpdate(text());
+    }
+  }
+
+  function run(){
+    startNext();
+    if(timer) clearInterval(timer);
+    timer = setInterval(tick, 1000);
+  }
+
+  function stop(){
+    if(timer) clearInterval(timer);
+    timer = null; nowQuest = null; started = false;
+    onFinish();
+  }
+
+  return {
+    run: run,
+    stop: stop,
+    hit: applyHit
+  };
 }
-export default { MiniQuest };
