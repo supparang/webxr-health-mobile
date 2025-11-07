@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Hero Health Academy — VR Good vs Junk</title>
+  <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
+  <style>
+    :root{--bg:#0b1324;--fg:#eaf2ff;--acc:#46e0a3;--bad:#ff5a7a;--mut:#7a88a8}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif}
+    .wrap{position:relative;height:100%;overflow:hidden}
+    .hud{position:absolute;inset:0;pointer-events:none}
+    .topbar{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:12px;align-items:center}
+    .chip{padding:8px 12px;border-radius:999px;background:#111a30;border:1px solid #1e2a4a;font-weight:600;font-size:14px}
+    .chip b{color:var(--acc)} .status{margin-left:auto;opacity:.9}
+    .screen,.result{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.55)}
+    .panel{background:#0e1730;border:1px solid #1f2b50;border-radius:18px;padding:20px;width:min(520px,92vw);box-shadow:0 10px 30px #0006}
+    h1{margin:0 0 6px 0;font-size:24px}
+    .mut{color:var(--mut);font-size:14px;margin:0 0 16px 0}
+    .btn{cursor:pointer;border:0;border-radius:12px;background:var(--acc);color:#07131a;padding:14px 16px;font-weight:800;width:100%;font-size:16px}
+    .btn:active{transform:translateY(1px)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a-scene background="color:#07101f" renderer="antialias:true;colorManagement:true">
+      <a-entity id="rig" position="0 1.6 0">
+        <a-camera look-controls="enabled:true">
+          <a-entity id="mouseCursor" cursor="rayOrigin:mouse" raycaster="objects:.clickable"></a-entity>
+        </a-camera>
+      </a-entity>
+      <a-entity id="spawnHost" position="0 1.6 -1"></a-entity>
+      <a-entity position="0 2 -2" troika-text="value:Hero Health — Good vs Junk;color:#9ad7ff;fontSize:0.2;outlineWidth:0.01"></a-entity>
+      <a-entity light="type:ambient;intensity:0.7"></a-entity>
+      <a-entity light="type:directional;intensity:0.6" position="0 2 1"></a-entity>
+    </a-scene>
+
+    <div class="hud">
+      <div class="topbar">
+        <div class="chip">Time: <b id="hudTime">60</b>s</div>
+        <div class="chip">Score: <b id="hudScore">0</b></div>
+        <div class="chip">Streak: <b id="hudStreak">0</b></div>
+        <div id="hudFever" class="chip">Fever: off</div>
+        <div id="hudStatus" class="chip status">Ready</div>
+      </div>
+    </div>
+
+    <div id="startScreen" class="screen">
+      <div class="panel">
+        <h1>Good vs Junk</h1>
+        <p class="mut">แตะอาหาร “ดีต่อสุขภาพ” หลีกเลี่ยงอาหารขยะ เก็บติดกันจนเข้าสู่โหมด Fever!</p>
+        <button id="btnStart" class="btn">เริ่มเกม</button>
+      </div>
+    </div>
+
+    <div id="resultScreen" class="result" style="display:none">
+      <div class="panel">
+        <h1>สรุปผล</h1>
+        <p>คะแนนรวม: <b id="rScore">0</b></p>
+        <p>สตรีคสูงสุด: <b id="rBest">0</b></p>
+        <p>พลาด: <b id="rMiss">0</b></p>
+        <button id="btnRestart" class="btn">เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./game/main.js?v=final"></script>
+</body>
+</html>
