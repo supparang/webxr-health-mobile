@@ -14,28 +14,19 @@ const sample = a => a[Math.floor(Math.random() * a.length)];
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const now = () => performance.now();
 
-// ------- Core defaults -------
-const MIN_DIST_DEFAULT = 0.36;     // m
+const MIN_DIST_DEFAULT = 0.36;
 const SLOT_COOLDOWN_MS_DEFAULT = 520;
-const MAX_ACTIVE_BY_DIFF_DEF = { easy: 1, normal: 2, hard: 2 };
-const BUDGET_BY_DIFF_DEF = { easy: 1, normal: 2, hard: 2 };
-const TIME_BY_DIFF_DEF = { easy: 45, normal: 60, hard: 75 };
+const MAX_ACTIVE_BY_DIFF_DEF = { easy:1, normal:2, hard:2 };
+const BUDGET_BY_DIFF_DEF = { easy:1, normal:2, hard:2 };
+const TIME_BY_DIFF_DEF = { easy:45, normal:60, hard:75 };
 
-// Twemoji fallback
 const USE_EMOJI_SVG = (() => { try { return (new URL(location.href)).searchParams.get('emoji')?.toLowerCase() === 'svg'; } catch { return false; } })();
 const toCP = s => { const p = []; for (const ch of s) p.push(ch.codePointAt(0).toString(16)); return p.join('-'); };
 const twemojiURL = ch => `https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${toCP(ch)}.svg`;
 
-// --- HUD helpers ---
-function setQuest(text) {
-  try { window.dispatchEvent(new CustomEvent('hha:quest', { detail: { text } })); } catch { }
-}
-function setScore(score, combo) {
-  try { window.dispatchEvent(new CustomEvent('hha:score', { detail: { score, combo } })); } catch { }
-}
-function setTime(sec) {
-  try { window.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch { }
-}
+function setQuest(text) { try { window.dispatchEvent(new CustomEvent('hha:quest', { detail: { text } })); } catch {} }
+function setScore(score, combo) { try { window.dispatchEvent(new CustomEvent('hha:score', { detail: { score, combo } })); } catch {} }
+function setTime(sec) { try { window.dispatchEvent(new CustomEvent('hha:time', { detail: { sec } })); } catch {} }
 
 function makeEmojiNode(char, { scale = 0.58 } = {}) {
   if (!USE_EMOJI_SVG) {
@@ -47,7 +38,6 @@ function makeEmojiNode(char, { scale = 0.58 } = {}) {
     img.setAttribute('width', 0.80 * scale); img.setAttribute('height', 0.80 * scale); return img;
   }
 }
-
 function buildSlots(yBase = 0.42) {
   const xs = [-0.95, 0.00, 0.95];
   const ys = [yBase, yBase + 0.34];
@@ -67,48 +57,25 @@ function takeFreeSlot(slots, busyCols, busyRows, cooldownMs) {
 }
 function releaseSlot(slots, slot) { if (slot) { slot.used = false; slot.lastUsed = now(); } }
 
-/**
- * Factory boot
- * @param {{
- *  name:string,
- *  pools?:{good:string[],bad?:string[]},
- *  judge?:(hitChar:string|null, ctx:any)=>{good:boolean,scoreDelta?:number,feverDelta?:number},
- *  ui?:{questMainSel?:string, questStartText?:string},
- *  goldenRate?:number, goodRate?:number,
- *  minDist?:number, slotCooldownMs?:number,
- *  timeByDiff?:object, maxActiveByDiff?:object, budgetByDiff?:object,
- *  host?:Element, duration?:number, difficulty?:'easy'|'normal'|'hard', goal?:number
- * }} config
- */
 export async function boot(config = {}) {
   const {
-    name = 'mode',
-    pools = { good: [], bad: [] },
+    name='mode',
+    pools={ good:[], bad:[] },
     judge,
     ui = { questMainSel: '#tQmain', questStartText: '' },
-    goldenRate = 0.07,
-    goodRate = 0.70,
-    minDist = MIN_DIST_DEFAULT,
-    slotCooldownMs = SLOT_COOLDOWN_MS_DEFAULT,
-    timeByDiff = TIME_BY_DIFF_DEF,
-    maxActiveByDiff = MAX_ACTIVE_BY_DIFF_DEF,
-    budgetByDiff = BUDGET_BY_DIFF_DEF,
-    host: givenHost,
-    duration: givenDuration,
-    difficulty: givenDiff = 'normal',
-    goal = 40
+    goldenRate=0.07, goodRate=0.70,
+    minDist=MIN_DIST_DEFAULT, slotCooldownMs=SLOT_COOLDOWN_MS_DEFAULT,
+    timeByDiff=TIME_BY_DIFF_DEF, maxActiveByDiff=MAX_ACTIVE_BY_DIFF_DEF, budgetByDiff=BUDGET_BY_DIFF_DEF,
+    host:givenHost, duration:givenDuration, difficulty:givenDiff='normal', goal=40
   } = config;
 
-  // Host safety
-  let host = givenHost;
-  if (!host) { const wrap = $('a-scene') || document.body; const auto = document.createElement('a-entity'); auto.id = 'spawnHost'; wrap.appendChild(auto); host = auto; }
+  let host=givenHost;
+  if(!host){ const wrap=$('a-scene')||document.body; const auto=document.createElement('a-entity'); auto.id='spawnHost'; wrap.appendChild(auto); host=auto; }
 
-  // SFX / Fever
-  const sfx = new SFX('../assets/audio/'); await sfx.unlock?.(); sfx.attachPageVisibilityAutoMute?.();
-  const scene = $('a-scene') || document.body;
-  const fever = new Fever(scene, null, { durationMs: 10000 });
+  const sfx=new SFX('../assets/audio/'); await sfx.unlock?.(); sfx.attachPageVisibilityAutoMute?.();
+  const scene=$('a-scene')||document.body;
+  const fever=new Fever(scene,null,{durationMs:10000});
 
-  // MiniQuest (ข้อความผ่าน HUD badge)
   const mq = new MiniQuest({ tQmain: $(ui.questMainSel || '#tQmain') },
     { coach_start: $('#coach_start'), coach_good: $('#coach_good'), coach_warn: $('#coach_warn'),
       coach_fever: $('#coach_fever'), coach_quest: $('#coach_quest'), coach_clear: $('#coach_clear') });
@@ -116,7 +83,6 @@ export async function boot(config = {}) {
   setQuest(ui.questStartText || `Mini Quest — เลือกให้ครบ ${goal} ชิ้น`);
   const missions = new MissionDeck(); missions.draw3?.();
 
-  // Difficulty & time
   const difficulty = givenDiff;
   let duration = givenDuration || timeByDiff[difficulty] || 60;
   setTime(duration);
@@ -125,234 +91,185 @@ export async function boot(config = {}) {
   const safe = { size: 0.60, rate: 520, life: 2000 };
   const base = (diff?.config?.[difficulty]) || (diff?.config?.normal) || safe;
   let spawnRateMs = Number(base.rate) || safe.rate;
-  let lifetimeMs = Number(base.life) || safe.life;
-  let sizeFactor = Math.max(0.40, (Number(base.size) || 0.60) * 0.80);
-  let hitWBase = (difficulty === 'easy' ? 0.50 : difficulty === 'hard' ? 0.40 : 0.46);
-  const hitW = Math.min(hitWBase, minDist * 0.80);
+  let lifetimeMs  = Number(base.life) || safe.life;
+  let sizeFactor  = Math.max(0.40, (Number(base.size)||0.60) * 0.80);
+  let hitWBase    = (difficulty==='easy'?0.50 : difficulty==='hard'?0.40 : 0.46);
+  const hitW      = Math.min(hitWBase, minDist*0.80);
 
-  // State
-  let running = true, missionGood = 0, score = 0, combo = 0, comboMax = 0, streak = 0, lastGoodAt = now();
+  let running=true, missionGood=0, score=0, combo=0, comboMax=0, streak=0, lastGoodAt=now();
   let MAX_ACTIVE = maxActiveByDiff[difficulty] ?? 2;
-  const BUDGET = budgetByDiff[difficulty] ?? 2;
+  const BUDGET   = budgetByDiff[difficulty] ?? 2;
   setScore(score, combo);
 
-  const active = new Set();
-  const slots = buildSlots();
-  const busyCols = new Set(), busyRows = new Set();
-  let issuedThisSec = 0, spawnTicker, SPAWN_LOCK = false;
-  const budgetTimer = setInterval(() => { issuedThisSec = 0; }, 1000);
+  const active=new Set();
+  const slots=buildSlots();
+  const busyCols=new Set(), busyRows=new Set();
+  let issuedThisSec=0, spawnTicker, SPAWN_LOCK=false;
+  const budgetTimer=setInterval(()=>{ issuedThisSec=0; },1000);
 
-  // FPS adapt
-  let frames = 0, lastT = now();
-  (function raf(t) {
-    frames++; if (t - lastT >= 1000) {
-      const fps = frames; frames = 0; lastT = t;
-      if (fps < 40) { spawnRateMs = Math.min(spawnRateMs * 1.15, 900); MAX_ACTIVE = Math.max(1, Math.round(MAX_ACTIVE * 0.9)); }
+  let frames=0, lastT=now();
+  (function raf(t){
+    frames++; if(t-lastT>=1000){
+      const fps=frames; frames=0; lastT=t;
+      if(fps<40){ spawnRateMs=Math.min(spawnRateMs*1.15,900); MAX_ACTIVE=Math.max(1,Math.round(MAX_ACTIVE*0.9)); }
     }
     requestAnimationFrame(raf);
   })(performance.now());
 
-  // Combo decay
-  const comboDecay = setInterval(() => {
-    if (!running) return;
-    if (now() - lastGoodAt > 2000 && combo > 0) { combo--; setScore(score, combo); }
-  }, 1000);
+  const comboDecay=setInterval(()=>{ if(!running) return; if(now()-lastGoodAt>2000 && combo>0){ combo--; setScore(score, combo); }},1000);
 
-  // Pause/Resume hooks
-  let api = null;
-  window.addEventListener('blur', () => api?.pause?.());
-  window.addEventListener('focus', () => api?.resume?.());
-  document.addEventListener('visibilitychange', () => document.hidden ? api?.pause?.() : api?.resume?.());
+  let api=null;
+  window.addEventListener('blur', ()=>api?.pause?.());
+  window.addEventListener('focus', ()=>api?.resume?.());
+  document.addEventListener('visibilitychange',()=>document.hidden?api?.pause?.():api?.resume?.());
 
-  function makeTarget(slot, char, isGold) {
-    const el = makeEmojiNode(char, { scale: clamp(sizeFactor, 0.35, 0.65) });
-    el.setAttribute('position', `${slot.x} ${slot.y} ${slot.z}`);
-    el.classList.add('hit', 'clickable'); el.__col = slot.col; el.__row = slot.row;
+  function makeEmojiNodeWrapper(slot, char, isGold){
+    const el=makeEmojiNode(char,{scale:clamp(sizeFactor,0.35,0.65)});
+    el.setAttribute('position',`${slot.x} ${slot.y} ${slot.z}`);
+    el.classList.add('hit','clickable'); el.__col=slot.col; el.__row=slot.row;
 
-    if (isGold) {
-      el.setAttribute('scale', '1.12 1.12 1.12');
-      const halo = document.createElement('a-ring');
-      halo.setAttribute('radius-inner', '0.18'); halo.setAttribute('radius-outer', '0.22');
-      halo.setAttribute('position', '0 0 0.001'); halo.setAttribute('material', 'color:#ffe066; opacity:0.85; shader:flat');
+    if(isGold){
+      el.setAttribute('scale','1.12 1.12 1.12');
+      const halo=document.createElement('a-ring');
+      halo.setAttribute('radius-inner','0.18'); halo.setAttribute('radius-outer','0.22');
+      halo.setAttribute('position','0 0 0.001'); halo.setAttribute('material','color:#ffe066; opacity:0.85; shader:flat');
       el.appendChild(halo);
     }
 
-    const hit = document.createElement('a-plane');
-    hit.setAttribute('width', hitW); hit.setAttribute('height', hitW);
-    hit.setAttribute('material', 'opacity:0; transparent:true; side:double');
-    hit.classList.add('hit', 'clickable');
+    const hit=document.createElement('a-plane');
+    hit.setAttribute('width',hitW); hit.setAttribute('height',hitW);
+    hit.setAttribute('material','opacity:0; transparent:true; side:double');
+    hit.classList.add('hit','clickable');
     el.appendChild(hit);
 
     return { el, hit };
   }
 
-  function spawnOne() {
-    if (!running) return;
-    if (SPAWN_LOCK) return; SPAWN_LOCK = true;
-    try {
-      if (active.size >= MAX_ACTIVE || issuedThisSec >= BUDGET) return;
-      const slot = takeFreeSlot(slots, busyCols, busyRows, slotCooldownMs);
-      if (!slot) return;
+  function spawnOne(){
+    if(!running) return;
+    if(SPAWN_LOCK) return; SPAWN_LOCK=true;
+    try{
+      if(active.size>=MAX_ACTIVE || issuedThisSec>=BUDGET) return;
+      const slot=takeFreeSlot(slots, busyCols, busyRows, slotCooldownMs);
+      if(!slot) return;
 
-      // Prevent near overlap
-      const tooClose = [...active].some(el => { try { const p = el.getAttribute('position'); const dx = p.x - slot.x, dy = p.y - slot.y; return (dx * dx + dy * dy) < (minDist * minDist); } catch { return false; } });
-      if (tooClose) { releaseSlot(slots, slot); return; }
+      const tooClose=[...active].some(el=>{ try{ const p=el.getAttribute('position'); const dx=p.x-slot.x, dy=p.y-slot.y; return (dx*dx+dy*dy)<(MIN_DIST_DEFAULT*MIN_DIST_DEFAULT); }catch{ return false; }});
+      if(tooClose){ releaseSlot(slots,slot); return; }
 
       busyCols.add(slot.col); busyRows.add(slot.row); issuedThisSec++;
 
       const isGood = Math.random() < goodRate || !pools.bad?.length;
-      const char = isGood ? sample(pools.good) : sample(pools.bad || pools.good);
+      const char   = isGood ? sample(pools.good) : sample(pools.bad||pools.good);
       const isGold = isGood && Math.random() < (config.goldenRate ?? 0.07);
 
-      const { el, hit } = makeTarget(slot, char, isGold);
+      const { el, hit } = makeEmojiNodeWrapper(slot, char, isGold);
       active.add(el);
 
-      const ttlMult = (difficulty === 'easy') ? 1.8 : (difficulty === 'hard' ? 0.95 : 1.1);
-      let ttl = Math.round(lifetimeMs * ttlMult * (1.05 + Math.random() * 0.35));
-      if (active.size <= 1) ttl = Math.max(ttl, 2400);
+      const ttlMult=(difficulty==='easy')?1.8:(difficulty==='hard'?0.95:1.1);
+      let ttl=Math.round(lifetimeMs*ttlMult*(1.05+Math.random()*0.35));
+      if(active.size<=1) ttl=Math.max(ttl,2400);
 
-      let consumed = false;
-      const killer = setTimeout(() => {
-        // timeout miss
-        try {
-          if (typeof judge === 'function') {
-            const res = judge(null, { type: 'timeout', char, score, combo, streak, feverActive: fever.active });
-            if (res?.good === false) { streak = 0; combo = 0; mq.junk(); setQuest('Mini Quest — พลาดเวลา! รีบคลิกให้ทัน'); setScore(score, combo); }
-          } else { streak = 0; combo = 0; mq.junk(); setQuest('Mini Quest — พลาดเวลา! รีบคลิกให้ทัน'); setScore(score, combo); }
-        } catch { }
+      let consumed=false;
+      const killer=setTimeout(()=>{ // timeout miss
+        try{
+          const res = typeof judge==='function' ? judge(null, { type:'timeout', char, score, combo, streak, feverActive:fever.active }) : { good:false, scoreDelta:-2 };
+          if(res?.good===false){ streak=0; combo=0; }
+        }catch{}
         cleanup();
       }, ttl);
 
-      const fire = (ev) => {
-        if (consumed) return; consumed = true;
-        try { ev?.stopPropagation?.(); ev?.preventDefault?.(); } catch { }
+      const fire=(ev)=>{
+        if(consumed) return; consumed=true;
+        try{ ev?.stopPropagation?.(); ev?.preventDefault?.(); }catch{}
         clearTimeout(killer);
 
-        let res = { good: true, scoreDelta: 10, feverDelta: 0 };
-        if (typeof judge === 'function') res = judge(char, { type: 'hit', score, combo, streak, feverActive: fever.active });
+        let res = { good:true, scoreDelta:10, feverDelta:0 };
+        if(typeof judge==='function') res = judge(char, { type:'hit', score, combo, streak, feverActive:fever.active });
 
-        if (res.good) {
+        if(res.good){
           const plus = res.scoreDelta ?? 10;
-          missionGood += 1; score += plus; combo += 1; streak += 1; comboMax = Math.max(comboMax, combo); lastGoodAt = now();
-          sfx.popGood?.(); Particles.burst?.(host, { x: slot.x, y: slot.y, z: slot.z }, '#69f0ae');
-
-          // popup
-          try {
-            const t = document.createElement('a-entity');
-            t.setAttribute('troika-text', `value: +${plus}; color:#fff; fontSize:0.08; anchor:center`);
-            t.setAttribute('position', `${slot.x} ${slot.y + 0.05} ${slot.z + 0.01}`);
+          score+=plus; combo+=1; streak+=1; comboMax=Math.max(comboMax,combo); lastGoodAt=now();
+          Particles.burst?.(host, {x:slot.x,y:slot.y,z:slot.z}, '#69f0ae');
+          try{
+            const t=document.createElement('a-entity');
+            t.setAttribute('troika-text',`value: +${plus}; color:#fff; fontSize:0.08; anchor:center`);
+            t.setAttribute('position',`${slot.x} ${slot.y+0.05} ${slot.z+0.01}`);
             host.appendChild(t);
-            t.setAttribute('animation__rise', `property: position; to: ${slot.x} ${slot.y + 0.30} ${slot.z + 0.01}; dur: 520; easing: ease-out`);
-            t.setAttribute('animation__fade', `property: opacity; to: 0; dur: 520; easing: linear`);
-            setTimeout(() => t.remove(), 560);
-          } catch { }
-
-          if (res.feverDelta) try { fever.add(res.feverDelta); } catch { }
-          mq.good({ score, combo, streak, missionGood });
-          setScore(score, combo);
-          if (missionGood < goal) {
-            setQuest(`Mini Quest — ความคืบหน้า ${missionGood}/${goal}`);
-          } else {
-            setQuest(`Mini Quest — เคลียร์ภารกิจ! (${missionGood}/${goal})`);
-            try { mq.mission?.(missionGood); } catch { }
-          }
-        } else {
-          score = Math.max(0, score + (res.scoreDelta ?? -5));
-          combo = 0; streak = 0; sfx.popBad?.(); Particles.smoke?.(host, { x: slot.x, y: slot.y, z: slot.z });
-          mq.junk(); setScore(score, combo); setQuest('Mini Quest — โดนของไม่ดี! ระวังนะ');
+            t.setAttribute('animation__rise',`property: position; to: ${slot.x} ${slot.y+0.30} ${slot.z+0.01}; dur: 520; easing: ease-out`);
+            t.setAttribute('animation__fade',`property: opacity; to: 0; dur: 520; easing: linear`);
+            setTimeout(()=>t.remove(),560);
+          }catch{}
+          if(res.feverDelta) try{ fever.add(res.feverDelta); }catch{}
+        }else{
+          score=Math.max(0, score + (res.scoreDelta ?? -5));
+          combo=0; streak=0; Particles.smoke?.(host,{x:slot.x,y:slot.y,z:slot.z});
         }
+        setScore(score, combo);
         cleanup();
       };
 
-      ['click', 'mousedown', 'touchstart', 'triggerdown'].forEach(evt => {
-        try { hit.addEventListener(evt, fire, { passive: false }); } catch { }
-        try { el.addEventListener(evt, fire, { passive: false }); } catch { }
+      ['click','mousedown','touchstart','triggerdown'].forEach(evt=>{
+        try{ hit.addEventListener(evt, fire, {passive:false}); }catch{}
+        try{ el.addEventListener(evt,  fire, {passive:false}); }catch{}
       });
 
       host.appendChild(el);
 
-      function cleanup() {
-        try { el.remove(); } catch { }
+      function cleanup(){
+        try{ el.remove(); }catch{}
         active.delete(el);
         busyCols.delete(slot.col); busyRows.delete(slot.row);
-        releaseSlot(slots, slot);
+        releaseSlot(slots,slot);
       }
-    } finally { SPAWN_LOCK = false; }
+    } finally { SPAWN_LOCK=false; }
   }
 
-  // Sweeper: resolve overlaps
-  const overlapSweeper = setInterval(() => {
-    if (!running) return;
-    const arr = [...active];
-    for (let i = 0; i < arr.length; i++) {
-      for (let j = i + 1; j < arr.length; j++) {
-        const a = arr[i], b = arr[j];
-        try {
-          const pa = a.getAttribute('position'), pb = b.getAttribute('position');
-          const dx = pb.x - pa.x, dy = pb.y - pa.y, d2 = dx * dx + dy * dy;
-          if (d2 < (minDist * minDist)) {
-            const dest = takeFreeSlot(slots, busyCols, busyRows, slotCooldownMs);
-            if (dest) {
-              b.setAttribute('position', `${dest.x} ${dest.y} ${dest.z}`);
+  const overlapSweeper=setInterval(()=>{ if(!running) return;
+    const arr=[...active];
+    for(let i=0;i<arr.length;i++){
+      for(let j=i+1;j<arr.length;j++){
+        const a=arr[i], b=arr[j];
+        try{
+          const pa=a.getAttribute('position'), pb=b.getAttribute('position');
+          const dx=pb.x-pa.x, dy=pb.y-pa.y, d2=dx*dx+dy*dy;
+          if(d2 < (MIN_DIST_DEFAULT*MIN_DIST_DEFAULT)){
+            const dest=takeFreeSlot(slots, busyCols, busyRows, slotCooldownMs);
+            if(dest){
+              b.setAttribute('position',`${dest.x} ${dest.y} ${dest.z}`);
               busyCols.add(dest.col); busyRows.add(dest.row);
-              if (b.__col != null && b.__row != null) { busyCols.delete(b.__col); busyRows.delete(b.__row); }
-              b.__col = dest.col; b.__row = dest.row;
-            } else {
-              try { b.remove(); } catch { } active.delete(b);
+              if(b.__col!=null && b.__row!=null){ busyCols.delete(b.__col); busyRows.delete(b.__row); }
+              b.__col=dest.col; b.__row=dest.row;
+            }else{
+              try{ b.remove(); }catch{} active.delete(b);
             }
           }
-        } catch { }
+        }catch{}
       }
     }
-  }, 200);
+  },200);
 
-  // Spawn loop
-  function loop() {
+  function loop(){
     clearTimeout(spawnTicker);
-    const tick = () => {
-      if (running && issuedThisSec < BUDGET) spawnOne();
-      const cd = Math.max(380, spawnRateMs | 0);
-      spawnTicker = setTimeout(tick, cd);
-    };
+    const tick=()=>{ if(running && issuedThisSec<BUDGET) spawnOne(); const cd=Math.max(380, spawnRateMs|0); spawnTicker=setTimeout(tick, cd); };
     tick();
   }
-  loop(); setTimeout(() => spawnOne(), 240);
+  loop(); setTimeout(()=>spawnOne(),240);
 
-  // Time ticker
-  const secondTimer = setInterval(() => {
-    if (!running) return;
-    duration = Math.max(0, duration - 1);
-    setTime(duration);
-    mq.second?.(); missions.second?.();
-    if (duration <= 0) endGame('timeout');
-  }, 1000);
+  const secondTimer=setInterval(()=>{ if(!running) return; duration=Math.max(0, duration-1); setTime(duration); mq.second?.(); missions.second?.(); if(duration<=0) endGame('timeout'); },1000);
 
-  // Fever hook
-  window.addEventListener('hha:fever', (e) => {
-    if (e?.detail?.state === 'start') {
-      try { mq.fever(); } catch { }
-      setQuest('Mini Quest — FEVER! เก็บแต้มรัว ๆ');
-      spawnRateMs = Math.round(spawnRateMs * 0.85);
-    } else {
-      setQuest(`Mini Quest — ความคืบหน้า ${missionGood}/${goal}`);
-      spawnRateMs = Number(base.rate) || 520;
-    }
-  });
+  window.addEventListener('hha:fever',(e)=>{ if(e?.detail?.state==='start'){ setQuest('Mini Quest — FEVER! เก็บแต้มรัว ๆ'); spawnRateMs=Math.round(spawnRateMs*0.85); } else { spawnRateMs=Number(base.rate)||520; } });
 
-  function endGame(reason = 'stop') {
-    if (!running) return; running = false;
+  function endGame(reason='stop'){
+    if(!running) return; running=false;
     clearTimeout(spawnTicker); clearInterval(secondTimer); clearInterval(budgetTimer);
     clearInterval(comboDecay); clearInterval(overlapSweeper);
-    try { fever.end(); } catch { } try { sfx.playCoach?.('clear'); } catch { }
-    try { window.dispatchEvent(new CustomEvent('hha:end', { detail: { reason, score, missionGood, goal, comboMax } })); } catch { }
+    try{ fever.end(); }catch{}
+    try{ window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,comboMax}})); }catch{}
   }
 
-  api = {
-    pause() { if (!running) return; running = false; clearTimeout(spawnTicker); },
-    resume() { if (running) return; running = true; loop(); },
-    stop() { endGame('stop'); }
-  };
+  api={ pause(){ if(!running) return; running=false; clearTimeout(spawnTicker); },
+        resume(){ if(running) return; running=true; loop(); },
+        stop(){ endGame('stop'); } };
   return api;
 }
-
 export default { boot };
