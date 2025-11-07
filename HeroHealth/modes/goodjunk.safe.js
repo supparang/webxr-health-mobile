@@ -1,4 +1,4 @@
-// === Good vs Junk — SAFE + FEVER (local Z inside host) ===
+// === Good vs Junk — Visible Fix + FEVER (local Z inside host) ===
 var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0;
 var spawnTimer=null, endTimer=null;
 
@@ -29,20 +29,22 @@ function feverEnd(){ if(!FEVER_ACTIVE) return; FEVER_ACTIVE=false; emit('hha:fev
 function makeTarget(emoji, good, diff){
   var el=document.createElement('a-entity');
 
-  var px=(Math.random()*1.6 - 0.8);
-  var py=(Math.random()*0.7 + 0.6);
-  el.setAttribute('position', px+' '+py+' 0');
+  // ปรับระดับให้เห็นตรงกลางหน้ากล้องแน่นอน
+  var px=(Math.random()*2.2 - 1.1);
+  var py=(Math.random()*1.0 + 0.6);   // สูงขึ้นกว่ากล้องเล็กน้อย
+  var pz=(Math.random()*0.6 - 0.3);   // ขยับเข้า/ออกเล็กน้อย
+  el.setAttribute('position', px+' '+py+' '+pz);
 
   var img=document.createElement('a-image');
   img.setAttribute('src', emojiSprite(emoji,192));
-  img.setAttribute('width',0.42); img.setAttribute('height',0.42);
+  img.setAttribute('width',0.45); img.setAttribute('height',0.45);
   img.setAttribute('position','0 0 0');
   img.classList.add('clickable');
   el.appendChild(img);
 
   var glow=document.createElement('a-plane');
-  glow.setAttribute('width',0.48); glow.setAttribute('height',0.48);
-  glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.22; transparent:true');
+  glow.setAttribute('width',0.55); glow.setAttribute('height',0.55);
+  glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.25; transparent:true');
   glow.setAttribute('position','0 0 -0.01');
   img.appendChild(glow);
 
@@ -74,12 +76,12 @@ function makeTarget(emoji, good, diff){
 
 function popupText(txt,x,y,color){
   var t=document.createElement('a-entity');
-  t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09;');
-  t.setAttribute('position', x+' '+(y+0.05)+' 0.02');
+  t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.1;');
+  t.setAttribute('position', x+' '+(y+0.15)+' 0.05');
   host.appendChild(t);
-  t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.32)+' 0.02; dur: 520; easing: ease-out');
+  t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.45)+' 0.05; dur: 520; easing: ease-out');
   t.setAttribute('animation__fade','property: opacity; to: 0; dur: 520; easing: linear');
-  setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 560);
+  setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 600);
 }
 
 function spawnLoop(diff){
@@ -113,15 +115,12 @@ export async function boot(cfg){
     if(remain<=0){ clearInterval(endTimer); endGame(); }
   },1000);
 
-  // ✅ แก้จุดพัง: ใช้ hasLoaded แทน is('loaded')
   var scene=document.querySelector('a-scene');
-  function begin(){ setTimeout(function(){ spawnLoop(diff); }, 500); }
+  function begin(){ setTimeout(function(){ spawnLoop(diff); }, 800); }
   if(scene){
     if(scene.hasLoaded) begin();
     else scene.addEventListener('loaded', begin, {once:true});
-  }else{
-    begin();
-  }
+  }else begin();
 
   function endGame(){
     running=false; clearTimeout(spawnTimer); feverEnd();
