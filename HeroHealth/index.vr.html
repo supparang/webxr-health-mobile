@@ -5,36 +5,51 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- A-Frame (แก้ THREE not defined) -->
+  <!-- A-Frame (มี THREE ในตัว) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
-    :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172acc; --chipbd:#475569; --acc:#22c55e; }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;}
+    :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;}
     a-scene{width:100%;height:100%;}
-    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid var(--chipbd);padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
-    #badgeTime{left:12px;top:12px}
-    #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
-    #badgeQuest{right:12px;top:12px}
-    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
-    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff33;border:1px solid #5c7fae66}
+
+    /* HUD */
+    .hud-chip{position:fixed; z-index:900; background:var(--chip); border:1px solid #475569;
+      padding:8px 12px; border-radius:12px; backdrop-filter:blur(6px); font-weight:700;}
+    #badgeTime{ left:12px; top:12px; }
+    #badgeScore{ left:50%; top:12px; transform:translateX(-50%); white-space:nowrap; }
+    #badgeQuest{ right:12px; top:12px; white-space:nowrap; }
+
+    /* เมนูเริ่มเกม */
+    .menu-wrap{position:fixed; left:50%; top:20%; transform:translateX(-50%);
+      width:min(1080px,86vw); padding:24px; border-radius:18px;
+      background:linear-gradient(#1f2b40,#22314b); border:1px solid #384861; z-index:800;
+      box-shadow:0 20px 50px #0008;}
+    .menu-inner{margin:0 auto; max-width:min(920px,88vw); text-align:center;
+      padding:24px; border-radius:16px; background:#6ea8ff33; border:1px solid #5c7fae66;}
     h1{ text-align:center; margin:8px 0 24px; font-size:clamp(22px,3.6vw,42px) }
-    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;color:#fff;background:#0b1222;outline:0}
-    button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
-    button[disabled]{opacity:.6;cursor:not-allowed}
-    .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
-    .a-enter-vr,.a-enter-vr-button{position:absolute!important;right:12px!important;bottom:12px!important;z-index:1000!important}
-    #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
-    .xr-supported #vrBtn{display:none}
+    .row{ margin:14px 0; display:flex; gap:12px; justify-content:center; align-items:center; }
+    select,button{font-size:16px; padding:10px 14px; border-radius:10px; border:1px solid #475569; color:#fff; background:#0b1222; outline:0;}
+    button.primary{ background:var(--acc); color:#052e12; border-color:#16a34a; font-weight:800; }
+
+    /* ปุ่ม VR ของ A-Frame */
+    .a-enter-vr, .a-enter-vr-button{ position:absolute !important; right:12px !important; bottom:12px !important; z-index:1000 !important; }
+
+    /* ปุ่ม VR fallback */
+    #vrBtn{ position:fixed; right:14px; bottom:14px; z-index:999; background:#ffffff12; border:1px solid #4a5568;
+      color:#fff; padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer; backdrop-filter:blur(6px);}
+    .xr-supported #vrBtn{ display:none; }
   </style>
 </head>
 <body>
+
   <!-- HUD -->
   <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
 
-  <!-- เมนู -->
+  <!-- เมนูเริ่มเกม -->
   <div id="menu" class="menu-wrap">
     <h1>เริ่ม: HERO HEALTH ACADEMY</h1>
     <div class="menu-inner">
@@ -64,111 +79,86 @@
   <!-- ปุ่ม VR (fallback) -->
   <button id="vrBtn" title="Enter VR">VR</button>
 
-  <!-- A-Frame scene -->
+  <!-- ฉาก A-Frame -->
   <a-scene id="scene" background="color: #0b1324">
     <a-assets></a-assets>
-
-    <a-entity id="cam" camera look-controls wasd-controls position="0 1.6 0">
-      <!-- cursor ช่วยให้ tap/คลิกเป้าได้แม่น -->
-      <a-cursor fuse="false" raycaster="objects: .clickable"></a-cursor>
-    </a-entity>
-
-    <!-- โซนสแปว์นเป้า -->
+    <a-entity id="cam" camera look-controls wasd-controls position="0 1.6 0"></a-entity>
+    <!-- พื้นที่ spawn ล่าง-กลางจอ -->
     <a-entity id="spawnHost" position="0 0 -1.2"></a-entity>
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
   <script type="module">
-    // ติดธง XR support เพื่อซ่อน/แสดงปุ่ม VR fallback
+    // ตรวจ WebXR
     (async () => {
-      let ok=false; try{ ok = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-vr')); }catch{}
-      document.body.classList.add(ok?'xr-supported':'xr-unsupported');
+      let ok = false;
+      try { ok = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-vr')); } catch {}
+      document.body.classList.add(ok ? 'xr-supported' : 'xr-unsupported');
     })();
 
-    // ปุ่ม VR fallback
+    // ปุ่ม VR (fallback)
     document.getElementById('vrBtn')?.addEventListener('click', () => {
       const sceneEl = document.getElementById('scene');
-      try{ sceneEl?.enterVR?.(); }catch{}
+      try { sceneEl?.enterVR?.(); } catch {}
     });
 
     const $ = (s)=>document.querySelector(s);
-    const once = (el,ev,fn)=>{ const h=(e)=>{ el.removeEventListener(ev,h); fn(e); }; el.addEventListener(ev,h); };
 
-    // ฟัง event HUD — ลงทะเบียนครั้งเดียว
-    if(!window.__HHA_HUD_BOUND){
-      window.__HHA_HUD_BOUND = true;
-      window.addEventListener('hha:score', e=>{
+    // --- Wire HUD listeners เพียงครั้งเดียว ---
+    if (!window.__HHA_HUD_WIRED__) {
+      window.__HHA_HUD_WIRED__ = true;
+      window.addEventListener('hha:score', (e)=>{
         const d=e.detail||{}; $('#badgeScore').textContent = `คะแนน: ${d.score??0} | คอมโบ: x${d.combo??0}`;
       });
-      window.addEventListener('hha:time', e=>{
-        const t=Math.max(0,Math.round(e.detail?.sec??0)); $('#badgeTime').textContent = `เวลา: ${t}s`;
+      window.addEventListener('hha:time',  (e)=>{
+        const t=Math.max(0, Math.round(e.detail?.sec??0)); $('#badgeTime').textContent = `เวลา: ${t}s`;
       });
-      window.addEventListener('hha:quest', e=>{
+      window.addEventListener('hha:quest', (e)=>{
         $('#badgeQuest').textContent = e.detail?.text || 'Mini Quest';
       });
-      window.addEventListener('hha:end', ()=>{
-        $('#menu').style.display = '';
-        $('#startBtn').disabled = false;
+      window.addEventListener('hha:end',   ()=>{
+        $('#menu').style.display = ''; // กลับเมนู
       });
     }
 
-    // dynamic import with fallback (.quest.js -> .safe.js)
-    async function importMode(modulePath){
-      try{
-        return await import(modulePath + '?v=' + Date.now());
-      }catch(e){
-        if(modulePath.endsWith('.quest.js')){
-          const safe = modulePath.replace('.quest.js','.safe.js');
-          return await import(safe + '?v=' + Date.now());
-        }
-        throw e;
-      }
-    }
+    // เก็บ control โหมดล่าสุด
+    window.__HHA_LAST__ = window.__HHA_LAST__ || null;
 
-    $('#startBtn').addEventListener('click', async ()=>{
+    // เริ่มเกม
+    $('#startBtn').addEventListener('click', async () => {
       const mode = $('#modeSel').value;
       const diff = $('#diffSel').value;
 
+      // ปิดโหมดเดิมก่อน
+      try { window.__HHA_LAST__?.stop?.(); } catch {}
+
+      // แผนที่โหมด (cache-bust)
       const MAP = {
         goodjunk : './modes/goodjunk.safe.js',
         groups   : './modes/groups.safe.js',
-        hydration: './modes/hydration.quest.js', // จะ fallback เป็น .safe.js ถ้าไม่พบ
-        plate    : './modes/plate.quest.js'      // จะ fallback เป็น .safe.js ถ้าไม่พบ
+        hydration: './modes/hydration.quest.js',
+        plate    : './modes/plate.quest.js'
       };
-      const url = MAP[mode] || MAP.goodjunk;
+      const url = (MAP[mode] || MAP.goodjunk) + '?v=' + Date.now();
 
-      // อัปเดต HUD + ปิดปุ่ม กันโหลดซ้อน
+      // HUD เริ่มต้น & ซ่อนเมนู
       $('#badgeScore').textContent = 'คะแนน: 0 | คอมโบ: x0';
       $('#badgeTime').textContent  = 'เวลา: 60s';
       $('#badgeQuest').textContent = 'Mini Quest — กำลังเริ่ม…';
-      $('#startBtn').disabled = true;
       $('#menu').style.display = 'none';
 
-      // เขียนพารามิเตอร์ลง URL ของหน้า (optional ให้โหมดอ่านได้)
       try{
-        const u = new URL(location.href);
-        u.searchParams.set('mode', mode);
-        u.searchParams.set('diff', diff);
-        history.replaceState({}, '', u);
-      }catch{}
-
-      try{
-        const mod = await importMode(url);
-        // แต่ละโหมดต้อง export async function boot({host,difficulty,duration,...})
-        const api = await mod.boot?.({
+        const mod = await import(url);
+        const ctl = await mod.boot?.({
           host: $('#spawnHost'),
           difficulty: diff,
           duration: 60
         });
-
-        // ถ้าโหมดจบเองแล้วยังไม่ยิง hha:end เราจะคืนเมนูให้หลัง 65s กันลืม
-        setTimeout(()=>{ try{ $('#menu').style.display=''; $('#startBtn').disabled=false; }catch{} }, 65000);
-
-        console.log('Mode started:', mode, diff, !!api);
+        window.__HHA_LAST__ = ctl || null;
+        console.log('Mode started:', mode, diff, !!ctl);
       }catch(err){
         alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message||err));
-        $('#menu').style.display = '';
-        $('#startBtn').disabled = false;
+        $('#menu').style.display = ''; // กลับเมนู
         console.error(err);
       }
     });
