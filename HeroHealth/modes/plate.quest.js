@@ -1,59 +1,71 @@
-// === modes/plate.quest.js (production) ===
-import { boot as buildMode } from '../vr/mode-factory.js';
+// === Hero Health — modes/plate.quest.js ===
+import { Particles } from '../vr/particles.js';
 
-var GROUPS = {
-  veg : ['🥦','🥕','🌽','🍅','🥒','🥬','🍄'],
-  fruit: ['🍎','🍓','🍇','🍌','🍍','🍐','🍉','🥝','🍑','🍊','🫐'],
-  protein: ['🍗','🥚','🥩','🐟','🧀','🥜','🍤'],
-  grain: ['🍞','🥖','🍚','🍙','🍝','🍜'],
-  dairy: ['🥛','🧀','🍦']
-};
-var EXTRA_BAD = ['🍔','🍟','🍕','🍩','🥤','🧋'];
-
-function inArr(ch, arr){ for(var i=0;i<arr.length;i++){ if(arr[i]===ch) return true; } return false; }
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
-
-function makeRound(difficulty){
-  // สัดส่วน 5 หมู่ — เปลี่ยนตามความยาก
-  var base = {veg:2, fruit:1, protein:1, grain:1, dairy:1};
-  if(difficulty==='easy'){ base.veg=2; base.fruit=1; base.protein=1; base.grain=1; base.dairy=0; }
-  if(difficulty==='hard'){ base.veg=2; base.fruit=1; base.protein=2; base.grain=2; base.dairy=1; }
-  return base;
+function uvFromEvent(e){
+  const x = (e && (e.clientX!=null)) ? e.clientX / window.innerWidth  : 0.5;
+  const y = (e && (e.clientY!=null)) ? e.clientY / window.innerHeight : 0.6;
+  return [x, y];
 }
 
-export async function boot(cfg){
-  cfg = cfg || {};
-  var need = makeRound(String(cfg.difficulty||'normal')); // เป้าหมายรอบนี้
-  var doneRound = 0;
+export async function boot(config = {}) {
+  let score=0, combo=0, timeLeft=Number(config.duration||60), running=true;
 
-  function leftText(){
-    return 'Healthy Plate — เหลือ: '+
-      'VEG '+need.veg+' | FRUIT '+need.fruit+' | PRO '+need.protein+' | GRAIN '+need.grain+' | DAIRY '+need.dairy+
-      '  (รอบที่ '+(doneRound+1)+')';
+  const GROUPS = ['Carb','Protein','Veg','Fruit','Dairy'];
+  let need = new Set(GROUPS); // ต้องครบ 5 หมู่
+
+  function questText(){
+    window.dispatchEvent(new CustomEvent('hha:quest',{
+      detail:{ text:`Plate — จัดให้ครบ 5 หมู่: [${[...need].join(', ')}]` }
+    }));
   }
-  try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:leftText()}})); }catch(e){}
+  questText();
 
-  // รวมรายการสปอว์น
-  var ALL = [].concat(GROUPS.veg, GROUPS.fruit, GROUPS.protein, GROUPS.grain, GROUPS.dairy, EXTRA_BAD);
+  const timer=setInterval(()=>{ if(!running) return;
+    timeLeft=Math.max(0,timeLeft-1);
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
+    if(timeLeft<=0) end();
+  },1000);
 
-  function isNeeded(ch){
-    if(need.veg>0    && inArr(ch, GROUPS.veg)) return 'veg';
-    if(need.fruit>0  && inArr(ch, GROUPS.fruit)) return 'fruit';
-    if(need.protein>0&& inArr(ch, GROUPS.protein)) return 'protein';
-    if(need.grain>0  && inArr(ch, GROUPS.grain)) return 'grain';
-    if(need.dairy>0  && inArr(ch, GROUPS.dairy)) return 'dairy';
-    return null;
-  }
+  function end(){ if(!running) return; running=false; clearInterval(timer);
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{score,combo}})); }
 
-  function roundFinished(){
-    // เริ่มรอบใหม่ เพิ่มความยากเล็กน้อย
-    doneRound += 1;
-    var d = String(cfg.difficulty||'normal');
-    if(doneRound>=2 && d!=='hard'){ d='hard'; } // ขยับไปค่ากลาง/ยาก
-    need = makeRound(d);
-    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:leftText()}})); }catch(e){}
+  function award(delta,isGood,e){
+    combo = isGood ? Math.max(1,combo+1) : 0;
+    score += delta;
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+    const [u,v]=uvFromEvent(e);
+    Particles.hit(u,v,{score:Math.abs(delta),combo:Math.max(1,combo),isGood});
   }
 
-  var api = await buildMode({
-    host: cfg.host,
-    difficulty:
+  function spawnFood(){
+    const g = GROUPS[(Math.random()*GROUPS.length)|0];
+    const btn=document.createElement('button');
+    btn.textContent=g;
+    Object.assign(btn.style,{
+      position:'fixed', left:(10+Math.random()*80)+'vw', top:(20+Math.random()*60)+'vh',
+      padding:'8px 10px', borderRadius:'10px', border:'1px solid #334155',
+      background:'#0b1222', color:'#fff', cursor:'pointer'
+    });
+    document.body.appendChild(btn);
+    btn.onclick=(e)=>{
+      const isGood = need.has(g);
+      if(isGood){ need.delete(g); award(+7,true,e); }
+      else{ award(-5,false,e); }
+      questText();
+      try{ btn.remove(); }catch{}
+      if(need.size===0){
+        // ครบ 5 หมู่ → เริ่มรอบใหม่
+        need = new Set(GROUPS);
+        questText();
+      }
+    };
+    setTimeout(()=>{ try{ btn.remove(); }catch{} }, 1700);
+  }
+
+  const spawner=setInterval(()=>{ if(running) spawnFood(); }, 650);
+
+  return { stop(){running=false;clearInterval(timer);clearInterval(spawner);},
+           pause(){running=false;}, resume(){running=true;} };
+}
+
+export default { boot };
