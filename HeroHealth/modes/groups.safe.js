@@ -1,72 +1,115 @@
-// === Hero Health — modes/groups.safe.js ===
-import { Particles } from '../vr/particles.js';
+// === Hero Health — Food Groups (SAFE PROD) ===
+export async function boot(config){
+  var host = (config && config.host) || document.getElementById('spawnHost');
+  var diff = (config && config.difficulty) || 'normal';
+  var duration = (config && config.duration) || 60;
 
-// ---------- ADD: helpers ----------
-function uvFromEvent(e){
-  const x = (e && (e.clientX!=null)) ? e.clientX / window.innerWidth  : 0.5;
-  const y = (e && (e.clientY!=null)) ? e.clientY / window.innerHeight : 0.6;
-  return [x, y];
-}
+  // หมวดหลัก (ตัวอย่างย่อ)
+  var GROUPS = {
+    veg: ['🥦','🥬','🥕','🍅','🍆'],
+    protein: ['🐟','🍗','🥚','🧀','🥜'],
+    grain: ['🍞','🍚','🥨','🥖','🍙'],
+    fruit: ['🍎','🍌','🍇','🍊','🍓']
+  };
+  var keys = Object.keys(GROUPS);
 
-export async function boot(config = {}) {
-  const host = (config && config.host) || document.getElementById('spawnHost');
-  let score=0, combo=0, timeLeft=Number(config.duration||60), running=true;
+  var score=0, combo=0, maxCombo=0, timeLeft=duration, misses=0, running=true;
+  var spawner=null, ticker=null;
+  var need = 2; // ต้องเลือกให้ถูกติดกัน n รายการ/รอบ
+  var targetKey = keys[(Math.random()*keys.length)|0];
+  var streakOK = 0;
 
-  const timer = setInterval(()=>{ if(!running) return;
-    timeLeft=Math.max(0,timeLeft-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-    if(timeLeft<=0){ end(); }
-  },1000);
+  emit('hha:quest',{text:'Mini Quest — เลือกหมวด: '+label(targetKey)+' (ให้ถูก '+need+' ชิ้นติด)'});
+  var spawnMs = (diff==='easy')?950:(diff==='hard')?650:780;
 
-  function end(){ if(!running) return; running=false; clearInterval(timer);
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{score,combo}})); }
-
-  function setQuest(t){ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:t}})); }
-  setQuest('เลือกหมวดตามโจทย์ | เพิ่มเป้า 1→3 เมื่อทำถูกติดกัน');
-
-  function award(delta,isGood,e){
-    combo = isGood ? Math.max(1,combo+1) : 0;
-    score += delta;
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
-    const [u,v]=uvFromEvent(e);
-    Particles.hit(u,v,{score:Math.abs(delta),combo:Math.max(1,combo),isGood});
+  function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(e){} }
+  function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+  function label(key){
+    if(key==='veg') return 'ผัก';
+    if(key==='protein') return 'โปรตีน';
+    if(key==='grain') return 'ข้าว/แป้ง';
+    if(key==='fruit') return 'ผลไม้';
+    return key;
   }
 
-  // Mock: โจทย์สุ่ม “ผัก/ผลไม้/โปรตีน/แป้ง/นม”
-  const GROUPS = ['Veg','Fruit','Protein','Carb','Dairy'];
-  let current = GROUPS[(Math.random()*GROUPS.length)|0];
-  setQuest(`Goal: ${current}  | ทำให้ครบเพื่อเพิ่มจำนวนเป้า`);
+  function makeTarget(emoji, correct){
+    var el=document.createElement('a-entity');
+    el.setAttribute('text','value:'+emoji+'; align:center; color:#fff; width:4');
+    el.setAttribute('position', (Math.random()*1.6-0.8)+' '+(Math.random()*0.9+0.6)+' -1.2');
+    el.setAttribute('scale','0.6 0.6 0.6');
+    var glow=document.createElement('a-entity');
+    glow.setAttribute('geometry','primitive:plane; width:0.42; height:0.42');
+    glow.setAttribute('material','color:'+(correct?'#60a5fa':'#ef4444')+'; opacity:0.22');
+    glow.setAttribute('position','0 0 -0.01');
+    el.appendChild(glow);
 
-  // เป้า
-  function spawnItems(n=1){
-    for(let i=0;i<n;i++){
-      const el=document.createElement('button');
-      el.textContent = GROUPS[(Math.random()*GROUPS.length)|0];
-      Object.assign(el.style,{
-        position:'fixed', left:(10+Math.random()*80)+'vw', top:(20+Math.random()*60)+'vh',
-        padding:'8px 10px', borderRadius:'10px', border:'1px solid #334155',
-        background:'#0b1222', color:'#fff', cursor:'pointer', userSelect:'none'
-      });
-      document.body.appendChild(el);
-      el.onclick=(e)=>{
-        const isGood = (el.textContent===current);
-        award(isGood?+8:-4, isGood, e);
-        try{ el.remove(); }catch{}
-      };
-      setTimeout(()=>{ try{ el.remove(); }catch{} }, 1600);
-    }
+    el.addEventListener('click', function(){
+      if(!running) return;
+      el.parentNode && el.parentNode.removeChild(el);
+      if(correct){
+        streakOK += 1;
+        score += 25 + combo*2; combo += 1; if(combo>maxCombo) maxCombo=combo;
+        if(streakOK>=need){
+          // เปลี่ยนหมวด/เพิ่มความท้าทาย
+          streakOK=0; need = Math.min(need+1, 4);
+          targetKey = keys[(Math.random()*keys.length)|0];
+          emit('hha:quest',{text:'เป้าหมายใหม่ — '+label(targetKey)+' (ให้ถูก '+need+' ชิ้นติด)'});
+        }
+      }else{
+        combo=0; streakOK=0; misses+=1; emit('hha:miss');
+        score = Math.max(0, score-15);
+      }
+      emit('hha:score',{score:score, combo:combo});
+      fx(el);
+    });
+
+    setTimeout(function(){
+      if(!el.parentNode) return;
+      el.parentNode.removeChild(el);
+      combo=0; streakOK=0; misses+=1; emit('hha:miss');
+      emit('hha:score',{score:score, combo:combo});
+    }, 1600);
+
+    return el;
   }
 
-  let pack=1;
-  const spawner=setInterval(()=>{
+  function spawnOne(){
     if(!running) return;
-    spawnItems(pack);
-    // เพิ่มจำนวนเป้าเมื่อคอมโบสูง
-    if(combo>0 && combo%4===0) pack = Math.min(3, pack+1);
-  },700);
+    var correct = Math.random()<0.55;
+    var key = correct? targetKey : keys[(Math.random()*keys.length)|0];
+    var arr = GROUPS[key];
+    var emoji = pick(arr);
+    host.appendChild(makeTarget(emoji, correct && key===targetKey));
+  }
 
-  return { stop(){running=false;clearInterval(timer);clearInterval(spawner);},
-           pause(){running=false;}, resume(){running=true;} };
+  function startSpawn(){ spawner=setInterval(spawnOne, spawnMs); }
+  function stopSpawn(){ if(spawner){ clearInterval(spawner); spawner=null; } }
+  function startTimer(){
+    emit('hha:time',{sec:timeLeft});
+    ticker=setInterval(function(){
+      if(!running) return;
+      timeLeft-=1; emit('hha:time',{sec:timeLeft});
+      if(timeLeft<=0) endGame();
+    },1000);
+  }
+  function stopTimer(){ if(ticker){ clearInterval(ticker); ticker=null; } }
+
+  function fx(srcEl){
+    try{
+      var e=document.createElement('a-entity');
+      e.setAttribute('text','value:✨; align:center; color:#fff; width:5');
+      e.setAttribute('position', srcEl.getAttribute('position'));
+      host.appendChild(e);
+      setTimeout(function(){ e.parentNode && e.parentNode.removeChild(e); }, 220);
+    }catch(e){}
+  }
+
+  function endGame(){
+    running=false; stopSpawn(); stopTimer();
+    emit('hha:end',{score:score, combo:maxCombo, duration:duration, misses:misses});
+  }
+
+  startSpawn(); startTimer();
+  return { stop:endGame, pause:function(){running=false;}, resume:function(){ if(!spawner) startSpawn(); if(!ticker) startTimer(); running=true; } };
 }
-
 export default { boot };
