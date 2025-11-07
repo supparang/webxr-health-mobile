@@ -1,101 +1,40 @@
-// === Hero Health Academy — mode-factory.js (Production Safe 2025-11-07) ===
+// === vr/mode-factory.js — safe no-optional-chaining (2025-11-07) ===
+import { Difficulty }   from './difficulty.js';
+import { Emoji }        from './emoji-sprite.js';
+import { Fever }        from './fever.js';
+import { MiniQuest }    from './miniquest.js';
+import { MissionDeck }  from './mission.js';
+import * as FX          from './particles.js';
+import { SFX }          from './sfx.js';
 
-export async function factoryBoot(config = {}) {
-  const host = config.host || document.querySelector('#spawnHost');
-  const name = config.name || 'unknown';
-  const diff = config.difficulty || 'normal';
-  const duration = config.duration || 60;
+var Particles = (FX && FX.Particles) ? FX.Particles : FX;
 
-  console.log('[ModeFactory] Boot:', name, diff);
+function $(s){ return document.querySelector(s); }
+function sample(a){ return a[Math.floor(Math.random()*a.length)]; }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function now(){ return performance.now ? performance.now() : Date.now(); }
 
-  let running = true;
-  let score = 0;
-  let combo = 0;
-  let comboMax = 0;
-  let missionGood = 0;
-  let goal = 0;
+var MIN_DIST_DEFAULT         = 0.36;
+var SLOT_COOLDOWN_MS_DEFAULT = 520;
+var MAX_ACTIVE_BY_DIFF_DEF   = { easy:1, normal:2, hard:2 };
+var BUDGET_BY_DIFF_DEF       = { easy:1, normal:2, hard:2 };
+var TIME_BY_DIFF_DEF         = { easy:45, normal:60, hard:75 };
 
-  const startTime = Date.now();
-  const endTime = startTime + duration * 1000;
-
-  // --- Safe dispatcher ---
-  function dispatch(event, detail = {}) {
-    try {
-      window.dispatchEvent(new CustomEvent(event, { detail }));
-    } catch (err) {
-      console.warn('[dispatch fail]', err);
-    }
-  }
-
-  // --- Safe click handler ---
-  function addClickTarget(el, good = true) {
-    el.addEventListener('click', () => {
-      if (!running) return;
-      if (good) {
-        score += 10;
-        combo++;
-        missionGood++;
-        if (combo > comboMax) comboMax = combo;
-        dispatch('hha:score', { score, combo });
-        try { el.remove(); } catch {}
-      } else {
-        combo = 0;
-        score -= 5;
-        dispatch('hha:score', { score, combo });
-        try { el.remove(); } catch {}
-      }
-    });
-  }
-
-  // --- Dummy spawn (emoji ball) ---
-  function spawnEmoji() {
-    if (!running) return;
-    const emoji = document.createElement('a-text');
-    emoji.setAttribute('value', Math.random() < 0.5 ? '🍎' : '🍔');
-    emoji.setAttribute('position', `${(Math.random() - 0.5) * 2} ${(Math.random() - 0.5) * 1.5} -2`);
-    emoji.setAttribute('scale', '2 2 2');
-    host.appendChild(emoji);
-    addClickTarget(emoji, emoji.getAttribute('value') === '🍎');
-  }
-
-  // --- Timer tick ---
-  const timer = setInterval(() => {
-    if (!running) return;
-    const remain = Math.max(0, Math.round((endTime - Date.now()) / 1000));
-    dispatch('hha:time', { sec: remain });
-    if (remain <= 0) endGame('หมดเวลา');
-  }, 1000);
-
-  // --- Spawner tick ---
-  const spawner = setInterval(() => {
-    if (!running) return;
-    spawnEmoji();
-  }, 1200);
-
-  // --- End game ---
-  function endGame(reason = 'stop') {
-    if (!running) return;
-    running = false;
-    clearInterval(timer);
-    clearInterval(spawner);
-
-    dispatch('hha:end', {
-      reason,
-      score,
-      missionGood,
-      goal,
-      comboMax
-    });
-  }
-
-  console.log(`[ModeFactory] ${name} started (${diff})`);
-
-  // return API (used by boot())
-  return {
-    stop: () => endGame('หยุดเกม'),
-    pause: () => { running = false; },
-    resume: () => { running = true; },
-  };
+function makeEmojiNode(char, opts){
+  var scale = (opts && opts.scale) ? opts.scale : 0.58;
+  // ใช้ a-text เพื่อความเสถียร
+  var el = document.createElement('a-text');
+  el.setAttribute('value', char);
+  el.setAttribute('align', 'center');
+  el.setAttribute('color', '#fff');
+  el.setAttribute('scale', (2*scale)+' '+(2*scale)+' '+(2*scale));
+  return el;
 }
 
-export default { factoryBoot };
+function buildSlots(yBase){
+  var y0 = (typeof yBase==='number')? yBase : 0.42;
+  var xs=[-0.95, 0.00, 0.95], ys=[ y0, y0+0.34 ];
+  var slots=[], id=0, ci, ri;
+  for(ci=0; ci<xs.length; ci++){
+    for(ri=0; ri<ys.length; ri++){
+      slots.push({ id:id++, col:ci
