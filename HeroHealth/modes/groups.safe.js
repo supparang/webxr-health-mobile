@@ -1,69 +1,59 @@
-// === Hero Health — modes/groups.safe.js (Production) ===
-// โหมด: จัดกลุ่มอาหาร (Food Groups)
-// ใช้ระบบจาก vr/mode-factory.js พร้อมภารกิจเก็บอาหารให้ครบแต่ละหมวด
+// === modes/groups.safe.js (production) ===
+import { boot as buildMode } from '../vr/mode-factory.js';
 
-import { boot as factoryBoot } from '../vr/mode-factory.js';
-
-// หมวดหมู่อาหารหลัก
-const GROUPS = {
-  grains : ['🍚','🍞','🥖','🥯','🥨','🍙','🍘'],
-  protein: ['🥩','🍗','🥚','🐟','🦐','🍤','🥜','🌰','🍖'],
-  dairy  : ['🥛','🧀','🍦','🍨','🥞'],
-  fruit  : ['🍎','🍓','🍇','🍉','🍌','🍍','🍋','🍊','🍐','🍑','🍒','🍈','🥭'],
-  veggie : ['🥦','🥬','🥕','🍅','🌽','🧅','🫑','🥗']
+// แบ่งหมวดอาหารหลัก ๆ
+var GROUPS = {
+  veg : ['🥦','🥕','🌽','🍅','🥒','🥬','🧄','🧅','🍆','🍄'],
+  fruit: ['🍎','🍓','🍇','🍌','🍍','🍐','🍉','🥝','🍑','🍊','🫐'],
+  protein: ['🍗','🥚','🥩','🐟','🧀','🥜','🍤'],
+  grain: ['🍞','🥖','🥯','🍚','🍙','🍝','🍜'],
+  dairy: ['🥛','🧈','🧀','🍦']
 };
+var BAD = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭'];
 
-// รวบรวมทั้งหมดเป็น pool เดียว
-const ALL = Object.values(GROUPS).flat();
-const BAD = ['🍩','🍪','🍰','🍔','🍕','🌭','🥓','🥤','🍫','🧁','🍿','🍟'];
+function inArr(ch, arr){ for(var i=0;i<arr.length;i++){ if(arr[i]===ch) return true; } return false; }
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-// ตารางภารกิจย่อย
-const QUEST_BY_DIFF = {
-  easy:   { goal: 25, desc: 'เก็บอาหารแต่ละหมวดหมู่รวม 25 ชิ้น หลีกเลี่ยงขยะ!' },
-  normal: { goal: 40, desc: 'เก็บอาหารแต่ละหมวดหมู่รวม 40 ชิ้น หลีกเลี่ยงขยะ!' },
-  hard:   { goal: 55, desc: 'เก็บอาหารแต่ละหมวดหมู่รวม 55 ชิ้น หลีกเลี่ยงขยะ!' }
-};
+export async function boot(cfg){
+  cfg = cfg || {};
 
-// กติกาให้คะแนน
-function judgeGroups(char, ctx){
-  if (char == null) return { good:false, scoreDelta:-3 };
+  // เป้าหมวดหมุนเวียน: veg → protein → grain → fruit → dairy …
+  var order = ['veg','protein','grain','fruit','dairy'];
+  var idx=0, target = order[idx];
 
-  const isHealthy = ALL.includes(char);
-  const isJunk = BAD.includes(char);
-
-  if (isHealthy){
-    const bonus = (ctx.combo && ((ctx.combo+1) % 5 === 0)) ? 3 : 0;
-    return { good:true, scoreDelta: 12 + bonus };
+  function questText(){
+    return 'เลือกตามหมวด: ' + target.toUpperCase() + ' (แต้มพิเศษคอมโบ)';
   }
-  else if (isJunk){
-    return { good:false, scoreDelta:-6 };
-  }
-  else {
-    // ไม่อยู่ในชุดใด ๆ → ไม่ให้คะแนน
-    return { good:false, scoreDelta:0 };
-  }
-}
+  try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){}
 
-// Boot โหมดหลัก
-export async function boot(config = {}){
-  const diff = config.difficulty || 'normal';
-  const quest = QUEST_BY_DIFF[diff] ?? QUEST_BY_DIFF.normal;
+  var ALL_GOOD = [].concat(GROUPS.veg, GROUPS.fruit, GROUPS.protein, GROUPS.grain, GROUPS.dairy);
 
-  // แจ้ง Mini Quest ตอนเริ่ม
-  try {
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: { text: `โหมด Food Groups — ${quest.desc}` }
-    }));
-  } catch {}
+  var api = await buildMode({
+    host: cfg.host,
+    difficulty: cfg.difficulty,
+    duration: cfg.duration,
+    pools: { good: ALL_GOOD, bad: BAD },
+    goodRate: 0.75,
+    goal: 9999,
+    judge: function(char, ctx){
+      // ดีแค่ไหน ขึ้นกับว่าตรงหมวดเป้าหมายหรือไม่
+      var isGood = inArr(char, ALL_GOOD);
+      if(!isGood) return { good:false, scoreDelta:-6 };
 
-  // เรียก factory
-  return factoryBoot({
-    name: 'groups',
-    pools: { good: ALL, bad: BAD },
-    judge: judgeGroups,
-    goal: quest.goal,
-    ...config
+      var hitTarget = inArr(char, GROUPS[target]);
+      var delta = hitTarget ? 15 : 8; // ตรงหมวดได้แต้มมากกว่า
+      // ถ้าตรงหมวด 6 ครั้งติด → สลับหมวด
+      if(hitTarget){ if((ctx && ctx.combo % 6)===5){ idx=(idx+1)%order.length; target=order[idx];
+        try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){} } }
+      return { good:true, scoreDelta:delta };
+    }
   });
+
+  return {
+    stop: function(){ api && api.stop && api.stop(); },
+    pause: function(){ api && api.pause && api.pause(); },
+    resume: function(){ api && api.resume && api.resume(); }
+  };
 }
 
 export default { boot };
