@@ -4,75 +4,55 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
-
-  <!-- A-Frame (แก้ THREE not defined) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
   <style>
-    :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#2b384f; --chip2:#1e293b; --acc:#22c55e; }
+    :root{ --bg:#0b1324; --fg:#e8eefc; --acc:#22c55e; }
     html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;}
-    a-scene{width:100%;height:100%;}
+    a-scene{width:100%;height:100%;touch-action:manipulation;}
 
-    /* HUD badges */
+    /* HUD badges — ไม่ดักสัมผัส */
     .hud-chip{
       position:fixed; z-index:900; background:#0f172a99; border:1px solid #475569;
       padding:8px 12px; border-radius:12px; backdrop-filter:blur(6px); font-weight:700;
+      pointer-events:none;
     }
     #badgeTime{ left:12px; top:12px; }
     #badgeScore{ left:50%; top:12px; transform:translateX(-50%); }
     #badgeQuest{ right:12px; top:12px; }
 
-    /* Hub / menu card */
+    /* ===== เมนู: ทำให้เลื่อนภายในได้ ===== */
     .menu-wrap{
-      position:fixed; left:50%; top:24%; transform:translateX(-50%);
-      width:min(1080px,86vw); padding:24px; border-radius:18px;
+      position:fixed; left:50%; top:14%; transform:translateX(-50%);
+      width:min(1080px,92vw);
+      max-height:78vh;                /* ให้เมนูมีความสูงจำกัด */
+      overflow:auto;                  /* เลื่อนภายในกล่องได้ */
+      -webkit-overflow-scrolling:touch;
+      padding:24px; border-radius:18px;
       background:linear-gradient(#1f2b40,#22314b); border:1px solid #384861; z-index:800;
       box-shadow:0 20px 50px #0008;
     }
-    .menu-inner{
-      margin:0 auto; max-width:min(920px,88vw); text-align:center;
-      padding:24px; border-radius:16px; background:#6ea8ff33; border:1px solid #5c7fae66;
-    }
+    .menu-inner{ margin:0 auto; max-width:min(920px,88vw); text-align:center; padding:24px; border-radius:16px; background:#6ea8ff33; border:1px solid #5c7fae66; }
     h1{ text-align:center; margin:8px 0 24px; font-size:clamp(22px,3.6vw,42px) }
-
-    select,button{
-      font-size:16px; padding:10px 14px; border-radius:10px; border:1px solid #475569; color:#fff;
-      background:#0b1222; outline:0;
-    }
+    select,button{ font-size:16px; padding:10px 14px; border-radius:10px; border:1px solid #475569; color:#fff; background:#0b1222; outline:0; }
     button.primary{ background:var(--acc); color:#052e12; border-color:#16a34a; font-weight:800; }
     .row{ margin:14px 0; display:flex; gap:12px; justify-content:center; align-items:center; }
 
-    /* ปุ่ม VR ของ A-Frame ให้ลอยเหนือทุกอย่าง */
-    .a-enter-vr, .a-enter-vr-button{
-      position:absolute !important; right:12px !important; bottom:12px !important; z-index:1000 !important;
-    }
-
-    /* ปุ่ม VR (fallback) ของเราเอง */
-    #vrBtn{
-      position:fixed; right:14px; bottom:14px; z-index:999;
-      background:#ffffff12; border:1px solid #4a5568; color:#fff;
-      padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer;
-      backdrop-filter:blur(6px);
-    }
-    /* ถ้าอุปกรณ์รองรับ immersive-vr จริง ซ่อนปุ่มของเรา ปล่อย A-Frame แสดงเอง */
+    /* ปุ่ม VR */
+    .a-enter-vr, .a-enter-vr-button{ position:absolute !important; right:12px !important; bottom:12px !important; z-index:1000 !important; }
+    #vrBtn{ position:fixed; right:14px; bottom:14px; z-index:999; background:#ffffff12; border:1px solid #4a5568; color:#fff; padding:10px 14px; border-radius:10px; font-weight:800; cursor:pointer; backdrop-filter:blur(6px); }
     .xr-supported #vrBtn{ display:none; }
 
-    /* ===== Auto-landscape overlay ===== */
-    #rotateHint{
-      position:fixed; inset:0; z-index:1200;
-      display:none; align-items:center; justify-content:center; text-align:center;
-      background:rgba(5,10,20,.96); color:#fff; padding:24px;
-    }
-    #rotateHint .box{
-      max-width:min(520px,90vw); border:1px solid #334155; border-radius:16px;
-      padding:22px; background:#0b1324; box-shadow:0 10px 40px #0008;
-    }
+    /* หมุนเป็นแนวนอน (เหมือนเดิม) */
+    #rotateHint{ position:fixed; inset:0; z-index:1200; display:none; align-items:center; justify-content:center; text-align:center; background:rgba(5,10,20,.96); color:#fff; padding:24px; }
+    #rotateHint .box{ max-width:min(520px,90vw); border:1px solid #334155; border-radius:16px; padding:22px; background:#0b1324; box-shadow:0 10px 40px #0008; }
     #rotateHint h2{ margin:0 0 8px; font-size:20px; }
     #rotateHint p{ opacity:.85; margin:0; }
+
+    /* เมื่อเมนูเปิดอยู่ ให้ฉากไม่ดักทัช เพื่อให้เลื่อนเมนูได้ */
+    body.menu-open a-scene{ pointer-events:none; }
   </style>
 </head>
 <body>
-
   <!-- HUD -->
   <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
@@ -108,121 +88,84 @@
   <!-- ปุ่ม VR (fallback) -->
   <button id="vrBtn" title="Enter VR">VR</button>
 
-  <!-- หมุนเครื่องเป็นแนวนอน -->
+  <!-- แนวนอนอัตโนมัติ -->
   <div id="rotateHint" role="dialog" aria-live="polite">
     <div class="box">
       <h2>กรุณาหมุนอุปกรณ์เป็นแนวนอน</h2>
-      <p>เพื่อการเล่นที่ดีที่สุด ระบบจะเริ่มเกมอัตโนมัติเมื่อเป็นแนวนอน</p>
+      <p>ระบบจะเริ่มเกมอัตโนมัติเมื่อเป็นแนวนอน</p>
     </div>
   </div>
 
-  <!-- A-Frame scene -->
+  <!-- A-Frame -->
   <a-scene id="scene" background="color: #0b1324">
     <a-assets></a-assets>
     <a-entity id="cam" camera look-controls wasd-controls position="0 1.6 0"></a-entity>
-
-    <!-- พื้นที่สแปว์นเป้า (ล่าง-กลางจอ) -->
     <a-entity id="spawnHost" position="0 0 -1.2"></a-entity>
-
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
   <script type="module">
-    // ===== Auto Landscape =====
-    function isLandscape(){
-      return (window.matchMedia && window.matchMedia('(orientation: landscape)').matches)
-          || (window.innerWidth > window.innerHeight);
-    }
-    async function tryLockLandscape() {
-      try {
-        if (screen.orientation && screen.orientation.lock) {
-          await screen.orientation.lock('landscape');
-        }
-      } catch (_) {}
-    }
+    /* ===== landscape guard (คงเดิม) ===== */
+    function isLandscape(){ return (window.matchMedia && window.matchMedia('(orientation: landscape)').matches) || (window.innerWidth>window.innerHeight); }
+    async function tryLockLandscape(){ try{ if(screen.orientation?.lock) await screen.orientation.lock('landscape'); }catch{} }
     function applyLandscapeGuard(){
-      const hint = document.getElementById('rotateHint');
-      const menu = document.getElementById('menu');
-      const scene = document.getElementById('scene');
-
-      const show = !isLandscape();
-      hint.style.display = show ? 'flex' : 'none';
-      menu.style.pointerEvents = show ? 'none' : '';
-      menu.style.opacity       = show ? 0.15 : 1;
-      scene.style.visibility   = show ? 'hidden' : 'visible';
+      const hint=document.getElementById('rotateHint');
+      const menu=document.getElementById('menu');
+      const scene=document.getElementById('scene');
+      const show=!isLandscape();
+      hint.style.display=show?'flex':'none';
+      menu.style.pointerEvents=show?'none':'';
+      scene.style.visibility=show?'hidden':'visible';
     }
-    applyLandscapeGuard();
-    tryLockLandscape();
-    window.addEventListener('orientationchange', ()=> setTimeout(applyLandscapeGuard,150));
-    window.addEventListener('resize', applyLandscapeGuard);
+    applyLandscapeGuard(); tryLockLandscape();
+    addEventListener('orientationchange',()=>setTimeout(applyLandscapeGuard,150));
+    addEventListener('resize',applyLandscapeGuard);
 
-    // ตรวจ WebXR immersive-vr แล้วติดธง class
-    (async () => {
-      let ok = false;
-      try { ok = !!(navigator.xr && await navigator.xr.isSessionSupported('immersive-vr')); } catch {}
-      document.body.classList.add(ok ? 'xr-supported' : 'xr-unsupported');
-    })();
+    /* XR button */
+    (async()=>{ let ok=false; try{ ok=!!(navigator.xr && await navigator.xr.isSessionSupported('immersive-vr')); }catch{} document.body.classList.add(ok?'xr-supported':'xr-unsupported'); })();
+    document.getElementById('vrBtn')?.addEventListener('click',()=>{ const s=document.getElementById('scene'); try{s?.enterVR?.();}catch{} });
 
-    // ปุ่ม VR (fallback)
-    document.getElementById('vrBtn')?.addEventListener('click', () => {
-      const sceneEl = document.getElementById('scene');
-      try { sceneEl?.enterVR?.(); } catch {}
-    });
-
-    // ตัวช่วย
     const $ = (s)=>document.querySelector(s);
 
-    // ฟัง HUD events จากโหมด
-    window.addEventListener('hha:score', (e)=>{
-      const d=e.detail||{}; $('#badgeScore').textContent = `คะแนน: ${d.score??0} | คอมโบ: x${d.combo??0}`;
-    });
-    window.addEventListener('hha:time',  (e)=>{
-      const t=Math.max(0, Math.round(e.detail?.sec??0)); $('#badgeTime').textContent = `เวลา: ${t}s`;
-    });
-    window.addEventListener('hha:quest', (e)=>{
-      $('#badgeQuest').textContent = e.detail?.text || 'Mini Quest';
-    });
-    window.addEventListener('hha:end',   (e)=>{
-      // กลับเมนูเมื่อจบเกม
-      $('#menu').style.display = '';
-    });
+    // เมื่อเมนูแสดง → ปิด pointer-events ของฉาก เพื่อให้สกโรลเมนูได้
+    function openMenu(){ document.body.classList.add('menu-open'); $('#menu').style.display=''; }
+    function closeMenu(){ document.body.classList.remove('menu-open'); $('#menu').style.display='none'; }
+    openMenu(); // เริ่มที่เมนูเปิด
+
+    // HUD events
+    addEventListener('hha:score',e=>{ const d=e.detail||{}; $('#badgeScore').textContent=`คะแนน: ${d.score??0} | คอมโบ: x${d.combo??0}`; });
+    addEventListener('hha:time', e=>{ const t=Math.max(0,Math.round(e.detail?.sec??0)); $('#badgeTime').textContent=`เวลา: ${t}s`; });
+    addEventListener('hha:quest',e=>{ $('#badgeQuest').textContent=e.detail?.text||'Mini Quest'; });
+    addEventListener('hha:end',  ()=>{ openMenu(); });
 
     // เริ่มเกม
-    $('#startBtn').addEventListener('click', async () => {
-      await tryLockLandscape();
-      applyLandscapeGuard();
-      if (!isLandscape()) return; // ยังไม่เป็นแนวนอน—รอก่อน
+    $('#startBtn').addEventListener('click', async ()=>{
+      await tryLockLandscape(); applyLandscapeGuard();
+      if(!isLandscape()) return;
 
-      const mode = $('#modeSel').value;
-      const diff = $('#diffSel').value;
+      const mode=$('#modeSel').value;
+      const diff=$('#diffSel').value;
 
-      const MAP = {
-        goodjunk : './modes/goodjunk.safe.js',
-        groups   : './modes/groups.safe.js',
-        hydration: './modes/hydration.quest.js',
-        plate    : './modes/plate.quest.js'
+      const MAP={
+        goodjunk :'./modes/goodjunk.safe.js',
+        groups   :'./modes/groups.safe.js',
+        hydration:'./modes/hydration.quest.js',
+        plate    :'./modes/plate.quest.js'
       };
-      const url = (MAP[mode] || MAP.goodjunk) + '?v=' + Date.now();
+      const url=(MAP[mode]||MAP.goodjunk)+'?v='+Date.now();
 
-      // อัปเดต HUD
-      $('#badgeScore').textContent = 'คะแนน: 0 | คอมโบ: x0';
-      $('#badgeTime').textContent  = 'เวลา: 60s';
-      $('#badgeQuest').textContent = 'Mini Quest — กำลังเริ่ม…';
+      $('#badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
+      $('#badgeTime').textContent ='เวลา: 60s';
+      $('#badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
 
-      // ซ่อนเมนู
-      $('#menu').style.display = 'none';
+      closeMenu();
 
       try{
-        const mod = await import(url);
-        const api = await mod.boot?.({
-          host: $('#spawnHost'),
-          difficulty: diff,
-          duration: 60
-        });
-        console.log('Mode started:', mode, diff, !!api);
+        const mod=await import(url);
+        await mod.boot?.({ host:$('#spawnHost'), difficulty:diff, duration:60 });
       }catch(err){
-        alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message||err));
-        $('#menu').style.display = ''; // กลับเมนู
+        alert('โหลดโหมดไม่สำเร็จ: '+(err?.message||err));
+        openMenu();
         console.error(err);
       }
     });
