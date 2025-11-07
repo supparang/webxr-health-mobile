@@ -1,40 +1,38 @@
-// === modes/plate.quest.js — production shim (named + default export) ===
+// === modes/plate.quest.js — build balanced plate ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 
-const PLATE = {
-  veg:['🥦','🥬','🥕','🧅','🍅','🌽','🍆'],
-  fruit:['🍎','🍏','🍉','🍌','🍍','🍇','🍓','🍐','🍊','🫐','🥝','🍋'],
-  grain:['🍞','🥖','🍚','🍘','🍙','🍜','🍝'],
-  protein:['🥚','🐟','🍗','🥩','🥜'],
-  dairy:['🥛','🧀','🍦']
-};
-const BAD = ['🍔','🍟','🍕','🍩','🍪','🧁','🍰','🍫','🍭','🥤','🧋','🍿'];
-const ALL_GOOD=[...PLATE.veg,...PLATE.fruit,...PLATE.grain,...PLATE.protein,...PLATE.dairy];
+const VEG = ['🥦','🥗','🥬','🌽','🥕','🍅','🍆','🥒','🫑','🧅','🍄','🥔'];
+const PRO = ['🐟','🍗','🥚','🥩','🫘','🧀','🥛'];
+const GRA = ['🍞','🍚','🍙','🍝','🍜','🥖','🥯','🧇'];
+const FRU = ['🍎','🍇','🍉','🍓','🍊','🍍','🥝','🍒','🍑','🍐','🍋','🫐'];
+const FAT = ['🥑','🧈','🍫','🍩','🍟','🍕','🌭']; // หมวดพิเศษ
 
-const INTERNAL =
-  (typeof start === 'function' && start) ||
-  (typeof run   === 'function' && run)   ||
-  (typeof init  === 'function' && init)  || null;
+const ALL = [...VEG, ...PRO, ...GRA, ...FRU, ...FAT];
+
+function judgePlate(hitChar, ctx){
+  if (hitChar == null) return { good:false, scoreDelta:-5 };
+  // ให้ดีเมื่อเลือกได้ครบหมวดที่ระบบต้องการ (ctx.needCategories)
+  const need = ctx?.needCategories || { VEG:1, PRO:1, GRA:1, FRU:1 };
+  const is = VEG.includes(hitChar) ? 'VEG' :
+             PRO.includes(hitChar) ? 'PRO' :
+             GRA.includes(hitChar) ? 'GRA' :
+             FRU.includes(hitChar) ? 'FRU' :
+             FAT.includes(hitChar) ? 'FAT' : 'OTHER';
+
+  // หมวดพิเศษ FAT ไม่ให้บวกคะแนน (หรือหัก) ตามดีไซน์
+  if (is === 'FAT') return { good:false, scoreDelta:-4 };
+
+  // นับเป็นสำเร็จ (ในจริง ๆ ควรอัปเดต ctx.needCategories ให้ลดลง — ทำในโหมดจริง)
+  return { good:true, scoreDelta:12, feverDelta:1 };
+}
 
 export async function boot(config = {}) {
-  console.log('[plate] boot mode', config);
-  if (INTERNAL) return await INTERNAL(config);
-
-  const judge=(char,ctx)=>{
-    if (ctx?.type==='timeout') return { good:false, scoreDelta:-3 };
-    if (ALL_GOOD.includes(char)) return { good:true, scoreDelta:9, feverDelta:1 };
-    if (BAD.includes(char))      return { good:false, scoreDelta:-6 };
-    return { good:false, scoreDelta:-2 };
-  };
-
-  return await factoryBoot({
-    name:'plate',
-    pools:{ good:ALL_GOOD, bad:BAD },
-    judge,
-    ui:{ questMainSel:'#tQmain' },
-    goldenRate:0.05, goodRate:0.80,
+  return factoryBoot({
+    name: 'plate',
+    pools: { good: ALL },
+    judge: (ch, ctx) => judgePlate(ch, ctx),
+    ui: { questStartText: 'Mini Quest — จัดจานให้ครบ 5 หมู่ (เว้นหมวดพิเศษ)' },
     ...config
   });
 }
-
 export default { boot };
