@@ -1,4 +1,4 @@
-// === vr/mode-factory.js — Shared anti-overlap spawner & gameplay (SAFE no-global 'api') ===
+// === vr/mode-factory.js — Shared spawner + anti-overlap + HUD events (2025-11-07) ===
 import { Difficulty }   from './difficulty.js';
 import { Emoji }        from './emoji-sprite.js';
 import { Fever }        from './fever.js';
@@ -14,14 +14,14 @@ const sample=a=>a[Math.floor(Math.random()*a.length)];
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const now=()=>performance.now();
 
-// ------- Core constants (safe defaults) -------
+// Defaults
 const MIN_DIST_DEFAULT         = 0.36; // m
 const SLOT_COOLDOWN_MS_DEFAULT = 520;  // ms
 const MAX_ACTIVE_BY_DIFF_DEF   = { easy:1, normal:2, hard:2 };
 const BUDGET_BY_DIFF_DEF       = { easy:1, normal:2, hard:2 };
 const TIME_BY_DIFF_DEF         = { easy:45, normal:60, hard:75 };
 
-// Twemoji fallback
+// Twemoji fallback (กรณีฟอนต์อีโมจิไม่ขึ้นสี)
 const USE_EMOJI_SVG = (()=>{ try{ return (new URL(location.href)).searchParams.get('emoji')?.toLowerCase()==='svg'; }catch{ return false; }})();
 const toCP = (s)=>{ const p=[]; for(const ch of s) p.push(ch.codePointAt(0).toString(16)); return p.join('-'); };
 const twemojiURL = (ch)=>`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/svg/${toCP(ch)}.svg`;
@@ -29,14 +29,18 @@ const twemojiURL = (ch)=>`https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/ass
 function makeEmojiNode(char,{scale=0.58}={}){
   if(!USE_EMOJI_SVG){
     if(typeof Emoji?.fromChar==='function') return Emoji.fromChar(char,{size:96,scale,glow:true,shadow:true});
-    if(typeof Emoji?.create==='function'){ return Emoji.create({type:'GOOD', size:scale}); }
-    const el=document.createElement('a-entity'); el.setAttribute('text',{value:char,align:'center',width:2.2*scale,color:'#fff'}); return el;
-  }else{
-    const img=document.createElement('a-image'); img.setAttribute('src',twemojiURL(char));
-    img.setAttribute('width',0.80*scale); img.setAttribute('height',0.80*scale); return img;
+    const el=document.createElement('a-entity');
+    el.setAttribute('text',{value:char,align:'center',width:2.2*scale,color:'#fff'});
+    return el;
+  } else {
+    const img=document.createElement('a-image');
+    img.setAttribute('src',twemojiURL(char));
+    img.setAttribute('width',0.80*scale); img.setAttribute('height',0.80*scale);
+    return img;
   }
 }
 
+// สร้างตารางตำแหน่ง (ล่าง-กลางจอ)
 function buildSlots(yBase=0.42){
   const xs=[-0.95, 0.00, 0.95];
   const ys=[ yBase, yBase+0.34 ];
@@ -57,7 +61,12 @@ function takeFreeSlot(slots, busyCols, busyRows, cooldownMs){
 function releaseSlot(slots, slot){ if(slot){ slot.used=false; slot.lastUsed=now(); } }
 
 /**
- * boot(config) — no global 'api' to avoid re-declare across reloads
+ * config = {
+ *   name, pools:{good:[], bad:[]}, judge(hitChar, ctx) -> { good:boolean, scoreDelta:number, feverDelta?:number }
+ *   ui:{ questMainSel }, goldenRate, goodRate, minDist, slotCooldownMs,
+ *   timeByDiff, maxActiveByDiff, budgetByDiff,
+ *   host, duration, difficulty, goal
+ * }
  */
 export async function boot(config={}){
   const {
@@ -83,6 +92,8 @@ export async function boot(config={}){
   if(!host){ const wrap=$('a-scene')||document.body; const auto=document.createElement('a-entity'); auto.id='spawnHost'; wrap.appendChild(auto); host=auto; }
 
   const sfx=new SFX('../assets/audio/'); await sfx.unlock?.(); sfx.attachPageVisibilityAutoMute?.();
+  window.addEventListener('hha:unlockaudio', ()=> sfx.unlock?.());
+
   const scene=$('a-scene')||document.body;
   const fever=new Fever(scene,null,{durationMs:10000});
 
@@ -96,7 +107,8 @@ export async function boot(config={}){
   // Time/Difficulty
   const difficulty = givenDiff;
   let duration = givenDuration || timeByDiff[difficulty] || 60;
-  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:duration}}));
+  // ส่งค่าเริ่มต้นให้ HUD
+  try{ window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: duration } })); }catch{}
 
   const diff=new Difficulty();
   const safe={ size:0.60, rate:520, life:2000 };
@@ -120,19 +132,22 @@ export async function boot(config={}){
 
   // FPS adapt
   let frames=0, lastT=now();
-  (function raf(t){ frames++; if(t-lastT>=1000){ const fps=frames; frames=0; lastT=t; if(fps<40){ spawnRateMs=Math.min(spawnRateMs*1.15,900); MAX_ACTIVE=Math.max(1,Math.round(MAX_ACTIVE*0.9)); } } requestAnimationFrame(raf); })(performance.now());
+  (function raf(t){ frames++; if(t-lastT>=1000){ const fps=frames; frames=0; lastT=t;
+    if(fps<40){ spawnRateMs=Math.min(spawnRateMs*1.15,900); MAX_ACTIVE=Math.max(1,Math.round(MAX_ACTIVE*0.9)); }
+  } requestAnimationFrame(raf); })(performance.now());
 
   // Combo decay
-  const comboDecay=setInterval(()=>{ if(!running) return; if(now()-lastGoodAt>2000 && combo>0){ combo--; try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{} }},1000);
+  const comboDecay=setInterval(()=>{ if(!running) return; if(now()-lastGoodAt>2000 && combo>0){ combo--;
+    try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{} }},1000);
 
-  // Pause/Resume hooks
-  const ctl = { paused:false };
-  window.addEventListener('blur',  ()=>ctl.paused=true);
-  window.addEventListener('focus', ()=>ctl.paused=false);
-  document.addEventListener('visibilitychange',()=>{ ctl.paused=document.hidden; });
+  // Pause/Resume hooks (ไม่ประกาศ global ตัวแปร api)
+  let apiLocal=null;
+  window.addEventListener('blur',  ()=>apiLocal?.pause?.());
+  window.addEventListener('focus', ()=>apiLocal?.resume?.());
+  document.addEventListener('visibilitychange',()=>document.hidden?apiLocal?.pause?.():apiLocal?.resume?.());
 
   function spawnOne(){
-    if(!running || ctl.paused) return;
+    if(!running) return;
     if(SPAWN_LOCK) return; SPAWN_LOCK=true;
     try{
       if(active.size>=MAX_ACTIVE || issuedThisSec>=BUDGET) return;
@@ -147,26 +162,21 @@ export async function boot(config={}){
       // reserve
       busyCols.add(slot.col); busyRows.add(slot.row); issuedThisSec++;
 
-      // pick char
-      const isGood = Math.random() < (config.goodRate ?? 0.70) || !pools.bad?.length;
+      // pick char (ผู้ใช้จะกำหนด judge / pools จากโหมด)
+      const isGood = Math.random() < goodRate || !pools.bad?.length;
       const char   = isGood ? sample(pools.good) : sample(pools.bad||pools.good);
-      const isGold = isGood && Math.random() < (config.goldenRate ?? 0.07);
 
       const el=makeEmojiNode(char,{scale:clamp(sizeFactor,0.35,0.65)});
       el.setAttribute('position',`${slot.x} ${slot.y} ${slot.z}`);
       el.classList.add('hit','clickable'); el.__col=slot.col; el.__row=slot.row;
 
-      if(isGold){
-        el.setAttribute('scale','1.12 1.12 1.12');
-        const halo=document.createElement('a-ring');
-        halo.setAttribute('radius-inner','0.18'); halo.setAttribute('radius-outer','0.22');
-        halo.setAttribute('position','0 0 0.001'); halo.setAttribute('material','color:#ffe066; opacity:0.85; shader:flat');
-        el.appendChild(halo);
-      }
-
+      // พื้นที่คลิก — ขยายให้กว้างขึ้น
       const hit=document.createElement('a-plane');
-      hit.setAttribute('width',hitW); hit.setAttribute('height',hitW);
+      const planeW = Math.max(0.34, hitW * 1.35);
+      hit.setAttribute('width',planeW);
+      hit.setAttribute('height',planeW);
       hit.setAttribute('material','opacity:0; transparent:true; side:double');
+      hit.setAttribute('position','0 0 0.002');
       hit.classList.add('hit','clickable');
       el.appendChild(hit);
 
@@ -190,14 +200,15 @@ export async function boot(config={}){
         try{ ev?.stopPropagation?.(); ev?.preventDefault?.(); }catch{}
         clearTimeout(killer);
 
-        // judge result
         let res = { good:true, scoreDelta:10, feverDelta:0 };
         if(typeof judge==='function') res = judge(char, { type:'hit', score, combo, streak, feverActive:fever.active });
 
         if(res.good){
           const plus = res.scoreDelta ?? 10;
           missionGood+=1; score+=plus; combo+=1; streak+=1; comboMax=Math.max(comboMax,combo); lastGoodAt=now();
-          try{ Particles.burst?.(host, {x:slot.x,y:slot.y,z:slot.z}, '#69f0ae'); }catch{}
+          sfx.popGood?.(); Particles.burst?.(host, {x:slot.x,y:slot.y,z:slot.z}, '#69f0ae');
+
+          // popup score
           try{
             const t=document.createElement('a-entity');
             t.setAttribute('troika-text',`value: +${plus}; color:#fff; fontSize:0.08; anchor:center`);
@@ -211,7 +222,7 @@ export async function boot(config={}){
           mq.good({score,combo,streak,missionGood});
         }else{
           score=Math.max(0, score + (res.scoreDelta ?? -5));
-          combo=0; streak=0; try{ Particles.smoke?.(host,{x:slot.x,y:slot.y,z:slot.z}); }catch{} mq.junk();
+          combo=0; streak=0; sfx.popBad?.(); Particles.smoke?.(host,{x:slot.x,y:slot.y,z:slot.z}); mq.junk();
         }
         try{ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); }catch{}
 
@@ -219,10 +230,9 @@ export async function boot(config={}){
         cleanup();
       };
 
-      ['click','mousedown','touchstart','triggerdown'].forEach(evt=>{
-        try{ hit.addEventListener(evt, fire, {passive:false}); }catch{}
-        try{ el.addEventListener(evt,  fire, {passive:false}); }catch{}
-      });
+      const add = (node, type)=>{ try{ node.addEventListener(type, fire, {passive:false}); }catch{} };
+      ['click','mousedown','mouseup','touchstart','touchend'].forEach(t=>{ add(hit,t); add(el,t); });
+      ['triggerdown','gripdown','triggerup'].forEach(t=>{ add(hit,t); add(el,t); });
 
       host.appendChild(el);
 
@@ -235,7 +245,7 @@ export async function boot(config={}){
     } finally { SPAWN_LOCK=false; }
   }
 
-  // Sweeper: resolve overlaps every 200ms
+  // Sweeper: แก้ทับซ้อนทุก 200ms
   function resolveOverlaps(){
     const arr=[...active];
     for(let i=0;i<arr.length;i++){
@@ -261,32 +271,42 @@ export async function boot(config={}){
   }
   const overlapSweeper=setInterval(()=>{ if(running) resolveOverlaps(); },200);
 
-  // Loop
+  // ลูปสแปว์น
   function loop(){
     clearTimeout(spawnTicker);
-    const tick=()=>{ if(running && !ctl.paused && issuedThisSec<BUDGET) spawnOne();
+    const tick=()=>{ if(running && issuedThisSec<BUDGET) spawnOne();
       const cd=Math.max(380, spawnRateMs|0); spawnTicker=setTimeout(tick, cd); };
     tick();
   }
   loop(); setTimeout(()=>spawnOne(),240);
 
-  // Timers
-  const secondTimer=setInterval(()=>{ if(running && !ctl.paused){ duration=Math.max(0, duration-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:duration}}));
-    mq.second(); missions.second?.(); if(duration<=0){ endGame('timeout'); } } },1000);
+  // ตัวจับเวลาวินาที (อัปเดต HUD)
+  const secondTimer=setInterval(()=>{
+    if(!running) return;
+    duration = Math.max(0, duration-1);
+    try{ window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: duration } })); }catch{}
+    mq.second(); missions.second?.();
+    if(duration<=0) endGame('timeout');
+  },1000);
+
+  // Fever hook
+  window.addEventListener('hha:fever',(e)=>{
+    if(e?.detail?.state==='start'){ try{ mq.fever(); }catch{} spawnRateMs=Math.round(spawnRateMs*0.85); }
+    else { spawnRateMs = Number(base.rate)||520; }
+  });
 
   function endGame(reason='stop'){
     if(!running) return; running=false;
     clearTimeout(spawnTicker); clearInterval(secondTimer); clearInterval(budgetTimer);
     clearInterval(comboDecay); clearInterval(overlapSweeper);
+    try{ fever.end(); }catch{} try{ sfx.playCoach?.('clear'); }catch{}
     try{ window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,missionGood,goal,comboMax}})); }catch{}
   }
 
-  return {
-    stop(){ endGame('stop'); },
-    pause(){ ctl.paused=true; },
-    resume(){ ctl.paused=false; }
-  };
+  apiLocal={ pause(){ if(!running) return; running=false; clearTimeout(spawnTicker); },
+             resume(){ if(running) return; running=true; loop(); },
+             stop(){ endGame('stop'); } };
+  return apiLocal;
 }
 
 export default { boot };
