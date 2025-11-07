@@ -1,87 +1,75 @@
-// --- single-instance guard ---
-if (window.__MODE_API) {
-  try { window.__MODE_API.stop?.(); } catch {}
-  delete window.__MODE_API;
-}
-
+// === modes/plate.quest.js — production-safe (จานอาหาร 5 หมู่ + หมวดพิเศษ) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 
-// 5 หมู่ + หมวดพิเศษ (ตัวอย่างไอคอน)
-const VEG   = ['🥦','🥕','🥬','🍅','🍆','🌽','🧄','🧅','🥒','🥔'];
-const FRUIT = ['🍎','🍓','🍇','🍍','🍉','🍐','🍊','🫐','🥝','🍋'];
-const GRAIN = ['🍞','🥖','🥨','🥯','🍚','🍙','🍘','🍜','🍝','🥞'];
-const PROTEIN=['🐟','🍗','🥩','🍤','🥚','🧀','🥜','🌰','🫘','🥛'];
-const FAT   = ['🧈','🫒','🥑','🥜','🌰']; // หมวดไขมันดี/ปรุง
-const JUNK  = ['🍔','🍟','🍕','🌭','🍩','🍪','🧁','🍰','🍫','🥤','🧋','🍿'];
+const GROUPS = {
+  veg:   ['🥦','🥬','🥕','🍅','🌽','🥒','🍆','🧅','🧄','🥔'],
+  fruit: ['🍎','🍏','🍐','🍊','🍋','🍓','🍇','🍉','🍍','🥝','🫐','🍒','🍑','🍈','🥭'],
+  grain: ['🍞','🥖','🍚','🍙','🍘','🍜','🍝','🥯','🥨'],
+  protein:['🐟','🍗','🥩','🍤','🥚','🫘','🥜','🧀'],
+  dairy: ['🥛','🧀','🍦','🍨'],           // ใช้เป็น “หมู่นม/ทางเลือก”
+  special:['⭐','💎']                     // หมวดพิเศษ (บัฟ/มัลติเพลเยอร์ ฯลฯ)
+};
 
-const ALL = [...VEG, ...FRUIT, ...GRAIN, ...PROTEIN, ...FAT];
-
-function isIn(char, list){ return list.includes(char); }
+const GOOD = [...GROUPS.veg, ...GROUPS.fruit, ...GROUPS.grain, ...GROUPS.protein, ...GROUPS.dairy];
+const BAD  = ['🍔','🍟','🍕','🌭','🍩','🍪','🧁','🍰','🍫','🥤','🧋','🍿'];
 
 export async function boot(opts = {}) {
-  // โกลรอบละ 5 หมู่ (Plate Set) → ครบเริ่มชุดใหม่
-  let need = { veg:1, fruit:1, grain:1, protein:1, fat:1 };
-  let filled = { veg:0, fruit:0, grain:0, protein:0, fat:0 };
+  let modeApi = null;
 
-  const judge = (char, ctx) => {
-    if (ctx?.type === 'timeout') return { good:false, scoreDelta:-3 };
+  // เป้าหมาย: จัดครบ 5 หมู่ในเวลาที่กำหนด แล้วเริ่มรอบใหม่ (เปลี่ยนความต้องการต่อหมู่แบบสุ่มเล็กน้อย)
+  let need = nextRoundNeed();        // {veg:1, fruit:1, grain:1, protein:1, dairy:1}
+  let done = { veg:0, fruit:0, grain:0, protein:0, dairy:0 };
 
-    if (JUNK.includes(char)) return { good:false, scoreDelta:-10 };
+  function nextRoundNeed(){
+    // สุ่ม 1–2 ต่อหมู่
+    const oneOrTwo = ()=> (Math.random()<0.5?1:2);
+    return { veg:oneOrTwo(), fruit:oneOrTwo(), grain:oneOrTwo(), protein:oneOrTwo(), dairy:oneOrTwo() };
+  }
 
-    let hit = null;
-    if (isIn(char, VEG))     hit = 'veg';
-    else if (isIn(char, FRUIT))   hit = 'fruit';
-    else if (isIn(char, GRAIN))   hit = 'grain';
-    else if (isIn(char, PROTEIN)) hit = 'protein';
-    else if (isIn(char, FAT))     hit = 'fat';
-
-    if (!hit) return { good:false, scoreDelta:-2 };
-
-    // ให้แต้มถ้ายังขาดหมวดนั้นอยู่
-    const remaining = Math.max(0, need[hit] - filled[hit]);
-    if (remaining > 0){
-      filled[hit] += 1;
-      const doneSet = Object.keys(need).every(k => filled[k] >= need[k]);
-      // ครบจาน → ปรับรูปแบบใหม่ (เพิ่มความยากเล็กน้อย)
-      if (doneSet){
-        // สุ่มโควตาชุดถัดไป: 1–2 ต่อหมวด
-        need = {
-          veg: 1 + (Math.random()<0.35?1:0),
-          fruit: 1 + (Math.random()<0.35?1:0),
-          grain: 1 + (Math.random()<0.35?1:0),
-          protein: 1 + (Math.random()<0.35?1:0),
-          fat: 1 // ไขมันคง 1 ชิ้น/ชุด
-        };
-        filled = { veg:0, fruit:0, grain:0, protein:0, fat:0 };
-        return { good:true, scoreDelta: 40, feverDelta: 10 }; // โบนัสครบชุด
-      }
-      return { good:true, scoreDelta: 12, feverDelta: 4 };
+  function groupOf(ch){
+    for (const [k, arr] of Object.entries(GROUPS)){
+      if (arr.includes(ch)) return k;
     }
+    return null;
+  }
 
-    // ถ้ามีเกินโควตา → ได้แต้มเล็กน้อยหรือ 0 (เพื่อไม่สแปมหมวดเดียว)
-    return { good:true, scoreDelta: 2 };
-  };
+  function allMet(){
+    return Object.keys(need).every(k => (done[k] >= need[k]));
+  }
 
-  const modeApi = await factoryBoot({
+  function judge(hitChar, ctx){
+    if (ctx?.type === 'timeout') return { good:false, scoreDelta:-1 };
+
+    if (BAD.includes(hitChar)) return { good:false, scoreDelta:-6 };
+
+    const g = groupOf(hitChar);
+    if (!g || g==='special') return { good:false, scoreDelta:0 };
+
+    // สะสมจำนวนที่ทำได้
+    done[g] = (done[g]||0) + 1;
+
+    // เคลียร์รอบเมื่อครบ 5 หมู่ตาม need
+    if (allMet()){
+      need = nextRoundNeed();
+      done = { veg:0, fruit:0, grain:0, protein:0, dairy:0 };
+      // ให้บัฟคะแนนพิเศษ
+      return { good:true, scoreDelta:30, feverDelta:10 };
+    }
+    return { good:true, scoreDelta:10, feverDelta:4 };
+  }
+
+  modeApi = await factoryBoot({
     name: 'plate',
-    pools: { good: ALL, bad: JUNK },
+    pools: { good: GOOD, bad: BAD },
     judge,
-    ui: { questMainSel: '#tQmain' },
+    difficulty: opts.difficulty || 'normal',
+    host: opts.host,
+    goal: opts.goal || 2,      // จำนวนรอบ “ครบ 5 หมู่” ขั้นต่ำ (ปล่อยให้ MiniQuest แสดงผล)
     goldenRate: 0.04,
     goodRate: 0.85,
-    ...opts
+    ui: { questMainSel: '#tQmain' }
   });
 
-  // เผื่อ HUD ภายนอกอยากโชว์โควตาที่ต้องการ/ที่ทำได้
-  modeApi.getPlateNeed   = ()=> ({ ...need });
-  modeApi.getPlateFilled = ()=> ({ ...filled });
-
-  const origStop = modeApi.stop?.bind(modeApi);
-  modeApi.stop = function(){
-    // cleanup เฉพาะโหมดนี้ (ถ้ามี)
-    origStop?.();
-  };
-
-  window.__MODE_API = modeApi;
+  try { window.__MODE_API = modeApi; } catch {}
   return modeApi;
 }
