@@ -1,131 +1,59 @@
-// === Hero Health — modes/plate.quest.js (Production) ===
-// โหมด: Healthy Plate — จัดอาหารให้ครบ 5 หมู่ และรักษาสมดุลในแต่ละรอบ
-// ใช้ระบบหลักจาก vr/mode-factory.js (สปอว์น/คะแนน/เอฟเฟกต์/HUD)
+// === modes/plate.quest.js (production) ===
+import { boot as buildMode } from '../vr/mode-factory.js';
 
-import { boot as factoryBoot } from '../vr/mode-factory.js';
-
-// -------- หมวดอาหารหลัก (5 หมู่) --------
-const GROUPS = {
-  grains : ['🍚','🍙','🍘','🍞','🥖','🥯','🥨'],
-  protein: ['🍗','🥩','🍖','🐟','🦐','🥚','🍤','🥜'],
-  veggie : ['🥦','🥬','🥕','🍅','🌽','🧅','🫑','🥗'],
-  fruit  : ['🍎','🍊','🍇','🍉','🍓','🍌','🍍','🍑','🍐','🍒','🥭'],
-  dairy  : ['🥛','🧀','🍦','🍨','🍧','🥞']
+var GROUPS = {
+  veg : ['🥦','🥕','🌽','🍅','🥒','🥬','🍄'],
+  fruit: ['🍎','🍓','🍇','🍌','🍍','🍐','🍉','🥝','🍑','🍊','🫐'],
+  protein: ['🍗','🥚','🥩','🐟','🧀','🥜','🍤'],
+  grain: ['🍞','🥖','🍚','🍙','🍝','🍜'],
+  dairy: ['🥛','🧀','🍦']
 };
+var EXTRA_BAD = ['🍔','🍟','🍕','🍩','🥤','🧋'];
 
-// -------- ขยะ (ของหวาน/มัน/เค็มจัด) --------
-const JUNK = ['🍔','🍕','🌭','🍩','🍪','🧁','🍫','🍬','🍭','🥤','🧋','🍟','🍹','🍿'];
+function inArr(ch, arr){ for(var i=0;i<arr.length;i++){ if(arr[i]===ch) return true; } return false; }
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-// -------- ภารกิจและเงื่อนไข --------
-const QUEST_BY_DIFF = {
-  easy:   { goal: 30, desc: 'จัดอาหารให้ครบ 5 หมู่รวม 30 รายการ หลีกเลี่ยงขยะ!' },
-  normal: { goal: 45, desc: 'จัดอาหารให้ครบ 5 หมู่รวม 45 รายการ หลีกเลี่ยงขยะ!' },
-  hard:   { goal: 60, desc: 'จัดอาหารให้ครบ 5 หมู่รวม 60 รายการ หลีกเลี่ยงขยะ!' }
-};
-
-// -------- Mini Quest เฉพาะ Healthy Plate --------
-// - “Perfect 5” → จัดครบ 5 หมู่ในรอบเดียว
-// - “Balanced Round x3” → ทำครบ 3 รอบโดยไม่พลาดหมู่ใด
-// - “No Junk Round” → จบรอบโดยไม่มีขยะเลย
-function makeQuestState(){
-  return {
-    round: 1,
-    found: new Set(),
-    completedRounds: 0,
-    junkTouched: false,
-    qPerfect5: false,
-    qBalanced3: false,
-    qNoJunk: false
-  };
-}
-function questText(qs){
-  return `Healthy Plate — รอบที่ ${qs.round} | หมู่สะสม: ${qs.found.size}/5 ${
-    qs.qPerfect5 ? '✅' : ''
-  } ${
-    qs.qBalanced3 ? '✅' : ''
-  } ${
-    qs.qNoJunk ? '✅' : ''
-  }`;
+function makeRound(difficulty){
+  // สัดส่วน 5 หมู่ — เปลี่ยนตามความยาก
+  var base = {veg:2, fruit:1, protein:1, grain:1, dairy:1};
+  if(difficulty==='easy'){ base.veg=2; base.fruit=1; base.protein=1; base.grain=1; base.dairy=0; }
+  if(difficulty==='hard'){ base.veg=2; base.fruit=1; base.protein=2; base.grain=2; base.dairy=1; }
+  return base;
 }
 
-// -------- ฟังก์ชันช่วยตรวจหมวด --------
-function getFoodGroup(char){
-  for (const [grp, arr] of Object.entries(GROUPS)) {
-    if (arr.includes(char)) return grp;
+export async function boot(cfg){
+  cfg = cfg || {};
+  var need = makeRound(String(cfg.difficulty||'normal')); // เป้าหมายรอบนี้
+  var doneRound = 0;
+
+  function leftText(){
+    return 'Healthy Plate — เหลือ: '+
+      'VEG '+need.veg+' | FRUIT '+need.fruit+' | PRO '+need.protein+' | GRAIN '+need.grain+' | DAIRY '+need.dairy+
+      '  (รอบที่ '+(doneRound+1)+')';
   }
-  return null;
-}
+  try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:leftText()}})); }catch(e){}
 
-// -------- ฟังก์ชันให้คะแนน --------
-function judgePlate(char, ctx, qs){
-  if (char == null) {
-    return { good:false, scoreDelta:-3 };
-  }
+  // รวมรายการสปอว์น
+  var ALL = [].concat(GROUPS.veg, GROUPS.fruit, GROUPS.protein, GROUPS.grain, GROUPS.dairy, EXTRA_BAD);
 
-  const grp = getFoodGroup(char);
-  const isJunk = JUNK.includes(char);
-  let score = 0, good = false;
-
-  if (grp) {
-    qs.found.add(grp);
-    score = 12;
-    good = true;
-  } else if (isJunk) {
-    score = -8;
-    qs.junkTouched = true;
-  } else {
-    score = 0;
+  function isNeeded(ch){
+    if(need.veg>0    && inArr(ch, GROUPS.veg)) return 'veg';
+    if(need.fruit>0  && inArr(ch, GROUPS.fruit)) return 'fruit';
+    if(need.protein>0&& inArr(ch, GROUPS.protein)) return 'protein';
+    if(need.grain>0  && inArr(ch, GROUPS.grain)) return 'grain';
+    if(need.dairy>0  && inArr(ch, GROUPS.dairy)) return 'dairy';
+    return null;
   }
 
-  // เมื่อครบ 5 หมู่ในรอบนั้น → ผ่านรอบ
-  if (qs.found.size >= 5) {
-    qs.qPerfect5 = true;
-    qs.completedRounds++;
-    qs.found.clear();
-    qs.round++;
-
-    if (!qs.junkTouched) qs.qNoJunk = true;
-    qs.junkTouched = false;
-
-    if (qs.completedRounds >= 3) qs.qBalanced3 = true;
+  function roundFinished(){
+    // เริ่มรอบใหม่ เพิ่มความยากเล็กน้อย
+    doneRound += 1;
+    var d = String(cfg.difficulty||'normal');
+    if(doneRound>=2 && d!=='hard'){ d='hard'; } // ขยับไปค่ากลาง/ยาก
+    need = makeRound(d);
+    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:leftText()}})); }catch(e){}
   }
 
-  return { good, scoreDelta: score };
-}
-
-// -------- Boot โหมดหลัก --------
-export async function boot(config = {}){
-  const diff = config.difficulty || 'normal';
-  const quest = QUEST_BY_DIFF[diff] ?? QUEST_BY_DIFF.normal;
-
-  const qs = makeQuestState();
-
-  // แจ้ง Mini Quest ตอนเริ่ม
-  try {
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: { text: `Healthy Plate — ${quest.desc}` }
-    }));
-  } catch {}
-
-  // judge closure
-  function judge(char, ctx){
-    const res = judgePlate(char, ctx, qs);
-    try {
-      window.dispatchEvent(new CustomEvent('hha:quest', {
-        detail: { text: questText(qs) }
-      }));
-    } catch {}
-    return res;
-  }
-
-  // เรียกใช้ factory
-  return factoryBoot({
-    name: 'plate',
-    pools: { good: Object.values(GROUPS).flat(), bad: JUNK },
-    judge,
-    goal: quest.goal,
-    ...config
-  });
-}
-
-export default { boot };
+  var api = await buildMode({
+    host: cfg.host,
+    difficulty:
