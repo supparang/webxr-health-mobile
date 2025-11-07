@@ -1,86 +1,75 @@
-// === modes/hydration.quest.js (production) ===
-import { boot as buildMode } from '../vr/mode-factory.js';
+// === Hero Health — modes/hydration.quest.js ===
+import { Particles } from '../vr/particles.js';
 
-// รายการ “ดื่มน้ำ” กับ “เครื่องดื่ม” มีผลต่อระดับน้ำ
-var WATER = ['💧','🚰','🧊','🥛'];         // ดี
-var LIGHT = ['🍵','🧃','🫖'];             // กลาง ๆ
-var BAD   = ['🥤','🧋','🍺','🍷','🍹'];     // ไม่ดี
+function uvFromEvent(e){
+  const x = (e && (e.clientX!=null)) ? e.clientX / window.innerWidth  : 0.5;
+  const y = (e && (e.clientY!=null)) ? e.clientY / window.innerHeight : 0.6;
+  return [x, y];
+}
 
-function inArr(ch, arr){ for(var i=0;i<arr.length;i++){ if(arr[i]===ch) return true; } return false; }
-function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+export async function boot(config = {}) {
+  let score=0, combo=0, timeLeft=Number(config.duration||60), running=true;
+  let zone = 'LOW'; // LOW/GREEN/HIGH
 
-export async function boot(cfg){
-  cfg = cfg || {};
-  var level = 50; // 0..100
-  var zone  = 'GREEN'; // LOW / GREEN / HIGH
-  var streak = 0, greenHold = 0; // วินาทีในโซนเขียว
-  var lastTick = Date.now();
+  function setQuestText(){
+    const text = `Hydration — Zone: ${zone} | GREEN 0/20s | Streak 0/10 | Recover HIGH → GREEN ≤3s`;
+    window.dispatchEvent(new CustomEvent('hha:quest', { detail:{ text } }));
+  }
+  setQuestText();
 
-  function zoneOf(v){ if(v<35) return 'LOW'; if(v>75) return 'HIGH'; return 'GREEN'; }
-  function questText(){ return 'Hydration — Zone: '+zone+' | GREEN '+greenHold+'/20s | Streak '+streak+'/10 | Recover HIGH→GREEN ≤3s'; }
+  const timer=setInterval(()=>{ if(!running) return;
+    timeLeft=Math.max(0,timeLeft-1);
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
+    if(timeLeft<=0) end();
+  },1000);
 
-  try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){}
+  function end(){ if(!running) return; running=false; clearInterval(timer);
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{score,combo}})); }
 
-  // ให้ระบบสปอว์นใช้ “อิโมจิดื่ม” ทั้งหมด (รวมไม่ดี)
-  var ALL = WATER.concat(LIGHT).concat(BAD);
+  function award(delta,isGood,e){
+    combo = isGood ? Math.max(1,combo+1) : 0;
+    score += delta;
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+    const [u,v]=uvFromEvent(e);
+    Particles.hit(u,v,{score:Math.abs(delta),combo:Math.max(1,combo),isGood});
+  }
 
-  // tick น้ำลดตามเวลาเล็กน้อย
-  var decay = setInterval(function(){
-    var now = Date.now();
-    var dt = Math.max(0, Math.min(2000, now - lastTick));
-    lastTick = now;
-    level = clamp(level - dt*0.004, 0, 100); // ลดช้า ๆ
-    var z = zoneOf(level);
-    if(z==='GREEN'){ greenHold = clamp(greenHold+1, 0, 999); } else { greenHold = 0; }
-    zone = z;
-    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){}
-  }, 1000);
+  // ปุ่ม “ดื่มน้ำ/กินของเค็ม/เย็น ฯลฯ” จำลอง
+  function spawnChoices(){
+    const items = [
+      {name:'Drink Water',        effect:+1,  good: zone!=='HIGH' },
+      {name:'Salty Snack',        effect:+1,  good:false },
+      {name:'Ice Tea (sweet)',    effect:+1,  good:false },
+      {name:'Rest / Pause',       effect:-1,  good: zone==='HIGH' },
+    ];
+    items.forEach((it,i)=>{
+      const btn=document.createElement('button');
+      btn.textContent=it.name;
+      Object.assign(btn.style,{
+        position:'fixed', left:(8+ i*24)+'vw', bottom:'10vh',
+        padding:'10px 12px', borderRadius:'10px', border:'1px solid #334155',
+        background:'#0b1222', color:'#fff', cursor:'pointer'
+      });
+      document.body.appendChild(btn);
+      btn.onclick=(e)=>{
+        // ปรับโซนแบบง่าย
+        if(it.effect>0){
+          zone = (zone==='LOW')?'GREEN':(zone==='GREEN')?'HIGH':'HIGH';
+        }else{
+          zone = (zone==='HIGH')?'GREEN':(zone==='GREEN')?'LOW':'LOW';
+        }
+        setQuestText();
 
-  var api = await buildMode({
-    host: cfg.host,
-    difficulty: cfg.difficulty,
-    duration: cfg.duration,
-    pools: { good: ALL, bad: [] }, // ทั้งหมดเป็น "เป้าดื่ม" ให้ judge เป็นตัวตัดสิน
-    goodRate: 1.0,
-    goal: 9999,
-    judge: function(char, ctx){
-      // ผลกระทบต่อระดับน้ำ
-      var delta = 0;
-      if(inArr(char, WATER)) delta = 10;
-      else if(inArr(char, LIGHT)) delta = 5;
-      else if(inArr(char, BAD)) delta = -12;
+        // กติกาคะแนน: GREEN = ดี, LOW/HIGH = เสี่ยง
+        const good = (zone==='GREEN');
+        const delta = good ? +6 : -6;
+        award(delta, good, e);
+      };
+    });
+  }
+  spawnChoices();
 
-      var prev = level; level = clamp(level + delta, 0, 100);
-      var prevZone = zone; zone = zoneOf(level);
-
-      // กติกาคะแนน: อยู่ GREEN ได้แต้มดี, LOW/HIGH ลงโทษเพิ่มตามกติกาที่คุยไว้
-      var scoreDelta = 0, good = true;
-
-      if(zone==='GREEN'){
-        scoreDelta = 12; streak += 1;
-      }else if(zone==='LOW'){
-        // ถ้าดื่มของไม่ดีตอน LOW → โทษหนัก
-        if(inArr(char, BAD)){ scoreDelta = -15; good = false; streak = 0; }
-        else scoreDelta = 6; // ดื่มของดีเพื่อขึ้นสู่เขียว
-      }else if(zone==='HIGH'){
-        // ถ้าอยู่สูง ดื่มของไม่ดี → ลงโทษน้อยกว่า (ตามเงื่อนไข)
-        if(inArr(char, BAD)){ scoreDelta = 2; } // ปรับลด
-        else { scoreDelta = -8; good=false; streak=0; } // ดื่มเพิ่มตอนสูง = ไม่ดี
-      }
-
-      // เควสย่อย: Perfect Balance / Hydration Streak / Overdrink Warning
-      // อัปเดตข้อความทุก hit
-      try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }catch(e){}
-
-      return { good: good, scoreDelta: scoreDelta };
-    }
-  });
-
-  return {
-    stop: function(){ try{ clearInterval(decay); }catch(e){} api && api.stop && api.stop(); },
-    pause: function(){ api && api.pause && api.pause(); },
-    resume: function(){ api && api.resume && api.resume(); }
-  };
+  return { stop(){running=false;clearInterval(timer);}, pause(){running=false;}, resume(){running=true;} };
 }
 
 export default { boot };
