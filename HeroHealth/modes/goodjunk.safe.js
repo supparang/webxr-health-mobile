@@ -1,36 +1,41 @@
-// === modes/goodjunk.safe.js — production-safe (no duplicated `api`) ===
+// === modes/goodjunk.safe.js — production shim (ensures named export) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 
-// กลุ่มละ 20 อย่าง (ตัวอย่าง)
+// พูลมาตรฐาน (กลุ่มละ ~20)
 const GOOD = ['🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'];
 const JUNK = ['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'];
 
-export async function boot(opts = {}) {
-  let modeApi = null;
+// ถ้าไฟล์นี้เคยมีฟังก์ชันภายใน เช่น start/run/init ให้เรียกใช้ก่อน (ไม่รู้ชื่อแน่ชัด จึงตรวจแบบปลอดภัย)
+const INTERNAL =
+  (typeof start === 'function' && start) ||
+  (typeof run   === 'function' && run)   ||
+  (typeof init  === 'function' && init)  || null;
 
-  // กติกา: กด GOOD ได้คะแนน +10, กด JUNK ติดลบ -5
-  function judge(hitChar, ctx){
-    if (ctx?.type === 'timeout') {
-      // พลาด = ถือเป็น junk miss
-      return { good:false, scoreDelta:-2 };
-    }
-    const isGood = GOOD.includes(hitChar);
-    if (isGood) return { good:true, scoreDelta:10, feverDelta:5 };
-    return { good:false, scoreDelta:-5 };
-  }
+export async function boot(config = {}) {
+  console.log('[goodjunk] boot mode', config);
 
-  modeApi = await factoryBoot({
+  // ใช้โค้ดเดิมถ้ามี
+  if (INTERNAL) return await INTERNAL(config);
+
+  // ไม่มีก็เรียกโรงงานกลาง
+  const judge = (char, ctx) => {
+    if (ctx?.type === 'timeout') return { good: false, scoreDelta: -3 };
+    const isGood = GOOD.includes(char);
+    const isBad  = JUNK.includes(char);
+    if (isGood && !isBad) return { good: true,  scoreDelta: 10, feverDelta: 1 };
+    return { good: false, scoreDelta: -5 };
+  };
+
+  return await factoryBoot({
     name: 'goodjunk',
     pools: { good: GOOD, bad: JUNK },
     judge,
-    difficulty: opts.difficulty || 'normal',
-    host: opts.host,
-    goal: opts.goal || 40,
+    ui: { questMainSel: '#tQmain' },
     goldenRate: 0.07,
     goodRate: 0.70,
-    ui: { questMainSel: '#tQmain' }
+    ...config
   });
-
-  try { window.__MODE_API = modeApi; } catch {}
-  return modeApi;
 }
+
+// optional default เพื่อความเข้ากันได้
+export default { boot };
