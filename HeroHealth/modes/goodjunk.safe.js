@@ -1,8 +1,10 @@
-// === Good vs Junk — Visible & Stable ===
+// === Good vs Junk — Visible & Stable (SAFE) ===
+// ไม่ใช้ optional chaining, ทำงานบนมือถือ/เว็บวิวเก่าได้
+
 var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0;
 var spawnTimer=null, endTimer=null;
 
-// cache emoji → dataURL
+// ---------- Emoji → dataURL cache ----------
 var __emojiCache={};
 function emojiSprite(emo, px){
   var size=px||160, key=emo+'@'+size;
@@ -16,25 +18,37 @@ function emojiSprite(emo, px){
   __emojiCache[key]=c.toDataURL('image/png');
   return __emojiCache[key];
 }
+
 function emit(n,d){ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(e){} }
 
+// ---------- Pools ----------
 var GOOD=['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
 var JUNK=['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
 
-// Fever
+// ---------- Fever ----------
 var FEVER=false, NEED=10, FEVER_MS=10000, feverTimer=null;
-function feverStart(){ if(FEVER) return; FEVER=true; emit('hha:fever',{state:'start',ms:FEVER_MS});
-  clearTimeout(feverTimer); feverTimer=setTimeout(function(){feverEnd();},FEVER_MS); }
-function feverEnd(){ if(!FEVER) return; FEVER=false; emit('hha:fever',{state:'end'}); clearTimeout(feverTimer); feverTimer=null; }
+function feverStart(){
+  if(FEVER) return;
+  FEVER=true;
+  emit('hha:fever',{state:'start',ms:FEVER_MS});
+  clearTimeout(feverTimer);
+  feverTimer=setTimeout(function(){feverEnd();},FEVER_MS);
+}
+function feverEnd(){
+  if(!FEVER) return;
+  FEVER=false;
+  emit('hha:fever',{state:'end'});
+  clearTimeout(feverTimer); feverTimer=null;
+}
 
-// สร้างเป้า (ตำแหน่ง LOCAL ต่อ host)
+// ---------- Target ----------
 function makeTarget(emoji, good, diff){
   var el=document.createElement('a-entity');
 
-  // ให้โผล่เป็นกรอบกว้าง x: -0.9..0.9, y: -0.4..0.6 รอบจุดกลาง host
-  var px=(Math.random()*1.8 - 0.9);
-  var py=(Math.random()*1.0 - 0.2);
-  var pz=(Math.random()*0.2 - 0.1);
+  // ตำแหน่ง LOCAL ของ host ให้เห็นชัดในจอ
+  var px=(Math.random()*1.8 - 0.9);     // -0.9 .. +0.9 (กว้าง)
+  var py=(Math.random()*1.0 - 0.2);     // -0.2 .. +0.8 (สูง)
+  var pz=(Math.random()*0.2 - 0.1);     // ลึก/ตื้นเล็กน้อย
   el.setAttribute('position', px+' '+py+' '+pz);
 
   var img=document.createElement('a-image');
@@ -53,10 +67,14 @@ function makeTarget(emoji, good, diff){
   function destroy(){ if(el.parentNode) el.parentNode.removeChild(el); }
 
   img.addEventListener('click', function(){
-    if(!running) return; destroy();
+    if(!running) return;
+    destroy();
+
     if(good){
-      var base=20+combo*2; var plus=FEVER?base*2:base;
-      score+=plus; combo++; if(combo>maxCombo) maxCombo=combo;
+      var base=20+combo*2;
+      var plus=FEVER?base*2:base; // x2 ตอน FEVER
+      score+=plus;
+      combo++; if(combo>maxCombo) maxCombo=combo;
       if(!FEVER && combo>=NEED) feverStart();
       popup('+'+plus, px, py);
     }else{
@@ -66,11 +84,13 @@ function makeTarget(emoji, good, diff){
     emit('hha:score',{score:score, combo:combo});
   });
 
+  // หมดเวลา = พลาด
   var ttl=1600; if(diff==='easy') ttl=1900; else if(diff==='hard') ttl=1400;
   setTimeout(function(){
     if(!el.parentNode) return;
     destroy(); misses++; combo=0;
-    emit('hha:miss',{count:misses}); emit('hha:score',{score:score, combo:combo});
+    emit('hha:miss',{count:misses});
+    emit('hha:score',{score:score, combo:combo});
   }, ttl);
 
   return el;
@@ -96,12 +116,13 @@ function spawnLoop(diff){
   spawnTimer=setTimeout(function(){ spawnLoop(diff); }, gap);
 }
 
+// ---------- Boot ----------
 export async function boot(cfg){
-  host = (cfg&&cfg.host) ? cfg.host : document.getElementById('spawnHost');
+  host=(cfg&&cfg.host)?cfg.host:document.getElementById('spawnHost');
   var duration=(cfg&&cfg.duration)|0 || 60;
   var diff=(cfg&&cfg.difficulty)||'normal';
 
-  // ดีบัก: จุดขาวกลาง host เพื่อยืนยันตำแหน่งมองเห็นแน่นอน
+  // จุดขาวดีบัก 1.5s ที่จุดศูนย์กลาง host (ยืนยันว่าอยู่ในจอ)
   try{
     var dot=document.createElement('a-sphere');
     dot.setAttribute('radius',0.02);
@@ -125,9 +146,9 @@ export async function boot(cfg){
     remain--; if(remain<0) remain=0;
     emit('hha:time',{sec:remain});
     if(remain<=0){ clearInterval(endTimer); endGame(); }
-  },1000);
+  }, 1000);
 
-  // รอ scene โหลด (กันกรณี entity ยังไม่ compose)
+  // รอ scene โหลดก่อนเริ่มสแปว์น (กัน entity ยังไม่พร้อม)
   var scene=document.querySelector('a-scene');
   function begin(){ setTimeout(function(){ spawnLoop(diff); }, 200); }
   if(scene){ if(scene.hasLoaded) begin(); else scene.addEventListener('loaded', begin, {once:true}); }
@@ -144,4 +165,5 @@ export async function boot(cfg){
     resume:function(){ if(!running){ running=true; spawnLoop(diff); } }
   };
 }
+
 export default { boot };
