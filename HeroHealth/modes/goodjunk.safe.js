@@ -1,92 +1,111 @@
 // === Hero Health — modes/goodjunk.safe.js ===
-// DROP-IN: ใช้แทนที่ทั้งไฟล์ได้ หรือคัดเฉพาะส่วน "ADD" ไปใส่ในไฟล์เดิม
-
 import { Particles } from '../vr/particles.js';
+import { createMiniQuest } from '../vr/miniquest.js';
 
-// ---------- ADD: utilities ----------
 function uvFromEvent(e){
-  // เดาพิกัดจอจากอีเวนต์คลิก (ถ้าไม่มี ใช้ค่ากลาง)
-  const x = (e && (e.clientX!=null)) ? e.clientX / window.innerWidth  : 0.5;
-  const y = (e && (e.clientY!=null)) ? e.clientY / window.innerHeight : 0.6;
+  var x = (e && e.clientX!=null) ? e.clientX / window.innerWidth  : 0.5;
+  var y = (e && e.clientY!=null) ? e.clientY / window.innerHeight : 0.6;
   return [x, y];
 }
 
 export async function boot(config = {}) {
-  const host = (config && config.host) || document.getElementById('spawnHost');
-  let score = 0, combo = 0, timeLeft = Number(config.duration||60);
-  let running = true;
+  var score = 0, combo = 0, timeLeft = Number(config.duration||60), running = true;
 
-  // HUD tick (เวลา)
-  const timer = setInterval(()=>{
+  var timer = setInterval(function(){
     if(!running) return;
-    timeLeft = Math.max(0, timeLeft - 1);
-    window.dispatchEvent(new CustomEvent('hha:time', { detail:{ sec: timeLeft } }));
-    if(timeLeft <= 0){ end(); }
-  }, 1000);
+    timeLeft = Math.max(0, timeLeft-1);
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
+    if(timeLeft<=0) end();
+  },1000);
 
   function end(){
     if(!running) return;
-    running = false;
-    clearInterval(timer);
-    window.dispatchEvent(new CustomEvent('hha:end', { detail:{ score, combo } }));
+    running=false; clearInterval(timer); mq.stop();
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{score:score,combo:combo}}));
   }
 
-  // ---------- ADD: award() + quest text ----------
-  function setQuestText(txt){
-    window.dispatchEvent(new CustomEvent('hha:quest', { detail:{ text: txt } }));
+  function pushQuest(text){
+    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:text}}));
   }
-  setQuestText('No-Junk  | เก็บของดี 8 ชิ้น (ขยะ ≤3)');
 
   function award(delta, isGood, e){
-    // คะแนน & คอมโบ
-    if(isGood){ combo = Math.max(1, combo + 1); } else { combo = 0; }
+    combo = isGood ? Math.max(1, combo+1) : 0;
     score += delta;
-    window.dispatchEvent(new CustomEvent('hha:score', { detail:{ score, combo } }));
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score:score,combo:combo}}));
+    var uv = uvFromEvent(e);
+    Particles.hit(uv[0], uv[1], { score: Math.abs(delta), combo: Math.max(1, combo), isGood: isGood });
 
-    // เอฟเฟ็กต์
-    const [u,v] = uvFromEvent(e);
-    Particles.hit(u, v, { score: Math.abs(delta), combo: Math.max(1,combo), isGood });
+    // แจ้งให้ mini-quest ประมวลผล hit
+    mq.hit(isGood);
   }
 
-  // ---------- สุ่มเป้าแบบ DOM (อีมูเลตง่าย ๆ) ----------
-  const GOOD = ['🍎','🍐','🍊','🍓','🍇','🥝','🥦','🥕','🥗','🐟','🥛','🍞'];
-  const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🧋','🥤','🍫','🍰'];
+  // ---------- เป้าแบบง่าย ----------
+  var GOOD = ['🍎','🍐','🍊','🍓','🍇','🥝','🥦','🥕','🥗','🐟','🥛','🍞'];
+  var JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🧋','🥤','🍫','🍰'];
 
   function spawnOne(){
     if(!running) return;
-    const isGood = Math.random() < 0.7;
-    const emoji  = isGood ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0];
+    var isGood = Math.random()<0.7;
+    var emoji  = isGood ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0];
 
-    const el = document.createElement('div');
+    var el = document.createElement('div');
     el.textContent = emoji;
-    Object.assign(el.style, {
-      position:'fixed', left:(10+Math.random()*80)+'vw', top:(20+Math.random()*60)+'vh',
-      fontSize:'min(10vw,64px)', filter:'drop-shadow(0 0 10px #fff3)', cursor:'pointer', userSelect:'none',
-      transition:'transform 120ms ease-out'
-    });
+    var left = (10+Math.random()*80)+'vw';
+    var top  = (20+Math.random()*60)+'vh';
+    var st = el.style;
+    st.position='fixed'; st.left=left; st.top=top;
+    st.fontSize='min(10vw,64px)'; st.filter='drop-shadow(0 0 10px #fff3)';
+    st.cursor='pointer'; st.userSelect='none'; st.transition='transform 120ms ease-out';
     document.body.appendChild(el);
 
-    const onHit = (e)=>{
-      el.onclick = null;
-      el.style.transform='scale(0.85)';
-      setTimeout(()=>{ try{ el.remove(); }catch{} }, 120);
-      // ให้คะแนน
+    el.onclick=function(e){
+      el.onclick=null; st.transform='scale(0.85)';
+      setTimeout(function(){ try{ el.remove(); }catch(e){} }, 120);
       award(isGood? +10 : -5, isGood, e);
     };
-    el.onclick = onHit;
 
-    // lifetime
-    setTimeout(()=>{ try{ el.remove(); }catch{} }, 1500);
+    setTimeout(function(){ try{ el.remove(); }catch(e){} }, 1500);
   }
+  var spawner = setInterval(spawnOne, 550);
 
-  // spawn loop
-  const spawner = setInterval(spawnOne, 550);
+  // ---------- MINI QUEST – ADD ----------
+  // เควสสลับหมุน 3 แบบ: No-Junk 10s, เก็บของดี 8 ชิ้น, เลี่ยงขยะ ≤3 ชิ้น
+  var mq = createMiniQuest({
+    onUpdate: function(text){ pushQuest(text); },
+    onFinish: function(){ /* noop */ },
+    makeList: function(){
+      var noJunk = {
+        title: 'No-Junk 10s',
+        sec: 10,
+        reset: function(){ this.ok = 0; },
+        statusText: function(s){ return 'No-Junk — อยู่รอด ' + s + 's'; },
+        apply: function(hit){ if(hit.bad){ return true===false; } return false; } // กดขยะ = fail เมื่อหมดเวลาเริ่มเควสใหม่
+      };
+      var collectGood = {
+        title: 'เก็บของดี 8 ชิ้น',
+        sec: 20,
+        reset: function(){ this.c = 0; },
+        statusText: function(s){ return 'เก็บของดี: ' + this.c + '/8 | เหลือ ' + s + 's'; },
+        apply: function(hit){ if(hit.good){ this.c++; if(this.c>=8) return true; } return false; }
+      };
+      var avoid3 = {
+        title: 'ขยะ ≤3 ชิ้น',
+        sec: 20,
+        reset: function(){ this.bad = 0; },
+        statusText: function(s){ return 'เลี่ยงขยะ (' + this.bad + '/3) | เหลือ ' + s + 's'; },
+        apply: function(hit){ if(hit.bad){ this.bad++; if(this.bad>3) { /* fail */ } } return false; }
+      };
+      return [noJunk, collectGood, avoid3];
+    }
+  });
+  // เริ่ม mini quest
+  mq.run();
+  // -------------------------------------
 
-  // คืน API
   return {
-    stop(){ running=false; clearInterval(timer); clearInterval(spawner); },
-    pause(){ running=false; },
-    resume(){ running=true; }
+    stop: function(){ running=false; clearInterval(timer); clearInterval(spawner); mq.stop(); },
+    pause: function(){ running=false; },
+    resume: function(){ running=true; }
   };
 }
 
