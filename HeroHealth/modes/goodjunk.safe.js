@@ -29,7 +29,6 @@ function feverEnd(){ if(!FEVER_ACTIVE) return; FEVER_ACTIVE=false; emit('hha:fev
 function makeTarget(emoji, good, diff){
   var el=document.createElement('a-entity');
 
-  // ตำแหน่งภายใน host (host อยู่ z=-3 แล้ว) → local z = 0
   var px=(Math.random()*1.6 - 0.8);
   var py=(Math.random()*0.7 + 0.6);
   el.setAttribute('position', px+' '+py+' 0');
@@ -114,10 +113,15 @@ export async function boot(cfg){
     if(remain<=0){ clearInterval(endTimer); endGame(); }
   },1000);
 
-  // รอ scene โหลดแล้วเริ่ม spawn
+  // ✅ แก้จุดพัง: ใช้ hasLoaded แทน is('loaded')
   var scene=document.querySelector('a-scene');
   function begin(){ setTimeout(function(){ spawnLoop(diff); }, 500); }
-  if(scene && !scene.is('loaded')) scene.addEventListener('loaded', begin); else begin();
+  if(scene){
+    if(scene.hasLoaded) begin();
+    else scene.addEventListener('loaded', begin, {once:true});
+  }else{
+    begin();
+  }
 
   function endGame(){
     running=false; clearTimeout(spawnTimer); feverEnd();
