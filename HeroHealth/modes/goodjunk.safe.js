@@ -1,59 +1,52 @@
-// === Hero Health — modes/goodjunk.safe.js (Production) ===
-// ใช้แกนเกมจาก vr/mode-factory.js + นิยามพูล "ของดี" / "ของขยะ" และกติกาให้คะแนน
+// === modes/goodjunk.safe.js (production) ===
+import { boot as buildMode } from '../vr/mode-factory.js';
 
-import { boot as factoryBoot } from '../vr/mode-factory.js';
+// ชุดอิโมจิพื้นฐาน
+var GOOD = ['🍎','🍓','🍇','🥦','🥕','🍊','🥬','🍌','🍐','🍍','🫐','🍉','🥝','🐟','🍞','🥛','🍚','🥗'];
+var BAD  = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
 
-// พูลอีโมจิ (คละผักผลไม้/อาหารดี) และขยะ
-const GOOD = [
-  '🍎','🍏','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🥝','🍍','🍒','🍑','🥭','🍈',
-  '🥦','🥕','🥬','🍅','🌽','🧅','🫑','🍠','🥗','🍚','🍞','🥜','🐟','🥛','🧀'
-];
-
-const JUNK = [
-  '🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿'
-];
-
-// กติกาให้คะแนน/ลงโทษ
-function judgeGoodJunk(char, ctx){
-  // timeout (miss) จาก factory จะส่ง char=null
-  if (char == null) {
-    // พลาด — ลดสกอร์เล็กน้อย รีเซ็ตคอมโบถูกจัดการใน factory แล้ว
-    return { good:false, scoreDelta:-3 };
-  }
-
-  const isGood = GOOD.includes(char);
-  if (isGood){
-    // ให้ +10 พื้นฐาน พร้อมโบนัสคอมโบเบา ๆ ทุก ๆ 5 คอมโบ (+2)
-    const bonus = (ctx.combo && ((ctx.combo+1) % 5 === 0)) ? 2 : 0;
-    return { good:true, scoreDelta: 10 + bonus };
-  }else{
-    // ขยะ: หัก 5 แต้ม (ขั้นต่ำไม่ติดลบใน factory)
-    return { good:false, scoreDelta:-5 };
-  }
+function inArr(ch, arr){
+  for(var i=0;i<arr.length;i++){ if(arr[i]===ch) return true; }
+  return false;
 }
 
-// เลือกเป้าหมาย (goal) ตามความยาก
-const GOAL_BY_DIFF = { easy: 24, normal: 36, hard: 50 };
+export async function boot(cfg){
+  cfg = cfg || {};
+  // เควสหมุนเวียนง่าย ๆ
+  var quest = 'เก็บของดีให้ได้ 8 ชิ้น (หลีกเลี่ยงของขยะ)';
+  try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:quest}})); }catch(e){}
 
-export async function boot(config = {}){
-  const diff = config.difficulty || 'normal';
-  const goal = GOAL_BY_DIFF[diff] ?? 36;
-
-  // แจ้ง Mini-Quest ตอนเริ่ม
-  try {
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: { text: `โหมด Good vs Junk — เก็บของดีให้ครบ ${goal} ชิ้น หลีกเลี่ยงของขยะ!` }
-    }));
-  } catch {}
-
-  // เรียกแกนเกม (anti-overlap, คะแนน/คอมโบ/เอฟเฟกต์ จัดการให้)
-  return factoryBoot({
-    name: 'goodjunk',
-    pools: { good: GOOD, bad: JUNK },
-    judge: judgeGoodJunk,
-    goal,
-    ...config
+  var api = await buildMode({
+    host: cfg.host,
+    difficulty: cfg.difficulty,
+    duration: cfg.duration,
+    pools: { good: GOOD, bad: BAD },
+    goodRate: 0.7,
+    goal: 9999,
+    judge: function(char, ctx){
+      var good = inArr(char, GOOD);
+      // ให้คะแนน +10 ถ้าดี / -7 ถ้าขยะ
+      return { good: good, scoreDelta: good? 10 : -7 };
+    }
   });
+
+  // ปรับข้อความเควสแบบง่ายทุก ๆ 6 วินาที
+  var qset = [
+    'No-Junk 10 วิ ติดกัน',
+    'คอมโบถึง x5',
+    'เก็บของดีติดกัน 8 ชิ้น'
+  ];
+  var qi=0;
+  var qtimer=setInterval(function(){
+    qi=(qi+1)%qset.length;
+    try{ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:qset[qi]}})); }catch(e){}
+  }, 6000);
+
+  return {
+    stop: function(){ try{ clearInterval(qtimer); }catch(e){} api && api.stop && api.stop(); },
+    pause: function(){ api && api.pause && api.pause(); },
+    resume: function(){ api && api.resume && api.resume(); }
+  };
 }
 
 export default { boot };
