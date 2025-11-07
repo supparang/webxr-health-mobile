@@ -11,29 +11,49 @@
 
   <style>
     :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
-    a-scene{width:100%;height:100%;}
-    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
+    a-scene{width:100%;height:100%}
+
+    /* HUD chips */
+    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
+      padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
     #badgeTime{left:12px;top:12px}
     #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
     #badgeQuest{right:12px;top:12px}
-    #badgeMiss{right:12px;top:64px}
+    #badgeMiss{right:12px;top:64px;display:none}
+    #badgePower{right:12px;top:116px;display:none}
 
-    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
-    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
+    /* Fever glow (ทั้งหน้า) */
+    .fever-on { box-shadow: inset 0 0 0 4px #ffd16655;
+      animation: feverPulse 0.9s ease-in-out infinite alternate; }
+    @keyframes feverPulse { from{ filter:none } to{ filter: drop-shadow(0 0 12px #ffd166) } }
+
+    /* เมนูเริ่มเกม */
+    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);
+      width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);
+      border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
+    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;
+      padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
     h1{margin:8px 0 24px;font-size:clamp(22px,3.6vw,42px);text-align:center}
-    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;color:#fff;background:#0b1222;outline:0}
+    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;
+      color:#fff;background:#0b1222;outline:0}
     button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
     .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
 
-    /* ปุ่ม VR ให้ลอย */
+    /* ปุ่ม VR ลอยบนมุมล่างขวา */
     .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;bottom:12px !important;z-index:1000 !important}
-    #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
+    #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;
+      color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
     .xr-supported #vrBtn{display:none}
 
-    /* เอฟเฟกต์ FEVER */
-    .fever-on { box-shadow: inset 0 0 0 4px #ffd16655; animation: feverPulse 0.9s ease-in-out infinite alternate; }
-    @keyframes feverPulse { from{ filter:none } to{ filter: drop-shadow(0 0 12px #ffd166) } }
+    /* สรุปผลหลังจบ */
+    .result-wrap{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:min(860px,90vw);padding:22px;border-radius:16px;background:#0b1324ee;
+      border:1px solid #3b4a63;box-shadow:0 20px 50px #000c;z-index:850;display:none}
+    .result-wrap h2{margin:0 0 10px 0}
+    .result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 18px}
+    .btns{display:flex;gap:10px;justify-content:flex-end}
   </style>
 </head>
 <body>
@@ -42,7 +62,8 @@
   <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
-  <div id="badgeMiss"  class="hud-chip" style="display:none">พลาด: 0 ครั้ง</div>
+  <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
+  <div id="badgePower" class="hud-chip">Power: -</div>
 
   <!-- เมนูเริ่มเกม -->
   <div id="menu" class="menu-wrap">
@@ -71,6 +92,21 @@
     </div>
   </div>
 
+  <!-- สรุปผล -->
+  <div id="result" class="result-wrap" role="dialog" aria-modal="true">
+    <h2 id="resTitle">สรุปผล</h2>
+    <div class="result-grid">
+      <div>คะแนนรวม:</div><div id="resScore">0</div>
+      <div>คอมโบสูงสุด:</div><div id="resCombo">x0</div>
+      <div>พลาดทั้งหมด:</div><div id="resMiss">0 ครั้ง</div>
+      <div>โหมดที่เล่น:</div><div id="resMode">-</div>
+    </div>
+    <div class="btns">
+      <button id="btnRestart" class="primary">เล่นอีกครั้ง</button>
+      <button id="btnBack">กลับเมนู</button>
+    </div>
+  </div>
+
   <!-- ปุ่ม VR (fallback) -->
   <button id="vrBtn" title="Enter VR">VR</button>
 
@@ -84,14 +120,25 @@
               raycaster="objects: .clickable; far: 5"
               position="0 1.6 0"></a-entity>
 
-    <!-- โหนดตัวสแปว์น -->
+    <!-- โหนดสำหรับสแปว์น (วางไว้หน้า cam เล็กน้อย) -->
     <a-entity id="spawnHost" position="0 0 -1.2"></a-entity>
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
   <script>
-    // กันลาก/สกอลล์
-    document.addEventListener('touchmove',function(e){ if(!e.target.closest('.menu-wrap')) e.preventDefault(); }, {passive:false});
+    // กันลาก/สกอลล์นอกเมนู
+    document.addEventListener('touchmove',function(e){
+      if(!e.target.closest('.menu-wrap') && !e.target.closest('.result-wrap')) e.preventDefault();
+    }, {passive:false});
+
+    // พยายามล็อกแนวนอน (ถ้าเบราว์เซอร์อนุญาต)
+    (function(){
+      try{
+        if(screen.orientation && screen.orientation.lock){
+          screen.orientation.lock('landscape').catch(function(){});
+        }
+      }catch(e){}
+    })();
 
     // ตรวจ WebXR แล้วซ่อน/โชว์ปุ่ม VR ของเรา
     (function(){
@@ -103,21 +150,23 @@
       }catch(e){ set(false); }
     })();
 
-    // ปุ่ม VR (fallback) → เรียก enterVR ของ scene
+    // ปุ่ม VR (fallback) → enterVR
     (function(){
       var btn = document.getElementById('vrBtn');
       var sceneEl = document.getElementById('scene');
-      if(btn) btn.addEventListener('click', function(){ try{ if(sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch(e){} });
+      if(btn) btn.addEventListener('click', function(){
+        try{ if(sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch(e){}
+      });
     })();
 
     // ===== Loader (no optional chaining) =====
     (function(){
       var $ = function(s){ return document.querySelector(s); };
+      var currentModeName = '-';
 
-      // เคลียร์ cache ด้วย stamp
       function withStamp(url){ var sep = url.indexOf('?')>-1?'&':'?'; return url+sep+'v='+(Date.now()); }
 
-      // แผนที่โหมด — ใช้พาธ relative จาก /HeroHealth/
+      // แผนที่โหมด
       var MAP = {
         goodjunk : './modes/goodjunk.safe.js',
         groups   : './modes/groups.safe.js',
@@ -125,7 +174,7 @@
         plate    : './modes/plate.quest.js'
       };
 
-      // Update HUD จากอีเวนต์ที่โหมดส่งออกมา
+      // HUD listeners
       window.addEventListener('hha:score', function(e){
         var d = (e && e.detail) ? e.detail : {};
         var s = (d.score!=null)?d.score:0, c = (d.combo!=null)?d.combo:0;
@@ -149,29 +198,57 @@
         if(st==='start'){ document.body.classList.add('fever-on'); }
         else { document.body.classList.remove('fever-on'); }
       });
+      window.addEventListener('hha:power', function(e){
+        var d = (e && e.detail) ? e.detail : {};
+        var el = $('#badgePower');
+        if(d.state === 'hide'){ el.style.display='none'; el.textContent='Power: -'; return; }
+        el.style.display=''; el.textContent = 'Power: ' + (d.text||'');
+      });
+
+      // สรุปผล
+      function showResult(data){
+        $('#resTitle').textContent = 'สรุปผล — ' + (data.title||'');
+        $('#resScore').textContent = data.score||0;
+        $('#resCombo').textContent = 'x'+(data.combo||0);
+        $('#resMiss').textContent  = (data.misses||0)+' ครั้ง';
+        $('#resMode').textContent  = currentModeName;
+        $('#result').style.display = '';
+      }
+      function hideResult(){ $('#result').style.display='none'; }
+
       window.addEventListener('hha:end', function(e){
-        // แสดงเมนูกลับ
+        var d = (e && e.detail) ? e.detail : {};
+        // โชว์เมนูสรุป และเปิดเมนูหลัก (ถ้าต้องการกลับ)
+        showResult(d);
+      });
+
+      // ปุ่มในสรุปผล
+      $('#btnRestart').addEventListener('click', function(){
+        hideResult();
+        // เริ่มเล่นโหมดเดิมอีกครั้ง
+        startGame(currentModeName, $('#diffSel').value);
+      });
+      $('#btnBack').addEventListener('click', function(){
+        hideResult();
         $('#menu').style.display = '';
       });
 
       // เริ่มเกม
-      $('#startBtn').addEventListener('click', function(){
-        var mode = $('#modeSel').value;
-        var diff = $('#diffSel').value;
-
+      function startGame(mode, diff){
+        currentModeName = mode;
         $('#badgeScore').textContent = 'คะแนน: 0 | คอมโบ: x0';
         $('#badgeTime').textContent  = 'เวลา: 60s';
         $('#badgeQuest').textContent = 'Mini Quest — กำลังเริ่ม…';
         var miss = $('#badgeMiss'); miss.style.display='none'; miss.dataset.n='0';
+        var pow  = $('#badgePower'); pow.style.display='none'; pow.textContent='Power: -';
+        document.body.classList.remove('fever-on');
 
         $('#menu').style.display = 'none';
 
         var url = MAP[mode] || MAP.goodjunk;
-        // ใช้ dynamic import แบบ module-safe + กันแคช
         import(withStamp(url))
           .then(function(mod){
             if(!mod || !mod.boot) throw new Error('โหมดนี้ไม่มี boot()');
-            // ส่ง host/difficulty/duration
             return mod.boot({ host: $('#spawnHost'), difficulty: diff, duration: 60 });
           })
           .catch(function(err){
@@ -179,6 +256,13 @@
             $('#menu').style.display = '';
             console.error(err);
           });
+      }
+
+      // Click เริ่มเกม
+      $('#startBtn').addEventListener('click', function(){
+        var mode = $('#modeSel').value;
+        var diff = $('#diffSel').value;
+        startGame(mode, diff);
       });
     })();
   </script>
