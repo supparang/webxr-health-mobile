@@ -1,71 +1,57 @@
-// --- single-instance guard ---
-if (window.__MODE_API) {
-  try { window.__MODE_API.stop?.(); } catch {}
-  delete window.__MODE_API;
-}
-
+// === modes/hydration.quest.js — production-safe (ควบคุมระดับน้ำ + เควส) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 
-// น้ำดี / เสี่ยง
-const HYDRATE_GOOD = ['💧','🚰','🥤','🫗','🧊'];        // น้ำเปล่า/ดื่มน้ำ
-const HYDRATE_BAD  = ['🍺','🍷','🥃','🧋','🥤🧋','🍸','🍹']; // น้ำตาล/คาเฟอีน/แอลกอฮอล์ (สัญลักษณ์)
-
-let level = 50; // 0–100
-
-function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-function zone(){ return level<35?'LOW':(level>65?'HIGH':'GREEN'); }
+// ไอคอนของดี/ของไม่ดีต่อสมดุลน้ำ (ตัวอย่าง)
+const GOOD = ['💧','🥛','🍉','🍐','🍊','🥒'];     // น้ำ, นม, ผลไม้ฉ่ำน้ำ, ผักน้ําสูง
+const BAD  = ['🥤','🧋','🍺','🍷','🍫','🍟'];     // น้ำหวาน, คาเฟอีน/แอลกอฮอล์, เค็มจัดมันจัด
 
 export async function boot(opts = {}) {
-  // ผู้ตัดสินผล & กติกาโซนระดับน้ำ
-  const judge = (char, ctx) => {
-    if (ctx?.type === 'timeout') return { good:false, scoreDelta:-2 };
+  let modeApi = null;
 
-    const isGood = HYDRATE_GOOD.includes(char);
-    const isBad  = HYDRATE_BAD.includes(char);
-    const z = zone();
+  // สถานะสมดุลน้ำในร่างกาย (0–100) โซน: LOW<40 / GREEN 40–70 / HIGH>70
+  let hydro = 55;
 
-    if (isGood){
-      // ดื่มน้ำ: เพิ่มระดับน้ำ
-      level = clamp(level + (z==='LOW'?12 : z==='GREEN'?8 : 4), 0, 100);
-      const bonus = (z==='LOW'?14 : z==='GREEN'?10 : 6);
-      const fever = (z==='GREEN'?6 : 2);
-      return { good:true, scoreDelta: bonus, feverDelta: fever };
+  function zone(v){ return v<40 ? 'LOW' : v>70 ? 'HIGH' : 'GREEN'; }
+
+  function judge(hitChar, ctx){
+    if (ctx?.type === 'timeout') {
+      // ปล่อยผ่าน = สมดุลค่อย ๆ ลด
+      hydro = Math.max(0, hydro - 2);
+      return { good:false, scoreDelta:0 };
     }
 
-    if (isBad){
-      // ถ้า HIGH ให้คะแนนได้เล็กน้อย (ฝึกบาลานซ์กลับ GREEN)
-      if (z==='HIGH'){
-        level = clamp(level - 10, 0, 100);
-        return { good:true, scoreDelta: 6, feverDelta: 2 };
-      }
-      // LOW/กลาง → ลงโทษแรง
-      level = clamp(level - (z==='LOW'?12:8), 0, 100);
-      return { good:false, scoreDelta: -10 };
+    // ปรับระดับน้ำ
+    if (GOOD.includes(hitChar)) hydro = Math.min(100, hydro + 8);
+    else if (BAD.includes(hitChar)) hydro = Math.max(0, hydro - 10);
+    else hydro = Math.max(0, hydro - 1);
+
+    const z = zone(hydro);
+
+    // ให้คะแนนตามโซน
+    if (GOOD.includes(hitChar)) {
+      if (z === 'GREEN') return { good:true, scoreDelta:12, feverDelta:6 };
+      if (z === 'HIGH')  return { good:true, scoreDelta:6 };
+      return { good:true, scoreDelta:8 }; // จาก LOW ขึ้นมา
+    } else if (BAD.includes(hitChar)) {
+      if (z === 'LOW')  return { good:false, scoreDelta:-10 }; // ลงโทษหนักเมื่ออยู่โซนต่ำแล้วกดยิ่งแย่
+      if (z === 'HIGH') return { good:false, scoreDelta:-3 };  // โซนสูงโดนเบากว่า
+      return { good:false, scoreDelta:-6 };
     }
+    return { good:false, scoreDelta:0 };
+  }
 
-    // อื่น ๆ ไม่มีผล
-    return { good:false, scoreDelta: -1 };
-  };
-
-  const modeApi = await factoryBoot({
+  modeApi = await factoryBoot({
     name: 'hydration',
-    pools: { good: HYDRATE_GOOD, bad: HYDRATE_BAD },
+    pools: { good: GOOD, bad: BAD },
     judge,
-    ui: { questMainSel: '#tQmain' },
+    difficulty: opts.difficulty || 'normal',
+    host: opts.host,
+    goal: opts.goal || 1,     // ชนะด้วย “อยู่ในโซน GREEN ตามเวลา” จะถูกนับฝั่ง MiniQuest/Timer
     goldenRate: 0.03,
-    goodRate: 0.70,
-    ...opts
+    goodRate: 0.65,
+    ui: { questMainSel: '#tQmain' }
   });
 
-  // ตัวอย่าง: expose ตัวอ่านค่า level (ถ้าจะไปโชว์บน HUD ภายนอก)
-  modeApi.getHydrationLevel = ()=> level;
-
-  const origStop = modeApi.stop?.bind(modeApi);
-  modeApi.stop = function(){
-    // cleanup เฉพาะโหมดนี้ (ถ้ามี interval ฯลฯ)
-    origStop?.();
-  };
-
-  window.__MODE_API = modeApi;
+  try { window.__MODE_API = modeApi; } catch {}
   return modeApi;
 }
