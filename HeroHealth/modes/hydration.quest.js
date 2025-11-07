@@ -1,75 +1,100 @@
-// === Hero Health — modes/hydration.quest.js ===
-import { Particles } from '../vr/particles.js';
+// === Hero Health — Hydration (QUEST PROD) ===
+export async function boot(config){
+  var host = (config && config.host) || document.getElementById('spawnHost');
+  var diff = (config && config.difficulty) || 'normal';
+  var duration = (config && config.duration) || 60;
 
-function uvFromEvent(e){
-  const x = (e && (e.clientX!=null)) ? e.clientX / window.innerWidth  : 0.5;
-  const y = (e && (e.clientY!=null)) ? e.clientY / window.innerHeight : 0.6;
-  return [x, y];
-}
+  // โซนน้ำ: 0..100 → GREEN = 40..70, LOW < 40, HIGH > 70
+  var H = {value:50}; // เริ่มกลางพอดี
+  var score=0, combo=0, maxCombo=0, timeLeft=duration, misses=0, running=true;
+  var spawner=null, ticker=null;
 
-export async function boot(config = {}) {
-  let score=0, combo=0, timeLeft=Number(config.duration||60), running=true;
-  let zone = 'LOW'; // LOW/GREEN/HIGH
+  // เควสบนแถบขวา
+  emit('hha:quest',{text:'Hydration — Zone: LOW | GREEN 0/20s | Streak 0/10 | Recover HIGH→GREEN ≤3s'});
 
-  function setQuestText(){
-    const text = `Hydration — Zone: ${zone} | GREEN 0/20s | Streak 0/10 | Recover HIGH → GREEN ≤3s`;
-    window.dispatchEvent(new CustomEvent('hha:quest', { detail:{ text } }));
-  }
-  setQuestText();
+  var spawnMs = (diff==='easy')?1000:(diff==='hard')?700:850;
 
-  const timer=setInterval(()=>{ if(!running) return;
-    timeLeft=Math.max(0,timeLeft-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-    if(timeLeft<=0) end();
-  },1000);
+  function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(e){} }
 
-  function end(){ if(!running) return; running=false; clearInterval(timer);
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{score,combo}})); }
+  function uiDrop(level, good){
+    // หยดน้ำ/ขวด
+    var el=document.createElement('a-entity');
+    var icon = good?'💧':'🔥';
+    el.setAttribute('text','value:'+icon+'; align:center; color:#fff; width:5');
+    el.setAttribute('position', (Math.random()*1.4-0.7)+' '+(Math.random()*0.9+0.6)+' -1.2');
+    el.setAttribute('scale','0.7 0.7 0.7');
+    el.addEventListener('click', function(){
+      if(!running) return;
+      el.parentNode && el.parentNode.removeChild(el);
 
-  function award(delta,isGood,e){
-    combo = isGood ? Math.max(1,combo+1) : 0;
-    score += delta;
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
-    const [u,v]=uvFromEvent(e);
-    Particles.hit(u,v,{score:Math.abs(delta),combo:Math.max(1,combo),isGood});
-  }
+      // ปรับระดับน้ำ
+      var delta = level;
+      if(good){ H.value = Math.min(100, H.value + delta); }
+      else{ H.value = Math.max(0, H.value - delta); }
 
-  // ปุ่ม “ดื่มน้ำ/กินของเค็ม/เย็น ฯลฯ” จำลอง
-  function spawnChoices(){
-    const items = [
-      {name:'Drink Water',        effect:+1,  good: zone!=='HIGH' },
-      {name:'Salty Snack',        effect:+1,  good:false },
-      {name:'Ice Tea (sweet)',    effect:+1,  good:false },
-      {name:'Rest / Pause',       effect:-1,  good: zone==='HIGH' },
-    ];
-    items.forEach((it,i)=>{
-      const btn=document.createElement('button');
-      btn.textContent=it.name;
-      Object.assign(btn.style,{
-        position:'fixed', left:(8+ i*24)+'vw', bottom:'10vh',
-        padding:'10px 12px', borderRadius:'10px', border:'1px solid #334155',
-        background:'#0b1222', color:'#fff', cursor:'pointer'
-      });
-      document.body.appendChild(btn);
-      btn.onclick=(e)=>{
-        // ปรับโซนแบบง่าย
-        if(it.effect>0){
-          zone = (zone==='LOW')?'GREEN':(zone==='GREEN')?'HIGH':'HIGH';
-        }else{
-          zone = (zone==='HIGH')?'GREEN':(zone==='GREEN')?'LOW':'LOW';
-        }
-        setQuestText();
+      // ตัดสินคะแนนตามโซน
+      if(H.value>=40 && H.value<=70){ // GREEN
+        score += 15 + combo*2; combo+=1; if(combo>maxCombo) maxCombo=combo;
+      }else if(H.value>70){ // HIGH → ได้คะแนนครึ่งเดียว
+        score += 6; combo = Math.max(0, combo-1);
+      }else{ // LOW → ลงโทษ
+        misses+=1; emit('hha:miss'); combo=0; score = Math.max(0, score-10);
+      }
+      emit('hha:score',{score:score, combo:combo});
 
-        // กติกาคะแนน: GREEN = ดี, LOW/HIGH = เสี่ยง
-        const good = (zone==='GREEN');
-        const delta = good ? +6 : -6;
-        award(delta, good, e);
-      };
+      // เอฟเฟกต์
+      var fx=document.createElement('a-entity');
+      fx.setAttribute('text','value:'+(good?'✨':'⚠️')+'; align:center; color:#fff; width:4');
+      fx.setAttribute('position', el.getAttribute('position'));
+      host.appendChild(fx);
+      setTimeout(function(){ fx.parentNode && fx.parentNode.removeChild(fx); }, 240);
     });
+
+    // หมดอายุ
+    setTimeout(function(){
+      if(!el.parentNode) return;
+      el.parentNode.removeChild(el);
+      misses+=1; emit('hha:miss'); combo=0; emit('hha:score',{score:score, combo:combo});
+    }, 1600);
+
+    // background glow
+    var g=document.createElement('a-entity');
+    g.setAttribute('geometry','primitive:plane; width:0.48; height:0.48');
+    g.setAttribute('material','color:'+(good?'#38bdf8':'#ef4444')+'; opacity:0.22');
+    g.setAttribute('position','0 0 -0.01');
+    el.appendChild(g);
+
+    return el;
   }
-  spawnChoices();
 
-  return { stop(){running=false;clearInterval(timer);}, pause(){running=false;}, resume(){running=true;} };
+  function spawnOne(){
+    if(!running) return;
+    var good = Math.random()<0.6;
+    var delta = good? (diff==='hard'?12:10) : (diff==='hard'?14:12);
+    host.appendChild(uiDrop(delta, good));
+  }
+
+  function startSpawn(){ spawner=setInterval(spawnOne, spawnMs); }
+  function stopSpawn(){ if(spawner){ clearInterval(spawner); spawner=null; } }
+
+  function startTimer(){
+    emit('hha:time',{sec:timeLeft});
+    ticker=setInterval(function(){
+      if(!running) return;
+      timeLeft-=1; emit('hha:time',{sec:timeLeft});
+      // drift ธรรมชาติ (น้ำลดเล็กน้อย)
+      H.value = Math.max(0, H.value - 1);
+      if(timeLeft<=0) endGame();
+    },1000);
+  }
+  function stopTimer(){ if(ticker){ clearInterval(ticker); ticker=null; } }
+
+  function endGame(){
+    running=false; stopSpawn(); stopTimer();
+    emit('hha:end',{score:score, combo:maxCombo, duration:duration, misses:misses});
+  }
+
+  startSpawn(); startTimer();
+  return { stop:endGame, pause:function(){running=false;}, resume:function(){ if(!spawner) startSpawn(); if(!ticker) startTimer(); running=true; } };
 }
-
 export default { boot };
