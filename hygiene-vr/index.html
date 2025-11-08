@@ -1,217 +1,128 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Germ Hunter: WebXR Edition</title>
+    <title>Germ Hunter: Cross-Platform</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-physics-system@v5.0.1/dist/aframe-physics-system.min.js"></script>
-
     <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-      }
+      body { margin: 0; overflow: hidden; }
       #instructions {
         position: absolute;
-        top: 50%;
-        left: 50%;
+        top: 50%; left: 50%;
         transform: translate(-50%, -50%);
         background-color: rgba(0, 0, 0, 0.7);
-        color: white;
-        padding: 20px;
-        border-radius: 10px;
-        text-align: center;
-        font-family: sans-serif;
+        color: white; padding: 20px; border-radius: 10px;
+        text-align: center; font-family: sans-serif;
+        font-size: 1.2em; z-index: 1000;
+      }
+      #germ-count-display, #timer-display, #wash-prompt {
+        position: absolute;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white; padding: 10px; border-radius: 5px;
+        font-family: monospace; font-size: 1.5em; z-index: 1001;
+      }
+      #germ-count-display { top: 20px; left: 20px; }
+      #timer-display { top: 20px; right: 20px; }
+      #wash-prompt {
+        bottom: 20px; left: 50%;
+        transform: translateX(-50%);
+        display: none; /* ซ่อนไว้ก่อน */
         font-size: 1.2em;
-        z-index: 1000;
+        animation: pulse 1.5s infinite;
       }
-      #germ-count-display {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        background-color: rgba(0, 0, 0, 0.6);
-        color: white;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
-        font-size: 1.5em;
-        z-index: 1001;
-      }
-      #timer-display {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background-color: rgba(0, 0, 0, 0.6);
-        color: white;
-        padding: 10px;
-        border-radius: 5px;
-        font-family: monospace;
-        font-size: 1.5em;
-        z-index: 1001;
+      @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
       }
     </style>
   </head>
   <body>
-    <div id="instructions">
-      <h1>Germ Hunter: WebXR Edition</h1>
+    
+<div id="instructions">
+      <h1>Germ Hunter</h1>
       <p>
-        Use your VR headset with Hand Tracking enabled.<br />
-        To play, grab the soap and simulate washing your hands.<br />
-        Germs will disappear as you rub your hands together!
+        <b>VR:</b> Use Hand Tracking to grab soap and rub hands.
+        <br>
+        <b>PC:</b> Click soap, then Click-and-Hold to wash.
+        <br>
+        <b>Mobile:</b> Tap soap, then Tap-and-Hold to wash.
       </p>
-      <p>Press the VR button below to start!</p>
+      <p>Press the VR button (if available) or start interacting!</p>
     </div>
 
-    <div id="germ-count-display">Germs: 100</div>
+    
+<div id="germ-count-display">Germs: 100</div>
     <div id="timer-display">Time: 00:00</div>
+    <div id="wash-prompt">Click/Tap and Hold to Wash!</div>
 
     <a-scene
-      physics="gravity: -9.8; debug: false"
       renderer="colorManagement: true; antialias: true"
       webxr="optionalFeatures: hand-tracking, local-floor;"
     >
-      <a-entity
+      
+<a-entity
         camera="active: true"
-        look-controls
-        wasd-controls="acceleration: 20"
+        look-controls="pointerLockEnabled: false"
+        position="0 1.6 0"
       >
-        <a-entity id="leftHand" hand-controls="hand: left; model: true"></a-entity>
-        <a-entity
-          id="rightHand"
-          hand-controls="hand: right; model: true"
-        ></a-entity>
+        <a-cursor
+          id="cursor"
+          raycaster="objects: .clickable"
+          fuse="false"
+        ></a-cursor>
+        
+<a-entity id="leftHand" hand-controls="hand: left; model: true"></a-entity>
+        <a-entity id="rightHand" hand-controls="hand: right; model: true"></a-entity>
       </a-entity>
 
-      <a-entity
+      
+<a-entity
         id="bathroom-scene"
         position="0 0 0"
         rotation="0 0 0"
       >
-        <a-plane
-          static-body
-          width="10"
-          height="10"
-          rotation="-90 0 0"
+        
+<a-plane
+          width="10" height="10" rotation="-90 0 0"
           color="#EEE"
           material="src: url(https://cdn.aframe.io/a-saturday-night/images/floor.jpg); repeat: 5 5;"
-          shadow="receive: true"
         ></a-plane>
 
-        <a-box
-          static-body
-          width="10"
-          height="4"
-          depth="0.1"
-          position="0 2 -5"
-          color="#ADD8E6"
-          shadow
-        ></a-box>
-        <a-box
-          static-body
-          width="10"
-          height="4"
-          depth="0.1"
-          position="-5 2 0"
-          rotation="0 90 0"
-          color="#ADD8E6"
-          shadow
-        ></a-box>
-        <a-box
-          static-body
-          width="10"
-          height="4"
-          depth="0.1"
-          position="5 2 0"
-          rotation="0 -90 0"
-          color="#ADD8E6"
-          shadow
-        ></a-box>
+        
+<a-box width="10" height="4" depth="0.1" position="0 2 -5" color="#ADD8E6"></a-box>
+        
+<a-box width="1.2" height="0.8" depth="0.7" position="0 0.4 -4.5" color="#FFF"></a-box>
+        <a-cylinder radius="0.3" height="0.2" position="0 0.85 -4.5" color="#E0FFFF"></a-cylinder>
+        <a-cylinder radius="0.05" height="0.3" position="0 1.05 -4.5" color="#888"></a-cylinder>
+        <a-sphere radius="0.08" position="0 1.25 -4.5" color="#888"></a-sphere>
 
-        <a-box
-          static-body
-          width="1.2"
-          height="0.8"
-          depth="0.7"
-          position="0 0.4 -4.5"
-          color="#FFF"
-          shadow
-        ></a-box>
-        <a-cylinder
-          static-body
-          radius="0.3"
-          height="0.2"
-          position="0 0.85 -4.5"
-          color="#E0FFFF"
-          shadow
-        ></a-cylinder>
-        <a-cylinder
-          radius="0.05"
-          height="0.3"
-          position="0 1.05 -4.5"
-          color="#888"
-        ></a-cylinder>
-        <a-sphere
-          radius="0.08"
-          position="0 1.25 -4.5"
-          color="#888"
-        ></a-sphere>
-
-        <a-box
+        
+<a-box
           id="soapBottle"
-          class="clickable"
-          grabbable
-          dynamic-body
-          width="0.15"
-          height="0.3"
-          depth="0.1"
+          class="clickable" /* เพิ่ม class clickable */
+          width="0.15" height="0.3" depth="0.1"
           position="0.5 0.95 -4.4"
           color="#76B947"
-          shadow
         >
-          <a-cylinder
-            radius="0.05"
-            height="0.08"
-            position="0 0.19 0"
-            color="#555"
-          ></a-cylinder>
-          <a-text
-            value="SOAP"
-            color="white"
-            align="center"
-            width="1"
-            position="0 0 0.051"
-            rotation="0 0 0"
-          ></a-text>
+          <a-cylinder radius="0.05" height="0.08" position="0 0.19 0" color="#555"></a-cylinder>
+          <a-text value="SOAP" color="white" align="center" width="1" position="0 0 0.051"></a-text>
         </a-box>
 
-        <a-entity id="germ-container" position="0 0 0"></a-entity>
+        
+<a-entity id="germ-container" position="0 1.3 -4.3"></a-entity>
       </a-entity>
 
-      <a-light type="ambient" color="#BBB"></a-light>
-      <a-light
-        type="directional"
-        position="1 5 1"
-        intensity="0.8"
-        castShadow
-      ></a-light>
+      
+<a-light type="ambient" color="#BBB"></a-light>
+      <a-light type="directional" position="1 5 1" intensity="0.8"></a-light>
     </a-scene>
 
     <script>
-      AFRAME.registerComponent('grabbable', {
-        init: function () {
-          this.el.addEventListener('hand-start-fuse', (evt) => {
-            // Placeholder for grabbing logic with hand tracking
-            console.log('Hand is trying to grab:', this.el.id);
-            // In a full implementation, you'd attach the object to the hand here.
-            // For this demo, we'll just simulate soap being "used" on proximity.
-          });
-        }
-      });
-
       AFRAME.registerComponent('germ-spawner', {
         schema: {
           count: { type: 'int', default: 100 },
           spreadRadius: { type: 'number', default: 0.2 },
-          cleanSpeed: { type: 'number', default: 0.1 } // Germs removed per second when hands rub
+          cleanSpeed: { type: 'number', default: 20 } // Germs removed per second
         },
         init: function () {
           this.germs = [];
@@ -219,156 +130,178 @@
           this.leftHand = document.getElementById('leftHand');
           this.rightHand = document.getElementById('rightHand');
           this.soapBottle = document.getElementById('soapBottle');
+          this.germContainer = document.getElementById('germ-container');
+          this.cursor = document.getElementById('cursor');
+          
           this.hasSoap = false;
-          this.rubbingHands = false;
-          this.handRubTimer = 0;
+          this.rubbingHandsVR = false;
+          this.rubbingHandsNonVR = false; // สถานะใหม่สำหรับ PC/Mobile
+          
           this.gameTimer = 0;
           this.germCountDisplay = document.getElementById('germ-count-display');
           this.timerDisplay = document.getElementById('timer-display');
           this.instructions = document.getElementById('instructions');
+          this.washPrompt = document.getElementById('wash-prompt');
 
-          // Hide instructions when VR is entered
-          this.el.sceneEl.addEventListener('enter-vr', () => {
-            if (this.instructions) {
-              this.instructions.style.display = 'none';
-            }
-          });
+          this.el.sceneEl.addEventListener('enter-vr', this.onEnterVR.bind(this));
+          this.el.sceneEl.addEventListener('exit-vr', this.onExitVR.bind(this));
 
-          // Spawn initial germs around the hands' general area (simulate dirty hands)
           this.spawnGerms();
 
-          // Listen for hand tracking data to simulate "grabbing" soap and "rubbing" hands
-          this.el.sceneEl.addEventListener('tick', this.onTick.bind(this));
+          this.onTick = AFRAME.utils.throttleTick(this.onTick, 100, this); // ลดความถี่การอัปเดต
+
+          // --- เพิ่ม Event Listeners สำหรับ PC/Mobile ---
+          this.soapBottle.addEventListener('click', this.getSoap.bind(this));
+          
+          const sceneEl = this.el.sceneEl;
+          sceneEl.addEventListener('mousedown', () => { this.rubbingHandsNonVR = true; });
+          sceneEl.addEventListener('mouseup', () => { this.rubbingHandsNonVR = false; });
+          sceneEl.addEventListener('touchstart', () => { this.rubbingHandsNonVR = true; });
+          sceneEl.addEventListener('touchend', () => { this.rubbingHandsNonVR = false; });
+        },
+
+        onEnterVR: function () {
+          if (this.instructions) { this.instructions.style.display = 'none'; }
+          this.cursor.setAttribute('visible', false); // ซ่อน cursor ในโหมด VR
+        },
+        onExitVR: function () {
+          this.cursor.setAttribute('visible', true); // แสดง cursor นอกโหมด VR
+        },
+
+        getSoap: function () {
+          if (this.hasSoap) return; // มีสบู่แล้ว
+          this.hasSoap = true;
+          console.log('Got soap!');
+          this.soapBottle.setAttribute('visible', false);
+          this.washPrompt.style.display = 'block'; // แสดงข้อความ "Click/Tap to Wash"
+          this.addFoamEffect(this.germContainer); // ใส่ฟองสบู่
         },
 
         spawnGerms: function () {
-          const germContainer = document.getElementById('germ-container');
           for (let i = 0; i < this.data.count; i++) {
             const germ = document.createElement('a-sphere');
-            germ.setAttribute('radius', Math.random() * 0.01 + 0.005); // Small varying size
+            germ.setAttribute('radius', Math.random() * 0.01 + 0.005);
             germ.setAttribute('color', `#${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0')}`);
             germ.setAttribute('position', {
               x: (Math.random() - 0.5) * this.data.spreadRadius,
-              y: 1 + (Math.random() - 0.5) * this.data.spreadRadius, // Around hand height
-              z: -4.3 + (Math.random() - 0.5) * this.data.spreadRadius
+              y: (Math.random() - 0.5) * this.data.spreadRadius,
+              z: (Math.random() - 0.5) * this.data.spreadRadius
             });
             germ.setAttribute('class', 'germ');
-            germ.setAttribute('visible', true); // Ensure they are visible
-            germContainer.appendChild(germ);
+            this.germContainer.appendChild(germ);
             this.germs.push(germ);
           }
           this.updateGermCountDisplay();
         },
 
-        onTick: function (evt) {
-          if (!this.el.sceneEl.is('vr-mode')) {
-            // Don't update game logic if not in VR, only update timer for desktop
-             this.updateGameTimer(evt.detail.time / 1000);
-            return;
-          }
-          
-          this.gameTimer = evt.detail.time / 1000;
+        onTick: function (time, delta) {
+          this.gameTimer = time / 1000;
           this.updateGameTimer(this.gameTimer);
 
-          // Check if hands are close to soap bottle
-          const soapPos = this.soapBottle.object3D.position;
-          const leftHandPos = this.leftHand.object3D.position;
-          const rightHandPos = this.rightHand.object3D.position;
+          let isWashing = false;
+          
+          if (this.el.sceneEl.is('vr-mode')) {
+            // --- Logic สำหรับ VR (Hand Tracking) ---
+            const leftHandPos = this.leftHand.object3D.position;
+            const rightHandPos = this.rightHand.object3D.position;
+            
+            // เช็คว่ามือทั้งสองข้างทำงาน (มี Hand Tracking)
+            const handsTracked = leftHandPos.length() > 0.1 && rightHandPos.length() > 0.1;
 
-          if (!this.hasSoap) {
-            // Check if either hand is near the soap bottle
-            if (leftHandPos.distanceTo(soapPos) < 0.2 || rightHandPos.distanceTo(soapPos) < 0.2) {
-              this.hasSoap = true;
-              console.log('Got soap!');
-              // Temporarily make soap bottle invisible to simulate "using" it
-              this.soapBottle.setAttribute('visible', false);
-              // Visual feedback: add a simple "foam" effect around hands
-              this.addFoamEffect(this.leftHand);
-              this.addFoamEffect(this.rightHand);
-            }
-          }
-
-          if (this.hasSoap) {
-            // Check if hands are rubbing together
-            const handDistance = leftHandPos.distanceTo(rightHandPos);
-            if (handDistance < 0.25) { // Threshold for hands being "rubbing"
-              if (!this.rubbingHands) {
-                this.rubbingHands = true;
-                console.log('Hands rubbing!');
-              }
-              this.handRubTimer += evt.detail.delta / 1000; // Time in seconds
-              this.cleanGerms(this.data.cleanSpeed * (evt.detail.delta / 1000)); // Clean based on elapsed time
-
-              // Optional: change color of germs slightly or make them pulsate faster
-            } else {
-              if (this.rubbingHands) {
-                this.rubbingHands = false;
-                console.log('Hands stopped rubbing.');
+            if (!this.hasSoap && handsTracked) {
+              const soapPos = this.soapBottle.object3D.position;
+              if (leftHandPos.distanceTo(soapPos) < 0.2 || rightHandPos.distanceTo(soapPos) < 0.2) {
+                this.getSoap();
               }
             }
-          }
 
-          if (this.germs.length === 0) {
+            if (this.hasSoap && handsTracked) {
+              const handDistance = leftHandPos.distanceTo(rightHandPos);
+              if (handDistance < 0.25) { // Threshold for "rubbing"
+                isWashing = true;
+              }
+            }
+
+          } else {
+            // --- Logic สำหรับ PC/Mobile ---
+            if (this.hasSoap && this.rubbingHandsNonVR) {
+              isWashing = true;
+            }
+          }
+          
+          // --- Logic การล้าง (ใช้ร่วมกัน) ---
+          if (isWashing) {
+            this.cleanGerms(this.data.cleanSpeed * (delta / 1000)); // ล้างตามเวลาที่ผ่านไป
+          }
+          
+          if (this.germs.length === 0 && this.initialGermCount > 0) {
               this.endGame();
           }
         },
 
         cleanGerms: function (amount) {
-          let cleanedCount = 0;
-          for (let i = 0; i < this.germs.length; i++) {
-            if (cleanedCount >= amount) break;
-            if (this.germs[i].getAttribute('visible')) {
-                this.germs[i].setAttribute('visible', false); // Make germ disappear
-                cleanedCount++;
+          let cleanedCount = Math.ceil(amount); // ปัดเศษขึ้น
+          for (let i = 0; i < cleanedCount && this.germs.length > 0; i++) {
+            const germ = this.germs.pop(); // หยิบตัวสุดท้ายออก
+            germ.setAttribute('visible', false);
+            // เพื่อประสิทธิภาพที่ดีขึ้น ควรกำจัดออกจาก scene ด้วย
+            if (germ.parentNode) {
+              germ.parentNode.removeChild(germ);
             }
           }
-          this.germs = this.germs.filter(germ => germ.getAttribute('visible')); // Remove invisible germs from array
           this.updateGermCountDisplay();
         },
 
         updateGermCountDisplay: function() {
-            if (this.germCountDisplay) {
-                this.germCountDisplay.textContent = `Germs: ${this.germs.length}`;
-            }
+          if (this.germCountDisplay) {
+            this.germCountDisplay.textContent = `Germs: ${this.germs.length}`;
+          }
         },
 
         updateGameTimer: function(timeInSeconds) {
-            if (this.timerDisplay) {
-                const minutes = Math.floor(timeInSeconds / 60);
-                const seconds = Math.floor(timeInSeconds % 60);
-                this.timerDisplay.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }
+          if (this.timerDisplay) {
+            const minutes = Math.floor(timeInSeconds / 60);
+            const seconds = Math.floor(timeInSeconds % 60);
+            this.timerDisplay.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+          }
         },
 
-        addFoamEffect: function(handEntity) {
-            // Simple visual foam effect: add some white spheres around the hand
-            for (let i = 0; i < 10; i++) {
-                const foamParticle = document.createElement('a-sphere');
-                foamParticle.setAttribute('radius', Math.random() * 0.03 + 0.01);
-                foamParticle.setAttribute('color', 'white');
-                foamParticle.setAttribute('opacity', 0.6);
-                foamParticle.setAttribute('position', {
-                    x: (Math.random() - 0.5) * 0.3,
-                    y: (Math.random() - 0.5) * 0.3,
-                    z: (Math.random() - 0.5) * 0.3
-                });
-                foamParticle.setAttribute('class', 'foam-particle');
-                handEntity.appendChild(foamParticle);
-            }
+        addFoamEffect: function(container) {
+          // เพิ่มฟองสบู่รอบๆ ตำแหน่งเชื้อโรค
+          for (let i = 0; i < 50; i++) {
+            const foamParticle = document.createElement('a-sphere');
+            foamParticle.setAttribute('radius', Math.random() * 0.03 + 0.01);
+            foamParticle.setAttribute('color', 'white');
+            foamParticle.setAttribute('opacity', 0.6);
+            foamParticle.setAttribute('position', {
+              x: (Math.random() - 0.5) * this.data.spreadRadius * 1.5,
+              y: (Math.random() - 0.5) * this.data.spreadRadius * 1.5,
+              z: (Math.random() - 0.5) * this.data.spreadRadius * 1.5
+            });
+            foamParticle.setAttribute('class', 'foam-particle');
+            container.appendChild(foamParticle);
+          }
         },
 
         endGame: function() {
-            console.log('All germs cleaned!');
-            const finalTime = Math.floor(this.gameTimer);
-            const minutes = Math.floor(finalTime / 60);
-            const seconds = Math.floor(finalTime % 60);
+          console.log('All germs cleaned!');
+          this.washPrompt.style.display = 'none';
+          const finalTime = Math.floor(this.gameTimer);
+          const minutes = Math.floor(finalTime / 60);
+          const seconds = Math.floor(finalTime % 60);
+          
+          // ป้องกันการ alert ซ้ำ
+          this.initialGermCount = 0; 
+          
+          // หน่วงเวลาเล็กน้อยเพื่อให้แน่ใจว่า UI อัปเดต
+          setTimeout(() => {
             alert(`Congratulations! You cleaned all germs in ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} seconds!`);
-            // You might want to reset the game or show a final score screen here
-            // For now, we'll just alert and let the user restart the page
+            // โหลดหน้าใหม่เพื่อเริ่มเกมใหม่
+            location.reload();
+          }, 100);
         }
       });
 
-      // Attach the germ-spawner component to the scene
       document.querySelector('a-scene').setAttribute('germ-spawner', '');
     </script>
   </body>
