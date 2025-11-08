@@ -5,10 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- กัน favicon 404 -->
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-
-  <!-- A-Frame & Troika (โหลดจากโฟลเดอร์ vendor ที่ถูกต้อง) -->
+  <!-- ใช้ไฟล์ท้องถิ่น เพื่อตัดปัญหา CORS -->
   <script src="./vendor/aframe-1.5.0.min.js"></script>
   <script src="./vendor/aframe-troika-text-0.12.0.min.js"></script>
 
@@ -17,6 +14,7 @@
     html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
     a-scene{width:100%;height:100%;}
+
     .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
       padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
     #badgeTime{left:12px;top:12px}
@@ -24,26 +22,23 @@
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
 
-    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);
-      padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);
-      border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
-    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;
-      border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
-    h1{margin:8px 0 24px;font-size:clamp(22px,3.6vw,42px);text-align:center}
-    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;color:#fff;background:#0b1222;outline:0}
-    button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
-    .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
-
-    /* ปุ่ม VR ของ A-Frame */
+    /* ปุ่ม VR ของ A-Frame ให้ลอย */
     .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;bottom:12px !important;z-index:1000 !important}
-    /* ปุ่ม VR fallback */
+    /* ปุ่ม VR (fallback) */
     #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;color:#fff;
       padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
     .xr-supported #vrBtn{display:none}
 
-    /* เอฟเฟกต์ FEVER บน body */
+    /* เอฟเฟกต์ FEVER */
     .fever-on{ box-shadow: inset 0 0 0 4px #ffd16655; animation: feverPulse .9s ease-in-out infinite alternate; }
     @keyframes feverPulse{ from{ filter:none } to{ filter: drop-shadow(0 0 12px #ffd166) } }
+
+    /* เลเยอร์ DOM เป้า (กรณีโหมดใช้ DOM overlay) */
+    .hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto;background:transparent;}
+    .hha-tgt{position:absolute;pointer-events:auto;display:block;transform:translate(-50%,-50%);
+      font-size:64px;line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));
+      transition:transform .12s ease, opacity .24s ease;opacity:1;}
+    .hha-tgt.hit{transform:translate(-50%,-50%) scale(.85);opacity:.15;}
   </style>
 </head>
 <body>
@@ -54,33 +49,6 @@
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
   <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
 
-  <!-- เมนูเริ่มเกม -->
-  <div id="menu" class="menu-wrap" role="dialog" aria-labelledby="title">
-    <h1 id="title">เริ่ม: HERO HEALTH ACADEMY</h1>
-    <div class="menu-inner">
-      <div class="row">
-        <label for="modeSel">เลือกโหมด:</label>
-        <select id="modeSel" aria-label="เลือกโหมด">
-          <option value="goodjunk">Good vs Junk</option>
-          <option value="groups">Food Groups</option>
-          <option value="hydration">Hydration</option>
-          <option value="plate">Healthy Plate</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="diffSel">ระดับความยาก:</label>
-        <select id="diffSel" aria-label="ระดับความยาก">
-          <option value="easy">ง่าย</option>
-          <option value="normal" selected>ปกติ</option>
-          <option value="hard">ยาก</option>
-        </select>
-      </div>
-      <div class="row">
-        <button id="startBtn" class="primary">เริ่มเกม</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ปุ่ม VR (fallback) -->
   <button id="vrBtn" title="Enter VR">VR</button>
 
@@ -88,21 +56,21 @@
   <a-scene id="scene" background="color: #0b1324">
     <a-assets></a-assets>
 
-    <!-- กล้อง + cursor + raycaster ชี้ .clickable -->
+    <!-- กล้อง + cursor (ชี้ .clickable) -->
     <a-entity id="cam" camera look-controls
               cursor="rayOrigin: mouse; fuse: false"
               raycaster="objects: .clickable; far: 6"
               position="0 1.6 0"></a-entity>
 
-    <!-- โหนดตัวสแปว์นสำหรับโหมดที่ใช้ A-Frame -->
-    <a-entity id="spawnHost" position="0 1.6 -1.6"></a-entity>
+    <!-- โหนดสแปว์น (บางโหมดใช้) -->
+    <a-entity id="spawnHost" position="0 1.4 -1.6"></a-entity>
 
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
   <script>
-    // กันสกอลล์เพจระหว่างเล่น (ยอมให้สกอลล์เฉพาะในเมนู)
-    document.addEventListener('touchmove',function(e){ if(!e.target.closest('.menu-wrap')) e.preventDefault(); }, {passive:false});
+    // กันลากหน้า (นอกเมนู)
+    document.addEventListener('touchmove',function(e){ e.preventDefault(); },{passive:false});
 
     // ตรวจ WebXR เพื่อซ่อน/โชว์ปุ่ม VR ของเรา
     (function(){
@@ -114,11 +82,11 @@
       }catch(e){ set(false); }
     })();
 
-    // ปุ่ม VR fallback → enterVR
+    // ปุ่ม VR fallback → enterVR()
     (function(){
-      var btn = document.getElementById('vrBtn');
-      var sceneEl = document.getElementById('scene');
-      if(btn) btn.addEventListener('click', function(){ try{ if(sceneEl && sceneEl.enterVR) sceneEl.enterVR(); }catch(e){} });
+      var b=document.getElementById('vrBtn');
+      var sc=document.getElementById('scene');
+      if(b) b.addEventListener('click', function(){ try{ sc && sc.enterVR && sc.enterVR(); }catch(e){} });
     })();
 
     // ===== Loader / Event bus =====
@@ -126,13 +94,8 @@
       var $=function(s){ return document.querySelector(s); };
       function withStamp(url){ var sep=url.indexOf('?')>-1?'&':'?'; return url+sep+'v='+(Date.now()); }
 
-      // แผนที่โหมด
-      var MAP={
-        goodjunk : './modes/goodjunk.safe.js',
-        groups   : './modes/groups.safe.js',
-        hydration: './modes/hydration.quest.js',
-        plate    : './modes/plate.quest.js'
-      };
+      // Map โหมด (ตอนนี้ทดสอบ goodjunk ตรง ๆ)
+      var MAP={ goodjunk:'./modes/goodjunk.safe.js' };
 
       // HUD listeners
       window.addEventListener('hha:score', function(e){
@@ -156,32 +119,33 @@
         var st=e&&e.detail&&e.detail.state?e.detail.state:'end';
         if(st==='start') document.body.classList.add('fever-on'); else document.body.classList.remove('fever-on');
       });
-      window.addEventListener('hha:end', function(){ $('#menu').style.display=''; });
+      window.addEventListener('hha:end', function(e){
+        // จบเกมแล้ว — จะเพิ่มสรุปคะแนนในภายหลังตามโหมด
+        // ที่นี่ปล่อยว่าง เพราะ goodjunk ยิง summary เอง
+      });
 
-      // เริ่มเกมเมื่อกดปุ่ม
-      $('#startBtn').addEventListener('click', function(){
-        var mode = $('#modeSel').value;
-        var diff = $('#diffSel').value;
-
-        $('#badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
-        $('#badgeTime').textContent='เวลา: 60s';
-        $('#badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
-        var miss=$('#badgeMiss'); miss.style.display='none'; miss.dataset.n='0';
-
-        $('#menu').style.display='none';
-
-        var url = MAP[mode] || MAP.goodjunk;
+      // เริ่มโหลดโหมดทันทีเมื่อ scene พร้อม
+      function start(){
+        var url=MAP.goodjunk;
         import(withStamp(url))
           .then(function(mod){
             if(!mod || !mod.boot) throw new Error('โหมดนี้ไม่มี boot()');
-            return mod.boot({ host: $('#spawnHost'), difficulty: diff, duration: 60 });
+            return mod.boot({
+              host: $('#spawnHost'),
+              difficulty: 'normal',
+              duration: 60
+            });
           })
           .catch(function(err){
             alert('โหลดโหมดไม่สำเร็จ: '+(err && err.message?err.message:err));
-            $('#menu').style.display='';
             console.error(err);
           });
-      });
+      }
+
+      var sceneEl=$('#scene');
+      if(sceneEl && sceneEl.hasLoaded) setTimeout(start, 150);
+      else if(sceneEl) sceneEl.addEventListener('loaded', function(){ setTimeout(start,150); }, {once:true});
+      else start();
     })();
   </script>
 </body>
