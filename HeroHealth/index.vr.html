@@ -9,9 +9,6 @@
   <script src="./vendor/aframe-1.5.0.min.js"></script>
   <script src="./vendor/aframe-troika-text-0.12.0.min.js"></script>
 
-  <!-- กัน 404 ของ favicon -->
-  <link rel="icon" href="./favicon.ico"/>
-
   <style>
     :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
     html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
@@ -24,8 +21,6 @@
     #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
-    /* Coach HUD (ใหม่) */
-    #badgeCoach{right:12px;top:106px;max-width:min(46ch, 88vw);display:none}
 
     /* Fever bar */
     #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;
@@ -43,9 +38,13 @@
     /* ปุ่ม VR ของ A-Frame ให้ลอย */
     .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;bottom:12px !important;z-index:1000 !important}
 
-    /* เอฟเฟกต์ FEVER */
+    /* Fever visual */
     .fever-on{ box-shadow: inset 0 0 0 4px #ffd16655; animation:feverPulse .9s ease-in-out infinite alternate; }
     @keyframes feverPulse{ from{ filter:none } to{ filter: drop-shadow(0 0 12px #ffd166) } }
+
+    /* Coach bubble */
+    #coach{position:fixed;left:50%;bottom:56px;transform:translateX(-50%);z-index:950;
+      background:#1f2b40cc;border:1px solid #4b5a78;color:#e8eefc;padding:10px 14px;border-radius:12px;display:none;font-weight:800}
 
     /* === RESULT PANEL === */
     #resultPanel{ position:fixed; inset:0; display:none; place-items:center; z-index:1200;
@@ -68,10 +67,12 @@
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
   <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
-  <div id="badgeCoach" class="hud-chip"></div>
 
   <!-- Fever bar -->
   <div id="feverWrap"><div id="feverFill"></div></div>
+
+  <!-- Coach bubble -->
+  <div id="coach" role="status" aria-live="polite">พร้อมลุย!</div>
 
   <!-- เมนูเริ่มเกม -->
   <div id="menu" class="menu-wrap">
@@ -124,154 +125,118 @@
 
   <!-- A-Frame scene -->
   <a-scene id="scene" background="color: #0b1324">
-    <a-assets></a-assets>
+    <a-assets>
+      <!-- SFX (วางไฟล์ตาม path นี้) -->
+      <audio id="sfx-hit"    src="./assets/sfx/hit.mp3"></audio>
+      <audio id="sfx-miss"   src="./assets/sfx/miss.mp3"></audio>
+      <audio id="sfx-fever"  src="./assets/sfx/fever.mp3"></audio>
+      <audio id="sfx-quest"  src="./assets/sfx/quest.mp3"></audio>
+      <audio id="sfx-star"   src="./assets/sfx/star.mp3"></audio>
+      <audio id="sfx-diamond"src="./assets/sfx/diamond.mp3"></audio>
+      <audio id="sfx-shield" src="./assets/sfx/shield.mp3"></audio>
+      <audio id="sfx-score"  src="./assets/sfx/score.mp3"></audio>
+    </a-assets>
 
-    <!-- กล้อง + cursor (ชี้ class=clickable) -->
-    <a-entity id="cam"
-              camera
-              look-controls
-              cursor="rayOrigin: mouse; fuse: false"
-              raycaster="objects: .clickable; far: 6"
-              position="0 1.6 0"></a-entity>
+    <!-- กล้อง + cursor -->
+    <a-entity id="cam" camera look-controls cursor="rayOrigin: mouse; fuse: false"
+              raycaster="objects: .clickable; far: 6" position="0 1.6 0"></a-entity>
 
-    <!-- โหนดสแปว์น: กึ่งกลางจอจริง ๆ (y=1.0) -->
+    <!-- โหนดสแปว์น (กลางจอจริง ๆ) -->
     <a-entity id="spawnHost" position="0 1.0 -1.6"></a-entity>
 
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
   <script>
-    // กันลากหน้า
-    document.addEventListener('touchmove',function(e){ if(!e.target.closest('.menu-wrap')) e.preventDefault(); },{passive:false});
+    // ป้องกันสกอลล์เพจโดยไม่ได้ตั้งใจ
+    document.addEventListener('touchmove',e=>{ if(!e.target.closest('.menu-wrap')) e.preventDefault(); },{passive:false});
 
-    // ===== HUD listeners =====
+    // ==== HUD listeners ====
     (function(){
-      var $=s=>document.querySelector(s);
-      window.addEventListener('hha:score', function(e){
-        var d=e&&e.detail?e.detail:{}; $('#badgeScore').textContent = 'คะแนน: '+(d.score||0)+' | คอมโบ: x'+(d.combo||0);
+      const $=s=>document.querySelector(s);
+      window.addEventListener('hha:score', e=>{
+        const d=e?.detail||{}; $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
       });
-      window.addEventListener('hha:miss', function(e){
-        var el=$('#badgeMiss'); el.style.display=''; var n=e&&e.detail&&e.detail.count!=null?e.detail.count:(parseInt(el.dataset.n||'0',10)+1);
-        el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
+      window.addEventListener('hha:miss', e=>{
+        const el=$('#badgeMiss'); el.style.display='';
+        const n=(e?.detail?.count??(parseInt(el.dataset.n||'0',10)+1));
+        el.dataset.n=n; el.textContent=`พลาด: ${n} ครั้ง`;
       });
-      window.addEventListener('hha:time', function(e){
-        var t=e&&e.detail&&e.detail.sec!=null?Math.max(0,Math.round(e.detail.sec)):0; $('#badgeTime').textContent='เวลา: '+t+'s';
+      window.addEventListener('hha:time', e=>{
+        const t=Math.max(0,Math.round(e?.detail?.sec??0)); $('#badgeTime').textContent=`เวลา: ${t}s`;
       });
-      window.addEventListener('hha:quest', function(e){
-        var text=e&&e.detail&&e.detail.text?e.detail.text:'Mini Quest'; $('#badgeQuest').textContent=text;
+      window.addEventListener('hha:quest', e=>{
+        $('#badgeQuest').textContent=e?.detail?.text||'Mini Quest';
       });
+
       // Fever gauge
-      var fill = document.getElementById('feverFill');
-      window.addEventListener('hha:fever', function(e){
-        var d=e&&e.detail?e.detail:{}; var st=d.state||'change'; var lv = d.level!=null?d.level:0;
-        var pct = Math.max(0,Math.min(100, Math.round(lv)));
+      const fill = document.getElementById('feverFill');
+      window.addEventListener('hha:fever', e=>{
+        const d=e?.detail||{}; const st=d.state||'change'; const lv=d.level??0;
+        const pct=Math.max(0,Math.min(100,Math.round(lv)));
         if(st==='start'){ document.body.classList.add('fever-on'); fill.style.background='linear-gradient(90deg,#ffb703,#fb5607)'; fill.style.width='100%'; }
         else if(st==='end'){ document.body.classList.remove('fever-on'); fill.style.background='linear-gradient(90deg,#37d67a,#06d6a0)'; fill.style.width='0%'; }
-        else { fill.style.width = pct+'%'; }
+        else { fill.style.width=pct+'%'; }
       });
 
-      /* Coach HUD (ใหม่) */
-      (function(){
-        var box=document.getElementById('badgeCoach'); var timer=null;
-        function show(msg){
-          if(!box) return;
-          box.style.display=''; box.textContent=String(msg||'');
-          clearTimeout(timer); timer=setTimeout(function(){ box.style.display='none'; }, 2200);
-        }
-        window.addEventListener('hha:coach', function(e){
-          var d=e && e.detail ? e.detail : {};
-          if(d.text) show(d.text);
-        });
-      })();
-    })();
-
-    // ===== Result panel =====
-    (function(){
-      function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
-      function stars(n){ return '★'.repeat(n)+'☆'.repeat(5-n); }
-      window.addEventListener('hha:end', function(e){
-        var d=e.detail||{};
-        var score   = +d.score||0;
-        var comboMx = +d.comboMax || +d.combo || 0;
-        var misses  = +d.misses||0;
-        var hits    = +d.hits||0;
-        var spawns  = +d.spawns || (hits+misses);
-        var acc     = spawns>0 ? hits/spawns : 0;
-        var qCleared= +d.questsCleared||0;
-        var qTotal  = +d.questsTotal||3;
-        var sec     = +d.duration||0;
-        var mode    = d.mode||d.title||'Good vs Junk';
-        var diff    = d.difficulty||'normal';
-
-        var scoreGoal={easy:300,normal:500,hard:700}[diff]||500;
-        var scoreNorm = clamp(score/scoreGoal,0,1);
-        var accNorm   = clamp(acc,0,1);
-        var questNorm = clamp(qTotal? qCleared/qTotal : 0,0,1);
-
-        var starRaw = 0.45*accNorm + 0.40*scoreNorm + 0.15*questNorm;
-        var starNum = clamp(Math.max(1, Math.round(starRaw*5)),1,5);
-
-        document.getElementById('rsMode').textContent   = mode;
-        document.getElementById('rsDiff').textContent   = diff;
-        document.getElementById('rsScore').textContent  = score.toLocaleString();
-        document.getElementById('rsCombo').textContent  = comboMx;
-        document.getElementById('rsMiss').textContent   = misses;
-        document.getElementById('rsAcc').textContent    = Math.round(accNorm*100)+'%';
-        document.getElementById('rsQuests').textContent = qCleared+'/'+qTotal;
-        document.getElementById('rsTime').textContent   = Math.round(sec)+'s';
-        document.getElementById('stars').textContent    = stars(starNum);
-
-        var panel=document.getElementById('resultPanel');
-        panel.style.display='grid';
-        document.getElementById('btnBackMenu').onclick=function(){
-          panel.style.display='none'; document.getElementById('menu').style.display='';
-        };
-        document.getElementById('btnReplay').onclick=function(){
-          panel.style.display='none'; document.getElementById('startBtn').click();
-        };
+      // Coach bubble
+      const coach = document.getElementById('coach');
+      let coachTimer=0;
+      window.addEventListener('hha:coach', e=>{
+        coach.textContent = e?.detail?.text || '';
+        coach.style.display = 'block';
+        clearTimeout(coachTimer);
+        coachTimer=setTimeout(()=>coach.style.display='none', 1600);
       });
     })();
 
     // ===== Loader =====
     (function(){
-      var $=s=>document.querySelector(s);
-      function withStamp(url){ var sep=url.indexOf('?')>-1?'&':'?'; return url+sep+'v='+Date.now(); }
-      var MAP={
+      const $=s=>document.querySelector(s);
+      const cacheBust=u=>u+(u.includes('?')?'&':'?')+'v='+Date.now();
+      const MAP={
         goodjunk : './modes/goodjunk.safe.js',
         groups   : './modes/groups.safe.js',
         hydration: './modes/hydration.quest.js',
         plate    : './modes/plate.quest.js'
       };
 
-      document.getElementById('startBtn').addEventListener('click', function(){
-        var mode = document.getElementById('modeSel').value;
-        var diff = document.getElementById('diffSel').value;
+      document.getElementById('startBtn').addEventListener('click', ()=>{
+        const mode = $('#modeSel').value;
+        const diff = $('#diffSel').value;
 
-        document.getElementById('badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
-        document.getElementById('badgeTime').textContent='เวลา: 60s';
-        document.getElementById('badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
-        var missEl=document.getElementById('badgeMiss'); missEl.style.display='none'; missEl.dataset.n='0';
+        $('#badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
+        $('#badgeTime').textContent='เวลา: 60s';
+        $('#badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
+        const missEl=$('#badgeMiss'); missEl.style.display='none'; missEl.dataset.n='0';
         document.body.classList.remove('fever-on');
         document.getElementById('feverFill').style.width='0%';
-        // ซ่อน coach
-        (function(){ var c=document.getElementById('badgeCoach'); if(c) c.style.display='none'; })();
-
         document.getElementById('menu').style.display='none';
 
-        import(withStamp(MAP[mode]||MAP.goodjunk))
-          .then(function(mod){
-            if(!mod || !mod.boot) throw new Error('โหมดนี้ไม่มี boot()');
-            return mod.boot({
-              host: document.getElementById('spawnHost'),
-              difficulty: diff,
-              duration: 60
-            });
-          })
-          .catch(function(err){
-            alert('โหลดโหมดไม่สำเร็จ: ' + (err && err.message?err.message:err));
-            console.error(err);
-            document.getElementById('menu').style.display='';
+        import(cacheBust(MAP[mode]||MAP.goodjunk))
+        .then(mod=>{
+          if(!mod?.boot) throw new Error('โหมดนี้ไม่มี boot()');
+          return mod.boot({
+            host: document.getElementById('spawnHost'),
+            difficulty: diff,
+            duration: 60,
+            sfx: {
+              hit:    '#sfx-hit',
+              miss:   '#sfx-miss',
+              fever:  '#sfx-fever',
+              quest:  '#sfx-quest',
+              star:   '#sfx-star',
+              diamond:'#sfx-diamond',
+              shield: '#sfx-shield',
+              score:  '#sfx-score'
+            }
           });
+        })
+        .catch(err=>{
+          alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message||err));
+          console.error(err);
+          document.getElementById('menu').style.display='';
+        });
       });
     })();
   </script>
