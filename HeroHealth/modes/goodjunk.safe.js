@@ -1,276 +1,262 @@
-// === Good vs Junk — SAFE DOM Overlay + FEVER + Watchdog (2025-11-08) ===
-// จุดเด่น
-// - ไม่พึ่ง THREE/A-Frame สำหรับ hit/click -> ใช้ DOM overlay (.hha-layer) คลิกได้ชัวร์
-// - สปอว์นเป้าทันที + watchdog ถ้า 1.5s ไม่มีเป้า -> สปอว์นกลางจออัตโนมัติ
-// - FEVER: คอมโบถึงเกณฑ์ -> x2 คะแนน, ยิงอีเวนต์ hha:fever start/end
-// - แจ้ง HUD: hha:time / hha:score / hha:miss / hha:quest / hha:end
-// - ไม่มี optional chaining, ใส่ try/catch ป้องกันล่ม
-// - รองรับ config: {host, duration, difficulty}
+// === Good vs Junk — SAFE build (A-Frame + Canvas Emoji) =====================
+// คุณสมบัติ
+// - เป้าเป็นอีโมจิสีจริง เรนเดอร์ด้วย <canvas> → ใช้เป็น texture ของ <a-image>
+// - Mini Quest: "เก็บของดี หรือ เลี่ยงขยะ รวม 10 ชิ้น" → เปิด FEVER
+// - เลี่ยงขยะ (ปล่อยให้หายเอง) ได้คะแนน, ไม่หักคอมโบ, นับเควสต์
+// - เอฟเฟกต์แตก (shatter) ปรับจำนวน/สี/ความเร็วตาม ?mode=
+// - ปลอดภัย: ไม่มี optional chaining, ล้าง timer/node ตอนจบ
 
-var __gj_running = false;
-var __gj_layer = null;
-var __gj_dbg = null;
+var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0;
+var spawnTimer=null, endTimer=null;
 
-export async function boot(cfg){
-  cfg = cfg || {};
-  var duration = +cfg.duration || 60;
-  var diff     = String(cfg.difficulty || 'normal');
+// ---------- util ----------
+function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail:detail})); }catch(e){} }
+function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+function getParam(name, def){
+  try{ return (new URL(location.href)).searchParams.get(name) ?? def; }catch(_){ return def; }
+}
 
-  // ---- Pools (20 รายการ/ฝั่ง) ----
-  var GOOD = ['🍎','🍏','🍇','🍓','🍍','🍉','🍐','🍊','🫐','🥝','🍋','🍒','🍈','🥭','🍑','🥗','🐟','🥜','🍚','🍞'];
-  var JUNK = ['🍔','🍟','🍕','🌭','🍗','🥓','🍩','🍪','🧁','🍰','🍫','🍬','🍭','🥤','🧋','🍹','🍨','🍧','🍿','🥮'];
+// ---------- Emoji → image (cache) ----------
+var __emojiCache = {};
+function emojiSprite(emo, px){
+  var size = px || 192, key = emo+'@'+size;
+  if(__emojiCache[key]) return __emojiCache[key];
+  var c = document.createElement('canvas'); c.width=c.height=size;
+  var ctx = c.getContext('2d');
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font=(size*0.75)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+  ctx.shadowColor='rgba(0,0,0,0.25)'; ctx.shadowBlur=size*0.06;
+  ctx.fillText(emo, size/2, size/2);
+  __emojiCache[key] = c.toDataURL('image/png');
+  return __emojiCache[key];
+}
 
-  // ---- State ----
-  var running = true;
-  __gj_running = true;
-  var score=0, combo=0, maxCombo=0, misses=0;
-  var remain = Math.max(1, Math.round(duration));
+// ---------- Pools ----------
+var GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
+var JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
 
-  // FEVER
-  var FEVER_COMBO_NEED = 10;
-  var FEVER_MS = 10000;
-  var FEVER_ACTIVE = false;
-  var feverTO = null;
+// ---------- FEVER ----------
+var FEVER_ACTIVE=false;
+var FEVER_COMBO_NEED=10;   // (ยังเก็บไว้ใช้ในอนาคต ถ้าจะปลดด้วยคอมโบ)
+var FEVER_MS=10000;
+var feverTimer=null;
 
-  // diff tuning
-  var spawnMin=520, spawnMax=700, life=1600, goodRate=0.70;
-  if(diff==='easy'){  spawnMin=650; spawnMax=820; life=1900; goodRate=0.78; }
-  if(diff==='hard'){  spawnMin=420; spawnMax=560; life=1400; goodRate=0.62; }
+function feverStart(){
+  if(FEVER_ACTIVE) return;
+  FEVER_ACTIVE = true;
+  emit('hha:fever',{state:'start', ms:FEVER_MS});
+  clearTimeout(feverTimer);
+  feverTimer = setTimeout(function(){ feverEnd(); }, FEVER_MS);
+}
+function feverEnd(){
+  if(!FEVER_ACTIVE) return;
+  FEVER_ACTIVE = false;
+  emit('hha:fever',{state:'end'});
+  clearTimeout(feverTimer); feverTimer=null;
+}
 
-  // ---- Helpers ----
-  function $(s){ return document.querySelector(s); }
-  function vw(){ return Math.max(320, window.innerWidth||320); }
-  function vh(){ return Math.max(320, window.innerHeight||320); }
-  function pick(a){ return a[(Math.random()*a.length)|0]; }
-  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-  function fire(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(e){} }
+// ---------- Per-mode shard theme ----------
+var MODE = (getParam('mode','goodjunk')||'goodjunk').toLowerCase();
+var SHARD_THEME = {
+  goodjunk : { good:{n:12, dur:420, color:'#a7f3d0'}, junk:{n:10, dur:360, color:'#fecaca'} },
+  groups   : { good:{n:14, dur:460, color:'#93c5fd'}, junk:{n:10, dur:380, color:'#fde68a'} },
+  hydration: { good:{n:16, dur:520, color:'#a5f3fc'}, junk:{n:10, dur:420, color:'#fca5a5'} },
+  plate    : { good:{n:12, dur:440, color:'#86efac'}, junk:{n:10, dur:380, color:'#fda4af'} }
+}[MODE] || { good:{n:12, dur:420, color:'#a7f3d0'}, junk:{n:10, dur:360, color:'#fecaca'} };
 
-  // ---- Styles (one-time) ----
-  if(!document.getElementById('hha-style')){
-    var st=document.createElement('style'); st.id='hha-style';
-    st.textContent =
-      '.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:none;}'+
-      '.hha-tgt{position:absolute;pointer-events:auto;transform:translate(-50%,-50%);'+
-      'font-size:64px;line-height:1;filter:drop-shadow(0 10px 16px rgba(0,0,0,.55));'+
-      'transition:transform .12s ease, opacity .24s ease;opacity:1;user-select:none;touch-action:none;}'+
-      '.hha-tgt.hit{transform:translate(-50%,-50%) scale(.85);opacity:.15;}'+
-      '.hha-pop{position:absolute;pointer-events:none;transform:translate(-50%,-50%);'+
-      'font:bold 18px system-ui,Segoe UI,Roboto,Thonburi,sans-serif;color:#fff;'+
-      'text-shadow:0 2px 12px rgba(0,0,0,.6);opacity:1;transition:transform .5s ease, opacity .5s linear;}'+
-      '.hha-dbg{position:fixed;left:50%;top:56px;transform:translateX(-50%);z-index:660;'+
-      'background:#0f172acc;color:#fff;padding:6px 10px;border:1px solid #475569;border-radius:10px;font:700 12px system-ui;}';
-    document.head.appendChild(st);
+// ---------- Mini Quest (รวมเก็บดี + เลี่ยงขยะ) ----------
+var questTarget = 10;
+var questProgress = 0;
+var questDone = false;
+function updateQuestHUD(){
+  var txt = questDone
+    ? 'Mini Quest — สำเร็จ! FEVER กำลังทำงาน…'
+    : 'Mini Quest — เก็บของดีหรือเลี่ยงขยะรวม '+questTarget+' ชิ้น เพื่อเปิด FEVER!';
+  emit('hha:quest', {text: txt});
+}
+
+// ---------- HUD pop text ----------
+function popupText(txt, x, y, color){
+  var t = document.createElement('a-entity');
+  t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09;');
+  t.setAttribute('position', x+' '+(y+0.05)+' -1.18');
+  host.appendChild(t);
+  t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.32)+' -1.18; dur: 520; easing: ease-out');
+  t.setAttribute('animation__fade','property: opacity; to: 0; dur: 520; easing: linear');
+  setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 560);
+}
+
+// ---------- Shatter (แตกกระจาย) ----------
+function shatter(x, y, color, count, dur){
+  var root = document.createElement('a-entity');
+  root.setAttribute('position', x+' '+y+' -1.2');
+  count = count || 10; dur = dur || 420;
+  for (var i=0;i<count;i++){
+    var p = document.createElement('a-plane');
+    p.setAttribute('width', 0.055);
+    p.setAttribute('height',0.055);
+    p.setAttribute('material','color:'+(color||'#ffffff')+'; opacity:0.95; side:double');
+    var dx = (Math.random()*0.9 - 0.45);
+    var dy = (Math.random()*0.9 - 0.45);
+    p.setAttribute('animation__move','property: position; to: '+(x+dx)+' '+(y+dy)+' -1.28; dur: '+dur+'; easing: ease-out');
+    p.setAttribute('animation__fade','property: material.opacity; to: 0; dur: '+dur+'; easing: linear');
+    root.appendChild(p);
   }
+  host.appendChild(root);
+  setTimeout(function(){ if(root.parentNode) root.parentNode.removeChild(root); }, dur+40);
+}
 
-  // ---- Clean old layer ----
-  var olds = document.querySelectorAll('.hha-layer');
-  for(var i=0;i<olds.length;i++){ try{ olds[i].parentNode.removeChild(olds[i]); }catch(_e){} }
+// ---------- Target ----------
+function makeTarget(emoji, good, diff){
+  var el = document.createElement('a-entity');
 
-  // ---- Create layer ----
-  __gj_layer = document.createElement('div');
-  __gj_layer.className = 'hha-layer';
-  document.body.appendChild(__gj_layer);
+  var img = document.createElement('a-image');
+  img.setAttribute('src', emojiSprite(emoji, 192));
+  // ล่าง-กลางจอ (กระจายแนวนอนเล็กน้อย)
+  var px = (Math.random()*1.6 - 0.8);
+  var py = (Math.random()*0.7 + 0.6);
+  img.setAttribute('position', px+' '+py+' -1.2');
+  img.setAttribute('width', 0.42);
+  img.setAttribute('height', 0.42);
+  el.appendChild(img);
 
-  // ---- HUD init ----
-  fire('hha:score',{score:0, combo:0});
-  fire('hha:quest',{text:'Mini Quest — เก็บของดีติดกัน '+FEVER_COMBO_NEED+' ชิ้น เพื่อเปิด FEVER!'});
-  fire('hha:fever',{state:'end'});
-  fire('hha:time',{sec:remain});
+  var glow = document.createElement('a-plane');
+  glow.setAttribute('width',0.48); glow.setAttribute('height',0.48);
+  glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.22; transparent:true');
+  glow.setAttribute('position','0 0 -0.01');
+  el.appendChild(glow);
 
-  // ---- FEVER ----
-  function feverStart(){
-    if(FEVER_ACTIVE) return;
-    FEVER_ACTIVE = true;
-    fire('hha:fever',{state:'start', ms:FEVER_MS});
-    if(feverTO) clearTimeout(feverTO);
-    feverTO = setTimeout(function(){ feverEnd(); }, FEVER_MS);
-  }
-  function feverEnd(){
-    if(!FEVER_ACTIVE) return;
-    FEVER_ACTIVE = false;
-    fire('hha:fever',{state:'end'});
-    if(feverTO){ clearTimeout(feverTO); feverTO=null; }
-  }
+  function destroy(){ if(el.parentNode) el.parentNode.removeChild(el); }
 
-  // ---- Popup text ----
-  function popupText(txt, x, y, color){
-    var t = document.createElement('div');
-    t.className='hha-pop';
-    t.textContent = txt;
-    t.style.left = x+'px';
-    t.style.top  = y+'px';
-    if(color) t.style.color = color;
-    __gj_layer.appendChild(t);
-    // animate
-    setTimeout(function(){
-      try{
-        t.style.transform = 'translate(-50%,-50%) translateY(-24px)';
-        t.style.opacity = '0';
-      }catch(_e){}
-    }, 10);
-    setTimeout(function(){ try{ __gj_layer.removeChild(t); }catch(_e){} }, 540);
-  }
-
-  // ---- Spawn targets ----
-  var spawnTO = null;
-  var watchdog = null;
-
-  function randPos(){
-    var x = Math.floor(vw()*0.12 + Math.random()*vw()*0.76);
-    var y = Math.floor(vh()*0.60 + Math.random()*vh()*0.28); // “ล่าง-กลางจอ”
-    return {x:x,y:y};
-  }
-
-  function ensureInside(el){
-    try{
-      var r = el.getBoundingClientRect();
-      if(r.left<0 || r.top<0 || r.right>vw() || r.bottom>vh()){
-        el.style.left = (vw()/2)+'px';
-        el.style.top  = (vh()/2)+'px';
-      }
-    }catch(_e){}
-  }
-
-  function planNext(){
+  img.classList.add('clickable');
+  img.addEventListener('click', function(){
     if(!running) return;
-    var wait = Math.floor(spawnMin + Math.random()*(spawnMax-spawnMin));
-    // Fever -> เร็วขึ้น
-    if(FEVER_ACTIVE) wait = Math.max(280, Math.round(wait*0.85));
-    spawnTO = setTimeout(spawnOne, wait);
-  }
+    destroy();
 
-  function onMiss(){
-    combo = 0; misses += 1;
-    fire('hha:miss',{count:misses});
-    fire('hha:score',{score:score, combo:combo});
-  }
+    if(good){
+      var base = 20 + combo*2;
+      var plus = FEVER_ACTIVE ? base*2 : base;
+      score += plus;
+      combo += 1; if(combo>maxCombo) maxCombo = combo;
 
-  function spawnOne(center){
-    if(!running) return;
-
-    var isGood = Math.random() < goodRate;
-    var ch = isGood ? pick(GOOD) : pick(JUNK);
-
-    var el = document.createElement('div');
-    el.className = 'hha-tgt';
-    el.textContent = ch;
-
-    var p = center ? {x:vw()/2, y:vh()/2} : randPos();
-    el.style.left = p.x+'px';
-    el.style.top  = p.y+'px';
-
-    // size by diff
-    var fs = 64; if(diff==='easy') fs=74; if(diff==='hard') fs=56;
-    el.style.fontSize = fs+'px';
-
-    var clicked=false;
-
-    function hit(ev){
-      if(clicked || !running) return;
-      clicked = true;
-      try{ ev.preventDefault(); }catch(_e){}
-      try{ __gj_layer.removeChild(el); }catch(_e){}
-
-      if(isGood){
-        var base = 20 + combo*2;
-        var plus = FEVER_ACTIVE ? base*2 : base;
-        score += plus;
-        combo += 1;
-        if(combo>maxCombo) maxCombo = combo;
-        if(!FEVER_ACTIVE && combo>=FEVER_COMBO_NEED) feverStart();
-        popupText('+'+plus, p.x, p.y, '#ffffff');
-      }else{
-        combo = 0; misses += 1;
-        score = Math.max(0, score - 15);
-        popupText('-15', p.x, p.y, '#ffb4b4');
-        fire('hha:miss',{count:misses});
+      // เควสต์: เก็บของดี → เดินหน้า
+      if (!questDone){
+        questProgress += 1;
+        if (questProgress >= questTarget){ questDone = true; feverStart(); }
+        updateQuestHUD();
       }
-      fire('hha:score',{score:score, combo:combo});
-      planNext();
+
+      popupText('+'+plus, px, py);
+      shatter(px, py, SHARD_THEME.good.color, SHARD_THEME.good.n, SHARD_THEME.good.dur);
+    }else{
+      combo = 0; misses += 1;
+      score = Math.max(0, score - 15);
+      // ตีโดนขยะ: ไม่ลด questProgress
+      popupText('-15', px, py, '#ffb4b4');
+      shatter(px, py, SHARD_THEME.junk.color, SHARD_THEME.junk.n, SHARD_THEME.junk.dur);
     }
 
-    el.addEventListener('click', hit, {passive:false});
-    el.addEventListener('touchstart', hit, {passive:false});
+    emit('hha:score', {score:score, combo:combo});
+  });
 
-    // TTL -> miss if not clicked
-    var ttl = life;
-    if(diff==='easy') ttl = life+200;
-    if(diff==='hard') ttl = life-150;
-    if(FEVER_ACTIVE) ttl = Math.max(900, Math.round(ttl*0.9));
+  // เวลาหมด = เลี่ยง/พลาด ตามประเภท
+  var ttl = 1600;
+  if(diff==='easy') ttl = 1900; else if(diff==='hard') ttl = 1400;
 
-    setTimeout(function(){
-      if(!running) return;
-      if(!el.parentNode) return; // already hit
-      try{ __gj_layer.removeChild(el); }catch(_e){}
-      onMiss();
-      planNext();
-    }, ttl);
+  setTimeout(function(){
+    if(!el.parentNode || !running) return;
+    destroy();
 
-    __gj_layer.appendChild(el);
-    ensureInside(el);
-  }
+    if(good){
+      // พลาดของดีจริง ๆ
+      misses += 1; combo = 0;
+      popupText('MISS', px, py, '#ffb4b4');
+    } else {
+      // เลี่ยงขยะสำเร็จ → ได้คะแนน + นับเควสต์
+      var avoidPlus = FEVER_ACTIVE ? 12 : 8;
+      score += avoidPlus;
+      popupText('+'+avoidPlus, px, py, '#b9ffcb');
 
-  // ---- Watchdog: ถ้า 1.5s ไม่มีเป้า -> spawn กลางจอ ----
-  function startWatchdog(){
-    if(watchdog) clearInterval(watchdog);
-    watchdog = setInterval(function(){
-      if(!running) return;
-      var leftOvers = __gj_layer.querySelectorAll('.hha-tgt');
-      if(leftOvers.length===0){
-        spawnOne(true);
+      if (!questDone){
+        questProgress += 1;
+        if (questProgress >= questTarget){ questDone = true; feverStart(); }
+        updateQuestHUD();
       }
-    }, 1500);
-  }
+    }
+    emit('hha:score', {score:score, combo:combo});
+  }, ttl);
 
-  // ---- Time loop ----
-  var timeIV = setInterval(function(){
-    if(!running) return;
-    remain = Math.max(0, remain-1);
-    fire('hha:time',{sec:remain});
-    if(remain<=0){
-      end('timeout');
+  return el;
+}
+
+// ---------- Spawn loop ----------
+function spawnLoop(diff){
+  if(!running) return;
+
+  // ช่วงยังไม่จบเควสต์ → เพิ่มโอกาสของดี
+  var preferGood = (!FEVER_ACTIVE && !questDone) ? 0.72 : 0.65;
+  var goodPick = Math.random() < preferGood;
+
+  var emoji = goodPick ? GOOD[(Math.random()*GOOD.length)|0]
+                       : JUNK[(Math.random()*JUNK.length)|0];
+  host.appendChild(makeTarget(emoji, goodPick, diff));
+
+  var gap = 520; if(diff==='easy') gap=650; if(diff==='hard') gap=400;
+  if(FEVER_ACTIVE) gap = Math.max(300, Math.round(gap*0.85));
+
+  spawnTimer = setTimeout(function(){ spawnLoop(diff); }, gap);
+}
+
+// ---------- Boot ----------
+export async function boot(cfg){
+  host = (cfg && cfg.host) ? cfg.host : document.getElementById('spawnHost');
+  var duration = (cfg && cfg.duration)|0 || 60;
+  var diff = (cfg && cfg.difficulty) || 'normal';
+
+  running = true; score=0; combo=0; maxCombo=0; misses=0;
+  FEVER_ACTIVE=false; clearTimeout(feverTimer); feverTimer=null;
+  questProgress=0; questDone=false;
+
+  emit('hha:score', {score:0, combo:0});
+  updateQuestHUD();
+  emit('hha:fever', {state:'end'}); // reset HUD fever
+
+  // นับเวลาฝั่งโหมด
+  var remain = duration;
+  emit('hha:time', {sec:remain});
+  clearInterval(endTimer);
+  endTimer = setInterval(function(){
+    if(!running){ clearInterval(endTimer); return; }
+    remain -= 1; if(remain < 0) remain = 0;
+    emit('hha:time', {sec:remain});
+    if(remain <= 0){
+      clearInterval(endTimer);
+      endGame('timeout');
     }
   }, 1000);
 
-  // ---- Start! ----
-  spawnOne(true);      // ลูกแรกกลางจอเพื่อ “เห็นแน่”
-  planNext();          // แล้วค่อยต่อด้วยรอบ ๆ
-  startWatchdog();     // กันไม่มีของ
+  // เริ่มสแปว์น
+  // ปักก้อนแรกทันทีกลาง ๆ (ให้ผู้เล่นเห็นแน่)
+  spawnLoop(diff);
 
-  // ---- End/pause/resume API ----
-  function end(reason){
-    if(!running) return;
+  function endGame(reason){
     running = false;
-    __gj_running = false;
-    try{ clearTimeout(spawnTO); }catch(_e){}
-    try{ clearInterval(timeIV); }catch(_e){}
-    try{ clearInterval(watchdog); }catch(_e){}
-    try{ feverEnd(); }catch(_e){}
-
-    // ล้างเป้าทั้งหมด
+    clearTimeout(spawnTimer);
+    feverEnd();
     try{
-      var nodes = __gj_layer.querySelectorAll('.hha-tgt,.hha-pop');
-      for(var i=0;i<nodes.length;i++){ try{ __gj_layer.removeChild(nodes[i]); }catch(_e){} }
-    }catch(_e){}
-    // ถอดเลเยอร์
-    try{ document.body.removeChild(__gj_layer); }catch(_e){}
-
-    fire('hha:end', { reason:reason||'stop', score:score, combo:maxCombo, misses:misses, duration:duration });
+      // ลบลูกเป้า/FX ที่ยังค้าง
+      var scene = host || document;
+      var imgs = scene.querySelectorAll ? scene.querySelectorAll('a-image') : [];
+      for(var i=0;i<imgs.length;i++){ var n=imgs[i].parentNode; if(n && n.parentNode===host) n.parentNode.removeChild(n); }
+    }catch(_){}
+    emit('hha:end', { score:score, combo:maxCombo, misses:misses, title:'Good vs Junk', reason:reason||'done' });
   }
 
-  function pause(){
-    if(!running) return;
-    running = false;
-    try{ clearTimeout(spawnTO); }catch(_e){}
-  }
-  function resume(){
-    if(running) return;
-    running = true;
-    planNext();
-  }
-
-  // คืน API
-  return { stop:end, pause:pause, resume:resume };
+  return {
+    stop: function(){ if(!running) return; endGame('quit'); },
+    pause: function(){ running=false; },
+    resume: function(){ if(!running){ running=true; spawnLoop(diff); } }
+  };
 }
-
 export default { boot };
