@@ -1,146 +1,122 @@
-// === Healthy Plate — QUEST (centered host y=1.0) ===
-var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0;
-var spawnTimer=null, endTimer=null;
+// === Healthy Plate — SAFE + Shards (theme: plate) ===
+import { Particles } from '../vr/particles.js';
 
-var SLOTS = ['veg','fruit','grain','protein','dairy'];
-var POOLS = {
-  veg:['🥦','🥕','🥬','🍅'], fruit:['🍎','🍓','🍌','🍊','🍇','🍐'],
-  grain:['🍞','🥖','🍚'], protein:['🍗','🐟','🥚','🥜'], dairy:['🥛','🧀','🍦']
+let running=false, host=null, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0;
+let spawnTimer=null, timeTimer=null, remain=0;
+
+const CATS = ['veggie','fruit','grain','protein','dairy'];
+const POOL = {
+  veggie:['🥦','🥕','🥬','🍅','🌽','🥒'],
+  fruit :['🍎','🍊','🍌','🍇','🍓','🍍','🥝','🍐'],
+  grain :['🍞','🥖','🍚','🥯'],
+  protein:['🍗','🥩','🐟','🥚','🫘'],
+  dairy:['🥛','🧈','🧀','🍦']
 };
-var need = [].concat(SLOTS); // รายการหมู่ที่ยังขาดในจานรอบนี้
+const SPECIAL = ['⭐','💎']; // โบนัสสุ่ม
 
-function emit(n,d){ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(e){} }
-function pick(a){ return a[(Math.random()*a.length)|0]; }
+let needed = new Set(CATS); // ต้องเก็บครบรอบละ 5 หมู่
 
-function emojiSprite(emo, px){
-  var key=emo+'@'+px; emojiSprite.cache=emojiSprite.cache||{};
-  if(emojiSprite.cache[key]) return emojiSprite.cache[key];
-  var c=document.createElement('canvas'); c.width=c.height=px;
-  var x=c.getContext('2d'); x.textAlign='center'; x.textBaseline='middle';
-  x.font=(px*0.75)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
-  x.shadowColor='rgba(0,0,0,.25)'; x.shadowBlur=px*0.06; x.fillText(emo,px/2,px/2);
-  var url=c.toDataURL('image/png'); emojiSprite.cache[key]=url; return url;
+const spriteLocal=(emo,px=160)=>{ const k=emo+'@'+px; spriteLocal.cache=spriteLocal.cache||{};
+  if(spriteLocal.cache[k]) return spriteLocal.cache[k];
+  const c=document.createElement('canvas'); c.width=c.height=px;
+  const ctx=c.getContext('2d'); ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font=(px*0.78)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+  ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=px*0.07; ctx.fillText(emo,px/2,px/2);
+  return (spriteLocal.cache[k]=c.toDataURL('image/png')); };
+
+function emit(n,d){ try{window.dispatchEvent(new CustomEvent(n,{detail:d}))}catch{} }
+function popupText(txt,x,y,color){ const t=document.createElement('a-entity');
+  t.setAttribute('troika-text',`value:${txt}; color:${color||'#fff'}; fontSize:0.09;`);
+  t.setAttribute('position',`${x} ${y+0.05} -1.18`); host.appendChild(t);
+  t.setAttribute('animation__rise',`property: position; to: ${x} ${y+0.32} -1.18; dur:520; easing:ease-out`);
+  t.setAttribute('animation__fade',`property: opacity; to: 0; dur:520; easing:linear`);
+  setTimeout(()=>{ try{t.remove();}catch{} },560); }
+
+function updateQuest(){
+  const remain=[...needed].map(s=>s.toUpperCase()).join(', ') || 'ครบ 5 หมู่แล้ว! เริ่มรอบใหม่';
+  emit('hha:quest',{text:'Mini Quest — จัดจานให้ครบ: '+remain});
 }
 
-function popupText(txt, lx, ly, color){
-  try{
-    var wx = lx, wy = 1.0 + ly, wz = -1.6 + 0.02;
-    var t = document.createElement('a-entity');
-    t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09; anchor:center;');
-    t.setAttribute('position', wx+' '+(wy+0.05)+' '+wz);
-    host.appendChild(t);
-    t.setAttribute('animation__rise','property: position; to: '+wx+' '+(wy+0.32)+' '+wz+'; dur:520; easing:ease-out');
-    t.setAttribute('animation__fade','property: opacity; to: 0; dur:520; easing:linear');
-    setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },560);
-  }catch(e){}
+function startNewRound(){
+  needed = new Set(CATS);
+  updateQuest();
 }
 
-function groupOf(emoji){
-  for(var k in POOLS){ if(POOLS[k].indexOf(emoji)>-1) return k; }
-  return null;
-}
+function makeTarget(emoji, catOrSpecial, diff){
+  const root=document.createElement('a-entity');
+  const img=document.createElement('a-image');
+  const px=(Math.random()*1.6-0.8), py=(Math.random()*0.7+0.6), pz=-1.2;
+  img.setAttribute('src', spriteLocal(emoji,192));
+  img.setAttribute('position',`${px} ${py} ${pz}`); img.setAttribute('width',0.42); img.setAttribute('height',0.42);
+  img.classList.add('clickable'); root.appendChild(img);
 
-function nextNeed(){
-  if(need.length===0) return null;
-  return need[0]; // ต้องการคิวแรก
-}
-
-function makeTarget(emoji, diff){
-  var wrap=document.createElement('a-entity');
-  var img=document.createElement('a-image');
-  img.setAttribute('src', emojiSprite(emoji, 192));
-  var px=(Math.random()*1.6 - 0.8);
-  var py=(Math.random()*0.5 - 0.25);
-  img.setAttribute('position', px+' '+py+' 0');
-  img.setAttribute('width',0.42); img.setAttribute('height',0.42);
-  wrap.appendChild(img);
-
-  function cleanup(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }
-
-  img.classList.add('clickable');
-  img.addEventListener('click', function(){
-    if(!running) return;
-    cleanup(); spawns++; hits++;
-    var g=groupOf(emoji);
-    if(g && need.indexOf(g)>-1){
-      // ถูกหมู่ → เอาออกจาก need
-      need = need.filter(function(n){ return n!==g; });
-      var plus = 35 + combo*3; score+=plus; combo+=1; if(combo>maxCombo) maxCombo=combo;
-      popupText('+'+plus, px, py, '#bbf7d0');
-      emit('hha:quest',{text:'Plate: ขาด '+(need.join(', ')||'ครบแล้ว!')});
-      // ครบ 5 หมู่ → เริ่มรอบใหม่
-      if(need.length===0){ need=[].concat(SLOTS); }
+  let clicked=false;
+  const hit=()=>{
+    if(clicked||!running) return; clicked=true; try{root.remove();}catch{};
+    if(catOrSpecial==='special'){
+      const plus=40; score+=plus; combo++; maxCombo=Math.max(maxCombo,combo); hits++;
+      Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'plate'});
+      popupText('+BONUS '+plus,px,py,'#fff1b8');
+      emit('hha:score',{score,combo});
     }else{
-      combo=0; misses+=1; score=Math.max(0, score-12);
-      popupText('-12', px, py, '#fecaca');
-      emit('hha:miss',{count:misses});
+      // ของหมวด
+      if(needed.has(catOrSpecial)){
+        needed.delete(catOrSpecial);
+        const plus=30 + combo*2; score+=plus; combo++; maxCombo=Math.max(maxCombo,combo); hits++;
+        Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'plate'});
+        popupText('+'+plus,px,py,'#fffbe6');
+        emit('hha:score',{score,combo});
+        if(needed.size===0){ // ครบ 5 หมู่
+          startNewRound();
+        }else updateQuest();
+      }else{
+        // เก็บซ้ำหมวดที่ไม่ต้องแล้ว → ไม่ได้คะแนน
+        popupText('หมวดนี้ครบแล้ว',px,py,'#a5b4fc');
+      }
     }
-    emit('hha:score',{score:score, combo:combo});
-  });
+  };
+  img.addEventListener('click',hit,{passive:false});
+  img.addEventListener('touchstart',hit,{passive:false});
 
-  var ttl=1700; if(diff==='easy') ttl=2000; else if(diff==='hard') ttl=1400;
-  setTimeout(function(){
-    if(!wrap.parentNode) return;
-    cleanup(); spawns++;
-    // ปล่อยผ่านไม่ลงโทษ
-  }, ttl);
+  let ttl=1700; if(diff==='easy') ttl=2000; else if(diff==='hard') ttl=1400;
+  setTimeout(()=>{ if(!root.parentNode||clicked||!running) return; try{root.remove();}catch{}; spawns++; },ttl);
 
-  return wrap;
+  return root;
 }
 
 function spawnLoop(diff){
   if(!running) return;
-  var want = nextNeed() || pick(SLOTS);
-  var pool = POOLS[want] || POOLS.veg;
-  var emoji = pick(pool);
-  host.appendChild(makeTarget(emoji, diff));
-  var gap=560; if(diff==='easy') gap=700; if(diff==='hard') gap=420;
-  spawnTimer=setTimeout(function(){ spawnLoop(diff); }, gap);
+  const roll=Math.random();
+  if(roll<0.15){ // พิเศษ 15%
+    const s=SPECIAL[(Math.random()*SPECIAL.length)|0];
+    host.appendChild(makeTarget(s,'special',diff));
+  }else{
+    const cat=CATS[(Math.random()*CATS.length)|0];
+    const pool=POOL[cat]; const e=pool[(Math.random()*pool.length)|0];
+    host.appendChild(makeTarget(e,cat,diff));
+  }
+  spawns++;
+  let gap=560; if(diff==='easy') gap=700; if(diff==='hard') gap=420;
+  spawnTimer=setTimeout(()=>spawnLoop(diff),gap);
 }
 
-export async function boot(cfg){
-  host = (cfg && cfg.host) ? cfg.host : document.getElementById('spawnHost');
-  try{ host.setAttribute('position','0 1.0 -1.6'); }catch(e){}
-  var duration = (cfg && cfg.duration)|0 || 60;
-  var diff = (cfg && cfg.difficulty) || 'normal';
+export async function boot(cfg={}){
+  host=cfg.host||document.getElementById('spawnHost');
+  const diff=String(cfg.difficulty||'normal'); remain=(+cfg.duration||60);
 
-  need=[].concat(SLOTS);
   running=true; score=0; combo=0; maxCombo=0; misses=0; hits=0; spawns=0;
+  startNewRound(); emit('hha:score',{score:0,combo:0}); emit('hha:time',{sec:remain});
 
-  emit('hha:score',{score:0, combo:0});
-  emit('hha:quest',{text:'Plate: เลือกหมวดให้ครบ 5 หมู่ (เริ่ม: VEG)'});  
-
-  var remain=duration; emit('hha:time',{sec:remain});
-  clearInterval(endTimer);
-  endTimer=setInterval(function(){
-    if(!running){ clearInterval(endTimer); return; }
-    remain-=1; if(remain<0) remain=0;
-    emit('hha:time',{sec:remain});
-    if(remain<=0){ clearInterval(endTimer); endGame(); }
-  },1000);
+  clearInterval(timeTimer);
+  timeTimer=setInterval(()=>{ if(!running) return; remain--; if(remain<0) remain=0; emit('hha:time',{sec:remain}); if(remain<=0) end('timeout'); },1000);
 
   spawnLoop(diff);
 
-  function endGame(){
-    running=false; clearTimeout(spawnTimer);
-    emit('hha:end',{
-      title:'Healthy Plate',
-      difficulty: diff,
-      duration: duration,
-      score: score,
-      combo: maxCombo,
-      misses: misses,
-      hits: hits,
-      spawns: spawns,
-      questsCleared: 0,
-      questsTotal: 3
-    });
+  function end(reason){
+    if(!running) return; running=false;
+    try{clearTimeout(spawnTimer);}catch{}; try{clearInterval(timeTimer);}catch{};
+    emit('hha:end',{reason, score, combo:maxCombo, misses, hits, spawns, duration:+cfg.duration||60, title:'Healthy Plate', difficulty:diff, questsCleared:(needed.size===0?3:2), questsTotal:3});
   }
-
-  return {
-    stop:function(){ if(!running) return; endGame(); },
-    pause:function(){ running=false; },
-    resume:function(){ if(!running){ running=true; spawnLoop(diff); } }
-  };
+  return { stop(){end('stop');}, pause(){running=false;}, resume(){ if(!running){ running=true; spawnLoop(diff);} } };
 }
 export default { boot };
