@@ -1,132 +1,89 @@
-// === Food Groups — SAFE + Shards + Powerups (star/diamond/shield) ===
-import { Particles } from '../vr/particles.js';
+// === groups.safe.js — Food Groups (stub/playable) ===
+export async function boot(cfg = {}) {
+  const host = cfg.host || document.getElementById('spawnHost') || document.body;
+  const dur  = Number(cfg.duration || 60);
+  const diff = String(cfg.difficulty || 'normal');
 
-let running=false, host=null, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0;
-let spawnTimer=null, timeTimer=null, remain=0;
-let shieldUntil=0; const SHIELD_MS=6000;
+  // โทนสี/ชิ้นส่วนแตกเฉพาะโหมดนี้
+  const SHARD_COLOR = '#38bdf8'; // ฟ้า
 
-const GROUPS = {
-  veggie:['🥦','🥕','🧅','🥬','🍅','🌽','🥒'],
-  fruit :['🍎','🍊','🍌','🍇','🍓','🍍','🥝','🍐'],
-  grain :['🍞','🥖','🥐','🥯','🍚','🍙'],
-  protein:['🍗','🥩','🐟','🥚','🫘','🧀'],
-  dairy:['🥛','🧈','🍦','🧀']
-};
-const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
-const POWERUPS = ['⭐','💎','🛡️'];
-const CATS = Object.keys(GROUPS);
-let targetCat = CATS[(Math.random()*CATS.length)|0];
-
-const spriteLocal=(emo,px=160)=>{ const k=emo+'@'+px; spriteLocal.cache=spriteLocal.cache||{};
-  if(spriteLocal.cache[k]) return spriteLocal.cache[k];
-  const c=document.createElement('canvas'); c.width=c.height=px;
-  const ctx=c.getContext('2d'); ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.font=(px*0.78)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
-  ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=px*0.07; ctx.fillText(emo,px/2,px/2);
-  return (spriteLocal.cache[k]=c.toDataURL('image/png')); };
-
-function emit(n,d){ try{window.dispatchEvent(new CustomEvent(n,{detail:d}))}catch{} }
-function now(){ return (typeof performance!=='undefined' && performance.now)? performance.now(): Date.now(); }
-function hasShield(){ return now() < shieldUntil; }
-function giveShield(ms=SHIELD_MS){ shieldUntil=Math.max(shieldUntil,now())+ms; emit('hha:powerup',{type:'shield',until:shieldUntil}); }
-function popupText(txt,x,y,color){ const t=document.createElement('a-entity');
-  t.setAttribute('troika-text',`value:${txt}; color:${color||'#fff'}; fontSize:0.09;`);
-  t.setAttribute('position',`${x} ${y+0.05} -1.18`); host.appendChild(t);
-  t.setAttribute('animation__rise',`property: position; to: ${x} ${y+0.32} -1.18; dur:520; easing:ease-out`);
-  t.setAttribute('animation__fade',`property: opacity; to:0; dur:520; easing:linear`);
-  setTimeout(()=>{try{t.remove();}catch{}},560); }
-
-function nextQuest(){ targetCat = CATS[(Math.random()*CATS.length)|0];
-  emit('hha:quest',{text:'Mini Quest — เก็บหมวด: '+targetCat.toUpperCase()}); }
-
-function penalty(px,py,pz,scoreLoss=15){
-  if(hasShield()){ Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'groups',kind:'shield'}); popupText('Shield!',px,py,'#c7f9cc'); return; }
-  combo=0; score=Math.max(0,score-scoreLoss); misses++; emit('hha:miss',{count:misses});
-  Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'groups',kind:'bad'}); popupText('-'+scoreLoss,px,py,'#ffd1dc'); emit('hha:score',{score,combo});
-}
-
-function makeTarget(emoji, type, diff){
-  // type: cat | 'junk' | 'star' | 'diamond' | 'shield'
-  const root=document.createElement('a-entity');
-  const img=document.createElement('a-image');
-  const px=(Math.random()*1.2-0.6), py=(Math.random()*0.5+0.55), pz=-1.2;
-  img.setAttribute('src', spriteLocal(emoji,192));
-  img.setAttribute('position',`${px} ${py} ${pz}`); img.setAttribute('width',0.42); img.setAttribute('height',0.42);
-  img.classList.add('clickable'); root.appendChild(img);
-
-  let clicked=false;
-  const hit=()=>{
-    if(clicked||!running) return; clicked=true; try{root.remove();}catch{}
-    if(type==='junk'){
-      penalty(px,py,pz,15);
-    }else if(type==='star'){
-      const plus=60; score+=plus; combo++; maxCombo=Math.max(maxCombo,combo); hits++;
-      Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'groups',kind:'star'});
-      popupText('+STAR '+plus,px,py,'#fff3b0'); emit('hha:score',{score,combo});
-    }else if(type==='diamond'){
-      const plus=120; score+=plus; combo+=2; maxCombo=Math.max(maxCombo,combo); hits++;
-      Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'groups',kind:'diamond'});
-      popupText('+DIAMOND '+plus,px,py,'#cfe8ff'); emit('hha:score',{score,combo});
-    }else if(type==='shield'){
-      Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'groups',kind:'shield'});
-      popupText('🛡️ SHIELD',px,py,'#c7f9cc'); giveShield();
-    }else{
-      // อาหารตามหมวด
-      if(type===targetCat){
-        const plus=25 + combo*2; score+=plus; combo++; maxCombo=Math.max(maxCombo,combo); hits++;
-        Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'groups',kind:'good'});
-        popupText('+'+plus,px,py,'#fffbe6'); emit('hha:score',{score,combo}); nextQuest();
-      }else{
-        popupText('ไม่ใช่หมวดเป้า',px,py,'#a5b4fc');
-      }
-    }
+  // กลุ่มอาหาร: โปรตีน/ผักผลไม้/ธัญพืช/นม
+  const GROUPS = {
+    protein:   ['🥚','🍗','🐟','🫘'],
+    veggie:    ['🥦','🥕','🌽','🍅','🍆'],
+    grains:    ['🍞','🥖','🥯','🍚','🍙'],
+    dairy:     ['🥛','🧀','🍦']
   };
+  const BAD = ['🍩','🍪','🧁','🍫','🥤'];
 
-  img.addEventListener('click',hit,{passive:false});
-  img.addEventListener('touchstart',hit,{passive:false});
+  // ภารกิจ: เก็บให้ถูก “กลุ่มวันนี้”
+  const keys = Object.keys(GROUPS);
+  const today = keys[(Math.random()*keys.length)|0];
+  let need = 12, got = 0;
 
-  let ttl=1700; if(diff==='easy') ttl=2000; else if(diff==='hard') ttl=1400;
-  setTimeout(()=>{ if(!root.parentNode||clicked||!running) return; try{root.remove();}catch{}; spawns++; },ttl);
-
-  return root;
-}
-
-function spawnLoop(diff){
-  if(!running) return;
-  const r=Math.random();
-  let type, emoji;
-  if(r<0.10){ // powerup
-    const p=POWERUPS[(Math.random()*POWERUPS.length)|0];
-    emoji=p; type=(p==='⭐')?'star':(p==='💎')?'diamond':'shield';
-  }else if(r<0.35){
-    type='junk'; emoji=JUNK[(Math.random()*JUNK.length)|0];
-  }else{
-    const cat=CATS[(Math.random()*CATS.length)|0]; const pool=GROUPS[cat];
-    type=cat; emoji=pool[(Math.random()*pool.length)|0];
+  // HUD
+  function questHUD(){
+    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{
+      text:`Groups: เก็บ ${label(today)} ให้ครบ ${got}/${need}`
+    }}));
   }
-  host.appendChild(makeTarget(emoji,type,diff)); spawns++;
-  let gap=560; if(diff==='easy') gap=700; if(diff==='hard') gap=420;
-  spawnTimer=setTimeout(()=>spawnLoop(diff),gap);
-}
+  function label(k){
+    return {protein:'โปรตีน',veggie:'ผักผลไม้',grains:'ธัญพืช',dairy:'นม'}[k] || k;
+  }
 
-export async function boot(cfg={}){
-  host = cfg.host || document.getElementById('spawnHost');
-  const diff=String(cfg.difficulty||'normal'); remain=(+cfg.duration||60);
+  // DOM layer
+  const layer = document.createElement('div');
+  layer.className='hha-layer';
+  Object.assign(layer.style,{position:'fixed',inset:0,zIndex:650});
+  document.body.appendChild(layer);
 
-  running=true; score=0; combo=0; maxCombo=0; misses=0; hits=0; spawns=0; shieldUntil=0;
-  emit('hha:score',{score:0,combo:0}); emit('hha:time',{sec:remain});
-  nextQuest();
+  let left = dur, running = true, spawnTimer=null, timeTimer=null;
 
-  clearInterval(timeTimer);
-  timeTimer=setInterval(()=>{ if(!running) return; remain--; if(remain<0) remain=0; emit('hha:time',{sec:remain}); if(remain<=0) end('timeout'); },1000);
+  function vw(){return Math.max(320,innerWidth||320)}; function vh(){return Math.max(320,innerHeight||320)};
+  function rndPos(){ return {x: Math.floor(vw()*0.2+Math.random()*vw()*0.6), y: Math.floor(vh()*0.28+Math.random()*vh()*0.5)} }
+  function pick(a){ return a[(Math.random()*a.length)|0] }
 
-  spawnLoop(diff);
+  function shards(x,y,color=SHARD_COLOR,n=16){
+    for(let i=0;i<n;i++){
+      const s=document.createElement('div'); s.className='shard';
+      Object.assign(s.style,{position:'absolute',width:'6px',height:'6px',borderRadius:'3px',background:color,opacity:.9});
+      layer.appendChild(s);
+      const ang=Math.random()*2*Math.PI, dist=20+Math.random()*36, dx=Math.cos(ang)*dist, dy=Math.sin(ang)*dist;
+      const t0=performance.now(), dur=360+Math.random()*220;
+      (function anim(t){const k=Math.min(1,(t-t0)/dur); s.style.left=(x+dx*k)+'px'; s.style.top=(y+dy*k)+'px'; s.style.opacity=String(1-k); if(k<1&&running) requestAnimationFrame(anim); else s.remove();})(t0);
+    }
+  }
 
-  function end(reason){
+  function spawn(){
+    if(!running) return;
+    const targetPool = Math.random()<0.7 ? GROUPS[today] : (Math.random()<0.8 ? [].concat(...Object.values(GROUPS)) : BAD);
+    const ch = pick(targetPool);
+    const pos = rndPos();
+    const el = document.createElement('div');
+    el.className='hha-tgt'; el.textContent=ch;
+    el.style.left=pos.x+'px'; el.style.top=pos.y+'px'; el.style.fontSize='64px';
+    el.onclick = ()=>{
+      el.classList.add('hha-hit'); el.remove();
+      if(GROUPS[today].includes(ch)){ got++; shards(pos.x,pos.y,SHARD_COLOR,18); window.dispatchEvent(new CustomEvent('hha:score',{detail:{score:got*10,combo:got}})); }
+      else { window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:1}})); }
+      questHUD();
+      if(got>=need){ end('win'); } else schedule();
+    };
+    layer.appendChild(el);
+    setTimeout(()=>{ if(el.isConnected){ el.remove(); schedule(); } }, 1500);
+  }
+  function schedule(){ spawnTimer=setTimeout(spawn, 600+Math.random()*500); }
+
+  function end(reason='done'){
     if(!running) return; running=false;
-    try{clearTimeout(spawnTimer);}catch{}; try{clearInterval(timeTimer);}catch{};
-    emit('hha:end',{reason, score, combo:maxCombo, misses, hits, spawns, duration:+cfg.duration||60, title:'Food Groups', difficulty:diff, questsCleared:1, questsTotal:3});
+    try{clearTimeout(spawnTimer)}catch{}; try{clearInterval(timeTimer)}catch{};
+    Array.from(layer.children).forEach(n=>n.remove()); layer.remove();
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score:got*10,combo:got,misses:0,hits:got,spawns:need,difficulty:diff,questsCleared: reason==='win'?1:0,questsTotal:1}}));
   }
-  return { stop(){end('stop');}, pause(){running=false;}, resume(){ if(!running){ running=true; spawnLoop(diff);} } };
+
+  timeTimer=setInterval(()=>{ left=Math.max(0,left-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); if(left<=0) end('timeout'); },1000);
+  questHUD(); schedule();
+
+  return { stop:()=>end('quit'), pause(){running=false}, resume(){ if(!running){running=true;schedule();} } };
 }
 export default { boot };
