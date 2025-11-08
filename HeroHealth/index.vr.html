@@ -5,144 +5,158 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- A-Frame ก่อน, จากนั้น Troika -->
+  <!-- ✅ A-Frame core -->
   <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
+
+  <!-- ✅ Patch: Ensure THREE is global for Troika & plugins -->
+  <script>
+    window.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (window.AFRAME && AFRAME.THREE) {
+          window.THREE = AFRAME.THREE;
+          if (!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
+          console.log('[Patch] THREE linked and MathUtils fallback applied.');
+        } else {
+          console.warn('[Patch] AFRAME.THREE not found');
+        }
+      } catch (err) {
+        console.error('[Patch] Failed to init THREE:', err);
+      }
+    });
+  </script>
+
+  <!-- ✅ Troika Text -->
   <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
 
-  <!-- favicon กัน 404 -->
-  <link rel="icon" href='data:image/svg+xml;utf8,
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-    <rect width="64" height="64" rx="12" fill="#0b1324"/>
-    <text x="50%" y="54%" font-size="44" text-anchor="middle">🍎</text>
-  </svg>'>
-
   <style>
-    :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    :root { --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
+    html,body {margin:0;height:100%;background:var(--bg);color:var(--fg);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
-    a-scene{width:100%;height:100%;}
-    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
+    a-scene {width:100%;height:100%;}
+    .hud-chip {position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
       padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
     #badgeTime{left:12px;top:12px}
     #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
-    #logChip{left:12px;bottom:12px}
-    .fever-on{box-shadow:inset 0 0 0 4px #ffd16655;animation:feverPulse .9s ease-in-out infinite alternate;}
-    @keyframes feverPulse{from{filter:none}to{filter:drop-shadow(0 0 12px #ffd166)}}
-    .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;
-      bottom:12px !important;z-index:1000 !important}
-    #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;
-      color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
+    #log {position:fixed;left:8px;bottom:8px;z-index:900;background:#1e293b66;
+      border:1px solid #475569;border-radius:10px;padding:4px 10px;font-size:14px;color:#e2e8f0;}
+
+    .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;bottom:12px !important;z-index:1000 !important}
+    #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;color:#fff;
+      padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
     .xr-supported #vrBtn{display:none}
+
+    .fever-on { box-shadow: inset 0 0 0 4px #ffd16655; animation: feverPulse .9s ease-in-out infinite alternate; }
+    @keyframes feverPulse { from { filter:none } to { filter: drop-shadow(0 0 12px #ffd166) } }
   </style>
 </head>
-
 <body>
+
   <!-- HUD -->
-  <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
+  <div id="badgeTime" class="hud-chip">เวลา: 60s</div>
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
-  <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
-  <div id="logChip"    class="hud-chip">log: --</div>
+  <div id="badgeMiss" class="hud-chip">พลาด: 0 ครั้ง</div>
+  <div id="log">log: --</div>
 
-  <!-- Scene -->
-  <a-scene id="scene" background="color:#0b1324">
+  <!-- A-Frame scene -->
+  <a-scene id="scene" background="color: #0b1324">
     <a-assets></a-assets>
-    <a-entity id="cam" camera look-controls cursor="rayOrigin: mouse; fuse: false"
-              raycaster="objects:.clickable; far:6" position="0 1.6 0"></a-entity>
+
+    <!-- กล้อง + cursor -->
+    <a-entity id="cam"
+      camera
+      look-controls
+      cursor="rayOrigin: mouse; fuse: false"
+      raycaster="objects: .clickable; far: 6"
+      position="0 1.6 0"></a-entity>
+
+    <!-- โหนดสแปว์น -->
     <a-entity id="spawnHost" position="0 1.6 -1.6"></a-entity>
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
-  <!-- ตัวเรียกโหมด (ใช้ ES module เพื่อให้ import() นิ้ง) -->
-  <script type="module">
-    const $  = (s)=>document.querySelector(s);
-    const log = (m)=>{ $('#logChip').textContent = 'log: ' + m; console.log('[VR]', m); };
+  <!-- VR fallback button -->
+  <button id="vrBtn" title="Enter VR">VR</button>
 
-    // ดัก error ทั้งหน้า → โชว์บนจอด้วย
-    window.addEventListener('error', (e)=>{ log('error: '+ (e?.message||e)); });
-    window.addEventListener('unhandledrejection', (e)=>{ log('promise: '+ (e?.reason?.message||e?.reason||e)); });
+  <script>
+    // ป้องกันสกอลล์หน้าจอ
+    document.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
 
-    const MODE_URL = './modes/goodjunk.safe.js';
-    const withStamp = (u)=> u + (u.includes('?')?'&':'?') + 'v=' + Date.now();
-
-    // HUD event bus
-    window.addEventListener('hha:score', (e)=>{
-      const d=e.detail||{}; $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
-    });
-    window.addEventListener('hha:time', (e)=>{
-      const t=Math.max(0, Math.round((e.detail&&e.detail.sec)||0));
-      $('#badgeTime').textContent=`เวลา: ${t}s`;
-    });
-    window.addEventListener('hha:quest', (e)=>{
-      $('#badgeQuest').textContent=(e.detail&&e.detail.text)||'Mini Quest';
-    });
-    window.addEventListener('hha:miss', (e)=>{
-      const el=$('#badgeMiss'); el.style.display='';
-      const n=(e.detail&&e.detail.count!=null)?e.detail.count:(parseInt(el.dataset.n||'0',10)+1);
-      el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
-    });
-    window.addEventListener('hha:fever', (e)=>{
-      const st=(e.detail&&e.detail.state)||'end';
-      if(st==='start') document.body.classList.add('fever-on'); else document.body.classList.remove('fever-on');
-    });
-
-    // ปุ่ม VR สำรอง
+    // ตรวจ XR เพื่อซ่อนปุ่ม VR ถ้ารองรับในเบราว์เซอร์
     (function(){
-      const b=document.createElement('button'); b.id='vrBtn'; b.textContent='VR';
-      document.body.appendChild(b);
-      const sc=$('#scene');
-      b.addEventListener('click', ()=>{ try{ sc && sc.enterVR && sc.enterVR(); }catch(e){} });
+      const set = flag => document.body.classList.add(flag ? 'xr-supported' : 'xr-unsupported');
+      try {
+        if (navigator.xr && navigator.xr.isSessionSupported)
+          navigator.xr.isSessionSupported('immersive-vr')
+            .then(ok => set(!!ok))
+            .catch(() => set(false));
+        else set(false);
+      } catch { set(false); }
     })();
 
-    // รอ scene พร้อม (มี timeout กันค้าง)
-    function waitSceneLoaded(sceneEl, timeoutMs=1500){
-      return new Promise((resolve)=>{
-        if (sceneEl && sceneEl.hasLoaded) return resolve();
-        let done=false;
-        const t=setTimeout(()=>{ if(!done){ done=true; resolve(); }}, timeoutMs);
-        sceneEl.addEventListener('loaded', ()=>{ if(!done){ done=true; clearTimeout(t); resolve(); } }, {once:true});
+    // ปุ่ม VR
+    (function(){
+      const btn=document.getElementById('vrBtn');
+      const sc=document.getElementById('scene');
+      btn.addEventListener('click', ()=>{ try{ sc && sc.enterVR && sc.enterVR(); }catch(e){} });
+    })();
+
+    // ===== Loader & Event bridge =====
+    (function(){
+      const $=sel=>document.querySelector(sel);
+      const log=msg=>$('#log').textContent='log: '+msg;
+
+      const MAP={
+        goodjunk:'./modes/goodjunk.safe.js',
+        groups:'./modes/groups.safe.js',
+        hydration:'./modes/hydration.quest.js',
+        plate:'./modes/plate.quest.js'
+      };
+
+      // HUD event updates
+      window.addEventListener('hha:score', e=>{
+        const d=e.detail||{};
+        $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
       });
-    }
+      window.addEventListener('hha:time', e=>{
+        const t=Math.max(0,Math.round(e.detail?.sec||0));
+        $('#badgeTime').textContent=`เวลา: ${t}s`;
+      });
+      window.addEventListener('hha:quest', e=>{
+        $('#badgeQuest').textContent=e.detail?.text||'Mini Quest';
+      });
+      window.addEventListener('hha:miss', e=>{
+        const el=$('#badgeMiss'); el.style.display='';
+        const n=e.detail?.count ?? (parseInt(el.dataset.n||'0',10)+1);
+        el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
+      });
+      window.addEventListener('hha:fever', e=>{
+        const st=e.detail?.state||'end';
+        document.body.classList.toggle('fever-on', st==='start');
+      });
+      window.addEventListener('hha:end', ()=> log('Game Ended'));
 
-    // เริ่มเกม
-    async function start(){
-      const sceneEl = $('#scene');
-      await waitSceneLoaded(sceneEl);
-      log('scene ready');
-
-      // ensure spawnHost มีและอยู่หน้ากล้อง
-      let host = $('#spawnHost');
-      if(!host){
-        host = document.createElement('a-entity');
-        host.id = 'spawnHost';
-        host.setAttribute('position', '0 1.6 -1.6');
-        sceneEl.appendChild(host);
-        log('spawnHost created');
-      } else {
-        host.setAttribute('position', '0 1.6 -1.6');
+      // เริ่มโหลด goodjunk โดยตรง (ทดสอบ)
+      function start(){
+        log('Loading goodjunk...');
+        import(MAP.goodjunk+'?v='+Date.now())
+          .then(mod=>{
+            if(!mod.boot) throw new Error('no boot()');
+            log('goodjunk running');
+            return mod.boot({host:$('#spawnHost'),difficulty:'normal',duration:60});
+          })
+          .catch(err=>{
+            alert('โหลดโหมดไม่สำเร็จ: '+(err.message||err));
+            console.error(err);
+          });
       }
 
-      try{
-        log('import goodjunk…');
-        const mod = await import(withStamp(MODE_URL));
-        if(!mod || typeof mod.boot!=='function') throw new Error('boot() not found');
-        await mod.boot({ host, difficulty:'normal', duration:60 });
-        log('goodjunk running');
-      }catch(err){
-        log('load fail: '+(err?.message||err));
-        alert('โหลดโหมดไม่สำเร็จ: '+(err?.message||err));
-        console.error(err);
-      }
-    }
-
-    // DOM พร้อมแล้วค่อย start (กันกรณีสคริปต์ขึ้นก่อน)
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', start, {once:true});
-    } else {
-      start();
-    }
+      const scene=$('#scene');
+      if(scene && scene.hasLoaded) start();
+      else if(scene) scene.addEventListener('loaded', ()=>setTimeout(start,150), {once:true});
+    })();
   </script>
 </body>
 </html>
