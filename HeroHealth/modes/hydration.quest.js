@@ -1,157 +1,149 @@
-// === Hydration Quest — SAFE build (no optional chaining) ===
-// Path: /webxr-health-mobile/HeroHealth/modes/hydration.quest.js
-
+// === Hydration — QUEST (centered host y=1.0) ===
 var running=false, host=null;
-var score=0, combo=0, maxCombo=0, misses=0;
-var spawnTimer=null, timeTimer=null;
+var score=0, misses=0, hits=0, spawns=0, combo=0, maxCombo=0;
+var endTimer=null, spawnTimer=null;
 
-// ---------- helpers ----------
-function emit(name, detail){
-  try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(e){}
-}
+// ระดับน้ำ 0..100 (กลาง=พอดี)
+var water=50;
 
-var __emojiCache = {};
+function emit(n,d){ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(e){} }
+function pick(a){ return a[(Math.random()*a.length)|0]; }
+
+var GOOD = ['🥤','💧','🧃'];        // น้ำ/เครื่องดื่มดี
+var BAD  = ['🥤','🧋','🍺','🥛'];   // ถ้ามากไปไม่ดี (สมมุติ penalty)
+var TIP_GOOD = ['จิบน้ำเล็กน้อย','พักดื่มน้ำ','เว้นน้ำหวาน'];
+var TIP_BAD  = ['อย่าดื่มรวดเดียว','งดเครื่องหวาน','ลดปริมาณ'];
+
 function emojiSprite(emo, px){
-  var size = px || 160, key = emo+'@'+size;
-  if(__emojiCache[key]) return __emojiCache[key];
-  var c = document.createElement('canvas'); c.width=c.height=size;
-  var ctx = c.getContext('2d');
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.font=(size*0.76)+'px system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-  ctx.shadowColor='rgba(0,0,0,.25)'; ctx.shadowBlur=size*0.08;
-  ctx.fillText(emo, size/2, size/2);
-  __emojiCache[key] = c.toDataURL('image/png');
-  return __emojiCache[key];
+  var key=emo+'@'+px; emojiSprite.cache=emojiSprite.cache||{};
+  if(emojiSprite.cache[key]) return emojiSprite.cache[key];
+  var c=document.createElement('canvas'); c.width=c.height=px;
+  var x=c.getContext('2d'); x.textAlign='center'; x.textBaseline='middle';
+  x.font=(px*0.75)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+  x.shadowColor='rgba(0,0,0,.25)'; x.shadowBlur=px*0.06; x.fillText(emo,px/2,px/2);
+  var url=c.toDataURL('image/png'); emojiSprite.cache[key]=url; return url;
 }
 
-function popupText(txt, x, y, color){
-  // ใช้ a-text (ไม่พึ่ง troika เพื่อตัดปัญหา THREE)
-  var t = document.createElement('a-text');
-  t.setAttribute('value', txt);
-  t.setAttribute('color', color||'#fff');
-  t.setAttribute('align','center');
-  t.setAttribute('width','1.6');
-  t.setAttribute('position', x+' '+(y+0.10)+' -1.18');
-  host.appendChild(t);
-  t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.38)+' -1.18; dur: 520; easing: easeOutCubic');
-  t.setAttribute('animation__fade','property: opacity; to: 0; dur: 520; easing: linear');
-  setTimeout(function(){ if(t && t.parentNode) t.parentNode.removeChild(t); }, 560);
+function popupText(txt, lx, ly, color){
+  try{
+    var wx = lx, wy = 1.0 + ly, wz = -1.6 + 0.02;
+    var t = document.createElement('a-entity');
+    t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09; anchor:center;');
+    t.setAttribute('position', wx+' '+(wy+0.05)+' '+wz);
+    host.appendChild(t);
+    t.setAttribute('animation__rise','property: position; to: '+wx+' '+(wy+0.32)+' '+wz+'; dur:520; easing:ease-out');
+    t.setAttribute('animation__fade','property: opacity; to: 0; dur:520; easing:linear');
+    setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },560);
+  }catch(e){}
 }
 
-// ---------- content pools ----------
-var WATER = ['💧','🧊','🚰','🥤'];     // 💧หลัก
-var BAD   = ['🥤','🍹','🧋','🍰','🍩']; // น้ำหวาน/ของหวาน
-
-// Fever settings
-var FEVER=false, FEVER_NEED=8, FEVER_MS=10000, feverTimer=null;
-function feverStart(){
-  if(FEVER) return;
-  FEVER=true; emit('hha:fever',{state:'start', ms:FEVER_MS});
-  clearTimeout(feverTimer);
-  feverTimer=setTimeout(function(){ feverEnd(); }, FEVER_MS);
-}
-function feverEnd(){
-  if(!FEVER) return;
-  FEVER=false; emit('hha:fever',{state:'end'});
-  clearTimeout(feverTimer); feverTimer=null;
+function judge(delta){
+  water = Math.max(0, Math.min(100, water + delta));
+  var inGreen = (water>=40 && water<=60);
+  return inGreen;
 }
 
-// ---------- target factory ----------
 function makeTarget(isGood, diff){
-  var el  = document.createElement('a-entity');
-  var emo = isGood ? WATER[Math.floor(Math.random()*WATER.length)]
-                   : BAD[Math.floor(Math.random()*BAD.length)];
+  var wrap=document.createElement('a-entity');
+  var emoji = isGood ? pick(GOOD) : pick(BAD);
+  var img=document.createElement('a-image');
+  img.setAttribute('src', emojiSprite(emoji, 192));
+  var px=(Math.random()*1.6 - 0.8);
+  var py=(Math.random()*0.5 - 0.25);
+  img.setAttribute('position', px+' '+py+' 0');
+  img.setAttribute('width', 0.42); img.setAttribute('height',0.42);
+  wrap.appendChild(img);
 
-  var img = document.createElement('a-image');
-  img.setAttribute('src', emojiSprite(emo, 200));
-  var px = (Math.random()*1.8 - 0.9);   // -0.9..0.9
-  var py = (Math.random()*0.9 + 1.1);   // 1.1..2.0 (ระดับใกล้หัว)
-  img.setAttribute('position', px+' '+py+' -1.2');
-  img.setAttribute('width', 0.44);
-  img.setAttribute('height',0.44);
+  function cleanup(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }
+
   img.classList.add('clickable');
-  el.appendChild(img);
-
-  var glow = document.createElement('a-plane');
-  glow.setAttribute('width', 0.50);
-  glow.setAttribute('height',0.50);
-  glow.setAttribute('position','0 0 -0.01');
-  glow.setAttribute('material','color:'+(isGood?'#22c55e':'#ef4444')+'; opacity:0.22; transparent:true;');
-  el.appendChild(glow);
-
-  function destroy(){ if(el.parentNode) el.parentNode.removeChild(el); }
-
   img.addEventListener('click', function(){
     if(!running) return;
-    destroy();
+    cleanup(); spawns++; hits++;
+    // กติกา: ถ้าคลิกน้ำดี → +10 น้ำ, น้ำหวาน/นม (มากไป) → +20 น้ำ
+    var delta = isGood ? +10 : +20;
+    var wasGreen = (water>=40 && water<=60);
+    var ok = judge(delta);
 
-    if(isGood){
-      var base = 15 + combo*2;
-      var add  = FEVER ? base*2 : base;
-      score += add;
-      combo += 1; if(combo>maxCombo) maxCombo=combo;
-      if(!FEVER && combo>=FEVER_NEED) feverStart();
-      popupText('+'+add, px, py, '#c6f6d5');
+    if(ok){
+      var plus = 25 + combo*3; score += plus; combo+=1; if(combo>maxCombo) maxCombo=combo;
+      popupText('+'+plus, px, py, '#bbf7d0');
     }else{
-      combo = 0; misses += 1;
-      score = Math.max(0, score-10);
-      popupText('-10', px, py, '#ffd0d0');
-      emit('hha:miss',{count:misses});
+      // ถ้าอยู่ HIGH แล้วไปเลือกของ “ไม่ดี” → โทษแรง
+      var pen = (water>60 && !isGood) ? 30 : 15;
+      score = Math.max(0, score-pen); combo=0; misses+=1;
+      popupText('-'+pen, px, py, '#fecaca');
+      emit('hha:miss', {count:misses});
     }
+
+    // แสดง quest สั้น ๆ
+    var tip = ok ? pick(TIP_GOOD) : pick(TIP_BAD);
+    emit('hha:quest', {text:'ระดับน้ำ: '+Math.round(water)+'% — '+tip});
     emit('hha:score', {score:score, combo:combo});
   });
 
-  var ttl = 1600; if(diff==='easy') ttl=1900; else if(diff==='hard') ttl=1400;
+  var ttl=1700; if(diff==='easy') ttl=2000; else if(diff==='hard') ttl=1400;
   setTimeout(function(){
-    if(!el.parentNode) return;
-    destroy(); misses += 1; combo=0;
-    emit('hha:miss',{count:misses});
-    emit('hha:score',{score:score, combo:combo});
+    if(!wrap.parentNode) return;
+    cleanup(); spawns++;
+    // ถ้าปล่อยผ่าน และน้ำต่ำ <40 → ถือว่าแย่ลงเล็กน้อย
+    if(water<40){ misses+=1; combo=0; emit('hha:miss',{count:misses}); }
   }, ttl);
 
-  return el;
+  return wrap;
 }
 
 function spawnLoop(diff){
   if(!running) return;
-  var good = Math.random()>0.40; // 60% น้ำดี
-  host.appendChild(makeTarget(good, diff));
-  var gap = 520; if(diff==='easy') gap=650; if(diff==='hard') gap=400;
-  if(FEVER) gap=Math.max(300, Math.round(gap*0.85));
+  var isGood = Math.random()<0.65; // โอกาสออกน้ำดี
+  host.appendChild(makeTarget(isGood, diff));
+  var gap=560; if(diff==='easy') gap=700; if(diff==='hard') gap=420;
   spawnTimer=setTimeout(function(){ spawnLoop(diff); }, gap);
 }
 
-// ---------- main ----------
 export async function boot(cfg){
-  host = cfg && cfg.host ? cfg.host : document.getElementById('spawnHost');
+  host = (cfg && cfg.host) ? cfg.host : document.getElementById('spawnHost');
+  try{ host.setAttribute('position','0 1.0 -1.6'); }catch(e){}
   var duration = (cfg && cfg.duration)|0 || 60;
   var diff = (cfg && cfg.difficulty) || 'normal';
 
-  // reset
-  running=true; score=0; combo=0; maxCombo=0; misses=0;
-  FEVER=false; clearTimeout(feverTimer); feverTimer=null;
-  clearTimeout(spawnTimer); clearInterval(timeTimer);
+  running=true; score=0; misses=0; hits=0; spawns=0; combo=0; maxCombo=0; water=50;
 
   emit('hha:score',{score:0, combo:0});
-  emit('hha:quest',{text:'Mini Quest — เก็บน้ำติดกัน '+FEVER_NEED+' ชิ้น เพื่อเปิด FEVER!'});
-  emit('hha:fever',{state:'end'});
-
-  // time loop (ฝั่งโหมดเป็นคนยิงเวลา)
-  var remain = duration;
-  emit('hha:time',{sec:remain});
-  timeTimer=setInterval(function(){
-    if(!running){ clearInterval(timeTimer); return; }
-    remain -= 1; if(remain<0) remain=0;
+  emit('hha:quest',{text:'รักษาระดับน้ำให้อยู่โซน GREEN (40–60%)'});
+  var remain=duration; emit('hha:time',{sec:remain});
+  clearInterval(endTimer);
+  endTimer=setInterval(function(){
+    if(!running){ clearInterval(endTimer); return; }
+    // คายตามเวลาเล็กน้อย
+    water = Math.max(0, water - 1);
+    remain-=1; if(remain<0) remain=0;
     emit('hha:time',{sec:remain});
-    if(remain<=0){
-      clearInterval(timeTimer);
-      endGame();
-    }
-  }, 1000);
+    if(remain<=0){ clearInterval(endTimer); endGame(); }
+  },1000);
 
-  // spawn
   spawnLoop(diff);
 
   function endGame(){
-    running=false;
-    clearTimeout(sp
+    running=false; clearTimeout(spawnTimer);
+    emit('hha:end',{
+      title:'Hydration',
+      difficulty: diff,
+      duration: duration,
+      score: score,
+      combo: maxCombo,
+      misses: misses,
+      hits: hits,
+      spawns: spawns,
+      questsCleared: 0,
+      questsTotal: 3
+    });
+  }
+
+  return {
+    stop:function(){ if(!running) return; endGame(); },
+    pause:function(){ running=false; },
+    resume:function(){ if(!running){ running=true; spawnLoop(diff); } }
+  };
+}
+export default { boot };
