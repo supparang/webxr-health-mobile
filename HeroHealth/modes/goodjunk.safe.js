@@ -1,4 +1,4 @@
-// === Good vs Junk — SAFE Production (emoji canvas, shards, fever, quests, summary) ===
+// === Good vs Junk — SAFE Production (emoji canvas, BIG shards, score popup) ===
 var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0;
 var spawnTimer=null, timeTimer=null;
 var totalSpawns=0, goodHits=0;
@@ -26,12 +26,12 @@ var JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭
 
 // ---- Fever ----
 var FEVER_ACTIVE=false;
-var FEVER_COMBO_NEED=8;           // กำหนดผ่านคอมโบ
+var FEVER_COMBO_NEED=8;
 var FEVER_MS=10000;
-var FEVER_LEVEL=0;                // 0..100 (แสดงแถบ)
+var FEVER_LEVEL=0;
 var feverTimer=null;
 
-function feverGauge(add){         // เติมเกจ 0..100
+function feverGauge(add){
   FEVER_LEVEL = Math.max(0, Math.min(100, FEVER_LEVEL + (add||0)));
   emit('hha:fever', {state:'change', level:FEVER_LEVEL});
   if(!FEVER_ACTIVE && FEVER_LEVEL>=100){ feverStart(); }
@@ -65,6 +65,7 @@ var QUEST_POOL = [
 ];
 var QUESTS=[], QIDX=0, lastJunkAt=0, goodTimestamps=[], feverCount=0, missionGood=0;
 
+// random 3 จาก 10
 function pick3(){
   var pool=QUEST_POOL.slice(); var out=[];
   while(out.length<3 && pool.length){
@@ -78,6 +79,7 @@ function showQuest(){
   var prog = (q.type==='mission') ? (q.p>=1?1:0)+'/'+1 : (Math.min(q.p,q.target))+'/'+q.target;
   emit('hha:quest', { text: 'เควส: '+q.text+' ('+prog+')' });
 }
+function checkQuestDone(q){ return (q.type==='mission') ? (q.p>=1) : (q.p>=q.target); }
 function questGood(scoreNow, comboNow, streakNow){
   missionGood++;
   goodTimestamps.push(timeSec);
@@ -95,7 +97,6 @@ function questGood(scoreNow, comboNow, streakNow){
 function questJunk(){
   lastJunkAt=timeSec;
   var q=QUESTS[QIDX]; if(!q) return;
-  // visual only (streak reset handled by caller if any)
   showQuest();
 }
 function questFever(){
@@ -105,27 +106,45 @@ function questFever(){
   if(checkQuestDone(q)){ QIDX=Math.min(QIDX+1, QUESTS.length-1); }
   showQuest();
 }
-function checkQuestDone(q){
-  return (q.type==='mission') ? (q.p>=1) : (q.p>=q.target);
-}
 
-// ---- shards FX ----
+// ---- shards FX (ใหญ่/ชัด/พุ่งเข้าหากล้อง) ----
 function shardsBurst(pos, color, speed){
   try{
-    var n = 10, i;
-    for(i=0;i<n;i++){
+    var n = 16; // เยอะขึ้น
+    for(var i=0;i<n;i++){
       var p=document.createElement('a-sphere');
-      p.setAttribute('radius', 0.02);
+      p.setAttribute('radius', 0.035); // ใหญ่ขึ้น
       p.setAttribute('color', color||'#69f0ae');
       p.setAttribute('position', pos.x+' '+pos.y+' '+pos.z);
       host.appendChild(p);
-      var dx=(Math.random()*2-1)*0.5, dy=Math.random()*0.9+0.2, dz=(Math.random()*2-1)*0.5;
+      // random vector (มีส่วน z ติดลบ เพื่อพุ่งเข้ากล้อง)
+      var dx=(Math.random()*2-1)*0.7, dy=Math.random()*1.0+0.3, dz=-(Math.random()*0.6+0.15);
       var x=pos.x+dx, y=pos.y+dy, z=pos.z+dz;
-      var dur = Math.max(380, Math.round((speed||1)*520));
-      p.setAttribute('animation__move','property: position; to: '+x+' '+y+' '+z+'; dur: '+dur+'; easing: ease-out');
-      p.setAttribute('animation__fade','property: material.opacity; to: 0; dur: '+(dur+80)+'; easing: linear');
-      (function(pp){ setTimeout(function(){ try{ pp.remove(); }catch(e){} }, dur+100); })(p);
+      var dur = Math.max(420, Math.round((speed||1)*600));
+      p.setAttribute('animation__move','property: position; to: '+x+' '+y+' '+z+'; dur: '+dur+'; easing: easeOutCubic');
+      p.setAttribute('animation__fade','property: material.opacity; to: 0; dur: '+(dur+120)+'; easing: linear; delay: 60');
+      (function(pp,dd){ setTimeout(function(){ try{ pp.remove(); }catch(e){} }, dd+160); })(p,dur);
     }
+  }catch(e){}
+}
+
+// ---- Score popup (ลอง troika ก่อน, ถ้าไม่มีใช้ text) ----
+function popupText(txt, x, y, color){
+  try{
+    var t = document.createElement('a-entity');
+    // ใกล้กล้องขึ้น: z ติดลบ (กล้องมอง -Z)
+    t.setAttribute('position', x+' '+(y+0.06)+' -0.08');
+    var useTroika = false;
+    try { useTroika = !!AFRAME.components['troika-text']; } catch(_e){}
+    if(useTroika){
+      t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.14; anchor:center;');
+    }else{
+      t.setAttribute('text','value: '+txt+'; color: '+(color||'#ffffff')+'; align:center; width:3.2;');
+    }
+    host.appendChild(t);
+    t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.38)+' -0.10; dur: 560; easing: easeOutCubic');
+    t.setAttribute('animation__fade','property: opacity; to: 0; dur: 560; easing: linear; delay: 80');
+    setTimeout(function(){ try{ t.remove(); }catch(e){} }, 620);
   }catch(e){}
 }
 
@@ -138,38 +157,38 @@ function makeTarget(emoji, good, diff){
   // ล่าง-กลางจอ (กระจายแนวนอนเล็กน้อย)
   var px = (Math.random()*1.6 - 0.8);
   var py = (Math.random()*0.7 + 0.6);
-  var pz = 0;
+  var pz = -0.02; // ใกล้กล้องขึ้นเล็กน้อย
   img.setAttribute('position', px+' '+py+' '+pz);
-  img.setAttribute('width', 0.42);
-  img.setAttribute('height', 0.42);
+  img.setAttribute('width', 0.46);
+  img.setAttribute('height', 0.46);
   img.classList.add('clickable');
   el.appendChild(img);
 
   var glow = document.createElement('a-plane');
-  glow.setAttribute('width',0.50); glow.setAttribute('height',0.50);
+  glow.setAttribute('width',0.54); glow.setAttribute('height',0.54);
   glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.20; transparent:true; side:double');
-  glow.setAttribute('position','0 0 -0.01');
+  glow.setAttribute('position','0 0 -0.03'); // ซ้อนหลังรูปนิด
   el.appendChild(glow);
 
   function destroy(){ try{ el.remove(); }catch(e){} }
 
-  img.addEventListener('click', function(){
+  function onHit(ev){
     if(!running) return;
+    try{ ev.preventDefault(); ev.stopPropagation(); }catch(_e){}
     destroy();
 
     if(good){
       var base = 20 + combo*2;
-      var plus = FEVER_ACTIVE ? base*2 : base; // x2 ใน Fever
+      var plus = FEVER_ACTIVE ? base*2 : base;
       score += plus;
       combo += 1; if(combo>maxCombo) maxCombo = combo;
       goodHits += 1;
-      feverGauge(100/FEVER_COMBO_NEED);            // เพิ่มตามสัดส่วน
-      if(combo>=FEVER_COMBO_NEED) feverStart();    // กันเหนียว
-      shardsBurst({x:px,y:py,z:pz}, '#69f0ae', .9);// ชิ้นแตกสีเขียว
+      feverGauge(100/FEVER_COMBO_NEED);
+      if(combo>=FEVER_COMBO_NEED) feverStart();
+      shardsBurst({x:px,y:py,z:pz}, '#69f0ae', .9);
       popupText('+'+plus, px, py, '#ffffff');
-      questGood(score, combo, combo);              // อัปเดตเควส
+      questGood(score, combo, combo);
     }else{
-      // คลิกโดนขยะ = โทษ
       combo = 0; misses += 1;
       score = Math.max(0, score - 15);
       shardsBurst({x:px,y:py,z:pz}, '#ff8a8a', 1.0);
@@ -179,9 +198,14 @@ function makeTarget(emoji, good, diff){
     }
 
     emit('hha:score', {score:score, combo:combo});
+  }
+
+  // จับคลิกให้แน่น
+  ['click','mousedown','touchstart'].forEach(function(evt){
+    try{ img.addEventListener(evt, onHit, {passive:false}); }catch(_e){}
   });
 
-  // เวลาหมด:
+  // หมดอายุ:
   var ttl = 1600; if(diff==='easy') ttl=1900; else if(diff==='hard') ttl=1400;
   setTimeout(function(){
     if(!el.parentNode || !running) return;
@@ -193,7 +217,7 @@ function makeTarget(emoji, good, diff){
       emit('hha:miss', {count:misses});
       questJunk();
     }else{
-      // ปล่อยขยะให้หายไปเอง → ได้ +5 และไม่ทุบคอมโบ (ตามที่ขอ)
+      // ปล่อยขยะให้หาย → โบนัสเล็กน้อย และไม่ทุบคอมโบ
       var plus = FEVER_ACTIVE ? 10 : 5;
       score += plus;
       popupText('+'+plus, px, py, '#a0e3ff');
@@ -202,18 +226,6 @@ function makeTarget(emoji, good, diff){
   }, ttl);
 
   return el;
-}
-
-function popupText(txt, x, y, color){
-  try{
-    var t = document.createElement('a-entity');
-    t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09;');
-    t.setAttribute('position', x+' '+(y+0.05)+' 0.02');
-    host.appendChild(t);
-    t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.30)+' 0.02; dur: 520; easing: ease-out');
-    t.setAttribute('animation__fade','property: opacity; to: 0; dur: 520; easing: linear');
-    setTimeout(function(){ try{ t.remove(); }catch(e){} }, 560);
-  }catch(e){}
 }
 
 function spawnLoop(diff){
@@ -255,7 +267,7 @@ export async function boot(cfg){
   timeTimer = setInterval(function(){
     if(!running){ clearInterval(timeTimer); return; }
     timeSec -= 1; if(timeSec<0) timeSec=0;
-    // นับ no-junk quest
+    // no-junk quest
     var q=QUESTS[QIDX]; if(q && q.type==='nojunk'){
       var seconds = Math.max(0, (gameDurationSec - timeSec) - lastJunkAt);
       q.p = Math.min(q.target, Math.max(q.p, seconds));
@@ -273,7 +285,6 @@ export async function boot(cfg){
     running=false;
     try{ clearTimeout(spawnTimer); }catch(e){}
     feverEnd();
-    // เคลียร์เควสที่ผ่านกี่ใบ
     var cleared = 0; for(var i=0;i<QUESTS.length;i++){ if(checkQuestDone(QUESTS[i])) cleared++; }
     emit('hha:end', {
       mode:'goodjunk',
@@ -290,7 +301,6 @@ export async function boot(cfg){
     });
   }
 
-  // public API
   return {
     stop: function(){ if(!running) return; endGame('stop'); },
     pause: function(){ running=false; },
