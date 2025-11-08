@@ -9,6 +9,9 @@
   <script src="./vendor/aframe-1.5.0.min.js"></script>
   <script src="./vendor/aframe-troika-text-0.12.0.min.js"></script>
 
+  <!-- กัน 404 ของ favicon -->
+  <link rel="icon" href="./favicon.ico"/>
+
   <style>
     :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
     html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
@@ -21,6 +24,8 @@
     #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
+    /* Coach HUD (ใหม่) */
+    #badgeCoach{right:12px;top:106px;max-width:min(46ch, 88vw);display:none}
 
     /* Fever bar */
     #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;
@@ -63,6 +68,7 @@
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
   <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
+  <div id="badgeCoach" class="hud-chip"></div>
 
   <!-- Fever bar -->
   <div id="feverWrap"><div id="feverFill"></div></div>
@@ -163,6 +169,20 @@
         else if(st==='end'){ document.body.classList.remove('fever-on'); fill.style.background='linear-gradient(90deg,#37d67a,#06d6a0)'; fill.style.width='0%'; }
         else { fill.style.width = pct+'%'; }
       });
+
+      /* Coach HUD (ใหม่) */
+      (function(){
+        var box=document.getElementById('badgeCoach'); var timer=null;
+        function show(msg){
+          if(!box) return;
+          box.style.display=''; box.textContent=String(msg||'');
+          clearTimeout(timer); timer=setTimeout(function(){ box.style.display='none'; }, 2200);
+        }
+        window.addEventListener('hha:coach', function(e){
+          var d=e && e.detail ? e.detail : {};
+          if(d.text) show(d.text);
+        });
+      })();
     })();
 
     // ===== Result panel =====
@@ -233,6 +253,8 @@
         var missEl=document.getElementById('badgeMiss'); missEl.style.display='none'; missEl.dataset.n='0';
         document.body.classList.remove('fever-on');
         document.getElementById('feverFill').style.width='0%';
+        // ซ่อน coach
+        (function(){ var c=document.getElementById('badgeCoach'); if(c) c.style.display='none'; })();
 
         document.getElementById('menu').style.display='none';
 
