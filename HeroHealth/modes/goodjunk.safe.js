@@ -1,16 +1,14 @@
-// === Good vs Junk — SAFE Production (emoji canvas, BIG shards, score popup) ===
-var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0;
-var spawnTimer=null, timeTimer=null;
-var totalSpawns=0, goodHits=0;
+// === Good vs Junk — SAFE + FEVER (centered spawn y=1.0, no optional chaining) ===
+var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0;
+var spawnTimer=null, endTimer=null;
 
-// ---- emoji sprite cache (canvas → dataURL) ----
+// ---- Emoji → sprite (dataURL) helper + cache ----
 var __emojiCache = {};
 function emojiSprite(emo, px){
   var size = px || 128, key = emo+'@'+size;
   if(__emojiCache[key]) return __emojiCache[key];
   var c = document.createElement('canvas'); c.width=c.height=size;
   var ctx = c.getContext('2d');
-  ctx.clearRect(0,0,size,size);
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.font=(size*0.75)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
   ctx.shadowColor='rgba(0,0,0,0.25)'; ctx.shadowBlur=size*0.06;
@@ -21,211 +19,112 @@ function emojiSprite(emo, px){
 function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail:detail})); }catch(e){} }
 
 // ---- Pools ----
-var GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐','🍋','🫐','🥗','🍉'];
-var JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬','🍨','🍧','🍿'];
+var GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
+var JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
 
 // ---- Fever ----
 var FEVER_ACTIVE=false;
-var FEVER_COMBO_NEED=8;
 var FEVER_MS=10000;
-var FEVER_LEVEL=0;
 var feverTimer=null;
-
-function feverGauge(add){
-  FEVER_LEVEL = Math.max(0, Math.min(100, FEVER_LEVEL + (add||0)));
-  emit('hha:fever', {state:'change', level:FEVER_LEVEL});
-  if(!FEVER_ACTIVE && FEVER_LEVEL>=100){ feverStart(); }
+var feverLevel=0;   // 0..100
+var feverNeed=100;  // เกณฑ์เริ่ม
+function feverEmit(state){
+  emit('hha:fever',{state:state, level:feverLevel, active:FEVER_ACTIVE});
 }
 function feverStart(){
   if(FEVER_ACTIVE) return;
-  FEVER_ACTIVE = true; FEVER_LEVEL=100;
-  emit('hha:fever',{state:'start', level:FEVER_LEVEL, ms:FEVER_MS});
+  FEVER_ACTIVE = true;
+  feverLevel = 100;
+  feverEmit('start');
   clearTimeout(feverTimer);
   feverTimer = setTimeout(function(){ feverEnd(); }, FEVER_MS);
 }
 function feverEnd(){
   if(!FEVER_ACTIVE) return;
-  FEVER_ACTIVE = false; FEVER_LEVEL=0;
-  emit('hha:fever',{state:'end', level:FEVER_LEVEL});
+  FEVER_ACTIVE = false;
+  feverLevel = 0;
+  feverEmit('end');
   clearTimeout(feverTimer); feverTimer=null;
 }
-
-// ---- Mini Quest (สุ่ม 3 จาก 10) ----
-var QUEST_POOL = [
-  {id:'G10',  text:'เก็บของดี 10 ชิ้น',            type:'good',  target:10,  p:0},
-  {id:'G20',  text:'เก็บของดี 20 ชิ้น',            type:'good',  target:20,  p:0},
-  {id:'C5',   text:'ทำคอมโบ x5',                   type:'combo', target:5,   p:0},
-  {id:'C10',  text:'ทำคอมโบ x10',                  type:'combo', target:10,  p:0},
-  {id:'F1',   text:'เข้า FEVER 1 ครั้ง',            type:'fever', target:1,   p:0},
-  {id:'ST8',  text:'ทำสตรีค 8 ชิ้นติด',            type:'streak',target:8,   p:0},
-  {id:'S300', text:'ทำคะแนนถึง 300 คะแนน',         type:'score', target:300, p:0},
-  {id:'NJ15', text:'เลี่ยงขยะ 15 วินาที',          type:'nojunk',target:15,  p:0},
-  {id:'B5',   text:'เก็บของดี 5 ชิ้นใน 10 วิ',     type:'burst', target:5,   p:0},
-  {id:'M40',  text:'ผ่านภารกิจหลัก (40 ชิ้น)',     type:'mission',target:40, p:0}
-];
-var QUESTS=[], QIDX=0, lastJunkAt=0, goodTimestamps=[], feverCount=0, missionGood=0;
-
-// random 3 จาก 10
-function pick3(){
-  var pool=QUEST_POOL.slice(); var out=[];
-  while(out.length<3 && pool.length){
-    var i=(Math.random()*pool.length)|0; out.push(pool.splice(i,1)[0]);
-  }
-  return out;
-}
-function showQuest(){
-  var q=QUESTS[QIDX];
-  if(!q){ emit('hha:quest',{text:'เคลียร์เควสครบแล้ว!'}); return; }
-  var prog = (q.type==='mission') ? (q.p>=1?1:0)+'/'+1 : (Math.min(q.p,q.target))+'/'+q.target;
-  emit('hha:quest', { text: 'เควส: '+q.text+' ('+prog+')' });
-}
-function checkQuestDone(q){ return (q.type==='mission') ? (q.p>=1) : (q.p>=q.target); }
-function questGood(scoreNow, comboNow, streakNow){
-  missionGood++;
-  goodTimestamps.push(timeSec);
-  goodTimestamps = goodTimestamps.filter(function(t){ return t>timeSec-10; });
-  var q=QUESTS[QIDX]; if(!q) return;
-  if(q.type==='good')   q.p=Math.min(q.target, missionGood);
-  if(q.type==='combo')  q.p=Math.min(q.target, Math.max(q.p, comboNow));
-  if(q.type==='streak') q.p=Math.min(q.target, Math.max(q.p, streakNow));
-  if(q.type==='score')  q.p=Math.min(q.target, Math.max(q.p, scoreNow));
-  if(q.type==='burst')  q.p=Math.min(q.target, Math.max(q.p, goodTimestamps.length));
-  if(q.type==='mission') q.p = (missionGood>=q.target)?1:0;
-  if(checkQuestDone(q)){ QIDX=Math.min(QIDX+1, QUESTS.length-1); }
-  showQuest();
-}
-function questJunk(){
-  lastJunkAt=timeSec;
-  var q=QUESTS[QIDX]; if(!q) return;
-  showQuest();
-}
-function questFever(){
-  feverCount++;
-  var q=QUESTS[QIDX]; if(!q) return;
-  if(q.type==='fever'){ q.p=Math.min(q.target, feverCount); }
-  if(checkQuestDone(q)){ QIDX=Math.min(QIDX+1, QUESTS.length-1); }
-  showQuest();
-}
-
-// ---- shards FX (ใหญ่/ชัด/พุ่งเข้าหากล้อง) ----
-function shardsBurst(pos, color, speed){
-  try{
-    var n = 16; // เยอะขึ้น
-    for(var i=0;i<n;i++){
-      var p=document.createElement('a-sphere');
-      p.setAttribute('radius', 0.035); // ใหญ่ขึ้น
-      p.setAttribute('color', color||'#69f0ae');
-      p.setAttribute('position', pos.x+' '+pos.y+' '+pos.z);
-      host.appendChild(p);
-      // random vector (มีส่วน z ติดลบ เพื่อพุ่งเข้ากล้อง)
-      var dx=(Math.random()*2-1)*0.7, dy=Math.random()*1.0+0.3, dz=-(Math.random()*0.6+0.15);
-      var x=pos.x+dx, y=pos.y+dy, z=pos.z+dz;
-      var dur = Math.max(420, Math.round((speed||1)*600));
-      p.setAttribute('animation__move','property: position; to: '+x+' '+y+' '+z+'; dur: '+dur+'; easing: easeOutCubic');
-      p.setAttribute('animation__fade','property: material.opacity; to: 0; dur: '+(dur+120)+'; easing: linear; delay: 60');
-      (function(pp,dd){ setTimeout(function(){ try{ pp.remove(); }catch(e){} }, dd+160); })(p,dur);
-    }
-  }catch(e){}
-}
-
-// ---- Score popup (ลอง troika ก่อน, ถ้าไม่มีใช้ text) ----
-function popupText(txt, x, y, color){
-  try{
-    var t = document.createElement('a-entity');
-    // ใกล้กล้องขึ้น: z ติดลบ (กล้องมอง -Z)
-    t.setAttribute('position', x+' '+(y+0.06)+' -0.08');
-    var useTroika = false;
-    try { useTroika = !!AFRAME.components['troika-text']; } catch(_e){}
-    if(useTroika){
-      t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.14; anchor:center;');
-    }else{
-      t.setAttribute('text','value: '+txt+'; color: '+(color||'#ffffff')+'; align:center; width:3.2;');
-    }
-    host.appendChild(t);
-    t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.38)+' -0.10; dur: 560; easing: easeOutCubic');
-    t.setAttribute('animation__fade','property: opacity; to: 0; dur: 560; easing: linear; delay: 80');
-    setTimeout(function(){ try{ t.remove(); }catch(e){} }, 620);
-  }catch(e){}
+function feverGain(v){
+  feverLevel = Math.max(0, Math.min(100, feverLevel + v));
+  feverEmit('change');
+  if(!FEVER_ACTIVE && feverLevel>=feverNeed) feverStart();
 }
 
 // ---- Target ----
 function makeTarget(emoji, good, diff){
-  var el = document.createElement('a-entity');
+  var wrap = document.createElement('a-entity');
 
   var img = document.createElement('a-image');
   img.setAttribute('src', emojiSprite(emoji, 192));
-  // ล่าง-กลางจอ (กระจายแนวนอนเล็กน้อย)
+  // สุ่มภายในกรอบรอบ ๆ host (host อยู่ที่ y=1.0 แล้ว)
   var px = (Math.random()*1.6 - 0.8);
-  var py = (Math.random()*0.7 + 0.6);
-  var pz = -0.02; // ใกล้กล้องขึ้นเล็กน้อย
-  img.setAttribute('position', px+' '+py+' '+pz);
-  img.setAttribute('width', 0.46);
-  img.setAttribute('height', 0.46);
-  img.classList.add('clickable');
-  el.appendChild(img);
+  var py = (Math.random()*0.5 - 0.25); // local y จาก host → กลางจอ
+  img.setAttribute('position', px+' '+py+' 0');
+  img.setAttribute('width', 0.42);
+  img.setAttribute('height', 0.42);
+  wrap.appendChild(img);
 
   var glow = document.createElement('a-plane');
-  glow.setAttribute('width',0.54); glow.setAttribute('height',0.54);
-  glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.20; transparent:true; side:double');
-  glow.setAttribute('position','0 0 -0.03'); // ซ้อนหลังรูปนิด
-  el.appendChild(glow);
+  glow.setAttribute('width',0.48); glow.setAttribute('height',0.48);
+  glow.setAttribute('material','color:'+(good?'#22c55e':'#ef4444')+'; opacity:0.22; transparent:true');
+  glow.setAttribute('position','0 0 -0.01');
+  wrap.appendChild(glow);
 
-  function destroy(){ try{ el.remove(); }catch(e){} }
+  function cleanup(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }
 
-  function onHit(ev){
+  img.classList.add('clickable');
+  img.addEventListener('click', function(){
     if(!running) return;
-    try{ ev.preventDefault(); ev.stopPropagation(); }catch(_e){}
-    destroy();
+    cleanup(); spawns++; hits++;
 
     if(good){
       var base = 20 + combo*2;
-      var plus = FEVER_ACTIVE ? base*2 : base;
+      var plus = FEVER_ACTIVE ? base*2 : base; // x2 เมื่อ Fever
       score += plus;
       combo += 1; if(combo>maxCombo) maxCombo = combo;
-      goodHits += 1;
-      feverGauge(100/FEVER_COMBO_NEED);
-      if(combo>=FEVER_COMBO_NEED) feverStart();
-      shardsBurst({x:px,y:py,z:pz}, '#69f0ae', .9);
-      popupText('+'+plus, px, py, '#ffffff');
-      questGood(score, combo, combo);
+      feverGain(12); // เพิ่มเกจเมื่อเก็บของดี
+      popupText('+'+plus, px, py);
     }else{
+      // ชนน้ำตาล/จังค์ → บทลงโทษเล็กน้อย และลดเกจ
       combo = 0; misses += 1;
       score = Math.max(0, score - 15);
-      shardsBurst({x:px,y:py,z:pz}, '#ff8a8a', 1.0);
+      feverGain(-18);
       popupText('-15', px, py, '#ffb4b4');
-      questJunk();
-      emit('hha:miss', {count:misses});
     }
 
     emit('hha:score', {score:score, combo:combo});
-  }
-
-  // จับคลิกให้แน่น
-  ['click','mousedown','touchstart'].forEach(function(evt){
-    try{ img.addEventListener(evt, onHit, {passive:false}); }catch(_e){}
   });
 
-  // หมดอายุ:
-  var ttl = 1600; if(diff==='easy') ttl=1900; else if(diff==='hard') ttl=1400;
+  // เวลาหมด = พลาดเฉพาะ "ของดี" / ของจังค์ปล่อยผ่าน (ไม่นับโทษ)
+  var ttl = 1600;
+  if(diff==='easy') ttl = 1900; else if(diff==='hard') ttl = 1400;
   setTimeout(function(){
-    if(!el.parentNode || !running) return;
-    destroy();
-    // หมดเวลา → ถือว่า "พลาด" เฉพาะของดี
+    if(!wrap.parentNode) return;
+    cleanup(); spawns++;
     if(good){
-      combo = 0; misses += 1;
-      popupText('MISS', px, py, '#ffcb6b');
+      misses += 1; combo = 0; feverGain(-12);
       emit('hha:miss', {count:misses});
-      questJunk();
-    }else{
-      // ปล่อยขยะให้หาย → โบนัสเล็กน้อย และไม่ทุบคอมโบ
-      var plus = FEVER_ACTIVE ? 10 : 5;
-      score += plus;
-      popupText('+'+plus, px, py, '#a0e3ff');
+      emit('hha:score', {score:score, combo:combo});
     }
-    emit('hha:score', {score:score, combo:combo});
   }, ttl);
 
-  return el;
+  return wrap;
+}
+
+function popupText(txt, lx, ly, color){
+  try{
+    // world pos: host (0,1.0,-1.6) + local (lx,ly,0)
+    var wx = lx, wy = 1.0 + ly, wz = -1.6 + 0.02;
+    var t = document.createElement('a-entity');
+    t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09; anchor:center;');
+    t.setAttribute('position', wx+' '+(wy+0.05)+' '+wz);
+    host.appendChild(t);
+    t.setAttribute('animation__rise','property: position; to: '+wx+' '+(wy+0.32)+' '+wz+'; dur: 520; easing: ease-out');
+    t.setAttribute('animation__fade','property: opacity; to: 0; dur: 520; easing: linear');
+    setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); }, 560);
+  }catch(e){}
 }
 
 function spawnLoop(diff){
@@ -233,76 +132,62 @@ function spawnLoop(diff){
   var goodPick = Math.random() > 0.35;
   var emoji = goodPick ? GOOD[(Math.random()*GOOD.length)|0]
                        : JUNK[(Math.random()*JUNK.length)|0];
-  var node = makeTarget(emoji, goodPick, diff);
-  totalSpawns++;
-  host.appendChild(node);
+  host.appendChild(makeTarget(emoji, goodPick, diff));
 
   var gap = 520; if(diff==='easy') gap=650; if(diff==='hard') gap=400;
   if(FEVER_ACTIVE) gap = Math.max(300, Math.round(gap*0.85));
   spawnTimer = setTimeout(function(){ spawnLoop(diff); }, gap);
 }
 
-// ---- timer / state ----
-var timeSec=0, gameDurationSec=60;
-
 export async function boot(cfg){
   host = (cfg && cfg.host) ? cfg.host : document.getElementById('spawnHost');
+  // จัด host ให้อยู่กึ่งกลางจอจริง ๆ
+  try{ host.setAttribute('position','0 1.0 -1.6'); }catch(e){}
   var duration = (cfg && cfg.duration)|0 || 60;
   var diff = (cfg && cfg.difficulty) || 'normal';
 
-  // reset
-  running=true; score=0; combo=0; maxCombo=0; misses=0; totalSpawns=0; goodHits=0;
-  FEVER_ACTIVE=false; FEVER_LEVEL=0; clearTimeout(feverTimer); feverTimer=null;
-  emit('hha:fever',{state:'end', level:0});
-  emit('hha:score',{score:0, combo:0});
+  running = true; score=0; combo=0; maxCombo=0; misses=0; hits=0; spawns=0;
+  FEVER_ACTIVE=false; clearTimeout(feverTimer); feverTimer=null; feverLevel=0; feverEmit('change');
 
-  // quests
-  QUESTS = pick3(); QIDX=0; lastJunkAt=0; goodTimestamps=[]; feverCount=0; missionGood=0;
-  showQuest();
-
-  // timer
-  timeSec = duration; gameDurationSec = duration;
-  emit('hha:time', {sec: timeSec});
-  clearInterval(timeTimer);
-  timeTimer = setInterval(function(){
-    if(!running){ clearInterval(timeTimer); return; }
-    timeSec -= 1; if(timeSec<0) timeSec=0;
-    // no-junk quest
-    var q=QUESTS[QIDX]; if(q && q.type==='nojunk'){
-      var seconds = Math.max(0, (gameDurationSec - timeSec) - lastJunkAt);
-      q.p = Math.min(q.target, Math.max(q.p, seconds));
-      if(checkQuestDone(q)){ QIDX=Math.min(QIDX+1, QUESTS.length-1); }
-      showQuest();
+  emit('hha:score', {score:0, combo:0});
+  emit('hha:quest', {text:'Mini Quest — เก็บของดีติดกันเพื่อเข้า FEVER!'});
+  // นับเวลาฝั่งโหมด
+  var remain = duration;
+  emit('hha:time', {sec:remain});
+  clearInterval(endTimer);
+  endTimer = setInterval(function(){
+    if(!running){ clearInterval(endTimer); return; }
+    remain -= 1; if(remain < 0) remain = 0;
+    emit('hha:time', {sec:remain});
+    if(remain <= 0){
+      clearInterval(endTimer);
+      endGame();
     }
-    emit('hha:time', {sec: timeSec});
-    if(timeSec<=0){ endGame('timeout'); }
   }, 1000);
 
-  // start spawn
+  // เริ่มสแปว์น
   spawnLoop(diff);
 
-  function endGame(reason){
-    running=false;
-    try{ clearTimeout(spawnTimer); }catch(e){}
+  function endGame(){
+    running = false;
+    clearTimeout(spawnTimer);
     feverEnd();
-    var cleared = 0; for(var i=0;i<QUESTS.length;i++){ if(checkQuestDone(QUESTS[i])) cleared++; }
     emit('hha:end', {
-      mode:'goodjunk',
-      reason: reason || 'timeout',
+      title:'Good vs Junk',
+      difficulty: diff,
+      duration: duration,
       score: score,
-      comboMax: maxCombo || combo || 0,
-      misses: misses || 0,
-      hits: goodHits || 0,
-      spawns: totalSpawns || (goodHits + (misses||0)),
-      questsCleared: cleared,
-      questsTotal: 3,
-      duration: gameDurationSec,
-      difficulty: diff
+      combo: maxCombo,
+      misses: misses,
+      hits: hits,
+      spawns: spawns,
+      questsCleared: 0,
+      questsTotal: 3
     });
   }
 
   return {
-    stop: function(){ if(!running) return; endGame('stop'); },
+    stop: function(){ if(!running) return; endGame(); },
     pause: function(){ running=false; },
     resume: function(){ if(!running){ running=true; spawnLoop(diff); } }
   };
