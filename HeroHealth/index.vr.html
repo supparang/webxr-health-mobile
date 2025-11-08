@@ -4,31 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
-
-  <!-- กัน 404 favicon -->
   <link rel="icon" href="data:,">
-
-  <!-- A-Frame (ผูก THREE บน onload เพื่อกัน THREE is not defined) -->
-  <script
-    src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"
-    crossorigin="anonymous"
-    onload="
-      try{
-        if(window.AFRAME && AFRAME.THREE){
-          window.THREE = AFRAME.THREE;
-          if(!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
-          console.log('[Patch] THREE linked via onload');
-          var s=document.createElement('script');
-          s.id='troika-js';
-          s.src='https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js';
-          s.crossOrigin='anonymous';
-          document.head.appendChild(s);
-        }else{
-          console.warn('[Patch] AFRAME.THREE not available in onload');
-        }
-      }catch(e){ console.error('[Patch] onload error:', e); }
-    ">
-  </script>
 
   <style>
     :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
@@ -41,7 +17,7 @@
     #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
-    #log{position:fixed;left:8px;bottom:8px;z-index:900;background:#1e293b66;border:1px solid #475569;
+    #log{position:fixed;left:12px;bottom:12px;z-index:900;background:#1e293b66;border:1px solid #475569;
       border-radius:10px;padding:4px 10px;font-size:14px;color:#e2e8f0}
 
     .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);
@@ -60,6 +36,51 @@
     .fever-on{ box-shadow: inset 0 0 0 4px #ffd16655; animation: feverPulse .9s ease-in-out infinite alternate; }
     @keyframes feverPulse{ from{ filter:none } to{ filter: drop-shadow(0 0 12px #ffd166) } }
   </style>
+
+  <script>
+  // ----- Dynamic loader (local-first, then CDN fallbacks) -----
+  (function(){
+    function loadScript(url){ return new Promise(function(res, rej){
+      var s=document.createElement('script'); s.src=url; s.onload=function(){res(url)}; s.onerror=function(){rej(new Error('load fail: '+url))};
+      document.head.appendChild(s);
+    });}
+
+    async function bootLibs(){
+      // 1) โหลด A-Frame: local → jsDelivr → unpkg
+      const afLocal   = './vendor/aframe-1.5.0.min.js';
+      const afCdn1    = 'https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js';
+      const afCdn2    = 'https://unpkg.com/aframe@1.5.0/dist/aframe.min.js';
+      let ok=false, lastErr=null;
+      for (const url of [afLocal, afCdn1, afCdn2]){
+        try { await loadScript(url); ok=true; console.log('[AFRAME] loaded from', url); break; }
+        catch(e){ lastErr=e; console.warn('[AFRAME] failed', url, e); }
+      }
+      if(!ok) throw lastErr||new Error('A-Frame load failed');
+
+      // ผูก THREE ให้ปลั๊กอินที่ต้องการ window.THREE
+      try{
+        if(window.AFRAME && AFRAME.THREE){
+          window.THREE = AFRAME.THREE;
+          if(!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
+        }
+      }catch(e){ console.warn('THREE link failed', e); }
+
+      // 2) Troika text: local → jsDelivr → unpkg
+      const troLocal  = './vendor/aframe-troika-text-0.12.0.min.js';
+      const troCdn1   = 'https://cdn.jsdelivr.net/npm/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js';
+      const troCdn2   = 'https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js';
+      ok=false; lastErr=null;
+      for (const url of [troLocal, troCdn1, troCdn2]){
+        try { await loadScript(url); ok=true; console.log('[Troika] loaded from', url); break; }
+        catch(e){ lastErr=e; console.warn('[Troika] failed', url, e); }
+      }
+      if(!ok) throw lastErr||new Error('Troika load failed');
+    }
+
+    // ทำให้ตัวอื่นใช้ได้หลัง libs พร้อม
+    window.__loadLibs = bootLibs;
+  })();
+  </script>
 </head>
 <body>
 
@@ -146,7 +167,6 @@
       var $=function(s){ return document.querySelector(s); };
       var log=function(m){ var el=$('#log'); if(el) el.textContent='log: '+m; };
 
-      // พาธโมดูล (same-origin เท่านั้น)
       var MAP = {
         goodjunk : './modes/goodjunk.safe.js',
         groups   : './modes/groups.safe.js',
@@ -154,7 +174,6 @@
         plate    : './modes/plate.quest.js'
       };
 
-      // ปรับ UI HUD ตามอีเวนต์
       window.addEventListener('hha:score', function(e){
         var d=e && e.detail ? e.detail : {};
         var s=(d.score!=null)?d.score:0, c=(d.combo!=null)?d.combo:0;
@@ -177,41 +196,37 @@
         var st=(e && e.detail && e.detail.state)?e.detail.state:'end';
         if(st==='start') document.body.classList.add('fever-on'); else document.body.classList.remove('fever-on');
       });
-      window.addEventListener('hha:end', function(e){
-        // จบเกม → แสดงเมนู
-        var m=$('#menu'); if(m) m.style.display='';
-      });
+      window.addEventListener('hha:end', function(){ var m=$('#menu'); if(m) m.style.display=''; });
 
-      // ===== ป้องกัน CORB: เช็กไฟล์ก่อน import =====
+      // ป้องกัน CORB: เช็กไฟล์ก่อน import
       function withStamp(url){ var sep=url.indexOf('?')>-1?'&':'?'; return url+sep+'v='+(Date.now()); }
       async function safeImport(relPath){
-        var href = new URL(relPath, location.href).href; // absolute URL แต่ยัง same-origin
+        var href = new URL(relPath, location.href).href;
         var res;
-        try{
-          res = await fetch(href, { mode:'same-origin', credentials:'omit' });
-        }catch(e){
-          console.error('[Import] fetch failed:', href, e);
-          throw e;
-        }
+        try{ res = await fetch(href, { mode:'same-origin', credentials:'omit' }); }
+        catch(e){ console.error('[Import] fetch failed:', href, e); throw e; }
         if(!res.ok){
-          var txt = '';
-          try{ txt = await res.text(); }catch(_){}
+          var txt=''; try{ txt=await res.text(); }catch(_){}
           console.error('[Import] HTTP', res.status, relPath, txt.slice(0,160));
           throw new Error('HTTP '+res.status+' for '+relPath+' (path may be wrong)');
         }
-        var ct = (res.headers.get('content-type')||'').toLowerCase();
+        var ct=(res.headers.get('content-type')||'').toLowerCase();
         if(ct.indexOf('javascript')===-1 && ct.indexOf('ecmascript')===-1){
-          var head = '';
-          try{ head = (await res.text()).slice(0,160); }catch(_){}
+          var head=''; try{ head=(await res.text()).slice(0,160); }catch(_){}
           console.error('[Import] Bad content-type:', ct, ' preview:', head);
           throw new Error('Bad content-type: '+ct+' (likely 404 HTML; check path)');
         }
-        // ผ่านแล้ว import ตัวจริง
         return import(href);
       }
 
       // เริ่มเกมจากเมนู
-      $('#startBtn').addEventListener('click', function(){
+      document.getElementById('startBtn').addEventListener('click', async function(){
+        // โหลด libs ให้เรียบร้อยก่อน
+        try{ await window.__loadLibs(); }catch(e){
+          alert('โหลดไลบรารีไม่สำเร็จ: '+(e&&e.message?e.message:e));
+          console.error(e); return;
+        }
+
         var mode = $('#modeSel').value;
         var diff = $('#diffSel').value;
 
@@ -220,7 +235,6 @@
         $('#badgeQuest').textContent = 'Mini Quest — กำลังเริ่ม…';
         var miss=$('#badgeMiss'); miss.style.display='none'; miss.dataset.n='0';
 
-        // ซ่อนเมนู
         var menu=$('#menu'); if(menu) menu.style.display='none';
 
         var url = MAP[mode] || MAP.goodjunk;
@@ -237,9 +251,6 @@
             var m=$('#menu'); if(m) m.style.display='';
           });
       });
-
-      // เริ่มต้นยังไม่ auto-run โหมดใด (ให้ผู้เล่นกดจากเมนู)
-      // ถ้าต้องการ auto-run ทดสอบ: เรียก document.getElementById('startBtn').click();
     })();
   </script>
 </body>
