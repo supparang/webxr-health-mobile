@@ -5,59 +5,76 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- ✅ A-Frame core -->
+  <!-- แก้ 404 favicon -->
+  <link rel="icon" href="data:,">
+
+  <!-- A-Frame core -->
   <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
 
-  <!-- ✅ Patch: Ensure THREE is global for Troika & plugins -->
+  <!-- Patch รอ AFRAME.THREE แล้วค่อยผูกเป็น window.THREE จากนั้นค่อยโหลด troika -->
   <script>
-    window.addEventListener('DOMContentLoaded', function () {
-      try {
-        if (window.AFRAME && AFRAME.THREE) {
-          window.THREE = AFRAME.THREE;
-          if (!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
-          console.log('[Patch] THREE linked and MathUtils fallback applied.');
-        } else {
-          console.warn('[Patch] AFRAME.THREE not found');
-        }
-      } catch (err) {
-        console.error('[Patch] Failed to init THREE:', err);
+    (function(){
+      function injectTroika(){
+        if (document.getElementById('troika-js')) return;
+        var s = document.createElement('script');
+        s.id = 'troika-js';
+        s.src = "https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js";
+        document.head.appendChild(s);
       }
-    });
+      function linkTHREEAndLoadTroika(){
+        try{
+          if (window.AFRAME && AFRAME.THREE) {
+            // ผูก THREE global
+            window.THREE = AFRAME.THREE;
+            if (!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
+            console.log('[Patch] THREE linked from AFRAME');
+            injectTroika();
+            return true;
+          }
+        }catch(e){}
+        return false;
+      }
+      // พยายามทุก 50ms จนสำเร็จ (timeout 5s)
+      var tries = 0, timer = setInterval(function(){
+        if (linkTHREEAndLoadTroika()) { clearInterval(timer); }
+        else if ((tries+=1) > 100) { clearInterval(timer); console.warn('[Patch] AFRAME.THREE not found after 5s'); }
+      }, 50);
+
+      // เผื่อโหลดช้า—ลองอีกครั้งตอน window load
+      window.addEventListener('load', linkTHREEAndLoadTroika);
+    })();
   </script>
 
-  <!-- ✅ Troika Text -->
-  <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
-
   <style>
-    :root { --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
-    html,body {margin:0;height:100%;background:var(--bg);color:var(--fg);
+    :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
-    a-scene {width:100%;height:100%;}
-    .hud-chip {position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
+    a-scene{width:100%;height:100%;}
+    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
       padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
     #badgeTime{left:12px;top:12px}
     #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
-    #log {position:fixed;left:8px;bottom:8px;z-index:900;background:#1e293b66;
-      border:1px solid #475569;border-radius:10px;padding:4px 10px;font-size:14px;color:#e2e8f0;}
+    #log{position:fixed;left:8px;bottom:8px;z-index:900;background:#1e293b66;border:1px solid #475569;
+      border-radius:10px;padding:4px 10px;font-size:14px;color:#e2e8f0}
 
     .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;bottom:12px !important;z-index:1000 !important}
     #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;color:#fff;
       padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
     .xr-supported #vrBtn{display:none}
 
-    .fever-on { box-shadow: inset 0 0 0 4px #ffd16655; animation: feverPulse .9s ease-in-out infinite alternate; }
-    @keyframes feverPulse { from { filter:none } to { filter: drop-shadow(0 0 12px #ffd166) } }
+    .fever-on{ box-shadow: inset 0 0 0 4px #ffd16655; animation: feverPulse .9s ease-in-out infinite alternate; }
+    @keyframes feverPulse{ from{ filter:none } to{ filter: drop-shadow(0 0 12px #ffd166) } }
   </style>
 </head>
 <body>
 
   <!-- HUD -->
-  <div id="badgeTime" class="hud-chip">เวลา: 60s</div>
+  <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
-  <div id="badgeMiss" class="hud-chip">พลาด: 0 ครั้ง</div>
+  <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
   <div id="log">log: --</div>
 
   <!-- A-Frame scene -->
@@ -81,19 +98,17 @@
   <button id="vrBtn" title="Enter VR">VR</button>
 
   <script>
-    // ป้องกันสกอลล์หน้าจอ
+    // กันลากหน้า
     document.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
 
-    // ตรวจ XR เพื่อซ่อนปุ่ม VR ถ้ารองรับในเบราว์เซอร์
+    // ตรวจ XR เพื่อซ่อนปุ่ม VR ถ้ารองรับ
     (function(){
       const set = flag => document.body.classList.add(flag ? 'xr-supported' : 'xr-unsupported');
-      try {
+      try{
         if (navigator.xr && navigator.xr.isSessionSupported)
-          navigator.xr.isSessionSupported('immersive-vr')
-            .then(ok => set(!!ok))
-            .catch(() => set(false));
+          navigator.xr.isSessionSupported('immersive-vr').then(ok=>set(!!ok)).catch(()=>set(false));
         else set(false);
-      } catch { set(false); }
+      }catch{ set(false); }
     })();
 
     // ปุ่ม VR
@@ -115,47 +130,57 @@
         plate:'./modes/plate.quest.js'
       };
 
-      // HUD event updates
+      // HUD listeners
       window.addEventListener('hha:score', e=>{
         const d=e.detail||{};
         $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
       });
       window.addEventListener('hha:time', e=>{
-        const t=Math.max(0,Math.round(e.detail?.sec||0));
+        const t=Math.max(0,Math.round((e.detail&&e.detail.sec)||0));
         $('#badgeTime').textContent=`เวลา: ${t}s`;
       });
       window.addEventListener('hha:quest', e=>{
-        $('#badgeQuest').textContent=e.detail?.text||'Mini Quest';
+        $('#badgeQuest').textContent=(e.detail&&e.detail.text)||'Mini Quest';
       });
       window.addEventListener('hha:miss', e=>{
         const el=$('#badgeMiss'); el.style.display='';
-        const n=e.detail?.count ?? (parseInt(el.dataset.n||'0',10)+1);
+        const n=(e.detail&&e.detail.count)!=null?e.detail.count:(parseInt(el.dataset.n||'0',10)+1);
         el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
       });
       window.addEventListener('hha:fever', e=>{
-        const st=e.detail?.state||'end';
+        const st=(e.detail&&e.detail.state)||'end';
         document.body.classList.toggle('fever-on', st==='start');
       });
-      window.addEventListener('hha:end', ()=> log('Game Ended'));
 
-      // เริ่มโหลด goodjunk โดยตรง (ทดสอบ)
       function start(){
         log('Loading goodjunk...');
         import(MAP.goodjunk+'?v='+Date.now())
           .then(mod=>{
-            if(!mod.boot) throw new Error('no boot()');
+            if(!mod || !mod.boot) throw new Error('no boot()');
             log('goodjunk running');
             return mod.boot({host:$('#spawnHost'),difficulty:'normal',duration:60});
           })
           .catch(err=>{
-            alert('โหลดโหมดไม่สำเร็จ: '+(err.message||err));
+            alert('โหลดโหมดไม่สำเร็จ: '+(err && err.message?err.message:err));
             console.error(err);
           });
       }
 
+      // เริ่มหลัง scene พร้อม และหลัง troika โหลด (ถ้าใช้ troika)
+      function whenTroikaReady(cb){
+        // ถ้าไม่ได้ใช้ troika ในโหมด ก็เริ่มได้ทันที
+        if (window.TroikaText) return cb();
+        // ถ้า script troika ยังมาไม่ถึง ให้รอสักครู่ แต่ไม่บังคับ
+        let waited=0, iv=setInterval(function(){
+          waited += 50;
+          if (window.TroikaText || waited>1500){ clearInterval(iv); cb(); }
+        },50);
+      }
+
       const scene=$('#scene');
-      if(scene && scene.hasLoaded) start();
-      else if(scene) scene.addEventListener('loaded', ()=>setTimeout(start,150), {once:true});
+      if (scene && scene.hasLoaded) whenTroikaReady(start);
+      else if (scene) scene.addEventListener('loaded', ()=>whenTroikaReady(start), {once:true});
+      else whenTroikaReady(start);
     })();
   </script>
 </body>
