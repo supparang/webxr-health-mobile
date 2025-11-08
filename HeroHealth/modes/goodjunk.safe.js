@@ -1,12 +1,20 @@
-// === Good vs Junk — SAFE + Shards + Fever (theme: goodjunk) ===
+// === Good vs Junk — SAFE + Shards + Fever + Powerups (star/diamond/shield) ===
 import { Particles } from '../vr/particles.js';
 
 let running=false, host=null, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0;
 let spawnTimer=null, timeTimer=null, remain=0;
+
 let FEVER=false, FEVER_COMBO_NEED=10;
+
+// Shield (กันโทษชั่วคราว)
+let shieldUntil=0;                 // ms timestamp ที่หมดอายุ
+const SHIELD_MS = 6000;            // อายุ shield ต่อครั้ง
 
 const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+
+// Powerups (สุ่มร่วมในการสแปว์น)
+const POWERUPS = ['⭐','💎','🛡️']; // star, diamond, shield
 
 // ── sprite (local, no global) ─────────────────────────────────────────────────
 const spriteLocal = (emo, px=160)=>{
@@ -23,6 +31,14 @@ const spriteLocal = (emo, px=160)=>{
 };
 
 function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})); }catch{} }
+function now(){ return (typeof performance!=='undefined' && performance.now)? performance.now(): Date.now(); }
+function hasShield(){ return now() < shieldUntil; }
+function giveShield(ms=SHIELD_MS){
+  shieldUntil = Math.max(shieldUntil, now()) + ms;
+  emit('hha:quest',{text:'ได้เกราะป้องกัน! (Shield)'}); // ใช้ HUD แสดงสั้นๆ
+  emit('hha:powerup',{type:'shield', until:shieldUntil});
+}
+
 function popupText(txt, x, y, color){
   const t=document.createElement('a-entity');
   t.setAttribute('troika-text',`value: ${txt}; color: ${color||'#fff'}; fontSize:0.09;`);
@@ -42,14 +58,31 @@ function feverEnd(){
   emit('hha:fever',{state:'end',level:0,active:false});
 }
 
+function handlePenalty(px,py,pz,{miss=true, loseCombo=true, scoreLoss=15, text='-'+(15)}){
+  // ถ้ามี shield → กันโทษ (ไม่ลดคอมโบ/คะแนน/ไม่เพิ่ม miss)
+  if(hasShield()){
+    Particles.burstShards(host, {x:px,y:py,z:pz}, {theme:'goodjunk', kind:'shield'});
+    popupText('Shield!', px, py, '#c7f9cc');
+    return;
+  }
+  if(loseCombo) combo=0;
+  if(miss){ misses++; emit('hha:miss',{count:misses}); }
+  score=Math.max(0, score - scoreLoss);
+  Particles.burstShards(host, {x:px,y:py,z:pz}, {theme:'goodjunk', kind:'bad'});
+  popupText(text, px, py, '#ffb4b4');
+  emit('hha:score',{score,combo});
+}
+
 // ── target factory ────────────────────────────────────────────────────────────
-function makeTarget(emoji, isGood, diff){
+function makeTarget(emoji, kind, diff){
+  // kind: 'good' | 'junk' | 'star' | 'diamond' | 'shield'
   const root=document.createElement('a-entity');
 
   const img=document.createElement('a-image');
   img.setAttribute('src', spriteLocal(emoji,192));
-  const px = (Math.random()*1.6 - 0.8);
-  const py = (Math.random()*0.7 + 0.6);      // ล่าง-กลางจอ
+  // ปรับให้อยู่กลางจอมากขึ้น
+  const px = (Math.random()*1.2 - 0.6);
+  const py = (Math.random()*0.5 + 0.55);
   const pz = -1.2;
   img.setAttribute('position', `${px} ${py} ${pz}`);
   img.setAttribute('width', 0.42);
@@ -57,69 +90,101 @@ function makeTarget(emoji, isGood, diff){
   img.classList.add('clickable');
   root.appendChild(img);
 
+  // Glow สีแตกต่างตามชนิด
   const glow=document.createElement('a-plane');
   glow.setAttribute('width',0.48); glow.setAttribute('height',0.48);
-  glow.setAttribute('material',`color:${isGood?'#22c55e':'#ef4444'}; opacity:0.22; transparent:true`);
+  const glowColor = (kind==='good')   ? '#22c55e'
+                    : (kind==='junk') ? '#ef4444'
+                    : (kind==='star') ? '#fde047'
+                    : (kind==='diamond') ? '#60a5fa'
+                    : '#a7f3d0'; // shield
+  glow.setAttribute('material',`color:${glowColor}; opacity:0.22; transparent:true`);
   glow.setAttribute('position','0 0 -0.01');
   root.appendChild(glow);
 
   const destroy=()=>{ try{ root.remove(); }catch{} };
 
   let clicked=false;
-  const hit=()=>{
+  function onHit(){
     if(clicked||!running) return; clicked=true;
     destroy();
 
-    if(isGood){
+    if(kind==='good'){
       const base = 20 + combo*2;
-      const plus = FEVER ? base*2 : base; // x2 ใน fever
+      const plus = FEVER ? base*2 : base;
       score += plus;
-      combo += 1; maxCombo=Math.max(maxCombo,combo); hits++;
-      if(!FEVER && combo>=FEVER_COMBO_NEED) feverStart();
-
-      Particles.burstShards(host, {x:px,y:py,z:pz}, {theme:'goodjunk'});
+      combo += 1; if(combo>maxCombo) maxCombo = combo; hits++;
+      if(!FEVER && combo >= FEVER_COMBO_NEED) feverStart();
+      Particles.burstShards(host, {x:px,y:py,z:pz}, {theme:'goodjunk', kind:'good'});
       popupText('+'+plus, px, py, '#eaffff');
       emit('hha:score',{score,combo});
-    }else{
-      // เลี่ยงขยะ = ไม่คลิกจนหมดอายุ → จะไม่หัก ที่นี่ถือว่า “โทษ” เฉพาะกรณีกดโดน
-      combo=0;
-      score=Math.max(0, score-15);
-      misses++;
-      Particles.burstShards(host, {x:px,y:py,z:pz}, {theme:'goodjunk'});
-      popupText('-15', px, py, '#ffb4b4');
+    }else if(kind==='junk'){
+      handlePenalty(px,py,pz,{miss:true, loseCombo:true, scoreLoss:15, text:'-15'});
+    }else if(kind==='star'){
+      // โบนัส + เติม FEVER เล็กน้อย
+      const plus = 60;
+      score += plus; combo += 1; maxCombo = Math.max(maxCombo, combo); hits++;
+      Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'goodjunk', kind:'star'});
+      popupText('+STAR '+plus, px, py, '#fff3b0');
       emit('hha:score',{score,combo});
-      emit('hha:miss',{count:misses});
+      emit('hha:fever',{state:'change', level: Math.min(100, 40 + (FEVER?60:0)), active: FEVER});
+    }else if(kind==='diamond'){
+      const plus = 120;
+      score += plus; combo += 2; maxCombo = Math.max(maxCombo, combo); hits++;
+      Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'goodjunk', kind:'diamond'});
+      popupText('+DIAMOND '+plus, px, py, '#cfe8ff');
+      emit('hha:score',{score,combo});
+      // ถ้ายังไม่ Fever ให้สตาร์ตเลย (ของหายาก)
+      if(!FEVER) feverStart();
+    }else if(kind==='shield'){
+      Particles.burstShards(host,{x:px,y:py,z:pz},{theme:'goodjunk', kind:'shield'});
+      popupText('🛡️ SHIELD', px, py, '#c7f9cc');
+      giveShield();
     }
-  };
-  img.addEventListener('click',hit,{passive:false});
-  img.addEventListener('touchstart',hit,{passive:false});
+  }
 
-  // อายุเป้า
+  img.addEventListener('click', onHit, {passive:false});
+  img.addEventListener('touchstart', onHit, {passive:false});
+
+  // เวลาหมด = กฎ:
+  // - GOOD หมดอายุ → ถือว่า “พลาด” (ถ้าไม่มี shield)
+  // - JUNK/Powerups หมดอายุ → ไม่ลงโทษ
   let ttl=1600; if(diff==='easy') ttl=1900; else if(diff==='hard') ttl=1400;
-  setTimeout(()=>{
-    if(!root.parentNode||clicked||!running) return;
-    // หมดอายุ: ถ้าเป็น GOOD → โทษ, ถ้า JUNK → นับ “เลี่ยงขยะ” (ไม่โทษ)
+  setTimeout(function(){
+    if(!root.parentNode || clicked || !running) return;
     destroy(); spawns++;
-    if(isGood){ combo=0; score=Math.max(0,score-10); misses++; emit('hha:miss',{count:misses}); emit('hha:score',{score,combo}); }
-    // JUNK timeout → ถือว่าหลบได้, เพิ่มควิสต์ภายนอกได้จาก event นี้
-    emit('hha:quest',{text:'เลี่ยงขยะได้ดี!'});
+    if(kind==='good'){
+      handlePenalty(px,py,pz,{miss:true, loseCombo:true, scoreLoss:10, text:'-10'});
+    }
   }, ttl);
 
   return root;
 }
 
-// ── main loop ────────────────────────────────────────────────────────────────
 function spawnLoop(diff){
   if(!running) return;
-  const goodPick = Math.random() > 0.35;
-  const emoji = goodPick ? GOOD[(Math.random()*GOOD.length)|0]
-                         : JUNK[(Math.random()*JUNK.length)|0];
-  host.appendChild(makeTarget(emoji, goodPick, diff));
+  // สุ่มประเภท: powerup ~10%, junk ~30%, good ที่เหลือ
+  const r = Math.random();
+  let kind, emoji;
+  if(r < 0.10){
+    kind = 'powerup';
+    const p = POWERUPS[(Math.random()*POWERUPS.length)|0];
+    emoji = p;
+    kind = (p==='⭐')?'star':(p==='💎')?'diamond':'shield';
+  }else if(r < 0.40){
+    kind = 'junk';
+    emoji = JUNK[(Math.random()*JUNK.length)|0];
+  }else{
+    kind = 'good';
+    emoji = GOOD[(Math.random()*GOOD.length)|0];
+  }
+
+  host.appendChild(makeTarget(emoji, kind, diff));
   spawns++;
 
   let gap=520; if(diff==='easy') gap=650; if(diff==='hard') gap=400;
   if(FEVER) gap=Math.max(300, Math.round(gap*0.85));
-  spawnTimer=setTimeout(()=>spawnLoop(diff), gap);
+  spawnTimer = setTimeout(function(){ spawnLoop(diff); }, gap);
 }
 
 export async function boot(cfg={}){
@@ -127,22 +192,20 @@ export async function boot(cfg={}){
   const diff = String(cfg.difficulty||'normal');
   remain = (+cfg.duration||60);
 
-  running=true; score=0; combo=0; maxCombo=0; misses=0; hits=0; spawns=0; FEVER=false;
+  running=true; score=0; combo=0; maxCombo=0; misses=0; hits=0; spawns=0; FEVER=false; shieldUntil=0;
   emit('hha:score',{score:0,combo:0});
-  emit('hha:quest',{text:'Mini Quest — เก็บของดีติดกัน '+FEVER_COMBO_NEED+' ชิ้น เพื่อเปิด FEVER!' });
+  emit('hha:quest',{text:'Mini Quest — เก็บของดีติดกัน '+FEVER_COMBO_NEED+' ชิ้น เพื่อเปิด FEVER! (⭐,💎,🛡️ ช่วยได้)'});
   emit('hha:fever',{state:'change', level:0, active:false});
   emit('hha:time',{sec:remain});
 
-  // timer
   clearInterval(timeTimer);
-  timeTimer=setInterval(()=>{
+  timeTimer=setInterval(function(){
     if(!running) return;
     remain--; if(remain<0) remain=0;
     emit('hha:time',{sec:remain});
     if(remain<=0){ endGame('timeout'); }
   },1000);
 
-  // start
   spawnLoop(diff);
 
   function endGame(reason='done'){
@@ -150,7 +213,6 @@ export async function boot(cfg={}){
     try{ clearTimeout(spawnTimer); }catch{}
     try{ clearInterval(timeTimer); }catch{}
     feverEnd();
-
     emit('hha:end',{
       reason, score, combo:maxCombo, misses, hits, spawns,
       duration:(+cfg.duration||60), title:'Good vs Junk', difficulty: diff,
