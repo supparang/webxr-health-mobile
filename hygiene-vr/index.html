@@ -1,383 +1,106 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Clean Zone: Hero's Hygiene Hub</title>
+<head>
+    <title>Hero Academy</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <style>
-      body { margin: 0; overflow: hidden; }
-      #instructions {
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        background-color: rgba(0, 0, 0, 0.7);
-        color: white; padding: 20px; border-radius: 10px;
-        text-align: center; font-family: sans-serif;
-        font-size: 1.2em; z-index: 1000;
-      }
-      .hud-display {
-        position: absolute;
-        background-color: rgba(0, 0, 0, 0.6);
-        color: white; padding: 10px; border-radius: 5px;
-        font-family: monospace; font-size: 1.5em; z-index: 1001;
-      }
-      #hero-power-bar {
-        position: absolute;
-        top: 20px; left: 50%; transform: translateX(-50%);
-        width: 300px; height: 30px;
-        background-color: gray; border-radius: 5px;
-        z-index: 1001;
-      }
-      #hero-power-fill {
-        height: 100%; width: 0%;
-        background-color: #4CAF50; border-radius: 5px;
-        transition: width 0.5s ease-out;
-      }
-      #hero-power-text {
-        position: absolute; top: 5px; left: 0; right: 0;
-        text-align: center; color: white; font-size: 0.8em;
-      }
-      #wash-prompt {
-        bottom: 20px; left: 50%;
-        transform: translateX(-50%);
-        display: none;
-        font-size: 1.2em;
-        animation: pulse 1.5s infinite;
-      }
-      @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-      }
-      .teleport-marker {
-        cursor: pointer;
-        font-size: 2em;
-        color: yellow;
-        text-shadow: 2px 2px 5px black;
-      }
-    </style>
-  </head>
-  <body>
-    
-<div id="instructions">
-      <h1>Clean Zone: Hero's Hygiene Hub</h1>
-      <p>
-        Welcome, Hero-in-Training! Complete hygiene missions to power up.<br>
-        <br>
-        <b>VR:</b> Use Hand Tracking to interact or gaze at markers to teleport.<br>
-        <b>PC/Mobile:</b> Click/Tap to interact or move.
-      </p>
-      <p>Press the VR button (if available) or start exploring!</p>
-    </div>
+    <script src="https://unpkg.com/aframe-link-control/dist/aframe-link-control.min.js"></script>
+</head>
+<body>
+    <a-scene hero-hub>
+        <a-assets>
+            <img id="floor" src="https://cdn.aframe.io/a-saturday-night/images/floor.jpg">
+            <img id="wall" src="https://cdn.glitch.global/027329ad-4573-41a3-b0ee-73591c28c614/wall_tiles.jpg?v=1678887467645">
+        </a-assets>
 
-    
-<div id="germ-count-display" class="hud-display" style="top: 80px; left: 20px;">Germs: 100</div>
-    <div id="timer-display" class="hud-display" style="top: 80px; right: 20px;">Time: 00:00</div>
-    <div id="wash-prompt" class="hud-display">Click/Tap and Hold to Wash!</div>
-
-    
-<div id="hero-power-bar">
-      <div id="hero-power-fill"></div>
-      <div id="hero-power-text">Hero Power: 0%</div>
-    </div>
-
-    <a-scene
-      renderer="colorManagement: true; antialias: true"
-      webxr="optionalFeatures: hand-tracking, local-floor;"
-    >
-      
-<a-entity
-        camera="active: true"
-        look-controls="pointerLockEnabled: false"
-        position="0 1.6 0"
-        wasd-controls="acceleration: 10"
-      >
-        <a-cursor
-          id="cursor"
-          raycaster="objects: .clickable, .teleport-marker"
-          fuse="false"
-        ></a-cursor>
-        
-<a-entity id="leftHand" hand-controls="hand: left; model: true"></a-entity>
-        <a-entity id="rightHand" hand-controls="hand: right; model: true"></a-entity>
-      </a-entity>
-
-      
-<a-assets>
-        <img id="floorTexture" src="https://cdn.aframe.io/a-saturday-night/images/floor.jpg">
-        <img id="wallTexture" src="https://cdn.glitch.global/027329ad-4573-41a3-b0ee-73591c28c614/wall_tiles.jpg?v=1678887467645">
-        <a-mixin id="teleport-base" class="teleport-marker" geometry="primitive: circle; radius: 0.3" material="color: yellow; opacity: 0.8" raycaster-listener></a-mixin>
-      </a-assets>
-
-      
-<a-entity id="clean-zone" position="0 0 0" class="room">
-        
-<a-plane width="10" height="10" rotation="-90 0 0" material="src: #floorTexture; repeat: 5 5"></a-plane>
-        <a-box width="10" height="4" depth="0.1" position="0 2 -5" material="src: #wallTexture; repeat: 2 1"></a-box>
-        <a-box width="10" height="4" depth="0.1" position="-5 2 0" rotation="0 90 0" material="src: #wallTexture; repeat: 2 1"></a-box>
-        <a-box width="10" height="4" depth="0.1" position="5 2 0" rotation="0 -90 0" material="src: #wallTexture; repeat: 2 1"></a-box>
-        
-<a-box width="10" height="4" depth="0.1" position="0 2 5" rotation="0 180 0" material="src: #wallTexture; repeat: 2 1"></a-box>
-        <a-box width="0.1" height="4" depth="10" position="-5 2 0" rotation="0 90 0" material="src: #wallTexture; repeat: 2 1"></a-box>
-
-        <a-entity id="handwash-zone" position="0 0 0">
-          <a-box width="1.2" height="0.8" depth="0.7" position="0 0.4 -4.5" color="#FFF"></a-box>
-          <a-cylinder radius="0.3" height="0.2" position="0 0.85 -4.5" color="#E0FFFF"></a-cylinder>
-          <a-cylinder radius="0.05" height="0.3" position="0 1.05 -4.5" color="#888"></a-cylinder>
-          <a-sphere radius="0.08" position="0 1.25 -4.5" color="#888"></a-sphere>
-
-          <a-box
-            id="soapBottle"
-            class="clickable"
-            width="0.15" height="0.3" depth="0.1"
-            position="0.5 0.95 -4.4"
-            color="#76B947"
-          >
-            <a-cylinder radius="0.05" height="0.08" position="0 0.19 0" color="#555"></a-cylinder>
-            <a-text value="SOAP" color="white" align="center" width="1" position="0 0 0.051"></a-text>
-          </a-box>
-          <a-entity id="germ-container" position="0 1.3 -4.3"></a-entity>
+        <a-entity
+            camera="active: true"
+            look-controls="pointerLockEnabled: false"
+            wasd-controls="acceleration: 10"
+            position="0 1.6 0">
+            <a-cursor
+                id="cursor"
+                raycaster="objects: .clickable"
+                fuse="false">
+            </a-cursor>
         </a-entity>
 
-        <a-entity id="bath-zone" position="4 0 0">
-          <a-box width="2" height="2" depth="1.5" position="0 1 -4.5" color="#E0FFFF" opacity="0.8"></a-box>
-          <a-cylinder radius="0.15" height="0.5" position="0 2.5 -5.2" color="#888"></a-cylinder>
-          <a-box width="0.4" height="0.4" depth="0.1" position="0 2.2 -5.2" color="#888"></a-box>
-          <a-text value="Bath Time" position="0 3 -4" align="center" color="#333" width="3"></a-text>
-          <a-text value="(Coming Soon!)" position="0 2.5 -4" align="center" color="#666" width="3"></a-text>
-        </a-entity>
+        <a-plane src="#floor" rotation="-90 0 0" width="20" height="20"></a-plane>
+        <a-box src="#wall" position="0 2.5 -10" width="20" height="5" depth="0.1"></a-box>
+        <a-box src="#wall" position="0 2.5 10" width="20" height="5" depth="0.1"></a-box>
+        <a-box src="#wall" position="-10 2.5 0" rotation="0 90 0" width="20" height="5" depth="0.1"></a-box>
+        <a-box src="#wall" position="10 2.5 0" rotation="0 90 0" width="20" height="5" depth="0.1"></a-box>
+        <a-sky color="#ECECEC"></a-sky>
 
-        <a-entity id="haircare-zone" position="-4 0 0">
-          <a-box width="1.5" height="1" depth="0.1" position="0 1.5 -4.5" color="#CCC"></a-box>
-          <a-box width="1.5" height="0.8" depth="0.7" position="0 0.4 -4.5" color="#FFF"></a-box>
-          <a-text value="Hair Care" position="0 3 -4" align="center" color="#333" width="3"></a-text>
-          <a-text value="(Coming Soon!)" position="0 2.5 -4" align="center" color="#666" width="3"></a-text>
-        </a-entity>
-        
-        <a-entity mixin="teleport-base" position="0 0.01 -3" raycaster-listener="target: #handwash-zone"></a-entity>
-        <a-entity mixin="teleport-base" position="4 0.01 -3" raycaster-listener="target: #bath-zone"></a-entity>
-        <a-entity mixin="teleport-base" position="-4 0.01 -3" raycaster-listener="target: #haircare-zone"></a-entity>
+        <a-text value="Hero Academy - Welcome!" position="-2 4 -9.8" color="#333" width="6"></a-text>
 
-      </a-entity>
+        <a-box id="clean-zone-portal" class="clickable" position="-6 1.6 -8" color="#4CAF50"
+            link="href: clean-zone.html; title: Go to Clean Zone; image: #">
+            <a-text value="🧼 Clean Zone" position="0 0 0.51" align="center"></a-text>
+            <a-sphere id="clean-status" radius="0.2" position="0 1 0.5" color="red"></a-sphere>
+        </a-box>
 
-      
-<a-light type="ambient" color="#BBB"></a-light>
-      <a-light type="directional" position="1 5 1" intensity="0.8" castShadow></a-light>
+        <a-box id="smile-zone-portal" class="clickable" position="-3 1.6 -8" color="#03A9F4"
+            link="href: smile-zone.html; title: Go to Smile Zone; image: #">
+            <a-text value="🦷 Smile Zone" position="0 0 0.51" align="center"></a-text>
+            <a-sphere id="smile-status" radius="0.2" position="0 1 0.5" color="red"></a-sphere>
+        </a-box>
+
+        <a-box id="eat-zone-portal" class="clickable" position="0 1.6 -8" color="#FF9800"
+            link="href: eat-zone.html; title: Go to Eat Zone; image: #">
+            <a-text value="🍽️ Eat Zone" position="0 0 0.51" align="center"></a-text>
+            <a-sphere id="eat-status" radius="0.2" position="0 1 0.5" color="red"></a-sphere>
+        </a-box>
+
+        <a-box id="safe-zone-portal" class="clickable" position="3 1.6 -8" color="#F44336"
+            link="href: safe-zone.html; title: Go to Safe Zone; image: #">
+            <a-text value="😷 Safe Zone" position="0 0 0.51" align="center"></a-text>
+            <a-sphere id="safe-status" radius="0.2" position="0 1 0.5" color="red"></a-sphere>
+        </a-box>
+
+        <a-box id="dress-zone-portal" class="clickable" position="6 1.6 -8" color="#9C27B0"
+            link="href: dress-zone.html; title: Go to Dress Zone; image: #">
+            <a-text value="🧍‍♂️ Dress Zone" position="0 0 0.51" align="center"></a-text>
+            <a-sphere id="dress-status" radius="0.2" position="0 1 0.5" color="red"></a-sphere>
+        </a-box>
+
+        <a-cylinder id="exam-zone" position="0 1.6 8" radius="1.5" height="0.2" color="#FFD700" visible="false">
+            <a-text value="FINAL EXAM" position="0 0.5 0" align="center" color="#000"></a-text>
+            <a-entity id="medal" position="0 1 0"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear;">
+                <a-octahedron radius="0.3" color="gold"></a-octahedron>
+            </a-entity>
+        </a-cylinder>
     </a-scene>
 
     <script>
-      AFRAME.registerComponent('raycaster-listener', {
+    AFRAME.registerComponent('hero-hub', {
         init: function () {
-          this.el.addEventListener('raycaster-intersected', (evt) => {
-            this.raycaster = evt.detail.el;
-          });
-          this.el.addEventListener('raycaster-intersected-cleared', (evt) => {
-            this.raycaster = null;
-          });
-
-          this.el.addEventListener('click', () => {
-            if (this.raycaster) {
-              const cameraEl = document.querySelector('[camera]');
-              const targetPosition = this.el.getAttribute('position');
-              cameraEl.setAttribute('position', { x: targetPosition.x, y: 1.6, z: targetPosition.z + 1.5 }); // Teleport in front of the marker
-              console.log('Teleported to:', targetPosition);
-            }
-          });
-        }
-      });
-
-      AFRAME.registerComponent('hero-hygiene-hub', {
-        schema: {
-          germCount: { type: 'int', default: 100 },
-          cleanSpeed: { type: 'number', default: 20 },
-          missionPower: { type: 'number', default: 33.33 } // Power gained per mission
+            this.checkMissionStatus();
         },
-        init: function () {
-          this.germs = [];
-          this.initialGermCount = this.data.germCount;
-          this.leftHand = document.getElementById('leftHand');
-          this.rightHand = document.getElementById('rightHand');
-          this.soapBottle = document.getElementById('soapBottle');
-          this.germContainer = document.getElementById('germ-container');
-          this.cursor = document.getElementById('cursor');
-          
-          this.hasSoap = false;
-          this.rubbingHandsNonVR = false; 
-          this.gameTimer = 0;
-          this.totalHeroPower = 0;
-          this.missionsCompleted = { cleanHands: false, bathTime: false, hairCare: false };
+        checkMissionStatus: function () {
+            const missions = ['clean', 'smile', 'eat', 'safe', 'dress'];
+            let allComplete = true;
 
-          this.germCountDisplay = document.getElementById('germ-count-display');
-          this.timerDisplay = document.getElementById('timer-display');
-          this.instructions = document.getElementById('instructions');
-          this.washPrompt = document.getElementById('wash-prompt');
-          this.heroPowerFill = document.getElementById('hero-power-fill');
-          this.heroPowerText = document.getElementById('hero-power-text');
-
-          this.el.sceneEl.addEventListener('enter-vr', this.onEnterVR.bind(this));
-          this.el.sceneEl.addEventListener('exit-vr', this.onExitVR.bind(this));
-
-          this.spawnGerms(); // For Clean Hands Mission
-
-          this.onTick = AFRAME.utils.throttleTick(this.onTick, 100, this);
-
-          // --- Event Listeners สำหรับ PC/Mobile ---
-          this.soapBottle.addEventListener('click', this.getSoap.bind(this));
-          
-          const sceneEl = this.el.sceneEl;
-          sceneEl.addEventListener('mousedown', () => { this.rubbingHandsNonVR = true; });
-          sceneEl.addEventListener('mouseup', () => { this.rubbingHandsNonVR = false; });
-          sceneEl.addEventListener('touchstart', (evt) => { 
-            // Only trigger on main touch, not for multiple touches for movement
-            if (evt.touches.length === 1) { this.rubbingHandsNonVR = true; } 
-          });
-          sceneEl.addEventListener('touchend', () => { this.rubbingHandsNonVR = false; });
-
-          this.updateHeroPowerDisplay();
-        },
-
-        onEnterVR: function () {
-          if (this.instructions) { this.instructions.style.display = 'none'; }
-          this.cursor.setAttribute('visible', false); 
-        },
-        onExitVR: function () {
-          this.cursor.setAttribute('visible', true); 
-        },
-
-        getSoap: function () {
-          if (this.hasSoap) return;
-          this.hasSoap = true;
-          console.log('Got soap!');
-          this.soapBottle.setAttribute('visible', false);
-          this.washPrompt.style.display = 'block'; 
-          this.addFoamEffect(this.germContainer); 
-        },
-
-        spawnGerms: function () {
-          for (let i = 0; i < this.data.germCount; i++) {
-            const germ = document.createElement('a-sphere');
-            germ.setAttribute('radius', Math.random() * 0.01 + 0.005);
-            germ.setAttribute('color', `#${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0')}`);
-            germ.setAttribute('position', {
-              x: (Math.random() - 0.5) * this.data.spreadRadius,
-              y: (Math.random() - 0.5) * this.data.spreadRadius,
-              z: (Math.random() - 0.5) * this.data.spreadRadius
+            missions.forEach(mission => {
+                const status = localStorage.getItem(`mission_${mission}`);
+                const statusEl = document.getElementById(`${mission}-status`);
+                
+                if (status === 'complete') {
+                    if (statusEl) statusEl.setAttribute('color', 'green');
+                } else {
+                    if (statusEl) statusEl.setAttribute('color', 'red');
+                    allComplete = false; // ถ้ามีภารกิจใดยังไม่เสร็จ
+                }
             });
-            germ.setAttribute('class', 'germ');
-            this.germContainer.appendChild(germ);
-            this.germs.push(germ);
-          }
-          this.updateGermCountDisplay();
-        },
 
-        onTick: function (time, delta) {
-          this.gameTimer = time / 1000;
-          this.updateGameTimer(this.gameTimer);
-
-          let isWashing = false;
-          
-          if (this.el.sceneEl.is('vr-mode')) {
-            const leftHandPos = this.leftHand.object3D.position;
-            const rightHandPos = this.rightHand.object3D.position;
-            
-            const handsTracked = leftHandPos.length() > 0.1 && rightHandPos.length() > 0.1;
-
-            if (!this.hasSoap && handsTracked) {
-              const soapPos = this.soapBottle.object3D.position;
-              if (leftHandPos.distanceTo(soapPos) < 0.2 || rightHandPos.distanceTo(soapPos) < 0.2) {
-                this.getSoap();
-              }
+            // ตรวจสอบว่าทุกภารกิจเสร็จสิ้นหรือไม่
+            if (allComplete) {
+                const examZone = document.getElementById('exam-zone');
+                if (examZone) examZone.setAttribute('visible', 'true');
+                alert("ยินดีด้วย, ฮีโร่! คุณทำทุกภารกิจสำเร็จแล้ว! ไปรับเหรียญ Clean Medal ที่แท่นสีทองได้เลย!");
             }
-
-            if (this.hasSoap && handsTracked) {
-              const handDistance = leftHandPos.distanceTo(rightHandPos);
-              if (handDistance < 0.25) { 
-                isWashing = true;
-              }
-            }
-
-          } else {
-            if (this.hasSoap && this.rubbingHandsNonVR) {
-              isWashing = true;
-            }
-          }
-          
-          if (isWashing && !this.missionsCompleted.cleanHands) { // ล้างมือก็ต่อเมื่อยังไม่จบภารกิจนี้
-            this.cleanGerms(this.data.cleanSpeed * (delta / 1000)); 
-          }
-          
-          if (this.germs.length === 0 && this.initialGermCount > 0 && !this.missionsCompleted.cleanHands) {
-              this.completeMission('cleanHands');
-          }
-        },
-
-        cleanGerms: function (amount) {
-          let cleanedCount = Math.ceil(amount);
-          for (let i = 0; i < cleanedCount && this.germs.length > 0; i++) {
-            const germ = this.germs.pop();
-            if (germ.parentNode) {
-              germ.parentNode.removeChild(germ);
-            }
-          }
-          this.updateGermCountDisplay();
-        },
-
-        updateGermCountDisplay: function() {
-          if (this.germCountDisplay) {
-            this.germCountDisplay.textContent = `Germs: ${this.germs.length}`;
-          }
-        },
-
-        updateGameTimer: function(timeInSeconds) {
-          if (this.timerDisplay) {
-            const minutes = Math.floor(timeInSeconds / 60);
-            const seconds = Math.floor(timeInSeconds % 60);
-            this.timerDisplay.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-          }
-        },
-
-        addFoamEffect: function(container) {
-          for (let i = 0; i < 50; i++) {
-            const foamParticle = document.createElement('a-sphere');
-            foamParticle.setAttribute('radius', Math.random() * 0.03 + 0.01);
-            foamParticle.setAttribute('color', 'white');
-            foamParticle.setAttribute('opacity', 0.6);
-            foamParticle.setAttribute('position', {
-              x: (Math.random() - 0.5) * this.data.spreadRadius * 1.5,
-              y: (Math.random() - 0.5) * this.data.spreadRadius * 1.5,
-              z: (Math.random() - 0.5) * this.data.spreadRadius * 1.5
-            });
-            foamParticle.setAttribute('class', 'foam-particle');
-            container.appendChild(foamParticle);
-          }
-        },
-
-        completeMission: function(missionName) {
-            if (this.missionsCompleted[missionName]) return; // ป้องกันการทำภารกิจซ้ำ
-
-            this.missionsCompleted[missionName] = true;
-            this.totalHeroPower += this.data.missionPower;
-            if (this.totalHeroPower > 100) this.totalHeroPower = 100;
-
-            this.updateHeroPowerDisplay();
-            this.washPrompt.style.display = 'none'; // ซ่อนข้อความล้างมือ
-
-            let message = `Mission "${missionName.replace(/([A-Z])/g, ' $1').trim()}" Complete!`;
-            console.log(message);
-            alert(message); // แสดงข้อความภารกิจเสร็จสิ้น
-
-            if (this.totalHeroPower >= 100) {
-                alert("Congratulations, Hero! You've powered up and are ready for adventure!");
-                location.reload(); // เริ่มเกมใหม่
-            }
-        },
-
-        updateHeroPowerDisplay: function() {
-          this.heroPowerFill.style.width = `${this.totalHeroPower}%`;
-          this.heroPowerText.textContent = `Hero Power: ${Math.round(this.totalHeroPower)}%`;
         }
-      });
-
-      document.querySelector('a-scene').setAttribute('hero-hygiene-hub', '');
+    });
     </script>
-  </body>
+</body>
 </html>
