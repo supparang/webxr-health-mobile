@@ -1,79 +1,375 @@
-<!doctype html>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Germ Hunter: WebXR Edition</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/donmccurdy/aframe-physics-system@v5.0.1/dist/aframe-physics-system.min.js"></script>
 
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+      }
+      #instructions {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        font-family: sans-serif;
+        font-size: 1.2em;
+        z-index: 1000;
+      }
+      #germ-count-display {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 1.5em;
+        z-index: 1001;
+      }
+      #timer-display {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 1.5em;
+        z-index: 1001;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="instructions">
+      <h1>Germ Hunter: WebXR Edition</h1>
+      <p>
+        Use your VR headset with Hand Tracking enabled.<br />
+        To play, grab the soap and simulate washing your hands.<br />
+        Germs will disappear as you rub your hands together!
+      </p>
+      <p>Press the VR button below to start!</p>
+    </div>
 
-<section class="card">
-<h3>โหมด Hub</h3>
-<div class="row">
-<button id="mode2d" class="pill on">2D Menu</button>
-<button id="mode3d" class="pill">3D VR</button>
-</div>
-<p class="small">Desktop/Mobile แนะนำ 2D, อุปกรณ์ VR ใช้ 3D Portal</p>
-</section>
+    <div id="germ-count-display">Germs: 100</div>
+    <div id="timer-display">Time: 00:00</div>
 
+    <a-scene
+      physics="gravity: -9.8; debug: false"
+      renderer="colorManagement: true; antialias: true"
+      webxr="optionalFeatures: hand-tracking, local-floor;"
+    >
+      <a-entity
+        camera="active: true"
+        look-controls
+        wasd-controls="acceleration: 20"
+      >
+        <a-entity id="leftHand" hand-controls="hand: left; model: true"></a-entity>
+        <a-entity
+          id="rightHand"
+          hand-controls="hand: right; model: true"
+        ></a-entity>
+      </a-entity>
 
-<section class="card">
-<h3>สรุปความก้าวหน้า</h3>
-<div id="summary"></div>
-</section>
-</aside>
+      <a-entity
+        id="bathroom-scene"
+        position="0 0 0"
+        rotation="0 0 0"
+      >
+        <a-plane
+          static-body
+          width="10"
+          height="10"
+          rotation="-90 0 0"
+          color="#EEE"
+          material="src: url(https://cdn.aframe.io/a-saturday-night/images/floor.jpg); repeat: 5 5;"
+          shadow="receive: true"
+        ></a-plane>
 
+        <a-box
+          static-body
+          width="10"
+          height="4"
+          depth="0.1"
+          position="0 2 -5"
+          color="#ADD8E6"
+          shadow
+        ></a-box>
+        <a-box
+          static-body
+          width="10"
+          height="4"
+          depth="0.1"
+          position="-5 2 0"
+          rotation="0 90 0"
+          color="#ADD8E6"
+          shadow
+        ></a-box>
+        <a-box
+          static-body
+          width="10"
+          height="4"
+          depth="0.1"
+          position="5 2 0"
+          rotation="0 -90 0"
+          color="#ADD8E6"
+          shadow
+        ></a-box>
 
-<section class="content">
-<!-- 2D MENU (default) -->
-<div id="menu2d" class="menu2d">
-<template id="zoneTpl">
-<div class="zone">
-<div class="zone-head">
-<h2 class="zone-title"></h2>
-<div class="zone-meta small"></div>
-</div>
-<div class="grid" data-zone-grid></div>
-</div>
-</template>
+        <a-box
+          static-body
+          width="1.2"
+          height="0.8"
+          depth="0.7"
+          position="0 0.4 -4.5"
+          color="#FFF"
+          shadow
+        ></a-box>
+        <a-cylinder
+          static-body
+          radius="0.3"
+          height="0.2"
+          position="0 0.85 -4.5"
+          color="#E0FFFF"
+          shadow
+        ></a-cylinder>
+        <a-cylinder
+          radius="0.05"
+          height="0.3"
+          position="0 1.05 -4.5"
+          color="#888"
+        ></a-cylinder>
+        <a-sphere
+          radius="0.08"
+          position="0 1.25 -4.5"
+          color="#888"
+        ></a-sphere>
 
+        <a-box
+          id="soapBottle"
+          class="clickable"
+          grabbable
+          dynamic-body
+          width="0.15"
+          height="0.3"
+          depth="0.1"
+          position="0.5 0.95 -4.4"
+          color="#76B947"
+          shadow
+        >
+          <a-cylinder
+            radius="0.05"
+            height="0.08"
+            position="0 0.19 0"
+            color="#555"
+          ></a-cylinder>
+          <a-text
+            value="SOAP"
+            color="white"
+            align="center"
+            width="1"
+            position="0 0 0.051"
+            rotation="0 0 0"
+          ></a-text>
+        </a-box>
 
-<template id="gameCardTpl">
-<button class="game">
-<div class="game-ico" data-ico>🎮</div>
-<div class="game-body">
-<div class="game-title" data-title>Game</div>
-<div class="game-desc small" data-desc></div>
-<div class="game-meta small" data-meta></div>
-</div>
-</button>
-</template>
+        <a-entity id="germ-container" position="0 0 0"></a-entity>
+      </a-entity>
 
+      <a-light type="ambient" color="#BBB"></a-light>
+      <a-light
+        type="directional"
+        position="1 5 1"
+        intensity="0.8"
+        castShadow
+      ></a-light>
+    </a-scene>
 
-<div id="zones"></div>
-</div>
+    <script>
+      AFRAME.registerComponent('grabbable', {
+        init: function () {
+          this.el.addEventListener('hand-start-fuse', (evt) => {
+            // Placeholder for grabbing logic with hand tracking
+            console.log('Hand is trying to grab:', this.el.id);
+            // In a full implementation, you'd attach the object to the hand here.
+            // For this demo, we'll just simulate soap being "used" on proximity.
+          });
+        }
+      });
 
+      AFRAME.registerComponent('germ-spawner', {
+        schema: {
+          count: { type: 'int', default: 100 },
+          spreadRadius: { type: 'number', default: 0.2 },
+          cleanSpeed: { type: 'number', default: 0.1 } // Germs removed per second when hands rub
+        },
+        init: function () {
+          this.germs = [];
+          this.initialGermCount = this.data.count;
+          this.leftHand = document.getElementById('leftHand');
+          this.rightHand = document.getElementById('rightHand');
+          this.soapBottle = document.getElementById('soapBottle');
+          this.hasSoap = false;
+          this.rubbingHands = false;
+          this.handRubTimer = 0;
+          this.gameTimer = 0;
+          this.germCountDisplay = document.getElementById('germ-count-display');
+          this.timerDisplay = document.getElementById('timer-display');
+          this.instructions = document.getElementById('instructions');
 
-<!-- 3D PORTAL (A‑Frame) -->
-<div id="menu3d" class="menu3d hidden">
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<a-scene renderer="antialias: true" background="color: #eef7ff">
-<a-entity position="0 1.6 0">
-<a-camera wasd-controls-enabled="true" look-controls="true">
-<a-cursor></a-cursor>
-</a-camera>
-</a-entity>
+          // Hide instructions when VR is entered
+          this.el.sceneEl.addEventListener('enter-vr', () => {
+            if (this.instructions) {
+              this.instructions.style.display = 'none';
+            }
+          });
 
+          // Spawn initial germs around the hands' general area (simulate dirty hands)
+          this.spawnGerms();
 
-<!-- Ground -->
-<a-plane color="#dff0ff" rotation="-90 0 0" width="30" height="30"></a-plane>
-<a-entity position="0 0 -3">
-<a-text value="Hero Academy" align="center" color="#333" position="0 2.2 0" width="6"></a-text>
-</a-entity>
+          // Listen for hand tracking data to simulate "grabbing" soap and "rubbing" hands
+          this.el.sceneEl.addEventListener('tick', this.onTick.bind(this));
+        },
 
+        spawnGerms: function () {
+          const germContainer = document.getElementById('germ-container');
+          for (let i = 0; i < this.data.count; i++) {
+            const germ = document.createElement('a-sphere');
+            germ.setAttribute('radius', Math.random() * 0.01 + 0.005); // Small varying size
+            germ.setAttribute('color', `#${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0')}`);
+            germ.setAttribute('position', {
+              x: (Math.random() - 0.5) * this.data.spreadRadius,
+              y: 1 + (Math.random() - 0.5) * this.data.spreadRadius, // Around hand height
+              z: -4.3 + (Math.random() - 0.5) * this.data.spreadRadius
+            });
+            germ.setAttribute('class', 'germ');
+            germ.setAttribute('visible', true); // Ensure they are visible
+            germContainer.appendChild(germ);
+            this.germs.push(germ);
+          }
+          this.updateGermCountDisplay();
+        },
 
-<!-- Portals generated by hub.js from ZONES config -->
-<a-entity id="portalHost"></a-entity>
-</a-scene>
-</div>
-</section>
-</main>
+        onTick: function (evt) {
+          if (!this.el.sceneEl.is('vr-mode')) {
+            // Don't update game logic if not in VR, only update timer for desktop
+             this.updateGameTimer(evt.detail.time / 1000);
+            return;
+          }
+          
+          this.gameTimer = evt.detail.time / 1000;
+          this.updateGameTimer(this.gameTimer);
 
+          // Check if hands are close to soap bottle
+          const soapPos = this.soapBottle.object3D.position;
+          const leftHandPos = this.leftHand.object3D.position;
+          const rightHandPos = this.rightHand.object3D.position;
 
-<footer class="foot small">v1 • Free‑order Missions • Local Profile • © Hygiene World</footer>
-</body>
+          if (!this.hasSoap) {
+            // Check if either hand is near the soap bottle
+            if (leftHandPos.distanceTo(soapPos) < 0.2 || rightHandPos.distanceTo(soapPos) < 0.2) {
+              this.hasSoap = true;
+              console.log('Got soap!');
+              // Temporarily make soap bottle invisible to simulate "using" it
+              this.soapBottle.setAttribute('visible', false);
+              // Visual feedback: add a simple "foam" effect around hands
+              this.addFoamEffect(this.leftHand);
+              this.addFoamEffect(this.rightHand);
+            }
+          }
+
+          if (this.hasSoap) {
+            // Check if hands are rubbing together
+            const handDistance = leftHandPos.distanceTo(rightHandPos);
+            if (handDistance < 0.25) { // Threshold for hands being "rubbing"
+              if (!this.rubbingHands) {
+                this.rubbingHands = true;
+                console.log('Hands rubbing!');
+              }
+              this.handRubTimer += evt.detail.delta / 1000; // Time in seconds
+              this.cleanGerms(this.data.cleanSpeed * (evt.detail.delta / 1000)); // Clean based on elapsed time
+
+              // Optional: change color of germs slightly or make them pulsate faster
+            } else {
+              if (this.rubbingHands) {
+                this.rubbingHands = false;
+                console.log('Hands stopped rubbing.');
+              }
+            }
+          }
+
+          if (this.germs.length === 0) {
+              this.endGame();
+          }
+        },
+
+        cleanGerms: function (amount) {
+          let cleanedCount = 0;
+          for (let i = 0; i < this.germs.length; i++) {
+            if (cleanedCount >= amount) break;
+            if (this.germs[i].getAttribute('visible')) {
+                this.germs[i].setAttribute('visible', false); // Make germ disappear
+                cleanedCount++;
+            }
+          }
+          this.germs = this.germs.filter(germ => germ.getAttribute('visible')); // Remove invisible germs from array
+          this.updateGermCountDisplay();
+        },
+
+        updateGermCountDisplay: function() {
+            if (this.germCountDisplay) {
+                this.germCountDisplay.textContent = `Germs: ${this.germs.length}`;
+            }
+        },
+
+        updateGameTimer: function(timeInSeconds) {
+            if (this.timerDisplay) {
+                const minutes = Math.floor(timeInSeconds / 60);
+                const seconds = Math.floor(timeInSeconds % 60);
+                this.timerDisplay.textContent = `Time: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        },
+
+        addFoamEffect: function(handEntity) {
+            // Simple visual foam effect: add some white spheres around the hand
+            for (let i = 0; i < 10; i++) {
+                const foamParticle = document.createElement('a-sphere');
+                foamParticle.setAttribute('radius', Math.random() * 0.03 + 0.01);
+                foamParticle.setAttribute('color', 'white');
+                foamParticle.setAttribute('opacity', 0.6);
+                foamParticle.setAttribute('position', {
+                    x: (Math.random() - 0.5) * 0.3,
+                    y: (Math.random() - 0.5) * 0.3,
+                    z: (Math.random() - 0.5) * 0.3
+                });
+                foamParticle.setAttribute('class', 'foam-particle');
+                handEntity.appendChild(foamParticle);
+            }
+        },
+
+        endGame: function() {
+            console.log('All germs cleaned!');
+            const finalTime = Math.floor(this.gameTimer);
+            const minutes = Math.floor(finalTime / 60);
+            const seconds = Math.floor(finalTime % 60);
+            alert(`Congratulations! You cleaned all germs in ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} seconds!`);
+            // You might want to reset the game or show a final score screen here
+            // For now, we'll just alert and let the user restart the page
+        }
+      });
+
+      // Attach the germ-spawner component to the scene
+      document.querySelector('a-scene').setAttribute('germ-spawner', '');
+    </script>
+  </body>
 </html>
