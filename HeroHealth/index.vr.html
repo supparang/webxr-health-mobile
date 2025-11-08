@@ -8,25 +8,25 @@
   <!-- กัน 404 favicon -->
   <link rel="icon" href="data:,">
 
-  <!-- A-Frame + patch แบบ onload (การันตีลำดับ) -->
+  <!-- A-Frame (ผูก THREE บน onload เพื่อกัน THREE is not defined) -->
   <script
     src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"
+    crossorigin="anonymous"
     onload="
-      try {
-        if (window.AFRAME && AFRAME.THREE) {
+      try{
+        if(window.AFRAME && AFRAME.THREE){
           window.THREE = AFRAME.THREE;
-          if (!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
+          if(!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
           console.log('[Patch] THREE linked via onload');
-
-          // โหลด Troika หลังจาก THREE พร้อมแล้วเท่านั้น
-          var s = document.createElement('script');
-          s.id = 'troika-js';
-          s.src = 'https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js';
+          var s=document.createElement('script');
+          s.id='troika-js';
+          s.src='https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js';
+          s.crossOrigin='anonymous';
           document.head.appendChild(s);
-        } else {
+        }else{
           console.warn('[Patch] AFRAME.THREE not available in onload');
         }
-      } catch (e) { console.error('[Patch] onload error:', e); }
+      }catch(e){ console.error('[Patch] onload error:', e); }
     ">
   </script>
 
@@ -44,6 +44,14 @@
     #log{position:fixed;left:8px;bottom:8px;z-index:900;background:#1e293b66;border:1px solid #475569;
       border-radius:10px;padding:4px 10px;font-size:14px;color:#e2e8f0}
 
+    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);
+      padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
+    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
+    h1{margin:8px 0 24px;font-size:clamp(22px,3.6vw,42px);text-align:center}
+    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;color:#fff;background:#0b1222;outline:0}
+    button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
+    .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
+
     .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;bottom:12px !important;z-index:1000 !important}
     #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;border:1px solid #4a5568;color:#fff;
       padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
@@ -60,101 +68,178 @@
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
   <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
-  <div id="log">log: --</div>
+  <div id="log" class="hud-chip" style="left:12px;bottom:12px;top:auto;">log: --</div>
+
+  <!-- เมนูเริ่มเกม -->
+  <div id="menu" class="menu-wrap">
+    <h1>เริ่ม: HERO HEALTH ACADEMY</h1>
+    <div class="menu-inner">
+      <div class="row">
+        <label for="modeSel">เลือกโหมด:</label>
+        <select id="modeSel">
+          <option value="goodjunk">Good vs Junk</option>
+          <option value="groups">Food Groups</option>
+          <option value="hydration">Hydration</option>
+          <option value="plate">Healthy Plate</option>
+        </select>
+      </div>
+      <div class="row">
+        <label for="diffSel">ระดับความยาก:</label>
+        <select id="diffSel">
+          <option value="easy">ง่าย</option>
+          <option value="normal" selected>ปกติ</option>
+          <option value="hard">ยาก</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="startBtn" class="primary">เริ่มเกม</button>
+      </div>
+    </div>
+  </div>
 
   <!-- A-Frame scene -->
   <a-scene id="scene" background="color: #0b1324">
     <a-assets></a-assets>
 
-    <!-- กล้อง + cursor -->
+    <!-- กล้อง + cursor (ชี้ class=clickable) -->
     <a-entity id="cam"
-      camera
-      look-controls
-      cursor="rayOrigin: mouse; fuse: false"
-      raycaster="objects: .clickable; far: 6"
-      position="0 1.6 0"></a-entity>
+              camera
+              look-controls
+              cursor="rayOrigin: mouse; fuse: false"
+              raycaster="objects: .clickable; far: 6"
+              position="0 1.6 0"></a-entity>
 
     <!-- โหนดสแปว์น -->
-    <a-entity id="spawnHost" position="0 1.6 -1.6"></a-entity>
+    <a-entity id="spawnHost" position="0 1.2 -1.6"></a-entity>
+
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
-  <!-- VR fallback button -->
+  <!-- ปุ่ม VR (fallback) -->
   <button id="vrBtn" title="Enter VR">VR</button>
 
   <script>
-    // กันลากหน้า
-    document.addEventListener('touchmove', e => e.preventDefault(), {passive:false});
+    // กันลากหน้า (นอกเมนู)
+    document.addEventListener('touchmove',function(e){
+      if(!e.target.closest('.menu-wrap')) e.preventDefault();
+    },{passive:false});
 
-    // ตรวจ XR เพื่อซ่อนปุ่ม VR ถ้ารองรับ
+    // ตรวจ XR เพื่อซ่อน/โชว์ปุ่ม VR
     (function(){
-      const set = flag => document.body.classList.add(flag ? 'xr-supported' : 'xr-unsupported');
+      function set(flag){ document.body.classList.add(flag?'xr-supported':'xr-unsupported'); }
       try{
-        if (navigator.xr && navigator.xr.isSessionSupported)
-          navigator.xr.isSessionSupported('immersive-vr').then(ok=>set(!!ok)).catch(()=>set(false));
-        else set(false);
-      }catch{ set(false); }
+        if(navigator.xr && navigator.xr.isSessionSupported){
+          navigator.xr.isSessionSupported('immersive-vr').then(function(ok){ set(!!ok); }).catch(function(){ set(false); });
+        }else set(false);
+      }catch(e){ set(false); }
     })();
 
-    // ปุ่ม VR
+    // ปุ่ม VR (fallback) → enterVR
     (function(){
-      const btn=document.getElementById('vrBtn');
-      const sc=document.getElementById('scene');
-      btn.addEventListener('click', ()=>{ try{ sc && sc.enterVR && sc.enterVR(); }catch(e){} });
+      var btn=document.getElementById('vrBtn');
+      var sc=document.getElementById('scene');
+      if(btn) btn.addEventListener('click', function(){ try{ if(sc && sc.enterVR) sc.enterVR(); }catch(e){} });
     })();
 
-    // ===== Loader & Event bridge =====
+    // ===== Loader แบบ safe (กัน CORB/CORS) + HUD bridge =====
     (function(){
-      const $=sel=>document.querySelector(sel);
-      const log=msg=>$('#log').textContent='log: '+msg;
+      var $=function(s){ return document.querySelector(s); };
+      var log=function(m){ var el=$('#log'); if(el) el.textContent='log: '+m; };
 
-      const MAP={
-        goodjunk:'./modes/goodjunk.safe.js',
-        groups:'./modes/groups.safe.js',
-        hydration:'./modes/hydration.quest.js',
-        plate:'./modes/plate.quest.js'
+      // พาธโมดูล (same-origin เท่านั้น)
+      var MAP = {
+        goodjunk : './modes/goodjunk.safe.js',
+        groups   : './modes/groups.safe.js',
+        hydration: './modes/hydration.quest.js',
+        plate    : './modes/plate.quest.js'
       };
 
-      // HUD listeners
-      window.addEventListener('hha:score', e=>{
-        const d=e.detail||{};
-        $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
+      // ปรับ UI HUD ตามอีเวนต์
+      window.addEventListener('hha:score', function(e){
+        var d=e && e.detail ? e.detail : {};
+        var s=(d.score!=null)?d.score:0, c=(d.combo!=null)?d.combo:0;
+        $('#badgeScore').textContent = 'คะแนน: '+s+' | คอมโบ: x'+c;
       });
-      window.addEventListener('hha:time', e=>{
-        const t=Math.max(0,Math.round((e.detail&&e.detail.sec)||0));
-        $('#badgeTime').textContent=`เวลา: ${t}s`;
+      window.addEventListener('hha:time', function(e){
+        var t=(e && e.detail && e.detail.sec!=null)?Math.max(0,Math.round(e.detail.sec)):0;
+        $('#badgeTime').textContent = 'เวลา: '+t+'s';
       });
-      window.addEventListener('hha:quest', e=>{
-        $('#badgeQuest').textContent=(e.detail&&e.detail.text)||'Mini Quest';
+      window.addEventListener('hha:quest', function(e){
+        var text=(e && e.detail && e.detail.text)?e.detail.text:'Mini Quest';
+        $('#badgeQuest').textContent = text;
       });
-      window.addEventListener('hha:miss', e=>{
-        const el=$('#badgeMiss'); el.style.display='';
-        const n=(e.detail&&e.detail.count)!=null?e.detail.count:(parseInt(el.dataset.n||'0',10)+1);
+      window.addEventListener('hha:miss', function(e){
+        var el=$('#badgeMiss'); el.style.display='';
+        var n=(e && e.detail && e.detail.count!=null)?e.detail.count:(parseInt(el.dataset.n||'0',10)+1);
         el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
       });
-      window.addEventListener('hha:fever', e=>{
-        const st=(e.detail&&e.detail.state)||'end';
-        document.body.classList.toggle('fever-on', st==='start');
+      window.addEventListener('hha:fever', function(e){
+        var st=(e && e.detail && e.detail.state)?e.detail.state:'end';
+        if(st==='start') document.body.classList.add('fever-on'); else document.body.classList.remove('fever-on');
+      });
+      window.addEventListener('hha:end', function(e){
+        // จบเกม → แสดงเมนู
+        var m=$('#menu'); if(m) m.style.display='';
       });
 
-      function start(){
-        log('Loading goodjunk...');
-        import(MAP.goodjunk+'?v='+Date.now())
-          .then(mod=>{
-            if(!mod || !mod.boot) throw new Error('no boot()');
-            log('goodjunk running');
-            return mod.boot({host:$('#spawnHost'),difficulty:'normal',duration:60});
-          })
-          .catch(err=>{
-            alert('โหลดโหมดไม่สำเร็จ: '+(err && err.message?err.message:err));
-            console.error(err);
-          });
+      // ===== ป้องกัน CORB: เช็กไฟล์ก่อน import =====
+      function withStamp(url){ var sep=url.indexOf('?')>-1?'&':'?'; return url+sep+'v='+(Date.now()); }
+      async function safeImport(relPath){
+        var href = new URL(relPath, location.href).href; // absolute URL แต่ยัง same-origin
+        var res;
+        try{
+          res = await fetch(href, { mode:'same-origin', credentials:'omit' });
+        }catch(e){
+          console.error('[Import] fetch failed:', href, e);
+          throw e;
+        }
+        if(!res.ok){
+          var txt = '';
+          try{ txt = await res.text(); }catch(_){}
+          console.error('[Import] HTTP', res.status, relPath, txt.slice(0,160));
+          throw new Error('HTTP '+res.status+' for '+relPath+' (path may be wrong)');
+        }
+        var ct = (res.headers.get('content-type')||'').toLowerCase();
+        if(ct.indexOf('javascript')===-1 && ct.indexOf('ecmascript')===-1){
+          var head = '';
+          try{ head = (await res.text()).slice(0,160); }catch(_){}
+          console.error('[Import] Bad content-type:', ct, ' preview:', head);
+          throw new Error('Bad content-type: '+ct+' (likely 404 HTML; check path)');
+        }
+        // ผ่านแล้ว import ตัวจริง
+        return import(href);
       }
 
-      const scene=$('#scene');
-      if (scene && scene.hasLoaded) start();
-      else if (scene) scene.addEventListener('loaded', ()=>setTimeout(start,150), {once:true});
-      else start();
+      // เริ่มเกมจากเมนู
+      $('#startBtn').addEventListener('click', function(){
+        var mode = $('#modeSel').value;
+        var diff = $('#diffSel').value;
+
+        $('#badgeScore').textContent = 'คะแนน: 0 | คอมโบ: x0';
+        $('#badgeTime').textContent  = 'เวลา: 60s';
+        $('#badgeQuest').textContent = 'Mini Quest — กำลังเริ่ม…';
+        var miss=$('#badgeMiss'); miss.style.display='none'; miss.dataset.n='0';
+
+        // ซ่อนเมนู
+        var menu=$('#menu'); if(menu) menu.style.display='none';
+
+        var url = MAP[mode] || MAP.goodjunk;
+        log('loading '+mode+' …');
+        safeImport(withStamp(url))
+          .then(function(mod){
+            if(!mod || !mod.boot) throw new Error('โหมดนี้ไม่มี boot()');
+            log(mode+' running');
+            return mod.boot({ host: $('#spawnHost'), difficulty: diff, duration: 60 });
+          })
+          .catch(function(err){
+            alert('โหลดโหมดไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+            console.error(err);
+            var m=$('#menu'); if(m) m.style.display='';
+          });
+      });
+
+      // เริ่มต้นยังไม่ auto-run โหมดใด (ให้ผู้เล่นกดจากเมนู)
+      // ถ้าต้องการ auto-run ทดสอบ: เรียก document.getElementById('startBtn').click();
     })();
   </script>
 </body>
