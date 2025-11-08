@@ -5,44 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- แก้ 404 favicon -->
+  <!-- กัน 404 favicon -->
   <link rel="icon" href="data:,">
 
-  <!-- A-Frame core -->
-  <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
+  <!-- A-Frame + patch แบบ onload (การันตีลำดับ) -->
+  <script
+    src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"
+    onload="
+      try {
+        if (window.AFRAME && AFRAME.THREE) {
+          window.THREE = AFRAME.THREE;
+          if (!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
+          console.log('[Patch] THREE linked via onload');
 
-  <!-- Patch รอ AFRAME.THREE แล้วค่อยผูกเป็น window.THREE จากนั้นค่อยโหลด troika -->
-  <script>
-    (function(){
-      function injectTroika(){
-        if (document.getElementById('troika-js')) return;
-        var s = document.createElement('script');
-        s.id = 'troika-js';
-        s.src = "https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js";
-        document.head.appendChild(s);
-      }
-      function linkTHREEAndLoadTroika(){
-        try{
-          if (window.AFRAME && AFRAME.THREE) {
-            // ผูก THREE global
-            window.THREE = AFRAME.THREE;
-            if (!THREE.MathUtils && THREE.Math) THREE.MathUtils = THREE.Math;
-            console.log('[Patch] THREE linked from AFRAME');
-            injectTroika();
-            return true;
-          }
-        }catch(e){}
-        return false;
-      }
-      // พยายามทุก 50ms จนสำเร็จ (timeout 5s)
-      var tries = 0, timer = setInterval(function(){
-        if (linkTHREEAndLoadTroika()) { clearInterval(timer); }
-        else if ((tries+=1) > 100) { clearInterval(timer); console.warn('[Patch] AFRAME.THREE not found after 5s'); }
-      }, 50);
-
-      // เผื่อโหลดช้า—ลองอีกครั้งตอน window load
-      window.addEventListener('load', linkTHREEAndLoadTroika);
-    })();
+          // โหลด Troika หลังจาก THREE พร้อมแล้วเท่านั้น
+          var s = document.createElement('script');
+          s.id = 'troika-js';
+          s.src = 'https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js';
+          document.head.appendChild(s);
+        } else {
+          console.warn('[Patch] AFRAME.THREE not available in onload');
+        }
+      } catch (e) { console.error('[Patch] onload error:', e); }
+    ">
   </script>
 
   <style>
@@ -166,21 +151,10 @@
           });
       }
 
-      // เริ่มหลัง scene พร้อม และหลัง troika โหลด (ถ้าใช้ troika)
-      function whenTroikaReady(cb){
-        // ถ้าไม่ได้ใช้ troika ในโหมด ก็เริ่มได้ทันที
-        if (window.TroikaText) return cb();
-        // ถ้า script troika ยังมาไม่ถึง ให้รอสักครู่ แต่ไม่บังคับ
-        let waited=0, iv=setInterval(function(){
-          waited += 50;
-          if (window.TroikaText || waited>1500){ clearInterval(iv); cb(); }
-        },50);
-      }
-
       const scene=$('#scene');
-      if (scene && scene.hasLoaded) whenTroikaReady(start);
-      else if (scene) scene.addEventListener('loaded', ()=>whenTroikaReady(start), {once:true});
-      else whenTroikaReady(start);
+      if (scene && scene.hasLoaded) start();
+      else if (scene) scene.addEventListener('loaded', ()=>setTimeout(start,150), {once:true});
+      else start();
     })();
   </script>
 </body>
