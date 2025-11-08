@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- Favicon ป้องกัน 404 -->
+  <!-- ✅ Favicon ป้องกัน 404 -->
   <link rel="icon" href='data:image/svg+xml;utf8,
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
     <rect width="64" height="64" rx="12" fill="#0b1324"/>
     <text x="50%" y="54%" font-size="44" text-anchor="middle">🍎</text>
   </svg>'>
 
-  <!-- A-Frame (โหลดก่อน เพื่อให้ THREE พร้อมใช้งาน) -->
+  <!-- ✅ A-Frame -->
   <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
 
   <style>
@@ -21,6 +21,7 @@
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
     a-scene{width:100%;height:100%;}
 
+    /* === HUD === */
     .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
       padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
     #badgeTime{left:12px;top:12px}
@@ -29,6 +30,7 @@
     #badgeMiss{right:12px;top:64px;display:none}
     #logChip{left:12px;bottom:12px}
 
+    /* === เมนู === */
     .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);
       width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);
       border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
@@ -40,6 +42,7 @@
     button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
     .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
 
+    /* === ปุ่ม VR === */
     .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;
       bottom:12px !important;z-index:1000 !important}
     #vrBtn{position:fixed;right:14px;bottom:14px;z-index:999;background:#ffffff12;
@@ -47,9 +50,11 @@
       font-weight:800;cursor:pointer;backdrop-filter:blur(6px)}
     .xr-supported #vrBtn{display:none}
 
+    /* === Fever effect === */
     .fever-on{box-shadow:inset 0 0 0 4px #ffd16655;animation:feverPulse .9s ease-in-out infinite alternate;}
     @keyframes feverPulse{from{filter:none}to{filter:drop-shadow(0 0 12px #ffd166)}}
 
+    /* === Modal Summary === */
     .modal{position:fixed;inset:0;display:none;place-items:center;z-index:850;background:rgba(0,0,0,.5);}
     .card{width:min(560px,92vw);background:#0f172acc;border:1px solid #475569;color:#e8eefc;
       padding:20px;border-radius:14px;backdrop-filter:blur(8px)}
@@ -60,19 +65,19 @@
 
 <body>
   <!-- HUD -->
-  <div id="badgeTime" class="hud-chip">เวลา: 60s</div>
+  <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
-  <div id="badgeMiss" class="hud-chip">พลาด: 0 ครั้ง</div>
-  <div id="logChip" class="hud-chip">log: --</div>
+  <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
+  <div id="logChip"    class="hud-chip">log: --</div>
 
   <!-- เมนู -->
   <div id="menu" class="menu-wrap">
     <h1>เริ่ม: HERO HEALTH ACADEMY</h1>
     <div class="menu-inner">
       <div class="row">
-        <label>เลือกโหมด:</label>
-        <select id="modeSel">
+        <label for="modeSel">เลือกโหมด:</label>
+        <select id="modeSel" name="modeSel">
           <option value="goodjunk">Good vs Junk</option>
           <option value="groups">Food Groups</option>
           <option value="hydration">Hydration</option>
@@ -80,21 +85,23 @@
         </select>
       </div>
       <div class="row">
-        <label>ระดับความยาก:</label>
-        <select id="diffSel">
+        <label for="diffSel">ระดับความยาก:</label>
+        <select id="diffSel" name="diffSel">
           <option value="easy">ง่าย</option>
           <option value="normal" selected>ปกติ</option>
           <option value="hard">ยาก</option>
         </select>
       </div>
-      <div class="row"><button id="startBtn" class="primary">เริ่มเกม</button></div>
+      <div class="row">
+        <button id="startBtn" class="primary">เริ่มเกม</button>
+      </div>
     </div>
   </div>
 
   <!-- ปุ่ม VR -->
   <button id="vrBtn" title="Enter VR">VR</button>
 
-  <!-- สรุปผล -->
+  <!-- Modal สรุปผล -->
   <div id="summary" class="modal">
     <div class="card">
       <h2 id="sumTitle">สรุปผล</h2>
@@ -111,7 +118,7 @@
     </div>
   </div>
 
-  <!-- ฉากหลัก -->
+  <!-- ฉาก VR -->
   <a-scene id="scene" background="color:#0b1324">
     <a-assets></a-assets>
     <a-entity id="cam" camera look-controls cursor="rayOrigin: mouse; fuse: false"
@@ -121,7 +128,7 @@
   </a-scene>
 
   <script>
-    // ========== MAIN SCRIPT ==========
+    // ===== Helpers =====
     const $ = (s)=>document.querySelector(s);
     const BASE = '/webxr-health-mobile/HeroHealth';
     const MAP = {
@@ -133,7 +140,7 @@
     const stamp = (url)=>url+(url.includes('?')?'&':'?')+'v='+(Date.now());
     const log = (t)=>{ $('#logChip').textContent='log: '+t; console.log('[HHA]',t); };
 
-    // === HUD EVENT ===
+    // ===== HUD Events =====
     window.addEventListener('hha:score',(e)=>{
       const d=e.detail||{}; $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
     });
@@ -164,12 +171,12 @@
       $('#summary').style.display='grid'; $('#menu').style.display='';
     });
 
-    // === ปุ่ม VR fallback ===
+    // ===== VR Button =====
     $('#vrBtn').addEventListener('click',()=>{
       try{ const scene=document.getElementById('scene'); if(scene.enterVR) scene.enterVR(); }catch{}
     });
 
-    // === เริ่มเกม ===
+    // ===== เริ่มเกม =====
     $('#startBtn').addEventListener('click',()=>{
       const mode=$('#modeSel').value, diff=$('#diffSel').value;
       $('#menu').style.display='none'; $('#summary').style.display='none';
@@ -187,7 +194,7 @@
       .catch(err=>{ alert('โหลดโหมดไม่สำเร็จ: '+err.message); console.error(err); $('#menu').style.display=''; });
     });
 
-    // === ปุ่มสรุป ===
+    // ===== ปุ่มสรุป =====
     $('#btnClose').addEventListener('click',()=>$('#summary').style.display='none');
     $('#btnMenu').addEventListener('click',()=>{$('#summary').style.display='none';$('#menu').style.display='';});
   </script>
