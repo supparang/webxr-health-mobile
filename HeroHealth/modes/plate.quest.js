@@ -1,276 +1,146 @@
-// === Healthy Plate — QUEST (SAFE build / no optional chaining) ===
-// Path: /webxr-health-mobile/HeroHealth/modes/plate.quest.js
+// === Healthy Plate — QUEST (centered host y=1.0) ===
+var running=false, host=null, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0;
+var spawnTimer=null, endTimer=null;
 
-var running=false, host=null;
-var score=0, combo=0, maxCombo=0, misses=0;
-var spawnTimer=null, timeTimer=null;
+var SLOTS = ['veg','fruit','grain','protein','dairy'];
+var POOLS = {
+  veg:['🥦','🥕','🥬','🍅'], fruit:['🍎','🍓','🍌','🍊','🍇','🍐'],
+  grain:['🍞','🥖','🍚'], protein:['🍗','🐟','🥚','🥜'], dairy:['🥛','🧀','🍦']
+};
+var need = [].concat(SLOTS); // รายการหมู่ที่ยังขาดในจานรอบนี้
 
-// ---------- helpers ----------
-function emit(name, detail){
-  try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(e){}
-}
+function emit(n,d){ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})); }catch(e){} }
+function pick(a){ return a[(Math.random()*a.length)|0]; }
 
-var __emojiCache = {};
 function emojiSprite(emo, px){
-  var size = px || 180, key = emo+'@'+size;
-  if(__emojiCache[key]) return __emojiCache[key];
-  var c = document.createElement('canvas'); c.width=c.height=size;
-  var ctx = c.getContext('2d');
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.font=(size*0.76)+'px system-ui, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-  ctx.shadowColor='rgba(0,0,0,.25)'; ctx.shadowBlur=size*0.08;
-  ctx.fillText(emo, size/2, size/2);
-  __emojiCache[key] = c.toDataURL('image/png');
-  return __emojiCache[key];
+  var key=emo+'@'+px; emojiSprite.cache=emojiSprite.cache||{};
+  if(emojiSprite.cache[key]) return emojiSprite.cache[key];
+  var c=document.createElement('canvas'); c.width=c.height=px;
+  var x=c.getContext('2d'); x.textAlign='center'; x.textBaseline='middle';
+  x.font=(px*0.75)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+  x.shadowColor='rgba(0,0,0,.25)'; x.shadowBlur=px*0.06; x.fillText(emo,px/2,px/2);
+  var url=c.toDataURL('image/png'); emojiSprite.cache[key]=url; return url;
 }
 
-function popupText(txt, x, y, color){
-  var t = document.createElement('a-text');
-  t.setAttribute('value', txt);
-  t.setAttribute('color', color||'#fff');
-  t.setAttribute('align','center');
-  t.setAttribute('width','1.8');
-  t.setAttribute('position', x+' '+(y+0.10)+' -1.18');
-  host.appendChild(t);
-  t.setAttribute('animation__rise','property: position; to: '+x+' '+(y+0.40)+' -1.18; dur: 520; easing: easeOutCubic');
-  t.setAttribute('animation__fade','property: opacity; to: 0; dur: 520; easing: linear');
-  setTimeout(function(){ if(t && t.parentNode) t.parentNode.removeChild(t); }, 560);
+function popupText(txt, lx, ly, color){
+  try{
+    var wx = lx, wy = 1.0 + ly, wz = -1.6 + 0.02;
+    var t = document.createElement('a-entity');
+    t.setAttribute('troika-text','value: '+txt+'; color: '+(color||'#ffffff')+'; fontSize:0.09; anchor:center;');
+    t.setAttribute('position', wx+' '+(wy+0.05)+' '+wz);
+    host.appendChild(t);
+    t.setAttribute('animation__rise','property: position; to: '+wx+' '+(wy+0.32)+' '+wz+'; dur:520; easing:ease-out');
+    t.setAttribute('animation__fade','property: opacity; to: 0; dur:520; easing:linear');
+    setTimeout(function(){ if(t.parentNode) t.parentNode.removeChild(t); },560);
+  }catch(e){}
 }
 
-// ---------- 5 Food Groups ----------
-var GROUPS = [
-  { id:'grains',  label:'ธัญพืช',  color:'#eab308', pool:['🍚','🍙','🍞','🥖','🥯','🍜','🍝','🫓','🥨'] },
-  { id:'veggies', label:'ผัก',     color:'#22c55e', pool:['🥦','🥬','🥕','🍅','🍆','🌽','🧅','🫛','🫑'] },
-  { id:'fruits',  label:'ผลไม้',   color:'#f97316', pool:['🍎','🍏','🍌','🍇','🍓','🍍','🍐','🍊','🥝'] },
-  { id:'protein', label:'โปรตีน',  color:'#60a5fa', pool:['🐟','🍗','🥩','🥚','🫘','🥜','🧀','🍤','🦐'] },
-  { id:'dairy',   label:'นม',      color:'#a78bfa', pool:['🥛','🧀','🍶','🍦'] }
-];
-// สิ่งลวง (จะถือเป็น "ผิดหมู่")
-var BAITS  = ['🍔','🍟','🍕','🍩','🍪','🧁','🧋','🥤','🍫','🌭','🍰','🍬'];
-
-// ---------- Round / Goal ----------
-var round=1;
-var needPerGroup = { grains:1, veggies:1, fruits:1, protein:1, dairy:1 }; // ต่อรอบต้องการขั้นต่ำ
-var progress     = { grains:0, veggies:0, fruits:0, protein:0, dairy:0 };
-
-function resetRound(){
-  // เพิ่มความยากแบบนุ่มนวล: รอบ 2–3 เพิ่มบางหมู่เป็น 2 ชิ้น, สูงสุดไม่เกิน 3
-  round += 1;
-  var target = round<=2 ? 1 : (round<=4 ? 2 : 3);
-  needPerGroup = { grains:target, veggies:target, fruits:target, protein:target, dairy:target };
-  progress     = { grains:0,      veggies:0,      fruits:0,      protein:0,      dairy:0      };
-  updateQuestHUD();
+function groupOf(emoji){
+  for(var k in POOLS){ if(POOLS[k].indexOf(emoji)>-1) return k; }
+  return null;
 }
 
-function groupFromEmoji(emo){
-  for(var i=0;i<GROUPS.length;i++){
-    var g = GROUPS[i];
-    for(var j=0;j<g.pool.length;j++){
-      if(g.pool[j]===emo) return g.id;
-    }
-  }
-  return null; // bait หรือหาไม่เจอ
+function nextNeed(){
+  if(need.length===0) return null;
+  return need[0]; // ต้องการคิวแรก
 }
 
-function isRoundCleared(){
-  return (progress.grains>=needPerGroup.grains) &&
-         (progress.veggies>=needPerGroup.veggies) &&
-         (progress.fruits>=needPerGroup.fruits) &&
-         (progress.protein>=needPerGroup.protein) &&
-         (progress.dairy>=needPerGroup.dairy);
-}
+function makeTarget(emoji, diff){
+  var wrap=document.createElement('a-entity');
+  var img=document.createElement('a-image');
+  img.setAttribute('src', emojiSprite(emoji, 192));
+  var px=(Math.random()*1.6 - 0.8);
+  var py=(Math.random()*0.5 - 0.25);
+  img.setAttribute('position', px+' '+py+' 0');
+  img.setAttribute('width',0.42); img.setAttribute('height',0.42);
+  wrap.appendChild(img);
 
-function remainText(){
-  function one(lbl, got, need){ var left=Math.max(0, need-got); return left>0? (lbl+' '+left):null; }
-  var arr=[
-    one('ธัญพืช',progress.grains,needPerGroup.grains),
-    one('ผัก',   progress.veggies,needPerGroup.veggies),
-    one('ผลไม้', progress.fruits, needPerGroup.fruits),
-    one('โปรตีน',progress.protein,needPerGroup.protein),
-    one('นม',   progress.dairy,  needPerGroup.dairy)
-  ];
-  var out=[]; for(var i=0;i<arr.length;i++){ if(arr[i]) out.push(arr[i]); }
-  return out.length? out.join(' • ') : 'ครบเซ็ตแล้ว!';
-}
+  function cleanup(){ if(wrap.parentNode) wrap.parentNode.removeChild(wrap); }
 
-function updateQuestHUD(){
-  emit('hha:quest', { text: 'Plate รอบ '+round+' — เหลือ: '+remainText() });
-}
-
-// ---------- Fever ----------
-var FEVER=false, FEVER_NEED=10, FEVER_MS=10000, feverTimer=null;
-function feverStart(){
-  if(FEVER) return;
-  FEVER=true; emit('hha:fever',{state:'start', ms:FEVER_MS});
-  clearTimeout(feverTimer);
-  feverTimer=setTimeout(function(){ feverEnd(); }, FEVER_MS);
-}
-function feverEnd(){
-  if(!FEVER) return;
-  FEVER=false; emit('hha:fever',{state:'end'});
-  clearTimeout(feverTimer); feverTimer=null;
-}
-
-// ---------- target factory ----------
-function makeTarget(diff){
-  var el  = document.createElement('a-entity');
-
-  // สุ่มว่าจะออกของ "ตามหมู่" หรือ "สิ่งลวง"
-  var goodPick = Math.random() > 0.35; // 65% เป็นของดีตามหมู่
-  var emo, groupId=null, color='#22c55e';
-
-  if(goodPick){
-    // เลือกจากหมู่ที่ "ยังขาด" ให้ถี่ขึ้น
-    var weights = [];
-    for(var i=0;i<GROUPS.length;i++){
-      var g = GROUPS[i];
-      var need = needPerGroup[g.id], got = progress[g.id];
-      var left = Math.max(0, need - got);
-      var w = left>0 ? 3 : 1; // ยังขาด → น้ำหนักมาก
-      weights.push({g:g, w:w});
-    }
-    // weighted pick
-    var sum=0; for(var k=0;k<weights.length;k++) sum += weights[k].w;
-    var r=Math.random()*sum, acc=0, chosen=weights[0].g;
-    for(var t=0;t<weights.length;t++){ acc += weights[t].w; if(r<=acc){ chosen=weights[t].g; break; } }
-
-    groupId = chosen.id;
-    emo = chosen.pool[Math.floor(Math.random()*chosen.pool.length)];
-    color = chosen.color;
-  }else{
-    emo = BAITS[Math.floor(Math.random()*BAITS.length)];
-    color = '#ef4444';
-  }
-
-  var img = document.createElement('a-image');
-  img.setAttribute('src', emojiSprite(emo, 200));
-  var px = (Math.random()*1.8 - 0.9);   // -0.9..0.9
-  var py = (Math.random()*0.9 + 1.1);   // 1.1..2.0
-  img.setAttribute('position', px+' '+py+' -1.2');
-  img.setAttribute('width',  0.46);
-  img.setAttribute('height', 0.46);
   img.classList.add('clickable');
-  el.appendChild(img);
-
-  var glow = document.createElement('a-plane');
-  glow.setAttribute('width',0.52);
-  glow.setAttribute('height',0.52);
-  glow.setAttribute('position','0 0 -0.01');
-  glow.setAttribute('material','color:'+color+'; opacity:0.22; transparent:true;');
-  el.appendChild(glow);
-
-  function destroy(){ if(el.parentNode) el.parentNode.removeChild(el); }
-
   img.addEventListener('click', function(){
     if(!running) return;
-    destroy();
-
-    var isGood = (groupId!==null);
-    if(isGood){
-      // นับความคืบหน้าหมู่
-      var before = progress[groupId];
-      var need   = needPerGroup[groupId];
-      if(before < need) progress[groupId] = before + 1;
-
-      // คะแนน/คอมโบ
-      var base = 20 + combo*2;
-      var add  = FEVER ? base*2 : base;
-      score += add;
-      combo += 1; if(combo>maxCombo) maxCombo=combo;
-      if(!FEVER && combo>=FEVER_NEED) feverStart();
-      popupText('+'+add, px, py, '#c6f6d5');
-
-      updateQuestHUD();
-      if(isRoundCleared()){
-        // โบนัสจบรอบ
-        score += 100; popupText('+100 BONUS', px, py, '#fff3b0');
-        updateQuestHUD();
-        resetRound();
-      }
+    cleanup(); spawns++; hits++;
+    var g=groupOf(emoji);
+    if(g && need.indexOf(g)>-1){
+      // ถูกหมู่ → เอาออกจาก need
+      need = need.filter(function(n){ return n!==g; });
+      var plus = 35 + combo*3; score+=plus; combo+=1; if(combo>maxCombo) maxCombo=combo;
+      popupText('+'+plus, px, py, '#bbf7d0');
+      emit('hha:quest',{text:'Plate: ขาด '+(need.join(', ')||'ครบแล้ว!')});
+      // ครบ 5 หมู่ → เริ่มรอบใหม่
+      if(need.length===0){ need=[].concat(SLOTS); }
     }else{
-      combo = 0; misses += 1;
-      score = Math.max(0, score-15);
-      popupText('-15', px, py, '#ffd0d0');
+      combo=0; misses+=1; score=Math.max(0, score-12);
+      popupText('-12', px, py, '#fecaca');
       emit('hha:miss',{count:misses});
     }
-
-    emit('hha:score', {score:score, combo:combo});
+    emit('hha:score',{score:score, combo:combo});
   });
 
-  var ttl = 1600; if(diff==='easy') ttl=2000; else if(diff==='hard') ttl=1400;
+  var ttl=1700; if(diff==='easy') ttl=2000; else if(diff==='hard') ttl=1400;
   setTimeout(function(){
-    if(!el.parentNode) return;
-    destroy(); misses += 1; combo=0;
-    emit('hha:miss',{count:misses});
-    emit('hha:score',{score:score, combo:combo});
+    if(!wrap.parentNode) return;
+    cleanup(); spawns++;
+    // ปล่อยผ่านไม่ลงโทษ
   }, ttl);
 
-  return el;
+  return wrap;
 }
 
 function spawnLoop(diff){
   if(!running) return;
-  host.appendChild(makeTarget(diff));
-  var gap = 520; if(diff==='easy') gap=650; if(diff==='hard') gap=400;
-  if(FEVER) gap=Math.max(300, Math.round(gap*0.85));
+  var want = nextNeed() || pick(SLOTS);
+  var pool = POOLS[want] || POOLS.veg;
+  var emoji = pick(pool);
+  host.appendChild(makeTarget(emoji, diff));
+  var gap=560; if(diff==='easy') gap=700; if(diff==='hard') gap=420;
   spawnTimer=setTimeout(function(){ spawnLoop(diff); }, gap);
 }
 
-// ---------- main ----------
 export async function boot(cfg){
-  host = cfg && cfg.host ? cfg.host : document.getElementById('spawnHost');
+  host = (cfg && cfg.host) ? cfg.host : document.getElementById('spawnHost');
+  try{ host.setAttribute('position','0 1.0 -1.6'); }catch(e){}
   var duration = (cfg && cfg.duration)|0 || 60;
   var diff = (cfg && cfg.difficulty) || 'normal';
 
-  // reset
-  running=true; score=0; combo=0; maxCombo=0; misses=0;
-  FEVER=false; clearTimeout(feverTimer); feverTimer=null;
-  clearTimeout(spawnTimer); clearInterval(timeTimer);
-
-  // เริ่มรอบแรก
-  round=1;
-  needPerGroup = { grains:1, veggies:1, fruits:1, protein:1, dairy:1 };
-  progress     = { grains:0, veggies:0, fruits:0, protein:0, dairy:0 };
+  need=[].concat(SLOTS);
+  running=true; score=0; combo=0; maxCombo=0; misses=0; hits=0; spawns=0;
 
   emit('hha:score',{score:0, combo:0});
-  updateQuestHUD();
-  emit('hha:fever',{state:'end'});
+  emit('hha:quest',{text:'Plate: เลือกหมวดให้ครบ 5 หมู่ (เริ่ม: VEG)'});  
 
-  // time loop (ฝั่งโหมดยิงเวลา)
-  var remain = duration;
-  emit('hha:time',{sec:remain});
-  timeTimer=setInterval(function(){
-    if(!running){ clearInterval(timeTimer); return; }
-    remain -= 1; if(remain<0) remain=0;
+  var remain=duration; emit('hha:time',{sec:remain});
+  clearInterval(endTimer);
+  endTimer=setInterval(function(){
+    if(!running){ clearInterval(endTimer); return; }
+    remain-=1; if(remain<0) remain=0;
     emit('hha:time',{sec:remain});
-    if(remain<=0){
-      clearInterval(timeTimer);
-      endGame();
-    }
-  }, 1000);
+    if(remain<=0){ clearInterval(endTimer); endGame(); }
+  },1000);
 
-  // spawn
   spawnLoop(diff);
 
   function endGame(){
-    running=false;
-    clearTimeout(spawnTimer);
-    feverEnd();
-    // ส่งสรุปผล
-    var roundsCleared = round-1; // รอบที่ผ่านสมบูรณ์
-    emit('hha:end', {
+    running=false; clearTimeout(spawnTimer);
+    emit('hha:end',{
       title:'Healthy Plate',
-      score:score,
-      combo:maxCombo,
-      misses:misses,
-      rounds: roundsCleared
+      difficulty: diff,
+      duration: duration,
+      score: score,
+      combo: maxCombo,
+      misses: misses,
+      hits: hits,
+      spawns: spawns,
+      questsCleared: 0,
+      questsTotal: 3
     });
   }
 
   return {
-    stop: function(){ if(!running) return; endGame(); },
-    pause: function(){ running=false; },
-    resume: function(){ if(!running){ running=true; spawnLoop(diff); } }
+    stop:function(){ if(!running) return; endGame(); },
+    pause:function(){ running=false; },
+    resume:function(){ if(!running){ running=true; spawnLoop(diff); } }
   };
 }
 export default { boot };
