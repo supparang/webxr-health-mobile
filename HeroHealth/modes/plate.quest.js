@@ -1,103 +1,104 @@
 // === modes/plate.quest.js ===
 import { emojiImage } from './emoji-sprite.js';
+const emit=(n,d)=>{try{window.dispatchEvent(new CustomEvent(n,{detail:d}))}catch{}};
+const rand=(a,b)=>a+Math.random()*(b-a);
 
-export async function boot(opts = {}){
-  const host = opts.host || document.getElementById('spawnHost') || document.body;
-  const diff = String(opts.difficulty||'normal').toLowerCase();
-  const duration = Number(opts.duration||60);
-  let left = Math.max(1, Math.round(duration));
+const GROUPS = {
+  veg: ['🥦','🥕','🥬','🍅','🫑'],
+  fruit:['🍎','🍌','🍊','🍓','🍇','🍍','🍐'],
+  protein:['🐟','🍳','🧀','🥩','🍗','🥜'],
+  grain:['🍞','🥖','🍚','🍝','🥨'],
+  dairy:['🥛','🧈','🍦']
+};
 
-  // เป้าหมาย: จัด “จานสุขภาพ” ให้ครบสัดส่วน (โปรตีน/คาร์บ/ผัก/ผลไม้/นม)
-  const POOL = {
-    protein:['🐟','🍗','🥚','🫘','🥜'],
-    carb:['🍚','🍞','🍝','🥖'],
-    veg:['🥦','🥕','🥬','🍅','🌽'],
-    fruit:['🍎','🍌','🍇','🍓','🍍'],
-    dairy:['🥛','🧀','🍨']
-  };
-  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋'];
+export async function boot(cfg={}){
+  const host=cfg.host||document.getElementById('spawnHost');
+  const diff=String(cfg.difficulty||'normal');
+  const duration=Number(cfg.duration||60);
+  let running=true,tLeft=duration,score=0,combo=0,comboMax=0,hits=0,misses=0,spawns=0;
 
-  // กติกาแบบง่าย: แตะอาหาร “ดี” ได้คะแนนมากกว่า และสุ่ม “สัดส่วนที่ต้องการ” ทีละช่วง
-  const targetOrder = ['veg','carb','protein','fruit','dairy']; // ลูป
-  let idx = 0; // ต้องการชนิดนี้เป็นพิเศษ
-  let running=true, score=0, combo=0, misses=0, hits=0, spawns=0;
+  // รอบ: ต้องเก็บครบ 5 หมู่
+  let needed = new Set(Object.keys(GROUPS));
 
-  function fire(n,d){ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})) }catch{} }
-  function pick(a){ return a[(Math.random()*a.length)|0]; }
-  function rand(a,b){ return a + Math.random()*(b-a); }
-  function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
+  // mini-quests
+  const deck=['finishPlate','combo10','score400']; let qIndex=0;
+  const map={finishPlate:'จัดครบ 5 หมู่ 1 ครั้ง', combo10:'คอมโบ 10', score400:'คะแนน 400+'};
+  emit('hha:quest',{text:`Quest 1/3 — ${map[deck[qIndex]]}`});
 
-  function needLabel(key){
-    return {veg:'ผัก',carb:'คาร์บ/ธัญพืช',protein:'โปรตีน',fruit:'ผลไม้',dairy:'นม'}[key]||key;
-  }
-  function updateQuest(){ fire('hha:quest',{text:`จัด: ${needLabel(targetOrder[idx])} ให้ถูกชนิด!`}); }
-  updateQuest();
-
-  function spawn(){
+  const timeId=setInterval(()=>{
     if(!running) return;
-
-    const roll = Math.random();
-    let char, kind='good', key=null;
-
-    if(roll < 0.65){
-      // 65%: ออกของดี (แต่ไม่เสมอไปว่าจะเป็นชนิดที่ต้องการ)
-      key = pick(Object.keys(POOL));
-      char = pick(POOL[key]);
-      kind = (key===targetOrder[idx]) ? 'target' : 'good';
-    } else {
-      char = pick(JUNK); kind='junk';
-    }
-
-    const el = emojiImage(char, 0.68, 128); el.classList.add('clickable'); spawns++;
-    const X = rand(-0.5,0.5), Y = rand(-0.2,0.2), Z=-1.6;
-    el.setAttribute('position', `${X} ${1.0+Y} ${Z}`);
-
-    const life = ({easy:1900,normal:1600,hard:1300}[diff]||1600);
-    const ttl = setTimeout(()=>{
-      if(!el.parentNode) return;
-      el.parentNode.removeChild(el);
-      if(kind==='target'){ combo=0; misses++; fire('hha:miss',{count:misses}); }
-    }, life);
-
-    el.addEventListener('click', ()=>{
-      if(!el.parentNode) return;
-      clearTimeout(ttl); el.parentNode.removeChild(el);
-
-      if(kind==='junk'){
-        combo=0; score=Math.max(0,score-10);
-      }else if(kind==='target'){
-        hits++; combo=clamp(combo+1,0,999); score+=25+combo*2;
-        idx = (idx+1) % targetOrder.length;
-        updateQuest();
-      }else{ // good อื่น ๆ
-        hits++; combo=clamp(combo+1,0,999); score+=10+Math.floor(combo/2);
-      }
-      fire('hha:score',{score, combo});
-    }, {passive:false});
-
-    host.appendChild(el);
-
-    const gapBase = ({easy:[600,820], normal:[480,660], hard:[360,520]}[diff]||[480,660]);
-    setTimeout(spawn, Math.floor(rand(gapBase[0], gapBase[1])));
-  }
-
-  const timer = setInterval(()=>{
-    if(!running) return;
-    left = Math.max(0, left-1);
-    fire('hha:time',{sec:left});
-    if(left<=0) end('timeout');
+    tLeft=Math.max(0,tLeft-1); emit('hha:time',{sec:tLeft});
+    if(tLeft<=0) end('timeout');
+    if(deck[qIndex]==='combo10' && comboMax>=10){ qIndex++; emit('hha:quest',{text: deck[qIndex]?`Quest ${qIndex+1}/3 — ${map[deck[qIndex]]}`:'เคลียร์เควสต์ครบแล้ว!'}); }
+    if(deck[qIndex]==='score400' && score>=400){ qIndex++; emit('hha:quest',{text: deck[qIndex]?`Quest ${qIndex+1}/3 — ${map[deck[qIndex]]}`:'เคลียร์เควสต์ครบแล้ว!'}); }
   },1000);
 
-  function end(reason){
-    if(!running) return; running=false;
-    try{ clearInterval(timer); }catch{}
-    fire('hha:end',{ reason, title:'Healthy Plate', difficulty:diff,
-      score, comboMax:combo, misses, hits, spawns, duration });
+  function pop(txt,pos){
+    const t=document.createElement('a-entity');
+    t.setAttribute('text',`value:${txt}; color:#fff; align:center; width:2`);
+    t.setAttribute('position',`${pos.x} ${pos.y+0.2} ${pos.z}`);
+    host.appendChild(t);
+    t.setAttribute('animation__rise',`property: position; to: ${pos.x} ${pos.y+0.6} ${pos.z}; dur:520; easing:easeOutCubic`);
+    t.setAttribute('animation__fade',`property: opacity; to: 0; dur:520; easing:linear`);
+    setTimeout(()=>t.parentNode&&t.parentNode.removeChild(t),540);
   }
 
-  // go!
-  spawn();
+  function makeTarget(){
+    // bias ไปยังหมู่ที่ยังขาด
+    let pool=[];
+    if(Math.random()<0.65 && needed.size>0){
+      const key=[...needed][(Math.random()*needed.size)|0];
+      pool=GROUPS[key];
+    }else{
+      pool=Object.values(GROUPS).flat();
+    }
+    const emo=pool[(Math.random()*pool.length)|0];
+    const el=emojiImage(emo,0.7,160);
+    const x=rand(-0.5,0.5), y=rand(0.9,1.4), z=-1.6;
+    el.setAttribute('class','clickable');
+    el.setAttribute('position',`${x} ${y} ${z}`);
 
-  return { stop(){ end('quit'); }, pause(){ running=false; }, resume(){ if(!running){ running=true; spawn(); } } };
+    const life = (diff==='easy')?2000:(diff==='hard')?1300:1600;
+    let dead=false;
+    const kill=()=>{ if(dead) return; dead=true; el.parentNode&&el.parentNode.removeChild(el); };
+
+    el.addEventListener('click', ()=>{
+      if(!running||dead) return; hits++;
+      let group=''; for(const k of Object.keys(GROUPS)){ if(GROUPS[k].includes(emo)) group=k; }
+      if(group){
+        score+=24; combo++; comboMax=Math.max(comboMax,combo);
+        needed.delete(group);
+        pop('+24 ✓'+group.toUpperCase(), el.object3D.position);
+        if(needed.size===0){
+          // จบรอบ
+          if(deck[qIndex]==='finishPlate'){ qIndex++; emit('hha:quest',{text: deck[qIndex]?`Quest ${qIndex+1}/3 — ${map[deck[qIndex]]}`:'เคลียร์เควสต์ครบแล้ว!'}); }
+          // เริ่มรอบใหม่
+          needed = new Set(Object.keys(GROUPS));
+          emit('hha:quest',{text:`เริ่มรอบใหม่: จัดครบ 5 หมู่`});
+        }
+      }
+      emit('hha:score',{score, combo});
+      kill();
+    });
+
+    setTimeout(()=>{
+      if(dead||!running) return;
+      combo=0; misses++; emit('hha:miss',{count:misses}); emit('hha:score',{score, combo});
+      kill();
+    }, life);
+
+    host.appendChild(el); spawns++;
+  }
+
+  function gap(){ return (diff==='easy')? Math.round(rand(540,680)) : (diff==='hard')? Math.round(rand(360,460)) : Math.round(rand(440,560)); }
+  let loopId=0; function loop(){ if(!running) return; makeTarget(); loopId=setTimeout(loop, gap()); } loop();
+
+  function end(reason='done'){
+    if(!running) return; running=false;
+    clearInterval(timeId); clearTimeout(loopId);
+    const cleared = (qIndex>=3)?3:qIndex;
+    emit('hha:end',{ mode:'Healthy Plate', difficulty:diff, duration, score, combo, comboMax, hits, misses, spawns, questsCleared:cleared, questsTotal:3, reason });
+  }
+  return { stop:()=>end('stop'), pause:()=>{running=false;clearTimeout(loopId)}, resume:()=>{if(!running){running=true;loop()}} };
 }
 export default { boot };
