@@ -1,118 +1,184 @@
 // === modes/groups.safe.js ===
 import { emojiImage } from './emoji-sprite.js';
+const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+const rand=(a,b)=>a+Math.random()*(b-a);
+function emit(n,d){ try{window.dispatchEvent(new CustomEvent(n,{detail:d}))}catch{} }
 
-export async function boot(opts = {}){
-  const host = opts.host || document.getElementById('spawnHost') || document.body;
-  const diff = String(opts.difficulty||'normal').toLowerCase();
-  const duration = Number(opts.duration||60);
-  let left = Math.max(1, Math.round(duration));
+const GROUPS = {
+  veg: ['🥦','🥕','🥬','🍅','🫑'],
+  fruit:['🍎','🍌','🍊','🍓','🍇','🍍','🍐'],
+  protein:['🐟','🍳','🧀','🥩','🍗','🥜'],
+  grain:['🍞','🥖','🍚','🍝','🥨'],
+  dairy:['🥛','🧈','🍦','🥛']
+};
+const ALL = Object.values(GROUPS).flat();
 
-  const GROUPS = ['โปรตีน','คาร์บ','ผัก','ผลไม้','นม'];
-  const POOL = {
-    โปรตีน:['🐟','🍗','🥚','🫘','🥜'],
-    คาร์บ:['🍚','🍞','🍝','🥖','🥯'],
-    ผัก:['🥦','🥕','🥬','🌽','🍅'],
-    ผลไม้:['🍎','🍌','🍇','🍓','🍍'],
-    นม:['🥛','🧀','🍨'] // นม/ผลิตภัณฑ์นม
-  };
-  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋'];
+export async function boot(cfg={}){
+  const host=cfg.host||document.getElementById('spawnHost');
+  const diff=String(cfg.difficulty||'normal');
+  const duration=Number(cfg.duration||60);
 
-  // ตั้งเป้าทำ “ชุดครบ 5 หมู่” → 1/2/3 ชุด ตามระดับ
-  const goalSets = { easy:1, normal:2, hard:3 }[diff] || 2;
-  let setProgress = new Set(); // เก็บชื่อหมู่ที่ทำได้ในรอบปัจจุบัน
+  // เป้าต่อรอบ (1→2→3 ถ้าไม่พลาด)
+  let roundGoal=1;
+  const lifeBy={easy:2000,normal:1600,hard:1300};
+  const gapBy={easy:[540,680],normal:[440,560],hard:[360,460]};
 
-  let running=true, score=0, combo=0, misses=0, hits=0, spawns=0;
+  let running=true, tLeft=duration, score=0, combo=0, comboMax=0, hits=0, misses=0, spawns=0;
+  let neededType='veg', needLeft=roundGoal;
 
-  function fire(n,d){ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})) }catch{} }
-
-  fire('hha:quest',{text:`จัดชุดอาหารครบ 5 หมู่ × ${goalSets} รอบ`});
-
-  function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
-  function rand(a,b){ return a + Math.random()*(b-a); }
-  function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
-
-  // สุ่ม “หมู่” เป้าหมายรอบนี้
-  let currentGroup = pick(GROUPS);
-  function updateGroupQuest(){
-    fire('hha:quest',{text:`หมู่เป้าหมาย: ${currentGroup} (${setProgress.size}/5) • รอบ ${Math.floor(totalSets)+1}/${goalSets}`});
+  // mini quests (สุ่ม 3 จาก 10 แบบสั้น ๆ)
+  const pool=['veg5','fruit5','protein3','grain3','dairy3','combo10','score300','noMiss10','mix10','streak8'];
+  const deck=[]; while(deck.length<3){ const p=pool.splice((Math.random()*pool.length)|0,1)[0]; deck.push(p); }
+  let qIndex=0;
+  function questText(){
+    const map={
+      veg5:'เก็บผัก 5 ชิ้น', fruit5:'เก็บผลไม้ 5 ชิ้น', protein3:'โปรตีน 3 ชิ้น',
+      grain3:'ธัญพืช 3 ชิ้น', dairy3:'นม/นมถั่ว 3 ชิ้น', combo10:'คอมโบ 10',
+      score300:'คะแนน 300+', noMiss10:'ไม่พลาด 10 วิ', mix10:'รวมหมวด 10 ชิ้น', streak8:'ต่อเนื่อง 8'
+    };
+    return map[deck[qIndex]]||'ภารกิจพิเศษ';
   }
-  let totalSets = 0; // จำนวนรอบที่สำเร็จแล้ว (ครบ 5 หมู่)
+  let stat={veg:0,fruit:0,protein:0,grain:0,dairy:0,mix:0,noMiss:0};
+  emit('hha:quest',{text:`Quest 1/3 — ${questText()}`});
 
-  function spawn(){
+  const timeId=setInterval(()=>{
     if(!running) return;
-
-    // 70% ออกอาหารหมู่ต่าง ๆ, 30% ขยะ
-    const isJunk = Math.random()<0.30;
-    let char, kind;
-    if(isJunk){ char = pick(JUNK); kind='junk'; }
-    else{
-      const g = pick(GROUPS);
-      char = pick(POOL[g]);
-      kind = (g===currentGroup)?'good':'other';
-    }
-
-    const el = emojiImage(char, 0.68, 128);
-    el.classList.add('clickable');
-    spawns++;
-
-    const X = rand(-0.5,0.5), Y = rand(-0.2,0.2), Z=-1.6;
-    el.setAttribute('position', `${X} ${1.0+Y} ${Z}`);
-
-    const life = ({easy:1900,normal:1600,hard:1300}[diff]||1600);
-    const ttl = setTimeout(()=>{
-      if(!el.parentNode) return;
-      el.parentNode.removeChild(el);
-      // พลาด: ถ้าเป็นของหมู่เป้าหมายแล้วหาย → หัก
-      if(kind==='good'){ combo=0; misses++; fire('hha:miss',{count:misses}); }
-    }, life);
-
-    el.addEventListener('click', ()=>{
-      if(!el.parentNode) return;
-      clearTimeout(ttl); el.parentNode.removeChild(el);
-
-      if(kind==='junk'){ // โดนขยะ → โทษ
-        combo=0; score=Math.max(0,score-10);
-      }else if(kind==='good'){
-        hits++; combo=clamp(combo+1,0,999); score+=20+combo*2;
-        setProgress.add(currentGroup);
-        if(setProgress.size>=5){
-          totalSets+=1; setProgress.clear();
-          if(totalSets>=goalSets){ end('win'); return; }
-        }
-        // เปลี่ยนหมู่เป้าหมายใหม่
-        currentGroup = pick(GROUPS);
-      }else{
-        // เป็นอาหารหมู่อื่น แตะได้คะแนนน้อย
-        hits++; combo=clamp(combo+1,0,999); score+=6;
-      }
-      fire('hha:score',{score, combo});
-      updateGroupQuest();
-    }, {passive:false});
-
-    host.appendChild(el);
-
-    const gapBase = ({easy:[600,820], normal:[480,640], hard:[360,520]}[diff]||[480,640]);
-    const gap = Math.floor(rand(gapBase[0], gapBase[1]));
-    setTimeout(spawn, gap);
-  }
-
-  const timer = setInterval(()=>{
-    if(!running) return;
-    left = Math.max(0, left-1);
-    fire('hha:time',{sec:left});
-    if(left<=0) end('timeout');
+    tLeft=Math.max(0,tLeft-1); emit('hha:time',{sec:tLeft});
+    stat.noMiss++; // สำหรับ noMiss
+    if(tLeft<=0) end('timeout');
+    checkQuest();
   },1000);
 
-  function end(reason){
-    if(!running) return; running=false;
-    try{ clearInterval(timer); }catch{}
-    fire('hha:end',{ reason, title:'Food Groups', difficulty:diff,
-      score, comboMax:combo, misses, hits, spawns, duration });
+  function checkQuest(){
+    const id=deck[qIndex];
+    if(!id) return;
+    let done=false;
+    if(id==='veg5') done=stat.veg>=5;
+    if(id==='fruit5') done=stat.fruit>=5;
+    if(id==='protein3') done=stat.protein>=3;
+    if(id==='grain3') done=stat.grain>=3;
+    if(id==='dairy3') done=stat.dairy>=3;
+    if(id==='combo10') done=comboMax>=10;
+    if(id==='score300') done=score>=300;
+    if(id==='noMiss10') done=stat.noMiss>=10;
+    if(id==='mix10') done=stat.mix>=10;
+    if(id==='streak8') done=comboMax>=8;
+
+    if(done){
+      qIndex++;
+      if(deck[qIndex]) emit('hha:quest',{text:`Quest ${qIndex+1}/3 — ${questText()}`});
+      else emit('hha:quest',{text:`เคลียร์เควสต์ครบแล้ว!`});
+    }
   }
 
-  // เริ่ม
-  updateGroupQuest(); spawn();
+  function labelOf(emoji){
+    for(const k of Object.keys(GROUPS)){
+      if(GROUPS[k].includes(emoji)) return k;
+    }
+    return 'other';
+  }
 
-  return { stop(){ end('quit'); }, pause(){ running=false; }, resume(){ if(!running){ running=true; spawn(); } } };
+  function pop(txt,pos){
+    const t=document.createElement('a-entity');
+    t.setAttribute('text',`value:${txt}; color:#fff; align:center; width:2`);
+    t.setAttribute('position',`${pos.x} ${pos.y+0.2} ${pos.z}`);
+    host.appendChild(t);
+    t.setAttribute('animation__rise',`property: position; to: ${pos.x} ${pos.y+0.6} ${pos.z}; dur:520; easing:easeOutCubic`);
+    t.setAttribute('animation__fade',`property: opacity; to: 0; dur:520; easing:linear`);
+    setTimeout(()=>t.parentNode&&t.parentNode.removeChild(t),540);
+  }
+
+  function makeTarget(){
+    // ตัด bias ให้ตรงกับ neededType มากขึ้น
+    const pool = Math.random()<0.65 ? GROUPS[neededType] : ALL;
+    const emo = pool[(Math.random()*pool.length)|0];
+    const el = emojiImage(emo, 0.7, 160);
+    const x=rand(-0.5,0.5), y=rand(0.9,1.4), z=-1.6;
+    el.setAttribute('class','clickable');
+    el.setAttribute('position',`${x} ${y} ${z}`);
+    const life=lifeBy[diff]||1600;
+
+    let dead=false;
+    const kill=()=>{ if(dead) return; dead=true; el.parentNode&&el.parentNode.removeChild(el); };
+
+    el.addEventListener('click', ()=>{
+      if(!running||dead) return;
+      hits++;
+      const g=labelOf(emo);
+      stat[g]++; stat.mix++;
+      if(g===neededType){
+        score+=25; combo++; comboMax=Math.max(comboMax,combo);
+        needLeft--;
+        pop('+25', el.object3D.position);
+        if(needLeft<=0){
+          // รอบใหม่: ถ้ายังไม่พลาดเลย → เพิ่มเป้ารอบสูงสุด 3
+          roundGoal = Math.min(3, roundGoal+1);
+          // สุ่มหมวดใหม่
+          const keys=Object.keys(GROUPS);
+          neededType=keys[(Math.random()*keys.length)|0];
+          needLeft=roundGoal;
+          emit('hha:quest',{text:`รอบใหม่: เลือกหมวด ${neededType.toUpperCase()} (${roundGoal} ชิ้น)`});
+        }
+      }else{
+        // พลาดรอบนี้
+        combo=0; misses++;
+        roundGoal=1; // รีเซ็ตเป้ารอบ
+        needLeft=1;
+        emit('hha:miss',{count:misses});
+        emit('hha:quest',{text:`พลาด! เริ่มใหม่: เลือกหมวด ${neededType.toUpperCase()} (1 ชิ้น)`});
+      }
+      emit('hha:score',{score, combo});
+      checkQuest();
+      kill();
+    });
+
+    setTimeout(()=>{
+      if(dead||!running) return;
+      // หมดอายุ = พลาดรอบ (แต่ไม่หักคะแนน)
+      combo=0; misses++; roundGoal=1; needLeft=1;
+      emit('hha:miss',{count:misses});
+      emit('hha:score',{score, combo});
+      kill();
+    }, life);
+
+    host.appendChild(el);
+    spawns++;
+  }
+
+  function nextGap(){
+    const [a,b]=gapBy[diff]||gapBy.normal;
+    return Math.round(rand(a,b));
+  }
+
+  let loopId=0;
+  function loop(){ if(!running) return; makeTarget(); loopId=setTimeout(loop, nextGap()); }
+
+  // init needed group
+  neededType = Object.keys(GROUPS)[(Math.random()*5)|0];
+  needLeft = roundGoal;
+  emit('hha:quest',{text:`เริ่ม: เลือกหมวด ${neededType.toUpperCase()} (${roundGoal} ชิ้น)`});
+
+  // time start & loop
+  const timeStart = setTimeout(()=>{},0);
+  const timeKeep = timeStart; // no-op to keep symmetry
+  loop();
+
+  function end(reason='done'){
+    if(!running) return;
+    running=false;
+    clearInterval(timeId);
+    clearTimeout(loopId);
+    emit('hha:end', {
+      mode:'Food Groups',
+      difficulty:diff,
+      duration,
+      score, combo, comboMax, hits, misses, spawns,
+      questsCleared: qIndex>=3 ? 3 : qIndex,
+      questsTotal: 3,
+      reason
+    });
+  }
+
+  return { stop:()=>end('stop'), pause:()=>{running=false;clearTimeout(loopId)}, resume:()=>{if(!running){running=true;loop()}} };
 }
 export default { boot };
