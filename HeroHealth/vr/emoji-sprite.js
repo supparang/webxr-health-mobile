@@ -1,6 +1,4 @@
 // === modes/emoji-sprite.js ===
-// แปลงอีโมจิ (สีจริง) เป็น dataURL แล้วสร้าง <a-image>
-// ฟอนต์สำคัญ: Apple Color Emoji / Segoe UI Emoji / Noto Color Emoji
 const CACHE = new Map();
 
 function drawEmoji(char, px=128) {
@@ -9,12 +7,11 @@ function drawEmoji(char, px=128) {
 
   const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
   const W = Math.round(px * dpr), H = Math.round(px * dpr);
-  const pad = Math.round(px * 0.3 * dpr);
+  const pad = Math.round(px * 0.30 * dpr);
 
   const cv = document.createElement('canvas');
   cv.width  = W + pad*2;
   cv.height = H + pad*2;
-
   const ctx = cv.getContext('2d');
   ctx.clearRect(0,0,cv.width,cv.height);
 
@@ -23,23 +20,22 @@ function drawEmoji(char, px=128) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // glow เบา ๆ
+  // outer glow
   ctx.save();
   ctx.shadowColor = 'rgba(255,255,255,.5)';
   ctx.shadowBlur = Math.round(px*0.2*dpr);
   ctx.fillText(char, cv.width/2, cv.height/2);
   ctx.restore();
 
-  // main fill
+  // main
   ctx.fillText(char, cv.width/2, cv.height/2);
 
-  const dataURL = cv.toDataURL('image/png');
-  const out = { src: dataURL, w: cv.width, h: cv.height };
+  const out = { src: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
   CACHE.set(key, out);
   return out;
 }
 
-export function emojiImage(char, scale=0.6, px=128) {
+export function emojiImage(char, scale=0.65, px=128) {
   const {src} = drawEmoji(char, px);
   const el = document.createElement('a-image');
   el.setAttribute('src', src);
@@ -49,3 +45,4 @@ export function emojiImage(char, scale=0.6, px=128) {
   el.dataset.emoji = char;
   return el;
 }
+export default { emojiImage };
