@@ -1,161 +1,53 @@
 // === modes/hydration.quest.js ===
+import { SpawnSpace, createSpawnerPacer, defaultsByDifficulty, randIn } from '../vr/spawn-utils.js';
 import { emojiImage } from '../vr/emoji-sprite.js';
-const emit=(n,d)=>{try{window.dispatchEvent(new CustomEvent(n,{detail:d}))}catch{}};
-const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-const rand=(a,b)=>a+Math.random()*(b-a);
+import { burstAt, floatScore } from '../vr/shards.js';
 
-// น้ำดื่ม/ของขับน้ำ/หวาน
-const DRINK_GOOD = ['🥤','🫖','💧','🍵']; // 💧น้ำ, ชาไม่หวาน
-const DRINK_BAD  = ['🥤','🧋','🍺','🍸','🍷','🍹']; // น้ำหวาน/คาเฟอีน/แอลกอฮอล์ (เกมเด็ก: ใช้เป็นตัวอย่าง)
-const DRINK_NEUT=['🥛','🧃']; // นม/น้ำผลไม้
+export async function boot({ host, difficulty='normal', duration=60 }){
+  const scene=document.querySelector('a-scene');
+  const origin=host.object3D.position;
+  const pacer=createSpawnerPacer();
+  const def=defaultsByDifficulty(difficulty);
 
-export async function boot(cfg={}){
-  const host=cfg.host||document.getElementById('spawnHost');
-  const diff=String(cfg.difficulty||'normal');
-  const duration=Number(cfg.duration||60);
+  const GOOD=['💧','🥛','🫖','☕️'];   // นับน้ำ
+  const JUNK=['🥤','🧋','🍹','🍸'];   // น้ำหวาน/น้ำตาล
 
-  let running=true, tLeft=duration;
-  let score=0, combo=0, comboMax=0, hits=0, misses=0, spawns=0;
-  let hydro=50; // 0..100
-  // เกณฑ์ GREEN zone
-  const zone={low:35, high:70};
-  if(diff==='easy'){ Object.assign(zone,{low:30,high:75}); }
-  if(diff==='hard'){ Object.assign(zone,{low:40,high:65}); }
+  let score=0, combo=0, running=true, water=50; // %
+  window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:'ดื่มน้ำให้ถึง 80%'}}));
 
-  // mini-quests 3 ใบ
-  const deck=['stayGreen20','streak10','over2green3']; let qIndex=0;
-  function questText(){
-    const map={
-      stayGreen20:'อยู่ในโซนพอดี 20 วิ',
-      streak10:'ดื่มถูก 10 ครั้งติด',
-      over2green3:'ลดจาก HIGH กลับ GREEN 3 ครั้ง'
-    }; return map[deck[qIndex]]||'ภารกิจน้ำ';
+  function updateGauge(good){
+    water = Math.max(0, Math.min(100, water + (good? +6 : -7)));
+    window.dispatchEvent(new CustomEvent('hha:hydration',{detail:{level:water}}));
   }
-  let qState={greenSec:0, streak:0, overToGreen:0};
-  emit('hha:quest',{text:`Quest 1/3 — ${questText()}`});
+  function emit(delta,good){ score=Math.max(0,score+delta); combo = good?combo+1:0;
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo,delta,good}})); }
 
-  // เวลา
-  const timeId=setInterval(()=>{
+  function spawnOne(){
     if(!running) return;
-    tLeft=Math.max(0,tLeft-1);
-    emit('hha:time',{sec:tLeft});
+    const isGood=Math.random()<0.65; const pool=isGood?GOOD:JUNK; const char=pool[(Math.random()*pool.length)|0];
+    const el=emojiImage(char,.7,128);
+    const p=SpawnSpace.next(origin); el.setAttribute('position',`${p.x} ${p.y} ${p.z}`); el.object3D.position.z+=(Math.random()*0.06-0.03);
+    const life=randIn(def.life); const ttl=setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, life);
 
-    // decay เบา ๆ ออกนอก GREEN
-    if(hydro>zone.high) hydro=Math.max(zone.high, hydro-1);
-    if(hydro<zone.low)  hydro=Math.min(zone.low,  hydro+1);
-
-    // นับเวลาในโซน GREEN
-    if(hydro>=zone.low && hydro<=zone.high) qState.greenSec++;
-
-    checkQuest();
-    if(tLeft<=0) end('timeout');
-  },1000);
-
-  function checkQuest(){
-    const id=deck[qIndex];
-    if(!id) return;
-    let ok=false;
-    if(id==='stayGreen20') ok=qState.greenSec>=20;
-    if(id==='streak10') ok=qState.streak>=10;
-    if(id==='over2green3') ok=qState.overToGreen>=3;
-    if(ok){
-      qIndex++;
-      emit('hha:quest',{text: deck[qIndex]?`Quest ${qIndex+1}/3 — ${questText()}`:'เคลียร์เควสต์น้ำครบแล้ว!'});
-    }
-  }
-
-  function zoneLabel(){
-    if(hydro<zone.low) return 'LOW';
-    if(hydro>zone.high) return 'HIGH';
-    return 'GREEN';
-  }
-
-  function pop(txt,pos){
-    const t=document.createElement('a-entity');
-    t.setAttribute('text',`value:${txt}; color:#fff; align:center; width:2`);
-    t.setAttribute('position',`${pos.x} ${pos.y+0.2} ${pos.z}`);
-    host.appendChild(t);
-    t.setAttribute('animation__rise',`property: position; to: ${pos.x} ${pos.y+0.6} ${pos.z}; dur:520; easing:easeOutCubic`);
-    t.setAttribute('animation__fade',`property: opacity; to: 0; dur:520; easing:linear`);
-    setTimeout(()=>t.parentNode&&t.parentNode.removeChild(t),540);
-  }
-
-  function makeTarget(){
-    const typeR=Math.random();
-    const pool = typeR<0.55 ? DRINK_GOOD : (typeR<0.8 ? DRINK_NEUT : DRINK_BAD);
-    const emo = pool[(Math.random()*pool.length)|0];
-    const el = emojiImage(emo,0.7,160);
-    const x=rand(-0.5,0.5), y=rand(0.9,1.4), z=-1.6;
-    el.setAttribute('class','clickable');
-    el.setAttribute('position',`${x} ${y} ${z}`);
-
-    const life = (diff==='easy')?2000:(diff==='hard')?1300:1600;
-    let dead=false;
-    const kill=()=>{ if(dead) return; dead=true; el.parentNode&&el.parentNode.removeChild(el); };
-
+    el.classList.add('clickable');
     el.addEventListener('click', ()=>{
-      if(!running||dead) return;
-      hits++;
-      const before=zoneLabel();
-
-      // ผลกระทบต่อเกจ
-      if(DRINK_GOOD.includes(emo)) hydro=clamp(hydro+8,0,100);
-      else if(DRINK_BAD.includes(emo)) hydro=clamp(hydro-10,0,100);
-      else hydro=clamp(hydro+4,0,100); // neutral
-
-      // ให้คะแนนตามโซน
-      if(zoneLabel()==='GREEN'){
-        const plus = (diff==='hard')?30:(diff==='easy')?20:25;
-        score += plus; combo++; comboMax=Math.max(comboMax,combo);
-        pop('+'+plus+' ✓GREEN', el.object3D.position);
-      }else if(zoneLabel()==='HIGH'){
-        // ถ้ายังสูง → โทษเบา ๆ
-        score=Math.max(0, score-10); combo=0;
-        pop('-10 HIGH', el.object3D.position);
-      }else{
-        score=Math.max(0, score-8); combo=0;
-        pop('-8 LOW', el.object3D.position);
-      }
-
-      // นับ over→green
-      if(before==='HIGH' && zoneLabel()==='GREEN') qState.overToGreen++;
-
-      // streak (ถูก=GREEN เท่านั้น)
-      if(zoneLabel()==='GREEN') qState.streak++; else qState.streak=0;
-
-      emit('hha:score',{score, combo});
-      coach(`ระดับน้ำ: ${Math.round(hydro)} (${zoneLabel()})`);
-      checkQuest();
-      kill();
+      clearTimeout(ttl);
+      const wp=el.object3D.getWorldPosition(new THREE.Vector3());
+      if(el.parentNode) el.parentNode.removeChild(el);
+      updateGauge(isGood);
+      const delta = isGood? +7 : -6; emit(delta,isGood);
+      burstAt(scene, wp, {color:isGood?'#38bdf8':'#ef4444'});
+      floatScore(scene, wp, (delta>0?'+':'')+delta, {dur:800});
     });
 
-    setTimeout(()=>{
-      if(dead||!running) return;
-      // หมดอายุ = พลาด (ถือว่าไม่ดื่ม) → score ไม่เปลี่ยน แต่คอมโบตก
-      combo=0; misses++; emit('hha:miss',{count:misses}); emit('hha:score',{score, combo});
-      kill();
-    }, life);
-
-    host.appendChild(el); spawns++;
+    host.appendChild(el); pacer.track(el); pacer.schedule(randIn(def.gap), spawnOne);
   }
 
-  function coach(msg){ emit('hha:quest',{text:`Hydration — ${msg}`}); }
+  let left=duration; const ti=setInterval(()=>{ left=Math.max(0,left-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); if(left<=0){ end('timeout'); }},1000);
+  function end(reason){ if(!running) return; running=false; clearInterval(ti);
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,comboMax:combo,duration}})); }
 
-  let loopId=0;
-  function gap(){ return (diff==='easy')? rand(540,680) : (diff==='hard')? rand(360,460) : rand(440,560); }
-  function loop(){ if(!running) return; makeTarget(); loopId=setTimeout(loop, Math.round(gap())); }
-  loop();
-
-  function end(reason='done'){
-    if(!running) return; running=false;
-    clearInterval(timeId); clearTimeout(loopId);
-    emit('hha:end',{
-      mode:'Hydration',
-      difficulty:diff, duration,
-      score, combo, comboMax, hits, misses, spawns,
-      questsCleared: qIndex>=3 ? 3 : qIndex, questsTotal:3, reason
-    });
-  }
-  return { stop:()=>end('stop'), pause:()=>{running=false;clearTimeout(loopId)}, resume:()=>{if(!running){running=true;loop()}} };
+  spawnOne();
+  return { stop(){end('quit');}, pause(){running=false;}, resume(){ if(!running){ running=true; pacer.schedule(randIn(def.gap), spawnOne);} } };
 }
 export default { boot };
