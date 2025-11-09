@@ -1,63 +1,74 @@
-// === modes/groups.safe.js ===
-import { SpawnSpace, createSpawnerPacer, defaultsByDifficulty, randIn } from '../vr/spawn-utils.js';
-import { emojiImage } from '../vr/emoji-sprite.js';
+import { makeSpawner } from '../vr/spawn-utils.js';
 import { burstAt, floatScore } from '../vr/shards.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
 
-export async function boot({ host, difficulty='normal', duration=60 }){
-  const scene=document.querySelector('a-scene');
-  const origin=host.object3D.position;
-  const pacer=createSpawnerPacer();
-  const def=defaultsByDifficulty(difficulty);
+const GROUPS = {
+  veg:['🥦','🥕','🥬','🍅','🫐','🍓'],
+  protein:['🐟','🥚','🍗','🥩','🧀','🥜'],
+  carb:['🍞','🍚','🍝','🥨','🥔','🌽'],
+  fruit:['🍎','🍌','🍊','🍍','🍇','🍐'],
+  dairy:['🥛','🧈','🍦','🧀']
+};
+const ALL = Object.values(GROUPS).flat();
 
-  const GROUPS={
-    fruit:['🍎','🍐','🍇','🍓','🍊','🍌','🍍','🍉'],
-    veg:['🥕','🥦','🥬','🍅','🧄','🧅'],
-    protein:['🐟','🍗','🥚','🫘'],
-    grain:['🍞','🥖','🍚','🍝'],
-    dairy:['🥛','🧀','🍦']
-  };
-  const ALL=[...GROUPS.fruit,...GROUPS.veg,...GROUPS.protein,...GROUPS.grain,...GROUPS.dairy];
+export async function boot(cfg={}){
+  const host=document.getElementById('spawnHost'), scene=document.querySelector('a-scene');
+  const diff=String(cfg.difficulty||'normal');
 
-  let score=0, combo=0, running=true;
-  const target='fruit'; // ตัวอย่าง: ให้เก็บ "ผลไม้"
-  window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:'เลือก “ผลไม้” ให้ครบ!'}}));
+  const tune = {
+    easy:{nextGap:[650,950],life:[1700,2000],minDist:0.36},
+    normal:{nextGap:[500,750],life:[1300,1600],minDist:0.32},
+    hard:{nextGap:[380,560],life:[1000,1300],minDist:0.30}
+  }[diff];
 
-  function emit(delta){ score=Math.max(0,score+delta); combo = delta>0 ? combo+1 : 0;
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo,delta,good:delta>0}})); }
+  const sp = makeSpawner({ bounds:{x:[-0.75,0.75],y:[-0.05,0.45],z:-1.6}, minDist:tune.minDist });
+
+  function nextGap(){const[a,b]=tune.nextGap;return a+Math.random()*(b-a);}
+  function lifeMs(){const[a,b]=tune.life;return a+Math.random()*(b-a);}
+
+  // goal 1/2/3 (อัปโดยความยาก)
+  let goalCount = {easy:1,normal:2,hard:3}[diff];
 
   function spawnOne(){
-    if(!running) return;
-    const char = ALL[(Math.random()*ALL.length)|0];
-    const el = emojiImage(char, .7, 128);
-    const p = SpawnSpace.next(origin);
-    el.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
-    el.object3D.position.z += (Math.random()*0.06-0.03);
-
-    const life=randIn(def.life);
-    const ttl=setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, life);
-
+    const ch = ALL[(Math.random()*ALL.length)|0];
+    const pos = sp.sample();
+    const el=emojiImage(ch,0.68,128);
     el.classList.add('clickable');
-    el.addEventListener('click', ()=>{
-      clearTimeout(ttl);
-      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
-      if(el.parentNode) el.parentNode.removeChild(el);
-
-      const good = GROUPS[target].includes(char);
-      const delta = good?+8:-6; emit(delta);
-      burstAt(scene, wp, {color:good?'#22c55e':'#ef4444'});
-      floatScore(scene, wp, (delta>0?'+':'')+delta, {dur:800});
-    });
-
+    el.setAttribute('position',`${pos.x} ${pos.y} ${pos.z}`);
     host.appendChild(el);
-    pacer.track(el);
-    pacer.schedule(randIn(def.gap), spawnOne);
+    const rec = sp.markActive({x:pos.x,y:pos.y,z:pos.z});
+    const ttl = setTimeout(()=>{ try{host.removeChild(el);}catch{} sp.unmark(rec); }, lifeMs());
+
+    el.addEventListener('click', (ev)=>{
+      ev.preventDefault(); clearTimeout(ttl);
+      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
+      // ตรวจหมวดเป้าปัจจุบัน (ให้โหมดตั้ง targetGroup ไว้เอง)
+      const ok = GROUPS[targetGroup].includes(ch);
+      burstAt(scene, wp, { color: ok?'#22c55e':'#ef4444', count: ok?18:10, speed: ok?1.0:0.8 });
+      floatScore(scene, wp, ok?'+25':'-10');
+      if (ok) { score+=25; hitGoalCount++; } else { score=Math.max(0,score-10); }
+      // ส่ง HUD + เควสต์
+      window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo:0}}));
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`เลือกหมวด: ${targetGroup} — ${hitGoalCount}/${goalCount}`}}));
+
+      try{host.removeChild(el);}catch{} sp.unmark(rec);
+
+      // เป้าหมดรอบนี้?
+      if (hitGoalCount>=goalCount) nextRound(); // รีเซ็ต targetGroup ใหม่สุ่ม + เพิ่มความท้าทาย
+    }, {passive:false});
   }
 
-  let left=duration; const ti=setInterval(()=>{ left=Math.max(0,left-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); if(left<=0){ end('timeout'); }},1000);
-  function end(reason){ if(!running) return; running=false; clearInterval(ti);
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,comboMax:combo,duration}})); }
+  function loop(){ spawnOne(); setTimeout(loop,nextGap()); }
+  // เตรียมรอบแรก
+  let targetGroup = 'veg', score=0, hitGoalCount=0;
+  function nextRound(){
+    const keys = Object.keys(GROUPS);
+    targetGroup = keys[(Math.random()*keys.length)|0];
+    hitGoalCount = 0;
+    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`เป้าหมวดใหม่: ${targetGroup.toUpperCase()} — ${hitGoalCount}/${goalCount}`}}));
+  }
+  nextRound(); loop();
 
-  spawnOne();
-  return { stop(){end('quit');}, pause(){running=false;}, resume(){ if(!running){ running=true; pacer.schedule(randIn(def.gap), spawnOne);} } };
+  return { stop(){}, pause(){}, resume(){} };
 }
 export default { boot };
