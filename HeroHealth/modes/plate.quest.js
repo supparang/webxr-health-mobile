@@ -1,50 +1,60 @@
-// === modes/plate.quest.js ===
-import { SpawnSpace, createSpawnerPacer, defaultsByDifficulty, randIn } from '../vr/spawn-utils.js';
-import { emojiImage } from '../vr/emoji-sprite.js';
+import { makeSpawner } from '../vr/spawn-utils.js';
 import { burstAt, floatScore } from '../vr/shards.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
 
-export async function boot({ host, difficulty='normal', duration=60 }){
-  const scene=document.querySelector('a-scene');
-  const origin=host.object3D.position;
-  const pacer=createSpawnerPacer();
-  const def=defaultsByDifficulty(difficulty);
+const POOL = ['🍎','🍌','🥦','🍞','🥩','🐟','🥛','🍚','🥕','🍇'];
 
-  const POOL=['🥗','🍗','🍞','🥦','🍅','🍎','🐟','🥔'];
-  let score=0, combo=0, running=true;
-  window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:'จัดจานสุขภาพให้ลงตัว!'}}));
+export async function boot(cfg={}){
+  const host=document.getElementById('spawnHost'), scene=document.querySelector('a-scene');
+  const diff=String(cfg.difficulty||'normal');
+  const tune = {
+    easy:{nextGap:[650,950],life:[1700,2000],minDist:0.36},
+    normal:{nextGap:[500,750],life:[1300,1600],minDist:0.32},
+    hard:{nextGap:[380,560],life:[1000,1300],minDist:0.30}
+  }[diff];
 
-  function emit(delta,good){ score=Math.max(0,score+delta); combo = good?combo+1:0;
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo,delta,good}})); }
+  const sp = makeSpawner({ bounds:{x:[-0.75,0.75],y:[-0.05,0.45],z:-1.6}, minDist:tune.minDist });
+
+  function nextGap(){const[a,b]=tune.nextGap;return a+Math.random()*(b-a);}
+  function lifeMs(){const[a,b]=tune.life;return a+Math.random()*(b-a);}
+
+  // เป้า: จัด “ครบ 5 หมู่” แล้วขึ้นรอบใหม่
+  let roundGot=new Set(), totalScore=0;
 
   function spawnOne(){
-    if(!running) return;
-    const char=POOL[(Math.random()*POOL.length)|0];
-    const el=emojiImage(char,.72,128);
+    const ch = POOL[(Math.random()*POOL.length)|0];
+    const pos=sp.sample();
+    const el=emojiImage(ch,0.68,128); el.classList.add('clickable');
+    el.setAttribute('position',`${pos.x} ${pos.y} ${pos.z}`);
+    host.appendChild(el);
+    const rec = sp.markActive({x:pos.x,y:pos.y,z:pos.z});
+    const ttl = setTimeout(()=>{ try{host.removeChild(el);}catch{} sp.unmark(rec); }, lifeMs());
 
-    const p=SpawnSpace.next(origin);
-    el.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
-    el.object3D.position.z+=(Math.random()*0.06-0.03);
+    el.addEventListener('click',(ev)=>{
+      ev.preventDefault(); clearTimeout(ttl);
+      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
+      burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0 });
+      floatScore(scene, wp, '+20');
+      totalScore += 20;
+      roundGot.add(groupOf(ch));
+      window.dispatchEvent(new CustomEvent('hha:score',{detail:{score:totalScore, combo:0}}));
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`จัดจานให้ครบ 5 หมู่: ${roundGot.size}/5`}}));
+      try{host.removeChild(el);}catch{} sp.unmark(rec);
 
-    const life=randIn(def.life); const ttl=setTimeout(()=>{ if(el.parentNode) el.parentNode.removeChild(el); }, life);
-
-    el.classList.add('clickable');
-    el.addEventListener('click', ()=>{
-      clearTimeout(ttl);
-      const wp=el.object3D.getWorldPosition(new THREE.Vector3());
-      if(el.parentNode) el.parentNode.removeChild(el);
-      const good=true; const delta=+6; emit(delta,good); // ตัวอย่าง: ทุกชิ้นให้คะแนนเมื่อวางลงจานถูกจุด (ต่อยอดเองได้)
-      burstAt(scene, wp, {color:'#f59e0b'});
-      floatScore(scene, wp, '+6', {dur:800});
-    });
-
-    host.appendChild(el); pacer.track(el); pacer.schedule(randIn(def.gap), spawnOne);
+      if (roundGot.size>=5){ roundGot.clear(); /* รอบใหม่ */ }
+    }, {passive:false});
   }
 
-  let left=duration; const ti=setInterval(()=>{ left=Math.max(0,left-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); if(left<=0){ end('timeout'); }},1000);
-  function end(reason){ if(!running) return; running=false; clearInterval(ti);
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score,comboMax:combo,duration}})); }
+  function groupOf(ch){
+    if ('🍎🍌🍇'.includes(ch)) return 'fruit';
+    if ('🥦🥕'.includes(ch))   return 'veg';
+    if ('🍞🍚'.includes(ch))   return 'carb';
+    if ('🥩🐟'.includes(ch))   return 'protein';
+    return 'dairy';
+  }
 
-  spawnOne();
-  return { stop(){end('quit');}, pause(){running=false;}, resume(){ if(!running){ running=true; pacer.schedule(randIn(def.gap), spawnOne);} } };
+  function loop(){ spawnOne(); setTimeout(loop,nextGap()); }
+  loop();
+  return { stop(){}, pause(){}, resume(){} };
 }
 export default { boot };
