@@ -1,149 +1,148 @@
-// Healthy Plate — จัดจานให้ครบหมู่ + Adaptive + Coach + Quest
+// === /HeroHealth/modes/plate.quest.js (release) ===
 import { makeSpawner } from '../vr/spawn-utils.js';
 import { burstAt, floatScore } from '../vr/shards.js';
 import { emojiImage } from '../vr/emoji-sprite.js';
-import { MissionDeck } from '../vr/mission.js';
+import { drawThree } from '../vr/quests-powerups.js';
 
 export async function boot(cfg = {}) {
   const scene = document.querySelector('a-scene');
   const host  = cfg.host || document.getElementById('spawnHost');
   const diff  = String(cfg.difficulty || 'normal');
-  const defaultDur = { easy:90, normal:60, hard:45 }[diff] || 60;
-  let left = Number(cfg.duration || defaultDur);
+  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
+
+  // 5 หมู่ + หมวดพิเศษ (ของดี/ของพิเศษ)
+  const GROUPS = {
+    veg: ['🥦','🥕','🥬','🍅','🌽'],
+    fruit: ['🍎','🍓','🍇','🍊','🍍','🍌'],
+    grain: ['🍞','🥖','🍚','🍘'],
+    protein: ['🐟','🍗','🥚','🫘','🥜'],
+    dairy: ['🥛','🧀','🍦'],
+  };
+  const ALL = Object.values(GROUPS).flat();
+  const STAR='⭐', DIA='💎', SHIELD='🛡️';
 
   const tune = {
-    easy:   { gap:[560,820], life:[1700,2000], minDist:0.34, maxActiveMin:1, maxActiveMax:3 },
-    normal: { gap:[460,700], life:[1350,1650], minDist:0.32, maxActiveMin:1, maxActiveMax:4 },
-    hard:   { gap:[380,560], life:[1050,1350], minDist:0.30, maxActiveMin:1, maxActiveMax:5 },
+    easy:   { nextGap:[360,560], life:[1400,1700], minDist:0.34, maxConcurrent:2 },
+    normal: { nextGap:[300,480], life:[1200,1500], minDist:0.32, maxConcurrent:3 },
+    hard:   { nextGap:[240,420], life:[1000,1300], minDist:0.30, maxConcurrent:4 }
   };
-  const T = tune[diff] || tune.normal;
+  const C = tune[diff] || tune.normal;
+  const sp = makeSpawner({ bounds:{x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6}, minDist:C.minDist, decaySec:2.2 });
 
-  const sp = makeSpawner({ bounds:{x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6}, minDist:T.minDist, decaySec:2.2 });
+  // รอบละ “จัดครบ 5 หมู่”
+  let roundDone = {veg:false,fruit:false,grain:false,protein:false,dairy:false};
+  function roundCleared(){ return Object.values(roundDone).every(Boolean); }
 
-  // รายการอาหารโดยหมู่ (อย่างย่อ)
-  const PLATE = {
-    veg:['🥦','🥕','🥬','🍅'],
-    fruit:['🍎','🍊','🍌','🍓'],
-    protein:['🐟','🍗','🥚','🫘'],
-    grain:['🍚','🍞','🥖'],
-  };
-  const ALL = Object.values(PLATE).flat();
+  // state
+  let running=true, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0, shield=0;
+  let remain=dur, timerId=0, loopId=0;
 
-  let score=0, combo=0, misses=0, running=true;
-  const active=[];
-  const deck = new MissionDeck(); deck.draw3(); fireQuest();
+  // quests
+  const QUESTS_POOL = drawThree('plate', diff);
+  let qIdx=0;
+  function questText(){ return `Quest ${qIdx+1}/3 — ${QUESTS_POOL[qIdx]?.label || 'จัดครบ 5 หมู่!'}`; }
+  function updateQuestHUD(){ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }
+  updateQuestHUD();
 
-  // เป้าหมายวันนี้: ให้ครบ 3/4 หมู่ (สุ่มเริ่มและหมุนเวียน)
-  let need = new Set(['veg','fruit','protein']); // เริ่มต้น
-  function rotateNeed() {
-    const keys = Object.keys(PLATE);
-    const pick = new Set();
-    while (pick.size < 3) pick.add(keys[(Math.random()*keys.length)|0]);
-    need = pick;
-    coach(`วันนี้จัดจาน: ${[...need].map(labelTH).join(' + ')}`);
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const nextGap=()=>rand(C.nextGap[0], C.nextGap[1]);
+  const lifeMs =()=>rand(C.life[0], C.life[1]);
+
+  function end(reason='timeout'){
+    if(!running) return;
+    running=false;
+    clearInterval(timerId); clearTimeout(loopId);
+    Array.from(host.querySelectorAll('a-image')).forEach(n=>n.parentNode && n.parentNode.removeChild(n));
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
+      mode:'Healthy Plate', difficulty:diff, score, combo:maxCombo, misses, hits, spawns,
+      duration:dur, questsCleared:qIdx+1, questsTotal:3, reason
+    }}));
   }
-  rotateNeed();
-  setInterval(()=>running && rotateNeed(), 10000);
-
-  // Adaptive
-  let currentMaxActive=T.maxActiveMin;
-  const recent={hits:0,misses:0,lastMissAt:performance.now(),lastAdjustAt:performance.now()};
-
-  const tmr=setInterval(()=>{ if(!running) return; left=Math.max(0,left-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}}));
-    deck.second(); if(left<=0) end('timeout');
-  },1000);
-
-  function nextGap(){ const [a,b]=T.gap; return a + Math.random()*(b-a); }
-  function lifeMs(){  const [a,b]=T.life;return a + Math.random()*(b-a); }
-
-  function whichGroup(emoji){
-    for (const [k,arr] of Object.entries(PLATE)) if (arr.includes(emoji)) return k;
-    return 'other';
+  function tryAdvanceQuest(){
+    const s = { score, goodCount:hits, junkMiss:misses, comboMax:maxCombo, feverCount:0, star:0, diamond:0, noMissTime:0 };
+    const q = QUESTS_POOL[qIdx]; if(!q) return;
+    const done = q.check ? q.check(s) : false;
+    if(done){ qIdx = Math.min(2, qIdx+1); updateQuestHUD(); }
   }
 
   function spawnOne(){
     if(!running) return;
-    if (active.length >= currentMaxActive) return;
+    const now = host.querySelectorAll('a-image').length;
+    if(now>=C.maxConcurrent){ loopId=setTimeout(spawnOne,120); return; }
 
-    const ch = ALL[(Math.random()*ALL.length)|0];
-    const pos=sp.sample();
-    const el=emojiImage(ch, 0.7, 140);
+    let ch, type='food', groupKey;
+    const r = Math.random();
+    if      (r < 0.05) { ch=STAR; type='star'; }
+    else if (r < 0.07) { ch='💎';  type='diamond'; }
+    else if (r < 0.10) { ch='🛡️'; type='shield'; }
+    else {
+      const keys = Object.keys(GROUPS);
+      groupKey = keys[(Math.random()*keys.length)|0];
+      const pool = GROUPS[groupKey];
+      ch = pool[(Math.random()*pool.length)|0];
+    }
+
+    const pos = sp.sample();
+    const el  = emojiImage(ch, 0.68, 128);
     el.classList.add('clickable');
     el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-    host.appendChild(el);
+    host.appendChild(el); spawns++;
 
-    const rec=sp.markActive(pos); active.push(el);
-
-    const ttl=setTimeout(()=>{
+    const rec = sp.markActive(pos);
+    const ttl = setTimeout(()=>{
       if(!el.parentNode) return;
-      combo=0; score=Math.max(0,score-8); misses++;
-      recent.misses++; recent.lastMissAt=performance.now();
-      deck.onJunk();
-      window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}}));
-      try{ host.removeChild(el);}catch{}; sp.unmark(rec); active.splice(active.indexOf(el),1);
+      if(type==='food'){ misses++; combo=0; score=Math.max(0, score-10); window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}})); }
+      try{ host.removeChild(el);}catch{} sp.unmark(rec);
     }, lifeMs());
 
     el.addEventListener('click',(ev)=>{
+      if(!running) return;
       ev.preventDefault(); clearTimeout(ttl);
-      const grp = whichGroup(ch);
-      const ok = need.has(grp);
       const wp = el.object3D.getWorldPosition(new THREE.Vector3());
-      let delta = ok ? (22 + combo*2) : -18;
 
-      if (ok){ combo++; recent.hits++; deck.onGood(); }
-      else { combo=0; deck.onJunk(); recent.misses++; recent.lastMissAt=performance.now(); }
+      if(type==='food'){
+        const val = 22 + combo*2;
+        score += val; combo++; maxCombo=Math.max(maxCombo,combo); hits++;
+        roundDone[groupKey] = true;
+        burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.05 }); floatScore(scene, wp, '+'+val);
 
-      score=Math.max(0,score+delta);
-      burstAt(scene, wp, { color: ok?'#34d399':'#ef4444', count: ok?20:12, speed: ok?1.05:0.85 });
-      floatScore(scene, wp, (delta>0?'+':'')+delta);
+        if(roundCleared()){
+          // เริ่มรอบใหม่ทันที
+          roundDone = {veg:false,fruit:false,grain:false,protein:false,dairy:false};
+          floatScore(scene, wp, 'ROUND +100'); score+=100;
+        }
+      } else if (type==='star'){
+        score += 40; burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 }); floatScore(scene, wp, '+40 ⭐');
+      } else if (type==='diamond'){
+        score += 80; burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 }); floatScore(scene, wp, '+80 💎');
+      } else if (type==='shield'){
+        shield = Math.min(3, shield+1); burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 }); floatScore(scene, wp, '🛡️+1');
+      }
+
       window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
-
-      try{ host.removeChild(el);}catch{}; sp.unmark(rec); active.splice(active.indexOf(el),1);
+      try{ host.removeChild(el);}catch{} sp.unmark(rec);
+      tryAdvanceQuest();
     }, {passive:false});
+
+    loopId=setTimeout(spawnOne, nextGap());
   }
 
-  (function loop(){ if(!running) return; spawnOne(); setTimeout(loop, nextGap()); })();
-  const wd=setInterval(()=>{ if(running && active.length===0) spawnOne(); },1800);
-
-  const adapt=setInterval(()=>{
+  // time
+  let remain=dur;
+  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
+  const timerId = setInterval(()=>{
     if(!running) return;
-    const now=performance.now(), secMiss=(now-recent.lastMissAt)/1000, secAdj=(now-recent.lastAdjustAt)/1000;
-    if(secMiss>=6 && recent.hits>=5 && secAdj>=5){
-      const b=currentMaxActive; currentMaxActive=Math.min(T.maxActiveMax,currentMaxActive+1);
-      if(currentMaxActive>b){ scaleGapBy(0.9); coach(`เยี่ยม! เพิ่มเป็น ${currentMaxActive} เป้า 🍽️`); recent.hits=0; recent.lastAdjustAt=now; }
-    }
-    if(secMiss<2 && secAdj>=2){
-      const b=currentMaxActive; currentMaxActive=Math.max(T.maxActiveMin,currentMaxActive-1);
-      if(currentMaxActive<b){ scaleGapBy(1.05); coach(`พักหายใจ เหลือ ${currentMaxActive} เป้า 😊`); recent.hits=0; recent.lastAdjustAt=now; }
-    }
+    remain--; if(remain<0) remain=0;
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
+    if(remain<=0) end('timeout');
   },1000);
 
-  function scaleGapBy(f){
-    const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-    const [ga,gb]=T.gap, na=clamp(Math.round(ga*f),300,1400), nb=clamp(Math.round(gb*f),360,1800);
-    T.gap=[Math.min(na,nb), Math.max(na,nb)];
-  }
-  function coach(text){ window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}})); }
-  function fireQuest(){
-    const cur=deck.getCurrent(); const done=deck.getProgress().filter(p=>p.done).length;
-    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`Quest ${done+1}/3: ${cur?cur.label:'Mini Quest'}`}}));
-  }
+  spawnOne();
 
-  function end(reason='done'){
-    if(!running) return; running=false;
-    clearInterval(tmr); clearInterval(wd); clearInterval(adapt);
-    active.splice(0).forEach(n=>{ try{n.remove();}catch{} });
-    window.dispatchEvent(new CustomEvent('hha:end',{
-      detail:{
-        reason, score, comboMax:combo, misses, duration:defaultDur,
-        mode:'Healthy Plate', difficulty:diff,
-        questsCleared: deck.getProgress().filter(p=>p.done).length, questsTotal:3
-      }
-    }));
-  }
-  return { stop:()=>end('quit'), pause:()=>running=false, resume:()=>{ if(!running){ running=true; } } };
+  return {
+    stop(){ end('quit'); },
+    pause(){ running=false; },
+    resume(){ if(!running){ running=true; spawnOne(); } }
+  };
 }
-
-function labelTH(k){ return {veg:'ผัก', fruit:'ผลไม้', protein:'โปรตีน', grain:'ธัญพืช'}[k] || k; }
 export default { boot };
