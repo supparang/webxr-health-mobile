@@ -1,3 +1,180 @@
-<!doctype html><meta charset="utf-8"><title>Clean Zone</title>
-<p>ยินดีต้อนรับสู่ <b>Clean Zone</b></p>
-<p><a href="../index.html?mode=vr">← กลับ Hub</a></p>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clean Zone</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-link-control/dist/aframe-link-control.min.js"></script>
+    <style>
+      /* (ใส่ CSS จากเกมเดิมที่นี่) */
+      .hud-display {
+        position: absolute; background-color: rgba(0, 0, 0, 0.6);
+        color: white; padding: 10px; border-radius: 5px;
+        font-family: monospace; font-size: 1.5em; z-index: 1001;
+      }
+      #germ-count-display { top: 80px; left: 20px; }
+      #timer-display { top: 80px; right: 20px; }
+      #wash-prompt { bottom: 20px; left: 50%; transform: translateX(-50%); display: none; }
+    </style>
+</head>
+<body>
+    <div id="germ-count-display" class="hud-display">Germs: 100</div>
+    <div id="timer-display" class="hud-display">Time: 00:00</div>
+    <div id="wash-prompt" class="hud-display">Click/Tap and Hold to Wash!</div>
+
+    <a-scene hero-mission="missionName: clean">
+        <a-assets>
+            <img id="floorTexture" src="https://cdn.aframe.io/a-saturday-night/images/floor.jpg">
+            <img id="wallTexture" src="https://cdn.glitch.global/027329ad-4573-41a3-b0ee-73591c28c614/wall_tiles.jpg?v=1678887467645">
+        </a-assets>
+
+        <a-entity
+            camera="active: true"
+            look-controls="pointerLockEnabled: false"
+            position="0 1.6 0">
+            <a-cursor
+                id="cursor"
+                raycaster="objects: .clickable"
+                fuse="false">
+            </a-cursor>
+            <a-entity id="leftHand" hand-controls="hand: left; model: true"></a-entity>
+            <a-entity id="rightHand" hand-controls="hand: right; model: true"></a-entity>
+        </a-entity>
+
+        <a-entity id="clean-zone" position="0 0 0" class="room">
+            <a-plane width="10" height="10" rotation="-90 0 0" material="src: #floorTexture; repeat: 5 5"></a-plane>
+            <a-box width="10" height="4" depth="0.1" position="0 2 -5" material="src: #wallTexture; repeat: 2 1"></a-box>
+            <a-entity id="handwash-zone" position="0 0 0">
+                <a-box width="1.2" height="0.8" depth="0.7" position="0 0.4 -4.5" color="#FFF"></a-box>
+                <a-cylinder radius="0.3" height="0.2" position="0 0.85 -4.5" color="#E0FFFF"></a-cylinder>
+                <a-cylinder radius="0.05" height="0.3" position="0 1.05 -4.5" color="#888"></a-cylinder>
+                <a-box id="soapBottle" class="clickable" width="0.15" height="0.3" depth="0.1" position="0.5 0.95 -4.4" color="#76B947">
+                    <a-text value="SOAP" color="white" align="center" width="1" position="0 0 0.051"></a-text>
+                </a-box>
+                <a-entity id="germ-container" position="0 1.3 -4.3"></a-entity>
+            </a-entity>
+            
+            </a-entity>
+
+        <a-box id="return-portal" class="clickable" position="0 1.6 2" color="#8A2BE2" visible="false"
+            link="href: index.html; title: Return to Academy; image: #">
+            <a-text value="Return to Academy" position="0 0 0.51" align="center"></a-text>
+            <a-entity animation="property: rotation; to: 0 360 0; loop: true; dur: 5000; easing: linear;">
+                <a-octahedron radius="0.3" color="#FFF" position="0 0.8 0.5"></a-octahedron>
+            </a-entity>
+        </a-box>
+
+        <a-light type="ambient" color="#BBB"></a-light>
+        <a-light type="directional" position="1 5 1" intensity="0.8"></a-light>
+    </a-scene>
+
+    <script>
+    // (ใส่โค้ด JavaScript ทั้งหมดจาก 'hero-hygiene-hub' เดิมที่นี่)
+    // ...
+    // (นี่คือส่วนที่ดัดแปลงจาก 'hero-hygiene-hub' เดิม)
+    AFRAME.registerComponent('hero-mission', {
+        schema: {
+            missionName: {type: 'string'},
+            germCount: { type: 'int', default: 100 },
+            cleanSpeed: { type: 'number', default: 20 }
+        },
+        init: function () {
+            // (ใส่ init() logic ทั้งหมดจากโค้ดเดิมที่นี่)
+            this.germs = [];
+            this.initialGermCount = this.data.germCount;
+            this.soapBottle = document.getElementById('soapBottle');
+            this.germContainer = document.getElementById('germ-container');
+            this.hasSoap = false;
+            this.rubbingHandsNonVR = false;
+            this.gameTimer = 0;
+            this.missionCompleted = false; // สถานะภารกิจ
+
+            this.germCountDisplay = document.getElementById('germ-count-display');
+            this.timerDisplay = document.getElementById('timer-display');
+            this.washPrompt = document.getElementById('wash-prompt');
+
+            this.spawnGerms();
+            this.onTick = AFRAME.utils.throttleTick(this.onTick, 100, this);
+
+            this.soapBottle.addEventListener('click', this.getSoap.bind(this));
+            const sceneEl = this.el.sceneEl;
+            sceneEl.addEventListener('mousedown', () => { this.rubbingHandsNonVR = true; });
+            sceneEl.addEventListener('mouseup', () => { this.rubbingHandsNonVR = false; });
+            sceneEl.addEventListener('touchstart', () => { this.rubbingHandsNonVR = true; });
+            sceneEl.addEventListener('touchend', () => { this.rubbingHandsNonVR = false; });
+        },
+
+        // (ใส่ onTick() และฟังก์ชันอื่นๆ ทั้งหมดจากโค้ดเดิมที่นี่)
+        // ... (getSoap, spawnGerms, onTick, cleanGerms, update... )
+        
+        getSoap: function () { /* (เหมือนโค้ดเดิม) */ 
+            if (this.hasSoap) return;
+            this.hasSoap = true;
+            this.soapBottle.setAttribute('visible', false);
+            this.washPrompt.style.display = 'block'; 
+        },
+        spawnGerms: function () { /* (เหมือนโค้ดเดิม) */ 
+            for (let i = 0; i < this.data.germCount; i++) {
+                const germ = document.createElement('a-sphere');
+                germ.setAttribute('radius', Math.random() * 0.01 + 0.005);
+                germ.setAttribute('color', `#${Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0')}`);
+                germ.setAttribute('position', { /*... (สุ่มตำแหน่ง) ...*/ });
+                this.germContainer.appendChild(germ);
+                this.germs.push(germ);
+            }
+            this.updateGermCountDisplay();
+        },
+        onTick: function (time, delta) { /* (เหมือนโค้ดเดิม) */ 
+            this.gameTimer = time / 1000;
+            this.updateGameTimer(this.gameTimer);
+            let isWashing = false;
+            
+            if (this.el.sceneEl.is('vr-mode')) { /* (Logic VR) */ }
+            else { if (this.hasSoap && this.rubbingHandsNonVR) { isWashing = true; } }
+            
+            if (isWashing && !this.missionCompleted) {
+                this.cleanGerms(this.data.cleanSpeed * (delta / 1000)); 
+            }
+            
+            if (this.germs.length === 0 && this.initialGermCount > 0 && !this.missionCompleted) {
+                this.completeMission();
+            }
+        },
+        cleanGerms: function (amount) { /* (เหมือนโค้ดเดิม) */ 
+            let cleanedCount = Math.ceil(amount);
+            for (let i = 0; i < cleanedCount && this.germs.length > 0; i++) {
+                const germ = this.germs.pop();
+                if (germ.parentNode) { germ.parentNode.removeChild(germ); }
+            }
+            this.updateGermCountDisplay();
+        },
+        updateGermCountDisplay: function() { /* (เหมือนโค้ดเดิม) */ 
+            this.germCountDisplay.textContent = `Germs: ${this.germs.length}`;
+        },
+        updateGameTimer: function(timeInSeconds) { /* (เหมือนโค้ดเดิม) */ 
+            this.timerDisplay.textContent = `Time: ${Math.floor(timeInSeconds)}s`;
+        },
+
+        // --- นี่คือส่วนที่สำคัญที่สุด ---
+        completeMission: function() {
+            if (this.missionCompleted) return; // ป้องกันการรันซ้ำ
+            
+            this.missionCompleted = true;
+            const missionName = this.data.missionName; // เช่น "clean"
+
+            // 1. บันทึกลงใน localStorage
+            localStorage.setItem(`mission_${missionName}`, 'complete');
+
+            // 2. แสดงปุ่มกลับ Hub
+            const returnPortal = document.getElementById('return-portal');
+            if (returnPortal) returnPortal.setAttribute('visible', 'true');
+
+            // 3. แจ้งเตือนผู้เล่น
+            alert(`ภารกิจ "${missionName}" สำเร็จ! คลิกที่ประตูวาร์ปเพื่อกลับไปยัง Academy`);
+            
+            // 4. (ทางเลือก) หยุดเกม หรือแสดง UI ชนะ
+            this.washPrompt.style.display = 'none';
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Safe Zone</title>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-link-control/dist/aframe-link-control.min.js"></script>
+</head>
+<body>
+    <a-scene>
+        <a-entity
+            camera="active: true"
+            look-controls="pointerLockEnabled: false"
+            position="0 1.6 0">
+            <a-cursor
+                id="cursor"
+                raycaster="objects: .clickable"
+                fuse="false">
+            </a-cursor>
+        </a-entity>
+
+        <a-sky color="#FFCDD2"></a-sky> <a-text value="😷 Safe Zone" position="0 2.5 -4" align="center" color="#333" width="6"></a-text>
+        <a-text value="Mask & Safe, Sneezing Manners - Coming Soon!" position="0 2 -4" align="center" color="#666" width="4"></a-text>
+        
+        <a-box id="complete-button" class="clickable" position="0 1.6 -3" color="green">
+             <a-text value="DEBUG: Click to Complete Mission" align="center" position="0 0 0.51"></a-text>
+        </a-box>
+
+        <a-box id="return-portal" class="clickable" position="0 1.0 -3" color="#8A2BE2"
+            link="href: index.html; title: Return to Academy; image: #">
+            <a-text value="Return to Academy" position="0 0 0.51" align="center"></a-text>
+        </a-box>
+    </a-scene>
+
+    <script>
+        // นี่คือสคริปต์จำลองสำหรับทดสอบ
+        document.getElementById('complete-button').addEventListener('click', function () {
+            // *** เปลี่ยน localStorage เป็น mission_safe ***
+            localStorage.setItem('mission_safe', 'complete');
+            alert('ภารกิจ Safe Zone (ทดสอบ) สำเร็จ! กลับไปที่ Academy ได้เลย');
+        });
+    </script>
+</body>
+</html>
