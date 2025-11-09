@@ -1,83 +1,51 @@
-// === emoji-sprite.js (release-safe build, UTF-8) ===
-// รองรับ fallback Twemoji และกันปัญหา encoding/font override
+// === modes/emoji-sprite.js ===
+// แปลงอีโมจิ (สีจริง) เป็น dataURL แล้วสร้าง <a-image>
+// ฟอนต์สำคัญ: Apple Color Emoji / Segoe UI Emoji / Noto Color Emoji
+const CACHE = new Map();
 
-const POOLS = {
-  GOOD:['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'],
-  JUNK:['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'],
-  STAR:['⭐'], DIAMOND:['💎'], SHIELD:['🛡️']
-};
+function drawEmoji(char, px=128) {
+  const key = `${char}@${px}`;
+  if (CACHE.has(key)) return CACHE.get(key);
 
-const _cache = new Map();
+  const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+  const W = Math.round(px * dpr), H = Math.round(px * dpr);
+  const pad = Math.round(px * 0.3 * dpr);
 
-function _emojiWithVS16(s){ return /\uFE0F$/.test(s)?s:s+'\uFE0F'; }
+  const cv = document.createElement('canvas');
+  cv.width  = W + pad*2;
+  cv.height = H + pad*2;
 
-function _setEmojiFont(ctx, px){
-  ctx.font = `${px}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Android Emoji",system-ui,sans-serif`;
+  const ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  const font = `${Math.round(px*dpr)}px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif`;
+  ctx.font = font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+
+  // glow เบา ๆ
+  ctx.save();
+  ctx.shadowColor = 'rgba(255,255,255,.5)';
+  ctx.shadowBlur = Math.round(px*0.2*dpr);
+  ctx.fillText(char, cv.width/2, cv.height/2);
+  ctx.restore();
+
+  // main fill
+  ctx.fillText(char, cv.width/2, cv.height/2);
+
+  const dataURL = cv.toDataURL('image/png');
+  const out = { src: dataURL, w: cv.width, h: cv.height };
+  CACHE.set(key, out);
+  return out;
 }
 
-function twemojiUrl(emoji){
-  const cps = Array.from(emoji).map(c=>c.codePointAt(0).toString(16)).join('-');
-  return `https://twemoji.maxcdn.com/v/latest/72x72/${cps}.png`;
-}
-
-function _canvasForEmoji(char, px=96, fx={glow:true, shadow:true}){
-  const key = `${char}@${px}@${fx.glow?'g':'-'}@${fx.shadow?'s':'-'}`;
-  if (_cache.has(key)) return _cache.get(key);
-
-  const pad = Math.floor(px*0.45), W = px + pad*2, H = px + pad*2;
-  const cv = document.createElement('canvas'); cv.width=W; cv.height=H;
-  const ctx = cv.getContext('2d');
-
-  const ch = _emojiWithVS16(char);
-  _setEmojiFont(ctx, px);
-
-  if (fx.glow){ ctx.save(); ctx.shadowColor='rgba(255,255,255,.55)'; ctx.shadowBlur=px*.25; ctx.fillText(ch,W/2,H/2); ctx.restore(); }
-  if (fx.shadow){ ctx.save(); ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=px*.18; ctx.shadowOffsetX=px*.04; ctx.shadowOffsetY=px*.06; ctx.fillText(ch,W/2,H/2); ctx.restore(); }
-
-  ctx.fillText(ch,W/2,H/2);
-
-  // ตรวจว่ามันวาดได้จริงไหม (ดู alpha)
-  const ok = ctx.getImageData(W>>1,H>>1,1,1).data[3]>0;
-  let tex;
-  if(!ok){
-    tex = {src:twemojiUrl(char),w:72,h:72,external:true};
-  }else{
-    tex = {src:cv.toDataURL('image/png'),w:W,h:H,external:false};
-  }
-  _cache.set(key,tex);
-  return tex;
-}
-
-function _makeImageEntity(tex,scale=0.6){
+export function emojiImage(char, scale=0.6, px=128) {
+  const {src} = drawEmoji(char, px);
   const el = document.createElement('a-image');
-  el.setAttribute('src',tex.src);
-  el.setAttribute('material',tex.external?'side:double':'transparent:true;alphaTest:0.01;side:double');
-  el.setAttribute('scale',`${scale} ${scale} ${scale}`);
-  el.setAttribute('crossorigin','anonymous');
-  el.setAttribute('animation__pop',{
-    property:'scale',
-    from:`${scale*0.7} ${scale*0.7} ${scale*0.7}`,
-    to:`${scale} ${scale} ${scale}`,
-    dur:140,easing:'easeOutCubic',startEvents:'spawned'
-  });
-  setTimeout(()=>el.emit('spawned'),0);
+  el.setAttribute('src', src);
+  el.setAttribute('transparent', true);
+  el.setAttribute('material', 'transparent:true; alphaTest:0.01; side:double');
+  el.setAttribute('scale', `${scale} ${scale} ${scale}`);
+  el.dataset.emoji = char;
   return el;
 }
-
-export const Emoji={
-  create({type='GOOD',char=null,size=96,scale=0.6,glow=true,shadow=true}={}){
-    const pool=POOLS[type]||POOLS.GOOD;
-    const symbol=char||pool[(Math.random()*pool.length)|0];
-    const tex=_canvasForEmoji(symbol,size,{glow,shadow});
-    const el=_makeImageEntity(tex,scale);
-    el.dataset.emoji=symbol; el.dataset.type=type;
-    return el;
-  },
-  fromChar(char,{size=96,scale=0.6,glow=true,shadow=true}={}){
-    const tex=_canvasForEmoji(char,size,{glow,shadow});
-    return _makeImageEntity(tex,scale);
-  }
-};
-export default Emoji;
