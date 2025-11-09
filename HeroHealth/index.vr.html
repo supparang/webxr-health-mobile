@@ -5,9 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- ใช้ไฟล์โลคอล ป้องกัน CORS -->
-  <script src="./vendor/aframe-1.5.0.min.js"></script>
-  <script src="./vendor/aframe-troika-text-0.12.0.min.js"></script>
+  <!-- === ปลอดภัยสุด ใช้ CDN เวอร์ชันตรง (ไม่มี token error) === -->
+  <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
+
+  <!-- === ป้องกัน favicon 404 === -->
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
 
   <style>
     :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
@@ -27,13 +30,6 @@
       width:min(540px,86vw);height:12px;background:#0f172a; border:1px solid #334155; border-radius:999px; overflow:hidden}
     #feverFill{height:100%;width:0%;background:linear-gradient(90deg,#37d67a,#06d6a0); transition:width .15s ease-out}
 
-    /* Water bar */
-    #waterWrap{position:fixed;left:50%;bottom:56px;transform:translateX(-50%);z-index:900;
-      width:min(540px,86vw)}
-    #waterBar{height:10px;background:#1f2937;border-radius:999px;overflow:hidden;border:1px solid #334155}
-    #waterFill{height:100%;width:55%;background:linear-gradient(90deg,#60a5fa,#10b981)}
-    #waterLabel{margin-top:6px;font-weight:700;opacity:.9}
-
     /* เมนูเริ่มเกม */
     .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
     .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
@@ -42,7 +38,7 @@
     button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
     .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
 
-    /* ปุ่ม VR ของ A-Frame ให้ลอย */
+    /* ปุ่ม VR */
     .a-enter-vr,.a-enter-vr-button{position:absolute !important;right:12px !important;bottom:12px !important;z-index:1000 !important}
 
     /* เอฟเฟกต์ FEVER */
@@ -70,13 +66,6 @@
   <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
   <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
   <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
-
-  <!-- Water bar -->
-  <div id="waterWrap" class="hud-chip" aria-label="Water gauge">
-    <div style="font-weight:800;margin-bottom:6px">WATER</div>
-    <div id="waterBar"><div id="waterFill"></div></div>
-    <div id="waterLabel">55% (GREEN)</div>
-  </div>
 
   <!-- Fever bar -->
   <div id="feverWrap"><div id="feverFill"></div></div>
@@ -134,7 +123,7 @@
   <a-scene id="scene" background="color: #0b1324">
     <a-assets></a-assets>
 
-    <!-- กล้อง + cursor -->
+    <!-- กล้อง -->
     <a-entity id="cam"
               camera
               look-controls
@@ -142,7 +131,7 @@
               raycaster="objects: .clickable; far: 6"
               position="0 1.6 0"></a-entity>
 
-    <!-- โหนดสแปว์น: กึ่งกลางจอ -->
+    <!-- Host -->
     <a-entity id="spawnHost" position="0 1.0 -1.6"></a-entity>
 
     <a-sky color="#0b1324"></a-sky>
@@ -150,139 +139,93 @@
 
   <script>
     // กันลากหน้า
-    document.addEventListener('touchmove',function(e){ if(!e.target.closest('.menu-wrap')) e.preventDefault(); },{passive:false});
+    document.addEventListener('touchmove',e=>{
+      if(!e.target.closest('.menu-wrap')) e.preventDefault();
+    },{passive:false});
 
-    // ===== HUD listeners =====
+    // HUD listeners
     (function(){
-      var $=s=>document.querySelector(s);
-      window.addEventListener('hha:score', function(e){
-        var d=e&&e.detail?e.detail:{}; $('#badgeScore').textContent = 'คะแนน: '+(d.score||0)+' | คอมโบ: x'+(d.combo||0);
+      const $=s=>document.querySelector(s);
+      window.addEventListener('hha:score',e=>{
+        const d=e?.detail||{};
+        $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
       });
-      window.addEventListener('hha:miss', function(e){
-        var el=$('#badgeMiss'); el.style.display=''; var n=e&&e.detail&&e.detail.count!=null?e.detail.count:(parseInt(el.dataset.n||'0',10)+1);
-        el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
+      window.addEventListener('hha:miss',e=>{
+        const el=$('#badgeMiss');
+        el.style.display='';
+        const n=e?.detail?.count??(parseInt(el.dataset.n||'0',10)+1);
+        el.dataset.n=n; el.textContent=`พลาด: ${n} ครั้ง`;
       });
-      window.addEventListener('hha:time', function(e){
-        var t=e&&e.detail&&e.detail.sec!=null?Math.max(0,Math.round(e.detail.sec)):0; $('#badgeTime').textContent='เวลา: '+t+'s';
+      window.addEventListener('hha:time',e=>{
+        const t=Math.max(0,Math.round(e?.detail?.sec||0));
+        $('#badgeTime').textContent=`เวลา: ${t}s`;
       });
-      window.addEventListener('hha:quest', function(e){
-        var text=e&&e.detail&&e.detail.text?e.detail.text:'Mini Quest'; $('#badgeQuest').textContent=text;
+      window.addEventListener('hha:quest',e=>{
+        const text=e?.detail?.text||'Mini Quest';
+        $('#badgeQuest').textContent=text;
       });
-      // Fever gauge
-      var feverFill = document.getElementById('feverFill');
-      window.addEventListener('hha:fever', function(e){
-        var d=e&&e.detail?e.detail:{}; var st=d.state||'change'; var lv = d.level!=null?d.level:0;
-        var pct = Math.max(0,Math.min(100, Math.round(lv)));
-        if(st==='start'){ document.body.classList.add('fever-on'); feverFill.style.background='linear-gradient(90deg,#ffb703,#fb5607)'; feverFill.style.width='100%'; }
-        else if(st==='end'){ document.body.classList.remove('fever-on'); feverFill.style.background='linear-gradient(90deg,#37d67a,#06d6a0)'; feverFill.style.width='0%'; }
-        else { feverFill.style.width = pct+'%'; }
+      const fill=document.getElementById('feverFill');
+      window.addEventListener('hha:fever',e=>{
+        const d=e?.detail||{}, st=d.state||'change', lv=Math.round(d.level??0);
+        if(st==='start'){document.body.classList.add('fever-on');fill.style.background='linear-gradient(90deg,#ffb703,#fb5607)';fill.style.width='100%';}
+        else if(st==='end'){document.body.classList.remove('fever-on');fill.style.background='linear-gradient(90deg,#37d67a,#06d6a0)';fill.style.width='0%';}
+        else fill.style.width=`${Math.max(0,Math.min(100,lv))}%`;
       });
-      // Water gauge
-      (function(){
-        var fill = document.getElementById('waterFill');
-        var lbl  = document.getElementById('waterLabel');
-        function setBar(pct, zone){
-          var p = Math.max(0, Math.min(100, Math.round(pct||0)));
-          if(fill){
-            fill.style.width = p + '%';
-            fill.style.background =
-              zone==='LOW'  ? 'linear-gradient(90deg,#60a5fa,#3b82f6)' :
-              zone==='HIGH' ? 'linear-gradient(90deg,#f59e0b,#ef4444)' :
-                              'linear-gradient(90deg,#10b981,#34d399)';
-          }
-          if(lbl) lbl.textContent = p + '% (' + (zone||'') + ')';
-        }
-        window.addEventListener('hha:water', function(e){
-          var d = (e && e.detail) || {};
-          setBar(d.level, d.zone);
-        });
-      })();
     })();
 
-    // ===== Result panel =====
+    // Result panel
     (function(){
-      function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
-      function stars(n){ return '★'.repeat(n)+'☆'.repeat(5-n); }
-      window.addEventListener('hha:end', function(e){
-        var d=e.detail||{};
-        var score   = +d.score||0;
-        var comboMx = +d.comboMax || +d.combo || 0;
-        var misses  = +d.misses||0;
-        var hits    = +d.hits||0;
-        var spawns  = +d.spawns || (hits+misses);
-        var acc     = spawns>0 ? hits/spawns : 0;
-        var qCleared= +d.questsCleared||0;
-        var qTotal  = +d.questsTotal||3;
-        var sec     = +d.duration||0;
-        var mode    = d.mode||d.title||'Good vs Junk';
-        var diff    = d.difficulty||'normal';
-
-        var scoreGoal={easy:300,normal:500,hard:700}[diff]||500;
-        var scoreNorm = clamp(score/scoreGoal,0,1);
-        var accNorm   = clamp(acc,0,1);
-        var questNorm = clamp(qTotal? qCleared/qTotal : 0,0,1);
-
-        var starRaw = 0.45*accNorm + 0.40*scoreNorm + 0.15*questNorm;
-        var starNum = clamp(Math.max(1, Math.round(starRaw*5)),1,5);
-
-        document.getElementById('rsMode').textContent   = mode;
-        document.getElementById('rsDiff').textContent   = diff;
-        document.getElementById('rsScore').textContent  = score.toLocaleString();
-        document.getElementById('rsCombo').textContent  = comboMx;
-        document.getElementById('rsMiss').textContent   = misses;
-        document.getElementById('rsAcc').textContent    = Math.round(accNorm*100)+'%';
-        document.getElementById('rsQuests').textContent = qCleared+'/'+qTotal;
-        document.getElementById('rsTime').textContent   = Math.round(sec)+'s';
-        document.getElementById('stars').textContent    = stars(starNum);
-
-        var panel=document.getElementById('resultPanel');
+      function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
+      function stars(n){return '★'.repeat(n)+'☆'.repeat(5-n);}
+      window.addEventListener('hha:end',e=>{
+        const d=e.detail||{};
+        const score=+d.score||0,comboMx=+d.comboMax||0,misses=+d.misses||0,hits=+d.hits||0,spawns=+d.spawns||(hits+misses);
+        const acc=spawns>0?hits/spawns:0,qCleared=+d.questsCleared||0,qTotal=+d.questsTotal||3,sec=+d.duration||0;
+        const mode=d.mode||'Good vs Junk',diff=d.difficulty||'normal';
+        const scoreGoal={easy:300,normal:500,hard:700}[diff]||500;
+        const starRaw=0.45*acc+0.4*(score/scoreGoal)+0.15*(qCleared/qTotal);
+        const starNum=clamp(Math.max(1,Math.round(starRaw*5)),1,5);
+        document.getElementById('rsMode').textContent=mode;
+        document.getElementById('rsDiff').textContent=diff;
+        document.getElementById('rsScore').textContent=score.toLocaleString();
+        document.getElementById('rsCombo').textContent=comboMx;
+        document.getElementById('rsMiss').textContent=misses;
+        document.getElementById('rsAcc').textContent=Math.round(acc*100)+'%';
+        document.getElementById('rsQuests').textContent=qCleared+'/'+qTotal;
+        document.getElementById('rsTime').textContent=Math.round(sec)+'s';
+        document.getElementById('stars').textContent=stars(starNum);
+        const panel=document.getElementById('resultPanel');
         panel.style.display='grid';
-        document.getElementById('btnBackMenu').onclick=function(){
-          panel.style.display='none'; document.getElementById('menu').style.display='';
-        };
-        document.getElementById('btnReplay').onclick=function(){
-          panel.style.display='none'; document.getElementById('startBtn').click();
-        };
+        document.getElementById('btnBackMenu').onclick=()=>{panel.style.display='none';document.getElementById('menu').style.display='';};
+        document.getElementById('btnReplay').onclick=()=>{panel.style.display='none';document.getElementById('startBtn').click();};
       });
     })();
 
-    // ===== Loader =====
+    // Loader
     (function(){
-      function withStamp(url){ var sep=url.indexOf('?')>-1?'&':'?'; return url+sep+'v='+Date.now(); }
-      var MAP={
-        goodjunk : './modes/goodjunk.safe.js',
-        groups   : './modes/groups.safe.js',
-        hydration: './modes/hydration.quest.js',
-        plate    : './modes/plate.quest.js'
+      const $=s=>document.querySelector(s);
+      const MAP={
+        goodjunk:'./modes/goodjunk.safe.js',
+        groups:'./modes/groups.safe.js',
+        hydration:'./modes/hydration.quest.js',
+        plate:'./modes/plate.quest.js'
       };
-
-      document.getElementById('startBtn').addEventListener('click', function(){
-        var mode = document.getElementById('modeSel').value;
-        var diff = document.getElementById('diffSel').value;
-
-        document.getElementById('badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
-        document.getElementById('badgeTime').textContent='เวลา: 60s';
-        document.getElementById('badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
-        var missEl=document.getElementById('badgeMiss'); missEl.style.display='none'; missEl.dataset.n='0';
+      $('#startBtn').addEventListener('click',()=>{
+        const mode=$('#modeSel').value, diff=$('#diffSel').value;
+        $('#badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
+        $('#badgeTime').textContent='เวลา: 60s';
+        $('#badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
+        const miss=$('#badgeMiss');miss.style.display='none';miss.dataset.n='0';
         document.body.classList.remove('fever-on');
         document.getElementById('feverFill').style.width='0%';
-
-        document.getElementById('menu').style.display='none';
-
-        import(withStamp(MAP[mode]||MAP.goodjunk))
-          .then(function(mod){
-            if(!mod || !mod.boot) throw new Error('โหมดนี้ไม่มี boot()');
-            return mod.boot({
-              host: document.getElementById('spawnHost'),
-              difficulty: diff,
-              duration: 60
-            });
-          })
-          .catch(function(err){
-            alert('โหลดโหมดไม่สำเร็จ: ' + (err && err.message?err.message:err));
-            console.error(err);
-            document.getElementById('menu').style.display='';
-          });
+        $('#menu').style.display='none';
+        import(`${MAP[mode]||MAP.goodjunk}?v=${Date.now()}`).then(mod=>{
+          if(!mod?.boot) throw new Error('โหมดนี้ไม่มี boot()');
+          mod.boot({host:$('#spawnHost'),difficulty:diff,duration:60});
+        }).catch(err=>{
+          alert('โหลดโหมดไม่สำเร็จ: '+err.message);
+          console.error(err);$('#menu').style.display='';
+        });
       });
     })();
   </script>
