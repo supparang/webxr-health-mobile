@@ -1,5 +1,5 @@
 // === modes/hydration.quest.js ===
-import { emojiImage } from './emoji-sprite.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
 const emit=(n,d)=>{try{window.dispatchEvent(new CustomEvent(n,{detail:d}))}catch{}};
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const rand=(a,b)=>a+Math.random()*(b-a);
