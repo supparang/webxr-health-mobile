@@ -1,137 +1,118 @@
-// Food Groups — centered spawns + quests + shards
-export async function boot(opts={}){
-  const sceneHost = opts.host || document.querySelector('#spawnHost');
-  const diff = String(opts.difficulty||'normal');
-  const dur  = +opts.duration||60;
+// === modes/groups.safe.js ===
+import { emojiImage } from './emoji-sprite.js';
 
-  const rate = {easy:[900,1300], normal:[700,1100], hard:[550,900]}[diff];
-  const life = {easy:1800, normal:1600, hard:1400}[diff];
+export async function boot(opts = {}){
+  const host = opts.host || document.getElementById('spawnHost') || document.body;
+  const diff = String(opts.difficulty||'normal').toLowerCase();
+  const duration = Number(opts.duration||60);
+  let left = Math.max(1, Math.round(duration));
 
-  const groups = {
-    fruit: ['🍎','🍐','🍇','🍉','🍋','🍓','🍌','🍍','🫐'],
-    veg  : ['🥕','🥦','🥬','🧄','🧅','🌽'],
-    protein:['🥚','🐟','🍗','🥩','🫘','🥜'],
-    grain:['🍞','🥖','🥨','🍚','🍙','🍘'],
-    dairy:['🥛','🧀','🍦','🍨']
+  const GROUPS = ['โปรตีน','คาร์บ','ผัก','ผลไม้','นม'];
+  const POOL = {
+    โปรตีน:['🐟','🍗','🥚','🫘','🥜'],
+    คาร์บ:['🍚','🍞','🍝','🥖','🥯'],
+    ผัก:['🥦','🥕','🥬','🌽','🍅'],
+    ผลไม้:['🍎','🍌','🍇','🍓','🍍'],
+    นม:['🥛','🧀','🍨'] // นม/ผลิตภัณฑ์นม
   };
-  const bad = ['🍩','🍪','🍟','🍔','🍕','🧁','🍫','🥤','🧋'];
+  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋'];
 
-  // HUD helper
-  function questText(t){ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:t}})); }
-  function scoreEvt(d){ window.dispatchEvent(new CustomEvent('hha:score',{detail:d})); }
-  function missEvt(n){ window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:n}})); }
+  // ตั้งเป้าทำ “ชุดครบ 5 หมู่” → 1/2/3 ชุด ตามระดับ
+  const goalSets = { easy:1, normal:2, hard:3 }[diff] || 2;
+  let setProgress = new Set(); // เก็บชื่อหมู่ที่ทำได้ในรอบปัจจุบัน
 
-  // shards/popup
-  function pop(x,y,t){ const p=document.createElement('div'); p.className='pop'; p.textContent=t;
-    p.style.left=x+'px'; p.style.top=y+'px'; document.body.appendChild(p); setTimeout(()=>p.remove(),680); }
-  function burst(x,y,c='#7dd3fc'){ for(let i=0;i<14;i++){ const s=document.createElement('div'); s.className='sh';
-    s.style.left=x+'px'; s.style.top=y+'px'; s.style.background=c;
-    const dx=(Math.random()-0.5)*160, dy=(Math.random()-0.5)*110;
-    s.style.setProperty('--dx',dx+'px'); s.style.setProperty('--dy',dy+'px'); document.body.appendChild(s); setTimeout(()=>s.remove(),620);} }
+  let running=true, score=0, combo=0, misses=0, hits=0, spawns=0;
 
-  // auto-center host
-  (function(){
-    const sc=document.querySelector('#scene'), cam=document.querySelector('#cam'), host=sceneHost;
-    function center(){
-      const y=(cam?.object3D?.position?.y ?? cam.getAttribute('position')?.y ?? 1.6) - .8;
-      host.setAttribute('position',{x:0,y:Math.max(.6,y),z:-1.5});
-    }
-    sc.addEventListener('loaded',center); sc.addEventListener('enter-vr',center);
-    window.addEventListener('resize',center); setTimeout(center,80);
-  })();
+  function fire(n,d){ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})) }catch{} }
 
-  // local spawn pos (รอบ ๆ ศูนย์กลาง)
-  function localPos(){ return {x:+((Math.random()-0.5)*1.2).toFixed(3), y:+((Math.random()-0.5)*0.6).toFixed(3), z:-0.4}; }
+  fire('hha:quest',{text:`จัดชุดอาหารครบ 5 หมู่ × ${goalSets} รอบ`});
 
-  // state
-  let running=true, left=dur, score=0, combo=0, hits=0, misses=0, timeTimer=0, nextTimer=0;
-  const stats={ok:0,badAvoid:0,comboMax:0};
+  function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
+  function rand(a,b){ return a + Math.random()*(b-a); }
+  function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
 
-  // quest deck (3 จาก 10)
-  const deckAll=[
-    {id:'fruit6', label:'เลือก “ผลไม้” 6 ชิ้น',   ok:s=>s.ok>=6,  prog:s=>s.ok,  goal:6},
-    {id:'ok10',   label:'เลือกถูก 10 ชิ้น',       ok:s=>s.ok>=10, prog:s=>s.ok,  goal:10},
-    {id:'combo8', label:'ทำคอมโบ 8',              ok:s=>s.comboMax>=8, prog:s=>s.comboMax, goal:8},
-    {id:'avoid6', label:'เลี่ยงของขยะ 6 ครั้ง',   ok:s=>s.badAvoid>=6, prog:s=>s.badAvoid, goal:6},
-    {id:'score400',label:'ทำคะแนน 400+',          ok:()=>score>=400, prog:()=>score, goal:400},
-    {id:'ok15',   label:'เลือกถูก 15 ชิ้น',       ok:s=>s.ok>=15, prog:s=>s.ok, goal:15},
-    {id:'combo12',label:'คอมโบ 12',               ok:s=>s.comboMax>=12, prog:s=>s.comboMax, goal:12},
-    {id:'fruit10',label:'ผลไม้ 10 ชิ้น',          ok:s=>s.ok>=10, prog:s=>s.ok, goal:10},
-    {id:'avoid10',label:'เลี่ยงขยะ 10 ครั้ง',     ok:s=>s.badAvoid>=10, prog:s=>s.badAvoid, goal:10},
-    {id:'score600',label:'คะแนนถึง 600',          ok:()=>score>=600, prog:()=>score, goal:600},
-  ];
-  const pool=[...deckAll]; for(let i=pool.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[pool[i],pool[j]]=[pool[j],pool[i]]}
-  const deck=pool.slice(0,3); let qi=0; questText(`Quest 1/3: ${deck[0].label} (${deck[0].prog(stats)}/${deck[0].goal})`);
-
-  function updateQuest(){
-    const q=deck[qi]; if(!q) return;
-    if(q.ok(stats)){ qi++; if(qi>=deck.length) questText('Mini Quest — สำเร็จ!');
-      else questText(`Quest ${qi+1}/3: ${deck[qi].label} (${deck[qi].prog(stats)}/${deck[qi].goal})`);
-    }else questText(`Quest ${qi+1}/3: ${q.label} (${q.prog(stats)}/${q.goal})`);
+  // สุ่ม “หมู่” เป้าหมายรอบนี้
+  let currentGroup = pick(GROUPS);
+  function updateGroupQuest(){
+    fire('hha:quest',{text:`หมู่เป้าหมาย: ${currentGroup} (${setProgress.size}/5) • รอบ ${Math.floor(totalSets)+1}/${goalSets}`});
   }
-
-  function tickTime(){
-    if(!running) return;
-    left=Math.max(0,left-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}}));
-    if(left<=0) end('timeout');
-  }
+  let totalSets = 0; // จำนวนรอบที่สำเร็จแล้ว (ครบ 5 หมู่)
 
   function spawn(){
     if(!running) return;
-    const goodPool = Object.values(groups).flat();
-    const all = Math.random()<0.75 ? goodPool : bad;
-    const ch = all[(Math.random()*all.length)|0];
 
-    const e=document.createElement('a-entity'); e.classList.add('clickable');
-    e.setAttribute('geometry','primitive: plane; width:.42; height:.42');
-    e.setAttribute('text',`value:${ch}; align:center; color:#fff; width:3`); // ใช้ text ง่าย ๆ; ถ้ามีสไปรท์ปรับเองได้
-    const p=localPos(); e.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
-    e.setAttribute('animation__pop','property: scale; from:.6 .6 .6; to:1 1 1; dur:120; easing:easeOutQuad');
+    // 70% ออกอาหารหมู่ต่าง ๆ, 30% ขยะ
+    const isJunk = Math.random()<0.30;
+    let char, kind;
+    if(isJunk){ char = pick(JUNK); kind='junk'; }
+    else{
+      const g = pick(GROUPS);
+      char = pick(POOL[g]);
+      kind = (g===currentGroup)?'good':'other';
+    }
 
-    // click
-    e.addEventListener('click', ev=>{
-      const world = e.object3D.getWorldPosition(new THREE.Vector3());
-      const rect = document.body.getBoundingClientRect();
-      const cx = rect.width*.5, cy=rect.height*.5; // คร่าว ๆ ให้พอวาง shards กลางจอ
-      const isGood = goodPool.includes(ch);
-      if(isGood){
-        hits++; stats.ok++; combo++; stats.comboMax=Math.max(stats.comboMax,combo);
-        score += 20; burst(cx,cy,'#22c55e'); pop(cx,cy,'+20'); scoreEvt({score,combo});
-      }else{
-        misses++; combo=0; score -= 15; burst(cx,cy,'#ef4444'); pop(cx,cy,'-15');
-        scoreEvt({score,combo}); missEvt(misses);
-      }
-      e.remove(); updateQuest();
-    });
+    const el = emojiImage(char, 0.68, 128);
+    el.classList.add('clickable');
+    spawns++;
 
-    sceneHost.appendChild(e);
+    const X = rand(-0.5,0.5), Y = rand(-0.2,0.2), Z=-1.6;
+    el.setAttribute('position', `${X} ${1.0+Y} ${Z}`);
 
-    // expire
-    setTimeout(()=>{
-      if(!e.parentNode||!running) return;
-      const isBad = bad.includes(ch);
-      if(isBad){ stats.badAvoid++; score += 8; scoreEvt({score,combo}); }
-      else { misses++; combo=0; score -= 5; missEvt(misses); scoreEvt({score,combo}); }
-      e.remove(); updateQuest();
+    const life = ({easy:1900,normal:1600,hard:1300}[diff]||1600);
+    const ttl = setTimeout(()=>{
+      if(!el.parentNode) return;
+      el.parentNode.removeChild(el);
+      // พลาด: ถ้าเป็นของหมู่เป้าหมายแล้วหาย → หัก
+      if(kind==='good'){ combo=0; misses++; fire('hha:miss',{count:misses}); }
     }, life);
 
-    const wait = Math.floor(rate[0] + Math.random()*(rate[1]-rate[0]));
-    nextTimer=setTimeout(spawn, wait);
+    el.addEventListener('click', ()=>{
+      if(!el.parentNode) return;
+      clearTimeout(ttl); el.parentNode.removeChild(el);
+
+      if(kind==='junk'){ // โดนขยะ → โทษ
+        combo=0; score=Math.max(0,score-10);
+      }else if(kind==='good'){
+        hits++; combo=clamp(combo+1,0,999); score+=20+combo*2;
+        setProgress.add(currentGroup);
+        if(setProgress.size>=5){
+          totalSets+=1; setProgress.clear();
+          if(totalSets>=goalSets){ end('win'); return; }
+        }
+        // เปลี่ยนหมู่เป้าหมายใหม่
+        currentGroup = pick(GROUPS);
+      }else{
+        // เป็นอาหารหมู่อื่น แตะได้คะแนนน้อย
+        hits++; combo=clamp(combo+1,0,999); score+=6;
+      }
+      fire('hha:score',{score, combo});
+      updateGroupQuest();
+    }, {passive:false});
+
+    host.appendChild(el);
+
+    const gapBase = ({easy:[600,820], normal:[480,640], hard:[360,520]}[diff]||[480,640]);
+    const gap = Math.floor(rand(gapBase[0], gapBase[1]));
+    setTimeout(spawn, gap);
   }
 
-  function start(){ timeTimer=setInterval(tickTime,1000); spawn(); }
+  const timer = setInterval(()=>{
+    if(!running) return;
+    left = Math.max(0, left-1);
+    fire('hha:time',{sec:left});
+    if(left<=0) end('timeout');
+  },1000);
+
   function end(reason){
     if(!running) return; running=false;
-    clearInterval(timeTimer); clearTimeout(nextTimer);
-    const detail={reason,score,comboMax:stats.comboMax,misses,hits,
-      questsCleared: qi>=deck.length?3:qi, questsTotal:3, duration:dur-left,
-      mode:'Food Groups', difficulty:diff};
-    window.dispatchEvent(new CustomEvent('hha:end',{detail}));
+    try{ clearInterval(timer); }catch{}
+    fire('hha:end',{ reason, title:'Food Groups', difficulty:diff,
+      score, comboMax:combo, misses, hits, spawns, duration });
   }
 
-  start();
-  return {stop:()=>end('quit'), pause:()=>{running=false;clearInterval(timeTimer);clearTimeout(nextTimer);},
-          resume:()=>{if(!running){running=true;start();}}};
+  // เริ่ม
+  updateGroupQuest(); spawn();
+
+  return { stop(){ end('quit'); }, pause(){ running=false; }, resume(){ if(!running){ running=true; spawn(); } } };
 }
-export default {boot};
+export default { boot };
