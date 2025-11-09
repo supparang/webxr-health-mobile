@@ -1,46 +1,83 @@
 // === vr/spawn-utils.js ===
-// Poisson-like spacing + adaptive pacing shared across modes
+// สุ่มตำแหน่งแบบ Blue-noise (dart throwing) + กันชนระยะขั้นต่ำ + ขอบเขตเล่นกลางจอ
 
-const CONST = {
-  LIFE_MS: 1800,
-  MIN_DIST: 0.45,
-  R_MIN: 0.35,
-  R_MAX: 1.0,
-  EXTRA_PER_ALIVE: 140,
-  EXTRA_CAP: 700,
-};
+export function makeSpawner({
+  // กล่องสปอนกลางจอ (เมตร, อิงตำแหน่ง spawnHost)
+  bounds = { x:[-0.70, 0.70], y:[-0.10, 0.40], z:-1.6 },
+  minDist = 0.28,          // ระยะห่างขั้นต่ำระหว่างเป้า
+  ringBias = 0.15,         // โอกาสใช้วงแหวน (ช่วยกระจาย)
+  maxTries = 32,           // ความพยายามต่อชิ้น
+  decaySec = 2.5           // เวลาคงอยู่ในรายการกันชน
+} = {}) {
+  const actives = new Set();    // world positions ของเป้าที่ยังอยู่
+  const hist = [];              // short memory กันสปอนซ้ำจุดเดิม
 
-export const SpawnSpace = (() => {
-  const pts = []; // {x,y,z,t}
-  const MIN2 = CONST.MIN_DIST * CONST.MIN_DIST;
-  function purge(now) { while (pts.length && now - pts[0].t > CONST.LIFE_MS) pts.shift(); }
-  function farEnough(x, z) { for (const p of pts){const dx=x-p.x,dz=z-p.z; if(dx*dx+dz*dz<MIN2) return false;} return true; }
-  return {
-    next(origin){
-      const now = performance.now(); purge(now);
-      for(let k=0;k<18;k++){
-        const ang=Math.random()*Math.PI*2;
-        const r=CONST.R_MIN+Math.random()*(CONST.R_MAX-CONST.R_MIN);
-        const x=origin.x+Math.cos(ang)*r, z=origin.z+Math.sin(ang)*r;
-        if(farEnough(x,z)){ pts.push({x,y:origin.y,z,t:now}); return {x,y:origin.y,z}; }
-      }
-      const x=origin.x+(Math.random()<.5?-CONST.MIN_DIST:CONST.MIN_DIST);
-      const z=origin.z+(Math.random()<.5?-CONST.MIN_DIST:CONST.MIN_DIST);
-      pts.push({x,y:origin.y,z,t:performance.now()}); return {x,y:origin.y,z};
+  function _now(){ return performance.now(); }
+  function _add(pt){
+    const rec = {x:pt.x, y:pt.y, z:pt.z, t:_now()};
+    hist.push(rec);
+    actives.add(rec);
+    // ล้างของเก่า
+    const cutoff = _now() - decaySec*1000;
+    while (hist.length && hist[0].t < cutoff) hist.shift();
+  }
+  function _remove(rec){ actives.delete(rec); }
+
+  function _ok(p){
+    const d2min = minDist*minDist;
+    // เทียบกับของที่ยังอยู่
+    for (const r of actives){
+      const dx=p.x-r.x, dy=p.y-r.y;
+      if (dx*dx+dy*dy < d2min) return false;
     }
+    // เทียบ short history เบา ๆ
+    for (let i=hist.length-1; i>=0 && i>hist.length-12; i--){
+      const r = hist[i]; const dx=p.x-r.x, dy=p.y-r.y;
+      if (dx*dx+dy*dy < d2min*0.8) return false;
+    }
+    return true;
+  }
+
+  function _rand(min,max){ return min + Math.random()*(max-min); }
+
+  // สุ่มตำแหน่งใหม่
+  function sample() {
+    // 20–30 ครั้งแบบ dart throwing
+    for (let k=0;k<maxTries;k++){
+      let x,y;
+      if (Math.random()<ringBias){
+        // bias ให้เกิดเป็นวงกว้าง ๆ ไม่ชนกลาง
+        const rx = (bounds.x[1]-bounds.x[0]) * 0.44;
+        const ry = (bounds.y[1]-bounds.y[0]) * 0.44;
+        const ang = Math.random()*Math.PI*2;
+        const r   = 0.35 + Math.random()*0.55;
+        x = r*rx*Math.cos(ang);
+        y = r*ry*Math.sin(ang);
+      }else{
+        x = _rand(bounds.x[0], bounds.x[1]);
+        y = _rand(bounds.y[0], bounds.y[1]);
+      }
+      const p = {x,y,z:bounds.z};
+      if (_ok(p)) return p;
+    }
+    // fallback: จุดที่ไกลที่สุดจากของเดิม
+    let best = {x:0,y:0,z:bounds.z}, bestScore = -1;
+    for (let i=0;i<24;i++){
+      const p = { x:_rand(bounds.x[0],bounds.x[1]), y:_rand(bounds.y[0],bounds.y[1]), z:bounds.z };
+      let dmin = 9e9;
+      for (const r of actives){ const dx=p.x-r.x, dy=p.y-r.y; dmin = Math.min(dmin, dx*dx+dy*dy); }
+      if (dmin>bestScore){ bestScore=dmin; best=p; }
+    }
+    return best;
+  }
+
+  return {
+    sample,
+    markActive(worldPos){ _add(worldPos); return worldPos; },
+    unmark(rec){ _remove(rec); },
+    setMinDist(v){ minDist = Math.max(0.1, Number(v)||minDist); },
+    setBounds(b){ Object.assign(bounds,b); },
+    get bounds(){ return bounds; }
   };
-})();
-
-export function createSpawnerPacer(){
-  const alive=new Set();
-  function track(el){ alive.add(el); el.addEventListener('remove',()=>alive.delete(el)); }
-  function schedule(baseMs,fn){ const extra=Math.min(CONST.EXTRA_CAP,alive.size*CONST.EXTRA_PER_ALIVE); setTimeout(fn,baseMs+extra); }
-  return { track, schedule, aliveCount:()=>alive.size };
 }
-
-export function defaultsByDifficulty(diff){
-  if(diff==='easy')   return { gap:[650,750], life:[2200,2500] };
-  if(diff==='hard')   return { gap:[380,480], life:[1400,1600] };
-  return /* normal */ { gap:[520,600], life:[1800,2000] };
-}
-export function randIn([a,b]){ return Math.floor(a + Math.random()*(b-a)); }
+export default { makeSpawner };
