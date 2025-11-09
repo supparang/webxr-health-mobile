@@ -1,162 +1,104 @@
-// === plate.quest.js — tuned speed/score & round-based 5 groups ===
-export async function boot(cfg){
-  cfg = cfg || {};
-  const DIFF = String(cfg.difficulty||'normal');
-  const DURATION = +cfg.duration || 60;
+// Healthy Plate — centered spawns + quests
+export async function boot(opts={}){
+  const host = opts.host || document.querySelector('#spawnHost');
+  const diff = String(opts.difficulty||'normal');
+  const dur  = +opts.duration||60;
 
-  document.querySelectorAll('.hha-layer').forEach(n=>n.remove());
-  const layer = document.createElement('div'); layer.className='hha-layer'; document.body.appendChild(layer);
+  const rate = {easy:[900,1300], normal:[700,1100], hard:[550,900]}[diff];
+  const life = {easy:1800, normal:1600, hard:1400}[diff];
 
-  const TUNE = {
-    easy:   { nextGap: 560, life: 2100, scoreBase: 22, comboMul: 2, feverGain: 11, missPenalty: 6  },
-    normal: { nextGap: 440, life: 1700, scoreBase: 26, comboMul: 2, feverGain: 12, missPenalty: 10 },
-    hard:   { nextGap: 360, life: 1400, scoreBase: 28, comboMul: 3, feverGain: 13, missPenalty: 12 },
-  }[DIFF];
+  let running=true,left=dur,score=0,combo=0,hits=0,misses=0,timer=0,spn=0;
 
-  // state
-  let running=true, score=0, combo=0, hits=0, misses=0, spawns=0, left=DURATION, fever=0, feverActive=false;
-  let lastEmoji=null;
+  const plateOK = ['🥗','🐟','🍚','🥛','🍎','🥦','🍞'];
+  const plateNG = ['🍩','🍟','🍔','🍕','🧁','🍫','🥤'];
 
-  const G = {
-    grains:  ['🍞','🍚','🥐','🥖','🥨','🫓'],
-    protein:['🐟','🍗','🥩','🥚','🫘'],
-    veggie: ['🥦','🥕','🥬','🌽','🍅'],
-    fruit:  ['🍎','🍓','🍌','🍇','🍍','🍊','🍐','🥝'],
-    dairy:  ['🥛','🧀','🍦']
-  };
-  const ALL = Object.values(G).flat();
-  const order = ['grains','protein','veggie','fruit','dairy'];
-  let need = new Set(order);
+  function questText(t){ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:t}})); }
+  function scoreEvt(d){ window.dispatchEvent(new CustomEvent('hha:score',{detail:d})); }
+  function timeEvt(){ window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); }
 
-  // quests
-  const POOL = [
-    {id:'p1', label:'จัดครบ 5 หมู่ ภายใน 15 วิ', check:s=>s.roundDoneFast>=1, prog:s=>s.roundDoneFast?1:0, target:1},
-    {id:'p2', label:'ทำคอมโบ 12', check:s=>s.comboMax>=12, prog:s=>Math.min(12,s.comboMax), target:12},
-    {id:'p3', label:'คะแนนถึง 500', check:s=>s.score>=500, prog:s=>Math.min(500,s.score), target:500},
-    {id:'p4', label:'หลบผิดหมู่ 6 ครั้ง', check:s=>s.avoid>=6, prog:s=>Math.min(6,s.avoid), target:6},
-    {id:'p5', label:'เข้า Fever 1 ครั้ง', check:s=>s.fever>=1, prog:s=>s.fever?1:0, target:1},
-    {id:'p6', label:'เก็บผัก 6 ชิ้น', check:s=>s.veggie>=6, prog:s=>Math.min(6,s.veggie), target:6},
-    {id:'p7', label:'เก็บผลไม้ 6 ชิ้น', check:s=>s.fruit>=6, prog:s=>Math.min(6,s.fruit), target:6},
-    {id:'p8', label:'ไม่พลาด 10 วิ', check:s=>s.noMiss>=10, prog:s=>Math.min(10,s.noMiss), target:10},
-    {id:'p9', label:'จบ 2 รอบ', check:s=>s.round>=2, prog:s=>Math.min(2,s.round), target:2},
-    {id:'p10',label:'โปรตีน 5 ชิ้น', check:s=>s.protein>=5, prog:s=>Math.min(5,s.protein), target:5},
+  // center host
+  (function(){
+    const sc=document.querySelector('#scene'), cam=document.querySelector('#cam');
+    function center(){ const y=(cam?.object3D?.position?.y ?? cam.getAttribute('position')?.y ?? 1.6)-.8;
+      host.setAttribute('position',{x:0,y:Math.max(.6,y),z:-1.5});}
+    sc.addEventListener('loaded',center); sc.addEventListener('enter-vr',center); window.addEventListener('resize',center); setTimeout(center,80);
+  })();
+
+  function localPos(){ return {x:+((Math.random()-0.5)*1.2).toFixed(3), y:+((Math.random()-0.5)*0.6).toFixed(3), z:-0.4}; }
+  function pop(x,y,t){ const p=document.createElement('div'); p.className='pop'; p.textContent=t; p.style.left=x+'px'; p.style.top=y+'px';
+    document.body.appendChild(p); setTimeout(()=>p.remove(),680); }
+  function burst(x,y,c='#7dd3fc'){ for(let i=0;i<14;i++){ const s=document.createElement('div'); s.className='sh'; s.style.left=x+'px'; s.style.top=y+'px'; s.style.background=c;
+    const dx=(Math.random()-0.5)*160, dy=(Math.random()-0.5)*110; s.style.setProperty('--dx',dx+'px'); s.style.setProperty('--dy',dy+'px');
+    document.body.appendChild(s); setTimeout(()=>s.remove(),620);} }
+
+  const st={ok:0,avoid:0,comboMax:0};
+  const deckAll=[
+    {id:'ok10', label:'วางอาหารดี 10 ชิ้น', ok:s=>s.ok>=10, prog:s=>s.ok, goal:10},
+    {id:'avoid6', label:'หลีกอาหารขยะ 6', ok:s=>s.avoid>=6, prog:s=>s.avoid, goal:6},
+    {id:'combo10', label:'คอมโบ 10', ok:s=>s.comboMax>=10, prog:s=>s.comboMax, goal:10},
+    {id:'score500', label:'คะแนน 500+', ok:()=>score>=500, prog:()=>score, goal:500},
+    {id:'ok15', label:'อาหารดี 15 ชิ้น', ok:s=>s.ok>=15, prog:s=>s.ok, goal:15},
+    {id:'combo14', label:'คอมโบ 14', ok:s=>s.comboMax>=14, prog:s=>s.comboMax, goal:14},
+    {id:'avoid10', label:'หลีกขยะ 10', ok:s=>s.avoid>=10, prog:s=>s.avoid, goal:10},
+    {id:'score650', label:'คะแนน 650+', ok:()=>score>=650, prog:()=>score, goal:650},
+    {id:'ok20', label:'อาหารดี 20 ชิ้น', ok:s=>s.ok>=20, prog:s=>s.ok, goal:20},
+    {id:'combo16', label:'คอมโบ 16', ok:s=>s.comboMax>=16, prog:s=>s.comboMax, goal:16},
   ];
-  function sample3(p){ const s=[...p]; const out=[]; while(out.length<3&&s.length){ out.push(s.splice(Math.floor(Math.random()*s.length),1)[0]); } return out; }
-  const quests = sample3(POOL); let qIndex=0;
-  const stats={round:0, roundTimer:0, roundDoneFast:0, comboMax:0, score:0, fever:0, avoid:0, veggie:0, fruit:0, protein:0, noMiss:0};
+  const pool=[...deckAll]; for(let i=pool.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[pool[i],pool[j]]=[pool[j],pool[i]]}
+  const deck=pool.slice(0,3); let qi=0; questText(`Quest 1/3: ${deck[0].label} (${deck[0].prog(st)}/${deck[0].goal})`);
 
-  function pushQuest(){ const cur=quests[qIndex]; dispatch('hha:quest',{text: cur?`เควส: ${cur.label}`:'เควสครบแล้ว!'}); }
-  pushQuest();
-
-  dispatch('hha:score',{score, combo});
-  dispatch('hha:time',{sec:DURATION});
-  const tmr=setInterval(()=>{
-    if(!running) return;
-    left=Math.max(0,left-1);
-    stats.roundTimer++;
-    stats.noMiss=Math.min(9999, stats.noMiss+1);
-    dispatch('hha:time',{sec:left});
-    const cur=quests[qIndex]; if(cur && cur.check(stats)){ qIndex=Math.min(quests.length-1,qIndex+1); pushQuest(); }
-    if(left<=0) end('timeout');
-  },1000);
-
-  // spawn helpers
-  function vw(){return innerWidth;} function vh(){return innerHeight;}
-  function rndPos(){ return { x:Math.floor(vw()*0.3 + Math.random()*vw()*0.4), y:Math.floor(vh()*0.42 + Math.random()*vh()*0.16) }; }
-  function pickEmoji(){
-    // bias กลุ่มที่ยัง “ขาด” ในรอบนี้
-    const lacking = [...need].flatMap(k=>G[k]);
-    const pool = lacking.length ? [...ALL, ...lacking] : ALL;
-    let e = pool[Math.floor(Math.random()*pool.length)];
-    if(pool.length>1 && e===lastEmoji){ let tries=8; while(tries-- && e===lastEmoji){ e=pool[Math.floor(Math.random()*pool.length)]; } }
-    lastEmoji=e; return e;
+  function updateQuest(){
+    const q=deck[qi]; if(!q) return;
+    if(q.ok(st)){ qi++; if(qi>=deck.length) questText('Mini Quest — สำเร็จ!');
+      else questText(`Quest ${qi+1}/3: ${deck[qi].label} (${deck[qi].prog(st)}/${deck[qi].goal})`);
+    }else questText(`Quest ${qi+1}/3: ${q.label} (${q.prog(st)}/${q.goal})`);
   }
-  function nextGap(){ return TUNE.nextGap; }
 
-  function groupOf(e){
-    if(G.grains.includes(e)) return 'grains';
-    if(G.protein.includes(e))return 'protein';
-    if(G.veggie.includes(e)) return 'veggie';
-    if(G.fruit.includes(e))  return 'fruit';
-    if(G.dairy.includes(e))  return 'dairy';
-    return null;
+  function tick(){
+    if(!running) return; left=Math.max(0,left-1); timeEvt(); if(left<=0) end('timeout');
   }
 
   function spawn(){
     if(!running) return;
-    spawns++;
-    const e = pickEmoji();
-    const el = document.createElement('div'); el.className='hha-tgt'; el.textContent=e;
-    const {x,y}=rndPos(); el.style.left=x+'px'; el.style.top=y+'px';
-    let clicked=false; const life = TUNE.life;
+    const good = Math.random()<0.72;
+    const icon = (good?plateOK:plateNG)[(Math.random()*(good?plateOK:plateNG).length)|0];
 
-    el.addEventListener('click',hit,{passive:false});
-    el.addEventListener('touchstart',hit,{passive:false});
-    function hit(ev){
-      if(clicked) return; clicked=true; ev.preventDefault?.();
-      layer.removeChild(el); hits++; combo++;
-      const g=groupOf(e);
-      if(g && need.has(g)){
-        need.delete(g);
-        if(g==='veggie') stats.veggie++;
-        if(g==='fruit')  stats.fruit++;
-        if(g==='protein')stats.protein++;
+    const e=document.createElement('a-entity'); e.classList.add('clickable');
+    e.setAttribute('geometry','primitive: plane; width:.42; height:.42');
+    e.setAttribute('text',`value:${icon}; align:center; color:#fff; width:3`);
+    const p=localPos(); e.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
+    e.setAttribute('animation__pop','property: scale; from:.6 .6 .6; to:1 1 1; dur:120; easing:easeOutQuad');
 
-        score += TUNE.scoreBase + Math.min(combo*TUNE.comboMul, 30);
-        stats.score=score; if(combo>stats.comboMax) stats.comboMax=combo;
+    e.addEventListener('click', ()=>{
+      const rect=document.body.getBoundingClientRect(); const cx=rect.width*.5, cy=rect.height*.5;
+      if(good){ hits++; st.ok++; combo++; st.comboMax=Math.max(st.comboMax,combo); score+=20; burst(cx,cy,'#22c55e'); pop(cx,cy,'+20'); }
+      else { misses++; st.avoid++; combo=0; score-=15; burst(cx,cy,'#ef4444'); pop(cx,cy,'-15'); }
+      scoreEvt({score,combo}); e.remove(); updateQuest();
+    });
 
-        fever = Math.min(100, fever + TUNE.feverGain);
-        dispatch('hha:fever',{state:'change', level:fever});
-        if(!feverActive && fever>=100){
-          feverActive=true; stats.fever++;
-          dispatch('hha:fever',{state:'start', level:100});
-          setTimeout(()=>{feverActive=false; fever=0; dispatch('hha:fever',{state:'end'});}, 8000);
-        }
-
-        if(need.size===0){
-          stats.round++;
-          if(stats.roundTimer<=15) stats.roundDoneFast++;
-          need = new Set(order);
-          stats.roundTimer=0;
-          dispatch('hha:quest',{text:`รอบใหม่ #${stats.round+1} — จัด 5 หมู่ให้ครบ!`});
-        }
-      }else{
-        // ผิดหมู่/ซ้ำหมู่
-        score=Math.max(0, score - TUNE.missPenalty); combo=0; stats.noMiss=0; stats.avoid++; misses++;
-        dispatch('hha:miss',{count:misses});
-      }
-      dispatch('hha:score',{score, combo});
-      setTimeout(spawn, nextGap());
-      const cur=quests[qIndex]; if(cur && cur.check(stats)){ qIndex=Math.min(quests.length-1,qIndex+1); pushQuest(); }
-    }
+    host.appendChild(e);
 
     setTimeout(()=>{
-      if(!running||clicked) return;
-      layer.contains(el) && layer.removeChild(el);
-      combo=0; stats.noMiss=0; misses++; dispatch('hha:miss',{count:misses});
-      setTimeout(spawn, nextGap());
+      if(!e.parentNode||!running) return;
+      if(!good){ st.avoid++; score+=8; } else { misses++; combo=0; score-=5; }
+      e.remove(); scoreEvt({score,combo}); updateQuest();
     }, life);
 
-    layer.appendChild(el);
+    const wait=Math.floor(rate[0]+Math.random()*(rate[1]-rate[0]));
+    spn=setTimeout(spawn, wait);
   }
 
-  setTimeout(spawn, 220);
-  const watchdog=setInterval(()=>{ if(!running) return; if(layer.querySelectorAll('.hha-tgt').length===0) spawn(); }, 1600);
-
-  function end(reason='done'){
-    if(!running) return; running=false;
-    clearInterval(tmr); clearInterval(watchdog);
-    layer.querySelectorAll('.hha-tgt').forEach(n=>n.remove());
-    dispatch('hha:end',{
-      mode:'Healthy Plate', difficulty:DIFF,
-      score, comboMax: stats.comboMax, hits, misses, spawns, duration:DURATION,
-      questsCleared: qIndex>=quests.length? quests.length : qIndex, questsTotal: quests.length
-    });
-    layer.remove();
+  function start(){ timer=setInterval(tick,1000); spawn(); }
+  function end(reason){
+    if(!running) return; running=false; clearInterval(timer); clearTimeout(spn);
+    const detail={reason,score,comboMax:st.comboMax,misses,hits,
+      questsCleared: qi>=deck.length?3:qi, questsTotal:3, duration:dur-left,
+      mode:'Healthy Plate', difficulty:diff};
+    window.dispatchEvent(new CustomEvent('hha:end',{detail}));
   }
 
-  return { stop(){end('stop');}, pause(){running=false;}, resume(){ if(!running){ running=true; spawn(); } } };
+  start();
+  return {stop:()=>end('quit'), pause:()=>{running=false;clearInterval(timer);clearTimeout(spn);},
+          resume:()=>{if(!running){running=true;start();}}};
 }
-
-function dispatch(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})); }catch{} }
-export default { boot };
+export default {boot};
