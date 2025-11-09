@@ -1,0 +1,65 @@
+<!doctype html>
+<body>
+<header class="topbar">
+<h1>Metaverse Hygiene World — Hero Academy</h1>
+<div class="userbox">
+<span id="playerName">Guest</span>
+<span class="sep">•</span>
+<span id="playerLevel">Lv.1</span>
+<span class="sep">•</span>
+<span id="playerCoins">0</span>⭐
+<button id="btnReset" class="ghost">รีเซ็ต</button>
+</div>
+</header>
+
+
+<main class="wrap">
+<aside class="left">
+<section class="card">
+<h2>ภารกิจวันนี้</h2>
+<div id="missionDate" class="small"></div>
+<ul id="missionList" class="mission-list"></ul>
+<div class="progress"><div id="missionBar" class="bar"></div></div>
+<div class="row"><span id="missionStatus" class="small"></span><button id="btnRefresh" class="ghost">สุ่มใหม่</button></div>
+</section>
+
+
+<section class="card">
+<h3>โหมด Hub</h3>
+<div class="row"><button id="mode2d" class="pill on">2D Menu</button><button id="mode3d" class="pill">3D VR</button></div>
+<p class="small">Desktop/Mobile แนะนำ 2D, อุปกรณ์ VR ใช้ 3D Portal</p>
+</section>
+
+
+<section class="card"><h3>สรุปความก้าวหน้า</h3><div id="summary"></div></section>
+</aside>
+
+
+<section class="content">
+<!-- 2D MENU -->
+<div id="menu2d" class="menu2d">
+<template id="zoneTpl">
+<div class="zone"><div class="zone-head"><h2 class="zone-title"></h2><div class="zone-meta small"></div></div><div class="grid" data-zone-grid></div></div>
+</template>
+<template id="gameCardTpl">
+<button class="game"><div class="game-ico" data-ico>🎮</div><div class="game-body"><div class="game-title" data-title>Game</div><div class="game-desc small" data-desc></div><div class="game-meta small" data-meta></div></div></button>
+</template>
+<div id="zones"></div>
+</div>
+
+
+<!-- 3D PORTAL -->
+<div id="menu3d" class="menu3d hidden">
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<a-scene renderer="antialias:true" background="color:#eef7ff">
+<a-entity position="0 1.6 0"><a-camera wasd-controls-enabled="true" look-controls="true"><a-cursor></a-cursor></a-camera></a-entity>
+<a-plane color="#dff0ff" rotation="-90 0 0" width="30" height="30"></a-plane>
+<a-entity position="0 0 -3"><a-text value="Hero Academy" align="center" color="#333" position="0 2.2 0" width="6"></a-text></a-entity>
+<a-entity id="portalHost"></a-entity>
+</a-scene>
+</div>
+</section>
+</main>
+<footer class="foot small">v1 • Free‑order Missions • Local Profile • © Hygiene World</footer>
+</body>
+</html>
