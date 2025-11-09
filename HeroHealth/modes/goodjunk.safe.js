@@ -1,180 +1,181 @@
-// === modes/goodjunk.safe.js (anti-cluster + quest/fever) ===
-import { emojiImage } from '../vr/emoji-sprite.js';
+// Good vs Junk — ป้องกัน “เป้ากระจุก” + Adaptive + Coach + MiniQuest
+import { makeSpawner } from '../vr/spawn-utils.js';
 import { burstAt, floatScore } from '../vr/shards.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
+import { MissionDeck } from '../vr/mission.js';
 
 export async function boot(cfg = {}) {
   const scene = document.querySelector('a-scene');
-  const host  = (cfg.host) || document.getElementById('spawnHost') || scene;
+  const host  = cfg.host || document.getElementById('spawnHost');
   const diff  = String(cfg.difficulty || 'normal');
-  const duration = Number.isFinite(+cfg.duration) ? +cfg.duration
-                   : (diff==='easy'?90:(diff==='hard'?45:60));
 
-  let running = true, score = 0, combo = 0, hits = 0, misses = 0, spawns = 0;
+  // duration ตามระดับ ถ้าไม่ส่งเข้ามา
+  const defaultDur = { easy:90, normal:60, hard:45 }[diff] || 60;
+  let left = Number(cfg.duration || defaultDur);
 
-  // ---------- Mini Quest: เก็บของดีติดกัน 10 ----------
-  const questTarget = 10;
-  let questStreak = 0;
-  let questDone   = false;
-  const emit = (n,d)=>{ try{ window.dispatchEvent(new CustomEvent(n,{detail:d})) }catch{} };
-  function setQuestText(){
-    const text = questDone
-      ? 'Mini Quest — สำเร็จ! FEVER กำลังทำงาน…'
-      : `Mini Quest: เก็บของดีติดกัน 10 ชิ้น (${questStreak}/${questTarget})`;
-    emit('hha:quest', {text});
-  }
-  setQuestText();
-
-  // ---------- Tuning ----------
+  // ปรับความยาก + กันกระจุก
   const tune = {
-    easy:   { gap:[420, 640], life:[1500,1800], minDist:0.36, maxActive:3 },
-    normal: { gap:[360, 520], life:[1200,1500], minDist:0.32, maxActive:4 },
-    hard:   { gap:[300, 440], life:[ 950,1200], minDist:0.30, maxActive:5 }
+    easy:   { gap:[420,640], life:[1500,1800], minDist:0.36, maxActiveMin:2, maxActiveMax:4 },
+    normal: { gap:[360,520], life:[1200,1500], minDist:0.32, maxActiveMin:2, maxActiveMax:5 },
+    hard:   { gap:[300,440], life:[ 950,1200], minDist:0.30, maxActiveMin:2, maxActiveMax:6 },
   };
   const T = tune[diff] || tune.normal;
+
+  const sp = makeSpawner({
+    bounds: { x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6 },
+    minDist: T.minDist,
+    decaySec: 2.2
+  });
 
   const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
 
-  function nextGap(){ const [a,b]=T.gap;  return Math.floor(a + Math.random()*(b-a)); }
-  function lifeMs(){  const [a,b]=T.life; return Math.floor(a + Math.random()*(b-a)); }
+  let score=0, combo=0, misses=0, running=true;
+  const active = [];
+  const deck = new MissionDeck(); deck.draw3(); // ใช้ pool เริ่มต้นของ MissionDeck
+  fireQuest();
 
-  // ---------- Anti-cluster spawner (simple O(N) with min distance) ----------
-  // พื้นที่กลางจอ: x ∈ [-0.75,0.75], y ∈ [-0.05,0.50], z = -1.6
-  const bounds = { x:[-0.75,0.75], y:[-0.05,0.50], z:-1.6 };
-  const active = []; // {x,y,el}
-  function dist2(a,b){ const dx=a.x-b.x, dy=a.y-b.y; return dx*dx+dy*dy; }
-  function sampleNonOverlap(minDist){
-    const min2 = minDist*minDist;
-    const padX = Math.max(0.02, minDist*0.6);
-    const padY = Math.max(0.02, minDist*0.6);
-    const xr = [bounds.x[0]+padX, bounds.x[1]-padX];
-    const yr = [bounds.y[0]+padY, bounds.y[1]-padY];
+  // adaptive state
+  let currentMaxActive = T.maxActiveMin;
+  const recent = { hits:0, misses:0, lastMissAt:performance.now(), lastAdjustAt:performance.now() };
 
-    // ลองสุ่มหลายครั้งเพื่อหาจุดว่าง
-    for(let tries=0; tries<28; tries++){
-      const p = { x: xr[0] + Math.random()*(xr[1]-xr[0]),
-                  y: yr[0] + Math.random()*(yr[1]-yr[0]),
-                  z: bounds.z };
-      let ok = true;
-      for(let i=0;i<active.length;i++){
-        if (dist2(p, active[i]) < min2){ ok=false; break; }
-      }
-      if(ok) return p;
+  // time loop
+  const tmr = setInterval(()=>{
+    if(!running) return;
+    left = Math.max(0, left-1);
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}}));
+    deck.second();
+    if (deck.isCleared()) {
+      fireQuest('Mini Quest สำเร็จ! FEVER กำลังทำงาน…');
     }
-    // ไม่เจอ → เลือกจุดที่ "ไกลสุด" จากชิ้นที่ใกล้ที่สุดในชุดตัวอย่าง
-    let best=null, bestScore=-1;
-    for(let s=0;s<24;s++){
-      const p = { x: xr[0] + Math.random()*(xr[1]-xr[0]),
-                  y: yr[0] + Math.random()*(yr[1]-yr[0]),
-                  z: bounds.z };
-      let dmin = Infinity;
-      for(let i=0;i<active.length;i++){
-        dmin = Math.min(dmin, Math.sqrt(dist2(p, active[i])));
-      }
-      if(dmin>bestScore){ best=p; bestScore=dmin; }
-    }
-    return best || { x:(xr[0]+xr[1])/2, y:(yr[0]+yr[1])/2, z: bounds.z };
-  }
+    if (left<=0) end('timeout');
+  }, 1000);
+
+  function nextGap(){ const [a,b]=T.gap; return a + Math.random()*(b-a); }
+  function lifeMs(){  const [a,b]=T.life;return a + Math.random()*(b-a); }
 
   function spawnOne(){
-    if(!running) return;
-    // จำกัดจำนวนชิ้นบนจอ
-    if (active.length >= T.maxActive) return;
+    if (!running) return;
+    if (active.length >= currentMaxActive) return;
 
-    const isGood = Math.random()>0.35;
-    const ch = isGood ? GOOD[(Math.random()*GOOD.length)|0]
-                      : JUNK[(Math.random()*JUNK.length)|0];
+    const isGood = Math.random() > 0.35;
+    const ch = isGood ? pick(GOOD) : pick(JUNK);
 
-    const p = sampleNonOverlap(T.minDist);
-    const el = emojiImage(ch, 0.7, 128);
+    const pos = sp.sample();
+    const el  = emojiImage(ch, 0.68, 128);
     el.classList.add('clickable');
-    el.setAttribute('position', `${p.x} ${p.y} ${p.z}`);
+    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
     host.appendChild(el);
-    spawns++;
-    const node = {x:p.x,y:p.y,el};
-    active.push(node);
+
+    const rec = sp.markActive(pos);
+    active.push(el);
 
     const ttl = setTimeout(()=>{
       if(!el.parentNode) return;
-      // หมดอายุ
-      if (GOOD.includes(ch)) {
-        questStreak = 0; combo = 0; score = Math.max(0, score-10); misses++;
-        emit('hha:miss', {count:misses});
-        emit('hha:score', {score, combo});
-        if(!questDone) setQuestText();
+      if (isGood) { // พลาดของดี → โทษ
+        combo=0; score=Math.max(0, score-10); misses++;
+        recent.misses++; recent.lastMissAt = performance.now();
+        window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}}));
+        deck.onJunk(); // ถือว่า “พลาด”
       }
       try{ host.removeChild(el);}catch{}
-      // remove from active
-      const idx = active.indexOf(node); if(idx>-1) active.splice(idx,1);
+      sp.unmark(rec);
+      active.splice(active.indexOf(el),1);
     }, lifeMs());
 
     el.addEventListener('click', (ev)=>{
       ev.preventDefault();
       clearTimeout(ttl);
-      try{
-        const wp = el.object3D?.getWorldPosition
-          ? el.object3D.getWorldPosition(new THREE.Vector3())
-          : {x:p.x,y:p.y,z:p.z};
+      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
+      const val = isGood ? (20 + combo*2) : -15;
 
-        if (isGood){
-          const plus = 20 + combo*2;
-          score += plus; combo++; hits++;
+      if (isGood){ combo++; recent.hits++; deck.onGood(); } else { combo=0; deck.onJunk(); }
+      score = Math.max(0, score + val);
 
-          if (!questDone){
-            questStreak += 1;
-            if (questStreak >= questTarget){
-              questDone = true;
-              emit('hha:fever', {state:'start', level:100, active:true});
-            }
-            setQuestText();
-          }
+      burstAt(scene, wp, { color: isGood?'#22c55e':'#ef4444', count:isGood?18:12, speed:isGood?1.0:0.8 });
+      floatScore(scene, wp, (val>0?'+':'')+val);
 
-          burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0, mode:'goodjunk' });
-          floatScore(scene, wp, `+${plus}`, '#b7f7c2');
-        } else {
-          score = Math.max(0, score-15); combo = 0; misses++;
-          if (!questDone && questStreak>0){ questStreak = 0; setQuestText(); }
-          burstAt(scene, wp, { color:'#ef4444', count:14, speed:0.9, mode:'goodjunk' });
-          floatScore(scene, wp, `-15`, '#ffb4b4');
-          emit('hha:miss', {count:misses});
-        }
-        emit('hha:score', {score, combo});
-      }finally{
-        try{ host.removeChild(el);}catch{}
-        const idx = active.indexOf(node); if(idx>-1) active.splice(idx,1);
-      }
+      window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+
+      try{ host.removeChild(el);}catch{}
+      sp.unmark(rec);
+      active.splice(active.indexOf(el),1);
     }, {passive:false});
   }
 
-  // ลูปสปอน
-  let spawnTimer = null;
-  (function loop(){ if(!running) return; spawnOne(); spawnTimer = setTimeout(loop, nextGap()); })();
+  // main spawn loop + watchdog
+  (function loop(){ if(!running) return; spawnOne(); setTimeout(loop, nextGap()); })();
+  const wd = setInterval(()=>{ if(running && active.length===0) spawnOne(); }, 1800);
 
-  // เวลาเกม
-  let left = duration;
-  emit('hha:time', {sec:left});
-  const timeTimer = setInterval(()=>{
+  // adaptive controller
+  const adapt = setInterval(()=>{
     if(!running) return;
-    left = Math.max(0, left-1);
-    emit('hha:time',{sec:left});
-    if(left<=0){
-      running=false;
-      clearInterval(timeTimer);
-      clearTimeout(spawnTimer);
-      emit('hha:fever', {state:'end', level:0, active:false});
-      emit('hha:end', {
-        mode:'Good vs Junk', difficulty:diff,
-        score, comboMax:combo, misses, hits, spawns, duration,
-        questsCleared: questDone?1:0, questsTotal: 1
-      });
+    const now = performance.now();
+    const secMiss = (now - recent.lastMissAt)/1000;
+    const secAdj  = (now - recent.lastAdjustAt)/1000;
+
+    // ramp up
+    if (secMiss >= 6 && recent.hits >= 5 && secAdj >= 5) {
+      const before = currentMaxActive;
+      currentMaxActive = Math.min(T.maxActiveMax, currentMaxActive+1);
+      if (currentMaxActive>before) {
+        scaleGapBy(0.90);
+        coach(`สุดยอด! ลุยที่ ${currentMaxActive} เป้า 🔥`);
+        recent.hits = 0; recent.lastAdjustAt = now;
+      }
+    }
+    // soften on recent miss
+    if (secMiss < 2 && secAdj >= 2) {
+      const before = currentMaxActive;
+      currentMaxActive = Math.max(T.maxActiveMin, currentMaxActive-1);
+      if (currentMaxActive<before) {
+        scaleGapBy(1.05);
+        coach(`ไม่เป็นไร ผ่อนลงเหลือ ${currentMaxActive} เป้า ✨`);
+        recent.hits = 0; recent.lastAdjustAt = now;
+      }
     }
   }, 1000);
 
-  return {
-    stop(){ running=false; try{ clearInterval(timeTimer); clearTimeout(spawnTimer);}catch{} },
-    pause(){ running=false; },
-    resume(){ if(!running){ running=true; (function loop(){ if(!running) return; spawnOne(); spawnTimer=setTimeout(loop,nextGap()); })(); } }
-  };
+  function scaleGapBy(f){
+    const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
+    const [ga,gb]=T.gap, na=clamp(Math.round(ga*f),220,1200), nb=clamp(Math.round(gb*f),280,1600);
+    T.gap=[Math.min(na,nb), Math.max(na,nb)];
+  }
+  function coach(text){ window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}})); }
+  function fireQuest(text){
+    if (!text) {
+      const cur = deck.getCurrent();
+      const prog = deck.getProgress();
+      const done = prog.filter(p=>p.done).length;
+      const label = cur ? cur.label : 'Mini Quest';
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`Quest ${done+1}/3: ${label}`}}));
+    } else {
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text}}));
+    }
+  }
+
+  function end(reason='done'){
+    if(!running) return;
+    running=false;
+    clearInterval(tmr); clearInterval(wd); clearInterval(adapt);
+
+    // cleanup nodes
+    const nodes=[...active]; active.length=0;
+    nodes.forEach(n=>{ try{ n.remove(); }catch{} });
+
+    window.dispatchEvent(new CustomEvent('hha:end',{
+      detail:{
+        reason, score, comboMax:combo, misses, duration:defaultDur,
+        mode:'Good vs Junk', difficulty:diff,
+        questsCleared: deck.getProgress().filter(p=>p.done).length,
+        questsTotal: 3
+      }
+    }));
+  }
+
+  // เผื่อภายนอกเรียกหยุด
+  return { stop:()=>end('quit'), pause:()=>running=false, resume:()=>{ if(!running){ running=true; } } };
 }
 
+function pick(a){ return a[(Math.random()*a.length)|0]; }
 export default { boot };
