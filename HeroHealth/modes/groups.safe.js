@@ -1,89 +1,181 @@
-// === groups.safe.js — Food Groups (stub/playable) ===
-export async function boot(cfg = {}) {
-  const host = cfg.host || document.getElementById('spawnHost') || document.body;
-  const dur  = Number(cfg.duration || 60);
-  const diff = String(cfg.difficulty || 'normal');
+// === groups.safe.js — Food Groups (center viewport, quests, fever hooks) ===
+export async function boot(cfg){
+  cfg = cfg || {};
+  const host = cfg.host || document.body;
+  const DIFF = String(cfg.difficulty||'normal');
+  const DURATION = +cfg.duration || 60;
 
-  // โทนสี/ชิ้นส่วนแตกเฉพาะโหมดนี้
-  const SHARD_COLOR = '#38bdf8'; // ฟ้า
-
-  // กลุ่มอาหาร: โปรตีน/ผักผลไม้/ธัญพืช/นม
-  const GROUPS = {
-    protein:   ['🥚','🍗','🐟','🫘'],
-    veggie:    ['🥦','🥕','🌽','🍅','🍆'],
-    grains:    ['🍞','🥖','🥯','🍚','🍙'],
-    dairy:     ['🥛','🧀','🍦']
-  };
-  const BAD = ['🍩','🍪','🧁','🍫','🥤'];
-
-  // ภารกิจ: เก็บให้ถูก “กลุ่มวันนี้”
-  const keys = Object.keys(GROUPS);
-  const today = keys[(Math.random()*keys.length)|0];
-  let need = 12, got = 0;
-
-  // HUD
-  function questHUD(){
-    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{
-      text:`Groups: เก็บ ${label(today)} ให้ครบ ${got}/${need}`
-    }}));
-  }
-  function label(k){
-    return {protein:'โปรตีน',veggie:'ผักผลไม้',grains:'ธัญพืช',dairy:'นม'}[k] || k;
-  }
-
-  // DOM layer
+  // DOM overlay layer (ล้างของเก่า)
+  document.querySelectorAll('.hha-layer').forEach(n=>n.remove());
   const layer = document.createElement('div');
   layer.className='hha-layer';
-  Object.assign(layer.style,{position:'fixed',inset:0,zIndex:650});
   document.body.appendChild(layer);
 
-  let left = dur, running = true, spawnTimer=null, timeTimer=null;
+  // state
+  let running=true, score=0, combo=0, hits=0, misses=0, spawns=0, left=DURATION, fever=0, feverActive=false;
 
-  function vw(){return Math.max(320,innerWidth||320)}; function vh(){return Math.max(320,innerHeight||320)};
-  function rndPos(){ return {x: Math.floor(vw()*0.2+Math.random()*vw()*0.6), y: Math.floor(vh()*0.28+Math.random()*vh()*0.5)} }
-  function pick(a){ return a[(Math.random()*a.length)|0] }
+  // กลุ่มอาหาร
+  const GROUPS = {
+    grains:  ['🍞','🍚','🥐','🥖','🥨','🫓'],
+    protein:['🐟','🍗','🥩','🥚','🫘','🧈'],
+    veggie: ['🥦','🥕','🥬','🌽','🍅'],
+    fruit:  ['🍎','🍓','🍌','🍇','🍍','🍊','🍐','🥝'],
+    dairy:  ['🥛','🧀','🍦','🍨']
+  };
+  const ALL = Object.values(GROUPS).flat();
 
-  function shards(x,y,color=SHARD_COLOR,n=16){
-    for(let i=0;i<n;i++){
-      const s=document.createElement('div'); s.className='shard';
-      Object.assign(s.style,{position:'absolute',width:'6px',height:'6px',borderRadius:'3px',background:color,opacity:.9});
-      layer.appendChild(s);
-      const ang=Math.random()*2*Math.PI, dist=20+Math.random()*36, dx=Math.cos(ang)*dist, dy=Math.sin(ang)*dist;
-      const t0=performance.now(), dur=360+Math.random()*220;
-      (function anim(t){const k=Math.min(1,(t-t0)/dur); s.style.left=(x+dx*k)+'px'; s.style.top=(y+dy*k)+'px'; s.style.opacity=String(1-k); if(k<1&&running) requestAnimationFrame(anim); else s.remove();})(t0);
+  // Quests (สุ่ม 3/10 แสดงทีละใบ)
+  const QUEST_POOL = [
+    {id:'q1', label:'เลือก “ผัก” ให้ครบ 6',        check:s=>s.veggie>=6, prog:s=>Math.min(6,s.veggie), target:6},
+    {id:'q2', label:'เลือก “ผลไม้” 6',             check:s=>s.fruit>=6,  prog:s=>Math.min(6,s.fruit),  target:6},
+    {id:'q3', label:'เลือก “โปรตีน” 5',            check:s=>s.protein>=5,prog:s=>Math.min(5,s.protein),target:5},
+    {id:'q4', label:'เลือก “ธัญพืช/ข้าวแป้ง” 6',  check:s=>s.grains>=6, prog:s=>Math.min(6,s.grains), target:6},
+    {id:'q5', label:'เลือก “นม/นมเปรี้ยว/ชีส” 4', check:s=>s.dairy>=4,  prog:s=>Math.min(4,s.dairy),  target:4},
+    {id:'q6', label:'ทำคอมโบ 10',                 check:s=>s.comboMax>=10, prog:s=>Math.min(10,s.comboMax), target:10},
+    {id:'q7', label:'ไม่พลาด 8 วิ',                check:s=>s.noMiss>=8, prog:s=>Math.min(8,s.noMiss), target:8},
+    {id:'q8', label:'เข้า Fever 1 ครั้ง',          check:s=>s.fever>=1,  prog:s=>s.fever?1:0, target:1},
+    {id:'q9', label:'คะแนนถึง 400',                check:s=>s.score>=400,prog:s=>Math.min(400,s.score), target:400},
+    {id:'q10',label:'เก็บให้ถูก 15 ชิ้น',          check:s=>s.correct>=15,prog:s=>Math.min(15,s.correct), target:15},
+  ];
+  function sample3(pool){
+    const s=[...pool]; const out=[];
+    while(out.length<3 && s.length){ out.push(s.splice(Math.floor(Math.random()*s.length),1)[0]); }
+    return out;
+  }
+  const quests = sample3(QUEST_POOL);
+  let qIndex=0;
+
+  const statsQuest = {grains:0,protein:0,veggie:0,fruit:0,dairy:0, comboMax:0, noMiss:0, fever:0, score:0, correct:0};
+  function updateQuestProgress(tickNoMiss = true){
+    if(tickNoMiss) statsQuest.noMiss = Math.min(9999, statsQuest.noMiss+1);
+    const cur = quests[qIndex];
+    if(cur && cur.check(statsQuest)){
+      qIndex = Math.min(quests.length-1, qIndex+1);
+      pushQuestText();
     }
   }
+  function pushQuestText(){
+    const cur = quests[qIndex];
+    const text = cur ? `เควส: ${cur.label}` : 'เควสครบแล้ว!';
+    dispatch('hha:quest',{text});
+  }
 
+  // HUD
+  dispatch('hha:score',{score, combo});
+
+  // time loop
+  const tmr = setInterval(()=>{
+    if(!running) return;
+    left=Math.max(0,left-1);
+    dispatch('hha:time',{sec:left});
+    updateQuestProgress(true);
+    if(left<=0) end('timeout');
+  },1000);
+
+  // spawn
+  function vw(){return innerWidth;}
+  function vh(){return innerHeight;}
+  function rndPos(){
+    return {
+      x: Math.floor(vw()*0.3 + Math.random()*vw()*0.4),
+      y: Math.floor(vh()*0.42 + Math.random()*vh()*0.16)
+    };
+  }
   function spawn(){
     if(!running) return;
-    const targetPool = Math.random()<0.7 ? GROUPS[today] : (Math.random()<0.8 ? [].concat(...Object.values(GROUPS)) : BAD);
-    const ch = pick(targetPool);
-    const pos = rndPos();
+    spawns++;
+    const emoji = ALL[Math.floor(Math.random()*ALL.length)];
     const el = document.createElement('div');
-    el.className='hha-tgt'; el.textContent=ch;
-    el.style.left=pos.x+'px'; el.style.top=pos.y+'px'; el.style.fontSize='64px';
-    el.onclick = ()=>{
-      el.classList.add('hha-hit'); el.remove();
-      if(GROUPS[today].includes(ch)){ got++; shards(pos.x,pos.y,SHARD_COLOR,18); window.dispatchEvent(new CustomEvent('hha:score',{detail:{score:got*10,combo:got}})); }
-      else { window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:1}})); }
-      questHUD();
-      if(got>=need){ end('win'); } else schedule();
-    };
+    el.className='hha-tgt'; el.textContent=emoji;
+    const {x,y}=rndPos(); el.style.left=x+'px'; el.style.top=y+'px';
+    let life = 1900; if(DIFF==='normal') life=1700; if(DIFF==='hard') life=1400;
+    let clicked=false;
+
+    el.addEventListener('click', onHit);
+    el.addEventListener('touchstart', onHit, {passive:false});
+    function onHit(ev){
+      if(clicked) return; clicked=true; ev.preventDefault?.();
+      layer.removeChild(el);
+      const group = groupOf(emoji);
+      let good=false;
+      if(group){
+        good=true; hits++; combo++; statsQuest[group]++; statsQuest.correct++;
+        score += 20 + combo*2; statsQuest.score=score; if(combo>statsQuest.comboMax) statsQuest.comboMax=combo;
+        // fever fill & start
+        fever = Math.min(100, fever + 10);
+        dispatch('hha:fever',{state:'change', level:fever});
+        if(!feverActive && fever>=100){ feverActive=true; statsQuest.fever++; dispatch('hha:fever',{state:'start', level:100}); setTimeout(()=>{feverActive=false; fever=0; dispatch('hha:fever',{state:'end'});}, 8000); }
+      }else{
+        misses++; combo=0;
+        score = Math.max(0, score-10);
+      }
+      dispatch('hha:score',{score, combo});
+      emitMissIfNeeded();
+      setTimeout(spawn, nextGap());
+      updateQuestProgress(false);
+    }
+    const to= setTimeout(()=>{
+      if(!running||clicked) return;
+      // หมดอายุ = พลาด
+      layer.contains(el) && layer.removeChild(el);
+      misses++; combo=0;
+      dispatch('hha:score',{score, combo});
+      emitMissIfNeeded();
+      setTimeout(spawn, nextGap());
+      // พลาด = noMiss รีเซ็ต
+      statsQuest.noMiss=0;
+    }, life);
+
     layer.appendChild(el);
-    setTimeout(()=>{ if(el.isConnected){ el.remove(); schedule(); } }, 1500);
   }
-  function schedule(){ spawnTimer=setTimeout(spawn, 600+Math.random()*500); }
+  function nextGap(){
+    if(DIFF==='easy') return 650;
+    if(DIFF==='hard') return 420;
+    return 520;
+  }
+  function emitMissIfNeeded(){
+    dispatch('hha:miss',{count:misses});
+  }
+  function groupOf(e){
+    if(GROUPS.grains.includes(e)) return 'grains';
+    if(GROUPS.protein.includes(e))return 'protein';
+    if(GROUPS.veggie.includes(e)) return 'veggie';
+    if(GROUPS.fruit.includes(e))  return 'fruit';
+    if(GROUPS.dairy.includes(e))  return 'dairy';
+    return null;
+  }
+
+  // boot
+  pushQuestText();
+  dispatch('hha:time',{sec:left});
+  setTimeout(spawn, 250);
+  const watchdog = setInterval(()=>{
+    if(!running) return;
+    if(layer.querySelectorAll('.hha-tgt').length===0) spawn();
+  }, 1800);
 
   function end(reason='done'){
-    if(!running) return; running=false;
-    try{clearTimeout(spawnTimer)}catch{}; try{clearInterval(timeTimer)}catch{};
-    Array.from(layer.children).forEach(n=>n.remove()); layer.remove();
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{reason,score:got*10,combo:got,misses:0,hits:got,spawns:need,difficulty:diff,questsCleared: reason==='win'?1:0,questsTotal:1}}));
+    if(!running) return;
+    running=false;
+    clearInterval(tmr); clearInterval(watchdog);
+    // cleanup
+    layer.querySelectorAll('.hha-tgt').forEach(n=>n.remove());
+    // result
+    dispatch('hha:end',{
+      mode:'Food Groups', difficulty:DIFF,
+      score, comboMax: statsQuest.comboMax, hits, misses, spawns, duration:DURATION,
+      questsCleared: qIndex>=quests.length? quests.length : qIndex, questsTotal: quests.length
+    });
+    layer.remove();
   }
 
-  timeTimer=setInterval(()=>{ left=Math.max(0,left-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); if(left<=0) end('timeout'); },1000);
-  questHUD(); schedule();
-
-  return { stop:()=>end('quit'), pause(){running=false}, resume(){ if(!running){running=true;schedule();} } };
+  return {
+    stop(){ end('stop'); },
+    pause(){ running=false; },
+    resume(){ if(!running){ running=true; spawn(); } }
+  };
 }
+
+function dispatch(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})); }catch{} }
+
 export default { boot };
