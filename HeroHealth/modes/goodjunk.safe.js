@@ -1,5 +1,5 @@
 // === modes/goodjunk.safe.js ===
-import { emojiImage } from './emoji-sprite.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
 
 const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍊','🍌','🍐','🥬','🍚','🥛','🐟','🍞','🍍','🥝'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🌭','🍫'];
