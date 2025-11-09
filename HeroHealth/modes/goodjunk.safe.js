@@ -1,77 +1,116 @@
-// ⬆️ ที่หัวไฟล์
-import { makeSpawner } from '../vr/spawn-utils.js';
-import { burstAt, floatScore } from '../vr/shards.js';
+// === modes/goodjunk.safe.js (fix: cfg default, safe locals, no globals) ===
 import { emojiImage } from '../vr/emoji-sprite.js';
+import { burstAt, floatScore } from '../vr/shards.js';
 
-// …ภายใน boot(cfg)…
-const scene = document.querySelector('a-scene');
-const host  = cfg.host || document.getElementById('spawnHost');
-const diff  = String(cfg.difficulty||'normal');
+export async function boot(cfg = {}) {
+  const scene = document.querySelector('a-scene');
+  const host  = (cfg.host) || document.getElementById('spawnHost') || scene;
+  const diff  = String(cfg.difficulty || 'normal');
+  const duration = Number.isFinite(+cfg.duration) ? +cfg.duration
+                   : (diff==='easy'?90:(diff==='hard'?45:60));
 
-const tune = {
-  easy:   { nextGap:[600, 900], life:[1600,1900], minDist:0.36 },
-  normal: { nextGap:[480, 720], life:[1300,1600], minDist:0.32 },
-  hard:   { nextGap:[360, 560], life:[1000,1300], minDist:0.30 },
-};
-const C = tune[diff] || tune.normal;
+  let running = true, score = 0, combo = 0, hits = 0, misses = 0, spawns = 0;
 
-// สร้าง spawner ให้อยู่ “กลางจอจริงๆ”
-const sp = makeSpawner({
-  bounds: { x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6 },
-  minDist: C.minDist,
-  decaySec: 2.2
-});
+  const tune = {
+    easy:   { gap:[420, 640], life:[1500,1800] },
+    normal: { gap:[360, 520], life:[1200,1500] },
+    hard:   { gap:[300, 440], life:[950, 1200] }
+  };
+  const T = tune[diff] || tune.normal;
 
-function nextGap(){ const [a,b]=C.nextGap; return a + Math.random()*(b-a); }
-function lifeMs(){  const [a,b]=C.life;    return a + Math.random()*(b-a); }
+  const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
+  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
 
-// สุ่มอีโมจิ (GOOD/JUNK)
-const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
-const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+  function emit(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})) }catch{} }
+  function nextGap(){ const [a,b]=T.gap;  return Math.floor(a + Math.random()*(b-a)); }
+  function lifeMs(){  const [a,b]=T.life; return Math.floor(a + Math.random()*(b-a)); }
 
-function spawnOne(){
-  const isGood = Math.random() > 0.35;
-  const ch = isGood ? GOOD[(Math.random()*GOOD.length)|0]
-                    : JUNK[(Math.random()*JUNK.length)|0];
+  function spawnOne(){
+    if(!running) return;
+    const isGood = Math.random()>0.35;
+    const ch = isGood ? GOOD[(Math.random()*GOOD.length)|0]
+                      : JUNK[(Math.random()*JUNK.length)|0];
 
-  const pos = sp.sample();
-  const el  = emojiImage(ch, 0.68, 128);
-  el.classList.add('clickable');
-  el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-  host.appendChild(el);
+    // ตำแหน่งกึ่งกลางจอ (แถบใช้งาน 0.0..1.0 หน้าจอ) map ไป world: x ∈ [-0.7,0.7], y ∈ [-0.05,0.45]
+    const x = -0.7 + Math.random()*1.4;
+    const y = -0.05 + Math.random()*0.50;
+    const z = -1.6;
 
-  const rec = sp.markActive({x:pos.x,y:pos.y,z:pos.z});
+    const el = emojiImage(ch, 0.7, 128);
+    el.classList.add('clickable');
+    el.setAttribute('position', `${x} ${y} ${z}`);
+    host.appendChild(el);
+    spawns++;
 
-  const ttl = setTimeout(()=>{
-    if(!el.parentNode) return;
-    // พลาด (หมดอายุ) → good พลาดมีโทษ, junk ปล่อยผ่านไม่ลบคอมโบ
-    if (GOOD.includes(ch)) { combo=0; score=Math.max(0, score-10); window.dispatchEvent(new CustomEvent('hha:miss')); }
-    try{ host.removeChild(el);}catch{}
-    sp.unmark(rec);
-  }, lifeMs());
+    const ttl = setTimeout(()=>{
+      if(!el.parentNode) return;
+      // พลาด: good พลาดโดนโทษ, junk ปล่อยผ่าน
+      if (GOOD.includes(ch)) {
+        combo = 0; score = Math.max(0, score-10); misses++;
+        emit('hha:miss', {count:misses});
+        emit('hha:score', {score, combo});
+      }
+      try{ host.removeChild(el);}catch{}
+    }, lifeMs());
 
-  el.addEventListener('click', (ev)=>{
-    ev.preventDefault();
-    clearTimeout(ttl);
-    // คะแนน/คอมโบ + shards แตกต่างสีตามประเภท
-    const wp = el.object3D.getWorldPosition(new THREE.Vector3());
-    const val = isGood ? (20 + combo*2) : -15;
-    score = Math.max(0, score + (isGood ? val : -15));
-    combo = isGood ? combo+1 : 0;
-    burstAt(scene, wp, {
-      color: isGood ? '#22c55e' : '#ef4444',
-      count: isGood ? 18 : 12,
-      speed: isGood ? 1.0 : 0.8
-    });
-    floatScore(scene, wp, (isGood?'+':'')+val);
-    try{ host.removeChild(el);}catch{}
-    sp.unmark(rec);
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
-  }, {passive:false});
+    el.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      clearTimeout(ttl);
+      try{
+        const wp = el.object3D.getWorldPosition
+          ? el.object3D.getWorldPosition(new THREE.Vector3())
+          : {x:x,y:y,z:z};
+
+        if (isGood){
+          const plus = 20 + combo*2;
+          score += plus; combo++; hits++;
+          burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0, mode:'goodjunk' });
+          floatScore(scene, wp, `+${plus}`, '#b7f7c2');
+        } else {
+          // junk โดนหัก
+          score = Math.max(0, score-15); combo = 0; misses++;
+          burstAt(scene, wp, { color:'#ef4444', count:14, speed:0.9, mode:'goodjunk' });
+          floatScore(scene, wp, `-15`, '#ffb4b4');
+          emit('hha:miss', {count:misses});
+        }
+
+        emit('hha:score', {score, combo});
+      }finally{
+        try{ host.removeChild(el);}catch{}
+      }
+    }, {passive:false});
+  }
+
+  // วนสแปว์น
+  let spawnTimer = null;
+  (function loop(){ if(!running) return; spawnOne(); spawnTimer = setTimeout(loop, nextGap()); })();
+
+  // นับเวลาจบเกม
+  let left = duration;
+  emit('hha:time', {sec:left});
+  const timeTimer = setInterval(()=>{
+    if(!running) return;
+    left = Math.max(0, left-1);
+    emit('hha:time',{sec:left});
+    if(left<=0){
+      running=false;
+      clearInterval(timeTimer);
+      clearTimeout(spawnTimer);
+      emit('hha:end', {
+        mode:'Good vs Junk', difficulty:diff,
+        score, comboMax:combo, misses, hits, spawns, duration
+      });
+    }
+  }, 1000);
+
+  // แสดง Mini Quest แรก
+  emit('hha:quest', {text:'Mini Quest: เก็บของดีติดกันให้ได้ 10 ชิ้น!'});
+
+  return {
+    stop(){ running=false; try{ clearInterval(timeTimer); clearTimeout(spawnTimer);}catch{} },
+    pause(){ running=false; },
+    resume(){ if(!running){ running=true; (function loop(){ if(!running) return; spawnOne(); spawnTimer=setTimeout(loop,nextGap()); })(); } }
+  };
 }
 
-function loop(){ spawnOne(); setTimeout(loop, nextGap()); }
-loop();
-
-// watchdog กันจอว่าง
-setInterval(()=>{ if(!host.querySelector('a-image')) spawnOne(); }, 2000);
+export default { boot };
