@@ -1,4 +1,5 @@
 // === /HeroHealth/modes/hydration.quest.js (release; Water Gauge safe) ===
+const THREE = window.THREE;
 import { makeSpawner } from '../vr/spawn-utils.js';
 import { burstAt, floatScore } from '../vr/shards.js';
 import { emojiImage } from '../vr/emoji-sprite.js';
