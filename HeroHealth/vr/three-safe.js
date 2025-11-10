@@ -1,23 +1,43 @@
-// === three-safe.js ===
+// === /HeroHealth/vr/three-safe.js (2025-11-10 release-safe) ===
+// Utility: รอจนกว่า AFRAME.THREE จะพร้อม แล้วค่อยตั้ง global.THREE
+// ใช้ในทุกโหมดก่อน import ที่ต้องใช้ THREE
+
 export function waitAframe() {
+  // 1️⃣ ถ้ามีอยู่แล้ว → resolve ทันที
   if (globalThis.AFRAME?.THREE) {
-    try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
+    if (!globalThis.THREE) globalThis.THREE = globalThis.AFRAME.THREE;
     return Promise.resolve();
   }
+
+  // 2️⃣ ถ้ายังไม่มี → รอ event หรือ polling
   return new Promise((resolve) => {
-    const done = () => {
+    const tryResolve = () => {
       if (globalThis.AFRAME?.THREE) {
-        try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
+        if (!globalThis.THREE) globalThis.THREE = globalThis.AFRAME.THREE;
         clearInterval(iv);
         resolve();
       }
     };
-    const iv = setInterval(done, 40);
-    globalThis.addEventListener?.('hha:aframe-ready', done, { once: true });
+
+    // Poll ทุก 50ms เผื่อโหลด A-Frame ช้า
+    const iv = setInterval(tryResolve, 50);
+
+    // ฟัง event ที่ scene ยิงเมื่อโหลดเสร็จ
+    const doneOnce = () => tryResolve();
     document.addEventListener('DOMContentLoaded', () => {
       const sc = document.getElementById('scene');
-      if (sc) sc.addEventListener('loaded', done, { once: true });
+      if (sc) sc.addEventListener('loaded', doneOnce, { once: true });
     });
+
+    // เพิ่ม event เฉพาะระบบ HeroHealth ที่จะ trigger เอง
+    globalThis.addEventListener?.('hha:aframe-ready', doneOnce, { once: true });
   });
 }
-export default { waitAframe };
+
+// ✅ สำหรับใช้งานสะดวก (await global.THREE ให้พร้อม)
+export async function ensureThree() {
+  await waitAframe();
+  return globalThis.THREE;
+}
+
+export default { waitAframe, ensureThree };
