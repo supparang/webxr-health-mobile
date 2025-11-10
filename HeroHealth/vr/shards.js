@@ -1,9 +1,9 @@
-// === vr/shards.js (2025-11-06) ===
+// === /HeroHealth/vr/shards.js (release-safe) ===
 // เอฟเฟกต์ "แตกกระจาย" + คะแนนเด้ง ใช้กับ A-Frame ได้ทันที
 // • Named exports: burstAt(scene, worldPos, opts), floatScore(scene, worldPos, text, color)
-// • Singleton: SHARDS (ยังรองรับ .burst(worldPos, opts) แบบเดิม)
-// • setShardMode(mode) เพื่อเลือกพาเล็ตสีรายโหมด
-// • ไม่ผูก THREE ตรง ๆ เว้นแต่ตอนคุณส่ง worldPos จาก object3D (ซึ่ง A-Frame มี THREE ให้อยู่แล้ว)
+// • Singleton: SHARDS (ยังรองรับ .burst(worldPos, opts))
+// • setShardMode(mode) เลือกพาเล็ตสีรายโหมด
+// • ปลอดภัย: ไม่อ้าง THREE/AFRAME ตอน import — ใช้ globalThis ภายในฟังก์ชันเท่านั้น
 
 const MODE_PALETTES = {
   goodjunk : ['#22c55e','#16a34a','#86efac','#bbf7d0','#0ea5e9'],
@@ -13,18 +13,21 @@ const MODE_PALETTES = {
   default  : ['#a3a3a3','#d4d4d4','#737373','#f5f5f5']
 };
 
+const now = () => performance.now();
+const G = () => globalThis; // shorthand
+
 class ShardSystem {
   constructor() {
-    this.scene = null;
-    this.root  = null;
-    this.mode  = 'default';
-    this.pool  = [];
-    this.active = [];
+    this.scene   = null;
+    this.root    = null;
+    this.mode    = 'default';
+    this.pool    = [];
+    this.active  = [];
     this.maxPool = 180;
     this.running = false;
-    this._last = performance.now();
-    this.defaultLife = 900;
-    this.defaultGravity = -2.2;
+    this._last   = now();
+    this.defaultLife    = 900;
+    this.defaultGravity = -2.2; // m/s^2 (ขึ้นน้อยลง ตกเร็วขึ้นคูณ dt)
   }
 
   setMode(mode) { this.mode = MODE_PALETTES[mode] ? mode : 'default'; }
@@ -36,9 +39,11 @@ class ShardSystem {
 
     const root = document.createElement('a-entity');
     root.id = 'shardRoot';
+    root.setAttribute('data-hha-ui','1');
     this.scene.appendChild(root);
     this.root = root;
 
+    // pre-allocate pool
     for (let i = 0; i < this.maxPool; i++) {
       const p = document.createElement('a-entity');
       p.setAttribute('geometry', 'primitive: plane; width: 0.06; height: 0.02');
@@ -48,30 +53,52 @@ class ShardSystem {
       p.__ax = p.__ay = p.__az = 0;
       p.__life = p.__age = 0;
       p.__spin = (Math.random()*240 - 120);
-      this.root.appendChild(p);
+      p.__busy = false;
+      root.appendChild(p);
       this.pool.push(p);
     }
 
     if (!this.running) {
       this.running = true;
-      this._last = performance.now();
+      this._last = now();
       this._loop();
     }
   }
 
+  _get() {
+    for (let i = 0; i < this.pool.length; i++) {
+      const el = this.pool[i];
+      if (!el.__busy) { el.__busy = true; return el; }
+    }
+    if (this.active.length) {
+      const el = this.active.shift();
+      el.__busy = true;
+      return el;
+    }
+    return null;
+  }
+
+  _free(el) {
+    el.__busy = false;
+    el.setAttribute('visible', false);
+    try {
+      const mat = el.getAttribute('material') || {};
+      el.setAttribute('material', `color:${mat.color||'#fff'}; transparent:true; opacity:0; side:double`);
+    } catch {}
+  }
+
   burst(worldPos, opts = {}) {
-    // NOTE: worldPos เป็น {x,y,z} — ถ้าคุณมี el.object3D ให้เรียก getWorldPosition(...) ก่อนส่งมา
     if (!this.root) this.attach();
-    if (!this.root) return;
+    if (!this.root || !worldPos) return;
 
     const pal = Array.isArray(opts.palette) ? opts.palette
               : MODE_PALETTES[this.mode] || MODE_PALETTES.default;
 
-    const count  = Math.max(4, Math.min(48, Math.floor(opts.count ?? 18)));
-    const speed  = Number.isFinite(opts.speed) ? opts.speed : 2.0;
-    const size   = Number.isFinite(opts.size)  ? opts.size  : 1.0;
-    const life   = Math.max(300, Math.floor(opts.life ?? this.defaultLife));
-    const gravity= Number.isFinite(opts.gravity) ? opts.gravity : this.defaultGravity;
+    const count   = Math.max(4, Math.min(48, Math.floor(opts.count ?? 18)));
+    const speed   = Number.isFinite(opts.speed) ? opts.speed : 2.0;
+    const size    = Number.isFinite(opts.size)  ? opts.size  : 1.0;
+    const life    = Math.max(300, Math.floor(opts.life ?? this.defaultLife));
+    const gravity = Number.isFinite(opts.gravity) ? opts.gravity : this.defaultGravity;
     const colorOverride = opts.color || null;
 
     for (let i = 0; i < count; i++) {
@@ -101,38 +128,15 @@ class ShardSystem {
 
       shard.style.willChange = 'transform, opacity';
       shard.setAttribute('visible', true);
-      shard.__busy = true;
       this.active.push(shard);
     }
   }
 
-  _get() {
-    for (let i = 0; i < this.pool.length; i++) {
-      const el = this.pool[i];
-      if (!el.__busy) { el.__busy = true; return el; }
-    }
-    if (this.active.length) {
-      const el = this.active.shift();
-      el.__busy = true;
-      return el;
-    }
-    return null;
-  }
-
-  _free(el) {
-    el.__busy = false;
-    el.setAttribute('visible', false);
-    try {
-      const mat = el.getAttribute('material') || {};
-      el.setAttribute('material', `color:${mat.color||'#fff'}; transparent:true; opacity:0; side:double`);
-    } catch {}
-  }
-
   _loop() {
     if (!this.running) return;
-    const now = performance.now();
-    const dt = Math.min(64, Math.max(0, now - this._last)) / 1000;
-    this._last = now;
+    const t = now();
+    const dt = Math.min(64, Math.max(0, t - this._last)) / 1000;
+    this._last = t;
 
     if (this.active.length) {
       const keep = [];
@@ -149,12 +153,14 @@ class ShardSystem {
         p.y += el.__vy * dt;
         p.z += el.__vz * dt;
 
+        // spin
         const rot = el.getAttribute('rotation');
-        const z = (rot && rot.z ? rot.z : 0) + el.__spin * dt;
+        const z = (rot?.z || 0) + el.__spin * dt;
         el.setAttribute('rotation', `0 0 ${z}`);
 
-        const t = Math.max(0, 1 - (el.__age / el.__life));
-        const alpha = (t < 0.25) ? t * 4 * 0.6 : 0.6;
+        // fade
+        const fadeT = Math.max(0, 1 - (el.__age / el.__life));
+        const alpha = (fadeT < 0.25) ? fadeT * 4 * 0.6 : 0.6;
         try {
           const mat = el.getAttribute('material') || {};
           el.setAttribute('material', `color:${mat.color||'#fff'}; transparent:true; opacity:${alpha.toFixed(3)}; side:double`);
@@ -184,28 +190,10 @@ export function burstAt(sceneEl, worldPos, opts = {}) {
   SHARDS.burst(worldPos, opts);
 }
 
-/** คะแนนเด้ง (รองรับ troika-text ถ้ามี, ไม่มีก็ใช้ text a-frame ปกติ) */
+/** คะแนนเด้ง (รองรับ troika-text ถ้ามี, ไม่มีก็ใช้ text ของ A-Frame) */
 export function floatScore(sceneEl, worldPos, text = '+10', color = '#ffffff') {
   const scene = sceneEl || document.querySelector('a-scene');
-  if (!scene) return;
+  if (!scene || !worldPos) return;
 
-  const el = document.createElement('a-entity');
-  // เลือกคอมโพเนนต์ข้อความ
-  if (AFRAME && AFRAME.components && AFRAME.components['troika-text']) {
-    el.setAttribute('troika-text', `value:${text}; color:${color}; fontSize:0.10;`);
-  } else {
-    el.setAttribute('text', `value:${text}; color:${color}; align:center; width:2.2`);
-  }
-  el.setAttribute('position', `${worldPos.x} ${worldPos.y} ${worldPos.z}`);
-
-  // เคลื่อนขึ้น + จางหาย
-  el.setAttribute('animation__rise', 'property: position; dur: 520; easing: easeOutQuad');
-  const y2 = (worldPos.y + 0.35).toFixed(3);
-  el.setAttribute('animation__rise', `property: position; to: ${worldPos.x} ${y2} ${worldPos.z}; dur: 520; easing: easeOutQuad`);
-  el.setAttribute('animation__fade', 'property: opacity; to: 0; dur: 520; easing: linear');
-
-  scene.appendChild(el);
-  setTimeout(()=>{ try{ scene.removeChild(el); }catch{} }, 560);
-}
-
-export default { SHARDS, burstAt, floatScore, setShardMode };
+  const A = G().AFRAME;
+  const hasTroika = !!(A && A
