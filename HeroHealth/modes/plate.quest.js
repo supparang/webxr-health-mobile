@@ -103,6 +103,9 @@ export async function boot(cfg = {}) {
 
   spawnOne();
 
-  return { stop(){ end('quit'); }, pause(){ running=false; }, resume(){ if(!running){ running=true; spawnOne(); } } };
+    return { stop(){ end('quit'); },
+           pause(){ running=false; },
+           resume(){ if(!running){ running=true; spawnOne(); } } };
 }
 export default { boot };
+;
