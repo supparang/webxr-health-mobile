@@ -1,3 +1,4 @@
+// === /HeroHealth/vr/aframe-ready.js ===
 // รอจน AFRAME.THREE พร้อม แล้วค่อย resolve
 export function waitAframe() {
   if (globalThis.AFRAME?.THREE) {
