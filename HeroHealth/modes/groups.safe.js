@@ -67,4 +67,32 @@ export async function boot(cfg = {}) {
     const inTarget = GROUPS[target].includes(ch);
 
     const pos=sp.sample();
-    const el=emojiImage(ch,0.
+    const el=emojiImage(ch,0.68,128); el.classList.add('clickable'); el.setAttribute('position',`${pos.x} ${pos.y} ${pos.z}`); host.appendChild(el); spawns++;
+
+    const rec=sp.markActive(pos);
+    const ttl=setTimeout(()=>{ if(el.parentNode){ if(inTarget){ misses++; combo=0; score=Math.max(0,score-10); window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}})); } el.remove(); sp.unmark(rec);} }, lifeMs());
+
+    el.addEventListener('click', (ev)=>{
+      if(!running) return; ev.preventDefault(); clearTimeout(ttl);
+      const wp=el.object3D.getWorldPosition(new THREE.Vector3());
+      if(inTarget){
+        const val=25+combo*2; score+=val; combo++; maxCombo=Math.max(maxCombo,combo); hits++; correct++;
+        burstAt(scene,wp,{color:'#22c55e',count:18,speed:1.05}); floatScore(scene,wp,'+'+val);
+        if(correct>=goalSize){ goalSize=Math.min(3,goalSize+1); setGoal(); }
+      }else{
+        combo=0; score=Math.max(0,score-12); burstAt(scene,wp,{color:'#ef4444',count:12,speed:0.9}); floatScore(scene,wp,'-12');
+      }
+      window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+      try{el.remove();}catch{} sp.unmark(rec); tryAdvanceQuest();
+    }, {passive:false});
+
+    loopId=setTimeout(spawnOne,nextGap());
+  }
+
+  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
+  timerId=setInterval(()=>{ if(!running)return; remain=Math.max(0,remain-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}})); if(remain<=0) end('timeout'); },1000);
+
+  spawnOne();
+  return { stop(){end('quit');}, pause(){running=false;}, resume(){ if(!running){ running=true; spawnOne(); } } };
+}
+export default { boot };
