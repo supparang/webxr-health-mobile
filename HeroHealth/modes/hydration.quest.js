@@ -1,50 +1,203 @@
-// === vr/quests-powerups.js (update: hydration has 10 quests) ===
+// === /HeroHealth/modes/hydration.quest.js (latest; Water Gauge + effects + robust exports) ===
+const THREE = (typeof window!=='undefined' && window.AFRAME && window.AFRAME.THREE) ? window.AFRAME.THREE : window.THREE;
 
-// ... (poolGoodjunk / poolGroups / poolPlate เดิมคงไว้) ...
+import { makeSpawner } from '../vr/spawn-utils.js';
+import { burstAt, floatScore } from '../vr/shards.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
+import { drawThree } from '../vr/quests-powerups.js';
 
-function poolHydration(diff) {
-  // ใช้สถิติที่ระบบมี: score, goodCount, comboMax, noMissTime, junkMiss, star, diamond, feverCount
-  return [
-    // EASY (อย่างน้อย 2 ใบ)
-    { id:'h_good12',   level:'easy',   label:'เก็บของดี 12 ชิ้น',      check:s=>s.goodCount>=12,   prog:s=>Math.min(12,s.goodCount),   target:12 },
-    { id:'h_avoid3',   level:'easy',   label:'หลีกเครื่องดื่มหวาน 3 ครั้ง', check:s=>s.junkMiss>=3,     prog:s=>Math.min(3, s.junkMiss),    target:3  },
-
-    // NORMAL (อย่างน้อย 4 ใบ)
-    { id:'h_combo8',   level:'normal', label:'ทำคอมโบ 8',              check:s=>s.comboMax>=8,     prog:s=>Math.min(8, s.comboMax),    target:8  },
-    { id:'h_score300', level:'normal', label:'ทำคะแนน 300+',           check:s=>s.score>=300,      prog:s=>Math.min(300,s.score),      target:300},
-    { id:'h_star2',    level:'normal', label:'เก็บดาว ⭐ 2 ดวง',        check:s=>s.star>=2,         prog:s=>Math.min(2, s.star),        target:2  },
-    { id:'h_nomiss12', level:'normal', label:'ไม่พลาด 12 วิ',           check:s=>s.noMissTime>=12,  prog:s=>Math.min(12,s.noMissTime),  target:12 },
-
-    // HARD (อย่างน้อย 4 ใบ)
-    { id:'h_good20',   level:'hard',   label:'เก็บของดี 20 ชิ้น',      check:s=>s.goodCount>=20,   prog:s=>Math.min(20,s.goodCount),   target:20 },
-    { id:'h_combo15',  level:'hard',   label:'ทำคอมโบ 15',             check:s=>s.comboMax>=15,    prog:s=>Math.min(15,s.comboMax),    target:15 },
-    { id:'h_score450', level:'hard',   label:'ทำคะแนน 450+',           check:s=>s.score>=450,      prog:s=>Math.min(450,s.score),      target:450},
-    { id:'h_diamond1', level:'hard',   label:'เก็บเพชร 💎 1 เม็ด',      check:s=>s.diamond>=1,      prog:s=>Math.min(1, s.diamond),     target:1  },
-  ];
+/* ---------------- Water Gauge (DOM HUD) ---------------- */
+function destroyWaterGauge(){
+  const el = document.getElementById('waterWrap');
+  if (el) { try { el.remove(); } catch {} }
+}
+function ensureWaterGauge() {
+  destroyWaterGauge();
+  const wrap = document.createElement('div');
+  wrap.id = 'waterWrap'; wrap.setAttribute('data-hha-ui','');
+  Object.assign(wrap.style, {
+    position:'fixed', left:'50%', bottom:'56px', transform:'translateX(-50%)',
+    width:'min(540px,86vw)', zIndex:'900', color:'#e8eefc',
+    background:'#0f172a99', border:'1px solid #334155', borderRadius:'12px',
+    padding:'10px 12px', backdropFilter:'blur(6px)', fontWeight:'800'
+  });
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <span>Water</span>
+      <span id="waterLbl">Balanced</span>
+    </div>
+    <div style="height:12px;margin-top:6px;background:#0b1222;border:1px solid #334155;border-radius:999px;overflow:hidden">
+      <div id="waterFill" style="height:100%;width:55%;background:linear-gradient(90deg,#06d6a0,#37d67a)"></div>
+    </div>`;
+  document.body.appendChild(wrap);
+}
+function setWaterGauge(val){
+  const f=document.getElementById('waterFill');
+  const l=document.getElementById('waterLbl');
+  if(!f||!l) return;
+  const pct=Math.max(0,Math.min(100,Math.round(val)));
+  f.style.width=pct+'%';
+  let zone='Low';
+  if(pct>=40&&pct<=70) zone='Balanced';
+  else if(pct>70) zone='High';
+  l.textContent=zone;
+  f.style.background=(zone==='Balanced')
+    ?'linear-gradient(90deg,#06d6a0,#37d67a)'
+    :(zone==='High'?'linear-gradient(90deg,#22c55e,#93c5fd)':'linear-gradient(90deg,#f59e0b,#ef4444)');
 }
 
-function pick3(pool, diff){
-  const lvls = ['easy','normal','hard'];
-  const out = [];
-  for (const lv of lvls){
-    const cands = pool.filter(q=>q.level===lv);
-    if (cands.length) out.push(cands[(Math.random()*cands.length)|0]);
+/* ---------------- Game ---------------- */
+export async function boot(cfg = {}) {
+  const scene = document.querySelector('a-scene');
+  const host  = cfg.host || document.getElementById('spawnHost');
+  const diff  = String(cfg.difficulty || 'normal');
+  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
+
+  ensureWaterGauge();
+
+  // item pools
+  const GOOD = ['💧','🚰','🥛','🍊','🍋'];
+  const BAD  = ['🧋','🥤','🍹','🧃','🍺'];
+  const STAR='⭐', DIA='💎', SHIELD='🛡️';
+
+  const tune = {
+    easy:   { nextGap:[380,560], life:[1400,1700], minDist:0.34, badRate:0.28, maxConcurrent:2 },
+    normal: { nextGap:[300,500], life:[1200,1500], minDist:0.32, badRate:0.35, maxConcurrent:3 },
+    hard:   { nextGap:[260,460], life:[1000,1300], minDist:0.30, badRate:0.40, maxConcurrent:4 }
+  };
+  const C = tune[diff] || tune.normal;
+  const sp = makeSpawner({ bounds:{x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6}, minDist:C.minDist, decaySec:2.2 });
+
+  // state
+  let running=true, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0, shield=0;
+  let remain=dur, timerId=0, loopId=0, disposeHandler=null;
+  let water = 55; setWaterGauge(water);
+
+  // quests (สุ่ม 3 ใบ)
+  const QUESTS_POOL = drawThree('hydration', diff);
+  let qIdx=0;
+  function updateQuestHUD(){
+    const txt = `Quest ${qIdx+1}/3 — ${QUESTS_POOL[qIdx]?.label || 'รักษาระดับน้ำให้พอดี'}`;
+    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:txt}}));
   }
-  while (out.length<3 && pool.length) {
-    const q = pool[(Math.random()*pool.length)|0];
-    if (!out.find(x=>x.id===q.id)) out.push(q);
+  updateQuestHUD();
+
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const nextGap=()=>rand(C.nextGap[0], C.nextGap[1]);
+  const lifeMs =()=>rand(C.life[0], C.life[1]);
+  const zone =()=> (water>=40 && water<=70) ? 'GREEN' : (water>70 ? 'HIGH':'LOW');
+  const emitScore=()=> window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
+
+  function applyHit(type, wp){
+    if (type==='good'){
+      const val = 20 + combo*2;
+      score += val; combo++; maxCombo=Math.max(maxCombo, combo); hits++;
+      water = Math.min(100, water + 6);
+      burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0 });
+      floatScore(scene, wp, '+'+val);
+    } else if (type==='bad'){
+      if (shield>0){ shield--; floatScore(scene, wp, 'Shield!'); burstAt(scene, wp, {color:'#60a5fa',count:14, speed:0.9}); }
+      else{
+        if (zone()==='HIGH'){ score += 5; floatScore(scene, wp, '+5 (High)'); }
+        else { score = Math.max(0, score - 20); combo=0; floatScore(scene, wp, '-20'); }
+        water = Math.max(0, water - 8);
+        burstAt(scene, wp, { color:'#ef4444', count:12, speed:0.9 });
+      }
+    } else if (type==='star'){
+      score += 40; burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 }); floatScore(scene, wp, '+40 ⭐');
+    } else if (type==='diamond'){
+      score += 80; burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 }); floatScore(scene, wp, '+80 💎');
+    } else if (type==='shield'){
+      shield = Math.min(3, shield+1); burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 }); floatScore(scene, wp, '🛡️+1');
+    }
+    setWaterGauge(water);
+    emitScore();
   }
-  return out.slice(0,3);
+
+  function tryAdvanceQuest(){
+    const s = { score, goodCount:hits, junkMiss:misses, comboMax:maxCombo, feverCount:0, star:0, diamond:0, noMissTime:0 };
+    const q = QUESTS_POOL[qIdx]; if (!q) return;
+    const done = q.check ? q.check(s) : false;
+    if (done) { qIdx = Math.min(2, qIdx+1); updateQuestHUD(); }
+  }
+
+  function end(reason='timeout'){
+    if(!running) return;
+    running=false;
+    try { clearInterval(timerId); } catch {}
+    try { clearTimeout(loopId); } catch {}
+    if (disposeHandler) { window.removeEventListener('hha:dispose-ui', disposeHandler); disposeHandler=null; }
+    destroyWaterGauge();
+    Array.from(host.querySelectorAll('a-image')).forEach(n=>{ try{ n.remove(); }catch{} });
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
+      mode:'Hydration', difficulty:diff, score, combo:maxCombo, misses, hits, spawns,
+      duration:dur, questsCleared:qIdx+1, questsTotal:3, reason
+    }}));
+  }
+
+  function spawnOne(){
+    if(!running) return;
+    if(host.querySelectorAll('a-image').length >= C.maxConcurrent){ loopId=setTimeout(spawnOne,120); return; }
+
+    let ch, type;
+    const r=Math.random();
+    if      (r < 0.05) { ch=STAR; type='star'; }
+    else if (r < 0.07) { ch=DIA;  type='diamond'; }
+    else if (r < 0.10) { ch=SHIELD; type='shield'; }
+    else {
+      const good = Math.random() > C.badRate;
+      ch = (good ? GOOD : BAD)[(Math.random()* (good?GOOD:BAD).length)|0];
+      type = good ? 'good' : 'bad';
+    }
+
+    const pos = sp.sample();
+    const el  = emojiImage(ch, 0.7, 128);
+    el.classList.add('clickable');
+    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+    host.appendChild(el); spawns++;
+
+    const rec = sp.markActive(pos);
+    const ttl = setTimeout(()=>{
+      if(!el.parentNode) return;
+      if(type==='good'){ water=Math.max(0, water-4); score=Math.max(0, score-8); combo=0; window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:++misses}})); setWaterGauge(water); emitScore(); }
+      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
+    }, lifeMs());
+
+    el.addEventListener('click',(ev)=>{
+      if(!running) return;
+      ev.preventDefault(); clearTimeout(ttl);
+      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
+      applyHit(type, wp);
+      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
+      tryAdvanceQuest();
+      loopId=setTimeout(spawnOne, nextGap());
+    }, {passive:false});
+
+    loopId=setTimeout(spawnOne, nextGap());
+  }
+
+  // เวลา
+  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:dur}}));
+  timerId = setInterval(()=>{
+    if(!running) return;
+    remain = Math.max(0, remain-1);
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
+    if(remain<=0) end('timeout');
+  },1000);
+
+  // ให้ index เรียกเคลียร์ UI ได้
+  disposeHandler = ()=> destroyWaterGauge();
+  window.addEventListener('hha:dispose-ui', disposeHandler);
+
+  spawnOne();
+
+  return {
+    stop(){ end('quit'); },
+    pause(){ running=false; },
+    resume(){ if(!running){ running=true; spawnOne(); } }
+  };
 }
 
-export function drawThree(mode, diff='normal'){
-  const m = String(mode||'').toLowerCase();
-  let pool = [];
-  if (m==='goodjunk')      pool = poolGoodjunk(diff);
-  else if (m==='groups')   pool = poolGroups(diff);
-  else if (m==='hydration')pool = poolHydration(diff); // ← ใช้พูล 10 ใบที่อัปเดตแล้ว
-  else if (m==='plate')    pool = poolPlate(diff);
-  else pool = poolGoodjunk(diff);
-  return pick3(pool, diff);
-}
-export default { drawThree };
+// กันบาง environment ที่ import แบบ named/default ไม่ได้
+if (typeof window !== 'undefined') { window.HHA_BOOT = boot; }
+export default { boot };
