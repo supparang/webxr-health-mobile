@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- Favicon -->
   <link rel="icon" href="/webxr-health-mobile/HeroHealth/favicon.ico" type="image/x-icon"/>
 
-  <!-- A-Frame + Troika (CDN เสถียร) -->
   <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
 
@@ -26,8 +24,9 @@
     #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;
       width:min(540px,86vw);height:12px;background:#0f172a;border:1px solid #334155;border-radius:999px;overflow:hidden}
     #feverFill{height:100%;width:0%;background:linear-gradient(90deg,#37d67a,#06d6a0);transition:width .15s}
-    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);
-      padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
+    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);
+      width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);
+      border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
     .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
     h1{margin:8px 0 24px;font-size:clamp(22px,3.6vw,42px);text-align:center}
     .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
@@ -51,7 +50,7 @@
   <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
   <div id="feverWrap"><div id="feverFill"></div></div>
 
-  <!-- Menu -->
+  <!-- เมนู -->
   <div id="menu" class="menu-wrap">
     <h1>เริ่ม: HERO HEALTH ACADEMY</h1>
     <div class="menu-inner">
@@ -78,8 +77,8 @@
     </div>
   </div>
 
-  <!-- Result -->
-  <div id="resultPanel" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+  <!-- ผลลัพธ์ -->
+  <div id="resultPanel" role="dialog" aria-modal="true">
     <div id="resultCard">
       <div id="resultTitle">สรุปผล</div>
       <div id="stars">☆☆☆☆☆</div>
@@ -109,72 +108,66 @@
   </a-scene>
 
   <script>
-  // ===== HUD events =====
+  // HUD listeners (เหมือนเดิม ย่อไว้)
   (function(){
     const $=s=>document.querySelector(s);
-    window.addEventListener('hha:score',e=>{
-      const d=e.detail||{}; $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
-    });
-    window.addEventListener('hha:miss',e=>{
-      const el=$('#badgeMiss'); el.style.display=''; const n=e?.detail?.count??(parseInt(el.dataset.n||'0',10)+1);
-      el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
-    });
-    window.addEventListener('hha:time',e=>{
-      const t=Math.max(0,Math.round(e?.detail?.sec||0)); $('#badgeTime').textContent='เวลา: '+t+'s';
-    });
-    window.addEventListener('hha:quest',e=>{
-      $('#badgeQuest').textContent=e?.detail?.text||'Mini Quest';
-    });
-    // Result
-    function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
-    function stars(n){ return '★'.repeat(n)+'☆'.repeat(5-n); }
+    window.addEventListener('hha:score',e=>{$('#badgeScore').textContent=`คะแนน: ${e.detail?.score||0} | คอมโบ: x${e.detail?.combo||0}`;});
+    window.addEventListener('hha:miss',e=>{const el=$('#badgeMiss');el.style.display='';const n=e?.detail?.count??(parseInt(el.dataset.n||'0',10)+1);el.dataset.n=n;el.textContent='พลาด: '+n+' ครั้ง';});
+    window.addEventListener('hha:time',e=>{$('#badgeTime').textContent='เวลา: '+Math.max(0,Math.round(e?.detail?.sec||0))+'s';});
+    window.addEventListener('hha:quest',e=>{$('#badgeQuest').textContent=e?.detail?.text||'Mini Quest';});
+    // สรุปผล (ย่อ)
+    function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
+    function stars(n){return '★'.repeat(n)+'☆'.repeat(5-n);}
     window.addEventListener('hha:end',e=>{
-      const d=e.detail||{};
-      const score=+d.score||0, comboMx=+d.comboMax||+d.combo||0, misses=+d.misses||0, hits=+d.hits||0;
-      const spawns=+d.spawns||(hits+misses), acc=spawns>0?hits/spawns:0, qC=+d.questsCleared||0, qT=+d.questsTotal||3;
-      const sec=+d.duration||0, mode=d.mode||'Game', diff=d.difficulty||'normal';
-      const scoreGoal={easy:300,normal:500,hard:700}[diff]||500;
-      const starNum=clamp(Math.max(1,Math.round((0.45*acc+0.40*(score/scoreGoal)+0.15*(qT? qC/qT:0))*5)),1,5);
-      rsMode.textContent=mode; rsDiff.textContent=diff; rsScore.textContent=score.toLocaleString();
-      rsCombo.textContent=comboMx; rsMiss.textContent=misses; rsAcc.textContent=Math.round(acc*100)+'%';
-      rsQuests.textContent=qC+'/'+qT; rsTime.textContent=Math.round(sec)+'s'; starsEl.textContent=stars(starNum);
-      resultPanel.style.display='grid';
+      const d=e.detail||{},hits=+d.hits||0,miss=+d.misses||0,sp=+d.spawns||(hits+miss),acc=sp?hits/sp:0;
+      const diff=d.difficulty||'normal',goal={easy:300,normal:500,hard:700}[diff]||500;
+      const st=clamp(Math.max(1,Math.round((0.45*acc+0.40*((+d.score||0)/goal)+0.15*((+d.questsTotal? +d.questsCleared/d.questsTotal:0)))*5)),1,5);
+      rsMode.textContent=d.mode||'Game';rsDiff.textContent=diff;rsScore.textContent=(+d.score||0).toLocaleString();
+      rsCombo.textContent=d.comboMax||d.combo||0;rsMiss.textContent=miss;rsAcc.textContent=Math.round(acc*100)+'%';
+      rsQuests.textContent=(+d.questsCleared||0)+'/'+(+d.questsTotal||3);rsTime.textContent=Math.round(+d.duration||0)+'s';
+      starsEl.textContent=stars(st);resultPanel.style.display='grid';
     });
-    btnBackMenu.onclick=()=>{ resultPanel.style.display='none'; menu.style.display=''; };
-    btnReplay.onclick=()=>{ resultPanel.style.display='none'; startBtn.click(); };
-    // ids to vars
-    const rsMode=$('#rsMode'), rsDiff=$('#rsDiff'), rsScore=$('#rsScore'), rsCombo=$('#rsCombo'),
-          rsMiss=$('#rsMiss'), rsAcc=$('#rsAcc'), rsQuests=$('#rsQuests'), rsTime=$('#rsTime'),
-          starsEl=$('#stars');
+    btnBackMenu.onclick=()=>{resultPanel.style.display='none';menu.style.display='';};
+    btnReplay.onclick=()=>{resultPanel.style.display='none';startBtn.click();};
+    const rsMode=$('#rsMode'),rsDiff=$('#rsDiff'),rsScore=$('#rsScore'),rsCombo=$('#rsCombo'),
+      rsMiss=$('#rsMiss'),rsAcc=$('#rsAcc'),rsQuests=$('#rsQuests'),rsTime=$('#rsTime'),starsEl=$('#stars');
   })();
 
-  // ===== Loader with prefetch + Blob import =====
+  // Loader (แก้: rewrite import paths เป็น absolute ก่อน import ผ่าน Blob)
   (function(){
     const spawnHost=document.getElementById('spawnHost');
-    const withStamp=u=>u+(u.includes('?')?'&':'?')+'v='+(Date.now());
+    const ROOT='/webxr-health-mobile/HeroHealth';
+    const ABS=(p)=>`${location.origin}${ROOT}${p}`;
     const MAP={
-      goodjunk : '/webxr-health-mobile/HeroHealth/modes/goodjunk.safe.js',
-      groups   : '/webxr-health-mobile/HeroHealth/modes/groups.safe.js',
-      hydration: '/webxr-health-mobile/HeroHealth/modes/hydration.quest.js',
-      plate    : '/webxr-health-mobile/HeroHealth/modes/plate.quest.js'
+      goodjunk : ABS('/modes/goodjunk.safe.js'),
+      groups   : ABS('/modes/groups.safe.js'),
+      hydration: ABS('/modes/hydration.quest.js'),
+      plate    : ABS('/modes/plate.quest.js')
     };
     let current=null;
-
     function cleanup(){
       try{window.dispatchEvent(new Event('hha:dispose-ui'));}catch{}
       document.querySelectorAll('[data-hha-ui]').forEach(n=>n.remove());
       spawnHost.querySelectorAll('a-image,a-entity').forEach(n=>n.remove());
-      document.body.classList.remove('fever-on');
       document.getElementById('feverFill').style.width='0%';
     }
 
+    // 👉 รีไรท์ทุก import ../vr/*.js หรือ ./../vr/*.js หรือ /webxr-health-mobile/HeroHealth/vr/*.js
+    function fixImports(src){
+      const baseVR = `${location.origin}${ROOT}/vr`;
+      return src
+        .replace(/from\s+['"](\.\.\/|\.\.\\\/|\.\/\.\.\/)?vr\/([a-zA-Z0-9_-]+\.js)['"]/g,
+                 (_m,_p,fn)=>`from "${baseVR}/${fn}"`)
+        .replace(/from\s+['"]\/webxr-health-mobile\/HeroHealth\/vr\/([a-zA-Z0-9_-]+\.js)['"]/g,
+                 (_m,fn)=>`from "${baseVR}/${fn}"`);
+    }
+
     async function importSafe(url){
-      const res = await fetch(url, { cache:'no-store' });
-      if(!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-      const code = await res.text();
+      const res=await fetch(url,{cache:'no-store'}); if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      let code=await res.text();
       if(!code || code.length<50) throw new Error('ไฟล์โมดูลว่างหรือสั้นผิดปกติ');
       if(code.trim().startsWith('<')) throw new Error('ได้ HTML/404 กลับมา (พาธอาจผิด)');
-      if(!/export\s+async\s+function\s+boot\s*\(/.test(code)) throw new Error('ไม่พบ boot() ในไฟล์');
+      code = fixImports(code);
       const blob=new Blob([code],{type:'text/javascript'});
       const blobUrl=URL.createObjectURL(blob);
       const mod=await import(/* @vite-ignore */ blobUrl);
@@ -185,28 +178,19 @@
     document.getElementById('startBtn').addEventListener('click', async ()=>{
       const mode=document.getElementById('modeSel').value;
       const diff=document.getElementById('diffSel').value;
-
       // reset HUD
       badgeScore.textContent='คะแนน: 0 | คอมโบ: x0';
       badgeTime.textContent='เวลา: '+(diff==='easy'?90:diff==='hard'?45:60)+'s';
-      badgeQuest.textContent='Mini Quest — กำลังเริ่ม…';
-      badgeMiss.style.display='none'; badgeMiss.dataset.n='0';
-
-      // hide menu + cleanup + stop prev
-      menu.style.display='none';
-      try{ current?.stop?.(); }catch{}
-      cleanup();
-
-      const url = withStamp(MAP[mode]||MAP.goodjunk);
+      badgeQuest.textContent='Mini Quest — กำลังเริ่ม…'; badgeMiss.style.display='none'; badgeMiss.dataset.n='0';
+      // stop + cleanup
+      try{current?.stop?.();}catch{} cleanup(); menu.style.display='none';
       try{
-        const mod = await importSafe(url);
+        const mod = await importSafe(MAP[mode]||MAP.goodjunk);
         current = await mod.boot({ host: spawnHost, difficulty: diff });
         window.addEventListener('blur', ()=>current?.pause?.());
         window.addEventListener('focus',()=>current?.resume?.());
       }catch(err){
-        console.error('❌ โหลดโหมดล้มเหลว', url, err);
-        alert('โหลดโหมดไม่สำเร็จ: '+(err?.message||err));
-        cleanup(); menu.style.display='';
+        console.error(err); alert('โหลดโหมดไม่สำเร็จ: '+(err?.message||err)); cleanup(); menu.style.display='';
       }
     });
   })();
