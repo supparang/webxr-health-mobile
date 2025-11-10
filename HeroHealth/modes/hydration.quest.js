@@ -1,40 +1,17 @@
-// === /HeroHealth/modes/hydration.quest.js (release; Water Gauge safe) ===
+// === /HeroHealth/modes/hydration.quest.js (release; Water Gauge + balancedSec) ===
+const THREE = window.THREE;
 import { makeSpawner } from '../vr/spawn-utils.js';
 import { burstAt, floatScore } from '../vr/shards.js';
 import { emojiImage } from '../vr/emoji-sprite.js';
 import { drawThree } from '../vr/quests-powerups.js';
 
-/* ---------- รอจน A-Frame พร้อม (กัน THREE not defined) ---------- */
-function waitAframe() {
-  if (globalThis.AFRAME?.THREE) {
-    if (!globalThis.THREE) globalThis.THREE = globalThis.AFRAME.THREE;
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    const tick = () => {
-      if (globalThis.AFRAME?.THREE) {
-        if (!globalThis.THREE) globalThis.THREE = globalThis.AFRAME.THREE;
-        clearInterval(iv); resolve();
-      }
-    };
-    const iv = setInterval(tick, 40);
-    document.addEventListener('DOMContentLoaded', () => {
-      const sc = document.getElementById('scene');
-      if (sc) sc.addEventListener('loaded', tick, { once: true });
-    });
-  });
-}
-
 /* ---------------- Water Gauge (DOM HUD) ---------------- */
-function destroyWaterGauge(){
-  const el = document.getElementById('waterWrap');
-  if (el) { try { el.remove(); } catch {} }
-}
 function ensureWaterGauge() {
-  destroyWaterGauge();
+  destroyWaterGauge(); // กันค้างจากรอบก่อน
+
   const wrap = document.createElement('div');
   wrap.id = 'waterWrap';
-  wrap.setAttribute('data-hha-ui', '');
+  wrap.setAttribute('data-hha-ui', ''); // ให้ index ล้างได้
   Object.assign(wrap.style, {
     position:'fixed', left:'50%', bottom:'56px', transform:'translateX(-50%)',
     width:'min(540px,86vw)', zIndex:'900', color:'#e8eefc',
@@ -69,11 +46,13 @@ function setWaterGauge(val){ // 0..100
           ? 'linear-gradient(90deg,#22c55e,#93c5fd)'
           : 'linear-gradient(90deg,#f59e0b,#ef4444)');
 }
+function destroyWaterGauge(){
+  const el = document.getElementById('waterWrap');
+  if (el) { try { el.remove(); } catch {} }
+}
 
 /* ---------------- Game ---------------- */
 export async function boot(cfg = {}) {
-  await waitAframe(); // ✅ สำคัญมาก
-
   const scene = document.querySelector('a-scene');
   const host  = cfg.host || document.getElementById('spawnHost');
   const diff  = String(cfg.difficulty || 'normal');
@@ -86,7 +65,6 @@ export async function boot(cfg = {}) {
   const BAD  = ['🧋','🥤','🍹','🧃','🍺'];
   const STAR='⭐', DIA='💎', SHIELD='🛡️';
 
-  // กัน “เป้ากระจุก” + คุมคอนเคอร์เรนต์
   const tune = {
     easy:   { nextGap:[380,560], life:[1400,1700], minDist:0.34, badRate:0.28, maxConcurrent:2 },
     normal: { nextGap:[300,500], life:[1200,1500], minDist:0.32, badRate:0.35, maxConcurrent:3 },
@@ -97,28 +75,33 @@ export async function boot(cfg = {}) {
 
   // state
   let running=true, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0, shield=0;
-  let remain=dur, timerId=0, loopId=0, disposeHandler=null, watchdog=0;
+  let remain=dur, timerId=0, loopId=0, disposeHandler=null;
   let water = 55; setWaterGauge(water);
 
-  // quests 3 ใบตามระดับ
-  const QUESTS = (typeof drawThree==='function' ? drawThree('hydration', diff) : []).slice(0,3);
+  // ✅ ตัวนับเวลาที่อยู่ในโซน Balanced ต่อเนื่อง (ผูกกับ noMissTime ของ quest)
+  let balancedSec = 0;
+
+  // quests 3 ใบตามระดับจาก drawThree
+  const QUESTS_POOL = drawThree('hydration', diff);
   let qIdx=0;
 
   const rand=(a,b)=>a+Math.random()*(b-a);
-  const nextGap=()=>Math.floor(rand(C.nextGap[0], C.nextGap[1]));
-  const lifeMs =()=>Math.floor(rand(C.life[0], C.life[1]));
-  const V3 = new THREE.Vector3();
-
-  function updateQuestHUD(){
-    const txt = `Quest ${qIdx+1}/3 — ${QUESTS[qIdx]?.label || 'รักษาระดับน้ำให้พอดี'}`;
-    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:txt}}));
-  }
-  // แสดง “กำลังสุ่ม…” แป๊บเดียวให้ UX ชัด
-  window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:'Quest 1/3 — กำลังสุ่ม…'}}));
-  setTimeout(updateQuestHUD, 400);
+  const nextGap=()=>rand(C.nextGap[0], C.nextGap[1]);
+  const lifeMs =()=>rand(C.life[0], C.life[1]);
 
   function zone(){ return (water>=40 && water<=70) ? 'GREEN' : (water>70 ? 'HIGH':'LOW'); }
   function emitScore(){ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}})); }
+
+  function updateQuestHUD(){
+    const q = QUESTS_POOL[qIdx];
+    if (q?.prog && q?.target){
+      const cur = q.prog({ score, goodCount:hits, comboMax:maxCombo, star:0, diamond:0, noMissTime:balancedSec });
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`Quest ${qIdx+1}/3 — ${q.label} (${cur}/${q.target})`}}));
+    } else {
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`Quest ${qIdx+1}/3 — ${q?.label||'รักษาระดับน้ำให้พอดี'}`}}));
+    }
+  }
+  updateQuestHUD();
 
   function applyHit(type, wp){
     if (type==='good'){
@@ -147,11 +130,18 @@ export async function boot(cfg = {}) {
   }
 
   function tryAdvanceQuest(){
-    const s = { score, goodCount:hits, junkMiss:misses, comboMax:maxCombo, feverCount:0, star:0, diamond:0, noMissTime:0 };
-    const q = QUESTS[qIdx];
-    if (!q) return;
+    const s = {
+      score,
+      goodCount:hits,
+      junkMiss:misses,
+      comboMax:maxCombo,
+      feverCount:0,
+      star:0, diamond:0,
+      noMissTime: balancedSec      // ✅ สำคัญ: เควสต์ balanced15 อ่านจากตัวนี้
+    };
+    const q = QUESTS_POOL[qIdx]; if(!q) return;
     const done = q.check ? q.check(s) : false;
-    if (done) { qIdx = Math.min(2, qIdx+1); updateQuestHUD(); }
+    if(done){ qIdx = Math.min(2, qIdx+1); updateQuestHUD(); }
   }
 
   function end(reason='timeout'){
@@ -159,12 +149,10 @@ export async function boot(cfg = {}) {
     running=false;
     try { clearInterval(timerId); } catch {}
     try { clearTimeout(loopId); } catch {}
-    try { clearInterval(watchdog); } catch {}
     if (disposeHandler) { window.removeEventListener('hha:dispose-ui', disposeHandler); disposeHandler=null; }
-    // ล้าง UI น้ำ
-    destroyWaterGauge();
-    // ล้างเป้าทั้งหมด
-    try { Array.from(host.querySelectorAll('a-image')).forEach(n=>n.remove()); } catch {}
+    destroyWaterGauge(); // ✅ ล้างเกจน้ำทุกครั้งที่ออก
+    // ล้างเป้า
+    Array.from(host.querySelectorAll('a-image')).forEach(n=>{ try{ n.remove(); }catch{} });
     // สรุปผล
     window.dispatchEvent(new CustomEvent('hha:end',{detail:{
       mode:'Hydration', difficulty:diff, score, combo:maxCombo, misses, hits, spawns,
@@ -197,15 +185,15 @@ export async function boot(cfg = {}) {
     const ttl = setTimeout(()=>{
       if(!el.parentNode) return;
       if(type==='good'){ water=Math.max(0, water-4); score=Math.max(0, score-8); combo=0; window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:++misses}})); setWaterGauge(water); emitScore(); }
-      try{ el.remove(); }catch{}; sp.unmark(rec);
+      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
     }, lifeMs());
 
     el.addEventListener('click',(ev)=>{
       if(!running) return;
       ev.preventDefault(); clearTimeout(ttl);
-      const wp = el.object3D.getWorldPosition(V3);
+      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
       applyHit(type, wp);
-      try{ el.remove(); }catch{}; sp.unmark(rec);
+      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
       tryAdvanceQuest();
       loopId=setTimeout(spawnOne, nextGap());
     }, {passive:false});
@@ -213,24 +201,25 @@ export async function boot(cfg = {}) {
     loopId=setTimeout(spawnOne, nextGap());
   }
 
-  // เวลา
+  // เวลา + ✅ นับ Balanced ต่อเนื่อง
   window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:dur}}));
   timerId = setInterval(()=>{
     if(!running) return;
     remain = Math.max(0, remain-1);
+
+    // ✅ ถ้าอยู่โซน GREEN (Balanced) ให้เพิ่มตัวนับต่อเนื่อง มิฉะนั้นรีเซ็ต
+    if (zone() === 'GREEN') balancedSec = Math.min(9999, balancedSec + 1);
+    else balancedSec = 0;
+
     window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
     if(remain<=0) end('timeout');
   },1000);
 
-  // รับสัญญาณจาก index ให้ล้าง UI ตอนสลับโหมด
+  // รับสัญญาณล้าง UI จาก index ตอนเปลี่ยนโหมด
   disposeHandler = ()=> destroyWaterGauge();
   window.addEventListener('hha:dispose-ui', disposeHandler);
 
-  // กันจอว่าง (ถ้าบนจอไม่มีเป้า, สปอนใหม่)
-  watchdog = setInterval(()=>{ if(running && !host.querySelector('a-image')) spawnOne(); }, 1800);
-
   // go!
-  window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
   spawnOne();
 
   return {
@@ -239,5 +228,4 @@ export async function boot(cfg = {}) {
     resume(){ if(!running){ running=true; spawnOne(); } }
   };
 }
-
 export default { boot };
