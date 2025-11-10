@@ -5,20 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
 
-  <!-- ✅ Favicon -->
+  <!-- Favicon -->
   <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
 
-  <!-- ✅ A-Frame + Troika (โหลดแน่นอน พร้อม patch รอจนพร้อมจริง) -->
+  <!-- A-Frame + Troika (CDN เสถียร) -->
   <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
   <script>
-    // 🔧 รอจนกว่า AFRAME โหลดเสร็จแน่นอนก่อนประกาศ THREE
-    (function waitForAFrame(){
-      if (window.AFRAME && AFRAME.THREE) {
-        window.THREE = AFRAME.THREE;
-        console.log('✅ AFRAME & THREE ready');
-      } else {
-        console.log('⏳ Waiting for AFRAME to load...');
-        setTimeout(waitForAFrame, 120);
+    // ✅ ประกาศ THREE เมื่อ AFRAME พร้อมจริง และยิงอีเวนต์แจ้งระบบ
+    (function ensureAframeThree(){
+      function ready(){
+        if (window.AFRAME && AFRAME.THREE) {
+          // map ให้แน่นอนทุกแพลตฟอร์ม
+          try { window.THREE = AFRAME.THREE; } catch {}
+          window.dispatchEvent(new Event('hha:aframe-ready'));
+          return true;
+        }
+        return false;
+      }
+      if (!ready()) {
+        const iv = setInterval(() => { if (ready()) clearInterval(iv); }, 50);
+        // เผื่อ A-Frame dispatch 'loaded' บน scene
+        document.addEventListener('DOMContentLoaded', () => {
+          const sc = document.getElementById('scene');
+          if (sc) sc.addEventListener('loaded', ready, { once:true });
+        });
       }
     })();
   </script>
@@ -30,7 +40,6 @@
       font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
     a-scene{width:100%;height:100%;}
 
-    /* HUD chips */
     .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
       padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
     #badgeTime{left:12px;top:12px}
@@ -38,14 +47,12 @@
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
 
-    /* Fever bar */
     #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;
       width:min(540px,86vw);height:12px;background:#0f172a;border:1px solid #334155;border-radius:999px;overflow:hidden}
     #feverFill{height:100%;width:0%;background:linear-gradient(90deg,#37d67a,#06d6a0);transition:width .15s ease-out}
     .fever-on{ box-shadow:inset 0 0 0 4px #ffd16655; animation:feverPulse .9s ease-in-out infinite alternate; }
     @keyframes feverPulse{ from{filter:none} to{filter:drop-shadow(0 0 12px #ffd166)} }
 
-    /* Start menu */
     .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);
       width:min(1080px,86vw);padding:24px;border-radius:18px;
       background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;
@@ -58,7 +65,6 @@
       border:1px solid #475569;color:#fff;background:#0b1222;outline:0}
     button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
 
-    /* Result panel */
     #resultPanel{position:fixed;inset:0;display:none;place-items:center;z-index:1200;
       background:rgba(5,10,20,.72);backdrop-filter:blur(6px)}
     #resultCard{width:min(620px,90vw);color:#e8eefc;background:linear-gradient(#1b2538,#21304a);
@@ -134,7 +140,7 @@
       });
     })();
 
-    // ===== Loader =====
+    // ===== Loader (รอ AFRAME.THREE ให้พร้อมก่อน import เสมอ) =====
     (function(){
       const spawnHost=document.getElementById('spawnHost');
       const MAP={
@@ -154,20 +160,31 @@
         document.getElementById('feverFill').style.width='0%';
       }
 
+      // ✅ รอ AFRAME.THREE
+      function waitAFRAME(){
+        if (window.AFRAME && AFRAME.THREE) { window.THREE = AFRAME.THREE; return Promise.resolve(); }
+        return new Promise(res=> window.addEventListener('hha:aframe-ready', ()=>{ window.THREE = AFRAME.THREE; res(); }, {once:true}));
+      }
+
       document.getElementById('startBtn').addEventListener('click',async()=>{
         const mode=document.getElementById('modeSel').value;
         const diff=document.getElementById('diffSel').value;
         document.getElementById('menu').style.display='none';
         try{current?.stop?.();}catch{}
         cleanup();
+
+        // ⛳ รอให้ THREE พร้อมก่อน
+        await waitAFRAME();
+
         const url=withStamp(MAP[mode]||MAP.goodjunk);
         try{
           const mod=await import(url);
+          if (!mod?.boot) throw new Error('โหมดนี้ไม่มี boot()');
           current=await mod.boot({host:spawnHost,difficulty:diff});
           window.addEventListener('blur',()=>current?.pause?.());
           window.addEventListener('focus',()=>current?.resume?.());
         }catch(err){
-          alert('โหลดโหมดไม่สำเร็จ: '+err.message);
+          alert('โหลดโหมดไม่สำเร็จ: '+(err?.message||err));
           console.error(err);
           cleanup();
           document.getElementById('menu').style.display='';
