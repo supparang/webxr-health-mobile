@@ -7,26 +7,19 @@
 
   <link rel="icon" href="/webxr-health-mobile/HeroHealth/favicon.ico" type="image/x-icon"/>
 
+  <!-- A-Frame + Troika จาก CDN (ต้องมาก่อนโมดูลเกม) -->
   <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
 
   <style>
     :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
     a-scene{width:100%;height:100%}
-    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
-      padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
-    #badgeTime{left:12px;top:12px}
-    #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
-    #badgeQuest{right:12px;top:12px}
-    #badgeMiss{right:12px;top:64px;display:none}
-    #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;
-      width:min(540px,86vw);height:12px;background:#0f172a;border:1px solid #334155;border-radius:999px;overflow:hidden}
+    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
+    #badgeTime{left:12px;top:12px} #badgeScore{left:50%;top:12px;transform:translateX(-50%)} #badgeQuest{right:12px;top:12px} #badgeMiss{right:12px;top:64px;display:none}
+    #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;width:min(540px,86vw);height:12px;background:#0f172a;border:1px solid #334155;border-radius:999px;overflow:hidden}
     #feverFill{height:100%;width:0%;background:linear-gradient(90deg,#37d67a,#06d6a0);transition:width .15s}
-    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);
-      width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);
-      border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
+    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
     .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
     h1{margin:8px 0 24px;font-size:clamp(22px,3.6vw,42px);text-align:center}
     .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
@@ -71,9 +64,7 @@
           <option value="hard">ยาก (45s)</option>
         </select>
       </div>
-      <div class="row">
-        <button id="startBtn" class="primary">เริ่มเกม</button>
-      </div>
+      <div class="row"><button id="startBtn" class="primary">เริ่มเกม</button></div>
     </div>
   </div>
 
@@ -83,19 +74,12 @@
       <div id="resultTitle">สรุปผล</div>
       <div id="stars">☆☆☆☆☆</div>
       <div id="resultStats">
-        <div>โหมด: <b id="rsMode">-</b></div>
-        <div>ระดับ: <b id="rsDiff">-</b></div>
-        <div>คะแนน: <b id="rsScore">0</b></div>
-        <div>คอมโบสูงสุด: <b id="rsCombo">0</b></div>
-        <div>พลาด: <b id="rsMiss">0</b></div>
-        <div>ความแม่นยำ: <b id="rsAcc">0%</b></div>
-        <div>เควส: <b id="rsQuests">0/3</b></div>
-        <div>ใช้เวลา: <b id="rsTime">0s</b></div>
+        <div>โหมด: <b id="rsMode">-</b></div><div>ระดับ: <b id="rsDiff">-</b></div>
+        <div>คะแนน: <b id="rsScore">0</b></div><div>คอมโบสูงสุด: <b id="rsCombo">0</b></div>
+        <div>พลาด: <b id="rsMiss">0</b></div><div>ความแม่นยำ: <b id="rsAcc">0%</b></div>
+        <div>เควส: <b id="rsQuests">0/3</b></div><div>ใช้เวลา: <b id="rsTime">0s</b></div>
       </div>
-      <div id="resultBtns">
-        <button class="btn" id="btnBackMenu">กลับเมนู</button>
-        <button class="btn primary" id="btnReplay">เล่นอีกครั้ง</button>
-      </div>
+      <div id="resultBtns"><button class="btn" id="btnBackMenu">กลับเมนู</button><button class="btn primary" id="btnReplay">เล่นอีกครั้ง</button></div>
     </div>
   </div>
 
@@ -108,17 +92,16 @@
   </a-scene>
 
   <script>
-  // HUD listeners (เหมือนเดิม ย่อไว้)
+  // ===== HUD listeners (ย่อ) =====
   (function(){
     const $=s=>document.querySelector(s);
-    window.addEventListener('hha:score',e=>{$('#badgeScore').textContent=`คะแนน: ${e.detail?.score||0} | คอมโบ: x${e.detail?.combo||0}`;});
-    window.addEventListener('hha:miss',e=>{const el=$('#badgeMiss');el.style.display='';const n=e?.detail?.count??(parseInt(el.dataset.n||'0',10)+1);el.dataset.n=n;el.textContent='พลาด: '+n+' ครั้ง';});
-    window.addEventListener('hha:time',e=>{$('#badgeTime').textContent='เวลา: '+Math.max(0,Math.round(e?.detail?.sec||0))+'s';});
-    window.addEventListener('hha:quest',e=>{$('#badgeQuest').textContent=e?.detail?.text||'Mini Quest';});
-    // สรุปผล (ย่อ)
+    addEventListener('hha:score',e=>{$('#badgeScore').textContent=`คะแนน: ${e.detail?.score||0} | คอมโบ: x${e.detail?.combo||0}`;});
+    addEventListener('hha:time', e=>{$('#badgeTime').textContent='เวลา: '+Math.max(0,Math.round(e.detail?.sec||0))+'s';});
+    addEventListener('hha:quest',e=>{$('#badgeQuest').textContent=e.detail?.text||'Mini Quest';});
+    addEventListener('hha:miss', e=>{const el=$('#badgeMiss');el.style.display='';const n=e?.detail?.count??(parseInt(el.dataset.n||'0',10)+1);el.dataset.n=n;el.textContent='พลาด: '+n+' ครั้ง';});
     function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
     function stars(n){return '★'.repeat(n)+'☆'.repeat(5-n);}
-    window.addEventListener('hha:end',e=>{
+    addEventListener('hha:end',e=>{
       const d=e.detail||{},hits=+d.hits||0,miss=+d.misses||0,sp=+d.spawns||(hits+miss),acc=sp?hits/sp:0;
       const diff=d.difficulty||'normal',goal={easy:300,normal:500,hard:700}[diff]||500;
       const st=clamp(Math.max(1,Math.round((0.45*acc+0.40*((+d.score||0)/goal)+0.15*((+d.questsTotal? +d.questsCleared/d.questsTotal:0)))*5)),1,5);
@@ -129,68 +112,46 @@
     });
     btnBackMenu.onclick=()=>{resultPanel.style.display='none';menu.style.display='';};
     btnReplay.onclick=()=>{resultPanel.style.display='none';startBtn.click();};
-    const rsMode=$('#rsMode'),rsDiff=$('#rsDiff'),rsScore=$('#rsScore'),rsCombo=$('#rsCombo'),
-      rsMiss=$('#rsMiss'),rsAcc=$('#rsAcc'),rsQuests=$('#rsQuests'),rsTime=$('#rsTime'),starsEl=$('#stars');
+    const rsMode=document.getElementById('rsMode'),rsDiff=document.getElementById('rsDiff'),
+          rsScore=document.getElementById('rsScore'),rsCombo=document.getElementById('rsCombo'),
+          rsMiss=document.getElementById('rsMiss'),rsAcc=document.getElementById('rsAcc'),
+          rsQuests=document.getElementById('rsQuests'),rsTime=document.getElementById('rsTime'),
+          starsEl=document.getElementById('stars');
   })();
 
-  // Loader (แก้: rewrite import paths เป็น absolute ก่อน import ผ่าน Blob)
+  // ===== Loader: ใช้ URL absolute ไม่ใช้ blob =====
   (function(){
-    const spawnHost=document.getElementById('spawnHost');
-    const ROOT='/webxr-health-mobile/HeroHealth';
-    const ABS=(p)=>`${location.origin}${ROOT}${p}`;
-    const MAP={
-      goodjunk : ABS('/modes/goodjunk.safe.js'),
-      groups   : ABS('/modes/groups.safe.js'),
-      hydration: ABS('/modes/hydration.quest.js'),
-      plate    : ABS('/modes/plate.quest.js')
+    const ROOT = `${location.origin}/webxr-health-mobile/HeroHealth`;
+    const MAP = {
+      goodjunk : `${ROOT}/modes/goodjunk.safe.js`,
+      groups   : `${ROOT}/modes/groups.safe.js`,
+      hydration: `${ROOT}/modes/hydration.quest.js`,
+      plate    : `${ROOT}/modes/plate.quest.js`
     };
+    const host = document.getElementById('spawnHost');
     let current=null;
+
     function cleanup(){
-      try{window.dispatchEvent(new Event('hha:dispose-ui'));}catch{}
+      try{dispatchEvent(new Event('hha:dispose-ui'));}catch{}
       document.querySelectorAll('[data-hha-ui]').forEach(n=>n.remove());
-      spawnHost.querySelectorAll('a-image,a-entity').forEach(n=>n.remove());
+      host.querySelectorAll('a-image,a-entity').forEach(n=>n.remove());
       document.getElementById('feverFill').style.width='0%';
-    }
-
-    // 👉 รีไรท์ทุก import ../vr/*.js หรือ ./../vr/*.js หรือ /webxr-health-mobile/HeroHealth/vr/*.js
-    function fixImports(src){
-      const baseVR = `${location.origin}${ROOT}/vr`;
-      return src
-        .replace(/from\s+['"](\.\.\/|\.\.\\\/|\.\/\.\.\/)?vr\/([a-zA-Z0-9_-]+\.js)['"]/g,
-                 (_m,_p,fn)=>`from "${baseVR}/${fn}"`)
-        .replace(/from\s+['"]\/webxr-health-mobile\/HeroHealth\/vr\/([a-zA-Z0-9_-]+\.js)['"]/g,
-                 (_m,fn)=>`from "${baseVR}/${fn}"`);
-    }
-
-    async function importSafe(url){
-      const res=await fetch(url,{cache:'no-store'}); if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      let code=await res.text();
-      if(!code || code.length<50) throw new Error('ไฟล์โมดูลว่างหรือสั้นผิดปกติ');
-      if(code.trim().startsWith('<')) throw new Error('ได้ HTML/404 กลับมา (พาธอาจผิด)');
-      code = fixImports(code);
-      const blob=new Blob([code],{type:'text/javascript'});
-      const blobUrl=URL.createObjectURL(blob);
-      const mod=await import(/* @vite-ignore */ blobUrl);
-      URL.revokeObjectURL(blobUrl);
-      return mod;
     }
 
     document.getElementById('startBtn').addEventListener('click', async ()=>{
       const mode=document.getElementById('modeSel').value;
       const diff=document.getElementById('diffSel').value;
-      // reset HUD
-      badgeScore.textContent='คะแนน: 0 | คอมโบ: x0';
-      badgeTime.textContent='เวลา: '+(diff==='easy'?90:diff==='hard'?45:60)+'s';
-      badgeQuest.textContent='Mini Quest — กำลังเริ่ม…'; badgeMiss.style.display='none'; badgeMiss.dataset.n='0';
-      // stop + cleanup
-      try{current?.stop?.();}catch{} cleanup(); menu.style.display='none';
+      try{current?.stop?.();}catch{} cleanup();
+      document.getElementById('menu').style.display='none';
+      const url=(MAP[mode]||MAP.goodjunk)+`?v=${Date.now()}`;
       try{
-        const mod = await importSafe(MAP[mode]||MAP.goodjunk);
-        current = await mod.boot({ host: spawnHost, difficulty: diff });
-        window.addEventListener('blur', ()=>current?.pause?.());
-        window.addEventListener('focus',()=>current?.resume?.());
+        const mod = await import(url);                // ← native dynamic import
+        current = await mod.boot({ host, difficulty: diff });
+        addEventListener('blur', ()=>current?.pause?.());
+        addEventListener('focus',()=>current?.resume?.());
       }catch(err){
-        console.error(err); alert('โหลดโหมดไม่สำเร็จ: '+(err?.message||err)); cleanup(); menu.style.display='';
+        console.error(err); alert('โหลดโหมดไม่สำเร็จ: '+(err?.message||err));
+        cleanup(); document.getElementById('menu').style.display='';
       }
     });
   })();
