@@ -1,5 +1,5 @@
-// === /HeroHealth/vr/aframe-ready.js ===
-// รอจน AFRAME.THREE พร้อม แล้วค่อย resolve และผูก globalThis.THREE ให้ใช้ร่วมกัน
+// === vr/aframe-ready.js ===
+// รอจน AFRAME และ AFRAME.THREE พร้อม แล้วค่อย resolve
 export function waitAframe() {
   if (globalThis.AFRAME?.THREE) {
     try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
@@ -14,11 +14,11 @@ export function waitAframe() {
       }
     };
     const iv = setInterval(done, 40);
-    // scene ยิง 'loaded' เร็วได้
-    globalThis.addEventListener?.('hha:aframe-ready', done, { once: true });
+    // เผื่อ scene ยิง loaded เร็ว
     document.addEventListener('DOMContentLoaded', () => {
       const sc = document.getElementById('scene');
       if (sc) sc.addEventListener('loaded', done, { once: true });
     });
+    globalThis.addEventListener?.('hha:aframe-ready', done, { once: true });
   });
 }
