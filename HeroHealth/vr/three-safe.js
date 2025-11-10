@@ -1,5 +1,4 @@
-// === /HeroHealth/vr/three-safe.js ===
-// รอจน AFRAME.THREE พร้อม แล้วค่อย resolve
+// === three-safe.js ===
 export function waitAframe() {
   if (globalThis.AFRAME?.THREE) {
     try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
