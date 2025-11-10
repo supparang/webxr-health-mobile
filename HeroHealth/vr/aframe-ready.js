@@ -1,24 +1,26 @@
 // === vr/aframe-ready.js ===
-// รอจน AFRAME และ AFRAME.THREE พร้อม แล้วค่อย resolve
 export function waitAframe() {
   if (globalThis.AFRAME?.THREE) {
-    try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
+    globalThis.THREE = globalThis.AFRAME.THREE;
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const done = () => {
+    const iv = setInterval(() => {
       if (globalThis.AFRAME?.THREE) {
-        try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
         clearInterval(iv);
+        globalThis.THREE = globalThis.AFRAME.THREE;
         resolve();
       }
-    };
-    const iv = setInterval(done, 40);
-    // เผื่อ scene ยิง loaded เร็ว
-    document.addEventListener('DOMContentLoaded', () => {
-      const sc = document.getElementById('scene');
-      if (sc) sc.addEventListener('loaded', done, { once: true });
+    }, 40);
+    document.addEventListener("DOMContentLoaded", () => {
+      const sc = document.querySelector("a-scene");
+      sc && sc.addEventListener("loaded", () => {
+        if (globalThis.AFRAME?.THREE) {
+          clearInterval(iv);
+          globalThis.THREE = globalThis.AFRAME.THREE;
+          resolve();
+        }
+      });
     });
-    globalThis.addEventListener?.('hha:aframe-ready', done, { once: true });
   });
 }
