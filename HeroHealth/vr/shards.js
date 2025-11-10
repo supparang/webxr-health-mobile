@@ -27,7 +27,7 @@ class ShardSystem {
     this.running = false;
     this._last   = now();
     this.defaultLife    = 900;
-    this.defaultGravity = -2.2; // m/s^2 (ขึ้นน้อยลง ตกเร็วขึ้นคูณ dt)
+    this.defaultGravity = -2.2; // m/s^2
   }
 
   setMode(mode) { this.mode = MODE_PALETTES[mode] ? mode : 'default'; }
@@ -196,4 +196,27 @@ export function floatScore(sceneEl, worldPos, text = '+10', color = '#ffffff') {
   if (!scene || !worldPos) return;
 
   const A = G().AFRAME;
-  const hasTroika = !!(A && A
+  const hasTroika = !!(A && A.components && A.components['troika-text']);
+
+  const el = document.createElement('a-entity');
+  if (hasTroika) {
+    // Troika: เนียนและคมกว่า
+    el.setAttribute('troika-text', `value:${text}; color:${color}; fontSize:0.10;`);
+  } else {
+    // A-Frame text ปกติเป็น fallback
+    el.setAttribute('text', `value:${text}; color:${color}; align:center; width:2.2`);
+  }
+  el.setAttribute('position', `${worldPos.x} ${worldPos.y} ${worldPos.z}`);
+  el.setAttribute('visible', true);
+
+  // เคลื่อนขึ้น + จางหาย
+  const y2 = (worldPos.y + 0.35).toFixed(3);
+  el.setAttribute('animation__rise', `property: position; to: ${worldPos.x} ${y2} ${worldPos.z}; dur: 520; easing: easeOutQuad`);
+  // ใช้ opacity บนเอนทิตี้—รองรับทั้ง troika/text (A-Frame จะ map ไปที่ material ได้)
+  el.setAttribute('animation__fade', 'property: opacity; to: 0; dur: 520; easing: linear');
+
+  scene.appendChild(el);
+  setTimeout(()=>{ try{ scene.removeChild(el); }catch{} }, 560);
+}
+
+export default { SHARDS, burstAt, floatScore, setShardMode };
