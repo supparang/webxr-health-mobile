@@ -9,8 +9,6 @@ export async function boot(cfg = {}) {
   await waitAframe();
   const THREE = window.THREE;            // <— ใช้หลัง wait
   const scene = document.querySelector('a-scene');
-
-  const scene = document.querySelector('a-scene');
   const host  = cfg.host || document.getElementById('spawnHost');
   const diff  = String(cfg.difficulty || 'normal');
   const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
