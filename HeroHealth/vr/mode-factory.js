@@ -3,18 +3,21 @@ export async function boot(config){
   config = config || {};
   var host   = config.host || document.getElementById('spawnHost') || document.body;
   var diff   = String(config.difficulty || 'normal');
-  var dur    = Number(config.duration || 60);
+  // auto duration by difficulty (fallback 60)
+  var dur    = (typeof config.duration === 'number')
+      ? Number(config.duration)
+      : (diff === 'easy' ? 90 : (diff === 'hard' ? 45 : 60));
+
   var pools  = config.pools || { good: ['🍎','🍐','🍇','🥕','🥦'], bad: ['🍔','🍟','🍕','🍩','🧋'] };
   var goodRate = (typeof config.goodRate==='number') ? config.goodRate : 0.7;
-  var judge  = typeof config.judge === 'function' ? config.judge : function(){ return {good:true, scoreDelta:1}; };
+  var judge  = (typeof config.judge === 'function') ? config.judge : function(){ return {good:true, scoreDelta:1}; };
+
   var running = true;
 
   // --- helpers ---
   function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
   function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-  function fire(name, detail){
-    try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(e){}
-  }
+  function fire(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail:detail||{}})); }catch(e){} }
   function getFlag(name){
     var q = (typeof window!=='undefined' && window.location && window.location.search) ? window.location.search : '';
     return new RegExp('[?&]'+name+'(?:=1|&|$)').test(q);
@@ -39,11 +42,11 @@ export async function boot(config){
   // --- layer host (attached to body to avoid A-Frame pointer issue) ---
   // ล้างเลเยอร์ค้าง (ถ้ามีจากรอบก่อน)
   var old = document.querySelectorAll('.hha-layer');
-  for(var oi=0; oi<old.length; oi++){
-    try{ old[oi].parentNode.removeChild(old[oi]); }catch(_e){}
-  }
+  for(var oi=0; oi<old.length; oi++){ try{ old[oi].parentNode.removeChild(old[oi]); }catch(_e){} }
+
   var layer = document.createElement('div');
   layer.className = 'hha-layer';
+  layer.setAttribute('data-hha-ui','1'); // ให้ index ล้างได้
   document.body.appendChild(layer);
 
   var dbg;
@@ -67,10 +70,7 @@ export async function boot(config){
   function vw(){ return Math.max(320, window.innerWidth||320); }
   function vh(){ return Math.max(320, window.innerHeight||320); }
 
-  function updateDBG(txt){
-    if(!DEBUG) return;
-    try{ dbg.textContent = 'DEBUG: '+txt; }catch(_e){}
-  }
+  function updateDBG(txt){ if(!DEBUG) return; try{ dbg.textContent = 'DEBUG: '+txt; }catch(_e){} }
 
   function tickTime(){
     if(!running) return;
@@ -132,7 +132,6 @@ export async function boot(config){
       combo = good ? clamp(combo+1, 0, 9999) : 0;
       score = clamp(score + delta, -99999, 999999);
 
-      el.className = 'hha-tgt hit';
       try{ layer.removeChild(el); }catch(_e){}
       fire('hha:score', {score:score, combo:combo, delta:delta, good:good});
       updateDBG('hit '+ch+' (good='+good+') score='+score);
@@ -146,6 +145,8 @@ export async function boot(config){
       if(clicked || !running) return;
       try{ layer.removeChild(el); }catch(_e){}
       combo = 0; misses += 1;
+      // แจ้ง miss ให้ HUD
+      fire('hha:miss', {count:misses});
       planNextSpawn();
     }, life);
 
@@ -158,7 +159,6 @@ export async function boot(config){
     if(watchdog) clearInterval(watchdog);
     watchdog = setInterval(function(){
       if(!running) return;
-      // ไม่มีเป้าอยู่บนจอ
       var leftOvers = layer.querySelectorAll('.hha-tgt');
       if(leftOvers.length===0){
         updateDBG('watchdog spawn');
@@ -170,10 +170,8 @@ export async function boot(config){
   function start(){
     if(timeTimer) clearInterval(timeTimer);
     timeTimer = setInterval(tickTime, 1000);
-
     // สปอว์นก้อนแรก “ทันที” กลางจอ เพื่อยืนยันว่าเห็นแน่
     spawnOne(true);
-    // แล้วค่อยไหลต่อเป็นรอบ ๆ
     planNextSpawn();
     startWatchdog();
   }
@@ -191,9 +189,24 @@ export async function boot(config){
     fire('hha:end', {score:score, combo:combo, misses:misses, duration:dur});
     try{ document.body.removeChild(layer); }catch(_e){}
     if(DEBUG){ try{ document.body.removeChild(dbg); }catch(_e){} }
+    // cleanup listeners
+    try{ document.removeEventListener('visibilitychange', onVis); }catch(_e){}
+    try{ window.removeEventListener('hha:dispose-ui', onDispose); }catch(_e){}
   }
 
+  // ===== lifecycle bindings =====
+  function onDispose(){ end(); }
+  window.addEventListener('hha:dispose-ui', onDispose);
+
+  // auto pause/resume with page visibility
+  function onVis(){
+    if(document.hidden){ if(running){ /* pause */ running=false; clearInterval(timeTimer); clearTimeout(spawnTimer); } }
+    else { if(!running){ /* resume */ running=true; start(); } }
+  }
+  document.addEventListener('visibilitychange', onVis);
+
   // kick!
+  fire('hha:time', {sec:left});  // HUD initial
   start();
 
   return {
