@@ -4,44 +4,78 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Hero Health Academy — VR</title>
+
+  <!-- Favicon -->
   <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
 
-  <!-- CDN ที่เสถียร -->
+  <!-- A-Frame + Troika (CDN เสถียร) -->
   <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
 
   <style>
-    html,body{margin:0;height:100%;background:#0b1324;color:#e8eefc;font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden}
-    a-scene{width:100%;height:100%}
-    .hud-chip{position:fixed;z-index:900;background:#0f172a99;border:1px solid #475569;padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
+    :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; --danger:#ef4444; }
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
+    a-scene{width:100%;height:100%;}
+
+    /* HUD badges */
+    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
+      padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
     #badgeTime{left:12px;top:12px}
     #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
     #badgeQuest{right:12px;top:12px}
     #badgeMiss{right:12px;top:64px;display:none}
-    #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;width:min(540px,86vw);height:12px;background:#0f172a;border:1px solid #334155;border-radius:999px;overflow:hidden}
+
+    /* Fever bar */
+    #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;
+      width:min(540px,86vw);height:12px;background:#0f172a;border:1px solid #334155;border-radius:999px;overflow:hidden}
     #feverFill{height:100%;width:0%;background:linear-gradient(90deg,#37d67a,#06d6a0);transition:width .15s ease-out}
-    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
-    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
+    .fever-on{ box-shadow:inset 0 0 0 4px #ffd16655; animation:feverPulse .9s ease-in-out infinite alternate; }
+    @keyframes feverPulse{ from{filter:none} to{filter:drop-shadow(0 0 12px #ffd166)} }
+
+    /* Start menu */
+    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);
+      padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);
+      border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
+    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;
+      background:#6ea8ff2e;border:1px solid #5c7fae66}
+    h1{margin:8px 0 24px;font-size:clamp(22px,3.6vw,42px);text-align:center}
     .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
-    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;color:#fff;background:#0b1222}
-    button.primary{background:#22c55e;color:#052e12;border-color:#16a34a;font-weight:800}
+    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;color:#fff;background:#0b1222;outline:0}
+    button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
+
+    /* Result panel */
+    #resultPanel{ position:fixed; inset:0; display:none; place-items:center; z-index:1200;
+      background:rgba(5,10,20,.72); backdrop-filter:blur(6px); }
+    #resultCard{ width:min(620px,90vw); color:#e8eefc; background:linear-gradient(#1b2538,#21304a);
+      border:1px solid #3a4a66; border-radius:16px; padding:18px 20px; box-shadow:0 24px 60px #000a; }
+    #stars{ font-size:40px; letter-spacing:4px; text-align:center; margin:8px 0 6px; }
+    #resultTitle{ text-align:center; font-weight:800; font-size:20px; margin:6px 0 12px; }
+    #resultStats{ display:grid; grid-template-columns:1fr 1fr; gap:8px 14px; font-weight:700; }
+    #resultStats div b{ color:#93c5fd; font-weight:800; }
+    #resultBtns{ display:flex; gap:10px; justify-content:center; margin-top:14px; }
+    .btn{ padding:10px 14px; border-radius:10px; border:1px solid #475569; background:#0b1222; color:#fff; font-weight:800; cursor:pointer; }
+    .btn.primary{ background:#22c55e; color:#052e12; border-color:#16a34a; }
   </style>
 </head>
 <body>
+
   <!-- HUD -->
-  <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
-  <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
-  <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
-  <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
+  <div id="badgeTime"  class="hud-chip" role="status" aria-live="polite">เวลา: 60s</div>
+  <div id="badgeScore" class="hud-chip" role="status" aria-live="polite">คะแนน: 0 | คอมโบ: x0</div>
+  <div id="badgeQuest" class="hud-chip" role="status" aria-live="polite">Mini Quest — เตรียมเริ่ม</div>
+  <div id="badgeMiss"  class="hud-chip" role="status" aria-live="polite">พลาด: 0 ครั้ง</div>
+
+  <!-- Fever bar -->
   <div id="feverWrap"><div id="feverFill"></div></div>
 
-  <!-- เมนู -->
+  <!-- Start menu -->
   <div id="menu" class="menu-wrap">
+    <h1>เริ่ม: HERO HEALTH ACADEMY</h1>
     <div class="menu-inner">
-      <h1>HERO HEALTH ACADEMY</h1>
       <div class="row">
         <label for="modeSel">เลือกโหมด:</label>
-        <select id="modeSel">
+        <select id="modeSel" name="modeSel">
           <option value="goodjunk">Good vs Junk</option>
           <option value="groups">Food Groups</option>
           <option value="hydration">Hydration</option>
@@ -49,87 +83,191 @@
         </select>
       </div>
       <div class="row">
-        <label for="diffSel">ระดับ:</label>
-        <select id="diffSel">
+        <label for="diffSel">ระดับความยาก:</label>
+        <select id="diffSel" name="diffSel">
           <option value="easy">ง่าย (90s)</option>
           <option value="normal" selected>ปกติ (60s)</option>
           <option value="hard">ยาก (45s)</option>
         </select>
       </div>
-      <div class="row"><button id="startBtn" class="primary">เริ่มเกม</button></div>
+      <div class="row">
+        <button id="startBtn" class="primary">เริ่มเกม</button>
+      </div>
     </div>
   </div>
 
-  <!-- Scene -->
+  <!-- Result panel -->
+  <div id="resultPanel" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+    <div id="resultCard">
+      <div id="resultTitle">สรุปผล</div>
+      <div id="stars" aria-label="Star rating">☆☆☆☆☆</div>
+      <div id="resultStats">
+        <div>โหมด: <b id="rsMode">-</b></div>
+        <div>ระดับ: <b id="rsDiff">-</b></div>
+        <div>คะแนน: <b id="rsScore">0</b></div>
+        <div>คอมโบสูงสุด: <b id="rsCombo">0</b></div>
+        <div>พลาด: <b id="rsMiss">0</b></div>
+        <div>ความแม่นยำ: <b id="rsAcc">0%</b></div>
+        <div>เควส: <b id="rsQuests">0/3</b></div>
+        <div>ใช้เวลา: <b id="rsTime">0s</b></div>
+      </div>
+      <div id="resultBtns">
+        <button class="btn" id="btnBackMenu">กลับเมนู</button>
+        <button class="btn primary" id="btnReplay">เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- A-Frame scene -->
   <a-scene id="scene" background="color:#0b1324">
-    <a-entity id="cam" camera look-controls
+    <a-assets></a-assets>
+
+    <!-- กล้อง + cursor -->
+    <a-entity id="cam"
+              camera
+              look-controls
               cursor="rayOrigin: mouse; fuse: false"
-              raycaster="objects:.clickable; far:6"
+              raycaster="objects: .clickable; far: 6"
               position="0 1.6 0"></a-entity>
+
+    <!-- โหนด spawn: ตำแหน่งกลางสายตา -->
     <a-entity id="spawnHost" position="0 1.0 -1.6"></a-entity>
+
     <a-sky color="#0b1324"></a-sky>
   </a-scene>
 
-  <!-- แจ้ง helper ว่า A-Frame พร้อมแล้ว -->
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const sc = document.getElementById('scene');
-      if (sc) sc.addEventListener('loaded', () => {
-        window.dispatchEvent(new Event('hha:aframe-ready'));
-      }, { once:true });
-    });
-  </script>
-
-  <!-- Loader -->
+  <!-- ***** APP SCRIPT (ES MODULE) ***** -->
   <script type="module">
-    // HUD listeners สั้นๆ
-    const $ = s=>document.querySelector(s);
-    window.addEventListener('hha:score', e=>{
-      const d=e.detail||{}; $('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
+    import { waitAframe } from './vr/aframe-ready.js';
+
+    // ป้องกันสกอลล์โดยไม่ได้ตั้งใจบนมือถือ นอกเมนู
+    document.addEventListener('touchmove', (e) => {
+      if (!e.target.closest('.menu-wrap')) e.preventDefault();
+    }, { passive:false });
+
+    // ========== HUD Listeners ==========
+    const $ = (s)=>document.querySelector(s);
+
+    window.addEventListener('hha:score', (e)=>{
+      const d=e?.detail||{};
+      $('#badgeScore').textContent = 'คะแนน: '+(d.score||0)+' | คอมโบ: x'+(d.combo||0);
     });
-    window.addEventListener('hha:time', e=>{
-      const t=Math.max(0,Math.round(e.detail?.sec||0)); $('#badgeTime').textContent='เวลา: '+t+'s';
-    });
-    window.addEventListener('hha:quest', e=>{
-      $('#badgeQuest').textContent=e.detail?.text||'Mini Quest';
-    });
-    window.addEventListener('hha:miss', e=>{
-      const el=$('#badgeMiss'); el.style.display=''; const n=(parseInt(el.dataset.n||'0',10)+1);
+    window.addEventListener('hha:miss', (e)=>{
+      const el=$('#badgeMiss'); el.style.display='';
+      const n = e?.detail?.count ?? ((parseInt(el.dataset.n||'0',10)+1));
       el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
     });
+    window.addEventListener('hha:time', (e)=>{
+      const t = Math.max(0, Math.round(e?.detail?.sec ?? 0));
+      $('#badgeTime').textContent='เวลา: '+t+'s';
+    });
+    window.addEventListener('hha:quest', (e)=>{
+      $('#badgeQuest').textContent = e?.detail?.text || 'Mini Quest';
+    });
+    // Fever gauge
+    const feverFill = document.getElementById('feverFill');
+    window.addEventListener('hha:fever', (e)=>{
+      const d=e?.detail||{}; const st=d.state||'change'; const lv = d.level ?? 0;
+      const pct = Math.max(0,Math.min(100, Math.round(lv)));
+      if(st==='start'){ document.body.classList.add('fever-on'); feverFill.style.background='linear-gradient(90deg,#ffb703,#fb5607)'; feverFill.style.width='100%'; }
+      else if(st==='end'){ document.body.classList.remove('fever-on'); feverFill.style.background='linear-gradient(90deg,#37d67a,#06d6a0)'; feverFill.style.width='0%'; }
+      else { feverFill.style.width = pct+'%'; }
+    });
 
-    // import map
-    const MAP={
-      goodjunk:'./modes/goodjunk.safe.js',
-      groups:'./modes/groups.safe.js',
-      hydration:'./modes/hydration.quest.js',
-      plate:'./modes/plate.quest.js'
+    // Result panel
+    function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
+    function stars(n){ return '★'.repeat(n)+'☆'.repeat(5-n); }
+    window.addEventListener('hha:end', (e)=>{
+      const d=e.detail||{};
+      const score   = +d.score||0;
+      const comboMx = +d.comboMax || +d.combo || 0;
+      const misses  = +d.misses||0;
+      const hits    = +d.hits||0;
+      const spawns  = +d.spawns || (hits+misses);
+      const acc     = spawns>0 ? hits/spawns : 0;
+      const qCleared= +d.questsCleared||0;
+      const qTotal  = +d.questsTotal||3;
+      const sec     = +d.duration||0;
+      const mode    = d.mode||'Game';
+      const diff    = d.difficulty||'normal';
+
+      const scoreGoal={easy:300,normal:500,hard:700}[diff]||500;
+      const scoreNorm = clamp(score/scoreGoal,0,1);
+      const accNorm   = clamp(acc,0,1);
+      const questNorm = clamp(qTotal? qCleared/qTotal : 0,0,1);
+      const starRaw = 0.45*accNorm + 0.40*scoreNorm + 0.15*questNorm;
+      const starNum = clamp(Math.max(1, Math.round(starRaw*5)),1,5);
+
+      document.getElementById('rsMode').textContent   = mode;
+      document.getElementById('rsDiff').textContent   = diff;
+      document.getElementById('rsScore').textContent  = score.toLocaleString();
+      document.getElementById('rsCombo').textContent  = comboMx;
+      document.getElementById('rsMiss').textContent   = misses;
+      document.getElementById('rsAcc').textContent    = Math.round(accNorm*100)+'%';
+      document.getElementById('rsQuests').textContent = qCleared+'/'+qTotal;
+      document.getElementById('rsTime').textContent   = Math.round(sec)+'s';
+      document.getElementById('stars').textContent    = stars(starNum);
+
+      const panel=document.getElementById('resultPanel');
+      panel.style.display='grid';
+      document.getElementById('btnBackMenu').onclick=function(){
+        panel.style.display='none'; document.getElementById('menu').style.display='';
+      };
+      document.getElementById('btnReplay').onclick=function(){
+        panel.style.display='none'; document.getElementById('startBtn').click();
+      };
+    });
+
+    // ========== Loader ==========
+    const MAP = {
+      goodjunk : './modes/goodjunk.safe.js',
+      groups   : './modes/groups.safe.js',
+      hydration: './modes/hydration.quest.js',
+      plate    : './modes/plate.quest.js'
     };
-    const withStamp=u=>u+(u.includes('?')?'&':'?')+'v='+Date.now();
+    const withStamp = (u)=> u + (u.includes('?')?'&':'?') + 'v=' + Date.now();
 
-    let current=null;
-    function cleanup(){
-      try{window.dispatchEvent(new Event('hha:dispose-ui'));}catch{}
+    const spawnHost = document.getElementById('spawnHost');
+    let current = null;
+
+    function cleanupUI(){
+      try{ window.dispatchEvent(new Event('hha:dispose-ui')); }catch{}
       document.querySelectorAll('[data-hha-ui]').forEach(n=>n.remove());
-      document.getElementById('spawnHost').querySelectorAll('a-image,a-entity').forEach(n=>n.remove());
-      document.getElementById('feverFill').style.width='0%';
+      spawnHost.querySelectorAll('a-image,a-entity').forEach(n=>n.remove());
       document.body.classList.remove('fever-on');
+      feverFill.style.width='0%';
+      const missEl = document.getElementById('badgeMiss'); missEl.style.display='none'; missEl.dataset.n='0';
     }
 
     document.getElementById('startBtn').addEventListener('click', async ()=>{
-      const mode=document.getElementById('modeSel').value;
-      const diff=document.getElementById('diffSel').value;
+      const mode = document.getElementById('modeSel').value;
+      const diff = document.getElementById('diffSel').value;
+
+      // Reset HUD
+      document.getElementById('badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
+      document.getElementById('badgeTime').textContent='เวลา: '+(diff==='easy'?90:diff==='hard'?45:60)+'s';
+      document.getElementById('badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
+
       document.getElementById('menu').style.display='none';
-      cleanup();
       try{ current?.stop?.(); }catch{}
+      cleanupUI();
+
+      // ✅ รอ A-Frame พร้อมก่อน แล้วค่อย import โหมด (แก้ THREE undefined)
+      await waitAframe();
+
+      const url = withStamp(MAP[mode]||MAP.goodjunk);
       try{
-        const mod = await import(withStamp(MAP[mode]||MAP.goodjunk));
-        current = await mod.boot({host:document.getElementById('spawnHost'), difficulty:diff});
-        window.addEventListener('blur', ()=>current?.pause?.());
-        window.addEventListener('focus',()=>current?.resume?.());
+        const mod = await import(url);
+        if(!mod?.boot) throw new Error('โหมดนี้ไม่มี boot()');
+        current = await mod.boot({ host: spawnHost, difficulty: diff });
+        // pause/resume ตาม focus
+        window.addEventListener('blur', ()=> current?.pause?.(), { once:false });
+        window.addEventListener('focus', ()=> current?.resume?.(), { once:false });
       }catch(err){
-        alert('โหลดโหมดไม่สำเร็จ: ' + (err && err.message ? err.message : err));
-        console.error(err); document.getElementById('menu').style.display='';
+        alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message || err));
+        console.error(err);
+        cleanupUI();
+        document.getElementById('menu').style.display='';
       }
     });
   </script>
