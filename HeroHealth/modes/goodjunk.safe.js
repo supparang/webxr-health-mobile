@@ -1,15 +1,22 @@
-// === /HeroHealth/modes/goodjunk.safe.js (release, patched) ===
-const THREE = window.THREE;
+// === /HeroHealth/modes/goodjunk.safe.js (release, stable) ===
 import { makeSpawner } from '../vr/spawn-utils.js';
-import { burstAt, floatScore } from '../vr/shards.js';
+import { burstAt, floatScore, setShardMode } from '../vr/shards.js';
 import { emojiImage } from '../vr/emoji-sprite.js';
 import { drawThree } from '../vr/quests-powerups.js';
+
+// ปลอดภัยกับลำดับโหลด A-Frame/THREE
+const THREE_SAFE = (typeof window !== 'undefined' && window.AFRAME && AFRAME.THREE)
+  || (typeof window !== 'undefined' && window.THREE)
+  || null;
 
 export async function boot(cfg = {}) {
   const scene = document.querySelector('a-scene');
   const host  = cfg.host || document.getElementById('spawnHost');
   const diff  = String(cfg.difficulty || 'normal');
   const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
+
+  // เลือกพาเล็ตเอฟเฟกต์ตามโหมดนี้
+  try { setShardMode('goodjunk'); } catch {}
 
   // Pools
   const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
@@ -41,31 +48,26 @@ export async function boot(cfg = {}) {
   let remain = dur;
   let timeId=0, loopId=0, watchdogId=0, noMissId=0;
 
-  // Mini-quests (3 จาก 10 แบบ)
+  // Mini-quests (สุ่ม 3 แบบจากคลัง)
   const QUESTS = drawThree('goodjunk', diff); // [{id,label,check,prog?,target?}] length=3
   let qIdx = 0;
   function questText() {
     const cur = QUESTS[qIdx];
-    return `Quest ${qIdx+1}/3 — ${cur ? cur.label : 'กำลังสุ่ม…'}`;
+    return (cur ? `Quest ${qIdx+1}/3 — ${cur.label}` : 'Quest 3/3 — เสร็จสิ้น!');
   }
   function updateQuestHUD() {
     window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}}));
   }
   // แสดง “กำลังสุ่ม…” ชั่วคราว แล้วโชว์เควสต์จริง
   window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`Quest 1/3 — กำลังสุ่ม…`}}));
-  setTimeout(updateQuestHUD, 500);
+  setTimeout(updateQuestHUD, 400);
 
   // Helpers
   const rand = (a,b)=> a + Math.random()*(b-a);
   const nextGap = ()=> Math.floor(rand(C.nextGap[0], C.nextGap[1]));
   const lifeMs  = ()=> Math.floor(rand(C.life[0], C.life[1]));
-
-  function emitScore() {
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
-  }
-  function emitMiss() {
-    window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}}));
-  }
+  const emitScore = ()=> window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
+  const emitMiss  = ()=> window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}}));
 
   function statsSnapshot() {
     return {
@@ -76,7 +78,7 @@ export async function boot(cfg = {}) {
       diamond:   diamondCount,
       junkMiss:  misses,
       noMissTime:noMissSec,
-      feverCount: 0 // โหมดนี้ยังไม่ได้เปิดระบบ fever ภายในไฟล์นี้
+      feverCount: 0
     };
   }
 
@@ -84,8 +86,13 @@ export async function boot(cfg = {}) {
     const cur = QUESTS[qIdx];
     if (!cur || typeof cur.check!=='function') return;
     if (cur.check(statsSnapshot())) {
-      qIdx = Math.min(qIdx+1, QUESTS.length-1);
-      if (qIdx < 3) updateQuestHUD();
+      if (qIdx < 2) { // ยังมีเควสต์ถัดไป
+        qIdx++;
+        updateQuestHUD();
+      } else {
+        // ผ่านครบ 3
+        window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:'Mini Quest — สำเร็จครบ 3/3! 🎉'}}));
+      }
     }
   }
 
@@ -105,7 +112,7 @@ export async function boot(cfg = {}) {
       });
     }catch{}
 
-    // คำนวณเคลียร์จริงตาม check() ของทุกใบ
+    // คำนวณจำนวนเควสต์ที่ผ่านจริง
     const finalStats = statsSnapshot();
     const questsCleared = QUESTS.reduce((n,q)=> n + (q && q.check ? (q.check(finalStats)?1:0) : 0), 0);
 
@@ -167,6 +174,7 @@ export async function boot(cfg = {}) {
         noMissSec = 0;
         emitMiss();
         emitScore();
+        tryAdvanceQuest(); // บางเควสต์เช็ก noMissTime/นับ miss
       }
       try{ host.removeChild(el);}catch{}
       sp.unmark(rec);
@@ -177,41 +185,50 @@ export async function boot(cfg = {}) {
       ev.preventDefault();
       clearTimeout(ttl);
 
+      // หา world position แบบกันพลาดกรณี THREE ยังไม่พร้อม (จะ fallback เป็น local pos)
+      let wp = {x:pos.x, y:pos.y, z:pos.z};
       try{
-        const wp = el.object3D.getWorldPosition(new THREE.Vector3());
-        if (type==='good') {
-          const val = 20 + combo*2;
-          score += val; combo++; maxCombo = Math.max(maxCombo, combo); hits++;
-          burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0 });
-          floatScore(scene, wp, '+'+val);
-        } else if (type==='junk') {
-          // คลิก junk → โทษ เว้นแต่มี shield
-          if (shield>0) {
-            shield--;
-            floatScore(scene, wp, 'Shield!');
-            burstAt(scene, wp, { color:'#60a5fa', count:14, speed:0.9 });
-          } else {
-            combo=0; score=Math.max(0, score-15); misses++; noMissSec=0;
-            burstAt(scene, wp, { color:'#ef4444', count:12, speed:0.9 });
-            floatScore(scene, wp, '-15');
-            emitMiss();
-          }
-        } else if (type==='star') {
-          starCount++;
-          score += 40;
-          burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 });
-          floatScore(scene, wp, '+40 ⭐');
-        } else if (type==='diamond') {
-          diamondCount++;
-          score += 80;
-          burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 });
-          floatScore(scene, wp, '+80 💎');
-        } else if (type==='shield') {
-          shield = Math.min(3, shield+1);
-          burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 });
-          floatScore(scene, wp, '🛡️+1');
+        if (THREE_SAFE && el.object3D?.getWorldPosition) {
+          const v = el.object3D.getWorldPosition(new THREE_SAFE.Vector3());
+          wp = {x:v.x,y:v.y,z:v.z};
+        } else {
+          const p = el.object3D?.position || pos;
+          wp = {x:p.x,y:p.y,z:p.z};
         }
       }catch{}
+
+      if (type==='good') {
+        const val = 20 + combo*2;
+        score += val; combo++; maxCombo = Math.max(maxCombo, combo); hits++;
+        burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0 });
+        floatScore(scene, wp, '+'+val);
+      } else if (type==='junk') {
+        // คลิก junk → โทษ เว้นแต่มี shield
+        if (shield>0) {
+          shield--;
+          floatScore(scene, wp, 'Shield!');
+          burstAt(scene, wp, { color:'#60a5fa', count:14, speed:0.9 });
+        } else {
+          combo=0; score=Math.max(0, score-15); misses++; noMissSec=0;
+          burstAt(scene, wp, { color:'#ef4444', count:12, speed:0.9 });
+          floatScore(scene, wp, '-15');
+          emitMiss();
+        }
+      } else if (type==='star') {
+        starCount++;
+        score += 40;
+        burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 });
+        floatScore(scene, wp, '+40 ⭐');
+      } else if (type==='diamond') {
+        diamondCount++;
+        score += 80;
+        burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 });
+        floatScore(scene, wp, '+80 💎');
+      } else if (type==='shield') {
+        shield = Math.min(3, shield+1);
+        burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 });
+        floatScore(scene, wp, '🛡️+1');
+      }
 
       emitScore();
       try{ host.removeChild(el);}catch{}
