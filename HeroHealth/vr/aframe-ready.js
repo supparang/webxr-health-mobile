@@ -1,26 +1,26 @@
-// === vr/aframe-ready.js ===
+// === /HeroHealth/vr/aframe-wait.js ===
+// รอจน AFRAME.THREE พร้อม แล้วค่อย resolve และ map ไปยัง window.THREE
 export function waitAframe() {
   if (globalThis.AFRAME?.THREE) {
-    globalThis.THREE = globalThis.AFRAME.THREE;
+    try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const iv = setInterval(() => {
+    const done = () => {
       if (globalThis.AFRAME?.THREE) {
+        try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
         clearInterval(iv);
-        globalThis.THREE = globalThis.AFRAME.THREE;
         resolve();
       }
-    }, 40);
-    document.addEventListener("DOMContentLoaded", () => {
-      const sc = document.querySelector("a-scene");
-      sc && sc.addEventListener("loaded", () => {
-        if (globalThis.AFRAME?.THREE) {
-          clearInterval(iv);
-          globalThis.THREE = globalThis.AFRAME.THREE;
-          resolve();
-        }
-      });
+    };
+    const iv = setInterval(done, 40);
+    // scene.loaded ก็ถือว่าพร้อม
+    document.addEventListener('DOMContentLoaded', () => {
+      const sc = document.getElementById('scene');
+      if (sc) sc.addEventListener('loaded', done, { once: true });
     });
+    // เผื่อส่วนอื่นยิงสัญญาณเอง
+    globalThis.addEventListener?.('hha:aframe-ready', done, { once: true });
   });
 }
+export default { waitAframe };
