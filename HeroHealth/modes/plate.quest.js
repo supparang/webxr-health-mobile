@@ -1,5 +1,5 @@
 // === /HeroHealth/modes/plate.quest.js (release; waitAframe patched) ===
-import { waitAframe } from '../vr/aframe-ready.js';
+import { waitAframe } from '../vr/aframe-wait.js';
 import { makeSpawner } from '../vr/spawn-utils.js';
 import { burstAt, floatScore } from '../vr/shards.js';
 import { emojiImage } from '../vr/emoji-sprite.js';
@@ -8,7 +8,6 @@ import { drawThree } from '../vr/quests-powerups.js';
 export async function boot(cfg = {}) {
   await waitAframe();
   const THREE = window.THREE;
-
   const scene = document.querySelector('a-scene');
   const host  = cfg.host || document.getElementById('spawnHost');
   const diff  = String(cfg.difficulty || 'normal');
