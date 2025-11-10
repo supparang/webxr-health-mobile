@@ -1,14 +1,17 @@
-// === /HeroHealth/modes/hydration.quest.js (release; Water Gauge safe) ===
-const THREE = window.THREE;
+// === /HeroHealth/modes/hydration.quest.js (release; Water Gauge safe, THREE-safe, shards palette) ===
 import { makeSpawner } from '../vr/spawn-utils.js';
-import { burstAt, floatScore } from '../vr/shards.js';
+import { burstAt, floatScore, setShardMode } from '../vr/shards.js';
 import { emojiImage } from '../vr/emoji-sprite.js';
 import { drawThree } from '../vr/quests-powerups.js';
 
+// ใช้ THREE แบบปลอดภัย: AFRAME.THREE ก่อน แล้วค่อย fallback ไป window.THREE
+const THREE_SAFE = (typeof window !== 'undefined' && window.AFRAME && AFRAME.THREE)
+  || (typeof window !== 'undefined' && window.THREE)
+  || null;
+
 /* ---------------- Water Gauge (DOM HUD) ---------------- */
 function ensureWaterGauge() {
-  // ถ้ามีเก่าอยู่ ให้ลบทิ้งก่อน (กันค้างจากรอบก่อน)
-  destroyWaterGauge();
+  destroyWaterGauge(); // กันค้างจากรอบก่อน
 
   const wrap = document.createElement('div');
   wrap.id = 'waterWrap';
@@ -59,6 +62,9 @@ export async function boot(cfg = {}) {
   const diff  = String(cfg.difficulty || 'normal');
   const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
 
+  // ตั้งพาเล็ตสี shards ให้เข้ากับโหมดน้ำ
+  try { setShardMode('hydration'); } catch {}
+
   ensureWaterGauge();
 
   // item pools
@@ -94,6 +100,17 @@ export async function boot(cfg = {}) {
 
   function zone(){ return (water>=40 && water<=70) ? 'GREEN' : (water>70 ? 'HIGH':'LOW'); }
   function emitScore(){ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}})); }
+
+  function worldPosOf(el, fallback){
+    try{
+      if (THREE_SAFE && el.object3D?.getWorldPosition) {
+        const v = el.object3D.getWorldPosition(new THREE_SAFE.Vector3());
+        return {x:v.x,y:v.y,z:v.z};
+      }
+    }catch{}
+    const p = el.object3D?.position || fallback || {x:0,y:0,z:-1.6};
+    return {x:p.x,y:p.y,z:p.z};
+  }
 
   function applyHit(type, wp){
     if (type==='good'){
@@ -162,51 +179,4 @@ export async function boot(cfg = {}) {
     }
 
     const pos = sp.sample();
-    const el  = emojiImage(ch, 0.7, 128);
-    el.classList.add('clickable');
-    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-    host.appendChild(el); spawns++;
-
-    const rec = sp.markActive(pos);
-    const ttl = setTimeout(()=>{
-      if(!el.parentNode) return;
-      if(type==='good'){ water=Math.max(0, water-4); score=Math.max(0, score-8); combo=0; window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:++misses}})); setWaterGauge(water); emitScore(); }
-      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
-    }, lifeMs());
-
-    el.addEventListener('click',(ev)=>{
-      if(!running) return;
-      ev.preventDefault(); clearTimeout(ttl);
-      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
-      applyHit(type, wp);
-      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
-      tryAdvanceQuest();
-      loopId=setTimeout(spawnOne, nextGap());
-    }, {passive:false});
-
-    loopId=setTimeout(spawnOne, nextGap());
-  }
-
-  // เวลา
-  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:dur}}));
-  timerId = setInterval(()=>{
-    if(!running) return;
-    remain = Math.max(0, remain-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
-    if(remain<=0) end('timeout');
-  },1000);
-
-  // รับสัญญาณให้ล้าง UI (จาก index ตอนเปลี่ยนโหมด)
-  disposeHandler = ()=> destroyWaterGauge();
-  window.addEventListener('hha:dispose-ui', disposeHandler);
-
-  // go!
-  spawnOne();
-
-  return {
-    stop(){ end('quit'); },
-    pause(){ running=false; },
-    resume(){ if(!running){ running=true; spawnOne(); } }
-  };
-}
-export default { boot };
+    const
