@@ -1,104 +1,108 @@
-// === /HeroHealth/modes/plate.quest.js — DOM mode + MissionDeck ===
+// === /HeroHealth/modes/plate.quest.js (complete 5 groups per round) ===
 import { MissionDeck } from '../vr/mission.js';
 
-export async function boot(cfg={}){
-  const layer=prepLayer(); const diff=String(cfg.difficulty||'normal'); const dur=Number(cfg.duration||60);
+export async function boot(cfg = {}) {
+  const diff = String(cfg.difficulty || 'normal');
+  const dur  = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
 
-  const GROUPS={
-    veg:['🥦','🥕','🥬','🍅','🌽'],
-    fruit:['🍎','🍓','🍇','🍊','🍍','🍌'],
-    grain:['🍞','🥖','🍚','🍘'],
-    protein:['🐟','🍗','🥚','🫘','🥜'],
-    dairy:['🥛','🧀','🍦'],
+  const GROUPS = {
+    veg: ['🥦','🥕','🥬','🍅','🌽'],
+    fruit: ['🍎','🍓','🍇','🍊','🍍','🍌'],
+    grain: ['🍞','🥖','🍚','🍘'],
+    protein: ['🐟','🍗','🥚','🫘','🥜'],
+    dairy: ['🥛','🧀','🍦'],
   };
-  const keys=Object.keys(GROUPS);
-  const ALL=Object.values(GROUPS).flat();
+  const ALL = Object.entries(GROUPS).flatMap(([k,v])=>v.map(x=>({ch:x,g:k})));
 
-  let spawnMin=900, spawnMax=1200, life=1600, maxConcurrent=3;
-  if(diff==='easy'){ spawnMin=1000; spawnMax=1400; life=1800; maxConcurrent=2; }
-  if(diff==='hard'){ spawnMin=700;  spawnMax=950;  life=1400; maxConcurrent=4; }
+  let spawnMin=900, spawnMax=1200, life=1600;
+  if(diff==='easy'){ spawnMin=1000; spawnMax=1400; life=1800; }
+  if(diff==='hard'){ spawnMin=700;  spawnMax=980;  life=1400; }
 
-  let score=0, combo=0, maxCombo=0, misses=0, left=Math.max(1,Math.round(dur));
-  let timer=null, spawner=null, watchdog=null, running=true, shield=0;
+  injectCSS(); const layer=freshLayer();
 
-  // รอบละ “ครบ 5 หมู่”
-  let roundDone={veg:false,fruit:false,grain:false,protein:false,dairy:false};
-  function roundCleared(){ return Object.values(roundDone).every(Boolean); }
+  let score=0, combo=0, misses=0, left=dur, running=true;
+  let spawnTimer=null, timeTimer=null, watchdog=null;
 
-  const deck = new MissionDeck(); deck.draw3();
-  let questSetCleared=0, questSetLocked=false;
-  hudQuest(deck.getCurrent());
+  // เป้าหมายหลัก: “จัดครบ 5 หมู่” N รอบ
+  const goalTargetRounds = 2;
+  let roundCollected = resetRound(); // {veg:false,...}
+  let roundsDone = 0;
 
-  function fire(n,d){ try{window.dispatchEvent(new CustomEvent(n,{detail:d}))}catch{} }
-  function hudQuest(cur){ fire('hha:quest',{label: cur?cur.label:'กำลังเริ่ม…'}); fire('hha:quest-progress',{list: deck.getProgress()}); }
-  function vw(){return Math.max(320,window.innerWidth||320);} function vh(){return Math.max(320,window.innerHeight||320);}
-  function planNext(){ spawner=setTimeout(spawnOne, Math.floor(900+Math.random()*300)); }
+  // mission deck
+  const deck = new MissionDeck({
+    pool: [
+      { id:'round1',  level:'easy',   label:'จัดครบ 5 หมู่ 1 รอบ', check:s=>s.goodCount>=5,  prog:s=>Math.min(5,s.goodCount), target:5 },
+      { id:'combo12', level:'normal', label:'คอมโบ 12',             check:s=>s.comboMax>=12, prog:s=>Math.min(12,s.comboMax), target:12 },
+      { id:'score600',level:'hard',   label:'คะแนน 600+',           check:s=>s.score>=600,   prog:s=>Math.min(600,s.score),   target:600},
+    ]
+  });
+  deck.draw3();
+
+  function fire(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})) }catch{} }
+  function hudGoal(){
+    const v = Math.min(goalTargetRounds*5, doneCount() + roundsDone*5);
+    fire('hha:goal', { label:`เป้า: จัดครบ 5 หมู่ ให้ได้ ${goalTargetRounds} รอบ`, value:v, max:goalTargetRounds*5, mode:diff });
+  }
+  function hudQuest(){
+    const list=deck.getProgress(); const cur=list.find(x=>x.current)||list[0]||null;
+    fire('hha:quest',{label:cur?cur.label:'Mini Quest — กำลังเริ่ม…'});
+    fire('hha:quest-progress',{label:cur?cur.label:'', value:cur&&Number.isFinite(cur.prog)?cur.prog:0, max:cur&&Number.isFinite(cur.target)?cur.target:0});
+  }
+  hudGoal(); hudQuest(); fire('hha:score',{score,combo}); fire('hha:time',{sec:left});
+
+  planNextSpawn(); startWatchdog();
+  timeTimer=setInterval(()=>{
+    if(!running) return;
+    left=Math.max(0,left-1);
+    deck.second(); hudQuest(); fire('hha:time',{sec:left});
+    if(left<=0){ end(); return; }
+    if(deck.isCleared() && left>0){ deck.draw3(); hudQuest(); }
+  },1000);
 
   function spawnOne(forceCenter){
     if(!running) return;
-    if(layer.querySelectorAll('.hha-tgt').length>=maxConcurrent){ planNext(); return; }
-
-    let ch,type='food',groupKey;
-    const roll=Math.random();
-    if      (roll<0.05){ ch='⭐'; type='star'; }
-    else if (roll<0.07){ ch='💎'; type='diamond'; }
-    else if (roll<0.10){ ch='🛡️'; type='shield'; }
-    else{
-      groupKey = keys[(Math.random()*keys.length)|0];
-      const pool=GROUPS[groupKey];
-      ch=pool[(Math.random()*pool.length)|0];
-    }
-
-    const el=document.createElement('div'); el.className='hha-tgt'; el.textContent=ch;
-    const x=forceCenter?vw()/2:Math.floor(vw()*0.12+Math.random()*vw()*0.76);
-    const y=forceCenter?vh()/2:Math.floor(vh()*0.18+Math.random()*vh()*0.62);
-    el.style.left=x+'px'; el.style.top=y+'px';
-
+    const pick = ALL[(Math.random()*ALL.length)|0];
+    const el=document.createElement('div'); el.className='hha-tgt'; el.textContent=pick.ch; sizeByDiff(el); place(el,forceCenter); layer.appendChild(el);
     let clicked=false;
-    function onHit(ev){
-      if(clicked) return; clicked=true; try{ev.preventDefault();}catch{}
-      if(type==='food'){
-        const val=22+combo*2; score+=val; combo++; maxCombo=Math.max(maxCombo,combo);
-        roundDone[groupKey]=true; deck.tick({good:true, score, combo});
-        if(roundCleared()){ score+=100; roundDone={veg:false,fruit:false,grain:false,protein:false,dairy:false}; }
-      }else if(type==='star'){ score+=40; deck.tick({star:true, score, combo}); }
-      else if(type==='diamond'){ score+=80; deck.tick({diamond:true, score, combo}); }
-      else if(type==='shield'){ shield=Math.min(3,shield+1); deck.tick({score,combo}); }
-      el.className='hha-tgt hit'; try{layer.removeChild(el);}catch{}; fire('hha:score',{score,combo}); checkQuestSet(); hudQuest(deck.getCurrent()); planNext();
-    }
-    el.addEventListener('click',onHit,{passive:false});
-    el.addEventListener('touchstart',onHit,{passive:false});
-
-    setTimeout(()=>{ if(clicked||!running) return; if(type==='food'){ misses++; combo=0; score=Math.max(0,score-10); deck.tick({junk:true, score, combo}); } try{layer.removeChild(el);}catch{}; planNext(); }, life);
-
-    layer.appendChild(el);
+    const onHit=(ev)=>{
+      if(clicked) return; clicked=true; ev&&ev.preventDefault&&ev.preventDefault(); try{layer.removeChild(el);}catch{}
+      const delta=22+combo*2; score+=delta; combo=Math.min(9999,combo+1);
+      if(!roundCollected[pick.g]){ roundCollected[pick.g]=true; }
+      if(doneCount()>=5){ roundsDone=Math.min(goalTargetRounds, roundsDone+1); roundCollected=resetRound(); score+=100; }
+      deck.onGood(); deck.updateScore(score); deck.updateCombo(combo);
+      hudGoal(); fire('hha:score',{score,combo}); hudQuest(); planNextSpawn();
+    };
+    el.addEventListener('click',onHit,{passive:false}); el.addEventListener('touchstart',onHit,{passive:false});
+    setTimeout(()=>{
+      if(clicked||!running) return; try{layer.removeChild(el);}catch{}
+      combo=0; misses++; deck.onJunk(); deck.updateCombo(combo); hudQuest(); planNextSpawn();
+    }, life);
   }
 
-  function checkQuestSet(){ if(deck.isCleared()&&!questSetLocked){ questSetLocked=true; questSetCleared++; if(left>5){ deck.draw3(); questSetLocked=false; hudQuest(deck.getCurrent()); } } }
-  function tick(){ if(!running) return; left=Math.max(0,left-1); deck.second(); hudQuest(deck.getCurrent()); fire('hha:time',{sec:left}); if(left<=0) end(); }
-
-  function end(){ if(!running) return; running=false; try{clearInterval(timer);}catch{}; try{clearTimeout(spawner);}catch{}; try{clearInterval(watchdog);}catch{};
-    const mini=questSetCleared+(deck.isCleared()&&questSetLocked?1:0);
-    const goalDone=true; // เล่นครบเวลา + จัดรอบได้เรื่อย ๆ
-    fire('hha:end',{ score, comboMax:maxCombo, miniSetsCleared:mini, goalDone });
-    cleanupLayer(layer);
+  function end(){
+    if(!running) return; running=false;
+    try{clearInterval(timeTimer);}catch{} try{clearTimeout(spawnTimer);}catch{} try{clearInterval(watchdog);}catch{}
+    wipe(layer);
+    const prog=deck.getProgress(); const questsCleared=prog.filter(p=>p.done).length;
+    const goalDone = (roundsDone >= goalTargetRounds);
+    fire('hha:end',{score,combo,misses,duration:dur,goal:goalDone,questsCleared,questsTotal:3});
   }
 
-  timer=setInterval(tick,1000); spawnOne(true); planNext();
-  watchdog=setInterval(()=>{ if(!running) return; if(!layer.querySelector('.hha-tgt')) spawnOne(true); }, 2000);
+  // helpers
+  function resetRound(){ return {veg:false,fruit:false,grain:false,protein:false,dairy:false}; }
+  function doneCount(){ return Object.values(roundCollected).filter(Boolean).length; }
+  function planNextSpawn(){ const w=Math.floor(spawnMin+Math.random()*(spawnMax-spawnMin)); spawnTimer=setTimeout(spawnOne,w); }
+  function startWatchdog(){ if(watchdog) clearInterval(watchdog); watchdog=setInterval(()=>{ if(!running) return; if(layer.querySelectorAll('.hha-tgt').length===0) spawnOne(true); },2000); }
+  function vw(){ return Math.max(320, window.innerWidth||320); }
+  function vh(){ return Math.max(320, window.innerHeight||320); }
+  function sizeByDiff(el){ el.style.fontSize=(diff==='easy'?74:(diff==='hard'?56:64))+'px'; }
+  function place(el,center){ const x=center?vw()/2:Math.floor(vw()*0.14+Math.random()*vw()*0.72); const y=center?vh()/2:Math.floor(vh()*0.20+Math.random()*vh()*0.56); el.style.left=x+'px'; el.style.top=y+'px'; }
 
-  return { stop:end, pause(){running=false;}, resume(){ if(!running){running=true; planNext();} } };
+  return { stop:end, pause(){running=false;}, resume(){ if(!running){ running=true; planNextSpawn(); startWatchdog(); } } };
 }
+
+function injectCSS(){ if(document.getElementById('hha-style')) return; const st=document.createElement('style'); st.id='hha-style'; st.textContent='.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto}.hha-tgt{position:absolute;transform:translate(-50%,-50%);line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5))}'; document.head.appendChild(st); }
+function freshLayer(){ document.querySelectorAll('.hha-layer').forEach(n=>{try{n.remove();}catch{}}); const d=document.createElement('div'); d.className='hha-layer'; document.body.appendChild(d); return d; }
+function wipe(layer){ try{ layer.querySelectorAll('.hha-tgt').forEach(n=>n.remove()); layer.remove(); }catch{} }
+
 export default { boot };
-
-function prepLayer(){
-  if(!document.getElementById('hha-style')){
-    const st=document.createElement('style'); st.id='hha-style';
-    st.textContent='.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto}.hha-tgt{position:absolute;transform:translate(-50%,-50%);font-size:64px;line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));transition:transform .12s,opacity .24s;opacity:1}.hha-tgt.hit{transform:translate(-50%,-50%) scale(.85);opacity:.15}';
-    document.head.appendChild(st);
-  }
-  document.querySelectorAll('.hha-layer').forEach(n=>{try{n.remove()}catch{}});
-  const layer=document.createElement('div'); layer.className='hha-layer'; document.body.appendChild(layer);
-  return layer;
-}
-function cleanupLayer(layer){ try{layer.remove();}catch{} }
