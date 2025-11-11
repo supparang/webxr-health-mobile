@@ -1,151 +1,51 @@
-// === /HeroHealth/modes/plate.quest.js (latest) ===
-import { makeSpawner } from '../vr/spawn-utils.js';
-import { burstAt, floatScore } from '../vr/shards.js';
-import { emojiImage } from '../vr/emoji-sprite.js';
-import { drawThree } from '../vr/quests-powerups.js';
-
-// helpers
-function ensureSpawnHost(scene, host){
-  if (!host) host = document.getElementById('spawnHost');
-  if (!host && scene) { const h=document.createElement('a-entity'); h.id='spawnHost'; h.setAttribute('position','0 0 0'); scene.appendChild(h); host=h; }
-  return host;
-}
-function emergencySpawnOnce(host, scene, emojiImageFn){
-  setTimeout(()=>{ try{
-    if (!host || host.querySelector('a-image')) return;
-    const el = emojiImageFn('🥦',0.68,128); el.classList.add('clickable');
-    el.setAttribute('position','0 0.10 -1.6'); host.appendChild(el);
-  }catch{} }, 500);
-}
+import { boot as run } from '../vr/mode-factory.js';
+import { MissionDeck } from '../vr/mission.js';
 
 export async function boot(cfg = {}) {
-  const scene = document.querySelector('a-scene');
-  let host  = cfg.host || document.getElementById('spawnHost');
-  const diff  = String(cfg.difficulty || 'normal');
-  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
-
-  host = ensureSpawnHost(scene, host);
-  emergencySpawnOnce(host, scene, emojiImage);
-
+  const deck = new MissionDeck().draw3();
   const GROUPS = {
-    veg: ['🥦','🥕','🥬','🍅','🌽'],
-    fruit: ['🍎','🍓','🍇','🍊','🍍','🍌'],
-    grain: ['🍞','🥖','🍚','🍘'],
-    protein: ['🐟','🍗','🥚','🫘','🥜'],
-    dairy: ['🥛','🧀','🍦'],
+    veg:['🥦','🥕','🥬','🍅','🌽'],
+    fruit:['🍎','🍓','🍇','🍊','🍍','🍌'],
+    grain:['🍞','🥖','🍚','🍘'],
+    protein:['🐟','🍗','🥚','🫘','🥜'],
+    dairy:['🥛','🧀','🍦']
   };
   const STAR='⭐', DIA='💎', SHIELD='🛡️';
+  const ALL=Object.values(GROUPS).flat();
+  let round={veg:false,fruit:false,grain:false,protein:false,dairy:false};
+  let roundsCleared=0; const goalRounds=2;
+  showGoal(`จัดครบ 5 หมู่ ${goalRounds} รอบ — คืบหน้า ${roundsCleared}/${goalRounds}`);
 
-  const tune = {
-    easy:   { nextGap:[360,560], life:[1400,1700], minDist:0.34, maxConcurrent:2 },
-    normal: { nextGap:[300,480], life:[1200,1500], minDist:0.32, maxConcurrent:3 },
-    hard:   { nextGap:[240,420], life:[1000,1300], minDist:0.30, maxConcurrent:4 }
-  };
-  const C = tune[diff] || tune.normal;
-  const sp = makeSpawner({ bounds:{x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6}, minDist:C.minDist, decaySec:2.2 });
+  function judge(ch, s){
+    if (ch===STAR){ deck.onStar(); return {good:true,scoreDelta:40}; }
+    if (ch===DIA ){ deck.onDiamond(); return {good:true,scoreDelta:80}; }
+    if (ch===SHIELD){ return {good:true,scoreDelta:0}; }
 
-  let roundDone = {veg:false,fruit:false,grain:false,protein:false,dairy:false};
-  const keys = Object.keys(GROUPS);
-
-  let running=true, score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0, shield=0;
-  let remain=dur, timerId=0, loopId=0, dog=0;
-
-  const QUESTS_POOL = drawThree('plate', diff);
-  let qIdx=0;
-  function questText(){ return `Quest ${qIdx+1}/3 — ${QUESTS_POOL[qIdx]?.label || 'จัดครบ 5 หมู่!'}`; }
-  function updateQuestHUD(){ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }
-  updateQuestHUD();
-
-  const rand=(a,b)=>a+Math.random()*(b-a);
-  const nextGap=()=>rand(C.nextGap[0], C.nextGap[1]);
-  const lifeMs =()=>rand(C.life[0], C.life[1]);
-
-  function roundCleared(){ return Object.values(roundDone).every(Boolean); }
-
-  function end(reason='timeout'){
-    if(!running) return; running=false;
-    clearInterval(timerId); clearTimeout(loopId); clearInterval(dog);
-    Array.from(host.querySelectorAll('a-image')).forEach(n=>n.remove());
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
-      mode:'Healthy Plate', difficulty:diff, score, combo:maxCombo, misses, hits, spawns,
-      duration:dur, questsCleared:qIdx+1, questsTotal:3, reason
-    }}));
-  }
-  function tryAdvanceQuest(){
-    const s = { score, goodCount:hits, junkMiss:misses, comboMax:maxCombo, feverCount:0, star:0, diamond:0, noMissTime:0 };
-    const q = QUESTS_POOL[qIdx]; if(!q) return;
-    const done = q.check ? q.check(s) : false;
-    if(done){ qIdx = Math.min(2, qIdx+1); updateQuestHUD(); }
-  }
-
-  function spawnOne(){
-    if(!running) return;
-    if(host.querySelectorAll('a-image').length>=C.maxConcurrent){ loopId=setTimeout(spawnOne,120); return; }
-
-    let ch, type='food', groupKey;
-    const r = Math.random();
-    if      (r < 0.05) { ch=STAR; type='star'; }
-    else if (r < 0.07) { ch=DIA;  type='diamond'; }
-    else if (r < 0.10) { ch=SHIELD; type='shield'; }
-    else {
-      groupKey = keys[(Math.random()*keys.length)|0];
-      const pool = GROUPS[groupKey];
-      ch = pool[(Math.random()*pool.length)|0];
+    let hit=false;
+    for(const k in GROUPS){ if(GROUPS[k].includes(ch)){ round[k]=true; hit=true; break; } }
+    if (hit){
+      if(Object.values(round).every(Boolean)){ roundsCleared++; round={veg:false,fruit:false,grain:false,protein:false,dairy:false}; showGoal(`จัดครบ 5 หมู่ ${goalRounds} รอบ — คืบหน้า ${roundsCleared}/${goalRounds}`); return {good:true, scoreDelta: 100}; }
+      return {good:true, scoreDelta: 22 + s.combo*2};
+    } else {
+      deck.onJunk();
+      return {good:false, scoreDelta:-10};
     }
-
-    const pos = sp.sample();
-    const el  = emojiImage(ch, 0.68, 128);
-    el.classList.add('clickable');
-    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-    host.appendChild(el); spawns++;
-
-    const rec = sp.markActive(pos);
-    const ttl = setTimeout(()=>{
-      if(!el.parentNode) return;
-      if(type==='food'){ misses++; combo=0; score=Math.max(0, score-10); window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}})); }
-      try{ el.remove(); }catch{}; sp.unmark(rec);
-    }, lifeMs());
-
-    el.addEventListener('click',(ev)=>{
-      if(!running) return;
-      ev.preventDefault(); clearTimeout(ttl);
-      const wp = el.object3D.getWorldPosition(new (window.THREE||AFRAME.THREE).Vector3());
-
-      if(type==='food'){
-        const val = 22 + combo*2;
-        score += val; combo++; maxCombo=Math.max(maxCombo,combo); hits++;
-        roundDone[groupKey] = true;
-        burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.05 }); floatScore(scene, wp, '+'+val);
-
-        if(roundCleared()){
-          roundDone = {veg:false,fruit:false,grain:false,protein:false,dairy:false};
-          floatScore(scene, wp, 'ROUND +100'); score+=100;
-        }
-      } else if (type==='star'){
-        score += 40; burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 }); floatScore(scene, wp, '+40 ⭐');
-      } else if (type==='diamond'){
-        score += 80; burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 }); floatScore(scene, wp, '+80 💎');
-      } else if (type==='shield'){
-        shield = Math.min(3, shield+1); burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 }); floatScore(scene, wp, '🛡️+1');
-      }
-
-      window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
-      try{ el.remove(); }catch{}; sp.unmark(rec);
-      tryAdvanceQuest();
-    }, {passive:false});
-
-    loopId=setTimeout(spawnOne, nextGap());
   }
 
-  // time
-  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:dur}}));
-  timerId = setInterval(()=>{ if(!running) return; remain=Math.max(0,remain-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}})); if(remain<=0) end('timeout'); },1000);
+  const off = listen('hha:score', e=>{
+    deck.updateScore(e.detail?.score||0);
+    deck.updateCombo(e.detail?.combo||0);
+    if (deck._autoAdvance()) showQuest(deck.getCurrent()?.label || 'ครบแล้ว!');
+  });
 
-  // watchdog
-  dog = setInterval(()=>{ if(running && !host.querySelector('a-image')) spawnOne(); }, 2000);
+  const g = await run({
+    host: cfg.host, difficulty: cfg.difficulty || 'normal', duration: cfg.duration,
+    pools:{ good:[...ALL, STAR, DIA, SHIELD], bad:[] }, goodRate:0.85, judge
+  });
 
-  spawnOne();
-
-  return { stop(){ end('quit'); }, pause(){ running=false; }, resume(){ if(!running){ running=true; spawnOne(); } } };
+  return { stop(){off();g.stop();}, pause(){g.pause();deck.pause();}, resume(){deck.resume();g.resume();} };
 }
+function showGoal(t){ upsert('gl',t); } function showQuest(t){ upsert('ql',`Quest ${t}`); }
+function upsert(id,text){ let p=document.getElementById('goalQuestPanel'); if(!p){p=document.createElement('div');p.id='goalQuestPanel';p.style.cssText='position:fixed;left:0;right:0;bottom:8px;padding:8px 14px;z-index:910;color:#e8eefc;font:600 14px system-ui';p.innerHTML='<div id="gl" style="margin-bottom:6px"></div><div id="ql"></div>';document.body.appendChild(p);} const el=document.getElementById(id); if(el) el.textContent=text; }
+function listen(n,f){window.addEventListener(n,f);return()=>window.removeEventListener(n,f);}
 export default { boot };
