@@ -1,159 +1,120 @@
-// === /HeroHealth/modes/goodjunk.safe.js (MissionDeck-ready) ===
-const THREE = window.THREE;
-import { makeSpawner } from '../vr/spawn-utils.js';
-import { burstAt, floatScore } from '../vr/shards.js';
-import { emojiImage } from '../vr/emoji-sprite.js';
+// === /HeroHealth/modes/goodjunk.safe.js (clean, goal+miniquest, must-spawn) ===
+import { boot as run } from '../vr/mode-factory.js';
 import { MissionDeck } from '../vr/mission.js';
 
+/* ---------------- HUD: Goal panel (DOM) ---------------- */
+function ensureGoalPanel() {
+  // เคลียร์ของเก่า (ป้องกันค้างจากโหมดก่อน)
+  const old = document.getElementById('goalPanel');
+  if (old) try { old.remove(); } catch {}
+
+  const wrap = document.createElement('div');
+  wrap.id = 'goalPanel';
+  wrap.setAttribute('data-hha-ui', '');
+  Object.assign(wrap.style, {
+    position:'fixed', left:'50%', bottom:'64px', transform:'translateX(-50%)',
+    width:'min(820px,92vw)', background:'#0f172acc', color:'#e8eefc',
+    border:'1px solid #334155', borderRadius:'14px', padding:'12px 14px',
+    backdropFilter:'blur(6px)', zIndex:'900', fontFamily:'system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif'
+  });
+
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+      <div id="goalTitle" style="font-weight:800">เป้า:</div>
+      <div id="goalMode"  style="opacity:.8">โหมด: normal</div>
+    </div>
+    <div style="height:10px;background:#0b1222;border:1px solid #334155;border-radius:999px;overflow:hidden">
+      <div id="goalFill" style="height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#93c5fd)"></div>
+    </div>
+    <div id="questLine" style="margin-top:10px;font-weight:700;opacity:.95"></div>
+  `;
+  document.body.appendChild(wrap);
+  return wrap;
+}
+function setGoalText(text) {
+  const el = document.getElementById('goalTitle');
+  if (el) el.textContent = text;
+}
+function setGoalPct(pct) {
+  const f = document.getElementById('goalFill');
+  if (f) f.style.width = Math.max(0, Math.min(100, pct)) + '%';
+}
+function setModeLabel(diff) {
+  const el = document.getElementById('goalMode');
+  if (el) el.textContent = 'โหมด: ' + diff;
+}
+function setQuestLine(txt) {
+  const el = document.getElementById('questLine');
+  if (el) el.textContent = txt;
+}
+
+/* ---------------- Mini Quest: deck (เฉพาะเงื่อนไขที่นับจาก click/score/combo) ---------------- */
+function buildGoodjunkDeck() {
+  // เลือกเฉพาะเควสต์ที่ไม่ต้องรู้ “พลาดเพราะปล่อยให้หมดเวลา”
+  const pool = [
+    { id:'good10',   level:'easy',   label:'เก็บของดี 10 ชิ้น',   check:s=>s.goodCount>=10,  prog:s=>Math.min(10,s.goodCount), target:10 },
+    { id:'combo10',  level:'normal', label:'ทำคอมโบ 10',          check:s=>s.comboMax>=10,   prog:s=>Math.min(10,s.comboMax),   target:10 },
+    { id:'score500', level:'hard',   label:'ทำคะแนน 500+',        check:s=>s.score>=500,     prog:s=>Math.min(500,s.score),     target:500 },
+    { id:'star2',    level:'normal', label:'เก็บดาว ⭐ 2 ดวง',     check:s=>s.star>=2,        prog:s=>Math.min(2,s.star),        target:2 },
+    { id:'diamond1', level:'hard',   label:'เก็บเพชร 💎 1 เม็ด',   check:s=>s.diamond>=1,     prog:s=>Math.min(1,s.diamond),     target:1 },
+  ];
+  const md = new MissionDeck({ pool });
+  md.draw3();
+  return md;
+}
+
+/* ---------------- Game ---------------- */
 export async function boot(cfg = {}) {
-  const scene = document.querySelector('a-scene');
-  const host  = cfg.host || document.getElementById('spawnHost');
-  const diff  = String(cfg.difficulty || 'normal');
-  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
+  const diff = String(cfg.difficulty || 'normal');
+  const dur  = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
 
-  // Mini-quest deck (3 ใบ + bonus ถ้าเวลาเหลือ)
-  const md = new MissionDeck(); md.draw3();
-  function questText(){ return `Quest ${md.currentIndex+1}/3 — ${md.getCurrent()?.label || 'กำลังเริ่ม…'}`; }
-  function updateQuestHUD(){ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }
-  updateQuestHUD();
+  // สุ่มและเตรียม mission deck
+  const md = buildGoodjunkDeck();
 
-  // Pools
+  // goal: เก็บ “ของดี” ให้ครบจำนวนหนึ่ง
+  const GOAL_TOTAL = 25;
+  let goodOK = 0;
+
+  // pools
   const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
   const STAR = '⭐', DIA='💎', SHIELD='🛡️';
 
-  // Tuning per difficulty
-  const tune = {
-    easy:   { nextGap:[360,560], life:[1400,1700], minDist:0.34, junkRate:0.28, maxConcurrent:2 },
-    normal: { nextGap:[300,480], life:[1200,1500], minDist:0.32, junkRate:0.35, maxConcurrent:3 },
-    hard:   { nextGap:[240,420], life:[1000,1300], minDist:0.30, junkRate:0.42, maxConcurrent:4 }
-  };
-  const C = tune[diff] || tune.normal;
+  // สร้าง HUD Goal
+  ensureGoalPanel();
+  setModeLabel(diff);
+  setGoalText(`เป้า: เก็บของดีให้ได้ ${GOAL_TOTAL} ชิ้น — คืบหน้า ${goodOK}/${GOAL_TOTAL}`);
+  setGoalPct(0);
 
-  const sp = makeSpawner({
-    bounds:{ x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6 },
-    minDist:C.minDist,
-    decaySec:2.2
-  });
-
-  // State
-  let running=true;
-  let score=0, combo=0, maxCombo=0;
-  let misses=0, hits=0, spawns=0;
-  let shield=0;                 
-  let remain = dur;
-  let timeId=0, loopId=0, watchdogId=0;
-
-  const rand=(a,b)=> a + Math.random()*(b-a);
-  const nextGap=()=> Math.floor(rand(C.nextGap[0], C.nextGap[1]));
-  const lifeMs =()=> Math.floor(rand(C.life[0], C.life[1]));
-
-  function emitScore(){ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}})); }
-  function emitMiss(){ window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}})); }
-  function afterHitAdvance(){
-    md.updateScore(score); md.updateCombo(combo);
-    if (md._autoAdvance()) updateQuestHUD();
+  // แจ้ง HUD mini quest (ทีละใบ)
+  function updateQuestHUD() {
+    const cur = md.getCurrent();
+    const label = cur ? cur.label : 'กำลังเริ่ม…';
+    window.dispatchEvent(new CustomEvent('hha:quest', { detail:{ text:`Quest ${md.currentIndex+1}/3 — ${label}` } }));
+    setQuestLine(`Quest ${md.currentIndex+1}/3 — ${label}`); // แสดงซ้ำในกล่อง Goal เพื่อเห็นชัด
   }
+  updateQuestHUD();
 
-  function maybeAddBonusQuests() {
-    if (remain>0 && md.isCleared()) {
-      const more = new MissionDeck(); more.draw3();
-      // เติมใบที่ไม่ซ้ำ
-      more.deck.forEach(q=>{ if(!md.deck.find(x=>x.id===q.id)) md.deck.push(q); });
-      updateQuestHUD();
+  // สถานะสำหรับ HUD หลัก (ให้ index อัปเดต)
+  let score=0, combo=0, starCount=0, diamondCount=0;
+
+  // ตัดสินผลเมื่อคลิกเป้า
+  function judge(ch, s) {
+    // s = { score, combo, misses, diff }
+    let res = { good:false, scoreDelta:0 };
+
+    if (ch === STAR) {                     // ⭐ โบนัส
+      score += 40; starCount++;
+      md.onStar(); md.updateScore(score);
+      res = { good:true, scoreDelta:+40 };
     }
-  }
-
-  function end(reason='timeout'){
-    if(!running) return; running=false;
-    try{ clearInterval(timeId);}catch{}
-    try{ clearTimeout(loopId);}catch{}
-    try{ clearInterval(watchdogId);}catch{}
-    Array.from(host.querySelectorAll('a-image')).forEach(n=>{ try{ n.remove(); }catch{} });
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
-      mode:'Good vs Junk', difficulty:diff, score, comboMax:maxCombo, misses, hits, spawns,
-      duration:dur, questsCleared: md.getProgress().filter(q=>q.done).length, questsTotal: md.deck.length, reason
-    }}));
-  }
-
-  function spawnOne(){
-    if(!running) return;
-    const now = host.querySelectorAll('a-image').length;
-    if(now>=C.maxConcurrent){ loopId=setTimeout(spawnOne,100); return; }
-
-    // pick type
-    let ch, type;
-    const r = Math.random();
-    if      (r < 0.04) { ch=STAR;   type='star'; }
-    else if (r < 0.06) { ch=DIA;    type='diamond'; }
-    else if (r < 0.10) { ch=SHIELD; type='shield'; }
-    else {
-      const goodPick = Math.random() > C.junkRate;
-      ch   = goodPick ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0];
-      type = goodPick ? 'good' : 'junk';
+    else if (ch === DIA) {                 // 💎 โบนัสใหญ่
+      score += 80; diamondCount++;
+      md.onDiamond(); md.updateScore(score);
+      res = { good:true, scoreDelta:+80 };
     }
-
-    const pos = sp.sample();
-    const el  = emojiImage(ch, 0.68, 128);
-    el.classList.add('clickable');
-    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-    host.appendChild(el); spawns++;
-
-    const rec = sp.markActive(pos);
-    const ttl = setTimeout(()=>{
-      if(!el.parentNode) return;
-      if(type==='good'){ misses++; combo=0; score=Math.max(0, score-10); emitMiss(); emitScore(); md.onJunk(); afterHitAdvance(); }
-      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
-    }, lifeMs());
-
-    el.addEventListener('click',(ev)=>{
-      if(!running) return;
-      ev.preventDefault(); clearTimeout(ttl);
-      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
-
-      if(type==='good'){
-        const val = 20 + combo*2;
-        score += val; combo++; maxCombo=Math.max(maxCombo, combo); hits++;
-        md.onGood();
-        burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0 });
-        floatScore(scene, wp, '+'+val);
-      } else if (type==='junk'){
-        if(shield>0){ shield--; floatScore(scene, wp, 'Shield!'); burstAt(scene, wp, {color:'#60a5fa',count:14, speed:0.9}); }
-        else{ combo=0; score=Math.max(0, score-15); misses++; emitMiss(); md.onJunk(); burstAt(scene, wp, { color:'#ef4444', count:12, speed:0.9 }); floatScore(scene, wp, '-15'); }
-      } else if (type==='star'){
-        score += 40; md.onStar(); burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 }); floatScore(scene, wp, '+40 ⭐');
-      } else if (type==='diamond'){
-        score += 80; md.onDiamond(); burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 }); floatScore(scene, wp, '+80 💎');
-      } else if (type==='shield'){
-        shield = Math.min(3, shield+1); burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 }); floatScore(scene, wp, '🛡️+1');
-      }
-
-      emitScore();
-      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
-      afterHitAdvance();
-      loopId=setTimeout(spawnOne, nextGap());
-    }, {passive:false});
-
-    loopId=setTimeout(spawnOne, nextGap());
-  }
-
-  // time
-  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
-  timeId=setInterval(()=>{
-    if(!running) return;
-    remain = Math.max(0, remain-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
-    if(remain<=0) end('timeout');
-    else maybeAddBonusQuests();
-  },1000);
-
-  // watchdog
-  watchdogId=setInterval(()=>{ if(running && !host.querySelector('a-image')) spawnOne(); }, 1800);
-
-  // go
-  window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
-  spawnOne();
-
-  return { stop(){end('quit');}, pause(){running=false;}, resume(){ if(!running){ running=true; spawnOne(); } } };
-}
-export default { boot };
+    else if (ch === SHIELD) {              // 🛡️ (ตอนนี้ยังไม่ใช้โทษ-กันพลาดใน factory)
+      score += 10;
+      res = { good:true, scoreDelta:+10 };
+    }
+    else if (GOOD.includes(ch)) {          //
