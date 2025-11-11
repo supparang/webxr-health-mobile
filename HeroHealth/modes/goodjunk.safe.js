@@ -1,145 +1,130 @@
-// Good vs Junk — DOM target, no THREE needed
-import { drawThree } from '../vr/quests-powerups.js';
+// === /HeroHealth/modes/goodjunk.safe.js (DOM mode via mode-factory) ===
+import { boot as domBoot } from '../vr/mode-factory.js';
+import { MissionDeck } from '../vr/mission.js';
+import { questHUDInit, questHUDUpdate, questHUDDispose } from '../vr/quest-hud.js';
+import { floatScoreScreen, burstAtScreen } from '../vr/ui-water.js'; // ใช้เอฟเฟกต์จอ
 
 export async function boot(cfg = {}) {
-  const MODE_KEY = 'goodjunk';
   const diff = String(cfg.difficulty || 'normal');
-  const dur  = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
+  const dur  = Number(cfg.duration   || (diff==='easy'?90:diff==='hard'?45:60));
 
-  // target pools
-  const GOOD = ['🍎','🍐','🍊','🍇','🍉','🥕','🥦','🌽','🥒','🥬'];
-  const BAD  = ['🍔','🍟','🌭','🍕','🍩','🍪','🧋','🥤','🍫','🍬'];
-  const STAR='⭐', DIA='💎';
+  // Pools
+  const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
+  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+  const STAR='⭐', DIA='💎', SHIELD='🛡️'; // ไอคอน (ไม่สุ่มใน DOM-factory; ใช้เป็นคะแนนโบนัสใน judge ได้)
 
-  // layer
-  const LID = 'hha-layer';
-  document.querySelectorAll('.hha-layer').forEach(n=>n.remove());
-  const layer = document.createElement('div');
-  layer.className = 'hha-layer';
-  Object.assign(layer.style,{position:'fixed',inset:'0',zIndex:650});
-  document.body.appendChild(layer);
+  // Difficulty
+  const tune = { easy:{goodRate:.76}, normal:{goodRate:.65}, hard:{goodRate:.55} };
+  const goodRate = (tune[diff]||tune.normal).goodRate;
 
-  // style (once)
-  if (!document.getElementById('hha-style')) {
-    const st=document.createElement('style'); st.id='hha-style';
-    st.textContent = `
-    .hha-tgt{position:absolute;transform:translate(-50%,-50%);font-size:66px;line-height:1;
-      filter:drop-shadow(0 10px 16px rgba(0,0,0,.5)); transition:transform .12s,opacity .24s; }
-    .hha-tgt.hit{transform:translate(-50%,-50%) scale(.85); opacity:.2;}
-    `;
-    document.head.appendChild(st);
+  // Quests HUD
+  const deck = new MissionDeck();
+  deck.draw3();
+  questHUDInit(); questHUDUpdate(deck, 'ทำเควสต์ทีละใบ ▶️');
+
+  // สถิติเกมฝั่งโหมด (เก็บไว้ทำ quest + summary)
+  let score=0, combo=0, misses=0;
+  let secLeft = dur;
+  let secTick = setInterval(()=>{
+    secLeft = Math.max(0, secLeft-1);
+    deck.second();              // นับ no-miss ภายในเด็ค
+    questHUDUpdate(deck);
+    if (deck.isCleared() && secLeft>0) { deck.draw3(); questHUDUpdate(deck, 'Mini Quest ชุดใหม่!'); }
+    if (secLeft<=0) { clearInterval(secTick); }
+  },1000);
+
+  // แปลงพิกัด event เป็นจอ เพื่อปล่อยเอฟเฟกต์
+  function screenPt(ev){
+    const x = (ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX);
+    const y = (ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY);
+    return {x,y};
   }
 
-  // tuning
-  let spawnMin=900, spawnMax=1200, life=1600, goodRate=0.65;
-  if(diff==='easy'){ spawnMin=1000; spawnMax=1400; life=1800; goodRate=0.72; }
-  if(diff==='hard'){ spawnMin=700;  spawnMax=950;  life=1400; goodRate=0.58; }
+  // Judge — คืน {good, scoreDelta}
+  function judge(ch, st){
+    const goodFood = GOOD.includes(ch);
+    // คะแนนพื้นฐาน
+    let delta = 0, good = false;
+    if (goodFood){ good=true; delta = 20 + Math.min(40, st.combo*2); }
+    else { good=false; delta = -15; }
 
-  // ---- Mini Quest deck (looping) ----
-  let deck      = drawThree(MODE_KEY, diff);
-  let deckIdx   = 0;
-  let deckRound = 1;
-  const mstats = { good:0, junk:0, star:0, diamond:0, comboMax:0, noMiss:0, score:0 };
-  function resetMiniProgress(){ mstats.good=0; mstats.junk=0; mstats.star=0; mstats.diamond=0; mstats.comboMax=0; mstats.noMiss=0; mstats.score=0; }
-  function startNewDeck(){ deck = drawThree(MODE_KEY,diff); deckIdx=0; deckRound++; resetMiniProgress(); emitQuest(); }
-  function advanceMiniIfDone(){
-    const q = deck[deckIdx]; if(!q) return;
-    const done = q.check({ score:mstats.score, goodCount:mstats.good, junkMiss:mstats.junk,
-      comboMax:mstats.comboMax, noMissTime:mstats.noMiss, star:mstats.star, diamond:mstats.diamond });
-    if(done){
-      if(deckIdx >= deck.length-1){ if(left>1) startNewDeck(); }
-      else { deckIdx++; emitQuest(); }
+    return { good, scoreDelta: delta };
+  }
+
+  // onExpire: ขยะหมดอายุ = “หลีกขยะ” → deck.stats.junkMiss++ (ไม่รีเซ็ต noMiss)
+  function onExpire(ev){
+    if (!ev || ev.isGood) return;
+    deck.stats.junkMiss = (deck.stats.junkMiss||0)+1;
+    questHUDUpdate(deck);
+  }
+
+  // ฟังผลจาก HUD score/time เพื่อ sync deck
+  window.addEventListener('hha:score', (e)=>{
+    if(!e||!e.detail) return;
+    score = e.detail.score||0;
+    combo = e.detail.combo||0;
+    deck.updateScore(score);
+    deck.updateCombo(combo);
+    questHUDUpdate(deck);
+  });
+  window.addEventListener('hha:miss',  ()=>{ misses++; /* noMiss ภายใน deck ถูกนับที่ second() */ });
+
+  // เอฟเฟกต์ตอนคลิกเป้า (ฝั่ง DOM factory จะยิงคลิก element มาให้; เราเพิ่มเอฟเฟกต์ด้วยการฟังทั้งคลิก)
+  document.body.addEventListener('click', (ev)=>{
+    const t = ev.target;
+    if (!t || !t.classList || !t.classList.contains('hha-tgt')) return;
+    const ch = t.textContent||'';
+    const pt = screenPt(ev);
+    if (GOOD.includes(ch)){
+      burstAtScreen(pt.x, pt.y, {color:'#22c55e', count:16});
+      floatScoreScreen(pt.x, pt.y, '+'+(20 + Math.min(40, Math.max(0, combo-1)*2)));
+      deck.onGood(); deck.updateScore(score); deck.updateCombo(combo+1);
+    } else if (JUNK.includes(ch)){
+      burstAtScreen(pt.x, pt.y, {color:'#ef4444', count:12});
+      floatScoreScreen(pt.x, pt.y, '-15', '#ffb4b4');
+      // คลิกโดนขยะ = พลาด → ให้รีเซ็ตนับ no-miss ภายใน second() โดยไม่ต้องแก้ตรงนี้
+      deck.updateScore(score); deck.updateCombo(0);
     }
-  }
+    questHUDUpdate(deck);
+  }, {passive:true});
 
-  // HUD
-  function emitQuest(){
-    const q=deck[deckIdx];
-    const title = q ? `Quest ${deckIdx+1}/3 — ${q.label}` : 'Mini Quest — กำลังเริ่ม…';
-    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:title}}));
-    const prog = q?.prog ? q.prog({ score:mstats.score, goodCount:mstats.good, junkMiss:mstats.junk,
-      comboMax:mstats.comboMax, noMissTime:mstats.noMiss, star:mstats.star, diamond:mstats.diamond }) : 0;
-    const tgt  = q?.target ?? 0;
-    window.dispatchEvent(new CustomEvent('hha:quest-progress',{detail:{
-      round:deckRound, index:deckIdx, cur:prog, tgt, label:q?.label||''
-    }}));
-  }
+  // สรุปตอนจบ
+  const endOnce = (e)=>{
+    try { clearInterval(secTick); } catch {}
+    const prog = deck.getProgress();
+    const cleared = prog.filter(p=>p.done).length;
+    const detail = e && e.detail ? e.detail : {};
+    // ส่งซ้ำ event เดิมพร้อม quest
+    window.dispatchEvent(new CustomEvent('hha:end', {
+      detail:{
+        ...detail,
+        mode:'Good vs Junk',
+        difficulty:diff,
+        score, comboMax:combo, misses,
+        duration:dur,
+        questsCleared: cleared, questsTotal: 3
+      }
+    }));
+    questHUDDispose();
+    window.removeEventListener('hha:end', endOnce);
+  };
+  window.addEventListener('hha:end', endOnce, {once:true});
 
-  // state
-  let running=true, score=0, combo=0, misses=0, hits=0, left=dur;
-  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); emitQuest();
+  // เริ่มเกมผ่าน DOM factory
+  const ctrl = await domBoot({
+    host: cfg.host,
+    difficulty: diff,
+    duration: dur,
+    goodRate,
+    pools: { good: GOOD, bad: JUNK },
+    judge,
+    onExpire
+  });
 
-  function fireScore(delta, good){
-    if(good){ combo++; mstats.comboMax=Math.max(mstats.comboMax,combo); }
-    else { combo=0; mstats.noMiss=0; }
-    score = Math.max(0, score+delta);
-    mstats.score = Math.max(mstats.score, score);
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
-  }
-
-  // spawn
-  let spawnTimer=0, timeTimer=0, watchdog=0;
-  function vw(){ return Math.max(320,window.innerWidth||320); }
-  function vh(){ return Math.max(320,window.innerHeight||320); }
-  function plan(){ spawnTimer=setTimeout(spawnOne, Math.floor(spawnMin+Math.random()*(spawnMax-spawnMin))); }
-  function spawnOne(forceCenter){
-    if(!running) return;
-    // choose
-    const r = Math.random(); let ch, type='normal';
-    if(r<0.05){ ch=STAR; type='star'; }
-    else if(r<0.08){ ch=DIA; type='diamond'; }
-    else { const good = Math.random()<goodRate; ch = (good?GOOD:BAD)[(Math.random()* (good?GOOD:BAD).length)|0]; type = good?'good':'bad'; }
-
-    const el=document.createElement('div'); el.className='hha-tgt'; el.textContent=ch;
-    const x = forceCenter ? vw()/2 : Math.floor(vw()*0.14 + Math.random()*vw()*0.72);
-    const y = forceCenter ? vh()/2 : Math.floor(vh()*0.22 + Math.random()*vh()*0.58);
-    Object.assign(el.style,{left:x+'px', top:y+'px'});
-    layer.appendChild(el);
-
-    const ttl=setTimeout(()=>{ if(!el.parentNode) return; layer.removeChild(el); combo=0; misses++; mstats.junk++; advanceMiniIfDone(); }, life);
-
-    function hit(ev){
-      ev?.preventDefault?.(); clearTimeout(ttl);
-      try{ layer.removeChild(el);}catch{}
-      if(type==='good'){ hits++; mstats.good++; fireScore(22+combo*2, true); }
-      else if(type==='bad'){ mstats.junk++; fireScore(-18, false); }
-      else if(type==='star'){ mstats.star++; fireScore(40,true); }
-      else if(type==='diamond'){ mstats.diamond++; fireScore(80,true); }
-      advanceMiniIfDone(); plan();
-    }
-    el.addEventListener('click', hit, {passive:false});
-    el.addEventListener('touchstart', hit, {passive:false});
-  }
-
-  function startTimers(){
-    timeTimer = setInterval(()=>{ if(!running) return; left=Math.max(0,left-1);
-      window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}}));
-      mstats.noMiss = Math.min(999, mstats.noMiss+1); emitQuest();
-      if(left<=0) end();
-    },1000);
-    spawnOne(true); plan();
-    watchdog=setInterval(()=>{ if(!running) return;
-      if(layer.querySelectorAll('.hha-tgt').length===0) spawnOne(true);
-    },2000);
-  }
-
-  function end(){
-    if(!running) return; running=false;
-    clearInterval(timeTimer); clearInterval(watchdog); clearTimeout(spawnTimer);
-    layer.querySelectorAll('.hha-tgt').forEach(n=>n.remove());
-    const clearedInThisSet = deckIdx + ((deck[deckIdx] && deck[deckIdx].check({
-      score:mstats.score, goodCount:mstats.good, junkMiss:mstats.junk,
-      comboMax:mstats.comboMax, noMissTime:mstats.noMiss, star:mstats.star, diamond:mstats.diamond
-    })) ? 1 : 0);
-    const miniClearedTotal = (deckRound-1)*3 + Math.min(3, clearedInThisSet);
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
-      mode:MODE_KEY, difficulty:diff, score, combo, misses, hits, duration:dur,
-      miniQuestCleared: miniClearedTotal, miniQuestRounds: deckRound
-    }}));
-    setTimeout(()=>layer.remove(),0);
-  }
-
-  startTimers();
-  return { stop:end, pause(){running=false;}, resume(){ if(!running){ running=true; startTimers(); } } };
+  return {
+    stop(){ try{ ctrl.stop(); }catch{} questHUDDispose(); },
+    pause(){ try{ ctrl.pause(); }catch{} },
+    resume(){ try{ ctrl.resume(); }catch{} }
+  };
 }
 export default { boot };
