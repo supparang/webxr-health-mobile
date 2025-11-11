@@ -1,153 +1,86 @@
-// DOM version — Good vs Junk
-import factoryBoot from '../vr/mode-factory.js';
-import { MissionDeck } from '../vr/mission.js';
-import { questHUDInit, questHUDUpdate } from '../vr/quest-hud.js';
-import { burstAtScreen, floatScoreScreen } from '../vr/ui-water.js'; // ใช้เอฟเฟกต์จอ
+// === /HeroHealth/modes/goodjunk.safe.js (fever + fx) ===
+import { boot as factoryBoot } from '../vr/mode-factory.js';
+import { floatScoreScreen, burstAtScreen } from '../vr/ui-water.js';
+import { ensureFeverGauge, setFeverGauge, setFlame, feverBurstScreen, destroyFeverGauge } from '../vr/ui-fever.js';
 
 export async function boot(cfg = {}) {
-  const dur = Number(cfg.duration || 60);
-  const diff = String(cfg.difficulty || 'normal');
+  const diff = String(cfg.difficulty||'normal');
+  const dur  = Number(cfg.duration||60);
 
-  // Pools (รวมพาวเวอร์ไว้ใน good ให้สุ่มแทรก)
+  // pools
   const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐','⭐','💎','🛡️'];
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
 
-  // State
-  let score = 0, combo = 0, shield = 0;
-  let goodCount = 0, avoidJunk = 0, hits = 0, misses = 0;
-  let leftSec = dur;
-
-  // Goal (โหมดนี้: เก็บของดี 30 + หลีกขยะ 10)
-  const goal = { label: 'เก็บของดี 30 + หลีกขยะ 10', prog: 0, target: 40, cleared: false };
-  function updateGoal() {
-    goal.prog = Math.min(goal.target, goodCount + avoidJunk);
-    goal.cleared = goal.prog >= goal.target;
-  }
-
-  // Mini quest deck
-  const deck = new MissionDeck();
-  deck.draw3();
-  questHUDInit();
-  function pushHUD(hint) {
-    questHUDUpdate(deck, hint || '');
-    updateGoal();
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: {
-        text: `Mini Quest — ${deck.getCurrent()?.label || 'กำลังสุ่ม…'}`,
-        goal: { label: goal.label, prog: goal.prog, target: goal.target },
-        mini: { label: deck.getCurrent()?.label || '-', prog: deck.getProgress()[deck.currentIndex]?.prog || 0, target: deck.getProgress()[deck.currentIndex]?.target || 1 }
-      }
-    }));
-  }
-  pushHUD('เริ่มภารกิจ');
-
-  // จับเวลาที่เหลือ
-  window.addEventListener('hha:time', e => { if (Number.isFinite(e?.detail?.sec)) leftSec = e.detail.sec; });
-
-  // Auto-refill Mini quests เมื่อครบ 3 ใบแล้ว ยังมีเวลา
-  function maybeRefillDeck() {
-    if (deck.isCleared() && leftSec > 5) {
-      deck.draw3();
-      pushHUD('เควสต์ใหม่มาแล้ว!');
+  // fever state
+  ensureFeverGauge();
+  let fever=0, feverActive=false, feverTimer=0;
+  function addFever(d){
+    fever = Math.max(0, Math.min(100, fever + d));
+    setFeverGauge(fever);
+    if(!feverActive && fever>=100){
+      feverActive = true; setFlame(true); feverBurstScreen(); setFeverGauge(100);
+      feverTimer = setTimeout(()=>{ feverActive=false; setFlame(false); fever=0; setFeverGauge(0); }, 5000);
     }
   }
 
-  // เอฟเฟกต์ช่วย
-  function fxHit(x, y, good, txt) {
-    burstAtScreen(x, y, { color: good ? '#22c55e' : '#ef4444', count: good ? 18 : 12 });
-    floatScoreScreen(x, y, txt || (good ? '+10' : '-10'), good ? '#d1fae5' : '#fecaca');
+  // score formula
+  function valueForGood(combo){
+    const base = 20 + combo*2;
+    return Math.round(base * (feverActive ? 1.5 : 1));
   }
 
-  // พาวเวอร์
-  function firePower(kind) {
-    window.dispatchEvent(new CustomEvent('hha:power', { detail: { kind } }));
-  }
-
-  // Judge
-  function judgeChar(ch, ctx) {
-    const isPower = (ch === '⭐' || ch === '💎' || ch === '🛡️');
-    if (isPower) {
-      if (ch === '⭐')  { firePower('star');  score += 40; hits++; fxHit(ctx.x, ctx.y, true, '+40 ⭐'); }
-      if (ch === '💎')  { firePower('diamond'); score += 80; hits++; fxHit(ctx.x, ctx.y, true, '+80 💎'); }
-      if (ch === '🛡️') { firePower('shield'); shield = Math.min(3, shield + 1); fxHit(ctx.x, ctx.y, true, '🛡️+1'); }
-      combo = Math.min(9999, combo + 1);
-      deck.updateScore(score); deck.updateCombo(combo); pushHUD(); maybeRefillDeck();
-      return { good: true, scoreDelta: 0 };
+  // handle hits (from factory)
+  function onHitScreen(e){
+    const d=e.detail||{}; const x=d.x,y=d.y;
+    if(d.char==='⭐'){ burstAtScreen(x,y,{color:'#fde047',count:20}); floatScoreScreen(x,y,'+40 ⭐','#fde047'); addFever(+8); return; }
+    if(d.char==='💎'){ burstAtScreen(x,y,{color:'#a78bfa',count:22}); floatScoreScreen(x,y,'+80 💎','#a78bfa'); addFever(+8); return; }
+    if(d.char==='🛡️'){ burstAtScreen(x,y,{color:'#60a5fa',count:18}); floatScoreScreen(x,y,'🛡️+1','#93c5fd'); addFever(+6); return; }
+    if(d.good){ burstAtScreen(x,y,{color:'#22c55e',count:16}); addFever(+5); }
+    else{ burstAtScreen(x,y,{color:'#ef4444',count:14}); addFever(-12); }
+    // คะแนนแสดงโดย factory ผ่าน hha:score แล้ว เราซ้ำด้วยตัวเลขสั้นๆ
+    if(typeof d.delta==='number'){
+      floatScoreScreen(x,y,(d.delta>0?'+':'')+d.delta, d.delta>0?'#22c55e':'#ef4444');
     }
+  }
+  window.addEventListener('hha:hit-screen', onHitScreen);
 
-    if (ctx.isGood) {
-      const val = 20 + combo * 2;
-      score += val; combo++; hits++; goodCount++;
-      deck.onGood(); deck.updateScore(score); deck.updateCombo(combo);
-      fxHit(ctx.x, ctx.y, true, `+${val}`);
-      pushHUD(); maybeRefillDeck();
-      return { good: true, scoreDelta: val };
+  // judge: ตัดสินคะแนน/พฤติกรรมตามตัวอักษรที่กด
+  let comboLocal = 0; // เฉพาะใช้คำนวณค่าคลิกครั้งถัดไป
+  function judge(ch, ctx){
+    // powerups
+    if(ch==='⭐') { comboLocal = Math.max(comboLocal, ctx.combo||0); return { good:true, scoreDelta:40 }; }
+    if(ch==='💎'){ comboLocal = Math.max(comboLocal, ctx.combo||0); return { good:true, scoreDelta:80 }; }
+    if(ch==='🛡️'){ return { good:true, scoreDelta:0 }; } // (ให้เอาไปใช้เองได้ถ้าจะเพิ่มโล่จริง)
+
+    const isGood = GOOD.includes(ch);
+    if(isGood){
+      const val = valueForGood(ctx.combo||0);
+      comboLocal = (ctx.combo||0)+1;
+      return { good:true, scoreDelta:val };
     } else {
-      if (shield > 0) {
-        shield--; fxHit(ctx.x, ctx.y, true, 'Shield!');
-        deck.updateScore(score); deck.updateCombo(combo); pushHUD();
-        return { good: true, scoreDelta: 0 };
-      } else {
-        combo = 0; score = Math.max(0, score - 15); misses++;
-        fxHit(ctx.x, ctx.y, false, '-15');
-        deck.updateScore(score); deck.updateCombo(combo); pushHUD();
-        return { good: false, scoreDelta: -15 };
-      }
+      comboLocal = 0;
+      return { good:false, scoreDelta:-15 };
     }
   }
 
-  // Hook จากโรงงาน (ตีโดน)
-  window.addEventListener('hha:hit-screen', e => {
-    const d = e.detail || {};
-    // เติมพิกัดให้ judge ใช้เอฟเฟกต์
-    const res = judgeChar(d.char, { isGood: d.isGood, x: d.x, y: d.y });
-    // สะท้อนคะแนนขึ้น HUD กลาง
-    window.dispatchEvent(new CustomEvent('hha:score', { detail: { score, combo } }));
-  });
-
-  // หมดอายุ (หลบขยะ)
-  window.addEventListener('hha:expired', e => {
-    const d = e.detail || {};
-    if (d && d.isGood === false) {
-      avoidJunk++; deck.onJunk(); pushHUD(); maybeRefillDeck();
+  // boot
+  const api = await factoryBoot({
+    host: cfg.host, difficulty: diff, duration: dur,
+    pools: { good: GOOD, bad: JUNK }, goodRate: 0.66,
+    judge,
+    onExpire: ev => { // junk ที่หมดอายุ = หลีกขยะ (นับ quest ฝั่งคุณที่ listen 'hha:expired' ได้)
+      // ลดคะแนน/เพิ่มก็แล้วแต่ดีไซน์ ที่นี่ไม่ทำอะไร แค่ปล่อยอีเวนต์จาก factory อยู่แล้ว
+      addFever(+2);
     }
   });
 
-  // เดินเวลา (อัปเดต noMissTime และเช็คเติมเด็ค)
-  const secTimer = setInterval(() => {
-    deck.second(); pushHUD(); maybeRefillDeck();
-    if (leftSec <= 0) clearInterval(secTimer);
-  }, 1000);
+  // cleanup
+  window.addEventListener('hha:end', ()=>{
+    try{ clearTimeout(feverTimer); }catch{}
+    setFlame(false); destroyFeverGauge();
+    window.removeEventListener('hha:hit-screen', onHitScreen);
+  }, { once:true });
 
-  // จบเกม → สรุป
-  window.addEventListener('hha:end', () => {
-    updateGoal();
-    const cleared = deck.isCleared() ? 3 : deck.getProgress().filter(x => x.done).length;
-    window.dispatchEvent(new CustomEvent('hha:end', {
-      detail: {
-        mode: 'Good vs Junk',
-        difficulty: diff,
-        score,
-        comboMax: deck.stats.comboMax,
-        misses,
-        hits,
-        duration: dur,
-        questsCleared: cleared,
-        questsTotal: 3,
-        goalCleared: goal.cleared
-      }
-    }));
-  }, { once: true });
-
-  // เริ่ม!
-  return factoryBoot.boot({
-    host: cfg.host,
-    difficulty: diff,
-    duration: dur,
-    pools: { good: GOOD, bad: JUNK },
-    goodRate: (diff === 'easy' ? 0.77 : diff === 'hard' ? 0.62 : 0.7),
-    judge: (ch, ctx) => judgeChar(ch, { ...ctx, x: window.innerWidth/2, y: window.innerHeight/2 }), // fallback พิกัดกลาง
-    onExpire: (info) => { /* ซ้ำกับ hha:expired แล้ว ไม่ต้องทำอะไรเพิ่ม */ }
-  });
+  return api;
 }
 export default { boot };
