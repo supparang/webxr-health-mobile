@@ -32,7 +32,8 @@ export async function boot(cfg = {}) {
 
   function judge(ch, ctx){
     // Power-ups
-    if (ch===STAR){ const d=40*mult(); score+=d; gainFever(10); Particles.burstShards(null,{x:ctx.cx,y:ctx.cy,z:0},{theme:'goodjunk'}); return {good:true, scoreDelta:d}; }
+    if (ch===STAR){ const d=40*mult(); score+=d; gainFever(10); Particles.burstShards(null, null, { screen:{ x:ctx.cx, y:ctx.cy }, theme:'goodjunk' });
+    return {good:true, scoreDelta:d}; }
     if (ch===DIA){  const d=80*mult(); score+=d; gainFever(30); Particles.burstShards(null,{x:ctx.cx,y:ctx.cy,z:0},{theme:'groups'});   return {good:true, scoreDelta:d}; }
     if (ch===SHIELD){ shield=Math.min(3, shield+1); setShield(shield); score+=20; return {good:true, scoreDelta:20}; }
 
@@ -43,7 +44,7 @@ export async function boot(cfg = {}) {
       score += delta; combo += 1;
       gainFever(8 + combo*0.6);
       deck.onGood(); deck.updateCombo(combo); deck.updateScore(score);
-      Particles.burstShards(null,{x:ctx.cx,y:ctx.cy,z:0},{theme:'goodjunk'});
+      Particles.burstShards(null, null, { screen:{ x:ctx.cx, y:ctx.cy }, theme:'goodjunk' });
       return { good:true, scoreDelta: delta };
     } else {
       // Junk →
