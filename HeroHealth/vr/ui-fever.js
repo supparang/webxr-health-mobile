@@ -1,82 +1,80 @@
-// === /HeroHealth/vr/ui-fever.js (fixed with setFlame) ===
-export function ensureFeverGauge() {
-  destroyFeverGauge();
+// === /HeroHealth/vr/ui-fever.js (2025-11-10) ===
+// HUD: Fever bar + Shield badge + Glow flame
+
+function $(s){ return document.querySelector(s); }
+
+export function ensureFeverBar(){
+  if ($('#feverWrap')) return $('#feverWrap');
+
   const wrap = document.createElement('div');
   wrap.id = 'feverWrap';
-  wrap.setAttribute('data-hha-ui','');
-  Object.assign(wrap.style,{
-    position:'fixed',left:'50%',top:'12px',transform:'translateX(-50%)',
-    width:'min(520px,86vw)',zIndex:'910',color:'#fefce8',
-    background:'#0f172acc',border:'1px solid #f59e0b66',borderRadius:'12px',
-    padding:'8px 12px',backdropFilter:'blur(6px)',fontWeight:'800',pointerEvents:'none'
+  Object.assign(wrap.style, {
+    position:'fixed', left:'50%', top:'56px', transform:'translateX(-50%)',
+    width:'min(540px,86vw)', height:'12px', background:'#0b1222',
+    border:'1px solid #334155', borderRadius:'999px', overflow:'hidden',
+    zIndex:'910'
   });
-  wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <span>🔥 Fever</span><span id="feverLbl">Inactive</span>
-    </div>
-    <div style="height:12px;margin-top:6px;background:#0b1222;border:1px solid #f59e0b33;border-radius:999px;overflow:hidden">
-      <div id="feverFill" style="height:100%;width:0;background:linear-gradient(90deg,#fcd34d,#f59e0b)"></div>
-    </div>`;
+  const fill = document.createElement('div');
+  fill.id = 'feverFill';
+  Object.assign(fill.style, {
+    height:'100%', width:'0%',
+    transition:'width .15s ease-out',
+    background:'linear-gradient(90deg,#37d67a,#06d6a0)'
+  });
+  wrap.appendChild(fill);
   document.body.appendChild(wrap);
 
-  // 🔥 flame overlay (ไฟลุก)
-  const flame = document.createElement('div');
-  flame.id = 'feverFlame';
-  Object.assign(flame.style,{
-    position:'fixed',inset:'0',pointerEvents:'none',zIndex:905,display:'none',
-    background:'radial-gradient(1200px 600px at 50% 110%, rgba(245,158,11,.28), rgba(239,68,68,.22) 40%, transparent 70%)'
-  });
-  const style = document.createElement('style');
-  style.textContent = `
-    @keyframes flamePulse{0%{filter:brightness(1)}50%{filter:brightness(1.25)}100%{filter:brightness(1)}}
-    #feverFlame{animation:flamePulse 1.1s ease-in-out infinite;}
-  `;
-  document.head.appendChild(style);
-  document.body.appendChild(flame);
-}
-
-export function destroyFeverGauge(){
-  ['feverWrap','feverFlame'].forEach(id=>{
-    const el=document.getElementById(id); if(el) try{el.remove();}catch{}
-  });
-}
-
-export function setFeverGauge(val){
-  const f=document.getElementById('feverFill'),
-        l=document.getElementById('feverLbl');
-  if(!f||!l) return;
-  const pct=Math.max(0,Math.min(100,Math.round(val)));
-  f.style.width=pct+'%';
-  let zone='Inactive';
-  if(pct>0 && pct<100) zone='Charging';
-  if(pct>=100) zone='🔥 Active!';
-  l.textContent=zone;
-  f.style.background=(zone==='🔥 Active!')
-    ? 'linear-gradient(90deg,#f59e0b,#ef4444)'
-    : 'linear-gradient(90deg,#fcd34d,#f59e0b)';
-}
-
-// ✅ ฟังก์ชันที่หายไป
-export function setFlame(on){
-  const el=document.getElementById('feverFlame'); if(!el) return;
-  el.style.display = on ? 'block' : 'none';
-}
-
-export function feverBurstScreen(){
-  for(let i=0;i<26;i++){
-    const p=document.createElement('div');
-    Object.assign(p.style,{
-      position:'fixed',left:'50%',top:'60px',width:'6px',height:'6px',borderRadius:'999px',
-      background:(Math.random()<.5?'#f59e0b':'#ef4444'),opacity:'0.95',zIndex:999,
-      transform:'translate(-50%,-50%)',transition:'all .8s ease',pointerEvents:'none'
+  // Shield badge
+  if (!$('#shieldChip')){
+    const chip = document.createElement('div');
+    chip.id = 'shieldChip';
+    chip.textContent = '🛡️ x0';
+    Object.assign(chip.style, {
+      position:'fixed', right:'16px', top:'16px',
+      background:'#0f172acc', border:'1px solid #334155',
+      borderRadius:'12px', padding:'8px 12px', fontWeight:'800',
+      color:'#e8eefc', zIndex:'910'
     });
-    document.body.appendChild(p);
-    const ang=Math.random()*Math.PI*2, r=80+Math.random()*180;
-    const tx=window.innerWidth/2 + Math.cos(ang)*r;
-    const ty=60 + Math.sin(ang)*r;
-    setTimeout(()=>{ p.style.left=tx+'px'; p.style.top=ty+'px'; p.style.opacity='0'; },20);
-    setTimeout(()=>{ try{p.remove();}catch{} },820);
+    document.body.appendChild(chip);
+  }
+  return wrap;
+}
+
+export function setFever(pct){
+  ensureFeverBar();
+  const p = Math.max(0, Math.min(100, Math.round(pct||0)));
+  const fill = $('#feverFill'); if (fill) fill.style.width = p + '%';
+}
+
+export function setShield(n){
+  ensureFeverBar();
+  const chip = $('#shieldChip'); if (!chip) return;
+  chip.textContent = '🛡️ x' + (n|0);
+  chip.style.opacity = n>0 ? '1' : '.55';
+}
+
+export function setFeverActive(on){
+  ensureFeverBar();
+  const scorePill = $('#score');
+  const wrap = $('#feverWrap');
+  if (on){
+    if (wrap) wrap.classList.add('fever-on');
+    if (scorePill) scorePill.classList.add('fever-on');
+  }else{
+    if (wrap) wrap.classList.remove('fever-on');
+    if (scorePill) scorePill.classList.remove('fever-on');
   }
 }
+export const setFlame = setFeverActive; // alias
 
-export default { ensureFeverGauge, destroyFeverGauge, setFeverGauge, setFlame, feverBurstScreen };
+// Minimal CSS glow (inject once)
+(function(){
+  if (document.getElementById('fever-css')) return;
+  const st = document.createElement('style');
+  st.id = 'fever-css';
+  st.textContent = `
+    .fever-on{ box-shadow:0 0 0 3px #ffd16655, 0 0 18px #ffd166aa; }
+  `;
+  document.head.appendChild(st);
+})();
+export default { ensureFeverBar, setFever, setFeverActive, setFlame, setShield };
