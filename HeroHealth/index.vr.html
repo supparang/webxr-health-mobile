@@ -1,163 +1,138 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Hero Health Academy — VR</title>
-
-  <link rel="icon" href="./favicon.ico" type="image/x-icon"/>
-
-  <!-- A-Frame + Troika -->
-  <script src="https://unpkg.com/aframe@1.5.0/dist/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-troika-text@0.12.0/dist/aframe-troika-text.min.js"></script>
-
-  <style>
-    :root{ --bg:#0b1324; --fg:#e8eefc; --chip:#0f172a99; --acc:#22c55e; }
-    html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;overflow:hidden;}
-    a-scene{width:100%;height:100%;}
-    .hud-chip{position:fixed;z-index:900;background:var(--chip);border:1px solid #475569;
-      padding:8px 12px;border-radius:12px;backdrop-filter:blur(6px);font-weight:700}
-    #badgeTime{left:12px;top:12px}
-    #badgeScore{left:50%;top:12px;transform:translateX(-50%)}
-    #badgeQuest{right:12px;top:12px}
-    #badgeMiss{right:12px;top:64px;display:none}
-    #feverWrap{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;
-      width:min(540px,86vw);height:12px;background:#0f172a;border:1px solid #334155;border-radius:999px;overflow:hidden}
-    #feverFill{height:100%;width:0%;background:linear-gradient(90deg,#37d67a,#06d6a0);transition:width .15s}
-    .menu-wrap{position:fixed;left:50%;top:22%;transform:translateX(-50%);width:min(1080px,86vw);
-      padding:24px;border-radius:18px;background:linear-gradient(#1f2b40,#22314b);border:1px solid #384861;z-index:800;box-shadow:0 20px 50px #0008}
-    .menu-inner{margin:0 auto;max-width:min(920px,88vw);text-align:center;padding:24px;border-radius:16px;background:#6ea8ff2e;border:1px solid #5c7fae66}
-    h1{margin:8px 0 24px;font-size:clamp(22px,3.6vw,42px);text-align:center}
-    .row{margin:14px 0;display:flex;gap:12px;justify-content:center;align-items:center}
-    select,button{font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #475569;color:#fff;background:#0b1222;outline:0}
-    button.primary{background:var(--acc);color:#052e12;border-color:#16a34a;font-weight:800}
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+<title>Hero Health (VR-lite)</title>
+<style>
+  :root{--bg:#0b1220;--card:#111827e6;--line:#334155;--ink:#e6edf7;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Arial;}
+  .hud{position:fixed;left:0;right:0;top:0;display:flex;gap:10px;justify-content:space-between;padding:14px;}
+  .pill{background:#0f172acc;border:1px solid var(--line);padding:10px 14px;border-radius:14px;font-weight:800;}
+  #goalPanel{position:fixed;left:10px;right:10px;bottom:64px;background:#0f172ab3;border:1px solid var(--line);border-radius:16px;padding:12px;}
+  .bar{height:12px;background:#0b1222;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#93c5fd)}
+  #waterWrap{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;width:min(560px,92vw);z-index:5;
+             background:#0f172acc;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-weight:800;display:none}
+</style>
 </head>
 <body>
 
-  <!-- HUD -->
-  <div id="badgeTime"  class="hud-chip">เวลา: 60s</div>
-  <div id="badgeScore" class="hud-chip">คะแนน: 0 | คอมโบ: x0</div>
-  <div id="badgeQuest" class="hud-chip">Mini Quest — เตรียมเริ่ม</div>
-  <div id="badgeMiss"  class="hud-chip">พลาด: 0 ครั้ง</div>
-  <div id="feverWrap"><div id="feverFill"></div></div>
+<div class="hud">
+  <div id="time"  class="pill">เวลา: 60s</div>
+  <div id="score" class="pill">คะแนน: 0 | คอมโบ: x0</div>
+  <div id="quest" class="pill">Mini Quest — กำลังเริ่ม…</div>
+</div>
 
-  <!-- เมนู -->
-  <div id="menu" class="menu-wrap">
-    <h1>เริ่ม: HERO HEALTH ACADEMY</h1>
-    <div class="menu-inner">
-      <div class="row">
-        <label for="modeSel">เลือกโหมด:</label>
-        <select id="modeSel">
-          <option value="goodjunk">Good vs Junk</option>
-          <option value="groups">Food Groups</option>
-          <option value="hydration" selected>Hydration</option>
-          <option value="plate">Healthy Plate</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="diffSel">ระดับ:</label>
-        <select id="diffSel">
-          <option value="easy">ง่าย (90s)</option>
-          <option value="normal" selected>ปกติ (60s)</option>
-          <option value="hard">ยาก (45s)</option>
-        </select>
-      </div>
-      <div class="row">
-        <button id="startBtn" class="primary">เริ่มเกม</button>
-      </div>
-    </div>
+<!-- แผง Goal + Mini Quest (แสดงทีละใบ) -->
+<div id="goalPanel" aria-live="polite">
+  <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+    <div id="goalTitle" style="font-weight:900">เป้า: —</div>
+    <div id="modeBadge" style="opacity:.8"></div>
   </div>
+  <div class="bar" style="margin-top:8px"><div id="goalFill" class="fill"></div></div>
+  <div id="miniOne" style="margin-top:10px;font-weight:800">Quest 1/3 — …</div>
+  <div class="bar" style="margin-top:6px"><div id="miniFill" class="fill" style="background:linear-gradient(90deg,#60a5fa,#a78bfa)"></div></div>
+</div>
 
-  <!-- A-Frame Scene -->
-  <a-scene id="scene" background="color:#0b1324">
-    <a-entity id="cam" camera look-controls cursor="rayOrigin: mouse; fuse: false"
-              raycaster="objects:.clickable; far:6" position="0 1.6 0"></a-entity>
-    <a-entity id="spawnHost" position="0 1.0 -1.6"></a-entity>
-    <a-sky color="#0b1324"></a-sky>
-  </a-scene>
+<!-- Water Gauge (เฉพาะ Hydration) -->
+<div id="waterWrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <span>Water</span><span id="waterLbl">Balanced</span>
+  </div>
+  <div class="bar"><div id="waterFill" class="fill" style="background:linear-gradient(90deg,#22c55e,#93c5fd)"></div></div>
+</div>
 
-  <script>
-    // HUD events
-    (function(){
-      const $=s=>document.querySelector(s);
-      window.addEventListener('hha:score',e=>{
-        const d=e.detail||{};$('#badgeScore').textContent=`คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
-      });
-      window.addEventListener('hha:time',e=>{
-        const t=Math.max(0,Math.round(e.detail?.sec||0));$('#badgeTime').textContent='เวลา: '+t+'s';
-      });
-      window.addEventListener('hha:quest',e=>{ $('#badgeQuest').textContent=e.detail?.text||'Mini Quest'; });
-      window.addEventListener('hha:miss',e=>{
-        const el=$('#badgeMiss'); el.style.display='';
-        const n=(parseInt(el.dataset.n||'0',10)+1); el.dataset.n=n; el.textContent='พลาด: '+n+' ครั้ง';
-      });
-    })();
-  </script>
+<script type="module">
+  // ===== Helper: รับโหมดจาก query =====
+  const Q = new URLSearchParams(location.search);
+  const mode = (Q.get('mode')||'goodjunk').toLowerCase();
+  const diff = (Q.get('difficulty')||'normal').toLowerCase();
+  const duration = Number(Q.get('dur')||60);
+  const v = '20251107g'; // cache-buster
 
-  <!-- Loader with robust boot() detection -->
-  <script>
-    (function(){
-      const q = (k)=> new URLSearchParams(location.search).get(k);
-      const DEBUG = q('debug')==='1' || q('debug')==='true';
-      const MAP={
-        goodjunk :'./modes/goodjunk.safe.js',
-        groups   :'./modes/groups.safe.js',
-        hydration:'./modes/hydration.quest.js',
-        plate    :'./modes/plate.quest.js'
-      };
-      const withStamp=url=>url+(url.includes('?')?'&':'?')+'v='+Date.now();
-      let current=null;
-      function cleanup(){
-        try{window.dispatchEvent(new Event('hha:dispose-ui'));}catch{}
-        document.querySelectorAll('[data-hha-ui]').forEach(n=>n.remove());
-        const host=document.getElementById('spawnHost');
-        host && host.querySelectorAll('a-image,a-entity,div.hha-tgt').forEach(n=>n.remove());
-        document.body.classList.remove('fever-on');
-        const ff=document.getElementById('feverFill'); if(ff) ff.style.width='0%';
-      }
-      function dlog(...a){ if(DEBUG) console.log('[HHA]', ...a); }
+  // ===== HUD refs =====
+  const elTime   = document.getElementById('time');
+  const elScore  = document.getElementById('score');
+  const elQuest  = document.getElementById('quest');
+  const elGoalT  = document.getElementById('goalTitle');
+  const elGoalF  = document.getElementById('goalFill');
+  const elMini1  = document.getElementById('miniOne');
+  const elMiniF  = document.getElementById('miniFill');
+  const elMode   = document.getElementById('modeBadge');
+  const wWrap    = document.getElementById('waterWrap');
+  const wFill    = document.getElementById('waterFill');
+  const wLbl     = document.getElementById('waterLbl');
 
-      document.getElementById('startBtn').addEventListener('click', async ()=>{
-        const mode=document.getElementById('modeSel').value;
-        const diff=document.getElementById('diffSel').value;
+  elMode.textContent = `โหมด: ${diff}`;
 
-        // reset HUD
-        document.getElementById('badgeScore').textContent='คะแนน: 0 | คอมโบ: x0';
-        document.getElementById('badgeTime').textContent='เวลา: '+(diff==='easy'?90:diff==='hard'?45:60)+'s';
-        document.getElementById('badgeQuest').textContent='Mini Quest — กำลังเริ่ม…';
-        const missEl=document.getElementById('badgeMiss'); missEl.style.display='none'; missEl.dataset.n='0';
+  // ===== Event wiring from modes =====
+  window.addEventListener('hha:time', e=>{
+    const s = (e.detail?.sec ?? duration);
+    elTime.textContent = `เวลา: ${s}s`;
+  });
 
-        document.getElementById('menu').style.display='none';
-        try{current?.stop?.();}catch{}
-        cleanup();
+  window.addEventListener('hha:score', e=>{
+    const d = e.detail||{};
+    elScore.textContent = `คะแนน: ${d.score ?? 0} | คอมโบ: x${d.combo ?? 0}`;
+  });
 
-        const url=withStamp(MAP[mode]||MAP.goodjunk);
-        dlog('import', url);
-        try{
-          const mod = await import(url);
-          dlog('module keys', Object.keys(mod), 'default keys', mod?.default && Object.keys(mod.default));
+  // goal
+  window.addEventListener('hha:goal', e=>{
+    const d = e.detail||{};
+    elGoalT.textContent = d.label || 'เป้า: —';
+    const pct = Math.max(0, Math.min(100, Math.round((d.progress||0)/(d.target||1)*100)));
+    elGoalF.style.width = pct+'%';
+  });
 
-          let bootFn=null;
-          if (typeof mod?.boot==='function') bootFn=mod.boot;
-          else if (typeof mod?.default?.boot==='function') bootFn=mod.default.boot;
-          else if (typeof window.HHA_BOOT==='function') bootFn=window.HHA_BOOT;
+  // quest (ตัวเดียวต่อครั้ง)
+  window.addEventListener('hha:quest', e=>{
+    const d = e.detail||{};
+    if(d.text) elQuest.textContent = d.text;
+    if(d.label) elMini1.textContent = d.label;
+    if(d.prog!=null && d.target){
+      const pct = Math.max(0, Math.min(100, Math.round(d.prog/d.target*100)));
+      elMiniF.style.width = pct+'%';
+    }
+  });
 
-          if(!bootFn) throw new Error('โหมดนี้ไม่มีฟังก์ชัน boot()');
+  // hydration UI
+  window.addEventListener('hha:water-ui', e=>{
+    wWrap.style.display = e.detail?.show ? 'block' : 'none';
+  });
+  window.addEventListener('hha:water', e=>{
+    const v = Math.max(0, Math.min(100, Math.round(e.detail?.val||0)));
+    wFill.style.width = v+'%';
+    let zone='Low';
+    if(v>=40&&v<=70) zone='Balanced'; else if(v>70) zone='High';
+    wLbl.textContent = zone;
+    wFill.style.background = (zone==='Balanced')
+      ? 'linear-gradient(90deg,#22c55e,#93c5fd)'
+      : (zone==='High' ? 'linear-gradient(90deg,#06d6a0,#37d67a)'
+                       : 'linear-gradient(90deg,#f59e0b,#ef4444)');
+  });
 
-          current = await bootFn({ host:document.getElementById('spawnHost'), difficulty:diff });
-          window.addEventListener('blur',()=>current?.pause?.());
-          window.addEventListener('focus',()=>current?.resume?.());
-          dlog('boot ok');
-        }catch(err){
-          console.error(err);
-          alert('โหลดโหมดไม่สำเร็จ: ' + (err && err.message?err.message:err));
-          cleanup();
-          document.getElementById('menu').style.display='';
-        }
-      });
-    })();
-  </script>
+  // สรุปท้ายเกม (จากแต่ละโหมด)
+  window.addEventListener('hha:quest-summary', e=>{
+    const d = e.detail||{};
+    const txt =
+`สรุปโหมด: ${d.mode}
+คะแนนรวม: ${d.score}
+คอมโบสูงสุด: ${d.combo}
+Goal: ${d.goalDone?'✔️ สำเร็จ':'❌ ไม่สำเร็จ'}
+Mini Quest: ${d.questsCleared}/${d.questsTotal}`;
+    alert(txt);
+  });
+
+  // ===== โหลดโหมด =====
+  try{
+    const mod = await import(`./modes/${mode}.safe.js?v=${v}`);
+    if(!mod || typeof mod.boot!=='function') throw new Error('mod.boot is not a function');
+    await mod.boot({difficulty:diff, duration});
+  }catch(err){
+    alert('โหลดโหมดไม่สำเร็จ: '+ err.message);
+    console.error(err);
+  }
+</script>
 </body>
 </html>
