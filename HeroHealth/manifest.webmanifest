@@ -1,1 +1,54 @@
-{"name": "Hero Health VR — Nutrition Hub", "short_name": "HeroHealthVR", "start_url": "./index.vr.html", "display": "standalone", "background_color": "#0b1324", "theme_color": "#0b1324", "icons": []}
+{
+  "name": "Hero Health VR — Nutrition Hub",
+  "short_name": "HeroHealthVR",
+  "start_url": "./hub.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b1324",
+  "theme_color": "#0b1324",
+  "description": "VR Nutrition & Hygiene Learning Hub — รวม 4 เกมเสริมสุขภาพ (Good vs Junk, Hydration, Food Groups, Healthy Plate)",
+  "icons": [
+    {
+      "src": "./favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Good vs Junk",
+      "short_name": "Good vs Junk",
+      "url": "./index.vr.html?mode=goodjunk&diff=normal",
+      "icons": [{ "src": "./icons/goodjunk.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Hydration",
+      "short_name": "Hydration",
+      "url": "./index.vr.html?mode=hydration&diff=normal",
+      "icons": [{ "src": "./icons/hydration.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Food Groups",
+      "short_name": "Groups",
+      "url": "./index.vr.html?mode=groups&diff=normal",
+      "icons": [{ "src": "./icons/groups.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Healthy Plate",
+      "short_name": "Plate",
+      "url": "./index.vr.html?mode=plate&diff=normal",
+      "icons": [{ "src": "./icons/plate.png", "sizes": "192x192" }]
+    }
+  ]
+}
