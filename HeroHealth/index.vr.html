@@ -1,138 +1,156 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
-<title>Hero Health (VR-lite)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Hero Health</title>
 <style>
-  :root{--bg:#0b1220;--card:#111827e6;--line:#334155;--ink:#e6edf7;}
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Arial;}
-  .hud{position:fixed;left:0;right:0;top:0;display:flex;gap:10px;justify-content:space-between;padding:14px;}
-  .pill{background:#0f172acc;border:1px solid var(--line);padding:10px 14px;border-radius:14px;font-weight:800;}
-  #goalPanel{position:fixed;left:10px;right:10px;bottom:64px;background:#0f172ab3;border:1px solid var(--line);border-radius:16px;padding:12px;}
-  .bar{height:12px;background:#0b1222;border:1px solid var(--line);border-radius:999px;overflow:hidden}
-  .fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#93c5fd)}
-  #waterWrap{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;width:min(560px,92vw);z-index:5;
-             background:#0f172acc;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-weight:800;display:none}
+  :root{
+    --bg:#0b1220; --fg:#e6edf7; --mut:#9fb1c7;
+    --panel:#0f172acc; --border:#334155; --accent:#22c55e; --bar:#1e293b;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:600 16px system-ui}
+  .hud{position:fixed;left:0;right:0;top:0;display:flex;gap:10px;justify-content:center;padding:14px 10px;pointer-events:none}
+  .chip{pointer-events:auto;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:10px 14px;backdrop-filter:blur(6px)}
+  .chip b{font-weight:800}
+  .footer{position:fixed;left:0;right:0;bottom:14px;display:flex;justify-content:center}
+  .board{width:min(760px,92vw);background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 14px 16px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 10px}
+  .bar{height:12px;background:var(--bar);border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .fill{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#93c5fd)}
+  .mut{color:var(--mut)}
+  .sep{height:12px}
+  .hidden{display:none}
 </style>
 </head>
 <body>
 
+<!-- HUD ด้านบน -->
 <div class="hud">
-  <div id="time"  class="pill">เวลา: 60s</div>
-  <div id="score" class="pill">คะแนน: 0 | คอมโบ: x0</div>
-  <div id="quest" class="pill">Mini Quest — กำลังเริ่ม…</div>
+  <div class="chip" id="chipTime"><b>เวลา:</b> <span id="timeVal">60s</span></div>
+  <div class="chip"><b>คะแนน:</b> <span id="scoreVal">0</span> | <b>คอมโบ:</b> <span id="comboVal">x0</span></div>
+  <div class="chip" id="chipQuestTop"><span id="questTop">Mini Quest — กำลังเริ่ม…</span></div>
 </div>
 
-<!-- แผง Goal + Mini Quest (แสดงทีละใบ) -->
-<div id="goalPanel" aria-live="polite">
-  <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
-    <div id="goalTitle" style="font-weight:900">เป้า: —</div>
-    <div id="modeBadge" style="opacity:.8"></div>
-  </div>
-  <div class="bar" style="margin-top:8px"><div id="goalFill" class="fill"></div></div>
-  <div id="miniOne" style="margin-top:10px;font-weight:800">Quest 1/3 — …</div>
-  <div class="bar" style="margin-top:6px"><div id="miniFill" class="fill" style="background:linear-gradient(90deg,#60a5fa,#a78bfa)"></div></div>
-</div>
+<!-- กระดาน Goal + Mini quest -->
+<div class="footer">
+  <div class="board" id="panel">
+    <div class="row">
+      <div><b id="goalTitle">เป้า:</b> <span id="goalText" class="mut">—</span></div>
+      <div class="mut" id="modeLbl">โหมด: —</div>
+    </div>
+    <div class="bar"><div class="fill" id="goalFill"></div></div>
 
-<!-- Water Gauge (เฉพาะ Hydration) -->
-<div id="waterWrap">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <span>Water</span><span id="waterLbl">Balanced</span>
+    <div class="sep"></div>
+
+    <div class="row"><b id="miniTitle">Quest 1/3 —</b> <span id="miniProgText" class="mut"></span></div>
+    <div class="bar"><div class="fill" id="miniFill"></div></div>
   </div>
-  <div class="bar"><div id="waterFill" class="fill" style="background:linear-gradient(90deg,#22c55e,#93c5fd)"></div></div>
 </div>
 
 <script type="module">
-  // ===== Helper: รับโหมดจาก query =====
-  const Q = new URLSearchParams(location.search);
-  const mode = (Q.get('mode')||'goodjunk').toLowerCase();
-  const diff = (Q.get('difficulty')||'normal').toLowerCase();
-  const duration = Number(Q.get('dur')||60);
-  const v = '20251107g'; // cache-buster
+  // -------- Utils --------
+  const $ = s => document.querySelector(s);
+  const qs = new URLSearchParams(location.search);
+  const mode = (qs.get('mode') || 'goodjunk').toLowerCase();
+  const diff = (qs.get('difficulty') || 'normal').toLowerCase();
+  const dur  = Number(qs.get('dur') || qs.get('duration') || 60);
 
-  // ===== HUD refs =====
-  const elTime   = document.getElementById('time');
-  const elScore  = document.getElementById('score');
-  const elQuest  = document.getElementById('quest');
-  const elGoalT  = document.getElementById('goalTitle');
-  const elGoalF  = document.getElementById('goalFill');
-  const elMini1  = document.getElementById('miniOne');
-  const elMiniF  = document.getElementById('miniFill');
-  const elMode   = document.getElementById('modeBadge');
-  const wWrap    = document.getElementById('waterWrap');
-  const wFill    = document.getElementById('waterFill');
-  const wLbl     = document.getElementById('waterLbl');
+  $('#modeLbl').textContent = 'โหมด: ' + diff;
 
-  elMode.textContent = `โหมด: ${diff}`;
+  const MODS = {
+    goodjunk  : './modes/goodjunk.safe.js',
+    hydration : './modes/hydration.quest.js',
+    groups    : './modes/groups.safe.js',
+    plate     : './modes/plate.quest.js'
+  };
 
-  // ===== Event wiring from modes =====
+  // -------- HUD refs --------
+  const elTime  = $('#timeVal');
+  const elScore = $('#scoreVal');
+  const elCombo = $('#comboVal');
+
+  const elQuestTop = $('#questTop');
+
+  const elGoalText = $('#goalText');
+  const elGoalFill = $('#goalFill');
+
+  const elMiniTitle = $('#miniTitle');
+  const elMiniProg  = $('#miniProgText');
+  const elMiniFill  = $('#miniFill');
+
+  // -------- Event wiring --------
+  // เวลา
   window.addEventListener('hha:time', e=>{
-    const s = (e.detail?.sec ?? duration);
-    elTime.textContent = `เวลา: ${s}s`;
+    const s = Math.max(0, Number(e.detail?.sec||0));
+    elTime.textContent = s + 's';
   });
 
+  // คะแนน
   window.addEventListener('hha:score', e=>{
-    const d = e.detail||{};
-    elScore.textContent = `คะแนน: ${d.score ?? 0} | คอมโบ: x${d.combo ?? 0}`;
+    const d = e.detail || {};
+    if (Number.isFinite(d.score)) elScore.textContent = d.score;
+    if (Number.isFinite(d.combo)) elCombo.textContent = 'x'+d.combo;
   });
 
-  // goal
-  window.addEventListener('hha:goal', e=>{
-    const d = e.detail||{};
-    elGoalT.textContent = d.label || 'เป้า: —';
-    const pct = Math.max(0, Math.min(100, Math.round((d.progress||0)/(d.target||1)*100)));
-    elGoalF.style.width = pct+'%';
-  });
-
-  // quest (ตัวเดียวต่อครั้ง)
+  // ป้าย Mini Quest — แก้ให้รองรับทั้ง label และ text
   window.addEventListener('hha:quest', e=>{
-    const d = e.detail||{};
-    if(d.text) elQuest.textContent = d.text;
-    if(d.label) elMini1.textContent = d.label;
-    if(d.prog!=null && d.target){
+    const d = e.detail || {};
+    const title = d.text || d.label || 'Mini Quest — กำลังเริ่ม…';
+    elQuestTop.textContent = title;
+
+    // ด้านล่าง (ทีละอัน)
+    elMiniTitle.textContent = title;
+    if (d.prog != null && d.target != null) {
       const pct = Math.max(0, Math.min(100, Math.round(d.prog/d.target*100)));
-      elMiniF.style.width = pct+'%';
+      elMiniProg.textContent = `(${d.prog}/${d.target})`;
+      elMiniFill.style.width = pct + '%';
+    } else {
+      elMiniProg.textContent = '';
+      elMiniFill.style.width = '0%';
     }
   });
 
-  // hydration UI
-  window.addEventListener('hha:water-ui', e=>{
-    wWrap.style.display = e.detail?.show ? 'block' : 'none';
-  });
-  window.addEventListener('hha:water', e=>{
-    const v = Math.max(0, Math.min(100, Math.round(e.detail?.val||0)));
-    wFill.style.width = v+'%';
-    let zone='Low';
-    if(v>=40&&v<=70) zone='Balanced'; else if(v>70) zone='High';
-    wLbl.textContent = zone;
-    wFill.style.background = (zone==='Balanced')
-      ? 'linear-gradient(90deg,#22c55e,#93c5fd)'
-      : (zone==='High' ? 'linear-gradient(90deg,#06d6a0,#37d67a)'
-                       : 'linear-gradient(90deg,#f59e0b,#ef4444)');
+  // เป้าหมายหลัก (goal) — โหมดจะยิง hha:goal มาเรื่อย ๆ
+  window.addEventListener('hha:goal', e=>{
+    const d = e.detail || {};
+    if (d.label) elGoalText.textContent = d.label;
+    if (d.prog != null && d.target != null) {
+      const pct = Math.max(0, Math.min(100, Math.round(d.prog/d.target*100)));
+      elGoalFill.style.width = pct + '%';
+    }
   });
 
-  // สรุปท้ายเกม (จากแต่ละโหมด)
+  // สรุปตอนจบ
   window.addEventListener('hha:quest-summary', e=>{
-    const d = e.detail||{};
-    const txt =
-`สรุปโหมด: ${d.mode}
-คะแนนรวม: ${d.score}
-คอมโบสูงสุด: ${d.combo}
-Goal: ${d.goalDone?'✔️ สำเร็จ':'❌ ไม่สำเร็จ'}
-Mini Quest: ${d.questsCleared}/${d.questsTotal}`;
-    alert(txt);
+    const d = e.detail || {};
+    const msg =
+      `จบเกม!\n`+
+      `คะแนน: ${d.score ?? 0}\nคอมโบสูงสุด: ${d.combo ?? 0}\n`+
+      `Mini Quest: ${d.questsCleared ?? 0}/${d.questsTotal ?? 3}\n`+
+      `Goal: ${d.goalDone ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}`;
+    try{ alert(msg); }catch(_){}
   });
 
-  // ===== โหลดโหมด =====
-  try{
-    const mod = await import(`./modes/${mode}.safe.js?v=${v}`);
-    if(!mod || typeof mod.boot!=='function') throw new Error('mod.boot is not a function');
-    await mod.boot({difficulty:diff, duration});
-  }catch(err){
-    alert('โหลดโหมดไม่สำเร็จ: '+ err.message);
-    console.error(err);
-  }
+  // -------- Boot selected mode --------
+  (async function start(){
+    try{
+      const url = MODS[mode] || MODS.goodjunk;
+      const bust = (Date.now()%1e7).toString(36);
+      const mod = await import(url + '?v=' + bust);
+      if (!mod || typeof mod.boot !== 'function') throw new Error('mode.boot is not a function');
+
+      // แจ้ง goal เริ่มต้น (โหมดควรอัปเดตตลอดเกมเอง)
+      window.dispatchEvent(new CustomEvent('hha:goal',{detail:{label:'—', prog:0, target:100}}));
+      // แจ้งหัว Mini quest เริ่มต้น
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{label:'Mini Quest — กำลังเริ่ม…'}}));
+
+      await mod.boot({ difficulty: diff, duration: dur });
+    }catch(err){
+      console.error(err);
+      alert('โหลดโหมดไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+    }
+  })();
 </script>
 </body>
 </html>
