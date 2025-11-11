@@ -1,108 +1,76 @@
-// === /HeroHealth/modes/plate.quest.js (complete 5 groups per round) ===
-import { MissionDeck } from '../vr/mission.js';
+// === /HeroHealth/modes/plate.quest.js (final) ===
+const THREE = window.THREE;
+import { makeSpawner } from '../vr/spawn-utils.js';
+import { burstAt, floatScore, setShardMode } from '../vr/shards.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
+import { drawThree } from '../vr/quests-powerups.js';
 
-export async function boot(cfg = {}) {
-  const diff = String(cfg.difficulty || 'normal');
-  const dur  = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
+export async function boot(cfg={}) {
+  setShardMode('plate');
+  const scene=document.querySelector('a-scene');
+  const host=cfg.host||document.getElementById('spawnHost');
+  const diff=String(cfg.difficulty||'normal');
+  const dur=Number(cfg.duration||(diff==='easy'?90:diff==='hard'?45:60));
+  const GROUPS={veg:['🥦','🥕','🥬','🍅','🌽'],fruit:['🍎','🍓','🍇','🍊','🍍','🍌'],
+    grain:['🍞','🍚','🍘'],protein:['🐟','🍗','🥚','🥜'],dairy:['🥛','🧀','🍦']};
+  const ALL=Object.values(GROUPS).flat(); const STAR='⭐',DIA='💎',SHIELD='🛡️';
+  const tune={easy:{nextGap:[360,560],life:[1400,1700],minDist:0.34,maxConcurrent:2},
+    normal:{nextGap:[300,480],life:[1200,1500],minDist:0.32,maxConcurrent:3},
+    hard:{nextGap:[240,420],life:[1000,1300],minDist:0.30,maxConcurrent:4}};
+  const C=tune[diff]||tune.normal;
+  const sp=makeSpawner({bounds:{x:[-0.75,0.75],y:[-0.05,0.45],z:-1.6},minDist:C.minDist});
+  let score=0,combo=0,maxCombo=0,hits=0,misses=0,spawns=0,shield=0,remain=dur,running=true;
+  let roundDone={veg:false,fruit:false,grain:false,protein:false,dairy:false};
+  const QUESTS=drawThree('plate',diff); let questIdx=0;
 
-  const GROUPS = {
-    veg: ['🥦','🥕','🥬','🍅','🌽'],
-    fruit: ['🍎','🍓','🍇','🍊','🍍','🍌'],
-    grain: ['🍞','🥖','🍚','🍘'],
-    protein: ['🐟','🍗','🥚','🫘','🥜'],
-    dairy: ['🥛','🧀','🍦'],
-  };
-  const ALL = Object.entries(GROUPS).flatMap(([k,v])=>v.map(x=>({ch:x,g:k})));
+  function roundCleared(){return Object.values(roundDone).every(Boolean);}
+  window.dispatchEvent(new CustomEvent('hha:quest',{detail:{label:QUESTS[0].label,currentIndex:0,total:3}}));
 
-  let spawnMin=900, spawnMax=1200, life=1600;
-  if(diff==='easy'){ spawnMin=1000; spawnMax=1400; life=1800; }
-  if(diff==='hard'){ spawnMin=700;  spawnMax=980;  life=1400; }
+  function emitGoal(){
+    const done=Object.values(roundDone).filter(Boolean).length;
+    window.dispatchEvent(new CustomEvent('hha:goal',{detail:{label:`จัดครบหมู่ ${done}/5`,value:done,max:5,mode:'Plate'}}));
+  } emitGoal();
 
-  injectCSS(); const layer=freshLayer();
-
-  let score=0, combo=0, misses=0, left=dur, running=true;
-  let spawnTimer=null, timeTimer=null, watchdog=null;
-
-  // เป้าหมายหลัก: “จัดครบ 5 หมู่” N รอบ
-  const goalTargetRounds = 2;
-  let roundCollected = resetRound(); // {veg:false,...}
-  let roundsDone = 0;
-
-  // mission deck
-  const deck = new MissionDeck({
-    pool: [
-      { id:'round1',  level:'easy',   label:'จัดครบ 5 หมู่ 1 รอบ', check:s=>s.goodCount>=5,  prog:s=>Math.min(5,s.goodCount), target:5 },
-      { id:'combo12', level:'normal', label:'คอมโบ 12',             check:s=>s.comboMax>=12, prog:s=>Math.min(12,s.comboMax), target:12 },
-      { id:'score600',level:'hard',   label:'คะแนน 600+',           check:s=>s.score>=600,   prog:s=>Math.min(600,s.score),   target:600},
-    ]
-  });
-  deck.draw3();
-
-  function fire(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})) }catch{} }
-  function hudGoal(){
-    const v = Math.min(goalTargetRounds*5, doneCount() + roundsDone*5);
-    fire('hha:goal', { label:`เป้า: จัดครบ 5 หมู่ ให้ได้ ${goalTargetRounds} รอบ`, value:v, max:goalTargetRounds*5, mode:diff });
-  }
-  function hudQuest(){
-    const list=deck.getProgress(); const cur=list.find(x=>x.current)||list[0]||null;
-    fire('hha:quest',{label:cur?cur.label:'Mini Quest — กำลังเริ่ม…'});
-    fire('hha:quest-progress',{label:cur?cur.label:'', value:cur&&Number.isFinite(cur.prog)?cur.prog:0, max:cur&&Number.isFinite(cur.target)?cur.target:0});
-  }
-  hudGoal(); hudQuest(); fire('hha:score',{score,combo}); fire('hha:time',{sec:left});
-
-  planNextSpawn(); startWatchdog();
-  timeTimer=setInterval(()=>{
-    if(!running) return;
-    left=Math.max(0,left-1);
-    deck.second(); hudQuest(); fire('hha:time',{sec:left});
-    if(left<=0){ end(); return; }
-    if(deck.isCleared() && left>0){ deck.draw3(); hudQuest(); }
-  },1000);
-
-  function spawnOne(forceCenter){
-    if(!running) return;
-    const pick = ALL[(Math.random()*ALL.length)|0];
-    const el=document.createElement('div'); el.className='hha-tgt'; el.textContent=pick.ch; sizeByDiff(el); place(el,forceCenter); layer.appendChild(el);
-    let clicked=false;
-    const onHit=(ev)=>{
-      if(clicked) return; clicked=true; ev&&ev.preventDefault&&ev.preventDefault(); try{layer.removeChild(el);}catch{}
-      const delta=22+combo*2; score+=delta; combo=Math.min(9999,combo+1);
-      if(!roundCollected[pick.g]){ roundCollected[pick.g]=true; }
-      if(doneCount()>=5){ roundsDone=Math.min(goalTargetRounds, roundsDone+1); roundCollected=resetRound(); score+=100; }
-      deck.onGood(); deck.updateScore(score); deck.updateCombo(combo);
-      hudGoal(); fire('hha:score',{score,combo}); hudQuest(); planNextSpawn();
-    };
-    el.addEventListener('click',onHit,{passive:false}); el.addEventListener('touchstart',onHit,{passive:false});
-    setTimeout(()=>{
-      if(clicked||!running) return; try{layer.removeChild(el);}catch{}
-      combo=0; misses++; deck.onJunk(); deck.updateCombo(combo); hudQuest(); planNextSpawn();
-    }, life);
+  function tryQuest(){
+    const s={score,comboMax:maxCombo}; const q=QUESTS[questIdx];
+    if(q&&q.check(s)){questIdx++;if(questIdx<QUESTS.length)
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{label:QUESTS[questIdx].label,currentIndex:questIdx,total:3}}));}
   }
 
-  function end(){
-    if(!running) return; running=false;
-    try{clearInterval(timeTimer);}catch{} try{clearTimeout(spawnTimer);}catch{} try{clearInterval(watchdog);}catch{}
-    wipe(layer);
-    const prog=deck.getProgress(); const questsCleared=prog.filter(p=>p.done).length;
-    const goalDone = (roundsDone >= goalTargetRounds);
-    fire('hha:end',{score,combo,misses,duration:dur,goal:goalDone,questsCleared,questsTotal:3});
+  function end(reason='timeout'){
+    running=false; clearInterval(timerId); clearTimeout(loopId);
+    Array.from(host.querySelectorAll('a-image')).forEach(n=>n.remove());
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{mode:'Plate',score,combo:maxCombo,hits,misses,questsCleared:questIdx,questsTotal:3,reason}}));
   }
 
-  // helpers
-  function resetRound(){ return {veg:false,fruit:false,grain:false,protein:false,dairy:false}; }
-  function doneCount(){ return Object.values(roundCollected).filter(Boolean).length; }
-  function planNextSpawn(){ const w=Math.floor(spawnMin+Math.random()*(spawnMax-spawnMin)); spawnTimer=setTimeout(spawnOne,w); }
-  function startWatchdog(){ if(watchdog) clearInterval(watchdog); watchdog=setInterval(()=>{ if(!running) return; if(layer.querySelectorAll('.hha-tgt').length===0) spawnOne(true); },2000); }
-  function vw(){ return Math.max(320, window.innerWidth||320); }
-  function vh(){ return Math.max(320, window.innerHeight||320); }
-  function sizeByDiff(el){ el.style.fontSize=(diff==='easy'?74:(diff==='hard'?56:64))+'px'; }
-  function place(el,center){ const x=center?vw()/2:Math.floor(vw()*0.14+Math.random()*vw()*0.72); const y=center?vh()/2:Math.floor(vh()*0.20+Math.random()*vh()*0.56); el.style.left=x+'px'; el.style.top=y+'px'; }
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const nextGap=()=>rand(...C.nextGap), lifeMs=()=>rand(...C.life);
 
-  return { stop:end, pause(){running=false;}, resume(){ if(!running){ running=true; planNextSpawn(); startWatchdog(); } } };
+  function spawnOne(){
+    if(!running)return; if(host.querySelectorAll('a-image').length>=C.maxConcurrent){loopId=setTimeout(spawnOne,100);return;}
+    let ch,type='food',group;
+    const r=Math.random();
+    if(r<0.05){ch=STAR;type='star';}
+    else if(r<0.07){ch=DIA;type='diamond';}
+    else if(r<0.1){ch=SHIELD;type='shield';}
+    else{const keys=Object.keys(GROUPS);group=keys[(Math.random()*keys.length)|0];const pool=GROUPS[group];ch=pool[(Math.random()*pool.length)|0];}
+    const pos=sp.sample();const el=emojiImage(ch,0.7,128);el.classList.add('clickable');
+    el.setAttribute('position',`${pos.x} ${pos.y} ${pos.z}`);host.appendChild(el);spawns++;
+    const rec=sp.markActive(pos);const ttl=setTimeout(()=>{el.remove();sp.unmark(rec);},lifeMs());
+    el.addEventListener('click',(ev)=>{if(!running)return;ev.preventDefault();clearTimeout(ttl);
+      const wp=el.object3D.getWorldPosition(new THREE.Vector3());
+      if(type==='food'){const val=22+combo*2;score+=val;combo++;maxCombo=Math.max(maxCombo,combo);hits++;roundDone[group]=true;
+        burstAt(scene,wp,{color:'#22c55e',count:18});floatScore(scene,wp,'+'+val);
+        if(roundCleared()){score+=100;roundDone={veg:false,fruit:false,grain:false,protein:false,dairy:false};floatScore(scene,wp,'ROUND +100');}
+        emitGoal();}
+      else if(type==='star'){score+=40;floatScore(scene,wp,'+40 ⭐');burstAt(scene,wp,{color:'#fde047',count:20});}
+      else if(type==='diamond'){score+=80;floatScore(scene,wp,'+80 💎');burstAt(scene,wp,{color:'#a78bfa',count:24});}
+      else if(type==='shield'){shield=Math.min(3,shield+1);floatScore(scene,wp,'🛡️+1');burstAt(scene,wp,{color:'#60a5fa',count:18});}
+      el.remove();sp.unmark(rec);tryQuest();window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+      loopId=setTimeout(spawnOne,nextGap());
+    },{passive:false});
+  }
+  const timerId=setInterval(()=>{if(!running)return;remain--;window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));if(remain<=0)end();},1000);
+  spawnOne();
 }
-
-function injectCSS(){ if(document.getElementById('hha-style')) return; const st=document.createElement('style'); st.id='hha-style'; st.textContent='.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto}.hha-tgt{position:absolute;transform:translate(-50%,-50%);line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5))}'; document.head.appendChild(st); }
-function freshLayer(){ document.querySelectorAll('.hha-layer').forEach(n=>{try{n.remove();}catch{}}); const d=document.createElement('div'); d.className='hha-layer'; document.body.appendChild(d); return d; }
-function wipe(layer){ try{ layer.querySelectorAll('.hha-tgt').forEach(n=>n.remove()); layer.remove(); }catch{} }
-
-export default { boot };
+export default {boot};
