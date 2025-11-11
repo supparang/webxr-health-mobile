@@ -117,4 +117,55 @@ export async function boot(cfg = {}) {
       score += 10;
       res = { good:true, scoreDelta:+10 };
     }
-    else if (GOOD.includes(ch)) {          //
+    else if (GOOD.includes(ch)) {          // ของดี
+      const delta = 20 + combo*2;
+      score += delta; combo++;
+      goodOK++;
+      md.onGood(); md.updateScore(score); md.updateCombo(combo);
+
+      // อัปเดต goal bar
+      setGoalText(`เป้า: เก็บของดีให้ได้ ${GOAL_TOTAL} ชิ้น — คืบหน้า ${goodOK}/${GOAL_TOTAL}`);
+      setGoalPct( (goodOK/GOAL_TOTAL)*100 );
+
+      res = { good:true, scoreDelta:+delta };
+    }
+    else {                                 // ขยะ
+      combo = 0;
+      score = Math.max(0, score-15);
+      md.updateScore(score); md.updateCombo(combo);
+      res = { good:false, scoreDelta:-15 };
+    }
+
+    // ส่ง HUD คะแนนหลัก
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
+
+    // ถ้าจบเควสต์ใบปัจจุบัน ให้ขยับและอัปเดต HUD
+    if (md._autoAdvance && md._autoAdvance()) {
+      updateQuestHUD();
+    }
+
+    return res;
+  }
+
+  // เมื่อเวลาเดิน (mission deck ต้องได้ noMissTime จากเกมหลัก แต่ factory ไม่มี hook miss)
+  // ในโหมดนี้เราไม่ใช้เควสต์ที่อิง noMissTime / junkMiss จึงไม่ต้องอัปเดตเพิ่ม
+
+  // สุ่มสปอว์น (ใช้ factory ที่ดูแล “ต้องมีลูกเป้าเสมอ” ให้แล้ว)
+  const g = await run({
+    host: cfg.host || document.querySelector('#spawnHost') || document.body,
+    difficulty: diff,
+    duration: dur,
+    pools: { good: [...GOOD, STAR, DIA, SHIELD], bad: JUNK },
+    goodRate: 0.65,
+    judge
+  });
+
+  // คืน control ให้ index จัด pause/resume/stop
+  return {
+    stop(){ try{ g.stop && g.stop(); }catch{} },
+    pause(){ try{ g.pause && g.pause(); md.pause(); }catch{} },
+    resume(){ try{ g.resume && g.resume(); md.resume(); updateQuestHUD(); }catch{} }
+  };
+}
+
+export default { boot };
