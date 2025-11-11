@@ -47,4 +47,24 @@ export async function boot(cfg={}){
     let ch; if(Math.random()<0.30){ const pool=GROUPS[target]; ch=pool[(Math.random()*pool.length)|0]; } else { ch=ALL[(Math.random()*ALL.length)|0]; }
     const inTarget=GROUPS[target].includes(ch);
     const pos=forceCenter?{x:0,y:0.12,z:-1.6}:sp.sample();
-    const el=emojiImage(ch,0.68,128); el.classList.add('clickable'); el.setAttribute('position',`${pos.x} ${pos.y
+    const el=emojiImage(ch,0.68,128); el.classList.add('clickable'); el.setAttribute('position',`${pos.x} ${pos.y} ${pos.z}`); host.appendChild(el); spawns++;
+    const rec=sp.markActive(pos); const ttl=setTimeout(()=>{ if(!el.parentNode) return; if(inTarget){ misses++; combo=0; score=Math.max(0,score-10); window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}})); } try{host.removeChild(el);}catch{} sp.unmark(rec); }, lifeMs());
+    el.addEventListener('click',ev=>{ if(!running) return; ev.preventDefault(); clearTimeout(ttl); const wp=el.object3D.getWorldPosition(new THREE.Vector3());
+      if(inTarget){ const val=25+combo*2; score+=val; combo++; maxCombo=Math.max(maxCombo,combo); hits++; correctPicked++; burstAt(scene,wp,{color:'#22c55e',count:18,speed:1.05}); floatScore(scene,wp,'+'+val);
+        if(correctPicked>=goalSize){ goalSize=Math.min(3,goalSize+1); setNewGoal(); } }
+      else{ combo=0; score=Math.max(0,score-12); burstAt(scene,wp,{color:'#ef4444',count:12,speed:0.9}); floatScore(scene,wp,'-12'); }
+      window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}})); try{host.removeChild(el);}catch{} sp.unmark(rec); tryAdvanceQuest(); updGoal(); loopId=setTimeout(spawnOne,nextGap()); },{passive:false});
+    if(!forceCenter) loopId=setTimeout(spawnOne,nextGap());
+  }
+
+  // watchdog
+  wdId=setInterval(()=>{ if(!running) return; if(host.querySelectorAll('a-image').length===0) spawnOne(true); },2000);
+
+  // time
+  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
+  timerId=setInterval(()=>{ if(!running) return; remain--; if(remain<0) remain=0; window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}})); if(remain<=0) end('timeout'); },1000);
+
+  spawnOne(true);
+  return { stop(){end('quit');}, pause(){running=false;}, resume(){if(!running){running=true; spawnOne(true);}} };
+}
+export default { boot };
