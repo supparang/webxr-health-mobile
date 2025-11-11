@@ -1,87 +1,159 @@
-// DOM version via mode-factory (spawns guaranteed)
-import { boot as run } from '../vr/mode-factory.js';
+// === /HeroHealth/modes/goodjunk.safe.js (MissionDeck-ready) ===
+const THREE = window.THREE;
+import { makeSpawner } from '../vr/spawn-utils.js';
+import { burstAt, floatScore } from '../vr/shards.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
 import { MissionDeck } from '../vr/mission.js';
 
 export async function boot(cfg = {}) {
-  const deck = new MissionDeck().draw3();
+  const scene = document.querySelector('a-scene');
+  const host  = cfg.host || document.getElementById('spawnHost');
+  const diff  = String(cfg.difficulty || 'normal');
+  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
+
+  // Mini-quest deck (3 ใบ + bonus ถ้าเวลาเหลือ)
+  const md = new MissionDeck(); md.draw3();
+  function questText(){ return `Quest ${md.currentIndex+1}/3 — ${md.getCurrent()?.label || 'กำลังเริ่ม…'}`; }
+  function updateQuestHUD(){ window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}})); }
+  updateQuestHUD();
+
+  // Pools
   const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
-  const STAR='⭐', DIA='💎', SHIELD='🛡️';
+  const STAR = '⭐', DIA='💎', SHIELD='🛡️';
 
-  // Goal: เก็บของดีให้ได้ 25 ชิ้น
-  let goodOK = 0;
-  const goalTotal = 25;
-  showGoal(`เก็บของดีให้ได้ ${goalTotal} ชิ้น — คืบหน้า ${goodOK}/${goalTotal}`);
-
-  function judge(ch, s){
-    if (ch===STAR){ deck.onStar(); return {good:true, scoreDelta:40}; }
-    if (ch===DIA ){ deck.onDiamond(); return {good:true, scoreDelta:80}; }
-    if (ch===SHIELD){ return {good:true, scoreDelta:0}; }
-
-    const isGood = GOOD.includes(ch);
-    if (isGood){
-      goodOK++; deck.onGood();
-      updateGoal(`เก็บของดีให้ได้ ${goalTotal} ชิ้น — คืบหน้า ${goodOK}/${goalTotal}`);
-      return {good:true, scoreDelta: 20 + Math.max(0, s.combo*2) };
-    } else {
-      deck.onJunk();
-      return {good:false, scoreDelta: -15};
-    }
-  }
-
-  // HUD Mini quest (ทีละใบ)
-  showQuest(deck.getCurrent()?.label || 'กำลังเริ่ม…');
-  const off1 = listen('hha:score', e=>{
-    deck.updateScore(e.detail?.score||0);
-    deck.updateCombo(e.detail?.combo||0);
-    if (deck._autoAdvance()) showQuest(deck.getCurrent()?.label || 'ครบแล้ว!');
-  });
-
-  // extra time if cleared early
-  const off2 = listen('hha:time', e=>{
-    if (e.detail?.sec>0 && deck.isCleared()){
-      // เพิ่มภารกิจสุ่มต่อเมื่อเหลือเวลา
-      const more = new MissionDeck().draw3();
-      deck.deck.push(...more.filter(q=>!deck.deck.find(x=>x.id===q.id)));
-      showQuest(deck.getCurrent()?.label || 'Bonus Quest!');
-    }
-  });
-
-  // เรียกเครื่อง
-  const g = await run({
-    host: cfg.host,
-    difficulty: cfg.difficulty || 'normal',
-    duration: cfg.duration,
-    pools: { good: [...GOOD, STAR, DIA, SHIELD], bad: JUNK },
-    goodRate: 0.65,
-    judge
-  });
-
-  // clean
-  return {
-    stop(){ off1(); off2(); g.stop(); },
-    pause(){ g.pause(); deck.pause(); },
-    resume(){ deck.resume(); g.resume(); }
+  // Tuning per difficulty
+  const tune = {
+    easy:   { nextGap:[360,560], life:[1400,1700], minDist:0.34, junkRate:0.28, maxConcurrent:2 },
+    normal: { nextGap:[300,480], life:[1200,1500], minDist:0.32, junkRate:0.35, maxConcurrent:3 },
+    hard:   { nextGap:[240,420], life:[1000,1300], minDist:0.30, junkRate:0.42, maxConcurrent:4 }
   };
-}
+  const C = tune[diff] || tune.normal;
 
-/* ---------- tiny HUD helpers (DOM) ---------- */
-function showGoal(text){ upsert('goalLine', text); }
-function updateGoal(text){ upsert('goalLine', text); }
-function showQuest(text){ upsert('questLine', `Quest ${text}`); }
-function upsert(id, text){
-  let wrap = document.getElementById('goalQuestPanel');
-  if(!wrap){
-    wrap = document.createElement('div');
-    wrap.id = 'goalQuestPanel';
-    wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:8px;padding:8px 14px;z-index:910;color:#e8eefc;font:600 14px system-ui';
-    const box = document.createElement('div');
-    box.id='goalLine'; box.style.marginBottom='6px'; wrap.appendChild(box);
-    const box2=document.createElement('div'); box2.id='questLine'; wrap.appendChild(box2);
-    document.body.appendChild(wrap);
+  const sp = makeSpawner({
+    bounds:{ x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6 },
+    minDist:C.minDist,
+    decaySec:2.2
+  });
+
+  // State
+  let running=true;
+  let score=0, combo=0, maxCombo=0;
+  let misses=0, hits=0, spawns=0;
+  let shield=0;                 
+  let remain = dur;
+  let timeId=0, loopId=0, watchdogId=0;
+
+  const rand=(a,b)=> a + Math.random()*(b-a);
+  const nextGap=()=> Math.floor(rand(C.nextGap[0], C.nextGap[1]));
+  const lifeMs =()=> Math.floor(rand(C.life[0], C.life[1]));
+
+  function emitScore(){ window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}})); }
+  function emitMiss(){ window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}})); }
+  function afterHitAdvance(){
+    md.updateScore(score); md.updateCombo(combo);
+    if (md._autoAdvance()) updateQuestHUD();
   }
-  const el = document.getElementById(id);
-  if (el) el.textContent = text;
+
+  function maybeAddBonusQuests() {
+    if (remain>0 && md.isCleared()) {
+      const more = new MissionDeck(); more.draw3();
+      // เติมใบที่ไม่ซ้ำ
+      more.deck.forEach(q=>{ if(!md.deck.find(x=>x.id===q.id)) md.deck.push(q); });
+      updateQuestHUD();
+    }
+  }
+
+  function end(reason='timeout'){
+    if(!running) return; running=false;
+    try{ clearInterval(timeId);}catch{}
+    try{ clearTimeout(loopId);}catch{}
+    try{ clearInterval(watchdogId);}catch{}
+    Array.from(host.querySelectorAll('a-image')).forEach(n=>{ try{ n.remove(); }catch{} });
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
+      mode:'Good vs Junk', difficulty:diff, score, comboMax:maxCombo, misses, hits, spawns,
+      duration:dur, questsCleared: md.getProgress().filter(q=>q.done).length, questsTotal: md.deck.length, reason
+    }}));
+  }
+
+  function spawnOne(){
+    if(!running) return;
+    const now = host.querySelectorAll('a-image').length;
+    if(now>=C.maxConcurrent){ loopId=setTimeout(spawnOne,100); return; }
+
+    // pick type
+    let ch, type;
+    const r = Math.random();
+    if      (r < 0.04) { ch=STAR;   type='star'; }
+    else if (r < 0.06) { ch=DIA;    type='diamond'; }
+    else if (r < 0.10) { ch=SHIELD; type='shield'; }
+    else {
+      const goodPick = Math.random() > C.junkRate;
+      ch   = goodPick ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0];
+      type = goodPick ? 'good' : 'junk';
+    }
+
+    const pos = sp.sample();
+    const el  = emojiImage(ch, 0.68, 128);
+    el.classList.add('clickable');
+    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+    host.appendChild(el); spawns++;
+
+    const rec = sp.markActive(pos);
+    const ttl = setTimeout(()=>{
+      if(!el.parentNode) return;
+      if(type==='good'){ misses++; combo=0; score=Math.max(0, score-10); emitMiss(); emitScore(); md.onJunk(); afterHitAdvance(); }
+      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
+    }, lifeMs());
+
+    el.addEventListener('click',(ev)=>{
+      if(!running) return;
+      ev.preventDefault(); clearTimeout(ttl);
+      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
+
+      if(type==='good'){
+        const val = 20 + combo*2;
+        score += val; combo++; maxCombo=Math.max(maxCombo, combo); hits++;
+        md.onGood();
+        burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0 });
+        floatScore(scene, wp, '+'+val);
+      } else if (type==='junk'){
+        if(shield>0){ shield--; floatScore(scene, wp, 'Shield!'); burstAt(scene, wp, {color:'#60a5fa',count:14, speed:0.9}); }
+        else{ combo=0; score=Math.max(0, score-15); misses++; emitMiss(); md.onJunk(); burstAt(scene, wp, { color:'#ef4444', count:12, speed:0.9 }); floatScore(scene, wp, '-15'); }
+      } else if (type==='star'){
+        score += 40; md.onStar(); burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 }); floatScore(scene, wp, '+40 ⭐');
+      } else if (type==='diamond'){
+        score += 80; md.onDiamond(); burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 }); floatScore(scene, wp, '+80 💎');
+      } else if (type==='shield'){
+        shield = Math.min(3, shield+1); burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 }); floatScore(scene, wp, '🛡️+1');
+      }
+
+      emitScore();
+      try{ host.removeChild(el);}catch{}; sp.unmark(rec);
+      afterHitAdvance();
+      loopId=setTimeout(spawnOne, nextGap());
+    }, {passive:false});
+
+    loopId=setTimeout(spawnOne, nextGap());
+  }
+
+  // time
+  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
+  timeId=setInterval(()=>{
+    if(!running) return;
+    remain = Math.max(0, remain-1);
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
+    if(remain<=0) end('timeout');
+    else maybeAddBonusQuests();
+  },1000);
+
+  // watchdog
+  watchdogId=setInterval(()=>{ if(running && !host.querySelector('a-image')) spawnOne(); }, 1800);
+
+  // go
+  window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
+  spawnOne();
+
+  return { stop(){end('quit');}, pause(){running=false;}, resume(){ if(!running){ running=true; spawnOne(); } } };
 }
-function listen(name, fn){ window.addEventListener(name, fn); return ()=>window.removeEventListener(name,fn); }
 export default { boot };
