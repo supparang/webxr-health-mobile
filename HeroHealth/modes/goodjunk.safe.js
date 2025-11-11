@@ -1,206 +1,87 @@
-// === /HeroHealth/modes/goodjunk.safe.js (latest) ===
-import { makeSpawner } from '../vr/spawn-utils.js';
-import { burstAt, floatScore } from '../vr/shards.js';
-import { emojiImage } from '../vr/emoji-sprite.js';
-import { drawThree } from '../vr/quests-powerups.js';
-
-// ---------- helpers (common to all modes) ----------
-function ensureSpawnHost(scene, host) {
-  if (!host) host = document.getElementById('spawnHost');
-  if (!host && scene) {
-    const h = document.createElement('a-entity');
-    h.id = 'spawnHost';
-    h.setAttribute('position', '0 0 0');
-    scene.appendChild(h);
-    host = h;
-  }
-  return host;
-}
-function emergencySpawnOnce(host, scene, emojiImageFn) {
-  setTimeout(() => {
-    try {
-      if (!host || host.querySelector('a-image')) return;
-      const el = emojiImageFn('🍎', 0.68, 128);
-      el.classList.add('clickable');
-      el.setAttribute('position','0 0.12 -1.6');
-      host.appendChild(el);
-    } catch {}
-  }, 500);
-}
+// DOM version via mode-factory (spawns guaranteed)
+import { boot as run } from '../vr/mode-factory.js';
+import { MissionDeck } from '../vr/mission.js';
 
 export async function boot(cfg = {}) {
-  const scene = document.querySelector('a-scene');
-  let host  = cfg.host || document.getElementById('spawnHost');
-  const diff  = String(cfg.difficulty || 'normal');
-  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
-
-  // ✅ ensure host & first spawn
-  host = ensureSpawnHost(scene, host);
-  emergencySpawnOnce(host, scene, emojiImage);
-
-  // Pools
+  const deck = new MissionDeck().draw3();
   const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
   const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
-  const STAR = '⭐', DIA='💎', SHIELD='🛡️';
+  const STAR='⭐', DIA='💎', SHIELD='🛡️';
 
-  // Tuning per difficulty
-  const tune = {
-    easy:   { nextGap:[360,560], life:[1400,1700], minDist:0.34, junkRate:0.28, maxConcurrent:2 },
-    normal: { nextGap:[300,480], life:[1200,1500], minDist:0.32, junkRate:0.35, maxConcurrent:3 },
-    hard:   { nextGap:[240,420], life:[1000,1300], minDist:0.30, junkRate:0.42, maxConcurrent:4 }
-  };
-  const C = tune[diff] || tune.normal;
+  // Goal: เก็บของดีให้ได้ 25 ชิ้น
+  let goodOK = 0;
+  const goalTotal = 25;
+  showGoal(`เก็บของดีให้ได้ ${goalTotal} ชิ้น — คืบหน้า ${goodOK}/${goalTotal}`);
 
-  const sp = makeSpawner({
-    bounds:{ x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6 },
-    minDist:C.minDist,
-    decaySec:2.2
+  function judge(ch, s){
+    if (ch===STAR){ deck.onStar(); return {good:true, scoreDelta:40}; }
+    if (ch===DIA ){ deck.onDiamond(); return {good:true, scoreDelta:80}; }
+    if (ch===SHIELD){ return {good:true, scoreDelta:0}; }
+
+    const isGood = GOOD.includes(ch);
+    if (isGood){
+      goodOK++; deck.onGood();
+      updateGoal(`เก็บของดีให้ได้ ${goalTotal} ชิ้น — คืบหน้า ${goodOK}/${goalTotal}`);
+      return {good:true, scoreDelta: 20 + Math.max(0, s.combo*2) };
+    } else {
+      deck.onJunk();
+      return {good:false, scoreDelta: -15};
+    }
+  }
+
+  // HUD Mini quest (ทีละใบ)
+  showQuest(deck.getCurrent()?.label || 'กำลังเริ่ม…');
+  const off1 = listen('hha:score', e=>{
+    deck.updateScore(e.detail?.score||0);
+    deck.updateCombo(e.detail?.combo||0);
+    if (deck._autoAdvance()) showQuest(deck.getCurrent()?.label || 'ครบแล้ว!');
   });
 
-  // State
-  let running=true;
-  let score=0, combo=0, maxCombo=0;
-  let misses=0, hits=0, spawns=0;
-  let shield=0;                 
-  let starCount=0, diamondCount=0;
-  let noMissSec=0;              
-
-  let remain = dur;
-  let timeId=0, loopId=0, watchdogId=0, noMissId=0;
-
-  // Mini-quests
-  const QUESTS = drawThree('goodjunk', diff);
-  let qIdx = 0;
-  function questText() {
-    const cur = QUESTS[qIdx];
-    return `Quest ${qIdx+1}/3 — ${cur ? cur.label : 'กำลังสุ่ม…'}`;
-  }
-  function updateQuestHUD() {
-    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:questText()}}));
-  }
-  window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:`Quest 1/3 — กำลังสุ่ม…`}}));
-  setTimeout(updateQuestHUD, 500);
-
-  const rand = (a,b)=> a + Math.random()*(b-a);
-  const nextGap = ()=> Math.floor(rand(C.nextGap[0], C.nextGap[1]));
-  const lifeMs  = ()=> Math.floor(rand(C.life[0], C.life[1]));
-
-  function emitScore() { window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}})); }
-  function emitMiss()  { window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}})); }
-
-  function statsSnapshot() {
-    return { score, goodCount:hits, comboMax:maxCombo, star:starCount, diamond:diamondCount, junkMiss:misses, noMissTime:noMissSec, feverCount:0 };
-  }
-  function tryAdvanceQuest() {
-    const cur = QUESTS[qIdx];
-    if (!cur || typeof cur.check!=='function') return;
-    if (cur.check(statsSnapshot())) {
-      qIdx = Math.min(qIdx+1, Math.min(2, QUESTS.length-1));
-      updateQuestHUD();
+  // extra time if cleared early
+  const off2 = listen('hha:time', e=>{
+    if (e.detail?.sec>0 && deck.isCleared()){
+      // เพิ่มภารกิจสุ่มต่อเมื่อเหลือเวลา
+      const more = new MissionDeck().draw3();
+      deck.deck.push(...more.filter(q=>!deck.deck.find(x=>x.id===q.id)));
+      showQuest(deck.getCurrent()?.label || 'Bonus Quest!');
     }
-  }
+  });
 
-  function end(reason='timeout') {
-    if (!running) return;
-    running=false;
+  // เรียกเครื่อง
+  const g = await run({
+    host: cfg.host,
+    difficulty: cfg.difficulty || 'normal',
+    duration: cfg.duration,
+    pools: { good: [...GOOD, STAR, DIA, SHIELD], bad: JUNK },
+    goodRate: 0.65,
+    judge
+  });
 
-    try{ clearInterval(timeId); }catch{}
-    try{ clearTimeout(loopId); }catch{}
-    try{ clearInterval(watchdogId); }catch{}
-    try{ clearInterval(noMissId); }catch{}
-
-    try{ Array.from(host.querySelectorAll('a-image')).forEach(n=>n.remove()); }catch{}
-
-    const finalStats = statsSnapshot();
-    const questsCleared = QUESTS.reduce((n,q)=> n + (q && q.check ? (q.check(finalStats)?1:0) : 0), 0);
-
-    window.dispatchEvent(new CustomEvent('hha:end', {
-      detail:{ mode:'Good vs Junk', difficulty: diff, score, comboMax, combo, misses, hits, spawns, duration: dur, questsCleared, questsTotal: 3, reason }
-    }));
-  }
-
-  function spawnOne() {
-    if (!running) return;
-    const nowCount = host.querySelectorAll('a-image').length;
-    if (nowCount >= C.maxConcurrent) { loopId = setTimeout(spawnOne, 100); return; }
-
-    let ch, type;
-    const r = Math.random();
-    if      (r < 0.04) { ch=STAR;   type='star'; }
-    else if (r < 0.06) { ch=DIA;    type='diamond'; }
-    else if (r < 0.10) { ch=SHIELD; type='shield'; }
-    else {
-      const goodPick = Math.random() > C.junkRate;
-      ch   = goodPick ? GOOD[(Math.random()*GOOD.length)|0] : JUNK[(Math.random()*JUNK.length)|0];
-      type = goodPick ? 'good' : 'junk';
-    }
-
-    const pos = sp.sample();
-    const el  = emojiImage(ch, 0.68, 128);
-    el.classList.add('clickable');
-    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-    host.appendChild(el);
-    spawns++;
-
-    const rec = sp.markActive(pos);
-    const ttl = setTimeout(()=>{
-      if (!el.parentNode) return;
-      if (type==='good') {
-        misses++; combo = 0; score = Math.max(0, score-10); noMissSec = 0;
-        emitMiss(); emitScore();
-      }
-      try{ el.remove(); }catch{}
-      sp.unmark(rec);
-    }, lifeMs());
-
-    el.addEventListener('click', (ev)=>{
-      if (!running) return;
-      ev.preventDefault();
-      clearTimeout(ttl);
-      const wp = el.object3D.getWorldPosition(new (window.THREE||AFRAME.THREE).Vector3());
-      if (type==='good') {
-        const val = 20 + combo*2;
-        score += val; combo++; maxCombo = Math.max(maxCombo, combo); hits++;
-        burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.0 });
-        floatScore(scene, wp, '+'+val);
-      } else if (type==='junk') {
-        if (shield>0) {
-          shield--; floatScore(scene, wp, 'Shield!'); burstAt(scene, wp, { color:'#60a5fa', count:14, speed:0.9 });
-        } else {
-          combo=0; score=Math.max(0, score-15); misses++; noMissSec=0;
-          burstAt(scene, wp, { color:'#ef4444', count:12, speed:0.9 }); floatScore(scene, wp, '-15'); emitMiss();
-        }
-      } else if (type==='star') {
-        starCount++; score += 40; burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 }); floatScore(scene, wp, '+40 ⭐');
-      } else if (type==='diamond') {
-        diamondCount++; score += 80; burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 }); floatScore(scene, wp, '+80 💎');
-      } else if (type==='shield') {
-        shield = Math.min(3, shield+1); burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 }); floatScore(scene, wp, '🛡️+1');
-      }
-
-      emitScore();
-      try{ el.remove(); }catch{}; sp.unmark(rec);
-      tryAdvanceQuest();
-      loopId = setTimeout(spawnOne, nextGap());
-    }, {passive:false});
-
-    loopId = setTimeout(spawnOne, nextGap());
-  }
-
-  // keep no-miss timer
-  noMissId = setInterval(()=>{ if (running) noMissSec = Math.min(9999, noMissSec+1); }, 1000);
-
-  // time HUD
-  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
-  timeId = setInterval(()=>{ if(!running) return; remain=Math.max(0,remain-1); window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}})); if(remain<=0) end('timeout'); }, 1000);
-
-  // watchdog กันจอว่าง
-  watchdogId = setInterval(()=>{ if(running && !host.querySelector('a-image')) spawnOne(); }, 2000);
-
-  // start
-  window.dispatchEvent(new CustomEvent('hha:score',{detail:{score, combo}}));
-  spawnOne();
-
-  return { stop(){ end('quit'); }, pause(){ running=false; }, resume(){ if(!running){ running=true; spawnOne(); } } };
+  // clean
+  return {
+    stop(){ off1(); off2(); g.stop(); },
+    pause(){ g.pause(); deck.pause(); },
+    resume(){ deck.resume(); g.resume(); }
+  };
 }
+
+/* ---------- tiny HUD helpers (DOM) ---------- */
+function showGoal(text){ upsert('goalLine', text); }
+function updateGoal(text){ upsert('goalLine', text); }
+function showQuest(text){ upsert('questLine', `Quest ${text}`); }
+function upsert(id, text){
+  let wrap = document.getElementById('goalQuestPanel');
+  if(!wrap){
+    wrap = document.createElement('div');
+    wrap.id = 'goalQuestPanel';
+    wrap.style.cssText = 'position:fixed;left:0;right:0;bottom:8px;padding:8px 14px;z-index:910;color:#e8eefc;font:600 14px system-ui';
+    const box = document.createElement('div');
+    box.id='goalLine'; box.style.marginBottom='6px'; wrap.appendChild(box);
+    const box2=document.createElement('div'); box2.id='questLine'; wrap.appendChild(box2);
+    document.body.appendChild(wrap);
+  }
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+function listen(name, fn){ window.addEventListener(name, fn); return ()=>window.removeEventListener(name,fn); }
 export default { boot };
