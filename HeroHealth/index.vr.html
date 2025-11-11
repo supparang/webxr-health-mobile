@@ -1,98 +1,205 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Hero Health VR</title>
+
+<!-- A-Frame (มี THREE ภายใน) -->
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
 <style>
-html,body{margin:0;height:100%;background:#0b1220;color:#e2e8f0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif;}
-a-scene{position:fixed;inset:0}
-.pill{position:fixed;top:16px;background:#0f172acc;border:1px solid #334155;border-radius:12px;padding:8px 12px;font-weight:700}
-#time{left:16px}#score{left:50%;transform:translateX(-50%)}#quest{right:16px}
-#panel{position:fixed;left:16px;right:16px;bottom:16px;background:#0f172a99;border:1px solid #334155;border-radius:16px;padding:12px 16px}
-.row{display:flex;justify-content:space-between;font-weight:700}
-.bar{height:14px;background:#0b1222;border:1px solid #334155;border-radius:999px;overflow:hidden;margin-top:6px}
-.fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#93c5fd)}
-[data-hha-ui]{pointer-events:none;}
+  html,body{margin:0;height:100%;background:#0b1220;color:#e2e8f0;font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif;}
+  a-scene{position:fixed;inset:0}
+
+  .pill{position:fixed;top:16px;background:#0f172acc;border:1px solid #334155;border-radius:12px;
+        padding:8px 12px;font-weight:700}
+  #time{left:16px}
+  #score{left:50%;transform:translateX(-50%)}
+  #quest{right:16px}
+
+  #panel{position:fixed;left:16px;right:16px;bottom:16px;background:#0f172a99;border:1px solid #334155;
+         border-radius:16px;padding:12px 16px}
+  .row{display:flex;justify-content:space-between;font-weight:700}
+  .bar{height:14px;background:#0b1222;border:1px solid #334155;border-radius:999px;overflow:hidden;margin-top:6px}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#93c5fd)}
+  [data-hha-ui]{pointer-events:none;}
 </style>
 </head>
 
 <body>
-<div id="hud" data-hha-ui>
-  <div id="time" class="pill">เวลา: --s</div>
-  <div id="score" class="pill">คะแนน: 0 | คอมโบ: x0</div>
-  <div id="quest" class="pill">Mini Quest — กำลังเริ่ม…</div>
-</div>
+  <!-- HUD -->
+  <div id="hud" data-hha-ui>
+    <div id="time"  class="pill">เวลา: --s</div>
+    <div id="score" class="pill">คะแนน: 0 | คอมโบ: x0</div>
+    <div id="quest" class="pill">Mini Quest — กำลังเริ่ม…</div>
+  </div>
 
-<div id="panel" data-hha-ui>
-  <div class="row"><div>เป้า: <span id="goalLbl">—</span></div><div>โหมด: <span id="modeLbl">-</span></div></div>
-  <div class="bar"><div id="goalFill" class="fill"></div></div>
-  <div style="height:8px"></div>
-  <div class="row"><div>Quest — <span id="miniLbl">—</span></div></div>
-  <div class="bar"><div id="miniFill" class="fill"></div></div>
-</div>
+  <!-- Goal & Mini-Quest Panel -->
+  <div id="panel" data-hha-ui>
+    <div class="row">
+      <div>โหมด: <span id="modeLbl">-</span></div>
+      <div>ระดับ: <span id="diffLbl">-</span></div>
+    </div>
+    <div style="height:8px"></div>
+    <div class="row"><div>Goal</div><div id="goalText">—</div></div>
+    <div class="bar"><div id="goalFill" class="fill"></div></div>
+    <div style="height:8px"></div>
+    <div class="row"><div>Mini Quest</div><div id="miniText">—</div></div>
+    <div class="bar"><div id="miniFill" class="fill"></div></div>
+  </div>
 
-<a-scene id="scene" renderer="colorManagement:true;physicallyCorrectLights:true">
-  <a-entity id="rig" position="0 0 0">
-    <a-entity id="cam" camera look-controls position="0 1.6 0"
-              cursor="rayOrigin: mouse; fuse:false"
-              raycaster="objects: .clickable; far: 10; useWorldCoordinates:true"></a-entity>
-  </a-entity>
-  <a-entity id="spawnHost" position="0 0 -1.5"></a-entity>
-</a-scene>
+  <!-- Scene -->
+  <a-scene id="scene" renderer="colorManagement:true;physicallyCorrectLights:true">
+    <a-entity id="rig" position="0 0 0">
+      <a-entity id="cam" camera look-controls position="0 1.6 0"
+                cursor="rayOrigin: mouse; fuse:false"
+                raycaster="objects: .clickable; far: 10; useWorldCoordinates:true"></a-entity>
+    </a-entity>
+    <!-- โหนดสปอน: กึ่งกลางภาพ/ระยะใกล้พอดี -->
+    <a-entity id="spawnHost" position="0 1.0 -1.6"></a-entity>
+  </a-scene>
 
-<script type="module">
-const $=s=>document.querySelector(s);
-const ui={time:$('#time'),score:$('#score'),quest:$('#quest'),
-goalLbl:$('#goalLbl'),goalFill:$('#goalFill'),
-miniLbl:$('#miniLbl'),miniFill:$('#miniFill'),modeLbl:$('#modeLbl')};
+  <script type="module">
+    // ---------- Utils ----------
+    const $ = s => document.querySelector(s);
+    const clamp01 = v => Math.max(0, Math.min(1, v));
 
-const params=new URLSearchParams(location.search);
-const mode=(params.get('mode')||'goodjunk').toLowerCase();
-const diff=(params.get('diff')||'normal').toLowerCase();
-const dur=Number(params.get('dur')||60);
-ui.modeLbl.textContent=diff;
+    // อ่าน params
+    const params = new URLSearchParams(location.search);
+    const mode = (params.get('mode') || 'goodjunk').toLowerCase();
+    const diff = (params.get('diff') || 'normal').toLowerCase();
+    const dur  = Number(params.get('dur') || (diff==='easy'?90:diff==='hard'?45:60));
 
-const MODS={
- goodjunk:'./modes/goodjunk.safe.js',
- groups:'./modes/groups.safe.js',
- hydration:'./modes/hydration.quest.js',
- plate:'./modes/plate.quest.js'
-};
+    // ระบุไฟล์โหมด
+    const MODS = {
+      goodjunk : './modes/goodjunk.safe.js',
+      groups   : './modes/groups.safe.js',
+      hydration: './modes/hydration.quest.js',
+      plate    : './modes/plate.quest.js'
+    };
+    const modeNameMap = {
+      goodjunk:'Good vs Junk',
+      groups:'Food Groups',
+      hydration:'Hydration',
+      plate:'Healthy Plate'
+    };
 
-// แจ้ง AFRAME ready
-$('#scene').addEventListener('loaded',()=>window.dispatchEvent(new CustomEvent('hha:aframe-ready')));
+    // HUD refs
+    const ui = {
+      time   : $('#time'),
+      score  : $('#score'),
+      quest  : $('#quest'),
+      goalText: $('#goalText'),
+      goalFill: $('#goalFill'),
+      miniText: $('#miniText'),
+      miniFill: $('#miniFill'),
+      modeLbl: $('#modeLbl'),
+      diffLbl: $('#diffLbl')
+    };
+    ui.modeLbl.textContent = modeNameMap[mode] || mode;
+    ui.diffLbl.textContent = diff;
 
-// HUD updates
-window.addEventListener('hha:time',e=>ui.time.textContent='เวลา: '+(e.detail?.sec??'--')+'s');
-window.addEventListener('hha:score',e=>{
- const s=e.detail||{};ui.score.textContent=`คะแนน: ${s.score||0} | คอมโบ: x${s.combo||0}`;
-});
-window.addEventListener('hha:quest',e=>{
- const d=e.detail||{};
- if(d.text)ui.quest.textContent=d.text;
- if(d.goal){ui.goalLbl.textContent=d.goal.label||'-';ui.goalFill.style.width=Math.min(100,(d.goal.prog/d.goal.target)*100)+'%';}
- if(d.mini){ui.miniLbl.textContent=d.mini.label||'-';ui.miniFill.style.width=Math.min(100,(d.mini.prog/d.mini.target)*100)+'%';}
-});
-window.addEventListener('hha:end',e=>{
- const d=e.detail||{};
- alert(`จบเกม!\nคะแนน: ${d.score||0}\nคอมโบสูงสุด: ${d.comboMax||0}\nMini Quest: ${d.questsCleared||0}/${d.questsTotal||3}\nGoal: ${d.goalCleared?'สำเร็จ':'ไม่สำเร็จ'}`);
-});
+    // แจ้ง A-Frame ready (บางโหมดจะรอ event นี้)
+    $('#scene').addEventListener('loaded', () => {
+      try { window.dispatchEvent(new CustomEvent('hha:aframe-ready')); } catch {}
+    });
 
-// Boot mode
-(async()=>{
- try{
-   const path=MODS[mode]||MODS.goodjunk;
-   const mod=await import(path+'?v='+Date.now());
-   if(!mod?.boot)throw new Error('ไม่มีฟังก์ชัน boot()');
-   await mod.boot({host:$('#spawnHost'),difficulty:diff,duration:dur});
- }catch(err){
-   alert('โหลดโหมดไม่สำเร็จ: '+err.message);
-   console.error(err);
- }
-})();
-</script>
+    // ---------- HUD Listeners ----------
+    window.addEventListener('hha:time', e => {
+      const t = (e && e.detail && e.detail.sec != null) ? e.detail.sec : '--';
+      ui.time.textContent = 'เวลา: ' + t + 's';
+    });
+
+    window.addEventListener('hha:score', e => {
+      const d = (e && e.detail) || {};
+      ui.score.textContent = `คะแนน: ${d.score || 0} | คอมโบ: x${d.combo || 0}`;
+    });
+
+    // เคสเก่า: บางโหมดส่ง progress มากับ hha:quest
+    window.addEventListener('hha:quest', e => {
+      const d = (e && e.detail) || {};
+      if (d.text) ui.quest.textContent = d.text;
+
+      if (d.goal) {
+        ui.goalText.textContent = d.goal.label || '-';
+        const p = d.goal.target ? (d.goal.prog || 0) / d.goal.target : 0;
+        ui.goalFill.style.width = (clamp01(p) * 100).toFixed(0) + '%';
+      }
+      if (d.mini) {
+        ui.miniText.textContent = d.mini.label || '-';
+        const p = d.mini.target ? (d.mini.prog || 0) / d.mini.target : 0;
+        ui.miniFill.style.width = (clamp01(p) * 100).toFixed(0) + '%';
+      }
+    });
+
+    // เคสใหม่: แยกอีเวนต์ความคืบหน้า
+    window.addEventListener('hha:quest-progress', e => {
+      const d = (e && e.detail) || {};
+      if (d.goal) {
+        ui.goalText.textContent = d.goal.label || '-';
+        const p = d.goal.target ? (d.goal.prog || 0) / d.goal.target : 0;
+        ui.goalFill.style.width = (clamp01(p) * 100).toFixed(0) + '%';
+      }
+      if (d.mini) {
+        ui.miniText.textContent = d.mini.label || '-';
+        const p = d.mini.target ? (d.mini.prog || 0) / d.mini.target : 0;
+        ui.miniFill.style.width = (clamp01(p) * 100).toFixed(0) + '%';
+      }
+    });
+
+    // จบเกม → กล่องสรุป (มีทั้ง goal/minis)
+    window.addEventListener('hha:end', e => {
+      const d = (e && e.detail) || {};
+      const lines = [
+        `โหมด: ${d.mode || (modeNameMap[mode] || mode)}`,
+        `ระดับ: ${d.difficulty || diff}`,
+        `คะแนน: ${d.score || 0}`,
+        `คอมโบสูงสุด: ${d.comboMax || d.combo || 0}`,
+        `พลาด: ${d.misses || 0}`,
+        `Mini Quest: ${d.questsCleared || 0}/${d.questsTotal || 3}`,
+        `Goal: ${d.goalCleared ? 'สำเร็จ' : 'ไม่สำเร็จ'}`
+      ];
+      alert('จบเกม!\n' + lines.join('\n'));
+    });
+
+    // ---------- Boot mode (รอ A-Frame พร้อมก่อน) ----------
+    async function waitAframe() {
+      // inline เวอร์ชันย่อ เพื่อเลี่ยงโหลดไฟล์เพิ่ม
+      if (globalThis.AFRAME && globalThis.AFRAME.THREE) {
+        try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
+        return;
+      }
+      await new Promise(resolve => {
+        const tryReady = () => {
+          if (globalThis.AFRAME && globalThis.AFRAME.THREE) {
+            try { globalThis.THREE = globalThis.AFRAME.THREE; } catch {}
+            clearInterval(iv);
+            resolve();
+          }
+        };
+        const iv = setInterval(tryReady, 40);
+        document.getElementById('scene').addEventListener('loaded', tryReady, { once:true });
+      });
+    }
+
+    (async () => {
+      try {
+        await waitAframe();
+        const path = MODS[mode] || MODS.goodjunk;
+        const mod = await import(path + '?v=' + Date.now());
+        if (!mod || !mod.boot) throw new Error('ไม่มีฟังก์ชัน boot()');
+        await mod.boot({
+          host: document.getElementById('spawnHost'),
+          difficulty: diff,
+          duration: dur
+          // โหมดที่รองรับจะสุ่มเควสต์ 3 ใบ และเปิด goal เอง
+        });
+      } catch (err) {
+        alert('โหลดโหมดไม่สำเร็จ: ' + (err && err.message ? err.message : err));
+        console.error(err);
+      }
+    })();
+  </script>
 </body>
 </html>
