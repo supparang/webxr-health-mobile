@@ -1,193 +1,111 @@
-// === /HeroHealth/modes/goodjunk.safe.js (DOM layer, HUD goals + mini quests) ===
-import { MissionDeck } from '../vr/mission.js';
+// === /HeroHealth/modes/goodjunk.safe.js (final) ===
+const THREE = window.THREE;
+import { makeSpawner } from '../vr/spawn-utils.js';
+import { burstAt, floatScore, setShardMode } from '../vr/shards.js';
+import { emojiImage } from '../vr/emoji-sprite.js';
+import { drawThree } from '../vr/quests-powerups.js';
 
 export async function boot(cfg = {}) {
-  // --- config / tuning ---
-  const diff = String(cfg.difficulty || 'normal');
-  const dur  = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
-  const good = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
-  const junk = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+  setShardMode('goodjunk');
+  const scene = document.querySelector('a-scene');
+  const host  = cfg.host || document.getElementById('spawnHost');
+  const diff  = String(cfg.difficulty || 'normal');
+  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
 
-  let spawnMin=900, spawnMax=1200, life=1600, goodRate=0.68;
-  if(diff==='easy'){ spawnMin=1000; spawnMax=1400; life=1800; goodRate=0.74; }
-  if(diff==='hard'){ spawnMin=700;  spawnMax=980;  life=1400; goodRate=0.60; }
+  const tune = {
+    easy:   { nextGap:[480,720], life:[1400,1700], minDist:0.34, maxConcurrent:2 },
+    normal: { nextGap:[360,600], life:[1200,1500], minDist:0.32, maxConcurrent:3 },
+    hard:   { nextGap:[260,480], life:[1000,1300], minDist:0.30, maxConcurrent:4 }
+  };
+  const C = tune[diff] || tune.normal;
+  const sp = makeSpawner({ bounds:{x:[-0.75,0.75],y:[-0.05,0.45],z:-1.6}, minDist:C.minDist });
 
-  // --- HUD helpers ---
-  function fire(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})) }catch(e){} }
+  const GOOD=['🍎','🍓','🍇','🥦','🥕','🥬','🍊','🍌','🍍','🍚','🥗'];
+  const JUNK=['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+  const STAR='⭐', DIA='💎', SHIELD='🛡️';
 
-  // --- DOM layer host ---
-  injectCSS();
-  const layer = freshLayer();
+  let running=true,score=0,combo=0,maxCombo=0,misses=0,hits=0,spawns=0,shield=0;
+  let remain=dur, timerId=0, loopId=0, questIdx=0;
+  const QUESTS = drawThree('goodjunk', diff);
+  let goalCount=0, goalTarget=10;
 
-  // --- state ---
-  let score=0, combo=0, misses=0;
-  let left = dur;
-  let spawnTimer=null, timeTimer=null, watchdog=null, running=true;
+  window.dispatchEvent(new CustomEvent('hha:quest',{detail:{label:QUESTS[0].label,currentIndex:0,total:3}}));
 
-  // goal: เก็บของดีให้ครบ N ชิ้น
-  const goalTarget = 25;
-  let goalCount = 0;
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const nextGap=()=>rand(...C.nextGap), lifeMs=()=>rand(...C.life);
 
-  // mini-quest deck
-  const deck = new MissionDeck({
-    pool: [
-      { id:'good10',  level:'easy',   label:'เก็บของดี 10 ชิ้น',    check:s=>s.goodCount>=10,  prog:s=>Math.min(10,s.goodCount), target:10 },
-      { id:'avoid5',  level:'easy',   label:'หลีกของขยะ 5 ครั้ง',   check:s=>s.junkMiss>=5,    prog:s=>Math.min(5,s.junkMiss),  target:5  },
-      { id:'combo10', level:'normal', label:'ทำคอมโบ 10',           check:s=>s.comboMax>=10,   prog:s=>Math.min(10,s.comboMax), target:10 },
-      { id:'star3',   level:'normal', label:'เก็บดาว ⭐ 3',         check:s=>s.star>=3,        prog:s=>Math.min(3,s.star),      target:3  },
-      { id:'diamond1',level:'hard',   label:'เก็บเพชร 💎 1',        check:s=>s.diamond>=1,     prog:s=>Math.min(1,s.diamond),   target:1  },
-      { id:'score600',level:'hard',   label:'ทำคะแนน 600+',         check:s=>s.score>=600,     prog:s=>Math.min(600,s.score),   target:600}
-    ]
-  });
-  deck.draw3();
-
-  // --- HUD emitters ---
-  function hudGoal(){
-    fire('hha:goal', { label:`เป้า: เก็บของดีให้ได้ ${goalTarget} ชิ้น`, value:goalCount, max:goalTarget, mode:diff });
+  function emitGoal(){ 
+    window.dispatchEvent(new CustomEvent('hha:goal',{detail:{label:`เป้า: เก็บของดี ${goalCount}/${goalTarget}`,value:goalCount,max:goalTarget,mode:'Good vs Junk'}})); 
   }
-  function hudQuest(){
-    const list = deck.getProgress();
-    const cur  = list.find(x=>x.current) || list[0] || null;
-    fire('hha:quest', { label: cur ? cur.label : 'Mini Quest — กำลังเริ่ม…' });
-    fire('hha:quest-progress', {
-      label: cur ? cur.label : '',
-      value: cur && Number.isFinite(cur.prog) ? cur.prog : 0,
-      max: cur && Number.isFinite(cur.target) ? cur.target : 0
-    });
+  emitGoal();
+
+  function tryAdvanceQuest(){
+    const s={score,goodCount:hits,junkMiss:misses,comboMax:maxCombo};
+    const q=QUESTS[questIdx];
+    if(q&&q.check(s)){ questIdx++; if(questIdx<QUESTS.length)
+      window.dispatchEvent(new CustomEvent('hha:quest',{detail:{label:QUESTS[questIdx].label,currentIndex:questIdx,total:3}})); }
   }
-  hudGoal(); hudQuest();
-  fire('hha:score', {score, combo});
-  fire('hha:time',  {sec:left});
 
-  // --- spawn loop ---
-  planNextSpawn(); startWatchdog();
-  timeTimer = setInterval(tickTime, 1000);
+  function end(reason='timeout'){
+    if(!running)return; running=false;
+    clearInterval(timerId); clearTimeout(loopId);
+    Array.from(host.querySelectorAll('a-image')).forEach(n=>n.remove());
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{mode:'Good vs Junk',score,combo:maxCombo,misses,hits,questsCleared:questIdx,questsTotal:3,reason}}));
+  }
 
-  function tickTime(){
-    if(!running) return;
-    left = Math.max(0, left-1);
-    deck.second();
-    hudQuest();       // อัปเดตแถบล่างทุกวินาที
-    fire('hha:time', {sec:left});
-    if(left<=0){ end(); return; }
-    // เคลียร์ 3/3 แล้วสุ่มชุดใหม่ถ้าเวลาเหลือ
-    if(deck.isCleared() && left>0){
-      deck.draw3(); hudQuest();
+  function spawnOne(){
+    if(!running)return;
+    const nNow=host.querySelectorAll('a-image').length;
+    if(nNow>=C.maxConcurrent){ loopId=setTimeout(spawnOne,150); return; }
+
+    let ch,type='good';
+    const r=Math.random();
+    if(r<0.05){ ch=STAR; type='star'; }
+    else if(r<0.07){ ch=DIA; type='diamond'; }
+    else if(r<0.1){ ch=SHIELD; type='shield'; }
+    else{
+      const isGood=Math.random()>0.35;
+      ch=(isGood?GOOD:JUNK)[(Math.random()*(isGood?GOOD:JUNK).length)|0];
+      type=isGood?'good':'junk';
     }
+
+    const pos=sp.sample();
+    const el=emojiImage(ch,0.7,128);
+    el.classList.add('clickable');
+    el.setAttribute('position',`${pos.x} ${pos.y} ${pos.z}`);
+    host.appendChild(el); spawns++;
+
+    const rec=sp.markActive(pos);
+    const ttl=setTimeout(()=>{
+      if(!el.parentNode)return;
+      if(type==='good'){ misses++; combo=0; score=Math.max(0,score-10); goalCount=Math.max(0,goalCount-1);}
+      el.remove(); sp.unmark(rec);
+    },lifeMs());
+
+    el.addEventListener('click',(ev)=>{
+      if(!running)return;
+      ev.preventDefault(); clearTimeout(ttl);
+      const wp=el.object3D.getWorldPosition(new THREE.Vector3());
+      if(type==='good'){
+        const val=20+combo*2; score+=val; hits++; combo++; maxCombo=Math.max(maxCombo,combo);
+        burstAt(scene,wp,{color:'#22c55e',count:18,speed:1.0}); floatScore(scene,wp,'+'+val);
+        goalCount++; if(goalCount>=goalTarget){ goalTarget+=5; emitGoal(); }
+      } else if(type==='junk'){
+        score=Math.max(0,score-15); combo=0;
+        burstAt(scene,wp,{color:'#ef4444',count:14,speed:0.9}); floatScore(scene,wp,'-15');
+      } else if(type==='star'){ score+=40; floatScore(scene,wp,'+40 ⭐'); burstAt(scene,wp,{color:'#fde047',count:20}); }
+      else if(type==='diamond'){ score+=80; floatScore(scene,wp,'+80 💎'); burstAt(scene,wp,{color:'#a78bfa',count:24}); }
+      else if(type==='shield'){ shield=Math.min(3,shield+1); floatScore(scene,wp,'🛡️+1'); burstAt(scene,wp,{color:'#60a5fa',count:18}); }
+
+      el.remove(); sp.unmark(rec);
+      tryAdvanceQuest(); emitGoal();
+      window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+      loopId=setTimeout(spawnOne,nextGap());
+    },{passive:false});
   }
 
-  function planNextSpawn(){
-    if(!running) return;
-    const wait = Math.floor(spawnMin + Math.random()*(spawnMax-spawnMin));
-    spawnTimer = setTimeout(spawnOne, wait);
-  }
-  function startWatchdog(){
-    if(watchdog) clearInterval(watchdog);
-    watchdog = setInterval(()=>{
-      if(!running) return;
-      if(layer.querySelectorAll('.hha-tgt').length===0) spawnOne(true);
-    }, 2000);
-  }
-
-  function spawnOne(forceCenter){
-    if(!running) return;
-    const isGood = Math.random() < goodRate;
-    const ch = pick(isGood ? good : junk);
-
-    const el = document.createElement('div');
-    el.className = 'hha-tgt';
-    el.textContent = ch;
-    sizeByDiff(el);
-
-    place(el, forceCenter);
-    layer.appendChild(el);
-
-    let clicked=false;
-    const onHit=(ev)=>{
-      if(clicked) return; clicked=true;
-      ev && ev.preventDefault && ev.preventDefault();
-      layer.removeChild(el);
-
-      if(isGood){
-        const delta = 20 + combo*2;
-        score += delta; combo = Math.min(9999, combo+1);
-        goalCount = Math.min(goalTarget, goalCount+1);
-        deck.onGood();
-        deck.updateScore(score); deck.updateCombo(combo);
-        hudGoal(); hudQuest();
-        fire('hha:score', {score, combo});
-      }else{
-        combo = 0; misses += 1;
-        deck.onJunk();
-        deck.updateCombo(combo);
-        hudQuest();
-        fire('hha:score', {score, combo});
-      }
-      planNextSpawn();
-    };
-    el.addEventListener('click', onHit, {passive:false});
-    el.addEventListener('touchstart', onHit, {passive:false});
-
-    setTimeout(()=>{
-      if(clicked || !running) return;
-      // timeout = ถ้าดีถือว่าพลาด / ถ้าขยะถือว่า "หลบสำเร็จ"
-      try{ layer.removeChild(el);}catch{}
-      if(isGood){
-        combo=0; misses+=1; deck.onJunk(); deck.updateCombo(combo);
-      }else{
-        // หลีกขยะ → นับ junkMiss (เควสต์ avoid5)
-        deck.onJunk();
-      }
-      hudQuest();
-      planNextSpawn();
-    }, life);
-  }
-
-  function end(){
-    if(!running) return;
-    running=false;
-    try{ clearInterval(timeTimer); }catch{}
-    try{ clearTimeout(spawnTimer); }catch{}
-    try{ clearInterval(watchdog); }catch{}
-    wipe(layer);
-
-    const prog = deck.getProgress();
-    const questsCleared = prog.filter(p=>p.done).length;
-    fire('hha:end', {
-      score, combo, misses, duration:dur,
-      goal: goalCount>=goalTarget,
-      questsCleared, questsTotal: 3
-    });
-  }
-
-  // --- utils ---
-  function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
-  function vw(){ return Math.max(320, window.innerWidth||320); }
-  function vh(){ return Math.max(320, window.innerHeight||320); }
-  function sizeByDiff(el){ el.style.fontSize = (diff==='easy'?74:(diff==='hard'?56:64))+'px'; }
-  function place(el, center){
-    const x = center ? vw()/2 : Math.floor(vw()*0.14 + Math.random()*vw()*0.72);
-    const y = center ? vh()/2 : Math.floor(vh()*0.20 + Math.random()*vh()*0.56);
-    el.style.left = x+'px'; el.style.top = y+'px';
-  }
-
-  return { stop:end, pause(){running=false;}, resume(){ if(!running){ running=true; planNextSpawn(); startWatchdog(); } } };
+  timerId=setInterval(()=>{ if(!running)return; remain--; window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}})); if(remain<=0) end(); },1000);
+  spawnOne();
+  return{stop:()=>end('quit')};
 }
-
-// --- DOM helpers shared ---
-function injectCSS(){
-  if(document.getElementById('hha-style')) return;
-  const st = document.createElement('style');
-  st.id='hha-style';
-  st.textContent =
-    '.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto;background:transparent}'+
-    '.hha-tgt{position:absolute;transform:translate(-50%,-50%);line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5))}';
-  document.head.appendChild(st);
-}
-function freshLayer(){
-  document.querySelectorAll('.hha-layer').forEach(n=>{ try{n.remove();}catch{} });
-  const d = document.createElement('div'); d.className='hha-layer'; document.body.appendChild(d); return d;
-}
-function wipe(layer){ try{ layer.querySelectorAll('.hha-tgt').forEach(n=>n.remove()); layer.remove(); }catch{} }
-
-export default { boot };
+export default {boot};
