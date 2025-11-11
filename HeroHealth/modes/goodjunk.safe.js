@@ -1,20 +1,14 @@
 // === /HeroHealth/modes/goodjunk.safe.js (2025-11-10) ===
-// แก้: ยิง hha:quest ให้ index อัปเดต "เป้า" และ "Mini Quest" ด้านล่างเสมอ
-//      เพิ่ม compat-shim ถ้า MissionDeck ไม่มี .tick()
-
 import { boot as domBoot } from '../vr/mode-factory.js';
 import { questHUDInit, questHUDUpdate, questHUDDispose } from '../vr/quest-hud.js';
 import { MissionDeck } from '../vr/mission.js';
+import { burstAtScreen, floatScoreScreen } from '../vr/ui-water.js';
 
-// อิโมจิแต่ละฝั่ง
-const GOOD = ['🥕','🥦','🍎','🍐','🍇','🍓','🌽','🍅','🥬','🫘'];
-const JUNK = ['🍪','🍩','🍔','🍟','🍕','🍰','🧋','🥤'];
+const GOOD=['🥕','🥦','🍎','🍐','🍇','🍓','🌽','🍅','🥬','🫘'];
+const JUNK=['🍪','🍩','🍔','🍟','🍕','🍰','🧋','🥤'];
+const SCORE_GOOD=25, SCORE_JUNK=-20;
 
-const SCORE_GOOD = 25;
-const SCORE_JUNK = -20;
-
-// Mini quest pool สำหรับ goodjunk
-const QUESTS = [
+const QUESTS=[
   { id:'good10',   level:'easy',   label:'เก็บของดี 10 ชิ้น',  check:s=>s.goodCount>=10,  prog:s=>Math.min(10,s.goodCount), target:10 },
   { id:'combo10',  level:'normal', label:'ทำคอมโบ 10',         check:s=>s.comboMax>=10,   prog:s=>Math.min(10,s.comboMax),   target:10 },
   { id:'score500', level:'hard',   label:'ทำคะแนน 500+',       check:s=>s.score>=500,     prog:s=>Math.min(500,s.score),     target:500 },
@@ -22,73 +16,80 @@ const QUESTS = [
   { id:'diamond1', level:'hard',   label:'เก็บเพชร 💎 1',       check:s=>s.diamond>=1,     prog:s=>Math.min(1,s.diamond),     target:1 },
   { id:'nomiss10', level:'normal', label:'ไม่พลาด 10 วิ',       check:s=>s.noMissTime>=10, prog:s=>Math.min(10,s.noMissTime), target:10 },
 ];
+const GOAL={ id:'goal25', label:'เก็บของดีให้ได้ 25 ชิ้น', target:25 };
 
-// เป้าหมายหลักของโหมด
-const GOAL = { id:'goal25', label:'เก็บของดีให้ได้ 25 ชิ้น', target:25 };
-
-const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
-const isGood = ch => GOOD.includes(ch);
-const isJunk = ch => JUNK.includes(ch);
+const isGood = ch=>GOOD.includes(ch);
+const isJunk = ch=>JUNK.includes(ch);
 
 export async function boot(cfg={}){
   questHUDInit();
 
-  const stats = {
-    score:0, combo:0, comboMax:0,
-    goodCount:0, missCount:0,
-    noMissTime:0, star:0, diamond:0
-  };
+  // สถานะรวม
+  const stats={ score:0, combo:0, comboMax:0, goodCount:0, missCount:0, noMissTime:0, star:0, diamond:0 };
+  let goalProg=0;
 
-  let goalProg = 0;
-  let extraRounds = 0;
-
-  // สร้างเด็คเควสต์ (3 ใบ)
+  // เด็ค + ตัวช่วยนับเควสต์ที่ผ่าน
   const deck = new MissionDeck({ pool: QUESTS });
   deck.draw3();
+  let clearedCountPrev = 0;
+  let totalCleared = 0;   // ไว้ใช้ในสรุปผล
+  let extraRounds = 0;
 
-  // --- compat shim สำหรับ deck.tick ---
+  // ช่วยอัปเดตเด็ค (รองรับกรณีไม่มี .tick())
   function deckUpdate(patch={}){
-    if (typeof deck.tick === 'function'){ deck.tick(patch); return; }
-    if (deck.stats){
-      if (patch.good) deck.stats.goodCount = (deck.stats.goodCount||0)+1;
-      if (patch.junk){ deck.stats.junkMiss = (deck.stats.junkMiss||0)+1; deck.stats.noMissTime = 0; }
-      if (Number.isFinite(patch.score)) deck.stats.score = Math.max(deck.stats.score||0, patch.score);
-      if (Number.isFinite(patch.combo)) deck.stats.comboMax = Math.max(deck.stats.comboMax||0, patch.combo);
-      if (patch.noMissSecInc) deck.stats.noMissTime = (deck.stats.noMissTime||0)+patch.noMissSecInc;
-      if (patch.star) deck.stats.star = (deck.stats.star||0)+patch.star;
-      if (patch.diamond) deck.stats.diamond = (deck.stats.diamond||0)+patch.diamond;
-    }
-    try{
+    if (typeof deck.tick === 'function'){ deck.tick(patch); }
+    else {
+      if (deck.stats){
+        if (patch.good) deck.stats.goodCount = (deck.stats.goodCount||0)+1;
+        if (patch.junk){ deck.stats.junkMiss = (deck.stats.junkMiss||0)+1; deck.stats.noMissTime = 0; }
+        if (Number.isFinite(patch.score)) deck.stats.score = Math.max(deck.stats.score||0, patch.score);
+        if (Number.isFinite(patch.combo)) deck.stats.comboMax = Math.max(deck.stats.comboMax||0, patch.combo);
+        if (patch.noMissSecInc) deck.stats.noMissTime = (deck.stats.noMissTime||0)+patch.noMissSecInc;
+      }
+      // ตรวจเลื่อนไปใบถัดไป
       const cur = deck.getCurrent?.();
       if (cur?.check && deck.stats && cur.check(deck.stats)){
         deck.currentIndex = Math.min((deck.deck?.length||1)-1, (deck.currentIndex||0)+1);
       }
-    }catch{}
+    }
   }
-  // -------------------------------------
 
-  // ยิงข้อมูลไปให้ index + อัปเดตแผง HUD ขวา
+  // ดันข้อมูลขึ้น HUD (ทั้ง index และกล่องด้านขวา)
   function pushHUD(text){
-    const cur = deck.getCurrent?.();
     const progArr = deck.getProgress?.() || [];
+    const cur = progArr.find(x=>x.current) || deck.getCurrent?.();
     const curProg = progArr.find(x=>x.current) || {};
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: {
-        text: text ? `Mini Quest — ${text}` : undefined,
-        goal: { label: GOAL.label, prog: goalProg, target: GOAL.target },
-        mini: cur ? { label: cur.label, prog: curProg.prog||0, target: curProg.target||1 } : undefined
+    window.dispatchEvent(new CustomEvent('hha:quest',{
+      detail:{
+        text: text?`Mini Quest — ${text}`:undefined,
+        goal:{ label:GOAL.label, prog:goalProg, target:GOAL.target },
+        mini: cur ? { label:cur.label, prog: curProg.prog||0, target: curProg.target||1 } : undefined
       }
     }));
     questHUDUpdate(deck, cur?.label || '—');
   }
 
-  // ให้รันทุกวินาที: เพิ่มตัวนับ noMissTime และเช็คเควสต์ครบ 3 ใบแล้วจั่วใหม่
+  // ตรวจและอัปเดตจำนวนเควสต์ที่ผ่าน เพื่อไม่ให้ “0/3” อีก
+  function tallyQuests(){
+    const progArr = deck.getProgress?.() || [];
+    const clearedNow = progArr.filter(q=>q.done).length;
+    if (clearedNow > clearedCountPrev){
+      totalCleared += (clearedNow - clearedCountPrev);
+      clearedCountPrev = clearedNow;
+    }
+  }
+
+  // ต่อวินาที: นับ no-miss, เช็คเคลียร์ครบ 3 ใบแล้วจั่วเพิ่ม
   function onSecond(){
     stats.noMissTime++;
-    deckUpdate({ noMissSecInc: 1 });
+    deckUpdate({ noMissSecInc:1 });
+    tallyQuests();
 
-    if (deck.isCleared?.()){
+    // เคลียร์ครบ 3 ใบแล้ว และยังมีเวลา → จั่วชุดใหม่ทันที
+    const progArr = deck.getProgress?.() || [];
+    if (progArr.length && progArr.every(q=>q.done)){
       deck.draw3?.();
+      clearedCountPrev = 0;
       extraRounds++;
       pushHUD('เริ่มชุดใหม่!');
     }else{
@@ -97,41 +98,42 @@ export async function boot(cfg={}){
   }
   window.addEventListener('hha:time', onSecond);
 
+  // เอฟเฟกต์ตำแหน่งจอ
+  window.addEventListener('hha:hit-screen', (e)=>{
+    const {x,y,good,delta} = e.detail||{};
+    burstAtScreen(x,y,{ color: good ? '#22c55e' : '#ef4444', count: good?18:12 });
+    floatScoreScreen(x,y, (delta>0?`+${delta}`:`${delta}`), good ? '#86efac' : '#fca5a5');
+  });
+
   function judge(ch){
     let good=false, delta=0;
     if (isGood(ch)){
       good=true;
-      stats.goodCount++; goalProg = Math.min(GOAL.target, goalProg+1);
-      stats.score += SCORE_GOOD; delta = SCORE_GOOD;
+      stats.goodCount++; goalProg=Math.min(GOAL.target, goalProg+1);
+      stats.score += SCORE_GOOD; delta=SCORE_GOOD;
       stats.combo = Math.min(9999, stats.combo+1);
       stats.comboMax = Math.max(stats.comboMax, stats.combo);
       deckUpdate({ good:true, score:stats.score, combo:stats.combo });
     }else if (isJunk(ch)){
       good=false;
-      stats.missCount++; stats.noMissTime = 0;
-      stats.score = Math.max(0, stats.score + SCORE_JUNK); delta = SCORE_JUNK;
+      stats.missCount++; stats.noMissTime=0;
+      stats.score = Math.max(0, stats.score + SCORE_JUNK); delta=SCORE_JUNK;
       stats.combo = 0;
       deckUpdate({ junk:true, score:stats.score, combo:0 });
     }else{
-      // อื่น ๆ ถือว่า good เล็กน้อย
-      good=true; delta = 10; stats.score += delta; stats.combo = Math.min(9999, stats.combo+1);
-      stats.comboMax = Math.max(stats.comboMax, stats.combo);
+      good=true; delta=10; stats.score+=delta;
+      stats.combo=Math.min(9999,stats.combo+1);
+      stats.comboMax=Math.max(stats.comboMax,stats.combo);
       deckUpdate({ score:stats.score, combo:stats.combo });
     }
-
-    // ส่งคะแนนขึ้น HUD กลาง
-    window.dispatchEvent(new CustomEvent('hha:score', {
-      detail: { score: stats.score, combo: stats.combo, delta, good }
-    }));
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score:stats.score, combo:stats.combo, delta, good}}));
+    tallyQuests();
     pushHUD();
-    return { good, scoreDelta: delta };
+    return { good, scoreDelta:delta };
   }
 
-  // เมื่อเป้าหมายหมดอายุ
-  function onExpire(ev){
-    // กรณีปล่อยให้ “ขยะ” หลุด → ถือว่าหลีกขยะได้สำเร็จ (ไม่ถือเป็น miss)
-    // โหมดนี้ยังไม่ต้องนับพิเศษ เพิ่มได้ในอนาคต
-  }
+  // เผื่อใช้ในอนาคตสำหรับ “หลบขยะ”
+  function onExpire(ev){ /* no-op for now */ }
 
   const game = await domBoot({
     host: document.getElementById('spawnHost'),
@@ -148,15 +150,20 @@ export async function boot(cfg={}){
   function finish(){
     window.removeEventListener('hha:time', onSecond);
     questHUDDispose();
-    window.dispatchEvent(new CustomEvent('hha:end', { detail: {
+
+    // รวมยอด Mini Quest ที่ผ่านจริง (รวมรอบที่จั่วใหม่)
+    tallyQuests();
+
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
       score: stats.score,
       comboMax: stats.comboMax,
+      misses: stats.missCount,
+      duration: Number(cfg.duration||60),
       questsTotal: 3*(1+extraRounds),
-      questsCleared: (deck.getProgress?.().filter(q=>q.done).length||0) + extraRounds*3,
+      questsCleared: totalCleared + (deck.getProgress?.().filter(q=>q.done).length||0),
       goalCleared: goalProg >= GOAL.target
     }}));
   }
   window.addEventListener('hha:dispose-ui', ()=>{ try{game?.stop?.();}catch{} finish(); }, { once:true });
 }
-
 export default { boot };
