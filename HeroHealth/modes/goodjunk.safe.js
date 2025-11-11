@@ -1,126 +1,149 @@
-// === Good vs Junk — DOM spawn via mode-factory, with Goal + Mini Quests ===
-import { boot as baseBoot } from '../vr/mode-factory.js';
+// === /HeroHealth/modes/goodjunk.safe.js — DOM mode + MissionDeck ===
+import { MissionDeck } from '../vr/mission.js';
 
-export async function boot(cfg={}){
-  const diff = String(cfg.difficulty||'normal');
-  const dur  = Number(cfg.duration||60);
+export async function boot(cfg = {}){
+  const layer = prepLayer();
+  const diff = String(cfg.difficulty || 'normal');
+  const dur  = Number(cfg.duration || 60);
 
-  // Pools
-  const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
-  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+  // pools
+  const GOOD=['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
+  const JUNK=['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
   const STAR='⭐', DIA='💎', SHIELD='🛡️';
 
-  // Difficulty → rate
-  const goodRate = (diff==='easy')?0.78:(diff==='hard')?0.62:0.70;
+  // tuning
+  let spawnMin=900, spawnMax=1200, life=1600, goodRate=0.65, goalTarget=25;
+  if(diff==='easy'){ spawnMin=1000; spawnMax=1400; life=1800; goodRate=0.72; goalTarget=20; }
+  if(diff==='hard'){ spawnMin=700;  spawnMax=950;  life=1400; goodRate=0.58; goalTarget=30; }
 
-  // ---- Goal & Quests state ----
-  const goalTarget = 25; // เก็บของดี 25 ชิ้น
-  let goalProg = 0;
+  // state
+  let score=0, combo=0, maxCombo=0, misses=0, left=Math.max(1,Math.round(dur));
+  let timer=null, spawner=null, watchdog=null, running=true, shield=0;
+  let goalCount=0, goalDone=false;
 
-  // สุ่ม 3 mini quests
-  const POOL = [
-    { id:'g10', label:'เก็บของดี 10 ชิ้น', target:10, prog:0, check:s=>s.prog>=10 },
-    { id:'combo10', label:'ทำคอมโบ 10', target:10, prog:0, check:s=>s.comboMax>=10 },
-    { id:'dia1', label:'เก็บเพชร 💎 1 เม็ด', target:1, prog:0, check:s=>s.prog>=1, type:'diamond' },
-    { id:'star3', label:'เก็บดาว ⭐ 3', target:3, prog:0, check:s=>s.prog>=3, type:'star' },
-    { id:'nomiss10', label:'ไม่พลาด 10 วิ', target:10, prog:0, check:s=>s.noMiss>=10, type:'timer' }
-  ];
-  function draw3(){
-    const a = POOL.slice().sort(()=>Math.random()-0.5).slice(0,3);
-    // reset prog
-    a.forEach(q=>{ q.prog=0; });
-    return a;
+  // mini-quest deck
+  const deck = new MissionDeck(); deck.draw3();
+  let questSetCleared=0, questSetLocked=false;
+  hudQuest(deck.getCurrent());
+
+  // helpers
+  function r(a,b){return a+Math.random()*(b-a);}
+  function vw(){return Math.max(320, window.innerWidth||320);}
+  function vh(){return Math.max(320, window.innerHeight||320);}
+  function fire(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})) }catch{} }
+  function hudQuest(cur){ fire('hha:quest',{label: cur?cur.label:'กำลังเริ่ม…'}); fire('hha:quest-progress',{list: deck.getProgress()}); }
+
+  // place first target immediately
+  const spawnNow = ()=> spawnOne(true);
+  const planNext = ()=> { spawner=setTimeout(spawnOne, Math.floor(r(spawnMin,spawnMax))); };
+
+  function spawnOne(forceCenter){
+    if(!running) return;
+    // choose type
+    let ch,type; const roll=Math.random();
+    if      (roll<0.04){ ch=STAR; type='star'; }
+    else if (roll<0.06){ ch=DIA;  type='diamond'; }
+    else if (roll<0.09){ ch=SHIELD; type='shield'; }
+    else {
+      const good = Math.random()<goodRate;
+      ch = (good?GOOD:JUNK)[(Math.random()*(good?GOOD:JUNK).length)|0];
+      type = good?'good':'junk';
+    }
+
+    const el = document.createElement('div');
+    el.className='hha-tgt';
+    el.textContent=ch;
+
+    const x = forceCenter? vw()/2 : Math.floor(vw()*0.12 + Math.random()*vw()*0.76);
+    const y = forceCenter? vh()/2 : Math.floor(vh()*0.18 + Math.random()*vh()*0.62);
+    el.style.left=x+'px'; el.style.top=y+'px'; el.style.fontSize=(diff==='easy'?74:diff==='hard'?56:64)+'px';
+
+    let clicked=false;
+    function onHit(ev){
+      if(clicked) return; clicked=true;
+      try{ev.preventDefault();}catch{}
+      if(type==='good'){
+        const val=20 + combo*2; score+=val; combo++; maxCombo=Math.max(maxCombo,combo); goalCount++;
+        deck.tick({good:true, score, combo});
+      }else if(type==='junk'){
+        if(shield>0){ shield--; deck.tick({score,combo}); }
+        else{ combo=0; score=Math.max(0, score-15); misses++; deck.tick({junk:true, score, combo}); }
+      }else if(type==='star'){ score+=40; deck.tick({star:true, score, combo}); }
+      else if(type==='diamond'){ score+=80; deck.tick({diamond:true, score, combo}); }
+      else if(type==='shield'){ shield=Math.min(3, shield+1); deck.tick({score,combo}); }
+
+      // goal
+      if(!goalDone && goalCount>=goalTarget){ goalDone=true; }
+
+      el.className='hha-tgt hit';
+      try{ layer.removeChild(el); }catch{}
+      fire('hha:score',{score, combo});
+
+      checkQuestSet();
+      hudQuest(deck.getCurrent());
+      planNext();
+    }
+
+    el.addEventListener('click', onHit, {passive:false});
+    el.addEventListener('touchstart', onHit, {passive:false});
+
+    const ttl=setTimeout(()=>{
+      if(clicked||!running) return;
+      try{ layer.removeChild(el); }catch{}
+      combo=0; misses++; deck.tick({junk:true, score, combo});
+      hudQuest(deck.getCurrent());
+      planNext();
+    }, life);
+
+    layer.appendChild(el);
   }
-  let deck = draw3(); let qIdx = 0;
-  function postQuest(){
-    const q = deck[qIdx];
-    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{label:`Quest ${qIdx+1}/3 — ${q.label}`, prog:q.prog, target:q.target}}));
-  }
-  window.dispatchEvent(new CustomEvent('hha:goal',{detail:{label:`เป้า: เก็บของดีให้ได้ ${goalTarget} ชิ้น — คืบหน้า ${goalProg}/${goalTarget}`,progress:goalProg,target:goalTarget}}));
-  postQuest();
 
-  // timer for "no miss"
-  let noMiss = 0; const noMissId = setInterval(()=>{ noMiss=Math.min(999,noMiss+1); },1000);
-
-  // local highs
-  let comboMax=0;
-
-  // ---- judge hook ----
-  function judge(ch, state){
-    // specials
-    if(ch===STAR){ deck.forEach(q=>{ if(q.type==='star'){ q.prog++; }}); postQuest(); return {good:true, scoreDelta:40}; }
-    if(ch===DIA){  deck.forEach(q=>{ if(q.type==='diamond'){ q.prog++; }}); postQuest(); return {good:true, scoreDelta:80}; }
-    if(ch===SHIELD){ return {good:true, scoreDelta:0}; }
-
-    const isGood = GOOD.includes(ch);
-    if(isGood){
-      goalProg++; 
-      window.dispatchEvent(new CustomEvent('hha:goal',{detail:{label:`เป้า: เก็บของดีให้ได้ ${goalTarget} ชิ้น — คืบหน้า ${goalProg}/${goalTarget}`,progress:goalProg,target:goalTarget}}));
-      // quest progress tie-ins
-      const q = deck[qIdx];
-      if(q && q.id==='g10'){ q.prog++; postQuest(); }
-      // combo max will be updated by state.combo later; track for quest
-      comboMax = Math.max(comboMax, state.combo+1);
-      checkQuestDone();
-      noMiss = 0; // เก็บถือว่ารีเซ็ต "ไม่พลาด" หรือจะไม่นับก็ได้
-      return {good:true, scoreDelta: 20 + state.combo*2};
-    } else {
-      // miss junk ⇒ noMiss reset
-      noMiss = 0;
-      // quest timer-based
-      const tQ = deck[qIdx]; if(tQ && tQ.type==='timer'){ tQ.prog = 0; postQuest(); }
-      return {good:false, scoreDelta:-15};
+  function checkQuestSet(){
+    if(deck.isCleared() && !questSetLocked){
+      questSetLocked=true;
+      questSetCleared+=1;
+      if(left>5){ deck.draw3(); questSetLocked=false; hudQuest(deck.getCurrent()); }
     }
   }
 
-  function checkQuestDone(){
-    // update combo-based quest
-    const q = deck[qIdx];
-    if(!q) return;
-    if(q.id==='combo10') { q.prog = Math.max(q.prog, comboMax); }
-    if(q.type==='timer') { q.prog = Math.max(q.prog, noMiss); }
-    // done?
-    if(q.prog>=q.target){
-      qIdx++;
-      if(qIdx>=3){
-        // เคลียร์ครบ 3 → ถ้าเวลาเหลือ ให้สุ่มชุดใหม่
-        deck = draw3(); qIdx = 0;
-      }
-      postQuest();
-    }
+  function tick(){
+    if(!running) return;
+    left=Math.max(0,left-1);
+    deck.second(); hudQuest(deck.getCurrent());
+    fire('hha:time',{sec:left});
+    if(left<=0) end();
   }
 
-  // relay for score HUD (state ส่งมาจาก factory)
-  window.addEventListener('hha:score', e=>{
-    const d = e.detail||{};
-    comboMax = Math.max(comboMax, d.combo||0);
-    // timer quest tick
-    const q = deck[qIdx]; if(q && q.type==='timer'){ q.prog = Math.max(q.prog, noMiss); postQuest(); }
-  });
+  function end(){
+    if(!running) return; running=false;
+    try{clearInterval(timer);}catch{}; try{clearTimeout(spawner);}catch{}; try{clearInterval(watchdog);}catch{};
+    const mini = questSetCleared + (deck.isCleared() && questSetLocked ? 1 : 0);
+    fire('hha:end',{ score, comboMax:maxCombo, miniSetsCleared:mini, goalDone });
+    cleanupLayer(layer);
+  }
 
-  // จบเกม → สรุป
-  const onEnd = (e)=>{
-    clearInterval(noMissId);
-    const goalDone = goalProg>=goalTarget;
-    window.dispatchEvent(new CustomEvent('hha:quest-summary',{detail:{
-      mode:'Good vs Junk',
-      score:e.detail?.score||0,
-      combo:e.detail?.combo||0,
-      goalDone,
-      questsCleared:3, questsTotal:3
-    }}));
-    window.removeEventListener('hha:end', onEnd);
-  };
-  window.addEventListener('hha:end', onEnd, {once:true});
+  // timers
+  timer=setInterval(tick,1000);
+  spawnNow();
+  planNext();
+  watchdog=setInterval(()=>{ if(!running) return; if(!layer.querySelector('.hha-tgt')) spawnOne(true); }, 2000);
 
-  // start base
-  return baseBoot({
-    difficulty: diff,
-    duration: dur,
-    goodRate,
-    pools:{ good:GOOD, bad:JUNK, star:[STAR], diamond:[DIA], shield:[SHIELD] },
-    judge
-  });
+  return { stop:end, pause(){running=false;}, resume(){ if(!running){running=true; planNext();} } };
 }
 
 export default { boot };
+
+// ---------- small UI helpers ----------
+function prepLayer(){
+  if(!document.getElementById('hha-style')){
+    const st=document.createElement('style'); st.id='hha-style';
+    st.textContent='.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto}'+
+      '.hha-tgt{position:absolute;transform:translate(-50%,-50%);font-size:64px;line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));transition:transform .12s,opacity .24s;opacity:1}'+
+      '.hha-tgt.hit{transform:translate(-50%,-50%) scale(.85);opacity:.15}';
+    document.head.appendChild(st);
+  }
+  const old=document.querySelectorAll('.hha-layer'); old.forEach(n=>{try{n.remove()}catch{}});
+  const layer=document.createElement('div'); layer.className='hha-layer'; document.body.appendChild(layer);
+  return layer;
+}
+function cleanupLayer(layer){ try{layer.remove();}catch{} }
