@@ -1,105 +1,77 @@
-// DOM version — Healthy Plate (จัดครบ 5 หมู่)
-import factoryBoot from '../vr/mode-factory.js';
-import { MissionDeck } from '../vr/mission.js';
-import { questHUDInit, questHUDUpdate } from '../vr/quest-hud.js';
-import { burstAtScreen, floatScoreScreen } from '../vr/ui-water.js';
+// === /HeroHealth/modes/plate.quest.js (fever + fx) ===
+import { boot as factoryBoot } from '../vr/mode-factory.js';
+import { floatScoreScreen, burstAtScreen } from '../vr/ui-water.js';
+import { ensureFeverGauge, setFeverGauge, setFlame, feverBurstScreen, destroyFeverGauge } from '../vr/ui-fever.js';
 
-export async function boot(cfg = {}) {
-  const dur = Number(cfg.duration || 60);
-  const diff = String(cfg.difficulty || 'normal');
+export async function boot(cfg = {}){
+  const diff = String(cfg.difficulty||'normal');
+  const dur  = Number(cfg.duration||60);
 
   const GROUPS = {
     veg: ['🥦','🥕','🥬','🍅','🌽'],
     fruit: ['🍎','🍓','🍇','🍊','🍍','🍌'],
     grain: ['🍞','🥖','🍚','🍘'],
     protein: ['🐟','🍗','🥚','🫘','🥜'],
-    dairy: ['🥛','🧀','🍦']
+    dairy: ['🥛','🧀','🍦'],
   };
-  const ALL = Object.values(GROUPS).flat();
-  const GOOD = [...ALL, '⭐','💎','🛡️'];
-  const BAD  = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+  const ALLGOOD = [...new Set(Object.values(GROUPS).flat())];
+  const GOOD = [...ALLGOOD, '⭐','💎','🛡️'];
+  const BAD  = ['🍔','🍟','🍕','🍩','🍪','🥤','🧋','🍫'];
 
-  let score=0, combo=0, shield=0, leftSec=dur, hits=0, misses=0;
+  ensureFeverGauge();
+  let fever=0, feverActive=false, timer=0;
+  function addFever(d){ fever=Math.max(0,Math.min(100,fever+d)); setFeverGauge(fever);
+    if(!feverActive && fever>=100){ feverActive=true; setFlame(true); feverBurstScreen(); setFeverGauge(100);
+      timer=setTimeout(()=>{feverActive=false; setFlame(false); fever=0; setFeverGauge(0);},5000); } }
 
-  // รอบละ “ครบ 5 หมู่”
-  let roundDone = { veg:false, fruit:false, grain:false, protein:false, dairy:false };
-  function roundCleared(){ return Object.values(roundDone).every(Boolean); }
-
-  // Goal: ทำครบ 5 หมู่ 2 รอบ
-  const goal = { label:'จัดครบ 5 หมู่ 2 รอบ', prog:0, target:2, cleared:false, rounds:0 };
-  function updateGoal(){ goal.prog = Math.min(goal.target, goal.rounds); goal.cleared = goal.prog>=goal.target; }
-
-  const deck = new MissionDeck();
-  deck.draw3(); questHUDInit();
-  function pushHUD(hint){
-    questHUDUpdate(deck, hint||'');
-    updateGoal();
-    const cur = deck.getCurrent(); const p = deck.getProgress()[deck.currentIndex] || {};
-    window.dispatchEvent(new CustomEvent('hha:quest',{
-      detail:{
-        text:`Mini Quest — ${cur?.label || 'กำลังสุ่ม…'}`,
-        goal:{label:goal.label, prog:goal.prog, target:goal.target},
-        mini:{label:cur?.label||'-', prog:p.prog||0, target:p.target||1}
-      }
-    }));
-  }
-  pushHUD('จัดให้ครบทุกหมู่');
-
-  window.addEventListener('hha:time', e=>{ if(Number.isFinite(e?.detail?.sec)) leftSec=e.detail.sec; });
-  function maybeRefillDeck(){ if(deck.isCleared() && leftSec>5){ deck.draw3(); pushHUD('เควสต์ใหม่มาแล้ว!'); } }
-
-  function fx(x,y,good,txt){ burstAtScreen(x,y,{color:good?'#22c55e':'#ef4444'}); floatScoreScreen(x,y,txt || (good?'+10':'-10')); }
-
-  function findGroupOf(ch){
-    for(const k in GROUPS){ if(GROUPS[k].includes(ch)) return k; }
-    return null;
-  }
-
-  function judgeChar(ch, ctx){
-    if (ch==='⭐' || ch==='💎' || ch==='🛡️'){
-      if (ch==='⭐'){ score+=40; fx(ctx.x,ctx.y,true,'+40 ⭐'); }
-      if (ch==='💎'){ score+=80; fx(ctx.x,ctx.y,true,'+80 💎'); }
-      if (ch==='🛡️'){ shield=Math.min(3,shield+1); fx(ctx.x,ctx.y,true,'🛡️+1'); }
-      combo=Math.min(9999,combo+1); deck.updateScore(score); deck.updateCombo(combo); pushHUD(); maybeRefillDeck();
-      return { good:true, scoreDelta:0 };
-    }
-
-    const g = findGroupOf(ch);
-    if (g){
-      const val = 22 + combo*2;
-      score+=val; combo++; hits++; roundDone[g] = true;
-      if (roundCleared()){ goal.rounds++; roundDone={veg:false,fruit:false,grain:false,protein:false,dairy:false}; floatScoreScreen(ctx.x,ctx.y,'ROUND +100','#fde047'); score+=100; }
-      deck.onGood(); deck.updateScore(score); deck.updateCombo(combo);
-      fx(ctx.x,ctx.y,true,'+'+val);
-      pushHUD(); maybeRefillDeck();
-      return { good:true, scoreDelta:val };
-    }else{
-      if (shield>0){ shield--; fx(ctx.x,ctx.y,true,'Shield!'); pushHUD(); return {good:true, scoreDelta:0}; }
-      combo=0; score=Math.max(0,score-12); misses++;
-      deck.updateScore(score); deck.updateCombo(combo);
-      fx(ctx.x,ctx.y,false,'-12');
-      pushHUD(); return {good:false, scoreDelta:-12};
+  // รอบละครบ 5 หมู่
+  let round = {veg:false,fruit:false,grain:false,protein:false,dairy:false};
+  function markGroupByEmoji(ch){
+    for(const k in GROUPS){ if(GROUPS[k].includes(ch)){ round[k]=true; } }
+    if(Object.values(round).every(Boolean)){
+      // bonus รอบ
+      // (คะแนนโบนัสคิดที่ judge แล้วก็ได้ แต่โชว์ข้อความไว้ตรงนี้)
+      window.dispatchEvent(new CustomEvent('hha:toast',{detail:{text:'ROUND +100'}}));
+      round = {veg:false,fruit:false,grain:false,protein:false,dairy:false};
     }
   }
 
-  window.addEventListener('hha:hit-screen', e=>{
-    const d=e.detail||{};
-    const res=judgeChar(d.char,{isGood:d.isGood,x:d.x,y:d.y});
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
-  });
+  function valGood(combo){ const base=22+combo*2; return Math.round(base*(feverActive?1.5:1)); }
 
-  window.addEventListener('hha:expired', e=>{
-    const d=e.detail||{};
-    if(d && d.isGood===false){ deck.onJunk(); pushHUD(); maybeRefillDeck(); }
-  });
+  function onHitScreen(e){
+    const d=e.detail||{}; const x=d.x,y=d.y;
+    if(d.char==='⭐'){ burstAtScreen(x,y,{color:'#fde047',count:20}); floatScoreScreen(x,y,'+40 ⭐','#fde047'); addFever(+8); return; }
+    if(d.char==='💎'){ burstAtScreen(x,y,{color:'#a78bfa',count:22}); floatScoreScreen(x,y,'+80 💎','#a78bfa'); addFever(+8); return; }
+    if(d.char==='🛡️'){ burstAtScreen(x,y,{color:'#60a5fa',count:18}); floatScoreScreen(x,y,'🛡️+1','#93c5fd'); addFever(+6); return; }
+    if(d.good){ burstAtScreen(x,y,{color:'#22c55e',count:16}); addFever(+5); }
+    else{ burstAtScreen(x,y,{color:'#ef4444',count:14}); addFever(-12); }
+    if(typeof d.delta==='number'){ floatScoreScreen(x,y,(d.delta>0?'+':'')+d.delta, d.delta>0?'#22c55e':'#ef4444'); }
+  }
+  window.addEventListener('hha:hit-screen', onHitScreen);
 
-  const secTimer=setInterval(()=>{ deck.second(); pushHUD(); maybeRefillDeck(); if(leftSec<=0) clearInterval(secTimer); },1000);
+  function judge(ch, ctx){
+    if(ch==='⭐') return { good:true, scoreDelta:40 };
+    if(ch==='💎') return { good:true, scoreDelta:80 };
+    if(ch==='🛡️') return { good:true, scoreDelta:0 };
+    if(ALLGOOD.includes(ch)){
+      markGroupByEmoji(ch);
+      return { good:true, scoreDelta: valGood(ctx.combo||0) };
+    }
+    return { good:false, scoreDelta: -12 };
+  }
 
-  return factoryBoot.boot({
+  const api = await factoryBoot({
     host: cfg.host, difficulty: diff, duration: dur,
-    pools:{ good: GOOD, bad: BAD },
-    goodRate:(diff==='easy'?0.7:diff==='hard'?0.56:0.62),
-    judge:(ch,ctx)=>judgeChar(ch,{...ctx,x:window.innerWidth/2,y:window.innerHeight/2})
+    pools: { good: GOOD, bad: BAD }, goodRate: 0.7, judge,
+    onExpire: ev=>{ if(ev && ev.isGood===false) addFever(+2); }
   });
+
+  window.addEventListener('hha:end', ()=>{
+    try{ clearTimeout(timer); }catch{}
+    setFlame(false); destroyFeverGauge();
+    window.removeEventListener('hha:hit-screen', onHitScreen);
+  }, { once:true });
+
+  return api;
 }
 export default { boot };
