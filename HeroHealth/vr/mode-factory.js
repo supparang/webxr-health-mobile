@@ -1,11 +1,19 @@
-// === HeroHealth/vr/mode-factory.js — DOM targets + hit-screen + expired (2025-11-10) ===
+// === HeroHealth/vr/mode-factory.js — DOM targets + hit-screen + expired + power-ups (2025-11-10) ===
 export async function boot(config){
   config = config || {};
   var host   = config.host || document.getElementById('spawnHost') || document.body;
   var diff   = String(config.difficulty || 'normal');
   var dur    = Number(config.duration || 60);
+
+  // พูลทั่วไป
   var pools  = config.pools || { good: ['✅'], bad: ['❌'] };
   var goodRate = (typeof config.goodRate==='number') ? config.goodRate : 0.7;
+
+  // พูลพาวเวอร์ (⭐💎🛡️🔥) + อัตราเกิด (0..1) + อย่างน้อยทุก N ครั้ง
+  var powerPool  = Array.isArray(config.powerups) ? config.powerups : ['⭐','💎','🛡️','🔥'];
+  var powerRate  = (typeof config.powerRate==='number') ? config.powerRate : 0.08;   // 8%
+  var powerEvery = (typeof config.powerEvery==='number') ? config.powerEvery : 7;    // บังคับออกอย่างน้อยทุก 7 สปอน
+
   var judge  = typeof config.judge === 'function' ? config.judge : function(){ return {good:true, scoreDelta:1}; };
   var onExpire = typeof config.onExpire === 'function' ? config.onExpire : null;
   var running = true;
@@ -18,7 +26,7 @@ export async function boot(config){
   function getFlag(name){ var q=(window.location && window.location.search) || ''; return new RegExp('[?&]'+name+'(?:=1|&|$)').test(q); }
   var DEBUG = getFlag('debug');
 
-  // style (ครั้งเดียว)
+  // style once
   if(!document.getElementById('hha-style')){
     var st=document.createElement('style'); st.id='hha-style';
     st.textContent=
@@ -29,7 +37,7 @@ export async function boot(config){
     document.head.appendChild(st);
   }
 
-  // layer ใหม่ (เคลียร์ของเก่า)
+  // layer (clear old)
   var olds=document.querySelectorAll('.hha-layer'); for(var oi=0;oi<olds.length;oi++){ try{olds[oi].parentNode.removeChild(olds[oi]);}catch(_e){} }
   var layer=document.createElement('div'); layer.className='hha-layer'; document.body.appendChild(layer);
 
@@ -39,6 +47,7 @@ export async function boot(config){
   // state
   var score=0, combo=0, misses=0, left=Math.max(1,Math.round(dur));
   var spawnTimer=null, timeTimer=null, watchdog=null;
+  var spawnCount=0, sinceLastPower=0;
 
   // tuning
   var spawnMin=900, spawnMax=1200, life=1600;
@@ -56,14 +65,30 @@ export async function boot(config){
     }catch(_e){}
   }
 
+  function shouldSpawnPower(){
+    // ถ้าเลย powerEvery แล้ว → บังคับ, ไม่งั้นใช้โอกาส powerRate
+    if (sinceLastPower >= powerEvery) return true;
+    return Math.random() < powerRate;
+  }
+
   function spawnOne(forceCenter){
     if(!running) return;
-    var isGood = Math.random() < goodRate;
-    var pool   = isGood ? (pools.good||['✅']) : (pools.bad||['❌']);
-    var ch     = pick(pool);
+    spawnCount++; sinceLastPower++;
+
+    var usePower = powerPool.length>0 && shouldSpawnPower();
+    var isGood, ch;
+
+    if (usePower){
+      ch = pick(powerPool);
+      isGood = true;                 // พาวเวอร์ถือเป็น good
+      sinceLastPower = 0;
+    } else {
+      isGood = Math.random() < goodRate;
+      var pool = isGood ? (pools.good||['✅']) : (pools.bad||['❌']);
+      ch = pick(pool);
+    }
 
     var el=document.createElement('div'); el.className='hha-tgt'; el.textContent=ch;
-
     var x = forceCenter ? vw()/2 : Math.floor(vw()*0.12 + Math.random()*vw()*0.76);
     var y = forceCenter ? vh()/2 : Math.floor(vh()*0.18 + Math.random()*vh()*0.62);
     el.style.left=x+'px'; el.style.top=y+'px';
@@ -74,8 +99,6 @@ export async function boot(config){
     function onHit(ev){
       if(clicked) return; clicked=true;
       try{ ev.preventDefault(); }catch(_e){}
-
-      // พิกัดหน้าจอสำหรับเอฟเฟกต์
       var cx=vw()/2, cy=vh()/2;
       if (ev.touches && ev.touches[0]) { cx=ev.touches[0].clientX; cy=ev.touches[0].clientY; }
       else if (ev.clientX!=null) { cx=ev.clientX; cy=ev.clientY; }
@@ -90,9 +113,7 @@ export async function boot(config){
 
       try{ el.className='hha-tgt hit'; layer.removeChild(el); }catch(_e){}
       fire('hha:score',{score:score, combo:combo, delta:delta, good:good});
-      // 🔔 จุดสำคัญ: แจ้งตำแหน่งจอเพื่อให้โหมดแสดงเอฟเฟกต์/นับเควสต์ได้
       fire('hha:hit-screen',{x:cx, y:cy, good:good, delta:delta, char:ch, isGood:isGood});
-
       dbglog('hit '+ch+' good='+good+' score='+score);
       planNextSpawn();
     }
@@ -100,18 +121,16 @@ export async function boot(config){
     el.addEventListener('click', onHit, {passive:false});
     el.addEventListener('touchstart', onHit, {passive:false});
 
-    var ttl=setTimeout(function(){
+    setTimeout(function(){
       if(clicked || !running) return;
       try{ layer.removeChild(el); }catch(_e){}
       if(isGood){
-        // พลาดของดี → ลงโทษ
         combo=0; misses+=1; fire('hha:miss',{count:misses});
         fire('hha:score',{score:score, combo:combo});
         dbglog('expire GOOD (miss)');
       }else{
-        // หลีกขยะสำเร็จ
         fire('hha:avoid',{ch:ch});
-        fire('hha:expired',{isGood:false, ch:ch}); // 🔔 แจ้งหมดอายุสำหรับ mini quest แบบ “หลบขยะ”
+        fire('hha:expired',{isGood:false, ch:ch});
         if(onExpire) try{ onExpire({isGood:false, ch:ch}); }catch(_e){}
         dbglog('expire JUNK (avoid)');
       }
@@ -120,7 +139,7 @@ export async function boot(config){
 
     layer.appendChild(el);
     ensureOnScreen(el);
-    dbglog('spawn '+ch+' at '+x+','+y);
+    dbglog('spawn '+ch+' at '+x+','+y+(usePower?' (POWER)':''));
   }
 
   function startWatchdog(){
@@ -145,10 +164,7 @@ export async function boot(config){
     try{ clearInterval(timeTimer); }catch(_e){}
     try{ clearTimeout(spawnTimer); }catch(_e){}
     try{ clearInterval(watchdog); }catch(_e){}
-    try{
-      var nodes=layer.querySelectorAll('.hha-tgt');
-      for(var i=0;i<nodes.length;i++){ try{ layer.removeChild(nodes[i]); }catch(_e){} }
-    }catch(_e){}
+    try{ var nodes=layer.querySelectorAll('.hha-tgt'); for(var i=0;i<nodes.length;i++){ try{ layer.removeChild(nodes[i]); }catch(_e){} } }catch(_e){}
     fire('hha:end',{score:score, combo:combo, misses:misses, duration:dur});
     try{ document.body.removeChild(layer); }catch(_e){}
     if(DEBUG){ try{ document.body.removeChild(dbg); }catch(_e){} }
