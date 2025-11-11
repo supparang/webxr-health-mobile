@@ -1,141 +1,112 @@
-// === modes/hydration.quest.js — Hydration (water gauge + goal & mini) ===
-import { boot as factoryBoot } from '../vr/mode-factory.js';
+// DOM version — Hydration (มี Water Gauge)
+import factoryBoot from '../vr/mode-factory.js';
 import { MissionDeck } from '../vr/mission.js';
-import { questHUDInit, questHUDUpdate, questHUDDispose } from '../vr/quest-hud.js';
+import { questHUDInit, questHUDUpdate } from '../vr/quest-hud.js';
 import { ensureWaterGauge, destroyWaterGauge, setWaterGauge, zoneFrom, burstAtScreen, floatScoreScreen } from '../vr/ui-water.js';
 
-const DROP = '💧', WATER = '🚰';
-const DRINKS_GOOD = ['🥤','🧃','🥛', DROP, WATER]; // น้ำ/นม/น้ำผลไม้/หยดน้ำ/ก๊อก
-const DRINKS_BAD  = ['🧋','🍺','☕'];              // ชานม/เบียร์/กาแฟ (ขาดน้ำ)
-const FRUITS      = ['🍎','🍐','🍊','🍋','🍉','🍇','🍓','🥝','🥭','🍍'];
+export async function boot(cfg = {}) {
+  const dur = Number(cfg.duration || 60);
+  const diff = String(cfg.difficulty || 'normal');
 
-export async function boot({ host, difficulty='normal', duration=60 } = {}){
-  questHUDDispose(); questHUDInit();
-  ensureWaterGauge();
+  const GOOD = ['💧','🚰','🥛','🍊','🍋','⭐','💎','🛡️'];
+  const BAD  = ['🧋','🥤','🍹','🧃','🍺'];
 
-  // --- goal หลัก: ยืนโซน GREEN รวม X วินาที ---
-  const GOAL_TARGET = (difficulty==='easy') ? 20 : (difficulty==='hard' ? 30 : 25);
-  const goal = { label:`เป้า: คงระดับน้ำให้อยู่โซน GREEN รวม ${GOAL_TARGET} วิ`, prog:0, target:GOAL_TARGET };
+  let score = 0, combo = 0, shield = 0, water = 55;
+  let hits = 0, misses = 0, leftSec = dur;
+  let balancedSec = 0; // เก็บเวลาที่อยู่โซน GREEN ต่อเนื่อง
 
-  // --- mini quest: ใช้ MissionDeck (10 ใบในไฟล์ของคุณ) ---
-  const deck = new MissionDeck(); deck.draw3();
+  ensureWaterGauge(); setWaterGauge(water);
 
-  // --- water model ---
-  let water = 55;                 // 0..100
-  let greenSecs = 0;              // สะสม GREEN
-  let feverUntil = 0;             // คูณคะแนน
-  let shieldUntil = 0;
+  // Goal: Balanced ให้ครบ 25 วินาที
+  const goal = { label: 'รักษา Balanced 25 วินาที', prog: 0, target: 25, cleared: false };
+  function updateGoal() {
+    goal.prog = Math.min(goal.target, balancedSec);
+    goal.cleared = goal.prog >= goal.target;
+  }
 
-  function pushHUD(){
-    const cur = deck.getCurrent();
-    const prog = deck.getProgress();
-    setWaterGauge(water);
-    window.dispatchEvent(new CustomEvent('hha:quest',{
-      detail:{
-        text: cur ? `Mini Quest — ${cur.label}` : 'Mini Quest — กำลังเริ่ม…',
+  // Deck
+  const deck = new MissionDeck();
+  deck.draw3(); questHUDInit();
+  function pushHUD(hint) {
+    questHUDUpdate(deck, hint || '');
+    updateGoal();
+    window.dispatchEvent(new CustomEvent('hha:quest', {
+      detail: {
+        text: `Mini Quest — ${deck.getCurrent()?.label || 'กำลังสุ่ม…'}`,
         goal: { label: goal.label, prog: goal.prog, target: goal.target },
-        mini: cur ? { label: cur.label, prog: (prog.find(p=>p.id===cur.id)?.prog)||0, target:cur.target||0 } : null
+        mini: { label: deck.getCurrent()?.label || '-', prog: deck.getProgress()[deck.currentIndex]?.prog || 0, target: deck.getProgress()[deck.currentIndex]?.target || 1 }
       }
     }));
-    questHUDUpdate(deck, 'กำหนดน้ำให้สมดุล');
   }
-  pushHUD();
+  pushHUD('ดื่มให้พอดี');
 
-  // --- น้ำลดตามเวลา ---
-  const DECAY = 0.35; // ต่อวินาที
-  function second(){
-    water = Math.max(0, water - DECAY);
-    if (zoneFrom(water) === 'GREEN') {
-      greenSecs = Math.min(9999, greenSecs + 1);
-      goal.prog = Math.min(goal.target, greenSecs);
+  window.addEventListener('hha:time', e => { if (Number.isFinite(e?.detail?.sec)) leftSec = e.detail.sec; });
+  function maybeRefillDeck(){ if (deck.isCleared() && leftSec > 5){ deck.draw3(); pushHUD('เควสต์ใหม่มาแล้ว!'); } }
+
+  function fx(x,y,txt,col){ burstAtScreen(x,y,{color:col||'#22c55e',count:18}); floatScoreScreen(x,y,txt||'+10'); }
+
+  function applyHydration(isGood){
+    if(isGood){ water = Math.min(100, water + 6); }
+    else{
+      water = Math.max(0, water - 8);
     }
-    deck.second();
-    pushHUD();
+    setWaterGauge(water);
   }
 
-  // --- power-ups ผลจากตัวอักษรดีพิเศษ ---
-  function handlePower(ch){
-    const now = performance.now();
-    if (ch==='⭐') return { dScore: 80 };
-    if (ch==='💎'){ deck.onDiamond(); return { dScore: 120 }; }
-    if (ch==='🛡️'){ shieldUntil = now + 5000; return { dScore: 30 }; }
-    if (ch==='🔥'){ deck.onFeverStart(); feverUntil = now + 6000; return { dScore: 40 }; }
-    return null;
-  }
-
-  // --- judge สำหรับ hydration ---
-  function judge(char, { isGood }){
-    // ปรับน้ำตามชนิด
-    let dWater = 0, base = 0, good = false;
-
-    // พาวเวอร์ก่อน
-    const p = handlePower(char);
-    if (p) return { good:true, scoreDelta:p.dScore };
-
-    if (char===WATER || char===DROP){ dWater = +12; base = 12; good = true; }
-    else if (char==='🥛'){ dWater = +8; base = 10; good = true; deck.onStar?.(); }
-    else if (char==='🧃'){ dWater = +6; base = 8; good = true; }
-    else if (FRUITS.includes(char)){ dWater = +4; base = 6; good = true; }
-    else if (char==='🥤'){ dWater = +3; base = 6; good = true; }
-    else if (char==='☕'){ dWater = -6; base = -10; good = false; }
-    else if (char==='🍺'){ dWater = -12; base = -14; good = false; }
-    else if (char==='🧋'){ dWater = -8; base = -12; good = false; }
-    else { // อื่น ๆ
-      good = isGood; base = isGood ? 6 : -8;
+  function judgeChar(ch, ctx){
+    const z = zoneFrom(water);
+    if (ch==='⭐' || ch==='💎' || ch==='🛡️'){
+      if (ch==='⭐'){ score+=40; fx(ctx.x,ctx.y,'+40 ⭐','#fde047'); }
+      if (ch==='💎'){ score+=80; fx(ctx.x,ctx.y,'+80 💎','#a78bfa'); }
+      if (ch==='🛡️'){ shield=Math.min(3,shield+1); fx(ctx.x,ctx.y,'🛡️+1','#60a5fa'); }
+      combo = Math.min(9999, combo+1); deck.updateScore(score); deck.updateCombo(combo); pushHUD(); maybeRefillDeck();
+      return { good:true, scoreDelta:0 };
     }
 
-    water = Math.max(0, Math.min(100, water + dWater));
-    const mul = (feverUntil>performance.now()) ? 2 : 1;
-    return { good, scoreDelta: Math.round(base * mul) };
+    if (ctx.isGood){
+      const val = 20 + combo*2;
+      score+=val; combo++; hits++; applyHydration(true);
+      deck.onGood(); deck.updateScore(score); deck.updateCombo(combo);
+      fx(ctx.x,ctx.y,'+'+val,'#22c55e'); pushHUD(); maybeRefillDeck();
+      return { good:true, scoreDelta:val };
+    }else{
+      if (shield>0){ shield--; fx(ctx.x,ctx.y,'Shield!','#60a5fa'); pushHUD(); return {good:true, scoreDelta:0}; }
+      if (z==='HIGH'){ score+=5; applyHydration(false); fx(ctx.x,ctx.y,'+5 (High)','#38bdf8'); }
+      else { combo=0; score=Math.max(0,score-20); misses++; applyHydration(false); fx(ctx.x,ctx.y,'-20','#ef4444'); }
+      deck.updateScore(score); deck.updateCombo(combo); pushHUD(); return { good:false, scoreDelta:0 };
+    }
   }
 
-  // --- เอฟเฟกต์เมื่อโดนเป้า ---
-  function onHit(e){
+  // Hit
+  window.addEventListener('hha:hit-screen', e=>{
     const d=e.detail||{};
-    if (d.good) deck.onGood(); else deck.onJunk();
-    floatScoreScreen(d.x||0, d.y||0, (d.delta>0?'+':'')+d.delta, d.good?'#a7f3d0':'#fecaca');
-    burstAtScreen(d.x||0, d.y||0, { count:d.good?18:10, color:d.good?'#22c55e':'#f97316' });
-    pushHUD();
-  }
-  function onScore(e){
-    const s=e.detail||{}; deck.updateScore(s.score||0); deck.updateCombo(s.combo||0); pushHUD();
-  }
-  function onTime(){ second(); }
-  function onExpired(){ deck.onJunk(); pushHUD(); } // หลบของไม่ดี/หมดเวลา
+    const res=judgeChar(d.char,{isGood:d.isGood,x:d.x,y:d.y});
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+  });
 
-  window.addEventListener('hha:hit-screen', onHit);
-  window.addEventListener('hha:score', onScore);
-  window.addEventListener('hha:time', onTime);
-  window.addEventListener('hha:expired', onExpired);
+  // Avoid junk
+  window.addEventListener('hha:expired', e=>{
+    const d=e.detail||{};
+    if(d && d.isGood===false){ deck.onJunk(); pushHUD(); maybeRefillDeck(); }
+  });
 
-  // สรุปผล (ซ้อน hha:end ใส่สถิติเพิ่ม)
-  const onEndOnce = (ev)=>{
-    window.removeEventListener('hha:hit-screen', onHit);
-    window.removeEventListener('hha:score', onScore);
-    window.removeEventListener('hha:time', onTime);
-    window.removeEventListener('hha:expired', onExpired);
-    destroyWaterGauge();
+  // Count balanced seconds
+  const secTimer=setInterval(()=>{
+    deck.second();
+    if (zoneFrom(water)==='GREEN') balancedSec = Math.min(9999, balancedSec+1);
+    else balancedSec = Math.max(0, balancedSec-0); // ไม่ลด
+    pushHUD(); maybeRefillDeck();
+    if (leftSec<=0) clearInterval(secTimer);
+  },1000);
 
-    const cleared = deck.getProgress().filter(q=>q.done).length;
-    const total   = deck.getProgress().length;
-    const base = ev.detail||{};
-    window.dispatchEvent(new CustomEvent('hha:end',{
-      detail:{ ...base, questsCleared:cleared, questsTotal:total, goalCleared:(goal.prog>=goal.target) }
-    }));
-  };
-  window.addEventListener('hha:end', onEndOnce, { once:true });
+  // Cleanup gauge on end
+  window.addEventListener('hha:end', ()=>{ destroyWaterGauge(); }, { once:true });
 
-  // เริ่มเกมผ่าน factory (สุ่มของผสมดื่ม/ผลไม้/พาวเวอร์)
-  const poolGood = [WATER, DROP, '🥛','🧃','🥤', ...FRUITS, '⭐','💎','🛡️','🔥'];
-  const poolBad  = ['🧋','🍺','☕'];
-
-  return factoryBoot({
-    host, difficulty, duration,
-    pools:{ good: poolGood, bad: poolBad },
-    goodRate: 0.72,
-    judge,
-    onExpire: (ev)=>{ if(ev && ev.isGood===false) window.dispatchEvent(new CustomEvent('hha:expired',{detail:ev})); }
+  return factoryBoot.boot({
+    host: cfg.host, difficulty: diff, duration: dur,
+    pools: { good: GOOD, bad: BAD },
+    goodRate: (diff==='easy'?0.72:diff==='hard'?0.58:0.66),
+    judge: (ch,ctx)=>judgeChar(ch,{...ctx,x:window.innerWidth/2,y:window.innerHeight/2})
   });
 }
-
 export default { boot };
