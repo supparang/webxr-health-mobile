@@ -1,120 +1,133 @@
-// === /HeroHealth/modes/groups.safe.js (DOM mode + goal = เลือกให้ถูกหมู่ × 1→2→3) ===
-import { boot as domBoot } from '../vr/mode-factory.js';
+// === modes/groups.safe.js — Food Groups w/ Goal + Mini Quests (2025-11-10) ===
+import { boot as domFactoryBoot } from '../vr/mode-factory.js';
 import { MissionDeck } from '../vr/mission.js';
 import { questHUDInit, questHUDUpdate, questHUDDispose } from '../vr/quest-hud.js';
-import { floatScoreScreen, burstAtScreen } from '../vr/ui-water.js';
+import { burstAtScreen, floatScoreScreen } from '../vr/ui-water.js';
 
-export async function boot(cfg = {}) {
-  const diff = String(cfg.difficulty || 'normal');
-  const dur  = Number(cfg.duration   || (diff==='easy'?90:diff==='hard'?45:60));
+// --- พูลอิโมจิตามหมวด ---
+const FRUIT   = ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🍒','🥭','🍍','🥝','🍑','🍈','🍅'];
+const VEG     = ['🥕','🥦','🧅','🧄','🌽','🥬','🍆','🥒','🫑','🍄','🥔','🧄'];
+const PROTEIN = ['🍗','🍖','🥩','🍤','🍣','🥚','🌰','🥜','🫘','🧆'];
+const DAIRY   = ['🥛','🧀','🍦','🍨','🍧','🍮','🍯','🍶'];
+const GRAIN   = ['🍞','🥐','🥖','🥨','🥯','🍙','🍚','🍘','🍜','🍝','🍕','🌮','🌯'];
+const JUNK    = ['🍩','🍪','🍰','🧁','🍫','🍬','🍭','🥤','🧋','🍟','🍔'];
 
-  const GROUPS = {
-    veg: ['🥦','🥕','🥬','🍅','🌽'],
-    fruit: ['🍎','🍓','🍇','🍊','🍍','🍌','🍐'],
-    grain: ['🍞','🥖','🍚','🍘','🥯'],
-    protein: ['🐟','🍗','🥚','🫘','🥜'],
-    dairy: ['🥛','🧀','🍨']
-  };
-  const ALL = Object.values(GROUPS).flat();
-  const keys = Object.keys(GROUPS);
+const GROUPS = { FRUIT, VEG, PROTEIN, DAIRY, GRAIN };
 
-  const rate = { easy:.70, normal:.60, hard:.52 }[diff] || .60; // สุ่มเป้าที่ "อยู่หมู่เป้าหมาย" ให้เจอบ่อยพอ
-
-  // เลือกหมู่เป้าหมาย + goal size 1→2→3
-  let target = keys[(Math.random()*keys.length)|0];
-  let need = 1, got = 0;
-
-  const deck = new MissionDeck(); deck.draw3();
-  questHUDInit(); questHUDUpdate(deck, 'เลือกให้ถูกหมู่');
-
-  let score=0, combo=0, misses=0;
-  let secLeft=dur;
-  const secTick=setInterval(()=>{
-    secLeft=Math.max(0, secLeft-1);
-    deck.second(); questHUDUpdate(deck);
-    if (deck.isCleared() && secLeft>0){ deck.draw3(); questHUDUpdate(deck, 'Mini Quest ชุดใหม่!'); }
-    if (secLeft<=0) clearInterval(secTick);
-  },1000);
-
-  function refreshGoalHUD(){
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail:{ goal:{label:`เป้า: เลือกหมู่ ${target.toUpperCase()} × ${need}`, prog:got, target:need} }
-    }));
-  }
-  refreshGoalHUD();
-
-  function judge(ch, st){
-    const inTarget = GROUPS[target].includes(ch);
-    let delta = 0, good=false;
-    if (inTarget){ good=true; delta = 25 + Math.min(40, st.combo*2); }
-    else { good=false; delta = -12; }
-    return { good, scoreDelta: delta };
-  }
-  function onExpire(ev){
-    if(!ev || ev.isGood) return; // ขยะ = นอกหมู่? ในโหมดนี้ถือ "ไม่นับหลีกขยะ" เพราะทุกอย่างเป็นอาหาร
-  }
-
-  function onHit(ch, pt){
-    const inTarget = GROUPS[target].includes(ch);
-    if(inTarget){
-      got++;
-      burstAtScreen(pt.x, pt.y, {color:'#22c55e', count:16});
-      floatScoreScreen(pt.x, pt.y, '+', '#bbf7d0');
-      if (got>=need){
-        // เป้าสำเร็จ → เพิ่มระดับเป้า และสุ่มหมู่ใหม่
-        need = Math.min(3, need+1);
-        got = 0;
-        target = keys[(Math.random()*keys.length)|0];
-      }
-    }else{
-      burstAtScreen(pt.x, pt.y, {color:'#ef4444', count:12});
-      floatScoreScreen(pt.x, pt.y, '-12', '#ffb4b4');
-    }
-    refreshGoalHUD();
-  }
-  function screenPt(ev){ const x=(ev.touches?.[0]?.clientX||ev.clientX), y=(ev.touches?.[0]?.clientY||ev.clientY); return {x,y}; }
-
-  window.addEventListener('hha:score', (e)=>{
-    if(!e?.detail) return;
-    score=e.detail.score||0; combo=e.detail.combo||0;
-    deck.updateScore(score); deck.updateCombo(combo); questHUDUpdate(deck);
-  });
-  window.addEventListener('hha:miss', ()=>{ misses++; });
-
-  const clickHandler=(ev)=>{
-    const t=ev.target; if(!t?.classList?.contains('hha-tgt')) return;
-    const ch=t.textContent||''; const pt=screenPt(ev);
-    onHit(ch, pt);
-  };
-  document.body.addEventListener('click', clickHandler, {passive:true});
-
-  const endOnce=(e)=>{
-    try{ clearInterval(secTick); }catch{}
-    document.body.removeEventListener('click', clickHandler);
-    const cleared = deck.getProgress().filter(p=>p.done).length;
-    const detail = e?.detail||{};
-    window.dispatchEvent(new CustomEvent('hha:end', {
-      detail:{ ...detail, mode:'Food Groups', difficulty:diff, score, comboMax:combo, misses, duration:dur, questsCleared:cleared, questsTotal:3 }
-    }));
-    questHUDDispose();
-    window.removeEventListener('hha:end', endOnce);
-  };
-  window.addEventListener('hha:end', endOnce, {once:true});
-
-  const ctrl = await domBoot({
-    host: cfg.host, difficulty: diff, duration: dur,
-    goodRate: rate,
-    pools: { 
-      good: ALL.filter(ch=>GROUPS[target].includes(ch)), // ใส่กลุ่มเป้าเยอะขึ้นจาก rate
-      bad:  ALL.filter(ch=>!GROUPS[target].includes(ch))
-    },
-    judge, onExpire
-  });
-
-  return {
-    stop(){ try{ctrl.stop();}catch{} questHUDDispose(); },
-    pause(){ try{ctrl.pause();}catch{} },
-    resume(){ try{ctrl.resume();}catch{} }
-  };
+// สุ่ม “หมวดที่ถูกต้อง” สำหรับรอบนี้ แล้วทำให้ของหมวดนั้นเป็น Good ที่เหลือคือ Bad (รวม JUNK)
+function buildPools(targetGroup='FRUIT'){
+  const good = GROUPS[targetGroup] || FRUIT;
+  let bad = [];
+  for (const [k,arr] of Object.entries(GROUPS)) if (k!==targetGroup) bad = bad.concat(arr);
+  bad = bad.concat(JUNK);
+  return { good, bad };
 }
+
+// helper UI อัปเดตข้อความบน HUD หลัก (แถบล่างและ pill บน)
+function pushQuestUI(deck, goal){
+  const cur = deck.getCurrent();
+  const progList = deck.getProgress();
+  // บอกกับ index.vr.html เพื่ออัปเดต pill + แถบล่าง
+  window.dispatchEvent(new CustomEvent('hha:quest',{
+    detail: {
+      text: cur ? `Mini Quest — ${cur.label}` : 'Mini Quest — กำลังเริ่ม…',
+      goal: goal && {
+        label: goal.label,
+        prog : goal.prog,
+        target: goal.target
+      },
+      mini: cur && {
+        label: cur.label,
+        prog : (typeof cur.prog==='number'?cur.prog:progList.find(p=>p.id===cur.id)?.prog) || 0,
+        target: cur.target || 0
+      }
+    }
+  }));
+  questHUDUpdate(deck, 'เลือกให้ถูกหมวด');
+}
+
+// === boot ===
+export async function boot({ host, difficulty='normal', duration=60 } = {}){
+  questHUDDispose(); // กันซ้อน
+  questHUDInit();
+
+  // สุ่มหมวดเป้าหมายของรอบ
+  const TARGETS = ['FRUIT','VEG','PROTEIN','DAIRY','GRAIN'];
+  const targetGroup = TARGETS[(Math.random()*TARGETS.length)|0];
+  let pools = buildPools(targetGroup);
+
+  // Goal: เลือกให้ถูก “หมวดที่กำหนด” ให้ครบ N ชิ้น
+  const GOAL_TARGET = (difficulty==='easy') ? 6 : (difficulty==='hard' ? 10 : 8);
+  const goal = { label:`เป้า: เลือกหมู่ ${targetGroup} × ${GOAL_TARGET}`, prog:0, target:GOAL_TARGET };
+
+  // Deck สำหรับ Mini Quests (ใช้พูลเริ่มต้นจาก MissionDeck)
+  const deck = new MissionDeck();
+  deck.draw3(); // easy/normal/hard อย่างละ 1 จากพูลมาตรฐาน
+  pushQuestUI(deck, goal);
+
+  // เอฟเฟกต์ชน (เด้งคะแนน + แตก)
+  function fxHit(x,y,good,delta){
+    floatScoreScreen(x,y,(delta>0?'+':'')+delta,(good?'#a7f3d0':'#fecaca'));
+    burstAtScreen(x,y,{ count: good?18:10, color: good?'#34d399':'#f97316' });
+  }
+
+  // เกณฑ์ตัดสินว่าคลิกถูก/ผิด
+  function judge(char, { isGood }){
+    // factory คำนวณ isGood จาก pool แล้ว → ใช้เป็นผลเลย และให้คะแนนเล็กน้อย
+    return { good:isGood, scoreDelta: isGood ? 5 : -8 };
+  }
+
+  // ฟัง event จาก factory เพื่ออัปเดต deck/goal/HUD
+  window.addEventListener('hha:hit-screen', onHit);
+  window.addEventListener('hha:time', onSecond);
+
+  function onHit(ev){
+    const d = ev.detail||{};
+    // เอฟเฟกต์
+    fxHit(d.x||0, d.y||0, !!d.good, d.delta||0);
+
+    // นับ goal
+    if (d.good) goal.prog = Math.min(goal.target, goal.prog+1);
+
+    // อัปเดตสถิติให้ deck
+    if (d.good) deck.onGood(); else deck.onJunk();
+    // combo/score ถูกยิงแยกใน hha:score แต่อัปเดตซ้ำอีกชั้นเพื่อ safety
+    if (typeof d.delta==='number') {
+      // จะถูกแทนที่ด้วยค่าสูงสุดใน updateScore / updateCombo จาก hha:score
+    }
+
+    pushQuestUI(deck, goal);
+  }
+
+  function onSecond(){ deck.second(); pushQuestUI(deck, goal); }
+
+  // สรุปเมื่อจบ
+  const onEnd = (ev)=>{
+    // ส่งข้อมูลเพิ่มสำหรับหน้าสรุป
+    const info = ev.detail||{};
+    window.removeEventListener('hha:hit-screen', onHit);
+    window.removeEventListener('hha:time', onSecond);
+    window.dispatchEvent(new CustomEvent('hha:end', {
+      detail: {
+        ...info,
+        questsCleared: deck.getProgress().filter(q=>q.done).length,
+        questsTotal: deck.getProgress().length,
+        goalCleared: goal.prog >= goal.target
+      }
+    }));
+  };
+  const onceEnd = (e)=>{ window.removeEventListener('hha:end', onceEnd); onEnd(e); };
+  window.addEventListener('hha:end', onceEnd, { once:true });
+
+  // เริ่มสปอว์นด้วย factory
+  return domFactoryBoot({
+    host,
+    difficulty,
+    duration,
+    pools: pools,
+    goodRate: 0.65,
+    judge
+  });
+}
+
 export default { boot };
