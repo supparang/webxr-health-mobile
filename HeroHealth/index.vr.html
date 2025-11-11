@@ -1,26 +1,38 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>HeroHealth</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>HeroHealth VR</title>
+
+<!-- A-Frame (เอฟเฟ็กต์/3D) -->
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
 <style>
-  :root { --bg:#0b1220; --card:#0f172acc; --text:#e8eefc; --muted:#94a3b8; --line:#334155; --accent:#60a5fa; }
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Apple Color Emoji,Segoe UI Emoji; }
-  .hud{ position:fixed; left:12px; right:12px; top:12px; display:flex; gap:12px; z-index:900 }
-  .pill{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:10px 14px; font-weight:800; }
-  .zone{ position:fixed; left:12px; right:12px; bottom:16px; z-index:900; }
-  .panel{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; }
-  .title{ display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:900; }
-  .bar{ height:12px; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:#0b1222; margin-top:6px; }
-  .fill{ height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#93c5fd); transition:width .2s ease; }
-  .sub{ margin-top:10px; color:var(--muted); font-weight:700 }
-  /* DOM target layer (โหมดใช้เอง) */
-  .hha-layer{ position:fixed; inset:0; z-index:650; pointer-events:auto; background:transparent }
-  .hha-tgt{ position:absolute; transform:translate(-50%,-50%); line-height:1; filter:drop-shadow(0 8px 14px rgba(0,0,0,.5)) }
+:root{--bg:#0b1220;--card:#0f172acc;--text:#e8eefc;--muted:#94a3b8;--line:#334155;}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,Segoe UI,Apple Color Emoji,Segoe UI Emoji;}
+/* HUD */
+.hud{position:fixed;left:12px;right:12px;top:12px;display:flex;gap:12px;z-index:900}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 14px;font-weight:800}
+.zone{position:fixed;left:12px;right:12px;bottom:16px;z-index:900}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px}
+.title{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:900}
+.bar{height:12px;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:#0b1222;margin-top:6px}
+.fill{height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#93c5fd);transition:width .2s ease}
+.sub{margin-top:10px;color:var(--muted);font-weight:700}
+/* Result overlay */
+#result{position:fixed;inset:0;background:rgba(2,6,23,.7);display:none;place-items:center;z-index:1000}
+#result .box{background:#0b1220;border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:260px}
+#result h3{margin:0 0 8px 0}
+#result button{margin-top:10px;border:1px solid var(--line);background:#111827;color:#e5e7eb;padding:8px 12px;border-radius:10px;font-weight:800}
 </style>
 </head>
 <body>
+
+<!-- A-Frame scene/host -->
+<a-scene id="scene" renderer="colorManagement: true; physicallyCorrectLights: true">
+  <a-entity id="spawnHost" position="0 1 -1.6"></a-entity>
+</a-scene>
 
 <!-- HUD บน -->
 <div class="hud">
@@ -43,14 +55,22 @@
   </div>
 </div>
 
+<!-- Result overlay -->
+<div id="result"><div class="box">
+  <h3>จบเกม!</h3>
+  <div id="resultText" style="white-space:pre-line"></div>
+  <button id="againBtn">เล่นอีกครั้ง</button>
+</div></div>
+
 <script type="module">
-  // ====== utility ======
+  // --------- settings from URL ---------
   const qs = new URLSearchParams(location.search);
-  const mode = (qs.get('mode')||'goodjunk').toLowerCase();  // goodjunk | hydration | groups | plate
+  const mode = (qs.get('mode')||'goodjunk').toLowerCase();   // goodjunk|hydration|groups|plate
   const diff = (qs.get('diff')||'normal').toLowerCase();     // easy|normal|hard
   const dur  = Number(qs.get('dur')||60);
 
-  const $ = sel => document.querySelector(sel);
+  // --------- HUD refs ----------
+  const $ = s => document.querySelector(s);
   const hud = {
     time:   $('#hudTime'),
     score:  $('#hudScore'),
@@ -63,81 +83,72 @@
   };
   hud.modeLbl.textContent = `โหมด: ${diff}`;
 
-  // ====== event wiring (รับจากโหมดเกม) ======
+  // --------- events from modes ----------
   window.addEventListener('hha:time', (e)=>{
     const s = Math.max(0, Math.floor(e.detail?.sec ?? 0));
     hud.time.textContent = `เวลา: ${s}s`;
   });
-
   window.addEventListener('hha:score', (e)=>{
-    const sc = e.detail?.score ?? 0;
-    const cb = e.detail?.combo ?? 0;
+    const sc = e.detail?.score ?? 0, cb = e.detail?.combo ?? 0;
     hud.score.textContent = `คะแนน: ${sc} | คอมโบ: x${cb}`;
   });
-
-  // เป้าหมายหลัก
   window.addEventListener('hha:goal', (e)=>{
     const {label='', value=0, max=0, mode:''} = (e.detail||{});
-    hud.goalLbl.textContent = label;
-    if (max>0) hud.goalFill.style.width = Math.min(100, Math.round(value/max*100)) + '%';
+    hud.goalLbl.textContent = label || 'เป้า: –';
+    if (max>0) hud.goalFill.style.width = Math.min(100, Math.round(value/max*100))+'%';
     if (mode) hud.modeLbl.textContent = `โหมด: ${mode}`;
   });
-
-  // ป้ายเควสต์บน + แถบเควสต์ล่าง
   window.addEventListener('hha:quest', (e)=>{
-    hud.quest.textContent = e.detail?.label || 'Mini Quest — กำลังเริ่ม…';
-    if (e.detail?.currentIndex!=null && e.detail?.total!=null){
-      hud.quest.textContent = `Quest ${e.detail.currentIndex+1}/${e.detail.total} — ${e.detail.label||''}`;
-      hud.qRow.textContent  = `Quest ${e.detail.currentIndex+1}/${e.detail.total} — ${e.detail.label||''}`;
-    }
+    const d = e.detail||{};
+    const head = (d.currentIndex!=null && d.total!=null) ? `Quest ${d.currentIndex+1}/${d.total} — ` : 'Mini Quest — ';
+    hud.quest.textContent = head + (d.label||'');
+    hud.qRow.textContent  = head + (d.label||'');
   });
   window.addEventListener('hha:quest-progress', (e)=>{
-    const {label='', value=0, max=0, currentIndex, total} = (e.detail||{});
-    if (label) {
-      const head = (currentIndex!=null && total!=null) ? `Quest ${currentIndex+1}/${total} — ` : 'Quest — ';
-      hud.qRow.textContent = head + label;
-    }
-    if (max>0) hud.qFill.style.width = Math.min(100, Math.round(value/max*100)) + '%';
+    const {value=0,max=0} = (e.detail||{});
+    if (max>0) hud.qFill.style.width = Math.min(100, Math.round(value/max*100))+'%';
     else hud.qFill.style.width = '0%';
   });
 
-  // สรุปตอนจบ
+  // สรุปผลแบบ overlay
   window.addEventListener('hha:end', (e)=>{
     const d = e.detail||{};
     const msg = [
-      'จบเกม!',
       `คะแนน: ${d.score ?? 0}`,
       `คอมโบสูงสุด: ${d.combo ?? 0}`,
       `Mini Quest: ${d.questsCleared ?? 0}/${d.questsTotal ?? 3}`,
       `Goal: ${d.goal ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}`
     ].join('\n');
-    alert(msg);
+    $('#resultText').textContent = msg;
+    $('#result').style.display = 'grid';
   });
+  $('#againBtn').addEventListener('click', ()=> location.reload());
 
-  // ====== โหลดโหมดตามพาธ ======
+  // --------- load A-Frame modes (with effects) ----------
   const map = {
-    goodjunk   : './modes/goodjunk.safe.js',
-    hydration  : './modes/hydration.quest.js',
-    groups     : './modes/groups.safe.js',
-    plate      : './modes/plate.quest.js',
+    goodjunk  : './modes/goodjunk.safe.js',
+    hydration : './modes/hydration.quest.js',  // มี water bar + shards
+    groups    : './modes/groups.safe.js',
+    plate     : './modes/plate.quest.js',
   };
-  const url = map[mode] || map.goodjunk;
+  const modURL = map[mode] || map.goodjunk;
 
-  try {
-    const mod = await import(url);
-    if (!mod || typeof mod.boot!=='function')
-      throw new Error('โหมดโหลดได้ แต่ไม่พบฟังก์ชัน boot()');
-
-    // เริ่มเกม
-    await mod.boot({ difficulty: diff, duration: dur });
-
-    // แจ้งว่าพร้อม (บางโหมดอาจอยากรู้)
-    window.dispatchEvent(new CustomEvent('hha:index-ready'));
-  } catch (err) {
-    alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message || err));
-    // เผื่อดีบัก
-    console.error(err);
-  }
+  // รอ A-Frame.THREE ให้พร้อมก่อน (effects/particles ใช้ THREE)
+  import('./three-safe.js').then(async ({waitAframe})=>{
+    try{
+      await waitAframe();
+      // แจ้งโหมดอื่น ๆ ที่มี UI พิเศษให้เตรียมล้างของเก่า
+      window.dispatchEvent(new CustomEvent('hha:dispose-ui'));
+      const mod = await import(modURL);
+      if (!mod || typeof mod.boot!=='function') throw new Error('ไม่พบ boot() ในโหมด');
+      await mod.boot({ difficulty: diff, duration: dur, host: document.getElementById('spawnHost') });
+      // บอกหน้า index ว่า A-Frame พร้อมแล้ว (กันบางโหมดรอ event นี้)
+      window.dispatchEvent(new CustomEvent('hha:aframe-ready'));
+    }catch(err){
+      alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message || err));
+      console.error(err);
+    }
+  });
 </script>
 </body>
 </html>
