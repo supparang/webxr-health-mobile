@@ -1,241 +1,131 @@
-// === /HeroHealth/modes/groups.safe.js (final, release-safe) ===
-const THREE = window.THREE;
-import { makeSpawner } from '../vr/spawn-utils.js';
-import { burstAt, floatScore, setShardMode } from '../vr/shards.js';
-import { emojiImage } from '../vr/emoji-sprite.js';
 import { drawThree } from '../vr/quests-powerups.js';
 
 export async function boot(cfg = {}) {
-  // ตั้งพาเล็ตเอฟเฟกต์สำหรับโหมดนี้
-  setShardMode('groups');
+  const MODE_KEY='groups';
+  const diff=String(cfg.difficulty||'normal');
+  const dur =Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
 
-  // พื้นฐานฉาก
-  const scene = document.querySelector('a-scene');
-  const host  = cfg.host || document.getElementById('spawnHost');
-  const diff  = String(cfg.difficulty || 'normal');
-  const dur   = Number(cfg.duration || (diff==='easy'?90:diff==='hard'?45:60));
-
-  // หมวดอาหาร
   const GROUPS = {
-    veg    : ['🥦','🥕','🥬','🍅','🌽','🧄','🧅'],
-    fruit  : ['🍎','🍓','🍇','🍊','🍌','🍍','🥝','🍐','🍉'],
-    grain  : ['🍞','🥖','🥯','🍚','🍘'],
-    protein: ['🐟','🍗','🥚','🫘','🥜'],
-    dairy  : ['🥛','🧀','🍦','🍨']
+    veg:['🥦','🥕','🥬','🍅','🌽'],
+    fruit:['🍎','🍓','🍇','🍊','🍍','🍌','🍉','🍑'],
+    grain:['🍞','🥖','🍚','🍘'],
+    protein:['🐟','🍗','🥚','🫘','🥜'],
+    dairy:['🥛','🧀','🍦']
   };
   const ALL = Object.values(GROUPS).flat();
+  const STAR='⭐', DIA='💎';
 
-  // พาวเวอร์อัพ
-  const STAR='⭐', DIA='💎', SHIELD='🛡️';
-
-  // ปรับจูนตามระดับ + กันกระจุก
-  const tune = {
-    easy   : { nextGap:[420,680], life:[1500,1800], minDist:0.34, maxConcurrent:2 },
-    normal : { nextGap:[320,560], life:[1200,1500], minDist:0.32, maxConcurrent:3 },
-    hard   : { nextGap:[250,460], life:[1000,1300], minDist:0.30, maxConcurrent:4 }
-  };
-  const C = tune[diff] || tune.normal;
-
-  const sp = makeSpawner({
-    bounds:  { x:[-0.75,0.75], y:[-0.05,0.45], z:-1.6 },
-    minDist: C.minDist,
-    decaySec: 2.2
-  });
-
-  // สถานะเกม
-  let running = true;
-  let score=0, combo=0, maxCombo=0, misses=0, hits=0, spawns=0, shield=0;
-  let remain = dur;
-  let timerId=0, loopId=0;
-
-  // ===== Goal ระบบ “เลือกหมวดให้ถูก × N ชิ้น” =====
-  const keys = Object.keys(GROUPS);
-  let targetKey = keys[(Math.random()*keys.length)|0];
-  // เริ่มเป้าตามระดับ + ขยายทีละขั้นเมื่อทำสำเร็จโดยไม่พลาด
-  let goalSize = (diff==='easy'?1 : diff==='hard'?3 : 2);
-  let goalCount = 0;
-  function pickNewTarget() {
-    targetKey = keys[(Math.random()*keys.length)|0];
-    goalCount = 0;
-    emitGoalHUD();
+  document.querySelectorAll('.hha-layer').forEach(n=>n.remove());
+  const layer=document.createElement('div'); layer.className='hha-layer';
+  Object.assign(layer.style,{position:'fixed',inset:'0',zIndex:650}); document.body.appendChild(layer);
+  if(!document.getElementById('hha-style')){
+    const st=document.createElement('style'); st.id='hha-style';
+    st.textContent='.hha-tgt{position:absolute;transform:translate(-50%,-50%);font-size:66px;filter:drop-shadow(0 10px 16px rgba(0,0,0,.5));}.hha-tgt.hit{opacity:.2;transform:translate(-50%,-50%) scale(.85);}';
+    document.head.appendChild(st);
   }
-  function emitGoalHUD(){
-    window.dispatchEvent(new CustomEvent('hha:goal', {
-      detail: {
-        label: `เป้า: เลือกให้ถูกหมวด (${targetKey.toUpperCase()}) — ${goalCount}/${goalSize}`,
-        value: goalCount,
-        max: goalSize,
-        mode: 'Food Groups'
-      }
-    }));
-  }
-  pickNewTarget();
 
-  // ===== Mini Quests (สุ่ม 3 จากพูล, แสดงทีละใบ) =====
-  const QUESTS = drawThree('groups', diff);   // [{id,label,check,...}] ยาว 3 ใบ
-  let qIdx = 0;
-  function emitQuestHUD(){
-    const q = QUESTS[qIdx];
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: { label: q ? q.label : 'จบเควสต์', currentIndex: q ? qIdx : 3, total: 3 }
-    }));
-  }
-  function tryAdvanceQuest(){
-    const s = { score, goodCount:hits, junkMiss:misses, comboMax:maxCombo, feverCount:0, star:0, diamond:0, noMissTime:0 };
-    const q = QUESTS[qIdx];
-    if (q && typeof q.check==='function' && q.check(s)) {
-      qIdx = Math.min(qIdx+1, 3);
-      emitQuestHUD();
-    }
-  }
-  emitQuestHUD();
+  let spawnMin=900, spawnMax=1200, life=1600;
+  if(diff==='easy'){ spawnMin=1000; spawnMax=1400; life=1800; }
+  if(diff==='hard'){ spawnMin=700;  spawnMax=950;  life=1400; }
 
-  // เครื่องมือสุ่มเวลา/อายุ
-  const rand = (a,b)=> a + Math.random()*(b-a);
-  const nextGap = ()=> rand(C.nextGap[0], C.nextGap[1]);
-  const lifeMs  = ()=> rand(C.life[0],    C.life[1]);
+  // Mini quest deck
+  let deck=drawThree(MODE_KEY,diff), deckIdx=0, deckRound=1;
+  const mstats={good:0,junk:0,star:0,diamond:0,comboMax:0,noMiss:0,score:0};
+  function resetMini(){ mstats.good=0;mstats.junk=0;mstats.star=0;mstats.diamond=0;mstats.comboMax=0;mstats.noMiss=0;mstats.score=0; }
+  function startNewDeck(){ deck=drawThree(MODE_KEY,diff); deckIdx=0; deckRound++; resetMini(); emitQuest(); }
+  function advance(){ const q=deck[deckIdx]; if(!q) return;
+    const ok=q.check({score:mstats.score,goodCount:mstats.good,junkMiss:mstats.junk,comboMax:mstats.comboMax,noMissTime:mstats.noMiss,star:mstats.star,diamond:mstats.diamond});
+    if(ok){ if(deckIdx>=deck.length-1){ if(left>1) startNewDeck(); } else { deckIdx++; emitQuest(); } }
+  }
+  function emitQuest(){
+    const q=deck[deckIdx]; const title=q?`Quest ${deckIdx+1}/3 — ${q.label}`:'Mini Quest — กำลังเริ่ม…';
+    window.dispatchEvent(new CustomEvent('hha:quest',{detail:{text:title}}));
+    const cur=q?.prog?q.prog({score:mstats.score,goodCount:mstats.good,junkMiss:mstats.junk,comboMax:mstats.comboMax,noMissTime:mstats.noMiss,star:mstats.star,diamond:mstats.diamond}):0;
+    window.dispatchEvent(new CustomEvent('hha:quest-progress',{detail:{round:deckRound,index:deckIdx,cur,tgt:q?.target??0,label:q?.label||''}}));
+  }
 
-  function end(reason='timeout'){
+  // Goal: เลือกตามหมวดที่สุ่มขึ้น (2 ชิ้นต่อรอบ)
+  let goalKey='fruit', goalNeed=2, goalCur=0;
+  function newGoal(){
+    const keys=Object.keys(GROUPS); goalKey=keys[(Math.random()*keys.length)|0];
+    goalNeed=2; goalCur=0;
+    window.dispatchEvent(new CustomEvent('hha:goal',{detail:{label:`เป้า: เลือกให้ถูกหมวด (${goalKey.toUpperCase()}) — 0/${goalNeed}`}}));
+  }
+  newGoal();
+
+  // state
+  let running=true, score=0, combo=0, left=dur;
+  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}})); emitQuest();
+
+  function fireScore(delta,good){
+    if(good){ combo++; mstats.comboMax=Math.max(mstats.comboMax,combo); }
+    else { combo=0; mstats.noMiss=0; }
+    score=Math.max(0,score+delta); mstats.score=Math.max(mstats.score,score);
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{score,combo}}));
+  }
+
+  let spawnTimer=0, timeTimer=0, watchdog=0;
+  function vw(){ return Math.max(320,window.innerWidth||320); }
+  function vh(){ return Math.max(320,window.innerHeight||320); }
+  function plan(){ spawnTimer=setTimeout(spawnOne, Math.floor(spawnMin+Math.random()*(spawnMax-spawnMin))); }
+  function spawnOne(forceCenter){
     if(!running) return;
-    running=false;
-    try{ clearInterval(timerId); }catch{}
-    try{ clearTimeout(loopId); }catch{}
-    Array.from(host.querySelectorAll('a-image')).forEach(n=>{ try{ n.remove(); }catch{}; });
-    window.dispatchEvent(new CustomEvent('hha:end', {
-      detail: {
-        mode: 'Food Groups',
-        difficulty: diff,
-        score,
-        combo: maxCombo,
-        misses,
-        hits,
-        spawns,
-        duration: dur,
-        questsCleared: Math.min(qIdx,3),
-        questsTotal: 3,
-        reason
+    let ch,type='food', key=null;
+    const r=Math.random();
+    if(r<0.05){ ch=STAR; type='star'; }
+    else if(r<0.08){ ch=DIA; type='diamond'; }
+    else{
+      const keys=Object.keys(GROUPS); key=keys[(Math.random()*keys.length)|0];
+      const pool=GROUPS[key]; ch=pool[(Math.random()*pool.length)|0];
+    }
+    const el=document.createElement('div'); el.className='hha-tgt'; el.textContent=ch;
+    const x=forceCenter?vw()/2:Math.floor(vw()*0.14+Math.random()*vw()*0.72);
+    const y=forceCenter?vh()/2:Math.floor(vh()*0.22+Math.random()*vh()*0.58);
+    Object.assign(el.style,{left:x+'px',top:y+'px'}); layer.appendChild(el);
+
+    const ttl=setTimeout(()=>{ if(!el.parentNode) return; layer.removeChild(el); mstats.junk++; combo=0; advance(); }, life);
+
+    function hit(ev){
+      ev?.preventDefault?.(); clearTimeout(ttl); try{layer.removeChild(el);}catch{}
+      if(type==='star'){ mstats.star++; fireScore(40,true); }
+      else if(type==='diamond'){ mstats.diamond++; fireScore(80,true); }
+      else{
+        const good = (key===goalKey);
+        if(good){ mstats.good++; goalCur++; fireScore(22+combo*2,true); }
+        else { mstats.junk++; fireScore(-18,false); }
+        if(goalCur>=goalNeed){ window.dispatchEvent(new CustomEvent('hha:goal',{detail:{label:`สำเร็จ! (${goalKey.toUpperCase()})`}})); newGoal(); }
       }
-    }));
+      advance(); plan();
+    }
+    el.addEventListener('click',hit,{passive:false});
+    el.addEventListener('touchstart',hit,{passive:false});
   }
 
-  function emitScore(){ window.dispatchEvent(new CustomEvent('hha:score', { detail:{ score, combo } })); }
-
-  function spawnOne(){
-    if(!running) return;
-
-    // จำกัดจำนวนพร้อมกัน เพื่อลด “กระจุก”
-    if (host.querySelectorAll('a-image').length >= C.maxConcurrent) {
-      loopId = setTimeout(spawnOne, 120);
-      return;
-    }
-
-    // 30% การันตีเป้าหมาย, 70% สุ่มอะไรก็ได้
-    let ch, inTarget=false, type='food';
-    const r = Math.random();
-    if      (r < 0.05) { ch=STAR;   type='star'; }
-    else if (r < 0.07) { ch=DIA;    type='diamond'; }
-    else if (r < 0.10) { ch=SHIELD; type='shield'; }
-    else {
-      if (Math.random() < 0.30) {
-        const pool = GROUPS[targetKey]; ch = pool[(Math.random()*pool.length)|0]; inTarget = true;
-      } else {
-        ch = ALL[(Math.random()*ALL.length)|0];
-        inTarget = GROUPS[targetKey].includes(ch);
-      }
-    }
-
-    // วางตำแหน่งแบบไม่ทับ
-    const pos = sp.sample();
-    const el  = emojiImage(ch, 0.70, 128);
-    el.classList.add('clickable');
-    el.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
-    host.appendChild(el); spawns++;
-
-    const rec = sp.markActive(pos);
-    const ttl = setTimeout(()=>{
-      // หมดอายุ: ถ้าของที่ตรงหมวดหลุด → นับพลาด
-      if (el.parentNode) {
-        if (type==='food' && inTarget) {
-          combo=0; score=Math.max(0, score-8); misses++;
-          window.dispatchEvent(new CustomEvent('hha:miss',{detail:{count:misses}}));
-          emitScore();
-        }
-        try{ el.remove(); }catch{}
-        sp.unmark(rec);
-      }
-    }, lifeMs());
-
-    el.addEventListener('click', (ev)=>{
-      if(!running) return;
-      ev.preventDefault();
-      clearTimeout(ttl);
-
-      const wp = el.object3D.getWorldPosition(new THREE.Vector3());
-      if (type==='food') {
-        if (inTarget) {
-          const val = 25 + combo*2;
-          score += val; hits++; combo++; maxCombo = Math.max(maxCombo, combo);
-          goalCount++;
-          burstAt(scene, wp, { color:'#22c55e', count:18, speed:1.05 });
-          floatScore(scene, wp, '+'+val);
-
-          // สำเร็จเป้าหมายใบนี้ → สุ่มหมวดใหม่ และ (อาจ) เพิ่มขนาดเป้า
-          if (goalCount >= goalSize) {
-            // เพิ่มความท้าทายแบบค่อย ๆ
-            goalSize = Math.min(3, goalSize + 1);
-            pickNewTarget();
-          } else {
-            emitGoalHUD();
-          }
-        } else {
-          // ตีผิดหมวด → โทษเล็กน้อย
-          combo = 0;
-          score = Math.max(0, score - 12);
-          burstAt(scene, wp, { color:'#ef4444', count:12, speed:0.9 });
-          floatScore(scene, wp, '-12');
-        }
-      } else if (type==='star') {
-        score += 40; burstAt(scene, wp, { color:'#fde047', count:20, speed:1.1 });
-        floatScore(scene, wp, '+40 ⭐');
-      } else if (type==='diamond') {
-        score += 80; burstAt(scene, wp, { color:'#a78bfa', count:24, speed:1.2 });
-        floatScore(scene, wp, '+80 💎');
-      } else if (type==='shield') {
-        shield = Math.min(3, shield+1);
-        burstAt(scene, wp, { color:'#60a5fa', count:18, speed:1.0 });
-        floatScore(scene, wp, '🛡️ +1');
-      }
-
-      try{ el.remove(); }catch{}
-      sp.unmark(rec);
-      tryAdvanceQuest();
-      emitScore();
-
-      loopId = setTimeout(spawnOne, nextGap());
-    }, {passive:false});
-
-    // นัดรอบถัดไป
-    loopId = setTimeout(spawnOne, nextGap());
+  function startTimers(){
+    timeTimer=setInterval(()=>{ if(!running) return; left=Math.max(0,left-1);
+      window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:left}}));
+      mstats.noMiss=Math.min(999,mstats.noMiss+1); emitQuest();
+      if(left<=0) end();
+    },1000);
+    spawnOne(true); plan();
+    watchdog=setInterval(()=>{ if(!running) return; if(layer.querySelectorAll('.hha-tgt').length===0) spawnOne(true); },2000);
   }
 
-  // นาฬิกา
-  window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
-  timerId = setInterval(()=>{
-    if(!running) return;
-    remain = Math.max(0, remain-1);
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:remain}}));
-    if (remain<=0) end('timeout');
-  }, 1000);
+  function end(){
+    running=false; clearInterval(timeTimer); clearInterval(watchdog); clearTimeout(spawnTimer);
+    layer.querySelectorAll('.hha-tgt').forEach(n=>n.remove());
+    const clearedInThisSet = deckIdx + ((deck[deckIdx] && deck[deckIdx].check({
+      score:mstats.score, goodCount:mstats.good, junkMiss:mstats.junk, comboMax:mstats.comboMax,
+      noMissTime:mstats.noMiss, star:mstats.star, diamond:mstats.diamond
+    })) ? 1 : 0);
+    const miniClearedTotal = (deckRound-1)*3 + Math.min(3, clearedInThisSet);
+    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
+      mode:MODE_KEY,difficulty:diff,score,combo,duration:dur,miniQuestCleared:miniClearedTotal,miniQuestRounds:deckRound
+    }}));
+    layer.remove();
+  }
 
-  // เริ่มทำงาน
-  spawnOne();
-
-  // API ควบคุมจากภายนอก (index ใช้)
-  return {
-    stop(){ end('quit'); },
-    pause(){ running=false; },
-    resume(){ if(!running){ running=true; spawnOne(); } }
-  };
+  startTimers();
+  return { stop:end, pause(){running=false;}, resume(){ if(!running){ running=true; startTimers(); } } };
 }
-
 export default { boot };
