@@ -1,257 +1,185 @@
-// === /HeroHealth/vr/particles.js
-// DOM effects (safe) + scorePop (pretty), with pooling, auto CSS injection
-// NEW: ringColor/ringWidth options + random ringColor per theme (goodjunk/plate/hydration/groups)
+// === /HeroHealth/vr/particles.js (2025-11-12 FIX: viewport-fixed scorePop) ===
+export const Particles = {
+  _layer: null,
+  _styleInjected: false,
 
-export const Particles = (function(){
-  var layer = null;
-  var cssInjected = false;
-  var pool = [];           // pooled <span> nodes for scorePop
-  var maxPool = 32;
-  var zIndexBase = 9999;
+  _injectStyles(){
+    if (this._styleInjected) return;
+    this._styleInjected = true;
+    const st = document.createElement('style');
+    st.id = 'hha-particles-style';
+    st.textContent = [
+      '.hha-pop-layer{position:fixed;inset:0;pointer-events:none;z-index:10000;}',
+      '.hha-pop{position:absolute;left:0;top:0;transform:translate(-50%,-50%) scale(1);',
+      ' will-change:transform,opacity,filter; font:900 20px system-ui,Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif; }',
+      '.hha-pop .txt{position:relative;z-index:2;white-space:nowrap;filter:drop-shadow(0 1px 0 rgba(0,0,0,.75));}',
+      '.hha-pop .ring{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
+      ' border-radius:999px; box-sizing:border-box; filter:blur(0);}',
 
-  // -------- Theme Palettes (used for ringColor + shards) --------
-  var THEME_COLORS = {
-    goodjunk : ['#19c37d','#22d3ee','#a3e635','#34d399','#06b6d4','#4ade80'],
-    plate    : ['#f59e0b','#f97316','#ef4444','#fb923c','#fbbf24','#f87171'],
-    hydration: ['#3b82f6','#0ea5e9','#22d3ee','#60a5fa','#38bdf8','#93c5fd'],
-    groups   : ['#a78bfa','#22c55e','#f43f5e','#e879f9','#10b981','#f472b6'],
-    "default": ['#ffffff','#e5e7eb','#cbd5e1']
-  };
-
-  function themeColor(theme){
-    var arr = THEME_COLORS[theme] || THEME_COLORS["default"];
-    var i = Math.floor(Math.random()*arr.length);
-    return arr[i];
-  }
-
-  // ---------- Utils ----------
-  function ensureLayer(){
-    if (!layer) {
-      layer = document.getElementById('fx-layer');
-      if (!layer) {
-        layer = document.createElement('div');
-        layer.id = 'fx-layer';
-        layer.setAttribute('aria-hidden','true');
-        document.body.appendChild(layer);
-      }
-    }
-    if (!cssInjected) injectCSS();
-    return layer;
-  }
-
-  function injectCSS(){
-    cssInjected = true;
-    var style = document.createElement('style');
-    style.id = 'fx-style';
-    style.textContent = [
-      '#fx-layer{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:'+zIndexBase+';}',
-      '.fx-pop{position:absolute;will-change:transform,opacity,filter;transform:translate(-50%,-50%) scale(1);',
-      ' font-family: ui-rounded, system-ui, "Segoe UI", "Noto Color Emoji", "Apple Color Emoji", sans-serif;',
-      ' font-weight:800; text-shadow:0 1px 0 rgba(0,0,0,.1);',
-      ' filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));}',
-      '.fx-pop.pos{color:#19c37d;} /* positive (green) */',
-      '.fx-pop.neg{color:#ff5a5f;} /* negative (red)   */',
-      '.fx-pop.neu{color:#f5c518;} /* neutral (amber)  */',
-      '.fx-ring{position:absolute;left:50%;top:50%;width:10px;height:10px;transform:translate(-50%,-50%) scale(0.75);',
-      ' border-radius:999px;opacity:0.55;pointer-events:none;}'
+      /* shards (DOM fallback) */
+      '.hha-shard{position:absolute;left:0;top:0;transform:translate(-50%,-50%);',
+      ' will-change:transform,opacity; pointer-events:none; font-size:24px; }'
     ].join('');
-    document.head.appendChild(style);
-  }
+    document.head.appendChild(st);
+  },
 
-  function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
-  function clamp(n,a,b){ return n<a?a:(n>b?b:n); }
+  _ensureLayer(){
+    this._injectStyles();
+    if (this._layer && document.body.contains(this._layer)) return this._layer;
+    const layer = document.createElement('div');
+    layer.className = 'hha-pop-layer';
+    layer.id = 'hhaPopLayer';
+    (document.querySelector('.game-wrap') || document.body).appendChild(layer);
+    this._layer = layer;
+    return layer;
+  },
 
-  function acquireSpan(){
-    for (var i=0;i<pool.length;i++){
-      var it = pool[i];
-      if (!it.busy) { it.busy = true; it.el.style.display='block'; it.el.style.opacity='1'; return it; }
-    }
-    if (pool.length < maxPool){
-      var el = document.createElement('span');
-      el.className = 'fx-pop neu';
-      el.style.display='block';
-      ensureLayer().appendChild(el);
-      var rec = { el: el, busy: true };
-      pool.push(rec);
-      return rec;
-    }
-    var r = pool[0];
-    r.busy = true; r.el.style.display='block'; r.el.style.opacity='1';
-    return r;
-  }
-
-  function releaseSpan(rec){
-    if (!rec) return;
-    rec.busy = false;
-    var el = rec.el;
-    el.style.display='none';
-  }
-
-  // ---------- Public: scorePop ----------
+  // ---------- SCORE POP ----------
   /**
-   * scorePop(x, y, text, isPositive, opts?)
-   * x,y: screen coords (px), text: string/number, isPositive: true/false/null
-   * opts:
-   *  - theme: 'goodjunk'|'plate'|'hydration'|'groups' (for random ringColor)
-   *  - glow: true/false (enable ring)
-   *  - ringColor: override color (defaults to random by theme if glow)
-   *  - ringWidth: px (default 2)
-   *  - duration (ms), rise (px), startScale, endScale, blur (px)
-   *  - color: override text color (CSS color string)
+   * scorePop(x, y, text, positive, opts?)
+   * opts: {
+   *   rise=100, duration=900, startScale=0.9, endScale=1.25,
+   *   blur=0.8, glow=true, ringColor?, ringWidth?, theme? ('goodjunk'|'groups'|'hydration'|'plate')
+   * }
    */
-  function scorePop(x, y, text, isPositive, opts){
-    try {
-      ensureLayer();
-      var o = opts || {};
-      var duration   = Number(o.duration || 750);
-      var rise       = Number(o.rise || 80);
-      var startScale = Number(o.startScale || 0.9);
-      var endScale   = Number(o.endScale || 1.25);
-      var blurMax    = Number(o.blur || 0);
-      var glow       = !!o.glow;
-      var theTheme   = o.theme || null;
+  scorePop(x, y, text, positive, opts){
+    const layer = this._ensureLayer();
 
-      // acquire DOM node
-      var rec = acquireSpan();
-      var el  = rec.el;
+    // Defaults
+    opts = opts || {};
+    const rise       = Number(opts.rise       != null ? opts.rise       : 100);
+    const duration   = Number(opts.duration   != null ? opts.duration   : 900);
+    const s0         = Number(opts.startScale != null ? opts.startScale : 0.9);
+    const s1         = Number(opts.endScale   != null ? opts.endScale   : 1.25);
+    const blur0      = Number(opts.blur       != null ? opts.blur       : 0.8);
+    const glow       = (opts.glow !== false); // default true
+    const theme      = String(opts.theme || 'goodjunk');
 
-      el.textContent = String(text);
-      var cls = 'fx-pop ';
-      if (isPositive===true) cls += 'pos';
-      else if (isPositive===false) cls += 'neg';
-      else cls += 'neu';
-      el.className = cls;
-      if (o.color){ el.style.color = o.color; } else { el.style.color = ''; }
+    // palette ต่อธีม (สุ่มหนึ่งสี)
+    const PALETTES = {
+      goodjunk: ['#86efac','#22c55e','#a7f3d0','#34d399'],
+      groups:   ['#60a5fa','#3b82f6','#93c5fd','#38bdf8'],
+      hydration:['#22d3ee','#06b6d4','#67e8f9','#7dd3fc'],
+      plate:    ['#a78bfa','#8b5cf6','#c4b5fd','#f472b6']
+    };
+    const colors = PALETTES[theme] || PALETTES.goodjunk;
+    const ringColor = opts.ringColor || colors[(Math.random()*colors.length)|0];
+    const ringWidth = Number(opts.ringWidth != null ? opts.ringWidth : 4);
 
-      var startX = clamp(x, 8, window.innerWidth  - 8);
-      var startY = clamp(y, 8, window.innerHeight - 8);
+    // base color for text
+    const txtColor = positive ? '#ffffff' : '#fca5a5';
 
-      // --- ring (glow) with theme-based random color ---
-      if (glow){
-        var ring = el.querySelector('.fx-ring');
-        if (!ring){
-          ring = document.createElement('i');
-          ring.className='fx-ring';
-          el.appendChild(ring);
-        }
-        var rc = (typeof o.ringColor === 'string') ? o.ringColor : themeColor(theTheme||'default');
-        var rw = Number(o.ringWidth || 2);
-        ring.style.border = rw+'px solid '+rc;
-        ring.style.transform='translate(-50%,-50%) scale(0.75)';
-        ring.style.opacity='0.55';
+    // DOM
+    const host = document.createElement('div');
+    host.className = 'hha-pop';
+    host.style.left = (x|0) + 'px';
+    host.style.top  = (y|0) + 'px';
+    host.style.opacity = '0';
+    host.style.filter = 'blur('+blur0+'px)';
+
+    const ring = document.createElement('div');
+    ring.className = 'ring';
+    ring.style.width  = '64px';
+    ring.style.height = '64px';
+    ring.style.border = ringWidth+'px solid '+ringColor;
+    if (glow) ring.style.boxShadow = '0 0 24px '+ringColor+', 0 0 42px '+ringColor+'88';
+
+    const txtEl = document.createElement('div');
+    txtEl.className = 'txt';
+    txtEl.textContent = String(text!=null ? text : '');
+    txtEl.style.color = txtColor;
+
+    host.appendChild(ring);
+    host.appendChild(txtEl);
+    layer.appendChild(host);
+
+    // Animate (CSS transitions via JS)
+    const t0 = performance.now();
+    const dur = Math.max(1, duration);
+    const startY = 0;
+    const endY   = -Math.abs(rise);
+
+    // initial
+    host.style.transform = 'translate(-50%,-50%) scale('+s0+')';
+    // frame
+    const step = ()=>{
+      const t = performance.now();
+      const k = Math.min(1, (t - t0)/dur);
+      const ease = 1 - Math.pow(1-k, 3); // easeOutCubic
+
+      const ty = startY + (endY - startY)*ease;
+      const sc = s0 + (s1 - s0)*ease;
+      const op = 0.05 + 0.95*ease;
+
+      host.style.transform = 'translate(-50%,'+ty+'px) scale('+sc+')';
+      host.style.opacity   = String(op);
+      host.style.filter    = 'blur('+(blur0*(1-ease))+')';
+
+      // shrink ring a bit
+      const ringScale = 1 + 0.25*(1-ease);
+      ring.style.transform = 'translate(-50%,-50%) scale('+ringScale+')';
+
+      if (k < 1) {
+        requestAnimationFrame(step);
       } else {
-        var oldRing = el.querySelector('.fx-ring');
-        if (oldRing) oldRing.remove();
+        // fade out quick
+        host.style.transition = 'opacity .18s ease';
+        host.style.opacity = '0';
+        setTimeout(()=>{ try{ layer.removeChild(host); }catch(_){}; }, 200);
       }
+    };
+    requestAnimationFrame(step);
+  },
 
-      // animation via rAF
-      var t0 = performance.now();
-      function step(now){
-        if (!rec.busy) return;
-        var dt = now - t0;
-        var k  = clamp(dt / duration, 0, 1);
-        var e  = easeOutCubic(k);
-        var curY = startY - (rise * e);
-        var sc   = startScale + (endScale - startScale) * e;
-        var op   = 1 - k;
-        var blur = blurMax ? (blurMax * (1 - e)) : 0;
-
-        el.style.transform = 'translate(-50%,-50%) translate('+startX+'px,'+curY+'px) scale('+sc+')';
-        el.style.opacity   = String(op);
-        el.style.filter    = (blur>0 ? ('blur('+blur.toFixed(1)+'px) drop-shadow(0 2px 4px rgba(0,0,0,.35))') : 'drop-shadow(0 2px 4px rgba(0,0,0,.35))');
-
-        if (glow){
-          var ringEl = el.querySelector('.fx-ring');
-          if (ringEl){
-            var rSc = 0.75 + 0.75*e;
-            var rOp = 0.55 * (1 - e);
-            ringEl.style.transform = 'translate(-50%,-50%) scale('+rSc+')';
-            ringEl.style.opacity   = String(rOp);
-          }
-        }
-        if (k < 1) requestAnimationFrame(step);
-        else releaseSpan(rec);
-      }
-
-      el.style.left = startX+'px';
-      el.style.top  = startY+'px';
-      el.style.zIndex = String(zIndexBase + 1);
-      requestAnimationFrame(step);
-
-      // subtle haptic (positive only)
-      try { if (isPositive && navigator && navigator.vibrate) navigator.vibrate(8); } catch(_){}
-
-    } catch(e) { /* silent fail-safe */ }
-  }
-
-  // ---------- Public: burstShards (theme-colored DOM confetti) ----------
+  // ---------- SHARDS (safe DOM fallback used elsewhere) ----------
   /**
-   * burstShards(host, pos, opts)
-   * opts.screen = {x,y}, opts.theme selects color palette
+   * burstShards(host, pos, { screen:{x,y} } | { world:{...} }, theme?:string)
+   * Here we only support screen coords (safe DOM).
    */
-  function burstShards(host, pos, opts){
+  burstShards(_host,_pos, opts){
     try{
-      ensureLayer();
-      var s = (opts && opts.screen) ? opts.screen : {x: (window.innerWidth/2|0), y:(window.innerHeight/2|0)};
-      var th = (opts && opts.theme) ? String(opts.theme) : 'default';
-      var palette = THEME_COLORS[th] || THEME_COLORS["default"];
-      var n = 12;
-      for (var i=0;i<n;i++){
-        var dot = document.createElement('b');
-        dot.style.position='absolute';
-        dot.style.left = s.x+'px';
-        dot.style.top  = s.y+'px';
-        var clr = palette[(Math.random()*palette.length)|0];
-        dot.style.background = clr;
-        dot.style.width='6px'; dot.style.height='6px';
-        dot.style.borderRadius='999px';
-        dot.style.filter='drop-shadow(0 2px 4px rgba(0,0,0,.35))';
-        dot.style.zIndex = String(zIndexBase);
-        ensureLayer().appendChild(dot);
+      const layer = this._ensureLayer();
+      const theme = (opts && opts.theme) || 'goodjunk';
+      const x = opts && opts.screen && typeof opts.screen.x==='number' ? opts.screen.x : (window.innerWidth/2);
+      const y = opts && opts.screen && typeof opts.screen.y==='number' ? opts.screen.y : (window.innerHeight/2);
 
-        (function(dot){
-          var a = Math.random()*Math.PI*2;
-          var v = 70 + Math.random()*140;
-          var life = 350 + Math.random()*300;
-          var grav = 60 + Math.random()*40;
-          var t0 = performance.now();
-          (function step(now){
-            var k = (now - t0)/life;
-            if (k>=1){ dot.remove(); return; }
-            var e = easeOutCubic(k);
-            var x = s.x + Math.cos(a)*v*e;
-            var y = s.y + Math.sin(a)*v*e + grav*e; // gravity curve
-            dot.style.left = x+'px';
-            dot.style.top  = y+'px';
-            dot.style.opacity = String(1-k);
-            requestAnimationFrame(step);
-          })(t0);
-        })(dot);
+      const emojis = {
+        goodjunk: ['✨','✳️','🟢','💚','⭐'],
+        groups:   ['✨','🔷','🔹','💙','⭐'],
+        hydration:['✨','💧','🔹','🫧','⭐'],
+        plate:    ['✨','🍽️','🟣','💜','⭐']
+      }[theme] || ['✨','⭐','💠','✴️'];
+
+      const N = 10 + ((Math.random()*6)|0);
+      for (let i=0;i<N;i++){
+        const el = document.createElement('div');
+        el.className = 'hha-shard';
+        el.textContent = emojis[(Math.random()*emojis.length)|0];
+        el.style.left = x + 'px';
+        el.style.top  = y + 'px';
+        el.style.opacity = '1';
+        layer.appendChild(el);
+
+        // random trajectory
+        const ang = Math.random()*Math.PI*2;
+        const dist = 30 + Math.random()*70;
+        const dx = Math.cos(ang)*dist;
+        const dy = Math.sin(ang)*dist - 20;
+        const life = 420 + (Math.random()*260|0);
+
+        const t0 = performance.now();
+        const step = ()=>{
+          const k = Math.min(1, (performance.now()-t0)/life);
+          const ease = 1 - Math.pow(1-k, 2); // easeOutQuad
+          el.style.transform = 'translate('+(-50+dx*ease)+'px,'+(-50+dy*ease)+'px) rotate('+(ang*30*ease)+'deg)';
+          el.style.opacity = String(1-k);
+          if (k<1) requestAnimationFrame(step);
+          else { try{ layer.removeChild(el); }catch(_){ } }
+        };
+        requestAnimationFrame(step);
       }
     }catch(_){}
   }
+};
 
-  // ---------- Convenience Presets ----------
-  function scorePopNice(x,y,text,positive,theme){
-    return scorePop(x,y,String(text),!!positive,{
-      glow:true, theme: theme||'default',
-      rise:120, duration:1000, startScale:0.85, endScale:1.35, blur:1.5,
-      // ringColor omitted → random by theme
-      ringWidth:3
-    });
-  }
-
-  // Clean up when page hidden (optional)
-  document.addEventListener('visibilitychange', function(){
-    if (document.hidden){
-      for (var i=0;i<pool.length;i++){
-        if (pool[i] && pool[i].el){ pool[i].el.remove(); }
-      }
-      pool.length = 0;
-      layer = null;
-      cssInjected = false;
-    }
-  });
-
-  return { scorePop, scorePopNice, burstShards };
-})();
+export default { Particles };
