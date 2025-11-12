@@ -907,16 +907,6 @@
                         difficulty.set(level);
                         gameConfig = difficulty.get(); // { size, rate, life }
                         
-                        // 🔻 === โค้ดที่แก้ไข (FIX 3) === 🔻
-                        // แก้ไขปัญหา PC Mouse Click
-                        const cursor = document.getElementById('cursor');
-                        if (cursor && !AFRAME.utils.device.isMobile()) {
-                            // ถ้าไม่ใช่ Mobile (คือ PC) ให้ปิดระบบ Gaze (fuse)
-                            // เพื่อให้เมาส์คลิกทำงานได้
-                            cursor.setAttribute('cursor', 'fuse', false);
-                        }
-                        // 🔺 === จบโค้ดที่แก้ไข === 🔺
-                        
                         // เริ่มระบบเกม
                         if (gameTimer) clearInterval(gameTimer);
                         if (spawnTimer) clearTimeout(spawnTimer);
@@ -926,13 +916,32 @@
                         Quest.start(); // เริ่มระบบภารกิจ
                         
                         // ตั้งค่าการยิง (Click/Trigger/Gaze)
-                        // A-Frame จะยิง 'click' ที่ตัว object ที่โดน
-                        // โค้ดนี้จะรองรับ (VR Trigger, Mobile Gaze, และ PC Click ที่แก้แล้ว)
+                        // 'click' จะรองรับ VR Trigger และ Mobile Gaze (เพราะ <a-cursor fuse="true">)
                         sceneEl.addEventListener('click', (e) => {
                             if (e.target && e.target.dataset.hhaTgt) {
                                 onHitTarget(e.target);
                             }
                         });
+                        
+                        // 🔻 === โค้ดที่แก้ไข (FIX 3) === 🔻
+                        // เพิ่มตัวฟัง mousedown สำหรับเมาส์ PC โดยเฉพาะ
+                        // เพราะ 'click' ถูกระบบ Gaze (fuse) บล็อกไป
+                        sceneEl.canvas.addEventListener('mousedown', () => {
+                            if (!window.running) return; // ไม่ทำงานถ้าเกมหยุด
+                            
+                            // เช็คว่าเมาส์ชี้โดนเป้าหมายหรือไม่
+                            const cursor = document.getElementById('cursor');
+                            if (!cursor) return;
+                            
+                            const raycaster = cursor.components.raycaster;
+                            if (!raycaster) return;
+
+                            const intersectedEl = raycaster.intersectedEls[0];
+                            if (intersectedEl && intersectedEl.dataset.hhaTgt) {
+                                onHitTarget(intersectedEl); // สั่งยิงเป้าหมาย
+                            }
+                        });
+                        // 🔺 === จบโค้ดที่แก้ไข === 🔺
                         
                         // ส่งสัญญาณเริ่มเกม
                         window.emit('hha:score', {score: 0, combo: 0});
