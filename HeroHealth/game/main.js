@@ -1,4 +1,4 @@
-// === /HeroHealth/game/main.js (2025-11-12 FINAL) ===
+// === /HeroHealth/game/main.js (2025-11-12 FINAL+) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -25,8 +25,10 @@ function setCombo(n){ if(elCombo) elCombo.textContent = (n|0).toLocaleString(); 
   #hudTimeBubble .pill{background:#0b1220e0; color:#e2e8f0; border:2px solid #334155;
     border-radius:999px; padding:4px 10px; font:900 14px system-ui; letter-spacing:.2px;
     box-shadow:0 10px 24px rgba(0,0,0,.35)}
-  #hudTimeBubble.low{filter:drop-shadow(0 0 10px #f59e0b); border-color:#f59e0b}
-  #hudTimeBubble.crit{animation:hb 0.7s ease-in-out infinite; filter:drop-shadow(0 0 14px #ef4444)}
+  #hudTimeBubble.low  {filter:drop-shadow(0 0 10px #f59e0b)}
+  #hudTimeBubble.crit {animation:hb 0.7s ease-in-out infinite; filter:drop-shadow(0 0 14px #ef4444)}
+  #hudTimeBubble.low  .pill{ border-color:#f59e0b }
+  #hudTimeBubble.crit .pill{ border-color:#ef4444 }
   @keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
   `;
   document.head.appendChild(css);
@@ -35,7 +37,6 @@ function setCombo(n){ if(elCombo) elCombo.textContent = (n|0).toLocaleString(); 
   wrap.innerHTML = `<div class="pill">TIME ${DURATION}s</div>`;
   document.body.appendChild(wrap);
 })();
-
 const elTimeWrap = document.getElementById('hudTimeBubble');
 const elTimeText = elTimeWrap?.querySelector('.pill');
 let lastSec = DURATION;
@@ -47,7 +48,7 @@ function setTimeLeft(sec){
   elTimeWrap.classList.toggle('crit', s <= 5);
 }
 
-// ---------- Fever bar mount (DOM already has #feverBarDock) ----------
+// ---------- Fever bar mount ----------
 import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
   try{
     const dock = document.getElementById('feverBarDock') || document.getElementById('hudTop');
@@ -56,13 +57,13 @@ import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
 }).catch(()=>{});
 
 // ---------- Quest HUD (Goal + Mini) ----------
-import('../vr/quest-hud.js').catch(()=>{ /* ไม่เป็นไร ถ้าไม่มีไฟล์ */ });
+import('../vr/quest-hud.js').catch(()=>{ /* optional */ });
 
-// bridge รับจากโหมด (บางโหมดส่ง hha:quest, บางโหมดส่ง quest:update)
+// bridge: forward hha:quest -> quest:update ให้แน่ใจว่าติด HUD
 window.addEventListener('hha:quest', (e)=>{
   try{ window.dispatchEvent(new CustomEvent('quest:update',{detail:e.detail})); }catch(_){}
 });
-window.addEventListener('quest:update', ()=>{}); // ให้ quest-hud.js hook ต่อเอง
+window.addEventListener('quest:update', ()=>{}); // ให้ quest-hud hook ต่อเอง
 
 // ---------- score/time listeners ----------
 let scoreTotal = 0, comboMax = 0, misses = 0, hits = 0;
@@ -150,8 +151,8 @@ window.addEventListener('hha:end',(e)=>{
 async function loadModeModule(name){
   const extOrder = (name==='goodjunk'||name==='groups') ? ['safe','quest','js'] : ['quest','safe','js'];
   const bases = [
-    '../modes/',                                   // relative (correct for /HeroHealth/game/)
-    '/webxr-health-mobile/HeroHealth/modes/'       // absolute fallback
+    '../modes/',
+    '/webxr-health-mobile/HeroHealth/modes/'
   ];
   const tries = [];
   for (const base of bases){
@@ -199,11 +200,11 @@ async function startGame(){
   if (started) return;
   started = true;
 
-  // reset states
+  // reset
   scoreTotal=0; misses=0; hits=0; comboMax=0;
   setScore(0); setCombo(0); setTimeLeft(DURATION); lastSec = DURATION;
 
-  // hide start panel in A-Frame
+  // hide VR start panel
   try{ const p=document.getElementById('startPanel'); if(p) p.setAttribute('visible','false'); }catch(_){}
 
   // load module
@@ -214,13 +215,15 @@ async function startGame(){
   const boot = mod.boot || mod.default?.boot;
   if (!boot){ alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()'); started=false; return; }
 
-  // optional 3-2-1
+  // countdown แล้วค่อย boot
   await runCountdown(3);
 
   try{
     controller = await boot({ difficulty: DIFF, duration: DURATION });
-    // ⭐ สำคัญ: ให้สปอว์นเป้าเริ่มทำงาน
     controller?.start?.();
+
+    // บูสต์ให้ quest-hud เรนเดอร์ทันที (กัน race)
+    setTimeout(()=>{ try{ window.dispatchEvent(new CustomEvent('quest:update',{detail:{}})); }catch(_){}} , 50);
   }catch(err){
     console.error(err);
     alert('เริ่มเกมไม่สำเร็จ: เกิดข้อผิดพลาดระหว่างเริ่มโหมด');
@@ -229,10 +232,8 @@ async function startGame(){
 }
 
 // Bind buttons
-const domBtn = document.getElementById('btnStart');
-domBtn?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
-const vrBtn = document.getElementById('vrStartBtn');
-vrBtn?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+document.getElementById('btnStart')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+document.getElementById('vrStartBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
 
 // Autostart
 if (AUTOSTART){ setTimeout(()=>startGame(), 0); }
