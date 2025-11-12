@@ -1,49 +1,64 @@
-// === /HeroHealth/vr/particles.js (2025-11-12 LATEST + scorePop) ===
-export const Particles = {
-  burstShards(host, pos, opts){
-    // เดิมของคุณไว้ตามเดิมได้เลย… (ถ้ายังไม่มี ให้ทำแบบ DOM-mode คร่าว ๆ)
-    if (opts && opts.screen){
-      const { x, y } = opts.screen;
-      const n = 12;
-      for (let i=0;i<n;i++){
-        const s = document.createElement('div');
-        s.textContent = '✦';
-        Object.assign(s.style, {
-          position:'fixed', left:(x)+'px', top:(y)+'px',
-          transform:'translate(-50%,-50%)',
-          font:'700 14px system-ui', color:'#fff',
-          textShadow:'0 2px 10px rgba(0,0,0,.5)',
-          pointerEvents:'none', zIndex:700
-        });
-        document.body.appendChild(s);
-        const dx = (Math.random()*2-1)*80;
-        const dy = (Math.random()*2-1)*80;
-        s.animate([
-          { transform:'translate(-50%,-50%) scale(1)', opacity:1 },
-          { transform:`translate(${dx}px, ${dy}px) scale(.8)`, opacity:0 }
-        ], { duration:600+Math.random()*400, easing:'ease-out' }).onfinish=()=>s.remove();
-      }
-    }
-  },
-
-  // ✅ เด้งคะแนน/ข้อความตรงตำแหน่งคลิก
-  scorePop(x, y, text){
-    const el = document.createElement('div');
-    el.textContent = String(text);
-    Object.assign(el.style, {
-      position:'fixed', left:x+'px', top:y+'px',
-      transform:'translate(-50%,-50%)',
-      font:'900 18px system-ui', color:'#e2e8f0',
-      padding:'2px 6px', borderRadius:'10px',
-      background:'rgba(11,18,32,.75)', border:'1px solid #334155',
-      boxShadow:'0 8px 28px rgba(0,0,0,.35)',
-      pointerEvents:'none', zIndex:720
-    });
-    document.body.appendChild(el);
-    el.animate([
-      { transform:'translate(-50%,-50%) scale(1)', opacity:1, filter:'drop-shadow(0 0 0px rgba(99,102,241,0))' },
-      { transform:'translate(-50%,-70%) scale(1.15)', opacity:0, filter:'drop-shadow(0 0 12px rgba(99,102,241,.9))' }
-    ], { duration:700, easing:'cubic-bezier(.2,.8,.2,1)' }).onfinish = ()=>el.remove();
+// === /HeroHealth/vr/particles.js (2025-11-13 scorePop + shards) ===
+export const Particles = (function(){
+  'use strict';
+  const ID = 'hha-particles-css';
+  if(!document.getElementById(ID)){
+    const css = document.createElement('style'); css.id=ID;
+    css.textContent = `
+    .hha-pop{position:fixed;left:0;top:0;pointer-events:none;z-index:700;font:900 16px system-ui;color:#e5e7eb;
+      text-shadow:0 2px 10px rgba(0,0,0,.45);will-change:transform,opacity}
+    .hha-pop.good{color:#86efac}
+    .hha-pop.bad{color:#fecaca}
+    .hha-shard{position:fixed;left:0;top:0;pointer-events:none;z-index:690;transform:translate(-50%,-50%);opacity:.95}
+    `;
+    document.head.appendChild(css);
   }
-};
-export default { Particles };
+
+  function scorePop({x,y,delta}){
+    try{
+      const el = document.createElement('div');
+      el.className = 'hha-pop ' + (delta>=0?'good':'bad');
+      el.textContent = (delta>=0?'+':'') + (delta|0);
+      el.style.transform = `translate(${x}px, ${y}px)`;
+      document.body.appendChild(el);
+      const dy = (delta>=0? -34 : -20);
+      requestAnimationFrame(()=>{
+        el.animate([
+          { transform:`translate(${x}px, ${y}px) scale(1)`,   opacity:1 },
+          { transform:`translate(${x}px, ${y+dy}px) scale(1.08)`, opacity:0 }
+        ], { duration:700, easing:'ease-out' }).onfinish = ()=>{ try{el.remove();}catch{} };
+      });
+    }catch{}
+  }
+
+  function burstShards(_host,_pos,{screen, theme}={}){
+    try{
+      const n = 10;
+      const colors = theme==='hydration' ? ['#60a5fa','#93c5fd','#e0f2fe']
+                  : theme==='groups'    ? ['#fde68a','#fca5a5','#86efac']
+                  : theme==='plate'     ? ['#86efac','#fcd34d','#93c5fd']
+                  : ['#93c5fd','#c4b5fd','#fda4af'];
+      for(let i=0;i<n;i++){
+        const dot = document.createElement('div');
+        dot.className = 'hha-shard';
+        dot.style.left = screen.x+'px'; dot.style.top = screen.y+'px';
+        dot.style.width = dot.style.height = (6+Math.random()*6)+'px';
+        dot.style.background = colors[i%colors.length];
+        dot.style.borderRadius = '999px';
+        document.body.appendChild(dot);
+        const ang = Math.random()*Math.PI*2;
+        const dist = 30 + Math.random()*70;
+        const tx = screen.x + Math.cos(ang)*dist;
+        const ty = screen.y + Math.sin(ang)*dist;
+        const dur = 350 + Math.random()*250;
+        dot.animate([
+          { transform:`translate(-50%,-50%)`, opacity:1 },
+          { transform:`translate(${tx-screen.x-50}%, ${ty-screen.y-50}%)`, opacity:0 }
+        ], { duration:dur, easing:'ease-out' }).onfinish = ()=>{ try{dot.remove();}catch{} };
+      }
+    }catch{}
+  }
+
+  return { scorePop, burstShards };
+})();
+export default Particles;
