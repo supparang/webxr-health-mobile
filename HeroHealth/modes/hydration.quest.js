@@ -188,4 +188,26 @@ export async function boot(cfg = {}) {
       goalCleared:goalOK, goalTarget:GOAL_SCORE,
       questsCleared, questsTotal, questsSummary,
       miniQuests:questsSummary, quests:questsSummary, questsDone:questsCleared, quests_total:questsTotal,
-      keepGreen, shield
+      keepGreen, shieldTotal
+    }}));
+  }
+
+  // start factory
+  return factoryBoot({
+    difficulty:diff, duration:dur,
+    pools:{ good: WATER.concat(BONUS), bad: DRY.slice() },
+    goodRate:0.60, powerups:BONUS, powerRate:0.08, powerEvery:7,
+    judge:(ch,ctx)=>judge(ch,{ cx:(ctx?.clientX??ctx?.cx), cy:(ctx?.clientY??ctx?.cy) }),
+    onExpire
+  }).then(ctrl=>{
+    try{
+      window.addEventListener('hha:time', e=>{
+        const sec = (e && e.detail && e.detail.sec!=null) ? (e.detail.sec|0) : 0;
+        if (sec<=0) endSummary();
+      });
+    }catch(_){}
+    return ctrl;
+  });
+}
+
+export default { boot };
