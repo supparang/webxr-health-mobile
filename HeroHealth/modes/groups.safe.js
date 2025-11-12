@@ -1,5 +1,7 @@
-// === /HeroHealth/modes/groups.safe.js (2025-11-12 LATEST) ===
-// Food Groups + fixed miss<=6 mini & correct expire logic
+// === /HeroHealth/modes/groups.safe.js (2025-11-13 ADAPTIVE FOCUS) ===
+// Food Groups with Adaptive Focus (1→2→3 categories) + Goals/Mini + HUD focus hint
+// Rule: "Correct" only if the emoji's category is IN current focus set.
+// Difficulty ramps up/down based on recent accuracy.
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { MissionDeck }         from '../vr/mission.js';
@@ -10,15 +12,33 @@ export async function boot(cfg = {}) {
   const diff = String(cfg.difficulty || 'normal');
   const dur  = Number(cfg.duration   || 60);
 
-  // groups as "good", junk/lure as "bad"
-  const GROUPS = ['🥩','🥚','🐟','🥛','🧀','🥦','🥕','🍅','🍇','🍌','🍚','🍞','🥜','🌽','🍠'];
-  const LURE   = ['🥤','🧋','🍰','🍩','🍫','🍔','🍟','🌭'];
+  // ----- Categories -----
+  const CAT = {
+    protein : new Set(['🥩','🥚','🐟','🍗','🫘']),
+    veggie  : new Set(['🥦','🥕','🥬','🍅','🌽','🍆']),
+    fruit   : new Set(['🍎','🍌','🍇','🍊','🍓','🍍','🥝','🍐']),
+    grain   : new Set(['🍚','🍞','🥖','🌾','🥐']),
+    dairy   : new Set(['🥛','🧀'])
+  };
+  const ALL_CATS = ['protein','veggie','fruit','grain','dairy'];
+  function emojiToCat(emj){
+    if (CAT.protein.has(emj)) return 'protein';
+    if (CAT.veggie.has(emj))  return 'veggie';
+    if (CAT.fruit.has(emj))   return 'fruit';
+    if (CAT.grain.has(emj))   return 'grain';
+    if (CAT.dairy.has(emj))   return 'dairy';
+    return null;
+  }
+
+  // Pools for factory (factory marks all category items as "isGood")
+  const GROUP_POOL = [...CAT.protein, ...CAT.veggie, ...CAT.fruit, ...CAT.grain, ...CAT.dairy];
+  const LURE       = ['🥤','🧋','🍰','🍩','🍫','🍔','🍟','🌭'];
   const STAR='⭐', DIA='💎', SHIELD='🛡️', FIRE='🔥';
   const BONUS=[STAR,DIA,SHIELD,FIRE];
 
   ensureFeverBar(); setFever(0); setShield(0);
 
-  // Goals / Minis
+  // ----- Mission (Goals/Mini) -----
   const G = {
     good    : s=>s.goodCount|0,
     junk    : s=>s.junkMiss|0,
@@ -50,84 +70,171 @@ export async function boot(cfg = {}) {
   deck.drawGoals(5);
   deck.draw3();
 
+  // ----- Adaptive Focus Controller -----
+  const DIFF_RULE = {
+    easy   : { upAcc:0.85, downAcc:0.55, minHoldSec:6, minEvents:8 },
+    normal : { upAcc:0.80, downAcc:0.50, minHoldSec:6, minEvents:8 },
+    hard   : { upAcc:0.75, downAcc:0.45, minHoldSec:5, minEvents:7 },
+  }[diff] || { upAcc:0.80, downAcc:0.50, minHoldSec:6, minEvents:8 };
+
+  let focusN = (diff==='easy'?1:(diff==='hard'?2:1)); // starting number of focus categories
+  let focusCats = pickN(ALL_CATS, focusN);
+  let lastChangeTick = 0;
+
+  function focusLabel(list){
+    const mapTH = {protein:'โปรตีน', veggie:'ผัก', fruit:'ผลไม้', grain:'ธัญพืช', dairy:'นม/ชีส'};
+    return list.map(k=>mapTH[k]||k).join(' + ');
+  }
+  function setFocus(n){
+    focusN = Math.max(1, Math.min(3, n|0));
+    focusCats = pickN(ALL_CATS, focusN);
+    lastChangeTick = deck.stats.tick|0;
+    pushQuest('โฟกัสใหม่');
+  }
+
+  // rolling performance (last 12 click outcomes)
+  const lastOutcomes = [];
+  let eventsSinceChange = 0;
+  function pushOutcome(ok){
+    lastOutcomes.push(!!ok);
+    if (lastOutcomes.length>12) lastOutcomes.shift();
+    eventsSinceChange++;
+  }
+  function recentAccuracy(){
+    const n = lastOutcomes.length||1;
+    const good = lastOutcomes.filter(Boolean).length;
+    return good / n;
+  }
+
+  function maybeAdapt(){
+    const nowTick = deck.stats.tick|0;
+    if (eventsSinceChange < DIFF_RULE.minEvents) return;
+    if ((nowTick - lastChangeTick) < DIFF_RULE.minHoldSec) return;
+
+    const acc = recentAccuracy();
+    if (acc >= DIFF_RULE.upAcc && focusN < 3){
+      setFocus(focusN + 1);
+      eventsSinceChange = 0;
+    } else if (acc <= DIFF_RULE.downAcc && focusN > 1){
+      setFocus(focusN - 1);
+      eventsSinceChange = 0;
+    }
+  }
+
+  function pickN(arr, n){
+    const src=[...arr], out=[];
+    for (let i=0; i<n && src.length; i++){
+      const k = (Math.random()*src.length)|0;
+      out.push(src.splice(k,1)[0]);
+    }
+    return out;
+  }
+
+  // ----- Quest HUD bridge (append focus hint to GOAL label) -----
   function pushQuest(hint){
     const goals = deck.getProgress('goals');
     const minis = deck.getProgress('mini');
     const focusGoal = goals.find(g=>!g.done) || goals[0] || null;
+    // clone-like (shallow) for label inject
+    const gForHud = focusGoal ? {
+      ...focusGoal,
+      label: `${focusGoal.label} • โฟกัส: ${focusLabel(focusCats)} (เลือกเฉพาะหมู่ที่กำหนด)`
+    } : null;
     const focusMini = minis.find(m=>!m.done) || minis[0] || null;
+
     window.dispatchEvent(new CustomEvent('quest:update', {
-      detail: { goal: focusGoal, mini: focusMini, goalsAll: goals, minisAll: minis, hint }
+      detail: { goal: gForHud, mini: focusMini, goalsAll: goals, minisAll: minis, hint }
     }));
   }
 
-  // runtime state
+  // ----- Runtime state -----
   let score=0, combo=0, shield=0, fever=0, feverActive=false;
   let star=0, diamond=0;
 
   function mult(){ return feverActive ? 2 : 1; }
-  function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true; setFeverActive(true);} }
-  function decayFever(base){ const d=feverActive?10:base; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false; setFeverActive(false);} }
+  function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive && fever>=100){ feverActive=true; setFeverActive(true); } }
+  function decayFever(base){ const d=feverActive?10:base; fever=Math.max(0,fever-d); setFever(fever); if(feverActive && fever<=0){ feverActive=false; setFeverActive(false); } }
   function syncDeck(){ deck.updateScore(score); deck.updateCombo(combo); deck.stats.star=star; deck.stats.diamond=diamond; }
 
   function judge(ch, ctx){
     const x = ctx.clientX||ctx.cx, y = ctx.clientY||ctx.cy;
 
+    // Power-ups are always "correct"
     if (ch===STAR){ const d=35*mult(); score+=d; gainFever(10); star++;
       Particles?.burstShards?.(null,null,{screen:{x,y},theme:'groups'}); try{Particles?.scorePop?.(x,y,`+${d}`);}catch(_){}
-      deck.onGood(); syncDeck(); pushQuest(); return {good:true, scoreDelta:d}; }
+      deck.onGood(); syncDeck(); pushQuest(); pushOutcome(true); return {good:true, scoreDelta:d}; }
     if (ch===DIA){  const d=70*mult(); score+=d; gainFever(28); diamond++;
       Particles?.burstShards?.(null,null,{screen:{x,y},theme:'goodjunk'}); try{Particles?.scorePop?.(x,y,`+${d}`);}catch(_){}
-      deck.onGood(); syncDeck(); pushQuest(); return {good:true, scoreDelta:d}; }
+      deck.onGood(); syncDeck(); pushQuest(); pushOutcome(true); return {good:true, scoreDelta:d}; }
     if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); score+=18;
       Particles?.burstShards?.(null,null,{screen:{x,y},theme:'hydration'}); try{Particles?.scorePop?.(x,y,`+18`);}catch(_){}
-      deck.onGood(); syncDeck(); pushQuest(); return {good:true, scoreDelta:18}; }
+      deck.onGood(); syncDeck(); pushQuest(); pushOutcome(true); return {good:true, scoreDelta:18}; }
     if (ch===FIRE){ feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=20;
       Particles?.burstShards?.(null,null,{screen:{x,y},theme:'plate'}); try{Particles?.scorePop?.(x,y,`+20`);}catch(_){}
-      deck.onGood(); syncDeck(); pushQuest(); return {good:true, scoreDelta:20}; }
+      deck.onGood(); syncDeck(); pushQuest(); pushOutcome(true); return {good:true, scoreDelta:20}; }
 
-    const isGood = GROUPS.includes(ch);
-    if (isGood){
+    // Category logic
+    const cat = emojiToCat(ch);
+    const inFocus = !!cat && focusCats.includes(cat);
+
+    if (inFocus){
       const base  = 16 + combo*2;
       const delta = base * mult();
       score += delta; combo += 1;
       gainFever(7 + combo*0.5);
       Particles?.burstShards?.(null,null,{screen:{x,y},theme:'groups'});
       try{ Particles?.scorePop?.(x,y,`+${delta|0}`);}catch(_){}
-      deck.onGood(); syncDeck(); pushQuest();
+      deck.onGood(); syncDeck(); pushQuest(); pushOutcome(true); maybeAdapt();
       return {good:true, scoreDelta:delta};
     }else{
       if (shield>0){ shield-=1; setShield(shield);
-        Particles?.burstShards?.(null,null,{screen:{x,y},theme:'groups'}); pushQuest(); return {good:false, scoreDelta:0}; }
+        Particles?.burstShards?.(null,null,{screen:{x,y},theme:'groups'}); pushQuest(); pushOutcome(false); maybeAdapt();
+        return {good:false, scoreDelta:0}; }
       const delta = -12;
       score = Math.max(0, score + delta); combo = 0; decayFever(16);
       Particles?.burstShards?.(null,null,{screen:{x,y},theme:'goodjunk'}); try{Particles?.scorePop?.(x,y,`${delta|0}`);}catch(_){}
-      deck.onJunk(); syncDeck(); pushQuest();
+      deck.onJunk(); syncDeck(); pushQuest(); pushOutcome(false); maybeAdapt();
       return {good:false, scoreDelta:delta};
     }
   }
 
-  // Expire policy: good=miss, bad=avoid(+fever)
+  // Expire policy:
+  // - If expired emoji is CATEGORY & in current focus => count as miss
+  // - If CATEGORY but not in focus => neutral (ไม่ถือว่าพลาด/ถูก)
+  // - If LURE => avoid (+fever)
   function onExpire(ev){
     if (!ev) return;
-    if (ev.isGood){ deck.onJunk(); syncDeck(); }
-    else { gainFever(4); }
+    const ch = ev.ch;
+    const cat = emojiToCat(ch);
+    const inFocus = !!cat && focusCats.includes(cat);
+
+    if (cat && inFocus){
+      deck.onJunk(); syncDeck(); pushOutcome(false);
+    }else if (!cat){
+      // lure
+      gainFever(4);
+    }
     pushQuest();
+    maybeAdapt();
   }
 
+  // Per second updates
   function onSec(){
-    decayFever(combo<=0 ? 6 : 2);
+    decayFever(deck.stats.combo<=0 ? 6 : 2);
     deck.second(); syncDeck(); pushQuest();
     if (deck.isCleared('mini'))  { deck.draw3();      pushQuest('Mini ใหม่'); }
     if (deck.isCleared('goals')) { deck.drawGoals(5); pushQuest('Goal ใหม่'); }
+    maybeAdapt();
   }
 
   window.addEventListener('hha:expired', onExpire);
   window.addEventListener('hha:time',    (e)=>{ if((e.detail?.sec|0)>=0) onSec(); });
 
+  // Start factory
   return factoryBoot({
     difficulty: diff,
     duration  : dur,
-    pools     : { good:[...GROUPS, ...BONUS], bad:[...LURE] },
+    pools     : { good:[...GROUP_POOL, ...BONUS], bad:[...LURE] },
     goodRate  : 0.60,
     powerups  : BONUS,
     powerRate : 0.08,
@@ -135,6 +242,7 @@ export async function boot(cfg = {}) {
     judge     : (ch, ctx)=>judge(ch, { ...ctx, cx:(ctx.clientX||ctx.cx), cy:(ctx.clientY||ctx.cy) }),
     onExpire
   }).then(ctrl=>{
+    // End summary
     window.addEventListener('hha:time', (e)=>{ if((e.detail?.sec|0)<=0){
       const goals = deck.getProgress('goals');
       const minis = deck.getProgress('mini');
@@ -148,6 +256,7 @@ export async function boot(cfg = {}) {
         questsTotal  : deck.miniPresented || (minis?.length||0)
       }}));
     }});
+    // initial HUD (with focus)
     pushQuest('เริ่ม');
     return ctrl;
   });
