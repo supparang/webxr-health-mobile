@@ -584,7 +584,8 @@
                       onGood: s=> (window.score-s.base)>=s.need,
                       onBad:  s=> false,
                       tick:   s=>{ s.t--; return (s.t<=0 ? (window.score-s.base)>=s.need : false); }
-                    }, // ✅ FIX 1: ลบ _ ที่พิมพ์เกินตรงนี้
+                    }, 
+                    // ✅ FIX 1: ลบตัวอักษร '_' ที่พิมพ์เกินจากตรงนี้
                     { id:'limited-bad', reward:'bonus150',
                       mk: ()=>({t:14, m:1, bad:0}),
                       label: s=>`Mini Quest — อย่ากดของขยะเกิน ${s.m} ครั้ง ใน ${s.t} วิ`,
@@ -920,7 +921,6 @@
                             }
                         });
 
-                        // 🔻 === โค้ดที่แก้ไข === 🔻
                         // FIX FOR PC: เพิ่มตัวฟัง mousedown สำหรับเมาส์บน PC
                         sceneEl.canvas.addEventListener('mousedown', () => {
                             if (!window.running) return; // ไม่ทำงานถ้าเกมหยุด
@@ -938,7 +938,6 @@
                                 onHitTarget(intersectedEl); // สั่งยิงเป้าหมาย
                             }
                         });
-                        // 🔺 === จบโค้ดที่แก้ไข === 🔺
                         
                         // ส่งสัญญาณเริ่มเกม
                         window.emit('hha:score', {score: 0, combo: 0});
@@ -1014,23 +1013,4 @@
                 
                 // จับเหตุการณ์จบเกม (เผื่อมีการเรียกจากที่อื่น)
                 window.addEventListener('hha:end', (ev) => {
-                    if (gameEndTimer) clearTimeout(gameEndTimer);
-                    
-                    // ตรวจสอบว่าเกมกำลังทำงานอยู่หรือไม่ ก่อนที่จะเรียก endGame
-                    if (window.running) {
-                        const score = (ev.detail && ev.detail.score) ? ev.detail.score : window.score;
-                        GameEngine.stop(); // เรียก stop เพื่อเคลียร์ทุกอย่าง
-                        
-                        uiOverlay.classList.remove('hidden');
-                        startScreen.style.display = 'none';
-                        resultsScreen.style.display = 'block';
-                        finalScore.textContent = `คะแนน: ${score}`;
-                    }
-                });
-                
-            })(GAME_MODULES);
-
-        })();
-    </script>
-</body>
-</html>
+                    if (game
