@@ -1,62 +1,71 @@
-<!doctype html><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Hero Health — Hub</title>
+<link rel="icon" href="./favicon.ico"/>
 <style>
-  :root { --bg:#0b1220; --chip:#0f172acc; --bd:#334155; --fg:#e6edf7; }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--fg);font:600 16px system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif}
-  .wrap{max-width:880px;margin:40px auto;padding:0 16px}
-  h1{font-size:24px;margin:0 0 16px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
-  .card{background:var(--chip);border:1px solid var(--bd);border-radius:14px;padding:14px 16px}
-  .title{font-size:18px;margin:0 0 6px}
-  .desc{opacity:.75;margin:0 0 10px;font-weight:700}
-  .btns{display:flex;gap:8px;flex-wrap:wrap}
-  a.btn{display:inline-block;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;color:inherit;text-decoration:none;background:#0b1222}
-  a.btn.primary{background:#22c55e;color:#052e12;border-color:#16a34a}
+  :root{color-scheme:light dark}
+  body{margin:0;background:#0b1220;color:#e5e7eb;font-family:system-ui,Segoe UI,Inter,Roboto}
+  .wrap{max-width:980px;margin:32px auto;padding:0 16px}
+  h1{margin:0 0 8px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .card{flex:1 1 220px;background:#0f172a;border:1px solid #233250;border-radius:14px;padding:14px;cursor:pointer}
+  .card.active{outline:2px solid #3b82f6}
+  .muted{color:#94a3b8;font-size:12px}
+  .ctl{margin:14px 0;display:flex;gap:12px;flex-wrap:wrap}
+  select,input{background:#0b1220;border:1px solid #233250;color:#e5e7eb;border-radius:10px;padding:10px 12px}
+  button{background:#22c55e;border:0;color:#fff;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer}
+  .bar{display:flex;justify-content:space-between;align-items:center;margin-top:18px}
+  a.help{color:#93c5fd;text-decoration:none}
 </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Hero Health — Hub</h1>
+    <div class="muted">เลือกโหมด | ระดับ | เวลา แล้วกด “เริ่มเกม”</div>
 
-<div class="wrap">
-  <h1>Hero Health — เลือกโหมด</h1>
-  <div class="grid">
-    <div class="card">
-      <div class="title">Good vs Junk</div>
-      <div class="desc">เก็บของดี เลี่ยงของขยะ</div>
-      <div class="btns">
-        <a class="btn" href="./index.vr.html?mode=goodjunk&diff=easy">ง่าย (90s)</a>
-        <a class="btn primary" href="./index.vr.html?mode=goodjunk&diff=normal">ปกติ (60s)</a>
-        <a class="btn" href="./index.vr.html?mode=goodjunk&diff=hard">ยาก (45s)</a>
-      </div>
+    <!-- เลือกโหมด -->
+    <h3>โหมดเกม</h3>
+    <div id="modeRow" class="row">
+      <div class="card" data-mode="goodjunk"><b>Good vs Junk</b><div class="muted">คลิกของดี หลบของขยะ</div></div>
+      <div class="card" data-mode="groups"><b>Food Groups</b><div class="muted">จัดกลุ่มอาหาร</div></div>
+      <div class="card" data-mode="hydration"><b>Hydration</b><div class="muted">สมดุลน้ำดื่ม</div></div>
+      <div class="card" data-mode="plate"><b>Balanced Plate</b><div class="muted">จัดจานสมดุล</div></div>
     </div>
 
-    <div class="card">
-      <div class="title">Hydration</div>
-      <div class="desc">รักษาน้ำในร่างกาย</div>
-      <div class="btns">
-        <a class="btn" href="./index.vr.html?mode=hydration&diff=easy">ง่าย (90s)</a>
-        <a class="btn primary" href="./index.vr.html?mode=hydration&diff=normal">ปกติ (60s)</a>
-        <a class="btn" href="./index.vr.html?mode=hydration&diff=hard">ยาก (45s)</a>
-      </div>
+    <!-- ตัวเลือก -->
+    <div class="ctl">
+      <label>ระดับ:
+        <select id="selDiff">
+          <option value="easy">easy</option>
+          <option value="normal" selected>normal</option>
+          <option value="hard">hard</option>
+        </select>
+      </label>
+      <label>เวลา (วินาที):
+        <input id="inpTime" type="number" min="20" max="180" step="5" value="60"/>
+      </label>
     </div>
 
-    <div class="card">
-      <div class="title">Food Groups</div>
-      <div class="desc">เลือกให้ถูกหมู่</div>
-      <div class="btns">
-        <a class="btn" href="./index.vr.html?mode=groups&diff=easy">ง่าย (90s)</a>
-        <a class="btn primary" href="./index.vr.html?mode=groups&diff=normal">ปกติ (60s)</a>
-        <a class="btn" href="./index.vr.html?mode=groups&diff=hard">ยาก (45s)</a>
-      </div>
+    <div class="bar">
+      <div class="muted">ปลายทาง: <code>./index.vr.html?mode=…&diff=…&time=…</code></div>
+      <button id="btnStart">เริ่มเกม</button>
     </div>
 
-    <div class="card">
-      <div class="title">Healthy Plate</div>
-      <div class="desc">จัดครบ 5 หมู่</div>
-      <div class="btns">
-        <a class="btn" href="./index.vr.html?mode=plate&diff=easy">ง่าย (90s)</a>
-        <a class="btn primary" href="./index.vr.html?mode=plate&diff=normal">ปกติ (60s)</a>
-        <a class="btn" href="./index.vr.html?mode=plate&diff=hard">ยาก (45s)</a>
-      </div>
+    <div style="margin-top:24px" class="muted">
+      มีปัญหาเปิดโหมดไม่ได้? ตรวจไฟล์ <code>/HeroHealth/modes/*.safe.js</code> ว่ามีครบ และใน
+      <code>/HeroHealth/game/main.js</code> ฟังก์ชัน <code>resolveModePath()</code> แมปชื่อโหมดถูกต้อง
+      <br/>ตัวอย่างพาธที่ต้องมี:
+      <code>../modes/goodjunk.safe.js</code>,
+      <code>../modes/groups.safe.js</code>,
+      <code>../modes/hydration.safe.js</code>,
+      <code>../modes/plate.safe.js</code>
     </div>
+
   </div>
-</div>
+
+<script type="module" src="./hub.js"></script>
+</body>
+</html>
