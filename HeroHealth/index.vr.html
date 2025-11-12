@@ -77,19 +77,19 @@
       box-shadow:0 10px 30px rgba(0,0,0,.45); cursor:pointer;
     }
 
-    /* Countdown overlay 3-2-1-GO */
-    #countdownOverlay{
+    /* Countdown overlay 3-2-1-GO (ID ให้ตรงกับ main.js => #countOverlay) */
+    #countOverlay{
       position:fixed; inset:0; z-index:700; display:none;
       background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
       align-items:center; justify-content:center;
     }
-    #countdownOverlay .num{
+    #countOverlay .num{
       font:900 clamp(64px,12vw,160px) system-ui; color:#e5edff;
       text-shadow:0 10px 32px rgba(0,0,0,.6);
       transform:scale(.8); opacity:0; will-change:transform,opacity;
       animation: cdPop .65s ease forwards;
     }
-    #countdownOverlay.go .num{ color:#86efac; text-shadow:0 10px 40px rgba(16,185,129,.45); }
+    #countOverlay.go .num{ color:#86efac; text-shadow:0 10px 40px rgba(16,185,129,.45); }
     @keyframes cdPop {
       0%   { transform:scale(.6); opacity:0; }
       40%  { transform:scale(1.15); opacity:1; }
@@ -181,10 +181,12 @@
 
     <div id="spawnHost"></div>
     <div id="timePill">TIME 60s</div>
-    <div id="countdownOverlay"><div class="num">3</div></div>
+    <!-- 👇 id นี้เปลี่ยนเป็น countOverlay ให้ตรงกับ main.js -->
+    <div id="countOverlay"><div class="num">3</div></div>
     <button id="btnStart" class="start-fab">เริ่มเกม</button>
   </div>
 
+  <!-- Bridge VR start button to DOM start -->
   <script>
     document.addEventListener('DOMContentLoaded',()=>{
       const vrBtn=document.getElementById('vrStartBtn');
@@ -197,6 +199,33 @@
     });
   </script>
 
+  <!-- ✅ โหลด Quest HUD ให้แน่ใจว่า Goal/Mini ขึ้น -->
+  <script type="module">
+    import '../vr/quest-hud.js';
+  </script>
+
+  <!-- ✅ TimePill shim: sync เวลา/เอฟเฟกต์เตือน และหลบ bubble ตัวเก่า (ถ้ามี) -->
+  <script>
+    (function(){
+      const pill = document.getElementById('timePill');
+      function setTimePill(sec){
+        if(!pill) return;
+        pill.textContent = `TIME ${Math.max(0, sec|0)}s`;
+        pill.classList.toggle('warn',   sec<=10 && sec>5);
+        pill.classList.toggle('danger', sec<=5);
+      }
+      window.addEventListener('hha:time', (e)=>{
+        const sec = (e.detail?.sec|0);
+        setTimePill(sec);
+      });
+      // ถ้า main.js เคยสร้าง #hudTimeBubble มาก่อน ให้ถอดทิ้งกันซ้ำ
+      const rm = ()=>{ const b=document.getElementById('hudTimeBubble'); if(b) b.remove(); };
+      document.addEventListener('DOMContentLoaded', rm);
+      setTimeout(rm, 1000);
+    })();
+  </script>
+
+  <!-- Entrypoint -->
   <script type="module" src="./game/main.js"></script>
 </body>
 </html>
