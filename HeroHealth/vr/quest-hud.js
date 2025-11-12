@@ -1,78 +1,107 @@
-// === /HeroHealth/vr/quest-hud.js (focused single-card + time pill) ===
-let root, goalBox, miniBox, timePill;
+// === /HeroHealth/vr/quest-hud.js (2025-11-12 STABLE SELF-CONTAINED) ===
+/* ใช้ได้กับทุกโหมด: ส่งอีเวนต์
+   window.dispatchEvent(new CustomEvent('hha:quest',{detail:{goal, mini, caption}}))
+   โดย goal/mini มีโครง {label, prog, target} (เลขจำนวนเต็ม)
+*/
 
-/** สร้าง HUD แสดง "เป้าหมายหลัก" และ "Mini Quest" ทีละ 1 รายการแบบโฟกัส */
+let root, goalEls, miniEls;
+
+function h(el, html){ if(el) el.innerHTML = html; }
+function t(el, txt){ if(el) el.textContent = (txt==null?'':String(txt)); }
+function pct(prog, target){
+  const p = !target ? 0 : Math.max(0, Math.min(100, Math.round((prog/target)*100)));
+  return p;
+}
+function fmtProg(prog, target){ return `${prog|0}/${target|0}`; }
+
+function ensureDOM(){
+  if (document.getElementById('hha-quest-wrap')) {
+    root = document.getElementById('hha-quest-wrap');
+  } else {
+    const host = document.getElementById('hudRoot') || document.body;
+    const wrap = document.createElement('div');
+    wrap.id = 'hha-quest-wrap';
+    wrap.innerHTML = `
+      <style id="hha-quest-style">
+        #hha-quest-wrap{position:fixed;left:12px;top:12px;z-index:520;display:flex;flex-direction:column;gap:10px;width:min(420px,46vw)}
+        .q-card{background:#0b1220cc;border:1px solid #334155;border-radius:14px;padding:10px 12px;color:#e2e8f0;backdrop-filter:blur(6px);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+        .q-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+        .q-title{font:800 14px/1 system-ui;letter-spacing:.2px}
+        .q-sub{opacity:.7;font:600 12px/1 system-ui}
+        .q-bar{height:8px;border-radius:999px;background:#1f2937;overflow:hidden}
+        .q-bar > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#a3e635)}
+        .q-row{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+        .q-val{font:800 13px/1 system-ui;opacity:.9}
+      </style>
+      <div class="q-card" id="q-goal">
+        <div class="q-head">
+          <div class="q-title">เป้าหมายหลัก</div>
+          <div class="q-sub" id="qGoalCap">—</div>
+        </div>
+        <div id="qGoalLabel" class="q-sub" style="margin-bottom:6px">—</div>
+        <div class="q-bar"><i id="qGoalBar"></i></div>
+        <div class="q-row"><span class="q-sub">progress</span><span id="qGoalVal" class="q-val">0/0</span></div>
+      </div>
+
+      <div class="q-card" id="q-mini">
+        <div class="q-head">
+          <div class="q-title">Mini Quest</div>
+          <div class="q-sub" id="qMiniCap">—</div>
+        </div>
+        <div id="qMiniLabel" class="q-sub" style="margin-bottom:6px">—</div>
+        <div class="q-bar"><i id="qMiniBar"></i></div>
+        <div class="q-row"><span class="q-sub">progress</span><span id="qMiniVal" class="q-val">0/0</span></div>
+      </div>
+    `;
+    host.appendChild(wrap);
+    root = wrap;
+  }
+  goalEls = {
+    cap:   document.getElementById('qGoalCap'),
+    label: document.getElementById('qGoalLabel'),
+    bar:   document.getElementById('qGoalBar'),
+    val:   document.getElementById('qGoalVal'),
+  };
+  miniEls = {
+    cap:   document.getElementById('qMiniCap'),
+    label: document.getElementById('qMiniLabel'),
+    bar:   document.getElementById('qMiniBar'),
+    val:   document.getElementById('qMiniVal'),
+  };
+}
+
 export function questHUDInit(){
-  if (document.getElementById('questHUD')) return;
-
-  root = document.createElement('div');
-  root.id = 'questHUD';
-  root.innerHTML = `
-  <style>
-    #questHUD{position:fixed;left:14px;top:14px;z-index:520;color:#e2e8f0;font:600 14px system-ui,Segoe UI,Inter,Roboto,sans-serif}
-    #questHUD .card{width:340px;background:#0b1220cc;border:1px solid #334155;border-radius:14px;padding:10px 12px;margin-bottom:10px;backdrop-filter:blur(6px);box-shadow:0 12px 30px rgba(0,0,0,.35)}
-    #questHUD .cap{opacity:.75;margin-bottom:6px}
-    #questHUD .row{display:flex;justify-content:space-between;align-items:center}
-    #questHUD .bar{height:8px;background:#1f2937;border-radius:999px;overflow:hidden;margin-top:6px}
-    #questHUD .fill{height:100%;width:0;transition:width .25s ease;background:linear-gradient(90deg,#22c55e,#06b6d4)}
-    #questHUD .pill{position:fixed;right:16px;bottom:16px;background:#0b1220cc;border:1px solid #334155;border-radius:999px;padding:6px 10px;backdrop-filter:blur(6px)}
-  </style>
-  <div class="card" id="goalCard">
-    <div class="cap" id="goalCap">เป้าหมายหลัก</div>
-    <div class="row"><div id="goalLbl">—</div><div id="goalRt">0/0</div></div>
-    <div class="bar"><div class="fill" id="goalFill"></div></div>
-  </div>
-  <div class="card" id="miniCard">
-    <div class="cap" id="miniCap">Mini Quest</div>
-    <div class="row"><div id="miniLbl">—</div><div id="miniRt">0/0</div></div>
-    <div class="bar"><div class="fill" id="miniFill"></div></div>
-  </div>
-  <div class="pill" id="timePill">60s</div>`;
-  document.body.appendChild(root);
-
-  goalBox = {
-    lbl: document.getElementById('goalLbl'),
-    rt : document.getElementById('goalRt'),
-    cap: document.getElementById('goalCap'),
-    fill:document.getElementById('goalFill')
-  };
-  miniBox = {
-    lbl: document.getElementById('miniLbl'),
-    rt : document.getElementById('miniRt'),
-    cap: document.getElementById('miniCap'),
-    fill:document.getElementById('miniFill')
-  };
-  timePill = document.getElementById('timePill');
-
-  // sync เวลา
-  window.addEventListener('hha:time', e=>{
-    const s = e?.detail?.sec|0;
-    if (timePill) timePill.textContent = `${s}s`;
-  }, { passive:true });
+  ensureDOM();
+  // ค่าเริ่ม
+  t(goalEls.cap,'—');  t(goalEls.label,'—');  goalEls.bar.style.width='0%';  t(goalEls.val,'0/0');
+  t(miniEls.cap,'—');  t(miniEls.label,'—');  miniEls.bar.style.width='0%';  t(miniEls.val,'0/0');
 }
 
-/** อัปเดตค่าบน HUD (โชว์ทีละ 1 รายการต่อฝั่ง) */
-export function questHUDUpdate(payload, caption){
-  if (!goalBox || !miniBox) questHUDInit();
-
-  if (payload?.goal){
-    const g = payload.goal;
-    goalBox.cap.textContent  = `เป้าหมายหลัก — ${g.caption||''}`;
-    goalBox.lbl.textContent  = g.label || '—';
-    goalBox.rt.textContent   = `${g.prog|0}/${g.target|0}`;
-    goalBox.fill.style.width = `${Math.min(100, (g.target? (g.prog||0)/g.target*100 : 0))}%`;
+export function questHUDUpdate(detail={}, caption=''){
+  ensureDOM();
+  // Goal
+  if (detail.goal){
+    const g = detail.goal;
+    t(goalEls.cap, caption||'');
+    t(goalEls.label, g.label ?? '—');
+    t(goalEls.val, fmtProg(g.prog|0, g.target|0));
+    goalEls.bar.style.width = pct(g.prog|0, g.target|0)+'%';
   }
-  if (payload?.mini){
-    const m = payload.mini;
-    miniBox.cap.textContent  = `Mini Quest — ${m.caption||''}`;
-    miniBox.lbl.textContent  = m.label || '—';
-    miniBox.rt.textContent   = `${m.prog|0}/${m.target|0}`;
-    miniBox.fill.style.width = `${Math.min(100, (m.target? (m.prog||0)/m.target*100 : 0))}%`;
+  // Mini
+  if (detail.mini){
+    const m = detail.mini;
+    t(miniEls.cap, caption||'');
+    t(miniEls.label, m.label ?? '—');
+    t(miniEls.val, fmtProg(m.prog|0, m.target|0));
+    miniEls.bar.style.width = pct(m.prog|0, m.target|0)+'%';
   }
 }
 
-/** ถอน HUD */
 export function questHUDDispose(){
-  try{ document.getElementById('questHUD')?.remove(); }catch{}
-  root = goalBox = miniBox = timePill = null;
+  try{
+    const el = document.getElementById('hha-quest-wrap');
+    if (el) el.remove();
+  }catch{}
 }
+
+export default { questHUDInit, questHUDUpdate, questHUDDispose };
