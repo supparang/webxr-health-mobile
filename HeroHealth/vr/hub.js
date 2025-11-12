@@ -21,8 +21,15 @@ export class GameHub {
     this.running = false;
 
     this._showBoot('Hub ready');
+
+    // Wire system events
     this._bindPause();
     this._bindVisibility();
+    this._wireQuestPanelUpdates();
+
+    // Announce HUD ready if HUD exists
+    this._announceHUDReady();
+    this._scheduleAnnounceBurst();
 
     if (this.mode) this.selectMode(this.mode);
   }
@@ -36,6 +43,9 @@ export class GameHub {
     if (this.startLbl) safeSetTroikaText(this.startLbl, 'เริ่ม: ' + this.mode.toUpperCase());
     if (this.startPanel) this.startPanel.setAttribute('visible', true);
     if (this.menu) this.menu.setAttribute('visible', false);
+
+    // เผื่อ HUD เพิ่งถูกสร้าง
+    this._announceHUDReady();
   }
 
   async startGame() {
@@ -50,6 +60,10 @@ export class GameHub {
       var tQ = document.getElementById('tQ');
       if (tQ) safeSetTroikaText(tQ, 'สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!');
     }
+
+    // ย้ำประกาศ HUD พร้อมใช้งาน (ให้ ui-fever ย้ายไปเกาะใต้ score-box)
+    this._announceHUDReady();
+    this._scheduleAnnounceBurst();
 
     var mode = this.mode || 'goodjunk';
     var moduleMap = {
@@ -159,13 +173,68 @@ export class GameHub {
     window.addEventListener('focus', resumeLike);
   }
 
+  _wireQuestPanelUpdates(){
+    var self = this;
+    function onQuest(ev){
+      if (!self.questPanel) return;
+      var tQ = document.getElementById('tQ');
+      if (!tQ) return;
+      try {
+        var d = ev && ev.detail ? ev.detail : null;
+        if (!d) return;
+        // goal
+        var g = d.goal ? (d.goal.label + ' ' + fmtProg(d.goal.prog, d.goal.target)) : '';
+        // mini
+        var m = d.mini ? (d.mini.label + ' ' + fmtProg(d.mini.prog, d.mini.target)) : '';
+        var text = g && m ? (g + ' | ' + m) : (g || m || '');
+        if (!text) text = 'สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!';
+        safeSetTroikaText(tQ, text);
+      } catch(_){}
+    }
+    window.addEventListener('hha:quest', onQuest);
+  }
+
+  _announceHUDReady(){
+    try {
+      var anchor =
+        document.querySelector('#hudTop .score-box') ||
+        document.querySelector('.hud-top .score-box') ||
+        document.querySelector('[data-hud="scorebox"]') ||
+        document.querySelector('#hudTop') ||
+        document.querySelector('.hud-top');
+
+      if (anchor) {
+        var ev = new CustomEvent('hha:hud-ready', { detail: { anchorId: 'hudTop', scoreBox: true } });
+        window.dispatchEvent(ev);
+        this._showBoot('HUD ready announced');
+        return true;
+      }
+    } catch(_){}
+    return false;
+  }
+
+  _scheduleAnnounceBurst(){
+    // ยิงซ้ำ ๆ ช่วงต้นเกม กันกรณี HUD สร้างช้า
+    var self = this;
+    var tries = 0, maxTries = 20;
+    var id = setInterval(function(){
+      if (self._announceHUDReady()) { clearInterval(id); return; }
+      tries++;
+      if (tries >= maxTries) clearInterval(id);
+    }, 150);
+  }
+
   async _importWithRetry(url, retries){
     var lastErr;
     for (var i=0;i<=retries;i++){
       try{
-        var u = new URL(url, location.href);
-        u.searchParams.set('v', String(Date.now()));
-        // dynamic import
+        var u;
+        try { u = new URL(url, location.href); }
+        catch(_) { u = { toString:function(){ return String(url); }, searchParams: { set:function(){} } }; }
+        // cache-bust
+        if (u && u.searchParams && u.searchParams.set) {
+          u.searchParams.set('v', String(Date.now()));
+        }
         // eslint-disable-next-line no-eval
         var mod = await import(u.toString());
         return mod;
@@ -179,8 +248,8 @@ export class GameHub {
   }
 
   async _endGame(detail) {
-    try { if (this.current && this.current.pause) this.current.pause(); } catch {}
-    try { if (this.current && this.current.stop)  await this.current.stop(); } catch {}
+    try { if (this.current && this.current.pause) this.current.pause(); } catch(_){}
+    try { if (this.current && this.current.stop)  await this.current.stop(); } catch(_){}
 
     this.current = null;
     this.running = false;
@@ -191,9 +260,9 @@ export class GameHub {
     var resultLbl = document.getElementById('resultLbl');
     if (resultLbl) {
       var txt;
-      if (detail && detail.reason === 'win')       txt = 'จบเกม: ชนะ! คะแนน ' + (detail.score!=null?detail.score:'-');
+      if (detail && detail.reason === 'win')          txt = 'จบเกม: ชนะ! คะแนน ' + (detail.score!=null?detail.score:'-');
       else if (detail && detail.reason === 'timeout') txt = 'จบเกม: หมดเวลา คะแนน ' + (detail.score!=null?detail.score:'-');
-      else                                         txt = 'จบเกม';
+      else                                            txt = 'จบเกม';
       safeSetTroikaText(resultLbl, txt);
       resultLbl.setAttribute('visible', true);
     }
@@ -210,4 +279,9 @@ function safeSetTroikaText(el, value){
 }
 function escapeHtml(s){
   return String(s).replace(/[&<>'"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]); });
+}
+function fmtProg(p, t){
+  var pp = Number(p)||0, tt = Number(t)||0;
+  if (tt>0) return '('+pp+'/'+tt+')';
+  return '('+pp+')';
 }
