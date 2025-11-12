@@ -1,139 +1,131 @@
-// === /HeroHealth/vr/quest-hud.js (2025-11-12 FOCUS HUD + dual-event) ===
-// API:
-//   questHUDInit()              → เตรียม DOM + listener
-//   questHUDUpdate(deck, hint)  → re-render (ไม่จำเป็นต้องส่ง payload)
-//   questHUDDispose()           → ถอด listener/DOM (ตอนจบเกม)
+// === /HeroHealth/vr/quest-hud.js (2025-11-12 LATEST, auto-mount, focus-one-by-one) ===
+(function(){
+  'use strict';
 
-let state = { goal:null, mini:null, hint:'' };
-let els = { root:null, goal:null, goalBar:null, goalVal:null, mini:null, miniBar:null, miniVal:null };
-let inited = false;
+  // ---------- DOM build ----------
+  const ID_ROOT = 'hha-quest-hud';
+  if (document.getElementById(ID_ROOT)) return; // mounted already
 
-function makePanel(title, id){
-  const wrap = document.createElement('div');
-  wrap.className = 'quest-panel';
-  wrap.id = id;
-  wrap.innerHTML = `
-    <div class="head"><span class="t">${title}</span><span class="meta" data-meta=""></span></div>
-    <div class="label" data-label>—</div>
-    <div class="bar"><div class="fill" data-fill style="width:0%"></div></div>
-    <div class="val" data-val>0/0</div>`;
-  return wrap;
-}
+  const root = document.createElement('div');
+  root.id = ID_ROOT;
+  root.innerHTML = `
+    <div class="wrap">
+      <div class="card" id="qGoal">
+        <div class="title">GOAL</div>
+        <div class="label" id="qGoalLabel">—</div>
+        <div class="bar"><div class="fill" id="qGoalFill" style="width:0%"></div></div>
+        <div class="nums"><span id="qGoalNow">0</span>/<span id="qGoalMax">0</span></div>
+      </div>
 
-function injectCSS(){
-  if (document.getElementById('quest-hud-css')) return;
-  const css = document.createElement('style'); css.id='quest-hud-css';
-  css.textContent = `
-  .quest-root{position:fixed; left:16px; top:16px; display:flex; flex-direction:column; gap:12px; z-index:520; pointer-events:none}
-  .quest-panel{width:min(520px,46vw); background:#0b1220cc; border:1px solid #334155; border-radius:14px; padding:10px 12px; color:#e2e8f0; backdrop-filter:blur(6px); box-shadow:0 12px 30px rgba(0,0,0,.35)}
-  .quest-panel .head{display:flex; justify-content:space-between; font:900 15px system-ui}
-  .quest-panel .head .t{color:#cbd5e1}
-  .quest-panel .head .meta{font:800 11px system-ui; color:#94a3b8}
-  .quest-panel .label{margin:6px 0 8px 0; font:800 14px system-ui; color:#f1f5f9}
-  .quest-panel .bar{position:relative; height:8px; background:#1f2937; border-radius:999px; overflow:hidden}
-  .quest-panel .bar .fill{position:absolute; inset:0 auto 0 0; width:0%; background:linear-gradient(90deg,#22d3ee,#a78bfa,#fb923c); border-radius:999px}
-  .quest-panel .val{margin-top:4px; font:800 12px system-ui; color:#cbd5e1; text-align:right}
-  @media (max-width:640px){ .quest-panel{width:88vw} .quest-root{left:8px; top:8px} }
+      <div class="card" id="qMini" hidden>
+        <div class="title">MINI QUEST</div>
+        <div class="label" id="qMiniLabel">—</div>
+        <div class="bar"><div class="fill" id="qMiniFill" style="width:0%"></div></div>
+        <div class="nums"><span id="qMiniNow">0</span>/<span id="qMiniMax">0</span></div>
+      </div>
+    </div>
   `;
+  document.body.appendChild(root);
+
+  // ---------- CSS ----------
+  const css = document.createElement('style');
+  css.id = 'hha-quest-hud-css';
+  css.textContent = `
+  #${ID_ROOT}{position:fixed;right:16px;top:88px;z-index:520;pointer-events:none}
+  #${ID_ROOT} .wrap{display:flex;flex-direction:column;gap:10px;max-width:min(48vw,420px)}
+  #${ID_ROOT} .card{
+    background:#0b1220cc;border:1px solid #334155;border-radius:14px;padding:12px 14px;
+    color:#e2e8f0;box-shadow:0 12px 30px rgba(0,0,0,.35)
+  }
+  #${ID_ROOT} .title{font:900 11px system-ui;letter-spacing:.8px;color:#93c5fd;opacity:.9;margin-bottom:4px}
+  #${ID_ROOT} .label{font:800 14px system-ui;color:#f8fafc;margin:2px 0 8px 0}
+  #${ID_ROOT} .bar{height:10px;border-radius:999px;background:#0f172a;border:1px solid #334155;overflow:hidden}
+  #${ID_ROOT} .fill{height:100%;width:0%;background:linear-gradient(90deg,#60a5fa,#22c55e)}
+  #${ID_ROOT} .nums{margin-top:6px;font:800 12px system-ui;color:#cbd5e1;text-align:right}
+  @media (max-width:640px){
+    #${ID_ROOT}{right:10px;top:86px}
+    #${ID_ROOT} .wrap{max-width:85vw}
+  }`;
   document.head.appendChild(css);
-}
 
-function ensureDOM(){
-  injectCSS();
-  if (!els.root){
-    els.root = document.createElement('div');
-    els.root.className = 'quest-root';
-    const g = makePanel('เป้าหมายหลัก','goalPanel');
-    const m = makePanel('Mini Quest','miniPanel');
-    els.root.appendChild(g); els.root.appendChild(m);
-    document.body.appendChild(els.root);
+  // ---------- Refs ----------
+  const elGoalCard = document.getElementById('qGoal');
+  const elMiniCard = document.getElementById('qMini');
 
-    els.goal    = g.querySelector('[data-label]');
-    els.goalBar = g.querySelector('[data-fill]');
-    els.goalVal = g.querySelector('[data-val]');
-    els.goalMeta= g.querySelector('[data-meta]');
+  const elGoalLabel = document.getElementById('qGoalLabel');
+  const elGoalFill  = document.getElementById('qGoalFill');
+  const elGoalNow   = document.getElementById('qGoalNow');
+  const elGoalMax   = document.getElementById('qGoalMax');
 
-    els.mini    = m.querySelector('[data-label]');
-    els.miniBar = m.querySelector('[data-fill]');
-    els.miniVal = m.querySelector('[data-val]');
+  const elMiniLabel = document.getElementById('qMiniLabel');
+  const elMiniFill  = document.getElementById('qMiniFill');
+  const elMiniNow   = document.getElementById('qMiniNow');
+  const elMiniMax   = document.getElementById('qMiniMax');
+
+  // ---------- State ----------
+  let last = { goal:null, mini:null };
+  let focus = 'goal'; // 'goal' or 'mini'
+  let rotTimer = null;
+
+  function pct(n,d){ return d>0 ? Math.max(0, Math.min(100, Math.round((n/d)*100))) : 0; }
+
+  function renderGoal(g){
+    if(!g){ elGoalLabel.textContent='—'; elGoalFill.style.width='0%'; elGoalNow.textContent='0'; elGoalMax.textContent='0'; return; }
+    const now = +g.prog|0, max = +g.target|0;
+    elGoalLabel.textContent = g.label || '—';
+    elGoalFill.style.width  = pct(now, max) + '%';
+    elGoalNow.textContent   = now.toString();
+    elGoalMax.textContent   = max.toString();
   }
-}
-
-function pct(p,t){
-  const pp = !t ? 0 : Math.max(0, Math.min(100, (p/t)*100));
-  return pp;
-}
-
-function render(){
-  ensureDOM();
-
-  // Goal
-  if (state.goal){
-    const { label, prog=0, target=0, meta } = state.goal;
-    els.goal.textContent = label || '—';
-    els.goalBar.style.width = `${pct(prog, target)}%`;
-    els.goalVal.textContent = `${prog|0}/${target|0}`;
-    els.goalMeta && (els.goalMeta.textContent = meta && meta.cleared!=null ? `Goal ${meta.cleared}/${meta.total||meta.cleared||0}` : '');
-  }else{
-    els.goal.textContent = '—';
-    els.goalBar.style.width = '0%';
-    els.goalVal.textContent = '0/0';
-    els.goalMeta && (els.goalMeta.textContent = '');
+  function renderMini(m){
+    if(!m){ elMiniLabel.textContent='—'; elMiniFill.style.width='0%'; elMiniNow.textContent='0'; elMiniMax.textContent='0'; return; }
+    const now = +m.prog|0, max = +m.target|0;
+    elMiniLabel.textContent = m.label || '—';
+    elMiniFill.style.width  = pct(now, max) + '%';
+    elMiniNow.textContent   = now.toString();
+    elMiniMax.textContent   = max.toString();
   }
 
-  // Mini
-  if (state.mini){
-    const { label, prog=0, target=0 } = state.mini;
-    els.mini.textContent = label || '—';
-    els.miniBar.style.width = `${pct(prog, target)}%`;
-    els.miniVal.textContent = `${prog|0}/${target|0}`;
-  }else{
-    els.mini.textContent = '—';
-    els.miniBar.style.width = '0%';
-    els.miniVal.textContent = '0/0';
+  function applyFocus(which){
+    focus = (which==='mini') ? 'mini' : 'goal';
+    if (focus==='goal'){ elGoalCard.hidden=false; elMiniCard.hidden=true; }
+    else { elGoalCard.hidden=true; elMiniCard.hidden=false; }
   }
-}
 
-function onQuestEvent(e){
-  const d = e?.detail || {};
-  // เก็บ “สถานะล่าสุด” ไว้ global เผื่อ init มาทีหลัง
-  window.__QUEST_LATEST__ = d;
-  state.goal = d.goal || null;
-  state.mini = d.mini || null;
-  render();
-}
+  function rotate(){
+    applyFocus(focus==='goal' ? 'mini' : 'goal');
+  }
 
-export function questHUDInit(){
-  if (inited) return;
-  inited = true;
-  ensureDOM();
-  // ดักทั้งสองชื่ออีเวนต์
-  window.addEventListener('hha:quest', onQuestEvent);
-  window.addEventListener('quest:update', onQuestEvent);
-  // ถ้ามีค้างอยู่ ให้เรนเดอร์ทันที
-  const last = window.__QUEST_LATEST__;
-  if (last) onQuestEvent({ detail: last });
-  else render();
-}
+  function scheduleRotate(){
+    try{ clearInterval(rotTimer); }catch(_){}
+    rotTimer = setInterval(rotate, 6000);
+  }
 
-export function questHUDUpdate(_deck, hint){
-  if (hint != null) state.hint = String(hint);
-  // ใช้สถานะล่าสุดจาก __QUEST_LATEST__ เสมอ
-  const last = window.__QUEST_LATEST__;
-  if (last) onQuestEvent({ detail: last });
-  else render();
-}
+  // ---------- Public-ish API (optional) ----------
+  function questHUDInit(){ applyFocus('goal'); scheduleRotate(); }
+  function questHUDUpdate(data, _subtitle){
+    if (!data) return;
+    if (data.goal) last.goal = data.goal;
+    if (data.mini) last.mini = data.mini;
+    renderGoal(last.goal);
+    renderMini(last.mini);
+  }
+  function questHUDDispose(){
+    try{ clearInterval(rotTimer); }catch(_){}
+    try{ root.remove(); }catch(_){}
+    try{ css.remove(); }catch(_){}
+  }
 
-export function questHUDDispose(){
-  try{
-    window.removeEventListener('hha:quest', onQuestEvent);
-    window.removeEventListener('quest:update', onQuestEvent);
-  }catch{}
-  try{
-    if (els.root && els.root.parentNode) els.root.parentNode.removeChild(els.root);
-  }catch{}
-  inited = false; els = { root:null, goal:null, goalBar:null, goalVal:null, mini:null, miniBar:null, miniVal:null };
-  state = { goal:null, mini:null, hint:'' };
-}
+  // expose (optional import usage)
+  try{ window.questHUDInit = questHUDInit; window.questHUDUpdate = questHUDUpdate; window.questHUDDispose = questHUDDispose; }catch(_){}
 
-export default { questHUDInit, questHUDUpdate, questHUDDispose };
+  // ---------- Auto-init + Event wiring ----------
+  questHUDInit();
+
+  // Accept both events:
+  window.addEventListener('hha:quest', (e)=> questHUDUpdate(e.detail||{}));
+  window.addEventListener('quest:update', (e)=> questHUDUpdate(e.detail||{}));
+
+  // Manual focus switch (optional): window.dispatchEvent(new CustomEvent('quest:focus',{detail:'mini'}))
+  window.addEventListener('quest:focus', (e)=> applyFocus(e?.detail==='mini'?'mini':'goal'));
+})();
