@@ -1,69 +1,100 @@
-// === /HeroHealth/vr/ui-fever.js (flame + shield counter under score/combo) ===
-let root=null, bar=null, fill=null, flame=null, shieldWrap=null, shieldVal=null;
-let active=false, fever=0, shield=0, shieldSum=0;
+// === /HeroHealth/vr/ui-fever.js (2025-11-13 EPIC FEVER) ===
+let state = { value:0, active:false, shield:0 };
 
-(function inject(){
-  if (document.getElementById('hha-fever-style')) return;
-  const st=document.createElement('style'); st.id='hha-fever-style';
-  st.textContent =
-    '#hha-fever{position:relative;width:min(520px,70vw);height:12px;background:#1f2937;border:1px solid #334155;border-radius:999px;overflow:hidden;box-shadow:inset 0 0 10px rgba(0,0,0,.35)}'+
-    '#hha-fever .fill{position:absolute;left:0;top:0;height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#a78bfa);box-shadow:0 0 18px rgba(59,130,246,.35)}'+
-    '#hha-fever.flame .flame{position:absolute;right:-10px;top:-16px;width:26px;height:26px;pointer-events:none;'+
-      'background:radial-gradient(closest-side,#ffd166,#fb923c 60%, rgba(0,0,0,0) 70%);'+
-      'animation:flameBob .35s infinite alternate ease-in-out, flameGlow .6s infinite ease-in-out}'+
-    '@keyframes flameBob{from{transform:translateY(0)}to{transform:translateY(-6px)}}'+
-    '@keyframes flameGlow{0%{filter:drop-shadow(0 0 0 rgba(251,146,60,.0))}50%{filter:drop-shadow(0 0 10px rgba(251,146,60,.9))}100%{filter:drop-shadow(0 0 0 rgba(251,146,60,.0))}}'+
-    '#hha-shield{margin-top:6px;display:flex;gap:6px;align-items:center;justify-content:center;color:#cbd5e1;font:800 12px system-ui}'+
-    '#hha-shield .ico{filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}';
-  document.head.appendChild(st);
-})();
-
-export function ensureFeverBar(){
-  if (root && root.isConnected) return root;
-  const dock = document.getElementById('feverBarDock') || document.querySelector('[data-hud="scorebox"]') || document.body;
-
-  root = document.createElement('div'); root.id='hha-fever';
-  fill = document.createElement('div'); fill.className='fill';
-  flame = document.createElement('div'); flame.className='flame'; // visible when active
-  root.appendChild(fill); root.appendChild(flame);
-
-  shieldWrap = document.createElement('div'); shieldWrap.id='hha-shield';
-  shieldWrap.innerHTML = '<span class="ico">🛡️</span> <span id="hhaShieldVal">0</span>';
-  shieldVal = shieldWrap.querySelector('#hhaShieldVal');
-
-  dock.appendChild(root);
-  dock.appendChild(shieldWrap);
-
-  // listen hud-ready to re-dock if HUD recreated
-  try{
-    window.addEventListener('hha:hud-ready', function(){
-      const newDock = document.getElementById('feverBarDock') || document.querySelector('[data-hud="scorebox"]');
-      if (newDock && (!root.parentElement || root.parentElement!==newDock)){
-        newDock.appendChild(root); newDock.appendChild(shieldWrap);
-      }
-    });
-  }catch(_){}
-  return root;
+export function ensureFeverBar(dock){
+  if (document.getElementById('hha-fever-css')) return _mount(dock);
+  const css = document.createElement('style'); css.id='hha-fever-css';
+  css.textContent = `
+  .fever-wrap{ position:relative; width:min(480px, 64vw); }
+  .fever-track{
+    position:relative; height:14px; border-radius:999px; overflow:hidden;
+    background:#0f172a; border:1px solid #334155;
+    box-shadow:inset 0 0 16px rgba(0,0,0,.35);
+  }
+  .fever-fill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg,#60a5fa,#22c55e,#f59e0b,#ef4444);
+    background-size:300% 100%;
+    animation: feverFlow 2.2s linear infinite;
+    transition: width .25s ease;
+    filter: drop-shadow(0 2px 8px rgba(255,120,40,.35));
+  }
+  @keyframes feverFlow{
+    0%{background-position:0% 50%}
+    100%{background-position:100% 50%}
+  }
+  /* Flame overlay shown when fever active */
+  .fever-flame{
+    position:absolute; inset:-6px -10px; pointer-events:none; opacity:0; transition:opacity .25s ease;
+    background:
+      radial-gradient(120px 24px at 10% 100%, rgba(255,120,40,.35), transparent 70%),
+      radial-gradient(180px 26px at 35% 100%, rgba(255,80,20,.30), transparent 70%),
+      radial-gradient(140px 20px at 60% 100%, rgba(255,160,40,.28), transparent 70%),
+      radial-gradient(200px 28px at 85% 100%, rgba(255,90,10,.32), transparent 70%);
+    mix-blend-mode: screen;
+    animation: flamePulse 1.1s ease-in-out infinite;
+  }
+  .fever-active .fever-flame{ opacity:1; }
+  @keyframes flamePulse{
+    0%,100%{ transform:translateY(0) }
+    50%    { transform:translateY(-6px) }
+  }
+  .shield-pill{
+    margin-top:6px; display:inline-flex; gap:4px; align-items:center; font:800 11px system-ui; color:#93c5fd;
+  }
+  .shield-pill .dot{
+    width:10px; height:10px; border-radius:999px; border:1px solid #334155; background:#1f2937;
+  }
+  .shield-pill .dot.on{ background:#60a5fa; box-shadow:0 0 10px #60a5fa88; }
+  `;
+  document.head.appendChild(css);
+  _mount(dock);
 }
 
-export function setFever(n){
-  fever = Math.max(0, Math.min(100, Number(n)||0));
-  ensureFeverBar();
-  if (fill) fill.style.width = fever+'%';
+function _mount(dock){
+  const mount = dock || document.getElementById('feverBarDock') || document.body;
+  if (document.getElementById('hha-fever-root')) return;
+  const root = document.createElement('div'); root.id='hha-fever-root';
+  root.className='fever-wrap';
+  root.innerHTML = `
+    <div class="fever-track">
+      <div class="fever-fill" id="feverFill"></div>
+      <div class="fever-flame" id="feverFlame"></div>
+    </div>
+    <div class="shield-pill" id="shieldPill">
+      เกราะ:
+      <span class="dot" data-i="0"></span>
+      <span class="dot" data-i="1"></span>
+      <span class="dot" data-i="2"></span>
+    </div>
+  `;
+  mount?.appendChild(root);
+  _sync();
+}
+
+function _sync(){
+  const root  = document.getElementById('hha-fever-root');
+  const fill  = document.getElementById('feverFill');
+  const pill  = document.getElementById('shieldPill');
+  if (!root || !fill) return;
+  fill.style.width = Math.max(0, Math.min(100, state.value)) + '%';
+  root.classList.toggle('fever-active', !!state.active);
+
+  if (pill){
+    const dots = pill.querySelectorAll('.dot');
+    dots.forEach((d,i)=> d.classList.toggle('on', i < Math.max(0, Math.min(3, state.shield|0))));
+  }
+}
+
+export function setFever(v){
+  state.value = +v||0;
+  _sync();
 }
 export function setFeverActive(on){
-  active = !!on; ensureFeverBar();
-  if (!root) return;
-  if (active){ root.classList.add('flame'); }
-  else { root.classList.remove('flame'); }
+  state.active = !!on;
+  _sync();
 }
 export function setShield(n){
-  shield = Math.max(0, Number(n)||0);
-  ensureFeverBar();
-  if (shieldVal) shieldVal.textContent = String(shieldSum>0 ? `${shield} (+${shieldSum})` : shield);
+  state.shield = +n||0;
+  _sync();
 }
-export function addShield(n){
-  shieldSum += Math.max(0, Number(n)||0);
-  setShield(shield);
-}
-export default { ensureFeverBar, setFever, setFeverActive, setShield, addShield };
