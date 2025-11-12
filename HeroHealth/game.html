@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>🥦 Good vs Junk [VR - Serial Quests] 🍔</title>
+
+    <link rel="icon" href="/HeroHealth/favicon.ico" type="image/x-icon">
     
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
@@ -905,7 +907,7 @@
                         difficulty.set(level);
                         gameConfig = difficulty.get(); // { size, rate, life }
                         
-                        // 🔻 === โค้ดที่แก้ไข (FIX 1) === 🔻
+                        // 🔻 === โค้ดที่แก้ไข (FIX 3) === 🔻
                         // แก้ไขปัญหา PC Mouse Click
                         const cursor = document.getElementById('cursor');
                         if (cursor && !AFRAME.utils.device.isMobile()) {
