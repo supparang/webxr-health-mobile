@@ -1,52 +1,60 @@
-// === /HeroHealth/game/main.js (2025-11-12 HUD wiring stable) ===
-import '../vr/hub.js';                 // bootstrap Hub เสมอ
-import { ensureFeverBar } from '../vr/ui-fever.js';
+// === /HeroHealth/game/main.js (2025-11-12 start wiring + autostart) ===
+import { GameHub } from '../hub.js';
+import * as goodjunk from '../modes/goodjunk.safe.js';
 
-(function(){
-  const $ = s=>document.querySelector(s);
-  const elScore = $('#hudScore');
-  const elCombo = $('#hudCombo');
+const $ = (s)=>document.querySelector(s);
+const params = new URLSearchParams(location.search);
+const mode = (params.get('mode')||'goodjunk').toLowerCase();
+const diff = (params.get('diff')||'normal').toLowerCase();
+const auto = params.get('autostart') === '1';
 
-  // time bubble ขวาบนของกล่องคะแนน
-  let timeBubble = document.getElementById('hudTimeBubble');
-  if(!timeBubble){
-    const wrap = document.querySelector('[data-hud="scorebox"]') || $('#hudTop');
-    timeBubble = document.createElement('div');
-    timeBubble.id = 'hudTimeBubble';
-    timeBubble.textContent = '60s';
-    timeBubble.style.cssText =
-      'position:absolute; right:14px; top:10px; padding:2px 10px;'+
-      'border-radius:999px; background:#0b1220cc; color:#cbd5e1;'+
-      'border:1px solid #334155; font:800 12px system-ui; pointer-events:none;';
-    (wrap||document.body).appendChild(timeBubble);
+let hub;
+
+function wireHUD(){
+  window.addEventListener('hha:time', e=>{
+    const sec = e?.detail?.sec ?? 0;
+    // โชว์เวลาบนปุ่ม start ด้วย (ถ้ามี)
+    const btn = $('#btnStart');
+    if(btn) btn.textContent = sec>0?`เล่นอยู่ (${sec}s)`: 'เริ่มเกม';
+  });
+  window.addEventListener('hha:score', e=>{
+    // ถ้าคุณมีตัวอัปเดตคะแนน/คอมโบ ให้ผูกที่นี่
+  });
+}
+
+async function startGame(){
+  const cfg = { difficulty: diff, duration: Number(params.get('time')||60) };
+  if (mode === 'goodjunk') {
+    const ctrl = await goodjunk.boot(cfg);
+    // เริ่ม
+    ctrl.start();
+  } else {
+    alert('โหมดนี้ยังไม่พร้อม: ' + mode);
   }
+}
 
-  let score=0, combo=0;
-  function paint(){ if(elScore) elScore.textContent=String(score); if(elCombo) elCombo.textContent=String(combo); }
-  paint();
+function bindStartButtons(){
+  const vrBtn  = $('#vrStartBtn');
+  const domBtn = $('#btnStart');
+  const doStart = async()=>{
+    try{
+      // ปิดปุ่มซ้ำ
+      domBtn && (domBtn.disabled = true);
+      await startGame();
+    }catch(err){
+      console.error('[main] start error', err);
+      domBtn && (domBtn.disabled = false);
+    }
+  };
+  vrBtn  && vrBtn.addEventListener('click', (e)=>{ e.preventDefault(); doStart(); });
+  domBtn && domBtn.addEventListener('click', (e)=>{ e.preventDefault(); doStart(); });
 
-  // ย้าย fever bar ไปใต้คะแนน/คอมโบทันทีที่ HUD พร้อม
-  try{ ensureFeverBar(); }catch(_){}
-  window.addEventListener('hha:hud-ready', ()=>{ try{ ensureFeverBar(); }catch(_){}});
+  if (auto) doStart(); // autostart=1
+}
 
-  // เวลานับถอยหลังจาก factory
-  window.addEventListener('hha:time', (e)=>{
-    const sec = (e && e.detail && e.detail.sec!=null)? (e.detail.sec|0) : 0;
-    if (timeBubble) timeBubble.textContent = sec+'s';
-  });
-
-  // คะแนน/คอมโบจาก factory
-  window.addEventListener('hha:score', (e)=>{
-    const d = e && e.detail ? e.detail : null;
-    const delta = (d && typeof d.delta==='number') ? d.delta : 0;
-    const good  = !!(d && d.good);
-    score = Math.max(0, score + delta);
-    combo = good ? (combo+1) : 0;
-    paint();
-  });
-
-  // จบเกม → การันตีเวลาขึ้น 0s
-  window.addEventListener('hha:end', ()=>{
-    if(timeBubble) timeBubble.textContent='0s';
-  });
-})();
+window.addEventListener('DOMContentLoaded', ()=>{
+  try{ hub = new GameHub(); }catch(e){ console.warn('[main] hub optional', e); }
+  wireHUD();
+  bindStartButtons();
+  console.log('[main] ready — mode=', mode, 'diff=', diff);
+});
