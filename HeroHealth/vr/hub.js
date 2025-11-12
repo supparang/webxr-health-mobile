@@ -1,14 +1,12 @@
-// === Hero Health VR — GameHub (production, no optional chaining) ===
+// === /HeroHealth/vr/hub.js — GameHub (production, no optional chaining, fixed moduleMap) ===
 export class GameHub {
   constructor() {
-    // --- URL params ---
     var q = new URLSearchParams(location.search);
     this.mode       = q.get('mode') || null;
     this.goal       = toNum(q.get('goal'), 40);
     this.duration   = toNum(q.get('duration'), 60);
     this.difficulty = q.get('difficulty') || 'normal';
 
-    // --- DOM bindings ---
     this.spawnHost  = document.getElementById('spawnHost') || document.getElementById('spawnZone') || this._ensureSpawnHost();
     this.questPanel = document.getElementById('questPanel') || null;
     this.hudRoot    = document.getElementById('hudRoot') || document.body;
@@ -21,13 +19,9 @@ export class GameHub {
     this.running = false;
 
     this._showBoot('Hub ready');
-
-    // Wire system events
     this._bindPause();
     this._bindVisibility();
     this._wireQuestPanelUpdates();
-
-    // Announce HUD ready if HUD exists
     this._announceHUDReady();
     this._scheduleAnnounceBurst();
 
@@ -37,14 +31,11 @@ export class GameHub {
   // ---------- Public API ----------
   selectMode(mode) {
     this.mode = mode || 'goodjunk';
-
     var heads = (this.hudRoot && this.hudRoot.querySelectorAll) ? this.hudRoot.querySelectorAll('a-entity[troika-text]') : [];
     if (heads && heads.length) safeSetTroikaText(heads[0], 'โหมด: ' + this.mode);
     if (this.startLbl) safeSetTroikaText(this.startLbl, 'เริ่ม: ' + this.mode.toUpperCase());
     if (this.startPanel) this.startPanel.setAttribute('visible', true);
     if (this.menu) this.menu.setAttribute('visible', false);
-
-    // เผื่อ HUD เพิ่งถูกสร้าง
     this._announceHUDReady();
   }
 
@@ -61,20 +52,19 @@ export class GameHub {
       if (tQ) safeSetTroikaText(tQ, 'สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!');
     }
 
-    // ย้ำประกาศ HUD พร้อมใช้งาน (ให้ ui-fever ย้ายไปเกาะใต้ score-box)
     this._announceHUDReady();
     this._scheduleAnnounceBurst();
 
     var mode = this.mode || 'goodjunk';
+    // 🔧 FIX: hub อยู่ใน /vr → โหมดอยู่ใน ../modes/*
     var moduleMap = {
-      goodjunk : './modes/goodjunk.safe.js',
-      groups   : './modes/groups.safe.js',
-      hydration: './modes/hydration.quest.js',
-      plate    : './modes/plate.quest.js'
+      goodjunk : '../modes/goodjunk.safe.js',
+      groups   : '../modes/groups.safe.js',
+      hydration: '../modes/hydration.quest.js',
+      plate    : '../modes/plate.quest.js'
     };
     var rel = moduleMap[mode] || moduleMap.goodjunk;
 
-    // สร้าง URL อย่างปลอดภัย (relative กับไฟล์นี้)
     var url;
     try { url = new URL(rel, import.meta.url).toString(); }
     catch (e) { url = rel; }
@@ -182,9 +172,7 @@ export class GameHub {
       try {
         var d = ev && ev.detail ? ev.detail : null;
         if (!d) return;
-        // goal
         var g = d.goal ? (d.goal.label + ' ' + fmtProg(d.goal.prog, d.goal.target)) : '';
-        // mini
         var m = d.mini ? (d.mini.label + ' ' + fmtProg(d.mini.prog, d.mini.target)) : '';
         var text = g && m ? (g + ' | ' + m) : (g || m || '');
         if (!text) text = 'สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!';
@@ -214,7 +202,6 @@ export class GameHub {
   }
 
   _scheduleAnnounceBurst(){
-    // ยิงซ้ำ ๆ ช่วงต้นเกม กันกรณี HUD สร้างช้า
     var self = this;
     var tries = 0, maxTries = 20;
     var id = setInterval(function(){
@@ -231,7 +218,6 @@ export class GameHub {
         var u;
         try { u = new URL(url, location.href); }
         catch(_) { u = { toString:function(){ return String(url); }, searchParams: { set:function(){} } }; }
-        // cache-bust
         if (u && u.searchParams && u.searchParams.set) {
           u.searchParams.set('v', String(Date.now()));
         }
@@ -285,3 +271,6 @@ function fmtProg(p, t){
   if (tt>0) return '('+pp+'/'+tt+')';
   return '('+pp+')';
 }
+
+// allow default import if needed
+export default GameHub;
