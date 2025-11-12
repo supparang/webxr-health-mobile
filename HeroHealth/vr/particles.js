@@ -1,73 +1,141 @@
-// === /HeroHealth/vr/particles.js (2025-11-12) ===
-export const Particles = {
-  scorePop(x, y, delta, opts={}){
+// === /HeroHealth/vr/particles.js (2025-11-12 LATEST) ===
+// Lightweight DOM FX used across modes.
+// APIs:
+//   Particles.scorePop({ x, y, delta, good, duration? })
+//   Particles.burstShards(host?, pos?, { screen:{x,y}?, theme? , count? , spread? , duration? })
+//
+// - Works on top of DOM (.game-wrap) with its own FX layer
+// - Safe on mobile (no passive scroll; visualViewport offset guarded)
+
+export const Particles = (function(){
+  // ---------- Layer & CSS ----------
+  function mountLayer(){
+    let mount = document.querySelector('.game-wrap') || document.body;
+    let fx = document.getElementById('hha-fx-layer');
+    if(!fx){
+      fx = document.createElement('div');
+      fx.id = 'hha-fx-layer';
+      fx.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:700;';
+      mount.appendChild(fx);
+    }
+    return fx;
+  }
+
+  (function injectCSS(){
+    if(document.getElementById('hha-fx-style')) return;
+    const st = document.createElement('style'); st.id='hha-fx-style';
+    st.textContent = `
+      /* scorePop */
+      .fx-pop{
+        position:absolute; transform:translate(-50%,-60%);
+        font:900 18px system-ui, -apple-system, Segoe UI, Roboto, "Noto Color Emoji", "Apple Color Emoji", sans-serif;
+        padding:2px 6px; border-radius:10px;
+        filter: drop-shadow(0 8px 14px rgba(0,0,0,.45));
+        will-change: transform, opacity;
+        pointer-events:none;
+        opacity:0.98;
+      }
+      .fx-pop.good{ color:#bbf7d0; background:#16a34a22; border:1px solid #16a34a55; text-shadow:0 0 10px #16a34a99; }
+      .fx-pop.bad { color:#fecaca; background:#ef444422; border:1px solid #ef444455; text-shadow:0 0 10px #ef444499; }
+      .fx-pop.zero{ color:#e5e7eb; background:#33415555; border:1px solid #64748b88; }
+
+      /* shards */
+      .fx-shard{
+        position:absolute; width:8px; height:8px; border-radius:2px;
+        opacity:0.95; will-change: transform, opacity;
+        pointer-events:none; transform:translate(-50%,-50%);
+        box-shadow:0 0 6px rgba(255,255,255,.25);
+      }
+    `;
+    document.head.appendChild(st);
+  })();
+
+  // ---------- Helpers ----------
+  function vvOffsetY(){
+    try{ return (window.visualViewport && window.visualViewport.offsetTop) ? window.visualViewport.offsetTop : 0; }
+    catch(_){ return 0; }
+  }
+  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+  function themeColors(theme){
+    switch(theme){
+      case 'goodjunk': return ['#34d399','#10b981','#059669','#22c55e','#a7f3d0'];
+      case 'groups':   return ['#fde047','#facc15','#eab308','#f59e0b','#fef08a'];
+      case 'hydration':return ['#93c5fd','#60a5fa','#3b82f6','#2563eb','#bfdbfe'];
+      case 'plate':    return ['#86efac','#22c55e','#4ade80','#a7f3d0','#16a34a'];
+      default:         return ['#c084fc','#a78bfa','#60a5fa','#34d399','#f59e0b'];
+    }
+  }
+
+  // ---------- scorePop ----------
+  function scorePop(opts){
+    const fx = mountLayer();
+    const x = (opts?.x|0), yRaw = (opts?.y|0);
+    const y = yRaw - vvOffsetY(); // guard mobile viewport offset
+
+    const delta = Number(opts?.delta||0);
+    const good  = !!opts?.good;
+    const dur   = clamp(Number(opts?.duration||900), 300, 2000);
+
     const el = document.createElement('div');
-    el.className = 'hha-score-pop';
-    el.textContent = (delta>0?'+':'') + (delta|0);
-    el.style.left = (x|0) + 'px';
-    el.style.top  = (y|0) + 'px';
-    if (delta>0){
-      el.style.background = 'rgba(34,197,94,.18)';
-      el.style.borderColor = '#22c55e';
-      el.style.color = '#bbf7d0';
-    }else{
-      el.style.background = 'rgba(239,68,68,.18)';
-      el.style.borderColor = '#ef4444';
-      el.style.color = '#fecaca';
-    }
-    (document.querySelector('.game-wrap')||document.body).appendChild(el);
-    // animate
-    requestAnimationFrame(()=>{
-      el.style.transform = 'translate(-50%, -80%) scale(1.05)';
-      el.style.opacity = '0';
-    });
-    setTimeout(()=>{ try{ el.remove(); }catch{} }, 700);
-  },
+    el.className = `fx-pop ${delta>0? 'good' : (delta<0? 'bad' : 'zero')}`;
+    const sign = delta>0? '+' : '';
+    el.textContent = `${sign}${delta|0}`;
+    el.style.left = x+'px';
+    el.style.top  = y+'px';
+    fx.appendChild(el);
 
-  burstShards(host=null, pos=null, {screen, theme}={}){
-    const wrap = document.createElement('div');
-    wrap.className = 'hha-burst';
-    wrap.style.left = (screen?.x|0)+'px';
-    wrap.style.top  = (screen?.y|0)+'px';
-    const n = 10;
-    for(let i=0;i<n;i++){
-      const p = document.createElement('i');
-      p.className = 'hha-piece';
-      p.style.setProperty('--tx', ((Math.random()*2-1)*60|0)+'px');
-      p.style.setProperty('--ty', ((Math.random()*2-1)*60|0)+'px');
-      p.style.opacity = '1';
-      wrap.appendChild(p);
-    }
-    (document.querySelector('.game-wrap')||document.body).appendChild(wrap);
-    // auto remove
-    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 600);
+    // Animate up + fade
+    const startY = -60, endY = -100;
+    const start = performance.now();
+    const tick = (t)=>{
+      const k = clamp((t-start)/dur, 0, 1);
+      const ease = 1 - Math.pow(1-k, 3); // ease-out
+      el.style.transform = `translate(-50%, ${startY + (endY-startY)*ease}px)`;
+      el.style.opacity   = String(0.98 * (1 - k*0.95));
+      if(k < 1) requestAnimationFrame(tick);
+      else { try{ fx.removeChild(el); }catch(_){ el.remove(); } }
+    };
+    requestAnimationFrame(tick);
   }
-};
 
-// inject CSS once
-(function(){
-  if (document.getElementById('hha-pfx-css')) return;
-  const css = document.createElement('style'); css.id='hha-pfx-css';
-  css.textContent = `
-  .hha-score-pop{
-    position:fixed; z-index:900; pointer-events:none;
-    transform:translate(-50%,-50%); opacity:.95;
-    background:#0f172a; border:2px solid #334155; color:#e2e8f0;
-    padding:4px 8px; border-radius:10px; font:900 14px system-ui;
-    filter:drop-shadow(0 10px 18px rgba(0,0,0,.35));
-    transition: transform .45s ease, opacity .45s ease;
+  // ---------- burstShards ----------
+  function burstShards(host, pos, opts){
+    const fx = mountLayer();
+    const screen = opts?.screen || { x:(pos?.x||0), y:(pos?.y||0) };
+    const x = (screen.x|0), yRaw=(screen.y|0), y=yRaw - vvOffsetY();
+
+    const colors = themeColors(opts?.theme);
+    const count  = clamp(Number(opts?.count||16), 6, 48);
+    const spread = clamp(Number(opts?.spread||60), 20, 120);
+    const dur    = clamp(Number(opts?.duration||600), 300, 1500);
+
+    for(let i=0;i<count;i++){
+      const el = document.createElement('div');
+      el.className = 'fx-shard';
+      el.style.background = colors[i % colors.length];
+      el.style.left = x+'px'; el.style.top = y+'px';
+      fx.appendChild(el);
+
+      const ang = (Math.random()*Math.PI*2);
+      const dist = spread*(0.5+Math.random());
+      const dx = Math.cos(ang)*dist, dy = Math.sin(ang)*dist;
+      const rot = (Math.random()*360|0);
+
+      const start = performance.now();
+      const life = dur * (0.85 + Math.random()*0.3);
+      const tick = (t)=>{
+        const k = clamp((t-start)/life, 0, 1);
+        const ease = 1 - Math.pow(1-k, 2); // ease-out
+        el.style.transform = `translate(${(-50 + dx*ease)}px, ${(-50 + dy*ease)}px) rotate(${rot*ease}deg)`;
+        el.style.opacity   = String(0.95 * (1 - k));
+        if(k < 1) requestAnimationFrame(tick);
+        else { try{ fx.removeChild(el); }catch(_){ el.remove(); } }
+      };
+      requestAnimationFrame(tick);
+    }
   }
-  .hha-burst{ position:fixed; z-index:880; width:0; height:0; pointer-events:none; }
-  .hha-burst .hha-piece{
-    position:absolute; left:0; top:0; width:6px; height:6px; opacity:0;
-    background:linear-gradient(180deg, #93c5fd, #a5b4fc);
-    border-radius:999px; transform:translate(-50%,-50%);
-    animation:hhaShard .55s ease forwards;
-  }
-  @keyframes hhaShard {
-    0% { transform:translate(-50%,-50%) scale(.9); opacity:0.9; }
-    100%{ transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(.6); opacity:0; }
-  }`;
-  document.head.appendChild(css);
+
+  return { scorePop, burstShards };
 })();
-export default Particles;
+
+export default { Particles };
