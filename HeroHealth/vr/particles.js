@@ -1,51 +1,68 @@
-// === /HeroHealth/vr/particles.js (scorePop precise) ===
+// === /HeroHealth/vr/particles.js (2025-11-12 DOM burst + score pop + A-Frame fallback) ===
 export const Particles = {
-  scorePop(x, y, text, positive){
+  // ดอกแตกกระจาย (ใช้พิกัดจอ screen:{x,y})
+  burstShards(host, pos, opts={}){
     try{
-      const layer = document.querySelector('.hha-layer') || document.body;
-      const el = document.createElement('div');
-      el.style.position='fixed'; el.style.left=x+'px'; el.style.top=y+'px';
-      el.style.transform='translate(-50%,-50%)';
-      el.style.font='900 18px system-ui, Apple Color Emoji, Segoe UI Emoji, sans-serif';
-      el.style.color = positive ? '#86efac' : '#fca5a5';
-      el.style.textShadow='0 3px 12px rgba(0,0,0,.45)';
-      el.style.pointerEvents='none'; el.style.zIndex='9999';
-      el.textContent = String(text||'');
-      layer.appendChild(el);
+      const screen = opts.screen || null;
+      const n = opts.count || 12;
 
-      const start = performance.now(), dur=620;
-      (function anim(t0){
-        const t = Math.min(1, (performance.now()-start)/dur);
-        const ease = 1 - Math.pow(1-t, 3);
-        const dy = -38*ease;
-        const a  = 1 - t;
-        el.style.transform = `translate(-50%, calc(-50% + ${dy}px)) scale(${1+0.15*ease})`;
-        el.style.opacity = String(a);
-        if (t<1) requestAnimationFrame(anim); else try{ layer.removeChild(el); }catch(_){}
-      })();
-    }catch(_){}
-  },
-  burstShards(host, pos, opts){
-    // (safe no-op / simple halo)
-    try{
-      const x=(opts&&opts.screen&&opts.screen.x)||0, y=(opts&&opts.screen&&opts.screen.y)||0;
-      const layer = document.querySelector('.hha-layer') || document.body;
-      for(let i=0;i<10;i++){
-        const s=document.createElement('div');
-        s.style.position='fixed'; s.style.left=x+'px'; s.style.top=y+'px';
-        s.style.width='4px'; s.style.height='4px'; s.style.borderRadius='999px';
-        s.style.background='rgba(148,163,184,.9)'; s.style.pointerEvents='none'; s.style.zIndex='9998';
-        layer.appendChild(s);
-        const ang=Math.random()*Math.PI*2, dist=24+Math.random()*24, life=280+Math.random()*180;
-        const sx=Math.cos(ang)*dist, sy=Math.sin(ang)*dist;
-        const t0=performance.now();
-        (function anim(){
-          const t=(performance.now()-t0)/life; if(t>=1){ try{layer.removeChild(s)}catch(_){ } return; }
-          s.style.transform=`translate(${sx*t}px, ${sy*t}px)`; s.style.opacity=String(1-t);
-          requestAnimationFrame(anim);
-        })();
+      if (screen){
+        const fxHost = document.createElement('div');
+        fxHost.style.position='fixed';
+        fxHost.style.left=screen.x+'px';
+        fxHost.style.top=screen.y+'px';
+        fxHost.style.transform='translate(-50%,-50%)';
+        fxHost.style.pointerEvents='none';
+        fxHost.style.zIndex=999;
+        document.body.appendChild(fxHost);
+
+        for(let i=0;i<n;i++){
+          const p=document.createElement('div');
+          p.textContent = ['✨','💥','💫','⭐','🟣','🟡'][Math.floor(Math.random()*6)];
+          p.style.position='absolute';
+          p.style.left='0'; p.style.top='0';
+          p.style.fontSize='22px';
+          p.style.opacity='1';
+          p.style.transition='transform .8s ease-out, opacity .8s ease-out';
+          fxHost.appendChild(p);
+          const dx=(Math.random()-0.5)*120, dy=(Math.random()-0.5)*120;
+          setTimeout(()=>{ p.style.transform=`translate(${dx}px,${dy}px) scale(.65)`; p.style.opacity='0'; },10);
+          setTimeout(()=>{ p.remove(); },830);
+        }
+        setTimeout(()=>fxHost.remove(),860);
+        return;
       }
+
+      // Fallback 3D
+      if (window.AFRAME && AFRAME.scenes?.[0]){
+        const scene = AFRAME.scenes[0];
+        const pos3 = pos || {x:0,y:1.6,z:-1};
+        const e = document.createElement('a-entity');
+        e.setAttribute('position',`${pos3.x} ${pos3.y} ${pos3.z}`);
+        try{ e.setAttribute('particle-system',{preset:'dust', color:'#fff,#8ef,#0ff', particleCount:30}); }catch{}
+        scene.appendChild(e);
+        setTimeout(()=>{ try{scene.removeChild(e);}catch{} },1100);
+      }
+    }catch(err){ console.warn('Particles.burstShards error:',err); }
+  },
+
+  // ตัวเลขคะแนนดีดขึ้น
+  scorePop(x,y,delta,good=true){
+    try{
+      const el=document.createElement('div');
+      el.textContent = (delta>0?'+':'') + delta;
+      el.style.position='fixed';
+      el.style.left=x+'px'; el.style.top=y+'px';
+      el.style.transform='translate(-50%,-50%)';
+      el.style.fontWeight='900';
+      el.style.fontSize='18px';
+      el.style.color = good ? '#4ade80' : '#f87171';
+      el.style.textShadow='0 2px 10px rgba(0,0,0,.55)';
+      el.style.zIndex=998; el.style.opacity='1';
+      el.style.transition='transform .7s ease-out, opacity .7s ease-out';
+      document.body.appendChild(el);
+      setTimeout(()=>{ el.style.transform='translate(-50%,-150%) scale(1.2)'; el.style.opacity='0'; },10);
+      setTimeout(()=>el.remove(),720);
     }catch(_){}
   }
 };
-export default Particles;
