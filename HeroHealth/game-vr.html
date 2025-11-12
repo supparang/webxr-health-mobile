@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>🥦 Good vs Junk [VR - Serial Quests] 🍔</title>
+    
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+    <style>
+        /* CSS สำหรับ UI (หน้าจอเริ่ม/จบ) */
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'IBM Plex Sans Thai', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        #uiOverlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            background: rgba(17, 24, 39, 0.9);
+            color: #e8eefc;
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            text-align: center;
+            transition: opacity 0.3s ease;
+        }
+        #uiOverlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #uiOverlay h1 {
+            font-size: 3rem; margin: 0 0 1rem 0;
+        }
+        #uiOverlay h2 {
+            font-size: 2.2rem; color: #f59e0b;
+        }
+        .game-button {
+            font-family: 'IBM Plex Sans Thai', system-ui;
+            font-size: 1.2rem; font-weight: 700; color: #fff;
+            background: linear-gradient(145deg, #22c55e, #16a34a);
+            border: none; border-radius: 12px;
+            padding: 14px 28px; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+            transition: all 0.2s ease; margin: 8px;
+        }
+        .game-button:hover { transform: translateY(-2px); }
+        .game-button.hard {
+            background: linear-gradient(145deg, #ef4444, #dc2626);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="uiOverlay">
+        <div id="startScreen">
+            <h1>🥦 Good vs Junk (VR) 🍔</h1>
+            <p style="font-size: 1.1rem; max-width: 400px; opacity: 0.9;">
+                ใช้คอนโทรลเลอร์หรือจ้องมอง (Gaze) เพื่อยิง "ของดี" และ "พาวเวอร์อัป"<br>
+                ทำภารกิจที่ "โค้ช" บอกเพื่อรับคะแนนโบนัส!
+            </p>
+            <button class="game-button" id="startButtonEasy">เริ่มเกม (Easy)</button>
+            <button class="game-button" id="startButtonNormal">เริ่มเกม (Normal)</button>
+            <button class="game-button hard" id="startButtonHard">เริ่มเกม (Hard)</button>
+        </div>
+        <div id="resultsScreen" style="display:none;">
+            <h2>เกมจบแล้ว!</h2>
+            <h1 id="finalScore">Score: 0</h1>
+            <button class="game-button" id="playAgainButton">เล่นอีกครั้ง</button>
+        </div>
+    </div>
+
+    <a-scene id="gameScene" 
+        loading-screen="dotsColor: white; backgroundColor: #0b1222"
+        background="color: #0b1222">
+        
+        <a-assets>
+            </a-assets>
+        
+        <a-entity light="type: ambient; color: #FFF; intensity: 0.6"></a-entity>
+        <a-entity light="type: directional; color: #FFF; intensity: 0.4" position="-0.5 1 1"></a-entity>
+
+        <a-entity id="rig" position="0 1.6 0">
+            <a-camera id="camera" look-controls="pointerLockEnabled: true">
+                <a-cursor
+                    id="cursor"
+                    raycaster="objects: [data-hha-tgt]"
+                    fuse="true" fuse-timeout="1200"
+                    material="color: #60a5fa; shader: flat"
+                    position="0 0 -1" scale="0.03 0.03 0.03">
+                </a-cursor>
+            </a-camera>
+            <a-entity 
+                id="rightHand"
+                laser-controls="hand: right"
+                raycaster="objects: [data-hha-tgt]; interval: 10">
+            </a-entity>
+        </a-entity>
+
+    </a-scene>
+
+    <script>
+        (function() {
+            // Namespace กลาง
+            const GAME_MODULES = {};
+
+            // --- 1. vr/ui-fever.js (UI Fever/Shield) ---
+            (function(exports) {
+                'use strict';
+                function $(s){ return document.querySelector(s); }
+                let flameRoot = null;
+                let cssInjected = false;
+                function injectCSS(){
+                  if (cssInjected) return;
+                  cssInjected = true;
+                  const st = document.createElement('style');
+                  st.id = 'fever-css';
+                  st.textContent = `
+                    #feverWrap{ position:fixed; left:50%; top:56px; transform:translateX(-50%);
+                      width:min(540px,86vw); height:12px; background:#0b1222;
+                      border:1px solid #334155; border-radius:999px; overflow:hidden; z-index:910 }
+                    #feverFill{ height:100%; width:0%;
+                      transition:width .15s ease-out;
+                      background:linear-gradient(90deg,#37d67a,#06d6a0) }
+                    #shieldChip{ position:fixed; right:16px; top:16px; background:#0f172acc;
+                      border:1px solid #334155; border-radius:12px; padding:8px 12px;
+                      font-weight:800; color:#e8eefc; z-index:910 }
+                    #feverFlame{
+                      position:fixed; left:50%; top:52px; transform:translateX(-50%);
+                      width:min(560px,90vw); height:36px; pointer-events:none; z-index:909; opacity:0;
+                      filter:drop-shadow(0 4px 12px rgba(255,140,0,.55));
+                      transition:opacity .18s ease;
+                    }
+                    #feverFlame .fl{
+                      position:absolute; bottom:0; width:18px; height:26px; border-radius:12px 12px 8px 8px;
+                      background:radial-gradient(ellipse at 50% 70%, #ffd166 0%, #ff7a00 55%, rgba(255,0,0,.75) 100%);
+                      transform-origin:50% 100%;
+                      animation:flameUp var(--flDur,900ms) ease-in infinite;
+                      mix-blend-mode:screen; opacity:.88;
+                      will-change:transform, opacity, filter;
+                    }
+                    @keyframes flameUp{
+                      0%   { transform:translateY(0) scale(1) rotate(var(--flRot,0deg)); opacity:.95; }
+                      70%  { opacity:.8; }
+                      100% { transform:translateY(-22px) scale(1.1) rotate(calc(var(--flRot,0deg) + 4deg)); opacity:0; }
+                    }
+                    #feverFlame .sp{
+                      position:absolute; bottom:6px; width:4px; height:4px; border-radius:999px;
+                      background:linear-gradient(90deg,#fff2,#ffe6); opacity:.9;
+                      animation:sparkUp 900ms ease-out infinite;
+                    }
+                    @keyframes sparkUp{
+                      0%   { transform:translateY(0) scale(1); opacity:.95; }
+                      100% { transform:translateY(-26px) scale(0.6); opacity:0; }
+                    }
+                    .fever-on{ box-shadow:0 0 0 3px #ffd16655, 0 0 22px #ffb703aa; }
+                  `
+                  document.head.appendChild(st);
+                }
+                exports.ensureFeverBar = function(){
+                  injectCSS();
+                  let wrap = $('#feverWrap');
+                  if (!wrap){
+                    wrap = document.createElement('div');
+                    wrap.id = 'feverWrap'; wrap.setAttribute('data-hha-ui','');
+                    const fill = document.createElement('div');
+                    fill.id = 'feverFill';
+                    wrap.appendChild(fill);
+                    document.body.appendChild(wrap);
+                  }
+                  if (!$('#shieldChip')){
+                    const chip = document.createElement('div');
+                    chip.id = 'shieldChip'; chip.setAttribute('data-hha-ui','');
+                    chip.textContent = '🛡️ x0';
+                    document.body.appendChild(chip);
+                  }
+                  if (!$('#feverFlame')){
+                    flameRoot = document.createElement('div');
+                    flameRoot.id = 'feverFlame'; flameRoot.setAttribute('data-hha-ui','');
+                    document.body.appendChild(flameRoot);
+                    buildFlameChildren();
+                  } else {
+                    flameRoot = $('#feverFlame');
+                  }
+                  return wrap;
+                }
+                function buildFlameChildren(){
+                  if (!flameRoot) return;
+                  flameRoot.innerHTML = '';
+                  // ป้องกัน Error ตอน getBoundingClientRect
+                  setTimeout(() => {
+                    if (!flameRoot) return;
+                    const W = flameRoot.getBoundingClientRect().width || 520;
+                    const cols = Math.max(10, Math.floor(W / 28));
+                    for (let i=0;i<cols;i++){
+                        const x = (i+0.5) * (W/cols);
+                        const fl = document.createElement('div');
+                        fl.className = 'fl';
+                        fl.style.left = (x - 9) + 'px';
+                        fl.style.setProperty('--flRot', ((Math.random()*10)-5)+'deg');
+                        fl.style.setProperty('--flDur', (800 + Math.random()*300)+'ms');
+                        flameRoot.appendChild(fl);
+                        if (Math.random() < 0.6){
+                          const sp = document.createElement('div');
+                          sp.className = 'sp';
+                          sp.style.left = (x - 2) + 'px';
+                          sp.style.animationDuration = (600 + Math.random()*500)+'ms';
+                          flameRoot.appendChild(sp);
+                        }
+                    }
+                  }, 10);
+                }
+                exports.setFever = function(pct){
+                  exports.ensureFeverBar();
+                  const p = Math.max(0, Math.min(100, Math.round(pct||0)));
+                  const fill = $('#feverFill'); if (fill) fill.style.width = p + '%';
+                  if (flameRoot){
+                    const alpha = p <= 0 ? 0 : (p < 100 ? (0.25 + p/150) : 1);
+                    flameRoot.style.opacity = String(alpha);
+                    flameRoot.querySelectorAll('.fl').forEach(el=>{
+                      const base = 900 - p*3;
+                      el.style.setProperty('--flDur', Math.max(500, base) + 'ms');
+                    });
+                  }
+                }
+                exports.setShield = function(n){
+                  exports.ensureFeverBar();
+                  const chip = $('#shieldChip'); if (!chip) return;
+                  chip.textContent = '🛡️ x' + (n|0);
+                  chip.style.opacity = n>0 ? '1' : '.55';
+                }
+                exports.setFeverActive = function(on){
+                  exports.ensureFeverBar();
+                  const wrap = $('#feverWrap');
+                  const flame = $('#feverFlame');
+                  if (on){
+                    if (wrap) wrap.classList.add('fever-on');
+                    if (flame){ flame.style.opacity = '1'; }
+                  }else{
+                    if (wrap) wrap.classList.remove('fever-on');
+                  }
+                }
+            })(GAME_MODULES);
+
+            // --- 2. vr/coach.js (UI โค้ช) ---
+            (function(exports) {
+                'use strict';
+                var bubble, hideTimer=null, lastCombo=0, lastQuestText='';
+                function el(tag, cls){ var x=document.createElement(tag); if(cls) x.className=cls; return x; }
+                function ensureUI(){
+                  if (bubble) return bubble;
+                  var css = document.getElementById('coach-style');
+                  if(!css){
+                      css = el('style'); css.id='coach-style';
+                      css.textContent =
+                        '#coachBubble{position:fixed;left:50%;top:80px;transform:translateX(-50%);z-index:950;' +
+                        'max-width:min(84vw,720px);background:#0b1222cc;border:1px solid #3b4a66;color:#e8eefc;' +
+                        'padding:10px 14px;border-radius:12px;box-shadow:0 12px 30px #0008;font:700 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Thonburi,sans-serif;' +
+                        'backdrop-filter:blur(6px);opacity:0;pointer-events:none;transition:opacity .18s ease;}';
+                      document.head.appendChild(css);
+                  }
+                  bubble = document.getElementById('coachBubble');
+                  if(!bubble){ bubble = el('div'); bubble.id='coachBubble'; bubble.setAttribute('data-hha-ui',''); document.body.appendChild(bubble); }
+                  return bubble;
+                }
+                function show(text, ms){
+                  var b = ensureUI();
+                  b.textContent = String(text||'');
+                  b.style.opacity = '1';
+                  if(hideTimer) clearTimeout(hideTimer);
+                  hideTimer = setTimeout(function(){ b.style.opacity='0'; }, Math.max(800, ms||1500));
+                }
+                exports.coachSay = function(txt, ms){ try{ show(txt, ms); }catch(e){} };
+                
+                function onScore(e){
+                  var d = e && e.detail ? e.detail : {};
+                  var combo = Number(d.combo||0);
+                  if (combo>=1 && (combo===5 || combo===10 || combo===15)){
+                    show('สุดยอด! คอมโบ x'+combo+' ไปต่อเลย! 🔥', 1600);
+                  }
+                  if (combo===1) show('เปิดคอมโบแล้ว! เก็บต่อเนื่องให้ได้!', 1300);
+                  lastCombo = combo;
+                }
+                function onMiss(){
+                  lastCombo = 0;
+                  show('ไม่เป็นไร! โฟกัสใหม่ อีกครั้ง! 💪', 1200);
+                }
+                function onFever(e){
+                    // (ไฟล์นี้รอ hha:fever {state:'start'/'end'})
+                  var st = e && e.detail && e.detail.state ? e.detail.state : 'change';
+                  if (st==='start') show('FEVER มาแล้ว! เก็บแต้มคูณให้สุด! ⚡', 1800);
+                  if (st==='end')   show('เฟดหมดแล้ว — ตั้งคอมโบใหม่ลุยต่อ!', 1400);
+                }
+                function onQuest(e){
+                    // (ไฟล์นี้รอ hha:quest {text:'...'})
+                  var text = e && e.detail && e.detail.text ? e.detail.text : '';
+                  if (text && text!==lastQuestText){
+                    lastQuestText = text;
+                    show(text, 1800);
+                  }
+                }
+                function onEnd(e){
+                  var d = e && e.detail ? e.detail : {};
+                  var score = Number(d.score||0);
+                  show('จบเกมแล้ว! คะแนนรวม ' + score, 2000);
+                }
+
+                window.addEventListener('hha:score', onScore);
+                window.addEventListener('hha:miss',  onMiss);
+                window.addEventListener('hha:fever', onFever);
+                window.addEventListener('hha:quest', onQuest);
+                window.addEventListener('hha:end',   onEnd);
+                setTimeout(function(){ show('เตรียมตัว... เล็งเป้าแล้วยิงเลย!', 1800); }, 900);
+            })(GAME_MODULES);
+
+            // --- 3. vr/difficulty.js (ระบบความยาก) ---
+            (function(exports) {
+                'use strict';
+                exports.Difficulty = class Difficulty {
+                  constructor(custom = {}) {
+                    const base = {
+                      easy:   { size: 0.80, rate: 700, life: 2500 },
+                      normal: { size: 0.60, rate: 520, life: 2000 },
+                      hard:   { size: 0.40, rate: 380, life: 1400 }
+                    };
+                    this.config = mergeConfig(base, custom);
+                    this.levels = ['easy', 'normal', 'hard'];
+                    this._current = 'normal';
+                  }
+                  get(level = this._current) {
+                    const lv = this._sanitize(level);
+                    return clone(this.config[lv]);
+                  }
+                  set(level) {
+                    this._current = this._sanitize(level);
+                    return this._current;
+                  }
+                  _sanitize(level) {
+                    const lv = String(level || '').toLowerCase();
+                    return this.levels.includes(lv) ? lv : 'normal';
+                  }
+                }
+                function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+                function clone(o) { return JSON.parse(JSON.stringify(o)); }
+                function mergeConfig(base, custom) {
+                  const out = clone(base);
+                  const lvls = Object.keys(base);
+                  for (const lv of lvls) {
+                    if (custom && typeof custom[lv] === 'object') {
+                      const c = custom[lv];
+                      if (Number.isFinite(c.size)) out[lv].size = clamp(+c.size, 0.2, 1.5);
+                      if (Number.isFinite(c.rate)) out[lv].rate = Math.max(120, Math.round(+c.rate));
+                      if (Number.isFinite(c.life)) out[lv].life = Math.max(300, Math.round(+c.life));
+                    }
+                  }
+                  return out;
+                }
+            })(GAME_MODULES);
+
+            // --- 4. vr/emoji-image.js (วาด Emoji เป็น Texture) ---
+            (function(exports) {
+                'use strict';
+                const CACHE = new Map();
+                function drawEmoji(char, px=128) {
+                  const key = char+'@'+px;
+                  if (CACHE.has(key)) return CACHE.get(key);
+
+                  const dpr = Math.max(1, Math.min(2, (window.devicePixelRatio||1)));
+                  const W = Math.round(px * dpr), H = Math.round(px * dpr);
+                  const pad = Math.round(px * 0.30 * dpr);
+
+                  const cv = document.createElement('canvas');
+                  cv.width  = W + pad*2;
+                  cv.height = H + pad*2;
+                  const ctx = cv.getContext('2d');
+
+                  const font = Math.round(px*dpr)+'px system-ui, Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+                  ctx.font = font;
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'middle';
+                  ctx.save();
+                  ctx.shadowColor = 'rgba(255,255,255,.5)';
+                  ctx.shadowBlur = Math.round(px*0.2*dpr);
+                  ctx.fillText(char, cv.width/2, cv.height/2);
+                  ctx.restore();
+                  ctx.fillText(char, cv.width/2, cv.height/2);
+
+                  const out = { src: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
+                  CACHE.set(key, out);
+                  return out;
+                }
+                exports.emojiImage = function(char, scale=0.65, px=128) {
+                  const img = drawEmoji(char, px);
+                  const el = document.createElement('a-image');
+                  el.setAttribute('src', img.src);
+                  el.setAttribute('transparent', true);
+                  el.setAttribute('material', 'transparent:true; alphaTest:0.01; side:double');
+                  el.setAttribute('scale', scale+' '+scale+' '+scale);
+                  el.dataset.emoji = char;
+                  return el;
+                }
+            })(GAME_MODULES);
+
+            // --- 5. vr/aframe-particles.js (เอฟเฟกต์ 3D) ---
+            (function(exports) {
+                'use strict';
+                const MODE_PALETTES = {
+                  goodjunk : ['#22c55e','#16a34a','#86efac','#bbf7d0','#0ea5e9'],
+                  groups   : ['#f59e0b','#84cc16','#22c55e','#a855f7','#06b6d4'],
+                  hydration: ['#60a5fa','#38bdf8','#0ea5e9','#22d3ee','#93c5fd'],
+                  plate    : ['#ef4444','#f59e0b','#22c55e','#3b82f6','#eab308'],
+                  default  : ['#a3a3a3','#d4d4d4','#737373','#f5f5f5']
+                };
+                const now = () => performance.now();
+                class ShardSystem {
+                  constructor() {
+                    this.scene = null; this.root = null; this.mode = 'default';
+                    this.pool=[]; this.active=[]; this.maxPool=180;
+                    this.running=false; this._last=now();
+                    this.defaultLife=900; this.defaultGravity=-2.2;
+                  }
+                  setMode(mode){ this.mode = MODE_PALETTES[mode] ? mode : 'default'; }
+                  attach(sceneEl){
+                    if (this.root && this.scene) return;
+                    this.scene = sceneEl || document.querySelector('a-scene');
+                    if (!this.scene) return;
+                    const root=document.createElement('a-entity'); root.id='shardRoot'; root.setAttribute('data-hha-ui','1');
+                    this.scene.appendChild(root); this.root=root;
+                    for(let i=0;i<this.maxPool;i++){
+                      const p=document.createElement('a-entity');
+                      p.setAttribute('geometry','primitive: plane; width: 0.06; height: 0.02');
+                      p.setAttribute('material','color:#fff; transparent:true; opacity:0; side:double');
+                      p.setAttribute('visible',false);
+                      p.__vx=p.__vy=p.__vz=0; p.__ax=p.__ay=p.__az=0; p.__life=p.__age=0; p.__spin=(Math.random()*240-120); p.__busy=false;
+                      root.appendChild(p); this.pool.push(p);
+                    }
+                    if(!this.running){ this.running=true; this._last=now(); this._loop(); }
+                  }
+                  _get(){
+                    for (let i=0;i<this.pool.length;i++){ const el=this.pool[i]; if(!el.__busy){ el.__busy=true; return el; } }
+                    if(this.active.length){ const el=this.active.shift(); el.__busy=true; return el; }
+                    return null;
+                  }
+                  _free(el){
+                    el.__busy=false; el.setAttribute('visible',false);
+                    try{ const m=el.getAttribute('material')||{}; el.setAttribute('material',`color:${m.color||'#fff'}; transparent:true; opacity:0; side:double`);}catch{}
+                  }
+                  burst(worldPos, opts={}){
+                    if(!this.root) this.attach();
+                    if(!this.root || !worldPos) return;
+                    const pal = Array.isArray(opts.palette) ? opts.palette : (MODE_PALETTES[this.mode]||MODE_PALETTES.default);
+                    const count=Math.max(4,Math.min(48,Math.floor(opts.count==null?18:opts.count)));
+                    const speed=Number.isFinite(opts.speed)?opts.speed:2.0;
+                    const size =Number.isFinite(opts.size)?opts.size:1.0;
+                    const life =Math.max(300,Math.floor(opts.life==null?this.defaultLife:opts.life));
+                    const grav =Number.isFinite(opts.gravity)?opts.gravity:this.defaultGravity;
+                    const override = opts.color || null;
+                    for(let i=0;i<count;i++){
+                      const shard=this._get(); if(!shard) break;
+                      const ang=Math.random()*Math.PI*2, up=0.6+Math.random()*0.6, sp=speed*(0.7+Math.random()*0.9);
+                      shard.setAttribute('position',`${worldPos.x} ${worldPos.y} ${worldPos.z}`);
+                      shard.setAttribute('rotation',`0 0 ${Math.floor(Math.random()*360)}`);
+                      shard.__vx=Math.cos(ang)*sp*0.6; shard.__vz=Math.sin(ang)*sp*0.6; shard.__vy=up*sp;
+                      shard.__ax=0; shard.__ay=grav; shard.__az=0;
+                      shard.__life=life*(0.85+Math.random()*0.3); shard.__age=0;
+                      const w=0.06*size*(0.7+Math.random()*1.1), h=0.02*size*(0.7+Math.random()*1.1);
+                      shard.setAttribute('geometry',`primitive: plane; width:${w}; height:${h}`);
+                      const col=override || pal[(Math.random()*pal.length)|0];
+                      shard.setAttribute('material',`color:${col}; transparent:true; opacity:1; side:double`);
+                      shard.setAttribute('visible',true); this.active.push(shard);
+                    }
+                  }
+                  _loop(){
+                    if(!this.running) return;
+                    const t=now(), dt=Math.min(64,Math.max(0,t-this._last))/1000; this._last=t;
+                    if(this.active.length){
+                      const keep=[];
+                      for(let i=0;i<this.active.length;i++){
+                        const el=this.active[i];
+                        el.__age+=dt*1000; el.__vx+=el.__ax*dt; el.__vy+=el.__ay*dt; el.__vz+=el.__az*dt;
+                        const p=el.object3D.position; p.x+=el.__vx*dt; p.y+=el.__vy*dt; p.z+=el.__vz*dt;
+                        const rot=el.getAttribute('rotation'); const z=(rot&&rot.z?rot.z:0)+el.__spin*dt; el.setAttribute('rotation',`0 0 ${z}`);
+                        const fadeT=Math.max(0,1-(el.__age/el.__life)); const alpha=(fadeT<0.25)?fadeT*4*0.6:0.6;
+                        try{ const m=el.getAttribute('material')||{}; el.setAttribute('material',`color:${m.color||'#fff'}; transparent:true; opacity:${alpha.toFixed(3)}; side:double`);}catch{}
+                        if(el.__age>=el.__life || p.y<-5) this._free(el); else keep.push(el);
+                      }
+                      this.active=keep;
+                    }
+                    requestAnimationFrame(this._loop.bind(this));
+                  }
+                }
+                exports.SHARDS = new ShardSystem();
+                if (typeof window!=='undefined') window.SHARDS = exports.SHARDS;
+                exports.setShardMode = function(mode){ exports.SHARDS.setMode(mode); };
+                exports.burstAt = function(sceneEl, worldPos, opts={}){ if(!exports.SHARDS.root) exports.SHARDS.attach(sceneEl); if(opts&&opts.mode) exports.SHARDS.setMode(opts.mode); exports.SHARDS.burst(worldPos,opts); };
+                exports.floatScore = function(sceneEl, worldPos, text='+10', color='#ffffff'){
+                  const scene = sceneEl || document.querySelector('a-scene'); if(!scene||!worldPos) return;
+                  const A = window.AFRAME; const hasTroika = !!(A && A.components && A.components['troika-text']);
+                  const el = document.createElement('a-entity');
+                  if (hasTroika) el.setAttribute('troika-text', `value:${text}; color:${color}; fontSize:0.10;`);
+                  else el.setAttribute('text', `value:${text}; color:${color}; align:center; width:2.2`);
+                  el.setAttribute('position', `${worldPos.x} ${worldPos.y} ${worldPos.z}`);
+                  const y2 = (worldPos.y + 0.35).toFixed(3);
+                  el.setAttribute('animation__rise', `property: position; to: ${worldPos.x} ${y2} ${worldPos.z}; dur: 520; easing: easeOutQuad`);
+                  el.setAttribute('animation__fade', 'property: opacity; to: 0; dur: 520; easing: linear');
+                  scene.appendChild(el);
+                  setTimeout(()=>{ try{ scene.removeChild(el); }catch{} }, 560);
+                }
+            })(GAME_MODULES);
+
+            // --- 6. vr/Quest.js (สมอง - ระบบภารกิจ Serial) ---
+            (function(exports) {
+                'use strict';
+                // ไฟล์นี้ต้องการตัวแปร Global ที่เราจะสร้างใน "GameEngine"
+                // เช่น: score, combo, FEVER_ACTIVE, running, misses
+                // และฟังก์ชัน Global: feverStart(), emit(), popupText()
+                
+                var Quest = (function(){
+                  // ---- Reward & helpers ----
+                  function reward(kind){
+                    if (kind === 'fever') window.feverStart(); // เรียก Global
+                    else if (kind === 'bonus150') {
+                        window.score += 150; 
+                        window.emit('hha:score', {score: window.score, combo: window.combo}); 
+                        window.popupText('+150', {y: 1.0}, '#ffe08a');
+                    }
+                    else if (kind === 'bonus250') {
+                        window.score += 250; 
+                        window.emit('hha:score', {score: window.score, combo: window.combo}); 
+                        window.popupText('+250', {y: 1.0}, '#ffd166');
+                    }
+                  }
+                  function txt(s){ return (typeof s==='function') ? s() : (s||'Mini Quest'); }
+                  function hud(s){ window.emit('hha:quest', { text: txt(s) }); }
+
+                  // ---- Built-in signals for quests ----
+                  var totalGood = 0, totalBad = 0, feverStarted = 0;
+                  function noteGood(){ totalGood++; }
+                  function noteBad(){ totalBad++; }
+                  function noteFever(){ feverStarted++; }
+
+                  // ---- 10 quest templates ----
+                  var BANK = [
+                    { id:'good-streak', reward:'fever',
+                      mk: ()=>({need:10, have:0}),
+                      label: s=>`Mini Quest — เก็บของดีติดกัน ${s.have}/${s.need} ชิ้น เพื่อเปิด FEVER!`,
+                      onGood: s=>{ s.have++; return s.have>=s.need; },
+                      onBad:  s=>{ s.have=0; return false; },
+                      tick:   s=>false
+                    },
+                    { id:'no-junk', reward:'bonus150',
+                      mk: ()=>({t:15, ok:true}),
+                      label: s=>`Mini Quest — หลีกเลี่ยงของขยะให้ครบ ${s.t} วิ`,
+                      onGood: s=>false,
+                      onBad:  s=>{ s.ok=false; return false; },
+                      tick:   s=>{ s.t--; return (s.t<=0 && s.ok); }
+                    },
+                    { id:'reach-combo', reward:'fever',
+                      mk: ()=>({need:12}),
+                      label: s=>`Mini Quest — ทำคอมโบให้ถึง x${s.need}`,
+                      onGood: s=> window.combo>=s.need,
+                      onBad:  s=> false,
+                      tick:   s=> window.combo>=s.need
+                    },
+                    { id:'score-in-time', reward:'bonus150',
+                      mk: ()=>({t:12, base:window.score, need:200}),
+                      label: s=>`Mini Quest — เก็บเพิ่มอีก ${Math.max(0,s.need-(window.score-s.base))} คะแนน ใน ${s.t} วิ`,
+                      onGood: s=> (window.score-s.base)>=s.need,
+                      onBad:  s=> false,
+                      tick:   s=>{ s.t--; return (s.t<=0 ? (window.score-s.base)>=s.need : false); }
+                    },
+                    { id:'limited-bad', reward:'bonus150',
+                      mk: ()=>({t:14, m:1, bad:0}),
+                      label: s=>`Mini Quest — อย่ากดของขยะเกิน ${s.m} ครั้ง ใน ${s.t} วิ`,
+                      onGood: s=>false,
+                      onBad:  s=>{ s.bad++; return false; },
+                      tick:   s=>{ s.t--; return (s.t<=0 && s.bad<=s.m); }
+                    },
+                    { id:'collect-good', reward:'bonus150',
+                      mk: ()=>({base:totalGood, need:25}),
+                      label: s=>`Mini Quest — สะสมของดีให้ครบ ${s.need} ชิ้น (อีก ${Math.max(0,s.need-(totalGood-s.base))})`,
+                      onGood: s=> (totalGood - s.base) >= s.need,
+                      onBad:  s=> false,
+                      tick:   s=> (totalGood - s.base) >= s.need
+                    },
+                    { id:'fever-count', reward:'bonus250',
+                      mk: ()=>({base:feverStarted, need:1}),
+                      label: s=>`Mini Quest — เปิด FEVER ให้ได้ ${s.need} ครั้ง`,
+                      onGood: s=> false,
+                      onBad:  s=> false,
+                      tick:   s=> (feverStarted - s.base) >= s.need
+                    },
+                    { id:'fever-hold', reward:'bonus150',
+                      mk: ()=>({t:8, counting:false}),
+                      label: s=>`Mini Quest — รักษา FEVER ให้นาน ${s.t} วิ`,
+                      onGood: s=> false,
+                      onBad:  s=> false,
+                      tick:   s=>{ if(window.FEVER_ACTIVE){ s.counting=true; s.t--; if(s.t<=0) return true; } return false; }
+                    },
+                    { id:'miss-guard', reward:'bonus150',
+                      mk: ()=>({t:15, baseMiss:window.misses, m:1}),
+                      label: s=>`Mini Quest — ห้ามพลาดเกิน ${s.m} ครั้งใน ${s.t} วิ`,
+                      onGood: s=> false,
+                      onBad:  s=> false,
+                      tick:   s=>{ s.t--; return (s.t<=0 && (window.misses - s.baseMiss) <= s.m); }
+                    },
+                    { id:'finish-with-combo', reward:'bonus250',
+                      mk: ()=>({need:8}),
+                      label: s=>`Mini Quest — รักษาคอมโบให้ถึงตอนจบเควสต์ (≥ x${s.need})`,
+                      onGood: s=> false,
+                      onBad:  s=> false,
+                      tick:   s=> window.combo>=s.need
+                    }
+                  ];
+
+                  // ---- pick 3 per run ----
+                  var queue = [];    
+                  var idx = 0;         
+                  var cur = null, st=null, tickId=null;
+
+                  function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.random()*(i+1)|0; [a[i],a[j]]=[a[j],a[i]]; } return a; }
+                  function pick3(){ queue = shuffle(BANK.slice()).slice(0,3); idx=0; }
+
+                  function mount(i){
+                    cur = queue[i]; st = cur.mk();
+                    hud(()=>cur.label(st));
+                    if (tickId) clearInterval(tickId);
+                    tickId = setInterval(function(){
+                      if(!window.running || !cur) return;
+                      if(cur.tick(st)){ done(); } else { hud(()=>cur.label(st)); }
+                    }, 1000);
+                  }
+
+                  function done(){
+                    if(!cur) return;
+                    var rw = cur.reward;
+                    clearInterval(tickId); tickId=null;
+                    reward(rw);
+                    idx++;
+                    if(idx>=queue.length){
+                      pick3(); idx=0;
+                    }
+                    setTimeout(function(){ mount(idx); }, 1100);
+                  }
+
+                  // ---- public hooks ----
+                  function start(){ pick3(); mount(0); }
+                  function stop(){ if(tickId) clearInterval(tickId); tickId=null; cur=null; }
+                  function onGood(){ noteGood(); if(!cur) return; if(cur.onGood(st)) done(); else hud(()=>cur.label(st)); }
+                  function onBad(){  noteBad();  if(!cur) return; if(cur.onBad(st))  done(); else hud(()=>cur.label(st)); }
+                  function onFever(){ noteFever(); } // เรียกเมื่อ Fever เริ่ม
+
+                  return { start, stop, onGood, onBad, onFever };
+                })();
+                
+                exports.Quest = Quest;
+
+            })(GAME_MODULES);
+
+
+            // --- 7. GameEngine.js (สมองใหม่ - ตัวเชื่อมต่อที่ผมเขียนขึ้น) ---
+            (function(exports, imports) {
+                'use strict';
+
+                // --- Import Modules ---
+                const { setFever, setFeverActive, setShield, ensureFeverBar } = imports;
+                const { Difficulty } = imports;
+                const { emojiImage } = imports;
+                const { burstAt, floatScore, setShardMode } = imports;
+                const { Quest } = imports;
+
+                // --- Game Variables (ที่ `Quest.js` ต้องการ) ---
+                window.score = 0;
+                window.combo = 0;
+                window.misses = 0;
+                window.FEVER_ACTIVE = false;
+                window.running = false;
+                let shield = 0;
+                let fever = 0;
+                
+                let gameTimer = null;
+                let spawnTimer = null;
+                let sceneEl = null;
+                let targetRoot = null;
+                let gameConfig = null;
+                let difficulty = new Difficulty();
+
+                const GOOD = ['🥦','🥕','🍎','🐟','🥛','🍊','🍌','🍇','🥬','🍚','🥜','🍞','🍓','🍍','🥝','🍐'];
+                const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+                const STAR='⭐', DIA='💎', SHIELD_EMOJI='🛡️', FIRE='🔥';
+                const BONUS=[STAR,DIA,SHIELD_EMOJI,FIRE];
+                
+                // --- Global Functions (ที่ `Quest.js` ต้องการ) ---
+                window.emit = function(name, detail) {
+                    try { window.dispatchEvent(new CustomEvent(name, {detail})); } catch(e) {}
+                }
+                
+                window.feverStart = function() {
+                    if (window.FEVER_ACTIVE) return;
+                    fever = 100;
+                    setFever(fever);
+                    window.FEVER_ACTIVE = true;
+                    setFeverActive(true);
+                    Quest.onFever();
+                    window.emit('hha:fever', {state: 'start'});
+                }
+                
+                window.popupText = function(text, pos, color = '#fff') {
+                    // สร้างตำแหน่งกลางๆ หน้าผู้เล่น
+                    const worldPos = { x: 0, y: (pos && pos.y) || 1.4, z: -1.5 };
+                    floatScore(sceneEl, worldPos, text, color);
+                }
+
+                // --- Game Logic ---
+                function mult() { return window.FEVER_ACTIVE ? 2 : 1; }
+
+                function gainFever(n) {
+                    if (window.FEVER_ACTIVE) return;
+                    fever = Math.max(0, Math.min(100, fever + n));
+                    setFever(fever);
+                    if (fever >= 100) {
+                        window.feverStart();
+                    }
+                }
+
+                function decayFever(base) {
+                    const d = window.FEVER_ACTIVE ? 10 : base;
+                    fever = Math.max(0, fever - d);
+                    setFever(fever);
+                    if (window.FEVER_ACTIVE && fever <= 0) {
+                        window.FEVER_ACTIVE = false;
+                        setFeverActive(false);
+                        window.emit('hha:fever', {state: 'end'});
+                    }
+                }
+                
+                function spawnTarget() {
+                    if (!window.running) return;
+
+                    const cfg = gameConfig;
+                    const isGood = Math.random() < 0.65;
+                    const usePower = Math.random() < 0.08;
+                    
+                    let char;
+                    let type;
+                    let palette;
+                    
+                    if (usePower) {
+                        char = BONUS[(Math.random() * BONUS.length) | 0];
+                        type = 'good'; // Powerups ถือเป็น good
+                        palette = 'groups';
+                    } else if (isGood) {
+                        char = GOOD[(Math.random() * GOOD.length) | 0];
+                        type = 'good';
+                        palette = 'goodjunk';
+                    } else {
+                        char = JUNK[(Math.random() * JUNK.length) | 0];
+                        type = 'bad';
+                        palette = 'plate';
+                    }
+                    
+                    const scale = cfg.size * 0.6; // 0.6 คือ scale พื้นฐาน
+                    const el = emojiImage(char, scale);
+                    el.dataset.type = type;
+                    el.dataset.char = char;
+                    el.dataset.palette = palette;
+                    el.setAttribute('data-hha-tgt', '1'); // ให้ raycaster ยิงโดน
+
+                    // สุ่มตำแหน่งใน 3D (ด้านหน้าผู้เล่น)
+                    const x = (Math.random() - 0.5) * 4; // -2 ถึง +2
+                    const y = 1.0 + Math.random() * 1.0; // 1.0 ถึง 2.0
+                    const z = -2.5 - Math.random() * 1.0; // -2.5 ถึง -3.5
+                    el.setAttribute('position', `${x} ${y} ${z}`);
+                    
+                    targetRoot.appendChild(el);
+                    
+                    // ตั้งเวลาทำลายตัวเอง
+                    setTimeout(() => {
+                        if (el && el.parentNode) {
+                            if (type === 'good') {
+                                // พลาดของดี
+                                window.misses++;
+                                window.combo = 0;
+                                window.emit('hha:miss', {});
+                            } else {
+                                // หลบของขยะ (ดีแล้ว)
+                                gainFever(4);
+                            }
+                            el.remove();
+                        }
+                    }, cfg.life);
+
+                    // วางแผน spawn ครั้งถัดไป
+                    spawnTimer = setTimeout(spawnTarget, cfg.rate);
+                }
+                
+                function onHitTarget(targetEl) {
+                    if (!targetEl || !targetEl.parentNode) return;
+                    
+                    const type = targetEl.dataset.type;
+                    const char = targetEl.dataset.char;
+                    const palette = targetEl.dataset.palette;
+                    const pos = targetEl.object3D.getWorldPosition(new THREE.Vector3());
+
+                    let scoreDelta = 0;
+                    
+                    if (type === 'good') {
+                        // --- ตีโดนของดี / Powerup ---
+                        if (char === STAR) { scoreDelta = 40 * mult(); gainFever(10); }
+                        else if (char === DIA) { scoreDelta = 80 * mult(); gainFever(30); }
+                        else if (char === SHIELD_EMOJI) { scoreDelta = 20; shield = Math.min(3, shield + 1); setShield(shield); }
+                        else if (char === FIRE) { scoreDelta = 25; window.feverStart(); }
+                        else {
+                            scoreDelta = (20 + window.combo * 2) * mult();
+                            gainFever(8 + window.combo * 0.6);
+                        }
+                        
+                        window.score += scoreDelta;
+                        window.combo++;
+                        Quest.onGood(); // บอกระบบ Quest
+                        burstAt(sceneEl, pos, { mode: palette });
+                        floatScore(sceneEl, pos, `+${scoreDelta}`, '#22c55e');
+
+                    } else {
+                        // --- ตีโดนของขยะ ---
+                        if (shield > 0) {
+                            shield--;
+                            setShield(shield);
+                            burstAt(sceneEl, pos, { mode: 'hydration' });
+                            floatScore(sceneEl, pos, 'SHIELDED!', '#60a5fa');
+                        } else {
+                            scoreDelta = -15;
+                            window.score = Math.max(0, window.score + scoreDelta);
+                            window.combo = 0;
+                            decayFever(18);
+                            Quest.onBad(); // บอกระบบ Quest
+                            window.emit('hha:miss', {});
+                            burstAt(sceneEl, pos, { mode: palette });
+                            floatScore(sceneEl, pos, `${scoreDelta}`, '#ef4444');
+                        }
+                    }
+                    
+                    window.emit('hha:score', { score: window.score, combo: window.combo, delta: scoreDelta });
+                    
+                    // ทำลาย target
+                    targetEl.remove();
+                }
+
+                function gameTick() {
+                    if (!window.running) return;
+                    // ลด Fever ทุกวินาที
+                    decayFever(window.combo <= 0 ? 6 : 2);
+                }
+
+                // --- Public Controller ---
+                exports.GameEngine = {
+                    start(level) {
+                        sceneEl = document.querySelector('a-scene');
+                        if (!sceneEl) {
+                            console.error("A-Frame scene not found!");
+                            return;
+                        }
+
+                        // ล้างของเก่า
+                        if (targetRoot) targetRoot.remove();
+                        targetRoot = document.createElement('a-entity');
+                        targetRoot.id = 'targetRoot';
+                        sceneEl.appendChild(targetRoot);
+                        
+                        // ตั้งค่า UI
+                        ensureFeverBar();
+                        setShardMode('goodjunk');
+                        
+                        // รีเซ็ตค่า
+                        window.score = 0;
+                        window.combo = 0;
+                        window.misses = 0;
+                        shield = 0;
+                        fever = 0;
+                        window.FEVER_ACTIVE = false;
+                        window.running = true;
+
+                        setFever(0);
+                        setShield(0);
+                        setFeverActive(false);
+
+                        // ตั้งค่าความยาก
+                        difficulty.set(level);
+                        gameConfig = difficulty.get(); // { size, rate, life }
+                        
+                        // เริ่มระบบเกม
+                        if (gameTimer) clearInterval(gameTimer);
+                        if (spawnTimer) clearTimeout(spawnTimer);
+                        gameTimer = setInterval(gameTick, 1000);
+                        spawnTimer = setTimeout(spawnTarget, 1000); // เริ่ม spawn แรก
+                        
+                        Quest.start(); // เริ่มระบบภารกิจ
+                        
+                        // ตั้งค่าการยิง (Click/Trigger)
+                        // เราจะฟังสัญญาณ 'click' จาก raycaster (laser-controls / cursor)
+                        // A-Frame จะยิง 'click' ที่ตัว object ที่โดน
+                        sceneEl.addEventListener('click', (e) => {
+                            if (e.target && e.target.dataset.hhaTgt) {
+                                onHitTarget(e.target);
+                            }
+                        });
+                        
+                        // ส่งสัญญาณเริ่มเกม
+                        window.emit('hha:score', {score: 0, combo: 0});
+                    },
+                    
+                    stop() {
+                        if (!window.running) return;
+                        window.running = false;
+                        
+                        if (gameTimer) clearInterval(gameTimer);
+                        if (spawnTimer) clearTimeout(spawnTimer);
+                        gameTimer = null;
+                        spawnTimer = null;
+                        
+                        Quest.stop();
+                        
+                        // ล้าง UI และ targets
+                        if (targetRoot) targetRoot.remove();
+                        targetRoot = null;
+                        
+                        document.querySelectorAll('[data-hha-ui]').forEach(el => el.remove());
+                        
+                        // ส่งสัญญาณจบเกม
+                        window.emit('hha:end', { score: window.score });
+                    }
+                };
+
+            })(GAME_MODULES, GAME_MODULES);
+
+            // --- 8. Launcher (ตัวเรียกเกม) ---
+            (function(App) {
+                'use strict';
+                const { GameEngine } = App;
+                
+                const uiOverlay = document.getElementById('uiOverlay');
+                const startScreen = document.getElementById('startScreen');
+                const resultsScreen = document.getElementById('resultsScreen');
+                const finalScore = document.getElementById('finalScore');
+                const playAgainButton = document.getElementById('playAgainButton');
+
+                const DURATION = 60 * 1000; // 60 วินาที
+                let gameEndTimer = null;
+                
+                function startGame(difficulty) {
+                    uiOverlay.classList.add('hidden');
+                    GameEngine.start(difficulty);
+                    
+                    // ตั้งเวลาจบเกม
+                    if (gameEndTimer) clearTimeout(gameEndTimer);
+                    gameEndTimer = setTimeout(endGame, DURATION);
+                }
+                
+                function endGame() {
+                    const finalScoreValue = window.score;
+                    GameEngine.stop();
+                    
+                    uiOverlay.classList.remove('hidden');
+                    startScreen.style.display = 'none';
+                    resultsScreen.style.display = 'block';
+                    finalScore.textContent = `คะแนน: ${finalScoreValue}`;
+                }
+
+                // ปุ่มเริ่มเกม
+                document.getElementById('startButtonEasy').addEventListener('click', () => startGame('easy'));
+                document.getElementById('startButtonNormal').addEventListener('click', () => startGame('normal'));
+                document.getElementById('startButtonHard').addEventListener('click', () => startGame('hard'));
+                
+                // ปุ่มเล่นอีกครั้ง
+                playAgainButton.addEventListener('click', () => {
+                    resultsScreen.style.display = 'none';
+                    startScreen.style.display = 'block';
+                });
+                
+                // จับเหตุการณ์จบเกม (เผื่อมีการเรียกจากที่อื่น)
+                window.addEventListener('hha:end', () => {
+                    if (gameEndTimer) clearTimeout(gameEndTimer);
+                    if (window.running) { // ถ้าเกมยังทำงานอยู่ (เช่น ถูกเรียกจากภายนอก)
+                        endGame();
+                    }
+                });
+                
+            })(GAME_MODULES);
+
+        })();
+    </script>
+</body>
+</html>
