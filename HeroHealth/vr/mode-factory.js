@@ -1,4 +1,4 @@
-// === /HeroHealth/vr/mode-factory.js (2025-11-12 LATEST+MOUNT-FIX) ===
+// === /HeroHealth/vr/mode-factory.js (2025-11-12 BRING-TO-FRONT + AUTOSTART DEBUG) ===
 export function boot(opts){
   opts = opts || {};
   var duration   = Number(opts.duration!=null?opts.duration:60)|0;
@@ -16,57 +16,63 @@ export function boot(opts){
   function fire(name, detail){ try{ window.dispatchEvent(new CustomEvent(name,{detail})) }catch(_){ } }
   function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 
-  // ---------- styles ----------
+  // styles
   (function inject(){
     if (document.getElementById('hha-factory-style')) return;
     var st=document.createElement('style'); st.id='hha-factory-style';
     st.textContent =
-      '.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto;background:transparent;}' +
+      '.hha-layer{position:fixed;inset:0;z-index:999999;pointer-events:auto;background:transparent;}' +
       '.hha-tgt{position:absolute;transform:translate(-50%,-50%);display:block;opacity:1;' +
       ' user-select:none;-webkit-user-select:none;touch-action:none;' +
       ' -webkit-tap-highlight-color:transparent;background:transparent;' +
-      ' padding:14px 16px;border-radius:18px; font-size:64px;line-height:1;' +
+      ' padding:14px 16px;border-radius:18px;font-size:64px;line-height:1;' +
       ' filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));' +
       ' transition:transform .12s ease,opacity .24s ease;cursor:pointer}' +
       '.hha-tgt.hit{transform:translate(-50%,-50%) scale(.85);opacity:.15}' +
       '.hha-layer.off{pointer-events:none!important;}' +
       '.hha-debug{position:fixed;left:50%;top:10px;transform:translateX(-50%);' +
-      ' background:#0b1220cc;color:#e2e8f0;padding:6px 10px;border:1px solid #334155;border-radius:8px;font:700 12px system-ui;z-index:9999;}';
+      ' background:#0b1220cc;color:#e2e8f0;padding:6px 10px;border:1px solid #334155;border-radius:8px;' +
+      ' font:700 12px system-ui;z-index:1000000;}';
     document.head.appendChild(st);
   })();
 
-  // ---------- mount (สำคัญ) ----------
-  // อย่าผูกกับ #spawnHost (มักถูกตั้ง pointer-events:none)
-  var mount = document.querySelector('.game-wrap') || document.body;
-  // กัน parent มี pointer-events:none
-  try{ mount.style.pointerEvents = 'auto'; }catch(_){}
-  // สร้างเลเยอร์ด้านบน A-Frame canvas เสมอ
+  // mount: บังคับ append ท้าย body เสมอ (อยู่บนสุดแน่)
   var layer = document.querySelector('.hha-layer');
-  if (!layer){
+  function bringToFront(){
+    if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
     layer = document.createElement('div');
     layer.className = 'hha-layer';
-    mount.appendChild(layer);
+    document.body.appendChild(layer);
+    try{ layer.style.zIndex = '999999'; }catch(_){}
+    fire('hha:layer-ready', { el: layer });
   }
-  // ยก z-index ขึ้นอีกชั้นเผื่อธีมอื่น
-  try{ layer.style.zIndex = '900'; }catch(_){}
-  fire('hha:layer-ready', { el: layer });
+  bringToFront();
 
-  // debug badge (เปิดด้วย ?debug=1)
+  // DEBUG
   var DEBUG = /(?:^|[?&])debug=1(?:&|$)/.test(location.search);
   var dbg = null;
   function setDbg(txt){
     if(!DEBUG) return;
-    if(!dbg){ dbg = document.createElement('div'); dbg.className='hha-debug'; document.body.appendChild(dbg); }
+    if(!dbg){ dbg=document.createElement('div'); dbg.className='hha-debug'; document.body.appendChild(dbg); }
     dbg.textContent = txt;
   }
+  // helper ให้คุณทดสอบได้: window.hhaPing() และ hhaTestSpawnDot()
+  window.hhaPing = ()=>setDbg('hha: alive at '+Date.now());
+  window.hhaTestSpawnDot = ()=>{
+    bringToFront();
+    var dot=document.createElement('div');
+    dot.style.cssText='position:fixed;left:50%;top:50%;width:30px;height:30px;background:#f43;border-radius:50%;z-index:1000001;';
+    document.body.appendChild(dot);
+    setTimeout(()=>dot.remove(),1500);
+    setDbg('test dot');
+  };
 
-  // ---------- state ----------
+  // state
   var running=false, killed=false;
   var timerId=null, secLeft=duration|0;
   var spawnTimer=null, lifeMs=2000;
   var sinceLastPower=0, spawnCount=0;
 
-  // ---------- time ----------
   function tick(){
     if (!running) return;
     secLeft = Math.max(0, secLeft-1);
@@ -74,10 +80,7 @@ export function boot(opts){
     if (secLeft<=0){ endGame('timeout'); return; }
   }
 
-  function shouldSpawnPower(){
-    if (sinceLastPower < powerEvery) return false;
-    return Math.random() < powerRate;
-  }
+  function shouldSpawnPower(){ if (sinceLastPower < powerEvery) return false; return Math.random() < powerRate; }
 
   function getXY(ev){
     var cx = ev && ev.clientX != null ? ev.clientX : 0;
@@ -114,7 +117,7 @@ export function boot(opts){
   function spawnOne(forceCenter){
     if(!running) return;
     spawnCount++; sinceLastPower++;
-    setDbg('spawn #' + spawnCount);
+    setDbg('spawn #'+spawnCount);
 
     var usePower = powerups.length>0 && shouldSpawnPower();
     var ch, isGood;
@@ -133,13 +136,10 @@ export function boot(opts){
       if(clicked || !running || killed) return;
       clicked=true;
       try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
-
       var pt = getXY(ev);
       var res = judge(ch, { clientX:pt.cx, clientY:pt.cy, isGood:isGood });
-
       var good  = !!(res && res.good);
       var delta = (res && typeof res.scoreDelta==='number') ? res.scoreDelta : (good?1:-1);
-
       try{ el.classList.add('hit'); layer.removeChild(el); }catch(_){}
       fire('hha:hit-screen', {x:pt.cx, y:pt.cy, good:good, delta:delta, char:ch, isGood:isGood});
       fire('hha:score', {delta:delta, good:good});
@@ -154,13 +154,8 @@ export function boot(opts){
     var killId = setTimeout(function(){
       if(clicked || !running || killed) return;
       try{ layer.removeChild(el); }catch(_){}
-      if (isGood){
-        fire('hha:expired', {isGood:true, char:ch});
-        if (onExpire) try{ onExpire({isGood:true, ch:ch}); }catch(_){}
-      } else {
-        fire('hha:expired', {isGood:false, char:ch});
-        if (onExpire) try{ onExpire({isGood:false, ch:ch}); }catch(_){}
-      }
+      if (isGood){ fire('hha:expired', {isGood:true, char:ch}); onExpire && onExpire({isGood:true, ch:ch}); }
+      else       { fire('hha:expired', {isGood:false, char:ch}); onExpire && onExpire({isGood:false, ch:ch}); }
       planNextSpawn();
     }, lifeMs);
     el._killId = killId;
@@ -179,14 +174,16 @@ export function boot(opts){
   function start(){
     if (running) return;
     running = true; killed = false;
+    // ย้าย layer ขึ้นมาท้าย body อีกครั้ง เผื่อมีอะไรใส่เพิ่มระหว่างโหลด
+    bringToFront();
     layer.classList.remove('off');
     // time
     clearInterval(timerId); secLeft = duration|0;
     fire('hha:time',{sec:secLeft});
     timerId = setInterval(tick, 1000);
-    // first target — ให้แน่ใจว่า HUD วางแล้ว
+    // ให้ HUD/DOM layout เสร็จก่อน แล้วค่อยสปาวน์
     requestAnimationFrame(()=>{ spawnOne(true); planNextSpawn(); });
-    setTimeout(()=>{ if(spawnCount===0) { spawnOne(true); planNextSpawn(); } }, 0);
+    setTimeout(()=>{ if(spawnCount===0){ spawnOne(true); planNextSpawn(); } }, 60);
   }
 
   function pause(){ if(!running) return; clearInterval(timerId); clearTimeout(spawnTimer); fire('hha:pause',{}); }
@@ -196,11 +193,10 @@ export function boot(opts){
     try{
       layer.classList.add('off');
       var nodes = layer.querySelectorAll('.hha-tgt');
-      for (var i=0;i<nodes.length;i++){ try{ if(nodes[i]._killId) clearTimeout(nodes[i]._killId); }catch(_){}} 
+      for (var i=0;i<nodes.length;i++){ try{ if(nodes[i]._killId) clearTimeout(nodes[i]._killId); }catch(_){} }
       while(layer.firstChild) layer.removeChild(layer.firstChild);
     }catch(_){}
   }
-
   function endGame(reason){
     if (killed) return; killed=true; running=false;
     try{ clearInterval(timerId); }catch(_){}
@@ -208,7 +204,6 @@ export function boot(opts){
     hardClearLayer();
     fire('hha:end',{reason:reason||'done'});
   }
-
   function stop(){ endGame('done'); }
 
   try{
