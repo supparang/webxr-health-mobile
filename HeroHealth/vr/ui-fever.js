@@ -1,177 +1,152 @@
-// === /HeroHealth/vr/ui-fever.js
-// Fever/Shield UI — auto-mount under score+combo, with retries & CSS injection.
+// === /HeroHealth/vr/ui-fever.js (2025-11-12 FINAL) ===
+// - Self-styled fever bar (attach under HUD score-box)
+// - Robust re-parenting on `hha:hud-ready`
+// - Public API: ensureFeverBar, setFever, setFeverActive, setShield
 
-let feverEl = null, feverFill = null, feverGlow = null, shieldEl = null;
-let cssInjected = false;
-let mountTries = 0, mountedInto = null;
+let _wrap = null, _bar = null, _shield = null;
+let _val = 0, _active = false, _shieldCount = 0;
 
-function injectCSS(){
-  if (cssInjected) return;
-  cssInjected = true;
-  const css = `
-  .hha-fever-wrap{
-    position:absolute; left:0; right:0; top:100%;
-    margin-top:8px; padding:0 4px; height:14px;
-    display:flex; align-items:center; gap:8px;
-    pointer-events:none; z-index: 50;
-  }
-  .hha-fever-bar{
-    position:relative; flex:1; height:10px; border-radius:999px;
-    background:linear-gradient(180deg,#1f2937,#111827);
-    box-shadow: inset 0 1px 2px rgba(0,0,0,.6);
-    overflow:hidden;
-  }
-  .hha-fever-fill{
-    position:absolute; left:0; top:0; bottom:0; width:0%;
-    background:linear-gradient(90deg,#60a5fa,#22d3ee,#34d399);
-    transition:width .18s ease-out, filter .2s ease-out, opacity .2s ease-out;
-  }
-  .hha-fever-glow{
-    position:absolute; left:0; top:-2px; height:14px; width:0%;
-    filter:blur(6px); opacity:.0; pointer-events:none;
-    background:linear-gradient(90deg,rgba(96,165,250,.8),rgba(34,211,238,.8),rgba(52,211,153,.8));
-    transition:opacity .2s ease-out, width .18s ease-out;
-  }
-  .hha-shield{
-    min-width:42px; height:14px; border-radius:999px;
-    background:#0ea5e9; color:#00131a; font-weight:900; font-size:11px;
-    display:flex; align-items:center; justify-content:center;
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.35);
-    letter-spacing:.2px; transform:translateZ(0);
-  }
-  /* fixed fallback if we cannot mount into HUD */
-  .hha-fever-fixed{
-    position:fixed; left:12px; right:12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
-    z-index: 9990; pointer-events:none;
-  }
-  @media (max-width: 480px){
-    .hha-fever-fixed{ left:10px; right:10px; }
-  }
-  `;
-  const style = document.createElement('style');
-  style.id = 'hha-fever-style';
-  style.textContent = css;
-  document.head.appendChild(style);
+function _injectStyles(){
+  if (document.getElementById('hha-fever-style')) return;
+  const st = document.createElement('style');
+  st.id = 'hha-fever-style';
+  st.textContent = [
+    '.hha-fever-wrap{position:relative;margin-top:6px;display:flex;align-items:center;gap:8px;',
+    ' background:#0b1220cc;border:1px solid #334155;border-radius:12px;padding:6px 8px;}',
+    '.hha-fever-label{font:700 12px system-ui,Segoe UI,Inter,sans-serif;color:#93c5fd;letter-spacing:.3px;}',
+    '.hha-fever-bar{position:relative;flex:1 1 auto;height:10px;background:#111827;border:1px solid #1f2937;border-radius:999px;overflow:hidden;}',
+    '.hha-fever-fill{position:absolute;left:0;top:0;bottom:0;width:0%;background:linear-gradient(90deg,#60a5fa,#22d3ee,#a78bfa);',
+    ' transition:width .18s ease; box-shadow:0 0 0 rgba(255,255,255,0)}',
+    '.hha-fever-wrap.active .hha-fever-fill{box-shadow:0 0 18px rgba(99,102,241,.75),0 0 32px rgba(34,211,238,.55)}',
+    '.hha-fever-meta{min-width:44px;text-align:right;font:800 12px system-ui;color:#e5e7eb;}',
+    '.hha-shield{min-width:58px;display:flex;align-items:center;justify-content:flex-end;gap:4px;font:800 12px system-ui;color:#fef3c7;}',
+    '.hha-shield-badge{display:inline-flex;align-items:center;gap:4px;background:#78350f;border:1px solid #a16207;color:#fde68a;',
+    ' padding:3px 8px;border-radius:999px;}',
+    '.hha-shield-badge .ico{filter:drop-shadow(0 1px 0 rgba(0,0,0,.5))}',
+  ].join('');
+  document.head.appendChild(st);
 }
 
-function build(){
-  injectCSS();
-  const wrap = document.createElement('div');
-  wrap.className = 'hha-fever-wrap';
-  wrap.setAttribute('aria-hidden','true');
+function _build(){
+  if (_wrap) return _wrap;
+  _injectStyles();
 
-  const bar  = document.createElement('div');  bar.className = 'hha-fever-bar';
-  const fill = document.createElement('div');  fill.className = 'hha-fever-fill';
-  const glow = document.createElement('div');  glow.className = 'hha-fever-glow';
-  bar.appendChild(fill); bar.appendChild(glow);
+  _wrap = document.createElement('div');
+  _wrap.className = 'hha-fever-wrap';
+  _wrap.id = 'feverBarWrap';
 
-  const sh   = document.createElement('div');  sh.className   = 'hha-shield';
-  sh.textContent = '🛡️ x0';
+  const label = document.createElement('div');
+  label.className = 'hha-fever-label';
+  label.textContent = 'FEVER';
 
-  wrap.appendChild(bar);
-  wrap.appendChild(sh);
+  const bar = document.createElement('div');
+  bar.className = 'hha-fever-bar';
+  const fill = document.createElement('div');
+  fill.className = 'hha-fever-fill';
+  bar.appendChild(fill);
 
-  feverEl   = wrap;
-  feverFill = fill;
-  feverGlow = glow;
-  shieldEl  = sh;
-  return wrap;
+  const meta = document.createElement('div');
+  meta.className = 'hha-fever-meta';
+  meta.textContent = '0%';
+
+  const sh = document.createElement('div');
+  sh.className = 'hha-shield';
+  sh.innerHTML = '<span class="hha-shield-badge"><span class="ico">🛡️</span><span class="n">0</span></span>';
+
+  _wrap.appendChild(label);
+  _wrap.appendChild(bar);
+  _wrap.appendChild(meta);
+  _wrap.appendChild(sh);
+
+  _bar = { fill, meta };
+  _shield = sh.querySelector('.n');
+
+  // init value
+  setFever(_val);
+  setFeverActive(_active);
+  setShield(_shieldCount);
+
+  return _wrap;
 }
 
-// Try to find a HUD container under score+combo to attach after.
-// Accepted anchors (first found wins):
-//  - #hudTop .score-box
-//  - .hud-top .score-box
-//  - [data-hud="scorebox"]
-//  - #hudTop
-function findAnchor(){
-  const a =
-    document.querySelector('#hudTop .score-box') ||
-    document.querySelector('.hud-top .score-box') ||
-    document.querySelector('[data-hud="scorebox"]') ||
-    document.querySelector('#hudTop');
-  return a || null;
+function _findAnchor(detail){
+  // Try the score-box inside HUD first
+  let anchor = null;
+
+  // If detail specifies scoreBox, try likely selectors
+  const sels = [
+    '#hudTop .score-box',
+    '.hud-top .score-box',
+    '[data-hud="scorebox"]',
+    '#hudTop',
+    '.hud-top'
+  ];
+  for (let i=0;i<sels.length;i++){
+    const el = document.querySelector(sels[i]);
+    if (el){ anchor = el; break; }
+  }
+  // Fallback to any HUD root the hub hinted
+  if (!anchor && detail && detail.anchorId){
+    const byId = document.getElementById(detail.anchorId);
+    if (byId) anchor = byId;
+  }
+  // Last resort: .game-wrap or body
+  if (!anchor) anchor = document.querySelector('.game-wrap') || document.body;
+  return anchor;
 }
 
-function mountUnderScore(){
-  if (!feverEl) build();
-  const anchor = findAnchor();
-  if (anchor){
-    // Place the fever wrap absolutely under the anchor box
-    const host = anchor.closest('#hudTop, .hud-top') || anchor.parentElement || document.body;
-    if (host && getComputedStyle(host).position === 'static'){
-      host.style.position = 'relative';
+function _attach(detail){
+  const wrap = _build();
+  const anchor = _findAnchor(detail||{});
+  if (!anchor) return;
+
+  // Prefer “after score-box”; otherwise append inside HUD root
+  try{
+    if (anchor.classList && anchor.classList.contains('score-box')){
+      anchor.insertAdjacentElement('afterend', wrap);
+    } else {
+      anchor.appendChild(wrap);
     }
-    // If anchor is not relatively positioned, we still append to host and rely on absolute in .hha-fever-wrap (top:100%)
-    if (anchor && getComputedStyle(anchor).position === 'static'){
-      anchor.style.position = 'relative';
-    }
-    anchor.appendChild(feverEl);
-    feverEl.classList.remove('hha-fever-fixed');
-    mountedInto = 'hud';
-    return true;
-  }
-  return false;
-}
-
-function mountFallbackFixed(){
-  if (!feverEl) build();
-  if (!feverEl.parentNode){
-    document.body.appendChild(feverEl);
-  }
-  feverEl.classList.add('hha-fever-fixed');
-  mountedInto = 'fixed';
-}
-
-function tryMountLoop(){
-  if (mountUnderScore()) return;
-  // retry a few frames for late HUD
-  if (mountTries < 30){
-    mountTries++;
-    requestAnimationFrame(tryMountLoop);
-  } else {
-    // fallback to fixed
-    mountFallbackFixed();
+  }catch(_){
+    // ultimate fallback
+    (document.querySelector('.game-wrap') || document.body).appendChild(wrap);
   }
 }
 
-// ---- Public API ----
 export function ensureFeverBar(){
-  if (feverEl && feverEl.parentNode) return;
-  build();
-  mountTries = 0; mountedInto = null;
-  tryMountLoop();
+  if (!_wrap) _build();
+  // also (re)attach right away to wherever is available now
+  _attach({});
+  // listen for HUD readiness/bursts from hub.js
+  try{
+    window.addEventListener('hha:hud-ready', (e)=>{
+      try{ _attach(e && e.detail ? e.detail : {}); }catch(_){}
+    });
+  }catch(_){}
+  return _wrap;
 }
 
 export function setFever(v){
-  if (!feverEl) ensureFeverBar();
-  const val = Math.max(0, Math.min(100, Number(v)||0));
-  if (feverFill) feverFill.style.width = val + '%';
-  if (feverGlow) feverGlow.style.width = val + '%';
+  _val = Math.max(0, Math.min(100, Number(v)||0));
+  if (_bar && _bar.fill){
+    _bar.fill.style.width = _val + '%';
+  }
+  if (_bar && _bar.meta){
+    _bar.meta.textContent = _val + '%';
+  }
 }
 
-export function setFeverActive(active){
-  if (!feverEl) ensureFeverBar();
-  const on = !!active;
-  if (feverGlow) feverGlow.style.opacity = on ? 0.9 : 0.0;
-  if (feverFill) feverFill.style.filter  = on ? 'saturate(1.3) brightness(1.15)' : 'none';
+export function setFeverActive(on){
+  _active = !!on;
+  if (_wrap){
+    if (_active) _wrap.classList.add('active');
+    else _wrap.classList.remove('active');
+  }
 }
 
 export function setShield(n){
-  if (!feverEl) ensureFeverBar();
-  const val = Math.max(0, Number(n)||0);
-  if (shieldEl) shieldEl.textContent = '🛡️ x' + val;
+  _shieldCount = Math.max(0, Math.min(99, Number(n)||0));
+  if (_shield) _shield.textContent = String(_shieldCount);
 }
 
-// Optional: if HUD announces it's ready, remount into it
-window.addEventListener('hha:hud-ready', ()=>{
-  if (!feverEl) return;
-  mountUnderScore() || mountFallbackFixed();
-});
-
-// Safety: if DOM becomes visible later
-document.addEventListener('visibilitychange', ()=>{
-  if (!document.hidden && feverEl && !feverEl.parentNode){
-    ensureFeverBar();
-  }
-});
+export default { ensureFeverBar, setFever, setFeverActive, setShield };
