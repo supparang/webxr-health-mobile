@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hero Health VR</title>
 
-  <!-- ✅ favicon relative (ไม่ 404 บน GitHub Pages) -->
   <link rel="icon" href="./favicon.ico" type="image/x-icon" />
 
-  <!-- ✅ เสถียรสุดสำหรับ Troika -->
+  <!-- A-Frame + Troika (stable) -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-troika-text@0.11.0/dist/aframe-troika-text.min.js"></script>
 
@@ -19,10 +18,9 @@
       background:#000;
       font-family: system-ui, Segoe UI, Inter, Roboto, "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji", sans-serif;
     }
-
     .game-wrap { position:fixed; inset:0; overflow:hidden; }
 
-    /* === HUD === */
+    /* HUD */
     #hudRoot { position:fixed; inset:0; pointer-events:none; z-index:500; }
     .hud-top {
       position:absolute; left:50%; top:14px; transform:translateX(-50%);
@@ -39,21 +37,63 @@
     .score-row .v { color:#f8fafc; }
     #feverBarDock { margin-top:6px; }
 
-    /* === TIME pill มุมขวาบน === */
-    .time-pill {
-      position:fixed; right:18px; top:12px; z-index:550;
+    /* TIME pill (top-right) */
+    #timePill {
+      position:fixed; right:18px; top:12px; z-index:560;
       padding:6px 10px; border-radius:999px;
-      background:#0b1220cc; color:#fff; font-weight:800;
+      background:#0b1220cc; color:#fff; font:800 12px system-ui;
       border:1px solid #334155; box-shadow:0 4px 16px rgba(0,0,0,.35);
       letter-spacing:.2px; user-select:none; -webkit-user-select:none;
+      transition:filter .2s ease, box-shadow .2s ease, background .2s ease, color .2s ease;
+    }
+    /* glow 10s สุดท้าย */
+    #timePill.warn {
+      filter: drop-shadow(0 0 10px rgba(250,204,21,.65));
+      box-shadow:0 0 20px rgba(250,204,21,.25);
+      background: #1f2937; color:#fde68a; border-color:#fbbf24;
+      animation: glowPulse 1s ease-in-out infinite;
+    }
+    /* กระพริบเร็ว 5s สุดท้าย */
+    #timePill.danger {
+      filter: drop-shadow(0 0 12px rgba(239,68,68,.8));
+      box-shadow:0 0 24px rgba(239,68,68,.35);
+      background:#111827; color:#fecaca; border-color:#ef4444;
+      animation: dangerPulse .5s ease-in-out infinite;
+    }
+    @keyframes glowPulse {
+      0%,100% { transform:translateZ(0) scale(1);   }
+      50%     { transform:translateZ(0) scale(1.06);}
+    }
+    @keyframes dangerPulse {
+      0%,100% { transform:translateZ(0) scale(1);    opacity:1; }
+      50%     { transform:translateZ(0) scale(1.10); opacity:.75; }
     }
 
-    /* === ปุ่มเริ่มเกม (Desktop) === */
+    /* ปุ่มเริ่มเกม (Desktop) */
     .start-fab {
       position:absolute; right:16px; bottom:16px; z-index:520; pointer-events:auto;
       background:#2563eb; color:#fff; border:0; border-radius:999px;
       padding:12px 16px; font-weight:900;
       box-shadow:0 10px 30px rgba(0,0,0,.45); cursor:pointer;
+    }
+
+    /* Countdown overlay 3-2-1-GO */
+    #countdownOverlay{
+      position:fixed; inset:0; z-index:700; display:none;
+      background:rgba(0,0,0,.45); backdrop-filter:blur(2px);
+      align-items:center; justify-content:center;
+    }
+    #countdownOverlay .num{
+      font:900 clamp(64px,12vw,160px) system-ui; color:#e5edff;
+      text-shadow:0 10px 32px rgba(0,0,0,.6);
+      transform:scale(.8); opacity:0; will-change:transform,opacity;
+      animation: cdPop .65s ease forwards;
+    }
+    #countdownOverlay.go .num{ color:#86efac; text-shadow:0 10px 40px rgba(16,185,129,.45); }
+    @keyframes cdPop {
+      0%   { transform:scale(.6); opacity:0; }
+      40%  { transform:scale(1.15); opacity:1; }
+      100% { transform:scale(1.0); opacity:1; }
     }
 
     #spawnHost { position:absolute; inset:0; pointer-events:none; z-index:650; }
@@ -62,7 +102,6 @@
 </head>
 <body>
   <div class="game-wrap">
-    <!-- === A-FRAME SCENE === -->
     <a-scene renderer="antialias:true; colorManagement:true"
              background="color: #101826">
       <a-assets></a-assets>
@@ -135,16 +174,17 @@
         <div class="score-box" data-hud="scorebox">
           <div class="score-row"><span class="k">คะแนน</span><span id="hudScore" class="v">0</span></div>
           <div class="score-row"><span class="k">คอมโบ</span><span id="hudCombo" class="v">0</span></div>
-          <div id="feverBarDock"><!-- fever bar จะมาแปะที่นี่ --></div>
+          <div id="feverBarDock"></div>
         </div>
       </div>
     </div>
 
     <div id="spawnHost"></div>
+    <div id="timePill">TIME 60s</div>
+    <div id="countdownOverlay"><div class="num">3</div></div>
     <button id="btnStart" class="start-fab">เริ่มเกม</button>
   </div>
 
-  <!-- เชื่อมปุ่ม VR กับ DOM -->
   <script>
     document.addEventListener('DOMContentLoaded',()=>{
       const vrBtn=document.getElementById('vrStartBtn');
@@ -157,7 +197,6 @@
     });
   </script>
 
-  <!-- Entrypoint -->
   <script type="module" src="./game/main.js"></script>
 </body>
 </html>
