@@ -1,108 +1,81 @@
-// === /HeroHealth/game/main.js (2025-11-12 LATEST, stable) ===
+// === /HeroHealth/game/main.js (2025-11-12 FINAL) ===
 'use strict';
 
-// ---------- Short helpers ----------
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
-const qs = new URLSearchParams(location.search);
 
-// Route params
-let MODE = (qs.get('mode')||'goodjunk').toLowerCase();
-let DIFF = (qs.get('diff')||'normal').toLowerCase();
+const qs   = new URLSearchParams(location.search);
+let MODE   = (qs.get('mode')||'goodjunk').toLowerCase();
+let DIFF   = (qs.get('diff')||'normal').toLowerCase();
+const DURATION = Number(qs.get('duration')||60);
 const AUTOSTART = qs.get('autostart') === '1';
-const DURATION  = Number(qs.get('duration')||60);
 
-// HUD refs
+// ---------- HUD (score/combo) ----------
 const elScore = $('#hudScore');
 const elCombo = $('#hudCombo');
-const elTop   = $('#hudTop');
-
-// ---------- HUD: TIME bubble (top-right of score box) ----------
-let elTime = document.getElementById('hudTime');
-if(!elTime){
-  elTime = document.createElement('div');
-  elTime.id = 'hudTime';
-  elTime.style.cssText = `
-    position:absolute; right:12px; top:10px;
-    background:#0b1220; color:#e2e8f0; border:1px solid #334155;
-    border-radius:999px; padding:2px 10px; font:900 12px system-ui;
-    opacity:.95; letter-spacing:.4px; transition: box-shadow .25s ease, transform .25s ease;
-  `;
-  const scoreBox = document.querySelector('[data-hud="scorebox"]') || $('.score-box');
-  if(scoreBox){ scoreBox.style.position='relative'; scoreBox.appendChild(elTime); }
-}
 function setScore(n){ if(elScore) elScore.textContent = (n|0).toLocaleString(); }
 function setCombo(n){ if(elCombo) elCombo.textContent = (n|0).toLocaleString(); }
+
+// ---------- TIME bubble (top-right with glow) ----------
+(function injectTimeBubble(){
+  if (document.getElementById('hha-time-css')) return;
+  const css = document.createElement('style'); css.id='hha-time-css';
+  css.textContent = `
+  #hudTimeBubble{position:fixed; top:14px; right:14px; z-index:560; pointer-events:none}
+  #hudTimeBubble .pill{background:#0b1220e0; color:#e2e8f0; border:2px solid #334155;
+    border-radius:999px; padding:4px 10px; font:900 14px system-ui; letter-spacing:.2px;
+    box-shadow:0 10px 24px rgba(0,0,0,.35)}
+  #hudTimeBubble.low{filter:drop-shadow(0 0 10px #f59e0b); border-color:#f59e0b}
+  #hudTimeBubble.crit{animation:hb 0.7s ease-in-out infinite; filter:drop-shadow(0 0 14px #ef4444)}
+  @keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  `;
+  document.head.appendChild(css);
+
+  const wrap = document.createElement('div'); wrap.id='hudTimeBubble';
+  wrap.innerHTML = `<div class="pill">TIME ${DURATION}s</div>`;
+  document.body.appendChild(wrap);
+})();
+
+const elTimeWrap = document.getElementById('hudTimeBubble');
+const elTimeText = elTimeWrap?.querySelector('.pill');
+let lastSec = DURATION;
 function setTimeLeft(sec){
-  if(!elTime) return;
+  if(!elTimeWrap || !elTimeText) return;
   const s = Math.max(0, sec|0);
-  elTime.textContent = `TIME ${s}s`;
-  // glow / pulse when <= 10s
-  if (s<=10){
-    elTime.style.boxShadow = '0 0 0 6px rgba(239,68,68,.15), 0 0 24px rgba(239,68,68,.55)';
-    elTime.style.transform = 'scale(1.05)';
-  } else {
-    elTime.style.boxShadow = 'none';
-    elTime.style.transform = 'scale(1.0)';
-  }
+  elTimeText.textContent = `TIME ${s}s`;
+  elTimeWrap.classList.toggle('low',  s <= 15 && s > 5);
+  elTimeWrap.classList.toggle('crit', s <= 5);
 }
 
-// ---------- Fever bar mount (logic inside ui-fever.js) ----------
-import('../vr/ui-fever.js?v='+Date.now())
-  .then(mod=>{
-    try{
-      const { ensureFeverBar } = mod;
-      const dock = document.getElementById('feverBarDock') || elTop;
-      if(ensureFeverBar) ensureFeverBar(dock);
-    }catch(_){}
-  }).catch(()=>{});
-
-// ---------- Quest HUD bridge ----------
-let questState = { goal:null, mini:null };
-// forward mode → quest-hud
-window.addEventListener('hha:quest', (e)=>{
-  questState = e.detail || {goal:null, mini:null};
+// ---------- Fever bar mount (DOM already has #feverBarDock) ----------
+import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
   try{
-    const evt = new CustomEvent('quest:update', { detail: questState });
-    window.dispatchEvent(evt);
+    const dock = document.getElementById('feverBarDock') || document.getElementById('hudTop');
+    ensureFeverBar?.(dock);
   }catch(_){}
+}).catch(()=>{});
+
+// ---------- Quest HUD (Goal + Mini) ----------
+import('../vr/quest-hud.js').catch(()=>{ /* ไม่เป็นไร ถ้าไม่มีไฟล์ */ });
+
+// bridge รับจากโหมด (บางโหมดส่ง hha:quest, บางโหมดส่ง quest:update)
+window.addEventListener('hha:quest', (e)=>{
+  try{ window.dispatchEvent(new CustomEvent('quest:update',{detail:e.detail})); }catch(_){}
 });
-// ensure quest-hud loaded (safe if missing)
-import('../vr/quest-hud.js?v='+Date.now()).catch(()=>{});
+window.addEventListener('quest:update', ()=>{}); // ให้ quest-hud.js hook ต่อเอง
 
-// ---------- Particles (score pop / shards) ----------
-let PFX = null;
-import('../vr/particles.js?v='+Date.now())
-  .then(m=>{ PFX = m.Particles || m.default || null; })
-  .catch(()=>{});
-
-// Show score pop & burst exactly at hit point
-window.addEventListener('hha:hit-screen', (e)=>{
-  const d = e.detail||{};
-  if (PFX?.scorePop)    PFX.scorePop(d.x|0, d.y|0, (d.delta|0)||0);
-  if (PFX?.burstShards) PFX.burstShards(null, null, { screen:{x:d.x|0, y:d.y|0} });
-});
-
-// ---------- Score/Time state ----------
-let scoreTotal = 0;
-let comboMax   = 0;
-let misses     = 0;
-let hits       = 0;
-let lastSec    = null;
+// ---------- score/time listeners ----------
+let scoreTotal = 0, comboMax = 0, misses = 0, hits = 0;
 
 window.addEventListener('hha:score', (e)=>{
   const d = e.detail||{};
   scoreTotal = Math.max(0, (scoreTotal|0) + (d.delta|0));
-  if(d.good){ hits++; } else { misses++; }
+  if (d.good) hits++; else misses++;
   setScore(scoreTotal);
 });
-
 window.addEventListener('hha:time', (e)=>{
   const sec = (e.detail?.sec|0);
-  if(sec!==lastSec){
-    setTimeLeft(sec);
-    lastSec = sec;
-  }
+  if (sec !== lastSec){ setTimeLeft(sec); lastSec = sec; }
 });
 
 // ---------- Result overlay ----------
@@ -130,7 +103,27 @@ function showResult(detail){
   </div>`;
   document.body.appendChild(o);
 
-  // badge coloring by completion ratio
+  const cssId='hha-result-css';
+  if(!document.getElementById(cssId)){
+    const css=document.createElement('style'); css.id=cssId;
+    css.textContent=`
+      #resultOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:999}
+      #resultOverlay .card{background:#0b1220;border:1px solid #334155;border-radius:16px;color:#e2e8f0;min-width:320px;max-width:720px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+      #resultOverlay h2{margin:0 0 14px 0;font:900 20px system-ui}
+      #resultOverlay .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:10px}
+      #resultOverlay .pill{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:10px 12px;text-align:center}
+      .pill .k{font:700 11px system-ui;color:#93c5fd;opacity:.85}
+      .pill .v{font:900 18px system-ui;color:#f8fafc}
+      #resultOverlay .badge{display:inline-block;margin:4px 0 14px 0;padding:6px 10px;border:2px solid #475569;border-radius:10px;font:800 12px system-ui}
+      #resultOverlay .btns{display:flex;gap:10px;justify-content:flex-end}
+      #resultOverlay .btns button{cursor:pointer;border:0;border-radius:10px;padding:8px 14px;font:800 14px system-ui}
+      #btnRetry{background:#22c55e;color:#06270f}
+      #btnHub{background:#1f2937;color:#e5e7eb}
+      @media (max-width:640px){ #resultOverlay .stats{grid-template-columns:repeat(2,minmax(0,1fr))} }
+    `;
+    document.head.appendChild(css);
+  }
+
   const badge = o.querySelector('.badge');
   const x = d.questsCleared|0, y = d.questsTotal|0;
   const r = y? x/y : 0;
@@ -142,119 +135,92 @@ function showResult(detail){
   o.querySelector('#btnHub').onclick   = ()=>location.href = hub;
 }
 
-// inject CSS once
-(function injectResultCss(){
-  if(document.getElementById('hha-result-css')) return;
-  const css = document.createElement('style'); css.id='hha-result-css';
-  css.textContent = `
-  #resultOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,.65);z-index:999}
-  #resultOverlay .card{background:#0b1220;border:1px solid #334155;border-radius:16px;color:#e2e8f0;
-    min-width:320px;max-width:720px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
-  #resultOverlay h2{margin:0 0 14px 0;font:900 20px system-ui}
-  #resultOverlay .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:10px}
-  #resultOverlay .pill{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:10px 12px;text-align:center}
-  .pill .k{font:700 11px system-ui;color:#93c5fd;opacity:.85}
-  .pill .v{font:900 18px system-ui;color:#f8fafc}
-  #resultOverlay .badge{display:inline-block;margin:4px 0 14px 0;padding:6px 10px;border:2px solid #475569;border-radius:10px;font:800 12px system-ui}
-  #resultOverlay .btns{display:flex;gap:10px;justify-content:flex-end}
-  #resultOverlay .btns button{cursor:pointer;border:0;border-radius:10px;padding:8px 14px;font:800 14px system-ui}
-  #btnRetry{background:#22c55e;color:#06270f}
-  #btnHub{background:#1f2937;color:#e5e7eb}
-  @media (max-width:640px){ #resultOverlay .stats{grid-template-columns:repeat(2,minmax(0,1fr))} }
-  `;
-  document.head.appendChild(css);
-})();
+window.addEventListener('hha:end',(e)=>{
+  const d = e.detail||{};
+  if (d.score == null) d.score = scoreTotal|0;
+  if (d.misses == null) d.misses = misses|0;
+  if (d.comboMax == null) d.comboMax = comboMax|0;
+  if (d.duration == null) d.duration = DURATION;
+  if (d.mode == null) d.mode = MODE;
+  if (d.difficulty == null) d.difficulty = DIFF;
+  showResult(d);
+});
 
-// ---------- Mode loader ----------
+// ---------- Loader (robust paths) ----------
 async function loadModeModule(name){
-  const tries = [
-    `../modes/${name}.safe.js`,
-    `../modes/${name}.quest.js`,
-    `../modes/${name}.js`,
+  const extOrder = (name==='goodjunk'||name==='groups') ? ['safe','quest','js'] : ['quest','safe','js'];
+  const bases = [
+    '../modes/',                                   // relative (correct for /HeroHealth/game/)
+    '/webxr-health-mobile/HeroHealth/modes/'       // absolute fallback
   ];
-  let lastErr=null;
-  for(const url of tries){
-    try{
-      const mod = await import(url + `?v=${Date.now()}`);
-      if (mod && (mod.boot || mod.default?.boot)) return mod;
-    }catch(err){ lastErr = err; }
+  const tries = [];
+  for (const base of bases){
+    for (const ext of extOrder){
+      tries.push(`${base}${name}.${ext}.js`);
+    }
   }
-  throw lastErr || new Error(`ไม่พบไฟล์โหมด: ${name}`);
+  let err;
+  for (const url of tries){
+    try{
+      console.log('[ModeLoader] try', url);
+      const mod = await import(url + `?v=${Date.now()}`);
+      if (mod?.boot || mod?.default?.boot) return mod;
+    }catch(e){ err = e; }
+  }
+  throw new Error(`ไม่พบไฟล์โหมด: ${name}\n${err?.message||err}`);
 }
 
 // ---------- Countdown 3-2-1-GO ----------
-function showCountdown(){
+function runCountdown(sec=3){
   return new Promise((resolve)=>{
-    const id='hha-countdown';
-    const old=document.getElementById(id); if(old) old.remove();
-    const el = document.createElement('div'); el.id=id;
-    el.innerHTML = `<div class="cd-ball">3</div>`;
-    document.body.appendChild(el);
-
-    const cssId='hha-countdown-css';
-    if(!document.getElementById(cssId)){
-      const css=document.createElement('style'); css.id=cssId;
+    const id='hha-count-css';
+    if(!document.getElementById(id)){
+      const css=document.createElement('style'); css.id=id;
       css.textContent=`
-      #hha-countdown{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:850;pointer-events:none}
-      #hha-countdown .cd-ball{
-        min-width:120px; min-height:120px; display:flex; align-items:center; justify-content:center;
-        border-radius:999px; font:900 48px system-ui; color:#e2e8f0; background:#0b1220dd; border:2px solid #334155;
-        box-shadow:0 0 30px rgba(37,99,235,.55), inset 0 0 18px rgba(147,197,253,.25);
-        transform:scale(0.8); opacity:.0; transition:transform .28s ease, opacity .28s ease, box-shadow .28s ease;
-      }`;
+        #countOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:700}
+        #countOverlay .big{font:900 80px system-ui;color:#e2e8f0;text-shadow:0 12px 40px rgba(0,0,0,.6)}
+      `;
       document.head.appendChild(css);
     }
-
-    const ball = el.firstElementChild;
-    const seq = ['3','2','1','GO!'];
-    let i=0;
-    const tick=()=>{
-      if(i>=seq.length){ setTimeout(()=>{ try{el.remove();}catch{} resolve(); }, 120); return; }
-      ball.textContent = seq[i++];
-      ball.style.opacity='1'; ball.style.transform='scale(1.0)';
-      setTimeout(()=>{ ball.style.opacity='.0'; ball.style.transform='scale(0.8)'; setTimeout(tick, 120); }, 520);
-    };
-    setTimeout(tick, 40);
+    const o=document.createElement('div'); o.id='countOverlay';
+    o.innerHTML=`<div class="big">${sec}</div>`;
+    document.body.appendChild(o);
+    const label=o.querySelector('.big');
+    let t=sec;
+    const tick=()=>{ t--; if(t<=0){ label.textContent='GO!'; setTimeout(()=>{ o.remove(); resolve(); },350); } else { label.textContent=t; setTimeout(tick, 900); } };
+    setTimeout(tick, 900);
   });
 }
 
-// ---------- Start/stop orchestration ----------
-let controller = null;
-let started = false;
+// ---------- Start orchestration ----------
+let controller=null, started=false;
 
 async function startGame(){
   if (started) return;
   started = true;
 
-  // reset HUD
+  // reset states
   scoreTotal=0; misses=0; hits=0; comboMax=0;
-  setScore(0); setCombo(0); setTimeLeft(DURATION);
+  setScore(0); setCombo(0); setTimeLeft(DURATION); lastSec = DURATION;
 
-  // hide start panel
-  try{ document.getElementById('startPanel')?.setAttribute('visible','false'); }catch(_){}
+  // hide start panel in A-Frame
+  try{ const p=document.getElementById('startPanel'); if(p) p.setAttribute('visible','false'); }catch(_){}
 
-  // countdown
-  await showCountdown();
-
-  // load mode
+  // load module
   let mod;
-  try{
-    mod = await loadModeModule(MODE);
-  }catch(err){
-    alert(`เริ่มเกมไม่สำเร็จ: โหลดโหมดไม่พบ\n${err?.message||err}`);
-    started = false; return;
-  }
+  try{ mod = await loadModeModule(MODE); }
+  catch(err){ alert(`เริ่มเกมไม่สำเร็จ: โหลดโหมดไม่พบ\n${err?.message||err}`); started=false; return; }
+
   const boot = mod.boot || mod.default?.boot;
-  if(!boot){
-    alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()');
-    started=false; return;
-  }
+  if (!boot){ alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()'); started=false; return; }
+
+  // optional 3-2-1
+  await runCountdown(3);
 
   try{
     controller = await boot({ difficulty: DIFF, duration: DURATION });
-    // VERY IMPORTANT: actually start spawner/time
-    if (controller?.start) controller.start();
+    // ⭐ สำคัญ: ให้สปอว์นเป้าเริ่มทำงาน
+    controller?.start?.();
   }catch(err){
     console.error(err);
     alert('เริ่มเกมไม่สำเร็จ: เกิดข้อผิดพลาดระหว่างเริ่มโหมด');
@@ -262,26 +228,11 @@ async function startGame(){
   }
 }
 
-// Buttons
-document.getElementById('btnStart')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
-document.getElementById('vrStartBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+// Bind buttons
+const domBtn = document.getElementById('btnStart');
+domBtn?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+const vrBtn = document.getElementById('vrStartBtn');
+vrBtn?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
 
-// Auto start if requested
-if (AUTOSTART){ setTimeout(startGame, 0); }
-
-// ---------- Handle end from modes ----------
-window.addEventListener('hha:end', (e)=>{
-  started = false;
-  try{
-    const d = e.detail || {};
-    if (d.score == null)     d.score = scoreTotal|0;
-    if (d.misses == null)    d.misses = misses|0;
-    if (d.comboMax == null)  d.comboMax = comboMax|0;
-    if (d.duration == null)  d.duration = DURATION;
-    if (d.mode == null)      d.mode = MODE;
-    if (d.difficulty == null)d.difficulty = DIFF;
-    showResult(d);
-  }catch(err){
-    console.error('showResult failed', err);
-  }
-});
+// Autostart
+if (AUTOSTART){ setTimeout(()=>startGame(), 0); }
