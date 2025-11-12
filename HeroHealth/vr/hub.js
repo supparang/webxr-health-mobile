@@ -1,43 +1,45 @@
-// === /HeroHealth/vr/hub.js (2025-11-12 stable) ===
-console.log('[Hub] initializing');
+// /HeroHealth/vr/hub.js  (PATCH)
+console.log('[Hub] ready');
+
+function buildModeUrl(modeName){
+  // base = โฟลเดอร์ปัจจุบันของ index.vr.html
+  const base = new URL('.', window.location.href);
+  // ต่อพาธแบบ URL API จะกัน “//” ให้เอง และเคารพตัวพิมพ์เล็กใหญ่
+  return new URL(`modes/${modeName}.safe.js`, base).href;
+}
 
 export class GameHub{
   constructor(){
-    const p = new URLSearchParams(location.search);
-    this.mode = (p.get('mode')||'goodjunk').toLowerCase();
-    this.diff = (p.get('diff')||'normal').toLowerCase();
+    this.mode = (new URLSearchParams(location.search).get('mode')) || 'goodjunk';
+    this.diff = (new URLSearchParams(location.search).get('diff')) || 'normal';
+    this.bindUI();
+    window.dispatchEvent(new CustomEvent('hha:hub-ready'));
+  }
 
-    this.$ = s=>document.querySelector(s);
-    this.vrBtn = this.$('#vrStartBtn');
-    this.domBtn= this.$('#btnStart');
-    this.startLbl = this.$('#startLbl');
-
-    if(this.startLbl){
-      try{ this.startLbl.setAttribute('troika-text', `value: เริ่ม: ${this.mode.toUpperCase()}`);}catch(_){}
-    }
-
-    // ปุ่ม “เริ่มเกม”
-    const start = ()=> this.startGame();
-    this.vrBtn && this.vrBtn.addEventListener('click', e=>{ e.preventDefault(); start(); });
-    this.domBtn&& this.domBtn.addEventListener('click', start);
-
-    // ถ้ามีพารามิเตอร์ mode/diff → auto-start
-    if (p.has('mode')) start();
-
-    window.dispatchEvent(new CustomEvent('hha:hud-ready'));
-    console.log('[Hub] ready', {mode:this.mode, diff:this.diff});
+  bindUI(){
+    const vrBtn  = document.getElementById('vrStartBtn');
+    const domBtn = document.getElementById('btnStart');
+    const start  = () => this.startGame();
+    vrBtn && vrBtn.addEventListener('click', start);
+    domBtn && domBtn.addEventListener('click', start);
   }
 
   async startGame(){
-    const modePath = `./modes/${this.mode}.safe.js`;   // ✅ พาธโหมด
-    const { boot } = await import(modePath);           // โหลดโหมดแบบ dynamic
-    const ctrl = await boot({
-      difficulty: this.diff,
-      duration:   60
-    });
-    // เริ่มสปอนเป้า
-    ctrl.start();
+    try{
+      const modeUrl = buildModeUrl(this.mode);          // ✅ พาธถูกแน่
+      console.log('[Hub] loading', modeUrl);
+      const mod = await import(/* @vite-ignore */ modeUrl);
+      const boot = (mod && (mod.boot || mod.default?.boot));
+      if(!boot) throw new Error('Mode has no boot()');
+
+      // เริ่มโหมด
+      const ctrl = await boot({ difficulty: this.diff, duration: 60 });
+      ctrl?.start();
+    }catch(err){
+      console.error('[Hub] load/start failed:', err);
+      alert('โหลดโหมดเกมไม่สำเร็จ: ' + err.message);
+    }
   }
 }
 
-window.addEventListener('DOMContentLoaded', ()=> new GameHub());
+window.addEventListener('DOMContentLoaded', () => new GameHub());
