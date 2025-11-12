@@ -1,4 +1,4 @@
-// === HeroHealth/vr/mode-factory.js — DOM targets + hit-screen + expired + power-ups (2025-11-10) ===
+// === HeroHealth/vr/mode-factory.js — DOM targets + hit-screen + expired + power-ups + onFinish (2025-11-10) ===
 export async function boot(config){
   config = config || {};
   var host   = config.host || document.getElementById('spawnHost') || document.body;
@@ -14,8 +14,9 @@ export async function boot(config){
   var powerRate  = (typeof config.powerRate==='number') ? config.powerRate : 0.08;   // 8%
   var powerEvery = (typeof config.powerEvery==='number') ? config.powerEvery : 7;    // บังคับออกอย่างน้อยทุก 7 สปอน
 
-  var judge  = typeof config.judge === 'function' ? config.judge : function(){ return {good:true, scoreDelta:1}; };
-  var onExpire = typeof config.onExpire === 'function' ? config.onExpire : null;
+  var judge     = typeof config.judge === 'function'    ? config.judge     : function(){ return {good:true, scoreDelta:1}; };
+  var onExpire  = typeof config.onExpire === 'function' ? config.onExpire  : null;
+  var onFinish  = typeof config.onFinish === 'function' ? config.onFinish  : null;   // ✅ NEW: ให้โหมดคืนสรุปเพิ่ม
   var running = true;
 
   function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
@@ -66,7 +67,6 @@ export async function boot(config){
   }
 
   function shouldSpawnPower(){
-    // ถ้าเลย powerEvery แล้ว → บังคับ, ไม่งั้นใช้โอกาส powerRate
     if (sinceLastPower >= powerEvery) return true;
     return Math.random() < powerRate;
   }
@@ -164,8 +164,25 @@ export async function boot(config){
     try{ clearInterval(timeTimer); }catch(_e){}
     try{ clearTimeout(spawnTimer); }catch(_e){}
     try{ clearInterval(watchdog); }catch(_e){}
-    try{ var nodes=layer.querySelectorAll('.hha-tgt'); for(var i=0;i<nodes.length;i++){ try{ layer.removeChild(nodes[i]); }catch(_e){} } }catch(_e){}
-    fire('hha:end',{score:score, combo:combo, misses:misses, duration:dur});
+    try{
+      var nodes=layer.querySelectorAll('.hha-tgt');
+      for(var i=0;i<nodes.length;i++){ try{ layer.removeChild(nodes[i]); }catch(_e){} }
+    }catch(_e){}
+
+    // ✅ รวมข้อมูลพื้นฐาน
+    var base = { score:score, combo:combo, misses:misses, duration:dur };
+
+    // ✅ ให้โหมดเติม field สรุปเพิ่ม (เช่น questsCleared/questsTotal/goalCleared/hits/ฯลฯ)
+    if (onFinish) {
+      try {
+        var extra = onFinish(base) || {};
+        for (var k in extra) base[k] = extra[k];
+      } catch(_e){}
+    }
+
+    // ✅ ยิงสรุปที่รวมแล้ว
+    fire('hha:end', base);
+
     try{ document.body.removeChild(layer); }catch(_e){}
     if(DEBUG){ try{ document.body.removeChild(dbg); }catch(_e){} }
   }
