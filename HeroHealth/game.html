@@ -905,6 +905,16 @@
                         difficulty.set(level);
                         gameConfig = difficulty.get(); // { size, rate, life }
                         
+                        // 🔻 === โค้ดที่แก้ไข (FIX 1) === 🔻
+                        // แก้ไขปัญหา PC Mouse Click
+                        const cursor = document.getElementById('cursor');
+                        if (cursor && !AFRAME.utils.device.isMobile()) {
+                            // ถ้าไม่ใช่ Mobile (คือ PC) ให้ปิดระบบ Gaze (fuse)
+                            // เพื่อให้เมาส์คลิกทำงานได้
+                            cursor.setAttribute('cursor', 'fuse', false);
+                        }
+                        // 🔺 === จบโค้ดที่แก้ไข === 🔺
+                        
                         // เริ่มระบบเกม
                         if (gameTimer) clearInterval(gameTimer);
                         if (spawnTimer) clearTimeout(spawnTimer);
@@ -915,27 +925,10 @@
                         
                         // ตั้งค่าการยิง (Click/Trigger/Gaze)
                         // A-Frame จะยิง 'click' ที่ตัว object ที่โดน
+                        // โค้ดนี้จะรองรับ (VR Trigger, Mobile Gaze, และ PC Click ที่แก้แล้ว)
                         sceneEl.addEventListener('click', (e) => {
                             if (e.target && e.target.dataset.hhaTgt) {
                                 onHitTarget(e.target);
-                            }
-                        });
-
-                        // FIX FOR PC: เพิ่มตัวฟัง mousedown สำหรับเมาส์บน PC
-                        sceneEl.canvas.addEventListener('mousedown', () => {
-                            if (!window.running) return; // ไม่ทำงานถ้าเกมหยุด
-                            
-                            const cursor = document.getElementById('cursor');
-                            if (!cursor) return;
-                            
-                            // ดึง raycaster มาจาก <a-cursor>
-                            const raycaster = cursor.components.raycaster;
-                            if (!raycaster) return;
-
-                            // เช็คว่าเมาส์กำลังชี้โดนเป้าหมาย (hha-tgt) หรือไม่
-                            const intersectedEl = raycaster.intersectedEls[0];
-                            if (intersectedEl && intersectedEl.dataset.hhaTgt) {
-                                onHitTarget(intersectedEl); // สั่งยิงเป้าหมาย
                             }
                         });
                         
@@ -1013,4 +1006,23 @@
                 
                 // จับเหตุการณ์จบเกม (เผื่อมีการเรียกจากที่อื่น)
                 window.addEventListener('hha:end', (ev) => {
-                    if (game
+                    if (gameEndTimer) clearTimeout(gameEndTimer);
+                    
+                    // ตรวจสอบว่าเกมกำลังทำงานอยู่หรือไม่ ก่อนที่จะเรียก endGame
+                    if (window.running) {
+                        const score = (ev.detail && ev.detail.score) ? ev.detail.score : window.score;
+                        GameEngine.stop(); // เรียก stop เพื่อเคลียร์ทุกอย่าง
+                        
+                        uiOverlay.classList.remove('hidden');
+                        startScreen.style.display = 'none';
+                        resultsScreen.style.display = 'block';
+                        finalScore.textContent = `คะแนน: ${score}`;
+                    }
+                });
+                
+            })(GAME_MODULES);
+
+        })();
+    </script>
+</body>
+</html>
