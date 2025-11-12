@@ -1,108 +1,94 @@
-// === /HeroHealth/vr/mission.js (2025-11-12 ROBUST) ===
-// Mission/Quest deck with safe normalization + progress helpers
-
-function uid() { return 'q' + Math.random().toString(36).slice(2,9); }
-
-// --- normalize any goal/quest item into a safe shape ---
-function normalizeItem(item, fallbackLabel='Quest'){
-  // allow string shorthand
-  if (typeof item === 'string') {
-    return {
-      id: uid(),
-      label: item,
-      level: 'normal',
-      target: 1,
-      check: () => false,
-      prog : () => 0
-    };
-  }
-  // clone object
-  const q = { ...(item||{}) };
-  if (!q.id)    q.id = uid();
-  if (!q.label) q.label = fallbackLabel;
-  if (!q.level) q.level = 'normal';
-  if (!Number.isFinite(q.target)) q.target = 1;
-
-  // guard functions
-  if (typeof q.check !== 'function') q.check = () => false;
-  if (typeof q.prog  !== 'function') q.prog  = () => 0;
-
-  return q;
-}
-
+// === /HeroHealth/vr/mission.js (2025-11-12 LATEST, goal+mini engines) ===
 export class MissionDeck {
-  constructor(opts = {}){
-    const { pool = [], goalPool = [], miniPool = [] } = opts;
+  constructor(opts = {}) {
+    const { pool, goalPool, miniPool } = opts;
+    this.goalPool = Array.isArray(goalPool) ? goalPool : [];
+    this.miniPool = Array.isArray(miniPool) ? miniPool : (Array.isArray(pool) ? pool : []);
 
-    // allow old param "pool" to be used as miniPool
-    this.goalPool = (goalPool.length? goalPool : []).map(it => normalizeItem(it, 'Goal'));
-    this.miniPool = (miniPool.length? miniPool : (pool||[])).map(it => normalizeItem(it, 'Mini Quest'));
+    // เลือกชุดที่กำลัง “เล่นอยู่”
+    this.goals = [];   // เลือกมา N เป้าใหญ่
+    this.mini  = [];   // เลือกมา 3 mini ปัจจุบัน
 
-    this.currentGoals = [];   // active main goals (array of items)
-    this.currentMini  = [];   // 3 active mini quests
-
+    // นับสถิติกลางของเกม (ให้ check/prog อ่านค่า)
     this.stats = {
       score: 0,
       combo: 0,
       comboMax: 0,
-      goodCount: 0,
-      junkMiss: 0,
-      tick: 0,       // seconds passed
+      goodCount: 0,    // เก็บของดีสำเร็จกี่ครั้ง
+      junkMiss: 0,     // โดนของเสีย/พลาด
+      tick: 0          // วินาทีที่ผ่านไป
     };
+
+    // นับจำนวน mini ที่ “ถูกเสนอ” ไปแล้วทั้งหมด (รวมทุก wave)
+    this.miniPresented = 0;
   }
 
-  // ---------- sampling helpers ----------
-  _sampleDistinct(src, n){
-    const arr = src.slice();
-    for (let i=arr.length-1;i>0;i--){
-      const j = (Math.random()*(i+1))|0;
-      [arr[i],arr[j]] = [arr[j],arr[i]];
+  // ---------- helpers ----------
+  _pickN(arr, n) {
+    const src = [...arr];
+    const out = [];
+    for (let i = 0; i < n && src.length; i++) {
+      const k = (Math.random() * src.length) | 0;
+      out.push(src.splice(k, 1)[0]);
     }
-    return arr.slice(0, Math.max(0, Math.min(n, arr.length)));
+    return out;
   }
 
-  // ---------- draw / refresh ----------
-  drawGoals(n=5){
-    if (!this.goalPool.length){ this.currentGoals = []; return this.currentGoals; }
-    this.currentGoals = this._sampleDistinct(this.goalPool, n).map(it => normalizeItem(it,'Goal'));
-    return this.currentGoals;
+  // ---------- goal ops ----------
+  drawGoals(n = 5) {
+    this.goals = this._pickN(this.goalPool, n);
+    return this.goals;
   }
 
-  draw3(){
-    if (!this.miniPool.length){ this.currentMini = []; return this.currentMini; }
-    this.currentMini = this._sampleDistinct(this.miniPool, 3).map(it => normalizeItem(it,'Mini Quest'));
-    return this.currentMini;
+  // ---------- mini ops ----------
+  draw3() {
+    this.mini = this._pickN(this.miniPool, 3);
+    this.miniPresented += this.mini.length;
+    return this.mini;
   }
 
-  // ---------- progress views ----------
-  getProgress(kind='mini'){
-    const list = kind === 'goals' ? this.currentGoals : this.currentMini;
-    return list.map(q => {
-      const prog   = Number(q.prog(this.stats)) || 0;
-      const target = Number.isFinite(q.target) ? q.target : 1;
-      const done   = !!q.check(this.stats);
-      return { id:q.id, label:q.label, level:q.level, prog, target, done };
-    });
+  // ---------- progress snapshots ----------
+  getProgress(type) {
+    const list = type === 'goals' ? this.goals
+               : type === 'mini'  ? this.mini
+               : [];
+    return list.map(q => ({
+      id: q.id,
+      label: q.label,
+      target: Number.isFinite(q.target) ? q.target : 0,
+      // ฟังก์ชัน prog/check ต้องรับ this.stats
+      prog:  typeof q.prog  === 'function' ? (q.prog(this.stats)  | 0) : 0,
+      done: !!(typeof q.check === 'function' && q.check(this.stats))
+    }));
   }
 
-  getCurrent(){ return (this.currentMini && this.currentMini[0]) || null; }
-  isCleared(kind='mini'){
-    const list = kind === 'goals' ? this.currentGoals : this.currentMini;
-    return list.length>0 && list.every(q => !!q.check(this.stats));
+  getCurrent(type) {
+    const prog = this.getProgress(type);
+    return prog.find(x => !x.done) || prog[0] || null;
   }
 
-  // ---------- stat updates (call from modes) ----------
-  updateScore(n){ this.stats.score = n|0; }
-  updateCombo(n){
-    this.stats.combo = n|0;
+  isCleared(type) {
+    const prog = this.getProgress(type);
+    return prog.length > 0 && prog.every(x => x.done);
+  }
+
+  // ---------- stat updates from mode ----------
+  updateScore(n) {
+    this.stats.score = n | 0;
+  }
+  updateCombo(n) {
+    this.stats.combo = n | 0;
     if (this.stats.combo > this.stats.comboMax) this.stats.comboMax = this.stats.combo;
   }
-  onGood(){ this.stats.goodCount++; }
-  onJunk(){ this.stats.junkMiss++; this.stats.combo = 0; }
-
-  // call every second
-  second(){
-    this.stats.tick++;
+  onGood() {
+    this.stats.goodCount += 1;
+  }
+  onJunk() {
+    this.stats.junkMiss += 1;
+    this.stats.combo = 0; // ส่วนใหญ่โหมดอยากให้พลาดแล้วคอมโบหลุด
+  }
+  second() {
+    this.stats.tick += 1;
   }
 }
 
