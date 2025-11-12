@@ -1,209 +1,209 @@
-// === /HeroHealth/game/main.js (2025-11-12 LATEST: stable start + live HUD + correct result) ===
-'use strict';
+// === /HeroHealth/game/main.js (2025-11-12 STABLE HUD + RESULT + HUB BACK) ===
+console.log('[main] boot');
 
-/* ---------------- Helpers ---------------- */
-const $  = (s)=>document.querySelector(s);
-const by = (id)=>document.getElementById(id);
-const qs = new URLSearchParams(location.search);
+(function(){
+  // ---------- DOM helpers ----------
+  const $  = (s)=>document.querySelector(s);
+  const $on= (el,ev,fn,opts)=>{ if(el) el.addEventListener(ev,fn,opts||false); };
 
-function setText(el, v){ if(el) el.textContent = String(v); }
+  // ---------- URL params ----------
+  const qs    = new URLSearchParams(location.search);
+  const MODE  = (qs.get('mode')||'goodjunk').toLowerCase();
+  const DIFF  = (qs.get('diff')||'normal').toLowerCase();
+  const DURA  = Math.max(10, parseInt(qs.get('time')||'60',10));
+  const AUTOSTART = qs.get('autostart') === '1';
 
-/* ---------------- Config from URL ---------------- */
-const MODE = (qs.get('mode')||'goodjunk').toLowerCase();
-const DIFF = (qs.get('diff')||'normal').toLowerCase();
-const DURATION = Number(qs.get('time')||qs.get('duration')||60) || 60;
+  // ---------- HUD refs ----------
+  const hudScore = $('#hudScore');
+  const hudCombo = $('#hudCombo');
+  const hudTop   = $('#hudTop');
+  const startFab = $('#btnStart');
+  const startPanel = $('#startPanel');
+  const startLbl   = $('#startLbl');
 
-/* ---------------- Fever bar docking (DOM HUD) ---------------- */
-window.addEventListener('DOMContentLoaded', () => {
-  // บอกระบบ UI ว่า HUD พร้อมให้ย้าย fever bar มายึดตรง #feverBarDock
-  try { window.dispatchEvent(new CustomEvent('hha:hud-ready', {detail:{
-    dock: by('feverBarDock')
-  }})); } catch(_){}
-});
-
-/* ---------------- Live HUD state (fallback if modeไม่ได้ส่ง hha:stats) ---------------- */
-let liveScore = 0;
-let liveCombo = 0;
-let ended     = false;
-
-function resetHUD(){
-  liveScore = 0;
-  liveCombo = 0;
-  setText(by('hudScore'), 0);
-  setText(by('hudCombo'), 0);
-}
-resetHUD();
-
-/* ถ้าโหมดส่ง hha:stats มาให้ (preferred) ให้ใช้ค่านั้นแทน */
-window.addEventListener('hha:stats', (e)=>{
-  const d = e.detail||{};
-  if (typeof d.score === 'number') { liveScore = d.score; setText(by('hudScore'), liveScore); }
-  if (typeof d.combo === 'number') { liveCombo = d.combo; setText(by('hudCombo'), liveCombo); }
-});
-
-/* โหมดพื้นฐานจาก mode-factory: อัปเดตคะแนน/คอมโบแบบรวมศูนย์ */
-window.addEventListener('hha:score', (e)=>{
-  const d = e.detail||{};
-  const delta = Number(d.delta||0);
-  const good  = !!d.good;
-
-  liveScore = Math.max(0, liveScore + delta);
-  if (good) { liveCombo += 1; } else { liveCombo = 0; }
-
-  setText(by('hudScore'), liveScore);
-  setText(by('hudCombo'), liveCombo);
-});
-
-/* หมดเวลา/วิ่งเวลา */
-window.addEventListener('hha:time', (e)=>{
-  // ถ้าต้องมีตัวเลขเวลาบน HUD สามารถเพิ่ม element แล้ว setText ตรงนี้ได้
-  // setText(by('hudTime'), (e?.detail?.sec ?? 0) + 's');
-});
-
-/* เมื่อ good item หมดอายุให้รีเซ็ตคอมโบ (กันคอมโบค้าง) */
-window.addEventListener('hha:expired', (e)=>{
-  if (e?.detail?.isGood) {
-    liveCombo = 0;
-    setText(by('hudCombo'), liveCombo);
+  // ---------- Fever dock (ย้าย fever bar ไปใต้กล่องคะแนน) ----------
+  function dockFeverBar(){
+    try{
+      const dock = $('#feverBarDock');
+      const feverWrap = document.getElementById('feverBarWrap')    // เวอร์ชันเก่า
+                      || document.getElementById('hhaFeverBarWrap'); // เผื่อเวอร์ชันใหม่
+      if (dock && feverWrap && feverWrap.parentNode !== dock){
+        dock.appendChild(feverWrap);
+        console.log('[main] fever bar docked under score/combo');
+      }
+      // โล่สะสม (shield counter) ถ้า UI มี element ชื่อ hhaShieldWrap ก็ย้ายเช่นกัน
+      const shieldWrap = document.getElementById('hhaShieldWrap');
+      if (dock && shieldWrap && shieldWrap.parentNode !== dock){
+        dock.appendChild(shieldWrap);
+      }
+    }catch(_){}
   }
-});
+  // dock ตอน layer พร้อม และเผื่อซ้ำๆ ระหว่าง runtime
+  $on(window,'hha:layer-ready', dockFeverBar);
+  const feverDockInterval = setInterval(dockFeverBar, 800);
+  window.addEventListener('unload', ()=>clearInterval(feverDockInterval));
 
-/* ---------------- Result Overlay (ถูกต้องตาม goodjunk.safe.js) ---------------- */
-function paintQuestBadge(el, done, total){
-  const r = total ? done/total : 0;
-  el.style.borderColor = (r>=1)?'#22c55e':(r>=0.5?'#f59e0b':'#ef4444');
-  el.style.background  = (r>=1)?'#22c55e22':(r>=0.5?'#f59e0b22':'#ef444422');
-  el.style.color       = (r>=1)?'#dcfce7':(r>=0.5?'#fff7ed':'#fee2e2');
-  el.textContent = `Mini Quests ${done}/${total}`;
-}
+  // ---------- Local running stats (สำหรับ HUD) ----------
+  let score=0, combo=0, timeLeft=DURA;
 
-function showResult(detail){
-  const score       = +detail.score || liveScore || 0;
-  const comboMax    = +detail.comboMax || 0;
-  const misses      = +detail.misses  || 0;
-  const duration    = +detail.duration || DURATION;
-  const mode        = String(detail.mode || MODE);
-  const difficulty  = String(detail.difficulty || DIFF);
-
-  const questsCleared = Number(detail.questsCleared ?? detail.questsDone ?? 0);
-  const questsTotal   = Number(
-    detail.questsTotal ?? detail.quests_total ??
-    (Array.isArray(detail.miniQuests)? detail.miniQuests.length :
-     Array.isArray(detail.quests)?     detail.quests.length : 0)
-  );
-
-  const goalTarget  = Number(detail.goalTarget ?? 0);
-  const goalCleared = Boolean( detail.goalCleared === true || (goalTarget>0 && score>=goalTarget) );
-  const goalText    = goalCleared ? `ถึงเป้า (${goalTarget})` : `ไม่ถึง (${goalTarget>0?goalTarget:'-'})`;
-
-  const old = by('resultOverlay'); if (old) old.remove();
-  const wrap = document.createElement('div'); wrap.id = 'resultOverlay';
-  wrap.innerHTML = `
-    <div class="card">
-      <h2>สรุปผล: ${mode} (${difficulty})</h2>
-      <div class="grid">
-        <div class="pill"><div class="k">คะแนนรวม</div><div class="v">${score.toLocaleString()}</div></div>
-        <div class="pill"><div class="k">คอมโบสูงสุด</div><div class="v">${comboMax}</div></div>
-        <div class="pill"><div class="k">พลาด</div><div class="v">${misses}</div></div>
-        <div class="pill"><div class="k">เป้าหมาย</div><div class="v ${goalCleared?'ok':'ng'}">${goalText}</div></div>
-        <div class="pill"><div class="k">เวลา</div><div class="v">${duration}s</div></div>
-      </div>
-      <div class="questRow"><span id="questBadge" class="questBadge">Mini Quests 0/0</span></div>
-      <div class="btns">
-        <button id="btnRetry">เล่นอีกครั้ง</button>
-        <button id="btnHub">กลับ Hub</button>
-      </div>
-    </div>`;
-  document.body.appendChild(wrap);
-
-  paintQuestBadge(wrap.querySelector('#questBadge'), questsCleared, questsTotal);
-
-  wrap.querySelector('#btnRetry').onclick = ()=> location.reload();
-  wrap.querySelector('#btnHub').onclick   = ()=>{
-    const u = new URL('../hub.html', location.href);
-    u.searchParams.set('mode', mode);
-    u.searchParams.set('diff', difficulty);
-    location.href = u.href;
-  };
-}
-
-const resultCSS = document.createElement('style'); resultCSS.textContent = `
-#resultOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,.72);z-index:9999;}
-#resultOverlay .card{background:#0b1220;border:1px solid #1f2a44;border-radius:18px;min-width:720px;max-width:960px;padding:20px 22px;color:#e5e7eb;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-#resultOverlay h2{margin:0 0 12px 0;color:#f8fafc}
-#resultOverlay .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px}
-#resultOverlay .pill{background:#0f172a;border:1px solid #233250;border-radius:12px;padding:10px 12px}
-#resultOverlay .pill .k{font:600 12px/1.2 system-ui;color:#94a3b8}
-#resultOverlay .pill .v{font:800 24px/1.1 system-ui;color:#fff;margin-top:4px}
-#resultOverlay .pill .v.ok{color:#86efac}
-#resultOverlay .pill .v.ng{color:#fca5a5}
-#resultOverlay .questRow{margin:8px 2px 0}
-#resultOverlay .questBadge{display:inline-block;padding:6px 10px;border:2px solid #334155;border-radius:10px;font-weight:800}
-#resultOverlay .btns{margin-top:14px;display:flex;gap:12px;justify-content:flex-end}
-#resultOverlay .btns button{padding:10px 14px;border-radius:12px;border:1px solid #243449;cursor:pointer;font-weight:800}
-#resultOverlay #btnRetry{background:#16a34a;color:#fff;border-color:#16a34a}
-#resultOverlay #btnHub{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
-@media (max-width:820px){#resultOverlay .card{min-width:auto;width:92%} #resultOverlay .grid{grid-template-columns:1fr 1fr}}
-`; document.head.appendChild(resultCSS);
-
-/* เมื่อ mode-factory จบเกม → เปิดสรุป */
-window.addEventListener('hha:end', (e)=>{
-  if (ended) return;
-  ended = true;
-  showResult(e.detail||{ mode: MODE, difficulty: DIFF, duration: DURATION, score: liveScore });
-});
-
-/* ---------------- Dynamic mode loader & start ---------------- */
-function resolveModePath(mode){
-  // โฟลเดอร์ modes อยู่ขนานกับ /game/ → ใช้ "../modes/xxx.safe.js"
-  const base = '../modes';
-  switch (mode) {
-    case 'goodjunk':  return `${base}/goodjunk.safe.js`;
-    case 'groups':    return `${base}/groups.safe.js`;
-    case 'hydration': return `${base}/hydration.safe.js`;
-    case 'plate':     return `${base}/plate.safe.js`;
-    default:          return `${base}/goodjunk.safe.js`;
-  }
-}
-
-async function startGame(){
-  resetHUD();
-  ended = false;
-
-  const path = resolveModePath(MODE);
-  let mod;
-  try {
-    mod = await import(path /* webpackIgnore: true */);
-  } catch (err){
-    console.error('[main] Failed to import mode:', path, err);
-    alert('โหลดโหมดเกมไม่สำเร็จ: ' + MODE);
-    return;
+  function setScore(n){ if(hudScore) hudScore.textContent = (n|0).toString(); }
+  function setCombo(n){ if(hudCombo) hudCombo.textContent = (n|0).toString(); }
+  function setTime(sec){
+    // ถ้าต้องการโชว์เวลาใน HUD เพิ่มอีกแถว ให้เพิ่ม element แล้วอัปเดตที่นี่
+    // ตัวอย่าง: <div class="score-row"><span class="k">เวลา</span><span id="hudTime" class="v">60</span></div>
+    const el = document.getElementById('hudTime');
+    if (el) el.textContent = (sec|0).toString();
   }
 
-  if (!mod || typeof mod.boot !== 'function'){
-    console.error('[main] Mode has no boot():', mod);
-    alert('โหมดเกมไม่พร้อมใช้งาน');
-    return;
+  // ---------- Result overlay ----------
+  function showResult(detail){
+    const old=document.getElementById('resultOverlay'); if(old) old.remove();
+
+    const o=document.createElement('div'); o.id='resultOverlay';
+    o.innerHTML=`
+      <div class="card">
+        <h2>สรุปผล: ${detail.mode||MODE} (${detail.difficulty||DIFF})</h2>
+        <div class="grid">
+          <div class="stat"><div class="k">คะแนนรวม</div><div class="v">${(detail.score||0).toLocaleString()}</div></div>
+          <div class="stat"><div class="k">คอมโบสูงสุด</div><div class="v">${detail.comboMax|0}</div></div>
+          <div class="stat"><div class="k">พลาด</div><div class="v">${detail.misses|0}</div></div>
+          <div class="stat"><div class="k">เป้าหมาย</div><div class="v">${detail.goalCleared?('ถึงเป้า ('+(detail.goalTarget||'-')+')'):'ไม่ถึง (-)'}</div></div>
+          <div class="stat"><div class="k">เวลา</div><div class="v">${detail.duration|0}s</div></div>
+        </div>
+        <div class="badge" id="mqBadge">Mini Quests ${(detail.questsCleared|0)}/${(detail.questsTotal|0)}</div>
+        <div class="btns">
+          <button id="btnRetry">เล่นอีกครั้ง</button>
+          <button id="btnHub" class="outline">กลับ Hub</button>
+        </div>
+      </div>`;
+    document.body.appendChild(o);
+
+    try{
+      const x=detail.questsCleared|0, y=detail.questsTotal|0;
+      const r = y? x/y : 0;
+      const b = o.querySelector('#mqBadge');
+      b.style.borderColor=(r>=1)?'#16a34a':(r>=0.5?'#f59e0b':'#ef4444');
+      b.style.background =(r>=1)?'#16a34a22':(r>=0.5?'#f59e0b22':'#ef444422');
+      b.style.color      =(r>=1)?'#bbf7d0':(r>=0.5?'#fde68a':'#fecaca');
+    }catch(_){}
+
+    function gotoHub(){
+      const hubURL = new URL('../hub.html', location.href); // เสถียรบน GitHub Pages
+      const m = (detail.mode||MODE||'goodjunk').toLowerCase();
+      const d = (detail.difficulty||DIFF||'normal').toLowerCase();
+      hubURL.searchParams.set('mode', m);
+      hubURL.searchParams.set('diff', d);
+      location.href = hubURL.href;
+    }
+    o.querySelector('#btnRetry').onclick = ()=>location.reload();
+    o.querySelector('#btnHub').onclick   = gotoHub;
   }
 
-  try {
-    const ctrl = await mod.boot({ difficulty: DIFF, duration: DURATION });
-    // เริ่มสปิน
-    await ctrl.start?.();
-  } catch (err){
-    console.error('[main] boot/start failed:', err);
-  }
-}
+  (function ensureResultCSS(){
+    if (document.getElementById('hha-result-css')) return;
+    const css=document.createElement('style'); css.id='hha-result-css';
+    css.textContent=`
+      #resultOverlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;display:flex;align-items:center;justify-content:center}
+      #resultOverlay .card{background:#0b1220;color:#e2e8f0;border:1px solid #334155;border-radius:16px;padding:20px;width:min(920px,92vw);box-shadow:0 20px 50px rgba(0,0,0,.45)}
+      #resultOverlay h2{margin:0 0 12px;font:800 20px/1.3 system-ui}
+      #resultOverlay .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:10px 0 14px}
+      #resultOverlay .stat{background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:10px}
+      #resultOverlay .k{font:700 12px/1.2 system-ui;color:#93c5fd;opacity:.9}
+      #resultOverlay .v{font:800 20px/1.2 system-ui;color:#f8fafc;margin-top:4px}
+      #resultOverlay .badge{display:inline-block;border:2px solid #475569;border-radius:10px;padding:6px 10px;font-weight:800}
+      #resultOverlay .btns{margin-top:16px;display:flex;gap:10px;justify-content:flex-end}
+      #resultOverlay .btns button{border:0;border-radius:12px;padding:10px 14px;font-weight:900;cursor:pointer;background:#22c55e;color:#fff}
+      #resultOverlay .btns button.outline{background:#0b1220;color:#e2e8f0;border:1px solid #334155}
+    `;
+    document.head.appendChild(css);
+  })();
 
-/* ---------------- Wire Start button ---------------- */
-window.addEventListener('DOMContentLoaded', ()=>{
-  const btn = by('btnStart');
-  if (btn){
-    btn.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+  // ---------- Event wiring from factory/mode ----------
+  // delta-based score/combination update
+  $on(window,'hha:score', (e)=>{
+    const d = (e.detail && typeof e.detail.delta==='number') ? e.detail.delta : 0;
+    const good = !!(e.detail && e.detail.good);
+    score = Math.max(0, score + d);
+    combo = good ? (combo+1) : 0;
+    setScore(score); setCombo(combo);
+  });
+
+  $on(window,'hha:time', (e)=>{
+    const sec = e.detail && typeof e.detail.sec!=='undefined' ? (e.detail.sec|0) : timeLeft;
+    timeLeft = sec; setTime(timeLeft);
+    // เมื่อโหมดส่ง onEnd เอง เราจะรับผ่าน 'hha:end' อีกที
+  });
+
+  // (ถ้าต้องการเห็น label ของ quest ขณะเล่น ผ่าน 'hha:quest')
+  $on(window,'hha:quest', (e)=>{
+    // สามารถเพิ่ม tooltip/ข้อความย่อยบน HUD ได้ถ้าต้องการ
+    // ตัวอย่าง: console.log('[quest]', e.detail);
+  });
+
+  // รับสรุปจากโหมด
+  $on(window,'hha:end', (e)=>{
+    // บางกรณี factory อาจยิง hha:end(reason) ตอนหมดเวลา
+    // แต่โหมด (goodjunk.safe.js) จะยิงซ้ำพร้อม detail เต็ม เรารอ detail เต็ม
+    const d = e.detail || {};
+    // ถ้าไม่มีค่าโหมด/ระดับ/คะแนน ให้ fallback จาก local เพื่อไม่ให้ว่าง
+    if (d && (d.score!=null || d.questsTotal!=null)){
+      showResult(Object.assign({ mode:MODE, difficulty:DIFF, duration:DURA }, d));
+    }
+  });
+
+  // ---------- Start game ----------
+  async function startGame(){
+    try{
+      // อัปเดต label ปุ่มเริ่ม (VR panel)
+      try{ startLbl && startLbl.setAttribute('troika-text', `value: เริ่ม: ${MODE.toUpperCase()}`); }catch(_){}
+
+      // ซ่อนปุ่มเริ่ม/แผงเริ่ม
+      if (startFab)   startFab.style.display='none';
+      if (startPanel) startPanel.setAttribute('visible', false);
+
+      // path ของโหมด (ใช้ relative ใหม่แบบเสถียร)
+      // โครง: /HeroHealth/index.vr.html  → ./modes/<mode>.safe.js
+      const modURL  = new URL(`../modes/${MODE}.safe.js`, location.href); // game/ → ../modes/
+      // cache-bust เล็กน้อย กัน GitHub Pages แคช
+      modURL.searchParams.set('v', Date.now().toString());
+
+      console.log('[main] loading mode', modURL.href);
+      const modeMod = await import(modURL.href);
+
+      // เริ่มโหมด
+      const boot = (modeMod && (modeMod.boot||modeMod.default?.boot));
+      if (typeof boot!=='function'){
+        throw new Error('Mode module has no boot()');
+      }
+      const ctrl = await boot({ difficulty:DIFF, duration:DURA });
+      // เริ่ม factory
+      if (ctrl && typeof ctrl.start==='function'){
+        ctrl.start();
+      }
+
+      console.log('[main] game started', MODE, DIFF, DURA);
+      // ย้าย fever bar อีกครั้งหลังเริ่ม (แน่ใจว่ามาใต้กล่องคะแนนแล้ว)
+      requestAnimationFrame(dockFeverBar);
+      setScore(0); setCombo(0); setTime(DURA);
+    }catch(err){
+      console.error('[main] start error', err);
+      alert('เริ่มเกมไม่สำเร็จ: '+err.message);
+      // แสดงปุ่มเริ่มใหม่ให้กดซ้ำ
+      if (startFab)   startFab.style.display='';
+      if (startPanel) startPanel.setAttribute('visible', true);
+    }
   }
-  // auto-start เมื่อมี mode/diff ใน URL
-  if (MODE) {
-    // ให้ layout ลงตัวก่อนสั่ง start
-    setTimeout(()=>{ startGame(); }, 100);
+
+  // ปุ่มเริ่ม (DOM/VR)
+  const go = ()=>startGame();
+  $on(startFab,'click', (e)=>{ e.preventDefault(); go(); });
+
+  // Auto-start (เช่นมาจาก Hub)
+  if (AUTOSTART){
+    // รอ scene พร้อมเล็กน้อยค่อยเริ่ม
+    setTimeout(go, 300);
   }
-});
+
+  // แจ้งว่าพร้อมสำหรับ Hub
+  window.dispatchEvent(new CustomEvent('hha:hub-ready'));
+})();
