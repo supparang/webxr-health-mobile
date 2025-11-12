@@ -1,50 +1,90 @@
-// === /HeroHealth/vr/ui-water.js ===
-// Water Gauge (DOM) + small screen FX
+// === /HeroHealth/vr/ui-water.js (LATEST, smooth + zone events) ===
+// Water Gauge (DOM) + small screen FX + zone-change event
+
+const ID_WRAP  = 'waterWrap';
+const ID_FILL  = 'waterFill';
+const ID_LABEL = 'waterLbl';
+const ID_CSS   = 'waterGaugeCSS';
+
+function injectCSS(){
+  if(document.getElementById(ID_CSS)) return;
+  const st = document.createElement('style'); st.id = ID_CSS;
+  st.textContent = `
+  #${ID_WRAP}{ position:fixed; left:50%; bottom:56px; transform:translateX(-50%);
+    width:min(540px,86vw); z-index:900; color:#e8eefc; background:#0f172a99;
+    border:1px solid #334155; border-radius:12px; padding:10px 12px;
+    backdrop-filter:blur(6px); font-weight:800; box-shadow:0 10px 28px rgba(0,0,0,.35) }
+  #${ID_WRAP} .row{ display:flex; justify-content:space-between; align-items:center; gap:8px }
+  #${ID_WRAP} .bar{ height:12px; margin-top:6px; background:#0b1222; border:1px solid #334155;
+    border-radius:999px; overflow:hidden }
+  #${ID_FILL}{ height:100%; width:55%; transition:width .28s ease, filter .28s ease, background .28s ease }
+  #${ID_WRAP}[data-zone="GREEN"] #${ID_FILL}{ background:linear-gradient(90deg,#06d6a0,#37d67a) }
+  #${ID_WRAP}[data-zone="HIGH"]  #${ID_FILL}{ background:linear-gradient(90deg,#22c55e,#93c5fd) }
+  #${ID_WRAP}[data-zone="LOW"]   #${ID_FILL}{ background:linear-gradient(90deg,#f59e0b,#ef4444) }
+  `;
+  document.head.appendChild(st);
+}
 
 export function ensureWaterGauge() {
-  destroyWaterGauge();
-  const wrap = document.createElement('div');
-  wrap.id = 'waterWrap';
+  injectCSS();
+  // ถ้ามีอยู่แล้ว ไม่ต้องสร้างใหม่
+  let wrap = document.getElementById(ID_WRAP);
+  if (wrap) return wrap;
+
+  wrap = document.createElement('div');
+  wrap.id = ID_WRAP;
   wrap.setAttribute('data-hha-ui','');
-  Object.assign(wrap.style, {
-    position:'fixed', left:'50%', bottom:'56px', transform:'translateX(-50%)',
-    width:'min(540px,86vw)', zIndex:'900', color:'#e8eefc',
-    background:'#0f172a99', border:'1px solid #334155', borderRadius:'12px',
-    padding:'10px 12px', backdropFilter:'blur(6px)', fontWeight:'800'
-  });
+  wrap.setAttribute('data-zone','GREEN'); // default
+
   wrap.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-      <span>Water</span><span id="waterLbl">Balanced</span>
-    </div>
-    <div style="height:12px;margin-top:6px;background:#0b1222;border:1px solid #334155;border-radius:999px;overflow:hidden">
-      <div id="waterFill" style="height:100%;width:55%;background:linear-gradient(90deg,#06d6a0,#37d67a)"></div>
-    </div>`;
+    <div class="row"><span>Water</span><span id="${ID_LABEL}">Balanced</span></div>
+    <div class="bar"><div id="${ID_FILL}" style="width:55%"></div></div>
+  `;
   document.body.appendChild(wrap);
   return wrap;
 }
 
 export function destroyWaterGauge(){
-  const el = document.getElementById('waterWrap');
+  const el = document.getElementById(ID_WRAP);
   if (el) try{ el.remove(); }catch{}
 }
 
-export function setWaterGauge(val){
-  const f=document.getElementById('waterFill'), l=document.getElementById('waterLbl');
-  if(!f||!l) return;
-  const pct=Math.max(0,Math.min(100,Math.round(val)));
-  f.style.width=pct+'%';
-  let zone='Low'; if(pct>=40&&pct<=70) zone='Balanced'; else if(pct>70) zone='High';
-  l.textContent=zone;
-  f.style.background=(zone==='Balanced')
-    ? 'linear-gradient(90deg,#06d6a0,#37d67a)'
-    : (zone==='High' ? 'linear-gradient(90deg,#22c55e,#93c5fd)'
-                     : 'linear-gradient(90deg,#f59e0b,#ef4444)');
-}
-
 export function zoneFrom(val){
-  return (val>=40&&val<=70)?'GREEN':(val>70?'HIGH':'LOW');
+  const v = Math.round(val|0);
+  if (v >= 40 && v <= 70) return 'GREEN';
+  if (v > 70) return 'HIGH';
+  return 'LOW';
 }
 
+/**
+ * setWaterGauge(val:number) -> { pct:number, zone:string, label:string }
+ * - อัปเดตเกจและส่งอีเวนต์ 'hha:water-zone' เมื่อข้ามโซน
+ */
+export function setWaterGauge(val){
+  ensureWaterGauge();
+  const wrap = document.getElementById(ID_WRAP);
+  const fill = document.getElementById(ID_FILL);
+  const lbl  = document.getElementById(ID_LABEL);
+  if(!wrap||!fill||!lbl) return { pct:0, zone:'LOW', label:'Low' };
+
+  const pct  = Math.max(0, Math.min(100, Math.round(val)));
+  const prev = wrap.getAttribute('data-zone') || 'GREEN';
+  const zone = zoneFrom(pct);
+
+  fill.style.width = pct + '%';
+  wrap.setAttribute('data-zone', zone);
+
+  const label = (zone==='GREEN') ? 'Balanced' : (zone==='HIGH' ? 'High' : 'Low');
+  lbl.textContent = label;
+
+  if (prev !== zone){
+    try { window.dispatchEvent(new CustomEvent('hha:water-zone', { detail:{ zone, pct, prev } })); } catch {}
+  }
+
+  return { pct, zone, label };
+}
+
+// === Small FX helpers ===
 export function floatScoreScreen(x,y,text,color){
   const el=document.createElement('div');
   el.textContent=String(text||'+10');
@@ -54,7 +94,7 @@ export function floatScoreScreen(x,y,text,color){
     textShadow:'0 2px 8px rgba(0,0,0,.55)', pointerEvents:'none', transition:'all .55s ease'
   });
   document.body.appendChild(el);
-  setTimeout(()=>{ el.style.top=(y-28)+'px'; el.style.opacity='0'; }, 20);
+  requestAnimationFrame(()=>{ el.style.top=(y-28)+'px'; el.style.opacity='0'; });
   setTimeout(()=>{ try{el.remove();}catch{} }, 600);
 }
 
@@ -71,12 +111,11 @@ export function burstAtScreen(x,y,opts={}){
     document.body.appendChild(p);
     const ang=Math.random()*Math.PI*2, r=18+Math.random()*22;
     const tx = x + Math.cos(ang)*r, ty = y + Math.sin(ang)*r - 6;
-    setTimeout(()=>{ p.style.left=tx+'px'; p.style.top=ty+'px'; p.style.opacity='0'; },20);
+    requestAnimationFrame(()=>{ p.style.left=tx+'px'; p.style.top=ty+'px'; p.style.opacity='0'; });
     setTimeout(()=>{ try{p.remove();}catch{} },600);
   }
 }
 
-// default สำหรับ import แบบ default ก็ใช้ได้
 export default {
   ensureWaterGauge,
   destroyWaterGauge,
