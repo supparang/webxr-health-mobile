@@ -1,171 +1,177 @@
-// === /HeroHealth/vr/ui-fever.js (2025-11-10 Flame Edition) ===
-// HUD: Fever bar + Shield + Flame overlay (DOM-only, no THREE)
+// === /HeroHealth/vr/ui-fever.js
+// Fever/Shield UI — auto-mount under score+combo, with retries & CSS injection.
 
-function $(s){ return document.querySelector(s); }
-
-let flameRoot = null;
+let feverEl = null, feverFill = null, feverGlow = null, shieldEl = null;
 let cssInjected = false;
+let mountTries = 0, mountedInto = null;
 
 function injectCSS(){
   if (cssInjected) return;
   cssInjected = true;
-  const st = document.createElement('style');
-  st.id = 'fever-css';
-  st.textContent = `
-    #feverWrap{ position:fixed; left:50%; top:56px; transform:translateX(-50%);
-      width:min(540px,86vw); height:12px; background:#0b1222;
-      border:1px solid #334155; border-radius:999px; overflow:hidden; z-index:910 }
-    #feverFill{ height:100%; width:0%;
-      transition:width .15s ease-out;
-      background:linear-gradient(90deg,#37d67a,#06d6a0) }
-
-    #shieldChip{ position:fixed; right:16px; top:16px; background:#0f172acc;
-      border:1px solid #334155; border-radius:12px; padding:8px 12px;
-      font-weight:800; color:#e8eefc; z-index:910 }
-
-    /* Flame overlay (absolute, pointer-events:none) */
-    #feverFlame{
-      position:fixed; left:50%; top:52px; transform:translateX(-50%);
-      width:min(560px,90vw); height:36px; pointer-events:none; z-index:909; opacity:0;
-      filter:drop-shadow(0 4px 12px rgba(255,140,0,.55));
-      transition:opacity .18s ease;
-    }
-    #feverFlame .fl{
-      position:absolute; bottom:0; width:18px; height:26px; border-radius:12px 12px 8px 8px;
-      background:radial-gradient(ellipse at 50% 70%, #ffd166 0%, #ff7a00 55%, rgba(255,0,0,.75) 100%);
-      transform-origin:50% 100%;
-      animation:flameUp var(--flDur,900ms) ease-in infinite;
-      mix-blend-mode:screen; opacity:.88;
-      will-change:transform, opacity, filter;
-    }
-    @keyframes flameUp{
-      0%   { transform:translateY(0) scale(1) rotate(var(--flRot,0deg)); opacity:.95; }
-      70%  { opacity:.8; }
-      100% { transform:translateY(-22px) scale(1.1) rotate(calc(var(--flRot,0deg) + 4deg)); opacity:0; }
-    }
-
-    /* Sparks (tiny dots) */
-    #feverFlame .sp{
-      position:absolute; bottom:6px; width:4px; height:4px; border-radius:999px;
-      background:linear-gradient(90deg,#fff2,#ffe6); opacity:.9;
-      animation:sparkUp 900ms ease-out infinite;
-    }
-    @keyframes sparkUp{
-      0%   { transform:translateY(0) scale(1); opacity:.95; }
-      100% { transform:translateY(-26px) scale(0.6); opacity:0; }
-    }
-
-    /* Glow when fever active (wrap + score pill ถ้ามี) */
-    .fever-on{ box-shadow:0 0 0 3px #ffd16655, 0 0 22px #ffb703aa; }
+  const css = `
+  .hha-fever-wrap{
+    position:absolute; left:0; right:0; top:100%;
+    margin-top:8px; padding:0 4px; height:14px;
+    display:flex; align-items:center; gap:8px;
+    pointer-events:none; z-index: 50;
+  }
+  .hha-fever-bar{
+    position:relative; flex:1; height:10px; border-radius:999px;
+    background:linear-gradient(180deg,#1f2937,#111827);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.6);
+    overflow:hidden;
+  }
+  .hha-fever-fill{
+    position:absolute; left:0; top:0; bottom:0; width:0%;
+    background:linear-gradient(90deg,#60a5fa,#22d3ee,#34d399);
+    transition:width .18s ease-out, filter .2s ease-out, opacity .2s ease-out;
+  }
+  .hha-fever-glow{
+    position:absolute; left:0; top:-2px; height:14px; width:0%;
+    filter:blur(6px); opacity:.0; pointer-events:none;
+    background:linear-gradient(90deg,rgba(96,165,250,.8),rgba(34,211,238,.8),rgba(52,211,153,.8));
+    transition:opacity .2s ease-out, width .18s ease-out;
+  }
+  .hha-shield{
+    min-width:42px; height:14px; border-radius:999px;
+    background:#0ea5e9; color:#00131a; font-weight:900; font-size:11px;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.35);
+    letter-spacing:.2px; transform:translateZ(0);
+  }
+  /* fixed fallback if we cannot mount into HUD */
+  .hha-fever-fixed{
+    position:fixed; left:12px; right:12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+    z-index: 9990; pointer-events:none;
+  }
+  @media (max-width: 480px){
+    .hha-fever-fixed{ left:10px; right:10px; }
+  }
   `;
-  document.head.appendChild(st);
+  const style = document.createElement('style');
+  style.id = 'hha-fever-style';
+  style.textContent = css;
+  document.head.appendChild(style);
 }
 
-export function ensureFeverBar(){
+function build(){
   injectCSS();
+  const wrap = document.createElement('div');
+  wrap.className = 'hha-fever-wrap';
+  wrap.setAttribute('aria-hidden','true');
 
-  let wrap = $('#feverWrap');
-  if (!wrap){
-    wrap = document.createElement('div');
-    wrap.id = 'feverWrap';
-    const fill = document.createElement('div');
-    fill.id = 'feverFill';
-    wrap.appendChild(fill);
-    document.body.appendChild(wrap);
-  }
+  const bar  = document.createElement('div');  bar.className = 'hha-fever-bar';
+  const fill = document.createElement('div');  fill.className = 'hha-fever-fill';
+  const glow = document.createElement('div');  glow.className = 'hha-fever-glow';
+  bar.appendChild(fill); bar.appendChild(glow);
 
-  if (!$('#shieldChip')){
-    const chip = document.createElement('div');
-    chip.id = 'shieldChip';
-    chip.textContent = '🛡️ x0';
-    document.body.appendChild(chip);
-  }
+  const sh   = document.createElement('div');  sh.className   = 'hha-shield';
+  sh.textContent = '🛡️ x0';
 
-  // Flame root
-  if (!$('#feverFlame')){
-    flameRoot = document.createElement('div');
-    flameRoot.id = 'feverFlame';
-    document.body.appendChild(flameRoot);
-    buildFlameChildren(); // initial populate
-  } else {
-    flameRoot = $('#feverFlame');
-  }
+  wrap.appendChild(bar);
+  wrap.appendChild(sh);
+
+  feverEl   = wrap;
+  feverFill = fill;
+  feverGlow = glow;
+  shieldEl  = sh;
   return wrap;
 }
 
-function buildFlameChildren(){
-  if (!flameRoot) return;
-  flameRoot.innerHTML = '';
-  const W = flameRoot.getBoundingClientRect().width || 520;
-  const cols = Math.max(10, Math.floor(W / 28)); // จำนวนเปลวไฟแนวนอน
+// Try to find a HUD container under score+combo to attach after.
+// Accepted anchors (first found wins):
+//  - #hudTop .score-box
+//  - .hud-top .score-box
+//  - [data-hud="scorebox"]
+//  - #hudTop
+function findAnchor(){
+  const a =
+    document.querySelector('#hudTop .score-box') ||
+    document.querySelector('.hud-top .score-box') ||
+    document.querySelector('[data-hud="scorebox"]') ||
+    document.querySelector('#hudTop');
+  return a || null;
+}
 
-  for (let i=0;i<cols;i++){
-    const x = (i+0.5) * (W/cols);
-    // fire core
-    const fl = document.createElement('div');
-    fl.className = 'fl';
-    fl.style.left = (x - 9) + 'px';
-    fl.style.setProperty('--flRot', ((Math.random()*10)-5)+'deg');
-    fl.style.setProperty('--flDur', (800 + Math.random()*300)+'ms');
-    flameRoot.appendChild(fl);
-
-    // spark (บางจุด)
-    if (Math.random() < 0.6){
-      const sp = document.createElement('div');
-      sp.className = 'sp';
-      sp.style.left = (x - 2) + 'px';
-      sp.style.animationDuration = (600 + Math.random()*500)+'ms';
-      flameRoot.appendChild(sp);
+function mountUnderScore(){
+  if (!feverEl) build();
+  const anchor = findAnchor();
+  if (anchor){
+    // Place the fever wrap absolutely under the anchor box
+    const host = anchor.closest('#hudTop, .hud-top') || anchor.parentElement || document.body;
+    if (host && getComputedStyle(host).position === 'static'){
+      host.style.position = 'relative';
     }
+    // If anchor is not relatively positioned, we still append to host and rely on absolute in .hha-fever-wrap (top:100%)
+    if (anchor && getComputedStyle(anchor).position === 'static'){
+      anchor.style.position = 'relative';
+    }
+    anchor.appendChild(feverEl);
+    feverEl.classList.remove('hha-fever-fixed');
+    mountedInto = 'hud';
+    return true;
+  }
+  return false;
+}
+
+function mountFallbackFixed(){
+  if (!feverEl) build();
+  if (!feverEl.parentNode){
+    document.body.appendChild(feverEl);
+  }
+  feverEl.classList.add('hha-fever-fixed');
+  mountedInto = 'fixed';
+}
+
+function tryMountLoop(){
+  if (mountUnderScore()) return;
+  // retry a few frames for late HUD
+  if (mountTries < 30){
+    mountTries++;
+    requestAnimationFrame(tryMountLoop);
+  } else {
+    // fallback to fixed
+    mountFallbackFixed();
   }
 }
 
-/** 0..100 */
-export function setFever(pct){
-  ensureFeverBar();
-  const p = Math.max(0, Math.min(100, Math.round(pct||0)));
-  const fill = $('#feverFill'); if (fill) fill.style.width = p + '%';
+// ---- Public API ----
+export function ensureFeverBar(){
+  if (feverEl && feverEl.parentNode) return;
+  build();
+  mountTries = 0; mountedInto = null;
+  tryMountLoop();
+}
 
-  // ความแรงของไฟ: map เป็น opacity + พารามิเตอร์ไฟ
-  if (flameRoot){
-    const alpha = p <= 0 ? 0 : (p < 100 ? (0.25 + p/150) : 1);
-    flameRoot.style.opacity = String(alpha);
-    // เพิ่ม/ลดความเร็วด้วยการปรับ --flDur บางส่วน (คร่าว ๆ)
-    flameRoot.querySelectorAll('.fl').forEach(el=>{
-      const base = 900 - p*3; // มากขึ้น → เร็วขึ้น
-      el.style.setProperty('--flDur', Math.max(500, base) + 'ms');
-    });
-  }
+export function setFever(v){
+  if (!feverEl) ensureFeverBar();
+  const val = Math.max(0, Math.min(100, Number(v)||0));
+  if (feverFill) feverFill.style.width = val + '%';
+  if (feverGlow) feverGlow.style.width = val + '%';
+}
+
+export function setFeverActive(active){
+  if (!feverEl) ensureFeverBar();
+  const on = !!active;
+  if (feverGlow) feverGlow.style.opacity = on ? 0.9 : 0.0;
+  if (feverFill) feverFill.style.filter  = on ? 'saturate(1.3) brightness(1.15)' : 'none';
 }
 
 export function setShield(n){
-  ensureFeverBar();
-  const chip = $('#shieldChip'); if (!chip) return;
-  chip.textContent = '🛡️ x' + (n|0);
-  chip.style.opacity = n>0 ? '1' : '.55';
+  if (!feverEl) ensureFeverBar();
+  const val = Math.max(0, Number(n)||0);
+  if (shieldEl) shieldEl.textContent = '🛡️ x' + val;
 }
 
-/** เปิด/ปิดภาวะ Fever (glow + ไฟลุก) */
-export function setFeverActive(on){
-  ensureFeverBar();
-  const scorePill = $('#score');
-  const wrap = $('#feverWrap');
-  const flame = $('#feverFlame');
-  if (on){
-    if (wrap) wrap.classList.add('fever-on');
-    if (scorePill) scorePill.classList.add('fever-on');
-    if (flame){ flame.style.opacity = '1'; }
-  }else{
-    if (wrap) wrap.classList.remove('fever-on');
-    if (scorePill) scorePill.classList.remove('fever-on');
-    if (flame){
-      // ไม่ดับทันที ให้ลดตามค่าเฟเวอร์ที่ setFever() คุมอยู่
-      // ถ้าอยากปิดทันที ให้ตั้ง opacity=0 ตรงนี้ได้
-    }
+// Optional: if HUD announces it's ready, remount into it
+window.addEventListener('hha:hud-ready', ()=>{
+  if (!feverEl) return;
+  mountUnderScore() || mountFallbackFixed();
+});
+
+// Safety: if DOM becomes visible later
+document.addEventListener('visibilitychange', ()=>{
+  if (!document.hidden && feverEl && !feverEl.parentNode){
+    ensureFeverBar();
   }
-}
-
-// alias (ตามที่โหมดบางไฟล์เรียก)
-export const setFlame = setFeverActive;
-
-export default { ensureFeverBar, setFever, setFeverActive, setFlame, setShield };
+});
