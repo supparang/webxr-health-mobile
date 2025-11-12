@@ -1,225 +1,301 @@
-// === /HeroHealth/modes/goodjunk.safe.js (2025-11-12 goals+mini sequential + fever/power + hubUrl) ===
+// === /HeroHealth/modes/groups.safe.js (2025-11-12 FULL)
+// Food Groups mode (5 หมู่) + Fever/Powerups + MissionDeck Goals & Mini Quests (สุ่ม)
+// - Goal pool 10 → สุ่มมา 5 ตามระดับ
+// - Mini pool 10 → สุ่มมา 3; ถ้าทำครบก่อนหมดเวลา → สุ่มเติม
+// - ส่ง event 'hha:quest' ให้ quest-hud แสดง "ทีละเป้าหมาย" + "ทีละ mini quest"
+
 import { boot as factoryBoot } from '../vr/mode-factory.js';
+import { MissionDeck } from '../vr/mission.js';
+import { questHUDInit, questHUDUpdate, questHUDDispose } from '../vr/quest-hud.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { Particles } from '../vr/particles.js';
 
-// ---------------- Pools ----------------
-const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🍆','🥬','🥝','🍍','🍐','🍑'];
-const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬'];
+// ---------- หมวด/พูล ----------
+const CAT = {
+  protein : new Set(['🥩','🥚','🐟','🍗','🫘']),
+  veggie  : new Set(['🥦','🥕','🥬','🍅','🌽','🍆']),
+  fruit   : new Set(['🍎','🍌','🍇','🍊','🍓','🍍','🥝','🍐']),
+  grain   : new Set(['🍚','🍞','🥖','🌾','🥐']),
+  dairy   : new Set(['🥛','🧀'])
+};
+const ALL_CATS = ['protein','veggie','fruit','grain','dairy'];
+const GROUPS_GOOD = [
+  ...CAT.protein, ...CAT.veggie, ...CAT.fruit, ...CAT.grain, ...CAT.dairy
+];
+const LURE = ['🥤','🧋','🍰','🍩','🍫','🍔','🍟','🌭','🍪','🧁','🍕','🍬'];
 const STAR='⭐', DIA='💎', SHIELD='🛡️', FIRE='🔥';
 const BONUS=[STAR,DIA,SHIELD,FIRE];
 
-// Goals 10 ใบ/สุ่ม 5 ตามระดับ (โฟกัสทีละ 1)
-const GOALS_POOL = {
-  easy: [
-    {id:'g_score300', label:'ทำคะแนน 300+', target:300, prog:s=>s.score},
-    {id:'g_combo8',   label:'คอมโบ ≥ 8',    target:8,   prog:s=>s.comboMax},
-    {id:'g_good12',   label:'เก็บของดี 12 ชิ้น', target:12, prog:s=>s.goodCount},
-    {id:'g_nomiss10', label:'ไม่พลาด 10 วินาที', target:10, prog:s=>s.noMissTime},
-    {id:'g_star1',    label:'เก็บดาว 1 ดวง', target:1, prog:s=>s.star},
-    {id:'g_diamond1', label:'เก็บเพชร 1 เม็ด', target:1, prog:s=>s.diamond},
-    {id:'g_shield1',  label:'เก็บโล่ 1 ชิ้น', target:1, prog:s=>s.shieldPick},
-    {id:'g_fever1',   label:'เข้าสู่โหมด Fever 1 ครั้ง', target:1, prog:s=>s.feverEnter},
-    {id:'g_streak15', label:'สะสมสตรีค 15', target:15, prog:s=>s.streak},
-    {id:'g_time20',   label:'ผ่านเวลา 20s', target:20, prog:s=>s.time},
-  ],
-  normal: [
-    {id:'g_score600', label:'ทำคะแนน 600+', target:600, prog:s=>s.score},
-    {id:'g_combo12',  label:'คอมโบ ≥ 12',   target:12,  prog:s=>s.comboMax},
-    {id:'g_good18',   label:'เก็บของดี 18 ชิ้น', target:18, prog:s=>s.goodCount},
-    {id:'g_nomiss15', label:'ไม่พลาด 15 วินาที', target:15, prog:s=>s.noMissTime},
-    {id:'g_star2',    label:'เก็บดาว 2 ดวง', target:2, prog:s=>s.star},
-    {id:'g_diamond1', label:'เก็บเพชร 1 เม็ด', target:1, prog:s=>s.diamond},
-    {id:'g_shield2',  label:'เก็บโล่ 2 ชิ้น', target:2, prog:s=>s.shieldPick},
-    {id:'g_fever2',   label:'เข้าสู่โหมด Fever 2 ครั้ง', target:2, prog:s=>s.feverEnter},
-    {id:'g_streak20', label:'สะสมสตรีค 20', target:20, prog:s=>s.streak},
-    {id:'g_time40',   label:'ผ่านเวลา 40s', target:40, prog:s=>s.time},
-  ],
-  hard: [
-    {id:'g_score900', label:'ทำคะแนน 900+', target:900, prog:s=>s.score},
-    {id:'g_combo16',  label:'คอมโบ ≥ 16',   target:16,  prog:s=>s.comboMax},
-    {id:'g_good24',   label:'เก็บของดี 24 ชิ้น', target:24, prog:s=>s.goodCount},
-    {id:'g_nomiss20', label:'ไม่พลาด 20 วินาที', target:20, prog:s=>s.noMissTime},
-    {id:'g_star3',    label:'เก็บดาว 3 ดวง', target:3, prog:s=>s.star},
-    {id:'g_diamond2', label:'เก็บเพชร 2 เม็ด', target:2, prog:s=>s.diamond},
-    {id:'g_shield3',  label:'เก็บโล่ 3 ชิ้น', target:3, prog:s=>s.shieldPick},
-    {id:'g_fever3',   label:'เข้าสู่โหมด Fever 3 ครั้ง', target:3, prog:s=>s.feverEnter},
-    {id:'g_streak25', label:'สะสมสตรีค 25', target:25, prog:s=>s.streak},
-    {id:'g_time55',   label:'ผ่านเวลา 55s', target:55, prog:s=>s.time},
-  ]
-};
-
-// Mini quests 10 ใบ/สุ่มทีละ 3 (ทำครบก่อนหมดเวลา → สุ่มชุดใหม่)
-const MINI_POOL = [
-  {id:'m_break5',  label:'หลีกของขยะ 5 ครั้ง',  target:5,  prog:s=>s.junkAvoid},
-  {id:'m_combo10', label:'ทำคอมโบ 10',         target:10, prog:s=>s.comboMax},
-  {id:'m_score500',label:'ทำคะแนนรวม 500+',    target:500,prog:s=>s.score},
-  {id:'m_star2',   label:'เก็บดาว ⭐ 2 ดวง',     target:2,  prog:s=>s.star},
-  {id:'m_dia1',    label:'เก็บเพชร 💎 1 เม็ด',   target:1,  prog:s=>s.diamond},
-  {id:'m_good12',  label:'เก็บของดี 12 ชิ้น',    target:12, prog:s=>s.goodCount},
-  {id:'m_noMiss10',label:'ไม่พลาด 10 วินาที',    target:10, prog:s=>s.noMissTime},
-  {id:'m_shield2', label:'สะสมโล่ 2',           target:2,  prog:s=>s.shieldPick},
-  {id:'m_fever',   label:'เข้า Fever 1 ครั้ง',    target:1,  prog:s=>s.feverEnter},
-  {id:'m_time30',  label:'เล่นครบ 30 วินาที',    target:30, prog:s=>s.time}
+// ---------- Goal/Mini Pools ----------
+const GOAL_POOL10 = [
+  { id:'g_protein', label:'เก็บโปรตีนให้ครบ',     target:{easy:4, normal:5, hard:6},      prog:s=>s.cat_protein||0 },
+  { id:'g_veggie',  label:'เก็บผักให้ครบ',         target:{easy:5, normal:6, hard:7},      prog:s=>s.cat_veggie ||0 },
+  { id:'g_fruit',   label:'เก็บผลไม้ให้ครบ',       target:{easy:5, normal:6, hard:7},      prog:s=>s.cat_fruit  ||0 },
+  { id:'g_grain',   label:'เก็บธัญพืชให้ครบ',       target:{easy:4, normal:5, hard:6},      prog:s=>s.cat_grain  ||0 },
+  { id:'g_dairy',   label:'เก็บนม/ชีสให้ครบ',       target:{easy:2, normal:3, hard:4},      prog:s=>s.cat_dairy  ||0 },
+  { id:'g_sets',    label:'ทำชุดครบ 5 หมู่',        target:{easy:1, normal:2, hard:3},      prog:s=>s.sets       ||0 },
+  { id:'g_combo',   label:'คอมโบสูงสุด',            target:{easy:10,normal:14,hard:18},     prog:s=>s.comboMax   ||0 },
+  { id:'g_score',   label:'คะแนนรวม',               target:{easy:800,normal:1200,hard:1600},prog:s=>s.score      ||0 },
+  { id:'g_avoid',   label:'เลี่ยงขยะ (หมดอายุ)',     target:{easy:6, normal:8, hard:10},     prog:s=>s.junkAvoid  ||0 },
+  { id:'g_fever',   label:'เปิด Fever',             target:{easy:1, normal:2, hard:3},      prog:s=>s.feverCount ||0 },
 ];
 
-function sampleN(arr, n){
-  const a=[...arr]; const out=[];
-  while(a.length && out.length<n){ out.push(a.splice((Math.random()*a.length)|0,1)[0]); }
-  return out;
+const MINI_POOL10 = [
+  { id:'m_combo',    level:'normal', label:'คอมโบต่อเนื่อง',        target:{easy:8, normal:12, hard:16}, prog:s=>s.comboMax||0 },
+  { id:'m_nomiss',   level:'normal', label:'ไม่พลาดต่อเนื่อง (วินาที)',target:{easy:10, normal:15, hard:20}, prog:s=>s.noMissTime||0 },
+  { id:'m_star',     level:'easy',   label:'เก็บดาว ⭐',            target:{easy:1, normal:2, hard:2},  prog:s=>s.star||0 },
+  { id:'m_diamond',  level:'hard',   label:'เก็บเพชร 💎',           target:{easy:1, normal:1, hard:2},  prog:s=>s.diamond||0 },
+  { id:'m_shield',   level:'normal', label:'ใช้โล่ 🛡️ ป้องกัน',      target:{easy:1, normal:2, hard:3},  prog:s=>s.shieldBlocks||0 },
+  { id:'m_fever',    level:'normal', label:'เติม Fever เต็ม',        target:{easy:1, normal:2, hard:2},  prog:s=>s.feverFull||0 },
+  { id:'m_protein',  level:'easy',   label:'เก็บโปรตีน (mini)',     target:{easy:3, normal:4, hard:5},  prog:s=>s.cat_protein||0 },
+  { id:'m_veggie',   level:'easy',   label:'เก็บผัก (mini)',        target:{easy:3, normal:4, hard:5},  prog:s=>s.cat_veggie ||0 },
+  { id:'m_fruit',    level:'easy',   label:'เก็บผลไม้ (mini)',      target:{easy:3, normal:4, hard:5},  prog:s=>s.cat_fruit  ||0 },
+  { id:'m_avoid',    level:'normal', label:'เลี่ยงขยะ (mini)',      target:{easy:4, normal:6, hard:8},  prog:s=>s.junkAvoid||0 },
+];
+
+// ---------- Utils ----------
+function catOf(emoji){
+  if (CAT.protein.has(emoji)) return 'protein';
+  if (CAT.veggie .has(emoji)) return 'veggie';
+  if (CAT.fruit  .has(emoji)) return 'fruit';
+  if (CAT.grain  .has(emoji)) return 'grain';
+  if (CAT.dairy  .has(emoji)) return 'dairy';
+  return null;
 }
+const clamp = (n,a,b)=>Math.max(a,Math.min(b,n));
 
 export async function boot(cfg = {}){
-  const diff = String(cfg.difficulty || 'normal');
-  const dur  = Number(cfg.duration  || 60);
+  const diff = String(cfg.difficulty||'normal');
+  const dur  = Number(cfg.duration||60);
 
-  // HUD / fever
+  // HUD base
   ensureFeverBar(); setFever(0); setShield(0);
+  questHUDInit();
 
-  // ---------- Stats ที่ใช้เช็คโปรเกรส ----------
-  const S = {
-    score:0, combo:0, comboMax:0,
-    goodCount:0, junkHit:0, junkAvoid:0,
-    star:0, diamond:0, shield:0, shieldPick:0,
-    fever:0, feverEnter:0,
-    time:0, noMissTime:0, streak:0
-  };
-  let feverActive=false;
+  // Deck (สุ่ม goal 5 + mini 3)
+  const deck = new MissionDeck({ goalPool: GOAL_POOL10, miniPool: MINI_POOL10, difficulty: diff });
+  deck.drawGoals(5);
+  deck.draw3();
+  questHUDUpdate(deck, 'Wave 1');
 
-  // ---------- Goal & Mini stacks ----------
-  const goalsQueue = sampleN(GOALS_POOL[diff]||GOALS_POOL.normal, 5);
-  let currentGoal = goalsQueue.shift(); let goalsCleared=0;
+  // ---------- State ----------
+  let score=0, combo=0, shield=0;
+  let fever=0, feverActive=false;
+  let star=0, diamond=0;
+  let sets=0;                         // ชุดครบ 5 หมู่
+  const picked = { protein:0, veggie:0, fruit:0, grain:0, dairy:0 };
+  let junkAvoid=0;                    // ปล่อยของล่อให้หมดอายุ
+  let noMissTime=0;                   // วินาทีที่ไม่พลาด
+  let recentMiss=false;
+  let feverCount=0, feverFull=0;      // นับเปิด fever / เติมเต็ม
+  let shieldBlocks=0;
 
-  let miniDeck   = sampleN(MINI_POOL, 3);
-  let currentMini = miniDeck.shift();   // โฟกัสทีละ 1
-  let minisCleared=0;
+  // sync ค่าเข้า deck.stats ทุกครั้งหลังอัปเดต
+  function syncStats(){
+    deck.stats.score = score;
+    deck.stats.combo = combo;
+    deck.stats.comboMax = Math.max(deck.stats.comboMax||0, combo);
 
-  function goalProgress(g){ return Math.min(g.target, Number(g.prog(S))|0); }
-  function miniProgress(m){ return Math.min(m.target, Number(m.prog(S))|0); }
-  function pushQuestUI(hint){
-    const goal = currentGoal ? { label:currentGoal.label, prog:goalProgress(currentGoal), target:currentGoal.target } : null;
-    const mini = currentMini ? { label:currentMini.label, prog:miniProgress(currentMini), target:currentMini.target } : null;
-    window.dispatchEvent(new CustomEvent('hha:quest', { detail: { goal, mini, hint } }));
+    deck.stats.cat_protein = picked.protein;
+    deck.stats.cat_veggie  = picked.veggie;
+    deck.stats.cat_fruit   = picked.fruit;
+    deck.stats.cat_grain   = picked.grain;
+    deck.stats.cat_dairy   = picked.dairy;
+
+    deck.stats.sets = sets;
+    deck.stats.junkAvoid = junkAvoid;
+    deck.stats.noMissTime = noMissTime;
+    deck.stats.feverCount = feverCount;
+    deck.stats.feverFull  = feverFull;
+    deck.stats.star = star;
+    deck.stats.diamond = diamond;
+    deck.stats.shieldBlocks = shieldBlocks;
+
+    deck.updateScore(score);
+    deck.updateCombo(combo);
   }
 
+  function pushQuestUI(hint){
+    // ให้ HUD โฟกัสทีละอัน (current ของ deck)
+    const curGoal = deck.getCurrentGoal();   // เสริมใน MissionDeck: current goal pointer
+    const curMini = deck.getCurrent();       // mini ปัจจุบัน
+
+    const gProg = curGoal ? deck.progressOf(curGoal.id) : null;
+    const mProg = curMini ? deck.progressOf(curMini.id) : null;
+
+    const goal = curGoal ? {
+      label  : curGoal.label,
+      prog   : (gProg?.prog ?? 0),
+      target : (gProg?.target ?? 0)
+    } : null;
+
+    const mini = curMini ? {
+      label  : curMini.label,
+      prog   : (mProg?.prog ?? 0),
+      target : (mProg?.target ?? 0)
+    } : null;
+
+    window.dispatchEvent(new CustomEvent('hha:quest', { detail: { goal, mini, hint } }));
+    questHUDUpdate(deck, hint||'');
+  }
+
+  // Fever helpers
   function mult(){ return feverActive ? 2 : 1; }
   function gainFever(n){
-    S.fever = Math.max(0, Math.min(100, S.fever + n));
-    setFever(S.fever);
-    if (!feverActive && S.fever>=100){ feverActive=true; setFeverActive(true); S.feverEnter++; }
+    const before = fever;
+    fever = clamp(fever + n, 0, 100);
+    setFever(fever);
+    if (!feverActive && fever>=100){
+      feverActive = true; setFeverActive(true);
+      feverCount += 1;    // เปิด fever สำเร็จ
+    }
+    if (before<100 && fever>=100) feverFull += 1; // เติมเต็ม
   }
   function decayFever(base){
     const d = feverActive ? 10 : base;
-    S.fever = Math.max(0, S.fever - d); setFever(S.fever);
-    if (feverActive && S.fever<=0){ feverActive=false; setFeverActive(false); }
+    fever = clamp(fever - d, 0, 100);
+    setFever(fever);
+    if (feverActive && fever<=0){ feverActive=false; setFeverActive(false); }
   }
 
-  function onGood(cx,cy,base=16){
-    const delta = (base + S.combo*2) * mult();
-    S.score += delta; S.combo += 1; S.comboMax = Math.max(S.comboMax, S.combo);
-    S.goodCount += 1; S.streak += 1; S.noMissTime += 1; // noMiss จะรีเซ็ตเมื่อ miss
-    gainFever(6 + S.combo*0.5);
-    Particles.burstShards(null,null,{screen:{x:cx,y:cy},theme:'goodjunk'});
-    Particles.scorePop(cx,cy,delta,true);
-    return delta;
-  }
-  function onJunk(cx,cy){
-    if (S.shield>0){ S.shield -= 1; setShield(S.shield); Particles.burstShards(null,null,{screen:{x:cx,y:cy},theme:'goodjunk'}); Particles.scorePop(cx,cy,0,false); return 0; }
-    const delta = -12;
-    S.score = Math.max(0, S.score + delta);
-    S.combo = 0; S.streak = 0; S.noMissTime = 0;
-    decayFever(16);
-    S.junkHit += 1;
-    Particles.burstShards(null,null,{screen:{x:cx,y:cy},theme:'goodjunk'});
-    Particles.scorePop(cx,cy,delta,false);
-    return delta;
+  // นับ "ชุดครบ 5 หมู่" แบบง่าย: เมื่อทั้งห้าหมู่มีอย่างน้อย 1 → +1 set แล้วหักออกหมู่ละ 1
+  function tryMakeSet(){
+    if (ALL_CATS.every(k => picked[k] > 0)){
+      ALL_CATS.forEach(k => picked[k]-=1);
+      sets += 1;
+    }
   }
 
-  function judge(ch, ctx){
+  // ---------- Judge ----------
+  function judge(emoji, ctx){
     const cx = ctx.clientX ?? ctx.cx, cy = ctx.clientY ?? ctx.cy;
 
-    // power-ups
-    if (ch===STAR){ const d=35*mult(); S.score+=d; S.star++; gainFever(10); Particles.burstShards(null,null,{screen:{x:cx,y:cy}}); Particles.scorePop(cx,cy,d,true); return {good:true,scoreDelta:d}; }
-    if (ch===DIA){  const d=70*mult(); S.score+=d; S.diamond++; gainFever(28); Particles.burstShards(null,null,{screen:{x:cx,y:cy}}); Particles.scorePop(cx,cy,d,true); return {good:true,scoreDelta:d}; }
-    if (ch===SHIELD){ S.shield=Math.min(3,S.shield+1); S.shieldPick++; setShield(S.shield); Particles.burstShards(null,null,{screen:{x:cx,y:cy}}); Particles.scorePop(cx,cy,18,true); S.score+=18; return {good:true,scoreDelta:18}; }
-    if (ch===FIRE){ feverActive=true; setFeverActive(true); S.fever=Math.max(S.fever,60); setFever(S.fever); S.score+=20; Particles.burstShards(null,null,{screen:{x:cx,y:cy}}); Particles.scorePop(cx,cy,20,true); return {good:true,scoreDelta:20}; }
+    // Power-ups
+    if (emoji===STAR){ const d=35*mult(); score+=d; star++; gainFever(10);
+      Particles.burstShards(null,null,{screen:{x:cx,y:cy}, theme:'groups'}); recentMiss=false; syncStats(); pushQuestUI(); return {good:true,scoreDelta:d}; }
+    if (emoji===DIA){  const d=70*mult(); score+=d; diamond++; gainFever(28);
+      Particles.burstShards(null,null,{screen:{x:cx,y:cy}, theme:'goodjunk'}); recentMiss=false; syncStats(); pushQuestUI(); return {good:true,scoreDelta:d}; }
+    if (emoji===SHIELD){ shield=Math.min(3, shield+1); setShield(shield); score+=18;
+      Particles.burstShards(null,null,{screen:{x:cx,y:cy}, theme:'hydration'}); recentMiss=false; syncStats(); pushQuestUI(); return {good:true,scoreDelta:18}; }
+    if (emoji===FIRE){ feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=20;
+      Particles.burstShards(null,null,{screen:{x:cx,y:cy}, theme:'plate'}); recentMiss=false; syncStats(); pushQuestUI(); return {good:true,scoreDelta:20}; }
 
-    if (GOOD.includes(ch)){ const d=onGood(cx,cy); return {good:true,scoreDelta:d}; }
-    if (JUNK.includes(ch)){ const d=onJunk(cx,cy); return {good:false,scoreDelta:d}; }
-    return {good:false,scoreDelta:0};
-  }
+    // Food / Lure
+    const cat = catOf(emoji);
+    if (cat){
+      const base  = 16 + combo*2;
+      const delta = base * mult();
+      score += delta; combo += 1;
+      gainFever(7 + combo*0.5);
 
-  function onExpired(ev){
-    if (!ev || ev.isGood) return;
-    // ไม่คลิก JUNK → ถือว่า "หลีกได้"
-    S.junkAvoid += 1;
-  }
+      picked[cat] += 1;
+      tryMakeSet();
 
-  function evalProgress(){
-    // goal (ทีละ 1)
-    if (currentGoal && goalProgress(currentGoal) >= currentGoal.target){
-      goalsCleared++;
-      currentGoal = goalsQueue.shift() || null;
-    }
-    // mini (ทีละ 1 — โฟกัส)
-    if (currentMini && miniProgress(currentMini) >= currentMini.target){
-      minisCleared++;
-      currentMini = miniDeck.shift() || null;
-      if (!currentMini && S.time < dur){ // ยังมีเวลา → เติมชุดใหม่ 3 ใบ
-        miniDeck = sampleN(MINI_POOL, 3);
-        currentMini = miniDeck.shift();
+      deck.onGood();                // แจ้ง Deck ว่าได้ของดี
+      recentMiss=false;             // รีเซ็ต no-miss line
+
+      Particles.burstShards(null,null,{screen:{x:cx,y:cy}, theme:'groups'});
+      syncStats(); pushQuestUI();
+      return { good:true, scoreDelta:delta };
+    }else{
+      // lure
+      if (shield>0){
+        shield--; setShield(shield); shieldBlocks++;
+        Particles.burstShards(null,null,{screen:{x:cx,y:cy}, theme:'groups'});
+        recentMiss=false; syncStats(); pushQuestUI();
+        return {good:false, scoreDelta:0};
       }
+      score = Math.max(0, score - 12);
+      combo = 0;
+      decayFever(16);
+      deck.onJunk();                // แจ้ง Deck ว่ากดโดนขยะ
+      recentMiss = true;
+
+      Particles.burstShards(null,null,{screen:{x:cx,y:cy}, theme:'goodjunk'});
+      syncStats(); pushQuestUI();
+      return { good:false, scoreDelta:-12 };
     }
-    pushQuestUI();
+  }
+
+  function onExpire(e){
+    // หมดอายุ: ถ้าเป็น lure → นับเลี่ยงสำเร็จ
+    if (e && e.isGood===false){
+      junkAvoid += 1;
+      deck.onJunk(); // เลี่ยงขยะ = จัดการฝั่ง junk ใน deck เพื่อให้บาง quest นับ
+      syncStats(); pushQuestUI();
+    }
+  }
+
+  function onHitScreen(){
+    // เคลียร์ mini ครบ 3 ใบก่อนหมดเวลา → เติมชุดใหม่
+    // หมายเหตุ: MissionDeck ควรมี deck.isCleared() สำหรับ mini
+    syncStats(); pushQuestUI();
+    if (deck.isCleared()){
+      deck.draw3();
+      questHUDUpdate(deck, 'New Mini Set');
+      pushQuestUI('New Mini Set');
+    }
+    // Goal: เปลี่ยนโฟกัสไปยัง goal ถัดไปเมื่อถึง target (ใช้ getCurrentGoal()/advanceGoal() ใน Deck)
+    if (deck.isCurrentGoalCleared?.()){
+      deck.advanceGoal?.();
+      pushQuestUI('Next Goal');
+    }
   }
 
   function onSec(){
-    S.time += 1;
-    if (S.combo<=0) decayFever(6); else decayFever(2);
-    S.noMissTime += 1; // กรณีไม่ miss ในวินาทีนั้น (ถ้า miss จะถูกรีเซ็ตใน onJunk)
-    evalProgress();
+    // นับเส้น no-miss (เพิ่มถ้าไม่มี miss ในวินาทีนั้น)
+    if (!recentMiss) noMissTime += 1; else recentMiss=false;
+
+    // fever ลดอัตโนมัติ
+    decayFever(combo<=0 ? 6 : 2);
+
+    deck.second();
+    syncStats();
+    pushQuestUI();
   }
 
-  window.addEventListener('hha:expired', onExpired);
-  window.addEventListener('hha:time',    (e)=>{ if ((e.detail?.sec|0)>0) onSec(); });
+  window.addEventListener('hha:hit-screen', onHitScreen);
+  window.addEventListener('hha:expired',    onExpire);
+  window.addEventListener('hha:time',       onSec);
 
+  // สรุปผลเมื่อหมดเวลา (จับจาก hha:time sec<=0)
   const onEnd = () => {
     try{
-      window.removeEventListener('hha:expired', onExpired);
-      // ส่งผลจบเกม (มี hubUrl ให้ overlay ใช้กลับหน้า Hub ได้ตรงพาธ)
+      window.removeEventListener('hha:hit-screen', onHitScreen);
+      window.removeEventListener('hha:expired',    onExpire);
+      window.removeEventListener('hha:time',       onSec);
+
+      questHUDDispose();
+
       window.dispatchEvent(new CustomEvent('hha:end',{detail:{
-        mode:'Good vs Junk',
-        difficulty:diff,
-        score:S.score,
-        comboMax:S.comboMax,
-        misses:S.junkHit,
-        hits:S.goodCount,
-        duration:dur,
-        questsCleared:minisCleared,
-        questsTotal:minisCleared + (currentMini?1:0) + (miniDeck?.length||0),
-        goalsCleared,
-        goalsTarget:5,
-        hubUrl: '/webxr-health-mobile/HeroHealth/hub.html'
+        mode:'Food Groups', difficulty:diff, score,
+        comboMax: (deck.stats.comboMax||0),
+        misses:   (deck.stats.junkMiss||0),
+        hits:     (deck.stats.goodCount||0),
+        duration: dur,
+        // Summary สำคัญสำหรับจอผลลัพธ์
+        goalsCleared: deck.goalsCleared?.() ?? 0,
+        goalsTotal  : deck.goalsTotal?.()   ?? 5,
+        questsCleared: deck.questsCleared?.() ?? 0,
+        questsTotal  : deck.questsTotal?.()   ?? 3
       }}));
-    }catch{}
+    }catch(_){}
   };
 
-  // boot factory
   return factoryBoot({
     difficulty: diff,
     duration  : dur,
-    pools     : { good:[...GOOD,...BONUS], bad:[...JUNK] },
+    pools     : { good:[...GROUPS_GOOD, ...BONUS], bad:[...LURE] },
     goodRate  : 0.62,
     powerups  : BONUS,
     powerRate : 0.08,
     powerEvery: 7,
     judge,
-    onExpire  : onExpired
+    onExpire
   }).then(ctrl=>{
-    // ฟังเวลาหมด
     window.addEventListener('hha:time', (e)=>{ if((e.detail?.sec|0)<=0) onEnd(); });
-    // แสดงชุดแรกบน HUD
-    pushQuestUI('Wave 1');
+    // แสดง UI ครั้งแรก
+    syncStats(); pushQuestUI('Wave 1');
     return ctrl;
   });
 }
