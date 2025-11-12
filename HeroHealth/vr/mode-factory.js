@@ -1,8 +1,9 @@
-// === /HeroHealth/vr/mode-factory.js (2025-11-12 LATEST)
+// === /HeroHealth/vr/mode-factory.js (2025-11-12 LATEST+HARDENED)
 // - DOM spawn factory for click targets (safe hitbox + pointerdown)
-// - Safe spawn zone (avoid HUD), visualViewport offset fix
-// - End-safe: remove layer + disable pointer events so targets "คลิกไม่ได้"
-// - Emits: hha:time, hha:score, hha:hit-screen, hha:expired, hha:pause/resume
+// - Safe spawn zone from live HUD (under score/combo/fever)
+// - visualViewport offset fix (mobile browsers / soft keyboard)
+// - End-safe: disable pointer events so targets "คลิกไม่ได้" และเคลียร์ทั้งหมด
+// - Emits: hha:time, hha:score, hha:hit-screen, hha:expired, hha:pause/resume, hha:layer-ready
 
 export function boot(opts){
   opts = opts || {};
@@ -28,25 +29,27 @@ export function boot(opts){
     if (document.getElementById('hha-factory-style')) return;
     var st=document.createElement('style'); st.id='hha-factory-style';
     st.textContent =
-      '.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto;background:transparent}'+
-      '.hha-tgt{position:absolute;transform:translate(-50%,-50%);display:block;opacity:1;'+
-      ' user-select:none;-webkit-user-select:none;touch-action:none;'+
-      ' -webkit-tap-highlight-color:transparent;background:transparent;'+
-      ' padding:14px 16px;border-radius:18px; /* wider invisible hitbox */ '+
-      ' font-size:64px;line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));'+
-      ' transition:transform .12s ease,opacity .24s ease;cursor:pointer}'+
-      '.hha-tgt.hit{transform:translate(-50%,-50%) scale(.85);opacity:.15}'+
-      '.hha-badge{position:fixed;left:50%;top:50px;transform:translateX(-50%);background:#0f172acc;color:#fff;padding:6px 10px;border:1px solid #475569;border-radius:10px;font:700 12px system-ui}';
+      '.hha-layer{position:fixed;inset:0;z-index:650;pointer-events:auto;background:transparent;}' +
+      '.hha-tgt{position:absolute;transform:translate(-50%,-50%);display:block;opacity:1;' +
+      ' user-select:none;-webkit-user-select:none;touch-action:none;' +
+      ' -webkit-tap-highlight-color:transparent;background:transparent;' +
+      ' padding:14px 16px;border-radius:18px; /* wider invisible hitbox */ ' +
+      ' font-size:64px;line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.5));' +
+      ' transition:transform .12s ease,opacity .24s ease;cursor:pointer}' +
+      '.hha-tgt.hit{transform:translate(-50%,-50%) scale(.85);opacity:.15}' +
+      '.hha-layer.off{pointer-events:none !important;}';
     document.head.appendChild(st);
   })();
 
   // --------- layer ---------
+  var mount = document.querySelector('#spawnHost') || document.querySelector('.game-wrap') || document.body;
   var layer = document.querySelector('.hha-layer');
   if (!layer){
     layer = document.createElement('div');
     layer.className = 'hha-layer';
-    (document.querySelector('.game-wrap')||document.body).appendChild(layer);
+    mount.appendChild(layer);
   }
+  fire('hha:layer-ready', { el: layer });
 
   // --------- state ---------
   var running=false, killed=false;
@@ -64,7 +67,6 @@ export function boot(opts){
 
   // --------- spawn helpers ---------
   function shouldSpawnPower(){
-    // guard: not too frequent + probability gate
     if (sinceLastPower < powerEvery) return false;
     return Math.random() < powerRate;
   }
@@ -79,8 +81,22 @@ export function boot(opts){
     return {cx:cx, cy:cy};
   }
 
+  function computeSafeTop(){
+    // อ่านจากกล่อง HUD จริง ถ้ามี (#hudTop .score-box)
+    var safe = 120;
+    try{
+      var box = document.querySelector('#hudTop .score-box') || document.querySelector('[data-hud="scorebox"]');
+      if (box){
+        var r = box.getBoundingClientRect();
+        // +24 เป็น buffer สำหรับ fever bar/ไอคอนโล่ที่อยู่ใต้กล่อง
+        safe = Math.max(60, Math.round(r.bottom + 24));
+      }
+    }catch(_){}
+    return safe;
+  }
+
   function safePos(forceCenter){
-    var safeTop = 120;                // avoid HUD
+    var safeTop = computeSafeTop();
     var safeBot = vh() - 60;
     var x = forceCenter ? vw()/2 : Math.floor(vw()*0.12 + Math.random()*vw()*0.76);
     var y = forceCenter ? Math.max(safeTop, Math.min(vh()/2, safeBot))
@@ -106,7 +122,8 @@ export function boot(opts){
 
     var clicked=false;
     function onHit(ev){
-      if(clicked || !running) return; clicked=true;
+      if(clicked || !running || killed) return;
+      clicked=true;
       try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
 
       var pt = getXY(ev);
@@ -128,11 +145,9 @@ export function boot(opts){
     el.addEventListener('click',       onHit, {passive:false});
 
     // expiry
-    var ttl = lifeMs;
     var killId = setTimeout(function(){
-      if(clicked || !running) return;
+      if(clicked || !running || killed) return;
       try{ layer.removeChild(el); }catch(_){}
-      // GOOD expired → miss; JUNK expired → avoid
       if (isGood){
         fire('hha:expired', {isGood:true, char:ch});
         if (onExpire) try{ onExpire({isGood:true, ch:ch}); }catch(_){}
@@ -141,16 +156,18 @@ export function boot(opts){
         if (onExpire) try{ onExpire({isGood:false, ch:ch}); }catch(_){}
       }
       planNextSpawn();
-    }, ttl);
+    }, lifeMs);
+
+    // ป้องกัน memory leak
+    el._killId = killId;
 
     layer.appendChild(el);
   }
 
   function planNextSpawn(){
-    if(!running) return;
+    if(!running || killed) return;
     var gap = (diff==='easy'?480:(diff==='hard'?280:360));
-    // dynamic: slightly faster if many clicks
-    gap = Math.max(120, gap - Math.min(spawnCount*4, 120));
+    gap = Math.max(120, gap - Math.min(spawnCount*4, 120)); // dynamic speed-up
     clearTimeout(spawnTimer);
     spawnTimer = setTimeout(function(){ spawnOne(false); }, gap);
   }
@@ -159,29 +176,52 @@ export function boot(opts){
   function start(){
     if (running) return;
     running = true; killed = false;
-    layer.style.pointerEvents = 'auto';
+    layer.classList.remove('off');
     // time
     clearInterval(timerId); secLeft = duration|0;
     fire('hha:time',{sec:secLeft});
     timerId = setInterval(tick, 1000);
     // first target
-    spawnOne(true);
-    planNextSpawn();
+    // ใช้ rAF ให้ layout ของ HUD/fever bar ลงตัวก่อนคำนวณ safe zone
+    requestAnimationFrame(()=>{
+      spawnOne(true);
+      planNextSpawn();
+    });
   }
 
-  function pause(){ if(!running) return; clearInterval(timerId); clearTimeout(spawnTimer); fire('hha:pause',{}); }
-  function resume(){ if(!running) return; clearInterval(timerId); timerId=setInterval(tick,1000); fire('hha:resume',{}); }
+  function pause(){
+    if(!running) return;
+    clearInterval(timerId);
+    clearTimeout(spawnTimer);
+    fire('hha:pause',{});
+  }
+  function resume(){
+    if(!running) return;
+    clearInterval(timerId);
+    timerId = setInterval(tick,1000);
+    fire('hha:resume',{});
+  }
+
+  function hardClearLayer(){
+    try{
+      // ปิดการคลิกทันที
+      layer.classList.add('off');
+      // ยกเลิก timeout ของทุก target
+      var nodes = layer.querySelectorAll('.hha-tgt');
+      for (var i=0;i<nodes.length;i++){
+        var n = nodes[i];
+        try{ if(n._killId) clearTimeout(n._killId); }catch(_){}
+      }
+      while(layer.firstChild) layer.removeChild(layer.firstChild);
+    }catch(_){}
+  }
 
   function endGame(reason){
     if (killed) return; killed=true;
     running=false;
     try{ clearInterval(timerId); }catch(_){}
     try{ clearTimeout(spawnTimer); }catch(_){}
-    // remove all targets & disable hit
-    try{
-      layer.style.pointerEvents = 'none';
-      while(layer.firstChild) layer.removeChild(layer.firstChild);
-    }catch(_){}
+    hardClearLayer();
     fire('hha:end',{reason:reason||'done'});
   }
 
