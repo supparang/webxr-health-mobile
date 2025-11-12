@@ -1,176 +1,196 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Hero Health VR</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Hero Health VR</title>
 
-<link rel="icon" href="./favicon.ico" type="image/x-icon"/>
+  <!-- A-Frame core + Troika text (for crisp text in VR) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/troika-three-text@0.49.0/dist/troika-three-text.umd.min.js"></script>
+  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
 
-<style>
-  :root{
-    --bg:#0b1220; --fg:#e6edf7; --chip:#0f172acc; --bd:#334155;
-    --ok:#22c55e; --ok2:#86efac; --ok3:#bbf7d0;
-    --warn:#f59e0b; --bad:#ef4444; --bar:#0b1222; --accent:#60a5fa; --accent2:#93c5fd;
-  }
-  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-    font:600 16px system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans Thai',sans-serif;}
-  /* HUD pills */
-  .pill{position:fixed;top:12px;background:var(--chip);border:1px solid var(--bd);
-    border-radius:12px;padding:8px 12px;font-weight:800;backdrop-filter:blur(6px);z-index:900}
-  #time{left:12px} #score{left:50%;transform:translateX(-50%)} #quest{right:12px;max-width:min(56vw,560px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  /* Bottom progress panel */
-  #panel{position:fixed;left:12px;right:12px;bottom:12px;background:#0f172a99;border:1px solid var(--bd);
-    border-radius:16px;padding:12px 14px;z-index:880;backdrop-filter:blur(6px)}
-  .row{display:flex;justify-content:space-between;gap:10px;font-weight:800}
-  .bar{height:14px;background:var(--bar);border:1px solid var(--bd);border-radius:999px;overflow:hidden;margin-top:6px}
-  .fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .18s ease}
-  [data-hha-ui]{pointer-events:none;}
-  /* Result panel */
-  #resultPanel{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,10,20,.72);backdrop-filter:blur(6px);z-index:1200}
-  #card{width:min(640px,92vw);background:linear-gradient(#1b2538,#21304a);border:1px solid #3a4a66;border-radius:16px;padding:18px 20px}
-  #stars{font-size:36px;letter-spacing:3px;text-align:center;margin:4px 0 8px}
-  #btns{display:flex;gap:10px;justify-content:center;margin-top:12px}
-  .btn{padding:10px 14px;border-radius:10px;border:1px solid var(--bd);background:#0b1222;color:#fff;font-weight:800;cursor:pointer}
-  .btn.primary{background:var(--ok);color:#052e12;border-color:#16a34a}
-  /* Layer สำหรับเป้า (จาก mode-factory) ไม่ต้องสไตล์เพิ่มที่นี่ */
-</style>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+    html, body {
+      margin:0; padding:0; height:100%; background:#000;
+      font-family: system-ui, Segoe UI, Inter, Roboto, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    }
+    /* Game wrap = โอเวอร์เลย์ DOM + VR scene */
+    .game-wrap {
+      position:fixed; inset:0; overflow:hidden;
+    }
+
+    /* HUD (DOM) */
+    #hudRoot {
+      position:fixed; inset:0; pointer-events:none; z-index:500;
+    }
+    .hud-top {
+      position:absolute; left:50%; top:14px; transform:translateX(-50%);
+      display:flex; gap:10px; align-items:flex-start; pointer-events:none;
+    }
+    .score-box {
+      pointer-events:auto;
+      background:#0b1220cc; backdrop-filter:blur(6px);
+      border:1px solid #334155; border-radius:14px;
+      padding:10px 12px; color:#e2e8f0; min-width:180px;
+      display:flex; flex-direction:column; gap:6px;
+      box-shadow:0 12px 30px rgba(0,0,0,.35);
+    }
+    .score-row { display:flex; justify-content:space-between; gap:10px; font-weight:800; }
+    .score-row .k { color:#93c5fd; }
+    .score-row .v { color:#f8fafc; }
+
+    /* Fever bar container will be appended just under score/combos */
+    #feverBarDock {
+      margin-top:6px;
+    }
+
+    /* Start button (DOM fallback / desktop) */
+    .start-fab {
+      position:absolute; right:16px; bottom:16px; z-index:520; pointer-events:auto;
+      background:#2563eb; color:#fff; border:0; border-radius:999px;
+      padding:12px 16px; font-weight:900; box-shadow:0 10px 30px rgba(0,0,0,.45);
+      cursor:pointer;
+    }
+
+    /* Spawn host (DOM targets from mode-factory) */
+    #spawnHost {
+      position:absolute; inset:0; pointer-events:none; z-index:650;
+    }
+
+    /* Result overlay injected by main.js has its own styles */
+
+    @media (max-width:640px){
+      .score-box { min-width:160px; }
+    }
+  </style>
 </head>
-
 <body>
-  <!-- HUD -->
-  <div id="time"  class="pill">เวลา: --s</div>
-  <div id="score" class="pill">คะแนน: 0 | คอมโบ: x0</div>
-  <div id="quest" class="pill">Mini Quest — กำลังเริ่ม…</div>
+  <div class="game-wrap">
+    <!-- ===== A-FRAME VR SCENE ===== -->
+    <a-scene renderer="antialias:true; colorManagement:true" background="color: #101826">
+      <a-assets></a-assets>
 
-  <!-- Bottom progress (Goal + Mini) -->
-  <div id="panel" data-hha-ui>
-    <div class="row"><div>เป้า: <span id="goalLbl">—</span></div><div>โหมด: <span id="modeLbl">-</span></div></div>
-    <div class="bar"><div id="goalFill" class="fill"></div></div>
-    <div style="height:8px"></div>
-    <div class="row"><div>Mini Quest — <span id="miniLbl">—</span></div></div>
-    <div class="bar"><div id="miniFill" class="fill"></div></div>
-  </div>
+      <!-- Camera + controls -->
+      <a-entity position="0 1.6 0">
+        <a-camera wasd-controls-enabled="false"></a-camera>
+      </a-entity>
 
-  <!-- Result -->
-  <div id="resultPanel" role="dialog" aria-modal="true" aria-labelledby="rt">
-    <div id="card">
-      <div id="rt" style="text-align:center;font-weight:900;font-size:20px">สรุปผล</div>
-      <div id="stars">☆☆☆☆☆</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;font-weight:800">
-        <div>โหมด: <b id="rsMode">-</b></div>
-        <div>ระดับ: <b id="rsDiff">-</b></div>
-        <div>คะแนน: <b id="rsScore">0</b></div>
-        <div>คอมโบสูงสุด: <b id="rsCombo">0</b></div>
-        <div>พลาด: <b id="rsMiss">0</b></div>
-        <div>Mini Quests: <b id="rsQuests">0/3</b></div>
-        <div>ใช้เวลา: <b id="rsTime">0s</b></div>
-      </div>
-      <div id="btns">
-        <button class="btn" id="btnBack">กลับ Hub</button>
-        <button class="btn primary" id="btnReplay">เล่นอีกครั้ง</button>
+      <!-- Simple lights -->
+      <a-entity light="type:ambient; intensity:0.55"></a-entity>
+      <a-entity light="type:directional; intensity:0.9" position="0 2 1"></a-entity>
+
+      <!-- VR labels (Quest panel / Start panel / Menu) -->
+      <!-- Quest Panel -->
+      <a-entity id="questPanel" position="0 2 -2" visible="false">
+        <a-entity
+          geometry="primitive:plane; width:2.2; height:0.4"
+          material="color:#0b1220; opacity:0.85; side:double"
+          position="0 0 0">
+        </a-entity>
+        <a-entity id="tQ"
+          troika-text="value: สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!; color: #E2E8F0; fontSize: 0.16; maxWidth: 2; anchor: center; baseline: middle;"
+          position="0 0 0.02">
+        </a-entity>
+      </a-entity>
+
+      <!-- Start Panel -->
+      <a-entity id="startPanel" position="0 1.4 -1.6" visible="true">
+        <a-entity geometry="primitive:plane; width:1.6; height:0.6"
+                  material="color:#0b1220; opacity:0.85; side:double"></a-entity>
+        <a-entity id="startLbl"
+          troika-text="value: เริ่ม: GOODJUNK; color:#93C5FD; fontSize:0.18; maxWidth:1.4; anchor:center; baseline:top;"
+          position="0 0.16 0.02">
+        </a-entity>
+        <a-entity
+          id="vrStartBtn"
+          geometry="primitive:plane; width:0.9; height:0.22"
+          material="color:#2563EB"
+          position="0 -0.12 0.02"
+          class="clickable">
+        </a-entity>
+        <a-entity
+          troika-text="value: เริ่มเกม; color:#FFFFFF; fontSize:0.12; anchor:center; baseline:middle;"
+          position="0 -0.12 0.03">
+        </a-entity>
+      </a-entity>
+
+      <!-- Mode Menu (hide by default, hub will toggle) -->
+      <a-entity id="modeMenu" position="-0.9 1.2 -1.6" visible="false">
+        <a-entity geometry="primitive:plane; width:1.2; height:0.9"
+                  material="color:#0b1220; opacity:0.85"></a-entity>
+        <a-entity troika-text="value: โหมดเกม; color:#E2E8F0; fontSize:0.14; anchor:center;" position="0 0.35 0.02"></a-entity>
+
+        <a-entity data-mode="goodjunk" position="0 0.18 0.02"
+                  geometry="primitive:plane; width:1.0; height:0.18"
+                  material="color:#1E293B" class="clickable"></a-entity>
+        <a-entity troika-text="value: Good vs Junk; color:#A5B4FC; fontSize:0.12; anchor:center;"
+                  position="0 0.18 0.03"></a-entity>
+
+        <a-entity data-mode="groups" position="0 -0.02 0.02"
+                  geometry="primitive:plane; width:1.0; height:0.18"
+                  material="color:#1E293B" class="clickable"></a-entity>
+        <a-entity troika-text="value: Food Groups; color:#FDE68A; fontSize:0.12; anchor:center;"
+                  position="0 -0.02 0.03"></a-entity>
+
+        <a-entity data-mode="hydration" position="0 -0.22 0.02"
+                  geometry="primitive:plane; width:1.0; height:0.18"
+                  material="color:#1E293B" class="clickable"></a-entity>
+        <a-entity troika-text="value: Hydration; color:#93C5FD; fontSize:0.12; anchor:center;"
+                  position="0 -0.22 0.03"></a-entity>
+
+        <a-entity data-mode="plate" position="0 -0.42 0.02"
+                  geometry="primitive:plane; width:1.0; height:0.18"
+                  material="color:#1E293B" class="clickable"></a-entity>
+        <a-entity troika-text="value: Balanced Plate; color:#86EFAC; fontSize:0.12; anchor:center;"
+                  position="0 -0.42 0.03"></a-entity>
+      </a-entity>
+
+      <!-- Result label (VR fallback; overlay DOM จะสวยกว่า) -->
+      <a-entity id="resultLbl" position="0 1.9 -2" visible="false"
+        troika-text="value: จบเกม; color:#F8FAFC; fontSize:0.22; anchor:center;">
+      </a-entity>
+    </a-scene>
+
+    <!-- ===== HUD (DOM) ===== -->
+    <div id="hudRoot">
+      <div id="hudTop" class="hud-top">
+        <div class="score-box" data-hud="scorebox">
+          <div class="score-row"><span class="k">คะแนน</span><span id="hudScore" class="v">0</span></div>
+          <div class="score-row"><span class="k">คอมโบ</span><span id="hudCombo" class="v">0</span></div>
+
+          <!-- จุดยึด fever bar + shield counter ใต้คะแนน/คอมโบ -->
+          <div id="feverBarDock">
+            <!-- ui-fever.js จะย้าย fever bar มายึดตรงนี้เมื่อได้รับ hha:hud-ready -->
+          </div>
+        </div>
       </div>
     </div>
+
+    <!-- DOM spawn host for mode-factory -->
+    <div id="spawnHost"></div>
+
+    <!-- Desktop start button (ซ้ำกับ VR ปุ่มบน panel) -->
+    <button id="btnStart" class="start-fab">เริ่มเกม</button>
   </div>
 
-<script type="module">
-  const $ = s => document.querySelector(s);
-  const ui = {
-    time:$('#time'), score:$('#score'), quest:$('#quest'),
-    goalLbl:$('#goalLbl'), goalFill:$('#goalFill'),
-    miniLbl:$('#miniLbl'), miniFill:$('#miniFill'),
-    modeLbl:$('#modeLbl')
-  };
+  <!-- ===== Glue: click handlers for VR entities to work on desktop, too ===== -->
+  <script>
+    // ให้คลิกที่ปุ่ม VR panel เรียกปุ่ม DOM
+    document.addEventListener('DOMContentLoaded', function(){
+      var vrBtn = document.getElementById('vrStartBtn');
+      var domBtn = document.getElementById('btnStart');
+      function triggerStart(){ try { domBtn && domBtn.click(); } catch(_){} }
+      if (vrBtn){
+        vrBtn.addEventListener('click', function(ev){ try{ev.preventDefault();}catch(_){ } triggerStart(); });
+      }
+    });
+  </script>
 
-  // อ่านพารามิเตอร์
-  const q = new URLSearchParams(location.search);
-  const mode = (q.get('mode') || 'goodjunk').toLowerCase();
-  const difficulty = (q.get('difficulty') || q.get('diff') || 'normal').toLowerCase();
-  const dur = Number(q.get('dur') || 60);
-  ui.modeLbl.textContent = `${mode} • ${difficulty}`;
-
-  // โหมดไฟล์
-  const MODS = {
-    goodjunk   : './modes/goodjunk.safe.js',
-    hydration  : './modes/hydration.quest.js',
-    groups     : './modes/groups.safe.js',
-    plate      : './modes/plate.quest.js'
-  };
-
-  // ---- HUD Events ----
-  window.addEventListener('hha:time', e=>{
-    const t = e?.detail?.sec;
-    if (typeof t === 'number') ui.time.textContent = 'เวลา: '+t+'s';
-  });
-
-  window.addEventListener('hha:score', e=>{
-    const d = e?.detail || {};
-    ui.score.textContent = `คะแนน: ${d.score||0} | คอมโบ: x${d.combo||0}`;
-  });
-
-  // อัปเดตแถบ Goal/Mini + ข้อความบนสุด
-  window.addEventListener('hha:quest', e=>{
-    const d = e?.detail || {};
-    if (d.text) ui.quest.textContent = d.text;
-    if (d.goal) {
-      ui.goalLbl.textContent = d.goal.label || '-';
-      const g = Number(d.goal.prog||0), t = Number(d.goal.target||1);
-      ui.goalFill.style.width = Math.min(100, t>0 ? (g/t)*100 : 0) + '%';
-    }
-    if (d.mini) {
-      ui.miniLbl.textContent = d.mini.label || '-';
-      const g = Number(d.mini.prog||0), t = Number(d.mini.target||1);
-      ui.miniFill.style.width = Math.min(100, t>0 ? (g/t)*100 : 0) + '%';
-      // แสดงบน pill ด้านบนด้วย (เห็นชัด)
-      ui.quest.textContent = `Mini Quest — ${d.mini.label||'-'}`;
-    }
-  });
-
-  // สรุปตอนจบ
-  const stars = n => '★'.repeat(n) + '☆'.repeat(5-n);
-  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-
-  window.addEventListener('hha:end', e=>{
-    const d = e?.detail || {};
-    // ประเมินดาวง่าย ๆ จากคะแนน/พลาด/คอมโบ/เควสต์
-    const score = +d.score||0, miss=+d.misses||0, combo=+d.comboMax||+d.combo||0;
-    const qc = +d.questsCleared||0, qt = +d.questsTotal||3;
-    const scoreGoal = {easy:300,normal:500,hard:700}[difficulty] || 500;
-    const sNorm = clamp(score/scoreGoal, 0, 1);
-    const cNorm = clamp(combo/20, 0, 1);
-    const qNorm = clamp(qt? qc/qt : 0, 0, 1);
-    const mNorm = clamp(1 - Math.min(1, miss/10), 0, 1);
-    const raw = 0.4*sNorm + 0.25*cNorm + 0.2*qNorm + 0.15*mNorm;
-    const nStar = clamp(Math.max(1, Math.round(raw*5)), 1, 5);
-
-    // เติมค่า
-    $('#rsMode').textContent = (d.mode || mode);
-    $('#rsDiff').textContent = difficulty;
-    $('#rsScore').textContent = score.toLocaleString();
-    $('#rsCombo').textContent = combo;
-    $('#rsMiss').textContent  = miss;
-    $('#rsQuests').textContent= `${qc}/${qt}`;
-    $('#rsTime').textContent  = `${dur}s`;
-    $('#stars').textContent   = stars(nStar);
-
-    const panel = $('#resultPanel');
-    panel.style.display = 'grid';
-    $('#btnBack').onclick = ()=> location.href = './hub.html';
-    $('#btnReplay').onclick = ()=> location.reload();
-  });
-
-  // ---- Boot mode ----
-  (async ()=>{
-    try{
-      const path = MODS[mode] || MODS.goodjunk;
-      const mod  = await import(path + '?v=' + Date.now());
-      if (!mod?.boot) throw new Error('ไม่มีฟังก์ชัน boot() ในโหมด');
-      await mod.boot({ difficulty, duration: dur });
-    }catch(err){
-      alert('โหลดโหมดไม่สำเร็จ: ' + (err?.message || err));
-      console.error(err);
-    }
-  })();
-</script>
+  <!-- ===== App Entrypoint ===== -->
+  <script type="module" src="./game/main.js"></script>
 </body>
 </html>
