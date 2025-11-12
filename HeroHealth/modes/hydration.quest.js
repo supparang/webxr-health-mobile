@@ -1,102 +1,109 @@
-// === /HeroHealth/modes/hydration.safe.js (Water + Fever + PowerUps + HUD) ===
+// === /HeroHealth/modes/hydration.quest.js (Water gauge + Fever + Power-ups + Wave Quests) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { MissionDeck } from '../vr/mission.js';
 import { questHUDInit, questHUDUpdate, questHUDDispose } from '../vr/quest-hud.js';
-import { Particles } from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+import { Particles } from '../vr/particles.js';
 
 export async function boot(cfg = {}) {
   const diff = String(cfg.difficulty || 'normal');
   const dur  = Number(cfg.duration || 60);
 
-  // ตัวอย่าง pool น้ำดี/น้ำหวาน
-  const GOOD = ['💧','🚰','🥤','🫗'];     // น้ำ/เครื่องดื่มโอเค
-  const JUNK = ['🧋','🥤','🍹','🍺'];     // หวาน/แอลกอฮอล์ ฯลฯ
-  const STAR='⭐', DIA='💎', SHIELD='🛡️';
-  const BONUS=[STAR,DIA,SHIELD];
+  const WATER = ['💧','🚰','🥤','🧊'];
+  const DRY   = ['☕','🍵','🍺','🥫']; // ตัวล่อ (ไม่เพิ่มน้ำ)
+  const STAR='⭐', DIA='💎', SHIELD='🛡️', FIRE='🔥';
+  const BONUS=[STAR,DIA,SHIELD,FIRE];
 
-  ensureWaterGauge(); setWaterGauge(55);
   ensureFeverBar(); setFever(0); setShield(0);
+  ensureWaterGauge(); setWaterGauge(55); // เริ่มกลางๆ
 
+  // Wave quests (สุ่มจากพูล default ของ MissionDeck)
   const deck = new MissionDeck(); deck.draw3();
-  let wave = 1;
-  questHUDInit();
+  let wave = 1, totalCleared = 0;
+  questHUDInit(); questHUDUpdate(deck, `Wave ${wave}`);
 
-  const GOAL_LABEL = 'คงระดับน้ำให้อยู่โซน GREEN รวม 25 วิ';
-  const GOAL_TARGET = 25;
-  let greenSec = 0;
-
-  const pushPanels = () => {
-    const cur = deck.getCurrent();
-    questHUDUpdate(deck, `Wave ${wave}`);
-    window.dispatchEvent(new CustomEvent('hha:quest', {
-      detail: {
-        text: cur ? `Mini Quest — ${cur.label}` : 'Mini Quest — กำลังเริ่ม…',
-        goal: { label: GOAL_LABEL, prog: Math.min(GOAL_TARGET, greenSec), target: GOAL_TARGET },
-        mini: cur ? { label: cur.label, prog: cur.prog(deck.stats), target: cur.target } : null
-      }
-    }));
-  };
-
+  // State
   let score=0, combo=0, shield=0;
   let fever=0, feverActive=false;
   let water=55; // 0..100
 
-  const mult = () => (feverActive ? 2 : 1);
-  const gainFever = (n) => { fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true; setFeverActive(true);} };
-  const decayFever = (base) => { const d=feverActive?10:base; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false; setFeverActive(false);} };
-  const fx = (cx,cy,theme='hydration') => Particles.burstShards(null, null, { screen:{x:cx,y:cy}, theme });
+  function mult(){ return feverActive ? 2 : 1; }
+  function gainFever(n){ fever = Math.max(0, Math.min(100, fever + n)); setFever(fever); if (!feverActive && fever>=100){ feverActive=true; setFeverActive(true); } }
+  function decayFever(base){ const d = feverActive ? 10 : base; fever = Math.max(0, fever - d); setFever(fever); if (feverActive && fever<=0){ feverActive=false; setFeverActive(false); } }
+
+  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+  function setWater(n){ water = clamp(n,0,100); setWaterGauge(water); }
 
   function judge(ch, ctx){
-    const cx = ctx.cx ?? ctx.clientX ?? 0;
-    const cy = ctx.cy ?? ctx.clientY ?? 0;
+    const cx = ctx.cx ?? ctx.clientX, cy = ctx.cy ?? ctx.clientY;
 
-    if (ch===STAR){ const d=30*mult(); score+=d; gainFever(10); fx(cx,cy); return {good:true, scoreDelta:d}; }
-    if (ch===DIA){  const d=70*mult(); score+=d; gainFever(30); fx(cx,cy,'groups'); return {good:true, scoreDelta:d}; }
-    if (ch===SHIELD){ shield=Math.min(3, shield+1); setShield(shield); score+=15; return {good:true, scoreDelta:15}; }
+    // Power-ups
+    if (ch===STAR){ const d=35*mult(); score+=d; gainFever(10);
+      Particles.burstShards(null, null, { screen:{ x:cx, y:cy }, theme:'hydration' }); return {good:true, scoreDelta:d}; }
+    if (ch===DIA){  const d=70*mult(); score+=d; gainFever(28);
+      Particles.burstShards(null, null, { screen:{ x:cx, y:cy }, theme:'groups' }); return {good:true, scoreDelta:d}; }
+    if (ch===SHIELD){ shield=Math.min(3, shield+1); setShield(shield); score+=18;
+      Particles.burstShards(null, null, { screen:{ x:cx, y:cy }, theme:'goodjunk' }); return {good:true, scoreDelta:18}; }
+    if (ch===FIRE){ feverActive=true; setFeverActive(true); fever = Math.max(fever, 60); setFever(fever); score+=20;
+      Particles.burstShards(null, null, { screen:{ x:cx, y:cy }, theme:'plate' }); return {good:true, scoreDelta:20}; }
 
-    const isGood = GOOD.includes(ch) && !JUNK.includes(ch); // ชนกับ 🥤 บางตัวซ้ำ → กันด้วย && !
-    if (isGood){
-      const delta = 15 * mult();
+    const isWater = WATER.includes(ch);
+    if (isWater){
+      const add   = (diff==='easy'?8: (diff==='hard'?5:6));
+      setWater(water + add);
+      const base  = 16 + combo*2;
+      const delta = base * mult();
       score += delta; combo += 1;
-      water = Math.min(100, water + 7);
-      setWaterGauge(water);
-      gainFever(6 + combo*0.5);
+      gainFever(7 + combo*0.5);
       deck.onGood(); deck.updateCombo(combo); deck.updateScore(score);
-      fx(cx,cy,'hydration'); pushPanels();
-      return {good:true, scoreDelta:delta};
-    }else{
-      if (shield>0){ shield-=1; setShield(shield); fx(cx,cy,'goodjunk'); pushPanels(); return {good:false, scoreDelta:0}; }
-      const delta = -10;
+      Particles.burstShards(null, null, { screen:{ x:cx, y:cy }, theme:'hydration' });
+      return { good:true, scoreDelta: delta };
+    } else {
+      // DRY / lure
+      if (shield>0){ shield-=1; setShield(shield);
+        Particles.burstShards(null, null, { screen:{ x:cx, y:cy }, theme:'plate' });
+        return {good:false, scoreDelta:0};
+      }
+      // กินของ “แห้ง” — ลดน้ำ + หักคะแนนเบาๆ + reset combo
+      const sub = (diff==='easy'?6: (diff==='hard'?10:8));
+      setWater(water - sub);
+      const delta = -12;
       score = Math.max(0, score + delta); combo = 0;
-      water = Math.max(0, water - 10);
-      setWaterGauge(water);
-      decayFever(18);
+      decayFever(16);
       deck.onJunk(); deck.updateCombo(combo); deck.updateScore(score);
-      fx(cx,cy,'plate'); pushPanels();
-      return {good:false, scoreDelta:delta};
+      Particles.burstShards(null, null, { screen:{ x:cx, y:cy }, theme:'groups' });
+      return { good:false, scoreDelta: delta };
     }
   }
 
   function onExpire(ev){
     if (!ev || ev.isGood) return;
-    gainFever(3);
-    deck.onJunk(); deck.updateScore(score);
-    pushPanels();
+    // หลีก “ล่อแห้ง” สำเร็จ → รักษาน้ำ
+    gainFever(4); deck.onJunk(); deck.updateScore(score);
+    questHUDUpdate(deck, `Wave ${wave}`);
   }
 
   function onHitScreen(){
-    if (deck.isCleared()){ wave+=1; deck.draw3(); }
-    pushPanels();
+    const before = deck.getProgress().filter(q=>q.done).length;
+    questHUDUpdate(deck, `Wave ${wave}`);
+    const after  = deck.getProgress().filter(q=>q.done).length;
+    if (after > before && deck.isCleared()){
+      totalCleared += 3; deck.draw3(); questHUDUpdate(deck, `Wave ${++wave}`);
+    }
   }
 
   function onSec(){
-    decayFever(combo<=0 ? 6 : 2);
-    // นับเวลากรีนโซน
-    if (zoneFrom(water)==='GREEN') greenSec = Math.min(GOAL_TARGET, greenSec+1);
+    // น้ำปรับเข้าสู่สมดุลช้า ๆ
+    if (water > 55) setWater(water - 1);
+    else if (water < 55) setWater(water + 1);
+
+    // Fever ลดเอง
+    if (combo<=0) decayFever(6); else decayFever(2);
+
+    // อัปเดต quest ต่อวินาที
     deck.second(); deck.updateScore(score);
-    pushPanels();
+    questHUDUpdate(deck, `Wave ${wave}`);
   }
 
   window.addEventListener('hha:hit-screen', onHitScreen);
@@ -104,34 +111,36 @@ export async function boot(cfg = {}) {
   window.addEventListener('hha:time',       onSec);
 
   const onEnd = () => {
-    window.removeEventListener('hha:hit-screen', onHitScreen);
-    window.removeEventListener('hha:expired',    onExpire);
-    window.removeEventListener('hha:time',       onSec);
-    questHUDDispose();
+    try{
+      window.removeEventListener('hha:hit-screen', onHitScreen);
+      window.removeEventListener('hha:expired',    onExpire);
+      window.removeEventListener('hha:time',       onSec);
+      const clearedNow = deck.getProgress().filter(q=>q.done).length;
+      const questsCleared  = totalCleared + clearedNow;
+      const questsTotal    = (wave-1)*3 + 3;
 
-    const progNow       = deck.getProgress();
-    const clearedNow    = progNow.filter(q => q.done).length;
-    const totalCleared  = (wave-1)*3 + clearedNow;
-    const totalPossible = wave*3;
-
-    window.dispatchEvent(new CustomEvent('hha:end',{detail:{
-      mode:'hydration', difficulty:diff, score,
-      comboMax:deck.stats.comboMax, misses:deck.stats.junkMiss, hits:deck.stats.goodCount,
-      duration:dur, goalCleared: greenSec>=GOAL_TARGET,
-      questsCleared: totalCleared, questsTotal: totalPossible
-    }}));
+      questHUDDispose();
+      const goalOK = zoneFrom(water)==='GREEN';
+      window.dispatchEvent(new CustomEvent('hha:end',{detail:{
+        mode:'Hydration', difficulty:diff, score,
+        comboMax:deck.stats.comboMax, misses:deck.stats.junkMiss, hits:deck.stats.goodCount,
+        duration:dur, goalCleared: goalOK, questsCleared, questsTotal
+      }}));
+    }catch{}
   };
 
   return factoryBoot({
     difficulty: diff,
     duration  : dur,
-    pools     : { good:[...GOOD, ...BONUS], bad:[...JUNK] },
-    goodRate  : 0.65,
+    pools     : { good:[...WATER, ...BONUS], bad:[...DRY] },
+    goodRate  : 0.60,
+    powerups  : BONUS,
+    powerRate : 0.08,
+    powerEvery: 7,
     judge     : (ch, ctx)=>judge(ch, { ...ctx, cx:(ctx.clientX||ctx.cx), cy:(ctx.clientY||ctx.cy) }),
     onExpire
   }).then(ctrl=>{
     window.addEventListener('hha:time', (e)=>{ if((e.detail?.sec|0)<=0) onEnd(); });
-    pushPanels();
     return ctrl;
   });
 }
