@@ -1,286 +1,78 @@
-// === Hero Health VR — GameHub (2025-11-12, production, no optional chaining) ===
+// === /HeroHealth/vr/hub.js (2025-11-12 stable path + autostart) ===
 export default class GameHub {
-  constructor() {
-    // --- URL params ---
-    var q = new URLSearchParams(location.search);
-    this.mode       = q.get('mode') || null;
-    this.goal       = toNum(q.get('goal'), 40);
-    this.duration   = toNum(q.get('duration'), 60);
-    this.difficulty = q.get('diff') || q.get('difficulty') || 'normal';
+  constructor(){
+    this.currentMode = null;
+    this.difficulty  = 'normal';
+    this.ctrl        = null;
 
-    // --- DOM bindings ---
-    this.spawnHost  = document.getElementById('spawnHost') || document.getElementById('spawnZone') || this._ensureSpawnHost();
-    this.questPanel = document.getElementById('questPanel') || null;
-    this.hudRoot    = document.getElementById('hudRoot') || document.body;
-    this.menu       = document.getElementById('modeMenu') || null;
-    this.startPanel = document.getElementById('startPanel') || null;
-    this.startLbl   = document.getElementById('startLbl') || null;
-    this.bootBox    = document.getElementById('bootStatus') || null;
-
-    this.current = null;
-    this.running = false;
-
-    this._showBoot('Hub ready');
-
-    // Wire system events
-    this._bindPause();
-    this._bindVisibility();
-    this._wireQuestPanelUpdates();
-
-    // Announce HUD ready if HUD exists
-    this._announceHUDReady();
-    this._scheduleAnnounceBurst();
-
-    if (this.mode) this.selectMode(this.mode);
-  }
-
-  // ---------- Public API ----------
-  selectMode(mode) {
-    this.mode = mode || 'goodjunk';
-
-    var heads = (this.hudRoot && this.hudRoot.querySelectorAll) ? this.hudRoot.querySelectorAll('a-entity[troika-text]') : [];
-    if (heads && heads.length) safeSetTroikaText(heads[0], 'โหมด: ' + this.mode);
-    if (this.startLbl) safeSetTroikaText(this.startLbl, 'เริ่ม: ' + this.mode.toUpperCase());
-    if (this.startPanel) this.startPanel.setAttribute('visible', true);
-    if (this.menu) this.menu.setAttribute('visible', false);
-
-    // เผื่อ HUD เพิ่งถูกสร้าง
-    this._announceHUDReady();
-  }
-
-  async startGame() {
-    if (this.running) return;
-    this.running = true;
-
-    if (this.menu) this.menu.setAttribute('visible', false);
-    if (this.startPanel) this.startPanel.setAttribute('visible', false);
-
-    if (this.questPanel) {
-      this.questPanel.setAttribute('visible', true);
-      var tQ = document.getElementById('tQ');
-      if (tQ) safeSetTroikaText(tQ, 'สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!');
-    }
-
-    // ย้ำประกาศ HUD พร้อมใช้งาน (ให้ ui-fever ย้ายไปเกาะใต้ score-box)
-    this._announceHUDReady();
-    this._scheduleAnnounceBurst();
-
-    var mode = this.mode || 'goodjunk';
-    // IMPORTANT: hub.js อยู่ใน /vr → ไฟล์โหมดอยู่ ../modes/
-    var moduleMap = {
-      goodjunk : '../modes/goodjunk.safe.js',
-      groups   : '../modes/groups.safe.js',
-      hydration: '../modes/hydration.quest.js',
-      plate    : '../modes/plate.quest.js'
+    // map โหมด → path (ไม่มี /vr/ นำหน้า)
+    this.modeMap = {
+      goodjunk : './modes/goodjunk.safe.js',
+      groups   : './modes/groups.safe.js',
+      hydration: './modes/hydration.safe.js',
+      plate    : './modes/plate.safe.js'
     };
-    var rel = moduleMap[mode] || moduleMap.goodjunk;
 
-    // สร้าง URL อย่างปลอดภัย (relative กับไฟล์นี้)
-    var url;
-    try { url = new URL(rel, import.meta.url).toString(); }
-    catch (e) { url = rel; }
+    this.readParams();
+    this.wireHudReady();
+    this.autoStartIfNeeded();
+    console.log('[Hub] Hub ready');
+  }
 
-    var mod = await this._importWithRetry(url, 2).catch(function(){ return null; });
+  readParams(){
+    const q = new URLSearchParams(location.search);
+    this.currentMode = q.get('mode') || 'goodjunk';
+    this.difficulty  = q.get('diff') || q.get('difficulty') || 'normal';
+    this.autostart   = (q.get('autostart') === '1' || q.get('start') === '1');
+  }
 
-    if (mod && typeof mod.boot === 'function') {
-      this._showBoot('Loaded mode: ' + mode);
-      try {
-        var api = await mod.boot({
-          host: this.spawnHost,
-          duration: this.duration,
-          difficulty: this.difficulty,
-          goal: this.goal,
-          emit: function(type, detail){
-            try { window.dispatchEvent(new CustomEvent('hha:'+type, {detail:detail})); } catch(_){}
-          }
-        });
-        this.current = api || {};
-      } catch (e) {
-        this._showBoot('Mode boot error → fallback inline (if any)');
-        return this._fallbackInline();
-      }
+  wireHudReady(){
+    // แจ้งว่าพร้อมให้ ui-fever.js มาจับย้าย fever bar
+    const announce = () => {
+      window.dispatchEvent(new CustomEvent('hha:hud-ready',
+        { detail:{ anchorId:'hudTop', scoreBox:true }}));
+    };
+    announce();
+    let t=0, id=setInterval(()=>{ announce(); if(++t>15) clearInterval(id); },150);
+    console.log('[Hub] HUD ready announced');
+  }
 
-      var self = this;
-      var onEnd = function(e){
-        var d = (e && e.detail) ? e.detail : {reason:'done'};
-        self._endGame(d);
-      };
-      window.addEventListener('hha:end', onEnd, {once:true});
-    } else {
-      this._showBoot('Mode import failed → Inline fallback');
-      this._fallbackInline();
+  async startGame(){
+    try{
+      await this.loadMode(this.currentMode);
+      if (this.ctrl && this.ctrl.start) this.ctrl.start();
+    }catch(err){
+      console.warn('[Hub] startGame failed:', err);
     }
   }
 
-  // ---------- Internals ----------
-  _fallbackInline(){
-    if (window.inlineGoodJunkBoot) {
-      window.inlineGoodJunkBoot({
-        host: this.spawnHost,
-        duration: this.duration,
-        difficulty: this.difficulty,
-        goal: this.goal
-      });
-      var self = this;
-      window.addEventListener('hha:end', function(e){
-        self._endGame((e && e.detail) ? e.detail : {reason:'done'});
-      }, {once:true});
-    } else {
-      this._showBoot('No fallback available.');
-      this._endGame({reason:'failed'});
-    }
-  }
+  async loadMode(mode){
+    const url = this.modeMap[mode] || this.modeMap.goodjunk;
+    // ยกเลิกของเดิม (กันคลิกซ้อน)
+    try { window.dispatchEvent(new Event('hha:mode-dispose')); } catch(_){}
 
-  _ensureSpawnHost() {
-    var host = document.createElement('div');
-    host.id = 'spawnZone';
-    host.style.position = 'absolute';
-    host.style.inset = '0';
-    host.style.pointerEvents = 'none';
-    (document.querySelector('.game-wrap') || document.body).appendChild(host);
-    return host;
-  }
+    // โหลดโมดูลโหมด
+    const mod = await import(/* @vite-ignore */ url + '?v=' + Date.now());
+    if (!mod || !mod.boot) throw new Error('Mode module invalid: ' + url);
 
-  _showBoot(msg) {
-    if (this.bootBox && this.bootBox.firstElementChild) {
-      this.bootBox.firstElementChild.innerHTML = '<strong>Status:</strong> ' + escapeHtml(msg);
-    } else {
-      try { console.log('[Hub]', msg); } catch(_){}
-    }
-  }
-
-  _bindPause() {
-    var self = this;
-    window.addEventListener('hha:pause', function(){
-      if (self.current && self.current.pause) {
-        try { self.current.pause(); } catch(_){}
-      }
+    // boot โหมด
+    const ctrl = await mod.boot({
+      difficulty: this.difficulty,
+      duration  : 60
     });
-    window.addEventListener('hha:resume', function(){
-      if (self.current && self.current.resume) {
-        try { self.current.resume(); } catch(_){}
-      }
-    });
+    this.ctrl = ctrl || {};
+    console.log('[Hub] Mode loaded:', mode);
   }
 
-  _bindVisibility() {
-    var self = this;
-    function pauseLike(){ try{ window.dispatchEvent(new Event('hha:pause')); }catch(_){} }
-    function resumeLike(){ try{ window.dispatchEvent(new Event('hha:resume')); }catch(_){} }
-
-    function onVis(){ if (document.hidden) pauseLike(); else resumeLike(); }
-    document.addEventListener('visibilitychange', onVis);
-    window.addEventListener('blur', pauseLike);
-    window.addEventListener('focus', resumeLike);
+  selectMode(mode){
+    this.currentMode = mode || 'goodjunk';
+    // เปลี่ยนเฉพาะโหมด (ไม่ autostart) — ปุ่มเริ่มจะเรียก startGame()
   }
 
-  _wireQuestPanelUpdates(){
-    var self = this;
-    function onQuest(ev){
-      if (!self.questPanel) return;
-      var tQ = document.getElementById('tQ');
-      if (!tQ) return;
-      try {
-        var d = ev && ev.detail ? ev.detail : null;
-        if (!d) return;
-        // goal
-        var g = d.goal ? (d.goal.label + ' ' + fmtProg(d.goal.prog, d.goal.target)) : '';
-        // mini
-        var m = d.mini ? (d.mini.label + ' ' + fmtProg(d.mini.prog, d.mini.target)) : '';
-        var text = g && m ? (g + ' | ' + m) : (g || m || '');
-        if (!text) text = 'สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!';
-        safeSetTroikaText(tQ, text);
-      } catch(_){}
+  autoStartIfNeeded(){
+    if (this.autostart || this.currentMode){
+      // เงียบ ๆ รอ DOM พร้อมอีกนิดกันซ้ำกับ main.js
+      setTimeout(()=>this.startGame(), 150);
     }
-    window.addEventListener('hha:quest', onQuest);
   }
-
-  _announceHUDReady(){
-    try {
-      var anchor =
-        document.querySelector('#hudTop .score-box') ||
-        document.querySelector('.hud-top .score-box') ||
-        document.querySelector('[data-hud="scorebox"]') ||
-        document.querySelector('#hudTop') ||
-        document.querySelector('.hud-top');
-
-      if (anchor) {
-        var ev = new CustomEvent('hha:hud-ready', { detail: { anchorId: 'hudTop', scoreBox: true } });
-        window.dispatchEvent(ev);
-        this._showBoot('HUD ready announced');
-        return true;
-      }
-    } catch(_){}
-    return false;
-  }
-
-  _scheduleAnnounceBurst(){
-    // ยิงซ้ำ ๆ ช่วงต้นเกม กันกรณี HUD สร้างช้า
-    var self = this;
-    var tries = 0, maxTries = 20;
-    var id = setInterval(function(){
-      if (self._announceHUDReady()) { clearInterval(id); return; }
-      tries++;
-      if (tries >= maxTries) clearInterval(id);
-    }, 150);
-  }
-
-  async _importWithRetry(url, retries){
-    var lastErr;
-    for (var i=0;i<=retries;i++){
-      try{
-        var u;
-        try { u = new URL(url, import.meta.url); }     // resolve จากตำแหน่ง hub.js
-        catch(_) { u = new URL(url, location.href); }
-        // cache-bust
-        if (u && u.searchParams && u.searchParams.set) u.searchParams.set('v', String(Date.now()));
-        // eslint-disable-next-line no-eval
-        var mod = await import(u.toString());
-        return mod;
-      }catch(e){
-        lastErr = e;
-        this._showBoot('Load failed ('+(i+1)+'/'+(retries+1)+'): '+(e && e.message ? e.message : e));
-        await delay(200);
-      }
-    }
-    throw lastErr;
-  }
-
-  async _endGame(detail) {
-    try { if (this.current && this.current.pause) this.current.pause(); } catch(_){}
-    try { if (this.current && this.current.stop)  await this.current.stop(); } catch(_){}
-
-    this.current = null;
-    this.running = false;
-
-    if (this.menu) this.menu.setAttribute('visible', true);
-    if (this.startPanel) this.startPanel.setAttribute('visible', true);
-
-    var resultLbl = document.getElementById('resultLbl');
-    if (resultLbl) {
-      var txt;
-      if (detail && detail.reason === 'win')          txt = 'จบเกม: ชนะ! คะแนน ' + (detail.score!=null?detail.score:'-');
-      else if (detail && detail.reason === 'timeout') txt = 'จบเกม: หมดเวลา คะแนน ' + (detail.score!=null?detail.score:'-');
-      else                                            txt = 'จบเกม';
-      safeSetTroikaText(resultLbl, txt);
-      resultLbl.setAttribute('visible', true);
-    }
-
-    this._showBoot('Ended ('+ (detail && detail.reason ? detail.reason : 'done') +')');
-  }
-}
-
-// ---------- helpers ----------
-function toNum(n, d){ n = Number(n); return (isFinite(n) ? n : d); }
-function delay(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
-function safeSetTroikaText(el, value){
-  try { el.setAttribute('troika-text', 'value', String(value)); } catch(_){}
-}
-function escapeHtml(s){
-  return String(s).replace(/[&<>'"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]); });
-}
-function fmtProg(p, t){
-  var pp = Number(p)||0, tt = Number(t)||0;
-  if (tt>0) return '('+pp+'/'+tt+')';
-  return '('+pp+')';
 }
