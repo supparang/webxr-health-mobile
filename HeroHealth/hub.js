@@ -1,46 +1,34 @@
-// === Hero Health Hub (A-Frame 1.4.2 stable) ===
-// จัดการเมนู เลือกโหมด และเริ่มเกม
-console.log('[Hub] initializing');
-
-export class GameHub {
-  constructor() {
-    this.mode = 'goodjunk';
-    this.diff = 'normal';
+// === /HeroHealth/hub.js (2025-11-12 with Start button binding) ===
+export class GameHub{
+  constructor(){
+    this.mode = (new URLSearchParams(location.search).get('mode')||'goodjunk').toLowerCase();
+    this.diff = (new URLSearchParams(location.search).get('diff')||'normal').toLowerCase();
     this.bindUI();
     window.dispatchEvent(new CustomEvent('hha:hub-ready'));
   }
-
-  bindUI() {
-    const startPanel = document.getElementById('startPanel');
-    const vrBtn = document.getElementById('vrStartBtn');
-    const domBtn = document.getElementById('btnStart');
+  bindUI(){
     const modeMenu = document.getElementById('modeMenu');
+    const startLbl = document.getElementById('startLbl');
+    const vrBtn    = document.getElementById('vrStartBtn');
+    const domBtn   = document.getElementById('btnStart');
 
-    // toggle เมนูโหมด
-    if (modeMenu) {
-      modeMenu.querySelectorAll('[data-mode]').forEach(el => {
-        el.addEventListener('click', e => {
-          const m = el.dataset.mode;
-          this.mode = m;
-          document.getElementById('startLbl')
-            ?.setAttribute('troika-text', `value: เริ่ม: ${m.toUpperCase()}`);
-          modeMenu.setAttribute('visible', false);
-          console.log('[Hub] select mode', m);
+    // select mode
+    if(modeMenu){
+      modeMenu.querySelectorAll('[data-mode]').forEach(el=>{
+        el.addEventListener('click',()=>{
+          this.mode = el.dataset.mode;
+          try{ startLbl?.setAttribute('troika-text', `value: เริ่ม: ${this.mode.toUpperCase()}`);}catch(_){}
         });
       });
     }
-
-    // เริ่มเกม
-    const start = () => this.startGame();
-    vrBtn?.addEventListener('click', start);
-    domBtn?.addEventListener('click', start);
+    const go = ()=>this.startGame();
+    vrBtn?.addEventListener('click', (e)=>{ e.preventDefault(); go(); });
+    domBtn?.addEventListener('click', (e)=>{ e.preventDefault(); go(); });
   }
-
-  startGame() {
-    const url = `index.vr.html?mode=${this.mode}&diff=${this.diff}`;
+  startGame(){
+    const url = `index.vr.html?mode=${this.mode}&diff=${this.diff}&autostart=1`;
     console.log('[Hub] start', url);
-    window.location.href = url;
+    location.href = url;
   }
 }
-
-window.addEventListener('DOMContentLoaded', () => new GameHub());
+window.GameHub = GameHub;
