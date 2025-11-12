@@ -1,7 +1,6 @@
-// === /HeroHealth/modes/goodjunk.safe.js
-// FINAL SAFE — wave quests + goal + power-ups + quest events
-// + questsSummary + scorePop + correct "no-miss 10s" counting
-// - No optional chaining, ใส่ null-guards ครบ รองรับ WebView/Chrome เก่า
+// === /HeroHealth/modes/goodjunk.safe.js — FINAL SAFE (2025-11-12)
+// wave quests + goal + power-ups + quest events + questsSummary
+// scorePop (ตรงจุดคลิก) + นับ "ไม่พลาด 10s" ถูกต้อง + null-guards ครบ
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { MissionDeck } from '../vr/mission.js';
@@ -9,7 +8,7 @@ import { questHUDInit, questHUDUpdate, questHUDDispose } from '../vr/quest-hud.j
 import { Particles } from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 
-export async function boot(cfg = {}) {
+export async function boot(cfg = {}){
   var diff = String(cfg && cfg.difficulty ? cfg.difficulty : 'normal');
   var dur  = Number(cfg && typeof cfg.duration !== 'undefined' ? cfg.duration : 60);
 
@@ -19,18 +18,17 @@ export async function boot(cfg = {}) {
   var STAR='⭐', DIA='💎', SHIELD='🛡️', FIRE='🔥';
   var BONUS=[STAR,DIA,SHIELD,FIRE];
 
-  // ---------- Goal (ตามระดับ) ----------
+  // ---------- Goal ----------
   var GOAL_SCORE = (diff==='easy') ? 350 : (diff==='hard' ? 750 : 550);
   function goalObj(score){ return { label:'ทำคะแนนให้ถึงเป้า ('+diff+')', prog:score, target:GOAL_SCORE }; }
 
-  // ---------- Mini quest pool 10 ใบ ----------
+  // ---------- Mini quest pool ----------
   var gjQuestPool10 = [
     { id:'g_good15',   level:'easy',   label:'เก็บของดี 15 ชิ้น',     check:function(s){return s.goodCount>=15;},  prog:function(s){return Math.min(15,s.goodCount);},  target:15 },
     { id:'g_good25',   level:'normal', label:'เก็บของดี 25 ชิ้น',     check:function(s){return s.goodCount>=25;},  prog:function(s){return Math.min(25,s.goodCount);},  target:25 },
     { id:'g_combo12',  level:'normal', label:'ทำคอมโบ 12',            check:function(s){return s.comboMax>=12;},   prog:function(s){return Math.min(12,s.comboMax);},   target:12 },
     { id:'g_score500', level:'hard',   label:'ทำคะแนนรวม 500+',       check:function(s){return s.score>=500;},     prog:function(s){return Math.min(500,s.score);},     target:500 },
     { id:'g_nomiss10', level:'normal', label:'ไม่พลาด 10 วินาที',     check:function(s){return s.noMissTime>=10;}, prog:function(s){return Math.min(10,s.noMissTime);}, target:10 },
-    // “หลีกขยะ” นับเฉพาะ JUNK หมดอายุ
     { id:'g_avoid5',   level:'easy',   label:'หลีกของขยะ 5 ครั้ง',    check:function(s){return s.junkMiss>=5;},    prog:function(s){return Math.min(5,s.junkMiss);},    target:5 },
     { id:'g_star2',    level:'hard',   label:'เก็บดาว ⭐ 2 ดวง',        check:function(s){return s.star>=2;},        prog:function(s){return Math.min(2,s.star);},        target:2 },
     { id:'g_dia1',     level:'hard',   label:'เก็บเพชร 💎 1 เม็ด',      check:function(s){return s.diamond>=1;},     prog:function(s){return Math.min(1,s.diamond);},     target:1 },
@@ -50,12 +48,12 @@ export async function boot(cfg = {}) {
 
   questHUDInit();
 
-  // ---------- Game state ----------
+  // ---------- State ----------
   var score=0, combo=0, shield=0;
   var fever=0, feverActive=false, feverCount=0;
   var star=0, diamond=0;
 
-  // ให้ deck เห็นสถิติที่จำเป็น
+  // ---------- Deck stats sync ----------
   function syncDeckStats(){
     deck.stats = deck.stats || {};
     deck.stats.star       = star;
@@ -83,7 +81,7 @@ export async function boot(cfg = {}) {
     if (wasActive && fever<=0){ feverActive=false; try { setFeverActive(false); } catch(e){} }
   }
 
-  // ---------- Push quest+goal to HUD ----------
+  // ---------- HUD push ----------
   function pushQuestHUD(hintText){
     var mini=null;
     var cur = (typeof deck.getCurrent === 'function') ? deck.getCurrent() : null;
@@ -98,22 +96,18 @@ export async function boot(cfg = {}) {
       };
     }
     var g = goalObj(score);
-    try {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hha:quest',{ detail:{ goal:g, mini:mini } }));
-      }
-    } catch(e){}
+    try { window.dispatchEvent(new CustomEvent('hha:quest',{ detail:{ goal:g, mini:mini } })); } catch(e){}
     questHUDUpdate(deck, hintText || ('Wave '+wave));
   }
 
-  // ---------- สรุปท้ายเกม (เพิ่มรายการเควสต์) ----------
-  const onEnd = function(){
+  // ---------- End summary ----------
+  function onEnd(){
     try{
-      if (typeof window !== 'undefined') {
+      try{
         window.removeEventListener('hha:hit-screen', onHitScreen);
         window.removeEventListener('hha:expired',    onExpire);
         window.removeEventListener('hha:time',       onSec);
-      }
+      }catch(_){}
 
       var progList = (typeof deck.getProgress === 'function') ? deck.getProgress() : [];
       var clearedNow = 0;
@@ -121,11 +115,9 @@ export async function boot(cfg = {}) {
       var questsCleared = totalQuestsCleared + clearedNow;
       var questsTotal   = (wave-1)*3 + 3;
 
-      // ✅ รายการเควสต์ละเอียด
       var questsSummary = [];
       for (var j=0;j<progList.length;j++){
-        var q = progList[j];
-        if (!q) continue;
+        var q = progList[j]; if (!q) continue;
         questsSummary.push({
           label: q.label,
           level: q.level,
@@ -141,24 +133,36 @@ export async function boot(cfg = {}) {
       var misses   = deck && deck.stats ? (deck.stats.junkMiss||0) : 0;
       var hits     = deck && deck.stats ? (deck.stats.goodCount||0) : 0;
 
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('hha:end',{detail:{
-          mode:'Good vs Junk', difficulty:diff, score:score,
-          comboMax:comboMax, misses:misses, hits:hits,
-          duration:dur,
-          goalCleared: (score>=GOAL_SCORE), goalTarget: GOAL_SCORE,
-          questsCleared:questsCleared, questsTotal:questsTotal,
-          questsSummary:questsSummary
-        }}));
-      }
-    }catch(e){}
-  };
+      window.dispatchEvent(new CustomEvent('hha:end',{detail:{
+        mode:'Good vs Junk', difficulty:diff, score:score,
+        comboMax:comboMax, misses:misses, hits:hits,
+        duration:dur,
+        goalCleared: (score>=GOAL_SCORE), goalTarget: GOAL_SCORE,
+        questsCleared:questsCleared, questsTotal:questsTotal,
+        questsSummary:questsSummary
+      }}));
+    }catch(_){}
+  }
 
-  // ---------- ตรง judge(): เรียก scorePop ตรงตำแหน่งคลิก ----------
+  // ---------- พิกัด robust สำหรับ scorePop ----------
+  function pickXY(ctx){
+    var x = 0, y = 0;
+    if (ctx){
+      if (typeof ctx.clientX === 'number') x = ctx.clientX;
+      if (typeof ctx.clientY === 'number') y = ctx.clientY;
+      if (!x && typeof ctx.cx === 'number') x = ctx.cx;
+      if (!y && typeof ctx.cy === 'number') y = ctx.cy;
+    }
+    if (!(x>0)) x = Math.max(320, (window && window.innerWidth)||320)/2;
+    if (!(y>0)) y = Math.max(320, (window && window.innerHeight)||320)/2;
+    return { x:x, y:y };
+  }
+
+  // ---------- Judge (เรียก scorePop ตรงตำแหน่งคลิก) ----------
   function judge(ch, ctx){
     ctx = ctx || {};
-    var cx = (typeof ctx.clientX === 'number') ? ctx.clientX : (typeof ctx.cx === 'number' ? ctx.cx : 0);
-    var cy = (typeof ctx.clientY === 'number') ? ctx.clientY : (typeof ctx.cy === 'number' ? ctx.cy : 0);
+    var p  = pickXY(ctx);
+    var cx = p.x, cy = p.y;
 
     function burst(theme){
       try { Particles.burstShards(null,null,{screen:{x:cx,y:cy},theme:theme}); } catch(e){}
@@ -169,12 +173,12 @@ export async function boot(cfg = {}) {
 
     // Power-ups
     if (ch===STAR){
-      var d1 = 40 * mult(); score+=d1; star++; gainFever(10);
+      var d1 = 40 * (feverActive?2:1); score+=d1; star++; gainFever(10);
       burst('goodjunk'); pop('+'+d1, true); syncDeckStats(); pushQuestHUD();
       return {good:true, scoreDelta:d1};
     }
     if (ch===DIA){
-      var d2 = 80 * mult(); score+=d2; diamond++; gainFever(30);
+      var d2 = 80 * (feverActive?2:1); score+=d2; diamond++; gainFever(30);
       burst('groups'); pop('+'+d2, true); syncDeckStats(); pushQuestHUD();
       return {good:true, scoreDelta:d2};
     }
@@ -194,7 +198,7 @@ export async function boot(cfg = {}) {
     var isGood = (GOOD.indexOf(ch) !== -1);
     if (isGood){
       var base  = 20 + combo*2;
-      var delta = base * mult();
+      var delta = base * (feverActive?2:1);
       score += delta; combo += 1;
       gainFever(8 + combo*0.6);
       if (typeof deck.onGood === 'function') deck.onGood();
@@ -211,7 +215,7 @@ export async function boot(cfg = {}) {
       var dneg = -15;
       score = Math.max(0, score + dneg); combo = 0;
       decayFever(18);
-      deck.stats = deck.stats || {}; deck.stats.noMissTime = 0; // ❌ กดโดนขยะ = พลาดจริง
+      deck.stats = deck.stats || {}; deck.stats.noMissTime = 0; // ❌ โดนขยะ = พลาดจริง
       burst('plate'); pop(String(dneg), false);
       syncDeckStats(); pushQuestHUD();
       return { good:false, scoreDelta: dneg };
@@ -222,29 +226,28 @@ export async function boot(cfg = {}) {
   function onExpire(ev){
     if (!ev) return;
 
-    // ของดีหมดอายุ = พลาดจริง → รีเซ็ตตัวนับ "ไม่พลาด"
+    // GOOD หมดอายุ = พลาด → reset ตัวนับ "ไม่พลาด"
     if (ev.isGood) {
       deck.stats = deck.stats || {};
-      deck.stats.noMissTime = 0;   // ✅ reset เมื่อ "ปล่อย GOOD หมดอายุ"
+      deck.stats.noMissTime = 0;
       decayFever(6);
       syncDeckStats();
       pushQuestHUD('Wave '+wave);
       return;
     }
 
-    // JUNK หมดอายุ = "หลีกขยะ" → ไม่รีเซ็ต noMissTime
+    // JUNK หมดอายุ = หลีกขยะ (ไม่รีเซ็ต noMissTime)
     gainFever(4);
 
-    // ป้องกัน onJunk ภายในไปยุ่งกับ noMissTime: เก็บ-คืนค่า
     deck.stats = deck.stats || {};
     var prevNoMiss = deck.stats.noMissTime || 0;
     var prevJunkMiss = deck.stats.junkMiss || 0;
 
     if (typeof deck.onJunk === 'function') deck.onJunk();
 
-    // บังคับคืนค่า/อัปเดตที่เราต้องการ
-    deck.stats.noMissTime = prevNoMiss;              // ❗ ไม่รีเซ็ต
-    deck.stats.junkMiss = (deck.stats.junkMiss||prevJunkMiss)+1; // กันกรณี onJunk ไม่บวก
+    // บังคับให้สอดคล้องตามที่ต้องการ
+    deck.stats.noMissTime = prevNoMiss;                         // ❗ ไม่รีเซ็ต
+    deck.stats.junkMiss = (deck.stats.junkMiss||prevJunkMiss)+1;
 
     syncDeckStats();
     pushQuestHUD('Wave '+wave);
@@ -266,16 +269,16 @@ export async function boot(cfg = {}) {
 
   function onSec(){
     decayFever(combo<=0 ? 6 : 2);
-    if (typeof deck.second === 'function') deck.second(); // ให้เป็นตัว +1 noMissTime/วินาที
+    if (typeof deck.second === 'function') deck.second(); // ตัวนี้จะ +1 noMissTime/วินาที
     syncDeckStats();
     pushQuestHUD('Wave '+wave);
   }
 
-  if (typeof window !== 'undefined') {
+  try {
     window.addEventListener('hha:hit-screen', onHitScreen);
     window.addEventListener('hha:expired',    onExpire);
     window.addEventListener('hha:time',       onSec);
-  }
+  } catch(_){}
 
   // ---------- Boot via factory ----------
   return factoryBoot({
@@ -286,16 +289,23 @@ export async function boot(cfg = {}) {
     powerups  : BONUS,
     powerRate : 0.08,
     powerEvery: 7,
-    judge     : function(ch, ctx){ ctx = ctx||{}; return judge(ch, { cx:(ctx.clientX||ctx.cx), cy:(ctx.clientY||ctx.cy) }); },
+    // ✅ ส่งพิกัดจอจริงเข้า judge เสมอ
+    judge     : function(ch, ctx){
+      ctx = ctx||{};
+      return judge(ch, {
+        clientX: (typeof ctx.clientX==='number'?ctx.clientX:ctx.cx),
+        clientY: (typeof ctx.clientY==='number'?ctx.clientY:ctx.cy)
+      });
+    },
     onExpire  : onExpire
   }).then(function(ctrl){
-    if (typeof window !== 'undefined') {
+    try {
       window.addEventListener('hha:time', function(e){
         var sec = 0;
         if (e && e.detail && typeof e.detail.sec !== 'undefined') { sec = e.detail.sec|0; }
         if (sec <= 0) onEnd();
       });
-    }
+    } catch(_){}
     return ctrl;
   });
 }
