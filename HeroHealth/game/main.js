@@ -1,36 +1,36 @@
-// === /HeroHealth/game/main.js (RESULT-FIX 2025-11-12) ===
+// === /HeroHealth/game/main.js (LATEST) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
 
-const qs   = new URLSearchParams(location.search);
-let MODE   = (qs.get('mode')||'goodjunk').toLowerCase();
-let DIFF   = (qs.get('diff')||'normal').toLowerCase();
-const DURATION = Number(qs.get('duration')||60);
+const qs        = new URLSearchParams(location.search);
+let MODE        = (qs.get('mode')||'goodjunk').toLowerCase();
+let DIFF        = (qs.get('diff')||'normal').toLowerCase();
+const DURATION  = Number(qs.get('duration')||60);
 const AUTOSTART = qs.get('autostart') === '1';
 
-// ---------- HUD ----------
+// ---------- HUD (score/combo) ----------
 const elScore = $('#hudScore');
 const elCombo = $('#hudCombo');
 function setScore(n){ if(elScore) elScore.textContent = (n|0).toLocaleString(); }
 function setCombo(n){ if(elCombo) elCombo.textContent = (n|0).toLocaleString(); }
 
-// ---------- TIME bubble ----------
-(function(){
+// ---------- TIME pill (top-right with glow) ----------
+(function injectTimeBubble(){
   if (document.getElementById('hha-time-css')) return;
   const css = document.createElement('style'); css.id='hha-time-css';
   css.textContent = `
   #hudTimeBubble{position:fixed; top:14px; right:14px; z-index:560; pointer-events:none}
   #hudTimeBubble .pill{background:#0b1220e0; color:#e2e8f0; border:2px solid #334155;
-    border-radius:999px; padding:4px 10px; font:900 14px system-ui}
-  #hudTimeBubble.low  {filter:drop-shadow(0 0 10px #f59e0b)}
-  #hudTimeBubble.crit {animation:hb .7s ease-in-out infinite; filter:drop-shadow(0 0 14px #ef4444)}
-  #hudTimeBubble.low  .pill{border-color:#f59e0b}
-  #hudTimeBubble.crit .pill{border-color:#ef4444}
+    border-radius:999px; padding:4px 10px; font:900 14px system-ui; letter-spacing:.2px;
+    box-shadow:0 10px 24px rgba(0,0,0,.35)}
+  #hudTimeBubble.low{filter:drop-shadow(0 0 10px #f59e0b)}
+  #hudTimeBubble.crit{animation:hb .7s ease-in-out infinite; filter:drop-shadow(0 0 14px #ef4444)}
   @keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
   `;
   document.head.appendChild(css);
+
   const wrap = document.createElement('div'); wrap.id='hudTimeBubble';
   wrap.innerHTML = `<div class="pill">TIME ${DURATION}s</div>`;
   document.body.appendChild(wrap);
@@ -46,43 +46,40 @@ function setTimeLeft(sec){
   elTimeWrap.classList.toggle('crit', s <= 5);
 }
 
-// ---------- Fever mount ----------
+// ---------- Fever bar mount (DOM already has #feverBarDock) ----------
 import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
-  try{ ensureFeverBar?.(document.getElementById('feverBarDock') || document.getElementById('hudTop')); }catch(_){}
+  try{
+    const dock = document.getElementById('feverBarDock') || document.getElementById('hudTop');
+    ensureFeverBar?.(dock);
+  }catch(_){}
 }).catch(()=>{});
 
-// ---------- Quest HUD ----------
-import('../vr/quest-hud.js').catch(()=>{});
+// ---------- Quest HUD (Goal + Mini) ----------
+// ใช้ relative เป็นหลัก และมี absolute fallback (กัน 404)
+(async ()=>{
+  try {
+    await import('../vr/quest-hud.js');                                 // ✅ relative (จาก /HeroHealth/game/ → ../vr/)
+  } catch {
+    try { await import('/webxr-health-mobile/HeroHealth/vr/quest-hud.js'); } // ✅ absolute fallback
+    catch(_) { console.warn('quest-hud.js not found (both paths). HUD will be minimal.'); }
+  }
+})();
+
+// bridge รับจากโหมด (รองรับทั้ง hha:quest และ quest:update)
 window.addEventListener('hha:quest', (e)=>{
   try{ window.dispatchEvent(new CustomEvent('quest:update',{detail:e.detail})); }catch(_){}
 });
-window.addEventListener('quest:update', ()=>{}); // ให้ quest-hud จับต่อ
+window.addEventListener('quest:update', ()=>{}); // ให้ quest-hud.js hook ต่อเอง
 
-// ---------- Game stats (with fallbacks for result) ----------
-let scoreTotal = 0;
-let _comboStreak = 0;       // local combo สำหรับ fallback
-let comboMax     = 0;       // local comboMax backup
-let misses       = 0;
-let hits         = 0;
-
-// เก็บ snapshot ล่าสุดจาก HUD เพื่อใช้เติมผลลัพธ์
-let __LAST_QUEST = { goalsAll:null, minisAll:null };
-
-window.addEventListener('quest:update', (e)=>{
-  const d = e.detail||{};
-  if (Array.isArray(d.goalsAll)) __LAST_QUEST.goalsAll = d.goalsAll;
-  if (Array.isArray(d.minisAll)) __LAST_QUEST.minisAll = d.minisAll;
-});
+// ---------- score/time listeners ----------
+let scoreTotal = 0, comboMax = 0, misses = 0, hits = 0;
 
 window.addEventListener('hha:score', (e)=>{
   const d = e.detail||{};
   scoreTotal = Math.max(0, (scoreTotal|0) + (d.delta|0));
-  if (d.good){ _comboStreak++; comboMax = Math.max(comboMax, _comboStreak); hits++; }
-  else       { _comboStreak = 0; misses++; }
+  if (d.good) hits++; else misses++;
   setScore(scoreTotal);
-  setCombo(_comboStreak);
 });
-
 window.addEventListener('hha:time', (e)=>{
   const sec = (e.detail?.sec|0);
   if (sec !== lastSec){ setTimeLeft(sec); lastSec = sec; }
@@ -113,9 +110,9 @@ function showResult(detail){
   </div>`;
   document.body.appendChild(o);
 
-  // CSS (inject once)
-  if(!document.getElementById('hha-result-css')){
-    const css=document.createElement('style'); css.id='hha-result-css';
+  const cssId='hha-result-css';
+  if(!document.getElementById(cssId)){
+    const css=document.createElement('style'); css.id=cssId;
     css.textContent=`
       #resultOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:999}
       #resultOverlay .card{background:#0b1220;border:1px solid #334155;border-radius:16px;color:#e2e8f0;min-width:320px;max-width:720px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
@@ -134,7 +131,6 @@ function showResult(detail){
     document.head.appendChild(css);
   }
 
-  // badge color
   const badge = o.querySelector('.badge');
   const x = d.questsCleared|0, y = d.questsTotal|0;
   const r = y? x/y : 0;
@@ -146,39 +142,30 @@ function showResult(detail){
   o.querySelector('#btnHub').onclick   = ()=>location.href = hub;
 }
 
-// เมื่อจบเกม เติมค่าที่โหมดขาดด้วย fallback จากที่เราบันทึกไว้
 window.addEventListener('hha:end',(e)=>{
   const d = e.detail||{};
   if (d.score == null) d.score = scoreTotal|0;
-
-  // Fallbacks
-  if (d.comboMax == null || d.comboMax === 0) d.comboMax = comboMax|0;
-  if (d.misses   == null) d.misses   = misses|0;
-
-  // Mini/Goal จาก snapshot ล่าสุดของ HUD
-  const goals = Array.isArray(__LAST_QUEST.goalsAll) ? __LAST_QUEST.goalsAll : [];
-  const minis = Array.isArray(__LAST_QUEST.minisAll) ? __LAST_QUEST.minisAll : [];
-  if (d.goalCleared == null && goals.length){
-    d.goalCleared = goals.every(g=>g && g.done === true);
-  }
-  if ((d.questsTotal == null || d.questsTotal === 0) && minis.length){
-    d.questsTotal  = minis.length;
-    d.questsCleared = minis.filter(m=>m && m.done === true).length;
-  }
-
+  if (d.misses == null) d.misses = misses|0;
+  if (d.comboMax == null) d.comboMax = comboMax|0;
   if (d.duration == null) d.duration = DURATION;
   if (d.mode == null) d.mode = MODE;
   if (d.difficulty == null) d.difficulty = DIFF;
-
   showResult(d);
 });
 
-// ---------- Loader ----------
+// ---------- Loader (robust paths) ----------
 async function loadModeModule(name){
   const extOrder = (name==='goodjunk'||name==='groups') ? ['safe','quest','js'] : ['quest','safe','js'];
-  const bases = ['../modes/','/webxr-health-mobile/HeroHealth/modes/'];
+  const bases = [
+    '../modes/',                                   // relative (จาก /HeroHealth/game/)
+    '/webxr-health-mobile/HeroHealth/modes/'       // absolute fallback
+  ];
   const tries = [];
-  for (const base of bases) for (const ext of extOrder) tries.push(`${base}${name}.${ext}.js`);
+  for (const base of bases){
+    for (const ext of extOrder){
+      tries.push(`${base}${name}.${ext}.js`);
+    }
+  }
   let err;
   for (const url of tries){
     try{
@@ -190,13 +177,16 @@ async function loadModeModule(name){
   throw new Error(`ไม่พบไฟล์โหมด: ${name}\n${err?.message||err}`);
 }
 
-// ---------- Countdown ----------
+// ---------- Countdown 3-2-1-GO ----------
 function runCountdown(sec=3){
   return new Promise((resolve)=>{
-    if(!document.getElementById('hha-count-css')){
-      const css=document.createElement('style'); css.id='hha-count-css';
-      css.textContent=`#countOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:700}
-      #countOverlay .big{font:900 80px system-ui;color:#e2e8f0;text-shadow:0 12px 40px rgba(0,0,0,.6)}`;
+    const id='hha-count-css';
+    if(!document.getElementById(id)){
+      const css=document.createElement('style'); css.id=id;
+      css.textContent=`
+        #countOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:700}
+        #countOverlay .big{font:900 80px system-ui;color:#e2e8f0;text-shadow:0 12px 40px rgba(0,0,0,.6)}
+      `;
       document.head.appendChild(css);
     }
     const o=document.createElement('div'); o.id='countOverlay';
@@ -209,17 +199,21 @@ function runCountdown(sec=3){
   });
 }
 
-// ---------- Start ----------
+// ---------- Start orchestration ----------
 let controller=null, started=false;
-async function startGame(){
-  if (started) return; started = true;
 
-  // reset locals
-  scoreTotal=0; _comboStreak=0; comboMax=0; misses=0; hits=0;
+async function startGame(){
+  if (started) return;
+  started = true;
+
+  // reset states
+  scoreTotal=0; misses=0; hits=0; comboMax=0;
   setScore(0); setCombo(0); setTimeLeft(DURATION); lastSec = DURATION;
 
-  try{ const p=document.getElementById('startPanel'); p?.setAttribute('visible','false'); }catch(_){}
+  // hide start panel in A-Frame
+  try{ const p=document.getElementById('startPanel'); if(p) p.setAttribute('visible','false'); }catch(_){}
 
+  // load module
   let mod;
   try{ mod = await loadModeModule(MODE); }
   catch(err){ alert(`เริ่มเกมไม่สำเร็จ: โหลดโหมดไม่พบ\n${err?.message||err}`); started=false; return; }
@@ -227,13 +221,12 @@ async function startGame(){
   const boot = mod.boot || mod.default?.boot;
   if (!boot){ alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()'); started=false; return; }
 
+  // countdown
   await runCountdown(3);
 
   try{
     controller = await boot({ difficulty: DIFF, duration: DURATION });
-    controller?.start?.();
-    // กระตุ้น HUD ให้แสดงข้อมูลรอบแรกแน่ๆ
-    setTimeout(()=>{ try{ window.dispatchEvent(new CustomEvent('quest:update',{detail:{}})); }catch(_){}} , 50);
+    controller?.start?.(); // ให้โรงงานเริ่ม spawn เป้า
   }catch(err){
     console.error(err);
     alert('เริ่มเกมไม่สำเร็จ: เกิดข้อผิดพลาดระหว่างเริ่มโหมด');
@@ -241,6 +234,9 @@ async function startGame(){
   }
 }
 
-document.getElementById('btnStart')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
-document.getElementById('vrStartBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+// Bind buttons
+document.getElementById('btnStart')?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
+document.getElementById('vrStartBtn')?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
+
+// Autostart
 if (AUTOSTART){ setTimeout(()=>startGame(), 0); }
