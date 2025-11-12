@@ -1,4 +1,4 @@
-// === /HeroHealth/game/main.js (2025-11-12 LATEST+) ===
+// === /HeroHealth/game/main.js (fixed template bug) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -41,7 +41,7 @@ import('../vr/ui-fever.js').then(mod=>{
   }catch{}
 }).catch(()=>{});
 
-/* ----- Quest HUD Bridge (goal/mini → quest-hud.js) ----- */
+/* ----- Quest HUD Bridge ----- */
 let questState = { goal:null, mini:null };
 window.addEventListener('hha:quest', (e)=>{
   questState = e.detail || {goal:null, mini:null};
@@ -61,16 +61,14 @@ window.addEventListener('hha:score', (e)=>{
   setCombo(comboNow);
 });
 
-/* ----- Optional: score pop near hit (DOM coords from factory) ----- */
+/* ----- Optional: score pop near hit ----- */
 let Particles = null;
 (async()=>{ try{ Particles = (await import('../vr/particles.js')).Particles; } catch{} })();
 window.addEventListener('hha:hit-screen',(e)=>{
   if(!Particles?.scorePop) return;
   const d = e.detail||{};
   const txt = (d.delta>0?`+${d.delta}`:`${d.delta}`);
-  try{
-    Particles.scorePop({ x:d.x, y:d.y, text:txt, good:!!d.good });
-  }catch{}
+  try{ Particles.scorePop({ x:d.x, y:d.y, text:txt, good:!!d.good }); }catch{}
 });
 
 /* ----- Result overlay ----- */
@@ -109,28 +107,7 @@ function showResult(detail){
   o.querySelector('#btnHub').onclick   = ()=>location.href = hub;
 }
 
-/* Inject overlay CSS (once) */
-(function injectResultCss(){
-  if(document.getElementById('hha-result-css')) return;
-  const css = document.createElement('style'); css.id='hha-result-css';
-  css.textContent = `
-  #resultOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:999}
-  #resultOverlay .card{background:#0b1220;border:1px solid #334155;border-radius:16px;color:#e2e8f0;min-width:320px;max-width:720px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
-  #resultOverlay h2{margin:0 0 14px 0;font:900 20px system-ui}
-  #resultOverlay .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:10px}
-  #resultOverlay .pill{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:10px 12px;text-align:center}
-  .pill .k{font:700 11px system-ui;color:#93c5fd;opacity:.85}
-  .pill .v{font:900 18px system-ui;color:#f8fafc}
-  #resultOverlay .badge{display:inline-block;margin:4px 0 14px 0;padding:6px 10px;border:2px solid #475569;border-radius:10px;font:800 12px system-ui}
-  #resultOverlay .btns{display:flex;gap:10px;justify-content:flex-end}
-  #resultOverlay .btns button{cursor:pointer;border:0;border-radius:10px;padding:8px 14px;font:800 14px system-ui}
-  #btnRetry{background:#22c55e;color:#06270f}
-  #btnHub{background:#1f2937;color:#e5e7eb}
-  `;
-  document.head.appendChild(css);
-})();
-
-/* ----- Countdown 3-2-1-GO ----- */
+/* Countdown */
 function runCountdown(start=3){
   return new Promise(resolve=>{
     if(!elCountdown){ resolve(); return; }
@@ -154,7 +131,7 @@ function runCountdown(start=3){
   });
 }
 
-/* ----- Mode loader (try .safe.js → .quest.js → .js) ----- */
+/* Mode loader */
 async function loadModeModule(name){
   const tries = [
     `../modes/${name}.safe.js`,
@@ -171,26 +148,21 @@ async function loadModeModule(name){
   throw lastErr || new Error(`ไม่พบไฟล์โหมด: ${name}`);
 }
 
-/* ----- Start orchestration ----- */
+/* Start orchestration */
 let controller = null;
 let started = false;
-
 async function startGame(){
   if (started) return;
   started = true;
 
-  // reset HUD
   scoreTotal = 0; misses=0; hits=0; comboNow=0; comboMax=0; setScore(0); setCombo(0);
   const duration = Number(qs.get('duration')||60);
   setTimeLeft(duration);
 
-  // hide start panel
   try{ const p = document.getElementById('startPanel'); if(p) p.setAttribute('visible','false'); }catch{}
 
-  // countdown ก่อนเริ่มจริง
   await runCountdown(3);
 
-  // load & boot mode
   let mod;
   try{
     mod = await loadModeModule(MODE);
@@ -206,10 +178,7 @@ async function startGame(){
 
   try{
     controller = await boot({ difficulty: DIFF, duration });
-    // บางโหมดคืน controller.start(); ถ้ามีให้เรียก
-    if (controller && typeof controller.start === 'function'){
-      controller.start();
-    }
+    if (controller && typeof controller.start === 'function') controller.start();
   }catch(err){
     console.error(err);
     alert('เริ่มเกมไม่สำเร็จ: เกิดข้อผิดพลาดระหว่างเริ่มโหมด');
@@ -217,14 +186,14 @@ async function startGame(){
   }
 }
 
-/* Buttons + autostart */
+/* Buttons */
 const domBtn = document.getElementById('btnStart');
 if(domBtn){ domBtn.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); }); }
 const vrBtn = document.getElementById('vrStartBtn');
 if(vrBtn){ vrBtn.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); }); }
 if(AUTOSTART){ setTimeout(startGame, 0); }
 
-/* ----- Receive end → show result ----- */
+/* Receive end */
 window.addEventListener('hha:end', (e)=>{
   started = false;
   const d = e.detail || {};
