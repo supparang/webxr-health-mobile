@@ -1,12 +1,12 @@
-// === /HeroHealth/game/main.js (LATEST) ===
+// === /HeroHealth/game/main.js (2025-11-13 Fallback HUD + Countdown + Time Glow) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
 
-const qs        = new URLSearchParams(location.search);
-let MODE        = (qs.get('mode')||'goodjunk').toLowerCase();
-let DIFF        = (qs.get('diff')||'normal').toLowerCase();
+const qs   = new URLSearchParams(location.search);
+let MODE   = (qs.get('mode')||'goodjunk').toLowerCase();
+let DIFF   = (qs.get('diff')||'normal').toLowerCase();
 const DURATION  = Number(qs.get('duration')||60);
 const AUTOSTART = qs.get('autostart') === '1';
 
@@ -17,36 +17,17 @@ function setScore(n){ if(elScore) elScore.textContent = (n|0).toLocaleString(); 
 function setCombo(n){ if(elCombo) elCombo.textContent = (n|0).toLocaleString(); }
 
 // ---------- TIME pill (top-right with glow) ----------
-(function injectTimeBubble(){
-  if (document.getElementById('hha-time-css')) return;
-  const css = document.createElement('style'); css.id='hha-time-css';
-  css.textContent = `
-  #hudTimeBubble{position:fixed; top:14px; right:14px; z-index:560; pointer-events:none}
-  #hudTimeBubble .pill{background:#0b1220e0; color:#e2e8f0; border:2px solid #334155;
-    border-radius:999px; padding:4px 10px; font:900 14px system-ui; letter-spacing:.2px;
-    box-shadow:0 10px 24px rgba(0,0,0,.35)}
-  #hudTimeBubble.low{filter:drop-shadow(0 0 10px #f59e0b)}
-  #hudTimeBubble.crit{animation:hb .7s ease-in-out infinite; filter:drop-shadow(0 0 14px #ef4444)}
-  @keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-  `;
-  document.head.appendChild(css);
-
-  const wrap = document.createElement('div'); wrap.id='hudTimeBubble';
-  wrap.innerHTML = `<div class="pill">TIME ${DURATION}s</div>`;
-  document.body.appendChild(wrap);
-})();
-const elTimeWrap = document.getElementById('hudTimeBubble');
-const elTimeText = elTimeWrap?.querySelector('.pill');
+const timePill = document.getElementById('timePill');
 let lastSec = DURATION;
 function setTimeLeft(sec){
-  if(!elTimeWrap || !elTimeText) return;
+  if(!timePill) return;
   const s = Math.max(0, sec|0);
-  elTimeText.textContent = `TIME ${s}s`;
-  elTimeWrap.classList.toggle('low',  s <= 15 && s > 5);
-  elTimeWrap.classList.toggle('crit', s <= 5);
+  timePill.textContent = `TIME ${s}s`;
+  timePill.classList.toggle('warn',  s<=10 && s>5);
+  timePill.classList.toggle('danger', s<=5);
 }
 
-// ---------- Fever bar mount (DOM already has #feverBarDock) ----------
+// ---------- Fever bar mount ----------
 import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
   try{
     const dock = document.getElementById('feverBarDock') || document.getElementById('hudTop');
@@ -54,44 +35,67 @@ import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
   }catch(_){}
 }).catch(()=>{});
 
-// ---------- Quest HUD (Goal + Mini) ----------
-// ใช้ relative เป็นหลัก และมี absolute fallback (กัน 404)
-(async ()=>{
-  try {
-    await import('../vr/quest-hud.js');                                 // ✅ relative (จาก /HeroHealth/game/ → ../vr/)
-  } catch {
-    try { await import('/webxr-health-mobile/HeroHealth/vr/quest-hud.js'); } // ✅ absolute fallback
-    catch(_) { console.warn('quest-hud.js not found (both paths). HUD will be minimal.'); }
+// ---------- Quest HUD loader with fallbacks ----------
+async function tryImport(url){
+  try { return await import(url + `?v=${Date.now()}`); } catch(e){ return null; }
+}
+async function loadQuestHUD(){
+  // 1) path relative (correct when main.js in /HeroHealth/game/)
+  let mod = await tryImport('../vr/quest-hud.js');
+  if (mod) return true;
+  // 2) absolute on GitHub Pages
+  mod = await tryImport('/webxr-health-mobile/HeroHealth/vr/quest-hud.js');
+  if (mod) return true;
+  // 3) inline minimal HUD (no external file) — prevents blank HUD if 404
+  installMinimalQuestHUD();
+  console.warn('[QuestHUD] external quest-hud.js not found — using inline minimal HUD');
+  return true;
+}
+function installMinimalQuestHUD(){
+  if (document.getElementById('miniQuestHUD')) return;
+  const box = document.createElement('div');
+  box.id='miniQuestHUD';
+  box.style.cssText = 'position:fixed;right:16px;top:88px;z-index:520;background:#0b1220cc;border:1px solid #334155;border-radius:12px;color:#e2e8f0;padding:10px 12px;font:800 12px system-ui;max-width:min(50vw,420px);pointer-events:none;';
+  box.innerHTML = '<div id="mqGoal">GOAL: —</div><div style="height:8px;border-radius:6px;background:#0f172a;border:1px solid #334155;margin:6px 0"><div id="mqGoalFill" style="height:100%;width:0%;background:linear-gradient(90deg,#60a5fa,#22c55e)"></div></div><div id="mqMini">MINI: —</div><div style="height:8px;border-radius:6px;background:#0f172a;border:1px solid #334155;margin:6px 0"><div id="mqMiniFill" style="height:100%;width:0%;background:linear-gradient(90deg,#a78bfa,#f59e0b)"></div></div>';
+  document.body.appendChild(box);
+  const gLab = box.querySelector('#mqGoal');
+  const gBar = box.querySelector('#mqGoalFill');
+  const mLab = box.querySelector('#mqMini');
+  const mBar = box.querySelector('#mqMiniFill');
+  function pct(n,d){ return d>0 ? Math.max(0, Math.min(100, Math.round((n/d)*100))) : 0; }
+  function render(d){
+    if(d?.goal){ gLab.textContent = `GOAL: ${d.goal.label||'—'} (${d.goal.prog|0}/${d.goal.target|0})`; gBar.style.width = pct(d.goal.prog|0, d.goal.target|0)+'%'; }
+    if(d?.mini){ mLab.textContent = `MINI: ${d.mini.label||'—'} (${d.mini.prog|0}/${d.mini.target|0})`; mBar.style.width = pct(d.mini.prog|0, d.mini.target|0)+'%'; }
   }
-})();
+  window.addEventListener('hha:quest', (e)=>render(e.detail||{}));
+  window.addEventListener('quest:update', (e)=>render(e.detail||{}));
+}
+await loadQuestHUD();
 
-// bridge รับจากโหมด (รองรับทั้ง hha:quest และ quest:update)
+// ---------- bridge (defensive) ----------
 window.addEventListener('hha:quest', (e)=>{
   try{ window.dispatchEvent(new CustomEvent('quest:update',{detail:e.detail})); }catch(_){}
 });
-window.addEventListener('quest:update', ()=>{}); // ให้ quest-hud.js hook ต่อเอง
 
 // ---------- score/time listeners ----------
-let scoreTotal = 0, comboMax = 0, misses = 0, hits = 0;
-
+let scoreTotal=0, comboMax=0, misses=0, hits=0;
 window.addEventListener('hha:score', (e)=>{
-  const d = e.detail||{};
+  const d=e.detail||{};
   scoreTotal = Math.max(0, (scoreTotal|0) + (d.delta|0));
-  if (d.good) hits++; else misses++;
+  if(d.good) hits++; else misses++;
   setScore(scoreTotal);
 });
 window.addEventListener('hha:time', (e)=>{
-  const sec = (e.detail?.sec|0);
-  if (sec !== lastSec){ setTimeLeft(sec); lastSec = sec; }
+  const sec=(e.detail?.sec|0);
+  if(sec!==lastSec){ setTimeLeft(sec); lastSec=sec; }
 });
 
 // ---------- Result overlay ----------
 function showResult(detail){
-  const old = document.getElementById('resultOverlay'); if(old) old.remove();
-  const d = detail||{};
-  const hub = d.hubUrl || '/webxr-health-mobile/HeroHealth/hub.html';
-
-  const o = document.createElement('div'); o.id='resultOverlay';
+  const old=document.getElementById('resultOverlay'); if(old) old.remove();
+  const d=detail||{};
+  const hub=d.hubUrl || '/webxr-health-mobile/HeroHealth/hub.html';
+  const o=document.createElement('div'); o.id='resultOverlay';
   o.innerHTML = `
   <div class="card">
     <h2>สรุปผล: ${d.mode||MODE} (${d.difficulty||DIFF})</h2>
@@ -109,7 +113,6 @@ function showResult(detail){
     </div>
   </div>`;
   document.body.appendChild(o);
-
   const cssId='hha-result-css';
   if(!document.getElementById(cssId)){
     const css=document.createElement('style'); css.id=cssId;
@@ -130,10 +133,8 @@ function showResult(detail){
     `;
     document.head.appendChild(css);
   }
-
-  const badge = o.querySelector('.badge');
-  const x = d.questsCleared|0, y = d.questsTotal|0;
-  const r = y? x/y : 0;
+  const badge=o.querySelector('.badge');
+  const x=d.questsCleared|0, y=d.questsTotal|0, r=y?x/y:0;
   badge.style.borderColor = r>=1 ? '#16a34a' : (r>=0.5 ? '#f59e0b' : '#ef4444');
   badge.style.background  = r>=1 ? '#16a34a22' : (r>=0.5 ? '#f59e0b22' : '#ef444422');
   badge.style.color       = r>=1 ? '#bbf7d0'   : (r>=0.5 ? '#fde68a' : '#fecaca');
@@ -141,9 +142,8 @@ function showResult(detail){
   o.querySelector('#btnRetry').onclick = ()=>location.reload();
   o.querySelector('#btnHub').onclick   = ()=>location.href = hub;
 }
-
 window.addEventListener('hha:end',(e)=>{
-  const d = e.detail||{};
+  const d=e.detail||{};
   if (d.score == null) d.score = scoreTotal|0;
   if (d.misses == null) d.misses = misses|0;
   if (d.comboMax == null) d.comboMax = comboMax|0;
@@ -156,61 +156,47 @@ window.addEventListener('hha:end',(e)=>{
 // ---------- Loader (robust paths) ----------
 async function loadModeModule(name){
   const extOrder = (name==='goodjunk'||name==='groups') ? ['safe','quest','js'] : ['quest','safe','js'];
-  const bases = [
-    '../modes/',                                   // relative (จาก /HeroHealth/game/)
-    '/webxr-health-mobile/HeroHealth/modes/'       // absolute fallback
-  ];
-  const tries = [];
-  for (const base of bases){
-    for (const ext of extOrder){
-      tries.push(`${base}${name}.${ext}.js`);
-    }
-  }
+  const bases = ['../modes/','/webxr-health-mobile/HeroHealth/modes/'];
+  const tries=[];
+  for(const base of bases){ for(const ext of extOrder){ tries.push(`${base}${name}.${ext}.js`); } }
   let err;
-  for (const url of tries){
+  for(const url of tries){
     try{
       console.log('[ModeLoader] try', url);
-      const mod = await import(url + `?v=${Date.now()}`);
-      if (mod?.boot || mod?.default?.boot) return mod;
-    }catch(e){ err = e; }
+      const mod=await import(url+`?v=${Date.now()}`);
+      if(mod?.boot || mod?.default?.boot) return mod;
+    }catch(e){ err=e; }
   }
   throw new Error(`ไม่พบไฟล์โหมด: ${name}\n${err?.message||err}`);
 }
 
 // ---------- Countdown 3-2-1-GO ----------
 function runCountdown(sec=3){
+  const overlay = document.getElementById('countdownOverlay');
+  if(!overlay){ return Promise.resolve(); }
   return new Promise((resolve)=>{
-    const id='hha-count-css';
-    if(!document.getElementById(id)){
-      const css=document.createElement('style'); css.id=id;
-      css.textContent=`
-        #countOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:700}
-        #countOverlay .big{font:900 80px system-ui;color:#e2e8f0;text-shadow:0 12px 40px rgba(0,0,0,.6)}
-      `;
-      document.head.appendChild(css);
-    }
-    const o=document.createElement('div'); o.id='countOverlay';
-    o.innerHTML=`<div class="big">${sec}</div>`;
-    document.body.appendChild(o);
-    const label=o.querySelector('.big');
+    overlay.style.display='flex';
+    const label=overlay.querySelector('.num');
     let t=sec;
-    const tick=()=>{ t--; if(t<=0){ label.textContent='GO!'; setTimeout(()=>{ o.remove(); resolve(); },350); } else { label.textContent=t; setTimeout(tick, 900); } };
-    setTimeout(tick, 900);
+    function tick(){
+      label.textContent=t>0?t:'GO!';
+      overlay.classList.toggle('go', t<=0);
+      if(t<=0){ setTimeout(()=>{ overlay.style.display='none'; resolve(); },420); }
+      else { t--; setTimeout(tick, 800); }
+    }
+    tick();
   });
 }
 
 // ---------- Start orchestration ----------
 let controller=null, started=false;
-
 async function startGame(){
-  if (started) return;
+  if(started) return;
   started = true;
-
   // reset states
-  scoreTotal=0; misses=0; hits=0; comboMax=0;
-  setScore(0); setCombo(0); setTimeLeft(DURATION); lastSec = DURATION;
+  setScore(0); setCombo(0); setTimeLeft(DURATION); lastSec=DURATION;
 
-  // hide start panel in A-Frame
+  // hide start panel
   try{ const p=document.getElementById('startPanel'); if(p) p.setAttribute('visible','false'); }catch(_){}
 
   // load module
@@ -219,24 +205,18 @@ async function startGame(){
   catch(err){ alert(`เริ่มเกมไม่สำเร็จ: โหลดโหมดไม่พบ\n${err?.message||err}`); started=false; return; }
 
   const boot = mod.boot || mod.default?.boot;
-  if (!boot){ alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()'); started=false; return; }
+  if(!boot){ alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()'); started=false; return; }
 
-  // countdown
   await runCountdown(3);
-
   try{
     controller = await boot({ difficulty: DIFF, duration: DURATION });
-    controller?.start?.(); // ให้โรงงานเริ่ม spawn เป้า
+    controller?.start?.();
   }catch(err){
     console.error(err);
     alert('เริ่มเกมไม่สำเร็จ: เกิดข้อผิดพลาดระหว่างเริ่มโหมด');
     started=false;
   }
 }
-
-// Bind buttons
-document.getElementById('btnStart')?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
-document.getElementById('vrStartBtn')?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
-
-// Autostart
-if (AUTOSTART){ setTimeout(()=>startGame(), 0); }
+document.getElementById('btnStart')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+document.getElementById('vrStartBtn')?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
+if(AUTOSTART){ setTimeout(()=>startGame(), 0); }
