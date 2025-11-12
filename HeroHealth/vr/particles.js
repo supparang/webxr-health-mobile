@@ -1,53 +1,73 @@
-// === /HeroHealth/vr/particles.js (2025-11-12 SCORE POP + SCREEN XY) ===
-export const Particles = (() => {
-  let styleAdded = false;
-  function inject() {
-    if (styleAdded) return;
-    styleAdded = true;
-    const st = document.createElement('style');
-    st.textContent = `
-    .fx-layer{position:fixed;inset:0;z-index:700;pointer-events:none}
-    .fx-pop{position:fixed;transform:translate(-50%,-50%);font:900 16px system-ui;color:#e2e8f0;
-      text-shadow:0 2px 8px rgba(0,0,0,.45);opacity:0;transition:transform .45s ease, opacity .45s ease}
-    .fx-pop.on{opacity:1; transform:translate(-50%,-50%) translateY(-16px)}
-    .fx-emo{position:fixed;transform:translate(-50%,-50%);filter:drop-shadow(0 8px 14px rgba(0,0,0,.5))}
-    `;
-    document.head.appendChild(st);
-  }
-  function layer() {
-    let l = document.querySelector('.fx-layer');
-    if (!l) {
-      l = document.createElement('div');
-      l.className = 'fx-layer';
-      document.body.appendChild(l);
+// === /HeroHealth/vr/particles.js (2025-11-12) ===
+export const Particles = {
+  scorePop(x, y, delta, opts={}){
+    const el = document.createElement('div');
+    el.className = 'hha-score-pop';
+    el.textContent = (delta>0?'+':'') + (delta|0);
+    el.style.left = (x|0) + 'px';
+    el.style.top  = (y|0) + 'px';
+    if (delta>0){
+      el.style.background = 'rgba(34,197,94,.18)';
+      el.style.borderColor = '#22c55e';
+      el.style.color = '#bbf7d0';
+    }else{
+      el.style.background = 'rgba(239,68,68,.18)';
+      el.style.borderColor = '#ef4444';
+      el.style.color = '#fecaca';
     }
-    return l;
+    (document.querySelector('.game-wrap')||document.body).appendChild(el);
+    // animate
+    requestAnimationFrame(()=>{
+      el.style.transform = 'translate(-50%, -80%) scale(1.05)';
+      el.style.opacity = '0';
+    });
+    setTimeout(()=>{ try{ el.remove(); }catch{} }, 700);
+  },
+
+  burstShards(host=null, pos=null, {screen, theme}={}){
+    const wrap = document.createElement('div');
+    wrap.className = 'hha-burst';
+    wrap.style.left = (screen?.x|0)+'px';
+    wrap.style.top  = (screen?.y|0)+'px';
+    const n = 10;
+    for(let i=0;i<n;i++){
+      const p = document.createElement('i');
+      p.className = 'hha-piece';
+      p.style.setProperty('--tx', ((Math.random()*2-1)*60|0)+'px');
+      p.style.setProperty('--ty', ((Math.random()*2-1)*60|0)+'px');
+      p.style.opacity = '1';
+      wrap.appendChild(p);
+    }
+    (document.querySelector('.game-wrap')||document.body).appendChild(wrap);
+    // auto remove
+    setTimeout(()=>{ try{ wrap.remove(); }catch{} }, 600);
   }
-  function scorePop(x, y, txt) {
-    inject();
-    const l = layer();
-    const el = document.createElement('div');
-    el.className = 'fx-pop';
-    el.textContent = txt;
-    el.style.left = x + 'px';
-    el.style.top  = y + 'px';
-    l.appendChild(el);
-    requestAnimationFrame(() => el.classList.add('on'));
-    setTimeout(() => el.remove(), 550);
+};
+
+// inject CSS once
+(function(){
+  if (document.getElementById('hha-pfx-css')) return;
+  const css = document.createElement('style'); css.id='hha-pfx-css';
+  css.textContent = `
+  .hha-score-pop{
+    position:fixed; z-index:900; pointer-events:none;
+    transform:translate(-50%,-50%); opacity:.95;
+    background:#0f172a; border:2px solid #334155; color:#e2e8f0;
+    padding:4px 8px; border-radius:10px; font:900 14px system-ui;
+    filter:drop-shadow(0 10px 18px rgba(0,0,0,.35));
+    transition: transform .45s ease, opacity .45s ease;
   }
-  function burstShards(_host, _pos, opts) {
-    inject();
-    const l = layer();
-    const p = (opts && opts.screen) ? opts.screen : { x: window.innerWidth/2, y: window.innerHeight/2 };
-    const el = document.createElement('div');
-    el.className = 'fx-emo';
-    el.style.left = p.x + 'px';
-    el.style.top  = p.y + 'px';
-    el.style.fontSize = (opts && opts.size) ? opts.size + 'px' : '38px';
-    el.textContent = (opts && opts.emoji) || '✨';
-    l.appendChild(el);
-    setTimeout(() => el.remove(), 400);
+  .hha-burst{ position:fixed; z-index:880; width:0; height:0; pointer-events:none; }
+  .hha-burst .hha-piece{
+    position:absolute; left:0; top:0; width:6px; height:6px; opacity:0;
+    background:linear-gradient(180deg, #93c5fd, #a5b4fc);
+    border-radius:999px; transform:translate(-50%,-50%);
+    animation:hhaShard .55s ease forwards;
   }
-  return { scorePop, burstShards };
+  @keyframes hhaShard {
+    0% { transform:translate(-50%,-50%) scale(.9); opacity:0.9; }
+    100%{ transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(.6); opacity:0; }
+  }`;
+  document.head.appendChild(css);
 })();
 export default Particles;
