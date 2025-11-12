@@ -2,165 +2,153 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Hero Health VR</title>
 
-  <!-- ใช้ A-Frame 1.4.2 (สามัคคีกับ troika-three-text) -->
+  <!-- ✅ A-Frame (Stable r150 = v1.4.2) -->
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <!-- Troika text + A-Frame adapter -->
-  <script src="https://cdn.jsdelivr.net/npm/troika-three-text@0.49.0/dist/troika-three-text.umd.min.js"></script>
-  <script src="https://unpkg.com/aframe-troika-text/dist/aframe-troika-text.min.js"></script>
 
-  <!-- favicon แบบ data URL กัน 404 ใน Console -->
-  <link rel="icon" href="data:," />
+  <!-- ✅ ใช้ปลั๊กอินเดียวพอ: รวม Troika Text สำหรับ A-Frame -->
+  <script src="https://unpkg.com/aframe-troika-text@0.11.0/dist/aframe-troika-text.min.js"></script>
 
   <style>
     :root { color-scheme: light dark; }
-    html, body { margin:0; padding:0; height:100%; background:#000;
-      font-family: system-ui, Segoe UI, Inter, Roboto, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+    html, body {
+      margin:0; padding:0; height:100%; background:#000;
+      font-family: system-ui, Segoe UI, Inter, Roboto, "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+    }
 
-    /* wrapper รวม VR scene + HUD DOM */
+    /* =============== Layout / Overlay =============== */
     .game-wrap { position:fixed; inset:0; overflow:hidden; }
 
-    /* ===== HUD (DOM) ===== */
     #hudRoot { position:fixed; inset:0; pointer-events:none; z-index:500; }
-    .hud-top { position:absolute; left:50%; top:14px; transform:translateX(-50%);
-      display:flex; gap:10px; align-items:flex-start; pointer-events:none; }
+    .hud-top {
+      position:absolute; left:50%; top:14px; transform:translateX(-50%);
+      display:flex; gap:10px; align-items:flex-start; pointer-events:none;
+    }
+
     .score-box {
-      pointer-events:auto; background:#0b1220cc; backdrop-filter:blur(6px);
-      border:1px solid #334155; border-radius:14px; padding:10px 12px; color:#e2e8f0; min-width:190px;
-      display:flex; flex-direction:column; gap:6px; box-shadow:0 12px 30px rgba(0,0,0,.35);
+      pointer-events:auto;
+      background:#0b1220cc; backdrop-filter:blur(6px);
+      border:1px solid #334155; border-radius:14px;
+      padding:10px 12px; color:#e2e8f0; min-width:180px;
+      display:flex; flex-direction:column; gap:6px;
+      box-shadow:0 12px 30px rgba(0,0,0,.35);
     }
     .score-row { display:flex; justify-content:space-between; gap:10px; font-weight:800; }
     .score-row .k { color:#93c5fd; }
     .score-row .v { color:#f8fafc; }
+
     #feverBarDock { margin-top:6px; }
 
-    /* ปุ่มเริ่มเกม (เดสก์ท็อป) */
-    .start-fab { position:absolute; right:16px; bottom:16px; z-index:520; pointer-events:auto;
+    /* =============== Start Button (Desktop) =============== */
+    .start-fab {
+      position:absolute; right:16px; bottom:16px; z-index:520; pointer-events:auto;
       background:#2563eb; color:#fff; border:0; border-radius:999px;
-      padding:12px 16px; font-weight:900; box-shadow:0 10px 30px rgba(0,0,0,.45); cursor:pointer; }
+      padding:12px 16px; font-weight:900; box-shadow:0 10px 30px rgba(0,0,0,.45);
+      cursor:pointer;
+    }
 
-    /* โซน spawn โหมด DOM */
+    /* =============== Spawn host for DOM spawns =============== */
     #spawnHost { position:absolute; inset:0; pointer-events:none; z-index:650; }
 
-    @media (max-width:640px){ .score-box { min-width:164px; } }
+    @media (max-width:640px){ .score-box { min-width:160px; } }
   </style>
 </head>
 <body>
   <div class="game-wrap">
-    <!-- ===== A-FRAME VR SCENE ===== -->
-    <a-scene renderer="antialias:true; colorManagement:true" background="color: #101826">
+    <!-- =============== A-FRAME VR SCENE =============== -->
+    <a-scene renderer="antialias:true; colorManagement:true"
+             background="color: #101826">
       <a-assets></a-assets>
 
-      <!-- กล้อง + Cursor/Raycaster (คลิกใน VR/เดสก์ท็อป) -->
-      <a-entity id="rig" position="0 1.6 0">
-        <a-camera wasd-controls-enabled="false">
-          <!-- cursor กลางจอ -->
-          <a-entity id="cursor"
-            cursor="fuse:false"
-            position="0 0 -1"
-            geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.008"
-            material="color: #FFFFFF; shader: flat">
-          </a-entity>
-        </a-camera>
-      </a-entity>
-      <a-entity id="mouseRay"
-        raycaster="objects: .clickable; interval: 50"
-        cursor="rayOrigin: mouse">
+      <!-- Camera -->
+      <a-entity position="0 1.6 0">
+        <a-camera wasd-controls-enabled="false"></a-camera>
       </a-entity>
 
-      <!-- แสงพื้นฐาน (ไม่ตั้ง useLegacyLights/physicallyCorrectLights) -->
-      <a-entity light="type:ambient; intensity:0.45"></a-entity>
+      <!-- Lights -->
+      <a-entity light="type:ambient; intensity:0.55"></a-entity>
       <a-entity light="type:directional; intensity:0.9" position="0 2 1"></a-entity>
 
-      <!-- แผงมิชชัน -->
-      <a-entity id="questPanel" position="0 2 -2" visible="false">
-        <a-entity geometry="primitive:plane; width:2.2; height:0.4"
-                  material="color:#0b1220; opacity:0.85; side:double" position="0 0 0"></a-entity>
-        <a-entity id="tQ"
-          troika-text="value: สุ่มมิชชัน 3 อย่าง / เก็บแต้มให้ถึงเป้า!; color:#E2E8F0; fontSize:0.16; maxWidth:2; anchor:center; baseline:middle;"
-          position="0 0 0.02"></a-entity>
-      </a-entity>
-
-      <!-- แผงเริ่มเกม -->
+      <!-- Start Panel -->
       <a-entity id="startPanel" position="0 1.4 -1.6" visible="true">
         <a-entity geometry="primitive:plane; width:1.6; height:0.6"
                   material="color:#0b1220; opacity:0.85; side:double"></a-entity>
         <a-entity id="startLbl"
           troika-text="value: เริ่ม: GOODJUNK; color:#93C5FD; fontSize:0.18; maxWidth:1.4; anchor:center; baseline:top;"
           position="0 0.16 0.02"></a-entity>
-        <a-entity id="vrStartBtn" class="clickable"
+        <a-entity id="vrStartBtn"
           geometry="primitive:plane; width:0.9; height:0.22"
           material="color:#2563EB"
-          position="0 -0.12 0.02"></a-entity>
-        <a-entity troika-text="value: เริ่มเกม; color:#FFFFFF; fontSize:0.12; anchor:center; baseline:middle;"
+          position="0 -0.12 0.02" class="clickable"></a-entity>
+        <a-entity
+          troika-text="value: เริ่มเกม; color:#FFFFFF; fontSize:0.12; anchor:center; baseline:middle;"
           position="0 -0.12 0.03"></a-entity>
       </a-entity>
 
-      <!-- เมนูเลือกโหมด (Hub จะ toggle) -->
+      <!-- Mode Menu -->
       <a-entity id="modeMenu" position="-0.9 1.2 -1.6" visible="false">
         <a-entity geometry="primitive:plane; width:1.2; height:0.9"
                   material="color:#0b1220; opacity:0.85"></a-entity>
-        <a-entity troika-text="value: โหมดเกม; color:#E2E8F0; fontSize:0.14; anchor:center;" position="0 0.35 0.02"></a-entity>
-
-        <a-entity data-mode="goodjunk" class="clickable" position="0 0.18 0.02"
+        <a-entity troika-text="value: โหมดเกม; color:#E2E8F0; fontSize:0.14; anchor:center;"
+                  position="0 0.35 0.02"></a-entity>
+        <a-entity data-mode="goodjunk" position="0 0.18 0.02"
                   geometry="primitive:plane; width:1.0; height:0.18"
-                  material="color:#1E293B"></a-entity>
+                  material="color:#1E293B" class="clickable"></a-entity>
         <a-entity troika-text="value: Good vs Junk; color:#A5B4FC; fontSize:0.12; anchor:center;"
                   position="0 0.18 0.03"></a-entity>
-
-        <a-entity data-mode="groups" class="clickable" position="0 -0.02 0.02"
+        <a-entity data-mode="groups" position="0 -0.02 0.02"
                   geometry="primitive:plane; width:1.0; height:0.18"
-                  material="color:#1E293B"></a-entity>
+                  material="color:#1E293B" class="clickable"></a-entity>
         <a-entity troika-text="value: Food Groups; color:#FDE68A; fontSize:0.12; anchor:center;"
                   position="0 -0.02 0.03"></a-entity>
-
-        <a-entity data-mode="hydration" class="clickable" position="0 -0.22 0.02"
+        <a-entity data-mode="hydration" position="0 -0.22 0.02"
                   geometry="primitive:plane; width:1.0; height:0.18"
-                  material="color:#1E293B"></a-entity>
+                  material="color:#1E293B" class="clickable"></a-entity>
         <a-entity troika-text="value: Hydration; color:#93C5FD; fontSize:0.12; anchor:center;"
                   position="0 -0.22 0.03"></a-entity>
-
-        <a-entity data-mode="plate" class="clickable" position="0 -0.42 0.02"
+        <a-entity data-mode="plate" position="0 -0.42 0.02"
                   geometry="primitive:plane; width:1.0; height:0.18"
-                  material="color:#1E293B"></a-entity>
+                  material="color:#1E293B" class="clickable"></a-entity>
         <a-entity troika-text="value: Balanced Plate; color:#86EFAC; fontSize:0.12; anchor:center;"
                   position="0 -0.42 0.03"></a-entity>
       </a-entity>
 
-      <!-- ป้ายสรุป (VR fallback) -->
+      <!-- Result label -->
       <a-entity id="resultLbl" position="0 1.9 -2" visible="false"
         troika-text="value: จบเกม; color:#F8FAFC; fontSize:0.22; anchor:center;">
       </a-entity>
     </a-scene>
 
-    <!-- ===== HUD (DOM) ===== -->
+    <!-- =============== HUD Overlay =============== -->
     <div id="hudRoot">
       <div id="hudTop" class="hud-top">
         <div class="score-box" data-hud="scorebox">
           <div class="score-row"><span class="k">คะแนน</span><span id="hudScore" class="v">0</span></div>
           <div class="score-row"><span class="k">คอมโบ</span><span id="hudCombo" class="v">0</span></div>
-          <!-- จุดยึด fever/shield ด้านล่าง -->
           <div id="feverBarDock"></div>
         </div>
       </div>
     </div>
 
-    <!-- โฮสต์สำหรับสปอน DOM จาก mode-factory -->
     <div id="spawnHost"></div>
 
-    <!-- ปุ่มเริ่มเกม (เดสก์ท็อป) -->
+    <!-- ปุ่มเริ่มเกม (Desktop) -->
     <button id="btnStart" class="start-fab">เริ่มเกม</button>
   </div>
 
-  <!-- Bridge: ให้คลิกปุ่ม VR ไปเรียกปุ่ม DOM -->
+  <!-- เชื่อมคลิก VR panel กับ DOM -->
   <script>
-    document.addEventListener('DOMContentLoaded', function(){
-      var vrBtn = document.getElementById('vrStartBtn');
-      var domBtn = document.getElementById('btnStart');
-      function triggerStart(){ try { domBtn && domBtn.click(); } catch(_){} }
-      if (vrBtn){ vrBtn.addEventListener('click', function(e){ try{e.preventDefault();}catch(_){} triggerStart(); }); }
+    document.addEventListener('DOMContentLoaded', function() {
+      const vrBtn = document.getElementById('vrStartBtn');
+      const domBtn = document.getElementById('btnStart');
+      if (vrBtn && domBtn) {
+        vrBtn.addEventListener('click', e => {
+          e.preventDefault();
+          domBtn.click();
+        });
+      }
     });
   </script>
 
