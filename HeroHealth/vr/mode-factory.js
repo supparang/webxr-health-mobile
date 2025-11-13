@@ -1,4 +1,4 @@
-// === /HeroHealth/vr/mode-factory.js (CENTER-HIT 2025-11-13) ===
+// === /HeroHealth/vr/mode-factory.js (2025-11-13 CENTER-HIT + SCORE FX) ===
 // DOM click-target spawner for all modes
 // Emits: hha:time, hha:score, hha:hit-screen, hha:expired, hha:pause/resume, hha:end, hha:layer-ready
 
@@ -51,8 +51,9 @@ export function boot(opts = {}) {
     const safeTop = computeSafeTop();
     const safeBot = vh() - 60;
     const x = forceCenter ? vw()/2 : Math.floor(vw()*0.12 + Math.random()*vw()*0.76);
-    const y = forceCenter ? clamp(vh()/2, safeTop, safeBot)
-                          : Math.floor(Math.max(safeTop, Math.random()*(safeBot - safeTop)));
+    const y = forceCenter
+      ? clamp(vh()/2, safeTop, safeBot)
+      : Math.floor(Math.max(safeTop, Math.random()*(safeBot - safeTop)));
     return { x, y };
   }
 
@@ -127,51 +128,44 @@ export function boot(opts = {}) {
       clicked = true;
       try { ev.preventDefault(); ev.stopPropagation(); } catch(_){}
 
-      const tap = getXY(ev);                 // จุดแตะจริงของนิ้ว
-      const rect = el.getBoundingClientRect?.();
-      let cx = tap.cx, cy = tap.cy;          // fallback = จุดแตะ
-      if (rect && rect.width && rect.height){
-        cx = rect.left + rect.width/2;       // กึ่งกลางเป้า (สำหรับ effect)
-        cy = rect.top  + rect.height/2;
-      }
+      const tap = getXY(ev); // ตำแหน่งที่แตะจริง
+      // center ของ emoji (ใช้สำหรับ scoreFX ให้ตรงกลางเป้า)
+      let cx = tap.cx, cy = tap.cy;
+      try{
+        const r = el.getBoundingClientRect();
+        cx = r.left + r.width/2;
+        cy = r.top  + r.height/2;
+      }catch(_){}
 
       const res = judge(ch, {
-        clientX: tap.cx,
-        clientY: tap.cy,
-        hitX: tap.cx,
-        hitY: tap.cy,
-        cx, cy,                      // center of target
-        isGood,
-        el
+        tapX: tap.cx, tapY: tap.cy,
+        clientX: tap.cx, clientY: tap.cy,
+        cx, cy,
+        hitX: cx, hitY: cy,
+        isGood
       });
 
       const good  = !!(res && res.good);
       const delta = (res && typeof res.scoreDelta === 'number') ? res.scoreDelta : (good ? 1 : -1);
 
       try { el.classList.add('hit'); layer.removeChild(el); } catch(_){}
-      fire('hha:hit-screen', {
-        x: cx, y: cy,
-        clickX: tap.cx, clickY: tap.cy,
-        good, delta, char: ch, isGood
-      });
+      // ใช้ center เป็นจุดอ้างอิงหลัก
+      fire('hha:hit-screen', { x: cx, y: cy, tapX: tap.cx, tapY: tap.cy, good, delta, char: ch, isGood });
       fire('hha:score', { delta, good });
 
       planNextSpawn();
     }
 
-    // pointer-first with fallbacks
     el.addEventListener('pointerdown', onHit, { passive: false });
     el.addEventListener('touchstart',  onHit, { passive: false });
     el.addEventListener('mousedown',   onHit, { passive: false });
     el.addEventListener('click',       onHit, { passive: false });
 
-    // expiry
     const killId = setTimeout(() => {
       if (clicked || !running || killed) return;
       try { layer.removeChild(el); } catch(_){}
-      fire('hha:expired', { isGood, ch });
-      if (onExpire) { try { onExpire({ isGood, ch }); } catch(_){ }
-      }
+      fire('hha:expired', { isGood, char: ch });
+      if (onExpire) { try { onExpire({ isGood, ch }); } catch(_){ } }
       planNextSpawn();
     }, lifeMs);
     el._killId = killId;
@@ -182,7 +176,7 @@ export function boot(opts = {}) {
   function planNextSpawn(){
     if (!running || killed) return;
     let gap = (diff==='easy' ? 480 : (diff==='hard' ? 280 : 360));
-    gap = Math.max(120, gap - Math.min(spawnCount * 4, 120)); // dynamic speedup
+    gap = Math.max(120, gap - Math.min(spawnCount * 4, 120));
     clearTimeout(spawnTimer);
     spawnTimer = setTimeout(() => spawnOne(false), gap);
   }
@@ -234,7 +228,6 @@ export function boot(opts = {}) {
 
   function stop(){ endGame('done'); }
 
-  // visibility pause/resume
   try {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) pause(); else resume();
