@@ -1,8 +1,9 @@
-// === /HeroHealth/vr/mode-factory.js (2025-11-13 combo-aware) ===
+// === /HeroHealth/vr/mode-factory.js (CENTER-HIT 2025-11-13) ===
 // DOM click-target spawner for all modes
-// Emits: hha:time, hha:score(+combo), hha:hit-screen, hha:expired, hha:pause/resume, hha:end, hha:layer-ready
+// Emits: hha:time, hha:score, hha:hit-screen, hha:expired, hha:pause/resume, hha:end, hha:layer-ready
 
 export function boot(opts = {}) {
+  // ---- config ----
   const duration   = Number(opts.duration ?? 60) | 0;
   const pools      = opts.pools || { good: ['✅'], bad: ['❌'] };
   const goodRate   = Number(opts.goodRate ?? 0.6);
@@ -13,19 +14,20 @@ export function boot(opts = {}) {
   const powerEvery = Number(opts.powerEvery ?? 7);
   const diff       = String(opts.difficulty || 'normal');
 
+  // ---- utils ----
   const vw = () => Math.max(0, window.innerWidth || document.documentElement.clientWidth || 0);
   const vh = () => Math.max(0, window.innerHeight || document.documentElement.clientHeight || 0);
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const pick  = (arr) => arr[(Math.random() * arr.length) | 0];
-  const fire  = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name,{detail})); } catch(_){} };
+  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+  const fire = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch(_){} };
 
   function getXY(ev){
     let cx = 0, cy = 0;
     try{
-      if (ev?.touches?.[0])          { cx = ev.touches[0].clientX;       cy = ev.touches[0].clientY; }
-      else if (ev?.changedTouches?.[0]){ cx = ev.changedTouches[0].clientX; cy = ev.changedTouches[0].clientY; }
-      else                            { cx = ev?.clientX ?? 0;           cy = ev?.clientY ?? 0; }
-      if (window.visualViewport && window.visualViewport.offsetTop){
+      if (ev?.touches?.[0]) { cx = ev.touches[0].clientX; cy = ev.touches[0].clientY; }
+      else if (ev?.changedTouches?.[0]) { cx = ev.changedTouches[0].clientX; cy = ev.changedTouches[0].clientY; }
+      else { cx = ev?.clientX ?? 0; cy = ev?.clientY ?? 0; }
+      if (window.visualViewport && window.visualViewport.offsetTop) {
         cy -= window.visualViewport.offsetTop;
       }
     }catch(_){}
@@ -54,7 +56,7 @@ export function boot(opts = {}) {
     return { x, y };
   }
 
-  // --- style once ---
+  // ---- style ----
   (function injectCSS(){
     if (document.getElementById('hha-factory-style')) return;
     const st = document.createElement('style'); st.id = 'hha-factory-style';
@@ -71,6 +73,7 @@ export function boot(opts = {}) {
     document.head.appendChild(st);
   })();
 
+  // ---- mount layer ----
   const mount = document.querySelector('#spawnHost') ||
                 document.querySelector('.game-wrap') ||
                 document.body;
@@ -80,21 +83,24 @@ export function boot(opts = {}) {
     layer.className = 'hha-layer';
     mount.appendChild(layer);
   }
-  fire('hha:layer-ready',{el:layer});
+  fire('hha:layer-ready', { el: layer });
 
-  let running=false,killed=false;
-  let secLeft=duration|0;
-  let timerId=null, spawnTimer=null;
-  let lifeMs=2000;
-  let sinceLastPower=0, spawnCount=0;
+  // ---- state ----
+  let running = false, killed = false;
+  let secLeft = duration | 0;
+  let timerId = null, spawnTimer = null;
+  let lifeMs = 2000;
+  let sinceLastPower = 0, spawnCount = 0;
 
+  // ---- time loop ----
   function tick(){
     if (!running) return;
-    secLeft = Math.max(0, secLeft-1);
-    fire('hha:time',{sec:secLeft});
-    if (secLeft <= 0) endGame('timeout');
+    secLeft = Math.max(0, secLeft - 1);
+    fire('hha:time', { sec: secLeft });
+    if (secLeft <= 0) { endGame('timeout'); }
   }
 
+  // ---- spawn helpers ----
   const shouldSpawnPower = () => (sinceLastPower >= powerEvery) && (Math.random() < powerRate);
 
   function spawnOne(forceCenter){
@@ -103,7 +109,7 @@ export function boot(opts = {}) {
 
     const usePower = powerups.length>0 && shouldSpawnPower();
     const isGood = usePower ? true : (Math.random() < goodRate);
-    const ch = usePower ? pick(powerups) : pick(isGood ? (pools.good||['✅']) : (pools.bad||['❌']));
+    const ch = usePower ? pick(powerups) : pick(isGood ? (pools.good || ['✅']) : (pools.bad || ['❌']));
 
     const el = document.createElement('div');
     el.className = 'hha-tgt';
@@ -114,46 +120,58 @@ export function boot(opts = {}) {
     el.style.top  = p.y + 'px';
     el.style.fontSize = (diff==='easy'?74 : (diff==='hard'?56 : 64)) + 'px';
 
-    let clicked=false;
+    let clicked = false;
 
     function onHit(ev){
       if (clicked || !running || killed) return;
       clicked = true;
-      try{ ev.preventDefault(); ev.stopPropagation(); }catch(_){}
+      try { ev.preventDefault(); ev.stopPropagation(); } catch(_){}
 
-      const pt = getXY(ev);
-      const res = judge(ch,{ clientX:pt.cx, clientY:pt.cy, cx:pt.cx, cy:pt.cy, isGood });
+      const tap = getXY(ev);                 // จุดแตะจริงของนิ้ว
+      const rect = el.getBoundingClientRect?.();
+      let cx = tap.cx, cy = tap.cy;          // fallback = จุดแตะ
+      if (rect && rect.width && rect.height){
+        cx = rect.left + rect.width/2;       // กึ่งกลางเป้า (สำหรับ effect)
+        cy = rect.top  + rect.height/2;
+      }
+
+      const res = judge(ch, {
+        clientX: tap.cx,
+        clientY: tap.cy,
+        hitX: tap.cx,
+        hitY: tap.cy,
+        cx, cy,                      // center of target
+        isGood,
+        el
+      });
 
       const good  = !!(res && res.good);
-      const delta = (res && typeof res.scoreDelta === 'number')
-                      ? res.scoreDelta
-                      : (good ? 1 : -1);
+      const delta = (res && typeof res.scoreDelta === 'number') ? res.scoreDelta : (good ? 1 : -1);
 
-      const combo    = (res && typeof res.combo    === 'number') ? res.combo    : null;
-      const comboMax = (res && typeof res.comboMax === 'number') ? res.comboMax : null;
-
-      try{ el.classList.add('hit'); layer.removeChild(el); }catch(_){}
-
-      fire('hha:hit-screen',{ x:pt.cx, y:pt.cy, good, delta, char:ch, isGood });
-
-      const detail = { delta, good };
-      if (combo    != null) detail.combo    = combo;
-      if (comboMax != null) detail.comboMax = comboMax;
-      fire('hha:score', detail);
+      try { el.classList.add('hit'); layer.removeChild(el); } catch(_){}
+      fire('hha:hit-screen', {
+        x: cx, y: cy,
+        clickX: tap.cx, clickY: tap.cy,
+        good, delta, char: ch, isGood
+      });
+      fire('hha:score', { delta, good });
 
       planNextSpawn();
     }
 
-    el.addEventListener('pointerdown', onHit, {passive:false});
-    el.addEventListener('touchstart',  onHit, {passive:false});
-    el.addEventListener('mousedown',   onHit, {passive:false});
-    el.addEventListener('click',       onHit, {passive:false});
+    // pointer-first with fallbacks
+    el.addEventListener('pointerdown', onHit, { passive: false });
+    el.addEventListener('touchstart',  onHit, { passive: false });
+    el.addEventListener('mousedown',   onHit, { passive: false });
+    el.addEventListener('click',       onHit, { passive: false });
 
-    const killId = setTimeout(()=>{
+    // expiry
+    const killId = setTimeout(() => {
       if (clicked || !running || killed) return;
-      try{ layer.removeChild(el); }catch(_){}
-      fire('hha:expired',{ isGood, char:ch });
-      if (onExpire){ try{ onExpire({ isGood, ch }); }catch(_){ } }
+      try { layer.removeChild(el); } catch(_){}
+      fire('hha:expired', { isGood, ch });
+      if (onExpire) { try { onExpire({ isGood, ch }); } catch(_){ }
+      }
       planNextSpawn();
     }, lifeMs);
     el._killId = killId;
@@ -163,63 +181,65 @@ export function boot(opts = {}) {
 
   function planNextSpawn(){
     if (!running || killed) return;
-    let gap = (diff==='easy'?480:(diff==='hard'?280:360));
-    gap = Math.max(120, gap - Math.min(spawnCount*4, 120));
+    let gap = (diff==='easy' ? 480 : (diff==='hard' ? 280 : 360));
+    gap = Math.max(120, gap - Math.min(spawnCount * 4, 120)); // dynamic speedup
     clearTimeout(spawnTimer);
-    spawnTimer = setTimeout(()=>spawnOne(false), gap);
+    spawnTimer = setTimeout(() => spawnOne(false), gap);
   }
 
+  // ---- lifecycle ----
   function start(){
     if (running) return;
-    running=true; killed=false;
+    running = true; killed = false;
     layer.classList.remove('off');
 
     clearInterval(timerId);
-    secLeft = duration|0;
-    fire('hha:time',{sec:secLeft});
-    timerId = setInterval(tick,1000);
+    secLeft = duration | 0;
+    fire('hha:time', { sec: secLeft });
+    timerId = setInterval(tick, 1000);
 
-    requestAnimationFrame(()=>{ spawnOne(true); planNextSpawn(); });
+    requestAnimationFrame(() => { spawnOne(true); planNextSpawn(); });
   }
 
   function pause(){
     if (!running) return;
-    try{ clearInterval(timerId); }catch(_){}
-    try{ clearTimeout(spawnTimer); }catch(_){}
-    fire('hha:pause',{});
+    try { clearInterval(timerId); } catch(_){}
+    try { clearTimeout(spawnTimer); } catch(_){}
+    fire('hha:pause', {});
   }
+
   function resume(){
     if (!running) return;
-    try{ clearInterval(timerId); }catch(_){}
-    timerId = setInterval(tick,1000);
-    fire('hha:resume',{});
+    try { clearInterval(timerId); } catch(_){}
+    timerId = setInterval(tick, 1000);
+    fire('hha:resume', {});
   }
 
   function hardClearLayer(){
     try{
       layer.classList.add('off');
       const nodes = layer.querySelectorAll('.hha-tgt');
-      nodes.forEach(n=>{ try{ if(n._killId) clearTimeout(n._killId); }catch(_){ } });
-      while(layer.firstChild) layer.removeChild(layer.firstChild);
+      nodes.forEach(n => { try { if (n._killId) clearTimeout(n._killId); } catch(_){ } });
+      while (layer.firstChild) layer.removeChild(layer.firstChild);
     }catch(_){}
   }
 
   function endGame(reason){
-    if (killed) return;
-    killed=true; running=false;
-    try{ clearInterval(timerId); }catch(_){}
-    try{ clearTimeout(spawnTimer); }catch(_){}
+    if (killed) return; killed = true; running = false;
+    try { clearInterval(timerId); } catch(_){}
+    try { clearTimeout(spawnTimer); } catch(_){}
     hardClearLayer();
-    fire('hha:end',{reason:reason||'done'});
+    fire('hha:end', { reason: reason || 'done' });
   }
 
   function stop(){ endGame('done'); }
 
-  try{
-    document.addEventListener('visibilitychange',()=>{
+  // visibility pause/resume
+  try {
+    document.addEventListener('visibilitychange', () => {
       if (document.hidden) pause(); else resume();
     });
-  }catch(_){}
+  } catch(_){}
 
   const controller = { start, pause, resume, stop };
   return Promise.resolve(controller);
