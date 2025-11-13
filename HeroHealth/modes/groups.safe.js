@@ -1,91 +1,212 @@
-// === /HeroHealth/modes/groups.safe.js ===
-// เลือกอาหารตาม "หมู่เป้าหมาย" ที่กำหนด
+// === /HeroHealth/modes/groups.safe.js (2025-11-14 QUEST + FX + DYNAMIC FOCUS) ===
+// เลือกอาหารให้ตรง "หมู่เป้าหมาย" ตามระดับความยาก + ผูกกับ quest-director
+// ใช้ร่วมกับ: /HeroHealth/modes/groups.quest.js และ /HeroHealth/vr/particles.js
 
+import { createGroupsQuest } from './groups.quest.js';
 import { burstAt, scorePop } from '../vr/particles.js';
 
+// ---------- กลุ่มอาหาร 5 หมู่ ----------
+
 const GROUPS = {
-  1: ['🍚','🍙','🍞','🥐','🥖','🥯'],
-  2: ['🥩','🍗','🍖','🥚','🧀','🥓'],
-  3: ['🥦','🥕','🍅','🥬','🌽','🥗'],
-  4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],
-  5: ['🥛','🧈','🧀','🍨']
+  1: ['🍚','🍙','🍞','🥐','🥖','🥯'],                         // ข้าว-แป้ง
+  2: ['🥩','🍗','🍖','🥚','🧀','🥓'],                         // เนื้อ-โปรตีน
+  3: ['🥦','🥕','🍅','🥬','🌽','🥗'],                         // ผัก
+  4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],                    // ผลไม้
+  5: ['🥛','🧈','🧀','🍨','🍦','🥛']                          // นม/นมเปรี้ยว
 };
 
 const ALL_EMOJI = Object.values(GROUPS).flat();
 
 function foodGroup(emo){
-  for(const [g,list] of Object.entries(GROUPS)){
-    if(list.includes(emo)) return Number(g);
+  for (const [g, list] of Object.entries(GROUPS)){
+    if (list.includes(emo)) return Number(g);
   }
   return 0;
 }
 
+// ---------- ระดับความยาก (spawn + อายุเป้า + focusGroups สูงสุด) ----------
+
 const diffCfg = {
-  easy:   { spawn:950, life:2200, targetCount:18, comboMini:8, focusGroups:1 },
-  normal: { spawn:800, life:2000, targetCount:26, comboMini:10, focusGroups:2 },
-  hard:   { spawn:650, life:1800, targetCount:34, comboMini:12, focusGroups:3 }
+  easy: {
+    spawnMs: 950,
+    lifeMs : 2200,
+    focusGroupsMax: 1,
+    baseScore: 120,
+    badPenalty: -90
+  },
+  normal: {
+    spawnMs: 800,
+    lifeMs : 2000,
+    focusGroupsMax: 2,
+    baseScore: 130,
+    badPenalty: -110
+  },
+  hard: {
+    spawnMs: 650,
+    lifeMs : 1800,
+    focusGroupsMax: 3,
+    baseScore: 140,
+    badPenalty: -130
+  }
 };
 
+// ---------- CSS ของเกมนี้ ----------
+
+function ensureCSS(){
+  const id = 'hha-groups-css';
+  if (document.getElementById(id)) return;
+  const css = document.createElement('style');
+  css.id = id;
+  css.textContent = `
+    #spawnHost.groups-host{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:650;
+    }
+    .grp-target{
+      position:absolute;
+      transform:translate(-50%,-50%);
+      font:900 46px system-ui;
+      text-shadow:0 6px 18px rgba(0,0,0,.55);
+      cursor:pointer;
+      pointer-events:auto;
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action:manipulation;
+      transition:transform .08s ease, opacity .12s ease;
+      will-change:transform,opacity;
+    }
+    .grp-target.hit{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(.75);
+    }
+  `;
+  document.head.appendChild(css);
+}
+
+// ----------
+function randomFrom(arr){ return arr[(Math.random()*arr.length)|0]; }
+
+function pickGroups(n){
+  const all = [1,2,3,4,5];
+  const out = [];
+  while (out.length < n && all.length){
+    const i = (Math.random()*all.length)|0;
+    out.push(all.splice(i,1)[0]);
+  }
+  return out;
+}
+
+function makeHost(){
+  const h = document.createElement('div');
+  h.id = 'spawnHost';
+  Object.assign(h.style,{
+    position:'absolute',
+    inset:0,
+    pointerEvents:'none',
+    zIndex:650
+  });
+  document.body.appendChild(h);
+  return h;
+}
+
+// ======================================================================
+//                           main boot()
+// ======================================================================
+
 export async function boot(opts = {}) {
-  const diff = (opts.difficulty||'normal').toLowerCase();
+  const diff = (opts.difficulty || 'normal').toLowerCase();
   const cfg  = diffCfg[diff] || diffCfg.normal;
   const dur  = (opts.duration|0) || 60;
 
-  const host=document.getElementById('spawnHost') || makeHost();
+  ensureCSS();
+
+  const host = document.getElementById('spawnHost') || makeHost();
+  host.classList.add('groups-host');
   host.innerHTML = '';
 
-  let score=0, combo=0, comboMax=0, misses=0, hits=0;
-  let timeLeft=dur;
-  let spawnTimer=null, tickTimer=null;
+  // ---------- quest-director ----------
+  // ใช้ร่วมกับ /HeroHealth/modes/groups.quest.js
+  const quest = createGroupsQuest(diff);
 
-  let activeGroups = pickGroups(cfg.focusGroups);
-  let focusLevel   = 1;
+  // ---------- state หลัก ----------
+  let score    = 0;
+  let combo    = 0;
+  let comboMax = 0;
+  let misses   = 0;
+  let hits     = 0;
+  let timeLeft = dur;
 
-  let goodHits=0; // จำนวนที่คลิกถูก "หมู่เป้าหมาย"
+  let spawnTimer = null;
+  let tickTimer  = null;
 
-  const mission = {
-    goalLabel  : `เก็บอาหารหมู่เป้าหมายรวม ${cfg.targetCount} ชิ้น`,
-    goalTarget : cfg.targetCount,
-    goalProg   : ()=>goodHits,
-    goalDone   : ()=>goodHits >= cfg.targetCount,
-    miniLabel  : `คอมโบต่อเนื่อง ${cfg.comboMini} ครั้ง`,
-    miniTarget : cfg.comboMini,
-    miniProg   : ()=>comboMax,
-    miniDone   : ()=>comboMax >= cfg.comboMini
-  };
+  // กลุ่มที่เป็น "หมู่เป้าหมาย" (เริ่มด้วย 1 หมู่ แล้วขยับขึ้น)
+  let focusLevel     = 1;
+  let activeGroups   = pickGroups(focusLevel);
+  const hitsByGroup  = {1:0,2:0,3:0,4:0,5:0};
 
-  function updateQuest(){
-    window.dispatchEvent(new CustomEvent('hha:quest',{
+  // ---------- helper ส่งสถิติให้ quest-director ----------
+
+  function questUpdate(){
+    quest.update({
+      score,
+      combo,
+      comboMax,
+      misses,
+      hits,
+      timeLeft,
+      activeGroups: activeGroups.slice(),
+      hitsByGroup: {...hitsByGroup}
+    });
+  }
+
+  function questStart(){
+    quest.start({
+      timeLeft,
+      activeGroups: activeGroups.slice(),
+      hitsByGroup: {...hitsByGroup}
+    });
+    questUpdate();
+  }
+
+  function questFinish(){
+    const sum = quest.summary();
+    window.dispatchEvent(new CustomEvent('hha:end',{
       detail:{
-        goal:{
-          label: mission.goalLabel,
-          target: mission.goalTarget,
-          prog: mission.goalProg(),
-          done: mission.goalDone()
-        },
-        mini:{
-          label: mission.miniLabel,
-          target: mission.miniTarget,
-          prog: mission.miniProg(),
-          done: mission.miniDone()
-        }
+        mode       : 'groups',
+        difficulty : diff,
+        score,
+        misses,
+        comboMax,
+        duration   : dur,
+        goalCleared   : (sum.goalsCleared >= sum.goalsTotal),
+        questsCleared : sum.miniCleared,
+        questsTotal   : sum.miniTotal
       }
     }));
   }
 
+  // ---------- COACH ----------
   function coach(text){
-    window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}}));
+    if (!text) return;
+    window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text } }));
   }
 
-  function emitScore(delta, good, targetHit, ev){
-    score = Math.max(0, score+delta);
-    if(good){
+  // ---------- SCORE / COMBO / MISS ----------
+
+  function emitScore(delta, good, ev, groupHit, isTarget){
+    score = Math.max(0, score + (delta|0));
+
+    if (good){
       combo++;
       hits++;
-      if(targetHit) goodHits++;
-      comboMax=Math.max(comboMax,combo);
-    }else{
-      combo=0;
+      comboMax = Math.max(comboMax, combo);
+      if (groupHit) {
+        hitsByGroup[groupHit] = (hitsByGroup[groupHit]||0) + 1;
+      }
+    } else {
+      combo = 0;
       misses++;
     }
 
@@ -98,36 +219,62 @@ export async function boot(opts = {}) {
         good
       }
     }));
+    window.dispatchEvent(new CustomEvent('hha:combo',{
+      detail:{ combo, comboMax }
+    }));
 
-    if(ev){
-      const x=ev.clientX,y=ev.clientY;
-      burstAt(x,y,{color:good?'#22c55e':'#f97316'});
-      scorePop(x,y,(delta>0?'+':'')+delta,{good});
+    // FX ตรงจุดคลิก
+    if (ev){
+      const x = ev.clientX, y = ev.clientY;
+      burstAt(x,y,{ color: good ? '#22c55e' : '#f97316' });
+      scorePop(x,y, (delta>0?'+':'')+delta, { good });
     }
 
-    // ปรับระดับ focus (โหดขึ้น)
-    if(goodHits>=cfg.targetCount*0.5 && focusLevel===1 && cfg.focusGroups>=2){
-      focusLevel=2;
+    // ขยับระดับความโหด (เพิ่มจำนวนหมู่ที่ต้องโฟกัส)
+    const totalTargetHits = activeGroups.reduce((sum,g)=>sum + (hitsByGroup[g]||0),0);
+
+    const halfTarget = Math.round((dur * 0.4)); // heuristic: เอาเวลา/ผลงานมาเป็นตัวช่วย (ไม่สำคัญมาก)
+    if (totalTargetHits >= 6 && focusLevel===1 && cfg.focusGroupsMax>=2){
+      focusLevel = 2;
       activeGroups = pickGroups(2);
       coach('เก่งมาก! เพิ่มหมู่เป้าหมายเป็น 2 หมู่แล้ว');
-    }else if(goodHits>=cfg.targetCount*0.8 && focusLevel===2 && cfg.focusGroups>=3){
-      focusLevel=3;
+      questUpdate();
+    }else if (totalTargetHits >= 14 && focusLevel===2 && cfg.focusGroupsMax>=3){
+      focusLevel = 3;
       activeGroups = pickGroups(3);
-      coach('สุดยอด! ตอนนี้โฟกัสพร้อมกัน 3 หมู่!');
+      coach('สุดยอด! ตอนนี้ต้องโฟกัสพร้อมกัน 3 หมู่!');
+      questUpdate();
     }
 
-    if(mission.goalDone()) coach('ถึงเป้าหมายจำนวนชิ้นแล้ว ลองทำคอมโบเพิ่ม!');
-    if(mission.miniDone()) coach('คอมโบตาม Mini Quest สำเร็จแล้ว!');
-
-    updateQuest();
+    questUpdate();
   }
 
-  function spawnOne(){
-    if(timeLeft<=0) return;
+  function onExpire(isTarget){
+    // หมดเวลา: นับเป็น miss เฉพาะกรณี "เป็นหมู่เป้าหมาย" → เด็กไม่เก็บเป้าหมาย
+    if (isTarget){
+      misses++;
+      combo = 0;
+      window.dispatchEvent(new CustomEvent('hha:score',{
+        detail:{ delta:0, total:score, combo, comboMax, good:false }
+      }));
+      window.dispatchEvent(new CustomEvent('hha:combo',{
+        detail:{ combo, comboMax }
+      }));
+      questUpdate();
+    }
+  }
 
-    const targetBias = 0.7;
+  // ---------- SPAWN TARGET ----------
+
+  function spawnOne(){
+    if (timeLeft <= 0) return;
+
+    const vw = window.innerWidth  || 1024;
+    const vh = window.innerHeight || 768;
+
+    const targetBias = 0.72; // 70%+ เป็นหมู่เป้าหมาย
     let emoji, g;
-    if(Math.random()<targetBias){
+    if (Math.random() < targetBias){
       const tg = activeGroups[(Math.random()*activeGroups.length)|0];
       emoji = randomFrom(GROUPS[tg]);
       g = tg;
@@ -136,101 +283,108 @@ export async function boot(opts = {}) {
       g = foodGroup(emoji);
     }
 
-    const el=document.createElement('div');
-    el.textContent=emoji;
-    el.dataset.group = g;
-    Object.assign(el.style,{
-      position:'absolute',
-      left:(10+Math.random()*80)+'%',
-      top:(18+Math.random()*60)+'%',
-      transform:'translate(-50%,-50%)',
-      font:'900 46px system-ui',
-      textShadow:'0 6px 18px rgba(0,0,0,.55)',
-      cursor:'pointer',
-      pointerEvents:'auto',
-      userSelect:'none'
-    });
+    const el = document.createElement('div');
+    el.className = 'grp-target';
+    el.textContent = emoji;
+    el.dataset.group = String(g || 0);
 
-    const life=cfg.life;
-    const kill=()=>{ if(el.parentNode) try{host.removeChild(el);}catch(_){}; };
+    const px = 0.12 + Math.random()*0.76;
+    const py = 0.20 + Math.random()*0.65;
+    el.style.left = (px * vw) + 'px';
+    el.style.top  = (py * vh) + 'px';
+
+    const isTarget = activeGroups.includes(g);
+
+    const life = cfg.lifeMs + (Math.random()*220 - 110);
+    const kill = ()=>{
+      if (el.parentNode){
+        try{ host.removeChild(el); }catch(_){}
+      }
+    };
+
+    const lifeTimer = setTimeout(()=>{
+      if (!el.parentNode) return;
+      kill();
+      onExpire(isTarget);
+    }, life);
 
     el.addEventListener('click',(ev)=>{
-      if(!el.parentNode) return;
-      kill();
-      const groupHit = Number(el.dataset.group||0);
-      const isTarget = activeGroups.includes(groupHit);
-      if(isTarget) emitScore(140,true,true,ev);
-      else         emitScore(-120,false,false,ev);
+      if (!el.parentNode) return;
+      clearTimeout(lifeTimer);
+      el.classList.add('hit');
+      setTimeout(kill, 100);
+
+      const groupHit = Number(el.dataset.group || 0);
+      const hitIsTarget = activeGroups.includes(groupHit);
+
+      if (hitIsTarget){
+        const base  = cfg.baseScore;
+        const bonus = combo * 8; // ให้คอมโบมีผล
+        const delta = base + bonus;
+        emitScore(delta, true, ev, groupHit, true);
+
+        if (combo === 5 || combo === 10){
+          coach(`คอมโบต่อเนื่อง ${combo} ครั้ง เยี่ยมมาก!`);
+        }
+      }else{
+        const delta = cfg.badPenalty;
+        emitScore(delta, false, ev, groupHit, false);
+        coach('ระวังของล่อที่ไม่ใช่หมู่เป้าหมาย!');
+      }
     });
 
     host.appendChild(el);
-    setTimeout(kill,life);
   }
+
+  // ---------- TIMER ----------
 
   function tick(){
     timeLeft--;
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-    updateQuest();
-    if(timeLeft<=0){
+    window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft } }));
+    questUpdate();
+
+    if (timeLeft <= 0){
       stopAll();
-      finish();
+      questFinish();
     }
   }
 
   function stopAll(){
-    if(spawnTimer){clearInterval(spawnTimer);spawnTimer=null;}
-    if(tickTimer){clearInterval(tickTimer);tickTimer=null;}
+    if (spawnTimer){ clearInterval(spawnTimer); spawnTimer=null; }
+    if (tickTimer){  clearInterval(tickTimer);  tickTimer=null;  }
   }
 
-  function finish(){
-    updateQuest();
-    const questsTotal   = 2;
-    const questsCleared = (mission.goalDone()?1:0) + (mission.miniDone()?1:0);
-    window.dispatchEvent(new CustomEvent('hha:end',{
-      detail:{
-        mode:'groups',
-        difficulty:diff,
-        score,
-        misses,
-        comboMax,
-        duration:dur,
-        goalCleared:mission.goalDone(),
-        questsCleared,
-        questsTotal
-      }
-    }));
-  }
+  // ---------- public controller ----------
 
   return {
     start(){
+      // reset state ทุกครั้งที่เริ่ม
       score=0;combo=0;comboMax=0;misses=0;hits=0;timeLeft=dur;
-      goodHits=0;activeGroups=pickGroups(cfg.focusGroups);focusLevel=1;
-      window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-      updateQuest();
-      coach('เก็บอาหารตามหมู่เป้าหมายที่กำหนด ระวังของล่อที่ไม่ใช่หมู่นะ!');
-      spawnTimer=setInterval(spawnOne,cfg.spawn);
-      tickTimer=setInterval(tick,1000);
+      for (let g=1; g<=5; g++) hitsByGroup[g]=0;
+      focusLevel = 1;
+      activeGroups = pickGroups(1);
+
+      window.dispatchEvent(new CustomEvent('hha:score',{
+        detail:{ delta:0, total:0, combo:0, comboMax:0, good:true }
+      }));
+      window.dispatchEvent(new CustomEvent('hha:combo',{
+        detail:{ combo:0, comboMax:0 }
+      }));
+      window.dispatchEvent(new CustomEvent('hha:time',{
+        detail:{ sec: timeLeft }
+      }));
+
+      coach('เลือกเฉพาะอาหารในหมู่เป้าหมายที่กำหนดให้บน HUD นะ!');
+
+      questStart();
+
+      spawnTimer = setInterval(spawnOne, cfg.spawnMs);
+      tickTimer  = setInterval(tick, 1000);
     },
-    stop(){ stopAll(); }
+    stop(){
+      stopAll();
+    }
   };
 }
 
 export default { boot };
-
-function randomFrom(arr){ return arr[(Math.random()*arr.length)|0]; }
-function pickGroups(n){
-  const all=[1,2,3,4,5];
-  const out=[];
-  while(out.length<n && all.length){
-    const i=(Math.random()*all.length)|0;
-    out.push(all.splice(i,1)[0]);
-  }
-  return out;
-}
-function makeHost(){
-  const h=document.createElement('div');
-  h.id='spawnHost';
-  Object.assign(h.style,{position:'absolute',inset:0,pointerEvents:'none',zIndex:650});
-  document.body.appendChild(h);
-  return h;
-}
