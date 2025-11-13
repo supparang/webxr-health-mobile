@@ -1,303 +1,217 @@
-// === /HeroHealth/modes/goodjunk.safe.js (2025-11-13 FIX HIT FX POSITION) ===
-export const name = 'goodjunk';
+// === /HeroHealth/modes/goodjunk.safe.js ===
+// คลิกของดี บวกคะแนน / ของเสีย หักคะแนน + นับ goal + mini quest
+
+import { burstAt, scorePop } from '../vr/particles.js';
 
 const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
 
-const DIFF_CFG = {
-  easy:   { spawn: 900, life: 1600, goalScore: 800  },
-  normal: { spawn: 750, life: 1350, goalScore: 1200 },
-  hard:   { spawn: 620, life: 1200, goalScore: 1600 }
+const diffCfg = {
+  easy:   { spawn:900,  life:2200, goalScore: 800, maxMiss:10 },
+  normal: { spawn:750,  life:2000, goalScore:1600, maxMiss: 8 },
+  hard:   { spawn:620,  life:1800, goalScore:2400, maxMiss: 6 }
 };
 
-let ParticlesRef = null;
-try {
-  import('../vr/particles.js').then(m=>{
-    ParticlesRef = m.Particles || m.default || m;
-  }).catch(()=>{});
-} catch(_){}
-
-// ---------- helpers ----------
-function emit(name, detail){
-  try{ window.dispatchEvent(new CustomEvent(name,{detail})); }catch(_){}
-}
-function rnd(arr){ return arr[(Math.random()*arr.length)|0]; }
-
-// เอฟเฟกต์คะแนนจากพิกัดหน้าจอ (x,y)
-function fxScoreAtPoint(x, y, delta, isGood){
-  if(!Number.isFinite(x) || !Number.isFinite(y)) return;
-
-  // floating number
-  const d = document.createElement('div');
-  d.textContent = (delta>0?'+':'') + delta;
-  Object.assign(d.style,{
-    position:'fixed',
-    left:x+'px',
-    top:y+'px',
-    transform:'translate(-50%,-50%)',
-    font:'900 18px system-ui',
-    color:isGood ? '#bbf7d0' : '#fecaca',
-    textShadow:'0 2px 10px rgba(0,0,0,.7)',
-    zIndex:1000,
-    pointerEvents:'none',
-    transition:'all .55s ease',
-    opacity:'1'
-  });
-  document.body.appendChild(d);
-  setTimeout(()=>{
-    d.style.top = (y-36)+'px';
-    d.style.opacity = '0';
-  },20);
-  setTimeout(()=>{ try{d.remove();}catch(_){}; },600);
-
-  // shards via particles.js
-  if(ParticlesRef && typeof ParticlesRef.burstShards === 'function'){
-    try{
-      ParticlesRef.burstShards(null,{x,y},{
-        screen:{x,y},
-        color:isGood?'#22c55e':'#ef4444',
-        count:isGood?22:14
-      });
-      return;
-    }catch(_){}
-  }
-
-  // fallback DOM shards
-  const count = isGood?18:10;
-  const col   = isGood?'#22c55e':'#ef4444';
-  for(let i=0;i<count;i++){
-    const p = document.createElement('div');
-    Object.assign(p.style,{
-      position:'fixed',
-      left:x+'px',
-      top:y+'px',
-      width:'6px',
-      height:'6px',
-      borderRadius:'999px',
-      background:col,
-      opacity:'0.95',
-      transform:'translate(-50%,-50%)',
-      zIndex:999,
-      transition:'all .55s ease',
-      pointerEvents:'none'
-    });
-    document.body.appendChild(p);
-    const ang = Math.random()*Math.PI*2;
-    const r2  = 20+Math.random()*26;
-    const tx  = x + Math.cos(ang)*r2;
-    const ty  = y + Math.sin(ang)*r2 - 6;
-    setTimeout(()=>{
-      p.style.left = tx+'px';
-      p.style.top  = ty+'px';
-      p.style.opacity = '0';
-    },20);
-    setTimeout(()=>{ try{p.remove();}catch(_){ } },600);
-  }
-}
-
-// ---------- main boot ----------
-export async function boot(opts={}){
+export async function boot(opts = {}) {
   const diff = (opts.difficulty||'normal').toLowerCase();
-  const cfg  = DIFF_CFG[diff] || DIFF_CFG.normal;
-  const dur  = Number(opts.duration||60);
+  const cfg  = diffCfg[diff] || diffCfg.normal;
+  const dur  = (opts.duration|0) || 60;
 
-  const host = document.getElementById('spawnHost') || document.body;
-  host.style.pointerEvents = 'auto';
-  host.style.touchAction   = 'manipulation';
+  const host = document.getElementById('spawnHost') || makeHost();
+  host.innerHTML = '';
 
-  let running    = false;
-  let timeLeft   = dur;
-  let spawnTimer = null;
-  let tickTimer  = null;
+  let score=0, combo=0, comboMax=0, misses=0, hits=0;
+  let timeLeft=dur;
+  let spawnTimer=null, tickTimer=null;
 
-  let score    = 0;
-  let combo    = 0;
-  let comboMax = 0;
-  let misses   = 0;
-  let hits     = 0;
+  const stats = { score, combo, comboMax, misses, hits, timeLeft };
 
-  const missLimit = 6;
-
-  const goalsAll = [
-    { id:'score', label:`ทำคะแนนรวม ${cfg.goalScore}+`, prog:0, target:cfg.goalScore, done:false }
-  ];
-  const minisAll = [
-    { id:'miss', label:'พลาดไม่เกิน 6 ครั้ง', prog:0, target:missLimit, done:true }
-  ];
-
-  function updateQuests(){
-    const g = goalsAll[0];
-    g.prog = score;
-    g.done = score >= g.target;
-
-    const m = minisAll[0];
-    const remain = Math.max(0, missLimit - misses);
-    m.prog = remain;
-    m.done = (misses <= missLimit);
-
-    emit('hha:quest',{
-      goal:{
-        label:g.label,
-        prog:g.prog,
-        target:g.target
-      },
-      mini:{
-        label:m.label,
-        prog:missLimit - remain, // พลาดไปแล้วกี่ครั้ง
-        target:missLimit
-      }
-    });
+  function updateStats(){
+    stats.score   = score;
+    stats.combo   = combo;
+    stats.comboMax= comboMax;
+    stats.misses  = misses;
+    stats.hits    = hits;
+    stats.timeLeft= timeLeft;
   }
 
-  function applyScore(delta, isGood, point, coachText){
-    if(delta) score = Math.max(0, score + delta);
-    if(isGood){
-      hits++; combo++;
-      if(combo>comboMax) comboMax = combo;
+  // ---------- Quest model ----------
+  const mission = {
+    goalLabel : `ทำคะแนนรวม ${cfg.goalScore}+`,
+    goalTarget: cfg.goalScore,
+    goalProg  : ()=>score,
+    goalDone  : ()=>score >= cfg.goalScore,
+    miniLabel : `พลาดไม่เกิน ${cfg.maxMiss} ครั้ง`,
+    miniTarget: cfg.maxMiss,
+    miniProg  : ()=>misses,
+    miniDone  : ()=>misses <= cfg.maxMiss
+  };
+
+  function emitQuest(){
+    updateStats();
+    window.dispatchEvent(new CustomEvent('hha:quest',{
+      detail:{
+        goal:{
+          label: mission.goalLabel,
+          target: mission.goalTarget,
+          prog: mission.goalProg(),
+          done: mission.goalDone()
+        },
+        mini:{
+          label: mission.miniLabel,
+          target: mission.miniTarget,
+          prog: mission.miniProg(),
+          done: mission.miniDone()
+        }
+      }
+    }));
+  }
+
+  function coach(text){
+    window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}}));
+  }
+
+  // ---------- Score emit ----------
+  function emitScore(delta, good, ev){
+    score = Math.max(0, score + delta);
+    if(good){
+      combo++;
+      hits++;
+      comboMax = Math.max(comboMax, combo);
     }else{
-      misses++; combo = 0;
+      combo = 0;
+      misses++;
     }
 
-    emit('hha:score',{
+    updateStats();
+
+    const detail = {
       delta,
-      total:score,
+      total: score,
       combo,
       comboMax,
-      good:isGood
-    });
+      good
+    };
+    window.dispatchEvent(new CustomEvent('hha:score',{detail}));
 
-    if(point && delta){
-      fxScoreAtPoint(point.x, point.y, delta, !!isGood);
+    if(ev){
+      const x = ev.clientX, y = ev.clientY;
+      burstAt(x,y,{color:good?'#22c55e':'#ef4444'});
+      const txt = (delta>0?'+':'')+delta;
+      scorePop(x,y,txt,{good});
     }
 
-    if(coachText){
-      emit('hha:coach',{text:coachText});
-    }
+    // โค้ชเล็ก ๆ
+    if(good && combo===5)  coach('เยี่ยมเลย! คอมโบ 5 แล้ว ลุยต่อ!');
+    if(good && combo===10) coach('สุดยอด! คอมโบ 10 ต่อเนื่อง!');
+    if(!good && misses===cfg.maxMiss-1) coach('ระวังนะ ใกล้ครบโควต้าพลาดแล้ว!');
+    if(mission.goalDone()) coach('ถึงเป้าคะแนนรวมแล้ว ลองดันให้สูงกว่านี้!');
+    if(mission.miniDone() && misses>0) coach('ยังไม่เกินโควต้าพลาด เล่นต่อให้จบเกมนะ');
 
-    updateQuests();
+    emitQuest();
   }
+
+  // ---------- Spawn ----------
+  function randomBy(arr){ return arr[(Math.random()*arr.length)|0]; }
 
   function spawnOne(){
-    if(!running) return;
+    if(timeLeft<=0) return;
+    const isGood = Math.random() < 0.7; // 70% good
+    const emoji  = isGood ? randomBy(GOOD) : randomBy(JUNK);
 
-    const isGood = Math.random() < 0.7;
-    const emo    = isGood ? rnd(GOOD) : rnd(JUNK);
-
-    const item = document.createElement('div');
-    item.className = 'gj-item';
-    item.textContent = emo;
-    item.dataset.type = isGood ? 'good' : 'junk';
-
-    const size = (diff==='hard'?80:(diff==='easy'?110:96));
-    const left = 12 + Math.random()*76;
-    const top  = 24 + Math.random()*58;
-
-    Object.assign(item.style,{
+    const el = document.createElement('div');
+    el.textContent = emoji;
+    el.dataset.kind = isGood ? 'good' : 'junk';
+    Object.assign(el.style,{
       position:'absolute',
-      left:left+'vw',
-      top: top +'vh',
+      left:(10+Math.random()*80)+'%',
+      top:(15+Math.random()*60)+'%',
       transform:'translate(-50%,-50%)',
-      font:`${size}px system-ui,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`,
+      font:'900 46px system-ui',
+      textShadow:'0 6px 18px rgba(0,0,0,.55)',
       cursor:'pointer',
-      userSelect:'none',
-      WebkitUserSelect:'none',
-      textShadow:'0 8px 18px rgba(0,0,0,.6)',
-      transition:'transform .12s ease'
+      pointerEvents:'auto',
+      userSelect:'none'
     });
 
-    const onHit = (ev)=>{
-      if(!running) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      // เก็บตำแหน่งก่อนลบ element
-      const rect = item.getBoundingClientRect();
-      const hitPoint = {
-        x: rect.left + rect.width/2,
-        y: rect.top  + rect.height/2
-      };
-
-      item.removeEventListener('pointerdown', onHit);
-      try{ host.removeChild(item); }catch(_){}
-
-      if(item.dataset.type === 'good'){
-        const base  = 50;
-        const bonus = Math.min(4, combo) * 5;
-        const delta = base + bonus;
-        applyScore(delta, true, hitPoint,
-          combo>0 ? `สุดยอด! คอมโบ ${combo} ครั้งแล้ว!` : 'เก็บของดีต่อเนื่องเลย!');
-      }else{
-        applyScore(-40, false, hitPoint, 'ระวังของหวาน/มัน เลี่ยงให้ไว!');
-      }
+    const life = cfg.life;
+    const kill = ()=>{
+      if(!el.parentNode) return;
+      try{ host.removeChild(el); }catch(_){}
     };
 
-    item.addEventListener('pointerdown', onHit);
-    host.appendChild(item);
-
-    // หมดอายุเอง
-    const ttl = cfg.life;
-    setTimeout(()=>{
-      if(!running) return;
-      if(!item.isConnected) return;
-      try{ host.removeChild(item); }catch(_){}
-      if(item.dataset.type === 'good'){
-        misses++; combo = 0;
-        emit('hha:score',{delta:0,total:score,combo,comboMax,good:false});
-        updateQuests();
-      }
-    }, ttl);
-  }
-
-  function tick(){
-    if(!running) return;
-    timeLeft--;
-    emit('hha:time',{sec:timeLeft});
-    if(timeLeft<=0) endGame();
-  }
-
-  function endGame(){
-    if(!running) return;
-    running=false;
-    clearInterval(spawnTimer);
-    clearInterval(tickTimer);
-    spawnTimer=null; tickTimer=null;
-
-    try{ [...host.querySelectorAll('.gj-item')].forEach(n=>n.remove()); }catch(_){}
-
-    updateQuests();
-    const missMini = minisAll[0];
-
-    emit('hha:end',{
-      score,
-      misses,
-      comboMax,
-      mode:'goodjunk',
-      difficulty:diff,
-      duration:dur,
-      goalsAll,
-      minisAll,
-      goalCleared: goalsAll[0].done,
-      questsTotal: 1,
-      questsCleared: missMini.done ? 1 : 0
+    el.addEventListener('click',(ev)=>{
+      if(!el.parentNode) return;
+      kill();
+      const kind = el.dataset.kind;
+      if(kind==='good') emitScore(120,true,ev);
+      else             emitScore(-150,false,ev);
     });
+
+    host.appendChild(el);
+    setTimeout(kill, life);
   }
 
-  function start(){
-    if(running) return;
-    running=true;
-    timeLeft=dur;
-    score=0; combo=0; comboMax=0; misses=0; hits=0;
+  // ---------- Timer ----------
+  function tick(){
+    timeLeft--;
+    updateStats();
+    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
+    emitQuest();
 
-    emit('hha:time',{sec:timeLeft});
-    emit('hha:score',{delta:0,total:score,combo,comboMax,good:null});
-    updateQuests();
-
-    spawnTimer = setInterval(spawnOne, cfg.spawn);
-    tickTimer  = setInterval(tick, 1000);
-    spawnOne();
+    if(timeLeft<=0){
+      stopAll();
+      finish();
+    }
   }
 
-  function stop(){ endGame(); }
+  function stopAll(){
+    if(spawnTimer){ clearInterval(spawnTimer); spawnTimer=null; }
+    if(tickTimer){ clearInterval(tickTimer);  tickTimer=null; }
+  }
 
-  return { start, stop };
+  function finish(){
+    emitQuest();
+    const questsTotal   = 2;
+    const questsCleared = (mission.goalDone()?1:0) + (mission.miniDone()?1:0);
+
+    window.dispatchEvent(new CustomEvent('hha:end',{
+      detail:{
+        mode:'goodjunk',
+        difficulty:diff,
+        score,
+        misses,
+        comboMax,
+        duration: dur,
+        goalCleared: mission.goalDone(),
+        questsCleared,
+        questsTotal
+      }
+    }));
+  }
+
+  // controller ที่ main.js จะเรียก start()
+  return {
+    start(){
+      score=0;combo=0;comboMax=0;misses=0;hits=0;timeLeft=dur;
+      updateStats();
+      setTimeout(()=>emitQuest(),50);
+      window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
+      coach('โฟกัสของดี หลีกเลี่ยงของเสีย พยายามไม่พลาดเกินโควต้า!');
+      spawnTimer=setInterval(spawnOne,cfg.spawn);
+      tickTimer =setInterval(tick,1000);
+    },
+    stop(){ stopAll(); }
+  };
+}
+
+export default { boot };
+
+// helper เผื่อไม่มี host
+function makeHost(){
+  const h=document.createElement('div');
+  h.id='spawnHost';
+  Object.assign(h.style,{position:'absolute',inset:0,pointerEvents:'none',zIndex:650});
+  document.body.appendChild(h);
+  return h;
 }
