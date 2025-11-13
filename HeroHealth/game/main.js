@@ -1,4 +1,4 @@
-// === /HeroHealth/game/main.js (2025-11-13 HUD+COMBO+COUNTDOWN) ===
+// === /HeroHealth/game/main.js (2025-11-13 HUD+COMBO+COUNTDOWN FIX) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -20,10 +20,10 @@ function setScore(n){
 }
 function setCombo(n){
   if (!elCombo) return;
-  elCombo.textContent = (n|0).toLocaleString();
+  elCombo.textContent = (n|0).toString();
 }
 
-// ---------- TIME pill (ใช้ #timePill จาก index.vr.html) ----------
+// ---------- TIME pill ----------
 const elTimePill = $('#timePill');
 let   lastSec    = DURATION;
 
@@ -45,10 +45,9 @@ import('../vr/ui-fever.js')
   })
   .catch(()=>{});
 
-// ---------- Quest HUD (Goal + Mini) ----------
+// ---------- Quest HUD ----------
 import('../vr/quest-hud.js').catch(()=>{});
 
-// bridge เผื่อโหมดไหน dispatch hha:quest
 window.addEventListener('hha:quest', (e)=>{
   try{
     window.dispatchEvent(new CustomEvent('quest:update',{ detail:e.detail }));
@@ -56,28 +55,28 @@ window.addEventListener('hha:quest', (e)=>{
 });
 
 // ---------- score/time listeners ----------
-let scoreTotal = 0;
-let comboMax   = 0;
-let misses     = 0;
-let hits       = 0;
+let scoreTotal   = 0;
+let comboCurrent = 0;   // ★ นับคอมโบเองจาก good/ไม่ good
+let comboMax     = 0;
+let misses       = 0;
+let hits         = 0;
 
 window.addEventListener('hha:score', (e)=>{
   const d = e.detail || {};
   scoreTotal = Math.max(0, (scoreTotal|0) + (d.delta|0));
-  if (d.good) hits++; else misses++;
 
-  // combo live
-  if (typeof d.combo === 'number'){
-    const c = d.combo|0;
-    setCombo(c);
-    if (c > comboMax) comboMax = c;
+  if (d.good){
+    hits++;
+    comboCurrent += 1;
+  } else {
+    misses++;
+    comboCurrent = 0;
   }
-  if (typeof d.comboMax === 'number'){
-    const cm = d.comboMax|0;
-    if (cm > comboMax) comboMax = cm;
-  }
+
+  if (comboCurrent > comboMax) comboMax = comboCurrent;
 
   setScore(scoreTotal);
+  setCombo(comboCurrent);
 });
 
 window.addEventListener('hha:time', (e)=>{
@@ -108,11 +107,11 @@ function showResult(detail){
         </div>
         <div class="pill">
           <div class="k">คอมโบสูงสุด</div>
-          <div class="v">${d.comboMax||0}</div>
+          <div class="v">${d.comboMax||comboMax}</div>
         </div>
         <div class="pill">
           <div class="k">พลาด</div>
-          <div class="v">${d.misses||0}</div>
+          <div class="v">${d.misses||misses}</div>
         </div>
         <div class="pill">
           <div class="k">เป้าหมาย</div>
@@ -188,7 +187,7 @@ window.addEventListener('hha:end',(e)=>{
   showResult(d);
 });
 
-// ---------- Loader (โหมดเกม) ----------
+// ---------- Loader (เหมือนเดิม) ----------
 async function loadModeModule(name){
   const extOrder = (name === 'goodjunk' || name === 'groups')
     ? ['safe','quest','js']
@@ -215,11 +214,11 @@ async function loadModeModule(name){
   throw new Error(`ไม่พบไฟล์โหมด: ${name}\n${lastErr?.message || lastErr}`);
 }
 
-// ---------- Countdown 3-2-1-GO ใช้ #countOverlay จาก HTML ----------
+// ---------- Countdown & startGame เหมือนเวอร์ชันก่อน ----------
 function runCountdown(sec = 3){
   const ov  = document.getElementById('countOverlay');
   const num = ov?.querySelector('.num');
-  if (!ov || !num) return Promise.resolve(); // ถ้าไม่มี overlay ก็ข้ามไปเลย
+  if (!ov || !num) return Promise.resolve();
 
   return new Promise((resolve)=>{
     let t = sec|0;
@@ -245,7 +244,6 @@ function runCountdown(sec = 3){
   });
 }
 
-// ---------- Start orchestration ----------
 let controller = null;
 let started    = false;
 
@@ -253,23 +251,21 @@ async function startGame(){
   if (started) return;
   started = true;
 
-  // reset states
-  scoreTotal = 0;
-  misses     = 0;
-  hits       = 0;
-  comboMax   = 0;
+  scoreTotal   = 0;
+  comboCurrent = 0;
+  comboMax     = 0;
+  misses       = 0;
+  hits         = 0;
   setScore(0);
   setCombo(0);
   setTimeLeft(DURATION);
   lastSec = DURATION;
 
-  // ซ่อนแผงเริ่มเกมใน A-Frame
   try{
     const p = document.getElementById('startPanel');
     if (p) p.setAttribute('visible','false');
   }catch(_){}
 
-  // โหลดโมดโหมดเกม
   let mod;
   try{
     mod = await loadModeModule(MODE);
@@ -286,7 +282,6 @@ async function startGame(){
     return;
   }
 
-  // Countdown 3-2-1-GO
   await runCountdown(3);
 
   try{
@@ -299,20 +294,10 @@ async function startGame(){
   }
 }
 
-// ปุ่มเริ่ม (Desktop + VR Panel)
 const domBtn = document.getElementById('btnStart');
-domBtn?.addEventListener('click',(e)=>{
-  e.preventDefault();
-  startGame();
-});
+domBtn?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
 
 const vrBtn = document.getElementById('vrStartBtn');
-vrBtn?.addEventListener('click',(e)=>{
-  e.preventDefault();
-  startGame();
-});
+vrBtn?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
 
-// Autostart
-if (AUTOSTART){
-  setTimeout(()=>startGame(), 0);
-}
+if (AUTOSTART){ setTimeout(()=>startGame(),0); }
