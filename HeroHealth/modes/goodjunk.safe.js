@@ -90,3 +90,208 @@ export async function boot(cfg = {}) {
 
     { id:'m_nomiss12', label:'ไม่พลาด 12 วินาที',  level:'normal', target:12,
       check:s=>G.tick(s)>=12 && G.junk(s)===0,
+      prog:s=>Math.min(12,G.tick(s)) },
+
+    { id:'m_star2',    label:'เก็บ ⭐ 2 ดวง',       level:'hard',   target:2,
+      check:s=>s.star>=2,          prog:s=>Math.min(2,s.star|0) },
+    { id:'m_dia1',     label:'เก็บ 💎 1 เม็ด',      level:'hard',   target:1,
+      check:s=>s.diamond>=1,       prog:s=>Math.min(1,s.diamond|0) },
+
+    { id:'m_under6',   label:'พลาดไม่เกิน 6 ครั้ง', level:'normal', target:6,
+      check:s=>G.tick(s)>=dur && G.junk(s)<=6,
+      prog:s=>Math.max(0, 6 - Math.min(6,G.junk(s))) }
+  ];
+
+  const deck = new MissionDeck({ goalPool: GOAL_POOL, miniPool: MINI_POOL });
+  deck.drawGoals(5);
+  deck.draw3();
+
+  function pushQuest(hint){
+    const goals = deck.getProgress('goals');
+    const minis = deck.getProgress('mini');
+    const focusGoal = goals.find(g=>!g.done) || goals[0] || null;
+    const focusMini = minis.find(m=>!m.done) || minis[0] || null;
+
+    window.dispatchEvent(new CustomEvent('quest:update', {
+      detail: { goal: focusGoal, mini: focusMini, goalsAll: goals, minisAll: minis, hint }
+    }));
+  }
+
+  // ---------- สถานะหลัก ----------
+  let score=0, combo=0, shield=0;
+  let fever=0, feverActive=false;
+  let star=0, diamond=0;
+
+  function mult(){ return feverActive ? 2 : 1; }
+  function gainFever(n){
+    fever = Math.max(0, Math.min(100, fever + n));
+    setFever(fever);
+    if (!feverActive && fever>=100){
+      feverActive=true;
+      setFeverActive(true);
+      coachSay('FEVER MODE! ลุยคอมโบให้สุดเลย!');
+    }
+  }
+  function decayFever(base){
+    const d = feverActive ? 10 : base;
+    fever = Math.max(0, fever - d);
+    setFever(fever);
+    if (feverActive && fever<=0){
+      feverActive=false;
+      setFeverActive(false);
+      coachSay('ไฟเบาลงแล้ว ค่อย ๆ เก็บของดีใหม่อีกครั้ง');
+    }
+  }
+
+  function syncDeck(){
+    deck.updateScore(score);
+    deck.updateCombo(combo);
+    deck.stats.star    = star;
+    deck.stats.diamond = diamond;
+    pushCombo(combo, deck.stats.comboMax);
+  }
+
+  function scorePopAt(x,y,delta,isGood){
+    if (!Particles || !Particles.scorePop) return;
+    try{
+      Particles.scorePop(null,null,{
+        screen:{x,y},
+        value:delta,
+        good: !!isGood
+      });
+    }catch(_){}
+  }
+
+  function judge(ch, ctx){
+    const x = ctx.clientX||ctx.cx, y = ctx.clientY||ctx.cy;
+
+    // Power-ups
+    if (ch===STAR){
+      const d = 40*mult(); score+=d; gainFever(10); star++;
+      Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
+      scorePopAt(x,y,d,true);
+      deck.onGood(); syncDeck(); pushQuest();
+      return {good:true,scoreDelta:d};
+    }
+    if (ch===DIA){
+      const d = 80*mult(); score+=d; gainFever(30); diamond++;
+      Particles.burstShards(null,null,{screen:{x,y},theme:'groups'});
+      scorePopAt(x,y,d,true);
+      deck.onGood(); syncDeck(); pushQuest();
+      coachSay('เก็บเพชรได้แล้ว! คะแนนพุ่งแรงมาก!');
+      return {good:true,scoreDelta:d};
+    }
+    if (ch===SHIELD){
+      shield=Math.min(3, shield+1); setShield(shield); score+=20;
+      Particles.burstShards(null,null,{screen:{x,y},theme:'hydration'});
+      scorePopAt(x,y,20,true);
+      deck.onGood(); syncDeck(); pushQuest();
+      coachSay('ได้เกราะเพิ่มแล้ว พลาดได้อีกนิดหน่อย!');
+      return {good:true,scoreDelta:20};
+    }
+    if (ch===FIRE){
+      feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25;
+      Particles.burstShards(null,null,{screen:{x,y},theme:'plate'});
+      scorePopAt(x,y,25,true);
+      deck.onGood(); syncDeck(); pushQuest();
+      coachSay('ไฟลุกแล้ว! รีบเก็บของดีให้ได้มากที่สุด!');
+      return {good:true,scoreDelta:25};
+    }
+
+    const isGood = GOOD.includes(ch);
+    if (isGood){
+      const base  = 16 + combo*2;
+      const delta = base * mult();
+      score += delta;
+      combo += 1;
+      gainFever(7 + combo*0.5);
+      deck.onGood(); syncDeck();
+      Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
+      scorePopAt(x,y,delta,true);
+
+      if (combo === 8)  coachSay('คอมโบกำลังดี อย่าพลาดนะ!');
+      if (combo === 16) coachSay('สุดยอด! คอมโบยาวมากแล้ว!');
+
+      pushQuest();
+      return { good:true, scoreDelta: delta };
+    } else {
+      if (shield>0){
+        shield=Math.min(3, shield-1); setShield(shield);
+        Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
+        scorePopAt(x,y,0,false);
+        syncDeck(); pushQuest();
+        coachSay('เกราะช่วยไว้ทัน! ระวังของเสียให้มากขึ้นนะ');
+        return {good:false,scoreDelta:0};
+      }
+      const delta = -12;
+      score = Math.max(0, score + delta);
+      combo = 0;
+      decayFever(16);
+      deck.onJunk(); syncDeck();
+      Particles.burstShards(null,null,{screen:{x,y},theme:'groups'});
+      scorePopAt(x,y,delta,false);
+      coachSay('โดนของเสียแล้ว เริ่มคอมโบใหม่ได้ ไม่เป็นไร!');
+      pushQuest();
+      return { good:false, scoreDelta: delta };
+    }
+  }
+
+  function onExpire(ev){
+    if (!ev || ev.isGood) return;
+    // เลี่ยงของเสียได้ → โบนัส FEVER เล็กน้อย
+    gainFever(4);
+    deck.onJunk();
+    syncDeck(); pushQuest();
+  }
+
+  function onSec(){
+    if (combo<=0) decayFever(6); else decayFever(2);
+    deck.second(); syncDeck(); pushQuest();
+
+    if (deck.isCleared('mini'))  { deck.draw3();      pushQuest('Mini ใหม่'); }
+    if (deck.isCleared('goals')) { deck.drawGoals(5); pushQuest('Goal ใหม่'); }
+  }
+
+  window.addEventListener('hha:expired', onExpire);
+  window.addEventListener('hha:time',    (e)=>{ if((e.detail?.sec|0)>=0) onSec(); });
+
+  // ---------- เริ่มโรงงาน ----------
+  return factoryBoot({
+    difficulty: diff,
+    duration  : dur,
+    pools     : { good:[...GOOD, ...BONUS], bad:[...JUNK] },
+    goodRate  : 0.62,
+    powerups  : BONUS,
+    powerRate : 0.10,
+    powerEvery: 7,
+    judge     : (ch, ctx)=>judge(ch, { ...ctx, cx:(ctx.clientX||ctx.cx), cy:(ctx.clientY||ctx.cy) }),
+    onExpire
+  }).then(ctrl=>{
+    window.addEventListener('hha:time', (e)=>{
+      if((e.detail?.sec|0)<=0){
+        const goals = deck.getProgress('goals');
+        const goalCleared = goals.length>0 && goals.every(g=>g.done);
+        const minis = deck.getProgress('mini');
+
+        window.dispatchEvent(new CustomEvent('hha:end',{ detail:{
+          mode:'goodjunk',
+          difficulty:diff,
+          score,
+          comboMax:deck.stats.comboMax,
+          misses:deck.stats.junkMiss,
+          hits:deck.stats.goodCount,
+          duration:dur,
+          goalCleared,
+          questsCleared: minis.filter(m=>m.done).length,
+          questsTotal  : minis.length
+        }}));
+      }
+    });
+
+    pushQuest('เริ่ม');
+    pushCombo(0,0);
+    return ctrl;
+  });
+}
+
+export default { boot };
