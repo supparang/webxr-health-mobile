@@ -1,4 +1,4 @@
-// === /HeroHealth/game/main.js (2025-11-13 COACH + COMBO HUD + QUEST SUMMARY FIX) ===
+// === /HeroHealth/game/main.js (2025-11-13 COACH + COMBO HUD + QUEST SUMMARY FIX v2) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -11,9 +11,9 @@ const DURATION  = Number(qs.get('duration')||60);
 const AUTOSTART = qs.get('autostart') === '1';
 
 // ---------- HUD refs ----------
-const elScore = $('#hudScore');
-const elCombo = $('#hudCombo');
-const elTimePill = $('#timePill');
+const elScore   = $('#hudScore');
+const elCombo   = $('#hudCombo');
+const elTimePill= $('#timePill');
 
 function setScore(n){
   if(!elScore) return;
@@ -40,7 +40,7 @@ import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
   }catch(_){}
 }).catch(()=>{});
 
-// ---------- Quest HUD bridge (ถ้ามีไฟล์ quest-hud.js) ----------
+// ---------- Quest HUD bridge ----------
 try{
   import('../vr/quest-hud.js').catch(()=>{});
 }catch(_){}
@@ -104,14 +104,12 @@ window.addEventListener('hha:quest', (e)=>{
     hideTimer = setTimeout(()=>wrap.classList.remove('show'), 3000);
   }
 
-  // รับข้อความจากโหมด
   window.addEventListener('hha:coach', (e)=>{
     const t = (e.detail && e.detail.text) || '';
     if (!t) return;
     showCoach(t);
   });
 
-  // ทักทายตอนเริ่มโหลดหน้า
   showCoach('แตะเริ่มเกมแล้วเก็บของดีให้ต่อเนื่อง!');
 })();
 
@@ -215,14 +213,51 @@ function showResult(detail){
   o.querySelector('#btnHub').onclick   = ()=>location.href = hub;
 }
 
+// ---------- สรุปผล + ดึงค่าจาก goalsAll / minisAll ----------
 window.addEventListener('hha:end',(e)=>{
   const d = e.detail||{};
+
+  // แปลง goalsAll → goalCleared (ถ้าโหมดยังไม่ได้ให้มา)
+  try{
+    if (Array.isArray(d.goalsAll) && !('goalCleared' in d)){
+      const list = d.goalsAll;
+      const totalGoals   = list.length;
+      const clearedGoals = list.filter(g=>{
+        if(!g) return false;
+        const prog   = Number(g.prog||0);
+        const target = Number(g.target||0);
+        if (g.done === true) return true;
+        if (target>0 && prog>=target) return true;
+        return false;
+      }).length;
+      d.goalCleared = totalGoals>0 ? (clearedGoals === totalGoals) : false;
+    }
+
+    // แปลง minisAll → questsCleared / questsTotal ถ้าไม่ได้ให้มา
+    if (Array.isArray(d.minisAll) && (!('questsCleared' in d) || !('questsTotal' in d))){
+      const list = d.minisAll;
+      const totalMini   = list.length;
+      const clearedMini = list.filter(m=>{
+        if(!m) return false;
+        const prog   = Number(m.prog||0);
+        const target = Number(m.target||0);
+        if (m.done === true) return true;
+        if (target>0 && prog>=target) return true;
+        return false;
+      }).length;
+
+      if (!('questsTotal'   in d)) d.questsTotal   = totalMini;
+      if (!('questsCleared' in d)) d.questsCleared = clearedMini;
+    }
+  }catch(_){}
+
   if (d.score == null)      d.score      = scoreTotal|0;
   if (d.misses == null)     d.misses     = misses|0;
   if (d.comboMax == null)   d.comboMax   = comboMax|0;
   if (d.duration == null)   d.duration   = DURATION;
   if (d.mode == null)       d.mode       = MODE;
   if (d.difficulty == null) d.difficulty = DIFF;
+
   showResult(d);
 });
 
@@ -233,8 +268,8 @@ async function loadModeModule(name){
     : ['quest','safe','js'];
 
   const bases = [
-    '../modes/',                                   // relative
-    '/webxr-health-mobile/HeroHealth/modes/'       // absolute fallback
+    '../modes/',
+    '/webxr-health-mobile/HeroHealth/modes/'
   ];
 
   let err;
