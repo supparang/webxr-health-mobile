@@ -1,4 +1,4 @@
-// === /HeroHealth/vr/mode-factory.js (2025-11-13 CENTER-HIT + SCORE FX) ===
+// === /HeroHealth/vr/mode-factory.js (2025-11-13 FX ALIGN) ===
 // DOM click-target spawner for all modes
 // Emits: hha:time, hha:score, hha:hit-screen, hha:expired, hha:pause/resume, hha:end, hha:layer-ready
 
@@ -51,9 +51,8 @@ export function boot(opts = {}) {
     const safeTop = computeSafeTop();
     const safeBot = vh() - 60;
     const x = forceCenter ? vw()/2 : Math.floor(vw()*0.12 + Math.random()*vw()*0.76);
-    const y = forceCenter
-      ? clamp(vh()/2, safeTop, safeBot)
-      : Math.floor(Math.max(safeTop, Math.random()*(safeBot - safeTop)));
+    const y = forceCenter ? clamp(vh()/2, safeTop, safeBot)
+                          : Math.floor(Math.max(safeTop, Math.random()*(safeBot - safeTop)));
     return { x, y };
   }
 
@@ -101,7 +100,6 @@ export function boot(opts = {}) {
     if (secLeft <= 0) { endGame('timeout'); }
   }
 
-  // ---- spawn helpers ----
   const shouldSpawnPower = () => (sinceLastPower >= powerEvery) && (Math.random() < powerRate);
 
   function spawnOne(forceCenter){
@@ -128,29 +126,28 @@ export function boot(opts = {}) {
       clicked = true;
       try { ev.preventDefault(); ev.stopPropagation(); } catch(_){}
 
-      const tap = getXY(ev); // ตำแหน่งที่แตะจริง
-      // center ของ emoji (ใช้สำหรับ scoreFX ให้ตรงกลางเป้า)
-      let cx = tap.cx, cy = tap.cy;
-      try{
-        const r = el.getBoundingClientRect();
-        cx = r.left + r.width/2;
-        cy = r.top  + r.height/2;
-      }catch(_){}
+      const pt = getXY(ev);
+      // ✅ ส่ง host/node ไปให้โหมดใช้ center ของเป้า
+      const ctx = {
+        clientX: pt.cx,
+        clientY: pt.cy,
+        cx     : pt.cx,
+        cy     : pt.cy,
+        isGood,
+        host   : el,
+        node   : el
+      };
 
-      const res = judge(ch, {
-        tapX: tap.cx, tapY: tap.cy,
-        clientX: tap.cx, clientY: tap.cy,
-        cx, cy,
-        hitX: cx, hitY: cy,
-        isGood
-      });
-
+      const res = judge(ch, ctx);
       const good  = !!(res && res.good);
       const delta = (res && typeof res.scoreDelta === 'number') ? res.scoreDelta : (good ? 1 : -1);
 
       try { el.classList.add('hit'); layer.removeChild(el); } catch(_){}
-      // ใช้ center เป็นจุดอ้างอิงหลัก
-      fire('hha:hit-screen', { x: cx, y: cy, tapX: tap.cx, tapY: tap.cy, good, delta, char: ch, isGood });
+
+      fire('hha:hit-screen', {
+        x: pt.cx, y: pt.cy,
+        good, delta, char: ch, isGood
+      });
       fire('hha:score', { delta, good });
 
       planNextSpawn();
