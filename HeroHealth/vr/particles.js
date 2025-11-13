@@ -1,45 +1,68 @@
-// === /HeroHealth/vr/particles.js (2025-11-13: burstShards + scorePop) ===
-export const Particles = {
-  burstShards(host, pos, opts){
-    // DOM-only lightweight confetti around (screen.x, screen.y)
-    try{
-      const screen = opts?.screen;
-      if(!screen) return;
-      const cx = screen.x|0, cy = screen.y|0;
-      const n = 10;
-      for(let i=0;i<n;i++){
-        const s = document.createElement('div');
-        s.className='hha-shard';
-        s.textContent = '✦';
-        const dx = (Math.random()*80-40);
-        const dy = (Math.random()*60-20);
-        s.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%);pointer-events:none;z-index:660;font-size:${12+Math.random()*10}px;color:#fff;opacity:.9;transition:transform .6s ease, opacity .6s ease;text-shadow:0 0 8px rgba(255,255,255,.6)`;
-        document.body.appendChild(s);
-        requestAnimationFrame(()=>{
-          s.style.transform = `translate(${dx}px, ${dy-30}px)`;
-          s.style.opacity = '0';
-        });
-        setTimeout(()=>{ try{s.remove();}catch(_){}} , 650);
-      }
-    }catch(_){}
-  },
+// === /HeroHealth/vr/particles.js ===
+// เอฟเฟกต์แตกกระจาย + เด้งคะแนนตรงจุดคลิก
 
-  scorePop(screen, delta){
-    try{
-      const cx = screen?.x|0, cy = screen?.y|0;
-      const el = document.createElement('div');
-      const plus = (delta>=0?'+':'');
-      el.textContent = `${plus}${delta|0}`;
-      const col = delta>0 ? '#86efac' : (delta<0 ? '#fecaca' : '#e5e7eb');
-      el.style.cssText = `position:fixed;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%);pointer-events:none;z-index:670;font:900 18px system-ui;color:${col};text-shadow:0 8px 18px rgba(0,0,0,.45);opacity:1;transition:transform .6s ease, opacity .6s ease`;
-      document.body.appendChild(el);
-      requestAnimationFrame(()=>{
-        el.style.transform = 'translate(-50%,-80%)';
-        el.style.opacity = '0';
-      });
-      setTimeout(()=>{ try{el.remove();}catch(_){}} , 700);
-    }catch(_){}
+export function burstAt(x, y, opts = {}) {
+  const count = Math.max(6, Math.min(32, opts.count || 18));
+  const baseColor = opts.color || '#22c55e';
+
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('div');
+    Object.assign(dot.style, {
+      position: 'fixed',
+      left: x + 'px',
+      top: y + 'px',
+      width: '7px',
+      height: '7px',
+      borderRadius: '999px',
+      background: baseColor,
+      opacity: '0.98',
+      transform: 'translate(-50%,-50%)',
+      pointerEvents: 'none',
+      zIndex: 900,
+      transition: 'all .55s ease'
+    });
+    document.body.appendChild(dot);
+
+    const ang = Math.random() * Math.PI * 2;
+    const r   = 18 + Math.random() * 26;
+    const tx  = x + Math.cos(ang) * r;
+    const ty  = y + Math.sin(ang) * r - 8;
+
+    requestAnimationFrame(()=>{
+      dot.style.left   = tx + 'px';
+      dot.style.top    = ty + 'px';
+      dot.style.opacity= '0';
+    });
+    setTimeout(()=>{ try{dot.remove();}catch(_){}; }, 650);
   }
-};
+}
 
-export default { Particles };
+export function scorePop(x, y, text, opts = {}) {
+  const el = document.createElement('div');
+  el.textContent = text || '+10';
+  Object.assign(el.style, {
+    position:'fixed',
+    left:x+'px',
+    top:y+'px',
+    transform:'translate(-50%,-50%)',
+    font:'900 18px system-ui',
+    color: opts.good === false ? '#fecaca' : '#bbf7d0',
+    textShadow:'0 3px 10px rgba(0,0,0,.6)',
+    pointerEvents:'none',
+    zIndex: 950,
+    opacity:'0',
+    transition:'all .6s ease'
+  });
+  document.body.appendChild(el);
+  requestAnimationFrame(()=>{
+    el.style.top    = (y-30)+'px';
+    el.style.opacity= '1';
+  });
+  setTimeout(()=>{
+    el.style.top    = (y-52)+'px';
+    el.style.opacity= '0';
+  }, 220);
+  setTimeout(()=>{ try{el.remove();}catch(_){}; }, 700);
+}
+
+export default { burstAt, scorePop };
