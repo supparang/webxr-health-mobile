@@ -1,183 +1,322 @@
-// === /HeroHealth/modes/plate.quest.js (LATEST) ===
-// Healthy Plate with per-category quotas by difficulty + Mini quest 10 pool
+// === /HeroHealth/modes/plate.quest.js (2025-11-13 LATEST) ===
+// โหมด Balanced Plate — เก็บอาหารให้ครบทั้ง 4 หมู่บนจานให้สมดุล
+// - ใช้ MissionDeck วัดจำนวนแต่ละหมู่ + คะแนนรวม
+// - ไม่ได้บังคับโฟกัสทีละหมู่เหมือน groups แต่เน้น "ครบและสมดุล"
+
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { MissionDeck } from '../vr/mission.js';
-import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
+import { ensureFeverBar, setFever, setFeverActive } from '../vr/ui-fever.js';
 import { Particles } from '../vr/particles.js';
 
 export async function boot(cfg = {}) {
   const diff = String(cfg.difficulty || 'normal');
   const dur  = Number(cfg.duration || 60);
 
-  const CAT = {
-    protein : new Set(['🥩','🥚','🐟','🍗','🫘']),
-    veggie  : new Set(['🥦','🥕','🥬','🍅','🌽','🍆']),
-    fruit   : new Set(['🍎','🍌','🍇','🍊','🍓','🍍','🥝','🍐']),
-    grain   : new Set(['🍚','🍞','🥖','🌾','🥐']),
-    dairy   : new Set(['🥛','🧀'])
+  ensureFeverBar();
+  setFever(0);
+  setFeverActive(false);
+
+  // ---------- Plate groups ----------
+  // 1: ข้าว-แป้ง, 2: ผัก, 3: โปรตีน, 4: ผลไม้/นม
+  const P = {
+    1: ['🍚','🍙','🍞','🥖','🥐'],
+    2: ['🥦','🥕','🥬','🥒','🍅'],
+    3: ['🍗','🥩','🐟','🥚','🫘'],
+    4: ['🍎','🍓','🍌','🍊','🥛','🧀']
   };
-  const ALL = ['protein','veggie','fruit','grain','dairy'];
-  const PLATE_GOOD = [...CAT.protein, ...CAT.veggie, ...CAT.fruit, ...CAT.grain, ...CAT.dairy];
-  const LURE       = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫','🌭','🍰','🍬'];
+  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🍫','🍬','🥤','🧋'];
 
-  const STAR='⭐', DIA='💎', SHIELD='🛡️', FIRE='🔥';
-  const BONUS=[STAR,DIA,SHIELD,FIRE];
+  const ALL_GOOD = [...new Set(Object.values(P).flat())];
+  const GROUP_BY_EMO = {};
+  Object.keys(P).forEach(k=>{
+    P[k].forEach(e=>{ GROUP_BY_EMO[e] = Number(k); });
+  });
 
-  const QUOTAS = {
-    easy   : { protein:2, veggie:3, fruit:3, grain:2, dairy:1 },
-    normal : { protein:3, veggie:3, fruit:3, grain:3, dairy:2 },
-    hard   : { protein:4, veggie:4, fruit:4, grain:3, dairy:2 },
+  // ---------- MissionDeck ----------
+  const G = {
+    score   : s => s.score     | 0,
+    comboMax: s => s.comboMax  | 0,
+    tick    : s => s.tick      | 0,
+    miss    : s => s.junkMiss  | 0
   };
-  const GOALQ = QUOTAS[diff] || QUOTAS.normal;
-  const targetUnits = Object.values(GOALQ).reduce((a,b)=>a+b,0);
-  const cnt = { protein:0, veggie:0, fruit:0, grain:0, dairy:0 };
 
-  function toCat(e){
-    if (CAT.protein.has(e)) return 'protein';
-    if (CAT.veggie.has(e))  return 'veggie';
-    if (CAT.fruit.has(e))   return 'fruit';
-    if (CAT.grain.has(e))   return 'grain';
-    if (CAT.dairy.has(e))   return 'dairy';
-    return null;
-  }
-  function goalUnits(){
-    let s=0; for(const k of ALL) s += Math.min(cnt[k], GOALQ[k]); return s;
-  }
-  function goalCleared(){
-    return ALL.every(k=>cnt[k] >= GOALQ[k]);
-  }
-  function goalBreakdown(){
-    return ALL.map(k=>({cat:k, have:cnt[k], need:GOALQ[k]}));
-  }
-
-  ensureFeverBar(); setFever(0); setShield(0);
-
-  const G = { score:s=>s.score|0, comboMax:s=>s.comboMax|0, good:s=>s.goodCount|0, junk:s=>s.junkMiss|0, tick:s=>s.tick|0 };
   const GOAL_POOL = [
-    { id:'g_units11',   label:'จัดจานให้ครบหน่วยเป้า', level:diff, target:targetUnits, check:()=>goalCleared(), prog:()=>goalUnits() },
-    { id:'g_good24',    label:'เก็บของดี 24 ชิ้น',      level:'easy',   target:24, check:s=>G.good(s)>=24,  prog:s=>Math.min(24,G.good(s)) },
-    { id:'g_good30',    label:'เก็บของดี 30 ชิ้น',      level:'normal', target:30, check:s=>G.good(s)>=30,  prog:s=>Math.min(30,G.good(s)) },
-    { id:'g_score1400', label:'ทำคะแนน 1400+',          level:'easy',   target:1400,check:s=>G.score(s)>=1400,prog:s=>Math.min(1400,G.score(s)) },
-    { id:'g_score2000', label:'ทำคะแนน 2000+',          level:'normal', target:2000,check:s=>G.score(s)>=2000,prog:s=>Math.min(2000,G.score(s)) },
-    { id:'g_combo16',   label:'คอมโบสูงสุด ≥ 16',       level:'normal', target:16,  check:s=>G.comboMax(s)>=16, prog:s=>Math.min(16,G.comboMax(s)) },
-    { id:'g_time40',    label:'อยู่รอดเกิน 40 วินาที',  level:'easy',   target:40,  check:s=>G.tick(s)>=40,     prog:s=>Math.min(40,G.tick(s)) },
-    { id:'g_nojunk6',   label:'พลาด ≤ 6 ครั้ง',         level:'normal', target:0,   check:s=>G.junk(s)<=6,      prog:s=>Math.max(0,6-G.junk(s)) },
-    { id:'g_dairy2',    label:'เก็บนม/ชีส 2 ชิ้น',       level:'easy',   target:2,  check:()=>cnt.dairy>=2,     prog:()=>Math.min(2,cnt.dairy) },
-    { id:'g_veggie4',   label:'เก็บผัก 4 ชิ้น',          level:'normal', target:4,  check:()=>cnt.veggie>=4,    prog:()=>Math.min(4,cnt.veggie) },
+    { id:'g_plateAll6', label:'เก็บอาหารแต่ละหมู่ ≥ 6 ชิ้น',
+      target:6, level:'normal',
+      check:s=>{
+        const g = s.perGroup||{};
+        return [1,2,3,4].every(k => (g[k]|0)>=6);
+      },
+      prog:s=>{
+        const g=s.perGroup||{};
+        const m=Math.min(...[1,2,3,4].map(k=>g[k]|0));
+        return Math.min(6,m);
+      }
+    },
+
+    { id:'g_plateCarb', label:'หมู่ข้าว-แป้ง ≥ 8 ชิ้น',
+      target:8, level:'easy',
+      check:s=>(s.perGroup?.[1]||0)>=8,
+      prog:s=>Math.min(8,s.perGroup?.[1]||0)
+    },
+
+    { id:'g_plateVeg', label:'หมู่ผัก ≥ 8 ชิ้น',
+      target:8, level:'easy',
+      check:s=>(s.perGroup?.[2]||0)>=8,
+      prog:s=>Math.min(8,s.perGroup?.[2]||0)
+    },
+
+    { id:'g_plateProtein', label:'หมู่โปรตีน ≥ 8 ชิ้น',
+      target:8, level:'easy',
+      check:s=>(s.perGroup?.[3]||0)>=8,
+      prog:s=>Math.min(8,s.perGroup?.[3]||0)
+    },
+
+    { id:'g_plateFruit', label:'หมู่ผลไม้/นม ≥ 8 ชิ้น',
+      target:8, level:'easy',
+      check:s=>(s.perGroup?.[4]||0)>=8,
+      prog:s=>Math.min(8,s.perGroup?.[4]||0)
+    },
+
+    { id:'g_score1600', label:'ทำคะแนนรวม 1600+',
+      target:1600, level:'normal',
+      check:s=>G.score(s)>=1600, prog:s=>Math.min(1600,G.score(s)) },
+
+    { id:'g_score2200', label:'ทำคะแนนรวม 2200+',
+      target:2200, level:'hard',
+      check:s=>G.score(s)>=2200, prog:s=>Math.min(2200,G.score(s)) },
+
+    { id:'g_combo18', label:'คอมโบสูงสุด ≥ 18',
+      target:18, level:'hard',
+      check:s=>G.comboMax(s)>=18, prog:s=>Math.min(18,G.comboMax(s)) },
+
+    { id:'g_miss6', label:'เลือกของเสียไม่เกิน 6 ครั้ง',
+      target:6, level:'normal',
+      check:s=>G.miss(s)<=6, prog:s=>Math.min(6,G.miss(s)) },
+
+    { id:'g_tick45', label:'อยู่รอด 45 วินาที',
+      target:45, level:'easy',
+      check:s=>G.tick(s)>=45, prog:s=>Math.min(45,G.tick(s)) }
   ];
 
   const MINI_POOL = [
-    { id:'m_combo12',   label:'คอมโบต่อเนื่อง 12', level:'normal', target:12, check:s=>G.comboMax(s)>=12,  prog:s=>Math.min(12,G.comboMax(s)) },
-    { id:'m_combo18',   label:'คอมโบต่อเนื่อง 18', level:'hard',   target:18, check:s=>G.comboMax(s)>=18,  prog:s=>Math.min(18,G.comboMax(s)) },
-    { id:'m_score900',  label:'ทำคะแนน 900+',      level:'easy',   target:900,check:s=>G.score(s)>=900,    prog:s=>Math.min(900,G.score(s)) },
-    { id:'m_score1500', label:'ทำคะแนน 1500+',     level:'normal', target:1500,check:s=>G.score(s)>=1500,  prog:s=>Math.min(1500,G.score(s)) },
-    { id:'m_good18',    label:'เก็บของดี 18',       level:'normal', target:18, check:s=>G.good(s)>=18,      prog:s=>Math.min(18,G.good(s)) },
-    { id:'m_nomiss12',  label:'ไม่พลาด 12 วินาที',  level:'normal', target:12, check:s=>G.tick(s)>=12 && s.combo>0, prog:s=>Math.min(12,G.tick(s)) },
-    { id:'m_star2',     label:'เก็บ ⭐ 2',           level:'hard',   target:2,  check:s=>s.star>=2,          prog:s=>Math.min(2,s.star|0) },
-    { id:'m_dia1',      label:'เก็บ 💎 1',           level:'hard',   target:1,  check:s=>s.diamond>=1,       prog:s=>Math.min(1,s.diamond|0) },
-    { id:'m_under6',    label:'พลาดไม่เกิน 6 ครั้ง', level:'normal', target:0,  check:s=>G.junk(s)<=6,       prog:s=>Math.max(0,6-G.junk(s)) },
-    { id:'m_dairy2',    label:'เก็บหมวดนม 2',        level:'easy',   target:2,  check:()=>cnt.dairy>=2,      prog:()=>Math.min(2,cnt.dairy) },
+    { id:'m_all3x4', label:'เก็บอาหารครบทั้ง 4 หมู่ หมู่ละ ≥ 3 ชิ้น',
+      target:3, level:'normal',
+      check:s=>{
+        const g=s.perGroup||{};
+        return [1,2,3,4].every(k => (g[k]|0)>=3);
+      },
+      prog:s=>{
+        const g=s.perGroup||{};
+        const m=Math.min(...[1,2,3,4].map(k=>g[k]|0));
+        return Math.min(3,m);
+      }
+    },
+
+    { id:'m_combo12', label:'คอมโบต่อเนื่อง 12',
+      target:12, level:'normal',
+      check:s=>G.comboMax(s)>=12, prog:s=>Math.min(12,G.comboMax(s)) },
+
+    { id:'m_combo18', label:'คอมโบต่อเนื่อง 18',
+      target:18, level:'hard',
+      check:s=>G.comboMax(s)>=18, prog:s=>Math.min(18,G.comboMax(s)) },
+
+    { id:'m_noJunk4', label:'เลือกของเสียไม่เกิน 4 ครั้ง',
+      target:4, level:'hard',
+      check:s=>G.miss(s)<=4, prog:s=>Math.min(4,G.miss(s)) },
+
+    { id:'m_tick20', label:'อยู่รอด 20 วิ แรกแบบไม่พลาด',
+      target:20, level:'easy',
+      check:s=>G.tick(s)>=20 && G.miss(s)<=0,
+      prog:s=>Math.min(20,G.tick(s)) }
   ];
 
-  const deck = new MissionDeck({ goalPool: GOAL_POOL, miniPool: MINI_POOL });
+  const deck = new MissionDeck({ goalPool:GOAL_POOL, miniPool:MINI_POOL });
   deck.drawGoals(5);
   deck.draw3();
+  deck.stats.perGroup = {1:0,2:0,3:0,4:0};
 
-  function pushQuest(hint){
-    const goals = deck.getProgress('goals');
-    const minis = deck.getProgress('mini');
-    const focusGoal = goals.find(g=>!g.done) || goals[0] || null;
-    const focusMini = minis.find(m=>!m.done) || minis[0] || null;
-    window.dispatchEvent(new CustomEvent('quest:update', {
-      detail: { goal: focusGoal, mini: focusMini, goalsAll: goals, minisAll: minis, hint }
-    }));
+  // ---------- Coach ----------
+  function coachSay(key){
+    let text='';
+    switch(key){
+      case 'start': text='จัดจานให้สมดุล เก็บให้ครบทั้ง 4 หมู่'; break;
+      case 'veg':   text='ลองเพิ่มผักบนจานอีกหน่อย จะได้สีเขียวสวย ๆ'; break;
+      case 'protein': text='อย่าลืมโปรตีน เช่น ปลา ไข่ ถั่ว'; break;
+      case 'fruit': text='เติมผลไม้หรือแก้วนมเล็ก ๆ ให้จานสมบูรณ์'; break;
+      case 'miss':  text='ของทอด/ขนมหวานเยอะไป ลองเลี่ยงดูหน่อย'; break;
+    }
+    if(!text) return;
+    try{
+      window.dispatchEvent(new CustomEvent('coach:line',{detail:{text,mode:'plate'}}));
+    }catch(_){}
   }
 
-  // State
-  let score=0, combo=0, shield=0, fever=0, feverActive=false;
-  let star=0, diamond=0;
+  // ---------- Mode state ----------
+  let score = 0;
+  let combo = 0;
+  let fever = 0;
+  let feverActive = false;
 
-  function mult(){ return feverActive ? 2 : 1; }
-  function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true; setFeverActive(true);} }
-  function decayFever(base){ const d=feverActive?10:base; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false; setFeverActive(false);} }
-  function syncDeck(){ deck.updateScore(score); deck.updateCombo(combo); deck.stats.star=star; deck.stats.diamond=diamond; }
+  function mult(){ return feverActive?2:1; }
 
-  function judge(ch, ctx){
-    const x = ctx.clientX||ctx.cx, y = ctx.clientY||ctx.cy;
-    if (ch==='⭐'){ const d=40*mult(); score+=d; star++; gainFever(10); syncDeck(); deck.onGood(); Particles.burstShards(null,null,{screen:{x,y},theme:'plate'}); Particles.scorePop(x,y,`+${d}`); pushQuest(); return {good:true,scoreDelta:d}; }
-    if (ch==='💎'){ const d=80*mult(); score+=d; diamond++; gainFever(30); syncDeck(); deck.onGood(); Particles.burstShards(null,null,{screen:{x,y},theme:'groups'}); Particles.scorePop(x,y,`+${d}`); pushQuest(); return {good:true,scoreDelta:d}; }
-    if (ch==='🛡️'){ shield=Math.min(3,shield+1); score+=20; setShield(shield); syncDeck(); deck.onGood(); Particles.burstShards(null,null,{screen:{x,y},theme:'hydration'}); Particles.scorePop(x,y,`+20`); pushQuest(); return {good:true,scoreDelta:20}; }
-    if (ch==='🔥'){ feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25; syncDeck(); deck.onGood(); Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'}); Particles.scorePop(x,y,`+25`); pushQuest(); return {good:true,scoreDelta:25}; }
-
-    const cat = toCat(ch);
-    const isGood = !!cat;
-    if (isGood){
-      const base = 18 + combo*2;
-      const delta = base*mult();
-      score += delta; combo += 1;
-      gainFever(7 + combo*0.55);
-      if (cnt[cat] < GOALQ[cat]) cnt[cat]++;
-
-      deck.onGood(); syncDeck();
-      Particles.burstShards(null,null,{screen:{x,y},theme:'plate'});
-      Particles.scorePop(x,y,`+${delta|0}`);
-      pushQuest();
-      return { good:true, scoreDelta:delta };
-    }else{
-      if (shield>0){ shield-=1; setShield(shield); syncDeck(); Particles.burstShards(null,null,{screen:{x,y},theme:'plate'}); pushQuest(); return {good:false, scoreDelta:0}; }
-      const delta = -14;
-      score = Math.max(0, score + delta); combo = 0;
-      decayFever(18);
-      deck.onJunk(); syncDeck();
-      Particles.burstShards(null,null,{screen:{x,y},theme:'groups'});
-      Particles.scorePop(x,y,`${delta}`);
-      pushQuest();
-      return { good:false, scoreDelta:delta };
+  function gainFever(n){
+    fever = Math.max(0,Math.min(100,fever+n));
+    setFever(fever);
+    if(!feverActive && fever>=100){
+      feverActive=true;
+      setFeverActive(true);
+    }
+  }
+  function decayFever(base){
+    const d = feverActive?10:base;
+    fever = Math.max(0,fever-d);
+    setFever(fever);
+    if(feverActive && fever<=0){
+      feverActive=false;
+      setFeverActive(false);
     }
   }
 
+  function syncDeck(){
+    deck.updateScore(score);
+    deck.updateCombo(combo);
+  }
+  function emitCombo(){
+    try{ window.dispatchEvent(new CustomEvent('hha:combo',{detail:{combo}})); }catch(_){}
+  }
+
+  function pushQuest(){
+    const goals = deck.getProgress('goals');
+    const minis = deck.getProgress('mini');
+    window.dispatchEvent(new CustomEvent('quest:update',{
+      detail:{
+        goal:goals.find(g=>!g.done)||goals[0]||null,
+        mini:minis.find(m=>!m.done)||minis[0]||null,
+        goalsAll:goals,
+        minisAll:minis
+      }
+    }));
+  }
+
+  // ---------- judge ----------
+  function judge(emo, ctx){
+    const x = ctx.clientX || ctx.cx || 0;
+    const y = ctx.clientY || ctx.cy || 0;
+
+    const g = GROUP_BY_EMO[emo] || 0;
+    const isGood = !!g;
+    const isJunk = JUNK.includes(emo);
+
+    if(isGood){
+      let base = 14;
+      if(diff==='easy') base = 12;
+      if(diff==='hard') base = 16;
+
+      const delta = (base + combo*2) * mult();
+      score += delta;
+      combo++;
+      emitCombo();
+      gainFever(6 + combo*0.4);
+
+      deck.onGood();
+      deck.stats.perGroup[g] = (deck.stats.perGroup[g]||0)+1;
+      syncDeck();
+
+      Particles.burstShards(null,null,{screen:{x,y},theme:'plate'});
+      Particles.scorePop?.(x,y,delta,{good:true});
+
+      if(deck.stats.perGroup[2]===4) coachSay('veg');
+      if(deck.stats.perGroup[3]===4) coachSay('protein');
+      if(deck.stats.perGroup[4]===4) coachSay('fruit');
+
+      pushQuest();
+      return { good:true, scoreDelta:delta };
+    }
+
+    if(isJunk){
+      let delta = -12;
+      if(diff==='easy') delta=-9;
+      if(diff==='hard') delta=-14;
+
+      score = Math.max(0,score+delta);
+      combo=0;
+      emitCombo();
+      decayFever(10);
+
+      deck.onJunk();
+      syncDeck();
+
+      Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
+      Particles.scorePop?.(x,y,delta,{good:false});
+      coachSay('miss');
+      pushQuest();
+      return { good:false, scoreDelta:delta };
+    }
+
+    // คลิกอื่น ๆ / miss
+    return { good:false, scoreDelta:0 };
+  }
+
   function onExpire(ev){
-    if (!ev || ev.isGood) return;
-    gainFever(4); deck.onJunk(); syncDeck(); pushQuest();
+    if(!ev) return;
+    // ของดีหายไป = พลาดเล็ก ๆ
+    deck.onJunk();
+    combo=0;
+    emitCombo();
+    decayFever(6);
+    syncDeck();
+    pushQuest();
   }
 
-  function perSecond(){
-    decayFever(combo<=0 ? 6 : 2);
-    deck.second(); syncDeck(); pushQuest();
-    if (deck.isCleared('mini'))  { deck.draw3(); pushQuest('Mini ใหม่'); }
-    if (deck.isCleared('goals')) { deck.drawGoals(5); pushQuest('Goal ใหม่'); }
+  function onSec(){
+    if(combo<=0) decayFever(6); else decayFever(2);
+    deck.second();
+    syncDeck();
+    pushQuest();
   }
 
-  window.addEventListener('hha:expired', onExpire);
-  window.addEventListener('hha:time', (e)=>{ if((e.detail?.sec|0)>=0) perSecond(); });
-
-  return factoryBoot({
-    difficulty: diff,
-    duration  : dur,
-    pools     : { good:[...PLATE_GOOD, ...BONUS], bad:[...LURE] },
-    goodRate  : 0.62,
-    powerups  : BONUS,
-    powerRate : 0.08,
-    powerEvery: 7,
-    judge     : (ch, ctx)=>judge(ch, { ...ctx, cx:(ctx.clientX||ctx.cx), cy:(ctx.clientY||ctx.cy) }),
-    onExpire
-  }).then(ctrl=>{
-    window.addEventListener('hha:time', (e)=>{ if((e.detail?.sec|0)<=0){
+  window.addEventListener('hha:time',(e)=>{
+    const sec = (e.detail?.sec|0);
+    if(sec>0) onSec();
+    if(sec===0){
       const goals = deck.getProgress('goals');
       const minis = deck.getProgress('mini');
-      window.dispatchEvent(new CustomEvent('hha:end',{detail:{
-        mode:'Healthy Plate', difficulty:diff, score,
-        comboMax:deck.stats.comboMax, misses:deck.stats.junkMiss, hits:deck.stats.goodCount,
-        duration:dur,
-        goalCleared: goalCleared(),
-        goalProgressUnits: goalUnits(),
-        goalTargetUnits: targetUnits,
-        goalBreakdown: goalBreakdown(),
-        questsCleared: minis.filter(m=>m.done).length, questsTotal: deck.miniPresented|0
-      }}));
-    }});
-    pushQuest('เริ่ม');
-    return ctrl;
+      const goalsCleared = goals.filter(g=>g.done).length;
+      const goalCleared  = goalsCleared>0;
+      const questsCleared = minis.filter(m=>m.done).length;
+
+      window.dispatchEvent(new CustomEvent('hha:end',{
+        detail:{
+          mode       :'Balanced Plate',
+          difficulty : diff,
+          score,
+          comboMax   : deck.stats.comboMax,
+          misses     : deck.stats.junkMiss,
+          hits       : deck.stats.goodCount,
+          duration   : dur,
+          goalCleared,
+          goalsCleared,
+          goalsTotal : goals.length,
+          questsCleared,
+          questsTotal: minis.length
+        }
+      }));
+    }
   });
+
+  const controller = await factoryBoot({
+    difficulty: diff,
+    duration  : dur,
+    pools     : { good:ALL_GOOD, bad:JUNK },
+    goodRate  : 0.7,
+    judge,
+    onExpire
+  });
+
+  pushQuest();
+  coachSay('start');
+  return controller;
 }
+
 export default { boot };
