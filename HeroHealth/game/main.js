@@ -1,4 +1,4 @@
-// === /HeroHealth/game/main.js (2025-11-13 FIX LOADER + COMBO HUD) ===
+// === /HeroHealth/game/main.js (2025-11-13 COACH + COMBO HUD + QUEST SUMMARY FIX) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -13,53 +13,23 @@ const AUTOSTART = qs.get('autostart') === '1';
 // ---------- HUD refs ----------
 const elScore = $('#hudScore');
 const elCombo = $('#hudCombo');
-function setScore(n){ if(elScore) elScore.textContent = (n|0).toLocaleString(); }
-function setCombo(n){ if(elCombo) elCombo.textContent = (n|0).toLocaleString(); }
+const elTimePill = $('#timePill');
 
-// ---------- TIME bubble (แยกจาก #timePill ของ index) ----------
-(function injectTimeBubble(){
-  if (document.getElementById('hudTimeBubble')) return;
-  const css = document.createElement('style'); css.id='hha-time-css';
-  css.textContent = `
-  #hudTimeBubble{position:fixed;top:14px;right:14px;z-index:560;pointer-events:none}
-  #hudTimeBubble .pill{
-    background:#0b1220e0;color:#e2e8f0;border:2px solid #334155;
-    border-radius:999px;padding:4px 10px;font:900 14px system-ui;
-    letter-spacing:.2px;box-shadow:0 10px 24px rgba(0,0,0,.35)
-  }
-  #hudTimeBubble.low{filter:drop-shadow(0 0 10px #f59e0b);}
-  #hudTimeBubble.crit{
-    animation:hb 0.7s ease-in-out infinite;
-    filter:drop-shadow(0 0 14px #ef4444);
-  }
-  @keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
-  `;
-  document.head.appendChild(css);
-
-  const wrap = document.createElement('div');
-  wrap.id='hudTimeBubble';
-  wrap.innerHTML = `<div class="pill">TIME ${DURATION}s</div>`;
-  document.body.appendChild(wrap);
-})();
-
-const elTimeWrap = document.getElementById('hudTimeBubble');
-const elTimeText = elTimeWrap?.querySelector('.pill');
+function setScore(n){
+  if(!elScore) return;
+  elScore.textContent = (n|0).toLocaleString();
+}
+function setCombo(n){
+  if(!elCombo) return;
+  elCombo.textContent = (n|0);
+}
 let lastSec = DURATION;
-
 function setTimeLeft(sec){
-  if(!elTimeWrap || !elTimeText) return;
+  if(!elTimePill) return;
   const s = Math.max(0, sec|0);
-  elTimeText.textContent = `TIME ${s}s`;
-  elTimeWrap.classList.toggle('low',  s <= 15 && s > 5);
-  elTimeWrap.classList.toggle('crit', s <= 5);
-
-  // ซิงก์ไป #timePill ของ index.vr.html ถ้ามี
-  const pill = document.getElementById('timePill');
-  if (pill){
-    pill.textContent = `TIME ${s}s`;
-    pill.classList.toggle('warn',   s<=10 && s>5);
-    pill.classList.toggle('danger', s<=5);
-  }
+  elTimePill.textContent = `TIME ${s}s`;
+  elTimePill.classList.toggle('warn',   s<=10 && s>5);
+  elTimePill.classList.toggle('danger', s<=5);
 }
 
 // ---------- Fever bar mount ----------
@@ -70,75 +40,153 @@ import('../vr/ui-fever.js').then(({ensureFeverBar})=>{
   }catch(_){}
 }).catch(()=>{});
 
-// ---------- Quest HUD (GOAL + MINI) ----------
-import('../vr/quest-hud.js').catch(()=>{ /* ถ้าไม่มีไฟล์ ก็ไม่เป็นไร */ });
-
-// bridge event บางโหมดส่ง hha:quest → ส่งต่อเป็น quest:update
+// ---------- Quest HUD bridge (ถ้ามีไฟล์ quest-hud.js) ----------
+try{
+  import('../vr/quest-hud.js').catch(()=>{});
+}catch(_){}
 window.addEventListener('hha:quest', (e)=>{
-  try{ window.dispatchEvent(new CustomEvent('quest:update',{detail:e.detail})); }catch(_){}
+  try{
+    window.dispatchEvent(new CustomEvent('quest:update',{detail:e.detail}));
+  }catch(_){}
 });
-window.addEventListener('quest:update', ()=>{}); // ให้ quest-hud hook เอง
 
-// ---------- คะแนน/เวลา/คอมโบ ----------
+// ---------- Coach HUD (ใต้ fever bar) ----------
+(function setupCoachHUD(){
+  const cssId = 'hha-coach-css';
+  if (!document.getElementById(cssId)){
+    const css = document.createElement('style');
+    css.id = cssId;
+    css.textContent = `
+      #hhaCoachWrap{
+        margin-top:6px;
+        pointer-events:none;
+      }
+      #hhaCoachBubble{
+        display:inline-block;
+        max-width:min(320px,72vw);
+        padding:6px 10px;
+        border-radius:999px;
+        background:rgba(15,23,42,.92);
+        border:1px solid #38bdf8;
+        color:#e0f2fe;
+        font:800 11px system-ui;
+        letter-spacing:.2px;
+        opacity:0;
+        transform:translateY(4px);
+        transition:opacity .25s ease, transform .25s ease;
+        box-shadow:0 6px 18px rgba(0,0,0,.45);
+      }
+      #hhaCoachWrap.show #hhaCoachBubble{
+        opacity:1;
+        transform:translateY(0);
+      }
+    `;
+    document.head.appendChild(css);
+  }
+
+  const dock = document.getElementById('feverBarDock');
+  const box  = dock?.closest('.score-box') || document.querySelector('.score-box');
+  if (!box) return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'hhaCoachWrap';
+  wrap.innerHTML = `<div id="hhaCoachBubble">พร้อมลุยแล้ว เก็บของดีให้ได้เยอะที่สุด!</div>`;
+  box.appendChild(wrap);
+
+  const bubble = wrap.querySelector('#hhaCoachBubble');
+  let hideTimer = null;
+
+  function showCoach(text){
+    if (!bubble) return;
+    if (text) bubble.textContent = text;
+    wrap.classList.add('show');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(()=>wrap.classList.remove('show'), 3000);
+  }
+
+  // รับข้อความจากโหมด
+  window.addEventListener('hha:coach', (e)=>{
+    const t = (e.detail && e.detail.text) || '';
+    if (!t) return;
+    showCoach(t);
+  });
+
+  // ทักทายตอนเริ่มโหลดหน้า
+  showCoach('แตะเริ่มเกมแล้วเก็บของดีให้ต่อเนื่อง!');
+})();
+
+// ---------- score/time listeners ----------
 let scoreTotal = 0;
-let misses = 0;
-let hits   = 0;
-let comboNow = 0;
-let comboMax = 0;
+let comboNow   = 0;
+let comboMax   = 0;
+let misses     = 0;
+let hits       = 0;
 
 window.addEventListener('hha:score', (e)=>{
   const d = e.detail || {};
-  const delta = d.delta|0;
-  scoreTotal = Math.max(0, (scoreTotal|0) + delta);
-  if (d.good) hits++; else misses++;
+
+  if (typeof d.total === 'number') scoreTotal = d.total|0;
+  else scoreTotal = Math.max(0, (scoreTotal|0) + (d.delta|0));
+
+  if (typeof d.combo === 'number') comboNow = d.combo|0;
+  if (typeof d.comboMax === 'number') comboMax = Math.max(comboMax, d.comboMax|0);
+
+  if (d.good === true)  hits++;
+  if (d.good === false) misses++;
+
   setScore(scoreTotal);
+  setCombo(comboNow);
+});
+
+window.addEventListener('hha:combo', (e)=>{
+  const d = e.detail || {};
+  comboNow = d.combo|0;
+  comboMax = Math.max(comboMax, d.comboMax|0);
+  setCombo(comboNow);
 });
 
 window.addEventListener('hha:time', (e)=>{
   const sec = (e.detail?.sec|0);
   if (sec !== lastSec){
-    setTimeLeft(sec);
     lastSec = sec;
+    setTimeLeft(sec);
   }
-});
-
-// รับคอมโบจากโหมด (goodjunk.safe.js จะยิง hha:combo ให้)
-window.addEventListener('hha:combo', (e)=>{
-  const d = e.detail || {};
-  comboNow = d.combo|0;
-  comboMax = Math.max(comboMax, d.comboMax|0, comboNow);
-  setCombo(comboNow);
 });
 
 // ---------- Result overlay ----------
 function showResult(detail){
-  const old = document.getElementById('resultOverlay'); if(old) old.remove();
+  const old = document.getElementById('resultOverlay');
+  if (old) old.remove();
+
   const d = detail || {};
   const hub = d.hubUrl || '/webxr-health-mobile/HeroHealth/hub.html';
 
-  const o = document.createElement('div'); o.id='resultOverlay';
+  const o = document.createElement('div');
+  o.id = 'resultOverlay';
   o.innerHTML = `
-  <div class="card">
-    <h2>สรุปผล: ${d.mode||MODE} (${d.difficulty||DIFF})</h2>
-    <div class="stats">
-      <div class="pill"><div class="k">คะแนนรวม</div><div class="v">${(d.score||0).toLocaleString()}</div></div>
-      <div class="pill"><div class="k">คอมโบสูงสุด</div><div class="v">${d.comboMax||0}</div></div>
-      <div class="pill"><div class="k">พลาด</div><div class="v">${d.misses||0}</div></div>
-      <div class="pill"><div class="k">เป้าหมาย</div><div class="v">${d.goalCleared===true?'ถึงเป้า':'ไม่ถึง (-)'}</div></div>
-      <div class="pill"><div class="k">เวลา</div><div class="v">${d.duration||0}s</div></div>
+    <div class="card">
+      <h2>สรุปผล: ${d.mode||MODE} (${d.difficulty||DIFF})</h2>
+      <div class="stats">
+        <div class="pill"><div class="k">คะแนนรวม</div><div class="v">${(d.score||0).toLocaleString()}</div></div>
+        <div class="pill"><div class="k">คอมโบสูงสุด</div><div class="v">${d.comboMax||0}</div></div>
+        <div class="pill"><div class="k">พลาด</div><div class="v">${d.misses||0}</div></div>
+        <div class="pill"><div class="k">เป้าหมาย</div><div class="v">${d.goalCleared===true?'ถึงเป้า':'ไม่ถึง (-)'}</div></div>
+        <div class="pill"><div class="k">เวลา</div><div class="v">${d.duration||0}s</div></div>
+      </div>
+      <div class="badge">Mini Quests ${d.questsCleared||0}/${d.questsTotal||0}</div>
+      <div class="btns">
+        <button id="btnRetry">เล่นอีกครั้ง</button>
+        <button id="btnHub">กลับ Hub</button>
+      </div>
     </div>
-    <div class="badge">Mini Quests ${d.questsCleared||0}/${d.questsTotal||0}</div>
-    <div class="btns">
-      <button id="btnRetry">เล่นอีกครั้ง</button>
-      <button id="btnHub">กลับ Hub</button>
-    </div>
-  </div>`;
+  `;
   document.body.appendChild(o);
 
-  const cssId='hha-result-css';
-  if(!document.getElementById(cssId)){
-    const css=document.createElement('style'); css.id=cssId;
-    css.textContent=`
+  const cssId = 'hha-result-css';
+  if (!document.getElementById(cssId)){
+    const css = document.createElement('style');
+    css.id = cssId;
+    css.textContent = `
       #resultOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:999}
       #resultOverlay .card{background:#0b1220;border:1px solid #334155;border-radius:16px;color:#e2e8f0;min-width:320px;max-width:720px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
       #resultOverlay h2{margin:0 0 14px 0;font:900 20px system-ui}
@@ -151,7 +199,7 @@ function showResult(detail){
       #resultOverlay .btns button{cursor:pointer;border:0;border-radius:10px;padding:8px 14px;font:800 14px system-ui}
       #btnRetry{background:#22c55e;color:#06270f}
       #btnHub{background:#1f2937;color:#e5e7eb}
-      @media (max-width:640px){ #resultOverlay .stats{grid-template-columns:repeat(2,minmax(0,1fr))} }
+      @media (max-width:640px){#resultOverlay .stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
     `;
     document.head.appendChild(css);
   }
@@ -178,39 +226,32 @@ window.addEventListener('hha:end',(e)=>{
   showResult(d);
 });
 
-// ---------- Loader (แก้ .js.js) ----------
+// ---------- Loader ----------
 async function loadModeModule(name){
-  name = (name || '').toLowerCase();
-
-  const relPaths = [
-    `${name}.safe.js`,
-    `${name}.quest.js`,
-    `${name}.js`
-  ];
+  const extOrder = (name==='goodjunk'||name==='groups')
+    ? ['safe','quest','js']
+    : ['quest','safe','js'];
 
   const bases = [
     '../modes/',                                   // relative
     '/webxr-health-mobile/HeroHealth/modes/'       // absolute fallback
   ];
 
-  let lastErr;
+  let err;
   for (const base of bases){
-    for (const rel of relPaths){
-      const url = base + rel + `?v=${Date.now()}`;
-      console.log('[ModeLoader] try', url);
+    for (const ext of extOrder){
+      const url = `${base}${name}.${ext}.js`;
       try{
-        const mod = await import(url);
+        console.log('[ModeLoader] try', url);
+        const mod = await import(url + `?v=${Date.now()}`);
         if (mod?.boot || mod?.default?.boot) return mod;
-      }catch(e){
-        lastErr = e;
-      }
+      }catch(e){ err = e; }
     }
   }
-
-  throw new Error(`ไม่พบไฟล์โหมด: ${name}\n${lastErr?.message||lastErr}`);
+  throw new Error(`ไม่พบไฟล์โหมด: ${name}\n${err?.message||err}`);
 }
 
-// ---------- Countdown 3-2-1-GO ----------
+// ---------- countdown 3-2-1 ----------
 function runCountdown(sec=3){
   return new Promise((resolve)=>{
     const id='hha-count-css';
@@ -218,35 +259,40 @@ function runCountdown(sec=3){
       const css=document.createElement('style'); css.id=id;
       css.textContent=`
         #countOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:700}
-        #countOverlay .num{font:900 clamp(64px,12vw,160px) system-ui;color:#e2e8f0;text-shadow:0 12px 40px rgba(0,0,0,.6)}
+        #countOverlay .num{font:900 clamp(64px,12vw,160px) system-ui;color:#e5edff;text-shadow:0 12px 40px rgba(0,0,0,.6)}
+        #countOverlay.go .num{color:#86efac;text-shadow:0 10px 40px rgba(16,185,129,.45)}
       `;
       document.head.appendChild(css);
     }
-    const o=document.getElementById('countOverlay');
-    if(!o){ resolve(); return; }
-    const label=o.querySelector('.num');
-    o.style.display='flex';
+    let overlay = document.getElementById('countOverlay');
+    if(!overlay){
+      overlay = document.createElement('div');
+      overlay.id='countOverlay';
+      overlay.innerHTML='<div class="num">3</div>';
+      document.body.appendChild(overlay);
+    }
+    const label = overlay.querySelector('.num');
+    overlay.style.display='flex';
     let t=sec;
-    label.textContent = t;
+    label.textContent=t;
     const tick=()=>{
       t--;
-      if(t<=0){
+      if (t<=0){
         label.textContent='GO!';
-        setTimeout(()=>{
-          o.style.display='none';
-          resolve();
-        },350);
+        overlay.classList.add('go');
+        setTimeout(()=>{ overlay.style.display='none'; overlay.classList.remove('go'); resolve(); }, 450);
       }else{
         label.textContent=t;
-        setTimeout(tick, 900);
+        setTimeout(tick,900);
       }
     };
-    setTimeout(tick, 900);
+    setTimeout(tick,900);
   });
 }
 
 // ---------- Start orchestration ----------
-let controller=null, started=false;
+let controller = null;
+let started    = false;
 
 async function startGame(){
   if (started) return;
@@ -257,7 +303,7 @@ async function startGame(){
 
   try{
     const p=document.getElementById('startPanel');
-    if(p) p.setAttribute('visible','false');
+    if (p) p.setAttribute('visible','false');
   }catch(_){}
 
   let mod;
@@ -265,15 +311,13 @@ async function startGame(){
     mod = await loadModeModule(MODE);
   }catch(err){
     alert(`เริ่มเกมไม่สำเร็จ: โหลดโหมดไม่พบ\n${err?.message||err}`);
-    started=false;
-    return;
+    started=false; return;
   }
 
   const boot = mod.boot || mod.default?.boot;
   if (!boot){
     alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()');
-    started=false;
-    return;
+    started=false; return;
   }
 
   await runCountdown(3);
@@ -288,11 +332,13 @@ async function startGame(){
   }
 }
 
-// Bind buttons
+// ปุ่มเริ่ม
 const domBtn = document.getElementById('btnStart');
 domBtn?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
 const vrBtn = document.getElementById('vrStartBtn');
 vrBtn?.addEventListener('click', (e)=>{ e.preventDefault(); startGame(); });
 
-// Autostart (ถ้าต้องการ)
-if (AUTOSTART){ setTimeout(()=>startGame(), 0); }
+// Auto start
+if (AUTOSTART){
+  setTimeout(()=>startGame(), 0);
+}
