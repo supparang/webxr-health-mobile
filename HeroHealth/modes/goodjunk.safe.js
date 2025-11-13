@@ -1,21 +1,53 @@
-// === /HeroHealth/modes/goodjunk.safe.js (2025-11-13 DYNAMIC + COACH) ===
-// โหมด Good vs Junk
-// - Goal 5 เป้า + Mini Quest 3 จาก 10 (เติมใหม่อัตโนมัติ)
-// - ขยับความยากอัตโนมัติจาก tier 1 → 2 → 3 ตามฝีมือ (hits / accuracy)
-// - ส่ง coach toast ผ่าน event 'coach:toast'
-// - ใช้ Particles.burstShards + Particles.scorePop ตรงจุดคลิก
+// === /HeroHealth/modes/goodjunk.safe.js (2025-11-13 COACH + DYNAMIC + QUEST) ===
+// โหมด Good vs Junk + Goal / Mini Quest + โค้ชใต้ Fever bar
+// ใช้ร่วมกับ: vr/mode-factory.js, vr/mission.js, vr/ui-fever.js, vr/particles.js
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { MissionDeck } from '../vr/mission.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { Particles } from '../vr/particles.js';
 
+// ---- โค้ชใต้ Fever Bar -----------------------------------------------------
+function ensureCoachSlot() {
+  const dock = document.getElementById('feverBarDock');
+  if (!dock) return null;
+
+  let wrap = document.getElementById('hhaCoachWrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'hhaCoachWrap';
+    wrap.style.marginTop = '6px';
+    wrap.style.font = '800 12px system-ui';
+    wrap.style.color = '#e5e7eb';
+    wrap.style.display = 'flex';
+    wrap.style.justifyContent = 'space-between';
+    wrap.style.alignItems = 'center';
+    wrap.innerHTML = `
+      <span id="coachText">โฟกัสของดีให้ทันนะ!</span>
+      <span id="coachTier" style="font-size:11px;opacity:.8">Tier 1</span>
+    `;
+    dock.appendChild(wrap);
+  }
+  return wrap;
+}
+
+function coachSay(text, tierLabel) {
+  const wrap = ensureCoachSlot();
+  if (!wrap) return;
+  const t = wrap.querySelector('#coachText');
+  const tl = wrap.querySelector('#coachTier');
+  if (t && text) t.textContent = text;
+  if (tl && tierLabel) tl.textContent = tierLabel;
+}
+
+// ---- โหมดหลัก --------------------------------------------------------------
 export async function boot(cfg = {}) {
   const diff = String(cfg.difficulty || 'normal');
   const dur  = Number(cfg.duration || 60);
 
-  // ---------- Pools ----------
-  const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛','🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'];
+  // พูลอีโมจิ
+  const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','🥛',
+                '🍇','🍓','🍊','🍅','🥬','🥝','🍍','🍐','🍑'];
   const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
   const STAR   = '⭐';
   const DIA    = '💎';
@@ -23,334 +55,356 @@ export async function boot(cfg = {}) {
   const FIRE   = '🔥';
   const BONUS  = [STAR, DIA, SHIELD, FIRE];
 
-  // Fever bar & shield
-  ensureFeverBar(); setFever(0); setShield(0);
-  let fever = 0, feverActive = false, shield = 0;
+  // HUD เริ่มต้น
+  ensureFeverBar();
+  setFever(0);
+  setShield(0);
+  coachSay('เริ่มจากเลือกของดีให้ติดกันหลาย ๆ ชิ้น!','Tier 1');
 
-  function mult(){ return feverActive ? 2 : 1; }
-  function gainFever(n){
-    fever = Math.max(0, Math.min(100, fever + n));
-    setFever(fever);
-    if (!feverActive && fever >= 100){
-      feverActive = true; setFeverActive(true);
-      toast('เข้าสู่โหมด FEVER! คะแนน x2');
-    }
-  }
-  function decayFever(base){
-    const d = feverActive ? 10 : base;
-    fever = Math.max(0, fever - d);
-    setFever(fever);
-    if (feverActive && fever <= 0){
-      feverActive = false; setFeverActive(false);
-      toast('Fever หมดแล้ว ลองต่อคอมโบใหม่!');
-    }
-  }
-
-  // ---------- Coach toast helper ----------
-  let lastToastTs = 0;
-  function toast(text){
-    const now = Date.now();
-    if (now - lastToastTs < 1200) return; // กัน spam หน่อย
-    lastToastTs = now;
-    try{
-      window.dispatchEvent(new CustomEvent('coach:toast', {
-        detail:{ text, mode:'goodjunk', ts: now }
-      }));
-    }catch(_){}
-  }
-
-  // ---------- Mission / Quest ----------
+  // ---------- GOAL และ MINI QUEST ----------
   const G = {
-    good     : s => s.goodCount|0,
-    junk     : s => s.junkMiss|0,
-    score    : s => s.score|0,
-    comboMax : s => s.comboMax|0,
-    tick     : s => s.tick|0
+    good     : s => s.goodCount | 0,
+    junk     : s => s.junkMiss  | 0,
+    score    : s => s.score     | 0,
+    comboMax : s => s.comboMax  | 0,
+    tick     : s => s.tick      | 0
   };
 
+  // เป้าหมายหลัก 10 ข้อ (สุ่มมา 5)
   const GOAL_POOL = [
-    { id:'g_good20',  label:'เก็บของดีให้ได้ 20 ชิ้น', level:'easy',
-      target:20,  check:s=>G.good(s)>=20,  prog:s=>Math.min(20,G.good(s)) },
-    { id:'g_good28',  label:'เก็บของดีให้ได้ 28 ชิ้น', level:'normal',
-      target:28,  check:s=>G.good(s)>=28,  prog:s=>Math.min(28,G.good(s)) },
-    { id:'g_good34',  label:'เก็บของดีให้ได้ 34 ชิ้น', level:'hard',
-      target:34,  check:s=>G.good(s)>=34,  prog:s=>Math.min(34,G.good(s)) },
-
-    { id:'g_score800', label:'ทำคะแนนรวม 800+',       level:'easy',
-      target:800, check:s=>G.score(s)>=800, prog:s=>Math.min(800,G.score(s)) },
-    { id:'g_score1500',label:'ทำคะแนนรวม 1500+',      level:'normal',
-      target:1500,check:s=>G.score(s)>=1500,prog:s=>Math.min(1500,G.score(s)) },
-    { id:'g_score2200',label:'ทำคะแนนรวม 2200+',      level:'hard',
-      target:2200,check:s=>G.score(s)>=2200,prog:s=>Math.min(2200,G.score(s)) },
-
-    { id:'g_combo16', label:'คอมโบสูงสุด ≥ 16',       level:'normal',
-      target:16,  check:s=>G.comboMax(s)>=16, prog:s=>Math.min(16,G.comboMax(s)) },
-    { id:'g_combo24', label:'คอมโบสูงสุด ≥ 24',       level:'hard',
-      target:24,  check:s=>G.comboMax(s)>=24, prog:s=>Math.min(24,G.comboMax(s)) },
-
-    { id:'g_time30',  label:'อยู่รอดเกิน 30 วินาที',  level:'easy',
-      target:30,  check:s=>G.tick(s)>=30,     prog:s=>Math.min(30,G.tick(s)) },
-
-    // เควสต์ “พลาดไม่เกิน 6 ครั้ง” — prog ใช้ 6 - junkMiss เพื่อให้เห็นว่ากำลังจะไม่ผ่าน
-    { id:'g_nojunk6', label:'พลาด (โดนของเสีย) ≤ 6', level:'normal',
-      target:6,   check:s=>G.junk(s)<=6,      prog:s=>Math.max(0, 6 - G.junk(s)) }
+    { id:'g_good20',   label:'เก็บของดีให้ได้ 20 ชิ้น', level:'easy',
+      target:20,   check:s=>G.good(s)>=20,   prog:s=>Math.min(20, G.good(s)) },
+    { id:'g_good28',   label:'เก็บของดีให้ได้ 28 ชิ้น', level:'normal',
+      target:28,   check:s=>G.good(s)>=28,   prog:s=>Math.min(28, G.good(s)) },
+    { id:'g_good34',   label:'เก็บของดีให้ได้ 34 ชิ้น', level:'hard',
+      target:34,   check:s=>G.good(s)>=34,   prog:s=>Math.min(34, G.good(s)) },
+    { id:'g_score800', label:'ทำคะแนนรวม 800+',          level:'easy',
+      target:800,  check:s=>G.score(s)>=800, prog:s=>Math.min(800, G.score(s)) },
+    { id:'g_score1500',label:'ทำคะแนนรวม 1500+',         level:'normal',
+      target:1500, check:s=>G.score(s)>=1500,prog:s=>Math.min(1500, G.score(s)) },
+    { id:'g_score2200',label:'ทำคะแนนรวม 2200+',         level:'hard',
+      target:2200, check:s=>G.score(s)>=2200,prog:s=>Math.min(2200, G.score(s)) },
+    { id:'g_combo16',  label:'คอมโบสูงสุด ≥ 16',         level:'normal',
+      target:16,   check:s=>G.comboMax(s)>=16,prog:s=>Math.min(16, G.comboMax(s)) },
+    { id:'g_combo24',  label:'คอมโบสูงสุด ≥ 24',         level:'hard',
+      target:24,   check:s=>G.comboMax(s)>=24,prog:s=>Math.min(24, G.comboMax(s)) },
+    { id:'g_time30',   label:'อยู่รอดเกิน 30 วินาที',    level:'easy',
+      target:30,   check:s=>G.tick(s)>=30,    prog:s=>Math.min(30, G.tick(s)) },
+    { id:'g_nojunk6',  label:'พลาด (โดนของเสีย) ≤ 6',    level:'normal',
+      target:0,    check:s=>G.junk(s)<=6,     prog:s=>Math.max(0, 6-G.junk(s)) }
   ];
 
+  // Mini quest 10 ข้อ (สุ่มมา 3)
   const MINI_POOL = [
-    { id:'m_combo12',  label:'คอมโบต่อเนื่อง 12',      level:'normal',
-      target:12,  check:s=>G.comboMax(s)>=12,  prog:s=>Math.min(12,G.comboMax(s)) },
-    { id:'m_combo18',  label:'คอมโบต่อเนื่อง 18',      level:'hard',
-      target:18,  check:s=>G.comboMax(s)>=18,  prog:s=>Math.min(18,G.comboMax(s)) },
-
-    { id:'m_score600', label:'ทำคะแนนรวม 600+',        level:'easy',
-      target:600, check:s=>G.score(s)>=600,    prog:s=>Math.min(600,G.score(s)) },
-    { id:'m_score1200',label:'ทำคะแนนรวม 1200+',       level:'normal',
-      target:1200,check:s=>G.score(s)>=1200,   prog:s=>Math.min(1200,G.score(s)) },
-
-    { id:'m_good10',   label:'เก็บของดี 10 ชิ้น',       level:'easy',
-      target:10,  check:s=>G.good(s)>=10,      prog:s=>Math.min(10,G.good(s)) },
-    { id:'m_good18',   label:'เก็บของดี 18 ชิ้น',       level:'normal',
-      target:18,  check:s=>G.good(s)>=18,      prog:s=>Math.min(18,G.good(s)) },
-
-    { id:'m_nomiss12', label:'ไม่พลาด 12 วินาที',        level:'normal',
-      target:12,  check:s=>G.tick(s)>=12 && s.combo>0, prog:s=>Math.min(12,G.tick(s)) },
-
-    { id:'m_star2',    label:'เก็บ ⭐ 2 ดวง',            level:'hard',
-      target:2,   check:s=>s.star>=2,          prog:s=>Math.min(2,s.star|0) },
-    { id:'m_dia1',     label:'เก็บ 💎 1 เม็ด',           level:'hard',
-      target:1,   check:s=>s.diamond>=1,       prog:s=>Math.min(1,s.diamond|0) },
-
-    { id:'m_under6',   label:'พลาดไม่เกิน 6 ครั้ง',      level:'normal',
-      target:6,   check:s=>G.junk(s)<=6,       prog:s=>Math.max(0, 6-G.junk(s)) },
+    { id:'m_combo12',  label:'คอมโบต่อเนื่อง 12',       level:'normal',
+      target:12,  check:s=>G.comboMax(s)>=12, prog:s=>Math.min(12,G.comboMax(s)) },
+    { id:'m_combo18',  label:'คอมโบต่อเนื่อง 18',       level:'hard',
+      target:18,  check:s=>G.comboMax(s)>=18, prog:s=>Math.min(18,G.comboMax(s)) },
+    { id:'m_score600', label:'ทำคะแนนรวม 600+',         level:'easy',
+      target:600, check:s=>G.score(s)>=600,   prog:s=>Math.min(600,G.score(s)) },
+    { id:'m_score1200',label:'ทำคะแนนรวม 1200+',        level:'normal',
+      target:1200,check:s=>G.score(s)>=1200,  prog:s=>Math.min(1200,G.score(s)) },
+    { id:'m_good10',   label:'เก็บของดี 10 ชิ้น',        level:'easy',
+      target:10,  check:s=>G.good(s)>=10,     prog:s=>Math.min(10,G.good(s)) },
+    { id:'m_good18',   label:'เก็บของดี 18 ชิ้น',        level:'normal',
+      target:18,  check:s=>G.good(s)>=18,     prog:s=>Math.min(18,G.good(s)) },
+    { id:'m_nomiss12', label:'ไม่พลาด 12 วินาที (รักษาคอมโบไว้)', level:'normal',
+      target:12,  check:s=>G.tick(s)>=12 && s.combo>0,
+      prog:s=>Math.min(12, G.tick(s)) },
+    { id:'m_star2',    label:'เก็บ ⭐ 2 ดวง',             level:'hard',
+      target:2,   check:s=>s.star>=2,         prog:s=>Math.min(2, s.star|0) },
+    { id:'m_dia1',     label:'เก็บ 💎 1 เม็ด',            level:'hard',
+      target:1,   check:s=>s.diamond>=1,      prog:s=>Math.min(1, s.diamond|0) },
+    { id:'m_under6',   label:'พลาดไม่เกิน 6 ครั้ง',       level:'normal',
+      // ผ่านได้ถ้า junkMiss ≤ 6 (ถ้าเลย 6 แล้วถือว่าไม่ผ่าน)
+      target:0,   check:s=>G.junk(s)<=6,      prog:s=>Math.max(0, 6-G.junk(s)) },
   ];
 
   const deck = new MissionDeck({ goalPool: GOAL_POOL, miniPool: MINI_POOL });
   deck.drawGoals(5);
   deck.draw3();
 
-  function pushQuest(hint){
+  function pushQuest(hint) {
     const goals = deck.getProgress('goals');
     const minis = deck.getProgress('mini');
-    const focusGoal = goals.find(g=>!g.done) || goals[0] || null;
-    const focusMini = minis.find(m=>!m.done) || minis[0] || null;
+    const focusGoal = goals.find(g => !g.done) || goals[0] || null;
+    const focusMini = minis.find(m => !m.done) || minis[0] || null;
 
     window.dispatchEvent(new CustomEvent('quest:update', {
-      detail:{ goal: focusGoal, mini: focusMini, goalsAll: goals, minisAll: minis, hint }
+      detail: { goal: focusGoal, mini: focusMini, goalsAll: goals, minisAll: minis, hint }
     }));
   }
 
-  // ---------- Dynamic difficulty tier ----------
-  // tier 1 = เบา, 2 = ปานกลาง, 3 = โหด (spawn ยังอยู่ที่ mode-factory, ที่นี่ปรับ "โทษ/โบนัส" + coach)
-  let tier = 1;
+  // ---------- สถานะภายในโหมด ----------
+  let score = 0;
+  let combo = 0;
+  let shield = 0;
+  let fever = 0;
+  let feverActive = false;
+  let star = 0;
+  let diamond = 0;
 
-  function tierLabel(){
-    return tier === 1 ? 'ระดับเบา'
-         : tier === 2 ? 'ระดับท้าทาย'
-         : 'ระดับโหด!';
-  }
+  let tier = 1; // 1 = ง่าย, 2 = ปกติ, 3 = โหด
+  let lastCoachTick = 0;
 
-  function checkTier() {
-    const hits = deck.stats.goodCount|0;
-    const miss = deck.stats.junkMiss|0;
-    const acc  = (hits+miss) > 0 ? hits/(hits+miss) : 1;
+  function mult() { return feverActive ? 2 : 1; }
 
-    // กติกาคร่าว ๆ ปรับได้:
-    if (tier === 1 && hits >= 18 && acc >= 0.78) {
-      tier = 2;
-      toast('เก่งมาก! ปรับเป็นระดับท้าทาย (Tier 2)');
-    } else if (tier === 2 && hits >= 36 && acc >= 0.8) {
-      tier = 3;
-      toast('เทพแล้ว! ปรับเป็นระดับโหด (Tier 3)');
+  function gainFever(n) {
+    fever = Math.max(0, Math.min(100, fever + n));
+    setFever(fever);
+    if (!feverActive && fever >= 100) {
+      feverActive = true;
+      setFeverActive(true);
     }
   }
 
-  function tieredBonus(base){
-    if (tier === 1) return base;
-    if (tier === 2) return Math.round(base * 1.1);
-    return Math.round(base * 1.2);
+  function decayFever(base) {
+    const d = feverActive ? 10 : base;
+    fever = Math.max(0, fever - d);
+    setFever(fever);
+    if (feverActive && fever <= 0) {
+      feverActive = false;
+      setFeverActive(false);
+    }
   }
 
-  function tieredPenalty(base){
-    if (tier === 1) return base * 0.7;
-    if (tier === 2) return base;
-    return base * 1.4;
-  }
-
-  // ---------- Score state ----------
-  let score=0, combo=0, star=0, diamond=0;
-
-  function syncDeck(){
+  function syncDeck() {
     deck.updateScore(score);
     deck.updateCombo(combo);
     deck.stats.star    = star;
     deck.stats.diamond = diamond;
   }
 
-  // ---------- Judge ----------
-  function scorePop(x,y,val){
-    try{
-      if (Particles && typeof Particles.scorePop === 'function'){
-        Particles.scorePop(x,y,val);
-      }
-    }catch(_){}
+  // ประเมิน Tier ตามฝีมือ
+  function recomputeTier() {
+    const s = deck.stats;
+    const totalHits = s.goodCount + s.junkMiss;
+    const acc = totalHits > 0 ? s.goodCount / totalHits : 0;
+    let newTier = 1;
+
+    if (acc >= 0.82 && s.comboMax >= 18) newTier = 3;
+    else if (acc >= 0.65 && s.comboMax >= 8) newTier = 2;
+    else newTier = 1;
+
+    if (newTier !== tier) {
+      tier = newTier;
+      const label = tier === 1 ? 'Tier 1' : (tier === 2 ? 'Tier 2' : 'Tier 3');
+      let msg = '';
+      if (tier === 1) msg = 'อุ่นเครื่องก่อน เก็บของดีเรื่อย ๆ ให้ติดมือ';
+      else if (tier === 2) msg = 'เยี่ยม! ลองเร่งคอมโบให้ไม่หลุดดูนะ';
+      else msg = 'โหดมาก! รักษาคอมโบยาว ๆ แล้วลุยเป้าใหญ่ให้ครบ';
+
+      coachSay(msg, label);
+
+      // เผื่อมีระบบ Toast ใน HUD
+      try {
+        window.dispatchEvent(new CustomEvent('hha:toast', {
+          detail: { text: `ระดับความท้าทาย ${label}`, level: 'info' }
+        }));
+      } catch(_) {}
+    }
   }
 
-  function judge(ch, ctx){
+  // ---------- การตัดสินเมื่อคลิก ----------
+  function judge(ch, ctx) {
     const x = ctx.clientX || ctx.cx || 0;
     const y = ctx.clientY || ctx.cy || 0;
 
-    // Power-ups
-    if (ch === STAR){
-      const d = tieredBonus(40 * mult());
-      score += d; gainFever(10); star++;
-      deck.onGood(); syncDeck(); pushQuest();
-      Particles?.burstShards?.(null,null,{screen:{x,y},theme:'goodjunk'});
-      scorePop(x,y,'+'+d);
-      toast('เก็บดาว! คะแนนพิเศษ');
-      checkTier();
-      return { good:true, scoreDelta:d };
+    // Power-ups -------------------------------------------------
+    if (ch === STAR) {
+      const d = 40 * mult();
+      score += d;
+      gainFever(10);
+      star++;
+      deck.onGood();
+      syncDeck();
+      if (Particles?.burstShards) Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
+      if (Particles?.scorePop)   Particles.scorePop(x,y,`+${d}`,true);
+      pushQuest();
+      recomputeTier();
+      return { good:true, scoreDelta:d, combo, comboMax: deck.stats.comboMax };
     }
-    if (ch === DIA){
-      const d = tieredBonus(80 * mult());
-      score += d; gainFever(30); diamond++;
-      deck.onGood(); syncDeck(); pushQuest();
-      Particles?.burstShards?.(null,null,{screen:{x,y},theme:'groups'});
-      scorePop(x,y,'+'+d);
-      toast('เก็บเพชรได้! เยี่ยมมาก');
-      checkTier();
-      return { good:true, scoreDelta:d };
+
+    if (ch === DIA) {
+      const d = 80 * mult();
+      score += d;
+      gainFever(30);
+      diamond++;
+      deck.onGood();
+      syncDeck();
+      if (Particles?.burstShards) Particles.burstShards(null,null,{screen:{x,y},theme:'groups'});
+      if (Particles?.scorePop)    Particles.scorePop(x,y,`+${d}`,true);
+      pushQuest();
+      recomputeTier();
+      return { good:true, scoreDelta:d, combo, comboMax: deck.stats.comboMax };
     }
-    if (ch === SHIELD){
+
+    if (ch === SHIELD) {
       shield = Math.min(3, shield+1);
       setShield(shield);
-      const d = tieredBonus(20);
-      score += d; deck.onGood(); syncDeck(); pushQuest();
-      Particles?.burstShards?.(null,null,{screen:{x,y},theme:'hydration'});
-      scorePop(x,y,'+'+d);
-      toast('ได้โล่ป้องกัน 1 ชั้น');
-      checkTier();
-      return { good:true, scoreDelta:d };
-    }
-    if (ch === FIRE){
-      feverActive = true; setFeverActive(true);
-      fever = Math.max(fever, 60); setFever(fever);
-      const d = tieredBonus(25);
-      score += d; deck.onGood(); syncDeck(); pushQuest();
-      Particles?.burstShards?.(null,null,{screen:{x,y},theme:'plate'});
-      scorePop(x,y,'+'+d);
-      toast('โหมดไฟลุก! เก็บให้ทัน!');
-      checkTier();
-      return { good:true, scoreDelta:d };
+      const d = 20;
+      score += d;
+      deck.onGood();
+      syncDeck();
+      if (Particles?.burstShards) Particles.burstShards(null,null,{screen:{x,y},theme:'hydration'});
+      if (Particles?.scorePop)    Particles.scorePop(x,y,`+${d}`,true);
+      pushQuest();
+      recomputeTier();
+      return { good:true, scoreDelta:d, combo, comboMax: deck.stats.comboMax };
     }
 
+    if (ch === FIRE) {
+      feverActive = true;
+      setFeverActive(true);
+      fever = Math.max(fever, 60);
+      setFever(fever);
+      const d = 25;
+      score += d;
+      deck.onGood();
+      syncDeck();
+      if (Particles?.burstShards) Particles.burstShards(null,null,{screen:{x,y},theme:'plate'});
+      if (Particles?.scorePop)    Particles.scorePop(x,y,`+${d}`,true);
+      pushQuest();
+      recomputeTier();
+      return { good:true, scoreDelta:d, combo, comboMax: deck.stats.comboMax };
+    }
+
+    // ของดี / ของเสีย -------------------------------------------
     const isGood = GOOD.includes(ch);
-    if (isGood){
-      const base  = 16 + combo*2;
-      const delta = tieredBonus(base) * mult();
-      score += delta; combo += 1;
-      gainFever(7 + combo*0.5);
-      deck.onGood(); syncDeck(); pushQuest();
-      Particles?.burstShards?.(null,null,{screen:{x,y},theme:'goodjunk'});
-      scorePop(x,y,'+'+delta);
+    if (isGood) {
+      // ปรับคะแนนตาม Tier → ยิ่ง Tier สูงเลือดก็ไหลแรง
+      const tierBonus = tier === 1 ? 0 : (tier === 2 ? 4 : 8);
+      const base  = 16 + combo*2 + tierBonus;
+      const delta = base * mult();
 
-      if (combo === 5)  toast('ดีมาก! คอมโบ 5 แล้ว');
-      if (combo === 10) toast('สุดยอด! คอมโบสองหลักแล้ว!');
-      checkTier();
-      return { good:true, scoreDelta:delta };
+      score  += delta;
+      combo  += 1;
+      gainFever(7 + combo*0.5);
+
+      deck.onGood();
+      syncDeck();
+
+      if (Particles?.burstShards) Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
+      if (Particles?.scorePop)    Particles.scorePop(x,y,`+${delta}`,true);
+
+      pushQuest();
+      recomputeTier();
+
+      return { good:true, scoreDelta:delta, combo, comboMax: deck.stats.comboMax };
     } else {
-      // ใช้โล่ก่อน ถ้ามี
-      if (shield > 0){
-        shield -= 1; setShield(shield);
-        Particles?.burstShards?.(null,null,{screen:{x,y},theme:'goodjunk'});
-        scorePop(x,y,'0');
-        toast('โล่ช่วยกันความเสียหายไว้!');
-        syncDeck(); pushQuest(); checkTier();
-        return { good:false, scoreDelta:0 };
+      // โดนของเสีย
+      if (shield > 0) {
+        shield -= 1;
+        setShield(shield);
+        deck.onJunk(); // นับว่าโดน แต่ไม่ลดคะแนน
+        syncDeck();
+        if (Particles?.burstShards) Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
+        if (Particles?.scorePop)    Particles.scorePop(x,y,'0',false);
+        pushQuest();
+        recomputeTier();
+        // combo ถูกรีเซ็ตใน deck.onJunk() แล้ว แต่อัปเดต local ด้วย
+        combo = 0;
+        return { good:false, scoreDelta:0, combo, comboMax: deck.stats.comboMax };
       }
 
-      const base  = -12;
-      const delta = Math.round(tieredPenalty(base));
+      const delta = -12;
       score = Math.max(0, score + delta);
       combo = 0;
       decayFever(16);
-      deck.onJunk(); syncDeck(); pushQuest();
-      Particles?.burstShards?.(null,null,{screen:{x,y},theme:'groups'});
-      scorePop(x,y,delta);
-      toast('พลาดไปนิด ลองโฟกัสของดีให้มากขึ้น');
-      checkTier();
-      return { good:false, scoreDelta:delta };
+
+      deck.onJunk();
+      syncDeck();
+
+      if (Particles?.burstShards) Particles.burstShards(null,null,{screen:{x,y},theme:'groups'});
+      if (Particles?.scorePop)    Particles.scorePop(x,y,`${delta}`,false);
+
+      pushQuest();
+      recomputeTier();
+
+      return { good:false, scoreDelta:delta, combo, comboMax: deck.stats.comboMax };
     }
   }
 
-  // ---------- Expire ----------
-  function onExpire(ev){
-    if (!ev) return;
-    if (!ev.isGood){
-      // เลี่ยงของเสียได้ → โบนัสนิดหน่อย
-      gainFever(4);
-      syncDeck(); pushQuest();
-    } else {
-      // ปล่อยของดีหลุดมือ
-      combo = 0;
-      decayFever(8);
-      deck.onJunk(); syncDeck(); pushQuest();
+  // เมื่อเป้าหมายหมดอายุ (หลบของเสียทัน)
+  function onExpire(ev) {
+    if (!ev || ev.isGood) return;
+    // เลี่ยงของเสียได้ → นับเป็น junk-avoid
+    gainFever(4);
+    deck.onJunk();            // นับเป็น “เหตุการณ์ของเสีย” เพื่อ Mini บางอัน
+    syncDeck();
+    pushQuest();
+    recomputeTier();
+  }
+
+  // เดินเวลาทุกวินาที (เชื่อมกับ hha:time)
+  function onSec() {
+    if (combo <= 0) decayFever(6);
+    else decayFever(2);
+
+    deck.second();
+    syncDeck();
+    pushQuest();
+
+    // เติม Quest ใหม่เมื่อเคลียร์ครบ
+    if (deck.isCleared('mini'))  { deck.draw3();       pushQuest('Mini ใหม่'); }
+    if (deck.isCleared('goals')) { deck.drawGoals(5);  pushQuest('Goal ใหม่'); }
+
+    // อย่า spam โค้ชทุกวินาที
+    lastCoachTick++;
+    if (lastCoachTick >= 3) {
+      lastCoachTick = 0;
+      recomputeTier();
     }
-    checkTier();
   }
 
-  // ---------- Per second ----------
-  function onSec(){
-    if (combo <= 0) decayFever(6); else decayFever(2);
-    deck.second(); syncDeck(); pushQuest();
-
-    // เติม quest อัตโนมัติถ้าเคลียร์หมด
-    if (deck.isCleared('mini'))  { deck.draw3();  pushQuest('Mini ใหม่'); }
-    if (deck.isCleared('goals')) { deck.drawGoals(5); pushQuest('Goal ใหม่'); }
-
-    checkTier();
-  }
-
+  // Hook global events
   window.addEventListener('hha:expired', onExpire);
-  window.addEventListener('hha:time', (e)=>{
+  window.addEventListener('hha:time', e => {
     const sec = (e.detail?.sec|0);
     if (sec >= 0) onSec();
   });
 
-  // ---------- Boot mode-factory ----------
-  return factoryBoot({
-    difficulty : diff,
-    duration   : dur,
-    pools      : { good:[...GOOD, ...BONUS], bad:[...JUNK] },
-    goodRate   : 0.62,
-    powerups   : BONUS,
-    powerRate  : 0.10,
-    powerEvery : 7,
-    judge      : (ch, ctx)=>judge(ch, { ...ctx, cx:(ctx.clientX||ctx.cx), cy:(ctx.clientY||ctx.cy) }),
+  // ---------- เริ่มโรงงานสปอว์นเป้า ----------
+  const ctrl = await factoryBoot({
+    difficulty: diff,
+    duration  : dur,
+    pools     : { good:[...GOOD, ...BONUS], bad:[...JUNK] },
+    goodRate  : 0.62,
+    powerups  : BONUS,
+    powerRate : 0.10,
+    powerEvery: 7,
+    judge     : (ch, ctx)=>judge(ch, { ...ctx, cx:(ctx.clientX||ctx.cx), cy:(ctx.clientY||ctx.cy) }),
     onExpire
-  }).then(ctrl=>{
-    // hook end summary
-    window.addEventListener('hha:end',(e)=>{
-      const goals = deck.getProgress('goals');
-      const minis = deck.getProgress('mini');
-      const goalCleared = goals.length>0 && goals.every(g=>g.done);
-      const d = e.detail || {};
-      d.mode        = d.mode        || 'Good vs Junk';
-      d.difficulty  = d.difficulty  || diff;
-      d.score       = d.score       != null ? d.score       : score;
-      d.comboMax    = d.comboMax    != null ? d.comboMax    : deck.stats.comboMax;
-      d.misses      = d.misses      != null ? d.misses      : deck.stats.junkMiss;
-      d.duration    = d.duration    != null ? d.duration    : dur;
-      d.goalCleared = d.goalCleared != null ? d.goalCleared : goalCleared;
-      d.questsCleared = d.questsCleared != null ? d.questsCleared : minis.filter(m=>m.done).length;
-      d.questsTotal   = d.questsTotal   != null ? d.questsTotal   : minis.length;
-      // ส่งซ้ำให้ main.js ใช้สรุปเวอร์ชันเต็ม
-      window.dispatchEvent(new CustomEvent('hha:end',{detail:d}));
-    }, { once:true });
-
-    pushQuest('เริ่ม');
-    toast('แตะของดี เก็บคอมโบยาว ๆ แล้วเลี่ยงของเสียให้ได้มากที่สุด!');
-    return ctrl;
   });
+
+  // ส่งสรุปเมื่อหมดเวลา
+  window.addEventListener('hha:time', (e)=>{
+    const s = (e.detail?.sec|0);
+    if (s > 0) return;
+
+    const goals = deck.getProgress('goals');
+    const minis = deck.getProgress('mini');
+    const goalCleared = goals.length>0 && goals.every(g => g.done);
+
+    window.dispatchEvent(new CustomEvent('hha:end', { detail: {
+      mode        : 'goodjunk',
+      difficulty  : diff,
+      score,
+      comboMax    : deck.stats.comboMax,
+      misses      : deck.stats.junkMiss,
+      hits        : deck.stats.goodCount,
+      duration    : dur,
+      goalCleared,
+      questsCleared: minis.filter(m=>m.done).length,
+      questsTotal  : minis.length
+    }}));
+  });
+
+  // Kick แรก
+  pushQuest('เริ่ม');
+  recomputeTier();
+
+  return ctrl;
 }
 
 export default { boot };
