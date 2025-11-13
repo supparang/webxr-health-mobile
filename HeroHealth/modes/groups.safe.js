@@ -1,338 +1,343 @@
-// === /HeroHealth/modes/groups.safe.js (2025-11-13 SHOW TARGET GROUPS ON GOAL) ===
-// เกมจัดหมู่อาหารตาม "หมู่เป้าหมาย" 1–5, แสดงบน HUD ว่าต้องเก็บหมู่ไหน
+// === /HeroHealth/modes/groups.safe.js (2025-11-13 FULL) ===
+// โหมด Food Groups (เลือกอาหารตามหมู่ที่กำหนด)
+// - ใช้ MissionDeck สำหรับ GOAL + MINI
+// - GOAL กำหนด "focus groups" เช่น ['g1'], ['g1','g2'], ['g2','g3','g4']
+// - spawn emoji เน้นหมู่ที่เป็น focus (≈70%) ที่เหลือเป็นหมู่อื่น + JUNK
+// - ส่ง hha:score (รวม total + combo) เพื่อให้ HUD แสดงคอมโบถูก
+// - ส่ง quest:update / hha:coach เพื่อให้ HUD เควสต์และโค้ชทำงาน
 
 import { boot as factoryBoot } from '../vr/mode-factory.js';
-import { MissionDeck }        from '../vr/mission.js';
-import { setFever, setFeverActive } from '../vr/ui-fever.js';
-import { Particles }          from '../vr/particles.js';
+import { MissionDeck } from '../vr/mission.js';
+import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
+import { Particles } from '../vr/particles.js';
 
-// ---------- Emoji Pools & Groups ----------
-const GROUP_EMO = {
-  1: ['🍚','🍙','🍞','🥖','🥐','🥯','🫓'],            // ข้าว-แป้ง
-  2: ['🥩','🍗','🍖','🥓','🥚','🧆','🐟','🍤'],        // โปรตีน
-  3: ['🥦','🥕','🥬','🍅','🌽','🧅','🫑'],            // ผัก
-  4: ['🍎','🍌','🍇','🍓','🍊','🍉','🍍','🍐'],        // ผลไม้
-  5: ['🥛','🧀','🍳','🧈'],                          // นม/ผลิตภัณฑ์นม
-};
-
-const GROUP_NAME = {
-  1: 'หมู่ 1 ข้าว-แป้ง',
-  2: 'หมู่ 2 โปรตีน',
-  3: 'หมู่ 3 ผัก',
-  4: 'หมู่ 4 ผลไม้',
-  5: 'หมู่ 5 นม',
-};
-
-const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🍭'];
-
-const ALL_GOOD = Array.from(
-  new Set([].concat(...Object.values(GROUP_EMO)))
-);
-
-function groupOf(ch){
-  for (const [gid, arr] of Object.entries(GROUP_EMO)){
-    if (arr.includes(ch)) return Number(gid);
-  }
-  return 0;
-}
-
-// ---------- Goal & Mini Quest ----------
-function buildGoalPool(diff){
-  return [
-    {
-      id:'g_groups_good18',
-      label:'เก็บอาหารหมู่เป้าหมายรวม 18 ชิ้น',
-      level:'easy',
-      target:18,
-      check:s => (s.goodCount|0) >= 18,
-      prog :s => Math.min(18, s.goodCount|0)
-    },
-    {
-      id:'g_groups_good26',
-      label:'เก็บอาหารหมู่เป้าหมายรวม 26 ชิ้น',
-      level:'normal',
-      target:26,
-      check:s => (s.goodCount|0) >= 26,
-      prog :s => Math.min(26, s.goodCount|0)
-    },
-    {
-      id:'g_groups_good34',
-      label:'เก็บอาหารหมู่เป้าหมายรวม 34 ชิ้น',
-      level:'hard',
-      target:34,
-      check:s => (s.goodCount|0) >= 34,
-      prog :s => Math.min(34, s.goodCount|0)
-    },
-    {
-      id:'g_groups_combo14',
-      label:'ทำคอมโบต่อเนื่องสูงสุด ≥ 14',
-      level:'normal',
-      target:14,
-      check:s => (s.comboMax|0) >= 14,
-      prog :s => Math.min(14, s.comboMax|0)
-    },
-    {
-      id:'g_groups_score1500',
-      label:'ทำคะแนนรวม ≥ 1500',
-      level:'normal',
-      target:1500,
-      check:s => (s.score|0) >= 1500,
-      prog :s => Math.min(1500, s.score|0)
-    },
-    {
-      id:'g_groups_miss_le6',
-      label:'พลาดไม่เกิน 6 ครั้ง',
-      level:'normal',
-      target:6,
-      check:s => (s.junkMiss|0) <= 6,
-      prog :s => Math.max(0, 6 - (s.junkMiss|0))
-    },
-  ];
-}
-
-function buildMiniPool(diff){
-  return [
-    {
-      id:'m_groups_combo10',
-      label:'ทำคอมโบต่อเนื่อง 10',
-      level:'easy',
-      target:10,
-      check:s => (s.comboMax|0) >= 10,
-      prog :s => Math.min(10, s.comboMax|0)
-    },
-    {
-      id:'m_groups_combo16',
-      label:'ทำคอมโบต่อเนื่อง 16',
-      level:'normal',
-      target:16,
-      check:s => (s.comboMax|0) >= 16,
-      prog :s => Math.min(16, s.comboMax|0)
-    },
-    {
-      id:'m_groups_good12',
-      label:'เก็บอาหารหมู่เป้าหมาย 12 ชิ้น',
-      level:'easy',
-      target:12,
-      check:s => (s.goodCount|0) >= 12,
-      prog :s => Math.min(12, s.goodCount|0)
-    },
-    {
-      id:'m_groups_good20',
-      label:'เก็บอาหารหมู่เป้าหมาย 20 ชิ้น',
-      level:'normal',
-      target:20,
-      check:s => (s.goodCount|0) >= 20,
-      prog :s => Math.min(20, s.goodCount|0)
-    },
-    {
-      id:'m_groups_miss_le6',
-      label:'พลาดไม่เกิน 6 ครั้ง',
-      level:'normal',
-      target:6,
-      check:s => (s.junkMiss|0) <= 6,
-      prog :s => Math.max(0, 6 - (s.junkMiss|0))
-    },
-  ];
-}
-
-// ---------- Mode Boot ----------
 export async function boot(cfg = {}) {
   const diff = String(cfg.difficulty || 'normal');
   const dur  = Number(cfg.duration || 60);
 
+  // ---------- FEVER / SHIELD reset ----------
+  ensureFeverBar();
   setFever(0);
+  setShield(0);
   setFeverActive(false);
 
-  const deck = new MissionDeck({
-    goalPool: buildGoalPool(diff),
-    miniPool: buildMiniPool(diff)
+  // ---------- Emoji ตามหมู่ ----------
+  const GROUPS = [
+    { id:'g1', label:'หมู่ที่ 1: ข้าว-แป้ง', emo:['🍚','🍙','🍞','🥐','🥖','🥨'] },
+    { id:'g2', label:'หมู่ที่ 2: เนื้อสัตว์-โปรตีน', emo:['🍗','🥩','🥓','🥚','🐟','🍤'] },
+    { id:'g3', label:'หมู่ที่ 3: ผัก', emo:['🥦','🥬','🥕','🥒','🍅','🧅'] },
+    { id:'g4', label:'หมู่ที่ 4: ผลไม้', emo:['🍎','🍌','🍊','🍇','🍓','🍍'] },
+    { id:'g5', label:'หมู่ที่ 5: นม-ผลิตภัณฑ์นม', emo:['🥛','🧀','🍨','🍦'] },
+  ];
+
+  const JUNK = ['🍟','🍔','🌭','🍕','🍩','🧁','🍰','🍫','🥤','🧋'];
+
+  // แผนที่ emoji → group id
+  const EMO2GROUP = {};
+  GROUPS.forEach(g => {
+    g.emo.forEach(ch => { EMO2GROUP[ch] = g.id; });
   });
-  deck.drawGoals(2);
-  deck.draw3();
 
-  let score  = 0;
-  let combo  = 0;
-  let comboMax = 0;
+  // ---------- Helper อ่าน stats ----------
+  const G = {
+    totalGood : (s)=>s.goodCount|0,
+    totalJunk : (s)=>s.junkMiss|0,
+    score     : (s)=>s.score|0,
+    comboMax  : (s)=>s.comboMax|0,
+    tick      : (s)=>s.tick|0,
+    groupGood : (s, ids)=>{
+      if (!s.groupHits) return 0;
+      const arr = Array.isArray(ids) ? ids : [ids];
+      return arr.reduce((sum, id)=>sum + (s.groupHits[id]||0), 0);
+    }
+  };
 
-  // หมู่เป้าหมายที่ต้องโฟกัส (เปลี่ยนตามฝีมือ)
-  let focusGroups = [1];
-  let stage       = 1;
-  const maxFocusByDiff =
-    diff === 'easy'   ? 2 :
-    diff === 'hard'   ? 4 :
-                        3;
-
-  function coach(text){
-    window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}}));
+  function mkGoal(id, label, focusIds, target, level){
+    const focus = Array.isArray(focusIds) ? focusIds : [focusIds];
+    return {
+      id,
+      label,
+      focus,
+      level,
+      target,
+      check: (s)=> G.groupGood(s, focus) >= target,
+      prog : (s)=> Math.min(target, G.groupGood(s, focus))
+    };
   }
 
-  function updateStats(){
+  function mkMini(id, label, focusIds, target, level){
+    const focus = Array.isArray(focusIds) ? focusIds : [focusIds];
+    return {
+      id,
+      label,
+      focus,
+      level,
+      target,
+      check: (s)=> G.groupGood(s, focus) >= target,
+      prog : (s)=> Math.min(target, G.groupGood(s, focus))
+    };
+  }
+
+  // ---------- GOAL / MINI quest ----------
+  const GOAL_POOL = [
+    mkGoal('g_g1_10', 'เก็บอาหารหมู่ 1 ให้ได้ 10 ชิ้น',          ['g1'],           10, 'easy'),
+    mkGoal('g_g3_10', 'เก็บอาหารหมู่ 3 (ผัก) ให้ได้ 10 ชิ้น',     ['g3'],           10, 'easy'),
+    mkGoal('g_g2g4_14', 'เก็บหมู่ 2 และ 4 รวมกัน 14 ชิ้น',        ['g2','g4'],      14, 'normal'),
+    mkGoal('g_g1g3_16', 'เก็บหมู่ 1 และ 3 รวมกัน 16 ชิ้น',        ['g1','g3'],      16, 'normal'),
+    mkGoal('g_g2g3g4_20', 'เก็บหมู่ 2, 3 และ 4 รวมกัน 20 ชิ้น',   ['g2','g3','g4'], 20, 'hard'),
+    {
+      id:'g_time30',
+      label:'เล่นให้ครบ 30 วินาที โดยไม่พลาดเยอะ',
+      focus:['g1','g2','g3','g4','g5'],
+      level:'easy',
+      target:30,
+      check:(s)=> G.tick(s) >= 30 && G.totalJunk(s) <= 8,
+      prog :(s)=> Math.min(30, G.tick(s))
+    }
+  ];
+
+  const MINI_POOL = [
+    mkMini('m_g1_6',  'เก็บหมู่ 1 ให้ได้ 6 ชิ้น',           ['g1'],      6,  'easy'),
+    mkMini('m_g3_6',  'เก็บผัก (หมู่ 3) ให้ได้ 6 ชิ้น',      ['g3'],      6,  'easy'),
+    mkMini('m_g4_6',  'เก็บผลไม้ (หมู่ 4) ให้ได้ 6 ชิ้น',    ['g4'],      6,  'easy'),
+    mkMini('m_g2_8',  'เก็บโปรตีน (หมู่ 2) ให้ได้ 8 ชิ้น',   ['g2'],      8,  'normal'),
+    mkMini('m_combo8','ทำคอมโบต่อเนื่องให้ถึง 8',            ['g1'],      8,  'normal'), // ดูจาก comboMax
+    {
+      id:'m_combo8_core',
+      label:'ทำคอมโบต่อเนื่องให้ถึง 8',
+      focus:['g1','g2','g3','g4','g5'],
+      level:'normal',
+      target:8,
+      check:(s)=> G.comboMax(s) >= 8,
+      prog :(s)=> Math.min(8, G.comboMax(s))
+    },
+    {
+      id:'m_junk_low',
+      label:'พลาดไม่เกิน 6 ครั้งตลอดเกม',
+      focus:['g1','g2','g3','g4','g5'],
+      level:'normal',
+      target:6,
+      // ผ่านถ้า junk ≤ 6
+      check:(s)=> G.totalJunk(s) <= 6,
+      // แสดง “จำนวนที่ใช้ไป” เพื่อเตือน (0 ถึง 6)
+      prog :(s)=> Math.min(6, G.totalJunk(s))
+    }
+  ];
+
+  const deck = new MissionDeck({ goalPool: GOAL_POOL, miniPool: MINI_POOL });
+  deck.drawGoals(1);  // ทีละ Goal ชัด ๆ
+  deck.draw3();       // Mini 3 อัน
+
+  // ---------- สถานะคะแนน + group-hit ----------
+  let score = 0;
+  let combo = 0;
+  let fever = 0;
+  let feverActive = false;
+
+  const groupHits = { g1:0, g2:0, g3:0, g4:0, g5:0 };
+
+  function syncDeck(){
     deck.updateScore(score);
     deck.updateCombo(combo);
+    deck.stats.groupHits = { ...groupHits };
   }
 
-  // แปลง focusGroups เป็นข้อความ เช่น “หมู่ 1 ข้าว-แป้ง, หมู่ 3 ผัก”
-  function focusLabel(){
-    return focusGroups
-      .map(id => GROUP_NAME[id] || `หมู่ ${id}`)
-      .join(', ');
-  }
+  function mult(){ return feverActive ? 2 : 1; }
 
-  // ทำสำเนา goal/mini แล้วใส่ชื่อหมู่ลงไปใน label ก่อนส่งให้ HUD
-  function decorateQuest(q){
-    if (!q) return null;
-    const out = { ...q };
-    if (q.id.startsWith('g_groups_good') || q.id.startsWith('m_groups_good')){
-      out.label = `เก็บอาหารหมู่เป้าหมาย (${focusLabel()}) รวม ${q.target} ชิ้น`;
+  function gainFever(n){
+    fever = Math.max(0, Math.min(100, fever + n));
+    setFever(fever);
+    if (!feverActive && fever >= 100){
+      feverActive = true;
+      setFeverActive(true);
     }
-    // อื่น ๆ ใช้ label เดิม
-    return out;
   }
 
+  function decayFever(base){
+    const dec = feverActive ? 10 : base;
+    fever = Math.max(0, fever - dec);
+    setFever(fever);
+    if (feverActive && fever <= 0){
+      feverActive = false;
+      setFeverActive(false);
+    }
+  }
+
+  // ---------- เลือกหมู่ที่ต้องโฟกัสตาม GOAL ปัจจุบัน ----------
+  function pickFocusGroups(){
+    const cur = deck.getCurrent('goals');
+    if (!cur || !Array.isArray(cur.focus) || !cur.focus.length) return GROUPS;
+    const ids = new Set(cur.focus);
+    const subset = GROUPS.filter(g => ids.has(g.id));
+    return subset.length ? subset : GROUPS;
+  }
+
+  // ---------- ส่งข้อมูลให้ HUD เควสต์ + โค้ช ----------
   function pushQuest(hint){
     const goals = deck.getProgress('goals');
     const minis = deck.getProgress('mini');
-    const focusGoal = goals.find(g=>!g.done) || goals[0] || null;
-    const focusMini = minis.find(m=>!m.done) || minis[0] || null;
+    const focusGoal = goals.find(g => !g.done) || goals[0] || null;
+    const focusMini = minis.find(m => !m.done) || minis[0] || null;
 
-    const goalView = decorateQuest(focusGoal);
-    const miniView = decorateQuest(focusMini);
-
-    window.dispatchEvent(new CustomEvent('hha:quest',{
-      detail:{
-        goal     : goalView,
-        mini     : miniView,
-        goalsAll : goals,
-        minisAll : minis,
-        focusGroups: [...focusGroups],
-        hint
-      }
+    // ส่งให้ quest-hud.js
+    window.dispatchEvent(new CustomEvent('quest:update', {
+      detail: { goal: focusGoal, mini: focusMini, goalsAll: goals, minisAll: minis, hint }
     }));
-  }
 
-  function levelUpIfNeeded(){
-    const s = deck.stats;
-    if (stage === 1 && s.goodCount >= 10 && s.tick >= 10 && focusGroups.length < maxFocusByDiff){
-      stage = 2;
-      if (!focusGroups.includes(2)) focusGroups.push(2);
-      coach(`เลื่อนระดับ! หมู่เป้าหมาย: ${focusLabel()}`);
-      pushQuest('เลื่อนระดับ → เพิ่มหมู่');
-    } else if (stage === 2 && s.goodCount >= 22 && s.tick >= 25 && focusGroups.length < maxFocusByDiff){
-      stage = 3;
-      const extra = [3,4,5].find(g => !focusGroups.includes(g));
-      if (extra) focusGroups.push(extra);
-      coach(`โฟกัสเพิ่ม! ตอนนี้หมู่เป้าหมาย: ${focusLabel()}`);
-      pushQuest('เลื่อนระดับ → เพิ่มหมู่');
+    // แสดงโค้ชสั้น ๆ ตอนเปลี่ยนโฟกัส
+    if (focusGoal && hint){
+      const txt = `GOAL: ${focusGoal.label}`;
+      window.dispatchEvent(new CustomEvent('hha:coach', { detail:{ text: txt } }));
     }
   }
 
-  // ---------- Judge ----------
+  // ---------- JUDGE (ตัดสินว่าคลิกดี/ไม่ดี) ----------
   function judge(ch, ctx){
     const x = ctx.clientX || ctx.cx || 0;
     const y = ctx.clientY || ctx.cy || 0;
 
-    const gid       = groupOf(ch);
-    const isInFocus = gid && focusGroups.includes(gid);
-    const isHealthy = ALL_GOOD.includes(ch);
-    const isGoodHit = isHealthy && isInFocus;
+    const gid   = EMO2GROUP[ch] || null;
+    const focus = pickFocusGroups();
+    const focusIds = new Set(focus.map(g => g.id));
 
-    let delta = 0;
-    if (isGoodHit){
-      const base = 14 + combo*2;
-      delta = base;
-      score += delta;
+    const isJunk = !gid;
+    const isGood = !isJunk && focusIds.has(gid);
+
+    let delta;
+    if (isGood){
       combo += 1;
-      if (combo > comboMax) comboMax = combo;
+      const base  = 14 + combo * 2;
+      delta = base * mult();
+      score += delta;
 
+      gainFever(6 + combo * 0.4);
+
+      if (gid && groupHits[gid] != null) groupHits[gid] += 1;
       deck.onGood();
-      updateStats();
-      levelUpIfNeeded();
+      syncDeck();
 
-      Particles.burstShards(null,null,{screen:{x,y},theme:'groups'});
-      Particles.scorePop({x,y,text:`+${delta}`,good:true});
+      Particles.burstShards(null, null, { screen:{x,y}, theme:'groups' });
+      Particles.scorePop(null, null, {
+        screen:{x,y},
+        text:`+${delta}`,
+        good:true
+      });
     } else {
-      delta = -10;
-      score = Math.max(0, score + delta);
+      const before = score;
+      const penalty = 12;
+      delta = -penalty;
+      score = Math.max(0, score - penalty);
       combo = 0;
 
+      decayFever(12);
       deck.onJunk();
-      updateStats();
-      levelUpIfNeeded();
+      syncDeck();
 
-      Particles.burstShards(null,null,{screen:{x,y},theme:'goodjunk'});
-      Particles.scorePop({x,y,text:`${delta}`,good:false});
+      Particles.burstShards(null, null, { screen:{x,y}, theme:'goodjunk' });
+      Particles.scorePop(null, null, {
+        screen:{x,y},
+        text:`-${penalty}`,
+        good:false
+      });
     }
 
-    window.dispatchEvent(new CustomEvent('hha:score',{
-      detail:{ delta, total:score, good:isGoodHit, combo, comboMax }
-    }));
-    window.dispatchEvent(new CustomEvent('hha:combo',{
-      detail:{ combo, comboMax }
+    // อัปเดตเควสต์ทุกครั้งที่มี Action
+    pushQuest();
+
+    // ส่งสำหรับ HUD score/combo (main.js จะอ่าน total/ combo / comboMax)
+    window.dispatchEvent(new CustomEvent('hha:score', {
+      detail:{
+        delta,
+        good:isGood,
+        total:score,
+        combo,
+        comboMax:deck.stats.comboMax
+      }
     }));
 
-    pushQuest();
-    return { good:isGoodHit, scoreDelta:delta };
+    return { good:isGood, scoreDelta:delta };
   }
 
+  // ---------- เมื่อเป้าหมายหมดอายุ (ไม่ได้คลิก) ----------
   function onExpire(ev){
-    const gid       = groupOf(ev?.ch || ev?.char || '');
-    const isInFocus = gid && focusGroups.includes(gid);
-    if (!isInFocus) return;
-
-    deck.onJunk();
-    combo = 0;
-    updateStats();
-    levelUpIfNeeded();
+    // ถ้าอยากให้ "ปล่อยให้หลุด" มีผลยากขึ้น สามารถปรับ logic ตรงนี้ได้
+    // ตอนนี้: แค่ลด Fever นิดหน่อย แล้วนับ tick ผ่าน MissionDeck ด้านล่าง
+    decayFever(4);
+    syncDeck();
     pushQuest();
   }
 
+  // ---------- ต่อวินาที (ผูกกับ hha:time) ----------
   function onSec(){
+    if (combo <= 0) decayFever(6); else decayFever(2);
     deck.second();
-    updateStats();
-    levelUpIfNeeded();
+    syncDeck();
     pushQuest();
+
+    // ถ้า Mini เคลียร์หมด → จั่วชุดใหม่
+    if (deck.isCleared('mini')){
+      deck.draw3();
+      pushQuest('Mini ใหม่');
+    }
+    // ถ้า GOAL เคลียร์หมด → จั่วเป้าหมายใหม่ (โฟกัสหมู่ใหม่)
+    if (deck.isCleared('goals')){
+      deck.drawGoals(1);
+      pushQuest('เปลี่ยนเป้าหมายใหม่');
+    }
   }
 
-  window.addEventListener('hha:time',(e)=>{
-    if ((e.detail?.sec|0) >= 0) onSec();
+  window.addEventListener('hha:time', (e)=>{
+    const sec = (e.detail?.sec|0);
+    if (sec >= 0) onSec();
   });
 
-  coach('โหมด Food Groups: เก็บเฉพาะอาหารของหมู่เป้าหมายที่ระบุบน Goal เท่านั้น!');
+  // ---------- เริ่มโรงงาน spawn เป้า ----------
+  const pools = {
+    good: GROUPS.flatMap(g => g.emo),
+    bad : JUNK
+  };
 
   return factoryBoot({
-    difficulty: diff,
-    duration  : dur,
-    pools     : { good: ALL_GOOD, bad: JUNK },
-    goodRate  : 0.7,
-    judge,
+    difficulty : diff,
+    duration   : dur,
+    pools,
+    goodRate   : 0.72,   // ส่วนใหญ่เป็นอาหารที่ "อาจ" เป็นคำตอบ
+    judge      : (ch, ctx)=>judge(ch, ctx),
     onExpire
   }).then(ctrl=>{
-    window.addEventListener('hha:time',(e)=>{
-      if ((e.detail?.sec|0) <= 0){
+    // บอกโค้ชตอนเริ่มเกม
+    window.dispatchEvent(new CustomEvent('hha:coach', {
+      detail:{ text:'เลือกอาหารให้ตรงหมู่ตาม GOAL ด้านขวา 🌈' }
+    }));
+
+    // เคาะ Quest แรก
+    pushQuest('เริ่ม');
+
+    // จบเกม → ส่งสรุปไป main.js
+    window.addEventListener('hha:time', (e)=>{
+      const sec = (e.detail?.sec|0);
+      if (sec <= 0){
         const goals = deck.getProgress('goals');
         const minis = deck.getProgress('mini');
-        const goalCleared   = goals.length>0 && goals.every(g=>g.done);
-        const questsCleared = minis.filter(m=>m.done).length;
-        const questsTotal   = minis.length;
+        const goalCleared = goals.length>0 && goals.every(g => g.done);
 
-        window.dispatchEvent(new CustomEvent('hha:end',{
+        window.dispatchEvent(new CustomEvent('hha:end', {
           detail:{
-            mode       : 'Food Groups',
-            difficulty : diff,
+            mode        : 'Food Groups',
+            difficulty  : diff,
             score,
-            comboMax   : deck.stats.comboMax,
-            misses     : deck.stats.junkMiss,
-            hits       : deck.stats.goodCount,
-            duration   : dur,
+            comboMax    : deck.stats.comboMax,
+            misses      : deck.stats.junkMiss,
+            hits        : deck.stats.goodCount,
+            duration    : dur,
             goalCleared,
-            questsCleared,
-            questsTotal
+            questsCleared: minis.filter(m => m.done).length,
+            questsTotal  : minis.length
           }
         }));
       }
     });
 
-    pushQuest('เริ่ม');
     return ctrl;
   });
 }
