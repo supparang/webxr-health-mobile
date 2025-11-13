@@ -10,32 +10,87 @@
   <script src="https://unpkg.com/aframe-troika-text@0.11.0/dist/aframe-troika-text.min.js"></script>
 
   <style>
-    html,body{margin:0;padding:0;height:100%;background:#000;font-family:system-ui,Segoe UI,Inter,Roboto,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;}
+    html,body{
+      margin:0;padding:0;height:100%;
+      background:#000;
+      font-family:system-ui,Segoe UI,Inter,Roboto,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+    }
     .game-wrap{position:fixed;inset:0;overflow:hidden;}
 
     /* HUD */
     #hudRoot{position:fixed;inset:0;pointer-events:none;z-index:500;}
-    .hud-top{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:10px;align-items:flex-start;pointer-events:none;}
-    .score-box{pointer-events:auto;background:#0b1220cc;backdrop-filter:blur(6px);border:1px solid #334155;border-radius:14px;padding:10px 12px;color:#e2e8f0;min-width:180px;display:flex;flex-direction:column;gap:6px;box-shadow:0 12px 30px rgba(0,0,0,.35);}
+    .hud-top{
+      position:absolute;left:50%;top:14px;transform:translateX(-50%);
+      display:flex;gap:10px;align-items:flex-start;pointer-events:none;
+    }
+    .score-box{
+      pointer-events:auto;background:#0b1220cc;backdrop-filter:blur(6px);
+      border:1px solid #334155;border-radius:14px;padding:10px 12px;
+      color:#e2e8f0;min-width:180px;display:flex;flex-direction:column;gap:6px;
+      box-shadow:0 12px 30px rgba(0,0,0,.35);
+    }
     .score-row{display:flex;justify-content:space-between;gap:10px;font-weight:800;}
     .score-row .k{color:#93c5fd;}
     .score-row .v{color:#f8fafc;}
     #feverBarDock{margin-top:6px;}
 
-    /* TIME pill */
-    #timePill{position:fixed;right:18px;top:12px;z-index:560;padding:6px 10px;border-radius:999px;background:#0b1220cc;color:#fff;font:800 12px system-ui;border:1px solid #334155;box-shadow:0 4px 16px rgba(0,0,0,.35);}
-    #timePill.warn{filter:drop-shadow(0 0 10px rgba(250,204,21,.65));background:#1f2937;color:#fde68a;border-color:#fbbf24;animation:glowPulse 1s ease-in-out infinite;}
-    #timePill.danger{filter:drop-shadow(0 0 12px rgba(239,68,68,.8));background:#111827;color:#fecaca;border-color:#ef4444;animation:dangerPulse .5s ease-in-out infinite;}
-    @keyframes glowPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-    @keyframes dangerPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.1);opacity:.75}}
+    /* TIME pill (ใช้ร่วมกับ hha:time) */
+    #timePill{
+      position:fixed;right:18px;top:12px;z-index:560;
+      padding:6px 10px;border-radius:999px;
+      background:#0b1220cc;color:#fff;font:800 12px system-ui;
+      border:1px solid #334155;box-shadow:0 4px 16px rgba(0,0,0,.35);
+      letter-spacing:.2px;user-select:none;-webkit-user-select:none;
+      transition:filter .2s ease,background .2s ease,color .2s ease,box-shadow .2s ease,transform .2s ease;
+    }
+    #timePill.warn{
+      filter:drop-shadow(0 0 10px rgba(250,204,21,.65));
+      background:#1f2937;color:#fde68a;border-color:#fbbf24;
+      animation:glowPulse 1s ease-in-out infinite;
+    }
+    #timePill.danger{
+      filter:drop-shadow(0 0 12px rgba(239,68,68,.8));
+      background:#111827;color:#fecaca;border-color:#ef4444;
+      animation:dangerPulse .5s ease-in-out infinite;
+    }
+    @keyframes glowPulse{
+      0%,100%{transform:scale(1)}
+      50%{transform:scale(1.06)}
+    }
+    @keyframes dangerPulse{
+      0%,100%{transform:scale(1);opacity:1}
+      50%{transform:scale(1.1);opacity:.75}
+    }
 
-    .start-fab{position:absolute;right:16px;bottom:16px;z-index:520;pointer-events:auto;background:#2563eb;color:#fff;border:0;border-radius:999px;padding:12px 16px;font-weight:900;box-shadow:0 10px 30px rgba(0,0,0,.45);cursor:pointer;}
+    .start-fab{
+      position:absolute;right:16px;bottom:16px;z-index:520;pointer-events:auto;
+      background:#2563eb;color:#fff;border:0;border-radius:999px;
+      padding:12px 16px;font-weight:900;
+      box-shadow:0 10px 30px rgba(0,0,0,.45);cursor:pointer;
+    }
 
-    /* Countdown overlay (กันภาพซ้อน) */
-    #countOverlay{position:fixed;inset:0;z-index:700;display:none;background:rgba(0,0,0,.55);align-items:center;justify-content:center;}
-    #countOverlay .num{font:900 clamp(64px,12vw,160px) system-ui;color:#e5edff;text-shadow:0 6px 18px rgba(0,0,0,.45);transform:scale(.8);opacity:0;animation:cdPop .65s ease forwards;}
-    #countOverlay.go .num{color:#86efac;text-shadow:0 10px 40px rgba(16,185,129,.45);}
-    @keyframes cdPop{0%{transform:scale(.6);opacity:0}40%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
+    /* Countdown overlay (ใช้ร่วมกับ main.js → runCountdown) */
+    #countOverlay{
+      position:fixed;inset:0;z-index:700;display:none;
+      background:rgba(0,0,0,.55);
+      align-items:center;justify-content:center;
+    }
+    #countOverlay .num{
+      font:900 clamp(64px,12vw,160px) system-ui;
+      color:#e5edff;
+      text-shadow:0 6px 18px rgba(0,0,0,.45);
+      transform:scale(.8);opacity:0;
+      animation:cdPop .65s ease forwards;
+    }
+    #countOverlay.go .num{
+      color:#86efac;
+      text-shadow:0 10px 40px rgba(16,185,129,.45);
+    }
+    @keyframes cdPop{
+      0%{transform:scale(.6);opacity:0}
+      40%{transform:scale(1.15);opacity:1}
+      100%{transform:scale(1);opacity:1}
+    }
 
     #spawnHost{position:absolute;inset:0;pointer-events:none;z-index:650;}
   </style>
@@ -45,22 +100,40 @@
     <a-scene renderer="antialias:true;colorManagement:true" background="color:#101826">
       <a-assets></a-assets>
 
-      <a-entity position="0 1.6 0"><a-camera wasd-controls-enabled="false"></a-camera></a-entity>
+      <a-entity position="0 1.6 0">
+        <a-camera wasd-controls-enabled="false"></a-camera>
+      </a-entity>
+
       <a-entity light="type:ambient;intensity:0.55"></a-entity>
       <a-entity light="type:directional;intensity:0.9" position="0 2 1"></a-entity>
 
       <!-- แผงเริ่ม -->
       <a-entity id="startPanel" position="0 1.4 -1.6" visible="true">
-        <a-entity geometry="primitive:plane;width:1.6;height:0.6" material="color:#0b1220;opacity:0.85;side:double"></a-entity>
-        <a-entity troika-text="value: เริ่ม: GOODJUNK;color:#93C5FD;fontSize:0.18;maxWidth:1.4;anchor:center;baseline:top;" position="0 0.16 0.02"></a-entity>
-        <a-entity id="vrStartBtn" geometry="primitive:plane;width:0.9;height:0.22" material="color:#2563EB" position="0 -0.12 0.02" class="clickable"></a-entity>
-        <a-entity troika-text="value: เริ่มเกม;color:#fff;fontSize:0.12;anchor:center;baseline:middle;" position="0 -0.12 0.03"></a-entity>
+        <a-entity geometry="primitive:plane;width:1.6;height:0.6"
+                  material="color:#0b1220;opacity:0.85;side:double"></a-entity>
+        <a-entity troika-text="value: เริ่ม: GOODJUNK;color:#93C5FD;fontSize:0.18;maxWidth:1.4;anchor:center;baseline:top;"
+                  position="0 0.16 0.02"></a-entity>
+        <a-entity id="vrStartBtn"
+                  geometry="primitive:plane;width:0.9;height:0.22"
+                  material="color:#2563EB" position="0 -0.12 0.02"
+                  class="clickable"></a-entity>
+        <a-entity troika-text="value: เริ่มเกม;color:#fff;fontSize:0.12;anchor:center;baseline:middle;"
+                  position="0 -0.12 0.03"></a-entity>
       </a-entity>
     </a-scene>
 
+    <!-- HUD -->
     <div id="hudRoot">
       <div id="hudTop" class="hud-top">
-        <div class="score-box"><div class="score-row"><span class="k">คะแนน</span><span id="hudScore" class="v">0</span></div><div class="score-row"><span class="k">คอมโบ</span><span id="hudCombo" class="v">0</span></div><div id="feverBarDock"></div></div>
+        <div class="score-box" data-hud="scorebox">
+          <div class="score-row">
+            <span class="k">คะแนน</span><span id="hudScore" class="v">0</span>
+          </div>
+          <div class="score-row">
+            <span class="k">คอมโบ</span><span id="hudCombo" class="v">0</span>
+          </div>
+          <div id="feverBarDock"></div>
+        </div>
       </div>
     </div>
 
@@ -70,14 +143,51 @@
     <button id="btnStart" class="start-fab">เริ่มเกม</button>
   </div>
 
+  <!-- สะพาน VR start → ปุ่ม DOM -->
   <script>
     document.addEventListener('DOMContentLoaded',()=>{
       const vrBtn=document.getElementById('vrStartBtn');
       const domBtn=document.getElementById('btnStart');
-      if(vrBtn&&domBtn) vrBtn.addEventListener('click',e=>{e.preventDefault();domBtn.click();});
+      if(vrBtn&&domBtn){
+        vrBtn.addEventListener('click',e=>{
+          e.preventDefault();
+          domBtn.click();
+        });
+      }
     });
   </script>
 
+  <!-- Sync TIME pill กับ hha:time + กัน bubble ตัวเก่า -->
+  <script>
+    (function(){
+      const pill = document.getElementById('timePill');
+
+      function updateTime(sec){
+        if(!pill) return;
+        const s = Math.max(0, sec|0);
+        pill.textContent = 'TIME ' + s + 's';
+        pill.classList.toggle('warn',   s<=10 && s>5);
+        pill.classList.toggle('danger', s<=5);
+      }
+
+      // ฟัง event จาก mode-factory / main.js
+      window.addEventListener('hha:time', e=>{
+        const sec = (e.detail && e.detail.sec) || 0;
+        updateTime(sec);
+      });
+
+      // ถ้า main.js เคยสร้าง hudTimeBubble ไว้ ให้ลบทิ้งกันซ้อน
+      function killOldBubble(){
+        const old = document.getElementById('hudTimeBubble');
+        if(old && old.parentNode) old.parentNode.removeChild(old);
+      }
+      document.addEventListener('DOMContentLoaded', killOldBubble);
+      window.addEventListener('load', killOldBubble);
+      setTimeout(killOldBubble, 1000);
+    })();
+  </script>
+
+  <!-- Entrypoint -->
   <script type="module" src="./game/main.js?v=20251113"></script>
 </body>
 </html>
