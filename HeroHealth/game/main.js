@@ -1,4 +1,4 @@
-// === /HeroHealth/game/main.js (2025-11-14 QUEST + COACH + SUMMARY STABLE) ===
+// === /HeroHealth/game/main.js (2025-11-14 QUEST + COACH + SUMMARY STABLE + COMBO FIX) ===
 'use strict';
 
 const $  = (s)=>document.querySelector(s);
@@ -120,20 +120,44 @@ let comboNow   = 0;
 let comboMax   = 0;
 let misses     = 0;
 
-// จากโหมด
+// รับ event คะแนนจากโหมด (safe.js)
+// - รองรับทั้งแบบที่โหมดส่ง combo/total มาเอง
+// - และแบบเดิมที่ส่งแค่ delta + good → อนุมานคอมโบจาก good/false
 window.addEventListener('hha:score',(e)=>{
   const d = e.detail || {};
-  if (typeof d.total === 'number') scoreTotal = d.total|0;
-  else scoreTotal = Math.max(0, (scoreTotal|0) + (d.delta|0));
 
-  if (typeof d.combo === 'number')    comboNow = d.combo|0;
-  if (typeof d.comboMax === 'number') comboMax = Math.max(comboMax, d.comboMax|0);
-  if (d.good === false) misses++;
+  // คะแนนรวม
+  if (typeof d.total === 'number') {
+    scoreTotal = d.total | 0;
+  } else {
+    scoreTotal = Math.max(0, (scoreTotal | 0) + (d.delta | 0));
+  }
+
+  // คอมโบ
+  if (typeof d.combo === 'number') {
+    // โหมดจัดการคอมโบเอง
+    comboNow = d.combo | 0;
+    const cm = (typeof d.comboMax === 'number') ? (d.comboMax | 0) : comboNow;
+    comboMax = Math.max(comboMax, cm);
+  } else if (typeof d.good === 'boolean') {
+    // ไม่มี combo ส่งมา → ประมาณจาก good/false
+    if (d.good) {
+      comboNow += 1;
+      comboMax = Math.max(comboMax, comboNow);
+    } else {
+      comboNow = 0;
+    }
+  }
+
+  if (d.good === false) {
+    misses++;
+  }
 
   setScore(scoreTotal);
   setCombo(comboNow);
 });
 
+// เผื่อบางโหมดอยากยิง hha:combo แยก (optional)
 window.addEventListener('hha:combo',(e)=>{
   const d = e.detail || {};
   comboNow = d.combo|0;
