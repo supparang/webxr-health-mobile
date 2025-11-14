@@ -1,174 +1,64 @@
-// === /HeroHealth/modes/hydration.quest.js ===
-// ใช้ ctx แบบเดียวกับ goodjunk: {score, goodHits, miss, comboMax, timeLeft}
-// goodHits = จำนวนครั้งที่ดื่ม/เทน้ำถูก, miss = ผิด, score ตามระบบเกมน้ำ
+// === /HeroHealth/modes/hydration.quest.js (Full) ===
+import { MissionDeck } from '../vr/mission.js';
 
-function shuffle(a){
-  const arr = a.slice();
-  for(let i=arr.length-1;i>0;i--){
-    const j=(Math.random()*(i+1))|0;
-    [arr[i],arr[j]]=[arr[j],arr[i]];
-  }
-  return arr;
+function G(s){ return {
+  score:s.score|0, combo:s.combo|0, comboMax:s.comboMax|0,
+  good:s.goodCount|0, miss:s.junkMiss|0, tick:s.tick|0,
+  zone:s.zone||''
+};}
+
+function goalsFor(diff){
+  const K = { easy:{score:700, combo:8,  miss:8,  green:18},
+              normal:{score:1200,combo:12, miss:6, green:28},
+              hard:{score:1800, combo:16, miss:4, green:36} }[diff]||{};
+  return [
+    {id:'g_green',label:`อยู่ในโซนสมดุล (GREEN) รวม ${K.green}s`, target:K.green,
+      check:s=>G(s).tick>=K.green && G(s).zone==='GREEN', prog:s=>Math.min(K.green,G(s).tick)},
+    {id:'g_score',label:`คะแนนรวม ${K.score}+`, target:K.score,
+      check:s=>G(s).score>=K.score, prog:s=>Math.min(K.score,G(s).score)},
+    {id:'g_combo',label:`คอมโบ ≥ ${K.combo}`, target:K.combo,
+      check:s=>G(s).comboMax>=K.combo, prog:s=>Math.min(K.combo,G(s).comboMax)},
+    {id:'g_nomiss',label:`พลาดไม่เกิน ${K.miss}`, target:K.miss,
+      check:s=>G(s).miss<=K.miss, prog:s=>Math.max(0,K.miss-G(s).miss)},
+    {id:'g_good24',label:'เก็บไฮเดรต 24', target:24,
+      check:s=>G(s).good>=24, prog:s=>Math.min(24,G(s).good)},
+    {id:'g_score1600',label:'คะแนน 1600+', target:1600,
+      check:s=>G(s).score>=1600, prog:s=>Math.min(1600,G(s).score)},
+    {id:'g_combo14',label:'คอมโบ ≥ 14', target:14,
+      check:s=>G(s).comboMax>=14, prog:s=>Math.min(14,G(s).comboMax)},
+    {id:'g_good18',label:'เก็บไฮเดรต 18', target:18,
+      check:s=>G(s).good>=18, prog:s=>Math.min(18,G(s).good)},
+    {id:'g_nomiss6',label:'พลาด ≤ 6', target:6,
+      check:s=>G(s).miss<=6, prog:s=>Math.max(0,6-G(s).miss)},
+    {id:'g_time30',label:'อยู่รอด 30s', target:30,
+      check:s=>G(s).tick>=30, prog:s=>Math.min(30,G(s).tick)},
+  ];
 }
 
-const GOALS = {
-  easy: [
-    { id:'score_600', pick(){const t=600;return {label:'รักษาสมดุลน้ำ ทำคะแนนรวม 600+',target:t,type:'score',threshold:t}; } },
-    { id:'good_15',  pick(){const t=15;return {label:'ดื่มน้ำ/ทิ้งส่วนเกินถูก 15 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'good_20',  pick(){const t=20;return {label:'ดื่มน้ำอย่างเหมาะสม 20 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'miss_leq_5',pick(){const t=5;return {label:'พลาดไม่เกิน 5 ครั้งทั้งเกม',target:t,type:'miss_leq',threshold:t}; } },
-    { id:'combo_8',  pick(){const t=8; return {label:'ทำคอมโบต่อเนื่อง ≥ 8',target:t,type:'combo',threshold:t}; } },
-    { id:'score_900',pick(){const t=900;return {label:'ทำคะแนนรวมน้ำ 900+',target:t,type:'score',threshold:t}; } },
-    { id:'good_10', pick(){const t=10;return {label:'ดื่มน้ำถูกอย่างน้อย 10 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'combo_6', pick(){const t=6; return {label:'ทำคอมโบต่อเนื่อง ≥ 6',target:t,type:'combo',threshold:t}; } },
-    { id:'miss_leq_3',pick(){const t=3;return {label:'พลาดไม่เกิน 3 ครั้ง',target:t,type:'miss_leq',threshold:t}; } },
-    { id:'score_750',pick(){const t=750;return {label:'ทำคะแนนรวม 750+',target:t,type:'score',threshold:t}; } }
-  ],
-  normal: [],
-  hard: []
-};
-GOALS.normal = GOALS.easy;
-GOALS.hard   = GOALS.easy;
-
-const MINIS = {
-  easy: [
-    { id:'good_8',  pick(){const t=8; return {label:'เก็บจังหวะดื่มน้ำถูก 8 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'good_12', pick(){const t=12;return {label:'ดื่มน้ำถูก 12 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'good_16', pick(){const t=16;return {label:'ดื่มน้ำถูก 16 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'miss_leq_4',pick(){const t=4;return {label:'พลาดไม่เกิน 4 ครั้ง',target:t,type:'miss_leq',threshold:t}; } },
-    { id:'miss_leq_6',pick(){const t=6;return {label:'พลาดไม่เกิน 6 ครั้ง',target:t,type:'miss_leq',threshold:t}; } },
-    { id:'combo_5', pick(){const t=5; return {label:'คอมโบต่อเนื่อง 5 ครั้ง',target:t,type:'combo',threshold:t}; } },
-    { id:'combo_9', pick(){const t=9; return {label:'คอมโบต่อเนื่อง 9 ครั้ง',target:t,type:'combo',threshold:t}; } },
-    { id:'score_500',pick(){const t=500;return {label:'ทำคะแนนรวม 500+',target:t,type:'score',threshold:t}; } },
-    { id:'score_700',pick(){const t=700;return {label:'ทำคะแนนรวมน้ำ 700+',target:t,type:'score',threshold:t}; } },
-    { id:'good_6',  pick(){const t=6; return {label:'เริ่มต้นให้ติดมือ 6 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'good_18', pick(){const t=18;return {label:'สะสมจังหวะดี 18 ครั้ง',target:t,type:'good',threshold:t}; } },
-    { id:'ratio_good',pick(){return {label:'จังหวะถูกมากกว่าผิด 2 เท่า',target:2,type:'ratio_good'};} },
-    { id:'endgame_safe',pick(){return {label:'ช่วยควบคุมน้ำให้ดีจนจบเกม',target:0,type:'decor'};} },
-    { id:'combo_peak',pick(){const t=7; return {label:'ดันคอมโบสูงสุด ≥ 7',target:t,type:'combo',threshold:t}; } },
-    { id:'miss_leq_2',pick(){const t=2;return {label:'ลองเล่นให้พลาดไม่เกิน 2 ครั้ง',target:t,type:'miss_leq',threshold:t}; } }
-  ],
-  normal: [],
-  hard: []
-};
-MINIS.normal = MINIS.easy;
-MINIS.hard   = MINIS.easy;
-
-function evalProgress(def, ctx){
-  if (!def) return {prog:0,done:false};
-  let prog=0, done=false;
-  switch(def.type){
-    case 'score':
-      prog = ctx.score|0;
-      done = prog>=def.threshold;
-      break;
-    case 'good':
-      prog = ctx.goodHits|0;
-      done = prog>=def.threshold;
-      break;
-    case 'combo':
-      prog = ctx.comboMax|0;
-      done = prog>=def.threshold;
-      break;
-    case 'miss_leq':
-      prog = ctx.miss|0;
-      done = (ctx.timeLeft<=0) ? (prog<=def.threshold) : false;
-      break;
-    case 'ratio_good': {
-      const g=ctx.goodHits|0,m=ctx.miss|0;
-      prog = (m===0)? g : (g/(m||1));
-      done = g>=5 && prog>=def.target;
-      break;
-    }
-    default:
-      prog=0;done=false;
-  }
-  return {prog,done};
+function minisFor(diff){
+  const K = { easy:{score:500, combo:8, good:12, miss:8},
+              normal:{score:900, combo:10,good:18, miss:6},
+              hard:{score:1400,combo:12,good:24, miss:4} }[diff]||{};
+  return [
+    {id:'m_score',label:`คะแนน ${K.score}+`, target:K.score, check:s=>G(s).score>=K.score, prog:s=>Math.min(K.score,G(s).score)},
+    {id:'m_combo',label:`คอมโบ ≥ ${K.combo}`, target:K.combo, check:s=>G(s).comboMax>=K.combo, prog:s=>Math.min(K.combo,G(s).comboMax)},
+    {id:'m_good', label:`เก็บไฮเดรต ${K.good}`, target:K.good, check:s=>G(s).good>=K.good, prog:s=>Math.min(K.good,G(s).good)},
+    {id:'m_nomiss',label:`พลาดไม่เกิน ${K.miss}`, target:K.miss, check:s=>G(s).miss<=K.miss, prog:s=>Math.max(0,K.miss-G(s).miss)},
+    {id:'m_green12',label:'อยู่ GREEN 12s', target:12, check:s=>G(s).tick>=12 && G(s).zone==='GREEN', prog:s=>Math.min(12,G(s).tick)},
+    {id:'m_time15',label:'อยู่รอด 15s', target:15, check:s=>G(s).tick>=15, prog:s=>Math.min(15,G(s).tick)},
+    {id:'m_combo12',label:'คอมโบ ≥ 12', target:12, check:s=>G(s).comboMax>=12, prog:s=>Math.min(12,G(s).comboMax)},
+    {id:'m_score1100',label:'คะแนน 1100+', target:1100, check:s=>G(s).score>=1100, prog:s=>Math.min(1100,G(s).score)},
+    {id:'m_good16',label:'เก็บไฮเดรต 16', target:16, check:s=>G(s).good>=16, prog:s=>Math.min(16,G(s).good)},
+    {id:'m_nomiss4',label:'พลาด ≤ 4', target:4, check:s=>G(s).miss<=4, prog:s=>Math.max(0,4-G(s).miss)},
+    {id:'m_green8', label:'อยู่ GREEN 8s', target:8, check:s=>G(s).tick>=8 && G(s).zone==='GREEN', prog:s=>Math.min(8,G(s).tick)},
+    {id:'m_score800',label:'คะแนน 800+', target:800, check:s=>G(s).score>=800, prog:s=>Math.min(800,G(s).score)},
+    {id:'m_good10',label:'เก็บไฮเดรต 10', target:10, check:s=>G(s).good>=10, prog:s=>Math.min(10,G(s).good)},
+    {id:'m_combo10',label:'คอมโบ ≥ 10', target:10, check:s=>G(s).comboMax>=10, prog:s=>Math.min(10,G(s).comboMax)},
+    {id:'m_time25',label:'อยู่รอด 25s', target:25, check:s=>G(s).tick>=25, prog:s=>Math.min(25,G(s).tick)},
+  ];
 }
 
-export function createHydrationQuest(diff){
-  const gPoolBase = GOALS[diff] || GOALS.easy;
-  const mPoolBase = MINIS[diff] || MINIS.easy;
-
-  const gPool = shuffle(gPoolBase).slice(0,2).map(q=>q.pick(diff));
-  const mPool = shuffle(mPoolBase).slice(0,3).map(q=>q.pick(diff));
-
-  let gIndex=0,mIndex=0;
-  let goalsCleared=0,miniCleared=0;
-
-  function currentGoal(){ return gPool[gIndex] || null; }
-  function currentMini(){ return mPool[mIndex] || null; }
-
-  function pushHUD(state){
-    const cg=currentGoal(), cm=currentMini();
-    const payload={};
-
-    if (cg){
-      const r=evalProgress(cg,state);
-      payload.goal={
-        label:cg.label,
-        target:cg.target,
-        prog:Math.min(r.prog,cg.target),
-        done:r.done
-      };
-    }
-    if (cm){
-      const r=evalProgress(cm,state);
-      payload.mini={
-        label:cm.label,
-        target:cm.target || (r.prog|0),
-        prog:Math.min(r.prog,cm.target||r.prog),
-        done:r.done
-      };
-    }
-    if (payload.goal || payload.mini){
-      window.dispatchEvent(new CustomEvent('hha:quest',{detail:payload}));
-    }
-  }
-
-  function update(state){
-    state = state || {};
-    let advanced=false;
-
-    const cg=currentGoal();
-    if (cg){
-      const r=evalProgress(cg,state);
-      if (r.done && !cg._done){
-        cg._done=true;
-        goalsCleared++;
-        gIndex++;
-        advanced=true;
-        window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:'เยี่ยม! รักษาสมดุลน้ำตาม GOAL สำเร็จแล้ว'}}));
-      }
-    }
-    const cm=currentMini();
-    if (cm){
-      const r=evalProgress(cm,state);
-      if (r.done && !cm._done){
-        cm._done=true;
-        miniCleared++;
-        mIndex++;
-        advanced=true;
-        window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:'Mini Quest ด้านน้ำสำเร็จ ได้เควสต์ใหม่แล้ว!'}}));
-      }
-    }
-
-    pushHUD(state);
-    return advanced;
-  }
-
-  function start(state){ pushHUD(state||{}); }
-
-  function summary(){
-    return {
-      goalsCleared,
-      goalsTotal:gPool.length,
-      miniCleared,
-      miniTotal:mPool.length
-    };
-  }
-
-  return { start, update, summary };
+export function createHydrationQuest(diff='normal'){
+  return new MissionDeck({ goalPool: goalsFor(diff), miniPool: minisFor(diff) });
 }
-
 export default { createHydrationQuest };
