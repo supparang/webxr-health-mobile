@@ -1,31 +1,24 @@
-// === /HeroHealth/modes/plate.safe.js ===
-// เกมจัดจาน 5 หมู่: quota ต่อจาน + goal/mini
+// === /HeroHealth/modes/plate.safe.js (2025-11-14 QUOTA 5 หมู่ + QUEST) ===
+// แนวคิด: ทำ "จานสุขภาพ" ให้ครบสัดส่วน 5 หมู่ต่อ 1 ชุด (โควตาต่อหมู่ขึ้นกับด่าน/เควสต์)
+// safe.js จะ bias สปอว์นไปยังหมู่ที่ "ยังขาด" และส่งเหตุการณ์ให้ quest ประมวลผลโควตา
 
 import { burstAt, scorePop } from '../vr/particles.js';
+import { createPlateQuest } from './plate.quest.js';
 
+// 5 หมู่ (ใช้ชุดเดียวกับ groups เพื่อความคุ้นมือ)
 const GROUPS = {
-  1: ['🍚','🍙','🍞','🥐','🥖','🥯'],
-  2: ['🥩','🍗','🍖','🥚','🧀','🥓'],
-  3: ['🥦','🥕','🍅','🥬','🌽','🥗'],
-  4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],
-  5: ['🥛','🧈','🧀','🍨','🧋']
+  1: ['🍚','🍙','🍞','🥐','🥖','🥯'],              // ข้าว-แป้ง
+  2: ['🥩','🍗','🍖','🥚','🧀','🥓'],              // เนื้อ/โปรตีน
+  3: ['🥦','🥕','🍅','🥬','🌽','🥗'],              // ผัก
+  4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],          // ผลไม้
+  5: ['🥛','🧈','🧀','🍨']                         // นม/แคลเซียม
 };
-
-const ALL = Object.values(GROUPS).flat();
-
-function foodGroup(emo){
-  for (const [g,list] of Object.entries(GROUPS)){
-    if (list.includes(emo)) return Number(g);
-  }
-  return 0;
-}
-
-const baseQuota = { 1:2,2:1,3:2,4:1,5:1 };
+const ALL_EMOJI = Object.values(GROUPS).flat();
 
 const diffCfg = {
-  easy:   { spawn:900, life:2300, goalSets:1, maxMiss:10 },
-  normal: { spawn:800, life:2100, goalSets:2, maxMiss:8  },
-  hard:   { spawn:700, life:1900, goalSets:3, maxMiss:6  }
+  easy:   { spawn: 900, life: 2200 },
+  normal: { spawn: 780, life: 2000 },
+  hard:   { spawn: 660, life: 1800 }
 };
 
 export async function boot(opts = {}) {
@@ -34,214 +27,141 @@ export async function boot(opts = {}) {
   const dur  = (opts.duration|0) || 60;
 
   const host = document.getElementById('spawnHost') || makeHost();
-  host.innerHTML = '';
+  host.innerHTML='';
 
-  let score=0, combo=0, comboMax=0, misses=0, hits=0;
-  let timeLeft=dur;
+  // state
+  let score=0, combo=0, comboMax=0, misses=0, goodHits=0, timeLeft=dur;
+  let spawnTimer=null, tickTimer=null, speedLevel=0;
 
-  let setsCompleted = 0;
+  // quest: ควบคุมโควตา/เซต, คืน method optional: getFocusGroups(), onPick(group)
+  const quest = createPlateQuest(diff);
 
-  let spawnTimer=null, tickTimer=null;
-
-  let quota   = newSetQuota();
-  let filled  = resetFill();
-
-  function newSetQuota(){
-    // สำเนา baseQuota
-    return {1:baseQuota[1],2:baseQuota[2],3:baseQuota[3],4:baseQuota[4],5:baseQuota[5]};
-  }
-  function resetFill(){ return {1:0,2:0,3:0,4:0,5:0}; }
-
-  function isSetDone(){
-    for (let g=1; g<=5; g++){
-      if ((filled[g]||0) < (quota[g]||0)) return false;
-    }
-    return true;
-  }
+  const getState = ()=>({ score, goodHits, miss:misses, comboMax, timeLeft });
+  function pushQuest(){ try{ quest.update(getState()); }catch(_){ } }
 
   function coach(text){
-    window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}}));
+    window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text } }));
   }
 
-  // ---------- Quest ----------
-  const mission = {
-    goalLabel  : `จัดจาน 5 หมู่ให้ครบ ${cfg.goalSets} ชุด`,
-    goalTarget : cfg.goalSets,
-    goalProg   : ()=>setsCompleted,
-    goalDone   : ()=>setsCompleted >= cfg.goalSets,
-
-    miniLabel  : `เลือกหมู่ผิดไม่เกิน ${cfg.maxMiss} ครั้ง`,
-    miniTarget : cfg.maxMiss,
-    miniProg   : ()=>misses,
-    miniDone   : ()=>misses <= cfg.maxMiss
-  };
-
-  function emitQuest(){
-    window.dispatchEvent(new CustomEvent('hha:quest',{
-      detail:{
-        goal:{
-          label: mission.goalLabel,
-          target: mission.goalTarget,
-          prog: mission.goalProg(),
-          done: mission.goalDone()
-        },
-        mini:{
-          label: mission.miniLabel,
-          target: mission.miniTarget,
-          prog: mission.miniProg(),
-          done: mission.miniDone()
-        }
-      }
-    }));
+  function getXY(ev){
+    if (ev?.changedTouches?.[0]) return { x: ev.changedTouches[0].clientX, y: ev.changedTouches[0].clientY };
+    if (ev?.touches?.[0])        return { x: ev.touches[0].clientX,        y: ev.touches[0].clientY };
+    return { x: ev?.clientX||0, y: ev?.clientY||0 };
   }
 
-  // ---------- Score ----------
-  function emitScore(delta, good, ev){
-    score = Math.max(0, score + delta);
-    if (good){
-      combo++;
-      hits++;
-      comboMax = Math.max(comboMax, combo);
-    }else{
-      combo=0;
-      misses++;
-    }
+  function emitScore(delta, isGood, ev){
+    score = Math.max(0, score + (delta|0));
+    if (isGood){ combo++; goodHits++; comboMax = Math.max(comboMax, combo); }
+    else { combo=0; misses++; }
 
     window.dispatchEvent(new CustomEvent('hha:score',{
-      detail:{ delta, total:score, combo, comboMax, good }
+      detail:{ delta, total:score, combo, comboMax, good:isGood }
     }));
 
     if (ev){
-      const x=ev.clientX,y=ev.clientY;
-      burstAt(x,y,{color:good?'#22c55e':'#f97316'});
-      const txt=(delta>0?'+':'')+delta;
-      scorePop(x,y,txt,{good});
+      const {x,y} = getXY(ev);
+      burstAt(x,y,{ color: isGood ? '#22c55e' : '#ef4444' });
+      scorePop(x,y,(delta>0?'+':'')+delta,{ good:isGood });
     }
 
-    if (good && combo===5)  coach('จัดจานได้เนียนมาก! คอมโบ 5 แล้ว 👏');
-    if (!good && misses===3) coach('ลองสังเกตโควต้าหมู่ที่ยังไม่ครบ แล้วเลือกให้ตรงหมู่');
+    // เร่งเล็กน้อยเมื่อทำได้ดี
+    if (goodHits>=10 && speedLevel===0){ speedLevel=1; coach('เริ่มไวขึ้น'); }
+    if (goodHits>=22 && speedLevel===1){ speedLevel=2; coach('ไวขึ้นอีก! เติมให้ครบชุด'); }
 
-    if (mission.goalDone()) coach('ทำจานครบตามเป้าหมายแล้ว เยี่ยมมาก!');
-    if (mission.miniDone()) coach('Mini Quest ผ่าน! เลือกหมู่ผิดไม่เกินโควต้าแล้ว');
-
-    emitQuest();
+    pushQuest();
   }
 
-  // ---------- Spawn ----------
   function spawnOne(){
     if (timeLeft<=0) return;
 
-    // หา “หมู่ที่ยังไม่ครบโควต้า”
-    const needGroups = [];
-    for (let g=1; g<=5; g++){
-      if ((filled[g]||0) < (quota[g]||0)) needGroups.push(g);
-    }
+    // ขอ "กลุ่มที่ยังขาด" จาก quest ถ้ามี (เช่น [3,4]) เพื่อ bias
+    let focus = [];
+    try{ focus = quest.getFocusGroups ? (quest.getFocusGroups()||[]) : []; }catch(_){}
+    const bias = (focus.length>0);
 
-    let emoji, g;
-    const needBias = 0.7;
-
-    if (needGroups.length && Math.random()<needBias){
-      // spawn ตามหมู่ที่ยังไม่ครบ
-      g = pickOne(needGroups);
-      emoji = pickOne(GROUPS[g]);
+    let g, ch;
+    if (bias && Math.random()<0.72){
+      g  = focus[(Math.random()*focus.length)|0];
+      ch = pick(GROUPS[g]);
     }else{
-      emoji = pickOne(ALL);
-      g = foodGroup(emoji);
+      ch = pick(ALL_EMOJI);
+      g  = foodGroup(ch);
     }
 
     const el=document.createElement('div');
-    el.textContent = emoji;
-    el.dataset.group = g;
+    el.textContent=ch; el.dataset.group=g;
     Object.assign(el.style,{
       position:'absolute',
-      left:(12+Math.random()*76)+'%',
+      left:(10+Math.random()*80)+'%',
       top:(18+Math.random()*60)+'%',
       transform:'translate(-50%,-50%)',
-      font:'900 46px system-ui',
-      textShadow:'0 6px 18px rgba(0,0,0,.55)',
-      cursor:'pointer',
-      pointerEvents:'auto',
-      userSelect:'none'
+      font:'900 48px system-ui',
+      textShadow:'0 8px 20px rgba(0,0,0,.55)',
+      pointerEvents:'auto', userSelect:'none', cursor:'pointer'
     });
 
-    const life = cfg.life;
-    const kill=()=>{ if(el.parentNode) try{host.removeChild(el);}catch(_){ } };
+    const life = Math.max(1200, cfg.life - speedLevel*160);
+    const kill = ()=>{ if(el.parentNode) try{ host.removeChild(el); }catch(_){ } };
 
     el.addEventListener('click',(ev)=>{
-      if(!el.parentNode) return;
-      kill();
-
+      if(!el.parentNode) return; kill();
       const groupHit = Number(el.dataset.group||0);
-      const canUse   = quota[groupHit] && filled[groupHit] < quota[groupHit];
 
-      if (canUse){
-        // เติมโควต้าจาน
-        filled[groupHit] = (filled[groupHit]||0)+1;
-        emitScore(+140,true,ev);
+      // แจ้ง quest ก่อนเพื่อคำนวนโควตา (optional)
+      try{ quest.onPick?.(groupHit); }catch(_){}
 
-        if (isSetDone()){
-          setsCompleted++;
-          coach(`จานครบทั้ง 5 หมู่แล้ว! ชุดที่ ${setsCompleted}`);
-          // เริ่มจานใหม่
-          quota  = newSetQuota();
-          filled = resetFill();
-        }
-      }else{
-        emitScore(-120,false,ev);
+      // ถ้ากลุ่มนี้ "ยังขาด" อยู่ → คะแนนบวก, ถ้าเกินโควตา → ลดย่อม ๆ
+      let stillNeeded=false;
+      try{ stillNeeded = !!quest.isNeeded?.(groupHit); }catch(_){}
+
+      if (stillNeeded){
+        emitScore(140, true, ev);
+      } else {
+        emitScore(-80, false, ev);
+        coach('กลุ่มนี้ครบโควตาแล้ว ลองเลือกหมู่ที่ยังขาด');
       }
     });
 
     host.appendChild(el);
-    setTimeout(kill,life);
+    setTimeout(kill, life);
   }
 
-  // ---------- Timer ----------
   function tick(){
     timeLeft--;
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-    emitQuest();
-    if (timeLeft<=0){
-      stopAll();
-      finish();
-    }
+    window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+    pushQuest();
+    if (timeLeft<=0){ stopAll(); finish(); }
   }
 
   function stopAll(){
-    if (spawnTimer){clearInterval(spawnTimer);spawnTimer=null;}
-    if (tickTimer){clearInterval(tickTimer);tickTimer=null;}
+    if (spawnTimer){ clearInterval(spawnTimer); spawnTimer=null; }
+    if (tickTimer){  clearInterval(tickTimer);  tickTimer=null; }
   }
 
   function finish(){
-    emitQuest();
-    const questsTotal   = 2;
-    const questsCleared = (mission.goalDone()?1:0) + (mission.miniDone()?1:0);
+    const sum = quest.summary ? quest.summary() : { goalsCleared:0, goalsTotal:0, miniCleared:0, miniTotal:0 };
+    const goalCleared = sum.goalsTotal ? (sum.goalsCleared >= sum.goalsTotal) : false;
 
     window.dispatchEvent(new CustomEvent('hha:end',{
       detail:{
-        mode:'plate',
-        difficulty:diff,
-        score,
-        misses,
-        comboMax,
-        duration:dur,
-        goalCleared:mission.goalDone(),
-        questsCleared,
-        questsTotal
+        mode:'plate', difficulty:diff, score, misses, comboMax, duration:dur,
+        goalCleared,
+        questsCleared: sum.miniCleared || 0,
+        questsTotal  : sum.miniTotal  || 0
       }
     }));
   }
 
   return {
     start(){
-      score=0;combo=0;comboMax=0;misses=0;hits=0;
-      timeLeft=dur;setsCompleted=0;
-      quota  = newSetQuota();
-      filled = resetFill();
-      window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-      emitQuest();
-      coach('สังเกตโควต้าจาน 5 หมู่ แล้วเลือกอาหารให้ตรงหมู่ที่ยังไม่ครบ!');
-      spawnTimer=setInterval(spawnOne,cfg.spawn);
-      tickTimer=setInterval(tick,1000);
+      score=0; combo=0; comboMax=0; misses=0; goodHits=0; timeLeft=dur; speedLevel=0;
+      window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+
+      try{ quest.start(getState()); }catch(_){}
+
+      coach('เลือกอาหารให้ครบโควตา 5 หมู่ตามที่ยังขาด จะได้จานสุขภาพครบชุด!');
+      spawnTimer = setInterval(spawnOne, Math.max(320, cfg.spawn - speedLevel*60));
+      tickTimer  = setInterval(tick, 1000);
     },
     stop(){ stopAll(); }
   };
@@ -249,17 +169,16 @@ export async function boot(opts = {}) {
 
 export default { boot };
 
-function pickOne(arr){ return arr[(Math.random()*arr.length)|0]; }
-
+// helpers
+function foodGroup(emo){
+  for(const [g,list] of Object.entries(GROUPS)){
+    if(list.includes(emo)) return Number(g);
+  }
+  return 0;
+}
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 function makeHost(){
-  const h=document.createElement('div');
-  h.id='spawnHost';
-  Object.assign(h.style,{
-    position:'absolute',
-    inset:0,
-    pointerEvents:'none',
-    zIndex:650
-  });
-  document.body.appendChild(h);
-  return h;
+  const h=document.createElement('div'); h.id='spawnHost';
+  Object.assign(h.style,{position:'absolute',inset:0,pointerEvents:'none',zIndex:650});
+  document.body.appendChild(h); return h;
 }
