@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/goodjunk.safe.js (Full Pack – FX + Quest, no miss on expire) ===
+// === /HeroHealth/modes/goodjunk.safe.js (Full Pack – FX + Quest + Coach) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
@@ -8,6 +8,18 @@ const GOOD = ['🥦','🥕','🍎','🍌','🥗','🐟','🥜','🍚','🍞','�
 const JUNK = ['🍔','🍟','🌭','🍕','🍩','🍪','🍰','🧋','🥤','🍫','🍬','🥓'];
 const STAR = '⭐', DIA = '💎', SHIELD = '🛡️', FIRE = '🔥';
 const BONUS = [STAR, DIA, SHIELD, FIRE];
+
+// ---- Coach helper (กันพูดถี่เกิน) ----
+let lastCoachAt = 0;
+function coach(text, minGap = 2300){
+  if (!text) return;
+  const now = Date.now();
+  if (now - lastCoachAt < minGap) return;
+  lastCoachAt = now;
+  try{
+    window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}}));
+  }catch(_){}
+}
 
 export async function boot(cfg = {}) {
   const diff = String(cfg.difficulty || 'normal').toLowerCase();
@@ -53,6 +65,7 @@ export async function boot(cfg = {}) {
     if (!feverActive && fever >= 100){
       feverActive = true;
       setFeverActive(true);
+      coach('FEVER MODE! แตะของดีรัว ๆ เพื่อเก็บคะแนนพิเศษ!', 3000);
     }
   }
 
@@ -63,6 +76,7 @@ export async function boot(cfg = {}) {
     if (feverActive && fever <= 0){
       feverActive = false;
       setFeverActive(false);
+      coach('โหมดพิเศษจบแล้ว ลองสร้างคอมโบใหม่อีกครั้ง!', 3500);
     }
   }
 
@@ -82,6 +96,12 @@ export async function boot(cfg = {}) {
     }catch(_){}
   }
 
+  function maybeCoachCombo(){
+    if (combo === 3)  coach('คอมโบ 3 แล้ว เยี่ยมมาก! ลองต่อให้ถึง 5 ดูนะ');
+    if (combo === 6)  coach('สุดยอด! คอมโบยาวมาก รักษาจังหวะให้ดี');
+    if (combo === 10) coach('โปรโหมดแล้วแบบนี้! คงคอมโบให้เต็มเวลาให้ได้เลย!', 4000);
+  }
+
   function judge(ch, ctx){
     const x = ctx.clientX || ctx.cx || 0;
     const y = ctx.clientY || ctx.cy || 0;
@@ -94,6 +114,7 @@ export async function boot(cfg = {}) {
       deck.onGood(); combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
+      maybeCoachCombo();
       return { good:true, scoreDelta:d };
     }
 
@@ -104,6 +125,7 @@ export async function boot(cfg = {}) {
       deck.onGood(); combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
+      maybeCoachCombo();
       return { good:true, scoreDelta:d };
     }
 
@@ -114,7 +136,8 @@ export async function boot(cfg = {}) {
       score += d;
       deck.onGood(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      return { good:true, scoreDelta:d };
+      coach('ได้เกราะป้องกันแล้ว ลองใช้ป้องกันตอนพลาดดูนะ', 4000);
+      return { good:true, scoreDelta:20 };
     }
 
     if (ch === FIRE){
@@ -126,7 +149,8 @@ export async function boot(cfg = {}) {
       score += d;
       deck.onGood(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      return { good:true, scoreDelta:d };
+      coach('ไฟลุกแล้ว! เก็บของดีต่อเนื่องให้คะแนนพุ่งเลย!', 3500);
+      return { good:true, scoreDelta:25 };
     }
 
     // ---------- Normal Good / Junk ----------
@@ -138,6 +162,7 @@ export async function boot(cfg = {}) {
       gainFever(7 + combo * 0.5);
       deck.onGood(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
+      maybeCoachCombo();
       return { good:true, scoreDelta:d };
     } else {
       // ใช้เกราะกันพลาด
@@ -146,8 +171,8 @@ export async function boot(cfg = {}) {
         setShield(shield);
         decayFever(6);
         syncDeck(); pushQuest();
-        // delta = 0 ไม่ได้หักคะแนน
         scoreFX(x, y, 0);
+        coach('เกราะช่วยกันพลาดให้แล้ว ดูดี ๆ ก่อนแตะครั้งต่อไปนะ', 3500);
         return { good:false, scoreDelta:0 };
       }
       const d = -12;
@@ -157,27 +182,27 @@ export async function boot(cfg = {}) {
       decayFever(16);
       deck.onJunk(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
+      if (misses === 1) coach('ไม่เป็นไร พลาดได้ ลองโฟกัสที่อาหารดีอย่างผัก ผลไม้ และนมดูนะ');
+      else if (misses === 3) coach('เริ่มพลาดบ่อยแล้ว ลองชะลอแล้วค่อย ๆ เลือกของดีทีละชิ้น', 3500);
       return { good:false, scoreDelta:d };
     }
   }
 
-  // *** ปรับให้ "ปล่อยของเสียหลุดจอ" ไม่เพิ่ม miss แล้ว ***
+  // *** ปล่อยของเสียหลุดจอ: ไม่เพิ่ม miss แต่ลด fever เบา ๆ ***
   function onExpire(ev){
     if (!ev || ev.isGood) return;
-    // แค่ลด fever / อัปเดตเควสต์เล็กน้อย แต่ไม่เพิ่ม misses
     decayFever(6);
     syncDeck();
     pushQuest();
   }
 
-  function onSec(){
+  function onSec(sec){
     if (combo <= 0) decayFever(6);
     else           decayFever(2);
 
     deck.second();
     syncDeck();
 
-    // ถ้าเคลียร์ครบชุด และเวลายังเหลือ → เติมชุดถัดไป + นับสะสม
     const goals = deck.getProgress('goals');
     const minis = deck.getProgress('mini');
 
@@ -185,18 +210,24 @@ export async function boot(cfg = {}) {
       accGoalDone += goals.length;
       deck.drawGoals(2);
       pushQuest('Goal ใหม่');
+      coach('ถึงเป้าหมายใหญ่ชุดหนึ่งแล้ว เก่งมาก! ลองดูชุดถัดไปต่อเลย', 4000);
     }
     if (minis.length > 0 && minis.every(m => m.done)){
       accMiniDone += minis.length;
       deck.draw3();
       pushQuest('Mini ใหม่');
+      coach('Mini quest ครบชุดแล้ว! ไปต่อภารกิจถัดไป!', 4000);
     }
+
+    // เตือนช่วงท้ายเวลา
+    if (sec === 20) coach('เหลือ 20 วินาทีสุดท้าย เก็บคอมโบให้ได้เยอะที่สุด!', 5000);
+    if (sec === 10) coach('10 วินาทีสุดท้าย ลุยให้สุดกำลังเลย!', 6000);
   }
 
   // global tick: เรียก onSec ทุกวินาที (ตาม hha:time จาก mode-factory)
   window.addEventListener('hha:time', (e)=>{
     const s = (e.detail?.sec | 0);
-    if (s >= 0) onSec();
+    if (s >= 0) onSec(s);
   });
 
   // ---- start factory ----
@@ -213,6 +244,7 @@ export async function boot(cfg = {}) {
   }).then(ctrl=>{
     // เควสต์ชุดแรก
     pushQuest('เริ่ม');
+    coach('เลือกเฉพาะอาหารดี เช่น ผัก ผลไม้ นม หลีกเลี่ยงของขยะที่มีน้ำตาลและไขมันสูงนะ');
 
     // สรุปตอนหมดเวลา (sec == 0)
     window.addEventListener('hha:time',(e)=>{
