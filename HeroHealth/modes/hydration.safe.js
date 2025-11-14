@@ -1,170 +1,112 @@
-// === /HeroHealth/modes/hydration.safe.js (2025-11-14 WATER GAUGE + QUEST) ===
-// เป้าคลิกเกี่ยวกับน้ำ: เพิ่ม/ลดระดับน้ำในร่างกาย ให้คงอยู่ "โซนสมดุล (40-70%)"
-// เด้งคะแนนตรงคลิก + เกจน้ำ + โค้ช + ปรับความโหด
-
-import { burstAt, scorePop } from '../vr/particles.js';
-import { ensureWaterGauge, setWaterGauge, zoneFrom, burstAtScreen, floatScoreScreen } from '../vr/ui-water.js';
+// === /HeroHealth/modes/hydration.safe.js (Full, with water gauge + scaling difficulty) ===
+import { boot as factoryBoot } from '../vr/mode-factory.js';
+import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
+import { Particles } from '../vr/particles.js';
+import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createHydrationQuest } from './hydration.quest.js';
 
-const HYDRA = ['💧','🥤','🧃','🫗'];        // เติมน้ำ
-const DRAIN = ['🔥','🏃','☀️','🧂','💨'];   // ลดน้ำ/คายน้ำ
+const GOOD = ['💧','🥛','🍉'];               // น้ำ/นม/ผลไม้ฉ่ำน้ำ
+const BAD  = ['🥤','🧋','🍺','☕️'];          // น้ำหวาน/ชาไข่มุก/แอลกอฮอล์/คาเฟอีน
+const STAR='⭐', DIA='💎', SHIELD='🛡️', FIRE='🔥';
+const BONUS=[STAR,DIA,SHIELD,FIRE];
 
-const diffCfg = {
-  easy:   { spawn: 900, life: 2200, stepGood:+10, stepDrain:-12 },
-  normal: { spawn: 780, life: 2000, stepGood:+9,  stepDrain:-13 },
-  hard:   { spawn: 660, life: 1800, stepGood:+8,  stepDrain:-14 }
-};
+export async function boot(cfg={}){
+  const diff=(cfg.difficulty||'normal').toLowerCase();
+  const dur =(cfg.duration|0)||60;
 
-export async function boot(opts = {}) {
-  const diff = (opts.difficulty||'normal').toLowerCase();
-  const cfg  = diffCfg[diff] || diffCfg.normal;
-  const dur  = (opts.duration|0) || 60;
+  ensureFeverBar(); setFever(0); setFeverActive(false); setShield(0);
+  ensureWaterGauge(); setWaterGauge(50);
 
-  const host = document.getElementById('spawnHost') || makeHost();
-  host.innerHTML='';
+  // Quest
+  const deck = createHydrationQuest(diff); deck.drawGoals(2); deck.draw3();
+  let accMiniDone=0, accGoalDone=0;
 
-  ensureWaterGauge();
-
-  // state
-  let water=50; // 0..100
-  setWaterGauge(water);
-
-  let score=0, combo=0, comboMax=0, misses=0, goodHits=0, timeLeft=dur;
-  let spawnTimer=null, tickTimer=null, speedLevel=0;
-
-  // quest
-  const quest = createHydrationQuest(diff);
-  const getState = ()=>({ score, goodHits, miss:misses, comboMax, timeLeft, water, zone: zoneFrom(water) });
-
-  function pushQuest(){ try{ quest.update(getState()); }catch(_){ } }
-
-  function coach(text){
-    window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text } }));
+  function pushQuest(hint){
+    const goals=deck.getProgress('goals'), minis=deck.getProgress('mini');
+    const z = zoneFrom(waterPct);
+    window.dispatchEvent(new CustomEvent('quest:update',{detail:{
+      goal:(goals.find(g=>!g.done)||goals[0]||null),
+      mini:(minis.find(m=>!m.done)||minis[0]||null),
+      goalsAll:goals, minisAll:minis, hint:`Zone: ${z}`
+    }}));
   }
 
-  function getXY(ev){
-    if (ev?.changedTouches?.[0]) return { x: ev.changedTouches[0].clientX, y: ev.changedTouches[0].clientY };
-    if (ev?.touches?.[0])        return { x: ev.touches[0].clientX,        y: ev.touches[0].clientY };
-    return { x: ev?.clientX||0, y: ev?.clientY||0 };
-  }
+  // State
+  let score=0, combo=0, comboMax=0, misses=0;
+  let star=0, diamond=0, shield=0, fever=0, feverActive=false;
+  let waterPct=50;
 
-  function zoneScore(z){ return z==='GREEN' ? 120 : (z==='HIGH' ? 40 : 30); }
+  function mult(){ return feverActive?2:1; }
+  function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true; setFeverActive(true);} }
+  function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false; setFeverActive(false);} }
 
-  function emitScore(delta, isGood, ev){
-    score = Math.max(0, score + (delta|0));
-    if (isGood){ combo++; goodHits++; comboMax = Math.max(comboMax, combo); }
-    else { combo=0; misses++; }
+  function addWater(n){ waterPct=Math.max(0,Math.min(100,waterPct+n)); setWaterGauge(waterPct); deck.stats.zone = zoneFrom(waterPct); }
 
-    window.dispatchEvent(new CustomEvent('hha:score',{
-      detail:{ delta, total:score, combo, comboMax, good:isGood }
-    }));
+  function syncDeck(){ deck.updateScore(score); deck.updateCombo(combo); }
 
-    if (ev){
-      const {x,y} = getXY(ev);
-      burstAt(x,y,{ color: isGood ? '#22c55e' : '#ef4444' });
-      scorePop(x,y,(delta>0?'+':'')+delta,{ good:isGood });
-      // เสริมเอฟเฟกต์เกจ
-      if (isGood) { burstAtScreen(x,y,{ color:'#22c55e', count:18 }); }
-      else        { burstAtScreen(x,y,{ color:'#ef4444', count:14 }); }
+  function scoreFX(x,y,val,theme){ Particles.scorePop(x,y,(val>0?'+':'')+val); Particles.burstShards(null,null,{screen:{x,y},theme:theme||'hydration'}); }
+
+  function judge(ch, ctx){
+    const x=ctx.clientX||ctx.cx||0, y=ctx.clientY||ctx.cy||0;
+    // power-ups
+    if (ch===STAR){ const d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); return {good:true,scoreDelta:d}; }
+    if (ch===DIA) { const d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); return {good:true,scoreDelta:d}; }
+    if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); score+=20; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,20); return {good:true,scoreDelta:20}; }
+    if (ch===FIRE) { feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,25); return {good:true,scoreDelta:25}; }
+
+    if (GOOD.includes(ch)){
+      addWater(8); const d=(14+combo*2)*mult(); score+=d; combo++; comboMax=Math.max(comboMax,combo); gainFever(6+combo*0.4); deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,d);
+      return {good:true, scoreDelta:d};
+    }else{
+      if (shield>0){ shield--; setShield(shield); addWater(-4); decayFever(6); syncDeck(); pushQuest(); scoreFX(x,y,0); return {good:false,scoreDelta:0}; }
+      addWater(-8); const d=-10; score=Math.max(0,score+d); combo=0; misses++; decayFever(14); deck.onJunk(); syncDeck(); pushQuest(); scoreFX(x,y,d);
+      return {good:false, scoreDelta:d};
     }
-
-    // เร่งความโหด
-    if (goodHits>=10 && speedLevel===0){ speedLevel=1; coach('จังหวะไวขึ้นเล็กน้อย'); }
-    if (goodHits>=22 && speedLevel===1){ speedLevel=2; coach('ไวขึ้นอีกนิด! รักษาโซน Green ให้ได้'); }
-
-    pushQuest();
   }
 
-  function applyDelta(d, ev){
-    // ปรับน้ำ + แปลผลโซน
-    water = Math.max(0, Math.min(100, water + d));
-    setWaterGauge(water);
-    const z = zoneFrom(water);
-    const good = (z==='GREEN');
-    const base = zoneScore(z);
-    emitScore(good ? base : -Math.round(base*0.35), good, ev);
-
-    // โค้ชเล็กน้อย
-    if (z==='LOW')  coach('น้ำต่ำไป เพิ่ม 💧/🥤 ให้มากขึ้น');
-    if (z==='HIGH') coach('น้ำเกิน ลองหลีกเลี่ยงสิ่งที่ทำให้เพิ่มน้ำ');
+  function onExpire(ev){
+    // ปล่อย BAD ผ่านไป นับ miss เล็กน้อย
+    if (ev && !ev.isGood){ misses++; deck.onJunk(); syncDeck(); pushQuest(); }
   }
 
-  function spawnOne(){
-    if (timeLeft<=0) return;
+  function onSec(){
+    // drain / overflow correction
+    const z = zoneFrom(waterPct);
+    if (z==='GREEN'){ decayFever(2); } else { decayFever(6); }
+    addWater(z==='HIGH' ? -4 : (z==='LOW' ? +4 : -1));  // กลับเข้าช่วงสมดุล
+    deck.second(); syncDeck();
 
-    let ch, delta;
-    const r = Math.random();
-    if (r<0.6){ ch = pick(HYDRA); delta = cfg.stepGood; }    // โอกาสเติมน้ำมากกว่า
-    else      { ch = pick(DRAIN); delta = cfg.stepDrain; }
-
-    const el=document.createElement('div');
-    el.textContent = ch;
-    Object.assign(el.style,{
-      position:'absolute',
-      left:(10+Math.random()*80)+'%',
-      top:(18+Math.random()*60)+'%',
-      transform:'translate(-50%,-50%)',
-      font:'900 50px system-ui',
-      textShadow:'0 8px 20px rgba(0,0,0,.55)',
-      pointerEvents:'auto', cursor:'pointer', userSelect:'none'
-    });
-
-    const life = Math.max(1200, cfg.life - speedLevel*160);
-    const kill = ()=>{ if(el.parentNode) try{ host.removeChild(el); }catch(_){ } };
-
-    el.addEventListener('click',(ev)=>{ if(!el.parentNode) return; kill(); applyDelta(delta, ev); });
-    host.appendChild(el);
-    setTimeout(kill, life);
+    // wave refill
+    const g=deck.getProgress('goals'), m=deck.getProgress('mini');
+    if (g.length>0 && g.every(x=>x.done)){ accGoalDone+=g.length; deck.drawGoals(2); pushQuest('Goal ใหม่'); }
+    if (m.length>0 && m.every(x=>x.done)){ accMiniDone+=m.length; deck.draw3();       pushQuest('Mini ใหม่'); }
   }
 
-  function tick(){
-    timeLeft--;
-    window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-    pushQuest();
-    if (timeLeft<=0){ stopAll(); finish(); }
-  }
-
-  function stopAll(){
-    if (spawnTimer){ clearInterval(spawnTimer); spawnTimer=null; }
-    if (tickTimer){  clearInterval(tickTimer);  tickTimer=null; }
-  }
-
-  function finish(){
-    const sum = quest.summary ? quest.summary() : { goalsCleared:0, goalsTotal:0, miniCleared:0, miniTotal:0 };
-    const goalCleared = sum.goalsTotal ? (sum.goalsCleared >= sum.goalsTotal) : false;
-
-    window.dispatchEvent(new CustomEvent('hha:end',{
-      detail:{
-        mode:'hydration', difficulty:diff, score, misses, comboMax, duration:dur,
-        goalCleared,
-        questsCleared: sum.miniCleared || 0,
-        questsTotal  : sum.miniTotal  || 0
+  // factory
+  return factoryBoot({
+    difficulty: diff, duration: dur,
+    pools:{good:[...GOOD,...BONUS], bad:[...BAD]},
+    goodRate:0.60, powerups:BONUS, powerRate:0.10, powerEvery:7,
+    judge:(ch,ctx)=>judge(ch,ctx), onExpire
+  }).then(ctrl=>{
+    pushQuest('เริ่ม');
+    window.addEventListener('hha:time',(e)=>{
+      const sec=(e.detail?.sec|0);
+      if (sec>=0) onSec();
+      if (sec===0){
+        const g=deck.getProgress('goals'), m=deck.getProgress('mini');
+        const goalCleared=g.length>0 && g.every(x=>x.done);
+        const goalsTotal  = accGoalDone + g.length;
+        const goalsDone   = accGoalDone + g.filter(x=>x.done).length;
+        const miniTotal   = accMiniDone + m.length;
+        const miniDone    = accMiniDone + m.filter(x=>x.done).length;
+        window.dispatchEvent(new CustomEvent('hha:end',{detail:{
+          mode:'Hydration', difficulty:diff, score, misses, comboMax, duration:dur,
+          goalCleared, goalsCleared:goalsDone, goalsTotal, questsCleared:miniDone, questsTotal:miniTotal
+        }}));
       }
-    }));
-  }
-
-  return {
-    start(){
-      score=0; combo=0; comboMax=0; misses=0; goodHits=0; timeLeft=dur; water=50; speedLevel=0;
-      setWaterGauge(water);
-      window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
-
-      try{ quest.start(getState()); }catch(_){}
-
-      coach('รักษาน้ำให้อยู่โซนสมดุล (40–70%) คลิก 💧 เติม แต่ระวัง DRAIN!');
-      spawnTimer = setInterval(spawnOne, Math.max(320, cfg.spawn - speedLevel*60));
-      tickTimer  = setInterval(tick, 1000);
-    },
-    stop(){ stopAll(); }
-  };
+    });
+    return ctrl;
+  });
 }
-
 export default { boot };
-
-// helpers
-function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
-function makeHost(){
-  const h=document.createElement('div'); h.id='spawnHost';
-  Object.assign(h.style,{position:'absolute',inset:0,pointerEvents:'none',zIndex:650});
-  document.body.appendChild(h); return h;
-}
