@@ -1,296 +1,170 @@
-// === /HeroHealth/modes/hydration.safe.js ===
-// เกมสมดุลน้ำในร่างกาย: ใช้ ui-water + particles + goal/mini
-
-import {
-  ensureWaterGauge,
-  destroyWaterGauge,
-  setWaterGauge,
-  zoneFrom,
-  floatScoreScreen,
-  burstAtScreen
-} from '../vr/ui-water.js';
+// === /HeroHealth/modes/hydration.safe.js (2025-11-14 WATER GAUGE + QUEST) ===
+// เป้าคลิกเกี่ยวกับน้ำ: เพิ่ม/ลดระดับน้ำในร่างกาย ให้คงอยู่ "โซนสมดุล (40-70%)"
+// เด้งคะแนนตรงคลิก + เกจน้ำ + โค้ช + ปรับความโหด
 
 import { burstAt, scorePop } from '../vr/particles.js';
+import { ensureWaterGauge, setWaterGauge, zoneFrom, burstAtScreen, floatScoreScreen } from '../vr/ui-water.js';
+import { createHydrationQuest } from './hydration.quest.js';
 
-// กลุ่ม emoji
-const GOOD_DRINK = [
-  '💧','💦','🥛','🫗','🍵','🍲'
-];
-
-const DRY_DRINK = [
-  '🥤','🧋','🍺','🍷','🍾','☕'
-];
-
-const HOT_LOSS = [
-  '☀️','🔥','🏃‍♀️','🏃‍♂️'
-];
+const HYDRA = ['💧','🥤','🧃','🫗'];        // เติมน้ำ
+const DRAIN = ['🔥','🏃','☀️','🧂','💨'];   // ลดน้ำ/คายน้ำ
 
 const diffCfg = {
-  easy:   { spawnStart:900, spawnMin:520, degrade:1.0, goalGreen:20, miniGood:8 },
-  normal: { spawnStart:800, spawnMin:450, degrade:1.3, goalGreen:26, miniGood:10 },
-  hard:   { spawnStart:700, spawnMin:380, degrade:1.6, goalGreen:32, miniGood:12 }
+  easy:   { spawn: 900, life: 2200, stepGood:+10, stepDrain:-12 },
+  normal: { spawn: 780, life: 2000, stepGood:+9,  stepDrain:-13 },
+  hard:   { spawn: 660, life: 1800, stepGood:+8,  stepDrain:-14 }
 };
 
 export async function boot(opts = {}) {
-  const diff = (opts.difficulty || 'normal').toLowerCase();
+  const diff = (opts.difficulty||'normal').toLowerCase();
   const cfg  = diffCfg[diff] || diffCfg.normal;
   const dur  = (opts.duration|0) || 60;
 
   const host = document.getElementById('spawnHost') || makeHost();
-  host.innerHTML = '';
+  host.innerHTML='';
 
-  // สร้าง/รีเซ็ต Water gauge
   ensureWaterGauge();
-  let water = 55;          // เริ่มกลาง ๆ
+
+  // state
+  let water=50; // 0..100
   setWaterGauge(water);
 
-  let score=0, combo=0, comboMax=0, misses=0, hits=0;
-  let timeLeft = dur;
+  let score=0, combo=0, comboMax=0, misses=0, goodHits=0, timeLeft=dur;
+  let spawnTimer=null, tickTimer=null, speedLevel=0;
 
-  let balancedTicks = 0;   // เวลาอยู่โซน GREEN (วินาที)
-  let goodDrinks    = 0;   // ดื่มน้ำดีไปกี่ครั้ง
+  // quest
+  const quest = createHydrationQuest(diff);
+  const getState = ()=>({ score, goodHits, miss:misses, comboMax, timeLeft, water, zone: zoneFrom(water) });
 
-  let ticking   = false;
-  let spawnLoop = null;
+  function pushQuest(){ try{ quest.update(getState()); }catch(_){ } }
 
   function coach(text){
-    window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}}));
+    window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text } }));
   }
 
-  // ---------- Quest ----------
-  const mission = {
-    goalLabel  : `รักษาโซนสมดุล (GREEN) ให้ครบ ${cfg.goalGreen} วินาที`,
-    goalTarget : cfg.goalGreen,
-    goalProg   : ()=>balancedTicks,
-    goalDone   : ()=>balancedTicks >= cfg.goalGreen,
+  function getXY(ev){
+    if (ev?.changedTouches?.[0]) return { x: ev.changedTouches[0].clientX, y: ev.changedTouches[0].clientY };
+    if (ev?.touches?.[0])        return { x: ev.touches[0].clientX,        y: ev.touches[0].clientY };
+    return { x: ev?.clientX||0, y: ev?.clientY||0 };
+  }
 
-    miniLabel  : `ดื่มน้ำดีอย่างน้อย ${cfg.miniGood} แก้ว`,
-    miniTarget : cfg.miniGood,
-    miniProg   : ()=>goodDrinks,
-    miniDone   : ()=>goodDrinks >= cfg.miniGood
-  };
+  function zoneScore(z){ return z==='GREEN' ? 120 : (z==='HIGH' ? 40 : 30); }
 
-  function emitQuest(){
-    window.dispatchEvent(new CustomEvent('hha:quest',{
-      detail:{
-        goal:{
-          label: mission.goalLabel,
-          target: mission.goalTarget,
-          prog: mission.goalProg(),
-          done: mission.goalDone()
-        },
-        mini:{
-          label: mission.miniLabel,
-          target: mission.miniTarget,
-          prog: mission.miniProg(),
-          done: mission.miniDone()
-        }
-      }
+  function emitScore(delta, isGood, ev){
+    score = Math.max(0, score + (delta|0));
+    if (isGood){ combo++; goodHits++; comboMax = Math.max(comboMax, combo); }
+    else { combo=0; misses++; }
+
+    window.dispatchEvent(new CustomEvent('hha:score',{
+      detail:{ delta, total:score, combo, comboMax, good:isGood }
     }));
-  }
-
-  // ---------- คะแนน ----------
-  function emitScore(delta, good, ev){
-    score = Math.max(0, score + delta);
-    if (good){
-      combo++;
-      hits++;
-      comboMax = Math.max(comboMax, combo);
-    } else {
-      combo = 0;
-      misses++;
-    }
-
-    const detail = {
-      delta,
-      total: score,
-      combo,
-      comboMax,
-      good
-    };
-    window.dispatchEvent(new CustomEvent('hha:score',{detail}));
 
     if (ev){
-      const x = ev.clientX, y = ev.clientY;
-      burstAt(x,y,{color:good?'#22c55e':'#ef4444'});
-      const txt = (delta>0?'+':'') + delta;
-      scorePop(x,y,txt,{good});
-      // เด้งเลขบนจอเพิ่ม (ผูก concept น้ำ)
-      floatScoreScreen(x,y,txt,good?'#bbf7d0':'#fecaca');
+      const {x,y} = getXY(ev);
+      burstAt(x,y,{ color: isGood ? '#22c55e' : '#ef4444' });
+      scorePop(x,y,(delta>0?'+':'')+delta,{ good:isGood });
+      // เสริมเอฟเฟกต์เกจ
+      if (isGood) { burstAtScreen(x,y,{ color:'#22c55e', count:18 }); }
+      else        { burstAtScreen(x,y,{ color:'#ef4444', count:14 }); }
     }
 
-    if (good && combo===5)  coach('ดื่มดีต่อเนื่อง! คอมโบ 5 แล้ว 👍');
-    if (good && combo===10) coach('สุดยอด! นักดื่มน้ำมือโปร 🤩');
-    if (!good && misses===3) coach('ระวังของที่ทำให้ร่างกายขาดน้ำนะ');
+    // เร่งความโหด
+    if (goodHits>=10 && speedLevel===0){ speedLevel=1; coach('จังหวะไวขึ้นเล็กน้อย'); }
+    if (goodHits>=22 && speedLevel===1){ speedLevel=2; coach('ไวขึ้นอีกนิด! รักษาโซน Green ให้ได้'); }
 
-    if (mission.goalDone()) coach('ถึงเป้าหมายเวลาในโซนสมดุลแล้ว 👏');
-    if (mission.miniDone()) coach('ดื่มน้ำดีครบตาม Mini Quest แล้ว เยี่ยมมาก!');
-    emitQuest();
+    pushQuest();
   }
 
-  // ---------- น้ำในร่างกาย ----------
-  function applyWater(delta){
-    water = Math.max(0, Math.min(100, water + delta));
+  function applyDelta(d, ev){
+    // ปรับน้ำ + แปลผลโซน
+    water = Math.max(0, Math.min(100, water + d));
     setWaterGauge(water);
-  }
+    const z = zoneFrom(water);
+    const good = (z==='GREEN');
+    const base = zoneScore(z);
+    emitScore(good ? base : -Math.round(base*0.35), good, ev);
 
-  function onGoodDrink(ev){
-    goodDrinks++;
-    applyWater(+8);
-    emitScore(+110, true, ev);
-  }
-
-  function onDryDrink(ev){
-    applyWater(-9);
-    emitScore(-130, false, ev);
-  }
-
-  function onHotLoss(ev){
-    applyWater(-12);
-    emitScore(-80, false, ev);
-  }
-
-  // ---------- Spawn (โหดขึ้นเรื่อย ๆ) ----------
-  let spawnDelay = cfg.spawnStart;
-
-  function scheduleSpawn(){
-    if (timeLeft <= 0) return;
-    spawnLoop = setTimeout(()=>{
-      spawnOne();
-      // ลด delay ทีละนิดให้โหดขึ้น
-      spawnDelay = Math.max(cfg.spawnMin, spawnDelay * 0.97);
-      scheduleSpawn();
-    }, spawnDelay);
+    // โค้ชเล็กน้อย
+    if (z==='LOW')  coach('น้ำต่ำไป เพิ่ม 💧/🥤 ให้มากขึ้น');
+    if (z==='HIGH') coach('น้ำเกิน ลองหลีกเลี่ยงสิ่งที่ทำให้เพิ่มน้ำ');
   }
 
   function spawnOne(){
-    if (timeLeft <= 0) return;
+    if (timeLeft<=0) return;
 
+    let ch, delta;
     const r = Math.random();
-    let type;
-    if (r < 0.55)      type = 'GOOD';
-    else if (r < 0.85) type = 'DRY';
-    else               type = 'HOT';
+    if (r<0.6){ ch = pick(HYDRA); delta = cfg.stepGood; }    // โอกาสเติมน้ำมากกว่า
+    else      { ch = pick(DRAIN); delta = cfg.stepDrain; }
 
-    let emoji;
-    if (type === 'GOOD') emoji = pickOne(GOOD_DRINK);
-    else if (type === 'DRY') emoji = pickOne(DRY_DRINK);
-    else emoji = pickOne(HOT_LOSS);
-
-    const el = document.createElement('div');
-    el.textContent = emoji;
-    el.dataset.type = type;
+    const el=document.createElement('div');
+    el.textContent = ch;
     Object.assign(el.style,{
       position:'absolute',
-      left:(12 + Math.random()*76) + '%',
-      top:(18 + Math.random()*60) + '%',
+      left:(10+Math.random()*80)+'%',
+      top:(18+Math.random()*60)+'%',
       transform:'translate(-50%,-50%)',
-      font:'900 46px system-ui',
-      textShadow:'0 6px 18px rgba(0,0,0,.55)',
-      cursor:'pointer',
-      pointerEvents:'auto',
-      userSelect:'none'
+      font:'900 50px system-ui',
+      textShadow:'0 8px 20px rgba(0,0,0,.55)',
+      pointerEvents:'auto', cursor:'pointer', userSelect:'none'
     });
 
-    // อายุเป้าลดลงตามเวลา (ยิ่งใกล้หมด ยิ่งสั้น)
-    const lifeBase = 2100;
-    const life = Math.max(1200, lifeBase * (0.5 + 0.5 * (timeLeft/dur)));
+    const life = Math.max(1200, cfg.life - speedLevel*160);
+    const kill = ()=>{ if(el.parentNode) try{ host.removeChild(el); }catch(_){ } };
 
-    const kill = ()=>{
-      if (el.parentNode) try{ host.removeChild(el); }catch(_){}
-    };
-
-    el.addEventListener('click',(ev)=>{
-      if (!el.parentNode) return;
-      kill();
-      const t = el.dataset.type;
-      if (t === 'GOOD') onGoodDrink(ev);
-      else if (t === 'DRY') onDryDrink(ev);
-      else onHotLoss(ev);
-    });
-
+    el.addEventListener('click',(ev)=>{ if(!el.parentNode) return; kill(); applyDelta(delta, ev); });
     host.appendChild(el);
     setTimeout(kill, life);
   }
 
-  // ---------- Timer ----------
   function tick(){
     timeLeft--;
-    // ร่างกายใช้น้ำเอง
-    applyWater(-cfg.degrade);
-
-    const zone = zoneFrom(water);
-    if (zone === 'GREEN') balancedTicks++;
-    if (zone !== 'GREEN'){
-      // ถ้าอยากเพิ่ม tough mode ภายหลัง อาจเพิ่ม miss ที่นี่
-    }
-
-    window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-    emitQuest();
-
-    if (timeLeft <= 0){
-      stopAll();
-      finish();
-    }
+    window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+    pushQuest();
+    if (timeLeft<=0){ stopAll(); finish(); }
   }
 
   function stopAll(){
-    if (ticking){ clearInterval(ticking); ticking = false; }
-    if (spawnLoop){ clearTimeout(spawnLoop); spawnLoop = null; }
+    if (spawnTimer){ clearInterval(spawnTimer); spawnTimer=null; }
+    if (tickTimer){  clearInterval(tickTimer);  tickTimer=null; }
   }
 
   function finish(){
-    emitQuest();
-    const questsTotal   = 2;
-    const questsCleared = (mission.goalDone()?1:0) + (mission.miniDone()?1:0);
+    const sum = quest.summary ? quest.summary() : { goalsCleared:0, goalsTotal:0, miniCleared:0, miniTotal:0 };
+    const goalCleared = sum.goalsTotal ? (sum.goalsCleared >= sum.goalsTotal) : false;
 
-    destroyWaterGauge();
     window.dispatchEvent(new CustomEvent('hha:end',{
       detail:{
-        mode:'hydration',
-        difficulty:diff,
-        score,
-        misses,
-        comboMax,
-        duration:dur,
-        goalCleared:mission.goalDone(),
-        questsCleared,
-        questsTotal
+        mode:'hydration', difficulty:diff, score, misses, comboMax, duration:dur,
+        goalCleared,
+        questsCleared: sum.miniCleared || 0,
+        questsTotal  : sum.miniTotal  || 0
       }
     }));
   }
 
   return {
     start(){
-      score=0;combo=0;comboMax=0;misses=0;hits=0;
-      timeLeft=dur;balancedTicks=0;goodDrinks=0;
-      water=55; setWaterGauge(water);
-      window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-      emitQuest();
-      coach('เลือกดื่มน้ำดีให้บ่อย รักษาเกจให้อยู่โซนสีเขียวให้ได้นานที่สุด!');
-      ticking = setInterval(tick,1000);
-      scheduleSpawn();
+      score=0; combo=0; comboMax=0; misses=0; goodHits=0; timeLeft=dur; water=50; speedLevel=0;
+      setWaterGauge(water);
+      window.dispatchEvent(new CustomEvent('hha:time',{ detail:{ sec: timeLeft }}));
+
+      try{ quest.start(getState()); }catch(_){}
+
+      coach('รักษาน้ำให้อยู่โซนสมดุล (40–70%) คลิก 💧 เติม แต่ระวัง DRAIN!');
+      spawnTimer = setInterval(spawnOne, Math.max(320, cfg.spawn - speedLevel*60));
+      tickTimer  = setInterval(tick, 1000);
     },
-    stop(){
-      stopAll();
-      destroyWaterGauge();
-    }
+    stop(){ stopAll(); }
   };
 }
 
 export default { boot };
 
-function pickOne(arr){ return arr[(Math.random()*arr.length)|0]; }
-
+// helpers
+function pick(arr){ return arr[(Math.random()*arr.length)|0]; }
 function makeHost(){
-  const h=document.createElement('div');
-  h.id='spawnHost';
-  Object.assign(h.style,{
-    position:'absolute',
-    inset:0,
-    pointerEvents:'none',
-    zIndex:650
-  });
-  document.body.appendChild(h);
-  return h;
+  const h=document.createElement('div'); h.id='spawnHost';
+  Object.assign(h.style,{position:'absolute',inset:0,pointerEvents:'none',zIndex:650});
+  document.body.appendChild(h); return h;
 }
