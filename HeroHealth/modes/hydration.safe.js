@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/hydration.safe.js (Full, water gauge + scaling difficulty + HUD SCORE) ===
+// === /HeroHealth/modes/hydration.safe.js (Full, water gauge + scaling + no miss on expire) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import Particles from '../vr/particles.js';
@@ -21,6 +21,16 @@ export async function boot(cfg={}){
   const deck = createHydrationQuest(diff); deck.drawGoals(2); deck.draw3();
   let accMiniDone=0, accGoalDone=0;
 
+  function pushQuest(hint){
+    const goals=deck.getProgress('goals'), minis=deck.getProgress('mini');
+    const z = zoneFrom(waterPct);
+    window.dispatchEvent(new CustomEvent('quest:update',{detail:{
+      goal:(goals.find(g=>!g.done)||goals[0]||null),
+      mini:(minis.find(m=>!m.done)||minis[0]||null),
+      goalsAll:goals, minisAll:minis, hint:`Zone: ${z}`
+    }}));
+  }
+
   // State
   let score=0, combo=0, comboMax=0, misses=0;
   let star=0, diamond=0, shield=0, fever=0, feverActive=false;
@@ -30,83 +40,39 @@ export async function boot(cfg={}){
   function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true; setFeverActive(true);} }
   function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false; setFeverActive(false);} }
 
-  function addWater(n){
-    waterPct=Math.max(0,Math.min(100,waterPct+n));
-    setWaterGauge(waterPct);
-    deck.stats.zone = zoneFrom(waterPct);
-  }
+  function addWater(n){ waterPct=Math.max(0,Math.min(100,waterPct+n)); setWaterGauge(waterPct); deck.stats.zone = zoneFrom(waterPct); }
 
   function syncDeck(){ deck.updateScore(score); deck.updateCombo(combo); }
 
-  function emitScore(delta, good){
-    try{
-      window.dispatchEvent(new CustomEvent('hha:score',{
-        detail:{ delta, total:score, combo, comboMax, good }
-      }));
-    }catch(_){}
-  }
-
-  function pushQuest(hint){
-    const goals=deck.getProgress('goals'), minis=deck.getProgress('mini');
-    const z = zoneFrom(waterPct);
-    window.dispatchEvent(new CustomEvent('quest:update',{detail:{
-      goal:(goals.find(g=>!g.done)||goals[0]||null),
-      mini:(minis.find(m=>!m.done)||minis[0]||null),
-      goalsAll:goals, minisAll:minis, hint:`Zone: ${z}${hint?(' • '+hint):''}`
-    }}));
-  }
-
-  function scoreFX(x,y,val){
+  function scoreFX(x,y,val,theme){
     Particles.scorePop(x,y,(val>0?'+':'')+val);
-    Particles.burstAt(x,y,{ color: val>=0?'#22c55e':'#f97316' });
+    Particles.burstShards(null,null,{screen:{x,y},theme:theme||'hydration'});
   }
 
   function judge(ch, ctx){
     const x=ctx.clientX||ctx.cx||0, y=ctx.clientY||ctx.cy||0;
     // power-ups
-    if (ch===STAR){
-      const d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
-      syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
-    if (ch===DIA){
-      const d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
-      syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
-    if (ch===SHIELD){
-      shield=Math.min(3,shield+1); setShield(shield); const d=20; score+=d; deck.onGood();
-      syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
-    if (ch===FIRE){
-      feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever);
-      const d=25; score+=d; deck.onGood();
-      syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
+    if (ch===STAR){ const d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); return {good:true,scoreDelta:d}; }
+    if (ch===DIA) { const d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); return {good:true,scoreDelta:d}; }
+    if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); score+=20; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,20); return {good:true,scoreDelta:20}; }
+    if (ch===FIRE) { feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,25); return {good:true,scoreDelta:25}; }
 
     if (GOOD.includes(ch)){
-      addWater(8);
-      const d=(14+combo*2)*mult(); score+=d; combo++; comboMax=Math.max(comboMax,combo);
-      gainFever(6+combo*0.4); deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
+      addWater(8); const d=(14+combo*2)*mult(); score+=d; combo++; comboMax=Math.max(comboMax,combo); gainFever(6+combo*0.4); deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,d);
       return {good:true, scoreDelta:d};
     }else{
-      if (shield>0){
-        shield--; setShield(shield); addWater(-4); decayFever(6); syncDeck(); pushQuest(); scoreFX(x,y,0); emitScore(0,false);
-        return {good:false,scoreDelta:0};
-      }
-      addWater(-8);
-      const d=-10; score=Math.max(0,score+d); combo=0; misses++; decayFever(14); deck.onJunk(); syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,false);
+      if (shield>0){ shield--; setShield(shield); addWater(-4); decayFever(6); syncDeck(); pushQuest(); scoreFX(x,y,0); return {good:false,scoreDelta:0}; }
+      addWater(-8); const d=-10; score=Math.max(0,score+d); combo=0; misses++; decayFever(14); deck.onJunk(); syncDeck(); pushQuest(); scoreFX(x,y,d);
       return {good:false, scoreDelta:d};
     }
   }
 
+  // *** ปรับ: ปล่อย BAD หลุดจอ ไม่เพิ่ม miss อีกแล้ว ***
   function onExpire(ev){
-    // ปล่อย BAD ผ่านไป นับ miss เล็กน้อย
-    if (ev && !ev.isGood){
-      misses++; deck.onJunk(); syncDeck(); pushQuest(); emitScore(0,false);
-    }
+    if (!ev || ev.isGood) return;
+    decayFever(6);
+    syncDeck();
+    pushQuest();
   }
 
   function onSec(){
