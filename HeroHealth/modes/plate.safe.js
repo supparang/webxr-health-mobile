@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/plate.safe.js (Full, 5 หมู่ + โควตา + power-ups + HUD SCORE) ===
+// === /HeroHealth/modes/plate.safe.js (Full, 5 หมู่ + quota + power-ups, no miss on expire) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
@@ -37,7 +37,7 @@ export async function boot(cfg={}){
     window.dispatchEvent(new CustomEvent('quest:update',{detail:{
       goal:(goals.find(g=>!g.done)||goals[0]||null),
       mini:(minis.find(m=>!m.done)||minis[0]||null),
-      goalsAll:goals, minisAll:minis, hint:gtxt+(hint?(' • '+hint):'')
+      goalsAll:goals, minisAll:minis, hint:gtxt
     }}));
   }
 
@@ -50,38 +50,18 @@ export async function boot(cfg={}){
   function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false; setFeverActive(false);} }
   function syncDeck(){ deck.updateScore(score); deck.updateCombo(combo); deck.stats.gCounts=[...gCounts]; deck.stats.star=star; deck.stats.diamond=diamond; }
 
-  function emitScore(delta, good){
-    try{
-      window.dispatchEvent(new CustomEvent('hha:score',{
-        detail:{ delta, total:score, combo, comboMax, good }
-      }));
-    }catch(_){}
-  }
-
   function scoreFX(x,y,val,theme){
     Particles.scorePop(x,y,(val>0?'+':'')+val);
-    Particles.burstAt(x,y,{ color: val>=0?'#22c55e':'#f97316' });
+    Particles.burstShards(null,null,{screen:{x,y},theme:theme||'plate'});
   }
 
   function judge(ch, ctx){
     const x=ctx.clientX||ctx.cx||0, y=ctx.clientY||ctx.cy||0;
     // power-ups
-    if (ch===STAR){
-      const d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
-    if (ch===DIA){
-      const d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
-    if (ch===SHIELD){
-      shield=Math.min(3,shield+1); setShield(shield); const d=20; score+=d; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
-    if (ch===FIRE){
-      feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); const d=25; score+=d; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,d); emitScore(d,true);
-      return {good:true,scoreDelta:d};
-    }
+    if (ch===STAR){ const d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); return {good:true,scoreDelta:d}; }
+    if (ch===DIA) { const d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d); return {good:true,scoreDelta:d}; }
+    if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); score+=20; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,20); return {good:true,scoreDelta:20}; }
+    if (ch===FIRE) { feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,25); return {good:true,scoreDelta:25}; }
 
     const g = foodGroup(ch);
     if (g>0){
@@ -89,21 +69,21 @@ export async function boot(cfg={}){
       score+=d; combo++; comboMax=Math.max(comboMax,combo); gainFever(6+combo*0.4);
       gCounts[g-1] = (gCounts[g-1]|0) + 1;
       deck.onGood(); syncDeck(); pushQuest();
-      scoreFX(x,y,d,'plate'); emitScore(d,true);
+      scoreFX(x,y,d,'plate');
       return {good:true, scoreDelta:d};
     }else{
-      if (shield>0){
-        shield--; setShield(shield); decayFever(6); syncDeck(); pushQuest(); scoreFX(x,y,0,'groups'); emitScore(0,false);
-        return {good:false,scoreDelta:0};
-      }
-      const d=-12; score=Math.max(0,score+d); combo=0; misses++; decayFever(16); deck.onJunk(); syncDeck(); pushQuest(); scoreFX(x,y,d,'groups'); emitScore(d,false);
+      if (shield>0){ shield--; setShield(shield); decayFever(6); syncDeck(); pushQuest(); scoreFX(x,y,0,'groups'); return {good:false,scoreDelta:0}; }
+      const d=-12; score=Math.max(0,score+d); combo=0; misses++; decayFever(16); deck.onJunk(); syncDeck(); pushQuest(); scoreFX(x,y,d,'groups');
       return {good:false, scoreDelta:d};
     }
   }
 
+  // *** ปล่อยของเสียหลุดจอ: ไม่เพิ่ม miss แล้ว ***
   function onExpire(ev){
     if (!ev || ev.isGood) return;
-    misses++; deck.onJunk(); syncDeck(); pushQuest(); emitScore(0,false);
+    decayFever(6);
+    syncDeck();
+    pushQuest();
   }
 
   function onSec(){
