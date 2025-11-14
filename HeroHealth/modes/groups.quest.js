@@ -1,249 +1,63 @@
-// === /HeroHealth/modes/groups.quest.js (2025-11-14) ===
-// ใช้ร่วมกับ groups.safe.js ที่ส่ง ctx = { score, goodHits, miss, comboMax, timeLeft, groupsDone }
+// === /HeroHealth/modes/groups.quest.js (Full, 2 goals + 3 minis with food groups) ===
+import { MissionDeck } from '../vr/mission.js';
 
-function shuffle(arr){
-  const a = arr.slice();
-  for (let i=a.length-1;i>0;i--){
-    const j = (Math.random()*(i+1))|0;
-    [a[i],a[j]] = [a[j],a[i]];
-  }
-  return a;
+function G(s){ return {
+  score:s.score|0, combo:s.combo|0, comboMax:s.comboMax|0,
+  good:s.goodCount|0, miss:s.junkMiss|0, tick:s.tick|0
+};}
+
+function goalsFor(diff){
+  const K = { easy:{good:16, score:800, combo:8, miss:8, time:30},
+              normal:{good:24,score:1400,combo:12,miss:6, time:40},
+              hard:{good:32, score:2000,combo:16,miss:4, time:50} }[diff]||{};
+  return [
+    {id:'g_good', label:`เลือกอาหาร “หมู่เป้าหมาย” ให้ได้ ${K.good} ชิ้น`, target:K.good,
+      check:s=>G(s).good>=K.good, prog:s=>Math.min(K.good,G(s).good)},
+    {id:'g_score',label:`คะแนนรวม ${K.score}+`, target:K.score,
+      check:s=>G(s).score>=K.score, prog:s=>Math.min(K.score,G(s).score)},
+    {id:'g_combo',label:`คอมโบ ≥ ${K.combo}`, target:K.combo,
+      check:s=>G(s).comboMax>=K.combo, prog:s=>Math.min(K.combo,G(s).comboMax)},
+    {id:'g_nomiss',label:`พลาดไม่เกิน ${K.miss}`, target:K.miss,
+      check:s=>G(s).miss<=K.miss, prog:s=>Math.max(0,K.miss-G(s).miss)},
+    {id:'g_time', label:`อยู่รอด ${K.time}s`, target:K.time,
+      check:s=>G(s).tick>=K.time, prog:s=>Math.min(K.time,G(s).tick)},
+    {id:'g_good18',label:'เก็บหมู่เป้าหมาย 18',target:18,check:s=>G(s).good>=18,prog:s=>Math.min(18,G(s).good)},
+    {id:'g_combo14',label:'คอมโบ ≥ 14', target:14,check:s=>G(s).comboMax>=14,prog:s=>Math.min(14,G(s).comboMax)},
+    {id:'g_score1700',label:'คะแนน 1700+', target:1700,check:s=>G(s).score>=1700,prog:s=>Math.min(1700,G(s).score)},
+    {id:'g_good28',label:'เก็บหมู่เป้าหมาย 28',target:28,check:s=>G(s).good>=28,prog:s=>Math.min(28,G(s).good)},
+    {id:'g_nomiss6',label:'พลาด ≤ 6', target:6,check:s=>G(s).miss<=6,prog:s=>Math.max(0,6-G(s).miss)},
+  ];
 }
 
-// ---------------------------------------------------------------------------
-// GOALS (เลือก 2 จาก 10)
-// ---------------------------------------------------------------------------
-const GOALS = {
-  easy: [
-    {
-      id:'score_800',
-      pick(){ const t=800; return { label:'ทำคะแนนรวม ≥ 800', target:t, type:'score', threshold:t }; }
-    },
-    {
-      id:'score_1200',
-      pick(){ const t=1200; return { label:'ทำคะแนนรวม ≥ 1,200', target:t, type:'score', threshold:t }; }
-    },
-    {
-      id:'good_20',
-      pick(){ const t=20; return { label:'แยกเข้าหมู่ถูก ≥ 20 ชิ้น', target:t, type:'goodHits', threshold:t }; }
-    },
-    {
-      id:'good_30',
-      pick(){ const t=30; return { label:'แยกเข้าหมู่ถูก ≥ 30 ชิ้น', target:t, type:'goodHits', threshold:t }; }
-    },
-    {
-      id:'combo_10',
-      pick(){ const t=10; return { label:'ทำคอมโบ ≥ 10', target:t, type:'comboMax', threshold:t }; }
-    },
-    {
-      id:'combo_15',
-      pick(){ const t=15; return { label:'ทำคอมโบ ≥ 15', target:t, type:'comboMax', threshold:t }; }
-    },
-    {
-      id:'miss_leq_5',
-      pick(){ const t=5; return { label:'ผิดไม่เกิน 5 ครั้ง', target:t, type:'miss_leq', threshold:t }; }
-    },
-    {
-      id:'miss_leq_3',
-      pick(){ const t=3; return { label:'ผิดไม่เกิน 3 ครั้ง', target:t, type:'miss_leq', threshold:t }; }
-    },
-    {
-      id:'groups_5',
-      pick(){ const t=5; return { label:'จัดครบทั้ง 5 หมู่ อย่างน้อย 5 รอบ', target:t, type:'groupsDone', threshold:t }; }
-    },
-    {
-      id:'groups_8',
-      pick(){ const t=8; return { label:'จัดครบทั้ง 5 หมู่ อย่างน้อย 8 รอบ', target:t, type:'groupsDone', threshold:t }; }
-    }
-  ],
-  normal: [],
-  hard: []
-};
-
-GOALS.normal = GOALS.easy;
-GOALS.hard   = GOALS.easy;
-
-// ---------------------------------------------------------------------------
-// MINI QUESTS (เลือก 3 จาก 15)
-// ---------------------------------------------------------------------------
-const MINIS = {
-  easy: [
-    { id:'good_10', pick(){ const t=10; return { label:'แยกหมู่ถูก 10 ชิ้น', target:t, type:'goodHits', threshold:t }; } },
-    { id:'good_15', pick(){ const t=15; return { label:'แยกหมู่ถูก 15 ชิ้น', target:t, type:'goodHits', threshold:t }; } },
-    { id:'good_25', pick(){ const t=25; return { label:'แยกหมู่ถูก 25 ชิ้น', target:t, type:'goodHits', threshold:t }; } },
-
-    { id:'combo_6', pick(){ const t=6; return { label:'ทำคอมโบ ≥ 6', target:t, type:'comboMax', threshold:t }; } },
-    { id:'combo_12',pick(){ const t=12;return { label:'ทำคอมโบ ≥ 12', target:t, type:'comboMax', threshold:t }; } },
-    { id:'combo_18',pick(){ const t=18;return { label:'ทำคอมโบ ≥ 18', target:t, type:'comboMax', threshold:t }; } },
-
-    { id:'miss_leq_4',pick(){ const t=4; return { label:'ผิดไม่เกิน 4 ครั้ง', target:t, type:'miss_leq', threshold:t }; } },
-    { id:'miss_leq_2',pick(){ const t=2; return { label:'ผิดไม่เกิน 2 ครั้ง', target:t, type:'miss_leq', threshold:t }; } },
-
-    { id:'score_500',pick(){ const t=500; return { label:'ทำคะแนน ≥ 500', target:t, type:'score', threshold:t }; } },
-    { id:'score_900',pick(){ const t=900; return { label:'ทำคะแนน ≥ 900', target:t, type:'score', threshold:t }; } },
-
-    { id:'groups_3', pick(){ const t=3; return { label:'จัดครบ 5 หมู่ 3 รอบ', target:t, type:'groupsDone', threshold:t }; } },
-    { id:'groups_6', pick(){ const t=6; return { label:'จัดครบ 5 หมู่ 6 รอบ', target:t, type:'groupsDone', threshold:t }; } },
-
-    { id:'ratio_good', pick(){ return { label:'ของถูกมากกว่าผิด ≥ 2 เท่า', target:2, type:'ratio_good' }; } },
-    { id:'endgame_focus', pick(){ return { label:'รักษาฟอร์มจนปลายเกม', target:0, type:'decor' }; } },
-    { id:'combo_peak', pick(){ const t=14; return { label:'ดันคอมโบ ≥ 14', target:t, type:'comboMax', threshold:t }; } },
-  ],
-  normal: [],
-  hard: []
-};
-
-MINIS.normal = MINIS.easy;
-MINIS.hard   = MINIS.easy;
-
-// ---------------------------------------------------------------------------
-// ประเมินความคืบหน้าเควสต์
-// ---------------------------------------------------------------------------
-function evalProgress(def, ctx){
-  if (!def) return { prog:0, done:false };
-
-  let prog=0, done=false;
-
-  switch(def.type){
-    case 'score':
-      prog = ctx.score|0;
-      done = prog >= def.threshold;
-      break;
-
-    case 'goodHits':
-      prog = ctx.goodHits|0;
-      done = prog >= def.threshold;
-      break;
-
-    case 'comboMax':
-      prog = ctx.comboMax|0;
-      done = prog >= def.threshold;
-      break;
-
-    case 'groupsDone':
-      prog = ctx.groupsDone|0;
-      done = prog >= def.threshold;
-      break;
-
-    case 'miss_leq':
-      prog = ctx.miss|0;
-      // miss_leq เคลียร์เมื่อเวลา = 0 เท่านั้น
-      done = (ctx.timeLeft<=0) ? (prog <= def.threshold) : false;
-      break;
-
-    case 'ratio_good': {
-      const g = ctx.goodHits|0, m = ctx.miss|0;
-      prog = (m===0)? g : (g/(m||1));
-      done = g >= 5 && prog >= def.target;
-      break;
-    }
-
-    default:
-      prog=0; done=false;
-  }
-
-  return { prog, done };
+function minisFor(diff){
+  const K = { easy:{good:10, score:600, combo:8, miss:8},
+              normal:{good:16,score:1000,combo:10,miss:6},
+              hard:{good:22, score:1500,combo:12,miss:4} }[diff]||{};
+  return [
+    {id:'m_good', label:`เก็บหมู่เป้าหมาย ${K.good}`, target:K.good,
+      check:s=>G(s).good>=K.good, prog:s=>Math.min(K.good,G(s).good)},
+    {id:'m_score',label:`คะแนน ${K.score}+`, target:K.score,
+      check:s=>G(s).score>=K.score, prog:s=>Math.min(K.score,G(s).score)},
+    {id:'m_combo',label:`คอมโบ ≥ ${K.combo}`, target:K.combo,
+      check:s=>G(s).comboMax>=K.combo, prog:s=>Math.min(K.combo,G(s).comboMax)},
+    {id:'m_nomiss',label:`พลาดไม่เกิน ${K.miss}`, target:K.miss,
+      check:s=>G(s).miss<=K.miss, prog:s=>Math.max(0,K.miss-G(s).miss)},
+    {id:'m_good12',label:'เก็บหมู่ 12',target:12,check:s=>G(s).good>=12,prog:s=>Math.min(12,G(s).good)},
+    {id:'m_good18',label:'เก็บหมู่ 18',target:18,check:s=>G(s).good>=18,prog:s=>Math.min(18,G(s).good)},
+    {id:'m_score1200',label:'คะแนน 1200+',target:1200,check:s=>G(s).score>=1200,prog:s=>Math.min(1200,G(s).score)},
+    {id:'m_combo14',label:'คอมโบ ≥ 14',target:14,check:s=>G(s).comboMax>=14,prog:s=>Math.min(14,G(s).comboMax)},
+    {id:'m_nomiss4',label:'พลาด ≤ 4',target:4,check:s=>G(s).miss<=4,prog:s=>Math.max(0,4-G(s).miss)},
+    {id:'m_time15',label:'อยู่รอด 15s',target:15,check:s=>G(s).tick>=15,prog:s=>Math.min(15,G(s).tick)},
+    {id:'m_time25',label:'อยู่รอด 25s',target:25,check:s=>G(s).tick>=25,prog:s=>Math.min(25,G(s).tick)},
+    {id:'m_combo12',label:'คอมโบ ≥ 12',target:12,check:s=>G(s).comboMax>=12,prog:s=>Math.min(12,G(s).comboMax)},
+    {id:'m_score900',label:'คะแนน 900+',target:900,check:s=>G(s).score>=900,prog:s=>Math.min(900,G(s).score)},
+    {id:'m_good8',label:'เก็บหมู่ 8',target:8,check:s=>G(s).good>=8,prog:s=>Math.min(8,G(s).good)},
+    {id:'m_combo10',label:'คอมโบ ≥ 10',target:10,check:s=>G(s).comboMax>=10,prog:s=>Math.min(10,G(s).comboMax)},
+  ];
 }
 
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
-export function createGroupsQuest(diff){
-  const gPool = shuffle(GOALS[diff] || GOALS.easy).slice(0,2).map(q=>q.pick(diff));
-  const mPool = shuffle(MINIS[diff] || MINIS.easy).slice(0,3).map(q=>q.pick(diff));
-
-  let gIndex = 0;
-  let mIndex = 0;
-
-  let goalsCleared = 0;
-  let miniCleared  = 0;
-
-  function currentGoal(){ return gPool[gIndex] || null; }
-  function currentMini(){ return mPool[mIndex] || null; }
-
-  // ส่งข้อมูลให้ quest-hud.js
-  function pushHUD(state){
-    const cg = currentGoal();
-    const cm = currentMini();
-
-    const payload = {};
-
-    if (cg){
-      const r = evalProgress(cg,state);
-      payload.goal = {
-        label : cg.label,
-        target: cg.target,
-        prog  : Math.min(r.prog, cg.target),
-        done  : r.done
-      };
-    }
-
-    if (cm){
-      const r = evalProgress(cm,state);
-      payload.mini = {
-        label : cm.label,
-        target: cm.target || (r.prog|0),
-        prog  : (cm.type==='ratio_good') ? Math.round(r.prog*10)/10 : Math.min(r.prog, cm.target || r.prog),
-        done  : r.done
-      };
-    }
-
-    if (payload.goal || payload.mini){
-      window.dispatchEvent(new CustomEvent('hha:quest',{ detail:payload }));
-    }
-  }
-
-  // อัปเดตเมื่อ state เปลี่ยน
-  function update(state){
-    state = state || {};
-    let advanced = false;
-
-    // ---------- Goal ----------
-    const cg = currentGoal();
-    if (cg){
-      const r = evalProgress(cg,state);
-      if (r.done && !cg._done){
-        cg._done = true;
-        goalsCleared++;
-        gIndex++;
-        advanced = true;
-        window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text:'เก่งมาก! เคลียร์ GOAL แล้ว ได้เป้าใหม่!' }}));
-      }
-    }
-
-    // ---------- Mini Quest ----------
-    const cm = currentMini();
-    if (cm){
-      const r = evalProgress(cm,state);
-      if (r.done && !cm._done){
-        cm._done = true;
-        miniCleared++;
-        mIndex++;
-        advanced = true;
-        window.dispatchEvent(new CustomEvent('hha:coach',{ detail:{ text:'Mini Quest สำเร็จแล้ว! ด่านถัดไปเริ่มทันที!' }}));
-      }
-    }
-
-    // อัปเดต HUD
-    pushHUD(state);
-
-    return advanced;
-  }
-
-  function start(state){
-    pushHUD(state||{});
-  }
-
-  function summary(){
-    return {
-      goalsCleared,
-      goalsTotal : gPool.length,
-      miniCleared,
-      miniTotal  : mPool.length
-    };
-  }
-
-  return { start, update, summary };
+export function createGroupsQuest(diff='normal'){
+  const deck = new MissionDeck({ goalPool: goalsFor(diff), miniPool: minisFor(diff) });
+  return deck;
 }
-
 export default { createGroupsQuest };
