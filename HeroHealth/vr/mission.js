@@ -1,4 +1,4 @@
-// === /HeroHealth/vr/mission.js (2025-11-12 LATEST, goal+mini engines) ===
+// === /HeroHealth/vr/mission.js (2025-11-14 GREEN-TICK READY) ===
 export class MissionDeck {
   constructor(opts = {}) {
     const { pool, goalPool, miniPool } = opts;
@@ -16,7 +16,10 @@ export class MissionDeck {
       comboMax: 0,
       goodCount: 0,    // เก็บของดีสำเร็จกี่ครั้ง
       junkMiss: 0,     // โดนของเสีย/พลาด
-      tick: 0          // วินาทีที่ผ่านไป
+      tick: 0,         // วินาทีที่ผ่านไป (รวมทั้งด่าน)
+      // สำหรับโหมดที่มีโซนน้ำ / สี ฯลฯ
+      zone: '',
+      greenTick: 0     // นับวินาทีที่ “เคยอยู่ GREEN” แบบสะสม (ไม่ลดกลับ)
     };
 
     // นับจำนวน mini ที่ “ถูกเสนอ” ไปแล้วทั้งหมด (รวมทุก wave)
