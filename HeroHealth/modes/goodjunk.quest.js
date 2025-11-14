@@ -1,201 +1,83 @@
-// === /HeroHealth/modes/goodjunk.quest.js (สุ่มเป้า 2 + Mini 3 สำหรับ Good vs Junk) ===
+// === /HeroHealth/modes/goodjunk.quest.js (Full, 2 goals from 10 + 3 minis from 15) ===
+import { MissionDeck } from '../vr/mission.js';
 
-function shuffle(arr){
-  const a = arr.slice();
-  for(let i=a.length-1;i>0;i--){
-    const j = (Math.random()*(i+1))|0;
-    [a[i],a[j]]=[a[j],a[i]];
-  }
-  return a;
+function G(s){ return {
+  score: s.score|0, combo: s.combo|0, comboMax: s.comboMax|0,
+  good: s.goodCount|0, miss: s.junkMiss|0, tick: s.tick|0,
+  star: s.star|0, diamond: s.diamond|0
+};}
+
+function goalsFor(diff){
+  const K = { easy: {good:18, score:900, combo:10, miss:8, time:30, star:1, dia:0},
+              normal:{good:26, score:1500,combo:16, miss:6, time:40, star:2, dia:1},
+              hard: {good:34, score:2200,combo:24, miss:4, time:50, star:3, dia:2} }[diff] || {};
+  return [
+    {id:'g_good', label:`เก็บของดี ${K.good} ชิ้น`, target:K.good,
+      check:s=>G(s).good>=K.good, prog:s=>Math.min(K.good,G(s).good)},
+    {id:'g_score',label:`ทำคะแนนรวม ${K.score}+`, target:K.score,
+      check:s=>G(s).score>=K.score, prog:s=>Math.min(K.score,G(s).score)},
+    {id:'g_combo',label:`คอมโบสูงสุด ≥ ${K.combo}`, target:K.combo,
+      check:s=>G(s).comboMax>=K.combo, prog:s=>Math.min(K.combo,G(s).comboMax)},
+    {id:'g_time', label:`อยู่รอด ${K.time}s`, target:K.time,
+      check:s=>G(s).tick>=K.time, prog:s=>Math.min(K.time,G(s).tick)},
+    {id:'g_miss', label:`พลาดไม่เกิน ${K.miss} ครั้ง`, target:K.miss,
+      check:s=>G(s).miss<=K.miss, prog:s=>Math.max(0,K.miss-G(s).miss)},
+    {id:'g_star', label:`เก็บ ⭐ ${K.star} ดวง`, target:K.star,
+      check:s=>G(s).star>=K.star, prog:s=>Math.min(K.star,G(s).star)},
+    {id:'g_dia',  label:`เก็บ 💎 ${K.dia} เม็ด`, target:K.dia,
+      check:s=>G(s).diamond>=K.dia, prog:s=>Math.min(K.dia,G(s).diamond)},
+    {id:'g_good30',label:`เก็บของดี 30 ชิ้น (ทางลัด)`, target:30,
+      check:s=>G(s).good>=30, prog:s=>Math.min(30,G(s).good)},
+    {id:'g_score2k',label:`คะแนนแตะ 2000`, target:2000,
+      check:s=>G(s).score>=2000, prog:s=>Math.min(2000,G(s).score)},
+    {id:'g_combo18',label:`คอมโบ ≥ 18`, target:18,
+      check:s=>G(s).comboMax>=18, prog:s=>Math.min(18,G(s).comboMax)},
+  ];
 }
 
-// ctx: { score, goodHits, miss, comboMax, timeLeft }
-const GOALS = {
-  easy: [
-    { id:'score_800',
-      pick(diff){ const t=800; return { label:'ทำคะแนนรวม 800+', target:t, type:'score', threshold:t }; }
-    },
-    { id:'score_1200',
-      pick(){ const t=1200;return {label:'ทำคะแนนรวม 1,200+',target:t,type:'score',threshold:t}; }
-    },
-    { id:'good_25',
-      pick(){ const t=25;return {label:'เก็บของดีให้ได้ 25 ชิ้น',target:t,type:'goodHits',threshold:t}; }
-    },
-    { id:'good_30',
-      pick(){ const t=30;return {label:'เก็บของดีให้ได้ 30 ชิ้น',target:t,type:'goodHits',threshold:t}; }
-    },
-    { id:'combo_10',
-      pick(){ const t=10;return {label:'ทำคอมโบสูงสุดอย่างน้อย 10',target:t,type:'comboMax',threshold:t}; }
-    },
-    { id:'miss_leq_6',
-      pick(){ const t=6;return {label:'พลาดไม่เกิน 6 ครั้ง',target:t,type:'miss_leq',threshold:t}; }
-    },
-    { id:'ratio_2x',
-      pick(){ return {label:'เก็บของดี ≥ 2 เท่าของของเสีย',target:2,type:'ratio_gh_miss'}; }
-    },
-    { id:'score_1000',
-      pick(){ const t=1000;return {label:'ทำคะแนนรวม 1,000+',target:t,type:'score',threshold:t}; }
-    },
-    { id:'good_20',
-      pick(){ const t=20;return {label:'เก็บของดีให้ได้ 20 ชิ้น',target:t,type:'goodHits',threshold:t}; }
-    },
-    { id:'combo_8',
-      pick(){ const t=8;return {label:'ทำคอมโบสูงสุดอย่างน้อย 8',target:t,type:'comboMax',threshold:t}; }
-    }
-  ],
-  normal: [],
-  hard: []
-};
-// ถ้า normal/hard ไม่ระบุ ให้ fallback easy แล้ว scale เป้า
-GOALS.normal = GOALS.easy;
-GOALS.hard   = GOALS.easy;
-
-const MINIS = {
-  easy: [
-    { id:'combo_6', pick(){const t=6; return {label:'คอมโบต่อเนื่อง 6 ครั้ง',target:t,type:'comboMax',threshold:t}; } },
-    { id:'combo_8', pick(){const t=8; return {label:'คอมโบต่อเนื่อง 8 ครั้ง',target:t,type:'comboMax',threshold:t}; } },
-    { id:'combo_12',pick(){const t=12;return {label:'คอมโบต่อเนื่อง 12 ครั้ง',target:t,type:'comboMax',threshold:t}; } },
-    { id:'good_10', pick(){const t=10;return {label:'เก็บของดีติดมือ 10 ชิ้น',target:t,type:'goodHits',threshold:t}; } },
-    { id:'good_18', pick(){const t=18;return {label:'เก็บของดีติดมือ 18 ชิ้น',target:t,type:'goodHits',threshold:t}; } },
-    { id:'good_22', pick(){const t=22;return {label:'เก็บของดีติดมือ 22 ชิ้น',target:t,type:'goodHits',threshold:t}; } },
-    { id:'miss_leq_4', pick(){const t=4;return {label:'พลาดไม่เกิน 4 ครั้ง',target:t,type:'miss_leq',threshold:t}; } },
-    { id:'miss_leq_8', pick(){const t=8;return {label:'พลาดไม่เกิน 8 ครั้ง',target:t,type:'miss_leq',threshold:t}; } },
-    { id:'score_600', pick(){const t=600;return {label:'ทำคะแนนรวมอย่างน้อย 600',target:t,type:'score',threshold:t}; } },
-    { id:'score_900', pick(){const t=900;return {label:'ทำคะแนนรวมอย่างน้อย 900',target:t,type:'score',threshold:t}; } },
-    { id:'ratio_15',pick(){return {label:'ของดีมากกว่าของเสีย 1.5 เท่า',target:1.5,type:'ratio_gh_miss'}; } },
-    { id:'ratio_2', pick(){return {label:'ของดีมากกว่าของเสีย 2 เท่า',target:2,type:'ratio_gh_miss'}; } },
-    { id:'no_miss_5s',pick(){return {label:'พยายามไม่พลาดช่วงท้ายเกม',target:0,type:'decor'};} }, // purely info
-    { id:'combo_plateau',pick(){const t=10;return {label:'พยายามดันคอมโบสูงสุด ≥ 10',target:t,type:'comboMax',threshold:t}; } },
-    { id:'good_streak',pick(){const t=15;return {label:'เก็บของดีรวม 15 ชิ้น',target:t,type:'goodHits',threshold:t}; } }
-  ],
-  normal: [],
-  hard: []
-};
-MINIS.normal = MINIS.easy;
-MINIS.hard   = MINIS.easy;
-
-function evalProgress(def, state){
-  if (!def) return { prog:0, done:false };
-  const t  = def.target;
-  const ctx = state;
-  let prog = 0, done = false;
-
-  switch(def.type){
-    case 'score':
-      prog = ctx.score|0;
-      done = prog >= def.threshold;
-      break;
-    case 'goodHits':
-      prog = ctx.goodHits|0;
-      done = prog >= def.threshold;
-      break;
-    case 'comboMax':
-      prog = ctx.comboMax|0;
-      done = prog >= def.threshold;
-      break;
-    case 'miss_leq':
-      prog = ctx.miss|0;
-      done = (ctx.timeLeft<=0) ? (prog <= def.threshold) : false;
-      break;
-    case 'ratio_gh_miss': {
-      const g = ctx.goodHits|0, m = ctx.miss|0;
-      prog = (m===0)? g : (g/(m||1));
-      done = g>=5 && prog >= def.target;
-      break;
-    }
-    default:
-      prog = 0; done=false;
-  }
-  return { prog, done };
+function minisFor(diff){
+  const K = { easy:{score:600, combo:8, good:12, miss:8, star:1},
+              normal:{score:1200,combo:12,good:18,miss:6, star:2},
+              hard:{score:1800, combo:16,good:24,miss:4, star:2} }[diff] || {};
+  return [
+    {id:'m_score', label:`ดันคะแนนให้ถึง ${K.score}`, target:K.score,
+      check:s=>G(s).score>=K.score, prog:s=>Math.min(K.score,G(s).score)},
+    {id:'m_combo', label:`คอมโบต่อเนื่อง ${K.combo}`, target:K.combo,
+      check:s=>G(s).comboMax>=K.combo, prog:s=>Math.min(K.combo,G(s).comboMax)},
+    {id:'m_good',  label:`เก็บของดี ${K.good}`, target:K.good,
+      check:s=>G(s).good>=K.good, prog:s=>Math.min(K.good,G(s).good)},
+    {id:'m_nomiss',label:`พลาดไม่เกิน ${K.miss}`, target:K.miss,
+      check:s=>G(s).miss<=K.miss, prog:s=>Math.max(0,K.miss-G(s).miss)},
+    {id:'m_star',  label:`เก็บ ⭐ ${K.star}`, target:K.star,
+      check:s=>G(s).star>=K.star, prog:s=>Math.min(K.star,G(s).star)},
+    {id:'m_combo10',label:'คอมโบ ≥ 10', target:10,
+      check:s=>G(s).comboMax>=10, prog:s=>Math.min(10,G(s).comboMax)},
+    {id:'m_score900',label:'คะแนน 900+', target:900,
+      check:s=>G(s).score>=900, prog:s=>Math.min(900,G(s).score)},
+    {id:'m_good14',label:'เก็บดี 14', target:14,
+      check:s=>G(s).good>=14, prog:s=>Math.min(14,G(s).good)},
+    {id:'m_miss4', label:'พลาด ≤ 4', target:4,
+      check:s=>G(s).miss<=4, prog:s=>Math.max(0,4-G(s).miss)},
+    {id:'m_dia1', label:'เก็บ 💎 1', target:1,
+      check:s=>G(s).diamond>=1, prog:s=>Math.min(1,G(s).diamond)},
+    {id:'m_time15',label:'อยู่รอด 15s', target:15,
+      check:s=>G(s).tick>=15, prog:s=>Math.min(15,G(s).tick)},
+    {id:'m_combo14',label:'คอมโบ ≥ 14', target:14,
+      check:s=>G(s).comboMax>=14, prog:s=>Math.min(14,G(s).comboMax)},
+    {id:'m_score1400',label:'คะแนน 1400+', target:1400,
+      check:s=>G(s).score>=1400, prog:s=>Math.min(1400,G(s).score)},
+    {id:'m_good10',label:'เก็บดี 10', target:10,
+      check:s=>G(s).good>=10, prog:s=>Math.min(10,G(s).good)},
+    {id:'m_nomiss6',label:'พลาด ≤ 6', target:6,
+      check:s=>G(s).miss<=6, prog:s=>Math.max(0,6-G(s).miss)},
+  ];
 }
 
-export function createGoodJunkQuest(diff){
-  const gPoolBase = GOALS[diff] || GOALS.easy;
-  const mPoolBase = MINIS[diff] || MINIS.easy;
-
-  const gPool = shuffle(gPoolBase).slice(0,2).map(q=>q.pick(diff));
-  const mPool = shuffle(mPoolBase).slice(0,3).map(q=>q.pick(diff));
-
-  let gIndex = 0, mIndex = 0;
-  let goalsCleared = 0, miniCleared = 0;
-
-  function currentGoal(){ return gPool[gIndex] || null; }
-  function currentMini(){ return mPool[mIndex] || null; }
-
-  function pushHUD(state){
-    const cg = currentGoal();
-    const cm = currentMini();
-
-    const payload = {};
-    if (cg){
-      const r = evalProgress(cg,state);
-      payload.goal = {
-        label: cg.label,
-        target: cg.target,
-        prog: Math.min(r.prog, cg.target),
-        done: r.done
-      };
-    }
-    if (cm){
-      const r = evalProgress(cm,state);
-      payload.mini = {
-        label: cm.label,
-        target: cm.target || (r.prog|0),
-        prog: (cm.type==='ratio_gh_miss') ? Math.round(r.prog*10)/10 : Math.min(r.prog, cm.target||r.prog),
-        done: r.done
-      };
-    }
-    if (payload.goal || payload.mini){
-      window.dispatchEvent(new CustomEvent('hha:quest',{ detail:payload }));
-    }
-  }
-
-  function update(state){
-    state = state || {};
-    let advanced = false;
-
-    const cg = currentGoal();
-    if (cg){
-      const r = evalProgress(cg,state);
-      if (r.done && !cg._done){
-        cg._done = true;
-        goalsCleared++;
-        gIndex++;
-        advanced = true;
-        window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:'เยี่ยม! เคลียร์ GOAL แล้ว ได้เป้าใหม่เพิ่ม!'}}));
-      }
-    }
-    const cm = currentMini();
-    if (cm){
-      const r = evalProgress(cm,state);
-      if (r.done && !cm._done){
-        cm._done = true;
-        miniCleared++;
-        mIndex++;
-        advanced = true;
-        window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:'Mini Quest สำเร็จแล้ว ได้เควสต์ใหม่ต่อทันที!'}}));
-      }
-    }
-
-    // ถ้าเวลาหมดแล้ว ไม่ต้องดัน HUD ต่อ
-    pushHUD(state);
-    return advanced;
-  }
-
-  function start(state){
-    pushHUD(state||{});
-  }
-
-  function summary(){
-    return {
-      goalsCleared,
-      goalsTotal: gPool.length,
-      miniCleared,
-      miniTotal: mPool.length
-    };
-  }
-
-  return { start, update, summary };
+export function createGoodJunkQuest(diff='normal'){
+  const deck = new MissionDeck({
+    goalPool: goalsFor(diff),
+    miniPool: minisFor(diff)
+  });
+  return deck;
 }
-
 export default { createGoodJunkQuest };
