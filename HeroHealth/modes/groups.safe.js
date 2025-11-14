@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/groups.safe.js (Full, bias to target groups + power-ups + coach) ===
+// === /HeroHealth/modes/groups.safe.js (Full, bias to target groups + power-ups + coach + HUD SCORE) ===
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createGroupsQuest } from './groups.quest.js';
@@ -26,22 +26,19 @@ function xy(ev){ if(ev?.changedTouches?.[0]){const t=ev.changedTouches[0];return
                  return {x:ev?.clientX||0,y:ev?.clientY||0}; }
 
 export async function boot(opts={}){
-
   const diff = (opts.difficulty||'normal').toLowerCase();
   const dur  = (opts.duration|0)||60;
   const cfg  = diffCfg[diff]||diffCfg.normal;
 
   ensureFeverBar(); setFever(0); setFeverActive(false); setShield(0);
 
-  const host = document.getElementById('spawnHost') || makeHost(); 
-  host.innerHTML='';
-
+  const host = document.getElementById('spawnHost') || makeHost(); host.innerHTML='';
   let timerSpawn=null, timerTick=null;
   let timeLeft=dur;
 
-  const deck = createGroupsQuest(diff); 
-  deck.drawGoals(2); 
-  deck.draw3();
+  // Quest (2+3)
+  const deck = createGroupsQuest(diff);
+  deck.drawGoals(2); deck.draw3();
 
   function pushQuest(hint){
     const goals=deck.getProgress('goals'), minis=deck.getProgress('mini');
@@ -53,20 +50,26 @@ export async function boot(opts={}){
     }}));
   }
 
+  // state
   let score=0, combo=0, comboMax=0, misses=0;
   let star=0, diamond=0, shield=0, fever=0, feverActive=false;
   let goodHits=0;
-
   let accMiniDone=0, accGoalDone=0;
 
   function mult(){ return feverActive?2:1; }
-  function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever);
-    if(!feverActive&&fever>=100){feverActive=true;setFeverActive(true);} }
-  function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever);
-    if(feverActive&&fever<=0){feverActive=false;setFeverActive(false);} }
-
+  function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true;setFeverActive(true);} }
+  function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false;setFeverActive(false);} }
   function coach(t){ window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:t}})); }
 
+  function emitScore(delta, good){
+    try{
+      window.dispatchEvent(new CustomEvent('hha:score',{
+        detail:{ delta, total:score, combo, comboMax, good }
+      }));
+    }catch(_){}
+  }
+
+  // target groups (auto escalate)
   let activeGroups = pickGroups(cfg.focus);
   let focusLevel = cfg.focus;
 
@@ -84,41 +87,55 @@ export async function boot(opts={}){
   function hitGood(ev, isTarget){
     const p=xy(ev);
     const d = isTarget ? (140+combo*4)*mult() : -120;
-
     if (isTarget){
-      score+=d; combo++; comboMax=Math.max(comboMax,combo); gainFever(6+combo*0.4); 
-      deck.onGood(); goodHits++;
+      score+=d; combo++; comboMax=Math.max(comboMax,combo); gainFever(6+combo*0.4); deck.onGood(); goodHits++;
+      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
     }else{
-      if (shield>0){ shield--; setShield(shield); }
-      else { score=Math.max(0,score+d); combo=0; misses++; decayFever(14); deck.onJunk(); }
+      if (shield>0){
+        shield--; setShield(shield);
+        Particles.scorePop(p.x,p.y,'0');
+      }else{
+        score=Math.max(0,score+d); combo=0; misses++; decayFever(14); deck.onJunk();
+        Particles.scorePop(p.x,p.y,String(d));
+      }
+      Particles.burstAt(p.x,p.y,{color:isTarget?'#22c55e':'#f97316'});
     }
-
-    Particles.scorePop(p.x,p.y,(d>=0?'+':'')+d);
-    Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'groups'});
-
-    window.dispatchEvent(new CustomEvent('hha:score',{detail:{delta:d,total:score,combo,comboMax,good:isTarget}}));
+    window.dispatchEvent(new CustomEvent('hha:score',{
+      detail:{ delta:d, total:score, combo, comboMax, good:isTarget }
+    }));
     deck.updateScore(score); deck.updateCombo(combo); pushQuest();
     escalateIfReady();
   }
 
   function hitBonus(ev, ch){
     const p=xy(ev);
-    let d=0;
-    if (ch===STAR){ d=40*mult(); score+=d; star++; gainFever(10); combo++; comboMax=Math.max(comboMax,combo); deck.onGood();}
-    else if (ch===DIA){ d=80*mult(); score+=d; diamond++; gainFever(30); combo++; comboMax=Math.max(comboMax,combo); deck.onGood();}
-    else if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); d=20; score+=20; deck.onGood();}
-    else if (ch===FIRE){ feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); d=25; score+=25; deck.onGood(); }
-
-    Particles.scorePop(p.x,p.y,'+'+d);
-    Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'goodjunk'});
+    let d = 0;
+    if (ch===STAR){
+      d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
+      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
+    } else if (ch===DIA){
+      d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
+      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
+    } else if (ch===SHIELD){
+      shield=Math.min(3,shield+1); setShield(shield); d=20; score+=d; deck.onGood();
+      Particles.scorePop(p.x,p.y,'+20'); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
+    } else if (ch===FIRE){
+      feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); d=25; score+=d; deck.onGood();
+      Particles.scorePop(p.x,p.y,'+25'); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
+    }
     deck.updateScore(score); deck.updateCombo(combo); pushQuest();
+    emitScore(d, true);
   }
 
   function spawnOne(){
     if(timeLeft<=0) return;
     const roll=Math.random();
-    if (roll<0.12){ spawnChar(rnd(BONUS), null, true); return; }
-
+    // 12% chance power-up
+    if (roll<0.12){
+      spawnChar(rnd(BONUS), null, true);
+      return;
+    }
+    // 70% bias to target groups, 30% other foods
     if (Math.random()<0.7){
       const tg = rnd(activeGroups);
       spawnChar(rnd(GROUPS[tg]), tg, false);
@@ -134,19 +151,16 @@ export async function boot(opts={}){
     el.dataset.g = String(g||0);
     Object.assign(el.style,{
       position:'absolute', left:(10+Math.random()*80)+'%', top:(18+Math.random()*60)+'%',
-      transform:'translate(-50%,-50%)', font:'900 46px system-ui',
-      textShadow:'0 6px 18px rgba(0,0,0,.55)', cursor:'pointer',
-      userSelect:'none', pointerEvents:'auto', zIndex:651
+      transform:'translate(-50%,-50%)', font:'900 46px system-ui', textShadow:'0 6px 18px rgba(0,0,0,.55)',
+      cursor:'pointer', userSelect:'none', pointerEvents:'auto', zIndex:651
     });
-
     const kill=()=>{ try{host.removeChild(el);}catch(_){ } };
-
     el.addEventListener('click',(ev)=>{
       kill();
-      if (isBonus) hitBonus(ev,ch);
-      else hitGood(ev, activeGroups.includes(+el.dataset.g||0));
+      if (isBonus) return hitBonus(ev,ch);
+      const isTarget = activeGroups.includes(+el.dataset.g||0);
+      hitGood(ev,isTarget);
     });
-
     host.appendChild(el);
     setTimeout(kill, cfg.life);
   }
@@ -154,24 +168,18 @@ export async function boot(opts={}){
   function onSec(){
     timeLeft--;
     window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-
     deck.second(); deck.updateScore(score); deck.updateCombo(combo);
 
-    const g=deck.getProgress('goals'), m=deck.getProgress('mini');
+    const goals=deck.getProgress('goals'), minis=deck.getProgress('mini');
+    if (goals.length>0 && goals.every(x=>x.done)){ accGoalDone+=goals.length; deck.drawGoals(2); pushQuest('Goal ใหม่'); }
+    if (minis.length>0 && minis.every(x=>x.done)){ accMiniDone+=minis.length; deck.draw3();       pushQuest('Mini ใหม่'); }
+    if (combo<=0) decayFever(6); else decayFever(2);
 
-    if (g.length>0 && g.every(x=>x.done)){ accGoalDone+=g.length; deck.drawGoals(2); pushQuest('Goal ใหม่'); }
-    if (m.length>0 && m.every(x=>x.done)){ accMiniDone+=m.length; deck.draw3();       pushQuest('Mini ใหม่'); }
-
-    if (timeLeft<=0){ 
-      stopAll(); 
-      finish(); 
-    }
+    if (timeLeft<=0){ stopAll(); finish(); }
   }
 
-  function stopAll(){
-    if(timerSpawn){clearInterval(timerSpawn);timerSpawn=null;}
-    if(timerTick){clearInterval(timerTick);timerTick=null;}
-  }
+  function stopAll(){ if(timerSpawn){clearInterval(timerSpawn);timerSpawn=null;}
+                      if(timerTick){clearInterval(timerTick);timerTick=null;}}
 
   function finish(){
     const g=deck.getProgress('goals'), m=deck.getProgress('mini');
@@ -180,7 +188,6 @@ export async function boot(opts={}){
     const goalsDone   = accGoalDone + g.filter(x=>x.done).length;
     const miniTotal   = accMiniDone + m.length;
     const miniDone    = accMiniDone + m.filter(x=>x.done).length;
-
     window.dispatchEvent(new CustomEvent('hha:end',{detail:{
       mode:'Groups', difficulty:diff, score, misses, comboMax, duration:dur,
       goalCleared, goalsCleared:goalsDone, goalsTotal, questsCleared:miniDone, questsTotal:miniTotal
@@ -192,19 +199,13 @@ export async function boot(opts={}){
       score=0; combo=0; comboMax=0; misses=0; goodHits=0;
       star=0; diamond=0; shield=0; fever=0; feverActive=false;
       activeGroups=pickGroups(cfg.focus); focusLevel=cfg.focus;
-
-      deck.stats.star=0; 
-      deck.stats.diamond=0;
-
+      deck.stats.star=0; deck.stats.diamond=0;
       window.dispatchEvent(new CustomEvent('hha:time',{detail:{sec:timeLeft}}));
-
       pushQuest('เริ่ม • โฟกัส '+activeGroups.join(', '));
       coach('เลือกเฉพาะ “หมู่เป้าหมาย” ให้ถูกต้อง!');
-
       timerSpawn=setInterval(spawnOne, cfg.spawn);
       timerTick=setInterval(onSec, 1000);
     },
-
     stop(){ stopAll(); }
   };
 }
@@ -218,10 +219,5 @@ function pickGroups(n){
   }
   return out;
 }
-function makeHost(){ 
-  const h=document.createElement('div'); 
-  h.id='spawnHost';
-  Object.assign(h.style,{position:'absolute',inset:0,pointerEvents:'none',zIndex:650}); 
-  document.body.appendChild(h); 
-  return h; 
-}
+function makeHost(){ const h=document.createElement('div'); h.id='spawnHost';
+  Object.assign(h.style,{position:'absolute',inset:0,pointerEvents:'none',zIndex:650}); document.body.appendChild(h); return h; }
