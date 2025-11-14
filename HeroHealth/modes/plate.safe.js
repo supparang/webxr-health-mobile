@@ -1,9 +1,8 @@
 // === /HeroHealth/modes/plate.safe.js (Full, 5 หมู่ + โควตา + power-ups) ===
+import Particles from '../vr/particles.js';
 import { boot as factoryBoot } from '../vr/mode-factory.js';
-import { Particles } from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
-import Particles from '../vr/particles.js';
 
 const GROUPS = {
   1: ['🍚','🍙','🍞','🥯','🥐'],
