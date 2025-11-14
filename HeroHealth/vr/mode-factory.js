@@ -1,13 +1,16 @@
-// === /HeroHealth/vr/mode-factory.js (2025-11-13 FX ALIGN) ===
+// === /HeroHealth/vr/mode-factory.js (2025-11-13 FX ALIGN – SAFE END) ===
 // DOM click-target spawner for all modes
-// Emits: hha:time, hha:score, hha:hit-screen, hha:expired, hha:pause/resume, hha:end, hha:layer-ready
+// Emits: hha:time, hha:score, hha:hit-screen, hha:expired, hha:pause/resume, hha:layer-ready
+// หมายเหตุ: ไม่ยิง hha:end แล้ว ให้โหมด (xxx.safe.js) เป็นคนสรุปเอง
 
 export function boot(opts = {}) {
   // ---- config ----
   const duration   = Number(opts.duration ?? 60) | 0;
   const pools      = opts.pools || { good: ['✅'], bad: ['❌'] };
   const goodRate   = Number(opts.goodRate ?? 0.6);
-  const judge      = typeof opts.judge === 'function' ? opts.judge : () => ({ good: true, scoreDelta: 1 });
+  const judge      = typeof opts.judge === 'function'
+    ? opts.judge
+    : () => ({ good: true, scoreDelta: 1 });
   const onExpire   = typeof opts.onExpire === 'function' ? opts.onExpire : null;
   const powerups   = opts.powerups || [];
   const powerRate  = Number(opts.powerRate ?? 0.1);
@@ -51,8 +54,9 @@ export function boot(opts = {}) {
     const safeTop = computeSafeTop();
     const safeBot = vh() - 60;
     const x = forceCenter ? vw()/2 : Math.floor(vw()*0.12 + Math.random()*vw()*0.76);
-    const y = forceCenter ? clamp(vh()/2, safeTop, safeBot)
-                          : Math.floor(Math.max(safeTop, Math.random()*(safeBot - safeTop)));
+    const y = forceCenter
+      ? clamp(vh()/2, safeTop, safeBot)
+      : Math.floor(Math.max(safeTop, Math.random()*(safeBot - safeTop)));
     return { x, y };
   }
 
@@ -97,7 +101,10 @@ export function boot(opts = {}) {
     if (!running) return;
     secLeft = Math.max(0, secLeft - 1);
     fire('hha:time', { sec: secLeft });
-    if (secLeft <= 0) { endGame('timeout'); }
+    if (secLeft <= 0) {
+      // หมดเวลา: หยุดสปอน แต่ "ไม่" ยิง hha:end ปล่อยให้โหมดสรุปเอง
+      endGame('timeout');
+    }
   }
 
   const shouldSpawnPower = () => (sinceLastPower >= powerEvery) && (Math.random() < powerRate);
@@ -108,7 +115,9 @@ export function boot(opts = {}) {
 
     const usePower = powerups.length>0 && shouldSpawnPower();
     const isGood = usePower ? true : (Math.random() < goodRate);
-    const ch = usePower ? pick(powerups) : pick(isGood ? (pools.good || ['✅']) : (pools.bad || ['❌']));
+    const ch = usePower
+      ? pick(powerups)
+      : pick(isGood ? (pools.good || ['✅']) : (pools.bad || ['❌']));
 
     const el = document.createElement('div');
     el.className = 'hha-tgt';
@@ -117,7 +126,7 @@ export function boot(opts = {}) {
     const p = safePos(!!forceCenter);
     el.style.left = p.x + 'px';
     el.style.top  = p.y + 'px';
-    el.style.fontSize = (diff==='easy'?74 : (diff==='hard'?56 : 64)) + 'px';
+    el.style.fontSize = (diff === 'easy' ? 74 : (diff === 'hard' ? 56 : 64)) + 'px';
 
     let clicked = false;
 
@@ -127,7 +136,6 @@ export function boot(opts = {}) {
       try { ev.preventDefault(); ev.stopPropagation(); } catch(_){}
 
       const pt = getXY(ev);
-      // ✅ ส่ง host/node ไปให้โหมดใช้ center ของเป้า
       const ctx = {
         clientX: pt.cx,
         clientY: pt.cy,
@@ -138,9 +146,11 @@ export function boot(opts = {}) {
         node   : el
       };
 
-      const res = judge(ch, ctx);
+      const res   = judge(ch, ctx);
       const good  = !!(res && res.good);
-      const delta = (res && typeof res.scoreDelta === 'number') ? res.scoreDelta : (good ? 1 : -1);
+      const delta = (res && typeof res.scoreDelta === 'number')
+        ? res.scoreDelta
+        : (good ? 1 : -1);
 
       try { el.classList.add('hit'); layer.removeChild(el); } catch(_){}
 
@@ -148,6 +158,7 @@ export function boot(opts = {}) {
         x: pt.cx, y: pt.cy,
         good, delta, char: ch, isGood
       });
+      // hha:score แบบ "ดิบ" ให้ safe.js ไปจัดคะแนนรวม/คอมโบเอง
       fire('hha:score', { delta, good });
 
       planNextSpawn();
@@ -172,7 +183,7 @@ export function boot(opts = {}) {
 
   function planNextSpawn(){
     if (!running || killed) return;
-    let gap = (diff==='easy' ? 480 : (diff==='hard' ? 280 : 360));
+    let gap = (diff === 'easy' ? 480 : (diff === 'hard' ? 280 : 360));
     gap = Math.max(120, gap - Math.min(spawnCount * 4, 120));
     clearTimeout(spawnTimer);
     spawnTimer = setTimeout(() => spawnOne(false), gap);
@@ -189,7 +200,10 @@ export function boot(opts = {}) {
     fire('hha:time', { sec: secLeft });
     timerId = setInterval(tick, 1000);
 
-    requestAnimationFrame(() => { spawnOne(true); planNextSpawn(); });
+    requestAnimationFrame(() => {
+      spawnOne(true);
+      planNextSpawn();
+    });
   }
 
   function pause(){
@@ -215,12 +229,14 @@ export function boot(opts = {}) {
     }catch(_){}
   }
 
-  function endGame(reason){
-    if (killed) return; killed = true; running = false;
+  function endGame(_reason){
+    if (killed) return;
+    killed = true;
+    running = false;
     try { clearInterval(timerId); } catch(_){}
     try { clearTimeout(spawnTimer); } catch(_){}
     hardClearLayer();
-    fire('hha:end', { reason: reason || 'done' });
+    // ❌ ไม่ยิง hha:end ที่นี่ ปล่อยให้ safe.js เป็นคนสรุปและยิง hha:end เอง
   }
 
   function stop(){ endGame('done'); }
