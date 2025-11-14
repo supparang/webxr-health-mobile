@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/groups.safe.js (Full, bias to target groups + power-ups + coach + HUD SCORE) ===
+// === /HeroHealth/modes/groups.safe.js (Full, bias to target groups + power-ups + coach) ===
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createGroupsQuest } from './groups.quest.js';
@@ -58,16 +58,8 @@ export async function boot(opts={}){
 
   function mult(){ return feverActive?2:1; }
   function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true;setFeverActive(true);} }
-  function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false;setFeverActive(false);} }
+  function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever); if(feeverActive&&fever<=0){feverActive=false;setFeverActive(false);} }
   function coach(t){ window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text:t}})); }
-
-  function emitScore(delta, good){
-    try{
-      window.dispatchEvent(new CustomEvent('hha:score',{
-        detail:{ delta, total:score, combo, comboMax, good }
-      }));
-    }catch(_){}
-  }
 
   // target groups (auto escalate)
   let activeGroups = pickGroups(cfg.focus);
@@ -89,42 +81,28 @@ export async function boot(opts={}){
     const d = isTarget ? (140+combo*4)*mult() : -120;
     if (isTarget){
       score+=d; combo++; comboMax=Math.max(comboMax,combo); gainFever(6+combo*0.4); deck.onGood(); goodHits++;
-      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
+      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'groups'});
     }else{
-      if (shield>0){
-        shield--; setShield(shield);
-        Particles.scorePop(p.x,p.y,'0');
-      }else{
-        score=Math.max(0,score+d); combo=0; misses++; decayFever(14); deck.onJunk();
-        Particles.scorePop(p.x,p.y,String(d));
-      }
-      Particles.burstAt(p.x,p.y,{color:isTarget?'#22c55e':'#f97316'});
+      if (shield>0){ shield--; setShield(shield); Particles.scorePop(p.x,p.y,'0'); }
+      else { score=Math.max(0,score+d); combo=0; misses++; decayFever(14); deck.onJunk(); Particles.scorePop(p.x,p.y,String(d)); }
+      Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'groups'});
     }
-    window.dispatchEvent(new CustomEvent('hha:score',{
-      detail:{ delta:d, total:score, combo, comboMax, good:isTarget }
-    }));
+    window.dispatchEvent(new CustomEvent('hha:score',{detail:{delta:d,total:score,combo,comboMax,good:isTarget}}));
     deck.updateScore(score); deck.updateCombo(combo); pushQuest();
     escalateIfReady();
   }
 
   function hitBonus(ev, ch){
     const p=xy(ev);
-    let d = 0;
-    if (ch===STAR){
-      d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
-      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
-    } else if (ch===DIA){
-      d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
-      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
-    } else if (ch===SHIELD){
-      shield=Math.min(3,shield+1); setShield(shield); d=20; score+=d; deck.onGood();
-      Particles.scorePop(p.x,p.y,'+20'); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
-    } else if (ch===FIRE){
-      feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); d=25; score+=d; deck.onGood();
-      Particles.scorePop(p.x,p.y,'+25'); Particles.burstAt(p.x,p.y,{color:'#22c55e'});
-    }
+    if (ch===STAR){ const d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
+      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'goodjunk'}); }
+    else if (ch===DIA){ const d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo);
+      Particles.scorePop(p.x,p.y,'+'+d); Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'goodjunk'}); }
+    else if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); score+=20; deck.onGood();
+      Particles.scorePop(p.x,p.y,'+20'); Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'goodjunk'}); }
+    else if (ch===FIRE){ feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25; deck.onGood();
+      Particles.scorePop(p.x,p.y,'+25'); Particles.burstShards(null,null,{screen:{x:p.x,y:p.y},theme:'goodjunk'}); }
     deck.updateScore(score); deck.updateCombo(combo); pushQuest();
-    emitScore(d, true);
   }
 
   function spawnOne(){
