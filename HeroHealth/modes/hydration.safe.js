@@ -4,6 +4,8 @@ import { ensureWaterGauge, setWaterGauge, zoneFrom } from '../vr/ui-water.js';
 import { burstAt, scorePop } from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createHydrationQuest } from './hydration.quest.js';
+import Particles from '../vr/particles.js';
+
 
 const GOOD  = ['💧','🥛','🍉'];          // น้ำ/นม/ผลไม้ฉ่ำน้ำ
 const BAD   = ['🥤','🧋','🍺','☕️'];     // น้ำหวาน/ชาไข่มุก/แอลกอฮอล์/คาเฟอีน
