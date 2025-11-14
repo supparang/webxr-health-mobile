@@ -1,15 +1,15 @@
-// === /HeroHealth/modes/plate.safe.js (5 หมู่ + โควตา + power-ups + coach) ===
+// === /HeroHealth/modes/plate.safe.js (MISS = กดของไม่ดีเท่านั้น + โค้ช ป.5) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createPlateQuest, QUOTA } from './plate.quest.js';
 
 const GROUPS = {
-  1: ['🍚','🍙','🍞','🥯','🥐'],
-  2: ['🥩','🍗','🍖','🥚','🧀'],
-  3: ['🥦','🥕','🥬','🌽','🥗','🍅'],
-  4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],
-  5: ['🥛','🧈','🧀','🍨']
+  1: ['🍚','🍙','🍞','🥯','🥐'],                  // ข้าว-แป้ง
+  2: ['🥩','🍗','🍖','🥚','🧀'],                  // โปรตีน
+  3: ['🥦','🥕','🥬','🌽','🥗','🍅'],             // ผัก
+  4: ['🍎','🍌','🍇','🍉','🍊','🍓','🍍'],         // ผลไม้
+  5: ['🥛','🧈','🧀','🍨']                        // นม/ผลิตภัณฑ์นม
 };
 const GOOD = Object.values(GROUPS).flat();
 const BAD  = ['🍔','🍟','🍕','🍩','🍪','🧋','🥤','🍫','🍬','🥓'];
@@ -21,154 +21,193 @@ function foodGroup(emo){ for(const [g,arr] of Object.entries(GROUPS)){ if(arr.in
 
 // ---- Coach helper ----
 let lastCoachAt = 0;
-function coach(text, minGap = 2600){
+function coach(text, minGap = 2200){
   if (!text) return;
   const now = Date.now();
   if (now - lastCoachAt < minGap) return;
   lastCoachAt = now;
-  try{ window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}})); }catch(_){}
+  try { window.dispatchEvent(new CustomEvent('hha:coach',{detail:{text}})); } catch {}
 }
 
-export async function boot(cfg={}){
+export async function boot(cfg={}) {
   const diff=(cfg.difficulty||'normal').toLowerCase();
   const dur =(cfg.duration|0)||60;
 
   ensureFeverBar(); setFever(0); setFeverActive(false); setShield(0);
 
-  const deck = createPlateQuest(diff); deck.drawGoals(2); deck.draw3();
+  const deck = createPlateQuest(diff);
+  deck.drawGoals(2);
+  deck.draw3();
   const need = QUOTA[diff] || QUOTA.normal;
   const totalNeed = need.reduce((a,b)=>a+b,0);
 
-  // group counts (1..5) zero-based index 0..4
   const gCounts=[0,0,0,0,0];
   let accMiniDone=0, accGoalDone=0;
 
-  // state
   let score=0, combo=0, comboMax=0, misses=0;
   let star=0, diamond=0, shield=0, fever=0, feverActive=false;
 
   function mult(){ return feverActive?2:1; }
-  function gainFever(n){ fever=Math.max(0,Math.min(100,fever+n)); setFever(fever); if(!feverActive&&fever>=100){feverActive=true; setFeverActive(true); coach('โหมดพิเศษ! เก็บให้ครบโควตา 5 หมู่ในจานเดียวเลย', 3500);} }
-  function decayFever(n){ const d=feverActive?10:n; fever=Math.max(0,fever-d); setFever(fever); if(feverActive&&fever<=0){feverActive=false; setFeverActive(false);} }
-
-  function syncDeck(){ 
-    deck.updateScore(score); 
-    deck.updateCombo(combo); 
-    deck.stats.gCounts=[...gCounts]; 
-    deck.stats.star=star; 
-    deck.stats.diamond=diamond; 
+  function gainFever(n){
+    fever=Math.max(0,Math.min(100,fever+n));
+    setFever(fever);
+    if (!feverActive && fever>=100){
+      feverActive=true; setFeverActive(true);
+      coach('จานพลังพิเศษ ✨ เก็บให้ครบ 5 หมู่เลย!');
+    }
+  }
+  function decayFever(n){
+    const d=feverActive?10:n;
+    fever=Math.max(0,fever-d);
+    setFever(fever);
+    if (feverActive && fever<=0){
+      feverActive=false; setFeverActive(false);
+    }
   }
 
-  function labelQuota(){
-    return need.map((v,i)=>`หมู่${i+1}:${v}`).join(' | ');
-  }
-
-  function labelProgress(){
-    return gCounts.map((v,i)=>`หมู่${i+1}:${v}/${need[i]}`).join(' | ');
+  function syncDeck(){
+    deck.updateScore(score);
+    deck.updateCombo(combo);
+    deck.stats.gCounts=[...gCounts];
+    deck.stats.star=star;
+    deck.stats.diamond=diamond;
   }
 
   function pushQuest(hint){
-    const goals=deck.getProgress('goals'), minis=deck.getProgress('mini');
+    const goals=deck.getProgress('goals');
+    const minis=deck.getProgress('mini');
     const gtxt = `โควตา: [${need.join(', ')}] | ทำได้: [${gCounts.join(', ')}]`;
     window.dispatchEvent(new CustomEvent('quest:update',{detail:{
       goal:(goals.find(g=>!g.done)||goals[0]||null),
       mini:(minis.find(m=>!m.done)||minis[0]||null),
-      goalsAll:goals, minisAll:minis, hint:hint||gtxt
+      goalsAll:goals, minisAll:minis, hint: hint || gtxt
     }}));
   }
 
-  function scoreFX(x,y,val,good){ 
+  function scoreFX(x,y,val,good){
     try{
       Particles.scorePop(x,y,(val>0?'+':'')+val,{good});
-      Particles.burstAt(x,y,{color:good?'#22c55e':'#f97316'});
-    }catch(_){}
+      Particles.burstAt(x,y,{color: good ? '#22c55e' : '#f97316'});
+    }catch{}
   }
 
   function plateProgress(){
     return gCounts.reduce((sum,v,i)=>sum+Math.min(v,need[i]),0);
   }
-
   function weakestGroup(){
-    let minDiff = Infinity, idx = -1;
+    let minDiff=Infinity, idx=-1;
     for (let i=0;i<need.length;i++){
-      const diff = need[i] - gCounts[i];
-      if (diff > 0 && diff < minDiff){
-        minDiff = diff; idx = i;
-      }
+      const d=need[i]-gCounts[i];
+      if (d>0 && d<minDiff){ minDiff=d; idx=i; }
     }
-    return idx; // index 0..4
+    return idx; // 0..4
   }
 
   function maybeCoachCombo(){
-    if (combo === 3) coach('คอมโบสวย! ลองเก็บให้ครบทุกหมู่ในจานเดียวดูนะ');
-    if (combo === 7) coach('คอมโบยาวมาก จานเริ่มสมดุลแล้ว!', 3500);
+    if (combo === 3) coach('จานเริ่มสวยแล้ว 🍽️ เก็บให้ครบทุกหมู่เลย!');
+    if (combo === 7) coach('คอมโบยาวสุด ๆ ⭐ ใกล้ครบโควตาแล้ว');
   }
 
   function judge(ch, ctx){
     const x=ctx.clientX||ctx.cx||0, y=ctx.clientY||ctx.cy||0;
+
     // power-ups
     if (ch===STAR){ const d=40*mult(); score+=d; star++; gainFever(10); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d,true); maybeCoachCombo(); return {good:true,scoreDelta:d}; }
     if (ch===DIA) { const d=80*mult(); score+=d; diamond++; gainFever(30); deck.onGood(); combo++; comboMax=Math.max(comboMax,combo); syncDeck(); pushQuest(); scoreFX(x,y,d,true); maybeCoachCombo(); return {good:true,scoreDelta:d}; }
-    if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); score+=20; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,20,true); coach('ได้เกราะแล้ว ถ้าเผลอแตะของทอด/ของหวานจะช่วยกันพลาดให้', 4000); return {good:true,scoreDelta:20}; }
-    if (ch===FIRE) { feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,25,true); coach('โหมดจานสมดุลพิเศษ! เก็บให้ครบโควตาแต่ละหมู่เลย', 3500); return {good:true,scoreDelta:25}; }
+    if (ch===SHIELD){ shield=Math.min(3,shield+1); setShield(shield); score+=20; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,20,true); coach('ได้เกราะจาน 🛡️ เผื่อเผลอแตะของทอด'); return {good:true,scoreDelta:20}; }
+    if (ch===FIRE) { feverActive=true; setFeverActive(true); fever=Math.max(fever,60); setFever(fever); score+=25; deck.onGood(); syncDeck(); pushQuest(); scoreFX(x,y,25,true); coach('โหมดไฟ 🍽️ เก็บอาหารดีให้ครบทุกหมู่เลย!'); return {good:true,scoreDelta:25}; }
 
     const g = foodGroup(ch);
+
+    // แตะอาหาร 5 หมู่
     if (g>0){
       const d=(16+combo*2)*mult();
-      score+=d; combo++; comboMax=Math.max(comboMax,combo); gainFever(6+combo*0.4);
+      score+=d;
+      combo++; comboMax=Math.max(comboMax,combo);
+      gainFever(6+combo*0.4);
       gCounts[g-1] = (gCounts[g-1]|0) + 1;
-      deck.onGood(); syncDeck(); pushQuest();
+      deck.onGood();
+      syncDeck(); pushQuest();
       scoreFX(x,y,d,true);
       maybeCoachCombo();
 
       const prog = plateProgress();
       if (prog >= Math.ceil(totalNeed*0.5) && prog < totalNeed){
         const w = weakestGroup();
-        if (w>=0) coach(`จานเริ่มสมดุลแล้ว เหลือหมู่ ${w+1} ยังไม่ครบโควตา ลองเก็บเพิ่มอีกหน่อย`, 4500);
+        if (w>=0) coach(`เหลือหมู่ ${w+1} อีกนิดเดียวก็ครบแล้ว 💡`, 4000);
       }
       if (prog >= totalNeed){
-        coach('สุดยอด! จานนี้ครบโควตา 5 หมู่แล้ว!', 5000);
+        coach('จานสมดุลแล้ว ครบ 5 หมู่เลย 🎉');
       }
       return {good:true, scoreDelta:d};
-    }else{
-      if (shield>0){ shield--; setShield(shield); decayFever(6); syncDeck(); pushQuest(); scoreFX(x,y,0,false); coach('เกราะช่วยกันของไม่ดีในจานให้แล้ว เลือกของดี 5 หมู่แทนดีกว่านะ', 4000); return {good:false,scoreDelta:0}; }
-      const d=-12; score=Math.max(0,score+d); combo=0; misses++; decayFever(16); deck.onJunk(); syncDeck(); pushQuest(); scoreFX(x,y,d,false);
-      if (misses===1) coach('อาหารทอด/หวานทำให้จานไม่สมดุล ลองเน้นอาหารตามหลัก 5 หมู่แทน', 4000);
-      else if (misses===3) coach('จานเริ่มมีของไม่ดีเยอะ ลองกลับมาเก็บอาหารหลัก 5 หมู่ให้ครบโควตา', 4500);
-      return {good:false, scoreDelta:d};
     }
+
+    // แตะของไม่ดี
+    if (shield>0){
+      shield--; setShield(shield);
+      decayFever(6);
+      syncDeck(); pushQuest();
+      scoreFX(x,y,0,false);
+      coach('เกราะช่วยกันของทอด/ของหวานให้แล้ว 🍟➡️🛡️', 3500);
+      return {good:false,scoreDelta:0};
+    }
+
+    const d=-12;
+    score=Math.max(0,score+d);
+    combo=0;
+    misses++;          // ✅ พลาดเฉพาะแตะของไม่ดี
+    decayFever(16);
+    deck.onJunk();     // ✅ junkMiss เพิ่มเฉพาะแตะของไม่ดี
+    syncDeck(); pushQuest();
+    scoreFX(x,y,d,false);
+    if (misses===1) coach('จานเริ่มมีของหวานเยอะไปนิด 🍩 ลองเก็บผักกับผลไม้เพิ่ม');
+    if (misses===3) coach('ของทอด/หวานเยอะแล้วนะ ลองกลับมาเก็บอาหารหลัก 5 หมู่แทน 🍚🥩🥦🍎🥛', 4000);
+    return {good:false, scoreDelta:d};
   }
 
+  // ✅ ปล่อยของเสียหลุดจอ “ไม่ถือว่าพลาด”
   function onExpire(ev){
     if (!ev || ev.isGood) return;
-    misses++; deck.onJunk(); syncDeck(); pushQuest();
+    decayFever(4);
+    syncDeck();
+    pushQuest();
   }
 
   function onSec(){
-    if (combo<=0) decayFever(6); else decayFever(2);
-    deck.second(); syncDeck();
+    if (combo<=0) decayFever(6);
+    else          decayFever(2);
 
-    const g=deck.getProgress('goals'), m=deck.getProgress('mini');
-    if (g.length>0 && g.every(x=>x.done)){ accGoalDone+=g.length; deck.drawGoals(2); pushQuest('Goal ใหม่'); coach('ภารกิจจานสมดุลชุดหนึ่งสำเร็จแล้ว เก่งมาก!', 4000); }
-    if (m.length>0 && m.every(x=>x.done)){ accMiniDone+=m.length; deck.draw3();       pushQuest('Mini ใหม่'); coach('Mini quest เกี่ยวกับโควตา 5 หมู่สำเร็จอีกชุดแล้ว!', 4000); }
+    deck.second();
+    syncDeck();
+
+    const g=deck.getProgress('goals');
+    const m=deck.getProgress('mini');
+    if (g.length>0 && g.every(x=>x.done)){ accGoalDone+=g.length; deck.drawGoals(2); pushQuest('Goal ใหม่'); coach('ภารกิจจานสมดุลผ่านอีกชุดแล้ว 🎉', 4000); }
+    if (m.length>0 && m.every(x=>x.done)){ accMiniDone+=m.length; deck.draw3();       pushQuest('Mini ใหม่'); coach('Mini quest จานข้าวสำเร็จแล้ว เก่งมาก! 🌟', 4000); }
   }
 
   return factoryBoot({
-    difficulty:diff, duration:dur,
+    difficulty:diff,
+    duration:dur,
     pools:{good:[...GOOD,...BONUS], bad:[...BAD]},
-    goodRate:0.64, powerups:BONUS, powerRate:0.10, powerEvery:7,
-    judge:(ch,ctx)=>judge(ch,ctx), onExpire
+    goodRate:0.64,
+    powerups:BONUS,
+    powerRate:0.10,
+    powerEvery:7,
+    judge:(ch,ctx)=>judge(ch,ctx),
+    onExpire
   }).then(ctrl=>{
-    pushQuest('เริ่ม • โควตา: '+need.join('-'));
-    coach('จัดจานให้ครบ 5 หมู่ตามโควตา เช่น ข้าว-โปรตีน-ผัก-ผลไม้-นม ให้สมดุลในจานเดียวกัน', 5000);
+    pushQuest('เริ่ม');
+    coach('จัดจานให้ครบ 5 หมู่ 🍚🥩🥦🍎🥛 เลี่ยงของทอดกับของหวานนะ');
 
     window.addEventListener('hha:time',(e)=>{
       const sec=(e.detail?.sec|0);
       if (sec>=0) onSec();
-      if (sec===20) coach('เหลือ 20 วินาที ลองเช็คว่าหมู่ไหนยังไม่ครบโควตาแล้วเก็บเพิ่ม', 5000);
-      if (sec===10) coach('10 วินาทีสุดท้าย เก็บอาหารหมู่ที่ยังขาดให้ครบ!', 6000);
+      if (sec===20) coach('เหลือ 20 วิ ลองเช็คว่าหมู่ไหนยังไม่ครบโควตา 🌈');
+      if (sec===10) coach('10 วิ สุดท้าย เก็บหมู่ที่ยังขาดให้ครบเลย ✨');
       if (sec===0){
-        const g=deck.getProgress('goals'), m=deck.getProgress('mini');
+        const g=deck.getProgress('goals');
+        const m=deck.getProgress('mini');
         const goalCleared=g.length>0 && g.every(x=>x.done);
         const goalsTotal  = accGoalDone + g.length;
         const goalsDone   = accGoalDone + g.filter(x=>x.done).length;
@@ -180,7 +219,9 @@ export async function boot(cfg={}){
         }}));
       }
     });
+
     return ctrl;
   });
 }
+
 export default { boot };
