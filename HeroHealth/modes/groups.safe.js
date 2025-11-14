@@ -2,6 +2,7 @@
 import { Particles } from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
 import { createGroupsQuest } from './groups.quest.js';
+import Particles from '../vr/particles.js';
 
 const GROUPS = {
   1: ['🍚','🍙','🍞','🥐','🥖','🥯'],
