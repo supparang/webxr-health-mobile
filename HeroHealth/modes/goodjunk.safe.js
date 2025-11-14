@@ -1,4 +1,4 @@
-// === /HeroHealth/modes/goodjunk.safe.js (Full Pack – FEVER + QUEST + HUD SCORE) ===
+// === /HeroHealth/modes/goodjunk.safe.js (Full Pack – FX + Quest, no miss on expire) ===
 import { boot as factoryBoot } from '../vr/mode-factory.js';
 import Particles from '../vr/particles.js';
 import { ensureFeverBar, setFever, setFeverActive, setShield } from '../vr/ui-fever.js';
@@ -74,30 +74,10 @@ export async function boot(cfg = {}) {
     deck.stats.diamond = diamond;
   }
 
-  // ส่งผลคะแนนให้ HUD/main.js
-  function emitScore(delta, good){
-    try{
-      window.dispatchEvent(new CustomEvent('hha:score',{
-        detail:{
-          delta,
-          total: score,
-          combo,
-          comboMax,
-          good
-        }
-      }));
-    }catch(_){}
-  }
-
-  // ใช้ FX แบบ DOM overlay: floating score + burstAt
+  // ใช้ FX แบบ DOM overlay: floating score + burst
   function scoreFX(x, y, delta){
     try{
-      Particles.scorePop(
-        x,
-        y,
-        (delta > 0 ? '+' : '') + delta,
-        { good: delta >= 0 }
-      );
+      Particles.scorePop(x, y, (delta > 0 ? '+' : '') + delta, { good: delta >= 0 });
       Particles.burstAt(x, y, { color: delta >= 0 ? '#22c55e' : '#f97316' });
     }catch(_){}
   }
@@ -114,7 +94,6 @@ export async function boot(cfg = {}) {
       deck.onGood(); combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      emitScore(d, true);
       return { good:true, scoreDelta:d };
     }
 
@@ -125,7 +104,6 @@ export async function boot(cfg = {}) {
       deck.onGood(); combo++; comboMax = Math.max(comboMax, combo);
       syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      emitScore(d, true);
       return { good:true, scoreDelta:d };
     }
 
@@ -136,7 +114,6 @@ export async function boot(cfg = {}) {
       score += d;
       deck.onGood(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      emitScore(d, true);
       return { good:true, scoreDelta:d };
     }
 
@@ -149,7 +126,6 @@ export async function boot(cfg = {}) {
       score += d;
       deck.onGood(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      emitScore(d, true);
       return { good:true, scoreDelta:d };
     }
 
@@ -162,7 +138,6 @@ export async function boot(cfg = {}) {
       gainFever(7 + combo * 0.5);
       deck.onGood(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      emitScore(d, true);
       return { good:true, scoreDelta:d };
     } else {
       // ใช้เกราะกันพลาด
@@ -173,7 +148,6 @@ export async function boot(cfg = {}) {
         syncDeck(); pushQuest();
         // delta = 0 ไม่ได้หักคะแนน
         scoreFX(x, y, 0);
-        emitScore(0, false);
         return { good:false, scoreDelta:0 };
       }
       const d = -12;
@@ -183,20 +157,17 @@ export async function boot(cfg = {}) {
       decayFever(16);
       deck.onJunk(); syncDeck(); pushQuest();
       scoreFX(x, y, d);
-      emitScore(d, false);
       return { good:false, scoreDelta:d };
     }
   }
 
+  // *** ปรับให้ "ปล่อยของเสียหลุดจอ" ไม่เพิ่ม miss แล้ว ***
   function onExpire(ev){
     if (!ev || ev.isGood) return;
-    // ปล่อยของเสียให้หลุดไป → นับเป็น miss เพื่อคุมความยาก
-    deck.onJunk();
-    misses++;
+    // แค่ลด fever / อัปเดตเควสต์เล็กน้อย แต่ไม่เพิ่ม misses
     decayFever(6);
     syncDeck();
     pushQuest();
-    emitScore(0, false);
   }
 
   function onSec(){
