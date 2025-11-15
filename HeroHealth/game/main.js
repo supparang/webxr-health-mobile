@@ -37,6 +37,10 @@ let TYPE_WEIGHTS = {
 let FEVER_DURATION = 5;       // Fever นานกี่วินาที
 let DIAMOND_TIME_BONUS = 2;   // diamond เพิ่มเวลานิดหน่อย
 
+// Fever multiplier แบบมันส์ ๆ
+let FEVER_MULT = 2;           // คูณคะแนนเวลา Fever
+let FEVER_MAX_STACK = 12;     // สะสมเวลา Fever ได้สูงสุดกี่วินาที
+
 switch (DIFF) {
   case 'easy':
     SPAWN_INTERVAL = 950;      // ช้าลง → เด็กทัน
@@ -44,17 +48,20 @@ switch (DIFF) {
     MAX_ACTIVE = 3;            // ไม่ให้ล้นจอ
     MISSION_GOOD_TARGET = 15;  // ภารกิจผ่านง่ายขึ้นหน่อย
     SIZE_FACTOR = 1.25;        // เป้าใหญ่สุด
+
     TYPE_WEIGHTS = {
       good:   60,   // ของดีเยอะ
       junk:   15,   // ขยะน้อย
       star:    8,
       gold:    7,
-      diamond: 4,
-      shield:  4,   // เกราะออกบ่อย
-      fever:   2
+      diamond: 3,
+      shield:  5,   // เกราะออกบ่อย ช่วยกันพลาด
+      fever:   2    // Fever มีบ้าง แต่ไม่ถี่
     };
+
     FEVER_DURATION = 4;
     DIAMOND_TIME_BONUS = 3;    // easy ได้เวลาเพิ่มเยอะหน่อย
+    FEVER_MULT = 2;            // คูณ 2 พอ ชิล ๆ
     break;
 
   case 'hard':
@@ -63,17 +70,20 @@ switch (DIFF) {
     MAX_ACTIVE = 7;            // เป้าพร้อมกันเยอะ
     MISSION_GOOD_TARGET = 30;  // ต้องเก็บของดีเยอะ
     SIZE_FACTOR = 0.85;        // เป้าเล็ก
+
     TYPE_WEIGHTS = {
-      good:   30,
-      junk:   45,  // ขยะเยอะ
-      star:    5,
-      gold:    5,
-      diamond: 5,
-      shield:  2,
-      fever:   8   // fever บ่อย → ล่า combo
+      good:   32,
+      junk:   40,  // ขยะเยอะมาก
+      star:    7,
+      gold:    6,
+      diamond:  7, // diamond ออกบ่อยขึ้น
+      shield:   2,
+      fever:   10  // Fever ถี่มาก → โหมด B สุด ๆ
     };
-    FEVER_DURATION = 7;
-    DIAMOND_TIME_BONUS = 1;
+
+    FEVER_DURATION = 7;        // Fever นานขึ้น
+    DIAMOND_TIME_BONUS = 1;    // เพิ่มเวลาเบา ๆ
+    FEVER_MULT = 2.5;          // คะแนนคูณ 2.5 เวลาติด Fever
     break;
 
   case 'normal':
@@ -83,17 +93,20 @@ switch (DIFF) {
     MAX_ACTIVE = 4;
     MISSION_GOOD_TARGET = 20;
     SIZE_FACTOR = 1.0;         // ขนาดกลาง
+
     TYPE_WEIGHTS = {
       good:   45,
       junk:   30,
-      star:    7,
-      gold:    6,
+      star:    8,
+      gold:    7,
       diamond: 5,
       shield:  3,
-      fever:   4
+      fever:   6   // มี Fever พอให้ลุ้น
     };
+
     FEVER_DURATION = 5;
     DIAMOND_TIME_BONUS = 2;
+    FEVER_MULT = 2.2;          // แรงขึ้นนิดหน่อย
     break;
 }
 
@@ -329,7 +342,7 @@ function createHUD() {
 }
 
 function currentMultiplier() {
-  return feverTicksLeft > 0 ? 2 : 1;
+  return feverTicksLeft > 0 ? FEVER_MULT : 1;
 }
 
 function updateHUD() {
@@ -543,25 +556,25 @@ function spawnOne(host) {
     const mult = currentMultiplier();
 
     if (type === 'good') {
-      score += 10 * mult;
+      score += Math.round(10 * mult);
       combo += 1;
       missionGoodCount += 1;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.25)';
     } else if (type === 'star') {
-      score += 15 * mult;
+      score += Math.round(15 * mult);
       combo += 2;
       missionGoodCount += 1;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.28)';
     } else if (type === 'gold') {
-      score += 20 * mult;
+      score += Math.round(20 * mult);
       combo += 2;
       missionGoodCount += 2;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.3)';
     } else if (type === 'diamond') {
-      score += 30 * mult;
+      score += Math.round(30 * mult);
       combo += 3;
       missionGoodCount += 2;
       timeLeft += DIAMOND_TIME_BONUS;
@@ -571,7 +584,8 @@ function spawnOne(host) {
       shieldCharges += 1;
       item.style.transform = 'scale(1.2)';
     } else if (type === 'fever') {
-      feverTicksLeft = Math.max(feverTicksLeft, FEVER_DURATION);
+      // กิน Fever แล้วต่อเวลาได้ (stack) แต่ไม่เกิน FEVER_MAX_STACK
+      feverTicksLeft = Math.min(feverTicksLeft + FEVER_DURATION, FEVER_MAX_STACK);
       item.style.transform = 'scale(1.25)';
     } else if (type === 'junk') {
       if (shieldCharges > 0) {
@@ -702,7 +716,9 @@ function bootstrap() {
     MAX_ACTIVE: MAX_ACTIVE,
     TYPE_WEIGHTS: TYPE_WEIGHTS,
     SIZE_FACTOR: SIZE_FACTOR,
-    MISSION_GOOD_TARGET: MISSION_GOOD_TARGET
+    MISSION_GOOD_TARGET: MISSION_GOOD_TARGET,
+    FEVER_MULT: FEVER_MULT,
+    FEVER_DURATION: FEVER_DURATION
   });
 }
 
