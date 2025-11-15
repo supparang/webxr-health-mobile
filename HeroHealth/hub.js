@@ -1,123 +1,94 @@
-// === /HeroHealth/hub.js (2025-11-12 STABLE) ===
-// - ใช้ได้ทั้งบน hub.html และ index.vr.html (มีปุ่ม #btnStart / #vrStartBtn)
-// - เลือกโหมดจากปุ่ม [data-mode] ถ้ามี (เช่นใน hub.html หรือ modeMenu ของ VR)
-// - อัปเดตฉลาก troika "เริ่ม: MODE" ถ้ามี #startLbl
-// - ส่งต่อไป index.vr.html แบบ URL สัมพัทธ์ พร้อม autostart=1
+// === Hero Health — hub.js (safe redirect version) ===
+// หน้านี้มีหน้าที่แค่: เลือก mode/diff/time แล้วเด้งไป index.vr.html
 
-(function(){
-  console.log('[Hub] initializing');
+'use strict';
 
-  class GameHub {
-    constructor(){
-      const qs = new URLSearchParams(location.search);
-      this.mode = (qs.get('mode') || 'goodjunk').toLowerCase();
-      this.diff = (qs.get('diff') || 'normal').toLowerCase();
-      this.time = clampInt(qs.get('time'), 60, 20, 180);
+const MODES = ['goodjunk', 'groups', 'hydration', 'plate'];
 
-      this.bindUI();
-      this.syncStartLabel();
+let currentMode = 'goodjunk';
 
-      // default select (ถ้ามีการ์ดโหมดในหน้า)
-      try {
-        const activeCard =
-          document.querySelector(`[data-mode="${this.mode}"]`) ||
-          document.querySelector('[data-mode="goodjunk"]');
-        activeCard && activeCard.classList.add('active');
-      } catch(_) {}
+function $(sel) {
+  return document.querySelector(sel);
+}
+function $all(sel) {
+  return document.querySelectorAll(sel);
+}
 
-      window.dispatchEvent(new CustomEvent('hha:hub-ready'));
-      console.log('[Hub] ready', {mode:this.mode, diff:this.diff, time:this.time});
-    }
+function selectMode(modeId) {
+  if (!MODES.includes(modeId)) return;
+  currentMode = modeId;
 
-    bindUI(){
-      const modeMenu = $('#modeMenu');             // VR menu (ถ้ามี)
-      const vrBtn    = $('#vrStartBtn');           // ปุ่ม plane ใน VR
-      const domBtn   = $('#btnStart');             // ปุ่ม DOM (desktop)
-      const selDiff  = $('#selDiff');              // ใน hub.html
-      const inpTime  = $('#inpTime');              // ใน hub.html
+  // ลบ active จากทุกการ์ด
+  $all('#modeRow .card').forEach(card => {
+    card.classList.remove('active');
+  });
 
-      // --- เลือกโหมดจากการ์ดหรือปุ่มในเมนู ---
-      const modeButtons = $all('[data-mode]');
-      modeButtons.forEach(el=>{
-        el.addEventListener('click', ()=>{
-          this.mode = String(el.dataset.mode || 'goodjunk').toLowerCase();
-          modeButtons.forEach(x=>x.classList && x.classList.remove('active'));
-          el.classList && el.classList.add('active');
-          this.syncStartLabel();
-          console.log('[Hub] select mode:', this.mode);
-        });
-      });
-
-      // --- ระดับ/เวลา (ถ้ามีคอนโทรล) ---
-      if (selDiff) {
-        selDiff.value = this.diff;
-        selDiff.addEventListener('change', ()=>{
-          this.diff = String(selDiff.value || 'normal').toLowerCase();
-          this.syncStartLabel();
-        });
-      }
-      if (inpTime) {
-        inpTime.value = String(this.time);
-        inpTime.addEventListener('change', ()=>{
-          this.time = clampInt(inpTime.value, 60, 20, 180);
-        });
-      }
-
-      // --- ปุ่มเริ่มเกม (VR + DOM) ---
-      const go = (ev)=>{
-        try{ ev && ev.preventDefault(); }catch(_){}
-        this.startGame();
-      };
-      vrBtn && vrBtn.addEventListener('click', go, {passive:false});
-      domBtn && domBtn.addEventListener('click', go, {passive:false});
-
-      // เผื่อมีปุ่ม toggle เมนูโหมดใน VR
-      const openMenu = $('#btnOpenModeMenu');
-      if (openMenu && modeMenu) {
-        openMenu.addEventListener('click', ()=>{
-          const v = modeMenu.getAttribute('visible');
-          modeMenu.setAttribute('visible', String(!(v==='true')));
-        });
-      }
-    }
-
-    syncStartLabel(){
-      const startLbl = $('#startLbl');
-      if (!startLbl) return;
-      // troika-text ต้อง set เป็น string attribute
-      const txt = `value: เริ่ม: ${this.mode.toUpperCase()}; color:#93C5FD; fontSize:0.18; maxWidth:1.4; anchor:center; baseline:top;`;
-      try { startLbl.setAttribute('troika-text', txt); } catch(_) {}
-    }
-
-    startGame(){
-      // เวลา/ระดับอาจไม่มีคอนโทรล ให้ใช้ค่าปัจจุบัน
-      const diff = this.diff || 'normal';
-      const time = clampInt(this.time, 60, 20, 180);
-
-      // ใช้ URL สัมพัทธ์เสมอ กัน // และ 404
-      const url = new URL('./index.vr.html', location.href);
-      url.searchParams.set('mode', this.mode || 'goodjunk');
-      url.searchParams.set('diff', diff);
-      url.searchParams.set('time', String(time));
-      url.searchParams.set('autostart', '1');
-
-      console.log('[Hub] start ->', url.href);
-      location.href = url.href;
-    }
+  // ใส่ active ให้การ์ดที่เลือก
+  const card = document.querySelector('#modeRow .card[data-mode="' + modeId + '"]');
+  if (card) {
+    card.classList.add('active');
   }
+}
 
-  // -------- helpers --------
-  function $(s){ return document.querySelector(s); }
-  function $all(s){ return Array.prototype.slice.call(document.querySelectorAll(s)||[]); }
-  function clampInt(val, def, min, max){
-    const n = parseInt(val, 10);
-    if (Number.isFinite(n)) return Math.max(min, Math.min(max, n));
-    return def;
-    }
+function initModeCards() {
+  const cards = $all('#modeRow .card[data-mode]');
+  if (!cards.length) return;
 
-  // export / auto boot
-  window.GameHub = GameHub;
-  document.readyState !== 'loading'
-    ? (window.__hub = new GameHub())
-    : document.addEventListener('DOMContentLoaded', ()=> window.__hub = new GameHub());
-})();
+  cards.forEach(card => {
+    const modeId = card.getAttribute('data-mode');
+    card.addEventListener('click', () => {
+      selectMode(modeId);
+    });
+  });
+
+  // ตั้งค่าเริ่มต้นเป็น goodjunk
+  selectMode(currentMode);
+}
+
+function clampTime(sec) {
+  let n = parseInt(sec, 10);
+  if (isNaN(n)) n = 60;
+  if (n < 20) n = 20;
+  if (n > 180) n = 180;
+  return n;
+}
+
+function onStartClick() {
+  const diffSel = $('#selDiff');
+  const timeInp = $('#inpTime');
+
+  const diff = diffSel ? (diffSel.value || 'normal') : 'normal';
+  const time = clampTime(timeInp ? timeInp.value : 60);
+
+  // อัปเดตช่องเวลาให้ตรงกับค่าที่ clamp แล้ว (กันเด็กพิมพ์ 9999 แล้วงง)
+  if (timeInp) timeInp.value = String(time);
+
+  const params = new URLSearchParams();
+  params.set('mode', currentMode);
+  params.set('diff', diff);
+  params.set('time', String(time));
+
+  const url = './index.vr.html?' + params.toString();
+  console.log('[HERO-HUB] redirect to', url);
+
+  // เด้งไปหน้าเล่นเกมจริง
+  window.location.href = url;
+}
+
+function initStartButton() {
+  const btn = $('#btnStart');
+  if (!btn) return;
+  btn.addEventListener('click', onStartClick);
+}
+
+function bootstrap() {
+  initModeCards();
+  initStartButton();
+  console.log('[HERO-HUB] ready. default mode =', currentMode);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}
