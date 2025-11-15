@@ -1,13 +1,12 @@
 // === Hero Health — mode.groups.js ===
-// โหมด Food Groups Village: Rescue the Villagers
-// เลือกอาหารให้ตรงหมู่เป้าหมาย (NPC ขอความช่วยเหลือ)
+// โหมด Food Groups: เลือกอาหารให้ตรง "หมู่เป้าหมาย" + Diff Table + ACC_TARGET
 
 (function () {
   'use strict';
 
   window.HH_MODES = window.HH_MODES || {};
 
-  // ---------- Groups ----------
+  // ---------- ข้อมูลหมู่อาหาร ----------
   const FOOD_GROUPS = [
     {
       id: 'grain',
@@ -31,11 +30,11 @@
       id: 'protein',
       label: 'เนื้อ-โปรตีน',
       icon: '🍗',
-      items: ['🍗','🍖','🥩','🥚','🐟','🍤','🍣','🥜']
+      items: ['🍗','🍖','🥩','🥚','🐟','🍤','🍣','🥜','🌭']
     },
     {
       id: 'dairy',
-      label: 'นม-ผลิตภัณฑ์นม',
+      label: 'นม',
       icon: '🥛',
       items: ['🥛','🧀','🍦','🍨','🍧']
     }
@@ -49,16 +48,18 @@
   const SHIELD  = ['🛡️'];
   const FEVER   = ['🔥'];
   const RAINBOW = ['🌈'];
+  const BOSS_ICON = ['👹','👾'];
 
   function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
+
   function pickRandomGroup() {
     return FOOD_GROUPS[Math.floor(Math.random() * FOOD_GROUPS.length)];
   }
 
   function getOtherGroupItems(targetGroup) {
-    if (!targetGroup) return EXTRA_JUNK.slice();
+    if (!targetGroup) return [];
     let list = [];
     for (let i = 0; i < FOOD_GROUPS.length; i++) {
       const g = FOOD_GROUPS[i];
@@ -69,24 +70,42 @@
     return list;
   }
 
-  // state per run
+  // state ต่อรอบ
   let currentGroup = null;
 
-  // ---------- Config per diff ----------
-  function configForDiff(diff) {
-    const d = (diff || 'normal').toLowerCase();
+  // ---------- Diff config ----------
+  const GROUPS_DIFF_TABLE = {
+    easy: {
+      SPAWN_INTERVAL: 1200,
+      ITEM_LIFETIME: 2300,
+      MAX_ACTIVE: 3,
+      MISSION_GOOD_TARGET: 12,
+      SIZE_FACTOR: 1.20,
+      TYPE_WEIGHTS: {
+        good:   68,
+        junk:   15,
+        star:    7,
+        gold:    4,
+        diamond: 3,
+        shield:  5,
+        fever:   3,
+        rainbow: 0
+      },
+      FEVER_DURATION: 5,
+      DIAMOND_TIME_BONUS: 3,
+      ACC_TARGET: { min: 0.80, max: 1.00 }
+    },
 
-    // NORMAL
-    let cfg = {
-      SPAWN_INTERVAL: 720,
+    normal: {
+      SPAWN_INTERVAL: 750,
       ITEM_LIFETIME: 1650,
       MAX_ACTIVE: 4,
       MISSION_GOOD_TARGET: 18,
-      SIZE_FACTOR: 1.0,
+      SIZE_FACTOR: 1.00,
       TYPE_WEIGHTS: {
         good:   50,
-        junk:   25,
-        star:    6,
+        junk:   26,
+        star:    7,
         gold:    5,
         diamond: 4,
         shield:  4,
@@ -94,69 +113,64 @@
         rainbow: 2
       },
       FEVER_DURATION: 6,
-      DIAMOND_TIME_BONUS: 2
-    };
+      DIAMOND_TIME_BONUS: 2,
+      ACC_TARGET: { min: 0.55, max: 0.75 }
+    },
 
-    if (d === 'easy') {
-      cfg.SPAWN_INTERVAL = 1000;
-      cfg.ITEM_LIFETIME = 2300;
-      cfg.MAX_ACTIVE = 3;
-      cfg.MISSION_GOOD_TARGET = 14;
-      cfg.SIZE_FACTOR = 1.18;
-      cfg.TYPE_WEIGHTS = {
-        good:   65,
-        junk:   15,
-        star:    8,
-        gold:    6,
-        diamond: 3,
-        shield:  5,
-        fever:   3,
-        rainbow: 0
-      };
-      cfg.FEVER_DURATION = 5;
-      cfg.DIAMOND_TIME_BONUS = 3;
-    } else if (d === 'hard') {
-      cfg.SPAWN_INTERVAL = 480;
-      cfg.ITEM_LIFETIME = 1100;
-      cfg.MAX_ACTIVE = 6;
-      cfg.MISSION_GOOD_TARGET = 24;
-      cfg.SIZE_FACTOR = 0.92;
-      cfg.TYPE_WEIGHTS = {
-        good:   36,
-        junk:   40,
+    hard: {
+      SPAWN_INTERVAL: 520,
+      ITEM_LIFETIME: 1200,
+      MAX_ACTIVE: 6,
+      MISSION_GOOD_TARGET: 24,
+      SIZE_FACTOR: 0.90,
+      TYPE_WEIGHTS: {
+        good:   34,
+        junk:   42,
         star:    6,
         gold:    5,
         diamond: 5,
         shield:  3,
-        fever:   7,
+        fever:   8,
         rainbow: 3
-      };
-      cfg.FEVER_DURATION = 7;
-      cfg.DIAMOND_TIME_BONUS = 1;
+      },
+      FEVER_DURATION: 7,
+      DIAMOND_TIME_BONUS: 1,
+      ACC_TARGET: { min: 0.35, max: 0.55 }
     }
+  };
 
-    return cfg;
+  function configForDiff(diff) {
+    const d = (diff || 'normal').toLowerCase();
+    const base = GROUPS_DIFF_TABLE[d] || GROUPS_DIFF_TABLE.normal;
+    return JSON.parse(JSON.stringify(base));
   }
 
+  // ---------- Register mode ----------
   window.HH_MODES.groups = {
     id: 'groups',
-    label: 'Food Groups Village',
+    label: 'Food Groups',
 
     setupForDiff: function (diff) {
       currentGroup = pickRandomGroup();
-      return configForDiff(diff);
+      const cfg = configForDiff(diff);
+      // แนบข้อมูลหมู่เป้าหมายไว้เผื่อ coach หรือระบบอื่นใช้
+      cfg.sessionInfo = {
+        groupId: currentGroup.id,
+        groupLabel: currentGroup.label,
+        groupIcon: currentGroup.icon
+      };
+      return cfg;
     },
 
     missionText: function (target) {
       if (currentGroup) {
         return (
-          'ภารกิจช่วยชาวหมู่บ้าน: เลือกอาหารที่อยู่ในหมู่ “' +
-          currentGroup.icon + ' ' + currentGroup.label +
-          '” ให้ครบ ' + target + ' ชิ้น (อย่าเผลอหยิบของลับของขยะ!)'
+          'ภารกิจวันนี้: เลือกอาหารให้ตรงกับหมู่เป้าหมาย ' +
+          '“' + currentGroup.icon + ' ' + currentGroup.label +
+          '” ให้ครบ ' + target + ' ชิ้น'
         );
       }
-      return 'ภารกิจช่วยชาวหมู่บ้าน: เลือกอาหารให้ตรงหมู่เป้าหมายให้ครบ ' +
-        target + ' ชิ้น';
+      return 'ภารกิจวันนี้: เลือกอาหารให้ตรงกับหมู่เป้าหมายให้ครบ ' + target + ' ชิ้น';
     },
 
     pickEmoji: function (type) {
@@ -179,20 +193,9 @@
       if (type === 'shield')  return pickRandom(SHIELD);
       if (type === 'fever')   return pickRandom(FEVER);
       if (type === 'rainbow') return pickRandom(RAINBOW);
+      if (type === 'boss')    return pickRandom(BOSS_ICON);
 
       return '❓';
-    },
-
-    sessionInfo: function () {
-      return {
-        topic: 'Food Groups',
-        world: 'Food Village Rescue',
-        groupId: currentGroup ? currentGroup.id : 'groups',
-        groupLabel: currentGroup
-          ? currentGroup.label
-          : 'Food Groups Village',
-        groupIcon: currentGroup ? currentGroup.icon : '🥦'
-      };
     }
   };
 })();
