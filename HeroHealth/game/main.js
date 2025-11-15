@@ -1,42 +1,35 @@
-// === Hero Health Academy — game/main.js (2025-11-15 HUB v1) ===
-// ฮับกลางควบคุมโหมด Good vs Trash / Groups / Hydration / Plate
-// - dynamic import โหมดแต่ละอันแบบกันพัง
-// - โค้ช 1–8 แบบภาษาป.5
-// - แสดง "Real modes loaded" มุมล่างซ้ายเมื่อโหลดโหมดสำเร็จอย่างน้อย 1 อัน
-
 'use strict';
 window.__HHA_BOOT_OK = 'main';
 
-// ---------- Config พื้นฐาน ----------
-const DEFAULT_MODE = 'goodjunk';
-const DEFAULT_DIFF = 'normal';
-const DEFAULT_TIME = 60; // วินาที
+// === Config ===
+var DEFAULT_MODE = 'goodjunk';
+var DEFAULT_DIFF = 'normal';
+var DEFAULT_TIME = 60;
 
-const MODES_META = {
+var MODES_META = {
   goodjunk: {
     id: 'goodjunk',
     label: 'ดี vs ขยะ',
-    desc: 'เลือกกินของดี หลีกเลี่ยงของขยะ',
+    desc: 'เลือกกินของดี หลีกเลี่ยงของขยะ'
   },
   groups: {
     id: 'groups',
     label: 'หมู่สารอาหาร',
-    desc: 'จัดหมวดหมู่สารอาหารให้ถูก',
+    desc: 'จัดหมวดหมู่สารอาหารให้ถูก'
   },
   hydration: {
     id: 'hydration',
     label: 'ดื่มน้ำสมดุล',
-    desc: 'ดื่มน้ำให้พอดีกับกิจกรรม',
+    desc: 'ดื่มน้ำให้พอดีกับกิจกรรม'
   },
   plate: {
     id: 'plate',
     label: 'จานสุขภาพ',
-    desc: 'แบ่งผัก ข้าว โปรตีน ให้สมดุล',
+    desc: 'แบ่งผัก ข้าว โปรตีน ให้สมดุล'
   }
 };
 
-// โค้ช 1–8 ภาษาป.5 (ใช้สุ่มขึ้นตอนเริ่มเกม)
-const COACH_LINES = [
+var COACH_LINES = [
   'พร้อมลุยยัง ฮีโร่สุขภาพ? 💪',
   'รอบนี้ขอดูสกิลเทพๆ หน่อยนะ 😎',
   'อย่าลืมโฟกัสให้ดี กดผิดมีหักคะแนนนะ! ⚠️',
@@ -47,8 +40,8 @@ const COACH_LINES = [
   'ภารกิจนี้มีแต่ทีมฮีโร่เท่านั้นที่ทำได้ สู้ๆ! ⭐'
 ];
 
-// ---------- State กลางของเกม ----------
-const state = {
+// === Global state ===
+var state = {
   modeId: DEFAULT_MODE,
   diff: DEFAULT_DIFF,
   duration: DEFAULT_TIME,
@@ -58,38 +51,35 @@ const state = {
   remaining: DEFAULT_TIME,
   currentModule: null,
   currentRunner: null,
-  ctx: null,
+  ctx: null
 };
 
-// ---------- Helper DOM ----------
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => document.querySelectorAll(s);
-
-function byAction(el) {
-  return el?.closest?.('[data-action]') || null;
+// === Helpers ===
+function $(sel) {
+  return document.querySelector(sel);
 }
-
+function $all(sel) {
+  return document.querySelectorAll(sel);
+}
+function byAction(el) {
+  if (!el) return null;
+  if (el.closest) return el.closest('[data-action]');
+  while (el && el !== document) {
+    if (el.getAttribute && el.getAttribute('data-action')) return el;
+    el = el.parentNode;
+  }
+  return null;
+}
 function setText(sel, txt) {
-  const el = typeof sel === 'string' ? $(sel) : sel;
+  var el = typeof sel === 'string' ? $(sel) : sel;
   if (el) el.textContent = txt;
 }
-
-function addClass(el, cls) {
-  if (!el) return;
-  el.classList.add(cls);
-}
-
-function removeClass(el, cls) {
-  if (!el) return;
-  el.classList.remove(cls);
-}
-
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// ---------- Status HUD (มุมล่างซ้าย) ----------
-let statusEl = null;
+// === Status HUD ===
+var statusEl = null;
 function ensureStatusHUD() {
   if (statusEl && document.body.contains(statusEl)) return statusEl;
   statusEl = document.getElementById('modeStatus');
@@ -111,147 +101,285 @@ function ensureStatusHUD() {
   }
   return statusEl;
 }
-
 function showStatus(msg) {
-  const el = ensureStatusHUD();
+  var el = ensureStatusHUD();
   el.textContent = msg;
 }
 
-// เรียกเมื่อโหมดจริงโหลดสำเร็จอย่างน้อย 1 โหมด
-let realModesMarked = false;
+var realModesMarked = false;
 function markRealModesLoaded() {
   if (realModesMarked) return;
   realModesMarked = true;
   showStatus('Real modes loaded');
 }
 
-// ---------- Coach Bubble ----------
+// === Coach ===
 function showCoachLine(forceLine) {
-  const el = $('#coachText');
-  if (!el) return; // ถ้าไม่มี element นี้ ก็ไม่ต้องทำอะไร
-  const line = forceLine || pickRandom(COACH_LINES);
+  var el = $('#coachText');
+  if (!el) return;
+  var line = forceLine || pickRandom(COACH_LINES);
   el.textContent = line;
 }
 
-// ---------- Timer ----------
+// === Timer ===
 function updateTimerLabel() {
-  const lbl = $('#timerLabel');
-  if (lbl) {
-    lbl.textContent = state.remaining + ' s';
-  }
+  var lbl = $('#timerLabel');
+  if (lbl) lbl.textContent = state.remaining + ' s';
 }
-
 function stopTimer() {
   if (state.timerId) {
     clearInterval(state.timerId);
     state.timerId = null;
   }
 }
-
 function startTimer() {
   stopTimer();
   state.remaining = state.duration;
   updateTimerLabel();
-
-  state.timerId = setInterval(() => {
+  state.timerId = setInterval(function() {
     state.remaining -= 1;
-    if (state.remaining < 0) {
-      state.remaining = 0;
-    }
+    if (state.remaining < 0) state.remaining = 0;
     updateTimerLabel();
     if (state.remaining <= 0) {
-      // หมดเวลา → จบเกม
       stopTimer();
       endGame('timeup');
     }
   }, 1000);
 }
 
-// ---------- Dynamic Import โหมด ----------
-async function loadModeModule(modeId) {
-  const meta = MODES_META[modeId];
+// === Dynamic import ===
+function loadModeModule(modeId) {
+  var meta = MODES_META[modeId];
   if (!meta) {
     console.warn('Unknown mode:', modeId);
     showStatus('Unknown mode: ' + modeId);
-    return null;
+    return Promise.resolve(null);
   }
-
-  try {
-    const mod = await import(`./modes/${modeId}.js`);
-    console.log('[HHA] Mode module loaded:', modeId, mod);
-    markRealModesLoaded();
-    return mod;
-  } catch (err) {
-    console.error('[HHA] Failed to load mode:', modeId, err);
-    showStatus('Failed to load mode: ' + modeId);
-    return null;
-  }
+  return import('./modes/' + modeId + '.js')
+    .then(function(mod) {
+      console.log('[HHA] Mode module loaded:', modeId, mod);
+      markRealModesLoaded();
+      return mod;
+    })
+    .catch(function(err) {
+      console.error('[HHA] Failed to load mode:', modeId, err);
+      showStatus('Failed to load mode: ' + modeId);
+      return null;
+    });
 }
 
-// ---------- Context ที่ส่งไปให้โหมด ----------
+// === Build context ===
 function buildModeContext(modeId) {
-  // host หลักสำหรับ spawn emoji / objects
-  const host =
+  var host =
     document.getElementById('spawnHost') ||
     document.getElementById('gameLayer') ||
     document.querySelector('.game-layer') ||
     document.body;
-
-  const ctx = {
-    modeId,
-    host,
-    // config พื้นฐาน
+  var ctx = {
+    modeId: modeId,
+    host: host,
     difficulty: state.diff,
     duration: state.duration,
-    // callback ให้โหมดเรียกจบเกมได้
-    end: (reason, extraResult) => {
-      endGame(reason || 'mode-end', extraResult);
+    end: function(reason, extra) {
+      endGame(reason || 'mode-end', extra);
     },
-    // helper สำหรับโหมด (แล้วแต่โหมดจะใช้หรือไม่ใช้)
-    setCoach: (msg) => showCoachLine(msg),
-    setStatus: (msg) => showStatus(msg),
-    setTimerOverride: (sec) => {
+    setCoach: function(msg) {
+      showCoachLine(msg);
+    },
+    setStatus: function(msg) {
+      showStatus(msg);
+    },
+    setTimerOverride: function(sec) {
       if (typeof sec === 'number' && sec > 0) {
         state.duration = sec;
         state.remaining = sec;
         startTimer();
       }
     },
-    // event bus กลาง
-    emitGlobal: (name, detail) => {
+    emitGlobal: function(name, detail) {
       try {
-        window.dispatchEvent(new CustomEvent(name, { detail }));
+        window.dispatchEvent(new CustomEvent(name, { detail: detail }));
       } catch (e) {
         console.warn('emitGlobal error', e);
       }
     }
   };
-
   return ctx;
 }
 
-// ---------- การเริ่ม / จบเกม ----------
-async function startGame() {
+// === Start / End game ===
+function startGame() {
   if (state.running) return;
-
-  const modeId = state.modeId || DEFAULT_MODE;
+  var modeId = state.modeId || DEFAULT_MODE;
   showStatus('Loading mode: ' + modeId + ' ...');
 
-  const mod = await loadModeModule(modeId);
-  if (!mod) {
-    // โหลดไม่สำเร็จ
-    return;
+  loadModeModule(modeId).then(function(mod) {
+    if (!mod) return;
+
+    stopTimer();
+    state.running = true;
+    state.startedAt = Date.now();
+    state.currentModule = mod;
+    state.currentRunner = null;
+
+    showCoachLine();
+
+    var ctx = buildModeContext(modeId);
+    state.ctx = ctx;
+
+    var runner = null;
+    try {
+      if (typeof mod.start === 'function') {
+        runner = mod.start(ctx);
+      } else if (typeof mod.run === 'function') {
+        runner = mod.run(ctx);
+      } else if (typeof mod.default === 'function') {
+        runner = mod.default(ctx);
+      } else if (typeof mod.create === 'function') {
+        runner = mod.create(ctx);
+      } else {
+        console.warn('[HHA] Mode has no entry function');
+        showStatus('Mode entry missing: ' + modeId);
+      }
+    } catch (err) {
+      console.error('[HHA] Error while starting mode:', modeId, err);
+      showStatus('Error starting mode: ' + modeId);
+      state.running = false;
+      return;
+    }
+
+    state.currentRunner = runner || null;
+    state.remaining = state.duration;
+    startTimer();
+    var meta = MODES_META[modeId];
+    var label = meta ? meta.label : modeId;
+    showStatus('Playing: ' + label);
+  });
+}
+
+function endGame(reason, extraResult) {
+  if (!state.running) return;
+  console.log('[HHA] endGame:', reason, extraResult);
+  state.running = false;
+  stopTimer();
+
+  var r = state.currentRunner;
+  try {
+    if (r && typeof r.stop === 'function') {
+      r.stop(reason, extraResult);
+    } else if (r && typeof r.end === 'function') {
+      r.end(reason, extraResult);
+    }
+  } catch (e) {
+    console.warn('[HHA] runner stop error:', e);
   }
 
-  // clear state เก่า
-  stopTimer();
-  state.running = true;
-  state.startedAt = Date.now();
-  state.currentModule = mod;
-  state.currentRunner = null;
+  var panel = $('#resultPanel');
+  if (panel) {
+    panel.classList.remove('hidden');
+    var reasonEl = panel.querySelector('[data-field="reason"]');
+    if (reasonEl) {
+      var txt = '';
+      if (reason === 'timeup') txt = 'หมดเวลาแล้ว!';
+      else if (reason === 'quit') txt = 'ออกจากเกมก่อนจบภารกิจ';
+      else txt = 'จบภารกิจแล้ว!';
+      reasonEl.textContent = txt;
+    }
+  }
+  showStatus('Session ended (' + reason + ')');
+}
 
-  // แสดงโค้ช 1 บรรทัด
-  showCoachLine();
+// === UI binding ===
+function onClick(e) {
+  var actEl = byAction(e.target);
+  if (!actEl) return;
+  var action = actEl.getAttribute('data-action');
+  if (!action) return;
+  if (action === 'start' || action === 'start-game') {
+    e.preventDefault();
+    startGame();
+  } else if (action === 'quit' || action === 'stop') {
+    e.preventDefault();
+    endGame('quit');
+  }
+}
 
-  // เตรียม ctx
-  c
+function bindModeButtons() {
+  var buttons = $all('.mode-button, [data-mode]');
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var m = btn.getAttribute('data-mode');
+      if (!m || !MODES_META[m]) return;
+      state.modeId = m;
+
+      buttons.forEach(function(b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+
+      var meta = MODES_META[m];
+      setText('#modeLabel', meta.label || m);
+      setText('#modeDesc', meta.desc || '');
+      showStatus('Selected mode: ' + (meta.label || m));
+    });
+  });
+
+  if (!state.modeId || !MODES_META[state.modeId]) {
+    state.modeId = DEFAULT_MODE;
+  }
+}
+
+function bindDiffButtons() {
+  var buttons = $all('.diff-button, [data-diff]');
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var d = btn.getAttribute('data-diff') || DEFAULT_DIFF;
+      state.diff = d;
+      buttons.forEach(function(b) { b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      setText('#diffLabel', d);
+      showStatus('Difficulty: ' + d);
+    });
+  });
+}
+
+function bindTimeButtons() {
+  var buttons = $all('.time-button, [data-time]');
+  buttons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var v = parseInt(btn.getAttribute('data-time'), 10);
+      if (!isNaN(v) && v > 0) {
+        state.duration = v;
+        state.remaining = v;
+        updateTimerLabel();
+        buttons.forEach(function(b) { b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        showStatus('Time: ' + v + ' s');
+      }
+    });
+  });
+}
+
+// === Bootstrap ===
+function bootstrap() {
+  document.addEventListener('click', onClick);
+  bindModeButtons();
+  bindDiffButtons();
+  bindTimeButtons();
+
+  var initMeta = MODES_META[state.modeId] || MODES_META[DEFAULT_MODE];
+  if (initMeta) {
+    setText('#modeLabel', initMeta.label);
+    setText('#modeDesc', initMeta.desc);
+  }
+  setText('#diffLabel', state.diff);
+  state.remaining = state.duration;
+  updateTimerLabel();
+
+  showCoachLine('เลือกโหมดแล้วกดปุ่มเริ่มได้เลย! 😄');
+  showStatus('Hub ready (waiting for start)');
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}
