@@ -1,7 +1,11 @@
 // === Hero Health — game/main.js
-// DOM Good vs Junk — Power-up + Fever Lava + Rank + Level System
+// DOM Good vs Junk — Lava Fever + Rank + Level + Research Logging v1.0.0
 
 'use strict';
+
+// ---------- Version & Run Info ----------
+const GAME_VERSION = 'HHA-GoodJunk-Research-v1.0.0';
+const RUN_ID = 'run-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
 
 // ---------- อ่านค่าจาก URL ----------
 const url = new URL(window.location.href);
@@ -112,6 +116,135 @@ switch (DIFF) {
     FEVER_MULT = 2.3;
     FEVER_MAX_STACK = 14;
     break;
+}
+
+// สรุป config รอบนี้ (log/ส่งออกได้)
+const RUN_CONFIG = {
+  version: GAME_VERSION,
+  mode: MODE,
+  diff: DIFF,
+  timeLimit: GAME_DURATION,
+  spawnInterval: SPAWN_INTERVAL,
+  itemLifetime: ITEM_LIFETIME,
+  maxActive: MAX_ACTIVE,
+  missionGoodTarget: MISSION_GOOD_TARGET,
+  sizeFactor: SIZE_FACTOR,
+  typeWeights: TYPE_WEIGHTS,
+  feverDuration: FEVER_DURATION,
+  diamondTimeBonus: DIAMOND_TIME_BONUS,
+  feverMultBase: FEVER_MULT,
+  feverMaxStack: FEVER_MAX_STACK
+};
+
+// ---------- Research Event Logging ----------
+const events = [];
+
+function nowMs() {
+  if (typeof performance !== 'undefined' && performance.now) {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function logEvent(type, detail) {
+  events.push(Object.assign({
+    runId: RUN_ID,
+    t: Math.round(nowMs()),
+    type: type,
+    mode: MODE,
+    diff: DIFF
+  }, detail || {}));
+}
+
+// CSV helper
+function csvCell(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (/[",\n]/.test(s)) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function buildCSV() {
+  const header = [
+    'runId',
+    'gameVersion',
+    'mode',
+    'diff',
+    'timeLimit',
+    'spawnInterval',
+    'itemLifetime',
+    'maxActive',
+    'missionGoodTarget',
+    'type',
+    't_ms',
+    'itemType',
+    'x',
+    'y',
+    'score',
+    'combo',
+    'goodCount',
+    'junkHit',
+    'shield',
+    'feverLeft',
+    'feverMult',
+    'rank',
+    'level'
+  ];
+  const rows = [];
+  rows.push(header.join(','));
+
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    rows.push([
+      csvCell(ev.runId),
+      csvCell(GAME_VERSION),
+      csvCell(MODE),
+      csvCell(DIFF),
+      csvCell(GAME_DURATION),
+      csvCell(SPAWN_INTERVAL),
+      csvCell(ITEM_LIFETIME),
+      csvCell(MAX_ACTIVE),
+      csvCell(MISSION_GOOD_TARGET),
+      csvCell(ev.type),
+      csvCell(ev.t),
+      csvCell(ev.itemType),
+      csvCell(ev.x),
+      csvCell(ev.y),
+      csvCell(ev.score),
+      csvCell(ev.combo),
+      csvCell(ev.goodCount),
+      csvCell(ev.junkHit),
+      csvCell(ev.shield),
+      csvCell(ev.feverLeft),
+      csvCell(ev.feverMult),
+      csvCell(ev.rank),
+      csvCell(ev.level)
+    ].join(','));
+  }
+
+  return rows.join('\r\n');
+}
+
+function downloadCSV() {
+  try {
+    const csv = buildCSV();
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = RUN_ID + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 0);
+  } catch (err) {
+    console.error('[HHA] CSV export failed', err);
+    alert('ไม่สามารถดาวน์โหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+  }
 }
 
 // ---------- ชุดอีโมจิ ----------
@@ -417,6 +550,7 @@ function createHUD() {
 
         <div id="hha-level-row"
              style="font-size:11px;color:#e5e7eb;opacity:0.9;">
+          เวอร์ชันวิจัย: <span>${GAME_VERSION}</span><br/>
           Lv. <span id="hha-level">1</span> • EXP:
           <span id="hha-exp">0</span>/<span id="hha-exp-next">0</span>
         </div>
@@ -461,20 +595,32 @@ function createHUD() {
           ของดีที่เก็บได้:
           <b id="hha-final-good">0</b> / ${MISSION_GOOD_TARGET}
         </div>
-        <div style="margin-bottom:6px;">
+        <div style="margin-bottom:4px;">
           อันดับของคุณ: <b id="hha-final-rank">-</b>
         </div>
         <div id="hha-final-praise"
-          style="margin-bottom:14px;color:#e5e7eb;font-size:13px;">
+          style="margin-bottom:10px;color:#e5e7eb;font-size:13px;">
         </div>
 
-        <button id="hha-restart"
-          style="border-radius:999px;border:0;cursor:pointer;
-                 padding:8px 18px;
-                 background:linear-gradient(135deg,#38bdf8,#2563eb);
-                 color:#fff;font-weight:600;font-size:14px;">
-          เล่นอีกครั้ง
-        </button>
+        <div style="display:flex;gap:8px;justify-content:center;margin-bottom:8px;">
+          <button id="hha-restart"
+            style="border-radius:999px;border:0;cursor:pointer;
+                   padding:8px 18px;
+                   background:linear-gradient(135deg,#38bdf8,#2563eb);
+                   color:#fff;font-weight:600;font-size:14px;">
+            เล่นอีกครั้ง
+          </button>
+          <button id="hha-download"
+            style="border-radius:999px;border:0;cursor:pointer;
+                   padding:8px 14px;
+                   background:linear-gradient(135deg,#22c55e,#16a34a);
+                   color:#fff;font-weight:600;font-size:13px;">
+            ดาวน์โหลดข้อมูล (CSV)
+          </button>
+        </div>
+        <div style="font-size:11px;color:#9ca3af;">
+          *ปุ่มดาวน์โหลดสำหรับครู/นักวิจัย ใช้เก็บข้อมูลแต่ละรอบ
+        </div>
       </div>
     </div>
   `;
@@ -752,6 +898,17 @@ function spawnOne(host) {
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.25)';
       checkAutoFever();
+      logEvent('click_good', {
+        itemType: 'good',
+        x: ev.clientX,
+        y: ev.clientY,
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
     } else if (type === 'star') {
       score += Math.round(15 * mult);
       combo += 2;
@@ -759,6 +916,17 @@ function spawnOne(host) {
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.28)';
       checkAutoFever();
+      logEvent('click_star', {
+        itemType: 'star',
+        x: ev.clientX,
+        y: ev.clientY,
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
     } else if (type === 'gold') {
       score += Math.round(20 * mult);
       combo += 2;
@@ -766,6 +934,17 @@ function spawnOne(host) {
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.3)';
       checkAutoFever();
+      logEvent('click_gold', {
+        itemType: 'gold',
+        x: ev.clientX,
+        y: ev.clientY,
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
     } else if (type === 'diamond') {
       score += Math.round(25 * mult);
       combo += 3;
@@ -774,20 +953,65 @@ function spawnOne(host) {
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.32)';
       checkAutoFever();
+      logEvent('click_diamond', {
+        itemType: 'diamond',
+        x: ev.clientX,
+        y: ev.clientY,
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
     } else if (type === 'shield') {
       shieldCharges += 1;
       item.style.transform = 'scale(1.2)';
       showToast('ได้กันพลาดเพิ่มอีก 1 แต้ม! 🛡️', 'good');
+      logEvent('click_shield', {
+        itemType: 'shield',
+        x: ev.clientX,
+        y: ev.clientY,
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
     } else if (type === 'fever') {
       feverTicksLeft = Math.min(feverTicksLeft + FEVER_DURATION, FEVER_MAX_STACK);
       if (activeFeverMult < FEVER_MULT) activeFeverMult = FEVER_MULT;
       item.style.transform = 'scale(1.25)';
       showToast('เก็บเป้าไฟ! คะแนนคูณ ' + activeFeverMult.toFixed(1) + ' 🔥', 'good');
+      logEvent('click_fever', {
+        itemType: 'fever',
+        x: ev.clientX,
+        y: ev.clientY,
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
     } else if (type === 'junk') {
       if (shieldCharges > 0) {
         shieldCharges -= 1;
         item.style.transform = 'scale(0.9)';
         showToast('กันพลาดทันเวลาพอดี! 🛡️', 'good');
+        logEvent('click_junk_blocked', {
+          itemType: 'junk',
+          x: ev.clientX,
+          y: ev.clientY,
+          score: score,
+          combo: combo,
+          goodCount: missionGoodCount,
+          junkHit: 0,
+          shield: shieldCharges,
+          feverLeft: feverTicksLeft,
+          feverMult: activeFeverMult
+        });
       } else {
         score = Math.max(0, score - 5);
         combo = 0;
@@ -804,6 +1028,18 @@ function spawnOne(host) {
           'ระวังของขยะให้ดีนะ 👀'
         ];
         showToast(badMsgs[Math.floor(Math.random() * badMsgs.length)], 'bad');
+        logEvent('click_junk', {
+          itemType: 'junk',
+          x: ev.clientX,
+          y: ev.clientY,
+          score: score,
+          combo: combo,
+          goodCount: missionGoodCount,
+          junkHit: 1,
+          shield: shieldCharges,
+          feverLeft: feverTicksLeft,
+          feverMult: activeFeverMult
+        });
       }
     }
 
@@ -870,6 +1106,19 @@ function spawnBoss(host) {
       boss.style.transform = 'scale(1)';
     }, 80);
 
+    logEvent('boss_hit', {
+      itemType: 'boss',
+      x: ev.clientX,
+      y: ev.clientY,
+      score: score,
+      combo: combo,
+      goodCount: missionGoodCount,
+      shield: shieldCharges,
+      feverLeft: feverTicksLeft,
+      feverMult: activeFeverMult,
+      bossHpLeft: bossHp
+    });
+
     if (bossHp <= 0) {
       const mult = currentMultiplier();
       score += Math.round(120 * mult);
@@ -880,11 +1129,26 @@ function spawnBoss(host) {
       if (boss.parentNode) {
         boss.parentNode.removeChild(boss);
       }
+      logEvent('boss_kill', {
+        itemType: 'boss',
+        x: ev.clientX,
+        y: ev.clientY,
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
       updateHUD();
     }
   });
 
   host.appendChild(boss);
+  logEvent('boss_spawn', {
+    itemType: 'boss',
+    bossHp: bossHp
+  });
 }
 
 // ---------- ระบบให้ Rank + คำชม ----------
@@ -941,6 +1205,7 @@ function startGame() {
   resetFeverChain();
   lastScore = 0;
   lastCombo = 0;
+  events.length = 0; // reset log
   updateHUD();
 
   const host = createHost();
@@ -952,6 +1217,14 @@ function startGame() {
 
   // เคลียร์เป้าค้าง
   host.innerHTML = '';
+
+  logEvent('game_start', {
+    timeLimit: GAME_DURATION,
+    spawnInterval: SPAWN_INTERVAL,
+    itemLifetime: ITEM_LIFETIME,
+    maxActive: MAX_ACTIVE,
+    missionGoodTarget: MISSION_GOOD_TARGET
+  });
 
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
@@ -965,6 +1238,11 @@ function startGame() {
     if (timeLeft <= 0) {
       timeLeft = 0;
       updateHUD();
+      logEvent('timer_end', {
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount
+      });
       endGame();
       return;
     }
@@ -1089,6 +1367,16 @@ function endGame() {
 
   const expGain = score + rankBonus + maxCombo * 3;
   addExp(expGain);
+
+  logEvent('game_end', {
+    score: score,
+    maxCombo: maxCombo,
+    goodCount: missionGoodCount,
+    rank: rp.rank,
+    level: currentLevel,
+    timeLeft: timeLeft
+  });
+
   updateHUD();
 
   // หน่วงให้เห็น outro ก่อนโชว์ผล
@@ -1123,8 +1411,17 @@ function bootstrap() {
     });
   }
 
+  const dlBtn = $('#hha-download');
+  if (dlBtn) {
+    dlBtn.addEventListener('click', function() {
+      downloadCSV();
+    });
+  }
+
   startGame();
-  console.log('[HHA DOM] Good vs Junk — Lava Fever + Rank + Level (tuned)', {
+  console.log('[HHA DOM] Good vs Junk — Research build', {
+    version: GAME_VERSION,
+    runId: RUN_ID,
     MODE: MODE,
     DIFF: DIFF,
     GAME_DURATION: GAME_DURATION,
