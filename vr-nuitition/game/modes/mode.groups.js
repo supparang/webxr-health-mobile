@@ -1,6 +1,7 @@
 // === Hero Health — mode.groups.js ===
 // โหมด Food Groups: เลือกอาหารให้ตรง "หมู่เป้าหมาย"
 // ใช้ร่วมกับ engine กลางใน game/main.js ผ่าน window.HH_MODES.groups
+// เวอร์ชันนี้เพิ่ม Goal + Quest API: goalDefs(), questDefs()
 
 (function () {
   'use strict';
@@ -106,13 +107,13 @@
       cfg.MISSION_GOOD_TARGET = 14;
       cfg.SIZE_FACTOR = 1.2;
       cfg.TYPE_WEIGHTS = {
-        good:   65,
-        junk:   15,
-        star:    8,
-        gold:    6,
+        good:   68,   // ของถูกหมู่เยอะ
+        junk:   12,   // ของล่อ/ผิดหมู่น้อย
+        star:    7,
+        gold:    5,
         diamond: 3,
-        shield:  5,
-        fever:   3,
+        shield:  3,
+        fever:   2,
         rainbow: 0
       };
       cfg.FEVER_DURATION = 5;
@@ -124,7 +125,7 @@
       cfg.MISSION_GOOD_TARGET = 24;
       cfg.SIZE_FACTOR = 0.9;
       cfg.TYPE_WEIGHTS = {
-        good:   35,
+        good:   36,
         junk:   40,
         star:    5,
         gold:    5,
@@ -138,6 +139,156 @@
     }
 
     return cfg;
+  }
+
+  // ---------- Goal API ----------
+  /**
+   * goalDefs(diff)
+   * - เป้าหมายหลักสำหรับโหมด Food Groups
+   * - engine จะใช้ทำ mission bar / สรุป / CSV
+   *
+   * type ที่ engine เข้าใจ:
+   * - 'count'   : ใช้ missionGoodCount (ของถูกหมู่ทั้งหมด)
+   * - 'combo'   : ใช้ maxCombo
+   * - 'noFail'  : ใช้ badHits (จำนวนครั้งผิด)
+   */
+  function goalDefs(diff) {
+    const d = (diff || 'normal').toLowerCase();
+    const cfg = configForDiff(d);
+
+    let comboTarget = 7;
+    let maxBad = 8;
+    if (d === 'easy') {
+      comboTarget = 4;
+      maxBad = 10;
+    } else if (d === 'hard') {
+      comboTarget = 10;
+      maxBad = 6;
+    }
+
+    // ชื่อหมู่เป้าหมาย (ไม่รู้ตอน engine init แต่ใช้ข้อความกลางแทน)
+    const labelMain = 'เลือกอาหารให้ตรงหมู่เป้าหมายให้ครบ';
+
+    return [
+      {
+        id: 'group_good_count',
+        type: 'count',
+        label: labelMain,
+        target: cfg.MISSION_GOOD_TARGET,
+        weight: 2
+      },
+      {
+        id: 'group_combo_peak',
+        type: 'combo',
+        label: 'ทำคอมโบต่อเนื่องให้ได้อย่างน้อย',
+        target: comboTarget,
+        weight: 1
+      },
+      {
+        id: 'group_limit_bad',
+        type: 'noFail',
+        label: 'อย่าตอบผิดหมู่บ่อยเกินไป (จำนวนครั้งผิดสูงสุด)',
+        target: maxBad,
+        weight: 1
+      }
+    ];
+  }
+
+  // ---------- Quest API ----------
+  /**
+   * questDefs(diff)
+   * - Mini Quest เฉพาะโหมด Food Groups
+   * - engine จะรับ pool นี้ไปสุ่ม 3 ข้อต่อรอบ
+   *
+   * kind ที่ engine รองรับ:
+   * - 'streak'    : ใช้ maxCombo
+   * - 'fast'      : ใช้ fastHitAchieved
+   * - 'noBadFor'  : ใช้ maxNoBadStreak
+   * - 'power'     : ใช้ powerupHits
+   * - 'fever'     : ใช้ feverActivations
+   * - 'scoreIn'   : ใช้ scoreAt20s
+   * - 'powerType' : ใช้ powerTypeCount[type]
+   */
+  function questDefs(diff) {
+    const d = (diff || 'normal').toLowerCase();
+
+    const streakSoft = (d === 'easy') ? 3 : 4;
+    const streakHard = (d === 'hard') ? 10 : 8;
+    const scoreEarly = (d === 'hard') ? 240 : 200;
+
+    return [
+      {
+        id: 'fg_streak_basic',
+        icon: '⚡',
+        text: 'แตะอาหารถูกหมู่ติดกัน ≥ 3 ครั้ง',
+        kind: 'streak',
+        threshold: 3
+      },
+      {
+        id: 'fg_streak_soft',
+        icon: '⚡',
+        text: 'ต่อคอมโบยาว ๆ ≥ ' + streakSoft + ' ครั้ง',
+        kind: 'streak',
+        threshold: streakSoft
+      },
+      {
+        id: 'fg_streak_hard',
+        icon: '⚡',
+        text: 'คอมโบสุดโหด ≥ ' + streakHard + ' ครั้ง',
+        kind: 'streak',
+        threshold: streakHard
+      },
+      {
+        id: 'fg_fast',
+        icon: '⏱',
+        text: 'แตะอาหารถูกหมู่ให้ทัน ≤ 1 วิ อย่างน้อย 1 ครั้ง',
+        kind: 'fast',
+        threshold: 1.0
+      },
+      {
+        id: 'fg_nobad5',
+        icon: '🛡',
+        text: 'เล่นโดยไม่ตอบผิดเลย 5 วินาที',
+        kind: 'noBadFor',
+        threshold: 5
+      },
+      {
+        id: 'fg_nobad10',
+        icon: '🛡',
+        text: 'เล่นโดยไม่ตอบผิดเลย 10 วินาที',
+        kind: 'noBadFor',
+        threshold: 10
+      },
+      {
+        id: 'fg_power1',
+        icon: '⭐',
+        text: 'เก็บ Power-up ให้ได้อย่างน้อย 1 ครั้ง',
+        kind: 'power',
+        threshold: 1
+      },
+      {
+        id: 'fg_fever1',
+        icon: '🔥',
+        text: 'เข้าโหมด Fever อย่างน้อย 1 ครั้ง',
+        kind: 'fever',
+        threshold: 1
+      },
+      {
+        id: 'fg_score_early',
+        icon: '💥',
+        text: 'ทำคะแนน ≥ ' + scoreEarly + ' ภายใน 20 วิแรก',
+        kind: 'scoreIn',
+        threshold: scoreEarly
+      },
+      {
+        id: 'fg_rainbow',
+        icon: '🌈',
+        text: 'เก็บ Rainbow อย่างน้อย 1 ครั้ง',
+        kind: 'powerType',
+        threshold: 1,
+        powerType: 'rainbow'
+      }
+    ];
   }
 
   // ---------- ลงทะเบียนโหมด ----------
@@ -165,6 +316,16 @@
         );
       }
       return 'ภารกิจวันนี้: เลือกอาหารให้ตรงกับหมู่เป้าหมายให้ครบ ' + target + ' ชิ้น';
+    },
+
+    /** นิยาม Goal หลักของโหมดนี้ */
+    goalDefs: function (diff) {
+      return goalDefs(diff);
+    },
+
+    /** นิยาม Mini Quest Pool ของโหมดนี้ */
+    questDefs: function (diff) {
+      return questDefs(diff);
     },
 
     /**
