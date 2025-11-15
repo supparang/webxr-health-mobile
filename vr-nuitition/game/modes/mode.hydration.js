@@ -1,20 +1,20 @@
 // === Hero Health — mode.hydration.js ===
-// โหมด Hydration: เลือกเครื่องดื่มที่ดีต่อสุขภาพ เลี่ยงน้ำหวาน/น้ำอัดลม
+// โหมด Hydration Cave: Water Balance Battle
+// เลือกเครื่องดื่มที่ดีต่อสุขภาพ เลี่ยงน้ำหวาน/น้ำอัดลม
 
 (function () {
   'use strict';
 
   window.HH_MODES = window.HH_MODES || {};
 
-  // ---------- ชุดเครื่องดื่ม ----------
   const GOOD_DRINKS = [
-    '💧','🚰','🥛','🫖','🍵','🧊','🍶','🥤', // 🥤 ไว้ใช้ใน good low-sugar ถ้าต้องการ
-    '🥒','🍋' // ใช้แทน infused water (แตงกวา/เลมอน)
+    '💧','🚰','🥛','🫖','🍵','🧊','🍶',
+    '🍋','🥒' // infused water
   ];
 
   const JUNK_DRINKS = [
     '🥤','🧋','🍹','🍸','🍺','🍷','🍾','🍻',
-    '🧃','🥤','🍸','🍹','🍧'
+    '🧃','🥤','🍧'
   ];
 
   const STAR    = ['⭐','🌟'];
@@ -28,11 +28,9 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ---------- config ตาม diff ----------
   function configForDiff(diff) {
     const d = (diff || 'normal').toLowerCase();
 
-    // default: normal
     let cfg = {
       SPAWN_INTERVAL: 720,
       ITEM_LIFETIME: 1600,
@@ -40,14 +38,14 @@
       MISSION_GOOD_TARGET: 18,
       SIZE_FACTOR: 1.0,
       TYPE_WEIGHTS: {
-        good:   50,
-        junk:   25,
+        good:   52,
+        junk:   24,
         star:    6,
         gold:    5,
         diamond: 4,
         shield:  4,
         fever:   4,
-        rainbow: 2
+        rainbow: 1
       },
       FEVER_DURATION: 6,
       DIAMOND_TIME_BONUS: 2
@@ -60,13 +58,13 @@
       cfg.MISSION_GOOD_TARGET = 14;
       cfg.SIZE_FACTOR = 1.15;
       cfg.TYPE_WEIGHTS = {
-        good:   65,
-        junk:   15,
-        star:    8,
-        gold:    6,
+        good:   68,
+        junk:   14,
+        star:    7,
+        gold:    5,
         diamond: 3,
         shield:  5,
-        fever:   3,
+        fever:   2,
         rainbow: 0
       };
       cfg.FEVER_DURATION = 5;
@@ -78,9 +76,9 @@
       cfg.MISSION_GOOD_TARGET = 24;
       cfg.SIZE_FACTOR = 0.9;
       cfg.TYPE_WEIGHTS = {
-        good:   35,
-        junk:   40,
-        star:    5,
+        good:   38,
+        junk:   38,
+        star:    6,
         gold:    5,
         diamond: 5,
         shield:  3,
@@ -94,39 +92,35 @@
     return cfg;
   }
 
-  // ---------- ลงทะเบียนโหมด ----------
   window.HH_MODES.hydration = {
     id: 'hydration',
-    label: 'Hydration Balance',
+    label: 'Hydration Cave',
 
     setupForDiff: function (diff) {
       return configForDiff(diff);
     },
 
     missionText: function (target) {
-      return 'ภารกิจวันนี้: เลือกเครื่องดื่มที่ดีต่อสุขภาพให้ครบ ' + target + ' แก้ว';
+      return 'Water Balance Battle: เลือกเครื่องดื่มช่วยฟื้นพลังน้ำในร่างกายให้ครบ ' +
+        target + ' แก้ว (เลี่ยงน้ำหวานจัด!)';
     },
 
     pickEmoji: function (type) {
-      if (type === 'good') {
-        return pickRandom(GOOD_DRINKS);
-      }
-      if (type === 'junk') {
-        return pickRandom(JUNK_DRINKS);
-      }
-      if (type === 'star')    return pickRandom(STAR);
-      if (type === 'gold')    return pickRandom(GOLD);
-      if (type === 'diamond') return pickRandom(DIAMOND);
-      if (type === 'shield')  return pickRandom(SHIELD);
-      if (type === 'fever')   return pickRandom(FEVER);
-      if (type === 'rainbow') return pickRandom(RAINBOW);
+      if (type === 'good')   return pickRandom(GOOD_DRINKS);
+      if (type === 'junk')   return pickRandom(JUNK_DRINKS);
+      if (type === 'star')   return pickRandom(STAR);
+      if (type === 'gold')   return pickRandom(GOLD);
+      if (type === 'diamond')return pickRandom(DIAMOND);
+      if (type === 'shield') return pickRandom(SHIELD);
+      if (type === 'fever')  return pickRandom(FEVER);
+      if (type === 'rainbow')return pickRandom(RAINBOW);
       return '❓';
     },
 
-    // ข้อมูลสำหรับงานวิจัย/ครู (ใช้ใน CSV)
     sessionInfo: function () {
       return {
         topic: 'Hydration',
+        world: 'Water Balance Battle',
         groupId: 'hydration',
         groupLabel: 'สมดุลน้ำดื่ม',
         groupIcon: '💧'
