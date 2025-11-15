@@ -166,15 +166,54 @@ function createFXLayer() {
   return fx;
 }
 
+// ---------- CSS global + responsive HUD ----------
 function ensureGameCSS() {
   if (document.getElementById('hha-game-css')) return;
   const st = document.createElement('style');
   st.id = 'hha-game-css';
   st.textContent = `
+    /* ลอยเป้าเบา ๆ */
     @keyframes hha-float {
       0%   { transform: translate3d(0,0,0); }
       50%  { transform: translate3d(0,-12px,0); }
       100% { transform: translate3d(0,0,0); }
+    }
+
+    /* ปรับ HUD สำหรับจอเล็ก */
+    @media (max-width: 720px) {
+      #hha-hud-inner {
+        padding: 8px 12px;
+        font-size: 12px;
+        min-width: 220px;
+      }
+      #hha-hud-inner #hha-score,
+      #hha-hud-inner #hha-combo {
+        font-size: 16px;
+      }
+      #hha-timebox {
+        font-size: 11px;
+        padding: 4px 10px;
+      }
+    }
+
+    /* จอเล็กมาก ๆ (มือถือเล็ก) */
+    @media (max-width: 480px) {
+      #hha-hud-inner {
+        padding: 6px 10px;
+        font-size: 11px;
+        min-width: 200px;
+      }
+      #hha-hud-inner #hha-score,
+      #hha-hud-inner #hha-combo {
+        font-size: 14px;
+      }
+      #hha-buffs {
+        font-size: 10px;
+      }
+      #hha-timebox {
+        font-size: 10px;
+        padding: 3px 8px;
+      }
     }
   `;
   document.head.appendChild(st);
