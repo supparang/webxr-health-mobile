@@ -1,21 +1,20 @@
 // === Hero Health — mode.hydration.js ===
-// โหมด Hydration: เลือก "น้ำดี" ให้ถึงเป้า หลีกเลี่ยงน้ำหวาน/น้ำอัดลม
-// ใช้ร่วมกับ engine กลางใน game/main.js ผ่าน window.HH_MODES.hydration
+// โหมด Hydration: เลือกเครื่องดื่มที่ดีต่อสุขภาพ เลี่ยงน้ำหวาน/น้ำอัดลม
 
 (function () {
   'use strict';
 
   window.HH_MODES = window.HH_MODES || {};
 
-  // ---------- ชุดอีโมจิของโหมดนี้ ----------
-  // น้ำ "ดี" : น้ำเปล่า, นม, ซุปใส, ชาไม่หวาน (ตีความง่ายสำหรับเด็ก ป.5)
-  const WATER_GOOD = [
-    '💧', '🚰', '🥛', '🫗', '🍵', '☕', '🥣'
+  // ---------- ชุดเครื่องดื่ม ----------
+  const GOOD_DRINKS = [
+    '💧','🚰','🥛','🫖','🍵','🧊','🍶','🥤', // 🥤 ไว้ใช้ใน good low-sugar ถ้าต้องการ
+    '🥒','🍋' // ใช้แทน infused water (แตงกวา/เลมอน)
   ];
 
-  // น้ำ "ล่อ/หวาน" : โซดา, น้ำอัดลม, ชานมไข่มุก ฯลฯ
-  const WATER_JUNK = [
-    '🥤','🧋','🧃','🍹','🍸','🍺','🍻','🥂','🍷','🥃'
+  const JUNK_DRINKS = [
+    '🥤','🧋','🍹','🍸','🍺','🍷','🍾','🍻',
+    '🧃','🥤','🍸','🍹','🍧'
   ];
 
   const STAR    = ['⭐','🌟'];
@@ -33,30 +32,30 @@
   function configForDiff(diff) {
     const d = (diff || 'normal').toLowerCase();
 
-    // ค่ากลาง (normal)
+    // default: normal
     let cfg = {
-      SPAWN_INTERVAL: 700,
-      ITEM_LIFETIME: 1500,
+      SPAWN_INTERVAL: 720,
+      ITEM_LIFETIME: 1600,
       MAX_ACTIVE: 4,
-      MISSION_GOOD_TARGET: 18,   // เก็บ "แก้วน้ำดี" ให้ครบ
+      MISSION_GOOD_TARGET: 18,
       SIZE_FACTOR: 1.0,
       TYPE_WEIGHTS: {
         good:   50,
-        junk:   28,
+        junk:   25,
         star:    6,
         gold:    5,
         diamond: 4,
-        shield:  3,
-        fever:   3,
-        rainbow: 1
+        shield:  4,
+        fever:   4,
+        rainbow: 2
       },
       FEVER_DURATION: 6,
       DIAMOND_TIME_BONUS: 2
     };
 
     if (d === 'easy') {
-      cfg.SPAWN_INTERVAL = 950;
-      cfg.ITEM_LIFETIME = 2100;
+      cfg.SPAWN_INTERVAL = 1000;
+      cfg.ITEM_LIFETIME = 2300;
       cfg.MAX_ACTIVE = 3;
       cfg.MISSION_GOOD_TARGET = 14;
       cfg.SIZE_FACTOR = 1.15;
@@ -66,25 +65,25 @@
         star:    8,
         gold:    6,
         diamond: 3,
-        shield:  4,
-        fever:   2,
+        shield:  5,
+        fever:   3,
         rainbow: 0
       };
       cfg.FEVER_DURATION = 5;
       cfg.DIAMOND_TIME_BONUS = 3;
     } else if (d === 'hard') {
-      cfg.SPAWN_INTERVAL = 460;
-      cfg.ITEM_LIFETIME = 1050;
+      cfg.SPAWN_INTERVAL = 500;
+      cfg.ITEM_LIFETIME = 1100;
       cfg.MAX_ACTIVE = 6;
       cfg.MISSION_GOOD_TARGET = 24;
       cfg.SIZE_FACTOR = 0.9;
       cfg.TYPE_WEIGHTS = {
         good:   35,
-        junk:   42,
+        junk:   40,
         star:    5,
         gold:    5,
         diamond: 5,
-        shield:  2,
+        shield:  3,
         fever:   8,
         rainbow: 3
       };
@@ -95,102 +94,25 @@
     return cfg;
   }
 
-  // ---------- Goals / Quests ----------
-  // ปล่อยแบบเบา ๆ ก่อน แล้วถ้าอาจารย์อยากจูนเกณฑ์วิจัยค่อยมาเพิ่ม
-  function goalDefsForDiff(diff) {
-    const d = (diff || 'normal').toLowerCase();
-    const baseTarget = d === 'easy' ? 14 : (d === 'hard' ? 24 : 18);
-
-    return [
-      {
-        id: 'good_glasses',
-        label: 'เก็บแก้วน้ำดีให้ครบตามเป้า',
-        type: 'count',
-        target: baseTarget,
-        weight: 2
-      },
-      {
-        id: 'limit_sugar',
-        label: 'แตะน้ำหวานให้น้อยที่สุด',
-        type: 'count',        // engine ใช้กับ hitType='good' เป็นหลัก (ใช้เป็นตัวรอง)
-        target: Math.round(baseTarget * 0.6),
-        weight: 1
-      }
-    ];
-  }
-
-  function questDefsForDiff(diff) {
-    const d = (diff || 'normal').toLowerCase();
-    const streakTarget = d === 'easy' ? 10 : (d === 'hard' ? 14 : 12);
-    const fastTarget   = d === 'easy' ? 0.90 : (d === 'hard' ? 0.65 : 0.75);
-
-    return [
-      {
-        id: 'streak_water',
-        icon: '💧',
-        text: 'กดน้ำดีต่อเนื่อง ' + streakTarget + ' ชิ้น',
-        kind: 'streak',
-        threshold: streakTarget
-      },
-      {
-        id: 'fast_click',
-        icon: '⚡',
-        text: 'กดให้ทันเร็วกว่า ' + fastTarget.toFixed(2) + ' วินาที (อย่างน้อย 1 ครั้ง)',
-        kind: 'fast',
-        threshold: fastTarget
-      },
-      {
-        id: 'fever_mode',
-        icon: '🔥',
-        text: 'เข้าโหมด Fever อย่างน้อย 1 ครั้ง',
-        kind: 'fever',
-        threshold: 1
-      }
-    ];
-  }
-
-  // ---------- sessionInfo สำหรับ CSV ----------
-  function buildSessionInfo() {
-    return {
-      topic: 'hydration',
-      groupId: null,
-      groupLabel: null,
-      groupIcon: '💧'
-    };
-  }
-
   // ---------- ลงทะเบียนโหมด ----------
   window.HH_MODES.hydration = {
     id: 'hydration',
-    label: 'Hydration',
+    label: 'Hydration Balance',
 
     setupForDiff: function (diff) {
       return configForDiff(diff);
     },
 
     missionText: function (target) {
-      return 'ภารกิจวันนี้: เลือก "น้ำดี" ให้ครบ ' + target + ' แก้ว (อย่าเผลอกดน้ำหวานเยอะนะ!)';
+      return 'ภารกิจวันนี้: เลือกเครื่องดื่มที่ดีต่อสุขภาพให้ครบ ' + target + ' แก้ว';
     },
 
-    goalDefs: function (diff) {
-      return goalDefsForDiff(diff);
-    },
-
-    questDefs: function (diff) {
-      return questDefsForDiff(diff);
-    },
-
-    sessionInfo: function () {
-      return buildSessionInfo();
-    },
-
-    // engine จะเรียกตอน spawn เพื่อขอ emoji ตาม type
     pickEmoji: function (type) {
       if (type === 'good') {
-        return pickRandom(WATER_GOOD);
+        return pickRandom(GOOD_DRINKS);
       }
       if (type === 'junk') {
-        return pickRandom(WATER_JUNK);
+        return pickRandom(JUNK_DRINKS);
       }
       if (type === 'star')    return pickRandom(STAR);
       if (type === 'gold')    return pickRandom(GOLD);
@@ -199,6 +121,16 @@
       if (type === 'fever')   return pickRandom(FEVER);
       if (type === 'rainbow') return pickRandom(RAINBOW);
       return '❓';
+    },
+
+    // ข้อมูลสำหรับงานวิจัย/ครู (ใช้ใน CSV)
+    sessionInfo: function () {
+      return {
+        topic: 'Hydration',
+        groupId: 'hydration',
+        groupLabel: 'สมดุลน้ำดื่ม',
+        groupIcon: '💧'
+      };
     }
   };
 })();
