@@ -1,14 +1,43 @@
-// === Hero Health — game/main.js (DOM Good vs Junk Fallback) ===
-// ใช้กับ index.vr.html ที่มีพื้นหลัง VR อยู่แล้ว
-// โค้ดนี้สร้าง HUD + เป้าอาหารแบบอีโมจิ ทับบนจอ แล้วเริ่มเกมให้อัตโนมัติ
+// === Hero Health — game/main.js (URL-aware Good vs Junk DOM mode) ===
+// ใช้งานคู่กับ index.vr.html ที่ถูกเรียกจาก hub.html:
+//   index.vr.html?mode=goodjunk&diff=normal&time=60
+//
+// ใช้พารามิเตอร์:
+//   mode : ตอนนี้ยังใช้ gameplay แบบ Good vs Junk เหมือนกันทุกโหมด (รองรับชื่อไว้ก่อน)
+//   diff : easy / normal / hard → ใช้กำหนดความถี่ spawn
+//   time : เวลาเล่น (วินาที) 20–180
 
 'use strict';
 
-// ---------- Config ----------
-const GAME_DURATION = 60; // วินาที
-const SPAWN_INTERVAL = 700; // ms
-const ITEM_LIFETIME = 1400; // ms
+// ---------- อ่านค่าจาก URL ----------
+const url = new URL(window.location.href);
+const MODE = (url.searchParams.get('mode') || 'goodjunk').toLowerCase();
+const DIFF = (url.searchParams.get('diff') || 'normal').toLowerCase();
 
+let timeParam = parseInt(url.searchParams.get('time'), 10);
+if (isNaN(timeParam) || timeParam <= 0) timeParam = 60;
+if (timeParam < 20) timeParam = 20;
+if (timeParam > 180) timeParam = 180;
+
+// config ตาม diff
+let SPAWN_INTERVAL = 700;
+switch (DIFF) {
+  case 'easy':
+    SPAWN_INTERVAL = 900; // ง่าย → ออกช้าลง
+    break;
+  case 'hard':
+    SPAWN_INTERVAL = 500; // ยาก → ออกถี่ขึ้น
+    break;
+  case 'normal':
+  default:
+    SPAWN_INTERVAL = 700;
+    break;
+}
+
+// เวลาเล่นรวม (วินาที)
+const GAME_DURATION = timeParam;
+
+// ---------- กลุ่มอีโมจิ ----------
 const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
 
@@ -41,7 +70,6 @@ function createHost() {
 }
 
 function createHUD() {
-  // ถ้ามี HUD เดิมให้ใช้ต่อ
   let hud = $('#hha-hud');
   if (hud) return hud;
 
@@ -74,7 +102,7 @@ function createHUD() {
       font-size:13px;z-index:9100;
       font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
     ">
-      TIME <span id="hha-time">60</span>s
+      TIME <span id="hha-time"></span>s
     </div>
 
     <div id="hha-result" style="
@@ -147,7 +175,6 @@ function spawnOne(host) {
     pointerEvents: 'auto'
   });
 
-  // ตำแหน่งสุ่ม (เว้นขอบจอ)
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const x = 0.1 * vw + Math.random() * 0.8 * vw;
@@ -181,14 +208,13 @@ function spawnOne(host) {
 
   host.appendChild(item);
 
-  // ลบเมื่อหมดเวลา life
   setTimeout(() => {
     if (item.parentNode) {
       item.style.opacity = '0';
       item.style.transform = 'scale(0.7)';
       setTimeout(removeItem, 120);
     }
-  }, ITEM_LIFETIME);
+  }, 1400);
 }
 
 // ---------- Game loop ----------
@@ -204,7 +230,6 @@ function startGame() {
   const host = createHost();
   createHUD();
 
-  // clear เดิม
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
 
@@ -255,7 +280,7 @@ function bootstrap() {
 
   // เริ่มเกมอัตโนมัติรอบแรก
   startGame();
-  console.log('[HHA DOM] Good vs Junk fallback started');
+  console.log('[HHA DOM] Good vs Junk fallback started', { MODE, DIFF, GAME_DURATION, SPAWN_INTERVAL });
 }
 
 if (document.readyState === 'loading') {
