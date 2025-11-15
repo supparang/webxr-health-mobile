@@ -1,9 +1,9 @@
-// === Hero Health — game/main.js (DOM Good vs Junk — Production v1.1) ===
-// - อ่าน mode/diff/time จาก URL (ใช้กับ hub.html)
-// - ภารกิจ: เก็บของดีให้ครบ N ชิ้น (ต่างกันตาม diff)
-// - Progress bar ใต้คะแนน
-// - Particle FX แตกกระจายเมื่อคลิกถูก/ผิด
-// - Popup สรุปผล + เล่นอีกครั้ง
+// === Hero Health — game/main.js
+// DOM Good vs Junk — Production v2 (Fruit Ninja style)
+// - อ่าน mode/diff/time จาก URL
+// - ความยากแบบ B: จำนวนเป้าพร้อมกัน / อายุเป้า / golden rate ต่างกัน
+// - ภารกิจ: เก็บของดีให้ครบ N ชิ้น (golden นับ 2)
+// - Progress bar + Result popup + Particle FX
 
 'use strict';
 
@@ -20,22 +20,34 @@ if (timeParam > 180) timeParam = 180;
 // ใช้ timeParam เป็นความยาวรอบเกม (วินาที)
 const GAME_DURATION = timeParam;
 
-// config ตาม diff
+// ---------- Config ตาม diff (แบบ Fruit Ninja) ----------
 let SPAWN_INTERVAL = 700;
+let ITEM_LIFETIME = 1400;
+let MAX_ACTIVE = 4;
+let GOLDEN_RATE = 0.04; // โอกาสเป็น golden จากของดี
 let MISSION_GOOD_TARGET = 20; // จำนวนของดีที่ต้องเก็บให้ครบ
 
 switch (DIFF) {
   case 'easy':
-    SPAWN_INTERVAL = 900;      // ง่าย → ออกช้าลง
+    SPAWN_INTERVAL = 900;
+    ITEM_LIFETIME = 1800;
+    MAX_ACTIVE = 3;
+    GOLDEN_RATE = 0.02;
     MISSION_GOOD_TARGET = 12;
     break;
   case 'hard':
-    SPAWN_INTERVAL = 500;      // ยาก → ออกถี่ขึ้น
+    SPAWN_INTERVAL = 480;
+    ITEM_LIFETIME = 1000;
+    MAX_ACTIVE = 6;
+    GOLDEN_RATE = 0.06;
     MISSION_GOOD_TARGET = 28;
     break;
   case 'normal':
   default:
-    SPAWN_INTERVAL = 700;
+    SPAWN_INTERVAL = 650;
+    ITEM_LIFETIME = 1400;
+    MAX_ACTIVE = 4;
+    GOLDEN_RATE = 0.04;
     MISSION_GOOD_TARGET = 20;
     break;
 }
@@ -53,7 +65,8 @@ let running = false;
 let spawnTimer = null;
 let tickTimer = null;
 
-let missionGoodCount = 0; // จำนวนของดีที่เก็บได้
+let missionGoodCount = 0;   // จำนวนของดีที่เก็บได้ (golden นับ 2)
+let activeItems = 0;        // จำนวนเป้าบนจอปัจจุบัน
 
 // ---------- Helpers ----------
 function $(sel) { return document.querySelector(sel); }
@@ -90,6 +103,20 @@ function createFXLayer() {
   return fx;
 }
 
+function ensureGameCSS() {
+  if (document.getElementById('hha-game-css')) return;
+  const st = document.createElement('style');
+  st.id = 'hha-game-css';
+  st.textContent = `
+    @keyframes hha-float {
+      0%   { transform: translate3d(0,0,0); }
+      50%  { transform: translate3d(0,-10px,0); }
+      100% { transform: translate3d(0,0,0); }
+    }
+  `;
+  document.head.appendChild(st);
+}
+
 function createHUD() {
   let hud = $('#hha-hud');
   if (hud) return hud;
@@ -118,14 +145,17 @@ function createHUD() {
         </div>
       </div>
       <div style="font-size:12px;color:#cbd5f5;display:flex;flex-direction:column;gap:4px;">
-        <div id="hha-mission-text">ภารกิจ: เก็บของดีให้ครบ ${MISSION_GOOD_TARGET} ชิ้น</div>
+        <div id="hha-mission-text">
+          ภารกิจ: เก็บของดีให้ครบ ${MISSION_GOOD_TARGET} ชิ้น
+          <span style="opacity:0.8">(ชิ้นทองนับ x2)</span>
+        </div>
         <div style="width:100%;height:6px;border-radius:999px;background:rgba(15,23,42,0.9);overflow:hidden;border:1px solid rgba(148,163,184,0.7);">
           <div id="hha-mission-bar" style="width:0%;height:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e,#16a34a);"></div>
         </div>
       </div>
     </div>
 
-    <!-- TIME -->
+    <!-- TIME + diff -->
     <div style="
       position:fixed;top:16px;right:16px;
       background:rgba(15,23,42,0.95);
@@ -217,7 +247,6 @@ function burstAt(x, y, type) {
     });
     container.appendChild(shard);
 
-    // trigger animation ใน frame ถัดไป
     const angle = Math.random() * Math.PI * 2;
     const distance = 30 + Math.random() * 40;
     const dx = Math.cos(angle) * distance;
@@ -230,8 +259,6 @@ function burstAt(x, y, type) {
   }
 
   fxLayer.appendChild(container);
-
-  // ลบ container ทิ้งหลังเอฟเฟกต์จบ
   setTimeout(() => {
     if (container.parentNode) container.parentNode.removeChild(container);
   }, 320);
@@ -244,20 +271,23 @@ function randomFrom(arr) {
 
 function spawnOne(host) {
   if (!running) return;
+  if (activeItems >= MAX_ACTIVE) return; // จำกัดจำนวนเป้าพร้อมกัน
 
-  const isGood = Math.random() < 0.6; // 60% ของดี
+  const isGood = Math.random() < 0.6; // 60% ของดีโดยรวม
+  const isGolden = isGood && Math.random() < GOLDEN_RATE;
+
   const emo = isGood ? randomFrom(GOOD) : randomFrom(JUNK);
 
   const item = document.createElement('button');
   item.type = 'button';
   item.textContent = emo;
   item.setAttribute('data-good', isGood ? '1' : '0');
+  item.setAttribute('data-golden', isGolden ? '1' : '0');
 
-  // ปรับขนาดตามหน้าจอ (มือถือ = ใหญ่ขึ้น)
   const baseSize = Math.min(window.innerWidth, window.innerHeight);
   const size = baseSize < 700 ? 72 : 80;
 
-  Object.assign(item.style, {
+  const baseStyle = {
     position: 'absolute',
     width: size + 'px',
     height: size + 'px',
@@ -266,52 +296,68 @@ function spawnOne(host) {
     fontSize: (size * 0.52) + 'px',
     boxShadow: '0 8px 22px rgba(15,23,42,0.85)',
     cursor: 'pointer',
-    background: 'rgba(15,23,42,0.96)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'transform 0.12s ease, opacity 0.12s ease',
-    pointerEvents: 'auto'
-  });
+    pointerEvents: 'auto',
+    animation: 'hha-float 1.3s ease-in-out infinite'
+  };
+
+  Object.assign(item.style, baseStyle);
+
+  if (isGolden) {
+    // ของดีทอง → เรืองแสง
+    item.style.background = 'radial-gradient(circle at 30% 20%, #facc15, #f97316)';
+    item.style.boxShadow = '0 0 25px rgba(250,204,21,0.9)';
+  } else {
+    item.style.background = 'rgba(15,23,42,0.96)';
+  }
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const x = 0.1 * vw + Math.random() * 0.8 * vw;
-  const y = 0.18 * vh + Math.random() * 0.7 * vh; // เว้น HUD ด้านบนมากขึ้น
+  const y = 0.18 * vh + Math.random() * 0.7 * vh;
   item.style.left = (x - size / 2) + 'px';
   item.style.top = (y - size / 2) + 'px';
 
+  activeItems++;
+
   function removeItem() {
-    if (item.parentNode) item.parentNode.removeChild(item);
+    if (item.parentNode) {
+      item.parentNode.removeChild(item);
+      activeItems = Math.max(0, activeItems - 1);
+    }
   }
 
   item.addEventListener('click', (ev) => {
     if (!running) return;
     const good = item.getAttribute('data-good') === '1';
+    const golden = item.getAttribute('data-golden') === '1';
 
-    // particle FX ตรงตำแหน่งคลิก
     burstAt(ev.clientX, ev.clientY, good ? 'good' : 'bad');
 
-    // vibration เบา ๆ ถ้ามี (มือถือ/VR)
     if (navigator.vibrate) {
-      navigator.vibrate(good ? 20 : 40);
+      navigator.vibrate(good ? (golden ? 40 : 20) : 50);
     }
 
     if (good) {
-      score += 10;
+      const base = golden ? 25 : 10;
+      const missionGain = golden ? 2 : 1;
+      score += base;
       combo += 1;
-      missionGoodCount += 1;
+      missionGoodCount += missionGain;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.25)';
     } else {
       score = Math.max(0, score - 5);
       combo = 0;
       item.style.transform = 'scale(0.7)';
-      // flash แดงเบา ๆ
       const oldBg = document.body.style.backgroundColor || '#0b1220';
       document.body.style.backgroundColor = '#450a0a';
       setTimeout(() => { document.body.style.backgroundColor = oldBg || '#0b1220'; }, 80);
     }
+
     item.style.opacity = '0';
     updateHUD();
     setTimeout(removeItem, 100);
@@ -319,13 +365,14 @@ function spawnOne(host) {
 
   host.appendChild(item);
 
+  // ลบเมื่อหมดเวลา life
   setTimeout(() => {
     if (item.parentNode) {
       item.style.opacity = '0';
       item.style.transform = 'scale(0.7)';
       setTimeout(removeItem, 120);
     }
-  }, 1400);
+  }, ITEM_LIFETIME);
 }
 
 // ---------- Game loop ----------
@@ -337,11 +384,13 @@ function startGame() {
   maxCombo = 0;
   missionGoodCount = 0;
   timeLeft = GAME_DURATION;
+  activeItems = 0;
   updateHUD();
 
   const host = createHost();
   createHUD();
   createFXLayer();
+  ensureGameCSS();
 
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
@@ -393,6 +442,7 @@ function bootstrap() {
   createHUD();
   createHost();
   createFXLayer();
+  ensureGameCSS();
   updateHUD();
 
   const restartBtn = $('#hha-restart');
@@ -406,8 +456,8 @@ function bootstrap() {
 
   // เริ่มเกมอัตโนมัติรอบแรก
   startGame();
-  console.log('[HHA DOM] Good vs Junk production v1.1', {
-    MODE, DIFF, GAME_DURATION, SPAWN_INTERVAL, MISSION_GOOD_TARGET
+  console.log('[HHA DOM] Good vs Junk production v2 (Fruit style)', {
+    MODE, DIFF, GAME_DURATION, SPAWN_INTERVAL, ITEM_LIFETIME, MAX_ACTIVE, GOLDEN_RATE, MISSION_GOOD_TARGET
   });
 }
 
