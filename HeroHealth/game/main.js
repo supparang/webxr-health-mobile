@@ -1,9 +1,15 @@
 // === Hero Health — game/main.js
-// DOM Good vs Junk — Production v2 (Fruit Ninja style)
+// DOM Good vs Junk — Power-up Edition (Star / Gold / Diamond / Shield / Fever)
 // - อ่าน mode/diff/time จาก URL
-// - ความยากแบบ B: จำนวนเป้าพร้อมกัน / อายุเป้า / golden rate ต่างกัน
-// - ภารกิจ: เก็บของดีให้ครบ N ชิ้น (golden นับ 2)
-// - Progress bar + Result popup + Particle FX
+// - ง่าย / ปกติ / ยาก แยก config: spawn interval, อายุเป้า, จำนวนพร้อมกัน, สัดส่วนประเภทเป้า
+// - Power-up:
+//   ⭐ Star    : เพิ่มคะแนน + คอมโบเยอะ
+//   🥇 Gold   : คะแนนสูง + mission x2
+//   💎 Diamond: คะแนนสูงมาก + mission x2 + เพิ่มเวลา
+//   🛡 Shield : เกราะกันพลาด 1 ครั้ง
+//   🔥 Fever  : ช่วงคะแนน x2 ชั่วคราว
+// - ภารกิจ: เก็บของดีให้ครบ N ชิ้น (power-up นับหลายชิ้นตามประเภท)
+// - Progress bar + HUD บัฟ + Particle FX + Result popup
 
 'use strict';
 
@@ -17,44 +23,93 @@ if (isNaN(timeParam) || timeParam <= 0) timeParam = 60;
 if (timeParam < 20) timeParam = 20;
 if (timeParam > 180) timeParam = 180;
 
-// ใช้ timeParam เป็นความยาวรอบเกม (วินาที)
+// ความยาวรอบเกม (วินาที)
 const GAME_DURATION = timeParam;
 
-// ---------- Config ตาม diff (แบบ Fruit Ninja) ----------
+// ---------- Config ตาม diff ----------
 let SPAWN_INTERVAL = 700;
 let ITEM_LIFETIME = 1400;
 let MAX_ACTIVE = 4;
-let GOLDEN_RATE = 0.04; // โอกาสเป็น golden จากของดี
-let MISSION_GOOD_TARGET = 20; // จำนวนของดีที่ต้องเก็บให้ครบ
+let MISSION_GOOD_TARGET = 20;
+
+// weights: โอกาสสุ่มแต่ละประเภท (รวมกันเท่าไหร่ก็ได้ เดี๋ยวเอาไป normalize)
+let TYPE_WEIGHTS = {
+  good: 45,
+  junk: 30,
+  star: 7,
+  gold: 6,
+  diamond: 5,
+  shield: 3,
+  fever: 4,
+};
+
+// Fever นานกี่วินาที
+let FEVER_DURATION = 5;
+let DIAMOND_TIME_BONUS = 2; // diamond เพิ่มเวลานิดหน่อย
 
 switch (DIFF) {
   case 'easy':
     SPAWN_INTERVAL = 900;
-    ITEM_LIFETIME = 1800;
+    ITEM_LIFETIME = 1900;
     MAX_ACTIVE = 3;
-    GOLDEN_RATE = 0.02;
     MISSION_GOOD_TARGET = 12;
+    TYPE_WEIGHTS = {
+      good: 55,
+      junk: 20,
+      star: 8,
+      gold: 7,
+      diamond: 4,
+      shield: 4,
+      fever: 2,
+    };
+    FEVER_DURATION = 4;
+    DIAMOND_TIME_BONUS = 3;
     break;
   case 'hard':
     SPAWN_INTERVAL = 480;
     ITEM_LIFETIME = 1000;
     MAX_ACTIVE = 6;
-    GOLDEN_RATE = 0.06;
     MISSION_GOOD_TARGET = 28;
+    TYPE_WEIGHTS = {
+      good: 35,
+      junk: 40,
+      star: 5,
+      gold: 6,
+      diamond: 6,
+      shield: 2,
+      fever: 6,
+    };
+    FEVER_DURATION = 6;
+    DIAMOND_TIME_BONUS = 2;
     break;
   case 'normal':
   default:
     SPAWN_INTERVAL = 650;
     ITEM_LIFETIME = 1400;
     MAX_ACTIVE = 4;
-    GOLDEN_RATE = 0.04;
     MISSION_GOOD_TARGET = 20;
+    TYPE_WEIGHTS = {
+      good: 45,
+      junk: 30,
+      star: 7,
+      gold: 6,
+      diamond: 5,
+      shield: 3,
+      fever: 4,
+    };
+    FEVER_DURATION = 5;
+    DIAMOND_TIME_BONUS = 2;
     break;
 }
 
-// ---------- กลุ่มอีโมจิ ----------
+// ---------- ชุดอีโมจิ ----------
 const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
 const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
+const STAR = ['⭐','🌟'];
+const GOLD = ['🥇','🏅','🪙'];
+const DIAMOND = ['💎'];
+const SHIELD = ['🛡️'];
+const FEVER = ['🔥'];
 
 // ---------- State ----------
 let score = 0;
@@ -65,8 +120,11 @@ let running = false;
 let spawnTimer = null;
 let tickTimer = null;
 
-let missionGoodCount = 0;   // จำนวนของดีที่เก็บได้ (golden นับ 2)
-let activeItems = 0;        // จำนวนเป้าบนจอปัจจุบัน
+let missionGoodCount = 0;   // จำนวนของดีที่เก็บได้ (รวม power-up)
+let activeItems = 0;        // เป้าบนจอปัจจุบัน
+
+let shieldCharges = 0;      // เกราะสะสม
+let feverTicksLeft = 0;     // จำนวนวินาที fever ที่เหลือ
 
 // ---------- Helpers ----------
 function $(sel) { return document.querySelector(sel); }
@@ -110,7 +168,7 @@ function ensureGameCSS() {
   st.textContent = `
     @keyframes hha-float {
       0%   { transform: translate3d(0,0,0); }
-      50%  { transform: translate3d(0,-10px,0); }
+      50%  { transform: translate3d(0,-12px,0); }
       100% { transform: translate3d(0,0,0); }
     }
   `;
@@ -132,7 +190,7 @@ function createHUD() {
       box-shadow:0 18px 40px rgba(0,0,0,0.65);
       border:1px solid rgba(51,65,85,0.9);z-index:9100;
       font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;font-size:14px;
-      min-width:220px;
+      min-width:260px;
     ">
       <div style="display:flex;gap:18px;justify-content:space-between;">
         <div>
@@ -147,10 +205,15 @@ function createHUD() {
       <div style="font-size:12px;color:#cbd5f5;display:flex;flex-direction:column;gap:4px;">
         <div id="hha-mission-text">
           ภารกิจ: เก็บของดีให้ครบ ${MISSION_GOOD_TARGET} ชิ้น
-          <span style="opacity:0.8">(ชิ้นทองนับ x2)</span>
+          <span style="opacity:0.8">(พาวเวอร์อัปบางชนิดนับหลายชิ้น)</span>
         </div>
         <div style="width:100%;height:6px;border-radius:999px;background:rgba(15,23,42,0.9);overflow:hidden;border:1px solid rgba(148,163,184,0.7);">
           <div id="hha-mission-bar" style="width:0%;height:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e,#16a34a);"></div>
+        </div>
+        <div id="hha-buffs" style="margin-top:2px;">
+          ⭐ <span id="hha-buff-star">0</span> |
+          🛡 <span id="hha-buff-shield">0</span> |
+          🔥 <span id="hha-buff-fever">0</span>s
         </div>
       </div>
     </div>
@@ -196,11 +259,19 @@ function createHUD() {
   return hud;
 }
 
+function currentMultiplier() {
+  return feverTicksLeft > 0 ? 2 : 1;
+}
+
 function updateHUD() {
   const sEl = $('#hha-score');
   const cEl = $('#hha-combo');
   const tEl = $('#hha-time');
   const mBar = $('#hha-mission-bar');
+  const starEl = $('#hha-buff-star');
+  const shieldEl = $('#hha-buff-shield');
+  const feverEl = $('#hha-buff-fever');
+
   if (sEl) sEl.textContent = String(score);
   if (cEl) cEl.textContent = String(combo);
   if (tEl) tEl.textContent = String(timeLeft);
@@ -209,260 +280,14 @@ function updateHUD() {
     const ratio = Math.max(0, Math.min(1, missionGoodCount / MISSION_GOOD_TARGET));
     mBar.style.width = (ratio * 100).toFixed(1) + '%';
   }
+
+  if (starEl) starEl.textContent = String(Math.max(0, maxCombo)); // ใช้ maxCombo เป็น star meter แบบง่าย ๆ
+  if (shieldEl) shieldEl.textContent = String(shieldCharges);
+  if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
 }
 
 // ---------- Particle FX ----------
-function burstAt(x, y, type) {
+function burstAt(x, y, kind) {
   const fxLayer = createFXLayer();
   const container = document.createElement('div');
-  Object.assign(container.style, {
-    position: 'fixed',
-    left: x + 'px',
-    top: y + 'px',
-    width: '0',
-    height: '0',
-    pointerEvents: 'none',
-    zIndex: '9060'
-  });
-
-  const shardCount = 10;
-  const baseColorGood = 'rgba(34,197,94,';
-  const baseColorBad  = 'rgba(239,68,68,';
-  const baseColor = type === 'good' ? baseColorGood : baseColorBad;
-
-  for (let i = 0; i < shardCount; i++) {
-    const shard = document.createElement('div');
-    const size = 6 + Math.random() * 6;
-    Object.assign(shard.style, {
-      position: 'absolute',
-      left: '0',
-      top: '0',
-      width: size + 'px',
-      height: size + 'px',
-      borderRadius: '999px',
-      background: baseColor + (0.6 + Math.random() * 0.3) + ')',
-      transform: 'translate3d(0,0,0) scale(0.6)',
-      opacity: '1',
-      transition: 'transform 260ms ease-out, opacity 260ms ease-out'
-    });
-    container.appendChild(shard);
-
-    const angle = Math.random() * Math.PI * 2;
-    const distance = 30 + Math.random() * 40;
-    const dx = Math.cos(angle) * distance;
-    const dy = Math.sin(angle) * distance;
-
-    requestAnimationFrame(() => {
-      shard.style.transform = `translate3d(${dx}px,${dy}px,0) scale(1.1)`;
-      shard.style.opacity = '0';
-    });
-  }
-
-  fxLayer.appendChild(container);
-  setTimeout(() => {
-    if (container.parentNode) container.parentNode.removeChild(container);
-  }, 320);
-}
-
-// ---------- Spawn logic ----------
-function randomFrom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function spawnOne(host) {
-  if (!running) return;
-  if (activeItems >= MAX_ACTIVE) return; // จำกัดจำนวนเป้าพร้อมกัน
-
-  const isGood = Math.random() < 0.6; // 60% ของดีโดยรวม
-  const isGolden = isGood && Math.random() < GOLDEN_RATE;
-
-  const emo = isGood ? randomFrom(GOOD) : randomFrom(JUNK);
-
-  const item = document.createElement('button');
-  item.type = 'button';
-  item.textContent = emo;
-  item.setAttribute('data-good', isGood ? '1' : '0');
-  item.setAttribute('data-golden', isGolden ? '1' : '0');
-
-  const baseSize = Math.min(window.innerWidth, window.innerHeight);
-  const size = baseSize < 700 ? 72 : 80;
-
-  const baseStyle = {
-    position: 'absolute',
-    width: size + 'px',
-    height: size + 'px',
-    borderRadius: '999px',
-    border: '0',
-    fontSize: (size * 0.52) + 'px',
-    boxShadow: '0 8px 22px rgba(15,23,42,0.85)',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'transform 0.12s ease, opacity 0.12s ease',
-    pointerEvents: 'auto',
-    animation: 'hha-float 1.3s ease-in-out infinite'
-  };
-
-  Object.assign(item.style, baseStyle);
-
-  if (isGolden) {
-    // ของดีทอง → เรืองแสง
-    item.style.background = 'radial-gradient(circle at 30% 20%, #facc15, #f97316)';
-    item.style.boxShadow = '0 0 25px rgba(250,204,21,0.9)';
-  } else {
-    item.style.background = 'rgba(15,23,42,0.96)';
-  }
-
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const x = 0.1 * vw + Math.random() * 0.8 * vw;
-  const y = 0.18 * vh + Math.random() * 0.7 * vh;
-  item.style.left = (x - size / 2) + 'px';
-  item.style.top = (y - size / 2) + 'px';
-
-  activeItems++;
-
-  function removeItem() {
-    if (item.parentNode) {
-      item.parentNode.removeChild(item);
-      activeItems = Math.max(0, activeItems - 1);
-    }
-  }
-
-  item.addEventListener('click', (ev) => {
-    if (!running) return;
-    const good = item.getAttribute('data-good') === '1';
-    const golden = item.getAttribute('data-golden') === '1';
-
-    burstAt(ev.clientX, ev.clientY, good ? 'good' : 'bad');
-
-    if (navigator.vibrate) {
-      navigator.vibrate(good ? (golden ? 40 : 20) : 50);
-    }
-
-    if (good) {
-      const base = golden ? 25 : 10;
-      const missionGain = golden ? 2 : 1;
-      score += base;
-      combo += 1;
-      missionGoodCount += missionGain;
-      if (combo > maxCombo) maxCombo = combo;
-      item.style.transform = 'scale(1.25)';
-    } else {
-      score = Math.max(0, score - 5);
-      combo = 0;
-      item.style.transform = 'scale(0.7)';
-      const oldBg = document.body.style.backgroundColor || '#0b1220';
-      document.body.style.backgroundColor = '#450a0a';
-      setTimeout(() => { document.body.style.backgroundColor = oldBg || '#0b1220'; }, 80);
-    }
-
-    item.style.opacity = '0';
-    updateHUD();
-    setTimeout(removeItem, 100);
-  });
-
-  host.appendChild(item);
-
-  // ลบเมื่อหมดเวลา life
-  setTimeout(() => {
-    if (item.parentNode) {
-      item.style.opacity = '0';
-      item.style.transform = 'scale(0.7)';
-      setTimeout(removeItem, 120);
-    }
-  }, ITEM_LIFETIME);
-}
-
-// ---------- Game loop ----------
-function startGame() {
-  if (running) return;
-  running = true;
-  score = 0;
-  combo = 0;
-  maxCombo = 0;
-  missionGoodCount = 0;
-  timeLeft = GAME_DURATION;
-  activeItems = 0;
-  updateHUD();
-
-  const host = createHost();
-  createHUD();
-  createFXLayer();
-  ensureGameCSS();
-
-  if (spawnTimer) clearInterval(spawnTimer);
-  if (tickTimer) clearInterval(tickTimer);
-
-  spawnTimer = setInterval(() => {
-    spawnOne(host);
-  }, SPAWN_INTERVAL);
-
-  tickTimer = setInterval(() => {
-    timeLeft -= 1;
-    if (timeLeft <= 0) {
-      timeLeft = 0;
-      updateHUD();
-      endGame();
-      return;
-    }
-    updateHUD();
-  }, 1000);
-}
-
-function endGame() {
-  if (!running) return;
-  running = false;
-  if (spawnTimer) clearInterval(spawnTimer);
-  if (tickTimer) clearInterval(tickTimer);
-
-  const result = $('#hha-result');
-  const fs = $('#hha-final-score');
-  const fc = $('#hha-final-combo');
-  const fg = $('#hha-final-good');
-  const title = $('#hha-result-title');
-
-  const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
-
-  if (fs) fs.textContent = String(score);
-  if (fc) fc.textContent = String(maxCombo);
-  if (fg) fg.textContent = String(missionGoodCount);
-  if (title) {
-    title.textContent = missionSuccess
-      ? 'ภารกิจสำเร็จ! 🎉'
-      : 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
-  }
-
-  if (result) result.style.display = 'flex';
-}
-
-// ---------- Bootstrap ----------
-function bootstrap() {
-  createHUD();
-  createHost();
-  createFXLayer();
-  ensureGameCSS();
-  updateHUD();
-
-  const restartBtn = $('#hha-restart');
-  if (restartBtn) {
-    restartBtn.addEventListener('click', () => {
-      const panel = $('#hha-result');
-      if (panel) panel.style.display = 'none';
-      startGame();
-    });
-  }
-
-  // เริ่มเกมอัตโนมัติรอบแรก
-  startGame();
-  console.log('[HHA DOM] Good vs Junk production v2 (Fruit style)', {
-    MODE, DIFF, GAME_DURATION, SPAWN_INTERVAL, ITEM_LIFETIME, MAX_ACTIVE, GOLDEN_RATE, MISSION_GOOD_TARGET
-  });
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootstrap);
-} else {
-  bootstrap();
-}
+  Object.assign(container
