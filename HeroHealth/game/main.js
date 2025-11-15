@@ -17,13 +17,14 @@ if (timeParam > 180) timeParam = 180;
 const GAME_DURATION = timeParam;
 
 // ---------- Config ตาม diff ----------
+
 let SPAWN_INTERVAL = 700;
 let ITEM_LIFETIME = 1400;
 let MAX_ACTIVE = 4;
 let MISSION_GOOD_TARGET = 20;
 let SIZE_FACTOR = 1.0; // ขนาดเป้า: easy > normal > hard
 
-// weights: โอกาสสุ่มแต่ละประเภท (ของดี / ขยะ / power-up)
+// default weights
 let TYPE_WEIGHTS = {
   good: 45,
   junk: 30,
@@ -34,70 +35,71 @@ let TYPE_WEIGHTS = {
   fever: 4
 };
 
-// Fever ตั้งต้น (สำหรับเป้าไฟ)
+// Fever base
 let FEVER_DURATION = 5;
 let DIAMOND_TIME_BONUS = 2;
+let FEVER_MULT = 2.2;
+let FEVER_MAX_STACK = 14;
 
-// Fever multiplier แบบมันส์ ๆ
-let FEVER_MULT = 2.2;         // คูณคะแนนเมื่อได้เป้าไฟ
-let FEVER_MAX_STACK = 14;     // สะสมเวลา Fever ได้สูงสุดกี่วินาที
-
+// ---> เวอร์ชันจูนใหม่
 switch (DIFF) {
   case 'easy':
-    SPAWN_INTERVAL = 950;
-    ITEM_LIFETIME = 2000;
+    SPAWN_INTERVAL = 900;     // เร็วขึ้นนิด (เด็กไม่เบื่อ)
+    ITEM_LIFETIME = 2100;     // แต่ลอยนานมาก จิ้มทัน
     MAX_ACTIVE = 3;
     MISSION_GOOD_TARGET = 15;
-    SIZE_FACTOR = 1.25;
+    SIZE_FACTOR = 1.30;       // เป้าใหญ่ที่สุด
 
     TYPE_WEIGHTS = {
-      good:   62,
-      junk:   14,
-      star:    8,
+      good:   65,   // ของดีเยอะมาก
+      junk:   10,   // ขยะน้อย
+      star:    7,
       gold:    7,
       diamond: 3,
-      shield:  5,
-      fever:   1
+      shield:  6,   // กันพลาดออกบ่อย
+      fever:   2
     };
 
-    FEVER_DURATION = 4;
+    FEVER_DURATION = 5;       // ได้ไฟที = อยู่นาน
     DIAMOND_TIME_BONUS = 3;
     FEVER_MULT = 2.0;
+    FEVER_MAX_STACK = 16;     // เด็กเล่นง่าย ไฟยาวขึ้นได้
     break;
 
   case 'hard':
-    SPAWN_INTERVAL = 430;
-    ITEM_LIFETIME = 900;
+    SPAWN_INTERVAL = 380;     // เร็วมาก
+    ITEM_LIFETIME = 800;      // หายไว
     MAX_ACTIVE = 7;
     MISSION_GOOD_TARGET = 30;
-    SIZE_FACTOR = 0.85;
+    SIZE_FACTOR = 0.80;       // เป้าเล็กสุด
 
     TYPE_WEIGHTS = {
-      good:   30,
-      junk:   42,
-      star:    8,
-      gold:    6,
+      good:   28,
+      junk:   46,  // ขยะล้นจอ
+      star:    7,
+      gold:    5,
       diamond:  7,
       shield:   2,
-      fever:   11
+      fever:   11 // ไฟเยอะ แต่ต้องคุมไม่ให้โดนขยะ
     };
 
-    FEVER_DURATION = 7;
+    FEVER_DURATION = 6;
     DIAMOND_TIME_BONUS = 1;
-    FEVER_MULT = 2.5;
+    FEVER_MULT = 2.6;        // hard ไฟแรงกว่า
+    FEVER_MAX_STACK = 12;    // แต่ stack ไม่ให้ยาวเกิน
     break;
 
   case 'normal':
   default:
-    SPAWN_INTERVAL = 650;
-    ITEM_LIFETIME = 1400;
-    MAX_ACTIVE = 4;
+    SPAWN_INTERVAL = 620;
+    ITEM_LIFETIME = 1500;
+    MAX_ACTIVE = 5;
     MISSION_GOOD_TARGET = 20;
     SIZE_FACTOR = 1.0;
 
     TYPE_WEIGHTS = {
-      good:   47,
-      junk:   28,
+      good:   50,
+      junk:   24,
       star:    8,
       gold:    7,
       diamond: 5,
@@ -107,7 +109,8 @@ switch (DIFF) {
 
     FEVER_DURATION = 5;
     DIAMOND_TIME_BONUS = 2;
-    FEVER_MULT = 2.2;
+    FEVER_MULT = 2.3;
+    FEVER_MAX_STACK = 14;
     break;
 }
 
@@ -625,18 +628,19 @@ function pickType() {
 
 // ---------- Auto Fever จาก combo (โหมดไฟลาวา) ----------
 function checkAutoFever() {
-  if (combo >= 30 && activeFeverMult < 3.2) {
-    feverTicksLeft = Math.min(feverTicksLeft + 8, FEVER_MAX_STACK);
-    activeFeverMult = 3.2;
-    showToast('โหมดไฟลาวา! คะแนนคูณ 3.2 🔥🔥', 'good');
-  } else if (combo >= 20 && activeFeverMult < 2.8) {
+  // โหดทีละขั้น เพื่อให้เด็ก "รู้สึกถึงจังหวะ"
+  if (combo >= 30 && activeFeverMult < 3.0) {
     feverTicksLeft = Math.min(feverTicksLeft + 6, FEVER_MAX_STACK);
-    activeFeverMult = 2.8;
-    showToast('ไฟแรงมาก! คะแนนคูณ 2.8 🔥', 'good');
-  } else if (combo >= 10 && activeFeverMult < 2.5) {
+    activeFeverMult = 3.0;
+    showToast('โหมดไฟลาวา! คะแนนคูณ 3.0 🔥🔥', 'good');
+  } else if (combo >= 20 && activeFeverMult < 2.6) {
     feverTicksLeft = Math.min(feverTicksLeft + 5, FEVER_MAX_STACK);
-    activeFeverMult = 2.5;
-    showToast('พลังไฟติดแล้ว! คะแนนคูณ 2.5 🔥', 'good');
+    activeFeverMult = 2.6;
+    showToast('ไฟแรงมาก! คะแนนคูณ 2.6 🔥', 'good');
+  } else if (combo >= 10 && activeFeverMult < 2.3) {
+    feverTicksLeft = Math.min(feverTicksLeft + 4, FEVER_MAX_STACK);
+    activeFeverMult = 2.3;
+    showToast('พลังไฟติดแล้ว! คะแนนคูณ 2.3 🔥', 'good');
   }
 }
 
@@ -797,7 +801,7 @@ function spawnOne(host) {
         const badMsgs = [
           'โอ๊ะ! พลาดไปโดนของขยะ 😵',
           'ของแบบนี้ไม่ดีต่อร่างกายนะ!',
-          'ระวังของขยะให้ดีนะ ✋'
+          'ระวังของขยะให้ดีนะ 👀'
         ];
         showToast(badMsgs[Math.floor(Math.random() * badMsgs.length)], 'bad');
       }
@@ -889,22 +893,31 @@ function calcRankAndPraise() {
   const s = score;
   const c = maxCombo;
   const g = missionGoodCount;
+
+  // base score ตามระดับ (ใช้ normalize)
+  let baseScore;
+  if (DIFF === 'easy') baseScore = 15 * MISSION_GOOD_TARGET;
+  else if (DIFF === 'hard') baseScore = 22 * MISSION_GOOD_TARGET;
+  else baseScore = 18 * MISSION_GOOD_TARGET;
+
+  const ratio = s / baseScore; // ประมาณ 1.0 = ทำได้ดีตามเป้า
+
   let rank = 'C';
   let praise = 'ฝึกอีกนิดเดียว เดี๋ยวก็โปร! 💪';
 
-  if (success && c >= 25 && s >= 400) {
+  if (success && ratio >= 1.4 && c >= 30) {
     rank = 'S';
     praise = 'ระดับเทพผักผลไม้! เลือกเก่งมาก ๆ เลย 🍎🌟';
-  } else if (success && c >= 15) {
+  } else if (success && ratio >= 1.0 && c >= 18) {
     rank = 'A';
     praise = 'สุดยอดนักเลือกอาหารเพื่อสุขภาพ! ✨';
-  } else if (success) {
+  } else if (success && ratio >= 0.8) {
     rank = 'A';
     praise = 'ภารกิจผ่านแบบเท่สุด ๆ เยี่ยมไปเลย! 😎';
-  } else if (g >= MISSION_GOOD_TARGET * 0.6) {
+  } else if (g >= MISSION_GOOD_TARGET * 0.7) {
     rank = 'B';
     praise = 'อีกนิดเดียวก็ผ่านภารกิจแล้ว สู้ต่ออีกรอบนะ! 🚀';
-  } else if (g >= MISSION_GOOD_TARGET * 0.3) {
+  } else if (g >= MISSION_GOOD_TARGET * 0.4) {
     rank = 'C';
     praise = 'เริ่มต้นได้ดี! ลองสังเกตของขยะให้มากขึ้นนะ 👀';
   }
@@ -1031,8 +1044,8 @@ function endGame() {
   const praiseEl = $('#hha-final-praise');
   const card = $('#hha-result-card');
 
-  const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
   const rp = calcRankAndPraise();
+  const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
 
   if (fs) fs.textContent = String(score);
   if (fc) fc.textContent = String(maxCombo);
@@ -1067,8 +1080,14 @@ function endGame() {
     card.style.boxShadow = glow;
   }
 
-  // EXP gain (เหมาะสำหรับใช้ในวิจัย)
-  const expGain = score + (missionSuccess ? 200 : 0) + maxCombo * 4;
+  // EXP gain (สำหรับเก็บเป็นดัชนี performance)
+  let rankBonus = 0;
+  if (rp.rank === 'S') rankBonus = 300;
+  else if (rp.rank === 'A') rankBonus = 200;
+  else if (rp.rank === 'B') rankBonus = 100;
+  else rankBonus = 50;
+
+  const expGain = score + rankBonus + maxCombo * 3;
   addExp(expGain);
   updateHUD();
 
@@ -1105,7 +1124,7 @@ function bootstrap() {
   }
 
   startGame();
-  console.log('[HHA DOM] Good vs Junk — Lava Fever + Rank + Level', {
+  console.log('[HHA DOM] Good vs Junk — Lava Fever + Rank + Level (tuned)', {
     MODE: MODE,
     DIFF: DIFF,
     GAME_DURATION: GAME_DURATION,
