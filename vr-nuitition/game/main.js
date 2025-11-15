@@ -258,7 +258,12 @@
 
   // ---------- HUD ----------
   function createHUD() {
-    if (hudCreated && $('#hha-hud')) return;
+    // กันกรณีมี HUD เก่าจากเวอร์ชันก่อน / script ตัวอื่น → ลบทิ้งให้หมดก่อน
+    var oldHud = document.getElementById('hha-hud');
+    if (oldHud && oldHud.parentNode) {
+      oldHud.parentNode.removeChild(oldHud);
+    }
+
     hudCreated = true;
 
     var hud = document.createElement('div');
@@ -368,6 +373,7 @@
 
     renderQuestChips();
   }
+
 
   function renderQuestChips() {
     var row = $('#hha-quest-row');
