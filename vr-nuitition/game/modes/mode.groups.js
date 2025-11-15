@@ -1,7 +1,7 @@
 // === Hero Health — mode.groups.js ===
 // โหมด Food Groups: เลือกอาหารให้ตรง "หมู่เป้าหมาย"
 // ใช้ร่วมกับ engine กลางใน game/main.js ผ่าน window.HH_MODES.groups
-// เวอร์ชันนี้เพิ่ม Goal + Quest API: goalDefs(), questDefs()
+// เวอร์ชันนี้เพิ่ม Goal + Quest API + sessionInfo() สำหรับ export CSV
 
 (function () {
   'use strict';
@@ -107,8 +107,8 @@
       cfg.MISSION_GOOD_TARGET = 14;
       cfg.SIZE_FACTOR = 1.2;
       cfg.TYPE_WEIGHTS = {
-        good:   68,   // ของถูกหมู่เยอะ
-        junk:   12,   // ของล่อ/ผิดหมู่น้อย
+        good:   68,
+        junk:   12,
         star:    7,
         gold:    5,
         diamond: 3,
@@ -125,7 +125,7 @@
       cfg.MISSION_GOOD_TARGET = 24;
       cfg.SIZE_FACTOR = 0.9;
       cfg.TYPE_WEIGHTS = {
-        good:   36,
+        good:   35,
         junk:   40,
         star:    5,
         gold:    5,
@@ -142,16 +142,6 @@
   }
 
   // ---------- Goal API ----------
-  /**
-   * goalDefs(diff)
-   * - เป้าหมายหลักสำหรับโหมด Food Groups
-   * - engine จะใช้ทำ mission bar / สรุป / CSV
-   *
-   * type ที่ engine เข้าใจ:
-   * - 'count'   : ใช้ missionGoodCount (ของถูกหมู่ทั้งหมด)
-   * - 'combo'   : ใช้ maxCombo
-   * - 'noFail'  : ใช้ badHits (จำนวนครั้งผิด)
-   */
   function goalDefs(diff) {
     const d = (diff || 'normal').toLowerCase();
     const cfg = configForDiff(d);
@@ -166,7 +156,6 @@
       maxBad = 6;
     }
 
-    // ชื่อหมู่เป้าหมาย (ไม่รู้ตอน engine init แต่ใช้ข้อความกลางแทน)
     const labelMain = 'เลือกอาหารให้ตรงหมู่เป้าหมายให้ครบ';
 
     return [
@@ -195,20 +184,6 @@
   }
 
   // ---------- Quest API ----------
-  /**
-   * questDefs(diff)
-   * - Mini Quest เฉพาะโหมด Food Groups
-   * - engine จะรับ pool นี้ไปสุ่ม 3 ข้อต่อรอบ
-   *
-   * kind ที่ engine รองรับ:
-   * - 'streak'    : ใช้ maxCombo
-   * - 'fast'      : ใช้ fastHitAchieved
-   * - 'noBadFor'  : ใช้ maxNoBadStreak
-   * - 'power'     : ใช้ powerupHits
-   * - 'fever'     : ใช้ feverActivations
-   * - 'scoreIn'   : ใช้ scoreAt20s
-   * - 'powerType' : ใช้ powerTypeCount[type]
-   */
   function questDefs(diff) {
     const d = (diff || 'normal').toLowerCase();
 
@@ -296,17 +271,11 @@
     id: 'groups',
     label: 'Food Groups',
 
-    /**
-     * เรียกทุกครั้งที่เริ่มเกมใหม่จาก engine:
-     * - สุ่มหมู่เป้าหมายใหม่ 1 หมู่
-     * - คืน config สำหรับ engine ตั้งค่า SPAWN_INTERVAL ฯลฯ
-     */
     setupForDiff: function (diff) {
       currentGroup = pickRandomGroup();
       return configForDiff(diff);
     },
 
-    /** mission text บน HUD */
     missionText: function (target) {
       if (currentGroup) {
         return (
@@ -318,22 +287,24 @@
       return 'ภารกิจวันนี้: เลือกอาหารให้ตรงกับหมู่เป้าหมายให้ครบ ' + target + ' ชิ้น';
     },
 
-    /** นิยาม Goal หลักของโหมดนี้ */
     goalDefs: function (diff) {
       return goalDefs(diff);
     },
 
-    /** นิยาม Mini Quest Pool ของโหมดนี้ */
     questDefs: function (diff) {
       return questDefs(diff);
     },
 
-    /**
-     * ให้ engine เรียกทุกครั้งที่ spawn เป้าใหม่:
-     * - type = 'good' → ใช้อาหารในหมู่เป้าหมาย
-     * - type = 'junk' → ใช้อาหารจากหมู่อื่น + EXTRA_JUNK
-     * - power-ups ใช้ชุด emoji ทั่วไป
-     */
+    // ข้อมูล context ของรอบนี้ สำหรับ main.js เอาไปเขียนลง CSV
+    sessionInfo: function () {
+      if (!currentGroup) return {};
+      return {
+        targetGroupId: currentGroup.id,
+        targetGroupLabel: currentGroup.label,
+        targetGroupIcon: currentGroup.icon
+      };
+    },
+
     pickEmoji: function (type) {
       if (type === 'good') {
         const pool = currentGroup && currentGroup.items && currentGroup.items.length
