@@ -1,187 +1,192 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Hero Health — Hub</title>
-  <meta name="color-scheme" content="light dark"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Hero Health — Hub</title>
 
-  <style>
-    :root{
-      color-scheme: light dark;
-    }
-    body{
-      margin:0;
-      background:
-        radial-gradient(circle at top, rgba(56,189,248,0.15), transparent 55%),
-        radial-gradient(circle at bottom, rgba(34,197,94,0.15), transparent 55%),
-        #020617;
-      color:#e5e7eb;
-      font-family:system-ui, Segoe UI, Inter, Roboto, sans-serif;
-      padding-bottom:40px;
-    }
+<style>
+  body{
+    margin:0;
+    background:linear-gradient(160deg,#0f172a,#020617 40%,#000 95%);
+    color:#e5e7eb;
+    font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+    overflow-x:hidden;
+    padding-bottom:80px;
+  }
+  h1{
+    text-align:center;margin-top:28px;font-size:28px;
+    font-weight:800;
+    text-shadow:0 0 20px #38bdf8aa;
+  }
+  .wrap{max-width:1050px;margin:0 auto;padding:20px}
 
-    .wrap{
-      max-width:960px;
-      margin:0 auto;
-      padding:24px 16px 80px;
-    }
+  /* ---------------- 3D CARD ---------------- */
+  .card{
+    width:240px;
+    height:200px;
+    background:rgba(15,23,42,0.75);
+    border:1px solid rgba(148,163,184,0.4);
+    border-radius:18px;
+    padding:16px;
+    cursor:pointer;
+    position:relative;
+    overflow:hidden;
+    transition:transform 0.25s ease, box-shadow 0.25s ease;
+    transform-style:preserve-3d;
+    backdrop-filter:blur(6px);
+  }
+  .card:hover{
+    transform:translateY(-10px) rotate3d(1,1,0,6deg) scale(1.04);
+    box-shadow:0 18px 40px rgba(56,189,248,0.55);
+  }
+  .card.active{
+    outline:3px solid #38bdf8;
+    box-shadow:0 0 25px #38bdf8;
+  }
 
-    h1{
-      margin-top:10px;
-      font-size:26px;
-      text-align:center;
-    }
+  .row{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;margin-top:30px}
 
-    .subtitle{
-      text-align:center;
-      margin-top:6px;
-      color:#cbd5f5;
-      font-size:14px;
-      margin-bottom:20px;
-    }
+  /* PREVIEW ANIMATION */
+  .preview{
+    position:absolute;
+    left:0;right:0;bottom:8px;
+    height:80px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:38px;
+    opacity:0.85;
+    animation:float 2.2s ease-in-out infinite;
+  }
 
-    .row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:14px;
-      justify-content:center;
-      margin-bottom:20px;
-    }
+  @keyframes float{
+    0%{ transform:translateY(0px) }
+    50%{ transform:translateY(-10px) }
+    100%{ transform:translateY(0px) }
+  }
 
-    .card{
-      flex:1 1 220px;
-      max-width:260px;
-      background:rgba(15,23,42,0.92);
-      border:1px solid rgba(51,65,85,0.9);
-      border-radius:16px;
-      padding:16px;
-      cursor:pointer;
-      transition:0.2s ease;
-      position:relative;
-    }
+  /* PROFILE SECTION */
+  .profile-box{
+    margin-top:30px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    background:rgba(15,23,42,0.6);
+    padding:16px;
+    border-radius:16px;
+    width:92%;
+    max-width:420px;
+    margin-left:auto;
+    margin-right:auto;
+    backdrop-filter:blur(6px);
+    border:1px solid rgba(148,163,184,0.35);
+  }
 
-    .card.ready:hover{
-      transform:translateY(-2px);
-      border-color:#38bdf8;
-    }
+  .profile-box input{
+    width:100%;
+    padding:10px 14px;
+    border-radius:12px;
+    background:#0b1220;
+    color:#e5e7eb;
+    border:1px solid rgba(148,163,184,0.5);
+    font-size:14px;
+  }
 
-    .card.active{
-      outline:2px solid #38bdf8;
-    }
+  /* SELECTOR */
+  label{color:#e2e8f0}
 
-    .card h3{
-      margin:0 0 4px;
-      font-size:18px;
-    }
+  select,input{
+    background:#0b1220;
+    border:1px solid rgba(148,163,184,0.5);
+    padding:10px 12px;
+    border-radius:12px;
+    color:#e5e7eb;
+  }
 
-    .muted{
-      color:#9ca3af;
-      font-size:12px;
-    }
-
-    .badge-warn{
-      position:absolute;
-      top:10px;
-      right:10px;
-      background:#b91c1c;
-      color:white;
-      padding:2px 6px;
-      font-size:10px;
-      border-radius:999px;
-    }
-
-    label{
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      color:#cbd5f5;
-      font-size:14px;
-    }
-
-    select,input{
-      background:#0b1220;
-      border:1px solid rgba(51,65,85,0.9);
-      color:#e5e7eb;
-      padding:10px 12px;
-      border-radius:12px;
-      font-size:14px;
-    }
-
-    button{
-      background:linear-gradient(135deg,#38bdf8,#2563eb);
-      border:0;
-      padding:12px 20px;
-      border-radius:12px;
-      font-weight:700;
-      color:white;
-      cursor:pointer;
-      font-size:15px;
-      display:block;
-      width:100%;
-      max-width:260px;
-      margin:20px auto 0;
-    }
-
-    button:hover{
-      opacity:0.95;
-    }
-  </style>
+  button{
+    margin-top:20px;
+    background:linear-gradient(135deg,#38bdf8,#2563eb);
+    padding:14px 24px;
+    border-radius:14px;
+    border:0;
+    font-weight:700;
+    cursor:pointer;
+    font-size:16px;
+    color:white;
+    display:block;
+    margin-left:auto;
+    margin-right:auto;
+    transition:0.25s ease;
+  }
+  button:hover{
+    transform:scale(1.06);
+    box-shadow:0 0 22px rgba(56,189,248,0.8);
+  }
+</style>
 </head>
+
 <body>
+  <h1>🎮 Hero Health — Interactive Game Hub</h1>
+
   <div class="wrap">
-    <h1>🎮 Hero Health — Multi Game Hub</h1>
-    <div class="subtitle">เลือกโหมดเกม, ระดับความยาก และเวลาในการเล่น</div>
+    <div class="row" id="modeRow">
 
-    <!-- โหมดเกม -->
-    <h2 style="font-size:18px;margin-bottom:10px;">โหมดเกม</h2>
-    <div id="modeRow" class="row">
-
-      <div class="card ready" data-mode="goodjunk" data-ready="1">
+      <div class="card ready" data-mode="goodjunk">
         <h3>🥦 Good vs Junk</h3>
         <div class="muted">คลิกของดี หลีกขยะ</div>
+        <div class="preview">🍎✨</div>
       </div>
 
-      <div class="card ready" data-mode="groups" data-ready="1">
+      <div class="card ready" data-mode="groups">
         <h3>🍱 Food Groups</h3>
-        <div class="muted">เลือกอาหารตรงหมู่ที่กำหนด</div>
+        <div class="muted">เลือกอาหารตรงหมู่</div>
+        <div class="preview">🥗➡️📦</div>
       </div>
 
       <div class="card" data-mode="hydration" data-ready="0">
-        <span class="badge-warn">เร็ว ๆ นี้</span>
+        <span style="position:absolute;top:8px;right:8px;background:#b91c1c;padding:3px 8px;border-radius:999px;font-size:10px;">เร็ว ๆ นี้</span>
         <h3>💧 Hydration</h3>
-        <div class="muted">สมดุลน้ำดื่ม (กำลังพัฒนา)</div>
+        <div class="muted">ดื่มน้ำสมดุล</div>
+        <div class="preview">💧🔄</div>
       </div>
 
       <div class="card" data-mode="plate" data-ready="0">
-        <span class="badge-warn">เร็ว ๆ นี้</span>
+        <span style="position:absolute;top:8px;right:8px;background:#b91c1c;padding:3px 8px;border-radius:999px;font-size:10px;">เร็ว ๆ นี้</span>
         <h3>🍽 Balanced Plate</h3>
-        <div class="muted">จัดจานอาหาร (กำลังพัฒนา)</div>
+        <div class="muted">จัดจานให้ครบหลัก</div>
+        <div class="preview">🍚🥦🍗</div>
       </div>
 
     </div>
 
-    <!-- ตัวเลือก -->
-    <div class="row" style="justify-content:flex-start;gap:18px;margin-top:10px;">
-      <label>
-        ระดับความยาก
-        <select id="selDiff">
-          <option value="easy">ง่าย</option>
-          <option value="normal" selected>ปกติ</option>
-          <option value="hard">ยาก</option>
-        </select>
-      </label>
+    <!-- PROFILE -->
+    <div class="profile-box">
+      <h3 style="margin:0;padding:0;font-size:16px;">ข้อมูลนักเรียน</h3>
 
-      <label>
-        เวลา (วินาที)
-        <input id="inpTime" type="number" min="20" max="180" step="5" value="60"/>
-      </label>
+      <input id="stName" placeholder="ชื่อนักเรียน เช่น ด.ช. นนท์ภพ" />
+      <input id="stRoom" placeholder="ห้อง เช่น ป.5/2" />
+      <input id="stAge" placeholder="อายุ เช่น 10 ปี" />
     </div>
 
-    <button id="btnStart">เริ่มเกม</button>
+    <!-- OPTIONS -->
+    <div class="profile-box" style="margin-top:20px;">
+      <label>ระดับความยาก</label>
+      <select id="selDiff">
+        <option value="easy">ง่าย</option>
+        <option value="normal" selected>ปกติ</option>
+        <option value="hard">ยาก</option>
+      </select>
 
+      <label style="margin-top:12px;">เวลา (วินาที)</label>
+      <input id="inpTime" type="number" min="20" max="180" step="5" value="60"/>
+    </div>
+
+    <button id="btnStart">เริ่มเกม 🚀</button>
   </div>
 
-  <script src="./hub.js"></script>
+<script src="./hub.js"></script>
+
 </body>
 </html>
