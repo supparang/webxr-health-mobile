@@ -171,6 +171,53 @@ function createFXLayer() {
   return fx;
 }
 
+function createToastLayer() {
+  let toast = $('#hha-toast');
+  if (toast) return toast;
+  toast = document.createElement('div');
+  toast.id = 'hha-toast';
+  Object.assign(toast.style, {
+    position: 'fixed',
+    left: '50%',
+    top: '72px',
+    transform: 'translateX(-50%)',
+    padding: '6px 14px',
+    borderRadius: '999px',
+    background: 'rgba(15,23,42,0.95)',
+    color: '#e5e7eb',
+    border: '1px solid rgba(248,250,252,0.4)',
+    fontSize: '13px',
+    fontFamily: 'system-ui,Segoe UI,Inter,Roboto,sans-serif',
+    zIndex: '9150',
+    opacity: '0',
+    pointerEvents: 'none',
+    transition: 'opacity 160ms ease-out, transform 160ms ease-out'
+  });
+  document.body.appendChild(toast);
+  return toast;
+}
+
+let toastTimer = null;
+function showToast(msg, kind) {
+  const toast = createToastLayer();
+  toast.textContent = msg;
+  toast.style.borderColor = kind === 'bad'
+    ? 'rgba(248,113,113,0.9)'
+    : 'rgba(52,211,153,0.9)';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  toast.style.opacity = '0';
+  // trigger
+  requestAnimationFrame(function() {
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateX(-50%) translateY(4px)';
+  });
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(-4px)';
+  }, 900);
+}
+
 // ---------- CSS global + responsive HUD ----------
 function ensureGameCSS() {
   if (document.getElementById('hha-game-css')) return;
@@ -182,6 +229,12 @@ function ensureGameCSS() {
       0%   { transform: translate3d(0,0,0); }
       50%  { transform: translate3d(0,-12px,0); }
       100% { transform: translate3d(0,0,0); }
+    }
+
+    /* fade-in/out outro */
+    @keyframes hha-outro-fade {
+      from { opacity: 0; }
+      to   { opacity: 1; }
     }
 
     /* ปรับ HUD สำหรับจอเล็ก */
@@ -231,16 +284,24 @@ function createHUD() {
   hud = document.createElement('div');
   hud.id = 'hha-hud';
 
+  // สีแถบภารกิจตามระดับ
+  let missionBarColor = 'linear-gradient(90deg,#22c55e,#16a34a)';
+  if (DIFF === 'easy') {
+    missionBarColor = 'linear-gradient(90deg,#38bdf8,#2563eb)';
+  } else if (DIFF === 'hard') {
+    missionBarColor = 'linear-gradient(90deg,#f97316,#dc2626)';
+  }
+
   hud.innerHTML = `
     <div id="hha-hud-inner"
       style="
         position:fixed;top:16px;left:50%;
         transform:translateX(-50%);
-        background:rgba(15,23,42,0.95);
+        background:radial-gradient(circle at 0 0,rgba(56,189,248,0.35),transparent 55%),rgba(15,23,42,0.96);
         border-radius:16px;padding:10px 18px;
         display:flex;flex-direction:column;gap:6px;
-        box-shadow:0 18px 40px rgba(0,0,0,0.65);
-        border:1px solid rgba(51,65,85,0.9);
+        box-shadow:0 18px 40px rgba(0,0,0,0.75);
+        border:1px solid rgba(51,65,85,0.95);
         z-index:9100;
         font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
         font-size:14px;min-width:260px;
@@ -248,14 +309,14 @@ function createHUD() {
     >
       <div style="display:flex;gap:18px;justify-content:space-between;">
         <div>
-          <div>คะแนน</div>
+          <div>คะแนนรวม</div>
           <div id="hha-score"
             style="text-align:right;font-weight:700;font-size:18px;">
             0
           </div>
         </div>
         <div>
-          <div>คอมโบ</div>
+          <div>ตีติดชุด</div>
           <div id="hha-combo"
             style="text-align:right;font-weight:700;font-size:18px;">
             0
@@ -265,8 +326,8 @@ function createHUD() {
 
       <div style="font-size:12px;color:#cbd5f5;display:flex;flex-direction:column;gap:4px;">
         <div id="hha-mission-text">
-          ภารกิจ: เก็บของดีให้ครบ ${MISSION_GOOD_TARGET} ชิ้น
-          <span style="opacity:0.8">(พาวเวอร์อัปบางชนิดนับหลายชิ้น)</span>
+          ภารกิจวันนี้: เก็บของดีให้ครบ ${MISSION_GOOD_TARGET} ชิ้น
+          <span style="opacity:0.8">(พาวเวอร์อัปบางชิ้นนับหลายชิ้น)</span>
         </div>
 
         <div style="
@@ -276,14 +337,14 @@ function createHUD() {
           border:1px solid rgba(148,163,184,0.7);">
           <div id="hha-mission-bar"
             style="width:0%;height:100%;border-radius:999px;
-                   background:linear-gradient(90deg,#22c55e,#16a34a);">
+                   background:${missionBarColor};">
           </div>
         </div>
 
         <div id="hha-buffs" style="margin-top:2px;">
-          ⭐ คอมโบสูงสุด: <span id="hha-buff-star">0</span> |
-          🛡 เกราะ: <span id="hha-buff-shield">0</span> |
-          🔥 Fever: <span id="hha-buff-fever">0</span>s
+          ⭐ ตีติดชุดสูงสุด: <span id="hha-buff-star">0</span> |
+          🛡 กันพลาด: <span id="hha-buff-shield">0</span> |
+          🔥 พลังไฟ: <span id="hha-buff-fever">0</span>s
         </div>
       </div>
     </div>
@@ -291,7 +352,7 @@ function createHUD() {
     <div id="hha-timebox"
       style="
         position:fixed;top:16px;right:16px;
-        background:rgba(15,23,42,0.95);
+        background:rgba(15,23,42,0.96);
         border-radius:999px;padding:6px 14px;
         border:1px solid rgba(148,163,184,0.9);
         font-size:13px;z-index:9100;
@@ -307,7 +368,7 @@ function createHUD() {
         background:rgba(15,23,42,0.97);
         border-radius:18px;padding:20px 26px;
         min-width:260px;border:1px solid rgba(34,197,94,0.8);
-        text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.75);
+        text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.85);
         font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
       ">
         <h2 id="hha-result-title"
@@ -319,11 +380,17 @@ function createHUD() {
           คะแนนรวม: <b id="hha-final-score">0</b>
         </div>
         <div style="margin-bottom:4px;">
-          คอมโบสูงสุด: <b id="hha-final-combo">0</b>
+          ตีติดชุดสูงสุด: <b id="hha-final-combo">0</b>
         </div>
-        <div style="margin-bottom:14px;">
+        <div style="margin-bottom:4px;">
           ของดีที่เก็บได้:
           <b id="hha-final-good">0</b> / ${MISSION_GOOD_TARGET}
+        </div>
+        <div style="margin-bottom:6px;">
+          อันดับของคุณ: <b id="hha-final-rank">-</b>
+        </div>
+        <div id="hha-final-praise"
+          style="margin-bottom:14px;color:#e5e7eb;font-size:13px;">
         </div>
 
         <button id="hha-restart"
@@ -368,7 +435,7 @@ function updateHUD() {
   if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
 }
 
-// ---------- Particle FX ----------
+// ---------- Particle FX (Confetti) ----------
 function burstAt(x, y, kind) {
   const fxLayer = createFXLayer();
   const container = document.createElement('div');
@@ -382,48 +449,54 @@ function burstAt(x, y, kind) {
     zIndex: '9060'
   });
 
-  const shardCount = 10;
-  let base;
+  const shardCount = 12;
+  let palette;
   switch (kind) {
     case 'good':
-      base = 'rgba(34,197,94,'; break;
+      palette = ['#4ade80','#22c55e','#bbf7d0']; break;
     case 'star':
     case 'gold':
+      palette = ['#facc15','#fbbf24','#fde68a']; break;
     case 'diamond':
-      base = 'rgba(250,204,21,'; break;
+      palette = ['#67e8f9','#38bdf8','#e0f2fe']; break;
     case 'shield':
-      base = 'rgba(59,130,246,'; break;
+      palette = ['#60a5fa','#2563eb','#bfdbfe']; break;
     case 'fever':
-      base = 'rgba(248,113,113,'; break;
+      palette = ['#fb923c','#f97316','#fecaca']; break;
     case 'bad':
     default:
-      base = 'rgba(239,68,68,'; break;
+      palette = ['#f97373','#ef4444','#fecaca']; break;
   }
 
   for (let i = 0; i < shardCount; i++) {
     const shard = document.createElement('div');
-    const size = 6 + Math.random() * 6;
+    const w = 4 + Math.random() * 7;
+    const h = 6 + Math.random() * 10;
+    const color = palette[Math.floor(Math.random() * palette.length)];
+    const rotateDeg = (Math.random() * 120) - 60;
+
     Object.assign(shard.style, {
       position: 'absolute',
       left: '0',
       top: '0',
-      width: size + 'px',
-      height: size + 'px',
-      borderRadius: '999px',
-      background: base + (0.6 + Math.random() * 0.3) + ')',
-      transform: 'translate3d(0,0,0) scale(0.6)',
+      width: w + 'px',
+      height: h + 'px',
+      borderRadius: '2px',
+      background: color,
+      transform: 'translate3d(0,0,0) scale(0.7) rotate(0deg)',
       opacity: '1',
       transition: 'transform 260ms ease-out, opacity 260ms ease-out'
     });
     container.appendChild(shard);
 
     const angle = Math.random() * Math.PI * 2;
-    const distance = 30 + Math.random() * 40;
+    const distance = 30 + Math.random() * 45;
     const dx = Math.cos(angle) * distance;
     const dy = Math.sin(angle) * distance;
 
     requestAnimationFrame(function() {
-      shard.style.transform = 'translate3d(' + dx + 'px,' + dy + 'px,0) scale(1.1)';
+      shard.style.transform =
+        'translate3d(' + dx + 'px,' + dy + 'px,0) scale(1.05) rotate(' + rotateDeg + 'deg)';
       shard.style.opacity = '0';
     });
   }
@@ -591,6 +664,7 @@ function spawnOne(host) {
       if (shieldCharges > 0) {
         shieldCharges -= 1;
         item.style.transform = 'scale(0.9)';
+        showToast('กันพลาดทันเวลาพอดี! 🛡️', 'good');
       } else {
         score = Math.max(0, score - 5);
         combo = 0;
@@ -600,6 +674,12 @@ function spawnOne(host) {
         setTimeout(function() {
           document.body.style.backgroundColor = oldBg || '#0b1220';
         }, 80);
+        const badMsgs = [
+          'โอ๊ะ! พลาดไปโดนของขยะ 😵',
+          'ของแบบนี้ไม่ดีต่อร่างกายนะ!',
+          'ระวังของขยะให้ดีนะ ✋'
+        ];
+        showToast(badMsgs[Math.floor(Math.random() * badMsgs.length)], 'bad');
       }
     }
 
@@ -619,6 +699,35 @@ function spawnOne(host) {
   }, ITEM_LIFETIME);
 }
 
+// ---------- ระบบให้ Rank + คำชม ----------
+function calcRankAndPraise() {
+  const success = missionGoodCount >= MISSION_GOOD_TARGET;
+  const s = score;
+  const c = maxCombo;
+  const g = missionGoodCount;
+  let rank = 'C';
+  let praise = 'ฝึกอีกนิดเดียว เดี๋ยวก็โปร! 💪';
+
+  if (success && c >= 25 && s >= 400) {
+    rank = 'S';
+    praise = 'ระดับเทพผักผลไม้! เลือกเก่งมาก ๆ เลย 🍎🌟';
+  } else if (success && c >= 15) {
+    rank = 'A';
+    praise = 'สุดยอดนักเลือกอาหารเพื่อสุขภาพ! ✨';
+  } else if (success) {
+    rank = 'A';
+    praise = 'ภารกิจผ่านแบบเท่สุด ๆ เยี่ยมไปเลย! 😎';
+  } else if (g >= MISSION_GOOD_TARGET * 0.6) {
+    rank = 'B';
+    praise = 'อีกนิดเดียวก็ผ่านภารกิจแล้ว สู้ต่ออีกรอบนะ! 🚀';
+  } else if (g >= MISSION_GOOD_TARGET * 0.3) {
+    rank = 'C';
+    praise = 'เริ่มต้นได้ดี! ลองสังเกตของขยะให้มากขึ้นนะ 👀';
+  }
+
+  return { rank, praise };
+}
+
 // ---------- Game loop ----------
 function startGame() {
   if (running) return;
@@ -636,6 +745,7 @@ function startGame() {
   const host = createHost();
   createHUD();
   createFXLayer();
+  createToastLayer();
   ensureGameCSS();
 
   if (spawnTimer) clearInterval(spawnTimer);
@@ -669,24 +779,82 @@ function endGame() {
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
 
+  // Outro layer
+  let outro = $('#hha-outro');
+  if (!outro) {
+    outro = document.createElement('div');
+    outro.id = 'hha-outro';
+    Object.assign(outro.style, {
+      position: 'fixed',
+      inset: '0',
+      background: 'radial-gradient(circle at 50% 0,rgba(56,189,248,0.16),transparent 55%),rgba(15,23,42,0.94)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: '9180',
+      opacity: '0',
+      animation: 'hha-outro-fade 260ms ease-out forwards'
+    });
+    const inner = document.createElement('div');
+    inner.id = 'hha-outro-inner';
+    Object.assign(inner.style, {
+      textAlign: 'center',
+      color: '#e5e7eb',
+      fontFamily: 'system-ui,Segoe UI,Inter,Roboto,sans-serif',
+      padding: '16px 20px',
+      borderRadius: '16px',
+      border: '1px solid rgba(148,163,184,0.8)',
+      background: 'rgba(15,23,42,0.98)',
+      boxShadow: '0 18px 40px rgba(0,0,0,0.9)',
+      maxWidth: '280px',
+      fontSize: '14px'
+    });
+    inner.innerHTML = `
+      <div style="font-size:18px;margin-bottom:6px;">🎉 รอบนี้เก่งมาก! 🎉</div>
+      <div>กำลังคำนวณคะแนนของคุณ…</div>
+    `;
+    outro.appendChild(inner);
+    document.body.appendChild(outro);
+  } else {
+    outro.style.display = 'flex';
+    outro.style.opacity = '1';
+  }
+
   const result = $('#hha-result');
   const fs = $('#hha-final-score');
   const fc = $('#hha-final-combo');
   const fg = $('#hha-final-good');
   const title = $('#hha-result-title');
+  const rankEl = $('#hha-final-rank');
+  const praiseEl = $('#hha-final-praise');
 
   const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
+  const rp = calcRankAndPraise();
 
   if (fs) fs.textContent = String(score);
   if (fc) fc.textContent = String(maxCombo);
   if (fg) fg.textContent = String(missionGoodCount);
+  if (rankEl) rankEl.textContent = rp.rank;
+  if (praiseEl) praiseEl.textContent = rp.praise;
+
   if (title) {
     title.textContent = missionSuccess
       ? 'ภารกิจสำเร็จ! 🎉'
       : 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
   }
 
-  if (result) result.style.display = 'flex';
+  // หน่วงนิดเดียวให้รู้สึกมี outro ก่อนโชว์ผล
+  setTimeout(function() {
+    if (outro) {
+      outro.style.opacity = '0';
+      setTimeout(function() {
+        if (outro && outro.parentNode) {
+          outro.style.display = 'none';
+        }
+      }, 200);
+    }
+    if (result) result.style.display = 'flex';
+  }, 650);
 }
 
 // ---------- Bootstrap ----------
@@ -694,6 +862,7 @@ function bootstrap() {
   createHUD();
   createHost();
   createFXLayer();
+  createToastLayer();
   ensureGameCSS();
   updateHUD();
 
@@ -707,7 +876,7 @@ function bootstrap() {
   }
 
   startGame();
-  console.log('[HHA DOM] Good vs Junk — Power-up Edition', {
+  console.log('[HHA DOM] Good vs Junk — Power-up Edition (Production Polish)', {
     MODE: MODE,
     DIFF: DIFF,
     GAME_DURATION: GAME_DURATION,
