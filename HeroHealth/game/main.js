@@ -1,13 +1,9 @@
-// === Hero Health — game/main.js (DOM Good vs Junk — Production v1) ===
-// ใช้คู่กับ index.vr.html ที่ถูกเปิดจาก hub.html:
-//   index.vr.html?mode=goodjunk&diff=normal&time=60
-//
-// คุณสมบัติ:
-// - อ่าน mode / diff / time จาก URL จริง
-// - ปรับความถี่ spawn ตาม diff
-// - Mini mission: เก็บของดีให้ครบ N ชิ้น (ต่างกันตาม diff)
+// === Hero Health — game/main.js (DOM Good vs Junk — Production v1.1) ===
+// - อ่าน mode/diff/time จาก URL (ใช้กับ hub.html)
+// - ภารกิจ: เก็บของดีให้ครบ N ชิ้น (ต่างกันตาม diff)
 // - Progress bar ใต้คะแนน
-// - หน้าสรุปผล: ภารกิจสำเร็จ / ยังไม่สำเร็จ + ปุ่มเล่นอีกครั้ง
+// - Particle FX แตกกระจายเมื่อคลิกถูก/ผิด
+// - Popup สรุปผล + เล่นอีกครั้ง
 
 'use strict';
 
@@ -76,6 +72,22 @@ function createHost() {
   });
   document.body.appendChild(host);
   return host;
+}
+
+function createFXLayer() {
+  let fx = $('#hha-fx-layer');
+  if (fx) return fx;
+  fx = document.createElement('div');
+  fx.id = 'hha-fx-layer';
+  Object.assign(fx.style, {
+    position: 'fixed',
+    inset: '0',
+    pointerEvents: 'none',
+    zIndex: '9050',
+    overflow: 'hidden'
+  });
+  document.body.appendChild(fx);
+  return fx;
 }
 
 function createHUD() {
@@ -169,6 +181,62 @@ function updateHUD() {
   }
 }
 
+// ---------- Particle FX ----------
+function burstAt(x, y, type) {
+  const fxLayer = createFXLayer();
+  const container = document.createElement('div');
+  Object.assign(container.style, {
+    position: 'fixed',
+    left: x + 'px',
+    top: y + 'px',
+    width: '0',
+    height: '0',
+    pointerEvents: 'none',
+    zIndex: '9060'
+  });
+
+  const shardCount = 10;
+  const baseColorGood = 'rgba(34,197,94,';
+  const baseColorBad  = 'rgba(239,68,68,';
+  const baseColor = type === 'good' ? baseColorGood : baseColorBad;
+
+  for (let i = 0; i < shardCount; i++) {
+    const shard = document.createElement('div');
+    const size = 6 + Math.random() * 6;
+    Object.assign(shard.style, {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      width: size + 'px',
+      height: size + 'px',
+      borderRadius: '999px',
+      background: baseColor + (0.6 + Math.random() * 0.3) + ')',
+      transform: 'translate3d(0,0,0) scale(0.6)',
+      opacity: '1',
+      transition: 'transform 260ms ease-out, opacity 260ms ease-out'
+    });
+    container.appendChild(shard);
+
+    // trigger animation ใน frame ถัดไป
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 30 + Math.random() * 40;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+
+    requestAnimationFrame(() => {
+      shard.style.transform = `translate3d(${dx}px,${dy}px,0) scale(1.1)`;
+      shard.style.opacity = '0';
+    });
+  }
+
+  fxLayer.appendChild(container);
+
+  // ลบ container ทิ้งหลังเอฟเฟกต์จบ
+  setTimeout(() => {
+    if (container.parentNode) container.parentNode.removeChild(container);
+  }, 320);
+}
+
 // ---------- Spawn logic ----------
 function randomFrom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -217,9 +285,18 @@ function spawnOne(host) {
     if (item.parentNode) item.parentNode.removeChild(item);
   }
 
-  item.addEventListener('click', () => {
+  item.addEventListener('click', (ev) => {
     if (!running) return;
     const good = item.getAttribute('data-good') === '1';
+
+    // particle FX ตรงตำแหน่งคลิก
+    burstAt(ev.clientX, ev.clientY, good ? 'good' : 'bad');
+
+    // vibration เบา ๆ ถ้ามี (มือถือ/VR)
+    if (navigator.vibrate) {
+      navigator.vibrate(good ? 20 : 40);
+    }
+
     if (good) {
       score += 10;
       combo += 1;
@@ -264,6 +341,7 @@ function startGame() {
 
   const host = createHost();
   createHUD();
+  createFXLayer();
 
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
@@ -314,6 +392,7 @@ function endGame() {
 function bootstrap() {
   createHUD();
   createHost();
+  createFXLayer();
   updateHUD();
 
   const restartBtn = $('#hha-restart');
@@ -327,7 +406,7 @@ function bootstrap() {
 
   // เริ่มเกมอัตโนมัติรอบแรก
   startGame();
-  console.log('[HHA DOM] Good vs Junk production v1', {
+  console.log('[HHA DOM] Good vs Junk production v1.1', {
     MODE, DIFF, GAME_DURATION, SPAWN_INTERVAL, MISSION_GOOD_TARGET
   });
 }
