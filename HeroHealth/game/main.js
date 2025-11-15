@@ -1,7 +1,7 @@
 // === Hero Health — game/main.js
 // DOM Good vs Junk — Power-up Edition (Star / Gold / Diamond / Shield / Fever)
 // - อ่าน mode/diff/time จาก URL
-// - ง่าย / ปกติ / ยาก แยก config: spawn interval, อายุเป้า, จำนวนพร้อมกัน, สัดส่วนประเภทเป้า
+// - ง่าย / ปกติ / ยาก แยก config: spawn interval, อายุเป้า, จำนวนพร้อมกัน, สัดส่วนประเภทเป้า, ขนาดเป้า
 // - Power-up:
 //   ⭐ Star    : เพิ่มคะแนน + คอมโบเยอะ
 //   🥇 Gold   : คะแนนสูง + mission x2
@@ -31,8 +31,9 @@ let SPAWN_INTERVAL = 700;
 let ITEM_LIFETIME = 1400;
 let MAX_ACTIVE = 4;
 let MISSION_GOOD_TARGET = 20;
+let SIZE_FACTOR = 1.0; // ขนาดเป้า: easy > normal > hard
 
-// weights: โอกาสสุ่มแต่ละประเภท (รวมกันเท่าไหร่ก็ได้ เดี๋ยวเอาไป normalize)
+// weights: โอกาสสุ่มแต่ละประเภท (รวมกันเท่าไหร่ก็ได้ เดี๋ยว normalize)
 let TYPE_WEIGHTS = {
   good: 45,
   junk: 30,
@@ -43,9 +44,8 @@ let TYPE_WEIGHTS = {
   fever: 4,
 };
 
-// Fever นานกี่วินาที
-let FEVER_DURATION = 5;
-let DIAMOND_TIME_BONUS = 2; // diamond เพิ่มเวลานิดหน่อย
+let FEVER_DURATION = 5;       // Fever นานกี่วินาที
+let DIAMOND_TIME_BONUS = 2;   // diamond เพิ่มเวลานิดหน่อย
 
 switch (DIFF) {
   case 'easy':
@@ -53,6 +53,8 @@ switch (DIFF) {
     ITEM_LIFETIME = 1900;
     MAX_ACTIVE = 3;
     MISSION_GOOD_TARGET = 12;
+    SIZE_FACTOR = 1.25;   // ใหญ่สุด คลิกง่าย
+
     TYPE_WEIGHTS = {
       good: 55,
       junk: 20,
@@ -65,11 +67,14 @@ switch (DIFF) {
     FEVER_DURATION = 4;
     DIAMOND_TIME_BONUS = 3;
     break;
+
   case 'hard':
     SPAWN_INTERVAL = 480;
     ITEM_LIFETIME = 1000;
     MAX_ACTIVE = 6;
     MISSION_GOOD_TARGET = 28;
+    SIZE_FACTOR = 0.85;   // เล็กลง เล็งยากขึ้น
+
     TYPE_WEIGHTS = {
       good: 35,
       junk: 40,
@@ -82,12 +87,15 @@ switch (DIFF) {
     FEVER_DURATION = 6;
     DIAMOND_TIME_BONUS = 2;
     break;
+
   case 'normal':
   default:
     SPAWN_INTERVAL = 650;
     ITEM_LIFETIME = 1400;
     MAX_ACTIVE = 4;
     MISSION_GOOD_TARGET = 20;
+    SIZE_FACTOR = 1.0;    // ขนาดกลาง
+
     TYPE_WEIGHTS = {
       good: 45,
       junk: 30,
@@ -211,9 +219,9 @@ function createHUD() {
           <div id="hha-mission-bar" style="width:0%;height:100%;border-radius:999px;background:linear-gradient(90deg,#22c55e,#16a34a);"></div>
         </div>
         <div id="hha-buffs" style="margin-top:2px;">
-          ⭐ <span id="hha-buff-star">0</span> |
-          🛡 <span id="hha-buff-shield">0</span> |
-          🔥 <span id="hha-buff-fever">0</span>s
+          ⭐ คอมโบสูงสุด: <span id="hha-buff-star">0</span> |
+          🛡 เกราะ: <span id="hha-buff-shield">0</span> |
+          🔥 Fever: <span id="hha-buff-fever">0</span>s
         </div>
       </div>
     </div>
@@ -281,7 +289,7 @@ function updateHUD() {
     mBar.style.width = (ratio * 100).toFixed(1) + '%';
   }
 
-  if (starEl) starEl.textContent = String(Math.max(0, maxCombo)); // ใช้ maxCombo เป็น star meter แบบง่าย ๆ
+  if (starEl) starEl.textContent = String(maxCombo);
   if (shieldEl) shieldEl.textContent = String(shieldCharges);
   if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
 }
@@ -290,4 +298,68 @@ function updateHUD() {
 function burstAt(x, y, kind) {
   const fxLayer = createFXLayer();
   const container = document.createElement('div');
-  Object.assign(container
+  Object.assign(container.style, {
+    position: 'fixed',
+    left: x + 'px',
+    top: y + 'px',
+    width: '0',
+    height: '0',
+    pointerEvents: 'none',
+    zIndex: '9060'
+  });
+
+  const shardCount = 10;
+  let base;
+  switch (kind) {
+    case 'good':
+      base = 'rgba(34,197,94,'; break;         // เขียว
+    case 'star':
+    case 'gold':
+    case 'diamond':
+      base = 'rgba(250,204,21,'; break;       // เหลืองทอง
+    case 'shield':
+      base = 'rgba(59,130,246,'; break;       // น้ำเงิน
+    case 'fever':
+      base = 'rgba(248,113,113,'; break;      // ส้มแดง
+    case 'bad':
+    default:
+      base = 'rgba(239,68,68,';               // แดง
+  }
+
+  for (let i = 0; i < shardCount; i++) {
+    const shard = document.createElement('div');
+    const size = 6 + Math.random() * 6;
+    Object.assign(shard.style, {
+      position: 'absolute',
+      left: '0',
+      top: '0',
+      width: size + 'px',
+      height: size + 'px',
+      borderRadius: '999px',
+      background: base + (0.6 + Math.random() * 0.3) + ')',
+      transform: 'translate3d(0,0,0) scale(0.6)',
+      opacity: '1',
+      transition: 'transform 260ms ease-out, opacity 260ms ease-out'
+    });
+    container.appendChild(shard);
+
+    const angle = Math.random() * Math.PI * 2;
+    const distance = 30 + Math.random() * 40;
+    const dx = Math.cos(angle) * distance;
+    const dy = Math.sin(angle) * distance;
+
+    requestAnimationFrame(() => {
+      shard.style.transform = `translate3d(${dx}px,${dy}px,0) scale(1.1)`;
+      shard.style.opacity = '0';
+    });
+  }
+
+  fxLayer.appendChild(container);
+  setTimeout(() => {
+    if (container.parentNode) container.parentNode.removeChild(container);
+  }, 320);
+}
+
+// ---------- เลือกประเภทเป้าตาม weight ----------
+function pickType() {
+  const entr
