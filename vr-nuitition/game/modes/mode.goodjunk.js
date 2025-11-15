@@ -1,41 +1,35 @@
-// === Hero Health — mode.goodjunk.js (minimal, production-safe) ===
-// โหมด Good vs Junk สำหรับใช้ร่วมกับ game/main.js
-// โฟกัสให้แน่ใจว่า register window.HH_MODES.goodjunk ได้แน่นอน
+// === Hero Health — mode.goodjunk.js ===
+// โหมด Nutrition World: "Junk Invasion"
+// เด็กเป็น Guardian ปัดขยะอาหาร เก็บของดี + Power-ups
 
 (function () {
   'use strict';
 
-  // ให้เห็นใน console ว่าไฟล์นี้โหลดจริง
-  console.log('[HHA goodjunk] loading mode.goodjunk.js');
+  window.HH_MODES = window.HH_MODES || {};
 
-  // สร้าง namespace ถ้ายังไม่มี
-  if (!window.HH_MODES) {
-    window.HH_MODES = {};
-  }
-
-  // ---------- อีโมจิพื้นฐาน ----------
+  // ---------- Emoji Pools ----------
   const GOOD = [
     '🍎','🍓','🍇','🥦','🥕','🍅','🥬',
     '🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝',
     '🍚','🥛','🍞','🐟','🥗'
   ];
-  const JUNK    = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
-  const STAR    = ['⭐','🌟'];
-  const GOLD    = ['🥇','🏅','🪙'];
-  const DIAMOND = ['💎'];
-  const SHIELD  = ['🛡️'];
-  const FEVER   = ['🔥'];
-  const RAINBOW = ['🌈'];
+  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
+  const STAR = ['⭐','🌟'];      // คอมโบ boost
+  const GOLD = ['🥇','🏅','🪙']; // คะแนนสูง
+  const DIAMOND = ['💎'];       // เวลาเพิ่ม + คะแนนเยอะ
+  const SHIELD = ['🛡️'];       // กันโดนขยะ
+  const FEVER = ['🔥'];         // Ultra Mode
+  const RAINBOW = ['🌈'];       // Super power – main.js กำหนด effect ไว้แล้ว
 
   function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ---------- config ตาม diff (เวอร์ชันย่อ) ----------
+  // ---------- Config per diff ----------
   function configForDiff(diff) {
     const d = (diff || 'normal').toLowerCase();
 
-    // base: normal
+    // default: NORMAL
     let cfg = {
       SPAWN_INTERVAL: 650,
       ITEM_LIFETIME: 1400,
@@ -50,119 +44,70 @@
         diamond: 5,
         shield:  3,
         fever:   4,
-        rainbow: 1
+        rainbow: 0 // เปิดใน hard
       },
       FEVER_DURATION: 6,
       DIAMOND_TIME_BONUS: 2
     };
 
     if (d === 'easy') {
-      cfg.SPAWN_INTERVAL      = 950;
-      cfg.ITEM_LIFETIME       = 2000;
-      cfg.MAX_ACTIVE          = 3;
+      // เด็ก ป.4–5 / เริ่มต้น
+      cfg.SPAWN_INTERVAL = 950;
+      cfg.ITEM_LIFETIME = 2100;
+      cfg.MAX_ACTIVE = 3;
       cfg.MISSION_GOOD_TARGET = 15;
-      cfg.SIZE_FACTOR         = 1.25;
+      cfg.SIZE_FACTOR = 1.25;
       cfg.TYPE_WEIGHTS = {
-        good:   60,
+        good:   65,  // ของดีเยอะ
         junk:   15,
         star:    8,
-        gold:    7,
-        diamond: 4,
+        gold:    6,
+        diamond: 3,
         shield:  4,
-        fever:   2,
+        fever:   3,
         rainbow: 0
       };
-      cfg.FEVER_DURATION      = 5;
-      cfg.DIAMOND_TIME_BONUS  = 3;
+      cfg.FEVER_DURATION = 5;
+      cfg.DIAMOND_TIME_BONUS = 3;
     } else if (d === 'hard') {
-      cfg.SPAWN_INTERVAL      = 430;
-      cfg.ITEM_LIFETIME       = 900;
-      cfg.MAX_ACTIVE          = 7;
+      // โหมดมันส์ B-Mode
+      cfg.SPAWN_INTERVAL = 420;
+      cfg.ITEM_LIFETIME = 900;
+      cfg.MAX_ACTIVE = 7;
       cfg.MISSION_GOOD_TARGET = 30;
-      cfg.SIZE_FACTOR         = 0.85;
+      cfg.SIZE_FACTOR = 0.85;
       cfg.TYPE_WEIGHTS = {
-        good:   30,
-        junk:   45,
-        star:    5,
-        gold:    5,
+        good:   32,
+        junk:   40,
+        star:    6,
+        gold:    6,
         diamond: 5,
-        shield:  2,
-        fever:   8,
-        rainbow: 2
+        shield:  3,
+        fever:   6,
+        rainbow: 2  // มีโอกาสเจอ power สุด
       };
-      cfg.FEVER_DURATION      = 7;
-      cfg.DIAMOND_TIME_BONUS  = 1;
+      cfg.FEVER_DURATION = 7;
+      cfg.DIAMOND_TIME_BONUS = 1;
     }
 
     return cfg;
   }
 
-  // ---------- Goal / Quest (เวอร์ชันสั้น) ----------
-  function goalDefs(diff) {
-    const cfg = configForDiff(diff);
-    return [
-      {
-        id: 'gj_good_count',
-        type: 'count',
-        label: 'เก็บอาหารดีให้ครบ',
-        target: cfg.MISSION_GOOD_TARGET,
-        weight: 2
-      }
-    ];
-  }
-
-  function questDefs(diff) {
-    return [
-      {
-        id: 'gj_streak3',
-        icon: '⚡',
-        text: 'คอมโบ ≥ 3',
-        kind: 'streak',
-        threshold: 3
-      },
-      {
-        id: 'gj_fast1',
-        icon: '⏱',
-        text: 'แตะเป้าให้ทัน ≤ 1 วิ 1 ครั้ง',
-        kind: 'fast',
-        threshold: 1.0
-      },
-      {
-        id: 'gj_power1',
-        icon: '⭐',
-        text: 'เก็บ Power-up อย่างน้อย 1 ชิ้น',
-        kind: 'power',
-        threshold: 1
-      }
-    ];
-  }
-
-  // ---------- ลงทะเบียนโหมด ----------
   window.HH_MODES.goodjunk = {
     id: 'goodjunk',
-    label: 'Good vs Junk',
+    label: 'Junk Invasion',
 
     setupForDiff: function (diff) {
       return configForDiff(diff);
     },
 
+    // แสดงบน HUD บรรทัดภารกิจหลัก
     missionText: function (target) {
-      return 'ภารกิจวันนี้: เก็บอาหารดีให้ครบ ' + target + ' ชิ้น (อย่าแตะของขยะ!)';
+      return 'ภารกิจ Junk Invasion: เก็บอาหารดีให้ครบ ' +
+        target + ' ชิ้น และปัดขยะให้ได้มากที่สุด!';
     },
 
-    goalDefs: function (diff) {
-      return goalDefs(diff);
-    },
-
-    questDefs: function (diff) {
-      return questDefs(diff);
-    },
-
-    sessionInfo: function () {
-      // โหมดนี้ไม่มี context พิเศษ
-      return {};
-    },
-
+    // main.js เรียกทุกครั้งที่ spawn
     pickEmoji: function (type) {
       if (type === 'good')    return pickRandom(GOOD);
       if (type === 'junk')    return pickRandom(JUNK);
@@ -173,8 +118,17 @@
       if (type === 'fever')   return pickRandom(FEVER);
       if (type === 'rainbow') return pickRandom(RAINBOW);
       return '❓';
+    },
+
+    // ใช้สำหรับ CSV / วิจัย
+    sessionInfo: function () {
+      return {
+        topic: 'Nutrition',
+        world: 'Junk Invasion',
+        groupId: 'goodjunk',
+        groupLabel: 'Guardian of Nutrition World',
+        groupIcon: '🍎'
+      };
     }
   };
-
-  console.log('[HHA goodjunk] registered window.HH_MODES.goodjunk =', window.HH_MODES.goodjunk);
 })();
