@@ -1,192 +1,593 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Hero Health — Hub</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Hero Health — Hub</title>
+  <meta name="color-scheme" content="light dark"/>
+  <style>
+    :root{
+      color-scheme: light dark;
+    }
+    *{ box-sizing:border-box; }
 
-<style>
-  body{
-    margin:0;
-    background:linear-gradient(160deg,#0f172a,#020617 40%,#000 95%);
-    color:#e5e7eb;
-    font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-    overflow-x:hidden;
-    padding-bottom:80px;
-  }
-  h1{
-    text-align:center;margin-top:28px;font-size:28px;
-    font-weight:800;
-    text-shadow:0 0 20px #38bdf8aa;
-  }
-  .wrap{max-width:1050px;margin:0 auto;padding:20px}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(56,189,248,0.22), transparent 55%),
+        radial-gradient(circle at bottom, rgba(34,197,94,0.18), transparent 55%),
+        #020617;
+      color:#e5e7eb;
+    }
 
-  /* ---------------- 3D CARD ---------------- */
-  .card{
-    width:240px;
-    height:200px;
-    background:rgba(15,23,42,0.75);
-    border:1px solid rgba(148,163,184,0.4);
-    border-radius:18px;
-    padding:16px;
-    cursor:pointer;
-    position:relative;
-    overflow:hidden;
-    transition:transform 0.25s ease, box-shadow 0.25s ease;
-    transform-style:preserve-3d;
-    backdrop-filter:blur(6px);
-  }
-  .card:hover{
-    transform:translateY(-10px) rotate3d(1,1,0,6deg) scale(1.04);
-    box-shadow:0 18px 40px rgba(56,189,248,0.55);
-  }
-  .card.active{
-    outline:3px solid #38bdf8;
-    box-shadow:0 0 25px #38bdf8;
-  }
+    .page{
+      max-width:1080px;
+      margin:16px auto;
+      padding:8px 16px 24px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
 
-  .row{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;margin-top:30px}
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    header h1{
+      margin:0;
+      font-size:22px;
+      letter-spacing:0.02em;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    header h1 span.logo{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:28px;height:28px;
+      border-radius:999px;
+      background:radial-gradient(circle at 30% 30%,#4ade80,#22c55e);
+      box-shadow:0 0 16px rgba(34,197,94,0.8);
+      font-size:18px;
+    }
+    header .subtitle{
+      font-size:12px;
+      color:#cbd5f5;
+    }
 
-  /* PREVIEW ANIMATION */
-  .preview{
-    position:absolute;
-    left:0;right:0;bottom:8px;
-    height:80px;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    font-size:38px;
-    opacity:0.85;
-    animation:float 2.2s ease-in-out infinite;
-  }
+    .layout{
+      display:grid;
+      grid-template-columns: minmax(0,2.2fr) minmax(0,1.4fr);
+      gap:16px;
+    }
+    @media (max-width:840px){
+      .layout{
+        grid-template-columns: minmax(0,1fr);
+      }
+    }
 
-  @keyframes float{
-    0%{ transform:translateY(0px) }
-    50%{ transform:translateY(-10px) }
-    100%{ transform:translateY(0px) }
-  }
+    /* --- Mode Cards --- */
+    .modes-wrap{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .modes-title{
+      font-size:13px;
+      opacity:0.9;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .modes-title small{
+      font-size:11px;
+      color:#9ca3af;
+    }
 
-  /* PROFILE SECTION */
-  .profile-box{
-    margin-top:30px;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:10px;
-    background:rgba(15,23,42,0.6);
-    padding:16px;
-    border-radius:16px;
-    width:92%;
-    max-width:420px;
-    margin-left:auto;
-    margin-right:auto;
-    backdrop-filter:blur(6px);
-    border:1px solid rgba(148,163,184,0.35);
-  }
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+      gap:12px;
+    }
 
-  .profile-box input{
-    width:100%;
-    padding:10px 14px;
-    border-radius:12px;
-    background:#0b1220;
-    color:#e5e7eb;
-    border:1px solid rgba(148,163,184,0.5);
-    font-size:14px;
-  }
+    .mode-card{
+      position:relative;
+      padding:12px 11px 12px;
+      border-radius:18px;
+      background:radial-gradient(circle at 0% 0%,rgba(96,165,250,0.18),transparent 55%),rgba(15,23,42,0.96);
+      border:1px solid rgba(51,65,85,0.9);
+      box-shadow:0 18px 40px rgba(15,23,42,0.8);
+      cursor:pointer;
+      overflow:hidden;
+      transform:translateY(0) scale(1);
+      transition:
+        transform 150ms ease-out,
+        box-shadow 150ms ease-out,
+        border-color 150ms ease-out,
+        background 150ms ease-out;
+    }
+    .mode-card::before{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background:radial-gradient(circle at 0 0,rgba(96,165,250,0.25),transparent 55%);
+      opacity:0;
+      transition:opacity 220ms ease-out,transform 220ms ease-out;
+      transform:translate3d(-10px,-10px,0);
+    }
+    .mode-card:hover{
+      transform:translateY(-3px) scale(1.01);
+      box-shadow:0 24px 60px rgba(15,23,42,0.95);
+      border-color:rgba(96,165,250,0.9);
+    }
+    .mode-card:hover::before{
+      opacity:1;
+      transform:translate3d(0,0,0);
+    }
+    .mode-card.active{
+      border-color:rgba(34,197,94,0.95);
+      box-shadow:0 24px 60px rgba(34,197,94,0.4);
+      background:radial-gradient(circle at 10% 0%,rgba(34,197,94,0.22),transparent 55%),rgba(15,23,42,0.98);
+    }
 
-  /* SELECTOR */
-  label{color:#e2e8f0}
+    .mode-main{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .mode-info{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .mode-name{
+      font-size:14px;
+      font-weight:600;
+      display:flex;
+      align-items:center;
+      gap:4px;
+    }
+    .mode-name span.emoji{
+      font-size:18px;
+    }
+    .mode-desc{
+      font-size:11px;
+      color:#cbd5f5;
+      opacity:0.95;
+    }
+    .mode-tag{
+      margin-top:4px;
+      font-size:10px;
+      opacity:0.9;
+      color:#22c55e;
+    }
 
-  select,input{
-    background:#0b1220;
-    border:1px solid rgba(148,163,184,0.5);
-    padding:10px 12px;
-    border-radius:12px;
-    color:#e5e7eb;
-  }
+    .mode-preview{
+      position:relative;
+      width:64px;
+      height:64px;
+      border-radius:20px;
+      background:radial-gradient(circle at 30% 10%,rgba(248,250,252,0.96),transparent 65%),
+                 radial-gradient(circle at 80% 90%,rgba(59,130,246,0.6),rgba(15,23,42,0.9));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      font-size:26px;
+      text-shadow:0 3px 6px rgba(15,23,42,0.65);
+    }
+    .preview-orbit{
+      position:absolute;
+      inset:8px;
+      border-radius:999px;
+      border:1px dashed rgba(148,163,184,0.7);
+      animation:orbit 6s linear infinite;
+      opacity:0.8;
+    }
+    .preview-dot{
+      position:absolute;
+      width:8px;height:8px;
+      border-radius:999px;
+      background:rgba(59,130,246,0.95);
+      top:-4px;left:50%;
+      transform:translateX(-50%);
+      box-shadow:0 0 12px rgba(59,130,246,0.9);
+    }
+    .preview-icon{
+      position:relative;
+      animation:bob 2.2s ease-in-out infinite;
+    }
 
-  button{
-    margin-top:20px;
-    background:linear-gradient(135deg,#38bdf8,#2563eb);
-    padding:14px 24px;
-    border-radius:14px;
-    border:0;
-    font-weight:700;
-    cursor:pointer;
-    font-size:16px;
-    color:white;
-    display:block;
-    margin-left:auto;
-    margin-right:auto;
-    transition:0.25s ease;
-  }
-  button:hover{
-    transform:scale(1.06);
-    box-shadow:0 0 22px rgba(56,189,248,0.8);
-  }
-</style>
+    @keyframes orbit{
+      0%{ transform:rotate(0deg); }
+      100%{ transform:rotate(360deg);}
+    }
+    @keyframes bob{
+      0%{ transform:translateY(0); }
+      50%{ transform:translateY(-6px); }
+      100%{ transform:translateY(0); }
+    }
+
+    /* --- Preview panel right below cards (ใช้แชร์ทุกโหมด) --- */
+    .preview-panel{
+      margin-top:4px;
+      padding:8px 10px;
+      border-radius:14px;
+      border:1px dashed rgba(148,163,184,0.7);
+      background:linear-gradient(to right,rgba(15,23,42,0.95),rgba(15,23,42,0.85));
+      font-size:11px;
+      color:#cbd5f5;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .preview-panel span.icon{
+      font-size:16px;
+    }
+
+    /* --- Right: profile + options --- */
+    .side{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+    .card{
+      border-radius:18px;
+      background:rgba(15,23,42,0.97);
+      border:1px solid rgba(51,65,85,0.9);
+      box-shadow:0 18px 40px rgba(15,23,42,0.9);
+      padding:12px 14px;
+    }
+
+    .card-title{
+      font-size:13px;
+      margin-bottom:4px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .card-title small{
+      font-size:11px;
+      color:#9ca3af;
+    }
+
+    .profile-grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:6px;
+      margin-top:4px;
+    }
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      font-size:11px;
+    }
+    .field-row{
+      display:grid;
+      grid-template-columns:1.1fr 0.9fr;
+      gap:6px;
+    }
+    .field label span.required{
+      color:#fecaca;
+      margin-left:3px;
+    }
+    input, select{
+      border-radius:999px;
+      border:1px solid rgba(51,65,85,0.9);
+      background:rgba(15,23,42,0.95);
+      padding:6px 10px;
+      font-size:12px;
+      color:#e5e7eb;
+      outline:none;
+    }
+    input:focus, select:focus{
+      border-color:#38bdf8;
+      box-shadow:0 0 0 1px rgba(56,189,248,0.6);
+    }
+
+    .profile-footer{
+      margin-top:6px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-size:11px;
+      color:#9ca3af;
+    }
+    .chip{
+      border-radius:999px;
+      padding:3px 8px;
+      border:1px solid rgba(34,197,94,0.8);
+      background:rgba(22,163,74,0.16);
+      color:#bbf7d0;
+      font-size:10px;
+    }
+
+    .options{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:2px;
+      font-size:12px;
+    }
+    .opt-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+    .opt-row label{
+      font-size:12px;
+      opacity:0.9;
+    }
+
+    .start-bar{
+      margin-top:6px;
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-size:11px;
+      color:#9ca3af;
+    }
+    button.primary{
+      border-radius:999px;
+      border:0;
+      padding:8px 16px;
+      font-size:13px;
+      font-weight:600;
+      cursor:pointer;
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#f9fafb;
+      box-shadow:0 14px 30px rgba(22,163,74,0.55);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    button.primary:hover{
+      transform:translateY(-1px);
+      box-shadow:0 18px 40px rgba(22,163,74,0.8);
+    }
+    button.secondary{
+      border-radius:999px;
+      border:0;
+      padding:4px 10px;
+      font-size:11px;
+      cursor:pointer;
+      background:rgba(15,23,42,0.96);
+      color:#e5e7eb;
+      border:1px solid rgba(148,163,184,0.85);
+    }
+
+    .hint-line{
+      font-size:11px;
+      color:#94a3b8;
+      margin-top:4px;
+    }
+
+    a.help{
+      color:#93c5fd;
+      text-decoration:none;
+      font-size:11px;
+    }
+    a.help:hover{
+      text-decoration:underline;
+    }
+  </style>
 </head>
-
 <body>
-  <h1>🎮 Hero Health — Interactive Game Hub</h1>
-
-  <div class="wrap">
-    <div class="row" id="modeRow">
-
-      <div class="card ready" data-mode="goodjunk">
-        <h3>🥦 Good vs Junk</h3>
-        <div class="muted">คลิกของดี หลีกขยะ</div>
-        <div class="preview">🍎✨</div>
+  <div class="page">
+    <header>
+      <div>
+        <h1>
+          <span class="logo">H</span>
+          <span>Hero Health — Hub</span>
+        </h1>
+        <div class="subtitle">
+          เลือกโหมด + โปรไฟล์เด็ก + ระดับความยาก แล้วเริ่มเกมเพื่อเก็บข้อมูลวิจัยแบบเรียลไทม์
+        </div>
       </div>
-
-      <div class="card ready" data-mode="groups">
-        <h3>🍱 Food Groups</h3>
-        <div class="muted">เลือกอาหารตรงหมู่</div>
-        <div class="preview">🥗➡️📦</div>
+      <div style="font-size:11px;color:#9ca3af;">
+        ⏱ เกมแต่ละรอบ ~ 1–3 นาที &nbsp;|&nbsp; รองรับ PC / Mobile / VR WebView
       </div>
+    </header>
 
-      <div class="card" data-mode="hydration" data-ready="0">
-        <span style="position:absolute;top:8px;right:8px;background:#b91c1c;padding:3px 8px;border-radius:999px;font-size:10px;">เร็ว ๆ นี้</span>
-        <h3>💧 Hydration</h3>
-        <div class="muted">ดื่มน้ำสมดุล</div>
-        <div class="preview">💧🔄</div>
-      </div>
+    <div class="layout">
+      <!-- LEFT: Mode cards + preview -->
+      <section class="modes-wrap">
+        <div class="modes-title">
+          <span>🎮 เลือกโหมดเกม</span>
+          <small>แตะการ์ดเพื่อเลือกโหมดที่ต้องการเล่น</small>
+        </div>
+        <div id="modeGrid" class="mode-grid">
+          <div class="mode-card" data-mode="goodjunk">
+            <div class="mode-main">
+              <div class="mode-info">
+                <div class="mode-name">
+                  <span class="emoji">🍎</span>
+                  <span>Good vs Junk</span>
+                </div>
+                <div class="mode-desc">
+                  คลิกของดีให้ทันเวลา หลบขยะอาหารให้ได้มากที่สุด เพื่อฝึกแยกแยะอาหารสุขภาพดี
+                </div>
+                <div class="mode-tag">พร้อมใช้งาน • Reflex + Decision</div>
+              </div>
+              <div class="mode-preview">
+                <div class="preview-orbit">
+                  <div class="preview-dot"></div>
+                </div>
+                <div class="preview-icon" data-preview="goodjunk">🍎</div>
+              </div>
+            </div>
+          </div>
 
-      <div class="card" data-mode="plate" data-ready="0">
-        <span style="position:absolute;top:8px;right:8px;background:#b91c1c;padding:3px 8px;border-radius:999px;font-size:10px;">เร็ว ๆ นี้</span>
-        <h3>🍽 Balanced Plate</h3>
-        <div class="muted">จัดจานให้ครบหลัก</div>
-        <div class="preview">🍚🥦🍗</div>
-      </div>
+          <div class="mode-card" data-mode="groups">
+            <div class="mode-main">
+              <div class="mode-info">
+                <div class="mode-name">
+                  <span class="emoji">🥦</span>
+                  <span>Food Groups</span>
+                </div>
+                <div class="mode-desc">
+                  เลือกอาหารให้ตรงหมู่เป้าหมาย ข้าว-แป้ง ผัก ผลไม้ เนื้อ-โปรตีน หรือนม เพื่อฝึกจำหมู่อาหาร
+                </div>
+                <div class="mode-tag">พร้อมใช้งาน • Categorization</div>
+              </div>
+              <div class="mode-preview">
+                <div class="preview-orbit">
+                  <div class="preview-dot"></div>
+                </div>
+                <div class="preview-icon" data-preview="groups">🥦</div>
+              </div>
+            </div>
+          </div>
 
+          <div class="mode-card" data-mode="hydration">
+            <div class="mode-main">
+              <div class="mode-info">
+                <div class="mode-name">
+                  <span class="emoji">💧</span>
+                  <span>Hydration</span>
+                </div>
+                <div class="mode-desc">
+                  แยก “น้ำดี” เช่น น้ำเปล่า นม ชาไม่หวาน ออกจากเครื่องดื่มหวาน เพื่อฝึกการตัดสินใจด้านน้ำดื่ม
+                </div>
+                <div class="mode-tag">พร้อมใช้งาน • Conceptual</div>
+              </div>
+              <div class="mode-preview">
+                <div class="preview-orbit">
+                  <div class="preview-dot"></div>
+                </div>
+                <div class="preview-icon" data-preview="hydration">💧</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mode-card" data-mode="plate">
+            <div class="mode-main">
+              <div class="mode-info">
+                <div class="mode-name">
+                  <span class="emoji">🍽️</span>
+                  <span>Balanced Plate</span>
+                </div>
+                <div class="mode-desc">
+                  เลือกอาหารที่ช่วยให้ “จานสมดุล” มีผัก ผลไม้ ข้าว-แป้ง และโปรตีนดีในสัดส่วนที่เหมาะสม
+                </div>
+                <div class="mode-tag">พร้อมใช้งาน • Planning</div>
+              </div>
+              <div class="mode-preview">
+                <div class="preview-orbit">
+                  <div class="preview-dot"></div>
+                </div>
+                <div class="preview-icon" data-preview="plate">🍽️</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="modePreviewPanel" class="preview-panel">
+          <span class="icon">✨</span>
+          <span id="modePreviewText">
+            เลือกโหมดด้านบนเพื่อดูคำอธิบายแบบย่อ และตั้งค่าโหมดนั้นในหน้าจอเล่นเกมหลัก
+          </span>
+        </div>
+      </section>
+
+      <!-- RIGHT: Profile + options + start -->
+      <section class="side">
+        <div class="card">
+          <div class="card-title">
+            <span>👦 โปรไฟล์ผู้เล่น (นักเรียน)</span>
+            <small>ใช้เก็บในไฟล์วิจัย CSV</small>
+          </div>
+          <div class="profile-grid">
+            <div class="field">
+              <label>
+                ชื่อเล่น / ชื่อจริง
+                <span class="required">*</span>
+              </label>
+              <input id="profileName" type="text" placeholder="เช่น บอล, ฝน, Mina"/>
+            </div>
+            <div class="field field-row">
+              <div>
+                <label>รหัสนักเรียน</label>
+                <input id="profileId" type="text" placeholder="ไม่บังคับ"/>
+              </div>
+              <div>
+                <label>ชั้น / ห้อง</label>
+                <input id="profileGrade" type="text" placeholder="ป.5/1, ป.6/2 ฯลฯ"/>
+              </div>
+            </div>
+          </div>
+          <div class="profile-footer">
+            <div class="hint-line" id="profileHint">ข้อมูลจะถูกใช้ประกอบการวิเคราะห์ผลการเล่นเกม</div>
+            <button id="btnSaveProfile" class="secondary">บันทึกโปรไฟล์</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>⚙️ ตัวเลือกการเล่น</span>
+            <small>ตั้งค่า diff / เวลา ก่อนเริ่มรอบ</small>
+          </div>
+          <div class="options">
+            <div class="opt-row">
+              <label for="selDiff">ระดับความยาก:</label>
+              <select id="selDiff">
+                <option value="easy">Easy — ฝึกพื้นฐาน</option>
+                <option value="normal" selected>Normal — มาตรฐาน</option>
+                <option value="hard">Hard — โหมดท้าทาย</option>
+              </select>
+            </div>
+            <div class="opt-row">
+              <label for="inpTime">เวลา (วินาที):</label>
+              <input id="inpTime" type="number" min="20" max="180" step="5" value="60" style="max-width:120px;"/>
+              <span style="font-size:11px;color:#9ca3af;">20–180 วินาที</span>
+            </div>
+          </div>
+
+          <div class="start-bar">
+            <div>
+              <div>ปลายทาง: <code style="font-size:10px;">./index.vr.html?mode=…&diff=…&time=…</code></div>
+              <div class="hint-line">
+                ระบบจะส่งข้อมูลโปรไฟล์ + โหมด + diff ไปยังหน้าจอเล่นเกมและไฟล์ CSV อัตโนมัติ
+              </div>
+            </div>
+            <button id="btnStart" class="primary">
+              <span>เริ่มเกม</span> <span>▶</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card" style="font-size:11px;color:#9ca3af;">
+          <div class="card-title">
+            <span>📊 หมายเหตุสำหรับครู/นักวิจัย</span>
+          </div>
+          <ul style="margin:4px 0 4px 18px;padding:0;">
+            <li>ทุกครั้งที่จบรอบ จะมีข้อมูล Reaction Time / Accuracy / Quest / Boss อยู่ในไฟล์ CSV</li>
+            <li>ชื่อเล่น / รหัส / ชั้น จะถูกบันทึกไว้ระดับหนึ่งรอบต่อไฟล์</li>
+            <li>สามารถให้เด็กเล่นซ้ำเพื่อดูแนวโน้มการพัฒนาทักษะได้</li>
+          </ul>
+          <a href="#" class="help" onclick="return false;">ดูคู่มือการอ่านไฟล์ CSV (เตรียมเพิ่มเติมภายหลัง)</a>
+        </div>
+      </section>
     </div>
-
-    <!-- PROFILE -->
-    <div class="profile-box">
-      <h3 style="margin:0;padding:0;font-size:16px;">ข้อมูลนักเรียน</h3>
-
-      <input id="stName" placeholder="ชื่อนักเรียน เช่น ด.ช. นนท์ภพ" />
-      <input id="stRoom" placeholder="ห้อง เช่น ป.5/2" />
-      <input id="stAge" placeholder="อายุ เช่น 10 ปี" />
-    </div>
-
-    <!-- OPTIONS -->
-    <div class="profile-box" style="margin-top:20px;">
-      <label>ระดับความยาก</label>
-      <select id="selDiff">
-        <option value="easy">ง่าย</option>
-        <option value="normal" selected>ปกติ</option>
-        <option value="hard">ยาก</option>
-      </select>
-
-      <label style="margin-top:12px;">เวลา (วินาที)</label>
-      <input id="inpTime" type="number" min="20" max="180" step="5" value="60"/>
-    </div>
-
-    <button id="btnStart">เริ่มเกม 🚀</button>
   </div>
 
-<script src="./hub.js"></script>
+  <!-- เสียงคลิกเบา ๆ ตอนเลือกโหมด/เริ่มเกม (ถ้าไฟล์ไม่มี เบราว์เซอร์จะเงียบ) -->
+  <audio id="hubClickSfx" preload="auto">
+    <source src="./assets/sfx/hub-click.mp3" type="audio/mpeg"/>
+  </audio>
 
+  <script src="./hub.js"></script>
 </body>
 </html>
