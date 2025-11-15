@@ -1,5 +1,5 @@
 // === Hero Health — game/main.js
-// DOM Good vs Junk — Power-up Edition (Star / Gold / Diamond / Shield / Fever)
+// DOM Good vs Junk — Power-up + Fever Lava + Rank + Level System
 
 'use strict';
 
@@ -23,7 +23,7 @@ let MAX_ACTIVE = 4;
 let MISSION_GOOD_TARGET = 20;
 let SIZE_FACTOR = 1.0; // ขนาดเป้า: easy > normal > hard
 
-// weights: โอกาสสุ่มแต่ละประเภท
+// weights: โอกาสสุ่มแต่ละประเภท (ของดี / ขยะ / power-up)
 let TYPE_WEIGHTS = {
   good: 45,
   junk: 30,
@@ -34,56 +34,57 @@ let TYPE_WEIGHTS = {
   fever: 4
 };
 
-let FEVER_DURATION = 5;       // Fever นานกี่วินาที
-let DIAMOND_TIME_BONUS = 2;   // diamond เพิ่มเวลานิดหน่อย
+// Fever ตั้งต้น (สำหรับเป้าไฟ)
+let FEVER_DURATION = 5;
+let DIAMOND_TIME_BONUS = 2;
 
 // Fever multiplier แบบมันส์ ๆ
-let FEVER_MULT = 2;           // คูณคะแนนเวลา Fever
-let FEVER_MAX_STACK = 12;     // สะสมเวลา Fever ได้สูงสุดกี่วินาที
+let FEVER_MULT = 2.2;         // คูณคะแนนเมื่อได้เป้าไฟ
+let FEVER_MAX_STACK = 14;     // สะสมเวลา Fever ได้สูงสุดกี่วินาที
 
 switch (DIFF) {
   case 'easy':
-    SPAWN_INTERVAL = 950;      // ช้าลง → เด็กทัน
-    ITEM_LIFETIME = 2000;      // ลอยนานขึ้น
-    MAX_ACTIVE = 3;            // ไม่ให้ล้นจอ
-    MISSION_GOOD_TARGET = 15;  // ภารกิจผ่านง่ายขึ้นหน่อย
-    SIZE_FACTOR = 1.25;        // เป้าใหญ่สุด
+    SPAWN_INTERVAL = 950;
+    ITEM_LIFETIME = 2000;
+    MAX_ACTIVE = 3;
+    MISSION_GOOD_TARGET = 15;
+    SIZE_FACTOR = 1.25;
 
     TYPE_WEIGHTS = {
-      good:   60,   // ของดีเยอะ
-      junk:   15,   // ขยะน้อย
+      good:   62,
+      junk:   14,
       star:    8,
       gold:    7,
       diamond: 3,
-      shield:  5,   // เกราะออกบ่อย ช่วยกันพลาด
-      fever:   2    // Fever มีบ้าง แต่ไม่ถี่
+      shield:  5,
+      fever:   1
     };
 
     FEVER_DURATION = 4;
-    DIAMOND_TIME_BONUS = 3;    // easy ได้เวลาเพิ่มเยอะหน่อย
-    FEVER_MULT = 2;            // คูณ 2 พอ ชิล ๆ
+    DIAMOND_TIME_BONUS = 3;
+    FEVER_MULT = 2.0;
     break;
 
   case 'hard':
-    SPAWN_INTERVAL = 430;      // เร็วขึ้น
-    ITEM_LIFETIME = 900;       // หายไว
-    MAX_ACTIVE = 7;            // เป้าพร้อมกันเยอะ
-    MISSION_GOOD_TARGET = 30;  // ต้องเก็บของดีเยอะ
-    SIZE_FACTOR = 0.85;        // เป้าเล็ก
+    SPAWN_INTERVAL = 430;
+    ITEM_LIFETIME = 900;
+    MAX_ACTIVE = 7;
+    MISSION_GOOD_TARGET = 30;
+    SIZE_FACTOR = 0.85;
 
     TYPE_WEIGHTS = {
-      good:   32,
-      junk:   40,  // ขยะเยอะมาก
-      star:    7,
+      good:   30,
+      junk:   42,
+      star:    8,
       gold:    6,
-      diamond:  7, // diamond ออกบ่อยขึ้น
+      diamond:  7,
       shield:   2,
-      fever:   10  // Fever ถี่มาก → โหมด B สุด ๆ
+      fever:   11
     };
 
-    FEVER_DURATION = 7;        // Fever นานขึ้น
-    DIAMOND_TIME_BONUS = 1;    // เพิ่มเวลาเบา ๆ
-    FEVER_MULT = 2.5;          // คะแนนคูณ 2.5 เวลาติด Fever
+    FEVER_DURATION = 7;
+    DIAMOND_TIME_BONUS = 1;
+    FEVER_MULT = 2.5;
     break;
 
   case 'normal':
@@ -92,21 +93,21 @@ switch (DIFF) {
     ITEM_LIFETIME = 1400;
     MAX_ACTIVE = 4;
     MISSION_GOOD_TARGET = 20;
-    SIZE_FACTOR = 1.0;         // ขนาดกลาง
+    SIZE_FACTOR = 1.0;
 
     TYPE_WEIGHTS = {
-      good:   45,
-      junk:   30,
+      good:   47,
+      junk:   28,
       star:    8,
       gold:    7,
       diamond: 5,
       shield:  3,
-      fever:   6   // มี Fever พอให้ลุ้น
+      fever:   6
     };
 
     FEVER_DURATION = 5;
     DIAMOND_TIME_BONUS = 2;
-    FEVER_MULT = 2.2;          // แรงขึ้นนิดหน่อย
+    FEVER_MULT = 2.2;
     break;
 }
 
@@ -128,11 +129,25 @@ let running = false;
 let spawnTimer = null;
 let tickTimer = null;
 
-let missionGoodCount = 0;   // จำนวนของดีที่เก็บได้ (รวม power-up)
-let activeItems = 0;        // เป้าบนจอปัจจุบัน
+let missionGoodCount = 0;
+let activeItems = 0;
 
-let shieldCharges = 0;      // เกราะสะสม
-let feverTicksLeft = 0;     // จำนวนวินาที fever ที่เหลือ
+let shieldCharges = 0;
+let feverTicksLeft = 0;      // เวลา Fever ที่เหลือ (วินาที)
+let activeFeverMult = 1;     // ตัวคูณคะแนนตอนนี้
+
+// สำหรับ HUD pop effect
+let lastScore = 0;
+let lastCombo = 0;
+
+// Level / EXP (ใช้ในหนึ่ง session)
+let currentLevel = 1;
+let currentExp = 0;
+
+// Boss Fight
+let gameHost = null;
+let bossSpawned = false;
+let bossHp = 0;
 
 // ---------- Helpers ----------
 function $(sel) {
@@ -206,7 +221,7 @@ function showToast(msg, kind) {
     : 'rgba(52,211,153,0.9)';
   toast.style.transform = 'translateX(-50%) translateY(0)';
   toast.style.opacity = '0';
-  // trigger
+
   requestAnimationFrame(function() {
     toast.style.opacity = '1';
     toast.style.transform = 'translateX(-50%) translateY(4px)';
@@ -216,6 +231,29 @@ function showToast(msg, kind) {
     toast.style.opacity = '0';
     toast.style.transform = 'translateX(-50%) translateY(-4px)';
   }, 900);
+}
+
+// Fever reset
+function resetFeverChain() {
+  feverTicksLeft = 0;
+  activeFeverMult = 1;
+}
+
+// Level / EXP
+function getExpForNext(level) {
+  return 150 + (level - 1) * 75;
+}
+
+function addExp(amount) {
+  const gain = Math.max(0, Math.round(amount));
+  currentExp += gain;
+  let guard = 0;
+  while (currentExp >= getExpForNext(currentLevel) && guard < 20) {
+    currentExp -= getExpForNext(currentLevel);
+    currentLevel += 1;
+    showToast('เลเวลอัป! Lv.' + currentLevel + ' 🎉', 'good');
+    guard++;
+  }
 }
 
 // ---------- CSS global + responsive HUD ----------
@@ -229,6 +267,17 @@ function ensureGameCSS() {
       0%   { transform: translate3d(0,0,0); }
       50%  { transform: translate3d(0,-12px,0); }
       100% { transform: translate3d(0,0,0); }
+    }
+
+    /* HUD pop เวลาได้คะแนน / combo */
+    @keyframes hha-pop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.18); }
+      100% { transform: scale(1); }
+    }
+    #hha-score.hha-pop,
+    #hha-combo.hha-pop {
+      animation: hha-pop 180ms ease-out;
     }
 
     /* fade-in/out outro */
@@ -277,6 +326,20 @@ function ensureGameCSS() {
   document.head.appendChild(st);
 }
 
+// ---------- HUD ----------
+function getModeMissionText() {
+  if (MODE === 'groups') {
+    return 'ภารกิจวันนี้: เลือกของที่อยู่ “กลุ่มอาหารดี” ให้ครบ ' + MISSION_GOOD_TARGET + ' ชิ้น';
+  }
+  if (MODE === 'hydration') {
+    return 'ภารกิจวันนี้: เลือกเครื่องดื่มที่ดีต่อร่างกายให้ครบ ' + MISSION_GOOD_TARGET + ' แก้ว';
+  }
+  if (MODE === 'plate') {
+    return 'ภารกิจวันนี้: เลือกอาหารที่เหมาะกับจานสุขภาพให้ครบ ' + MISSION_GOOD_TARGET + ' ชิ้น';
+  }
+  return 'ภารกิจวันนี้: เก็บของดีให้ครบ ' + MISSION_GOOD_TARGET + ' ชิ้น';
+}
+
 function createHUD() {
   let hud = $('#hha-hud');
   if (hud) return hud;
@@ -291,6 +354,8 @@ function createHUD() {
   } else if (DIFF === 'hard') {
     missionBarColor = 'linear-gradient(90deg,#f97316,#dc2626)';
   }
+
+  const missionText = getModeMissionText();
 
   hud.innerHTML = `
     <div id="hha-hud-inner"
@@ -326,7 +391,7 @@ function createHUD() {
 
       <div style="font-size:12px;color:#cbd5f5;display:flex;flex-direction:column;gap:4px;">
         <div id="hha-mission-text">
-          ภารกิจวันนี้: เก็บของดีให้ครบ ${MISSION_GOOD_TARGET} ชิ้น
+          ${missionText}
           <span style="opacity:0.8">(พาวเวอร์อัปบางชิ้นนับหลายชิ้น)</span>
         </div>
 
@@ -346,6 +411,12 @@ function createHUD() {
           🛡 กันพลาด: <span id="hha-buff-shield">0</span> |
           🔥 พลังไฟ: <span id="hha-buff-fever">0</span>s
         </div>
+
+        <div id="hha-level-row"
+             style="font-size:11px;color:#e5e7eb;opacity:0.9;">
+          Lv. <span id="hha-level">1</span> • EXP:
+          <span id="hha-exp">0</span>/<span id="hha-exp-next">0</span>
+        </div>
       </div>
     </div>
 
@@ -364,13 +435,14 @@ function createHUD() {
     <div id="hha-result"
       style="position:fixed;inset:0;display:none;
              align-items:center;justify-content:center;z-index:9200;">
-      <div style="
-        background:rgba(15,23,42,0.97);
-        border-radius:18px;padding:20px 26px;
-        min-width:260px;border:1px solid rgba(34,197,94,0.8);
-        text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.85);
-        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      ">
+      <div id="hha-result-card"
+        style="
+          background:rgba(15,23,42,0.97);
+          border-radius:18px;padding:20px 26px;
+          min-width:260px;border:1px solid rgba(34,197,94,0.8);
+          text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.85);
+          font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+        ">
         <h2 id="hha-result-title"
           style="margin-top:0;margin-bottom:8px;font-size:18px;">
           จบรอบแล้ว 🎉
@@ -409,7 +481,15 @@ function createHUD() {
 }
 
 function currentMultiplier() {
-  return feverTicksLeft > 0 ? FEVER_MULT : 1;
+  return feverTicksLeft > 0 ? activeFeverMult : 1;
+}
+
+function bumpAnim(el) {
+  if (!el) return;
+  el.classList.remove('hha-pop');
+  // force reflow
+  void el.offsetWidth;
+  el.classList.add('hha-pop');
 }
 
 function updateHUD() {
@@ -420,9 +500,21 @@ function updateHUD() {
   const starEl = $('#hha-buff-star');
   const shieldEl = $('#hha-buff-shield');
   const feverEl = $('#hha-buff-fever');
+  const lvlEl = $('#hha-level');
+  const expEl = $('#hha-exp');
+  const expNextEl = $('#hha-exp-next');
 
-  if (sEl) sEl.textContent = String(score);
-  if (cEl) cEl.textContent = String(combo);
+  if (sEl) {
+    sEl.textContent = String(score);
+    if (score > lastScore) bumpAnim(sEl);
+  }
+  if (cEl) {
+    cEl.textContent = String(combo);
+    if (combo > lastCombo) bumpAnim(cEl);
+  }
+  lastScore = score;
+  lastCombo = combo;
+
   if (tEl) tEl.textContent = String(timeLeft);
 
   if (mBar) {
@@ -433,6 +525,10 @@ function updateHUD() {
   if (starEl) starEl.textContent = String(maxCombo);
   if (shieldEl) shieldEl.textContent = String(shieldCharges);
   if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
+
+  if (lvlEl) lvlEl.textContent = String(currentLevel);
+  if (expEl) expEl.textContent = String(currentExp);
+  if (expNextEl) expNextEl.textContent = String(getExpForNext(currentLevel));
 }
 
 // ---------- Particle FX (Confetti) ----------
@@ -527,6 +623,23 @@ function pickType() {
   return 'good';
 }
 
+// ---------- Auto Fever จาก combo (โหมดไฟลาวา) ----------
+function checkAutoFever() {
+  if (combo >= 30 && activeFeverMult < 3.2) {
+    feverTicksLeft = Math.min(feverTicksLeft + 8, FEVER_MAX_STACK);
+    activeFeverMult = 3.2;
+    showToast('โหมดไฟลาวา! คะแนนคูณ 3.2 🔥🔥', 'good');
+  } else if (combo >= 20 && activeFeverMult < 2.8) {
+    feverTicksLeft = Math.min(feverTicksLeft + 6, FEVER_MAX_STACK);
+    activeFeverMult = 2.8;
+    showToast('ไฟแรงมาก! คะแนนคูณ 2.8 🔥', 'good');
+  } else if (combo >= 10 && activeFeverMult < 2.5) {
+    feverTicksLeft = Math.min(feverTicksLeft + 5, FEVER_MAX_STACK);
+    activeFeverMult = 2.5;
+    showToast('พลังไฟติดแล้ว! คะแนนคูณ 2.5 🔥', 'good');
+  }
+}
+
 // ---------- Spawn logic ----------
 function randomFrom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -555,10 +668,10 @@ function spawnOne(host) {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // --- ปรับ safe area: ไม่ให้ชน HUD/timebox + ไม่ติดขอบจอเกินไป ---
-  const marginX = Math.max(40, vw * 0.06);      // เว้นซ้าย/ขวา
-  const marginTop = Math.max(140, vh * 0.20);   // เว้นด้านบน (ต่ำกว่า HUD+timebox)
-  const marginBottom = Math.max(80, vh * 0.12); // เว้นด้านล่าง
+  // safe area
+  const marginX = Math.max(40, vw * 0.06);
+  const marginTop = Math.max(140, vh * 0.20);
+  const marginBottom = Math.max(80, vh * 0.12);
 
   const safeWidth = Math.max(60, vw - marginX * 2);
   const safeHeight = Math.max(60, vh - marginTop - marginBottom);
@@ -634,32 +747,38 @@ function spawnOne(host) {
       missionGoodCount += 1;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.25)';
+      checkAutoFever();
     } else if (type === 'star') {
       score += Math.round(15 * mult);
       combo += 2;
       missionGoodCount += 1;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.28)';
+      checkAutoFever();
     } else if (type === 'gold') {
       score += Math.round(20 * mult);
       combo += 2;
       missionGoodCount += 2;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.3)';
+      checkAutoFever();
     } else if (type === 'diamond') {
-      score += Math.round(30 * mult);
+      score += Math.round(25 * mult);
       combo += 3;
       missionGoodCount += 2;
       timeLeft += DIAMOND_TIME_BONUS;
       if (combo > maxCombo) maxCombo = combo;
       item.style.transform = 'scale(1.32)';
+      checkAutoFever();
     } else if (type === 'shield') {
       shieldCharges += 1;
       item.style.transform = 'scale(1.2)';
+      showToast('ได้กันพลาดเพิ่มอีก 1 แต้ม! 🛡️', 'good');
     } else if (type === 'fever') {
-      // กิน Fever แล้วต่อเวลาได้ (stack) แต่ไม่เกิน FEVER_MAX_STACK
       feverTicksLeft = Math.min(feverTicksLeft + FEVER_DURATION, FEVER_MAX_STACK);
+      if (activeFeverMult < FEVER_MULT) activeFeverMult = FEVER_MULT;
       item.style.transform = 'scale(1.25)';
+      showToast('เก็บเป้าไฟ! คะแนนคูณ ' + activeFeverMult.toFixed(1) + ' 🔥', 'good');
     } else if (type === 'junk') {
       if (shieldCharges > 0) {
         shieldCharges -= 1;
@@ -668,6 +787,7 @@ function spawnOne(host) {
       } else {
         score = Math.max(0, score - 5);
         combo = 0;
+        resetFeverChain();
         item.style.transform = 'scale(0.7)';
         const oldBg = document.body.style.backgroundColor || '#0b1220';
         document.body.style.backgroundColor = '#450a0a';
@@ -697,6 +817,70 @@ function spawnOne(host) {
       setTimeout(removeItem, 120);
     }
   }, ITEM_LIFETIME);
+}
+
+// ---------- Boss Fight ----------
+function spawnBoss(host) {
+  if (!running || bossSpawned || !host) return;
+  bossSpawned = true;
+
+  const boss = document.createElement('button');
+  boss.type = 'button';
+  boss.textContent = '🍔';
+  boss.setAttribute('data-type', 'boss');
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const size = Math.round(Math.min(vw, vh) * 0.18);
+
+  bossHp = (DIFF === 'easy') ? 5 : (DIFF === 'hard' ? 9 : 7);
+
+  Object.assign(boss.style, {
+    position: 'absolute',
+    left: (vw / 2 - size / 2) + 'px',
+    top: (vh * 0.4 - size / 2) + 'px',
+    width: size + 'px',
+    height: size + 'px',
+    borderRadius: '999px',
+    border: '0',
+    fontSize: String(size * 0.55) + 'px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    background: 'radial-gradient(circle at 30% 20%, #fb7185, #7f1d1d)',
+    boxShadow: '0 0 35px rgba(248,113,113,0.9)',
+    color: '#fff',
+    pointerEvents: 'auto',
+    zIndex: '9070',
+    transition: 'transform 0.12s ease, opacity 0.12s ease'
+  });
+
+  boss.addEventListener('click', function(ev) {
+    if (!running) return;
+    if (navigator.vibrate) navigator.vibrate(80);
+    bossHp -= 1;
+    burstAt(ev.clientX, ev.clientY, 'bad');
+    boss.style.transform = 'scale(0.9)';
+    setTimeout(function() {
+      boss.style.transform = 'scale(1)';
+    }, 80);
+
+    if (bossHp <= 0) {
+      const mult = currentMultiplier();
+      score += Math.round(120 * mult);
+      combo += 3;
+      missionGoodCount += 5;
+      if (combo > maxCombo) maxCombo = combo;
+      showToast('ล้มบอสขยะยักษ์ได้แล้ว! 💥', 'good');
+      if (boss.parentNode) {
+        boss.parentNode.removeChild(boss);
+      }
+      updateHUD();
+    }
+  });
+
+  host.appendChild(boss);
 }
 
 // ---------- ระบบให้ Rank + คำชม ----------
@@ -739,14 +923,22 @@ function startGame() {
   timeLeft = GAME_DURATION;
   activeItems = 0;
   shieldCharges = 0;
-  feverTicksLeft = 0;
+  bossSpawned = false;
+  bossHp = 0;
+  resetFeverChain();
+  lastScore = 0;
+  lastCombo = 0;
   updateHUD();
 
   const host = createHost();
+  gameHost = host;
   createHUD();
   createFXLayer();
   createToastLayer();
   ensureGameCSS();
+
+  // เคลียร์เป้าค้าง
+  host.innerHTML = '';
 
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
@@ -764,9 +956,18 @@ function startGame() {
       return;
     }
 
+    // เรียกบอสช่วงท้ายเกม (ประมาณ 1/4 ท้าย)
+    const bossThreshold = Math.max(5, Math.round(GAME_DURATION * 0.25));
+    if (!bossSpawned && timeLeft <= bossThreshold) {
+      spawnBoss(gameHost);
+    }
+
     if (feverTicksLeft > 0) {
       feverTicksLeft -= 1;
-      if (feverTicksLeft < 0) feverTicksLeft = 0;
+      if (feverTicksLeft <= 0) {
+        feverTicksLeft = 0;
+        activeFeverMult = 1;
+      }
     }
 
     updateHUD();
@@ -778,6 +979,7 @@ function endGame() {
   running = false;
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
+  resetFeverChain();
 
   // Outro layer
   let outro = $('#hha-outro');
@@ -827,6 +1029,7 @@ function endGame() {
   const title = $('#hha-result-title');
   const rankEl = $('#hha-final-rank');
   const praiseEl = $('#hha-final-praise');
+  const card = $('#hha-result-card');
 
   const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
   const rp = calcRankAndPraise();
@@ -843,7 +1046,33 @@ function endGame() {
       : 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
   }
 
-  // หน่วงนิดเดียวให้รู้สึกมี outro ก่อนโชว์ผล
+  // การ์ดสะสม: เปลี่ยนสีตาม Rank
+  if (card) {
+    let border = 'rgba(34,197,94,0.8)';
+    let glow = '0 0 26px rgba(34,197,94,0.7)';
+    if (rp.rank === 'S') {
+      border = 'rgba(250,204,21,0.95)';
+      glow = '0 0 30px rgba(250,204,21,0.9)';
+    } else if (rp.rank === 'A') {
+      border = 'rgba(96,165,250,0.95)';
+      glow = '0 0 26px rgba(96,165,250,0.8)';
+    } else if (rp.rank === 'B') {
+      border = 'rgba(52,211,153,0.9)';
+      glow = '0 0 24px rgba(52,211,153,0.8)';
+    } else if (rp.rank === 'C') {
+      border = 'rgba(148,163,184,0.9)';
+      glow = '0 0 20px rgba(148,163,184,0.7)';
+    }
+    card.style.borderColor = border;
+    card.style.boxShadow = glow;
+  }
+
+  // EXP gain (เหมาะสำหรับใช้ในวิจัย)
+  const expGain = score + (missionSuccess ? 200 : 0) + maxCombo * 4;
+  addExp(expGain);
+  updateHUD();
+
+  // หน่วงให้เห็น outro ก่อนโชว์ผล
   setTimeout(function() {
     if (outro) {
       outro.style.opacity = '0';
@@ -876,7 +1105,7 @@ function bootstrap() {
   }
 
   startGame();
-  console.log('[HHA DOM] Good vs Junk — Power-up Edition (Production Polish)', {
+  console.log('[HHA DOM] Good vs Junk — Lava Fever + Rank + Level', {
     MODE: MODE,
     DIFF: DIFF,
     GAME_DURATION: GAME_DURATION,
