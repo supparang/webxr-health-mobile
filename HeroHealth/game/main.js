@@ -1,381 +1,261 @@
+// === Hero Health — game/main.js (DOM Good vs Junk Fallback) ===
+// ใช้กับ index.vr.html ที่มีพื้นหลัง VR อยู่แล้ว
+// โค้ดนี้สร้าง HUD + เป้าอาหารแบบอีโมจิ ทับบนจอ แล้วเริ่มเกมให้อัตโนมัติ
+
 'use strict';
-window.__HHA_BOOT_OK = 'main';
 
-// === Config ===
-var DEFAULT_MODE = 'goodjunk';
-var DEFAULT_DIFF = 'normal';
-var DEFAULT_TIME = 60;
+// ---------- Config ----------
+const GAME_DURATION = 60; // วินาที
+const SPAWN_INTERVAL = 700; // ms
+const ITEM_LIFETIME = 1400; // ms
 
-var MODES_META = {
-  goodjunk: {
-    id: 'goodjunk',
-    label: 'ดี vs ขยะ',
-    desc: 'เลือกกินของดี หลีกเลี่ยงของขยะ'
-  },
-  groups: {
-    id: 'groups',
-    label: 'หมู่สารอาหาร',
-    desc: 'จัดหมวดหมู่สารอาหารให้ถูก'
-  },
-  hydration: {
-    id: 'hydration',
-    label: 'ดื่มน้ำสมดุล',
-    desc: 'ดื่มน้ำให้พอดีกับกิจกรรม'
-  },
-  plate: {
-    id: 'plate',
-    label: 'จานสุขภาพ',
-    desc: 'แบ่งผัก ข้าว โปรตีน ให้สมดุล'
-  }
-};
+const GOOD = ['🍎','🍓','🍇','🥦','🥕','🍅','🥬','🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝','🍚','🥛','🍞','🐟','🥗'];
+const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
 
-var COACH_LINES = [
-  'พร้อมลุยยัง ฮีโร่สุขภาพ? 💪',
-  'รอบนี้ขอดูสกิลเทพๆ หน่อยนะ 😎',
-  'อย่าลืมโฟกัสให้ดี กดผิดมีหักคะแนนนะ! ⚠️',
-  'ถ้าพลาดไม่เป็นไร เริ่มใหม่ได้เสมอ ✨',
-  'คิดให้ทันก่อนกด สายตาไวกว่าความหิวนะ 🤓',
-  'ขยับตัวบ่อยๆ สุขภาพจะได้ฟิตเวอร์ 🏃‍♀️',
-  'สะสมคอมโบให้ได้เยอะๆ แล้วจะรู้ว่าตัวเองโหดแค่ไหน 🔥',
-  'ภารกิจนี้มีแต่ทีมฮีโร่เท่านั้นที่ทำได้ สู้ๆ! ⭐'
-];
+// ---------- State ----------
+let score = 0;
+let combo = 0;
+let maxCombo = 0;
+let timeLeft = GAME_DURATION;
+let running = false;
+let spawnTimer = null;
+let tickTimer = null;
 
-// === Global state ===
-var state = {
-  modeId: DEFAULT_MODE,
-  diff: DEFAULT_DIFF,
-  duration: DEFAULT_TIME,
-  running: false,
-  startedAt: 0,
-  timerId: null,
-  remaining: DEFAULT_TIME,
-  currentModule: null,
-  currentRunner: null,
-  ctx: null
-};
+// ---------- Helpers ----------
+function $(sel) { return document.querySelector(sel); }
 
-// === Helpers ===
-function $(sel) {
-  return document.querySelector(sel);
+function createHost() {
+  let host = $('#hha-dom-host');
+  if (host) return host;
+
+  host = document.createElement('div');
+  host.id = 'hha-dom-host';
+  Object.assign(host.style, {
+    position: 'fixed',
+    inset: '0',
+    pointerEvents: 'none',
+    zIndex: '9000'
+  });
+  document.body.appendChild(host);
+  return host;
 }
-function $all(sel) {
-  return document.querySelectorAll(sel);
+
+function createHUD() {
+  // ถ้ามี HUD เดิมให้ใช้ต่อ
+  let hud = $('#hha-hud');
+  if (hud) return hud;
+
+  hud = document.createElement('div');
+  hud.id = 'hha-hud';
+  hud.innerHTML = `
+    <div style="
+      position:fixed;top:16px;left:50%;transform:translateX(-50%);
+      background:rgba(15,23,42,0.95);border-radius:16px;
+      padding:10px 18px;display:flex;gap:18px;
+      box-shadow:0 18px 40px rgba(0,0,0,0.65);
+      border:1px solid rgba(51,65,85,0.9);z-index:9100;
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;font-size:14px;
+    ">
+      <div>
+        <div>คะแนน</div>
+        <div id="hha-score" style="text-align:right;font-weight:700;font-size:18px;">0</div>
+      </div>
+      <div>
+        <div>คอมโบ</div>
+        <div id="hha-combo" style="text-align:right;font-weight:700;font-size:18px;">0</div>
+      </div>
+    </div>
+
+    <div style="
+      position:fixed;top:16px;right:16px;
+      background:rgba(15,23,42,0.95);
+      border-radius:999px;padding:6px 14px;
+      border:1px solid rgba(148,163,184,0.9);
+      font-size:13px;z-index:9100;
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+    ">
+      TIME <span id="hha-time">60</span>s
+    </div>
+
+    <div id="hha-result" style="
+      position:fixed;inset:0;display:none;
+      align-items:center;justify-content:center;
+      z-index:9200;
+    ">
+      <div style="
+        background:rgba(15,23,42,0.97);border-radius:18px;
+        padding:20px 26px;min-width:260px;
+        border:1px solid rgba(34,197,94,0.8);
+        text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.75);
+        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+      ">
+        <h2 style="margin-top:0;margin-bottom:8px;font-size:18px;">จบรอบแล้ว 🎉</h2>
+        <div style="margin-bottom:8px;">คะแนนรวม: <b id="hha-final-score">0</b></div>
+        <div style="margin-bottom:14px;">คอมโบสูงสุด: <b id="hha-final-combo">0</b></div>
+        <button id="hha-restart" style="
+          border-radius:999px;border:0;cursor:pointer;
+          padding:8px 18px;background:linear-gradient(135deg,#38bdf8,#2563eb);
+          color:#fff;font-weight:600;font-size:14px;
+        ">เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(hud);
+  return hud;
 }
-function byAction(el) {
-  if (!el) return null;
-  if (el.closest) return el.closest('[data-action]');
-  while (el && el !== document) {
-    if (el.getAttribute && el.getAttribute('data-action')) return el;
-    el = el.parentNode;
-  }
-  return null;
+
+function updateHUD() {
+  const sEl = $('#hha-score');
+  const cEl = $('#hha-combo');
+  const tEl = $('#hha-time');
+  if (sEl) sEl.textContent = String(score);
+  if (cEl) cEl.textContent = String(combo);
+  if (tEl) tEl.textContent = String(timeLeft);
 }
-function setText(sel, txt) {
-  var el = typeof sel === 'string' ? $(sel) : sel;
-  if (el) el.textContent = txt;
-}
-function pickRandom(arr) {
+
+// ---------- Spawn logic ----------
+function randomFrom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// === Status HUD ===
-var statusEl = null;
-function ensureStatusHUD() {
-  if (statusEl && document.body.contains(statusEl)) return statusEl;
-  statusEl = document.getElementById('modeStatus');
-  if (!statusEl) {
-    statusEl = document.createElement('div');
-    statusEl.id = 'modeStatus';
-    statusEl.style.position = 'fixed';
-    statusEl.style.left = '8px';
-    statusEl.style.bottom = '8px';
-    statusEl.style.padding = '4px 8px';
-    statusEl.style.fontSize = '11px';
-    statusEl.style.fontFamily = 'system-ui, sans-serif';
-    statusEl.style.color = '#e2e8f0';
-    statusEl.style.background = 'rgba(15,23,42,0.85)';
-    statusEl.style.borderRadius = '6px';
-    statusEl.style.zIndex = '9999';
-    statusEl.style.pointerEvents = 'none';
-    document.body.appendChild(statusEl);
+function spawnOne(host) {
+  if (!running) return;
+
+  const isGood = Math.random() < 0.6; // 60% ของดี
+  const emo = isGood ? randomFrom(GOOD) : randomFrom(JUNK);
+
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.textContent = emo;
+  item.setAttribute('data-good', isGood ? '1' : '0');
+
+  const size = 80;
+  Object.assign(item.style, {
+    position: 'absolute',
+    width: size + 'px',
+    height: size + 'px',
+    borderRadius: '999px',
+    border: '0',
+    fontSize: '42px',
+    boxShadow: '0 8px 22px rgba(15,23,42,0.85)',
+    cursor: 'pointer',
+    background: 'rgba(15,23,42,0.96)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'transform 0.12s ease, opacity 0.12s ease',
+    pointerEvents: 'auto'
+  });
+
+  // ตำแหน่งสุ่ม (เว้นขอบจอ)
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const x = 0.1 * vw + Math.random() * 0.8 * vw;
+  const y = 0.15 * vh + Math.random() * 0.7 * vh;
+  item.style.left = (x - size / 2) + 'px';
+  item.style.top = (y - size / 2) + 'px';
+
+  function removeItem() {
+    if (item.parentNode) item.parentNode.removeChild(item);
   }
-  return statusEl;
-}
-function showStatus(msg) {
-  var el = ensureStatusHUD();
-  el.textContent = msg;
-}
 
-var realModesMarked = false;
-function markRealModesLoaded() {
-  if (realModesMarked) return;
-  realModesMarked = true;
-  showStatus('Real modes loaded');
-}
-
-// === Coach ===
-function showCoachLine(forceLine) {
-  var el = $('#coachText');
-  if (!el) return;
-  var line = forceLine || pickRandom(COACH_LINES);
-  el.textContent = line;
-}
-
-// === Timer ===
-function updateTimerLabel() {
-  var lbl = $('#timerLabel');
-  if (lbl) lbl.textContent = state.remaining + ' s';
-}
-function stopTimer() {
-  if (state.timerId) {
-    clearInterval(state.timerId);
-    state.timerId = null;
-  }
-}
-function startTimer() {
-  stopTimer();
-  state.remaining = state.duration;
-  updateTimerLabel();
-  state.timerId = setInterval(function() {
-    state.remaining -= 1;
-    if (state.remaining < 0) state.remaining = 0;
-    updateTimerLabel();
-    if (state.remaining <= 0) {
-      stopTimer();
-      endGame('timeup');
+  item.addEventListener('click', () => {
+    if (!running) return;
+    const good = item.getAttribute('data-good') === '1';
+    if (good) {
+      score += 10;
+      combo += 1;
+      if (combo > maxCombo) maxCombo = combo;
+      item.style.transform = 'scale(1.25)';
+    } else {
+      score = Math.max(0, score - 5);
+      combo = 0;
+      item.style.transform = 'scale(0.7)';
+      document.body.style.backgroundColor = '#450a0a';
+      setTimeout(() => { document.body.style.backgroundColor = '#0b1220'; }, 80);
     }
+    item.style.opacity = '0';
+    updateHUD();
+    setTimeout(removeItem, 100);
+  });
+
+  host.appendChild(item);
+
+  // ลบเมื่อหมดเวลา life
+  setTimeout(() => {
+    if (item.parentNode) {
+      item.style.opacity = '0';
+      item.style.transform = 'scale(0.7)';
+      setTimeout(removeItem, 120);
+    }
+  }, ITEM_LIFETIME);
+}
+
+// ---------- Game loop ----------
+function startGame() {
+  if (running) return;
+  running = true;
+  score = 0;
+  combo = 0;
+  maxCombo = 0;
+  timeLeft = GAME_DURATION;
+  updateHUD();
+
+  const host = createHost();
+  createHUD();
+
+  // clear เดิม
+  if (spawnTimer) clearInterval(spawnTimer);
+  if (tickTimer) clearInterval(tickTimer);
+
+  spawnTimer = setInterval(() => {
+    spawnOne(host);
+  }, SPAWN_INTERVAL);
+
+  tickTimer = setInterval(() => {
+    timeLeft -= 1;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      updateHUD();
+      endGame();
+      return;
+    }
+    updateHUD();
   }, 1000);
 }
 
-// === Dynamic import ===
-function loadModeModule(modeId) {
-  var meta = MODES_META[modeId];
-  if (!meta) {
-    console.warn('Unknown mode:', modeId);
-    showStatus('Unknown mode: ' + modeId);
-    return Promise.resolve(null);
-  }
-  return import('./modes/' + modeId + '.js')
-    .then(function(mod) {
-      console.log('[HHA] Mode module loaded:', modeId, mod);
-      markRealModesLoaded();
-      return mod;
-    })
-    .catch(function(err) {
-      console.error('[HHA] Failed to load mode:', modeId, err);
-      showStatus('Failed to load mode: ' + modeId);
-      return null;
-    });
+function endGame() {
+  if (!running) return;
+  running = false;
+  if (spawnTimer) clearInterval(spawnTimer);
+  if (tickTimer) clearInterval(tickTimer);
+
+  const result = $('#hha-result');
+  const fs = $('#hha-final-score');
+  const fc = $('#hha-final-combo');
+  if (fs) fs.textContent = String(score);
+  if (fc) fc.textContent = String(maxCombo);
+  if (result) result.style.display = 'flex';
 }
 
-// === Build context ===
-function buildModeContext(modeId) {
-  var host =
-    document.getElementById('spawnHost') ||
-    document.getElementById('gameLayer') ||
-    document.querySelector('.game-layer') ||
-    document.body;
-  var ctx = {
-    modeId: modeId,
-    host: host,
-    difficulty: state.diff,
-    duration: state.duration,
-    end: function(reason, extra) {
-      endGame(reason || 'mode-end', extra);
-    },
-    setCoach: function(msg) {
-      showCoachLine(msg);
-    },
-    setStatus: function(msg) {
-      showStatus(msg);
-    },
-    setTimerOverride: function(sec) {
-      if (typeof sec === 'number' && sec > 0) {
-        state.duration = sec;
-        state.remaining = sec;
-        startTimer();
-      }
-    },
-    emitGlobal: function(name, detail) {
-      try {
-        window.dispatchEvent(new CustomEvent(name, { detail: detail }));
-      } catch (e) {
-        console.warn('emitGlobal error', e);
-      }
-    }
-  };
-  return ctx;
-}
-
-// === Start / End game ===
-function startGame() {
-  if (state.running) return;
-  var modeId = state.modeId || DEFAULT_MODE;
-  showStatus('Loading mode: ' + modeId + ' ...');
-
-  loadModeModule(modeId).then(function(mod) {
-    if (!mod) return;
-
-    stopTimer();
-    state.running = true;
-    state.startedAt = Date.now();
-    state.currentModule = mod;
-    state.currentRunner = null;
-
-    showCoachLine();
-
-    var ctx = buildModeContext(modeId);
-    state.ctx = ctx;
-
-    var runner = null;
-    try {
-      if (typeof mod.start === 'function') {
-        runner = mod.start(ctx);
-      } else if (typeof mod.run === 'function') {
-        runner = mod.run(ctx);
-      } else if (typeof mod.default === 'function') {
-        runner = mod.default(ctx);
-      } else if (typeof mod.create === 'function') {
-        runner = mod.create(ctx);
-      } else {
-        console.warn('[HHA] Mode has no entry function');
-        showStatus('Mode entry missing: ' + modeId);
-      }
-    } catch (err) {
-      console.error('[HHA] Error while starting mode:', modeId, err);
-      showStatus('Error starting mode: ' + modeId);
-      state.running = false;
-      return;
-    }
-
-    state.currentRunner = runner || null;
-    state.remaining = state.duration;
-    startTimer();
-    var meta = MODES_META[modeId];
-    var label = meta ? meta.label : modeId;
-    showStatus('Playing: ' + label);
-  });
-}
-
-function endGame(reason, extraResult) {
-  if (!state.running) return;
-  console.log('[HHA] endGame:', reason, extraResult);
-  state.running = false;
-  stopTimer();
-
-  var r = state.currentRunner;
-  try {
-    if (r && typeof r.stop === 'function') {
-      r.stop(reason, extraResult);
-    } else if (r && typeof r.end === 'function') {
-      r.end(reason, extraResult);
-    }
-  } catch (e) {
-    console.warn('[HHA] runner stop error:', e);
-  }
-
-  var panel = $('#resultPanel');
-  if (panel) {
-    panel.classList.remove('hidden');
-    var reasonEl = panel.querySelector('[data-field="reason"]');
-    if (reasonEl) {
-      var txt = '';
-      if (reason === 'timeup') txt = 'หมดเวลาแล้ว!';
-      else if (reason === 'quit') txt = 'ออกจากเกมก่อนจบภารกิจ';
-      else txt = 'จบภารกิจแล้ว!';
-      reasonEl.textContent = txt;
-    }
-  }
-  showStatus('Session ended (' + reason + ')');
-}
-
-// === UI binding ===
-function onClick(e) {
-  var actEl = byAction(e.target);
-  if (!actEl) return;
-  var action = actEl.getAttribute('data-action');
-  if (!action) return;
-  if (action === 'start' || action === 'start-game') {
-    e.preventDefault();
-    startGame();
-  } else if (action === 'quit' || action === 'stop') {
-    e.preventDefault();
-    endGame('quit');
-  }
-}
-
-function bindModeButtons() {
-  var buttons = $all('.mode-button, [data-mode]');
-  buttons.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var m = btn.getAttribute('data-mode');
-      if (!m || !MODES_META[m]) return;
-      state.modeId = m;
-
-      buttons.forEach(function(b) { b.classList.remove('is-active'); });
-      btn.classList.add('is-active');
-
-      var meta = MODES_META[m];
-      setText('#modeLabel', meta.label || m);
-      setText('#modeDesc', meta.desc || '');
-      showStatus('Selected mode: ' + (meta.label || m));
-    });
-  });
-
-  if (!state.modeId || !MODES_META[state.modeId]) {
-    state.modeId = DEFAULT_MODE;
-  }
-}
-
-function bindDiffButtons() {
-  var buttons = $all('.diff-button, [data-diff]');
-  buttons.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var d = btn.getAttribute('data-diff') || DEFAULT_DIFF;
-      state.diff = d;
-      buttons.forEach(function(b) { b.classList.remove('is-active'); });
-      btn.classList.add('is-active');
-      setText('#diffLabel', d);
-      showStatus('Difficulty: ' + d);
-    });
-  });
-}
-
-function bindTimeButtons() {
-  var buttons = $all('.time-button, [data-time]');
-  buttons.forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var v = parseInt(btn.getAttribute('data-time'), 10);
-      if (!isNaN(v) && v > 0) {
-        state.duration = v;
-        state.remaining = v;
-        updateTimerLabel();
-        buttons.forEach(function(b) { b.classList.remove('is-active'); });
-        btn.classList.add('is-active');
-        showStatus('Time: ' + v + ' s');
-      }
-    });
-  });
-}
-
-// === Bootstrap ===
+// ---------- Bootstrap ----------
 function bootstrap() {
-  document.addEventListener('click', onClick);
-  bindModeButtons();
-  bindDiffButtons();
-  bindTimeButtons();
+  createHUD();
+  createHost();
+  updateHUD();
 
-  var initMeta = MODES_META[state.modeId] || MODES_META[DEFAULT_MODE];
-  if (initMeta) {
-    setText('#modeLabel', initMeta.label);
-    setText('#modeDesc', initMeta.desc);
+  const restartBtn = $('#hha-restart');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+      const panel = $('#hha-result');
+      if (panel) panel.style.display = 'none';
+      startGame();
+    });
   }
-  setText('#diffLabel', state.diff);
-  state.remaining = state.duration;
-  updateTimerLabel();
 
-  showCoachLine('เลือกโหมดแล้วกดปุ่มเริ่มได้เลย! 😄');
-  showStatus('Hub ready (waiting for start)');
+  // เริ่มเกมอัตโนมัติรอบแรก
+  startGame();
+  console.log('[HHA DOM] Good vs Junk fallback started');
 }
 
 if (document.readyState === 'loading') {
