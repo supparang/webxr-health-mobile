@@ -1,22 +1,25 @@
 // === Hero Health — mode.plate.js ===
-// โหมด Balanced Plate: เลือกอาหารที่เหมาะกับ "จานสมดุล" เน้น ผัก + โปรตีนดี + ข้าวไม่ขัดสี
+// โหมด Balanced Plate Island: Table of Harmony
+// จัดอาหารให้เหมาะกับ "จานสมดุล" เลี่ยงของมัน/หวานจัด
 
 (function () {
   'use strict';
 
   window.HH_MODES = window.HH_MODES || {};
 
-  // ---------- ชุดอาหารสำหรับจานสมดุล ----------
   const GOOD_PLATE = [
-    '🥦','🥕','🥬','🍅','🥒','🌽',        // ผัก
-    '🍚','🍙','🥔','🍞',                 // ข้าว-แป้ง
-    '🐟','🍗','🥚','🥜',                 // โปรตีนดี
-    '🍎','🍓','🍌','🍊','🍇','🍉'        // ผลไม้
+    // ผัก
+    '🥦','🥕','🥬','🍅','🥒','🌽',
+    // ข้าว-แป้งที่ดี
+    '🍚','🍙','🥔','🍞',
+    // โปรตีนดี
+    '🐟','🍗','🥚','🥜',
+    // ผลไม้
+    '🍎','🍓','🍌','🍊','🍇','🍉'
   ];
 
   const JUNK_FOOD = [
-    '🍔','🍟','🍕','🌭','🍩','🍪','🧁','🍰','🍫',
-    '🧋','🥤'
+    '🍔','🍟','🍕','🌭','🍩','🍪','🧁','🍰','🍫','🧋','🥤'
   ];
 
   const STAR    = ['⭐','🌟'];
@@ -30,11 +33,9 @@
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ---------- config ตาม diff ----------
   function configForDiff(diff) {
     const d = (diff || 'normal').toLowerCase();
 
-    // default: normal
     let cfg = {
       SPAWN_INTERVAL: 700,
       ITEM_LIFETIME: 1600,
@@ -42,14 +43,14 @@
       MISSION_GOOD_TARGET: 20,
       SIZE_FACTOR: 1.0,
       TYPE_WEIGHTS: {
-        good:   50,
-        junk:   25,
+        good:   52,
+        junk:   24,
         star:    6,
         gold:    5,
         diamond: 4,
         shield:  4,
         fever:   4,
-        rainbow: 2
+        rainbow: 1
       },
       FEVER_DURATION: 6,
       DIAMOND_TIME_BONUS: 2
@@ -62,13 +63,13 @@
       cfg.MISSION_GOOD_TARGET = 16;
       cfg.SIZE_FACTOR = 1.15;
       cfg.TYPE_WEIGHTS = {
-        good:   65,
-        junk:   15,
-        star:    8,
-        gold:    6,
+        good:   68,
+        junk:   14,
+        star:    7,
+        gold:    5,
         diamond: 3,
         shield:  5,
-        fever:   3,
+        fever:   2,
         rainbow: 0
       };
       cfg.FEVER_DURATION = 5;
@@ -80,9 +81,9 @@
       cfg.MISSION_GOOD_TARGET = 26;
       cfg.SIZE_FACTOR = 0.9;
       cfg.TYPE_WEIGHTS = {
-        good:   35,
-        junk:   40,
-        star:    5,
+        good:   38,
+        junk:   38,
+        star:    6,
         gold:    5,
         diamond: 5,
         shield:  3,
@@ -96,38 +97,35 @@
     return cfg;
   }
 
-  // ---------- ลงทะเบียนโหมด ----------
   window.HH_MODES.plate = {
     id: 'plate',
-    label: 'Balanced Plate',
+    label: 'Balanced Plate Island',
 
     setupForDiff: function (diff) {
       return configForDiff(diff);
     },
 
     missionText: function (target) {
-      return 'ภารกิจวันนี้: เลือกอาหารให้เหมาะกับจานสมดุลให้ครบ ' + target + ' ชิ้น';
+      return 'Table of Harmony: เลือกอาหารให้เหมาะกับจานสมดุลให้ครบ ' +
+        target + ' ชิ้น (ผัก + โปรตีนดี + ข้าวไม่ขัดสี)';
     },
 
     pickEmoji: function (type) {
-      if (type === 'good') {
-        return pickRandom(GOOD_PLATE);
-      }
-      if (type === 'junk') {
-        return pickRandom(JUNK_FOOD);
-      }
-      if (type === 'star')    return pickRandom(STAR);
-      if (type === 'gold')    return pickRandom(GOLD);
-      if (type === 'diamond') return pickRandom(DIAMOND);
-      if (type === 'shield')  return pickRandom(SHIELD);
-      if (type === 'fever')   return pickRandom(FEVER);
-      if (type === 'rainbow') return pickRandom(RAINBOW);
+      if (type === 'good')   return pickRandom(GOOD_PLATE);
+      if (type === 'junk')   return pickRandom(JUNK_FOOD);
+      if (type === 'star')   return pickRandom(STAR);
+      if (type === 'gold')   return pickRandom(GOLD);
+      if (type === 'diamond')return pickRandom(DIAMOND);
+      if (type === 'shield') return pickRandom(SHIELD);
+      if (type === 'fever')  return pickRandom(FEVER);
+      if (type === 'rainbow')return pickRandom(RAINBOW);
       return '❓';
     },
 
     sessionInfo: function () {
       return {
         topic: 'Balanced Plate',
+        world: 'Table of Harmony',
         groupId: 'plate',
         groupLabel: 'จานอาหารสมดุล',
         groupIcon: '🍽️'
