@@ -1,295 +1,295 @@
-// === Hero Health — coach.js (AAA-style DOM Coach) ===
-// โค้ชตัวการ์ตูน มุมซ้ายล่าง: มีอารมณ์, พูดตอนเริ่ม, ตอนโดนดี/ขยะ, Fever, Quest, จบเกม
+// === Hero Health — coach.js (2025 Research Edition) ===
+// โค้ชกลางสำหรับทุกโหมด: goodjunk / groups / hydration / plate
+// - แสดง bubble ด้านล่างซ้าย
+// - ให้ feedback ตาม mode/diff
+// - ใช้ข้อมูลจาก onRoundEnd (accuracy, avgRT, accTarget)
 
 (function () {
   'use strict';
 
-  function randOf(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
+  // ---------- DOM helpers ----------
+  function $(sel) {
+    return document.querySelector(sel);
   }
 
+  function createCoachUI() {
+    if ($('#hha-coach')) return $('#hha-coach');
+
+    const root = document.createElement('div');
+    root.id = 'hha-coach';
+    Object.assign(root.style, {
+      position: 'fixed',
+      left: '16px',
+      bottom: '16px',
+      maxWidth: '320px',
+      zIndex: '9300',
+      fontFamily: 'system-ui,Segoe UI,Inter,Roboto,sans-serif',
+      color: '#e5e7eb',
+      pointerEvents: 'none'
+    });
+
+    root.innerHTML = `
+      <div id="hha-coach-badge"
+        style="
+          display:inline-flex;align-items:center;gap:6px;
+          padding:3px 8px;border-radius:999px;
+          font-size:11px;
+          background:rgba(15,23,42,0.9);
+          border:1px solid rgba(148,163,184,0.7);
+          margin-bottom:4px;
+        ">
+        <span>🧑‍🏫 Hero Coach</span>
+        <span id="hha-coach-mode-tag" style="opacity:0.9;"></span>
+      </div>
+      <div id="hha-coach-bubble"
+        style="
+          display:none;
+          background:rgba(15,23,42,0.96);
+          border-radius:16px;
+          padding:10px 12px;
+          font-size:12px;
+          line-height:1.4;
+          border:1px solid rgba(56,189,248,0.8);
+          box-shadow:0 14px 30px rgba(0,0,0,0.7);
+          pointerEvents:auto;
+        ">
+        <div id="hha-coach-text"></div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    return root;
+  }
+
+  let hideTimer = null;
+
+  function say(text, durationSec) {
+    createCoachUI();
+    const bubble = $('#hha-coach-bubble');
+    const textEl = $('#hha-coach-text');
+    if (!bubble || !textEl) return;
+
+    textEl.textContent = text;
+    bubble.style.display = 'block';
+    bubble.style.opacity = '1';
+    bubble.style.transform = 'translateY(0)';
+    bubble.style.transition = 'opacity 160ms ease-out, transform 160ms ease-out';
+
+    if (hideTimer) clearTimeout(hideTimer);
+    const t = typeof durationSec === 'number' ? durationSec : 4;
+    hideTimer = setTimeout(function () {
+      bubble.style.opacity = '0';
+      bubble.style.transform = 'translateY(6px)';
+      setTimeout(function () {
+        bubble.style.display = 'none';
+      }, 180);
+    }, t * 1000);
+  }
+
+  function setModeTag(mode, diff) {
+    createCoachUI();
+    const el = $('#hha-coach-mode-tag');
+    if (!el) return;
+    const m = (mode || '').toLowerCase();
+    let label = '';
+    if (m === 'goodjunk') label = 'Good vs Junk';
+    else if (m === 'groups') label = 'Food Groups';
+    else if (m === 'hydration') label = 'Hydration';
+    else if (m === 'plate') label = 'Balanced Plate';
+    else label = mode || '';
+
+    const d = (diff || '').toLowerCase();
+    const diffLabel = d ? (' • ' + d) : '';
+    el.textContent = label + diffLabel;
+  }
+
+  // ---------- โปรไฟล์เด็ก ----------
+  function getProfile() {
+    try {
+      return {
+        name:  sessionStorage.getItem('hhaProfileName')  || '',
+        sid:   sessionStorage.getItem('hhaProfileId')    || '',
+        grade: sessionStorage.getItem('hhaProfileGrade') || '',
+        room:  sessionStorage.getItem('hhaProfileRoom')  || ''
+      };
+    } catch (e) {
+      return { name: '', sid: '', grade: '', room: '' };
+    }
+  }
+
+  function shortName(name) {
+    if (!name) return '';
+    if (name.length <= 8) return name;
+    return name.slice(0, 8) + '…';
+  }
+
+  // ---------- Strategy ตาม mode ----------
+  function introForMode(mode, diff) {
+    const m = (mode || '').toLowerCase();
+    const d = (diff || '').toLowerCase();
+    const prof = getProfile();
+    const who = prof.name ? shortName(prof.name) : 'หนู';
+
+    if (m === 'goodjunk') {
+      if (d === 'easy')   return `พร้อมมั้ย ${who}? รอบนี้เก็บของดีให้ทันเวลา หลบขยะให้ได้เยอะที่สุดนะ 🍎🚫🍔`;
+      if (d === 'hard')   return `โหมดฮาร์ดมาแล้ว! ${who} ต้องไวเหมือนสายฟ้า เก็บของดีให้สุด อย่าเผลอดีดโดน junk นะ ⚡`;
+      return `Good vs Junk โหมดปกติ เริ่มจับจังหวะให้ทัน เป้าเยอะขึ้นแต่โค้ชเชื่อว่า ${who} เอาอยู่ 💪`;
+    }
+
+    if (m === 'groups') {
+      if (d === 'easy')   return `วันนี้เราฝึกจำหมู่อาหารกันนะ ${who} ดูให้ดีว่าอาหารชิ้นไหนอยู่หมู่เป้าหมาย แล้วค่อยคลิก 🥦🍚🍎`;
+      if (d === 'hard')   return `โหมดจับหมู่อาหารแบบไว ๆ! เลือกเฉพาะหมู่เป้าหมายให้ถูก ถ้าสงสัย ให้หลบไว้ก่อน 👀`;
+      return `Food Groups โหมดปกติ ลองทดสอบว่าหนูจำหมู่อาหารได้จริงแค่ไหน เลือกให้ตรงหมู่เป้าหมายเลย!`;
+    }
+
+    if (m === 'hydration') {
+      if (d === 'easy')   return `ภารกิจน้ำดีเริ่มแล้ว ${who} เลือกแค่น้ำเปล่า นม ชาไม่หวานนะ น้ำหวานให้หลบไว้ก่อน 💧🥛`;
+      if (d === 'hard')   return `โหมดน้ำดี vs น้ำหวานแบบท้าทาย เลือกให้ไวแต่คิดให้ดีว่าอันไหนหวานเกินไป 🚰🚫🥤`;
+      return `Hydration โหมดปกติ ลองดูว่าเราคัดน้ำดีออกจากน้ำหวานได้แม่นแค่ไหนกันนะ`;
+    }
+
+    if (m === 'plate') {
+      if (d === 'easy')   return `มาจัด “จานสมดุล” กันนะ ${who} เลือกผัก ผลไม้ ข้าว-แป้ง และโปรตีนดีให้โดนใจหมอ 😉`;
+      if (d === 'hard')   return `โหมดจานสมดุลขั้นเทพ เลือกเฉพาะของดีต่อสุขภาพให้ไว ของมัน/หวานให้หลบให้หมด 🍽️`;
+      return `Balanced Plate โหมดปกติ ลองจัดจานที่มีครบทั้งผัก ผลไม้ ข้าว-แป้ง และโปรตีนดีให้สมดุลที่สุด`;
+    }
+
+    return `พร้อมเล่นรอบใหม่แล้ว ลองตั้งสติ หายใจลึก ๆ แล้วไปลุยกันเลย ${who}!`;
+  }
+
+  function commentForAccuracy(mode, diff, accuracy, accTarget) {
+    const acc = accuracy || 0;
+    const band = accTarget && accTarget.band ? accTarget.band : 'within';
+    const prof = getProfile();
+    const who = prof.name ? shortName(prof.name) : 'หนู';
+
+    const accStr = acc.toFixed(1) + '%';
+
+    if (band === 'below') {
+      // ต่ำกว่าเป้า
+      if (acc < 40) {
+        return `${who} ได้ความแม่นยำ ${accStr} ยังต่ำกว่าเป้าที่ครูตั้งไว้อยู่นิดนึง รอบหน้าลองช้าลงอีกนิด ดูให้ชัวร์ก่อนคลิกนะ 👀`;
+      }
+      return `${who} ได้ ${accStr} ต่ำกว่าเป้าไปนิดเดียวเอง รอบหน้าลองโฟกัสให้มากขึ้นอีกนิด โค้ชเชื่อว่าผ่านช่วงเป้าได้แน่ 💪`;
+    }
+    if (band === 'above') {
+      // สูงกว่าเป้า (เก่งมาก)
+      if (acc >= 90) {
+        return `โห เก่งมาก! ความแม่นยำ ${accStr} สูงกว่าเป้าเยอะเลย ${who} อย่าลืมรักษามาตรฐานนี้ไว้ให้ได้อีกหลาย ๆ รอบนะ 🏆`;
+      }
+      return `เยี่ยมเลย ${who}! ความแม่นยำ ${accStr} สูงกว่าเป้าที่ครูตั้งไว้ แปลว่ารอบนี้หนูคุมเกมได้ดีมาก 👍`;
+    }
+    // within
+    return `${who} ได้ความแม่นยำ ${accStr} อยู่ในช่วงเป้าพอดี ถือว่าทำได้ตามมาตรฐานเลย รอบหน้าถ้าอยากท้าทาย ลองเปลี่ยนเป็น diff ที่ยากขึ้นได้นะ 😄`;
+  }
+
+  function commentForSpeed(avgRT) {
+    if (!avgRT || avgRT <= 0) return '';
+    if (avgRT < 450) {
+      return `ความเร็วตอบสนองประมาณ ${avgRT.toFixed(0)} ms ถือว่าไวมาก แต่ระวังอย่าให้ไวเกินจนคลิกผิดนะ ⚡`;
+    }
+    if (avgRT < 800) {
+      return `ความเร็วตอบสนองประมาณ ${avgRT.toFixed(0)} ms กำลังดีเลย เร็วแต่ยังมีเวลาคิด 😉`;
+    }
+    return `ความเร็วตอบสนองประมาณ ${avgRT.toFixed(0)} ms ค่อนข้างช้า ลองฝึกให้กล้าแตะเร็วขึ้นอีกนิดได้เลย ไม่เป็นไร ค่อย ๆ ฝึกไป ❤️`;
+  }
+
+  function commentForQuests(quests) {
+    if (!quests) return '';
+    const list = Array.isArray(quests) ? quests : (quests.list || []);
+    if (!list.length) return '';
+
+    const done = list.filter(q => q && q.done).length;
+    if (done === 0) {
+      return 'รอบนี้ยังไม่ผ่าน Mini Quest เลย ลองอ่านเป้าหมายทีละข้อแล้วค่อย ๆ เก็บให้ครบในรอบต่อไปนะ 🧩';
+    }
+    if (done === list.length) {
+      return `สุดยอด! ผ่าน Mini Quest ครบทุกข้อเลย 🎯`;
+    }
+    return `ผ่าน Mini Quest ไปแล้ว ${done}/${list.length} ข้อ รอบหน้าเราลองเก็บให้ครบทุกภารกิจกันดูไหม? 🎯`;
+  }
+
+  function combineMessages(parts) {
+    return parts.filter(Boolean).join(' ');
+  }
+
+  // ---------- Public API ----------
   const Coach = {
-    elRoot: null,
-    elText: null,
-    elMood: null,
-
-    mood: 'normal',      // normal | excited | warning | fever | result
-    lastLineAt: 0,
-    cooldownMs: 900,     // กันพูดรัวเกินไป
-    feverCount: 0,
-    missJunk: 0,
-    goodHits: 0,
-    questCompleted: 0,
-
-    // — สร้าง DOM —
-    ensureDom() {
-      if (this.elRoot) return;
-
-      const wrap = document.createElement('div');
-      wrap.id = 'hha-coach';
-      Object.assign(wrap.style, {
-        position: 'fixed',
-        left: '12px',
-        bottom: '12px',
-        zIndex: '9150',
-        display: 'flex',
-        alignItems: 'flex-end',
-        gap: '8px',
-        pointerEvents: 'none',
-        fontFamily: 'system-ui,Segoe UI,Inter,Roboto,sans-serif'
-      });
-
-      const avatar = document.createElement('div');
-      Object.assign(avatar.style, {
-        width: '52px',
-        height: '52px',
-        borderRadius: '999px',
-        background: 'radial-gradient(circle at 30% 20%, #38bdf8, #1d4ed8)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: '0 10px 25px rgba(15,23,42,0.9)',
-        border: '2px solid rgba(148,163,184,0.95)',
-        transform: 'translateY(0)',
-        transition: 'transform 0.16s ease'
-      });
-      avatar.textContent = '🧑‍🏫';
-
-      const bubble = document.createElement('div');
-      Object.assign(bubble.style, {
-        maxWidth: '220px',
-        padding: '8px 10px',
-        borderRadius: '14px',
-        background: 'rgba(15,23,42,0.95)',
-        border: '1px solid rgba(148,163,184,0.9)',
-        color: '#e5e7eb',
-        fontSize: '11px',
-        lineHeight: '1.4',
-        boxShadow: '0 12px 30px rgba(15,23,42,0.9)',
-        pointerEvents: 'auto'
-      });
-
-      const moodEl = document.createElement('div');
-      Object.assign(moodEl.style, {
-        fontSize: '11px',
-        opacity: '0.9',
-        marginBottom: '2px',
-        color: '#bfdbfe'
-      });
-      moodEl.textContent = 'โค้ชพร้อมสอน 💬';
-
-      const textEl = document.createElement('div');
-      textEl.textContent = 'พร้อมลุยไปด้วยกันเลย!';
-
-      bubble.appendChild(moodEl);
-      bubble.appendChild(textEl);
-
-      wrap.appendChild(avatar);
-      wrap.appendChild(bubble);
-
-      document.body.appendChild(wrap);
-
-      this.elRoot = wrap;
-      this.elText = textEl;
-      this.elMood = moodEl;
-      this.elAvatar = avatar;
-    },
-
-    setMood(mood) {
-      this.mood = mood;
-      if (!this.elMood || !this.elAvatar) return;
-
-      if (mood === 'normal') {
-        this.elMood.textContent = 'โค้ชโหมดปกติ 💬';
-        this.elAvatar.style.transform = 'translateY(0)';
-        this.elAvatar.style.background =
-          'radial-gradient(circle at 30% 20%, #38bdf8, #1d4ed8)';
-      } else if (mood === 'excited') {
-        this.elMood.textContent = 'โค้ชกำลังลุย! ⚡';
-        this.elAvatar.style.transform = 'translateY(-2px)';
-        this.elAvatar.style.background =
-          'radial-gradient(circle at 30% 20%, #22c55e, #15803d)';
-      } else if (mood === 'warning') {
-        this.elMood.textContent = 'โค้ชเตือนนิดนึงนะ ⚠️';
-        this.elAvatar.style.transform = 'translateY(0)';
-        this.elAvatar.style.background =
-          'radial-gradient(circle at 30% 20%, #fb923c, #b91c1c)';
-      } else if (mood === 'fever') {
-        this.elMood.textContent = 'โหมด FEVER!! 🔥';
-        this.elAvatar.style.transform = 'translateY(-3px)';
-        this.elAvatar.style.background =
-          'radial-gradient(circle at 30% 20%, #fb923c, #f97316)';
-      } else if (mood === 'result') {
-        this.elMood.textContent = 'สรุปรอบนี้ 📊';
-        this.elAvatar.style.transform = 'translateY(0)';
-        this.elAvatar.style.background =
-          'radial-gradient(circle at 30% 20%, #a855f7, #6d28d9)';
+    /**
+     * main.js อาจเรียกตอนเริ่มรอบใหม่
+     * ctx: { mode, diff, duration, profile?, sessionInfo? }
+     */
+    onRoundStart: function (ctx) {
+      try {
+        const mode = ctx && ctx.mode;
+        const diff = ctx && ctx.diff;
+        setModeTag(mode, diff);
+        const msg = introForMode(mode, diff);
+        say(msg, 5);
+      } catch (e) {
+        // เงียบไว้
       }
     },
 
-    canSpeak(force) {
-      if (force) return true;
-      const now = performance.now();
-      return (now - this.lastLineAt) >= this.cooldownMs;
-    },
+    /**
+     * main.js เรียกตอนจบรอบ
+     * summary: {
+     *   mode, diff, score, maxCombo, missionGoodCount, missionTarget,
+     *   accuracy, avgRT, quests, boss: {spawned, defeated},
+     *   accTarget: {min, max, band}
+     * }
+     */
+    onRoundEnd: function (summary) {
+      try {
+        const mode = summary && summary.mode;
+        const diff = summary && summary.diff;
+        const accuracy = summary && typeof summary.accuracy === 'number'
+          ? summary.accuracy : 0;
+        const avgRT = summary && typeof summary.avgRT === 'number'
+          ? summary.avgRT : 0;
+        const accTarget = summary && summary.accTarget;
+        const quests = summary && summary.quests;
+        const boss = summary && summary.boss;
 
-    speak(line, mood, force) {
-      this.ensureDom();
-      if (!this.canSpeak(force)) return;
+        setModeTag(mode, diff);
 
-      this.lastLineAt = performance.now();
-      if (line && this.elText) {
-        this.elText.textContent = line;
-      }
-      if (mood) this.setMood(mood);
+        const mAcc = commentForAccuracy(mode, diff, accuracy, accTarget);
+        const mRT  = commentForSpeed(avgRT);
+        const mQ   = commentForQuests(quests);
 
-      // bounce เล็กน้อยเวลาเปลี่ยนประโยค
-      if (this.elRoot) {
-        this.elRoot.style.transform = 'translateY(-2px)';
-        setTimeout(() => {
-          if (this.elRoot) this.elRoot.style.transform = 'translateY(0)';
-        }, 140);
-      }
-    },
-
-    // ==================== public APIs ====================
-
-    init(context) {
-      this.ensureDom();
-      this.mood = 'normal';
-      this.lastLineAt = 0;
-      this.feverCount = 0;
-      this.missJunk = 0;
-      this.goodHits = 0;
-      this.questCompleted = 0;
-
-      const mode = context && context.modeLabel ? context.modeLabel : 'Mini Game';
-      const diff = context && context.diffLabel ? context.diffLabel : '';
-      const player = context && context.playerName ? context.playerName : 'น้อง';
-
-      const line = randOf([
-        `วันนี้มาเล่นโหมด ${mode} กัน!`,
-        `พร้อมลุยโหมด ${mode} ระดับ ${diff} แล้วใช่มั้ย?`,
-        `${player} มาแล้ว~ โค้ชช่วยเต็มที่เลย 😄`
-      ]);
-      this.speak(line, 'normal', true);
-    },
-
-    onGameStart(ctx) {
-      const player = ctx && ctx.playerName ? ctx.playerName : 'น้อง';
-      const line = randOf([
-        `เริ่มแล้ว! ลองดูรอบนี้ ${player} เก่งขึ้นแค่ไหน 🔥`,
-        `พร้อมแล้วลุยเลย! กดของดีให้ทันนะ 💪`,
-        `โค้ชเชียร์อยู่ตรงนี้นะ สู้ ๆ! ✨`
-      ]);
-      this.speak(line, 'normal', true);
-    },
-
-    onHit(ctx) {
-      // ctx: { type, isGood, isJunk, isPower, combo, score, feverActive, diff, mode }
-      if (!ctx) return;
-
-      if (ctx.isGood) {
-        this.goodHits++;
-        // เน้นตอนคอมโบสูง ๆ
-        if (ctx.combo >= 10 && this.canSpeak(false)) {
-          const line = randOf([
-            `คอมโบ ${ctx.combo} แล้ววว! สุดยอด 🔥`,
-            `อย่าหยุดนะ คอมโบกำลังมา! ⚡`,
-            `ยิงต่อเนื่องแบบนี้ โค้ชปลื้มมาก 😍`
-          ]);
-          this.speak(line, ctx.feverActive ? 'fever' : 'excited', false);
-          return;
+        let mBoss = '';
+        if (boss && boss.spawned) {
+          if (boss.defeated) {
+            mBoss = 'และยังจัดการ Boss ได้สำเร็จอีกด้วย เก่งมาก! 👾🎉';
+          } else {
+            mBoss = 'รอบนี้ Boss ยังไม่ยอมล้ม รอบหน้าเรามาลองโฟกัส Boss ให้มากขึ้นอีกนิดนะ 👾💪';
+          }
         }
 
-        if (this.canSpeak(false)) {
-          const line = randOf([
-            `ดีมาก~ ของดีทั้งนั้นเลย ✅`,
-            `เก่งมาก เลือกได้ตรงเป้าสุด ๆ 👏`,
-            `แบบนี้แหละ สายสุขภาพตัวจริง 💚`
-          ]);
-          this.speak(line, ctx.feverActive ? 'fever' : 'normal', false);
+        const finalText = combineMessages([mAcc, mRT, mQ, mBoss]);
+        say(finalText || 'จบรอบนี้ได้ดีมาก ลองดูผลคะแนนแล้วเลือกว่าจะฝึกรอบถัดไปแบบไหนต่อเลยนะ 😊', 8);
+      } catch (e) {
+        // ถ้าอะไรพังก็ไม่ต้องทำอะไรเพิ่มเติม
+      }
+    },
+
+    /**
+     * main.js อาจเรียกเมื่อ Fever เปิด/ปิด
+     */
+    onFeverChange: function (isOn) {
+      try {
+        if (isOn) {
+          say('FEVER TIME!! เก็บคอมโบให้สุด อย่าให้หลุดแม้แต่ชิ้นเดียว 🔥', 3.5);
         }
-      } else if (ctx.isJunk) {
-        this.missJunk++;
-        if (!this.canSpeak(false)) return;
-
-        const line = randOf([
-          `โอ๊ะ~ อันนั้นไม่ค่อยดีเท่าไหร่นะ ⚠️`,
-          `ระวังของล่อนิดนึงน้า 😅`,
-          `ไม่เป็นไร รอบหน้าเลือกให้เป๊ะกว่านี้ได้ ✨`
-        ]);
-        this.speak(line, 'warning', false);
-      } else if (ctx.isPower) {
-        if (!this.canSpeak(false)) return;
-        const line = randOf([
-          `ได้พาวเวอร์อัปแล้ว! ใช้ให้คุ้มนะ 💫`,
-          `เก็บบัฟเยอะ ๆ แล้วคอมโบจะพุ่งแรงเลย 😎`
-        ]);
-        this.speak(line, ctx.feverActive ? 'fever' : 'excited', false);
-      }
+      } catch (e) {}
     },
 
-    onFeverStart(ctx) {
-      this.feverCount++;
-      const line = randOf([
-        `FEVER MODE!! ยิงคะแนนให้สุดเลย 🔥🔥`,
-        `ตอนนี้ x2 คะแนนอยู่ รีบโกยให้เต็มที่! ⚡`,
-        `โหมดไฟลุกแล้วว! กดรัว ๆ ได้เลย 😆`
-      ]);
-      this.speak(line, 'fever', true);
-    },
-
-    onFeverEnd(ctx) {
-      if (!this.canSpeak(false)) return;
-      const line = randOf([
-        `หมด FEVER แล้ว~ พักหายใจนิดนึง 😌`,
-        `ดีมาก รอบนี้เก็บคะแนนช่วง FEVER ได้เยอะเลย!`,
-        `รอบหน้าเข้าครั้งหน้า เอาให้คุ้มกว่าเดิมอีกนะ 💪`
-      ]);
-      this.speak(line, 'normal', false);
-    },
-
-    onQuestComplete(q) {
-      this.questCompleted++;
-      if (!this.canSpeak(true)) return;
-      const label = q && q.label ? q.label : 'เควสต์';
-      const line = randOf([
-        `เควสต์ "${label}" ผ่านแล้ว! สุดยอดเลย 🎉`,
-        `เยี่ยมมาก เควสต์สำเร็จไปอีกหนึ่งด่าน ✨`,
-        `เห็นมั้ย วางแผนดี ๆ เควสต์ก็ผ่านสบาย 😎`
-      ]);
-      this.speak(line, 'excited', true);
-    },
-
-    onMissionEnd(ctx) {
-      // ctx: { success, score, goodCount, combo, modeLabel, diffLabel }
-      this.setMood('result');
-
-      const s = (ctx && ctx.score) || 0;
-      const g = (ctx && ctx.goodCount) || 0;
-      const combo = (ctx && ctx.combo) || 0;
-      const success = !!(ctx && ctx.success);
-      const modeLabel = (ctx && ctx.modeLabel) || 'โหมดนี้';
-
-      let line;
-      if (success) {
-        line = randOf([
-          `ภารกิจใน ${modeLabel} ผ่านแล้ว! เก่งมาก 🎉`,
-          `ยอดเยี่ยม! คะแนนรวม ${s} คอมโบสูงสุด ${combo} เลย 👏`,
-          `โค้ชภูมิใจมาก รอบนี้ทำได้ดีสุด ๆ ✨`
-        ]);
-      } else {
-        line = randOf([
-          `เกือบแล้ว อีกนิดเดียวเอง 👍`,
-          `ไม่เป็นไร รอบหน้า ${modeLabel} ต้องผ่านแน่นอน!`,
-          `รอบนี้ได้ ${s} คะแนน ลองสังเกตจังหวะแล้วกลับมาแก้เกมกัน 😉`
-        ]);
-      }
-      this.speak(line, 'result', true);
+    /**
+     * main.js หรือระบบอื่น ๆ สามารถใช้เรียกพูดเฉพาะกิจได้
+     */
+    speak: function (text, durationSec) {
+      say(text, durationSec);
     }
   };
 
-  // export
   window.HH_COACH = Coach;
 })();
