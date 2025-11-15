@@ -1,220 +1,213 @@
-// === Hero Health — Hub (3D cards + profile + ready-check) ===
+// === Hero Health — hub.js (3D Hub + Profile + Preview) ===
+// หน้าที่:
+// - เลือกโหมด (4 โหมดพร้อมใช้งาน)
+// - ตั้ง diff / time
+// - จัดการโปรไฟล์เด็ก (sessionStorage)
+// - preview ข้อความโหมด
+// - redirect ไป index.vr.html?mode=…&diff=…&time=…
+
 'use strict';
 
-const MODES = {
-  goodjunk: {
-    id: 'goodjunk',
-    label: 'Good vs Junk',
-    desc: 'คลิกของดี หลบของขยะ เก็บคอมโบให้ได้สูงสุด',
-    ready: true
-  },
-  groups: {
-    id: 'groups',
-    label: 'Food Groups',
-    desc: 'เลือกอาหารให้ตรงหมู่เป้าหมายในรอบนั้น ๆ',
-    ready: true
-  },
-  hydration: {
-    id: 'hydration',
-    label: 'Hydration',
-    desc: 'เลือกเครื่องดื่มที่ดีต่อสุขภาพ เลี่ยงน้ำหวานจัด',
-    ready: true          // ⬅️ เดิมน่าจะ false ตรงนี้
-  },
-  plate: {
-    id: 'plate',
-    label: 'Balanced Plate',
-    desc: 'เลือกอาหารให้เหมาะกับจานสมดุล ผัก/ข้าว/โปรตีนดี',
-    ready: true          // ⬅️ เดิมน่าจะ false ตรงนี้
-  }
-};
+(function () {
+  const MODES = ['goodjunk', 'groups', 'hydration', 'plate'];
+  let currentMode = 'goodjunk';
 
-let currentMode = 'goodjunk';
-let currentDiff = 'normal';
-let currentTime = 60;
+  function $(sel) { return document.querySelector(sel); }
+  function $all(sel) { return document.querySelectorAll(sel); }
 
-function $ (sel) { return document.querySelector(sel); }
-function $$ (sel) { return document.querySelectorAll(sel); }
-
-// ---------- Toast ----------
-let toastTimer = null;
-function showToast(msg) {
-  let el = $('#hh-hub-toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'hh-hub-toast';
-    Object.assign(el.style, {
-      position: 'fixed',
-      bottom: '20px',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      padding: '8px 16px',
-      borderRadius: '999px',
-      background: 'rgba(15,23,42,0.96)',
-      color: '#e5e7eb',
-      fontSize: '12px',
-      border: '1px solid rgba(56,189,248,0.9)',
-      boxShadow: '0 12px 30px rgba(0,0,0,0.6)',
-      zIndex: '9999',
-      opacity: '0',
-      transition: 'opacity 150ms ease'
-    });
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.style.opacity = '1';
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    el.style.opacity = '0';
-  }, 2000);
-}
-
-// ---------- Mode cards ----------
-function selectMode(id) {
-  if (!MODES[id]) return;
-  currentMode = id;
-
-  $$('#modeRow .card, #modeRow .mode-card').forEach(card => {
-    card.classList.remove('active');
-  });
-
-  const card = document.querySelector(
-    '#modeRow [data-mode="' + id + '"]'
-  );
-  if (card) card.classList.add('active');
-
-  const meta = MODES[id];
-  const subtitle = $('#hub-mode-subtitle');
-  if (subtitle && meta) {
-    subtitle.textContent = meta.desc || '';
-  }
-}
-
-function initModeCards() {
-  const cards = $$('#modeRow [data-mode]');
-  if (!cards.length) return;
-
-  cards.forEach(card => {
-    const id = card.getAttribute('data-mode');
-    card.addEventListener('click', () => {
-      const meta = MODES[id];
-      if (!meta) return;
-
-      if (!meta.ready) {
-        showToast('โหมดนี้ยังไม่พร้อมใช้งาน');
-        return;
+  function playClick() {
+    try {
+      const el = $('#hubClickSfx');
+      if (el) {
+        el.currentTime = 0;
+        el.play().catch(function () {});
       }
-      selectMode(id);
-
-      // เอฟเฟกต์เด้งนิด ๆ
-      card.style.transform = 'translateY(-4px) scale(1.02)';
-      card.style.transition = 'transform 120ms ease';
-      setTimeout(() => {
-        card.style.transform = '';
-      }, 130);
-    });
-  });
-
-  // default
-  selectMode(currentMode);
-}
-
-// ---------- Difficulty & Time ----------
-function clampTime(sec) {
-  let n = parseInt(sec, 10);
-  if (isNaN(n)) n = 60;
-  if (n < 20) n = 20;
-  if (n > 180) n = 180;
-  return n;
-}
-
-function initControls() {
-  const diffSel = $('#selDiff');
-  const timeInp = $('#inpTime');
-
-  if (diffSel) {
-    diffSel.addEventListener('change', () => {
-      currentDiff = diffSel.value || 'normal';
-    });
-    currentDiff = diffSel.value || 'normal';
+    } catch (e) {}
   }
 
-  if (timeInp) {
-    timeInp.addEventListener('change', () => {
-      const t = clampTime(timeInp.value);
-      timeInp.value = String(t);
-      currentTime = t;
-    });
-    const t = clampTime(timeInp.value || 60);
-    timeInp.value = String(t);
-    currentTime = t;
+  // ---------- Profile handling ----------
+  function loadProfile() {
+    try {
+      const name  = sessionStorage.getItem('hhaProfileName')  || '';
+      const sid   = sessionStorage.getItem('hhaProfileId')    || '';
+      const grade = sessionStorage.getItem('hhaProfileGrade') || '';
+
+      const nameInp  = $('#profileName');
+      const idInp    = $('#profileId');
+      const gradeInp = $('#profileGrade');
+
+      if (nameInp)  nameInp.value  = name;
+      if (idInp)    idInp.value    = sid;
+      if (gradeInp) gradeInp.value = grade;
+
+      const hint = $('#profileHint');
+      if (hint) {
+        if (name) {
+          hint.textContent = 'โหลดโปรไฟล์ของ "' + name + '" จากรอบก่อนแล้ว';
+        } else {
+          hint.textContent = 'กรอกอย่างน้อยชื่อเล่น เพื่อให้ไฟล์วิจัยระบุตัวผู้เล่นได้';
+        }
+      }
+    } catch (e) {
+      // เงียบไว้
+    }
   }
-}
 
-// ---------- Profile (optional, ไม่บังคับ) ----------
-function readProfile() {
-  const nameEl = $('#studentName');
-  const gradeEl = $('#studentGrade');
-  const idEl = $('#studentId');
-  return {
-    name: nameEl ? (nameEl.value || '').trim() : '',
-    grade: gradeEl ? (gradeEl.value || '').trim() : '',
-    sid: idEl ? (idEl.value || '').trim() : ''
-  };
-}
+  function saveProfile() {
+    const name  = $('#profileName')  ? $('#profileName').value.trim()  : '';
+    const sid   = $('#profileId')    ? $('#profileId').value.trim()    : '';
+    const grade = $('#profileGrade') ? $('#profileGrade').value.trim() : '';
 
-// ---------- Start button ----------
-function initStartButton() {
-  const btn = $('#btnStart');
-  if (!btn) return;
+    try {
+      sessionStorage.setItem('hhaProfileName',  name);
+      sessionStorage.setItem('hhaProfileId',    sid);
+      sessionStorage.setItem('hhaProfileGrade', grade);
+      // room เผื่อใช้ในอนาคต
+      sessionStorage.setItem('hhaProfileRoom',  grade);
 
-  btn.addEventListener('click', () => {
-    const meta = MODES[currentMode];
-    if (!meta || !meta.ready) {
-      showToast('โหมดนี้ยังไม่พร้อมใช้งาน');
+      const hint = $('#profileHint');
+      if (hint) {
+        hint.textContent = name
+          ? 'บันทึกโปรไฟล์ของ "' + name + '" เรียบร้อยแล้ว'
+          : 'บันทึกโปรไฟล์ว่างเรียบร้อยแล้ว';
+      }
+    } catch (e) {
+      console.warn('[HERO-HUB] saveProfile error', e);
+    }
+  }
+
+  function initProfile() {
+    loadProfile();
+    const btn = $('#btnSaveProfile');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        saveProfile();
+        playClick();
+      });
+    }
+  }
+
+  // ---------- Mode cards + preview ----------
+  function selectMode(modeId) {
+    if (!MODES.includes(modeId)) return;
+    currentMode = modeId;
+
+    $all('.mode-card').forEach(function (card) {
+      card.classList.remove('active');
+    });
+    const card = document.querySelector('.mode-card[data-mode="' + modeId + '"]');
+    if (card) {
+      card.classList.add('active');
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+
+    updatePreviewText(modeId);
+    playClick();
+  }
+
+  function updatePreviewText(modeId) {
+    const panel = $('#modePreviewPanel');
+    const textEl = $('#modePreviewText');
+    if (!panel || !textEl) return;
+
+    let text = '';
+    if (modeId === 'goodjunk') {
+      text = 'Good vs Junk: คลิกของดี เช่น ผัก ผลไม้ นม ปลาดี ๆ แล้วหลบอาหารขยะ ฝึก reflex และการตัดสินใจภายในเวลาจำกัด.';
+    } else if (modeId === 'groups') {
+      text = 'Food Groups: ระบบจะสุ่มหมู่อาหารเป้าหมาย 1 หมู่ ให้เลือกเฉพาะอาหารในหมู่ที่กำหนด เหมาะสำหรับฝึกจำหมู่อาหาร 5 หมู่.';
+    } else if (modeId === 'hydration') {
+      text = 'Hydration: แยกน้ำดี (น้ำเปล่า นม ชาไม่หวาน) ออกจากเครื่องดื่มหวาน เพื่อลดการบริโภคน้ำตาลเกินจำเป็น ฝึก conceptual decision.';
+    } else if (modeId === 'plate') {
+      text = 'Balanced Plate: เลือกเฉพาะอาหารที่ทำให้จานสมดุล มีผัก ผลไม้ ข้าว-แป้ง และโปรตีนดีในสัดส่วนที่เหมาะสม เหมาะสำหรับสอนหลักโภชนาการ.';
+    } else {
+      text = 'เลือกโหมดด้านบนเพื่อดูคำอธิบายแบบย่อ และตั้งค่าการเล่นรอบนี้.';
+    }
+
+    textEl.textContent = text;
+
+    // เปลี่ยน emoji preview ให้ไม่ซ้ำ (เล็ก ๆ น้อย ๆ)
+    const iconEl = document.querySelector('.preview-icon[data-preview="' + modeId + '"]');
+    if (iconEl) {
+      const pool = {
+        goodjunk: ['🍎','🍓','🥦','🍟','🍔','🧁'],
+        groups: ['🍚','🥦','🍎','🍗','🥛'],
+        hydration: ['💧','🚰','🥤','🧋'],
+        plate: ['🥦','🍇','🍚','🍗','🍽️']
+      }[modeId] || ['✨'];
+      iconEl.textContent = pool[Math.floor(Math.random() * pool.length)];
+    }
+  }
+
+  function initModeCards() {
+    const cards = $all('.mode-card[data-mode]');
+    if (!cards.length) return;
+
+    cards.forEach(function (card) {
+      const modeId = card.getAttribute('data-mode');
+      card.addEventListener('click', function () {
+        selectMode(modeId);
+      });
+    });
+
+    selectMode(currentMode);
+  }
+
+  // ---------- Time + diff helpers ----------
+  function clampTime(sec) {
+    let n = parseInt(sec, 10);
+    if (isNaN(n)) n = 60;
+    if (n < 20) n = 20;
+    if (n > 180) n = 180;
+    return n;
+  }
+
+  // ---------- Start button ----------
+  function onStartClick() {
+    const nameInp = $('#profileName');
+    const diffSel = $('#selDiff');
+    const timeInp = $('#inpTime');
+
+    const name = nameInp ? nameInp.value.trim() : '';
+    if (!name) {
+      alert('กรุณากรอกชื่อเล่น/ชื่อจริงของผู้เล่นอย่างน้อย 1 ช่อง ก่อนเริ่มเกม');
+      if (nameInp) nameInp.focus();
       return;
     }
 
-    const diffSel = $('#selDiff');
-    const timeInp = $('#inpTime');
-    const diff = diffSel ? (diffSel.value || currentDiff) : currentDiff;
-    const t = clampTime(timeInp ? timeInp.value : currentTime);
+    saveProfile();
 
-    if (timeInp) timeInp.value = String(t);
-    currentDiff = diff;
-    currentTime = t;
-
-    // เก็บ profile ไว้ใน sessionStorage ให้ main.js ใช้บันทึก CSV
-    const profile = readProfile();
-    try {
-      sessionStorage.setItem(
-        'hha_profile',
-        JSON.stringify(profile)
-      );
-    } catch (e) {
-      console.warn('[HHA HUB] cannot store profile', e);
-    }
+    const diff = diffSel ? (diffSel.value || 'normal') : 'normal';
+    const time = clampTime(timeInp ? timeInp.value : 60);
+    if (timeInp) timeInp.value = String(time);
 
     const params = new URLSearchParams();
     params.set('mode', currentMode);
     params.set('diff', diff);
-    params.set('time', String(t));
+    params.set('time', String(time));
 
     const url = './index.vr.html?' + params.toString();
-    console.log('[HHA HUB] go play:', url);
+    console.log('[HERO-HUB] redirect to', url);
+    playClick();
     window.location.href = url;
-  });
-}
+  }
 
-// ---------- Bootstrap ----------
-function bootstrap() {
-  initModeCards();
-  initControls();
-  initStartButton();
-  console.log('[HHA HUB] ready. modes =', Object.keys(MODES));
-}
+  function initStartButton() {
+    const btn = $('#btnStart');
+    if (!btn) return;
+    btn.addEventListener('click', onStartClick);
+  }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', bootstrap);
-} else {
-  bootstrap();
-}
+  // ---------- Bootstrap ----------
+  function bootstrap() {
+    initProfile();
+    initModeCards();
+    initStartButton();
+    console.log('[HERO-HUB] ready, default mode =', currentMode);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap);
+  } else {
+    bootstrap();
+  }
+})();
