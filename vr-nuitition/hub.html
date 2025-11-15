@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Hero Health — Hub</title>
+  <meta name="color-scheme" content="light dark"/>
+
+  <style>
+    :root{
+      color-scheme: light dark;
+    }
+    body{
+      margin:0;
+      background:
+        radial-gradient(circle at top, rgba(56,189,248,0.15), transparent 55%),
+        radial-gradient(circle at bottom, rgba(34,197,94,0.15), transparent 55%),
+        #020617;
+      color:#e5e7eb;
+      font-family:system-ui, Segoe UI, Inter, Roboto, sans-serif;
+      padding-bottom:40px;
+    }
+
+    .wrap{
+      max-width:960px;
+      margin:0 auto;
+      padding:24px 16px 80px;
+    }
+
+    h1{
+      margin-top:10px;
+      font-size:26px;
+      text-align:center;
+    }
+
+    .subtitle{
+      text-align:center;
+      margin-top:6px;
+      color:#cbd5f5;
+      font-size:14px;
+      margin-bottom:20px;
+    }
+
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      justify-content:center;
+      margin-bottom:20px;
+    }
+
+    .card{
+      flex:1 1 220px;
+      max-width:260px;
+      background:rgba(15,23,42,0.92);
+      border:1px solid rgba(51,65,85,0.9);
+      border-radius:16px;
+      padding:16px;
+      cursor:pointer;
+      transition:0.2s ease;
+      position:relative;
+    }
+
+    .card.ready:hover{
+      transform:translateY(-2px);
+      border-color:#38bdf8;
+    }
+
+    .card.active{
+      outline:2px solid #38bdf8;
+    }
+
+    .card h3{
+      margin:0 0 4px;
+      font-size:18px;
+    }
+
+    .muted{
+      color:#9ca3af;
+      font-size:12px;
+    }
+
+    .badge-warn{
+      position:absolute;
+      top:10px;
+      right:10px;
+      background:#b91c1c;
+      color:white;
+      padding:2px 6px;
+      font-size:10px;
+      border-radius:999px;
+    }
+
+    label{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      color:#cbd5f5;
+      font-size:14px;
+    }
+
+    select,input{
+      background:#0b1220;
+      border:1px solid rgba(51,65,85,0.9);
+      color:#e5e7eb;
+      padding:10px 12px;
+      border-radius:12px;
+      font-size:14px;
+    }
+
+    button{
+      background:linear-gradient(135deg,#38bdf8,#2563eb);
+      border:0;
+      padding:12px 20px;
+      border-radius:12px;
+      font-weight:700;
+      color:white;
+      cursor:pointer;
+      font-size:15px;
+      display:block;
+      width:100%;
+      max-width:260px;
+      margin:20px auto 0;
+    }
+
+    button:hover{
+      opacity:0.95;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🎮 Hero Health — Multi Game Hub</h1>
+    <div class="subtitle">เลือกโหมดเกม, ระดับความยาก และเวลาในการเล่น</div>
+
+    <!-- โหมดเกม -->
+    <h2 style="font-size:18px;margin-bottom:10px;">โหมดเกม</h2>
+    <div id="modeRow" class="row">
+
+      <div class="card ready" data-mode="goodjunk" data-ready="1">
+        <h3>🥦 Good vs Junk</h3>
+        <div class="muted">คลิกของดี หลีกขยะ</div>
+      </div>
+
+      <div class="card ready" data-mode="groups" data-ready="1">
+        <h3>🍱 Food Groups</h3>
+        <div class="muted">เลือกอาหารตรงหมู่ที่กำหนด</div>
+      </div>
+
+      <div class="card" data-mode="hydration" data-ready="0">
+        <span class="badge-warn">เร็ว ๆ นี้</span>
+        <h3>💧 Hydration</h3>
+        <div class="muted">สมดุลน้ำดื่ม (กำลังพัฒนา)</div>
+      </div>
+
+      <div class="card" data-mode="plate" data-ready="0">
+        <span class="badge-warn">เร็ว ๆ นี้</span>
+        <h3>🍽 Balanced Plate</h3>
+        <div class="muted">จัดจานอาหาร (กำลังพัฒนา)</div>
+      </div>
+
+    </div>
+
+    <!-- ตัวเลือก -->
+    <div class="row" style="justify-content:flex-start;gap:18px;margin-top:10px;">
+      <label>
+        ระดับความยาก
+        <select id="selDiff">
+          <option value="easy">ง่าย</option>
+          <option value="normal" selected>ปกติ</option>
+          <option value="hard">ยาก</option>
+        </select>
+      </label>
+
+      <label>
+        เวลา (วินาที)
+        <input id="inpTime" type="number" min="20" max="180" step="5" value="60"/>
+      </label>
+    </div>
+
+    <button id="btnStart">เริ่มเกม</button>
+
+  </div>
+
+  <script src="./hub.js"></script>
+</body>
+</html>
