@@ -1,10 +1,10 @@
-// === Hero Health — game/main.js (Research + Fun Pack) ===
-// DOM Good vs Junk — Power-up + Rank + Research Logging + Boss + Rainbow
+// === Hero Health — game/main.js (Research + Fun + Deployment Pack) ===
+// DOM Good vs Junk — Power-up + Rank + Research Logging + Boss + Rainbow + Pause
 
 'use strict';
 
 // ---------- Version & Research Config ----------
-const GAME_VERSION = 'HHA-GoodJunk-ResearchPack-v1.1.0';
+const GAME_VERSION = 'HHA-GoodJunk-ResearchPack-v1.2.0';
 
 // ถ้าอยากส่งข้อมูลเข้า Google Sheet ให้ใส่ URL ของ Apps Script / Webhook ตรงนี้
 // ถ้ายังไม่ตั้งค่า หรือปล่อยว่างไว้ ระบบจะไม่ส่ง (ไม่ error)
@@ -128,6 +128,7 @@ let combo = 0;
 let maxCombo = 0;
 let timeLeft = GAME_DURATION;
 let running = false;
+let paused = false;
 let spawnTimer = null;
 let tickTimer = null;
 
@@ -331,15 +332,15 @@ function buildEventsCSV() {
 
 function downloadBlobCSV(csv, filename) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
+  const u = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = u;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   setTimeout(function() {
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(u);
   }, 0);
 }
 
@@ -563,6 +564,20 @@ function showToast(msg, kind) {
   }, 900);
 }
 
+// ---------- Global Error Guard ----------
+window.addEventListener('error', function (e) {
+  try {
+    console.error('[HHA] runtime error', e.error || e.message || e);
+    showToast('มีบางอย่างผิดพลาดเล็กน้อย แต่ยังเล่นต่อได้ 😊', 'bad');
+  } catch (_) {}
+});
+
+window.addEventListener('unhandledrejection', function (e) {
+  try {
+    console.error('[HHA] unhandled promise', e.reason);
+  } catch (_) {}
+});
+
 // ---------- CSS global + responsive HUD ----------
 function ensureGameCSS() {
   if (document.getElementById('hha-game-css')) return;
@@ -705,8 +720,54 @@ function createHUD() {
         </div>
 
         <div id="hha-level-row"
-             style="font-size:11px;color:#e5e7eb;opacity:0.9;">
-          เวอร์ชันวิจัย: <span>${GAME_VERSION}</span>
+             style="
+               font-size:11px;
+               color:#e5e7eb;
+               opacity:0.9;
+               display:flex;
+               flex-wrap:wrap;
+               gap:6px;
+               align-items:center;
+             ">
+          <span>เวอร์ชันวิจัย: <span>${GAME_VERSION}</span></span>
+          <button id="hha-pause-btn"
+            style="
+              border-radius:999px;
+              border:0;
+              padding:2px 10px;
+              font-size:11px;
+              cursor:pointer;
+              background:rgba(30,64,175,0.9);
+              color:#e5e7eb;
+            ">
+            หยุดพัก ⏸️
+          </button>
+          <button id="hha-resume-btn"
+            style="
+              border-radius:999px;
+              border:0;
+              padding:2px 10px;
+              font-size:11px;
+              cursor:pointer;
+              background:rgba(22,163,74,0.95);
+              color:#f9fafb;
+              display:none;
+            ">
+            เล่นต่อ ▶️
+          </button>
+          <a id="hha-back-hub"
+            href="./hub.html"
+            style="
+              margin-left:auto;
+              text-decoration:none;
+              padding:2px 10px;
+              border-radius:999px;
+              border:1px solid rgba(148,163,184,0.9);
+              color:#bfdbfe;
+              font-size:11px;
+            ">
+            กลับ Hub
+          </a>
         </div>
       </div>
     </div>
@@ -846,6 +907,60 @@ function updateHUD() {
   if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
 }
 
+function updatePauseButtons() {
+  const p = $('#hha-pause-btn');
+  const r = $('#hha-resume-btn');
+  if (!p || !r) return;
+
+  if (!running) {
+    p.style.display = 'none';
+    r.style.display = 'none';
+  } else if (paused) {
+    p.style.display = 'none';
+    r.style.display = 'inline-block';
+  } else {
+    p.style.display = 'inline-block';
+    r.style.display = 'none';
+  }
+}
+
+function pauseGame(reason) {
+  if (!running || paused) return;
+  paused = true;
+  setFeverOverlay(false);
+
+  showToast(
+    reason === 'blur'
+      ? 'หยุดพักอัตโนมัติ (สลับหน้าจอ) ⏸️'
+      : 'หยุดพักเกมชั่วคราว ⏸️',
+    'good'
+  );
+
+  logEvent('game_pause', {
+    reason: reason || 'manual',
+    timeLeft: timeLeft,
+    score: score,
+    combo: combo
+  });
+
+  updatePauseButtons();
+}
+
+function resumeGame() {
+  if (!running || !paused) return;
+  paused = false;
+
+  showToast('เล่นต่อ! ▶️', 'good');
+
+  logEvent('game_resume', {
+    timeLeft: timeLeft,
+    score: score,
+    combo: combo
+  });
+
+  updatePauseButtons();
+}
+
 // ---------- Particle FX ----------
 function burstAt(x, y, kind) {
   const fxLayer = createFXLayer();
@@ -944,7 +1059,7 @@ function randomFrom(arr) {
 }
 
 function spawnOne(host) {
-  if (!running) return;
+  if (!running || paused) return;
   if (activeItems >= MAX_ACTIVE) return;
 
   const type = pickType();
@@ -1050,7 +1165,7 @@ function spawnOne(host) {
   }
 
   item.addEventListener('click', function (ev) {
-    if (!running) return;
+    if (!running || paused) return;
 
     const now = nowMs();
     const spawnAt = parseFloat(item.dataset.spawnAt || String(now));
@@ -1360,7 +1475,7 @@ function spawnBoss(host) {
   logEvent('boss_spawn', { spawnTimeMs: Math.round(spawnAt) });
 
   boss.addEventListener('click', function (ev) {
-    if (!running) return;
+    if (!running || paused) return;
     const rt = Math.round(nowMs() - spawnAt);
     bossDefeated = true;
 
@@ -1452,6 +1567,7 @@ function calcRankAndPraise() {
 function startGame() {
   if (running) return;
   running = true;
+  paused = false;
 
   score = 0;
   combo = 0;
@@ -1482,6 +1598,7 @@ function startGame() {
   feverSecondsAccum = 0;
 
   updateHUD();
+  updatePauseButtons();
 
   const host = createHost();
   createHUD();
@@ -1504,10 +1621,13 @@ function startGame() {
   if (tickTimer) clearInterval(tickTimer);
 
   spawnTimer = setInterval(function () {
+    if (!running || paused) return;
     spawnOne(host);
   }, SPAWN_INTERVAL);
 
   tickTimer = setInterval(function () {
+    if (!running || paused) return;
+
     timeLeft -= 1;
 
     // เรียกบอสช่วงท้ายเกม (เฉพาะ normal/hard เกมยาว)
@@ -1525,6 +1645,7 @@ function startGame() {
         setFeverOverlay(false);
       }
     }
+
     if (timeLeft <= 0) {
       timeLeft = 0;
       updateHUD();
@@ -1536,6 +1657,7 @@ function startGame() {
       endGame();
       return;
     }
+
     updateHUD();
   }, 1000);
 }
@@ -1548,6 +1670,8 @@ function endGame() {
   spawnTimer = null;
   tickTimer = null;
   setFeverOverlay(false);
+  paused = false;
+  updatePauseButtons();
 
   const result = $('#hha-result');
   const fs = $('#hha-final-score');
@@ -1655,6 +1779,7 @@ function bootstrap() {
   ensureGameCSS();
   updateHUD();
   updateResearchStats();
+  updatePauseButtons();
 
   const restartBtn = $('#hha-restart');
   if (restartBtn) {
@@ -1686,8 +1811,39 @@ function bootstrap() {
     });
   }
 
+  const pauseBtn = $('#hha-pause-btn');
+  const resumeBtn = $('#hha-resume-btn');
+  if (pauseBtn) {
+    pauseBtn.addEventListener('click', function () {
+      pauseGame('manual');
+    });
+  }
+  if (resumeBtn) {
+    resumeBtn.addEventListener('click', function () {
+      resumeGame();
+    });
+  }
+
+  // Auto-pause เมื่อสลับหน้าจอ / แท็บ
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      pauseGame('blur');
+    }
+  });
+  window.addEventListener('blur', function () {
+    pauseGame('blur');
+  });
+  window.addEventListener('focus', function () {
+    if (running && paused) {
+      showToast('กลับเข้าหน้าเกมแล้ว กด "เล่นต่อ" ได้เลย ▶️', 'good');
+      updatePauseButtons();
+    }
+  });
+
+  updatePauseButtons();
   startGame();
-  console.log('[HHA DOM] Good vs Junk — Research+Fun Pack', {
+
+  console.log('[HHA DOM] Good vs Junk — Research+Fun+Deployment Pack', {
     version: GAME_VERSION,
     MODE: MODE,
     DIFF: DIFF,
