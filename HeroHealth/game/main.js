@@ -466,7 +466,21 @@ function spawnOne(host) {
   item.textContent = emo;
   item.setAttribute('data-type', type);
 
-  const shortest = Math.min(window.innerWidth, window.innerHeight);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // --- ปรับ safe area: ไม่ให้ชน HUD/timebox + ไม่ติดขอบจอเกินไป ---
+  const marginX = Math.max(40, vw * 0.06);      // เว้นซ้าย/ขวา
+  const marginTop = Math.max(140, vh * 0.20);   // เว้นด้านบน (ต่ำกว่า HUD+timebox)
+  const marginBottom = Math.max(80, vh * 0.12); // เว้นด้านล่าง
+
+  const safeWidth = Math.max(60, vw - marginX * 2);
+  const safeHeight = Math.max(60, vh - marginTop - marginBottom);
+
+  const x = marginX + Math.random() * safeWidth;
+  const y = marginTop + Math.random() * safeHeight;
+
+  const shortest = Math.min(vw, vh);
   const baseSize = shortest < 700 ? 72 : 80;
   const size = Math.round(baseSize * SIZE_FACTOR);
 
@@ -504,10 +518,6 @@ function spawnOne(host) {
     item.style.background = 'rgba(30,27,75,0.96)';
   }
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const x = 0.1 * vw + Math.random() * 0.8 * vw;
-  const y = 0.18 * vh + Math.random() * 0.7 * vh;
   item.style.left = String(x - size / 2) + 'px';
   item.style.top = String(y - size / 2) + 'px';
 
