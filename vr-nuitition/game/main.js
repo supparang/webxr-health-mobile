@@ -1,4 +1,4 @@
-// === Hero Health Academy — game/main.js (2025-11-15) ===
+// === Hero Health Academy — game/main.js (2025-11-15, Production+Polish) ===
 // Multi-mode DOM Engine + Goal Bar + Mini Quest + Profile + CSV + B-Mode
 // ใช้ร่วมกับ window.HH_MODES[modeId] (เช่น mode.goodjunk.js, mode.groups.js)
 
@@ -125,7 +125,7 @@
 
   // B-Mode: ปรับให้โหมดมันส์ขึ้นนิดนึง
   if (B_MODE) {
-    SPAWN_INTERVAL = Math.max(260, Math.round(SPAWN_INTERVAL * 0.8)); // เร็วขึ้น
+    SPAWN_INTERVAL = Math.max(260, Math.round(SPAWN_INTERVAL * 0.8));
     ITEM_LIFETIME  = Math.round(ITEM_LIFETIME * 0.9);
     FEVER_DURATION = Math.round(FEVER_DURATION + 1);
   }
@@ -142,7 +142,7 @@
     missionTextCached = 'ภารกิจ: เก็บของดีให้ครบ ' + MISSION_GOOD_TARGET + ' ชิ้น';
   }
 
-  // ถ้าโหมดมี goalDefs (ยังไม่ได้ใช้เต็ม แต่เก็บไว้ใน CSV / future UI)
+  // Goal defs (ถ้าโหมดมี)
   let GOAL_DEFS = [];
   if (MODE_API && typeof MODE_API.goalDefs === 'function') {
     try {
@@ -219,25 +219,24 @@
   let fastHitAchieved = false;
   let scoreAt20s = 0;
   let recordedScoreAt20 = false;
-  const powerTypeCount = {}; // เช่น { star:3, gold:1, rainbow:2 }
+  const powerTypeCount = {};
 
-  const hitEvents = []; // เก็บ event แบบละเอียด
+  const hitEvents = [];
 
   // --------------------------------------------------
   // Mini Quest System (กลาง)
   // --------------------------------------------------
-  // ถ้าโหมดไม่ได้ให้ questDefs → ใช้ดีฟอลต์ชุดนี้
   const DEFAULT_QUEST_DEFS = [
-    { id:'streak3',   icon:'⚡', text:'คอมโบ ≥ 3',           kind:'streak',   threshold:3 },
-    { id:'streak5',   icon:'⚡', text:'คอมโบ ≥ 5',           kind:'streak',   threshold:5 },
-    { id:'streak10',  icon:'⚡', text:'คอมโบ ≥ 10',          kind:'streak',   threshold:10 },
-    { id:'fast1',     icon:'⏱', text:'แตะเป้าให้ทัน ≤ 1 วิ', kind:'fast',     threshold:1.0 },
-    { id:'noBad5',    icon:'🛡', text:'ไม่พลาดเลย 5 วิ',     kind:'noBadFor', threshold:5 },
-    { id:'noBad10',   icon:'🛡', text:'ไม่พลาดเลย 10 วิ',    kind:'noBadFor', threshold:10 },
-    { id:'power1',    icon:'⭐', text:'เก็บ Power-up ≥ 1',    kind:'power',    threshold:1 },
-    { id:'fever1',    icon:'🔥', text:'เข้า Fever ≥ 1 ครั้ง', kind:'fever',    threshold:1 },
+    { id:'streak3',   icon:'⚡', text:'คอมโบ ≥ 3',                kind:'streak',   threshold:3 },
+    { id:'streak5',   icon:'⚡', text:'คอมโบ ≥ 5',                kind:'streak',   threshold:5 },
+    { id:'streak10',  icon:'⚡', text:'คอมโบ ≥ 10',               kind:'streak',   threshold:10 },
+    { id:'fast1',     icon:'⏱', text:'แตะเป้าให้ทัน ≤ 1 วิ',      kind:'fast',     threshold:1.0 },
+    { id:'noBad5',    icon:'🛡', text:'ไม่พลาดเลย 5 วิ',          kind:'noBadFor', threshold:5 },
+    { id:'noBad10',   icon:'🛡', text:'ไม่พลาดเลย 10 วิ',         kind:'noBadFor', threshold:10 },
+    { id:'power1',    icon:'⭐', text:'เก็บ Power-up ≥ 1',         kind:'power',    threshold:1 },
+    { id:'fever1',    icon:'🔥', text:'เข้า Fever ≥ 1 ครั้ง',      kind:'fever',    threshold:1 },
     { id:'scoreEarly',icon:'💥', text:'คะแนน ≥ 200 ภายใน 20 วิแรก', kind:'scoreIn', threshold:200 },
-    { id:'rainbow1',  icon:'🌈', text:'เก็บ Rainbow ≥ 1',    kind:'powerType',threshold:1, powerType:'rainbow' }
+    { id:'rainbow1',  icon:'🌈', text:'เก็บ Rainbow ≥ 1',         kind:'powerType',threshold:1, powerType:'rainbow' }
   ];
 
   let QUEST_DEFS = DEFAULT_QUEST_DEFS;
@@ -252,7 +251,7 @@
     }
   }
 
-  let activeQuests = []; // {id,icon,text,kind,threshold,done,powerType}
+  let activeQuests = [];
   let allQuestsClearedOnce = false;
 
   function getMetrics() {
@@ -357,6 +356,15 @@
         75% { transform: translateX(-4px); }
         100% { transform: translateX(0); }
       }
+      @keyframes hha-quest-pop {
+        0%   { transform: scale(0.9); opacity:0.2; }
+        60%  { transform: scale(1.06); opacity:1; }
+        100% { transform: scale(1.0); opacity:1; }
+      }
+      @keyframes hha-mission-pulse {
+        0%   { box-shadow:0 0 0 rgba(34,197,94,0.0); }
+        100% { box-shadow:0 0 18px rgba(34,197,94,0.9); }
+      }
       @media (max-width: 720px) {
         #hha-hud-inner {
           padding: 8px 12px;
@@ -435,6 +443,9 @@
       .hha-quest-row.done .hha-quest-icon{
         filter:drop-shadow(0 0 6px rgba(34,197,94,0.9));
       }
+      .hha-mission-near{
+        animation: hha-mission-pulse 0.8s ease-in-out infinite alternate;
+      }
     `;
     document.head.appendChild(st);
   }
@@ -512,6 +523,20 @@
         ${MODE_ID.toUpperCase()} • ${DIFF.toUpperCase()}${B_MODE ? ' • B-MODE' : ''} • <span id="hha-time"></span>s
       </div>
 
+      <div id="hha-fever-overlay"
+        style="
+          position:fixed;inset:0;
+          pointer-events:none;
+          background:
+            radial-gradient(circle at center, rgba(248,113,113,0.22), transparent 60%);
+          box-shadow:inset 0 0 40px rgba(248,113,113,0.7);
+          mix-blend-mode:screen;
+          opacity:0;
+          transition:opacity 0.16s ease-out;
+          z-index:9095;
+        ">
+      </div>
+
       <div id="hha-result"
         style="position:fixed;inset:0;display:none;
                align-items:center;justify-content:center;z-index:9200;">
@@ -587,6 +612,7 @@
     const starEl = $('#hha-buff-star');
     const shieldEl = $('#hha-buff-shield');
     const feverEl = $('#hha-buff-fever');
+    const feverOverlay = $('#hha-fever-overlay');
 
     if (sEl) sEl.textContent = String(score);
     if (cEl) cEl.textContent = String(combo);
@@ -595,11 +621,19 @@
     if (mBar) {
       const ratio = Math.max(0, Math.min(1, missionGoodCount / MISSION_GOOD_TARGET));
       mBar.style.width = (ratio * 100).toFixed(1) + '%';
+      if (ratio >= 0.8) mBar.classList.add('hha-mission-near');
+      else mBar.classList.remove('hha-mission-near');
     }
 
     if (starEl) starEl.textContent = String(maxCombo);
     if (shieldEl) shieldEl.textContent = String(shieldCharges);
     if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
+
+    if (feverOverlay) {
+      feverOverlay.style.opacity = feverTicksLeft > 0
+        ? (B_MODE ? '0.9' : '0.6')
+        : '0';
+    }
   }
 
   function ensureQuestPanel() {
@@ -654,7 +688,13 @@
       const id = row.dataset.questId;
       const q = activeQuests.find(qq => qq.id === id);
       if (!q) return;
-      if (q.done) row.classList.add('done');
+      if (q.done && !row.classList.contains('done')) {
+        row.classList.add('done');
+        row.style.animation = 'hha-quest-pop 0.32s ease-out';
+        setTimeout(function () {
+          row.style.animation = '';
+        }, 340);
+      }
     });
 
     if (clearedCount === activeQuests.length && activeQuests.length > 0 && !allQuestsClearedOnce) {
@@ -769,7 +809,7 @@
 
     const shortest = Math.min(window.innerWidth, window.innerHeight);
     const baseSize = shortest < 700 ? 72 : 80;
-    const size = Math.round(baseSize * SIZE_FACTOR * (B_MODE ? 1.0 : 1.0));
+    const size = Math.round(baseSize * SIZE_FACTOR);
 
     const baseStyle = {
       position: 'absolute',
@@ -1018,6 +1058,15 @@
     return 'Mini Quest สำเร็จ ' + cleared + '/' + activeQuests.length + ' ข้อ\n' + parts.join('\n');
   }
 
+  function getSessionContext() {
+    if (!MODE_API || typeof MODE_API.sessionInfo !== 'function') return null;
+    try {
+      return MODE_API.sessionInfo() || null;
+    } catch {
+      return null;
+    }
+  }
+
   function buildCSV() {
     const timestamp = new Date().toISOString();
     const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET ? 1 : 0;
@@ -1025,6 +1074,11 @@
     const q1 = activeQuests[0] || { id: '', done: false };
     const q2 = activeQuests[1] || { id: '', done: false };
     const q3 = activeQuests[2] || { id: '', done: false };
+
+    const ctx = getSessionContext() || {};
+    const targetGroupId    = ctx.targetGroupId    || '';
+    const targetGroupLabel = ctx.targetGroupLabel || '';
+    const targetGroupIcon  = ctx.targetGroupIcon  || '';
 
     const header = [
       'timestamp',
@@ -1035,7 +1089,8 @@
       'badHits',
       'quest1_id', 'quest1_done',
       'quest2_id', 'quest2_done',
-      'quest3_id', 'quest3_done'
+      'quest3_id', 'quest3_done',
+      'targetGroupId', 'targetGroupLabel', 'targetGroupIcon'
     ].join(',');
 
     const row = [
@@ -1049,7 +1104,10 @@
       badHits,
       q1.id, q1.done ? 1 : 0,
       q2.id, q2.done ? 1 : 0,
-      q3.id, q3.done ? 1 : 0
+      q3.id, q3.done ? 1 : 0,
+      JSON.stringify(targetGroupId).slice(1, -1),
+      JSON.stringify(targetGroupLabel).slice(1, -1),
+      JSON.stringify(targetGroupIcon).slice(1, -1)
     ].join(',');
 
     return header + '\n' + row + '\n';
