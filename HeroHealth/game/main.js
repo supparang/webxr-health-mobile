@@ -1,10 +1,10 @@
-// === Hero Health — game/main.js (Research Pack 1–8)
-// DOM Good vs Junk — Power-up + Rank + Research Logging
+// === Hero Health — game/main.js (Research + Fun Pack) ===
+// DOM Good vs Junk — Power-up + Rank + Research Logging + Boss + Rainbow
 
 'use strict';
 
 // ---------- Version & Research Config ----------
-const GAME_VERSION = 'HHA-GoodJunk-ResearchPack-v1.0.0';
+const GAME_VERSION = 'HHA-GoodJunk-ResearchPack-v1.1.0';
 
 // ถ้าอยากส่งข้อมูลเข้า Google Sheet ให้ใส่ URL ของ Apps Script / Webhook ตรงนี้
 // ถ้ายังไม่ตั้งค่า หรือปล่อยว่างไว้ ระบบจะไม่ส่ง (ไม่ error)
@@ -38,7 +38,8 @@ let TYPE_WEIGHTS = {
   gold: 6,
   diamond: 5,
   shield: 3,
-  fever: 4
+  fever: 4,
+  rainbow: 1
 };
 
 let FEVER_DURATION = 5;       // Fever นานกี่วินาที
@@ -53,13 +54,14 @@ switch (DIFF) {
     MISSION_GOOD_TARGET = 15;
     SIZE_FACTOR = 1.30;
     TYPE_WEIGHTS = {
-      good:   65,
-      junk:   10,
-      star:    7,
-      gold:    7,
-      diamond: 3,
-      shield:  6,
-      fever:   2
+      good:    65,
+      junk:    10,
+      star:     7,
+      gold:     7,
+      diamond:  3,
+      shield:   5,
+      fever:    2,
+      rainbow:  1
     };
     FEVER_DURATION = 5;
     DIAMOND_TIME_BONUS = 3;
@@ -73,13 +75,14 @@ switch (DIFF) {
     MISSION_GOOD_TARGET = 30;
     SIZE_FACTOR = 0.80;
     TYPE_WEIGHTS = {
-      good:   28,
-      junk:   46,
-      star:    7,
-      gold:    5,
-      diamond: 7,
-      shield:  2,
-      fever:  11
+      good:    28,
+      junk:    46,
+      star:     7,
+      gold:     5,
+      diamond:  7,
+      shield:   2,
+      fever:   10,
+      rainbow:  2
     };
     FEVER_DURATION = 6;
     DIAMOND_TIME_BONUS = 1;
@@ -94,13 +97,14 @@ switch (DIFF) {
     MISSION_GOOD_TARGET = 20;
     SIZE_FACTOR = 1.0;
     TYPE_WEIGHTS = {
-      good:   50,
-      junk:   24,
-      star:    8,
-      gold:    7,
-      diamond: 5,
-      shield:  3,
-      fever:   6
+      good:    50,
+      junk:    24,
+      star:     8,
+      gold:     7,
+      diamond:  5,
+      shield:   3,
+      fever:    6,
+      rainbow:  2
     };
     FEVER_DURATION = 5;
     DIAMOND_TIME_BONUS = 2;
@@ -116,6 +120,7 @@ const GOLD = ['🥇','🏅','🪙'];
 const DIAMOND = ['💎'];
 const SHIELD = ['🛡️'];
 const FEVER = ['🔥'];
+const RAINBOW = ['🌈'];
 
 // ---------- State ----------
 let score = 0;
@@ -135,6 +140,9 @@ let activeFeverMult = 1;    // ตัวคูณ fever ปัจจุบัน
 
 let lastScore = 0;
 let lastCombo = 0;
+
+let bossSpawned = false;    // สปอว์นบอสแล้วหรือยัง
+let bossDefeated = false;   // ฆ่าบอสทันไหม
 
 // ---------- Research State ----------
 let runId = '';
@@ -233,9 +241,9 @@ function buildRunsCSV() {
     'totalJunkClicks',
     'accuracyGood',
     'accuracyAll',
-    'junkHit',
-    'shieldUse',
-    'feverPickup',
+    'junkHitCount',
+    'shieldUseCount',
+    'feverPickupCount',
     'feverSeconds'
   ];
   const rows = [header.join(',')];
@@ -374,6 +382,31 @@ function resetResearchData() {
 }
 
 // Dashboard สถิติโดยรวม
+function computeDayStats(runs) {
+  if (!runs.length) return { totalDays: 0, streak: 0 };
+
+  const daySet = new Set();
+  runs.forEach(function(r) {
+    if (!r || !r.timestamp) return;
+    const d = String(r.timestamp).slice(0, 10); // YYYY-MM-DD
+    daySet.add(d);
+  });
+
+  const days = Array.from(daySet).sort(); // จากเก่า → ใหม่
+  if (!days.length) return { totalDays: 0, streak: 0 };
+
+  let streak = 1;
+  let cursor = new Date(days[days.length - 1]);
+  while (true) {
+    cursor.setDate(cursor.getDate() - 1);
+    const d = cursor.toISOString().slice(0, 10);
+    if (daySet.has(d)) streak++;
+    else break;
+  }
+
+  return { totalDays: days.length, streak: streak };
+}
+
 function updateResearchStats() {
   const statsEl = $('#hha-research-stats');
   if (!statsEl) return;
@@ -385,7 +418,7 @@ function updateResearchStats() {
   let sumScore = 0;
   let sumGood = 0;
   let bestRank = 'C';
-  const rankOrder = { C: 1, B: 2, A: 3, S: 4 };
+  const rankOrder = { C: 1, B: 2, A: 3, S: 4, SS: 5, SSS: 6 };
   for (let i = 0; i < runs.length; i++) {
     const r = runs[i] || {};
     sumScore += r.score || 0;
@@ -397,9 +430,13 @@ function updateResearchStats() {
   }
   const avgScore = Math.round(sumScore / runs.length);
   const avgGood = (sumGood / runs.length).toFixed(1);
+  const dayStats = computeDayStats(runs);
+
   statsEl.textContent =
     'สถิติโดยรวมบนเครื่องนี้: ' +
     'เล่นทั้งหมด ' + runs.length + ' รอบ | ' +
+    'เล่นมาแล้ว ' + dayStats.totalDays + ' วัน | ' +
+    'ต่อเนื่อง ' + dayStats.streak + ' วันล่าสุด | ' +
     'คะแนนเฉลี่ย ' + avgScore +
     ' | ของดีเฉลี่ย ' + avgGood +
     ' | Rank สูงสุด ' + bestRank;
@@ -450,6 +487,32 @@ function createFXLayer() {
   });
   document.body.appendChild(fx);
   return fx;
+}
+
+// Fever overlay
+function createFeverOverlay() {
+  let ov = $('#hha-fever-overlay');
+  if (ov) return ov;
+  ov = document.createElement('div');
+  ov.id = 'hha-fever-overlay';
+  Object.assign(ov.style, {
+    position: 'fixed',
+    inset: '0',
+    pointerEvents: 'none',
+    zIndex: '9040',
+    background:
+      'radial-gradient(circle at 50% 15%, rgba(248,113,113,0.35), transparent 60%),' +
+      'radial-gradient(circle at 10% 80%, rgba(251,191,36,0.30), transparent 60%)',
+    opacity: '0',
+    transition: 'opacity 200ms ease-out'
+  });
+  document.body.appendChild(ov);
+  return ov;
+}
+
+function setFeverOverlay(on) {
+  const ov = createFeverOverlay();
+  ov.style.opacity = on ? '1' : '0';
 }
 
 // Toast เล็ก ๆ สำหรับ feedback
@@ -894,6 +957,7 @@ function spawnOne(host) {
   else if (type === 'diamond') emo = randomFrom(DIAMOND);
   else if (type === 'shield') emo = randomFrom(SHIELD);
   else if (type === 'fever') emo = randomFrom(FEVER);
+  else if (type === 'rainbow') emo = randomFrom(RAINBOW);
 
   const item = document.createElement('button');
   item.type = 'button';
@@ -945,6 +1009,10 @@ function spawnOne(host) {
   } else if (type === 'fever') {
     item.style.background = 'radial-gradient(circle at 30% 20%, #fb923c, #b91c1c)';
     item.style.boxShadow = '0 0 26px rgba(248,113,113,0.9)';
+  } else if (type === 'rainbow') {
+    item.style.background =
+      'radial-gradient(circle at 0 0,#f97316,#ec4899,#6366f1)';
+    item.style.boxShadow = '0 0 30px rgba(244,63,94,0.95)';
   } else if (type === 'good') {
     item.style.background = 'rgba(15,23,42,0.96)';
   } else if (type === 'junk') {
@@ -989,9 +1057,9 @@ function spawnOne(host) {
     const rt = Math.max(0, now - spawnAt);
 
     if (navigator.vibrate) {
-      const type = item.getAttribute('data-type') || 'unknown';
-      if (type === 'junk') navigator.vibrate(60);
-      else if (type === 'shield' || type === 'fever') navigator.vibrate(40);
+      const vibType = item.getAttribute('data-type') || 'unknown';
+      if (vibType === 'junk') navigator.vibrate(60);
+      else if (vibType === 'shield' || vibType === 'fever' || vibType === 'rainbow') navigator.vibrate(40);
       else navigator.vibrate(25);
     }
 
@@ -1100,13 +1168,67 @@ function spawnOne(host) {
         feverMult: activeFeverMult
       });
     } else if (type === 'fever') {
+      // เติมเวลาไฟ + อัปเกรดตัวคูณตามคอมโบ
       feverTicksLeft = Math.min(feverTicksLeft + FEVER_DURATION, 20);
-      if (activeFeverMult < FEVER_MULT_BASE) activeFeverMult = FEVER_MULT_BASE;
+
+      if (maxCombo >= 55) {
+        activeFeverMult = FEVER_MULT_BASE + 0.9;
+      } else if (maxCombo >= 35) {
+        activeFeverMult = FEVER_MULT_BASE + 0.5;
+      } else {
+        activeFeverMult = FEVER_MULT_BASE;
+      }
+
       item.style.transform = 'scale(1.25)';
       feverPickupCount++;
-      showToast('เก็บเป้าไฟ! คะแนนคูณ ' + activeFeverMult.toFixed(1) + ' 🔥', 'good');
+      setFeverOverlay(true);
+
+      showToast(
+        'โหมดไฟลุก! คะแนนคูณ ' + activeFeverMult.toFixed(1) + ' 🔥',
+        'good'
+      );
+
       logEvent('click_fever', {
         itemType: 'fever',
+        x: ev.clientX,
+        y: ev.clientY,
+        spawnTimeMs: Math.round(spawnAt),
+        reactionTimeMs: Math.round(rt),
+        score: score,
+        combo: combo,
+        goodCount: missionGoodCount,
+        shield: shieldCharges,
+        feverLeft: feverTicksLeft,
+        feverMult: activeFeverMult
+      });
+    } else if (type === 'rainbow') {
+      score += Math.round(12 * mult);
+      combo += 1;
+      missionGoodCount += 1;
+      if (combo > maxCombo) maxCombo = combo;
+      item.style.transform = 'scale(1.32)';
+
+      const hostEl = createHost();
+      const junkNodes = hostEl.querySelectorAll('button[data-type="junk"]');
+      let cleared = 0;
+      junkNodes.forEach(function (j) {
+        const rect = j.getBoundingClientRect();
+        burstAt(rect.left + rect.width / 2, rect.top + rect.height / 2, 'bad');
+        if (j.parentNode) {
+          j.parentNode.removeChild(j);
+          activeItems = Math.max(0, activeItems - 1);
+        }
+        cleared++;
+      });
+
+      if (cleared > 0) {
+        showToast('สายรุ้งกวาดขยะหายวับ ' + cleared + ' ชิ้น! 🌈', 'good');
+      } else {
+        showToast('สายรุ้งเสริมพลังคะแนน! 🌈', 'good');
+      }
+
+      logEvent('click_rainbow', {
+        itemType: 'rainbow',
         x: ev.clientX,
         y: ev.clientY,
         spawnTimeMs: Math.round(spawnAt),
@@ -1144,6 +1266,7 @@ function spawnOne(host) {
         combo = 0;
         feverTicksLeft = 0;
         activeFeverMult = 1;
+        setFeverOverlay(false);
         item.style.transform = 'scale(0.7)';
         const oldBg = document.body.style.backgroundColor || '#0b1220';
         document.body.style.backgroundColor = '#450a0a';
@@ -1199,6 +1322,89 @@ function spawnOne(host) {
   }, ITEM_LIFETIME);
 }
 
+// ---------- Mini Boss ----------
+function spawnBoss(host) {
+  const boss = document.createElement('button');
+  boss.type = 'button';
+  boss.textContent = '👾';
+  boss.setAttribute('data-type', 'boss');
+
+  const size = Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.18);
+  Object.assign(boss.style, {
+    position: 'absolute',
+    width: size + 'px',
+    height: size + 'px',
+    left: (window.innerWidth / 2 - size / 2) + 'px',
+    top: (window.innerHeight * 0.55 - size / 2) + 'px',
+    borderRadius: '999px',
+    border: '0',
+    fontSize: String(size * 0.5) + 'px',
+    boxShadow: '0 0 40px rgba(248,113,113,0.95)',
+    background: 'radial-gradient(circle at 30% 20%, #f97316, #b91c1c)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'transform 0.12s ease, opacity 0.12s ease',
+    pointerEvents: 'auto'
+  });
+
+  const spawnAt = nowMs();
+  boss.dataset.spawnAt = String(spawnAt);
+  host.appendChild(boss);
+  activeItems++;
+  bossSpawned = true;
+  bossDefeated = false;
+
+  showToast('บอสขยะโผล่มาแล้ว! ตีให้ทันก่อนหมดเวลา 👊', 'good');
+  logEvent('boss_spawn', { spawnTimeMs: Math.round(spawnAt) });
+
+  boss.addEventListener('click', function (ev) {
+    if (!running) return;
+    const rt = Math.round(nowMs() - spawnAt);
+    bossDefeated = true;
+
+    const mult = currentMultiplier();
+    score += Math.round(80 * mult);
+    combo += 5;
+    missionGoodCount += 3;
+    if (combo > maxCombo) maxCombo = combo;
+
+    burstAt(ev.clientX, ev.clientY, 'fever');
+    showToast('ล้มบอสขยะได้แล้ว! 🎯', 'good');
+
+    logEvent('boss_hit', {
+      x: ev.clientX,
+      y: ev.clientY,
+      reactionTimeMs: rt,
+      score: score,
+      combo: combo,
+      goodCount: missionGoodCount
+    });
+
+    boss.style.opacity = '0';
+    setTimeout(function () {
+      if (boss.parentNode) {
+        boss.parentNode.removeChild(boss);
+        activeItems = Math.max(0, activeItems - 1);
+      }
+    }, 120);
+  });
+
+  // ถ้าปล่อยให้รอด
+  setTimeout(function () {
+    if (bossDefeated || !boss.parentNode) return;
+    boss.style.opacity = '0';
+    setTimeout(function () {
+      if (boss.parentNode) {
+        boss.parentNode.removeChild(boss);
+        activeItems = Math.max(0, activeItems - 1);
+      }
+    }, 120);
+    logEvent('boss_timeout', { });
+  }, 8000);
+}
+
 // ---------- ระบบ Rank + คำชม ----------
 function calcRankAndPraise() {
   const success = missionGoodCount >= MISSION_GOOD_TARGET;
@@ -1216,7 +1422,13 @@ function calcRankAndPraise() {
   let rank = 'C';
   let praise = 'ฝึกอีกนิดเดียว เดี๋ยวก็โปร! 💪';
 
-  if (success && ratio >= 1.4 && c >= 30) {
+  if (success && ratio >= 2.1 && c >= 55 && junkHitCount === 0) {
+    rank = 'SSS';
+    praise = 'ตำนานสายสุขภาพ! เลือกเป๊ะ ไม่มีหลุดเลย 🍎👑';
+  } else if (success && ratio >= 1.7 && c >= 45) {
+    rank = 'SS';
+    praise = 'ระดับเทพมาก! ควบคุมจังหวะได้สุดจริง 🔥';
+  } else if (success && ratio >= 1.4 && c >= 30) {
     rank = 'S';
     praise = 'ระดับเทพผักผลไม้! เลือกเก่งมาก ๆ เลย 🍎🌟';
   } else if (success && ratio >= 1.0 && c >= 18) {
@@ -1252,6 +1464,9 @@ function startGame() {
   activeFeverMult = 1;
   lastScore = 0;
   lastCombo = 0;
+  bossSpawned = false;
+  bossDefeated = false;
+  setFeverOverlay(false);
 
   // reset research state for this run
   runId = 'run-' + Date.now() + '-' + Math.floor(Math.random() * 1e6);
@@ -1271,6 +1486,7 @@ function startGame() {
   const host = createHost();
   createHUD();
   createFXLayer();
+  createFeverOverlay();
   createToastLayer();
   ensureGameCSS();
 
@@ -1293,12 +1509,20 @@ function startGame() {
 
   tickTimer = setInterval(function () {
     timeLeft -= 1;
+
+    // เรียกบอสช่วงท้ายเกม (เฉพาะ normal/hard เกมยาว)
+    if (!bossSpawned && DIFF !== 'easy' && GAME_DURATION >= 40 && timeLeft === 10) {
+      const hostNow = createHost();
+      spawnBoss(hostNow);
+    }
+
     if (feverTicksLeft > 0) {
       feverTicksLeft -= 1;
       feverSecondsAccum += 1;
       if (feverTicksLeft <= 0) {
         feverTicksLeft = 0;
         activeFeverMult = 1;
+        setFeverOverlay(false);
       }
     }
     if (timeLeft <= 0) {
@@ -1323,6 +1547,7 @@ function endGame() {
   if (tickTimer) clearInterval(tickTimer);
   spawnTimer = null;
   tickTimer = null;
+  setFeverOverlay(false);
 
   const result = $('#hha-result');
   const fs = $('#hha-final-score');
@@ -1351,7 +1576,7 @@ function endGame() {
   if (card) {
     let border = 'rgba(34,197,94,0.8)';
     let glow = '0 0 26px rgba(34,197,94,0.7)';
-    if (rp.rank === 'S') {
+    if (rp.rank === 'SSS' || rp.rank === 'SS' || rp.rank === 'S') {
       border = 'rgba(250,204,21,0.95)';
       glow = '0 0 30px rgba(250,204,21,0.9)';
     } else if (rp.rank === 'A') {
@@ -1425,6 +1650,7 @@ function bootstrap() {
   createHUD();
   createHost();
   createFXLayer();
+  createFeverOverlay();
   createToastLayer();
   ensureGameCSS();
   updateHUD();
@@ -1461,7 +1687,7 @@ function bootstrap() {
   }
 
   startGame();
-  console.log('[HHA DOM] Good vs Junk — Research Pack', {
+  console.log('[HHA DOM] Good vs Junk — Research+Fun Pack', {
     version: GAME_VERSION,
     MODE: MODE,
     DIFF: DIFF,
