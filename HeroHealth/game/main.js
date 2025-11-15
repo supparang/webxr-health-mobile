@@ -140,4 +140,200 @@ function createHUD() {
       ">
         <h2 id="hha-result-title" style="margin-top:0;margin-bottom:8px;font-size:18px;">จบรอบแล้ว 🎉</h2>
         <div style="margin-bottom:4px;">คะแนนรวม: <b id="hha-final-score">0</b></div>
-        <div style="margin-bottom:4px;">คอมโบสูงสุด: <b id="hha-final-comb
+        <div style="margin-bottom:4px;">คอมโบสูงสุด: <b id="hha-final-combo">0</b></div>
+        <div style="margin-bottom:14px;">ของดีที่เก็บได้: <b id="hha-final-good">0</b> / ${MISSION_GOOD_TARGET}</div>
+        <button id="hha-restart" style="
+          border-radius:999px;border:0;cursor:pointer;
+          padding:8px 18px;background:linear-gradient(135deg,#38bdf8,#2563eb);
+          color:#fff;font-weight:600;font-size:14px;
+        ">เล่นอีกครั้ง</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(hud);
+  return hud;
+}
+
+function updateHUD() {
+  const sEl = $('#hha-score');
+  const cEl = $('#hha-combo');
+  const tEl = $('#hha-time');
+  const mBar = $('#hha-mission-bar');
+  if (sEl) sEl.textContent = String(score);
+  if (cEl) cEl.textContent = String(combo);
+  if (tEl) tEl.textContent = String(timeLeft);
+
+  if (mBar) {
+    const ratio = Math.max(0, Math.min(1, missionGoodCount / MISSION_GOOD_TARGET));
+    mBar.style.width = (ratio * 100).toFixed(1) + '%';
+  }
+}
+
+// ---------- Spawn logic ----------
+function randomFrom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function spawnOne(host) {
+  if (!running) return;
+
+  const isGood = Math.random() < 0.6; // 60% ของดี
+  const emo = isGood ? randomFrom(GOOD) : randomFrom(JUNK);
+
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.textContent = emo;
+  item.setAttribute('data-good', isGood ? '1' : '0');
+
+  // ปรับขนาดตามหน้าจอ (มือถือ = ใหญ่ขึ้น)
+  const baseSize = Math.min(window.innerWidth, window.innerHeight);
+  const size = baseSize < 700 ? 72 : 80;
+
+  Object.assign(item.style, {
+    position: 'absolute',
+    width: size + 'px',
+    height: size + 'px',
+    borderRadius: '999px',
+    border: '0',
+    fontSize: (size * 0.52) + 'px',
+    boxShadow: '0 8px 22px rgba(15,23,42,0.85)',
+    cursor: 'pointer',
+    background: 'rgba(15,23,42,0.96)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'transform 0.12s ease, opacity 0.12s ease',
+    pointerEvents: 'auto'
+  });
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const x = 0.1 * vw + Math.random() * 0.8 * vw;
+  const y = 0.18 * vh + Math.random() * 0.7 * vh; // เว้น HUD ด้านบนมากขึ้น
+  item.style.left = (x - size / 2) + 'px';
+  item.style.top = (y - size / 2) + 'px';
+
+  function removeItem() {
+    if (item.parentNode) item.parentNode.removeChild(item);
+  }
+
+  item.addEventListener('click', () => {
+    if (!running) return;
+    const good = item.getAttribute('data-good') === '1';
+    if (good) {
+      score += 10;
+      combo += 1;
+      missionGoodCount += 1;
+      if (combo > maxCombo) maxCombo = combo;
+      item.style.transform = 'scale(1.25)';
+    } else {
+      score = Math.max(0, score - 5);
+      combo = 0;
+      item.style.transform = 'scale(0.7)';
+      // flash แดงเบา ๆ
+      const oldBg = document.body.style.backgroundColor || '#0b1220';
+      document.body.style.backgroundColor = '#450a0a';
+      setTimeout(() => { document.body.style.backgroundColor = oldBg || '#0b1220'; }, 80);
+    }
+    item.style.opacity = '0';
+    updateHUD();
+    setTimeout(removeItem, 100);
+  });
+
+  host.appendChild(item);
+
+  setTimeout(() => {
+    if (item.parentNode) {
+      item.style.opacity = '0';
+      item.style.transform = 'scale(0.7)';
+      setTimeout(removeItem, 120);
+    }
+  }, 1400);
+}
+
+// ---------- Game loop ----------
+function startGame() {
+  if (running) return;
+  running = true;
+  score = 0;
+  combo = 0;
+  maxCombo = 0;
+  missionGoodCount = 0;
+  timeLeft = GAME_DURATION;
+  updateHUD();
+
+  const host = createHost();
+  createHUD();
+
+  if (spawnTimer) clearInterval(spawnTimer);
+  if (tickTimer) clearInterval(tickTimer);
+
+  spawnTimer = setInterval(() => {
+    spawnOne(host);
+  }, SPAWN_INTERVAL);
+
+  tickTimer = setInterval(() => {
+    timeLeft -= 1;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      updateHUD();
+      endGame();
+      return;
+    }
+    updateHUD();
+  }, 1000);
+}
+
+function endGame() {
+  if (!running) return;
+  running = false;
+  if (spawnTimer) clearInterval(spawnTimer);
+  if (tickTimer) clearInterval(tickTimer);
+
+  const result = $('#hha-result');
+  const fs = $('#hha-final-score');
+  const fc = $('#hha-final-combo');
+  const fg = $('#hha-final-good');
+  const title = $('#hha-result-title');
+
+  const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
+
+  if (fs) fs.textContent = String(score);
+  if (fc) fc.textContent = String(maxCombo);
+  if (fg) fg.textContent = String(missionGoodCount);
+  if (title) {
+    title.textContent = missionSuccess
+      ? 'ภารกิจสำเร็จ! 🎉'
+      : 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
+  }
+
+  if (result) result.style.display = 'flex';
+}
+
+// ---------- Bootstrap ----------
+function bootstrap() {
+  createHUD();
+  createHost();
+  updateHUD();
+
+  const restartBtn = $('#hha-restart');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => {
+      const panel = $('#hha-result');
+      if (panel) panel.style.display = 'none';
+      startGame();
+    });
+  }
+
+  // เริ่มเกมอัตโนมัติรอบแรก
+  startGame();
+  console.log('[HHA DOM] Good vs Junk production v1', {
+    MODE, DIFF, GAME_DURATION, SPAWN_INTERVAL, MISSION_GOOD_TARGET
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}
