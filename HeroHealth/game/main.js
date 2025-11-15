@@ -1,366 +1,257 @@
-// === /HeroHealth/game/main.js (2025-11-14 QUEST + COACH + SUMMARY STABLE + COMBO FIX) ===
+// === Hero Health Academy — game/main.js (2025-11-15 HUB v1) ===
+// ฮับกลางควบคุมโหมด Good vs Trash / Groups / Hydration / Plate
+// - dynamic import โหมดแต่ละอันแบบกันพัง
+// - โค้ช 1–8 แบบภาษาป.5
+// - แสดง "Real modes loaded" มุมล่างซ้ายเมื่อโหลดโหมดสำเร็จอย่างน้อย 1 อัน
+
 'use strict';
+window.__HHA_BOOT_OK = 'main';
 
-const $  = (s)=>document.querySelector(s);
-const $$ = (s)=>document.querySelectorAll(s);
+// ---------- Config พื้นฐาน ----------
+const DEFAULT_MODE = 'goodjunk';
+const DEFAULT_DIFF = 'normal';
+const DEFAULT_TIME = 60; // วินาที
 
-const qs   = new URLSearchParams(location.search);
-let MODE   = (qs.get('mode')||'goodjunk').toLowerCase();
-let DIFF   = (qs.get('diff')||'normal').toLowerCase();
-const DURATION  = Number(qs.get('duration')||60);
-const AUTOSTART = qs.get('autostart') === '1';
+const MODES_META = {
+  goodjunk: {
+    id: 'goodjunk',
+    label: 'ดี vs ขยะ',
+    desc: 'เลือกกินของดี หลีกเลี่ยงของขยะ',
+  },
+  groups: {
+    id: 'groups',
+    label: 'หมู่สารอาหาร',
+    desc: 'จัดหมวดหมู่สารอาหารให้ถูก',
+  },
+  hydration: {
+    id: 'hydration',
+    label: 'ดื่มน้ำสมดุล',
+    desc: 'ดื่มน้ำให้พอดีกับกิจกรรม',
+  },
+  plate: {
+    id: 'plate',
+    label: 'จานสุขภาพ',
+    desc: 'แบ่งผัก ข้าว โปรตีน ให้สมดุล',
+  }
+};
 
-// ---------- HUD refs ----------
-const elScore    = $('#hudScore');
-const elCombo    = $('#hudCombo');
-const elTimePill = $('#timePill');
+// โค้ช 1–8 ภาษาป.5 (ใช้สุ่มขึ้นตอนเริ่มเกม)
+const COACH_LINES = [
+  'พร้อมลุยยัง ฮีโร่สุขภาพ? 💪',
+  'รอบนี้ขอดูสกิลเทพๆ หน่อยนะ 😎',
+  'อย่าลืมโฟกัสให้ดี กดผิดมีหักคะแนนนะ! ⚠️',
+  'ถ้าพลาดไม่เป็นไร เริ่มใหม่ได้เสมอ ✨',
+  'คิดให้ทันก่อนกด สายตาไวกว่าความหิวนะ 🤓',
+  'ขยับตัวบ่อยๆ สุขภาพจะได้ฟิตเวอร์ 🏃‍♀️',
+  'สะสมคอมโบให้ได้เยอะๆ แล้วจะรู้ว่าตัวเองโหดแค่ไหน 🔥',
+  'ภารกิจนี้มีแต่ทีมฮีโร่เท่านั้นที่ทำได้ สู้ๆ! ⭐'
+];
 
-function setScore(n){
-  if (!elScore) return;
-  elScore.textContent = (n|0).toLocaleString();
+// ---------- State กลางของเกม ----------
+const state = {
+  modeId: DEFAULT_MODE,
+  diff: DEFAULT_DIFF,
+  duration: DEFAULT_TIME,
+  running: false,
+  startedAt: 0,
+  timerId: null,
+  remaining: DEFAULT_TIME,
+  currentModule: null,
+  currentRunner: null,
+  ctx: null,
+};
+
+// ---------- Helper DOM ----------
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+function byAction(el) {
+  return el?.closest?.('[data-action]') || null;
 }
-function setCombo(n){
-  if (!elCombo) return;
-  elCombo.textContent = (n|0);
-}
-let lastSec = DURATION;
-function setTimeLeft(sec){
-  if (!elTimePill) return;
-  const s = Math.max(0, sec|0);
-  elTimePill.textContent = `TIME ${s}s`;
-  elTimePill.classList.toggle('warn',   s<=10 && s>5);
-  elTimePill.classList.toggle('danger', s<=5);
+
+function setText(sel, txt) {
+  const el = typeof sel === 'string' ? $(sel) : sel;
+  if (el) el.textContent = txt;
 }
 
-// ---------- Fever bar mount ----------
-import('../vr/ui-fever.js').then(({ ensureFeverBar })=>{
-  try{
-    const dock = document.getElementById('feverBarDock') || document.getElementById('hudTop');
-    ensureFeverBar?.(dock);
-  }catch(_){}
-}).catch(()=>{});
+function addClass(el, cls) {
+  if (!el) return;
+  el.classList.add(cls);
+}
 
-// ---------- Quest HUD bridge (ถ้ามี quest-hud.js) ----------
-try{
-  import('../vr/quest-hud.js').catch(()=>{});
-}catch(_){}
+function removeClass(el, cls) {
+  if (!el) return;
+  el.classList.remove(cls);
+}
 
-// ถ้าโหมดยิง hha:quest → ส่งต่อเป็น quest:update ให้ HUD
-window.addEventListener('hha:quest',(e)=>{
-  try{
-    window.dispatchEvent(new CustomEvent('quest:update',{ detail:e.detail }));
-  }catch(_){}
-});
+function pickRandom(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
-// ---------- Coach HUD (ใต้ fever bar) ----------
-(function setupCoachHUD(){
-  const cssId = 'hha-coach-css';
-  if (!document.getElementById(cssId)){
-    const css = document.createElement('style');
-    css.id = cssId;
-    css.textContent = `
-      #hhaCoachWrap{ margin-top:6px; pointer-events:none; }
-      #hhaCoachBubble{
-        display:inline-block;
-        max-width:min(360px,76vw);
-        padding:6px 10px;
-        border-radius:999px;
-        background:rgba(15,23,42,.96);
-        border:1px solid #38bdf8;
-        color:#e0f2fe;
-        font:800 11px system-ui;
-        letter-spacing:.2px;
-        opacity:0;
-        transform:translateY(4px);
-        transition:opacity .25s ease, transform .25s ease;
-        box-shadow:0 6px 18px rgba(0,0,0,.45);
+// ---------- Status HUD (มุมล่างซ้าย) ----------
+let statusEl = null;
+function ensureStatusHUD() {
+  if (statusEl && document.body.contains(statusEl)) return statusEl;
+  statusEl = document.getElementById('modeStatus');
+  if (!statusEl) {
+    statusEl = document.createElement('div');
+    statusEl.id = 'modeStatus';
+    statusEl.style.position = 'fixed';
+    statusEl.style.left = '8px';
+    statusEl.style.bottom = '8px';
+    statusEl.style.padding = '4px 8px';
+    statusEl.style.fontSize = '11px';
+    statusEl.style.fontFamily = 'system-ui, sans-serif';
+    statusEl.style.color = '#e2e8f0';
+    statusEl.style.background = 'rgba(15,23,42,0.85)';
+    statusEl.style.borderRadius = '6px';
+    statusEl.style.zIndex = '9999';
+    statusEl.style.pointerEvents = 'none';
+    document.body.appendChild(statusEl);
+  }
+  return statusEl;
+}
+
+function showStatus(msg) {
+  const el = ensureStatusHUD();
+  el.textContent = msg;
+}
+
+// เรียกเมื่อโหมดจริงโหลดสำเร็จอย่างน้อย 1 โหมด
+let realModesMarked = false;
+function markRealModesLoaded() {
+  if (realModesMarked) return;
+  realModesMarked = true;
+  showStatus('Real modes loaded');
+}
+
+// ---------- Coach Bubble ----------
+function showCoachLine(forceLine) {
+  const el = $('#coachText');
+  if (!el) return; // ถ้าไม่มี element นี้ ก็ไม่ต้องทำอะไร
+  const line = forceLine || pickRandom(COACH_LINES);
+  el.textContent = line;
+}
+
+// ---------- Timer ----------
+function updateTimerLabel() {
+  const lbl = $('#timerLabel');
+  if (lbl) {
+    lbl.textContent = state.remaining + ' s';
+  }
+}
+
+function stopTimer() {
+  if (state.timerId) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+}
+
+function startTimer() {
+  stopTimer();
+  state.remaining = state.duration;
+  updateTimerLabel();
+
+  state.timerId = setInterval(() => {
+    state.remaining -= 1;
+    if (state.remaining < 0) {
+      state.remaining = 0;
+    }
+    updateTimerLabel();
+    if (state.remaining <= 0) {
+      // หมดเวลา → จบเกม
+      stopTimer();
+      endGame('timeup');
+    }
+  }, 1000);
+}
+
+// ---------- Dynamic Import โหมด ----------
+async function loadModeModule(modeId) {
+  const meta = MODES_META[modeId];
+  if (!meta) {
+    console.warn('Unknown mode:', modeId);
+    showStatus('Unknown mode: ' + modeId);
+    return null;
+  }
+
+  try {
+    const mod = await import(`./modes/${modeId}.js`);
+    console.log('[HHA] Mode module loaded:', modeId, mod);
+    markRealModesLoaded();
+    return mod;
+  } catch (err) {
+    console.error('[HHA] Failed to load mode:', modeId, err);
+    showStatus('Failed to load mode: ' + modeId);
+    return null;
+  }
+}
+
+// ---------- Context ที่ส่งไปให้โหมด ----------
+function buildModeContext(modeId) {
+  // host หลักสำหรับ spawn emoji / objects
+  const host =
+    document.getElementById('spawnHost') ||
+    document.getElementById('gameLayer') ||
+    document.querySelector('.game-layer') ||
+    document.body;
+
+  const ctx = {
+    modeId,
+    host,
+    // config พื้นฐาน
+    difficulty: state.diff,
+    duration: state.duration,
+    // callback ให้โหมดเรียกจบเกมได้
+    end: (reason, extraResult) => {
+      endGame(reason || 'mode-end', extraResult);
+    },
+    // helper สำหรับโหมด (แล้วแต่โหมดจะใช้หรือไม่ใช้)
+    setCoach: (msg) => showCoachLine(msg),
+    setStatus: (msg) => showStatus(msg),
+    setTimerOverride: (sec) => {
+      if (typeof sec === 'number' && sec > 0) {
+        state.duration = sec;
+        state.remaining = sec;
+        startTimer();
       }
-      #hhaCoachWrap.show #hhaCoachBubble{
-        opacity:1;
-        transform:translateY(0);
+    },
+    // event bus กลาง
+    emitGlobal: (name, detail) => {
+      try {
+        window.dispatchEvent(new CustomEvent(name, { detail }));
+      } catch (e) {
+        console.warn('emitGlobal error', e);
       }
-    `;
-    document.head.appendChild(css);
-  }
-
-  const dock = document.getElementById('feverBarDock');
-  const box  = dock?.closest('.score-box') || document.querySelector('.score-box');
-  if (!box) return;
-
-  const wrap = document.createElement('div');
-  wrap.id = 'hhaCoachWrap';
-  wrap.innerHTML = `<div id="hhaCoachBubble">พร้อมลุยแล้ว เก็บของดีให้ได้ต่อเนื่อง!</div>`;
-  box.appendChild(wrap);
-
-  const bubble = wrap.querySelector('#hhaCoachBubble');
-  let hideTimer = null;
-
-  function showCoach(text){
-    if (!bubble) return;
-    if (text) bubble.textContent = text;
-    wrap.classList.add('show');
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(()=>wrap.classList.remove('show'), 2800);
-  }
-
-  // ให้โหมดส่งข้อความโค้ชได้ด้วย event นี้
-  window.addEventListener('hha:coach',(e)=>{
-    const t = (e.detail && e.detail.text) || '';
-    if (!t) return;
-    showCoach(t);
-  });
-
-  // ทักตอนโหลด
-  showCoach('แตะเริ่มเกม แล้วตามภารกิจบนมุมขวาให้ทันนะ!');
-})();
-
-// ---------- Global score/time tracking ----------
-let scoreTotal = 0;
-let comboNow   = 0;
-let comboMax   = 0;
-let misses     = 0;
-
-// รับ event คะแนนจากโหมด (safe.js)
-// - รองรับทั้งแบบที่โหมดส่ง combo/total มาเอง
-// - และแบบเดิมที่ส่งแค่ delta + good → อนุมานคอมโบจาก good/false
-window.addEventListener('hha:score',(e)=>{
-  const d = e.detail || {};
-
-  // คะแนนรวม
-  if (typeof d.total === 'number') {
-    scoreTotal = d.total | 0;
-  } else {
-    scoreTotal = Math.max(0, (scoreTotal | 0) + (d.delta | 0));
-  }
-
-  // คอมโบ
-  if (typeof d.combo === 'number') {
-    // โหมดจัดการคอมโบเอง
-    comboNow = d.combo | 0;
-    const cm = (typeof d.comboMax === 'number') ? (d.comboMax | 0) : comboNow;
-    comboMax = Math.max(comboMax, cm);
-  } else if (typeof d.good === 'boolean') {
-    // ไม่มี combo ส่งมา → ประมาณจาก good/false
-    if (d.good) {
-      comboNow += 1;
-      comboMax = Math.max(comboMax, comboNow);
-    } else {
-      comboNow = 0;
     }
-  }
+  };
 
-  if (d.good === false) {
-    misses++;
-  }
-
-  setScore(scoreTotal);
-  setCombo(comboNow);
-});
-
-// เผื่อบางโหมดอยากยิง hha:combo แยก (optional)
-window.addEventListener('hha:combo',(e)=>{
-  const d = e.detail || {};
-  comboNow = d.combo|0;
-  comboMax = Math.max(comboMax, d.comboMax|0);
-  setCombo(comboNow);
-});
-
-window.addEventListener('hha:time',(e)=>{
-  const sec = (e.detail?.sec|0);
-  if (sec !== lastSec){
-    lastSec = sec;
-    setTimeLeft(sec);
-  }
-});
-
-// ---------- Result overlay ----------
-function showResult(detail){
-  const old = document.getElementById('resultOverlay');
-  if (old) old.remove();
-
-  const d = detail || {};
-  const hub = d.hubUrl || '/webxr-health-mobile/HeroHealth/hub.html';
-
-  const o = document.createElement('div');
-  o.id = 'resultOverlay';
-  o.innerHTML = `
-    <div class="card">
-      <h2>สรุปผล: ${d.mode||MODE} (${d.difficulty||DIFF})</h2>
-      <div class="stats">
-        <div class="pill"><div class="k">คะแนนรวม</div><div class="v">${(d.score||0).toLocaleString()}</div></div>
-        <div class="pill"><div class="k">คอมโบสูงสุด</div><div class="v">${d.comboMax||0}</div></div>
-        <div class="pill"><div class="k">พลาด</div><div class="v">${d.misses||0}</div></div>
-        <div class="pill"><div class="k">เป้าหมาย</div><div class="v">${d.goalCleared===true?'ถึงเป้า':'ไม่ถึง (-)'}</div></div>
-        <div class="pill"><div class="k">เวลา</div><div class="v">${d.duration||0}s</div></div>
-      </div>
-      <div class="badge">Mini Quests ${d.questsCleared||0}/${d.questsTotal||0}</div>
-      <div class="btns">
-        <button id="btnRetry">เล่นอีกครั้ง</button>
-        <button id="btnHub">กลับ Hub</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(o);
-
-  const cssId = 'hha-result-css';
-  if (!document.getElementById(cssId)){
-    const css = document.createElement('style');
-    css.id = cssId;
-    css.textContent = `
-      #resultOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:999}
-      #resultOverlay .card{background:#0b1220;border:1px solid #334155;border-radius:16px;color:#e2e8f0;min-width:320px;max-width:720px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
-      #resultOverlay h2{margin:0 0 14px 0;font:900 20px system-ui}
-      #resultOverlay .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:10px}
-      #resultOverlay .pill{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:10px 12px;text-align:center}
-      .pill .k{font:700 11px system-ui;color:#93c5fd;opacity:.85}
-      .pill .v{font:900 18px system-ui;color:#f8fafc}
-      #resultOverlay .badge{display:inline-block;margin:4px 0 14px 0;padding:6px 10px;border:2px solid #475569;border-radius:10px;font:800 12px system-ui}
-      #resultOverlay .btns{display:flex;gap:10px;justify-content:flex-end}
-      #resultOverlay .btns button{cursor:pointer;border:0;border-radius:10px;padding:8px 14px;font:800 14px system-ui}
-      #btnRetry{background:#22c55e;color:#06270f}
-      #btnHub{background:#1f2937;color:#e5e7eb}
-      @media (max-width:640px){#resultOverlay .stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    `;
-    document.head.appendChild(css);
-  }
-
-  const badge = o.querySelector('.badge');
-  const x = d.questsCleared|0, y = d.questsTotal|0;
-  const r = y ? x/y : 0;
-  badge.style.borderColor = r>=1 ? '#16a34a' : (r>=0.5 ? '#f59e0b' : '#ef4444');
-  badge.style.background  = r>=1 ? '#16a34a22' : (r>=0.5 ? '#f59e0b22' : '#ef444422');
-  badge.style.color       = r>=1 ? '#bbf7d0'   : (r>=0.5 ? '#fde68a' : '#fecaca');
-
-  o.querySelector('#btnRetry').onclick = ()=>location.reload();
-  o.querySelector('#btnHub').onclick   = ()=>location.href = hub;
+  return ctx;
 }
 
-// รับสรุปจากโหมด
-window.addEventListener('hha:end',(e)=>{
-  const d = e.detail || {};
-  if (d.score == null)      d.score      = scoreTotal|0;
-  if (d.misses == null)     d.misses     = misses|0;
-  if (d.comboMax == null)   d.comboMax   = comboMax|0;
-  if (d.duration == null)   d.duration   = DURATION;
-  if (d.mode == null)       d.mode       = MODE;
-  if (d.difficulty == null) d.difficulty = DIFF;
-  showResult(d);
-});
+// ---------- การเริ่ม / จบเกม ----------
+async function startGame() {
+  if (state.running) return;
 
-// ---------- Loader (safe → quest → js) ----------
-async function loadModeModule(name){
-  const extOrder = ['safe','quest','js']; // safe เป็นตัวหลัก
-  const bases = [
-    '../modes/',
-    '/webxr-health-mobile/HeroHealth/modes/'
-  ];
+  const modeId = state.modeId || DEFAULT_MODE;
+  showStatus('Loading mode: ' + modeId + ' ...');
 
-  let err;
-  for (const base of bases){
-    for (const ext of extOrder){
-      const url = `${base}${name}.${ext}.js`;
-      try{
-        console.log('[ModeLoader] try', url);
-        const mod = await import(url + `?v=${Date.now()}`);
-        if (mod?.boot || mod?.default?.boot) return mod;
-      }catch(e){ err = e; }
-    }
-  }
-  throw new Error(`ไม่พบไฟล์โหมด: ${name}\n${err?.message||err}`);
-}
-
-// ---------- Countdown 3-2-1 ----------
-function runCountdown(sec=3){
-  return new Promise((resolve)=>{
-    const id='hha-count-css';
-    if (!document.getElementById(id)){
-      const css=document.createElement('style'); css.id=id;
-      css.textContent=`
-        #countOverlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);z-index:700}
-        #countOverlay .num{font:900 clamp(64px,12vw,160px) system-ui;color:#e5edff;text-shadow:0 12px 40px rgba(0,0,0,.6)}
-        #countOverlay.go .num{color:#86efac;text-shadow:0 10px 40px rgba(16,185,129,.45)}
-      `;
-      document.head.appendChild(css);
-    }
-    let overlay = document.getElementById('countOverlay');
-    if (!overlay){
-      overlay = document.createElement('div');
-      overlay.id='countOverlay';
-      overlay.innerHTML='<div class="num">3</div>';
-      document.body.appendChild(overlay);
-    }
-    const label = overlay.querySelector('.num');
-    overlay.style.display='flex';
-    let t = sec;
-    label.textContent = t;
-    const tick = ()=>{
-      t--;
-      if (t<=0){
-        label.textContent='GO!';
-        overlay.classList.add('go');
-        setTimeout(()=>{
-          overlay.style.display='none';
-          overlay.classList.remove('go');
-          resolve();
-        }, 450);
-      }else{
-        label.textContent=t;
-        setTimeout(tick, 900);
-      }
-    };
-    setTimeout(tick, 900);
-  });
-}
-
-// ---------- Start orchestration ----------
-let controller = null;
-let started    = false;
-
-async function startGame(){
-  if (started) return;
-  started = true;
-
-  scoreTotal=0; misses=0; comboNow=0; comboMax=0;
-  setScore(0); setCombo(0); setTimeLeft(DURATION); lastSec = DURATION;
-
-  try{
-    const p=document.getElementById('startPanel');
-    if (p) p.setAttribute('visible','false');
-  }catch(_){}
-
-  let mod;
-  try{
-    mod = await loadModeModule(MODE);
-  }catch(err){
-    alert(`เริ่มเกมไม่สำเร็จ: โหลดโหมดไม่พบ\n${err?.message||err}`);
-    started=false; return;
+  const mod = await loadModeModule(modeId);
+  if (!mod) {
+    // โหลดไม่สำเร็จ
+    return;
   }
 
-  const boot = mod.boot || mod.default?.boot;
-  if (!boot){
-    alert('เริ่มเกมไม่สำเร็จ: โมดูลไม่มีฟังก์ชัน boot()');
-    started=false; return;
-  }
+  // clear state เก่า
+  stopTimer();
+  state.running = true;
+  state.startedAt = Date.now();
+  state.currentModule = mod;
+  state.currentRunner = null;
 
-  await runCountdown(3);
+  // แสดงโค้ช 1 บรรทัด
+  showCoachLine();
 
-  try{
-    controller = await boot({ difficulty: DIFF, duration: DURATION });
-    controller?.start?.();
-  }catch(err){
-    console.error(err);
-    alert('เริ่มเกมไม่สำเร็จ: เกิดข้อผิดพลาดระหว่างเริ่มโหมด');
-    started=false;
-  }
-}
-
-// ปุ่มเริ่ม
-const domBtn = document.getElementById('btnStart');
-domBtn?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
-const vrBtn = document.getElementById('vrStartBtn');
-vrBtn?.addEventListener('click',(e)=>{ e.preventDefault(); startGame(); });
-
-// Auto start (ถ้าตั้ง autostart=1)
-if (AUTOSTART){
-  setTimeout(()=>startGame(), 0);
-}
+  // เตรียม ctx
+  c
