@@ -2,436 +2,96 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
+  <title>Jump • Duck — เล่นเกม</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Jump & Duck — เล่นเกม</title>
-  <style>
-    :root { color-scheme: dark; }
-    *{box-sizing:border-box; user-select:none; -webkit-user-select:none;}
-
-    body{
-      margin:0;
-      background:#020617;
-      font-family:system-ui,Segoe UI,Inter,sans-serif;
-      display:flex;align-items:center;justify-content:center;
-      min-height:100vh;color:#e5e7eb;overflow:hidden;
-    }
-
-    #jd-stage{
-      position:relative;
-      width:100vw;height:100vh;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at top,rgba(56,189,248,.2),transparent 60%),
-        radial-gradient(circle at bottom,rgba(34,197,94,.15),transparent 60%),
-        #020617;
-      transition:box-shadow .3s ease-out;
-    }
-
-    #jd-message{
-      position:absolute;top:48px;left:50%;transform:translateX(-50%);
-      padding:6px 14px;border-radius:999px;
-      background:rgba(15,23,42,.85);
-      border:1px solid rgba(148,163,184,.6);
-      font-size:14px;pointer-events:none;
-      z-index:10;text-align:center;
-    }
-
-    /* ==== OBSTACLES ==== */
-    .obstacle{
-      position:absolute;
-      font-size:clamp(40px,7vw,62px);
-      pointer-events:none;
-      transform:translate(-50%,-50%) scale(.2);
-      animation:spawn .2s ease-out forwards;
-      z-index:5;
-    }
-    @keyframes spawn{
-      from{opacity:0; transform:translate(-50%,-50%) scale(.2);}
-      to{opacity:1; transform:translate(-50%,-50%) scale(1);}
-    }
-
-    .obs-high { color:#eab308; text-shadow:0 0 10px #facc15; } /* ต้องหมอบ */
-    .obs-low  { color:#22c55e; text-shadow:0 0 10px #4ade80; } /* ต้องกระโดด */
-
-    /* ==== PLAYER ICON ==== */
-    #player{
-      position:absolute;bottom:18%;left:50%;transform:translateX(-50%);
-      font-size:clamp(60px,9vw,84px);
-      transition:transform .18s ease-out;
-      z-index:8;
-      filter: drop-shadow(0 0 10px rgba(255,255,255,.4));
-    }
-
-    .jumping{ animation:jumpAnim .5s ease-out; }
-    @keyframes jumpAnim{
-      0%{transform:translate(-50%,0);}
-      35%{transform:translate(-50%,-120px);}
-      55%{transform:translate(-50%,-100px);}
-      100%{transform:translate(-50%,0);}
-    }
-
-    .ducking{ animation:duckAnim .45s ease-out; }
-    @keyframes duckAnim{
-      0%{transform:translate(-50%,0) scale(1);}
-      35%{transform:translate(-50%,40px) scale(.75);}
-      55%{transform:translate(-50%,50px) scale(.8);}
-      100%{transform:translate(-50%,0) scale(1);}
-    }
-
-    /* ==== FEVER BAR ==== */
-    #hud{ position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
-      width:min(960px,96vw);z-index:20; }
-    #hud-inner{
-      display:flex;align-items:center;gap:10px;
-      background:rgba(15,23,42,.88);
-      border-radius:999px;padding:8px 14px;
-      border:1px solid rgba(148,163,184,.6);
-    }
-    .hud-block{display:flex;align-items:center;gap:6px;}
-    .hud-val{font-weight:600;font-size:15px;}
-
-    #fever-area{display:flex;align-items:center;gap:6px;}
-    #fever-bar{width:120px;height:8px;background:#0f172a;border-radius:999px;
-      border:1px solid rgba(148,163,184,.7);overflow:hidden;}
-    #fever-fill{width:0%;height:100%;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);
-      transform-origin:left;transition:transform .18s ease-out;}
-
-    #btn-start{
-      margin-left:auto;border-radius:999px;border:none;background:#38bdf8;
-      padding:6px 14px;font-weight:600;color:#001018;cursor:pointer;
-    }
-
-    .onfire-screen{animation:firePulse .85s infinite;}
-    @keyframes firePulse{
-      0%{box-shadow:inset 0 0 22px rgba(255,87,34,.25);}
-      50%{box-shadow:inset 0 0 70px rgba(255,87,34,.5);}
-      100%{box-shadow:inset 0 0 22px rgba(255,87,34,.25);}
-    }
-
-    /* ==== FLOAT SCORE ==== */
-    .float-score{
-      position:absolute;font-size:20px;font-weight:700;pointer-events:none;
-      color:#4ade80;text-shadow:0 0 8px rgba(22,163,74,.9);
-      animation:fscore .7s ease-out forwards;z-index:9;
-    }
-    .miss{color:#ef4444 !important; text-shadow:0 0 8px rgba(248,113,113,.9) !important;}
-    .crit{color:#facc15 !important; text-shadow:0 0 14px #ffda6a !important;}
-
-    @keyframes fscore {
-      0%{opacity:0; transform:translate(-50%,0);}
-      10%{opacity:1; transform:translate(-50%,-10px);}
-      100%{opacity:0; transform:translate(-50%,-50px);}
-    }
-
-    /* ==== RESULT ==== */
-    #result-box{
-      position:fixed;inset:0;background:rgba(15,23,42,.7);
-      display:none;align-items:center;justify-content:center;z-index:30;
-    }
-    #result-card{
-      width:min(380px,92vw);background:#020617;border-radius:18px;
-      padding:18px 20px;border:1px solid rgba(148,163,184,.7);
-      box-shadow:0 20px 48px rgba(15,23,42,.85);
-      color:#e5e7eb;
-    }
-    #rank-badge{
-      display:inline-flex;align-items:center;gap:6px;
-      padding:2px 10px;border-radius:999px;font-weight:700;
-    }
-    #result-actions{display:flex;gap:8px;margin-top:10px;}
-    #btn-retry,#btn-exit{flex:1;border:none;border-radius:999px;padding:8px;font-weight:600;cursor:pointer;}
-    #btn-retry{background:#38bdf8;color:#001018;}
-    #btn-exit{background:#e5e7eb;color:#020617;}
-
-  </style>
+  <link rel="stylesheet" href="./jump-duck.css"/>
 </head>
 <body>
 
-<div id="jd-stage">
-  <div id="jd-message">
-    🟩 <b>Jump</b> = กระโดด <br>
-    🟨 <b>Duck</b> = หมอบ <br><br>
-    แตะ ▶ เริ่มเล่น และทำตามสัญลักษณ์หลบให้ทัน!
-  </div>
+<div id="jd-stage"></div>
 
-  <!-- ตัวผู้เล่น -->
-  <div id="player">🧍</div>
+<div class="sb-hud">
+  <div>⏱ <b id="hud-time">60</b>s</div>
+  <div>💯 <b id="hud-score">0</b></div>
+  <div>🔥 <b id="hud-combo">x0</b></div>
+  <button id="btn-pause" class="sb-btn-ghost">⏸ พัก</button>
 </div>
 
-<!-- HUD -->
-<div id="hud">
-  <div id="hud-inner">
-    <div class="hud-block">⏱ <span id="hud-time" class="hud-val">60</span>s</div>
-    <div class="hud-block">⭐ <span id="hud-score" class="hud-val">0</span></div>
-    <div class="hud-block">🔥 <span id="hud-combo" class="hud-val">x0</span></div>
+<div id="jd-msg" class="sb-msg"></div>
 
-    <div id="fever-area">
-      <span style="font-size:11px;opacity:.8">FEVER</span>
-      <div id="fever-bar"><div id="fever-fill"></div></div>
-    </div>
+<!-- Leaderboard -->
+<aside id="jd-leaderboard" class="sb-leaderboard"></aside>
+<button id="lb-toggle" class="sb-lb-toggle">📊</button>
 
-    <button id="btn-start">▶ เริ่มเล่น</button>
-  </div>
-</div>
+<!-- Result Modal -->
+<div id="result-box" class="sb-result-backdrop">
+  <div class="sb-result-card">
+    <h2>🏁 ผลการเล่น Jump • Duck</h2>
+    <p>คะแนน: <b id="res-score">0</b></p>
+    <p>ถูกต้อง: <b id="res-hits">0</b> / พลาด: <b id="res-miss">0</b></p>
+    <p>ความแม่นยำ: <b id="res-acc">0%</b></p>
+    <p>คอมโบสูงสุด: <b id="res-best">x0</b></p>
+    <p>ระดับ (Rank): <b id="res-rank">C</b></p>
+    <hr/>
+    <button id="btn-pdf" class="sb-btn-primary">📄 ดาวน์โหลด PDF</button>
 
-<!-- RESULT -->
-<div id="result-box">
-  <div id="result-card">
-    <h3>🏁 ผลลัพธ์</h3>
-    <div id="rank-badge">Rank: <span id="rank-text">C</span></div>
-    <p>คะแนน: <span id="res-score">0</span></p>
-    <p>ถูกต้อง: <span id="res-hits">0</span> | พลาด: <span id="res-miss">0</span></p>
-    <p>Accuracy: <span id="res-acc">0%</span></p>
-    <p>Combo สูงสุด: <span id="res-best">x0</span></p>
-    <p>เวลาเล่น: <span id="res-time">60</span>s</p>
-
-    <div id="result-actions">
-      <button id="btn-retry">🔁 เล่นใหม่</button>
-      <button id="btn-exit">🏠 กลับเมนู</button>
+    <div class="sb-result-actions">
+      <button id="btn-retry" class="sb-btn-secondary">🔁 เล่นอีกครั้ง</button>
+      <button id="btn-home" class="sb-btn-ghost">🏠 เมนู</button>
     </div>
   </div>
 </div>
 
-<script>
-(()=>{
-'use strict';
+<script type="module">
+import { JumpDuck } from './jump-duck.js';
 
-const stage=document.getElementById("jd-stage");
-const msg=document.getElementById("jd-message");
-const player=document.getElementById("player");
+const game = new JumpDuck({
+  stage: document.querySelector('#jd-stage'),
+  hud: {
+    time:  document.querySelector('#hud-time'),
+    score: document.querySelector('#hud-score'),
+    combo: document.querySelector('#hud-combo')
+  },
+  result: {
+    box:   document.querySelector('#result-box'),
+    score: document.querySelector('#res-score'),
+    hits:  document.querySelector('#res-hits'),
+    miss:  document.querySelector('#res-miss'),
+    acc:   document.querySelector('#res-acc'),
+    best:  document.querySelector('#res-best'),
+    rank:  document.querySelector('#res-rank')
+  },
+  msgBox: document.querySelector('#jd-msg'),
+  lbBox:  document.querySelector('#jd-leaderboard'),
+  pdfBtn: document.querySelector('#btn-pdf'),
+});
 
-const timeEl=document.getElementById("hud-time");
-const scoreEl=document.getElementById("hud-score");
-const comboEl=document.getElementById("hud-combo");
-const btnStart=document.getElementById("btn-start");
-const feverFill=document.getElementById("fever-fill");
+const btnPause = document.querySelector('#btn-pause');
+const btnRetry = document.querySelector('#btn-retry');
+const btnHome  = document.querySelector('#btn-home');
 
-const resBox=document.getElementById("result-box");
-const resScore=document.getElementById("res-score");
-const resHits=document.getElementById("res-hits");
-const resMiss=document.getElementById("res-miss");
-const resAcc=document.getElementById("res-acc");
-const resBest=document.getElementById("res-best");
-const resTime=document.getElementById("res-time");
-const rankText=document.getElementById("rank-text");
-const btnRetry=document.getElementById("btn-retry");
-const btnExit=document.getElementById("btn-exit");
-
-const OBST_HIGH="🪨"; // Duck
-const OBST_LOW ="🔥"; // Jump
-let obsSet=new Set();
-
-let state={
- play:false,
- duration:90,
- elapsed:0,
- lastTs:0,
- score:0,
- hits:0,
- miss:0,
- combo:0,
- bestCombo:0,
- spawnBase:1.2,
- spawnTimer:0,
- raf:0,
- fever:0,
- onfire:false
+let paused = false;
+btnPause.onclick = () => {
+  paused = !paused;
+  paused ? game.pause(true) : game.pause(false);
+  btnPause.textContent = paused ? '▶ ต่อ' : '⏸ พัก';
 };
 
-function rand(a,b){return Math.random()*(b-a)+a;}
+btnRetry.onclick = () => { location.reload(); };
+btnHome.onclick  = () => { location.href = './index.html'; };
 
-function updateHUD(){
- timeEl.textContent=Math.ceil(state.duration-state.elapsed);
- scoreEl.textContent=state.score;
- comboEl.textContent="x"+state.combo;
-}
+// Leaderboard toggle
+const lb = document.querySelector('#jd-leaderboard');
+const lbToggle = document.querySelector('#lb-toggle');
 
-function spawnObstacle(){
- if(!state.play) return;
+lb.classList.add('hidden');
+lbToggle.textContent = '📊';
+lbToggle.onclick = () => {
+  const hidden = lb.classList.toggle('hidden');
+  lbToggle.textContent = hidden ? '📊' : '❌';
+};
 
- const el=document.createElement("div");
- const isHigh=Math.random()<0.5; // 50/50
-
- el.className="obstacle "+(isHigh?"obs-high":"obs-low");
- el.textContent=isHigh?OBST_HIGH:OBST_LOW;
- el.dataset.type=isHigh?"high":"low";
-
- const rect=stage.getBoundingClientRect();
- el.style.left=(rect.width*0.5)+"px"; 
- el.style.top=(isHigh? rect.height*0.40 : rect.height*0.70)+"px";  
-
- obsSet.add(el);
- stage.appendChild(el);
-
- const lifetime=1.2;
- setTimeout(()=>checkOutcome(el),lifetime*1000);
-}
-
-function checkOutcome(el){
- if(!obsSet.has(el)) return;
-
- const isHigh = el.dataset.type==="high";
- const correct = (isHigh && player.classList.contains("ducking")) ||
-                 (!isHigh && player.classList.contains("jumping"));
-
- obsSet.delete(el);
- el.remove();
-
- if(correct){
-   onCorrect();
- }else{
-   onMiss();
- }
- updateHUD();
-}
-
-function onCorrect(){
- const gainBase=12;
- const futureCombo=state.combo+1;
- const crit=futureCombo>=5;
- const onfire=futureCombo>=8;
-
- let gain=gainBase+(crit?18:0);
- if(onfire){
-   if(!state.onfire){
-     state.onfire=true;
-     stage.classList.add("onfire-screen");
-   }
-   gain*=2;
- }
-
- state.score+=gain;
- state.hits++;
- state.combo++;
- state.bestCombo=Math.max(state.bestCombo,state.combo);
-
- state.fever=Math.min(100,state.combo*10);
- feverFill.style.transform="scaleX("+state.fever/100+")";
-
- floatScore(gain,false,crit);
-}
-
-function onMiss(){
- state.miss++;
- state.combo=0;
- state.fever=0;
- state.onfire=false;
- feverFill.style.transform="scaleX(0)";
- stage.classList.remove("onfire-screen");
- floatScore(5,true,false);
-}
-
-function floatScore(val,isMiss,crit){
- const el=document.createElement("div");
- el.className="float-score"+(isMiss?" miss":"")+(crit?" crit":"");
- el.textContent=(isMiss?"-"+val:"+"+val);
- el.style.left="50%"; el.style.bottom="34%";
- el.style.transform="translateX(-50%)";
- stage.appendChild(el);
- setTimeout(()=>el.remove(),700);
-}
-
-function finish(){
- state.play=false;
- cancelAnimationFrame(state.raf);
-
- obsSet.forEach(o=>o.remove());
- obsSet.clear();
-
- const total=state.hits+state.miss;
- const acc= total>0? state.hits/total:0;
-
- resScore.textContent=state.score;
- resHits.textContent=state.hits;
- resMiss.textContent=state.miss;
- resAcc.textContent=Math.round(acc*100)+"%";
- resBest.textContent="x"+state.bestCombo;
- resTime.textContent=state.duration;
-
- let rank="C";
- if(state.score>=1600 && acc>=0.95) rank="SSS";
- else if(state.score>=1100 && acc>=0.90) rank="S";
- else if(state.score>=800 && acc>=0.80)  rank="A";
- else if(state.score>=500 && acc>=0.60)  rank="B";
-
- rankText.textContent=rank;
- resBox.style.display="flex";
- msg.textContent="จบการหลบแล้ว!";
-}
-
-function loop(ts){
- if(!state.play) return;
- if(!state.lastTs) state.lastTs=ts;
- const dt=(ts-state.lastTs)/1000; state.lastTs=ts;
-
- state.elapsed+=dt;
- if(state.elapsed>=state.duration){ finish(); return; }
-
- state.spawnTimer+=dt;
- const t=state.elapsed/state.duration;
- const dyn=Math.max(state.spawnBase*(1-0.5*t),0.4);
-
- if(state.spawnTimer>=dyn){
-   state.spawnTimer=0;
-   spawnObstacle();
- }
- state.raf=requestAnimationFrame(loop);
-}
-
-function reset(){
- state.elapsed=0; state.lastTs=0; state.spawnTimer=0;
- state.score=0; state.hits=0; state.miss=0; state.combo=0; state.bestCombo=0;
- state.fever=0; state.onfire=false;
- feverFill.style.transform="scaleX(0)";
- obsSet.forEach(o=>o.remove());
- obsSet.clear();
- updateHUD();
-}
-
-function start(){
- reset();
- resBox.style.display="none";
- state.play=true;
- msg.textContent="หลบให้ทัน! Jump = กระโดด | Duck = หมอบ";
- state.raf=requestAnimationFrame(loop);
-}
-
-/* ----- Input Controls ----- */
-function jump(){
- if(player.classList.contains("ducking")) return;
- player.classList.add("jumping");
- setTimeout(()=>player.classList.remove("jumping"),500);
-}
-function duck(){
- if(player.classList.contains("jumping")) return;
- player.classList.add("ducking");
- setTimeout(()=>player.classList.remove("ducking"),450);
-}
-
-document.addEventListener("keydown",e=>{
- if(!state.play) return;
- if(e.code==="ArrowUp"||e.code==="Space") jump();
- if(e.code==="ArrowDown") duck();
-});
-
-stage.addEventListener("click",()=>{
- if(!state.play) return;
- Math.random()<0.5?jump():duck();
-});
-
-btnStart.onclick=start;
-btnRetry.onclick=start;
-btnExit.onclick=()=>location.href="./index.html";
-
-document.addEventListener("visibilitychange",()=>{
- if(document.hidden && state.play){
-   state.play=false;
-   cancelAnimationFrame(state.raf);
- }
-});
-
-updateHUD();
-})();
+game.start();
 </script>
 
 </body>
