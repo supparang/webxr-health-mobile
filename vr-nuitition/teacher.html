@@ -2,541 +2,381 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hero Health — Teacher Dashboard</title>
-  <meta name="color-scheme" content="light dark"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <style>
-    :root{
-      color-scheme: light dark;
-    }
+    :root{color-scheme:light dark;}
     *{box-sizing:border-box;}
     body{
       margin:0;
-      min-height:100vh;
       font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.15), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 55%),
-        #020617;
+      background:#020617;
       color:#e5e7eb;
     }
     .wrap{
-      max-width:1100px;
-      margin:24px auto 40px;
-      padding:0 16px 32px;
-    }
-    header{
-      margin-bottom:16px;
+      max-width:1080px;
+      margin:24px auto;
+      padding:0 16px 40px;
     }
     h1{
-      margin:0 0 6px;
-      font-size:24px;
+      margin:0 0 4px;
+      font-size:22px;
     }
-    .subtitle{
+    .muted{
+      color:#9ca3af;
       font-size:13px;
-      color:#cbd5f5;
-      max-width:640px;
     }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:4px 10px;
+    .panel{
+      margin-top:16px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(15,23,42,0.96);
+      border:1px solid rgba(51,65,85,0.9);
+    }
+    label{
+      font-size:13px;
+      display:inline-block;
+      margin-right:8px;
+    }
+    select,input[type="file"]{
+      background:#020617;
       border-radius:999px;
-      font-size:11px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:rgba(15,23,42,0.92);
+      border:1px solid #334155;
       color:#e5e7eb;
-      margin-bottom:8px;
+      padding:6px 10px;
+      font-size:13px;
+      margin-right:8px;
     }
-
+    canvas{
+      background:#020617;
+      border-radius:16px;
+      padding:8px;
+    }
     .grid{
       display:grid;
-      grid-template-columns:1.2fr 1fr;
+      grid-template-columns: minmax(0,1.2fr) minmax(0,0.8fr);
       gap:16px;
+      margin-top:16px;
     }
-    @media (max-width:900px){
-      .grid{grid-template-columns:1fr;}
+    @media(max-width:768px){
+      .grid{grid-template-columns: minmax(0,1fr);}
     }
-
-    .card{
-      border-radius:18px;
-      padding:14px 16px 16px;
-      border:1px solid rgba(148,163,184,0.4);
-      background:rgba(15,23,42,0.96);
-      box-shadow:0 18px 40px rgba(15,23,42,0.9);
-      margin-bottom:14px;
-    }
-    .card h2{
-      margin:0 0 8px;
-      font-size:16px;
-    }
-    .card p{
-      margin:0 0 8px;
-      font-size:12px;
-      color:#cbd5f5;
-    }
-
-    input[type="file"]{
-      font-size:12px;
-    }
-
-    .summary-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:6px;
-    }
-    .summary-pill{
-      flex:1 1 140px;
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,0.45);
-      background:rgba(15,23,42,0.95);
-      padding:6px 10px;
-      font-size:12px;
-    }
-    .summary-label{
-      color:#9ca3af;
-      font-size:11px;
-    }
-    .summary-value{
-      font-weight:600;
-      font-size:14px;
-    }
-
     table{
       width:100%;
       border-collapse:collapse;
       font-size:12px;
-      margin-top:6px;
+      margin-top:10px;
     }
     th,td{
       border-bottom:1px solid rgba(55,65,81,0.9);
       padding:4px 6px;
       text-align:left;
+      white-space:nowrap;
     }
-    th{
-      font-weight:600;
-      font-size:11px;
-      color:#cbd5f5;
-    }
-    tbody tr:hover{
-      background:rgba(31,41,55,0.9);
-    }
-
-    .pill-mode{
-      border-radius:999px;
+    th{color:#cbd5f5;}
+    .pill{
+      display:inline-block;
       padding:2px 8px;
+      border-radius:999px;
       font-size:11px;
-      border:1px solid rgba(148,163,184,0.6);
-      background:rgba(15,23,42,0.95);
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <header>
-      <div class="badge">📊 Hero Health — Teacher / Research Dashboard</div>
-      <h1>สรุปผลการเล่นเกม Hero Health จากไฟล์ CSV</h1>
-      <p class="subtitle">
-        นำเข้าไฟล์ CSV ที่ได้จากปุ่ม <strong>ดาวน์โหลด CSV</strong> ในเกม
-        ระบบจะแสดงสรุปภาพรวมของนักเรียนแต่ละคน ความแม่นยำ เวลาโต้ตอบ และเปรียบเทียบตามระดับความยาก
-      </p>
-    </header>
+    <h1>Hero Health — Teacher Dashboard</h1>
+    <div class="muted">
+      อัปโหลดไฟล์ CSV แบบย่อจากเกม แล้วเลือกชั้น/ห้อง เพื่อดูสัดส่วน Rank ของเด็กแต่ละกลุ่ม
+    </div>
 
-    <!-- แถวซ้าย: upload + summary / แถวขวา: chart -->
-    <div class="grid">
-      <div>
-        <!-- Upload -->
-        <div class="card">
-          <h2>1. เลือกไฟล์ CSV</h2>
-          <p>
-            เลือกไฟล์ CSV ที่ดาวน์โหลดจากเกม (ทั้งโหมดครู/วิจัยใช้ schema เดียวกันได้)
-          </p>
-          <input id="csvInput" type="file" accept=".csv,text/csv"/>
-        </div>
-
-        <!-- Overall summary -->
-        <div class="card">
-          <h2>2. ภาพรวมของข้อมูล</h2>
-          <div class="summary-row">
-            <div class="summary-pill">
-              <div class="summary-label">จำนวนนักเรียน</div>
-              <div class="summary-value" id="sumPlayers">–</div>
-            </div>
-            <div class="summary-pill">
-              <div class="summary-label">จำนวน event (hit/miss)</div>
-              <div class="summary-value" id="sumEvents">–</div>
-            </div>
-            <div class="summary-pill">
-              <div class="summary-label">ความแม่นยำเฉลี่ย</div>
-              <div class="summary-value" id="sumAcc">–</div>
-            </div>
-            <div class="summary-pill">
-              <div class="summary-label">RT เฉลี่ย (ms)</div>
-              <div class="summary-value" id="sumRt">–</div>
-            </div>
-          </div>
-        </div>
+    <div class="panel">
+      <div style="margin-bottom:8px;font-size:13px;">
+        1) เปิดหน้าเกม Hero Health → จบรอบ → กด <b>“ดาวน์โหลด CSV → แบบย่อ (สำหรับครู)”</b><br/>
+        2) นำไฟล์ที่ได้มาอัปโหลดที่นี่
       </div>
+      <input id="fileInput" type="file" accept=".csv"/>
+      <label>ชั้น (Grade):
+        <select id="gradeSelect">
+          <option value="">ทั้งหมด</option>
+        </select>
+      </label>
+      <label>ห้อง (Room):
+        <select id="roomSelect">
+          <option value="">ทั้งหมด</option>
+        </select>
+      </label>
+    </div>
 
-      <!-- Charts -->
-      <div>
-        <!-- per-student chart -->
-        <div id="chartCard" class="card" style="display:none;">
-          <h2>3. กราฟต่อคน</h2>
-          <p>เลือกนักเรียน แล้วดูสถิติแบบกราฟแท่ง</p>
-          <canvas id="studentChart" height="220"></canvas>
+    <div class="grid">
+      <div class="panel">
+        <h3 style="margin:0 0 6px;font-size:15px;">กราฟแท่ง: จำนวนเด็กแต่ละ Rank</h3>
+        <div class="muted" style="margin-bottom:6px;font-size:12px;">
+          ใช้ดูว่าภาพรวมในชั้น/ห้องนี้ อยู่ในระดับ Healthy God / Super Fit / Active Hero / Rookie / Sleepy เท่าไหร่
         </div>
-
-        <!-- diff compare chart -->
-        <div id="diffCard" class="card" style="display:none;">
-          <h2>4. เปรียบเทียบระดับความยาก (รวมทุกคน)</h2>
-          <p>กราฟเปรียบเทียบความแม่นยำและเวลาโต้ตอบระหว่าง Easy / Normal / Hard</p>
-          <canvas id="diffChart" height="220"></canvas>
+        <canvas id="barChart" height="220"></canvas>
+      </div>
+      <div class="panel">
+        <h3 style="margin:0 0 6px;font-size:15px;">กราฟโดนัท: สัดส่วน Rank</h3>
+        <div class="muted" style="margin-bottom:6px;font-size:12px;">
+          เปอร์เซ็นต์ของเด็กแต่ละ Rank ในกลุ่มที่เลือก
         </div>
+        <canvas id="pieChart" height="220"></canvas>
       </div>
     </div>
 
-    <!-- Table -->
-    <div class="card">
-      <h2>5. ตารางสรุปต่อคน</h2>
-      <p>ดูคะแนน / accuracy / RT เฉลี่ย และจำนวนรอบที่เล่นของแต่ละคน</p>
-      <div style="overflow:auto;">
-        <table id="studentTable">
-          <thead>
-            <tr>
-              <th>นักเรียน</th>
-              <th>ชั้น</th>
-              <th>รหัส</th>
-              <th>จำนวนรอบ</th>
-              <th>โหมดที่เล่น</th>
-              <th>คะแนนสูงสุด</th>
-              <th>Accuracy เฉลี่ย</th>
-              <th>RT เฉลี่ย (ms)</th>
-              <th>เควสต์สำเร็จ</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td colspan="9" style="text-align:center;color:#9ca3af;">ยังไม่มีข้อมูล</td></tr>
-          </tbody>
-        </table>
-      </div>
+    <div class="panel" style="margin-top:18px;">
+      <h3 style="margin:0 0 6px;font-size:15px;">ข้อมูลล่าสุด (top 10)</h3>
+      <table id="summaryTable">
+        <thead>
+          <tr>
+            <th>ชื่อ</th>
+            <th>ชั้น</th>
+            <th>ห้อง</th>
+            <th>โหมด</th>
+            <th>ระดับ</th>
+            <th>Rank</th>
+            <th>คะแนน</th>
+            <th>Acc%</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    const csvInput = document.getElementById('csvInput');
-    const sumPlayersEl = document.getElementById('sumPlayers');
-    const sumEventsEl  = document.getElementById('sumEvents');
-    const sumAccEl     = document.getElementById('sumAcc');
-    const sumRtEl      = document.getElementById('sumRt');
+    // โครงข้อมูลหลัง parse CSV (teacher)
+    let teacherRows = []; // แต่ละแถว = object จาก CSV
+    let barChart, pieChart;
 
-    const studentTable = document.getElementById('studentTable').querySelector('tbody');
-    const chartCard    = document.getElementById('chartCard');
-    const diffCard     = document.getElementById('diffCard');
+    const RANK_ORDER = ['healthy-god','super-fit','active-hero','rookie','sleepy'];
+    const RANK_LABEL = {
+      'healthy-god': 'Healthy God',
+      'super-fit': 'Super Fit',
+      'active-hero': 'Active Hero',
+      'rookie': 'Rookie',
+      'sleepy': 'Sleepy Mode'
+    };
 
-    const studentCanvas = document.getElementById('studentChart');
-    const diffCanvas    = document.getElementById('diffChart');
-
-    let parsedRows = [];
-    let perStudent = {};
-    let chartInstance = null;
-    let diffChartInstance = null;
-
-    function parseCsv(text){
+    function parseCsv(text) {
       const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
       if (!lines.length) return [];
-
-      const header = lines[0].split(',').map(h => h.trim());
+      const header = lines[0].split(',');
       const rows = [];
 
-      for (let i=1;i<lines.length;i++){
-        const raw = lines[i];
-        if (!raw.trim()) continue;
-        const cols = raw.split(',');
+      for (let i = 1; i < lines.length; i++) {
+        const cols = splitCsvLine(lines[i]);
+        if (!cols.length || cols.length < header.length) continue;
         const obj = {};
-        for (let c=0;c<header.length;c++){
-          const key = header[c];
-          let val = cols[c] != null ? cols[c].trim() : '';
-          if (key === 'correct' || key === 'fever' || key === 'quest_streak5_done' ||
-              key === 'quest_combo_done' || key === 'quest_fever_twice' || key === 'quest_fever_done'){
-            obj[key] = (val === '1' || val.toLowerCase() === 'true');
-          } else if (key === 'rt_ms' || key === 'score_after' || key === 'combo_after' || key === 'time_left'){
-            const n = parseFloat(val);
-            obj[key] = isNaN(n) ? null : n;
-          } else {
-            obj[key] = val;
-          }
+        for (let j = 0; j < header.length; j++) {
+          obj[header[j]] = cols[j] != null ? cols[j] : '';
         }
         rows.push(obj);
       }
       return rows;
     }
 
-    function buildPerStudent(rows){
-      const map = {};
-      rows.forEach(r => {
-        const name  = r.profile_name || '';
-        const grade = r.profile_grade || '';
-        const sid   = r.profile_id || '';
-        const key = (name || '(ไม่ระบุชื่อ)') + '|' + (sid || '-');
-
-        if (!map[key]){
-          map[key] = {
-            name, grade, sid,
-            rounds:0,
-            maxScore:0,
-            modes: new Set(),
-            diffSet: new Set(),
-            hitEvents:0,
-            correctEvents:0,
-            rtSum:0,
-            rtCount:0,
-            questDoneCount:0
-          };
-        }
-        const st = map[key];
-
-        // นับรอบจาก event hit/boss-hit ที่ time_left = 0 ? ไว้ก่อนใช้ per-file แบบหยาบ:
-        // ใช้ kind === 'hit' หรือ 'boss-hit'
-        if (r.kind === 'hit' || r.kind === 'boss-hit'){
-          st.hitEvents++;
-          if (r.correct) st.correctEvents++;
-          if (typeof r.rt_ms === 'number' && r.rt_ms > 0){
-            st.rtSum += r.rt_ms;
-            st.rtCount++;
+    // split CSV แบบง่าย ๆ รองรับค่าใน ""
+    function splitCsvLine(line) {
+      const res = [];
+      let cur = '';
+      let inQuote = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"' ) {
+          if (inQuote && line[i+1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuote = !inQuote;
           }
-          if (typeof r.score_after === 'number' && r.score_after > st.maxScore){
-            st.maxScore = r.score_after;
-          }
-          if (r.mode) st.modes.add(r.mode);
-          if (r.diff) st.diffSet.add(r.diff);
+        } else if (ch === ',' && !inQuote) {
+          res.push(cur);
+          cur = '';
+        } else {
+          cur += ch;
         }
-
-        // นับ quest จาก flag ใด ๆ
-        if (r.quest_streak5_done || r.quest_combo_done || r.quest_fever_done){
-          st.questDoneCount++;
-        }
-      });
-
-      // ประมาณ rounds จาก hitEvents/20 (ในหนึ่งรอบโดยเฉลี่ยประมาณ 20 hit; ปรับได้ทีหลัง)
-      Object.values(map).forEach(st => {
-        st.rounds = Math.max(1, Math.round(st.hitEvents / 20));
-      });
-
-      return map;
-    }
-
-    function fillSummaryAndTable(){
-      const keys = Object.keys(perStudent);
-      const students = keys.map(k => perStudent[k]);
-
-      if (!students.length){
-        sumPlayersEl.textContent = '0';
-        sumEventsEl.textContent  = '0';
-        sumAccEl.textContent     = '–';
-        sumRtEl.textContent      = '–';
-        studentTable.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#9ca3af;">ยังไม่มีข้อมูล</td></tr>';
-        chartCard.style.display = 'none';
-        diffCard.style.display  = 'none';
-        return;
       }
-
-      // summary overall
-      let totalEvents = 0, totalCorrect = 0, rtSum=0, rtCount=0;
-      students.forEach(st => {
-        totalEvents  += st.hitEvents;
-        totalCorrect += st.correctEvents;
-        rtSum        += st.rtSum;
-        rtCount      += st.rtCount;
-      });
-
-      const acc = totalEvents ? (totalCorrect/totalEvents)*100 : 0;
-      const rtAvg = rtCount ? (rtSum/rtCount) : 0;
-
-      sumPlayersEl.textContent = String(students.length);
-      sumEventsEl.textContent  = String(totalEvents || 0);
-      sumAccEl.textContent     = totalEvents ? acc.toFixed(1)+'%' : '–';
-      sumRtEl.textContent      = rtCount ? rtAvg.toFixed(1) : '–';
-
-      // table
-      studentTable.innerHTML = '';
-      students.forEach(st => {
-        const tr = document.createElement('tr');
-
-        const nameCell = document.createElement('td');
-        nameCell.textContent = st.name || '(ไม่ระบุชื่อ)';
-
-        const gradeCell = document.createElement('td');
-        gradeCell.textContent = st.grade || '-';
-
-        const sidCell = document.createElement('td');
-        sidCell.textContent = st.sid || '-';
-
-        const roundsCell = document.createElement('td');
-        roundsCell.textContent = String(st.rounds);
-
-        const modeCell = document.createElement('td');
-        const pill = document.createElement('span');
-        pill.className = 'pill-mode';
-        pill.textContent = Array.from(st.modes).join(', ') || '-';
-        modeCell.appendChild(pill);
-
-        const scoreCell = document.createElement('td');
-        scoreCell.textContent = String(st.maxScore || 0);
-
-        const accCell = document.createElement('td');
-        const sAcc = st.hitEvents ? (st.correctEvents / st.hitEvents)*100 : 0;
-        accCell.textContent = st.hitEvents ? sAcc.toFixed(1)+'%' : '–';
-
-        const rtCell = document.createElement('td');
-        const sRt = st.rtCount ? (st.rtSum / st.rtCount) : 0;
-        rtCell.textContent = st.rtCount ? sRt.toFixed(1) : '–';
-
-        const questCell = document.createElement('td');
-        questCell.textContent = String(st.questDoneCount || 0);
-
-        tr.appendChild(nameCell);
-        tr.appendChild(gradeCell);
-        tr.appendChild(sidCell);
-        tr.appendChild(roundsCell);
-        tr.appendChild(modeCell);
-        tr.appendChild(scoreCell);
-        tr.appendChild(accCell);
-        tr.appendChild(rtCell);
-        tr.appendChild(questCell);
-
-        // คลิกแถวเพื่อเลือกกราฟ
-        tr.style.cursor = 'pointer';
-        tr.addEventListener('click', () => {
-          updateStudentChart(st);
-        });
-
-        studentTable.appendChild(tr);
-      });
-
-      // default: แสดงคนแรก
-      updateStudentChart(students[0]);
-      chartCard.style.display = 'block';
+      res.push(cur);
+      return res;
     }
 
-    function updateStudentChart(st){
-      if (!st) return;
+    function initSelectors() {
+      const grades = new Set();
+      const rooms = new Set();
+      teacherRows.forEach(r => {
+        if (r.profile_grade) grades.add(r.profile_grade);
+        if (r.profile_room) rooms.add(r.profile_room);
+      });
 
-      const label = st.name || '(ไม่ระบุชื่อ)';
-      const acc = st.hitEvents ? (st.correctEvents / st.hitEvents)*100 : 0;
-      const rt  = st.rtCount ? (st.rtSum / st.rtCount) : 0;
-      const score = st.maxScore || 0;
+      const gradeSel = document.getElementById('gradeSelect');
+      const roomSel = document.getElementById('roomSelect');
 
-      if (chartInstance) chartInstance.destroy();
+      gradeSel.innerHTML = '<option value="">ทั้งหมด</option>';
+      Array.from(grades).sort().forEach(g => {
+        const op = document.createElement('option');
+        op.value = g;
+        op.textContent = g;
+        gradeSel.appendChild(op);
+      });
 
-      chartInstance = new Chart(studentCanvas.getContext('2d'), {
-        type:'bar',
-        data:{
-          labels:['Score สูงสุด','Accuracy (%)','RT (ms)'],
-          datasets:[{
-            label: label,
-            data:[score, acc, rt]
+      roomSel.innerHTML = '<option value="">ทั้งหมด</option>';
+      Array.from(rooms).sort().forEach(r => {
+        const op = document.createElement('option');
+        op.value = r;
+        op.textContent = r;
+        roomSel.appendChild(op);
+      });
+
+      gradeSel.onchange = updateDashboard;
+      roomSel.onchange = updateDashboard;
+    }
+
+    function filterRows() {
+      const grade = document.getElementById('gradeSelect').value || '';
+      const room = document.getElementById('roomSelect').value || '';
+
+      return teacherRows.filter(r => {
+        if (grade && r.profile_grade !== grade) return false;
+        if (room && r.profile_room !== room) return false;
+        return true;
+      });
+    }
+
+    function buildRankStats(rows) {
+      const counts = {};
+      RANK_ORDER.forEach(k => counts[k] = 0);
+      rows.forEach(r => {
+        const slug = (r.rank_slug || '').toLowerCase();
+        if (counts.hasOwnProperty(slug)) counts[slug] += 1;
+        else counts['sleepy'] += 1;
+      });
+      return counts;
+    }
+
+    function updateDashboard() {
+      const rows = filterRows();
+      const stats = buildRankStats(rows);
+
+      // update table
+      updateTable(rows);
+
+      const labels = RANK_ORDER.map(k => RANK_LABEL[k]);
+      const data = RANK_ORDER.map(k => stats[k]);
+
+      // bar
+      const barCtx = document.getElementById('barChart').getContext('2d');
+      if (barChart) barChart.destroy();
+      barChart = new Chart(barCtx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'จำนวนเด็ก',
+            data
           }]
         },
-        options:{
-          responsive:true,
-          plugins:{
-            legend:{display:false},
-            tooltip:{enabled:true}
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: {
+              display: false
+            }
           },
-          scales:{
-            y:{
-              beginAtZero:true
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 }
             }
           }
         }
       });
-    }
 
-    function updateDiffChart(){
-      if (!parsedRows.length) return;
-
-      const byDiff = {
-        easy:   { hit:0, correct:0, sumRt:0, rtCount:0 },
-        normal: { hit:0, correct:0, sumRt:0, rtCount:0 },
-        hard:   { hit:0, correct:0, sumRt:0, rtCount:0 }
-      };
-
-      parsedRows.forEach(r => {
-        const d = (r.diff || '').toLowerCase();
-        if (!(d in byDiff)) return;
-
-        if (r.kind === 'hit' || r.kind === 'boss-hit'){
-          byDiff[d].hit++;
-          if (r.correct) byDiff[d].correct++;
-          if (typeof r.rt_ms === 'number' && r.rt_ms > 0){
-            byDiff[d].sumRt += r.rt_ms;
-            byDiff[d].rtCount++;
-          }
-        }
-      });
-
-      const labels = ['Easy','Normal','Hard'];
-      const accData = [];
-      const rtData  = [];
-
-      ['easy','normal','hard'].forEach(d => {
-        const s = byDiff[d];
-        let acc = 0, rt = 0;
-        if (s.hit > 0)   acc = (s.correct / s.hit)*100;
-        if (s.rtCount>0) rt  = s.sumRt / s.rtCount;
-        accData.push(acc);
-        rtData.push(rt);
-      });
-
-      if (diffChartInstance) diffChartInstance.destroy();
-
-      diffChartInstance = new Chart(diffCanvas.getContext('2d'), {
-        type:'bar',
-        data:{
-          labels:labels,
-          datasets:[
-            {
-              label:'Accuracy เฉลี่ย (%)',
-              data:accData
-            },
-            {
-              label:'RT เฉลี่ย (ms)',
-              data:rtData
-            }
-          ]
+      // pie
+      const pieCtx = document.getElementById('pieChart').getContext('2d');
+      if (pieChart) pieChart.destroy();
+      pieChart = new Chart(pieCtx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            label: 'สัดส่วน Rank',
+            data
+          }]
         },
-        options:{
-          responsive:true,
-          plugins:{
-            legend:{display:true},
-            tooltip:{enabled:true}
-          },
-          scales:{
-            y:{
-              beginAtZero:true
-            }
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' }
           }
         }
       });
-
-      diffCard.style.display = 'block';
     }
 
-    csvInput.addEventListener('change', function(){
-      const file = csvInput.files && csvInput.files[0];
+    function updateTable(rows) {
+      const tb = document.querySelector('#summaryTable tbody');
+      tb.innerHTML = '';
+      const sorted = rows.slice().sort((a,b) => (b.score - a.score));
+      sorted.slice(0, 10).forEach(r => {
+        const tr = document.createElement('tr');
+
+        const rankSlug = (r.rank_slug || '').toLowerCase();
+        const rankLabel = RANK_LABEL[rankSlug] || 'Sleepy Mode';
+
+        tr.innerHTML = `
+          <td>${(r.profile_name || '').replace(/^"|"$/g,'')}</td>
+          <td>${r.profile_grade || ''}</td>
+          <td>${r.profile_room || ''}</td>
+          <td>${r.mode || ''}</td>
+          <td>${r.diff || ''}</td>
+          <td>
+            <span class="pill" style="${rankColorStyle(rankSlug)}">
+              ${rankLabel}
+            </span>
+          </td>
+          <td>${r.score || 0}</td>
+          <td>${r.accuracy || ''}</td>
+        `;
+        tb.appendChild(tr);
+      });
+    }
+
+    function rankColorStyle(slug) {
+      switch (slug) {
+        case 'healthy-god':
+          return 'background:rgba(56,189,248,0.2);color:#bfdbfe;';
+        case 'super-fit':
+          return 'background:rgba(34,197,94,0.2);color:#bbf7d0;';
+        case 'active-hero':
+          return 'background:rgba(234,179,8,0.2);color:#facc15;';
+        case 'rookie':
+          return 'background:rgba(59,130,246,0.15);color:#bfdbfe;';
+        case 'sleepy':
+        default:
+          return 'background:rgba(75,85,99,0.4);color:#e5e7eb;';
+      }
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function (ev) {
+      const file = ev.target.files[0];
       if (!file) return;
+
       const reader = new FileReader();
-      reader.onload = function(ev){
-        const text = String(ev.target.result || '');
-        parsedRows = parseCsv(text);
-        perStudent = buildPerStudent(parsedRows);
-        fillSummaryAndTable();
-        updateDiffChart();
+      reader.onload = function (e) {
+        try {
+          teacherRows = parseCsv(e.target.result || '');
+          if (!teacherRows.length) {
+            alert('อ่านไฟล์ไม่สำเร็จ หรือไม่มีข้อมูล');
+            return;
+          }
+          initSelectors();
+          updateDashboard();
+        } catch (err) {
+          console.error(err);
+          alert('เกิดข้อผิดพลาดในการอ่านไฟล์ CSV');
+        }
       };
       reader.readAsText(file, 'utf-8');
     });
