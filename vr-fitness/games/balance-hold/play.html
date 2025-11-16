@@ -1,20 +1,341 @@
 <!doctype html>
 <html lang="th">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Balance–Hold — Play</title><meta name="color-scheme" content="dark light"/></head>
-<body style="margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Inter,Arial">
-<pre id="log" style="position:fixed;left:10px;bottom:10px;color:#9df;white-space:pre-wrap">• start</pre>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Balance Hold — เล่นเกม</title>
+  <style>
+    :root{color-scheme:dark;}
+    *{box-sizing:border-box;user-select:none;}
+
+    body{
+      margin:0;min-height:100vh;overflow:hidden;
+      display:flex;align-items:center;justify-content:center;
+      font-family:system-ui,Segoe UI,Inter,sans-serif;
+      background:#020617;color:#e5e7eb;
+      text-align:center;
+    }
+
+    /* ===== Stage ===== */
+    #bh-stage{
+      position:relative;width:100vw;height:100vh;overflow:hidden;
+      background:
+        radial-gradient(circle at top,rgba(56,189,248,.25),transparent 60%),
+        radial-gradient(circle at bottom,rgba(34,197,94,.25),transparent 60%),
+        #020617;
+      transition:box-shadow .4s;
+    }
+
+    #bh-message{
+      position:absolute;top:44px;left:50%;transform:translateX(-50%);
+      padding:6px 14px;border-radius:999px;
+      background:rgba(15,23,42,.85);
+      border:1px solid rgba(148,163,184,.6);
+      font-size:14px;pointer-events:none;z-index:8;
+    }
+
+    /* ===== Target Zone (Hold Area) ===== */
+    #hold-zone{
+      position:absolute;left:50%;top:50%;
+      transform:translate(-50%,-50%);
+      width:min(180px,32vw);aspect-ratio:1/1;
+      border-radius:999px;border:2px dashed #38bdf8;
+      display:flex;align-items:center;justify-content:center;
+      opacity:.75;
+    }
+
+    /* ===== Cursor ===== */
+    #cursor{
+      position:absolute;left:50%;top:50%;
+      transform:translate(-50%,-50%);
+      width:min(42px,6vw);aspect-ratio:1/1;border-radius:50%;
+      background:#38bdf8;
+      box-shadow:0 0 12px #38bdf8;
+      transition:transform .08s ease-out;
+    }
+
+    .danger{background:#ef4444 !important;box-shadow:0 0 14px #ef4444 !important;}
+
+    /* ===== HUD ===== */
+    #hud{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+      width:min(960px,96vw);z-index:20;}
+    #hud-inner{display:flex;align-items:center;gap:10px;padding:8px 14px;
+      background:rgba(15,23,42,.88);border-radius:999px;
+      border:1px solid rgba(148,163,184,.6);}
+
+    .hud-block{display:flex;align-items:center;gap:6px;}
+    .hud-val{font-weight:600;font-size:15px;}
+
+    #fever-area{display:flex;align-items:center;gap:6px;}
+    #fever-bar{width:120px;height:8px;background:#0f172a;border-radius:999px;
+      border:1px solid rgba(148,163,184,.7);overflow:hidden;}
+    #fever-fill{width:0%;height:100%;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);
+      transform-origin:left;transition:transform .18s ease-out;}
+
+    #btn-start{
+      margin-left:auto;padding:6px 14px;border:none;border-radius:999px;
+      font-weight:600;cursor:pointer;background:#38bdf8;color:#001018;
+    }
+
+    /* ===== Screen FX ===== */
+    .onfire-screen{animation:bh-fire .9s infinite;}
+    @keyframes bh-fire{
+      0%{box-shadow:inset 0 0 18px rgba(255,87,34,.25);}
+      50%{box-shadow:inset 0 0 70px rgba(255,87,34,.55);}
+      100%{box-shadow:inset 0 0 18px rgba(255,87,34,.25);}
+    }
+
+    /* ===== Float Score ===== */
+    .float-score{
+      position:absolute;font-weight:700;font-size:20px;pointer-events:none;
+      animation:fs .8s ease-out forwards;z-index:10;
+      color:#4ade80;text-shadow:0 0 8px #4ade80;
+    }
+    .miss{color:#ef4444 !important;text-shadow:0 0 8px #ef4444 !important;}
+    .crit{color:#facc15 !important;text-shadow:0 0 14px #facc15 !important;}
+
+    @keyframes fs{
+      0%{opacity:0;transform:translate(-50%,-10px);}
+      15%{opacity:1;transform:translate(-50%,-18px);}
+      100%{opacity:0;transform:translate(-50%,-50px);}
+    }
+
+    /* ===== Result ===== */
+    #result-box{position:fixed;inset:0;background:rgba(15,23,42,.7);
+      display:none;align-items:center;justify-content:center;z-index:30;}
+    #result-card{width:min(380px,92vw);background:#020617;
+      padding:18px 20px;border-radius:18px;border:1px solid rgba(148,163,184,.7);
+      box-shadow:0 20px 48px rgba(15,23,42,.85);}
+    #rank-badge{display:inline-flex;align-items:center;gap:6px;
+      padding:2px 10px;border-radius:999px;font-weight:700;}
+    #result-actions{display:flex;gap:8px;margin-top:10px;}
+    #btn-retry,#btn-exit{flex:1;border:none;border-radius:999px;padding:8px;font-weight:600;cursor:pointer;}
+    #btn-retry{background:#38bdf8;color:#001018;}
+    #btn-exit{background:#e5e7eb;color:#020617;}
+  </style>
+</head>
+<body>
+
+<div id="bh-stage">
+
+  <div id="bh-message">
+    เลื่อน <b>ตัวชี้</b> ให้อยู่ในวงกลม <u>ให้นิ่งที่สุด</u>  
+    <br>นิ่ง = ได้คะแนน | สั่น/ออกนอก = Miss  
+  </div>
+
+  <div id="hold-zone"></div>
+  <div id="cursor"></div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hud-inner">
+    <div class="hud-block">⏱ <span id="hud-time" class="hud-val">60</span>s</div>
+    <div class="hud-block">⭐ <span id="hud-score" class="hud-val">0</span></div>
+    <div class="hud-block">🔥 <span id="hud-combo" class="hud-val">x0</span></div>
+
+    <div id="fever-area">
+      <span style="font-size:11px;opacity:.8">FEVER</span>
+      <div id="fever-bar"><div id="fever-fill"></div></div>
+    </div>
+
+    <button id="btn-start">▶ เริ่มเล่น</button>
+  </div>
+</div>
+
+<!-- Result -->
+<div id="result-box">
+  <div id="result-card">
+    <h3>🏁 ผลลัพธ์</h3>
+    <div id="rank-badge">Rank: <span id="rank-text">C</span></div>
+    <p>คะแนน: <span id="res-score">0</span></p>
+    <p>นิ่ง (ถูกต้อง): <span id="res-hits">0</span> | พลาด: <span id="res-miss">0</span></p>
+    <p>Accuracy: <span id="res-acc">0%</span></p>
+    <p>Combo สูงสุด: <span id="res-best">x0</span></p>
+    <p>เวลาเล่น: <span id="res-time">60</span>s</p>
+
+    <div id="result-actions">
+      <button id="btn-retry">🔁 เล่นใหม่</button>
+      <button id="btn-exit">🏠 กลับเมนู</button>
+    </div>
+  </div>
+</div>
+
 <script>
-const u=new URL(location.href);
-window.HubLaunch={game:"balance-hold",mode:u.searchParams.get("mode")||"timed",diff:u.searchParams.get("diff")||"normal",time:+(u.searchParams.get("time")||75)};
-const logEl=document.getElementById("log");
-const log=t=>{logEl.textContent+="\n• "+t;logEl.scrollTop=logEl.scrollHeight};
-window.addEventListener("error",e=>log("ERR "+e.message),true);
-window.addEventListener("unhandledrejection",e=>log("REJ "+e.reason),true);
-["/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live","./game.js?v=live"].forEach(src=>{
-  const s=document.createElement('script');s.src=src;s.type=src.includes('game.js')?'module':'text/javascript';
-  s.onload=()=>log(src.split('/').pop()+" ✓");s.onerror=()=>log("error "+src);document.head.appendChild(s);
+(()=>{
+'use strict';
+
+const stage=document.getElementById("bh-stage");
+const cursor=document.getElementById("cursor");
+const zone=document.getElementById("hold-zone");
+const msg=document.getElementById("bh-message");
+const feverFill=document.getElementById("fever-fill");
+
+const timeEl=document.getElementById("hud-time");
+const scoreEl=document.getElementById("hud-score");
+const comboEl=document.getElementById("hud-combo");
+const btnStart=document.getElementById("btn-start");
+
+const resBox=document.getElementById("result-box");
+const resScore=document.getElementById("res-score");
+const resHits=document.getElementById("res-hits");
+const resMiss=document.getElementById("res-miss");
+const resAcc=document.getElementById("res-acc");
+const resBest=document.getElementById("res-best");
+const resTime=document.getElementById("res-time");
+const rankText=document.getElementById("rank-text");
+const btnRetry=document.getElementById("btn-retry");
+const btnExit=document.getElementById("btn-exit");
+
+let state={
+ play:false,
+ duration:60,
+ elapsed:0,
+ lastTs:0,
+ score:0,hits:0,miss:0,
+ combo:0,bestCombo:0,
+ fever:0,onfire:false,
+ raf:0
+};
+
+function updateHUD(){
+ timeEl.textContent=Math.max(0,Math.ceil(state.duration-state.elapsed));
+ scoreEl.textContent=state.score;
+ comboEl.textContent="x"+state.combo;
+}
+
+function addFloat(val,isMiss,crit){
+ const el=document.createElement("div");
+ el.className="float-score"+(isMiss?" miss":"")+(crit?" crit":"");
+ el.textContent=(isMiss?"-"+val:"+"+val);
+ el.style.left="50%";el.style.top="48%";
+ el.style.transform="translate(-50%, -50%)";
+ stage.appendChild(el);
+ setTimeout(()=>el.remove(),800);
+}
+
+function correct(){
+ const futureCombo=state.combo+1;
+ const crit=futureCombo>=5;
+ const onfire=futureCombo>=8;
+
+ let gain=8+(crit?12:0);
+ if(onfire){
+   if(!state.onfire){
+     state.onfire=true;
+     stage.classList.add("onfire-screen");
+   }
+   gain*=2;
+ }
+
+ state.score+=gain;
+ state.hits++;
+ state.combo++;
+ state.bestCombo=Math.max(state.bestCombo,state.combo);
+
+ state.fever=Math.min(100,state.combo*10);
+ feverFill.style.transform="scaleX("+state.fever/100+")";
+
+ addFloat(gain,false,crit);
+ updateHUD();
+}
+
+function mistake(){
+ state.miss++;
+ state.combo=0;
+ state.fever=0;
+ state.onfire=false;
+ feverFill.style.transform="scaleX(0)";
+ stage.classList.remove("onfire-screen");
+
+ addFloat(5,true,false);
+ updateHUD();
+}
+
+function finish(){
+ state.play=false;
+ cancelAnimationFrame(state.raf);
+
+ const total=state.hits+state.miss;
+ const acc=total>0?state.hits/total:0;
+
+ resScore.textContent=state.score;
+ resHits.textContent=state.hits;
+ resMiss.textContent=state.miss;
+ resAcc.textContent=Math.round(acc*100)+"%";
+ resBest.textContent="x"+state.bestCombo;
+ resTime.textContent=state.duration;
+
+ let rank="C";
+ if(state.score>=1600&&acc>=0.95) rank="SSS";
+ else if(state.score>=1100&&acc>=0.9) rank="S";
+ else if(state.score>=800 &&acc>=0.8) rank="A";
+ else if(state.score>=500 &&acc>=0.6) rank="B";
+
+ rankText.textContent=rank;
+ resBox.style.display="flex";
+ msg.textContent="จบการทรงตัว!";
+}
+
+function loop(ts){
+ if(!state.play) return;
+ if(!state.lastTs) state.lastTs=ts;
+ const dt=(ts-state.lastTs)/1000; state.lastTs=ts;
+
+ state.elapsed+=dt;
+ if(state.elapsed>=state.duration){ finish(); return; }
+
+ const cz=cursor.getBoundingClientRect();
+ const zz=zone.getBoundingClientRect();
+ const inside = (
+   cz.left>=zz.left && cz.right<=zz.right &&
+   cz.top>=zz.top && cz.bottom<=zz.bottom
+ );
+
+ inside ? correct() : mistake();
+ state.raf=requestAnimationFrame(loop);
+}
+
+function reset(){
+ state.elapsed=0;state.lastTs=0;
+ state.score=0;state.hits=0;state.miss=0;
+ state.combo=0;state.bestCombo=0;
+ state.fever=0;state.onfire=false;
+ feverFill.style.transform="scaleX(0)";
+ stage.classList.remove("onfire-screen");
+ updateHUD();
+}
+
+function start(){
+ reset();
+ resBox.style.display="none";
+ state.play=true;
+ msg.textContent="นิ่งที่สุดเท่าที่จะทำได้!";
+ state.raf=requestAnimationFrame(loop);
+}
+
+/* ===== Cursor Move Control (PC/Mobile/VR Pointer) ===== */
+document.addEventListener("pointermove",e=>{
+ const rect=stage.getBoundingClientRect();
+ const x=e.clientX-rect.left;
+ const y=e.clientY-rect.top;
+ cursor.style.left=x+"px";
+ cursor.style.top=y+"px";
 });
+
+/* ===== Events ===== */
+btnStart.onclick=start;
+btnRetry.onclick=start;
+btnExit.onclick=()=>location.href="./index.html";
+
+document.addEventListener("visibilitychange",()=>{
+ if(document.hidden && state.play){
+   state.play=false; cancelAnimationFrame(state.raf);
+ }
+});
+
+updateHUD();
+})();
 </script>
 </body>
 </html>
