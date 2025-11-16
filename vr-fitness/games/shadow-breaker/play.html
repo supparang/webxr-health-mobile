@@ -2,58 +2,103 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <title>Shadow Breaker — Production</title>
+  <title>Shadow Breaker — เล่นเกม</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <link rel="stylesheet" href="./shadow-breaker.css"/>
 </head>
 <body>
 
-<div id="sb-stage" style="position:fixed; inset:0;"></div>
+<!-- ฉากหลักของเกม -->
+<div id="sb-stage"></div>
 
-<div class="hud">
-  <span>⏱ <b id="hud-time">90</b>s</span>
-  <span>💯 <b id="hud-score">0</b></span>
-  <span>🔥 <b id="hud-combo">x0</b></span>
+<!-- HUD ด้านบน -->
+<div class="sb-hud">
+  <div>⏱ เวลา: <b id="hud-time">90</b>s</div>
+  <div>💯 คะแนน: <b id="hud-score">0</b></div>
+  <div>🔥 คอมโบ: <b id="hud-combo">x0</b></div>
+  <button id="btn-pause" class="sb-btn-ghost">⏸ พัก</button>
 </div>
 
-<!-- Result -->
-<div id="result-box" style="display:none;position:fixed;inset:0;
-      background:rgba(0,0,0,.8);color:white;justify-content:center;
-      align-items:center;flex-direction:column;text-align:center;">
-  <h2>สรุปผล</h2>
-  <p>คะแนน: <b id="res-score"></b></p>
-  <p>โดนเป้า: <b id="res-hits"></b></p>
-  <p>พลาด: <b id="res-miss"></b></p>
-  <p>ความแม่นยำ: <b id="res-acc"></b></p>
-  <p>Combo สูงสุด: <b id="res-best"></b></p>
-  <h3>Rank: <b id="res-rank"></b></h3>
-  <button onclick="location.href='index.html'">กลับหน้าเลือกโหมด</button>
-  <button onclick="location.reload()">เล่นอีกครั้ง</button>
+<!-- ข้อความโค้ช -->
+<div id="sb-msg" class="sb-msg"></div>
+
+<!-- Leaderboard -->
+<aside id="sb-leaderboard" class="sb-leaderboard"></aside>
+
+<!-- Result Modal -->
+<div id="result-box" class="sb-result-backdrop">
+  <div class="sb-result-card">
+    <h2>🏁 ผลการเล่น Shadow Breaker</h2>
+    <p>คะแนนรวม: <b id="res-score">0</b></p>
+    <p>ต่อยโดนเป้า: <b id="res-hits">0</b> / พลาด: <b id="res-miss">0</b></p>
+    <p>ความแม่นยำ: <b id="res-acc">0%</b></p>
+    <p>คอมโบสูงสุด: <b id="res-best">x0</b></p>
+    <p>ระดับ (Rank): <b id="res-rank">C</b></p>
+
+    <hr/>
+
+    <button id="btn-pdf" class="sb-btn-primary">📄 ดาวน์โหลดรายงาน PDF</button>
+
+    <div class="sb-result-actions">
+      <button id="btn-retry" class="sb-btn-secondary">🔁 เล่นอีกครั้ง</button>
+      <button id="btn-home" class="sb-btn-ghost">🏠 กลับเมนู</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
 import { ShadowBreaker } from './shadow-breaker.js';
 
-const sb = new ShadowBreaker({
+const game = new ShadowBreaker({
   stage: document.querySelector('#sb-stage'),
   hud: {
-    time: document.querySelector('#hud-time'),
+    time:  document.querySelector('#hud-time'),
     score: document.querySelector('#hud-score'),
     combo: document.querySelector('#hud-combo'),
   },
-  result:{
-    box: document.querySelector('#result-box'),
+  result: {
+    box:   document.querySelector('#result-box'),
     score: document.querySelector('#res-score'),
     hits:  document.querySelector('#res-hits'),
     miss:  document.querySelector('#res-miss'),
     acc:   document.querySelector('#res-acc'),
     best:  document.querySelector('#res-best'),
     rank:  document.querySelector('#res-rank'),
+  },
+  msgBox: document.querySelector('#sb-msg'),
+  lbBox:  document.querySelector('#sb-leaderboard'),
+  pdfBtn: document.querySelector('#btn-pdf'),
+});
+
+// ปุ่ม pause / resume / retry / home
+const btnPause = document.querySelector('#btn-pause');
+const btnRetry = document.querySelector('#btn-retry');
+const btnHome  = document.querySelector('#btn-home');
+
+let isPaused = false;
+btnPause?.addEventListener('click', ()=>{
+  isPaused = !isPaused;
+  if (isPaused){
+    game.pause(true);
+    btnPause.textContent = '▶ ต่อ';
+  } else {
+    game.pause(false);
+    btnPause.textContent = '⏸ พัก';
   }
 });
 
-// auto start
-sb.start();
+btnRetry?.addEventListener('click', ()=>{
+  isPaused = false;
+  btnPause.textContent = '⏸ พัก';
+  game.start();
+});
+
+btnHome?.addEventListener('click', ()=>{
+  location.href = './index.html';
+});
+
+// เริ่มเกมทันทีเมื่อโหลดหน้า
+game.start();
 </script>
 
 </body>
