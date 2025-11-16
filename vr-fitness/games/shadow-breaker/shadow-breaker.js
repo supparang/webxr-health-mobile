@@ -10,7 +10,7 @@
   let shell = null;
   let spawnTimer = 0;
   let spawnInterval = 1.0;     // จะปรับตาม diff
-  let targetLifetime = 1.2;    // วินาทีก่อนถือว่าพลาด
+  let targetLifetime = 1.2;    // วินาที ก่อนถือว่าพลาด
   const targets = new Set();
 
   const EMOJIS = ['🥊', '💥', '⭐', '⚡', '🔥'];
@@ -18,18 +18,16 @@
   function rand(min, max) {
     return Math.random() * (max - min) + min;
   }
-
   function pick(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  function removeTarget(t, isHit) {
-    if (!t || !targets.has(t)) return;
-    targets.delete(t);
-    if (t.parentNode) t.parentNode.removeChild(t);
+  function removeTarget(el, isHit) {
+    if (!el || !targets.has(el)) return;
+    targets.delete(el);
+    if (el.parentNode) el.parentNode.removeChild(el);
 
     if (!shell) return;
-
     if (isHit) {
       VRFGameShell.addScore(10);
     } else {
@@ -41,7 +39,7 @@
     if (!stage || !shell) return;
 
     const rect = stage.getBoundingClientRect();
-    // จำกัดให้ไม่ชิดขอบเกินไป
+    // ไม่ให้ชิดขอบเกินไป
     const x = rand(rect.width * 0.15, rect.width * 0.85);
     const y = rand(rect.height * 0.2, rect.height * 0.8);
 
@@ -71,7 +69,7 @@
     targets.clear();
   }
 
-  // ปรับตาม diff: easy → ช้าลง, hard → เร็วขึ้น/อายุต่ำลง
+  // จูนตามระดับความยาก
   function applyDifficulty() {
     if (!shell) return;
     const diff = shell.difficulty || 'normal';
@@ -83,19 +81,17 @@
       spawnInterval = 0.75;
       targetLifetime = 1.0;
     } else {
-      // normal
       spawnInterval = 1.0;
       targetLifetime = 1.3;
     }
   }
 
-  // tick ของเกม เรียกจาก shell.onTick(dt)
+  // เรียกจาก shell.onTick(dt)
   function gameTick(dt) {
     if (!shell || shell.state !== 'playing') return;
 
     spawnTimer += dt;
-    // เร่ง spawn นิดหน่อยตามเวลาที่เล่น
-    const t = shell.elapsed / shell.duration; // 0 → 1
+    const t = shell.elapsed / shell.duration;        // 0 → 1
     const dynamicInterval = Math.max(spawnInterval * (1.0 - 0.4 * t), 0.4);
 
     if (spawnTimer >= dynamicInterval) {
@@ -103,7 +99,7 @@
       spawnTarget();
     }
 
-    // ตรวจเป้าที่หมดอายุ
+    // เช็กเป้าที่หมดอายุ
     const now = performance.now();
     targets.forEach((el) => {
       const createdAt = Number(el.dataset.createdAt || now);
@@ -116,7 +112,7 @@
 
   function onStartGame() {
     if (msgEl) {
-      msgEl.textContent = 'รีบต่อยเป้าให้ทัน! ยิ่งต่อยติดกันหลายลูก Combo ยิ่งสูง 🔥';
+      msgEl.textContent = 'รีบต่อยเป้าให้ทัน! ยิ่งต่อยติดกันหลายลูก Combo ยิ่งแรง 🔥';
     }
     spawnTimer = 0;
     clearAllTargets();
@@ -139,7 +135,11 @@
   }
 
   function init() {
-    // ให้ VRFGameShell คุม loop + HUD + result
+    if (!window.VRFGameShell) {
+      console.error('VRFGameShell not found. ตรวจ path: ../../common/game-shell.js');
+      return;
+    }
+
     shell = VRFGameShell.init({
       onStart(shellState) {
         shell = shellState;
@@ -157,8 +157,7 @@
         shell = shellState;
         onResetGame();
       },
-      onBack(shellState) {
-        // กลับไปหน้า index ของเกมนี้
+      onBack() {
         window.location.href = './index.html';
       }
     });
