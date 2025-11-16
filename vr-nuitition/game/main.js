@@ -335,50 +335,64 @@ function createHUD() {
         <div style="margin-bottom:4px;">
           คอมโบสูงสุด: <b id="hha-final-combo">0</b>
         </div>
-        <div style="margin-bottom:4px;">
+        <div style="margin-bottom:14px;">
           ของดีที่เก็บได้:
           <b id="hha-final-good">0</b> / ${MISSION_GOOD_TARGET}
         </div>
-        <div style="margin-bottom:4px;">
-          ความแม่นยำ (Accuracy): <b id="hha-final-acc">0%</b>
-        </div>
-        <div style="margin-bottom:10px;font-size:12px;color:#cbd5f5;">
-          เวลาเฉลี่ยต่อการตอบสนอง: <b id="hha-final-rt">–</b> ms
-        </div>
 
-        <div style="font-size:11px;color:#a5b4fc;margin-bottom:12px;">
-          Mini Quest: <span id="hha-final-quests">0</span> / ${questState.length} สำเร็จ
-          <br/>
-          Boss: <span id="hha-final-boss">-</span>
-        </div>
+        <!-- แถวปุ่ม: ดาวน์โหลด CSV (dropdown) + เล่นอีกครั้ง -->
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;
+                    align-items:center;justify-content:center;gap:8px;">
+          <!-- Dropdown Export -->
+          <div id="hha-export-wrap"
+               style="position:relative;font-size:12px;">
+            <button id="hha-export-btn"
+              style="border-radius:999px;border:0;cursor:pointer;
+                     padding:6px 12px;
+                     background:linear-gradient(135deg,#38bdf8,#2563eb);
+                     color:#fff;font-weight:500;font-size:12px;
+                     display:inline-flex;align-items:center;gap:4px;">
+              <span>ดาวน์โหลด CSV</span>
+              <span>▼</span>
+            </button>
+            <div id="hha-export-dropdown"
+              style="position:absolute;top:110%;left:0;
+                     background:rgba(15,23,42,0.98);
+                     border-radius:12px;
+                     border:1px solid rgba(148,163,184,0.9);
+                     box-shadow:0 16px 40px rgba(15,23,42,0.9);
+                     padding:4px 0;
+                     min-width:210px;
+                     font-size:12px;
+                     display:none;
+                     z-index:40;">
+              <button id="hha-export-teacher"
+                style="width:100%;text-align:left;
+                       padding:6px 10px;border:0;background:transparent;
+                       color:#e5e7eb;cursor:pointer;font-size:12px;">
+                📄 แบบย่อ (สำหรับครู)
+              </button>
+              <button id="hha-export-research"
+                style="width:100%;text-align:left;
+                       padding:6px 10px;border:0;background:transparent;
+                       color:#e5e7eb;cursor:pointer;font-size:12px;">
+                📑 แบบเต็ม (สำหรับวิจัย)
+              </button>
+            </div>
+          </div>
 
-        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:10px;">
+          <!-- ปุ่มเล่นอีกครั้ง -->
           <button id="hha-restart"
             style="border-radius:999px;border:0;cursor:pointer;
-                   padding:8px 18px;
-                   background:linear-gradient(135deg,#38bdf8,#2563eb);
-                   color:#fff;font-weight:600;font-size:14px;">
+                   padding:6px 14px;
+                   background:linear-gradient(135deg,#22c55e,#16a34a);
+                   color:#fff;font-weight:600;font-size:13px;">
             เล่นอีกครั้ง
           </button>
-          <button id="hha-back-hub"
-            style="border-radius:999px;border:0;cursor:pointer;
-                   padding:8px 18px;
-                   background:rgba(15,23,42,0.9);
-                   color:#e5e7eb;font-weight:500;font-size:13px;
-                   border:1px solid rgba(148,163,184,0.8);">
-            กลับไปหน้าโหมด
-          </button>
         </div>
-
-        <button id="hha-export-csv"
-          style="border-radius:999px;border:0;cursor:pointer;
-                 padding:6px 14px;
-                 background:rgba(22,163,74,0.95);
-                 color:#fff;font-weight:500;font-size:12px;">
-          📥 ดาวน์โหลดข้อมูล (CSV)
-        </button>
       </div>
     </div>
+
   `;
   document.body.appendChild(hud);
 
