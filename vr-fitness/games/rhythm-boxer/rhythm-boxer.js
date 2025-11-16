@@ -1,19 +1,13 @@
-// === Rhythm Boxer — v1.3 (Research + HADO FX + Hard Cleanup) ===
-// - 4 lanes, tap/punch to the beat
-// - Perfect / Good / Miss scoring
-// - HADO-style ripple + scan effect เมื่อจบเกม
-// - Summary format compatible กับ ShadowBreakerResearch
+// === Rhythm Boxer — v1.4 (Research + HADO FX + Hard Cleanup + Body Flag) ===
 
-// ---- CONFIG ENDPOINT ----
-const FIREBASE_API = '';  // optional
-const SHEET_API    = '';  // Google Sheet Apps Script
-const PDF_API      = '';  // PDF Apps Script
-const LB_API       = '';  // optional leaderboard
+const FIREBASE_API = '';
+const SHEET_API    = '';
+const PDF_API      = '';
+const LB_API       = '';
 
 const LS_PROFILE = 'rb_profile_v1';
 const LS_QUEUE   = 'rb_offline_queue_v1';
 
-// ===== STRINGS =====
 const STR = {
   th:{
     msgStart :'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
@@ -25,7 +19,6 @@ const STR = {
   }
 };
 
-// ===== Profile handling =====
 function getProfile(){
   try{
     const raw = localStorage.getItem(LS_PROFILE);
@@ -47,7 +40,6 @@ function ensureProfile(){
   return p;
 }
 
-// ===== Offline queue =====
 function loadQueue(){
   try{
     const raw = localStorage.getItem(LS_QUEUE);
@@ -71,7 +63,6 @@ async function flushQueue(){
   saveQueue(remain);
 }
 
-// ===== Hybrid Save =====
 async function hybridSaveSession(summary, allowQueue = true){
   const body = JSON.stringify(summary);
   const headers = { 'Content-Type':'application/json' };
@@ -92,7 +83,6 @@ async function hybridSaveSession(summary, allowQueue = true){
   }
 }
 
-// ===== PDF Export =====
 async function exportPDF(summary){
   if (!PDF_API){
     alert('ยังไม่ได้ตั้งค่า PDF_API');
@@ -118,7 +108,6 @@ async function exportPDF(summary){
   }
 }
 
-// ===== Leaderboard (optional) =====
 async function loadLeaderboard(scope, profile){
   if (!LB_API) return [];
   const url = new URL(LB_API);
@@ -141,7 +130,7 @@ function buildLBTable(rows){
   const table = document.createElement('table');
   table.style.width = '100%';
   const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th>#</th><th>ชื่อ</</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
+  thead.innerHTML = '<tr><th>#</th><th>ชื่อ</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
   table.appendChild(thead);
   const tb = document.createElement('tbody');
   (rows || []).slice(0,10).forEach((r,i)=>{
@@ -154,19 +143,14 @@ function buildLBTable(rows){
   return table;
 }
 
-// ===== โน้ต/เลน pattern =====
 const SONG_PATTERN = [
   0.8, 1.5, 2.2, 3.0,
   3.8, 4.5, 5.2, 6.0,
   6.8, 7.5, 8.2, 9.0,
   9.6, 10.3, 11.0, 11.8,
   12.6, 13.4, 14.2, 15.0
-].map((t,i)=>({
-  time:t,
-  lane:i%4
-}));
+].map((t,i)=>({ time:t, lane:i%4 }));
 
-// ===== MAIN CLASS =====
 export class RhythmBoxer{
   constructor(opts){
     this.stage  = opts.stage;
@@ -204,7 +188,7 @@ export class RhythmBoxer{
       elapsed:0, lastTs:0,
       score:0, hits:0, miss:0,
       combo:0, best:0,
-      notes:[],       // {time,lane,hit:false,judged:false,dom}
+      notes:[],
       raf:0
     };
 
@@ -215,9 +199,7 @@ export class RhythmBoxer{
     this._msg(this.str.msgStart);
   }
 
-  _msg(t){
-    if (this.msgBox) this.msgBox.textContent = t;
-  }
+  _msg(t){ if (this.msgBox) this.msgBox.textContent = t; }
 
   _hud(){
     const s = this.state, c = this.cfg;
@@ -364,14 +346,14 @@ export class RhythmBoxer{
   _updateNotes(){
     this.state.notes.forEach(note=>{
       if (!note.dom) return;
-      const tNow = this.state.elapsed;
+      const tNow   = this.state.elapsed;
       const dtHead = note.time - tNow;
       const totalTravel = 2.0;
-      const ratio = 1 - (dtHead / totalTravel);
-      const clamped = Math.max(0, Math.min(1.2, ratio));
-      const lane = this.lanes[note.lane];
-      const h = lane ? (lane.clientHeight||1) : 1;
-      const bottomPx = 12 + clamped * (h - 40);
+      const ratio  = 1 - (dtHead / totalTravel);
+      const clamp  = Math.max(0, Math.min(1.2, ratio));
+      const lane   = this.lanes[note.lane];
+      const h      = lane ? (lane.clientHeight||1) : 1;
+      const bottomPx = 12 + clamp * (h - 40);
       note.dom.style.bottom = bottomPx + 'px';
     });
   }
@@ -402,11 +384,8 @@ export class RhythmBoxer{
     if (bestDt <= cfg.windowPerfect) type = 'perfect';
     else if (bestDt <= cfg.windowGood) type = 'good';
 
-    if (type === 'miss'){
-      this._regMiss(best);
-    }else{
-      this._regHit(best, type);
-    }
+    if (type === 'miss') this._regMiss(best);
+    else this._regHit(best, type);
   }
 
   _regHit(note, type){
@@ -441,7 +420,7 @@ export class RhythmBoxer{
   _floatLane(laneIdx, txt, isBad){
     const lane = this.lanes[laneIdx] || this.lanes[1];
     if (!lane) return;
-    const r = lane.getBoundingClientRect();
+    const r  = lane.getBoundingClientRect();
     const fx = document.createElement('div');
     fx.className = 'float';
     fx.textContent = txt;
@@ -511,18 +490,15 @@ export class RhythmBoxer{
     };
   }
 
-  // ===== Stage cleanup (กัน element ซ้อนจริง ๆ) =====
+  // ---- Hard cleanup (กัน element ซ้อนจริง ๆ) ----
   _clearStage(){
     const kill = sel => document.querySelectorAll(sel).forEach(e => e.remove());
-
-    // ลบทุก element ที่น่าจะเป็นเลน/โน้ต/
     kill('.rb-note');
     kill('.rb-lane');
     kill('.track');
     kill('.lane');
     kill('.note');
 
-    // ล้าง stage container อีกชั้น
     const stage = document.getElementById('rb-stage');
     if (stage){
       stage.innerHTML = '';
@@ -530,7 +506,7 @@ export class RhythmBoxer{
     }
   }
 
-  // ===== HADO-style finish FX (scan ripple) =====
+  // ---- HADO-style FX ----
   _playFinishFx(){
     const ripple = document.createElement('div');
     ripple.className = 'rb-ripple';
@@ -541,7 +517,7 @@ export class RhythmBoxer{
     setTimeout(()=>{
       ripple.remove();
       scan.remove();
-    }, 1000);
+    },1000);
   }
 
   async _finish(){
@@ -551,20 +527,23 @@ export class RhythmBoxer{
 
     const summary = this._buildSummary();
 
-    // 🧹 ล้างเลน/โน้ตทั้งหมด กันจอซ้อน
+    // 🧹 ล้าง lane/โน้ต
     this._clearStage();
 
-    // 🔒 ล็อก scroll บนมือถือ
+    // 🏷 ใส่ flag ที่ body ให้ CSS ช่วยซ่อนทุก lane ที่เหลือ
+    document.body.classList.add('rb-finished');
+
+    // 🔒 กัน scroll
     document.body.style.overflow = 'hidden';
 
-    // 🎬 เล่น HADO ripple + scan
+    // FX
     this._playFinishFx();
 
     setTimeout(()=>{
       this._showResult(summary);
       hybridSaveSession(summary,true);
       this._loadLeaderboards(summary.profile);
-    }, 700);
+    },700);
   }
 
   _showResult(summary){
