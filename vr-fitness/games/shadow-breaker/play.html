@@ -16,6 +16,7 @@
       display: flex;
       align-items: stretch;
       justify-content: center;
+      overflow: hidden;
     }
     #sb-stage {
       position: relative;
@@ -42,6 +43,7 @@
       max-width: min(90vw, 480px);
       text-align: center;
       pointer-events: none;
+      z-index: 5;
     }
 
     /* เป้า */
@@ -63,7 +65,8 @@
         #0ea5e9;
       color: #020617;
       transform: translate(-50%, -50%) scale(1);
-      transition: transform .1s ease-out, box-shadow .1s ease-out;
+      transition: transform .08s ease-out, box-shadow .08s ease-out;
+      z-index: 4;
     }
     .sb-target-hard {
       background:
@@ -74,10 +77,78 @@
       transform: translate(-50%, -50%) scale(.92);
       box-shadow: 0 0 0 2px rgba(248,250,252,.9), 0 8px 18px rgba(15,23,42,.9);
     }
-    .sb-pop { animation: sb-pop .2s ease-out; }
+    .sb-pop { animation: sb-pop .18s ease-out; }
     @keyframes sb-pop {
       from { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
       to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+    }
+
+    /* Particle shards */
+    .sb-particle {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: 3;
+      background: var(--color, #38bdf8);
+      opacity: 0;
+      animation: sb-particle-burst .45s ease-out forwards;
+      transform-origin: center;
+    }
+    @keyframes sb-particle-burst {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform:
+          translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)))
+          scale(.3);
+      }
+    }
+
+    /* Floating score text */
+    .sb-float-score {
+      position: absolute;
+      pointer-events: none;
+      z-index: 6;
+      font-weight: 700;
+      color: #4ade80;
+      text-shadow: 0 0 8px rgba(22,163,74,.9);
+      animation: sb-float-score 0.6s ease-out forwards;
+    }
+    .sb-float-score-miss {
+      color: #f97373;
+      text-shadow: 0 0 8px rgba(248,113,113,.9);
+    }
+    @keyframes sb-float-score {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) translateY(0);
+      }
+      10% {
+        opacity: 1;
+        transform: translate(-50%, -50%) translateY(-4px);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) translateY(-32px);
+      }
+    }
+
+    /* Screen shake */
+    .sb-shake {
+      animation: sb-shake 0.25s cubic-bezier(.36,.07,.19,.97);
+    }
+    @keyframes sb-shake {
+      0% { transform: translate(0,0); }
+      20% { transform: translate(-4px, 3px); }
+      40% { transform: translate(4px, -3px); }
+      60% { transform: translate(-3px, 2px); }
+      80% { transform: translate(3px, -2px); }
+      100% { transform: translate(0,0); }
     }
 
     /* HUD */
@@ -100,16 +171,15 @@
       border: 1px solid rgba(148,163,184,.7);
       box-shadow: 0 16px 40px rgba(15,23,42,.8);
     }
-    .hud-left,.hud-center,.hud-right {
+    .hud-left,.hud-center {
       display: flex;
       align-items: center;
       gap: 6px;
     }
-    .hud-center { margin-left: auto; }
+    .hud-center { margin-left: auto; gap: 10px; }
     .hud-label { opacity: .75; }
     .hud-value { font-weight: 600; font-size: 16px; }
     #hud-diff {
-      margin-left: 8px;
       padding: 2px 10px;
       border-radius: 999px;
       font-size: 11px;
@@ -120,7 +190,7 @@
       color: #e0f2f1;
     }
     #btn-start {
-      margin-left: 12px;
+      margin-left: 8px;
       padding: 6px 14px;
       border-radius: 999px;
       border: none;
@@ -133,7 +203,7 @@
     }
     #btn-start:active { transform: translateY(1px); }
 
-    /* Result modal แบบเรียบ ๆ */
+    /* Result modal */
     #result-overlay {
       position: fixed;
       inset: 0;
@@ -216,8 +286,8 @@
       </div>
       <div class="hud-center">
         <span id="hud-diff">NORMAL</span>
+        <button id="btn-start" type="button">▶ เริ่มเล่น</button>
       </div>
-      <button id="btn-start" type="button">▶ เริ่มเล่น</button>
     </div>
   </div>
 
@@ -241,15 +311,13 @@
     (function () {
       'use strict';
 
-      const stage = document.getElementById('sb-stage');
-      const msgEl = document.getElementById('sb-message');
-
-      const hudTime  = document.getElementById('hud-time');
-      const hudScore = document.getElementById('hud-score');
-      const hudCombo = document.getElementById('hud-combo');
-      const hudDiff  = document.getElementById('hud-diff');
-      const btnStart = document.getElementById('btn-start');
-
+      const stage      = document.getElementById('sb-stage');
+      const msgEl      = document.getElementById('sb-message');
+      const hudTime    = document.getElementById('hud-time');
+      const hudScore   = document.getElementById('hud-score');
+      const hudCombo   = document.getElementById('hud-combo');
+      const hudDiff    = document.getElementById('hud-diff');
+      const btnStart   = document.getElementById('btn-start');
       const resOverlay = document.getElementById('result-overlay');
       const resScore   = document.getElementById('res-score');
       const resHits    = document.getElementById('res-hits');
@@ -261,6 +329,8 @@
 
       const EMOJIS = ['🥊', '💥', '⭐', '⚡', '🔥'];
       const targets = new Set();
+
+      let audioCtx = null;
 
       let state = {
         playing: false,
@@ -307,7 +377,6 @@
       function rand(min, max) {
         return Math.random() * (max - min) + min;
       }
-
       function pick(arr) {
         return arr[Math.floor(Math.random() * arr.length)];
       }
@@ -324,19 +393,107 @@
         targets.clear();
       }
 
-      function removeTarget(el, isHit) {
+      // Web Audio beep เล็ก ๆ
+      function playBeep(type) {
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const ctx = audioCtx;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          let freq = 440;
+          let dur  = 0.09;
+          let vol  = 0.25;
+
+          if (type === 'hit') {
+            freq = 520;
+            dur  = 0.08;
+            vol  = 0.23;
+          } else if (type === 'miss') {
+            freq = 180;
+            dur  = 0.12;
+            vol  = 0.22;
+          }
+
+          osc.frequency.value = freq;
+          osc.type = 'square';
+          gain.gain.value = vol;
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          const now = ctx.currentTime;
+          osc.start(now);
+          osc.stop(now + dur);
+          gain.gain.setTargetAtTime(0, now + dur * 0.4, 0.05);
+        } catch (e) {
+          // เงียบไปถ้าเล่นไม่ได้
+        }
+      }
+
+      function addScreenShake() {
+        stage.classList.remove('sb-shake');
+        void stage.offsetWidth; // force reflow
+        stage.classList.add('sb-shake');
+      }
+
+      function spawnParticles(x, y, kind) {
+        const count = kind === 'hit' ? 10 : 6;
+        for (let i = 0; i < count; i++) {
+          const el = document.createElement('div');
+          el.className = 'sb-particle';
+          const dx = rand(-40, 40);
+          const dy = rand(-40, 40);
+          el.style.left = x + 'px';
+          el.style.top  = y + 'px';
+          el.style.setProperty('--dx', dx + 'px');
+          el.style.setProperty('--dy', dy + 'px');
+          el.style.setProperty('--color',
+            kind === 'hit'
+              ? (Math.random() < 0.5 ? '#4ade80' : '#22c55e')
+              : '#f97373'
+          );
+          stage.appendChild(el);
+          setTimeout(() => el.remove(), 500);
+        }
+      }
+
+      function spawnFloatScore(x, y, amount, isMiss) {
+        const el = document.createElement('div');
+        el.className = 'sb-float-score' + (isMiss ? ' sb-float-score-miss' : '');
+        el.textContent = (isMiss ? '-'+amount : '+'+amount);
+        el.style.left = x + 'px';
+        el.style.top  = y + 'px';
+        stage.appendChild(el);
+        setTimeout(() => el.remove(), 650);
+      }
+
+      function removeTarget(el, isHit, isCritical) {
         if (!targets.has(el)) return;
         targets.delete(el);
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top  + rect.height / 2;
         el.remove();
 
         if (isHit) {
-          state.score += 10;
+          const base = 10;
+          const bonus = isCritical ? 20 : 0;
+          const gain = base + bonus;
+          state.score += gain;
           state.hits += 1;
           state.combo += 1;
           if (state.combo > state.bestCombo) state.bestCombo = state.combo;
+          playBeep('hit');
+          addScreenShake();
+          spawnParticles(cx, cy, 'hit');
+          spawnFloatScore(cx, cy, gain, false);
         } else {
           state.miss += 1;
           state.combo = 0;
+          playBeep('miss');
+          addScreenShake();
+          spawnParticles(cx, cy, 'miss');
+          spawnFloatScore(cx, cy, 5, true); // แสดง -5 (แม้คะแนนจริงไม่ลบ)
         }
         updateHUD();
       }
@@ -346,22 +503,23 @@
 
         const rect = stage.getBoundingClientRect();
         const x = rand(rect.width * 0.15, rect.width * 0.85);
-        const y = rand(rect.height * 0.2, rect.height * 0.8);
+        const y = rand(rect.height * 0.2,  rect.height * 0.8);
 
         const el = document.createElement('div');
         el.className = 'sb-target sb-pop' + (state.diff === 'hard' ? ' sb-target-hard' : '');
         el.textContent = pick(EMOJIS);
         el.style.left = x + 'px';
-        el.style.top = y + 'px';
+        el.style.top  = y + 'px';
         el.dataset.createdAt = performance.now();
 
         const hit = (e) => {
           e.stopPropagation();
           if (!state.playing) return;
-          removeTarget(el, true);
+          const isCritical = Math.random() < 0.18; // 18% โอกาส critical
+          removeTarget(el, true, isCritical);
         };
 
-        el.addEventListener('click', hit, { passive: false });
+        el.addEventListener('click',       hit, { passive: false });
         el.addEventListener('pointerdown', hit, { passive: false });
 
         stage.appendChild(el);
@@ -373,11 +531,12 @@
         cancelAnimationFrame(state.rafId);
         clearTargets();
         resScore.textContent = state.score;
-        resHits.textContent  = state.hits;
-        resMiss.textContent  = state.miss;
+        resHits .textContent = state.hits;
+        resMiss .textContent = state.miss;
         resCombo.textContent = 'x' + state.bestCombo;
-        resTime.textContent  = state.duration;
+        resTime .textContent = state.duration;
         resOverlay.style.display = 'flex';
+        msgEl.textContent = 'หมดเวลาแล้ว! ดูผลคะแนน แล้วลองเล่นใหม่อีกครั้ง 💪';
       }
 
       function loop(ts) {
@@ -405,7 +564,7 @@
         targets.forEach(el => {
           const age = (now - Number(el.dataset.createdAt)) / 1000;
           if (age >= state.targetLifetime) {
-            removeTarget(el, false);
+            removeTarget(el, false, false);
           }
         });
 
@@ -434,7 +593,7 @@
         state.rafId = requestAnimationFrame(loop);
       }
 
-      // event
+      // events
       btnStart.addEventListener('click', startGame);
       btnRetry.addEventListener('click', startGame);
       btnBack.addEventListener('click', () => {
