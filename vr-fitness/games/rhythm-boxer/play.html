@@ -1,20 +1,617 @@
+
 <!doctype html>
 <html lang="th">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Rhythm Boxer — Play</title><meta name="color-scheme" content="dark light"/></head>
-<body style="margin:0;background:#000;color:#fff;font-family:system-ui,Segoe UI,Inter,Arial">
-<pre id="log" style="position:fixed;left:10px;bottom:10px;color:#9df;white-space:pre-wrap">• start</pre>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Rhythm Boxer — เล่นเกม</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #020617;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ===== GAME STAGE ===== */
+    #rb-stage {
+      position: relative;
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top, rgba(96,165,250,.25), transparent 60%),
+        radial-gradient(circle at bottom, rgba(248,250,252,.08), transparent 60%),
+        #020617;
+      transition: box-shadow .2s ease-out;
+    }
+
+    /* ===== MESSAGE ===== */
+    #rb-message {
+      position: absolute;
+      top: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(15,23,42,.85);
+      border: 1px solid rgba(148,163,184,.6);
+      font-size: 14px;
+      text-align: center;
+      pointer-events: none;
+      z-index: 6;
+      max-width: min(90vw,560px);
+    }
+
+    /* ===== TARGET ===== */
+    .rb-target {
+      position: absolute;
+      width: clamp(66px,10vw,100px);
+      aspect-ratio: 1/1;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: clamp(30px,6vw,45px);
+      user-select: none;
+      transform: translate(-50%, -50%) scale(1);
+      cursor: pointer;
+      transition: transform .1s ease-out;
+      background:
+        radial-gradient(circle at 30% 30%,rgba(248,250,252,1),transparent 60%),
+        #3b82f6;
+      color: #020617;
+      box-shadow:0 0 0 2px rgba(191,219,254,.8),0 10px 22px rgba(15,23,42,.9);
+      z-index: 5;
+    }
+    .rb-target:active { transform: translate(-50%, -50%) scale(.9); }
+    .rb-target-pop { animation: rb-pop .2s ease-out; }
+    @keyframes rb-pop {
+      0%   {transform:translate(-50%,-50%) scale(.4); opacity:0;}
+      100% {transform:translate(-50%,-50%) scale(1);   opacity:1;}
+    }
+
+    /* ITEM TARGET */
+    .rb-target-item {
+      background:
+        radial-gradient(circle at 30% 30%,rgba(255,255,255,1),transparent 60%),
+        #7c3aed;
+      color:#fff;
+      box-shadow:0 0 0 2px rgba(216,180,254,.9),0 12px 28px rgba(15,23,42,.9);
+    }
+
+    /* ON-FIRE COLOR */
+    .rb-target-onfire {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,230,150,1), transparent 60%),
+        #ff3b3b;
+      box-shadow:
+        0 0 10px #ffeb3b,
+        0 0 22px #ff5722,
+        0 0 30px rgba(255,87,34,.9);
+      color: #300;
+    }
+
+    /* ===== FEVER & ONFIRE SCREEN ===== */
+    .onfire-screen { animation: s-pulse .85s ease-in-out infinite; }
+    @keyframes s-pulse {
+      0% { box-shadow: inset 0 0 30px rgba(255,87,34,0.3); }
+      50% { box-shadow: inset 0 0 75px rgba(255,87,34,0.55); }
+      100% { box-shadow: inset 0 0 30px rgba(255,87,34,0.3); }
+    }
+
+    /* ===== FLOAT SCORE ===== */
+    .float-score {
+      position:absolute;
+      font-weight:700;
+      pointer-events:none;
+      color:#4ade80;
+      text-shadow:0 0 8px rgba(22,163,74,.9);
+      animation:fscore .7s ease-out forwards;
+      z-index:10;
+    }
+    .float-score-miss {color:#ef4444;text-shadow:0 0 8px rgba(248,113,113,.9);}
+    .float-score-crit {color:#facc15;text-shadow:0 0 14px #ffda6a;}
+
+    @keyframes fscore {
+      0%   {opacity:0;transform:translate(-50%,-50%) translateY(0);}
+      10%  {opacity:1;transform:translate(-50%,-50%) translateY(-6px);}
+      100% {opacity:0;transform:translate(-50%,-50%) translateY(-36px);}
+    }
+
+    /* ===== HUD ===== */
+    #hud {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(960px,96vw);
+      z-index:900;
+    }
+    #hud-inner {
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(15,23,42,.92);
+      border:1px solid rgba(148,163,184,.6);
+    }
+    .hud-block{display:flex;align-items:center;gap:6px;}
+    .hud-val{font-weight:600;font-size:15px;}
+
+    #btn-start{
+      margin-left:auto;
+      border:none;
+      border-radius:999px;
+      padding:6px 14px;
+      background:#a855f7;
+      color:#fff;
+      font-weight:600;
+      cursor:pointer;
+      box-shadow:0 0 0 1px #d8b4fe;
+    }
+
+    /* FEVER BAR */
+    #fever-area{display:flex;align-items:center;gap:6px;}
+    #fever-bar{
+      width:120px;
+      height:8px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.9);
+      border:1px solid rgba(148,163,184,.7);
+      overflow:hidden;
+    }
+    #fever-fill{
+      width:0%;
+      height:100%;
+      background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);
+      transform-origin:left;
+      transition:transform .18s ease-out;
+    }
+
+    /* FEVER POPUP */
+    #fever-container,#onfire-container{
+      position:fixed;inset:0;pointer-events:none;z-index:999;
+    }
+    #fever-popup{
+      position:fixed;top:42%;left:50%;
+      transform:translate(-50%,-50%);
+      font-size:3rem;font-weight:900;
+      color:#facc15;opacity:0;letter-spacing:3px;
+      animation:feverani .9s ease-out forwards;
+      text-shadow:0 0 12px #facc15,0 0 32px #ffe066;
+    }
+    @keyframes feverani{
+      0%{opacity:0;transform:translate(-50%,-50%) scale(.6);}
+      25%{opacity:1;transform:translate(-50%,-50%) scale(1.2);}
+      60%{opacity:1;transform:translate(-50%,-50%) scale(1.0);}
+      100%{opacity:0;transform:translate(-50%,-60%) scale(1.4);}
+    }
+
+    /* ===== PARTICLE ===== */
+    .particle {
+      position:absolute;width:10px;height:10px;border-radius:999px;
+      animation:burst .45s ease-out forwards;pointer-events:none;
+    }
+    @keyframes burst{
+      0%{opacity:1;transform:scale(1);}
+      100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3);}
+    }
+
+    /* RESULT (เหมือน Shadow Breaker) */
+    #result-box{
+      position:fixed;inset:0;display:none;
+      align-items:center;justify-content:center;
+      background:rgba(15,23,42,.7);z-index:900;
+    }
+    #result-card{
+      width:min(380px,92vw);
+      background:#020617;border-radius:18px;
+      padding:18px 20px;border:1px solid rgba(148,163,184,.7);
+      box-shadow:0 20px 48px rgba(15,23,42,.85);
+    }
+    #rank-badge{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:2px 10px;border-radius:999px;font-weight:700;
+    }
+    #result-actions{display:flex;gap:8px;margin-top:10px;}
+    #btn-retry,#btn-exit{
+      flex:1;border:none;border-radius:999px;
+      padding:8px;font-weight:600;cursor:pointer;
+    }
+    #btn-retry{background:#a855f7;color:white;}
+    #btn-exit{background:#e5e7eb;color:#020617;}
+
+  </style>
+</head>
+<body>
+  <div id="rb-stage">
+    <div id="rb-message">
+      🎧 แตะปุ่ม <b>▶ เริ่มเล่น</b> แล้วต่อยตาม <u>จังหวะ</u> ให้ตรง beat!<br>
+      ไม่ต้องรีบ — แต่ต้อง "ตรงเวลา" 🎵
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hud-inner">
+      <div class="hud-block">⏱ <span id="hud-time" class="hud-val">60</span>s</div>
+      <div class="hud-block">⭐ <span id="hud-score" class="hud-val">0</span></div>
+      <div class="hud-block">🔥 <span id="hud-combo" class="hud-val">x0</span></div>
+
+      <div id="fever-area">
+        <span style="font-size:11px;opacity:.8;">FEVER</span>
+        <div id="fever-bar"><div id="fever-fill"></div></div>
+      </div>
+
+      <button id="btn-start">▶ เริ่มเล่น</button>
+    </div>
+  </div>
+
+  <!-- Popup -->
+  <div id="fever-container"></div>
+  <div id="onfire-container"></div>
+
+  <!-- Result -->
+  <div id="result-box">
+    <div id="result-card">
+      <h3 style="margin:0 0 6px">🏁 ผลลัพธ์</h3>
+      <div id="rank-badge">Rank: <span id="rank-text">C</span></div>
+      <p>คะแนน: <span id="res-score">0</span></p>
+      <p>โดน: <span id="res-hits">0</span> | พลาด: <span id="res-miss">0</span></p>
+      <p>Accuracy: <span id="res-acc">0%</span></p>
+      <p>Combo สูงสุด: <span id="res-best">x0</span></p>
+      <p>เวลาเล่น: <span id="res-time">60</span>s</p>
+      <div id="result-actions">
+        <button id="btn-retry">🔁 เล่นใหม่</button>
+        <button id="btn-exit">🏠 กลับเมนู</button>
+      </div>
+    </div>
+  </div>
+
 <script>
-const u=new URL(location.href);
-window.HubLaunch={game:"rhythm-boxer",mode:u.searchParams.get("mode")||"timed",diff:u.searchParams.get("diff")||"normal",time:+(u.searchParams.get("time")||85)};
-const logEl=document.getElementById("log");
-const log=t=>{logEl.textContent+="\n• "+t;logEl.scrollTop=logEl.scrollHeight};
-window.addEventListener("error",e=>log("ERR "+e.message),true);
-window.addEventListener("unhandledrejection",e=>log("REJ "+e.reason),true);
-["/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live","./game.js?v=live"].forEach(src=>{
-  const s=document.createElement('script');s.src=src;s.type=src.includes('game.js')?'module':'text/javascript';
-  s.onload=()=>log(src.split('/').pop()+" ✓");s.onerror=()=>log("error "+src);document.head.appendChild(s);
+/* ========================
+   RHYTHM BOXER ENGINE
+   ======================== */
+
+(()=>{
+'use strict';
+
+const stage   = document.getElementById("rb-stage");
+const msg     = document.getElementById("rb-message");
+
+const timeEl  = document.getElementById("hud-time");
+const scoreEl = document.getElementById("hud-score");
+const comboEl = document.getElementById("hud-combo");
+
+const fillFvr = document.getElementById("fever-fill");
+const btnStart= document.getElementById("btn-start");
+
+const resBox  = document.getElementById("result-box");
+const resScore= document.getElementById("res-score");
+const resHits = document.getElementById("res-hits");
+const resMiss = document.getElementById("res-miss");
+const resAcc  = document.getElementById("res-acc");
+const resBest = document.getElementById("res-best");
+const resTime = document.getElementById("res-time");
+const rankText= document.getElementById("rank-text");
+const btnRetry= document.getElementById("btn-retry");
+const btnExit = document.getElementById("btn-exit");
+
+const EMOJI = ['🥁','🎵','✨','🔊','🎧','🎶'];
+const ITEM  = { slow:'🐢', freeze:'🧊', bomb:'🎹' };
+
+let targets = new Set();
+let audioCtx;
+let state = {
+  play:false,
+  duration:90,
+  elapsed:0,
+  lastTs:0,
+  score:0,
+  hits:0,
+  miss:0,
+  combo:0,
+  bestCombo:0,
+
+  spawnBase:1.1,
+  spawnTimer:0,
+
+  lifetimeBase:1.4,
+
+  fever:0,
+  onfire:false,
+  slowUntil:0,
+  freezeUntil:0,
+
+  raf:0
+};
+
+function rand(a,b){return Math.random()*(b-a)+a;}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+function updateHUD(){
+  timeEl.textContent=Math.max(0,Math.ceil(state.duration-state.elapsed));
+  scoreEl.textContent=state.score;
+  comboEl.textContent='x'+state.combo;
+}
+
+function fxBeep(type){
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const ctx=audioCtx, osc=ctx.createOscillator(), gain=ctx.createGain();
+    let f=440,d=0.08,v=0.25;
+    if(type==='hit'){f=520;d=0.06;}
+    if(type==='miss'){f=180;d=0.1;}
+    if(type==='item'){f=700;d=0.1;}
+    if(type==='fever'){f=900;d=0.14;}
+    if(type==='onfire'){f=300;d=0.18;}
+
+    osc.frequency.value=f;
+    osc.type=(type==='miss'?'sawtooth':'square');
+    gain.gain.value=v;
+
+    osc.connect(gain); gain.connect(ctx.destination);
+    const now=ctx.currentTime;
+    osc.start(now);osc.stop(now+d);
+    gain.gain.setTargetAtTime(0,now+d*0.4,0.05);
+  }catch(e){}
+}
+
+function popupFever(){
+  const wrap=document.getElementById("fever-container");
+  const el=document.createElement("div");
+  el.id="fever-popup";
+  el.textContent="🔥 FEVER !! 🔥";
+  wrap.appendChild(el);
+  setTimeout(()=>el.remove(),900);
+}
+
+function addScoreFloat(x,y,val,miss=false,crit=false){
+  const el=document.createElement("div");
+  el.className="float-score"+
+    (miss?" float-score-miss":"")+
+    (crit?" float-score-crit":"");
+  el.textContent=(miss?"-"+val:"+"+val);
+  el.style.left=x+"px";el.style.top=y+"px";
+  stage.appendChild(el);
+  setTimeout(()=>el.remove(),700);
+}
+
+function particles(x,y,good=true){
+  for(let i=0;i<8;i++){
+    let p=document.createElement("div");
+    p.className="particle";
+    p.style.background=good?'#4ade80':'#ef4444';
+    p.style.left=x+"px";
+    p.style.top=y+"px";
+    p.style.setProperty('--dx',rand(-40,40)+'px');
+    p.style.setProperty('--dy',rand(-40,40)+'px');
+    stage.appendChild(p);
+    setTimeout(()=>p.remove(),450);
+  }
+}
+
+function spawnTarget(){
+  if(!state.play) return;
+  const rect=stage.getBoundingClientRect();
+
+  // Rhythm bias: vertical near center
+  const x = rand(rect.width*0.2,rect.width*0.8);
+  const y = rand(rect.height*0.35,rect.height*0.65);
+
+  const el=document.createElement("div");
+  let isItem=false, type=null;
+
+  if(Math.random()<0.12){
+    isItem=true;
+    type=pick(Object.keys(ITEM));
+    el.className="rb-target rb-target-pop rb-target-item";
+    el.textContent=ITEM[type];
+    el.dataset.item=type;
+  }else{
+    el.className="rb-target rb-target-pop";
+    el.textContent=pick(EMOJI);
+  }
+
+  el.style.left=x+"px";el.style.top=y+"px";
+  el.dataset.created=performance.now();
+
+  el.addEventListener("pointerdown",(e)=>{
+    e.stopPropagation();
+    if(!state.play) return;
+
+    const futureCombo=state.combo+1;
+    const crit = futureCombo>=5;
+
+    if(isItem){
+      useItem(type);
+      destroy(el,true,false,true);
+    }else{
+      destroy(el,true,crit,false);
+    }
+  },{passive:false});
+
+  stage.appendChild(el);
+  targets.add(el);
+}
+
+function useItem(type){
+  const now=performance.now()/1000;
+  if(type==='slow'){ state.slowUntil  = now+3; msg.textContent="🐢 Slow beat mode"; }
+  if(type==='freeze'){ state.freezeUntil=now+2; msg.textContent="🧊 Freeze beat"; }
+  if(type==='bomb'){
+    msg.textContent="🎹 Rhythm blast!";
+    targets.forEach(t=>t.remove());targets.clear();
+  }
+  fxBeep('item');
+}
+
+function destroy(el,hit,crit,isItem){
+  if(!targets.has(el)) return;
+  targets.delete(el);
+  const r=el.getBoundingClientRect();
+  const x=r.left+r.width/2, y=r.top+r.height/2;
+  el.remove();
+
+  if(isItem){
+    particles(x,y,true);
+    return;
+  }
+
+  if(hit){
+    const futureCombo=state.combo+1;
+
+    const fever = futureCombo>=5;
+    const onfire = futureCombo>=8;
+
+    if(fever && !crit) crit=true;
+
+    let gain=10+(crit?20:0);
+
+    if(onfire && !state.onfire){
+      state.onfire=true;
+      stage.classList.add("onfire-screen");
+      fxBeep("onfire");
+    }
+    if(state.onfire) gain*=2;
+
+    state.score+=gain;
+    state.hits++;
+    state.combo++;
+    state.bestCombo=Math.max(state.bestCombo,state.combo);
+
+    state.fever=Math.min(100,state.combo*10);
+    fillFvr.style.transform="scaleX("+(state.fever/100)+")";
+
+    if(crit){ popupFever(); fxBeep("fever"); }
+    fxBeep("hit");
+    particles(x,y,true);
+    addScoreFloat(x,y,gain,false,crit);
+
+  }else{
+    state.miss++;
+    state.combo=0;
+    state.fever=0;
+    state.onfire=false;
+    fillFvr.style.transform="scaleX(0)";
+    stage.classList.remove("onfire-screen");
+    fxBeep("miss");
+    particles(x,y,false);
+    addScoreFloat(x,y,5,true,false);
+  }
+
+  updateHUD();
+}
+
+function finish(){
+  state.play=false;
+  cancelAnimationFrame(state.raf);
+  targets.forEach(el=>el.remove());
+  targets.clear();
+
+  const total=state.hits+state.miss;
+  const acc = total>0?(state.hits/total):0;
+
+  resScore.textContent=state.score;
+  resHits .textContent=state.hits;
+  resMiss .textContent=state.miss;
+  resAcc  .textContent=Math.round(acc*100)+'%';
+  resBest .textContent='x'+state.bestCombo;
+  resTime .textContent=state.duration;
+
+  let rank='C';
+  if(state.score>=1600 && acc>=0.95) rank='SSS';
+  else if(state.score>=1100 && acc>=0.90) rank='S';
+  else if(state.score>=800 && acc>=0.80) rank='A';
+  else if(state.score>=500 && acc>=0.60) rank='B';
+
+  rankText.textContent=rank;
+  resBox.style.display="flex";
+  msg.textContent="จบเพลงแล้ว! มาดูคะแนนกัน 🎵";
+}
+
+function loop(ts){
+  if(!state.play) return;
+  if(!state.lastTs) state.lastTs=ts;
+  const dt=(ts-state.lastTs)/1000;
+  state.lastTs=ts;
+
+  state.elapsed+=dt;
+  if(state.elapsed>=state.duration){ finish(); return; }
+
+  const now=performance.now()/1000;
+  let spawnFactor=1;
+
+  if(now<state.freezeUntil) spawnFactor=0; 
+  if(now<state.slowUntil) spawnFactor=0.5;
+
+  state.spawnTimer+=dt*spawnFactor;
+
+  // Rhythm progressive speed
+  const t=state.elapsed/state.duration;
+  const dyn = Math.max(state.spawnBase*(1-0.45*t),0.4);
+  const interval=dyn;
+
+  if(state.spawnTimer>=interval){
+    state.spawnTimer=0;
+    spawnTarget();
+  }
+
+  const nowMs=performance.now();
+  targets.forEach(el=>{
+    const age=(nowMs-Number(el.dataset.created))/1000;
+    if(age>=state.lifetimeBase && now>=state.freezeUntil){
+      destroy(el,false,false,false);
+    }
+  });
+
+  updateHUD();
+  state.raf=requestAnimationFrame(loop);
+}
+
+function reset(){
+  state.elapsed=0; state.lastTs=0; state.spawnTimer=0;
+  state.score=0; state.hits=0; state.miss=0; state.combo=0;
+  state.bestCombo=0; state.fever=0; state.onfire=false;
+  state.slowUntil=0; state.freezeUntil=0;
+  stage.classList.remove("onfire-screen");
+  fillFvr.style.transform="scaleX(0)";
+  targets.forEach(el=>el.remove());
+  targets.clear();
+  updateHUD();
+}
+
+function start(){
+  reset();
+  resBox.style.display="none";
+  state.play=true;
+  msg.textContent="🎶 ต่อให้ตรง beat แล้วคอมโบจะพุ่ง! 🔥";
+  state.raf=requestAnimationFrame(loop);
+}
+
+btnStart.onclick=start;
+btnRetry.onclick=start;
+btnExit.onclick=()=>location.href="./index.html";
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.hidden && state.play){
+    state.play=false;
+    cancelAnimationFrame(state.raf);
+  }
 });
+
+updateHUD();
+})();
 </script>
 </body>
 </html>
