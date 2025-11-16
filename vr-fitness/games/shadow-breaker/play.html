@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>Shadow Breaker — เล่นเกม</title>
   <style>
-    :root {
-      color-scheme: dark;
-    }
+    :root { color-scheme: dark; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -74,18 +72,13 @@
       transform: translate(-50%, -50%) scale(.92);
       box-shadow: 0 0 0 2px rgba(248,250,252,.9), 0 8px 18px rgba(15,23,42,.9);
     }
-    .sb-pop {
-      animation: sb-pop .2s ease-out;
-    }
+    .sb-pop { animation: sb-pop .2s ease-out; }
     @keyframes sb-pop {
       from { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
       to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
     }
-
     @media (max-width: 640px) {
-      #sb-message {
-        font-size: 13px;
-      }
+      #sb-message { font-size: 13px; }
     }
   </style>
 </head>
@@ -99,7 +92,7 @@
 
   <!-- HUD + Result กลาง -->
   <script src="../../common/game-shell.js"></script>
-  <!-- Logic ของ Shadow Breaker -->
+  <!-- Logic เกม Shadow Breaker -->
   <script src="./shadow-breaker.js"></script>
 </body>
 </html>
