@@ -1,4 +1,4 @@
-// === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Research CSV) ===
+// === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Research CSV + Hub Confirm) ===
 'use strict';
 
 // ---------- อ่านค่าจาก URL ----------
@@ -16,13 +16,6 @@ const GAME_DURATION = timeParam;
 function $(sel) { return document.querySelector(sel); }
 function $all(sel) { return document.querySelectorAll(sel); }
 
-function detectDeviceType() {
-  const ua = navigator.userAgent || '';
-  if (/Quest|OculusBrowser|VR/i.test(ua)) return 'vr';
-  if (/Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
-  return 'desktop';
-}
-
 // อ่าน profile จาก Hub (ถ้ามี)
 let playerProfile = {};
 try {
@@ -32,232 +25,170 @@ try {
   playerProfile = {};
 }
 
-// ---------- Research Summary Store + CSV Export ----------
-window.HH_SUMMARIES = window.HH_SUMMARIES || [];
-const HHA_SUMMARIES = window.HH_SUMMARIES;
-
-// mode: 'teacher' | 'research'
-function exportCsv(mode) {
-  console.log('[HHA] exportCsv mode =', mode, 'rows =', HHA_SUMMARIES.length);
-
-  if (!HHA_SUMMARIES.length) {
-    alert('ยังไม่มีข้อมูลรอบที่เล่นในหน้านี้เลย');
-    return;
-  }
-
-  if (mode === 'teacher') {
-    downloadTeacherCsv(HHA_SUMMARIES);
-  } else if (mode === 'research') {
-    downloadResearchCsv(HHA_SUMMARIES);
-  } else {
-    alert('โหมดส่งออกไม่ถูกต้อง');
-  }
+// ---------- SFX helper ----------
+let _hhaAudioCtx = null;
+function hhaPlayClick(kind){
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    if(!_hhaAudioCtx) _hhaAudioCtx = new AC();
+    const ctx = _hhaAudioCtx;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    let freq = 600;
+    if(kind === 'ok') freq = 750;
+    else if(kind === 'cancel') freq = 420;
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.value = 0.12;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    setTimeout(function(){ try{osc.stop();}catch(e){} },120);
+  }catch(e){}
 }
 
-// แบบย่อสำหรับครู
-function downloadTeacherCsv(rows) {
-  const header = [
-    'timestamp_iso',
-    'mode',
-    'diff',
-    'duration_sec',
-    'player_name',
-    'score',
-    'max_combo',
-    'accuracy_percent',
-    'mission_success',
-    'quests_done',
-    'quests_total'
-  ];
+// ---------- Fade & Confirm กลับ Hub ----------
+function fadeOutToHub(){
+  let overlay = document.getElementById('hha-fade-out');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'hha-fade-out';
+    Object.assign(overlay.style,{
+      position:'fixed',inset:'0',
+      background:'#020617',
+      opacity:'0',
+      transition:'opacity 320ms ease-out',
+      pointerEvents:'none',
+      zIndex:'9999',
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      color:'#e5e7eb',
+      fontFamily:'system-ui,Segoe UI,Inter,Roboto,sans-serif',
+      fontSize:'14px'
+    });
+    overlay.innerHTML = '<div style="\
+        padding:12px 18px;\
+        border-radius:999px;\
+        background:rgba(15,23,42,0.96);\
+        border:1px solid rgba(148,163,184,0.9);\
+        box-shadow:0 18px 40px rgba(0,0,0,0.8);\
+      ">กำลังกลับไปยัง Hub…</div>';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.pointerEvents = 'auto';
+  requestAnimationFrame(function(){
+    overlay.style.opacity = '1';
+  });
+  setTimeout(function(){
+    window.location.href = './hub.html';
+  },380);
+}
 
-  const lines = [header.join(',')];
+function ensureBackConfirmUI(){
+  let box = document.getElementById('hha-back-confirm');
+  if(box) return box;
 
-  rows.forEach(function (s) {
-    const p = s.performance || {};
-    const q = s.quests || {};
-    const prof = s.profile || {};
-
-    const cols = [
-      s.timestampIso || '',
-      s.mode || '',
-      s.diff || '',
-      (s.durationSec != null ? s.durationSec : ''),
-      (prof.name || ''),
-      (p.score != null ? p.score : ''),
-      (p.maxCombo != null ? p.maxCombo : ''),
-      (p.accuracyPercent != null ? p.accuracyPercent.toFixed(1) : ''),
-      (p.missionSuccess ? 1 : 0),
-      (q.done != null ? q.done : ''),
-      (q.total != null ? q.total : '')
-    ];
-    lines.push(cols.join(','));
+  box = document.createElement('div');
+  box.id = 'hha-back-confirm';
+  Object.assign(box.style,{
+    position:'fixed',
+    inset:'0',
+    display:'flex',
+    alignItems:'center',
+    justifyContent:'center',
+    zIndex:'9300',
+    background:'radial-gradient(circle at top, rgba(15,23,42,0.68), rgba(15,23,42,0.96))',
+    opacity:'0',
+    pointerEvents:'none',
+    transition:'opacity 180ms ease-out'
   });
 
-  const csvContent = '\uFEFF' + lines.join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const urlBlob = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = urlBlob;
-  a.download = 'herohealth_teacher.csv';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function () {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(urlBlob);
-  }, 300);
-}
+  box.innerHTML = '\
+    <div style="\
+      min-width:260px;\
+      max-width:320px;\
+      background:rgba(15,23,42,0.98);\
+      border-radius:20px;\
+      padding:18px 20px;\
+      border:1px solid rgba(148,163,184,0.9);\
+      box-shadow:0 22px 60px rgba(0,0,0,0.85);\
+      transform:translateZ(0) translateY(-4px);\
+      backdrop-filter:blur(12px);\
+      text-align:center;\
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;\
+      color:#e5e7eb;\
+    ">\
+      <div style="font-size:22px;margin-bottom:4px;">🏠 กลับ Hub ?</div>\
+      <div style="font-size:13px;color:#cbd5f5;margin-bottom:12px;">\
+        ต้องการออกจากมินิเกมรอบนี้และกลับไปหน้า Hub หรือไม่<br/>\
+        (คะแนนรอบนี้ยังคงอยู่ใน CSV ที่ดาวน์โหลดได้)\
+      </div>\
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">\
+        <button id="hha-back-stay"\
+          style="\
+            border-radius:999px;border:0;cursor:pointer;\
+            padding:6px 14px;\
+            background:rgba(15,23,42,0.96);\
+            color:#e5e7eb;font-size:13px;font-weight:500;\
+            border:1px solid rgba(148,163,184,0.9);\
+          ">\
+          อยู่เล่นต่อ\
+        </button>\
+        <button id="hha-back-confirm-go"\
+          style="\
+            border-radius:999px;border:0;cursor:pointer;\
+            padding:6px 16px;\
+            background:linear-gradient(135deg,#fb7185,#f97316);\
+            color:#fff;font-size:13px;font-weight:600;\
+          ">\
+          กลับ Hub เลย\
+        </button>\
+      </div>\
+    </div>';
 
-// แบบเต็มสำหรับวิจัย
-function downloadResearchCsv(rows) {
-  const header = [
-    'timestamp_iso','build_version','session_id','run_id',
-    'mode','diff','duration_sec','time_left',
-    'player_name','student_id','grade_room',
-    'device_type','platform','user_agent_short',
-    'score','max_combo',
-    'good_clicks','junk_clicks','boss_clicks','miss_clicks','total_clicks',
-    'mission_good','mission_target','mission_success',
-    'accuracy_percent',
-    'avg_reaction_ms','median_reaction_ms','min_reaction_ms','max_reaction_ms','rt_sample_count',
-    'fever_count','fever_total_sec',
-    'boss_spawned','boss_defeated','boss_max_hp',
-    'quests_total','quests_done','quests_detail',
-    'acc_target_min','acc_target_max','acc_band',
-    'type_weights_json'
-  ];
+  document.body.appendChild(box);
 
-  const lines = [header.join(',')];
+  function hide(){
+    box.style.opacity = '0';
+    box.style.pointerEvents = 'none';
+  }
 
-  rows.forEach(function (s) {
-    const p   = s.performance || {};
-    const t   = s.timing || {};
-    const f   = s.fever || {};
-    const b   = s.boss || {};
-    const q   = s.quests || {};
-    const cfg = s.config || {};
-    const accT = (cfg.accTarget || {});
-    const prof = s.profile || {};
-    const dev  = s.device || {};
+  const stayBtn = document.getElementById('hha-back-stay');
+  const goBtn   = document.getElementById('hha-back-confirm-go');
 
-    const uaShort = (dev.userAgent || '').slice(0, 80).replace(/,/g, ' ');
+  if(stayBtn){
+    stayBtn.addEventListener('click', function(){
+      hhaPlayClick('cancel');
+      hide();
+    });
+  }
+  if(goBtn){
+    goBtn.addEventListener('click', function(){
+      hhaPlayClick('ok');
+      hide();
+      fadeOutToHub();
+    });
+  }
 
-    let questDetail = '';
-    if (q.list && q.list.length) {
-      questDetail = q.list
-        .map(function (qi) {
-          const tag = qi.done ? '✓' : 'x';
-          return '[' + tag + '] ' + (qi.id || '') + ' ' + (qi.label || '');
-        })
-        .join(' | ');
+  // คลิกพื้นหลังเพื่อยกเลิก
+  box.addEventListener('click', function(ev){
+    if(ev.target === box){
+      hhaPlayClick('cancel');
+      hide();
     }
-
-    const typeWeightsJson = cfg.typeWeights
-      ? JSON.stringify(cfg.typeWeights)
-      : '';
-
-    const cols = [
-      s.timestampIso || '',
-      s.buildVersion || '',
-      s.sessionId || '',
-      s.runId || '',
-      s.mode || '',
-      s.diff || '',
-      (s.durationSec != null ? s.durationSec : ''),
-      (s.timeLeft != null ? s.timeLeft : ''),
-      prof.name || '',
-      prof.studentId || '',
-      prof.gradeRoom || '',
-      dev.deviceType || '',
-      dev.platform || '',
-      uaShort,
-      (p.score != null ? p.score : ''),
-      (p.maxCombo != null ? p.maxCombo : ''),
-      (p.goodClicks != null ? p.goodClicks : ''),
-      (p.junkClicks != null ? p.junkClicks : ''),
-      (p.bossClicks != null ? p.bossClicks : ''),
-      (p.missClicks != null ? p.missClicks : ''),
-      (p.totalClicks != null ? p.totalClicks : ''),
-      (p.missionGoodCount != null ? p.missionGoodCount : ''),
-      (p.missionTarget != null ? p.missionTarget : ''),
-      (p.missionSuccess ? 1 : 0),
-      (p.accuracyPercent != null ? p.accuracyPercent.toFixed(2) : ''),
-      (t.avgReactionMs != null ? t.avgReactionMs.toFixed(1) : ''),
-      (t.medianReactionMs != null ? t.medianReactionMs.toFixed(1) : ''),
-      (t.minReactionMs != null ? t.minReactionMs.toFixed(1) : ''),
-      (t.maxReactionMs != null ? t.maxReactionMs.toFixed(1) : ''),
-      (t.sampleCount != null ? t.sampleCount : ''),
-      (f.feverCount != null ? f.feverCount : ''),
-      (f.totalFeverSeconds != null ? f.totalFeverSeconds : ''),
-      (b.spawned ? 1 : 0),
-      (b.defeated ? 1 : 0),
-      (b.maxHp != null ? b.maxHp : ''),
-      (q.total != null ? q.total : ''),
-      (q.done != null ? q.done : ''),
-      questDetail,
-      (accT.min != null ? accT.min : ''),
-      (accT.max != null ? accT.max : ''),
-      accT.band || '',
-      typeWeightsJson
-    ];
-
-    lines.push(cols.join(','));
   });
 
-  const csvContent = '\uFEFF' + lines.join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const urlBlob = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = urlBlob;
-  a.download = 'herohealth_research.csv';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function () {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(urlBlob);
-  }, 300);
+  return box;
 }
 
-// ---------- Export CSV Dropdown ----------
-let exportDropdownInited = false;
-
-function initExportDropdown() {
-  if (exportDropdownInited) return;
-  const btn      = document.getElementById('hha-export-btn');
-  const menu     = document.getElementById('hha-export-dropdown');
-  const teacher  = document.getElementById('hha-export-teacher');
-  const research = document.getElementById('hha-export-research');
-
-  if (!btn || !menu || !teacher || !research) return;
-
-  exportDropdownInited = true;
-
-  function hideMenu() {
-    menu.style.display = 'none';
-  }
-  function toggleMenu() {
-    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-  }
-
-  btn.addEventListener('click', function (ev) {
-    ev.stopPropagation();
-    toggleMenu();
-  });
-
-  teacher.addEventListener('click', function (ev) {
-    ev.stopPropagation();
-    hideMenu();
-    exportCsv('teacher');
-  });
-
-  research.addEventListener('click', function (ev) {
-    ev.stopPropagation();
-    hideMenu();
-    exportCsv('research');
-  });
-
-  // คลิกนอกเมนู → ปิด
-  document.addEventListener('click', function () {
-    hideMenu();
+function showBackConfirm(){
+  const box = ensureBackConfirmUI();
+  hhaPlayClick('open');
+  box.style.pointerEvents = 'auto';
+  requestAnimationFrame(function(){
+    box.style.opacity = '1';
   });
 }
 
@@ -275,22 +206,24 @@ const cfg = (typeof MODE_IMPL.setupForDiff === 'function')
   ? (MODE_IMPL.setupForDiff(DIFF) || {})
   : {};
 
-const SPAWN_INTERVAL        = cfg.SPAWN_INTERVAL        || 700;
-const ITEM_LIFETIME         = cfg.ITEM_LIFETIME         || 1500;
-const MAX_ACTIVE            = cfg.MAX_ACTIVE            || 4;
-const MISSION_GOOD_TARGET   = cfg.MISSION_GOOD_TARGET   || 20;
-const SIZE_FACTOR           = cfg.SIZE_FACTOR           || 1.0;
-const TYPE_WEIGHTS          = cfg.TYPE_WEIGHTS || {
+const SPAWN_INTERVAL = cfg.SPAWN_INTERVAL || 700;
+const ITEM_LIFETIME  = cfg.ITEM_LIFETIME  || 1500;
+const MAX_ACTIVE     = cfg.MAX_ACTIVE     || 4;
+const MISSION_GOOD_TARGET = cfg.MISSION_GOOD_TARGET || 20;
+const SIZE_FACTOR    = cfg.SIZE_FACTOR    || 1.0;
+
+const TYPE_WEIGHTS   = cfg.TYPE_WEIGHTS || {
   good: 50, junk: 30, star: 6, gold: 5, diamond: 4, shield: 3, fever: 4, rainbow: 0
 };
-const FEVER_DURATION        = cfg.FEVER_DURATION        || 6;
-const DIAMOND_TIME_BONUS    = cfg.DIAMOND_TIME_BONUS    || 2;
+
+const FEVER_DURATION       = cfg.FEVER_DURATION       || 6;
+const DIAMOND_TIME_BONUS   = cfg.DIAMOND_TIME_BONUS   || 2;
 
 // ---------- Boss Config ----------
-const BOSS_WINDOW_SEC       = 7;
-const BOSS_HP               = 5;
-const BOSS_SCORE_PER_HIT    = 10;
-const BOSS_BONUS_CLEAR      = 50;
+const BOSS_WINDOW_SEC  = 7;
+const BOSS_HP          = 5;
+const BOSS_SCORE_PER_HIT = 10;
+const BOSS_BONUS_CLEAR = 50;
 
 // ---------- State ----------
 let running = false;
@@ -310,10 +243,9 @@ let feverTriggeredCount = 0;
 let bossSpawned = false;
 let bossDefeated = false;
 
-// สำหรับคำนวณ reaction time
 let roundStartPerf = 0;
 
-// ---------- Mini Quest State ----------
+// Mini Quest
 const questState = [
   {
     id: 'streak5',
@@ -341,7 +273,8 @@ const questState = [
 let streakGoodNoJunk = 0;
 
 // ---------- Research Logging ----------
-const eventLog = [];
+const eventLog = []; // event ระดับคลิก/พลาด/โดน boss
+const HHA_SUMMARIES = window.HH_SUMMARIES || (window.HH_SUMMARIES = []); // summary ต่อรอบ (สำหรับครู)
 
 function logEvent(ev) {
   eventLog.push(ev);
@@ -353,7 +286,6 @@ function pickType() {
   let total = 0;
   for (let i = 0; i < entries.length; i++) total += entries[i][1];
   if (total <= 0) return 'good';
-
   const r = Math.random() * total;
   let acc = 0;
   for (let i = 0; i < entries.length; i++) {
@@ -399,46 +331,45 @@ function ensureGameCSS() {
   if (document.getElementById('hha-game-css')) return;
   const st = document.createElement('style');
   st.id = 'hha-game-css';
-  st.textContent = `
-    @keyframes hha-float {
-      0% { transform: translate3d(0,0,0); }
-      50%{ transform: translate3d(0,-12px,0); }
-      100%{ transform: translate3d(0,0,0); }
-    }
-    @keyframes hha-hud-shake {
-      0% { transform: translate(-50%,0); }
-      25%{ transform: translate(-50%,-2px); }
-      50%{ transform: translate(-50%,2px); }
-      75%{ transform: translate(-50%,-1px); }
-      100%{ transform: translate(-50%,0); }
-    }
-    body.hha-fever::before {
-      content:'';
-      position:fixed;inset:0;
-      pointer-events:none;
-      background:
-        radial-gradient(circle at top, rgba(248,113,113,0.2), transparent 55%),
-        radial-gradient(circle at bottom, rgba(248,150,30,0.22), transparent 55%);
-      z-index:8990;
-    }
-    body.hha-fever #hha-hud-inner {
-      box-shadow:0 0 35px rgba(248,113,113,0.8);
-      animation: hha-hud-shake 0.4s ease-in-out;
-    }
-    @media (max-width: 720px) {
-      #hha-hud-inner { padding:8px 12px; font-size:12px; min-width:220px; }
-      #hha-hud-inner #hha-score,
-      #hha-hud-inner #hha-combo { font-size:16px; }
-      #hha-timebox { font-size:11px; padding:4px 10px; }
-    }
-    @media (max-width: 480px) {
-      #hha-hud-inner { padding:6px 10px; font-size:11px; min-width:200px; }
-      #hha-hud-inner #hha-score,
-      #hha-hud-inner #hha-combo { font-size:14px; }
-      #hha-buffs { font-size:10px; }
-      #hha-timebox { font-size:10px; padding:3px 8px; }
-    }
-  `;
+  st.textContent = '\
+    @keyframes hha-float {\
+      0% { transform: translate3d(0,0,0); }\
+      50%{ transform: translate3d(0,-12px,0); }\
+      100%{ transform: translate3d(0,0,0); }\
+    }\
+    @keyframes hha-hud-shake {\
+      0% { transform: translate(-50%,0); }\
+      25%{ transform: translate(-50%,-2px); }\
+      50%{ transform: translate(-50%,2px); }\
+      75%{ transform: translate(-50%,-1px); }\
+      100%{ transform: translate(-50%,0); }\
+    }\
+    body.hha-fever::before {\
+      content:\"\";\
+      position:fixed;inset:0;\
+      pointer-events:none;\
+      background:\
+        radial-gradient(circle at top, rgba(248,113,113,0.2), transparent 55%),\
+        radial-gradient(circle at bottom, rgba(248,150,30,0.22), transparent 55%);\
+      z-index:8990;\
+    }\
+    body.hha-fever #hha-hud-inner {\
+      box-shadow:0 0 35px rgba(248,113,113,0.8);\
+      animation: hha-hud-shake 0.4s ease-in-out;\
+    }\
+    @media (max-width: 720px) {\
+      #hha-hud-inner { padding:8px 12px; font-size:12px; min-width:220px; }\
+      #hha-hud-inner #hha-score,\
+      #hha-hud-inner #hha-combo { font-size:16px; }\
+      #hha-timebox { font-size:11px; padding:4px 10px; }\
+    }\
+    @media (max-width: 480px) {\
+      #hha-hud-inner { padding:6px 10px; font-size:11px; min-width:200px; }\
+      #hha-hud-inner #hha-score,\
+      #hha-hud-inner #hha-combo { font-size:14px; }\
+      #hha-buffs { font-size:10px; }\
+      #hha-timebox { font-size:10px; padding:3px 8px; }\
+    }';
   document.head.appendChild(st);
 }
 
@@ -453,186 +384,182 @@ function createHUD() {
 
   hud = document.createElement('div');
   hud.id = 'hha-hud';
-  hud.innerHTML = `
-    <div id="hha-hud-inner"
-      style="
-        position:fixed;top:16px;left:50%;
-        transform:translateX(-50%);
-        background:rgba(15,23,42,0.95);
-        border-radius:16px;padding:10px 18px;
-        display:flex;flex-direction:column;gap:6px;
-        box-shadow:0 18px 40px rgba(0,0,0,0.65);
-        border:1px solid rgba(51,65,85,0.9);
-        z-index:9100;
-        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-        font-size:14px;min-width:260px;
-      "
-    >
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;">
-        <div>
-          <div>คะแนน</div>
-          <div id="hha-score"
-            style="text-align:left;font-weight:700;font-size:18px;">
-            0
-          </div>
-          <div id="hha-fever-banner"
-            style="margin-top:2px;font-size:11px;color:#f97316;display:none;">
-            FEVER!! 🔥
-          </div>
-        </div>
-        <div style="text-align:right;">
-          <div>คอมโบ</div>
-          <div id="hha-combo"
-            style="font-weight:700;font-size:18px;">
-            0
-          </div>
-          <div id="hha-rank-label"
-            style="font-size:11px;color:#a5b4fc;margin-top:2px;">
-          </div>
-        </div>
-      </div>
+  hud.innerHTML = '\
+    <div id="hha-hud-inner"\
+      style="\
+        position:fixed;top:16px;left:50%;\
+        transform:translateX(-50%);\
+        background:rgba(15,23,42,0.95);\
+        border-radius:16px;padding:10px 18px;\
+        display:flex;flex-direction:column;gap:6px;\
+        box-shadow:0 18px 40px rgba(0,0,0,0.65);\
+        border:1px solid rgba(51,65,85,0.9);\
+        z-index:9100;\
+        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;\
+        font-size:14px;min-width:260px;\
+      "\
+    >\
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;">\
+        <div>\
+          <div>คะแนน</div>\
+          <div id="hha-score"\
+            style="text-align:left;font-weight:700;font-size:18px;">\
+            0\
+          </div>\
+          <div id="hha-fever-banner"\
+            style="margin-top:2px;font-size:11px;color:#f97316;display:none;">\
+            FEVER!! 🔥\
+          </div>\
+        </div>\
+        <div style="text-align:right;">\
+          <div>คอมโบ</div>\
+          <div id="hha-combo"\
+            style="font-weight:700;font-size:18px;">\
+            0\
+          </div>\
+          <div id="hha-rank-label"\
+            style="font-size:11px;color:#a5b4fc;margin-top:2px;">\
+          </div>\
+        </div>\
+      </div>\
+      <div style="font-size:12px;color:#cbd5f5;display:flex;flex-direction:column;gap:4px;">\
+        <div id="hha-mission-text">\
+          ' + missionTextFromMode + '\
+        </div>\
+        <div style="\
+          width:100%;height:6px;border-radius:999px;\
+          background:rgba(15,23,42,0.9);\
+          overflow:hidden;\
+          border:1px solid rgba(148,163,184,0.7);">\
+          <div id="hha-mission-bar"\
+            style="width:0%;height:100%;border-radius:999px;\
+                   background:linear-gradient(90deg,#22c55e,#16a34a);">\
+          </div>\
+        </div>\
+        <div id="hha-buffs" style="margin-top:2px;">\
+          ⭐ คอมโบสูงสุด: <span id="hha-buff-star">0</span> |\
+          🛡 เกราะ: <span id="hha-buff-shield">0</span> |\
+          🔥 Fever: <span id="hha-buff-fever">0</span>s\
+        </div>\
+        <div id="hha-quests" style="margin-top:4px;border-top:1px dashed rgba(148,163,184,0.5);padding-top:4px;">\
+          <div style="font-size:11px;color:#93c5fd;margin-bottom:2px;">\
+            🎯 Mini Quest\
+          </div>\
+          <ul id="hha-quest-list" style="list-style:none;padding:0;margin:0;font-size:11px;line-height:1.4;">\
+          </ul>\
+        </div>\
+      </div>\
+    </div>\
+    <div id="hha-timebox"\
+      style="\
+        position:fixed;top:16px;right:16px;\
+        background:rgba(15,23,42,0.95);\
+        border-radius:999px;padding:6px 14px;\
+        border:1px solid rgba(148,163,184,0.9);\
+        font-size:13px;zIndex:9100;\
+        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;\
+      ">\
+      ' + MODE.toUpperCase() + ' • ' + DIFF.toUpperCase() + ' • <span id="hha-time"></span>s\
+    </div>\
+    <div id="hha-result"\
+      style="position:fixed;inset:0;display:none;\
+             align-items:center;justify-content:center;z-index:9200;">\
+      <div style="\
+        background:rgba(15,23,42,0.97);\
+        border-radius:18px;padding:20px 26px;\
+        min-width:260px;border:1px solid rgba(34,197,94,0.8);\
+        text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.75);\
+        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;\
+      ">\
+        <h2 id="hha-result-title"\
+          style="margin-top:0;margin-bottom:8px;font-size:18px;">\
+          จบรอบแล้ว 🎉\
+        </h2>\
+        <div style="margin-bottom:4px;">\
+          คะแนนรวม: <b id="hha-final-score">0</b>\
+        </div>\
+        <div style="margin-bottom:4px;">\
+          คอมโบสูงสุด: <b id="hha-final-combo">0</b>\
+        </div>\
+        <div style="margin-bottom:4px;">\
+          ของดีที่เก็บได้:\
+          <b id="hha-final-good">0</b> / ' + MISSION_GOOD_TARGET + '\
+        </div>\
+        <div style="margin-bottom:4px;">\
+          ความแม่นยำ: <b id="hha-final-acc">0%</b>\
+        </div>\
+        <div style="margin-bottom:4px;">\
+          เวลา reaction เฉลี่ย: <b id="hha-final-rt">–</b> ms\
+        </div>\
+        <div style="margin-bottom:4px;">\
+          Mini Quest สำเร็จ: <b id="hha-final-quests">0</b> / 3\
+        </div>\
+        <div style="margin-bottom:10px;font-size:12px;color:#cbd5f5;">\
+          Boss: <span id="hha-final-boss">ยังไม่พบ Boss</span>\
+        </div>\
+        <div style="margin-top:6px;display:flex;flex-wrap:wrap;\
+                    align-items:center;justify-content:center;gap:8px;">\
+          <div id="hha-export-wrap"\
+               style="position:relative;font-size:12px;">\
+            <button id="hha-export-btn"\
+              style="border-radius:999px;border:0;cursor:pointer;\
+                     padding:6px 12px;\
+                     background:linear-gradient(135deg,#38bdf8,#2563eb);\
+                     color:#fff;font-weight:500;font-size:12px;\
+                     display:inline-flex;align-items:center;gap:4px;">\
+              <span>ดาวน์โหลด CSV</span>\
+              <span>▼</span>\
+            </button>\
+            <div id="hha-export-dropdown"\
+              style="position:absolute;top:110%;left:0;\
+                     background:rgba(15,23,42,0.98);\
+                     border-radius:12px;\
+                     border:1px solid rgba(148,163,184,0.9);\
+                     box-shadow:0 16px 40px rgba(15,23,42,0.9);\
+                     padding:4px 0;\
+                     min-width:210px;\
+                     font-size:12px;\
+                     display:none;\
+                     z-index:40;">\
+              <button id="hha-export-teacher"\
+                style="width:100%;text-align:left;\
+                       padding:6px 10px;border:0;background:transparent;\
+                       color:#e5e7eb;cursor:pointer;font-size:12px;">\
+                📄 แบบย่อ (สำหรับครู)\
+              </button>\
+              <button id="hha-export-research"\
+                style="width:100%;text-align:left;\
+                       padding:6px 10px;border:0;background:transparent;\
+                       color:#e5e7eb;cursor:pointer;font-size:12px;">\
+                📑 แบบเต็ม (สำหรับวิจัย)\
+              </button>\
+            </div>\
+          </div>\
+          <button id="hha-back-hub2"\
+            style="border-radius:999px;border:0;cursor:pointer;\
+                   padding:6px 14px;\
+                   background:linear-gradient(135deg,#64748b,#334155);\
+                   color:#fff;font-weight:600;font-size:13px;">\
+            กลับ Hub\
+          </button>\
+          <button id="hha-restart"\
+            style="border-radius:999px;border:0;cursor:pointer;\
+                   padding:6px 14px;\
+                   background:linear-gradient(135deg,#22c55e,#16a34a);\
+                   color:#fff;font-weight:600;font-size:13px;">\
+            เล่นอีกครั้ง\
+          </button>\
+        </div>\
+      </div>\
+    </div>';
 
-      <div style="font-size:12px;color:#cbd5f5;display:flex;flex-direction:column;gap:4px;">
-        <div id="hha-mission-text">
-          ${missionTextFromMode}
-        </div>
-
-        <div style="
-          width:100%;height:6px;border-radius:999px;
-          background:rgba(15,23,42,0.9);
-          overflow:hidden;
-          border:1px solid rgba(148,163,184,0.7);">
-          <div id="hha-mission-bar"
-            style="width:0%;height:100%;border-radius:999px;
-                   background:linear-gradient(90deg,#22c55e,#16a34a);">
-          </div>
-        </div>
-
-        <div id="hha-buffs" style="margin-top:2px;">
-          ⭐ คอมโบสูงสุด: <span id="hha-buff-star">0</span> |
-          🛡 เกราะ: <span id="hha-buff-shield">0</span> |
-          🔥 Fever: <span id="hha-buff-fever">0</span>s
-        </div>
-
-        <div id="hha-quests" style="margin-top:4px;border-top:1px dashed rgba(148,163,184,0.5);padding-top:4px;">
-          <div style="font-size:11px;color:#93c5fd;margin-bottom:2px;">
-            🎯 Mini Quest
-          </div>
-          <ul id="hha-quest-list" style="list-style:none;padding:0;margin:0;font-size:11px;line-height:1.4;">
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <div id="hha-timebox"
-      style="
-        position:fixed;top:16px;right:16px;
-        background:rgba(15,23,42,0.95);
-        border-radius:999px;padding:6px 14px;
-        border:1px solid rgba(148,163,184,0.9);
-        font-size:13px;z-index:9100;
-        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      ">
-      ${MODE.toUpperCase()} • ${DIFF.toUpperCase()} • <span id="hha-time"></span>s
-    </div>
-
-    <div id="hha-result"
-      style="position:fixed;inset:0;display:none;
-             align-items:center;justify-content:center;z-index:9200;">
-      <div style="
-        background:rgba(15,23,42,0.97);
-        border-radius:18px;padding:20px 26px;
-        min-width:260px;border:1px solid rgba(34,197,94,0.8);
-        text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.75);
-        font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-      ">
-        <h2 id="hha-result-title"
-          style="margin-top:0;margin-bottom:8px;font-size:18px;">
-          จบรอบแล้ว 🎉
-        </h2>
-
-        <div style="margin-bottom:4px;">
-          คะแนนรวม: <b id="hha-final-score">0</b>
-        </div>
-        <div style="margin-bottom:4px;">
-          คอมโบสูงสุด: <b id="hha-final-combo">0</b>
-        </div>
-        <div style="margin-bottom:4px;">
-          ของดีที่เก็บได้:
-          <b id="hha-final-good">0</b> / ${MISSION_GOOD_TARGET}
-        </div>
-        <div style="margin-bottom:4px;font-size:13px;">
-          ความแม่นยำ: <b id="hha-final-acc">–</b>
-        </div>
-        <div style="margin-bottom:4px;font-size:13px;">
-          เวลาเฉลี่ยต่อการคลิก (ms): <b id="hha-final-rt">–</b>
-        </div>
-        <div style="margin-bottom:4px;font-size:13px;">
-          Mini Quest ที่สำเร็จ: <b id="hha-final-quests">0</b> / ${questState.length}
-        </div>
-        <div style="margin-bottom:10px;font-size:13px;" id="hha-final-boss">
-        </div>
-
-        <!-- แถวปุ่ม: ดาวน์โหลด CSV (dropdown) + เล่นอีกครั้ง -->
-        <div style="margin-top:6px;display:flex;flex-wrap:wrap;
-                    align-items:center;justify-content:center;gap:8px;">
-          <!-- Dropdown Export -->
-          <div id="hha-export-wrap"
-               style="position:relative;font-size:12px;">
-            <button id="hha-export-btn"
-              style="border-radius:999px;border:0;cursor:pointer;
-                     padding:6px 12px;
-                     background:linear-gradient(135deg,#38bdf8,#2563eb);
-                     color:#fff;font-weight:500;font-size:12px;
-                     display:inline-flex;align-items:center;gap:4px;">
-              <span>ดาวน์โหลด CSV</span>
-              <span>▼</span>
-            </button>
-            <div id="hha-export-dropdown"
-              style="position:absolute;top:110%;left:0;
-                     background:rgba(15,23,42,0.98);
-                     border-radius:12px;
-                     border:1px solid rgba(148,163,184,0.9);
-                     box-shadow:0 16px 40px rgba(15,23,42,0.9);
-                     padding:4px 0;
-                     min-width:210px;
-                     font-size:12px;
-                     display:none;
-                     z-index:40;">
-              <button id="hha-export-teacher"
-                style="width:100%;text-align:left;
-                       padding:6px 10px;border:0;background:transparent;
-                       color:#e5e7eb;cursor:pointer;font-size:12px;">
-                📄 แบบย่อ (สำหรับครู)
-              </button>
-              <button id="hha-export-research"
-                style="width:100%;text-align:left;
-                       padding:6px 10px;border:0;background:transparent;
-                       color:#e5e7eb;cursor:pointer;font-size:12px;">
-                📑 แบบเต็ม (สำหรับวิจัย)
-              </button>
-            </div>
-          </div>
-
-          <!-- ปุ่มเล่นอีกครั้ง -->
-          <button id="hha-restart"
-            style="border-radius:999px;border:0;cursor:pointer;
-                   padding:6px 14px;
-                   background:linear-gradient(135deg,#22c55e,#16a34a);
-                   color:#fff;font-weight:600;font-size:13px;">
-            เล่นอีกครั้ง
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
   document.body.appendChild(hud);
 
-  // สร้างรายการ quest
+  // สร้างรายการ Mini Quest
   const qList = $('#hha-quest-list');
   if (qList) {
     qList.innerHTML = '';
-    questState.forEach(q => {
+    questState.forEach(function(q){
       const li = document.createElement('li');
       li.id = 'hha-quest-' + q.id;
       li.textContent = '⬜ ' + q.desc;
@@ -640,10 +567,42 @@ function createHUD() {
     });
   }
 
+  // ปุ่ม Back Hub มุมซ้ายบน (VR-floating)
+  let backBtn = document.getElementById('hha-back-hub');
+  if(!backBtn){
+    backBtn = document.createElement('button');
+    backBtn.id = 'hha-back-hub';
+    backBtn.innerHTML = '← <span>กลับ Hub</span>';
+    Object.assign(backBtn.style,{
+      position:'fixed',
+      top:'16px',
+      left:'16px',
+      zIndex:'9100',
+      borderRadius:'999px',
+      border:'0',
+      padding:'6px 14px',
+      background:'linear-gradient(135deg,#64748b,#334155)',
+      color:'#fff',
+      fontSize:'12px',
+      fontWeight:'500',
+      cursor:'pointer',
+      fontFamily:'system-ui,Segoe UI,Inter,Roboto,sans-serif',
+      boxShadow:'0 10px 28px rgba(0,0,0,0.75)',
+      display:'inline-flex',
+      alignItems:'center',
+      gap:'6px'
+    });
+    backBtn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      showBackConfirm();
+    });
+    document.body.appendChild(backBtn);
+  }
+
   return hud;
 }
 
-// ---------- FEVER + HUD Update ----------
+// ---------- Rank & Quest HUD ----------
 function currentMultiplier() {
   return feverTicksLeft > 0 ? 2 : 1;
 }
@@ -661,7 +620,7 @@ function updateRankLabel() {
 }
 
 function updateQuestHUD() {
-  questState.forEach(q => {
+  questState.forEach(function(q){
     const li = $('#hha-quest-' + q.id);
     if (!li) return;
     if (q.done) {
@@ -839,9 +798,9 @@ function spawnOne(host) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'transform 0.12s ease, opacity 0.12s.ease',
+    transition: 'transform 0.12s ease, opacity 0.12s ease',
     pointerEvents: 'auto',
-    animation: 'hha-float 1.3s.ease-in-out infinite'
+    animation: 'hha-float 1.3s ease-in-out infinite'
   };
   Object.assign(item.style, baseStyle);
 
@@ -865,7 +824,7 @@ function spawnOne(host) {
   const x = 0.1 * vw + Math.random() * 0.8 * vw;
   const y = 0.18 * vh + Math.random() * 0.7 * vh;
   item.style.left = (x - size / 2) + 'px';
-  item.style.top  = (y - size / 2) + 'px';
+  item.style.top = (y - size / 2) + 'px';
 
   const spawnPerf = performance.now();
   item.dataset.spawnPerf = String(spawnPerf);
@@ -1007,6 +966,7 @@ function spawnOne(host) {
     if (!item.parentNode) return;
     item.style.opacity = '0';
     item.style.transform = 'scale(0.7)';
+
     const spawnPerfNum = parseFloat(item.dataset.spawnPerf || (roundStartPerf || performance.now()));
     logEvent({
       kind: 'miss',
@@ -1030,6 +990,7 @@ function spawnOne(host) {
       },
       profile: playerProfile || {}
     });
+
     setTimeout(removeItem, 120);
   }, ITEM_LIFETIME);
 }
@@ -1076,7 +1037,7 @@ function spawnBoss(host) {
   const x = vw / 2;
   const y = vh * 0.5;
   item.style.left = (x - size / 2) + 'px';
-  item.style.top  = (y - size / 2) + 'px';
+  item.style.top = (y - size / 2) + 'px';
 
   item.dataset.hp = String(BOSS_HP);
   const spawnPerf = performance.now();
@@ -1100,9 +1061,9 @@ function spawnBoss(host) {
 
     if (navigator.vibrate) navigator.vibrate(80);
 
-    const hp = parseInt(item.dataset.hp || '1', 10);
-    const newHp = hp - 1;
-    item.dataset.hp = String(newHp);
+    let hp = parseInt(item.dataset.hp || '1', 10);
+    hp = hp - 1;
+    item.dataset.hp = String(hp);
 
     score += BOSS_SCORE_PER_HIT;
     combo += 1;
@@ -1133,7 +1094,7 @@ function spawnBoss(host) {
       profile: playerProfile || {}
     });
 
-    if (newHp <= 0) {
+    if (hp <= 0) {
       bossDefeated = true;
       score += BOSS_BONUS_CLEAR;
       item.style.opacity = '0';
@@ -1149,36 +1110,213 @@ function spawnBoss(host) {
   host.appendChild(item);
 }
 
-// ---------- End Game / Result + Summary ----------
+// ---------- Export CSV (Teacher + Research) ----------
+let exportDropdownInited = false;
+
+function downloadTeacherCsv(summaries) {
+  if (!summaries.length) {
+    alert('ยังไม่มีข้อมูลสรุปสำหรับครู');
+    return;
+  }
+  const header = [
+    'profile_name',
+    'profile_grade',
+    'profile_id',
+    'mode',
+    'diff',
+    'duration_sec',
+    'score',
+    'max_combo',
+    'mission_good',
+    'mission_target',
+    'accuracy_percent',
+    'avg_rt_ms',
+    'quests_done',
+    'boss_spawned',
+    'boss_defeated',
+    'timestamp'
+  ];
+  const lines = [header.join(',')];
+
+  summaries.forEach(function(s) {
+    const row = [
+      (s.profile && s.profile.name) ? '"' + String(s.profile.name).replace(/"/g,'""') + '"' : '""',
+      (s.profile && s.profile.grade) ? '"' + String(s.profile.grade).replace(/"/g,'""') + '"' : '""',
+      (s.profile && s.profile.sid) ? '"' + String(s.profile.sid).replace(/"/g,'""') + '"' : '""',
+      s.mode,
+      s.diff,
+      s.durationSec,
+      s.score,
+      s.maxCombo,
+      s.missionGood,
+      s.missionTarget,
+      s.accuracy.toFixed(1),
+      s.avgRT.toFixed(1),
+      s.questsDone,
+      s.boss.spawned ? '1' : '0',
+      s.boss.defeated ? '1' : '0',
+      '"' + s.timestamp.replace(/"/g,'""') + '"'
+    ];
+    lines.push(row.join(','));
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const urlBlob = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  a.href = urlBlob;
+  a.download = 'HeroHealth_teacher_summary_' + ts + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(urlBlob);
+  }, 300);
+}
+
+function downloadResearchCsv(events) {
+  if (!events.length) {
+    alert('ยังไม่มี event log สำหรับวิจัยในรอบนี้');
+    return;
+  }
+
+  const header = [
+    'profile_name',
+    'profile_grade',
+    'profile_id',
+    'mode',
+    'diff',
+    'kind',
+    'type',
+    'emoji',
+    'correct',
+    'rt_ms',
+    'score_after',
+    'combo_after',
+    'time_left',
+    'fever',
+    'shield_before',
+    'quest_streak5_done',
+    'quest_combo_done',
+    'quest_fever_done'
+  ];
+  const lines = [header.join(',')];
+
+  events.forEach(function(e){
+    const row = [
+      (playerProfile.name ? '"' + String(playerProfile.name).replace(/"/g,'""') + '"' : '""'),
+      (playerProfile.grade ? '"' + String(playerProfile.grade).replace(/"/g,'""') + '"' : '""'),
+      (playerProfile.sid ? '"' + String(playerProfile.sid).replace(/"/g,'""') + '"' : '""'),
+      e.mode,
+      e.diff,
+      e.kind,
+      e.type,
+      '"' + String(e.emoji || '').replace(/"/g,'""') + '"',
+      e.correct ? '1' : '0',
+      (e.rtMs != null ? e.rtMs : ''),
+      e.scoreAfter,
+      e.comboAfter,
+      e.timeLeft,
+      e.fever ? '1' : '0',
+      e.shieldBefore,
+      (e.quests && e.quests.streak5 && e.quests.streak5.done) ? '1' : '0',
+      (e.quests && e.quests.comboTarget && e.quests.comboTarget.done) ? '1' : '0',
+      (e.quests && e.quests.feverTwice && e.quests.feverTwice.done) ? '1' : '0'
+    ];
+    lines.push(row.join(','));
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const urlBlob = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().replace(/[:.]/g,'-');
+  a.href = urlBlob;
+  a.download = 'HeroHealth_research_events_' + MODE + '_' + DIFF + '_' + ts + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(urlBlob);
+  },300);
+}
+
+function exportCsv(modeExport) {
+  if (modeExport === 'teacher') {
+    if (!HHA_SUMMARIES.length) {
+      alert('ยังไม่มีข้อมูลสรุปสำหรับครูในหน้านี้');
+      return;
+    }
+    downloadTeacherCsv(HHA_SUMMARIES);
+  } else if (modeExport === 'research') {
+    if (!eventLog.length) {
+      alert('ยังไม่มี event log สำหรับวิจัยในรอบนี้');
+      return;
+    }
+    downloadResearchCsv(eventLog.slice());
+  } else {
+    alert('โหมดส่งออกไม่ถูกต้อง');
+  }
+}
+
+function initExportDropdown() {
+  if (exportDropdownInited) return;
+  const btn = document.getElementById('hha-export-btn');
+  const menu = document.getElementById('hha-export-dropdown');
+  const teacher = document.getElementById('hha-export-teacher');
+  const research = document.getElementById('hha-export-research');
+
+  if (!btn || !menu || !teacher || !research) return;
+
+  exportDropdownInited = true;
+
+  function hideMenu() {
+    menu.style.display = 'none';
+  }
+  function toggleMenu() {
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+  }
+
+  btn.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    toggleMenu();
+  });
+
+  teacher.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    hideMenu();
+    exportCsv('teacher');
+  });
+
+  research.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    hideMenu();
+    exportCsv('research');
+  });
+
+  document.addEventListener('click', function () {
+    hideMenu();
+  });
+}
+
+// ---------- Result & Summary ----------
 function computeAndShowResult() {
-  const hits = eventLog.filter(e => e.kind === 'hit' || e.kind === 'boss-hit');
-  const validForAcc = hits.filter(e => e.type === 'good' || e.type === 'junk' || e.type === 'boss');
-  const correctHits = validForAcc.filter(e => e.correct);
+  const hits = eventLog.filter(function(e){ return e.kind === 'hit' || e.kind === 'boss-hit'; });
+  const validForAcc = hits.filter(function(e){ return e.type === 'good' || e.type === 'junk' || e.type === 'boss'; });
+  const correctHits = validForAcc.filter(function(e){ return e.correct; });
   const accuracy = validForAcc.length
     ? (correctHits.length / validForAcc.length) * 100
     : 0;
 
   const rtSamples = hits
-    .map(e => e.rtMs)
-    .filter(v => typeof v === 'number' && v > 0);
+    .map(function(e){ return e.rtMs; })
+    .filter(function(v){ return typeof v === 'number' && v > 0; });
   let rtAvg = 0;
   if (rtSamples.length) {
-    const sum = rtSamples.reduce((a,b) => a + b, 0);
+    const sum = rtSamples.reduce(function(a,b){ return a + b; }, 0);
     rtAvg = sum / rtSamples.length;
   }
-
-  let minRT = null;
-  let maxRT = null;
-  rtSamples.forEach(v => {
-    if (minRT === null || v < minRT) minRT = v;
-    if (maxRT === null || v > maxRT) maxRT = v;
-  });
-
-  const goodClicks = hits.filter(e => e.type === 'good').length;
-  const junkClicks = hits.filter(e => e.type === 'junk').length;
-  const bossClicks = hits.filter(e => e.type === 'boss').length;
-  const totalClicks = hits.length;
-  const missClicks = eventLog.filter(e => e.kind === 'miss').length;
 
   const result = $('#hha-result');
   const fs = $('#hha-final-score');
@@ -1191,7 +1329,7 @@ function computeAndShowResult() {
   const title = $('#hha-result-title');
 
   const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
-  const questDoneCount = questState.filter(q => q.done).length;
+  const questDoneCount = questState.filter(function(q){ return q.done; }).length;
 
   if (fs) fs.textContent = String(score);
   if (fc) fc.textContent = String(maxCombo);
@@ -1211,83 +1349,24 @@ function computeAndShowResult() {
       : 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
   }
 
-  // สร้าง summary object สำหรับ CSV
-  const medianRT = (function() {
-    if (!rtSamples.length) return 0;
-    const sorted = rtSamples.slice().sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    if (sorted.length % 2) return sorted[mid];
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  })();
+  if (result) result.style.display = 'flex';
 
-  const summary = {
-    timestampIso: new Date().toISOString(),
-    buildVersion: '',
-    sessionId: '',
-    runId: '',
+  // push summary สำหรับครู
+  HHA_SUMMARIES.push({
+    timestamp: new Date().toISOString(),
     mode: MODE,
     diff: DIFF,
     durationSec: GAME_DURATION,
-    timeLeft: timeLeft,
-    profile: {
-      name: playerProfile.name || '',
-      studentId: playerProfile.sid || '',
-      gradeRoom: playerProfile.grade || ''
-    },
-    performance: {
-      score: score,
-      maxCombo: maxCombo,
-      missionGoodCount: missionGoodCount,
-      missionTarget: MISSION_GOOD_TARGET,
-      missionSuccess: missionSuccess,
-      accuracyPercent: accuracy,
-      goodClicks: goodClicks,
-      junkClicks: junkClicks,
-      bossClicks: bossClicks,
-      missClicks: missClicks,
-      totalClicks: totalClicks
-    },
-    quests: {
-      total: questState.length,
-      done: questDoneCount,
-      list: questState.map(q => ({
-        id: q.id,
-        label: q.desc,
-        done: q.done,
-        progress: q.progress,
-        target: q.target
-      }))
-    },
-    boss: {
-      spawned: bossSpawned,
-      defeated: bossDefeated,
-      maxHp: BOSS_HP
-    },
-    fever: {
-      feverCount: feverTriggeredCount,
-      totalFeverSeconds: 0
-    },
-    timing: {
-      avgReactionMs: rtAvg,
-      medianReactionMs: medianRT,
-      minReactionMs: minRT,
-      maxReactionMs: maxRT,
-      sampleCount: rtSamples.length
-    },
-    config: {
-      typeWeights: TYPE_WEIGHTS,
-      accTarget: {} // เผื่อในอนาคตตั้ง band accuracy สำหรับ adaptive diff
-    },
-    device: {
-      deviceType: detectDeviceType(),
-      platform: navigator.platform || '',
-      userAgent: navigator.userAgent || ''
-    }
-  };
-
-  HHA_SUMMARIES.push(summary);
-
-  if (result) result.style.display = 'flex';
+    score: score,
+    maxCombo: maxCombo,
+    missionGood: missionGoodCount,
+    missionTarget: MISSION_GOOD_TARGET,
+    accuracy: accuracy,
+    avgRT: rtAvg,
+    questsDone: questDoneCount,
+    boss: { spawned: bossSpawned, defeated: bossDefeated },
+    profile: playerProfile || {}
+  });
 
   if (window.HH_COACH && typeof window.HH_COACH.onRoundEnd === 'function') {
     window.HH_COACH.onRoundEnd({
@@ -1333,7 +1412,7 @@ function startGame() {
   bossSpawned = false;
   bossDefeated = false;
 
-  questState.forEach(q => {
+  questState.forEach(function(q){
     q.done = false;
     q.progress = 0;
   });
@@ -1341,6 +1420,15 @@ function startGame() {
   eventLog.length = 0;
   timeLeft = GAME_DURATION;
   roundStartPerf = performance.now();
+
+  if (window.HH_COACH && typeof window.HH_COACH.onRoundStart === 'function') {
+    window.HH_COACH.onRoundStart({
+      mode: MODE,
+      diff: DIFF,
+      duration: GAME_DURATION,
+      profile: playerProfile || {}
+    });
+  }
 
   updateHUD();
 
@@ -1384,6 +1472,7 @@ function bootstrap() {
   createFXLayer();
   ensureGameCSS();
   updateHUD();
+  ensureBackConfirmUI();
   initExportDropdown();
 
   const restartBtn = $('#hha-restart');
@@ -1395,25 +1484,26 @@ function bootstrap() {
     });
   }
 
-  const backBtn = $('#hha-back-hub');
-  if (backBtn) {
-    backBtn.addEventListener('click', function() {
-      window.location.href = './hub.html';
+  const back2 = $('#hha-back-hub2');
+  if (back2) {
+    back2.addEventListener('click', function(ev){
+      ev.preventDefault();
+      showBackConfirm();
     });
   }
 
   startGame();
 
   console.log('[HHA DOM] Multiverse Engine ready', {
-    MODE,
-    DIFF,
-    GAME_DURATION,
-    SPAWN_INTERVAL,
-    ITEM_LIFETIME,
-    MAX_ACTIVE,
-    TYPE_WEIGHTS,
-    SIZE_FACTOR,
-    MISSION_GOOD_TARGET
+    MODE: MODE,
+    DIFF: DIFF,
+    GAME_DURATION: GAME_DURATION,
+    SPAWN_INTERVAL: SPAWN_INTERVAL,
+    ITEM_LIFETIME: ITEM_LIFETIME,
+    MAX_ACTIVE: MAX_ACTIVE,
+    TYPE_WEIGHTS: TYPE_WEIGHTS,
+    SIZE_FACTOR: SIZE_FACTOR,
+    MISSION_GOOD_TARGET: MISSION_GOOD_TARGET
   });
 }
 
