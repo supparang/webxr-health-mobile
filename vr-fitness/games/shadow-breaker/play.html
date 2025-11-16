@@ -1,3 +1,47 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <title>Shadow Breaker — เล่นเกม</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <link rel="stylesheet" href="./shadow-breaker.css"/>
+</head>
+<body>
+
+<div id="sb-stage"></div>
+
+<div class="sb-hud">
+  <div>⏱ <b id="hud-time">90</b>s</div>
+  <div>💯 <b id="hud-score">0</b></div>
+  <div>🔥 <b id="hud-combo">x0</b></div>
+  <button id="btn-pause" class="sb-btn-ghost">⏸ พัก</button>
+</div>
+
+<div id="sb-msg" class="sb-msg"></div>
+
+<!-- Collapsible Leaderboard -->
+<aside id="sb-leaderboard" class="sb-leaderboard"></aside>
+<button id="lb-toggle" class="sb-lb-toggle">📊</button>
+
+<!-- Result Modal -->
+<div id="result-box" class="sb-result-backdrop">
+  <div class="sb-result-card">
+    <h2>🏁 ผลการเล่น</h2>
+    <p>คะแนน: <b id="res-score">0</b></p>
+    <p>โดนเป้า: <b id="res-hits">0</b> / พลาด: <b id="res-miss">0</b></p>
+    <p>ความแม่นยำ: <b id="res-acc">0%</b></p>
+    <p>คอมโบสูงสุด: <b id="res-best">x0</b></p>
+    <p>ระดับ (Rank): <b id="res-rank">C</b></p>
+    <hr/>
+    <button id="btn-pdf" class="sb-btn-primary">📄 ดาวน์โหลด PDF</button>
+
+    <div class="sb-result-actions">
+      <button id="btn-retry" class="sb-btn-secondary">🔁 เล่นอีกครั้ง</button>
+      <button id="btn-home" class="sb-btn-ghost">🏠 เมนู</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import { ShadowBreaker } from './shadow-breaker.js';
 
@@ -6,7 +50,7 @@ const game = new ShadowBreaker({
   hud: {
     time:  document.querySelector('#hud-time'),
     score: document.querySelector('#hud-score'),
-    combo: document.querySelector('#hud-combo'),
+    combo: document.querySelector('#hud-combo')
   },
   result: {
     box:   document.querySelector('#result-box'),
@@ -15,55 +59,41 @@ const game = new ShadowBreaker({
     miss:  document.querySelector('#res-miss'),
     acc:   document.querySelector('#res-acc'),
     best:  document.querySelector('#res-best'),
-    rank:  document.querySelector('#res-rank'),
+    rank:  document.querySelector('#res-rank')
   },
   msgBox: document.querySelector('#sb-msg'),
   lbBox:  document.querySelector('#sb-leaderboard'),
   pdfBtn: document.querySelector('#btn-pdf'),
 });
 
-// ปุ่ม pause / resume / retry / home
 const btnPause = document.querySelector('#btn-pause');
 const btnRetry = document.querySelector('#btn-retry');
 const btnHome  = document.querySelector('#btn-home');
 
 let isPaused = false;
-btnPause?.addEventListener('click', ()=>{
+btnPause.onclick = () => {
   isPaused = !isPaused;
-  if (isPaused){
-    game.pause(true);
-    btnPause.textContent = '▶ ต่อ';
-  } else {
-    game.pause(false);
-    btnPause.textContent = '⏸ พัก';
-  }
-});
+  isPaused ? game.pause(true) : game.pause(false);
+  btnPause.textContent = isPaused ? '▶ ต่อ' : '⏸ พัก';
+};
 
-btnRetry?.addEventListener('click', ()=>{
-  isPaused = false;
-  btnPause.textContent = '⏸ พัก';
-  game.start();
-});
+btnRetry.onclick = () => { location.reload(); };
+btnHome.onclick  = () => { location.href = './index.html'; };
 
-btnHome?.addEventListener('click', ()=>{
-  location.href = './index.html';
-});
-
-// ===== Leaderboard toggle + auto-hide แบบข้อ 2 =====
-const lb       = document.querySelector('#sb-leaderboard');
+// Leaderboard toggle + auto-hide
+const lb = document.querySelector('#sb-leaderboard');
 const lbToggle = document.querySelector('#lb-toggle');
 
-// ซ่อน leaderboard ตั้งแต่เริ่มเข้าเกม
-if (lb && lbToggle) {
-  lb.classList.add('hidden');   // ใช้คลาสจาก CSS ที่ใส่ไปแล้ว
-  lbToggle.textContent = '📊';  // แสดงเป็นปุ่มเปิด
+lb.classList.add('hidden');
+lbToggle.textContent = '📊';
 
-  lbToggle.addEventListener('click', ()=>{
-    const isHidden = lb.classList.toggle('hidden');
-    lbToggle.textContent = isHidden ? '📊' : '❌';
-  });
-}
+lbToggle.onclick = () => {
+  const hidden = lb.classList.toggle('hidden');
+  lbToggle.textContent = hidden ? '📊' : '❌';
+};
 
-// เริ่มเกมทันทีเมื่อโหลดหน้า
 game.start();
 </script>
+
+</body>
+</html>
