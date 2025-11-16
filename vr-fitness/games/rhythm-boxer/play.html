@@ -1,99 +1,435 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <title>Rhythm Boxer — เล่นเกม</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <link rel="stylesheet" href="./rhythm-boxer.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — Rhythm Boxer</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, #020617, #020617 40%, #000 100%);
+      color: #e5e7eb;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Top bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: linear-gradient(to bottom, rgba(15,23,42,0.95), rgba(15,23,42,0.7));
+      backdrop-filter: blur(10px);
+    }
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .topbar-title {
+      font-size: 16px;
+    }
+    .topbar-btn {
+      border-radius: 999px;
+      border: none;
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      background: #38bdf8;
+      color: #02131f;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .topbar-btn span {
+      font-size: 16px;
+    }
+
+    .hud-right {
+      display: flex;
+      gap: 10px;
+      font-size: 13px;
+      align-items: center;
+    }
+    .hud-pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(148,163,184,0.7);
+      box-shadow: 0 6px 14px rgba(15,23,42,0.8);
+    }
+
+    /* Main HUD area */
+    .hud-wrap {
+      padding: 10px 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .btn-pause {
+      border-radius: 8px;
+      border: none;
+      padding: 6px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      background: #f97316;
+      color: #111827;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(15,23,42,0.7);
+    }
+    .btn-pause-icon {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:18px;
+      height:18px;
+      border-radius:4px;
+      background:#020617;
+      color:#f97316;
+      font-size:13px;
+    }
+    .btn-stats {
+      width:32px;
+      height:32px;
+      border-radius:10px;
+      border:none;
+      background:#38bdf8;
+      color:#02131f;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(8,47,73,0.75);
+    }
+    .hud-msg {
+      flex:1;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.8);
+      border: 1px solid rgba(148,163,184,0.6);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Stage host */
+    #rbStageHost {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none; /* lane ภายในจะเปิด pointer เอง */
+    }
+
+    /* lane + note */
+    .rb-lane {
+      backdrop-filter: blur(10px);
+    }
+    .rb-note {
+      transition: bottom 0.08s linear;
+    }
+
+    /* float score */
+    .float {
+      font-weight: 700;
+      text-shadow: 0 4px 10px rgba(15,23,42,.7);
+      animation: rbFloatUp 0.6s ease-out forwards;
+      pointer-events: none;
+      font-size: 18px;
+    }
+    @keyframes rbFloatUp {
+      0% { opacity:1; transform:translate(-50%,-50%) translateY(0); }
+      100%{ opacity:0; transform:translate(-50%,-50%) translateY(-24px); }
+    }
+
+    /* HADO ripple + scan */
+    .rb-ripple {
+      position: fixed;
+      left:50%; top:50%;
+      width:40vmin; height:40vmin;
+      border-radius:999px;
+      border:3px solid rgba(56,189,248,.9);
+      transform:translate(-50%,-50%);
+      animation: rbRipple 0.8s ease-out forwards;
+      pointer-events:none;
+    }
+    @keyframes rbRipple {
+      0% { opacity:0.8; transform:translate(-50%,-50%) scale(0.2); }
+      100%{ opacity:0;   transform:translate(-50%,-50%) scale(2.2); }
+    }
+
+    .rb-scan {
+      position:fixed;
+      left:0; right:0;
+      height:24vh;
+      top:-24vh;
+      background:linear-gradient(to bottom,
+        rgba(125,211,252,0) 0%,
+        rgba(125,211,252,0.25) 40%,
+        rgba(125,211,252,0) 100%);
+      animation: rbScan 0.9s ease-out forwards;
+      pointer-events:none;
+    }
+    @keyframes rbScan {
+      0% { top:-24vh; opacity:0; }
+      10%{ opacity:0.9; }
+      100%{ top:100vh; opacity:0; }
+    }
+
+    /* Result card */
+    #rbResultCard {
+      display:none;           /* ซ่อนเริ่มต้น */
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background: radial-gradient(circle at top, rgba(15,23,42,0.82), rgba(15,23,42,0.96));
+      backdrop-filter: blur(10px);
+    }
+    #rbResultCard.hidden {
+      display:none;
+    }
+    .rb-result-inner {
+      max-width:480px;
+      width:100%;
+      background:rgba(15,23,42,.96);
+      border-radius:24px;
+      box-shadow:0 24px 60px rgba(15,23,42,.9);
+      border:1px solid rgba(148,163,184,.8);
+      padding:24px 24px 20px;
+    }
+    .rb-result-inner h2 {
+      margin:0 0 12px;
+      font-size:20px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .rb-result-inner dl {
+      margin:0;
+      font-size:14px;
+    }
+    .rb-result-inner dt {
+      float:left;
+      width:120px;
+      color:#9ca3af;
+    }
+    .rb-result-inner dd {
+      margin:0 0 6px 120px;
+    }
+    .rb-result-actions {
+      margin-top:18px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .rb-btn {
+      flex:1;
+      border-radius:999px;
+      padding:10px 16px;
+      border:none;
+      font-weight:600;
+      font-size:15px;
+      cursor:pointer;
+    }
+    .rb-btn-primary {
+      background:#22c55e;
+      color:#022c22;
+    }
+    .rb-btn-ghost {
+      background:#e5e7eb;
+      color:#111827;
+    }
+    .rb-btn-outline {
+      background:transparent;
+      color:#e5e7eb;
+      border:1px solid rgba(148,163,184,0.9);
+    }
+
+    /* Leaderboard placeholder */
+    #rbLeaderboard {
+      position: relative;
+      z-index: 20;
+      margin: 0 auto;
+      margin-top: 72vh;
+      padding: 8px 12px 16px;
+      max-width: 520px;
+      font-size: 13px;
+    }
+    #rbLeaderboard h4 {
+      margin: 8px 0 4px;
+      font-size: 14px;
+    }
+    #rbLeaderboard table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      background: rgba(15,23,42,0.9);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    #rbLeaderboard th,
+    #rbLeaderboard td {
+      padding: 4px 6px;
+      border-bottom: 1px solid rgba(30,64,175,0.35);
+      text-align:left;
+    }
+    #rbLeaderboard tr:last-child td {
+      border-bottom:none;
+    }
+
+    /* เมื่อจบเกม: เผื่อซ่อน lane / track ทั้งหมด */
+    body.rb-finished .rb-lane,
+    body.rb-finished .track,
+    body.rb-finished .rb-note {
+      display:none !important;
+    }
+
+    @media (max-width:600px){
+      .topbar-title { font-size:14px; }
+      .hud-msg { font-size:13px; }
+    }
+  </style>
 </head>
 <body>
+  <!-- Top bar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="topbar-btn" type="button" onclick="history.back()">
+        <span>←</span> Back to Hub
+      </button>
+      <div class="topbar-title">VR Fitness — Rhythm Boxer</div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-pill">⏱ <span id="hudTime">60</span>s</div>
+      <div class="hud-pill">🏆 <span id="hudScore">0</span></div>
+      <div class="hud-pill">🔥 <span id="hudCombo">x0</span></div>
+    </div>
+  </header>
 
-<div id="rb-stage"></div>
+  <!-- HUD row -->
+  <section class="hud-wrap">
+    <button class="btn-pause" id="btnPause" type="button">
+      <span class="btn-pause-icon">‖</span> พัก
+    </button>
+    <button class="btn-stats" id="btnDownload" type="button" title="ดาวน์โหลดผลการเล่น">
+      📊
+    </button>
+    <div class="hud-msg" id="hudMessage">
+      แตะปุ่ม ▶ เริ่มเล่น ด้านล่าง แล้วรีบต่อยตามจังหวะให้เป๊ะ!
+    </div>
+  </section>
 
-<div class="sb-hud">
-  <div>⏱ <b id="hud-time">60</b>s</div>
-  <div>💯 <b id="hud-score">0</b></div>
-  <div>🔥 <b id="hud-combo">x0</b></div>
-  <button id="btn-pause" class="sb-btn-ghost">⏸ พัก</button>
-</div>
+  <!-- Stage host (lane จะถูก inject ผ่าน JS) -->
+  <div id="rbStageHost"></div>
 
-<div id="rb-msg" class="sb-msg"></div>
+  <!-- Result card -->
+  <div id="rbResultCard" class="hidden">
+    <div class="rb-result-inner">
+      <h2>🏁 ผลการเล่น Rhythm Boxer</h2>
+      <dl>
+        <dt>Score:</dt>        <dd><span id="rbScore">0</span></dd>
+        <dt>โดนเป้า / พลาด:</dt><dd><span id="rbHits">0</span> / <span id="rbMiss">0</span></dd>
+        <dt>ความแม่นยำ:</dt>  <dd><span id="rbAcc">0%</span></dd>
+        <dt>คอมโบสูงสุด:</dt> <dd><span id="rbBest">x0</span></dd>
+        <dt>ระดับ (Rank):</dt><dd><span id="rbRank">C</span></dd>
+      </dl>
 
-<!-- Leaderboard -->
-<aside id="rb-leaderboard" class="sb-leaderboard"></aside>
-<button id="lb-toggle" class="sb-lb-toggle">📊</button>
-
-<!-- Result Modal -->
-<div id="result-box" class="sb-result-backdrop">
-  <div class="sb-result-card">
-    <h2>🏁 ผลการเล่น Rhythm Boxer</h2>
-    <p>คะแนน: <b id="res-score">0</b></p>
-    <p>โดนเป้า: <b id="res-hits">0</b> / พลาด: <b id="res-miss">0</b></p>
-    <p>ความแม่นยำ: <b id="res-acc">0%</b></p>
-    <p>คอมโบสูงสุด: <b id="res-best">x0</b></p>
-    <p>ระดับ (Rank): <b id="res-rank">C</b></p>
-    <hr/>
-    <button id="btn-pdf" class="sb-btn-primary">📄 ดาวน์โหลด PDF</button>
-
-    <div class="sb-result-actions">
-      <button id="btn-retry" class="sb-btn-secondary">🔁 เล่นอีกครั้ง</button>
-      <button id="btn-home" class="sb-btn-ghost">🏠 เมนู</button>
+      <div class="rb-result-actions">
+        <button class="rb-btn rb-btn-outline" id="rbPdfBtn" type="button">📄 ดาวน์โหลด PDF</button>
+        <button class="rb-btn rb-btn-primary" id="rbReplay" type="button">🔁 เล่นอีกครั้ง</button>
+        <button class="rb-btn rb-btn-ghost" id="rbBack" type="button">🏠 เมนู</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script type="module">
-import { RhythmBoxer } from './rhythm-boxer.js';
+  <!-- Leaderboard (optional; JS จะเติมข้อมูลถ้ามี LB_API) -->
+  <section id="rbLeaderboard"></section>
 
-const game = new RhythmBoxer({
-  stage: document.querySelector('#rb-stage'),
-  hud: {
-    time:  document.querySelector('#hud-time'),
-    score: document.querySelector('#hud-score'),
-    combo: document.querySelector('#hud-combo')
-  },
-  result: {
-    box:   document.querySelector('#result-box'),
-    score: document.querySelector('#res-score'),
-    hits:  document.querySelector('#res-hits'),
-    miss:  document.querySelector('#res-miss'),
-    acc:   document.querySelector('#res-acc'),
-    best:  document.querySelector('#res-best'),
-    rank:  document.querySelector('#res-rank')
-  },
-  msgBox: document.querySelector('#rb-msg'),
-  lbBox:  document.querySelector('#rb-leaderboard'),
-  pdfBtn: document.querySelector('#btn-pdf'),
-});
+  <!-- Script -->
+  <script type="module">
+    import { RhythmBoxer } from './rhythm-boxer.js';
 
-const btnPause = document.querySelector('#btn-pause');
-const btnRetry = document.querySelector('#btn-retry');
-const btnHome  = document.querySelector('#btn-home');
+    const stage = document.getElementById('rbStageHost');
 
-let isPaused = false;
-btnPause.onclick = () => {
-  isPaused = !isPaused;
-  isPaused ? game.pause(true) : game.pause(false);
-  btnPause.textContent = isPaused ? '▶ ต่อ' : '⏸ พัก';
-};
+    const game = new RhythmBoxer({
+      stage,
+      hud: {
+        time:  document.getElementById('hudTime'),
+        score: document.getElementById('hudScore'),
+        combo: document.getElementById('hudCombo')
+      },
+      result: {
+        box:   document.getElementById('rbResultCard'),
+        score: document.getElementById('rbScore'),
+        hits:  document.getElementById('rbHits'),
+        miss:  document.getElementById('rbMiss'),
+        acc:   document.getElementById('rbAcc'),
+        best:  document.getElementById('rbBest'),
+        rank:  document.getElementById('rbRank')
+      },
+      msgBox: document.getElementById('hudMessage'),
+      lbBox:  document.getElementById('rbLeaderboard'),
+      pdfBtn: document.getElementById('rbPdfBtn')
+    });
 
-btnRetry.onclick = () => { location.reload(); };
-btnHome.onclick  = () => { location.href = './index.html'; };
+    // เริ่มเกมทันทีเมื่อโหลดหน้า (ถ้าอยากให้กดเริ่มเอง ค่อยเปลี่ยน logic ตรงนี้)
+    let started = false;
+    function startIfNeeded(){
+      if (!started) {
+        started = true;
+        game.start();
+      }
+    }
+    startIfNeeded();
 
-// Leaderboard toggle + auto-hide
-const lb = document.querySelector('#rb-leaderboard');
-const lbToggle = document.querySelector('#lb-toggle');
+    // ปุ่มพัก / resume
+    const btnPause = document.getElementById('btnPause');
+    let paused = false;
+    btnPause.addEventListener('click', () => {
+      paused = !paused;
+      if (paused){
+        game.pause(true);
+        btnPause.innerHTML = '<span class="btn-pause-icon">▶</span> เล่นต่อ';
+      } else {
+        game.pause(false);
+        btnPause.innerHTML = '<span class="btn-pause-icon">‖</span> พัก';
+      }
+    });
 
-lb.classList.add('hidden');
-lbToggle.textContent = '📊';
+    // ปุ่มดาวน์โหลดผล (เรียก PDF API ผ่าน game.pdfBtn ใน _showResult)
+    const btnDownload = document.getElementById('btnDownload');
+    btnDownload.addEventListener('click', () => {
+      alert('สามารถดาวน์โหลด PDF ได้จากหน้าสรุปผลหลังจบเกมนะครับ 🙂');
+    });
 
-lbToggle.onclick = () => {
-  const hidden = lb.classList.toggle('hidden');
-  lbToggle.textContent = hidden ? '📊' : '❌';
-};
-
-game.start();
-</script>
-
+    // ปุ่มใน result card
+    document.getElementById('rbReplay').addEventListener('click', () => {
+      // โหลดหน้าใหม่พร้อมพารามิเตอร์เดิม
+      location.reload();
+    });
+    document.getElementById('rbBack').addEventListener('click', () => {
+      history.back();
+    });
+  </script>
 </body>
 </html>
