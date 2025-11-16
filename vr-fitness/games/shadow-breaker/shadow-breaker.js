@@ -9,8 +9,8 @@
 
   let shell = null;
   let spawnTimer = 0;
-  let spawnInterval = 1.0;     // จะปรับตาม diff
-  let targetLifetime = 1.2;    // วินาที ก่อนถือว่าพลาด
+  let spawnInterval = 1.0;     // base interval
+  let targetLifetime = 1.2;    // วินาทีก่อนถือว่าพลาด
   const targets = new Set();
 
   const EMOJIS = ['🥊', '💥', '⭐', '⚡', '🔥'];
@@ -28,10 +28,13 @@
     if (el.parentNode) el.parentNode.removeChild(el);
 
     if (!shell) return;
+
     if (isHit) {
       VRFGameShell.addScore(10);
+      console.log('[SB] hit → score +10');
     } else {
       VRFGameShell.addMiss();
+      console.log('[SB] miss');
     }
   }
 
@@ -39,7 +42,6 @@
     if (!stage || !shell) return;
 
     const rect = stage.getBoundingClientRect();
-    // ไม่ให้ชิดขอบเกินไป
     const x = rand(rect.width * 0.15, rect.width * 0.85);
     const y = rand(rect.height * 0.2, rect.height * 0.8);
 
@@ -52,11 +54,14 @@
     const createdAt = performance.now();
     el.dataset.createdAt = String(createdAt);
 
-    el.addEventListener('click', function (ev) {
+    const hit = function (ev) {
       ev.stopPropagation();
       if (!shell || shell.state !== 'playing') return;
       removeTarget(el, true);
-    }, { passive: false });
+    };
+
+    el.addEventListener('click', hit, { passive: false });
+    el.addEventListener('pointerdown', hit, { passive: false }); // ช่วย mobile/VR pointer
 
     stage.appendChild(el);
     targets.add(el);
@@ -69,7 +74,6 @@
     targets.clear();
   }
 
-  // จูนตามระดับความยาก
   function applyDifficulty() {
     if (!shell) return;
     const diff = shell.difficulty || 'normal';
@@ -86,12 +90,13 @@
     }
   }
 
-  // เรียกจาก shell.onTick(dt)
+  // เรียกจาก shell.onTick
   function gameTick(dt) {
     if (!shell || shell.state !== 'playing') return;
 
     spawnTimer += dt;
-    const t = shell.elapsed / shell.duration;        // 0 → 1
+
+    const t = shell.elapsed / shell.duration;   // 0 → 1
     const dynamicInterval = Math.max(spawnInterval * (1.0 - 0.4 * t), 0.4);
 
     if (spawnTimer >= dynamicInterval) {
@@ -99,7 +104,6 @@
       spawnTarget();
     }
 
-    // เช็กเป้าที่หมดอายุ
     const now = performance.now();
     targets.forEach((el) => {
       const createdAt = Number(el.dataset.createdAt || now);
@@ -128,40 +132,4 @@
 
   function onResetGame() {
     spawnTimer = 0;
-    clearAllTargets();
-    if (msgEl) {
-      msgEl.textContent = 'แตะปุ่ม ▶ เริ่มเล่น เพื่อเริ่มต่อยเป้าอีกครั้ง';
-    }
-  }
-
-  function init() {
-    if (!window.VRFGameShell) {
-      console.error('VRFGameShell not found. ตรวจ path: ../../common/game-shell.js');
-      return;
-    }
-
-    shell = VRFGameShell.init({
-      onStart(shellState) {
-        shell = shellState;
-        onStartGame();
-      },
-      onTick(shellState, dt) {
-        shell = shellState;
-        gameTick(dt);
-      },
-      onEnd(shellState) {
-        shell = shellState;
-        onEndGame();
-      },
-      onReset(shellState) {
-        shell = shellState;
-        onResetGame();
-      },
-      onBack() {
-        window.location.href = './index.html';
-      }
-    });
-  }
-
-  window.addEventListener('load', init);
-})();
+    clea
