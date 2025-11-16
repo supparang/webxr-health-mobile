@@ -3,365 +3,115 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>VR Fitness — Shadow Breaker</title>
+  <title>VR Fitness — Shadow Breaker (P.5)</title>
   <meta name="color-scheme" content="dark light" />
   <style>
-    :root {
-      color-scheme: dark;
-    }
-    * {
-      box-sizing: border-box;
-      -webkit-user-select: none;
-      user-select: none;
-      touch-action: manipulation;
-    }
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
     html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+      margin:0; padding:0; width:100%; height:100%;
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Inter",sans-serif;
       background:
-        radial-gradient(circle at top, rgba(56,189,248,0.25), transparent 55%),
-        radial-gradient(circle at bottom, rgba(96,165,250,0.18), transparent 55%),
+        radial-gradient(circle at top, rgba(129,140,248,0.25), transparent 55%),
+        radial-gradient(circle at bottom, rgba(94,234,212,0.18), transparent 55%),
         #020617;
-      color: #e5e7eb;
+      color:#e5e7eb;
     }
     body {
       padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0)
                env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
     }
 
-    .wrap {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 12px 16px 24px;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
+    .wrap { max-width:1200px; margin:0 auto; padding:12px 16px 24px; min-height:100vh;
+      display:flex; flex-direction:column; gap:12px; }
 
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 4px;
-    }
-    .title-block {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .title-block h1 {
-      margin: 0;
-      font-size: clamp(20px, 4vw, 26px);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .title-block small {
-      opacity: 0.8;
-      font-size: 12px;
-    }
-    .top-actions {
-      display: flex;
-      gap: 8px;
-    }
+    header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .title-block h1 { margin:0; font-size:clamp(20px,4vw,26px); letter-spacing:.08em; text-transform:uppercase; }
+    .title-block small { opacity:.8; font-size:12px; }
+
     .btn {
-      border: none;
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(15,23,42,0.9);
-      color: #e5e7eb;
-      border: 1px solid rgba(148,163,184,0.7);
+      border:none; border-radius:999px; padding:8px 14px; font-weight:600; font-size:14px; cursor:pointer;
+      display:inline-flex; align-items:center; gap:6px;
+      background:rgba(15,23,42,.9); color:#e5e7eb; border:1px solid rgba(148,163,184,.7);
     }
-    .btn-primary {
-      background: linear-gradient(120deg,#38bdf8,#6366f1);
-      border-color: transparent;
-      color: #0f172a;
-      box-shadow: 0 0 12px rgba(56,189,248,0.65);
-    }
+    .btn-primary { background:linear-gradient(120deg,#facc15,#f97316); border-color:transparent; color:#0b1120; box-shadow:0 0 12px rgba(250,204,21,.6); }
+    .btn-ghost   { background:rgba(15,23,42,.85); }
+    .btn-outline { background:transparent; }
 
-    /* HUD */
-    .hud-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    .hud-badge {
-      padding: 6px 12px;
-      border-radius: 999px;
-      background: rgba(15,23,42,0.92);
-      border: 1px solid rgba(148,163,184,0.75);
-      font-size: 13px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .hud-label {
-      opacity: 0.65;
-    }
-    .hud-value {
-      font-weight: 700;
-      min-width: 36px;
-      text-align: right;
-    }
-    .hud-main {
-      margin-left: auto;
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    .hud-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .hud-badge { padding:6px 12px; border-radius:999px; background:rgba(15,23,42,.92); border:1px solid rgba(148,163,184,.75); font-size:13px; display:inline-flex; gap:6px; }
+    .hud-label { opacity:.65; } .hud-value { font-weight:700; min-width:36px; text-align:right; }
+    .hud-main { margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; }
 
-    /* Layout main */
-    .main-grid {
-      display: grid;
-      grid-template-columns: minmax(0,1.5fr) minmax(0,1fr);
-      gap: 16px;
-      align-items: stretch;
-      flex: 1;
-      min-height: 0;
-    }
-    @media (max-width: 900px) {
-      .main-grid {
-        grid-template-columns: minmax(0,1fr);
-      }
-    }
+    .main-grid { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:16px; align-items:stretch; flex:1; min-height:0; }
+    @media (max-width:900px){ .main-grid{ grid-template-columns:minmax(0,1fr);} }
 
-    /* Arena */
     .arena-card {
       background: radial-gradient(circle at top,#020617,#020617 55%);
-      border-radius: 20px;
-      border: 1px solid rgba(148,163,184,0.5);
-      box-shadow: 0 22px 60px rgba(15,23,42,0.9);
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      min-height: 0;
+      border-radius:20px; border:1px solid rgba(148,163,184,.5);
+      box-shadow: 0 22px 60px rgba(15,23,42,.9);
+      padding:10px; display:flex; flex-direction:column; gap:8px; min-height:0;
     }
     #sbArena {
-      position: relative;
-      flex: 1;
-      min-height: 280px;
-      max-height: 520px;
-      border-radius: 16px;
-      border: 1px solid rgba(148,163,184,0.5);
-      background: radial-gradient(circle at 30% 0%,rgba(59,130,246,0.32),transparent 55%),
-                  radial-gradient(circle at 80% 120%,rgba(14,165,233,0.25),transparent 55%),
-                  #020617;
-      overflow: hidden;
+      position:relative; flex:1; min-height:300px; max-height:540px; border-radius:16px;
+      border:1px solid rgba(148,163,184,.5);
+      background:
+        radial-gradient(circle at 20% 0%,rgba(129,140,248,.32),transparent 55%),
+        radial-gradient(circle at 80% 120%,rgba(56,189,248,.25),transparent 55%),
+        #071427;
+      overflow:hidden;
     }
-    .arena-footer {
-      font-size: 13px;
-      opacity: 0.85;
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    .arena-footer { font-size:13px; opacity:.85; display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; }
 
-    /* Targets */
-    .sb-target {
-      will-change: transform, opacity;
-    }
-
-    /* Side card (coach + result buttons) */
-    .side-card {
-      background: rgba(15,23,42,0.96);
-      border-radius: 20px;
-      border: 1px solid rgba(148,163,184,0.55);
-      box-shadow: 0 22px 60px rgba(15,23,42,0.95);
-      padding: 14px 14px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .coach-line {
-      font-size: 13px;
-      opacity: 0.9;
-      min-height: 34px;
-    }
-    .side-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .btn-ghost {
-      background: rgba(15,23,42,0.85);
-      border-color: rgba(148,163,184,0.7);
-      color: #e5e7eb;
-    }
-    .btn-outline {
-      background: transparent;
-      border-color: rgba(148,163,184,0.7);
-      color: #e5e7eb;
-    }
-
-    .lb-box {
-      margin-top: 8px;
-      max-height: 260px;
-      overflow: auto;
-      border-radius: 12px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid rgba(30,64,175,0.9);
-      padding: 8px;
-      font-size: 12px;
-    }
-    .lb-box table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-    .lb-box th,
-    .lb-box td {
-      padding: 4px 6px;
-      border-bottom: 1px solid rgba(30,64,175,0.35);
-      text-align: left;
-    }
-    .lb-box th {
-      font-weight: 600;
-      opacity: 0.85;
-    }
+    .side-card { background:rgba(15,23,42,.96); border-radius:20px; border:1px solid rgba(148,163,184,.55);
+      box-shadow: 0 22px 60px rgba(15,23,42,.95); padding:14px 14px 16px; display:flex; flex-direction:column; gap:10px; }
+    .coach-line { font-size:13px; opacity:.9; min-height:34px; }
+    .side-actions { display:flex; flex-wrap:wrap; gap:8px; }
 
     /* Result modal */
     #sbResultCard {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
-      background: rgba(15,23,42,0.88);
-      backdrop-filter: blur(10px);
-      z-index: 9999;
+      position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      padding:24px 16px; background:rgba(15,23,42,.88); backdrop-filter:blur(10px); z-index:9999;
     }
-    .result-box {
-      width: min(380px, 100%);
-      background: radial-gradient(circle at top,#0b1120,#020617);
-      border-radius: 18px;
-      border: 1px solid rgba(148,163,184,0.9);
-      box-shadow: 0 24px 80px rgba(15,23,42,1);
-      padding: 18px 18px 16px;
-    }
-    .result-box h2 {
-      margin: 0 0 4px;
-      font-size: 22px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .result-box small {
-      opacity: 0.75;
-      font-size: 12px;
-    }
-    .result-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px 10px;
-      margin: 12px 0 8px;
-      font-size: 14px;
-    }
-    .result-label {
-      opacity: 0.7;
-    }
-    .result-value {
-      font-weight: 700;
-      text-align: right;
-    }
-    .rank-badge {
-      margin-top: 4px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: rgba(15,23,42,0.9);
-      border: 1px solid rgba(59,130,246,0.9);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-    }
-    .rank-badge span {
-      font-size: 22px;
-      font-weight: 900;
-    }
-    .result-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 10px;
-    }
+    .result-box { width:min(380px,100%); background: radial-gradient(circle at top,#0b1120,#020617);
+      border-radius:18px; border:1px solid rgba(148,163,184,.9); box-shadow:0 24px 80px rgba(15,23,42,1);
+      padding:18px 18px 16px; }
+    .result-box h2{ margin:0 0 4px; font-size:22px; letter-spacing:.08em; text-transform:uppercase; }
+    .result-box small{ opacity:.75; font-size:12px; }
+    .result-grid{ display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; margin:12px 0 8px; font-size:14px; }
+    .result-label{ opacity:.7; } .result-value{ font-weight:700; text-align:right; }
+    .rank-badge{ margin-top:4px; padding:6px 10px; border-radius:999px; background:rgba(15,23,42,.9); border:1px solid rgba(129,140,248,.9); display:inline-flex; gap:6px; font-size:13px; }
+    .rank-badge span{ font-size:22px; font-weight:900; }
+    .result-actions{ display:flex; flex-direction:column; gap:6px; margin-top:10px; }
+    .btn-full{ width:100%; justify-content:center; border-radius:12px; padding:10px 14px; }
 
-    .btn-full {
-      width: 100%;
-      justify-content: center;
-      border-radius: 12px;
-      padding: 10px 14px;
-    }
-
-    /* Hub leaving overlay */
-    body.hub-leaving::before {
-      content: "Returning to Gym Hub…";
-      position: fixed;
-      inset: 0;
-      z-index: 99999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 800;
-      font-size: 20px;
-      color: #cbd5e1;
-      letter-spacing: 0.08em;
-      background: radial-gradient(circle at top,rgba(15,23,42,0.98),#020617 85%);
-      animation: hubFadeOut 0.6s ease-out forwards;
-    }
-    @keyframes hubFadeOut {
-      0% { opacity: 0; filter: blur(0px); }
-      40% { opacity: 1; filter: blur(0px); }
-      100% { opacity: 1; filter: blur(1.5px); }
-    }
-
-    /* Hit float & FEVER fx */
+    /* FX */
     @keyframes sbHitFloat {
-      0%   { opacity: 0; transform: translate(-50%,-20%) scale(0.7); }
-      20%  { opacity: 1; transform: translate(-50%,-35%) scale(1); }
-      100% { opacity: 0; transform: translate(-50%,-70%) scale(1.1); }
+      0%{opacity:0; transform:translate(-50%,-20%) scale(.7);}
+      20%{opacity:1; transform:translate(-50%,-35%) scale(1);}
+      100%{opacity:0; transform:translate(-50%,-70%) scale(1.1);}
     }
     @keyframes feverFlash {
-      0%   { opacity:0; transform:translate(-50%,-50%) scale(0.5); }
-      20%  { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
-      100% { opacity:0; transform:translate(-50%,-50%) scale(1.4); }
+      0%{opacity:0; transform:translate(-50%,-50%) scale(.5);}
+      20%{opacity:1; transform:translate(-50%,-50%) scale(1.1);}
+      100%{opacity:0; transform:translate(-50%,-50%) scale(1.4);}
     }
+    .sb-finish-ripple{
+      position:fixed; inset:0; pointer-events:none;
+      background: radial-gradient(circle at center, rgba(129,140,248,.22), transparent 55%);
+      animation:rippleFade .6s ease-out forwards; z-index:9998;
+    }
+    @keyframes rippleFade{ 0%{opacity:0;} 10%{opacity:1;} 100%{opacity:0;} }
 
-    .sb-finish-ripple {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      background: radial-gradient(circle at center, rgba(56,189,248,0.22), transparent 55%);
-      animation: rippleFade 0.6s ease-out forwards;
-      z-index: 9998;
+    body.hub-leaving::before{
+      content:"Returning to Gym Hub…"; position:fixed; inset:0; z-index:99999;
+      display:flex; align-items:center; justify-content:center; font-weight:800; font-size:20px; color:#cbd5e1;
+      letter-spacing:.08em; background: radial-gradient(circle at top,rgba(15,23,42,.98),#020617 85%);
+      animation: hubFadeOut .6s ease-out forwards;
     }
-    @keyframes rippleFade {
-      0%   { opacity: 0; }
-      10%  { opacity: 1; }
-      100% { opacity: 0; }
-    }
+    @keyframes hubFadeOut{ 0%{opacity:0; filter:blur(0);} 40%{opacity:1;} 100%{opacity:1; filter:blur(1.5px);} }
 
-    @media (max-width: 640px) {
-      .arena-card {
-        padding: 8px;
-      }
-      #sbArena {
-        min-height: 240px;
-      }
-    }
+    @media (max-width:640px){ .arena-card{padding:8px;} #sbArena{ min-height:260px; } }
   </style>
 </head>
 <body>
@@ -369,42 +119,23 @@
     <header>
       <div class="title-block">
         <h1>Shadow Breaker</h1>
-        <small>VR Fitness • Punch the shadow targets</small>
+        <small>VR Fitness • Tap the targets as fast as you can</small>
       </div>
       <div class="top-actions">
-        <button id="btnHub" class="btn">
-          🏠 กลับ Hub
-        </button>
-        <button id="btnStart" class="btn btn-primary">
-          ▶ เริ่มเล่น
-        </button>
+        <button id="btnHub" class="btn">🏠 กลับ Hub</button>
+        <button id="btnStart" class="btn btn-primary">▶ เริ่มเล่น</button>
       </div>
     </header>
 
     <div class="hud-row">
-      <div class="hud-badge">
-        <span class="hud-label">TIME</span>
-        <span id="sbTime" class="hud-value">90</span>
-      </div>
-      <div class="hud-badge">
-        <span class="hud-label">SCORE</span>
-        <span id="sbScoreHud" class="hud-value">0</span>
-      </div>
-      <div class="hud-badge">
-        <span class="hud-label">HIT</span>
-        <span id="sbHitsHud" class="hud-value">0</span>
-      </div>
-      <div class="hud-badge">
-        <span class="hud-label">MISS</span>
-        <span id="sbMissHud" class="hud-value">0</span>
-      </div>
-      <div class="hud-badge">
-        <span class="hud-label">COMBO</span>
-        <span id="sbComboHud" class="hud-value">x0</span>
-      </div>
+      <div class="hud-badge"><span class="hud-label">TIME</span><span id="sbTime" class="hud-value">90</span></div>
+      <div class="hud-badge"><span class="hud-label">SCORE</span><span id="sbScoreHud" class="hud-value">0</span></div>
+      <div class="hud-badge"><span class="hud-label">HIT</span><span id="sbHitsHud" class="hud-value">0</span></div>
+      <div class="hud-badge"><span class="hud-label">MISS</span><span id="sbMissHud" class="hud-value">0</span></div>
+      <div class="hud-badge"><span class="hud-label">COMBO</span><span id="sbComboHud" class="hud-value">x0</span></div>
       <div class="hud-main">
-        <div id="sbMsg" class="hud-badge" style="max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-          โค้ช: แตะ "เริ่มเล่น" เพื่อเริ่มรอบ
+        <div id="sbMsg" class="hud-badge" style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          โค้ชพุ่ง: แตะเป้าที่โผล่มาให้ไวที่สุด!
         </div>
       </div>
     </div>
@@ -413,72 +144,44 @@
       <section class="arena-card">
         <div id="sbArena"></div>
         <div class="arena-footer">
-          <span>แตะ/คลิกเป้าให้ทัน • เป้าทอง = คะแนนพิเศษ • X แดง = ระเบิด</span>
-          <span style="opacity:0.7;">Combo สูง ๆ จะเข้าสู่โหมด FEVER!!</span>
+          <span>กติกา: เป้าโผล่มาแตะให้ทันก่อนหายไป 🥊</span>
+          <span style="opacity:.75;">คอมโบเยอะ ๆ จะเข้าโหมด FEVER PUNCH!! คะแนนพุ่งแรง 🔥</span>
         </div>
       </section>
 
       <aside class="side-card">
-        <div class="coach-line">
-          โค้ช: เป้าจะสุ่มทั่วจอ พยายามเล็งให้ไวและแม่นที่สุดนะ!
-        </div>
+        <div class="coach-line">โค้ชพุ่ง: หมัดอุ่นเครื่องพร้อมแล้วใช่มั้ย? ลุยย! 🐰🔥</div>
         <div class="side-actions">
           <button id="btnPause" class="btn btn-ghost" type="button">⏸ Pause</button>
           <button id="btnResume" class="btn btn-ghost" type="button">▶ Resume</button>
           <button id="btnRetry" class="btn btn-outline" type="button">🔁 เล่นใหม่</button>
         </div>
-        <hr style="border:none;border-top:1px solid rgba(30,64,175,0.7);margin:8px 0;">
-        <div style="font-size:13px;opacity:0.85;">Leaderboard (ต่อ API ภายหลังได้)</div>
-        <div id="sbLeaderboard" class="lb-box">
-          <p style="margin:0; opacity:0.7;">ระบบจัดอันดับจะถูกแสดงที่นี่ เมื่อเชื่อมต่อเซิร์ฟเวอร์แล้ว</p>
-        </div>
       </aside>
     </div>
   </div>
 
-  <!-- Result Modal -->
+  <!-- Result modal -->
   <div id="sbResultCard">
     <div class="result-box">
       <h2>Session Result</h2>
       <small>Shadow Breaker • VR Fitness</small>
 
       <div class="result-grid">
-        <div class="result-label">Score</div>
-        <div id="sbScore" class="result-value">0</div>
-
-        <div class="result-label">Hit</div>
-        <div id="sbHits" class="result-value">0</div>
-
-        <div class="result-label">Miss</div>
-        <div id="sbMiss" class="result-value">0</div>
-
-        <div class="result-label">Accuracy</div>
-        <div id="sbAcc" class="result-value">0%</div>
-
-        <div class="result-label">Best Combo</div>
-        <div id="sbBest" class="result-value">x0</div>
-
-        <div class="result-label">Rank</div>
-        <div id="sbRank" class="result-value">C</div>
+        <div class="result-label">Score</div><div id="sbScore" class="result-value">0</div>
+        <div class="result-label">Hit</div><div id="sbHits" class="result-value">0</div>
+        <div class="result-label">Miss</div><div id="sbMiss" class="result-value">0</div>
+        <div class="result-label">Accuracy</div><div id="sbAcc" class="result-value">0%</div>
+        <div class="result-label">Best Combo</div><div id="sbBest" class="result-value">x0</div>
+        <div class="result-label">Rank</div><div id="sbRank" class="result-value">C</div>
       </div>
 
-      <div class="rank-badge">
-        <span id="sbRankBadge">C</span> Shadow Rank
-      </div>
+      <div class="rank-badge"><span id="sbRankBadge">C</span> Punch Rank</div>
 
       <div class="result-actions">
-        <button id="sbCsvBtn" class="btn btn-outline btn-full" type="button">
-          📥 ดาวน์โหลดผลเป็น CSV
-        </button>
-        <button id="sbPdfBtn" class="btn btn-outline btn-full" type="button">
-          📄 ดาวน์โหลดรายงาน PDF
-        </button>
-        <button id="btnResultRetry" class="btn btn-primary btn-full" type="button">
-          🔁 เล่นรอบใหม่
-        </button>
-        <button id="btnResultHub" class="btn btn-outline btn-full" type="button">
-          🏠 กลับ VR-Fitness Hub
-        </button>
+        <button id="sbCsvBtn" class="btn btn-outline btn-full" type="button">📥 ดาวน์โหลดผลเป็น CSV</button>
+        <button id="sbPdfBtn" class="btn btn-outline btn-full" type="button">📄 ดาวน์โหลดรายงาน PDF</button>
+        <button id="btnResultRetry" class="btn btn-primary btn-full" type="button">🔁 เล่นรอบใหม่</button>
+        <button id="btnResultHub" class="btn btn-outline btn-full" type="button">🏠 กลับ VR-Fitness Hub</button>
       </div>
     </div>
   </div>
@@ -487,7 +190,6 @@
     import { ShadowBreaker } from './shadow-breaker.js';
 
     const arena = document.getElementById('sbArena');
-
     const game = new ShadowBreaker({
       arena,
       hud: {
@@ -508,52 +210,30 @@
         rank : document.getElementById('sbRank')
       },
       csvBtn: document.getElementById('sbCsvBtn'),
-      pdfBtn: document.getElementById('sbPdfBtn'),
-      lbBox : document.getElementById('sbLeaderboard')
+      pdfBtn: document.getElementById('sbPdfBtn')
     });
 
-    // Hub navigation
     function goHub(){
       if (window.__leavingHub) return;
       window.__leavingHub = true;
       document.body.classList.add('hub-leaving');
       document.body.style.overflow = 'hidden';
-      setTimeout(()=>{
-        window.location.href = '/webxr-health-mobile/vr-fitness/index.html';
-      }, 650);
+      setTimeout(()=>{ window.location.href = '/webxr-health-mobile/vr-fitness/index.html'; }, 650);
     }
 
-    const btnHub        = document.getElementById('btnHub');
-    const btnStart      = document.getElementById('btnStart');
-    const btnPause      = document.getElementById('btnPause');
-    const btnResume     = document.getElementById('btnResume');
-    const btnRetry      = document.getElementById('btnRetry');
-    const btnResultRetry= document.getElementById('btnResultRetry');
-    const btnResultHub  = document.getElementById('btnResultHub');
+    document.getElementById('btnHub').onclick = goHub;
+    document.getElementById('btnResultHub').onclick = goHub;
 
-    if (btnHub)        btnHub.onclick        = goHub;
-    if (btnResultHub)  btnResultHub.onclick  = goHub;
+    document.getElementById('btnStart').onclick = () => {
+      document.getElementById('btnStart').disabled = true;
+      game.start();
+    };
+    document.getElementById('btnPause').onclick  = () => game.pause(true);
+    document.getElementById('btnResume').onclick = () => game.pause(false);
 
-    if (btnStart) {
-      btnStart.onclick = () => {
-        btnStart.disabled = true;
-        game.start();
-      };
-    }
-
-    if (btnPause) {
-      btnPause.onclick = () => game.pause(true);
-    }
-    if (btnResume) {
-      btnResume.onclick = () => game.pause(false);
-    }
-
-    function restart(){
-      // reload หน้าสำหรับ reset state ง่ายสุด
-      window.location.reload();
-    }
-    if (btnRetry)       btnRetry.onclick       = restart;
-    if (btnResultRetry) btnResultRetry.onclick = restart;
+    function restart(){ window.location.reload(); }
+    document.getElementById('btnRetry').onclick       = restart;
+    document.getElementById('btnResultRetry').onclick = restart;
   </script>
 </body>
 </html>
