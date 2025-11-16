@@ -9,585 +9,420 @@
     :root{
       color-scheme: light dark;
     }
-    *{ box-sizing:border-box; }
-
+    *{box-sizing:border-box;}
     body{
       margin:0;
       min-height:100vh;
       font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
       background:
-        radial-gradient(circle at top, rgba(56,189,248,0.22), transparent 55%),
-        radial-gradient(circle at bottom, rgba(34,197,94,0.18), transparent 55%),
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.2), transparent 55%),
         #020617;
       color:#e5e7eb;
     }
-
-    .page{
-      max-width:1080px;
-      margin:16px auto;
-      padding:8px 16px 24px;
-      display:flex;
-      flex-direction:column;
-      gap:16px;
+    .wrap{
+      max-width:1000px;
+      margin:24px auto 32px;
+      padding:0 16px 32px;
     }
-
     header{
       display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
       flex-wrap:wrap;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:16px;
     }
-    header h1{
+    h1{
       margin:0;
-      font-size:22px;
-      letter-spacing:0.02em;
-      display:flex;
-      align-items:center;
-      gap:8px;
+      font-size:24px;
     }
-    header h1 span.logo{
+    .subtitle{
+      font-size:13px;
+      color:#cbd5f5;
+      margin-top:4px;
+    }
+    .badge{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      width:28px;height:28px;
+      gap:6px;
+      padding:4px 10px;
       border-radius:999px;
-      background:radial-gradient(circle at 30% 30%,#4ade80,#22c55e);
-      box-shadow:0 0 16px rgba(34,197,94,0.8);
-      font-size:18px;
+      font-size:11px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:rgba(15,23,42,0.92);
+      color:#e5e7eb;
     }
-    header .subtitle{
-      font-size:12px;
+
+    /* โปรไฟล์เด็ก */
+    .profile-card{
+      margin-top:8px;
+      padding:10px 14px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,0.45);
+      background:rgba(15,23,42,0.92);
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px 14px;
+      align-items:flex-end;
+    }
+    .profile-field{
+      display:flex;
+      flex-direction:column;
+      gap:3px;
+      font-size:11px;
+      min-width:140px;
+      flex:1 1 140px;
+    }
+    .profile-field label{
       color:#cbd5f5;
     }
-
-    .layout{
-      display:grid;
-      grid-template-columns: minmax(0,2.2fr) minmax(0,1.4fr);
-      gap:16px;
-    }
-    @media (max-width:840px){
-      .layout{
-        grid-template-columns: minmax(0,1fr);
-      }
-    }
-
-    /* --- Mode Cards --- */
-    .modes-wrap{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .modes-title{
-      font-size:13px;
-      opacity:0.9;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .modes-title small{
-      font-size:11px;
-      color:#9ca3af;
-    }
-
-    .mode-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-      gap:12px;
-    }
-
-    .mode-card{
-      position:relative;
-      padding:12px 11px 12px;
-      border-radius:18px;
-      background:radial-gradient(circle at 0% 0%,rgba(96,165,250,0.18),transparent 55%),rgba(15,23,42,0.96);
-      border:1px solid rgba(51,65,85,0.9);
-      box-shadow:0 18px 40px rgba(15,23,42,0.8);
-      cursor:pointer;
-      overflow:hidden;
-      transform:translateY(0) scale(1);
-      transition:
-        transform 150ms ease-out,
-        box-shadow 150ms ease-out,
-        border-color 150ms ease-out,
-        background 150ms ease-out;
-    }
-    .mode-card::before{
-      content:"";
-      position:absolute;
-      inset:-40%;
-      background:radial-gradient(circle at 0 0,rgba(96,165,250,0.25),transparent 55%);
-      opacity:0;
-      transition:opacity 220ms ease-out,transform 220ms ease-out;
-      transform:translate3d(-10px,-10px,0);
-    }
-    .mode-card:hover{
-      transform:translateY(-3px) scale(1.01);
-      box-shadow:0 24px 60px rgba(15,23,42,0.95);
-      border-color:rgba(96,165,250,0.9);
-    }
-    .mode-card:hover::before{
-      opacity:1;
-      transform:translate3d(0,0,0);
-    }
-    .mode-card.active{
-      border-color:rgba(34,197,94,0.95);
-      box-shadow:0 24px 60px rgba(34,197,94,0.4);
-      background:radial-gradient(circle at 10% 0%,rgba(34,197,94,0.22),transparent 55%),rgba(15,23,42,0.98);
-    }
-
-    .mode-main{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:8px;
-    }
-    .mode-info{
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-    .mode-name{
-      font-size:14px;
-      font-weight:600;
-      display:flex;
-      align-items:center;
-      gap:4px;
-    }
-    .mode-name span.emoji{
-      font-size:18px;
-    }
-    .mode-desc{
-      font-size:11px;
-      color:#cbd5f5;
-      opacity:0.95;
-    }
-    .mode-tag{
-      margin-top:4px;
-      font-size:10px;
-      opacity:0.9;
-      color:#22c55e;
-    }
-
-    .mode-preview{
-      position:relative;
-      width:64px;
-      height:64px;
-      border-radius:20px;
-      background:radial-gradient(circle at 30% 10%,rgba(248,250,252,0.96),transparent 65%),
-                 radial-gradient(circle at 80% 90%,rgba(59,130,246,0.6),rgba(15,23,42,0.9));
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      overflow:hidden;
-      font-size:26px;
-      text-shadow:0 3px 6px rgba(15,23,42,0.65);
-    }
-    .preview-orbit{
-      position:absolute;
-      inset:8px;
+    .profile-field input{
       border-radius:999px;
-      border:1px dashed rgba(148,163,184,0.7);
-      animation:orbit 6s linear infinite;
-      opacity:0.8;
-    }
-    .preview-dot{
-      position:absolute;
-      width:8px;height:8px;
-      border-radius:999px;
-      background:rgba(59,130,246,0.95);
-      top:-4px;left:50%;
-      transform:translateX(-50%);
-      box-shadow:0 0 12px rgba(59,130,246,0.9);
-    }
-    .preview-icon{
-      position:relative;
-      animation:bob 2.2s ease-in-out infinite;
-    }
-
-    @keyframes orbit{
-      0%{ transform:rotate(0deg); }
-      100%{ transform:rotate(360deg);}
-    }
-    @keyframes bob{
-      0%{ transform:translateY(0); }
-      50%{ transform:translateY(-6px); }
-      100%{ transform:translateY(0); }
-    }
-
-    /* --- Preview panel right below cards (ใช้แชร์ทุกโหมด) --- */
-    .preview-panel{
-      margin-top:4px;
-      padding:8px 10px;
-      border-radius:14px;
-      border:1px dashed rgba(148,163,184,0.7);
-      background:linear-gradient(to right,rgba(15,23,42,0.95),rgba(15,23,42,0.85));
-      font-size:11px;
-      color:#cbd5f5;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .preview-panel span.icon{
-      font-size:16px;
-    }
-
-    /* --- Right: profile + options --- */
-    .side{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-    .card{
-      border-radius:18px;
-      background:rgba(15,23,42,0.97);
-      border:1px solid rgba(51,65,85,0.9);
-      box-shadow:0 18px 40px rgba(15,23,42,0.9);
-      padding:12px 14px;
-    }
-
-    .card-title{
-      font-size:13px;
-      margin-bottom:4px;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-    .card-title small{
-      font-size:11px;
-      color:#9ca3af;
-    }
-
-    .profile-grid{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:6px;
-      margin-top:4px;
-    }
-    .field{
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-      font-size:11px;
-    }
-    .field-row{
-      display:grid;
-      grid-template-columns:1.1fr 0.9fr;
-      gap:6px;
-    }
-    .field label span.required{
-      color:#fecaca;
-      margin-left:3px;
-    }
-    input, select{
-      border-radius:999px;
-      border:1px solid rgba(51,65,85,0.9);
-      background:rgba(15,23,42,0.95);
+      border:1px solid rgba(148,163,184,0.7);
+      background:#020617;
+      color:#e5e7eb;
       padding:6px 10px;
       font-size:12px;
-      color:#e5e7eb;
-      outline:none;
     }
-    input:focus, select:focus{
-      border-color:#38bdf8;
-      box-shadow:0 0 0 1px rgba(56,189,248,0.6);
-    }
-
-    .profile-footer{
-      margin-top:6px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      font-size:11px;
-      color:#9ca3af;
-    }
-    .chip{
-      border-radius:999px;
-      padding:3px 8px;
-      border:1px solid rgba(34,197,94,0.8);
-      background:rgba(22,163,74,0.16);
-      color:#bbf7d0;
-      font-size:10px;
-    }
-
-    .options{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      margin-top:2px;
-      font-size:12px;
-    }
-    .opt-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-    }
-    .opt-row label{
-      font-size:12px;
-      opacity:0.9;
-    }
-
-    .start-bar{
-      margin-top:6px;
-      display:flex;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      font-size:11px;
-      color:#9ca3af;
-    }
-    button.primary{
+    #btnSaveProfile{
       border-radius:999px;
       border:0;
-      padding:8px 16px;
-      font-size:13px;
-      font-weight:600;
+      padding:7px 14px;
+      font-size:12px;
       cursor:pointer;
-      background:linear-gradient(135deg,#22c55e,#16a34a);
-      color:#f9fafb;
-      box-shadow:0 14px 30px rgba(22,163,74,0.55);
+      background:linear-gradient(135deg,#38bdf8,#2563eb);
+      color:#fff;
       display:inline-flex;
       align-items:center;
       gap:6px;
+      box-shadow:0 10px 25px rgba(15,23,42,0.8);
+      white-space:nowrap;
     }
-    button.primary:hover{
-      transform:translateY(-1px);
-      box-shadow:0 18px 40px rgba(22,163,74,0.8);
+
+    /* แถวโหมดเกม (3D cards) */
+    h2{
+      font-size:16px;
+      margin:20px 0 8px;
     }
-    button.secondary{
+    .mode-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+    }
+    .mode-card{
+      position:relative;
+      flex:1 1 220px;
+      min-width:220px;
+      max-width:260px;
+      border-radius:18px;
+      padding:14px 14px 12px;
+      border:1px solid rgba(30,64,175,0.6);
+      background:radial-gradient(circle at top left, rgba(59,130,246,0.4), rgba(15,23,42,0.95));
+      box-shadow:
+        0 18px 45px rgba(15,23,42,0.95),
+        inset 0 0 0 1px rgba(15,23,42,0.9);
+      cursor:pointer;
+      transform:translateY(0) translateZ(0);
+      transition:transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+      overflow:hidden;
+    }
+    .mode-card::before{
+      content:'';
+      position:absolute;
+      inset:0;
+      background:radial-gradient(circle at top right, rgba(248,250,252,0.14), transparent 60%);
+      opacity:0.7;
+      pointer-events:none;
+    }
+    .mode-card:hover{
+      transform:translateY(-4px);
+      box-shadow:0 26px 60px rgba(15,23,42,0.95);
+      border-color:rgba(96,165,250,0.9);
+    }
+    .mode-card.active{
+      border-color:#22c55e;
+      box-shadow:0 0 0 1px rgba(34,197,94,0.9), 0 26px 60px rgba(15,23,42,0.95);
+    }
+    .mode-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      position:relative;
+      z-index:1;
+    }
+    .mode-main{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .mode-title{
+      font-size:15px;
+      font-weight:600;
+    }
+    .mode-desc{
+      font-size:12px;
+      color:#d1d5db;
+    }
+    .mode-tag{
+      font-size:11px;
+      color:#a5b4fc;
+    }
+    .mode-icon{
+      font-size:30px;
+      filter:drop-shadow(0 10px 18px rgba(15,23,42,0.9));
+    }
+    .mode-preview{
+      margin-top:8px;
+      height:80px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,0.35);
+      background:
+        radial-gradient(circle at top, rgba(248,250,252,0.20), transparent 60%),
+        linear-gradient(135deg, rgba(15,23,42,0.9), rgba(15,23,42,0.96));
+      position:relative;
+      overflow:hidden;
+      font-size:11px;
+      color:#9ca3af;
+      display:flex;
+      align-items:flex-end;
+      padding:6px 8px;
+    }
+    .mode-preview span{
+      position:relative;
+      z-index:1;
+    }
+    .mode-preview-lines{
+      position:absolute;
+      inset:0;
+      opacity:0.45;
+      background:
+        repeating-linear-gradient(
+          to right,
+          rgba(59,130,246,0.1) 0,
+          rgba(59,130,246,0.3) 1px,
+          transparent 1px,
+          transparent 6px
+        );
+      transform-origin:0 0;
+      animation:preview-pan 7s linear infinite;
+    }
+    @keyframes preview-pan{
+      0%{transform:translateX(0);}
+      100%{transform:translateX(-40px);}
+    }
+
+    /* ตัวเลือก diff + time + ปุ่มเริ่ม */
+    .controls{
+      margin-top:18px;
+      padding:10px 12px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,0.35);
+      background:rgba(15,23,42,0.92);
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:flex-end;
+    }
+    .control-field{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      font-size:11px;
+    }
+    .control-field label{
+      color:#cbd5f5;
+    }
+    select,input{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.7);
+      background:#020617;
+      color:#e5e7eb;
+      padding:7px 12px;
+      font-size:13px;
+      min-width:120px;
+    }
+    #btnStart{
       border-radius:999px;
       border:0;
-      padding:4px 10px;
-      font-size:11px;
+      padding:9px 18px;
+      font-size:13px;
       cursor:pointer;
-      background:rgba(15,23,42,0.96);
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,0.85);
+      background:linear-gradient(135deg,#22c55e,#16a34a);
+      color:#fff;
+      font-weight:600;
+      box-shadow:0 16px 40px rgba(22,163,74,0.65);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    #btnStart span.small{
+      font-size:11px;
+      opacity:0.9;
     }
 
-    .hint-line{
+    .footer-hint{
+      margin-top:12px;
       font-size:11px;
-      color:#94a3b8;
-      margin-top:4px;
+      color:#9ca3af;
+    }
+    code{
+      font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:11px;
+      background:rgba(15,23,42,0.9);
+      padding:2px 6px;
+      border-radius:999px;
+      border:1px solid rgba(30,64,175,0.65);
     }
 
-    a.help{
-      color:#93c5fd;
-      text-decoration:none;
-      font-size:11px;
-    }
-    a.help:hover{
-      text-decoration:underline;
+    @media (max-width:640px){
+      header{flex-direction:column;}
+      .mode-card{max-width:100%;}
+      .controls{flex-direction:column;align-items:flex-start;}
     }
   </style>
 </head>
 <body>
-  <div class="page">
+  <div class="wrap">
     <header>
       <div>
-        <h1>
-          <span class="logo">H</span>
-          <span>Hero Health — Hub</span>
-        </h1>
+        <div class="badge">🎮 Hero Health — Game Hub</div>
+        <h1>เลือกโหมดเกม Hero Health</h1>
         <div class="subtitle">
-          เลือกโหมด + โปรไฟล์เด็ก + ระดับความยาก แล้วเริ่มเกมเพื่อเก็บข้อมูลวิจัยแบบเรียลไทม์
+          เลือกโปรไฟล์นักเรียน → เลือกโหมดเกม → ระดับความยาก และเวลา จากนั้นกด
+          <strong>“เริ่มเล่น”</strong> เพื่อไปยังหน้าจอเกม
         </div>
       </div>
-      <div style="font-size:11px;color:#9ca3af;">
-        ⏱ เกมแต่ละรอบ ~ 1–3 นาที &nbsp;|&nbsp; รองรับ PC / Mobile / VR WebView
+      <div>
+        <div style="font-size:11px;color:#9ca3af;">
+          ปลายทาง:
+        </div>
+        <code>./play.html?mode=…&diff=…&time=…</code>
       </div>
     </header>
 
-    <div class="layout">
-      <!-- LEFT: Mode cards + preview -->
-      <section class="modes-wrap">
-        <div class="modes-title">
-          <span>🎮 เลือกโหมดเกม</span>
-          <small>แตะการ์ดเพื่อเลือกโหมดที่ต้องการเล่น</small>
-        </div>
-        <div id="modeGrid" class="mode-grid">
-          <div class="mode-card" data-mode="goodjunk">
+    <!-- โปรไฟล์นักเรียน -->
+    <section class="profile-card">
+      <div class="profile-field">
+        <label for="profileName">ชื่อนักเรียน</label>
+        <input id="profileName" type="text" placeholder="เช่น ด.ช.กล้าดี หรือ Nickname"/>
+      </div>
+      <div class="profile-field">
+        <label for="profileGrade">ชั้น/ห้อง</label>
+        <input id="profileGrade" type="text" placeholder="เช่น ป.5/1 หรือ P5-Blue"/>
+      </div>
+      <div class="profile-field">
+        <label for="profileId">รหัสนักเรียน (ถ้ามี)</label>
+        <input id="profileId" type="text" placeholder="เช่น 650123 หรือเลขประจำตัวในโรงเรียน"/>
+      </div>
+      <button id="btnSaveProfile" type="button">
+        💾 บันทึกโปรไฟล์
+      </button>
+    </section>
+
+    <!-- โหมดเกม -->
+    <section style="margin-top:20px;">
+      <h2>เลือกโหมดเกม</h2>
+      <div id="modeRow" class="mode-row">
+
+        <!-- Good vs Junk -->
+        <div class="mode-card" data-mode="goodjunk">
+          <div class="mode-header">
             <div class="mode-main">
-              <div class="mode-info">
-                <div class="mode-name">
-                  <span class="emoji">🍎</span>
-                  <span>Good vs Junk</span>
-                </div>
-                <div class="mode-desc">
-                  คลิกของดีให้ทันเวลา หลบขยะอาหารให้ได้มากที่สุด เพื่อฝึกแยกแยะอาหารสุขภาพดี
-                </div>
-                <div class="mode-tag">พร้อมใช้งาน • Reflex + Decision</div>
-              </div>
-              <div class="mode-preview">
-                <div class="preview-orbit">
-                  <div class="preview-dot"></div>
-                </div>
-                <div class="preview-icon" data-preview="goodjunk">🍎</div>
-              </div>
+              <div class="mode-title">Good vs Junk</div>
+              <div class="mode-desc">คลิกของดี หลบของขยะ ล่า Fever และพลังพิเศษ 🌟</div>
+              <div class="mode-tag">โฟกัส: เลือกอาหารดีต่อสุขภาพ</div>
             </div>
+            <div class="mode-icon">🍎</div>
           </div>
+          <div class="mode-preview">
+            <div class="mode-preview-lines"></div>
+            <span>ตัวอย่าง: เป้าผลไม้ดี ๆ เด้งขึ้นทั่วจอ มีขยะล่อให้คลิกผิด ฟาร์มคอมโบแล้วเข้าโหมด 🔥 Fever</span>
+          </div>
+        </div>
 
-          <div class="mode-card" data-mode="groups">
+        <!-- Food Groups -->
+        <div class="mode-card" data-mode="groups">
+          <div class="mode-header">
             <div class="mode-main">
-              <div class="mode-info">
-                <div class="mode-name">
-                  <span class="emoji">🥦</span>
-                  <span>Food Groups</span>
-                </div>
-                <div class="mode-desc">
-                  เลือกอาหารให้ตรงหมู่เป้าหมาย ข้าว-แป้ง ผัก ผลไม้ เนื้อ-โปรตีน หรือนม เพื่อฝึกจำหมู่อาหาร
-                </div>
-                <div class="mode-tag">พร้อมใช้งาน • Categorization</div>
-              </div>
-              <div class="mode-preview">
-                <div class="preview-orbit">
-                  <div class="preview-dot"></div>
-                </div>
-                <div class="preview-icon" data-preview="groups">🥦</div>
-              </div>
+              <div class="mode-title">Food Groups</div>
+              <div class="mode-desc">เลือกอาหารให้ตรงหมู่เป้าหมายในแต่ละรอบ 🥦</div>
+              <div class="mode-tag">โฟกัส: แยกหมู่อาหาร</div>
             </div>
+            <div class="mode-icon">🥗</div>
           </div>
+          <div class="mode-preview">
+            <div class="mode-preview-lines"></div>
+            <span>ตัวอย่าง: รอบนี้เป็น “ผัก” ให้คลิกเฉพาะผักให้ครบเป้า ระวังของหมู่อื่นและของหวานล่อ!</span>
+          </div>
+        </div>
 
-          <div class="mode-card" data-mode="hydration">
+        <!-- Hydration -->
+        <div class="mode-card" data-mode="hydration">
+          <div class="mode-header">
             <div class="mode-main">
-              <div class="mode-info">
-                <div class="mode-name">
-                  <span class="emoji">💧</span>
-                  <span>Hydration</span>
-                </div>
-                <div class="mode-desc">
-                  แยก “น้ำดี” เช่น น้ำเปล่า นม ชาไม่หวาน ออกจากเครื่องดื่มหวาน เพื่อฝึกการตัดสินใจด้านน้ำดื่ม
-                </div>
-                <div class="mode-tag">พร้อมใช้งาน • Conceptual</div>
-              </div>
-              <div class="mode-preview">
-                <div class="preview-orbit">
-                  <div class="preview-dot"></div>
-                </div>
-                <div class="preview-icon" data-preview="hydration">💧</div>
-              </div>
+              <div class="mode-title">Hydration Balance</div>
+              <div class="mode-desc">เก็บแก้วน้ำให้สมดุลต่อวัน หลีกเลี่ยงน้ำหวาน 🥤</div>
+              <div class="mode-tag">โฟกัส: การดื่มน้ำให้พอดี</div>
             </div>
+            <div class="mode-icon">💧</div>
           </div>
+          <div class="mode-preview">
+            <div class="mode-preview-lines"></div>
+            <span>ตัวอย่าง: เก็บแก้วน้ำ 💧 ให้ครบโควตา ระวังน้ำอัดลม/ชาไข่มุกที่มาล่อให้กดผิด</span>
+          </div>
+        </div>
 
-          <div class="mode-card" data-mode="plate">
+        <!-- Balanced Plate -->
+        <div class="mode-card" data-mode="plate">
+          <div class="mode-header">
             <div class="mode-main">
-              <div class="mode-info">
-                <div class="mode-name">
-                  <span class="emoji">🍽️</span>
-                  <span>Balanced Plate</span>
-                </div>
-                <div class="mode-desc">
-                  เลือกอาหารที่ช่วยให้ “จานสมดุล” มีผัก ผลไม้ ข้าว-แป้ง และโปรตีนดีในสัดส่วนที่เหมาะสม
-                </div>
-                <div class="mode-tag">พร้อมใช้งาน • Planning</div>
-              </div>
-              <div class="mode-preview">
-                <div class="preview-orbit">
-                  <div class="preview-dot"></div>
-                </div>
-                <div class="preview-icon" data-preview="plate">🍽️</div>
-              </div>
+              <div class="mode-title">Balanced Plate</div>
+              <div class="mode-desc">จัดสัดส่วนโปรตีน-ผัก-ข้าว ให้อยู่บนจานสมดุล 🍽</div>
+              <div class="mode-tag">โฟกัส: สัดส่วนอาหารในมื้อเดียว</div>
             </div>
+            <div class="mode-icon">🍽</div>
+          </div>
+          <div class="mode-preview">
+            <div class="mode-preview-lines"></div>
+            <span>ตัวอย่าง: เลือกเมนูให้ได้สัดส่วนพอดี ไม่เน้นแป้ง/ของทอดมากเกินไป</span>
           </div>
         </div>
 
-        <div id="modePreviewPanel" class="preview-panel">
-          <span class="icon">✨</span>
-          <span id="modePreviewText">
-            เลือกโหมดด้านบนเพื่อดูคำอธิบายแบบย่อ และตั้งค่าโหมดนั้นในหน้าจอเล่นเกมหลัก
-          </span>
-        </div>
-      </section>
+      </div>
+    </section>
 
-      <!-- RIGHT: Profile + options + start -->
-      <section class="side">
-        <div class="card">
-          <div class="card-title">
-            <span>👦 โปรไฟล์ผู้เล่น (นักเรียน)</span>
-            <small>ใช้เก็บในไฟล์วิจัย CSV</small>
-          </div>
-          <div class="profile-grid">
-            <div class="field">
-              <label>
-                ชื่อเล่น / ชื่อจริง
-                <span class="required">*</span>
-              </label>
-              <input id="profileName" type="text" placeholder="เช่น บอล, ฝน, Mina"/>
-            </div>
-            <div class="field field-row">
-              <div>
-                <label>รหัสนักเรียน</label>
-                <input id="profileId" type="text" placeholder="ไม่บังคับ"/>
-              </div>
-              <div>
-                <label>ชั้น / ห้อง</label>
-                <input id="profileGrade" type="text" placeholder="ป.5/1, ป.6/2 ฯลฯ"/>
-              </div>
-            </div>
-          </div>
-          <div class="profile-footer">
-            <div class="hint-line" id="profileHint">ข้อมูลจะถูกใช้ประกอบการวิเคราะห์ผลการเล่นเกม</div>
-            <button id="btnSaveProfile" class="secondary">บันทึกโปรไฟล์</button>
-          </div>
-        </div>
+    <!-- ตัวเลือก diff + time -->
+    <section class="controls">
+      <div class="control-field">
+        <label for="selDiff">ระดับความยาก</label>
+        <select id="selDiff">
+          <option value="easy">Easy — เน้นสนุก ฝึกพื้นฐาน</option>
+          <option value="normal" selected>Normal — สมดุล สนุก+ท้าทาย</option>
+          <option value="hard">Hard — ท้าทายมาก เหมาะกับสายเกมเมอร์</option>
+        </select>
+      </div>
 
-        <div class="card">
-          <div class="card-title">
-            <span>⚙️ ตัวเลือกการเล่น</span>
-            <small>ตั้งค่า diff / เวลา ก่อนเริ่มรอบ</small>
-          </div>
-          <div class="options">
-            <div class="opt-row">
-              <label for="selDiff">ระดับความยาก:</label>
-              <select id="selDiff">
-                <option value="easy">Easy — ฝึกพื้นฐาน</option>
-                <option value="normal" selected>Normal — มาตรฐาน</option>
-                <option value="hard">Hard — โหมดท้าทาย</option>
-              </select>
-            </div>
-            <div class="opt-row">
-              <label for="inpTime">เวลา (วินาที):</label>
-              <input id="inpTime" type="number" min="20" max="180" step="5" value="60" style="max-width:120px;"/>
-              <span style="font-size:11px;color:#9ca3af;">20–180 วินาที</span>
-            </div>
-          </div>
+      <div class="control-field">
+        <label for="inpTime">เวลาเล่น (วินาที)</label>
+        <input id="inpTime" type="number" min="20" max="180" step="5" value="60"/>
+      </div>
 
-          <div class="start-bar">
-            <div>
-              <div>ปลายทาง: <code style="font-size:10px;">./index.vr.html?mode=…&diff=…&time=…</code></div>
-              <div class="hint-line">
-                ระบบจะส่งข้อมูลโปรไฟล์ + โหมด + diff ไปยังหน้าจอเล่นเกมและไฟล์ CSV อัตโนมัติ
-              </div>
-            </div>
-            <button id="btnStart" class="primary">
-              <span>เริ่มเกม</span> <span>▶</span>
-            </button>
-          </div>
-        </div>
+      <button id="btnStart" type="button">
+        ▶ เริ่มเล่น
+        <span class="small">(โหมดที่เลือก + โปรไฟล์นี้)</span>
+      </button>
+    </section>
 
-        <div class="card" style="font-size:11px;color:#9ca3af;">
-          <div class="card-title">
-            <span>📊 หมายเหตุสำหรับครู/นักวิจัย</span>
-          </div>
-          <ul style="margin:4px 0 4px 18px;padding:0;">
-            <li>ทุกครั้งที่จบรอบ จะมีข้อมูล Reaction Time / Accuracy / Quest / Boss อยู่ในไฟล์ CSV</li>
-            <li>ชื่อเล่น / รหัส / ชั้น จะถูกบันทึกไว้ระดับหนึ่งรอบต่อไฟล์</li>
-            <li>สามารถให้เด็กเล่นซ้ำเพื่อดูแนวโน้มการพัฒนาทักษะได้</li>
-          </ul>
-          <a href="#" class="help" onclick="return false;">ดูคู่มือการอ่านไฟล์ CSV (เตรียมเพิ่มเติมภายหลัง)</a>
-        </div>
-      </section>
+    <div class="footer-hint">
+      ระบบจะส่งไปที่ <code>play.html?mode=…&diff=…&time=…</code>  
+      โดยจะบันทึกโปรไฟล์นักเรียนใน <code>sessionStorage</code> ไว้สำหรับการวิเคราะห์ผลภายหลัง
     </div>
   </div>
 
-  <!-- เสียงคลิกเบา ๆ ตอนเลือกโหมด/เริ่มเกม (ถ้าไฟล์ไม่มี เบราว์เซอร์จะเงียบ) -->
-  <audio id="hubClickSfx" preload="auto">
-    <source src="./assets/sfx/hub-click.mp3" type="audio/mpeg"/>
-  </audio>
-
+  <!-- Logic ของ Hub -->
   <script src="./hub.js"></script>
 </body>
 </html>
