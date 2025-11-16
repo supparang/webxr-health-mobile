@@ -1,24 +1,27 @@
-// === Rhythm Boxer — v1.4 (Research + HADO FX + Hard Cleanup + Body Flag) ===
+// === Rhythm Boxer — v1.5 (Research + HADO FX + Hard Cleanup + Body Flag) ===
+// ใช้กับ VR-Fitness: Rhythm Boxer (PC/Mobile/VR-ready)
 
-const FIREBASE_API = '';
-const SHEET_API    = '';
-const PDF_API      = '';
-const LB_API       = '';
+const FIREBASE_API = ''; // optional
+const SHEET_API    = ''; // Google Sheet Apps Script
+const PDF_API      = ''; // PDF Apps Script
+const LB_API       = ''; // optional leaderboard
 
 const LS_PROFILE = 'rb_profile_v1';
 const LS_QUEUE   = 'rb_offline_queue_v1';
 
+// ----- Strings -----
 const STR = {
-  th:{
-    msgStart :'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
-    msgPaused:'พักแป๊บเดียวพอนะ โค้ชรอดูอยู่ 😄',
-    msgResume:'กลับมาต่อยตามจังหวะกันต่อ! 🎵',
-    msgEnd   :'จบเพลงแล้ว มาดูคะแนนกัน ⭐',
-    lbSchool :'อันดับในโรงเรียน',
-    lbClass  :'อันดับในห้องเรียน'
+  th: {
+    msgStart : 'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
+    msgPaused: 'พักแป๊บเดียวพอนะ โค้ชรอดูอยู่ 😄',
+    msgResume: 'กลับมาต่อยตามจังหวะกันต่อ! 🎵',
+    msgEnd   : 'จบเพลงแล้ว มาดูคะแนนกัน ⭐',
+    lbSchool : 'อันดับในโรงเรียน',
+    lbClass  : 'อันดับในห้องเรียน'
   }
 };
 
+// ----- Profile -----
 function getProfile(){
   try{
     const raw = localStorage.getItem(LS_PROFILE);
@@ -40,6 +43,7 @@ function ensureProfile(){
   return p;
 }
 
+// ----- Offline queue -----
 function loadQueue(){
   try{
     const raw = localStorage.getItem(LS_QUEUE);
@@ -63,6 +67,7 @@ async function flushQueue(){
   saveQueue(remain);
 }
 
+// ----- Hybrid Save -----
 async function hybridSaveSession(summary, allowQueue = true){
   const body = JSON.stringify(summary);
   const headers = { 'Content-Type':'application/json' };
@@ -83,6 +88,7 @@ async function hybridSaveSession(summary, allowQueue = true){
   }
 }
 
+// ----- PDF Export -----
 async function exportPDF(summary){
   if (!PDF_API){
     alert('ยังไม่ได้ตั้งค่า PDF_API');
@@ -108,6 +114,7 @@ async function exportPDF(summary){
   }
 }
 
+// ----- Leaderboard (optional) -----
 async function loadLeaderboard(scope, profile){
   if (!LB_API) return [];
   const url = new URL(LB_API);
@@ -143,6 +150,7 @@ function buildLBTable(rows){
   return table;
 }
 
+// ----- Pattern -----
 const SONG_PATTERN = [
   0.8, 1.5, 2.2, 3.0,
   3.8, 4.5, 5.2, 6.0,
@@ -151,6 +159,7 @@ const SONG_PATTERN = [
   12.6, 13.4, 14.2, 15.0
 ].map((t,i)=>({ time:t, lane:i%4 }));
 
+// ===== MAIN CLASS =====
 export class RhythmBoxer{
   constructor(opts){
     this.stage  = opts.stage;
@@ -159,6 +168,11 @@ export class RhythmBoxer{
     this.msgBox = opts.msgBox || null;
     this.lbBox  = opts.lbBox  || null;
     this.pdfBtn = opts.pdfBtn || null;
+
+    // 🔒 ซ่อนการ์ดสรุปผลตั้งแต่ต้น (กันโผล่ทับหน้าเกม)
+    if (this.result.box) {
+      this.result.box.style.display = 'none';
+    }
 
     if (!this.stage){
       alert('Rhythm Boxer: ไม่พบ stage container');
@@ -490,7 +504,7 @@ export class RhythmBoxer{
     };
   }
 
-  // ---- Hard cleanup (กัน element ซ้อนจริง ๆ) ----
+  // ----- Stage cleanup -----
   _clearStage(){
     const kill = sel => document.querySelectorAll(sel).forEach(e => e.remove());
     kill('.rb-note');
@@ -506,7 +520,7 @@ export class RhythmBoxer{
     }
   }
 
-  // ---- HADO-style FX ----
+  // ----- FX -----
   _playFinishFx(){
     const ripple = document.createElement('div');
     ripple.className = 'rb-ripple';
@@ -527,16 +541,10 @@ export class RhythmBoxer{
 
     const summary = this._buildSummary();
 
-    // 🧹 ล้าง lane/โน้ต
     this._clearStage();
-
-    // 🏷 ใส่ flag ที่ body ให้ CSS ช่วยซ่อนทุก lane ที่เหลือ
     document.body.classList.add('rb-finished');
-
-    // 🔒 กัน scroll
     document.body.style.overflow = 'hidden';
 
-    // FX
     this._playFinishFx();
 
     setTimeout(()=>{
