@@ -1,51 +1,3 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8"/>
-  <title>Shadow Breaker — เล่นเกม</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <link rel="stylesheet" href="./shadow-breaker.css"/>
-</head>
-<body>
-
-<!-- ฉากหลักของเกม -->
-<div id="sb-stage"></div>
-
-<!-- HUD ด้านบน -->
-<div class="sb-hud">
-  <div>⏱ เวลา: <b id="hud-time">90</b>s</div>
-  <div>💯 คะแนน: <b id="hud-score">0</b></div>
-  <div>🔥 คอมโบ: <b id="hud-combo">x0</b></div>
-  <button id="btn-pause" class="sb-btn-ghost">⏸ พัก</button>
-</div>
-
-<!-- ข้อความโค้ช -->
-<div id="sb-msg" class="sb-msg"></div>
-
-<!-- Leaderboard -->
-<aside id="sb-leaderboard" class="sb-leaderboard"></aside>
-
-<!-- Result Modal -->
-<div id="result-box" class="sb-result-backdrop">
-  <div class="sb-result-card">
-    <h2>🏁 ผลการเล่น Shadow Breaker</h2>
-    <p>คะแนนรวม: <b id="res-score">0</b></p>
-    <p>ต่อยโดนเป้า: <b id="res-hits">0</b> / พลาด: <b id="res-miss">0</b></p>
-    <p>ความแม่นยำ: <b id="res-acc">0%</b></p>
-    <p>คอมโบสูงสุด: <b id="res-best">x0</b></p>
-    <p>ระดับ (Rank): <b id="res-rank">C</b></p>
-
-    <hr/>
-
-    <button id="btn-pdf" class="sb-btn-primary">📄 ดาวน์โหลดรายงาน PDF</button>
-
-    <div class="sb-result-actions">
-      <button id="btn-retry" class="sb-btn-secondary">🔁 เล่นอีกครั้ง</button>
-      <button id="btn-home" class="sb-btn-ghost">🏠 กลับเมนู</button>
-    </div>
-  </div>
-</div>
-
 <script type="module">
 import { ShadowBreaker } from './shadow-breaker.js';
 
@@ -97,9 +49,21 @@ btnHome?.addEventListener('click', ()=>{
   location.href = './index.html';
 });
 
+// ===== Leaderboard toggle + auto-hide แบบข้อ 2 =====
+const lb       = document.querySelector('#sb-leaderboard');
+const lbToggle = document.querySelector('#lb-toggle');
+
+// ซ่อน leaderboard ตั้งแต่เริ่มเข้าเกม
+if (lb && lbToggle) {
+  lb.classList.add('hidden');   // ใช้คลาสจาก CSS ที่ใส่ไปแล้ว
+  lbToggle.textContent = '📊';  // แสดงเป็นปุ่มเปิด
+
+  lbToggle.addEventListener('click', ()=>{
+    const isHidden = lb.classList.toggle('hidden');
+    lbToggle.textContent = isHidden ? '📊' : '❌';
+  });
+}
+
 // เริ่มเกมทันทีเมื่อโหลดหน้า
 game.start();
 </script>
-
-</body>
-</html>
