@@ -16,6 +16,13 @@ const GAME_DURATION = timeParam;
 function $(sel) { return document.querySelector(sel); }
 function $all(sel) { return document.querySelectorAll(sel); }
 
+function detectDeviceType() {
+  const ua = navigator.userAgent || '';
+  if (/Quest|OculusBrowser|VR/i.test(ua)) return 'vr';
+  if (/Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
+  return 'desktop';
+}
+
 // อ่าน profile จาก Hub (ถ้ามี)
 let playerProfile = {};
 try {
@@ -23,6 +30,235 @@ try {
   if (raw) playerProfile = JSON.parse(raw) || {};
 } catch (e) {
   playerProfile = {};
+}
+
+// ---------- Research Summary Store + CSV Export ----------
+window.HH_SUMMARIES = window.HH_SUMMARIES || [];
+const HHA_SUMMARIES = window.HH_SUMMARIES;
+
+// mode: 'teacher' | 'research'
+function exportCsv(mode) {
+  console.log('[HHA] exportCsv mode =', mode, 'rows =', HHA_SUMMARIES.length);
+
+  if (!HHA_SUMMARIES.length) {
+    alert('ยังไม่มีข้อมูลรอบที่เล่นในหน้านี้เลย');
+    return;
+  }
+
+  if (mode === 'teacher') {
+    downloadTeacherCsv(HHA_SUMMARIES);
+  } else if (mode === 'research') {
+    downloadResearchCsv(HHA_SUMMARIES);
+  } else {
+    alert('โหมดส่งออกไม่ถูกต้อง');
+  }
+}
+
+// แบบย่อสำหรับครู
+function downloadTeacherCsv(rows) {
+  const header = [
+    'timestamp_iso',
+    'mode',
+    'diff',
+    'duration_sec',
+    'player_name',
+    'score',
+    'max_combo',
+    'accuracy_percent',
+    'mission_success',
+    'quests_done',
+    'quests_total'
+  ];
+
+  const lines = [header.join(',')];
+
+  rows.forEach(function (s) {
+    const p = s.performance || {};
+    const q = s.quests || {};
+    const prof = s.profile || {};
+
+    const cols = [
+      s.timestampIso || '',
+      s.mode || '',
+      s.diff || '',
+      (s.durationSec != null ? s.durationSec : ''),
+      (prof.name || ''),
+      (p.score != null ? p.score : ''),
+      (p.maxCombo != null ? p.maxCombo : ''),
+      (p.accuracyPercent != null ? p.accuracyPercent.toFixed(1) : ''),
+      (p.missionSuccess ? 1 : 0),
+      (q.done != null ? q.done : ''),
+      (q.total != null ? q.total : '')
+    ];
+    lines.push(cols.join(','));
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const urlBlob = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = urlBlob;
+  a.download = 'herohealth_teacher.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(urlBlob);
+  }, 300);
+}
+
+// แบบเต็มสำหรับวิจัย
+function downloadResearchCsv(rows) {
+  const header = [
+    'timestamp_iso','build_version','session_id','run_id',
+    'mode','diff','duration_sec','time_left',
+    'player_name','student_id','grade_room',
+    'device_type','platform','user_agent_short',
+    'score','max_combo',
+    'good_clicks','junk_clicks','boss_clicks','miss_clicks','total_clicks',
+    'mission_good','mission_target','mission_success',
+    'accuracy_percent',
+    'avg_reaction_ms','median_reaction_ms','min_reaction_ms','max_reaction_ms','rt_sample_count',
+    'fever_count','fever_total_sec',
+    'boss_spawned','boss_defeated','boss_max_hp',
+    'quests_total','quests_done','quests_detail',
+    'acc_target_min','acc_target_max','acc_band',
+    'type_weights_json'
+  ];
+
+  const lines = [header.join(',')];
+
+  rows.forEach(function (s) {
+    const p   = s.performance || {};
+    const t   = s.timing || {};
+    const f   = s.fever || {};
+    const b   = s.boss || {};
+    const q   = s.quests || {};
+    const cfg = s.config || {};
+    const accT = (cfg.accTarget || {});
+    const prof = s.profile || {};
+    const dev  = s.device || {};
+
+    const uaShort = (dev.userAgent || '').slice(0, 80).replace(/,/g, ' ');
+
+    let questDetail = '';
+    if (q.list && q.list.length) {
+      questDetail = q.list
+        .map(function (qi) {
+          const tag = qi.done ? '✓' : 'x';
+          return '[' + tag + '] ' + (qi.id || '') + ' ' + (qi.label || '');
+        })
+        .join(' | ');
+    }
+
+    const typeWeightsJson = cfg.typeWeights
+      ? JSON.stringify(cfg.typeWeights)
+      : '';
+
+    const cols = [
+      s.timestampIso || '',
+      s.buildVersion || '',
+      s.sessionId || '',
+      s.runId || '',
+      s.mode || '',
+      s.diff || '',
+      (s.durationSec != null ? s.durationSec : ''),
+      (s.timeLeft != null ? s.timeLeft : ''),
+      prof.name || '',
+      prof.studentId || '',
+      prof.gradeRoom || '',
+      dev.deviceType || '',
+      dev.platform || '',
+      uaShort,
+      (p.score != null ? p.score : ''),
+      (p.maxCombo != null ? p.maxCombo : ''),
+      (p.goodClicks != null ? p.goodClicks : ''),
+      (p.junkClicks != null ? p.junkClicks : ''),
+      (p.bossClicks != null ? p.bossClicks : ''),
+      (p.missClicks != null ? p.missClicks : ''),
+      (p.totalClicks != null ? p.totalClicks : ''),
+      (p.missionGoodCount != null ? p.missionGoodCount : ''),
+      (p.missionTarget != null ? p.missionTarget : ''),
+      (p.missionSuccess ? 1 : 0),
+      (p.accuracyPercent != null ? p.accuracyPercent.toFixed(2) : ''),
+      (t.avgReactionMs != null ? t.avgReactionMs.toFixed(1) : ''),
+      (t.medianReactionMs != null ? t.medianReactionMs.toFixed(1) : ''),
+      (t.minReactionMs != null ? t.minReactionMs.toFixed(1) : ''),
+      (t.maxReactionMs != null ? t.maxReactionMs.toFixed(1) : ''),
+      (t.sampleCount != null ? t.sampleCount : ''),
+      (f.feverCount != null ? f.feverCount : ''),
+      (f.totalFeverSeconds != null ? f.totalFeverSeconds : ''),
+      (b.spawned ? 1 : 0),
+      (b.defeated ? 1 : 0),
+      (b.maxHp != null ? b.maxHp : ''),
+      (q.total != null ? q.total : ''),
+      (q.done != null ? q.done : ''),
+      questDetail,
+      (accT.min != null ? accT.min : ''),
+      (accT.max != null ? accT.max : ''),
+      accT.band || '',
+      typeWeightsJson
+    ];
+
+    lines.push(cols.join(','));
+  });
+
+  const csvContent = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const urlBlob = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = urlBlob;
+  a.download = 'herohealth_research.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function () {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(urlBlob);
+  }, 300);
+}
+
+// ---------- Export CSV Dropdown ----------
+let exportDropdownInited = false;
+
+function initExportDropdown() {
+  if (exportDropdownInited) return;
+  const btn      = document.getElementById('hha-export-btn');
+  const menu     = document.getElementById('hha-export-dropdown');
+  const teacher  = document.getElementById('hha-export-teacher');
+  const research = document.getElementById('hha-export-research');
+
+  if (!btn || !menu || !teacher || !research) return;
+
+  exportDropdownInited = true;
+
+  function hideMenu() {
+    menu.style.display = 'none';
+  }
+  function toggleMenu() {
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+  }
+
+  btn.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    toggleMenu();
+  });
+
+  teacher.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    hideMenu();
+    exportCsv('teacher');
+  });
+
+  research.addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    hideMenu();
+    exportCsv('research');
+  });
+
+  // คลิกนอกเมนู → ปิด
+  document.addEventListener('click', function () {
+    hideMenu();
+  });
 }
 
 // ---------- โหลดโหมด ----------
@@ -39,24 +275,22 @@ const cfg = (typeof MODE_IMPL.setupForDiff === 'function')
   ? (MODE_IMPL.setupForDiff(DIFF) || {})
   : {};
 
-const SPAWN_INTERVAL = cfg.SPAWN_INTERVAL || 700;
-const ITEM_LIFETIME  = cfg.ITEM_LIFETIME  || 1500;
-const MAX_ACTIVE     = cfg.MAX_ACTIVE     || 4;
-const MISSION_GOOD_TARGET = cfg.MISSION_GOOD_TARGET || 20;
-const SIZE_FACTOR    = cfg.SIZE_FACTOR    || 1.0;
-
-const TYPE_WEIGHTS   = cfg.TYPE_WEIGHTS || {
+const SPAWN_INTERVAL        = cfg.SPAWN_INTERVAL        || 700;
+const ITEM_LIFETIME         = cfg.ITEM_LIFETIME         || 1500;
+const MAX_ACTIVE            = cfg.MAX_ACTIVE            || 4;
+const MISSION_GOOD_TARGET   = cfg.MISSION_GOOD_TARGET   || 20;
+const SIZE_FACTOR           = cfg.SIZE_FACTOR           || 1.0;
+const TYPE_WEIGHTS          = cfg.TYPE_WEIGHTS || {
   good: 50, junk: 30, star: 6, gold: 5, diamond: 4, shield: 3, fever: 4, rainbow: 0
 };
-
-const FEVER_DURATION       = cfg.FEVER_DURATION       || 6;
-const DIAMOND_TIME_BONUS   = cfg.DIAMOND_TIME_BONUS   || 2;
+const FEVER_DURATION        = cfg.FEVER_DURATION        || 6;
+const DIAMOND_TIME_BONUS    = cfg.DIAMOND_TIME_BONUS    || 2;
 
 // ---------- Boss Config ----------
-const BOSS_WINDOW_SEC  = 7;    // ช่วงวินาทีท้ายเกมที่ Boss จะโผล่
-const BOSS_HP          = 5;    // ต้องคลิกกี่ทีถึงล้ม
-const BOSS_SCORE_PER_HIT = 10; // คะแนนต่อ hit
-const BOSS_BONUS_CLEAR = 50;   // โบนัสเมื่อล้มได้ก่อนหมดเวลา
+const BOSS_WINDOW_SEC       = 7;
+const BOSS_HP               = 5;
+const BOSS_SCORE_PER_HIT    = 10;
+const BOSS_BONUS_CLEAR      = 50;
 
 // ---------- State ----------
 let running = false;
@@ -107,21 +341,9 @@ const questState = [
 let streakGoodNoJunk = 0;
 
 // ---------- Research Logging ----------
-const eventLog = []; // ต่อ event: click, miss, boss hit ฯลฯ
+const eventLog = [];
 
 function logEvent(ev) {
-  // โครงสร้าง log
-  // ev: {
-  //   kind: 'hit' / 'miss' / 'boss',
-  //   mode, diff,
-  //   type, emoji,
-  //   spawnPerf, clickPerf, rtMs,
-  //   correct,
-  //   scoreAfter, comboAfter, timeLeft,
-  //   fever, shieldBefore,
-  //   questSnapshot: { ... },
-  //   meta: { ... }
-  // }
   eventLog.push(ev);
 }
 
@@ -335,9 +557,20 @@ function createHUD() {
         <div style="margin-bottom:4px;">
           คอมโบสูงสุด: <b id="hha-final-combo">0</b>
         </div>
-        <div style="margin-bottom:14px;">
+        <div style="margin-bottom:4px;">
           ของดีที่เก็บได้:
           <b id="hha-final-good">0</b> / ${MISSION_GOOD_TARGET}
+        </div>
+        <div style="margin-bottom:4px;font-size:13px;">
+          ความแม่นยำ: <b id="hha-final-acc">–</b>
+        </div>
+        <div style="margin-bottom:4px;font-size:13px;">
+          เวลาเฉลี่ยต่อการคลิก (ms): <b id="hha-final-rt">–</b>
+        </div>
+        <div style="margin-bottom:4px;font-size:13px;">
+          Mini Quest ที่สำเร็จ: <b id="hha-final-quests">0</b> / ${questState.length}
+        </div>
+        <div style="margin-bottom:10px;font-size:13px;" id="hha-final-boss">
         </div>
 
         <!-- แถวปุ่ม: ดาวน์โหลด CSV (dropdown) + เล่นอีกครั้ง -->
@@ -392,7 +625,6 @@ function createHUD() {
         </div>
       </div>
     </div>
-
   `;
   document.body.appendChild(hud);
 
@@ -466,11 +698,7 @@ function updateHUD() {
   if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
 
   if (feverBanner) {
-    if (feverTicksLeft > 0) {
-      feverBanner.style.display = 'block';
-    } else {
-      feverBanner.style.display = 'none';
-    }
+    feverBanner.style.display = (feverTicksLeft > 0) ? 'block' : 'none';
   }
 
   if (feverTicksLeft > 0) {
@@ -553,7 +781,7 @@ function updateQuestsOnGoodHit() {
     questState[0].progress = streakGoodNoJunk;
     if (streakGoodNoJunk >= questState[0].target) {
       questState[0].done = true;
-      score += 20; // โบนัสเล็กน้อย
+      score += 20;
     }
   }
   if (!questState[1].done) {
@@ -611,9 +839,9 @@ function spawnOne(host) {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'transform 0.12s ease, opacity 0.12s ease',
+    transition: 'transform 0.12s ease, opacity 0.12s.ease',
     pointerEvents: 'auto',
-    animation: 'hha-float 1.3s ease-in-out infinite'
+    animation: 'hha-float 1.3s.ease-in-out infinite'
   };
   Object.assign(item.style, baseStyle);
 
@@ -637,9 +865,8 @@ function spawnOne(host) {
   const x = 0.1 * vw + Math.random() * 0.8 * vw;
   const y = 0.18 * vh + Math.random() * 0.7 * vh;
   item.style.left = (x - size / 2) + 'px';
-  item.style.top = (y - size / 2) + 'px';
+  item.style.top  = (y - size / 2) + 'px';
 
-  // เวลา spawn
   const spawnPerf = performance.now();
   item.dataset.spawnPerf = String(spawnPerf);
 
@@ -730,7 +957,6 @@ function spawnOne(host) {
       if (shieldCharges > 0) {
         shieldCharges -= 1;
         item.style.transform = 'scale(0.9)';
-        // ถือว่าป้องกันได้ ไม่หักความถูกต้อง
         correct = true;
       } else {
         score = Math.max(0, score - 5);
@@ -747,7 +973,6 @@ function spawnOne(host) {
       }
     }
 
-    // log event
     logEvent({
       kind: 'hit',
       mode: MODE,
@@ -780,7 +1005,6 @@ function spawnOne(host) {
 
   setTimeout(function() {
     if (!item.parentNode) return;
-    // timeout → miss
     item.style.opacity = '0';
     item.style.transform = 'scale(0.7)';
     const spawnPerfNum = parseFloat(item.dataset.spawnPerf || (roundStartPerf || performance.now()));
@@ -852,7 +1076,7 @@ function spawnBoss(host) {
   const x = vw / 2;
   const y = vh * 0.5;
   item.style.left = (x - size / 2) + 'px';
-  item.style.top = (y - size / 2) + 'px';
+  item.style.top  = (y - size / 2) + 'px';
 
   item.dataset.hp = String(BOSS_HP);
   const spawnPerf = performance.now();
@@ -925,96 +1149,7 @@ function spawnBoss(host) {
   host.appendChild(item);
 }
 
-// ---------- Export CSV ----------
-function exportCSV() {
-  if (!eventLog.length) {
-    alert('ยังไม่มีข้อมูลสำหรับส่งออก');
-    return;
-  }
-
-  // สรุปจาก eventLog
-  const hits = eventLog.filter(e => e.kind === 'hit' || e.kind === 'boss-hit');
-  const validForAcc = hits.filter(e => e.type === 'good' || e.type === 'junk' || e.type === 'boss');
-  const correctHits = validForAcc.filter(e => e.correct);
-  const accuracy = validForAcc.length
-    ? (correctHits.length / validForAcc.length) * 100
-    : 0;
-
-  const rtSamples = hits
-    .map(e => e.rtMs)
-    .filter(v => typeof v === 'number' && v > 0);
-  let rtAvg = 0;
-  if (rtSamples.length) {
-    const sum = rtSamples.reduce((a,b) => a + b, 0);
-    rtAvg = sum / rtSamples.length;
-  }
-
-  const header = [
-    'profile_name',
-    'profile_grade',
-    'profile_id',
-    'mode',
-    'diff',
-    'kind',
-    'type',
-    'emoji',
-    'correct',
-    'rt_ms',
-    'score_after',
-    'combo_after',
-    'time_left',
-    'fever',
-    'shield_before',
-    'quest_streak5_done',
-    'quest_combo_done',
-    'quest_fever_done'
-  ];
-
-  const lines = [header.join(',')];
-
-  eventLog.forEach(e => {
-    const row = [
-      JSON.stringify((playerProfile.name || '')).replace(/"/g,'""'),
-      JSON.stringify((playerProfile.grade || '')).replace(/"/g,'""'),
-      JSON.stringify((playerProfile.sid || '')).replace(/"/g,'""'),
-      e.mode,
-      e.diff,
-      e.kind,
-      e.type,
-      JSON.stringify(e.emoji || '').replace(/"/g,'""'),
-      e.correct ? '1' : '0',
-      (e.rtMs != null ? e.rtMs : ''),
-      e.scoreAfter,
-      e.comboAfter,
-      e.timeLeft,
-      e.fever ? '1' : '0',
-      e.shieldBefore,
-      e.quests && e.quests.streak5 && e.quests.streak5.done ? '1' : '0',
-      e.quests && e.quests.comboTarget && e.quests.comboTarget.done ? '1' : '0',
-      e.quests && e.quests.feverTwice && e.quests.feverTwice.done ? '1' : '0'
-    ];
-    lines.push(row.join(','));
-  });
-
-  const csvContent = '\uFEFF' + lines.join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const urlBlob = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  const safeMode = MODE || 'mode';
-  const safeDiff = DIFF || 'diff';
-  const ts = new Date().toISOString().replace(/[:.]/g,'-');
-  a.href = urlBlob;
-  a.download = 'HeroHealth_' + safeMode + '_' + safeDiff + '_' + ts + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function() {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(urlBlob);
-  }, 300);
-}
-
-// ---------- End Game ----------
+// ---------- End Game / Result + Summary ----------
 function computeAndShowResult() {
   const hits = eventLog.filter(e => e.kind === 'hit' || e.kind === 'boss-hit');
   const validForAcc = hits.filter(e => e.type === 'good' || e.type === 'junk' || e.type === 'boss');
@@ -1031,6 +1166,19 @@ function computeAndShowResult() {
     const sum = rtSamples.reduce((a,b) => a + b, 0);
     rtAvg = sum / rtSamples.length;
   }
+
+  let minRT = null;
+  let maxRT = null;
+  rtSamples.forEach(v => {
+    if (minRT === null || v < minRT) minRT = v;
+    if (maxRT === null || v > maxRT) maxRT = v;
+  });
+
+  const goodClicks = hits.filter(e => e.type === 'good').length;
+  const junkClicks = hits.filter(e => e.type === 'junk').length;
+  const bossClicks = hits.filter(e => e.type === 'boss').length;
+  const totalClicks = hits.length;
+  const missClicks = eventLog.filter(e => e.kind === 'miss').length;
 
   const result = $('#hha-result');
   const fs = $('#hha-final-score');
@@ -1051,17 +1199,93 @@ function computeAndShowResult() {
   if (fa) fa.textContent = accuracy.toFixed(1) + '%';
   if (frt) frt.textContent = rtSamples.length ? rtAvg.toFixed(1) : '–';
   if (fq) fq.textContent = String(questDoneCount);
-  if (fboss) fboss.textContent = bossSpawned
-    ? (bossDefeated ? 'ล้ม Boss ได้สำเร็จ 🎯' : 'Boss หนีไปได้…')
-    : 'ยังไม่พบ Boss';
+  if (fboss) {
+    fboss.textContent = bossSpawned
+      ? (bossDefeated ? 'ล้ม Boss ได้สำเร็จ 🎯' : 'Boss หนีไปได้…')
+      : 'ยังไม่พบ Boss';
+  }
 
   if (title) {
-    if (missionSuccess) {
-      title.textContent = 'ภารกิจสำเร็จ! 🎉';
-    } else {
-      title.textContent = 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
-    }
+    title.textContent = missionSuccess
+      ? 'ภารกิจสำเร็จ! 🎉'
+      : 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
   }
+
+  // สร้าง summary object สำหรับ CSV
+  const medianRT = (function() {
+    if (!rtSamples.length) return 0;
+    const sorted = rtSamples.slice().sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    if (sorted.length % 2) return sorted[mid];
+    return (sorted[mid - 1] + sorted[mid]) / 2;
+  })();
+
+  const summary = {
+    timestampIso: new Date().toISOString(),
+    buildVersion: '',
+    sessionId: '',
+    runId: '',
+    mode: MODE,
+    diff: DIFF,
+    durationSec: GAME_DURATION,
+    timeLeft: timeLeft,
+    profile: {
+      name: playerProfile.name || '',
+      studentId: playerProfile.sid || '',
+      gradeRoom: playerProfile.grade || ''
+    },
+    performance: {
+      score: score,
+      maxCombo: maxCombo,
+      missionGoodCount: missionGoodCount,
+      missionTarget: MISSION_GOOD_TARGET,
+      missionSuccess: missionSuccess,
+      accuracyPercent: accuracy,
+      goodClicks: goodClicks,
+      junkClicks: junkClicks,
+      bossClicks: bossClicks,
+      missClicks: missClicks,
+      totalClicks: totalClicks
+    },
+    quests: {
+      total: questState.length,
+      done: questDoneCount,
+      list: questState.map(q => ({
+        id: q.id,
+        label: q.desc,
+        done: q.done,
+        progress: q.progress,
+        target: q.target
+      }))
+    },
+    boss: {
+      spawned: bossSpawned,
+      defeated: bossDefeated,
+      maxHp: BOSS_HP
+    },
+    fever: {
+      feverCount: feverTriggeredCount,
+      totalFeverSeconds: 0
+    },
+    timing: {
+      avgReactionMs: rtAvg,
+      medianReactionMs: medianRT,
+      minReactionMs: minRT,
+      maxReactionMs: maxRT,
+      sampleCount: rtSamples.length
+    },
+    config: {
+      typeWeights: TYPE_WEIGHTS,
+      accTarget: {} // เผื่อในอนาคตตั้ง band accuracy สำหรับ adaptive diff
+    },
+    device: {
+      deviceType: detectDeviceType(),
+      platform: navigator.platform || '',
+      userAgent: navigator.userAgent || ''
+    }
+  };
+
+  HHA_SUMMARIES.push(summary);
 
   if (result) result.style.display = 'flex';
 
@@ -1145,7 +1369,6 @@ function startGame() {
       if (feverTicksLeft < 0) feverTicksLeft = 0;
     }
 
-    // spawn boss ในช่วงท้าย
     if (timeLeft <= BOSS_WINDOW_SEC && !bossSpawned) {
       spawnBoss(host);
     }
@@ -1161,6 +1384,7 @@ function bootstrap() {
   createFXLayer();
   ensureGameCSS();
   updateHUD();
+  initExportDropdown();
 
   const restartBtn = $('#hha-restart');
   if (restartBtn) {
@@ -1176,11 +1400,6 @@ function bootstrap() {
     backBtn.addEventListener('click', function() {
       window.location.href = './hub.html';
     });
-  }
-
-  const csvBtn = $('#hha-export-csv');
-  if (csvBtn) {
-    csvBtn.addEventListener('click', exportCSV);
   }
 
   startGame();
