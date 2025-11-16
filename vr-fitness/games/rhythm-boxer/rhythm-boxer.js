@@ -1,11 +1,12 @@
-// === Rhythm Boxer — DEV v1.0 (Research-ready) ===
+// === Rhythm Boxer — DEV v1.1 (Research + HADO Finish FX) ===
 // - 4 lanes, tap/punch to the beat
 // - Perfect / Good / Miss scoring
-// - Summary format compatible with Shadow Breaker (สำหรับวิจัยรวมกัน)
+// - HADO-style ripple + scan effect เมื่อจบเกม
+// - Summary format compatible กับ ShadowBreakerResearch
 
-// ---- CONFIG ENDPOINT (ใช้ตัวเดียวกับ Shadow Breaker ได้เลย) ----
+// ---- CONFIG ENDPOINT (ใช้ตัวเดียวกับ Shadow Breaker ก็ได้) ----
 const FIREBASE_API = '';  // optional
-const SHEET_API    = '';  // Google Sheet Apps Script (ShadowBreakerResearch)
+const SHEET_API    = '';  // Google Sheet Apps Script
 const PDF_API      = '';  // PDF Apps Script
 const LB_API       = '';  // optional leaderboard
 
@@ -24,7 +25,7 @@ const STR = {
   }
 };
 
-// ===== Profile handling (ง่าย ๆ เหมือน SB) =====
+// ===== Profile handling =====
 function getProfile(){
   try{
     const raw = localStorage.getItem(LS_PROFILE);
@@ -117,7 +118,7 @@ async function exportPDF(summary){
   }
 }
 
-// ===== Leaderboard (อนาคต) =====
+// ===== Leaderboard (optional) =====
 async function loadLeaderboard(scope, profile){
   if (!LB_API) return [];
   const url = new URL(LB_API);
@@ -156,7 +157,6 @@ function buildLBTable(rows){
 // ===== โน้ต/เลน =====
 // lane: 0-3, time: วินาทีที่จะต้องกด
 const SONG_PATTERN = [
-  // ง่าย ๆ: 1 บีตทุก 0.7–0.9 วิ สลับเลน
   0.8, 1.5, 2.2, 3.0,
   3.8, 4.5, 5.2, 6.0,
   6.8, 7.5, 8.2, 9.0,
@@ -205,7 +205,7 @@ export class RhythmBoxer{
       elapsed:0, lastTs:0,
       score:0, hits:0, miss:0,
       combo:0, best:0,
-      notes:[],       // {time,lane,hit:false,judged:false}
+      notes:[],       // {time,lane,hit:false,judged:false,dom}
       raf:0
     };
 
@@ -243,6 +243,8 @@ export class RhythmBoxer{
     wrap.style.gap = '8px';
     wrap.style.pointerEvents = 'none';
 
+    this.lanes = [];
+
     for (let i=0;i<4;i++){
       const lane = document.createElement('div');
       lane.className = 'rb-lane';
@@ -256,6 +258,7 @@ export class RhythmBoxer{
       lane.style.boxShadow='0 10px 30px rgba(15,23,42,.9)';
       lane.style.overflow='hidden';
       lane.style.pointerEvents='auto';
+      lane.style.zIndex = '20';
 
       const hitLine = document.createElement('div');
       hitLine.className='rb-hitline';
@@ -348,6 +351,7 @@ export class RhythmBoxer{
 
   _spawnNote(note){
     const lane = this.lanes[note.lane];
+    if (!lane) return;
     const dom  = document.createElement('div');
     dom.className = 'rb-note';
     dom.style.position='absolute';
@@ -363,18 +367,16 @@ export class RhythmBoxer{
   }
 
   _updateNotes(dt){
-    // เดินเวลาของโน้ตให้เลื่อนลงมาเรื่อย ๆ (ง่าย ๆ)
     this.state.notes.forEach(note=>{
       if (!note.dom) return;
-      // เรา map time → position แบบ linear: ยิ่งใกล้ time ยิ่งใกล้ hit line
       const tNow = this.state.elapsed;
       const dtHead = note.time - tNow;
       const totalTravel = 2.0; // วินาทีก่อนถึง hit line
-      const ratio = 1 - (dtHead / totalTravel); // 0 → เริ่มบน, 1 → ถึง hit line
+      const ratio = 1 - (dtHead / totalTravel); // 0 → บน, 1 → ถึงเส้น
       const clamped = Math.max(0, Math.min(1.2, ratio));
       const lane = this.lanes[note.lane];
       const h = lane.clientHeight||1;
-      const bottomPx = 12 + clamped * (h - 40); // 12px เหนือ hit line
+      const bottomPx = 12 + clamped * (h - 40);
       note.dom.style.bottom = bottomPx + 'px';
     });
   }
@@ -385,7 +387,7 @@ export class RhythmBoxer{
     const tNow = this.state.elapsed;
     const cfg  = this.cfg;
 
-    // หาโน้ตใน lane นั้นที่ยังไม่ judged และอยู่ใกล้ที่สุด
+    // หาโน้ตใน lane นั้นที่ยังไม่ judged และใกล้ที่สุด
     let best = null;
     let bestDt = Infinity;
     this.state.notes.forEach(note=>{
@@ -398,12 +400,10 @@ export class RhythmBoxer{
     });
 
     if (!best){
-      // ไม่มีโน้ต → miss
       this._regMiss(null);
       return;
     }
 
-    // 判断 ว่า Perfect / Good / Miss
     let type = 'miss';
     if (bestDt <= cfg.windowPerfect) type = 'perfect';
     else if (bestDt <= cfg.windowGood) type = 'good';
@@ -516,15 +516,46 @@ export class RhythmBoxer{
     };
   }
 
+  // ===== HADO-style finish FX =====
+  _playFinishFx(){
+    // fade-out lanes
+    this.lanes.forEach(lane=>{
+      lane.classList.add('fade-out');
+      setTimeout(()=>lane.remove(), 400);
+    });
+
+    // ripple + scan overlay
+    const ripple = document.createElement('div');
+    ripple.className = 'rb-ripple';
+    const scan = document.createElement('div');
+    scan.className = 'rb-scan';
+    document.body.appendChild(ripple);
+    document.body.appendChild(scan);
+
+    setTimeout(()=>{
+      ripple.remove();
+      scan.remove();
+    }, 1000);
+  }
+
   async _finish(){
     this.state.play = false;
     cancelAnimationFrame(this.state.raf);
     this._msg(this.str.msgEnd);
 
     const summary = this._buildSummary();
-    this._showResult(summary);
-    hybridSaveSession(summary,true);
-    this._loadLeaderboards(summary.profile);
+
+    // เล่นเอฟเฟกต์ HADO ก่อน
+    this._playFinishFx();
+
+    // กันจอเลื่อนบนมือถือเวลาโชว์ผล
+    document.body.style.overflow = 'hidden';
+
+    setTimeout(()=>{
+      this._showResult(summary);
+      hybridSaveSession(summary,true);
+      this._loadLeaderboards(summary.profile);
+    }, 850);
   }
 
   _showResult(summary){
