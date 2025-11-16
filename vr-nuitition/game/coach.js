@@ -1,195 +1,100 @@
-// === Hero Health — game/coach.js ===
-// โค้ชพูดกับเด็ก ป.5 แบบสั้น สนุก ตรงประเด็น
-// ใช้ร่วมกับ main.js ผ่าน window.HH_COACH
+// === Hero Health — coach.js ===
+// โค้ชพูดแนวเกม ROV/Free Fire แต่สุภาพสำหรับ ป.5–ป.6
 
 (function () {
   'use strict';
 
-  // สร้าง bubble โค้ชมุมซ้ายล่าง
-  function ensureCoachBubble() {
-    let wrap = document.getElementById('hha-coach');
-    if (wrap) return wrap;
+  function createCoachBubble() {
+    let el = document.getElementById('hha-coach');
+    if (el) return el;
 
-    wrap = document.createElement('div');
-    wrap.id = 'hha-coach';
-    Object.assign(wrap.style, {
+    el = document.createElement('div');
+    el.id = 'hha-coach';
+    Object.assign(el.style, {
       position: 'fixed',
-      left: '12px',
-      bottom: '12px',
+      left: '16px',
+      bottom: '16px',
       maxWidth: '260px',
-      zIndex: '9300',
-      fontFamily: 'system-ui,Segoe UI,Inter,Roboto,sans-serif',
-      fontSize: '13px',
+      padding: '10px 12px',
+      borderRadius: '16px',
+      background: 'rgba(15,23,42,0.96)',
       color: '#e5e7eb',
+      fontFamily: 'system-ui,Segoe UI,Inter,Roboto,sans-serif',
+      fontSize: '12px',
+      boxShadow: '0 18px 40px rgba(0,0,0,0.7)',
+      border: '1px solid rgba(148,163,184,0.8)',
+      zIndex: 9300,
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '8px',
       pointerEvents: 'none'
     });
 
-    wrap.innerHTML = `
-      <div id="hha-coach-bubble"
-        style="
-          background:rgba(15,23,42,0.97);
-          border-radius:16px;
-          padding:10px 12px;
-          border:1px solid rgba(96,165,250,0.9);
-          box-shadow:0 12px 30px rgba(0,0,0,0.75);
-          display:none;
-        ">
-        <div style="font-size:12px;color:#93c5fd;margin-bottom:4px;">
-          🧑‍🏫 โค้ช Hero Health
+    el.innerHTML = `
+      <div style="font-size:20px;line-height:1;">🧑‍⚕️</div>
+      <div>
+        <div style="font-weight:600;font-size:12px;margin-bottom:2px;">โค้ชสุขภาพ</div>
+        <div id="hha-coach-text" style="font-size:12px;line-height:1.4;">
+          พร้อมลุยแล้วนะ! ลองเก็บของดีให้เยอะสุด ๆ ไปเลย 💪
         </div>
-        <div id="hha-coach-text"></div>
       </div>
     `;
-    document.body.appendChild(wrap);
-    return wrap;
+    document.body.appendChild(el);
+    return el;
   }
 
-  function showCoachMessage(text, durationMs) {
-    ensureCoachBubble();
-    const bubble = document.getElementById('hha-coach-bubble');
-    const label = document.getElementById('hha-coach-text');
-    if (!bubble || !label) return;
-
-    label.textContent = text;
-    bubble.style.display = 'block';
-    bubble.style.opacity = '1';
-    bubble.style.transform = 'translateY(0)';
-
-    if (durationMs && durationMs > 0) {
-      setTimeout(function () {
-        bubble.style.opacity = '0';
-        bubble.style.transform = 'translateY(6px)';
-        setTimeout(function () {
-          bubble.style.display = 'none';
-        }, 260);
-      }, durationMs);
+  function setCoachMessage(msg) {
+    const bubble = createCoachBubble();
+    const textEl = document.getElementById('hha-coach-text');
+    if (textEl) {
+      textEl.textContent = msg;
     }
   }
 
-  // ---------- ข้อความตามโหมด ----------
-  const FEVER_LINES = {
-    goodjunk: [
-      '🔥 Fever mode! คลิกของดีรัว ๆ เลยเด็ก ๆ!',
-      'ไฟติดแล้ว! ห้ามหลงคลิกของขยะนะ 💥'
-    ],
-    groups: [
-      '🔥 Fever! เลือกให้ตรงหมู่ เป้าไวแต่ใจเย็น ๆ นะ',
-      'โหมดไฟลุก! ดูสัญลักษณ์หมู่ดี ๆ ก่อนแตะ 👀'
-    ],
-    hydration: [
-      '🔥 น้ำดีพุ่งแล้ว! เก็บน้ำเปล่าให้สุด อย่าเผลอแตะน้ำหวานนะ 💧',
-      'โหมดกระหายน้ำ! ใครเก็บน้ำดีได้เยอะกว่ากันนะ?'
-    ],
-    plate: [
-      '🔥 จานกำลังสวย! รีบใส่อาหารดี ๆ ลงจานให้ครบหมู่เลย 🥗',
-      'โหมดจานไฟฟ้า! ระวังฟาสต์ฟู้ดมาล่อข้างจอ 🍔'
-    ],
-    default: [
-      'Fever มาแล้ว! เก็บของดีให้สุดพลังเลย! 💥',
-      'โหมดไฟลุก! มือไว แต่ต้องแม่นนะ 😎'
-    ]
-  };
-
-  const ROUND_TIPS = {
-    goodjunk: {
-      highScore: 'สุดยอดเลย! แยกของดีออกจากของขยะได้เก่งมาก 🥦✨',
-      lowAcc: 'รอบหน้า ลองมองให้ชัวร์ก่อนแตะนะ ของขยะชอบมาปน 😈',
-      normal: 'ดีมาก! ถ้าอยากเก่งขึ้นอีก ลองตั้งใจเลือกแต่ของดีให้มากขึ้นนะ 🍎'
-    },
-    groups: {
-      highScore: 'เก่งมาก! จำหมู่อาหารได้แม่นสุด ๆ เลย 🍚🥦',
-      lowAcc: 'รอบหน้า ลองมองสัญลักษณ์หมู่บนภารกิจก่อนแตะทุกครั้งนะ 👀',
-      normal: 'ทำได้ดีเลย! ถ้าอยากเป๊ะ ลองฝึกแยกหมู่ให้ไวขึ้นอีกนิด 💪'
-    },
-    hydration: {
-      highScore: 'ดื่มน้ำดีสุด ๆ! คุณคือฮีโร่น้ำดื่มของห้องนี้เลย 💧🦸',
-      lowAcc: 'ยังพลาดน้ำหวานนิดหน่อย รอบหน้าอย่าเผลอแตะแก้วสีจัด ๆ นะ 🥤',
-      normal: 'เริ่มจำแก้วน้ำดีได้แล้ว! ลองหลบน้ำหวานให้หมดทั้งรอบดูไหม? 😄'
-    },
-    plate: {
-      highScore: 'จานนี้คุณจัดสวยมาก! ได้ทั้งผัก ผลไม้ และโปรตีนครบเลย 🥗✨',
-      lowAcc: 'ขนมกับฟาสต์ฟู้ดยังแอบมาเยอะ รอบหน้าเลือกผักกับผลไม้ให้มากขึ้นนะ 🍎',
-      normal: 'จัดจานได้ดีเลย! ถ้าเติมผักกับผลไม้ให้เยอะกว่านี้จะเพอร์เฟกต์มาก 🌈'
-    },
-    default: {
-      highScore: 'คะแนนดีมาก! เห็นได้ชัดว่าตั้งใจเล่นสุด ๆ 👏',
-      lowAcc: 'รอบหน้าโฟกัสเรื่องความแม่นอีกนิด คะแนนจะพุ่งขึ้นเลย 💪',
-      normal: 'เล่นได้ดีเลย! ถ้าอยากอัปเลเวล ลองเพิ่มคอมโบให้ยาวขึ้นดูนะ 😄'
+  // helper ให้เลือกข้อความตาม rank slug
+  function messageForRank(rankSlug) {
+    switch (rankSlug) {
+      case 'healthy-god':
+        return 'โหดมาก! ระดับ Healthy God แล้ว แบบนี้ถ้าเป็นแข่งจริงก็ MVP แน่นอน 🌈';
+      case 'super-fit':
+        return 'ฟอร์มดีมาก Super Fit! ลองเล่นอีกสักรอบ เผื่อดันขึ้น Healthy God ได้เลย 💪';
+      case 'active-hero':
+        return 'Active Hero แล้ว! ขยับเก่ง เลือกของดีได้เยอะมาก เก่งมากนะ ⚡';
+      case 'rookie':
+        return 'Rookie มือใหม่ไฟแรง! รอบหน้าโฟกัสเพิ่มอีกนิด จะกลายเป็นฮีโร่แน่นอน 🎯';
+      case 'sleepy':
+      default:
+        return 'เหมือนร่างกายยังง่วง ๆ อยู่นิดหน่อย ลองพักสายตา หายใจลึก ๆ แล้วลองใหม่อีกทีนะ 😴';
     }
-  };
-
-  const QUEST_LINES = {
-    allDone: 'เคลียร์ Mini Quest ครบ! สกิลระดับโปรแล้วนะนี่ 🎯',
-    someDone: 'เคลียร์เควสต์ไปแล้ว ' ,
-    noneDone: 'ลองกดให้ต่อเนื่องยาว ๆ จะช่วยให้เควสต์ผ่านง่ายขึ้นนะ ✨'
-  };
-
-  const BOSS_LINES = {
-    win: 'ล้ม Boss ได้แล้ว! สุดยอดพลังสายตาและนิ้วไว 👊',
-    lose: 'เกือบล้ม Boss แล้ว! รอบหน้าลองโฟกัสตอนท้ายเกมให้มากขึ้นนะ 😎'
-  };
-
-  // ---------- เลือกข้อความตามผลการเล่น ----------
-  function pickRoundMessage(mode, summary) {
-    const pack = ROUND_TIPS[mode] || ROUND_TIPS.default;
-    const acc = summary.accuracy || 0;
-
-    if (acc >= 85 && summary.missionGoodCount >= summary.missionTarget) {
-      return pack.highScore;
-    }
-    if (acc < 70) {
-      return pack.lowAcc;
-    }
-    return pack.normal;
   }
 
-  function buildQuestLine(summary) {
-    const q = summary.quests || [];
-    const doneCount = q.filter(x => x && x.done).length;
-
-    if (!q.length) return '';
-
-    if (doneCount === q.length) {
-      return QUEST_LINES.allDone;
-    }
-    if (doneCount === 0) {
-      return QUEST_LINES.noneDone;
-    }
-    return QUEST_LINES.someDone + doneCount + ' เควสต์แล้ว เหลืออีกนิดเดียว! 🎯';
-  }
-
-  function buildBossLine(summary) {
-    if (!summary.boss || !summary.boss.spawned) return '';
-    return summary.boss.defeated ? BOSS_LINES.win : BOSS_LINES.lose;
-  }
-
-  // ---------- Public API ----------
   window.HH_COACH = {
-    // เรียกเมื่อ Fever เริ่ม
+    // เรียกจาก main.js ตอนเริ่ม Fever ใหม่
     onFeverStart: function (mode, diff) {
-      const list = FEVER_LINES[mode] || FEVER_LINES.default;
-      const msg = list[Math.floor(Math.random() * list.length)];
-      showCoachMessage(msg, 2200);
+      const msg = 'โหมด FEVER มาแล้ว! ลุยเก็บของดีรัว ๆ ให้สุดแบบไม่พลาดเลยนะ 🔥';
+      setCoachMessage(msg);
     },
 
-    // เรียกเมื่อจบรอบ
+    // เรียกจาก main.js ตอนจบรอบ
     onRoundEnd: function (summary) {
-      // summary = {
-      //   mode, diff, score, maxCombo,
-      //   missionGoodCount, missionTarget,
-      //   accuracy, avgRT, quests, boss: { spawned, defeated }
-      // }
+      // summary.rank = { slug, shortLabel, banner, note, ... }
+      const r = summary && summary.rank ? summary.rank : null;
+      const slug = r ? r.slug : 'sleepy';
+      const msgCore = messageForRank(slug);
 
-      const mode = summary.mode || 'default';
-      const mainLine = pickRoundMessage(mode, summary);
-      const questLine = buildQuestLine(summary);
-      const bossLine = buildBossLine(summary);
+      // เติม context เล็กน้อยให้ครูใช้ อธิบายเด็ก
+      let extra = '';
+      if (summary && typeof summary.accuracy === 'number') {
+        if (summary.accuracy >= 90) {
+          extra = ' ความแม่นยำสูงมาก เกือบไม่พลาดเลย!';
+        } else if (summary.accuracy >= 70) {
+          extra = ' แม่นใช้ได้ ลองลดการกดพลาดอีกนิดเดียวจะดีมาก!';
+        } else {
+          extra = ' รอบนี้พลาดเยอะหน่อย ไม่เป็นไร รอบหน้าลองกดช้าลงแต่ให้แม่นขึ้นดูนะ';
+        }
+      }
 
-      let final = mainLine;
-      if (questLine) final += ' ' + questLine;
-      if (bossLine) final += ' ' + bossLine;
-
-      showCoachMessage(final, 6000);
+      setCoachMessage(msgCore + extra);
     }
   };
 })();
