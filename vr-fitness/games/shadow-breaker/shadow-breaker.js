@@ -1,14 +1,20 @@
-// === Shadow Breaker — DEV v3.6 (Hybrid + Blackbelt + Report + Leaderboard-ready) ===
-// - DEV version with comments for teaching & research
-// - You can minify later for production
+// === Shadow Breaker — DEV v4.0 (Boss Phase + Boss Mode) ===
+// - ใช้เป็นเครื่องมือวิจัยได้ (เก็บสถิติ session)
+// - มี Boss Phase 15 วิ สุดท้ายในโหมดปกติ
+// - มี Boss Mode แยก (Boss Challenge 45 วิ เต็มด่าน)
 
-// ---- CONFIG ENDPOINT (TODO: ใส่ URL จริง) ----
+// ---- CONFIG ENDPOINT (ใส่ URL จริงของงานวิจัย) ----
 const FIREBASE_API = '';  // optional cloud function URL
-const SHEET_API    = '';  // Google Apps Script (API บันทึกลง ShadowBreakerResearch)
-const PDF_API      = '';  // Google Apps Script (API สร้าง PDF)
-const LB_API       = '';  // optional leaderboard API (ถ้ายังไม่ใช้ ปล่อยว่างได้)
 
-// LocalStorage keys
+// 1) URL Web App ของ Apps Script ที่บันทึกลง Google Sheet: ShadowBreakerResearch
+const SHEET_API    = '';  // ex. 'https://script.google.com/macros/s/XXXX/exec'
+
+// 2) URL Web App ของ Apps Script ที่สร้าง PDF รายงาน
+const PDF_API      = '';  // ex. 'https://script.google.com/macros/s/YYYY/exec'
+
+// 3) ถ้ามี API leaderboard ภายหลัง ค่อยใส่ทีหลังได้
+const LB_API       = '';
+
 const LS_PROFILE = 'sb_profile_v1';
 const LS_QUEUE   = 'sb_offline_queue_v1';
 
@@ -19,6 +25,7 @@ const STR = {
     msgPaused:'⏸ พักได้ แต่อย่าหนีโค้ชนานเกินไปนะ 😆',
     msgResume:'กลับมาต่อยต่อเลย! 🔥',
     msgEnd   :'จบด่านแล้ว มาดูคะแนนกัน ⭐',
+    msgBoss  :'🐉 Boss Time! ต่อยให้ทันทุกเป้า!',
     lbSchool :'อันดับในโรงเรียน',
     lbClass  :'อันดับในห้องเรียน'
   },
@@ -27,6 +34,7 @@ const STR = {
     msgPaused:'⏸ Break time, but don’t disappear 😆',
     msgResume:'Back to punching! 🔥',
     msgEnd   :'Stage complete, let’s see your score ⭐',
+    msgBoss  :'🐉 Boss Time! Hit all targets!',
     lbSchool :'School Leaderboard',
     lbClass  :'Class Leaderboard'
   }
@@ -43,12 +51,9 @@ function getProfile(){
 }
 
 function saveProfile(p){
-  try{
-    localStorage.setItem(LS_PROFILE, JSON.stringify(p));
-  }catch{}
+  try{ localStorage.setItem(LS_PROFILE, JSON.stringify(p)); }catch{}
 }
 
-// ถ้าไม่มี profile → ถามแบบง่าย ๆ ผ่าน prompt (สามารถเปลี่ยนเป็นฟอร์มสวย ๆ ทีหลังได้)
 function ensureProfile(lang='th'){
   let p = getProfile();
   if (p) return p;
@@ -63,7 +68,7 @@ function ensureProfile(lang='th'){
   return p;
 }
 
-// ===== Offline queue สำหรับ session ที่ส่งไม่สำเร็จ =====
+// ===== Offline queue =====
 function loadQueue(){
   try{
     const raw = localStorage.getItem(LS_QUEUE);
@@ -73,19 +78,16 @@ function loadQueue(){
   }
 }
 function saveQueue(q){
-  try{
-    localStorage.setItem(LS_QUEUE, JSON.stringify(q));
-  }catch{}
+  try{ localStorage.setItem(LS_QUEUE, JSON.stringify(q)); }catch{}
 }
 
-// พยายามส่ง queue ที่ค้างอยู่ทุกครั้งที่เปิดเกม
 async function flushQueue(){
   const q = loadQueue();
   if (!q.length) return;
   const remain = [];
   for (const item of q){
     try{
-      await hybridSaveSession(item, false); // ไม่ต้องเก็บเข้าคิวซ้ำ
+      await hybridSaveSession(item,false);
     }catch{
       remain.push(item);
     }
@@ -93,7 +95,7 @@ async function flushQueue(){
   saveQueue(remain);
 }
 
-// ===== Hybrid Save (ส่งไปทั้ง Firebase + Google Sheet) =====
+// ===== Hybrid Save (Sheet + optional Firebase) =====
 async function hybridSaveSession(summary, allowQueue = true){
   const body = JSON.stringify(summary);
   const headers = { 'Content-Type':'application/json' };
@@ -116,9 +118,9 @@ async function hybridSaveSession(summary, allowQueue = true){
   }
 }
 
-// ===== PDF Export (เรียก Apps Script ที่สร้าง PDF) =====
+// ===== PDF Export =====
 async function exportPDF(summary){
-  if (!PDF_API) {
+  if (!PDF_API){
     alert('ยังไม่ได้ตั้งค่า PDF_API');
     return;
   }
@@ -126,7 +128,7 @@ async function exportPDF(summary){
     const res = await fetch(PDF_API,{
       method:'POST',
       headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(summary)
+      body:JSON.stringify(summary)
     });
     if (!res.ok) throw new Error('PDF API error');
     const blob = await res.blob();
@@ -142,19 +144,19 @@ async function exportPDF(summary){
   }
 }
 
-// ===== Leaderboard Fetch (ถ้ามี API พร้อม) =====
+// ===== Leaderboard Fetch (อนาคต) =====
 async function loadLeaderboard(scope, profile){
   if (!LB_API) return [];
   const url = new URL(LB_API);
-  url.searchParams.set('scope', scope);             // 'school' | 'class'
+  url.searchParams.set('scope', scope);
   url.searchParams.set('school', profile.school||'');
   url.searchParams.set('class',  profile.class||'');
   const res = await fetch(url.toString());
   if (!res.ok) return [];
-  return res.json();  // expected: [{name, score, accuracy}, ...]
+  return res.json();
 }
 
-// ===== Blackbelt Patterns (แพทเทิร์นโหด) =====
+// ===== Blackbelt & Boss Patterns =====
 const BLACKBELT_PATTERNS = [
   ['L','R','C','U'],
   ['U','D','L','R','U'],
@@ -163,18 +165,17 @@ const BLACKBELT_PATTERNS = [
   ['fake','L','R','fake','C'],
 ];
 
-// แปลงโค้ดตำแหน่ง → x,y บนจอ
 function mapPatternToPos(code, rect){
   const w = rect.width, h = rect.height;
   const midY = h * 0.45;
   switch(code){
-    case 'L':   return { x: w*0.20, y: midY,       fake:false };
-    case 'R':   return { x: w*0.80, y: midY,       fake:false };
-    case 'C':   return { x: w*0.50, y: midY,       fake:false };
-    case 'U':   return { x: w*0.50, y: h*0.30,     fake:false };
-    case 'D':   return { x: w*0.50, y: h*0.65,     fake:false };
+    case 'L':   return { x:w*0.20, y:midY,   fake:false };
+    case 'R':   return { x:w*0.80, y:midY,   fake:false };
+    case 'C':   return { x:w*0.50, y:midY,   fake:false };
+    case 'U':   return { x:w*0.50, y:h*0.30, fake:false };
+    case 'D':   return { x:w*0.50, y:h*0.65, fake:false };
     case 'fake':
-      return { x: w*(0.25+Math.random()*0.5), y:h*(0.25+Math.random()*0.5), fake:true };
+      return { x:w*(0.25+Math.random()*0.5), y:h*(0.25+Math.random()*0.5), fake:true };
     default:
       return { x:w*0.5, y:midY, fake:false };
   }
@@ -198,7 +199,8 @@ function buildLBTable(rows){
   const tb = document.createElement('tbody');
   (rows || []).slice(0,10).forEach((r,i)=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${i+1}</td><td>${r.name||'-'}</td><td>${r.score||0}</td><td>${Math.round((r.accuracy||0)*100)}%</td>`;
+    tr.innerHTML =
+      `<td>${i+1}</td><td>${r.name||'-'}</td><td>${r.score||0}</td><td>${Math.round((r.accuracy||0)*100)}%</td>`;
     tb.appendChild(tr);
   });
   table.appendChild(tb);
@@ -208,7 +210,6 @@ function buildLBTable(rows){
 // ===== MAIN CLASS =====
 export class ShadowBreaker{
   constructor(opts){
-    // Elements
     this.stage  = opts.stage;
     this.hud    = opts.hud || {};
     this.result = opts.result || {};
@@ -222,41 +223,49 @@ export class ShadowBreaker{
     }
 
     // Profile & language
-    this.profile = ensureProfile('th');      // เปลี่ยนเป็น 'en' ถ้าอยากเริ่ม EN
+    this.profile = ensureProfile('th');
     this.lang    = this.profile.lang || 'th';
     this.str     = STR[this.lang] || STR.th;
 
-    // Difficulty from URL
-    const qs = new URLSearchParams(location.search);
-    let diff = qs.get('diff') || 'normal';
-    let time = parseInt(qs.get('time') || '90', 10);
+    // อ่านค่าจาก URL
+    const qs  = new URLSearchParams(location.search);
+    let diff  = qs.get('diff') || 'normal';
+    let time  = parseInt(qs.get('time') || '90', 10);
+    const urlMode = qs.get('mode') || '';
 
+    // Config ความยาก + Boss Phase
     const DIFF = {
-      easy     : { duration:60,  spawn:1.35, lifetime:1.65, mode:'random'  },
-      normal   : { duration:90,  spawn:1.05, lifetime:1.35, mode:'random'  },
-      hard     : { duration:120, spawn:0.85, lifetime:1.10, mode:'random'  },
-      blackbelt: { duration:120, spawn:0.62, lifetime:0.90, mode:'pattern' }
+      easy      : { duration:60,  spawn:1.35, lifetime:1.65, mode:'random',  bossPhase:15 },
+      normal    : { duration:90,  spawn:1.05, lifetime:1.35, mode:'random',  bossPhase:15 },
+      hard      : { duration:120, spawn:0.85, lifetime:1.10, mode:'random',  bossPhase:15 },
+      blackbelt : { duration:120, spawn:0.62, lifetime:0.90, mode:'pattern', bossPhase:15 },
+      boss      : { duration:45,  spawn:0.55, lifetime:0.85, mode:'pattern', bossPhase:45 }
     };
     if (!DIFF[diff]) diff = 'normal';
     if (!Number.isFinite(time) || time<30 || time>300) time = DIFF[diff].duration;
 
-    this.diff = diff;
-    this.cfg  = { ...DIFF[diff], duration: time };
+    this.diff       = diff;
+    this.isBossMode = (diff === 'boss' || urlMode === 'boss');
+    this.cfg        = { ...DIFF[diff], duration:time };
+
+    // ถ้าเป็น Boss Mode → bossPhase = ทั้งด่าน
+    if (this.isBossMode){
+      this.cfg.bossPhase = this.cfg.duration;
+    }
 
     // Game state
     this.state = {
       play:false, paused:false,
       elapsed:0, lastTs:0, spawnT:0,
       score:0, hits:0, miss:0, combo:0, best:0,
-      fever:0, onfire:false, raf:0
+      fever:0, onfire:false, raf:0,
+      bossActive:false, bossHits:0, bossMiss:0
     };
 
-    // Target pool
     this.targets = new Set();
     this.MAX_TARGETS = 12;
     this.EMOJI = ['🥊','💥','⭐','🔥','⚡','💫'];
 
-    // Blackbelt pattern state
     this.patternIdx = 0;
     this.patternStep= 0;
 
@@ -278,9 +287,9 @@ export class ShadowBreaker{
 
   start(){
     this._reset();
-    this.state.play = true;
+    this.state.play   = true;
     this.state.paused = false;
-    this.state.raf = requestAnimationFrame(this._loop.bind(this));
+    this.state.raf    = requestAnimationFrame(this._loop.bind(this));
   }
 
   pause(v=true){
@@ -301,14 +310,23 @@ export class ShadowBreaker{
       play:true, paused:false,
       elapsed:0, lastTs:0, spawnT:0,
       score:0, hits:0, miss:0, combo:0, best:0,
-      fever:0, onfire:false, raf:0
+      fever:0, onfire:false, raf:0,
+      bossActive:false, bossHits:0, bossMiss:0
     };
     this.patternIdx = 0;
     this.patternStep= 0;
-    this.stage.classList.remove('shake');
+    this.stage.classList.remove('shake','boss-phase');
     this.targets.forEach(t=>t.remove());
     this.targets.clear();
     this._hud();
+  }
+
+  // ===== Boss Phase =====
+  _enterBossPhase(){
+    if (this.state.bossActive) return;
+    this.state.bossActive = true;
+    this.stage.classList.add('boss-phase');
+    this._msg(this.str.msgBoss);
   }
 
   // ===== Spawn logic =====
@@ -318,8 +336,8 @@ export class ShadowBreaker{
     el.className = 'sb-target';
     el.textContent = this._pick(this.EMOJI);
     const r = this.stage.getBoundingClientRect();
-    el.style.left = (Math.random()*(r.width-100)+50) + 'px';
-    el.style.top  = (Math.random()*(r.height-160)+80)+ 'px';
+    el.style.left = (Math.random()*(r.width-100)+50)+'px';
+    el.style.top  = (Math.random()*(r.height-160)+80)+'px';
     el.dataset.created = performance.now();
     el.dataset.fake    = '0';
     el.addEventListener('pointerdown',()=>this._hit(el));
@@ -331,7 +349,6 @@ export class ShadowBreaker{
     if (this.targets.size >= this.MAX_TARGETS) return;
     const patterns = BLACKBELT_PATTERNS;
 
-    // เริ่มชุดใหม่ถ้าอยู่ต้น sequence
     if (this.patternStep === 0){
       this.patternIdx = Math.floor(Math.random()*patterns.length);
     }
@@ -347,7 +364,7 @@ export class ShadowBreaker{
     el.style.left  = pos.x + 'px';
     el.style.top   = pos.y + 'px';
     el.dataset.created = performance.now();
-    el.dataset.fake    = pos.fake ? '1' : '0';
+    el.dataset.fake    = pos.fake ? '1':'0';
     el.addEventListener('pointerdown',()=>this._hit(el));
     this.stage.appendChild(el);
     this.targets.add(el);
@@ -365,13 +382,13 @@ export class ShadowBreaker{
     if (!this.targets.has(el)) return;
     const isFake = el.dataset.fake === '1';
     if (isFake){
-      this._miss(el, true);
+      this._miss(el,true);
       return;
     }
 
     const nextCombo = this.state.combo + 1;
-    const isCrit    = nextCombo >= 5; // FEVER
-    const isOnfire  = nextCombo >= 8; // ON FIRE
+    const isCrit    = nextCombo >= 5;
+    const isOnfire  = nextCombo >= 8;
 
     let gain = 10 + (isCrit ? 20 : 0);
     if (isOnfire){
@@ -380,13 +397,15 @@ export class ShadowBreaker{
     }
 
     this.state.hits++;
+    if (this.state.bossActive) this.state.bossHits++;
+
     this.state.combo++;
-    this.state.best = Math.max(this.state.best, this.state.combo);
-    this.state.fever = Math.min(100, this.state.combo * 10);
+    this.state.best  = Math.max(this.state.best, this.state.combo);
+    this.state.fever = Math.min(100, this.state.combo*10);
     this.state.score += gain;
 
     this._pfx(el);
-    this._float(el, '+'+gain, false);
+    this._float(el,'+'+gain,false);
     this.targets.delete(el);
     el.remove();
     this._hud();
@@ -394,6 +413,8 @@ export class ShadowBreaker{
 
   _miss(el, fromFake=false){
     this.state.miss++;
+    if (this.state.bossActive) this.state.bossMiss++;
+
     this.state.combo  = 0;
     this.state.fever  = 0;
     this.state.onfire = false;
@@ -412,10 +433,10 @@ export class ShadowBreaker{
   _float(el, txt, isBad){
     const r = el.getBoundingClientRect();
     const f = document.createElement('div');
-    f.className = 'float';
+    f.className   = 'float';
     f.textContent = txt;
-    f.style.left = (r.left+r.width/2) + 'px';
-    f.style.top  = (r.top +r.height/2) + 'px';
+    f.style.left  = (r.left+r.width/2)+'px';
+    f.style.top   = (r.top +r.height/2)+'px';
     f.style.color = isBad ? '#f97373' : '#4ade80';
     document.body.appendChild(f);
     setTimeout(()=>f.remove(),650);
@@ -426,11 +447,10 @@ export class ShadowBreaker{
     for(let i=0;i<7;i++){
       const p = document.createElement('div');
       p.className = 'pfx';
-      p.style.left = (r.left+r.width/2) + 'px';
-      p.style.top  = (r.top +r.height/2) + 'px';
-      p.style.background = 'var(--c-neon,#4df8ff)';
-      p.style.setProperty('--dx', (Math.random()*120-60)+'px');
-      p.style.setProperty('--dy', (Math.random()*120-60)+'px');
+      p.style.left = (r.left+r.width/2)+'px';
+      p.style.top  = (r.top +r.height/2)+'px';
+      p.style.setProperty('--dx',(Math.random()*120-60)+'px');
+      p.style.setProperty('--dy',(Math.random()*120-60)+'px');
       document.body.appendChild(p);
       setTimeout(()=>p.remove(),450);
     }
@@ -447,12 +467,20 @@ export class ShadowBreaker{
     this.state.lastTs  = ts;
     this.state.elapsed += dt;
 
+    // Trigger Boss Phase:
+    // - โหมดปกติ: 15 วิสุดท้าย
+    // - Boss Mode: ทั้งด่าน (cfg.bossPhase = duration)
+    const remain = this.cfg.duration - this.state.elapsed;
+    if (this.cfg.bossPhase && !this.state.bossActive && remain <= this.cfg.bossPhase){
+      this._enterBossPhase();
+    }
+
     if (this.state.elapsed >= this.cfg.duration){
       this._finish();
       return;
     }
 
-    // dynamic spawn
+    // dynamic spawn (ยิ่งใกล้จบ ยิ่งเร็วขึ้นเล็กน้อย)
     this.state.spawnT += dt;
     const t   = this.state.elapsed / this.cfg.duration;
     const dyn = Math.max(this.cfg.spawn * (1 - 0.45*t), 0.35);
@@ -466,7 +494,7 @@ export class ShadowBreaker{
     this.targets.forEach(el=>{
       const age = (now - Number(el.dataset.created))/1000;
       if (age >= this.cfg.lifetime){
-        this._miss(el, false);
+        this._miss(el,false);
       }
     });
 
@@ -477,7 +505,7 @@ export class ShadowBreaker{
   // ===== Summary & Finish =====
   _buildSummary(){
     const total = this.state.hits + this.state.miss;
-    const acc   = total>0? this.state.hits/total : 0;
+    const acc   = total>0 ? this.state.hits/total : 0;
     let rank    = 'C';
     if(this.state.score>=1600 && acc>=0.95) rank='SSS';
     else if(this.state.score>=1100 && acc>=0.90) rank='S';
@@ -485,18 +513,21 @@ export class ShadowBreaker{
     else if(this.state.score>=500  && acc>=0.60) rank='B';
 
     return {
-      profile: this.profile,
-      game: 'shadow-breaker',
-      diff: this.diff,
+      profile:  this.profile,
+      game:     'shadow-breaker',
+      diff:     this.diff,
       duration: this.cfg.duration,
-      score: this.state.score,
-      hits: this.state.hits,
-      miss: this.state.miss,
+      score:    this.state.score,
+      hits:     this.state.hits,
+      miss:     this.state.miss,
       comboMax: this.state.best,
       accuracy: acc,
       rank,
-      device: detectDevice(),
-      timestamp: new Date().toISOString()
+      device:   detectDevice(),
+      bossMode: this.isBossMode,
+      bossHits: this.state.bossHits,
+      bossMiss: this.state.bossMiss,
+      timestamp:new Date().toISOString()
     };
   }
 
