@@ -1,4 +1,4 @@
-// === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Rank + Research CSV) ===
+// === Hero Health — game/main.js (Multiverse + Boss + MiniQuest + Research CSV) ===
 'use strict';
 
 // ---------- อ่านค่าจาก URL ----------
@@ -16,7 +16,7 @@ const GAME_DURATION = timeParam;
 function $(sel) { return document.querySelector(sel); }
 function $all(sel) { return document.querySelectorAll(sel); }
 
-// อ่าน profile จาก Hub (ถ้ามี)
+// ---------- Profile จาก Hub ----------
 let playerProfile = {};
 try {
   const raw = sessionStorage.getItem('hha_profile');
@@ -25,9 +25,11 @@ try {
   playerProfile = {};
 }
 
-// ---------- Global summaries (ต่อรอบ) ----------
-window.HHA_SUMMARIES = window.HHA_SUMMARIES || [];
-const HHA_SUMMARIES = window.HHA_SUMMARIES;
+// ---------- Global Summary / Event Logs ----------
+window.HH_SUMMARIES = window.HH_SUMMARIES || [];
+const HHA_SUMMARIES = window.HH_SUMMARIES;
+
+const eventLog = []; // event-level log สำหรับวิจัย
 
 // ---------- Export CSV Dropdown ----------
 let exportDropdownInited = false;
@@ -67,14 +69,18 @@ function initExportDropdown() {
     exportCsv('research');
   });
 
-  // คลิกนอกเมนู → ปิด
   document.addEventListener('click', function () {
     hideMenu();
   });
 }
 
+// ---------- CSV Export (Wrapper) ----------
 function exportCsv(mode) {
-  console.log('[HHA] exportCsv mode =', mode);
+  console.log('[HHA] exportCsv mode =', mode,
+    'summaries =', HHA_SUMMARIES.length,
+    'events =', eventLog.length
+  );
+
   if (mode === 'teacher') {
     if (!HHA_SUMMARIES.length) {
       alert('ยังไม่มีข้อมูลสรุปรอบที่เล่นในหน้านี้เลย');
@@ -83,7 +89,7 @@ function exportCsv(mode) {
     downloadTeacherCsv(HHA_SUMMARIES);
   } else if (mode === 'research') {
     if (!eventLog.length) {
-      alert('ยังไม่มี event log สำหรับวิจัย');
+      alert('ยังไม่มี event log สำหรับส่งออกวิจัย');
       return;
     }
     downloadResearchCsv(eventLog);
@@ -92,7 +98,7 @@ function exportCsv(mode) {
   }
 }
 
-// ---------- ฟังก์ชันดาวน์โหลด CSV (Teacher) ----------
+// ---------- Export CSV (Teacher) ----------
 function downloadTeacherCsv(summaries) {
   const header = [
     'profile_name',
@@ -117,7 +123,11 @@ function downloadTeacherCsv(summaries) {
   const lines = [header.join(',')];
 
   summaries.forEach(s => {
-    const p = s.profile || {};
+    const baseProfile = playerProfile || {};
+    const p = (s.profile && Object.keys(s.profile).length)
+      ? s.profile
+      : baseProfile;
+
     const row = [
       JSON.stringify(p.name || '').replace(/"/g, '""'),
       JSON.stringify(p.grade || '').replace(/"/g, '""'),
@@ -133,8 +143,8 @@ function downloadTeacherCsv(summaries) {
       (typeof s.accuracy === 'number' ? s.accuracy.toFixed(1) : ''),
       (typeof s.avgRT === 'number' ? s.avgRT.toFixed(1) : ''),
       s.questsDone || 0,
-      s.boss && s.boss.spawned ? 1 : 0,
-      s.boss && s.boss.defeated ? 1 : 0,
+      (s.boss && s.boss.spawned) ? 1 : 0,
+      (s.boss && s.boss.defeated) ? 1 : 0,
       s.rankSlug || '',
       JSON.stringify(s.rankLabel || '').replace(/"/g, '""')
     ];
@@ -157,7 +167,7 @@ function downloadTeacherCsv(summaries) {
   }, 300);
 }
 
-// ---------- ฟังก์ชันดาวน์โหลด CSV (Research — event level) ----------
+// ---------- Export CSV (Research) ----------
 function downloadResearchCsv(events) {
   const header = [
     'profile_name',
@@ -183,7 +193,11 @@ function downloadResearchCsv(events) {
   const lines = [header.join(',')];
 
   events.forEach(e => {
-    const p = e.profile || {};
+    const baseProfile = playerProfile || {};
+    const p = (e.profile && Object.keys(e.profile).length)
+      ? e.profile
+      : baseProfile;
+
     const row = [
       JSON.stringify(p.name || '').replace(/"/g, '""'),
       JSON.stringify(p.grade || '').replace(/"/g, '""'),
@@ -196,14 +210,14 @@ function downloadResearchCsv(events) {
       JSON.stringify(e.emoji || '').replace(/"/g, '""'),
       e.correct ? '1' : '0',
       (e.rtMs != null ? e.rtMs : ''),
-      e.scoreAfter != null ? e.scoreAfter : '',
-      e.comboAfter != null ? e.comboAfter : '',
-      e.timeLeft != null ? e.timeLeft : '',
+      (e.scoreAfter != null ? e.scoreAfter : ''),
+      (e.comboAfter != null ? e.comboAfter : ''),
+      (e.timeLeft != null ? e.timeLeft : ''),
       e.fever ? '1' : '0',
-      e.shieldBefore != null ? e.shieldBefore : '',
-      e.quests && e.quests.streak5 && e.quests.streak5.done ? '1' : '0',
-      e.quests && e.quests.comboTarget && e.quests.comboTarget.done ? '1' : '0',
-      e.quests && e.quests.feverTwice && e.quests.feverTwice.done ? '1' : '0'
+      (e.shieldBefore != null ? e.shieldBefore : ''),
+      (e.quests && e.quests.streak5 && e.quests.streak5.done) ? '1' : '0',
+      (e.quests && e.quests.comboTarget && e.quests.comboTarget.done) ? '1' : '0',
+      (e.quests && e.quests.feverTwice && e.quests.feverTwice.done) ? '1' : '0'
     ];
     lines.push(row.join(','));
   });
@@ -252,10 +266,10 @@ const FEVER_DURATION       = cfg.FEVER_DURATION       || 6;
 const DIAMOND_TIME_BONUS   = cfg.DIAMOND_TIME_BONUS   || 2;
 
 // ---------- Boss Config ----------
-const BOSS_WINDOW_SEC  = 7;    // ช่วงท้ายเกมที่จะมี Boss
-const BOSS_HP          = 5;
-const BOSS_SCORE_PER_HIT = 10;
-const BOSS_BONUS_CLEAR = 50;
+const BOSS_WINDOW_SEC  = 7;      // ช่วงวินาทีท้ายเกมที่ Boss จะโผล่
+const BOSS_HP          = 5;      // ต้องคลิกกี่ทีถึงล้ม
+const BOSS_SCORE_PER_HIT = 10;   // คะแนนต่อ hit
+const BOSS_BONUS_CLEAR = 50;     // โบนัสเมื่อล้มได้ก่อนหมดเวลา
 
 // ---------- State ----------
 let running = false;
@@ -275,11 +289,8 @@ let feverTriggeredCount = 0;
 let bossSpawned = false;
 let bossDefeated = false;
 
-// สำหรับคำนวณ reaction time
+// ใช้สำหรับ reaction time
 let roundStartPerf = 0;
-
-// เก็บ accuracy ล่าสุด (ไว้ใช้ใน HUD rank)
-let lastKnownAccuracy = 0;
 
 // ---------- Mini Quest State ----------
 const questState = [
@@ -309,8 +320,6 @@ const questState = [
 let streakGoodNoJunk = 0;
 
 // ---------- Research Logging ----------
-const eventLog = []; // event: hit/miss/boss
-
 function logEvent(ev) {
   eventLog.push(ev);
 }
@@ -408,6 +417,35 @@ function ensureGameCSS() {
     }
   `;
   document.head.appendChild(st);
+}
+
+// ---------- Rank Logic ----------
+function computeRank(scoreVal, goodVal, targetVal, accuracyVal) {
+  const target = targetVal || MISSION_GOOD_TARGET;
+  const ratio = target > 0 ? (goodVal / target) : 0;
+  const acc = (typeof accuracyVal === 'number') ? accuracyVal : null;
+
+  // Default
+  let slug = 'rookie';
+  let label = 'Rookie 🟢';
+
+  if (ratio >= 1 && scoreVal >= 900 && (acc == null || acc >= 92)) {
+    slug = 'healthy-god';
+    label = 'Healthy God 💎🏆';
+  } else if (ratio >= 0.9 && scoreVal >= 650 && (acc == null || acc >= 85)) {
+    slug = 'super-fit';
+    label = 'Super Fit 🔥';
+  } else if (ratio >= 0.75 && scoreVal >= 400 && (acc == null || acc >= 70)) {
+    slug = 'active-hero';
+    label = 'Active Hero ⭐';
+  } else if (ratio >= 0.4) {
+    slug = 'rookie';
+    label = 'Rookie 🟢';
+  } else {
+    slug = 'sleepy';
+    label = 'Sleepy Mode 😴';
+  }
+  return { slug, label };
 }
 
 // ---------- HUD ----------
@@ -510,7 +548,7 @@ function createHUD() {
       <div style="
         background:rgba(15,23,42,0.97);
         border-radius:18px;padding:20px 26px;
-        min-width:280px;border:1px solid rgba(34,197,94,0.8);
+        min-width:260px;border:1px solid rgba(34,197,94,0.8);
         text-align:center;box-shadow:0 18px 40px rgba(0,0,0,0.75);
         font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
       ">
@@ -530,20 +568,21 @@ function createHUD() {
           <b id="hha-final-good">0</b> / ${MISSION_GOOD_TARGET}
         </div>
         <div style="margin-bottom:4px;font-size:13px;">
-          ความแม่นยำ: <b id="hha-final-acc">–</b>
-          | เวลาเฉลี่ยต่อเป้า: <b id="hha-final-rt">–</b> ms
+          ความแม่นยำ: <b id="hha-final-acc">–</b> |
+          RT เฉลี่ย: <b id="hha-final-rt">–</b> ms
         </div>
         <div style="margin-bottom:4px;font-size:13px;">
-          เควสต์ย่อยที่สำเร็จ: <b id="hha-final-quests">0</b> จาก 3
+          เควสต์ที่สำเร็จ: <b id="hha-final-quests">0</b> / ${questState.length}
         </div>
         <div style="margin-bottom:10px;font-size:13px;">
           สถานะ Boss: <span id="hha-final-boss">–</span>
         </div>
+        <div style="margin-bottom:10px;font-size:13px;">
+          Rank สุดท้าย: <b id="hha-final-rank">–</b>
+        </div>
 
-        <!-- แถวปุ่ม: ดาวน์โหลด CSV (dropdown) + เล่นอีกครั้ง + กลับ Hub -->
         <div style="margin-top:6px;display:flex;flex-wrap:wrap;
                     align-items:center;justify-content:center;gap:8px;">
-          <!-- Dropdown Export -->
           <div id="hha-export-wrap"
                style="position:relative;font-size:12px;">
             <button id="hha-export-btn"
@@ -562,7 +601,7 @@ function createHUD() {
                      border:1px solid rgba(148,163,184,0.9);
                      box-shadow:0 16px 40px rgba(15,23,42,0.9);
                      padding:4px 0;
-                     min-width:220px;
+                     min-width:210px;
                      font-size:12px;
                      display:none;
                      z-index:40;">
@@ -570,18 +609,17 @@ function createHUD() {
                 style="width:100%;text-align:left;
                        padding:6px 10px;border:0;background:transparent;
                        color:#e5e7eb;cursor:pointer;font-size:12px;">
-                📄 แบบย่อ (สำหรับครู / dashboard)
+                📄 แบบย่อ (สำหรับครู)
               </button>
               <button id="hha-export-research"
                 style="width:100%;text-align:left;
                        padding:6px 10px;border:0;background:transparent;
                        color:#e5e7eb;cursor:pointer;font-size:12px;">
-                📑 แบบเต็ม (สำหรับวิจัย / event log)
+                📑 แบบเต็ม (สำหรับวิจัย)
               </button>
             </div>
           </div>
 
-          <!-- ปุ่มเล่นอีกครั้ง -->
           <button id="hha-restart"
             style="border-radius:999px;border:0;cursor:pointer;
                    padding:6px 14px;
@@ -590,14 +628,13 @@ function createHUD() {
             เล่นอีกครั้ง
           </button>
 
-          <!-- ปุ่มกลับ Hub -->
           <button id="hha-back-hub"
             style="border-radius:999px;border:0;cursor:pointer;
                    padding:6px 14px;
-                   background:rgba(15,23,42,0.95);
-                   border:1px solid rgba(148,163,184,0.8);
-                   color:#e5e7eb;font-size:12px;">
-            ⬅ กลับหน้าเลือกโหมด
+                   background:rgba(15,23,42,0.9);
+                   color:#e5e7eb;font-weight:500;font-size:12px;
+                   border:1px solid rgba(148,163,184,0.8);">
+            ⬅ กลับ Hub
           </button>
         </div>
       </div>
@@ -605,7 +642,6 @@ function createHUD() {
   `;
   document.body.appendChild(hud);
 
-  // Mini quest list
   const qList = $('#hha-quest-list');
   if (qList) {
     qList.innerHTML = '';
@@ -617,91 +653,21 @@ function createHUD() {
     });
   }
 
-  // ติดตั้ง dropdown export
-  initExportDropdown();
-
   return hud;
 }
 
-// ---------- Rank Logic: Healthy God / Super Fit / Active Hero / Rookie / Sleepy ----------
-function computeRankInfo(opts) {
-  const scoreVal = opts.score || 0;
-  const missionRatio = Math.max(0, Math.min(1, opts.missionRatio || 0));
-  const comboVal = opts.combo || 0;
-  const acc = (typeof opts.accuracy === 'number' && !Number.isNaN(opts.accuracy))
-    ? opts.accuracy
-    : (lastKnownAccuracy || 0);
-  const bossClear = !!opts.bossDefeated;
-  const questsDone = opts.questsDone || 0;
-
-  let slug = 'sleepy';
-  let shortLabel = '😴 Sleepy Mode';
-  let banner = 'Sleepy Mode 😴 — ยังอุ่นเครื่องอยู่ ลองโฟกัสมากขึ้นอีกนิด!';
-  let note = 'โหมดเกมนี้เป็นตัวช่วยซ้อมนิสัยสุขภาพ ไม่ใช่ผลตรวจสุขภาพจริง';
-
-  if (missionRatio >= 1 && acc >= 95 && comboVal >= 25 && bossClear) {
-    slug = 'healthy-god';
-    shortLabel = '🌈 Healthy God';
-    banner = '🌈 Healthy God — เล่นโหดเหมือนโปร เล่นสะอาดเหมือนหมอ!';
-    note = 'ถ้าเทียบเป็นโซนสุขภาพในเกม ตอนนี้อยู่โซนเขียวเข้มสุด ๆ แต่ยังต้องดูส่วนสูง-น้ำหนักจริงกับครู/หมอแยกต่างหากนะ';
-  } else if (missionRatio >= 0.95 && acc >= 85 && comboVal >= 15) {
-    slug = 'super-fit';
-    shortLabel = '💪 Super Fit';
-    banner = '💪 Super Fit — ฟอร์มดีมาก ใกล้ระดับเทพสุขภาพแล้ว!';
-    note = 'คะแนนและความแม่นถือว่าดีมาก เหมือนอยู่โซนสุขภาพดีในเกม';
-  } else if (missionRatio >= 0.8 && acc >= 70) {
-    slug = 'active-hero';
-    shortLabel = '⚡ Active Hero';
-    banner = '⚡ Active Hero — ฮีโร่ขยับเก่ง เหลือแค่ลดพลาดอีกนิดเดียว!';
-    note = 'ระดับนี้ถือว่าเริ่มมีนิสัยสุขภาพดีในเกม เหมาะเอาไปต่อยอดพฤติกรรมจริงในชีวิตประจำวัน';
-  } else if (missionRatio >= 0.5 && acc >= 55) {
-    slug = 'rookie';
-    shortLabel = '🎯 Rookie';
-    banner = '🎯 Rookie — มือใหม่ไฟแรง ลองเล่นอีกสักรอบให้แม่นขึ้น!';
-    note = 'เกมนี้ช่วยซ้อมสายตา-สมาธิ ลองตั้งใจเพิ่มอีกหน่อย จะขยับเป็นระดับฮีโร่ได้เลย';
-  } else {
-    slug = 'sleepy';
-    shortLabel = '😴 Sleepy Mode';
-    banner = '😴 Sleepy Mode — เหมือนร่างกายยังง่วง ๆ อยู่ ลองพักหายใจลึก ๆ แล้วมาเริ่มใหม่!';
-    note = 'คะแนนยังน้อยอยู่ ไม่เป็นไร เกมนี้ไว้ซ้อมนิสัยสุขภาพ ไม่ใช่การวินิจฉัยอ้วน/ผอมจริง ๆ';
-  }
-
-  return {
-    slug,
-    shortLabel,
-    banner,
-    note,
-    score: scoreVal,
-    missionRatio,
-    combo: comboVal,
-    accuracy: acc,
-    questsDone,
-    bossDefeated: bossClear
-  };
+// ---------- FEVER + HUD Update ----------
+function currentMultiplier() {
+  return feverTicksLeft > 0 ? 2 : 1;
 }
 
-function updateRankLabel(accuracyOpt) {
+function updateRankLabel() {
   const rankEl = $('#hha-rank-label');
   if (!rankEl) return;
-
-  const missionRatio = MISSION_GOOD_TARGET > 0
-    ? (missionGoodCount / MISSION_GOOD_TARGET)
-    : 0;
-
-  const info = computeRankInfo({
-    score: score,
-    missionRatio: missionRatio,
-    combo: maxCombo,
-    accuracy: accuracyOpt,
-    bossDefeated: bossDefeated,
-    questsDone: questState.filter(q => q.done).length
-  });
-
-  rankEl.textContent = info.shortLabel;
-  rankEl.dataset.rankSlug = info.slug;
+  const r = computeRank(score, missionGoodCount, MISSION_GOOD_TARGET, null);
+  rankEl.textContent = r.label;
 }
 
-// ---------- Mini Quest ----------
 function updateQuestHUD() {
   questState.forEach(q => {
     const li = $('#hha-quest-' + q.id);
@@ -714,44 +680,6 @@ function updateQuestHUD() {
       li.style.color = '#e5e7eb';
     }
   });
-}
-
-function updateQuestsOnGoodHit() {
-  if (!questState[0].done) {
-    streakGoodNoJunk += 1;
-    questState[0].progress = streakGoodNoJunk;
-    if (streakGoodNoJunk >= questState[0].target) {
-      questState[0].done = true;
-      score += 20;
-    }
-  }
-  if (!questState[1].done) {
-    questState[1].progress = Math.max(questState[1].progress, combo);
-    if (combo >= questState[1].target) {
-      questState[1].done = true;
-      score += 30;
-    }
-  }
-}
-
-function updateQuestsOnJunkHit() {
-  streakGoodNoJunk = 0;
-}
-
-function notifyFeverTriggered() {
-  feverTriggeredCount += 1;
-  if (!questState[2].done) {
-    questState[2].progress = feverTriggeredCount;
-    if (feverTriggeredCount >= questState[2].target) {
-      questState[2].done = true;
-      score += 40;
-    }
-  }
-}
-
-// ---------- FEVER + HUD Update ----------
-function currentMultiplier() {
-  return feverTicksLeft > 0 ? 2 : 1;
 }
 
 function updateHUD() {
@@ -778,7 +706,7 @@ function updateHUD() {
   if (feverEl) feverEl.textContent = String(Math.max(0, feverTicksLeft));
 
   if (feverBanner) {
-    feverBanner.style.display = (feverTicksLeft > 0 ? 'block' : 'none');
+    feverBanner.style.display = (feverTicksLeft > 0) ? 'block' : 'none';
   }
 
   if (feverTicksLeft > 0) {
@@ -842,16 +770,50 @@ function burstAt(x, y, kind) {
     const dx = Math.cos(angle) * distance;
     const dy = Math.sin(angle) * distance;
 
-    requestAnimationFrame(function () {
+    requestAnimationFrame(function() {
       shard.style.transform = 'translate3d(' + dx + 'px,' + dy + 'px,0) scale(1.1)';
       shard.style.opacity = '0';
     });
   }
 
   fxLayer.appendChild(container);
-  setTimeout(function () {
+  setTimeout(function() {
     if (container.parentNode) container.parentNode.removeChild(container);
   }, 320);
+}
+
+// ---------- Mini Quest Update ----------
+function updateQuestsOnGoodHit() {
+  if (!questState[0].done) {
+    streakGoodNoJunk += 1;
+    questState[0].progress = streakGoodNoJunk;
+    if (streakGoodNoJunk >= questState[0].target) {
+      questState[0].done = true;
+      score += 20;
+    }
+  }
+  if (!questState[1].done) {
+    questState[1].progress = Math.max(questState[1].progress, combo);
+    if (combo >= questState[1].target) {
+      questState[1].done = true;
+      score += 30;
+    }
+  }
+}
+
+function updateQuestsOnJunkHit() {
+  streakGoodNoJunk = 0;
+}
+
+function notifyFeverTriggered() {
+  feverTriggeredCount += 1;
+  if (!questState[2].done) {
+    questState[2].progress = feverTriggeredCount;
+    if (feverTriggeredCount >= questState[2].target) {
+      questState[2].done = true;
+      score += 40;
+    }
+  }
 }
 
 // ---------- Spawn logic ----------
@@ -925,7 +887,7 @@ function spawnOne(host) {
     }
   }
 
-  item.addEventListener('click', function (ev) {
+  item.addEventListener('click', function(ev) {
     if (!running) return;
 
     const shieldBefore = shieldCharges;
@@ -1003,7 +965,7 @@ function spawnOne(host) {
       if (shieldCharges > 0) {
         shieldCharges -= 1;
         item.style.transform = 'scale(0.9)';
-        correct = true; // ถือว่าป้องกันทัน
+        correct = true; // โดนแต่เกราะกัน
       } else {
         score = Math.max(0, score - 5);
         combo = 0;
@@ -1011,7 +973,7 @@ function spawnOne(host) {
         item.style.transform = 'scale(0.7)';
         const oldBg = document.body.style.backgroundColor || '';
         document.body.style.backgroundColor = '#450a0a';
-        setTimeout(function () {
+        setTimeout(function() {
           document.body.style.backgroundColor = oldBg || '';
         }, 80);
         correct = false;
@@ -1049,9 +1011,8 @@ function spawnOne(host) {
 
   host.appendChild(item);
 
-  setTimeout(function () {
+  setTimeout(function() {
     if (!item.parentNode) return;
-    // timeout → miss
     item.style.opacity = '0';
     item.style.transform = 'scale(0.7)';
     const spawnPerfNum = parseFloat(item.dataset.spawnPerf || (roundStartPerf || performance.now()));
@@ -1138,7 +1099,7 @@ function spawnBoss(host) {
     }
   }
 
-  item.addEventListener('click', function (ev) {
+  item.addEventListener('click', function(ev) {
     if (!running) return;
     const shieldBefore = shieldCharges;
     const clickPerf = performance.now();
@@ -1196,7 +1157,7 @@ function spawnBoss(host) {
   host.appendChild(item);
 }
 
-// ---------- คำนวณผล & แสดง ----------
+// ---------- End Game / Summary ----------
 function computeAndShowResult() {
   const hits = eventLog.filter(e => e.kind === 'hit' || e.kind === 'boss-hit');
   const validForAcc = hits.filter(e => e.type === 'good' || e.type === 'junk' || e.type === 'boss');
@@ -1210,11 +1171,9 @@ function computeAndShowResult() {
     .filter(v => typeof v === 'number' && v > 0);
   let rtAvg = 0;
   if (rtSamples.length) {
-    const sum = rtSamples.reduce((a, b) => a + b, 0);
+    const sum = rtSamples.reduce((a,b) => a + b, 0);
     rtAvg = sum / rtSamples.length;
   }
-
-  lastKnownAccuracy = accuracy;
 
   const result = $('#hha-result');
   const fs = $('#hha-final-score');
@@ -1224,6 +1183,7 @@ function computeAndShowResult() {
   const frt = $('#hha-final-rt');
   const fq = $('#hha-final-quests');
   const fboss = $('#hha-final-boss');
+  const frank = $('#hha-final-rank');
   const title = $('#hha-result-title');
 
   const missionSuccess = missionGoodCount >= MISSION_GOOD_TARGET;
@@ -1235,33 +1195,25 @@ function computeAndShowResult() {
   if (fa) fa.textContent = accuracy.toFixed(1) + '%';
   if (frt) frt.textContent = rtSamples.length ? rtAvg.toFixed(1) : '–';
   if (fq) fq.textContent = String(questDoneCount);
-  if (fboss) {
-    fboss.textContent = bossSpawned
-      ? (bossDefeated ? 'ล้ม Boss ได้สำเร็จ 🎯' : 'Boss หนีไปได้…')
-      : 'ยังไม่พบ Boss';
-  }
+  if (fboss) fboss.textContent = bossSpawned
+    ? (bossDefeated ? 'ล้ม Boss ได้สำเร็จ 🎯' : 'Boss หนีไปได้…')
+    : 'ยังไม่พบ Boss';
 
-  const rankInfo = computeRankInfo({
-    score: score,
-    missionRatio: (MISSION_GOOD_TARGET > 0 ? missionGoodCount / MISSION_GOOD_TARGET : 0),
-    combo: maxCombo,
-    accuracy: accuracy,
-    bossDefeated: bossDefeated,
-    questsDone: questDoneCount
-  });
+  const rank = computeRank(score, missionGoodCount, MISSION_GOOD_TARGET, accuracy);
+  if (frank) frank.textContent = rank.label;
 
   if (title) {
-    if (!missionSuccess) {
-      title.textContent = rankInfo.banner + ' (ยังไม่ผ่านภารกิจหลักนะ ลองอีกสักรอบ!)';
+    if (missionSuccess) {
+      title.textContent = 'ภารกิจสำเร็จ! 🎉';
     } else {
-      title.textContent = rankInfo.banner;
+      title.textContent = 'ยังไม่ผ่านภารกิจ ลองอีกทีนะ 💪';
     }
   }
 
   if (result) result.style.display = 'flex';
 
-  // push summary ไป global (ให้ครูโหลดแบบ Teacher CSV)
-  HHA_SUMMARIES.push({
+  // push summary สำหรับ Teacher/แดชบอร์ด
+  const summary = {
     ts: new Date().toISOString(),
     mode: MODE,
     diff: DIFF,
@@ -1273,34 +1225,15 @@ function computeAndShowResult() {
     avgRT: rtAvg,
     questsDone: questDoneCount,
     boss: { spawned: bossSpawned, defeated: bossDefeated },
-    rankSlug: rankInfo.slug,
-    rankLabel: rankInfo.shortLabel,
-    profile: {
-      name: playerProfile.name || '',
-      grade: playerProfile.grade || '',
-      room: playerProfile.room || '',
-      sid: playerProfile.sid || ''
-    }
-  });
+    rankSlug: rank.slug,
+    rankLabel: rank.label,
+    profile: playerProfile || {}
+  };
+  HHA_SUMMARIES.push(summary);
 
   if (window.HH_COACH && typeof window.HH_COACH.onRoundEnd === 'function') {
-    window.HH_COACH.onRoundEnd({
-      mode: MODE,
-      diff: DIFF,
-      score: score,
-      maxCombo: maxCombo,
-      missionGoodCount: missionGoodCount,
-      missionTarget: MISSION_GOOD_TARGET,
-      accuracy: accuracy,
-      avgRT: rtAvg,
-      quests: questState,
-      boss: { spawned: bossSpawned, defeated: bossDefeated },
-      rank: rankInfo,
-      profile: playerProfile
-    });
+    window.HH_COACH.onRoundEnd(summary);
   }
-
-  updateRankLabel(accuracy);
 }
 
 function endGame() {
@@ -1339,7 +1272,6 @@ function startGame() {
   eventLog.length = 0;
   timeLeft = GAME_DURATION;
   roundStartPerf = performance.now();
-  lastKnownAccuracy = 0;
 
   updateHUD();
 
@@ -1350,11 +1282,11 @@ function startGame() {
   if (spawnTimer) clearInterval(spawnTimer);
   if (tickTimer) clearInterval(tickTimer);
 
-  spawnTimer = setInterval(function () {
+  spawnTimer = setInterval(function() {
     spawnOne(host);
   }, SPAWN_INTERVAL);
 
-  tickTimer = setInterval(function () {
+  tickTimer = setInterval(function() {
     timeLeft -= 1;
     if (timeLeft <= 0) {
       timeLeft = 0;
@@ -1383,10 +1315,11 @@ function bootstrap() {
   createFXLayer();
   ensureGameCSS();
   updateHUD();
+  initExportDropdown();
 
   const restartBtn = $('#hha-restart');
   if (restartBtn) {
-    restartBtn.addEventListener('click', function () {
+    restartBtn.addEventListener('click', function() {
       const panel = $('#hha-result');
       if (panel) panel.style.display = 'none';
       startGame();
@@ -1395,7 +1328,7 @@ function bootstrap() {
 
   const backBtn = $('#hha-back-hub');
   if (backBtn) {
-    backBtn.addEventListener('click', function () {
+    backBtn.addEventListener('click', function() {
       window.location.href = './hub.html';
     });
   }
