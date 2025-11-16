@@ -2,64 +2,40 @@
 <html lang="th">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
   <title>Hero Health — Teacher Dashboard</title>
   <meta name="color-scheme" content="light dark"/>
   <style>
-    :root{color-scheme: light dark;}
+    :root{
+      color-scheme: light dark;
+    }
     *{box-sizing:border-box;}
     body{
       margin:0;
+      min-height:100vh;
       font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
       background:
-        radial-gradient(circle at top, rgba(56,189,248,0.18), transparent 55%),
-        radial-gradient(circle at bottom, rgba(34,197,94,0.18), transparent 55%),
+        radial-gradient(circle at top left, rgba(56,189,248,0.15), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.18), transparent 55%),
         #020617;
       color:#e5e7eb;
-      min-height:100vh;
     }
     .wrap{
       max-width:1100px;
-      margin:0 auto;
-      padding:16px 16px 32px;
+      margin:24px auto 40px;
+      padding:0 16px 32px;
+    }
+    header{
+      margin-bottom:16px;
     }
     h1{
-      margin:0 0 4px;
-      font-size:22px;
+      margin:0 0 6px;
+      font-size:24px;
     }
-    .muted{
+    .subtitle{
       font-size:13px;
       color:#cbd5f5;
-      margin-bottom:14px;
-    }
-    .card{
-      background:rgba(15,23,42,0.96);
-      border-radius:16px;
-      border:1px solid rgba(51,65,85,0.9);
-      padding:14px 16px;
-      margin-bottom:16px;
-      box-shadow:0 14px 35px rgba(0,0,0,0.55);
-    }
-    .row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:12px;
-    }
-    .metric{
-      flex:1 1 200px;
-      background:rgba(15,23,42,0.9);
-      border-radius:12px;
-      padding:10px 12px;
-      border:1px solid rgba(30,64,175,0.8);
-    }
-    .metric-label{
-      font-size:11px;
-      color:#9ca3af;
-    }
-    .metric-value{
-      font-size:18px;
-      font-weight:600;
-      margin-top:2px;
+      max-width:640px;
     }
     .badge{
       display:inline-flex;
@@ -73,467 +49,497 @@
       color:#e5e7eb;
       margin-bottom:8px;
     }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.2fr 1fr;
+      gap:16px;
+    }
+    @media (max-width:900px){
+      .grid{grid-template-columns:1fr;}
+    }
+
+    .card{
+      border-radius:18px;
+      padding:14px 16px 16px;
+      border:1px solid rgba(148,163,184,0.4);
+      background:rgba(15,23,42,0.96);
+      box-shadow:0 18px 40px rgba(15,23,42,0.9);
+      margin-bottom:14px;
+    }
+    .card h2{
+      margin:0 0 8px;
+      font-size:16px;
+    }
+    .card p{
+      margin:0 0 8px;
+      font-size:12px;
+      color:#cbd5f5;
+    }
+
     input[type="file"]{
-      display:inline-block;
+      font-size:12px;
+    }
+
+    .summary-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:6px;
+    }
+    .summary-pill{
+      flex:1 1 140px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,0.45);
+      background:rgba(15,23,42,0.95);
       padding:6px 10px;
-      font-size:13px;
-      border-radius:10px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:#020617;
-      color:#e5e7eb;
-      cursor:pointer;
+      font-size:12px;
     }
-    select{
-      padding:6px 10px;
-      font-size:13px;
-      border-radius:10px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:#020617;
-      color:#e5e7eb;
+    .summary-label{
+      color:#9ca3af;
+      font-size:11px;
     }
-    canvas{
-      max-width:100%;
+    .summary-value{
+      font-weight:600;
+      font-size:14px;
     }
+
     table{
       width:100%;
       border-collapse:collapse;
       font-size:12px;
-      margin-top:8px;
+      margin-top:6px;
     }
     th,td{
-      border-bottom:1px solid rgba(51,65,85,0.9);
+      border-bottom:1px solid rgba(55,65,81,0.9);
       padding:4px 6px;
       text-align:left;
-      white-space:nowrap;
     }
     th{
-      color:#93c5fd;
-      font-weight:500;
+      font-weight:600;
+      font-size:11px;
+      color:#cbd5f5;
     }
-    @media (max-width:640px){
-      h1{font-size:19px;}
+    tbody tr:hover{
+      background:rgba(31,41,55,0.9);
+    }
+
+    .pill-mode{
+      border-radius:999px;
+      padding:2px 8px;
+      font-size:11px;
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.95);
     }
   </style>
-  <!-- ใช้ Chart.js จาก CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="wrap">
-    <h1>Hero Health — Teacher Dashboard</h1>
-    <div class="muted">
-      เลือกไฟล์ CSV ที่ส่งออกจากเกม Hero Health เพื่อตรวจดูคะแนน ความแม่นยำ และเวลาโต้ตอบของนักเรียนเป็นภาพรวม
+    <header>
+      <div class="badge">📊 Hero Health — Teacher / Research Dashboard</div>
+      <h1>สรุปผลการเล่นเกม Hero Health จากไฟล์ CSV</h1>
+      <p class="subtitle">
+        นำเข้าไฟล์ CSV ที่ได้จากปุ่ม <strong>ดาวน์โหลด CSV</strong> ในเกม
+        ระบบจะแสดงสรุปภาพรวมของนักเรียนแต่ละคน ความแม่นยำ เวลาโต้ตอบ และเปรียบเทียบตามระดับความยาก
+      </p>
+    </header>
+
+    <!-- แถวซ้าย: upload + summary / แถวขวา: chart -->
+    <div class="grid">
+      <div>
+        <!-- Upload -->
+        <div class="card">
+          <h2>1. เลือกไฟล์ CSV</h2>
+          <p>
+            เลือกไฟล์ CSV ที่ดาวน์โหลดจากเกม (ทั้งโหมดครู/วิจัยใช้ schema เดียวกันได้)
+          </p>
+          <input id="csvInput" type="file" accept=".csv,text/csv"/>
+        </div>
+
+        <!-- Overall summary -->
+        <div class="card">
+          <h2>2. ภาพรวมของข้อมูล</h2>
+          <div class="summary-row">
+            <div class="summary-pill">
+              <div class="summary-label">จำนวนนักเรียน</div>
+              <div class="summary-value" id="sumPlayers">–</div>
+            </div>
+            <div class="summary-pill">
+              <div class="summary-label">จำนวน event (hit/miss)</div>
+              <div class="summary-value" id="sumEvents">–</div>
+            </div>
+            <div class="summary-pill">
+              <div class="summary-label">ความแม่นยำเฉลี่ย</div>
+              <div class="summary-value" id="sumAcc">–</div>
+            </div>
+            <div class="summary-pill">
+              <div class="summary-label">RT เฉลี่ย (ms)</div>
+              <div class="summary-value" id="sumRt">–</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts -->
+      <div>
+        <!-- per-student chart -->
+        <div id="chartCard" class="card" style="display:none;">
+          <h2>3. กราฟต่อคน</h2>
+          <p>เลือกนักเรียน แล้วดูสถิติแบบกราฟแท่ง</p>
+          <canvas id="studentChart" height="220"></canvas>
+        </div>
+
+        <!-- diff compare chart -->
+        <div id="diffCard" class="card" style="display:none;">
+          <h2>4. เปรียบเทียบระดับความยาก (รวมทุกคน)</h2>
+          <p>กราฟเปรียบเทียบความแม่นยำและเวลาโต้ตอบระหว่าง Easy / Normal / Hard</p>
+          <canvas id="diffChart" height="220"></canvas>
+        </div>
+      </div>
     </div>
 
+    <!-- Table -->
     <div class="card">
-      <div class="badge">📂 เลือกไฟล์ข้อมูล</div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-        <input type="file" id="fileInput" accept=".csv"/>
-        <span style="font-size:12px;color:#9ca3af;">
-          * ใช้ได้ทั้งโหมดครูและโหมดวิจัย
-        </span>
-      </div>
-    </div>
-
-    <div id="summaryCard" class="card" style="display:none;">
-      <div class="badge">📊 สรุปภาพรวมทั้งไฟล์</div>
-      <div class="row">
-        <div class="metric">
-          <div class="metric-label">จำนวนเหตุการณ์ (event rows)</div>
-          <div class="metric-value" id="mEvents">0</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">จำนวนนักเรียน (profile_name)</div>
-          <div class="metric-value" id="mStudents">0</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">ความแม่นยำเฉลี่ย</div>
-          <div class="metric-value" id="mAccAvg">0%</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">เวลาโต้ตอบเฉลี่ย (ms)</div>
-          <div class="metric-value" id="mRtAvg">0</div>
-        </div>
-      </div>
-    </div>
-
-    <div id="chartCard" class="card" style="display:none;">
-      <div class="badge">📈 กราฟคะแนน/ความแม่นยำรายคน</div>
-      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-        <span style="font-size:12px;color:#cbd5f5;">โหมดกราฟ:</span>
-        <select id="chartMode">
-          <option value="score">คะแนนสูงสุดต่อคน</option>
-          <option value="acc">ความแม่นยำ (%) ต่อคน</option>
-          <option value="rt">เวลาโต้ตอบเฉลี่ย (ms) ต่อคน</option>
-        </select>
-      </div>
-      <canvas id="teacherChart" height="220"></canvas>
-    </div>
-
-    <div id="tableCard" class="card" style="display:none;">
-      <div class="badge">👥 ตารางสรุประดับนักเรียน</div>
+      <h2>5. ตารางสรุปต่อคน</h2>
+      <p>ดูคะแนน / accuracy / RT เฉลี่ย และจำนวนรอบที่เล่นของแต่ละคน</p>
       <div style="overflow:auto;">
         <table id="studentTable">
           <thead>
             <tr>
-              <th>ชื่อ</th>
-              <th>รหัส</th>
+              <th>นักเรียน</th>
               <th>ชั้น</th>
-              <th>โหมดยอดนิยม</th>
+              <th>รหัส</th>
+              <th>จำนวนรอบ</th>
+              <th>โหมดที่เล่น</th>
               <th>คะแนนสูงสุด</th>
-              <th>ความแม่นยำเฉลี่ย (%)</th>
+              <th>Accuracy เฉลี่ย</th>
               <th>RT เฉลี่ย (ms)</th>
+              <th>เควสต์สำเร็จ</th>
             </tr>
           </thead>
-          <tbody></tbody>
+          <tbody>
+            <tr><td colspan="9" style="text-align:center;color:#9ca3af;">ยังไม่มีข้อมูล</td></tr>
+          </tbody>
         </table>
       </div>
     </div>
-
   </div>
 
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-  (function(){
-    'use strict';
+    const csvInput = document.getElementById('csvInput');
+    const sumPlayersEl = document.getElementById('sumPlayers');
+    const sumEventsEl  = document.getElementById('sumEvents');
+    const sumAccEl     = document.getElementById('sumAcc');
+    const sumRtEl      = document.getElementById('sumRt');
 
-    const fileInput = document.getElementById('fileInput');
-    const summaryCard = document.getElementById('summaryCard');
-    const chartCard = document.getElementById('chartCard');
-    const tableCard = document.getElementById('tableCard');
+    const studentTable = document.getElementById('studentTable').querySelector('tbody');
+    const chartCard    = document.getElementById('chartCard');
+    const diffCard     = document.getElementById('diffCard');
 
-    const mEvents = document.getElementById('mEvents');
-    const mStudents = document.getElementById('mStudents');
-    const mAccAvg = document.getElementById('mAccAvg');
-    const mRtAvg = document.getElementById('mRtAvg');
-
-    const chartModeSel = document.getElementById('chartMode');
-    const chartCanvas = document.getElementById('teacherChart');
-    const tableBody = document.querySelector('#studentTable tbody');
+    const studentCanvas = document.getElementById('studentChart');
+    const diffCanvas    = document.getElementById('diffChart');
 
     let parsedRows = [];
     let perStudent = {};
     let chartInstance = null;
+    let diffChartInstance = null;
 
-    // --- CSV Parser แบบง่าย รองรับฟิลด์มี "" ---
-    function parseCSV(text){
+    function parseCsv(text){
+      const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+      if (!lines.length) return [];
+
+      const header = lines[0].split(',').map(h => h.trim());
       const rows = [];
-      let cur = [];
-      let value = '';
-      let inQuotes = false;
 
-      function pushValue(){
-        cur.push(value);
-        value = '';
-      }
-      function pushRow(){
-        if (cur.length === 1 && cur[0] === '') {
-          cur = [];
-          return;
-        }
-        rows.push(cur);
-        cur = [];
-      }
-
-      for (let i=0;i<text.length;i++){
-        const ch = text[i];
-        const next = text[i+1];
-
-        if (inQuotes){
-          if (ch === '"' && next === '"'){
-            value += '"';
-            i++;
-          } else if (ch === '"'){
-            inQuotes = false;
+      for (let i=1;i<lines.length;i++){
+        const raw = lines[i];
+        if (!raw.trim()) continue;
+        const cols = raw.split(',');
+        const obj = {};
+        for (let c=0;c<header.length;c++){
+          const key = header[c];
+          let val = cols[c] != null ? cols[c].trim() : '';
+          if (key === 'correct' || key === 'fever' || key === 'quest_streak5_done' ||
+              key === 'quest_combo_done' || key === 'quest_fever_twice' || key === 'quest_fever_done'){
+            obj[key] = (val === '1' || val.toLowerCase() === 'true');
+          } else if (key === 'rt_ms' || key === 'score_after' || key === 'combo_after' || key === 'time_left'){
+            const n = parseFloat(val);
+            obj[key] = isNaN(n) ? null : n;
           } else {
-            value += ch;
-          }
-        } else {
-          if (ch === '"'){
-            inQuotes = true;
-          } else if (ch === ','){
-            pushValue();
-          } else if (ch === '\r'){
-            // skip, handle on \n
-          } else if (ch === '\n'){
-            pushValue();
-            pushRow();
-          } else {
-            value += ch;
+            obj[key] = val;
           }
         }
-      }
-      if (value.length || cur.length){
-        pushValue();
-        pushRow();
+        rows.push(obj);
       }
       return rows;
     }
 
     function buildPerStudent(rows){
-      // rows = array of {profile_name, profile_grade, profile_id, mode, diff, kind, type, correct, rt_ms, score_after}
       const map = {};
-      rows.forEach(r=>{
-        const name = r.profile_name || '';
+      rows.forEach(r => {
+        const name  = r.profile_name || '';
         const grade = r.profile_grade || '';
-        const sid = r.profile_id || '';
-        const key = name + '|' + sid + '|' + grade;
+        const sid   = r.profile_id || '';
+        const key = (name || '(ไม่ระบุชื่อ)') + '|' + (sid || '-');
+
         if (!map[key]){
           map[key] = {
             name, grade, sid,
-            totalEvents: 0,
-            hitEvents: 0,
-            correctEvents: 0,
-            sumRt: 0,
-            rtCount: 0,
-            maxScore: 0,
-            modeCount: {}
+            rounds:0,
+            maxScore:0,
+            modes: new Set(),
+            diffSet: new Set(),
+            hitEvents:0,
+            correctEvents:0,
+            rtSum:0,
+            rtCount:0,
+            questDoneCount:0
           };
         }
-        const s = map[key];
-        s.totalEvents++;
+        const st = map[key];
 
+        // นับรอบจาก event hit/boss-hit ที่ time_left = 0 ? ไว้ก่อนใช้ per-file แบบหยาบ:
+        // ใช้ kind === 'hit' หรือ 'boss-hit'
         if (r.kind === 'hit' || r.kind === 'boss-hit'){
-          s.hitEvents++;
-          if (r.correct) s.correctEvents++;
-          if (typeof r.rt_ms === 'number'){
-            s.sumRt += r.rt_ms;
-            s.rtCount++;
+          st.hitEvents++;
+          if (r.correct) st.correctEvents++;
+          if (typeof r.rt_ms === 'number' && r.rt_ms > 0){
+            st.rtSum += r.rt_ms;
+            st.rtCount++;
           }
+          if (typeof r.score_after === 'number' && r.score_after > st.maxScore){
+            st.maxScore = r.score_after;
+          }
+          if (r.mode) st.modes.add(r.mode);
+          if (r.diff) st.diffSet.add(r.diff);
         }
-        if (typeof r.score_after === 'number' && r.score_after > s.maxScore){
-          s.maxScore = r.score_after;
+
+        // นับ quest จาก flag ใด ๆ
+        if (r.quest_streak5_done || r.quest_combo_done || r.quest_fever_done){
+          st.questDoneCount++;
         }
-        const mKey = r.mode || '';
-        s.modeCount[mKey] = (s.modeCount[mKey]||0) + 1;
+      });
+
+      // ประมาณ rounds จาก hitEvents/20 (ในหนึ่งรอบโดยเฉลี่ยประมาณ 20 hit; ปรับได้ทีหลัง)
+      Object.values(map).forEach(st => {
+        st.rounds = Math.max(1, Math.round(st.hitEvents / 20));
       });
 
       return map;
     }
 
-    function modeLabel(mode){
-      switch((mode||'').toLowerCase()){
-        case 'goodjunk': return 'ดี vs ขยะ';
-        case 'groups': return 'จัดหมู่อาหาร';
-        case 'hydration': return 'น้ำดี น้ำหวาน';
-        case 'plate': return 'จานสมดุล';
-        default: return mode || '-';
-      }
-    }
-
     function fillSummaryAndTable(){
       const keys = Object.keys(perStudent);
-      const nStudents = keys.length;
+      const students = keys.map(k => perStudent[k]);
 
-      // summary ทั้งไฟล์
-      let allAccSum = 0;
-      let allAccCount = 0;
-      let allRtSum = 0;
-      let allRtCount = 0;
+      if (!students.length){
+        sumPlayersEl.textContent = '0';
+        sumEventsEl.textContent  = '0';
+        sumAccEl.textContent     = '–';
+        sumRtEl.textContent      = '–';
+        studentTable.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#9ca3af;">ยังไม่มีข้อมูล</td></tr>';
+        chartCard.style.display = 'none';
+        diffCard.style.display  = 'none';
+        return;
+      }
 
-      keys.forEach(k=>{
-        const s = perStudent[k];
-        let acc = 0;
-        if (s.hitEvents > 0){
-          acc = (s.correctEvents / s.hitEvents) * 100;
-        }
-        let rt = 0;
-        if (s.rtCount > 0){
-          rt = s.sumRt / s.rtCount;
-        }
-        allAccSum += acc;
-        allAccCount++;
-        if (rt > 0){
-          allRtSum += rt;
-          allRtCount++;
-        }
+      // summary overall
+      let totalEvents = 0, totalCorrect = 0, rtSum=0, rtCount=0;
+      students.forEach(st => {
+        totalEvents  += st.hitEvents;
+        totalCorrect += st.correctEvents;
+        rtSum        += st.rtSum;
+        rtCount      += st.rtCount;
       });
 
-      mEvents.textContent = String(parsedRows.length);
-      mStudents.textContent = String(nStudents);
-      mAccAvg.textContent = allAccCount ? (allAccSum/allAccCount).toFixed(1)+'%' : '0%';
-      mRtAvg.textContent = allRtCount ? allRtSum/allRtCount.toFixed(1) : '0';
+      const acc = totalEvents ? (totalCorrect/totalEvents)*100 : 0;
+      const rtAvg = rtCount ? (rtSum/rtCount) : 0;
 
-      summaryCard.style.display = 'block';
+      sumPlayersEl.textContent = String(students.length);
+      sumEventsEl.textContent  = String(totalEvents || 0);
+      sumAccEl.textContent     = totalEvents ? acc.toFixed(1)+'%' : '–';
+      sumRtEl.textContent      = rtCount ? rtAvg.toFixed(1) : '–';
 
-      // ตารางรายคน
-      tableBody.innerHTML = '';
-      keys.forEach(k=>{
-        const s = perStudent[k];
+      // table
+      studentTable.innerHTML = '';
+      students.forEach(st => {
         const tr = document.createElement('tr');
 
-        let favMode = '-';
-        let maxCount = 0;
-        Object.keys(s.modeCount).forEach(m=>{
-          if (s.modeCount[m] > maxCount){
-            maxCount = s.modeCount[m];
-            favMode = m;
-          }
+        const nameCell = document.createElement('td');
+        nameCell.textContent = st.name || '(ไม่ระบุชื่อ)';
+
+        const gradeCell = document.createElement('td');
+        gradeCell.textContent = st.grade || '-';
+
+        const sidCell = document.createElement('td');
+        sidCell.textContent = st.sid || '-';
+
+        const roundsCell = document.createElement('td');
+        roundsCell.textContent = String(st.rounds);
+
+        const modeCell = document.createElement('td');
+        const pill = document.createElement('span');
+        pill.className = 'pill-mode';
+        pill.textContent = Array.from(st.modes).join(', ') || '-';
+        modeCell.appendChild(pill);
+
+        const scoreCell = document.createElement('td');
+        scoreCell.textContent = String(st.maxScore || 0);
+
+        const accCell = document.createElement('td');
+        const sAcc = st.hitEvents ? (st.correctEvents / st.hitEvents)*100 : 0;
+        accCell.textContent = st.hitEvents ? sAcc.toFixed(1)+'%' : '–';
+
+        const rtCell = document.createElement('td');
+        const sRt = st.rtCount ? (st.rtSum / st.rtCount) : 0;
+        rtCell.textContent = st.rtCount ? sRt.toFixed(1) : '–';
+
+        const questCell = document.createElement('td');
+        questCell.textContent = String(st.questDoneCount || 0);
+
+        tr.appendChild(nameCell);
+        tr.appendChild(gradeCell);
+        tr.appendChild(sidCell);
+        tr.appendChild(roundsCell);
+        tr.appendChild(modeCell);
+        tr.appendChild(scoreCell);
+        tr.appendChild(accCell);
+        tr.appendChild(rtCell);
+        tr.appendChild(questCell);
+
+        // คลิกแถวเพื่อเลือกกราฟ
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', () => {
+          updateStudentChart(st);
         });
 
-        let acc = 0;
-        if (s.hitEvents > 0){
-          acc = (s.correctEvents / s.hitEvents) * 100;
-        }
-        let rt = 0;
-        if (s.rtCount > 0){
-          rt = s.sumRt / s.rtCount;
-        }
-
-        tr.innerHTML = `
-          <td>${s.name || '-'}</td>
-          <td>${s.sid || '-'}</td>
-          <td>${s.grade || '-'}</td>
-          <td>${modeLabel(favMode)}</td>
-          <td>${s.maxScore}</td>
-          <td>${acc.toFixed(1)}%</td>
-          <td>${rt.toFixed(1)}</td>
-        `;
-        tableBody.appendChild(tr);
+        studentTable.appendChild(tr);
       });
 
-      tableCard.style.display = 'block';
+      // default: แสดงคนแรก
+      updateStudentChart(students[0]);
+      chartCard.style.display = 'block';
     }
 
-    function updateChart(){
-      const keys = Object.keys(perStudent);
-      if (!keys.length) return;
+    function updateStudentChart(st){
+      if (!st) return;
 
-      const labels = [];
-      const dataScore = [];
-      const dataAcc = [];
-      const dataRt = [];
+      const label = st.name || '(ไม่ระบุชื่อ)';
+      const acc = st.hitEvents ? (st.correctEvents / st.hitEvents)*100 : 0;
+      const rt  = st.rtCount ? (st.rtSum / st.rtCount) : 0;
+      const score = st.maxScore || 0;
 
-      keys.forEach(k=>{
-        const s = perStudent[k];
-        labels.push(s.name || '(ไม่มีชื่อ)');
+      if (chartInstance) chartInstance.destroy();
 
-        let acc = 0;
-        if (s.hitEvents > 0){
-          acc = (s.correctEvents / s.hitEvents) * 100;
-        }
-        let rt = 0;
-        if (s.rtCount > 0){
-          rt = s.sumRt / s.rtCount;
-        }
-        dataScore.push(s.maxScore);
-        dataAcc.push(acc);
-        dataRt.push(rt);
-      });
-
-      const mode = chartModeSel.value;
-
-      let datasetLabel = '';
-      let datasetData = [];
-      let yTitle = '';
-
-      if (mode === 'score'){
-        datasetLabel = 'คะแนนสูงสุด';
-        datasetData = dataScore;
-        yTitle = 'คะแนน';
-      } else if (mode === 'acc'){
-        datasetLabel = 'ความแม่นยำ (%)';
-        datasetData = dataAcc;
-        yTitle = 'Accuracy (%)';
-      } else {
-        datasetLabel = 'เวลาโต้ตอบเฉลี่ย (ms)';
-        datasetData = dataRt;
-        yTitle = 'RT (ms)';
-      }
-
-      if (chartInstance){
-        chartInstance.destroy();
-      }
-
-      chartInstance = new Chart(chartCanvas.getContext('2d'), {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: datasetLabel,
-            data: datasetData
+      chartInstance = new Chart(studentCanvas.getContext('2d'), {
+        type:'bar',
+        data:{
+          labels:['Score สูงสุด','Accuracy (%)','RT (ms)'],
+          datasets:[{
+            label: label,
+            data:[score, acc, rt]
           }]
         },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { display: true },
-            tooltip: { enabled: true }
+        options:{
+          responsive:true,
+          plugins:{
+            legend:{display:false},
+            tooltip:{enabled:true}
           },
-          scales: {
-            x: {
-              ticks: { autoSkip: false, maxRotation: 60, minRotation: 0 }
+          scales:{
+            y:{
+              beginAtZero:true
+            }
+          }
+        }
+      });
+    }
+
+    function updateDiffChart(){
+      if (!parsedRows.length) return;
+
+      const byDiff = {
+        easy:   { hit:0, correct:0, sumRt:0, rtCount:0 },
+        normal: { hit:0, correct:0, sumRt:0, rtCount:0 },
+        hard:   { hit:0, correct:0, sumRt:0, rtCount:0 }
+      };
+
+      parsedRows.forEach(r => {
+        const d = (r.diff || '').toLowerCase();
+        if (!(d in byDiff)) return;
+
+        if (r.kind === 'hit' || r.kind === 'boss-hit'){
+          byDiff[d].hit++;
+          if (r.correct) byDiff[d].correct++;
+          if (typeof r.rt_ms === 'number' && r.rt_ms > 0){
+            byDiff[d].sumRt += r.rt_ms;
+            byDiff[d].rtCount++;
+          }
+        }
+      });
+
+      const labels = ['Easy','Normal','Hard'];
+      const accData = [];
+      const rtData  = [];
+
+      ['easy','normal','hard'].forEach(d => {
+        const s = byDiff[d];
+        let acc = 0, rt = 0;
+        if (s.hit > 0)   acc = (s.correct / s.hit)*100;
+        if (s.rtCount>0) rt  = s.sumRt / s.rtCount;
+        accData.push(acc);
+        rtData.push(rt);
+      });
+
+      if (diffChartInstance) diffChartInstance.destroy();
+
+      diffChartInstance = new Chart(diffCanvas.getContext('2d'), {
+        type:'bar',
+        data:{
+          labels:labels,
+          datasets:[
+            {
+              label:'Accuracy เฉลี่ย (%)',
+              data:accData
             },
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: yTitle }
+            {
+              label:'RT เฉลี่ย (ms)',
+              data:rtData
+            }
+          ]
+        },
+        options:{
+          responsive:true,
+          plugins:{
+            legend:{display:true},
+            tooltip:{enabled:true}
+          },
+          scales:{
+            y:{
+              beginAtZero:true
             }
           }
         }
       });
 
-      chartCard.style.display = 'block';
+      diffCard.style.display = 'block';
     }
 
-    fileInput.addEventListener('change', function(){
-      const file = fileInput.files[0];
+    csvInput.addEventListener('change', function(){
+      const file = csvInput.files && csvInput.files[0];
       if (!file) return;
-
       const reader = new FileReader();
-      reader.onload = function(e){
-        const text = e.target.result || '';
-        const rawRows = parseCSV(text);
-        if (!rawRows.length){
-          alert('ไม่พบข้อมูลในไฟล์');
-          return;
-        }
-        const header = rawRows[0].map(h=>h.trim());
-        const rows = rawRows.slice(1);
-
-        // map header -> index
-        const idx = {};
-        header.forEach((h,i)=>{ idx[h] = i; });
-
-        parsedRows = [];
-        rows.forEach(cols=>{
-          if (!cols || !cols.length) return;
-
-          function col(name){
-            const i = idx[name];
-            if (i == null) return '';
-            return cols[i] || '';
-          }
-
-          const rtStr = col('rt_ms');
-          const rt = rtStr ? Number(rtStr) : null;
-          const scoreStr = col('score_after');
-          const score = scoreStr ? Number(scoreStr) : 0;
-
-          parsedRows.push({
-            profile_name: col('profile_name').replace(/^"|"$/g,''),
-            profile_grade: col('profile_grade').replace(/^"|"$/g,''),
-            profile_id: col('profile_id').replace(/^"|"$/g,''),
-            mode: col('mode'),
-            diff: col('diff'),
-            kind: col('kind'),
-            type: col('type'),
-            correct: col('correct') === '1',
-            rt_ms: (rt != null && !isNaN(rt)) ? rt : null,
-            score_after: !isNaN(score) ? score : 0
-          });
-        });
-
+      reader.onload = function(ev){
+        const text = String(ev.target.result || '');
+        parsedRows = parseCsv(text);
         perStudent = buildPerStudent(parsedRows);
         fillSummaryAndTable();
-        updateChart();
+        updateDiffChart();
       };
       reader.readAsText(file, 'utf-8');
     });
-
-    chartModeSel.addEventListener('change', function(){
-      if (!Object.keys(perStudent).length) return;
-      updateChart();
-    });
-
-  })();
   </script>
 </body>
 </html>
