@@ -1,94 +1,121 @@
-/* ==== Rhythm Boxer — HADO-style Finish FX ==== */
-
-/* เลน (ให้แน่ใจว่ามี z-index ต่ำกว่าผลสรุป) */
-.rb-lane{
-  z-index: 20;
+/* --- Stage พื้นฐาน --- */
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #020617, #020617 40%, #000 100%);
+  color: #e5e7eb;
 }
 
-/* ทำเลนตอนจบให้จางหาย */
-.rb-lane.fade-out{
-  opacity: 0;
-  transform: translateY(8px) scale(.97);
-  transition: opacity .35s ease, transform .35s ease;
+#rb-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
 }
 
-/* วงสแกนแบบ HADO (ระเบิดออกจากกลางจอ) */
-.rb-ripple{
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index: 950;
-  background:radial-gradient(circle at center,
-              rgba(56,189,248,0.9) 0,
-              rgba(56,189,248,0.4) 20%,
-              transparent 55%);
-  mix-blend-mode:screen;
-  opacity:0;
-  transform:scale(.4);
+/* lane + note (เผื่อ style เพิ่มจาก JS) */
+.rb-lane {
+  backdrop-filter: blur(10px);
+}
+
+.rb-note {
+  transition: bottom 0.08s linear;
+}
+
+/* float score */
+.float {
+  font-weight: 700;
+  text-shadow: 0 4px 10px rgba(15,23,42,.7);
+  animation: rbFloatUp 0.6s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes rbFloatUp {
+  0% { opacity:1; transform:translate(-50%,-50%) translateY(0); }
+  100%{ opacity:0; transform:translate(-50%,-50%) translateY(-24px); }
+}
+
+/* HADO ripple + scan */
+.rb-ripple {
+  position: fixed;
+  left:50%; top:50%;
+  width:40vmin; height:40vmin;
+  border-radius:999px;
+  border:3px solid rgba(56,189,248,.9);
+  transform:translate(-50%,-50%);
   animation: rbRipple 0.8s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes rbRipple {
+  0% { opacity:0.8; transform:translate(-50%,-50%) scale(0.2); }
+  100%{ opacity:0;   transform:translate(-50%,-50%) scale(2.2); }
 }
 
-@keyframes rbRipple{
-  0%{
-    opacity:.9;
-    transform:scale(.4);
-    filter:blur(0px);
-  }
-  60%{
-    opacity:.7;
-    transform:scale(1.6);
-    filter:blur(2px);
-  }
-  100%{
-    opacity:0;
-    transform:scale(2.3);
-    filter:blur(4px);
-  }
+.rb-scan {
+  position:fixed;
+  left:0; right:0;
+  height:24vh;
+  top:-24vh;
+  background:linear-gradient(to bottom,
+    rgba(125,211,252,0) 0%,
+    rgba(125,211,252,0.25) 40%,
+    rgba(125,211,252,0) 100%);
+  animation: rbScan 0.9s ease-out forwards;
+  pointer-events:none;
+}
+@keyframes rbScan {
+  0% { top:-24vh; opacity:0; }
+  10%{ opacity:0.9; }
+  100%{ top:100vh; opacity:0; }
 }
 
-/* เส้น scan วิ่งแนวตั้งแบบ AR */
-.rb-scan{
+/* การ์ดสรุปผล */
+#rbResultCard,
+.rb-result-card {
+  display:none;                 /* สำคัญ: ซ่อนเริ่มต้น */
   position:fixed;
   inset:0;
-  pointer-events:none;
-  z-index: 945;
-  background:
-    repeating-linear-gradient(
-      to right,
-      rgba(148,163,184,.30) 0,
-      rgba(148,163,184,.30) 1px,
-      transparent 1px,
-      transparent 4px
-    );
-  mix-blend-mode:screen;
-  opacity:0;
-  animation: rbScan 0.9s linear forwards;
+  z-index:50;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
 }
 
-@keyframes rbScan{
-  0%{
-    opacity:0;
-    transform:translateY(40px);
-  }
-  20%{
-    opacity:.45;
-  }
-  80%{
-    opacity:.35;
-    transform:translateY(-40px);
-  }
-  100%{
-    opacity:0;
-    transform:translateY(-80px);
-  }
+#rbResultCard .rb-result-panel,
+.rb-result-card .rb-result-panel {
+  max-width:480px;
+  width:100%;
+  background:rgba(15,23,42,.96);
+  border-radius:24px;
+  box-shadow:0 24px 60px rgba(15,23,42,.9);
+  border:1px solid rgba(148,163,184,.7);
+  padding:24px 24px 20px;
 }
 
-/* ให้ result backdrop ลอยทับสุด */
-.sb-result-backdrop{
-  z-index: 999 !important;
+/* ปุ่มใน result */
+.rb-result-actions {
+  display:flex;
+  gap:12px;
+  margin-top:20px;
 }
-/* เมื่อเกมจบ: ซ่อน lane / track ทั้งหมด แบบไม่เหลือ */
+.rb-btn {
+  flex:1;
+  border-radius:999px;
+  padding:10px 16px;
+  border:none;
+  font-weight:600;
+  font-size:15px;
+}
+.rb-btn-primary {
+  background:#22c55e;
+  color:#022c22;
+}
+.rb-btn-ghost {
+  background:#e5e7eb;
+  color:#111827;
+}
+
+/* เมื่อจบเกม: ซ่อน lane/track ทั้งหมด */
 body.rb-finished .rb-lane,
-body.rb-finished .track {
-  display: none !important;
+body.rb-finished .track,
+body.rb-finished .rb-note {
+  display:none !important;
 }
