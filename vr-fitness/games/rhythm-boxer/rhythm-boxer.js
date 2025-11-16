@@ -1,349 +1,569 @@
-// === Rhythm Boxer Engine — Modular Version (RB-ENGINE v1.0) ===
-// Usage:
-// const rb = new RhythmBoxer({ stage, hud, result, config });
-// rb.start();
+// === Rhythm Boxer — DEV v1.0 (Research-ready) ===
+// - 4 lanes, tap/punch to the beat
+// - Perfect / Good / Miss scoring
+// - Summary format compatible with Shadow Breaker (สำหรับวิจัยรวมกัน)
 
-export class RhythmBoxer {
-  constructor(options) {
-    this.stage       = options.stage;
-    this.hud         = options.hud;
-    this.result      = options.result;
+// ---- CONFIG ENDPOINT (ใช้ตัวเดียวกับ Shadow Breaker ได้เลย) ----
+const FIREBASE_API = '';  // optional
+const SHEET_API    = '';  // Google Sheet Apps Script (ShadowBreakerResearch)
+const PDF_API      = '';  // PDF Apps Script
+const LB_API       = '';  // optional leaderboard
 
-    this.config = Object.assign({
-      duration: 90,
-      spawnBase: 1.1,
-      lifetime: 1.4,
-      feverCombo: 5,
-      onfireCombo: 8,
-    }, options.config || {});
+const LS_PROFILE = 'rb_profile_v1';
+const LS_QUEUE   = 'rb_offline_queue_v1';
 
-    this.targets = new Set();
-    this.audioCtx = null;
+// ===== STRINGS =====
+const STR = {
+  th:{
+    msgStart :'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
+    msgPaused:'พักแป๊บเดียวพอนะ โค้ชรอดูอยู่ 😄',
+    msgResume:'กลับมาต่อยตามจังหวะกันต่อ! 🎵',
+    msgEnd   :'จบเพลงแล้ว มาดูคะแนนกัน ⭐',
+    lbSchool :'อันดับในโรงเรียน',
+    lbClass  :'อันดับในห้องเรียน'
+  }
+};
+
+// ===== Profile handling (ง่าย ๆ เหมือน SB) =====
+function getProfile(){
+  try{
+    const raw = localStorage.getItem(LS_PROFILE);
+    return raw ? JSON.parse(raw) : null;
+  }catch{ return null; }
+}
+function saveProfile(p){
+  try{ localStorage.setItem(LS_PROFILE, JSON.stringify(p)); }catch{}
+}
+function ensureProfile(){
+  let p = getProfile();
+  if (p) return p;
+  const studentId = prompt('Student ID:');
+  const name      = prompt('ชื่อที่ใช้ในเกม:');
+  const school    = prompt('โรงเรียน / หน่วยงาน:');
+  const klass     = prompt('ห้องเรียน เช่น ป.5/1:');
+  p = { studentId, name, school, class: klass, lang:'th' };
+  saveProfile(p);
+  return p;
+}
+
+// ===== Offline queue =====
+function loadQueue(){
+  try{
+    const raw = localStorage.getItem(LS_QUEUE);
+    return raw ? JSON.parse(raw) : [];
+  }catch{ return []; }
+}
+function saveQueue(q){
+  try{ localStorage.setItem(LS_QUEUE, JSON.stringify(q)); }catch{}
+}
+async function flushQueue(){
+  const q = loadQueue();
+  if (!q.length) return;
+  const remain = [];
+  for (const item of q){
+    try{
+      await hybridSaveSession(item,false);
+    }catch{
+      remain.push(item);
+    }
+  }
+  saveQueue(remain);
+}
+
+// ===== Hybrid Save =====
+async function hybridSaveSession(summary, allowQueue = true){
+  const body = JSON.stringify(summary);
+  const headers = { 'Content-Type':'application/json' };
+  let ok = true;
+  try{
+    const tasks = [];
+    if (FIREBASE_API) tasks.push(fetch(FIREBASE_API,{ method:'POST', headers, body }));
+    if (SHEET_API)    tasks.push(fetch(SHEET_API   ,{ method:'POST', headers, body }));
+    if (tasks.length) await Promise.all(tasks);
+  }catch(e){
+    console.warn('Rhythm Boxer save fail', e);
+    ok = false;
+  }
+  if (!ok && allowQueue){
+    const q = loadQueue();
+    q.push(summary);
+    saveQueue(q);
+  }
+}
+
+// ===== PDF Export =====
+async function exportPDF(summary){
+  if (!PDF_API){
+    alert('ยังไม่ได้ตั้งค่า PDF_API');
+    return;
+  }
+  try{
+    const res = await fetch(PDF_API,{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify(summary)
+    });
+    if (!res.ok) throw new Error('PDF API error');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `RhythmBoxer_Report_${summary.profile.studentId || 'user'}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }catch(e){
+    console.error(e);
+    alert('สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+  }
+}
+
+// ===== Leaderboard (อนาคต) =====
+async function loadLeaderboard(scope, profile){
+  if (!LB_API) return [];
+  const url = new URL(LB_API);
+  url.searchParams.set('scope', scope);
+  url.searchParams.set('school', profile.school||'');
+  url.searchParams.set('class',  profile.class||'');
+  const res = await fetch(url.toString());
+  if (!res.ok) return [];
+  return res.json();
+}
+
+function detectDevice(){
+  const ua = navigator.userAgent || '';
+  if (/Quest|Oculus|Pico|Vive|VR/i.test(ua)) return 'VR';
+  if (/Mobile|Android|iPhone/i.test(ua))     return 'Mobile';
+  return 'PC';
+}
+
+function buildLBTable(rows){
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  const thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th>#</th><th>ชื่อ</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
+  table.appendChild(thead);
+  const tb = document.createElement('tbody');
+  (rows || []).slice(0,10).forEach((r,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td>${i+1}</td><td>${r.name||'-'}</td><td>${r.score||0}</td><td>${Math.round((r.accuracy||0)*100)}%</td>`;
+    tb.appendChild(tr);
+  });
+  table.appendChild(tb);
+  return table;
+}
+
+// ===== โน้ต/เลน =====
+// lane: 0-3, time: วินาทีที่จะต้องกด
+const SONG_PATTERN = [
+  // ง่าย ๆ: 1 บีตทุก 0.7–0.9 วิ สลับเลน
+  0.8, 1.5, 2.2, 3.0,
+  3.8, 4.5, 5.2, 6.0,
+  6.8, 7.5, 8.2, 9.0,
+  9.6, 10.3, 11.0, 11.8,
+  12.6, 13.4, 14.2, 15.0
+].map((t,i)=>({
+  time:t,
+  lane:i%4  // สลับ 0..3
+}));
+
+// ===== MAIN CLASS =====
+export class RhythmBoxer{
+  constructor(opts){
+    this.stage  = opts.stage;
+    this.hud    = opts.hud || {};
+    this.result = opts.result || {};
+    this.msgBox = opts.msgBox || null;
+    this.lbBox  = opts.lbBox  || null;
+    this.pdfBtn = opts.pdfBtn || null;
+
+    if (!this.stage){
+      alert('Rhythm Boxer: ไม่พบ stage container');
+      return;
+    }
+
+    this.profile = ensureProfile();
+    this.str     = STR.th;
+
+    const qs  = new URLSearchParams(location.search);
+    let diff  = qs.get('diff') || 'normal';
+    let time  = parseInt(qs.get('time') || '60',10);
+
+    const DIFF = {
+      easy   : { duration:60, windowPerfect:0.15, windowGood:0.30, speed:1.0 },
+      normal : { duration:60, windowPerfect:0.10, windowGood:0.25, speed:1.1 },
+      hard   : { duration:60, windowPerfect:0.08, windowGood:0.20, speed:1.2 }
+    };
+    if (!DIFF[diff]) diff='normal';
+    if (!Number.isFinite(time) || time<30 || time>300) time = DIFF[diff].duration;
+
+    this.diff = diff;
+    this.cfg  = { ...DIFF[diff], duration: time };
 
     this.state = {
-      play: false,
-      elapsed: 0,
-      lastTs: 0,
-      score: 0,
-      hits: 0,
-      miss: 0,
-      combo: 0,
-      bestCombo: 0,
-      spawnTimer: 0,
-      fever: 0,
-      onfire: false,
-      slowUntil: 0,
-      freezeUntil: 0,
-      raf: 0
+      play:false, paused:false,
+      elapsed:0, lastTs:0,
+      score:0, hits:0, miss:0,
+      combo:0, best:0,
+      notes:[],       // {time,lane,hit:false,judged:false}
+      raf:0
     };
 
-    this.EMOJI = ['🥁','🎵','✨','🔊','🎧','🎶'];
-    this.ITEM  = { slow:'🐢', freeze:'🧊', bomb:'🎹' };
-
-    this._bindEvents();
+    this.lanes = [];
+    this._initLayout();
+    this._bindInput();
+    flushQueue();
+    this._msg(this.str.msgStart);
   }
 
-  // ---------- Helpers ----------
-  rand(a,b){ return Math.random() * (b-a) + a; }
-  pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
-
-  // ---------- SFX ----------
-  beep(type){
-    try{
-      if(!this.audioCtx)
-        this.audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-
-      const ctx = this.audioCtx;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      let f=440, d=0.08, v=0.25;
-      if(type==='hit')  { f=520; d=0.06; }
-      if(type==='miss') { f=180; d=0.1; }
-      if(type==='item') { f=700; d=0.1; }
-      if(type==='fever'){ f=900; d=0.14; }
-      if(type==='onfire'){f=300; d=0.18; }
-
-      osc.frequency.value=f;
-      osc.type = (type==='miss' ? 'sawtooth' : 'square');
-      gain.gain.value=v;
-
-      osc.connect(gain); gain.connect(ctx.destination);
-      const now = ctx.currentTime;
-      osc.start(now); osc.stop(now+d);
-      gain.gain.setTargetAtTime(0,now+d*0.4,0.05);
-    }catch(e){}
+  _msg(t){
+    if (this.msgBox) this.msgBox.textContent = t;
   }
 
-  updateHUD(){
-    if(this.hud.time)  this.hud.time.textContent  = Math.max(0, Math.ceil(this.config.duration-this.state.elapsed));
-    if(this.hud.score) this.hud.score.textContent = this.state.score;
-    if(this.hud.combo) this.hud.combo.textContent = "x" + this.state.combo;
-    if(this.hud.fever)
-      this.hud.fever.style.transform = "scaleX(" + (this.state.fever/100) + ")";
+  _hud(){
+    const s = this.state, c = this.cfg;
+    if (this.hud.time)  this.hud.time.textContent  = Math.max(0,Math.ceil(c.duration - s.elapsed));
+    if (this.hud.score) this.hud.score.textContent = s.score;
+    if (this.hud.combo) this.hud.combo.textContent = 'x'+s.combo;
   }
 
-  // ---------- Particle FX ----------
-  particles(x,y,good=true){
-    for(let i=0;i<8;i++){
-      const p=document.createElement("div");
-      p.className="particle";
-      p.style.background=good?'#4ade80':'#ef4444';
-      p.style.left=x+"px"; p.style.top=y+"px";
-      p.style.setProperty('--dx',this.rand(-40,40)+"px");
-      p.style.setProperty('--dy',this.rand(-40,40)+"px");
-      this.stage.appendChild(p);
-      setTimeout(()=>p.remove(),450);
-    }
-  }
+  _initLayout(){
+    // 4 เลนเรียงกัน
+    this.stage.innerHTML = '';
+    this.stage.id = 'rb-stage';
+    this.stage.style.position = 'fixed';
+    this.stage.style.inset = '0';
 
-  floatScore(x,y,val,isMiss,crit){
-    const el=document.createElement("div");
-    el.className="float-score" + (isMiss?" miss":"") + (crit?" crit":"");
-    el.textContent=(isMiss?"-"+val:"+"+val);
-    el.style.left=x+"px"; el.style.top=y+"px";
-    this.stage.appendChild(el);
-    setTimeout(()=>el.remove(),700);
-  }
+    const wrap = document.createElement('div');
+    wrap.style.position = 'absolute';
+    wrap.style.inset = '0';
+    wrap.style.display = 'flex';
+    wrap.style.alignItems = 'center';
+    wrap.style.justifyContent = 'center';
+    wrap.style.gap = '8px';
+    wrap.style.pointerEvents = 'none';
 
-  popupFever(){
-    if(!this.result.feverContainer) return;
-    const el=document.createElement("div");
-    el.id="fever-popup";
-    el.textContent="🔥 FEVER !! 🔥";
-    this.result.feverContainer.appendChild(el);
-    setTimeout(()=>el.remove(),900);
-  }
+    for (let i=0;i<4;i++){
+      const lane = document.createElement('div');
+      lane.className = 'rb-lane';
+      lane.dataset.lane = i;
+      lane.style.position='relative';
+      lane.style.width='80px';
+      lane.style.height='60vh';
+      lane.style.borderRadius='18px';
+      lane.style.background='rgba(15,23,42,.85)';
+      lane.style.border='1px solid rgba(148,163,184,.7)';
+      lane.style.boxShadow='0 10px 30px rgba(15,23,42,.9)';
+      lane.style.overflow='hidden';
+      lane.style.pointerEvents='auto';
 
-  popupOnFire(){
-    if(!this.result.onfireContainer) return;
-    const el=document.createElement("div");
-    el.className="onfire-popup";
-    el.textContent="🔥🔥 ON-FIRE MODE !!! 🔥🔥";
-    this.result.onfireContainer.appendChild(el);
-    setTimeout(()=>el.remove(),1000);
-  }
+      const hitLine = document.createElement('div');
+      hitLine.className='rb-hitline';
+      hitLine.style.position='absolute';
+      hitLine.style.left='8px';
+      hitLine.style.right='8px';
+      hitLine.style.bottom='12px';
+      hitLine.style.height='6px';
+      hitLine.style.borderRadius='999px';
+      hitLine.style.background='rgba(96,165,250,.9)';
+      lane.appendChild(hitLine);
 
-  // ---------- Target Spawn ----------
-  spawn(){
-    if(!this.state.play) return;
-
-    const rect=this.stage.getBoundingClientRect();
-    const x=this.rand(rect.width*0.2, rect.width*0.8);
-    const y=this.rand(rect.height*0.35, rect.height*0.65);
-
-    const el=document.createElement("div");
-    let isItem=false, type=null;
-
-    if(Math.random()<0.12){
-      isItem=true;
-      type=this.pick(Object.keys(this.ITEM));
-      el.className="rb-target rb-target-pop rb-target-item";
-      el.textContent=this.ITEM[type];
-      el.dataset.item=type;
-    }else{
-      el.className="rb-target rb-target-pop";
-      el.textContent=this.pick(this.EMOJI);
+      wrap.appendChild(lane);
+      this.lanes.push(lane);
     }
 
-    el.style.left=x+"px";
-    el.style.top=y+"px";
-    el.dataset.created = performance.now();
+    this.stage.appendChild(wrap);
 
-    el.addEventListener("pointerdown", (e)=>{
-      e.stopPropagation();
-      if(!this.state.play) return;
-
-      const nextCombo=this.state.combo+1;
-      const crit = (nextCombo >= this.config.feverCombo);
-
-      isItem ? this.useItem(type, el) : this.hit(el, crit);
-    }, { passive:false });
-
-    this.stage.appendChild(el);
-    this.targets.add(el);
+    // เตรียมโน้ตจาก pattern
+    this.state.notes = SONG_PATTERN.map(n=>({
+      time:n.time,
+      lane:n.lane,
+      judged:false,
+      hit:false,
+      dom:null
+    }));
   }
 
-  // ---------- Item Effect ----------
-  useItem(type, el){
-    const now = performance.now()/1000;
-    if(type==='slow')   this.state.slowUntil = now+3;
-    if(type==='freeze') this.state.freezeUntil = now+2;
-    if(type==='bomb'){
-      this.targets.forEach(t=>t.remove());
-      this.targets.clear();
-    }
-    this.burst(el,true);
-    this.beep('item');
-  }
-
-  // ---------- Hit / Miss ----------
-  burst(el, good){
-    const r=el.getBoundingClientRect();
-    const x=r.left+r.width/2, y=r.top+r.height/2;
-    this.particles(x,y,good);
-    this.floatScore(x,y,good?"+": "-", !good, false);
-    el.remove();
-    this.targets.delete(el);
-  }
-
-  hit(el, crit){
-    if(!this.targets.has(el)) return;
-    this.targets.delete(el);
-
-    const r=el.getBoundingClientRect();
-    const x=r.left+r.width/2;
-    const y=r.top+r.height/2;
-
-    const nextCombo=this.state.combo+1;
-    const fever  = (nextCombo >= this.config.feverCombo);
-    const onfire = (nextCombo >= this.config.onfireCombo);
-
-    if(fever && !crit) crit=true;
-
-    let gain = 10 + (crit ? 20 : 0);
-
-    if(onfire){
-      if(!this.state.onfire){
-        this.state.onfire=true;
-        this.stage.classList.add("onfire-screen");
-        this.popupOnFire();
-        this.beep("onfire");
-      }
-      gain *= 2;
-    }
-
-    this.state.score += gain;
-    this.state.hits++;
-    this.state.combo++;
-    this.state.bestCombo = Math.max(this.state.bestCombo, this.state.combo);
-
-    this.state.fever = Math.min(100, this.state.combo*10);
-
-    if(crit){
-      this.popupFever();
-      this.beep("fever");
-    }else{
-      this.beep("hit");
-    }
-
-    this.floatScore(x,y,gain,false,crit);
-    this.particles(x,y,true);
-    el.remove();
-
-    this.updateHUD();
-  }
-
-  miss(el){
-    this.state.miss++;
-    this.state.combo=0;
-    this.state.fever=0;
-    this.state.onfire=false;
-    this.stage.classList.remove("onfire-screen");
-
-    const r=el.getBoundingClientRect();
-    const x=r.left+r.width/2, y=r.top+r.height/2;
-
-    this.floatScore(x,y,5,true,false);
-    this.particles(x,y,false);
-    el.remove();
-    this.targets.delete(el);
-
-    this.beep("miss");
-    this.updateHUD();
-  }
-
-  // ---------- Game Loop ----------
-  loop(ts){
-    if(!this.state.play) return;
-
-    if(!this.state.lastTs) this.state.lastTs=ts;
-    const dt = (ts-this.state.lastTs)/1000;
-    this.state.lastTs = ts;
-    this.state.elapsed += dt;
-
-    if(this.state.elapsed >= this.config.duration)
-      return this.finish();
-
-    const now = performance.now()/1000;
-    let spawnFactor = 1;
-    if(now < this.state.freezeUntil) spawnFactor = 0;
-    if(now < this.state.slowUntil)   spawnFactor = 0.5;
-
-    this.state.spawnTimer += dt * spawnFactor;
-
-    const t = this.state.elapsed / this.config.duration;
-    const dyn = Math.max(this.config.spawnBase*(1-0.45*t), 0.4);
-
-    if(this.state.spawnTimer >= dyn){
-      this.state.spawnTimer = 0;
-      this.spawn();
-    }
-
-    const nowms = performance.now();
-    this.targets.forEach(el=>{
-      const age = (nowms - Number(el.dataset.created)) / 1000;
-      if(age >= this.config.lifetime && now >= this.state.freezeUntil){
-        this.miss(el);
-      }
+  _bindInput(){
+    // click / tap ที่ lane
+    this.lanes.forEach(lane=>{
+      lane.addEventListener('pointerdown', e=>{
+        e.preventDefault();
+        const laneIdx = parseInt(lane.dataset.lane,10);
+        this._handleHit(laneIdx);
+      });
     });
 
-    this.updateHUD();
-    this.state.raf = requestAnimationFrame(this.loop.bind(this));
-  }
+    // keyboard สำหรับ PC (A,S,K,L)
+    window.addEventListener('keydown', e=>{
+      if (e.repeat) return;
+      const map = { 'a':0,'s':1,'k':2,'l':3 };
+      const laneIdx = map[e.key.toLowerCase()];
+      if (laneIdx!=null) this._handleHit(laneIdx);
+    });
 
-  // ---------- Game Control ----------
-  reset(){
-    const s=this.state;
-    s.elapsed=s.spawnTimer=s.lastTs=0;
-    s.score=s.hits=s.miss=s.combo=s.bestCombo=s.fever=0;
-    s.onfire=false;
-    this.targets.forEach(el=>el.remove());
-    this.targets.clear();
-    this.stage.classList.remove("onfire-screen");
-    this.updateHUD();
+    document.addEventListener('visibilitychange',()=>{
+      if (document.hidden) this.pause(true);
+    });
   }
 
   start(){
-    this.reset();
-    this.state.play=true;
-    this.state.raf=requestAnimationFrame(this.loop.bind(this));
+    this._reset();
+    this.state.play   = true;
+    this.state.paused = false;
+    this.state.raf    = requestAnimationFrame(this._loop.bind(this));
   }
 
-  finish(){
-    this.state.play=false;
-    cancelAnimationFrame(this.state.raf);
-    this.targets.forEach(el=>el.remove());
-    this.targets.clear();
-
-    const total=this.state.hits+this.state.miss;
-    const acc = total>0 ? this.state.hits/total : 0;
-
-    let rank="C";
-    if(this.state.score>=1600 && acc>=0.95) rank="SSS";
-    else if(this.state.score>=1100 && acc>=0.90) rank="S";
-    else if(this.state.score>=800  && acc>=0.80) rank="A";
-    else if(this.state.score>=500  && acc>=0.60) rank="B";
-
-    if(this.result && this.result.box){
-      this.result.box.style.display="flex";
-      if(this.result.score)   this.result.score.textContent=this.state.score;
-      if(this.result.hits)    this.result.hits.textContent=this.state.hits;
-      if(this.result.miss)    this.result.miss.textContent=this.state.miss;
-      if(this.result.acc)     this.result.acc.textContent=Math.round(acc*100)+"%";
-      if(this.result.best)    this.result.best.textContent="x"+this.state.bestCombo;
-      if(this.result.time)    this.result.time.textContent=this.config.duration;
-      if(this.result.rank)    this.result.rank.textContent=rank;
+  pause(v=true){
+    if (!this.state.play) return;
+    this.state.paused = v;
+    if (v){
+      cancelAnimationFrame(this.state.raf);
+      this._msg(this.str.msgPaused);
+    }else{
+      this._msg(this.str.msgResume);
+      this.state.lastTs = 0;
+      this.state.raf = requestAnimationFrame(this._loop.bind(this));
     }
   }
 
-  // ---------- Event Binding ----------
-  _bindEvents(){
-    document.addEventListener("visibilitychange",()=>{
-      if(document.hidden && this.state.play){
-        this.state.play=false;
-        cancelAnimationFrame(this.state.raf);
+  _reset(){
+    this.state.elapsed = 0;
+    this.state.lastTs  = 0;
+    this.state.score   = 0;
+    this.state.hits    = 0;
+    this.state.miss    = 0;
+    this.state.combo   = 0;
+    this.state.best    = 0;
+    this.state.notes   = SONG_PATTERN.map(n=>({
+      time:n.time,
+      lane:n.lane,
+      judged:false,
+      hit:false,
+      dom:null
+    }));
+    this.lanes.forEach(l=>{ l.querySelectorAll('.rb-note').forEach(n=>n.remove()); });
+    this._hud();
+  }
+
+  _spawnNote(note){
+    const lane = this.lanes[note.lane];
+    const dom  = document.createElement('div');
+    dom.className = 'rb-note';
+    dom.style.position='absolute';
+    dom.style.left='8px';
+    dom.style.right='8px';
+    dom.style.height='24px';
+    dom.style.borderRadius='999px';
+    dom.style.background='rgba(248,250,252,.95)';
+    dom.style.boxShadow='0 4px 12px rgba(15,23,42,.85)';
+    dom.style.bottom='100%'; // เริ่มด้านบน
+    lane.appendChild(dom);
+    note.dom = dom;
+  }
+
+  _updateNotes(dt){
+    // เดินเวลาของโน้ตให้เลื่อนลงมาเรื่อย ๆ (ง่าย ๆ)
+    this.state.notes.forEach(note=>{
+      if (!note.dom) return;
+      // เรา map time → position แบบ linear: ยิ่งใกล้ time ยิ่งใกล้ hit line
+      const tNow = this.state.elapsed;
+      const dtHead = note.time - tNow;
+      const totalTravel = 2.0; // วินาทีก่อนถึง hit line
+      const ratio = 1 - (dtHead / totalTravel); // 0 → เริ่มบน, 1 → ถึง hit line
+      const clamped = Math.max(0, Math.min(1.2, ratio));
+      const lane = this.lanes[note.lane];
+      const h = lane.clientHeight||1;
+      const bottomPx = 12 + clamped * (h - 40); // 12px เหนือ hit line
+      note.dom.style.bottom = bottomPx + 'px';
+    });
+  }
+
+  _handleHit(laneIdx){
+    if (!this.state.play || this.state.paused) return;
+
+    const tNow = this.state.elapsed;
+    const cfg  = this.cfg;
+
+    // หาโน้ตใน lane นั้นที่ยังไม่ judged และอยู่ใกล้ที่สุด
+    let best = null;
+    let bestDt = Infinity;
+    this.state.notes.forEach(note=>{
+      if (note.lane!==laneIdx || note.judged) return;
+      const dt = Math.abs(note.time - tNow);
+      if (dt < bestDt){
+        bestDt = dt;
+        best   = note;
       }
     });
+
+    if (!best){
+      // ไม่มีโน้ต → miss
+      this._regMiss(null);
+      return;
+    }
+
+    // 判断 ว่า Perfect / Good / Miss
+    let type = 'miss';
+    if (bestDt <= cfg.windowPerfect) type = 'perfect';
+    else if (bestDt <= cfg.windowGood) type = 'good';
+
+    if (type === 'miss'){
+      this._regMiss(best);
+    }else{
+      this._regHit(best, type);
+    }
+  }
+
+  _regHit(note, type){
+    note.judged = true;
+    note.hit    = true;
+    this.state.hits++;
+
+    let gain = 0;
+    if (type==='perfect') gain = 30;
+    else if (type==='good') gain = 15;
+
+    this.state.combo++;
+    this.state.best  = Math.max(this.state.best, this.state.combo);
+    this.state.score += gain;
+
+    if (note.dom){
+      note.dom.style.background = type==='perfect' ? '#4ade80' : '#93c5fd';
+      setTimeout(()=>note.dom && note.dom.remove(), 120);
+    }
+
+    this._hud();
+    this._floatLane(note.lane, type==='perfect'?('+30'):('+15'), false);
+  }
+
+  _regMiss(note){
+    this.state.miss++;
+    this.state.combo = 0;
+    this._hud();
+    this._floatLane(note ? note.lane : 1, '-5', true);
+  }
+
+  _floatLane(laneIdx, txt, isBad){
+    const lane = this.lanes[laneIdx] || this.lanes[1];
+    const r = lane.getBoundingClientRect();
+    const fx = document.createElement('div');
+    fx.className = 'float';
+    fx.textContent = txt;
+    fx.style.left  = (r.left + r.width/2) + 'px';
+    fx.style.top   = (r.top + r.height*0.2) + 'px';
+    fx.style.color = isBad ? '#fb7185' : '#4ade80';
+    document.body.appendChild(fx);
+    setTimeout(()=>fx.remove(),600);
+  }
+
+  _loop(ts){
+    if (!this.state.play || this.state.paused) return;
+    if (!this.state.lastTs) this.state.lastTs = ts;
+    const dt = (ts - this.state.lastTs)/1000;
+    this.state.lastTs  = ts;
+    this.state.elapsed += dt;
+
+    if (this.state.elapsed >= this.cfg.duration){
+      this._finish();
+      return;
+    }
+
+    // spawn note ก่อนถึงเวลาเล่นจริง ~ 2 วิ
+    const lookAhead = 2.0;
+    this.state.notes.forEach(note=>{
+      if (!note.dom && note.time - this.state.elapsed <= lookAhead){
+        this._spawnNote(note);
+      }
+    });
+
+    // auto-miss ถ้าเลย window ไปแล้วแต่ยังไม่ถูกกด
+    this.state.notes.forEach(note=>{
+      if (!note.judged && this.state.elapsed - note.time > this.cfg.windowGood){
+        note.judged = true;
+        this.state.miss++;
+        this._hud();
+        if (note.dom) note.dom.style.opacity = '0.2';
+      }
+    });
+
+    this._updateNotes(dt);
+    this.state.raf = requestAnimationFrame(this._loop.bind(this));
+  }
+
+  _buildSummary(){
+    const total = this.state.hits + this.state.miss;
+    const acc   = total>0 ? this.state.hits/total : 0;
+    let rank = 'C';
+    if(this.state.score>=600 && acc>=0.95) rank='SSS';
+    else if(this.state.score>=450 && acc>=0.90) rank='S';
+    else if(this.state.score>=320 && acc>=0.80) rank='A';
+    else if(this.state.score>=200 && acc>=0.60) rank='B';
+
+    return {
+      profile:  this.profile,
+      game:     'rhythm-boxer',
+      diff:     this.diff,
+      duration: this.cfg.duration,
+      score:    this.state.score,
+      hits:     this.state.hits,
+      miss:     this.state.miss,
+      comboMax: this.state.best,
+      accuracy: acc,
+      rank,
+      device:   detectDevice(),
+      timestamp:new Date().toISOString()
+    };
+  }
+
+  async _finish(){
+    this.state.play = false;
+    cancelAnimationFrame(this.state.raf);
+    this._msg(this.str.msgEnd);
+
+    const summary = this._buildSummary();
+    this._showResult(summary);
+    hybridSaveSession(summary,true);
+    this._loadLeaderboards(summary.profile);
+  }
+
+  _showResult(summary){
+    const { box, score, hits, miss, acc, best, rank } = this.result;
+    if (!box) return;
+    const accVal = Math.round((summary.accuracy||0)*100);
+
+    box.style.display = 'flex';
+    if (score) score.textContent = summary.score;
+    if (hits)  hits.textContent  = summary.hits;
+    if (miss)  miss.textContent  = summary.miss;
+    if (acc)   acc.textContent   = accVal + '%';
+    if (best)  best.textContent  = 'x' + summary.comboMax;
+    if (rank)  rank.textContent  = summary.rank;
+
+    if (this.pdfBtn){
+      this.pdfBtn.onclick = ()=>exportPDF(summary);
+    }
+  }
+
+  async _loadLeaderboards(profile){
+    if (!this.lbBox) return;
+    try{
+      const [schoolLB, classLB] = await Promise.all([
+        loadLeaderboard('school', profile),
+        loadLeaderboard('class',  profile)
+      ]);
+      this.lbBox.innerHTML = '';
+      const t1 = document.createElement('h4');
+      t1.textContent = this.str.lbSchool;
+      this.lbBox.appendChild(t1);
+      this.lbBox.appendChild(buildLBTable(schoolLB));
+
+      const t2 = document.createElement('h4');
+      t2.textContent = this.str.lbClass;
+      this.lbBox.appendChild(t2);
+      this.lbBox.appendChild(buildLBTable(classLB));
+    }catch(e){
+      console.warn('load leaderboard fail', e);
+    }
   }
 }
