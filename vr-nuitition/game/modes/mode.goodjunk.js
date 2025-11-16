@@ -1,115 +1,164 @@
 // === Hero Health — mode.goodjunk.js ===
-// โหมดพื้นฐาน: Good vs Junk + Power-ups (+ Rainbow) + Diff Table + ACC_TARGET
+// โหมดพื้นฐาน: Good vs Junk + Power-ups (วิจัยจริง + diff table)
 
 (function () {
   'use strict';
 
   window.HH_MODES = window.HH_MODES || {};
+  const MODE_ID = 'goodjunk';
 
-  // ---------- Emoji Sets ----------
+  // ---------- Diff Table สำหรับโหมด Good vs Junk ----------
+  const HHA_DIFF_TABLE = {
+    goodjunk: {
+      easy: {
+        engine: {
+          SPAWN_INTERVAL: 1000,
+          ITEM_LIFETIME: 2300,
+          MAX_ACTIVE: 3,
+          MISSION_GOOD_TARGET: 15,
+          SIZE_FACTOR: 1.25,
+          FEVER_DURATION: 5,
+          DIAMOND_TIME_BONUS: 3,
+          TYPE_WEIGHTS: {
+            good:   62,
+            junk:   14,
+            star:    8,
+            gold:    6,
+            diamond: 3,
+            shield:  5,
+            fever:   2,
+            rainbow: 0
+          }
+        },
+        benchmark: {
+          targetAccuracyPct: 85,
+          targetMissionSuccessPct: 90,
+          expectedAvgRTms: 900,
+          note: 'โหมดฝึกพื้นฐาน แยกของดี/ขยะ เหมาะใช้สอนครั้งแรก ๆ'
+        }
+      },
+      normal: {
+        engine: {
+          SPAWN_INTERVAL: 650,
+          ITEM_LIFETIME: 1500,
+          MAX_ACTIVE: 4,
+          MISSION_GOOD_TARGET: 20,
+          SIZE_FACTOR: 1.0,
+          FEVER_DURATION: 6,
+          DIAMOND_TIME_BONUS: 2,
+          TYPE_WEIGHTS: {
+            good:   48,
+            junk:   30,
+            star:    7,
+            gold:    6,
+            diamond: 4,
+            shield:  3,
+            fever:   4,
+            rainbow: 1
+          }
+        },
+        benchmark: {
+          targetAccuracyPct: 75,
+          targetMissionSuccessPct: 70,
+          expectedAvgRTms: 750,
+          note: 'ระดับมาตรฐานสำหรับเก็บข้อมูลก่อน–หลังการสอน'
+        }
+      },
+      hard: {
+        engine: {
+          SPAWN_INTERVAL: 480,
+          ITEM_LIFETIME: 1050,
+          MAX_ACTIVE: 6,
+          MISSION_GOOD_TARGET: 26,
+          SIZE_FACTOR: 0.9,
+          FEVER_DURATION: 7,
+          DIAMOND_TIME_BONUS: 1,
+          TYPE_WEIGHTS: {
+            good:   34,
+            junk:   42,
+            star:    6,
+            gold:    5,
+            diamond: 5,
+            shield:  3,
+            fever:   7,
+            rainbow: 3
+          }
+        },
+        benchmark: {
+          targetAccuracyPct: 60,
+          targetMissionSuccessPct: 50,
+          expectedAvgRTms: 700,
+          note: 'ใช้แยกเด็กที่มีการควบคุมตนเองดี / สมาธิดี (executive function)'
+        }
+      }
+    }
+  };
+
+  // ---------- Emoji Pools ----------
   const GOOD = [
     '🍎','🍓','🍇','🥦','🥕','🍅','🥬',
     '🍊','🍌','🫐','🍐','🍍','🍋','🍉','🥝',
     '🍚','🥛','🍞','🐟','🥗'
   ];
-  const JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
-  const STAR = ['⭐','🌟'];
-  const GOLD = ['🥇','🏅','🪙'];
+  const JUNK    = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🥓','🍫','🌭'];
+  const STAR    = ['⭐','🌟'];
+  const GOLD    = ['🥇','🏅','🪙'];
   const DIAMOND = ['💎'];
-  const SHIELD = ['🛡️'];
-  const FEVER = ['🔥'];
+  const SHIELD  = ['🛡️'];
+  const FEVER   = ['🔥'];
   const RAINBOW = ['🌈'];
-  const BOSS_ICON = ['👾','😈'];
+  const BOSS    = ['👾','🤖'];
 
   function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
   }
 
-  // ---------- Diff config ----------
-  const GJ_DIFF_TABLE = {
-    easy: {
-      SPAWN_INTERVAL: 1050,
-      ITEM_LIFETIME: 2200,
-      MAX_ACTIVE: 3,
-      MISSION_GOOD_TARGET: 14,
-      SIZE_FACTOR: 1.30,
-      TYPE_WEIGHTS: {
-        good:   70,
-        junk:   10,
-        star:    8,
-        gold:    5,
-        diamond: 3,
-        shield:  3,
-        fever:   1,
-        rainbow: 0
-      },
-      FEVER_DURATION: 5,
-      DIAMOND_TIME_BONUS: 3,
-      ACC_TARGET: { min: 0.80, max: 1.00 }  // 80–100%
-    },
-
-    normal: {
-      SPAWN_INTERVAL: 650,
-      ITEM_LIFETIME: 1400,
-      MAX_ACTIVE: 4,
-      MISSION_GOOD_TARGET: 20,
-      SIZE_FACTOR: 1.00,
-      TYPE_WEIGHTS: {
-        good:   45,
-        junk:   30,
-        star:    8,
-        gold:    6,
-        diamond: 4,
-        shield:  4,
-        fever:   3,
-        rainbow: 0
-      },
-      FEVER_DURATION: 6,
-      DIAMOND_TIME_BONUS: 2,
-      ACC_TARGET: { min: 0.55, max: 0.75 }  // 55–75%
-    },
-
-    hard: {
-      SPAWN_INTERVAL: 380,
-      ITEM_LIFETIME: 800,
-      MAX_ACTIVE: 8,
-      MISSION_GOOD_TARGET: 32,
-      SIZE_FACTOR: 0.80,
-      TYPE_WEIGHTS: {
-        good:   28,
-        junk:   46,
-        star:    6,
-        gold:    5,
-        diamond: 4,
-        shield:  3,
-        fever:   6,
-        rainbow: 2
-      },
-      FEVER_DURATION: 8,
-      DIAMOND_TIME_BONUS: 1,
-      ACC_TARGET: { min: 0.35, max: 0.55 }  // 35–55%
-    }
-  };
-
+  // ---------- configForDiff ----------
   function configForDiff(diff) {
     const d = (diff || 'normal').toLowerCase();
-    const base = GJ_DIFF_TABLE[d] || GJ_DIFF_TABLE.normal;
-    return JSON.parse(JSON.stringify(base));
+    const modeCfg = HHA_DIFF_TABLE[MODE_ID] && HHA_DIFF_TABLE[MODE_ID][d];
+    if (modeCfg && modeCfg.engine) return modeCfg.engine;
+
+    // fallback ปลอดภัยถ้า diff ไม่ตรง
+    return {
+      SPAWN_INTERVAL: 650,
+      ITEM_LIFETIME: 1500,
+      MAX_ACTIVE: 4,
+      MISSION_GOOD_TARGET: 20,
+      SIZE_FACTOR: 1.0,
+      FEVER_DURATION: 6,
+      DIAMOND_TIME_BONUS: 2,
+      TYPE_WEIGHTS: {
+        good:   48,
+        junk:   30,
+        star:    7,
+        gold:    6,
+        diamond: 4,
+        shield:  3,
+        fever:   4,
+        rainbow: 1
+      }
+    };
   }
 
-  // ---------- Register mode ----------
-  window.HH_MODES.goodjunk = {
-    id: 'goodjunk',
+  // ---------- Register Mode ----------
+  window.HH_MODES[MODE_ID] = {
+    id: MODE_ID,
     label: 'Good vs Junk',
 
+    // main.js เรียกตอนเริ่มเกม
     setupForDiff: function (diff) {
       return configForDiff(diff);
     },
 
+    // ข้อความภารกิจบน HUD
     missionText: function (target) {
-      return 'ภารกิจวันนี้: คลิกของดีให้ครบ ' + target + ' ชิ้น แล้วหลบของขยะให้ได้เยอะที่สุด!';
+      return 'ภารกิจวันนี้: คลิกของดีให้ครบ ' +
+        target +
+        ' ชิ้น แล้วหลบอาหารขยะให้ได้มากที่สุด!';
     },
 
+    // main.js เรียกทุกครั้งที่ spawn เป้าใหม่
     pickEmoji: function (type) {
       if (type === 'good')    return pickRandom(GOOD);
       if (type === 'junk')    return pickRandom(JUNK);
@@ -119,7 +168,7 @@
       if (type === 'shield')  return pickRandom(SHIELD);
       if (type === 'fever')   return pickRandom(FEVER);
       if (type === 'rainbow') return pickRandom(RAINBOW);
-      if (type === 'boss')    return pickRandom(BOSS_ICON);
+      if (type === 'boss')    return pickRandom(BOSS);
       return '❓';
     }
   };
