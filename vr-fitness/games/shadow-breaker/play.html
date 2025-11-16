@@ -43,6 +43,8 @@
       text-align: center;
       pointer-events: none;
     }
+
+    /* เป้า */
     .sb-target {
       position: absolute;
       width: clamp(64px, 11vw, 96px);
@@ -77,7 +79,114 @@
       from { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
       to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
     }
+
+    /* HUD */
+    #hud {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      width: min(960px, 96vw);
+      z-index: 900;
+      font-size: 14px;
+    }
+    #hud-inner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(15,23,42,.9);
+      border: 1px solid rgba(148,163,184,.7);
+      box-shadow: 0 16px 40px rgba(15,23,42,.8);
+    }
+    .hud-left,.hud-center,.hud-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hud-center { margin-left: auto; }
+    .hud-label { opacity: .75; }
+    .hud-value { font-weight: 600; font-size: 16px; }
+    #hud-diff {
+      margin-left: 8px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      background: #0f766e;
+      color: #e0f2f1;
+    }
+    #btn-start {
+      margin-left: 12px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #22c55e;
+      color: #052e16;
+      box-shadow: 0 0 0 1px #4ade80;
+    }
+    #btn-start:active { transform: translateY(1px); }
+
+    /* Result modal แบบเรียบ ๆ */
+    #result-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15,23,42,.7);
+      z-index: 950;
+    }
+    #result-card {
+      width: min(360px, 90vw);
+      background: #020617;
+      border-radius: 18px;
+      padding: 18px 20px;
+      box-shadow: 0 20px 48px rgba(15,23,42,.9);
+      border: 1px solid rgba(148,163,184,.7);
+      color: #e5e7eb;
+    }
+    #result-card h2 {
+      margin: 0 0 12px;
+      font-size: 18px;
+    }
+    #result-card p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+    #result-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    #btn-retry,#btn-back {
+      flex: 1 1 0;
+      border-radius: 999px;
+      border: none;
+      padding: 8px 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #btn-retry {
+      background: #22c55e;
+      color: #052e16;
+    }
+    #btn-back {
+      background: #e5e7eb;
+      color: #020617;
+    }
+
     @media (max-width: 640px) {
+      #hud-inner { gap: 8px; padding: 6px 10px; }
+      .hud-value { font-size: 14px; }
+      #btn-start { font-size: 12px; padding: 4px 10px; }
       #sb-message { font-size: 13px; }
     }
   </style>
@@ -90,9 +199,258 @@
     </div>
   </div>
 
-  <!-- HUD + Result กลาง -->
-  <script src="../../common/game-shell.js"></script>
-  <!-- Logic เกม Shadow Breaker -->
-  <script src="./shadow-breaker.js"></script>
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hud-inner">
+      <div class="hud-left">
+        <span class="hud-label">⏱</span>
+        <span id="hud-time" class="hud-value">0</span>s
+      </div>
+      <div class="hud-left">
+        <span class="hud-label">⭐ Score</span>
+        <span id="hud-score" class="hud-value">0</span>
+      </div>
+      <div class="hud-left">
+        <span class="hud-label">🔥 Combo</span>
+        <span id="hud-combo" class="hud-value">x0</span>
+      </div>
+      <div class="hud-center">
+        <span id="hud-diff">NORMAL</span>
+      </div>
+      <button id="btn-start" type="button">▶ เริ่มเล่น</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div id="result-overlay">
+    <div id="result-card">
+      <h2>🏁 สรุปผลการเล่น</h2>
+      <p><strong>Score:</strong> <span id="res-score">0</span></p>
+      <p><strong>Hits:</strong> <span id="res-hits">0</span></p>
+      <p><strong>Miss:</strong> <span id="res-miss">0</span></p>
+      <p><strong>Best Combo:</strong> <span id="res-combo">x0</span></p>
+      <p><strong>เวลาเล่น:</strong> <span id="res-time">0</span>s</p>
+      <div id="result-actions">
+        <button id="btn-retry" type="button">🔁 เล่นอีกครั้ง</button>
+        <button id="btn-back" type="button">🏠 กลับเมนู</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const stage = document.getElementById('sb-stage');
+      const msgEl = document.getElementById('sb-message');
+
+      const hudTime  = document.getElementById('hud-time');
+      const hudScore = document.getElementById('hud-score');
+      const hudCombo = document.getElementById('hud-combo');
+      const hudDiff  = document.getElementById('hud-diff');
+      const btnStart = document.getElementById('btn-start');
+
+      const resOverlay = document.getElementById('result-overlay');
+      const resScore   = document.getElementById('res-score');
+      const resHits    = document.getElementById('res-hits');
+      const resMiss    = document.getElementById('res-miss');
+      const resCombo   = document.getElementById('res-combo');
+      const resTime    = document.getElementById('res-time');
+      const btnRetry   = document.getElementById('btn-retry');
+      const btnBack    = document.getElementById('btn-back');
+
+      const EMOJIS = ['🥊', '💥', '⭐', '⚡', '🔥'];
+      const targets = new Set();
+
+      let state = {
+        playing: false,
+        duration: 60,
+        elapsed: 0,
+        lastTs: 0,
+        spawnTimer: 0,
+        spawnInterval: 1.0,
+        targetLifetime: 1.2,
+        score: 0,
+        hits: 0,
+        miss: 0,
+        combo: 0,
+        bestCombo: 0,
+        diff: 'normal',
+        rafId: 0
+      };
+
+      function parseParams() {
+        const p = new URLSearchParams(location.search);
+        const diff = (p.get('diff') || 'normal').toLowerCase();
+        const time = parseInt(p.get('time') || '60', 10);
+        state.diff = ['easy','normal','hard'].includes(diff) ? diff : 'normal';
+        state.duration = isNaN(time) ? 60 : time;
+
+        hudTime.textContent = state.duration;
+        hudDiff.textContent = state.diff.toUpperCase();
+        if (state.diff === 'easy') hudDiff.style.background = '#22c55e';
+        else if (state.diff === 'hard') hudDiff.style.background = '#ef4444';
+        else hudDiff.style.background = '#0f766e';
+
+        if (state.diff === 'easy') {
+          state.spawnInterval = 1.3;
+          state.targetLifetime = 1.6;
+        } else if (state.diff === 'hard') {
+          state.spawnInterval = 0.75;
+          state.targetLifetime = 1.0;
+        } else {
+          state.spawnInterval = 1.0;
+          state.targetLifetime = 1.3;
+        }
+      }
+
+      function rand(min, max) {
+        return Math.random() * (max - min) + min;
+      }
+
+      function pick(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function updateHUD() {
+        const remain = Math.max(state.duration - state.elapsed, 0);
+        hudTime.textContent = Math.ceil(remain);
+        hudScore.textContent = state.score;
+        hudCombo.textContent = 'x' + state.combo;
+      }
+
+      function clearTargets() {
+        targets.forEach(el => el.remove());
+        targets.clear();
+      }
+
+      function removeTarget(el, isHit) {
+        if (!targets.has(el)) return;
+        targets.delete(el);
+        el.remove();
+
+        if (isHit) {
+          state.score += 10;
+          state.hits += 1;
+          state.combo += 1;
+          if (state.combo > state.bestCombo) state.bestCombo = state.combo;
+        } else {
+          state.miss += 1;
+          state.combo = 0;
+        }
+        updateHUD();
+      }
+
+      function spawnTarget() {
+        if (!state.playing) return;
+
+        const rect = stage.getBoundingClientRect();
+        const x = rand(rect.width * 0.15, rect.width * 0.85);
+        const y = rand(rect.height * 0.2, rect.height * 0.8);
+
+        const el = document.createElement('div');
+        el.className = 'sb-target sb-pop' + (state.diff === 'hard' ? ' sb-target-hard' : '');
+        el.textContent = pick(EMOJIS);
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.dataset.createdAt = performance.now();
+
+        const hit = (e) => {
+          e.stopPropagation();
+          if (!state.playing) return;
+          removeTarget(el, true);
+        };
+
+        el.addEventListener('click', hit, { passive: false });
+        el.addEventListener('pointerdown', hit, { passive: false });
+
+        stage.appendChild(el);
+        targets.add(el);
+      }
+
+      function finishGame() {
+        state.playing = false;
+        cancelAnimationFrame(state.rafId);
+        clearTargets();
+        resScore.textContent = state.score;
+        resHits.textContent  = state.hits;
+        resMiss.textContent  = state.miss;
+        resCombo.textContent = 'x' + state.bestCombo;
+        resTime.textContent  = state.duration;
+        resOverlay.style.display = 'flex';
+      }
+
+      function loop(ts) {
+        if (!state.playing) return;
+
+        if (!state.lastTs) state.lastTs = ts;
+        const dt = (ts - state.lastTs) / 1000;
+        state.lastTs = ts;
+
+        state.elapsed += dt;
+        if (state.elapsed >= state.duration) {
+          finishGame();
+          return;
+        }
+
+        state.spawnTimer += dt;
+        const t = state.elapsed / state.duration;
+        const dynInterval = Math.max(state.spawnInterval * (1 - 0.4 * t), 0.4);
+        if (state.spawnTimer >= dynInterval) {
+          state.spawnTimer = 0;
+          spawnTarget();
+        }
+
+        const now = performance.now();
+        targets.forEach(el => {
+          const age = (now - Number(el.dataset.createdAt)) / 1000;
+          if (age >= state.targetLifetime) {
+            removeTarget(el, false);
+          }
+        });
+
+        updateHUD();
+        state.rafId = requestAnimationFrame(loop);
+      }
+
+      function resetState() {
+        state.elapsed = 0;
+        state.lastTs = 0;
+        state.spawnTimer = 0;
+        state.score = 0;
+        state.hits = 0;
+        state.miss = 0;
+        state.combo = 0;
+        state.bestCombo = 0;
+        clearTargets();
+        updateHUD();
+      }
+
+      function startGame() {
+        resetState();
+        resOverlay.style.display = 'none';
+        state.playing = true;
+        msgEl.textContent = 'รีบต่อยเป้าให้ทัน! ต่อยติดกันหลายครั้ง Combo จะยิ่งแรง 🔥';
+        state.rafId = requestAnimationFrame(loop);
+      }
+
+      // event
+      btnStart.addEventListener('click', startGame);
+      btnRetry.addEventListener('click', startGame);
+      btnBack.addEventListener('click', () => {
+        window.location.href = './index.html';
+      });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && state.playing) {
+          state.playing = false;
+          cancelAnimationFrame(state.rafId);
+        }
+      });
+
+      parseParams();
+      updateHUD();
+    })();
+  </script>
 </body>
 </html>
