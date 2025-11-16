@@ -1,49 +1,44 @@
-// === Hero Health — hub.js (Profile + Mode/Diff + ส่งต่อไปหน้า play) ===
+// === Hero Health — hub.js (Profile + Mode/Diff → play.html) ===
 (function () {
   'use strict';
 
   const $id = (id) => document.getElementById(id);
+  const $$  = (sel) => Array.prototype.slice.call(document.querySelectorAll(sel));
 
-  // ----- ดึง element โปรไฟล์ (รองรับหลายชื่อ id เผื่อของเดิม) -----
-  const nameInput  = $id('hha-name')  || $id('hha-profile-name');
-  const gradeInput = $id('hha-grade') || $id('hha-profile-grade');
-  const roomInput  = $id('hha-room')  || $id('hha-profile-room');
-  const sidInput   = $id('hha-sid')   || $id('hha-profile-id');
+  // ----- โปรไฟล์จาก hub.html -----
+  const nameInput  = $id('profileName');
+  const gradeInput = $id('profileGrade');
+  const idInput    = $id('profileId');
 
-  // ปุ่มเริ่มเกม
-  const startBtn   = $id('hha-start') || $id('hha-start-btn');
+  const saveBtn  = $id('btnSaveProfile');
+  const startBtn = $id('btnStart');
 
-  // ปุ่มเลือกโหมด / diff (ถ้าใช้ data-attribute)
   let currentMode = 'goodjunk';
   let currentDiff = 'normal';
 
-  function qsAll(sel) {
-    return Array.prototype.slice.call(document.querySelectorAll(sel));
-  }
-
-  // ----- โหลดโปรไฟล์เก่าจาก sessionStorage ถ้ามี -----
+  // ----- โหลดโปรไฟล์จาก sessionStorage ถ้ามี -----
   function loadProfileFromStorage() {
     try {
       const raw = sessionStorage.getItem('hha_profile');
       if (!raw) return;
       const p = JSON.parse(raw) || {};
-      if (nameInput && p.name) nameInput.value = p.name;
+      if (nameInput  && p.name)  nameInput.value  = p.name;
       if (gradeInput && p.grade) gradeInput.value = p.grade;
-      if (roomInput && p.room) roomInput.value = p.room;
-      if (sidInput && p.sid) sidInput.value = p.sid;
-      console.log('[HHA HUB] loaded profile from storage', p);
+      // room ไม่มีช่องให้กรอกใน hub.html ตอนนี้ ปล่อยว่างไปก่อน
+      if (idInput    && p.sid)   idInput.value    = p.sid;
+      console.log('[HHA HUB] loaded profile', p);
     } catch (e) {
       console.warn('[HHA HUB] loadProfile error', e);
     }
   }
 
-  // ----- บันทึกโปรไฟล์ลง sessionStorage -----
+  // ----- เซฟโปรไฟล์ลง sessionStorage -----
   function saveProfileToStorage() {
     const profile = {
       name:  nameInput  ? nameInput.value.trim()  : '',
       grade: gradeInput ? gradeInput.value.trim() : '',
-      room:  roomInput  ? roomInput.value.trim()  : '',
-      sid:   sidInput   ? sidInput.value.trim()   : ''
+      room:  '', // ยังไม่มี field แยกห้องใน hub.html
+      sid:   idInput    ? idInput.value.trim()    : ''
     };
     try {
       sessionStorage.setItem('hha_profile', JSON.stringify(profile));
@@ -54,66 +49,87 @@
     return profile;
   }
 
-  // ถ้ามีการเปลี่ยน field ให้เซฟไว้ทันที (กันเด็กหลุดหน้า)
-  [nameInput, gradeInput, roomInput, sidInput].forEach(function (el) {
+  // ให้เซฟอัตโนมัติเมื่อผู้ใช้แก้ไข
+  [nameInput, gradeInput, idInput].forEach((el) => {
     if (!el) return;
     el.addEventListener('change', saveProfileToStorage);
     el.addEventListener('blur', saveProfileToStorage);
   });
 
-  // ----- เลือกโหมดเกม -----
-  qsAll('[data-mode]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const m = btn.getAttribute('data-mode') || 'goodjunk';
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function () {
+      const p = saveProfileToStorage();
+      if (!p.name) {
+        alert('ใส่ชื่อนักเรียนก่อนนะ 😊');
+        if (nameInput) nameInput.focus();
+      } else {
+        alert('บันทึกโปรไฟล์เรียบร้อยแล้ว ✅');
+      }
+    });
+  }
+
+  // ----- เลือกโหมดเกม (การ์ด data-mode) -----
+  function setActiveModeCard(mode) {
+    $$('.mode-card').forEach((card) => {
+      if (card.getAttribute('data-mode') === mode) {
+        card.classList.add('active');
+      } else {
+        card.classList.remove('active');
+      }
+    });
+  }
+
+  // default = goodjunk
+  setActiveModeCard(currentMode);
+
+  $$('.mode-card[data-mode]').forEach((card) => {
+    card.addEventListener('click', function () {
+      const m = card.getAttribute('data-mode') || 'goodjunk';
       currentMode = m.toLowerCase();
-
-      // ไฮไลต์ปุ่ม
-      qsAll('[data-mode]').forEach(function (b) {
-        b.classList.remove('is-active');
-      });
-      btn.classList.add('is-active');
+      setActiveModeCard(currentMode);
     });
   });
 
-  // ----- เลือกระดับความยาก -----
-  qsAll('[data-diff]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const d = btn.getAttribute('data-diff') || 'normal';
-      currentDiff = d.toLowerCase();
+  // ----- diff + time -----
+  const diffSelect = $id('selDiff');
+  const timeInput  = $id('inpTime');
 
-      qsAll('[data-diff]').forEach(function (b) {
-        b.classList.remove('is-active');
-      });
-      btn.classList.add('is-active');
+  if (diffSelect) {
+    diffSelect.addEventListener('change', function () {
+      currentDiff = (diffSelect.value || 'normal').toLowerCase();
     });
-  });
+    currentDiff = (diffSelect.value || 'normal').toLowerCase();
+  }
 
   // ----- ปุ่มเริ่มเล่น -----
   if (startBtn) {
     startBtn.addEventListener('click', function () {
       const profile = saveProfileToStorage();
 
-      // บังคับใส่ชื่อก่อน
       if (!profile.name) {
-        alert('ใส่ชื่อนักเรียนก่อนเริ่มเล่นนะ 😊');
+        alert('กรอก “ชื่อนักเรียน” ก่อนเริ่มเล่นนะครับ 😊');
         if (nameInput) nameInput.focus();
         return;
       }
 
-      // สามารถเปลี่ยนเวลาเกมตรงนี้ได้ ถ้าจะให้เลือกจาก UI
-      const gameTime = 60;
+      let t = 60;
+      if (timeInput) {
+        const n = parseInt(timeInput.value, 10);
+        if (!isNaN(n)) t = n;
+      }
+      if (t < 20) t = 20;
+      if (t > 180) t = 180;
 
       const params = new URLSearchParams({
         mode: currentMode,
         diff: currentDiff,
-        time: String(gameTime)
+        time: String(t)
       });
 
-      // ส่งต่อไปหน้าเล่นเกม
       window.location.href = './play.html?' + params.toString();
     });
   }
 
-  // ----- init -----
+  // ----- init ตอนโหลดหน้า -----
   loadProfileFromStorage();
 })();
