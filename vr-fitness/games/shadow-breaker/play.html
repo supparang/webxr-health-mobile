@@ -29,10 +29,11 @@
         radial-gradient(circle at top, rgba(56,189,248,.25), transparent 60%),
         radial-gradient(circle at bottom, rgba(34,197,94,.25), transparent 60%),
         #020617;
+      transition: box-shadow 0.2s ease-out, transform 0.1s ease-out;
     }
     #sb-message {
       position: absolute;
-      top: 16px;
+      top: 52px;
       left: 50%;
       transform: translateX(-50%);
       padding: 6px 12px;
@@ -40,10 +41,43 @@
       background: rgba(15,23,42,.85);
       border: 1px solid rgba(148,163,184,.6);
       font-size: 14px;
-      max-width: min(90vw, 480px);
+      max-width: min(90vw, 520px);
       text-align: center;
       pointer-events: none;
       z-index: 5;
+    }
+
+    /* Boss HP bar */
+    #boss-bar-wrap {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(520px, 90vw);
+      z-index: 6;
+    }
+    #boss-bar-bg {
+      width: 100%;
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(148,163,184,0.7);
+      overflow: hidden;
+      box-shadow: 0 0 16px rgba(15,23,42,0.9);
+    }
+    #boss-bar-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg,#22c55e,#eab308,#ef4444);
+      transform-origin: left center;
+      transition: transform .18s ease-out;
+    }
+    #boss-label {
+      margin-top: 2px;
+      font-size: 11px;
+      text-align: center;
+      opacity: .85;
     }
 
     /* เป้า */
@@ -72,6 +106,22 @@
       background:
         radial-gradient(circle at 30% 30%, rgba(248,250,252,.95), transparent 60%),
         #f97316;
+    }
+    .sb-target-item {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(248,250,252,1), transparent 60%),
+        #6366f1;
+      box-shadow: 0 0 0 2px rgba(191,219,254,.9),0 12px 28px rgba(15,23,42,.9);
+    }
+    .sb-target-onfire {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,230,150,1), transparent 60%),
+        #ff3b3b;
+      box-shadow:
+        0 0 10px #ffeb3b,
+        0 0 22px #ff5722,
+        0 0 30px rgba(255,87,34,.9);
+      color: #300;
     }
     .sb-target:active {
       transform: translate(-50%, -50%) scale(.92);
@@ -123,6 +173,10 @@
       color: #f97373;
       text-shadow: 0 0 8px rgba(248,113,113,.9);
     }
+    .sb-float-score-crit {
+      color: #facc15;
+      text-shadow: 0 0 12px rgba(250,204,21,.9), 0 0 24px rgba(255,215,0,.8);
+    }
     @keyframes sb-float-score {
       0% {
         opacity: 0;
@@ -138,17 +192,35 @@
       }
     }
 
-    /* Screen shake */
+    /* Screen shake & camera zoom */
     .sb-shake {
       animation: sb-shake 0.25s cubic-bezier(.36,.07,.19,.97);
     }
     @keyframes sb-shake {
-      0% { transform: translate(0,0); }
-      20% { transform: translate(-4px, 3px); }
-      40% { transform: translate(4px, -3px); }
-      60% { transform: translate(-3px, 2px); }
-      80% { transform: translate(3px, -2px); }
-      100% { transform: translate(0,0); }
+      0%   { transform: translate(0,0) rotate(0deg) scale(1.00); }
+      15%  { transform: translate(-10px, 6px) rotate(-2deg) scale(1.02); }
+      35%  { transform: translate(12px, -8px) rotate(2deg) scale(1.03); }
+      55%  { transform: translate(-9px, 5px) rotate(-2deg) scale(1.02); }
+      75%  { transform: translate(10px, -6px) rotate(2deg) scale(1.01); }
+      100% { transform: translate(0,0) rotate(0deg) scale(1.00); }
+    }
+    .cam-zoom {
+      animation: camzoom 0.45s ease-out;
+    }
+    @keyframes camzoom {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    /* On-fire screen pulse */
+    .onfire-screen {
+      animation: onfire-screen-pulse 0.85s ease-in-out infinite;
+    }
+    @keyframes onfire-screen-pulse {
+      0% { box-shadow: inset 0 0 40px rgba(255,87,34,0.2); }
+      50% { box-shadow: inset 0 0 80px rgba(255,87,34,0.45); }
+      100% { box-shadow: inset 0 0 40px rgba(255,87,34,0.2); }
     }
 
     /* HUD */
@@ -203,6 +275,37 @@
     }
     #btn-start:active { transform: translateY(1px); }
 
+    /* Fever gauge */
+    #fever-wrap {
+      margin-left: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 120px;
+    }
+    #fever-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      opacity: .8;
+    }
+    #fever-bar {
+      flex: 1 1 auto;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.7);
+      overflow: hidden;
+    }
+    #fever-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg,#22c55e,#eab308,#f97316,#ef4444);
+      transform-origin: left center;
+      transition: transform .18s ease-out;
+    }
+
     /* Result modal */
     #result-overlay {
       position: fixed;
@@ -214,7 +317,7 @@
       z-index: 950;
     }
     #result-card {
-      width: min(360px, 90vw);
+      width: min(380px, 92vw);
       background: #020617;
       border-radius: 18px;
       padding: 18px 20px;
@@ -223,8 +326,18 @@
       color: #e5e7eb;
     }
     #result-card h2 {
-      margin: 0 0 12px;
+      margin: 0 0 8px;
       font-size: 18px;
+    }
+    #rank-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px;
     }
     #result-card p {
       margin: 4px 0;
@@ -253,16 +366,59 @@
       color: #020617;
     }
 
+    /* Fever & On-fire popup */
+    #fever-container, #onfire-container {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999;
+    }
+    #fever-popup {
+      position: fixed;
+      top: 42%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3rem;
+      font-weight: 900;
+      pointer-events: none;
+      color: #facc15;
+      opacity: 0;
+      letter-spacing: 3px;
+      text-shadow: 0 0 12px #facc15, 0 0 32px #ffe066;
+      z-index: 999;
+      animation: fever-anim 0.8s ease-out forwards;
+    }
+    @keyframes fever-anim {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+      25%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+      60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0); }
+      100% { opacity: 0; transform: translate(-50%, -65%) scale(1.4); }
+    }
+    @keyframes onfire-anim {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+      25%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+      100% { opacity: 0; transform: translate(-50%, -65%) scale(1.4); }
+    }
+
     @media (max-width: 640px) {
-      #hud-inner { gap: 8px; padding: 6px 10px; }
+      #hud-inner { gap: 6px; padding: 6px 10px; }
       .hud-value { font-size: 14px; }
       #btn-start { font-size: 12px; padding: 4px 10px; }
-      #sb-message { font-size: 13px; }
+      #sb-message { font-size: 13px; top: 60px; }
+      #fever-wrap { display: none; }
     }
   </style>
 </head>
 <body>
   <div id="sb-stage">
+    <!-- Boss HP -->
+    <div id="boss-bar-wrap">
+      <div id="boss-bar-bg">
+        <div id="boss-bar-fill"></div>
+      </div>
+      <div id="boss-label">Boss HP</div>
+    </div>
+
     <div id="sb-message">
       แตะปุ่ม <strong>▶ เริ่มเล่น</strong> ด้านล่าง แล้วรีบต่อยวงกลมที่โผล่มาให้ทัน!<br>
       ใช้เมาส์ แตะจอมือถือ หรือใน VR ใช้ตัวชี้/คอนโทรลเลอร์ก็ได้
@@ -284,6 +440,10 @@
         <span class="hud-label">🔥 Combo</span>
         <span id="hud-combo" class="hud-value">x0</span>
       </div>
+      <div id="fever-wrap">
+        <span id="fever-label">FEVER</span>
+        <div id="fever-bar"><div id="fever-fill"></div></div>
+      </div>
       <div class="hud-center">
         <span id="hud-diff">NORMAL</span>
         <button id="btn-start" type="button">▶ เริ่มเล่น</button>
@@ -295,11 +455,14 @@
   <div id="result-overlay">
     <div id="result-card">
       <h2>🏁 สรุปผลการเล่น</h2>
+      <div id="rank-badge">Rank: <span id="rank-text">C</span></div>
       <p><strong>Score:</strong> <span id="res-score">0</span></p>
       <p><strong>Hits:</strong> <span id="res-hits">0</span></p>
       <p><strong>Miss:</strong> <span id="res-miss">0</span></p>
+      <p><strong>Accuracy:</strong> <span id="res-acc">0%</span></p>
       <p><strong>Best Combo:</strong> <span id="res-combo">x0</span></p>
       <p><strong>เวลาเล่น:</strong> <span id="res-time">0</span>s</p>
+      <p><strong>Boss HP:</strong> <span id="res-boss">0%</span></p>
       <div id="result-actions">
         <button id="btn-retry" type="button">🔁 เล่นอีกครั้ง</button>
         <button id="btn-back" type="button">🏠 กลับเมนู</button>
@@ -307,29 +470,49 @@
     </div>
   </div>
 
+  <!-- Fever & On-fire popup -->
+  <div id="fever-container"></div>
+  <div id="onfire-container"></div>
+
   <script>
     (function () {
       'use strict';
 
       const stage      = document.getElementById('sb-stage');
       const msgEl      = document.getElementById('sb-message');
+
       const hudTime    = document.getElementById('hud-time');
       const hudScore   = document.getElementById('hud-score');
       const hudCombo   = document.getElementById('hud-combo');
       const hudDiff    = document.getElementById('hud-diff');
       const btnStart   = document.getElementById('btn-start');
+
+      const feverFill  = document.getElementById('fever-fill');
+
+      const bossFill   = document.getElementById('boss-bar-fill');
+      const bossLabel  = document.getElementById('boss-label');
+
       const resOverlay = document.getElementById('result-overlay');
       const resScore   = document.getElementById('res-score');
       const resHits    = document.getElementById('res-hits');
       const resMiss    = document.getElementById('res-miss');
+      const resAcc     = document.getElementById('res-acc');
       const resCombo   = document.getElementById('res-combo');
       const resTime    = document.getElementById('res-time');
+      const resBoss    = document.getElementById('res-boss');
+      const rankBadge  = document.getElementById('rank-badge');
+      const rankText   = document.getElementById('rank-text');
       const btnRetry   = document.getElementById('btn-retry');
       const btnBack    = document.getElementById('btn-back');
 
       const EMOJIS = ['🥊', '💥', '⭐', '⚡', '🔥'];
-      const targets = new Set();
+      const ITEM_EMOJIS = {
+        slow: '🐢',
+        freeze: '🧊',
+        bomb: '💣'
+      };
 
+      const targets = new Set();
       let audioCtx = null;
 
       let state = {
@@ -338,15 +521,27 @@
         elapsed: 0,
         lastTs: 0,
         spawnTimer: 0,
+        spawnIntervalBase: 1.0,
         spawnInterval: 1.0,
+        targetLifetimeBase: 1.2,
         targetLifetime: 1.2,
+
         score: 0,
         hits: 0,
         miss: 0,
         combo: 0,
         bestCombo: 0,
         diff: 'normal',
-        rafId: 0
+        rafId: 0,
+
+        feverGauge: 0,        // 0-100
+        isOnFire: false,
+
+        bossMaxHp: 1000,
+        bossHp: 1000,
+
+        slowUntil: 0,
+        freezeUntil: 0
       };
 
       function parseParams() {
@@ -363,15 +558,24 @@
         else hudDiff.style.background = '#0f766e';
 
         if (state.diff === 'easy') {
-          state.spawnInterval = 1.3;
-          state.targetLifetime = 1.6;
+          state.spawnIntervalBase = 1.3;
+          state.targetLifetimeBase = 1.6;
         } else if (state.diff === 'hard') {
-          state.spawnInterval = 0.75;
-          state.targetLifetime = 1.0;
+          state.spawnIntervalBase = 0.75;
+          state.targetLifetimeBase = 1.0;
         } else {
-          state.spawnInterval = 1.0;
-          state.targetLifetime = 1.3;
+          state.spawnIntervalBase = 1.0;
+          state.targetLifetimeBase = 1.3;
         }
+        state.spawnInterval = state.spawnIntervalBase;
+        state.targetLifetime = state.targetLifetimeBase;
+
+        // Boss HP scale based on time & diff (คร่าว ๆ)
+        state.bossMaxHp = 800 + (state.duration * 3);
+        if (state.diff === 'hard') state.bossMaxHp *= 1.2;
+        if (state.diff === 'easy') state.bossMaxHp *= 0.8;
+        state.bossHp = state.bossMaxHp;
+        updateBossBar();
       }
 
       function rand(min, max) {
@@ -388,12 +592,25 @@
         hudCombo.textContent = 'x' + state.combo;
       }
 
+      function updateBossBar() {
+        const ratio = Math.max(0, state.bossHp) / state.bossMaxHp;
+        bossFill.style.transform = 'scaleX(' + ratio.toFixed(3) + ')';
+        let text = 'Boss HP ' + Math.round(ratio * 100) + '%';
+        if (state.bossHp <= 0) text = 'Boss Break!! 🎉';
+        bossLabel.textContent = text;
+      }
+
+      function updateFeverGauge() {
+        const ratio = Math.max(0, Math.min(100, state.feverGauge)) / 100;
+        feverFill.style.transform = 'scaleX(' + ratio.toFixed(3) + ')';
+      }
+
       function clearTargets() {
         targets.forEach(el => el.remove());
         targets.clear();
       }
 
-      // Web Audio beep เล็ก ๆ
+      // Web Audio
       function playBeep(type) {
         try {
           if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -404,18 +621,14 @@
           let dur  = 0.09;
           let vol  = 0.25;
 
-          if (type === 'hit') {
-            freq = 520;
-            dur  = 0.08;
-            vol  = 0.23;
-          } else if (type === 'miss') {
-            freq = 180;
-            dur  = 0.12;
-            vol  = 0.22;
-          }
+          if (type === 'hit')       { freq = 520; dur = 0.07; vol = 0.23; }
+          else if (type === 'miss') { freq = 180; dur = 0.12; vol = 0.22; }
+          else if (type === 'item') { freq = 700; dur = 0.13; vol = 0.22; }
+          else if (type === 'fever'){ freq = 900; dur = 0.16; vol = 0.25; }
+          else if (type === 'onfire'){freq = 320; dur = 0.20; vol = 0.27; }
 
           osc.frequency.value = freq;
-          osc.type = 'square';
+          osc.type = (type === 'miss') ? 'sawtooth' : 'square';
           gain.gain.value = vol;
 
           osc.connect(gain);
@@ -425,14 +638,12 @@
           osc.start(now);
           osc.stop(now + dur);
           gain.gain.setTargetAtTime(0, now + dur * 0.4, 0.05);
-        } catch (e) {
-          // เงียบไปถ้าเล่นไม่ได้
-        }
+        } catch (e) {}
       }
 
       function addScreenShake() {
         stage.classList.remove('sb-shake');
-        void stage.offsetWidth; // force reflow
+        void stage.offsetWidth;
         stage.classList.add('sb-shake');
       }
 
@@ -457,17 +668,66 @@
         }
       }
 
-      function spawnFloatScore(x, y, amount, isMiss) {
+      function spawnFloatScore(x, y, amount, isMiss, isCrit) {
         const el = document.createElement('div');
-        el.className = 'sb-float-score' + (isMiss ? ' sb-float-score-miss' : '');
-        el.textContent = (isMiss ? '-'+amount : '+'+amount);
+        el.className =
+          'sb-float-score' +
+          (isMiss ? ' sb-float-score-miss' : '') +
+          (isCrit ? ' sb-float-score-crit' : '');
+        el.textContent = (isMiss ? '-' + amount : '+' + amount);
         el.style.left = x + 'px';
         el.style.top  = y + 'px';
         stage.appendChild(el);
         setTimeout(() => el.remove(), 650);
       }
 
-      function removeTarget(el, isHit, isCritical) {
+      function showFever() {
+        const c = document.getElementById('fever-container');
+        const el = document.createElement('div');
+        el.id = 'fever-popup';
+        el.textContent = '🔥 FEVER !! 🔥';
+        c.appendChild(el);
+        setTimeout(() => el.remove(), 850);
+        playBeep('fever');
+      }
+
+      function showOnFirePopup() {
+        const c = document.getElementById('onfire-container');
+        const el = document.createElement('div');
+        el.style.position = 'fixed';
+        el.style.top = '48%';
+        el.style.left = '50%';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.fontSize = '3rem';
+        el.style.fontWeight = '900';
+        el.style.pointerEvents = 'none';
+        el.style.color = '#ffeb3b';
+        el.style.textShadow = '0 0 12px #ffbb00, 0 0 32px #ff6a00';
+        el.style.opacity = '0';
+        el.style.animation = 'onfire-anim 1s ease-out forwards';
+        el.textContent = '🔥🔥 ON-FIRE MODE !!! 🔥🔥';
+        c.appendChild(el);
+        setTimeout(() => el.remove(), 1100);
+        playBeep('onfire');
+      }
+
+      function applyItemEffect(itemType) {
+        const now = performance.now() / 1000;
+        if (itemType === 'slow') {
+          state.slowUntil = now + 4;
+          msgEl.textContent = '🐢 Slow: เป้าจะโผล่ช้าลงชั่วคราว';
+        } else if (itemType === 'freeze') {
+          state.freezeUntil = now + 2.5;
+          msgEl.textContent = '🧊 Freeze: เป้าค้างอยู่ที่เดิมชั่วคราว';
+        } else if (itemType === 'bomb') {
+          msgEl.textContent = '💣 Bomb: เคลียร์เป้าบนจอทั้งหมด!';
+          targets.forEach(el => el.remove());
+          targets.clear();
+        }
+        playBeep('item');
+      }
+
+      function removeTarget(el, isHit, isCritical, isItem) {
         if (!targets.has(el)) return;
         targets.delete(el);
         const rect = el.getBoundingClientRect();
@@ -475,26 +735,82 @@
         const cy = rect.top  + rect.height / 2;
         el.remove();
 
+        if (isItem) {
+          spawnParticles(cx, cy, 'hit');
+          spawnFloatScore(cx, cy, 0, false, false);
+          updateHUD();
+          return;
+        }
+
         if (isHit) {
-          const base = 10;
+          const futureCombo = state.combo + 1;
+
+          // FEVER จาก combo ≥5 (อนุญาตซ้อนกับ gauge)
+          const feverNow = futureCombo >= 5;
+          // ON-FIRE จาก combo ≥8
+          const willOnFire = futureCombo >= 8;
+
+          if (feverNow && !isCritical) {
+            // ถ้าเข้าช่วง FEVER แล้วยังไม่ critical → บังคับเป็น critical
+            isCritical = true;
+          }
+
+          const base  = 10;
           const bonus = isCritical ? 20 : 0;
-          const gain = base + bonus;
+          let gain    = base + bonus;
+
+          if (willOnFire && !state.isOnFire) {
+            state.isOnFire = true;
+            showOnFirePopup();
+            stage.classList.add('onfire-screen');
+          }
+
+          if (state.isOnFire) {
+            gain *= 2; // x2 ในโหมด On-fire
+          }
+
           state.score += gain;
           state.hits += 1;
           state.combo += 1;
           if (state.combo > state.bestCombo) state.bestCombo = state.combo;
+
+          // Boss damage = gain (จำลองว่าต่อยบอส)
+          state.bossHp -= gain;
+          if (state.bossHp < 0) state.bossHp = 0;
+          updateBossBar();
+
+          // เพิ่ม fever gauge ตาม combo
+          state.feverGauge = Math.min(100, state.combo * 10);
+          updateFeverGauge();
+
+          // Critical แสดง FEVER popup
+          if (isCritical) showFever();
+
+          // Camera zoom
+          stage.classList.remove('cam-zoom');
+          void stage.offsetWidth;
+          stage.classList.add('cam-zoom');
+
           playBeep('hit');
           addScreenShake();
           spawnParticles(cx, cy, 'hit');
-          spawnFloatScore(cx, cy, gain, false);
+          spawnFloatScore(cx, cy, gain, false, isCritical);
+
         } else {
+          // Miss
           state.miss += 1;
           state.combo = 0;
+          state.feverGauge = 0;
+          state.isOnFire = false;
+          stage.classList.remove('onfire-screen');
+          updateFeverGauge();
+
           playBeep('miss');
           addScreenShake();
           spawnParticles(cx, cy, 'miss');
-          spawnFloatScore(cx, cy, 5, true); // แสดง -5 (แม้คะแนนจริงไม่ลบ)
+          spawnFloatScore(cx, cy, 5, true, false);
         }
+
         updateHUD();
       }
 
@@ -506,8 +822,23 @@
         const y = rand(rect.height * 0.2,  rect.height * 0.8);
 
         const el = document.createElement('div');
-        el.className = 'sb-target sb-pop' + (state.diff === 'hard' ? ' sb-target-hard' : '');
-        el.textContent = pick(EMOJIS);
+        let isItem = false;
+        let itemType = null;
+
+        // โอกาส spawn item ~12%
+        if (Math.random() < 0.12) {
+          isItem = true;
+          const keys = Object.keys(ITEM_EMOJIS);
+          itemType = pick(keys);
+          el.className = 'sb-target sb-pop sb-target-item';
+          el.textContent = ITEM_EMOJIS[itemType];
+          el.dataset.itemType = itemType;
+        } else {
+          el.className = 'sb-target sb-pop' +
+            (state.diff === 'hard' ? ' sb-target-hard' : '');
+          el.textContent = pick(EMOJIS);
+        }
+
         el.style.left = x + 'px';
         el.style.top  = y + 'px';
         el.dataset.createdAt = performance.now();
@@ -515,8 +846,17 @@
         const hit = (e) => {
           e.stopPropagation();
           if (!state.playing) return;
-          const isCritical = Math.random() < 0.18; // 18% โอกาส critical
-          removeTarget(el, true, isCritical);
+
+          // กำหนด critical จาก combo ≥5
+          const futureCombo = state.combo + 1;
+          const isCritical = futureCombo >= 5;
+
+          if (isItem) {
+            applyItemEffect(itemType);
+            removeTarget(el, true, false, true);
+          } else {
+            removeTarget(el, true, isCritical, false);
+          }
         };
 
         el.addEventListener('click',       hit, { passive: false });
@@ -530,11 +870,48 @@
         state.playing = false;
         cancelAnimationFrame(state.rafId);
         clearTargets();
+
+        const total = state.hits + state.miss;
+        const acc = total > 0 ? (state.hits / total) : 0;
+        const accPct = Math.round(acc * 100);
+
         resScore.textContent = state.score;
         resHits .textContent = state.hits;
         resMiss .textContent = state.miss;
+        resAcc  .textContent = accPct + '%';
         resCombo.textContent = 'x' + state.bestCombo;
         resTime .textContent = state.duration;
+
+        const bossRatio = Math.max(0, state.bossHp) / state.bossMaxHp;
+        resBoss.textContent = Math.round((1 - bossRatio) * 100) + '%';
+
+        // Rank calc
+        let rank = 'C';
+        let bg   = 'rgba(148,163,184,0.2)';
+        let col  = '#e5e7eb';
+
+        if (state.score >= 1200 && accPct >= 95) {
+          rank = 'SSS';
+          bg   = 'rgba(250,204,21,0.18)';
+          col  = '#facc15';
+        } else if (state.score >= 900 && accPct >= 90) {
+          rank = 'S';
+          bg   = 'rgba(56,189,248,0.18)';
+          col  = '#38bdf8';
+        } else if (state.score >= 600 && accPct >= 80) {
+          rank = 'A';
+          bg   = 'rgba(34,197,94,0.18)';
+          col  = '#4ade80';
+        } else if (state.score >= 350 && accPct >= 60) {
+          rank = 'B';
+          bg   = 'rgba(59,130,246,0.18)';
+          col  = '#93c5fd';
+        }
+
+        rankText.textContent = rank;
+        rankBadge.style.background = bg;
+        rankBadge.style.color = col;
+
         resOverlay.style.display = 'flex';
         msgEl.textContent = 'หมดเวลาแล้ว! ดูผลคะแนน แล้วลองเล่นใหม่อีกครั้ง 💪';
       }
@@ -552,19 +929,38 @@
           return;
         }
 
-        state.spawnTimer += dt;
+        const nowSec = performance.now() / 1000;
+
+        // จัดการ effect slow/freeze
+        let effectiveDt = dt;
+        if (nowSec < state.freezeUntil) {
+          effectiveDt = 0; // freeze เป้า (ไม่แก่)
+        }
+        // slow → spawn timer ช้าลง
+        let spawnFactor = 1;
+        if (nowSec < state.slowUntil) {
+          spawnFactor = 0.5;
+        }
+
+        state.spawnTimer += dt * spawnFactor;
+
+        // dynamic interval (เร็วขึ้นปลายเกม)
         const t = state.elapsed / state.duration;
-        const dynInterval = Math.max(state.spawnInterval * (1 - 0.4 * t), 0.4);
-        if (state.spawnTimer >= dynInterval) {
+        const baseInterval = state.spawnIntervalBase;
+        const dynBase = Math.max(baseInterval * (1 - 0.4 * t), 0.35);
+        state.spawnInterval = dynBase;
+
+        if (state.spawnTimer >= state.spawnInterval) {
           state.spawnTimer = 0;
           spawnTarget();
         }
 
         const now = performance.now();
         targets.forEach(el => {
-          const age = (now - Number(el.dataset.createdAt)) / 1000;
-          if (age >= state.targetLifetime) {
-            removeTarget(el, false, false);
+          const created = Number(el.dataset.createdAt) || now;
+          const age = (now - created) / 1000;
+          if (age >= state.targetLifetime && nowSec >= state.freezeUntil) {
+            removeTarget(el, false, false, false);
           }
         });
 
@@ -581,8 +977,17 @@
         state.miss = 0;
         state.combo = 0;
         state.bestCombo = 0;
+        state.feverGauge = 0;
+        state.isOnFire = false;
+        state.slowUntil = 0;
+        state.freezeUntil = 0;
+        stage.classList.remove('onfire-screen');
         clearTargets();
         updateHUD();
+        updateFeverGauge();
+        // reset boss
+        state.bossHp = state.bossMaxHp;
+        updateBossBar();
       }
 
       function startGame() {
@@ -609,6 +1014,7 @@
 
       parseParams();
       updateHUD();
+      updateFeverGauge();
     })();
   </script>
 </body>
