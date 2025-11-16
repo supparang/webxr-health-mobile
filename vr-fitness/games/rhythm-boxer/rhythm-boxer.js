@@ -1,10 +1,10 @@
-// === Rhythm Boxer — DEV v1.1 (Research + HADO Finish FX) ===
+// === Rhythm Boxer — v1.2 (Research + HADO Finish FX + Hard Cleanup) ===
 // - 4 lanes, tap/punch to the beat
 // - Perfect / Good / Miss scoring
 // - HADO-style ripple + scan effect เมื่อจบเกม
 // - Summary format compatible กับ ShadowBreakerResearch
 
-// ---- CONFIG ENDPOINT (ใช้ตัวเดียวกับ Shadow Breaker ก็ได้) ----
+// ---- CONFIG ENDPOINT ----
 const FIREBASE_API = '';  // optional
 const SHEET_API    = '';  // Google Sheet Apps Script
 const PDF_API      = '';  // PDF Apps Script
@@ -154,8 +154,7 @@ function buildLBTable(rows){
   return table;
 }
 
-// ===== โน้ต/เลน =====
-// lane: 0-3, time: วินาทีที่จะต้องกด
+// ===== โน้ต/เลน pattern =====
 const SONG_PATTERN = [
   0.8, 1.5, 2.2, 3.0,
   3.8, 4.5, 5.2, 6.0,
@@ -164,7 +163,7 @@ const SONG_PATTERN = [
   12.6, 13.4, 14.2, 15.0
 ].map((t,i)=>({
   time:t,
-  lane:i%4  // สลับ 0..3
+  lane:i%4
 }));
 
 // ===== MAIN CLASS =====
@@ -228,7 +227,6 @@ export class RhythmBoxer{
   }
 
   _initLayout(){
-    // 4 เลนเรียงกัน
     this.stage.innerHTML = '';
     this.stage.id = 'rb-stage';
     this.stage.style.position = 'fixed';
@@ -277,7 +275,6 @@ export class RhythmBoxer{
 
     this.stage.appendChild(wrap);
 
-    // เตรียมโน้ตจาก pattern
     this.state.notes = SONG_PATTERN.map(n=>({
       time:n.time,
       lane:n.lane,
@@ -288,7 +285,6 @@ export class RhythmBoxer{
   }
 
   _bindInput(){
-    // click / tap ที่ lane
     this.lanes.forEach(lane=>{
       lane.addEventListener('pointerdown', e=>{
         e.preventDefault();
@@ -297,7 +293,6 @@ export class RhythmBoxer{
       });
     });
 
-    // keyboard สำหรับ PC (A,S,K,L)
     window.addEventListener('keydown', e=>{
       if (e.repeat) return;
       const map = { 'a':0,'s':1,'k':2,'l':3 };
@@ -361,21 +356,21 @@ export class RhythmBoxer{
     dom.style.borderRadius='999px';
     dom.style.background='rgba(248,250,252,.95)';
     dom.style.boxShadow='0 4px 12px rgba(15,23,42,.85)';
-    dom.style.bottom='100%'; // เริ่มด้านบน
+    dom.style.bottom='100%';
     lane.appendChild(dom);
     note.dom = dom;
   }
 
-  _updateNotes(dt){
+  _updateNotes(){
     this.state.notes.forEach(note=>{
       if (!note.dom) return;
       const tNow = this.state.elapsed;
       const dtHead = note.time - tNow;
-      const totalTravel = 2.0; // วินาทีก่อนถึง hit line
-      const ratio = 1 - (dtHead / totalTravel); // 0 → บน, 1 → ถึงเส้น
+      const totalTravel = 2.0;
+      const ratio = 1 - (dtHead / totalTravel);
       const clamped = Math.max(0, Math.min(1.2, ratio));
       const lane = this.lanes[note.lane];
-      const h = lane.clientHeight||1;
+      const h = lane ? (lane.clientHeight||1) : 1;
       const bottomPx = 12 + clamped * (h - 40);
       note.dom.style.bottom = bottomPx + 'px';
     });
@@ -387,7 +382,6 @@ export class RhythmBoxer{
     const tNow = this.state.elapsed;
     const cfg  = this.cfg;
 
-    // หาโน้ตใน lane นั้นที่ยังไม่ judged และใกล้ที่สุด
     let best = null;
     let bestDt = Infinity;
     this.state.notes.forEach(note=>{
@@ -446,6 +440,7 @@ export class RhythmBoxer{
 
   _floatLane(laneIdx, txt, isBad){
     const lane = this.lanes[laneIdx] || this.lanes[1];
+    if (!lane) return;
     const r = lane.getBoundingClientRect();
     const fx = document.createElement('div');
     fx.className = 'float';
@@ -453,6 +448,8 @@ export class RhythmBoxer{
     fx.style.left  = (r.left + r.width/2) + 'px';
     fx.style.top   = (r.top + r.height*0.2) + 'px';
     fx.style.color = isBad ? '#fb7185' : '#4ade80';
+    fx.style.position = 'fixed';
+    fx.style.transform = 'translate(-50%,-50%)';
     document.body.appendChild(fx);
     setTimeout(()=>fx.remove(),600);
   }
@@ -469,7 +466,6 @@ export class RhythmBoxer{
       return;
     }
 
-    // spawn note ก่อนถึงเวลาเล่นจริง ~ 2 วิ
     const lookAhead = 2.0;
     this.state.notes.forEach(note=>{
       if (!note.dom && note.time - this.state.elapsed <= lookAhead){
@@ -477,7 +473,6 @@ export class RhythmBoxer{
       }
     });
 
-    // auto-miss ถ้าเลย window ไปแล้วแต่ยังไม่ถูกกด
     this.state.notes.forEach(note=>{
       if (!note.judged && this.state.elapsed - note.time > this.cfg.windowGood){
         note.judged = true;
@@ -487,7 +482,7 @@ export class RhythmBoxer{
       }
     });
 
-    this._updateNotes(dt);
+    this._updateNotes();
     this.state.raf = requestAnimationFrame(this._loop.bind(this));
   }
 
@@ -516,22 +511,23 @@ export class RhythmBoxer{
     };
   }
 
-  // ===== HADO-style finish FX =====
-  _playFinishFx(){
-    // fade-out lanes
-    this.lanes.forEach(lane=>{
-      lane.classList.add('fade-out');
-      setTimeout(()=>lane.remove(), 400);
-    });
+  // ===== Stage cleanup (กัน element ซ้อน) =====
+  _clearStage(){
+    const kill = sel => document.querySelectorAll(sel).forEach(e => e.remove());
+    kill('.rb-note');
+    kill('.rb-lane');
+  }
 
-    // ripple + scan overlay
+  // ===== HADO-style finish FX (scan ripple) =====
+  _playFinishFx(){
+    // ripple
     const ripple = document.createElement('div');
     ripple.className = 'rb-ripple';
+    // scan
     const scan = document.createElement('div');
     scan.className = 'rb-scan';
     document.body.appendChild(ripple);
     document.body.appendChild(scan);
-
     setTimeout(()=>{
       ripple.remove();
       scan.remove();
@@ -545,17 +541,21 @@ export class RhythmBoxer{
 
     const summary = this._buildSummary();
 
-    // เล่นเอฟเฟกต์ HADO ก่อน
-    this._playFinishFx();
+    // 🧹 ล้างเลน/โน้ตทั้งหมด กันจอซ้อน
+    this._clearStage();
 
-    // กันจอเลื่อนบนมือถือเวลาโชว์ผล
+    // 🔒 ล็อก scroll บนมือถือ
     document.body.style.overflow = 'hidden';
 
+    // 🎬 เล่น HADO ripple + scan
+    this._playFinishFx();
+
+    // หน่วงนิดให้ effect เล่นก่อนแล้วค่อยโชว์ผล
     setTimeout(()=>{
       this._showResult(summary);
       hybridSaveSession(summary,true);
       this._loadLeaderboards(summary.profile);
-    }, 850);
+    }, 700);
   }
 
   _showResult(summary){
