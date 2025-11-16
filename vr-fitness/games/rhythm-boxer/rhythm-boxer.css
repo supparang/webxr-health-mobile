@@ -87,3 +87,8 @@
 .sb-result-backdrop{
   z-index: 999 !important;
 }
+/* เมื่อเกมจบ: ซ่อน lane / track ทั้งหมด แบบไม่เหลือ */
+body.rb-finished .rb-lane,
+body.rb-finished .track {
+  display: none !important;
+}
