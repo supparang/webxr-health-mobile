@@ -1,39 +1,57 @@
-// === Balance Hold — v2.0 (Research-ready) ===================================
-// Mechanics:
-// - เกมแบบ "ถือท่า" (Balance Pose) ทีละรอบ
-// - ทั่วไป: แตะ/กดค้างหน้าจอ หรือกด Space ค้าง = ถือท่า
-// - Normal / Gold pose → ต้องถือให้ครบเวลา
+// === Balance Hold — v2.1 (P5 + Rabbit Coach + Research-ready) ===============
+// Mechanics (เด็ก ป.5):
+// - เกมทรงตัวแบบ "Freeze Game" : แตะ/กดค้าง = ถือท่า, ปล่อย = หยุด
+// - Normal / Gold pose → ถือให้ครบเวลา
 // - Bomb pose → ห้ามถือ (ถ้าถือ = MISS)
-// - FEVER: combo ≥ 5 → คะแนนเพิ่ม, ขึ้นคำว่า "FEVER!!"
-// - สรุปผลแบบเดียวกับ Shadow Breaker / Jump Duck / Rhythm Boxer
+// - FEVER: combo ≥ 5 → FEVER!! คะแนนเพิ่ม
+// - Summary + Hybrid save → ส่งผลไป Google Sheets / Backend ได้
 // ============================================================================
 
 // ---------------------------------------------------------------------------
-// CONFIG ENDPOINT (เติมภายหลัง)
+// CONFIG ENDPOINT (ตั้งค่า SHEET_API เป็น Web App ของ Google Apps Script)
 // ---------------------------------------------------------------------------
-const FIREBASE_API = ''; // 'https://.../firebase'
-const SHEET_API    = ''; // 'https://.../sheet'
-const PDF_API      = ''; // 'https://.../pdf'
-const LB_API       = ''; // 'https://.../leaderboard'
+// ตัวอย่าง JSON ที่ส่งไปยัง SHEET_API:
+//
+// {
+//   profile: {...},
+//   game: "balance-hold",
+//   diff: "normal",
+//   duration: 60.1,
+//   score: 820,
+//   hits: 18,
+//   miss: 3,
+//   comboMax: 9,
+//   accuracy: 0.86,
+//   notesPerSec: 0.35,
+//   notesPerMin: 21.1,
+//   rank: "A",
+//   device: "Mobile",
+//   timestamp: "2025-11-16T08:12:00.000Z"
+// }
+// ---------------------------------------------------------------------------
+const FIREBASE_API = ''; // ถ้ามีก็ใส่ได้
+const SHEET_API    = ''; // ← ใส่ URL Web App ของ Google Sheets ที่นี่
+const PDF_API      = ''; // ถ้ามี API สร้าง PDF
+const LB_API       = ''; // ถ้ามี leaderboard
 
 const LS_PROFILE = 'fitness_profile_v1';
 const LS_QUEUE   = 'fitness_offline_queue_v1';
 
 // ---------------------------------------------------------------------------
-// STRINGS
+// STRINGS (โค้ช "พุ่ง" กระต่าย) — P.5 Friendly
 // ---------------------------------------------------------------------------
 const STR = {
   th: {
-    msgReady : 'เตรียมตัวทรงตัว… ถือท่าให้นิ่งที่สุดเท่าที่ทำได้ 🧘‍♂️',
-    msgGo    : 'GO! แตะ/กดค้างบนจอ หรือกด Space เพื่อถือท่าตามที่โค้ชบอก ✨',
-    msgPaused: 'พักขา/แขนสักครู่ เดี๋ยวค่อยกลับมาทรงตัวต่อ 😄',
-    msgResume: 'กลับมาทรงตัวต่อกันเลย ระวังท่าหลอก (BOMB)! 🚨',
-    msgEnd   : 'หมดเวลาแล้ว มาดูว่าถือท่าได้ดีแค่ไหน ✨'
+    msgReady : 'โค้ชพุ่ง: เตรียมตัวแช่แข็งท่าให้สุด! ยืนให้นิ่งที่สุดนะ 🐰✨',
+    msgGo    : 'GO! แตะ/กดค้าง หรือกด Space ค้าง เพื่อถือท่าตามที่โค้ชพุ่งบอก 💪',
+    msgPaused: 'พักขาแป๊บนึง ดื่มน้ำหายใจลึก ๆ ก่อนนะ 😄',
+    msgResume: 'ลุยต่อ! คราวนี้ลองนิ่งให้ได้นานกว่าเดิมนะ 🌟',
+    msgEnd   : 'เวลาหมดแล้ว มาดูคะแนนพลังทรงตัวของเรากันเลย! 🎉'
   }
 };
 
 // ---------------------------------------------------------------------------
-// PROFILE
+// PROFILE (ใช้ร่วมกับทุกเกมใน VR-Fitness)
 // ---------------------------------------------------------------------------
 function getProfile(){
   try{
@@ -48,7 +66,7 @@ function ensureProfile(){
   let p = getProfile();
   if (p) return p;
   const studentId = prompt('Student ID:');
-  const name      = prompt('ชื่อที่ใช้ในเกม:');
+  const name      = prompt('ชื่อที่ใช้ในเกม (เช่น น้องพุ่ง):');
   const school    = prompt('โรงเรียน / หน่วยงาน:');
   const klass     = prompt('ห้องเรียน เช่น ป.5/1:');
   p = { studentId, name, school, class: klass, lang:'th' };
@@ -57,7 +75,37 @@ function ensureProfile(){
 }
 
 // ---------------------------------------------------------------------------
-// QUEUE + HYBRID SAVE
+// SIMPLE SFX (คาเฟ่ + ปิ๊งป่อง) — ใส่ไฟล์เสียงเองได้ในโฟลเดอร์ ./sfx
+// ---------------------------------------------------------------------------
+const SFX = (() => {
+  function load(src){
+    if (!src) return null;
+    const a = new Audio(src);
+    a.preload = 'auto';
+    return a;
+  }
+  const dingGood  = load('./sfx/ding-good.mp3');   // ✓ ถือท่าผ่าน
+  const dingBad   = load('./sfx/ding-bad.mp3');    // ✗ พลาด
+  const feverSfx  = load('./sfx/fever.mp3');       // FEVER!!
+  const endSfx    = load('./sfx/end.mp3');         // จบเกมส์
+  return {
+    hit(){
+      try{ dingGood && dingGood.currentTime && (dingGood.currentTime = 0); dingGood && dingGood.play(); }catch{}
+    },
+    miss(){
+      try{ dingBad && dingBad.currentTime && (dingBad.currentTime = 0); dingBad && dingBad.play(); }catch{}
+    },
+    fever(){
+      try{ feverSfx && feverSfx.currentTime && (feverSfx.currentTime = 0); feverSfx && feverSfx.play(); }catch{}
+    },
+    end(){
+      try{ endSfx && endSfx.currentTime && (endSfx.currentTime = 0); endSfx && endSfx.play(); }catch{}
+    }
+  };
+})();
+
+// ---------------------------------------------------------------------------
+// QUEUE + HYBRID SAVE (ต่อ Google Sheets + Backend)
 // ---------------------------------------------------------------------------
 function loadQueue(){
   try{
@@ -103,11 +151,11 @@ async function hybridSaveSession(summary, allowQueue = true){
 }
 
 // ---------------------------------------------------------------------------
-// PDF + CSV
+// PDF + CSV (ส่งให้ครู / เก็บรายงาน)
 // ---------------------------------------------------------------------------
 async function exportPDF(summary){
   if (!PDF_API){
-    alert('ยังไม่ได้ตั้งค่า PDF_API');
+    alert('ยังไม่ได้ตั้งค่า PDF_API ค่ะโค้ชพุ่งยังไม่มีโรงพิมพ์ 🤏');
     return;
   }
   try{
@@ -126,7 +174,7 @@ async function exportPDF(summary){
     URL.revokeObjectURL(url);
   }catch(e){
     console.error(e);
-    alert('สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+    alert('สร้าง PDF ไม่สำเร็จ ลองใหม่อีกครั้งนะคะ');
   }
 }
 
@@ -179,20 +227,20 @@ function detectDevice(){
 // GAME CONFIG
 // ============================================================================
 const DIFF = {
-  easy   : { poseHold: 3.5, maxPoseTime: 5.0, baseScore: 20 },
-  normal : { poseHold: 4.5, maxPoseTime: 6.0, baseScore: 25 },
-  hard   : { poseHold: 5.5, maxPoseTime: 7.0, baseScore: 30 }
+  easy   : { poseHold: 3.0, maxPoseTime: 4.5, baseScore: 20 },
+  normal : { poseHold: 4.0, maxPoseTime: 5.5, baseScore: 25 },
+  hard   : { poseHold: 5.0, maxPoseTime: 6.5, baseScore: 30 }
 };
 
-const GOLD_CHANCE = 0.12;  // 12% gold pose (ถือแล้วโบนัส)
-const BOMB_CHANCE = 0.08;  // 8% bomb pose (ห้ามถือ)
+const GOLD_CHANCE = 0.12;  // 12% gold pose
+const BOMB_CHANCE = 0.08;  // 8% bomb pose
 
-// Pose list (ตัวอย่าง 4 ท่า)
+// ท่าหลักแบบเด็ก ป.5 (ภาษาง่าย + emoji)
 const POSES = [
-  { key:'left',  label:'เอียงตัวซ้าย',  icon:'↙️' },
-  { key:'right', label:'เอียงตัวขวา',   icon:'↘️' },
-  { key:'front', label:'กึ่งย่อตรงกลาง', icon:'⬇️' },
-  { key:'oneleg',label:'ยืนขาเดียว',   icon:'🦵' }
+  { key:'left',  label:'เอนไปซ้ายเบา ๆ',   icon:'⬅️' },
+  { key:'right', label:'เอนไปขวาเบา ๆ',    icon:'➡️' },
+  { key:'front', label:'ย่อเข่านิดนึง',     icon:'⬇️' },
+  { key:'oneleg',label:'ยืนขาเดียวเบา ๆ',  icon:'🦵' }
 ];
 
 // ============================================================================
@@ -208,7 +256,7 @@ export class BalanceHold {
     this.pdfBtn  = opts.pdfBtn|| null;
 
     if (!this.arena){
-      alert('Balance Hold: ไม่พบ arena container');
+      alert('Balance Hold: ไม่พบพื้นที่สนามเล่น');
       return;
     }
 
@@ -269,6 +317,22 @@ export class BalanceHold {
     this.arena.style.position = 'relative';
     this.arena.style.overflow = 'hidden';
 
+    // โค้ชพุ่งตัวเล็กมุมบน
+    const coach = document.createElement('div');
+    coach.style.position = 'absolute';
+    coach.style.left = '12px';
+    coach.style.top  = '10px';
+    coach.style.display = 'flex';
+    coach.style.alignItems = 'center';
+    coach.style.gap = '6px';
+    coach.style.padding = '4px 10px';
+    coach.style.borderRadius = '999px';
+    coach.style.background = 'rgba(15,23,42,0.85)';
+    coach.style.border = '1px solid rgba(129,140,248,0.9)';
+    coach.style.fontSize = '13px';
+    coach.innerHTML = '<span>🐰</span><span>โค้ชพุ่ง</span>';
+    this.arena.appendChild(coach);
+
     const center = document.createElement('div');
     center.id = 'bhCenter';
     center.style.position = 'absolute';
@@ -282,7 +346,7 @@ export class BalanceHold {
 
     const poseBadge = document.createElement('div');
     poseBadge.id = 'bhPoseBadge';
-    poseBadge.style.minWidth = '120px';
+    poseBadge.style.minWidth = '140px';
     poseBadge.style.padding = '8px 14px';
     poseBadge.style.borderRadius = '999px';
     poseBadge.style.background = 'rgba(15,23,42,0.9)';
@@ -313,8 +377,8 @@ export class BalanceHold {
     const hint = document.createElement('div');
     hint.id = 'bhHint';
     hint.style.fontSize = '13px';
-    hint.style.opacity = '0.85';
-    hint.textContent = 'แตะ/กดค้างหน้าจอ หรือกด Space ค้างเพื่อถือท่า';
+    hint.style.opacity = '0.9';
+    hint.textContent = 'แตะ/กดค้าง หรือกด Space ค้าง เพื่อถือท่าให้แถบเต็ม 🌈';
 
     center.appendChild(poseBadge);
     center.appendChild(poseBarWrap);
@@ -364,12 +428,12 @@ export class BalanceHold {
     if (!this.hintEl) return;
     if (this.activePose && this.activePose.special === 'bomb'){
       this.hintEl.textContent = this.isHolding
-        ? '❌ ท่านี้เป็น BOMB! ปล่อยมือทันที!'
-        : 'ท่านี้เป็น BOMB ห้ามถือ ให้ปล่อยไว้เฉย ๆ';
+        ? '❌ ท่านี้เป็น BOMB! ปล่อยมือเร็วเลย!'
+        : 'ท่านี้เป็น BOMB ห้ามถือ ปล่อยเฉย ๆ ให้เวลานับเองนะ 🧨';
     }else{
       this.hintEl.textContent = this.isHolding
-        ? 'ดีมาก! รักษาท่าให้นิ่งจนแถบเต็ม ✨'
-        : 'แตะ/กดค้างหน้าจอ หรือกด Space เพื่อถือท่า';
+        ? 'ดีมาก! ยืนนิ่ง ๆ เหมือนรูปปั้นกระต่ายเลย 🐰✨'
+        : 'แตะ/กดค้าง หรือกด Space ค้าง เพื่อถือท่าให้แถบเต็ม 🌈';
     }
   }
 
@@ -438,12 +502,11 @@ export class BalanceHold {
     };
     this.state.totalPoses++;
 
-    // UI อัปเดต
     if (this.poseBadgeEl){
       const icon = pose.icon || '🧘‍♂️';
       let txt = pose.label;
-      if (special === 'gold') txt += ' (GOLD)';
-      else if (special === 'bomb') txt += ' (BOMB)';
+      if (special === 'gold') txt += ' (ท่าทองคำ ✨)';
+      else if (special === 'bomb') txt += ' (BOMB 💣)';
       this.poseBadgeEl.innerHTML = `<span>${icon}</span><span>${txt}</span>`;
       this.poseBadgeEl.style.borderColor =
         special === 'gold' ? 'rgba(250,204,21,0.9)' :
@@ -467,18 +530,15 @@ export class BalanceHold {
     p.elapsed += dt;
 
     if (p.special === 'bomb'){
-      // ห้ามถือ → ถ้าถือ = MISS
       if (this.isHolding && !p.done){
         this._onPoseMiss(p, true);
         return;
       }
       if (p.elapsed >= p.timeMax && !p.done){
-        // ปล่อยนิ่ง ๆ ครบเวลา = hit
         this._onPoseHit(p, true);
         return;
       }
     }else{
-      // normal / gold: ต้องถือให้ครบ holdRequired
       if (this.isHolding && !p.done){
         p.holdTime += dt;
       }
@@ -503,7 +563,7 @@ export class BalanceHold {
 
     let gain = this.cfg.baseScore;
     if (p.special === 'gold') gain = Math.round(gain*2);
-    if (isBombPose) gain = Math.round(gain*1.5); // gold bomb-clear
+    if (isBombPose)          gain = Math.round(gain*1.5);
 
     this.state.hits++;
     this.state.combo++;
@@ -515,6 +575,7 @@ export class BalanceHold {
       if (!this.state.fever){
         this.state.fever = true;
         this._showFeverFx();
+        SFX.fever();
       }
     }else{
       this.state.fever = false;
@@ -524,8 +585,8 @@ export class BalanceHold {
     this._hud();
     this._screenPulse(false);
     this._spawnHitFx('+'+gain, false);
+    SFX.hit();
 
-    // pose จบ → gap เล็กน้อยค่อยเริ่มท่าถัดไป
     this.activePose = null;
     this.poseGapTimer = 0.6;
   }
@@ -538,7 +599,6 @@ export class BalanceHold {
     this.state.combo = 0;
     this.state.fever = false;
 
-    // ลงโทษเพิ่มถ้าเป็น bomb pose แล้วถือผิด
     if (p.special === 'bomb'){
       this.state.score = Math.max(0, this.state.score - 40);
     }else{
@@ -548,6 +608,7 @@ export class BalanceHold {
     this._hud();
     this._screenPulse(true);
     this._spawnHitFx('MISS', true);
+    SFX.miss();
 
     this.activePose = null;
     this.poseGapTimer = 0.6;
@@ -620,7 +681,6 @@ export class BalanceHold {
     this.state.elapsed += dt;
     this.state.timeLeft = Math.max(0, this.timeLimit - this.state.elapsed);
 
-    // update pose
     if (this.activePose){
       this._updatePose(dt);
     }else{
@@ -682,6 +742,7 @@ export class BalanceHold {
     this.state.running = false;
     this._hud();
     this._msg(this.str.msgEnd);
+    SFX.end();
 
     const ripple = document.createElement('div');
     ripple.className = 'sb-finish-ripple';
