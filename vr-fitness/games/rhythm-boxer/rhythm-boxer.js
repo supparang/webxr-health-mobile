@@ -1,11 +1,13 @@
-// === Rhythm Boxer — v1.7 (Note-based End / Research-ready) =============
+// === Rhythm Boxer — v2.0 (Note-based, Fever, Gold/Bomb, Research-ready) =====
 // - เกมจบเมื่อโน้ตทุกตัวถูกตัดสิน (hits+miss) ไม่ใช่ตามเวลา
-// - HUD เวลาใช้ความยาวเพลงโดยประมาณ
-// - Hybrid save + PDF + leaderboard (endpoint เติมทีหลังได้)
+// - Gold note, Bomb note, Fever mode (combo ≥ 8)
+// - Hybrid save (JSON ไป Firebase/Sheet), CSV download, PDF export hook
+// - Leaderboard hook (school/class)
+// ============================================================================
 
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // CONFIG ENDPOINT (เติมเองภายหลังได้)
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 const FIREBASE_API = ''; // e.g. 'https://.../firebase'
 const SHEET_API    = ''; // e.g. 'https://.../sheet'
 const PDF_API      = ''; // e.g. 'https://.../pdf'
@@ -14,9 +16,9 @@ const LB_API       = ''; // e.g. 'https://.../leaderboard'
 const LS_PROFILE = 'rb_profile_v1';
 const LS_QUEUE   = 'rb_offline_queue_v1';
 
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // STRINGS
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 const STR = {
   th: {
     msgStart : 'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
@@ -28,9 +30,9 @@ const STR = {
   }
 };
 
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // PROFILE
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 function getProfile(){
   try{
     const raw = localStorage.getItem(LS_PROFILE);
@@ -52,9 +54,9 @@ function ensureProfile(){
   return p;
 }
 
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // OFFLINE QUEUE
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 function loadQueue(){
   try{
     const raw = localStorage.getItem(LS_QUEUE);
@@ -78,9 +80,9 @@ async function flushQueue(){
   saveQueue(remain);
 }
 
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // HYBRID SAVE
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 async function hybridSaveSession(summary, allowQueue = true){
   const body = JSON.stringify(summary);
   const headers = { 'Content-Type':'application/json' };
@@ -101,9 +103,9 @@ async function hybridSaveSession(summary, allowQueue = true){
   }
 }
 
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // PDF EXPORT (optional)
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 async function exportPDF(summary){
   if (!PDF_API){
     alert('ยังไม่ได้ตั้งค่า PDF_API');
@@ -129,9 +131,47 @@ async function exportPDF(summary){
   }
 }
 
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// CSV EXPORT (local download)
+// ---------------------------------------------------------------------------
+function downloadCSVRow(summary){
+  const headers = [
+    'timestamp','studentId','name','school','class',
+    'game','diff','score','hits','miss','accuracy',
+    'comboMax','notesPerMin','rank','device'
+  ];
+  const p = summary.profile || {};
+  const row = [
+    summary.timestamp,
+    p.studentId || '',
+    p.name || '',
+    p.school || '',
+    p.class || '',
+    summary.game,
+    summary.diff,
+    summary.score,
+    summary.hits,
+    summary.miss,
+    (summary.accuracy*100).toFixed(1),
+    summary.comboMax,
+    summary.notesPerMin != null ? summary.notesPerMin.toFixed(2) : '',
+    summary.rank,
+    summary.device
+  ];
+
+  const csv = headers.join(',') + '\n' + row.join(',');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `RhythmBoxer_${p.studentId||'user'}_${summary.timestamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
 // LEADERBOARD (optional)
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 async function loadLeaderboard(scope, profile){
   if (!LB_API) return [];
   const url = new URL(LB_API);
@@ -167,20 +207,25 @@ function buildLBTable(rows){
   return table;
 }
 
-// ---------------------------------------------------------------------
-// PATTERN (demo) — สามารถเปลี่ยนภายหลังได้
-// ---------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// PATTERN (demo) — มี type: normal / gold / bomb
+// ---------------------------------------------------------------------------
 const SONG_PATTERN = [
   0.8, 1.5, 2.2, 3.0,
   3.8, 4.5, 5.2, 6.0,
   6.8, 7.5, 8.2, 9.0,
   9.6, 10.3, 11.0, 11.8,
   12.6, 13.4, 14.2, 15.0
-].map((t,i)=>({ time:t, lane:i%4 }));
+].map((t,i)=>({
+  time: t,
+  lane: i % 4,
+  // ตัวอย่าง pattern: บางตัวเป็น gold, บางตัวเป็น bomb
+  type: (i % 9 === 4) ? 'gold' : (i % 13 === 7 ? 'bomb' : 'normal')
+}));
 
-// =====================================================================
+// ============================================================================
 // MAIN CLASS
-// =====================================================================
+// ============================================================================
 export class RhythmBoxer{
   constructor(opts){
     this.stage  = opts.stage;
@@ -189,8 +234,9 @@ export class RhythmBoxer{
     this.msgBox = opts.msgBox || null;
     this.lbBox  = opts.lbBox  || null;
     this.pdfBtn = opts.pdfBtn || null;
+    this.csvBtn = opts.csvBtn || null;
 
-    // ซ่อนการ์ดสรุปผลตั้งแต่ต้น
+    // ซ่อนการ์ดสรุปผลตั้งแต่ต้น (ถ้ามี)
     if (this.result.box) {
       this.result.box.style.display = 'none';
     }
@@ -203,7 +249,7 @@ export class RhythmBoxer{
     this.profile = ensureProfile();
     this.str     = STR.th;
 
-    // โหลด diff / time จาก query (แต่ใช้เวลาเป็นแค่ HUD โดยประมาณ)
+    // โหลด diff / time จาก query (ใช้เวลาเป็น HUD โดยประมาณ)
     const qs  = new URLSearchParams(location.search);
     let diff  = qs.get('diff') || 'normal';
     let timeQ = parseInt(qs.get('time') || '60',10);
@@ -237,9 +283,9 @@ export class RhythmBoxer{
     this._msg(this.str.msgStart);
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // BASIC UI HELPERS
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   _msg(t){ if (this.msgBox) this.msgBox.textContent = t; }
 
   _hud(){
@@ -252,9 +298,9 @@ export class RhythmBoxer{
     if (this.hud.combo) this.hud.combo.textContent = 'x'+s.combo;
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // LAYOUT
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   _initLayout(){
     this.stage.innerHTML = '';
     this.stage.id = 'rbStageHost';
@@ -305,11 +351,12 @@ export class RhythmBoxer{
     this.stage.appendChild(wrap);
 
     this.state.notes = SONG_PATTERN.map(n=>({
-      time:n.time,
-      lane:n.lane,
-      judged:false,
-      hit:false,
-      dom:null
+      time:   n.time,
+      lane:   n.lane,
+      type:   n.type || 'normal',
+      judged: false,
+      hit:    false,
+      dom:    null
     }));
 
     this.songEndTime = this.state.notes.reduce(
@@ -338,9 +385,9 @@ export class RhythmBoxer{
     });
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // CONTROL
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   start(){
     this._reset();
     this.state.play   = true;
@@ -370,11 +417,12 @@ export class RhythmBoxer{
     this.state.combo   = 0;
     this.state.best    = 0;
     this.state.notes   = SONG_PATTERN.map(n=>({
-      time:n.time,
-      lane:n.lane,
+      time:   n.time,
+      lane:   n.lane,
+      type:   n.type || 'normal',
       judged:false,
-      hit:false,
-      dom:null
+      hit:   false,
+      dom:   null
     }));
     this.songEndTime = this.state.notes.reduce(
       (m,n)=>Math.max(m, n.time||0), 0
@@ -383,9 +431,9 @@ export class RhythmBoxer{
     this._hud();
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // NOTES / HIT DETECTION
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   _spawnNote(note){
     const lane = this.lanes[note.lane];
     if (!lane) return;
@@ -396,9 +444,20 @@ export class RhythmBoxer{
     dom.style.right='8px';
     dom.style.height='24px';
     dom.style.borderRadius='999px';
-    dom.style.background='rgba(248,250,252,.95)';
-    dom.style.boxShadow='0 4px 12px rgba(15,23,42,.85)';
     dom.style.bottom='100%';
+
+    const t = note.type || 'normal';
+    if (t === 'gold') {
+      dom.style.background = 'linear-gradient(135deg,#facc15,#f97316)';
+      dom.style.boxShadow  = '0 0 18px rgba(250,204,21,0.9)';
+    } else if (t === 'bomb') {
+      dom.style.background = 'radial-gradient(circle at 30% 20%,#f97316,#b91c1c)';
+      dom.style.boxShadow  = '0 0 18px rgba(248,113,113,0.9)';
+    } else {
+      dom.style.background = 'rgba(248,250,252,.95)';
+      dom.style.boxShadow  = '0 4px 12px rgba(15,23,42,.85)';
+    }
+
     lane.appendChild(dom);
     note.dom = dom;
   }
@@ -453,21 +512,56 @@ export class RhythmBoxer{
     note.hit    = true;
     this.state.hits++;
 
-    let gain = 0;
-    if (type==='perfect') gain = 30;
-    else if (type==='good') gain = 15;
+    const basePerfect = 30;
+    const baseGood    = 15;
 
+    let gain = 0;
+    if (type === 'perfect') gain = basePerfect;
+    else if (type === 'good') gain = baseGood;
+
+    // gold/bomb effect
+    const nType = note.type || 'normal';
+    if (nType === 'gold') {
+      gain = Math.round(gain * 2); // gold = x2
+    } else if (nType === 'bomb') {
+      // bomb = พลาดด้าน safety: เพิ่ม miss และรีเซ็ตคอมโบ
+      this.state.miss++;
+      this.state.combo = 0;
+    }
+
+    // combo & fever
     this.state.combo++;
-    this.state.best  = Math.max(this.state.best, this.state.combo);
+    this.state.best = Math.max(this.state.best, this.state.combo);
+
+    const inFever = this.state.combo >= 8; // FEVER threshold
+    if (inFever) {
+      gain = Math.round(gain * 1.5); // multiplier ช่วง fever
+      this._showFeverFx();
+    }
+
     this.state.score += gain;
 
     if (note.dom){
-      note.dom.style.background = type==='perfect' ? '#4ade80' : '#93c5fd';
+      if (nType === 'bomb') {
+        note.dom.style.background = '#ef4444';
+        note.dom.style.boxShadow  = '0 0 18px rgba(239,68,68,0.9)';
+      } else if (nType === 'gold') {
+        note.dom.style.background = 'linear-gradient(135deg,#facc15,#f97316)';
+        note.dom.style.boxShadow  = '0 0 20px rgba(250,204,21,0.95)';
+      } else if (type==='perfect') {
+        note.dom.style.background = '#4ade80';
+      } else {
+        note.dom.style.background = '#93c5fd';
+      }
       setTimeout(()=>note.dom && note.dom.remove(), 120);
     }
 
     this._hud();
-    this._floatLane(note.lane, type==='perfect'?('+30'):('+15'), false);
+    this._floatLane(
+      note.lane,
+      (nType === 'gold' ? '★+'+gain : '+'+gain),
+      nType === 'bomb'
+    );
   }
 
   _regMiss(note){
@@ -493,9 +587,27 @@ export class RhythmBoxer{
     setTimeout(()=>fx.remove(),600);
   }
 
-  // -------------------------------------------------------------------
+  _showFeverFx(){
+    const el = document.createElement('div');
+    el.textContent = 'FEVER!!';
+    el.style.position = 'fixed';
+    el.style.left = '50%';
+    el.style.top  = '18%';
+    el.style.transform = 'translate(-50%,-50%)';
+    el.style.zIndex = '9999';
+    el.style.fontSize = '32px';
+    el.style.fontWeight = '900';
+    el.style.letterSpacing = '0.18em';
+    el.style.color = '#facc15';
+    el.style.textShadow = '0 0 18px rgba(250,204,21,0.95)';
+    el.style.animation = 'feverFlash 0.7s ease-out forwards';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 700);
+  }
+
+  // -----------------------------------------------------------------------
   // GAME LOOP (จบเมื่อโน้ตทุกตัว judged แล้ว)
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   _loop(ts){
     if (!this.state.play || this.state.paused) return;
     if (!this.state.lastTs) this.state.lastTs = ts;
@@ -511,7 +623,7 @@ export class RhythmBoxer{
       }
     });
 
-    // auto-miss ถ้าเลยหน้าต่างดีไปแล้ว
+    // auto-miss ถ้าเลยหน้าต่าง good ไปแล้ว
     this.state.notes.forEach(note=>{
       if (!note.judged && this.state.elapsed - note.time > this.cfg.windowGood){
         note.judged = true;
@@ -534,12 +646,17 @@ export class RhythmBoxer{
     this.state.raf = requestAnimationFrame(this._loop.bind(this));
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // SUMMARY
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   _buildSummary(){
     const total = this.state.hits + this.state.miss;
     const acc   = total>0 ? this.state.hits/total : 0;
+
+    const duration = Math.max(this.songEndTime, this.state.elapsed);
+    const notesPerSec = duration > 0 ? total / duration : 0;
+    const notesPerMin = notesPerSec * 60;
+
     let rank = 'C';
     if(this.state.score>=600 && acc>=0.95) rank='SSS';
     else if(this.state.score>=450 && acc>=0.90) rank='S';
@@ -550,21 +667,23 @@ export class RhythmBoxer{
       profile:  this.profile,
       game:     'rhythm-boxer',
       diff:     this.diff,
-      duration: this.songEndTime,   // ใช้เวลาจริงของเพลง
+      duration,
       score:    this.state.score,
       hits:     this.state.hits,
       miss:     this.state.miss,
       comboMax: this.state.best,
       accuracy: acc,
+      notesPerSec,
+      notesPerMin,
       rank,
       device:   detectDevice(),
       timestamp:new Date().toISOString()
     };
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // CLEANUP / FX
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   _clearStage(){
     const kill = sel => document.querySelectorAll(sel).forEach(e => e.remove());
     kill('.rb-note');
@@ -593,9 +712,9 @@ export class RhythmBoxer{
     },1000);
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // FINISH + RESULT
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   async _finish(){
     this.state.play = false;
     cancelAnimationFrame(this.state.raf);
@@ -663,13 +782,16 @@ export class RhythmBoxer{
     if (this.pdfBtn){
       this.pdfBtn.onclick = () => exportPDF(summary);
     }
+    if (this.csvBtn){
+      this.csvBtn.onclick = () => downloadCSVRow(summary);
+    }
 
     return true;
   }
 
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // LEADERBOARD LOAD
-  // -------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   async _loadLeaderboards(profile){
     if (!this.lbBox) return;
     try{
