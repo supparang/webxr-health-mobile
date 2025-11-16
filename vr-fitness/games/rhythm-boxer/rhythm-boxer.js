@@ -1,4 +1,4 @@
-// === Rhythm Boxer — v1.2 (Research + HADO Finish FX + Hard Cleanup) ===
+// === Rhythm Boxer — v1.3 (Research + HADO FX + Hard Cleanup) ===
 // - 4 lanes, tap/punch to the beat
 // - Perfect / Good / Miss scoring
 // - HADO-style ripple + scan effect เมื่อจบเกม
@@ -141,7 +141,7 @@ function buildLBTable(rows){
   const table = document.createElement('table');
   table.style.width = '100%';
   const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th>#</th><th>ชื่อ</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
+  thead.innerHTML = '<tr><th>#</th><th>ชื่อ</</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
   table.appendChild(thead);
   const tb = document.createElement('tbody');
   (rows || []).slice(0,10).forEach((r,i)=>{
@@ -511,19 +511,29 @@ export class RhythmBoxer{
     };
   }
 
-  // ===== Stage cleanup (กัน element ซ้อน) =====
+  // ===== Stage cleanup (กัน element ซ้อนจริง ๆ) =====
   _clearStage(){
     const kill = sel => document.querySelectorAll(sel).forEach(e => e.remove());
+
+    // ลบทุก element ที่น่าจะเป็นเลน/โน้ต/
     kill('.rb-note');
     kill('.rb-lane');
+    kill('.track');
+    kill('.lane');
+    kill('.note');
+
+    // ล้าง stage container อีกชั้น
+    const stage = document.getElementById('rb-stage');
+    if (stage){
+      stage.innerHTML = '';
+      stage.style.pointerEvents = 'none';
+    }
   }
 
   // ===== HADO-style finish FX (scan ripple) =====
   _playFinishFx(){
-    // ripple
     const ripple = document.createElement('div');
     ripple.className = 'rb-ripple';
-    // scan
     const scan = document.createElement('div');
     scan.className = 'rb-scan';
     document.body.appendChild(ripple);
@@ -550,7 +560,6 @@ export class RhythmBoxer{
     // 🎬 เล่น HADO ripple + scan
     this._playFinishFx();
 
-    // หน่วงนิดให้ effect เล่นก่อนแล้วค่อยโชว์ผล
     setTimeout(()=>{
       this._showResult(summary);
       hybridSaveSession(summary,true);
