@@ -1,8 +1,7 @@
-// === Rhythm Boxer — v1.6 (Research-ready) ===============================
-// - 4 lanes rhythm game (PC / Mobile / VR)
-// - Hybrid save (Firebase / Google Sheet / PDF / Leaderboard - optional)
-// - Result modal หรือ fallback ด้วย alert
-// - ใช้ร่วมกับ ShadowBreakerResearch schema ได้
+// === Rhythm Boxer — v1.7 (Note-based End / Research-ready) =============
+// - เกมจบเมื่อโน้ตทุกตัวถูกตัดสิน (hits+miss) ไม่ใช่ตามเวลา
+// - HUD เวลาใช้ความยาวเพลงโดยประมาณ
+// - Hybrid save + PDF + leaderboard (endpoint เติมทีหลังได้)
 
 // ---------------------------------------------------------------------
 // CONFIG ENDPOINT (เติมเองภายหลังได้)
@@ -23,7 +22,7 @@ const STR = {
     msgStart : 'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
     msgPaused: 'พักแป๊บเดียวพอนะ โค้ชรอดูอยู่ 😄',
     msgResume: 'กลับมาต่อยตามจังหวะกันต่อ! 🎵',
-    msgEnd   : 'จบเพลงแล้ว มาดูคะแนนกัน ⭐',
+    msgEnd   : 'โน้ตหมดแล้ว มาดูคะแนนกัน ⭐',
     lbSchool : 'อันดับในโรงเรียน',
     lbClass  : 'อันดับในห้องเรียน'
   }
@@ -204,9 +203,10 @@ export class RhythmBoxer{
     this.profile = ensureProfile();
     this.str     = STR.th;
 
+    // โหลด diff / time จาก query (แต่ใช้เวลาเป็นแค่ HUD โดยประมาณ)
     const qs  = new URLSearchParams(location.search);
     let diff  = qs.get('diff') || 'normal';
-    let time  = parseInt(qs.get('time') || '60',10);
+    let timeQ = parseInt(qs.get('time') || '60',10);
 
     const DIFF = {
       easy   : { duration:60, windowPerfect:0.15, windowGood:0.30, speed:1.0 },
@@ -214,10 +214,9 @@ export class RhythmBoxer{
       hard   : { duration:60, windowPerfect:0.08, windowGood:0.20, speed:1.2 }
     };
     if (!DIFF[diff]) diff='normal';
-    if (!Number.isFinite(time) || time<30 || time>300) time = DIFF[diff].duration;
 
     this.diff = diff;
-    this.cfg  = { ...DIFF[diff], duration: time };
+    this.cfg  = { ...DIFF[diff], duration: timeQ };
 
     this.state = {
       play:false, paused:false,
@@ -227,6 +226,9 @@ export class RhythmBoxer{
       notes:[],
       raf:0
     };
+
+    this.songEndTime = 0;     // เวลาของโน้ตตัวสุดท้าย
+    this.songGuard   = 0.8;   // buffer หลัง note สุดท้ายก่อนจบเกม
 
     this.lanes = [];
     this._initLayout();
@@ -241,8 +243,11 @@ export class RhythmBoxer{
   _msg(t){ if (this.msgBox) this.msgBox.textContent = t; }
 
   _hud(){
-    const s = this.state, c = this.cfg;
-    if (this.hud.time)  this.hud.time.textContent  = Math.max(0,Math.ceil(c.duration - s.elapsed));
+    const s = this.state;
+    const songDuration = this.songEndTime + this.songGuard;
+    const showDuration = Math.max(songDuration, this.cfg.duration || 0);
+    const remain = Math.max(0, Math.ceil(showDuration - s.elapsed));
+    if (this.hud.time)  this.hud.time.textContent  = remain;
     if (this.hud.score) this.hud.score.textContent = s.score;
     if (this.hud.combo) this.hud.combo.textContent = 'x'+s.combo;
   }
@@ -252,7 +257,7 @@ export class RhythmBoxer{
   // -------------------------------------------------------------------
   _initLayout(){
     this.stage.innerHTML = '';
-    this.stage.id = 'rb-stage';
+    this.stage.id = 'rbStageHost';
     this.stage.style.position = 'fixed';
     this.stage.style.inset = '0';
 
@@ -306,6 +311,10 @@ export class RhythmBoxer{
       hit:false,
       dom:null
     }));
+
+    this.songEndTime = this.state.notes.reduce(
+      (m,n)=>Math.max(m, n.time||0), 0
+    );
   }
 
   _bindInput(){
@@ -367,6 +376,9 @@ export class RhythmBoxer{
       hit:false,
       dom:null
     }));
+    this.songEndTime = this.state.notes.reduce(
+      (m,n)=>Math.max(m, n.time||0), 0
+    );
     this.lanes.forEach(l=>{ l.querySelectorAll('.rb-note').forEach(n=>n.remove()); });
     this._hud();
   }
@@ -482,7 +494,7 @@ export class RhythmBoxer{
   }
 
   // -------------------------------------------------------------------
-  // GAME LOOP
+  // GAME LOOP (จบเมื่อโน้ตทุกตัว judged แล้ว)
   // -------------------------------------------------------------------
   _loop(ts){
     if (!this.state.play || this.state.paused) return;
@@ -491,11 +503,7 @@ export class RhythmBoxer{
     this.state.lastTs  = ts;
     this.state.elapsed += dt;
 
-    if (this.state.elapsed >= this.cfg.duration){
-      this._finish();
-      return;
-    }
-
+    // spawn notes ล่วงหน้า
     const lookAhead = 2.0;
     this.state.notes.forEach(note=>{
       if (!note.dom && note.time - this.state.elapsed <= lookAhead){
@@ -503,16 +511,26 @@ export class RhythmBoxer{
       }
     });
 
+    // auto-miss ถ้าเลยหน้าต่างดีไปแล้ว
     this.state.notes.forEach(note=>{
       if (!note.judged && this.state.elapsed - note.time > this.cfg.windowGood){
         note.judged = true;
         this.state.miss++;
-        this._hud();
         if (note.dom) note.dom.style.opacity = '0.2';
       }
     });
 
+    // อัปเดตตำแหน่ง note
     this._updateNotes();
+    this._hud();
+
+    // เช็คว่าโน้ตทุกตัวถูกตัดสินหมดแล้วหรือยัง
+    const allDone = this.state.notes.every(n => n.judged);
+    if (allDone && this.state.elapsed >= this.songEndTime + this.songGuard){
+      this._finish();
+      return;
+    }
+
     this.state.raf = requestAnimationFrame(this._loop.bind(this));
   }
 
@@ -532,7 +550,7 @@ export class RhythmBoxer{
       profile:  this.profile,
       game:     'rhythm-boxer',
       diff:     this.diff,
-      duration: this.cfg.duration,
+      duration: this.songEndTime,   // ใช้เวลาจริงของเพลง
       score:    this.state.score,
       hits:     this.state.hits,
       miss:     this.state.miss,
@@ -555,7 +573,7 @@ export class RhythmBoxer{
     kill('.lane');
     kill('.note');
 
-    const stage = document.getElementById('rb-stage');
+    const stage = document.getElementById('rbStageHost');
     if (stage){
       stage.innerHTML = '';
       stage.style.pointerEvents = 'none';
@@ -579,28 +597,22 @@ export class RhythmBoxer{
   // FINISH + RESULT
   // -------------------------------------------------------------------
   async _finish(){
-    // หยุด loop
     this.state.play = false;
     cancelAnimationFrame(this.state.raf);
     this._msg(this.str.msgEnd);
 
     const summary = this._buildSummary();
 
-    // ซ่อน stage ทั้งก้อน
     if (this.stage) {
       this.stage.style.display = 'none';
     }
-    // เผื่อมี lane/โน้ตอื่น ๆ ค้าง
     this._clearStage();
 
-    // กัน scroll
     document.body.classList.add('rb-finished');
     document.body.style.overflow = 'hidden';
 
-    // FX
     this._playFinishFx();
 
-    // แสดงผล (modal หรือ alert)
     const ok = this._showResult(summary);
     if (!ok) {
       const acc = (summary.accuracy * 100).toFixed(1);
@@ -615,7 +627,6 @@ export class RhythmBoxer{
       );
     }
 
-    // บันทึก + leaderboard
     try {
       await hybridSaveSession(summary, true);
       this._loadLeaderboards && this._loadLeaderboards(summary.profile);
@@ -625,7 +636,6 @@ export class RhythmBoxer{
   }
 
   _showResult(summary){
-    // พยายามหา modal จาก this.result.box หรือ id fallback
     const box   = (this.result && this.result.box) || document.getElementById('rbResultCard');
     const score = this.result?.score || document.getElementById('rbScore');
     const hits  = this.result?.hits  || document.getElementById('rbHits');
