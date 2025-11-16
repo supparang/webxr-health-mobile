@@ -1,86 +1,72 @@
-// === Shadow Breaker — DEV v4.0 (Boss Phase + Boss Mode) ===
-// - ใช้เป็นเครื่องมือวิจัยได้ (เก็บสถิติ session)
-// - มี Boss Phase 15 วิ สุดท้ายในโหมดปกติ
-// - มี Boss Mode แยก (Boss Challenge 45 วิ เต็มด่าน)
+// === Shadow Breaker — v2.0 (Gold/Bomb/Fever + Research-ready) =================
+// - ต่อยเป้า Shadow 2D บนจอ (PC/Mobile/VR WebView)
+// - gold target, bomb target, fever mode (combo ≥ 5)
+// - Timed mode จาก query (?mode=timed&time=90&diff=normal)
+// - Research Summary schema แบบเดียวกับ Rhythm Boxer
+// ==============================================================================
 
-// ---- CONFIG ENDPOINT (ใส่ URL จริงของงานวิจัย) ----
-const FIREBASE_API = '';  // optional cloud function URL
+// ---------------------------------------------------------------------------
+// CONFIG ENDPOINT (เติมเองภายหลังได้)
+// ---------------------------------------------------------------------------
+const FIREBASE_API = ''; // e.g. 'https://.../firebase'
+const SHEET_API    = ''; // e.g. 'https://.../sheet'
+const PDF_API      = ''; // e.g. 'https://.../pdf'
+const LB_API       = ''; // e.g. 'https://.../leaderboard'
 
-// 1) URL Web App ของ Apps Script ที่บันทึกลง Google Sheet: ShadowBreakerResearch
-const SHEET_API    = '';  // ex. 'https://script.google.com/macros/s/XXXX/exec'
+const LS_PROFILE = 'fitness_profile_v1';
+const LS_QUEUE   = 'fitness_offline_queue_v1';
 
-// 2) URL Web App ของ Apps Script ที่สร้าง PDF รายงาน
-const PDF_API      = '';  // ex. 'https://script.google.com/macros/s/YYYY/exec'
-
-// 3) ถ้ามี API leaderboard ภายหลัง ค่อยใส่ทีหลังได้
-const LB_API       = '';
-
-const LS_PROFILE = 'sb_profile_v1';
-const LS_QUEUE   = 'sb_offline_queue_v1';
-
-// ===== STRINGS (TH + EN เผื่ออนาคต) =====
+// ---------------------------------------------------------------------------
+// STRINGS
+// ---------------------------------------------------------------------------
 const STR = {
-  th:{
-    msgStart :'กด ▶ แล้วต่อยเป้าให้ทัน! พยายามไม่พลาดนะ 💥',
-    msgPaused:'⏸ พักได้ แต่อย่าหนีโค้ชนานเกินไปนะ 😆',
-    msgResume:'กลับมาต่อยต่อเลย! 🔥',
-    msgEnd   :'จบด่านแล้ว มาดูคะแนนกัน ⭐',
-    msgBoss  :'🐉 Boss Time! ต่อยให้ทันทุกเป้า!',
-    lbSchool :'อันดับในโรงเรียน',
-    lbClass  :'อันดับในห้องเรียน'
-  },
-  en:{
-    msgStart :'Press ▶ and punch the targets in time! 💥',
-    msgPaused:'⏸ Break time, but don’t disappear 😆',
-    msgResume:'Back to punching! 🔥',
-    msgEnd   :'Stage complete, let’s see your score ⭐',
-    msgBoss  :'🐉 Boss Time! Hit all targets!',
-    lbSchool :'School Leaderboard',
-    lbClass  :'Class Leaderboard'
+  th: {
+    msgReady : 'เตรียมหมัดให้พร้อม… เป้าจะมาแบบสุ่มทั่วจอ! 🥊',
+    msgGo    : 'GO! ต่อยให้ทัน อย่าพลาดเยอะล่ะ 💥',
+    msgPaused: 'พักหมัดแป๊บเดียวก็พอ โค้ชยังรอดูอยู่ 😄',
+    msgResume: 'กลับมาต่อยกันต่อ! 🚀',
+    msgEnd   : 'หมดเวลาแล้ว มาดูว่าต่อยได้แค่ไหน ✨',
+    lbSchool : 'อันดับในโรงเรียน',
+    lbClass  : 'อันดับในห้อง'
   }
 };
 
-// ===== Profile handling =====
+// ---------------------------------------------------------------------------
+// PROFILE
+// ---------------------------------------------------------------------------
 function getProfile(){
   try{
     const raw = localStorage.getItem(LS_PROFILE);
     return raw ? JSON.parse(raw) : null;
-  }catch{
-    return null;
-  }
+  }catch{ return null; }
 }
-
 function saveProfile(p){
   try{ localStorage.setItem(LS_PROFILE, JSON.stringify(p)); }catch{}
 }
-
-function ensureProfile(lang='th'){
+function ensureProfile(){
   let p = getProfile();
   if (p) return p;
-
   const studentId = prompt('Student ID:');
   const name      = prompt('ชื่อที่ใช้ในเกม:');
   const school    = prompt('โรงเรียน / หน่วยงาน:');
   const klass     = prompt('ห้องเรียน เช่น ป.5/1:');
-
-  p = { studentId, name, school, class: klass, lang };
+  p = { studentId, name, school, class: klass, lang:'th' };
   saveProfile(p);
   return p;
 }
 
-// ===== Offline queue =====
+// ---------------------------------------------------------------------------
+// QUEUE + HYBRID SAVE
+// ---------------------------------------------------------------------------
 function loadQueue(){
   try{
     const raw = localStorage.getItem(LS_QUEUE);
     return raw ? JSON.parse(raw) : [];
-  }catch{
-    return [];
-  }
+  }catch{ return []; }
 }
 function saveQueue(q){
   try{ localStorage.setItem(LS_QUEUE, JSON.stringify(q)); }catch{}
 }
-
 async function flushQueue(){
   const q = loadQueue();
   if (!q.length) return;
@@ -95,11 +81,9 @@ async function flushQueue(){
   saveQueue(remain);
 }
 
-// ===== Hybrid Save (Sheet + optional Firebase) =====
 async function hybridSaveSession(summary, allowQueue = true){
   const body = JSON.stringify(summary);
   const headers = { 'Content-Type':'application/json' };
-
   let ok = true;
   try{
     const tasks = [];
@@ -107,10 +91,9 @@ async function hybridSaveSession(summary, allowQueue = true){
     if (SHEET_API)    tasks.push(fetch(SHEET_API   ,{ method:'POST', headers, body }));
     if (tasks.length) await Promise.all(tasks);
   }catch(e){
-    console.warn('Hybrid save fail', e);
+    console.warn('ShadowBreaker save fail', e);
     ok = false;
   }
-
   if (!ok && allowQueue){
     const q = loadQueue();
     q.push(summary);
@@ -118,7 +101,9 @@ async function hybridSaveSession(summary, allowQueue = true){
   }
 }
 
-// ===== PDF Export =====
+// ---------------------------------------------------------------------------
+// PDF + CSV
+// ---------------------------------------------------------------------------
 async function exportPDF(summary){
   if (!PDF_API){
     alert('ยังไม่ได้ตั้งค่า PDF_API');
@@ -144,7 +129,44 @@ async function exportPDF(summary){
   }
 }
 
-// ===== Leaderboard Fetch (อนาคต) =====
+function downloadCSVRow(summary){
+  const headers = [
+    'timestamp','studentId','name','school','class',
+    'game','diff','score','hits','miss','accuracy',
+    'comboMax','notesPerMin','rank','device'
+  ];
+  const p = summary.profile || {};
+  const row = [
+    summary.timestamp,
+    p.studentId || '',
+    p.name || '',
+    p.school || '',
+    p.class || '',
+    summary.game,
+    summary.diff || '',
+    summary.score ?? '',
+    summary.hits ?? '',
+    summary.miss ?? '',
+    (summary.accuracy*100).toFixed(1),
+    summary.comboMax ?? '',
+    summary.notesPerMin != null ? summary.notesPerMin.toFixed(2) : '',
+    summary.rank || '',
+    summary.device || ''
+  ];
+
+  const csv = headers.join(',') + '\n' + row.join(',');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `ShadowBreaker_${p.studentId||'user'}_${summary.timestamp}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// LEADERBOARD + DEVICE
+// ---------------------------------------------------------------------------
 async function loadLeaderboard(scope, profile){
   if (!LB_API) return [];
   const url = new URL(LB_API);
@@ -155,33 +177,6 @@ async function loadLeaderboard(scope, profile){
   if (!res.ok) return [];
   return res.json();
 }
-
-// ===== Blackbelt & Boss Patterns =====
-const BLACKBELT_PATTERNS = [
-  ['L','R','C','U'],
-  ['U','D','L','R','U'],
-  ['L','L','R','R','C'],
-  ['U','C','D','L','R'],
-  ['fake','L','R','fake','C'],
-];
-
-function mapPatternToPos(code, rect){
-  const w = rect.width, h = rect.height;
-  const midY = h * 0.45;
-  switch(code){
-    case 'L':   return { x:w*0.20, y:midY,   fake:false };
-    case 'R':   return { x:w*0.80, y:midY,   fake:false };
-    case 'C':   return { x:w*0.50, y:midY,   fake:false };
-    case 'U':   return { x:w*0.50, y:h*0.30, fake:false };
-    case 'D':   return { x:w*0.50, y:h*0.65, fake:false };
-    case 'fake':
-      return { x:w*(0.25+Math.random()*0.5), y:h*(0.25+Math.random()*0.5), fake:true };
-    default:
-      return { x:w*0.5, y:midY, fake:false };
-  }
-}
-
-// ===== Helpers =====
 function detectDevice(){
   const ua = navigator.userAgent || '';
   if (/Quest|Oculus|Pico|Vive|VR/i.test(ua)) return 'VR';
@@ -189,404 +184,525 @@ function detectDevice(){
   return 'PC';
 }
 
-function buildLBTable(rows){
-  const table = document.createElement('table');
-  table.style.width = '100%';
-  table.style.borderCollapse = 'collapse';
-  const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th>#</th><th>ชื่อ</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
-  table.appendChild(thead);
-  const tb = document.createElement('tbody');
-  (rows || []).slice(0,10).forEach((r,i)=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      `<td>${i+1}</td><td>${r.name||'-'}</td><td>${r.score||0}</td><td>${Math.round((r.accuracy||0)*100)}%</td>`;
-    tb.appendChild(tr);
-  });
-  table.appendChild(tb);
-  return table;
-}
+// ============================================================================
+// GAME CONFIG
+// ============================================================================
+const DIFF = {
+  easy   : { spawnInterval: 1.2, lifeTime: 1.4, baseScore: 20 },
+  normal : { spawnInterval: 0.9, lifeTime: 1.1, baseScore: 25 },
+  hard   : { spawnInterval: 0.7, lifeTime: 0.9, baseScore: 30 }
+};
 
-// ===== MAIN CLASS =====
-export class ShadowBreaker{
+// สัดส่วน gold/bomb
+const GOLD_CHANCE = 0.12;  // 12%
+const BOMB_CHANCE = 0.08;  // 8%
+
+// ============================================================================
+// MAIN CLASS
+// ============================================================================
+export class ShadowBreaker {
   constructor(opts){
-    this.stage  = opts.stage;
-    this.hud    = opts.hud || {};
-    this.result = opts.result || {};
-    this.msgBox = opts.msgBox || null;
-    this.lbBox  = opts.lbBox  || null;
-    this.pdfBtn = opts.pdfBtn || null;
+    this.arena   = opts.arena;
+    this.hud     = opts.hud   || {};
+    this.msgBox  = opts.msgBox|| null;
+    this.result  = opts.result|| {};
+    this.csvBtn  = opts.csvBtn|| null;
+    this.pdfBtn  = opts.pdfBtn|| null;
+    this.lbBox   = opts.lbBox || null;
 
-    if (!this.stage){
-      alert('Shadow Breaker: ไม่พบ stage container');
+    if (!this.arena){
+      alert('Shadow Breaker: ไม่พบ #sbArena');
       return;
     }
 
-    // Profile & language
-    this.profile = ensureProfile('th');
-    this.lang    = this.profile.lang || 'th';
-    this.str     = STR[this.lang] || STR.th;
+    this.profile = ensureProfile();
+    this.str     = STR.th;
 
-    // อ่านค่าจาก URL
-    const qs  = new URLSearchParams(location.search);
-    let diff  = qs.get('diff') || 'normal';
-    let time  = parseInt(qs.get('time') || '90', 10);
-    const urlMode = qs.get('mode') || '';
+    const qs   = new URLSearchParams(location.search);
+    const diff = qs.get('diff') || 'normal';
+    const mode = qs.get('mode') || 'timed';
+    let timeQ  = parseInt(qs.get('time') || '60',10);
+    this.diff  = DIFF[diff] ? diff : 'normal';
+    this.mode  = mode;
+    this.timeLimit = isNaN(timeQ) ? 60 : timeQ;
 
-    // Config ความยาก + Boss Phase
-    const DIFF = {
-      easy      : { duration:60,  spawn:1.35, lifetime:1.65, mode:'random',  bossPhase:15 },
-      normal    : { duration:90,  spawn:1.05, lifetime:1.35, mode:'random',  bossPhase:15 },
-      hard      : { duration:120, spawn:0.85, lifetime:1.10, mode:'random',  bossPhase:15 },
-      blackbelt : { duration:120, spawn:0.62, lifetime:0.90, mode:'pattern', bossPhase:15 },
-      boss      : { duration:45,  spawn:0.55, lifetime:0.85, mode:'pattern', bossPhase:45 }
-    };
-    if (!DIFF[diff]) diff = 'normal';
-    if (!Number.isFinite(time) || time<30 || time>300) time = DIFF[diff].duration;
+    this.cfg = DIFF[this.diff];
 
-    this.diff       = diff;
-    this.isBossMode = (diff === 'boss' || urlMode === 'boss');
-    this.cfg        = { ...DIFF[diff], duration:time };
-
-    // ถ้าเป็น Boss Mode → bossPhase = ทั้งด่าน
-    if (this.isBossMode){
-      this.cfg.bossPhase = this.cfg.duration;
-    }
-
-    // Game state
     this.state = {
-      play:false, paused:false,
-      elapsed:0, lastTs:0, spawnT:0,
-      score:0, hits:0, miss:0, combo:0, best:0,
-      fever:0, onfire:false, raf:0,
-      bossActive:false, bossHits:0, bossMiss:0
+      running:false,
+      paused:false,
+      elapsed:0,
+      lastTs:0,
+      timeLeft:this.timeLimit,
+      score:0,
+      hits:0,
+      miss:0,
+      combo:0,
+      bestCombo:0,
+      totalTargets:0,
+      fever:false
     };
 
-    this.targets = new Set();
-    this.MAX_TARGETS = 12;
-    this.EMOJI = ['🥊','💥','⭐','🔥','⚡','💫'];
+    /** @type {Map<string, any>} */
+    this.targets = new Map();
+    this.spawnTimer = null;
 
-    this.patternIdx = 0;
-    this.patternStep= 0;
-
-    this._bindEvents();
     flushQueue();
-    this._msg(this.str.msgStart);
+    this._prepareArena();
+    this._msg(this.str.msgReady);
+    this._hud();
   }
 
-  _msg(text){
-    if (this.msgBox) this.msgBox.textContent = text;
-  }
+  // -----------------------------------------------------------------------
+  // BASIC UI
+  // -----------------------------------------------------------------------
+  _msg(t){ if (this.msgBox) this.msgBox.textContent = t; }
 
   _hud(){
-    const s = this.state, c = this.cfg;
-    if (this.hud.time)  this.hud.time.textContent  = Math.max(0,Math.ceil(c.duration - s.elapsed));
-    if (this.hud.score) this.hud.score.textContent = s.score;
-    if (this.hud.combo) this.hud.combo.textContent = 'x'+s.combo;
+    if (this.hud.time)  this.hud.time.textContent  = Math.max(0, Math.ceil(this.state.timeLeft));
+    if (this.hud.score) this.hud.score.textContent = this.state.score;
+    if (this.hud.hits)  this.hud.hits.textContent  = this.state.hits;
+    if (this.hud.miss)  this.hud.miss.textContent  = this.state.miss;
+    if (this.hud.combo) this.hud.combo.textContent = 'x' + this.state.combo;
   }
 
+  _prepareArena(){
+    this.arena.style.position = 'relative';
+    this.arena.style.overflow = 'hidden';
+    this.arena.style.touchAction = 'manipulation';
+
+    this.arena.addEventListener('pointerdown', (e)=>{
+      const t = e.target.closest('.sb-target');
+      if (!t) return;
+      const id = t.dataset.id;
+      if (!id) return;
+      this._hitTarget(id, e);
+    });
+
+    document.addEventListener('visibilitychange', ()=>{
+      if (document.hidden) this.pause(true);
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // CONTROL
+  // -----------------------------------------------------------------------
   start(){
-    this._reset();
-    this.state.play   = true;
-    this.state.paused = false;
-    this.state.raf    = requestAnimationFrame(this._loop.bind(this));
+    if (this.state.running) return;
+    this.state.running = true;
+    this.state.paused  = false;
+    this.state.elapsed = 0;
+    this.state.timeLeft= this.timeLimit;
+    this.state.lastTs  = 0;
+    this.state.score   = 0;
+    this.state.hits    = 0;
+    this.state.miss    = 0;
+    this.state.combo   = 0;
+    this.state.bestCombo=0;
+    this.state.fever   = false;
+    this._clearTargets();
+    this._hud();
+    this._msg(this.str.msgGo);
+
+    this._startSpawnLoop();
+    this._loop(performance.now());
   }
 
   pause(v=true){
-    if (!this.state.play) return;
+    if (!this.state.running) return;
     this.state.paused = v;
     if (v){
-      cancelAnimationFrame(this.state.raf);
+      if (this.spawnTimer) clearInterval(this.spawnTimer);
+      this.spawnTimer = null;
       this._msg(this.str.msgPaused);
     }else{
       this._msg(this.str.msgResume);
       this.state.lastTs = 0;
-      this.state.raf = requestAnimationFrame(this._loop.bind(this));
+      this._startSpawnLoop();
+      this._loop(performance.now());
     }
   }
 
-  _reset(){
-    this.state = {
-      play:true, paused:false,
-      elapsed:0, lastTs:0, spawnT:0,
-      score:0, hits:0, miss:0, combo:0, best:0,
-      fever:0, onfire:false, raf:0,
-      bossActive:false, bossHits:0, bossMiss:0
-    };
-    this.patternIdx = 0;
-    this.patternStep= 0;
-    this.stage.classList.remove('shake','boss-phase');
-    this.targets.forEach(t=>t.remove());
+  _startSpawnLoop(){
+    if (this.spawnTimer) clearInterval(this.spawnTimer);
+    const iv = this.cfg.spawnInterval * 1000;
+    this.spawnTimer = setInterval(()=>{
+      if (!this.state.running || this.state.paused) return;
+      this._spawnTarget();
+    }, iv);
+  }
+
+  _clearTargets(){
+    this.targets.forEach(t=>{
+      if (t.el && t.el.remove) t.el.remove();
+    });
     this.targets.clear();
-    this._hud();
   }
 
-  // ===== Boss Phase =====
-  _enterBossPhase(){
-    if (this.state.bossActive) return;
-    this.state.bossActive = true;
-    this.stage.classList.add('boss-phase');
-    this._msg(this.str.msgBoss);
-  }
+  // -----------------------------------------------------------------------
+  // TARGETS
+  // -----------------------------------------------------------------------
+  _spawnTarget(){
+    const rect = this.arena.getBoundingClientRect();
+    const size = Math.max(60, Math.min(rect.width, rect.height) * 0.18);
 
-  // ===== Spawn logic =====
-  _spawnRandom(){
-    if (this.targets.size >= this.MAX_TARGETS) return;
-    const el = document.createElement('div');
+    const id  = 't-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+    const el  = document.createElement('div');
     el.className = 'sb-target';
-    el.textContent = this._pick(this.EMOJI);
-    const r = this.stage.getBoundingClientRect();
-    el.style.left = (Math.random()*(r.width-100)+50)+'px';
-    el.style.top  = (Math.random()*(r.height-160)+80)+'px';
-    el.dataset.created = performance.now();
-    el.dataset.fake    = '0';
-    el.addEventListener('pointerdown',()=>this._hit(el));
-    this.stage.appendChild(el);
-    this.targets.add(el);
-  }
+    el.dataset.id = id;
 
-  _spawnPattern(){
-    if (this.targets.size >= this.MAX_TARGETS) return;
-    const patterns = BLACKBELT_PATTERNS;
+    // type: normal / gold / bomb
+    let type = 'normal';
+    const r = Math.random();
+    if (r < BOMB_CHANCE) type = 'bomb';
+    else if (r < BOMB_CHANCE + GOLD_CHANCE) type = 'gold';
 
-    if (this.patternStep === 0){
-      this.patternIdx = Math.floor(Math.random()*patterns.length);
+    el.dataset.type = type;
+
+    // random position (safe margin 10%)
+    const marginX = rect.width * 0.10;
+    const marginY = rect.height * 0.15;
+    const maxX = rect.width  - marginX - size;
+    const maxY = rect.height - marginY - size;
+    const x = marginX + Math.random()*maxX;
+    const y = marginY + Math.random()*maxY;
+
+    Object.assign(el.style, {
+      position:'absolute',
+      width: size + 'px',
+      height:size + 'px',
+      left:  x + 'px',
+      top:   y + 'px',
+      borderRadius:'50%',
+      display:'flex',
+      alignItems:'center',
+      justifyContent:'center',
+      fontSize:(size*0.5)+'px',
+      fontWeight:'900',
+      cursor:'pointer',
+      transform:'scale(0.2)',
+      opacity:'0',
+      transition:'transform 0.08s ease-out, opacity 0.08s ease-out'
+    });
+
+    if (type === 'gold'){
+      el.textContent = '★';
+      el.style.background = 'radial-gradient(circle at 30% 20%,#facc15,#f97316)';
+      el.style.boxShadow  = '0 0 18px rgba(250,204,21,0.9)';
+      el.style.color      = '#111827';
+    }else if (type === 'bomb'){
+      el.textContent = 'X';
+      el.style.background = 'radial-gradient(circle at 30% 20%,#f97316,#b91c1c)';
+      el.style.boxShadow  = '0 0 18px rgba(248,113,113,0.9)';
+      el.style.color      = '#fee2e2';
+    }else{
+      el.textContent = '';
+      el.style.background = 'radial-gradient(circle,#0ea5e9,#1d4ed8)';
+      el.style.boxShadow  = '0 0 18px rgba(59,130,246,0.9)';
+      el.style.color      = '#e5e7eb';
     }
-    const seq  = patterns[this.patternIdx];
-    const code = seq[this.patternStep % seq.length];
 
-    const r   = this.stage.getBoundingClientRect();
-    const pos = mapPatternToPos(code, r);
+    this.arena.appendChild(el);
 
-    const el = document.createElement('div');
-    el.className = 'sb-target';
-    el.textContent = pos.fake ? '✖️' : this._pick(this.EMOJI);
-    el.style.left  = pos.x + 'px';
-    el.style.top   = pos.y + 'px';
-    el.dataset.created = performance.now();
-    el.dataset.fake    = pos.fake ? '1':'0';
-    el.addEventListener('pointerdown',()=>this._hit(el));
-    this.stage.appendChild(el);
-    this.targets.add(el);
+    // animate in
+    requestAnimationFrame(()=>{
+      el.style.opacity = '1';
+      el.style.transform = 'scale(1)';
+    });
 
-    this.patternStep++;
+    const now     = performance.now();
+    const lifeMs  = this.cfg.lifeTime * 1000;
+    const expire  = now + lifeMs;
+
+    this.targets.set(id, {
+      id, el, type,
+      createdAt: now,
+      expireAt: expire,
+      clicked: false
+    });
+
+    this.state.totalTargets++;
   }
 
-  _spawn(){
-    if (this.cfg.mode === 'pattern') this._spawnPattern();
-    else this._spawnRandom();
-  }
+  _hitTarget(id, evt){
+    if (!this.state.running || this.state.paused) return;
+    const t = this.targets.get(id);
+    if (!t || t.clicked) return;
 
-  // ===== Hit / Miss =====
-  _hit(el){
-    if (!this.targets.has(el)) return;
-    const isFake = el.dataset.fake === '1';
-    if (isFake){
-      this._miss(el,true);
+    t.clicked = true;
+    this.targets.delete(id);
+
+    // basic scoring
+    let gain = this.cfg.baseScore;
+    let missPenalty = 10;
+
+    // gold / bomb
+    if (t.type === 'gold') {
+      gain *= 2; // gold x2
+    } else if (t.type === 'bomb') {
+      // bomb → นับ miss หนัก + รีเซ็ตคอมโบ
+      this.state.miss++;
+      this.state.combo = 0;
+      this._screenShake(true);
+      this._spawnHitFx(evt.clientX, evt.clientY, '-MISS-', true);
+      this._hud();
+      t.el && t.el.remove();
       return;
     }
 
-    const nextCombo = this.state.combo + 1;
-    const isCrit    = nextCombo >= 5;
-    const isOnfire  = nextCombo >= 8;
-
-    let gain = 10 + (isCrit ? 20 : 0);
-    if (isOnfire){
-      this.state.onfire = true;
-      gain *= 2;
-    }
-
+    // combo & fever
     this.state.hits++;
-    if (this.state.bossActive) this.state.bossHits++;
-
     this.state.combo++;
-    this.state.best  = Math.max(this.state.best, this.state.combo);
-    this.state.fever = Math.min(100, this.state.combo*10);
+    this.state.bestCombo = Math.max(this.state.bestCombo, this.state.combo);
+
+    let inFever = this.state.combo >= 5;
+    if (inFever){
+      gain = Math.round(gain * 1.5);
+      if (!this.state.fever) {
+        this.state.fever = true;
+        this._showFeverFx();
+      }
+    }else{
+      this.state.fever = false;
+    }
+
     this.state.score += gain;
-
-    this._pfx(el);
-    this._float(el,'+'+gain,false);
-    this.targets.delete(el);
-    el.remove();
     this._hud();
-  }
 
-  _miss(el, fromFake=false){
-    this.state.miss++;
-    if (this.state.bossActive) this.state.bossMiss++;
+    // fx
+    this._screenShake(false);
+    this._spawnHitFx(evt.clientX, evt.clientY, '+'+gain, false);
 
-    this.state.combo  = 0;
-    this.state.fever  = 0;
-    this.state.onfire = false;
-    this._float(el, fromFake?'-15':'-5', true);
-    this._shake();
-    this.targets.delete(el);
-    el.remove();
-    this._hud();
-  }
-
-  _shake(){
-    this.stage.classList.add('shake');
-    setTimeout(()=>this.stage.classList.remove('shake'),180);
-  }
-
-  _float(el, txt, isBad){
-    const r = el.getBoundingClientRect();
-    const f = document.createElement('div');
-    f.className   = 'float';
-    f.textContent = txt;
-    f.style.left  = (r.left+r.width/2)+'px';
-    f.style.top   = (r.top +r.height/2)+'px';
-    f.style.color = isBad ? '#f97373' : '#4ade80';
-    document.body.appendChild(f);
-    setTimeout(()=>f.remove(),650);
-  }
-
-  _pfx(el){
-    const r = el.getBoundingClientRect();
-    for(let i=0;i<7;i++){
-      const p = document.createElement('div');
-      p.className = 'pfx';
-      p.style.left = (r.left+r.width/2)+'px';
-      p.style.top  = (r.top +r.height/2)+'px';
-      p.style.setProperty('--dx',(Math.random()*120-60)+'px');
-      p.style.setProperty('--dy',(Math.random()*120-60)+'px');
-      document.body.appendChild(p);
-      setTimeout(()=>p.remove(),450);
+    // remove with small pop
+    if (t.el){
+      t.el.style.transform = 'scale(0.2)';
+      t.el.style.opacity = '0';
+      setTimeout(()=>t.el && t.el.remove(), 80);
     }
   }
 
-  _pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  // -----------------------------------------------------------------------
+  // FX
+  // -----------------------------------------------------------------------
+  _screenShake(isBad){
+    const target = this.arena;
+    if (!target) return;
+    target.style.transition = 'transform 0.08s';
+    const mag = isBad ? 12 : 6;
+    target.style.transform = `translate(${(Math.random()-0.5)*mag}px, ${(Math.random()-0.5)*mag}px)`;
+    setTimeout(()=>{
+      target.style.transform = 'translate(0,0)';
+    }, 90);
+  }
 
-  // ===== Main Loop =====
+  _spawnHitFx(x,y,text,isBad){
+    const fx = document.createElement('div');
+    fx.textContent = text;
+    fx.style.position = 'fixed';
+    fx.style.left = x + 'px';
+    fx.style.top  = y + 'px';
+    fx.style.transform = 'translate(-50%,-50%)';
+    fx.style.zIndex = '9999';
+    fx.style.fontSize = '22px';
+    fx.style.fontWeight = '900';
+    fx.style.color = isBad ? '#fb7185' : '#4ade80';
+    fx.style.textShadow = '0 0 10px rgba(15,23,42,0.9)';
+    fx.style.pointerEvents = 'none';
+    fx.style.animation = 'sbHitFloat 0.55s ease-out forwards';
+    document.body.appendChild(fx);
+    setTimeout(()=>fx.remove(), 600);
+  }
+
+  _showFeverFx(){
+    const el = document.createElement('div');
+    el.textContent = 'FEVER!!';
+    el.style.position = 'fixed';
+    el.style.left = '50%';
+    el.style.top  = '18%';
+    el.style.transform = 'translate(-50%,-50%)';
+    el.style.zIndex = '9999';
+    el.style.fontSize = '32px';
+    el.style.fontWeight = '900';
+    el.style.letterSpacing = '0.18em';
+    el.style.color = '#facc15';
+    el.style.textShadow = '0 0 18px rgba(250,204,21,0.95)';
+    el.style.animation = 'feverFlash 0.7s ease-out forwards';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 700);
+  }
+
+  // -----------------------------------------------------------------------
+  // GAME LOOP (timed mode)
+  // -----------------------------------------------------------------------
   _loop(ts){
-    if (!this.state.play || this.state.paused) return;
-
+    if (!this.state.running || this.state.paused) return;
     if (!this.state.lastTs) this.state.lastTs = ts;
     const dt = (ts - this.state.lastTs)/1000;
-    this.state.lastTs  = ts;
+    this.state.lastTs = ts;
     this.state.elapsed += dt;
+    this.state.timeLeft = Math.max(0, this.timeLimit - this.state.elapsed);
 
-    // Trigger Boss Phase:
-    // - โหมดปกติ: 15 วิสุดท้าย
-    // - Boss Mode: ทั้งด่าน (cfg.bossPhase = duration)
-    const remain = this.cfg.duration - this.state.elapsed;
-    if (this.cfg.bossPhase && !this.state.bossActive && remain <= this.cfg.bossPhase){
-      this._enterBossPhase();
-    }
+    // auto miss expired targets
+    const now = performance.now();
+    const expired = [];
+    this.targets.forEach((t,id)=>{
+      if (!t.clicked && now > t.expireAt){
+        expired.push(id);
+      }
+    });
+    expired.forEach(id=>{
+      const t = this.targets.get(id);
+      if (!t) return;
+      this.targets.delete(id);
+      if (t.el) t.el.remove();
+      this.state.miss++;
+      this.state.combo = 0;
+    });
 
-    if (this.state.elapsed >= this.cfg.duration){
+    this._hud();
+
+    if (this.state.timeLeft <= 0){
       this._finish();
       return;
     }
 
-    // dynamic spawn (ยิ่งใกล้จบ ยิ่งเร็วขึ้นเล็กน้อย)
-    this.state.spawnT += dt;
-    const t   = this.state.elapsed / this.cfg.duration;
-    const dyn = Math.max(this.cfg.spawn * (1 - 0.45*t), 0.35);
-    if (this.state.spawnT >= dyn){
-      this.state.spawnT = 0;
-      this._spawn();
-    }
-
-    // lifetime check
-    const now = performance.now();
-    this.targets.forEach(el=>{
-      const age = (now - Number(el.dataset.created))/1000;
-      if (age >= this.cfg.lifetime){
-        this._miss(el,false);
-      }
-    });
-
-    this._hud();
-    this.state.raf = requestAnimationFrame(this._loop.bind(this));
+    requestAnimationFrame(this._loop.bind(this));
   }
 
-  // ===== Summary & Finish =====
+  // -----------------------------------------------------------------------
+  // SUMMARY
+  // -----------------------------------------------------------------------
   _buildSummary(){
     const total = this.state.hits + this.state.miss;
     const acc   = total>0 ? this.state.hits/total : 0;
-    let rank    = 'C';
-    if(this.state.score>=1600 && acc>=0.95) rank='SSS';
-    else if(this.state.score>=1100 && acc>=0.90) rank='S';
-    else if(this.state.score>=800  && acc>=0.80) rank='A';
-    else if(this.state.score>=500  && acc>=0.60) rank='B';
+
+    const duration = this.state.elapsed || this.timeLimit;
+    const notesPerSec = duration>0 ? total / duration : 0;
+    const notesPerMin = notesPerSec * 60;
+
+    let rank = 'C';
+    if(this.state.score>=800 && acc>=0.95) rank='SSS';
+    else if(this.state.score>=600 && acc>=0.90) rank='S';
+    else if(this.state.score>=400 && acc>=0.80) rank='A';
+    else if(this.state.score>=250 && acc>=0.60) rank='B';
 
     return {
       profile:  this.profile,
       game:     'shadow-breaker',
       diff:     this.diff,
-      duration: this.cfg.duration,
+      duration,
       score:    this.state.score,
       hits:     this.state.hits,
       miss:     this.state.miss,
-      comboMax: this.state.best,
+      comboMax: this.state.bestCombo,
       accuracy: acc,
+      notesPerSec,
+      notesPerMin,
       rank,
       device:   detectDevice(),
-      bossMode: this.isBossMode,
-      bossHits: this.state.bossHits,
-      bossMiss: this.state.bossMiss,
       timestamp:new Date().toISOString()
     };
   }
 
+  // -----------------------------------------------------------------------
+  // FINISH + RESULT
+  // -----------------------------------------------------------------------
   async _finish(){
-    this.state.play = false;
-    cancelAnimationFrame(this.state.raf);
-    this.targets.forEach(t=>t.remove());
-    this.targets.clear();
+    this.state.running = false;
+    if (this.spawnTimer) clearInterval(this.spawnTimer);
+    this.spawnTimer = null;
+
+    this._clearTargets();
+    this._hud();
     this._msg(this.str.msgEnd);
 
+    // เล่น ripple fx เบา ๆ ถ้ามี CSS
+    const ripple = document.createElement('div');
+    ripple.className = 'sb-finish-ripple';
+    document.body.appendChild(ripple);
+    setTimeout(()=>ripple.remove(), 600);
+
     const summary = this._buildSummary();
-    this._showResult(summary);
-    hybridSaveSession(summary,true);
-    this._loadLeaderboards(summary.profile);
+    const ok = this._showResult(summary);
+    if (!ok){
+      const acc = (summary.accuracy*100).toFixed(1);
+      alert(
+        `Shadow Breaker Result\n` +
+        `Score: ${summary.score}\n` +
+        `Hits: ${summary.hits}\n` +
+        `Miss: ${summary.miss}\n` +
+        `Accuracy: ${acc}%\n` +
+        `Best Combo: x${summary.comboMax}\n` +
+        `Rank: ${summary.rank}`
+      );
+    }
+
+    try{
+      await hybridSaveSession(summary, true);
+      // leaderboard (optional)
+      if (this.lbBox){
+        const [schoolLB, classLB] = await Promise.all([
+          loadLeaderboard('school', summary.profile),
+          loadLeaderboard('class',  summary.profile)
+        ]);
+        this.lbBox.innerHTML = '';
+        const wrap = document.createElement('div');
+
+        const mkTable = (title, data)=>{
+          const h = document.createElement('h4');
+          h.textContent = title;
+          wrap.appendChild(h);
+          const table = document.createElement('table');
+          table.style.width = '100%';
+          const thead = document.createElement('thead');
+          thead.innerHTML = '<tr><th>#</th><th>ชื่อ</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
+          table.appendChild(thead);
+          const tb = document.createElement('tbody');
+          (data||[]).slice(0,10).forEach((r,i)=>{
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+              `<td>${i+1}</td><td>${r.name||'-'}</td><td>${r.score||0}</td><td>${Math.round((r.accuracy||0)*100)}%</td>`;
+            tb.appendChild(tr);
+          });
+          table.appendChild(tb);
+          wrap.appendChild(table);
+        };
+
+        mkTable('อันดับในโรงเรียน', schoolLB);
+        mkTable('อันดับในห้อง',    classLB);
+        this.lbBox.appendChild(wrap);
+      }
+    }catch(e){
+      console.warn('shadow-breaker save/leaderboard error', e);
+    }
   }
 
   _showResult(summary){
-    const { box, score, hits, miss, acc, best, rank } = this.result;
-    if (!box) return;
-    const accVal = Math.round((summary.accuracy||0)*100);
+    const box   = this.result.box  || document.getElementById('sbResultCard');
+    const sc    = this.result.score|| document.getElementById('sbScore');
+    const h     = this.result.hits || document.getElementById('sbHits');
+    const m     = this.result.miss || document.getElementById('sbMiss');
+    const accEl = this.result.acc  || document.getElementById('sbAcc');
+    const best  = this.result.best || document.getElementById('sbBest');
+    const rank  = this.result.rank || document.getElementById('sbRank');
 
+    if (!box) return false;
     box.style.display = 'flex';
-    if (score) score.textContent = summary.score;
-    if (hits)  hits.textContent  = summary.hits;
-    if (miss)  miss.textContent  = summary.miss;
-    if (acc)   acc.textContent   = accVal + '%';
-    if (best)  best.textContent  = 'x' + summary.comboMax;
-    if (rank)  rank.textContent  = summary.rank;
 
-    if (this.pdfBtn){
-      this.pdfBtn.onclick = ()=>exportPDF(summary);
-    }
-  }
+    const acc = Math.round((summary.accuracy||0)*100);
 
-  async _loadLeaderboards(profile){
-    if (!this.lbBox) return;
-    try{
-      const [schoolLB, classLB] = await Promise.all([
-        loadLeaderboard('school', profile),
-        loadLeaderboard('class',  profile)
-      ]);
-      this.lbBox.innerHTML = '';
-      const t1 = document.createElement('h4');
-      t1.textContent = this.str.lbSchool;
-      this.lbBox.appendChild(t1);
-      this.lbBox.appendChild(buildLBTable(schoolLB));
+    if (sc)    sc.textContent   = summary.score;
+    if (h)     h.textContent    = summary.hits;
+    if (m)     m.textContent    = summary.miss;
+    if (accEl) accEl.textContent= acc + '%';
+    if (best)  best.textContent = 'x' + summary.comboMax;
+    if (rank)  rank.textContent = summary.rank;
 
-      const t2 = document.createElement('h4');
-      t2.textContent = this.str.lbClass;
-      this.lbBox.appendChild(t2);
-      this.lbBox.appendChild(buildLBTable(classLB));
-    }catch(e){
-      console.warn('load leaderboard fail', e);
-    }
-  }
+    const csvBtn = this.csvBtn || document.getElementById('sbCsvBtn');
+    const pdfBtn = this.pdfBtn || document.getElementById('sbPdfBtn');
+    if (csvBtn) csvBtn.onclick = ()=>downloadCSVRow(summary);
+    if (pdfBtn) pdfBtn.onclick = ()=>exportPDF(summary);
 
-  _bindEvents(){
-    document.addEventListener('visibilitychange',()=>{
-      if (document.hidden) this.pause(true);
-    });
+    return true;
   }
 }
