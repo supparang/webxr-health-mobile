@@ -1,121 +1,209 @@
-/* --- Stage พื้นฐาน --- */
-body {
+/* ==========================================================
+   GLOBAL RESET + BASE
+========================================================== */
+* {
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+html, body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: radial-gradient(circle at top, #020617, #020617 40%, #000 100%);
-  color: #e5e7eb;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #000814;
+  color: #e2e8f0;
+  font-family: "Inter", system-ui, sans-serif;
+  overflow-x: hidden;
 }
 
-#rb-stage {
+/* Safe area */
+body {
+  padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0)
+          env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+}
+
+/* ==========================================================
+   HUD (Score, Combo, Time)
+========================================================== */
+.hud {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  z-index: 50;
+  font-weight: 700;
+  font-size: 18px;
+  text-shadow: 0 0 8px rgba(255,255,255,0.4);
+}
+.hud span {
+  background: rgba(0,0,0,0.55);
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.15);
+  backdrop-filter: blur(6px);
+}
+
+/* ==========================================================
+   LANES + NOTES
+========================================================== */
+.rb-lane {
+  position: relative;
+  width: clamp(60px, 20vw, 100px);
+  height: 68vh;
+  border-radius: 18px;
+  background: linear-gradient(180deg,rgba(15,23,42,.85),rgba(2,8,23,.95));
+  border: 1px solid rgba(148,163,184,.4);
+  box-shadow: 0 0 18px rgba(0,150,255,.25);
+  overflow: hidden;
+  transition: transform 0.1s ease;
+}
+
+/* Tap feedback */
+.rb-lane:active {
+  transform: scale(0.96);
+}
+
+/* Hitline */
+.rb-hitline {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 14px;
+  height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,#60a5fa,#0ea5e9,#60a5fa);
+  box-shadow: 0 0 10px #38bdf8;
+}
+
+/* Notes */
+.rb-note {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(15,23,42,.85);
+  transition: background .12s;
+}
+
+/* Float Score Effect */
+.float {
+  position: fixed;
+  font-weight: 900;
+  font-size: 20px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: floatUp .6s ease-out forwards;
+}
+@keyframes floatUp {
+  from { transform: translate(-50%,0); opacity: 1; }
+  to   { transform: translate(-50%,-40px); opacity: 0; }
+}
+
+/* ==========================================================
+   RESULT CARD (WIN / LOSE PANEL)
+========================================================== */
+#rbResultCard {
   position: fixed;
   inset: 0;
-  z-index: 10;
-}
-
-/* lane + note (เผื่อ style เพิ่มจาก JS) */
-.rb-lane {
+  z-index: 999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,0.65);
   backdrop-filter: blur(10px);
 }
 
-.rb-note {
-  transition: bottom 0.08s linear;
+.result-box {
+  width: min(380px, 90vw);
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 18px;
+  padding: 22px;
+  text-align: center;
+  box-shadow: 0 0 25px rgba(0,150,255,0.35);
 }
 
-/* float score */
-.float {
-  font-weight: 700;
-  text-shadow: 0 4px 10px rgba(15,23,42,.7);
-  animation: rbFloatUp 0.6s ease-out forwards;
-  pointer-events: none;
-}
-@keyframes rbFloatUp {
-  0% { opacity:1; transform:translate(-50%,-50%) translateY(0); }
-  100%{ opacity:0; transform:translate(-50%,-50%) translateY(-24px); }
+/* Result Title */
+.result-box h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  font-weight: 800;
 }
 
-/* HADO ripple + scan */
-.rb-ripple {
-  position: fixed;
-  left:50%; top:50%;
-  width:40vmin; height:40vmin;
-  border-radius:999px;
-  border:3px solid rgba(56,189,248,.9);
-  transform:translate(-50%,-50%);
-  animation: rbRipple 0.8s ease-out forwards;
-  pointer-events:none;
-}
-@keyframes rbRipple {
-  0% { opacity:0.8; transform:translate(-50%,-50%) scale(0.2); }
-  100%{ opacity:0;   transform:translate(-50%,-50%) scale(2.2); }
+/* Score Rows */
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 0;
+  font-size: 16px;
 }
 
-.rb-scan {
-  position:fixed;
-  left:0; right:0;
-  height:24vh;
-  top:-24vh;
-  background:linear-gradient(to bottom,
-    rgba(125,211,252,0) 0%,
-    rgba(125,211,252,0.25) 40%,
-    rgba(125,211,252,0) 100%);
-  animation: rbScan 0.9s ease-out forwards;
-  pointer-events:none;
-}
-@keyframes rbScan {
-  0% { top:-24vh; opacity:0; }
-  10%{ opacity:0.9; }
-  100%{ top:100vh; opacity:0; }
-}
-
-/* การ์ดสรุปผล */
-#rbResultCard,
-.rb-result-card {
-  display:none;                 /* สำคัญ: ซ่อนเริ่มต้น */
-  position:fixed;
-  inset:0;
-  z-index:50;
-  align-items:center;
-  justify-content:center;
-  padding:16px;
-}
-
-#rbResultCard .rb-result-panel,
-.rb-result-card .rb-result-panel {
-  max-width:480px;
-  width:100%;
-  background:rgba(15,23,42,.96);
-  border-radius:24px;
-  box-shadow:0 24px 60px rgba(15,23,42,.9);
-  border:1px solid rgba(148,163,184,.7);
-  padding:24px 24px 20px;
-}
-
-/* ปุ่มใน result */
-.rb-result-actions {
-  display:flex;
-  gap:12px;
-  margin-top:20px;
-}
+/* Buttons */
 .rb-btn {
-  flex:1;
-  border-radius:999px;
-  padding:10px 16px;
-  border:none;
-  font-weight:600;
-  font-size:15px;
+  width: 100%;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
 }
+
 .rb-btn-primary {
-  background:#22c55e;
-  color:#022c22;
+  background: linear-gradient(90deg,#3b82f6,#0ea5e9);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(59,130,246,0.7);
 }
 .rb-btn-ghost {
-  background:#e5e7eb;
-  color:#111827;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #cbd5e1;
 }
 
-/* เมื่อจบเกม: ซ่อน lane/track ทั้งหมด */
-body.rb-finished .rb-lane,
-body.rb-finished .track,
-body.rb-finished .rb-note {
-  display:none !important;
+/* ==========================================================
+   HUB EXIT ANIMATION
+========================================================== */
+body.hub-leaving::before {
+  content: "Returning to Gym Hub…";
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 20px;
+  color: #cbd5e1;
+  letter-spacing: 0.08em;
+  background: radial-gradient(circle at top,rgba(15,23,42,0.98),#020617 85%);
+  animation: hubFadeOut 0.6s ease-out forwards;
+}
+
+@keyframes hubFadeOut {
+  0% { opacity: 0; filter: blur(0px); }
+  40% { opacity: 1; filter: blur(0px); }
+  100% { opacity: 1; filter: blur(1.5px); }
+}
+
+/* ==========================================================
+   RESPONSIVE TUNING
+========================================================== */
+@media (max-width: 768px) {
+  .rb-lane { height: 60vh; }
+  .hud { font-size: 15px; gap: 10px; }
+  .result-box { padding: 18px; }
+}
+
+@media (max-width: 480px) {
+  .rb-lane { width: 18vw; }
+  .hud span { padding: 5px 10px; }
+  .result-box h2 { font-size: 19px; }
 }
