@@ -1,13 +1,262 @@
 <!doctype html>
 <html lang="th">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Rhythm Boxer</title></head>
-<body style="margin:0;background:#000;color:#fff;display:grid;place-items:center;height:100vh;font-family:sans-serif">
-  <main>
-    <h1>VR Fitness — Rhythm Boxer</h1>
-    <p>ต่อยมือตามจังหวะเพลง เพิ่มความแม่นยำ</p>
-    <a href="./play.html?game=rhythm-boxer&mode=timed&diff=normal&time=85"
-       style="background:#76e1ff;color:#001018;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold">▶ เล่นเลย</a>
-  </main>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — Rhythm Boxer</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(96,165,250,.25), transparent 60%),
+        radial-gradient(circle at bottom, rgba(248,250,252,.08), transparent 60%),
+        #020617;
+      color: #e5e7eb;
+      padding: 16px;
+    }
+    .wrap {
+      width: min(960px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 24px;
+      align-items: stretch;
+    }
+    @media (max-width: 768px) {
+      .wrap { grid-template-columns: minmax(0, 1fr); }
+    }
+    .panel {
+      background: rgba(15,23,42,0.92);
+      border-radius: 20px;
+      padding: 20px 22px;
+      border: 1px solid rgba(148,163,184,0.7);
+      box-shadow: 0 20px 48px rgba(15,23,42,0.75);
+    }
+    .title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 8px;
+      font-size: 22px;
+    }
+    .badge {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(76,29,149,0.4);
+      border: 1px solid rgba(167,139,250,0.9);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .subtitle {
+      margin: 0 0 16px;
+      font-size: 14px;
+      opacity: 0.85;
+    }
+    .story {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+    .story h2 {
+      margin: 0;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .story p {
+      margin: 0;
+      opacity: 0.9;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 12px;
+    }
+    .tag {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.7);
+      background: rgba(15,23,42,0.8);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .modes {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .mode-card {
+      border-radius: 16px;
+      padding: 10px 12px;
+      background: rgba(15,23,42,0.95);
+      border: 1px solid rgba(148,163,184,0.7);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+    }
+    .mode-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+    }
+    .mode-meta {
+      opacity: 0.8;
+      font-size: 12px;
+    }
+    .mode-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .btn-play {
+      flex: 0 0 auto;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #020617;
+      background: #a855f7;
+      box-shadow: 0 0 0 1px #c4b5fd;
+    }
+    .btn-play:hover { filter: brightness(1.06); }
+    .right-panel h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .right-panel ul {
+      margin: 0 0 12px 18px;
+      padding: 0;
+      font-size: 13px;
+    }
+    .device-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 4px;
+      font-size: 12px;
+    }
+    .device {
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(148,163,184,0.7);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <div class="title">
+        <span style="font-size:26px">🎵🥊</span>
+        <div>
+          <div class="badge">VR Fitness • Rhythm Boxer</div>
+          <div style="font-size:18px;font-weight:600;margin-top:4px">
+            Chapter 2: Beat Arena
+          </div>
+        </div>
+      </div>
+      <p class="subtitle">
+        ต่อยตามจังหวะเพลงและจุดที่โผล่บนจอ เน้น timing และ rhythm มากกว่าความเร็วอย่างเดียว
+      </p>
+
+      <div class="story">
+        <h2>เนื้อเรื่องสั้น ๆ</h2>
+        <p>
+          คุณเข้าสู่ <strong>Beat Arena</strong> สนามซ้อมของดีเจบวกนักมวยสุดโหด.<br>
+          เป้าจะโผล่ตามจังหวะ 🥁 ถ้ากดให้ตรงจังหวะได้ต่อเนื่อง คะแนนจะพุ่งขึ้นแบบยิ่งกว่า combo ธรรมดา 🎶
+        </p>
+      </div>
+
+      <div class="tag-row">
+        <span class="tag">🎶 Rhythm Training</span>
+        <span class="tag">🥊 Upper Body</span>
+        <span class="tag">🧠 Timing & Focus</span>
+      </div>
+
+      <div class="modes">
+        <div class="mode-card">
+          <div class="mode-header">
+            <span>โหมด Beginner 60s</span>
+            <span class="mode-meta">Level: EASY</span>
+          </div>
+          <div class="mode-meta">จังหวะช้า ๆ เหมาะสำหรับเริ่มจับโครง pattern</div>
+          <div class="mode-actions">
+            <a class="btn-play"
+               href="./play.html?game=rhythm-boxer&mode=timed&diff=easy&time=60">
+              ▶ เล่นเลย
+            </a>
+          </div>
+        </div>
+
+        <div class="mode-card">
+          <div class="mode-header">
+            <span>Groove Mode 90s</span>
+            <span class="mode-meta">Level: NORMAL</span>
+          </div>
+          <div class="mode-meta">จังหวะกลาง ๆ เน้นต่อ combo อย่างต่อเนื่อง</div>
+          <div class="mode-actions">
+            <a class="btn-play"
+               href="./play.html?game=rhythm-boxer&mode=timed&diff=normal&time=90">
+              ▶ เล่นเลย
+            </a>
+          </div>
+        </div>
+
+        <div class="mode-card">
+          <div class="mode-header">
+            <span>Beat Master 120s</span>
+            <span class="mode-meta">Level: HARD</span>
+          </div>
+          <div class="mode-meta">จังหวะถี่ขึ้น ต้องโฟกัสสูงมาก เหมาะกับสายโหด</div>
+          <div class="mode-actions">
+            <a class="btn-play"
+               href="./play.html?game=rhythm-boxer&mode=timed&diff=hard&time=120">
+              ▶ โหมดโหด
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel right-panel">
+      <h2>วิธีเล่นคร่าว ๆ</h2>
+      <ul>
+        <li>กดปุ่ม <strong>▶ เริ่มเล่น</strong> ในฉากเกม</li>
+        <li>วงกลมจะโผล่บนจอตาม pattern → แตะ/ชี้/ต่อยให้ตรงเวลา</li>
+        <li>ยิ่งต่อยโดนติดกันเรื่อย ๆ Combo ยิ่งสูง → มี FEVER และ ON-FIRE</li>
+        <li>จบเวลาแล้ว ดู Rank (SSS–C) จาก Score + Accuracy</li>
+      </ul>
+      <h2>รองรับอุปกรณ์</h2>
+      <div class="device-row">
+        <span class="device">🖱 PC – เมาส์ + คีย์บอร์ด</span>
+        <span class="device">📱 มือถือ / แท็บเล็ต – แตะหน้าจอ</span>
+        <span class="device">🕶 VR Headset – ตัวชี้ / คอนโทรลเลอร์</span>
+      </div>
+    </section>
+  </div>
 </body>
 </html>
