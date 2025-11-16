@@ -227,3 +227,87 @@ body{
   padding:2px 3px;border-bottom:1px solid rgba(30,41,59,.8);
 }
 .sb-leaderboard th{font-weight:600;font-size:11px;}
+/* ===== SAFE-AREA (iPhone notch / มือถือจอเจาะรู) ===== */
+@supports (padding: max(0px)) {
+  .sb-hud {
+    top: calc(8px + env(safe-area-inset-top));
+  }
+  .sb-msg {
+    top: calc(44px + env(safe-area-inset-top));
+  }
+}
+
+/* ===== RESPONSIVE: Tablet ลงไป ===== */
+@media (max-width: 768px) {
+  .sb-menu-wrap {
+    padding: 18px 14px 20px;
+  }
+  .sb-menu-wrap h1 {
+    font-size: 22px;
+  }
+  .sb-menu-wrap h2 {
+    font-size: 18px;
+  }
+  .sb-menu-sub {
+    font-size: 13px;
+  }
+
+  .sb-hud {
+    font-size: 12px;
+    padding: 4px 10px;
+    gap: 8px;
+  }
+
+  .sb-msg {
+    font-size: 11px;
+    max-width: 90vw;
+    padding: 4px 10px;
+    text-align: center;
+  }
+
+  .sb-target {
+    width: 68px;
+    height: 68px;
+    font-size: 32px;
+    border-radius: 12px;
+  }
+
+  .sb-result-card {
+    width: 94vw;
+    padding: 16px 14px 14px;
+    font-size: 13px;
+  }
+
+  .sb-leaderboard {
+    width: 220px;
+    max-height: 38vh;
+    font-size: 11px;
+    right: 4px;
+    bottom: 8px;
+  }
+}
+
+/* ===== RESPONSIVE: มือถือจอเล็กมาก (≤ 480px) ===== */
+@media (max-width: 480px) {
+  .sb-hud {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .sb-target {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+  }
+
+  .sb-leaderboard {
+    width: 92vw;
+    left: 4vw;
+    right: auto;
+    bottom: 4px;
+  }
+
+  .sb-menu-grid {
+    grid-template-columns: 1fr;
+  }
+}
