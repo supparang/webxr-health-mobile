@@ -1,13 +1,80 @@
 <!doctype html>
 <html lang="th">
-<head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Balance–Hold</title></head>
-<body style="margin:0;background:#000;color:#fff;display:grid;place-items:center;height:100vh;font-family:sans-serif">
-  <main>
-    <h1>VR Fitness — Balance–Hold</h1>
-    <p>ฝึกสมดุลและการทรงตัว</p>
-    <a href="./play.html?game=balance-hold&mode=timed&diff=normal&time=75"
-       style="background:#76e1ff;color:#001018;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold">▶ เล่นเลย</a>
-  </main>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>VR Fitness — Balance Hold</title>
+  <style>
+    :root { color-scheme: dark; }
+    *{box-sizing:border-box;}
+
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui,Segoe UI,Inter,sans-serif;
+      display:flex;align-items:center;justify-content:center;
+      background:
+        radial-gradient(circle at top left,rgba(56,189,248,.2),transparent 60%),
+        radial-gradient(circle at bottom right,rgba(34,197,94,.2),transparent 60%),
+        #020617;
+      color:#e5e7eb;
+      text-align:center;
+      padding:24px;
+    }
+
+    main{
+      max-width:640px;
+      background:rgba(15,23,42,.75);
+      border:1px solid rgba(148,163,184,.5);
+      border-radius:16px;
+      padding:32px 24px;
+      box-shadow:0 0 32px rgba(0,0,0,.35);
+      backdrop-filter:blur(6px);
+    }
+
+    h1{margin:0 0 8px;font-weight:700;}
+    p{opacity:.88;line-height:1.55;margin:0 0 18px;}
+
+    a{
+      display:inline-block;
+      margin-top:14px;
+      background:#38bdf8;
+      color:#001018;
+      padding:12px 22px;
+      border-radius:12px;
+      text-decoration:none;
+      font-weight:600;
+      font-size:17px;
+    }
+    a:hover{background:#67e8f9;}
+
+    footer{
+      margin-top:22px;
+      font-size:13px;
+      opacity:.6;
+    }
+  </style>
+</head>
+<body>
+
+<main>
+  <h1>VR Fitness — Balance Hold</h1>
+  <p>
+    เกมฝึกการ <b>ทรงตัว | ความนิ่ง | การควบคุมแกนกลางลำตัว (Core)</b> <br><br>
+    ภารกิจ: ยืนท่าที่กำหนดให้ <b>นิ่งที่สุด</b> ภายใต้เวลา  
+    และรักษา <u>Balance Gauge</u> ไม่ให้เกินขีดแดง!  
+  </p>
+
+  <img src="https://cdn-icons-png.flaticon.com/512/8743/8743871.png"
+       alt="Balance Icon" width="110" style="margin:14px auto;opacity:.95;display:block"/>
+
+  <a href="./play.html?mode=standard&time=60">▶ เริ่มฝึกสมดุล</a>
+
+  <footer>
+    เล่นได้ทั้ง PC, Mobile, VR Headset (รองรับ controller / head tilt)<br>
+    รุ่น: BH-1.0
+  </footer>
+</main>
+
 </body>
 </html>
