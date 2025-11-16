@@ -1,213 +1,119 @@
-// === Hero Health — hub.js (3D Hub + Profile + Preview) ===
-// หน้าที่:
-// - เลือกโหมด (4 โหมดพร้อมใช้งาน)
-// - ตั้ง diff / time
-// - จัดการโปรไฟล์เด็ก (sessionStorage)
-// - preview ข้อความโหมด
-// - redirect ไป index.vr.html?mode=…&diff=…&time=…
-
-'use strict';
-
+// === Hero Health — hub.js (Profile + Mode/Diff + ส่งต่อไปหน้า play) ===
 (function () {
-  const MODES = ['goodjunk', 'groups', 'hydration', 'plate'];
+  'use strict';
+
+  const $id = (id) => document.getElementById(id);
+
+  // ----- ดึง element โปรไฟล์ (รองรับหลายชื่อ id เผื่อของเดิม) -----
+  const nameInput  = $id('hha-name')  || $id('hha-profile-name');
+  const gradeInput = $id('hha-grade') || $id('hha-profile-grade');
+  const roomInput  = $id('hha-room')  || $id('hha-profile-room');
+  const sidInput   = $id('hha-sid')   || $id('hha-profile-id');
+
+  // ปุ่มเริ่มเกม
+  const startBtn   = $id('hha-start') || $id('hha-start-btn');
+
+  // ปุ่มเลือกโหมด / diff (ถ้าใช้ data-attribute)
   let currentMode = 'goodjunk';
+  let currentDiff = 'normal';
 
-  function $(sel) { return document.querySelector(sel); }
-  function $all(sel) { return document.querySelectorAll(sel); }
-
-  function playClick() {
-    try {
-      const el = $('#hubClickSfx');
-      if (el) {
-        el.currentTime = 0;
-        el.play().catch(function () {});
-      }
-    } catch (e) {}
+  function qsAll(sel) {
+    return Array.prototype.slice.call(document.querySelectorAll(sel));
   }
 
-  // ---------- Profile handling ----------
-  function loadProfile() {
+  // ----- โหลดโปรไฟล์เก่าจาก sessionStorage ถ้ามี -----
+  function loadProfileFromStorage() {
     try {
-      const name  = sessionStorage.getItem('hhaProfileName')  || '';
-      const sid   = sessionStorage.getItem('hhaProfileId')    || '';
-      const grade = sessionStorage.getItem('hhaProfileGrade') || '';
-
-      const nameInp  = $('#profileName');
-      const idInp    = $('#profileId');
-      const gradeInp = $('#profileGrade');
-
-      if (nameInp)  nameInp.value  = name;
-      if (idInp)    idInp.value    = sid;
-      if (gradeInp) gradeInp.value = grade;
-
-      const hint = $('#profileHint');
-      if (hint) {
-        if (name) {
-          hint.textContent = 'โหลดโปรไฟล์ของ "' + name + '" จากรอบก่อนแล้ว';
-        } else {
-          hint.textContent = 'กรอกอย่างน้อยชื่อเล่น เพื่อให้ไฟล์วิจัยระบุตัวผู้เล่นได้';
-        }
-      }
+      const raw = sessionStorage.getItem('hha_profile');
+      if (!raw) return;
+      const p = JSON.parse(raw) || {};
+      if (nameInput && p.name) nameInput.value = p.name;
+      if (gradeInput && p.grade) gradeInput.value = p.grade;
+      if (roomInput && p.room) roomInput.value = p.room;
+      if (sidInput && p.sid) sidInput.value = p.sid;
+      console.log('[HHA HUB] loaded profile from storage', p);
     } catch (e) {
-      // เงียบไว้
+      console.warn('[HHA HUB] loadProfile error', e);
     }
   }
 
-  function saveProfile() {
-    const name  = $('#profileName')  ? $('#profileName').value.trim()  : '';
-    const sid   = $('#profileId')    ? $('#profileId').value.trim()    : '';
-    const grade = $('#profileGrade') ? $('#profileGrade').value.trim() : '';
-
+  // ----- บันทึกโปรไฟล์ลง sessionStorage -----
+  function saveProfileToStorage() {
+    const profile = {
+      name:  nameInput  ? nameInput.value.trim()  : '',
+      grade: gradeInput ? gradeInput.value.trim() : '',
+      room:  roomInput  ? roomInput.value.trim()  : '',
+      sid:   sidInput   ? sidInput.value.trim()   : ''
+    };
     try {
-      sessionStorage.setItem('hhaProfileName',  name);
-      sessionStorage.setItem('hhaProfileId',    sid);
-      sessionStorage.setItem('hhaProfileGrade', grade);
-      // room เผื่อใช้ในอนาคต
-      sessionStorage.setItem('hhaProfileRoom',  grade);
-
-      const hint = $('#profileHint');
-      if (hint) {
-        hint.textContent = name
-          ? 'บันทึกโปรไฟล์ของ "' + name + '" เรียบร้อยแล้ว'
-          : 'บันทึกโปรไฟล์ว่างเรียบร้อยแล้ว';
-      }
+      sessionStorage.setItem('hha_profile', JSON.stringify(profile));
+      console.log('[HHA HUB] saved profile', profile);
     } catch (e) {
-      console.warn('[HERO-HUB] saveProfile error', e);
+      console.warn('[HHA HUB] saveProfile error', e);
     }
+    return profile;
   }
 
-  function initProfile() {
-    loadProfile();
-    const btn = $('#btnSaveProfile');
-    if (btn) {
-      btn.addEventListener('click', function () {
-        saveProfile();
-        playClick();
+  // ถ้ามีการเปลี่ยน field ให้เซฟไว้ทันที (กันเด็กหลุดหน้า)
+  [nameInput, gradeInput, roomInput, sidInput].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('change', saveProfileToStorage);
+    el.addEventListener('blur', saveProfileToStorage);
+  });
+
+  // ----- เลือกโหมดเกม -----
+  qsAll('[data-mode]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const m = btn.getAttribute('data-mode') || 'goodjunk';
+      currentMode = m.toLowerCase();
+
+      // ไฮไลต์ปุ่ม
+      qsAll('[data-mode]').forEach(function (b) {
+        b.classList.remove('is-active');
       });
-    }
-  }
-
-  // ---------- Mode cards + preview ----------
-  function selectMode(modeId) {
-    if (!MODES.includes(modeId)) return;
-    currentMode = modeId;
-
-    $all('.mode-card').forEach(function (card) {
-      card.classList.remove('active');
+      btn.classList.add('is-active');
     });
-    const card = document.querySelector('.mode-card[data-mode="' + modeId + '"]');
-    if (card) {
-      card.classList.add('active');
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-    }
+  });
 
-    updatePreviewText(modeId);
-    playClick();
-  }
+  // ----- เลือกระดับความยาก -----
+  qsAll('[data-diff]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const d = btn.getAttribute('data-diff') || 'normal';
+      currentDiff = d.toLowerCase();
 
-  function updatePreviewText(modeId) {
-    const panel = $('#modePreviewPanel');
-    const textEl = $('#modePreviewText');
-    if (!panel || !textEl) return;
-
-    let text = '';
-    if (modeId === 'goodjunk') {
-      text = 'Good vs Junk: คลิกของดี เช่น ผัก ผลไม้ นม ปลาดี ๆ แล้วหลบอาหารขยะ ฝึก reflex และการตัดสินใจภายในเวลาจำกัด.';
-    } else if (modeId === 'groups') {
-      text = 'Food Groups: ระบบจะสุ่มหมู่อาหารเป้าหมาย 1 หมู่ ให้เลือกเฉพาะอาหารในหมู่ที่กำหนด เหมาะสำหรับฝึกจำหมู่อาหาร 5 หมู่.';
-    } else if (modeId === 'hydration') {
-      text = 'Hydration: แยกน้ำดี (น้ำเปล่า นม ชาไม่หวาน) ออกจากเครื่องดื่มหวาน เพื่อลดการบริโภคน้ำตาลเกินจำเป็น ฝึก conceptual decision.';
-    } else if (modeId === 'plate') {
-      text = 'Balanced Plate: เลือกเฉพาะอาหารที่ทำให้จานสมดุล มีผัก ผลไม้ ข้าว-แป้ง และโปรตีนดีในสัดส่วนที่เหมาะสม เหมาะสำหรับสอนหลักโภชนาการ.';
-    } else {
-      text = 'เลือกโหมดด้านบนเพื่อดูคำอธิบายแบบย่อ และตั้งค่าการเล่นรอบนี้.';
-    }
-
-    textEl.textContent = text;
-
-    // เปลี่ยน emoji preview ให้ไม่ซ้ำ (เล็ก ๆ น้อย ๆ)
-    const iconEl = document.querySelector('.preview-icon[data-preview="' + modeId + '"]');
-    if (iconEl) {
-      const pool = {
-        goodjunk: ['🍎','🍓','🥦','🍟','🍔','🧁'],
-        groups: ['🍚','🥦','🍎','🍗','🥛'],
-        hydration: ['💧','🚰','🥤','🧋'],
-        plate: ['🥦','🍇','🍚','🍗','🍽️']
-      }[modeId] || ['✨'];
-      iconEl.textContent = pool[Math.floor(Math.random() * pool.length)];
-    }
-  }
-
-  function initModeCards() {
-    const cards = $all('.mode-card[data-mode]');
-    if (!cards.length) return;
-
-    cards.forEach(function (card) {
-      const modeId = card.getAttribute('data-mode');
-      card.addEventListener('click', function () {
-        selectMode(modeId);
+      qsAll('[data-diff]').forEach(function (b) {
+        b.classList.remove('is-active');
       });
+      btn.classList.add('is-active');
     });
+  });
 
-    selectMode(currentMode);
+  // ----- ปุ่มเริ่มเล่น -----
+  if (startBtn) {
+    startBtn.addEventListener('click', function () {
+      const profile = saveProfileToStorage();
+
+      // บังคับใส่ชื่อก่อน
+      if (!profile.name) {
+        alert('ใส่ชื่อนักเรียนก่อนเริ่มเล่นนะ 😊');
+        if (nameInput) nameInput.focus();
+        return;
+      }
+
+      // สามารถเปลี่ยนเวลาเกมตรงนี้ได้ ถ้าจะให้เลือกจาก UI
+      const gameTime = 60;
+
+      const params = new URLSearchParams({
+        mode: currentMode,
+        diff: currentDiff,
+        time: String(gameTime)
+      });
+
+      // ส่งต่อไปหน้าเล่นเกม
+      window.location.href = './play.html?' + params.toString();
+    });
   }
 
-  // ---------- Time + diff helpers ----------
-  function clampTime(sec) {
-    let n = parseInt(sec, 10);
-    if (isNaN(n)) n = 60;
-    if (n < 20) n = 20;
-    if (n > 180) n = 180;
-    return n;
-  }
-
-  // ---------- Start button ----------
-  function onStartClick() {
-    const nameInp = $('#profileName');
-    const diffSel = $('#selDiff');
-    const timeInp = $('#inpTime');
-
-    const name = nameInp ? nameInp.value.trim() : '';
-    if (!name) {
-      alert('กรุณากรอกชื่อเล่น/ชื่อจริงของผู้เล่นอย่างน้อย 1 ช่อง ก่อนเริ่มเกม');
-      if (nameInp) nameInp.focus();
-      return;
-    }
-
-    saveProfile();
-
-    const diff = diffSel ? (diffSel.value || 'normal') : 'normal';
-    const time = clampTime(timeInp ? timeInp.value : 60);
-    if (timeInp) timeInp.value = String(time);
-
-    const params = new URLSearchParams();
-    params.set('mode', currentMode);
-    params.set('diff', diff);
-    params.set('time', String(time));
-
-    const url = './index.vr.html?' + params.toString();
-    console.log('[HERO-HUB] redirect to', url);
-    playClick();
-    window.location.href = url;
-  }
-
-  function initStartButton() {
-    const btn = $('#btnStart');
-    if (!btn) return;
-    btn.addEventListener('click', onStartClick);
-  }
-
-  // ---------- Bootstrap ----------
-  function bootstrap() {
-    initProfile();
-    initModeCards();
-    initStartButton();
-    console.log('[HERO-HUB] ready, default mode =', currentMode);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bootstrap);
-  } else {
-    bootstrap();
-  }
+  // ----- init -----
+  loadProfileFromStorage();
 })();
