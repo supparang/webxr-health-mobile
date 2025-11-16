@@ -1,108 +1,105 @@
 <!doctype html>
 <html lang="th">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Shadow Breaker — Play</title>
-  <meta name="color-scheme" content="dark light"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Shadow Breaker — เล่นเกม</title>
   <style>
-    html,body{margin:0;height:100%;background:#000;color:#fff;font:16px/1.4 system-ui,Segoe UI,Inter,Arial}
-    #boot{position:fixed;inset:0;display:grid;place-items:center;background:#000;z-index:10}
-    #boot .box{background:#121528;padding:18px 20px;border-radius:14px;border:1px solid #2a2f4a;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-    #log{margin-top:10px;background:#0a0d1f;border:1px solid #243;min-height:80px;max-height:220px;overflow:auto;border-radius:10px;padding:8px;font:12px monospace;white-space:pre-wrap}
-    #err{position:fixed;left:12px;bottom:12px;max-width:min(92vw,720px);display:none;background:#2a2f4a;border:1px solid #445;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;z-index:11}
+    :root {
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #020617;
+      color: #e5e7eb;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    #sb-stage {
+      position: relative;
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top, rgba(56,189,248,.25), transparent 60%),
+        radial-gradient(circle at bottom, rgba(34,197,94,.25), transparent 60%),
+        #020617;
+    }
+    #sb-message {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(15,23,42,.85);
+      border: 1px solid rgba(148,163,184,.6);
+      font-size: 14px;
+      max-width: min(90vw, 480px);
+      text-align: center;
+      pointer-events: none;
+    }
+    .sb-target {
+      position: absolute;
+      width: clamp(64px, 11vw, 96px);
+      aspect-ratio: 1 / 1;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: clamp(28px, 6vw, 40px);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      box-shadow: 0 0 0 2px rgba(148,163,184,.7), 0 12px 28px rgba(15,23,42,.9);
+      background:
+        radial-gradient(circle at 30% 30%, rgba(248,250,252,.95), transparent 60%),
+        #0ea5e9;
+      color: #020617;
+      transform: translate(-50%, -50%) scale(1);
+      transition: transform .1s ease-out, box-shadow .1s ease-out;
+    }
+    .sb-target-hard {
+      background:
+        radial-gradient(circle at 30% 30%, rgba(248,250,252,.95), transparent 60%),
+        #f97316;
+    }
+    .sb-target:active {
+      transform: translate(-50%, -50%) scale(.92);
+      box-shadow: 0 0 0 2px rgba(248,250,252,.9), 0 8px 18px rgba(15,23,42,.9);
+    }
+    .sb-pop {
+      animation: sb-pop .2s ease-out;
+    }
+    @keyframes sb-pop {
+      from { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
+      to   { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+    }
+
+    @media (max-width: 640px) {
+      #sb-message {
+        font-size: 13px;
+      }
+    }
   </style>
 </head>
 <body>
-  <div id="boot"><div class="box">
-    <h1>Loading Shadow Breaker…</h1>
-    <div id="log">• start</div>
-  </div></div>
-  <div id="err"></div>
+  <div id="sb-stage">
+    <div id="sb-message">
+      แตะปุ่ม <strong>▶ เริ่มเล่น</strong> ด้านล่าง แล้วรีบต่อยวงกลมที่โผล่มาให้ทัน!<br>
+      ใช้เมาส์ แตะจอมือถือ หรือใน VR ใช้ตัวชี้/คอนโทรลเลอร์ก็ได้
+    </div>
+  </div>
 
-<script>
-  // ----- Launch params -----
-  (function(){ const u=new URL(location.href);
-    window.HubLaunch = {
-      game: "shadow-breaker",
-      mode: u.searchParams.get("mode") || "timed",
-      diff: u.searchParams.get("diff") || "normal",
-      time: Math.max(30, Math.min(180, +(u.searchParams.get("time") || 90)))
-    };
-  })();
-
-  const logEl = document.getElementById('log');
-  const errEl = document.getElementById('err');
-  const boot  = document.getElementById('boot');
-  const log = (t)=>{ logEl.textContent += "\n• " + t; logEl.scrollTop = logEl.scrollHeight; };
-  const showErr = (m, tried=[])=>{
-    errEl.style.display='block';
-    errEl.innerHTML = "<b>⚠️</b> " + m + (tried.length? `<div style="margin-top:6px;font:12px monospace">Tried:\n${tried.join("\n")}</div>` : "");
-    console.error(m, tried);
-  };
-
-  // ----- Candidates for game.js -----
-  // ปรับลำดับให้ "ของจริง" มาก่อน (ตามโครงใหม่)
-  const GAME_JS_CANDIDATES = [
-    "./game.js",  // /webxr-health-mobile/vr-fitness/shadow-breaker/game.js
-    "../shadow-breaker/game.js",                       // เผื่อถูกฝังผิดโฟลเดอร์
-    "/webxr-health-mobile/vr-fitness/shadow-breaker/game.js",
-    "/webxr-health-mobile/vr-fitness/games/shadow-breaker/game.js" // พาธเก่า
-  ];
-
-  // ตรวจว่าเป็นไฟล์ JS จริง (ไม่ใช่ HTML 404)
-  async function probeJS(url){
-    const bust = url + (url.includes("?") ? "&" : "?") + "v=live";
-    const r = await fetch(bust, { cache: "no-store" });
-    if(!r.ok) return { ok:false, reason: "HTTP " + r.status };
-    const ct = (r.headers.get("content-type") || "").toLowerCase();
-    // accept: javascript types; reject: text/html
-    if(ct.includes("javascript") || ct.includes("ecmascript") || ct.includes("text/plain")){
-      return { ok:true, url: bust };
-    }
-    // บางครั้ง GitHub Pages ติด content-type เป็น text/plain ก็ยังโอเค
-    if(ct.includes("text/html")) return { ok:false, reason:"HTML response (likely 404/redirect)" };
-    return { ok:true, url: bust }; // ผ่อนปรน ถ้าเซิร์ฟเวอร์ตั้งค่าแปลก
-  }
-
-  async function loadHubAdapter(){
-    return new Promise((resolve, reject)=>{
-      const s = document.createElement('script');
-      s.src = "/webxr-health-mobile/vr-fitness/hub-adapter.js?v=live";
-      s.onload = ()=>{ log("hub-adapter.js ✓"); resolve(); };
-      s.onerror = ()=> reject(new Error("โหลด hub-adapter.js ไม่สำเร็จ"));
-      document.head.appendChild(s);
-    });
-  }
-
-  async function loadGameModule(){
-    const tried = [];
-    for(const raw of GAME_JS_CANDIDATES){
-      tried.push(raw);
-      try{
-        const p = await probeJS(raw);
-        if(!p.ok){ log(`skip ${raw} → ${p.reason}`); continue; }
-        log(`import ${p.url}`);
-        await import(p.url);
-        log("game.js ✓");
-        return true;
-      }catch(e){
-        log(`fail ${raw} → ${e.message||e}`);
-      }
-    }
-    showErr("ไม่พบ/โหลด game.js ไม่สำเร็จ (เจอ HTML หรือ 404)", tried);
-    return false;
-  }
-
-  (async function bootAll(){
-    try{
-      await loadHubAdapter();
-      const ok = await loadGameModule();
-      if(ok){ boot.remove(); }
-    }catch(e){
-      showErr(e.message||String(e));
-    }
-  })();
-</script>
+  <!-- HUD + Result กลาง -->
+  <script src="../../common/game-shell.js"></script>
+  <!-- Logic ของ Shadow Breaker -->
+  <script src="./shadow-breaker.js"></script>
 </body>
 </html>
