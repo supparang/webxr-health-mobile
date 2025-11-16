@@ -1,10 +1,98 @@
 // === Hero Health — mode.groups.js ===
-// โหมด Food Groups: เลือกอาหารให้ตรง "หมู่เป้าหมาย" + Diff Table + ACC_TARGET
+// โหมด Food Groups: เลือกอาหารให้ตรง "หมู่เป้าหมาย" (วิจัยจริง + diff table)
 
 (function () {
   'use strict';
 
   window.HH_MODES = window.HH_MODES || {};
+  const MODE_ID = 'groups';
+
+  // ---------- Diff Table สำหรับโหมด Groups ----------
+  const HHA_DIFF_TABLE = {
+    groups: {
+      easy: {
+        engine: {
+          SPAWN_INTERVAL: 1050,
+          ITEM_LIFETIME: 2400,
+          MAX_ACTIVE: 3,
+          MISSION_GOOD_TARGET: 14,
+          SIZE_FACTOR: 1.2,
+          FEVER_DURATION: 5,
+          DIAMOND_TIME_BONUS: 3,
+          TYPE_WEIGHTS: {
+            good:   68,
+            junk:   14,
+            star:    8,
+            gold:    6,
+            diamond: 3,
+            shield:  5,
+            fever:   2,
+            rainbow: 0
+          }
+        },
+        benchmark: {
+          targetAccuracyPct: 85,
+          targetMissionSuccessPct: 90,
+          expectedAvgRTms: 950,
+          note: 'ใช้เป็น pre-test เบา ๆ ว่าเข้าใจหมู่อาหารเบื้องต้นไหม'
+        }
+      },
+      normal: {
+        engine: {
+          SPAWN_INTERVAL: 720,
+          ITEM_LIFETIME: 1650,
+          MAX_ACTIVE: 4,
+          MISSION_GOOD_TARGET: 18,
+          SIZE_FACTOR: 1.0,
+          FEVER_DURATION: 6,
+          DIAMOND_TIME_BONUS: 2,
+          TYPE_WEIGHTS: {
+            good:   52,
+            junk:   24,
+            star:    7,
+            gold:    5,
+            diamond: 4,
+            shield:  4,
+            fever:   4,
+            rainbow: 2
+          }
+        },
+        benchmark: {
+          targetAccuracyPct: 75,
+          targetMissionSuccessPct: 70,
+          expectedAvgRTms: 800,
+          note: 'เหมาะสำหรับเก็บคะแนนหลังเรียนหมู่อาหาร + วัด working memory'
+        }
+      },
+      hard: {
+        engine: {
+          SPAWN_INTERVAL: 520,
+          ITEM_LIFETIME: 1150,
+          MAX_ACTIVE: 6,
+          MISSION_GOOD_TARGET: 24,
+          SIZE_FACTOR: 0.9,
+          FEVER_DURATION: 7,
+          DIAMOND_TIME_BONUS: 1,
+          TYPE_WEIGHTS: {
+            good:   36,
+            junk:   40,
+            star:    6,
+            gold:    5,
+            diamond: 5,
+            shield:  3,
+            fever:   7,
+            rainbow: 3
+          }
+        },
+        benchmark: {
+          targetAccuracyPct: 60,
+          targetMissionSuccessPct: 50,
+          expectedAvgRTms: 720,
+          note: 'ใช้แยกเด็กที่จำหมู่อาหารได้แม่น + ตอบสนองเร็ว'
+        }
+      }
+    }
+  };
 
   // ---------- ข้อมูลหมู่อาหาร ----------
   const FOOD_GROUPS = [
@@ -40,6 +128,7 @@
     }
   ];
 
+  // ขยะ/ของล่อใช้ร่วมกับทุกหมู่
   const EXTRA_JUNK = ['🍔','🍟','🍕','🍩','🍪','🧁','🥤','🧋','🍫'];
 
   const STAR    = ['⭐','🌟'];
@@ -48,7 +137,7 @@
   const SHIELD  = ['🛡️'];
   const FEVER   = ['🔥'];
   const RAINBOW = ['🌈'];
-  const BOSS_ICON = ['👹','👾'];
+  const BOSS    = ['🍱','🍛']; // บอสจานรวมหมู่อาหาร
 
   function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
@@ -70,107 +159,54 @@
     return list;
   }
 
-  // state ต่อรอบ
   let currentGroup = null;
 
-  // ---------- Diff config ----------
-  const GROUPS_DIFF_TABLE = {
-    easy: {
-      SPAWN_INTERVAL: 1200,
-      ITEM_LIFETIME: 2300,
-      MAX_ACTIVE: 3,
-      MISSION_GOOD_TARGET: 12,
-      SIZE_FACTOR: 1.20,
-      TYPE_WEIGHTS: {
-        good:   68,
-        junk:   15,
-        star:    7,
-        gold:    4,
-        diamond: 3,
-        shield:  5,
-        fever:   3,
-        rainbow: 0
-      },
-      FEVER_DURATION: 5,
-      DIAMOND_TIME_BONUS: 3,
-      ACC_TARGET: { min: 0.80, max: 1.00 }
-    },
+  // ---------- configForDiff ----------
+  function configForDiff(diff) {
+    const d = (diff || 'normal').toLowerCase();
+    const modeCfg = HHA_DIFF_TABLE[MODE_ID] && HHA_DIFF_TABLE[MODE_ID][d];
+    if (modeCfg && modeCfg.engine) return modeCfg.engine;
 
-    normal: {
-      SPAWN_INTERVAL: 750,
+    // fallback ปลอดภัย
+    return {
+      SPAWN_INTERVAL: 720,
       ITEM_LIFETIME: 1650,
       MAX_ACTIVE: 4,
       MISSION_GOOD_TARGET: 18,
-      SIZE_FACTOR: 1.00,
+      SIZE_FACTOR: 1.0,
+      FEVER_DURATION: 6,
+      DIAMOND_TIME_BONUS: 2,
       TYPE_WEIGHTS: {
-        good:   50,
-        junk:   26,
+        good:   52,
+        junk:   24,
         star:    7,
         gold:    5,
         diamond: 4,
         shield:  4,
         fever:   4,
         rainbow: 2
-      },
-      FEVER_DURATION: 6,
-      DIAMOND_TIME_BONUS: 2,
-      ACC_TARGET: { min: 0.55, max: 0.75 }
-    },
-
-    hard: {
-      SPAWN_INTERVAL: 520,
-      ITEM_LIFETIME: 1200,
-      MAX_ACTIVE: 6,
-      MISSION_GOOD_TARGET: 24,
-      SIZE_FACTOR: 0.90,
-      TYPE_WEIGHTS: {
-        good:   34,
-        junk:   42,
-        star:    6,
-        gold:    5,
-        diamond: 5,
-        shield:  3,
-        fever:   8,
-        rainbow: 3
-      },
-      FEVER_DURATION: 7,
-      DIAMOND_TIME_BONUS: 1,
-      ACC_TARGET: { min: 0.35, max: 0.55 }
-    }
-  };
-
-  function configForDiff(diff) {
-    const d = (diff || 'normal').toLowerCase();
-    const base = GROUPS_DIFF_TABLE[d] || GROUPS_DIFF_TABLE.normal;
-    return JSON.parse(JSON.stringify(base));
+      }
+    };
   }
 
-  // ---------- Register mode ----------
-  window.HH_MODES.groups = {
-    id: 'groups',
+  // ---------- Register Mode ----------
+  window.HH_MODES[MODE_ID] = {
+    id: MODE_ID,
     label: 'Food Groups',
 
     setupForDiff: function (diff) {
       currentGroup = pickRandomGroup();
-      const cfg = configForDiff(diff);
-      // แนบข้อมูลหมู่เป้าหมายไว้เผื่อ coach หรือระบบอื่นใช้
-      cfg.sessionInfo = {
-        groupId: currentGroup.id,
-        groupLabel: currentGroup.label,
-        groupIcon: currentGroup.icon
-      };
-      return cfg;
+      return configForDiff(diff);
     },
 
     missionText: function (target) {
       if (currentGroup) {
-        return (
-          'ภารกิจวันนี้: เลือกอาหารให้ตรงกับหมู่เป้าหมาย ' +
-          '“' + currentGroup.icon + ' ' + currentGroup.label +
-          '” ให้ครบ ' + target + ' ชิ้น'
-        );
+        return 'ภารกิจวันนี้: เลือกอาหารให้ตรงหมู่ “' +
+          currentGroup.icon + ' ' + currentGroup.label +
+          '” ให้ครบ ' + target + ' ชิ้น';
       }
-      return 'ภารกิจวันนี้: เลือกอาหารให้ตรงกับหมู่เป้าหมายให้ครบ ' + target + ' ชิ้น';
+      return 'ภารกิจวันนี้: เลือกอาหารให้ตรงหมู่เป้าหมายให้ครบ ' +
+        target + ' ชิ้น';
     },
 
     pickEmoji: function (type) {
@@ -193,7 +229,7 @@
       if (type === 'shield')  return pickRandom(SHIELD);
       if (type === 'fever')   return pickRandom(FEVER);
       if (type === 'rainbow') return pickRandom(RAINBOW);
-      if (type === 'boss')    return pickRandom(BOSS_ICON);
+      if (type === 'boss')    return pickRandom(BOSS);
 
       return '❓';
     }
