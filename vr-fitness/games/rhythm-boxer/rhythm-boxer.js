@@ -1,15 +1,23 @@
-// === Rhythm Boxer — v1.5 (Research + HADO FX + Hard Cleanup + Body Flag) ===
-// ใช้กับ VR-Fitness: Rhythm Boxer (PC/Mobile/VR-ready)
+// === Rhythm Boxer — v1.6 (Research-ready) ===============================
+// - 4 lanes rhythm game (PC / Mobile / VR)
+// - Hybrid save (Firebase / Google Sheet / PDF / Leaderboard - optional)
+// - Result modal หรือ fallback ด้วย alert
+// - ใช้ร่วมกับ ShadowBreakerResearch schema ได้
 
-const FIREBASE_API = ''; // optional
-const SHEET_API    = ''; // Google Sheet Apps Script
-const PDF_API      = ''; // PDF Apps Script
-const LB_API       = ''; // optional leaderboard
+// ---------------------------------------------------------------------
+// CONFIG ENDPOINT (เติมเองภายหลังได้)
+// ---------------------------------------------------------------------
+const FIREBASE_API = ''; // e.g. 'https://.../firebase'
+const SHEET_API    = ''; // e.g. 'https://.../sheet'
+const PDF_API      = ''; // e.g. 'https://.../pdf'
+const LB_API       = ''; // e.g. 'https://.../leaderboard'
 
 const LS_PROFILE = 'rb_profile_v1';
 const LS_QUEUE   = 'rb_offline_queue_v1';
 
-// ----- Strings -----
+// ---------------------------------------------------------------------
+// STRINGS
+// ---------------------------------------------------------------------
 const STR = {
   th: {
     msgStart : 'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
@@ -21,7 +29,9 @@ const STR = {
   }
 };
 
-// ----- Profile -----
+// ---------------------------------------------------------------------
+// PROFILE
+// ---------------------------------------------------------------------
 function getProfile(){
   try{
     const raw = localStorage.getItem(LS_PROFILE);
@@ -43,7 +53,9 @@ function ensureProfile(){
   return p;
 }
 
-// ----- Offline queue -----
+// ---------------------------------------------------------------------
+// OFFLINE QUEUE
+// ---------------------------------------------------------------------
 function loadQueue(){
   try{
     const raw = localStorage.getItem(LS_QUEUE);
@@ -67,7 +79,9 @@ async function flushQueue(){
   saveQueue(remain);
 }
 
-// ----- Hybrid Save -----
+// ---------------------------------------------------------------------
+// HYBRID SAVE
+// ---------------------------------------------------------------------
 async function hybridSaveSession(summary, allowQueue = true){
   const body = JSON.stringify(summary);
   const headers = { 'Content-Type':'application/json' };
@@ -88,7 +102,9 @@ async function hybridSaveSession(summary, allowQueue = true){
   }
 }
 
-// ----- PDF Export -----
+// ---------------------------------------------------------------------
+// PDF EXPORT (optional)
+// ---------------------------------------------------------------------
 async function exportPDF(summary){
   if (!PDF_API){
     alert('ยังไม่ได้ตั้งค่า PDF_API');
@@ -114,7 +130,9 @@ async function exportPDF(summary){
   }
 }
 
-// ----- Leaderboard (optional) -----
+// ---------------------------------------------------------------------
+// LEADERBOARD (optional)
+// ---------------------------------------------------------------------
 async function loadLeaderboard(scope, profile){
   if (!LB_API) return [];
   const url = new URL(LB_API);
@@ -150,7 +168,9 @@ function buildLBTable(rows){
   return table;
 }
 
-// ----- Pattern -----
+// ---------------------------------------------------------------------
+// PATTERN (demo) — สามารถเปลี่ยนภายหลังได้
+// ---------------------------------------------------------------------
 const SONG_PATTERN = [
   0.8, 1.5, 2.2, 3.0,
   3.8, 4.5, 5.2, 6.0,
@@ -159,7 +179,9 @@ const SONG_PATTERN = [
   12.6, 13.4, 14.2, 15.0
 ].map((t,i)=>({ time:t, lane:i%4 }));
 
-// ===== MAIN CLASS =====
+// =====================================================================
+// MAIN CLASS
+// =====================================================================
 export class RhythmBoxer{
   constructor(opts){
     this.stage  = opts.stage;
@@ -169,7 +191,7 @@ export class RhythmBoxer{
     this.lbBox  = opts.lbBox  || null;
     this.pdfBtn = opts.pdfBtn || null;
 
-    // 🔒 ซ่อนการ์ดสรุปผลตั้งแต่ต้น (กันโผล่ทับหน้าเกม)
+    // ซ่อนการ์ดสรุปผลตั้งแต่ต้น
     if (this.result.box) {
       this.result.box.style.display = 'none';
     }
@@ -213,6 +235,9 @@ export class RhythmBoxer{
     this._msg(this.str.msgStart);
   }
 
+  // -------------------------------------------------------------------
+  // BASIC UI HELPERS
+  // -------------------------------------------------------------------
   _msg(t){ if (this.msgBox) this.msgBox.textContent = t; }
 
   _hud(){
@@ -222,6 +247,9 @@ export class RhythmBoxer{
     if (this.hud.combo) this.hud.combo.textContent = 'x'+s.combo;
   }
 
+  // -------------------------------------------------------------------
+  // LAYOUT
+  // -------------------------------------------------------------------
   _initLayout(){
     this.stage.innerHTML = '';
     this.stage.id = 'rb-stage';
@@ -301,6 +329,9 @@ export class RhythmBoxer{
     });
   }
 
+  // -------------------------------------------------------------------
+  // CONTROL
+  // -------------------------------------------------------------------
   start(){
     this._reset();
     this.state.play   = true;
@@ -340,6 +371,9 @@ export class RhythmBoxer{
     this._hud();
   }
 
+  // -------------------------------------------------------------------
+  // NOTES / HIT DETECTION
+  // -------------------------------------------------------------------
   _spawnNote(note){
     const lane = this.lanes[note.lane];
     if (!lane) return;
@@ -362,7 +396,7 @@ export class RhythmBoxer{
       if (!note.dom) return;
       const tNow   = this.state.elapsed;
       const dtHead = note.time - tNow;
-      const totalTravel = 2.0;
+      const totalTravel = 2.0; // sec ก่อนถึงเส้น
       const ratio  = 1 - (dtHead / totalTravel);
       const clamp  = Math.max(0, Math.min(1.2, ratio));
       const lane   = this.lanes[note.lane];
@@ -447,6 +481,9 @@ export class RhythmBoxer{
     setTimeout(()=>fx.remove(),600);
   }
 
+  // -------------------------------------------------------------------
+  // GAME LOOP
+  // -------------------------------------------------------------------
   _loop(ts){
     if (!this.state.play || this.state.paused) return;
     if (!this.state.lastTs) this.state.lastTs = ts;
@@ -479,6 +516,9 @@ export class RhythmBoxer{
     this.state.raf = requestAnimationFrame(this._loop.bind(this));
   }
 
+  // -------------------------------------------------------------------
+  // SUMMARY
+  // -------------------------------------------------------------------
   _buildSummary(){
     const total = this.state.hits + this.state.miss;
     const acc   = total>0 ? this.state.hits/total : 0;
@@ -504,7 +544,9 @@ export class RhythmBoxer{
     };
   }
 
-  // ----- Stage cleanup -----
+  // -------------------------------------------------------------------
+  // CLEANUP / FX
+  // -------------------------------------------------------------------
   _clearStage(){
     const kill = sel => document.querySelectorAll(sel).forEach(e => e.remove());
     kill('.rb-note');
@@ -520,7 +562,6 @@ export class RhythmBoxer{
     }
   }
 
-  // ----- FX -----
   _playFinishFx(){
     const ripple = document.createElement('div');
     ripple.className = 'rb-ripple';
@@ -534,32 +575,74 @@ export class RhythmBoxer{
     },1000);
   }
 
+  // -------------------------------------------------------------------
+  // FINISH + RESULT
+  // -------------------------------------------------------------------
   async _finish(){
+    // หยุด loop
     this.state.play = false;
     cancelAnimationFrame(this.state.raf);
     this._msg(this.str.msgEnd);
 
     const summary = this._buildSummary();
 
+    // ซ่อน stage ทั้งก้อน
+    if (this.stage) {
+      this.stage.style.display = 'none';
+    }
+    // เผื่อมี lane/โน้ตอื่น ๆ ค้าง
     this._clearStage();
+
+    // กัน scroll
     document.body.classList.add('rb-finished');
     document.body.style.overflow = 'hidden';
 
+    // FX
     this._playFinishFx();
 
-    setTimeout(()=>{
-      this._showResult(summary);
-      hybridSaveSession(summary,true);
-      this._loadLeaderboards(summary.profile);
-    },700);
+    // แสดงผล (modal หรือ alert)
+    const ok = this._showResult(summary);
+    if (!ok) {
+      const acc = (summary.accuracy * 100).toFixed(1);
+      alert(
+        `Rhythm Boxer Result\n` +
+        `Score: ${summary.score}\n` +
+        `Hits: ${summary.hits}\n` +
+        `Miss: ${summary.miss}\n` +
+        `Accuracy: ${acc}%\n` +
+        `Best Combo: x${summary.comboMax}\n` +
+        `Rank: ${summary.rank}`
+      );
+    }
+
+    // บันทึก + leaderboard
+    try {
+      await hybridSaveSession(summary, true);
+      this._loadLeaderboards && this._loadLeaderboards(summary.profile);
+    } catch(e){
+      console.warn('save / leaderboard error', e);
+    }
   }
 
   _showResult(summary){
-    const { box, score, hits, miss, acc, best, rank } = this.result;
-    if (!box) return;
-    const accVal = Math.round((summary.accuracy||0)*100);
+    // พยายามหา modal จาก this.result.box หรือ id fallback
+    const box   = (this.result && this.result.box) || document.getElementById('rbResultCard');
+    const score = this.result?.score || document.getElementById('rbScore');
+    const hits  = this.result?.hits  || document.getElementById('rbHits');
+    const miss  = this.result?.miss  || document.getElementById('rbMiss');
+    const acc   = this.result?.acc   || document.getElementById('rbAcc');
+    const best  = this.result?.best  || document.getElementById('rbBest');
+    const rank  = this.result?.rank  || document.getElementById('rbRank');
+
+    if (!box) {
+      console.warn('Result box not found (rbResultCard)');
+      return false;
+    }
+
+    const accVal = Math.round((summary.accuracy || 0) * 100);
 
     box.style.display = 'flex';
+
     if (score) score.textContent = summary.score;
     if (hits)  hits.textContent  = summary.hits;
     if (miss)  miss.textContent  = summary.miss;
@@ -568,10 +651,15 @@ export class RhythmBoxer{
     if (rank)  rank.textContent  = summary.rank;
 
     if (this.pdfBtn){
-      this.pdfBtn.onclick = ()=>exportPDF(summary);
+      this.pdfBtn.onclick = () => exportPDF(summary);
     }
+
+    return true;
   }
 
+  // -------------------------------------------------------------------
+  // LEADERBOARD LOAD
+  // -------------------------------------------------------------------
   async _loadLeaderboards(profile){
     if (!this.lbBox) return;
     try{
