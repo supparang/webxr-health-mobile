@@ -1,0 +1,94 @@
+/* ============================================================
+   SHADOW BREAKER — PRODUCTION STYLE (sport-arcade-neon)
+   ============================================================ */
+
+:root {
+  --c-bg: #020617;
+  --c-card: #0f172a;
+  --c-neon: #4df8ff;
+  --c-good: #22c55e;
+  --c-bad: #ef4444;
+  --c-fever: #facc15;
+  --c-onfire: #ff5722;
+  --transition: 0.22s cubic-bezier(.22,1.28,.36,1);
+}
+
+body {
+  background: var(--c-bg);
+  font-family: system-ui, Inter, Segoe UI, sans-serif;
+  margin: 0;
+  overflow: hidden;
+  color: #e2e8f0;
+}
+
+/* HUD */
+.hud {
+  position: fixed;
+  top: 12px; left: 12px; right:12px;
+  display: flex; justify-content: space-between;
+  font-size: 18px; font-weight: 600;
+}
+
+/* Targets */
+.sb-target {
+  position: fixed;
+  width: 80px; height: 80px;
+  border-radius: 14px;
+  display: grid; place-items:center;
+  font-size: 42px;
+  cursor: pointer;
+  user-select: none;
+  background: #1e293b;
+  box-shadow: 0 0 14px rgba(0,255,255,.3);
+  transition: transform .12s ease, background .15s;
+}
+.sb-target:hover { transform: scale(1.12); }
+
+.sb-target.fever {
+  background: var(--c-fever);
+  color: #1a1500;
+  box-shadow: 0 0 20px rgba(250,204,21,.9);
+}
+.sb-target.onfire {
+  background: var(--c-onfire);
+  color: #260000;
+  box-shadow: 0 0 28px rgba(255,87,34,1);
+}
+
+/* Particle FX */
+.pfx {
+  position: fixed;
+  width:10px; height:10px;
+  border-radius:50%;
+  pointer-events:none;
+  animation: pfx .45s linear forwards;
+}
+
+@keyframes pfx {
+  to { transform: translate(var(--dx),var(--dy)); opacity:0; }
+}
+
+/* Float Score */
+.float {
+  position:fixed; font-weight:700;
+  animation: float .65s ease-out forwards;
+}
+
+@keyframes float {
+  0% { transform:translate(-50%, -50%) scale(.8); opacity:.35;}
+  25%{ transform:translate(-50%, -75%) scale(1.4); opacity:1;}
+  100%{ transform:translate(-50%, -140%) scale(.8); opacity:0;}
+}
+
+/* Screen shake */
+.shake {
+  animation: shake .15s linear;
+}
+
+@keyframes shake {
+  0% { transform:translate(3px,-3px); }
+  25%{ transform:translate(-3px,2px); }
+  50%{ transform:translate(2px,3px); }
+  75%{ transform:translate(-2px,-2px); }
+  100%{ transform:translate(0,0); }
+}
