@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Hero Health — Teacher Dashboard</title>
+  <meta name="color-scheme" content="light dark"/>
+  <style>
+    :root{color-scheme: light dark;}
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(56,189,248,0.18), transparent 55%),
+        radial-gradient(circle at bottom, rgba(34,197,94,0.18), transparent 55%),
+        #020617;
+      color:#e5e7eb;
+      min-height:100vh;
+    }
+    .wrap{
+      max-width:1100px;
+      margin:0 auto;
+      padding:16px 16px 32px;
+    }
+    h1{
+      margin:0 0 4px;
+      font-size:22px;
+    }
+    .muted{
+      font-size:13px;
+      color:#cbd5f5;
+      margin-bottom:14px;
+    }
+    .card{
+      background:rgba(15,23,42,0.96);
+      border-radius:16px;
+      border:1px solid rgba(51,65,85,0.9);
+      padding:14px 16px;
+      margin-bottom:16px;
+      box-shadow:0 14px 35px rgba(0,0,0,0.55);
+    }
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+    }
+    .metric{
+      flex:1 1 200px;
+      background:rgba(15,23,42,0.9);
+      border-radius:12px;
+      padding:10px 12px;
+      border:1px solid rgba(30,64,175,0.8);
+    }
+    .metric-label{
+      font-size:11px;
+      color:#9ca3af;
+    }
+    .metric-value{
+      font-size:18px;
+      font-weight:600;
+      margin-top:2px;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:11px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:rgba(15,23,42,0.92);
+      color:#e5e7eb;
+      margin-bottom:8px;
+    }
+    input[type="file"]{
+      display:inline-block;
+      padding:6px 10px;
+      font-size:13px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:#020617;
+      color:#e5e7eb;
+      cursor:pointer;
+    }
+    select{
+      padding:6px 10px;
+      font-size:13px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:#020617;
+      color:#e5e7eb;
+    }
+    canvas{
+      max-width:100%;
+    }
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+      margin-top:8px;
+    }
+    th,td{
+      border-bottom:1px solid rgba(51,65,85,0.9);
+      padding:4px 6px;
+      text-align:left;
+      white-space:nowrap;
+    }
+    th{
+      color:#93c5fd;
+      font-weight:500;
+    }
+    @media (max-width:640px){
+      h1{font-size:19px;}
+    }
+  </style>
+  <!-- ใช้ Chart.js จาก CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Hero Health — Teacher Dashboard</h1>
+    <div class="muted">
+      เลือกไฟล์ CSV ที่ส่งออกจากเกม Hero Health เพื่อตรวจดูคะแนน ความแม่นยำ และเวลาโต้ตอบของนักเรียนเป็นภาพรวม
+    </div>
+
+    <div class="card">
+      <div class="badge">📂 เลือกไฟล์ข้อมูล</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+        <input type="file" id="fileInput" accept=".csv"/>
+        <span style="font-size:12px;color:#9ca3af;">
+          * ใช้ได้ทั้งโหมดครูและโหมดวิจัย
+        </span>
+      </div>
+    </div>
+
+    <div id="summaryCard" class="card" style="display:none;">
+      <div class="badge">📊 สรุปภาพรวมทั้งไฟล์</div>
+      <div class="row">
+        <div class="metric">
+          <div class="metric-label">จำนวนเหตุการณ์ (event rows)</div>
+          <div class="metric-value" id="mEvents">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">จำนวนนักเรียน (profile_name)</div>
+          <div class="metric-value" id="mStudents">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">ความแม่นยำเฉลี่ย</div>
+          <div class="metric-value" id="mAccAvg">0%</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">เวลาโต้ตอบเฉลี่ย (ms)</div>
+          <div class="metric-value" id="mRtAvg">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chartCard" class="card" style="display:none;">
+      <div class="badge">📈 กราฟคะแนน/ความแม่นยำรายคน</div>
+      <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <span style="font-size:12px;color:#cbd5f5;">โหมดกราฟ:</span>
+        <select id="chartMode">
+          <option value="score">คะแนนสูงสุดต่อคน</option>
+          <option value="acc">ความแม่นยำ (%) ต่อคน</option>
+          <option value="rt">เวลาโต้ตอบเฉลี่ย (ms) ต่อคน</option>
+        </select>
+      </div>
+      <canvas id="teacherChart" height="220"></canvas>
+    </div>
+
+    <div id="tableCard" class="card" style="display:none;">
+      <div class="badge">👥 ตารางสรุประดับนักเรียน</div>
+      <div style="overflow:auto;">
+        <table id="studentTable">
+          <thead>
+            <tr>
+              <th>ชื่อ</th>
+              <th>รหัส</th>
+              <th>ชั้น</th>
+              <th>โหมดยอดนิยม</th>
+              <th>คะแนนสูงสุด</th>
+              <th>ความแม่นยำเฉลี่ย (%)</th>
+              <th>RT เฉลี่ย (ms)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+
+    const fileInput = document.getElementById('fileInput');
+    const summaryCard = document.getElementById('summaryCard');
+    const chartCard = document.getElementById('chartCard');
+    const tableCard = document.getElementById('tableCard');
+
+    const mEvents = document.getElementById('mEvents');
+    const mStudents = document.getElementById('mStudents');
+    const mAccAvg = document.getElementById('mAccAvg');
+    const mRtAvg = document.getElementById('mRtAvg');
+
+    const chartModeSel = document.getElementById('chartMode');
+    const chartCanvas = document.getElementById('teacherChart');
+    const tableBody = document.querySelector('#studentTable tbody');
+
+    let parsedRows = [];
+    let perStudent = {};
+    let chartInstance = null;
+
+    // --- CSV Parser แบบง่าย รองรับฟิลด์มี "" ---
+    function parseCSV(text){
+      const rows = [];
+      let cur = [];
+      let value = '';
+      let inQuotes = false;
+
+      function pushValue(){
+        cur.push(value);
+        value = '';
+      }
+      function pushRow(){
+        if (cur.length === 1 && cur[0] === '') {
+          cur = [];
+          return;
+        }
+        rows.push(cur);
+        cur = [];
+      }
+
+      for (let i=0;i<text.length;i++){
+        const ch = text[i];
+        const next = text[i+1];
+
+        if (inQuotes){
+          if (ch === '"' && next === '"'){
+            value += '"';
+            i++;
+          } else if (ch === '"'){
+            inQuotes = false;
+          } else {
+            value += ch;
+          }
+        } else {
+          if (ch === '"'){
+            inQuotes = true;
+          } else if (ch === ','){
+            pushValue();
+          } else if (ch === '\r'){
+            // skip, handle on \n
+          } else if (ch === '\n'){
+            pushValue();
+            pushRow();
+          } else {
+            value += ch;
+          }
+        }
+      }
+      if (value.length || cur.length){
+        pushValue();
+        pushRow();
+      }
+      return rows;
+    }
+
+    function buildPerStudent(rows){
+      // rows = array of {profile_name, profile_grade, profile_id, mode, diff, kind, type, correct, rt_ms, score_after}
+      const map = {};
+      rows.forEach(r=>{
+        const name = r.profile_name || '';
+        const grade = r.profile_grade || '';
+        const sid = r.profile_id || '';
+        const key = name + '|' + sid + '|' + grade;
+        if (!map[key]){
+          map[key] = {
+            name, grade, sid,
+            totalEvents: 0,
+            hitEvents: 0,
+            correctEvents: 0,
+            sumRt: 0,
+            rtCount: 0,
+            maxScore: 0,
+            modeCount: {}
+          };
+        }
+        const s = map[key];
+        s.totalEvents++;
+
+        if (r.kind === 'hit' || r.kind === 'boss-hit'){
+          s.hitEvents++;
+          if (r.correct) s.correctEvents++;
+          if (typeof r.rt_ms === 'number'){
+            s.sumRt += r.rt_ms;
+            s.rtCount++;
+          }
+        }
+        if (typeof r.score_after === 'number' && r.score_after > s.maxScore){
+          s.maxScore = r.score_after;
+        }
+        const mKey = r.mode || '';
+        s.modeCount[mKey] = (s.modeCount[mKey]||0) + 1;
+      });
+
+      return map;
+    }
+
+    function modeLabel(mode){
+      switch((mode||'').toLowerCase()){
+        case 'goodjunk': return 'ดี vs ขยะ';
+        case 'groups': return 'จัดหมู่อาหาร';
+        case 'hydration': return 'น้ำดี น้ำหวาน';
+        case 'plate': return 'จานสมดุล';
+        default: return mode || '-';
+      }
+    }
+
+    function fillSummaryAndTable(){
+      const keys = Object.keys(perStudent);
+      const nStudents = keys.length;
+
+      // summary ทั้งไฟล์
+      let allAccSum = 0;
+      let allAccCount = 0;
+      let allRtSum = 0;
+      let allRtCount = 0;
+
+      keys.forEach(k=>{
+        const s = perStudent[k];
+        let acc = 0;
+        if (s.hitEvents > 0){
+          acc = (s.correctEvents / s.hitEvents) * 100;
+        }
+        let rt = 0;
+        if (s.rtCount > 0){
+          rt = s.sumRt / s.rtCount;
+        }
+        allAccSum += acc;
+        allAccCount++;
+        if (rt > 0){
+          allRtSum += rt;
+          allRtCount++;
+        }
+      });
+
+      mEvents.textContent = String(parsedRows.length);
+      mStudents.textContent = String(nStudents);
+      mAccAvg.textContent = allAccCount ? (allAccSum/allAccCount).toFixed(1)+'%' : '0%';
+      mRtAvg.textContent = allRtCount ? allRtSum/allRtCount.toFixed(1) : '0';
+
+      summaryCard.style.display = 'block';
+
+      // ตารางรายคน
+      tableBody.innerHTML = '';
+      keys.forEach(k=>{
+        const s = perStudent[k];
+        const tr = document.createElement('tr');
+
+        let favMode = '-';
+        let maxCount = 0;
+        Object.keys(s.modeCount).forEach(m=>{
+          if (s.modeCount[m] > maxCount){
+            maxCount = s.modeCount[m];
+            favMode = m;
+          }
+        });
+
+        let acc = 0;
+        if (s.hitEvents > 0){
+          acc = (s.correctEvents / s.hitEvents) * 100;
+        }
+        let rt = 0;
+        if (s.rtCount > 0){
+          rt = s.sumRt / s.rtCount;
+        }
+
+        tr.innerHTML = `
+          <td>${s.name || '-'}</td>
+          <td>${s.sid || '-'}</td>
+          <td>${s.grade || '-'}</td>
+          <td>${modeLabel(favMode)}</td>
+          <td>${s.maxScore}</td>
+          <td>${acc.toFixed(1)}%</td>
+          <td>${rt.toFixed(1)}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+
+      tableCard.style.display = 'block';
+    }
+
+    function updateChart(){
+      const keys = Object.keys(perStudent);
+      if (!keys.length) return;
+
+      const labels = [];
+      const dataScore = [];
+      const dataAcc = [];
+      const dataRt = [];
+
+      keys.forEach(k=>{
+        const s = perStudent[k];
+        labels.push(s.name || '(ไม่มีชื่อ)');
+
+        let acc = 0;
+        if (s.hitEvents > 0){
+          acc = (s.correctEvents / s.hitEvents) * 100;
+        }
+        let rt = 0;
+        if (s.rtCount > 0){
+          rt = s.sumRt / s.rtCount;
+        }
+        dataScore.push(s.maxScore);
+        dataAcc.push(acc);
+        dataRt.push(rt);
+      });
+
+      const mode = chartModeSel.value;
+
+      let datasetLabel = '';
+      let datasetData = [];
+      let yTitle = '';
+
+      if (mode === 'score'){
+        datasetLabel = 'คะแนนสูงสุด';
+        datasetData = dataScore;
+        yTitle = 'คะแนน';
+      } else if (mode === 'acc'){
+        datasetLabel = 'ความแม่นยำ (%)';
+        datasetData = dataAcc;
+        yTitle = 'Accuracy (%)';
+      } else {
+        datasetLabel = 'เวลาโต้ตอบเฉลี่ย (ms)';
+        datasetData = dataRt;
+        yTitle = 'RT (ms)';
+      }
+
+      if (chartInstance){
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(chartCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: datasetLabel,
+            data: datasetData
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true },
+            tooltip: { enabled: true }
+          },
+          scales: {
+            x: {
+              ticks: { autoSkip: false, maxRotation: 60, minRotation: 0 }
+            },
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: yTitle }
+            }
+          }
+        }
+      });
+
+      chartCard.style.display = 'block';
+    }
+
+    fileInput.addEventListener('change', function(){
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e){
+        const text = e.target.result || '';
+        const rawRows = parseCSV(text);
+        if (!rawRows.length){
+          alert('ไม่พบข้อมูลในไฟล์');
+          return;
+        }
+        const header = rawRows[0].map(h=>h.trim());
+        const rows = rawRows.slice(1);
+
+        // map header -> index
+        const idx = {};
+        header.forEach((h,i)=>{ idx[h] = i; });
+
+        parsedRows = [];
+        rows.forEach(cols=>{
+          if (!cols || !cols.length) return;
+
+          function col(name){
+            const i = idx[name];
+            if (i == null) return '';
+            return cols[i] || '';
+          }
+
+          const rtStr = col('rt_ms');
+          const rt = rtStr ? Number(rtStr) : null;
+          const scoreStr = col('score_after');
+          const score = scoreStr ? Number(scoreStr) : 0;
+
+          parsedRows.push({
+            profile_name: col('profile_name').replace(/^"|"$/g,''),
+            profile_grade: col('profile_grade').replace(/^"|"$/g,''),
+            profile_id: col('profile_id').replace(/^"|"$/g,''),
+            mode: col('mode'),
+            diff: col('diff'),
+            kind: col('kind'),
+            type: col('type'),
+            correct: col('correct') === '1',
+            rt_ms: (rt != null && !isNaN(rt)) ? rt : null,
+            score_after: !isNaN(score) ? score : 0
+          });
+        });
+
+        perStudent = buildPerStudent(parsedRows);
+        fillSummaryAndTable();
+        updateChart();
+      };
+      reader.readAsText(file, 'utf-8');
+    });
+
+    chartModeSel.addEventListener('change', function(){
+      if (!Object.keys(perStudent).length) return;
+      updateChart();
+    });
+
+  })();
+  </script>
+</body>
+</html>
