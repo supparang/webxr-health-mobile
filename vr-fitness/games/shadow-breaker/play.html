@@ -385,12 +385,12 @@
   <div class="page">
     <header class="top-bar">
       <div class="top-bar-title">
-        <strong>VR FITNESS • SHADOW BREAKER</strong>
-        <span>ต่อยมือตามเป้า • เก็บคอมโบ • สู้บอส 4 ด่าน</span>
+        <strong id="uiHeaderTitle">VR FITNESS • SHADOW BREAKER</strong>
+        <span id="uiHeaderTagline">ต่อยมือตามเป้า • เก็บคอมโบ • สู้บอส 4 ด่าน</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <span class="chip">🎯 <b>Research-ready</b></span>
-        <span class="chip">📱 PC · Mobile · VR</span>
+        <span class="chip" id="uiChipResearch">🎯 พร้อมใช้ในงานวิจัย</span>
+        <span class="chip" id="uiChipDevices">📱 PC · Mobile · VR</span>
         <div class="lang-toggle">
           <button class="btn btn-lang btn-lang-active" data-lang="th">ไทย</button>
           <button class="btn btn-lang" data-lang="en">EN</button>
@@ -401,46 +401,54 @@
     <main class="main">
       <!-- LEFT: Info / instructions -->
       <section class="panel">
-        <h2><span class="emoji">📘</span> คู่มือรอบนี้ / Session Notes</h2>
-        <p>เป้าหมาย: เพิ่มความไวในการตอบสนองของแขนและสายตา ฝึกความแม่นของหมัด พร้อมเก็บข้อมูลสำหรับงานวิจัย.</p>
-        <p>วิธีเล่นสั้น ๆ:</p>
+        <h2>
+          <span class="emoji">📘</span>
+          <span id="uiGuideTitle">คู่มือรอบนี้ / Session Notes</span>
+        </h2>
+        <p id="uiGuideGoal">
+          เป้าหมาย: เพิ่มความไวในการตอบสนองของแขนและสายตา ฝึกความแม่นของหมัด พร้อมเก็บข้อมูลสำหรับงานวิจัย.
+        </p>
+        <p id="uiGuideHowTitle">วิธีเล่นสั้น ๆ:</p>
         <ul style="margin:4px 0 4px 18px;padding:0;font-size:13px;color:#9ca3af;">
-          <li>กด <b>เริ่มรอบ</b> แล้วแตะ/ชกที่เป้า emoji ให้ไวที่สุด</li>
-          <li>คอมโบไม่หลุดถึง <b>5</b> จะเข้าโหมด <b>FEVER</b> (คะแนนคูณ)</li>
-          <li>ระหว่างทางจะมีบอส 4 ตัว จากง่ายไปยาก ลองตีให้แตกทุกตัว</li>
+          <li id="uiGuideHow1">กด <b>เริ่มรอบ</b> แล้วแตะ/ชกที่เป้า emoji ให้ไวที่สุด</li>
+          <li id="uiGuideHow2">คอมโบไม่หลุดถึง <b>5</b> จะเข้าโหมด <b>FEVER</b> (คะแนนคูณ)</li>
+          <li id="uiGuideHow3">ระหว่างทางจะมีบอส 4 ตัว จากง่ายไปยาก ลองตีให้แตกทุกตัว</li>
         </ul>
 
         <div class="stats-row" style="margin-top:8px;">
           <div class="stat-pill">
-            <label>โหมด / Mode</label>
+            <label id="uiInfoModeLabel">โหมด / Mode</label>
             <span id="sbModeLabel">Timed</span>
           </div>
           <div class="stat-pill">
-            <label>ความยาก / Difficulty</label>
+            <label id="uiInfoDiffLabel">ความยาก / Difficulty</label>
             <span id="sbDiffLabel">Normal</span>
           </div>
           <div class="stat-pill">
-            <label>อุปกรณ์ที่ใช้ / Device</label>
+            <label id="uiInfoDeviceLabel">อุปกรณ์ที่ใช้ / Device</label>
             <span id="sbDeviceLabel">—</span>
           </div>
         </div>
 
-        <h2 style="margin-top:10px;"><span class="emoji">📊</span> สถานะระหว่างเล่น / Live Stats</h2>
+        <h2 style="margin-top:10px;">
+          <span class="emoji">📊</span>
+          <span id="uiLiveTitle">สถานะระหว่างเล่น / Live Stats</span>
+        </h2>
         <div class="stats-row">
           <div class="stat-pill">
-            <label>คะแนนระหว่างเล่น</label>
+            <label id="uiLiveScoreLabel">คะแนนระหว่างเล่น</label>
             <span id="sbScoreLive">0</span>
           </div>
           <div class="stat-pill">
-            <label>โดนเป้า / Hits</label>
+            <label id="uiLiveHitsLabel">โดนเป้า / Hits</label>
             <span id="sbHitsLive">0</span>
           </div>
           <div class="stat-pill">
-            <label>พลาด / Miss</label>
+            <label id="uiLiveMissLabel">พลาด / Miss</label>
             <span id="sbMissLive">0</span>
           </div>
           <div class="stat-pill">
-            <label>คอมโบล่าสุด</label>
+            <label id="uiLiveComboLabel">คอมโบล่าสุด</label>
             <span id="sbComboLive">x0</span>
           </div>
         </div>
@@ -448,23 +456,26 @@
 
       <!-- RIGHT: Game -->
       <section class="panel">
-        <h2><span class="emoji">🎮</span> เล่นเกม / Play</h2>
+        <h2>
+          <span class="emoji">🎮</span>
+          <span id="uiPlayTitle">เล่นเกม / Play</span>
+        </h2>
 
         <div class="hud-bar">
           <div class="hud-chip">
-            <label>เวลา / Time ⏱</label>
+            <label id="uiHudTimeLabel">เวลา / Time ⏱</label>
             <span id="sbTime">90</span>
           </div>
           <div class="hud-chip">
-            <label>คะแนน / Score</label>
+            <label id="uiHudScoreLabel">คะแนน / Score</label>
             <span id="sbScoreLiveHUD">0</span>
           </div>
           <div class="hud-chip">
-            <label>โดน / Miss 🥊</label>
+            <label id="uiHudHitsLabel">โดน / Miss 🥊</label>
             <span><span id="sbHitsLiveHUD">0</span> / <span id="sbMissLiveHUD">0</span></span>
           </div>
           <div class="hud-chip">
-            <label>คอมโบ / Combo</label>
+            <label id="uiHudComboLabel">คอมโบ / Combo</label>
             <span id="sbComboLiveHUD">x0</span>
           </div>
         </div>
@@ -484,7 +495,9 @@
         <div id="sbResultCard" class="sb-result-card">
           <div class="sb-result-head">
             <div>
-              <div style="font-size:13px;color:#e5e7eb;font-weight:600;">สรุปรอบนี้ / Session Result</div>
+              <div style="font-size:13px;color:#e5e7eb;font-weight:600;" id="uiResultTitle">
+                สรุปรอบนี้ / Session Result
+              </div>
               <div style="font-size:12px;color:#9ca3af;" id="sbResultMeta">Shadow Breaker • 90s</div>
             </div>
             <div class="sb-rank-badge">
@@ -495,34 +508,34 @@
 
           <div class="sb-result-grid">
             <div class="sb-result-item">
-              <label>คะแนนรวม / Score</label>
+              <label id="uiResultScoreLabel">คะแนนรวม / Score</label>
               <span id="sbScore">0</span>
             </div>
             <div class="sb-result-item">
-              <label>โดนเป้า / Hits</label>
+              <label id="uiResultHitsLabel">โดนเป้า / Hits</label>
               <span id="sbHits">0</span>
             </div>
             <div class="sb-result-item">
-              <label>พลาด / Miss</label>
+              <label id="uiResultMissLabel">พลาด / Miss</label>
               <span id="sbMiss">0</span>
             </div>
             <div class="sb-result-item">
-              <label>ความแม่นยำ / Accuracy</label>
+              <label id="uiResultAccLabel">ความแม่นยำ / Accuracy</label>
               <span id="sbAcc">0%</span>
             </div>
             <div class="sb-result-item">
-              <label>คอมโบสูงสุด / Best Combo</label>
+              <label id="uiResultBestLabel">คอมโบสูงสุด / Best Combo</label>
               <span id="sbBest">x0</span>
             </div>
             <div class="sb-result-item">
-              <label>โน้ตต่อนาที / Notes per min</label>
+              <label id="uiResultNpmLabel">โน้ตต่อนาที / Notes per min</label>
               <span id="sbNPM">0</span>
             </div>
           </div>
 
           <div class="sb-result-actions">
-            <button id="sbCsvBtn" class="btn">⬇ Export CSV</button>
-            <button id="sbPdfBtn" class="btn">📄 Export PDF</button>
+            <button id="sbCsvBtn" class="btn"  >⬇ Export CSV</button>
+            <button id="sbPdfBtn" class="btn"  >📄 Export PDF</button>
           </div>
         </div>
       </section>
@@ -532,15 +545,175 @@
   <script type="module">
     import { ShadowBreaker } from './shadow-breaker.js';
 
+    // ======= TEXT DICTIONARY: UI (TH/EN) =======
+    const UI_STR = {
+      th: {
+        headerTitle   : 'VR FITNESS • SHADOW BREAKER',
+        headerTagline : 'ต่อยมือตามเป้า • เก็บคอมโบ • สู้บอส 4 ด่าน',
+        chipResearch  : '🎯 พร้อมใช้ในงานวิจัย',
+        chipDevices   : '📱 PC · Mobile · VR',
+
+        guideTitle    : 'คู่มือรอบนี้ / Session Notes',
+        guideGoal     : 'เป้าหมาย: เพิ่มความไวในการตอบสนองของแขนและสายตา ฝึกความแม่นของหมัด พร้อมเก็บข้อมูลสำหรับงานวิจัย.',
+        guideHowTitle : 'วิธีเล่นสั้น ๆ:',
+        guideHow1     : 'กด ▶ เริ่มรอบ แล้วแตะ/ชกที่เป้า emoji ให้ไวที่สุด',
+        guideHow2     : 'คอมโบไม่หลุดถึง 5 จะเข้าโหมด FEVER (คะแนนคูณ)',
+        guideHow3     : 'ระหว่างทางจะมีบอส 4 ตัว จากง่ายไปยาก ลองตีให้แตกทุกตัว',
+
+        infoModeLabel : 'โหมด / Mode',
+        infoDiffLabel : 'ความยาก / Difficulty',
+        infoDeviceLabel:'อุปกรณ์ที่ใช้ / Device',
+
+        liveTitle     : 'สถานะระหว่างเล่น / Live Stats',
+        liveScoreLabel: 'คะแนนระหว่างเล่น',
+        liveHitsLabel : 'โดนเป้า / Hits',
+        liveMissLabel : 'พลาด / Miss',
+        liveComboLabel: 'คอมโบล่าสุด',
+
+        playTitle     : 'เล่นเกม / Play',
+        hudTimeLabel  : 'เวลา / Time ⏱',
+        hudScoreLabel : 'คะแนน / Score',
+        hudHitsLabel  : 'โดน / Miss 🥊',
+        hudComboLabel : 'คอมโบ / Combo',
+
+        resultTitle   : 'สรุปรอบนี้ / Session Result',
+        resultScoreLabel: 'คะแนนรวม / Score',
+        resultHitsLabel : 'โดนเป้า / Hits',
+        resultMissLabel : 'พลาด / Miss',
+        resultAccLabel  : 'ความแม่นยำ / Accuracy',
+        resultBestLabel : 'คอมโบสูงสุด / Best Combo',
+        resultNpmLabel  : 'โน้ตต่อนาที / Notes per min',
+
+        csvBtn        : '⬇ ดาวน์โหลด CSV',
+        pdfBtn        : '📄 ดาวน์โหลด PDF',
+
+        btnStart      : '▶ เริ่มรอบ',
+        btnPause      : '⏸ พัก',
+        btnResume     : '▶ ต่อ',
+        btnExit       : '⏮ กลับเมนู'
+      },
+      en: {
+        headerTitle   : 'VR FITNESS • SHADOW BREAKER',
+        headerTagline : 'Punch targets • Build combos • Fight 4 bosses',
+        chipResearch  : '🎯 Research-ready',
+        chipDevices   : '📱 PC · Mobile · VR',
+
+        guideTitle    : 'Session Guide / Notes',
+        guideGoal     : 'Goal: Train eye–hand reaction speed and punching accuracy, with data ready for research use.',
+        guideHowTitle : 'How to play:',
+        guideHow1     : 'Press ▶ Start, then tap/punch the emoji targets as fast as you can.',
+        guideHow2     : 'Keep combo ≥ 5 to enter FEVER mode (bonus score).',
+        guideHow3     : 'Four bosses will appear from easy to hard — try to beat them all.',
+
+        infoModeLabel : 'Mode',
+        infoDiffLabel : 'Difficulty',
+        infoDeviceLabel:'Device',
+
+        liveTitle     : 'Live Stats',
+        liveScoreLabel: 'Live score',
+        liveHitsLabel : 'Hits',
+        liveMissLabel : 'Misses',
+        liveComboLabel: 'Last combo',
+
+        playTitle     : 'Play',
+        hudTimeLabel  : 'Time ⏱',
+        hudScoreLabel : 'Score',
+        hudHitsLabel  : 'Hits / Miss',
+        hudComboLabel : 'Combo',
+
+        resultTitle   : 'Session Result',
+        resultScoreLabel: 'Total score',
+        resultHitsLabel : 'Hits',
+        resultMissLabel : 'Misses',
+        resultAccLabel  : 'Accuracy',
+        resultBestLabel : 'Best combo',
+        resultNpmLabel  : 'Notes per min',
+
+        csvBtn        : '⬇ Export CSV',
+        pdfBtn        : '📄 Export PDF',
+
+        btnStart      : '▶ Start',
+        btnPause      : '⏸ Pause',
+        btnResume     : '▶ Resume',
+        btnExit       : '⏮ Back to hub'
+      }
+    };
+
+    function applyUILang(lang, game){
+      const d = UI_STR[lang] || UI_STR.th;
+      const map = [
+        ['uiHeaderTitle',    'headerTitle'],
+        ['uiHeaderTagline',  'headerTagline'],
+        ['uiChipResearch',   'chipResearch'],
+        ['uiChipDevices',    'chipDevices'],
+
+        ['uiGuideTitle',     'guideTitle'],
+        ['uiGuideGoal',      'guideGoal'],
+        ['uiGuideHowTitle',  'guideHowTitle'],
+        ['uiGuideHow1',      'guideHow1'],
+        ['uiGuideHow2',      'guideHow2'],
+        ['uiGuideHow3',      'guideHow3'],
+
+        ['uiInfoModeLabel',  'infoModeLabel'],
+        ['uiInfoDiffLabel',  'infoDiffLabel'],
+        ['uiInfoDeviceLabel','infoDeviceLabel'],
+
+        ['uiLiveTitle',      'liveTitle'],
+        ['uiLiveScoreLabel', 'liveScoreLabel'],
+        ['uiLiveHitsLabel',  'liveHitsLabel'],
+        ['uiLiveMissLabel',  'liveMissLabel'],
+        ['uiLiveComboLabel', 'liveComboLabel'],
+
+        ['uiPlayTitle',      'playTitle'],
+        ['uiHudTimeLabel',   'hudTimeLabel'],
+        ['uiHudScoreLabel',  'hudScoreLabel'],
+        ['uiHudHitsLabel',   'hudHitsLabel'],
+        ['uiHudComboLabel',  'hudComboLabel'],
+
+        ['uiResultTitle',       'resultTitle'],
+        ['uiResultScoreLabel',  'resultScoreLabel'],
+        ['uiResultHitsLabel',   'resultHitsLabel'],
+        ['uiResultMissLabel',   'resultMissLabel'],
+        ['uiResultAccLabel',    'resultAccLabel'],
+        ['uiResultBestLabel',   'resultBestLabel'],
+        ['uiResultNpmLabel',    'resultNpmLabel']
+      ];
+
+      for (const [id,key] of map){
+        const el = document.getElementById(id);
+        if (el && d[key]) el.textContent = d[key];
+      }
+
+      const csvBtn = document.getElementById('sbCsvBtn');
+      if (csvBtn) csvBtn.textContent = d.csvBtn || csvBtn.textContent;
+
+      const pdfBtn = document.getElementById('sbPdfBtn');
+      if (pdfBtn) pdfBtn.textContent = d.pdfBtn || pdfBtn.textContent;
+
+      const startBtn = document.getElementById('sbStartBtn');
+      const pauseBtn = document.getElementById('sbPauseBtn');
+      const exitBtn  = document.getElementById('sbExitBtn');
+
+      if (startBtn) startBtn.textContent = d.btnStart || startBtn.textContent;
+      if (exitBtn)  exitBtn.textContent  = d.btnExit  || exitBtn.textContent;
+
+      if (pauseBtn){
+        const running = game && game.state && game.state.running && !game.state.paused;
+        pauseBtn.textContent = running ? (d.btnPause || pauseBtn.textContent)
+                                       : (d.btnResume|| pauseBtn.textContent);
+      }
+
+      const statusEl = document.getElementById('sbStatus');
+      if (statusEl && game && game.str && game.str.msgReady){
+        statusEl.textContent = game.str.msgReady;
+      }
+    }
+
     // ======= CONFIG สำหรับงานวิจัย / หลายห้อง =======
     window.__SB_CONFIG = Object.assign({
       siteId    : 'DemoSite',
       roomId    : 'P5-ShadowLab',
       sessionTag: 'pilot-1'
-      // firebaseApi   : 'https://example.com/firebase',
-      // sheetApi      : 'https://example.com/sheet',
-      // pdfApi        : 'https://example.com/pdf',
-      // leaderboardApi: 'https://example.com/leaderboard'
     }, window.__SB_CONFIG || {});
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -549,10 +722,9 @@
       const mode = qs.get('mode') || 'timed';
       const time = parseInt(qs.get('time') || '90', 10);
 
-      // ---- Detect device + VR layout ----
       const ua = navigator.userAgent || '';
       const isVRHeadset = /Quest|Oculus|Pico|Vive|VR/i.test(ua);
-      const forceVR = qs.get('view') === 'vr';    // สำหรับทดสอบบน PC: ?view=vr
+      const forceVR = qs.get('view') === 'vr';
 
       if (isVRHeadset || forceVR) {
         document.body.classList.add('vr-mode');
@@ -562,7 +734,6 @@
       if (isVRHeadset) device = 'VR';
       else if (/Mobile|Android|iPhone/i.test(ua)) device = 'Mobile';
 
-      // แสดงบน info panel
       const diffLabel = document.getElementById('sbDiffLabel');
       const modeLabel = document.getElementById('sbModeLabel');
       if (diffLabel) diffLabel.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
@@ -595,12 +766,13 @@
         csvBtn: document.getElementById('sbCsvBtn'),
         pdfBtn: document.getElementById('sbPdfBtn'),
         onExit(summary){
-          // สามารถส่ง summary กลับ Hub ผ่าน postMessage ได้ตรงนี้ถ้าต้องการ
           window.location.href = './index.html';
         }
       });
 
-      // mirror live HUD -> left info card
+      // เก็บไว้ให้ applyUILang ใช้
+      window.__sbGameInstance = game;
+
       const $ = (id)=>document.getElementById(id);
       const mirror = () => {
         if (!game || !game.state) return;
@@ -612,7 +784,6 @@
       };
       setInterval(mirror, 200);
 
-      // ปุ่มควบคุม
       const startBtn = document.getElementById('sbStartBtn');
       const pauseBtn = document.getElementById('sbPauseBtn');
       const exitBtn  = document.getElementById('sbExitBtn');
@@ -620,6 +791,9 @@
       if (startBtn){
         startBtn.addEventListener('click', () => {
           game.start();
+          const langNow = game.lang || 'th';
+          const d = UI_STR[langNow] || UI_STR.th;
+          if (pauseBtn) pauseBtn.textContent = d.btnPause || pauseBtn.textContent;
         });
       }
       if (pauseBtn){
@@ -627,7 +801,9 @@
           if (!game.state.running) return;
           const wantPause = !game.state.paused;
           game.pause(wantPause);
-          pauseBtn.textContent = wantPause ? '▶ ต่อ' : '⏸ พัก';
+          const langNow = game.lang || 'th';
+          const d = UI_STR[langNow] || UI_STR.th;
+          pauseBtn.textContent = wantPause ? (d.btnResume || '▶ ต่อ') : (d.btnPause || '⏸ พัก');
         });
       }
       if (exitBtn){
@@ -636,34 +812,32 @@
         });
       }
 
-      // อัปเดต meta ใน result card
       const metaEl = document.getElementById('sbResultMeta');
       if (metaEl){
         metaEl.textContent = `Shadow Breaker • ${time || 90}s • diff: ${diff}`;
       }
 
-      // ====== Language toggle ======
       const langButtons = document.querySelectorAll('.btn-lang');
       langButtons.forEach(btn => {
         btn.addEventListener('click', () => {
           const lang = btn.dataset.lang;
           game.setLanguage(lang);
+          applyUILang(lang, game);
           langButtons.forEach(b => b.classList.remove('btn-lang-active'));
           btn.classList.add('btn-lang-active');
         });
       });
 
-      // sync ปุ่มกับภาษาเริ่มต้นของเกม
-      (function syncInitialLang(){
-        const currentLang = game.lang || 'th';
-        langButtons.forEach(btn => {
-          if (btn.dataset.lang === currentLang) {
-            btn.classList.add('btn-lang-active');
-          } else {
-            btn.classList.remove('btn-lang-active');
-          }
-        });
-      })();
+      // sync ภาษาเริ่มต้นตาม game.lang
+      const initialLang = game.lang || 'th';
+      langButtons.forEach(btn => {
+        if (btn.dataset.lang === initialLang) {
+          btn.classList.add('btn-lang-active');
+        } else {
+          btn.classList.remove('btn-lang-active');
+        }
+      });
+      applyUILang(initialLang, game);
     });
   </script>
 </body>
