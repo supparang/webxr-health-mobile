@@ -9,16 +9,12 @@
     :root{
       color-scheme:dark;
       --bg:#020617;
-      --bg-soft:#020617;
       --card:#020617;
-      --card-soft:#020617;
       --border:#1e293b;
       --text:#e5e7eb;
       --muted:#9ca3af;
       --accent:#38bdf8;
       --accent2:#22c55e;
-      --danger:#f97373;
-      --surface:#020617;
     }
     *{box-sizing:border-box;margin:0;padding:0;}
     body{
@@ -37,7 +33,7 @@
       padding:0 12px 32px;
     }
 
-    /* --- research card --- */
+    /* ===== Research card ===== */
     .research-card{
       background:radial-gradient(circle at top left,rgba(56,189,248,.1),transparent 55%),
                  #020617;
@@ -94,7 +90,7 @@
     }
     .field input::placeholder{color:#64748b;}
 
-    /* --- main card --- */
+    /* ===== Game card ===== */
     .shadow-card{
       margin-top:14px;
       background:radial-gradient(circle at top left,rgba(56,189,248,.1),transparent 55%),
@@ -200,6 +196,10 @@
       color:var(--text);
       border:1px solid #1f2937;
     }
+    .btn-small{
+      padding:6px 14px;
+      font-size:12px;
+    }
 
     .game-panel{
       position:relative;
@@ -211,7 +211,6 @@
       overflow:hidden;
     }
 
-    /* boss hud */
     .boss-barbox{
       position:relative;
       z-index:2;
@@ -280,26 +279,11 @@
       opacity:0;
       text-shadow:0 0 14px rgba(15,23,42,.85);
     }
-    .flash-show{
-      animation:flash-pop .4s ease-out;
-    }
-    @keyframes flash-pop{
-      0%{opacity:0;transform:translate(-50%,-10px) scale(.9);}
-      15%{opacity:1;transform:translate(-50%,-18px) scale(1.05);}
-      100%{opacity:0;transform:translate(-50%,-26px) scale(.9);}
-    }
-
-    /* targets */
-    .sb-target{
-      will-change:transform,opacity;
-    }
-
     .coach{
       font-size:13px;
       margin-top:4px;
       color:#e5e7eb;
     }
-
     .guide{
       margin-top:10px;
       padding:10px 10px 8px;
@@ -328,7 +312,7 @@
       margin-top:4px;
     }
 
-    /* overlay */
+    /* ===== Result overlay ===== */
     .overlay{
       position:fixed;
       inset:0;
@@ -341,7 +325,7 @@
     .overlay.hidden{display:none;}
     .overlay-box{
       width:100%;
-      max-width:420px;
+      max-width:440px;
       padding:18px 16px 16px;
       border-radius:18px;
       background:#020617;
@@ -363,12 +347,28 @@
       gap:8px;
       justify-content:flex-end;
     }
+
+    .research-tools{
+      margin-top:10px;
+      padding-top:8px;
+      border-top:1px dashed #1f2937;
+    }
+    .research-tools h3{
+      font-size:13px;
+      margin-bottom:6px;
+      color:var(--muted);
+    }
+    .research-tools-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
   </style>
 </head>
 <body>
   <div class="game-shell">
 
-    <!-- ===== ฟอร์มวิจัยด้านบน ===== -->
+    <!-- ===== ฟอร์มวิจัย ===== -->
     <section class="research-card">
       <header class="research-header">
         <div class="icon">📊</div>
@@ -491,7 +491,7 @@
     </section>
   </div>
 
-  <!-- ===== Overlay สรุปผล ===== -->
+  <!-- ===== Result Overlay ===== -->
   <div id="resultOverlay" class="overlay hidden">
     <div class="overlay-box">
       <h2>🏁 สรุปผลการเล่น Shadow Breaker</h2>
@@ -499,6 +499,22 @@
       <p><b>เวลาเล่น:</b> <span id="rTimeUsed">0s</span></p>
       <p><b>Max Combo:</b> <span id="rMaxCombo">x0</span></p>
       <p><b>บอสที่ล้มได้:</b> <span id="rBossCleared">0/4</span></p>
+
+      <!-- ปุ่มสำหรับครู / นักวิจัย -->
+      <div class="research-tools">
+        <h3>สำหรับครู / นักวิจัย</h3>
+        <div class="research-tools-row">
+          <button id="dlCsvBtn" class="btn btn-secondary btn-small">
+            ⬇ บันทึกเป็น CSV
+          </button>
+          <button id="copySummaryBtn" class="btn btn-secondary btn-small">
+            📋 คัดลอกสรุปผล
+          </button>
+        </div>
+        <p class="hint">
+          * ไฟล์ CSV สามารถเปิดใน Excel / SPSS ได้ หรือวางสรุปใน Word / Google Docs
+        </p>
+      </div>
 
       <div class="overlay-actions">
         <button id="playAgainBtn" class="btn btn-primary">▶ เล่นอีกครั้ง</button>
@@ -510,7 +526,7 @@
   <!-- เกมหลัก -->
   <script type="module" src="./shadow-breaker.js"></script>
 
-  <!-- script ย่อย: detect device + toggle ภาษา -->
+  <!-- script: device detect + language + export -->
   <script>
     (function(){
       const deviceSel = document.getElementById('deviceSel');
@@ -580,8 +596,81 @@
         langTh.classList.remove('active');
         setLang('en');
       });
-
       setLang('th');
+
+      // ===== Export tools =====
+      function collectSession(){
+        return {
+          timestamp: new Date().toISOString(),
+          studentId: stuId.value.trim(),
+          device: deviceSel.value,
+          school: school.value.trim(),
+          classRoom: classRoom.value.trim(),
+          note: note.value.trim(),
+          score: document.getElementById('rScore').textContent.trim(),
+          timeUsed: document.getElementById('rTimeUsed').textContent.trim(),
+          maxCombo: document.getElementById('rMaxCombo').textContent.replace(/^x/,'').trim(),
+          bossCleared: document.getElementById('rBossCleared').textContent.trim()
+        };
+      }
+
+      const dlCsvBtn = document.getElementById('dlCsvBtn');
+      const copySummaryBtn = document.getElementById('copySummaryBtn');
+
+      if (dlCsvBtn){
+        dlCsvBtn.addEventListener('click', ()=>{
+          const d = collectSession();
+          const header = 'timestamp,studentId,device,school,classRoom,note,score,timeUsed,maxCombo,bossCleared\n';
+          const row = [
+            d.timestamp,
+            d.studentId,
+            d.device,
+            d.school,
+            d.classRoom,
+            d.note,
+            d.score,
+            d.timeUsed,
+            d.maxCombo,
+            d.bossCleared
+          ].map(v=>('"'+String(v).replace(/"/g,'""')+'"')).join(',');
+          const blob = new Blob([header+row],{type:'text/csv;charset=utf-8;'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'shadow-breaker-session.csv';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        });
+      }
+
+      if (copySummaryBtn){
+        copySummaryBtn.addEventListener('click', async ()=>{
+          const d = collectSession();
+          const txt =
+`Shadow Breaker session
+เวลา: ${d.timestamp}
+Student ID: ${d.studentId || '-'}
+Device: ${d.device}
+School: ${d.school || '-'}
+Class/Room: ${d.classRoom || '-'}
+Note: ${d.note || '-'}
+
+Score: ${d.score}
+Time: ${d.timeUsed}
+Max Combo: x${d.maxCombo}
+Boss cleared: ${d.bossCleared}`;
+
+          try{
+            await navigator.clipboard.writeText(txt);
+            alert('คัดลอกสรุปผลไปยังคลิปบอร์ดแล้ว');
+          }catch(e){
+            alert('คัดลอกไม่สำเร็จ สามารถเลือกข้อความสรุปเองได้');
+            console.error(e);
+          }
+        });
+      }
     })();
   </script>
 </body>
