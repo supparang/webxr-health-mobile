@@ -347,17 +347,37 @@
     body.vr-mode .main{
       grid-template-columns: minmax(0,1fr);
     }
-    /* ซ่อน panel ซ้าย (คู่มือ + live stats) ใน VR */
     body.vr-mode .main .panel:first-of-type{
       display:none;
     }
-    /* จอเกมใหญ่ขึ้นใน VR */
     body.vr-mode .sb-arena{
       height: min(80vh, 560px);
     }
     body.vr-mode header.top-bar{
       transform:scale(0.96);
       opacity:0.94;
+    }
+
+    /* Language toggle */
+    .lang-toggle{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding-left:4px;
+      border-left:1px solid rgba(148,163,184,0.5);
+    }
+    .btn-lang{
+      padding:4px 10px;
+      font-size:11px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:rgba(15,23,42,0.9);
+      color:#e5e7eb;
+    }
+    .btn-lang-active{
+      background:linear-gradient(135deg,#38bdf8,#a855f7);
+      color:#0b1120;
+      border:none;
     }
   </style>
 </head>
@@ -371,6 +391,10 @@
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <span class="chip">🎯 <b>Research-ready</b></span>
         <span class="chip">📱 PC · Mobile · VR</span>
+        <div class="lang-toggle">
+          <button class="btn btn-lang btn-lang-active" data-lang="th">ไทย</button>
+          <button class="btn btn-lang" data-lang="en">EN</button>
+        </div>
       </div>
     </header>
 
@@ -612,11 +636,34 @@
         });
       }
 
-      // อัปเดต meta ใน result card ตอนจบรอบ
+      // อัปเดต meta ใน result card
       const metaEl = document.getElementById('sbResultMeta');
       if (metaEl){
         metaEl.textContent = `Shadow Breaker • ${time || 90}s • diff: ${diff}`;
       }
+
+      // ====== Language toggle ======
+      const langButtons = document.querySelectorAll('.btn-lang');
+      langButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const lang = btn.dataset.lang;
+          game.setLanguage(lang);
+          langButtons.forEach(b => b.classList.remove('btn-lang-active'));
+          btn.classList.add('btn-lang-active');
+        });
+      });
+
+      // sync ปุ่มกับภาษาเริ่มต้นของเกม
+      (function syncInitialLang(){
+        const currentLang = game.lang || 'th';
+        langButtons.forEach(btn => {
+          if (btn.dataset.lang === currentLang) {
+            btn.classList.add('btn-lang-active');
+          } else {
+            btn.classList.remove('btn-lang-active');
+          }
+        });
+      })();
     });
   </script>
 </body>
