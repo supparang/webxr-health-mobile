@@ -1,113 +1,523 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>Rhythm Boxer – Play</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<style>
-  body {
-    margin:0;
-    font-family:system-ui,Segoe UI,Roboto,sans-serif;
-    background:#0f172a;
-    color:#e2e8f0;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    min-height:100vh;
-    padding:16px;
-  }
-  h1{margin:10px 0 4px;font-size:1.4rem;text-align:center;}
-  form{
-    background:#1e293b;
-    padding:16px 14px;
-    border-radius:14px;
-    border:1px solid #334155;
-    width:100%;
-    max-width:520px;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-    margin-bottom:14px;
-  }
-  label{font-size:.85rem;color:#cbd5e1;}
-  input{
-    width:100%;padding:8px 10px;border-radius:8px;border:1px solid #334155;
-    background:#0f172a;color:#e2e8f0;font-size:.9rem;
-  }
-  .laneWrap {
-    display:flex;gap:8px;justify-content:center;margin:14px 0;
-  }
-  .lane {
-    flex:1;max-width:90px;height:300px;border-radius:10px;border:2px solid #475569;
-    display:flex;align-items:center;justify-content:center;font-size:2rem;user-select:none;
-    background:rgba(148,163,184,.1);
-  }
-  .lane.active { background:#22d3ee33;border-color:#22d3ee; }
-  button.startBtn {
-    margin-top:10px;padding:11px 14px;border-radius:10px;background:#0ea5e9;
-    border:none;color:#0f172a;font-size:1rem;font-weight:600;cursor:pointer;
-  }
-  #coachMsg{margin:8px 0 0;text-align:center;font-size:.9rem;color:#38bdf8;}
-  #timer,#scoreTxt{font-size:1.1rem;margin:4px;}
-  .resultBox{margin-top:16px;background:#1e293b;border:1px solid #334155;
-    border-radius:12px;padding:12px;display:none;max-width:520px;width:100%;
-  }
-  .dlBtn {
-    background:#22c55e;border:none;color:#0f172a;font-weight:600;border-radius:8px;
-    padding:8px 10px;margin-top:10px;width:100%;
-  }
-  .backBtn {
-    margin-top:10px;background:#94a3b8;color:#0f172a;border:none;padding:8px 10px;
-    border-radius:8px;text-align:center;text-decoration:none;display:inline-block;
-    font-weight:600;width:100%;
-  }
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — Shadow Breaker (Play)</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing:border-box; }
+
+    body {
+      margin:0;
+      min-height:100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,.2), transparent 55%),
+        #020617;
+      color:#e5e7eb;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+    }
+
+    .wrap {
+      width:100%;
+      max-width:1100px;
+      margin:auto;
+      padding:10px 12px 16px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    header.top {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:4px 4px 0;
+    }
+
+    .title-block {
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+
+    .title-main {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:1.1rem;
+      font-weight:600;
+    }
+
+    .title-main .logo {
+      width:28px; height:28px;
+      border-radius:999px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:radial-gradient(circle at 30% 20%, #a5f3fc, #0ea5e9);
+      box-shadow:0 0 0 1px rgba(8,47,73,.5);
+      font-size:16px;
+    }
+
+    .subtitle {
+      font-size:.8rem;
+      color:#9ca3af;
+    }
+
+    .pill {
+      font-size:.7rem;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      padding:4px 9px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.5);
+      color:#e5e7eb;
+      background:rgba(15,23,42,.7);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    .pill .dot {
+      width:6px; height:6px; border-radius:999px;
+      background:#22c55e;
+      box-shadow:0 0 0 4px rgba(34,197,94,.3);
+    }
+
+    .hud {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:6px 8px;
+      border-radius:12px;
+      border:1px solid rgba(148,163,184,.45);
+      background:rgba(15,23,42,.9);
+    }
+
+    .hud-left {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px 16px;
+      align-items:center;
+      font-size:.78rem;
+    }
+
+    .hud-item {
+      display:flex;
+      align-items:center;
+      gap:4px;
+      color:#e5e7eb;
+    }
+    .hud-item span.label {
+      font-size:.72rem;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      color:#9ca3af;
+    }
+    .hud-item span.value {
+      font-weight:600;
+    }
+
+    #startBtn {
+      border:none;
+      border-radius:999px;
+      padding:7px 14px;
+      font-size:.85rem;
+      font-weight:600;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      background:linear-gradient(135deg,#22d3ee,#0ea5e9);
+      color:#0f172a;
+      box-shadow:0 10px 24px rgba(8,47,73,.7);
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    #startBtn span.icon { font-size:1rem; }
+    #startBtn:active { transform:translateY(1px); box-shadow:0 7px 18px rgba(8,47,73,.65); }
+
+    .layout {
+      display:grid;
+      grid-template-columns: minmax(0,3fr) minmax(0,1.6fr);
+      gap:10px;
+      margin-top:4px;
+    }
+    @media (max-width:900px) {
+      .layout { grid-template-columns: minmax(0,1fr); }
+    }
+
+    .game-shell {
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.5);
+      background:#020617;
+      overflow:hidden;
+      position:relative;
+      min-height:260px;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .game-area {
+      position:relative;
+      flex:1;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at top, rgba(148,163,253,.16), transparent 60%),
+        radial-gradient(circle at bottom, rgba(45,212,191,.14), transparent 60%),
+        #020617;
+    }
+
+    .hit-line {
+      position:absolute;
+      left:0; right:0;
+      bottom:12%;
+      height:3px;
+      background:linear-gradient(90deg, rgba(56,189,248,.3), rgba(16,185,129,.8), rgba(59,130,246,.3));
+      box-shadow:0 0 14px rgba(34,197,94,.9);
+    }
+
+    #gameArena {
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+    }
+
+    .boss-hud {
+      position:absolute;
+      left:10px;
+      top:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 7px;
+      border-radius:999px;
+      background:rgba(15,23,42,.8);
+      border:1px solid rgba(148,163,184,.5);
+      font-size:.72rem;
+    }
+
+    .boss-face {
+      font-size:1rem;
+    }
+    .boss-bar-wrap {
+      width:90px;
+      height:6px;
+      border-radius:999px;
+      background:#020617;
+      overflow:hidden;
+    }
+    .boss-bar-fill {
+      width:100%;
+      height:100%;
+      background:linear-gradient(90deg,#f97316,#ef4444);
+      transform-origin:left center;
+    }
+
+    .coach {
+      min-height:46px;
+      padding:6px 8px 4px;
+      font-size:.8rem;
+      color:#cbd5f5;
+    }
+
+    .coach strong { color:#facc15; }
+
+    .side-card {
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,.5);
+      background:rgba(15,23,42,.9);
+      padding:10px 10px 12px;
+      font-size:.78rem;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+
+    .side-card h2 {
+      margin:0;
+      font-size:.9rem;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    .side-card ul {
+      margin:4px 0 0;
+      padding-left:18px;
+    }
+    .side-card li { margin-bottom:2px; color:#9ca3af; }
+
+    .side-card small { color:#6b7280; }
+
+    .footer-hint {
+      margin-top:4px;
+      font-size:.72rem;
+      color:#6b7280;
+      text-align:right;
+    }
+
+    .overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.88);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:30;
+    }
+    .overlay.hidden { display:none; }
+
+    .overlay-card {
+      width:100%;
+      max-width:420px;
+      border-radius:20px;
+      background:#020617;
+      border:1px solid rgba(148,163,184,.7);
+      padding:16px 16px 14px;
+      box-shadow:0 26px 70px rgba(0,0,0,.9);
+    }
+
+    .overlay-card h2 {
+      margin:0 0 8px;
+      font-size:1.1rem;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .overlay-card h2 span.icon { font-size:1.4rem; }
+
+    .result-grid {
+      display:grid;
+      grid-template-columns: repeat(2,minmax(0,1fr));
+      gap:6px 12px;
+      font-size:.8rem;
+      margin-bottom:10px;
+    }
+
+    .result-row {
+      display:flex;
+      justify-content:space-between;
+      gap:6px;
+    }
+
+    .result-label { color:#9ca3af; }
+    .result-value { font-weight:600; }
+
+    .overlay-actions {
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    .btn {
+      border-radius:999px;
+      border:none;
+      padding:8px 10px;
+      font-size:.8rem;
+      font-weight:600;
+      letter-spacing:.03em;
+      text-transform:uppercase;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      text-decoration:none;
+    }
+
+    .btn-primary {
+      background:linear-gradient(135deg,#22d3ee,#0ea5e9);
+      color:#020617;
+    }
+    .btn-secondary {
+      background:rgba(15,23,42,1);
+      color:#e5e7eb;
+      border:1px solid rgba(148,163,184,.8);
+    }
+
+    #flashMsg {
+      position:absolute;
+      left:50%; top:52%;
+      transform:translate(-50%,-50%);
+      font-size:2.2rem;
+      font-weight:800;
+      text-shadow:0 0 18px rgba(0,0,0,.9);
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .flash-show {
+      animation:flashPop 420ms ease-out;
+    }
+
+    @keyframes flashPop {
+      0% { opacity:0; transform:translate(-50%,-50%) scale(.6); }
+      30% { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
+      100% { opacity:0; transform:translate(-50%,-50%) scale(1); }
+    }
+
+    @media (max-width:640px) {
+      .wrap { padding:6px 8px 10px; }
+      header.top { padding-inline:2px; }
+      .hud { flex-direction:column; align-items:flex-start; }
+      #startBtn { align-self:stretch; justify-content:center; }
+    }
+  </style>
 </head>
 <body>
+  <div class="wrap">
+    <header class="top">
+      <div class="title-block">
+        <div class="title-main">
+          <span class="logo">🥊</span>
+          <span>Shadow Breaker</span>
+        </div>
+        <div class="subtitle">
+          ต่อยเป้าให้ทันจังหวะและตำแหน่ง บอสจะโผล่มาเป็นระยะจากง่ายไปยาก
+          <br><small id="modeInfo">โหมด: <span id="modeLabel">Timed</span> • ระยะเวลา <span id="timeLabel">90</span> วินาที</small>
+        </div>
+      </div>
+      <div class="pill">
+        <span class="dot"></span>
+        <span>Play session</span>
+      </div>
+    </header>
 
-<h1 id="title">🥊 Rhythm Boxer</h1>
-<div id="phaseText"></div>
+    <section class="hud">
+      <div class="hud-left">
+        <div class="hud-item">
+          <span class="label">Time</span>
+          <span class="value" id="timeVal">90</span><span>s</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">Score</span>
+          <span class="value" id="scoreVal">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">Combo</span>
+          <span class="value" id="comboVal">x0</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">Boss</span>
+          <span class="value" id="bossIndexVal">1/4</span>
+        </div>
+      </div>
+      <button id="startBtn">
+        <span class="icon">▶</span>
+        <span>เริ่มเล่น</span>
+      </button>
+    </section>
 
-<form id="metaForm">
-  <label>ชื่อ - นามสกุล (Name)</label>
-  <input id="studentName" autocomplete="off" />
+    <section class="layout">
+      <div class="game-shell">
+        <div class="game-area">
+          <div id="gameArena"></div>
+          <div class="hit-line"></div>
 
-  <label>รหัสนักเรียน / Student ID</label>
-  <input id="studentId" autocomplete="off" />
+          <div class="boss-hud" id="bossHud">
+            <span class="boss-face" id="bossFace">🟦</span>
+            <div class="boss-bar-wrap">
+              <div class="boss-bar-fill" id="bossHpBar"></div>
+            </div>
+          </div>
 
-  <label>โรงเรียน (School)</label>
-  <input id="school" autocomplete="off" />
+          <div id="flashMsg"></div>
+        </div>
+        <div class="coach" id="coachLine">
+          แตะเป้า / ต่อยให้โดนวงกลมที่โผล่มาตามจังหวะ ยิ่งต่อเนื่องคอมโบยิ่งสูง!
+        </div>
+      </div>
 
-  <label>ชั้น / ห้อง (Class)</label>
-  <input id="classRoom" autocomplete="off" />
+      <aside class="side-card">
+        <h2>วิธีเล่น / Controls</h2>
+        <ul>
+          <li><strong>PC / Notebook:</strong> คลิกเมาส์บนเป้าที่โผล่ขึ้นมา</li>
+          <li><strong>Mobile / Tablet:</strong> แตะนิ้วไปที่เป้าให้ทัน</li>
+          <li><strong>VR Headset:</strong> ใช้ pointer / controller เล็งแล้วกด trigger ให้โดน</li>
+        </ul>
+        <small>ต่อยเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ.</small>
+      </aside>
+    </section>
 
-  <label>กลุ่มทดลอง (Group: A/B/C...)</label>
-  <input id="groupCode" autocomplete="off" />
+    <div class="footer-hint">
+      Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น
+    </div>
+  </div>
 
-  <button type="button" class="startBtn" id="btnStart">เริ่มเล่น / Start</button>
-</form>
+  <!-- Result Overlay -->
+  <div class="overlay hidden" id="resultOverlay">
+    <div class="overlay-card">
+      <h2>
+        <span class="icon">🏁</span>
+        <span>สรุปผล Shadow Breaker</span>
+      </h2>
 
-<div id="coachMsg">เตรียมตัว…</div>
-<div id="timer"></div>
-<div id="scoreTxt"></div>
+      <div class="result-grid">
+        <div class="result-row">
+          <span class="result-label">คะแนนรวม</span>
+          <span class="result-value" id="rScore">0</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">เวลาที่ใช้จริง</span>
+          <span class="result-value" id="rTimeUsed">0s</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">คอมโบสูงสุด</span>
+          <span class="result-value" id="rMaxCombo">x0</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">จำนวนบอสที่เคลียร์</span>
+          <span class="result-value" id="rBossCleared">0/4</span>
+        </div>
+      </div>
 
-<div class="laneWrap" id="laneWrap">
-  <div class="lane" id="laneL">◀</div>
-  <div class="lane" id="laneM">◆</div>
-  <div class="lane" id="laneR">▶</div>
-</div>
+      <div class="overlay-actions">
+        <button class="btn btn-secondary" id="backBtn">
+          ← กลับเมนู
+        </button>
+        <button class="btn btn-primary" id="playAgainBtn">
+          เล่นอีกครั้ง ▶
+        </button>
+      </div>
+    </div>
+  </div>
 
-<div class="resultBox" id="resultBox">
-  <h3>📊 ผลการเล่น (Result)</h3>
-  <p id="rScore"></p>
-  <p id="rCombo"></p>
-  <p id="rAccuracy"></p>
-  <p id="rHitMiss"></p>
-  <button class="dlBtn" id="btnDownload">ดาวน์โหลดผล (.csv)</button>
-  <a href="./index.html" class="backBtn">กลับหน้าเลือกโหมด</a>
-</div>
+  <!-- เกมหลัก (ใช้ shadow-breaker.js เวอร์ชันล่าสุด) -->
+  <script src="./shadow-breaker.js"></script>
+  <script>
+    // ดึงค่าโหมด/เวลา/ระดับจาก query string มาโชว์ที่หัว
+    (function () {
+      const p = new URLSearchParams(location.search);
+      const mode = p.get('mode') || 'timed';
+      const diff = p.get('diff') || 'normal';
+      const time = parseInt(p.get('time') || '90', 10);
 
-<script src="./rhythm-boxer.js"></script>
+      const modeLabel = document.getElementById('modeLabel');
+      const timeLabel = document.getElementById('timeVal');
+      const timeLabelTop = document.getElementById('timeLabel');
+
+      let modeText = 'Timed';
+      if (mode === 'endless') modeText = 'Endless';
+      const diffTh =
+        diff === 'easy' ? 'ง่าย' : diff === 'hard' ? 'ยาก' : 'ปกติ';
+
+      modeLabel.textContent = `${modeText} • ${diffTh}`;
+      timeLabel.textContent = isNaN(time) ? '90' : String(time);
+      timeLabelTop.textContent = isNaN(time) ? '90' : String(time);
+    })();
+  </script>
 </body>
 </html>
