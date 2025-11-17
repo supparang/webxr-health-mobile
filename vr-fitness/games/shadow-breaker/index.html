@@ -1,232 +1,123 @@
-<!doctype html>
-<html lang="th">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>VR Fitness — Shadow Breaker</title>
-  <meta name="color-scheme" content="dark light" />
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing:border-box; }
+:root { color-scheme:dark; }
+* { box-sizing:border-box; }
 
-    body {
-      margin:0;
-      min-height:100vh;
-      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,.2), transparent 55%),
-        #020617;
-      color:#e5e7eb;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:16px;
-    }
+body{
+  margin:0;
+  min-height:100vh;
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at top left,rgba(56,189,248,.18),transparent 55%),
+    radial-gradient(circle at bottom right,rgba(34,197,94,.2),transparent 55%),
+    #020617;
+  color:#e5e7eb;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
 
-    main {
-      width:100%;
-      max-width:720px;
-      background:rgba(15,23,42,0.9);
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,0.4);
-      padding:20px 18px 22px;
-      backdrop-filter: blur(20px);
-      box-shadow:0 24px 70px rgba(15,23,42,0.8);
-    }
+main{
+  width:100%;
+  max-width:780px;
+  background:rgba(15,23,42,.9);
+  border-radius:20px;
+  padding:22px 18px 26px;
+  border:1px solid rgba(148,163,184,.45);
+  backdrop-filter:blur(20px);
+  box-shadow:0 26px 70px rgba(2,6,23,.8);
+}
 
-    header {
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:12px;
-    }
+header{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:12px;
+  flex-wrap:wrap;
+}
+.title h1{
+  margin:0;
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.title .logo{
+  width:34px;height:34px;border-radius:999px;
+  background:radial-gradient(circle at 30% 20%,#a5f3fc,#0ea5e9);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 0 1px rgba(8,47,73,.5);
+}
+subtitle{ font-size:.9rem;color:#94a3b8; }
 
-    .title-block h1 {
-      margin:0 0 4px;
-      font-size:1.55rem;
-      letter-spacing:.03em;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
+.pill{
+  font-size:.7rem;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.5);
+  background:rgba(15,23,42,.6);
+  padding:4px 10px;
+  display:flex;
+  align-items:center;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  gap:6px;
+}
+.pill .dot{
+  width:7px;height:7px;border-radius:999px;
+  background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.3);
+}
 
-    .title-block h1 span.logo {
-      width:32px; height:32px; border-radius:999px;
-      display:inline-flex; align-items:center; justify-content:center;
-      background:radial-gradient(circle at 30% 20%, #a5f3fc, #0ea5e9);
-      font-size:18px; box-shadow:0 0 0 1px rgba(8,47,73,.5);
-    }
+/* Game mode grid */
+.mode-box{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+  margin-top:14px;
+}
+@media(max-width:720px){
+  .mode-box { grid-template-columns:1fr; }
+}
+.card{
+  border-radius:16px;
+  background:rgba(15,23,42,.85);
+  border:1px solid rgba(148,163,184,.4);
+  padding:14px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.card h2{ margin:0;font-size:1rem; }
+.card p{ font-size:.8rem;color:#9ca3af;margin:0; }
 
-    .title-block .subtitle { font-size:.9rem; color:#94a3b8; }
+.card a{
+  margin-top:8px;
+  padding:8px 0;
+  border-radius:999px;
+  background:linear-gradient(135deg,#22d3ee,#0ea5e9);
+  color:#0f172a;
+  font-weight:600;
+  letter-spacing:.02em;
+  text-align:center;
+  text-decoration:none;
+  text-transform:uppercase;
+  box-shadow:0 10px 26px rgba(8,47,73,.7);
+}
 
-    .pill {
-      font-size:.7rem; letter-spacing:.08em; padding:4px 9px;
-      border-radius:999px; border:1px solid rgba(148,163,184,.5);
-      background:rgba(15,23,42,.6);
-      display:inline-flex; align-items:center; gap:6px;
-      text-transform:uppercase;
-    }
-
-    .pill .dot {
-      width:6px; height:6px; border-radius:999px;
-      background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,.3);
-    }
-
-    .desc {
-      font-size:.9rem; color:#cbd5f5; margin-bottom:14px; line-height:1.45;
-    }
-    .desc small { font-size:.8rem; color:#9ca3af; display:block; margin-top:4px; }
-
-    .phase-grid {
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:10px;
-      margin-bottom:18px;
-    }
-    @media (max-width:640px) {
-      .phase-grid { grid-template-columns:1fr; }
-    }
-
-    .phase-card {
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.45);
-      background:linear-gradient(135deg,rgba(15,23,42,.9),rgba(15,23,42,.75));
-      padding:10px 10px 12px;
-      display:flex; flex-direction:column; gap:4px;
-    }
-
-    .phase-title { font-size:.9rem; font-weight:600; display:flex; gap:6px; }
-
-    .phase-desc { font-size:.78rem; color:#9ca3af; min-height:2.3em; }
-
-    .phase-card a {
-      margin-top:6px; display:inline-flex; justify-content:center; align-items:center;
-      gap:6px; padding:7px 8px; border-radius:999px; border:none; text-decoration:none;
-      font-size:.8rem; font-weight:600; background:linear-gradient(135deg,#22d3ee,#0ea5e9);
-      color:#0f172a; box-shadow:0 12px 25px rgba(8,47,73,.7);
-      text-transform:uppercase; letter-spacing:.03em;
-    }
-
-    .footer {
-      margin-top:6px; font-size:.75rem; color:#94a3b8; opacity:.85;
-      display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
-    }
-
-    .lang-toggle { display:flex; gap:4px; }
-    .lang-toggle button {
-      padding:3px 8px; border-radius:999px; border:1px solid rgba(148,163,184,.6);
-      background:rgba(15,23,42,.6); color:#e5e7eb; font-size:.75rem; cursor:pointer;
-    }
-    .lang-toggle button.active { background:#e5e7eb; color:#020617; }
-  </style>
-</head>
-<body>
-  <main>
-    <header>
-      <div class="title-block">
-        <h1><span class="logo">🥊</span><span id="title">Shadow Breaker</span></h1>
-        <div class="subtitle" id="subtitle">เกมต่อยเป้า ฝึกความแม่นยำ + speed + การโฟกัส</div>
-      </div>
-      <div class="pill"><span class="dot"></span><span id="modeTag">PLAY MODE</span></div>
-    </header>
-
-    <p class="desc" id="desc">
-      เลือกโหมดการเล่น — มีทั้งแบบจับเวลา และแบบเล่นไม่รู้จบ พร้อมระบบบอส 4 ตัวที่ยากขึ้นเรื่อย ๆ
-      <small>รองรับ PC / Mobile / VR Headset</small>
-    </p>
-
-    <div class="phase-grid">
-      <div class="phase-card">
-        <div class="phase-title" id="labelTimed">⏱️ Timed Mode</div>
-        <p class="phase-desc" id="descTimed">เล่น 90 วินาที เก็บคะแนน + combo + boss</p>
-        <a href="./play.html?mode=timed&diff=normal&time=90" id="btnTimed">เล่น ▶</a>
-      </div>
-
-      <div class="phase-card">
-        <div class="phase-title" id="labelHard">🔥 Hard Mode</div>
-        <p class="phase-desc" id="descHard">เร็วขึ้น แถมบอส HP มากกว่าเดิม</p>
-        <a href="./play.html?mode=timed&diff=hard&time=90" id="btnHard">ท้าทาย ▶</a>
-      </div>
-
-      <div class="phase-card">
-        <div class="phase-title" id="labelEndless">♾️ Endless Mode</div>
-        <p class="phase-desc" id="descEndless">ไม่มีจับเวลา อยู่รอดให้นานที่สุด</p>
-        <a href="./play.html?mode=endless&diff=normal" id="btnEndless">เล่นต่อเนื่อง ▶</a>
-      </div>
-    </div>
-
-    <div class="footer">
-      <span id="pdpa">* ใช้เพื่อทดสอบทักษะและวิจัยเบื้องต้น ไม่เปิดเผยข้อมูลระบุตัวตน</span>
-      <div class="lang-toggle">
-        <button class="active" data-lang="th">TH</button>
-        <button data-lang="en">EN</button>
-      </div>
-    </div>
-  </main>
-
-  <script>
-    const langBtn = document.querySelectorAll('.lang-toggle button');
-    const text = {
-      th: {
-        title:'Shadow Breaker',
-        subtitle:'เกมต่อยเป้า ฝึกความแม่นยำ + speed + การโฟกัส',
-        desc:'เลือกโหมดการเล่น — มีทั้งแบบจับเวลา และแบบเล่นไม่รู้จบ พร้อมระบบบอส 4 ตัวที่ยากขึ้นเรื่อย ๆ',
-        timed:'⏱️ โหมดจับเวลา',
-        timedDesc:'เล่น 90 วินาที เก็บคะแนน + combo + boss',
-        hard:'🔥 โหมดยาก',
-        hardDesc:'เร็วขึ้น แถมบอส HP มากกว่าเดิม',
-        endless:'♾️ โหมดไม่รู้จบ',
-        endlessDesc:'ไม่มีจับเวลา อยู่รอดให้นานที่สุด',
-        play:'เล่น ▶',
-        chall:'ท้าทาย ▶',
-        endlessBtn:'เริ่ม ▶',
-        pdpa:'* ใช้เพื่อทดสอบทักษะและวิจัยเบื้องต้น ไม่เปิดเผยข้อมูลระบุตัวตน'
-      },
-      en: {
-        title:'Shadow Breaker',
-        subtitle:'Punch accuracy + reaction speed + focus training',
-        desc:'Select your mode — timed, hard challenge, or endless endurance with 4 boss tiers.',
-        timed:'⏱️ Timed Mode',
-        timedDesc:'Play 90s, build score + combo + boss',
-        hard:'🔥 Hard Mode',
-        hardDesc:'Faster + stronger boss HP',
-        endless:'♾️ Endless Mode',
-        endlessDesc:'No timer — survive as long as possible',
-        play:'Play ▶',
-        chall:'Challenge ▶',
-        endlessBtn:'Start ▶',
-        pdpa:'* Research-only, no personal identity disclosed.'
-      }
-    };
-
-    function setLang(l) {
-      const t = text[l];
-      document.getElementById("title").textContent = t.title;
-      document.getElementById("subtitle").textContent = t.subtitle;
-      document.getElementById("desc").childNodes[0].nodeValue = t.desc + " ";
-      document.getElementById("labelTimed").textContent = t.timed;
-      document.getElementById("descTimed").textContent = t.timedDesc;
-      document.getElementById("btnTimed").textContent = t.play;
-      document.getElementById("labelHard").textContent = t.hard;
-      document.getElementById("descHard").textContent = t.hardDesc;
-      document.getElementById("btnHard").textContent = t.chall;
-      document.getElementById("labelEndless").textContent = t.endless;
-      document.getElementById("descEndless").textContent = t.endlessDesc;
-      document.getElementById("btnEndless").textContent = t.endlessBtn;
-      document.getElementById("pdpa").textContent = t.pdpa;
-    }
-
-    langBtn.forEach(btn=>{
-      btn.addEventListener("click",()=>{
-        langBtn.forEach(b=>b.classList.remove("active"));
-        btn.classList.add("active");
-        setLang(btn.dataset.lang);
-      })
-    });
-
-    setLang("th");
-  </script>
-</body>
-</html>
+/* Language */
+.lang{ display:flex; gap:6px; }
+.lang button{
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.7);
+  background:rgba(15,23,42,.6);
+  font-size:.75rem;
+  color:#e5e7eb;
+  cursor:pointer;
+}
+.lang button.active{
+  background:#e5e7eb;
+  color:#020617;
+}
+.info{
+  font-size:.72rem;
+  color:#9ca3af;
+  margin-top:10px;
+}
