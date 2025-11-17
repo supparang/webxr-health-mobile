@@ -8,428 +8,621 @@
   <style>
     :root {
       color-scheme: dark;
+      --bg: #020617;
+      --bg-card: #020617;
+      --text: #e5e7eb;
+      --accent: #38bdf8;
+      --danger: #fb7185;
+      --ok: #4ade80;
+      --border-soft: #1f2937;
+      --shadow-soft: 0 18px 40px rgba(15,23,42,.9);
+      --radius-xl: 22px;
     }
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:
-        radial-gradient(circle at top, #020617, #020617 40%, #000 100%);
-      color: #e5e7eb;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* Top bar */
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 40;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      background: linear-gradient(to bottom, rgba(15,23,42,0.95), rgba(15,23,42,0.7));
-      backdrop-filter: blur(10px);
-    }
-    .topbar-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 600;
-    }
-    .topbar-title {
-      font-size: 16px;
-    }
-    .topbar-btn {
-      border-radius: 999px;
-      border: none;
-      padding: 6px 12px;
-      font-size: 14px;
-      font-weight: 600;
-      background: #38bdf8;
-      color: #02131f;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-    }
-    .topbar-btn span {
-      font-size: 16px;
-    }
-
-    .hud-right {
-      display: flex;
-      gap: 10px;
-      font-size: 13px;
-      align-items: center;
-    }
-    .hud-pill {
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: rgba(15,23,42,0.8);
-      border: 1px solid rgba(148,163,184,0.7);
-      box-shadow: 0 6px 14px rgba(15,23,42,0.8);
-    }
-
-    /* Main HUD area */
-    .hud-wrap {
-      padding: 10px 10px 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-    }
-    .btn-pause {
-      border-radius: 8px;
-      border: none;
-      padding: 6px 12px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-weight: 600;
-      background: #f97316;
-      color: #111827;
-      cursor: pointer;
-      box-shadow: 0 8px 18px rgba(15,23,42,0.7);
-    }
-    .btn-pause-icon {
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      width:18px;
-      height:18px;
-      border-radius:4px;
-      background:#020617;
-      color:#f97316;
-      font-size:13px;
-    }
-    .btn-stats {
-      width:32px;
-      height:32px;
-      border-radius:10px;
-      border:none;
-      background:#38bdf8;
-      color:#02131f;
+        radial-gradient(circle at 20% -10%, rgba(56,189,248,.25), transparent 55%),
+        radial-gradient(circle at 120% 110%, rgba(56,189,248,.08), transparent 55%),
+        radial-gradient(circle at -10% 130%, rgba(34,197,94,.16), transparent 55%),
+        #020617;
+      color:var(--text);
       display:flex;
-      align-items:center;
       justify-content:center;
-      cursor:pointer;
-      box-shadow:0 8px 18px rgba(8,47,73,0.75);
     }
-    .hud-msg {
-      flex:1;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: rgba(15,23,42,0.8);
-      border: 1px solid rgba(148,163,184,0.6);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Stage host */
-    #rbStageHost {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
-      pointer-events: none; /* lane ภายในจะเปิด pointer เอง */
-    }
-
-    /* lane + note */
-    .rb-lane {
-      backdrop-filter: blur(10px);
-    }
-    .rb-note {
-      transition: bottom 0.08s linear;
-    }
-
-    /* float score */
-    .float {
-      font-weight: 700;
-      text-shadow: 0 4px 10px rgba(15,23,42,.7);
-      animation: rbFloatUp 0.6s ease-out forwards;
-      pointer-events: none;
-      font-size: 18px;
-    }
-    @keyframes rbFloatUp {
-      0% { opacity:1; transform:translate(-50%,-50%) translateY(0); }
-      100%{ opacity:0; transform:translate(-50%,-50%) translateY(-24px); }
-    }
-
-    /* HADO ripple + scan */
-    .rb-ripple {
-      position: fixed;
-      left:50%; top:50%;
-      width:40vmin; height:40vmin;
-      border-radius:999px;
-      border:3px solid rgba(56,189,248,.9);
-      transform:translate(-50%,-50%);
-      animation: rbRipple 0.8s ease-out forwards;
-      pointer-events:none;
-    }
-    @keyframes rbRipple {
-      0% { opacity:0.8; transform:translate(-50%,-50%) scale(0.2); }
-      100%{ opacity:0;   transform:translate(-50%,-50%) scale(2.2); }
-    }
-
-    .rb-scan {
-      position:fixed;
-      left:0; right:0;
-      height:24vh;
-      top:-24vh;
-      background:linear-gradient(to bottom,
-        rgba(125,211,252,0) 0%,
-        rgba(125,211,252,0.25) 40%,
-        rgba(125,211,252,0) 100%);
-      animation: rbScan 0.9s ease-out forwards;
-      pointer-events:none;
-    }
-    @keyframes rbScan {
-      0% { top:-24vh; opacity:0; }
-      10%{ opacity:0.9; }
-      100%{ top:100vh; opacity:0; }
-    }
-
-    /* Result card */
-    #rbResultCard {
-      display:none;           /* ซ่อนเริ่มต้น */
-      position:fixed;
-      inset:0;
-      z-index:60;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:16px;
-      background: radial-gradient(circle at top, rgba(15,23,42,0.82), rgba(15,23,42,0.96));
-      backdrop-filter: blur(10px);
-    }
-    #rbResultCard.hidden {
-      display:none;
-    }
-    .rb-result-inner {
-      max-width:480px;
+    .shell{
       width:100%;
-      background:rgba(15,23,42,.96);
-      border-radius:24px;
-      box-shadow:0 24px 60px rgba(15,23,42,.9);
-      border:1px solid rgba(148,163,184,.8);
-      padding:24px 24px 20px;
+      max-width:1024px;
+      padding:16px 12px 32px;
     }
-    .rb-result-inner h2 {
-      margin:0 0 12px;
+    header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:12px;
+    }
+    .brand{
       font-size:20px;
+      font-weight:700;
+      letter-spacing:.03em;
       display:flex;
       align-items:center;
       gap:8px;
     }
-    .rb-result-inner dl {
-      margin:0;
-      font-size:14px;
-    }
-    .rb-result-inner dt {
-      float:left;
-      width:120px;
-      color:#9ca3af;
-    }
-    .rb-result-inner dd {
-      margin:0 0 6px 120px;
-    }
-    .rb-result-actions {
-      margin-top:18px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-    }
-    .rb-btn {
-      flex:1;
+    .pill{
+      padding:6px 10px;
       border-radius:999px;
-      padding:10px 16px;
+      background:rgba(15,23,42,.85);
+      border:1px solid rgba(51,65,85,.8);
+      font-size:12px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .back-btn{
       border:none;
+      border-radius:999px;
+      padding:8px 14px;
+      font-size:14px;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      background:#38bdf8;
+      color:#0f172a;
       font-weight:600;
+      text-decoration:none;
+      cursor:pointer;
+      box-shadow:0 10px 30px rgba(56,189,248,.4);
+      white-space:nowrap;
+    }
+    .back-btn span{font-size:18px;}
+
+    .meta-grid{
+      display:grid;
+      grid-template-columns:1.1fr 1.1fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+    @media (max-width:760px){
+      .meta-grid{grid-template-columns:1fr;}
+    }
+
+    .card{
+      background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 55%),
+                 radial-gradient(circle at bottom right, rgba(15,23,42,.9), #020617);
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(15,23,42,.9);
+      box-shadow:var(--shadow-soft);
+      padding:14px 14px 16px;
+    }
+    .card h2{
+      margin:0 0 10px;
       font-size:15px;
+      font-weight:700;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .card h2 span{font-size:17px;}
+
+    .meta-form{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+      font-size:13px;
+    }
+    .meta-form .full{grid-column:1 / -1;}
+    .field label{
+      display:block;
+      margin-bottom:2px;
+      font-size:12px;
+      opacity:.9;
+    }
+    .field input,
+    .field select{
+      width:100%;
+      padding:6px 8px;
+      border-radius:10px;
+      border:1px solid rgba(51,65,85,.9);
+      background:rgba(15,23,42,.8);
+      color:var(--text);
+      font-size:13px;
+      outline:none;
+    }
+    .field input::placeholder{color:#6b7280;}
+
+    .coach-hint{
+      margin-top:6px;
+      font-size:12px;
+      opacity:.95;
+    }
+
+    .lang-toggle{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
+      font-size:12px;
+      margin-bottom:6px;
+    }
+    .lang-toggle button{
+      border-radius:999px;
+      border:1px solid rgba(51,65,85,.9);
+      padding:3px 10px;
+      background:rgba(15,23,42,.9);
+      color:#9ca3af;
+      font-size:11px;
+      font-weight:600;
       cursor:pointer;
     }
-    .rb-btn-primary {
-      background:#22c55e;
-      color:#022c22;
+    .lang-toggle button.active{
+      background:#38bdf8;
+      color:#0f172a;
+      border-color:#38bdf8;
     }
-    .rb-btn-ghost {
+
+    .hud-card{
+      background:radial-gradient(circle at top, rgba(148,163,184,.1), transparent 50%),
+                 rgba(15,23,42,.96);
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(30,64,175,.7);
+      box-shadow:var(--shadow-soft);
+      padding:10px 14px 14px;
+    }
+    .hud-row1{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:8px;
+    }
+    .metric-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .metric{
+      min-width:88px;
+      padding:6px 10px;
+      border-radius:12px;
+      border:1px solid rgba(30,64,175,.75);
+      background:linear-gradient(135deg, rgba(15,23,42,.96), rgba(17,24,39,.96));
+      text-align:center;
+      font-size:11px;
+    }
+    .metric-label{
+      opacity:.7;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      font-size:10px;
+    }
+    .metric-value{
+      margin-top:2px;
+      font-weight:700;
+      font-size:15px;
+    }
+    .metric-value small{font-size:11px;opacity:.7;}
+
+    .start-btn{
+      border:none;
+      border-radius:999px;
+      padding:8px 22px;
+      font-size:15px;
+      font-weight:700;
+      background:radial-gradient(circle at 20% 0%, #facc15, #fb923c);
+      color:#0f172a;
+      cursor:pointer;
+      box-shadow:0 16px 35px rgba(250,204,21,.55);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+    }
+    .start-btn span{font-size:18px;}
+
+    .hud-row2{
+      font-size:13px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(31,41,55,.8);
+      background:rgba(15,23,42,.92);
+      margin-bottom:10px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .game-frame{
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(30,64,175,.7);
+      background:radial-gradient(circle at 20% -10%, rgba(59,130,246,.3), transparent 55%),
+                 radial-gradient(circle at 120% 120%, rgba(14,165,233,.22), transparent 55%),
+                 radial-gradient(circle at -5% 120%, rgba(34,197,94,.16), transparent 65%),
+                 #020617;
+      padding:12px;
+      min-height:260px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    @media (min-height:740px){
+      .game-frame{min-height:310px;}
+    }
+
+    .game-area{
+      position:relative;
+      width:100%;
+      max-width:640px;
+      aspect-ratio:16/9;
+      border-radius:22px;
+      overflow:hidden;
+      background:radial-gradient(circle at top, rgba(15,23,42,.2), transparent 60%),
+                 linear-gradient(180deg,#020617,#020617 60%,#020617);
+      border:1px solid rgba(15,23,42,.9);
+    }
+
+    .lane-wrap{
+      position:absolute;
+      inset:0;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      align-items:stretch;
+      justify-items:stretch;
+    }
+    .lane{
+      position:relative;
+      border-left:1px solid rgba(15,23,42,.8);
+      border-right:1px solid rgba(15,23,42,.8);
+      background:linear-gradient(180deg,rgba(15,23,42,.4),rgba(15,23,42,.95));
+      overflow:hidden;
+    }
+    .lane-hitline{
+      position:absolute;
+      left:0;right:0;
+      bottom:18%;
+      height:3px;
+      background:linear-gradient(90deg,rgba(148,163,184,.3),rgba(248,250,252,.9),rgba(148,163,184,.3));
+      box-shadow:0 0 10px rgba(248,250,252,.6);
+    }
+    .lane-label{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:4px;
+      font-size:11px;
+      opacity:.75;
+      pointer-events:none;
+    }
+
+    .note{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      width:60px;
+      height:60px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:26px;
+      box-shadow:0 12px 30px rgba(15,23,42,.8);
+      transition:transform .08s ease-out, opacity .1s ease-out;
+    }
+    .note.L{background:radial-gradient(circle at 20% 0%, #38bdf8,#0f172a);}
+    .note.R{background:radial-gradient(circle at 20% 0%, #22c55e,#052e16);}
+    .note.B{background:radial-gradient(circle at 20% 0%, #f97316,#7c2d12);}
+    .note.hit{transform:translateX(-50%) scale(.6);opacity:0;}
+
+    .feedback{
+      position:absolute;
+      left:50%;
+      transform:translateX(-50%);
+      bottom:26%;
+      font-size:20px;
+      font-weight:700;
+      text-shadow:0 0 10px rgba(15,23,42,.9);
+      pointer-events:none;
+    }
+    .feedback.perfect{color:#a5f3fc;}
+    .feedback.good{color:#bbf7d0;}
+    .feedback.miss{color:#fecaca;}
+
+    .bottom-row{
+      margin-top:10px;
+      font-size:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+      opacity:.9;
+    }
+    .tag-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      font-size:11px;
+    }
+    .tag{
+      padding:4px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.8);
+      border:1px dashed rgba(55,65,81,.8);
+    }
+
+    /* Result overlay */
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.86);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:40;
+      padding:14px;
+      backdrop-filter:blur(9px);
+    }
+    .overlay.hidden{display:none;}
+    .result-card{
+      width:100%;
+      max-width:420px;
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(30,64,175,.8);
+      background:radial-gradient(circle at top left, rgba(59,130,246,.35), transparent 55%),
+                 radial-gradient(circle at bottom right, rgba(15,23,42,.98), #020617);
+      box-shadow:var(--shadow-soft);
+      padding:18px 18px 16px;
+    }
+    .result-card h2{
+      margin:0 0 10px;
+      font-size:17px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .result-row{
+      display:flex;
+      justify-content:space-between;
+      font-size:13px;
+      margin-bottom:4px;
+    }
+    .result-row strong{font-weight:600;}
+    .result-row span:last-child{font-weight:600;}
+    .btn-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:12px;
+    }
+    .btn{
+      flex:1 1 0;
+      border-radius:999px;
+      border:none;
+      padding:8px 14px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    .btn-primary{
+      background:#22c55e;
+      color:#052e16;
+      box-shadow:0 14px 30px rgba(34,197,94,.65);
+    }
+    .btn-secondary{
       background:#e5e7eb;
       color:#111827;
     }
-    .rb-btn-outline {
-      background:transparent;
+    .btn-ghost{
+      flex-basis:100%;
+      border-radius:999px;
+      border:1px dashed rgba(148,163,184,.9);
+      background:rgba(15,23,42,.9);
       color:#e5e7eb;
-      border:1px solid rgba(148,163,184,0.9);
+      font-size:12px;
+      padding:7px 10px;
     }
+    .btn-ghost span{font-size:14px;}
 
-    /* Leaderboard placeholder */
-    #rbLeaderboard {
-      position: relative;
-      z-index: 20;
-      margin: 0 auto;
-      margin-top: 72vh;
-      padding: 8px 12px 16px;
-      max-width: 520px;
-      font-size: 13px;
-    }
-    #rbLeaderboard h4 {
-      margin: 8px 0 4px;
-      font-size: 14px;
-    }
-    #rbLeaderboard table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-      background: rgba(15,23,42,0.9);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-    #rbLeaderboard th,
-    #rbLeaderboard td {
-      padding: 4px 6px;
-      border-bottom: 1px solid rgba(30,64,175,0.35);
-      text-align:left;
-    }
-    #rbLeaderboard tr:last-child td {
-      border-bottom:none;
-    }
+    /* PLAY-ONLY MODE */
+    body.play-only .shell{max-width:1200px;}
+    body.play-only .meta-grid{grid-template-columns:minmax(0,1fr);}
+    body.play-only #metaCard{display:none;}
+    body.play-only .game-frame{min-height:min(70vh,640px);}
+    body.play-only .game-area{max-width:none;}
 
-    /* เมื่อจบเกม: เผื่อซ่อน lane / track ทั้งหมด */
-    body.rb-finished .rb-lane,
-    body.rb-finished .track,
-    body.rb-finished .rb-note {
-      display:none !important;
-    }
-
-    @media (max-width:600px){
-      .topbar-title { font-size:14px; }
-      .hud-msg { font-size:13px; }
+    @media (max-width:480px){
+      header{flex-direction:column;align-items:flex-start;gap:6px;}
+      .back-btn{align-self:flex-end;}
+      .metric{min-width:80px;}
+      .start-btn{width:100%;justify-content:center;}
+      .meta-form{grid-template-columns:1fr;}
+      body.play-only .shell{padding:10px 6px 20px;}
+      body.play-only .game-frame{min-height:min(70vh,520px);}
     }
   </style>
 </head>
 <body>
-  <!-- Top bar -->
-  <header class="topbar">
-    <div class="topbar-left">
-      <button class="topbar-btn" type="button" onclick="history.back()">
-        <span>←</span> Back to Hub
-      </button>
-      <div class="topbar-title">VR Fitness — Rhythm Boxer</div>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <span>🎧</span>
+        <span>VR Fitness — Rhythm Boxer</span>
+        <span class="pill">Hybrid · Research + Demo</span>
+      </div>
+      <a href="../../index.html" class="back-btn">
+        <span>←</span><span>Back to Hub</span>
+      </a>
+    </header>
+
+    <div class="meta-grid">
+      <!-- ซ้าย: ฟอร์มวิจัย -->
+      <section class="card" id="metaCard">
+        <h2><span>📊</span><span id="metaTitle">ข้อมูลสำหรับงานวิจัย</span></h2>
+        <div class="meta-form">
+          <div class="field">
+            <label for="studentId">Student ID</label>
+            <input id="studentId" type="text" placeholder="เช่น 65001" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="deviceType">Device</label>
+            <select id="deviceType">
+              <option value="auto">Auto detect</option>
+              <option value="mobile">Mobile / Tablet</option>
+              <option value="pc">PC / Laptop</option>
+              <option value="vr">VR Headset</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="schoolName">School</label>
+            <input id="schoolName" type="text" placeholder="ชื่อโรงเรียน / สถาบัน" />
+          </div>
+          <div class="field">
+            <label for="classRoom">Class / Room</label>
+            <input id="classRoom" type="text" placeholder="เช่น ป.5/1" />
+          </div>
+          <div class="field">
+            <label for="note">Note (optional)</label>
+            <input id="note" type="text" placeholder="ทดลองก่อนจริง / กลุ่มควบคุม ฯลฯ" />
+          </div>
+        </div>
+        <div class="coach-hint" id="metaHint">
+          กรอกเพียงครั้งเดียวก่อนเริ่ม แต่ละรอบจะถูกบันทึกเป็น 1 session
+        </div>
+      </section>
+
+      <!-- ขวา: HUD + เกม -->
+      <section class="hud-card">
+        <div class="lang-toggle">
+          <span>Language:</span>
+          <button type="button" data-lang="th" class="active">TH</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+
+        <div class="hud-row1">
+          <div class="metric-row">
+            <div class="metric">
+              <div class="metric-label" id="lblTime">TIME</div>
+              <div class="metric-value"><span id="timeVal">0</span><small>s</small></div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblScore">SCORE</div>
+              <div class="metric-value" id="scoreVal">0</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblHit">HIT</div>
+              <div class="metric-value" id="hitVal">0</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblMiss">MISS</div>
+              <div class="metric-value" id="missVal">0</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblCombo">COMBO</div>
+              <div class="metric-value"><span id="comboVal">x0</span></div>
+            </div>
+          </div>
+          <button type="button" class="start-btn" id="startBtn">
+            <span>▶</span><span id="startLabel">เริ่มเล่น</span>
+          </button>
+        </div>
+
+        <div class="hud-row2" id="coachLine">
+          โค้ชพุ่ง: ฟังจังหวะ แล้วต่อยให้ตรงแถบไฟ! 🎵🥊
+        </div>
+
+        <div class="game-frame">
+          <div class="game-area" id="gameArea">
+            <div class="lane-wrap">
+              <div class="lane" data-lane="L">
+                <div class="lane-hitline"></div>
+                <div class="lane-label" id="laneLeftLabel">Left</div>
+              </div>
+              <div class="lane" data-lane="B">
+                <div class="lane-hitline"></div>
+                <div class="lane-label" id="laneBodyLabel">Body</div>
+              </div>
+              <div class="lane" data-lane="R">
+                <div class="lane-hitline"></div>
+                <div class="lane-label" id="laneRightLabel">Right</div>
+              </div>
+            </div>
+            <div class="feedback" id="feedback" style="display:none;">PERFECT!</div>
+          </div>
+        </div>
+
+        <div class="bottom-row">
+          <div class="tag-row">
+            <span class="tag" id="tagGoal">เป้าหมาย: ต่อยให้ตรงจังหวะ + ตรงเลน</span>
+            <span class="tag">Keyboard: A = Left, S = Body, D = Right</span>
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="hud-right">
-      <div class="hud-pill">⏱ <span id="hudTime">60</span>s</div>
-      <div class="hud-pill">🏆 <span id="hudScore">0</span></div>
-      <div class="hud-pill">🔥 <span id="hudCombo">x0</span></div>
-    </div>
-  </header>
+  </div>
 
-  <!-- HUD row -->
-  <section class="hud-wrap">
-    <button class="btn-pause" id="btnPause" type="button">
-      <span class="btn-pause-icon">‖</span> พัก
-    </button>
-    <button class="btn-stats" id="btnDownload" type="button" title="ดาวน์โหลดผลการเล่น">
-      📊
-    </button>
-    <div class="hud-msg" id="hudMessage">
-      แตะปุ่ม ▶ เริ่มเล่น ด้านล่าง แล้วรีบต่อยตามจังหวะให้เป๊ะ!
-    </div>
-  </section>
+  <!-- Result overlay -->
+  <div class="overlay hidden" id="resultOverlay">
+    <div class="result-card">
+      <h2 id="resultTitle">🏁 สรุปผลจังหวะต่อย</h2>
+      <div class="result-row">
+        <strong id="rScoreLabel">Score</strong>
+        <span id="rScore">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rHitLabel">Hits (Perfect+Good)</strong>
+        <span id="rHit">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rPerfectLabel">Perfect</strong>
+        <span id="rPerfect">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rGoodLabel">Good</strong>
+        <span id="rGood">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rMissLabel">Miss</strong>
+        <span id="rMiss">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rAccLabel">Accuracy</strong>
+        <span id="rAcc">0%</span>
+      </div>
+      <div class="result-row">
+        <strong id="rComboLabel">Best Combo</strong>
+        <span id="rCombo">x0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rTimeUsedLabel">Played</strong>
+        <span id="rTimeUsed">0s</span>
+      </div>
 
-  <!-- Stage host (lane จะถูก inject ผ่าน JS) -->
-  <div id="rbStageHost"></div>
-
-  <!-- Result card -->
-  <div id="rbResultCard" class="hidden">
-    <div class="rb-result-inner">
-      <h2>🏁 ผลการเล่น Rhythm Boxer</h2>
-      <dl>
-        <dt>Score:</dt>        <dd><span id="rbScore">0</span></dd>
-        <dt>โดนเป้า / พลาด:</dt><dd><span id="rbHits">0</span> / <span id="rbMiss">0</span></dd>
-        <dt>ความแม่นยำ:</dt>  <dd><span id="rbAcc">0%</span></dd>
-        <dt>คอมโบสูงสุด:</dt> <dd><span id="rbBest">x0</span></dd>
-        <dt>ระดับ (Rank):</dt><dd><span id="rbRank">C</span></dd>
-      </dl>
-
-      <div class="rb-result-actions">
-        <button class="rb-btn rb-btn-outline" id="rbPdfBtn" type="button">📄 ดาวน์โหลด PDF</button>
-        <button class="rb-btn rb-btn-primary" id="rbReplay" type="button">🔁 เล่นอีกครั้ง</button>
-        <button class="rb-btn rb-btn-ghost" id="rbBack" type="button">🏠 เมนู</button>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="playAgainBtn">
+          <span>🔁</span><span id="playAgainLabel">เล่นอีกครั้ง</span>
+        </button>
+        <button class="btn btn-secondary" id="backHubBtn">
+          <span>🏠</span><span id="backHubLabel">กลับเมนู</span>
+        </button>
+        <button class="btn btn-ghost" id="downloadCsvBtn">
+          <span>📥</span><span id="downloadCsvLabel">ดาวน์โหลด CSV วิจัย (ทุก session)</span>
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- Leaderboard (optional; JS จะเติมข้อมูลถ้ามี LB_API) -->
-  <section id="rbLeaderboard"></section>
-
-  <!-- Script -->
-  <script type="module">
-    import { RhythmBoxer } from './rhythm-boxer.js';
-
-    const stage = document.getElementById('rbStageHost');
-
-    const game = new RhythmBoxer({
-      stage,
-      hud: {
-        time:  document.getElementById('hudTime'),
-        score: document.getElementById('hudScore'),
-        combo: document.getElementById('hudCombo')
-      },
-      result: {
-        box:   document.getElementById('rbResultCard'),
-        score: document.getElementById('rbScore'),
-        hits:  document.getElementById('rbHits'),
-        miss:  document.getElementById('rbMiss'),
-        acc:   document.getElementById('rbAcc'),
-        best:  document.getElementById('rbBest'),
-        rank:  document.getElementById('rbRank')
-      },
-      msgBox: document.getElementById('hudMessage'),
-      lbBox:  document.getElementById('rbLeaderboard'),
-      pdfBtn: document.getElementById('rbPdfBtn')
-    });
-
-    // เริ่มเกมทันทีเมื่อโหลดหน้า (ถ้าอยากให้กดเริ่มเอง ค่อยเปลี่ยน logic ตรงนี้)
-    let started = false;
-    function startIfNeeded(){
-      if (!started) {
-        started = true;
-        game.start();
-      }
-    }
-    startIfNeeded();
-
-    // ปุ่มพัก / resume
-    const btnPause = document.getElementById('btnPause');
-    let paused = false;
-    btnPause.addEventListener('click', () => {
-      paused = !paused;
-      if (paused){
-        game.pause(true);
-        btnPause.innerHTML = '<span class="btn-pause-icon">▶</span> เล่นต่อ';
-      } else {
-        game.pause(false);
-        btnPause.innerHTML = '<span class="btn-pause-icon">‖</span> พัก';
-      }
-    });
-
-    // ปุ่มดาวน์โหลดผล (เรียก PDF API ผ่าน game.pdfBtn ใน _showResult)
-    const btnDownload = document.getElementById('btnDownload');
-    btnDownload.addEventListener('click', () => {
-      alert('สามารถดาวน์โหลด PDF ได้จากหน้าสรุปผลหลังจบเกมนะครับ 🙂');
-    });
-
-    // ปุ่มใน result card
-    document.getElementById('rbReplay').addEventListener('click', () => {
-      // โหลดหน้าใหม่พร้อมพารามิเตอร์เดิม
-      location.reload();
-    });
-    document.getElementById('rbBack').addEventListener('click', () => {
-      history.back();
-    });
-  </script>
+  <script type="module" src="./rhythm-boxer.js"></script>
 </body>
 </html>
