@@ -1,4 +1,4 @@
-// === VR Fitness — Shadow Breaker (Research + Demo, bilingual, play-only layout) ===
+// === VR Fitness — Shadow Breaker (Research + Demo, bilingual, play-only layout, 4 bosses by difficulty) ===
 
 const STORAGE_KEY = 'ShadowBreakerResearch_v1';
 const META_KEY = 'ShadowBreakerMeta_v1';
@@ -104,6 +104,34 @@ const i18n = {
 
 let lang = 'th';
 
+// --- Boss config (4 ตัว ไล่จากง่าย → ยาก) ---
+
+const BOSS_CONFIG = [
+  { emoji: '😺', baseHp: 4 },  // Boss 1: ง่ายสุด
+  { emoji: '🐯', baseHp: 6 },  // Boss 2: กลาง
+  { emoji: '🐲', baseHp: 8 },  // Boss 3: ยาก
+  { emoji: '👑', baseHp: 10 }, // Boss 4: ยากสุด
+];
+
+function computeBossHp(index, difficulty) {
+  const cfg = BOSS_CONFIG[index % BOSS_CONFIG.length];
+  let hp = cfg.baseHp;
+  switch (difficulty) {
+    case 'easy':
+      hp = Math.round(hp * 0.7);
+      break;
+    case 'hard':
+      hp = Math.round(hp * 1.2);
+      break;
+    case 'extreme':
+      hp = Math.round(hp * 1.5);
+      break;
+    // normal = base
+  }
+  if (hp < 2) hp = 2;
+  return hp;
+}
+
 // --- Game state ---
 
 const state = {
@@ -122,6 +150,8 @@ const state = {
   bossCleared: 0,
   bossEvery: 22, // seconds
   lastBossAt: 0,
+  bossIndex: 0, // 0..3 วนตาม BOSS_CONFIG
+  difficulty: 'normal',
   sessionMeta: null,
 };
 
@@ -130,6 +160,12 @@ function readConfigFromQuery() {
   const t = parseInt(params.get('time'), 10);
   if (!Number.isNaN(t) && t > 10 && t <= 300) {
     state.time = t;
+  }
+  const diff = (params.get('diff') || 'normal').toLowerCase();
+  if (['easy', 'normal', 'hard', 'extreme'].includes(diff)) {
+    state.difficulty = diff;
+  } else {
+    state.difficulty = 'normal';
   }
   hud.timeVal.textContent = state.time;
 }
@@ -215,6 +251,7 @@ function resetStats() {
   state.feverCount = 0;
   state.bossCleared = 0;
   state.lastBossAt = 0;
+  state.bossIndex = 0; // เริ่มจาก Boss ตัวแรกทุกเกม
   hud.timeVal.textContent = state.time;
   hud.scoreVal.textContent = '0';
   hud.hitVal.textContent = '0';
@@ -252,8 +289,12 @@ function spawnTarget(kind = 'normal') {
   el.className = 'target ' + kind;
 
   if (kind === 'boss') {
-    el.dataset.hp = '8';
-    el.textContent = '💀';
+    const idx = state.bossIndex % BOSS_CONFIG.length;
+    const cfg = BOSS_CONFIG[idx];
+    const hp = computeBossHp(idx, state.difficulty);
+    el.dataset.hp = String(hp);
+    el.dataset.bossIndex = String(idx);
+    el.textContent = cfg.emoji;
   } else if (kind === 'fever') {
     el.textContent = '⭐';
   } else {
@@ -309,6 +350,7 @@ function spawnTarget(kind = 'normal') {
         state.hit++;
         state.combo++;
         state.bossCleared++;
+        state.bossIndex++; // ขยับไปบอสตัวถัดไป
         gameArea.classList.add('shake');
         setTimeout(() => gameArea.classList.remove('shake'), 220);
       } else {
@@ -465,7 +507,7 @@ function endGame() {
     language: state.sessionMeta?.language || lang,
     note: state.sessionMeta?.note || '',
     mode: 'timed',
-    difficulty: new URLSearchParams(location.search).get('diff') || 'normal',
+    difficulty: state.difficulty || 'normal',
     timeSec: state.time,
     score: state.score,
     hits: state.hit,
