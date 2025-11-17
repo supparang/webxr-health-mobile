@@ -1,17 +1,15 @@
-// === VR Fitness — Shadow Breaker (DOM version / Hybrid) ===
-// - ใช้กับ play.html เวอร์ชันล่าสุด (window.__SB_CONFIG)
-// - รองรับ: PC / Mobile / VR (ผ่าน layout โมด "vr-mode")
-// - ฟีเจอร์หลัก:
-//   • เป้าโดนแตะ → คะแนน + คอมโบ + จอสั่น
-//   • combo ≥ 5 → เข้าสู่ FEVER mode (เป้าทอง + FEVER!! กลางจอ + สั่นแรงขึ้น)
-//   • ปุ่ม Start / Pause / Resume / Retry
-//   • แสดงผลหลังจบ (Score, Hit, Miss, Combo สูงสุด, Accuracy, เวลา)
-//   • ปุ่ม Download PDF (เปิดหน้าสรุปสำหรับ Print เป็น PDF)
+// === VR Fitness — Shadow Breaker (Cute Targets + 4 Bosses) ===
+// ใช้กับ play.html เวอร์ชันล่าสุด (window.__SB_CONFIG)
+// ฟีเจอร์:
+//  - เป้าน่ารัก: emoji + glow
+//  - FEVER mode: combo ≥ 5 → FEVER!! (เป้าทอง + จอสั่นแรง)
+//  - 4 บอสตามช่วงเวลาใน 1 เกม (timed mode): Boss 1–4 ยากขึ้นเรื่อย ๆ
+//  - ปุ่ม Start / Pause / Resume / Retry + การ์ดสรุป + Download PDF
 
 (function(){
   'use strict';
 
-  // ----- Small helpers -----
+  // ---------- Helpers ----------
   function $(sel){ return document.querySelector(sel); }
   function injectCSSOnce(id, css){
     if(document.getElementById(id)) return;
@@ -20,79 +18,95 @@
     st.textContent = css;
     document.head.appendChild(st);
   }
+  function randFrom(arr){
+    return arr[(Math.random()*arr.length)|0];
+  }
 
-  // ----- Inject CSS ของเป้า / FEVER overlay -----
+  // ---------- Cute Target CSS ----------
   injectCSSOnce('sbTargetsCSS', ""
     + ".sb-target{position:absolute;transform:translate(-50%,-50%);"
     + "border-radius:999px;cursor:pointer;display:flex;align-items:center;justify-content:center;"
-    + "font-weight:700;color:#0b1120;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;"
-    + "box-shadow:0 0 0 2px rgba(15,23,42,0.85),0 12px 28px rgba(15,23,42,0.9);"
-    + "user-select:none;-webkit-user-select:none;touch-action:manipulation;}"
-    + ".sb-target-normal{background:radial-gradient(circle at 30% 20%,#e0f2fe,#38bdf8);}"
-    + ".sb-target-fever{background:radial-gradient(circle at 30% 20%,#fef08a,#facc15);}"
-    + ".sb-target-boss{background:radial-gradient(circle at 30% 20%,#fee2e2,#f97316);}"
+    + "font-weight:800;color:#0b1120;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;"
+    + "user-select:none;-webkit-user-select:none;touch-action:manipulation;"
+    + "box-shadow:0 0 0 2px rgba(15,23,42,0.8),0 16px 40px rgba(15,23,42,0.95);"
+    + "text-shadow:0 0 6px rgba(15,23,42,0.5);} "
+    + ".sb-target span{font-size:32px;line-height:1;} "
+    + ".sb-target-normal{"
+      + "background:radial-gradient(circle at 30% 20%,#e0f2fe,#38bdf8);"
+      + "border:2px solid rgba(59,130,246,0.95);"
+    + "} "
+    + ".sb-target-fever{"
+      + "background:radial-gradient(circle at 30% 20%,#fef3c7,#facc15);"
+      + "border:2px solid rgba(250,204,21,0.98);"
+      + "box-shadow:0 0 22px rgba(250,204,21,0.9);"
+    + "} "
+    + ".sb-target-boss{"
+      + "background:radial-gradient(circle at 30% 20%,#fee2e2,#f97316);"
+      + "border:2px solid rgba(248,113,113,0.98);"
+      + "box-shadow:0 0 26px rgba(248,113,113,0.9);"
+    + "} "
     + ".sb-hit-fx{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);"
-    + "font-size:18px;font-weight:800;color:#facc15;text-shadow:0 0 8px rgba(250,204,21,0.9);"
-    + "pointer-events:none;animation:sbHitFloat 0.4s ease-out forwards;}"
+      + "font-size:18px;font-weight:800;color:#facc15;text-shadow:0 0 8px rgba(250,204,21,0.95);"
+      + "pointer-events:none;animation:sbHitFloat 0.4s ease-out forwards;} "
     + ".sb-fever-banner{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);"
-    + "padding:10px 18px;border-radius:999px;background:rgba(15,23,42,0.96);"
-    + "border:2px solid rgba(250,204,21,1);color:#fef9c3;font-size:22px;font-weight:800;"
-    + "letter-spacing:.18em;text-transform:uppercase;box-shadow:0 0 40px rgba(250,204,21,0.75);"
-    + "pointer-events:none;animation:feverFlash 0.7s ease-out forwards;}"
+      + "padding:10px 18px;border-radius:999px;background:rgba(15,23,42,0.96);"
+      + "border:2px solid rgba(250,204,21,1);color:#fef9c3;font-size:22px;font-weight:800;"
+      + "letter-spacing:.18em;text-transform:uppercase;box-shadow:0 0 40px rgba(250,204,21,0.75);"
+      + "pointer-events:none;animation:feverFlash 0.7s ease-out forwards;} "
     + ".sb-fever-banner span{margin-left:4px;}"
   );
 
-  // ----- อ่าน config จาก window.__SB_CONFIG -----
+  // ---------- Config from window.__SB_CONFIG ----------
   var cfg = (window.__SB_CONFIG || {});
-  var duration = typeof cfg.duration === 'number' ? cfg.duration : 90;
+  var duration   = typeof cfg.duration === 'number' ? cfg.duration : 90;
   var difficulty = (cfg.difficulty || 'normal').toLowerCase();
-  var mode = (cfg.mode || 'timed').toLowerCase();
-  var lang = (cfg.lang || 'th').toLowerCase();
-  var sel = cfg.selectors || {};
+  var mode       = (cfg.mode || 'timed').toLowerCase();
+  var lang       = (cfg.lang || 'th').toLowerCase();
+  var sel        = cfg.selectors || {};
 
-  // selector fallback
-  function pick(selStr, fallback){ return selStr || fallback; }
+  function pickSel(s, fb){ return s || fb; }
 
-  var arenaEl   = $(pick(sel.arena, '#sb-game'));
-  var timeEl    = $(pick(sel.time, '#sbTime'));
-  var scoreEl   = $(pick(sel.score, '#sbScore'));
-  var hitEl     = $(pick(sel.hit, '#sbHit'));
-  var missEl    = $(pick(sel.miss, '#sbMiss'));
-  var comboEl   = $(pick(sel.combo, '#sbCombo'));
-  var coachEl   = $(pick(sel.coach, '#sbCoach'));
+  var arenaEl   = $(pickSel(sel.arena, '#sb-game'));
+  var timeEl    = $(pickSel(sel.time, '#sbTime'));
+  var scoreEl   = $(pickSel(sel.score, '#sbScore'));
+  var hitEl     = $(pickSel(sel.hit, '#sbHit'));
+  var missEl    = $(pickSel(sel.miss, '#sbMiss'));
+  var comboEl   = $(pickSel(sel.combo, '#sbCombo'));
+  var coachEl   = $(pickSel(sel.coach, '#sbCoach'));
 
-  var btnStart  = $(pick(sel.btnStart, '#btnStart'));
-  var btnPause  = $(pick(sel.btnPause, '#btnPause'));
-  var btnResume = $(pick(sel.btnResume, '#btnResume'));
-  var resultCard= $(pick(sel.resultCard, '#sbResultCard'));
-  var resRankEl = $(pick(sel.resultRank, '#sbResultRank'));
-  var resTitleEl= $(pick(sel.resultTitle, '#sbResultTitle'));
-  var resScoreEl= $(pick(sel.resScore, '#sbResScore'));
-  var resHitEl  = $(pick(sel.resHit, '#sbResHit'));
-  var resMissEl = $(pick(sel.resMiss, '#sbResMiss'));
-  var resComboEl= $(pick(sel.resCombo, '#sbResCombo'));
-  var resAccEl  = $(pick(sel.resAcc, '#sbResAcc'));
-  var resTimeEl = $(pick(sel.resTime, '#sbResTime'));
-  var resModeEl = $(pick(sel.resMode, '#sbResMode'));
-  var btnRetry  = $(pick(sel.btnRetry, '#btnRetry'));
-  var btnBack   = $(pick(sel.btnBackMenu, '#btnBackMenu'));
-  var btnPdf    = $(pick(sel.btnDownloadPdf, '#btnDownloadPdf'));
+  var btnStart  = $(pickSel(sel.btnStart, '#btnStart'));
+  var btnPause  = $(pickSel(sel.btnPause, '#btnPause'));
+  var btnResume = $(pickSel(sel.btnResume, '#btnResume'));
+
+  var resultCard= $(pickSel(sel.resultCard, '#sbResultCard'));
+  var resRankEl = $(pickSel(sel.resultRank, '#sbResultRank'));
+  var resTitleEl= $(pickSel(sel.resultTitle, '#sbResultTitle'));
+  var resScoreEl= $(pickSel(sel.resScore, '#sbResScore'));
+  var resHitEl  = $(pickSel(sel.resHit, '#sbResHit'));
+  var resMissEl = $(pickSel(sel.resMiss, '#sbResMiss'));
+  var resComboEl= $(pickSel(sel.resCombo, '#sbResCombo'));
+  var resAccEl  = $(pickSel(sel.resAcc, '#sbResAcc'));
+  var resTimeEl = $(pickSel(sel.resTime, '#sbResTime'));
+  var resModeEl = $(pickSel(sel.resMode, '#sbResMode'));
+  var btnRetry  = $(pickSel(sel.btnRetry, '#btnRetry'));
+  var btnBack   = $(pickSel(sel.btnBackMenu, '#btnBackMenu'));
+  var btnPdf    = $(pickSel(sel.btnDownloadPdf, '#btnDownloadPdf'));
 
   if(!arenaEl){
     console.error('Shadow Breaker: arena element not found');
-    if(coachEl){ coachEl.textContent = (lang==='th'
-      ? 'ไม่พบพื้นที่เล่น (arena) โปรดรีเฟรชหรือแจ้งผู้ดูแลระบบ'
-      : 'Arena element not found. Please reload or contact admin.'
-    );}
+    if(coachEl){
+      coachEl.textContent = (lang==='th'
+        ? 'ไม่พบพื้นที่เล่น (arena) โปรดรีเฟรชหรือแจ้งผู้ดูแลระบบ'
+        : 'Arena element not found. Please reload or contact admin.');
+    }
     return;
   }
 
-  // ----- สถานะเกม -----
+  // ---------- State ----------
   var state = 'idle'; // idle | running | paused | ended
   var timerId = null;
   var spawnId = null;
   var remaining = duration;
-  var startTimestamp = 0;
   var elapsedSec = 0;
   var score = 0;
   var hits = 0;
@@ -102,9 +116,14 @@
   var inFever = false;
   var feverUntil = 0;
   var lastResults = null;
+
   var targetIndex = 0;
 
-  // spawn config
+  // cute target emojis
+  var NORMAL_EMOJI = ['⭐','✨','🎯','💥','⚡','🔥'];
+  var FEVER_EMOJI  = ['🌟','💫','💛','✨'];
+
+  // spawn speed
   var baseSpawnInterval;
   if(difficulty === 'easy') baseSpawnInterval = 900;
   else if(difficulty === 'hard') baseSpawnInterval = 550;
@@ -112,10 +131,56 @@
 
   var targetLifetimeNormal = 1600;
   var targetLifetimeBoss   = 2400;
-  var bossEvery = 18; // ทุกๆ 18 เป้าสุ่ม 1 บอส
-  var spawnCount = 0;
 
-  // ----- helper UI -----
+  // 4 บอสตาม progress ของเวลา (เฉพาะ timed mode)
+  var bossPhase = 0;
+  var bossSchedule = [0.12, 0.35, 0.65, 0.88]; // สัดส่วนเวลาเกม
+  var bossCountSpawned = 0;
+
+  // ---------- Boss Info ----------
+  function getBossInfo(bossType){
+    // bossType: 1–4
+    switch(bossType){
+      case 1:
+        return {
+          nameTh: 'บอสที่ 1: หุ่นซ้อมยาง',
+          nameEn: 'Boss 1: Rubber Dummy',
+          emoji: '🤖',
+          hp: 3,
+          baseScore: 8,
+          bonus: 20
+        };
+      case 2:
+        return {
+          nameTh: 'บอสที่ 2: โล่คริสตัล',
+          nameEn: 'Boss 2: Crystal Shield',
+          emoji: '💎',
+          hp: 4,
+          baseScore: 9,
+          bonus: 30
+        };
+      case 3:
+        return {
+          nameTh: 'บอสที่ 3: นาฬิกาสปีดรัน',
+          nameEn: 'Boss 3: Speed Clock',
+          emoji: '⏱️',
+          hp: 5,
+          baseScore: 10,
+          bonus: 40
+        };
+      default:
+        return {
+          nameTh: 'บอสที่ 4: เงาซ้อนสุดท้าย',
+          nameEn: 'Boss 4: Shadow King',
+          emoji: '👑',
+          hp: 6,
+          baseScore: 12,
+          bonus: 55
+        };
+    }
+  }
+
+  // ---------- UI ----------
   function setText(el, txt){
     if(!el) return;
     el.textContent = String(txt);
@@ -143,7 +208,7 @@
   function shakeArena(power){
     if(!arenaEl) return;
     var p = power || 1;
-    var ms = 120 + p*40;
+    var ms = 120 + p*60;
     var start = Date.now();
     var baseStyle = arenaEl.style.transform || '';
     var timer = setInterval(function(){
@@ -173,7 +238,6 @@
   }
 
   function showFeverBanner(){
-    if(!arenaEl) return;
     var banner = document.createElement('div');
     banner.className = 'sb-fever-banner';
     banner.innerHTML = 'FEVER<span>!!</span>';
@@ -185,29 +249,28 @@
 
   function enterFever(){
     inFever = true;
-    feverUntil = Date.now() + 6000; // 6 วิ
+    feverUntil = Date.now() + 6000;
     showFeverBanner();
     setCoach(
-      'FEVER!! แตะเป้าทองให้ทันนะ!! ✨',
-      'FEVER!! Smash those golden targets!! ✨'
+      'FEVER!! เป้าทองมาแล้ว แตะให้ทันทุกลูกเลย!! ✨',
+      'FEVER!! Golden targets are here. Hit them all!! ✨'
     );
-    shakeArena(2);
+    shakeArena(2.2);
   }
 
   function checkFeverTimeout(){
     if(inFever && Date.now() > feverUntil){
       inFever = false;
       setCoach(
-        'โค้ชพุ่ง: ลองเก็บคอมโบให้ถึง 5 อีกที เพื่อเข้าช่วง FEVER!',
-        'Coach: Build combo to 5 again for the next FEVER!'
+        'FEVER จบแล้ว ลองสะสมคอมโบใหม่นะ ✨',
+        'FEVER ended. Build your combo again ✨'
       );
     }
   }
 
-  // ----- Target spawn & click -----
+  // ---------- Spawn Targets ----------
   function spawnTarget(){
     if(state !== 'running') return;
-    if(!arenaEl) return;
     var rect = arenaEl.getBoundingClientRect();
     var w = rect.width;
     var h = rect.height;
@@ -217,45 +280,81 @@
       w = rect.width; h = rect.height;
     }
 
-    spawnCount += 1;
     targetIndex += 1;
 
-    // ตัดสินใจว่าเป็น boss / fever / ปกติ
-    var isBoss = (spawnCount % bossEvery === 0);
-    var isFeverTarget = inFever && !isBoss;
+    // ตัดสินใจ: boss หรือไม่
+    var isBoss = false;
+    var bossType = 0;
 
-    var size = isBoss ? 96 : 68;
-    if(isFeverTarget) size = 72;
+    if(mode === 'timed'){
+      var progress = (duration - remaining) / duration; // 0–1
+      if(bossPhase < bossSchedule.length && progress >= bossSchedule[bossPhase]){
+        isBoss = true;
+        bossType = bossPhase + 1; // 1–4
+        bossPhase += 1;
+        bossCountSpawned += 1;
+      }
+    }
 
-    var x = 15 + Math.random()*70; // %
-    var y = 18 + Math.random()*60; // %
+    // ถ้า endless mode → ใช้ pattern ทุก ๆ 25 เป้า
+    if(!isBoss && mode === 'endless'){
+      if(targetIndex % 25 === 0){
+        isBoss = true;
+        bossType = ((bossCountSpawned % 4) + 1);
+        bossCountSpawned += 1;
+      }
+    }
+
+    // ตัดสินใจ FEVER target เฉพาะถ้าไม่ใช่ boss
+    var isFeverTarget = (!isBoss && inFever);
+
+    // สร้างเป้า
     var el = document.createElement('div');
     el.className = 'sb-target ';
-    if(isBoss) el.className += 'sb-target-boss';
-    else if(isFeverTarget) el.className += 'sb-target-fever';
-    else el.className += 'sb-target-normal';
+    var life = targetLifetimeNormal;
+    var size;
+    var emojiSpan = document.createElement('span');
+
+    if(isBoss){
+      var info = getBossInfo(bossType);
+      el.className += 'sb-target-boss';
+      size = 110 - bossType*4; // บอสสูงขึ้น ขนาดเล็กลงนิด
+      life = targetLifetimeBoss - bossType*150;
+      el.dataset.type = 'boss';
+      el.dataset.bossType = String(bossType);
+      el.dataset.hp = String(info.hp);
+      emojiSpan.textContent = info.emoji;
+      // coach announce boss
+      setCoach(
+        '⚠️ บอส ' + bossType + ' มาแล้ว: ' + info.nameTh,
+        '⚠️ Boss ' + bossType + ' appeared: ' + info.nameEn
+      );
+      shakeArena(1.8);
+    }else if(isFeverTarget){
+      el.className += 'sb-target-fever';
+      size = 76;
+      el.dataset.type = 'fever';
+      emojiSpan.textContent = randFrom(FEVER_EMOJI);
+    }else{
+      el.className += 'sb-target-normal';
+      size = 68;
+      el.dataset.type = 'normal';
+      emojiSpan.textContent = randFrom(NORMAL_EMOJI);
+    }
 
     el.style.width = size + 'px';
     el.style.height = size + 'px';
-    el.style.left = x + '%';
-    el.style.top = y + '%';
 
-    if(isBoss){
-      el.textContent = 'B';
-      el.dataset.hp = '3';
-    }else if(isFeverTarget){
-      el.textContent = '★';
-    }else{
-      el.textContent = '';
-    }
+    var x = 15 + Math.random()*70;
+    var y = 18 + Math.random()*60;
+    el.style.left = x + '%';
+    el.style.top  = y + '%';
 
     el.dataset.id = 't'+targetIndex;
-    el.dataset.type = isBoss ? 'boss' : (isFeverTarget ? 'fever' : 'normal');
     el.dataset.alive = '1';
+    el.appendChild(emojiSpan);
 
-    var lifetime = isBoss ? targetLifetimeBoss : targetLifetimeNormal;
     var timeoutId = setTimeout(function(){
-      // หมดเวลาแต่ยังอยู่ → นับพลาด
       if(el.dataset.alive === '1'){
         el.dataset.alive = '0';
         if(el.parentNode === arenaEl) arenaEl.removeChild(el);
@@ -263,52 +362,76 @@
         combo = 0;
         updateHUD();
         setCoach(
-          'พลาดไป 1 เป้า… ลองโฟกัสใหม่อีกที 👍',
-          'You missed one target… refocus and go again 👍'
+          'พลาดไป 1 เป้า ลองจับจังหวะใหม่อีกครั้งนะ 👍',
+          'You missed one. Find the rhythm and go again 👍'
         );
-        shakeArena(0.6);
+        shakeArena(0.8);
       }
-    }, lifetime);
+    }, life);
     el.dataset.timeoutId = String(timeoutId);
 
-    el.addEventListener('click', function(ev){
+    el.addEventListener('click', function(){
       if(state !== 'running') return;
       if(el.dataset.alive !== '1') return;
-      el.dataset.alive = '0';
-      clearTimeout(timeoutId);
-      if(el.parentNode === arenaEl) arenaEl.removeChild(el);
 
-      var t = el.dataset.type || 'normal';
-      var base = 10;
-      if(t === 'boss') base = 25;
-      else if(t === 'fever') base = 18;
+      var type = el.dataset.type || 'normal';
 
-      var gain = base;
-      if(inFever) gain += 5;
-
+      // นับ hit / combo / score
       hits += 1;
       combo += 1;
       if(combo > maxCombo) maxCombo = combo;
+
+      var gain = 10;
+
+      if(type === 'boss'){
+        var bossT = parseInt(el.dataset.bossType || '1', 10);
+        var info = getBossInfo(bossT);
+        var hp = parseInt(el.dataset.hp || '1', 10);
+        hp -= 1;
+        el.dataset.hp = String(hp);
+
+        gain = info.baseScore + (inFever ? 6 : 0);
+
+        if(hp <= 0){
+          // สังหารบอส
+          el.dataset.alive = '0';
+          clearTimeout(timeoutId);
+          if(el.parentNode === arenaEl) arenaEl.removeChild(el);
+          gain += info.bonus;
+          showHitFX('BOSS +' + gain, '#fee2e2');
+          shakeArena(2.8);
+          setCoach(
+            'สุดยอด! ล้ม ' + info.nameTh + ' ได้แล้ว! 🎉',
+            'Awesome! You defeated ' + info.nameEn + '! 🎉'
+          );
+        }else{
+          // ยังไม่ตาย แสดง HP ที่เหลือบนเป้า
+          emojiSpan.textContent = info.emoji;
+          showHitFX('+'+gain, '#fee2e2');
+          shakeArena(1.6);
+        }
+      }else if(type === 'fever'){
+        gain = 18 + (inFever ? 7 : 0);
+        el.dataset.alive = '0';
+        clearTimeout(timeoutId);
+        if(el.parentNode === arenaEl) arenaEl.removeChild(el);
+        showHitFX('+'+gain, '#fef9c3');
+        shakeArena(2.2);
+      }else{
+        // normal target
+        gain = 10 + (inFever ? 5 : 0);
+        el.dataset.alive = '0';
+        clearTimeout(timeoutId);
+        if(el.parentNode === arenaEl) arenaEl.removeChild(el);
+        showHitFX('+'+gain, '#bfdbfe');
+        shakeArena(inFever ? 1.8 : 1.2);
+      }
+
       score += gain;
 
-      var fxText = '+' + gain;
-      var fxColor = (t === 'boss') ? '#fee2e2' : (inFever ? '#fef9c3' : '#bfdbfe');
-      showHitFX(fxText, fxColor);
-      shakeArena(inFever ? 2 : 1);
-
-      // ถ้าเป็น boss ให้พูดพิเศษ
-      if(t === 'boss'){
-        setCoach(
-          'เยี่ยม! ล้มบอสได้แล้ว! 🔥',
-          'Great! Boss defeated! 🔥'
-        );
-      }else if(combo >= 5 && !inFever){
-        enterFever(); // combo ≥ 5 → guaranteed FEVER
-      }else if(combo === 1){
-        setCoach(
-          'เริ่มคอมโบแล้ว! ลองดูว่าจะไปได้ถึงเท่าไหร่ ✨',
-          'Combo started! Let’s see how far you can go ✨'
-        );
+      // เข้า FEVER เมื่อ combo ≥ 5 และยังไม่อยู่ใน FEVER
+      if(combo >= 5 && !inFever){
+        enterFever();
       }
 
       updateHUD();
@@ -317,7 +440,7 @@
     arenaEl.appendChild(el);
   }
 
-  // ----- Timer & loop -----
+  // ---------- Timer / Loop ----------
   function tickTimer(){
     if(state !== 'running') return;
     checkFeverTimeout();
@@ -331,7 +454,6 @@
         return;
       }
     }else{
-      // endless → ใช้ elapsed แทน
       elapsedSec += 1;
     }
     updateHUD();
@@ -340,9 +462,6 @@
   function startSpawnLoop(){
     if(spawnId) clearInterval(spawnId);
     var interval = baseSpawnInterval;
-    if(mode === 'endless'){
-      interval = baseSpawnInterval; // สามารถปรับ scaling ตามเวลาภายหลังได้
-    }
     spawnId = setInterval(function(){
       if(state === 'running'){
         spawnTarget();
@@ -355,7 +474,7 @@
     if(spawnId){ clearInterval(spawnId); spawnId = null; }
   }
 
-  // ----- Control -----
+  // ---------- Control ----------
   function resetState(){
     stopAllTimers();
     state = 'idle';
@@ -368,7 +487,9 @@
     maxCombo = 0;
     inFever = false;
     feverUntil = 0;
-    spawnCount = 0;
+    targetIndex = 0;
+    bossPhase = 0;
+    bossCountSpawned = 0;
     clearArena();
     updateHUD();
     if(resultCard) resultCard.style.display = 'none';
@@ -378,14 +499,13 @@
     if(state === 'running') return;
     resetState();
     state = 'running';
-    startTimestamp = Date.now();
+
     setCoach(
-      'โค้ชพุ่ง: แตะเป้าที่โผล่มาให้ไวที่สุด! ถ้าได้คอมโบ 5 ขึ้นไปจะเข้า FEVER!!',
-      'Coach: Tap every target fast! Reach combo 5 to enter FEVER!!'
+      'โค้ชพุ่ง: แตะเป้าให้ทัน เก็บคอมโบถึง 5 เพื่อเข้า FEVER และระวัง 4 บอสที่จะโผล่มาระหว่างเกม! 🔥',
+      'Coach Pung: Hit every cute target, reach combo 5 for FEVER, and be ready for the 4 bosses! 🔥'
     );
 
-    // ปุ่มแสดงผล
-    if(btnStart) btnStart.style.display = 'none';
+    if(btnStart) btnStart.style.display = 'inline-flex';
     if(btnPause) btnPause.style.display = 'inline-flex';
     if(btnResume) btnResume.style.display = 'none';
 
@@ -399,8 +519,8 @@
     state = 'paused';
     stopAllTimers();
     setCoach(
-      'พักก่อน หายใจลึกๆ แล้วค่อยกด Resume ต่อ 💫',
-      'Paused. Take a breath and hit Resume when ready 💫'
+      'พักหายใจลึกๆ ก่อน แล้วค่อยกด Resume ต่อ 💫',
+      'Take a short break and press Resume when ready 💫'
     );
     if(btnPause) btnPause.style.display = 'none';
     if(btnResume) btnResume.style.display = 'inline-flex';
@@ -410,8 +530,8 @@
     if(state !== 'paused') return;
     state = 'running';
     setCoach(
-      'ลุยต่อ! เก็บคอมโบให้ถึง FEVER อีกครั้ง! 🔥',
-      'Let’s continue! Build combo to FEVER again! 🔥'
+      'ลุยต่อ! บอสตัวถัดไปกำลังรออยู่ข้างหน้า 🔥',
+      'Let’s go! The next boss is waiting ahead 🔥'
     );
     if(btnPause) btnPause.style.display = 'inline-flex';
     if(btnResume) btnResume.style.display = 'none';
@@ -424,7 +544,6 @@
     if(state === 'ended') return;
     state = 'ended';
     stopAllTimers();
-
     clearArena();
 
     var usedTime;
@@ -437,22 +556,23 @@
 
     var total = hits + misses;
     var acc = total > 0 ? (hits*100/total) : 0;
+
     var rank = 'C';
     var titleTh = 'ลองใหม่อีกครั้งได้นะ 💪';
     var titleEn = 'You can try again 💪';
 
     if(acc >= 95 && hits >= 80){
       rank = 'S';
-      titleTh = 'สุดยอด! ระดับจอมยุทธ์ Shadow! 🏆';
-      titleEn = 'Amazing! Shadow master level! 🏆';
+      titleTh = 'สุดยอด! ระดับ Shadow Master! 🏆';
+      titleEn = 'Amazing! Shadow Master level! 🏆';
     }else if(acc >= 85 && hits >= 40){
       rank = 'A';
-      titleTh = 'เยี่ยมมาก! ความแม่นยำสูง 👍';
-      titleEn = 'Great job! High accuracy 👍';
+      titleTh = 'เยี่ยมมาก! แม่นและไวมาก 👍';
+      titleEn = 'Great! Very fast and accurate 👍';
     }else if(acc >= 70){
       rank = 'B';
-      titleTh = 'ใช้ได้เลย! ถ้าซ้อมอีกนิดจะยิ่งดี ✨';
-      titleEn = 'Good! With more practice you’ll be great ✨';
+      titleTh = 'ใช้ได้เลย! ถ้าซ้อมอีกนิดจะเทพแน่นอน ✨';
+      titleEn = 'Good! A bit more practice and you’ll be great ✨';
     }
 
     lastResults = {
@@ -467,30 +587,32 @@
       accuracy: acc,
       rank: rank,
       finishedBy: reason || 'time',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      bossesSpawned: bossCountSpawned
     };
 
-    if(resRankEl) resRankEl.textContent = rank;
+    if(resRankEl)  resRankEl.textContent  = rank;
     if(resTitleEl) resTitleEl.textContent = (lang==='th' ? titleTh : titleEn);
     if(resScoreEl) resScoreEl.textContent = score;
-    if(resHitEl) resHitEl.textContent = hits;
-    if(resMissEl) resMissEl.textContent = misses;
+    if(resHitEl)   resHitEl.textContent   = hits;
+    if(resMissEl)  resMissEl.textContent  = misses;
     if(resComboEl) resComboEl.textContent = 'x' + maxCombo;
-    if(resAccEl) resAccEl.textContent = acc.toFixed(1) + '%';
-    if(resTimeEl) resTimeEl.textContent = usedTime + 's';
+    if(resAccEl)   resAccEl.textContent   = acc.toFixed(1) + '%';
+    if(resTimeEl)  resTimeEl.textContent  = usedTime + 's';
     if(resModeEl){
       var diffLabel = (difficulty==='easy' ? 'Easy'
         : difficulty==='hard' ? 'Hard' : 'Normal');
       var modeLabel = (mode==='endless' ? 'Endless' : 'Timed');
       resModeEl.textContent = modeLabel + ' · ' + diffLabel;
     }
+
     if(resultCard) resultCard.style.display = 'flex';
 
-    if(btnStart) btnStart.style.display = 'inline-flex';
-    if(btnPause) btnPause.style.display = 'none';
+    if(btnStart)  btnStart.style.display  = 'inline-flex';
+    if(btnPause)  btnPause.style.display  = 'none';
     if(btnResume) btnResume.style.display = 'none';
 
-    // ripple FX
+    // ripple effect
     var ripple = document.createElement('div');
     ripple.className = 'sb-finish-ripple';
     document.body.appendChild(ripple);
@@ -499,12 +621,12 @@
     }, 600);
 
     setCoach(
-      'จบเกมแล้ว! ดูผลคะแนนด้านล่าง แล้วลองเล่นใหม่อีกครั้งได้เลย 🔁',
-      'Session finished! Check your results below and try again 🔁'
+      'จบเกมแล้ว! ดูผลคะแนนด้านล่าง แล้วลองไต่ Rank ให้ถึง S ดูนะ 🔁',
+      'Session finished! Check your stats and aim for Rank S next time 🔁'
     );
   }
 
-  // ----- Download "PDF" (เปิดหน้า Print ได้) -----
+  // ---------- PDF / Print ----------
   function openResultWindow(){
     if(!lastResults){
       alert(lang==='th'
@@ -546,11 +668,12 @@
     html += '<tr><td>Max Combo</td><td>'+r.maxCombo+'</td></tr>';
     html += '<tr><td>Accuracy</td><td>'+r.accuracy.toFixed(1)+'%</td></tr>';
     html += '<tr><td>Rank</td><td>'+r.rank+'</td></tr>';
+    html += '<tr><td>Bosses Spawned</td><td>'+r.bossesSpawned+'</td></tr>';
     html += '</table>';
     html += '<p style="margin-top:12px;font-size:12px;">'
       + (lang==='th'
-        ? 'สามารถใช้คำสั่ง Print (Ctrl+P / Share → Print) แล้วเลือก Save as PDF เพื่อบันทึกไฟล์.'
-        : 'Use the Print command (Ctrl+P or Share → Print) and choose "Save as PDF" to export.')
+        ? 'ใช้คำสั่ง Print (Ctrl+P / Share → Print) แล้วเลือก Save as PDF เพื่อบันทึกไฟล์.'
+        : 'Use Print (Ctrl+P or Share → Print) and choose "Save as PDF" to export.')
       + '</p>';
     html += '</body></html>';
 
@@ -559,7 +682,7 @@
     w.document.close();
   }
 
-  // ----- Bind ปุ่ม -----
+  // ---------- Bind Buttons ----------
   if(btnStart){
     btnStart.addEventListener('click', function(){
       if(state === 'running') return;
@@ -587,10 +710,10 @@
     });
   }
 
-  // ---- Auto message ตอนโหลดเสร็จ ----
+  // ---------- Initial Coach ----------
   setCoach(
-    'พร้อมแล้วกดปุ่ม "เริ่มเล่น" ด้านล่าง เพื่อเริ่มทดสอบ Shadow Breaker 🔥',
-    'Press "Start" below when you are ready to train with Shadow Breaker 🔥'
+    'พร้อมแล้วกด "เริ่มเล่น" เพื่อฝึก Shadow Breaker เป้าน่ารัก + 4 บอสใน 1 เกม 🔥',
+    'Press "Start" to train with cute targets and 4 bosses in one session 🔥'
   );
   updateHUD();
 })();
