@@ -339,6 +339,26 @@
         transform:translate(-50%,-50%) scale(18);
       }
     }
+
+    /* === VR MODE LAYOUT === */
+    body.vr-mode .page{
+      max-width: 880px;
+    }
+    body.vr-mode .main{
+      grid-template-columns: minmax(0,1fr);
+    }
+    /* ซ่อน panel ซ้าย (คู่มือ + live stats) ใน VR */
+    body.vr-mode .main .panel:first-of-type{
+      display:none;
+    }
+    /* จอเกมใหญ่ขึ้นใน VR */
+    body.vr-mode .sb-arena{
+      height: min(80vh, 560px);
+    }
+    body.vr-mode header.top-bar{
+      transform:scale(0.96);
+      opacity:0.94;
+    }
   </style>
 </head>
 <body>
@@ -489,7 +509,6 @@
     import { ShadowBreaker } from './shadow-breaker.js';
 
     // ======= CONFIG สำหรับงานวิจัย / หลายห้อง =======
-    // สามารถ override ได้จาก script อื่นก่อนหน้านี้
     window.__SB_CONFIG = Object.assign({
       siteId    : 'DemoSite',
       roomId    : 'P5-ShadowLab',
@@ -506,18 +525,26 @@
       const mode = qs.get('mode') || 'timed';
       const time = parseInt(qs.get('time') || '90', 10);
 
+      // ---- Detect device + VR layout ----
+      const ua = navigator.userAgent || '';
+      const isVRHeadset = /Quest|Oculus|Pico|Vive|VR/i.test(ua);
+      const forceVR = qs.get('view') === 'vr';    // สำหรับทดสอบบน PC: ?view=vr
+
+      if (isVRHeadset || forceVR) {
+        document.body.classList.add('vr-mode');
+      }
+
+      let device = 'PC';
+      if (isVRHeadset) device = 'VR';
+      else if (/Mobile|Android|iPhone/i.test(ua)) device = 'Mobile';
+
       // แสดงบน info panel
       const diffLabel = document.getElementById('sbDiffLabel');
       const modeLabel = document.getElementById('sbModeLabel');
       if (diffLabel) diffLabel.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
       if (modeLabel) modeLabel.textContent = mode === 'timed' ? 'Timed' : mode;
 
-      // Device label
       const deviceLabel = document.getElementById('sbDeviceLabel');
-      const ua = navigator.userAgent || '';
-      let device = 'PC';
-      if (/Quest|Oculus|Pico|Vive|VR/i.test(ua)) device = 'VR';
-      else if (/Mobile|Android|iPhone/i.test(ua)) device = 'Mobile';
       if (deviceLabel) deviceLabel.textContent = device;
 
       const arena = document.getElementById('sbArena');
@@ -544,13 +571,12 @@
         csvBtn: document.getElementById('sbCsvBtn'),
         pdfBtn: document.getElementById('sbPdfBtn'),
         onExit(summary){
-          // ถ้าต้องการส่ง summary กลับ Hub ผ่าน postMessage ก็ทำที่นี่ได้
-          // ตอนนี้ให้กลับ index ของเกมนี้ก่อน
+          // สามารถส่ง summary กลับ Hub ผ่าน postMessage ได้ตรงนี้ถ้าต้องการ
           window.location.href = './index.html';
         }
       });
 
-      // mirror live HUD -> left info card (ถ้าอยากเห็นทันที)
+      // mirror live HUD -> left info card
       const $ = (id)=>document.getElementById(id);
       const mirror = () => {
         if (!game || !game.state) return;
@@ -560,7 +586,6 @@
         if ($('sbMissLive'))      $('sbMissLive').textContent = s.miss;
         if ($('sbComboLive'))     $('sbComboLive').textContent = 'x'+s.combo;
       };
-      // hook เข้า requestAnimationFrame ผ่าน interval เบาๆ
       setInterval(mirror, 200);
 
       // ปุ่มควบคุม
@@ -587,10 +612,9 @@
         });
       }
 
-      // อัปเดต meta ใน result card ตอนจบรอบ (ใช้ observer เล็กน้อย)
+      // อัปเดต meta ใน result card ตอนจบรอบ
       const metaEl = document.getElementById('sbResultMeta');
-      const timeLabel = document.getElementById('sbTime');
-      if (metaEl && timeLabel){
+      if (metaEl){
         metaEl.textContent = `Shadow Breaker • ${time || 90}s • diff: ${diff}`;
       }
     });
