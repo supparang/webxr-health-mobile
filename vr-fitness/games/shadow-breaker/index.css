@@ -1,5 +1,10 @@
-:root { color-scheme:dark; }
-* { box-sizing:border-box; }
+:root{
+  color-scheme:dark;
+}
+
+*{
+  box-sizing:border-box;
+}
 
 body{
   margin:0;
@@ -11,9 +16,9 @@ body{
     #020617;
   color:#e5e7eb;
   display:flex;
-  align-items:center;
   justify-content:center;
-  padding:18px;
+  align-items:flex-start;      /* ไม่ลอยกลางจอเกินไป */
+  padding:18px 12px 24px;
 }
 
 main{
@@ -27,6 +32,7 @@ main{
   box-shadow:0 26px 70px rgba(2,6,23,.8);
 }
 
+/* ---------- header ---------- */
 header{
   display:flex;
   justify-content:space-between;
@@ -34,20 +40,33 @@ header{
   margin-bottom:12px;
   flex-wrap:wrap;
 }
+
 .title h1{
   margin:0;
   display:flex;
   gap:8px;
   align-items:center;
+  font-size:1.2rem;
 }
+
 .title .logo{
-  width:34px;height:34px;border-radius:999px;
+  width:34px;
+  height:34px;
+  border-radius:999px;
   background:radial-gradient(circle at 30% 20%,#a5f3fc,#0ea5e9);
-  display:flex;align-items:center;justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   box-shadow:0 0 0 1px rgba(8,47,73,.5);
 }
-subtitle{ font-size:.9rem;color:#94a3b8; }
 
+#subtitle{
+  margin-top:4px;
+  font-size:.9rem;
+  color:#94a3b8;
+}
+
+/* live / play mode pill */
 .pill{
   font-size:.7rem;
   border-radius:999px;
@@ -59,22 +78,31 @@ subtitle{ font-size:.9rem;color:#94a3b8; }
   text-transform:uppercase;
   letter-spacing:.08em;
   gap:6px;
-}
-.pill .dot{
-  width:7px;height:7px;border-radius:999px;
-  background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.3);
+  white-space:nowrap;
 }
 
-/* Game mode grid */
+.pill .dot{
+  width:7px;
+  height:7px;
+  border-radius:999px;
+  background:#22c55e;
+  box-shadow:0 0 0 4px rgba(34,197,94,.3);
+}
+
+/* ---------- game mode grid ---------- */
 .mode-box{
   display:grid;
   grid-template-columns:repeat(3,1fr);
   gap:12px;
   margin-top:14px;
 }
+
 @media(max-width:720px){
-  .mode-box { grid-template-columns:1fr; }
+  .mode-box{
+    grid-template-columns:1fr;
+  }
 }
+
 .card{
   border-radius:16px;
   background:rgba(15,23,42,.85);
@@ -84,8 +112,17 @@ subtitle{ font-size:.9rem;color:#94a3b8; }
   flex-direction:column;
   gap:6px;
 }
-.card h2{ margin:0;font-size:1rem; }
-.card p{ font-size:.8rem;color:#9ca3af;margin:0; }
+
+.card h2{
+  margin:0;
+  font-size:1rem;
+}
+
+.card p{
+  font-size:.8rem;
+  color:#9ca3af;
+  margin:0;
+}
 
 .card a{
   margin-top:8px;
@@ -101,8 +138,21 @@ subtitle{ font-size:.9rem;color:#94a3b8; }
   box-shadow:0 10px 26px rgba(8,47,73,.7);
 }
 
-/* Language */
-.lang{ display:flex; gap:6px; }
+/* ---------- footer: language + note ---------- */
+.footer-area{
+  margin-top:16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.lang{
+  display:flex;
+  gap:6px;
+}
+
 .lang button{
   padding:4px 10px;
   border-radius:999px;
@@ -112,10 +162,12 @@ subtitle{ font-size:.9rem;color:#94a3b8; }
   color:#e5e7eb;
   cursor:pointer;
 }
+
 .lang button.active{
   background:#e5e7eb;
   color:#020617;
 }
+
 .info{
   font-size:.72rem;
   color:#9ca3af;
