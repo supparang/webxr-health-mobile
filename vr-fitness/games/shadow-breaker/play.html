@@ -4,519 +4,584 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>VR Fitness — Shadow Breaker (Play)</title>
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="dark" />
   <style>
-    :root { color-scheme: dark; }
-    * { box-sizing:border-box; }
-
-    body {
+    :root{
+      color-scheme:dark;
+      --bg:#020617;
+      --bg-soft:#020617;
+      --card:#020617;
+      --card-soft:#020617;
+      --border:#1e293b;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --accent:#38bdf8;
+      --accent2:#22c55e;
+      --danger:#f97373;
+      --surface:#020617;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{
       margin:0;
       min-height:100vh;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(34,197,94,.2), transparent 55%),
+        radial-gradient(circle at top left,rgba(56,189,248,.18),transparent 55%),
+        radial-gradient(circle at bottom right,rgba(34,197,94,.2),transparent 55%),
         #020617;
-      color:#e5e7eb;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:0;
+      color:var(--text);
+    }
+    .game-shell{
+      max-width:960px;
+      margin:16px auto 32px;
+      padding:0 12px 32px;
     }
 
-    .wrap {
+    /* --- research card --- */
+    .research-card{
+      background:radial-gradient(circle at top left,rgba(56,189,248,.1),transparent 55%),
+                 #020617;
+      border:1px solid rgba(15,23,42,.9);
+      border-radius:18px;
+      padding:16px 16px 12px;
+      margin-bottom:16px;
+      box-shadow:0 22px 45px rgba(15,23,42,.85);
+    }
+    .research-header{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .research-header .icon{
+      width:32px;height:32px;border-radius:999px;
+      background:rgba(56,189,248,.16);
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;
+    }
+    .research-header h2{
+      font-size:17px;
+      font-weight:600;
+      margin-bottom:2px;
+    }
+    .research-header .sub{
+      font-size:12px;
+      color:var(--muted);
+    }
+    .research-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px 12px;
+      margin-top:6px;
+    }
+    .research-grid .field.full{grid-column:1/3;}
+    .field label{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin-bottom:3px;
+    }
+    .field input,
+    .field select{
       width:100%;
-      max-width:1100px;
-      margin:auto;
-      padding:10px 12px 16px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
+      border-radius:999px;
+      border:1px solid #1e293b;
+      padding:8px 12px;
+      font-size:13px;
+      background:rgba(15,23,42,.92);
+      color:var(--text);
+      outline:none;
+    }
+    .field input::placeholder{color:#64748b;}
+
+    /* --- main card --- */
+    .shadow-card{
+      margin-top:14px;
+      background:radial-gradient(circle at top left,rgba(56,189,248,.1),transparent 55%),
+                radial-gradient(circle at bottom right,rgba(34,197,94,.1),transparent 55%),
+                #020617;
+      border-radius:22px;
+      border:1px solid rgba(15,23,42,.95);
+      padding:16px 14px 18px;
+      box-shadow:0 26px 60px rgba(15,23,42,.9);
     }
 
-    header.top {
+    .hud{
       display:flex;
-      align-items:center;
+      flex-wrap:wrap;
       justify-content:space-between;
       gap:10px;
-      padding:4px 4px 0;
-    }
-
-    .title-block {
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-
-    .title-main {
-      display:flex;
       align-items:center;
+      margin-bottom:10px;
+    }
+    .hud-row{
+      display:flex;
+      flex-wrap:wrap;
       gap:8px;
-      font-size:1.1rem;
+      flex:1 1 auto;
+    }
+    .hud-box{
+      min-width:72px;
+      padding:6px 10px;
+      border-radius:14px;
+      border:1px solid #1e293b;
+      background:radial-gradient(circle at top,rgba(15,23,42,.96),rgba(15,23,42,.9));
+      text-align:center;
+    }
+    .hud-box .label{
+      font-size:11px;
+      letter-spacing:.02em;
+      color:var(--muted);
+      margin-bottom:2px;
+    }
+    .hud-box .value{
+      font-size:15px;
       font-weight:600;
     }
 
-    .title-main .logo {
-      width:28px; height:28px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      background:radial-gradient(circle at 30% 20%, #a5f3fc, #0ea5e9);
-      box-shadow:0 0 0 1px rgba(8,47,73,.5);
-      font-size:16px;
-    }
-
-    .subtitle {
-      font-size:.8rem;
-      color:#9ca3af;
-    }
-
-    .pill {
-      font-size:.7rem;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-      padding:4px 9px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.5);
-      color:#e5e7eb;
-      background:rgba(15,23,42,.7);
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      white-space:nowrap;
-    }
-    .pill .dot {
-      width:6px; height:6px; border-radius:999px;
-      background:#22c55e;
-      box-shadow:0 0 0 4px rgba(34,197,94,.3);
-    }
-
-    .hud {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:6px 8px;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,.45);
-      background:rgba(15,23,42,.9);
-    }
-
-    .hud-left {
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px 16px;
-      align-items:center;
-      font-size:.78rem;
-    }
-
-    .hud-item {
+    .lang-switch{
       display:flex;
       align-items:center;
       gap:4px;
+    }
+    .lang-label{
+      font-size:11px;
+      color:var(--muted);
+      margin-right:4px;
+    }
+    .lang-btn{
+      border-radius:999px;
+      border:1px solid #1f2937;
+      background:#020617;
+      color:var(--text);
+      font-size:12px;
+      padding:5px 10px;
+      cursor:pointer;
+      min-width:40px;
+    }
+    .lang-btn.active{
+      background:#38bdf8;
+      color:#0b1120;
+      border-color:#38bdf8;
+      font-weight:600;
+    }
+
+    .start-row{
+      margin:4px 0 10px;
+      display:flex;
+      justify-content:center;
+    }
+    .btn{
+      border:none;
+      cursor:pointer;
+      border-radius:999px;
+      padding:10px 26px;
+      font-size:15px;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      transition:transform .1s ease,box-shadow .1s ease,background .1s ease,opacity .1s ease;
+    }
+    .btn-primary{
+      background:linear-gradient(135deg,#facc15,#f97316);
+      color:#0b1120;
+      box-shadow:0 14px 30px rgba(248,181,0,.45);
+      width:100%;
+      max-width:480px;
+    }
+    .btn-primary:active{
+      transform:translateY(1px) scale(.99);
+      box-shadow:0 8px 20px rgba(248,181,0,.3);
+    }
+    .btn-secondary{
+      background:#0f172a;
+      color:var(--text);
+      border:1px solid #1f2937;
+    }
+
+    .game-panel{
+      position:relative;
+      border-radius:20px;
+      border:1px solid #1e293b;
+      background:radial-gradient(circle at top,#0b1220,#020617);
+      padding:10px 10px 16px;
+      margin-bottom:10px;
+      overflow:hidden;
+    }
+
+    /* boss hud */
+    .boss-barbox{
+      position:relative;
+      z-index:2;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-bottom:6px;
+    }
+    .boss-face{
+      width:32px;height:32px;
+      border-radius:999px;
+      background:rgba(15,23,42,.9);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 0 12px rgba(148,163,184,.6);
+      font-size:18px;
+    }
+    .boss-info{flex:1 1 auto;}
+    .boss-label{
+      font-size:11px;
+      color:var(--muted);
+      margin-bottom:3px;
+    }
+    .boss-bar{
+      width:100%;
+      height:8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.9);
+      overflow:hidden;
+      border:1px solid rgba(30,64,175,.8);
+    }
+    .boss-bar-fill{
+      width:100%;height:100%;
+      background:linear-gradient(90deg,#22c55e,#facc15,#f97316);
+      transform-origin:left center;
+      transform:scaleX(1);
+      transition:transform .15s ease-out;
+    }
+
+    #gameArena{
+      position:relative;
+      width:100%;
+      height:290px;
+      border-radius:14px;
+      background:radial-gradient(circle at top,#020617,#020617 55%,#000814 100%);
+      border:1px solid rgba(15,23,42,.95);
+      overflow:hidden;
+      touch-action:none;
+    }
+    @media (min-width:768px){
+      #gameArena{height:340px;}
+    }
+    .hit-line{
+      margin-top:8px;
+      height:4px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#22c55e,#38bdf8);
+      box-shadow:0 0 14px rgba(56,189,248,.8);
+    }
+    #flashMsg{
+      position:absolute;
+      left:50%;top:50%;
+      transform:translate(-50%,-20px);
+      pointer-events:none;
+      font-size:20px;
+      font-weight:700;
+      opacity:0;
+      text-shadow:0 0 14px rgba(15,23,42,.85);
+    }
+    .flash-show{
+      animation:flash-pop .4s ease-out;
+    }
+    @keyframes flash-pop{
+      0%{opacity:0;transform:translate(-50%,-10px) scale(.9);}
+      15%{opacity:1;transform:translate(-50%,-18px) scale(1.05);}
+      100%{opacity:0;transform:translate(-50%,-26px) scale(.9);}
+    }
+
+    /* targets */
+    .sb-target{
+      will-change:transform,opacity;
+    }
+
+    .coach{
+      font-size:13px;
+      margin-top:4px;
       color:#e5e7eb;
     }
-    .hud-item span.label {
-      font-size:.72rem;
-      text-transform:uppercase;
-      letter-spacing:.06em;
-      color:#9ca3af;
-    }
-    .hud-item span.value {
-      font-weight:600;
-    }
 
-    #startBtn {
-      border:none;
-      border-radius:999px;
-      padding:7px 14px;
-      font-size:.85rem;
-      font-weight:600;
-      letter-spacing:.03em;
-      text-transform:uppercase;
-      background:linear-gradient(135deg,#22d3ee,#0ea5e9);
-      color:#0f172a;
-      box-shadow:0 10px 24px rgba(8,47,73,.7);
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-    }
-    #startBtn span.icon { font-size:1rem; }
-    #startBtn:active { transform:translateY(1px); box-shadow:0 7px 18px rgba(8,47,73,.65); }
-
-    .layout {
-      display:grid;
-      grid-template-columns: minmax(0,3fr) minmax(0,1.6fr);
-      gap:10px;
-      margin-top:4px;
-    }
-    @media (max-width:900px) {
-      .layout { grid-template-columns: minmax(0,1fr); }
-    }
-
-    .game-shell {
+    .guide{
+      margin-top:10px;
+      padding:10px 10px 8px;
       border-radius:16px;
-      border:1px solid rgba(148,163,184,.5);
-      background:#020617;
-      overflow:hidden;
-      position:relative;
-      min-height:260px;
-      display:flex;
-      flex-direction:column;
+      border:1px solid #1f2937;
+      background:rgba(15,23,42,.88);
     }
-
-    .game-area {
-      position:relative;
-      flex:1;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at top, rgba(148,163,253,.16), transparent 60%),
-        radial-gradient(circle at bottom, rgba(45,212,191,.14), transparent 60%),
-        #020617;
+    .guide h3{
+      font-size:14px;
+      margin-bottom:6px;
     }
-
-    .hit-line {
-      position:absolute;
-      left:0; right:0;
-      bottom:12%;
-      height:3px;
-      background:linear-gradient(90deg, rgba(56,189,248,.3), rgba(16,185,129,.8), rgba(59,130,246,.3));
-      box-shadow:0 0 14px rgba(34,197,94,.9);
+    .guide ul{
+      margin-left:18px;
+      margin-bottom:4px;
+      font-size:13px;
+      color:var(--muted);
     }
-
-    #gameArena {
-      position:absolute;
-      inset:0;
-      overflow:hidden;
+    .guide li{margin-bottom:3px;}
+    .guide-sub{
+      font-size:12px;
+      color:var(--muted);
     }
-
-    .boss-hud {
-      position:absolute;
-      left:10px;
-      top:8px;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:4px 7px;
-      border-radius:999px;
-      background:rgba(15,23,42,.8);
-      border:1px solid rgba(148,163,184,.5);
-      font-size:.72rem;
-    }
-
-    .boss-face {
-      font-size:1rem;
-    }
-    .boss-bar-wrap {
-      width:90px;
-      height:6px;
-      border-radius:999px;
-      background:#020617;
-      overflow:hidden;
-    }
-    .boss-bar-fill {
-      width:100%;
-      height:100%;
-      background:linear-gradient(90deg,#f97316,#ef4444);
-      transform-origin:left center;
-    }
-
-    .coach {
-      min-height:46px;
-      padding:6px 8px 4px;
-      font-size:.8rem;
-      color:#cbd5f5;
-    }
-
-    .coach strong { color:#facc15; }
-
-    .side-card {
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.5);
-      background:rgba(15,23,42,.9);
-      padding:10px 10px 12px;
-      font-size:.78rem;
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-    }
-
-    .side-card h2 {
-      margin:0;
-      font-size:.9rem;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
-
-    .side-card ul {
-      margin:4px 0 0;
-      padding-left:18px;
-    }
-    .side-card li { margin-bottom:2px; color:#9ca3af; }
-
-    .side-card small { color:#6b7280; }
-
-    .footer-hint {
-      margin-top:4px;
-      font-size:.72rem;
+    .hint{
+      font-size:11px;
       color:#6b7280;
-      text-align:right;
+      margin-top:4px;
     }
 
-    .overlay {
+    /* overlay */
+    .overlay{
       position:fixed;
       inset:0;
-      background:rgba(15,23,42,.88);
+      background:rgba(15,23,42,.90);
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:16px;
-      z-index:30;
+      z-index:50;
     }
-    .overlay.hidden { display:none; }
-
-    .overlay-card {
+    .overlay.hidden{display:none;}
+    .overlay-box{
       width:100%;
       max-width:420px;
-      border-radius:20px;
+      padding:18px 16px 16px;
+      border-radius:18px;
       background:#020617;
-      border:1px solid rgba(148,163,184,.7);
-      padding:16px 16px 14px;
-      box-shadow:0 26px 70px rgba(0,0,0,.9);
+      border:1px solid #1f2937;
+      box-shadow:0 22px 60px rgba(15,23,42,.95);
     }
-
-    .overlay-card h2 {
-      margin:0 0 8px;
-      font-size:1.1rem;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-
-    .overlay-card h2 span.icon { font-size:1.4rem; }
-
-    .result-grid {
-      display:grid;
-      grid-template-columns: repeat(2,minmax(0,1fr));
-      gap:6px 12px;
-      font-size:.8rem;
+    .overlay-box h2{
+      font-size:17px;
       margin-bottom:10px;
     }
-
-    .result-row {
-      display:flex;
-      justify-content:space-between;
-      gap:6px;
+    .overlay-box p{
+      font-size:13px;
+      margin-bottom:4px;
     }
-
-    .result-label { color:#9ca3af; }
-    .result-value { font-weight:600; }
-
-    .overlay-actions {
+    .overlay-actions{
+      margin-top:10px;
       display:flex;
-      justify-content:space-between;
+      flex-wrap:wrap;
       gap:8px;
-      margin-top:8px;
-    }
-
-    .btn {
-      border-radius:999px;
-      border:none;
-      padding:8px 10px;
-      font-size:.8rem;
-      font-weight:600;
-      letter-spacing:.03em;
-      text-transform:uppercase;
-      cursor:pointer;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      text-decoration:none;
-    }
-
-    .btn-primary {
-      background:linear-gradient(135deg,#22d3ee,#0ea5e9);
-      color:#020617;
-    }
-    .btn-secondary {
-      background:rgba(15,23,42,1);
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,.8);
-    }
-
-    #flashMsg {
-      position:absolute;
-      left:50%; top:52%;
-      transform:translate(-50%,-50%);
-      font-size:2.2rem;
-      font-weight:800;
-      text-shadow:0 0 18px rgba(0,0,0,.9);
-      opacity:0;
-      pointer-events:none;
-    }
-
-    .flash-show {
-      animation:flashPop 420ms ease-out;
-    }
-
-    @keyframes flashPop {
-      0% { opacity:0; transform:translate(-50%,-50%) scale(.6); }
-      30% { opacity:1; transform:translate(-50%,-50%) scale(1.1); }
-      100% { opacity:0; transform:translate(-50%,-50%) scale(1); }
-    }
-
-    @media (max-width:640px) {
-      .wrap { padding:6px 8px 10px; }
-      header.top { padding-inline:2px; }
-      .hud { flex-direction:column; align-items:flex-start; }
-      #startBtn { align-self:stretch; justify-content:center; }
+      justify-content:flex-end;
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header class="top">
-      <div class="title-block">
-        <div class="title-main">
-          <span class="logo">🥊</span>
-          <span>Shadow Breaker</span>
-        </div>
-        <div class="subtitle">
-          ต่อยเป้าให้ทันจังหวะและตำแหน่ง บอสจะโผล่มาเป็นระยะจากง่ายไปยาก
-          <br><small id="modeInfo">โหมด: <span id="modeLabel">Timed</span> • ระยะเวลา <span id="timeLabel">90</span> วินาที</small>
-        </div>
-      </div>
-      <div class="pill">
-        <span class="dot"></span>
-        <span>Play session</span>
-      </div>
-    </header>
+  <div class="game-shell">
 
-    <section class="hud">
-      <div class="hud-left">
-        <div class="hud-item">
-          <span class="label">Time</span>
-          <span class="value" id="timeVal">90</span><span>s</span>
+    <!-- ===== ฟอร์มวิจัยด้านบน ===== -->
+    <section class="research-card">
+      <header class="research-header">
+        <div class="icon">📊</div>
+        <div>
+          <h2 id="researchTitle">ข้อมูลสำหรับงานวิจัย</h2>
+          <p id="researchSub" class="sub">
+            กรอกเพียงครั้งเดียวก่อนเริ่มเล่น แต่ละรอบจะถูกบันทึกเป็น 1 session
+          </p>
         </div>
-        <div class="hud-item">
-          <span class="label">Score</span>
-          <span class="value" id="scoreVal">0</span>
+      </header>
+
+      <div class="research-grid">
+        <div class="field">
+          <label for="stuId">Student ID</label>
+          <input id="stuId" type="text" placeholder="เช่น 65001" />
         </div>
-        <div class="hud-item">
-          <span class="label">Combo</span>
-          <span class="value" id="comboVal">x0</span>
+
+        <div class="field">
+          <label for="deviceSel">Device</label>
+          <select id="deviceSel">
+            <option value="auto">Auto detect</option>
+            <option value="mobile">Mobile / Tablet</option>
+            <option value="pc">PC / Notebook</option>
+            <option value="vr">VR Headset</option>
+          </select>
         </div>
-        <div class="hud-item">
-          <span class="label">Boss</span>
-          <span class="value" id="bossIndexVal">1/4</span>
+
+        <div class="field full">
+          <label for="school">School</label>
+          <input id="school" type="text" placeholder="ชื่อโรงเรียน / สถาบัน" />
+        </div>
+
+        <div class="field">
+          <label for="classRoom">Class / Room</label>
+          <input id="classRoom" type="text" placeholder="เช่น ป.5/1" />
+        </div>
+
+        <div class="field">
+          <label for="note">Note (optional)</label>
+          <input id="note" type="text" placeholder="ทดลองก่อนจริง / กลุ่มควบคุม ฯลฯ" />
         </div>
       </div>
-      <button id="startBtn">
-        <span class="icon">▶</span>
-        <span>เริ่มเล่น</span>
-      </button>
     </section>
 
-    <section class="layout">
-      <div class="game-shell">
-        <div class="game-area">
-          <div id="gameArena"></div>
-          <div class="hit-line"></div>
+    <!-- ===== การเล่น Shadow Breaker ===== -->
+    <section class="shadow-card">
+      <div class="hud">
+        <div class="hud-row">
+          <div class="hud-box">
+            <div class="label">TIME</div>
+            <div class="value"><span id="timeVal">0</span>s</div>
+          </div>
+          <div class="hud-box">
+            <div class="label">SCORE</div>
+            <div class="value" id="scoreVal">0</div>
+          </div>
+          <div class="hud-box">
+            <div class="label">HIT</div>
+            <div class="value" id="hitVal">0</div>
+          </div>
+          <div class="hud-box">
+            <div class="label">MISS</div>
+            <div class="value" id="missVal">0</div>
+          </div>
+          <div class="hud-box">
+            <div class="label">COMBO</div>
+            <div class="value" id="comboVal">x0</div>
+          </div>
+        </div>
 
-          <div class="boss-hud" id="bossHud">
-            <span class="boss-face" id="bossFace">🟦</span>
-            <div class="boss-bar-wrap">
+        <div class="lang-switch">
+          <span class="lang-label">Language:</span>
+          <button id="langTh" class="lang-btn active" type="button">TH</button>
+          <button id="langEn" class="lang-btn" type="button">EN</button>
+        </div>
+      </div>
+
+      <div class="start-row">
+        <button id="startBtn" class="btn btn-primary">
+          ▶ เริ่มเล่น
+        </button>
+      </div>
+
+      <div class="game-panel">
+        <div class="boss-barbox">
+          <div class="boss-face" id="bossFace">🟦</div>
+          <div class="boss-info">
+            <div class="boss-label">
+              BOSS <span id="bossIndexVal">1/4</span>
+            </div>
+            <div class="boss-bar">
               <div class="boss-bar-fill" id="bossHpBar"></div>
             </div>
           </div>
+        </div>
 
-          <div id="flashMsg"></div>
-        </div>
-        <div class="coach" id="coachLine">
-          แตะเป้า / ต่อยให้โดนวงกลมที่โผล่มาตามจังหวะ ยิ่งต่อเนื่องคอมโบยิ่งสูง!
-        </div>
+        <div id="gameArena"></div>
+        <div class="hit-line"></div>
+        <div id="flashMsg"></div>
       </div>
 
-      <aside class="side-card">
-        <h2>วิธีเล่น / Controls</h2>
-        <ul>
-          <li><strong>PC / Notebook:</strong> คลิกเมาส์บนเป้าที่โผล่ขึ้นมา</li>
-          <li><strong>Mobile / Tablet:</strong> แตะนิ้วไปที่เป้าให้ทัน</li>
-          <li><strong>VR Headset:</strong> ใช้ pointer / controller เล็งแล้วกด trigger ให้โดน</li>
-        </ul>
-        <small>ต่อยเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ.</small>
-      </aside>
-    </section>
+      <p id="coachLine" class="coach">
+        โค้ชพุ่ง: ฟังจังหวะ แล้วต่อยให้ตรงแถบไฟ! 🔥🥊
+      </p>
 
-    <div class="footer-hint">
-      Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น
-    </div>
+      <section class="guide">
+        <h3>วิธีเล่น / Controls</h3>
+        <ul>
+          <li><b>PC / Notebook:</b> คลิกเมาส์บนเป้าที่โผล่ขึ้นมา</li>
+          <li><b>Mobile / Tablet:</b> แตะนิ้วไปที่เป้าให้ทัน</li>
+          <li><b>VR Headset:</b> ใช้ pointer / controller เล็งแล้วกด trigger ให้โดน</li>
+        </ul>
+        <p class="guide-sub">
+          ต่อยเป้าให้ทันเวลา เก็บคะแนน และจัดการบอสให้ได้ครบทั้ง 4 ตัวในหนึ่งรอบ
+        </p>
+        <p class="hint">
+          Hint: การเล่นใน VR แนะนำเปิดโหมดเต็มจอ (fullscreen) ในเบราว์เซอร์ของแว่น
+        </p>
+      </section>
+    </section>
   </div>
 
-  <!-- Result Overlay -->
-  <div class="overlay hidden" id="resultOverlay">
-    <div class="overlay-card">
-      <h2>
-        <span class="icon">🏁</span>
-        <span>สรุปผล Shadow Breaker</span>
-      </h2>
-
-      <div class="result-grid">
-        <div class="result-row">
-          <span class="result-label">คะแนนรวม</span>
-          <span class="result-value" id="rScore">0</span>
-        </div>
-        <div class="result-row">
-          <span class="result-label">เวลาที่ใช้จริง</span>
-          <span class="result-value" id="rTimeUsed">0s</span>
-        </div>
-        <div class="result-row">
-          <span class="result-label">คอมโบสูงสุด</span>
-          <span class="result-value" id="rMaxCombo">x0</span>
-        </div>
-        <div class="result-row">
-          <span class="result-label">จำนวนบอสที่เคลียร์</span>
-          <span class="result-value" id="rBossCleared">0/4</span>
-        </div>
-      </div>
+  <!-- ===== Overlay สรุปผล ===== -->
+  <div id="resultOverlay" class="overlay hidden">
+    <div class="overlay-box">
+      <h2>🏁 สรุปผลการเล่น Shadow Breaker</h2>
+      <p><b>Score:</b> <span id="rScore">0</span></p>
+      <p><b>เวลาเล่น:</b> <span id="rTimeUsed">0s</span></p>
+      <p><b>Max Combo:</b> <span id="rMaxCombo">x0</span></p>
+      <p><b>บอสที่ล้มได้:</b> <span id="rBossCleared">0/4</span></p>
 
       <div class="overlay-actions">
-        <button class="btn btn-secondary" id="backBtn">
-          ← กลับเมนู
-        </button>
-        <button class="btn btn-primary" id="playAgainBtn">
-          เล่นอีกครั้ง ▶
-        </button>
+        <button id="playAgainBtn" class="btn btn-primary">▶ เล่นอีกครั้ง</button>
+        <button id="backBtn" class="btn btn-secondary">🏠 เมนู Shadow Breaker</button>
       </div>
     </div>
   </div>
 
-  <!-- เกมหลัก (ใช้ shadow-breaker.js เวอร์ชันล่าสุด) -->
-  <script src="./shadow-breaker.js"></script>
+  <!-- เกมหลัก -->
+  <script type="module" src="./shadow-breaker.js"></script>
+
+  <!-- script ย่อย: detect device + toggle ภาษา -->
   <script>
-    // ดึงค่าโหมด/เวลา/ระดับจาก query string มาโชว์ที่หัว
-    (function () {
-      const p = new URLSearchParams(location.search);
-      const mode = p.get('mode') || 'timed';
-      const diff = p.get('diff') || 'normal';
-      const time = parseInt(p.get('time') || '90', 10);
+    (function(){
+      const deviceSel = document.getElementById('deviceSel');
+      const ua = navigator.userAgent || '';
+      if (/Quest|Oculus|Valve|Vive|Mixed Reality/i.test(ua)) {
+        deviceSel.value = 'vr';
+      } else if (/Android|iPhone|iPad|Mobile/i.test(ua)) {
+        deviceSel.value = 'mobile';
+      } else {
+        deviceSel.value = 'pc';
+      }
 
-      const modeLabel = document.getElementById('modeLabel');
-      const timeLabel = document.getElementById('timeVal');
-      const timeLabelTop = document.getElementById('timeLabel');
+      const langTh = document.getElementById('langTh');
+      const langEn = document.getElementById('langEn');
+      const researchTitle = document.getElementById('researchTitle');
+      const researchSub = document.getElementById('researchSub');
+      const startBtn = document.getElementById('startBtn');
+      const coachLine = document.getElementById('coachLine');
+      const stuId = document.getElementById('stuId');
+      const school = document.getElementById('school');
+      const classRoom = document.getElementById('classRoom');
+      const note = document.getElementById('note');
 
-      let modeText = 'Timed';
-      if (mode === 'endless') modeText = 'Endless';
-      const diffTh =
-        diff === 'easy' ? 'ง่าย' : diff === 'hard' ? 'ยาก' : 'ปกติ';
+      const text = {
+        th:{
+          researchTitle:'ข้อมูลสำหรับงานวิจัย',
+          researchSub:'กรอกเพียงครั้งเดียวก่อนเริ่มเล่น แต่ละรอบจะถูกบันทึกเป็น 1 session',
+          start:'▶ เริ่มเล่น',
+          coach:'โค้ชพุ่ง: ฟังจังหวะ แล้วต่อยให้ตรงแถบไฟ! 🔥🥊',
+          stuPh:'เช่น 65001',
+          schoolPh:'ชื่อโรงเรียน / สถาบัน',
+          classPh:'เช่น ป.5/1',
+          notePh:'ทดลองก่อนจริง / กลุ่มควบคุม ฯลฯ'
+        },
+        en:{
+          researchTitle:'Research Information',
+          researchSub:'Fill once before playing; each run counts as 1 session.',
+          start:'▶ Start',
+          coach:'Coach Pung: Listen to the beat and punch right on the line! 🔥🥊',
+          stuPh:'e.g. 65001',
+          schoolPh:'School / Institute',
+          classPh:'e.g. Grade 5/1',
+          notePh:'Pilot / control group etc.'
+        }
+      };
 
-      modeLabel.textContent = `${modeText} • ${diffTh}`;
-      timeLabel.textContent = isNaN(time) ? '90' : String(time);
-      timeLabelTop.textContent = isNaN(time) ? '90' : String(time);
+      function setLang(code){
+        const t = text[code];
+        document.documentElement.lang = code === 'th' ? 'th' : 'en';
+        researchTitle.textContent = t.researchTitle;
+        researchSub.textContent = t.researchSub;
+        startBtn.textContent = t.start;
+        coachLine.textContent = t.coach;
+        stuId.placeholder = t.stuPh;
+        school.placeholder = t.schoolPh;
+        classRoom.placeholder = t.classPh;
+        note.placeholder = t.notePh;
+      }
+
+      langTh.addEventListener('click',()=>{
+        langTh.classList.add('active');
+        langEn.classList.remove('active');
+        setLang('th');
+      });
+      langEn.addEventListener('click',()=>{
+        langEn.classList.add('active');
+        langTh.classList.remove('active');
+        setLang('en');
+      });
+
+      setLang('th');
     })();
   </script>
 </body>
