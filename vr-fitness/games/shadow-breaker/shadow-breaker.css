@@ -208,7 +208,7 @@ main.main{
 .sb-arena{
   position:relative;
   width:100%;
-  height:min(520px, 72vh); /* ขยายจอเกม */
+  height:min(520px, 72vh);
   border-radius:22px;
   background:
     radial-gradient(circle at 20% 0%, rgba(56,189,248,0.28), transparent 55%),
@@ -332,7 +332,7 @@ main.main{
   }
 }
 
-/* VR MODE LAYOUT */
+/* VR MODE – ใช้ต่อเมื่อ query ?view=vr เท่านั้น */
 body.vr-mode .page{
   max-width: 880px;
 }
@@ -380,8 +380,8 @@ body.vr-mode header.top-bar{
   main.main{
     grid-template-columns: minmax(0,1fr);
   }
-  /* ซ่อน panel ซ้าย (คู่มือ) บนจอเล็ก ให้โฟกัสที่เกม */
-  .main > .panel:first-of-type{
+  /* ซ่อน panel ซ้าย (คู่มือ) บนจอเล็ก */
+  main.main > .panel:first-of-type{
     display:none;
   }
   .sb-arena{
@@ -390,4 +390,13 @@ body.vr-mode header.top-bar{
   header.top-bar{
     margin-bottom: 4px;
   }
+}
+
+/* ป้องกันจอดำ: บังคับให้ container เกมมองเห็นเสมอ */
+#sb-game,
+.sb-arena-wrap,
+.sb-arena{
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
 }
