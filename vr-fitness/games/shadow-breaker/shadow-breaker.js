@@ -1,10 +1,11 @@
-// === Shadow Breaker — v2.3 (Coach พุ่งคุยเก่ง + Emoji Targets + FEVER) ===
-// - เป้าเป็น emoji (🥊⚡⭐🔥) ไม่ใช่แค่ทรงกลม/เหลี่ยม
-// - โค้ชพุ่งพูด:
-//    • ก่อนเริ่ม / ตอนเริ่ม / Pause / Resume / จบเกม
-//    • ตอนคอมโบติด / เข้า FEVER / พลาดเยอะ / สรุปท้ายเกม
-// - ใช้คู่กับ play.html (P.5) ตัวล่าสุด
-// ===========================================================================
+// === Shadow Breaker — v3.0 (Boss 4 ตัว + Coach พุ่งพูดเก่ง + Emoji Targets) ======
+// - เป้าเป็น emoji (🥊⚡⭐🔥) + เอฟเฟ็กต์ CRITICAL / FEVER
+// - โค้ชพุ่งพูดระหว่างเล่น (คอมโบ, FEVER, MISS, จบเกม)
+// - เพิ่ม BOSS 4 ตัว ต่อ 1 รอบ จากง่ายไปยาก
+//   • Boss 1  : ง่ายสุด
+//   • Boss 2–3: กลาง ๆ
+//   • Boss 4  : แข็งสุด ต้องแตะหลายที
+// ============================================================================
 
 const FIREBASE_API = '';
 const SHEET_API    = '';
@@ -14,7 +15,7 @@ const LB_API       = '';
 const LS_PROFILE = 'fitness_profile_v1';
 const LS_QUEUE   = 'fitness_offline_queue_v1';
 
-// ข้อความหลักของโค้ช (สถานะใหญ่ ๆ)
+// ข้อความหลัก
 const STR = {
   th: {
     msgReady : 'โค้ชพุ่ง: เตรียมกำหมัด! เดี๋ยวเป้าจะโผล่มาทั่วจอเลย 🐰🥊',
@@ -25,7 +26,7 @@ const STR = {
   }
 };
 
-// ประโยคพูดเล่นของโค้ชพุ่ง (สุ่มใช้ระหว่างเกม)
+// ประโยคโค้ชพุ่ง
 const COACH_LINES = {
   hitStreak: [
     'โค้ชพุ่ง: คอมโบกำลังมา อย่าพลาดละ! ⚡',
@@ -42,6 +43,20 @@ const COACH_LINES = {
     'โค้ชพุ่ง: เป้าหนีทัน ไม่เป็นไร เดี๋ยวเราตามทัน! 💪',
     'โค้ชพุ่ง: หายใจลึก ๆ แล้วลุยต่อได้เลย! 🐰'
   ],
+  // บอส
+  bossIntro: [
+    'โค้ชพุ่ง: ระวัง! บอสกำลังโผล่มา ลองตีให้สุดแรงดู! 👀',
+    'โค้ชพุ่ง: บอสมาแล้ว! ต่อยรัว ๆ เลย! 💥'
+  ],
+  bossClearEasy: [
+    'โค้ชพุ่ง: บอสตัวแรก ร่วงสวยงามมาก! 🐣✨',
+    'โค้ชพุ่ง: โอเคเลย! บอสยังสู้หมัดเราไม่ได้! 😄'
+  ],
+  bossClearHard: [
+    'โค้ชพุ่ง: บอสใหญ่ยังโดนหมัดเราแตก! แชมป์ชัด ๆ 🏆',
+    'โค้ชพุ่ง: สุดยอด! หมัดระดับแชมเปียนต่อยบอสไม่เหลือ! 🔥'
+  ],
+  // สรุปท้ายเกม
   finalGood: [
     'โค้ชพุ่ง: โหดมาก! หมัดระดับแชมป์เลยแบบนี้ 🏆',
     'โค้ชพุ่ง: คะแนนนี้คุณหมอก็ต้องกดไลก์ให้แล้วละ! 😄',
@@ -189,6 +204,14 @@ const CRIT_RATIO  = 0.35;
 const ICONS_NORMAL = ['🥊','✨','⭐','⚡'];
 const ICONS_FEVER  = ['🔥','💥','🌟','⚡'];
 
+// Boss 4 ตัว (เวลาที่จะออกคิดเป็นสัดส่วนของรอบ)
+const BOSS_DEFS = [
+  { id:1, at:0.18, hp:5, icon:'🐣', label:'BOSS 1', bonus:120 },
+  { id:2, at:0.38, hp:8, icon:'🐯', label:'BOSS 2', bonus:180 },
+  { id:3, at:0.62, hp:12, icon:'🐲', label:'BOSS 3', bonus:260 },
+  { id:4, at:0.82, hp:16, icon:'👑', label:'BOSS 4', bonus:360 }
+];
+
 // ===========================================================================
 //  ShadowBreaker class
 // ===========================================================================
@@ -222,9 +245,21 @@ export class ShadowBreaker {
       score:0, hits:0, miss:0, combo:0, bestCombo:0, fever:false
     };
 
+    // เป้าเล็ก ๆ
     this.targets = [];
-    this.spawnTimer = 0;      // วินาที
-    this.lastCoachTalk = 0;   // วินาที (ใช้ throttle)
+    this.spawnTimer = 0;          // วินาที
+    this.lastCoachTalk = 0;       // วินาที
+
+    // BOSS
+    this.bossDefs  = BOSS_DEFS;
+    this.bossDone  = this.bossDefs.map(()=>false);
+    this.bossActive= false;
+    this.bossIndex = -1;
+    this.bossHp    = 0;
+    this.bossHpMax = 0;
+    this.bossEl    = null;
+    this.bossBar   = null;
+    this.bossWrap  = null;
 
     this.coachBox = document.querySelector('.coach-line') || null;
 
@@ -245,7 +280,7 @@ export class ShadowBreaker {
     const lines = COACH_LINES[type];
     if(!lines || !lines.length) return;
     const now = this.state ? this.state.elapsed : 0;
-    const MIN_INTERVAL = 3; // เวลาห่างขั้นต่ำ 3 วินาทีจะได้ไม่พูดรัวเกิน
+    const MIN_INTERVAL = 3; // โค้ชจะไม่พูดถี่เกินไป
     if(now - this.lastCoachTalk < MIN_INTERVAL) return;
     this.lastCoachTalk = now;
     const msg = lines[Math.floor(Math.random()*lines.length)];
@@ -264,6 +299,7 @@ export class ShadowBreaker {
     this.arena.style.position = 'relative';
     this.arena.style.overflow = 'hidden';
 
+    // โค้ชพุ่งมุมซ้ายบน
     const coach = document.createElement('div');
     coach.style.position='absolute';
     coach.style.left='12px';
@@ -279,6 +315,54 @@ export class ShadowBreaker {
     coach.style.zIndex='5';
     coach.innerHTML='<span>🐰</span><span>โค้ชพุ่ง</span>';
     this.arena.appendChild(coach);
+
+    // HUD ของ BOSS มุมขวาบน
+    const wrap = document.createElement('div');
+    wrap.style.position='absolute';
+    wrap.style.right='12px';
+    wrap.style.top ='10px';
+    wrap.style.minWidth='120px';
+    wrap.style.padding='4px 8px 6px';
+    wrap.style.borderRadius='12px';
+    wrap.style.background='rgba(15,23,42,0.9)';
+    wrap.style.border='1px solid rgba(248,250,252,0.6)';
+    wrap.style.fontSize='11px';
+    wrap.style.display='none';
+    wrap.style.zIndex='6';
+
+    const title = document.createElement('div');
+    title.textContent = 'BOSS';
+    title.style.fontWeight='700';
+    title.style.marginBottom='2px';
+    title.style.display='flex';
+    title.style.justifyContent='space-between';
+    title.style.alignItems='center';
+    const bossNameSpan = document.createElement('span');
+    bossNameSpan.id = 'sbBossName';
+    bossNameSpan.textContent = '';
+    title.appendChild(bossNameSpan);
+
+    const barOuter = document.createElement('div');
+    barOuter.style.width='100%';
+    barOuter.style.height='8px';
+    barOuter.style.borderRadius='999px';
+    barOuter.style.background='rgba(15,23,42,0.9)';
+    barOuter.style.border='1px solid rgba(248,113,113,0.8)';
+    barOuter.style.overflow='hidden';
+
+    const barInner = document.createElement('div');
+    barInner.style.height='100%';
+    barInner.style.width='100%';
+    barInner.style.borderRadius='999px';
+    barInner.style.background='linear-gradient(90deg,#f97316,#ef4444)';
+    barOuter.appendChild(barInner);
+
+    wrap.appendChild(title);
+    wrap.appendChild(barOuter);
+    this.arena.appendChild(wrap);
+
+    this.bossWrap = wrap;
+    this.bossBar  = barInner;
   }
 
   _bind(){
@@ -303,6 +387,18 @@ export class ShadowBreaker {
     this.targets.length = 0;
     this.spawnTimer = 0;
     this.lastCoachTalk = 0;
+    this.bossDone  = this.bossDefs.map(()=>false);
+    this.bossActive= false;
+    this.bossIndex = -1;
+    this.bossHp    = 0;
+    this.bossHpMax = 0;
+    if(this.bossWrap){
+      this.bossWrap.style.display='none';
+    }
+    if(this.bossEl){
+      this.bossEl.remove();
+      this.bossEl=null;
+    }
 
     this._hud();
     this._msg(this.str.msgGo);
@@ -336,13 +432,28 @@ export class ShadowBreaker {
     this.state.elapsed  += dt;
     this.state.timeLeft  = clamp(this.timeLimit - this.state.elapsed, 0, 1e9);
 
-    // spawn timer (sec)
-    const baseSpawn = this.cfg.spawn/1000;
-    const effSpawn  = this.state.fever ? baseSpawn*FEVER_SPAWN : baseSpawn;
-    this.spawnTimer += dt;
-    while (this.spawnTimer >= effSpawn){
-      this.spawnTimer -= effSpawn;
-      this._spawnTarget();
+    const progress = this.timeLimit > 0 ? this.state.elapsed / this.timeLimit : 0;
+
+    // Trigger Boss ตาม progress
+    if (!this.bossActive) {
+      for (let i=0;i<this.bossDefs.length;i++){
+        const def = this.bossDefs[i];
+        if (!this.bossDone[i] && progress >= def.at){
+          this._startBoss(i);
+          break;
+        }
+      }
+    }
+
+    // spawn ปกติ ถ้าไม่ได้สู้บอส
+    if (!this.bossActive){
+      const baseSpawn = this.cfg.spawn/1000;
+      const effSpawn  = this.state.fever ? baseSpawn*FEVER_SPAWN : baseSpawn;
+      this.spawnTimer += dt;
+      while (this.spawnTimer >= effSpawn){
+        this.spawnTimer -= effSpawn;
+        this._spawnTarget();
+      }
     }
 
     // update targets (หมดเวลา = MISS)
@@ -358,6 +469,7 @@ export class ShadowBreaker {
     }
 
     this._hud();
+    this._updateBossHud();
 
     if (this.state.timeLeft <= 0){
       this._finish();
@@ -367,7 +479,7 @@ export class ShadowBreaker {
     requestAnimationFrame(this._loop.bind(this));
   }
 
-  // ----- Spawn เป้า (emoji) -----------------------------------------------
+  // ----- Spawn เป้าเล็ก (emoji) -------------------------------------------
   _spawnTarget(){
     const el = document.createElement('button');
     el.type='button';
@@ -435,7 +547,153 @@ export class ShadowBreaker {
     this.targets.push(tg);
   }
 
-  // ----- Hit / Miss ---------------------------------------------------------
+  // ----- Boss ---------------------------------------------------------------
+  _startBoss(idx){
+    const def = this.bossDefs[idx];
+    this.bossActive = true;
+    this.bossIndex  = idx;
+    this.bossHpMax  = def.hp;
+    this.bossHp     = def.hp;
+
+    // แสดงแถบ BOSS
+    if(this.bossWrap){
+      this.bossWrap.style.display='block';
+      const nameSpan = this.bossWrap.querySelector('#sbBossName');
+      if(nameSpan) nameSpan.textContent = def.label;
+    }
+    this._updateBossHud();
+
+    // สร้างตัวบอสกลางจอ
+    if(this.bossEl){
+      this.bossEl.remove();
+    }
+    const el = document.createElement('button');
+    el.type='button';
+    el.className='sb-boss';
+    el.style.position='absolute';
+    el.style.left='50%';
+    el.style.top ='52%';
+    el.style.transform='translate(-50%,-50%)';
+    el.style.width='min(220px,60vw)';
+    el.style.height='min(220px,60vw)';
+    el.style.borderRadius='50%';
+    el.style.border='3px solid rgba(248,250,252,0.98)';
+    el.style.background='radial-gradient(circle at 30% 30%,#fed7aa,#f97316)';
+    el.style.boxShadow='0 0 36px rgba(248,250,252,0.9), 0 0 80px rgba(250,204,21,0.7)';
+    el.style.display='flex';
+    el.style.alignItems='center';
+    el.style.justifyContent='center';
+    el.style.fontSize='64px';
+    el.style.textShadow='0 0 16px rgba(15,23,42,0.9)';
+    el.style.cursor='pointer';
+    el.style.zIndex='20';
+
+    el.textContent = def.icon;
+
+    el.animate(
+      [
+        {transform:'translate(-50%,-50%) scale(0.4)', opacity:0},
+        {transform:'translate(-50%,-50%) scale(1.05)', opacity:1},
+        {transform:'translate(-50%,-50%) scale(1)', opacity:1}
+      ],
+      {duration:450,iterations:1,easing:'ease-out'}
+    );
+
+    el.addEventListener('pointerdown',(ev)=>{
+      ev.stopPropagation();
+      this._hitBoss(def);
+    });
+
+    this.arena.appendChild(el);
+    this.bossEl = el;
+
+    this._coach('bossIntro');
+    this._screenShake(6,false);
+  }
+
+  _updateBossHud(){
+    if(!this.bossWrap || !this.bossBar) return;
+    if(!this.bossActive){
+      // ถ้าไม่มีบอสแต่ยังไม่เคลียร์ครบทั้ง 4 ตัว ให้ซ่อน
+      if (this.bossIndex < 0 || this.bossIndex >= this.bossDefs.length) {
+        this.bossWrap.style.display='none';
+      }
+      return;
+    }
+    const pct = this.bossHpMax ? (this.bossHp/this.bossHpMax)*100 : 0;
+    this.bossBar.style.width = clamp(pct,0,100)+'%';
+  }
+
+  _hitBoss(def){
+    if(!this.bossActive) return;
+    if(this.bossHp<=0) return;
+
+    // ทุกตาที่ตีบอส นับเป็น hit + combo เช่นเดียวกับเป้าเล็ก
+    this.state.hits++;
+    this.state.combo++;
+    this.state.bestCombo = Math.max(this.state.bestCombo, this.state.combo);
+
+    // ดาเมจ 1 ต่อครั้ง
+    this.bossHp = Math.max(0, this.bossHp - 1);
+    const isLast = (this.bossHp === 0);
+
+    // คะแนน: ตีแต่ละครั้งได้ baseScore + เน้นเพิ่มโบนัสตอนฆ่า
+    let gain = this.cfg.baseScore * 2;  // Base ต่อหมัดที่โดนบอส
+    if(this.state.fever) gain = Math.round(gain * FEVER_MULT);
+    this.state.score += gain;
+
+    this._hud();
+    this._updateBossHud();
+
+    // เอฟเฟ็กต์
+    this._screenShake(isLast?18:10,false);
+    this._hitFloat(isLast ? `BOSS DOWN +${def.bonus}` : `BOSS HIT +${gain}`, true);
+    SFX.hit();
+
+    if(isLast){
+      // โบนัสเพิ่มเมื่อจัดการบอสสำเร็จ
+      this.state.score += def.bonus;
+      this.bossDone[this.bossIndex] = true;
+
+      // FEVER หลังชนะบอส (รับประกัน)
+      this.state.fever = true;
+      this._showFeverFx();
+      if (def.id >= 3) this._coach('bossClearHard');
+      else            this._coach('bossClearEasy');
+      SFX.fever();
+
+      // ลบตัวบอส
+      if(this.bossEl){
+        this.bossEl.animate(
+          [
+            {transform:'translate(-50%,-50%) scale(1)', opacity:1},
+            {transform:'translate(-50%,-50%) scale(1.08)', opacity:1},
+            {transform:'translate(-50%,-50%) scale(0.4)', opacity:0}
+          ],
+          {duration:400,iterations:1,easing:'ease-in'}
+        );
+        setTimeout(()=>{
+          if(this.bossEl){ this.bossEl.remove(); this.bossEl=null; }
+        },380);
+      }
+
+      // จบบอสแล้วกลับไป spawn เป้าปกติ
+      this.bossActive = false;
+      // ทิ้งแถบไว้สักครู่แล้วค่อยซ่อน
+      setTimeout(()=>{
+        if(this.bossWrap && !this.bossActive){
+          this.bossWrap.style.display='none';
+        }
+      }, 800);
+    }else{
+      // ระหว่างสู้บอส ถ้าคอมโบสูง ๆ ให้พูดหน่อย
+      if (this.state.combo === 3 || this.state.combo === 7) {
+        this._coach('hitStreak');
+      }
+    }
+  }
+
+  // ----- Hit / Miss เป้าเล็ก ----------------------------------------------
   _onHit(tg){
     const now = performance.now();
     const age = now - tg.born;
@@ -448,7 +706,6 @@ export class ShadowBreaker {
     this.state.combo++;
     this.state.bestCombo = Math.max(this.state.bestCombo, this.state.combo);
 
-    // coach: คอมโบ/FEVER
     if (!this.state.fever && this.state.combo >= FEVER_COMBO){
       this.state.fever = true;
       this._showFeverFx();
@@ -483,7 +740,12 @@ export class ShadowBreaker {
   _screenShake(px=8,isBad=false){
     const a=this.arena;
     a.animate(
-      [{transform:'translate(0,0)'},{transform:`translate(${px}px,0)`},{transform:`translate(${-px}px,0)`},{transform:'translate(0,0)'}],
+      [
+        {transform:'translate(0,0)'},
+        {transform:`translate(${px}px,0)`},
+        {transform:`translate(${-px}px,0)`},
+        {transform:'translate(0,0)'}
+      ],
       {duration:140,iterations:1,easing:'ease-out'}
     );
     a.style.boxShadow=isBad
@@ -507,7 +769,7 @@ export class ShadowBreaker {
     fx.style.letterSpacing='0.05em';
     fx.style.color=text.startsWith('MISS')
       ?'#fb7185'
-      :(text.startsWith('CRITICAL')?'#facc15':'#4ade80');
+      :(text.startsWith('BOSS') || text.startsWith('CRITICAL') ? '#facc15' : '#4ade80');
     fx.style.textShadow='0 0 12px rgba(15,23,42,0.95)';
     fx.style.pointerEvents='none';
     fx.style.animation='sbHitFloat 0.55s ease-out forwards';
@@ -595,6 +857,9 @@ Best Combo: x${summary.comboMax}
 Rank: ${summary.rank}`);
     }
     try{ await hybridSaveSession(summary,true); }catch(e){ console.warn('save error',e); }
+
+    // เคลียร์บอสเผื่อจอค้าง
+    if(this.bossEl){ this.bossEl.remove(); this.bossEl=null; }
   }
 
   _showResult(summary){
