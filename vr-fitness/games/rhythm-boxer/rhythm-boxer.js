@@ -1,816 +1,671 @@
-// === Rhythm Boxer — v2.0 (Note-based, Fever, Gold/Bomb, Research-ready) =====
-// - เกมจบเมื่อโน้ตทุกตัวถูกตัดสิน (hits+miss) ไม่ใช่ตามเวลา
-// - Gold note, Bomb note, Fever mode (combo ≥ 8)
-// - Hybrid save (JSON ไป Firebase/Sheet), CSV download, PDF export hook
-// - Leaderboard hook (school/class)
-// ============================================================================
+// === VR Fitness — Rhythm Boxer (Research + Demo, bilingual, play-only layout) ===
 
-// ---------------------------------------------------------------------------
-// CONFIG ENDPOINT (เติมเองภายหลังได้)
-// ---------------------------------------------------------------------------
-const FIREBASE_API = ''; // e.g. 'https://.../firebase'
-const SHEET_API    = ''; // e.g. 'https://.../sheet'
-const PDF_API      = ''; // e.g. 'https://.../pdf'
-const LB_API       = ''; // e.g. 'https://.../leaderboard'
+const STORAGE_KEY = 'RhythmBoxerResearch_v1';
+const META_KEY = 'RhythmBoxerMeta_v1';
 
-const LS_PROFILE = 'rb_profile_v1';
-const LS_QUEUE   = 'rb_offline_queue_v1';
+const qs = (s) => document.querySelector(s);
 
-// ---------------------------------------------------------------------------
-// STRINGS
-// ---------------------------------------------------------------------------
-const STR = {
-  th: {
-    msgStart : 'ฟังจังหวะแล้วต่อยให้ตรง! 🥊',
-    msgPaused: 'พักแป๊บเดียวพอนะ โค้ชรอดูอยู่ 😄',
-    msgResume: 'กลับมาต่อยตามจังหวะกันต่อ! 🎵',
-    msgEnd   : 'โน้ตหมดแล้ว มาดูคะแนนกัน ⭐',
-    lbSchool : 'อันดับในโรงเรียน',
-    lbClass  : 'อันดับในห้องเรียน'
-  }
+const gameArea = qs('#gameArea');
+const feedbackEl = qs('#feedback');
+const startBtn = qs('#startBtn');
+const langButtons = document.querySelectorAll('.lang-toggle button');
+
+const metaInputs = {
+  studentId: qs('#studentId'),
+  schoolName: qs('#schoolName'),
+  classRoom: qs('#classRoom'),
+  deviceType: qs('#deviceType'),
+  note: qs('#note'),
 };
 
-// ---------------------------------------------------------------------------
-// PROFILE
-// ---------------------------------------------------------------------------
-function getProfile(){
-  try{
-    const raw = localStorage.getItem(LS_PROFILE);
-    return raw ? JSON.parse(raw) : null;
-  }catch{ return null; }
-}
-function saveProfile(p){
-  try{ localStorage.setItem(LS_PROFILE, JSON.stringify(p)); }catch{}
-}
-function ensureProfile(){
-  let p = getProfile();
-  if (p) return p;
-  const studentId = prompt('Student ID:');
-  const name      = prompt('ชื่อที่ใช้ในเกม:');
-  const school    = prompt('โรงเรียน / หน่วยงาน:');
-  const klass     = prompt('ห้องเรียน เช่น ป.5/1:');
-  p = { studentId, name, school, class: klass, lang:'th' };
-  saveProfile(p);
-  return p;
+const hud = {
+  timeVal: qs('#timeVal'),
+  scoreVal: qs('#scoreVal'),
+  hitVal: qs('#hitVal'),
+  missVal: qs('#missVal'),
+  comboVal: qs('#comboVal'),
+  coachLine: qs('#coachLine'),
+};
+
+const overlay = qs('#resultOverlay');
+const r = {
+  score: qs('#rScore'),
+  hit: qs('#rHit'),
+  perfect: qs('#rPerfect'),
+  good: qs('#rGood'),
+  miss: qs('#rMiss'),
+  acc: qs('#rAcc'),
+  combo: qs('#rCombo'),
+  timeUsed: qs('#rTimeUsed'),
+};
+
+const playAgainBtn = qs('#playAgainBtn');
+const backHubBtn = qs('#backHubBtn');
+const downloadCsvBtn = qs('#downloadCsvBtn');
+
+// --- i18n ---
+const i18n = {
+  th: {
+    metaTitle: 'ข้อมูลสำหรับงานวิจัย',
+    metaHint:
+      'กรอกเพียงครั้งเดียวก่อนเริ่ม แต่ละรอบของ Rhythm Boxer จะถูกบันทึกเป็น 1 session.',
+    startLabel: 'เริ่มเล่น',
+    coachReady: 'โค้ชพุ่ง: ฟังจังหวะ แล้วต่อยให้ตรงเลน! 🎵🥊',
+    coachGood: 'ดีมาก! จังหวะกำลังมา รักษาคอมโบไว้! ✨',
+    coachMiss: 'พลาดไปนิด ลองฟังจังหวะให้ชัดขึ้นอีกนิดนะ 🎧',
+    tagGoal: 'เป้าหมาย: ต่อยให้ตรงจังหวะ + ตรงเลน',
+    lblTime: 'เวลา',
+    lblScore: 'คะแนน',
+    lblHit: 'โดนเป้า',
+    lblMiss: 'พลาด',
+    lblCombo: 'คอมโบ',
+    resultTitle: '🏁 สรุปผล Rhythm Boxer',
+    rScore: 'คะแนนรวม',
+    rHit: 'Hits (Perfect+Good)',
+    rPerfect: 'Perfect',
+    rGood: 'Good',
+    rMiss: 'Miss',
+    rAcc: 'ความแม่นยำ',
+    rCombo: 'Best Combo',
+    rTimeUsed: 'เวลาเล่น',
+    playAgain: 'เล่นอีกครั้ง',
+    backHub: 'กลับเมนู',
+    downloadCsv: 'ดาวน์โหลด CSV วิจัย (ทุก session)',
+    laneLeft: 'ซ้าย',
+    laneRight: 'ขวา',
+    laneBody: 'ลำตัว',
+    alertMeta: 'กรุณากรอกอย่างน้อย Student ID ก่อนเริ่มเล่นนะครับ',
+  },
+  en: {
+    metaTitle: 'Research meta (per session)',
+    metaHint:
+      'Fill this once. Each Rhythm Boxer run will be logged as one session record.',
+    startLabel: 'Start',
+    coachReady:
+      'Coach Pung: Listen to the beat and punch in the right lane! 🎵🥊',
+    coachGood: 'Nice! Keep the combo and follow the rhythm! ✨',
+    coachMiss: 'Missed it a bit, focus on the beat again 🎧',
+    tagGoal: 'Goal: Hit on time and in the correct lane',
+    lblTime: 'TIME',
+    lblScore: 'SCORE',
+    lblHit: 'HIT',
+    lblMiss: 'MISS',
+    lblCombo: 'COMBO',
+    resultTitle: '🏁 Rhythm Boxer Result',
+    rScore: 'Total Score',
+    rHit: 'Hits (Perfect+Good)',
+    rPerfect: 'Perfect',
+    rGood: 'Good',
+    rMiss: 'Miss',
+    rAcc: 'Accuracy',
+    rCombo: 'Best Combo',
+    rTimeUsed: 'Played',
+    playAgain: 'Play again',
+    backHub: 'Back to Hub',
+    downloadCsv: 'Download CSV (all sessions)',
+    laneLeft: 'Left',
+    laneRight: 'Right',
+    laneBody: 'Body',
+    alertMeta: 'Please fill at least the Student ID before starting.',
+  },
+};
+
+let lang = 'th';
+
+// --- Song / Chart Config ---
+// time = ms from start; lane = 'L' / 'B' / 'R'
+const chart = [
+  // intro
+  { time: 1000, lane: 'L' },
+  { time: 1400, lane: 'R' },
+  { time: 1800, lane: 'B' },
+
+  { time: 2400, lane: 'L' },
+  { time: 2800, lane: 'R' },
+  { time: 3200, lane: 'B' },
+
+  // pattern 1
+  { time: 4000, lane: 'L' },
+  { time: 4400, lane: 'L' },
+  { time: 4800, lane: 'B' },
+  { time: 5200, lane: 'R' },
+  { time: 5600, lane: 'R' },
+  { time: 6000, lane: 'B' },
+
+  { time: 6800, lane: 'L' },
+  { time: 7200, lane: 'B' },
+  { time: 7600, lane: 'R' },
+
+  // pattern 2 (เร็วขึ้น)
+  { time: 8400, lane: 'L' },
+  { time: 8800, lane: 'B' },
+  { time: 9200, lane: 'R' },
+  { time: 9600, lane: 'B' },
+
+  { time: 10400, lane: 'L' },
+  { time: 10800, lane: 'L' },
+  { time: 11200, lane: 'R' },
+  { time: 11600, lane: 'R' },
+  { time: 12000, lane: 'B' },
+
+  // pattern 3
+  { time: 13000, lane: 'L' },
+  { time: 13400, lane: 'B' },
+  { time: 13800, lane: 'L' },
+  { time: 14200, lane: 'B' },
+  { time: 14800, lane: 'R' },
+  { time: 15200, lane: 'B' },
+
+  // last phrases
+  { time: 16400, lane: 'L' },
+  { time: 17000, lane: 'R' },
+  { time: 17600, lane: 'B' },
+  { time: 18400, lane: 'R' },
+  { time: 19200, lane: 'L' },
+  { time: 20000, lane: 'B' },
+];
+
+// เวลาโน้ตเคลื่อนจากบนลง hit line
+const TRAVEL_TIME = 900; // ms
+const PERFECT_WINDOW = 120; // ±120ms
+const GOOD_WINDOW = 220; // ±220ms
+
+// --- Game State ---
+const state = {
+  running: false,
+  started: false,
+  startTime: 0,
+  elapsed: 0,
+  timerId: null,
+  score: 0,
+  hit: 0,
+  perfect: 0,
+  good: 0,
+  miss: 0,
+  combo: 0,
+  maxCombo: 0,
+  songDuration: 0,
+  notes: [], // runtime copy of chart
+  lastFrame: 0,
+  sessionMeta: null,
+};
+
+// --- Meta persistence ---
+function loadMeta() {
+  try {
+    const raw = localStorage.getItem(META_KEY);
+    if (!raw) return;
+    const meta = JSON.parse(raw);
+    Object.entries(metaInputs).forEach(([k, el]) => {
+      if (meta[k] && el) el.value = meta[k];
+    });
+  } catch (_) {}
 }
 
-// ---------------------------------------------------------------------------
-// OFFLINE QUEUE
-// ---------------------------------------------------------------------------
-function loadQueue(){
-  try{
-    const raw = localStorage.getItem(LS_QUEUE);
-    return raw ? JSON.parse(raw) : [];
-  }catch{ return []; }
+function saveMetaDraft() {
+  const meta = {};
+  Object.entries(metaInputs).forEach(([k, el]) => {
+    meta[k] = el.value.trim();
+  });
+  try {
+    localStorage.setItem(META_KEY, JSON.stringify(meta));
+  } catch (_) {}
 }
-function saveQueue(q){
-  try{ localStorage.setItem(LS_QUEUE, JSON.stringify(q)); }catch{}
+
+// --- i18n apply ---
+function applyLang() {
+  const t = i18n[lang];
+  qs('#metaTitle').textContent = t.metaTitle;
+  qs('#metaHint').textContent = t.metaHint;
+  qs('#startLabel').textContent = t.startLabel;
+  hud.coachLine.textContent = t.coachReady;
+  qs('#tagGoal').textContent = t.tagGoal;
+
+  qs('#lblTime').textContent = t.lblTime.toUpperCase();
+  qs('#lblScore').textContent = t.lblScore.toUpperCase();
+  qs('#lblHit').textContent = t.lblHit.toUpperCase();
+  qs('#lblMiss').textContent = t.lblMiss.toUpperCase();
+  qs('#lblCombo').textContent = t.lblCombo.toUpperCase();
+
+  qs('#resultTitle').textContent = t.resultTitle;
+  qs('#rScoreLabel').textContent = t.rScore;
+  qs('#rHitLabel').textContent = t.rHit;
+  qs('#rPerfectLabel').textContent = t.rPerfect;
+  qs('#rGoodLabel').textContent = t.rGood;
+  qs('#rMissLabel').textContent = t.rMiss;
+  qs('#rAccLabel').textContent = t.rAcc;
+  qs('#rComboLabel').textContent = t.rCombo;
+  qs('#rTimeUsedLabel').textContent = t.rTimeUsed;
+
+  qs('#playAgainLabel').textContent = t.playAgain;
+  qs('#backHubLabel').textContent = t.backHub;
+  qs('#downloadCsvLabel').textContent = t.downloadCsv;
+
+  qs('#laneLeftLabel').textContent = t.laneLeft;
+  qs('#laneRightLabel').textContent = t.laneRight;
+  qs('#laneBodyLabel').textContent = t.laneBody;
 }
-async function flushQueue(){
-  const q = loadQueue();
-  if (!q.length) return;
-  const remain = [];
-  for (const item of q){
-    try{
-      await hybridSaveSession(item,false);
-    }catch{
-      remain.push(item);
+
+langButtons.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    langButtons.forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    lang = btn.dataset.lang || 'th';
+    applyLang();
+  });
+});
+
+function detectDevice() {
+  const ua = navigator.userAgent || '';
+  if (/Quest|Oculus|Vive|VR/i.test(ua)) return 'vr';
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
+  return 'pc';
+}
+
+// --- HUD, Feedback ---
+function resetStats() {
+  state.score = 0;
+  state.hit = 0;
+  state.perfect = 0;
+  state.good = 0;
+  state.miss = 0;
+  state.combo = 0;
+  state.maxCombo = 0;
+  state.elapsed = 0;
+  state.lastFrame = 0;
+
+  hud.scoreVal.textContent = '0';
+  hud.hitVal.textContent = '0';
+  hud.missVal.textContent = '0';
+  hud.comboVal.textContent = 'x0';
+  feedbackEl.style.display = 'none';
+
+  gameArea.querySelectorAll('.note').forEach((n) => n.remove());
+}
+
+function updateHUD() {
+  hud.scoreVal.textContent = state.score;
+  hud.hitVal.textContent = state.hit;
+  hud.missVal.textContent = state.miss;
+  hud.comboVal.textContent = 'x' + state.combo;
+}
+
+function showFeedback(type) {
+  let txt = '';
+  if (type === 'perfect') txt = 'PERFECT!';
+  else if (type === 'good') txt = 'GOOD!';
+  else txt = 'MISS';
+
+  feedbackEl.textContent = txt;
+  feedbackEl.className = 'feedback ' + type;
+  feedbackEl.style.display = 'block';
+  setTimeout(() => {
+    feedbackEl.style.display = 'none';
+  }, 420);
+}
+
+// --- Notes runtime ---
+function prepareChart() {
+  state.notes = chart.map((n) => ({
+    time: n.time,
+    lane: n.lane,
+    spawned: false,
+    judged: false,
+    hit: false,
+    el: null,
+  }));
+  const last = state.notes[state.notes.length - 1];
+  state.songDuration = last.time + 2200; // จบหลังโน้ตท้ายเล็กน้อย
+  hud.timeVal.textContent = Math.round(state.songDuration / 1000);
+}
+
+function spawnNote(note) {
+  const laneEl = gameArea.querySelector(`.lane[data-lane="${note.lane}"]`);
+  if (!laneEl) return;
+  const el = document.createElement('div');
+  el.className = 'note ' + note.lane;
+  el.dataset.time = String(note.time);
+  el.dataset.lane = note.lane;
+
+  if (note.lane === 'L') el.textContent = '👊';
+  else if (note.lane === 'R') el.textContent = '✊';
+  else el.textContent = '💥';
+
+  laneEl.appendChild(el);
+  note.el = el;
+  note.spawned = true;
+}
+
+function positionNotes(now) {
+  const elapsed = now - state.startTime;
+  const areaRect = gameArea.getBoundingClientRect();
+  const h = areaRect.height || 400;
+  const startY = -40;
+  const hitY = h * 0.82;
+
+  for (const note of state.notes) {
+    if (!note.spawned || !note.el) continue;
+    const t0 = note.time - TRAVEL_TIME;
+    const t1 = note.time + TRAVEL_TIME;
+    const posT = elapsed - t0;
+    const prog = posT / (TRAVEL_TIME * 2);
+
+    if (prog < 0 || prog > 1.2) {
+      // ออกนอกจอแล้ว
+      if (!note.judged) {
+        note.judged = true;
+        note.hit = false;
+        state.miss++;
+        state.combo = 0;
+        updateHUD();
+        showFeedback('miss');
+        hud.coachLine.textContent = i18n[lang].coachMiss;
+      }
+      if (note.el && note.el.parentNode) note.el.parentNode.removeChild(note.el);
+      continue;
+    }
+
+    const y = startY + (hitY - startY) * prog;
+    note.el.style.top = y + 'px';
+  }
+}
+
+// --- Judging ---
+function judgeHit(lane) {
+  if (!state.running) return;
+  const now = performance.now();
+  const tSong = now - state.startTime;
+
+  // note ใน lane เดียวกันที่ใกล้ที่สุด
+  let best = null;
+  let bestDiff = Infinity;
+
+  for (const note of state.notes) {
+    if (note.lane !== lane) continue;
+    if (!note.spawned || !note.el) continue;
+    if (note.judged) continue;
+    const diff = tSong - note.time;
+    const ad = Math.abs(diff);
+    if (ad < bestDiff) {
+      bestDiff = ad;
+      best = note;
     }
   }
-  saveQueue(remain);
-}
 
-// ---------------------------------------------------------------------------
-// HYBRID SAVE
-// ---------------------------------------------------------------------------
-async function hybridSaveSession(summary, allowQueue = true){
-  const body = JSON.stringify(summary);
-  const headers = { 'Content-Type':'application/json' };
-  let ok = true;
-  try{
-    const tasks = [];
-    if (FIREBASE_API) tasks.push(fetch(FIREBASE_API,{ method:'POST', headers, body }));
-    if (SHEET_API)    tasks.push(fetch(SHEET_API   ,{ method:'POST', headers, body }));
-    if (tasks.length) await Promise.all(tasks);
-  }catch(e){
-    console.warn('Rhythm Boxer save fail', e);
-    ok = false;
-  }
-  if (!ok && allowQueue){
-    const q = loadQueue();
-    q.push(summary);
-    saveQueue(q);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// PDF EXPORT (optional)
-// ---------------------------------------------------------------------------
-async function exportPDF(summary){
-  if (!PDF_API){
-    alert('ยังไม่ได้ตั้งค่า PDF_API');
+  if (!best || bestDiff > GOOD_WINDOW) {
+    state.miss++;
+    state.combo = 0;
+    updateHUD();
+    showFeedback('miss');
+    hud.coachLine.textContent = i18n[lang].coachMiss;
     return;
   }
-  try{
-    const res = await fetch(PDF_API,{
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body:JSON.stringify(summary)
-    });
-    if (!res.ok) throw new Error('PDF API error');
-    const blob = await res.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url;
-    a.download = `RhythmBoxer_Report_${summary.profile.studentId || 'user'}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }catch(e){
-    console.error(e);
-    alert('สร้าง PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+
+  let quality = 'good';
+  let base = 80;
+  if (bestDiff <= PERFECT_WINDOW) {
+    quality = 'perfect';
+    base = 120;
+  }
+
+  best.judged = true;
+  best.hit = true;
+  if (best.el) {
+    best.el.classList.add('hit');
+    setTimeout(() => {
+      if (best.el && best.el.parentNode) best.el.parentNode.removeChild(best.el);
+    }, 110);
+  }
+
+  state.hit++;
+  if (quality === 'perfect') state.perfect++;
+  else state.good++;
+
+  state.combo++;
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+  const comboBonus = Math.min(state.combo * 5, 60);
+  state.score += base + comboBonus;
+
+  updateHUD();
+  showFeedback(quality);
+  hud.coachLine.textContent = i18n[lang].coachGood;
+}
+
+// --- Loop & Timer ---
+function mainLoop(now) {
+  if (!state.running) return;
+  if (!state.lastFrame) state.lastFrame = now;
+  state.elapsed = now - state.startTime;
+
+  // spawn ตามเวลา
+  for (const note of state.notes) {
+    if (note.spawned) continue;
+    const spawnAt = note.time - TRAVEL_TIME;
+    if (state.elapsed >= spawnAt) spawnNote(note);
+  }
+
+  positionNotes(now);
+
+  hud.timeVal.textContent = Math.max(
+    0,
+    Math.round((state.songDuration - state.elapsed) / 1000)
+  );
+
+  const allJudged = state.notes.every((n) => n.judged);
+  if (allJudged || state.elapsed >= state.songDuration + 1000) {
+    endGame();
+    return;
+  }
+
+  requestAnimationFrame(mainLoop);
+}
+
+// --- Research Log & Result ---
+function logResearchRecord(rec) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    arr.push(rec);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+  } catch (err) {
+    console.warn('Failed to store research record:', err);
   }
 }
 
-// ---------------------------------------------------------------------------
-// CSV EXPORT (local download)
-// ---------------------------------------------------------------------------
-function downloadCSVRow(summary){
-  const headers = [
-    'timestamp','studentId','name','school','class',
-    'game','diff','score','hits','miss','accuracy',
-    'comboMax','notesPerMin','rank','device'
-  ];
-  const p = summary.profile || {};
-  const row = [
-    summary.timestamp,
-    p.studentId || '',
-    p.name || '',
-    p.school || '',
-    p.class || '',
-    summary.game,
-    summary.diff,
-    summary.score,
-    summary.hits,
-    summary.miss,
-    (summary.accuracy*100).toFixed(1),
-    summary.comboMax,
-    summary.notesPerMin != null ? summary.notesPerMin.toFixed(2) : '',
-    summary.rank,
-    summary.device
-  ];
+function downloadCsv() {
+  let rows = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      alert('ยังไม่มีข้อมูล session ที่บันทึกไว้');
+      return;
+    }
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || arr.length === 0) {
+      alert('ยังไม่มีข้อมูล session ที่บันทึกไว้');
+      return;
+    }
 
-  const csv = headers.join(',') + '\n' + row.join(',');
-  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
+    const header = [
+      'studentId',
+      'schoolName',
+      'classRoom',
+      'deviceType',
+      'language',
+      'note',
+      'gameId',
+      'sessionId',
+      'songId',
+      'timeSec',
+      'score',
+      'hits',
+      'perfect',
+      'good',
+      'miss',
+      'accuracy',
+      'maxCombo',
+      'timeUsedSec',
+      'createdAt',
+    ];
+    rows.push(header.join(','));
+
+    for (const rec of arr) {
+      const line = header
+        .map((key) => {
+          const v = rec[key] !== undefined ? String(rec[key]) : '';
+          const safe = v.replace(/"/g, '""');
+          return `"${safe}"`;
+        })
+        .join(',');
+      rows.push(line);
+    }
+  } catch (err) {
+    console.error(err);
+    alert('ไม่สามารถสร้าง CSV ได้');
+    return;
+  }
+
+  const csv = rows.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
   a.href = url;
-  a.download = `RhythmBoxer_${p.studentId||'user'}_${summary.timestamp}.csv`;
+  a.download = 'RhythmBoxerResearch.csv';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// ---------------------------------------------------------------------------
-// LEADERBOARD (optional)
-// ---------------------------------------------------------------------------
-async function loadLeaderboard(scope, profile){
-  if (!LB_API) return [];
-  const url = new URL(LB_API);
-  url.searchParams.set('scope', scope);
-  url.searchParams.set('school', profile.school||'');
-  url.searchParams.set('class',  profile.class||'');
-  const res = await fetch(url.toString());
-  if (!res.ok) return [];
-  return res.json();
-}
+function endGame() {
+  if (!state.running) return;
+  state.running = false;
 
-function detectDevice(){
-  const ua = navigator.userAgent || '';
-  if (/Quest|Oculus|Pico|Vive|VR/i.test(ua)) return 'VR';
-  if (/Mobile|Android|iPhone/i.test(ua))     return 'Mobile';
-  return 'PC';
-}
+  const played = Math.round(state.elapsed / 1000);
+  const totalNotes = state.notes.length;
+  const totalHit = state.perfect + state.good;
+  const acc = totalNotes > 0 ? Math.round((totalHit / totalNotes) * 100) : 0;
 
-function buildLBTable(rows){
-  const table = document.createElement('table');
-  table.style.width = '100%';
-  const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th>#</th><th>ชื่อ</th><th>คะแนน</th><th>แม่นยำ</th></tr>';
-  table.appendChild(thead);
-  const tb = document.createElement('tbody');
-  (rows || []).slice(0,10).forEach((r,i)=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML =
-      `<td>${i+1}</td><td>${r.name||'-'}</td><td>${r.score||0}</td><td>${Math.round((r.accuracy||0)*100)}%</td>`;
-    tb.appendChild(tr);
+  logResearchRecord({
+    gameId: 'rhythm-boxer',
+    sessionId: Date.now().toString(),
+    songId: 'basic-1',
+    studentId: state.sessionMeta?.studentId || '',
+    schoolName: state.sessionMeta?.schoolName || '',
+    classRoom: state.sessionMeta?.classRoom || '',
+    deviceType: state.sessionMeta?.deviceType || detectDevice(),
+    language: state.sessionMeta?.language || lang,
+    note: state.sessionMeta?.note || '',
+    timeSec: Math.round(state.songDuration / 1000),
+    score: state.score,
+    hits: totalHit,
+    perfect: state.perfect,
+    good: state.good,
+    miss: state.miss,
+    accuracy: acc,
+    maxCombo: state.maxCombo,
+    timeUsedSec: played,
+    createdAt: new Date().toISOString(),
   });
-  table.appendChild(tb);
-  return table;
+
+  r.score.textContent = state.score;
+  r.hit.textContent = totalHit;
+  r.perfect.textContent = state.perfect;
+  r.good.textContent = state.good;
+  r.miss.textContent = state.miss;
+  r.acc.textContent = acc + '%';
+  r.combo.textContent = 'x' + state.maxCombo;
+  r.timeUsed.textContent = played + 's';
+
+  overlay.classList.remove('hidden');
 }
 
-// ---------------------------------------------------------------------------
-// PATTERN (demo) — มี type: normal / gold / bomb
-// ---------------------------------------------------------------------------
-const SONG_PATTERN = [
-  0.8, 1.5, 2.2, 3.0,
-  3.8, 4.5, 5.2, 6.0,
-  6.8, 7.5, 8.2, 9.0,
-  9.6, 10.3, 11.0, 11.8,
-  12.6, 13.4, 14.2, 15.0
-].map((t,i)=>({
-  time: t,
-  lane: i % 4,
-  // ตัวอย่าง pattern: บางตัวเป็น gold, บางตัวเป็น bomb
-  type: (i % 9 === 4) ? 'gold' : (i % 13 === 7 ? 'bomb' : 'normal')
-}));
+// --- Start Game ---
+function startGame() {
+  if (state.running) return;
 
-// ============================================================================
-// MAIN CLASS
-// ============================================================================
-export class RhythmBoxer{
-  constructor(opts){
-    this.stage  = opts.stage;
-    this.hud    = opts.hud || {};
-    this.result = opts.result || {};
-    this.msgBox = opts.msgBox || null;
-    this.lbBox  = opts.lbBox  || null;
-    this.pdfBtn = opts.pdfBtn || null;
-    this.csvBtn = opts.csvBtn || null;
-
-    // ซ่อนการ์ดสรุปผลตั้งแต่ต้น (ถ้ามี)
-    if (this.result.box) {
-      this.result.box.style.display = 'none';
-    }
-
-    if (!this.stage){
-      alert('Rhythm Boxer: ไม่พบ stage container');
-      return;
-    }
-
-    this.profile = ensureProfile();
-    this.str     = STR.th;
-
-    // โหลด diff / time จาก query (ใช้เวลาเป็น HUD โดยประมาณ)
-    const qs  = new URLSearchParams(location.search);
-    let diff  = qs.get('diff') || 'normal';
-    let timeQ = parseInt(qs.get('time') || '60',10);
-
-    const DIFF = {
-      easy   : { duration:60, windowPerfect:0.15, windowGood:0.30, speed:1.0 },
-      normal : { duration:60, windowPerfect:0.10, windowGood:0.25, speed:1.1 },
-      hard   : { duration:60, windowPerfect:0.08, windowGood:0.20, speed:1.2 }
-    };
-    if (!DIFF[diff]) diff='normal';
-
-    this.diff = diff;
-    this.cfg  = { ...DIFF[diff], duration: timeQ };
-
-    this.state = {
-      play:false, paused:false,
-      elapsed:0, lastTs:0,
-      score:0, hits:0, miss:0,
-      combo:0, best:0,
-      notes:[],
-      raf:0
-    };
-
-    this.songEndTime = 0;     // เวลาของโน้ตตัวสุดท้าย
-    this.songGuard   = 0.8;   // buffer หลัง note สุดท้ายก่อนจบเกม
-
-    this.lanes = [];
-    this._initLayout();
-    this._bindInput();
-    flushQueue();
-    this._msg(this.str.msgStart);
+  const studentId = metaInputs.studentId.value.trim();
+  if (!studentId) {
+    alert(i18n[lang].alertMeta);
+    return;
   }
 
-  // -----------------------------------------------------------------------
-  // BASIC UI HELPERS
-  // -----------------------------------------------------------------------
-  _msg(t){ if (this.msgBox) this.msgBox.textContent = t; }
-
-  _hud(){
-    const s = this.state;
-    const songDuration = this.songEndTime + this.songGuard;
-    const showDuration = Math.max(songDuration, this.cfg.duration || 0);
-    const remain = Math.max(0, Math.ceil(showDuration - s.elapsed));
-    if (this.hud.time)  this.hud.time.textContent  = remain;
-    if (this.hud.score) this.hud.score.textContent = s.score;
-    if (this.hud.combo) this.hud.combo.textContent = 'x'+s.combo;
-  }
-
-  // -----------------------------------------------------------------------
-  // LAYOUT
-  // -----------------------------------------------------------------------
-  _initLayout(){
-    this.stage.innerHTML = '';
-    this.stage.id = 'rbStageHost';
-    this.stage.style.position = 'fixed';
-    this.stage.style.inset = '0';
-
-    const wrap = document.createElement('div');
-    wrap.style.position = 'absolute';
-    wrap.style.inset = '0';
-    wrap.style.display = 'flex';
-    wrap.style.alignItems = 'center';
-    wrap.style.justifyContent = 'center';
-    wrap.style.gap = '8px';
-    wrap.style.pointerEvents = 'none';
-
-    this.lanes = [];
-
-    for (let i=0;i<4;i++){
-      const lane = document.createElement('div');
-      lane.className = 'rb-lane';
-      lane.dataset.lane = i;
-      lane.style.position='relative';
-      lane.style.width='80px';
-      lane.style.height='60vh';
-      lane.style.borderRadius='18px';
-      lane.style.background='rgba(15,23,42,.85)';
-      lane.style.border='1px solid rgba(148,163,184,.7)';
-      lane.style.boxShadow='0 10px 30px rgba(15,23,42,.9)';
-      lane.style.overflow='hidden';
-      lane.style.pointerEvents='auto';
-      lane.style.zIndex = '20';
-
-      const hitLine = document.createElement('div');
-      hitLine.className='rb-hitline';
-      hitLine.style.position='absolute';
-      hitLine.style.left='8px';
-      hitLine.style.right='8px';
-      hitLine.style.bottom='12px';
-      hitLine.style.height='6px';
-      hitLine.style.borderRadius='999px';
-      hitLine.style.background='rgba(96,165,250,.9)';
-      lane.appendChild(hitLine);
-
-      wrap.appendChild(lane);
-      this.lanes.push(lane);
-    }
-
-    this.stage.appendChild(wrap);
-
-    this.state.notes = SONG_PATTERN.map(n=>({
-      time:   n.time,
-      lane:   n.lane,
-      type:   n.type || 'normal',
-      judged: false,
-      hit:    false,
-      dom:    null
-    }));
-
-    this.songEndTime = this.state.notes.reduce(
-      (m,n)=>Math.max(m, n.time||0), 0
-    );
-  }
-
-  _bindInput(){
-    this.lanes.forEach(lane=>{
-      lane.addEventListener('pointerdown', e=>{
-        e.preventDefault();
-        const laneIdx = parseInt(lane.dataset.lane,10);
-        this._handleHit(laneIdx);
-      });
-    });
-
-    window.addEventListener('keydown', e=>{
-      if (e.repeat) return;
-      const map = { 'a':0,'s':1,'k':2,'l':3 };
-      const laneIdx = map[e.key.toLowerCase()];
-      if (laneIdx!=null) this._handleHit(laneIdx);
-    });
-
-    document.addEventListener('visibilitychange',()=>{
-      if (document.hidden) this.pause(true);
-    });
-  }
-
-  // -----------------------------------------------------------------------
-  // CONTROL
-  // -----------------------------------------------------------------------
-  start(){
-    this._reset();
-    this.state.play   = true;
-    this.state.paused = false;
-    this.state.raf    = requestAnimationFrame(this._loop.bind(this));
-  }
-
-  pause(v=true){
-    if (!this.state.play) return;
-    this.state.paused = v;
-    if (v){
-      cancelAnimationFrame(this.state.raf);
-      this._msg(this.str.msgPaused);
-    }else{
-      this._msg(this.str.msgResume);
-      this.state.lastTs = 0;
-      this.state.raf = requestAnimationFrame(this._loop.bind(this));
-    }
-  }
-
-  _reset(){
-    this.state.elapsed = 0;
-    this.state.lastTs  = 0;
-    this.state.score   = 0;
-    this.state.hits    = 0;
-    this.state.miss    = 0;
-    this.state.combo   = 0;
-    this.state.best    = 0;
-    this.state.notes   = SONG_PATTERN.map(n=>({
-      time:   n.time,
-      lane:   n.lane,
-      type:   n.type || 'normal',
-      judged:false,
-      hit:   false,
-      dom:   null
-    }));
-    this.songEndTime = this.state.notes.reduce(
-      (m,n)=>Math.max(m, n.time||0), 0
-    );
-    this.lanes.forEach(l=>{ l.querySelectorAll('.rb-note').forEach(n=>n.remove()); });
-    this._hud();
-  }
-
-  // -----------------------------------------------------------------------
-  // NOTES / HIT DETECTION
-  // -----------------------------------------------------------------------
-  _spawnNote(note){
-    const lane = this.lanes[note.lane];
-    if (!lane) return;
-    const dom  = document.createElement('div');
-    dom.className = 'rb-note';
-    dom.style.position='absolute';
-    dom.style.left='8px';
-    dom.style.right='8px';
-    dom.style.height='24px';
-    dom.style.borderRadius='999px';
-    dom.style.bottom='100%';
-
-    const t = note.type || 'normal';
-    if (t === 'gold') {
-      dom.style.background = 'linear-gradient(135deg,#facc15,#f97316)';
-      dom.style.boxShadow  = '0 0 18px rgba(250,204,21,0.9)';
-    } else if (t === 'bomb') {
-      dom.style.background = 'radial-gradient(circle at 30% 20%,#f97316,#b91c1c)';
-      dom.style.boxShadow  = '0 0 18px rgba(248,113,113,0.9)';
-    } else {
-      dom.style.background = 'rgba(248,250,252,.95)';
-      dom.style.boxShadow  = '0 4px 12px rgba(15,23,42,.85)';
-    }
-
-    lane.appendChild(dom);
-    note.dom = dom;
-  }
-
-  _updateNotes(){
-    this.state.notes.forEach(note=>{
-      if (!note.dom) return;
-      const tNow   = this.state.elapsed;
-      const dtHead = note.time - tNow;
-      const totalTravel = 2.0; // sec ก่อนถึงเส้น
-      const ratio  = 1 - (dtHead / totalTravel);
-      const clamp  = Math.max(0, Math.min(1.2, ratio));
-      const lane   = this.lanes[note.lane];
-      const h      = lane ? (lane.clientHeight||1) : 1;
-      const bottomPx = 12 + clamp * (h - 40);
-      note.dom.style.bottom = bottomPx + 'px';
-    });
-  }
-
-  _handleHit(laneIdx){
-    if (!this.state.play || this.state.paused) return;
-
-    const tNow = this.state.elapsed;
-    const cfg  = this.cfg;
-
-    let best = null;
-    let bestDt = Infinity;
-    this.state.notes.forEach(note=>{
-      if (note.lane!==laneIdx || note.judged) return;
-      const dt = Math.abs(note.time - tNow);
-      if (dt < bestDt){
-        bestDt = dt;
-        best   = note;
-      }
-    });
-
-    if (!best){
-      this._regMiss(null);
-      return;
-    }
-
-    let type = 'miss';
-    if (bestDt <= cfg.windowPerfect) type = 'perfect';
-    else if (bestDt <= cfg.windowGood) type = 'good';
-
-    if (type === 'miss') this._regMiss(best);
-    else this._regHit(best, type);
-  }
-
-  _regHit(note, type){
-    note.judged = true;
-    note.hit    = true;
-    this.state.hits++;
-
-    const basePerfect = 30;
-    const baseGood    = 15;
-
-    let gain = 0;
-    if (type === 'perfect') gain = basePerfect;
-    else if (type === 'good') gain = baseGood;
-
-    // gold/bomb effect
-    const nType = note.type || 'normal';
-    if (nType === 'gold') {
-      gain = Math.round(gain * 2); // gold = x2
-    } else if (nType === 'bomb') {
-      // bomb = พลาดด้าน safety: เพิ่ม miss และรีเซ็ตคอมโบ
-      this.state.miss++;
-      this.state.combo = 0;
-    }
-
-    // combo & fever
-    this.state.combo++;
-    this.state.best = Math.max(this.state.best, this.state.combo);
-
-    const inFever = this.state.combo >= 8; // FEVER threshold
-    if (inFever) {
-      gain = Math.round(gain * 1.5); // multiplier ช่วง fever
-      this._showFeverFx();
-    }
-
-    this.state.score += gain;
-
-    if (note.dom){
-      if (nType === 'bomb') {
-        note.dom.style.background = '#ef4444';
-        note.dom.style.boxShadow  = '0 0 18px rgba(239,68,68,0.9)';
-      } else if (nType === 'gold') {
-        note.dom.style.background = 'linear-gradient(135deg,#facc15,#f97316)';
-        note.dom.style.boxShadow  = '0 0 20px rgba(250,204,21,0.95)';
-      } else if (type==='perfect') {
-        note.dom.style.background = '#4ade80';
-      } else {
-        note.dom.style.background = '#93c5fd';
-      }
-      setTimeout(()=>note.dom && note.dom.remove(), 120);
-    }
-
-    this._hud();
-    this._floatLane(
-      note.lane,
-      (nType === 'gold' ? '★+'+gain : '+'+gain),
-      nType === 'bomb'
-    );
-  }
-
-  _regMiss(note){
-    this.state.miss++;
-    this.state.combo = 0;
-    this._hud();
-    this._floatLane(note ? note.lane : 1, '-5', true);
-  }
-
-  _floatLane(laneIdx, txt, isBad){
-    const lane = this.lanes[laneIdx] || this.lanes[1];
-    if (!lane) return;
-    const r  = lane.getBoundingClientRect();
-    const fx = document.createElement('div');
-    fx.className = 'float';
-    fx.textContent = txt;
-    fx.style.left  = (r.left + r.width/2) + 'px';
-    fx.style.top   = (r.top + r.height*0.2) + 'px';
-    fx.style.color = isBad ? '#fb7185' : '#4ade80';
-    fx.style.position = 'fixed';
-    fx.style.transform = 'translate(-50%,-50%)';
-    document.body.appendChild(fx);
-    setTimeout(()=>fx.remove(),600);
-  }
-
-  _showFeverFx(){
-    const el = document.createElement('div');
-    el.textContent = 'FEVER!!';
-    el.style.position = 'fixed';
-    el.style.left = '50%';
-    el.style.top  = '18%';
-    el.style.transform = 'translate(-50%,-50%)';
-    el.style.zIndex = '9999';
-    el.style.fontSize = '32px';
-    el.style.fontWeight = '900';
-    el.style.letterSpacing = '0.18em';
-    el.style.color = '#facc15';
-    el.style.textShadow = '0 0 18px rgba(250,204,21,0.95)';
-    el.style.animation = 'feverFlash 0.7s ease-out forwards';
-    document.body.appendChild(el);
-    setTimeout(()=>el.remove(), 700);
-  }
-
-  // -----------------------------------------------------------------------
-  // GAME LOOP (จบเมื่อโน้ตทุกตัว judged แล้ว)
-  // -----------------------------------------------------------------------
-  _loop(ts){
-    if (!this.state.play || this.state.paused) return;
-    if (!this.state.lastTs) this.state.lastTs = ts;
-    const dt = (ts - this.state.lastTs)/1000;
-    this.state.lastTs  = ts;
-    this.state.elapsed += dt;
-
-    // spawn notes ล่วงหน้า
-    const lookAhead = 2.0;
-    this.state.notes.forEach(note=>{
-      if (!note.dom && note.time - this.state.elapsed <= lookAhead){
-        this._spawnNote(note);
-      }
-    });
-
-    // auto-miss ถ้าเลยหน้าต่าง good ไปแล้ว
-    this.state.notes.forEach(note=>{
-      if (!note.judged && this.state.elapsed - note.time > this.cfg.windowGood){
-        note.judged = true;
-        this.state.miss++;
-        if (note.dom) note.dom.style.opacity = '0.2';
-      }
-    });
-
-    // อัปเดตตำแหน่ง note
-    this._updateNotes();
-    this._hud();
-
-    // เช็คว่าโน้ตทุกตัวถูกตัดสินหมดแล้วหรือยัง
-    const allDone = this.state.notes.every(n => n.judged);
-    if (allDone && this.state.elapsed >= this.songEndTime + this.songGuard){
-      this._finish();
-      return;
-    }
-
-    this.state.raf = requestAnimationFrame(this._loop.bind(this));
-  }
-
-  // -----------------------------------------------------------------------
-  // SUMMARY
-  // -----------------------------------------------------------------------
-  _buildSummary(){
-    const total = this.state.hits + this.state.miss;
-    const acc   = total>0 ? this.state.hits/total : 0;
-
-    const duration = Math.max(this.songEndTime, this.state.elapsed);
-    const notesPerSec = duration > 0 ? total / duration : 0;
-    const notesPerMin = notesPerSec * 60;
-
-    let rank = 'C';
-    if(this.state.score>=600 && acc>=0.95) rank='SSS';
-    else if(this.state.score>=450 && acc>=0.90) rank='S';
-    else if(this.state.score>=320 && acc>=0.80) rank='A';
-    else if(this.state.score>=200 && acc>=0.60) rank='B';
-
-    return {
-      profile:  this.profile,
-      game:     'rhythm-boxer',
-      diff:     this.diff,
-      duration,
-      score:    this.state.score,
-      hits:     this.state.hits,
-      miss:     this.state.miss,
-      comboMax: this.state.best,
-      accuracy: acc,
-      notesPerSec,
-      notesPerMin,
-      rank,
-      device:   detectDevice(),
-      timestamp:new Date().toISOString()
-    };
-  }
-
-  // -----------------------------------------------------------------------
-  // CLEANUP / FX
-  // -----------------------------------------------------------------------
-  _clearStage(){
-    const kill = sel => document.querySelectorAll(sel).forEach(e => e.remove());
-    kill('.rb-note');
-    kill('.rb-lane');
-    kill('.track');
-    kill('.lane');
-    kill('.note');
-
-    const stage = document.getElementById('rbStageHost');
-    if (stage){
-      stage.innerHTML = '';
-      stage.style.pointerEvents = 'none';
-    }
-  }
-
-  _playFinishFx(){
-    const ripple = document.createElement('div');
-    ripple.className = 'rb-ripple';
-    const scan = document.createElement('div');
-    scan.className = 'rb-scan';
-    document.body.appendChild(ripple);
-    document.body.appendChild(scan);
-    setTimeout(()=>{
-      ripple.remove();
-      scan.remove();
-    },1000);
-  }
-
-  // -----------------------------------------------------------------------
-  // FINISH + RESULT
-  // -----------------------------------------------------------------------
-  async _finish(){
-    this.state.play = false;
-    cancelAnimationFrame(this.state.raf);
-    this._msg(this.str.msgEnd);
-
-    const summary = this._buildSummary();
-
-    if (this.stage) {
-      this.stage.style.display = 'none';
-    }
-    this._clearStage();
-
-    document.body.classList.add('rb-finished');
-    document.body.style.overflow = 'hidden';
-
-    this._playFinishFx();
-
-    const ok = this._showResult(summary);
-    if (!ok) {
-      const acc = (summary.accuracy * 100).toFixed(1);
-      alert(
-        `Rhythm Boxer Result\n` +
-        `Score: ${summary.score}\n` +
-        `Hits: ${summary.hits}\n` +
-        `Miss: ${summary.miss}\n` +
-        `Accuracy: ${acc}%\n` +
-        `Best Combo: x${summary.comboMax}\n` +
-        `Rank: ${summary.rank}`
-      );
-    }
-
-    try {
-      await hybridSaveSession(summary, true);
-      this._loadLeaderboards && this._loadLeaderboards(summary.profile);
-    } catch(e){
-      console.warn('save / leaderboard error', e);
-    }
-  }
-
-  _showResult(summary){
-    const box   = (this.result && this.result.box) || document.getElementById('rbResultCard');
-    const score = this.result?.score || document.getElementById('rbScore');
-    const hits  = this.result?.hits  || document.getElementById('rbHits');
-    const miss  = this.result?.miss  || document.getElementById('rbMiss');
-    const acc   = this.result?.acc   || document.getElementById('rbAcc');
-    const best  = this.result?.best  || document.getElementById('rbBest');
-    const rank  = this.result?.rank  || document.getElementById('rbRank');
-
-    if (!box) {
-      console.warn('Result box not found (rbResultCard)');
-      return false;
-    }
-
-    const accVal = Math.round((summary.accuracy || 0) * 100);
-
-    box.style.display = 'flex';
-
-    if (score) score.textContent = summary.score;
-    if (hits)  hits.textContent  = summary.hits;
-    if (miss)  miss.textContent  = summary.miss;
-    if (acc)   acc.textContent   = accVal + '%';
-    if (best)  best.textContent  = 'x' + summary.comboMax;
-    if (rank)  rank.textContent  = summary.rank;
-
-    if (this.pdfBtn){
-      this.pdfBtn.onclick = () => exportPDF(summary);
-    }
-    if (this.csvBtn){
-      this.csvBtn.onclick = () => downloadCSVRow(summary);
-    }
-
-    return true;
-  }
-
-  // -----------------------------------------------------------------------
-  // LEADERBOARD LOAD
-  // -----------------------------------------------------------------------
-  async _loadLeaderboards(profile){
-    if (!this.lbBox) return;
-    try{
-      const [schoolLB, classLB] = await Promise.all([
-        loadLeaderboard('school', profile),
-        loadLeaderboard('class',  profile)
-      ]);
-      this.lbBox.innerHTML = '';
-      const t1 = document.createElement('h4');
-      t1.textContent = this.str.lbSchool;
-      this.lbBox.appendChild(t1);
-      this.lbBox.appendChild(buildLBTable(schoolLB));
-
-      const t2 = document.createElement('h4');
-      t2.textContent = this.str.lbClass;
-      this.lbBox.appendChild(t2);
-      this.lbBox.appendChild(buildLBTable(classLB));
-    }catch(e){
-      console.warn('load leaderboard fail', e);
-    }
-  }
+  const meta = {
+    studentId,
+    schoolName: metaInputs.schoolName.value.trim(),
+    classRoom: metaInputs.classRoom.value.trim(),
+    deviceType:
+      metaInputs.deviceType.value === 'auto'
+        ? detectDevice()
+        : metaInputs.deviceType.value,
+    note: metaInputs.note.value.trim(),
+    language: lang,
+  };
+  state.sessionMeta = meta;
+  saveMetaDraft();
+
+  // โหมดเล่นอย่างเดียว
+  document.body.classList.add('play-only');
+
+  resetStats();
+  prepareChart();
+
+  state.running = true;
+  state.started = true;
+  startBtn.disabled = true;
+  startBtn.style.opacity = 0.7;
+
+  hud.coachLine.textContent = i18n[lang].coachReady;
+
+  setTimeout(() => {
+    state.startTime = performance.now();
+    state.lastFrame = 0;
+    requestAnimationFrame(mainLoop);
+  }, 700);
 }
+
+// --- Keyboard control ---
+window.addEventListener('keydown', (ev) => {
+  if (!state.running) return;
+  const key = ev.key.toLowerCase();
+  if (key === 'a') judgeHit('L');
+  else if (key === 's') judgeHit('B');
+  else if (key === 'd') judgeHit('R');
+});
+
+// --- Click lane (mobile tap) ---
+gameArea.addEventListener('click', (ev) => {
+  if (!state.running) return;
+  const laneEl = ev.target.closest('.lane');
+  if (!laneEl) return;
+  const lane = laneEl.getAttribute('data-lane');
+  if (!lane) return;
+  judgeHit(lane);
+});
+
+// --- Buttons & events ---
+startBtn.addEventListener('click', startGame);
+
+playAgainBtn.addEventListener('click', () => {
+  overlay.classList.add('hidden');
+  startBtn.disabled = false;
+  startBtn.style.opacity = 1;
+  startGame();
+});
+
+backHubBtn.addEventListener('click', () => {
+  location.href = '../../index.html';
+});
+
+downloadCsvBtn.addEventListener('click', downloadCsv);
+
+Object.values(metaInputs).forEach((el) => {
+  el.addEventListener('change', saveMetaDraft);
+  el.addEventListener('blur', saveMetaDraft);
+});
+
+// --- Init ---
+loadMeta();
+applyLang();
+prepareChart();
