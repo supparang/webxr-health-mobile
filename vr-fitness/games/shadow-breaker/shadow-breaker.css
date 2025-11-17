@@ -1,4 +1,4 @@
-:root{
+7:root{
   color-scheme: dark;
   --bg-main: #020617;
   --bg-card: rgba(15,23,42,0.96);
@@ -393,6 +393,14 @@ body.vr-mode header.top-bar{
 }
 
 /* ป้องกันจอดำ: บังคับให้ container เกมมองเห็นเสมอ */
+#sb-game,
+.sb-arena-wrap,
+.sb-arena{
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+/* --- กันเคสกด Start แล้วจอดำ: บังคับให้ container เกมมองเห็นเสมอ --- */
 #sb-game,
 .sb-arena-wrap,
 .sb-arena{
