@@ -3,430 +3,597 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>VR Fitness — Shadow Breaker (P.5)</title>
+  <title>VR Fitness — Shadow Breaker</title>
   <meta name="color-scheme" content="dark light" />
   <style>
-    :root { color-scheme: dark; }
-    * {
-      box-sizing: border-box;
-      -webkit-user-select: none;
-      user-select: none;
-      touch-action: manipulation;
+    :root{
+      color-scheme: dark;
+      --bg-main: #020617;
+      --bg-card: rgba(15,23,42,0.96);
+      --border-soft: rgba(148,163,184,0.6);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.18);
+      --accent-2: #a855f7;
+      --danger: #fb7185;
+      --good: #22c55e;
     }
-    html, body {
-      margin:0; padding:0; width:100%; height:100%;
-      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Inter",sans-serif;
-      background:
-        radial-gradient(circle at top, rgba(129,140,248,0.25), transparent 55%),
-        radial-gradient(circle at bottom, rgba(94,234,212,0.18), transparent 55%),
-        #020617;
-      color:#e5e7eb;
-    }
-    body {
-      padding:
-        env(safe-area-inset-top,0)
-        env(safe-area-inset-right,0)
-        env(safe-area-inset-bottom,0)
-        env(safe-area-inset-left,0);
-    }
-
-    .wrap {
-      max-width:1200px;
-      margin:0 auto;
-      padding:12px 16px 24px;
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
       min-height:100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(129,140,248,0.18), transparent 55%),
+        var(--bg-main);
+      color:#e5e7eb;
+      padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+               env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+    }
+    .page{
+      max-width: 1080px;
+      margin: 12px auto 20px;
+      padding: 0 12px 20px;
       display:flex;
       flex-direction:column;
       gap:12px;
     }
-
-    header {
+    header.top-bar{
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:8px;
+      padding:10px 12px;
+      background: linear-gradient(90deg, rgba(15,23,42,0.96), rgba(15,23,42,0.86));
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.65);
+      box-shadow:0 18px 40px rgba(15,23,42,0.7);
+      position:sticky;
+      top:8px;
+      z-index:20;
+      backdrop-filter: blur(12px);
     }
-    .title-block h1{
-      margin:0;
-      font-size:clamp(20px,4vw,26px);
-      letter-spacing:.08em;
+    .top-bar-title{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .top-bar-title strong{
+      font-size:15px;
+      letter-spacing:.05em;
       text-transform:uppercase;
+      color:#e5e7eb;
     }
-    .title-block small{
-      opacity:.8;
+    .top-bar-title span{
       font-size:12px;
+      color:#9ca3af;
     }
+    .chip{
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      border:1px solid rgba(148,163,184,0.7);
+      color:#e5e7eb;
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      background:rgba(15,23,42,0.9);
+    }
+    .chip b{color:var(--accent);}
 
     .btn{
+      appearance:none;
       border:none;
       border-radius:999px;
-      padding:8px 14px;
-      font-weight:600;
-      font-size:14px;
-      cursor:pointer;
+      padding:6px 14px;
+      font-size:13px;
       display:inline-flex;
       align-items:center;
       gap:6px;
-      background:rgba(15,23,42,.9);
+      cursor:pointer;
+      background:rgba(15,23,42,0.9);
       color:#e5e7eb;
-      border:1px solid rgba(148,163,184,.7);
+      border:1px solid rgba(148,163,184,0.8);
+      transition: background .12s ease, transform .12s ease, box-shadow .12s ease;
     }
     .btn-primary{
-      background:linear-gradient(120deg,#facc15,#f97316);
-      border-color:transparent;
+      background:linear-gradient(135deg,#38bdf8,#4ade80);
       color:#0b1120;
-      box-shadow:0 0 12px rgba(250,204,21,.6);
+      border:none;
+      box-shadow:0 12px 30px rgba(56,189,248,0.45);
     }
-    .btn-ghost{
-      background:rgba(15,23,42,.85);
+    .btn-danger{
+      background:linear-gradient(135deg,#fb7185,#f97316);
+      color:#0b1120;
+      border:none;
+      box-shadow:0 12px 30px rgba(248,113,113,0.45);
     }
-    .btn-outline{
-      background:transparent;
+    .btn:active{
+      transform:translateY(1px) scale(0.98);
+      box-shadow:none;
     }
 
-    .hud-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
+    main.main{
+      display:grid;
+      grid-template-columns: minmax(0,1.2fr) minmax(0,1.4fr);
+      gap:12px;
     }
-    .hud-badge{
-      padding:6px 12px;
-      border-radius:999px;
-      background:rgba(15,23,42,.92);
-      border:1px solid rgba(148,163,184,.75);
-      font-size:13px;
-      display:inline-flex;
+    @media (max-width: 900px){
+      main.main{
+        grid-template-columns: minmax(0,1fr);
+      }
+      header.top-bar{
+        position:static;
+      }
+    }
+
+    .panel{
+      background: var(--bg-card);
+      border-radius:20px;
+      border:1px solid var(--border-soft);
+      padding:10px 12px 12px;
+      box-shadow:0 18px 40px rgba(15,23,42,0.7);
+    }
+    .panel h2{
+      margin:0 0 8px;
+      font-size:14px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#e5e7eb;
+      display:flex;
+      align-items:center;
       gap:6px;
     }
-    .hud-label{ opacity:.65; }
-    .hud-value{ font-weight:700; min-width:36px; text-align:right; }
-    .hud-main{
-      margin-left:auto;
+    .panel h2 span.emoji{font-size:17px;}
+    .panel p{
+      margin:2px 0;
+      font-size:13px;
+      color:#9ca3af;
+    }
+
+    .stats-row{
+      margin-top:6px;
       display:flex;
-      gap:8px;
       flex-wrap:wrap;
+      gap:6px;
     }
-
-    .main-grid{
-      display:grid;
-      grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
-      gap:16px;
-      align-items:stretch;
-      flex:1;
-      min-height:0;
-    }
-    @media (max-width:900px){
-      .main-grid{ grid-template-columns:minmax(0,1fr); }
-    }
-
-    .arena-card{
-      background: radial-gradient(circle at top,#020617,#020617 55%);
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.5);
-      box-shadow:0 22px 60px rgba(15,23,42,.9);
-      padding:10px;
+    .stat-pill{
+      flex:1 1 80px;
+      min-width:80px;
+      background:rgba(15,23,42,0.9);
+      border-radius:14px;
+      padding:6px 8px;
+      border:1px solid rgba(148,163,184,0.7);
       display:flex;
       flex-direction:column;
-      gap:8px;
-      min-height:0;
+      gap:2px;
     }
-    #sbArena{
+    .stat-pill label{
+      font-size:11px;
+      color:#9ca3af;
+    }
+    .stat-pill span{
+      font-size:13px;
+      font-weight:600;
+      color:#e5e7eb;
+    }
+
+    /* GAME PANEL */
+    .hud-bar{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-bottom:8px;
+    }
+    .hud-chip{
+      flex:1 1 70px;
+      min-width:70px;
+      border-radius:12px;
+      padding:4px 8px;
+      background:rgba(15,23,42,0.9);
+      border:1px solid rgba(148,163,184,0.7);
+      display:flex;
+      flex-direction:column;
+      gap:1px;
+    }
+    .hud-chip label{
+      font-size:11px;
+      color:#9ca3af;
+      display:flex;
+      align-items:center;
+      gap:4px;
+    }
+    .hud-chip span{
+      font-size:15px;
+      font-weight:700;
+      color:#e5e7eb;
+    }
+
+    .sb-arena-wrap{
       position:relative;
-      flex:1;
-      min-height:300px;
-      max-height:540px;
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.5);
+      margin-top:2px;
+    }
+    .sb-arena{
+      position:relative;
+      width:100%;
+      height:min(460px, 62vh);
+      border-radius:22px;
       background:
-        radial-gradient(circle at 20% 0%,rgba(129,140,248,.32),transparent 55%),
-        radial-gradient(circle at 80% 120%,rgba(56,189,248,.25),transparent 55%),
-        #071427;
+        radial-gradient(circle at 20% 0%, rgba(56,189,248,0.28), transparent 55%),
+        radial-gradient(circle at 80% 100%, rgba(52,211,153,0.32), transparent 60%),
+        radial-gradient(circle at 50% 40%, rgba(30,64,175,0.92), #020617);
+      border:1px solid rgba(148,163,184,0.75);
+      box-shadow:
+        0 0 0 1px rgba(15,23,42,0.9),
+        0 16px 40px rgba(15,23,42,0.9);
       overflow:hidden;
     }
-    .arena-footer{
+    .status-line{
+      margin:4px 2px 0;
       font-size:13px;
-      opacity:.85;
+      color:#cbd5f5;
+      min-height:20px;
+    }
+
+    .control-row{
+      margin-top:8px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      justify-content:flex-end;
+    }
+
+    /* Result card */
+    .sb-result-card{
+      margin-top:6px;
+      padding:10px 12px;
+      border-radius:18px;
+      background: radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%), rgba(15,23,42,0.98);
+      border:1px solid rgba(129,140,248,0.9);
+      display:none;
+      flex-direction:column;
+      gap:8px;
+    }
+    .sb-result-head{
       display:flex;
       justify-content:space-between;
       gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .side-card{
-      background:rgba(15,23,42,.96);
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.55);
-      box-shadow:0 22px 60px rgba(15,23,42,.95);
-      padding:14px 14px 16px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    .coach-line{
-      font-size:13px;
-      opacity:.9;
-      min-height:34px;
-    }
-    .side-actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    /* Result modal */
-    #sbResultCard{
-      position:fixed;
-      inset:0;
-      display:none;
       align-items:center;
-      justify-content:center;
-      padding:24px 16px;
-      background:rgba(15,23,42,.88);
-      backdrop-filter:blur(10px);
-      z-index:9999;
     }
-    .result-box{
-      width:min(380px,100%);
-      background: radial-gradient(circle at top,#0b1120,#020617);
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.9);
-      box-shadow:0 24px 80px rgba(15,23,42,1);
-      padding:18px 18px 16px;
-    }
-    .result-box h2{
-      margin:0 0 4px;
-      font-size:22px;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-    .result-box small{
-      opacity:.75;
-      font-size:12px;
-    }
-    .result-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:4px 10px;
-      margin:12px 0 8px;
-      font-size:14px;
-    }
-    .result-label{ opacity:.7; }
-    .result-value{ font-weight:700; text-align:right; }
-    .rank-badge{
-      margin-top:4px;
-      padding:6px 10px;
+    .sb-rank-badge{
+      padding:4px 10px;
       border-radius:999px;
-      background:rgba(15,23,42,.9);
-      border:1px solid rgba(129,140,248,.9);
+      background:rgba(15,23,42,0.96);
+      border:1px solid rgba(250,204,21,0.9);
+      font-size:12px;
       display:inline-flex;
+      align-items:center;
       gap:6px;
-      font-size:13px;
     }
-    .rank-badge span{
-      font-size:22px;
-      font-weight:900;
+    .sb-rank-badge span.rank{
+      font-size:17px;
+      font-weight:800;
+      color:#facc15;
     }
-    .result-actions{
+    .sb-result-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:6px;
+      margin-top:4px;
+    }
+    .sb-result-item{
+      background:rgba(15,23,42,0.96);
+      border-radius:14px;
+      padding:6px 8px;
+      border:1px solid rgba(148,163,184,0.7);
       display:flex;
       flex-direction:column;
-      gap:6px;
-      margin-top:10px;
+      gap:2px;
     }
-    .btn-full{
-      width:100%;
-      justify-content:center;
-      border-radius:12px;
-      padding:10px 14px;
+    .sb-result-item label{
+      font-size:11px;
+      color:#9ca3af;
+    }
+    .sb-result-item span{
+      font-size:14px;
+      font-weight:600;
+    }
+    .sb-result-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      justify-content:flex-end;
+      margin-top:4px;
     }
 
-    /* FX ที่ JS ใช้ */
-    @keyframes sbHitFloat {
-      0%{opacity:0; transform:translate(-50%,-20%) scale(.7);}
-      20%{opacity:1; transform:translate(-50%,-35%) scale(1);}
-      100%{opacity:0; transform:translate(-50%,-70%) scale(1.1);}
+    /* FX for floating text / fever / finish ripple */
+    @keyframes sbHitFloat{
+      from{ transform:translate(-50%,-50%) translateY(0); opacity:1; }
+      to{ transform:translate(-50%,-50%) translateY(-32px); opacity:0; }
     }
-    @keyframes feverFlash {
-      0%{opacity:0; transform:translate(-50%,-50%) scale(.5);}
-      20%{opacity:1; transform:translate(-50%,-50%) scale(1.1);}
-      100%{opacity:0; transform:translate(-50%,-50%) scale(1.4);}
+    @keyframes feverFlash{
+      0%{   transform:translate(-50%,-50%) scale(0.8); opacity:0; }
+      40%{  transform:translate(-50%,-50%) scale(1.1); opacity:1; }
+      100%{ transform:translate(-50%,-50%) scale(1);   opacity:0; }
     }
     .sb-finish-ripple{
       position:fixed;
-      inset:0;
+      left:50%;
+      top:50%;
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      border:2px solid rgba(248,250,252,0.8);
+      transform:translate(-50%,-50%);
       pointer-events:none;
-      background: radial-gradient(circle at center, rgba(129,140,248,.22), transparent 55%);
-      animation:rippleFade .6s ease-out forwards;
-      z-index:9998;
+      animation:sbRipple 0.6s ease-out forwards;
+      z-index:9999;
     }
-    @keyframes rippleFade{
-      0%{opacity:0;}
-      10%{opacity:1;}
-      100%{opacity:0;}
-    }
-
-    body.hub-leaving::before{
-      content:"Returning to Gym Hub…";
-      position:fixed;
-      inset:0;
-      z-index:99999;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:800;
-      font-size:20px;
-      color:#cbd5e1;
-      letter-spacing:.08em;
-      background: radial-gradient(circle at top,rgba(15,23,42,.98),#020617 85%);
-      animation: hubFadeOut .6s ease-out forwards;
-    }
-    @keyframes hubFadeOut{
-      0%{opacity:0; filter:blur(0);}
-      40%{opacity:1;}
-      100%{opacity:1; filter:blur(1.5px);}
-    }
-
-    @media (max-width:640px){
-      .arena-card{padding:8px;}
-      #sbArena{ min-height:260px; }
+    @keyframes sbRipple{
+      from{
+        opacity:.7;
+        transform:translate(-50%,-50%) scale(1);
+      }
+      to{
+        opacity:0;
+        transform:translate(-50%,-50%) scale(18);
+      }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="title-block">
-        <h1>Shadow Breaker</h1>
-        <small>VR Fitness • Tap the targets as fast as you can</small>
+  <div class="page">
+    <header class="top-bar">
+      <div class="top-bar-title">
+        <strong>VR FITNESS • SHADOW BREAKER</strong>
+        <span>ต่อยมือตามเป้า • เก็บคอมโบ • สู้บอส 4 ด่าน</span>
       </div>
-      <div class="top-actions">
-        <button id="btnHub" class="btn">🏠 Back to Hub</button>
-        <button id="btnStart" class="btn btn-primary">▶ เริ่มเล่น</button>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <span class="chip">🎯 <b>Research-ready</b></span>
+        <span class="chip">📱 PC · Mobile · VR</span>
       </div>
     </header>
 
-    <div class="hud-row">
-      <div class="hud-badge"><span class="hud-label">TIME</span><span id="sbTime" class="hud-value">90</span></div>
-      <div class="hud-badge"><span class="hud-label">SCORE</span><span id="sbScoreHud" class="hud-value">0</span></div>
-      <div class="hud-badge"><span class="hud-label">HIT</span><span id="sbHitsHud" class="hud-value">0</span></div>
-      <div class="hud-badge"><span class="hud-label">MISS</span><span id="sbMissHud" class="hud-value">0</span></div>
-      <div class="hud-badge"><span class="hud-label">COMBO</span><span id="sbComboHud" class="hud-value">x0</span></div>
-      <div class="hud-main">
-        <div id="sbMsg" class="hud-badge"
-             style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          โค้ชพุ่ง: แตะเป้าที่โผล่มาให้ไวที่สุด!
-        </div>
-      </div>
-    </div>
+    <main class="main">
+      <!-- LEFT: Info / instructions -->
+      <section class="panel">
+        <h2><span class="emoji">📘</span> คู่มือรอบนี้ / Session Notes</h2>
+        <p>เป้าหมาย: เพิ่มความไวในการตอบสนองของแขนและสายตา ฝึกความแม่นของหมัด พร้อมเก็บข้อมูลสำหรับงานวิจัย.</p>
+        <p>วิธีเล่นสั้น ๆ:</p>
+        <ul style="margin:4px 0 4px 18px;padding:0;font-size:13px;color:#9ca3af;">
+          <li>กด <b>เริ่มรอบ</b> แล้วแตะ/ชกที่เป้า emoji ให้ไวที่สุด</li>
+          <li>คอมโบไม่หลุดถึง <b>5</b> จะเข้าโหมด <b>FEVER</b> (คะแนนคูณ)</li>
+          <li>ระหว่างทางจะมีบอส 4 ตัว จากง่ายไปยาก ลองตีให้แตกทุกตัว</li>
+        </ul>
 
-    <div class="main-grid">
-      <section class="arena-card">
-        <div id="sbArena"></div>
-        <div class="arena-footer">
-          <span>กติกา: เป้าโผล่มาแตะให้ทันก่อนหายไป 🥊</span>
-          <span style="opacity:.75;">คอมโบเยอะ ๆ จะเข้าโหมด FEVER PUNCH!! คะแนนพุ่งแรง 🔥</span>
+        <div class="stats-row" style="margin-top:8px;">
+          <div class="stat-pill">
+            <label>โหมด / Mode</label>
+            <span id="sbModeLabel">Timed</span>
+          </div>
+          <div class="stat-pill">
+            <label>ความยาก / Difficulty</label>
+            <span id="sbDiffLabel">Normal</span>
+          </div>
+          <div class="stat-pill">
+            <label>อุปกรณ์ที่ใช้ / Device</label>
+            <span id="sbDeviceLabel">—</span>
+          </div>
+        </div>
+
+        <h2 style="margin-top:10px;"><span class="emoji">📊</span> สถานะระหว่างเล่น / Live Stats</h2>
+        <div class="stats-row">
+          <div class="stat-pill">
+            <label>คะแนนระหว่างเล่น</label>
+            <span id="sbScoreLive">0</span>
+          </div>
+          <div class="stat-pill">
+            <label>โดนเป้า / Hits</label>
+            <span id="sbHitsLive">0</span>
+          </div>
+          <div class="stat-pill">
+            <label>พลาด / Miss</label>
+            <span id="sbMissLive">0</span>
+          </div>
+          <div class="stat-pill">
+            <label>คอมโบล่าสุด</label>
+            <span id="sbComboLive">x0</span>
+          </div>
         </div>
       </section>
 
-      <aside class="side-card">
-        <div class="coach-line">
-          โค้ชพุ่ง: หมัดอุ่นเครื่องพร้อมแล้วใช่มั้ย? ลุยย! 🐰🔥
+      <!-- RIGHT: Game -->
+      <section class="panel">
+        <h2><span class="emoji">🎮</span> เล่นเกม / Play</h2>
+
+        <div class="hud-bar">
+          <div class="hud-chip">
+            <label>เวลา / Time ⏱</label>
+            <span id="sbTime">90</span>
+          </div>
+          <div class="hud-chip">
+            <label>คะแนน / Score</label>
+            <span id="sbScoreLiveHUD">0</span>
+          </div>
+          <div class="hud-chip">
+            <label>โดน / Miss 🥊</label>
+            <span><span id="sbHitsLiveHUD">0</span> / <span id="sbMissLiveHUD">0</span></span>
+          </div>
+          <div class="hud-chip">
+            <label>คอมโบ / Combo</label>
+            <span id="sbComboLiveHUD">x0</span>
+          </div>
         </div>
-        <div class="side-actions">
-          <button id="btnPause" class="btn btn-ghost" type="button">⏸ Pause</button>
-          <button id="btnResume" class="btn btn-ghost" type="button">▶ Resume</button>
-          <button id="btnRetry" class="btn btn-outline" type="button">🔁 เล่นใหม่</button>
+
+        <div class="sb-arena-wrap">
+          <div id="sbArena" class="sb-arena"></div>
+          <p id="sbStatus" class="status-line coach-line">โค้ชพุ่งกำลังเตรียมเป้าให้...</p>
         </div>
-      </aside>
-    </div>
-  </div>
 
-  <!-- Result modal -->
-  <div id="sbResultCard">
-    <div class="result-box">
-      <h2>Session Result</h2>
-      <small>Shadow Breaker • VR Fitness</small>
+        <div class="control-row">
+          <button id="sbStartBtn" class="btn btn-primary">▶ เริ่มรอบ</button>
+          <button id="sbPauseBtn" class="btn">⏸ พัก</button>
+          <button id="sbExitBtn" class="btn btn-danger">⏮ กลับเมนู</button>
+        </div>
 
-      <div class="result-grid">
-        <div class="result-label">Score</div><div id="sbScore" class="result-value">0</div>
-        <div class="result-label">Hit</div><div id="sbHits" class="result-value">0</div>
-        <div class="result-label">Miss</div><div id="sbMiss" class="result-value">0</div>
-        <div class="result-label">Accuracy</div><div id="sbAcc" class="result-value">0%</div>
-        <div class="result-label">Best Combo</div><div id="sbBest" class="result-value">x0</div>
-        <div class="result-label">Rank</div><div id="sbRank" class="result-value">C</div>
-      </div>
+        <!-- Result card -->
+        <div id="sbResultCard" class="sb-result-card">
+          <div class="sb-result-head">
+            <div>
+              <div style="font-size:13px;color:#e5e7eb;font-weight:600;">สรุปรอบนี้ / Session Result</div>
+              <div style="font-size:12px;color:#9ca3af;" id="sbResultMeta">Shadow Breaker • 90s</div>
+            </div>
+            <div class="sb-rank-badge">
+              <span>RANK</span>
+              <span id="sbRank" class="rank">C</span>
+            </div>
+          </div>
 
-      <div class="rank-badge"><span id="sbRankBadge">C</span> Punch Rank</div>
+          <div class="sb-result-grid">
+            <div class="sb-result-item">
+              <label>คะแนนรวม / Score</label>
+              <span id="sbScore">0</span>
+            </div>
+            <div class="sb-result-item">
+              <label>โดนเป้า / Hits</label>
+              <span id="sbHits">0</span>
+            </div>
+            <div class="sb-result-item">
+              <label>พลาด / Miss</label>
+              <span id="sbMiss">0</span>
+            </div>
+            <div class="sb-result-item">
+              <label>ความแม่นยำ / Accuracy</label>
+              <span id="sbAcc">0%</span>
+            </div>
+            <div class="sb-result-item">
+              <label>คอมโบสูงสุด / Best Combo</label>
+              <span id="sbBest">x0</span>
+            </div>
+            <div class="sb-result-item">
+              <label>โน้ตต่อนาที / Notes per min</label>
+              <span id="sbNPM">0</span>
+            </div>
+          </div>
 
-      <div class="result-actions">
-        <button id="sbCsvBtn" class="btn btn-outline btn-full" type="button">
-          📥 ดาวน์โหลดผลเป็น CSV
-        </button>
-        <button id="sbPdfBtn" class="btn btn-outline btn-full" type="button">
-          📄 ดาวน์โหลดรายงาน PDF
-        </button>
-        <button id="btnResultRetry" class="btn btn-primary btn-full" type="button">
-          🔁 เล่นรอบใหม่
-        </button>
-        <button id="btnResultHub" class="btn btn-outline btn-full" type="button">
-          🏠 กลับ VR-Fitness Hub
-        </button>
-      </div>
-    </div>
+          <div class="sb-result-actions">
+            <button id="sbCsvBtn" class="btn">⬇ Export CSV</button>
+            <button id="sbPdfBtn" class="btn">📄 Export PDF</button>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script type="module">
     import { ShadowBreaker } from './shadow-breaker.js';
 
-    const arena = document.getElementById('sbArena');
+    // ======= CONFIG สำหรับงานวิจัย / หลายห้อง =======
+    // สามารถ override ได้จาก script อื่นก่อนหน้านี้
+    window.__SB_CONFIG = Object.assign({
+      siteId    : 'DemoSite',
+      roomId    : 'P5-ShadowLab',
+      sessionTag: 'pilot-1'
+      // firebaseApi   : 'https://example.com/firebase',
+      // sheetApi      : 'https://example.com/sheet',
+      // pdfApi        : 'https://example.com/pdf',
+      // leaderboardApi: 'https://example.com/leaderboard'
+    }, window.__SB_CONFIG || {});
 
-    const game = new ShadowBreaker({
-      arena,
-      hud: {
-        time : document.getElementById('sbTime'),
-        score: document.getElementById('sbScoreHud'),
-        hits : document.getElementById('sbHitsHud'),
-        miss : document.getElementById('sbMissHud'),
-        combo: document.getElementById('sbComboHud')
-      },
-      msgBox: document.getElementById('sbMsg'),
-      result: {
-        box  : document.getElementById('sbResultCard'),
-        score: document.getElementById('sbScore'),
-        hits : document.getElementById('sbHits'),
-        miss : document.getElementById('sbMiss'),
-        acc  : document.getElementById('sbAcc'),
-        best : document.getElementById('sbBest'),
-        rank : document.getElementById('sbRank')
-      },
-      csvBtn: document.getElementById('sbCsvBtn'),
-      pdfBtn: document.getElementById('sbPdfBtn')
+    window.addEventListener('DOMContentLoaded', () => {
+      const qs = new URLSearchParams(location.search);
+      const diff = qs.get('diff') || 'normal';
+      const mode = qs.get('mode') || 'timed';
+      const time = parseInt(qs.get('time') || '90', 10);
+
+      // แสดงบน info panel
+      const diffLabel = document.getElementById('sbDiffLabel');
+      const modeLabel = document.getElementById('sbModeLabel');
+      if (diffLabel) diffLabel.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
+      if (modeLabel) modeLabel.textContent = mode === 'timed' ? 'Timed' : mode;
+
+      // Device label
+      const deviceLabel = document.getElementById('sbDeviceLabel');
+      const ua = navigator.userAgent || '';
+      let device = 'PC';
+      if (/Quest|Oculus|Pico|Vive|VR/i.test(ua)) device = 'VR';
+      else if (/Mobile|Android|iPhone/i.test(ua)) device = 'Mobile';
+      if (deviceLabel) deviceLabel.textContent = device;
+
+      const arena = document.getElementById('sbArena');
+
+      const game = new ShadowBreaker({
+        arena,
+        hud: {
+          time : document.getElementById('sbTime'),
+          score: document.getElementById('sbScoreLiveHUD'),
+          hits : document.getElementById('sbHitsLiveHUD'),
+          miss : document.getElementById('sbMissLiveHUD'),
+          combo: document.getElementById('sbComboLiveHUD')
+        },
+        msgBox: document.getElementById('sbStatus'),
+        result: {
+          box : document.getElementById('sbResultCard'),
+          score: document.getElementById('sbScore'),
+          hits : document.getElementById('sbHits'),
+          miss : document.getElementById('sbMiss'),
+          acc  : document.getElementById('sbAcc'),
+          best : document.getElementById('sbBest'),
+          rank : document.getElementById('sbRank')
+        },
+        csvBtn: document.getElementById('sbCsvBtn'),
+        pdfBtn: document.getElementById('sbPdfBtn'),
+        onExit(summary){
+          // ถ้าต้องการส่ง summary กลับ Hub ผ่าน postMessage ก็ทำที่นี่ได้
+          // ตอนนี้ให้กลับ index ของเกมนี้ก่อน
+          window.location.href = './index.html';
+        }
+      });
+
+      // mirror live HUD -> left info card (ถ้าอยากเห็นทันที)
+      const $ = (id)=>document.getElementById(id);
+      const mirror = () => {
+        if (!game || !game.state) return;
+        const s = game.state;
+        if ($('sbScoreLive'))     $('sbScoreLive').textContent = s.score;
+        if ($('sbHitsLive'))      $('sbHitsLive').textContent = s.hits;
+        if ($('sbMissLive'))      $('sbMissLive').textContent = s.miss;
+        if ($('sbComboLive'))     $('sbComboLive').textContent = 'x'+s.combo;
+      };
+      // hook เข้า requestAnimationFrame ผ่าน interval เบาๆ
+      setInterval(mirror, 200);
+
+      // ปุ่มควบคุม
+      const startBtn = document.getElementById('sbStartBtn');
+      const pauseBtn = document.getElementById('sbPauseBtn');
+      const exitBtn  = document.getElementById('sbExitBtn');
+
+      if (startBtn){
+        startBtn.addEventListener('click', () => {
+          game.start();
+        });
+      }
+      if (pauseBtn){
+        pauseBtn.addEventListener('click', () => {
+          if (!game.state.running) return;
+          const wantPause = !game.state.paused;
+          game.pause(wantPause);
+          pauseBtn.textContent = wantPause ? '▶ ต่อ' : '⏸ พัก';
+        });
+      }
+      if (exitBtn){
+        exitBtn.addEventListener('click', () => {
+          game.exitToHub();
+        });
+      }
+
+      // อัปเดต meta ใน result card ตอนจบรอบ (ใช้ observer เล็กน้อย)
+      const metaEl = document.getElementById('sbResultMeta');
+      const timeLabel = document.getElementById('sbTime');
+      if (metaEl && timeLabel){
+        metaEl.textContent = `Shadow Breaker • ${time || 90}s • diff: ${diff}`;
+      }
     });
-
-    function goHub(){
-      if (window.__leavingHub) return;
-      window.__leavingHub = true;
-      document.body.classList.add('hub-leaving');
-      document.body.style.overflow = 'hidden';
-      // ปรับ path ให้ตรงกับ Hub จริงของโปรเจกต์
-      setTimeout(()=>{
-        window.location.href = '/webxr-health-mobile/vr-fitness/index.html';
-      }, 650);
-    }
-
-    document.getElementById('btnHub').onclick       = goHub;
-    document.getElementById('btnResultHub').onclick = goHub;
-
-    document.getElementById('btnStart').onclick = () => {
-      document.getElementById('btnStart').disabled = true;
-      game.start();
-    };
-    document.getElementById('btnPause').onclick  = () => game.pause(true);
-    document.getElementById('btnResume').onclick = () => game.pause(false);
-
-    function restart(){ window.location.reload(); }
-    document.getElementById('btnRetry').onclick       = restart;
-    document.getElementById('btnResultRetry').onclick = restart;
   </script>
 </body>
 </html>
