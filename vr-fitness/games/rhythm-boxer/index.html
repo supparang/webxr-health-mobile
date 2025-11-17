@@ -6,9 +6,7 @@
   <title>VR Fitness — Rhythm Boxer</title>
   <meta name="color-scheme" content="dark light" />
   <style>
-    :root {
-      color-scheme: dark;
-    }
+    :root { color-scheme: dark; }
     * { box-sizing:border-box; }
 
     body {
@@ -55,21 +53,14 @@
     }
 
     .title-block h1 span.logo {
-      width:32px;
-      height:32px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
+      width:32px; height:32px; border-radius:999px;
+      display:inline-flex; align-items:center; justify-content:center;
       background:radial-gradient(circle at 30% 20%, #a5f3fc, #0ea5e9);
       box-shadow:0 0 0 1px rgba(8,47,73,.5);
       font-size:18px;
     }
 
-    .title-block .subtitle {
-      font-size:.9rem;
-      color:#94a3b8;
-    }
+    .title-block .subtitle { font-size:.9rem; color:#94a3b8; }
 
     .pill {
       font-size:.7rem;
@@ -80,277 +71,129 @@
       border:1px solid rgba(148,163,184,.5);
       color:#e5e7eb;
       background:rgba(15,23,42,.6);
-      display:inline-flex;
-      gap:6px;
-      align-items:center;
+      display:inline-flex; gap:6px; align-items:center;
     }
+
     .pill span.dot {
-      width:6px;
-      height:6px;
-      border-radius:999px;
+      width:6px; height:6px; border-radius:999px;
       background:#22c55e;
       box-shadow:0 0 0 4px rgba(34,197,94,.3);
     }
 
-    .desc {
-      font-size:.9rem;
-      color:#cbd5f5;
-      line-height:1.5;
-      margin-bottom:14px;
-    }
-    .desc small {
-      display:block;
-      font-size:.8rem;
-      color:#9ca3af;
-      margin-top:4px;
-    }
+    .desc { font-size:.9rem; color:#cbd5f5; line-height:1.5; margin-bottom:14px; }
+    .desc small { display:block; font-size:.8rem; color:#9ca3af; margin-top:4px; }
 
-    .tag-row {
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-bottom:14px;
-    }
+    .tag-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
     .tag {
-      font-size:.75rem;
-      padding:4px 8px;
-      border-radius:999px;
+      font-size:.75rem; padding:4px 8px; border-radius:999px;
       border:1px solid rgba(148,163,184,.4);
-      background:rgba(15,23,42,.7);
-      color:#e5e7eb;
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      white-space:nowrap;
-    }
-    .tag .dot-mini {
-      width:6px;
-      height:6px;
-      border-radius:999px;
-      background:#38bdf8;
+      background:rgba(15,23,42,.7); color:#e5e7eb;
+      display:inline-flex; align-items:center; gap:4px; white-space:nowrap;
     }
 
-    .phase-grid {
-      display:grid;
-      grid-template-columns:repeat(3, minmax(0,1fr));
-      gap:10px;
-      margin-bottom:14px;
+    .tag .dot-mini {
+      width:6px; height:6px; border-radius:999px; background:#38bdf8;
     }
-    @media (max-width:640px) {
-      .phase-grid {
-        grid-template-columns:1fr;
-      }
-    }
+
+    .phase-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    @media (max-width:640px) { .phase-grid { grid-template-columns:1fr; } }
 
     .phase-card {
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,.45);
+      border-radius:14px; border:1px solid rgba(148,163,184,.45);
       background:linear-gradient(135deg, rgba(15,23,42,.9), rgba(15,23,42,.75));
-      padding:10px 10px 12px;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
+      padding:10px 10px 12px; display:flex; flex-direction:column; gap:4px;
     }
 
-    .phase-title {
-      font-size:.85rem;
-      font-weight:600;
-      display:flex;
-      align-items:center;
-      gap:6px;
-    }
+    .phase-title { font-size:.85rem; font-weight:600; display:flex; gap:6px; align-items:center; }
     .phase-title span.badge {
-      font-size:.65rem;
-      padding:2px 6px;
-      border-radius:999px;
-      background:rgba(15,23,42,.9);
-      border:1px solid rgba(148,163,184,.5);
-      color:#e5e7eb;
+      font-size:.65rem; padding:2px 6px; border-radius:999px;
+      background:rgba(15,23,42,.9); border:1px solid rgba(148,163,184,.5);
     }
 
-    .phase-desc {
-      font-size:.78rem;
-      color:#9ca3af;
-      min-height:2.3em;
-    }
+    .phase-desc { font-size:.78rem; color:#9ca3af; min-height:2.3em; }
 
     .phase-card a {
-      margin-top:6px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-      padding:7px 8px;
-      border-radius:999px;
-      border:none;
-      text-decoration:none;
-      font-size:.8rem;
-      font-weight:600;
-      letter-spacing:.03em;
-      text-transform:uppercase;
+      margin-top:6px; display:inline-flex; align-items:center; justify-content:center; gap:6px;
+      padding:7px 8px; border-radius:999px; border:none; text-decoration:none;
+      font-size:.8rem; font-weight:600; letter-spacing:.03em; text-transform:uppercase;
       background:linear-gradient(135deg,#22d3ee,#0ea5e9);
-      color:#0f172a;
-      box-shadow:0 12px 25px rgba(8,47,73,.7);
-    }
-    .phase-card a:active {
-      transform:translateY(1px);
-      box-shadow:0 8px 18px rgba(8,47,73,.65);
+      color:#0f172a; box-shadow:0 12px 25px rgba(8,47,73,.7);
     }
 
     .phase-card--train a {
       background:linear-gradient(135deg,#22c55e,#16a34a);
       box-shadow:0 12px 26px rgba(22,163,74,.6);
     }
+
     .phase-card--post a {
       background:linear-gradient(135deg,#f97316,#ec4899);
       box-shadow:0 12px 28px rgba(194,65,12,.7);
     }
 
-    .hint {
-      font-size:.78rem;
-      color:#9ca3af;
-      margin-bottom:10px;
-    }
-    .hint strong {
-      color:#e5e7eb;
-    }
+    .hint { font-size:.78rem; color:#9ca3af; margin-bottom:10px; }
+    .bottom-row { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:.75rem; color:#9ca3af; }
 
-    .bottom-row {
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      flex-wrap:wrap;
-      font-size:.75rem;
-      color:#9ca3af;
-    }
-
-    .lang-toggle {
-      display:inline-flex;
-      border-radius:999px;
-      background:rgba(15,23,42,.9);
-      border:1px solid rgba(148,163,184,.5);
-      padding:2px;
-      gap:2px;
-    }
+    .lang-toggle { display:inline-flex; border-radius:999px; background:rgba(15,23,42,.9); border:1px solid rgba(148,163,184,.5); padding:2px; gap:2px; }
     .lang-toggle button {
-      border:none;
-      background:transparent;
-      color:#9ca3af;
-      font-size:.75rem;
-      padding:3px 8px;
-      border-radius:999px;
-      cursor:pointer;
+      border:none; background:transparent; color:#9ca3af; font-size:.75rem; padding:3px 8px; border-radius:999px; cursor:pointer;
     }
-    .lang-toggle button.active {
-      background:#e5e7eb;
-      color:#020617;
-    }
+    .lang-toggle button.active { background:#e5e7eb; color:#020617; }
 
-    .pdpa {
-      font-size:.7rem;
-      color:#9ca3af;
-      opacity:.8;
-    }
+    .pdpa { font-size:.7rem; color:#9ca3af; opacity:.8; }
   </style>
 </head>
 <body>
   <main>
     <header>
       <div class="title-block">
-        <h1>
-          <span class="logo">🎵</span>
-          <span id="titleMainTh">VR Fitness — Rhythm Boxer</span>
-        </h1>
+        <h1><span class="logo">🎵</span><span id="titleMainTh">VR Fitness — Rhythm Boxer</span></h1>
         <div class="subtitle" id="subtitleTh">
           เกมต่อยตามจังหวะ เพื่อฝึกสมาธิ การตอบสนอง และความฟิตของร่างกาย
-          <br />
-          <small id="subtitleEn">
-            Punch-to-the-beat mini game for focus, reaction, and cardio practice.
-          </small>
+          <br /><small id="subtitleEn">
+          Punch-to-the-beat mini game for focus, reaction, and cardio practice.</small>
         </div>
       </div>
-      <div class="top-right">
-        <div class="pill">
-          <span class="dot"></span>
-          <span>Research mode</span>
-        </div>
-      </div>
+      <div class="pill"><span class="dot"></span><span>Research mode</span></div>
     </header>
 
     <p class="desc">
-      เลือกโหมดการทดลองสำหรับแต่ละรอบ (Pre-test / Training / Post-test)
-      ระบบจะบันทึกข้อมูลทุกครั้งที่เล่น เพื่อใช้วิเคราะห์ผลการฝึกต่อเนื่อง.
-      <small>รองรับการเล่นบน PC / Notebook / Mobile และ VR Headset (ผ่านเบราว์เซอร์).</small>
+      เลือกโหมดการทดลอง (Pre-test / Training / Post-test) ระบบจะบันทึกข้อมูลทุกครั้ง.
+      <small>รองรับ PC / Mobile / VR</small>
     </p>
 
     <div class="tag-row">
-      <div class="tag">
-        <span class="dot-mini"></span> ป.5 ขึ้นไป
-      </div>
-      <div class="tag">
-        <span class="dot-mini"></span> Hybrid: Research + Demo + Exercise
-      </div>
-      <div class="tag">
-        <span class="dot-mini"></span> Log ข้อมูลแบบ Session-based
-      </div>
+      <div class="tag"><span class="dot-mini"></span> ป.5 ขึ้นไป</div>
+      <div class="tag"><span class="dot-mini"></span> Hybrid วิจัย + ออกกำลังกาย</div>
+      <div class="tag"><span class="dot-mini"></span> Session Logging</div>
     </div>
 
     <div class="phase-grid">
-      <article class="phase-card phase-card--pre">
-        <div class="phase-title">
-          <span>① Pre-test</span>
-          <span class="badge">ก่อนฝึก</span>
-        </div>
-        <p class="phase-desc">
-          วัดความสามารถเริ่มต้น ก่อนเข้าช่วงการฝึกจริง ใช้เป็น baseline เปรียบเทียบ.
-        </p>
-        <a href="./play.html?phase=pre">
-          <span>เริ่ม Pre-test</span>
-          <span>▶</span>
-        </a>
+      <article class="phase-card">
+        <div class="phase-title"><span>① Pre-test</span><span class="badge">ก่อนฝึก</span></div>
+        <p class="phase-desc">วัด baseline ก่อนการฝึก</p>
+        <a href="./play.html?phase=pre">เริ่ม ▶</a>
       </article>
 
       <article class="phase-card phase-card--train">
-        <div class="phase-title">
-          <span>② Training</span>
-          <span class="badge">ระหว่างฝึก</span>
-        </div>
-        <p class="phase-desc">
-          ใช้ฝึกตามปกติ เป็นรอบที่ผู้เรียนเล่นซ้ำได้หลายครั้ง เพื่อพัฒนาทักษะ.
-        </p>
-        <a href="./play.html?phase=train">
-          <span>เข้า Training</span>
-          <span>▶</span>
-        </a>
+        <div class="phase-title"><span>② Training</span><span class="badge">ระหว่างฝึก</span></div>
+        <p class="phase-desc">ฝึกซ้ำได้หลายรอบ</p>
+        <a href="./play.html?phase=train">ฝึก ▶</a>
       </article>
 
       <article class="phase-card phase-card--post">
-        <div class="phase-title">
-          <span>③ Post-test</span>
-          <span class="badge">หลังฝึก</span>
-        </div>
-        <p class="phase-desc">
-          วัดผลหลังจบโปรแกรมฝึก เปรียบเทียบกับ Pre-test เพื่อดูการเปลี่ยนแปลง.
-        </p>
-        <a href="./play.html?phase=post">
-          <span>เริ่ม Post-test</span>
-          <span>▶</span>
-        </a>
+        <div class="phase-title"><span>③ Post-test</span><span class="badge">หลังฝึก</span></div>
+        <p class="phase-desc">วัดผลหลังฝึก</p>
+        <a href="./play.html?phase=post">ทดสอบ ▶</a>
       </article>
     </div>
 
-    <p class="hint">
-      <strong>วิธีควบคุม (PC):</strong> ปุ่ม A = เลนซ้าย, S = เลนกลาง, D = เลนขวา •
-      <strong>Mobile / Tablet:</strong> แตะเลนที่ต้องการบนหน้าจอ.
-    </p>
+    <p class="hint"><strong>PC:</strong> A / S / D • <strong>Mobile:</strong> แตะเลน</p>
 
     <div class="bottom-row">
       <div class="pdpa">
-        * ข้อมูลที่บันทึก (เช่น Student ID, กลุ่มทดลอง, คะแนน) ใช้เพื่อการวิจัยด้านการออกกำลังกายเท่านั้น
-        และจะไม่เปิดเผยตัวตนรายบุคคล.
+        * ข้อมูลใช้เพื่อการวิจัย จะไม่เปิดเผยตัวตนรายบุคคล
       </div>
-      <div class="lang-toggle" aria-label="Language toggle">
+      <div class="lang-toggle">
         <button type="button" class="active" data-lang="th">TH</button>
         <button type="button" data-lang="en">EN</button>
       </div>
@@ -368,27 +211,17 @@
     const content = {
       th: {
         title: 'VR Fitness — Rhythm Boxer',
-        subtitleTh:
-          'เกมต่อยตามจังหวะ เพื่อฝึกสมาธิ การตอบสนอง และความฟิตของร่างกาย',
-        subtitleEn:
-          'Punch-to-the-beat mini game for focus, reaction, and cardio practice.',
-        pdpa:
-          '* ข้อมูลที่บันทึก (เช่น Student ID, กลุ่มทดลอง, คะแนน) ใช้เพื่อการวิจัยด้านการออกกำลังกายเท่านั้น และจะไม่เปิดเผยตัวตนรายบุคคล.',
-        hint:
-          '<strong>วิธีควบคุม (PC):</strong> ปุ่ม A = เลนซ้าย, S = เลนกลาง, D = เลนขวา • ' +
-          '<strong>Mobile / Tablet:</strong> แตะเลนที่ต้องการบนหน้าจอ.'
+        subtitleTh: 'เกมต่อยตามจังหวะ เพื่อฝึกสมาธิ การตอบสนอง และความฟิตของร่างกาย',
+        subtitleEn: 'Punch-to-the-beat mini game for focus, reaction, and cardio practice.',
+        pdpa: '* ข้อมูลใช้เพื่อการวิจัย จะไม่เปิดเผยตัวตนรายบุคคล',
+        hint: '<strong>PC:</strong> A / S / D • <strong>Mobile:</strong> แตะเลน'
       },
       en: {
         title: 'VR Fitness — Rhythm Boxer',
-        subtitleTh:
-          'Rhythm-based punching game to train focus, reaction, and fitness.',
-        subtitleEn:
-          'Designed for research use with elementary students and adults in hybrid settings.',
-        pdpa:
-          '* Collected data (e.g., Student ID, group, score) is used only for research on exercise and will not reveal individual identities.',
-        hint:
-          '<strong>Controls (PC):</strong> A = left lane, S = middle, D = right • ' +
-          '<strong>Mobile / Tablet:</strong> Tap on the lane you want to punch.'
+        subtitleTh: 'Rhythm-based punching game to train focus, reaction, and physical fitness.',
+        subtitleEn: 'Designed for school research & hybrid exercise study.',
+        pdpa: '* Collected data is for research purposes only and will not reveal identity.',
+        hint: '<strong>PC:</strong> A / S / D • <strong>Mobile:</strong> Tap a lane'
       }
     };
 
@@ -409,7 +242,6 @@
       });
     });
 
-    // initial
     applyLang('th');
   </script>
 </body>
