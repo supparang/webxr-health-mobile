@@ -404,3 +404,27 @@ body{
     grid-template-columns:1fr;
   }
 }
+/* เป้าปกติ – วงกลม + emoji ชัด ๆ */
+.sb-target{
+  position:absolute;
+  border-radius:999px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-size:2rem;                /* emoji ใหญ่ขึ้น */
+  box-shadow:0 0 16px rgba(15,23,42,.9);
+  pointer-events:auto;
+  transition:transform .15s ease-out, opacity .15s ease-out;
+  user-select:none;
+  color:#e5f2ff;
+}
+
+/* เป้าบอสหน้าใหญ่ตอนใกล้ตาย */
+.sb-target.boss-final{
+  width:min(180px,40vw) !important;
+  height:min(180px,40vw) !important;
+  font-size:min(4rem,12vw);
+  box-shadow:0 0 32px rgba(250,204,21,.7);
+  border:3px solid rgba(248,250,252,.9);
+  background:radial-gradient(circle at 30% 20%,#fde68a,#f97316,#7c2d12);
+}
