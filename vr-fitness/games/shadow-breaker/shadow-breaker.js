@@ -1,11 +1,12 @@
-// === Shadow Breaker — PRODUCTION v4.0 ======================================
+// === Shadow Breaker — PRODUCTION v4.1 ================================
 // Features:
 // - Boss 4 ตัว: Warm-up Cone, Speed Bag, Shadow Clone, Golden Champion
 // - FEVER, CRITICAL, Screen Shake, Coach lines (TH+EN)
 // - Hybrid Save: API (Firebase/Sheet) + Offline Queue + CSV/PDF Export
 // - Profile + Site/Room/Session metadata for research
 // - Per-Boss metrics (hits/miss/duration) สำหรับงานวิจัยแพทย์
-// ============================================================================
+// - setLanguage(lang) สำหรับปุ่มสลับภาษา TH/EN
+// =====================================================================
 
 // ---------- Global Config (override ได้ด้วย window.__SB_CONFIG) -------------
 const DEFAULT_CONFIG = {
@@ -322,11 +323,16 @@ function downloadCSVRow(summary){
     'boss4Hits','boss4Miss','boss4Dur'
   ];
   const p = summary.profile || {};
+  const dur = summary.duration;
+  const durStr = (dur!=null && typeof dur === 'number' && dur.toFixed)
+    ? dur.toFixed(2)
+    : (dur||'');
+
   const row = [
     summary.timestamp,
     summary.siteId||'', summary.roomId||'', summary.sessionTag||'',
     p.studentId||'', p.name||'', p.school||'', p.class||'',
-    summary.game, summary.diff||'', (summary.duration||'').toFixed?summary.duration.toFixed(2):summary.duration,
+    summary.game, summary.diff||'', durStr,
     summary.score==null?'':summary.score,
     summary.hits==null?'':summary.hits,
     summary.miss==null?'':summary.miss,
@@ -419,6 +425,10 @@ export class ShadowBreaker {
     this.str  = STR[lang] || STR.th;
     this.coachLines = COACH_LINES[lang] || COACH_LINES.th;
 
+    try {
+      document.documentElement.setAttribute('lang', this.lang);
+    } catch(e){}
+
     const diff = qs.get('diff') || 'normal';
     const mode = qs.get('mode') || 'timed';
     const t    = parseInt(qs.get('time')||'90',10);
@@ -462,6 +472,24 @@ export class ShadowBreaker {
     this._bind();
     this._msg(this.str.msgReady);
     this._hud();
+  }
+
+  // ----- public: สลับภาษาจากปุ่มด้านนอก -------------------------------
+  setLanguage(lang){
+    if (lang !== 'th' && lang !== 'en') return;
+    this.lang = lang;
+    this.str  = STR[lang] || STR.th;
+    this.coachLines = COACH_LINES[lang] || COACH_LINES.th;
+
+    if (this.profile) {
+      this.profile.lang = lang;
+      saveProfile(this.profile);
+    }
+    try {
+      document.documentElement.setAttribute('lang', this.lang);
+    } catch(e){}
+    // อัปเดตข้อความหลักทันที
+    this._msg(this.str.msgReady);
   }
 
   // ----- Messaging / Coach --------------------------------------------------
@@ -629,7 +657,6 @@ export class ShadowBreaker {
       const summary = this.state.running ? this._buildSummary() : null;
       try{ this.opts.onExit(summary); }catch(e){}
     } else {
-      // fallback: redirect กลับ index เดิม
       window.location.href = './index.html';
     }
   }
@@ -947,7 +974,6 @@ export class ShadowBreaker {
         this.bossEl = null;
       }
 
-      // boss 4 = champion — FEVER ช่วงท้าย (ปล่อยให้ระบบ FEVER ธรรมดาดูแล)
       this.bossActive = false;
       setTimeout(()=>{
         if(this.bossWrap && !this.bossActive){
@@ -993,7 +1019,7 @@ export class ShadowBreaker {
     this._hud();
 
     this._screenShake(crit?12:7);
-    this._hitFloat(crit?('CRITICAL +'+gain):('+'+gain), crit);
+    this._hitFloat(crit?('CRITICAL +'+gain):('+'+gain));
     SFX.hit();
   }
 
@@ -1014,7 +1040,7 @@ export class ShadowBreaker {
     this._hud();
 
     this._screenShake(10,true);
-    this._hitFloat('MISS',true);
+    this._hitFloat('MISS');
     SFX.miss();
     this._coach('miss');
   }
@@ -1068,7 +1094,7 @@ export class ShadowBreaker {
 
   _showFeverFx(){
     const el=document.createElement('div');
-    el.textContent=this.lang==='en' ? 'FEVER PUNCH!!' : 'FEVER PUNCH!!';
+    el.textContent='FEVER PUNCH!!';
     el.style.position='fixed';
     el.style.left='50%';
     el.style.top='18%';
@@ -1194,6 +1220,11 @@ export class ShadowBreaker {
     if(ac) ac.textContent = acc+'%';
     if(bc) bc.textContent = 'x'+summary.comboMax;
     if(rk) rk.textContent = summary.rank;
+
+    const npm = document.getElementById('sbNPM');
+    if (npm && summary.notesPerMin != null) {
+      npm.textContent = summary.notesPerMin.toFixed(1);
+    }
 
     const csvBtn=this.csvBtn||document.getElementById('sbCsvBtn');
     const pdfBtn=this.pdfBtn||document.getElementById('sbPdfBtn');
