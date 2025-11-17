@@ -278,9 +278,7 @@
                  linear-gradient(180deg,#020617,#020617 60%,#020617);
       border:1px solid rgba(15,23,42,.9);
     }
-    .game-area.shake {
-      animation:shake .25s ease-in-out;
-    }
+    .game-area.shake { animation:shake .25s ease-in-out; }
     @keyframes shake {
       0% { transform:translate(0,0); }
       20% { transform:translate(-6px,3px); }
@@ -427,13 +425,33 @@
     }
     .btn-ghost span { font-size:14px; }
 
-    @media (max-width:480px) {
-      header { flex-direction:column; align-items:flex-start; gap:6px; }
-      .back-btn { align-self:flex-end; }
-      .metric { min-width:80px; }
-      .start-btn { width:100%; justify-content:center; }
-      .hud-row1 { gap:10px; }
-      .meta-form { grid-template-columns:1fr; }
+    /* ---------- PLAY-ONLY MODE (หลังเริ่มเล่น) ---------- */
+    body.play-only .shell {
+      max-width:1200px;
+    }
+    body.play-only .meta-grid {
+      grid-template-columns:minmax(0,1fr);
+    }
+    body.play-only #metaCard {
+      display:none;
+    }
+    body.play-only .game-frame {
+      min-height:min(70vh, 640px);
+    }
+    body.play-only .game-area {
+      max-width:none;
+      aspect-ratio:16/9;
+    }
+    @media (max-width:760px) {
+      body.play-only .shell {
+        padding:10px 6px 20px;
+      }
+      body.play-only header {
+        margin-bottom:6px;
+      }
+      body.play-only .game-frame {
+        min-height:min(70vh, 520px);
+      }
     }
   </style>
 </head>
