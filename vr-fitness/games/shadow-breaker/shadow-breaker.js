@@ -1,6 +1,7 @@
-// === VR Fitness — Shadow Breaker (Production v2) ===
+// === VR Fitness — Shadow Breaker (Production v2.1 Boss Personality) ===
 // - Timed / Endless จาก query string
-// - 4 Boss (HP ขึ้นตามระดับ easy/normal/hard)
+// - 4 Boss (HP ขึ้นตาม diff: easy/normal/hard)
+// - Boss แต่ละตัวมีชื่อ + คาแรกเตอร์ของตัวเอง (ชื่อไทย, บทพูด, โทนสี)
 // - Combo + Critical + FEVER!! (จอเขย่าแรงขึ้น)
 // - รองรับ PC / Mobile / VR (click / tap / pointer)
 // - ใช้คู่กับ play.html เวอร์ชันล่าสุด
@@ -43,8 +44,47 @@
     return isNaN(t) || t <= 0 ? 90 : t;
   })();
 
-  // ---- Boss config ----
-  const BOSS_EMOJIS = ['🟦', '🟧', '🟥', '🟣'];
+  // ---- Boss meta (ชื่อ & คาแรกเตอร์) ----
+  const BOSSES = [
+    {
+      id: 1,
+      face: '🟦',
+      nameTH: 'บอสการ์ดฟ้า',
+      role: 'สายบาลานซ์ จังหวะนิ่ง ๆ แต่ยาว',
+      theme: 'blue',
+      intro: 'บอสการ์ดฟ้า เน้นบาลานซ์ จังหวะนิ่งแต่ไม่ควรชะล่าใจ!',
+    },
+    {
+      id: 2,
+      face: '🟧',
+      nameTH: 'บอสไฟจังหวะ',
+      role: 'สายเร็ว เด้งเป้ามาไวขึ้น',
+      theme: 'orange',
+      intro: 'บอสไฟจังหวะ เริ่มเร่งสปีด เป้ามาไวขึ้น ต้องโฟกัสดี ๆ!',
+    },
+    {
+      id: 3,
+      face: '🟥',
+      nameTH: 'บอสหมัดหนัก',
+      role: 'สายถึก HP เยอะ ต้องเก็บเป้ารัว ๆ',
+      theme: 'red',
+      intro: 'บอสหมัดหนัก ตัวถึกขึ้น ต้องต่อยให้โดนหลายหมัดติด ๆ!',
+    },
+    {
+      id: 4,
+      face: '🟣',
+      nameTH: 'บอสเงาโหด',
+      role: 'สายฮาร์ดคอร์ เป้าเร็ว + HP เยอะสุด',
+      theme: 'purple',
+      intro: 'บอสเงาโหด ด่านสุดท้าย เป้าเร็วและโหดสุด จัดเต็มคอมโบเลย!',
+    },
+  ];
+
+  function getCurrentBossMeta() {
+    return BOSSES[state.bossIndex] || BOSSES[0];
+  }
+
+  // ---- Boss config (HP) ----
   const bossHpSets = {
     easy:   [10, 14, 18, 22],
     normal: [14, 18, 24, 30],
@@ -89,7 +129,9 @@
   function updateHUD() {
     scoreVal.textContent = state.score;
     comboVal.textContent = 'x' + state.combo;
-    bossIndexVal.textContent = (state.bossIndex + 1) + '/4';
+    const meta = getCurrentBossMeta();
+    bossIndexVal.textContent =
+      (state.bossIndex + 1) + '/4 ' + (meta ? meta.nameTH : '');
   }
 
   function setCoach(text) {
@@ -121,32 +163,41 @@
     );
   }
 
-  function updateBossUI() {
+  function updateBossUI(announce) {
     if (!bossHpBar || !bossFaceEl) return;
-    bossFaceEl.textContent = BOSS_EMOJIS[state.bossIndex] || '🟦';
+    const meta = getCurrentBossMeta();
+    bossFaceEl.textContent = meta?.face || '🟦';
     const ratio = state.bossHpMax > 0 ? state.bossHp / state.bossHpMax : 0;
     bossHpBar.style.transform = 'scaleX(' + Math.max(0, ratio) + ')';
+    updateHUD();
+    if (announce && meta) {
+      setCoach(
+        `โค้ชพุ่ง: ตอนนี้เจอ ${meta.nameTH} — ${meta.role}`
+      );
+    }
   }
 
-  function setBoss(index) {
+  function setBoss(index, announce) {
     state.bossIndex = Math.min(Math.max(index, 0), 3);
     state.bossHpMax = hpList[state.bossIndex];
     state.bossHp = state.bossHpMax;
-    updateBossUI();
-    updateHUD();
+    const meta = getCurrentBossMeta();
+    flash('BOSS ' + (state.bossIndex + 1), '#f97316');
+    if (meta) {
+      setCoach(`โค้ชพุ่ง: ${meta.intro}`);
+    }
+    updateBossUI(announce);
   }
 
   function nextBoss() {
     state.bossesCleared++;
     if (state.bossIndex < 3) {
-      setBoss(state.bossIndex + 1);
-      flash('BOSS ' + (state.bossIndex + 1), '#f97316');
-      setCoach('โค้ชพุ่ง: บอสตัวต่อไปโหดขึ้นอีก ระวังจังหวะให้ดี! 🔥');
+      setBoss(state.bossIndex + 1, true);
     } else {
       // เคลียร์ครบ 4 ตัวแล้ว
       state.bossHp = 0;
       state.bossHpMax = hpList[3];
-      updateBossUI();
+      updateBossUI(false);
       flash('ALL BOSS DOWN!', '#22c55e');
       setCoach('โค้ชพุ่ง: เคลียร์บอสครบทั้ง 4 ตัวแล้ว เก็บคะแนนต่อให้สุด! 🏆');
     }
@@ -159,7 +210,10 @@
     state.hitsDuringFever = 0;
     flash('FEVER!!', '#facc15');
     if (coachLine) {
-      coachLine.textContent = 'โค้ชพุ่ง: FEVER โหมด! ต่อให้ติดคอมโบยาว ๆ เลย!! ✨';
+      const meta = getCurrentBossMeta();
+      const bossName = meta ? meta.nameTH : 'บอส';
+      coachLine.textContent =
+        `โค้ชพุ่ง: FEVER โหมด! จู่โจม ${bossName} ให้คอมโบลั่นเลย!! ✨`;
     }
     shake(10);
   }
@@ -167,7 +221,11 @@
   function checkFever(now) {
     if (state.fever && now > state.feverUntil) {
       state.fever = false;
-      setCoach('โค้ชพุ่ง: จบ FEVER แล้ว ลองปั้นคอมโบใหม่อีกรอบ! 💪');
+      const meta = getCurrentBossMeta();
+      const bossName = meta ? meta.nameTH : 'บอส';
+      setCoach(
+        `โค้ชพุ่ง: จบ FEVER กับ ${bossName} แล้ว ลองปั้นคอมโบใหม่อีกรอบ! 💪`
+      );
     }
   }
 
@@ -198,26 +256,61 @@
     el.style.boxShadow = '0 0 16px rgba(15,23,42,.9)';
     el.style.userSelect = 'none';
 
+    const bossMeta = getCurrentBossMeta();
+
     let bg, emoji, border;
     const r = Math.random();
+
     if (state.fever) {
-      // FEVER target
+      // FEVER target ทอง
       bg = 'radial-gradient(circle at 30% 20%,#facc15,#f97316)';
       border = '1px solid rgba(250,204,21,.9)';
       emoji = '⚡';
-    } else if (r < 0.4) {
-      bg = 'radial-gradient(circle at 30% 20%,#38bdf8,#0ea5e9)';
-      border = '1px solid rgba(56,189,248,.9)';
-      emoji = '🎯';
-    } else if (r < 0.8) {
-      bg = 'radial-gradient(circle at 30% 20%,#4ade80,#22c55e)';
-      border = '1px solid rgba(34,197,94,.9)';
-      emoji = '💥';
     } else {
-      // rare critical-looking target
-      bg = 'radial-gradient(circle at 30% 20%,#facc15,#f97316)';
-      border = '1px solid rgba(249,115,22,.9)';
-      emoji = '⭐';
+      // โทนสีตามบอส + random
+      const theme = bossMeta?.theme || 'blue';
+      if (theme === 'blue') {
+        if (r < 0.5) {
+          bg = 'radial-gradient(circle at 30% 20%,#38bdf8,#0ea5e9)';
+          border = '1px solid rgba(56,189,248,.9)';
+          emoji = '🎯';
+        } else {
+          bg = 'radial-gradient(circle at 30% 20%,#4ade80,#22c55e)';
+          border = '1px solid rgba(34,197,94,.9)';
+          emoji = '💥';
+        }
+      } else if (theme === 'orange') {
+        if (r < 0.5) {
+          bg = 'radial-gradient(circle at 30% 20%,#fdba74,#f97316)';
+          border = '1px solid rgba(249,115,22,.9)';
+          emoji = '🔥';
+        } else {
+          bg = 'radial-gradient(circle at 30% 20%,#facc15,#f97316)';
+          border = '1px solid rgba(250,204,21,.9)';
+          emoji = '⭐';
+        }
+      } else if (theme === 'red') {
+        if (r < 0.5) {
+          bg = 'radial-gradient(circle at 30% 20%,#fecaca,#ef4444)';
+          border = '1px solid rgba(239,68,68,.9)';
+          emoji = '💣';
+        } else {
+          bg = 'radial-gradient(circle at 30% 20%,#fb7185,#e11d48)';
+          border = '1px solid rgba(244,63,94,.9)';
+          emoji = '💥';
+        }
+      } else {
+        // purple
+        if (r < 0.5) {
+          bg = 'radial-gradient(circle at 30% 20%,#e9d5ff,#a855f7)';
+          border = '1px solid rgba(168,85,247,.9)';
+          emoji = '🌙';
+        } else {
+          bg = 'radial-gradient(circle at 30% 20%,#a855f7,#7c3aed)';
+          border = '1px solid rgba(124,58,237,.9)';
+          emoji = '🌀';
+        }
+      }
     }
 
     el.style.background = bg;
@@ -322,14 +415,18 @@
     if (state.bossHp > 0) {
       const dmg = state.fever ? 2 : 1;
       state.bossHp = Math.max(0, state.bossHp - dmg);
-      updateBossUI();
+      updateBossUI(false);
       if (state.bossHp === 0) {
         nextBoss();
       }
     }
 
     updateHUD();
-    setCoach('โค้ชพุ่ง: เยี่ยมเลย รักษาคอมโบให้ได้ยาว ๆ! ✨');
+    const meta = getCurrentBossMeta();
+    const bossName = meta ? meta.nameTH : 'บอส';
+    setCoach(
+      `โค้ชพุ่ง: เยี่ยมมาก! คอมโบกำลังลั่น ใกล้ล้ม ${bossName} แล้ว! ✨`
+    );
   }
 
   function onMiss() {
@@ -339,7 +436,11 @@
     }
     state.combo = 0;
     updateHUD();
-    setCoach('โค้ชพุ่ง: พลาดนิดเดียว ลองโฟกัสที่เป้าถัดไปนะ 👀');
+    const meta = getCurrentBossMeta();
+    const bossName = meta ? meta.nameTH : 'บอส';
+    setCoach(
+      `โค้ชพุ่ง: พลาดนิดเดียว ไม่เป็นไร ลองโฟกัสเป้าถัดไป ล้ม ${bossName} ให้ได้! 👀`
+    );
   }
 
   function tryHitAt(x, y) {
@@ -430,7 +531,7 @@
     }
 
     updateHUD();
-    setCoach('โค้ชพุ่ง: แตะเป้าให้ทัน แล้วเราจะไปล้มบอสด้วยกัน! 💥');
+    setCoach('โค้ชพุ่ง: แตะเป้าให้ทัน แล้วเราจะไปล้มบอสทั้ง 4 ตัวด้วยกัน! 💥');
   }
 
   function startGame() {
@@ -441,12 +542,18 @@
     startBtn.disabled = true;
     startBtn.style.opacity = 0.7;
 
-    setBoss(0);
-    const firstMsg =
+    setBoss(0, true);
+
+    const baseMsg =
       mode === 'timed'
-        ? 'โค้ชพุ่ง: โหมดจับเวลา ' + timeLimitSec + ' วินาที พร้อมล่าบอส 4 ตัว! 🕒'
-        : 'โค้ชพุ่ง: โหมดไม่กำหนดเวลา อยู่รอดให้นานที่สุด แล้วมาดูคะแนนกัน! ♾️';
-    setCoach(firstMsg);
+        ? `โค้ชพุ่ง: โหมดจับเวลา ${timeLimitSec} วินาที ล้มบอสให้ครบ 4 ตัว! 🕒`
+        : 'โค้ชพุ่ง: โหมดไม่กำหนดเวลา อยู่รอดให้นานที่สุดแล้วดูว่าทำคะแนนได้เท่าไร! ♾️';
+    // ไม่ทับ intro ของบอสตัวแรก ถ้าต้องการให้ย้ำสามารถต่อท้ายได้
+    setTimeout(() => {
+      const meta = getCurrentBossMeta();
+      if (!meta) return;
+      setCoach(meta.intro);
+    }, 600);
 
     state.spawnTimer = setInterval(spawnTarget, spawnCfg.intervalMs);
     requestAnimationFrame(loop);
@@ -467,7 +574,12 @@
     resultOverlay.classList.remove('hidden');
     startBtn.disabled = false;
     startBtn.style.opacity = 1;
-    setCoach('โค้ชพุ่ง: รอบนี้ทำได้ ' + state.score + ' แต้ม ลองอีกรอบให้ดีกว่าเดิม! 🏁');
+
+    const meta = getCurrentBossMeta();
+    const bossName = meta ? meta.nameTH : 'บอส';
+    setCoach(
+      `โค้ชพุ่ง: รอบนี้ทำได้ ${state.score} แต้ม ล้มบอสไป ${state.bossesCleared}/4 ตัว ลองอีกรอบให้โหดกว่าเดิม! 🏁`
+    );
   }
 
   // ---- Events ----
