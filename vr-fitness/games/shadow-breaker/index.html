@@ -1,123 +1,120 @@
-:root { color-scheme:dark; }
-* { box-sizing:border-box; }
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Shadow Breaker — Game Mode</title>
+  <link rel="stylesheet" href="./shadow-breaker-index.css" />
+  <meta name="color-scheme" content="dark light"/>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="title">
+        <h1>
+          <span class="logo">🥊</span>
+          <span id="title">Shadow Breaker</span>
+        </h1>
+        <div id="subtitle">เกมต่อยเป้า ฝึกความแม่น + Speed + Focus</div>
+      </div>
+      <div class="pill"><span class="dot"></span> <span id="modeTag">Play Mode</span></div>
+    </header>
 
-body{
-  margin:0;
-  min-height:100vh;
-  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-  background:
-    radial-gradient(circle at top left,rgba(56,189,248,.18),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(34,197,94,.2),transparent 55%),
-    #020617;
-  color:#e5e7eb;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:18px;
-}
+    <p id="desc" class="info">
+      เลือกโหมดการเล่น — มีทั้งโหมดจับเวลา โหมดท้าทาย และโหมดไม่รู้จบ
+    </p>
 
-main{
-  width:100%;
-  max-width:780px;
-  background:rgba(15,23,42,.9);
-  border-radius:20px;
-  padding:22px 18px 26px;
-  border:1px solid rgba(148,163,184,.45);
-  backdrop-filter:blur(20px);
-  box-shadow:0 26px 70px rgba(2,6,23,.8);
-}
+    <div class="mode-box">
+      <div class="card">
+        <h2 id="labelTimed">⏱️ โหมดจับเวลา</h2>
+        <p id="descTimed">เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส</p>
+        <a href="./play.html?mode=timed&diff=normal&time=90" id="btnTimed">เล่น ▶</a>
+      </div>
 
-header{
-  display:flex;
-  justify-content:space-between;
-  gap:16px;
-  margin-bottom:12px;
-  flex-wrap:wrap;
-}
-.title h1{
-  margin:0;
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-.title .logo{
-  width:34px;height:34px;border-radius:999px;
-  background:radial-gradient(circle at 30% 20%,#a5f3fc,#0ea5e9);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 1px rgba(8,47,73,.5);
-}
-subtitle{ font-size:.9rem;color:#94a3b8; }
+      <div class="card">
+        <h2 id="labelHard">🔥 โหมดยาก</h2>
+        <p id="descHard">เร็วขึ้นและบอส HP สูงขึ้น</p>
+        <a href="./play.html?mode=timed&diff=hard&time=90" id="btnHard">ท้าทาย ▶</a>
+      </div>
 
-.pill{
-  font-size:.7rem;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.5);
-  background:rgba(15,23,42,.6);
-  padding:4px 10px;
-  display:flex;
-  align-items:center;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  gap:6px;
-}
-.pill .dot{
-  width:7px;height:7px;border-radius:999px;
-  background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.3);
-}
+      <div class="card">
+        <h2 id="labelEndless">♾️ โหมดไม่รู้จบ</h2>
+        <p id="descEndless">ไม่มีจับเวลา อยู่รอดให้นานที่สุด</p>
+        <a href="./play.html?mode=endless&diff=normal" id="btnEndless">ต่อเนื่อง ▶</a>
+      </div>
+    </div>
 
-/* Game mode grid */
-.mode-box{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:12px;
-  margin-top:14px;
-}
-@media(max-width:720px){
-  .mode-box { grid-template-columns:1fr; }
-}
-.card{
-  border-radius:16px;
-  background:rgba(15,23,42,.85);
-  border:1px solid rgba(148,163,184,.4);
-  padding:14px 12px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-.card h2{ margin:0;font-size:1rem; }
-.card p{ font-size:.8rem;color:#9ca3af;margin:0; }
+    <div class="footer-area">
+      <div class="lang">
+        <button class="active" data-lang="th">TH</button>
+        <button data-lang="en">EN</button>
+      </div>
+      <div id="pdpa" class="info">* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล</div>
+    </div>
 
-.card a{
-  margin-top:8px;
-  padding:8px 0;
-  border-radius:999px;
-  background:linear-gradient(135deg,#22d3ee,#0ea5e9);
-  color:#0f172a;
-  font-weight:600;
-  letter-spacing:.02em;
-  text-align:center;
-  text-decoration:none;
-  text-transform:uppercase;
-  box-shadow:0 10px 26px rgba(8,47,73,.7);
-}
+  </main>
 
-/* Language */
-.lang{ display:flex; gap:6px; }
-.lang button{
-  padding:4px 10px;
-  border-radius:999px;
-  border:1px solid rgba(148,163,184,.7);
-  background:rgba(15,23,42,.6);
-  font-size:.75rem;
-  color:#e5e7eb;
-  cursor:pointer;
-}
-.lang button.active{
-  background:#e5e7eb;
-  color:#020617;
-}
-.info{
-  font-size:.72rem;
-  color:#9ca3af;
-  margin-top:10px;
-}
+  <script>
+    const langBtn = document.querySelectorAll('.lang button');
+    const text = {
+      th:{
+        title:"Shadow Breaker",
+        subtitle:"เกมต่อยเป้า ฝึกความแม่น + Speed + Focus",
+        desc:"เลือกโหมดการเล่น — มีทั้งโหมดจับเวลา โหมดท้าทาย และโหมดไม่รู้จบ",
+        timed:"⏱️ โหมดจับเวลา",
+        timedDesc:"เล่น 90 วินาที เก็บคะแนน + คอมโบ + บอส",
+        hard:"🔥 โหมดยาก",
+        hardDesc:"เร็วขึ้นและบอส HP สูงขึ้น",
+        endless:"♾️ โหมดไม่รู้จบ",
+        endlessDesc:"ไม่มีจับเวลา อยู่รอดให้นานที่สุด",
+        play:"เล่น ▶",
+        chall:"ท้าทาย ▶",
+        endlessBtn:"ต่อเนื่อง ▶",
+        pdpa:"* ใช้ทดสอบและวิจัย ไม่เปิดเผยข้อมูลส่วนบุคคล"
+      },
+      en:{
+        title:"Shadow Breaker",
+        subtitle:"Punch Training — Accuracy + Reaction + Focus",
+        desc:"Select your mode — Timed / Challenge / Endless",
+        timed:"⏱️ Timed Mode",
+        timedDesc:"Play 90 sec — Score + Combo + Boss",
+        hard:"🔥 Hard Mode",
+        hardDesc:"Faster + higher boss HP",
+        endless:"♾️ Endless Mode",
+        endlessDesc:"No timer — survive as long as possible",
+        play:"Play ▶",
+        chall:"Challenge ▶",
+        endlessBtn:"Endless ▶",
+        pdpa:"* Research use only — no personal identity tracking"
+      }
+    };
+
+    function setLang(l){
+      const t=text[l];
+      document.getElementById("title").textContent=t.title;
+      document.getElementById("subtitle").textContent=t.subtitle;
+      document.getElementById("desc").textContent=t.desc;
+      document.getElementById("labelTimed").textContent=t.timed;
+      document.getElementById("descTimed").textContent=t.timedDesc;
+      document.getElementById("btnTimed").textContent=t.play;
+      document.getElementById("labelHard").textContent=t.hard;
+      document.getElementById("descHard").textContent=t.hardDesc;
+      document.getElementById("btnHard").textContent=t.chall;
+      document.getElementById("labelEndless").textContent=t.endless;
+      document.getElementById("descEndless").textContent=t.endlessDesc;
+      document.getElementById("btnEndless").textContent=t.endlessBtn;
+      document.getElementById("pdpa").textContent=t.pdpa;
+    }
+
+    langBtn.forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        langBtn.forEach(b=>b.classList.remove("active"));
+        btn.classList.add("active");
+        setLang(btn.dataset.lang);
+      });
+    });
+
+    setLang("th");
+  </script>
+</body>
+</html>
