@@ -1,31 +1,650 @@
-/* === OVERRIDE: ขยายขนาดจอเกม โดยเฉพาะมือถือ === */
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>VR Fitness — Shadow Breaker</title>
 
-/* ทั่วไป: ให้ arena ใหญ่ขึ้นหน่อย */
-.sb-arena{
-  height: min(520px, 72vh);
-}
-
-/* มือถือแนวตั้ง: เน้นจอเกมเป็นหลัก */
-@media (max-width: 768px){
+  <style>
+  :root{
+    color-scheme: dark;
+    --bg-main: #020617;
+    --bg-card: rgba(15,23,42,0.96);
+    --border-soft: rgba(148,163,184,0.6);
+    --accent: #38bdf8;
+    --accent-soft: rgba(56,189,248,0.18);
+    --accent-2: #a855f7;
+    --danger: #fb7185;
+    --good: #22c55e;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
+      radial-gradient(circle at bottom right, rgba(129,140,248,0.18), transparent 55%),
+      var(--bg-main);
+    color:#e5e7eb;
+    padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+             env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+  }
   .page{
-    max-width: 800px;
-  }
-  main.main{
-    grid-template-columns: minmax(0,1fr);
-  }
-  /* ซ่อน panel อธิบายด้านซ้าย ให้เหลือแต่เกมเวลาเล่นบนจอเล็ก */
-  .main > .panel:first-of-type{
-    display:none;
-  }
-  .sb-arena{
-    height: min(78vh, 560px);
+    max-width: 1080px;
+    margin: 12px auto 20px;
+    padding: 0 12px 20px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
   }
   header.top-bar{
-    margin-bottom: 4px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:10px 12px;
+    background: linear-gradient(90deg, rgba(15,23,42,0.96), rgba(15,23,42,0.86));
+    border-radius:999px;
+    border:1px solid rgba(148,163,184,0.65);
+    box-shadow:0 18px 40px rgba(15,23,42,0.7);
+    position:sticky;
+    top:8px;
+    z-index:20;
+    backdrop-filter: blur(12px);
   }
-}
+  .top-bar-title{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .top-bar-title strong{
+    font-size:15px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:#e5e7eb;
+  }
+  .top-bar-title span{
+    font-size:12px;
+    color:#9ca3af;
+  }
+  .chip{
+    padding:2px 8px;
+    border-radius:999px;
+    font-size:11px;
+    border:1px solid rgba(148,163,184,0.7);
+    color:#e5e7eb;
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    background:rgba(15,23,42,0.9);
+  }
+  .chip b{color:var(--accent);}
 
-/* VR mode: ให้จอเกมเต็มขึ้นอีกนิด */
-body.vr-mode .sb-arena{
-  height: min(85vh, 600px);
-}
+  .btn{
+    appearance:none;
+    border:none;
+    border-radius:999px;
+    padding:6px 14px;
+    font-size:13px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    background:rgba(15,23,42,0.9);
+    color:#e5e7eb;
+    border:1px solid rgba(148,163,184,0.8);
+    transition: background .12s ease, transform .12s ease, box-shadow .12s ease;
+  }
+  .btn-primary{
+    background:linear-gradient(135deg,#38bdf8,#4ade80);
+    color:#0b1120;
+    border:none;
+    box-shadow:0 12px 30px rgba(56,189,248,0.45);
+  }
+  .btn-danger{
+    background:linear-gradient(135deg,#fb7185,#f97316);
+    color:#0b1120;
+    border:none;
+    box-shadow:0 12px 30px rgba(248,113,113,0.45);
+  }
+  .btn:active{
+    transform:translateY(1px) scale(0.98);
+    box-shadow:none;
+  }
+
+  main.main{
+    display:grid;
+    grid-template-columns: minmax(0,1.2fr) minmax(0,1.4fr);
+    gap:12px;
+  }
+  @media (max-width: 900px){
+    main.main{
+      grid-template-columns: minmax(0,1fr);
+    }
+    header.top-bar{
+      position:static;
+    }
+  }
+
+  .panel{
+    background: var(--bg-card);
+    border-radius:20px;
+    border:1px solid var(--border-soft);
+    padding:10px 12px 12px;
+    box-shadow:0 18px 40px rgba(15,23,42,0.7);
+  }
+  .panel h2{
+    margin:0 0 8px;
+    font-size:14px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#e5e7eb;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .panel h2 span.emoji{font-size:17px;}
+  .panel p{
+    margin:2px 0;
+    font-size:13px;
+    color:#9ca3af;
+  }
+
+  .stats-row{
+    margin-top:6px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  .stat-pill{
+    flex:1 1 80px;
+    min-width:80px;
+    background:rgba(15,23,42,0.9);
+    border-radius:14px;
+    padding:6px 8px;
+    border:1px solid rgba(148,163,184,0.7);
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .stat-pill label{
+    font-size:11px;
+    color:#9ca3af;
+  }
+  .stat-pill span{
+    font-size:13px;
+    font-weight:600;
+    color:#e5e7eb;
+  }
+
+  /* GAME PANEL */
+  .hud-bar{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:8px;
+  }
+  .hud-chip{
+    flex:1 1 70px;
+    min-width:70px;
+    border-radius:12px;
+    padding:4px 8px;
+    background:rgba(15,23,42,0.9);
+    border:1px solid rgba(148,163,184,0.7);
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+  }
+  .hud-chip label{
+    font-size:11px;
+    color:#9ca3af;
+    display:flex;
+    align-items:center;
+    gap:4px;
+  }
+  .hud-chip span{
+    font-size:15px;
+    font-weight:700;
+    color:#e5e7eb;
+  }
+
+  .sb-arena-wrap{
+    position:relative;
+    margin-top:2px;
+  }
+  .sb-arena{
+    position:relative;
+    width:100%;
+    height:min(520px, 72vh); /* ขยายจอเกม */
+    border-radius:22px;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(56,189,248,0.28), transparent 55%),
+      radial-gradient(circle at 80% 100%, rgba(52,211,153,0.32), transparent 60%),
+      radial-gradient(circle at 50% 40%, rgba(30,64,175,0.92), #020617);
+    border:1px solid rgba(148,163,184,0.75);
+    box-shadow:
+      0 0 0 1px rgba(15,23,42,0.9),
+      0 16px 40px rgba(15,23,42,0.9);
+    overflow:hidden;
+  }
+  .status-line{
+    margin:4px 2px 0;
+    font-size:13px;
+    color:#cbd5f5;
+    min-height:20px;
+  }
+
+  .control-row{
+    margin-top:8px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    justify-content:flex-end;
+  }
+
+  /* Result card */
+  .sb-result-card{
+    margin-top:6px;
+    padding:10px 12px;
+    border-radius:18px;
+    background: radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%), rgba(15,23,42,0.98);
+    border:1px solid rgba(129,140,248,0.9);
+    display:none;
+    flex-direction:column;
+    gap:8px;
+  }
+  .sb-result-head{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    align-items:center;
+  }
+  .sb-rank-badge{
+    padding:4px 10px;
+    border-radius:999px;
+    background:rgba(15,23,42,0.96);
+    border:1px solid rgba(250,204,21,0.9);
+    font-size:12px;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+  }
+  .sb-rank-badge span.rank{
+    font-size:17px;
+    font-weight:800;
+    color:#facc15;
+  }
+  .sb-result-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:6px;
+    margin-top:4px;
+  }
+  .sb-result-item{
+    background:rgba(15,23,42,0.96);
+    border-radius:14px;
+    padding:6px 8px;
+    border:1px solid rgba(148,163,184,0.7);
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .sb-result-item label{
+    font-size:11px;
+    color:#9ca3af;
+  }
+  .sb-result-item span{
+    font-size:14px;
+    font-weight:600;
+  }
+  .sb-result-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    justify-content:flex-end;
+    margin-top:4px;
+  }
+
+  /* FX */
+  @keyframes sbHitFloat{
+    from{ transform:translate(-50%,-50%) translateY(0); opacity:1; }
+    to{ transform:translate(-50%,-50%) translateY(-32px); opacity:0; }
+  }
+  @keyframes feverFlash{
+    0%{   transform:translate(-50%,-50%) scale(0.8); opacity:0; }
+    40%{  transform:translate(-50%,-50%) scale(1.1); opacity:1; }
+    100%{ transform:translate(-50%,-50%) scale(1);   opacity:0; }
+  }
+  .sb-finish-ripple{
+    position:fixed;
+    left:50%;
+    top:50%;
+    width:10px;
+    height:10px;
+    border-radius:999px;
+    border:2px solid rgba(248,250,252,0.8);
+    transform:translate(-50%,-50%);
+    pointer-events:none;
+    animation:sbRipple 0.6s ease-out forwards;
+    z-index:9999;
+  }
+  @keyframes sbRipple{
+    from{
+      opacity:.7;
+      transform:translate(-50%,-50%) scale(1);
+    }
+    to{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(18);
+    }
+  }
+
+  /* VR MODE LAYOUT */
+  body.vr-mode .page{
+    max-width: 880px;
+  }
+  body.vr-mode main.main{
+    grid-template-columns: minmax(0,1fr);
+  }
+  body.vr-mode .main .panel:first-of-type{
+    display:none;
+  }
+  body.vr-mode .sb-arena{
+    height: min(85vh, 600px);
+  }
+  body.vr-mode header.top-bar{
+    transform:scale(0.96);
+    opacity:0.94;
+  }
+
+  /* ภาษา */
+  .lang-toggle{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding-left:4px;
+    border-left:1px solid rgba(148,163,184,0.5);
+  }
+  .btn-lang{
+    padding:4px 10px;
+    font-size:11px;
+    border-radius:999px;
+    border:1px solid rgba(148,163,184,0.8);
+    background:rgba(15,23,42,0.9);
+    color:#e5e7eb;
+  }
+  .btn-lang-active{
+    background:linear-gradient(135deg,#38bdf8,#a855f7);
+    color:#0b1120;
+    border:none;
+  }
+
+  /* มือถือเน้นจอเกมเป็นหลัก */
+  @media (max-width: 768px){
+    .page{
+      max-width: 800px;
+    }
+    main.main{
+      grid-template-columns: minmax(0,1fr);
+    }
+    /* ซ่อน panel ซ้าย (คู่มือ) บนจอเล็ก ให้โฟกัสที่เกม */
+    .main > .panel:first-of-type{
+      display:none;
+    }
+    .sb-arena{
+      height: min(78vh, 560px);
+    }
+    header.top-bar{
+      margin-bottom: 4px;
+    }
+  }
+
+  /* ป้องกันจอดำ: บังคับให้ container เกมมองเห็นเสมอ */
+  #sb-game,
+  .sb-arena-wrap,
+  .sb-arena{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="top-bar">
+      <div class="top-bar-title">
+        <strong>VR Fitness — Shadow Breaker</strong>
+        <span>Tap the targets as fast as you can</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="chip">Hybrid · <b>PC · Mobile · VR</b></span>
+        <div class="lang-toggle">
+          <span>Language:</span>
+          <button type="button" id="btnLangTH" class="btn-lang">TH</button>
+          <button type="button" id="btnLangEN" class="btn-lang">EN</button>
+        </div>
+        <a class="btn btn-primary" href="../../index.html">← Back to Hub</a>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- ซ้าย: คำอธิบาย -->
+      <section class="panel">
+        <h2><span class="emoji">📋</span> เกม &amp; โหมด</h2>
+        <p id="descLine">
+          โหมดทดสอบความไวในการแตะเป้า ใช้สำหรับนักเรียน ป.5–ผู้ใหญ่ / วิจัย / แข่งขัน
+        </p>
+
+        <div class="stats-row" style="margin-top:10px;">
+          <div class="stat-pill">
+            <label>เวลา (TIME)</label>
+            <span id="statTime">90s</span>
+          </div>
+          <div class="stat-pill">
+            <label>ความยาก (DIFF)</label>
+            <span id="statDiff">Normal</span>
+          </div>
+          <div class="stat-pill">
+            <label>โหมด (MODE)</label>
+            <span id="statMode">Timed</span>
+          </div>
+        </div>
+
+        <h2 style="margin-top:14px;"><span class="emoji">🎯</span> เป้าหมาย</h2>
+        <p id="objectiveLine">
+          แตะเป้าที่โผล่มาให้ไวที่สุด เก็บคอมโบต่อเนื่องเพื่อเข้าสู่โหมด FEVER!! 🔥
+        </p>
+        <p style="margin-top:4px;">
+          เมื่อคอมโบ ≥ 5 จะเข้าสู่ FEVER เป้าทองให้คะแนนพิเศษ และจอจะสั่นแรงขึ้น 💥
+        </p>
+      </section>
+
+      <!-- ขวา: เกมจริง -->
+      <section class="panel">
+        <h2><span class="emoji">🥊</span> Shadow Breaker — Playground</h2>
+
+        <div class="hud-bar">
+          <div class="hud-chip">
+            <label>เวลา</label>
+            <span id="sbTime">90</span>
+          </div>
+          <div class="hud-chip">
+            <label>คะแนน</label>
+            <span id="sbScore">0</span>
+          </div>
+          <div class="hud-chip">
+            <label>โดนเป้า</label>
+            <span id="sbHit">0</span>
+          </div>
+          <div class="hud-chip">
+            <label>พลาด</label>
+            <span id="sbMiss">0</span>
+          </div>
+          <div class="hud-chip">
+            <label>คอมโบ</label>
+            <span id="sbCombo">x0</span>
+          </div>
+        </div>
+
+        <div class="sb-arena-wrap">
+          <div id="sb-game" class="sb-arena"></div>
+        </div>
+
+        <div id="sbCoach" class="status-line">
+          โค้ชพุ่ง: แตะเป้าที่โผล่มาให้ไวที่สุด! 🔥
+        </div>
+
+        <div class="control-row">
+          <button type="button" id="btnStart" class="btn btn-primary">▶ เริ่มเล่น</button>
+          <button type="button" id="btnPause" class="btn" style="display:none;">⏸ Pause</button>
+          <button type="button" id="btnResume" class="btn" style="display:none;">▶ Resume</button>
+        </div>
+
+        <div id="sbResultCard" class="sb-result-card">
+          <div class="sb-result-head">
+            <div>
+              <div style="font-size:13px;color:#9ca3af;">ผลการเล่น / Result</div>
+              <div id="sbResultTitle" style="font-size:15px;font-weight:600;">
+                ดีมาก! เก็บคอมโบได้สุดยอด 💪
+              </div>
+            </div>
+            <div class="sb-rank-badge">
+              <span>Rank</span>
+              <span id="sbResultRank" class="rank">A</span>
+            </div>
+          </div>
+
+          <div class="sb-result-grid">
+            <div class="sb-result-item">
+              <label>คะแนนรวม (Score)</label>
+              <span id="sbResScore">0</span>
+            </div>
+            <div class="sb-result-item">
+              <label>โดนเป้า / พลาด</label>
+              <span><span id="sbResHit">0</span> / <span id="sbResMiss">0</span></span>
+            </div>
+            <div class="sb-result-item">
+              <label>คอมโบสูงสุด</label>
+              <span id="sbResCombo">x0</span>
+            </div>
+            <div class="sb-result-item">
+              <label>ความแม่นยำ (Accuracy)</label>
+              <span id="sbResAcc">0%</span>
+            </div>
+            <div class="sb-result-item">
+              <label>เวลาเล่นจริง</label>
+              <span id="sbResTime">0s</span>
+            </div>
+            <div class="sb-result-item">
+              <label>โหมด / ความยาก</label>
+              <span id="sbResMode">Timed · Normal</span>
+            </div>
+          </div>
+
+          <div class="sb-result-actions">
+            <button type="button" id="btnDownloadPdf" class="btn">
+              📊 ดาวน์โหลด PDF
+            </button>
+            <button type="button" id="btnRetry" class="btn btn-primary">
+              🔁 เล่นอีกครั้ง
+            </button>
+            <a href="../../index.html" id="btnBackMenu" class="btn">
+              🏠 กลับ Hub
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <section style="margin-top:4px;font-size:12px;color:#9ca3af;">
+      เป้าหมาย: ทดสอบความไว + ความแม่น · Hybrid: PC · Mobile · VR
+    </section>
+  </div>
+
+  <!-- ตั้งค่าจาก query + ภาษา ให้ shadow-breaker.js ใช้ -->
+  <script>
+  (function(){
+    const qs = new URLSearchParams(location.search);
+
+    // VR layout ใช้เฉพาะ ?view=vr
+    if (qs.get("view") === "vr") {
+      document.body.classList.add("vr-mode");
+    }
+
+    const duration = Number(qs.get("time") || 90);
+    const diff = (qs.get("diff") || "normal").toLowerCase();
+    const mode = (qs.get("mode") || "timed").toLowerCase();
+
+    document.getElementById("sbTime").textContent = duration;
+    document.getElementById("statTime").textContent = duration + "s";
+    document.getElementById("statDiff").textContent =
+      diff === "easy" ? "Easy" : diff === "hard" ? "Hard" : "Normal";
+    document.getElementById("statMode").textContent =
+      mode === "endless" ? "Endless" : "Timed";
+
+    const btnTH = document.getElementById("btnLangTH");
+    const btnEN = document.getElementById("btnLangEN");
+    let lang = qs.get("lang") === "en" ? "en" : "th";
+
+    function applyLang(){
+      document.body.dataset.lang = lang;
+      btnTH.classList.toggle("btn-lang-active", lang==="th");
+      btnEN.classList.toggle("btn-lang-active", lang==="en");
+
+      const coach = document.getElementById("sbCoach");
+      const desc  = document.getElementById("descLine");
+      const obj   = document.getElementById("objectiveLine");
+
+      if(lang==="th"){
+        coach.textContent = "โค้ชพุ่ง: แตะเป้าที่โผล่มาให้ไวที่สุด! 🔥";
+        desc.textContent  = "โหมดทดสอบความไวในการแตะเป้า ใช้สำหรับนักเรียน ป.5–ผู้ใหญ่ / วิจัย / แข่งขัน";
+        obj.textContent   = "แตะเป้าที่โผล่มาให้ไวที่สุด เก็บคอมโบต่อเนื่องเพื่อเข้าสู่โหมด FEVER!! 🔥";
+      }else{
+        coach.textContent = "Coach Pung: Tap every target as fast as you can! 🔥";
+        desc.textContent  = "Speed & accuracy tapping mode, suitable for Grade 5–adults / research / competition.";
+        obj.textContent   = "Hit the targets before they disappear. Keep combo to enter FEVER mode!! 🔥";
+      }
+    }
+    btnTH.addEventListener("click", ()=>{lang="th"; applyLang();});
+    btnEN.addEventListener("click", ()=>{lang="en"; applyLang();});
+    applyLang();
+
+    // config สำหรับ shadow-breaker.js
+    window.__SB_CONFIG = {
+      duration,
+      difficulty: diff,
+      mode,
+      lang,
+      selectors: {
+        arena: "#sb-game",
+        time: "#sbTime",
+        score: "#sbScore",
+        hit: "#sbHit",
+        miss: "#sbMiss",
+        combo: "#sbCombo",
+        coach: "#sbCoach",
+        btnStart: "#btnStart",
+        btnPause: "#btnPause",
+        btnResume: "#btnResume",
+        resultCard: "#sbResultCard",
+        resultRank: "#sbResultRank",
+        resultTitle: "#sbResultTitle",
+        resScore: "#sbResScore",
+        resHit: "#sbResHit",
+        resMiss: "#sbResMiss",
+        resCombo: "#sbResCombo",
+        resAcc: "#sbResAcc",
+        resTime: "#sbResTime",
+        resMode: "#sbResMode",
+        btnRetry: "#btnRetry",
+        btnBackMenu: "#btnBackMenu",
+        btnDownloadPdf: "#btnDownloadPdf"
+      }
+    };
+  })();
+  </script>
+
+  <script src="./shadow-breaker.js" defer></script>
+</body>
+</html>
