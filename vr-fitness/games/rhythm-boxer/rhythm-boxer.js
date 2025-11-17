@@ -1,8 +1,23 @@
-// === VR Fitness — Rhythm Boxer (Research + Demo, bilingual, play-only layout) ===
+// === VR Fitness — Rhythm Boxer (Research Pro + Music + FX + Cloud-ready) ===
 
-const STORAGE_KEY = 'RhythmBoxerResearch_v1';
+const STORAGE_KEY = 'RhythmBoxerResearch_v2';
 const META_KEY = 'RhythmBoxerMeta_v1';
 
+// ---- CONFIG ----
+
+// เปลี่ยนเป็น URL ของ Google Apps Script Web App ที่อาจารย์สร้างเอง
+// ถ้าใช้ค่า placeholder หรือปล่อยว่าง → จะไม่ส่งขึ้น Cloud (ใช้เฉพาะ localStorage)
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/XXXX/exec';
+
+// เพลง generic 120–140 BPM (อาจารย์เปลี่ยน path ได้)
+const MUSIC_SRC = './assets/music-basic-120bpm.mp3';
+
+// เปิด/ปิดระบบต่าง ๆ
+const ENABLE_CLOUD_LOG = true;
+const ENABLE_MUSIC = true;
+const ENABLE_FX = true;
+
+// ---- DOM helpers ----
 const qs = (s) => document.querySelector(s);
 
 const gameArea = qs('#gameArea');
@@ -43,7 +58,7 @@ const playAgainBtn = qs('#playAgainBtn');
 const backHubBtn = qs('#backHubBtn');
 const downloadCsvBtn = qs('#downloadCsvBtn');
 
-// --- i18n ---
+// ---- i18n ----
 const i18n = {
   th: {
     metaTitle: 'ข้อมูลสำหรับงานวิจัย',
@@ -112,7 +127,15 @@ const i18n = {
 
 let lang = 'th';
 
-// --- Song / Chart Config ---
+// ---- Phase (Pre / Train / Post) ----
+function getPhaseFromQuery() {
+  const p = (new URLSearchParams(location.search)).get('phase') || 'train';
+  const norm = p.toLowerCase();
+  if (norm === 'pre' || norm === 'post' || norm === 'train') return norm;
+  return 'train';
+}
+
+// ---- Song / Chart Config ----
 // time = ms from start; lane = 'L' / 'B' / 'R'
 const chart = [
   // intro
@@ -170,13 +193,45 @@ const TRAVEL_TIME = 900; // ms
 const PERFECT_WINDOW = 120; // ±120ms
 const GOOD_WINDOW = 220; // ±220ms
 
-// --- Game State ---
+// ---- Audio ----
+let music = null;
+
+function initAudio() {
+  if (!ENABLE_MUSIC) return;
+  try {
+    music = new Audio(MUSIC_SRC);
+    music.preload = 'auto';
+    music.volume = 0.85;
+  } catch (e) {
+    console.warn('Audio init failed:', e);
+    music = null;
+  }
+}
+
+function playMusic() {
+  if (!ENABLE_MUSIC || !music) return;
+  try {
+    music.currentTime = 0;
+    const p = music.play();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {
+    console.warn('Music play failed:', e);
+  }
+}
+
+function stopMusic() {
+  if (!ENABLE_MUSIC || !music) return;
+  try {
+    music.pause();
+  } catch (_) {}
+}
+
+// ---- Game State ----
 const state = {
   running: false,
   started: false,
   startTime: 0,
   elapsed: 0,
-  timerId: null,
   score: 0,
   hit: 0,
   perfect: 0,
@@ -185,12 +240,13 @@ const state = {
   combo: 0,
   maxCombo: 0,
   songDuration: 0,
-  notes: [], // runtime copy of chart
+  notes: [],
   lastFrame: 0,
   sessionMeta: null,
+  phase: getPhaseFromQuery(),
 };
 
-// --- Meta persistence ---
+// ---- Meta persistence ----
 function loadMeta() {
   try {
     const raw = localStorage.getItem(META_KEY);
@@ -212,7 +268,7 @@ function saveMetaDraft() {
   } catch (_) {}
 }
 
-// --- i18n apply ---
+// ---- i18n apply ----
 function applyLang() {
   const t = i18n[lang];
   qs('#metaTitle').textContent = t.metaTitle;
@@ -262,7 +318,7 @@ function detectDevice() {
   return 'pc';
 }
 
-// --- HUD, Feedback ---
+// ---- HUD & FX ----
 function resetStats() {
   state.score = 0;
   state.hit = 0;
@@ -304,7 +360,32 @@ function showFeedback(type) {
   }, 420);
 }
 
-// --- Notes runtime ---
+function fxHit() {
+  if (!ENABLE_FX || !gameArea || !gameArea.animate) return;
+  gameArea.animate(
+    [
+      { transform: 'scale(1)', boxShadow: '0 0 0 rgba(34,197,94,0.0)' },
+      { transform: 'scale(1.02)', boxShadow: '0 0 24px rgba(34,197,94,0.8)' },
+      { transform: 'scale(1)', boxShadow: '0 0 0 rgba(34,197,94,0.0)' },
+    ],
+    { duration: 140, easing: 'ease-out' }
+  );
+}
+
+function fxMiss() {
+  if (!ENABLE_FX || !gameArea || !gameArea.animate) return;
+  gameArea.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-6px)' },
+      { transform: 'translateX(6px)' },
+      { transform: 'translateX(0)' },
+    ],
+    { duration: 160, easing: 'ease-out' }
+  );
+}
+
+// ---- Notes runtime ----
 function prepareChart() {
   state.notes = chart.map((n) => ({
     time: n.time,
@@ -315,7 +396,7 @@ function prepareChart() {
     el: null,
   }));
   const last = state.notes[state.notes.length - 1];
-  state.songDuration = last.time + 2200; // จบหลังโน้ตท้ายเล็กน้อย
+  state.songDuration = last.time + 2200;
   hud.timeVal.textContent = Math.round(state.songDuration / 1000);
 }
 
@@ -346,12 +427,10 @@ function positionNotes(now) {
   for (const note of state.notes) {
     if (!note.spawned || !note.el) continue;
     const t0 = note.time - TRAVEL_TIME;
-    const t1 = note.time + TRAVEL_TIME;
     const posT = elapsed - t0;
     const prog = posT / (TRAVEL_TIME * 2);
 
     if (prog < 0 || prog > 1.2) {
-      // ออกนอกจอแล้ว
       if (!note.judged) {
         note.judged = true;
         note.hit = false;
@@ -359,6 +438,7 @@ function positionNotes(now) {
         state.combo = 0;
         updateHUD();
         showFeedback('miss');
+        fxMiss();
         hud.coachLine.textContent = i18n[lang].coachMiss;
       }
       if (note.el && note.el.parentNode) note.el.parentNode.removeChild(note.el);
@@ -370,13 +450,12 @@ function positionNotes(now) {
   }
 }
 
-// --- Judging ---
+// ---- Judging ----
 function judgeHit(lane) {
   if (!state.running) return;
   const now = performance.now();
   const tSong = now - state.startTime;
 
-  // note ใน lane เดียวกันที่ใกล้ที่สุด
   let best = null;
   let bestDiff = Infinity;
 
@@ -397,6 +476,7 @@ function judgeHit(lane) {
     state.combo = 0;
     updateHUD();
     showFeedback('miss');
+    fxMiss();
     hud.coachLine.textContent = i18n[lang].coachMiss;
     return;
   }
@@ -429,16 +509,16 @@ function judgeHit(lane) {
 
   updateHUD();
   showFeedback(quality);
+  fxHit();
   hud.coachLine.textContent = i18n[lang].coachGood;
 }
 
-// --- Loop & Timer ---
+// ---- Loop & Timer ----
 function mainLoop(now) {
   if (!state.running) return;
   if (!state.lastFrame) state.lastFrame = now;
   state.elapsed = now - state.startTime;
 
-  // spawn ตามเวลา
   for (const note of state.notes) {
     if (note.spawned) continue;
     const spawnAt = note.time - TRAVEL_TIME;
@@ -461,15 +541,30 @@ function mainLoop(now) {
   requestAnimationFrame(mainLoop);
 }
 
-// --- Research Log & Result ---
-function logResearchRecord(rec) {
+// ---- Research Log & Cloud ----
+function logResearchRecordLocal(rec) {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     const arr = raw ? JSON.parse(raw) : [];
     arr.push(rec);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
   } catch (err) {
-    console.warn('Failed to store research record:', err);
+    console.warn('Failed to store research record locally:', err);
+  }
+}
+
+async function logResearchRecordCloud(rec) {
+  if (!ENABLE_CLOUD_LOG) return;
+  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.indexOf('XXXX') !== -1) return;
+  try {
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(rec),
+      mode: 'no-cors',
+    });
+  } catch (err) {
+    console.warn('Cloud log failed:', err);
   }
 }
 
@@ -494,6 +589,7 @@ function downloadCsv() {
       'deviceType',
       'language',
       'note',
+      'phase',
       'gameId',
       'sessionId',
       'songId',
@@ -541,16 +637,18 @@ function downloadCsv() {
 function endGame() {
   if (!state.running) return;
   state.running = false;
+  stopMusic();
 
   const played = Math.round(state.elapsed / 1000);
   const totalNotes = state.notes.length;
   const totalHit = state.perfect + state.good;
   const acc = totalNotes > 0 ? Math.round((totalHit / totalNotes) * 100) : 0;
 
-  logResearchRecord({
+  const record = {
     gameId: 'rhythm-boxer',
     sessionId: Date.now().toString(),
     songId: 'basic-1',
+    phase: state.phase, // pre / train / post
     studentId: state.sessionMeta?.studentId || '',
     schoolName: state.sessionMeta?.schoolName || '',
     classRoom: state.sessionMeta?.classRoom || '',
@@ -567,7 +665,11 @@ function endGame() {
     maxCombo: state.maxCombo,
     timeUsedSec: played,
     createdAt: new Date().toISOString(),
-  });
+  };
+
+  // local + cloud
+  logResearchRecordLocal(record);
+  logResearchRecordCloud(record);
 
   r.score.textContent = state.score;
   r.hit.textContent = totalHit;
@@ -581,7 +683,7 @@ function endGame() {
   overlay.classList.remove('hidden');
 }
 
-// --- Start Game ---
+// ---- Start Game ----
 function startGame() {
   if (state.running) return;
 
@@ -605,7 +707,6 @@ function startGame() {
   state.sessionMeta = meta;
   saveMetaDraft();
 
-  // โหมดเล่นอย่างเดียว
   document.body.classList.add('play-only');
 
   resetStats();
@@ -621,11 +722,12 @@ function startGame() {
   setTimeout(() => {
     state.startTime = performance.now();
     state.lastFrame = 0;
+    playMusic();
     requestAnimationFrame(mainLoop);
   }, 700);
 }
 
-// --- Keyboard control ---
+// ---- Controls ----
 window.addEventListener('keydown', (ev) => {
   if (!state.running) return;
   const key = ev.key.toLowerCase();
@@ -634,7 +736,6 @@ window.addEventListener('keydown', (ev) => {
   else if (key === 'd') judgeHit('R');
 });
 
-// --- Click lane (mobile tap) ---
 gameArea.addEventListener('click', (ev) => {
   if (!state.running) return;
   const laneEl = ev.target.closest('.lane');
@@ -644,7 +745,7 @@ gameArea.addEventListener('click', (ev) => {
   judgeHit(lane);
 });
 
-// --- Buttons & events ---
+// ---- Buttons ----
 startBtn.addEventListener('click', startGame);
 
 playAgainBtn.addEventListener('click', () => {
@@ -665,7 +766,8 @@ Object.values(metaInputs).forEach((el) => {
   el.addEventListener('blur', saveMetaDraft);
 });
 
-// --- Init ---
+// ---- Init ----
 loadMeta();
 applyLang();
 prepareChart();
+initAudio();
