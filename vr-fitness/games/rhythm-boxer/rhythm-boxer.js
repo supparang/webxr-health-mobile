@@ -1,20 +1,28 @@
-// === VR Fitness — Rhythm Boxer (Research Pro + Music + FX + Cloud-ready) ===
+// === VR Fitness — Rhythm Boxer (Research Production v1.0.0) ===
+// - Research-ready, bilingual, play-only layout
+// - Local logging + CSV export
+// - Phase-aware (pre/train/post)
+// - Group code field for experimental groups
+// - Music & Cloud system "พร้อมเปิดใช้" แต่ปิดค่าไว้เป็นค่า default
 
-const STORAGE_KEY = 'RhythmBoxerResearch_v2';
-const META_KEY = 'RhythmBoxerMeta_v1';
+const GAME_ID = 'rhythm-boxer';
+const GAME_VERSION = '1.0.0-research';
+
+const STORAGE_KEY = 'RhythmBoxerResearch_v3';
+const META_KEY = 'RhythmBoxerMeta_v2';
 
 // ---- CONFIG ----
 
-// เปลี่ยนเป็น URL ของ Google Apps Script Web App ที่อาจารย์สร้างเอง
-// ถ้าใช้ค่า placeholder หรือปล่อยว่าง → จะไม่ส่งขึ้น Cloud (ใช้เฉพาะ localStorage)
-const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/XXXX/exec';
+// URL Google Apps Script (ถ้าใช้ Cloud log ให้ใส่จริง)
+// ค่า default ว่าง = ไม่ส่ง cloud
+const GOOGLE_SCRIPT_URL = '';
 
-// เพลง generic 120–140 BPM (อาจารย์เปลี่ยน path ได้)
+// เพลง generic 120–140 BPM (ถ้ามีไฟล์จริงให้เปลี่ยน path และเปิด ENABLE_MUSIC)
 const MUSIC_SRC = './assets/music-basic-120bpm.mp3';
 
-// เปิด/ปิดระบบต่าง ๆ
-const ENABLE_CLOUD_LOG = true;
-const ENABLE_MUSIC = true;
+// ค่า default สำหรับ PRODUCTION ตอนนี้ (ยังไม่มีไฟล์เพลง / Apps Script จริง)
+const ENABLE_MUSIC = false;       // มีไฟล์เพลงค่อยเปลี่ยนเป็น true
+const ENABLE_CLOUD_LOG = false;   // ตั้ง Apps Script แล้วค่อยเปลี่ยนเป็น true
 const ENABLE_FX = true;
 
 // ---- DOM helpers ----
@@ -29,6 +37,7 @@ const metaInputs = {
   studentId: qs('#studentId'),
   schoolName: qs('#schoolName'),
   classRoom: qs('#classRoom'),
+  groupCode: qs('#groupCode'),
   deviceType: qs('#deviceType'),
   note: qs('#note'),
 };
@@ -63,12 +72,12 @@ const i18n = {
   th: {
     metaTitle: 'ข้อมูลสำหรับงานวิจัย',
     metaHint:
-      'กรอกเพียงครั้งเดียวก่อนเริ่ม แต่ละรอบของ Rhythm Boxer จะถูกบันทึกเป็น 1 session.',
+      'กรอกเพียงครั้งเดียวก่อนเริ่ม ระบบจะบันทึกทุกครั้งที่เล่นเป็น 1 รอบการทดลอง.',
     startLabel: 'เริ่มเล่น',
-    coachReady: 'โค้ชพุ่ง: ฟังจังหวะ แล้วต่อยให้ตรงเลน! 🎵🥊',
-    coachGood: 'ดีมาก! จังหวะกำลังมา รักษาคอมโบไว้! ✨',
-    coachMiss: 'พลาดไปนิด ลองฟังจังหวะให้ชัดขึ้นอีกนิดนะ 🎧',
-    tagGoal: 'เป้าหมาย: ต่อยให้ตรงจังหวะ + ตรงเลน',
+    coachReady: 'โค้ชพุ่ง: ฟังดนตรี แล้วต่อยเป้าให้ทันนะ! 🎵👊',
+    coachGood: 'สุดยอด! จังหวะกำลังมา รักษาคอมโบไว้เลย! ✨',
+    coachMiss: 'พลาดนิดเดียว ลองฟังจังหวะแล้วลองใหม่อีกทีนะ 🎧',
+    tagGoal: 'เป้าหมาย: ต่อยให้ตรงเลน และตรงจังหวะให้มากที่สุด',
     lblTime: 'เวลา',
     lblScore: 'คะแนน',
     lblHit: 'โดนเป้า',
@@ -76,16 +85,16 @@ const i18n = {
     lblCombo: 'คอมโบ',
     resultTitle: '🏁 สรุปผล Rhythm Boxer',
     rScore: 'คะแนนรวม',
-    rHit: 'Hits (Perfect+Good)',
-    rPerfect: 'Perfect',
-    rGood: 'Good',
-    rMiss: 'Miss',
+    rHit: 'จำนวนครั้งที่โดนเป้า',
+    rPerfect: 'Perfect (ตรงจังหวะมาก)',
+    rGood: 'Good (เกือบตรงจังหวะ)',
+    rMiss: 'Miss (พลาด)',
     rAcc: 'ความแม่นยำ',
-    rCombo: 'Best Combo',
-    rTimeUsed: 'เวลาเล่น',
+    rCombo: 'คอมโบสูงสุด',
+    rTimeUsed: 'เวลาเล่นต่อรอบ',
     playAgain: 'เล่นอีกครั้ง',
-    backHub: 'กลับเมนู',
-    downloadCsv: 'ดาวน์โหลด CSV วิจัย (ทุก session)',
+    backHub: 'กลับเมนูหลัก',
+    downloadCsv: 'ดาวน์โหลด CSV ข้อมูลวิจัย (ทุก session)',
     laneLeft: 'ซ้าย',
     laneRight: 'ขวา',
     laneBody: 'ลำตัว',
@@ -94,13 +103,13 @@ const i18n = {
   en: {
     metaTitle: 'Research meta (per session)',
     metaHint:
-      'Fill this once. Each Rhythm Boxer run will be logged as one session record.',
+      'Fill this once. Each Rhythm Boxer run will be logged as a separate session.',
     startLabel: 'Start',
     coachReady:
-      'Coach Pung: Listen to the beat and punch in the right lane! 🎵🥊',
-    coachGood: 'Nice! Keep the combo and follow the rhythm! ✨',
-    coachMiss: 'Missed it a bit, focus on the beat again 🎧',
-    tagGoal: 'Goal: Hit on time and in the correct lane',
+      'Coach Pung: Listen to the beat and punch the targets in time! 🎵🥊',
+    coachGood: 'Great! Combo is growing, keep the rhythm! ✨',
+    coachMiss: 'Missed a bit, listen again and try once more 🎧',
+    tagGoal: 'Goal: Punch in the correct lane and on time',
     lblTime: 'TIME',
     lblScore: 'SCORE',
     lblHit: 'HIT',
@@ -114,10 +123,10 @@ const i18n = {
     rMiss: 'Miss',
     rAcc: 'Accuracy',
     rCombo: 'Best Combo',
-    rTimeUsed: 'Played',
+    rTimeUsed: 'Played Time',
     playAgain: 'Play again',
     backHub: 'Back to Hub',
-    downloadCsv: 'Download CSV (all sessions)',
+    downloadCsv: 'Download research CSV (all sessions)',
     laneLeft: 'Left',
     laneRight: 'Right',
     laneBody: 'Body',
@@ -129,7 +138,7 @@ let lang = 'th';
 
 // ---- Phase (Pre / Train / Post) ----
 function getPhaseFromQuery() {
-  const p = (new URLSearchParams(location.search)).get('phase') || 'train';
+  const p = new URLSearchParams(location.search).get('phase') || 'train';
   const norm = p.toLowerCase();
   if (norm === 'pre' || norm === 'post' || norm === 'train') return norm;
   return 'train';
@@ -159,7 +168,7 @@ const chart = [
   { time: 7200, lane: 'B' },
   { time: 7600, lane: 'R' },
 
-  // pattern 2 (เร็วขึ้น)
+  // pattern 2
   { time: 8400, lane: 'L' },
   { time: 8800, lane: 'B' },
   { time: 9200, lane: 'R' },
@@ -191,7 +200,7 @@ const chart = [
 // เวลาโน้ตเคลื่อนจากบนลง hit line
 const TRAVEL_TIME = 900; // ms
 const PERFECT_WINDOW = 120; // ±120ms
-const GOOD_WINDOW = 220; // ±220ms
+const GOOD_WINDOW = 220; // ±220ms;
 
 // ---- Audio ----
 let music = null;
@@ -199,12 +208,24 @@ let music = null;
 function initAudio() {
   if (!ENABLE_MUSIC) return;
   try {
-    music = new Audio(MUSIC_SRC);
+    music = new Audio();
+    music.src = MUSIC_SRC;
     music.preload = 'auto';
     music.volume = 0.85;
+
+    music.addEventListener('canplaythrough', () => {
+      console.log('[RhythmBoxer] Music ready:', MUSIC_SRC);
+    });
+
+    music.addEventListener('error', () => {
+      console.error('[RhythmBoxer] Music error:', music && music.error);
+      if (hud?.coachLine) {
+        hud.coachLine.textContent =
+          '⚠️ โหลดเพลงไม่สำเร็จ ตรวจไฟล์เพลงในโฟลเดอร์ assets';
+      }
+    });
   } catch (e) {
-    console.warn('Audio init failed:', e);
-    music = null;
+    console.warn('[RhythmBoxer] initAudio failed:', e);
   }
 }
 
@@ -213,9 +234,17 @@ function playMusic() {
   try {
     music.currentTime = 0;
     const p = music.play();
-    if (p && p.catch) p.catch(() => {});
+    if (p && p.catch) {
+      p.catch((err) => {
+        console.warn('[RhythmBoxer] music.play blocked:', err);
+        if (hud?.coachLine) {
+          hud.coachLine.textContent =
+            '⚠️ เบราว์เซอร์บล็อกเสียง ลองกดเริ่มเล่นอีกครั้ง';
+        }
+      });
+    }
   } catch (e) {
-    console.warn('Music play failed:', e);
+    console.warn('[RhythmBoxer] Music play failed:', e);
   }
 }
 
@@ -348,9 +377,15 @@ function updateHUD() {
 
 function showFeedback(type) {
   let txt = '';
-  if (type === 'perfect') txt = 'PERFECT!';
-  else if (type === 'good') txt = 'GOOD!';
-  else txt = 'MISS';
+  if (lang === 'th') {
+    if (type === 'perfect') txt = 'สุดยอด! 💥';
+    else if (type === 'good') txt = 'ดีมาก! ✨';
+    else txt = 'พลาดนิดเดียว!';
+  } else {
+    if (type === 'perfect') txt = 'PERFECT!';
+    else if (type === 'good') txt = 'GOOD!';
+    else txt = 'MISS';
+  }
 
   feedbackEl.textContent = txt;
   feedbackEl.className = 'feedback ' + type;
@@ -555,7 +590,7 @@ function logResearchRecordLocal(rec) {
 
 async function logResearchRecordCloud(rec) {
   if (!ENABLE_CLOUD_LOG) return;
-  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.indexOf('XXXX') !== -1) return;
+  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.indexOf('http') !== 0) return;
   try {
     await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
@@ -586,11 +621,13 @@ function downloadCsv() {
       'studentId',
       'schoolName',
       'classRoom',
+      'groupCode',
       'deviceType',
       'language',
       'note',
       'phase',
       'gameId',
+      'gameVersion',
       'sessionId',
       'songId',
       'timeSec',
@@ -645,13 +682,15 @@ function endGame() {
   const acc = totalNotes > 0 ? Math.round((totalHit / totalNotes) * 100) : 0;
 
   const record = {
-    gameId: 'rhythm-boxer',
+    gameId: GAME_ID,
+    gameVersion: GAME_VERSION,
     sessionId: Date.now().toString(),
     songId: 'basic-1',
     phase: state.phase, // pre / train / post
     studentId: state.sessionMeta?.studentId || '',
     schoolName: state.sessionMeta?.schoolName || '',
     classRoom: state.sessionMeta?.classRoom || '',
+    groupCode: state.sessionMeta?.groupCode || '',
     deviceType: state.sessionMeta?.deviceType || detectDevice(),
     language: state.sessionMeta?.language || lang,
     note: state.sessionMeta?.note || '',
@@ -697,6 +736,7 @@ function startGame() {
     studentId,
     schoolName: metaInputs.schoolName.value.trim(),
     classRoom: metaInputs.classRoom.value.trim(),
+    groupCode: metaInputs.groupCode.value.trim(),
     deviceType:
       metaInputs.deviceType.value === 'auto'
         ? detectDevice()
