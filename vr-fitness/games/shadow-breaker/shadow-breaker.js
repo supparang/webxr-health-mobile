@@ -1,7 +1,9 @@
-// === Shadow Breaker — v2.2.1 (P.5 + Spawn Fix) =============================
-// - เป้าโผล่ทั่วจอ แตะ/คลิกให้ทัน
-// - Critical ถ้าตีเร็ว, Combo → FEVER PUNCH!!
-// - จบเกมมี summary + CSV/PDF/Google Sheet hook
+// === Shadow Breaker — v2.3 (Coach พุ่งคุยเก่ง + Emoji Targets + FEVER) ===
+// - เป้าเป็น emoji (🥊⚡⭐🔥) ไม่ใช่แค่ทรงกลม/เหลี่ยม
+// - โค้ชพุ่งพูด:
+//    • ก่อนเริ่ม / ตอนเริ่ม / Pause / Resume / จบเกม
+//    • ตอนคอมโบติด / เข้า FEVER / พลาดเยอะ / สรุปท้ายเกม
+// - ใช้คู่กับ play.html (P.5) ตัวล่าสุด
 // ===========================================================================
 
 const FIREBASE_API = '';
@@ -12,6 +14,7 @@ const LB_API       = '';
 const LS_PROFILE = 'fitness_profile_v1';
 const LS_QUEUE   = 'fitness_offline_queue_v1';
 
+// ข้อความหลักของโค้ช (สถานะใหญ่ ๆ)
 const STR = {
   th: {
     msgReady : 'โค้ชพุ่ง: เตรียมกำหมัด! เดี๋ยวเป้าจะโผล่มาทั่วจอเลย 🐰🥊',
@@ -20,6 +23,40 @@ const STR = {
     msgResume: 'ลุยต่อ! ล่าคอมโบให้ถึง FEVER กันเลย! 🔥',
     msgEnd   : 'จบรอบแล้ว! มาดูพลังหมัดของเรากัน 🎉'
   }
+};
+
+// ประโยคพูดเล่นของโค้ชพุ่ง (สุ่มใช้ระหว่างเกม)
+const COACH_LINES = {
+  hitStreak: [
+    'โค้ชพุ่ง: คอมโบกำลังมา อย่าพลาดละ! ⚡',
+    'โค้ชพุ่ง: หมัดรัวแบบนี้แหละ ของจริง! 🥊',
+    'โค้ชพุ่ง: เป้าไหนโผล่มา ก็โดนหมดเลยนะ! 😎'
+  ],
+  fever: [
+    'โค้ชพุ่ง: FEVER PUNCH!! ต่อยให้สุดพลังไปเลย! 🔥',
+    'โค้ชพุ่ง: โหมดไฟลุกแล้ว ห้ามช้าซักเป้า! 🔥⚡',
+    'โค้ชพุ่ง: หมัดทองของแท้ FEVER มาแล้ว! ✨'
+  ],
+  miss: [
+    'โค้ชพุ่ง: พลาดนิดเดียวเอง ลองใหม่เดี๋ยวก็ได้คอมโบต่อ 😄',
+    'โค้ชพุ่ง: เป้าหนีทัน ไม่เป็นไร เดี๋ยวเราตามทัน! 💪',
+    'โค้ชพุ่ง: หายใจลึก ๆ แล้วลุยต่อได้เลย! 🐰'
+  ],
+  finalGood: [
+    'โค้ชพุ่ง: โหดมาก! หมัดระดับแชมป์เลยแบบนี้ 🏆',
+    'โค้ชพุ่ง: คะแนนนี้คุณหมอก็ต้องกดไลก์ให้แล้วละ! 😄',
+    'โค้ชพุ่ง: สุดยอดดดด ป.5 สายหมัดไฟต้องคนนี้เลย! 🔥'
+  ],
+  finalOk: [
+    'โค้ชพุ่ง: ดีมาก! ถ้าซ้อมอีกนิด คอมโบจะพุ่งกว่านี้แน่นอน 💪',
+    'โค้ชพุ่ง: ใกล้ถึงระดับแชมป์แล้ว อีกนิดเดียวเอง! ⭐',
+    'โค้ชพุ่ง: รอบหน้าลองรักษาคอมโบให้นานขึ้นนะ! ⚡'
+  ],
+  finalBad: [
+    'โค้ชพุ่ง: รอบนี้เหมือนวอร์มร่างกาย รอบหน้าลุยจริง! 🔁',
+    'โค้ชพุ่ง: หมัดยังไม่สุด ลองใหม่อีกรอบได้เลย! 🥊',
+    'โค้ชพุ่ง: ไม่เป็นไร ซ้อมเยอะ ๆ เดี๋ยวหมัดจะคมเอง 😄'
+  ]
 };
 
 // ---------- Profile ---------------------------------------------------------
@@ -148,6 +185,10 @@ const FEVER_MULT  = 1.5;
 const FEVER_SPAWN = 0.8;
 const CRIT_RATIO  = 0.35;
 
+// เป้าเป็น emoji
+const ICONS_NORMAL = ['🥊','✨','⭐','⚡'];
+const ICONS_FEVER  = ['🔥','💥','🌟','⚡'];
+
 // ===========================================================================
 //  ShadowBreaker class
 // ===========================================================================
@@ -182,7 +223,10 @@ export class ShadowBreaker {
     };
 
     this.targets = [];
-    this.spawnTimer = 0; // วัดเป็นวินาที
+    this.spawnTimer = 0;      // วินาที
+    this.lastCoachTalk = 0;   // วินาที (ใช้ throttle)
+
+    this.coachBox = document.querySelector('.coach-line') || null;
 
     flushQueue();
     this._buildScene();
@@ -191,8 +235,23 @@ export class ShadowBreaker {
     this._hud();
   }
 
-  // ----- UI -----------------------------------------------------------------
-  _msg(t){ if(this.msgBox) this.msgBox.textContent = t; }
+  // ----- UI / Coach ---------------------------------------------------------
+  _msg(t){
+    if(this.msgBox)  this.msgBox.textContent  = t;
+    if(this.coachBox) this.coachBox.textContent = t;
+  }
+
+  _coach(type){
+    const lines = COACH_LINES[type];
+    if(!lines || !lines.length) return;
+    const now = this.state ? this.state.elapsed : 0;
+    const MIN_INTERVAL = 3; // เวลาห่างขั้นต่ำ 3 วินาทีจะได้ไม่พูดรัวเกิน
+    if(now - this.lastCoachTalk < MIN_INTERVAL) return;
+    this.lastCoachTalk = now;
+    const msg = lines[Math.floor(Math.random()*lines.length)];
+    this._msg(msg);
+  }
+
   _hud(){
     if(this.hud.time)  this.hud.time.textContent  = Math.max(0, Math.ceil(this.state.timeLeft));
     if(this.hud.score) this.hud.score.textContent = this.state.score;
@@ -243,11 +302,12 @@ export class ShadowBreaker {
     this.state.fever   = false;
     this.targets.length = 0;
     this.spawnTimer = 0;
+    this.lastCoachTalk = 0;
 
     this._hud();
     this._msg(this.str.msgGo);
 
-    // บังคับให้มีเป้าทันที 1 อัน
+    // เป้าแรกโผล่ทันที
     this._spawnTarget();
 
     this.state.lastTs = performance.now();
@@ -264,7 +324,7 @@ export class ShadowBreaker {
     }
   }
 
-  // ----- Loop (dt เป็นวินาที) ----------------------------------------------
+  // ----- Loop ---------------------------------------------------------------
   _loop(ts){
     if(!this.state.running || this.state.paused) return;
 
@@ -277,7 +337,7 @@ export class ShadowBreaker {
     this.state.timeLeft  = clamp(this.timeLimit - this.state.elapsed, 0, 1e9);
 
     // spawn timer (sec)
-    const baseSpawn = this.cfg.spawn/1000; // จาก ms → s
+    const baseSpawn = this.cfg.spawn/1000;
     const effSpawn  = this.state.fever ? baseSpawn*FEVER_SPAWN : baseSpawn;
     this.spawnTimer += dt;
     while (this.spawnTimer >= effSpawn){
@@ -285,7 +345,7 @@ export class ShadowBreaker {
       this._spawnTarget();
     }
 
-    // update targets
+    // update targets (หมดเวลา = MISS)
     const now = performance.now();
     for(let i=this.targets.length-1;i>=0;i--){
       const tg = this.targets[i];
@@ -307,7 +367,7 @@ export class ShadowBreaker {
     requestAnimationFrame(this._loop.bind(this));
   }
 
-  // ----- Spawn --------------------------------------------------------------
+  // ----- Spawn เป้า (emoji) -----------------------------------------------
   _spawnTarget(){
     const el = document.createElement('button');
     el.type='button';
@@ -317,14 +377,32 @@ export class ShadowBreaker {
     el.style.position='absolute';
     el.style.width=size+'px';
     el.style.height=size+'px';
-    el.style.borderRadius=Math.random()<0.5?'50%':'12px';
-    el.style.border='2px solid rgba(250,250,250,0.9)';
-    el.style.background=Math.random()<0.5
-      ?'radial-gradient(circle at 30% 30%,#fde68a,#f59e0b)'
-      :'radial-gradient(circle at 70% 30%,#93c5fd,#3b82f6)';
-    el.style.boxShadow='0 6px 20px rgba(0,0,0,0.35)';
+    el.style.borderRadius='50%';
     el.style.cursor='pointer';
     el.style.userSelect='none';
+    el.style.display='flex';
+    el.style.alignItems='center';
+    el.style.justifyContent='center';
+    el.style.lineHeight='1';
+
+    const isFever = this.state && this.state.fever;
+    if(isFever){
+      el.style.background='radial-gradient(circle at 30% 30%,#fed7aa,#f97316)';
+      el.style.border='2px solid rgba(254,240,138,0.95)';
+      el.style.boxShadow='0 0 24px rgba(251,191,36,0.95)';
+    }else{
+      el.style.background=Math.random()<0.5
+        ?'radial-gradient(circle at 30% 30%,#e0f2fe,#3b82f6)'
+        :'radial-gradient(circle at 70% 30%,#fee2e2,#fb7185)';
+      el.style.border='2px solid rgba(248,250,252,0.9)';
+      el.style.boxShadow='0 6px 20px rgba(0,0,0,0.35)';
+    }
+
+    const icons = isFever ? ICONS_FEVER : ICONS_NORMAL;
+    const icon  = icons[Math.floor(Math.random()*icons.length)];
+    el.textContent = icon;
+    el.style.fontSize = Math.round(size*0.6)+'px';
+    el.style.textShadow='0 0 8px rgba(15,23,42,0.9)';
 
     const pad = 16;
     const rect = this.arena.getBoundingClientRect();
@@ -370,10 +448,14 @@ export class ShadowBreaker {
     this.state.combo++;
     this.state.bestCombo = Math.max(this.state.bestCombo, this.state.combo);
 
+    // coach: คอมโบ/FEVER
     if (!this.state.fever && this.state.combo >= FEVER_COMBO){
       this.state.fever = true;
       this._showFeverFx();
       SFX.fever();
+      this._coach('fever');
+    } else if (this.state.combo === 3 || this.state.combo === 7) {
+      this._coach('hitStreak');
     }
 
     this.state.score += gain;
@@ -394,6 +476,7 @@ export class ShadowBreaker {
     this._screenShake(10,true);
     this._hitFloat('MISS',true);
     SFX.miss();
+    this._coach('miss');
   }
 
   // ----- FX -----------------------------------------------------------------
@@ -493,6 +576,13 @@ export class ShadowBreaker {
     setTimeout(()=>ripple.remove(),600);
 
     const summary=this._buildSummary();
+
+    // ให้โค้ชพุ่งคอมเมนต์ตามระดับ Rank
+    let t='finalBad';
+    if(summary.rank==='SSS' || summary.rank==='S') t='finalGood';
+    else if(summary.rank==='A' || summary.rank==='B') t='finalOk';
+    this._coach(t);
+
     const ok=this._showResult(summary);
     if(!ok){
       const acc=(summary.accuracy*100).toFixed(1);
