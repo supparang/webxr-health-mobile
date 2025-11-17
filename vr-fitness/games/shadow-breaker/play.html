@@ -6,839 +6,595 @@
   <title>VR Fitness — Shadow Breaker</title>
   <meta name="color-scheme" content="dark light" />
   <style>
-    :root{
+    :root {
       color-scheme: dark;
-      --bg-main: #020617;
-      --bg-card: rgba(15,23,42,0.96);
-      --border-soft: rgba(148,163,184,0.6);
+      --bg: #020617;
+      --bg-card: #020617;
+      --panel: #020617;
+      --panel2: #020617;
+      --text: #e5e7eb;
       --accent: #38bdf8;
-      --accent-soft: rgba(56,189,248,0.18);
-      --accent-2: #a855f7;
+      --accent-soft: rgba(56,189,248,.15);
       --danger: #fb7185;
-      --good: #22c55e;
+      --ok: #4ade80;
+      --border-soft: #1f2937;
+      --shadow-soft: 0 18px 40px rgba(15,23,42,.9);
+      --radius-xl: 22px;
+      --radius-lg: 18px;
     }
-    *{box-sizing:border-box;}
-    body{
+    * { box-sizing:border-box; }
+    body {
       margin:0;
       min-height:100vh;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
       background:
-        radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%),
-        radial-gradient(circle at bottom right, rgba(129,140,248,0.18), transparent 55%),
-        var(--bg-main);
-      color:#e5e7eb;
-      padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
-               env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
-    }
-    .page{
-      max-width: 1080px;
-      margin: 12px auto 20px;
-      padding: 0 12px 20px;
+        radial-gradient(circle at 20% -10%, rgba(56,189,248,.25), transparent 55%),
+        radial-gradient(circle at 120% 110%, rgba(56,189,248,.08), transparent 55%),
+        radial-gradient(circle at -10% 130%, rgba(34,197,94,.16), transparent 55%),
+        #020617;
+      color:var(--text);
       display:flex;
-      flex-direction:column;
-      gap:12px;
+      justify-content:center;
     }
-    header.top-bar{
+    .shell {
+      width:100%;
+      max-width:1024px;
+      padding:16px 12px 32px;
+    }
+    header {
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:8px;
-      padding:10px 12px;
-      background: linear-gradient(90deg, rgba(15,23,42,0.96), rgba(15,23,42,0.86));
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.65);
-      box-shadow:0 18px 40px rgba(15,23,42,0.7);
-      position:sticky;
-      top:8px;
-      z-index:20;
-      backdrop-filter: blur(12px);
+      margin-bottom:12px;
     }
-    .top-bar-title{
+    .brand {
+      font-size:20px;
+      font-weight:700;
+      letter-spacing:.03em;
       display:flex;
-      flex-direction:column;
-      gap:2px;
+      align-items:center;
+      gap:8px;
     }
-    .top-bar-title strong{
-      font-size:15px;
-      letter-spacing:.05em;
-      text-transform:uppercase;
-      color:#e5e7eb;
-    }
-    .top-bar-title span{
+    .pill {
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(15,23,42,.85);
+      border:1px solid rgba(51,65,85,.8);
       font-size:12px;
-      color:#9ca3af;
-    }
-    .chip{
-      padding:2px 8px;
-      border-radius:999px;
-      font-size:11px;
-      border:1px solid rgba(148,163,184,0.7);
-      color:#e5e7eb;
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      background:rgba(15,23,42,0.9);
-    }
-    .chip b{color:var(--accent);}
-
-    .btn{
-      appearance:none;
-      border:none;
-      border-radius:999px;
-      padding:6px 14px;
-      font-size:13px;
       display:inline-flex;
       align-items:center;
       gap:6px;
-      cursor:pointer;
-      background:rgba(15,23,42,0.9);
-      color:#e5e7eb;
-      border:1px solid rgba(148,163,184,0.8);
-      transition: background .12s ease, transform .12s ease, box-shadow .12s ease;
     }
-    .btn-primary{
-      background:linear-gradient(135deg,#38bdf8,#4ade80);
-      color:#0b1120;
+    .back-btn {
       border:none;
-      box-shadow:0 12px 30px rgba(56,189,248,0.45);
-    }
-    .btn-danger{
-      background:linear-gradient(135deg,#fb7185,#f97316);
-      color:#0b1120;
-      border:none;
-      box-shadow:0 12px 30px rgba(248,113,113,0.45);
-    }
-    .btn:active{
-      transform:translateY(1px) scale(0.98);
-      box-shadow:none;
-    }
-
-    main.main{
-      display:grid;
-      grid-template-columns: minmax(0,1.2fr) minmax(0,1.4fr);
-      gap:12px;
-    }
-    @media (max-width: 900px){
-      main.main{
-        grid-template-columns: minmax(0,1fr);
-      }
-      header.top-bar{
-        position:static;
-      }
-    }
-
-    .panel{
-      background: var(--bg-card);
-      border-radius:20px;
-      border:1px solid var(--border-soft);
-      padding:10px 12px 12px;
-      box-shadow:0 18px 40px rgba(15,23,42,0.7);
-    }
-    .panel h2{
-      margin:0 0 8px;
+      border-radius:999px;
+      padding:8px 14px;
       font-size:14px;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      color:#e5e7eb;
-      display:flex;
+      display:inline-flex;
       align-items:center;
       gap:6px;
-    }
-    .panel h2 span.emoji{font-size:17px;}
-    .panel p{
-      margin:2px 0;
-      font-size:13px;
-      color:#9ca3af;
-    }
-
-    .stats-row{
-      margin-top:6px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-    }
-    .stat-pill{
-      flex:1 1 80px;
-      min-width:80px;
-      background:rgba(15,23,42,0.9);
-      border-radius:14px;
-      padding:6px 8px;
-      border:1px solid rgba(148,163,184,0.7);
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-    .stat-pill label{
-      font-size:11px;
-      color:#9ca3af;
-    }
-    .stat-pill span{
-      font-size:13px;
+      background:#38bdf8;
+      color:#0f172a;
       font-weight:600;
-      color:#e5e7eb;
+      text-decoration:none;
+      cursor:pointer;
+      box-shadow:0 10px 30px rgba(56,189,248,.4);
+      white-space:nowrap;
+    }
+    .back-btn span { font-size:18px; }
+
+    .meta-grid {
+      display:grid;
+      grid-template-columns:1.15fr 1.1fr;
+      gap:14px;
+      margin-bottom:14px;
+    }
+    @media (max-width:760px) {
+      .meta-grid { grid-template-columns:1fr; }
     }
 
-    /* GAME PANEL */
-    .hud-bar{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-bottom:8px;
+    .card {
+      background:radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 55%),
+                 radial-gradient(circle at bottom right, rgba(15,23,42,.9), #020617);
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(15,23,42,.9);
+      box-shadow:var(--shadow-soft);
+      padding:14px 14px 16px;
     }
-    .hud-chip{
-      flex:1 1 70px;
-      min-width:70px;
-      border-radius:12px;
-      padding:4px 8px;
-      background:rgba(15,23,42,0.9);
-      border:1px solid rgba(148,163,184,0.7);
-      display:flex;
-      flex-direction:column;
-      gap:1px;
-    }
-    .hud-chip label{
-      font-size:11px;
-      color:#9ca3af;
-      display:flex;
-      align-items:center;
-      gap:4px;
-    }
-    .hud-chip span{
+    .card h2 {
+      margin:0 0 10px;
       font-size:15px;
       font-weight:700;
-      color:#e5e7eb;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .card h2 span { font-size:17px; }
+
+    .meta-form {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+      font-size:13px;
+    }
+    .meta-form .full { grid-column:1 / -1; }
+    .field label {
+      display:block;
+      margin-bottom:2px;
+      font-size:12px;
+      opacity:.9;
+    }
+    .field input,
+    .field select {
+      width:100%;
+      padding:6px 8px;
+      border-radius:10px;
+      border:1px solid rgba(51,65,85,.9);
+      background:rgba(15,23,42,.8);
+      color:var(--text);
+      font-size:13px;
+      outline:none;
+    }
+    .field input::placeholder { color:#6b7280; }
+
+    .tag-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      font-size:11px;
+      opacity:.9;
+    }
+    .tag {
+      padding:4px 8px;
+      border-radius:999px;
+      background:rgba(15,23,42,.8);
+      border:1px dashed rgba(55,65,81,.8);
+    }
+    .lang-toggle {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
+      font-size:12px;
+      margin-bottom:6px;
+    }
+    .lang-toggle button {
+      border-radius:999px;
+      border:1px solid rgba(51,65,85,.9);
+      padding:3px 10px;
+      background:rgba(15,23,42,.9);
+      color:#9ca3af;
+      font-size:11px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .lang-toggle button.active {
+      background:#38bdf8;
+      color:#0f172a;
+      border-color:#38bdf8;
     }
 
-    .sb-arena-wrap{
-      position:relative;
-      margin-top:2px;
+    .hud-card {
+      background:radial-gradient(circle at top, rgba(148,163,184,.1), transparent 50%),
+                 rgba(15,23,42,.96);
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(30,64,175,.7);
+      box-shadow:var(--shadow-soft);
+      padding:10px 14px 14px;
     }
-    .sb-arena{
+    .hud-row1 {
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:8px;
+    }
+    .metric-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .metric {
+      min-width:88px;
+      padding:6px 10px;
+      border-radius:12px;
+      border:1px solid rgba(30,64,175,.75);
+      background:linear-gradient(135deg, rgba(15,23,42,.96), rgba(17,24,39,.96));
+      text-align:center;
+      font-size:11px;
+    }
+    .metric-label {
+      opacity:.7;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+      font-size:10px;
+    }
+    .metric-value {
+      margin-top:2px;
+      font-weight:700;
+      font-size:15px;
+    }
+    .metric-value small { font-size:11px; opacity:.7; }
+
+    .start-btn {
+      border:none;
+      border-radius:999px;
+      padding:8px 22px;
+      font-size:15px;
+      font-weight:700;
+      background:radial-gradient(circle at 20% 0%, #facc15, #fb923c);
+      color:#0f172a;
+      cursor:pointer;
+      box-shadow:0 16px 35px rgba(250,204,21,.55);
+      display:flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+    }
+    .start-btn span { font-size:18px; }
+
+    .hud-row2 {
+      font-size:13px;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid rgba(31,41,55,.8);
+      background:rgba(15,23,42,.92);
+      margin-bottom:10px;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .game-frame {
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(30,64,175,.7);
+      background:radial-gradient(circle at 20% -10%, rgba(59,130,246,.3), transparent 55%),
+                 radial-gradient(circle at 120% 120%, rgba(14,165,233,.22), transparent 55%),
+                 radial-gradient(circle at -5% 120%, rgba(34,197,94,.16), transparent 65%),
+                 #020617;
+      padding:12px;
+      min-height:260px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    @media (min-height:740px) {
+      .game-frame { min-height:310px; }
+    }
+    .game-area {
       position:relative;
       width:100%;
-      height:min(460px, 62vh);
+      max-width:640px;
+      aspect-ratio:16/9;
       border-radius:22px;
-      background:
-        radial-gradient(circle at 20% 0%, rgba(56,189,248,0.28), transparent 55%),
-        radial-gradient(circle at 80% 100%, rgba(52,211,153,0.32), transparent 60%),
-        radial-gradient(circle at 50% 40%, rgba(30,64,175,0.92), #020617);
-      border:1px solid rgba(148,163,184,0.75);
-      box-shadow:
-        0 0 0 1px rgba(15,23,42,0.9),
-        0 16px 40px rgba(15,23,42,0.9);
       overflow:hidden;
+      background:radial-gradient(circle at top, rgba(15,23,42,.2), transparent 60%),
+                 linear-gradient(180deg,#020617,#020617 60%,#020617);
+      border:1px solid rgba(15,23,42,.9);
     }
-    .status-line{
-      margin:4px 2px 0;
-      font-size:13px;
-      color:#cbd5f5;
-      min-height:20px;
+    .game-area.shake {
+      animation:shake .25s ease-in-out;
+    }
+    @keyframes shake {
+      0% { transform:translate(0,0); }
+      20% { transform:translate(-6px,3px); }
+      40% { transform:translate(5px,-4px); }
+      60% { transform:translate(-4px,2px); }
+      80% { transform:translate(3px,0); }
+      100% { transform:translate(0,0); }
+    }
+    .target {
+      position:absolute;
+      width:76px;
+      height:76px;
+      border-radius:999px;
+      border:none;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:32px;
+      box-shadow:0 14px 30px rgba(15,23,42,.8);
+      transition:transform .09s ease-out, opacity .09s ease-out;
+    }
+    .target.normal {
+      background:radial-gradient(circle at 20% 0%, #38bdf8, #0f172a);
+    }
+    .target.fever {
+      background:radial-gradient(circle at 10% -10%, #facc15, #f97316);
+      box-shadow:0 16px 40px rgba(250,204,21,.55);
+    }
+    .target.boss {
+      width:120px;
+      height:120px;
+      font-size:40px;
+      background:radial-gradient(circle at 15% 0%, #f97316, #7c2d12);
+      box-shadow:0 22px 50px rgba(248,113,113,.7);
+    }
+    .target.hit { transform:scale(.75); opacity:0; }
+
+    .fever-badge {
+      position:absolute;
+      top:10px;
+      right:12px;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:700;
+      background:rgba(251,191,36,.95);
+      color:#111827;
+      box-shadow:0 14px 35px rgba(250,204,21,.75);
     }
 
-    .control-row{
-      margin-top:8px;
+    .coach-hint {
+      margin-top:6px;
+      font-size:12px;
+      opacity:.95;
+    }
+
+    .bottom-row {
+      margin-top:10px;
+      font-size:12px;
       display:flex;
       flex-wrap:wrap;
-      gap:6px;
-      justify-content:flex-end;
+      gap:8px;
+      align-items:center;
+      justify-content:space-between;
+      opacity:.9;
     }
 
-    /* Result card */
-    .sb-result-card{
-      margin-top:6px;
-      padding:10px 12px;
-      border-radius:18px;
-      background: radial-gradient(circle at top left, rgba(56,189,248,0.18), transparent 55%), rgba(15,23,42,0.98);
-      border:1px solid rgba(129,140,248,0.9);
-      display:none;
-      flex-direction:column;
+    /* Result modal */
+    .overlay {
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.86);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:40;
+      padding:14px;
+      backdrop-filter:blur(9px);
+    }
+    .overlay.hidden { display:none; }
+    .result-card {
+      width:100%;
+      max-width:420px;
+      border-radius:var(--radius-xl);
+      border:1px solid rgba(30,64,175,.8);
+      background:radial-gradient(circle at top left, rgba(59,130,246,.35), transparent 55%),
+                 radial-gradient(circle at bottom right, rgba(15,23,42,.98), #020617);
+      box-shadow:var(--shadow-soft);
+      padding:18px 18px 16px;
+    }
+    .result-card h2 {
+      margin:0 0 10px;
+      font-size:17px;
+      display:flex;
+      align-items:center;
       gap:8px;
     }
-    .sb-result-head{
+    .result-row {
       display:flex;
       justify-content:space-between;
-      gap:8px;
-      align-items:center;
+      font-size:13px;
+      margin-bottom:4px;
     }
-    .sb-rank-badge{
-      padding:4px 10px;
-      border-radius:999px;
-      background:rgba(15,23,42,0.96);
-      border:1px solid rgba(250,204,21,0.9);
-      font-size:12px;
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-    }
-    .sb-rank-badge span.rank{
-      font-size:17px;
-      font-weight:800;
-      color:#facc15;
-    }
-    .sb-result-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:6px;
-      margin-top:4px;
-    }
-    .sb-result-item{
-      background:rgba(15,23,42,0.96);
-      border-radius:14px;
-      padding:6px 8px;
-      border:1px solid rgba(148,163,184,0.7);
-      display:flex;
-      flex-direction:column;
-      gap:2px;
-    }
-    .sb-result-item label{
-      font-size:11px;
-      color:#9ca3af;
-    }
-    .sb-result-item span{
-      font-size:14px;
-      font-weight:600;
-    }
-    .sb-result-actions{
+    .result-row strong { font-weight:600; }
+    .result-row span:last-child { font-weight:600; }
+    .btn-row {
       display:flex;
       flex-wrap:wrap;
-      gap:6px;
-      justify-content:flex-end;
-      margin-top:4px;
+      gap:8px;
+      margin-top:12px;
     }
-
-    /* FX for floating text / fever / finish ripple */
-    @keyframes sbHitFloat{
-      from{ transform:translate(-50%,-50%) translateY(0); opacity:1; }
-      to{ transform:translate(-50%,-50%) translateY(-32px); opacity:0; }
-    }
-    @keyframes feverFlash{
-      0%{   transform:translate(-50%,-50%) scale(0.8); opacity:0; }
-      40%{  transform:translate(-50%,-50%) scale(1.1); opacity:1; }
-      100%{ transform:translate(-50%,-50%) scale(1);   opacity:0; }
-    }
-    .sb-finish-ripple{
-      position:fixed;
-      left:50%;
-      top:50%;
-      width:10px;
-      height:10px;
+    .btn {
+      flex:1 1 0;
       border-radius:999px;
-      border:2px solid rgba(248,250,252,0.8);
-      transform:translate(-50%,-50%);
-      pointer-events:none;
-      animation:sbRipple 0.6s ease-out forwards;
-      z-index:9999;
-    }
-    @keyframes sbRipple{
-      from{
-        opacity:.7;
-        transform:translate(-50%,-50%) scale(1);
-      }
-      to{
-        opacity:0;
-        transform:translate(-50%,-50%) scale(18);
-      }
-    }
-
-    /* === VR MODE LAYOUT === */
-    body.vr-mode .page{
-      max-width: 880px;
-    }
-    body.vr-mode .main{
-      grid-template-columns: minmax(0,1fr);
-    }
-    body.vr-mode .main .panel:first-of-type{
-      display:none;
-    }
-    body.vr-mode .sb-arena{
-      height: min(80vh, 560px);
-    }
-    body.vr-mode header.top-bar{
-      transform:scale(0.96);
-      opacity:0.94;
-    }
-
-    /* Language toggle */
-    .lang-toggle{
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      padding-left:4px;
-      border-left:1px solid rgba(148,163,184,0.5);
-    }
-    .btn-lang{
-      padding:4px 10px;
-      font-size:11px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.8);
-      background:rgba(15,23,42,0.9);
-      color:#e5e7eb;
-    }
-    .btn-lang-active{
-      background:linear-gradient(135deg,#38bdf8,#a855f7);
-      color:#0b1120;
       border:none;
+      padding:8px 14px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    .btn-primary {
+      background:#22c55e;
+      color:#052e16;
+      box-shadow:0 14px 30px rgba(34,197,94,.65);
+    }
+    .btn-secondary {
+      background:#e5e7eb;
+      color:#111827;
+    }
+    .btn-ghost {
+      flex-basis:100%;
+      border-radius:999px;
+      border:1px dashed rgba(148,163,184,.9);
+      background:rgba(15,23,42,.9);
+      color:#e5e7eb;
+      font-size:12px;
+      padding:7px 10px;
+    }
+    .btn-ghost span { font-size:14px; }
+
+    @media (max-width:480px) {
+      header { flex-direction:column; align-items:flex-start; gap:6px; }
+      .back-btn { align-self:flex-end; }
+      .metric { min-width:80px; }
+      .start-btn { width:100%; justify-content:center; }
+      .hud-row1 { gap:10px; }
+      .meta-form { grid-template-columns:1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="page">
-    <header class="top-bar">
-      <div class="top-bar-title">
-        <strong id="uiHeaderTitle">VR FITNESS • SHADOW BREAKER</strong>
-        <span id="uiHeaderTagline">ต่อยมือตามเป้า • เก็บคอมโบ • สู้บอส 4 ด่าน</span>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <span>🥊</span>
+        <span>VR Fitness — Shadow Breaker</span>
+        <span class="pill">Hybrid · Research + Demo</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <span class="chip" id="uiChipResearch">🎯 พร้อมใช้ในงานวิจัย</span>
-        <span class="chip" id="uiChipDevices">📱 PC · Mobile · VR</span>
-        <div class="lang-toggle">
-          <button class="btn btn-lang btn-lang-active" data-lang="th">ไทย</button>
-          <button class="btn btn-lang" data-lang="en">EN</button>
-        </div>
-      </div>
+      <a href="../../index.html" class="back-btn">
+        <span>←</span><span>Back to Hub</span>
+      </a>
     </header>
 
-    <main class="main">
-      <!-- LEFT: Info / instructions -->
-      <section class="panel">
-        <h2>
-          <span class="emoji">📘</span>
-          <span id="uiGuideTitle">คู่มือรอบนี้ / Session Notes</span>
-        </h2>
-        <p id="uiGuideGoal">
-          เป้าหมาย: เพิ่มความไวในการตอบสนองของแขนและสายตา ฝึกความแม่นของหมัด พร้อมเก็บข้อมูลสำหรับงานวิจัย.
-        </p>
-        <p id="uiGuideHowTitle">วิธีเล่นสั้น ๆ:</p>
-        <ul style="margin:4px 0 4px 18px;padding:0;font-size:13px;color:#9ca3af;">
-          <li id="uiGuideHow1">กด <b>เริ่มรอบ</b> แล้วแตะ/ชกที่เป้า emoji ให้ไวที่สุด</li>
-          <li id="uiGuideHow2">คอมโบไม่หลุดถึง <b>5</b> จะเข้าโหมด <b>FEVER</b> (คะแนนคูณ)</li>
-          <li id="uiGuideHow3">ระหว่างทางจะมีบอส 4 ตัว จากง่ายไปยาก ลองตีให้แตกทุกตัว</li>
-        </ul>
-
-        <div class="stats-row" style="margin-top:8px;">
-          <div class="stat-pill">
-            <label id="uiInfoModeLabel">โหมด / Mode</label>
-            <span id="sbModeLabel">Timed</span>
+    <div class="meta-grid">
+      <!-- Left: Research meta -->
+      <section class="card" id="metaCard">
+        <h2><span>📊</span><span id="metaTitle">ข้อมูลสำหรับงานวิจัย</span></h2>
+        <div class="meta-form">
+          <div class="field">
+            <label for="studentId">Student ID</label>
+            <input id="studentId" type="text" placeholder="เช่น 65001"
+                   autocomplete="off" />
           </div>
-          <div class="stat-pill">
-            <label id="uiInfoDiffLabel">ความยาก / Difficulty</label>
-            <span id="sbDiffLabel">Normal</span>
+          <div class="field">
+            <label for="deviceType">Device</label>
+            <select id="deviceType">
+              <option value="auto">Auto detect</option>
+              <option value="mobile">Mobile / Tablet</option>
+              <option value="pc">PC / Laptop</option>
+              <option value="vr">VR Headset</option>
+            </select>
           </div>
-          <div class="stat-pill">
-            <label id="uiInfoDeviceLabel">อุปกรณ์ที่ใช้ / Device</label>
-            <span id="sbDeviceLabel">—</span>
+          <div class="field full">
+            <label for="schoolName">School</label>
+            <input id="schoolName" type="text" placeholder="ชื่อโรงเรียน / สถาบัน" />
+          </div>
+          <div class="field">
+            <label for="classRoom">Class / Room</label>
+            <input id="classRoom" type="text" placeholder="เช่น ป.5/1" />
+          </div>
+          <div class="field">
+            <label for="note">Note (optional)</label>
+            <input id="note" type="text" placeholder="ทดลองก่อนจริง / กลุ่มควบคุม ฯลฯ" />
           </div>
         </div>
-
-        <h2 style="margin-top:10px;">
-          <span class="emoji">📊</span>
-          <span id="uiLiveTitle">สถานะระหว่างเล่น / Live Stats</span>
-        </h2>
-        <div class="stats-row">
-          <div class="stat-pill">
-            <label id="uiLiveScoreLabel">คะแนนระหว่างเล่น</label>
-            <span id="sbScoreLive">0</span>
-          </div>
-          <div class="stat-pill">
-            <label id="uiLiveHitsLabel">โดนเป้า / Hits</label>
-            <span id="sbHitsLive">0</span>
-          </div>
-          <div class="stat-pill">
-            <label id="uiLiveMissLabel">พลาด / Miss</label>
-            <span id="sbMissLive">0</span>
-          </div>
-          <div class="stat-pill">
-            <label id="uiLiveComboLabel">คอมโบล่าสุด</label>
-            <span id="sbComboLive">x0</span>
-          </div>
+        <div class="coach-hint" id="metaHint">
+          กรอกเพียงครั้งเดียวก่อนเริ่ม วัดผลแต่ละรอบจะถูกบันทึกเป็น 1 session
         </div>
       </section>
 
-      <!-- RIGHT: Game -->
-      <section class="panel">
-        <h2>
-          <span class="emoji">🎮</span>
-          <span id="uiPlayTitle">เล่นเกม / Play</span>
-        </h2>
+      <!-- Right: HUD -->
+      <section class="hud-card">
+        <div class="lang-toggle">
+          <span>Language:</span>
+          <button type="button" data-lang="th" class="active">TH</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
 
-        <div class="hud-bar">
-          <div class="hud-chip">
-            <label id="uiHudTimeLabel">เวลา / Time ⏱</label>
-            <span id="sbTime">90</span>
+        <div class="hud-row1">
+          <div class="metric-row">
+            <div class="metric">
+              <div class="metric-label" id="lblTime">TIME</div>
+              <div class="metric-value"><span id="timeVal">90</span><small>s</small></div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblScore">SCORE</div>
+              <div class="metric-value" id="scoreVal">0</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblHit">HIT</div>
+              <div class="metric-value" id="hitVal">0</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblMiss">MISS</div>
+              <div class="metric-value" id="missVal">0</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label" id="lblCombo">COMBO</div>
+              <div class="metric-value"><span id="comboVal">x0</span></div>
+            </div>
           </div>
-          <div class="hud-chip">
-            <label id="uiHudScoreLabel">คะแนน / Score</label>
-            <span id="sbScoreLiveHUD">0</span>
-          </div>
-          <div class="hud-chip">
-            <label id="uiHudHitsLabel">โดน / Miss 🥊</label>
-            <span><span id="sbHitsLiveHUD">0</span> / <span id="sbMissLiveHUD">0</span></span>
-          </div>
-          <div class="hud-chip">
-            <label id="uiHudComboLabel">คอมโบ / Combo</label>
-            <span id="sbComboLiveHUD">x0</span>
+          <button type="button" class="start-btn" id="startBtn">
+            <span>▶</span><span id="startLabel">เริ่มเล่น</span>
+          </button>
+        </div>
+
+        <div class="hud-row2" id="coachLine">
+          โค้ชพุ่ง: แตะเป้าที่โผล่มาให้ไวที่สุด! 🔥
+        </div>
+
+        <div class="game-frame">
+          <div class="game-area" id="gameArea">
+            <!-- FEVER badge อยู่ในนี้ -->
+            <div class="fever-badge" id="feverBadge" style="display:none;">FEVER!! ✨</div>
           </div>
         </div>
 
-        <div class="sb-arena-wrap">
-          <div id="sbArena" class="sb-arena"></div>
-          <p id="sbStatus" class="status-line coach-line">โค้ชพุ่งกำลังเตรียมเป้าให้...</p>
-        </div>
-
-        <div class="control-row">
-          <button id="sbStartBtn" class="btn btn-primary">▶ เริ่มรอบ</button>
-          <button id="sbPauseBtn" class="btn">⏸ พัก</button>
-          <button id="sbExitBtn" class="btn btn-danger">⏮ กลับเมนู</button>
-        </div>
-
-        <!-- Result card -->
-        <div id="sbResultCard" class="sb-result-card">
-          <div class="sb-result-head">
-            <div>
-              <div style="font-size:13px;color:#e5e7eb;font-weight:600;" id="uiResultTitle">
-                สรุปรอบนี้ / Session Result
-              </div>
-              <div style="font-size:12px;color:#9ca3af;" id="sbResultMeta">Shadow Breaker • 90s</div>
-            </div>
-            <div class="sb-rank-badge">
-              <span>RANK</span>
-              <span id="sbRank" class="rank">C</span>
-            </div>
-          </div>
-
-          <div class="sb-result-grid">
-            <div class="sb-result-item">
-              <label id="uiResultScoreLabel">คะแนนรวม / Score</label>
-              <span id="sbScore">0</span>
-            </div>
-            <div class="sb-result-item">
-              <label id="uiResultHitsLabel">โดนเป้า / Hits</label>
-              <span id="sbHits">0</span>
-            </div>
-            <div class="sb-result-item">
-              <label id="uiResultMissLabel">พลาด / Miss</label>
-              <span id="sbMiss">0</span>
-            </div>
-            <div class="sb-result-item">
-              <label id="uiResultAccLabel">ความแม่นยำ / Accuracy</label>
-              <span id="sbAcc">0%</span>
-            </div>
-            <div class="sb-result-item">
-              <label id="uiResultBestLabel">คอมโบสูงสุด / Best Combo</label>
-              <span id="sbBest">x0</span>
-            </div>
-            <div class="sb-result-item">
-              <label id="uiResultNpmLabel">โน้ตต่อนาที / Notes per min</label>
-              <span id="sbNPM">0</span>
-            </div>
-          </div>
-
-          <div class="sb-result-actions">
-            <button id="sbCsvBtn" class="btn"  >⬇ Export CSV</button>
-            <button id="sbPdfBtn" class="btn"  >📄 Export PDF</button>
+        <div class="bottom-row">
+          <div class="tag-row">
+            <span class="tag" id="tagGoal">เป้าหมาย: ทดสอบความไว + ความแม่น</span>
+            <span class="tag">Hybrid: PC · Mobile · VR</span>
           </div>
         </div>
       </section>
-    </main>
+    </div>
   </div>
 
-  <script type="module">
-    import { ShadowBreaker } from './shadow-breaker.js';
+  <!-- Result overlay -->
+  <div class="overlay hidden" id="resultOverlay">
+    <div class="result-card">
+      <h2 id="resultTitle">🏁 สรุปผลการเล่น</h2>
+      <div class="result-row">
+        <strong id="rScoreLabel">Score</strong>
+        <span id="rScore">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rHitLabel">Hits</strong>
+        <span id="rHit">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rMissLabel">Miss</strong>
+        <span id="rMiss">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rAccLabel">Accuracy</strong>
+        <span id="rAcc">0%</span>
+      </div>
+      <div class="result-row">
+        <strong id="rComboLabel">Best Combo</strong>
+        <span id="rCombo">x0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rFeverLabel">FEVER count</strong>
+        <span id="rFever">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rBossLabel">Boss cleared</strong>
+        <span id="rBoss">0</span>
+      </div>
+      <div class="result-row">
+        <strong id="rTimeUsedLabel">Played</strong>
+        <span id="rTimeUsed">0s</span>
+      </div>
 
-    // ======= TEXT DICTIONARY: UI (TH/EN) =======
-    const UI_STR = {
-      th: {
-        headerTitle   : 'VR FITNESS • SHADOW BREAKER',
-        headerTagline : 'ต่อยมือตามเป้า • เก็บคอมโบ • สู้บอส 4 ด่าน',
-        chipResearch  : '🎯 พร้อมใช้ในงานวิจัย',
-        chipDevices   : '📱 PC · Mobile · VR',
+      <div class="btn-row">
+        <button class="btn btn-primary" id="playAgainBtn">
+          <span>🔁</span><span id="playAgainLabel">เล่นอีกครั้ง</span>
+        </button>
+        <button class="btn btn-secondary" id="backHubBtn">
+          <span>🏠</span><span id="backHubLabel">กลับเมนู</span>
+        </button>
+        <button class="btn btn-ghost" id="downloadCsvBtn">
+          <span>📥</span><span id="downloadCsvLabel">ดาวน์โหลด CSV วิจัย (ทุก session)</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
-        guideTitle    : 'คู่มือรอบนี้ / Session Notes',
-        guideGoal     : 'เป้าหมาย: เพิ่มความไวในการตอบสนองของแขนและสายตา ฝึกความแม่นของหมัด พร้อมเก็บข้อมูลสำหรับงานวิจัย.',
-        guideHowTitle : 'วิธีเล่นสั้น ๆ:',
-        guideHow1     : 'กด ▶ เริ่มรอบ แล้วแตะ/ชกที่เป้า emoji ให้ไวที่สุด',
-        guideHow2     : 'คอมโบไม่หลุดถึง 5 จะเข้าโหมด FEVER (คะแนนคูณ)',
-        guideHow3     : 'ระหว่างทางจะมีบอส 4 ตัว จากง่ายไปยาก ลองตีให้แตกทุกตัว',
-
-        infoModeLabel : 'โหมด / Mode',
-        infoDiffLabel : 'ความยาก / Difficulty',
-        infoDeviceLabel:'อุปกรณ์ที่ใช้ / Device',
-
-        liveTitle     : 'สถานะระหว่างเล่น / Live Stats',
-        liveScoreLabel: 'คะแนนระหว่างเล่น',
-        liveHitsLabel : 'โดนเป้า / Hits',
-        liveMissLabel : 'พลาด / Miss',
-        liveComboLabel: 'คอมโบล่าสุด',
-
-        playTitle     : 'เล่นเกม / Play',
-        hudTimeLabel  : 'เวลา / Time ⏱',
-        hudScoreLabel : 'คะแนน / Score',
-        hudHitsLabel  : 'โดน / Miss 🥊',
-        hudComboLabel : 'คอมโบ / Combo',
-
-        resultTitle   : 'สรุปรอบนี้ / Session Result',
-        resultScoreLabel: 'คะแนนรวม / Score',
-        resultHitsLabel : 'โดนเป้า / Hits',
-        resultMissLabel : 'พลาด / Miss',
-        resultAccLabel  : 'ความแม่นยำ / Accuracy',
-        resultBestLabel : 'คอมโบสูงสุด / Best Combo',
-        resultNpmLabel  : 'โน้ตต่อนาที / Notes per min',
-
-        csvBtn        : '⬇ ดาวน์โหลด CSV',
-        pdfBtn        : '📄 ดาวน์โหลด PDF',
-
-        btnStart      : '▶ เริ่มรอบ',
-        btnPause      : '⏸ พัก',
-        btnResume     : '▶ ต่อ',
-        btnExit       : '⏮ กลับเมนู'
-      },
-      en: {
-        headerTitle   : 'VR FITNESS • SHADOW BREAKER',
-        headerTagline : 'Punch targets • Build combos • Fight 4 bosses',
-        chipResearch  : '🎯 Research-ready',
-        chipDevices   : '📱 PC · Mobile · VR',
-
-        guideTitle    : 'Session Guide / Notes',
-        guideGoal     : 'Goal: Train eye–hand reaction speed and punching accuracy, with data ready for research use.',
-        guideHowTitle : 'How to play:',
-        guideHow1     : 'Press ▶ Start, then tap/punch the emoji targets as fast as you can.',
-        guideHow2     : 'Keep combo ≥ 5 to enter FEVER mode (bonus score).',
-        guideHow3     : 'Four bosses will appear from easy to hard — try to beat them all.',
-
-        infoModeLabel : 'Mode',
-        infoDiffLabel : 'Difficulty',
-        infoDeviceLabel:'Device',
-
-        liveTitle     : 'Live Stats',
-        liveScoreLabel: 'Live score',
-        liveHitsLabel : 'Hits',
-        liveMissLabel : 'Misses',
-        liveComboLabel: 'Last combo',
-
-        playTitle     : 'Play',
-        hudTimeLabel  : 'Time ⏱',
-        hudScoreLabel : 'Score',
-        hudHitsLabel  : 'Hits / Miss',
-        hudComboLabel : 'Combo',
-
-        resultTitle   : 'Session Result',
-        resultScoreLabel: 'Total score',
-        resultHitsLabel : 'Hits',
-        resultMissLabel : 'Misses',
-        resultAccLabel  : 'Accuracy',
-        resultBestLabel : 'Best combo',
-        resultNpmLabel  : 'Notes per min',
-
-        csvBtn        : '⬇ Export CSV',
-        pdfBtn        : '📄 Export PDF',
-
-        btnStart      : '▶ Start',
-        btnPause      : '⏸ Pause',
-        btnResume     : '▶ Resume',
-        btnExit       : '⏮ Back to hub'
-      }
-    };
-
-    function applyUILang(lang, game){
-      const d = UI_STR[lang] || UI_STR.th;
-      const map = [
-        ['uiHeaderTitle',    'headerTitle'],
-        ['uiHeaderTagline',  'headerTagline'],
-        ['uiChipResearch',   'chipResearch'],
-        ['uiChipDevices',    'chipDevices'],
-
-        ['uiGuideTitle',     'guideTitle'],
-        ['uiGuideGoal',      'guideGoal'],
-        ['uiGuideHowTitle',  'guideHowTitle'],
-        ['uiGuideHow1',      'guideHow1'],
-        ['uiGuideHow2',      'guideHow2'],
-        ['uiGuideHow3',      'guideHow3'],
-
-        ['uiInfoModeLabel',  'infoModeLabel'],
-        ['uiInfoDiffLabel',  'infoDiffLabel'],
-        ['uiInfoDeviceLabel','infoDeviceLabel'],
-
-        ['uiLiveTitle',      'liveTitle'],
-        ['uiLiveScoreLabel', 'liveScoreLabel'],
-        ['uiLiveHitsLabel',  'liveHitsLabel'],
-        ['uiLiveMissLabel',  'liveMissLabel'],
-        ['uiLiveComboLabel', 'liveComboLabel'],
-
-        ['uiPlayTitle',      'playTitle'],
-        ['uiHudTimeLabel',   'hudTimeLabel'],
-        ['uiHudScoreLabel',  'hudScoreLabel'],
-        ['uiHudHitsLabel',   'hudHitsLabel'],
-        ['uiHudComboLabel',  'hudComboLabel'],
-
-        ['uiResultTitle',       'resultTitle'],
-        ['uiResultScoreLabel',  'resultScoreLabel'],
-        ['uiResultHitsLabel',   'resultHitsLabel'],
-        ['uiResultMissLabel',   'resultMissLabel'],
-        ['uiResultAccLabel',    'resultAccLabel'],
-        ['uiResultBestLabel',   'resultBestLabel'],
-        ['uiResultNpmLabel',    'resultNpmLabel']
-      ];
-
-      for (const [id,key] of map){
-        const el = document.getElementById(id);
-        if (el && d[key]) el.textContent = d[key];
-      }
-
-      const csvBtn = document.getElementById('sbCsvBtn');
-      if (csvBtn) csvBtn.textContent = d.csvBtn || csvBtn.textContent;
-
-      const pdfBtn = document.getElementById('sbPdfBtn');
-      if (pdfBtn) pdfBtn.textContent = d.pdfBtn || pdfBtn.textContent;
-
-      const startBtn = document.getElementById('sbStartBtn');
-      const pauseBtn = document.getElementById('sbPauseBtn');
-      const exitBtn  = document.getElementById('sbExitBtn');
-
-      if (startBtn) startBtn.textContent = d.btnStart || startBtn.textContent;
-      if (exitBtn)  exitBtn.textContent  = d.btnExit  || exitBtn.textContent;
-
-      if (pauseBtn){
-        const running = game && game.state && game.state.running && !game.state.paused;
-        pauseBtn.textContent = running ? (d.btnPause || pauseBtn.textContent)
-                                       : (d.btnResume|| pauseBtn.textContent);
-      }
-
-      const statusEl = document.getElementById('sbStatus');
-      if (statusEl && game && game.str && game.str.msgReady){
-        statusEl.textContent = game.str.msgReady;
-      }
-    }
-
-    // ======= CONFIG สำหรับงานวิจัย / หลายห้อง =======
-    window.__SB_CONFIG = Object.assign({
-      siteId    : 'DemoSite',
-      roomId    : 'P5-ShadowLab',
-      sessionTag: 'pilot-1'
-    }, window.__SB_CONFIG || {});
-
-    window.addEventListener('DOMContentLoaded', () => {
-      const qs = new URLSearchParams(location.search);
-      const diff = qs.get('diff') || 'normal';
-      const mode = qs.get('mode') || 'timed';
-      const time = parseInt(qs.get('time') || '90', 10);
-
-      const ua = navigator.userAgent || '';
-      const isVRHeadset = /Quest|Oculus|Pico|Vive|VR/i.test(ua);
-      const forceVR = qs.get('view') === 'vr';
-
-      if (isVRHeadset || forceVR) {
-        document.body.classList.add('vr-mode');
-      }
-
-      let device = 'PC';
-      if (isVRHeadset) device = 'VR';
-      else if (/Mobile|Android|iPhone/i.test(ua)) device = 'Mobile';
-
-      const diffLabel = document.getElementById('sbDiffLabel');
-      const modeLabel = document.getElementById('sbModeLabel');
-      if (diffLabel) diffLabel.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
-      if (modeLabel) modeLabel.textContent = mode === 'timed' ? 'Timed' : mode;
-
-      const deviceLabel = document.getElementById('sbDeviceLabel');
-      if (deviceLabel) deviceLabel.textContent = device;
-
-      const arena = document.getElementById('sbArena');
-
-      const game = new ShadowBreaker({
-        arena,
-        hud: {
-          time : document.getElementById('sbTime'),
-          score: document.getElementById('sbScoreLiveHUD'),
-          hits : document.getElementById('sbHitsLiveHUD'),
-          miss : document.getElementById('sbMissLiveHUD'),
-          combo: document.getElementById('sbComboLiveHUD')
-        },
-        msgBox: document.getElementById('sbStatus'),
-        result: {
-          box : document.getElementById('sbResultCard'),
-          score: document.getElementById('sbScore'),
-          hits : document.getElementById('sbHits'),
-          miss : document.getElementById('sbMiss'),
-          acc  : document.getElementById('sbAcc'),
-          best : document.getElementById('sbBest'),
-          rank : document.getElementById('sbRank')
-        },
-        csvBtn: document.getElementById('sbCsvBtn'),
-        pdfBtn: document.getElementById('sbPdfBtn'),
-        onExit(summary){
-          window.location.href = './index.html';
-        }
-      });
-
-      // เก็บไว้ให้ applyUILang ใช้
-      window.__sbGameInstance = game;
-
-      const $ = (id)=>document.getElementById(id);
-      const mirror = () => {
-        if (!game || !game.state) return;
-        const s = game.state;
-        if ($('sbScoreLive'))     $('sbScoreLive').textContent = s.score;
-        if ($('sbHitsLive'))      $('sbHitsLive').textContent = s.hits;
-        if ($('sbMissLive'))      $('sbMissLive').textContent = s.miss;
-        if ($('sbComboLive'))     $('sbComboLive').textContent = 'x'+s.combo;
-      };
-      setInterval(mirror, 200);
-
-      const startBtn = document.getElementById('sbStartBtn');
-      const pauseBtn = document.getElementById('sbPauseBtn');
-      const exitBtn  = document.getElementById('sbExitBtn');
-
-      if (startBtn){
-        startBtn.addEventListener('click', () => {
-          game.start();
-          const langNow = game.lang || 'th';
-          const d = UI_STR[langNow] || UI_STR.th;
-          if (pauseBtn) pauseBtn.textContent = d.btnPause || pauseBtn.textContent;
-        });
-      }
-      if (pauseBtn){
-        pauseBtn.addEventListener('click', () => {
-          if (!game.state.running) return;
-          const wantPause = !game.state.paused;
-          game.pause(wantPause);
-          const langNow = game.lang || 'th';
-          const d = UI_STR[langNow] || UI_STR.th;
-          pauseBtn.textContent = wantPause ? (d.btnResume || '▶ ต่อ') : (d.btnPause || '⏸ พัก');
-        });
-      }
-      if (exitBtn){
-        exitBtn.addEventListener('click', () => {
-          game.exitToHub();
-        });
-      }
-
-      const metaEl = document.getElementById('sbResultMeta');
-      if (metaEl){
-        metaEl.textContent = `Shadow Breaker • ${time || 90}s • diff: ${diff}`;
-      }
-
-      const langButtons = document.querySelectorAll('.btn-lang');
-      langButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const lang = btn.dataset.lang;
-          game.setLanguage(lang);
-          applyUILang(lang, game);
-          langButtons.forEach(b => b.classList.remove('btn-lang-active'));
-          btn.classList.add('btn-lang-active');
-        });
-      });
-
-      // sync ภาษาเริ่มต้นตาม game.lang
-      const initialLang = game.lang || 'th';
-      langButtons.forEach(btn => {
-        if (btn.dataset.lang === initialLang) {
-          btn.classList.add('btn-lang-active');
-        } else {
-          btn.classList.remove('btn-lang-active');
-        }
-      });
-      applyUILang(initialLang, game);
-    });
-  </script>
+  <script type="module" src="./shadow-breaker.js"></script>
 </body>
 </html>
