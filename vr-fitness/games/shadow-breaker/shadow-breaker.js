@@ -1,11 +1,11 @@
-// === VR Fitness — Shadow Breaker (Research + Demo, bilingual) ===
+// === VR Fitness — Shadow Breaker (Research + Demo, bilingual, play-only layout) ===
 
 const STORAGE_KEY = 'ShadowBreakerResearch_v1';
 const META_KEY = 'ShadowBreakerMeta_v1';
 
 const qs = (s) => document.querySelector(s);
 const gameArea = qs('#gameArea');
-let feverBadge = qs('#feverBadge'); // สำคัญ: ใช้ตัวแปรนี้ซ้ำ
+let feverBadge = qs('#feverBadge');
 const startBtn = qs('#startBtn');
 const langButtons = document.querySelectorAll('.lang-toggle button');
 
@@ -220,7 +220,6 @@ function resetStats() {
   hud.hitVal.textContent = '0';
   hud.missVal.textContent = '0';
   hud.comboVal.textContent = 'x0';
-  // ลบเฉพาะ target ไม่แตะ feverBadge / โครง UI
   gameArea.querySelectorAll('.target').forEach((t) => t.remove());
   if (!feverBadge || !feverBadge.parentNode) {
     feverBadge = qs('#feverBadge');
@@ -331,6 +330,7 @@ function spawnTarget(kind = 'normal') {
 
     state.maxCombo = Math.max(state.maxCombo, state.combo);
 
+    // combo ≥ 5 → guaranteed fever
     if (state.combo >= 5 && !state.fever) {
       state.fever = true;
       if (!feverBadge || !feverBadge.parentNode) {
@@ -362,13 +362,12 @@ function spawnLoop() {
   if (!state.running) return;
 
   const nowSec = state.elapsed;
-  // Boss เป็นระยะ
+  // Boss เป็นระยะ ๆ
   if (nowSec > 5 && nowSec - state.lastBossAt >= state.bossEvery) {
     state.lastBossAt = nowSec;
     spawnTarget('boss');
   }
 
-  // Normal / FEVER
   const feverChance = state.fever ? 0.4 : 0.14;
   const rnd = Math.random();
   if (rnd < feverChance) {
@@ -414,6 +413,13 @@ function startGame() {
   };
   state.sessionMeta = meta;
   saveMetaDraft();
+
+  // ---- โหมดเล่นอย่างเดียว: ซ่อนฟอร์ม + ขยายจอเกม + เลื่อนไปโฟกัส ----
+  document.body.classList.add('play-only');
+  setTimeout(() => {
+    const area = document.querySelector('#gameArea');
+    if (area) area.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 200);
 
   resetStats();
   state.running = true;
