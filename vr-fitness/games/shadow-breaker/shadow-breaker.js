@@ -1,11 +1,11 @@
-// === Shadow Breaker — PRODUCTION v4.1 ================================
+// === Shadow Breaker — PRODUCTION v4.2 ================================
 // Features:
 // - Boss 4 ตัว: Warm-up Cone, Speed Bag, Shadow Clone, Golden Champion
 // - FEVER, CRITICAL, Screen Shake, Coach lines (TH+EN)
 // - Hybrid Save: API (Firebase/Sheet) + Offline Queue + CSV/PDF Export
 // - Profile + Site/Room/Session metadata for research
 // - Per-Boss metrics (hits/miss/duration) สำหรับงานวิจัยแพทย์
-// - setLanguage(lang) สำหรับปุ่มสลับภาษา TH/EN
+// - setLanguage(lang) สำหรับปุ่มสลับภาษา TH/EN + coach badge
 // =====================================================================
 
 // ---------- Global Config (override ได้ด้วย window.__SB_CONFIG) -------------
@@ -157,17 +157,10 @@ function saveProfile(p){
   try{ localStorage.setItem(LS_PROFILE, JSON.stringify(p)); }catch(e){}
 }
 
-// ใช้ข้อมูลได้จาก:
-// - window.__SB_PROFILE = {studentId, name, school, class, lang}
-// - <body data-student-id="..." ...>
-// - localStorage
-// ถ้าไม่มีจริง ๆ ค่อยใช้ prompt (ใช้ในห้องทดลองเท่านั้น)
 function ensureProfile(){
-  // 1) localStorage
   let p = getProfile();
   if (p) return p;
 
-  // 2) global override
   try{
     if (window.__SB_PROFILE) {
       p = { ...window.__SB_PROFILE };
@@ -176,7 +169,6 @@ function ensureProfile(){
     }
   }catch(e){}
 
-  // 3) body dataset
   try{
     const b = document.body || null;
     if (b && b.dataset) {
@@ -196,7 +188,6 @@ function ensureProfile(){
     }
   }catch(e){}
 
-  // 4) fallback: prompt
   const studentId = prompt('Student ID:');
   const name      = prompt('ชื่อที่ใช้ในเกม / Player Name:');
   const school    = prompt('โรงเรียน / School:');
@@ -237,16 +228,18 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
 function rand(a,b){ return a + Math.random()*(b-a); }
 
 // ---------- Hybrid Save -----------------------------------------------------
+const LS_QUEUE_KEY = LS_QUEUE;
+
 function loadQueue(){
   try{
-    const raw = localStorage.getItem(LS_QUEUE);
+    const raw = localStorage.getItem(LS_QUEUE_KEY);
     return raw ? JSON.parse(raw) : [];
   }catch(e){
     return [];
   }
 }
 function saveQueue(q){
-  try{ localStorage.setItem(LS_QUEUE, JSON.stringify(q)); }catch(e){}
+  try{ localStorage.setItem(LS_QUEUE_KEY, JSON.stringify(q)); }catch(e){}
 }
 
 async function hybridSaveSession(summary, allowQueue){
@@ -316,7 +309,6 @@ function downloadCSVRow(summary){
     'game','diff','duration',
     'score','hits','miss','accuracy','comboMax',
     'notesPerMin','rank','device',
-    // boss metrics (flat)
     'boss1Hits','boss1Miss','boss1Dur',
     'boss2Hits','boss2Miss','boss2Dur',
     'boss3Hits','boss3Miss','boss3Dur',
@@ -341,7 +333,6 @@ function downloadCSVRow(summary){
     summary.notesPerMin!=null?summary.notesPerMin.toFixed(2):'',
     summary.rank||'',
     summary.device||'',
-    // boss flattened
     summary.bossStats?.[0]?.hits ?? '',
     summary.bossStats?.[0]?.miss ?? '',
     summary.bossStats?.[0]?.duration != null ? summary.bossStats[0].duration.toFixed(2) : '',
@@ -381,7 +372,6 @@ const CRIT_RATIO  = 0.35;
 const ICONS_NORMAL = ['🥊','✨','⭐','⚡'];
 const ICONS_FEVER  = ['🔥','💥','🌟','⚡'];
 
-// Boss definitions
 const BOSS_DEFS = [
   { id:1, at:0.18, hp:5,  icon:'🧡', label:'BOSS 1 • Warm-up Cone',   bonus:120 },
   { id:2, at:0.38, hp:8,  icon:'🥊', label:'BOSS 2 • Speed Bag',      bonus:180 },
@@ -448,7 +438,6 @@ export class ShadowBreaker {
     this.spawnTimer     = 0;
     this.lastCoachTalk  = 0;
 
-    // Boss metrics
     this.bossDefs   = BOSS_DEFS;
     this.bossDone   = this.bossDefs.map(()=>false);
     this.bossActive = false;
@@ -459,7 +448,6 @@ export class ShadowBreaker {
     this.bossBar    = null;
     this.bossWrap   = null;
 
-    // boss metrics per boss index
     this.bossHits  = this.bossDefs.map(()=>0);
     this.bossMiss  = this.bossDefs.map(()=>0);
     this.bossStart = this.bossDefs.map(()=>null);
@@ -488,6 +476,15 @@ export class ShadowBreaker {
     try {
       document.documentElement.setAttribute('lang', this.lang);
     } catch(e){}
+
+    // อัปเดตชื่อโค้ชบน HUD
+    if (this.arena) {
+      const coachLabel = this.arena.querySelector('.sb-coach-name');
+      if (coachLabel) {
+        coachLabel.textContent = (this.lang === 'en' ? 'Coach Pung' : 'โค้ชพุ่ง');
+      }
+    }
+
     // อัปเดตข้อความหลักทันที
     this._msg(this.str.msgReady);
   }
@@ -523,7 +520,6 @@ export class ShadowBreaker {
     this.arena.style.position = 'relative';
     this.arena.style.overflow = 'hidden';
 
-    // coach badge
     const coach = document.createElement('div');
     coach.style.position='absolute';
     coach.style.left='12px';
@@ -537,10 +533,9 @@ export class ShadowBreaker {
     coach.style.border='1px solid rgba(129,140,248,0.9)';
     coach.style.fontSize='13px';
     coach.style.zIndex='5';
-    coach.innerHTML='<span>🐰</span><span>'+(this.lang==='en'?'Coach Pung':'โค้ชพุ่ง')+'</span>';
+    coach.innerHTML='<span>🐰</span><span class="sb-coach-name">'+(this.lang==='en'?'Coach Pung':'โค้ชพุ่ง')+'</span>';
     this.arena.appendChild(coach);
 
-    // boss HUD
     const wrap = document.createElement('div');
     wrap.style.position='absolute';
     wrap.style.right='12px';
@@ -651,7 +646,6 @@ export class ShadowBreaker {
     }
   }
 
-  // ให้ออกจากเกมไป Hub พร้อมส่ง summary (ถ้ามี callback)
   exitToHub(){
     if (this.opts.onExit) {
       const summary = this.state.running ? this._buildSummary() : null;
@@ -677,7 +671,6 @@ export class ShadowBreaker {
     this.state.timeLeft  = clamp(this.timeLimit - this.state.elapsed, 0, 1e9);
     const progress = this.timeLimit>0 ? this.state.elapsed/this.timeLimit : 0;
 
-    // boss spawn
     if (!this.bossActive){
       for (let i=0;i<this.bossDefs.length;i++){
         const def = this.bossDefs[i];
@@ -688,7 +681,6 @@ export class ShadowBreaker {
       }
     }
 
-    // normal targets
     if (!this.bossActive){
       const baseSpawn = this.cfg.spawn/1000;
       const effSpawn  = this.state.fever ? baseSpawn*FEVER_SPAWN : baseSpawn;
@@ -699,7 +691,6 @@ export class ShadowBreaker {
       }
     }
 
-    // TTL targets
     const now = performance.now();
     for(let i=this.targets.length-1;i>=0;i--){
       const tg = this.targets[i];
