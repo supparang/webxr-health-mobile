@@ -125,7 +125,8 @@ function startGameSession() {
   };
 
   const host = $('#target-layer');
-  renderer = new DomRenderer(null, host);
+  // ส่งขนาดเป้าตามระดับความยากเข้า renderer ด้วย
+  renderer = new DomRenderer(null, host, { sizePx: diffConfig.targetSizePx });
 
   engine = new GameEngine({
     config:   diffConfig,
