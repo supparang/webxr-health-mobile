@@ -1,86 +1,79 @@
-// js/config.js
+// fitness/js/config.js
 'use strict';
 
-// กำหนดชุดบอสพื้นฐาน (ชื่อ + emoji)
-const BASE_BOSSES = [
-  { name: 'Bubble Glove', emoji: '🐣' },
-  { name: 'Thunder Paw',  emoji: '🐯' },
-  { name: 'Shadow King',  emoji: '🐉' },
-  { name: 'Star Titan',   emoji: '🤖' }
-];
+// ตั้งค่าระดับความยาก + บอส + speed
+// ปรับแบบ “เล่นจริงได้” แต่ยังจูนละเอียดได้อีกภายหลังจากการเทสต์จริง
 
-// helper สร้าง list บอสจาก HP แต่ละระดับ
-function makeBosses(hpList){
-  return BASE_BOSSES.map((b, i)=>({
-    name:  b.name,
-    emoji: b.emoji,
-    hp:    hpList[i] || hpList[hpList.length-1]
-  }));
-}
-
-/**
- * จำนวน hit โดยประมาณ (ไม่รวม FEVER)
- * - easy:   10 / 20 / 32 / 46
- * - normal: 16 / 30 / 48 / 72
- * - hard:   22 / 38 / 60 / 96   ← บอสตัวหลัง ๆ หนักกว่านี้ชัดเจน
- */
 export const DifficultyConfigs = {
   easy: {
     name: 'easy',
-    durationMs: 60000,      // 60s
-    spawnIntervalMs: 900,   // ช้าสุด
-    targetLifetimeMs: 1200,
+    durationMs: 60000,        // เล่น 60 วินาที
+    spawnIntervalMs: 900,     // เป้าขึ้นช้า
+    targetLifetimeMs: 1200,   // อยู่บนจอนาน
     maxConcurrent: 3,
-    decoyChance: 0.15,
+    decoyChance: 0.12,
     scorePerHit: 10,
     penaltyDecoy: 5,
 
-    // ขนาด/ระยะห่างเป้า (DOM)
     targetSizePx: 80,
     minDistancePct: 20,
+    speedupFactor: 0.15,
 
-    // ปรับความถี่ให้เร็วขึ้นตามเวลา (0–1)
-    speedupFactor: 0.35,
-
-    // HP บอสเรียงจากง่าย → ยาก
-    bosses: makeBosses([10, 20, 32, 46])
+    // บอส: ตัวหลังยากขึ้นทีละนิด
+    bosses: [
+      { name: 'Bubble Glove',  emoji: '🐣', hp: 18 },
+      { name: 'Thunder Paw',   emoji: '🐯', hp: 24 },
+      { name: 'Shadow Ghost',  emoji: '👻', hp: 30 },
+      { name: 'Cyber Titan',   emoji: '🤖', hp: 36 }
+    ]
   },
+
   normal: {
     name: 'normal',
     durationMs: 60000,
     spawnIntervalMs: 650,
     targetLifetimeMs: 900,
     maxConcurrent: 4,
-    decoyChance: 0.25,
+    decoyChance: 0.22,
     scorePerHit: 10,
     penaltyDecoy: 7,
 
     targetSizePx: 70,
     minDistancePct: 18,
-    speedupFactor: 0.5,
+    speedupFactor: 0.20,
 
-    // บอสกลางเกมเริ่มหนัก และตัวสุดท้ายโหดขึ้น
-    bosses: makeBosses([16, 30, 48, 72])
+    // บอสโหดขึ้นชัดเจน ตัวท้ายโหดสุด
+    bosses: [
+      { name: 'Bubble Glove',  emoji: '🐣', hp: 24 },
+      { name: 'Thunder Paw',   emoji: '🐯', hp: 34 },
+      { name: 'Shadow King',   emoji: '🐉', hp: 44 },
+      { name: 'Star Titan',    emoji: '🤖', hp: 56 }
+    ]
   },
+
   hard: {
     name: 'hard',
     durationMs: 60000,
     spawnIntervalMs: 480,
     targetLifetimeMs: 750,
     maxConcurrent: 5,
-    decoyChance: 0.35,
+    decoyChance: 0.30,
     scorePerHit: 12,
     penaltyDecoy: 10,
 
     targetSizePx: 60,
     minDistancePct: 16,
-    speedupFactor: 0.65,
+    speedupFactor: 0.26,
 
-    // บอส 3–4 หนักมาก ต้องตีหลาย hit (เหมาะโหมดฝึกจริงจัง)
-  easy:   bosses: makeBosses([12, 20, 30, 42]),
-  normal: bosses: makeBosses([18, 30, 45, 70]),
-  hard:   bosses: makeBosses([24, 38, 60, 90]),  }
-  };
+    // สำหรับสายจริงจัง: ต้องตีเยอะมากกว่าจะล้มบอสท้าย ๆ
+    bosses: [
+      { name: 'Bubble Glove',  emoji: '🐣', hp: 32 },
+      { name: 'Thunder Paw',   emoji: '🐯', hp: 46 },
+      { name: 'Shadow King',   emoji: '🐉', hp: 60 },
+      { name: 'Star Titan',    emoji: '🤖', hp: 80 }
+    ]
+  }
+};
 
 export function pickConfig(key) {
   return DifficultyConfigs[key] || DifficultyConfigs.normal;
