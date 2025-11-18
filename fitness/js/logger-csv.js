@@ -2,20 +2,37 @@
 'use strict';
 
 /**
- * createCSVLogger(sessionMeta)
- * - เก็บ event ต่าง ๆ เป็นแถว
- * - finish(finalState) จะเพิ่ม analytics summary ลงแถวสุดท้าย
- * - ถ้าตั้ง SHADOWBREAKER_UPLOAD_URL ไว้ จะลองส่ง CSV ขึ้น cloud ด้วย (ไม่บังคับ)
+ * Generic CSV logger สำหรับ VR-Fitness ทุกเกม
+ *
+ * ใช้ sessionMeta:
+ *  - gameId:    'shadow-breaker' | 'rhythm-boxer' | ...
+ *  - playerId:  รหัสผู้เล่น / ผู้เข้าร่วม
+ *  - mode:      'normal' | 'research'
+ *  - difficulty: string
+ *  - phase:     เช่น 'pre-test' / 'post-test'
+ *  - filePrefix: prefix ไฟล์ CSV (optional)
+ *  - uploadUrl: URL สำหรับอัปโหลดขึ้น cloud (optional)
+ *
+ * Global:
+ *  - window.VRFITNESS_UPLOAD_URL  (upload ทุกเกมใช้ตัวเดียว)
+ *  - window.SHADOWBREAKER_UPLOAD_URL (ยังรองรับของเดิม)
  */
-
-const CLOUD_UPLOAD_URL = window.SHADOWBREAKER_UPLOAD_URL || '';
 
 export function createCSVLogger(sessionMeta) {
   const rows = [];
+  const gameId = sessionMeta.gameId || 'shadow-breaker';
+
+  const GLOBAL_UPLOAD =
+    window.VRFITNESS_UPLOAD_URL ||
+    window.SHADOWBREAKER_UPLOAD_URL ||
+    '';
+
+  const CLOUD_UPLOAD_URL = sessionMeta.uploadUrl || GLOBAL_UPLOAD;
 
   // header
   rows.push([
     'timestamp_ms',
+    'game_id',
     'player_id',
     'mode',
     'difficulty',
@@ -39,6 +56,7 @@ export function createCSVLogger(sessionMeta) {
   function addRow(e) {
     rows.push([
       e.t ?? Date.now(),
+      gameId,
       sessionMeta.playerId || '',
       sessionMeta.mode || '',
       sessionMeta.difficulty || '',
@@ -65,17 +83,14 @@ export function createCSVLogger(sessionMeta) {
     try {
       const form = new FormData();
       form.append('file', blob, fileName);
+      form.append('gameId', gameId);
       form.append('playerId', sessionMeta.playerId || '');
       form.append('mode', sessionMeta.mode || '');
       form.append('difficulty', sessionMeta.difficulty || '');
       form.append('phase', sessionMeta.phase || '');
-      await fetch(CLOUD_UPLOAD_URL, {
-        method: 'POST',
-        body: form
-      });
+      await fetch(CLOUD_UPLOAD_URL, { method: 'POST', body: form });
     } catch (err) {
-      // เงียบ ๆ พอ ไม่ให้เกมล่ม
-      console.warn('ShadowBreaker: cloud upload failed', err);
+      console.warn('VRFitness CSV cloud upload failed', err);
     }
   }
 
@@ -104,7 +119,7 @@ export function createCSVLogger(sessionMeta) {
       addRow({
         ...info,
         event: 'expire',
-        result: 'timeout'
+        result: info.result || 'timeout'
       });
     },
     async finish(finalState) {
@@ -119,7 +134,7 @@ export function createCSVLogger(sessionMeta) {
           combo: finalState.combo,
           missCount: finalState.missCount,
           playerHP: finalState.playerHP,
-          bossIndex: finalState.bossIndex,
+          bossIndex: finalState.bossIndex ?? '',
           bossHP: '',
           bossPhase: 'end',
           feverActive: 0,
@@ -140,7 +155,9 @@ export function createCSVLogger(sessionMeta) {
 
       const csv = rows.map(r => r.join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
-      const baseName = sessionMeta.filePrefix || 'vrfitness_shadowbreaker';
+
+      const baseName =
+        sessionMeta.filePrefix || `vrfitness_${gameId}`;
       const fileName = `${baseName}_${sessionMeta.playerId || 'anon'}_${Date.now()}.csv`;
 
       // ดาวน์โหลดลงเครื่อง
