@@ -1,4 +1,4 @@
-// js/engine.js
+// fitness/js/engine.js
 'use strict';
 
 /**
@@ -66,6 +66,10 @@ export class GameEngine {
     this.expiredMisses      = 0;
     this.sumReactionNormal  = 0;
     this.sumReactionDecoy   = 0;
+
+    // สำหรับส่งให้ HUD/Result
+    this.lastAnalytics = null;
+    this.lastEndedBy   = null;
   }
 
   // ---------- internal helpers ----------
@@ -89,6 +93,7 @@ export class GameEngine {
     this.expiredMisses      = 0;
     this.sumReactionNormal  = 0;
     this.sumReactionDecoy   = 0;
+    this.lastAnalytics      = null;
   }
 
   /**
@@ -148,7 +153,8 @@ export class GameEngine {
   stop(endedBy = 'manual') {
     if (this.state === 'ended') return;
 
-    this.state = 'ended';
+    this.state       = 'ended';
+    this.lastEndedBy = endedBy;
     this.stopLoop();
 
     const totalSpawns = this.totalSpawns;
@@ -183,6 +189,8 @@ export class GameEngine {
         avgReactionDecoy
       }
     };
+
+    this.lastAnalytics = finalState.analytics;
 
     if (this.logger && typeof this.logger.finish === 'function') {
       this.logger.finish(finalState);
@@ -560,6 +568,7 @@ export class GameEngine {
 
     return {
       state: this.state,
+      endedBy: this.lastEndedBy,
       score: this.score,
       combo: this.combo,
       maxCombo: this.maxCombo,
@@ -582,7 +591,9 @@ export class GameEngine {
       bossPhase: this._getBossPhase(),
 
       playerHP: this.playerHP,
-      playerMaxHP: this.playerMaxHP
+      playerMaxHP: this.playerMaxHP,
+
+      analytics: this.lastAnalytics
     };
   }
 }
