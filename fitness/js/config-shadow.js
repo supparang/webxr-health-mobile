@@ -1,7 +1,14 @@
 // js/config-shadow.js
 'use strict';
 
-// เพิ่ม targetSizePx, minDistancePct, speedupFactor ต่อระดับความยาก
+// เพิ่ม boss list + ขนาดเป้า + speedup factor
+const BOSSES = [
+  { name: 'Iron Guard',   hp: 30 },
+  { name: 'Crimson Fist', hp: 40 },
+  { name: 'Shadow King',  hp: 50 },
+  { name: 'Star Titan',   hp: 60 }
+];
+
 export const DifficultyConfigs = {
   easy: {
     name: 'easy',
@@ -12,9 +19,10 @@ export const DifficultyConfigs = {
     decoyChance: 0.15,
     scorePerHit: 10,
     penaltyDecoy: 5,
-    targetSizePx: 80,      // เป้าใหญ่สุด
-    minDistancePct: 20,    // กันเป้าชนกัน
-    speedupFactor: 0.35    // เร่งความถี่เล็กน้อยเมื่อใกล้หมดเวลา
+    targetSizePx: 80,
+    minDistancePct: 20,
+    speedupFactor: 0.35,
+    bosses: BOSSES
   },
   normal: {
     name: 'normal',
@@ -27,7 +35,8 @@ export const DifficultyConfigs = {
     penaltyDecoy: 7,
     targetSizePx: 70,
     minDistancePct: 18,
-    speedupFactor: 0.5
+    speedupFactor: 0.5,
+    bosses: BOSSES
   },
   hard: {
     name: 'hard',
@@ -38,9 +47,10 @@ export const DifficultyConfigs = {
     decoyChance: 0.35,
     scorePerHit: 12,
     penaltyDecoy: 10,
-    targetSizePx: 60,     // เป้าเล็กสุด
+    targetSizePx: 60,
     minDistancePct: 16,
-    speedupFactor: 0.65   // ยิ่งเล่นไปยิ่งถี่
+    speedupFactor: 0.65,
+    bosses: BOSSES
   }
 };
 
