@@ -18,12 +18,12 @@ body{
   color:#e5e7eb;
   display:flex;
   justify-content:center;
-  align-items:flex-start;       /* ดันขึ้นมาหน่อย บนมือถือจะไม่ลอยกลางจอเกินไป */
+  align-items:flex-start;
   padding:12px 8px 20px;
 }
 
-/* ห่อทั้งหมด */
-.game-wrap{
+/* ห่อทุกอย่าง */
+.page{
   width:100%;
   max-width:1080px;
   padding:8px 10px 16px;
@@ -32,10 +32,8 @@ body{
   gap:10px;
 }
 
-/* =========================================================
-   กล่องข้อมูลวิจัย (Research card)
-   ========================================================= */
-.research-card{
+/* ===== การ์ดพื้นฐาน ===== */
+.card{
   background:radial-gradient(circle at top left,rgba(56,189,248,.12),transparent 55%),
              #020617;
   border-radius:16px;
@@ -44,14 +42,27 @@ body{
   box-shadow:0 18px 45px rgba(15,23,42,.85);
 }
 
-.research-header{
+/* =========================================================
+   กล่องข้อมูลวิจัย (Research card)
+   ========================================================= */
+.research-card{
+  /* ใช้สไตล์จาก .card */
+}
+
+.card-header{
   display:flex;
   align-items:flex-start;
+  justify-content:space-between;
   gap:8px;
   margin-bottom:8px;
 }
 
-.research-header .icon{
+.card-header .title{
+  display:flex;
+  gap:8px;
+}
+
+.card-header .icon{
   width:28px;height:28px;
   border-radius:999px;
   background:rgba(56,189,248,.18);
@@ -61,104 +72,22 @@ body{
   font-size:16px;
 }
 
-.research-header h2{
+.card-header h1{
   margin:0;
   font-size:0.95rem;
 }
 
-.research-header .sub{
+.card-header p{
+  margin:2px 0 0;
   font-size:0.7rem;
   color:#9ca3af;
 }
 
-.research-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:8px 10px;
-  margin-top:4px;
-}
-
-.research-grid .field.full{
-  grid-column:1/3;
-}
-
-.field label{
-  display:block;
-  font-size:0.7rem;
-  color:#94a3b8;
-  margin-bottom:2px;
-}
-
-.field input,
-.field select{
-  width:100%;
-  border-radius:999px;
-  border:1px solid #1e293b;
-  padding:7px 10px;
-  font-size:0.8rem;
-  background:rgba(15,23,42,.95);
-  color:#e5e7eb;
-  outline:none;
-}
-
-.field input::placeholder{
-  color:#64748b;
-}
-
-/* =========================================================
-   HUD ด้านบน + ปุ่มภาษา
-   ========================================================= */
-.hud{
-  background:rgba(15,23,42,.9);
-  border:1px solid rgba(148,163,184,.45);
-  border-radius:14px;
-  padding:6px 10px;
+/* language toggle บนการ์ดวิจัย */
+.lang-toggle{
   display:flex;
-  justify-content:space-between;
-  align-items:center;
-  flex-wrap:wrap;
-  font-size:.8rem;
-  gap:6px;
-}
-
-.hud-left{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-}
-
-.hud-box{
-  min-width:70px;
-  padding:4px 8px;
-  border-radius:10px;
-  border:1px solid #1e293b;
-  background:radial-gradient(circle at top,rgba(15,23,42,.96),rgba(15,23,42,.9));
-  text-align:center;
-}
-
-.hud-box .label{
-  font-size:.65rem;
-  color:#9ca3af;
-}
-
-.hud-box .value{
-  font-size:.9rem;
-  font-weight:700;
-}
-
-.hud span.value{
-  font-weight:700;
-}
-
-/* language toggle */
-.lang-switch{
-  display:flex;
-  align-items:center;
   gap:4px;
-}
-.lang-label{
-  font-size:.7rem;
-  color:#9ca3af;
+  align-items:center;
 }
 .lang-btn{
   padding:4px 9px;
@@ -177,9 +106,91 @@ body{
   font-weight:600;
 }
 
+.research-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px 10px;
+  margin-top:4px;
+}
+
+.research-grid label span{
+  display:block;
+  font-size:0.7rem;
+  color:#94a3b8;
+  margin-bottom:2px;
+}
+
+.research-grid input,
+.research-grid select{
+  width:100%;
+  border-radius:999px;
+  border:1px solid #1e293b;
+  padding:7px 10px;
+  font-size:0.8rem;
+  background:rgba(15,23,42,.95);
+  color:#e5e7eb;
+  outline:none;
+}
+
+.research-grid input::placeholder{
+  color:#64748b;
+}
+
+.hint{
+  margin-top:4px;
+  font-size:.7rem;
+  color:#6b7280;
+}
+.hint.small{
+  font-size:.68rem;
+}
+
+/* =========================================================
+   HUD ด้านบน
+   ========================================================= */
+.hud{
+  background:rgba(15,23,42,.9);
+  border:1px solid rgba(148,163,184,.45);
+  border-radius:14px;
+  padding:6px 10px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  flex-wrap:wrap;
+  font-size:.8rem;
+  gap:6px;
+}
+
+.hud-block{
+  min-width:70px;
+  padding:4px 8px;
+  border-radius:10px;
+  border:1px solid #1e293b;
+  background:radial-gradient(circle at top,rgba(15,23,42,.96),rgba(15,23,42,.9));
+  text-align:center;
+}
+
+.hud-block .label{
+  font-size:.65rem;
+  color:#9ca3af;
+}
+
+.hud-block .value{
+  font-size:.9rem;
+  font-weight:700;
+}
+
+.hud span.value{
+  font-weight:700;
+}
+
 /* =========================================================
    แผงเกมหลัก
    ========================================================= */
+.game-card{
+  /* ใช้ .card เป็นฐานอยู่แล้ว */
+}
+
 .game-panel{
   position:relative;
   background:#020617;
@@ -191,25 +202,10 @@ body{
   margin-top:4px;
 }
 
-/* NOTE: ให้ตรงกับ JS → #gameArea */
 #gameArea{
   position:absolute;
   inset:0;
   overflow:hidden;
-}
-
-/* เส้นตีเป้า */
-.hit-line{
-  position:absolute;
-  left:0;right:0;
-  bottom:14%;
-  height:3px;
-  background:linear-gradient(90deg,
-    rgba(56,189,248,.3),
-    rgba(16,185,129,.8),
-    rgba(59,130,246,.3)
-  );
-  box-shadow:0 0 12px rgba(34,197,94,.7);
 }
 
 /* เป้าปกติ – วงกลม + emoji ชัด ๆ */
@@ -219,7 +215,7 @@ body{
   display:flex;
   justify-content:center;
   align-items:center;
-  font-size:2rem;                /* emoji ใหญ่ขึ้น */
+  font-size:2rem;
   box-shadow:0 0 16px rgba(15,23,42,.9);
   pointer-events:auto;
   transition:transform .15s ease-out, opacity .15s ease-out;
@@ -227,7 +223,7 @@ body{
   color:#e5f2ff;
 }
 
-/* เป้าบอสหน้าใหญ่ตอนใกล้ตาย (ถ้า JS ใส่ class เพิ่ม) */
+/* เป้าบอสหน้าใหญ่ตอนใกล้ตาย (รองรับจาก JS ถ้าใช้) */
 .sb-target.boss-final{
   width:min(180px,40vw) !important;
   height:min(180px,40vw) !important;
@@ -235,6 +231,33 @@ body{
   box-shadow:0 0 32px rgba(250,204,21,.7);
   border:3px solid rgba(248,250,252,.9);
   background:radial-gradient(circle at 30% 20%,#fde68a,#f97316,#7c2d12);
+}
+
+/* ข้อความ feedback: PERFECT / GOOD / MISS / FEVER!! */
+.feedback{
+  position:absolute;
+  top:10%;
+  left:50%;
+  transform:translateX(-50%);
+  font-size:1.6rem;
+  font-weight:700;
+  text-shadow:0 0 18px rgba(0,0,0,.8);
+  pointer-events:none;
+  display:none;
+}
+
+.feedback.perfect{
+  color:#facc15;
+}
+.feedback.good{
+  color:#4ade80;
+}
+.feedback.miss{
+  color:#fb7185;
+}
+.feedback.fever{
+  color:#f97316;
+  font-size:2rem;
 }
 
 /* โค้ชพูด */
@@ -245,75 +268,24 @@ body{
   color:#cbd5f5;
 }
 
-/* ข้อความ feedback กลางจอ (Perfect / Miss / FEVER) */
-#feedback{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  font-size:2rem;
-  font-weight:800;
-  text-shadow:0 0 18px rgba(0,0,0,.9);
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .18s ease-out, transform .18s ease-out;
+/* วิธีเล่น */
+.controls{
+  margin-top:8px;
+  font-size:.85rem;
 }
-.feedback{
-  opacity:1;
-  transform:translate(-50%,-50%) scale(1.05);
+.controls h2{
+  margin:0 0 4px;
+  font-size:0.9rem;
 }
-.feedback.perfect{
-  color:#facc15;
+.controls ul{
+  margin:0 0 4px 18px;
+  padding:0;
 }
-.feedback.good{
-  color:#4ade80;
-}
-.feedback.miss{
-  color:#f97316;
-}
-.feedback.fever{
-  color:#fbbf24;
-  text-shadow:0 0 26px rgba(250,204,21,.95);
+.controls li{
+  margin-bottom:2px;
 }
 
-/* Boss HUD (เผื่อใช้ต่อ) */
-.boss-barbox{
-  position:absolute;
-  top:10px;
-  left:10px;
-  padding:4px 8px;
-  border-radius:12px;
-  border:1px solid rgba(148,163,184,.4);
-  background:rgba(15,23,42,.6);
-  font-size:.75rem;
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.boss-face{
-  width:28px;height:28px;
-  border-radius:999px;
-  background:rgba(15,23,42,.95);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  box-shadow:0 0 12px rgba(148,163,184,.7);
-  font-size:1.1rem;
-}
-.boss-bar{
-  width:110px;
-  height:6px;
-  background:#1e293b;
-  border-radius:6px;
-  overflow:hidden;
-}
-.boss-bar-fill{
-  width:100%;height:100%;
-  background:linear-gradient(90deg,#22c55e,#facc15,#f97316,#ef4444);
-  transform-origin:left;
-}
-
-/* ปุ่มเริ่ม & ปุ่มอื่น ๆ */
+/* ปุ่มเริ่ม & ปุ่มทั่วไป */
 .btn{
   border:none;
   border-radius:999px;
@@ -327,7 +299,7 @@ body{
   justify-content:center;
   gap:6px;
 }
-.btn-primary{
+.btn-main{
   background:linear-gradient(135deg,#facc15,#f97316);
   color:#020617;
   box-shadow:0 12px 26px rgba(248,181,0,.45);
@@ -337,35 +309,41 @@ body{
   border:1px solid rgba(148,163,184,.7);
   color:#e5e7eb;
 }
-.btn-small{
-  padding:5px 10px;
-  font-size:.75rem;
+.btn-full{
+  width:100%;
 }
 
-/* แถวปุ่มเริ่ม */
 .start-row{
   margin:6px 0 4px;
   display:flex;
   justify-content:center;
 }
 
+/* เป้าหมายเกม – text ใต้ปุ่มเริ่ม */
+.goal-text{
+  margin-top:4px;
+}
+
 /* =========================================================
-   ผลสรุป + ปุ่ม export สำหรับครู / นักวิจัย
+   Overlay ผลสรุป + ปุ่ม export
    ========================================================= */
 .overlay{
   position:fixed;
   inset:0;
   background:rgba(2,6,23,.92);
-  display:flex;          /* ให้เป็น flex เป็นพื้นฐาน */
+  display:none;
   align-items:center;
   justify-content:center;
   padding:18px;
   z-index:50;
 }
 
-/* ซ่อนด้วย .hidden (JS เอาออกตอนเกมจบ) */
+/* match JS: ลบ class "hidden" แล้วค่อยโชว์ */
 .overlay.hidden{
   display:none;
+}
+.overlay:not(.hidden){
+  display:flex;
 }
 
 .overlay-box{
@@ -377,31 +355,26 @@ body{
   padding:18px;
   box-shadow:0 22px 70px rgba(0,0,0,.85);
 }
+
 .overlay-box h2{
   margin:0 0 10px;
   font-size:1.1rem;
 }
 
-/* research tools ใน overlay */
-.research-tools{
-  margin-top:10px;
-  padding-top:8px;
-  border-top:1px dashed #1f2937;
+.result-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px 10px;
+  margin-bottom:10px;
 }
-.research-tools h3{
-  font-size:.8rem;
-  margin-bottom:6px;
+.result-grid .label{
+  display:block;
+  font-size:.7rem;
   color:#9ca3af;
 }
-.research-tools-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-}
-.hint{
-  margin-top:4px;
-  font-size:.7rem;
-  color:#6b7280;
+.result-grid .value{
+  font-size:.95rem;
+  font-weight:700;
 }
 
 .overlay-actions{
@@ -409,7 +382,6 @@ body{
   display:flex;
   flex-wrap:wrap;
   gap:8px;
-  justify-content:flex-end;
 }
 
 /* =========================================================
@@ -419,10 +391,6 @@ body{
   .hud{
     flex-direction:column;
     align-items:flex-start;
-  }
-  .hud-left{
-    width:100%;
-    justify-content:flex-start;
   }
   .game-panel{
     min-height:300px;
