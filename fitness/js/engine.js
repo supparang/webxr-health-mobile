@@ -6,8 +6,8 @@
  * - เป้า DOM (normal / decoy)
  * - FEVER gauge
  * - Boss 4 ตัว (ทีละตัว, HP ตาม config.bosses)
- * - HP ผู้เล่น (โหมด normal: HP หมด = จบเกม, โหมด research: เล่นต่อ)
- * - เชื่อมกับ logger (CSV) และ DomRenderer
+ * - HP ผู้เล่น (normal: HP หมด = จบ, research: เล่นต่อครบเวลา)
+ * - Analytics: reaction time, accuracy, hit stats
  */
 
 export class GameEngine {
@@ -57,6 +57,15 @@ export class GameEngine {
     this.elapsed     = 0;
     this.lastSpawnAt = 0;
     this._raf        = null;
+
+    // Analytics counters
+    this.totalSpawns        = 0;
+    this.totalHits          = 0;
+    this.normalHits         = 0;
+    this.decoyHits          = 0;
+    this.expiredMisses      = 0;
+    this.sumReactionNormal  = 0;
+    this.sumReactionDecoy   = 0;
   }
 
   // ---------- internal helpers ----------
@@ -70,6 +79,30 @@ export class GameEngine {
   _resetPlayerHP() {
     this.playerMaxHP = 100;
     this.playerHP    = this.playerMaxHP;
+  }
+
+  _resetAnalytics() {
+    this.totalSpawns        = 0;
+    this.totalHits          = 0;
+    this.normalHits         = 0;
+    this.decoyHits          = 0;
+    this.expiredMisses      = 0;
+    this.sumReactionNormal  = 0;
+    this.sumReactionDecoy   = 0;
+  }
+
+  /**
+   * แบ่ง phase ของบอสไว้ใช้ปรับ pattern:
+   * - entry  : ช่วงต้น
+   * - rage   : HP <= 40%
+   * - finish : HP <= 20%
+   */
+  _getBossPhase() {
+    if (this.bossIndex >= this.bosses.length) return 'cleared';
+    const ratio = this.bossMaxHP > 0 ? (this.bossHP / this.bossMaxHP) : 0;
+    if (ratio <= 0.2) return 'finish';
+    if (ratio <= 0.4) return 'rage';
+    return 'entry';
   }
 
   // ---------- lifecycle ----------
@@ -92,6 +125,7 @@ export class GameEngine {
 
     this._resetBoss();
     this._resetPlayerHP();
+    this._resetAnalytics();
 
     this.elapsed     = 0;
     this.lastSpawnAt = 0;
@@ -117,6 +151,16 @@ export class GameEngine {
     this.state = 'ended';
     this.stopLoop();
 
+    const totalSpawns = this.totalSpawns;
+    const totalHits   = this.totalHits;
+    const accuracy    = totalSpawns ? totalHits / totalSpawns : 0;
+    const avgReactionNormal = this.normalHits
+      ? (this.sumReactionNormal / this.normalHits)
+      : 0;
+    const avgReactionDecoy  = this.decoyHits
+      ? (this.sumReactionDecoy / this.decoyHits)
+      : 0;
+
     const finalState = {
       endedBy,
       score: this.score,
@@ -127,7 +171,17 @@ export class GameEngine {
       perfectHits: this.perfectHits,
       badHits: this.badHits,
       bossIndex: this.bossIndex,
-      playerHP: this.playerHP
+      playerHP: this.playerHP,
+      analytics: {
+        totalSpawns,
+        totalHits,
+        normalHits: this.normalHits,
+        decoyHits: this.decoyHits,
+        expiredMisses: this.expiredMisses,
+        accuracy,
+        avgReactionNormal,
+        avgReactionDecoy
+      }
     };
 
     if (this.logger && typeof this.logger.finish === 'function') {
@@ -153,7 +207,14 @@ export class GameEngine {
 
     const factor  = 1 - accel * progress;
     const clamped = Math.max(0.35, factor);
-    return base * clamped;
+
+    // Rage / Finish phase ทำให้ spawn เร็วขึ้นอีก
+    const phase = this._getBossPhase();
+    let phaseFactor = 1;
+    if (phase === 'rage')   phaseFactor = 0.9;
+    if (phase === 'finish') phaseFactor = 0.8;
+
+    return base * clamped * phaseFactor;
   }
 
   _loop(now) {
@@ -201,8 +262,16 @@ export class GameEngine {
 
   _spawnOne(now) {
     const c = this.config;
+    const phase = this._getBossPhase();
+
+    let decoyChance = c.decoyChance;
+    if (phase === 'rage')   decoyChance += 0.05;
+    if (phase === 'finish') decoyChance += 0.10;
+    if (decoyChance < 0) decoyChance = 0;
+    if (decoyChance > 0.8) decoyChance = 0.8;
+
     const id = this.nextId++;
-    const isDecoy = Math.random() < c.decoyChance;
+    const isDecoy = Math.random() < decoyChance;
 
     const minDist = c.minDistancePct || 16;
     let x, y;
@@ -246,6 +315,7 @@ export class GameEngine {
       y
     };
     this.targets.set(id, target);
+    this.totalSpawns++;
 
     if (this.renderer && typeof this.renderer.spawn === 'function') {
       this.renderer.spawn(target);
@@ -256,7 +326,10 @@ export class GameEngine {
         type: target.type,
         x,
         y,
-        t: now
+        t: now,
+        bossIndex: this.bossIndex,
+        bossHP: this.bossHP,
+        bossPhase: this._getBossPhase()
       });
     }
   }
@@ -268,6 +341,7 @@ export class GameEngine {
       if (now >= t.expiresAt) {
         if (t.type === 'normal') {
           this.missCount++;
+          this.expiredMisses++;
           this.combo = 0;
           this._onBadTiming('expire');
         }
@@ -281,7 +355,10 @@ export class GameEngine {
             id,
             type: t.type,
             t: now,
-            playerHP: this.playerHP
+            playerHP: this.playerHP,
+            bossIndex: this.bossIndex,
+            bossHP: this.bossHP,
+            bossPhase: this._getBossPhase()
           });
         }
       }
@@ -381,6 +458,7 @@ export class GameEngine {
     const life  = this.config.targetLifetimeMs || 1;
     const age   = now - t.createdAt;
     const ratio = age / life;
+    const reactionMs = age;
 
     let quality = 'good';
     if (hitType === 'normal') {
@@ -393,7 +471,13 @@ export class GameEngine {
     let deltaScore = 0;
     let damage = 0;
 
+    this.totalHits++;
+    const phase = this._getBossPhase();
+
     if (hitType === 'normal') {
+      this.normalHits++;
+      this.sumReactionNormal += reactionMs;
+
       if (quality === 'perfect') {
         this._onPerfect();
       } else {
@@ -415,6 +499,9 @@ export class GameEngine {
       this._hitBoss(damage);
     } else {
       // decoy
+      this.decoyHits++;
+      this.sumReactionDecoy += reactionMs;
+
       this.combo = 0;
       const penalty = this.config.penaltyDecoy != null ? this.config.penaltyDecoy : 5;
       this.score -= penalty;
@@ -446,11 +533,14 @@ export class GameEngine {
         missCount: this.missCount,
         playerHP: this.playerHP,
         t: now,
+        reactionMs,
+        bossIndex: this.bossIndex,
+        bossHP: this.bossHP,
+        bossPhase: phase,
+        feverActive: this.feverActive,
         extra: {
           quality,
-          fever: this.feverActive,
-          deltaScore,
-          bossIndex: this.bossIndex
+          from: (hitMeta && hitMeta.source) || 'dom'
         }
       });
     }
@@ -489,6 +579,7 @@ export class GameEngine {
       bossCount: this.bosses.length,
       bossName:  currentBoss ? currentBoss.name  : '',
       bossEmoji: currentBoss ? currentBoss.emoji : '',
+      bossPhase: this._getBossPhase(),
 
       playerHP: this.playerHP,
       playerMaxHP: this.playerMaxHP
