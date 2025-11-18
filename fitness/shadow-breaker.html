@@ -5,6 +5,9 @@
   <title>Shadow Breaker — VR Fitness Game</title>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
+  <!-- ถ้ามีไฟล์ /fitness/favicon.ico อยู่ในโฟลเดอร์เดียวกับไฟล์นี้ -->
+  <link rel="icon" type="image/x-icon" href="./favicon.ico">
+
   <style>
     :root {
       color-scheme: light dark;
@@ -299,6 +302,12 @@
       transition:width .18s ease-out;
     }
 
+    /* Boss bar flash class (ใช้กับ JS) */
+    .boss-bar.hit-flash .boss-fill{
+      box-shadow:0 0 18px rgba(252,211,77,0.95);
+      filter:brightness(1.35);
+    }
+
     /* Boss portrait / character */
     .boss-portrait{
       margin-top:8px;
@@ -348,12 +357,6 @@
       50%{ transform:translate(3px,-2px); }
       75%{ transform:translate(-2px,1px); }
       100%{ transform:translate(0,0); }
-    }
-
-    /* Boss bar flash */
-    .boss-bar.hit-flash .boss-fill{
-      box-shadow:0 0 18px rgba(252,211,77,0.95);
-      filter:brightness(1.35);
     }
 
     /* Coach bubble */
@@ -428,7 +431,7 @@
           <h1><span class="icon">🥊</span>Shadow Breaker</h1>
           <div class="subtitle">
             เกมชกเป้าแบบ emoji ต่อสู้กับบอสทีละตัว มี FEVER gauge, HP ผู้เล่น
-            โหมดวิจัย/เล่น และบันทึกข้อมูล CSV สำหรับงานวิจัย / commercial use
+            โหมดวิจัย/โหมดเล่น และบันทึกข้อมูล CSV สำหรับงานวิจัย / commercial use
           </div>
           <div class="pill">
             <span class="dot"></span>
@@ -597,9 +600,17 @@
           <tbody>
             <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
             <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
+            <tr><td class="label">เหตุจบเกม</td><td id="res-endreason">-</td></tr>
+
             <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
             <tr><td class="label">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
             <tr><td class="label">จำนวนเป้าพลาด</td><td id="res-miss">0</td></tr>
+
+            <tr><td class="label">ความแม่นยำ (Accuracy)</td><td id="res-accuracy">-</td></tr>
+            <tr><td class="label">จำนวนครั้งที่ตีโดน (Hits)</td><td id="res-totalhits">0</td></tr>
+            <tr><td class="label">Reaction time เฉลี่ย (เป้าจริง)</td><td id="res-rt-normal">-</td></tr>
+            <tr><td class="label">Reaction time เฉลี่ย (เป้าหลอก)</td><td id="res-rt-decoy">-</td></tr>
+
             <tr><td class="label">รหัสผู้เข้าร่วม</td><td id="res-participant">-</td></tr>
           </tbody>
         </table>
@@ -618,6 +629,12 @@
       </div>
     </section>
   </main>
+
+  <!-- ถ้ามี backend สำหรับ upload CSV: set URL ไว้แบบนี้
+  <script>
+    window.SHADOWBREAKER_UPLOAD_URL = 'https://your-api.example.com/upload';
+  </script>
+  -->
 
   <script type="module" src="./js/main-shadow.js"></script>
 </body>
