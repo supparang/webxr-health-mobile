@@ -17,12 +17,12 @@ function showView(id) {
 }
 
 // ---- State ----
-let currentMode = 'normal'; // 'normal' | 'research'
+let currentMode    = 'normal'; // 'normal' | 'research'
 let currentDiffKey = 'normal';
 let lastSessionMeta = null;
-let engine = null;
+let engine   = null;
 let renderer = null;
-let logger = null;
+let logger   = null;
 
 // HUD refs
 const elScore = $('#stat-score');
@@ -42,13 +42,13 @@ const elResParticipant = $('#res-participant');
 
 function init() {
   $('[data-action="start-research"]')?.addEventListener('click', () => {
-    currentMode = 'research';
+    currentMode    = 'research';
     currentDiffKey = $('#difficulty').value || 'normal';
     showView('#view-research-form');
   });
 
   $('[data-action="start-normal"]')?.addEventListener('click', () => {
-    currentMode = 'normal';
+    currentMode    = 'normal';
     currentDiffKey = $('#difficulty').value || 'normal';
     startGameSession();
   });
@@ -68,7 +68,7 @@ function init() {
   });
 
   $('[data-action="download-csv"]')?.addEventListener('click', () => {
-    alert('ไฟล์ CSV ถูกดาวน์โหลดอัตโนมัติเมื่อจบเกมแล้ว ถ้าต้องการดาวน์โหลดซ้ำสามารถปรับ logger เพิ่มเติมได้');
+    alert('ไฟล์ CSV ถูกดาวน์โหลดอัตโนมัติเมื่อจบเกมแล้ว ถ้าต้องการดาวน์โหลดซ้ำให้ปรับ logger เพิ่มเติมภายหลังได้');
   });
 
   $('[data-action="play-again"]')?.addEventListener('click', () => {
@@ -76,7 +76,7 @@ function init() {
       showView('#view-menu');
       return;
     }
-    currentMode = lastSessionMeta.mode;
+    currentMode    = lastSessionMeta.mode;
     currentDiffKey = lastSessionMeta.difficulty;
     if (currentMode === 'research') {
       showView('#view-research-form');
@@ -104,12 +104,12 @@ function startGameSession() {
     : '';
 
   lastSessionMeta = {
-    playerId: participantId,
-    mode: currentMode,
+    playerId:   participantId,
+    mode:       currentMode,
     difficulty: diffConfig.name,
-    group: groupName,
-    note: note,
-    phase: note || '',
+    group:      groupName,
+    note,
+    phase:      note || '',
     filePrefix: 'vrfitness_shadowbreaker'
   };
 
@@ -128,7 +128,7 @@ function startGameSession() {
   renderer = new DomRenderer(null, host);
 
   engine = new GameEngine({
-    config: diffConfig,
+    config:   diffConfig,
     hooks,
     renderer,
     logger
