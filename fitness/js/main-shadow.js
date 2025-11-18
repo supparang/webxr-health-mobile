@@ -42,6 +42,12 @@ const elFeverStatus = $('#fever-status');
 const elBossName = $('#boss-name');
 const elBossFill = $('#boss-fill');
 
+// Boss portrait
+const elBossPortrait      = $('#boss-portrait');
+const elBossPortraitEmoji = $('#boss-portrait-emoji');
+const elBossPortraitName  = $('#boss-portrait-name');
+const elBossPortraitHint  = $('#boss-portrait-hint');
+
 // Result refs
 const elResMode        = $('#res-mode');
 const elResDiff        = $('#res-diff');
@@ -175,16 +181,39 @@ function updateFeverHUD(state){
 
 function updateBossHUD(state){
   if (!elBossName || !elBossFill) return;
+
   const idx   = (state.bossIndex ?? 0) + 1;
   const total = state.bossCount ?? 4;
   const hp    = state.bossHP ?? 0;
   const maxHP = state.bossMaxHP || 1;
 
-  const name = `Boss ${idx}/${total}`;
-  elBossName.textContent = name;
+  const bossLabel = state.bossName
+    ? `${state.bossName} (${idx}/${total})`
+    : `Boss ${idx}/${total}`;
+  elBossName.textContent = bossLabel;
 
   const pct = Math.max(0, Math.min(100, (hp / maxHP) * 100));
   elBossFill.style.width = pct + '%';
+
+  // portrait: set emoji+name every frame
+  if (elBossPortraitEmoji && state.bossEmoji) {
+    elBossPortraitEmoji.textContent = state.bossEmoji;
+  }
+  if (elBossPortraitName && state.bossName) {
+    elBossPortraitName.textContent = state.bossName;
+  }
+
+  // show portrait only when HP is low (finish phase)
+  if (!elBossPortrait) return;
+  const ratio = hp / maxHP;
+  if (ratio > 0 && ratio <= 0.3) {
+    elBossPortrait.classList.add('visible');
+    if (elBossPortraitHint) {
+      elBossPortraitHint.textContent = 'HP ใกล้หมดแล้ว! ตีให้สุด! 💥';
+    }
+  } else {
+    elBossPortrait.classList.remove('visible');
+  }
 }
 
 function updateHUD(state) {
