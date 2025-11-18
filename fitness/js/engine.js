@@ -469,3 +469,29 @@ export class GameEngine {
     };
   }
 }
+  _snapshot() {
+    const currentBoss = this.bosses[this.bossIndex] || null;
+    return {
+      state: this.state,
+      score: this.score,
+      combo: this.combo,
+      maxCombo: this.maxCombo,
+      missCount: this.missCount,
+      elapsedMs: this.elapsed,
+      remainingMs: Math.max(0, this.config.durationMs - this.elapsed),
+      activeTargets: this.targets.size,
+      perfectHits: this.perfectHits,
+      badHits: this.badHits,
+      feverCharge: this.feverCharge,
+      feverActive: this.feverActive,
+      bossIndex: this.bossIndex,
+      bossHP: this.bossHP,
+      bossMaxHP: this.bossMaxHP,
+      bossCount: this.bosses.length,
+      bossName: currentBoss ? currentBoss.name : '',
+      bossEmoji: currentBoss ? currentBoss.emoji : '',
+      playerHP: this.playerHP,
+      playerMaxHP: this.playerMaxHP
+    };
+  }
+}
