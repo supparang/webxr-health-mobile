@@ -299,6 +299,45 @@
       transition:width .18s ease-out;
     }
 
+    /* Boss portrait / character */
+    .boss-portrait{
+      margin-top:8px;
+      opacity:0;
+      transform:scale(0.9) translateY(4px);
+      transition:opacity .2s ease-out, transform .2s ease-out;
+      pointer-events:none;
+    }
+    .boss-portrait.visible{
+      opacity:1;
+      transform:scale(1) translateY(0);
+    }
+    .boss-portrait-inner{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 9px;
+      border-radius:999px;
+      background:rgba(15,23,42,0.95);
+      border:1px solid rgba(248,250,252,0.3);
+      box-shadow:0 10px 22px rgba(15,23,42,0.9);
+    }
+    .boss-portrait-emoji{
+      font-size:1.4rem;
+      filter:drop-shadow(0 2px 6px rgba(15,23,42,0.9));
+    }
+    .boss-portrait-text{
+      display:flex;
+      flex-direction:column;
+    }
+    .boss-portrait-name{
+      font-size:0.85rem;
+      font-weight:600;
+    }
+    .boss-portrait-hint{
+      font-size:0.75rem;
+      color:#facc15;
+    }
+
     /* Result view */
     #view-result .summary{ margin-top:10px; font-size:0.9rem; }
     #view-result table{
@@ -445,6 +484,17 @@
         </div>
         <div class="boss-bar">
           <div class="boss-fill" id="boss-fill"></div>
+        </div>
+      </div>
+
+      <!-- BOSS PORTRAIT (Character) -->
+      <div class="boss-portrait" id="boss-portrait">
+        <div class="boss-portrait-inner">
+          <div class="boss-portrait-emoji" id="boss-portrait-emoji">🐣</div>
+          <div class="boss-portrait-text">
+            <div class="boss-portrait-name" id="boss-portrait-name">Bubble Glove</div>
+            <div class="boss-portrait-hint" id="boss-portrait-hint">HP ใกล้หมดแล้ว! ตีให้สุด!</div>
+          </div>
         </div>
       </div>
 
