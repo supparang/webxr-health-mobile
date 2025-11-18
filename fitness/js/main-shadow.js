@@ -17,7 +17,7 @@ function showView(id) {
 }
 
 // ---- State ----
-let currentMode    = 'normal'; // 'normal' | 'research'
+let currentMode    = 'normal';
 let currentDiffKey = 'normal';
 let lastSessionMeta = null;
 let engine   = null;
@@ -25,12 +25,21 @@ let renderer = null;
 let logger   = null;
 
 // HUD refs
-const elScore = $('#stat-score');
-const elCombo = $('#stat-combo');
-const elMiss  = $('#stat-miss');
-const elTime  = $('#stat-time');
-const elMode  = $('#stat-mode');
-const elDiff  = $('#stat-diff');
+const elScore   = $('#stat-score');
+const elCombo   = $('#stat-combo');
+const elMiss    = $('#stat-miss');
+const elTime    = $('#stat-time');
+const elMode    = $('#stat-mode');
+const elDiff    = $('#stat-diff');
+const elPerfect = $('#stat-perfect');
+
+// Fever HUD
+const elFeverFill   = $('#fever-fill');
+const elFeverStatus = $('#fever-status');
+
+// Boss HUD
+const elBossName = $('#boss-name');
+const elBossFill = $('#boss-fill');
 
 // Result refs
 const elResMode        = $('#res-mode');
@@ -125,7 +134,6 @@ function startGameSession() {
   };
 
   const host = $('#target-layer');
-  // ส่งขนาดเป้าตามระดับความยากเข้า renderer ด้วย
   renderer = new DomRenderer(null, host, { sizePx: diffConfig.targetSizePx });
 
   engine = new GameEngine({
@@ -146,13 +154,48 @@ function updateStaticHUD() {
   elDiff.textContent = currentDiffKey;
 }
 
+function updateFeverHUD(state){
+  if (!elFeverFill || !elFeverStatus) return;
+  const charge = Math.max(0, Math.min(100, state.feverCharge || 0));
+  elFeverFill.style.width = charge + '%';
+
+  if (state.feverActive) {
+    elFeverStatus.textContent = 'FEVER!!';
+    elFeverStatus.classList.add('active');
+  } else if (charge >= 90) {
+    elFeverStatus.textContent = 'READY';
+    elFeverStatus.classList.remove('active');
+  } else {
+    elFeverStatus.textContent = 'FEVER';
+    elFeverStatus.classList.remove('active');
+  }
+}
+
+function updateBossHUD(state){
+  if (!elBossName || !elBossFill) return;
+  const idx   = (state.bossIndex ?? 0) + 1;
+  const total = state.bossCount ?? 4;
+  const hp    = state.bossHP ?? 0;
+  const maxHP = state.bossMaxHP || 1;
+
+  const name = `Boss ${idx}/${total}`;
+  elBossName.textContent = name;
+
+  const pct = Math.max(0, Math.min(100, (hp / maxHP) * 100));
+  elBossFill.style.width = pct + '%';
+}
+
 function updateHUD(state) {
-  elScore.textContent = state.score;
-  elCombo.textContent = state.combo;
-  elMiss.textContent  = state.missCount;
+  elScore.textContent   = state.score;
+  elCombo.textContent   = state.combo;
+  elMiss.textContent    = state.missCount;
+  elPerfect.textContent = state.perfectHits ?? 0;
 
   const remainingSec = Math.max(0, state.remainingMs / 1000);
   elTime.textContent = remainingSec.toFixed(1);
+
+  updateFeverHUD(state);
+  updateBossHUD(state);
 }
 
 function onGameEnd(state) {
