@@ -2,53 +2,42 @@
 'use strict';
 
 /**
- * GameEngine: จัดการเวลา spawn / lifetime / score / combo
- * ไม่ผูกกับ DOM โดยตรง — ใช้ผ่าน renderer + logger ที่ส่งเข้ามา
+ * GameEngine:
+ * - จัดการเวลา, spawn เป้า, อายุเป้า, score, combo, miss
+ * - ไม่ผูก DOM โดยตรง ใช้ renderer + logger ที่ส่งเข้ามา
  */
 
 export class GameEngine {
-  /**
-   * @param {object} options
-   *  - config.durationMs
-   *  - config.spawnIntervalMs
-   *  - config.targetLifetimeMs
-   *  - config.decoyChance (0..1)
-   *  - config.maxConcurrent
-   *  - hooks.onUpdate(state)
-   *  - hooks.onEnd(state)
-   *  - renderer: { reset(), spawn(target), hit(id, meta), expire(id, meta) }
-   *  - logger: { logSpawn(e), logHit(e), logExpire(e), finish() }
-   */
   constructor(options) {
-    this.config = options.config;
-    this.hooks = options.hooks || {};
+    this.config   = options.config;
+    this.hooks    = options.hooks || {};
     this.renderer = options.renderer;
-    this.logger = options.logger;
+    this.logger   = options.logger;
 
-    this.state = 'idle'; // idle | running | ended
+    this.state   = 'idle';   // idle | running | ended
     this.targets = new Map();
-    this.nextId = 1;
+    this.nextId  = 1;
 
-    this.score = 0;
-    this.combo = 0;
-    this.maxCombo = 0;
+    this.score     = 0;
+    this.combo     = 0;
+    this.maxCombo  = 0;
     this.missCount = 0;
 
-    this.startTime = 0;
-    this.elapsed = 0;
+    this.startTime   = 0;
+    this.elapsed     = 0;
     this.lastSpawnAt = 0;
-    this._raf = null;
+    this._raf        = null;
   }
 
   reset() {
     this.stopLoop();
-    this.state = 'idle';
+    this.state   = 'idle';
     this.targets.clear();
-    this.score = 0;
-    this.combo = 0;
-    this.maxCombo = 0;
+    this.score     = 0;
+    this.combo     = 0;
+    this.maxCombo  = 0;
     this.missCount = 0;
-    this.elapsed = 0;
+    this.elapsed   = 0;
     this.lastSpawnAt = 0;
     if (this.renderer && this.renderer.reset) this.renderer.reset();
     this._emitUpdate();
@@ -58,7 +47,7 @@ export class GameEngine {
     this.reset();
     this.state = 'running';
     const now = nowMs ?? performance.now();
-    this.startTime = now;
+    this.startTime   = now;
     this.lastSpawnAt = now;
     this._loop(now);
   }
@@ -67,15 +56,18 @@ export class GameEngine {
     if (this.state === 'ended') return;
     this.state = 'ended';
     this.stopLoop();
+
+    const finalState = {
+      endedBy,
+      score: this.score,
+      combo: this.combo,
+      maxCombo: this.maxCombo,
+      missCount: this.missCount,
+      elapsedMs: this.elapsed
+    };
+
     if (this.logger && this.logger.finish) {
-      this.logger.finish({
-        endedBy,
-        score: this.score,
-        combo: this.combo,
-        maxCombo: this.maxCombo,
-        missCount: this.missCount,
-        elapsedMs: this.elapsed
-      });
+      this.logger.finish(finalState);
     }
     if (this.hooks.onEnd) {
       this.hooks.onEnd(this._snapshot());
@@ -95,29 +87,27 @@ export class GameEngine {
     this.elapsed = now - this.startTime;
     const c = this.config;
 
-    // End by time
+    // หมดเวลา
     if (this.elapsed >= c.durationMs) {
       this._emitUpdate();
       this.stop('timeout');
       return;
     }
 
-    // Spawn target ถ้าเกิน interval และจำนวนในจอไม่เกิน maxConcurrent
+    // spawn เป้าใหม่
     if (now - this.lastSpawnAt >= c.spawnIntervalMs) {
       if (this.targets.size < c.maxConcurrent) {
         this._spawnOne(now);
         this.lastSpawnAt = now;
       } else {
-        // แม้เต็ม ก็เลื่อนไปหนึ่ง step เพื่อไม่ให้ loop ค้าง spawn
         this.lastSpawnAt = now;
       }
     }
 
-    // ตรวจหมดอายุ (expire)
+    // ตรวจเป้าหมดอายุ
     this._checkExpiry(now);
 
     this._emitUpdate();
-
     this._raf = requestAnimationFrame(t => this._loop(t));
   }
 
@@ -126,7 +116,7 @@ export class GameEngine {
     const id = this.nextId++;
     const isDecoy = Math.random() < c.decoyChance;
 
-    // Random pos (5–95%) กันขอบ
+    // random ในกรอบ 5–95% กันติดขอบ
     const x = 5 + Math.random() * 90;
     const y = 10 + Math.random() * 80;
 
@@ -155,10 +145,8 @@ export class GameEngine {
   }
 
   _checkExpiry(now) {
-    const c = this.config;
     for (const [id, t] of [...this.targets.entries()]) {
       if (now >= t.expiresAt) {
-        // ถ้าเป็น normal แล้วไม่ได้ชก → นับ miss
         if (t.type === 'normal') {
           this.missCount++;
           this.combo = 0;
@@ -176,13 +164,13 @@ export class GameEngine {
   }
 
   /**
-   * เรียกเมื่อผู้เล่นชก/แตะเป้า (จาก Renderer/DOM input)
+   * เรียกเมื่อผู้เล่นคลิก/ชกเป้า
    */
   hitTarget(id, hitMeta = {}) {
     if (this.state !== 'running') return;
     const now = performance.now();
     const t = this.targets.get(id);
-    if (!t) return; // เป้าหายไปแล้ว
+    if (!t) return; // เป้าหายแล้ว
 
     const hitType = t.type;
     this.targets.delete(id);
@@ -210,6 +198,7 @@ export class GameEngine {
         result,
         score: this.score,
         combo: this.combo,
+        missCount: this.missCount,
         t: now,
         extra: hitMeta
       });
