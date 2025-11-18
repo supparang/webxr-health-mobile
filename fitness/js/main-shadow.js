@@ -4,7 +4,7 @@
 import { GameEngine } from './engine.js';
 import { DomRenderer } from './dom-renderer.js';
 import { createCSVLogger } from './logger-csv.js';
-import { pickConfigShadow } from './config-shadow.js';
+import { pickConfig } from './config.js';
 
 const $  = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -23,6 +23,8 @@ let lastSessionMeta = null;
 let engine   = null;
 let renderer = null;
 let logger   = null;
+let lastState = null;
+let coachTimer = null;
 
 // HUD refs
 const elScore   = $('#stat-score');
@@ -47,6 +49,12 @@ const elBossPortrait      = $('#boss-portrait');
 const elBossPortraitEmoji = $('#boss-portrait-emoji');
 const elBossPortraitName  = $('#boss-portrait-name');
 const elBossPortraitHint  = $('#boss-portrait-hint');
+
+// Coach HUD
+const elCoachBubble  = $('#coach-bubble');
+const elCoachAvatar  = $('#coach-avatar');
+const elCoachRole    = $('#coach-role');
+const elCoachText    = $('#coach-text');
 
 // Result refs
 const elResMode        = $('#res-mode');
@@ -104,8 +112,99 @@ function init() {
   showView('#view-menu');
 }
 
+// --------- Coach logic ---------
+
+const COACH_LINES = {
+  kids: {
+    welcome: 'พร้อมลุย Shadow Breaker แล้ว! ชกเป้าให้ทันนะ 🥊',
+    feverReady: 'เกจใกล้เต็มแล้ว เตรียมเข้าโหมด FEVER! ✨',
+    feverOn: 'FEVER แล้ว! ชกให้รัว แต่ยังต้องเล็งดี ๆ นะ 💥',
+    hpLow: 'HP เหลือน้อยแล้ว หายใจลึก ๆ ตั้งสติแล้วค่อยชก ✨',
+    bossNext: 'บอสตัวต่อไปมาแล้ว! ยากขึ้นอีกนิด แต่สู้ไหวแน่ 😈',
+    missSoft: 'พลาดไปนิด ไม่เป็นไร รอบหน้าลองใหม่ได้ 👍'
+  },
+  research: {
+    welcome: 'โหมดวิจัย: โฟกัสจังหวะการชกให้สม่ำเสมอ และสังเกตการหายใจของตัวเองครับ 🧪',
+    feverReady: 'ค่า FEVER ใกล้เต็มแล้ว ลองรักษาจังหวะให้ต่อเนื่องครับ ✨',
+    feverOn: 'เข้าสู่ช่วง FEVER: สังเกตว่าการเคลื่อนไหวเร็วขึ้นแต่ยังควบคุมได้หรือไม่ 💡',
+    hpLow: 'HP ลดลงมาก แนะนำให้ผ่อนแรงเล็กน้อยแต่รักษาความแม่นยำครับ 💚',
+    bossNext: 'เริ่มบอสตัวใหม่แล้ว ลองเทียบความล้าระหว่างตัวก่อนกับตัวนี้ดูครับ 📊',
+    missSoft: 'มี miss เพิ่มขึ้นเล็กน้อย ลองโฟกัสที่การมองเป้าและ coordination อีกครั้งครับ 👀'
+  }
+};
+
+function getCoachPersona(){
+  return currentMode === 'research' ? 'research' : 'kids';
+}
+
+function setCoachMessage(key){
+  if (!elCoachBubble || !elCoachText || !elCoachAvatar || !elCoachRole) return;
+  const persona = getCoachPersona();
+  const lines = COACH_LINES[persona];
+  const text = lines[key];
+  if (!text) return;
+
+  elCoachText.textContent = text;
+  if (persona === 'research') {
+    elCoachAvatar.textContent = '🧑‍🔬';
+    elCoachRole.textContent   = 'Research Coach';
+  } else {
+    elCoachAvatar.textContent = '🥊';
+    elCoachRole.textContent   = 'โค้ชพลังหมัด';
+  }
+
+  elCoachBubble.classList.add('visible');
+
+  if (coachTimer) clearTimeout(coachTimer);
+  coachTimer = setTimeout(()=>{
+    elCoachBubble.classList.remove('visible');
+  }, 4200);
+}
+
+function updateCoach(state){
+  const prev = lastState;
+
+  if (!prev) {
+    // first frame after start
+    setCoachMessage('welcome');
+    return;
+  }
+
+  // FEVER ready
+  if ((state.feverCharge >= 90) && (prev.feverCharge < 90)) {
+    setCoachMessage('feverReady');
+    return;
+  }
+
+  // FEVER active toggled
+  if (!prev.feverActive && state.feverActive) {
+    setCoachMessage('feverOn');
+    return;
+  }
+
+  // HP ต่ำกว่า 30 เป็นครั้งแรก
+  if ((state.playerHP <= 30) && (prev.playerHP > 30)) {
+    setCoachMessage('hpLow');
+    return;
+  }
+
+  // เปลี่ยนบอส
+  if ((state.bossIndex > prev.bossIndex)) {
+    setCoachMessage('bossNext');
+    return;
+  }
+
+  // miss เพิ่มขึ้น
+  if (state.missCount > prev.missCount) {
+    setCoachMessage('missSoft');
+    return;
+  }
+}
+
+// --------- Game session ---------
+
 function startGameSession() {
-  const diffConfig = pickConfigShadow(currentDiffKey);
+  const diffConfig = pickConfig(currentDiffKey);
 
   const participantId = currentMode === 'research'
     ? ($('#research-id').value || '').trim()
@@ -152,6 +251,7 @@ function startGameSession() {
   });
   renderer.engine = engine;
 
+  lastState = null;
   showView('#view-play');
   updateStaticHUD();
   engine.start();
@@ -228,6 +328,10 @@ function updateHUD(state) {
 
   updateFeverHUD(state);
   updateBossHUD(state);
+
+  // Coach
+  updateCoach(state);
+  lastState = state;
 }
 
 function onGameEnd(state) {
@@ -237,6 +341,9 @@ function onGameEnd(state) {
   elResMaxCombo.textContent    = state.maxCombo;
   elResMiss.textContent        = state.missCount;
   elResParticipant.textContent = lastSessionMeta?.playerId || '-';
+
+  // ปิดโค้ชหลังจบรอบ
+  if (elCoachBubble) elCoachBubble.classList.remove('visible');
 
   showView('#view-result');
 }
