@@ -1,27 +1,21 @@
 // js/dom-renderer.js
 'use strict';
 
-import { GameEngine } from './engine.js';
-
 /**
  * DomRenderer:
- * - แสดง .target ใน #target-layer
- * - ยิง event hitTarget ไปที่ engine เมื่อคลิก
+ * - แสดง .target ใน host (เช่น #target-layer)
+ * - ส่ง event กลับไปหา engine.hitTarget เมื่อคลิก
  */
 
 export class DomRenderer {
-  /**
-   * @param {GameEngine} engine
-   * @param {HTMLElement} host
-   */
   constructor(engine, host) {
     this.engine = engine;
-    this.host = host;
+    this.host   = host;
     this._nodes = new Map();
   }
 
   reset() {
-    this.host.innerHTML = '';
+    if (this.host) this.host.innerHTML = '';
     this._nodes.clear();
   }
 
@@ -35,14 +29,15 @@ export class DomRenderer {
       el.textContent = '●';
     }
 
-    // Target position: x,y เป็นเปอร์เซ็นต์ในพื้นที่ host
     el.style.left = target.x + '%';
-    el.style.top = target.y + '%';
+    el.style.top  = target.y + '%';
     el.dataset.id = String(target.id);
 
     const onHit = (ev) => {
       ev.preventDefault();
-      this.engine.hitTarget(target.id, { source: 'dom' });
+      if (this.engine && this.engine.hitTarget) {
+        this.engine.hitTarget(target.id, { source: 'dom' });
+      }
     };
     el.addEventListener('pointerdown', onHit, { passive: false });
 
@@ -50,15 +45,13 @@ export class DomRenderer {
     this._nodes.set(target.id, { el, onHit });
   }
 
-  hit(id, meta) {
+  hit(id) {
     const record = this._nodes.get(id);
     if (!record) return;
     const { el, onHit } = record;
     el.removeEventListener('pointerdown', onHit);
     el.classList.add('hit');
     el.classList.remove('spawn');
-
-    // ทำให้หายไปหลัง effect
     setTimeout(() => {
       if (el.parentElement) el.parentElement.removeChild(el);
       this._nodes.delete(id);
