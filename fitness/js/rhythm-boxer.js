@@ -3,6 +3,25 @@
 
 import { createCSVLogger } from './logger-csv.js';
 import { recordSession } from './stats-store.js';
+import { SFX } from './sfx.js';
+
+// เมื่อกดถูก pad
+SFX.play('tap');
+
+// Perfect
+SFX.play('perfect');
+
+// Good
+SFX.play('good');
+
+// Late
+SFX.play('late');
+
+// Miss
+SFX.play('miss');
+
+// Fever เข้า
+SFX.play('fever');
 
 const $  = (s)=>document.querySelector(s);
 const $$ = (s)=>document.querySelectorAll(s);
