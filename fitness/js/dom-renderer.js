@@ -1,16 +1,5 @@
-// js/dom-renderer.js
+// fitness/js/dom-renderer.js
 'use strict';
-
-/**
- * DomRenderer:
- * - เป้า emoji (normal / decoy)
- * - เอฟเฟกต์แตก + คะแนนลอยตรงเป้า
- * - Sensory feedback:
- *   - play-area เขย่า (screen shake)
- *   - vibrate บนมือถือ (ถ้ามี)
- *   - SFX hit / decoy / miss (ใส่ไฟล์เอง)
- *   - boss HP flash สั้น ๆ
- */
 
 const NORMAL_EMOJI = ['⭐️','💎','✨','🌀','🎯','🔆'];
 const DECOY_EMOJI  = ['💣','☠️','⚠️','🧨'];
@@ -23,11 +12,6 @@ function pickEmoji(type){
 }
 
 export class DomRenderer {
-  /**
-   * @param {GameEngine|null} engine
-   * @param {HTMLElement} host
-   * @param {object} options { sizePx?: number }
-   */
   constructor(engine, host, options = {}) {
     this.engine = engine;
     this.host   = host;
@@ -66,7 +50,6 @@ export class DomRenderer {
     el.style.top  = target.y + '%';
     el.dataset.id = String(target.id);
 
-    // emoji ตรงกลาง
     const inner = document.createElement('div');
     inner.textContent = pickEmoji(target.type);
     inner.style.fontSize = Math.round(size * 0.6) + 'px';
@@ -89,7 +72,6 @@ export class DomRenderer {
     this._nodes.set(target.id, { el, onHit });
   }
 
-  // คะแนนลอย
   _spawnScoreFloat(xPct, yPct, text, color){
     if (!this.host) return;
     const node = document.createElement('div');
@@ -116,7 +98,6 @@ export class DomRenderer {
     });
   }
 
-  // เศษแตกกระจาย (เอฟเฟกต์ง่าย ๆ)
   _spawnBurst(xPct, yPct, isDecoy){
     if (!this.host) return;
     const N = 8;
@@ -167,7 +148,7 @@ export class DomRenderer {
     if(!this.playArea) return;
     const el = this.playArea;
     el.classList.remove('shake');
-    void el.offsetWidth; // force reflow
+    void el.offsetWidth;
     el.classList.add('shake');
     setTimeout(()=>el.classList.remove('shake'), 220);
   }
@@ -193,7 +174,6 @@ export class DomRenderer {
   }
 
   _feedbackOnHit(meta, isDecoy){
-    // screen shake + boss flash + vibrate + SFX
     this._shakePlayArea();
     this._flashBossBar();
     this._vibrate(isDecoy ? 'decoy' : 'hit');
@@ -213,10 +193,8 @@ export class DomRenderer {
 
     const isDecoy = meta && meta.type === 'decoy';
 
-    // shard แตกกระจาย
     this._spawnBurst(xPct, yPct, isDecoy);
 
-    // คะแนนลอย
     const delta = (meta && typeof meta.deltaScore === 'number')
       ? meta.deltaScore
       : (isDecoy ? -5 : 10);
@@ -233,10 +211,8 @@ export class DomRenderer {
       }
     }
 
-    // Sensory feedback
     this._feedbackOnHit(meta, isDecoy);
 
-    // ลบเป้า
     el.classList.add('hit');
     el.classList.remove('spawn');
     setTimeout(() => {
@@ -253,7 +229,6 @@ export class DomRenderer {
     el.classList.add('miss');
     el.style.opacity = '0.3';
 
-    // miss feedback เบาหน่อย
     this._vibrate('miss');
     this._playSfx('miss');
 
