@@ -1,0 +1,60 @@
+body {
+  margin:0;
+  font-family:system-ui;
+  color:white;
+  text-align:center;
+}
+
+.view { padding:20px; }
+.hidden { display:none !important; }
+
+.title { font-size:2rem; margin-bottom:16px }
+
+button {
+  margin:8px 0;
+  padding:10px 14px;
+  border-radius:10px;
+  border:0;
+  background:#00d4ff;
+  font-size:1rem;
+  cursor:pointer;
+}
+
+#padWrap {
+  width:100%; max-width:420px; margin:40px auto;
+  display:grid; grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+
+.pad {
+  padding:28px 0;
+  background:#1b1b2b;
+  border-radius:12px;
+  font-size:32px;
+  box-shadow:0 0 10px #0091ff;
+  transition:.15s;
+}
+.pad.active {
+  transform:scale(1.18);
+  background:#00f2ff;
+}
+
+#hud { margin-bottom:14px; display:flex; gap:10px; justify-content:center; }
+
+#feverWrap {
+  width:80%; height:12px; background:#333;
+  margin:10px auto; border-radius:10px; overflow:hidden;
+}
+#feverFill { height:100%; width:0%; background:#ff0090 }
+
+.comboCall {
+  position:fixed; top:26%; left:50%; transform:translateX(-50%);
+  font-size:42px; opacity:0; transition:.25s;
+}
+.comboCall.show { opacity:1; transform:translate(-50%, -30%) }
+
+.coach {
+  position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,.5); padding:10px 18px;
+  border-radius:12px; font-size:18px;
+}
