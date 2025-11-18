@@ -2,13 +2,12 @@
 'use strict';
 
 /**
- * GameEngine:
- * - emoji เป้า (normal / decoy)
+ * GameEngine สำหรับ Shadow Breaker
+ * - เป้า DOM (normal / decoy)
  * - FEVER gauge
- * - Boss 4 ตัว (ทีละตัว มี HP)
- * - HP ผู้เล่น (ขึ้นลงตาม perfect/good/miss/decoy)
- * - โหมด research: HP หมดก็ยังเล่นจนครบเวลา (ไม่ game over)
- *   โหมด normal: HP หมด = จบเกมด้วยเหตุผล 'player-dead'
+ * - Boss 4 ตัว (ทีละตัว, HP ตาม config.bosses)
+ * - HP ผู้เล่น (โหมด normal: HP หมด = จบเกม, โหมด research: เล่นต่อ)
+ * - เชื่อมกับ logger (CSV) และ DomRenderer
  */
 
 export class GameEngine {
@@ -23,7 +22,7 @@ export class GameEngine {
     this.targets = new Map();
     this.nextId  = 1;
 
-    // score
+    // score & combo
     this.score     = 0;
     this.combo     = 0;
     this.maxCombo  = 0;
@@ -40,10 +39,10 @@ export class GameEngine {
 
     // BOSS
     this.bosses   = (this.config.bosses && this.config.bosses.slice()) || [
-      { name: 'Boss 1', hp: 30 },
-      { name: 'Boss 2', hp: 40 },
-      { name: 'Boss 3', hp: 50 },
-      { name: 'Boss 4', hp: 60 }
+      { name: 'Boss 1', emoji: '👾', hp: 20 },
+      { name: 'Boss 2', emoji: '👹', hp: 30 },
+      { name: 'Boss 3', emoji: '🐉', hp: 40 },
+      { name: 'Boss 4', emoji: '🤖', hp: 50 }
     ];
     this.bossIndex = 0;
     this.bossHP    = this.bosses[0].hp;
@@ -53,11 +52,14 @@ export class GameEngine {
     this.playerMaxHP = 100;
     this.playerHP    = this.playerMaxHP;
 
+    // time
     this.startTime   = 0;
     this.elapsed     = 0;
     this.lastSpawnAt = 0;
     this._raf        = null;
   }
+
+  // ---------- internal helpers ----------
 
   _resetBoss() {
     this.bossIndex = 0;
@@ -69,6 +71,8 @@ export class GameEngine {
     this.playerMaxHP = 100;
     this.playerHP    = this.playerMaxHP;
   }
+
+  // ---------- lifecycle ----------
 
   reset() {
     this.stopLoop();
@@ -89,17 +93,19 @@ export class GameEngine {
     this._resetBoss();
     this._resetPlayerHP();
 
-    this.elapsed   = 0;
+    this.elapsed     = 0;
     this.lastSpawnAt = 0;
 
-    if (this.renderer && this.renderer.reset) this.renderer.reset();
+    if (this.renderer && typeof this.renderer.reset === 'function') {
+      this.renderer.reset();
+    }
     this._emitUpdate();
   }
 
   start(nowMs) {
     this.reset();
     this.state = 'running';
-    const now = nowMs ?? performance.now();
+    const now = nowMs != null ? nowMs : performance.now();
     this.startTime   = now;
     this.lastSpawnAt = now;
     this._loop(now);
@@ -107,6 +113,7 @@ export class GameEngine {
 
   stop(endedBy = 'manual') {
     if (this.state === 'ended') return;
+
     this.state = 'ended';
     this.stopLoop();
 
@@ -123,7 +130,7 @@ export class GameEngine {
       playerHP: this.playerHP
     };
 
-    if (this.logger && this.logger.finish) {
+    if (this.logger && typeof this.logger.finish === 'function') {
       this.logger.finish(finalState);
     }
     if (this.hooks.onEnd) {
@@ -177,6 +184,7 @@ export class GameEngine {
 
     const intervalNow = this._currentInterval();
 
+    // spawn เป้า
     if (now - this.lastSpawnAt >= intervalNow) {
       if (this.targets.size < c.maxConcurrent) {
         this._spawnOne(now);
@@ -188,7 +196,7 @@ export class GameEngine {
 
     this._checkExpiry(now);
     this._emitUpdate();
-    this._raf = requestAnimationFrame(t => this._loop(t));
+    this._raf = requestAnimationFrame((t) => this._loop(t));
   }
 
   _spawnOne(now) {
@@ -200,6 +208,7 @@ export class GameEngine {
     let x, y;
     let ok = false;
 
+    // พยายามวางให้ห่างเป้าอื่น
     for (let i = 0; i < 12; i++) {
       const candX = 5 + Math.random() * 90;
       const candY = 10 + Math.random() * 80;
@@ -208,7 +217,7 @@ export class GameEngine {
       for (const t of this.targets.values()) {
         const dx = candX - t.x;
         const dy = candY - t.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
+        const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < minDist) {
           tooClose = true;
           break;
@@ -238,10 +247,10 @@ export class GameEngine {
     };
     this.targets.set(id, target);
 
-    if (this.renderer && this.renderer.spawn) {
+    if (this.renderer && typeof this.renderer.spawn === 'function') {
       this.renderer.spawn(target);
     }
-    if (this.logger && this.logger.logSpawn) {
+    if (this.logger && typeof this.logger.logSpawn === 'function') {
       this.logger.logSpawn({
         id,
         type: target.type,
@@ -253,19 +262,21 @@ export class GameEngine {
   }
 
   _checkExpiry(now) {
-    for (const [id, t] of [...this.targets.entries()]) {
+    const toDelete = [];
+
+    for (const [id, t] of this.targets.entries()) {
       if (now >= t.expiresAt) {
         if (t.type === 'normal') {
           this.missCount++;
           this.combo = 0;
           this._onBadTiming('expire');
         }
-        this.targets.delete(id);
+        toDelete.push(id);
 
-        if (this.renderer && this.renderer.expire) {
+        if (this.renderer && typeof this.renderer.expire === 'function') {
           this.renderer.expire(id, { type: t.type, now });
         }
-        if (this.logger && this.logger.logExpire) {
+        if (this.logger && typeof this.logger.logExpire === 'function') {
           this.logger.logExpire({
             id,
             type: t.type,
@@ -274,6 +285,10 @@ export class GameEngine {
           });
         }
       }
+    }
+
+    for (const id of toDelete) {
+      this.targets.delete(id);
     }
   }
 
@@ -289,14 +304,12 @@ export class GameEngine {
   }
 
   _onPerfect() {
-    // perfect = heal เยอะ + fever ขึ้นเยอะ
     this.perfectHits++;
     this._applyHpDelta(+3, 'perfect');
     this.feverCharge = Math.min(100, this.feverCharge + 16);
   }
 
   _onGoodHit() {
-    // good = heal นิดหน่อย + fever ขึ้นน้อยกว่าหน่อย
     this._applyHpDelta(+1, 'good');
     this.feverCharge = Math.min(100, this.feverCharge + 8);
   }
@@ -304,7 +317,6 @@ export class GameEngine {
   _onBadTiming(reason) {
     this.badHits++;
 
-    // โทษพื้นฐาน
     let hpDelta = 0;
     if (reason === 'decoy') {
       hpDelta = -5;
@@ -315,7 +327,7 @@ export class GameEngine {
 
     // ช่วง FEVER โทษ HP เบาลง
     if (this.feverActive) {
-      hpDelta = Math.round(hpDelta * 0.5); // -2 → -1, -5 → -3
+      hpDelta = Math.round(hpDelta * 0.5);
     }
 
     this._applyHpDelta(hpDelta, reason);
@@ -354,8 +366,11 @@ export class GameEngine {
     }
   }
 
-  hitTarget(id, hitMeta = {}) {
+  // ---------- public action: hit target ----------
+
+  hitTarget(id, hitMeta) {
     if (this.state !== 'running') return;
+
     const now = performance.now();
     const t = this.targets.get(id);
     if (!t) return;
@@ -386,21 +401,22 @@ export class GameEngine {
       }
       this._maybeEnterFever(now);
 
-      let base = this.config.scorePerHit ?? 10;
+      let base = this.config.scorePerHit != null ? this.config.scorePerHit : 10;
       damage = 1;
       if (this.feverActive) {
-        base *= 2;
+        base  *= 2;
         damage = 2;
       }
+
       this.combo++;
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
       this.score += base;
       deltaScore = base;
       this._hitBoss(damage);
     } else {
-      // decoy: หักคะแนน+HP+fever
+      // decoy
       this.combo = 0;
-      const penalty = this.config.penaltyDecoy ?? 5;
+      const penalty = this.config.penaltyDecoy != null ? this.config.penaltyDecoy : 5;
       this.score -= penalty;
       if (this.score < 0) this.score = 0;
       deltaScore = -penalty;
@@ -408,7 +424,7 @@ export class GameEngine {
       this._onBadTiming('decoy');
     }
 
-    if (this.renderer && this.renderer.hit) {
+    if (this.renderer && typeof this.renderer.hit === 'function') {
       this.renderer.hit(id, {
         type: hitType,
         result,
@@ -419,7 +435,8 @@ export class GameEngine {
         deltaHP: damage
       });
     }
-    if (this.logger && this.logger.logHit) {
+
+    if (this.logger && typeof this.logger.logHit === 'function') {
       this.logger.logHit({
         id,
         type: hitType,
@@ -441,36 +458,16 @@ export class GameEngine {
     this._emitUpdate();
   }
 
+  // ---------- snapshot / HUD ----------
+
   _emitUpdate() {
     if (!this.hooks.onUpdate) return;
     this.hooks.onUpdate(this._snapshot());
   }
 
   _snapshot() {
-    return {
-      state: this.state,
-      score: this.score,
-      combo: this.combo,
-      maxCombo: this.maxCombo,
-      missCount: this.missCount,
-      elapsedMs: this.elapsed,
-      remainingMs: Math.max(0, this.config.durationMs - this.elapsed),
-      activeTargets: this.targets.size,
-      perfectHits: this.perfectHits,
-      badHits: this.badHits,
-      feverCharge: this.feverCharge,
-      feverActive: this.feverActive,
-      bossIndex: this.bossIndex,
-      bossHP: this.bossHP,
-      bossMaxHP: this.bossMaxHP,
-      bossCount: this.bosses.length,
-      playerHP: this.playerHP,
-      playerMaxHP: this.playerMaxHP
-    };
-  }
-}
-  _snapshot() {
     const currentBoss = this.bosses[this.bossIndex] || null;
+
     return {
       state: this.state,
       score: this.score,
@@ -482,14 +479,17 @@ export class GameEngine {
       activeTargets: this.targets.size,
       perfectHits: this.perfectHits,
       badHits: this.badHits,
+
       feverCharge: this.feverCharge,
       feverActive: this.feverActive,
+
       bossIndex: this.bossIndex,
       bossHP: this.bossHP,
       bossMaxHP: this.bossMaxHP,
       bossCount: this.bosses.length,
-      bossName: currentBoss ? currentBoss.name : '',
+      bossName:  currentBoss ? currentBoss.name  : '',
       bossEmoji: currentBoss ? currentBoss.emoji : '',
+
       playerHP: this.playerHP,
       playerMaxHP: this.playerMaxHP
     };
