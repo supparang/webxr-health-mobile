@@ -1,20 +1,26 @@
-// --- sfx.js ---
+// fitness/js/sfx.js
 'use strict';
-const BUCKET = 'fitness/sfx/';
 
-// preload
+const BASE = '../sfx/';  // วางไฟล์ใน fitness/sfx/*.mp3
+
+const NAMES = ['tap','perfect','good','late','miss','fever'];
 const cache = {};
-['tap','perfect','good','late','miss','fever'].forEach(n => {
-  const a = new Audio(`${BUCKET}${n}.mp3`);
-  a.preload = 'auto';
-  cache[n] = a;
-});
+
+for (const name of NAMES){
+  try{
+    const a = new Audio(BASE + name + '.mp3');
+    a.preload = 'auto';
+    cache[name] = a;
+  }catch(e){}
+}
 
 export const SFX = {
-  play(name) {
+  play(name){
     const a = cache[name];
     if (!a) return;
-    a.currentTime = 0;
-    a.play().catch(()=>{});
+    try{
+      a.currentTime = 0;
+      a.play().catch(()=>{});
+    }catch(e){}
   }
 };
