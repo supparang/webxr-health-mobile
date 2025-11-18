@@ -3,10 +3,19 @@
 
 /**
  * DomRenderer:
- * - แสดง .target ใน host
- * - ปรับขนาดเป้าตาม config.targetSizePx
- * - มีเอฟเฟกต์ตัวเลขคะแนนลอยเมื่อชกโดน
+ * - เป้าเป็น emoji (เป้าจริง / เป้าลวง)
+ * - มีเอฟเฟกต์แตก + คะแนนลอยตรงเป้า
  */
+
+const NORMAL_EMOJI = ['⭐️','💎','✨','🌀','🎯','🔆'];
+const DECOY_EMOJI  = ['💣','☠️','⚠️','🧨'];
+
+function pickEmoji(type){
+  if(type === 'decoy'){
+    return DECOY_EMOJI[Math.floor(Math.random() * DECOY_EMOJI.length)];
+  }
+  return NORMAL_EMOJI[Math.floor(Math.random() * NORMAL_EMOJI.length)];
+}
 
 export class DomRenderer {
   /**
@@ -31,9 +40,6 @@ export class DomRenderer {
     el.className = 'target spawn';
     if (target.type === 'decoy') {
       el.classList.add('decoy');
-      el.textContent = '✖';
-    } else {
-      el.textContent = '●';
     }
 
     const size = this.sizePx;
@@ -43,6 +49,17 @@ export class DomRenderer {
     el.style.left = target.x + '%';
     el.style.top  = target.y + '%';
     el.dataset.id = String(target.id);
+
+    // emoji ตรงกลาง
+    const inner = document.createElement('div');
+    inner.textContent = pickEmoji(target.type);
+    inner.style.fontSize = Math.round(size * 0.6) + 'px';
+    inner.style.display = 'flex';
+    inner.style.alignItems = 'center';
+    inner.style.justifyContent = 'center';
+    inner.style.width = '100%';
+    inner.style.height = '100%';
+    el.appendChild(inner);
 
     const onHit = (ev) => {
       ev.preventDefault();
@@ -56,8 +73,8 @@ export class DomRenderer {
     this._nodes.set(target.id, { el, onHit });
   }
 
-  // สร้างตัวเลขคะแนนลอย ๆ บริเวณที่เป้าถูกชก
-  _spawnScoreFloat(xPct, yPct, text, isPenalty) {
+  // คะแนนลอย
+  _spawnScoreFloat(xPct, yPct, text, color){
     if (!this.host) return;
     const node = document.createElement('div');
     node.textContent = text;
@@ -66,23 +83,16 @@ export class DomRenderer {
     node.style.top  = yPct + '%';
     node.style.transform = 'translate(-50%, -50%)';
     node.style.fontSize = '0.9rem';
-    node.style.fontWeight = '600';
+    node.style.fontWeight = '700';
     node.style.pointerEvents = 'none';
     node.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
     node.style.opacity = '1';
-    node.style.textShadow = '0 2px 6px rgba(0,0,0,0.6)';
-
-    if (isPenalty) {
-      node.style.color = '#fecaca';
-    } else {
-      node.style.color = '#bbf7d0';
-    }
+    node.style.textShadow = '0 2px 8px rgba(0,0,0,0.7)';
+    node.style.color = color || '#bbf7d0';
 
     this.host.appendChild(node);
-
-    // ทำให้ลอยขึ้นเล็กน้อยแล้วจางหาย
     requestAnimationFrame(() => {
-      node.style.transform = 'translate(-50%, -80%)';
+      node.style.transform = 'translate(-50%, -85%)';
       node.style.opacity = '0';
       setTimeout(() => {
         if (node.parentElement) node.parentElement.removeChild(node);
@@ -90,42 +100,33 @@ export class DomRenderer {
     });
   }
 
-  hit(id, meta) {
-    const record = this._nodes.get(id);
-    if (!record) return;
-    const { el, onHit } = record;
-    el.removeEventListener('pointerdown', onHit);
-    el.classList.add('hit');
-    el.classList.remove('spawn');
+  // เศษแตกกระจาย (เอฟเฟกต์ง่าย ๆ)
+  _spawnBurst(xPct, yPct, isDecoy){
+    if (!this.host) return;
+    const N = 8;
+    for(let i=0;i<N;i++){
+      const shard = document.createElement('div');
+      shard.style.position = 'absolute';
+      shard.style.left = xPct + '%';
+      shard.style.top  = yPct + '%';
+      shard.style.width = '6px';
+      shard.style.height = '6px';
+      shard.style.borderRadius = '999px';
+      shard.style.pointerEvents = 'none';
+      shard.style.opacity = '1';
+      shard.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
 
-    // เอฟเฟกต์คะแนนลอย
-    const rect = this.host.getBoundingClientRect();
-    const r    = el.getBoundingClientRect();
-    const xPct = ((r.left + r.width / 2) - rect.left) / rect.width  * 100;
-    const yPct = ((r.top  + r.height / 2) - rect.top)  / rect.height * 100;
+      if(isDecoy){
+        shard.style.background = '#fecaca';
+      }else{
+        shard.style.background = '#bbf7d0';
+      }
 
-    if (meta && meta.type === 'decoy') {
-      this._spawnScoreFloat(xPct, yPct, '-pts', true);
-    } else {
-      this._spawnScoreFloat(xPct, yPct, '+pts', false);
-    }
+      const angle = (Math.PI * 2 * i) / N;
+      const dist  = 24 + Math.random() * 10;
 
-    setTimeout(() => {
-      if (el.parentElement) el.parentElement.removeChild(el);
-      this._nodes.delete(id);
-    }, 220);
-  }
-
-  expire(id) {
-    const record = this._nodes.get(id);
-    if (!record) return;
-    const { el, onHit } = record;
-    el.removeEventListener('pointerdown', onHit);
-    el.classList.add('miss');
-    el.style.opacity = '0.3';
-    setTimeout(() => {
-      if (el.parentElement) el.parentElement.removeChild(el);
-      this._nodes.delete(id);
-    }, 180);
-  }
-}
+      this.host.appendChild(shard);
+      requestAnimationFrame(() => {
+        shard.style.transform =
+          `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
+        shard.s
