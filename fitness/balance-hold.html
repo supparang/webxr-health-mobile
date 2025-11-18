@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Balance Hold — VR Fitness Game</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    :root{
+      color-scheme: light dark;
+      --bg:#020617;
+      --card:rgba(15,23,42,0.95);
+      --border:rgba(148,163,184,0.6);
+      --text:#e5e7eb;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at top left,rgba(56,189,248,0.18),transparent 55%),
+        radial-gradient(circle at bottom right,rgba(34,197,94,0.22),transparent 55%),
+        var(--bg);
+      color:var(--text);
+    }
+    .card{
+      max-width:620px;
+      width:100%;
+      margin:16px;
+      padding:18px 18px 22px;
+      border-radius:20px;
+      background:var(--card);
+      border:1px solid var(--border);
+      box-shadow:0 20px 40px rgba(0,0,0,0.7);
+    }
+    h1{
+      margin:0 0 6px;
+      font-size:1.6rem;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    h1 span.icon{font-size:1.9rem;}
+    .subtitle{
+      margin:4px 0 10px;
+      color:#9ca3af;
+      font-size:0.95rem;
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      padding:3px 9px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.7);
+      font-size:0.78rem;
+      background:rgba(15,23,42,0.95);
+      margin-bottom:10px;
+    }
+    .pill span.dot{
+      width:8px;height:8px;border-radius:999px;
+      background:#22c55e;
+    }
+    h2{
+      margin:12px 0 6px;
+      font-size:1rem;
+    }
+    p{
+      margin:4px 0;
+      color:#cbd5f5;
+      font-size:0.9rem;
+    }
+    ul{
+      margin:6px 0 8px;
+      padding-left:20px;
+      color:#cbd5f5;
+      font-size:0.88rem;
+    }
+    li{margin-bottom:3px;}
+    .btn-row{
+      margin-top:12px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    a.btn{
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:rgba(15,23,42,0.96);
+      color:var(--text);
+      font-size:0.86rem;
+      cursor:pointer;
+      transition:transform .12s,box-shadow .12s;
+    }
+    a.btn.primary{
+      border-color:#22c55e;
+      background:linear-gradient(135deg,#22c55e,#a3e635);
+      color:#022c22;
+      box-shadow:0 12px 26px rgba(34,197,94,0.45);
+    }
+    a.btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 10px 22px rgba(15,23,42,0.8);
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <h1><span class="icon">⚖️</span>Balance Hold</h1>
+    <div class="subtitle">
+      เกมฝึกการทรงตัวและกล้ามเนื้อแกนกลาง รักษาจุดสมดุลให้อยู่ในโซนปลอดภัยให้นานที่สุด
+    </div>
+
+    <div class="pill">
+      <span class="dot"></span>
+      <span>เตรียมเชื่อม DOM Engine • Logging ค่า balance ต่อเนื่อง</span>
+    </div>
+
+    <h2>แนวคิดเกม</h2>
+    <p>
+      ในเกมเวอร์ชันเต็ม จะมี <strong>ตัวชี้ (balance pointer)</strong> แกว่งขึ้นลงหรือเอียงซ้ายขวา
+      ผู้เล่นต้องคุมให้ pointer อยู่ใน <strong>โซนสีเขียว (safe zone)</strong> ให้นานที่สุดภายในเวลาที่กำหนด
+    </p>
+    <ul>
+      <li>อยู่ในโซนปลอดภัย → สะสมคะแนนต่อเนื่องและเพิ่ม combo</li>
+      <li>ออกนอกโซน → combo หลุด และอาจนับเป็น miss</li>
+    </ul>
+
+    <p>
+      ต่อไปหน้านี้จะถูกอัปเดตให้มี HUD เต็มรูปแบบ + ระบบบันทึก CSV เพื่อนำไปใช้วิเคราะห์ท่าทางการทรงตัวในงานวิจัย
+    </p>
+
+    <div class="btn-row">
+      <a class="btn primary" href="./index.html">⬅ กลับ Hub VR Fitness</a>
+      <a class="btn" href="./shadow-breaker.html">ไปที่ Shadow Breaker 🥊</a>
+    </div>
+  </section>
+</body>
+</html>
