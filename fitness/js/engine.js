@@ -3,9 +3,12 @@
 
 /**
  * GameEngine:
- * - เป้า emoji: spawn/expire/hit
- * - มี FEVER gauge (perfect/good เพิ่มหลอด, miss/decoy ลด)
- * - มีบอส 4 ตัว ต่อสู้ทีละตัว (HP ต่อรอบ)
+ * - emoji เป้า (normal / decoy)
+ * - FEVER gauge
+ * - Boss 4 ตัว (ทีละตัว มี HP)
+ * - HP ผู้เล่น (ขึ้นลงตาม perfect/good/miss/decoy)
+ * - โหมด research: HP หมดก็ยังเล่นจนครบเวลา (ไม่ game over)
+ *   โหมด normal: HP หมด = จบเกมด้วยเหตุผล 'player-dead'
  */
 
 export class GameEngine {
@@ -14,6 +17,7 @@ export class GameEngine {
     this.hooks    = options.hooks || {};
     this.renderer = options.renderer;
     this.logger   = options.logger;
+    this.mode     = options.mode || 'normal'; // 'normal' | 'research'
 
     this.state   = 'idle';
     this.targets = new Map();
@@ -29,12 +33,12 @@ export class GameEngine {
     this.perfectHits = 0;
     this.badHits     = 0;
 
-    // fever
+    // FEVER
     this.feverCharge = 0;   // 0–100
     this.feverActive = false;
     this.feverEndAt  = 0;
 
-    // boss
+    // BOSS
     this.bosses   = (this.config.bosses && this.config.bosses.slice()) || [
       { name: 'Boss 1', hp: 30 },
       { name: 'Boss 2', hp: 40 },
@@ -44,6 +48,10 @@ export class GameEngine {
     this.bossIndex = 0;
     this.bossHP    = this.bosses[0].hp;
     this.bossMaxHP = this.bossHP;
+
+    // PLAYER HP
+    this.playerMaxHP = 100;
+    this.playerHP    = this.playerMaxHP;
 
     this.startTime   = 0;
     this.elapsed     = 0;
@@ -55,6 +63,11 @@ export class GameEngine {
     this.bossIndex = 0;
     this.bossHP    = this.bosses[0].hp;
     this.bossMaxHP = this.bossHP;
+  }
+
+  _resetPlayerHP() {
+    this.playerMaxHP = 100;
+    this.playerHP    = this.playerMaxHP;
   }
 
   reset() {
@@ -74,9 +87,11 @@ export class GameEngine {
     this.feverEndAt  = 0;
 
     this._resetBoss();
+    this._resetPlayerHP();
 
     this.elapsed   = 0;
     this.lastSpawnAt = 0;
+
     if (this.renderer && this.renderer.reset) this.renderer.reset();
     this._emitUpdate();
   }
@@ -104,7 +119,8 @@ export class GameEngine {
       elapsedMs: this.elapsed,
       perfectHits: this.perfectHits,
       badHits: this.badHits,
-      bossIndex: this.bossIndex
+      bossIndex: this.bossIndex,
+      playerHP: this.playerHP
     };
 
     if (this.logger && this.logger.finish) {
@@ -139,12 +155,14 @@ export class GameEngine {
     this.elapsed = now - this.startTime;
     const c = this.config;
 
-    // จบเกมถ้าเวลาเกิน หรือบอสตัวสุดท้ายตายแล้ว
+    // ชนะบอสครบแล้ว
     if (this.bossIndex >= this.bosses.length) {
       this._emitUpdate();
       this.stop('boss-cleared');
       return;
     }
+
+    // หมดเวลา
     if (this.elapsed >= c.durationMs) {
       this._emitUpdate();
       this.stop('timeout');
@@ -154,7 +172,7 @@ export class GameEngine {
     // FEVER หมดเวลา
     if (this.feverActive && now >= this.feverEndAt) {
       this.feverActive = false;
-      this.feverCharge = Math.min(this.feverCharge, 40); // เหลือ gauge นิดหน่อย
+      this.feverCharge = Math.min(this.feverCharge, 40);
     }
 
     const intervalNow = this._currentInterval();
@@ -248,25 +266,61 @@ export class GameEngine {
           this.renderer.expire(id, { type: t.type, now });
         }
         if (this.logger && this.logger.logExpire) {
-          this.logger.logExpire({ id, type: t.type, t: now });
+          this.logger.logExpire({
+            id,
+            type: t.type,
+            t: now,
+            playerHP: this.playerHP
+          });
         }
       }
     }
   }
 
+  _applyHpDelta(delta, reason) {
+    this.playerHP += delta;
+    if (this.playerHP > this.playerMaxHP) this.playerHP = this.playerMaxHP;
+    if (this.playerHP < 0) this.playerHP = 0;
+
+    // โหมด normal: HP หมด = จบเกม
+    if (this.mode !== 'research' && this.playerHP <= 0 && this.state === 'running') {
+      this.stop('player-dead');
+    }
+  }
+
   _onPerfect() {
+    // perfect = heal เยอะ + fever ขึ้นเยอะ
     this.perfectHits++;
-    let add = 16;
-    this.feverCharge = Math.min(100, this.feverCharge + add);
+    this._applyHpDelta(+3, 'perfect');
+    this.feverCharge = Math.min(100, this.feverCharge + 16);
   }
 
   _onGoodHit() {
-    let add = 8;
-    this.feverCharge = Math.min(100, this.feverCharge + add);
+    // good = heal นิดหน่อย + fever ขึ้นน้อยกว่าหน่อย
+    this._applyHpDelta(+1, 'good');
+    this.feverCharge = Math.min(100, this.feverCharge + 8);
   }
 
   _onBadTiming(reason) {
     this.badHits++;
+
+    // โทษพื้นฐาน
+    let hpDelta = 0;
+    if (reason === 'decoy') {
+      hpDelta = -5;
+    } else {
+      // miss / expire
+      hpDelta = -2;
+    }
+
+    // ช่วง FEVER โทษ HP เบาลง
+    if (this.feverActive) {
+      hpDelta = Math.round(hpDelta * 0.5); // -2 → -1, -5 → -3
+    }
+
+    this._applyHpDelta(hpDelta, reason);
+
+    // FEVER gauge ลง
     this.feverCharge = Math.max(0, this.feverCharge - 20);
     if (reason === 'decoy') {
       this.feverCharge = Math.max(0, this.feverCharge - 10);
@@ -295,7 +349,6 @@ export class GameEngine {
         this.bossHP    = this.bosses[this.bossIndex].hp;
         this.bossMaxHP = this.bossHP;
       } else {
-        // เคลียร์บอสครบทุกตัว → จบเกม
         this.stop('boss-cleared');
       }
     }
@@ -310,8 +363,8 @@ export class GameEngine {
     const hitType = t.type;
     this.targets.delete(id);
 
-    const life = this.config.targetLifetimeMs || 1;
-    const age  = now - t.createdAt;
+    const life  = this.config.targetLifetimeMs || 1;
+    const age   = now - t.createdAt;
     const ratio = age / life;
 
     let quality = 'good';
@@ -345,6 +398,7 @@ export class GameEngine {
       deltaScore = base;
       this._hitBoss(damage);
     } else {
+      // decoy: หักคะแนน+HP+fever
       this.combo = 0;
       const penalty = this.config.penaltyDecoy ?? 5;
       this.score -= penalty;
@@ -373,6 +427,7 @@ export class GameEngine {
         score: this.score,
         combo: this.combo,
         missCount: this.missCount,
+        playerHP: this.playerHP,
         t: now,
         extra: {
           quality,
@@ -408,7 +463,9 @@ export class GameEngine {
       bossIndex: this.bossIndex,
       bossHP: this.bossHP,
       bossMaxHP: this.bossMaxHP,
-      bossCount: this.bosses.length
+      bossCount: this.bosses.length,
+      playerHP: this.playerHP,
+      playerMaxHP: this.playerMaxHP
     };
   }
 }
