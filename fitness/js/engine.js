@@ -4,7 +4,7 @@
 /**
  * GameEngine:
  * - จัดการเวลา, spawn เป้า, อายุเป้า, score, combo, miss
- * - ไม่ผูก DOM โดยตรง ใช้ renderer + logger ที่ส่งเข้ามา
+ * - รองรับ dynamic spawn interval + กันเป้าซ้อนกัน
  */
 
 export class GameEngine {
@@ -81,6 +81,19 @@ export class GameEngine {
     }
   }
 
+  // คำนวณ interval ปัจจุบัน (ใกล้หมดเวลายิ่งเร็วขึ้น)
+  _currentInterval() {
+    const c = this.config;
+    const base  = c.spawnIntervalMs;
+    const accel = c.speedupFactor || 0;
+    const progress = Math.min(1, this.elapsed / c.durationMs); // 0 → 1
+
+    // ยิ่ง progress สูง ยิ่งลด interval ลง
+    const factor = 1 - accel * progress; // ไม่ต่ำกว่า ~0.35–0.4 ป้องกันเร็วเกินไป
+    const clamped = Math.max(0.35, factor);
+    return base * clamped;
+  }
+
   _loop(now) {
     if (this.state !== 'running') return;
 
@@ -94,8 +107,10 @@ export class GameEngine {
       return;
     }
 
+    const intervalNow = this._currentInterval();
+
     // spawn เป้าใหม่
-    if (now - this.lastSpawnAt >= c.spawnIntervalMs) {
+    if (now - this.lastSpawnAt >= intervalNow) {
       if (this.targets.size < c.maxConcurrent) {
         this._spawnOne(now);
         this.lastSpawnAt = now;
@@ -116,9 +131,39 @@ export class GameEngine {
     const id = this.nextId++;
     const isDecoy = Math.random() < c.decoyChance;
 
-    // random ในกรอบ 5–95% กันติดขอบ
-    const x = 5 + Math.random() * 90;
-    const y = 10 + Math.random() * 80;
+    const minDist = c.minDistancePct || 16;
+    let x, y;
+    let ok = false;
+
+    // สุ่มตำแหน่งใหม่จนกว่าจะไม่ชนกับเป้าอื่นมากเกินไป (ลองสูงสุด 12 ครั้ง)
+    for (let i = 0; i < 12; i++) {
+      const candX = 5 + Math.random() * 90;
+      const candY = 10 + Math.random() * 80;
+      let tooClose = false;
+
+      for (const t of this.targets.values()) {
+        const dx = candX - t.x;
+        const dy = candY - t.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < minDist) {
+          tooClose = true;
+          break;
+        }
+      }
+
+      if (!tooClose) {
+        x = candX;
+        y = candY;
+        ok = true;
+        break;
+      }
+    }
+
+    // ถ้าหาตำแหน่งดี ๆ ไม่ได้ ก็ยอมสุ่มแบบเดิม
+    if (!ok) {
+      x = 5 + Math.random() * 90;
+      y = 10 + Math.random() * 80;
+    }
 
     const target = {
       id,
@@ -163,14 +208,11 @@ export class GameEngine {
     }
   }
 
-  /**
-   * เรียกเมื่อผู้เล่นคลิก/ชกเป้า
-   */
   hitTarget(id, hitMeta = {}) {
     if (this.state !== 'running') return;
     const now = performance.now();
     const t = this.targets.get(id);
-    if (!t) return; // เป้าหายแล้ว
+    if (!t) return;
 
     const hitType = t.type;
     this.targets.delete(id);
@@ -181,7 +223,6 @@ export class GameEngine {
       if (this.combo > this.maxCombo) this.maxCombo = this.combo;
       this.score += this.config.scorePerHit ?? 10;
     } else {
-      // decoy
       this.combo = 0;
       this.score -= this.config.penaltyDecoy ?? 5;
       if (this.score < 0) this.score = 0;
