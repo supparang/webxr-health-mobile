@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <title>Shadow Breaker — VR Fitness Game</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    /* ใช้สไตล์เดิมจากเวอร์ชันก่อน แกนหลักเหมือนเดิม */
+    :root {
+      color-scheme: light dark;
+      --bg: #020617;
+      --card: rgba(15,23,42,0.9);
+      --text: #e5e7eb;
+      --accent: #22c55e;
+      --accent-soft: rgba(34,197,94,0.16);
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      min-height:100vh;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(56,189,248,0.16), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(34,197,94,0.2), transparent 55%),
+        var(--bg);
+      color:var(--text);
+      display:flex;
+      justify-content:center;
+      align-items:stretch;
+    }
+    main {
+      width:100%;
+      max-width:960px;
+      padding:16px;
+    }
+    .card {
+      background:var(--card);
+      border-radius:18px;
+      padding:16px 18px 20px;
+      box-shadow:0 18px 45px rgba(0,0,0,0.5);
+      border:1px solid rgba(148,163,184,0.3);
+    }
+    h1 {
+      margin:0 0 8px;
+      font-size:1.6rem;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    h1 span.icon { font-size:1.8rem; }
+    .subtitle {
+      margin-bottom:12px;
+      color:#9ca3af;
+      font-size:0.95rem;
+    }
+    .top-row{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:8px;
+    }
+    .btn-small{
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.7);
+      padding:6px 10px;
+      font-size:0.8rem;
+      background:rgba(15,23,42,0.9);
+      color:#e5e7eb;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      gap:5px;
+      cursor:pointer;
+    }
+    .btn-small:hover{
+      box-shadow:0 8px 18px rgba(15,23,42,0.7);
+      transform:translateY(-1px);
+    }
+    .pill {
+      border-radius:999px;
+      padding:3px 9px;
+      font-size:0.75rem;
+      background:rgba(15,23,42,0.9);
+      border:1px solid rgba(148,163,184,0.6);
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      margin-top:4px;
+    }
+    .pill span.dot{
+      width:8px;height:8px;border-radius:50%;
+      background:var(--accent);
+    }
+
+    .btn-row {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:4px 0 12px;
+    }
+    button {
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.6);
+      padding:8px 14px;
+      font:inherit;
+      cursor:pointer;
+      background:rgba(15,23,42,0.9);
+      color:var(--text);
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      transition:background .15s,transform .12s,box-shadow .12s;
+    }
+    button.primary {
+      border-color:var(--accent);
+      background:linear-gradient(135deg,#22c55e,#a3e635);
+      color:#022c22;
+      box-shadow:0 10px 28px rgba(34,197,94,0.4);
+    }
+    button:hover {
+      transform:translateY(-1px);
+      box-shadow:0 10px 18px rgba(15,23,42,0.6);
+    }
+    button:active {
+      transform:translateY(0);
+      box-shadow:none;
+    }
+
+    .row { display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; }
+    .col { flex:1 1 220px; }
+    label { display:block; font-size:0.85rem; margin-bottom:4px; color:#9ca3af; }
+    input, select {
+      width:100%; padding:7px 9px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.9);
+      color:var(--text);
+      font:inherit;
+    }
+    .help { font-size:0.8rem; color:#9ca3af; margin-top:4px; }
+
+    .hidden { display:none !important; }
+
+    /* Play view */
+    #view-play{ margin-top:10px; }
+    .play-top{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      font-size:0.9rem;
+      margin-bottom:8px;
+    }
+    .play-top .stats{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .tag{
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.5);
+      font-size:0.8rem;
+      background:rgba(15,23,42,0.8);
+    }
+    .timer{
+      font-weight:600;
+      letter-spacing:0.04em;
+    }
+    .play-area{
+      position:relative;
+      width:100%;
+      aspect-ratio:16/9;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,0.65);
+      background:
+        radial-gradient(circle at top,rgba(15,118,110,0.24),transparent 55%),
+        radial-gradient(circle at bottom,rgba(37,99,235,0.3),transparent 60%),
+        #020617;
+      overflow:hidden;
+      touch-action:manipulation;
+    }
+    #target-layer{
+      position:absolute;
+      inset:0;
+    }
+    .target{
+      position:absolute;
+      width:70px;
+      height:70px;
+      border-radius:50%;
+      background:radial-gradient(circle at 30% 30%,#fef9c3,#eab308);
+      box-shadow:0 10px 24px rgba(234,179,8,0.65);
+      border:3px solid rgba(249,250,251,0.85);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:1.5rem;
+      color:#0b1120;
+      cursor:pointer;
+      transform:translate(-50%,-50%) scale(1);
+      transition:transform 0.12s ease-out,opacity 0.12s ease-out;
+    }
+    .target.decoy{
+      background:radial-gradient(circle at 30% 30%,#fecaca,#ef4444);
+      box-shadow:0 10px 26px rgba(239,68,68,0.7);
+    }
+    .target.spawn{
+      transform:translate(-50%,-50%) scale(0.3);
+      animation:pop-in 0.12s forwards;
+    }
+    .target.hit{
+      animation:hit-burst 0.22s forwards;
+    }
+    .target.miss{
+      opacity:0.4;
+    }
+    @keyframes pop-in{
+      to{ transform:translate(-50%,-50%) scale(1); }
+    }
+    @keyframes hit-burst{
+      to{ transform:translate(-50%,-50%) scale(1.4); opacity:0; }
+    }
+    .banner{
+      margin-top:8px;
+      font-size:0.8rem;
+      color:#9ca3af;
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+    .banner strong{ color:#fde68a; }
+
+    /* Result view */
+    #view-result .summary{ margin-top:10px; font-size:0.9rem; }
+    #view-result table{
+      width:100%;
+      border-collapse:collapse;
+      margin-top:6px;
+      font-size:0.85rem;
+    }
+    #view-result th,#view-result td{
+      padding:6px 8px;
+      border-bottom:1px solid rgba(148,163,184,0.4);
+      text-align:left;
+    }
+    #view-result td.label{
+      color:#9ca3af;
+      width:40%;
+    }
+
+    @media(max-width:640px){
+      .card{padding:14px;}
+      h1{font-size:1.35rem;}
+      .play-area{border-radius:14px;}
+      .target{width:56px;height:56px;}
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <!-- MENU / CONFIG VIEW -->
+    <section class="card" id="view-menu">
+      <div class="top-row">
+        <div>
+          <h1><span class="icon">🥊</span>Shadow Breaker</h1>
+          <div class="subtitle">
+            เกมชกเป้าแบบสุ่มทั่วจอ ฝึก reaction และความแม่นยำ ใช้ได้ทั้งโหมดวิจัยและโหมดเล่นปกติ
+          </div>
+          <div class="pill">
+            <span class="dot"></span>
+            <span>DOM Engine • Single Page • CSV Export</span>
+          </div>
+        </div>
+        <div>
+          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
+        </div>
+      </div>
+
+      <h2 style="margin-top:16px;font-size:1rem;">เลือกรูปแบบการเล่น</h2>
+      <div class="btn-row">
+        <button class="primary" data-action="start-research">
+          <span>โหมดวิจัย</span> <span>📊</span>
+        </button>
+        <button data-action="start-normal">
+          <span>โหมดเล่นปกติ</span> <span>🎮</span>
+        </button>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="difficulty">ระดับความยาก</label>
+          <select id="difficulty">
+            <option value="easy">ง่าย — เหมาะเริ่มต้น</option>
+            <option value="normal" selected>ปกติ — ท้าทายกำลังดี</option>
+            <option value="hard">ยาก — ฝึก reaction หนัก</option>
+          </select>
+          <div class="help">
+            ความถี่เป้า / อายุเป้า / เป้าลวงจะเปลี่ยนตามระดับ
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RESEARCH FORM -->
+    <section class="card hidden" id="view-research-form">
+      <div class="top-row">
+        <div>
+          <h1><span class="icon">📋</span>ข้อมูลโหมดวิจัย</h1>
+          <div class="subtitle">
+            กรอกข้อมูลผู้เข้าร่วมเพื่อผูกกับไฟล์ CSV สำหรับการวิเคราะห์ภายหลัง
+          </div>
+        </div>
+        <div>
+          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col">
+          <label for="research-id">รหัสผู้เข้าร่วม (Participant ID)</label>
+          <input id="research-id" placeholder="เช่น P001-01" />
+        </div>
+        <div class="col">
+          <label for="research-group">กลุ่มทดลอง / เงื่อนไข</label>
+          <input id="research-group" placeholder="เช่น Experimental / Control" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label for="research-note">หมายเหตุ (เช่น Pre-test / Post-test)</label>
+          <input id="research-note" placeholder="เช่น Pre-test" />
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px;">
+        <button class="primary" data-action="research-begin-play">
+          เริ่มเล่น Shadow Breaker ▶
+        </button>
+        <button data-action="back-to-menu">
+          ⬅ กลับเมนูเกม
+        </button>
+      </div>
+    </section>
+
+    <!-- PLAY VIEW -->
+    <section class="card hidden" id="view-play">
+      <div class="play-top">
+        <div class="stats">
+          <div class="tag">Mode: <span id="stat-mode">-</span></div>
+          <div class="tag">Diff: <span id="stat-diff">-</span></div>
+          <div class="tag">Score: <span id="stat-score">0</span></div>
+          <div class="tag">Combo: <span id="stat-combo">0</span></div>
+          <div class="tag">Miss: <span id="stat-miss">0</span></div>
+        </div>
+        <div class="timer">⏱ <span id="stat-time">60.0</span>s</div>
+      </div>
+
+      <div class="play-area">
+        <div id="target-layer"></div>
+      </div>
+
+      <div class="banner">
+        <strong>วิธีเล่น:</strong> แตะ / ชก เป้าสีเหลืองทองให้ทันเวลา หลีกเลี่ยงเป้าสีแดง (หักคอมโบและหักคะแนน)
+      </div>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button data-action="stop-early">⏹ หยุดก่อนเวลา</button>
+        <button onclick="location.href='./index.html'" type="button">⬅ กลับ Hub</button>
+      </div>
+    </section>
+
+    <!-- RESULT VIEW -->
+    <section class="card hidden" id="view-result">
+      <div class="top-row">
+        <div>
+          <h1><span class="icon">✅</span>สรุปผลรอบเล่น</h1>
+          <div class="subtitle">
+            ข้อมูลรอบนี้ถูกบันทึกไว้ในไฟล์ CSV แล้ว สามารถนำไปวิเคราะห์หรืออัปโหลดขึ้น cloud ได้
+          </div>
+        </div>
+        <div>
+          <a href="./index.html" class="btn-small">⬅ กลับ Hub</a>
+        </div>
+      </div>
+
+      <div class="summary">
+        <table>
+          <tbody>
+            <tr><td class="label">โหมด</td><td id="res-mode">-</td></tr>
+            <tr><td class="label">ระดับความยาก</td><td id="res-diff">-</td></tr>
+            <tr><td class="label">คะแนนรวม</td><td id="res-score">0</td></tr>
+            <tr><td class="label">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
+            <tr><td class="label">จำนวนเป้าพลาด</td><td id="res-miss">0</td></tr>
+            <tr><td class="label">รหัสผู้เข้าร่วม</td><td id="res-participant">-</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="btn-row" style="margin-top:14px;">
+        <button class="primary" data-action="download-csv">
+          ⬇ ดาวน์โหลด CSV รอบนี้
+        </button>
+        <button data-action="play-again">
+          ▶ เล่นอีกครั้ง (ใช้การตั้งค่าเดิม)
+        </button>
+        <button data-action="back-to-menu">
+          ⬅ กลับเมนูเกม
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./js/main-shadow.js"></script>
+</body>
+</html>
