@@ -129,4 +129,64 @@ export class DomRenderer {
       requestAnimationFrame(() => {
         shard.style.transform =
           `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
-        shard.s
+        shard.style.opacity = '0';
+        setTimeout(() => {
+          if(shard.parentElement) shard.parentElement.removeChild(shard);
+        }, 380);
+      });
+    }
+  }
+
+  hit(id, meta) {
+    const record = this._nodes.get(id);
+    if (!record) return;
+    const { el, onHit } = record;
+    el.removeEventListener('pointerdown', onHit);
+
+    const rectHost = this.host.getBoundingClientRect();
+    const rect     = el.getBoundingClientRect();
+    const xPct = ((rect.left + rect.width / 2) - rectHost.left) / rectHost.width * 100;
+    const yPct = ((rect.top  + rect.height/ 2) - rectHost.top)  / rectHost.height * 100;
+
+    // shard แตกกระจาย
+    this._spawnBurst(xPct, yPct, meta && meta.type === 'decoy');
+
+    // คะแนนลอย
+    const delta = (meta && typeof meta.deltaScore === 'number')
+      ? meta.deltaScore
+      : (meta && meta.type === 'decoy' ? -5 : 10);
+
+    if (delta !== 0){
+      if (delta > 0){
+        let label = '+' + delta;
+        if (meta && meta.quality === 'perfect'){
+          label = 'Perfect +' + delta;
+        }
+        this._spawnScoreFloat(xPct, yPct, label, '#bbf7d0');
+      } else {
+        this._spawnScoreFloat(xPct, yPct, String(delta), '#fecaca');
+      }
+    }
+
+    // ลบเป้า
+    el.classList.add('hit');
+    el.classList.remove('spawn');
+    setTimeout(() => {
+      if (el.parentElement) el.parentElement.removeChild(el);
+      this._nodes.delete(id);
+    }, 180);
+  }
+
+  expire(id) {
+    const record = this._nodes.get(id);
+    if (!record) return;
+    const { el, onHit } = record;
+    el.removeEventListener('pointerdown', onHit);
+    el.classList.add('miss');
+    el.style.opacity = '0.3';
+    setTimeout(() => {
+      if (el.parentElement) el.parentElement.removeChild(el);
+      this._nodes.delete(id);
+    }, 180);
+  }
+}
