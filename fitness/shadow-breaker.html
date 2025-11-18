@@ -338,6 +338,62 @@
       color:#facc15;
     }
 
+    /* Screen shake */
+    .play-area.shake{
+      animation: sb-shake 0.18s ease-out;
+    }
+    @keyframes sb-shake{
+      0%{ transform:translate(0,0); }
+      25%{ transform:translate(-3px, 2px); }
+      50%{ transform:translate(3px,-2px); }
+      75%{ transform:translate(-2px,1px); }
+      100%{ transform:translate(0,0); }
+    }
+
+    /* Boss bar flash */
+    .boss-bar.hit-flash .boss-fill{
+      box-shadow:0 0 18px rgba(252,211,77,0.95);
+      filter:brightness(1.35);
+    }
+
+    /* Coach bubble */
+    .coach-bubble{
+      margin-top:8px;
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+      max-width:100%;
+      padding:6px 9px;
+      border-radius:12px;
+      background:rgba(15,23,42,0.9);
+      border:1px solid rgba(148,163,184,0.45);
+      font-size:0.8rem;
+      box-shadow:0 8px 18px rgba(15,23,42,0.7);
+      opacity:0;
+      transform:translateY(4px);
+      transition:opacity .18s ease-out, transform .18s ease-out;
+    }
+    .coach-bubble.visible{
+      opacity:1;
+      transform:translateY(0);
+    }
+    .coach-avatar{
+      font-size:1.4rem;
+      filter:drop-shadow(0 2px 6px rgba(0,0,0,0.7));
+    }
+    .coach-text-wrap{
+      display:flex;
+      flex-direction:column;
+    }
+    .coach-role{
+      font-weight:600;
+      margin-bottom:2px;
+      color:#e5e7eb;
+    }
+    .coach-text{
+      color:#e5e7eb;
+    }
+
     /* Result view */
     #view-result .summary{ margin-top:10px; font-size:0.9rem; }
     #view-result table{
@@ -371,11 +427,12 @@
         <div>
           <h1><span class="icon">🥊</span>Shadow Breaker</h1>
           <div class="subtitle">
-            เกมชกเป้าแบบ emoji ต่อสู้กับบอสทีละตัว มี FEVER gauge, HP ผู้เล่น และเก็บข้อมูล CSV ใช้ในงานวิจัยได้
+            เกมชกเป้าแบบ emoji ต่อสู้กับบอสทีละตัว มี FEVER gauge, HP ผู้เล่น
+            โหมดวิจัย/เล่น และบันทึกข้อมูล CSV สำหรับงานวิจัย / commercial use
           </div>
           <div class="pill">
             <span class="dot"></span>
-            <span>DOM Engine • Boss x4 • FEVER • Player HP • CSV Export</span>
+            <span>DOM Engine • Boss x4 • FEVER • Player HP • Analytics CSV</span>
           </div>
         </div>
         <div>
@@ -498,6 +555,17 @@
         </div>
       </div>
 
+      <!-- COACH BUBBLE -->
+      <div class="coach-bubble" id="coach-bubble">
+        <div class="coach-avatar" id="coach-avatar">🥊</div>
+        <div class="coach-text-wrap">
+          <div class="coach-role" id="coach-role">โค้ชพลังหมัด</div>
+          <div class="coach-text" id="coach-text">
+            พร้อมลุย Shadow Breaker แล้ว! ชกเป้าให้ทันนะ 🥊
+          </div>
+        </div>
+      </div>
+
       <div class="banner">
         <strong>วิธีเล่น:</strong>
         แตะ/ชก emoji สีหลักให้ทันเวลาเพื่อโจมตีบอส หลีกเลี่ยง emoji หลอก (ลดคะแนน/หลอด FEVER/HP)
@@ -516,7 +584,7 @@
         <div>
           <h1><span class="icon">✅</span>สรุปผลรอบเล่น</h1>
           <div class="subtitle">
-            ข้อมูลรอบนี้ถูกบันทึกไว้ในไฟล์ CSV แล้ว สามารถนำไปวิเคราะห์หรืออัปโหลดขึ้น cloud ได้
+            ข้อมูลรอบนี้ถูกบันทึกไว้ในไฟล์ CSV แล้ว สามารถนำไปวิเคราะห์หรืออัปโหลดขึ้น cloud / research platform ได้
           </div>
         </div>
         <div>
