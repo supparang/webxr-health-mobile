@@ -3,8 +3,13 @@
 
 /**
  * DomRenderer:
- * - เป้าเป็น emoji (เป้าจริง / เป้าลวง)
- * - มีเอฟเฟกต์แตก + คะแนนลอยตรงเป้า
+ * - เป้า emoji (normal / decoy)
+ * - เอฟเฟกต์แตก + คะแนนลอยตรงเป้า
+ * - Sensory feedback:
+ *   - play-area เขย่า (screen shake)
+ *   - vibrate บนมือถือ (ถ้ามี)
+ *   - SFX hit / decoy / miss (ใส่ไฟล์เอง)
+ *   - boss HP flash สั้น ๆ
  */
 
 const NORMAL_EMOJI = ['⭐️','💎','✨','🌀','🎯','🔆'];
@@ -28,6 +33,17 @@ export class DomRenderer {
     this.host   = host;
     this._nodes = new Map();
     this.sizePx = options.sizePx || 70;
+
+    this.playArea = this.host ? this.host.closest('.play-area') : null;
+
+    // เตรียม SFX (optional)
+    try {
+      this.sfxHit   = new Audio('./sfx/hit.mp3');
+      this.sfxDecoy = new Audio('./sfx/decoy.mp3');
+      this.sfxMiss  = new Audio('./sfx/miss.mp3');
+    } catch(e) {
+      this.sfxHit = this.sfxDecoy = this.sfxMiss = null;
+    }
   }
 
   reset() {
@@ -116,11 +132,7 @@ export class DomRenderer {
       shard.style.opacity = '1';
       shard.style.transition = 'transform .35s ease-out, opacity .35s ease-out';
 
-      if(isDecoy){
-        shard.style.background = '#fecaca';
-      }else{
-        shard.style.background = '#bbf7d0';
-      }
+      shard.style.background = isDecoy ? '#fecaca' : '#bbf7d0';
 
       const angle = (Math.PI * 2 * i) / N;
       const dist  = 24 + Math.random() * 10;
@@ -137,6 +149,57 @@ export class DomRenderer {
     }
   }
 
+  _playSfx(kind){
+    let src = null;
+    if (kind === 'decoy' && this.sfxDecoy) src = this.sfxDecoy;
+    else if (kind === 'miss' && this.sfxMiss) src = this.sfxMiss;
+    else if (this.sfxHit) src = this.sfxHit;
+
+    if (!src) return;
+    try{
+      const a = src.cloneNode();
+      a.volume = 0.9;
+      a.play();
+    }catch(e){}
+  }
+
+  _shakePlayArea(){
+    if(!this.playArea) return;
+    const el = this.playArea;
+    el.classList.remove('shake');
+    void el.offsetWidth; // force reflow
+    el.classList.add('shake');
+    setTimeout(()=>el.classList.remove('shake'), 220);
+  }
+
+  _flashBossBar(){
+    const bar = document.querySelector('.boss-bar');
+    if(!bar) return;
+    bar.classList.add('hit-flash');
+    setTimeout(()=>bar.classList.remove('hit-flash'), 180);
+  }
+
+  _vibrate(kind){
+    if (!('vibrate' in navigator)) return;
+    try{
+      if (kind === 'decoy'){
+        navigator.vibrate([40,40,40]);
+      } else if (kind === 'miss'){
+        navigator.vibrate([30,60,30]);
+      } else {
+        navigator.vibrate(30);
+      }
+    }catch(e){}
+  }
+
+  _feedbackOnHit(meta, isDecoy){
+    // screen shake + boss flash + vibrate + SFX
+    this._shakePlayArea();
+    this._flashBossBar();
+    this._vibrate(isDecoy ? 'decoy' : 'hit');
+    this._playSfx(isDecoy ? 'decoy' : 'hit');
+  }
+
   hit(id, meta) {
     const record = this._nodes.get(id);
     if (!record) return;
@@ -148,13 +211,15 @@ export class DomRenderer {
     const xPct = ((rect.left + rect.width / 2) - rectHost.left) / rectHost.width * 100;
     const yPct = ((rect.top  + rect.height/ 2) - rectHost.top)  / rectHost.height * 100;
 
+    const isDecoy = meta && meta.type === 'decoy';
+
     // shard แตกกระจาย
-    this._spawnBurst(xPct, yPct, meta && meta.type === 'decoy');
+    this._spawnBurst(xPct, yPct, isDecoy);
 
     // คะแนนลอย
     const delta = (meta && typeof meta.deltaScore === 'number')
       ? meta.deltaScore
-      : (meta && meta.type === 'decoy' ? -5 : 10);
+      : (isDecoy ? -5 : 10);
 
     if (delta !== 0){
       if (delta > 0){
@@ -167,6 +232,9 @@ export class DomRenderer {
         this._spawnScoreFloat(xPct, yPct, String(delta), '#fecaca');
       }
     }
+
+    // Sensory feedback
+    this._feedbackOnHit(meta, isDecoy);
 
     // ลบเป้า
     el.classList.add('hit');
@@ -184,6 +252,11 @@ export class DomRenderer {
     el.removeEventListener('pointerdown', onHit);
     el.classList.add('miss');
     el.style.opacity = '0.3';
+
+    // miss feedback เบาหน่อย
+    this._vibrate('miss');
+    this._playSfx('miss');
+
     setTimeout(() => {
       if (el.parentElement) el.parentElement.removeChild(el);
       this._nodes.delete(id);
