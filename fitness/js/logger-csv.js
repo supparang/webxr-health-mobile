@@ -3,14 +3,13 @@
 
 /**
  * createCSVLogger(sessionMeta)
- * - เก็บ event ต่าง ๆ ไว้เป็น rows
- * - เมื่อ finish() → สร้าง Blob CSV + trigger download
+ * - เก็บ event ต่าง ๆ เป็นแถว
+ * - เมื่อ finish(finalState) → สร้าง Blob CSV แล้วดาวน์โหลด
  */
 
 export function createCSVLogger(sessionMeta) {
   const rows = [];
 
-  // header
   rows.push([
     'timestamp_ms',
     'player_id',
@@ -60,9 +59,7 @@ export function createCSVLogger(sessionMeta) {
     logHit(info) {
       addRow({
         ...info,
-        event: 'hit',
-        missCount: info.missCount ?? '',
-        phase: sessionMeta.phase || ''
+        event: 'hit'
       });
     },
     logExpire(info) {
@@ -89,7 +86,7 @@ export function createCSVLogger(sessionMeta) {
 
       const csv = rows.map(r => r.join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
+      const url  = URL.createObjectURL(blob);
 
       const a = document.createElement('a');
       a.href = url;
