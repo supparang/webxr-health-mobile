@@ -3,7 +3,7 @@
 // - Boss sequence (4 bosses per run, easy → hard)
 // - Boss banner: warning near defeat + clear message, then next boss
 // - Score FX: floating "+score" near target
-// - Research logging + CSV (เหมือนเดิม)
+// - Research logging + CSV
 
 const SB_GAME_ID = 'shadow-breaker';
 const SB_GAME_VERSION = '1.1.0-research';
@@ -48,7 +48,7 @@ const $$ = (s) => document.querySelectorAll(s);
 const sbGameArea    = $('#gameArea');
 const sbFeedbackEl  = $('#feedback');
 const sbStartBtn    = $('#startBtn');
-const sbLangButtons = $$('.lang-toggle button');
+const sbLangButtons = $$('.lang-toggle .lang-btn');
 
 const sbMetaInputs = {
   studentId:  $('#studentId'),
@@ -253,7 +253,7 @@ const sbState = {
   sessionMeta: null,
   phase: sbPhase,
   diff: sbDiff,
-  bossQueue: [],          // [{index, spawnAtMs}]
+  bossQueue: [],          // [{bossIndex, spawnAtMs}]
   bossActive: false,
   bossWarned: false,
   activeBossId: null,
@@ -274,6 +274,7 @@ function sbLoadMeta() {
 function sbSaveMetaDraft() {
   const meta = {};
   Object.entries(sbMetaInputs).forEach(([k, el]) => {
+    if (!el) return;
     meta[k] = el.value.trim();
   });
   try { localStorage.setItem(SB_META_KEY, JSON.stringify(meta)); } catch(_) {}
@@ -426,8 +427,12 @@ function sbShowFeedback(type) {
 
   sbFeedbackEl.textContent = txt;
   sbFeedbackEl.className = 'feedback ' + type;
-  sbFeedbackEl.style.display = 'block';
-  setTimeout(()=>{ sbFeedbackEl.style.display='none'; }, type==='fever'?800:420);
+  sbFeedbackEl.style.opacity = 1;
+  sbFeedbackEl.style.transform = 'translate(-50%,-50%) scale(1)';
+  setTimeout(()=>{
+    sbFeedbackEl.style.opacity = 0;
+    sbFeedbackEl.style.transform = 'translate(-50%,-50%) scale(0.9)';
+  }, type==='fever'?800:420);
 }
 
 // score FX ลอยขึ้นจากเป้า
@@ -644,9 +649,10 @@ function sbHitTarget(tObj) {
     sbScoreFx(tObj.el, gained);
     sbHUD.coachLine.textContent = sbI18n[sbLang].coachGood;
 
-    // เตือนใกล้ล้มบอส
+    // เตือนใกล้ล้มบอส + ทำบอสตัวใหญ่ขึ้น
     if (isBoss && !sbState.bossWarned && tObj.hp <= 2) {
       sbState.bossWarned = true;
+      if (tObj.el) tObj.el.classList.add('boss-final');
       const name = sbLang==='th'?bossInfo.nameTh:bossInfo.nameEn;
       sbShowBossBanner(sbI18n[sbLang].bossNear(name), bossInfo.emoji);
     }
@@ -946,8 +952,10 @@ sbPlayAgainBtn && sbPlayAgainBtn.addEventListener('click',()=>{
   sbStartGame();
 });
 
+// ปุ่มกลับ Hub — ปรับ path ให้ไม่ 404
 sbBackHubBtn && sbBackHubBtn.addEventListener('click',()=>{
-  location.href = '../index.html';
+  // จาก /vr-fitness/games/shadow-breaker/play.html → /vr-fitness/index.html
+  location.href = '../../index.html';
 });
 
 sbDownloadCsvBtn && sbDownloadCsvBtn.addEventListener('click', sbDownloadCsv);
