@@ -1,32 +1,31 @@
-// === VR Fitness — Shadow Breaker (Research Production v1.2.0) ===
-// - Emoji targets + 4 themed bosses
-// - Boss sequence (4 bosses per run, easy → hard)
-// - Boss HP HUD: แสดงเฉพาะตอนใกล้ตายแต่ละตัว
-// - Boss banner warnings + clear message
-// - FEVER mode: glow + screen shake + high score
-// - Target shatter FX + floating "+score"
-// - Research logging + CSV (localStorage)
+// === VR Fitness — Shadow Breaker (Research / Play v1.3.0) ===
+// - 2 modes via URL:
+//   • mode=research → เก็บข้อมูลวิจัย + phase (pre / test / post)
+//   • mode=play     → เล่นธรรมดา ไม่เก็บ log
+// - diff = easy / normal / hard (ผ่าน query เหมือนเดิม)
+// - Emoji targets + 4 themed bosses + HP HUD ใกล้ตาย
+// - FEVER mode, target shatter FX, floating score
+// - Research logging + CSV (localStorage) เฉพาะโหมด research
 
 const SB_GAME_ID = 'shadow-breaker';
-const SB_GAME_VERSION = '1.2.0-research';
+const SB_GAME_VERSION = '1.3.0';
 
 const SB_STORAGE_KEY = 'ShadowBreakerResearch_v1';
 const SB_META_KEY    = 'ShadowBreakerMeta_v1';
 
-// ---- CONFIG ----
-const SB_GOOGLE_SCRIPT_URL = '';   // ใส่ Apps Script URL ถ้าจะใช้ Cloud
-const SB_ENABLE_MUSIC      = false;
-const SB_ENABLE_CLOUD_LOG  = false;
-const SB_ENABLE_FX         = true;
+// ---- URL helpers: mode / phase / time / diff ----
+function sbGetMode() {
+  const m = (new URLSearchParams(location.search).get('mode') || 'research').toLowerCase();
+  return m === 'play' ? 'play' : 'research';
+}
+const sbMode = sbGetMode();
+const sbIsResearch = sbMode === 'research';
 
-// เพลง (ถ้ามีไฟล์จริงค่อยเปิด SB_ENABLE_MUSIC)
-const SB_MUSIC_SRC = './assets/sb-bgm.mp3';
-
-// ---- Query helpers: phase / time / diff ----
 function sbGetPhase() {
-  const p = new URLSearchParams(location.search).get('phase') || 'train';
-  const n = p.toLowerCase();
-  return ['pre','train','post'].includes(n) ? n : 'train';
+  const defaultPhase = sbIsResearch ? 'test' : 'free';
+  const raw = (new URLSearchParams(location.search).get('phase') || defaultPhase).toLowerCase();
+  const allowed = ['pre','test','post'];
+  return allowed.includes(raw) ? raw : defaultPhase;
 }
 function sbGetTimeSec() {
   const t = parseInt(new URLSearchParams(location.search).get('time'), 10);
@@ -86,38 +85,23 @@ const sbPlayAgainBtn   = $('#playAgainBtn');
 const sbBackHubBtn     = $('#backHubBtn');
 const sbDownloadCsvBtn = $('#downloadCsvBtn');
 
+// ---- CONFIG ----
+const SB_GOOGLE_SCRIPT_URL = '';   // ใส่ Apps Script URL ถ้าจะใช้ Cloud
+const SB_ENABLE_MUSIC      = false;
+const SB_ENABLE_CLOUD_LOG  = false;
+const SB_ENABLE_FX         = true;
+
+// เพลง (ถ้ามีไฟล์จริงค่อยเปิด SB_ENABLE_MUSIC)
+const SB_MUSIC_SRC = './assets/sb-bgm.mp3';
+
 // ---- Boss & emoji config ----
 const SB_NORMAL_EMOJIS = ['🎯','💥','⭐','⚡','🔥','🥎','🌀'];
 
 const SB_BOSSES = [
-  {
-    id: 1,
-    emoji: '⛈️',
-    nameTh: 'บอสเมฆสายฟ้า',
-    nameEn: 'Thunder Cloud',
-    hpBonus: 0,
-  },
-  {
-    id: 2,
-    emoji: '🥊',
-    nameTh: 'บอสกำปั้นเหล็ก',
-    nameEn: 'Iron Fist',
-    hpBonus: 2,
-  },
-  {
-    id: 3,
-    emoji: '🐙',
-    nameTh: 'บอสหมึกเทอร์โบ',
-    nameEn: 'Turbo Octopus',
-    hpBonus: 4,
-  },
-  {
-    id: 4,
-    emoji: '🐲',
-    nameTh: 'บอสมังกรจังหวะทอง',
-    nameEn: 'Golden Rhythm Dragon',
-    hpBonus: 6,
-  },
+  { id:1, emoji:'⛈️', nameTh:'บอสเมฆสายฟ้า',   nameEn:'Thunder Cloud',         hpBonus:0 },
+  { id:2, emoji:'🥊', nameTh:'บอสกำปั้นเหล็ก', nameEn:'Iron Fist',            hpBonus:2 },
+  { id:3, emoji:'🐙', nameTh:'บอสหมึกเทอร์โบ', nameEn:'Turbo Octopus',        hpBonus:4 },
+  { id:4, emoji:'🐲', nameTh:'บอสมังกรทอง',    nameEn:'Golden Rhythm Dragon', hpBonus:6 },
 ];
 
 // ความยาก
@@ -255,15 +239,16 @@ const sbState = {
   sessionMeta: null,
   phase: sbPhase,
   diff: sbDiff,
-  bossQueue: [],          // [{bossIndex, spawnAtMs}]
+  bossQueue: [],
   bossActive: false,
   bossWarned: false,
   activeBossId: null,
   activeBossInfo: null,
 };
 
-// ---- Meta persistence ----
+// ---- Meta persistence (ใช้เฉพาะโหมดวิจัย) ----
 function sbLoadMeta() {
+  if (!sbIsResearch) return;
   try {
     const raw = localStorage.getItem(SB_META_KEY);
     if (!raw) return;
@@ -274,6 +259,7 @@ function sbLoadMeta() {
   } catch (_) {}
 }
 function sbSaveMetaDraft() {
+  if (!sbIsResearch) return;
   const meta = {};
   Object.entries(sbMetaInputs).forEach(([k, el]) => {
     meta[k] = el.value.trim();
@@ -319,6 +305,16 @@ function sbApplyLang() {
   }
 }
 
+// ปรับ layout ตามโหมด
+function sbApplyModeLayout(){
+  const body = document.body;
+  if (sbIsResearch){
+    body.classList.remove('mode-play');
+  } else {
+    body.classList.add('mode-play'); // ซ่อนฟอร์มวิจัย + ปุ่ม CSV
+  }
+}
+
 sbLangButtons.forEach((btn)=>{
   btn.addEventListener('click',()=>{
     sbLangButtons.forEach(b=>b.classList.remove('active'));
@@ -328,7 +324,7 @@ sbLangButtons.forEach((btn)=>{
   });
 });
 
-// ---- Boss banner (ข้อความเตือนด้านบน) ----
+// ---- Boss banner ----
 let sbBossBanner = null;
 function sbInitBossBanner() {
   if (sbBossBanner) return;
@@ -368,7 +364,7 @@ function sbShowBossBanner(text, emoji) {
   },1200);
 }
 
-// ---- Boss HP HUD (มุมบนซ้ายใน gameArea) ----
+// ---- Boss HP HUD ----
 let sbBossHUDBox = null;
 let sbBossFaceEl = null;
 let sbBossNameEl = null;
@@ -521,7 +517,7 @@ function sbShowFeedback(type) {
   };
 }
 
-// score FX ลอยขึ้นจากเป้า
+// คะแนนลอย
 function sbScoreFx(targetEl, gained) {
   if (!targetEl || !SB_ENABLE_FX) return;
   const rect = targetEl.getBoundingClientRect();
@@ -616,7 +612,6 @@ function sbSpawnTarget(isBoss = false, bossInfo = null) {
     );
     const name = sbLang==='th'?bossInfo.nameTh:bossInfo.nameEn;
     sbShowBossBanner(name + ' ปรากฏตัวแล้ว!', bossInfo.emoji);
-    // HUD ยังไม่ขึ้น จนกว่าจะใกล้หมด HP
   } else {
     el.animate(
       [
@@ -688,7 +683,6 @@ function sbHitTarget(tObj) {
   const bossInfo = tObj.bossInfo;
 
   if (tObj.hp > 0) {
-    // ยังไม่ตาย (บอสโดนหลายที)
     if (tObj.el) {
       tObj.el.dataset.hp = String(tObj.hp);
       tObj.el.animate(
@@ -718,11 +712,9 @@ function sbHitTarget(tObj) {
     sbHUD.coachLine.textContent = sbI18n[sbLang].coachGood;
 
     if (isBoss) {
-      // ถ้า HUD แสดงอยู่แล้ว → update bar
       if (sbBossHUDBox && sbBossHUDBox.style.display !== 'none') {
         sbUpdateBossHUD(tObj.hp, tObj.maxHp);
       }
-      // ใกล้หมด HP → แสดงหน้า + HP bar และขยายเป้า
       if (!sbState.bossWarned && tObj.hp <= 2 && bossInfo) {
         sbState.bossWarned = true;
         sbShowBossHUD(bossInfo, tObj.maxHp);
@@ -774,7 +766,6 @@ function sbHitTarget(tObj) {
   }
 
   if (isBoss && bossInfo) {
-    // เคลียร์บอสตัวนี้
     sbUpdateBossHUD(0, tObj.maxHp);
     sbState.bossActive   = false;
     sbState.activeBossId = null;
@@ -782,12 +773,11 @@ function sbHitTarget(tObj) {
     const name = sbLang==='th'?bossInfo.nameTh:bossInfo.nameEn;
     sbShowBossBanner(sbI18n[sbLang].bossClear(name), bossInfo.emoji);
     sbHideBossHUD();
-    // เรียกบอสตัวถัดไป (ถ้ามี)
     sbSpawnNextBossImmediate();
   }
 }
 
-// keyboard: space → ตีเป้าใกล้กลางจอ (สำหรับ PC)
+// keyboard: Space → ตีเป้าใกล้กลางจอ
 window.addEventListener('keydown',(ev)=>{
   if (!sbState.running) return;
   if (ev.code === 'Space') {
@@ -834,12 +824,11 @@ function sbMainLoop(now) {
   requestAnimationFrame(sbMainLoop);
 }
 
-// ---- Spawn loop (เป้าธรรมดา) ----
+// ---- Spawn loop ----
 function sbStartSpawnLoop() {
   if (sbState.spawnTimer) clearInterval(sbState.spawnTimer);
   sbState.spawnTimer = setInterval(()=>{
     if (!sbState.running) return;
-    // โอกาสเล็กน้อยที่จะไม่ spawn เพื่อหายใจหายคอ
     if (Math.random() < 0.1) return;
     sbSpawnTarget(false, null);
   }, sbCfg.spawnMs);
@@ -851,6 +840,7 @@ function sbStopSpawnLoop() {
 
 // ---- Logging ----
 function sbLogLocal(rec) {
+  if (!sbIsResearch) return;
   try {
     const raw = localStorage.getItem(SB_STORAGE_KEY);
     const arr = raw ? JSON.parse(raw) : [];
@@ -861,6 +851,7 @@ function sbLogLocal(rec) {
   }
 }
 async function sbLogCloud(rec) {
+  if (!sbIsResearch) return;
   if (!SB_ENABLE_CLOUD_LOG) return;
   if (!SB_GOOGLE_SCRIPT_URL || SB_GOOGLE_SCRIPT_URL.indexOf('http') !== 0) return;
   try {
@@ -876,6 +867,7 @@ async function sbLogCloud(rec) {
 }
 
 function sbDownloadCsv() {
+  if (!sbIsResearch) return;
   let rows = [];
   try {
     const raw = localStorage.getItem(SB_STORAGE_KEY);
@@ -981,28 +973,33 @@ function sbEndGame() {
 function sbStartGame() {
   if (sbState.running) return;
   const t = sbI18n[sbLang];
-  const studentId = sbMetaInputs.studentId.value.trim();
-  if (!studentId) {
-    alert(t.alertMeta);
-    return;
+
+  if (sbIsResearch) {
+    const studentId = sbMetaInputs.studentId.value.trim();
+    if (!studentId) {
+      alert(t.alertMeta);
+      return;
+    }
+    const meta = {
+      studentId,
+      schoolName: sbMetaInputs.schoolName.value.trim(),
+      classRoom:  sbMetaInputs.classRoom.value.trim(),
+      groupCode:  sbMetaInputs.groupCode.value.trim(),
+      deviceType:
+        sbMetaInputs.deviceType.value === 'auto'
+          ? sbDetectDevice()
+          : sbMetaInputs.deviceType.value,
+      note:       sbMetaInputs.note.value.trim(),
+      language:   sbLang,
+    };
+    sbState.sessionMeta = meta;
+    sbSaveMetaDraft();
+  } else {
+    // โหมดเล่นธรรมดา → ไม่เก็บ meta
+    sbState.sessionMeta = null;
   }
 
-  const meta = {
-    studentId,
-    schoolName: sbMetaInputs.schoolName.value.trim(),
-    classRoom:  sbMetaInputs.classRoom.value.trim(),
-    groupCode:  sbMetaInputs.groupCode.value.trim(),
-    deviceType:
-      sbMetaInputs.deviceType.value === 'auto'
-        ? sbDetectDevice()
-        : sbMetaInputs.deviceType.value,
-    note:       sbMetaInputs.note.value.trim(),
-    language:   sbLang,
-  };
-  sbState.sessionMeta = meta;
-  sbSaveMetaDraft();
-
-  // หลังกรอกข้อมูล → โชว์หน้าเล่นเต็ม ๆ
+  // หลังเริ่มให้โฟกัสหน้าเกมเต็ม ๆ
   document.body.classList.add('play-only');
 
   sbResetStats();
@@ -1034,7 +1031,6 @@ sbPlayAgainBtn && sbPlayAgainBtn.addEventListener('click',()=>{
 
 sbBackHubBtn && sbBackHubBtn.addEventListener('click',()=>{
   // จาก /webxr-health-mobile/vr-fitness/games/shadow-breaker/play.html
-  // กลับ /webxr-health-mobile/vr-fitness/index.html
   location.href = '../../index.html';
 });
 
@@ -1047,6 +1043,7 @@ Object.values(sbMetaInputs).forEach(el=>{
 });
 
 // ---- Init ----
+sbApplyModeLayout();
 sbLoadMeta();
 sbApplyLang();
 sbInitBossBanner();
