@@ -4,13 +4,13 @@
 /**
  * createCSVLogger(sessionMeta)
  * - เก็บ event ต่าง ๆ เป็นแถว
- * - เมื่อ finish(finalState) → สร้าง Blob CSV แล้วดาวน์โหลด
- * - เพิ่มคอลัมน์ player_hp สำหรับใช้วิเคราะห์ HP ผู้เล่น
+ * - finish(finalState) จะเพิ่ม analytics summary ลงแถวสุดท้าย
  */
 
 export function createCSVLogger(sessionMeta) {
   const rows = [];
 
+  // header
   rows.push([
     'timestamp_ms',
     'player_id',
@@ -21,10 +21,15 @@ export function createCSVLogger(sessionMeta) {
     'target_id',
     'target_type',
     'result',
+    'reaction_ms',
     'score',
     'combo',
     'miss_count',
     'player_hp',
+    'boss_index',
+    'boss_hp',
+    'boss_phase',
+    'fever_active',
     'extra'
   ]);
 
@@ -39,10 +44,15 @@ export function createCSVLogger(sessionMeta) {
       e.id ?? '',
       e.type || '',
       e.result || '',
+      e.reactionMs ?? '',
       e.score ?? '',
       e.combo ?? '',
       e.missCount ?? '',
       e.playerHP ?? '',
+      e.bossIndex ?? '',
+      e.bossHP ?? '',
+      e.bossPhase || '',
+      e.feverActive ? 1 : 0,
       e.extra ? JSON.stringify(e.extra) : ''
     ]);
   }
@@ -53,10 +63,12 @@ export function createCSVLogger(sessionMeta) {
         ...info,
         event: 'spawn',
         result: '',
+        reactionMs: '',
         score: '',
         combo: '',
         missCount: '',
         playerHP: '',
+        feverActive: 0,
         extra: null
       });
     },
@@ -75,6 +87,7 @@ export function createCSVLogger(sessionMeta) {
     },
     finish(finalState) {
       if (finalState) {
+        const a = finalState.analytics || {};
         addRow({
           event: 'end',
           id: '',
@@ -84,8 +97,22 @@ export function createCSVLogger(sessionMeta) {
           combo: finalState.combo,
           missCount: finalState.missCount,
           playerHP: finalState.playerHP,
+          bossIndex: finalState.bossIndex,
+          bossHP: '',
+          bossPhase: 'end',
+          feverActive: 0,
           t: Date.now(),
-          extra: { elapsedMs: finalState.elapsedMs }
+          extra: {
+            elapsedMs: finalState.elapsedMs,
+            totalSpawns: a.totalSpawns,
+            totalHits: a.totalHits,
+            normalHits: a.normalHits,
+            decoyHits: a.decoyHits,
+            expiredMisses: a.expiredMisses,
+            accuracy: a.accuracy,
+            avgReactionNormal: a.avgReactionNormal,
+            avgReactionDecoy: a.avgReactionDecoy
+          }
         });
       }
 
