@@ -5,6 +5,7 @@
  * createCSVLogger(sessionMeta)
  * - เก็บ event ต่าง ๆ เป็นแถว
  * - เมื่อ finish(finalState) → สร้าง Blob CSV แล้วดาวน์โหลด
+ * - เพิ่มคอลัมน์ player_hp สำหรับใช้วิเคราะห์ HP ผู้เล่น
  */
 
 export function createCSVLogger(sessionMeta) {
@@ -23,6 +24,7 @@ export function createCSVLogger(sessionMeta) {
     'score',
     'combo',
     'miss_count',
+    'player_hp',
     'extra'
   ]);
 
@@ -40,6 +42,7 @@ export function createCSVLogger(sessionMeta) {
       e.score ?? '',
       e.combo ?? '',
       e.missCount ?? '',
+      e.playerHP ?? '',
       e.extra ? JSON.stringify(e.extra) : ''
     ]);
   }
@@ -53,6 +56,7 @@ export function createCSVLogger(sessionMeta) {
         score: '',
         combo: '',
         missCount: '',
+        playerHP: '',
         extra: null
       });
     },
@@ -79,6 +83,7 @@ export function createCSVLogger(sessionMeta) {
           score: finalState.score,
           combo: finalState.combo,
           missCount: finalState.missCount,
+          playerHP: finalState.playerHP,
           t: Date.now(),
           extra: { elapsedMs: finalState.elapsedMs }
         });
