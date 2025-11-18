@@ -1,14 +1,29 @@
 // js/config-shadow.js
 'use strict';
 
-// เพิ่ม boss list + ขนาดเป้า + speedup factor
-const BOSSES = [
-  { name: 'Iron Guard',   hp: 30 },
-  { name: 'Crimson Fist', hp: 40 },
-  { name: 'Shadow King',  hp: 50 },
-  { name: 'Star Titan',   hp: 60 }
+// กำหนดชุดบอสพื้นฐาน (ชื่อ + emoji) แล้วปรับ HP ตามระดับความยาก
+const BASE_BOSSES = [
+  { name: 'Bubble Glove',   emoji: '🐣' },
+  { name: 'Thunder Paw',    emoji: '🐯' },
+  { name: 'Shadow King',    emoji: '🐉' },
+  { name: 'Star Titan',     emoji: '🤖' }
 ];
 
+// helper สร้าง list บอสตาม HP ที่ต้องการ
+function makeBosses(hpList){
+  return BASE_BOSSES.map((b, i)=>({
+    name: b.name,
+    emoji: b.emoji,
+    hp: hpList[i] || hpList[hpList.length-1]
+  }));
+}
+
+/**
+ * idea จำนวน hit โดยประมาณ (non-fever):
+ * - easy:    ~10 / 14 / 18 / 22
+ * - normal:  ~15 / 22 / 30 / 38
+ * - hard:    ~20 / 30 / 42 / 56
+ */
 export const DifficultyConfigs = {
   easy: {
     name: 'easy',
@@ -22,7 +37,7 @@ export const DifficultyConfigs = {
     targetSizePx: 80,
     minDistancePct: 20,
     speedupFactor: 0.35,
-    bosses: BOSSES
+    bosses: makeBosses([10, 14, 18, 22])
   },
   normal: {
     name: 'normal',
@@ -36,7 +51,7 @@ export const DifficultyConfigs = {
     targetSizePx: 70,
     minDistancePct: 18,
     speedupFactor: 0.5,
-    bosses: BOSSES
+    bosses: makeBosses([15, 22, 30, 38])
   },
   hard: {
     name: 'hard',
@@ -50,7 +65,7 @@ export const DifficultyConfigs = {
     targetSizePx: 60,
     minDistancePct: 16,
     speedupFactor: 0.65,
-    bosses: BOSSES
+    bosses: makeBosses([20, 30, 42, 56])
   }
 };
 
