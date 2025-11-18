@@ -96,7 +96,6 @@
     }
     .hidden{display:none !important;}
 
-    /* Menu */
     label{
       display:block;
       font-size:.82rem;
@@ -158,7 +157,6 @@
       box-shadow:none;
     }
 
-    /* PLAY VIEW */
     .play-top{
       display:flex;
       justify-content:space-between;
@@ -375,6 +373,49 @@
       box-shadow:0 0 18px rgba(248,250,252,0.7);
     }
 
+    .coach-bubble{
+      margin-top:10px;
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+      max-width:520px;
+      padding:8px 10px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,0.6);
+      background:rgba(15,23,42,0.95);
+      font-size:.8rem;
+      opacity:0;
+      transform:translateY(4px);
+      pointer-events:none;
+      transition:opacity .18s ease-out, transform .18s ease-out;
+    }
+    .coach-bubble.visible{
+      opacity:1;
+      transform:translateY(0);
+      pointer-events:auto;
+    }
+    .coach-avatar{
+      width:28px;height:28px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(15,118,110,0.9);
+      box-shadow:0 0 10px rgba(34,197,94,0.7);
+    }
+    .coach-body{flex:1;}
+    .coach-role{
+      font-size:.72rem;
+      text-transform:uppercase;
+      letter-spacing:.12em;
+      color:#a5b4fc;
+      margin-bottom:2px;
+    }
+    .coach-text{
+      font-size:.8rem;
+      color:#e5e7eb;
+    }
+
     .banner{
       margin-top:8px;
       font-size:.8rem;
@@ -387,7 +428,6 @@
       .play-area{border-radius:14px;}
     }
 
-    /* RESULT */
     #result table{
       width:100%;
       border-collapse:collapse;
@@ -453,6 +493,9 @@
         <button data-start="research">
           📊 โหมดวิจัย (บันทึก CSV)
         </button>
+        <button data-start="calib">
+          🧪 Calibration 30s (ตั้งหน้าต่าง Perfect/Good/Late)
+        </button>
       </div>
     </section>
 
@@ -500,6 +543,16 @@
         <div class="fever-status" id="feverStatus">FEVER</div>
       </div>
 
+      <div id="coachBubble" class="coach-bubble">
+        <div id="coachAvatar" class="coach-avatar">🥊</div>
+        <div class="coach-body">
+          <div id="coachRole" class="coach-role">Rhythm Coach</div>
+          <div id="coachText" class="coach-text">
+            พร้อมลุยจังหวะแล้ว! ดูแผ่นที่สว่างแล้วตีตามเลย 🎵
+          </div>
+        </div>
+      </div>
+
       <div class="banner">
         <strong>วิธีเล่น:</strong>
         ทุก beat จะมีแผ่นที่สว่างขึ้น ให้แตะ/ชกแผ่นนั้นให้ตรงจังหวะ (Perfect / Good / Late)
@@ -538,6 +591,9 @@
           <tr><td class="label">คอมโบสูงสุด</td><td id="res-maxcombo">0</td></tr>
           <tr><td class="label">จำนวน miss</td><td id="res-miss">0</td></tr>
           <tr><td class="label">จำนวน hit ทั้งหมด</td><td id="res-totalhits">0</td></tr>
+          <tr><td class="label">จำนวน Perfect</td><td id="res-perfect">0</td></tr>
+          <tr><td class="label">จำนวน Good</td><td id="res-good">0</td></tr>
+          <tr><td class="label">จำนวน Late</td><td id="res-late">0</td></tr>
           <tr><td class="label">Accuracy (hit/beat)</td><td id="res-accuracy">-</td></tr>
 
           <tr><td class="label">Reaction time เฉลี่ย</td><td id="res-rt-mean">-</td></tr>
