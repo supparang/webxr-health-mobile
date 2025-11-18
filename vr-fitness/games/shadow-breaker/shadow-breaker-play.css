@@ -458,3 +458,30 @@ body.play-only .game-panel{
     grid-template-columns:1fr 1fr;
   }
 }
+/* ... (สไตล์เดิมทั้งหมดของคุณคงไว้ได้เลย) ... */
+
+/* โหมดเล่นธรรมดา (ไม่โชว์ฟอร์มวิจัย + CSV) */
+body.mode-play .research-card{
+  display:none;
+}
+body.mode-play #metaPDPA{
+  display:none;
+}
+body.mode-play #downloadCsvBtn{
+  display:none;
+}
+
+/* หลังเริ่มเล่นให้โฟกัสจอเกม (ใช้ทั้ง 2 โหมด) */
+body.play-only .research-card{
+  display:none;
+}
+body.play-only .controls{
+  display:none;
+}
+body.play-only .page{
+  max-width:780px;
+}
+body.play-only .game-panel{
+  min-height:calc(100vh - 220px);
+}
+
