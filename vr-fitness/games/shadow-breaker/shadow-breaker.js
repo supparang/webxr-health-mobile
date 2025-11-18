@@ -1,4 +1,4 @@
-// === shadow-breaker.js — Emoji Targets + Boss Face + FEVER ===
+// === shadow-breaker.js — v2 (fix weird spawn + emoji targets) ===
 'use strict';
 
 (function () {
@@ -28,7 +28,7 @@
   const playAgainBtn = document.getElementById('playAgainBtn');
   const backBtn = document.getElementById('backBtn');
 
-  // ---------- inject extra CSS (shake + score float + shards) ----------
+  // ---------- extra CSS (shake + score float + shards) ----------
   function injectCSS () {
     if (document.getElementById('sbExtraCSS')) return;
     const st = document.createElement('style');
@@ -54,9 +54,7 @@
         text-shadow:0 0 6px rgba(15,23,42,.9);
         animation: sb-score 0.6s ease-out forwards;
       }
-      .sb-score-float.cold {
-        color:#38bdf8;
-      }
+      .sb-score-float.cold { color:#38bdf8; }
       @keyframes sb-score {
         0%   { opacity:0; transform:translate(-50%,0) scale(0.7); }
         20%  { opacity:1; transform:translate(-50%,-6px) scale(1); }
@@ -78,6 +76,20 @@
       @keyframes sb-shard-burst {
         0%   { transform:translate(0,0) scale(1); opacity:0.9; }
         100% { transform:translate(var(--dx),var(--dy)) scale(0.5); opacity:0; }
+      }
+
+      .sb-target {
+        position:absolute;
+        border-radius:999px;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        font-size:1.8rem;
+        box-shadow:0 0 18px rgba(0,0,0,.7);
+        pointer-events:auto;
+        transition:transform .15s ease-out, opacity .15s ease-out;
+        user-select:none;
+        color:#e5e7eb;
       }
     `;
     document.head.appendChild(st);
@@ -115,7 +127,7 @@
   let combo = 0;
   let maxCombo = 0;
 
-  let bossIndex = 0;   // 0..3
+  let bossIndex = 0;
   let bossHp = cfg.bossHp;
   let bossHpMax = cfg.bossHp;
 
@@ -128,9 +140,7 @@
   const activeTargets = new Set();
 
   // ---------- helpers ----------
-  function pick (list) {
-    return list[Math.floor(Math.random() * list.length)];
-  }
+  const pick = list => list[Math.floor(Math.random() * list.length)];
 
   function updateHUD () {
     if (timeEl) timeEl.textContent = String(timeLeft);
@@ -169,7 +179,8 @@
     panel.classList.remove('sb-shake');
     void panel.offsetWidth;
     panel.classList.add('sb-shake');
-    panel.style.animationDuration = (intensity && intensity > 1 ? 0.12 + 0.05 * intensity : 0.18) + 's';
+    panel.style.animationDuration =
+      (intensity && intensity > 1 ? 0.12 + 0.05 * intensity : 0.18) + 's';
   }
 
   function floatScore (x, y, delta, isFever) {
@@ -294,7 +305,6 @@
     arena.style.boxShadow = '';
 
     if (rScore) rScore.textContent = String(score);
-
     const used = mode === 'timed' ? (timeLimit - timeLeft) : timeLeft;
     if (rTimeUsed) rTimeUsed.textContent = used + 's';
     if (rMaxCombo) rMaxCombo.textContent = 'x' + maxCombo;
@@ -313,23 +323,33 @@
     );
   }
 
-  // ---------- spawn ----------
+  // ---------- spawn (fixed layout) ----------
   function spawnTarget () {
     if (!running) return;
 
-    const w = arena.clientWidth;
-    const h = arena.clientHeight;
-    if (!w || !h) return;
+    const rect = arena.getBoundingClientRect();
+    let w = rect.width || arena.offsetWidth || 320;
+    let h = rect.height || arena.offsetHeight || 240;
 
-    const padding = 20;
-    let size = Math.max(40, Math.min(80, w * 0.12));
+    if (!w || !h) {
+      w = 320; h = 240;
+    }
+
+    const padding = 24;
+
+    // ขนาดเป้า
+    let size = Math.max(40, Math.min(80, w * 0.16));
+
+    // โซนที่ให้สุ่ม (ด้านบน ~70% ไม่ให้ใกล้แถบล่างเกินไป)
+    const usableW = Math.max(40, w - padding * 2 - size);
+    const usableH = Math.max(40, h * 0.7 - padding * 2);
+
+    const baseX = padding + Math.random() * usableW;
+    const baseY = padding + Math.random() * usableH;
 
     const bossPhaseThreshold = Math.max(8, Math.round(bossHpMax * 0.25));
     const isBossPhase = bossHp <= bossPhaseThreshold && bossHp > 0;
     const spawnBossFace = isBossPhase && Math.random() < 0.45;
-
-    const x = padding + Math.random() * (w - padding * 2 - size);
-    const y = padding + Math.random() * (h * 0.5);
 
     const el = document.createElement('div');
     el.className = 'sb-target';
@@ -341,21 +361,23 @@
       el.dataset.type = 'boss';
       const info = bosses[bossIndex] || bosses[bosses.length - 1];
       emoji = info.face;
-      el.style.background = 'radial-gradient(circle at 30% 20%, #facc15, #7c2d12)';
+      el.style.background =
+        'radial-gradient(circle at 30% 20%, #facc15, #7c2d12)';
       el.style.border = '2px solid rgba(250,204,21,.9)';
-      el.style.boxShadow = '0 0 24px rgba(250,204,21,.7)';
+      el.style.boxShadow = '0 0 26px rgba(250,204,21,.8)';
     } else {
       el.dataset.type = 'normal';
       emoji = pick(normalEmojis);
-      el.style.background = 'radial-gradient(circle at 30% 20%, #38bdf8, #0f172a)';
+      el.style.background =
+        'radial-gradient(circle at 30% 20%, #38bdf8, #0f172a)';
       el.style.border = '2px solid rgba(148,163,184,.7)';
-      el.style.boxShadow = '0 0 16px rgba(15,23,42,.9)';
+      el.style.boxShadow = '0 0 18px rgba(15,23,42,.9)';
     }
 
     el.style.width = size + 'px';
     el.style.height = size + 'px';
-    el.style.left = x + 'px';
-    el.style.top = y + 'px';
+    el.style.left = baseX + 'px';
+    el.style.top = baseY + 'px';
     el.style.opacity = '0';
     el.style.transform = 'scale(0.7)';
 
@@ -366,7 +388,6 @@
     el.appendChild(inner);
 
     requestAnimationFrame(() => {
-      el.style.transition = 'opacity 0.15s ease-out, transform 0.15s ease-out';
       el.style.opacity = '1';
       el.style.transform = 'scale(1)';
     });
@@ -391,7 +412,7 @@
     el.dataset.missTimeout = String(missTimeout);
   }
 
-  // ---------- hit handling ----------
+  // ---------- hit ----------
   function handleHit (target, clientX, clientY) {
     if (!running) return;
     if (target.dataset.alive !== '1') return;
@@ -412,9 +433,7 @@
     combo += 1;
     if (combo > maxCombo) maxCombo = combo;
 
-    if (!fever && combo >= 5) {
-      startFever();
-    }
+    if (!fever && combo >= 5) startFever();
 
     let base = isBossTarget ? 250 : 100;
     base += combo * (isBossTarget ? 8 : 5);
@@ -484,19 +503,15 @@
 
   // ---------- buttons ----------
   if (startBtn) {
-    startBtn.addEventListener('click', function () {
+    startBtn.addEventListener('click', () => {
       if (!running) startGame();
     });
   }
-
   if (playAgainBtn) {
-    playAgainBtn.addEventListener('click', function () {
-      startGame();
-    });
+    playAgainBtn.addEventListener('click', startGame);
   }
-
   if (backBtn) {
-    backBtn.addEventListener('click', function () {
+    backBtn.addEventListener('click', () => {
       window.location.href = 'index.html';
     });
   }
@@ -504,4 +519,3 @@
   // ---------- init ----------
   resetState();
 })();
-```0
