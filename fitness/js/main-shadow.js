@@ -32,6 +32,7 @@ const elTime    = $('#stat-time');
 const elMode    = $('#stat-mode');
 const elDiff    = $('#stat-diff');
 const elPerfect = $('#stat-perfect');
+const elHP      = $('#stat-hp');
 
 // Fever HUD
 const elFeverFill   = $('#fever-fill');
@@ -140,7 +141,8 @@ function startGameSession() {
     config:   diffConfig,
     hooks,
     renderer,
-    logger
+    logger,
+    mode: currentMode
   });
   renderer.engine = engine;
 
@@ -190,6 +192,7 @@ function updateHUD(state) {
   elCombo.textContent   = state.combo;
   elMiss.textContent    = state.missCount;
   elPerfect.textContent = state.perfectHits ?? 0;
+  if (elHP) elHP.textContent = state.playerHP ?? 0;
 
   const remainingSec = Math.max(0, state.remainingMs / 1000);
   elTime.textContent = remainingSec.toFixed(1);
