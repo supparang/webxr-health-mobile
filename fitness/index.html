@@ -1,71 +1,120 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<title>VR Fitness Suite — Dashboard</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<link rel="icon" href="./favicon.ico"/>
-<style>
-  body{
-    margin:0;
-    font-family:system-ui;
-    background:#020617;
-    color:#e5e7eb;
-    padding:20px;
-    display:flex;
-    justify-content:center;
-  }
-  .wrap{max-width:900px;width:100%}
-  h1{font-size:1.8rem;margin-bottom:8px}
-  .subtitle{color:#94a3b8;margin-bottom:18px}
-  .card{
-    background:rgba(15,23,42,0.92);
-    padding:20px;
-    margin-bottom:16px;
-    border-radius:18px;
-    border:1px solid rgba(148,163,184,0.4);
-    box-shadow:0 12px 30px rgba(0,0,0,0.5);
-  }
-  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
-  .btn{
-    display:flex;justify-content:space-between;align-items:center;
-    border-radius:14px;padding:14px;border:1px solid rgba(148,163,184,0.6);
-    background:rgba(30,41,59,0.9);cursor:pointer;font-size:1rem;
-  }
-  .btn:hover{
-    background:rgba(51,65,85,0.9);
-    transform:translateY(-1px);
-  }
-  .chart-card{padding:18px;border-radius:16px;background:rgba(2,6,23,0.85);}
-</style>
+  <meta charset="utf-8"/>
+  <title>VR-Fitness Suite — Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <link rel="icon" href="./favicon.ico"/>
+  <style>
+    :root{
+      color-scheme: light dark;
+    }
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:#020617;
+      color:#e5e7eb;
+      display:flex;
+      justify-content:center;
+      padding:20px 16px 32px;
+    }
+    .wrap{max-width:960px;width:100%}
+    h1{font-size:1.8rem;margin:0 0 6px}
+    .subtitle{color:#94a3b8;margin-bottom:18px}
+    .card{
+      background:rgba(15,23,42,0.95);
+      border-radius:18px;
+      padding:18px 20px;
+      border:1px solid rgba(148,163,184,0.4);
+      box-shadow:0 14px 36px rgba(0,0,0,0.5);
+      margin-bottom:16px;
+    }
+    .grid-games{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+      gap:10px;
+    }
+    .game-btn{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,0.65);
+      background:rgba(15,23,42,0.9);
+      text-decoration:none;
+      color:inherit;
+      cursor:pointer;
+      font-size:0.98rem;
+    }
+    .game-btn span.icon{font-size:1.4rem;margin-right:6px}
+    .game-btn:hover{
+      background:rgba(30,64,175,0.28);
+      transform:translateY(-1px);
+      box-shadow:0 10px 22px rgba(15,23,42,0.9);
+    }
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:10px;
+      margin-top:8px;
+    }
+    .stats-card{
+      border-radius:14px;
+      padding:10px 12px;
+      border:1px solid rgba(148,163,184,0.5);
+      background:rgba(15,23,42,0.9);
+      font-size:0.86rem;
+    }
+    .stats-title{
+      display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:4px;font-weight:600;
+    }
+    .stats-meta{color:#9ca3af;font-size:0.78rem;margin-bottom:3px}
+    .badge{
+      padding:2px 8px;border-radius:999px;
+      border:1px solid rgba(52,211,153,0.7);
+      font-size:0.7rem;color:#bbf7d0;
+    }
+    .empty{
+      color:#64748b;font-size:0.82rem;margin-top:6px;
+    }
+  </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>🏋️‍♂️ VR-Fitness Suite</h1>
-  <div class="subtitle">เลือกเกม หรือดูผลภาพรวมที่ได้จากทุกเกม</div>
-
-  <div class="card">
-    <h3>🎮 เกมทั้งหมด</h3>
-    <div class="grid">
-      <a class="btn" href="./shadow-breaker.html">🥊 Shadow Breaker <span>▶</span></a>
-      <a class="btn" href="./rhythm-boxer.html">🥁 Rhythm Boxer <span>▶</span></a>
-      <a class="btn" href="./jump-duck.html">🦘 Jump-Duck <span>▶</span></a>
-      <a class="btn" href="./balance-hold.html">⚖️ Balance Hold <span>▶</span></a>
+  <div class="wrap">
+    <h1>🏋️‍♂️ VR-Fitness Suite</h1>
+    <div class="subtitle">
+      ชุดเกมออกกำลังกาย 4 เกม พร้อมระบบเก็บข้อมูลวิจัยและแดชบอร์ดสรุปผล
     </div>
+
+    <section class="card">
+      <h3 style="margin-top:0;">🎮 เลือกเกม</h3>
+      <div class="grid-games">
+        <a class="game-btn" href="./shadow-breaker.html">
+          <div><span class="icon">🥊</span> Shadow Breaker</div><div>▶</div>
+        </a>
+        <a class="game-btn" href="./rhythm-boxer.html">
+          <div><span class="icon">🥁</span> Rhythm Boxer</div><div>▶</div>
+        </a>
+        <a class="game-btn" href="./jump-duck.html">
+          <div><span class="icon">🦘</span> Jump-Duck</div><div>▶</div>
+        </a>
+        <a class="game-btn" href="./balance-hold.html">
+          <div><span class="icon">⚖️</span> Balance Hold</div><div>▶</div>
+        </a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h3 style="margin-top:0;">📊 สรุปผลล่าสุดจากแต่ละเกม</h3>
+      <div id="stats-grid" class="stats-grid"></div>
+      <div id="stats-empty" class="empty" style="display:none;">
+        ยังไม่มีข้อมูลรอบเล่นใน browser นี้ — เล่นเกมสักรอบแล้วกลับมาดูอีกครั้ง
+      </div>
+    </section>
   </div>
 
-  <div class="card">
-    <h3>📊 Analytics Dashboard (Beta)</h3>
-    <div class="chart-card">
-      <p>✨ Analytics จะสรุปจากไฟล์ CSV ทั้งหมด เมื่อระบบ Cloud Sync เปิดใช้งาน</p>
-      <ul>
-        <li>🔥 Reaction & Reflex Progress</li>
-        <li>💪 Muscle Control & Posture Stability</li>
-        <li>🧠 Focus + Attention Index</li>
-        <li>🏃‍♂️ Physical Endurance Score</li>
-      </ul>
-    </div>
-  </div>
-</div>
+  <script type="module" src="./js/dashboard.js"></script>
 </body>
 </html>
