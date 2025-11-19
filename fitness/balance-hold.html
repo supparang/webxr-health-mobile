@@ -1,44 +1,168 @@
 <!doctype html>
 <html lang="th">
 <head>
-<meta charset="utf-8"/>
-<title>Balance Hold</title>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<link rel="icon" href="./favicon.ico"/>
-<style>
-  body{margin:0;font-family:system-ui;background:#020617;color:#e5e7eb;padding:18px}
-  .wrap{max-width:900px;margin:auto}
-  .card{background:rgba(15,23,42,0.95);padding:18px;border-radius:18px;border:1px solid rgba(100,116,139,0.4)}
-  .play-area{margin-top:12px;border:1px solid #475569;border-radius:12px;height:280px;position:relative;overflow:hidden;text-align:center;padding-top:20px;font-size:1.2rem}
-  .btn{padding:10px 14px;border-radius:12px;border:1px solid #64748b;background:#1e293b;color:white;margin-right:6px;cursor:pointer}
-</style>
+  <meta charset="utf-8"/>
+  <title>Balance Hold — VR Fitness Suite</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark light"/>
+  <link rel="stylesheet" href="./css/balance-hold.css"/>
 </head>
 <body>
-<div class="wrap">
-  <div class="card" id="menu">
-    <h2>⚖️ Balance Hold</h2>
-    <p>ยืนทรงตัวให้นิ่งที่สุด ระบบตรวจวัด “ไมโครเวลาการขยับตัว”</p>
+  <div id="app">
 
-    <button class="btn" data-start="normal">🎮 โหมดเล่นปกติ</button>
-    <button class="btn" data-start="research">📊 โหมดวิจัย</button>
+    <!-- ===== VIEW: MENU ===== -->
+    <section id="view-menu" class="view">
+      <h1 class="title">⚖️ Balance Hold <span class="sub">Platform & Obstacle</span></h1>
+      <p class="subtitle">
+        รักษาสมดุลบนแพลตฟอร์มที่โคลงเคลง — หลบสิ่งรบกวน (ลม 💨 / ระเบิด 💣) ให้ได้มากที่สุด<br/>
+        Keep the platform level while avoiding balance shocks.
+      </p>
+
+      <div class="field">
+        <label for="difficulty">ระดับความยาก / Difficulty</label>
+        <select id="difficulty">
+          <option value="easy">ง่าย (Easy) — แรงรบกวนเบา, โซนปลอดภัยกว้าง</option>
+          <option value="normal" selected>ปกติ (Normal) — แรงรบกวนปานกลาง</option>
+          <option value="hard">ยาก (Hard) — แรงรบกวนแรง, โซนปลอดภัยแคบ</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="sessionDuration">ระยะเวลาเล่น / Duration</label>
+        <select id="sessionDuration">
+          <option value="45">45 วินาที</option>
+          <option value="60" selected>60 วินาที</option>
+          <option value="90">90 วินาที</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button data-action="start-normal" class="btn primary">
+          🎮 เล่นปกติ / Play
+        </button>
+        <button data-action="goto-research" class="btn">
+          📊 โหมดวิจัย / Research mode
+        </button>
+      </div>
+
+      <div class="btn-row secondary">
+        <button class="btn ghost" onclick="location.href='./index.html'">
+          ⬅ กลับ Fitness Hub / Back to Hub
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== VIEW: RESEARCH FORM ===== -->
+    <section id="view-research" class="view hidden">
+      <h2 class="title-small">📊 โหมดวิจัย / Research mode</h2>
+      <p class="subtitle">
+        กรอกข้อมูลผู้เข้าร่วม / Fill participant info
+      </p>
+      <div class="field">
+        <label for="researchId">รหัสผู้เข้าร่วม / Participant ID</label>
+        <input id="researchId" placeholder="เช่น P001, S01, E01"/>
+      </div>
+      <div class="field">
+        <label for="researchGroup">กลุ่มวิจัย / Group</label>
+        <input id="researchGroup" placeholder="เช่น Control / Training / VR-only"/>
+      </div>
+      <div class="field">
+        <label for="researchPhase">ระยะ / Phase</label>
+        <input id="researchPhase" placeholder="เช่น Pre-test / Post-test / Follow-up"/>
+      </div>
+
+      <div class="btn-row">
+        <button data-action="start-research" class="btn primary">
+          ▶ เริ่มโหมดวิจัย / Start research
+        </button>
+        <button data-action="back-menu" class="btn ghost">
+          ⬅ กลับเมนู / Back
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== VIEW: PLAY ===== -->
+    <section id="view-play" class="view hidden">
+      <div id="hud1">
+        <span>Mode: <b id="hud-mode">-</b></span>
+        <span>Diff: <b id="hud-diff">-</b></span>
+        <span>Duration: <b id="hud-dur">-</b>s</span>
+      </div>
+      <div id="hud2">
+        <span>Stability: <b id="hud-stability">0%</b></span>
+        <span>Obstacles ⛔: <b id="hud-obstacles">0 / 0</b></span>
+        <span>Time: <b id="hud-time">0.0</b>s</span>
+      </div>
+
+      <div id="playArea">
+        <div id="platform-wrap">
+          <div id="safeZone"></div>
+          <div id="platform">
+            <div id="platform-top"></div>
+          </div>
+          <div id="indicator"></div>
+          <div id="obstacle-layer"></div>
+        </div>
+        <div id="balance-markers">
+          <span class="marker marker-left">◀</span>
+          <span class="marker marker-center">●</span>
+          <span class="marker marker-right">▶</span>
+        </div>
+        <div id="coachLabel" class="coach-label">จับ/แตะแล้วเลื่อนไปซ้าย-ขวาเพื่อรักษาสมดุล</div>
+      </div>
+
+      <p class="howto">
+        📱 PC/Mobile: แตะ/ลากค้างในพื้นที่เกมแล้วเลื่อนไปซ้าย–ขวา เพื่อดันแพลตฟอร์มให้กลับมาอยู่ตรงกลาง<br/>
+        🎮 เป้าหมายคือรักษา “จุดสีเขียว” ให้อยู่ในโซนปลอดภัยให้นานที่สุด และหลบสิ่งรบกวนให้ได้มากที่สุด
+      </p>
+
+      <div class="btn-row">
+        <button data-action="stop" class="btn ghost">
+          ⏹ หยุดก่อนเวลา / Stop early
+        </button>
+        <button class="btn ghost" onclick="location.href='./index.html'">
+          ⬅ Hub
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== VIEW: RESULT ===== -->
+    <section id="view-result" class="view hidden">
+      <h2 class="title-small">📈 สรุปผล / Session summary</h2>
+
+      <div class="result-grid">
+        <div class="result-row"><span>Mode</span><b id="res-mode"></b></div>
+        <div class="result-row"><span>Difficulty</span><b id="res-diff"></b></div>
+        <div class="result-row"><span>Duration (s)</span><b id="res-dur"></b></div>
+        <div class="result-row"><span>End reason</span><b id="res-end"></b></div>
+
+        <div class="result-row"><span>Stability time %</span><b id="res-stability"></b></div>
+        <div class="result-row"><span>Mean |tilt|</span><b id="res-meanTilt"></b></div>
+        <div class="result-row"><span>RMS tilt</span><b id="res-rmsTilt"></b></div>
+
+        <div class="result-row"><span>Obstacles avoided</span><b id="res-avoid"></b></div>
+        <div class="result-row"><span>Obstacles hit</span><b id="res-hit"></b></div>
+        <div class="result-row"><span>Obstacle success %</span><b id="res-avoidRate"></b></div>
+
+        <div class="result-row"><span>Fatigue index</span><b id="res-fatigue"></b></div>
+        <div class="result-row"><span>Samples (n)</span><b id="res-samples"></b></div>
+      </div>
+
+      <p class="note">
+        โหมดวิจัยจะดาวน์โหลด CSV ให้โดยอัตโนมัติเมื่อจบเกม / In research mode a CSV will be auto-downloaded at the end.
+      </p>
+
+      <div class="btn-row">
+        <button data-action="play-again" class="btn primary">🔁 เล่นอีกครั้ง / Play again</button>
+        <button data-action="back-menu" class="btn ghost">🏠 กลับเมนู / Back to menu</button>
+      </div>
+    </section>
+
+    <!-- floating coach text -->
+    <div id="coachBubble" class="coach hidden"></div>
+
   </div>
 
-  <div class="card hidden" id="play">
-    <h3>🧍‍♂️ Hold Still...</h3>
-    <div class="play-area">
-      <span id="hold-status">กำลังจับการทรงตัว...</span>
-    </div>
-    <p>Time: <span id="timer">0.0</span> sec</p>
-    <button class="btn" data-stop>หยุด</button>
-  </div>
-
-  <div class="card hidden" id="result">
-    <h3>📈 ผลการเล่น</h3>
-    <p>Time: <span id="r-time">0.0</span> sec</p>
-    <button class="btn" data-retry>เริ่มใหม่</button>
-    <button class="btn" onclick="location.href='./index.html'">กลับ Dashboard</button>
-  </div>
-</div>
-<script type="module" src="./js/balance-hold.js"></script>
+  <script type="module" src="./js/balance-hold.js"></script>
 </body>
 </html>
