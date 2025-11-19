@@ -1,4 +1,4 @@
-// === dom-renderer.js (2025-11-19 — mobile tap → engine.registerTouch) ===
+// === fitness/js/dom-renderer.js (2025-11-19 — match .target CSS + score popup) ===
 'use strict';
 
 export class DomRenderer {
@@ -40,19 +40,23 @@ export class DomRenderer {
     this.updateBounds();
 
     const el = document.createElement('div');
-    el.className = 'sb-target' + (t.decoy ? ' sb-target-decoy' : '');
+
+    // ❗ให้ตรงกับ CSS: .target / .target-hit / .target.decoy
+    el.className =
+      'target' + (t.decoy ? ' target-decoy' : '');
+
+    // ขนาดเป้า (renderer ได้จาก config.sizePx)
     el.style.width  = this.sizePx + 'px';
     el.style.height = this.sizePx + 'px';
     el.textContent  = t.emoji || '⭐';
 
-    // safe area กันหลุดกรอบ (ทั้งดวงอยู่ในเฟรม)
+    // safe area กันหลุดเฟรม
     const safeW = Math.max(0, this.bounds.w - this.sizePx);
     const safeH = Math.max(0, this.bounds.h - this.sizePx);
 
-    const x = (t.x || Math.random()) * safeW;
-    const y = (t.y || Math.random()) * safeH;
+    const x = (t.x ?? Math.random()) * safeW;
+    const y = (t.y ?? Math.random()) * safeH;
 
-    // ใช้ translate จากมุมซ้ายบนของ host
     el.style.position  = 'absolute';
     el.style.left      = '0';
     el.style.top       = '0';
@@ -60,14 +64,18 @@ export class DomRenderer {
 
     el.dataset.id = String(t.id);
 
-    // ★ สำคัญ: แตะเป้าแล้วส่งพิกัดจอเข้า engine.registerTouch
-    el.addEventListener('pointerdown', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (this.engine && typeof this.engine.registerTouch === 'function') {
-        this.engine.registerTouch(ev.clientX, ev.clientY);
-      }
-    }, { passive: false });
+    // แตะตรงเป้า → ส่งพิกัดจริงเข้า engine.registerTouch (มือถือ / เมาส์ใช้ได้หมด)
+    el.addEventListener(
+      'pointerdown',
+      (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (this.engine && typeof this.engine.registerTouch === 'function') {
+          this.engine.registerTouch(ev.clientX, ev.clientY);
+        }
+      },
+      { passive: false }
+    );
 
     this.host.appendChild(el);
     this.targets.set(t.id, el);
@@ -80,5 +88,38 @@ export class DomRenderer {
     if (el && el.parentNode) el.parentNode.removeChild(el);
     if (id != null) this.targets.delete(id);
     if (t) t.dom = null;
+  }
+
+  // effect คะแนน / แตกกระจายตรงกลางเป้า
+  spawnHitEffect(t, opts = {}) {
+    if (!this.host || !t || !t.dom) return;
+
+    const hostRect = this.host.getBoundingClientRect();
+    const rect     = t.dom.getBoundingClientRect();
+
+    const cx = rect.left + rect.width  / 2 - hostRect.left;
+    const cy = rect.top  + rect.height / 2 - hostRect.top;
+
+    const el = document.createElement('div');
+    el.className = 'particle';
+
+    const score = opts.score ?? 0;
+    const fever = !!opts.fever;
+
+    if (score > 0) {
+      el.textContent = '+' + score + (fever ? '🔥' : '');
+    } else if (score < 0) {
+      el.textContent = String(score);
+    } else {
+      el.textContent = '💥';
+    }
+
+    el.style.left = cx + 'px';
+    el.style.top  = cy + 'px';
+
+    this.host.appendChild(el);
+    setTimeout(() => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 420);
   }
 }
