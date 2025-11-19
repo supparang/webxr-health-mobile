@@ -1,314 +1,366 @@
-/* ============================================================
-   VR-Fitness — Jump & Duck
-   Production UI · Neo-dark theme · Mobile-first
-   Author: ChatGPT (2025-11)
-   ============================================================ */
-
 :root{
   color-scheme: dark;
   --bg:#020617;
-  --card:rgba(15,23,42,0.96);
-  --border:rgba(148,163,184,0.55);
+  --card:rgba(15,23,42,0.97);
+  --border:rgba(148,163,184,0.68);
   --accent:#22c55e;
-  --accent2:#6366f1;
-  --text:#e2e8f0;
+  --accent2:#38bdf8;
+  --text:#e5e7eb;
 }
 
 *{box-sizing:border-box;}
 
-/* ---------- Base ---------- */
-
-body{
+.jd-body{
   margin:0;
-  font-family:system-ui,Segoe UI,Inter,Roboto,sans-serif;
-  background:
-    radial-gradient(circle at top left,rgba(34,197,94,0.15),transparent 55%),
-    radial-gradient(circle at bottom right,rgba(99,102,241,0.15),transparent 55%),
-    var(--bg);
   min-height:100vh;
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at top left,rgba(56,189,248,0.25),transparent 55%),
+    radial-gradient(circle at bottom right,rgba(34,197,94,0.26),transparent 55%),
+    var(--bg);
+  color:var(--text);
   display:flex;
   justify-content:center;
   align-items:stretch;
-  color:var(--text);
 }
 
 #app{
   width:100%;
-  max-width:480px;
-  padding:12px;
+  max-width:520px;
   margin:auto;
+  padding:12px;
   display:flex;
   flex-direction:column;
+  justify-content:center;
   min-height:100vh;
 }
 
-/* ---------- Views ---------- */
+/* views */
 
-.view{
+.jd-view{
   background:var(--card);
-  border-radius:22px;
+  border-radius:24px;
   border:1px solid var(--border);
   padding:18px 16px 22px;
   box-shadow:
-    0 16px 40px rgba(0,0,0,0.7),
-    0 0 36px rgba(34,197,94,0.2);
+    0 18px 40px rgba(0,0,0,0.9),
+    0 0 28px rgba(34,197,94,0.35);
 }
-.hidden{display:none !important;}
+.jd-hidden{display:none !important;}
 
-.title{
-  text-align:center;
-  margin:0 0 8px;
-  font-size:1.75rem;
-  font-weight:600;
-}
-.subtitle{
-  margin:0 0 14px;
-  font-size:.85rem;
-  color:#9ca3af;
-  text-align:center;
-}
+/* titles */
 
-/* ---------- Buttons ---------- */
-
-.btn-row{
+.jd-title{
+  margin:0 0 6px;
+  font-size:1.7rem;
   display:flex;
-  flex-wrap:wrap;
+  align-items:center;
   justify-content:center;
   gap:8px;
-  margin-top:12px;
+}
+.jd-title .sub{
+  font-size:.9rem;
+  color:#a5f3fc;
+}
+.jd-title-small{
+  margin:0 0 6px;
+  font-size:1.3rem;
+  text-align:center;
+}
+.jd-subtitle{
+  margin:0 0 10px;
+  text-align:center;
+  font-size:.8rem;
+  color:#9ca3af;
 }
 
-.btn{
+/* form */
+
+.jd-field{
+  margin:8px 0 10px;
+}
+.jd-field label{
+  display:block;
+  font-size:.78rem;
+  color:#9ca3af;
+  margin-bottom:3px;
+}
+.jd-field select,
+.jd-field input{
+  width:100%;
   border-radius:999px;
   border:1px solid var(--border);
-  padding:8px 16px;
-  font-size:.95rem;
-  cursor:pointer;
-  background:rgba(15,23,42,0.98);
+  background:rgba(15,23,42,0.96);
   color:var(--text);
+  font:inherit;
+  padding:7px 12px;
+}
+
+/* buttons */
+
+.jd-btn-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+  justify-content:center;
+}
+.jd-btn-row.secondary{margin-top:6px;}
+
+.jd-btn{
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(15,23,42,0.96);
+  color:var(--text);
+  padding:8px 14px;
+  font-size:.9rem;
+  font-weight:500;
+  cursor:pointer;
   min-width:46%;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  transition:.15s;
+  gap:6px;
+  transition:background .15s,transform .1s,box-shadow .1s;
 }
-.btn:hover{
-  transform:translateY(-2px);
-  box-shadow:0 10px 24px rgba(0,0,0,0.6);
+.jd-btn.primary{
+  border-color:transparent;
+  background:linear-gradient(135deg,#22c55e,#38bdf8);
+  color:#022c22;
+  box-shadow:0 12px 26px rgba(34,197,94,0.9);
 }
-.btn.primary{
-  background:linear-gradient(135deg,#22c55e,#4ade80);
-  border-color:#22c55e;
-  color:#020617;
-  font-weight:600;
+.jd-btn.ghost{
+  background:rgba(15,23,42,0.96);
 }
-.btn.ghost{
-  background:rgba(15,23,42,0.85);
+.jd-btn.ctrl{
+  min-width:42%;
+}
+.jd-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 10px 22px rgba(15,23,42,0.9);
+}
+.jd-btn:active{
+  transform:translateY(0);
+  box-shadow:none;
 }
 
-/* ---------- HUD ---------- */
+/* HUD */
 
-#hud{
+.jd-hud-row{
   display:flex;
   flex-wrap:wrap;
   gap:6px;
-  font-size:.82rem;
+  font-size:.8rem;
   margin-bottom:6px;
 }
-#hud span{
-  background:rgba(15,23,42,0.9);
-  border:1px solid rgba(148,163,184,0.5);
-  padding:3px 10px;
+.jd-hud-chip{
+  background:rgba(15,23,42,0.96);
   border-radius:999px;
+  padding:4px 9px;
+  border:1px solid rgba(148,163,184,0.7);
+}
+.jd-hud-chip b{
+  font-weight:600;
 }
 
-/* ---------- Gameplay Area ---------- */
+/* play card */
 
-#playArea{
+.jd-play-card{
+  margin-top:6px;
+  border-radius:20px;
+  border:1px solid rgba(148,163,184,0.6);
+  padding:8px;
+  background:
+    radial-gradient(circle at top,rgba(34,197,94,0.12),transparent 60%),
+    radial-gradient(circle at bottom,rgba(56,189,248,0.18),transparent 60%),
+    #020617;
+  box-shadow:0 0 26px rgba(15,23,42,0.9);
+}
+
+.jd-play-area{
   position:relative;
   width:100%;
-  max-width:420px;
-  aspect-ratio:9/14;
-  margin:14px auto;
-  border-radius:24px;
+  aspect-ratio:9/16;
+  border-radius:16px;
+  border:1px solid rgba(148,163,184,0.45);
   overflow:hidden;
-  border:1px solid var(--border);
   background:
-    radial-gradient(circle at top,rgba(99,102,241,0.25),transparent 70%),
-    linear-gradient(180deg,#020617,#0a1120 65%,#020617);
-  box-shadow:
-    0 0 22px rgba(99,102,241,0.25),
-    inset 0 0 16px rgba(15,23,42,0.8);
+    radial-gradient(circle at top,rgba(16,185,129,0.28),transparent 70%),
+    linear-gradient(180deg,#020617 0%,#020617 45%,#02131f 80%,#020617 100%);
 }
 
-/* hit fx */
-#playArea.hit-ok{
-  box-shadow:
-    0 0 24px rgba(34,197,94,0.9),
-    inset 0 0 26px rgba(34,197,94,0.7);
-}
-#playArea.hit-bad{
-  box-shadow:
-    0 0 24px rgba(248,113,113,0.9),
-    inset 0 0 26px rgba(248,113,113,0.7);
+/* lane + avatar */
+
+.jd-lane{
+  position:absolute;
+  left:8%;
+  right:8%;
+  top:58%;
+  height:4px;
+  border-radius:999px;
+  background:linear-gradient(90deg,rgba(148,163,184,0.3),rgba(148,163,184,0.9));
+  box-shadow:0 0 16px rgba(15,23,42,0.9);
 }
 
-/* ---------- Lane Track ---------- */
-#lane-track{
+.jd-avatar{
+  position:absolute;
+  left:18%;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  background:radial-gradient(circle at 30% 20%,#bbf7d0,#22c55e);
+  box-shadow:0 0 18px rgba(34,197,94,0.9);
+  transform:translate(-50%,-50%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:1.5rem;
+}
+.jd-avatar::before{
+  content:"🏃‍♂️";
+}
+.jd-avatar-stand{ top:58%; }
+.jd-avatar-jump{ top:38%; }
+.jd-avatar-duck{ top:72%; }
+
+/* obstacles */
+
+.jd-obstacle-layer{
   position:absolute;
   inset:0;
   overflow:hidden;
 }
-
-/* ---------- Obstacles ---------- */
-
-.obstacle{
+.jd-obstacle{
   position:absolute;
-  top:50%;
-  transform:translateY(-50%);
-  right:-120px;
-  width:78px;
-  height:78px;
-  border-radius:18px;
+  bottom:16%;
+  width:40px;
+  height:36px;
+  border-radius:10px;
+  border:1px solid rgba(248,250,252,0.9);
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:2.2rem;
-  box-shadow:
-    0 0 18px rgba(129,140,248,0.7),
-    inset 0 0 8px rgba(15,23,42,0.7);
-  opacity:0;
-  transition:opacity .18s;
-}
-
-/* High obstacle = ต้อง Duck */
-.obstacle-high{
-  top:35%;
-  background:rgba(248,113,113,0.28);
-  border:1px solid rgba(248,113,113,0.7);
-}
-.obstacle-high::after{
-  content:"⬇️";
-}
-
-/* Low obstacle = ต้อง Jump */
-.obstacle-low{
-  top:68%;
-  background:rgba(34,197,94,0.28);
-  border:1px solid rgba(34,197,94,0.7);
-}
-.obstacle-low::after{
-  content:"⬆️";
-}
-
-/* animation – run left */
-.obstacle.run{
-  animation:runLeft 1.05s linear forwards;
-  opacity:1;
-}
-@keyframes runLeft{
-  0%{ right:-100px; }
-  100%{ right:105%; }
-}
-
-/* ---------- Avatar ---------- */
-
-#avatar{
-  position:absolute;
-  left:50%;
-  bottom:14%;
-  transform:translateX(-50%);
-  font-size:3.6rem;
-  transition:transform .22s ease;
-  text-shadow:0 0 16px rgba(99,102,241,0.9);
-}
-
-/* poses */
-.pose-stand{ transform:translateX(-50%) translateY(0); }
-.pose-jump { transform:translateX(-50%) translateY(-65px) scale(1.04); }
-.pose-duck { transform:translateX(-50%) translateY(35px) scale(0.92); }
-
-/* ---------- How-to ---------- */
-
-.howto{
-  text-align:center;
-  font-size:.8rem;
-  color:#9ca3af;
-  margin-top:12px;
-}
-
-/* ---------- Coach Bubble ---------- */
-
-#coachBubble{
-  position:fixed;
-  bottom:22px;
-  left:50%;
-  transform:translateX(-50%);
+  font-size:1.4rem;
   background:rgba(15,23,42,0.96);
-  border-radius:14px;
-  padding:8px 14px;
-  border:1px solid var(--border);
-  font-size:.82rem;
-  color:var(--text);
-  max-width:480px;
-  box-shadow:0 14px 30px rgba(0,0,0,0.8);
-  display:none;
+  box-shadow:0 0 18px rgba(248,250,252,0.9);
+  transform:translateX(-50%);
 }
-#coachBubble.hidden{display:none !important;}
-#coachBubble.visible{display:block !important;}
+.jd-obstacle.low{
+  bottom:16%;
+}
+.jd-obstacle.low::before{
+  content:"⬇";
+}
+.jd-obstacle.high{
+  bottom:32%;
+}
+.jd-obstacle.high::before{
+  content:"⬆";
+}
+.jd-obstacle.hit{
+  animation:jd-hit .22s ease-out forwards;
+}
+.jd-obstacle.miss{
+  opacity:0.4;
+}
 
-/* ---------- Combo / FX ---------- */
+@keyframes jd-hit{
+  to{
+    transform:translateX(-50%) scale(1.35);
+    opacity:0;
+    box-shadow:0 0 22px rgba(248,250,252,1);
+  }
+}
 
-#comboCall{
-  position:fixed;
-  top:28%;
+/* judge */
+
+.jd-judge{
+  position:absolute;
+  top:10px;
   left:50%;
   transform:translateX(-50%);
-  font-size:2.3rem;
+  padding:4px 10px;
+  border-radius:999px;
+  border:1px solid rgba(248,250,252,0.9);
+  background:rgba(15,23,42,0.97);
+  font-size:.78rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
   opacity:0;
   pointer-events:none;
-  transition:opacity .18s, transform .18s;
-  color:#a5b4fc;
-  text-shadow:0 0 22px rgba(129,140,248,0.9);
+  transition:opacity .12s, transform .12s;
 }
-#comboCall.show{
+.jd-judge.show{
   opacity:1;
-  transform:translate(-50%,-22%);
+  transform:translate(-50%,3px);
+}
+.jd-judge.good{
+  border-color:rgba(34,197,94,0.9);
+  box-shadow:0 0 14px rgba(34,197,94,0.9);
+  color:#bbf7d0;
+}
+.jd-judge.miss{
+  border-color:rgba(248,113,113,0.9);
+  box-shadow:0 0 14px rgba(248,113,113,0.9);
+  color:#fecaca;
 }
 
-/* ---------- Result ---------- */
+/* how-to */
 
-.result-grid{
+.jd-howto{
+  font-size:.78rem;
+  color:#9ca3af;
+  text-align:center;
   margin-top:10px;
+  margin-bottom:10px;
+}
+
+/* control row */
+
+.jd-control-row{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+}
+
+/* result */
+
+.jd-result-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
   gap:6px 10px;
-  font-size:.82rem;
+  font-size:.8rem;
+  margin-top:8px;
 }
-.result-row{
+.jd-result-row{
   display:flex;
   justify-content:space-between;
+  gap:6px;
+  border-bottom:1px dashed rgba(148,163,184,0.55);
   padding:3px 0;
-  border-bottom:1px dashed rgba(148,163,184,0.4);
 }
-.result-row span{color:#9ca3af;}
-.result-row b  {font-weight:600;}
+.jd-result-row span{color:#9ca3af;}
+.jd-result-row b{font-weight:600;}
 
-.note{
-  margin-top:10px;
-  font-size:.75rem;
-  text-align:center;
+.jd-note{
+  margin-top:8px;
+  font-size:.76rem;
   color:#9ca3af;
+  text-align:center;
 }
 
-/* ---------- Responsive ---------- */
+/* responsive */
 
 @media(max-width:480px){
-  .btn{min-width:100%;}
-  .view{padding:16px 14px 20px;}
+  .jd-view{padding:16px 14px 20px;}
+  .jd-btn{min-width:100%;}
 }
-
 @media(max-height:720px){
-  #playArea{ margin:10px auto; }
-  #coachBubble{ bottom:14px; }
+  #view-play{
+    padding-top:10px;
+    padding-bottom:10px;
+  }
+  .jd-play-card{
+    margin-top:4px;
+  }
 }
