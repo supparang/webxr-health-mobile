@@ -1,9 +1,9 @@
-// === fitness/js/dom-renderer.js (2025-11-19 — hit effect + safe bounds) ===
+// === fitness/js/dom-renderer.js (2025-11-19 big target + center) ===
 'use strict';
 
 export class DomRenderer {
   constructor(engine, host, opts = {}) {
-    this.engine  = engine || null;
+    this.engine  = engine;
     this.host    = host;
     this.sizePx  = opts.sizePx || 96;
     this.targets = new Map();
@@ -12,9 +12,6 @@ export class DomRenderer {
     if (this.host) {
       this.updateBounds();
       window.addEventListener('resize', () => this.updateBounds());
-      window.addEventListener('orientationchange', () => {
-        setTimeout(() => this.updateBounds(), 300);
-      });
     }
   }
 
@@ -38,79 +35,45 @@ export class DomRenderer {
     this.targets.clear();
   }
 
-  /**
-   * สร้างเป้าใหม่ในกรอบ #target-layer
-   * ใช้ class .target ให้ตรงกับ CSS
-   */
   spawnTarget(t) {
     if (!this.host) return;
     this.updateBounds();
 
     const el = document.createElement('div');
-    el.className = 'target' + (t.decoy ? ' decoy' : '');
-    const size = this.sizePx;
-
-    el.style.width  = size + 'px';
-    el.style.height = size + 'px';
+    el.className = 'sb-target' + (t.decoy ? ' sb-target-decoy' : '');
+    el.style.width  = this.sizePx + 'px';
+    el.style.height = this.sizePx + 'px';
+    // ส่งค่าขนาดเข้า CSS
+    el.style.setProperty('--sb-target-size', this.sizePx + 'px');
     el.textContent  = t.emoji || '⭐';
 
-    // safe area: ให้ "จุดศูนย์กลาง" อยู่ในกรอบทั้งหมด
-    const safeW = Math.max(0, this.bounds.w - size);
-    const safeH = Math.max(0, this.bounds.h - size);
-
-    const cx = (t.x ?? Math.random()) * safeW + size / 2;
-    const cy = (t.y ?? Math.random()) * safeH + size / 2;
+    // safe area สำหรับ "จุดกึ่งกลาง" ของเป้า
+    const margin   = 6;
+    const safeW    = Math.max(0, this.bounds.w - this.sizePx - margin * 2);
+    const safeH    = Math.max(0, this.bounds.h - this.sizePx - margin * 2);
+    const centerX  = (t.x || Math.random()) * safeW + this.sizePx / 2 + margin;
+    const centerY  = (t.y || Math.random()) * safeH + this.sizePx / 2 + margin;
 
     el.style.position = 'absolute';
-    el.style.left     = cx + 'px';
-    el.style.top      = cy + 'px';
-    el.dataset.id     = String(t.id);
+    el.style.left  = centerX + 'px';
+    el.style.top   = centerY + 'px';
+    // ให้ CSS ใช้ translate(-50%, -50%) เพื่อให้จุดที่เราคำนวณเป็น "กลางดวง"
+    el.style.transform = 'translate(-50%, -50%)';
 
-    // แตะที่เป้า → ส่งพิกัดจอให้ engine.registerTouch
-    el.addEventListener(
-      'pointerdown',
-      (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (this.engine && typeof this.engine.registerTouch === 'function') {
-          this.engine.registerTouch(ev.clientX, ev.clientY);
-        }
-      },
-      { passive: false }
-    );
+    el.dataset.id = String(t.id);
+
+    // แตะเป้า → ส่งตำแหน่งให้ engine
+    el.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (this.engine && typeof this.engine.registerTouch === 'function') {
+        this.engine.registerTouch(ev.clientX, ev.clientY);
+      }
+    }, { passive: false });
 
     this.host.appendChild(el);
     this.targets.set(t.id, el);
     t.dom = el;
-  }
-
-  /**
-   * เอฟเฟกต์คะแนนเด้งจากจุดที่ตี (ใช้ .particle ตาม CSS)
-   */
-  spawnHitEffect(t, info = {}) {
-    if (!this.host || !t || !t.dom) return;
-
-    const rect     = t.dom.getBoundingClientRect();
-    const hostRect = this.host.getBoundingClientRect();
-
-    const cx = rect.left + rect.width / 2 - hostRect.left;
-    const cy = rect.top  + rect.height / 2 - hostRect.top;
-
-    const el = document.createElement('div');
-    el.className = 'particle';
-
-    el.style.position = 'absolute';
-    el.style.left = cx + 'px';
-    el.style.top  = cy + 'px';
-
-    const gain = info.score ?? 0;
-    el.textContent = gain > 0 ? `+${gain}` : '+0';
-
-    this.host.appendChild(el);
-
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, 450);
   }
 
   removeTarget(t) {
@@ -119,5 +82,30 @@ export class DomRenderer {
     if (el && el.parentNode) el.parentNode.removeChild(el);
     if (id != null) this.targets.delete(id);
     if (t) t.dom = null;
+  }
+
+  // optional hook สำหรับเอฟเฟกต์แตกกระจาย
+  spawnHitEffect(t, info) {
+    const el = (t && t.dom) || this.targets.get(t.id);
+    if (!el || !this.host) return;
+
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+
+    const hostRect = this.host.getBoundingClientRect();
+    const localX = cx - hostRect.left;
+    const localY = cy - hostRect.top;
+
+    const particle = document.createElement('div');
+    particle.className = 'sb-particle';
+    particle.textContent = info && info.fever ? '+FEVER' : '+' + (info?.score ?? '');
+    particle.style.left = localX + 'px';
+    particle.style.top  = localY + 'px';
+
+    this.host.appendChild(particle);
+    setTimeout(() => {
+      if (particle.parentNode) particle.parentNode.removeChild(particle);
+    }, 420);
   }
 }
