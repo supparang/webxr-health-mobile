@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8"/>
+  <title>Shadow Breaker — VR Cardboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="color-scheme" content="dark"/>
+  <style>
+    :root{ background:#000; color-scheme:dark; }
+    *{margin:0;padding:0;box-sizing:border-box;}
+
+    body{
+      background:#000;
+      height:100vh;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-family:system-ui, sans-serif;
+    }
+
+    #vrRow{
+      width:100vw;
+      height:100vh;
+      display:flex;
+      flex-direction:row;
+    }
+    .eye{
+      flex:1;
+      height:100%;
+      overflow:hidden;
+      border-left:1px solid #000;
+      border-right:1px solid #000;
+      background:#000;
+    }
+    iframe{
+      width:100%;
+      height:100%;
+      border:none;
+      background:#000;
+    }
+
+    #hint{
+      position:fixed;
+      top:10px;
+      left:50%;
+      transform:translateX(-50%);
+      color:#fff;
+      background:rgba(0,0,0,.55);
+      padding:6px 14px;
+      border-radius:999px;
+      font-size:.85rem;
+      z-index:20;
+      border:1px solid rgba(255,255,255,.25);
+    }
+
+    @media (orientation:portrait){
+      #vrRow{display:none;}
+      #hint{display:none;}
+      body::before{
+        content:"กรุณาหมุนหน้าจอเป็นแนวนอนเพื่อเข้าโหมด VR";
+        position:fixed; inset:0;
+        display:flex; align-items:center; justify-content:center;
+        color:#fff; background:#000;
+        text-align:center; padding:30px;
+        font-size:1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="hint">แตะ 1 ครั้งเพื่อเข้าสู่ Fullscreen / Tap to enter fullscreen</div>
+
+  <div id="vrRow">
+    <div class="eye"><iframe id="left"></iframe></div>
+    <div class="eye"><iframe id="right"></iframe></div>
+  </div>
+
+  <script>
+    const left  = document.getElementById('left');
+    const right = document.getElementById('right');
+
+    // โหลด shadow-breaker สองฝั่ง
+    left.src  = "./shadow-breaker.html?eye=left";
+    right.src = "./shadow-breaker.html?eye=right";
+
+    // ปิด input จอซ้าย
+    left.style.pointerEvents = "none";
+
+    // Fullscreen เมื่อแตะครั้งแรก
+    function goFull(){
+      document.documentElement.requestFullscreen?.();
+      window.removeEventListener("click", goFull);
+      window.removeEventListener("touchstart", goFull);
+    }
+    window.addEventListener("click", goFull);
+    window.addEventListener("touchstart", goFull);
+  </script>
+</body>
+</html>
