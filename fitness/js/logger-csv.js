@@ -5,22 +5,37 @@
  * Generic CSV logger สำหรับ VR-Fitness ทุกเกม
  *
  * ใช้ sessionMeta:
- *  - gameId:    'shadow-breaker' | 'rhythm-boxer' | ...
- *  - playerId:  รหัสผู้เล่น / ผู้เข้าร่วม
- *  - mode:      'normal' | 'research'
+ *  - gameId:     'shadow-breaker' | 'rhythm-boxer' | ...
+ *  - playerId:   รหัสผู้เล่น / ผู้เข้าร่วม
+ *  - mode:       'normal' | 'research'
  *  - difficulty: string
- *  - phase:     เช่น 'pre-test' / 'post-test'
+ *  - phase:      เช่น 'pre-test' / 'post-test'
  *  - filePrefix: prefix ไฟล์ CSV (optional)
- *  - uploadUrl: URL สำหรับอัปโหลดขึ้น cloud (optional)
+ *  - uploadUrl:  URL สำหรับอัปโหลดขึ้น cloud (optional)
  *
  * Global:
- *  - window.VRFITNESS_UPLOAD_URL  (upload ทุกเกมใช้ตัวเดียว)
+ *  - window.VRFITNESS_UPLOAD_URL   (upload ทุกเกมใช้ตัวเดียว)
  *  - window.SHADOWBREAKER_UPLOAD_URL (ยังรองรับของเดิม)
  */
 
-export function createCSVLogger(sessionMeta) {
-  const rows = [];
+export function createCSVLogger(sessionMeta = {}) {
   const gameId = sessionMeta.gameId || 'shadow-breaker';
+  const mode   = sessionMeta.mode   || 'normal';
+
+  // ❗ ถ้าไม่ใช่โหมดวิจัย → ไม่ต้องทำอะไรเลย
+  if (mode !== 'research') {
+    // dummy logger — ป้องกัน error แต่ไม่ log/ไม่ดาวน์โหลด
+    return {
+      logSpawn () {},
+      logHit   () {},
+      logExpire() {},
+      finish   () {}
+    };
+  }
+
+  // ---- จากตรงนี้ไป คือโหมดวิจัยเท่านั้น ----
+
+  const rows = [];
 
   const GLOBAL_UPLOAD =
     window.VRFITNESS_UPLOAD_URL ||
@@ -58,7 +73,7 @@ export function createCSVLogger(sessionMeta) {
       e.t ?? Date.now(),
       gameId,
       sessionMeta.playerId || '',
-      sessionMeta.mode || '',
+      mode,
       sessionMeta.difficulty || '',
       sessionMeta.phase || '',
       e.event || '',
@@ -85,7 +100,7 @@ export function createCSVLogger(sessionMeta) {
       form.append('file', blob, fileName);
       form.append('gameId', gameId);
       form.append('playerId', sessionMeta.playerId || '');
-      form.append('mode', sessionMeta.mode || '');
+      form.append('mode', mode);
       form.append('difficulty', sessionMeta.difficulty || '');
       form.append('phase', sessionMeta.phase || '');
       await fetch(CLOUD_UPLOAD_URL, { method: 'POST', body: form });
@@ -153,12 +168,6 @@ export function createCSVLogger(sessionMeta) {
         });
       }
 
-      // 🔴 สำคัญ: โหมดเล่นธรรมดา (normal) ไม่ต้อง export CSV + ไม่ต้อง upload
-      if (sessionMeta.mode !== 'research') {
-        return;
-      }
-
-      // สร้าง CSV เฉพาะโหมดวิจัย
       const csv = rows.map(r => r.join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv' });
 
@@ -166,8 +175,8 @@ export function createCSVLogger(sessionMeta) {
         sessionMeta.filePrefix || `vrfitness_${gameId}`;
       const fileName = `${baseName}_${sessionMeta.playerId || 'anon'}_${Date.now()}.csv`;
 
-      // ดาวน์โหลดลงเครื่อง
-      const url  = URL.createObjectURL(blob);
+      // ดาวน์โหลดลงเครื่อง (เฉพาะโหมดวิจัยเท่านั้น เพราะ mode !== 'research' ถูกตัดไปแล้วด้านบน)
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
