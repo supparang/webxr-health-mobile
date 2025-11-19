@@ -1,519 +1,471 @@
-// === fitness/js/jump-duck.js — Jump-Duck DOM engine (2025-11-19) ===
+// === fitness/js/jump-duck.js — DOM-based Jump-Duck engine (2025-11-19) ===
 'use strict';
 
-import { createCSVLogger } from './logger-csv.js';
-import { recordSession }    from './stats-store.js';
+const $  = (s)=>document.querySelector(s);
+const $$ = (s)=>document.querySelectorAll(s);
 
-const $  = sel => document.querySelector(sel);
-const $$ = sel => document.querySelectorAll(sel);
+/* ---------- DOM refs ---------- */
 
-/* ---------- Views ---------- */
+const viewMenu   = $('#view-menu');
+const viewPlay   = $('#view-play');
+const viewResult = $('#view-result');
 
-const viewMenu    = $('#view-menu');
-const viewResearch= $('#view-research');
-const viewPlay    = $('#view-play');
-const viewResult  = $('#view-result');
-
-function showView(name){
-  [viewMenu,viewResearch,viewPlay,viewResult].forEach(v=>v.classList.add('jd-hidden'));
-  if (name === 'menu')     viewMenu.classList.remove('jd-hidden');
-  if (name === 'research') viewResearch.classList.remove('jd-hidden');
-  if (name === 'play')     viewPlay.classList.remove('jd-hidden');
-  if (name === 'result')   viewResult.classList.remove('jd-hidden');
-}
-
-/* ---------- HUD refs ---------- */
-
-const elDiffSel   = $('#difficulty');
+const elDiff     = $('#jd-diff');
+const elDuration = $('#jd-duration');
 
 const elHudMode   = $('#hud-mode');
 const elHudDiff   = $('#hud-diff');
 const elHudDur    = $('#hud-duration');
 const elHudStab   = $('#hud-stability');
 const elHudObs    = $('#hud-obstacles');
+const elHudScore  = $('#hud-score');
+const elHudCombo  = $('#hud-combo');
 const elHudTime   = $('#hud-time');
 
-const playArea    = $('#playArea');
-const obsLayer    = $('#obsLayer');
-const avatarEl    = $('#avatar');
-const judgeLabel  = $('#judgeLabel');
+const elPlayArea  = $('#jd-play-area');
+const elAvatar    = $('#jd-avatar');
+const elObsHost   = $('#jd-obstacles');
+const elJudge     = $('#jd-judge');
 
-/* result refs */
-const resMode     = $('#res-mode');
-const resDiff     = $('#res-diff');
-const resScore    = $('#res-score');
-const resStabEnd  = $('#res-stab-end');
-const resStabMin  = $('#res-stab-min');
-const resObsTotal = $('#res-obs-total');
-const resHits     = $('#res-hits');
-const resMiss     = $('#res-miss');
-const resAcc      = $('#res-accuracy');
-const resRTMean   = $('#res-rt-mean');
+/* Result */
+const resMode         = $('#res-mode');
+const resDiff         = $('#res-diff');
+const resDuration     = $('#res-duration');
+const resTotalObs     = $('#res-total-obs');
+const resHits         = $('#res-hits');
+const resMiss         = $('#res-miss');
+const resAcc          = $('#res-acc');
+const resRTMean       = $('#res-rt-mean');
+const resStabilityMin = $('#res-stability-min');
+const resScore        = $('#res-score');
+const resRank         = $('#res-rank');
 
 /* ---------- Config ---------- */
 
-const DIFF_CONFIG = {
+const JD_DIFFS = {
   easy: {
-    name: 'easy',
-    durationMs: 60000,
+    name:'easy',
+    speedUnitsPerSec: 38,     // ความเร็วการเคลื่อนที่ของสิ่งกีดขวาง (หน่วย/วินาที)
     spawnIntervalMs: 1300,
-    hitWindowMs: 380,
-    obstacleSpeed: 0.70,   // portion of width per second
-    stabilityDamageOnMiss: 7,
-    stabilityGainOnHit: 0.9,
-    scorePerHit: 8
+    hitWindowMs: 260,
+    stabilityDamageOnMiss: 10,
+    stabilityGainOnHit: 3,
+    scorePerHit: 12
   },
   normal: {
-    name: 'normal',
-    durationMs: 60000,
+    name:'normal',
+    speedUnitsPerSec: 48,
     spawnIntervalMs: 1000,
-    hitWindowMs: 340,
-    obstacleSpeed: 0.85,
-    stabilityDamageOnMiss: 9,
-    stabilityGainOnHit: 0.8,
-    scorePerHit: 10
+    hitWindowMs: 220,
+    stabilityDamageOnMiss: 13,
+    stabilityGainOnHit: 3,
+    scorePerHit: 14
   },
   hard: {
-    name: 'hard',
-    durationMs: 60000,
-    spawnIntervalMs: 820,
-    hitWindowMs: 310,
-    obstacleSpeed: 1.05,
-    stabilityDamageOnMiss: 12,
-    stabilityGainOnHit: 0.7,
-    scorePerHit: 12
+    name:'hard',
+    speedUnitsPerSec: 62,
+    spawnIntervalMs: 800,
+    hitWindowMs: 200,
+    stabilityDamageOnMiss: 16,
+    stabilityGainOnHit: 4,
+    scorePerHit: 16
   }
 };
 
-function pickConfig(key){
-  return DIFF_CONFIG[key] || DIFF_CONFIG.normal;
-}
+// พิกัด hit zone (หน่วยเป็นเปอร์เซ็นต์ของความกว้างเส้นทาง)
+const SPAWN_X   = 100; // เริ่มที่ขวาสุด
+const CENTER_X  = 24;  // ใกล้ตัวผู้เล่น
+const MISS_X    = 4;   // ผ่านตัวไปถือว่าชน
 
-/* ---------- Game state ---------- */
+/* ---------- State ---------- */
 
-let gameMode   = 'play';   // 'play' | 'research'
-let diffKey    = 'normal';
-
-let state      = null;
-let rafId      = null;
-let logger     = null;
-let sessionMeta= null;
-let lastTs     = 0;
-let obstacleId = 1;
-
-const NO_LOGGER = {
-  logSpawn(){},
-  logHit(){},
-  logExpire(){},
-  finish(){},
-};
-
-/* ---------- Helpers ---------- */
-
-function fmtMs(v){
-  if (!v || v <= 0) return '-';
-  return v.toFixed(0)+' ms';
-}
-function fmtPercent(v){
-  if (v == null || Number.isNaN(v)) return '0.0 %';
-  return (v*100).toFixed(1)+' %';
-}
+let running   = false;
+let state     = null;
+let lastFrame = null;
+let rafId     = null;
 
 let judgeTimer = null;
+
+/* input state */
+let lastAction = null; // { type:'jump'|'duck', time:number }
+
+/* ---------- Helper: view switching ---------- */
+
+function showView(name){
+  [viewMenu,viewPlay,viewResult].forEach(v=> v && v.classList.add('jd-hidden'));
+  if (name === 'menu'   && viewMenu)   viewMenu.classList.remove('jd-hidden');
+  if (name === 'play'   && viewPlay)   viewPlay.classList.remove('jd-hidden');
+  if (name === 'result' && viewResult) viewResult.classList.remove('jd-hidden');
+}
+
+/* ---------- HUD & Judge ---------- */
+
 function showJudge(text, kind){
-  if (!judgeLabel) return;
-  judgeLabel.textContent = text;
-  judgeLabel.className = 'jd-judge show';
-  if (kind) judgeLabel.classList.add(kind);
+  if (!elJudge) return;
+  elJudge.textContent = text;
+  elJudge.className = 'jd-judge show';
+  if (kind) elJudge.classList.add(kind);
   if (judgeTimer) clearTimeout(judgeTimer);
-  judgeTimer = setTimeout(()=>judgeLabel.classList.remove('show'), 420);
+  judgeTimer = setTimeout(()=>{
+    elJudge.classList.remove('show');
+  }, 420);
 }
 
-function setAvatarPose(pose){
-  if (!avatarEl) return;
-  avatarEl.classList.remove('jd-avatar-stand','jd-avatar-jump','jd-avatar-duck');
-  if (pose === 'jump') avatarEl.classList.add('jd-avatar-jump');
-  else if (pose === 'duck') avatarEl.classList.add('jd-avatar-duck');
-  else avatarEl.classList.add('jd-avatar-stand');
+function fmtMs(ms){
+  if (!ms || ms<=0) return '-';
+  return ms.toFixed(0)+' ms';
 }
 
-/* ---------- Session meta & logger ---------- */
-
-function buildSessionMeta(){
-  const cfg = pickConfig(diffKey);
-  let playerId='anon', group='', phase='';
-
-  if (gameMode === 'research'){
-    playerId = ($('#resId')?.value || 'anon').trim();
-    group    = ($('#resGroup')?.value || '').trim();
-    phase    = ($('#resPhase')?.value || '').trim();
-  }
-
-  return {
-    gameId: 'jump-duck',
-    playerId,
-    mode: gameMode,
-    difficulty: cfg.name,
-    group,
-    phase,
-    filePrefix: 'vrfitness_jumpduck'
-  };
-}
-
-/* ---------- Game start / stop ---------- */
+/* ---------- Game init / start / stop ---------- */
 
 function startGame(){
-  const cfg = pickConfig(diffKey);
-  sessionMeta = buildSessionMeta();
+  const diffKey   = (elDiff?.value) || 'normal';
+  const diffCfg   = JD_DIFFS[diffKey] || JD_DIFFS.normal;
+  const durSecStr = (elDuration?.value) || '60';
+  const durationMs= parseInt(durSecStr,10)*1000 || 60000;
 
   state = {
-    cfg,
-    mode: gameMode,
+    mode:'play',
     diffKey,
-    durationMs: cfg.durationMs,
-    remainingMs: cfg.durationMs,
+    cfg:diffCfg,
+
+    durationMs,
+    startTime: performance.now(),
+    elapsedMs: 0,
+    remainingMs: durationMs,
+
     stability: 100,
     minStability: 100,
-    score: 0,
+
+    obstacles: [],
+    nextSpawnAt: performance.now() + 600,
+    obstaclesSpawned: 0,
     hits: 0,
     miss: 0,
-    obstaclesSpawned: 0,
-    obstaclesResolved: 0,
-    obstacles: [],
-    nextSpawnAt: 0,
-    avatar: {
-      pose: 'stand',
-      lastActionAt: 0
-    },
-    hitRTs: [],
-    endedBy: null
+
+    score: 0,
+    combo: 0,
+    maxCombo: 0,
+
+    hitRTs: []
   };
 
-  // logger ใช้เฉพาะโหมดวิจัย
-  logger = (gameMode === 'research')
-    ? createCSVLogger(sessionMeta)
-    : NO_LOGGER;
+  running   = true;
+  lastFrame = performance.now();
 
-  // HUD initial
-  if (elHudMode) elHudMode.textContent =
-    (gameMode === 'research') ? 'Research' : 'Play';
+  // Reset UI
+  if (elHudMode) elHudMode.textContent = 'Play';
   if (elHudDiff) elHudDiff.textContent = diffKey;
-  if (elHudDur)  elHudDur.textContent  = (cfg.durationMs/1000)+'s';
-  if (elHudTime) elHudTime.textContent = (cfg.durationMs/1000).toFixed(1)+'s';
+  if (elHudDur)  elHudDur.textContent  = (durationMs/1000|0)+'s';
   if (elHudStab) elHudStab.textContent = '100%';
   if (elHudObs)  elHudObs.textContent  = '0 / 0';
+  if (elHudScore)elHudScore.textContent= '0';
+  if (elHudCombo)elHudCombo.textContent= '0';
+  if (elHudTime) elHudTime.textContent = (durationMs/1000).toFixed(1);
 
-  setAvatarPose('stand');
-  if (obsLayer) obsLayer.innerHTML = '';
-  if (judgeLabel) judgeLabel.classList.remove('show');
-
-  lastTs = 0;
-  obstacleId = 1;
+  if (elObsHost) elObsHost.innerHTML = '';
+  if (elAvatar)  elAvatar.classList.remove('jump','duck');
+  if (elPlayArea) elPlayArea.classList.remove('shake');
 
   showView('play');
-  if (rafId) cancelAnimationFrame(rafId);
+
+  if (rafId!=null) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
 }
 
 function endGame(reason){
-  if (!state || state.endedBy) return;
-  state.endedBy = reason || 'manual';
+  running = false;
+  if (rafId!=null){ cancelAnimationFrame(rafId); rafId=null; }
 
-  if (rafId){ cancelAnimationFrame(rafId); rafId = null; }
-
-  const totalObs = state.obstaclesSpawned;
-  const hits     = state.hits;
-  const miss     = state.miss;
+  // สร้างสรุป
+  const totalObs = state.obstaclesSpawned || 0;
+  const hits     = state.hits || 0;
+  const misses   = state.miss || 0;
   const acc      = totalObs ? hits/totalObs : 0;
-
-  // analytics summary
-  const rtList = state.hitRTs;
-  let rtMean = 0;
-  if (rtList.length){
-    rtMean = rtList.reduce((a,b)=>a+b,0)/rtList.length;
-  }
-
-  const finalPayload = {
-    endedBy: state.endedBy,
-    score: state.score,
-    combo: 0,
-    missCount: state.miss,
-    playerHP: state.stability,
-    bossIndex: '',
-    elapsedMs: state.durationMs - state.remainingMs,
-    analytics: {
-      totalSpawns: totalObs,
-      totalHits: hits,
-      expiredMisses: miss,
-      accuracy: acc,
-      avgReactionNormal: rtMean,
-      avgReactionDecoy: 0
-    }
-  };
-
-  // CSV only research mode
-  logger.finish(finalPayload);
-
-  // dashboard (ใช้รูปแบบเดียวกับเกมอื่น)
-  recordSession('jump-duck', {
-    mode: gameMode,
-    difficulty: diffKey,
-    score: state.score,
-    missCount: state.miss,
-    totalHits: state.hits,
-    accuracy: acc,
-    stabilityEnd: state.stability,
-    stabilityMin: state.minStability
-  });
+  const rtMean   = state.hitRTs.length
+    ? state.hitRTs.reduce((a,b)=>a+b,0)/state.hitRTs.length
+    : 0;
 
   fillResultView(acc, rtMean, totalObs);
+
   showView('result');
 }
 
+/* ---------- Result view ---------- */
+
 function fillResultView(acc, rtMean, totalObs){
-  if (!state) return;
-  const modeLabel =
-    gameMode === 'research' ? 'Research' : 'Play';
+  const durSec = (state.durationMs||60000)/1000;
 
-  if (resMode)     resMode.textContent     = modeLabel;
-  if (resDiff)     resDiff.textContent     = diffKey;
-  if (resScore)    resScore.textContent    = String(state.score);
-  if (resStabEnd)  resStabEnd.textContent  = state.stability.toFixed(1)+' %';
-  if (resStabMin)  resStabMin.textContent  = state.minStability.toFixed(1)+' %';
-  if (resObsTotal) resObsTotal.textContent = String(totalObs);
-  if (resHits)     resHits.textContent     = String(state.hits);
-  if (resMiss)     resMiss.textContent     = String(state.miss);
-  if (resAcc)      resAcc.textContent      = fmtPercent(acc);
-  if (resRTMean)   resRTMean.textContent   = fmtMs(rtMean);
-}
+  if (resMode)         resMode.textContent         = 'Play';
+  if (resDiff)         resDiff.textContent         = state.diffKey || 'normal';
+  if (resDuration)     resDuration.textContent     = durSec.toFixed(0)+'s';
+  if (resTotalObs)     resTotalObs.textContent     = String(totalObs);
+  if (resHits)         resHits.textContent         = String(state.hits||0);
+  if (resMiss)         resMiss.textContent         = String(state.miss||0);
+  if (resAcc)          resAcc.textContent          = (acc*100).toFixed(1)+' %';
+  if (resRTMean)       resRTMean.textContent       = fmtMs(rtMean);
+  if (resStabilityMin) resStabilityMin.textContent = (state.minStability||0).toFixed(1)+' %';
+  if (resScore)        resScore.textContent        = String(Math.round(state.score));
 
-/* ---------- Game loop ---------- */
-
-function spawnObstacle(now){
-  if (!state || !obsLayer) return;
-  const cfg = state.cfg;
-  const type = Math.random() < 0.5 ? 'low' : 'high';
-
-  const el = document.createElement('div');
-  el.className = 'jd-obstacle '+type;
-  obsLayer.appendChild(el);
-
-  const obs = {
-    id: obstacleId++,
-    type,
-    x: 1.1,             // 1.0 = ขอบขวา
-    speed: cfg.obstacleSpeed * (0.9 + Math.random()*0.3),
-    element: el,
-    resolved: false,
-    hit: false,
-    miss: false,
-    createdAt: now,
-    triggered: false
-  };
-  state.obstacles.push(obs);
-  state.obstaclesSpawned++;
-
-  logger.logSpawn({
-    id: obs.id,
-    type: type,
-    t: Date.now(),
-    playerHP: state.stability
-  });
-}
-
-function updateObstacles(dt, now){
-  if (!state) return;
-  const collisionX = 0.20;
-  const missX      = -0.05;
-
-  const cfg = state.cfg;
-  const hitWindowMs = cfg.hitWindowMs;
-
-  const avatar = state.avatar;
-
-  const remain = [];
-
-  for (const obs of state.obstacles){
-    obs.x -= obs.speed * dt;
-
-    if (obs.element){
-      obs.element.style.left = (obs.x*100)+'%';
-    }
-
-    // ถึงโซนชนและยังไม่ตัดสิน
-    if (!obs.resolved && obs.x <= collisionX){
-      const dtAction = (now - avatar.lastActionAt);
-      const matchPose =
-        (obs.type === 'low'  && avatar.pose === 'jump') ||
-        (obs.type === 'high' && avatar.pose === 'duck');
-
-      if (matchPose && dtAction >= 0 && dtAction <= hitWindowMs){
-        // HIT
-        obs.resolved = true;
-        obs.hit = true;
-        state.hits++;
-        const mult = state.stability > 80 ? 1.2 : 1.0;
-        state.score += cfg.scorePerHit * mult;
-        state.stability = Math.min(100, state.stability + cfg.stabilityGainOnHit);
-        state.minStability = Math.min(state.minStability, state.stability);
-        if (obs.element){
-          obs.element.classList.add('hit');
-        }
-        const rt = dtAction;
-        state.hitRTs.push(rt);
-
-        logger.logHit({
-          id: obs.id,
-          type: obs.type,
-          result: 'hit',
-          reactionMs: rt,
-          score: state.score,
-          combo: 0,
-          missCount: state.miss,
-          playerHP: state.stability,
-          bossIndex: '',
-          bossPhase: 'run'
-        });
-
-        showJudge('GOOD', 'good');
-      } else if (obs.x <= missX){
-        // MISS จากการไม่กดหรือกดผิดจังหวะ
-        obs.resolved = true;
-        obs.miss = true;
-        state.miss++;
-        state.stability = Math.max(0, state.stability - cfg.stabilityDamageOnMiss);
-        state.minStability = Math.min(state.minStability, state.stability);
-        if (obs.element){
-          obs.element.classList.add('miss');
-        }
-
-        logger.logExpire({
-          id: obs.id,
-          type: obs.type,
-          result: 'miss',
-          playerHP: state.stability,
-          bossIndex: '',
-          bossPhase: 'run'
-        });
-
-        showJudge('MISS', 'miss');
-      }
-    }
-
-    if (obs.x > missX){
-      remain.push(obs);
-    }else if (obs.element && obs.element.parentNode){
-      obs.element.parentNode.removeChild(obs.element);
-    }
+  // คำนวณ rank S / A / B / C / D
+  if (resRank){
+    let rank = 'C';
+    const stab = state.minStability;
+    if (acc >= 0.90 && stab >= 85) rank='S';
+    else if (acc >= 0.80 && stab >= 75) rank='A';
+    else if (acc >= 0.65 && stab >= 60) rank='B';
+    else if (acc < 0.40 || stab < 40) rank='D';
+    resRank.textContent = rank;
   }
-
-  state.obstacles = remain;
 }
+
+/* ---------- Loop & obstacle logic ---------- */
 
 function loop(ts){
-  if (!state) return;
-  if (!lastTs) lastTs = ts;
-  const dtMs = ts - lastTs;
-  const dt   = dtMs / 1000;
-  lastTs = ts;
+  if (!running || !state) return;
+  const cfg = state.cfg || JD_DIFFS.normal;
 
-  // time
-  state.remainingMs = Math.max(0, state.remainingMs - dtMs);
-  const remainSec = state.remainingMs / 1000;
-  if (elHudTime) elHudTime.textContent = remainSec.toFixed(1)+'s';
+  const dt = ts - (lastFrame||ts);
+  lastFrame = ts;
 
-  if (state.remainingMs <= 0){
+  // เวลา
+  state.elapsedMs  = ts - state.startTime;
+  state.remainingMs= Math.max(0, state.durationMs - state.elapsedMs);
+
+  if (elHudTime){
+    elHudTime.textContent = (state.remainingMs/1000).toFixed(1);
+  }
+
+  if (state.elapsedMs >= state.durationMs){
     endGame('timeout');
     return;
   }
 
-  // avatar pose decay
-  if (state.avatar.pose !== 'stand' &&
-      (performance.now() - state.avatar.lastActionAt) > 650){
-    state.avatar.pose = 'stand';
-    setAvatarPose('stand');
-  }
-
   // spawn obstacles
-  if (state.nextSpawnAt === 0){
-    state.nextSpawnAt = ts + state.cfg.spawnIntervalMs;
-  }
   while (ts >= state.nextSpawnAt){
     spawnObstacle(ts);
-    const base = state.cfg.spawnIntervalMs;
-    const jitter = 0.8 + Math.random()*0.4;
-    state.nextSpawnAt += base * jitter;
+    state.nextSpawnAt += cfg.spawnIntervalMs;
   }
 
-  // update obstacles
-  updateObstacles(dt, performance.now());
+  // move & resolve obstacles
+  updateObstacles(dt, ts);
 
-  // HUD dynamic
+  // update stability HUD
   if (elHudStab) elHudStab.textContent = state.stability.toFixed(1)+'%';
   if (elHudObs){
-    const total = state.obstaclesSpawned;
-    const hits  = state.hits;
-    elHudObs.textContent = `${hits} / ${total}`;
+    const tot = state.obstaclesSpawned;
+    const ok  = state.hits;
+    elHudObs.textContent = `${ok} / ${tot}`;
   }
+  if (elHudScore) elHudScore.textContent = String(Math.round(state.score));
+  if (elHudCombo) elHudCombo.textContent = String(state.combo);
 
   rafId = requestAnimationFrame(loop);
 }
 
-/* ---------- Input ---------- */
+let nextObstacleId = 1;
 
-function handleAction(action){
-  if (!state) return;
-  const now = performance.now();
-  state.avatar.lastActionAt = now;
+function spawnObstacle(ts){
+  if (!elObsHost) return;
+  const cfg = state.cfg || JD_DIFFS.normal;
 
-  if (action === 'jump'){
-    state.avatar.pose = 'jump';
-    setAvatarPose('jump');
-  }else if (action === 'duck'){
-    state.avatar.pose = 'duck';
-    setAvatarPose('duck');
+  const isHigh = Math.random() < 0.5; // สลับ high/low
+  const type   = isHigh ? 'high' : 'low';
+
+  const el = document.createElement('div');
+  el.className = 'jd-obstacle '+type;
+  el.dataset.id = String(nextObstacleId);
+  el.textContent = isHigh ? '🟥' : '🧱';
+
+  elObsHost.appendChild(el);
+
+  state.obstacles.push({
+    id: nextObstacleId++,
+    type,
+    x: SPAWN_X,
+    createdAt: ts,
+    resolved:false,
+    hit:false,
+    miss:false,
+    element: el,
+    centerTime: null
+  });
+
+  state.obstaclesSpawned++;
+}
+
+function updateObstacles(dt, now){
+  const cfg = state.cfg || JD_DIFFS.normal;
+  const speed = cfg.speedUnitsPerSec;
+  const move = speed * (dt/1000);
+
+  const toRemove = [];
+
+  for (const obs of state.obstacles){
+    if (obs.resolved && !obs.element){
+      toRemove.push(obs);
+      continue;
+    }
+
+    obs.x -= move;
+
+    // update DOM position
+    if (obs.element){
+      obs.element.style.left = obs.x + '%';
+    }
+
+    // mark centerTime
+    if (!obs.centerTime && obs.x <= CENTER_X){
+      obs.centerTime = now;
+    }
+
+    // Check HIT window (ใกล้ center)
+    if (!obs.resolved && obs.x <= CENTER_X + 6 && obs.x >= CENTER_X - 6){
+      const action = lastAction;
+      if (action && action.time){
+        const dtAction = Math.abs(action.time - now); // ระยะห่างเวลาระหว่างกด กับตำแหน่งกลาง
+        const needType = (obs.type === 'high') ? 'duck' : 'jump';
+        const matchPose= (action.type === needType);
+
+        if (matchPose && dtAction <= cfg.hitWindowMs){
+          // HIT
+          obs.resolved = true;
+          obs.hit      = true;
+
+          // combo + score
+          state.combo = (state.combo || 0) + 1;
+          if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+
+          const base   = cfg.scorePerHit;
+          const stabil = state.stability > 80 ? 1.10 : 1.0;
+          const comboM = 1 + Math.min(state.combo-1, 6)*0.15; // x1.0 → x1.9
+          const gain   = Math.round(base * stabil * comboM);
+          state.score += gain;
+
+          state.hits++;
+          state.stability = Math.min(100, state.stability + cfg.stabilityGainOnHit);
+          state.minStability = Math.min(state.minStability, state.stability);
+
+          if (obs.element){
+            obs.element.classList.add('hit');
+            // ลบออกหลัง effect
+            setTimeout(()=> obs.element && obs.element.remove(), 260);
+            obs.element = null;
+          }
+
+          const rt = dtAction;
+          state.hitRTs.push(rt);
+
+          if (state.combo >= 8){
+            showJudge('COMBO x'+state.combo, 'combo');
+          }else{
+            showJudge('GOOD', 'ok');
+          }
+          continue;
+        }
+      }
+    }
+
+    // MISS – ผ่าน zone ตัวผู้เล่นแล้วยังไม่ resolve
+    if (!obs.resolved && obs.x <= MISS_X){
+      obs.resolved = true;
+      obs.miss     = true;
+      state.miss++;
+      state.combo = 0;
+
+      state.stability = Math.max(0, state.stability - cfg.stabilityDamageOnMiss);
+      state.minStability = Math.min(state.minStability, state.stability);
+
+      if (obs.element){
+        obs.element.classList.add('miss');
+        setTimeout(()=> obs.element && obs.element.remove(), 260);
+        obs.element = null;
+      }
+
+      showJudge('MISS', 'miss');
+      if (elPlayArea){
+        elPlayArea.classList.add('shake');
+        setTimeout(()=> elPlayArea.classList.remove('shake'), 180);
+      }
+    }
+
+    // remove when far left
+    if (obs.x < -20){
+      if (obs.element){
+        obs.element.remove();
+        obs.element = null;
+      }
+      toRemove.push(obs);
+    }
+  }
+
+  if (toRemove.length){
+    state.obstacles = state.obstacles.filter(o => !toRemove.includes(o));
+  }
+
+  // เคลียร์ action หลังจากใช้แล้วนิดหนึ่ง
+  if (lastAction && now - lastAction.time > 260){
+    lastAction = null;
   }
 }
 
-function initInput(){
-  // Buttons
-  $$('[data-act="jump"]').forEach(btn=>{
-    btn.addEventListener('click', e=>{
-      e.preventDefault();
-      handleAction('jump');
-    });
-  });
-  $$('[data-act="duck"]').forEach(btn=>{
-    btn.addEventListener('click', e=>{
-      e.preventDefault();
-      handleAction('duck');
-    });
-  });
+/* ---------- Input (Jump / Duck) ---------- */
 
-  // Keyboard
-  window.addEventListener('keydown', e=>{
-    const code = e.code;
-    if (code === 'Space' || code === 'ArrowUp' || code === 'KeyW'){
-      handleAction('jump');
-    }else if (code === 'ArrowDown' || code === 'KeyS'){
-      handleAction('duck');
-    }
-  });
+function triggerAction(type){
+  if (!state || !running) return;
+  const now = performance.now();
+  lastAction = { type, time: now };
+
+  if (!elAvatar) return;
+  elAvatar.classList.remove('jump','duck');
+  elAvatar.classList.add(type);
+  setTimeout(()=>{
+    if (!elAvatar) return;
+    elAvatar.classList.remove(type);
+  }, 180);
 }
 
-/* ---------- Init UI events ---------- */
+function handleKeyDown(ev){
+  if (!running) return;
+  if (ev.code === 'ArrowUp'){
+    ev.preventDefault();
+    triggerAction('jump');
+  }else if (ev.code === 'ArrowDown'){
+    ev.preventDefault();
+    triggerAction('duck');
+  }
+}
 
-function initMenu(){
-  $('[data-action="start-play"]')?.addEventListener('click', ()=>{
-    gameMode = 'play';
-    diffKey  = elDiffSel?.value || 'normal';
-    showView('play');
+function handlePointerDown(ev){
+  if (!running) return;
+  if (!elPlayArea) return;
+
+  const rect = elPlayArea.getBoundingClientRect();
+  const y = ev.clientY;
+  const mid = rect.top + rect.height/2;
+
+  if (y < mid) triggerAction('jump');
+  else         triggerAction('duck');
+}
+
+/* ---------- Init ---------- */
+
+function initJD(){
+  // เริ่มเล่นจากเมนู
+  $('[data-action="start"]')?.addEventListener('click', ()=>{
     startGame();
   });
 
-  $('[data-action="goto-research"]')?.addEventListener('click', ()=>{
-    gameMode = 'research';
-    showView('research');
+  // หยุดก่อนเวลา
+  $('[data-action="stop-early"]')?.addEventListener('click', ()=>{
+    if (running){
+      endGame('manual');
+    }
+  });
+
+  // result actions
+  $('[data-action="play-again"]')?.addEventListener('click', ()=>{
+    startGame();
   });
 
   $$('[data-action="back-menu"]').forEach(btn=>{
@@ -522,27 +474,11 @@ function initMenu(){
     });
   });
 
-  $('[data-action="start-research"]')?.addEventListener('click', ()=>{
-    gameMode = 'research';
-    diffKey  = elDiffSel?.value || 'normal';
-    startGame();
-  });
-
-  $('[data-action="stop-early"]')?.addEventListener('click', ()=>{
-    if (state) endGame('manual');
-  });
-
-  $('[data-action="play-again"]')?.addEventListener('click', ()=>{
-    // ใช้ diff เดิม + mode เดิม
-    startGame();
-  });
+  // input listeners
+  window.addEventListener('keydown', handleKeyDown, {passive:false});
+  elPlayArea?.addEventListener('pointerdown', handlePointerDown, {passive:false});
 
   showView('menu');
 }
 
-/* ---------- Boot ---------- */
-
-window.addEventListener('DOMContentLoaded', ()=>{
-  initMenu();
-  initInput();
-});
+window.addEventListener('DOMContentLoaded', initJD);
