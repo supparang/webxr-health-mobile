@@ -1,12 +1,12 @@
-// === Shadow Breaker — main-shadow.js (Production-ready, Boss Intro + Phases) ===
+// === Shadow Breaker — main-shadow.js (Production C) ===
 'use strict';
 
 // ---------- Helper ----------
 const $  = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
-const FEVER_DURATION_MS = 4000;   // ระยะเวลา FEVER
-const MAX_LIVE_TARGETS  = 6;      // จำกัดเป้าบนจอ
+const FEVER_DURATION_MS = 4000;   // ระยะเวลา FEVER (~4 วิ)
+const MAX_LIVE_TARGETS  = 6;      // จำนวนเป้าพร้อมกันบนจอ
 
 function showView(name){
   const views = {
@@ -60,7 +60,6 @@ const BOSSES = [
   }
 ];
 
-// ยาก-ง่าย (ปรับ HP และ FEVER แล้ว)
 const DIFF = {
   easy: {
     label: 'ง่าย',
@@ -112,10 +111,9 @@ const DIFF = {
   }
 };
 
-// ---------- Global state ----------
-
+// ---------- Global game state ----------
 const game = {
-  mode: 'normal',
+  mode: 'normal',       // 'normal' | 'research'
   diffKey: 'normal',
 
   participantId: '',
@@ -134,7 +132,7 @@ const game = {
 
   playerHP: 100,
 
-  feverGauge: 0,
+  feverGauge: 0,      // 0–100
   feverActive: false,
   feverTimeout: 0,
 
@@ -149,7 +147,7 @@ const game = {
   decoyRTs: [],
 
   nextTargetId: 1,
-  liveTargets: new Map(),
+  liveTargets: new Map(),   // id → { el, kind, spawnTime, lifeTimer }
 
   csvRows: [],
   csvUrl: '',
@@ -158,7 +156,6 @@ const game = {
 };
 
 // ---------- DOM cache ----------
-
 function cacheDom(){
   game.els = {
     difficulty: $('#difficulty'),
@@ -178,6 +175,7 @@ function cacheDom(){
 
     bossName: $('#boss-name'),
     bossFill: $('#boss-fill'),
+    bossPortrait: $('#boss-portrait'),
     bossPortraitEmoji: $('#boss-portrait-emoji'),
     bossPortraitName: $('#boss-portrait-name'),
     bossPortraitHint: $('#boss-portrait-hint'),
@@ -201,12 +199,13 @@ function cacheDom(){
     resTotalhits: $('#res-totalhits'),
     resRTNormal: $('#res-rt-normal'),
     resRTDecoy: $('#res-rt-decoy'),
-    resParticipant: $('#res-participant')
+    resParticipant: $('#res-participant'),
+
+    playArea: document.querySelector('.play-area')
   };
 }
 
-// ---------- Utilities ----------
-
+// ---------- Utils ----------
 function clamp(v,min,max){ return v < min ? min : v > max ? max : v; }
 
 function updateHUD(){
@@ -234,22 +233,27 @@ function updateBossHUD(){
   if(game.els.bossPortraitName)  game.els.bossPortraitName.textContent  = boss.name;
   if(game.els.bossPortraitHint)  game.els.bossPortraitHint.textContent  = boss.hint;
 
-  // intro overlay
+  // อัปเดต intro overlay ถ้ามี
   const introEmoji = $('#boss-intro-emoji');
   const introName  = $('#boss-intro-name');
   const introTitle = $('#boss-intro-title');
   const introDesc  = $('#boss-intro-desc');
+
   if(introEmoji) introEmoji.textContent = boss.emoji;
   if(introName)  introName.textContent  = boss.name;
   if(introTitle) introTitle.textContent = boss.title || '';
   if(introDesc)  introDesc.textContent  = boss.desc  || '';
 
+  // เปลี่ยนธีมพื้นหลังของ body ตามบอส
   document.body.classList.remove(
     'theme-boss-1','theme-boss-2','theme-boss-3','theme-boss-4','boss-lowhp','boss-final'
   );
   document.body.classList.add(boss.themeClass);
-  if(boss.id === 4) document.body.classList.add('boss-final');
+  if(boss.id === 4){
+    document.body.classList.add('boss-final');
+  }
 
+  // ใกล้ตาย: เพิ่มคลาส boss-lowhp
   if(ratio <= 0.25){
     document.body.classList.add('boss-lowhp');
   }
@@ -262,7 +266,11 @@ function updateFeverHUD(){
   }
   const wrap = game.els.feverFill && game.els.feverFill.closest('.fever-wrap');
   if(wrap){
-    wrap.classList.toggle('fever-active', game.feverActive);
+    if(game.feverActive){
+      wrap.classList.add('fever-active');
+    } else {
+      wrap.classList.remove('fever-active');
+    }
   }
   if(game.els.feverStatus){
     game.els.feverStatus.textContent = game.feverActive ? 'FEVER ON!' : 'FEVER';
@@ -274,8 +282,25 @@ function setCoach(text, emoji){
   if(game.els.coachAvatar) game.els.coachAvatar.textContent = emoji || '🥊';
 }
 
-// ---------- Boss intro overlay ----------
+function playSfx(id){
+  const el = document.getElementById(id);
+  if(!el || !el.play) return;
+  try{
+    el.currentTime = 0;
+    el.play();
+  }catch(e){}
+}
 
+function screenShake(){
+  const pa = game.els.playArea;
+  if(!pa) return;
+  pa.classList.remove('screen-shake');
+  // force reflow
+  void pa.offsetWidth;
+  pa.classList.add('screen-shake');
+}
+
+// ---------- Boss intro overlay ----------
 function showBossIntro(next, opts){
   opts = opts || {};
   const autoMs = opts.autoMs || 2000;
@@ -310,16 +335,17 @@ function showBossIntro(next, opts){
     if(closed) return;
     closed = true;
     intro.classList.remove('boss-intro-show');
-    setTimeout(() => intro.classList.add('hidden'), 250);
+    setTimeout(() => {
+      intro.classList.add('hidden');
+    }, 250);
     next && next();
   }
 
-  intro.addEventListener('click', closeIntro, { once:true });
+  intro.addEventListener('click', closeIntro, { once: true });
   setTimeout(closeIntro, autoMs);
 }
 
-// ---------- Game control core ----------
-
+// ---------- Game control ----------
 function resetGameState(){
   const cfg = DIFF[game.diffKey] || DIFF.normal;
   game.durationMs = cfg.durationMs;
@@ -361,15 +387,15 @@ function resetGameState(){
 
   if(game.els.statMode)
     game.els.statMode.textContent = (game.mode === 'research') ? 'วิจัย' : 'ปกติ';
-
   if(game.els.statDiff){
     const cfgLabel = DIFF[game.diffKey] ? DIFF[game.diffKey].label : 'ปกติ';
     game.els.statDiff.textContent = cfgLabel;
   }
   if(game.els.statTime){
-    game.els.statTime.textContent = (game.durationMs/1000).toFixed(1);
+    game.els.statTime.textContent = (game.durationMs / 1000).toFixed(1);
   }
 
+  document.body.classList.remove('fever-mode');
   updateBossHUD();
   updateFeverHUD();
   updateHUD();
@@ -377,7 +403,6 @@ function resetGameState(){
 }
 
 function startGame(){
-  const cfg = DIFF[game.diffKey] || DIFF.normal;
   resetGameState();
   showView('play');
   game.running = true;
@@ -386,17 +411,18 @@ function startGame(){
   function beginCountdown(){
     setCoach('3... 2... 1... ชก! 💥', '⏱');
     let countdown = 3;
-    const timer = setInterval(() => {
+    const countdownTimer = setInterval(() => {
       countdown--;
       if(countdown <= 0){
-        clearInterval(timer);
+        clearInterval(countdownTimer);
         if(!game.running) return;
         setCoach('ชกเป้าหลัก เลี่ยงเป้าหลอก! ✨', '🥊');
         scheduleNextSpawn();
-      }else{
+      } else {
         setCoach(`${countdown}...`, '⏱');
       }
     }, 500);
+
     scheduleTimerTick();
   }
 
@@ -414,6 +440,7 @@ function endGame(reason){
   clearTimeout(game.spawnTimer);
   clearTimeout(game.feverTimeout);
 
+  // ล้างเป้าทั้งหมด
   game.liveTargets.forEach(obj => {
     clearTimeout(obj.lifeTimer);
     if(obj.el && obj.el.parentNode) obj.el.parentNode.removeChild(obj.el);
@@ -422,18 +449,22 @@ function endGame(reason){
 
   let reasonText = '';
   switch(reason){
-    case 'timeup':       reasonText = 'หมดเวลา'; break;
-    case 'hpzero':       reasonText = 'พลังผู้เล่นหมด'; break;
-    case 'bossdefeated': reasonText = 'ปราบบอสครบทุกตัว'; break;
-    case 'stopped':      reasonText = 'หยุดก่อนเวลา'; break;
-    case 'hidden':       reasonText = 'แท็บ/หน้าจอถูกซ่อน'; break;
-    default:             reasonText = 'จบเกม'; break;
+    case 'timeup':        reasonText = 'หมดเวลา'; break;
+    case 'hpzero':        reasonText = 'พลังผู้เล่นหมด'; break;
+    case 'bossdefeated':  reasonText = 'ปราบบอสครบทุกตัว'; break;
+    case 'stopped':       reasonText = 'หยุดก่อนเวลา'; break;
+    case 'hidden':        reasonText = 'แท็บ/หน้าจอถูกซ่อน'; break;
+    default:              reasonText = 'จบเกม'; break;
   }
 
   const totalShots = game.hits + game.misses + game.decoyHits;
-  const accuracy = totalShots > 0 ? (game.hits/totalShots*100) : 0;
+  const accuracy = totalShots > 0 ? (game.hits / totalShots * 100) : 0;
 
-  const avg = (arr) => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+  const avg = (arr) => {
+    if(!arr.length) return null;
+    const s = arr.reduce((a,b) => a+b, 0);
+    return s / arr.length;
+  };
   const avgNormal = avg(game.normalRTs);
   const avgDecoy  = avg(game.decoyRTs);
 
@@ -448,14 +479,12 @@ function endGame(reason){
   if(game.els.resMaxcombo)  game.els.resMaxcombo.textContent  = game.maxCombo.toString();
   if(game.els.resMiss)      game.els.resMiss.textContent      = game.misses.toString();
   if(game.els.resTotalhits) game.els.resTotalhits.textContent = game.hits.toString();
-
   if(game.els.resAccuracy)
     game.els.resAccuracy.textContent = totalShots ? `${accuracy.toFixed(1)}%` : '-';
   if(game.els.resRTNormal)
-    game.els.resRTNormal.textContent = avgNormal!=null ? `${avgNormal.toFixed(0)} ms` : '-';
+    game.els.resRTNormal.textContent = avgNormal != null ? `${avgNormal.toFixed(0)} ms` : '-';
   if(game.els.resRTDecoy)
-    game.els.resRTDecoy.textContent  = avgDecoy!=null  ? `${avgDecoy.toFixed(0)} ms`  : '-';
-
+    game.els.resRTDecoy.textContent  = avgDecoy  != null ? `${avgDecoy.toFixed(0)} ms` : '-';
   if(game.els.resParticipant)
     game.els.resParticipant.textContent =
       game.mode === 'research' ? (game.participantId || '-') : '-';
@@ -464,12 +493,12 @@ function endGame(reason){
     buildCSV(reasonText, accuracy, avgNormal, avgDecoy);
   }
 
-  setCoach('ดีมาก! ลองดูสรุปผล แล้วเลือกเล่นอีกครั้งหรือกลับเมนูได้เลย ✨', '✅');
+  document.body.classList.remove('fever-mode');
+  setCoach('ดีมาก! ลองดูสรุปผลด้านล่าง แล้วเลือกเล่นอีกครั้งหรือกลับเมนูได้เลย ✨', '✅');
   showView('result');
 }
 
 // ---------- Timer ----------
-
 function scheduleTimerTick(){
   const tick = () => {
     if(!game.running) return;
@@ -477,7 +506,7 @@ function scheduleTimerTick(){
     const t = now - game.startTime;
     const left = Math.max(0, game.durationMs - t);
     if(game.els.statTime){
-      game.els.statTime.textContent = (left/1000).toFixed(1);
+      game.els.statTime.textContent = (left / 1000).toFixed(1);
     }
     if(left <= 0){
       endGame('timeup');
@@ -488,8 +517,7 @@ function scheduleTimerTick(){
   game.rafTimer = requestAnimationFrame(tick);
 }
 
-// ---------- Spawn & Target logic ----------
-
+// ---------- Spawn & Target ----------
 function scheduleNextSpawn(){
   if(!game.running) return;
   const cfg = DIFF[game.diffKey] || DIFF.normal;
@@ -510,7 +538,6 @@ function scheduleNextSpawn(){
 
 function spawnTarget(){
   if(!game.running) return;
-
   if(game.liveTargets.size >= MAX_LIVE_TARGETS) return;
 
   const layer = game.els.targetLayer;
@@ -555,11 +582,10 @@ function spawnTarget(){
   const pad = 10;
   const x = pad + Math.random() * (rect.width  - pad*2);
   const y = pad + Math.random() * (rect.height - pad*2);
-  el.style.left = (x/rect.width*100).toFixed(2) + '%';
-  el.style.top  = (y/rect.height*100).toFixed(2) + '%';
+  el.style.left = (x / rect.width * 100).toFixed(2) + '%';
+  el.style.top  = (y / rect.height * 100).toFixed(2) + '%';
 
   const now = performance.now();
-
   const lifeTimer = setTimeout(() => {
     if(game.liveTargets.has(id)){
       const obj = game.liveTargets.get(id);
@@ -569,8 +595,8 @@ function spawnTarget(){
       if(obj.kind === 'normal' || obj.kind === 'gold'){
         game.misses++;
         game.combo = 0;
-        const cfg = DIFF[game.diffKey] || DIFF.normal;
-        game.playerHP = clamp(game.playerHP - cfg.hpLossOnMiss, 0, 100);
+        const cfg2 = DIFF[game.diffKey] || DIFF.normal;
+        game.playerHP = clamp(game.playerHP - cfg2.hpLossOnMiss, 0, 100);
         setCoach('พลาดเป้าไป 1 ครั้ง ระวัง miss บ่อยนะ 😅', '⚠️');
         if(game.playerHP <= 0){
           updateHUD();
@@ -585,6 +611,9 @@ function spawnTarget(){
 
   const targetObj = { id, el, kind, spawnTime: now, lifeTimer };
 
+  el.dataset.id = String(id);
+  el.dataset.kind = kind;
+
   if(kind === 'normal'){
     const boss = BOSSES[game.bossIndex];
     const hpRatio = clamp(game.bossHP / game.bossHPMax, 0, 1);
@@ -593,8 +622,6 @@ function spawnTarget(){
     }
   }
 
-  el.dataset.id = String(id);
-  el.dataset.kind = kind;
   el.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
     handleHit(id);
@@ -643,9 +670,13 @@ function handleHit(id){
     const dmg = cfg.dmgPerHit * feverMult;
     game.bossHP = clamp(game.bossHP - dmg, 0, game.bossHPMax);
 
+    // เอฟเฟกต์ตีบอส
+    playSfx('sfx-hit');
+    screenShake();
+
     if(game.bossHP <= 0){
       handleBossDefeated();
-    } else {
+    }else{
       setCoach('ดีมาก! คอมโบต่อเนื่องแบบนี้แหละ 💥', '🔥');
     }
 
@@ -678,8 +709,7 @@ function handleHit(id){
   }
 }
 
-// ---------- Boss phase control ----------
-
+// ---------- Boss phase ----------
 function handleBossDefeated(){
   const cfg = DIFF[game.diffKey] || DIFF.normal;
 
@@ -692,9 +722,11 @@ function handleBossDefeated(){
 
   if(game.bossIndex < BOSSES.length - 1){
     game.bossIndex++;
-    game.bossHPMax = cfg.bossHP[game.bossIndex] || cfg.bossHP[cfg.bossHP.length-1];
+    game.bossHPMax = cfg.bossHP[game.bossIndex] || cfg.bossHP[cfg.bossHP.length - 1];
     game.bossHP = game.bossHPMax;
     updateBossHUD();
+
+    playSfx('sfx-boss');
 
     showBossIntro(() => {
       setCoach(`ลุยบอสตัวที่ ${game.bossIndex + 1} กันต่อ! 💥`, '⭐');
@@ -706,29 +738,33 @@ function handleBossDefeated(){
       label: 'NEXT BOSS'
     });
   } else {
+    // เคลียร์บอสตัวสุดท้าย
+    playSfx('sfx-boss');
     endGame('bossdefeated');
   }
 }
 
 // ---------- FEVER ----------
-
 function activateFever(){
   game.feverActive = true;
   game.feverGauge = 100;
   updateFeverHUD();
   setCoach('FEVER TIME! ชกให้รัว คะแนน x2 🔥', '🔥');
 
+  document.body.classList.add('fever-mode');
+  playSfx('sfx-fever');
+
   clearTimeout(game.feverTimeout);
   game.feverTimeout = setTimeout(() => {
     game.feverActive = false;
     game.feverGauge = clamp(game.feverGauge, 0, 100);
     updateFeverHUD();
+    document.body.classList.remove('fever-mode');
     setCoach('FEVER จบแล้ว กลับมาชกจังหวะเนียน ๆ ต่อ ✨', '🥊');
   }, FEVER_DURATION_MS);
 }
 
 // ---------- CSV ----------
-
 function buildCSV(reasonText, accuracy, avgNormal, avgDecoy){
   const cfg = DIFF[game.diffKey] || DIFF.normal;
   const lines = [];
@@ -748,25 +784,31 @@ function buildCSV(reasonText, accuracy, avgNormal, avgDecoy){
   lines.push(`Miss,${game.misses}`);
   lines.push(`DecoyHits,${game.decoyHits}`);
   lines.push(`Accuracy,${accuracy.toFixed(2)}`);
-  lines.push(`AvgRTNormal(ms),${avgNormal!=null ? avgNormal.toFixed(2):''}`);
-  lines.push(`AvgRTDecoy(ms),${avgDecoy!=null  ? avgDecoy.toFixed(2):''}`);
+  lines.push(`AvgRTNormal(ms),${avgNormal != null ? avgNormal.toFixed(2) : ''}`);
+  lines.push(`AvgRTDecoy(ms),${avgDecoy != null ? avgDecoy.toFixed(2) : ''}`);
   lines.push('');
   lines.push('t(sec),kind,isDecoy,isFever,rtMs,perfect,combo,scoreAfter,bossIndex');
 
   game.csvRows.forEach(r => {
     lines.push([
-      r.t, r.kind, r.isDecoy, r.isFever,
-      r.rtMs, r.perfect, r.combo, r.scoreAfter, r.bossIndex
+      r.t,
+      r.kind,
+      r.isDecoy,
+      r.isFever,
+      r.rtMs,
+      r.perfect,
+      r.combo,
+      r.scoreAfter,
+      r.bossIndex
     ].join(','));
   });
 
-  const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
   if(game.csvUrl) URL.revokeObjectURL(game.csvUrl);
   game.csvUrl = URL.createObjectURL(blob);
 }
 
-// ---------- Events ----------
-
+// ---------- UI actions ----------
 function handleActionClick(e){
   const action = e.currentTarget.getAttribute('data-action');
   if(!action) return;
@@ -786,12 +828,9 @@ function handleActionClick(e){
     case 'research-begin-play':
       game.mode = 'research';
       game.diffKey = ($('#difficulty').value || 'normal');
-      if(game.els.researchId)
-        game.participantId = game.els.researchId.value.trim();
-      if(game.els.researchGroup)
-        game.participantGroup = game.els.researchGroup.value.trim();
-      if(game.els.researchNote)
-        game.participantNote = game.els.researchNote.value.trim();
+      if(game.els.researchId)    game.participantId    = game.els.researchId.value.trim();
+      if(game.els.researchGroup) game.participantGroup = game.els.researchGroup.value.trim();
+      if(game.els.researchNote)  game.participantNote  = game.els.researchNote.value.trim();
       startGame();
       break;
 
@@ -819,20 +858,20 @@ function handleActionClick(e){
         alert('ยังไม่มีข้อมูล CSV สำหรับรอบนี้');
         return;
       }
-      {
+      (function(){
         const a = document.createElement('a');
         a.href = game.csvUrl;
         const id = game.participantId || 'no-id';
-        a.download = `shadow-breaker_${id}_` +
-          new Date().toISOString().slice(0,19).replace(/[:T]/g,'-') + '.csv';
+        a.download = `shadow-breaker_${id}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-      }
+      })();
       break;
   }
 }
 
+// ---------- Init ----------
 function init(){
   cacheDom();
   showView('menu');
